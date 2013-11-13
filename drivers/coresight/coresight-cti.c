@@ -216,8 +216,9 @@ static void cti_disable(struct cti_drvdata *drvdata)
 {
 	CTI_UNLOCK(drvdata);
 
-	/* Clear any pending triggers */
+	/* Clear any pending triggers and ensure gate is enabled */
 	cti_writel(drvdata, BM(0, (CTI_MAX_CHANNELS - 1)), CTIAPPCLEAR);
+	cti_writel(drvdata, BM(0, (CTI_MAX_CHANNELS - 1)), CTIGATE);
 
 	cti_writel(drvdata, 0x0, CTICONTROL);
 
@@ -440,6 +441,75 @@ int coresight_cti_pulse_trig(struct coresight_cti *cti, int ch)
 	return ret;
 }
 EXPORT_SYMBOL(coresight_cti_pulse_trig);
+
+static int __cti_enable_gate(struct cti_drvdata *drvdata, int ch)
+{
+	uint32_t ctigate;
+
+	if (!drvdata->refcnt)
+		return -EINVAL;
+
+	CTI_UNLOCK(drvdata);
+
+	ctigate = cti_readl(drvdata, CTIGATE);
+	cti_writel(drvdata, (ctigate | 1 << ch), CTIGATE);
+
+	CTI_LOCK(drvdata);
+
+	return 0;
+}
+
+int coresight_cti_enable_gate(struct coresight_cti *cti, int ch)
+{
+	struct cti_drvdata *drvdata;
+	int ret;
+
+	if (IS_ERR_OR_NULL(cti))
+		return -EINVAL;
+	ret = cti_verify_channel_bound(ch);
+	if (ret)
+		return ret;
+
+	drvdata = to_cti_drvdata(cti);
+
+	mutex_lock(&drvdata->mutex);
+	ret = __cti_enable_gate(drvdata, ch);
+	mutex_unlock(&drvdata->mutex);
+	return ret;
+}
+EXPORT_SYMBOL(coresight_cti_enable_gate);
+
+static void __cti_disable_gate(struct cti_drvdata *drvdata, int ch)
+{
+	uint32_t ctigate;
+
+	if (!drvdata->refcnt)
+		return;
+
+	CTI_UNLOCK(drvdata);
+
+	ctigate = cti_readl(drvdata, CTIGATE);
+	cti_writel(drvdata, (ctigate & ~(1 << ch)), CTIGATE);
+
+	CTI_LOCK(drvdata);
+}
+
+void coresight_cti_disable_gate(struct coresight_cti *cti, int ch)
+{
+	struct cti_drvdata *drvdata;
+
+	if (IS_ERR_OR_NULL(cti))
+		return;
+	if (cti_verify_channel_bound(ch))
+		return;
+
+	drvdata = to_cti_drvdata(cti);
+
+	mutex_lock(&drvdata->mutex);
+	__cti_disable_gate(drvdata, ch);
+	mutex_unlock(&drvdata->mutex);
+}
+EXPORT_SYMBOL(coresight_cti_disable_gate);
 
 struct coresight_cti *coresight_cti_get(const char *name)
 {
@@ -714,6 +784,76 @@ static ssize_t cti_store_pulse_trig(struct device *dev,
 }
 static DEVICE_ATTR(pulse_trig, S_IWUSR, NULL, cti_store_pulse_trig);
 
+static ssize_t cti_show_gate(struct device *dev, struct device_attribute *attr,
+			     char *buf)
+{
+	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long ch;
+	uint32_t ctigate;
+	ssize_t size = 0;
+
+	mutex_lock(&cti_lock);
+	if (!drvdata->refcnt)
+		goto err;
+
+	ctigate = cti_readl(drvdata, CTIGATE);
+	for (ch = 0; ch < CTI_MAX_CHANNELS; ch++) {
+		if (ctigate & (1 << ch)) {
+			/* Ensure we do not write more than PAGE_SIZE
+			 * bytes of data including \n character and null
+			 * terminator
+			 */
+			size += scnprintf(&buf[size], PAGE_SIZE - size -
+					  1, " %#lx,", ch);
+			if (size >= PAGE_SIZE - 2) {
+				dev_err(dev, "show buffer full\n");
+				goto err;
+			}
+
+		}
+	}
+err:
+	size += scnprintf(&buf[size], 2, "\n");
+	mutex_unlock(&cti_lock);
+	return size;
+}
+static DEVICE_ATTR(show_gate, S_IRUGO, cti_show_gate, NULL);
+
+static ssize_t cti_store_enable_gate(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t size)
+{
+	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+	int ret;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	ret = coresight_cti_enable_gate(&drvdata->cti, val);
+
+	if (ret)
+		return ret;
+	return size;
+}
+static DEVICE_ATTR(enable_gate, S_IWUSR, NULL, cti_store_enable_gate);
+
+static ssize_t cti_store_disable_gate(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t size)
+{
+	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	coresight_cti_disable_gate(&drvdata->cti, val);
+
+	return size;
+}
+static DEVICE_ATTR(disable_gate, S_IWUSR, NULL, cti_store_disable_gate);
+
 static struct attribute *cti_attrs[] = {
 	&dev_attr_map_trigin.attr,
 	&dev_attr_map_trigout.attr,
@@ -726,6 +866,9 @@ static struct attribute *cti_attrs[] = {
 	&dev_attr_set_trig.attr,
 	&dev_attr_clear_trig.attr,
 	&dev_attr_pulse_trig.attr,
+	&dev_attr_show_gate.attr,
+	&dev_attr_enable_gate.attr,
+	&dev_attr_disable_gate.attr,
 	NULL,
 };
 
