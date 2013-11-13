@@ -835,7 +835,10 @@ static struct snd_soc_pcm_runtime *dpcm_get_be(struct snd_soc_card *card,
 			if (!be->dai_link->no_pcm)
 				continue;
 
-			if (be->cpu_dai->playback_widget == widget ||
+			if ((be->cpu_dai->playback_widget == widget &&
+				(be->dai_link->stream_name &&
+				!strcmp(be->dai_link->stream_name,
+				    be->cpu_dai->playback_widget->sname))) ||
 				be->codec_dai->playback_widget == widget)
 				return be;
 		}
@@ -847,7 +850,10 @@ static struct snd_soc_pcm_runtime *dpcm_get_be(struct snd_soc_card *card,
 			if (!be->dai_link->no_pcm)
 				continue;
 
-			if (be->cpu_dai->capture_widget == widget ||
+			if ((be->cpu_dai->capture_widget == widget &&
+				(be->dai_link->stream_name &&
+				!strcmp(be->dai_link->stream_name,
+				    be->cpu_dai->capture_widget->sname))) ||
 				be->codec_dai->capture_widget == widget)
 				return be;
 		}
