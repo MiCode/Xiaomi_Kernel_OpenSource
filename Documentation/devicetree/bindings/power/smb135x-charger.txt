@@ -46,6 +46,9 @@ Optional Properties:
 					the float voltage compensation needs to be disabled to avoid
 					that reverse boost.
 - regulator-name			A string used as a descriptive name for OTG regulator.
+- therm-bias-supply			The supply that provides bias voltage to the battery
+					thermistor. This is useful in designs that do not use the SYSON
+					pin to bias the thermistor.
 
 Example:
 	i2c@f9967000 {
