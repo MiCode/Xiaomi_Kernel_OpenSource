@@ -104,6 +104,18 @@ static int dsi_splash_on(struct mdss_panel_data *pdata)
 	return rc;
 }
 
+static int dsi_clk_ctrl(struct mdss_panel_data *pdata, int enable)
+{
+	int rc = 0;
+
+	pr_debug("%s:\n", __func__);
+
+	if (dsi_intf.clk_ctrl)
+		rc = dsi_intf.clk_ctrl(pdata, enable);
+
+	return rc;
+}
+
 static int dsi_event_handler(struct mdss_panel_data *pdata,
 				int event, void *arg)
 {
@@ -129,6 +141,9 @@ static int dsi_event_handler(struct mdss_panel_data *pdata,
 		break;
 	case MDSS_EVENT_CONT_SPLASH_BEGIN:
 		rc = dsi_splash_on(pdata);
+		break;
+	case MDSS_EVENT_PANEL_CLK_CTRL:
+		rc = dsi_clk_ctrl(pdata, (int)arg);
 		break;
 	default:
 		pr_debug("%s: unhandled event=%d\n", __func__, event);

@@ -24,6 +24,8 @@
 #include "mdp3_dma.h"
 #include "mdss_fb.h"
 
+#define MDP_VSYNC_CLK_RATE	19200000
+
 enum  {
 	MDP3_CLK_AHB,
 	MDP3_CLK_CORE,
@@ -152,6 +154,7 @@ struct mdp3_hw_resource {
 	struct mdss_panel_cfg pan_cfg;
 
 	int clk_prepare_count;
+	int cont_splash_en;
 };
 
 struct mdp3_img_data {
@@ -189,6 +192,7 @@ void mdp3_free(void);
 int mdp3_parse_dt_splash(struct msm_fb_data_type *mfd);
 void mdp3_release_splash_memory(void);
 int mdp3_create_sysfs_link(struct device *dev);
+int mdp3_get_cont_spash_en(void);
 
 int mdp3_misr_set(struct mdp_misr *misr_req);
 int mdp3_misr_get(struct mdp_misr *misr_resp);
