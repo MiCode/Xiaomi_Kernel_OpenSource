@@ -494,17 +494,16 @@ phys_addr_t cma_get_base(struct device *dev)
  * global one. Requires architecture specific get_dev_cma_area() helper
  * function.
  */
-struct page *dma_alloc_from_contiguous(struct device *dev, int count,
+unsigned long dma_alloc_from_contiguous(struct device *dev, int count,
 				       unsigned int align)
 {
-	unsigned long mask, pfn, pageno, start = 0;
+	unsigned long mask, pfn = 0, pageno, start = 0;
 	struct cma *cma = dev_get_cma_area(dev);
-	struct page *page = NULL;
 	int ret = 0;
 	int tries = 0;
 
 	if (!cma || !cma->count)
-		return NULL;
+		return 0;
 
 	if (align > CONFIG_CMA_ALIGNMENT)
 		align = CONFIG_CMA_ALIGNMENT;
@@ -513,7 +512,7 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 		 count, align);
 
 	if (!count)
-		return NULL;
+		return 0;
 
 	mask = (1 << align) - 1;
 
@@ -530,7 +529,6 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 			ret = alloc_contig_range(pfn, pfn + count, MIGRATE_CMA);
 		if (ret == 0) {
 			bitmap_set(cma->bitmap, pageno, count);
-			page = pfn_to_page(pfn);
 			break;
 		} else if (ret != -EBUSY) {
 			break;
@@ -545,8 +543,8 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 	}
 
 	mutex_unlock(&cma_mutex);
-	pr_debug("%s(): returned %p\n", __func__, page);
-	return page;
+	pr_debug("%s(): returned %lx\n", __func__, pfn);
+	return pfn;
 }
 
 /**
@@ -559,18 +557,15 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
  * It returns false when provided pages do not belong to contiguous area and
  * true otherwise.
  */
-bool dma_release_from_contiguous(struct device *dev, struct page *pages,
+bool dma_release_from_contiguous(struct device *dev, unsigned long pfn,
 				 int count)
 {
 	struct cma *cma = dev_get_cma_area(dev);
-	unsigned long pfn;
 
-	if (!cma || !pages)
+	if (!cma || !pfn)
 		return false;
 
-	pr_debug("%s(page %p)\n", __func__, (void *)pages);
-
-	pfn = page_to_pfn(pages);
+	pr_debug("%s(pfn %lx)\n", __func__, pfn);
 
 	if (pfn < cma->base_pfn || pfn >= cma->base_pfn + cma->count)
 		return false;
