@@ -521,7 +521,7 @@ uint32_t socinfo_get_pmic_die_revision(void)
 
 static char *socinfo_get_image_version_base_address(void)
 {
-	return smem_alloc(SMEM_IMAGE_VERSION_TABLE, SMEM_IMAGE_VERSION_SIZE);
+	return smem_find(SMEM_IMAGE_VERSION_TABLE, SMEM_IMAGE_VERSION_SIZE);
 }
 
 static uint32_t socinfo_get_format(void)
@@ -1058,34 +1058,34 @@ static void socinfo_print(void)
 
 int __init socinfo_init(void)
 {
-	socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID, sizeof(struct socinfo_v8));
+	socinfo = smem_find(SMEM_HW_SW_BUILD_ID, sizeof(struct socinfo_v8));
 
 	if (!socinfo)
-		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
+		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
 				sizeof(struct socinfo_v7));
 
 	if (!socinfo)
-		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
+		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
 				sizeof(struct socinfo_v6));
 
 	if (!socinfo)
-		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
+		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
 				sizeof(struct socinfo_v5));
 
 	if (!socinfo)
-		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
+		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
 				sizeof(struct socinfo_v4));
 
 	if (!socinfo)
-		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
+		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
 				sizeof(struct socinfo_v3));
 
 	if (!socinfo)
-		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
+		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
 				sizeof(struct socinfo_v2));
 
 	if (!socinfo)
-		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
+		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
 				sizeof(struct socinfo_v1));
 
 	if (!socinfo) {
