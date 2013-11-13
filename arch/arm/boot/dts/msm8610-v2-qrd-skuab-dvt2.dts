@@ -56,3 +56,10 @@
 &dsi_hx8389b_qhd_vid {
 	qcom,cont-splash-enabled;
 };
+&soc {
+	i2c@f9925000 {
+		fsl@1c {
+			fsl,sensors-position = <7>;
+		};
+	};
+};
