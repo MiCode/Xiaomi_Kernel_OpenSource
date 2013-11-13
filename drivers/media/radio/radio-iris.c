@@ -3476,13 +3476,26 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 		radio->riva_data_req.cmd_params.start_addr = ctrl->value;
 		break;
 	case V4L2_CID_PRIVATE_IRIS_RIVA_ACCS_LEN:
-		radio->riva_data_req.cmd_params.length = ctrl->value;
+		if ((ctrl->value > 0) &&
+			(ctrl->value <= MAX_RIVA_PEEK_RSP_SIZE)) {
+			radio->riva_data_req.cmd_params.length = ctrl->value;
+		} else {
+			FMDERR("Length %d is more than the buffer size %d\n",
+			ctrl->value, MAX_RIVA_PEEK_RSP_SIZE);
+			retval = -EINVAL;
+		}
 		break;
 	case V4L2_CID_PRIVATE_IRIS_RIVA_POKE:
-		memcpy(radio->riva_data_req.data, (void *)ctrl->value,
-					radio->riva_data_req.cmd_params.length);
-		radio->riva_data_req.cmd_params.subopcode = RIVA_POKE_OPCODE;
-		retval = hci_poke_data(&radio->riva_data_req , radio->fm_hdev);
+		if (radio->riva_data_req.cmd_params.length <= MAX_RIVA_PEEK_RSP_SIZE) {
+			memcpy(radio->riva_data_req.data, (void *)ctrl->value,
+						radio->riva_data_req.cmd_params.length);
+			radio->riva_data_req.cmd_params.subopcode = RIVA_POKE_OPCODE;
+			retval = hci_poke_data(&radio->riva_data_req , radio->fm_hdev);
+		} else {
+			FMDERR("Can not copy into driver's buffer. Length %d is more than"
+			 "the buffer size %d\n", ctrl->value, MAX_RIVA_PEEK_RSP_SIZE);
+			retval = -EINVAL;
+		}
 		break;
 	case V4L2_CID_PRIVATE_IRIS_SSBI_ACCS_ADDR:
 		radio->ssbi_data_accs.start_addr = ctrl->value;
