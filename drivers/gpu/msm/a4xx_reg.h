@@ -56,8 +56,8 @@ enum a4xx_rb_perfctr_rb_sel {
 #define A4XX_RBBM_INT_CLEAR_CMD			0x36
 #define A4XX_RBBM_INT_0_MASK			0x37
 #define A4XX_RBBM_RBBM_CTL			0x3e
+#define A4XX_RBBM_BLOCK_SW_RESET_CMD		0x45
 #define A4XX_RBBM_EXT_TRACE_BUS_CTL		0x49
-
 #define A4XX_RBBM_CFG_DEBBUS_SEL_A		0x4a
 #define A4XX_RBBM_CFG_DEBBUS_SEL_B		0x4b
 #define A4XX_RBBM_CFG_DEBBUS_SEL_C		0x4c
@@ -562,6 +562,7 @@ enum a4xx_pc_perfctr_pc_sel {
 };
 
 /* HLSQ registers */
+#define A4XX_HLSQ_TIMEOUT_THRESHOLD     0xe00
 #define A4XX_HLSQ_PERFCTR_HLSQ_SEL_0	0xe06
 #define A4XX_HLSQ_PERFCTR_HLSQ_SEL_1	0xe07
 #define A4XX_HLSQ_PERFCTR_HLSQ_SEL_2	0xe08

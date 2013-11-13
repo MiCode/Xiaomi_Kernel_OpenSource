@@ -455,6 +455,7 @@ static void _snapshot_a330_regs(struct kgsl_snapshot_registers *regs,
 	/* For A330, append the additional list of new registers to grab */
 	regs[list->count].regs = (unsigned int *) a330_registers;
 	regs[list->count].count = a330_registers_count;
+	regs[list->count].dump = 1;
 	list->count++;
 }
 
@@ -485,7 +486,7 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 
 	/* Store relevant registers in list to snapshot */
 	_snapshot_a3xx_regs(regs, &list, a3xx_registers,
-			a3xx_registers_count);
+			a3xx_registers_count, 1);
 	_snapshot_hlsq_regs(regs, &list, adreno_dev);
 	if (adreno_is_a330(adreno_dev) || adreno_is_a305b(adreno_dev))
 		_snapshot_a330_regs(regs, &list);

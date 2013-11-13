@@ -568,10 +568,28 @@ int kgsl_snapshot_dump_regs(struct kgsl_device *device, void *snapshot,
 
 	for (i = 0; i < list->count; i++) {
 		regs = &(list->registers[i]);
+		/*
+		 * If we do not need to dump the registers here then
+		 * just save the location where they can be dumped later
+		 */
+		if (!regs->dump)
+			regs->snap_addr = data;
+
 		for (j = 0; j < regs->count; j++) {
 			unsigned int start = regs->regs[j * 2];
 			unsigned int end = regs->regs[j * 2 + 1];
 
+			/*
+			 * If registers are not required to be dumped now,
+			 * then just skip over the space where they would have
+			 * been dumped. The registers will be dumped at the
+			 * this skipped location later by calling
+			 * kgsl_snapshot_dump_skipped_regs
+			 */
+			if (!regs->dump) {
+				data += (2 * (end - start + 1));
+				continue;
+			}
 			for (k = start; k <= end; k++) {
 				unsigned int val;
 
@@ -588,6 +606,33 @@ int kgsl_snapshot_dump_regs(struct kgsl_device *device, void *snapshot,
 	return (count * 8) + sizeof(*header);
 }
 EXPORT_SYMBOL(kgsl_snapshot_dump_regs);
+
+void kgsl_snapshot_dump_skipped_regs(struct kgsl_device *device,
+				struct kgsl_snapshot_registers_list *list)
+{
+	struct kgsl_snapshot_registers *regs;
+	unsigned int *data;
+	int i, j, k;
+
+	for (i = 0; i < list->count; i++) {
+		regs = &(list->registers[i]);
+		if (!regs->snap_addr)
+			continue;
+		data = regs->snap_addr;
+		for (j = 0; j < regs->count; j++) {
+			unsigned int start = regs->regs[j * 2];
+			unsigned int end = regs->regs[j * 2 + 1];
+
+			for (k = start; k <= end; k++) {
+				unsigned int val;
+
+				kgsl_regread(device, k, &val);
+				*data++ = k;
+				*data++ = val;
+			}
+		}
+	}
+}
 
 void *kgsl_snapshot_indexed_registers(struct kgsl_device *device,
 		void *snapshot, int *remain,

@@ -254,6 +254,36 @@ static void *a4xx_snapshot_debugbus(struct kgsl_device *device,
 	return snapshot;
 }
 
+static void a4xx_reset_hlsq(struct kgsl_device *device)
+{
+	unsigned long waittime;
+	unsigned int val;
+
+	/* reset cp */
+	kgsl_regwrite(device, A4XX_RBBM_BLOCK_SW_RESET_CMD, 1 << 20);
+	waittime = jiffies + 100;
+	while (time_before(jiffies, waittime))
+		;
+
+	/* reset hlsq */
+	kgsl_regwrite(device, A4XX_RBBM_BLOCK_SW_RESET_CMD, 1 << 25);
+	waittime = jiffies + 100;
+	while (time_before(jiffies, waittime))
+		;
+
+	/* clear reset bits */
+	kgsl_regwrite(device, A4XX_RBBM_BLOCK_SW_RESET_CMD, 0);
+	waittime = jiffies + 100;
+	while (time_before(jiffies, waittime))
+		;
+
+	/* set HLSQ_TIMEOUT_THRESHOLD.cycle_timeout_limit_sp to 26 */
+	kgsl_regread(device, A4XX_HLSQ_TIMEOUT_THRESHOLD, &val);
+	val &= (0x1F << 24);
+	val |= (26 << 24);
+	kgsl_regwrite(device, A4XX_HLSQ_TIMEOUT_THRESHOLD, val);
+}
+
 /*
  * a4xx_snapshot() - A4XX GPU snapshot function
  * @adreno_dev: Device being snapshotted
@@ -283,7 +313,10 @@ void *a4xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 
 	/* Store relevant registers in list to snapshot */
 	_snapshot_a3xx_regs(regs, &list, a4xx_registers,
-			a4xx_registers_count);
+			a4xx_registers_count, 1);
+
+	_snapshot_a3xx_regs(regs, &list, a4xx_sp_tp_registers,
+			a4xx_sp_tp_registers_count, 0);
 
 	/* Turn on MMU clocks since we read MMU registers */
 	if (kgsl_mmu_enable_clk(&device->mmu, KGSL_IOMMU_CONTEXT_USER)) {
@@ -321,13 +354,6 @@ skip_regs:
 			a3xx_snapshot_cp_meq,
 			&snap_data->sect_sizes->cp_meq);
 
-	/* Shader working/shadow memory */
-	snapshot = kgsl_snapshot_add_section(device,
-			KGSL_SNAPSHOT_SECTION_DEBUG, snapshot, remain,
-			a4xx_snapshot_shader_memory,
-			&snap_data->sect_sizes->shader_mem);
-
-
 	/* CP PFP and PM4 */
 	if (hang) {
 		snapshot = kgsl_snapshot_add_section(device,
@@ -356,6 +382,15 @@ skip_regs:
 	 * TODO - Add call to _adreno_coresight_set to restore
 	 * coresight registers when coresight patch is merged
 	 */
+
+	a4xx_reset_hlsq(device);
+
+	kgsl_snapshot_dump_skipped_regs(device, &list);
+	/* Shader working/shadow memory */
+	snapshot = kgsl_snapshot_add_section(device,
+			KGSL_SNAPSHOT_SECTION_DEBUG, snapshot, remain,
+			a4xx_snapshot_shader_memory,
+			&snap_data->sect_sizes->shader_mem);
 
 	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_CLOCK_CTL,
 			clock_ctl);
