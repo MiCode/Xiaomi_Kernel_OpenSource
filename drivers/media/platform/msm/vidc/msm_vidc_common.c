@@ -2448,9 +2448,12 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 			extra_idx =
 			EXTRADATA_IDX(inst->fmts[CAPTURE_PORT]->num_planes);
 			if (extra_idx && (extra_idx < VIDEO_MAX_PLANES) &&
-				vb->v4l2_planes[extra_idx].m.userptr)
+				vb->v4l2_planes[extra_idx].m.userptr) {
 				frame_data.extradata_addr =
 					vb->v4l2_planes[extra_idx].m.userptr;
+				frame_data.extradata_size =
+					vb->v4l2_planes[extra_idx].length;
+			}
 			dprintk(VIDC_DBG,
 				"Sending ftb to hal: Alloc: %d :filled: %d",
 				frame_data.alloc_len, frame_data.filled_len);
