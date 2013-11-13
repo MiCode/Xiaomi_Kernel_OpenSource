@@ -100,6 +100,7 @@ struct goodix_ts_data {
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	struct early_suspend early_suspend;
 #endif
+	struct dentry *debug_base;
 };
 
 extern u16 show_len;
