@@ -1,0 +1,152 @@
+Introduction
+============
+
+UCCP330 Driver
+
+The UCCP330 is a broadcast demodulator core. It translates the RF signal into a
+digital data bit stream (called TS - transport stream).  It is a part of the SoC
+and is mapped into Application Processor memory space.  The UCCP330 includes
+internal processors and it should be reloaded with different firmware images
+according to the TV standard acquired.  The kernel driver is a thin layer used
+only for tunneling the communication protocol between Application processor and
+UCCP330.
+
+Hardware description
+====================
+UCCP330 uses several memory areas for its function:
+ - External RAM - part of DDR accessible from both the Application processor and
+   UCCP330 itself
+ - GRAM - internal RAM, fully mapped into Application processor memory space and
+   R/W accessible
+ - CoreRAM - internal RAM of UCCP330, accessible via special set of UCCP330
+   control registers - only single word at a time
+
++---------------+    +----------------------------------+       +--------------+
+|               |    |             UCCP330              |       |    DDR       |
+|               |    |----------------------------------|       |--------------|
+|               +-------------------------------------------+   |              |
+|               |    |                 +--------------+ |   |   |              |
+|               +--------------------->|              | |   |   |              |
+|  Application  |    |                 |              | |   |   +--------------+
+|               |    |                 |    GRAM      | |   +--->              |
+|  Processor    |    |                 |              | |       |              |
+|               |    |  +-----------+  +--------------+ |       |   External   |
+|               |    |  |  UCCP330  |  |              | +------->   RAM        |
+|               +------>|  Control  +-->    Core RAM  | |       |              |
+|               |    |  |  Registers|  |              | |       +--------------+
+|               |    |  |           |  |              | |       |              |
+|               <-----  +-----------+  +--------------+ |       |              |
+|               | IRQ|                                  |       |              |
++---------------+    +----------------------------------+       +--------------+
+
+The role of this driver is to provide to upper layer software access to all
+of these resourses and to service the IRQ.
+
+Software description
+====================
+
+Driver initialization
+---------------------
+The driver's probe function is invoked if there is a matching device tree node
+(or platform device). The probe function gets the required memory resources
+(i.e., register address spaces) and maps them to kernel space for the driver's
+use. The probe function also requests the IRQ. Finally, the probe function
+resets all HW registers to appropriate default values, and resets all the
+required software structures.
+
+Character device
+-----------------
+The driver provides character device abstraction to the user-space. With ability
+to read/write required amount of data.  Helper ioctl functions shall define the
+region to be written/read from.
+
+The file will be created as /dev/uccp330.
+
+Design
+======
+The UCCP330 driver is a regular Linux platform driver designed to support the
+UCCP330 HW available on specific SoCs.
+
+The driver provides character device API to user space driver for 2 tasks:
+
+    - Communication protocol
+    - Firmware download
+
+The driver tunnels the low level hardware resources access while the logic is
+being implemented at the user space driver.
+
+Power Management
+================
+The UCCP330 prevents the CPU from sleeping while it is open, because by opening
+the UCCP330 device, the CPU instructs it to stream digital data of a TV
+broadcast into the SoC modules. Because the CPU is responsible for processing
+this data it is not logical for it to go into suspend. That is why when UCCP330
+device is open, it uses a wakeup_source to instruct the CPU to stay awake as
+long as it's active.
+
+SMP/multi-core
+==============
+The driver uses reference counter protected by spinlock, in order to prevent
+more than one instance from being open.
+
+Security
+========
+None.
+
+Performance
+===========
+Control operations are not considered as performance critical.
+Most of the control operations are assumed to be fairly uncommon.
+
+Interface
+=========
+
+User-space API
+--------------
+The driver creates user-space device at /dev/uccp330
+
+	- open
+	- close
+	- ioctl
+		UCCP330_IOCTL_RW - Read/Write control register
+		UCCP330_IOCTL_SET_REGION - Point to active region for read\write
+                                           commands
+                UCCP330_IOCTL_RESET - reset the UCCP330 core
+	- read - read specified amount of bytes from one of the UCCP330 memory
+	  regions pointed by last call of ioctl
+	- write- write specified amount of bytes from one of the UCCP330 memory
+	  regions pointed by last call of ioctl
+
+This function set is sufficient for full operation of UCCP330 by user-space
+software.
+
+Driver parameters
+=================
+The UCCP330 driver does not support any module parameters.  Platform-dependent
+parameters (e.g., IRQ numbers) are provided to the driver via the device tree
+mechanism or the platform device data mechanism.
+
+Config options
+==============
+To enable the driver, set CONFIG_UCCP330 to y (built-in) or m (kernel module)
+in the kernel configuration menu.
+
+Dependencies
+============
+None
+
+User space utilities
+====================
+UCCP330.so - user mode driver
+
+Other
+=====
+None.
+
+Known issues
+============
+None.
+
+To do
+=====
+None.

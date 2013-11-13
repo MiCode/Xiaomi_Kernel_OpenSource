@@ -24,6 +24,16 @@ config TSPP2
 	playback from memory and recording.
 	This can also be compiled as a loadable module.
 
+config ENSIGMA_UCCP_330
+	depends on ARCH_MPQ8092
+	tristate "ENSIGMA UCCP330 (Internal broadcast demodulator) Support"
+	---help---
+	Internal broadcast demodulator is used in translation of RF
+	broadcast transmitions into MPEG transport stream digital protocol.
+	The driver is a thin communication layer that allows access
+	to UCCP330 internal memory in order to support high level protocol.
+	This can also be compiled as a loadable module.
+
 config CI_BRIDGE_SPI
 	depends on SPI_QUP
 	tristate "CI Bridge SPI Driver Support"

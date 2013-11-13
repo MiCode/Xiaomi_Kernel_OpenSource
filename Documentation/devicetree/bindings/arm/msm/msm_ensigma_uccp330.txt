@@ -1,0 +1,29 @@
+Ensigma UCCP330 - Broadcast demodulator
+
+Ensigma UCCP330 is a multistandard broadcast demodulator.
+For information on the Ensigma UCCP330 driver, please refer to the
+Ensigma UCCP330 driver.
+documentation: Documentation/arm/msm/ensigma_uccp330.txt.
+
+The devicetree representation of the Ensigma UCCP330 block should be:
+
+Required properties:
+
+- compatible: "qti,msm-demod"
+- reg: physical memory base addresses and sizes for the following:
+	Ensigma UCCP330, TOP BCSS
+- reg-names: names of the memory regions:
+	msm-demod, top-bcss
+- vdd-supply
+	GDSC - gdsc_bcss
+
+Example:
+
+	demod: msm-demod@fc600000 {
+		compatible = "qti,msm-demod";
+		reg = <0xfc600000 0xd0008>,<0xfc747000 0x1000>;
+		reg-names = "msm-demod", "top-bcss";
+		vdd-supply = <&gdsc_bcss>;
+	};
+
+
