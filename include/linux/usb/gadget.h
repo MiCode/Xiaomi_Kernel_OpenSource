@@ -508,6 +508,7 @@ struct usb_gadget_ops {
  * @in_epnum: last used in ep number
  * @usb_core_id: Identifies the usb core controlled by this usb_gadget.
  *		 Used in case of more then one core operates concurrently.
+ * @streaming_enabled: Enable streaming mode with usb core.
  *
  * Gadgets have a mostly-portable "gadget driver" implementing device
  * functions, handling all usb configurations and interfaces.  Gadget
@@ -550,6 +551,7 @@ struct usb_gadget {
 	unsigned			in_epnum;
 	bool				l1_supported;
 	u8				usb_core_id;
+	bool				streaming_enabled;
 };
 #define work_to_gadget(w)	(container_of((w), struct usb_gadget, work))
 
