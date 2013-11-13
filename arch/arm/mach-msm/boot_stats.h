@@ -10,13 +10,6 @@
  * GNU General Public License for more details.
  */
 
-struct boot_stats {
-	uint32_t bootloader_start;
-	uint32_t bootloader_end;
-	uint32_t bootloader_display;
-	uint32_t bootloader_load_kernel;
-};
-
 #ifdef CONFIG_MSM_BOOT_STATS
 int boot_stats_init(void);
 #else
