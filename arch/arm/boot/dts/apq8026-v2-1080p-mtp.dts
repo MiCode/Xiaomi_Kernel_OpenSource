@@ -13,10 +13,10 @@
 
 /dts-v1/;
 /include/ "apq8026-v2.dtsi"
-/include/ "msm8226-mtp.dtsi"
+/include/ "msm8226-1080p-mtp.dtsi"
 
 / {
 	model = "Qualcomm APQ 8026v2 MTP";
 	compatible = "qcom,apq8026-mtp", "qcom,apq8026", "qcom,mtp";
-	qcom,board-id = <8 0>;
+	qcom,board-id = <8 2>;
 };

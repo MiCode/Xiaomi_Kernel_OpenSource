@@ -353,7 +353,7 @@ static void parse_header(void)
 
 	if (img->is_contain_build_info) {
 		img->firmware_id = extract_uint(data->firmware_id);
-		img->package_id = (data->pkg_id_rev_msb << 8) |
+		img->package_id = (data->pkg_id_msb << 8) |
 				data->pkg_id_lsb;
 		img->package_revision_id = (data->pkg_id_rev_msb << 8) |
 				data->pkg_id_rev_lsb;

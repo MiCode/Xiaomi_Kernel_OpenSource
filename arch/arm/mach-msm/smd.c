@@ -3243,7 +3243,7 @@ int smd_edge_to_remote_pid(uint32_t edge)
  */
 void smd_set_edge_subsys_name(uint32_t edge, const char *subsys_name)
 {
-	if (edge <= ARRAY_SIZE(edge_to_pids))
+	if (edge < ARRAY_SIZE(edge_to_pids))
 		strlcpy(edge_to_pids[edge].subsys_name,
 			subsys_name, SMD_MAX_CH_NAME_LEN);
 	else
@@ -3258,7 +3258,7 @@ void smd_set_edge_subsys_name(uint32_t edge, const char *subsys_name)
  */
 void smd_set_edge_initialized(uint32_t edge)
 {
-	if (edge <= ARRAY_SIZE(edge_to_pids))
+	if (edge < ARRAY_SIZE(edge_to_pids))
 		edge_to_pids[edge].initialized = true;
 	else
 		pr_err("%s: Invalid edge type[%d]\n", __func__, edge);

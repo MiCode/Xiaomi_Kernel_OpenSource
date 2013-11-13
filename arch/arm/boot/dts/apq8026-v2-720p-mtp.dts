@@ -13,10 +13,10 @@
 
 /dts-v1/;
 /include/ "apq8026-v2.dtsi"
-/include/ "msm8226-cdp.dtsi"
+/include/ "msm8226-720p-mtp.dtsi"
 
 / {
-	model = "Qualcomm APQ 8026v2 CDP";
-	compatible = "qcom,apq8026-cdp", "qcom,apq8026", "qcom,cdp";
-	qcom,board-id = <1 0>;
+	model = "Qualcomm APQ 8026v2 MTP";
+	compatible = "qcom,apq8026-mtp", "qcom,apq8026", "qcom,mtp";
+	qcom,board-id = <8 0>;
 };

@@ -379,13 +379,35 @@ static struct sk_buff *rndis_add_header(struct gether *port,
 					struct sk_buff *skb)
 {
 	struct sk_buff *skb2;
+	struct rndis_packet_msg_type *header = NULL;
+	struct f_rndis *rndis = func_to_rndis(&port->func);
 
-	skb2 = skb_realloc_headroom(skb, sizeof(struct rndis_packet_msg_type));
-	if (skb2)
-		rndis_add_hdr(skb2);
+	if (rndis->port.multi_pkt_xfer) {
+		if (port->header) {
+			header = port->header;
+			memset(header, 0, sizeof(*header));
+			header->MessageType = cpu_to_le32(REMOTE_NDIS_PACKET_MSG);
+			header->MessageLength = cpu_to_le32(skb->len +
+							sizeof(*header));
+			header->DataOffset = cpu_to_le32(36);
+			header->DataLength = cpu_to_le32(skb->len);
+			pr_debug("MessageLength:%d DataLength:%d\n",
+						header->MessageLength,
+						header->DataLength);
+			return skb;
+		} else {
+			pr_err("RNDIS header is NULL.\n");
+			return NULL;
+		}
+	} else {
+		skb2 = skb_realloc_headroom(skb,
+				sizeof(struct rndis_packet_msg_type));
+		if (skb2)
+			rndis_add_hdr(skb2);
 
-	dev_kfree_skb_any(skb);
-	return skb2;
+		dev_kfree_skb_any(skb);
+		return skb2;
+	}
 }
 
 static void rndis_response_available(void *_rndis)

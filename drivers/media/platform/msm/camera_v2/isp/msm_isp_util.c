@@ -513,7 +513,9 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 		}
 		lo_tbl_ptr = cfg_data +
 			reg_cfg_cmd->u.dmi_info.lo_tbl_offset/4;
-
+		if (reg_cfg_cmd->cmd_type == VFE_WRITE_DMI_64BIT)
+			reg_cfg_cmd->u.dmi_info.len =
+				reg_cfg_cmd->u.dmi_info.len / 2;
 		for (i = 0; i < reg_cfg_cmd->u.dmi_info.len/4; i++) {
 			lo_val = *lo_tbl_ptr++;
 			if (reg_cfg_cmd->cmd_type == VFE_WRITE_DMI_16BIT) {
@@ -619,6 +621,12 @@ int msm_isp_proc_cmd(struct vfe_device *vfe_dev, void *arg)
 		pr_err("%s: reg_cfg alloc failed\n", __func__);
 		rc = -ENOMEM;
 		goto reg_cfg_failed;
+	}
+
+	if (!proc_cmd->cmd_len) {
+		pr_err("%s: Passed cmd_len as 0\n", __func__);
+		rc = -EINVAL;
+		goto cfg_data_failed;
 	}
 
 	cfg_data = kzalloc(proc_cmd->cmd_len, GFP_KERNEL);

@@ -616,11 +616,11 @@ static void mdss_fb_scale_bl(struct msm_fb_data_type *mfd, u32 *bl_lvl)
 		 * scaling fraction (x/1024)
 		 */
 		temp = (temp * mfd->bl_scale) / 1024;
-	}
-	/*if less than minimum level, use min level*/
-	else if ((temp < mfd->bl_min_lvl) && (0 != temp))
-		temp = mfd->bl_min_lvl;
 
+		/*if less than minimum level, use min level*/
+		if (temp < mfd->bl_min_lvl)
+			temp = mfd->bl_min_lvl;
+	}
 	pr_debug("output = %d", temp);
 
 	(*bl_lvl) = temp;
@@ -635,11 +635,8 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 
 	if (((!mfd->panel_power_on && mfd->dcm_state != DCM_ENTER)
 		|| !mfd->bl_updated) && !IS_CALIB_MODE_BL(mfd)) {
-			if (bkl_lvl < mfd->bl_min_lvl)
-				mfd->unset_bl_level = mfd->bl_min_lvl;
-			else
-				mfd->unset_bl_level = bkl_lvl;
-			return;
+		mfd->unset_bl_level = bkl_lvl;
+		return;
 	} else {
 		mfd->unset_bl_level = 0;
 	}
@@ -708,8 +705,10 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 	case FB_BLANK_UNBLANK:
 		if (!mfd->panel_power_on && mfd->mdp.on_fnc) {
 			ret = mfd->mdp.on_fnc(mfd);
-			if (ret == 0)
+			if (ret == 0) {
 				mfd->panel_power_on = true;
+				mfd->panel_info->panel_dead = false;
+			}
 			mutex_lock(&mfd->update.lock);
 			mfd->update.type = NOTIFY_TYPE_UPDATE;
 			mutex_unlock(&mfd->update.lock);
@@ -1972,7 +1971,8 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		return -EINVAL;
 	mfd = (struct msm_fb_data_type *)info->par;
 	mdss_fb_power_setting_idle(mfd);
-	if ((cmd != MSMFB_VSYNC_CTRL) && (cmd != MSMFB_OVERLAY_VSYNC_CTRL))
+	if ((cmd != MSMFB_VSYNC_CTRL) && (cmd != MSMFB_OVERLAY_VSYNC_CTRL) &&
+			(cmd != MSMFB_ASYNC_BLIT) && (cmd != MSMFB_BLIT))
 		mdss_fb_pan_idle(mfd);
 
 	switch (cmd) {

@@ -3154,13 +3154,27 @@ static void tapan_shutdown(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
 	struct wcd9xxx *tapan_core = dev_get_drvdata(dai->codec->dev->parent);
+	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(dai->codec);
+	u32 active = 0;
+
 	dev_dbg(dai->codec->dev, "%s(): substream = %s  stream = %d\n",
 		 __func__, substream->name, substream->stream);
+
+	if (dai->id <= NUM_CODEC_DAIS) {
+		if (tapan->dai[dai->id].ch_mask) {
+			active = 1;
+			dev_dbg(dai->codec->dev, "%s(): Codec DAI: chmask[%d] = 0x%lx\n",
+				 __func__, dai->id,
+				 tapan->dai[dai->id].ch_mask);
+		}
+	}
 	if ((tapan_core != NULL) &&
 	    (tapan_core->dev != NULL) &&
-	    (tapan_core->dev->parent != NULL)) {
+	    (tapan_core->dev->parent != NULL) &&
+	    (active == 0)) {
 		pm_runtime_mark_last_busy(tapan_core->dev->parent);
 		pm_runtime_put(tapan_core->dev->parent);
+		dev_dbg(dai->codec->dev, "%s: unvote requested", __func__);
 	}
 }
 
@@ -3920,6 +3934,13 @@ static int tapan_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 			dev_dbg(codec->dev, "%s: Disconnect RX port, ret = %d\n",
 				 __func__, ret);
 		}
+		if ((core != NULL) &&
+		    (core->dev != NULL) &&
+		    (core->dev->parent != NULL)) {
+			pm_runtime_mark_last_busy(core->dev->parent);
+			pm_runtime_put(core->dev->parent);
+			dev_dbg(codec->dev, "%s: unvote requested", __func__);
+		}
 		break;
 	}
 	return ret;
@@ -3966,6 +3987,13 @@ static int tapan_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 						      dai->grph);
 			dev_dbg(codec->dev, "%s: Disconnect RX port, ret = %d\n",
 				 __func__, ret);
+		}
+		if ((core != NULL) &&
+		    (core->dev != NULL) &&
+		    (core->dev->parent != NULL)) {
+			pm_runtime_mark_last_busy(core->dev->parent);
+			pm_runtime_put(core->dev->parent);
+			dev_dbg(codec->dev, "%s: unvote requested", __func__);
 		}
 		break;
 	}

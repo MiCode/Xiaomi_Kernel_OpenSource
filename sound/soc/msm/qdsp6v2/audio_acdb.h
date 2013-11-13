@@ -35,12 +35,6 @@ struct acdb_cal_block {
 	uint32_t		cal_paddr;
 };
 
-struct acdb_atomic_cal_block {
-	atomic_t		cal_size;
-	atomic_t		cal_kvaddr;
-	atomic_t		cal_paddr;
-};
-
 struct hw_delay_entry {
 	uint32_t sample_rate;
 	uint32_t delay_usec;
