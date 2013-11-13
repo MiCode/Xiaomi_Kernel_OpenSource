@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -455,6 +455,9 @@ static int get_hfi_extradata_index(enum hal_extradata_id index)
 	case HAL_EXTRADATA_FRAME_BITS_INFO:
 		ret = HFI_PROPERTY_PARAM_VDEC_FRAME_BITS_INFO_EXTRADATA;
 		break;
+	case HAL_EXTRADATA_LTR_INFO:
+		ret = HFI_PROPERTY_PARAM_VENC_LTR_INFO;
+		break;
 	default:
 		dprintk(VIDC_WARN, "Extradata index not found: %d\n", index);
 		break;
@@ -502,6 +505,28 @@ static u32 get_hfi_buf_mode(enum buffer_mode_type hal_buf_mode)
 		break;
 	}
 	return buf_mode;
+}
+
+static u32 get_hfi_ltr_mode(enum ltr_mode ltr_mode_type)
+{
+	u32 ltrmode;
+	switch (ltr_mode_type) {
+	case HAL_LTR_MODE_DISABLE:
+		ltrmode = HFI_LTR_MODE_DISABLE;
+		break;
+	case HAL_LTR_MODE_MANUAL:
+		ltrmode = HFI_LTR_MODE_MANUAL;
+		break;
+	case HAL_LTR_MODE_PERIODIC:
+		ltrmode = HFI_LTR_MODE_PERIODIC;
+		break;
+	default:
+		dprintk(VIDC_ERR, "Invalid ltr mode :0x%x\n",
+			ltr_mode_type);
+		ltrmode = HFI_LTR_MODE_DISABLE;
+		break;
+	}
+	return ltrmode;
 }
 
 int create_pkt_cmd_session_set_buffers(
@@ -1603,6 +1628,43 @@ int create_pkt_cmd_session_set_property(
 		hfi->ngap = layout_info->ngap;
 		pkt->size += sizeof(u32) +
 			sizeof(struct hfi_mvc_buffer_layout_descp_type);
+		break;
+	}
+	case HAL_PARAM_VENC_LTRMODE:
+	{
+		struct hfi_ltrmode *hfi;
+		struct hal_ltrmode *hal = pdata;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VENC_H264_LTRMODE;
+		hfi = (struct hfi_ltrmode *) &pkt->rg_property_data[1];
+		hfi->ltrmode = get_hfi_ltr_mode(hal->ltrmode);
+		hfi->ltrcount = hal->ltrcount;
+		hfi->trustmode = hal->trustmode;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_ltrmode);
+		break;
+	}
+	case HAL_CONFIG_VENC_USELTRFRAME:
+	{
+		struct hfi_ltruse *hfi;
+		struct hal_ltruse *hal = pdata;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_CONFIG_VENC_H264_USELTRFRAME;
+		hfi = (struct hfi_ltruse *) &pkt->rg_property_data[1];
+		hfi->frames = hal->frames;
+		hfi->refltr = hal->refltr;
+		hfi->useconstrnt = hal->useconstrnt;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_ltruse);
+		break;
+	}
+	case HAL_CONFIG_VENC_MARKLTRFRAME:
+	{
+		struct hfi_ltrmark *hfi;
+		struct hal_ltrmark *hal = pdata;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_CONFIG_VENC_H264_MARKLTRFRAME;
+		hfi = (struct hfi_ltrmark *) &pkt->rg_property_data[1];
+		hfi->markframe = hal->markframe;
+		pkt->size += sizeof(u32) * 2;
 		break;
 	}
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */
