@@ -375,11 +375,19 @@ __releases(&port->port_lock)
 __acquires(&port->port_lock)
 */
 {
-	struct list_head	*pool = &port->write_pool;
-	struct usb_ep		*in = port->port_usb->in;
+	struct list_head	*pool;
+	struct usb_ep		*in;
 	int			status = 0;
 	static long 		prev_len;
 	bool			do_tty_wake = false;
+
+	if (!port || !port->port_usb) {
+		pr_err("Error - port or port->usb is NULL.");
+		return -EIO;
+	}
+
+	pool = &port->write_pool;
+	in   = port->port_usb->in;
 
 	while (!list_empty(pool)) {
 		struct usb_request	*req;
@@ -470,9 +478,17 @@ __releases(&port->port_lock)
 __acquires(&port->port_lock)
 */
 {
-	struct list_head	*pool = &port->read_pool;
-	struct usb_ep		*out = port->port_usb->out;
+	struct list_head	*pool;
+	struct usb_ep		*out;
 	unsigned		started = 0;
+
+	if (!port || !port->port_usb) {
+		pr_err("Error - port or port->usb is NULL.");
+		return -EIO;
+	}
+
+	pool = &port->read_pool;
+	out  = port->port_usb->out;
 
 	while (!list_empty(pool)) {
 		struct usb_request	*req;
@@ -722,14 +738,17 @@ static int gs_alloc_requests(struct usb_ep *ep, struct list_head *head,
  */
 static int gs_start_io(struct gs_port *port)
 {
-	struct list_head	*head = &port->read_pool;
+	struct list_head	*head;
 	struct usb_ep		*ep;
 	int			status;
 	unsigned		started;
 
-	if (!port->port_usb)
+	if (!port || !port->port_usb) {
+		pr_err("Error - port or port->usb is NULL.");
 		return -EIO;
+	}
 
+	head = &port->read_pool;
 	ep = port->port_usb->out;
 
 	/* Allocate RX and TX I/O buffers.  We can't easily do this much
