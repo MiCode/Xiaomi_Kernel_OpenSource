@@ -154,6 +154,12 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 	unsigned long size_remaining = PAGE_ALIGN(size);
 	unsigned int max_order = orders[0];
 
+	if (align > PAGE_SIZE)
+		return -EINVAL;
+
+	if (ion_buffer_fault_user_mappings(buffer))
+		return -EINVAL;
+
 	INIT_LIST_HEAD(&pages);
 	while (size_remaining > 0) {
 		info = alloc_largest_available(sys_heap, buffer, size_remaining, max_order);
@@ -428,6 +434,14 @@ static int ion_system_contig_heap_allocate(struct ion_heap *heap,
 {
 	int ret;
 	struct kmalloc_buffer_info *info;
+
+	int order = get_order(len);
+
+	if (align > (PAGE_SIZE << order))
+		return -EINVAL;
+
+	if (ion_buffer_fault_user_mappings(buffer))
+		return -EINVAL;
 
 	info = kmalloc(sizeof(struct kmalloc_buffer_info), GFP_KERNEL);
 	if (!info) {
