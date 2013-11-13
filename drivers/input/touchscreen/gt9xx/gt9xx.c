@@ -2303,7 +2303,7 @@ static void __exit goodix_ts_exit(void)
 	i2c_del_driver(&goodix_ts_driver);
 }
 
-late_initcall(goodix_ts_init);
+module_init(goodix_ts_init);
 module_exit(goodix_ts_exit);
 
 MODULE_DESCRIPTION("GTP Series Driver");
