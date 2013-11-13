@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,7 +97,8 @@ enum hal_extradata_id {
 	HAL_EXTRADATA_NUM_CONCEALED_MB,
 	HAL_EXTRADATA_METADATA_FILLER,
 	HAL_EXTRADATA_ASPECT_RATIO,
-	HAL_EXTRADATA_MPEG2_SEQDISP
+	HAL_EXTRADATA_MPEG2_SEQDISP,
+	HAL_EXTRADATA_LTR_INFO
 };
 
 enum hal_property {
@@ -177,6 +178,10 @@ enum hal_property {
 	HAL_PARAM_BUFFER_ALLOC_MODE,
 	HAL_PARAM_VDEC_FRAME_ASSEMBLY,
 	HAL_PARAM_VDEC_CONCEAL_COLOR,
+	HAL_PARAM_VENC_LTRMODE,
+	HAL_CONFIG_VENC_MARKLTRFRAME,
+	HAL_CONFIG_VENC_USELTRFRAME,
+	HAL_CONFIG_VENC_LTRPERIOD,
 };
 
 enum hal_domain {
@@ -896,6 +901,27 @@ struct hal_buffer_alloc_mode {
 	enum buffer_mode_type buffer_mode;
 };
 
+enum ltr_mode {
+	HAL_LTR_MODE_DISABLE,
+	HAL_LTR_MODE_MANUAL,
+	HAL_LTR_MODE_PERIODIC,
+};
+
+struct hal_ltrmode {
+	enum ltr_mode ltrmode;
+	u32 ltrcount;
+	u32 trustmode;
+};
+
+struct hal_ltruse {
+	u32 refltr;
+	u32 useconstrnt;
+	u32 frames;
+};
+
+struct hal_ltrmark {
+	u32 markframe;
+};
 /* HAL Response */
 
 enum command_response {
