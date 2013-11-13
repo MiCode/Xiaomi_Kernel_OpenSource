@@ -236,6 +236,8 @@ enum usb_vdd_value {
  * @rw_during_lpm_workaround: Determines whether remote-wakeup
  *		during low-power mode workaround will be
  *		applied.
+ * @enable_ahb2ahb_bypass: Indicates whether enable AHB2AHB BYPASS
+ *		mode with controller in device mode.
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -266,6 +268,7 @@ struct msm_otg_platform_data {
 	bool dpdm_pulldown_added;
 	int vddmin_gpio;
 	bool rw_during_lpm_workaround;
+	bool enable_ahb2ahb_bypass;
 };
 
 /* phy related flags */
@@ -478,6 +481,7 @@ struct ci13xxx_platform_data {
 	int log2_itc;
 	void *prv_data;
 	bool l1_supported;
+	bool enable_ahb2ahb_bypass;
 };
 
 /**

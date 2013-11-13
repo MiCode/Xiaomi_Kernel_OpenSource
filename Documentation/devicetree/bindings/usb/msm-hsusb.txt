@@ -93,6 +93,11 @@ Optional properties :
 	wakeup during USB low-power mode SW workaround will be applied. When
 	this workaround is applied, the PHCD and the FPR bits are written
 	to the PORTSC register in the same register write operation.
+- qcom,ahb-async-bridge-bypass: If present, indicates that enable AHB2AHB By Pass
+	mode with device controller for better throughput. With this mode, USB Core
+	runs using PNOC clock and synchronous to it. Hence it is must to have proper
+	"qcom,msm_bus,vectors" to have high bus frequency. User shouldn't try to
+	enable this feature without proper bus voting.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
