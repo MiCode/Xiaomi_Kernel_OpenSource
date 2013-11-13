@@ -29,6 +29,7 @@
 #include "msmkrypton-smp2p.dtsi"
 #include "msmkrypton-coresight.dtsi"
 #include "msm-gdsc.dtsi"
+#include "msmkrypton-pm.dtsi"
 
 &soc {
 	#address-cells = <1>;
