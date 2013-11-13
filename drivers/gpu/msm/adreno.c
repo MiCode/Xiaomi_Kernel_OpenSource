@@ -2455,42 +2455,6 @@ static int adreno_suspend_context(struct kgsl_device *device)
 	return status;
 }
 
-/* Find a memory structure attached to an adreno context */
-
-struct kgsl_memdesc *adreno_find_ctxtmem(struct kgsl_device *device,
-	phys_addr_t pt_base, unsigned int gpuaddr, unsigned int size)
-{
-	struct kgsl_context *context;
-	int next = 0;
-	struct kgsl_memdesc *desc = NULL;
-
-	read_lock(&device->context_lock);
-	while (1) {
-		context = idr_get_next(&device->context_idr, &next);
-		if (context == NULL)
-			break;
-
-		if (kgsl_mmu_pt_equal(&device->mmu,
-					context->proc_priv->pagetable,
-					pt_base)) {
-			struct adreno_context *adreno_context;
-
-			adreno_context = ADRENO_CONTEXT(context);
-			desc = &adreno_context->gpustate;
-			if (kgsl_gpuaddr_in_memdesc(desc, gpuaddr, size))
-				break;
-
-			desc = &adreno_context->context_gmem_shadow.gmemshadow;
-			if (kgsl_gpuaddr_in_memdesc(desc, gpuaddr, size))
-				break;
-		}
-		next = next + 1;
-		desc = NULL;
-	}
-	read_unlock(&device->context_lock);
-	return desc;
-}
-
 /*
  * adreno_find_region() - Find corresponding allocation for a given address
  * @device: Device on which address operates
@@ -2533,7 +2497,7 @@ struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
 	if (*entry)
 		return &((*entry)->memdesc);
 
-	return adreno_find_ctxtmem(device, pt_base, gpuaddr, size);
+	return NULL;
 }
 
 /*
