@@ -2076,15 +2076,6 @@ int smd_named_open_on_edge(const char *name, uint32_t edge,
 }
 EXPORT_SYMBOL(smd_named_open_on_edge);
 
-
-int smd_open(const char *name, smd_channel_t **_ch,
-	     void *priv, void (*notify)(void *, unsigned))
-{
-	return smd_named_open_on_edge(name, SMD_APPS_MODEM, _ch, priv,
-				      notify);
-}
-EXPORT_SYMBOL(smd_open);
-
 int smd_close(smd_channel_t *ch)
 {
 	unsigned long flags;

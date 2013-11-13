@@ -143,10 +143,6 @@ struct smd_platform {
 };
 
 #ifdef CONFIG_MSM_SMD
-/* warning: notify() may be called before open returns */
-int smd_open(const char *name, smd_channel_t **ch, void *priv,
-	     void (*notify)(void *priv, unsigned event));
-
 int smd_close(smd_channel_t *ch);
 
 /* passing a null pointer for data reads and discards */
@@ -326,12 +322,6 @@ int __init msm_smd_init(void);
 int smd_remote_ss_to_edge(const char *name);
 
 #else
-
-static inline int smd_open(const char *name, smd_channel_t **ch, void *priv,
-	     void (*notify)(void *priv, unsigned event))
-{
-	return -ENODEV;
-}
 
 static inline int smd_close(smd_channel_t *ch)
 {
