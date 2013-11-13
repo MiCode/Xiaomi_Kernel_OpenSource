@@ -1726,7 +1726,7 @@ static int mdp3_is_display_on(struct mdss_panel_data *pdata)
 		rc = (status == 0x080000);
 	}
 
-	mdp3_res->splash_mem_addr = MDP3_REG_READ(MDP3_REG_DMA_S_IBUF_ADDR);
+	mdp3_res->splash_mem_addr = MDP3_REG_READ(MDP3_REG_DMA_P_IBUF_ADDR);
 
 	mdp3_clk_update(MDP3_CLK_AHB, 0);
 	mdp3_clk_update(MDP3_CLK_CORE, 0);
