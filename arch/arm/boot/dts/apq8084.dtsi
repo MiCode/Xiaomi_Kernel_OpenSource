@@ -2562,6 +2562,10 @@
 		compatible = "qcom,l2-pmu";
 		interrupts = <0 1 0>;
 	};
+
+	qcom,cnss {
+		compatible = "qcom,cnss";
+	};
 };
 
 &gdsc_venus {

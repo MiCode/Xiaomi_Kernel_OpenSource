@@ -1,0 +1,15 @@
+* Qualcomm Connectivity Network SubSystem Platform Driver
+
+This platform driver adds support for the CNSS subsystem used for PCIe
+based Wi-Fi devices. It also adds support to integrate PCIe WLAN module
+to subsystem restart framework. The main purpose of this device tree
+entry below is to invoke the CNSS platform driver.
+
+Required properties:
+- compatible: "cnss_wlan"
+
+Example:
+
+    qcom,cnss {
+        compatible = "qcom,cnss_wlan";
+    };
