@@ -156,7 +156,6 @@ enum {
 };
 
 #ifdef CONFIG_MSM_SMD
-void *smem_alloc(unsigned id, unsigned size);
 void *smem_alloc2(unsigned id, unsigned size_in);
 void *smem_get_entry(unsigned id, unsigned *size);
 void *smem_find(unsigned id, unsigned size);
@@ -202,10 +201,6 @@ phys_addr_t smem_virt_to_phys(void *smem_address);
 int __init msm_smem_init(void);
 
 #else
-static inline void *smem_alloc(unsigned id, unsigned size)
-{
-	return NULL;
-}
 static inline void *smem_alloc2(unsigned id, unsigned size_in)
 {
 	return NULL;

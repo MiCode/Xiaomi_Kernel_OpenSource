@@ -264,15 +264,6 @@ phys_addr_t smem_virt_to_phys(void *smem_address)
 }
 EXPORT_SYMBOL(smem_virt_to_phys);
 
-/* smem_alloc returns the pointer to smem item if it is already allocated.
- * Otherwise, it returns NULL.
- */
-void *smem_alloc(unsigned id, unsigned size)
-{
-	return smem_find(id, size);
-}
-EXPORT_SYMBOL(smem_alloc);
-
 /**
  * smem_alloc_to_proc - Find existing item with security support
  *
