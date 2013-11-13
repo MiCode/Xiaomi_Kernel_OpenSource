@@ -50,6 +50,7 @@
 #include <linux/irq.h>
 #include <linux/module.h>
 #include <linux/input/mt.h>
+#include <linux/debugfs.h>
 
 #define GOODIX_DEV_NAME	"Goodix-CTP"
 #define CFG_MAX_TOUCH_POINTS	5
@@ -89,7 +90,9 @@ static int goodix_power_on(struct goodix_ts_data *ts);
 
 #if defined(CONFIG_FB)
 static int fb_notifier_callback(struct notifier_block *self,
-				 unsigned long event, void *data);
+				unsigned long event, void *data);
+static int goodix_ts_suspend(struct device *dev);
+static int goodix_ts_resume(struct device *dev);
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 static void goodix_ts_early_suspend(struct early_suspend *h);
 static void goodix_ts_late_resume(struct early_suspend *h);
@@ -115,6 +118,9 @@ bool init_done;
 static u8 chip_gt9xxs;  /* true if ic is gt9xxs, like gt915s */
 u8 grp_cfg_version;
 struct i2c_client  *i2c_connect_client;
+
+#define GTP_DEBUGFS_DIR			"ts_debug"
+#define GTP_DEBUGFS_FILE_SUSPEND	"suspend"
 
 /*******************************************************
 Function:
@@ -1564,6 +1570,56 @@ static const struct attribute_group gtp_attr_grp = {
 	.attrs = gtp_attrs,
 };
 
+static int gtp_debug_suspend_set(void *_data, u64 val)
+{
+	struct goodix_ts_data *ts = _data;
+
+	mutex_lock(&ts->input_dev->mutex);
+	if (val)
+		goodix_ts_suspend(&ts->client->dev);
+	else
+		goodix_ts_resume(&ts->client->dev);
+	mutex_unlock(&ts->input_dev->mutex);
+
+	return 0;
+}
+
+static int gtp_debug_suspend_get(void *_data, u64 *val)
+{
+	struct goodix_ts_data *ts = _data;
+
+	mutex_lock(&ts->input_dev->mutex);
+	*val = ts->gtp_is_suspend;
+	mutex_unlock(&ts->input_dev->mutex);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(debug_suspend_fops, gtp_debug_suspend_get,
+			gtp_debug_suspend_set, "%lld\n");
+
+static int gtp_debugfs_init(struct goodix_ts_data *data)
+{
+	data->debug_base = debugfs_create_dir(GTP_DEBUGFS_DIR, NULL);
+
+	if (IS_ERR_OR_NULL(data->debug_base)) {
+		pr_err("Failed to create debugfs dir.\n");
+			return -EINVAL;
+	}
+
+	if ((IS_ERR_OR_NULL(debugfs_create_file(GTP_DEBUGFS_FILE_SUSPEND,
+					S_IWUSR | S_IWGRP | S_IRUSR | S_IRGRP,
+					data->debug_base,
+					data,
+					&debug_suspend_fops)))) {
+		pr_err("Failed to create suspend file.\n");
+		debugfs_remove_recursive(data->debug_base);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int goodix_ts_get_dt_coords(struct device *dev, char *name,
 				struct goodix_ts_platform_data *pdata)
 {
@@ -1873,6 +1929,13 @@ static int goodix_ts_probe(struct i2c_client *client,
 		goto exit_free_irq;
 	}
 
+	ret = gtp_debugfs_init(ts);
+	if (ret != 0) {
+		dev_err(&client->dev, "Failed to create debugfs entries, %d\n",
+						ret);
+		goto exit_remove_sysfs;
+	}
+
 	init_done = true;
 	return 0;
 exit_free_irq:
@@ -1897,6 +1960,8 @@ exit_free_irq:
 		input_free_device(ts->input_dev);
 		ts->input_dev = NULL;
 	}
+exit_remove_sysfs:
+	sysfs_remove_group(&ts->input_dev->dev.kobj, &gtp_attr_grp);
 exit_free_inputdev:
 	kfree(ts->config_data);
 exit_power_off:
@@ -1971,6 +2036,7 @@ static int goodix_ts_remove(struct i2c_client *client)
 		goodix_power_deinit(ts);
 		i2c_set_clientdata(client, NULL);
 	}
+	debugfs_remove_recursive(ts->debug_base);
 
 	return 0;
 }
@@ -1989,9 +2055,13 @@ static int goodix_ts_suspend(struct device *dev)
 	struct goodix_ts_data *ts = dev_get_drvdata(dev);
 	int ret = 0, i;
 
+	if (ts->gtp_is_suspend) {
+		dev_dbg(&ts->client->dev, "Already in suspend state.\n");
+		return 0;
+	}
+
 	mutex_lock(&ts->lock);
 #if GTP_ESD_PROTECT
-	ts->gtp_is_suspend = 1;
 	gtp_esd_switch(ts->client, SWITCH_OFF);
 #endif
 
@@ -2017,6 +2087,7 @@ static int goodix_ts_suspend(struct device *dev)
 	 */
 	msleep(58);
 	mutex_unlock(&ts->lock);
+	ts->gtp_is_suspend = 1;
 
 	return ret;
 }
@@ -2033,6 +2104,11 @@ static int goodix_ts_resume(struct device *dev)
 {
 	struct goodix_ts_data *ts = dev_get_drvdata(dev);
 	int ret = 0;
+
+	if (!ts->gtp_is_suspend) {
+		dev_dbg(&ts->client->dev, "Already in awake state.\n");
+		return 0;
+	}
 
 	mutex_lock(&ts->lock);
 	ret = gtp_wakeup_sleep(ts);
@@ -2051,10 +2127,10 @@ static int goodix_ts_resume(struct device *dev)
 			ktime_set(1, 0), HRTIMER_MODE_REL);
 
 #if GTP_ESD_PROTECT
-	ts->gtp_is_suspend = 0;
 	gtp_esd_switch(ts->client, SWITCH_ON);
 #endif
 	mutex_unlock(&ts->lock);
+	ts->gtp_is_suspend = 0;
 
 	return ret;
 }
