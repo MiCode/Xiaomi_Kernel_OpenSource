@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -162,6 +162,9 @@ static unsigned char *mdss_edp_base;
 static void __iomem *hdmi_phy_base;
 static void __iomem *hdmi_phy_pll_base;
 static unsigned hdmi_pll_on;
+
+static u32 hdmi_phy_addr = HDMI_PHY_PHYS;
+static u32 hdmi_phy_pll_addr = HDMI_PHY_PLL_PHYS;
 
 static int mdss_gdsc_enabled(void)
 {
@@ -2844,6 +2847,12 @@ struct div_clk hdmipll_clk_src = {
 	},
 };
 
+void mdss_clk_update_hdmi_addr(u32 phy_addr, u32 phy_pll_addr)
+{
+	hdmi_phy_addr = phy_addr;
+	hdmi_phy_pll_addr = phy_pll_addr;
+}
+
 void mdss_clk_ctrl_pre_init(struct clk *ahb_clk)
 {
 	BUG_ON(ahb_clk == NULL);
@@ -2858,11 +2867,11 @@ void mdss_clk_ctrl_pre_init(struct clk *ahb_clk)
 
 	mdss_ahb_clk = ahb_clk;
 
-	hdmi_phy_base = ioremap(HDMI_PHY_PHYS, HDMI_PHY_SIZE);
+	hdmi_phy_base = ioremap(hdmi_phy_addr, HDMI_PHY_SIZE);
 	if (!hdmi_phy_base)
 		pr_err("%s: unable to ioremap hdmi phy base", __func__);
 
-	hdmi_phy_pll_base = ioremap(HDMI_PHY_PLL_PHYS, HDMI_PHY_PLL_SIZE);
+	hdmi_phy_pll_base = ioremap(hdmi_phy_pll_addr, HDMI_PHY_PLL_SIZE);
 	if (!hdmi_phy_pll_base)
 		pr_err("%s: unable to ioremap hdmi phy pll base", __func__);
 
