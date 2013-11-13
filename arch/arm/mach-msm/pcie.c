@@ -92,7 +92,7 @@
 #define LINK_UP_TIMEOUT_US_MIN                100000
 #define LINK_UP_TIMEOUT_US_MAX                105000
 
-#define PHY_READY_TIMEOUT_COUNT               0xFFFFFFull
+#define PHY_READY_TIMEOUT_COUNT               10
 #define XMLH_LINK_UP                          0x400
 #define MAX_LINK_RETRIES 5
 #define MAX_BUS_NUM 3
