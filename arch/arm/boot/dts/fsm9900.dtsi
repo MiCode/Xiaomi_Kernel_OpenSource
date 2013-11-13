@@ -144,25 +144,25 @@
 
 		qcom,smdpkt-logging_1 {
 			qcom,smdpkt-remote = "modem";
-			qcom,smdpkt-port-name = "LOGGING";
+			qcom,smdpkt-port-name = "LOGGING_1";
 			qcom,smdpkt-dev-name = "smd_logging_1";
 		};
 
 		qcom,smdpkt-cdm_logging_1 {
 			qcom,smdpkt-remote = "modem";
-			qcom,smdpkt-port-name = "CDM LOGGING";
+			qcom,smdpkt-port-name = "CDM LOGGING_1";
 			qcom,smdpkt-dev-name = "smd_cdm_logging_1";
 		};
 
 		qcom,smdpkt-logging_2 {
 			qcom,smdpkt-remote = "wcnss";
-			qcom,smdpkt-port-name = "LOGGING";
+			qcom,smdpkt-port-name = "LOGGING_2";
 			qcom,smdpkt-dev-name = "smd_logging_2";
 		};
 
 		qcom,smdpkt-cdm_logging_2 {
 			qcom,smdpkt-remote = "wcnss";
-			qcom,smdpkt-port-name = "CDM LOGGING";
+			qcom,smdpkt-port-name = "CDM LOGGING_2";
 			qcom,smdpkt-dev-name = "smd_cdm_logging_2";
 		};
 
@@ -174,7 +174,7 @@
 
 		qcom,smdpkt-data_2 {
 			qcom,smdpkt-remote = "wcnss";
-			qcom,smdpkt-port-name = "DATA";
+			qcom,smdpkt-port-name = "DATA_2";
 			qcom,smdpkt-dev-name = "smd_data_2";
 		};
 
@@ -198,32 +198,26 @@
 
 		qcom,smdpkt-logging_3 {
 			qcom,smdpkt-remote = "dsps";
-			qcom,smdpkt-port-name = "LOGGING";
+			qcom,smdpkt-port-name = "LOGGING_3";
 			qcom,smdpkt-dev-name = "smd_logging_3";
 		};
 
 		qcom,smdpkt-data_3 {
 			qcom,smdpkt-remote = "dsps";
-			qcom,smdpkt-port-name = "DATA";
+			qcom,smdpkt-port-name = "DATA_3";
 			qcom,smdpkt-dev-name = "smd_data_3";
 		};
 
 		qcom,smdpkt-tf_3 {
 			qcom,smdpkt-remote = "dsps";
-			qcom,smdpkt-port-name = "TESTFRAMEWORK";
+			qcom,smdpkt-port-name = "TESTFRAMEWORK_3";
 			qcom,smdpkt-dev-name = "smd_tf_3";
 		};
 
 		qcom,smdpkt-logging_4 {
 			qcom,smdpkt-remote = "rpm";
-			qcom,smdpkt-port-name = "LOGGING";
+			qcom,smdpkt-port-name = "LOGGING_4";
 			qcom,smdpkt-dev-name = "smd_logging_4";
-		};
-
-		qcom,smdpkt-looopback_4 {
-			qcom,smdpkt-remote = "rpm";
-			qcom,smdpkt-port-name = "LOOPBACK";
-			qcom,smdpkt-dev-name = "smd_loopback_4";
 		};
 	};
 
