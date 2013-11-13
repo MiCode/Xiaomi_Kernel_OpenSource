@@ -533,6 +533,80 @@ void coresight_cti_put(struct coresight_cti *cti)
 }
 EXPORT_SYMBOL(coresight_cti_put);
 
+static ssize_t cti_show_trigin(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long trig, ch;
+	uint32_t ctien;
+	ssize_t size = 0;
+
+	mutex_lock(&cti_lock);
+	if (!drvdata->refcnt)
+		goto err;
+
+	for (trig = 0; trig < CTI_MAX_TRIGGERS; trig++) {
+		ctien = cti_readl(drvdata, CTIINEN(trig));
+		for (ch = 0; ch < CTI_MAX_CHANNELS; ch++) {
+			if (ctien & (1 << ch)) {
+				/* Ensure we do not write more than PAGE_SIZE
+				 * bytes of data including \n character and null
+				 * terminator
+				 */
+				size += scnprintf(&buf[size], PAGE_SIZE - size -
+						  1, " %#lx %#lx,", trig, ch);
+				if (size >= PAGE_SIZE - 2) {
+					dev_err(dev, "show buffer full\n");
+					goto err;
+				}
+
+			}
+		}
+	}
+err:
+	size += scnprintf(&buf[size], 2, "\n");
+	mutex_unlock(&cti_lock);
+	return size;
+}
+static DEVICE_ATTR(show_trigin, S_IRUGO, cti_show_trigin, NULL);
+
+static ssize_t cti_show_trigout(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long trig, ch;
+	uint32_t ctien;
+	ssize_t size = 0;
+
+	mutex_lock(&cti_lock);
+	if (!drvdata->refcnt)
+		goto err;
+
+	for (trig = 0; trig < CTI_MAX_TRIGGERS; trig++) {
+		ctien = cti_readl(drvdata, CTIOUTEN(trig));
+		for (ch = 0; ch < CTI_MAX_CHANNELS; ch++) {
+			if (ctien & (1 << ch)) {
+				/* Ensure we do not write more than PAGE_SIZE
+				 * bytes of data including \n character and null
+				 * terminator
+				 */
+				size += scnprintf(&buf[size], PAGE_SIZE - size -
+						  1, " %#lx %#lx,", trig, ch);
+				if (size >= PAGE_SIZE - 2) {
+					dev_err(dev, "show buffer full\n");
+					goto err;
+				}
+
+			}
+		}
+	}
+err:
+	size += scnprintf(&buf[size], 2, "\n");
+	mutex_unlock(&cti_lock);
+	return size;
+}
+static DEVICE_ATTR(show_trigout, S_IRUGO, cti_show_trigout, NULL);
+
 static ssize_t cti_store_map_trigin(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t size)
@@ -620,80 +694,6 @@ static ssize_t cti_store_reset(struct device *dev,
 	return size;
 }
 static DEVICE_ATTR(reset, S_IWUSR, NULL, cti_store_reset);
-
-static ssize_t cti_show_trigin(struct device *dev,
-			       struct device_attribute *attr, char *buf)
-{
-	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long trig, ch;
-	uint32_t ctien;
-	ssize_t size = 0;
-
-	mutex_lock(&cti_lock);
-	if (!drvdata->refcnt)
-		goto err;
-
-	for (trig = 0; trig < CTI_MAX_TRIGGERS; trig++) {
-		ctien = cti_readl(drvdata, CTIINEN(trig));
-		for (ch = 0; ch < CTI_MAX_CHANNELS; ch++) {
-			if (ctien & (1 << ch)) {
-				/* Ensure we do not write more than PAGE_SIZE
-				 * bytes of data including \n character and null
-				 * terminator
-				 */
-				size += scnprintf(&buf[size], PAGE_SIZE - size -
-						  1, " %#lx %#lx,", trig, ch);
-				if (size >= PAGE_SIZE - 2) {
-					dev_err(dev, "show buffer full\n");
-					goto err;
-				}
-
-			}
-		}
-	}
-err:
-	size += scnprintf(&buf[size], 2, "\n");
-	mutex_unlock(&cti_lock);
-	return size;
-}
-static DEVICE_ATTR(show_trigin, S_IRUGO, cti_show_trigin, NULL);
-
-static ssize_t cti_show_trigout(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long trig, ch;
-	uint32_t ctien;
-	ssize_t size = 0;
-
-	mutex_lock(&cti_lock);
-	if (!drvdata->refcnt)
-		goto err;
-
-	for (trig = 0; trig < CTI_MAX_TRIGGERS; trig++) {
-		ctien = cti_readl(drvdata, CTIOUTEN(trig));
-		for (ch = 0; ch < CTI_MAX_CHANNELS; ch++) {
-			if (ctien & (1 << ch)) {
-				/* Ensure we do not write more than PAGE_SIZE
-				 * bytes of data including \n character and null
-				 * terminator
-				 */
-				size += scnprintf(&buf[size], PAGE_SIZE - size -
-						  1, " %#lx %#lx,", trig, ch);
-				if (size >= PAGE_SIZE - 2) {
-					dev_err(dev, "show buffer full\n");
-					goto err;
-				}
-
-			}
-		}
-	}
-err:
-	size += scnprintf(&buf[size], 2, "\n");
-	mutex_unlock(&cti_lock);
-	return size;
-}
-static DEVICE_ATTR(show_trigout, S_IRUGO, cti_show_trigout, NULL);
 
 static ssize_t cti_show_trig(struct device *dev, struct device_attribute *attr,
 			     char *buf)
@@ -855,13 +855,13 @@ static ssize_t cti_store_disable_gate(struct device *dev,
 static DEVICE_ATTR(disable_gate, S_IWUSR, NULL, cti_store_disable_gate);
 
 static struct attribute *cti_attrs[] = {
+	&dev_attr_show_trigin.attr,
+	&dev_attr_show_trigout.attr,
 	&dev_attr_map_trigin.attr,
 	&dev_attr_map_trigout.attr,
 	&dev_attr_unmap_trigin.attr,
 	&dev_attr_unmap_trigout.attr,
 	&dev_attr_reset.attr,
-	&dev_attr_show_trigin.attr,
-	&dev_attr_show_trigout.attr,
 	&dev_attr_show_trig.attr,
 	&dev_attr_set_trig.attr,
 	&dev_attr_clear_trig.attr,
