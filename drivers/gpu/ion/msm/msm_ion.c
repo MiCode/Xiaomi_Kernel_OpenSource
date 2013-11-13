@@ -373,10 +373,6 @@ static ion_phys_addr_t msm_ion_get_base(unsigned long size, int memory_type,
 	case ION_EBI_TYPE:
 		return allocate_contiguous_ebi_nomap(size, align);
 		break;
-	case ION_SMI_TYPE:
-		return allocate_contiguous_memory_nomap(size, MEMTYPE_SMI,
-							align);
-		break;
 	default:
 		pr_err("%s: Unknown memory type %d\n", __func__, memory_type);
 		return 0;
@@ -642,8 +638,6 @@ static void free_pdata(const struct ion_platform_data *pdata)
 }
 
 static int memtype_to_ion_memtype[] = {
-	[MEMTYPE_SMI_KERNEL] = ION_SMI_TYPE,
-	[MEMTYPE_SMI]	= ION_SMI_TYPE,
 	[MEMTYPE_EBI0] = ION_EBI_TYPE,
 	[MEMTYPE_EBI1] = ION_EBI_TYPE,
 };
