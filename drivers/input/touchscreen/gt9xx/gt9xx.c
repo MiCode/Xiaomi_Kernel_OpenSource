@@ -1988,9 +1988,10 @@ Input:
 Output:
 	None.
 *******************************************************/
-static void goodix_ts_suspend(struct goodix_ts_data *ts)
+static int goodix_ts_suspend(struct device *dev)
 {
-	int ret = -1, i;
+	struct goodix_ts_data *ts = dev_get_drvdata(dev);
+	int ret = 0, i;
 
 	mutex_lock(&ts->lock);
 #if GTP_ESD_PROTECT
@@ -2020,6 +2021,8 @@ static void goodix_ts_suspend(struct goodix_ts_data *ts)
 	 */
 	msleep(58);
 	mutex_unlock(&ts->lock);
+
+	return ret;
 }
 
 /*******************************************************
@@ -2030,9 +2033,10 @@ Input:
 Output:
 	None.
 *******************************************************/
-static void goodix_ts_resume(struct goodix_ts_data *ts)
+static int goodix_ts_resume(struct device *dev)
 {
-	int ret = -1;
+	struct goodix_ts_data *ts = dev_get_drvdata(dev);
+	int ret = 0;
 
 	mutex_lock(&ts->lock);
 	ret = gtp_wakeup_sleep(ts);
@@ -2055,6 +2059,8 @@ static void goodix_ts_resume(struct goodix_ts_data *ts)
 	gtp_esd_switch(ts->client, SWITCH_ON);
 #endif
 	mutex_unlock(&ts->lock);
+
+	return ret;
 }
 
 #if defined(CONFIG_FB)
@@ -2070,9 +2076,9 @@ static int fb_notifier_callback(struct notifier_block *self,
 			ts && ts->client) {
 		blank = evdata->data;
 		if (*blank == FB_BLANK_UNBLANK)
-			goodix_ts_resume(ts);
+			goodix_ts_resume(&ts->client->dev);
 		else if (*blank == FB_BLANK_POWERDOWN)
-			goodix_ts_suspend(ts);
+			goodix_ts_suspend(&ts->client->dev);
 	}
 
 	return 0;
@@ -2091,7 +2097,7 @@ static void goodix_ts_early_suspend(struct early_suspend *h)
 	struct goodix_ts_data *ts;
 
 	ts = container_of(h, struct goodix_ts_data, early_suspend);
-	goodix_ts_suspend(ts);
+	goodix_ts_suspend(&ts->client->dev);
 	return;
 }
 
@@ -2245,6 +2251,9 @@ static void gtp_esd_check_func(struct work_struct *work)
 }
 #endif
 
+static SIMPLE_DEV_PM_OPS(goodix_ts_dev_pm_ops, goodix_ts_suspend,
+					goodix_ts_resume);
+
 static const struct i2c_device_id goodix_ts_id[] = {
 	{ GTP_I2C_NAME, 0 },
 	{ }
@@ -2267,6 +2276,9 @@ static struct i2c_driver goodix_ts_driver = {
 		.name     = GTP_I2C_NAME,
 		.owner    = THIS_MODULE,
 		.of_match_table = goodix_match_table,
+#if CONFIG_PM
+		.pm = &goodix_ts_dev_pm_ops,
+#endif
 	},
 };
 
