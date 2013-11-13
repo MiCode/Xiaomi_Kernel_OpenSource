@@ -170,6 +170,9 @@ static int msm_lsm_ioctl(struct snd_pcm_substream *substream,
 				 */
 				rc = -EFAULT;
 			} else {
+				if (!access_ok(VERIFY_READ, user,
+					sizeof(struct snd_lsm_event_status)))
+					rc = -EFAULT;
 				if (user->payload_size <
 				    event_status->payload_size) {
 					pr_debug("%s: provided %dbytes isn't enough, needs %dbytes\n",
