@@ -571,7 +571,8 @@ enum msm_camera_led_config_t {
 
 struct msm_camera_led_cfg_t {
 	enum msm_camera_led_config_t cfgtype;
-	uint32_t led_current;
+	uint32_t torch_current;
+	uint32_t flash_current[2];
 };
 
 #define VIDIOC_MSM_SENSOR_CFG \

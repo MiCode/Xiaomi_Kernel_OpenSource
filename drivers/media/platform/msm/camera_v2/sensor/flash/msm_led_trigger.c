@@ -71,9 +71,9 @@ static int32_t msm_led_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 	case MSM_CAMERA_LED_LOW:
 		if (fctrl->torch_trigger) {
 			max_curr_l = fctrl->torch_max_current;
-			if (cfg->led_current > 0 &&
-					cfg->led_current < max_curr_l) {
-				curr_l = cfg->led_current;
+			if (cfg->torch_current > 0 &&
+					cfg->torch_current < max_curr_l) {
+				curr_l = cfg->torch_current;
 			} else {
 				curr_l = fctrl->torch_op_current;
 				pr_err("LED current clamped to %d\n",
@@ -90,9 +90,9 @@ static int32_t msm_led_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 		for (i = 0; i < fctrl->num_sources; i++)
 			if (fctrl->flash_trigger[i]) {
 				max_curr_l = fctrl->flash_max_current[i];
-				if (cfg->led_current > 0 &&
-						cfg->led_current < max_curr_l) {
-					curr_l = cfg->led_current;
+				if (cfg->flash_current[i] > 0 &&
+						cfg->flash_current[i] < max_curr_l) {
+					curr_l = cfg->flash_current[i];
 				} else {
 					curr_l = fctrl->flash_op_current[i];
 					pr_err("LED current clamped to %d\n",
