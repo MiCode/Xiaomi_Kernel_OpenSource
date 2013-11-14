@@ -3230,7 +3230,7 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	if (!core && !core->device) {
+	if (!core || !core->device) {
 		dprintk(VIDC_WARN, "Invalid parameters: %p\n", core);
 		return -EINVAL;
 	}
