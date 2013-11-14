@@ -23,6 +23,7 @@ denx	Denx Software Engineering
 emmicro	EM Microelectronic
 epson	Seiko Epson Corp.
 est	ESTeem Wireless Modems
+fairchild	Fairchild Semiconductor International, Inc.
 focaltech Focaltech systems
 fsl	Freescale Semiconductor
 GEFanuc	GE Fanuc Intelligent Platforms Embedded Systems, Inc.
