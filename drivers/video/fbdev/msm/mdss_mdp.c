@@ -1682,12 +1682,15 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 		goto rgb_alloc_fail;
 	}
 
-	mdata->dma_pipes = devm_kzalloc(&mdata->pdev->dev,
-		sizeof(struct mdss_mdp_pipe) * mdata->ndma_pipes, GFP_KERNEL);
-	if (!mdata->dma_pipes) {
-		pr_err("no mem for dma_pipes: kzalloc fail\n");
-		rc = -ENOMEM;
-		goto dma_alloc_fail;
+	if (mdata->ndma_pipes) {
+		mdata->dma_pipes = devm_kzalloc(&mdata->pdev->dev,
+			sizeof(struct mdss_mdp_pipe) * mdata->ndma_pipes,
+			GFP_KERNEL);
+		if (!mdata->dma_pipes) {
+			pr_err("no mem for dma_pipes: kzalloc fail\n");
+			rc = -ENOMEM;
+			goto dma_alloc_fail;
+		}
 	}
 
 	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-vig-fetch-id",
@@ -1737,31 +1740,36 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 		goto parse_fail;
 
 	setup_cnt += len;
-	dma_off = mdata->nvig_pipes + mdata->nrgb_pipes;
 
-	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-dma-fetch-id",
-		ftch_id + dma_off, mdata->ndma_pipes);
-	if (rc)
-		goto parse_fail;
+	if (mdata->ndma_pipes) {
+		dma_off = mdata->nvig_pipes + mdata->nrgb_pipes;
 
-	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-dma-xin-id",
-		xin_id + dma_off, mdata->ndma_pipes);
-	if (rc)
-		goto parse_fail;
+		rc = mdss_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-pipe-dma-fetch-id",
+			ftch_id + dma_off, mdata->ndma_pipes);
+		if (rc)
+			goto parse_fail;
 
-	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-dma-off",
-		offsets + dma_off, mdata->ndma_pipes);
-	if (rc)
-		goto parse_fail;
+		rc = mdss_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-pipe-dma-xin-id",
+			xin_id + dma_off, mdata->ndma_pipes);
+		if (rc)
+			goto parse_fail;
 
-	len = mdata->ndma_pipes;
-	rc = mdss_mdp_pipe_addr_setup(mdata, mdata->dma_pipes,
-		offsets + dma_off, ftch_id + dma_off, xin_id + dma_off,
-		MDSS_MDP_PIPE_TYPE_DMA, MDSS_MDP_SSPP_DMA0, len);
-	if (rc)
-		goto parse_fail;
+		rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-dma-off",
+			offsets + dma_off, mdata->ndma_pipes);
+		if (rc)
+			goto parse_fail;
 
-	setup_cnt += len;
+		len = mdata->ndma_pipes;
+		rc = mdss_mdp_pipe_addr_setup(mdata, mdata->dma_pipes,
+			offsets + dma_off, ftch_id + dma_off, xin_id + dma_off,
+			MDSS_MDP_PIPE_TYPE_DMA, MDSS_MDP_SSPP_DMA0, len);
+		if (rc)
+			goto parse_fail;
+
+		setup_cnt += len;
+	}
 
 	if (mdata->nvig_pipes > DEFAULT_TOTAL_VIG_PIPES) {
 		rc = mdss_mdp_pipe_addr_setup(mdata,
@@ -2287,8 +2295,8 @@ static int mdss_mdp_parse_dt_prop_len(struct platform_device *pdev,
 	of_find_property(pdev->dev.of_node, prop_name, &len);
 
 	if (len < 1) {
-		pr_err("Error from prop %s : spec error in device tree\n",
-		       prop_name);
+		pr_info("prop %s : doesn't exist in device tree\n",
+			prop_name);
 		return 0;
 	}
 
