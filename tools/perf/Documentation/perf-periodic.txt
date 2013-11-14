@@ -1,0 +1,76 @@
+perf-periodic(1)
+============
+
+NAME
+----
+perf-periodic - Periodically print the performance counters at given rate
+
+SYNOPSIS
+--------
+[verse]
+'perf periodic' [-e <EVENT> | --event=EVENT] [-p pid] [<options>]
+
+DESCRIPTION
+-----------
+This command gathers performance counter statistics and periodically prints
+out the counter values.
+
+
+OPTIONS
+-------
+
+-e::
+--event=::
+	Select the PMU event. Selection can be a symbolic event name
+	(use 'perf list' to list all events) or a raw PMU
+	event (eventsel+umask) in the form of rNNN where NNN is a
+	 hexadecimal event descriptor.
+
+-a::
+--all-cpus::
+        system-wide collection from all CPUs, overrides cpumask
+
+-c cpumask::
+Count only on the list of CPUs provided. Multiple CPUs can be provided as a
+mask: 1 = cpu0, 3 = cpu0 and cpu1 etc. Default is to count on all CPUs.
+
+-d::
+Delta. Display results as a delta from the previous value. Default is to
+show the total acculumated value.
+
+-i iterations::
+Number of times to iterate. Default 0-forever.
+
+-m operations::
+Perform math operations on results. m=multiply, d=divide, a=add, s=subtract,
+z=zero, t=transfer, T=total.
+
+-p::
+--pid=<pid>::
+        stat events on existing process id (comma separated list)
+
+-r fifo_name::
+Specify read FIFO name for commands, such as PID to pass pid to connect to.
+
+-s delay::
+Time to sleep between each sample, in milliseconds. Default 1000 (1 second).
+
+-v::
+Verbose. Show more information (counter open errors etc).
+
+EXAMPLES
+--------
+
+$ perf periodic -d -e r3 -e r4 -i 3
+ 122640 2570103
+ 108397 2159418
+ 133372 2826949
+
+$ perf periodic -d -e r3 -e r4 -i 3 -m td
+0.032174
+0.050263
+0.031349
+
+SEE ALSO
+--------
+linkperf:perf-stat[1]

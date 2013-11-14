@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -335,7 +335,7 @@ static void do_math_op(struct perf_setup_s *p)
 	}
 }
 
-int cmd_periodic(int argc, const char **argv, const char *prefix __used)
+int cmd_periodic(int argc, const char **argv, const char *prefix __maybe_unused)
 {
 	int status = 0;
 	int c, i;
@@ -344,7 +344,7 @@ int cmd_periodic(int argc, const char **argv, const char *prefix __used)
 	FILE *fp;
 	int nr_counters = 0;
 
-	evsel_list = perf_evlist__new(NULL, NULL);
+	evsel_list = perf_evlist__new();
 	if (evsel_list == NULL)
 		return -ENOMEM;
 
