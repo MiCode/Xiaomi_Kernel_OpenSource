@@ -55,7 +55,9 @@
 #define IPA_IOCTL_GENERATE_FLT_EQ 31
 #define IPA_IOCTL_QUERY_INTF_EXT_PROPS 32
 #define IPA_IOCTL_QUERY_EP_MAPPING 33
-#define IPA_IOCTL_MAX            34
+#define IPA_IOCTL_QUERY_RT_TBL_INDEX 34
+#define IPA_IOCTL_WRITE_QMAPID 35
+#define IPA_IOCTL_MAX            36
 
 /**
  * max size of the header to be inserted
@@ -203,6 +205,7 @@ enum ipa_wlan_event {
 	WLAN_AP_DISCONNECT,
 	WLAN_STA_CONNECT,
 	WLAN_STA_DISCONNECT,
+	WLAN_CLIENT_CONNECT_EX,
 	IPA_EVENT_MAX
 };
 
@@ -606,6 +609,19 @@ struct ipa_ioc_del_rt_rule {
 };
 
 /**
+ * struct ipa_ioc_get_rt_tbl_indx - routing table index lookup parameters
+ * @ip: IP family of table
+ * @name: name of routing table resource
+ * @index:	output parameter, routing table index, valid only when ioctl
+ *		return val is non-negative
+ */
+struct ipa_ioc_get_rt_tbl_indx {
+	enum ipa_ip_type ip;
+	char name[IPA_RESOURCE_NAME_MAX];
+	uint32_t idx;
+};
+
+/**
  * struct ipa_flt_rule_add - filtering rule descriptor includes
  * in and out parameters
  * @rule: actual rule to be added
@@ -905,6 +921,51 @@ struct ipa_wlan_msg {
 };
 
 /**
+ * enum ipa_wlan_hdr_attrib_type - attribute type
+ * in wlan client header
+ *
+ * WLAN_HDR_ATTRIB_MAC_ADDR: attrib type mac address
+ * WLAN_HDR_ATTRIB_STA_ID: attrib type station id
+ */
+enum ipa_wlan_hdr_attrib_type {
+	WLAN_HDR_ATTRIB_MAC_ADDR,
+	WLAN_HDR_ATTRIB_STA_ID
+};
+
+/**
+ * struct ipa_wlan_hdr_attrib_val - header attribute value
+ * @attrib_type: type of attribute
+ * @offset: offset of attribute within header
+ * @u.mac_addr: mac address
+ * @u.sta_id: station id
+ */
+struct ipa_wlan_hdr_attrib_val {
+	enum ipa_wlan_hdr_attrib_type attrib_type;
+	uint8_t offset;
+	union {
+		uint8_t mac_addr[IPA_MAC_ADDR_SIZE];
+		uint8_t sta_id;
+	} u;
+};
+
+/**
+ * struct ipa_wlan_msg_ex - To hold information about wlan client
+ * @name: name of the wlan interface
+ * @num_of_attribs: number of attributes
+ * @attrib_val: holds attribute values
+ *
+ * wlan drivers need to pass name of wlan iface and mac address
+ * of wlan client or station id along with ipa_wlan_event,
+ * whenever a wlan client is connected/disconnected/moved to
+ * power save/come out of power save
+ */
+struct ipa_wlan_msg_ex {
+	char name[IPA_RESOURCE_NAME_MAX];
+	uint8_t num_of_attribs;
+	struct ipa_wlan_hdr_attrib_val attribs[0];
+};
+
+/**
  * struct ipa_ioc_rm_dependency - parameters for add/delete dependency
  * @resource_name: name of dependent resource
  * @depends_on_name: name of its dependency
@@ -919,6 +980,16 @@ struct ipa_ioc_generate_flt_eq {
 	struct ipa_rule_attrib attrib;
 	struct ipa_ipfltri_rule_eq eq_attrib;
 };
+
+/**
+ * struct ipa_ioc_write_qmapid - to write mux id to endpoint meta register
+ * @mux_id: mux id of wan
+ */
+struct ipa_ioc_write_qmapid {
+	enum ipa_client_type client;
+	uint8_t qmap_id;
+};
+
 
 /**
  *   actual IOCTLs supported by IPA driver
@@ -1019,6 +1090,12 @@ struct ipa_ioc_generate_flt_eq {
 #define IPA_IOC_QUERY_EP_MAPPING _IOR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_QUERY_EP_MAPPING, \
 				uint32_t)
+#define IPA_IOC_QUERY_RT_TBL_INDEX _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_QUERY_RT_TBL_INDEX, \
+				struct ipa_ioc_get_rt_tbl_indx *)
+#define IPA_IOC_WRITE_QMAPID  _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_WRITE_QMAPID, \
+				struct ipa_ioc_write_qmapid *)
 
 /*
  * unique magic number of the Tethering bridge ioctls

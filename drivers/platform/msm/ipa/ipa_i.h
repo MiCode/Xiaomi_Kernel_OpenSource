@@ -44,6 +44,22 @@
 
 #define WLAN_AMPDU_TX_EP 15
 #define WLAN_PROD_TX_EP  19
+#define WLAN1_CONS_RX_EP  14
+#define WLAN2_CONS_RX_EP  16
+#define WLAN3_CONS_RX_EP  17
+#define WLAN4_CONS_RX_EP  18
+
+#define IPA_WLAN_GENERIC_AGGR_BYTE_LIMIT 32
+#define IPA_WLAN_GENERIC_RX_POOL_SZ 4
+
+#define IPA_WLAN_HDR_SIZE 26
+#define IPA_WLAN_PADDING_BYTES 2
+#define IPA_IP_PKT_SIZE 1500
+
+#define IPA_WLAN_GENERIC_AGGR_RX_SIZE  \
+				((IPA_WLAN_GENERIC_AGGR_BYTE_LIMIT * 1024) - \
+				IPA_PKT_STATUS_SIZE - IPA_WLAN_HDR_SIZE - \
+				IPA_WLAN_PADDING_BYTES - IPA_IP_PKT_SIZE)
 
 #define MAX_NUM_EXCP     8
 #define MAX_NUM_IMM_CMD 20
@@ -338,6 +354,7 @@ struct ipa_ep_context {
 	bool data_fifo_client_allocated;
 	bool suspended;
 	struct ipa_sys_context *sys;
+	u32 avail_fifo_desc;
 };
 
 enum ipa_sys_pipe_policy {
@@ -554,6 +571,9 @@ struct ipa_stats {
 	u32 a2_power_off_reqs_out;
 	u32 a2_power_modem_acks;
 	u32 a2_power_apps_acks;
+	u32 wlan_rx_pkts;
+	u32 wlan_rx_comp;
+	u32 wlan_tx_pkts;
 };
 
 struct ipa_controller;
@@ -807,6 +827,9 @@ struct ipa_controller {
 	void (*ipa_enable_clks)(void);
 	void (*ipa_disable_clks)(void);
 	struct msm_bus_scale_pdata *msm_bus_data_ptr;
+
+	void (*ipa_cfg_ep_metadata)(u32 pipe_number,
+			const struct ipa_ep_cfg_metadata *);
 };
 
 extern struct ipa_context *ipa_ctx;
@@ -923,5 +946,7 @@ int __ipa_commit_hdr_v2(void);
 int ipa_generate_flt_eq(enum ipa_ip_type ip,
 		const struct ipa_rule_attrib *attrib,
 		struct ipa_ipfltri_rule_eq *eq_attrib);
+
+
 
 #endif /* _IPA_I_H_ */

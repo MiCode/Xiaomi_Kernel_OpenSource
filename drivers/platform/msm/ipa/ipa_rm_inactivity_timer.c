@@ -125,6 +125,7 @@ int ipa_rm_inactivity_timer_init(enum ipa_rm_resource_name resource_name,
 
 	return 0;
 }
+EXPORT_SYMBOL(ipa_rm_inactivity_timer_init);
 
 /**
 * ipa_rm_inactivity_timer_destroy() - De-Init function for IPA
@@ -162,6 +163,7 @@ int ipa_rm_inactivity_timer_destroy(enum ipa_rm_resource_name resource_name)
 
 	return 0;
 }
+EXPORT_SYMBOL(ipa_rm_inactivity_timer_destroy);
 
 /**
 * ipa_rm_inactivity_timer_request_resource() - Same as
@@ -201,6 +203,7 @@ int ipa_rm_inactivity_timer_request_resource(
 	IPADBG("%s: resource %d: returning %d\n", __func__, resource_name, ret);
 	return ret;
 }
+EXPORT_SYMBOL(ipa_rm_inactivity_timer_request_resource);
 
 /**
 * ipa_rm_inactivity_timer_release_resource() - Sets the
@@ -251,4 +254,5 @@ int ipa_rm_inactivity_timer_release_resource(
 
 	return 0;
 }
+EXPORT_SYMBOL(ipa_rm_inactivity_timer_release_resource);
 

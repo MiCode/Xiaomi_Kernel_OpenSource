@@ -108,6 +108,7 @@ const char *ipa_event_name[] = {
 	__stringify(WLAN_AP_DISCONNECT),
 	__stringify(WLAN_STA_CONNECT),
 	__stringify(WLAN_STA_DISCONNECT),
+	__stringify(WLAN_CLIENT_CONNECT_EX),
 };
 
 static struct dentry *dent;
@@ -747,7 +748,10 @@ static ssize_t ipa_read_stats(struct file *file, char __user *ubuf,
 			"a2_power_off_reqs_in=%u\n"
 			"a2_power_off_reqs_out=%u\n"
 			"a2_power_modem_acks=%u\n"
-			"a2_power_apps_acks=%u\n",
+			"a2_power_apps_acks=%u\n"
+			"wlan_rx_pkts=%u\n"
+			"wlan_rx_comp=%u\n"
+			"wlan_tx_pkts=%u\n",
 			ipa_ctx->stats.tx_sw_pkts,
 			ipa_ctx->stats.tx_hw_pkts,
 			ipa_ctx->stats.rx_pkts,
@@ -762,7 +766,10 @@ static ssize_t ipa_read_stats(struct file *file, char __user *ubuf,
 			ipa_ctx->stats.a2_power_off_reqs_in,
 			ipa_ctx->stats.a2_power_off_reqs_out,
 			ipa_ctx->stats.a2_power_modem_acks,
-			ipa_ctx->stats.a2_power_apps_acks);
+			ipa_ctx->stats.a2_power_apps_acks,
+			ipa_ctx->stats.wlan_rx_pkts,
+			ipa_ctx->stats.wlan_rx_comp,
+		  ipa_ctx->stats.wlan_tx_pkts);
 	cnt += nbytes;
 
 	for (i = 0; i < MAX_NUM_EXCP; i++) {
