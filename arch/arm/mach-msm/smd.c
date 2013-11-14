@@ -127,6 +127,10 @@ static struct interrupt_config private_intr_config[NUM_SMD_SUBSYSTEMS] = {
 		.smd.irq_handler = smd_wcnss_irq_handler,
 		.smsm.irq_handler = smsm_wcnss_irq_handler,
 	},
+	[SMD_MODEM_Q6_FW] = {
+		.smd.irq_handler = smd_modemfw_irq_handler,
+		.smsm.irq_handler = NULL, /* does not support smsm */
+	},
 	[SMD_RPM] = {
 		.smd.irq_handler = smd_rpm_irq_handler,
 		.smsm.irq_handler = NULL, /* does not support smsm */
@@ -379,6 +383,19 @@ static inline void notify_wcnss_smd(struct smd_channel *ch)
 	log_notify(SMD_APPS_WCNSS, ch);
 	if (intr->out_base) {
 		++interrupt_stats[SMD_WCNSS].smd_out_count;
+		smd_write_intr(intr->out_bit_pos,
+		intr->out_base + intr->out_offset);
+	}
+}
+
+static inline void notify_modemfw_smd(smd_channel_t *ch)
+{
+	static const struct interrupt_config_item *intr
+		= &private_intr_config[SMD_MODEM_Q6_FW].smd;
+
+	log_notify(SMD_APPS_Q6FW, ch);
+	if (intr->out_base) {
+		++interrupt_stats[SMD_MODEM_Q6_FW].smd_out_count;
 		smd_write_intr(intr->out_bit_pos,
 		intr->out_base + intr->out_offset);
 	}
@@ -1473,6 +1490,15 @@ irqreturn_t smd_wcnss_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+irqreturn_t smd_modemfw_irq_handler(int irq, void *data)
+{
+	log_irq(SMD_APPS_Q6FW);
+	++interrupt_stats[SMD_MODEM_Q6_FW].smd_in_count;
+	handle_smd_irq(&remote_info[SMD_MODEM_Q6_FW], notify_modemfw_smd);
+	handle_smd_irq_closing_list();
+	return IRQ_HANDLED;
+}
+
 irqreturn_t smd_rpm_irq_handler(int irq, void *data)
 {
 	log_irq(SMD_APPS_RPM);
@@ -1488,6 +1514,7 @@ static void smd_fake_irq_handler(unsigned long arg)
 	handle_smd_irq(&remote_info[SMD_Q6], notify_dsp_smd);
 	handle_smd_irq(&remote_info[SMD_DSPS], notify_dsps_smd);
 	handle_smd_irq(&remote_info[SMD_WCNSS], notify_wcnss_smd);
+	handle_smd_irq(&remote_info[SMD_MODEM_Q6_FW], notify_modemfw_smd);
 	handle_smd_irq(&remote_info[SMD_RPM], notify_rpm_smd);
 	handle_smd_irq_closing_list();
 }
@@ -1868,6 +1895,8 @@ static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm, int table_id,
 		ch->notify_other_cpu = notify_dsps_smd;
 	else if (ch->type == SMD_APPS_WCNSS)
 		ch->notify_other_cpu = notify_wcnss_smd;
+	else if (ch->type == SMD_APPS_Q6FW)
+		ch->notify_other_cpu = notify_modemfw_smd;
 	else if (ch->type == SMD_APPS_RPM)
 		ch->notify_other_cpu = notify_rpm_smd;
 
