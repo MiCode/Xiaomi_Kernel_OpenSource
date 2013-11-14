@@ -61,6 +61,10 @@
 #define PCIE20_COMMAND_STATUS          0x04
 #define PCIE20_BUSNUMBERS              0x18
 #define PCIE20_MEMORY_BASE_LIMIT       0x20
+#define PCIE20_L1SUB_CONTROL1          0x158
+#define PCIE20_EP_L1SUB_CTL1_OFFSET    0x30
+
+#define PCIE20_ACK_F_ASPM_CTRL_REG     0x70C
 
 #define PCIE20_PLR_IATU_VIEWPORT       0x900
 #define PCIE20_PLR_IATU_CTRL1          0x904
@@ -660,6 +664,43 @@ static void msm_pcie_config_controller(u32 rc_idx)
 		readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_CTRL2));
 }
 
+static void msm_pcie_config_l1ss(u32 rc_idx)
+{
+	struct msm_pcie_dev_t *dev = &msm_pcie_dev[rc_idx];
+
+	PCIE_DBG("Original PCIE20_ACK_F_ASPM_CTRL_REG:0x%x\n",
+		readl_relaxed(dev->dm_core + PCIE20_ACK_F_ASPM_CTRL_REG));
+	msm_pcie_write_mask(dev->dm_core + PCIE20_ACK_F_ASPM_CTRL_REG, 0,
+						BIT(15));
+	PCIE_DBG("Updated PCIE20_ACK_F_ASPM_CTRL_REG:0x%x\n",
+		readl_relaxed(dev->dm_core + PCIE20_ACK_F_ASPM_CTRL_REG));
+
+	/* Enable the AUX Clock and the Core Clk to be synchronous for L1SS*/
+	msm_pcie_write_mask(dev->parf + PCIE20_PARF_SYS_CTRL, BIT(3), 0);
+
+	/* Enable L1SS on RC */
+	msm_pcie_write_mask(dev->dm_core + PCIE20_CAP_LINKCTRLSTATUS, 0,
+					BIT(1)|BIT(0));
+	msm_pcie_write_mask(dev->dm_core + PCIE20_L1SUB_CONTROL1, 0,
+					BIT(3)|BIT(2)|BIT(1)|BIT(0));
+	PCIE_DBG("RC's CAP_LINKCTRLSTATUS:0x%x\n",
+		readl_relaxed(dev->dm_core + PCIE20_CAP_LINKCTRLSTATUS));
+	PCIE_DBG("RC's L1SUB_CONTROL1:0x%x\n",
+		readl_relaxed(dev->dm_core + PCIE20_L1SUB_CONTROL1));
+
+	/* Enable L1SS on EP */
+	msm_pcie_write_mask(dev->conf + PCIE20_CAP_LINKCTRLSTATUS, 0,
+					BIT(1)|BIT(0));
+	msm_pcie_write_mask(dev->conf + PCIE20_L1SUB_CONTROL1 +
+					PCIE20_EP_L1SUB_CTL1_OFFSET, 0,
+					BIT(3)|BIT(2)|BIT(1)|BIT(0));
+	PCIE_DBG("EP's CAP_LINKCTRLSTATUS:0x%x\n",
+		readl_relaxed(dev->conf + PCIE20_CAP_LINKCTRLSTATUS));
+	PCIE_DBG("EP's L1SUB_CONTROL1:0x%x\n",
+		readl_relaxed(dev->conf + PCIE20_L1SUB_CONTROL1 +
+					PCIE20_EP_L1SUB_CTL1_OFFSET));
+}
+
 static int msm_pcie_get_resources(u32 rc_idx, struct platform_device *pdev)
 {
 	int i, len, cnt, ret = 0;
@@ -998,6 +1039,9 @@ static int msm_pcie_enable(u32 rc_idx, u32 options)
 	msm_pcie_config_controller(rc_idx);
 
 	msm_pcie_config_msi_controller(dev);
+
+	if (msm_pcie_dev[rc_idx].vreg_n == MSM_PCIE_MAX_VREG)
+		msm_pcie_config_l1ss(rc_idx);
 
 	if (options & PM_IRQ) {
 		ret = msm_pcie_irq_init(dev);
