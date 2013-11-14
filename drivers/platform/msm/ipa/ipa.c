@@ -1216,11 +1216,13 @@ static int ipa_load_pipe_connection(struct platform_device *pdev,
 				    enum a2_mux_pipe_direction  pipe_dir,
 				    struct a2_mux_pipe_connection *pdata)
 {
-	struct device_node *node = pdev->dev.of_node;
+	struct device_node *node;
 	int rc = 0;
 
 	if (!pdata || !pdev)
 		goto err;
+
+	node = pdev->dev.of_node;
 
 	/* retrieve device tree parameters */
 	for_each_child_of_node(pdev->dev.of_node, node)
@@ -1261,8 +1263,8 @@ err:
 static int ipa_update_connections_info(struct device_node *node,
 		struct a2_mux_pipe_connection     *pipe_connection)
 {
-	u32      rc;
-	char     *key;
+	u32      rc = 0;
+	char     *key = NULL;
 	uint32_t val;
 	enum ipa_pipe_mem_type mem_type;
 
@@ -1326,7 +1328,8 @@ static int ipa_update_connections_info(struct device_node *node,
 
 	return 0;
 err:
-	IPAERR("%s: Error in name %s key %s\n", __func__, node->full_name, key);
+	IPAERR("%s: Error in name %s key %s\n", __func__,
+		node->full_name, (key != NULL) ? key : "Null");
 
 	return rc;
 }
