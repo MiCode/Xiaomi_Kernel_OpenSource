@@ -3,6 +3,12 @@
 
 #include <uapi/linux/msm_ion.h>
 
+enum ion_permission_type {
+	IPT_TYPE_MM_CARVEOUT = 0,
+	IPT_TYPE_MFC_SHAREDMEM = 1,
+	IPT_TYPE_MDP_WRITEBACK = 2,
+};
+
 /*
  * This flag allows clients when mapping into the IOMMU to specify to
  * defer un-mapping from the IOMMU until the buffer memory is freed.
@@ -52,7 +58,6 @@ struct ion_cp_heap_pdata {
 	int (*request_region)(void *);
 	int (*release_region)(void *);
 	void *(*setup_region)(void);
-	enum ion_memory_types memory_type;
 	int allow_nonsecure_alloc;
 };
 
@@ -76,7 +81,6 @@ struct ion_co_heap_pdata {
 	int (*request_region)(void *);
 	int (*release_region)(void *);
 	void *(*setup_region)(void);
-	enum ion_memory_types memory_type;
 };
 
 #ifdef CONFIG_ION
