@@ -40,8 +40,8 @@
 
 #define MIN_CAPTURE_PERIOD_SIZE (128 * 2 * 4)
 #define MAX_CAPTURE_PERIOD_SIZE (128 * 2 * 2 * 6 * 4)
-#define MIN_CAPTURE_NUM_PERIODS (32)
-#define MAX_CAPTURE_NUM_PERIODS (384)
+#define MIN_CAPTURE_NUM_PERIODS (32 * 4)
+#define MAX_CAPTURE_NUM_PERIODS (384 * 4)
 
 static struct snd_pcm_hardware msm_afe_hardware_playback = {
 	.info =                 (SNDRV_PCM_INFO_MMAP |
