@@ -581,6 +581,8 @@ static int mdss_mdp_pipe_free(struct mdss_mdp_pipe *pipe)
 	mdss_mdp_smp_free(pipe);
 	pipe->flags = 0;
 	pipe->bwc_mode = 0;
+	memset(&pipe->scale, 0, sizeof(struct mdp_scale_data));
+
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 
 	return 0;
@@ -741,7 +743,11 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 	ystride1 =  (pipe->src_planes.ystride[2]) |
 			(pipe->src_planes.ystride[3] << 16);
 
-	if (pipe->overfetch_disable) {
+	/*
+	 * Software overfetch is used when scalar pixel extension is
+	 * not enabled
+	 */
+	if (pipe->overfetch_disable && !pipe->scale.enable_pxl_ext) {
 		if (pipe->overfetch_disable & OVERFETCH_DISABLE_BOTTOM) {
 			height = pipe->src.h;
 			if (!(pipe->overfetch_disable & OVERFETCH_DISABLE_TOP))
@@ -827,6 +833,9 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 
 	mdss_mdp_pipe_sspp_setup(pipe, &opmode);
 
+	if (pipe->scale.enable_pxl_ext)
+		opmode |= (1 << 31);
+
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_FORMAT, src_format);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_UNPACK_PATTERN, unpack);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_OP_MODE, opmode);
@@ -858,20 +867,21 @@ int mdss_mdp_pipe_addr_setup(struct mdss_data_type *mdata,
 }
 
 static int mdss_mdp_src_addr_setup(struct mdss_mdp_pipe *pipe,
-				   struct mdss_mdp_data *data)
+				   struct mdss_mdp_data *src_data)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_mdp_data data = *src_data;
 	int ret = 0;
 
 	pr_debug("pnum=%d\n", pipe->num);
 
-	data->bwc_enabled = pipe->bwc_mode;
+	data.bwc_enabled = pipe->bwc_mode;
 
-	ret = mdss_mdp_data_check(data, &pipe->src_planes);
+	ret = mdss_mdp_data_check(&data, &pipe->src_planes);
 	if (ret)
 		return ret;
 
-	if (pipe->overfetch_disable) {
+	if (pipe->overfetch_disable && !pipe->scale.enable_pxl_ext) {
 		u32 x = 0, y = 0;
 
 		if (pipe->overfetch_disable & OVERFETCH_DISABLE_LEFT)
@@ -879,7 +889,7 @@ static int mdss_mdp_src_addr_setup(struct mdss_mdp_pipe *pipe,
 		if (pipe->overfetch_disable & OVERFETCH_DISABLE_TOP)
 			y = pipe->src.y;
 
-		mdss_mdp_data_calc_offset(data, x, y,
+		mdss_mdp_data_calc_offset(&data, x, y,
 			&pipe->src_planes, pipe->src_fmt);
 	}
 
@@ -887,12 +897,12 @@ static int mdss_mdp_src_addr_setup(struct mdss_mdp_pipe *pipe,
 	if (mdata->mdp_rev < MDSS_MDP_HW_REV_102 &&
 			(pipe->src_fmt->fetch_planes == MDSS_MDP_PLANE_PLANAR)
 				&& (pipe->src_fmt->element[0] == C1_B_Cb))
-		swap(data->p[1].addr, data->p[2].addr);
+		swap(data.p[1].addr, data.p[2].addr);
 
-	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC0_ADDR, data->p[0].addr);
-	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC1_ADDR, data->p[1].addr);
-	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC2_ADDR, data->p[2].addr);
-	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC3_ADDR, data->p[3].addr);
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC0_ADDR, data.p[0].addr);
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC1_ADDR, data.p[1].addr);
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC2_ADDR, data.p[2].addr);
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC3_ADDR, data.p[3].addr);
 
 	return 0;
 }
@@ -923,8 +933,9 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 			     struct mdss_mdp_data *src_data)
 {
 	int ret = 0;
-	u32 params_changed, opmode;
 	struct mdss_mdp_ctl *ctl;
+	u32 params_changed;
+	u32 opmode = 0;
 
 	if (!pipe) {
 		pr_err("pipe not setup properly for queue\n");
@@ -1004,4 +1015,54 @@ done:
 int mdss_mdp_pipe_is_staged(struct mdss_mdp_pipe *pipe)
 {
 	return (pipe == pipe->mixer->stage_pipe[pipe->mixer_stage]);
+}
+
+static inline void __mdss_mdp_pipe_program_pixel_extn_helper(
+	struct mdss_mdp_pipe *pipe, u32 plane, u32 off)
+{
+	u32 src_h = pipe->src.h >> pipe->vert_deci;
+	u32 mask = 0xFF;
+
+	/*
+	 * CB CR plane required pxls need to be accounted
+	 * for chroma decimation.
+	 */
+	if (plane == 1)
+		src_h >>= pipe->chroma_sample_v;
+	writel_relaxed(((pipe->scale.right_ftch[plane] & mask) << 24)|
+		((pipe->scale.right_rpt[plane] & mask) << 16)|
+		((pipe->scale.left_ftch[plane] & mask) << 8)|
+		(pipe->scale.left_rpt[plane] & mask), pipe->base +
+			MDSS_MDP_REG_SSPP_SW_PIX_EXT_C0_LR + off);
+	writel_relaxed(((pipe->scale.btm_ftch[plane] & mask) << 24)|
+		((pipe->scale.btm_rpt[plane] & mask) << 16)|
+		((pipe->scale.top_ftch[plane] & mask) << 8)|
+		(pipe->scale.top_rpt[plane] & mask), pipe->base +
+			MDSS_MDP_REG_SSPP_SW_PIX_EXT_C0_TB + off);
+	mask = 0xFFFF;
+	writel_relaxed((((src_h + pipe->scale.num_ext_pxls_top[plane] +
+		pipe->scale.num_ext_pxls_btm[plane]) & mask) << 16) |
+		((pipe->scale.roi_w[plane] +
+		pipe->scale.num_ext_pxls_left[plane] +
+		pipe->scale.num_ext_pxls_right[plane]) & mask), pipe->base +
+			MDSS_MDP_REG_SSPP_SW_PIX_EXT_C0_REQ_PIXELS + off);
+}
+
+/**
+ * mdss_mdp_pipe_program_pixel_extn - Program the source pipe's
+ *				      sw pixel extension
+ * @pipe:	Source pipe struct containing pixel extn values
+ *
+ * Function programs the pixel extn values calculated during
+ * scale setup.
+ */
+int mdss_mdp_pipe_program_pixel_extn(struct mdss_mdp_pipe *pipe)
+{
+	/* Y plane pixel extn */
+	__mdss_mdp_pipe_program_pixel_extn_helper(pipe, 0, 0);
+	/* CB CR plane pixel extn */
+	__mdss_mdp_pipe_program_pixel_extn_helper(pipe, 1, 16);
+	/* Alpha plane pixel extn */
+	__mdss_mdp_pipe_program_pixel_extn_helper(pipe, 3, 32);
+	return 0;
 }
