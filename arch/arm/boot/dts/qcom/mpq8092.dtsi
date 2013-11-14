@@ -1086,8 +1086,10 @@
 	};
 
 	qcom,pil-bcss {
-		compatible = "qcom,pil-bcss";
+		compatible = "qcom,pil-tz-generic";
 
+		qcom,pas-id = <11>;
+		qcom,proxy-timeout-ms = <0>;
 		qcom,firmware-name = "bcss";
 	};
 
