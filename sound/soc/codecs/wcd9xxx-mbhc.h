@@ -336,7 +336,6 @@ struct wcd9xxx_mbhc {
 	u32 rco_clk_rate;
 
 	bool update_z;
-	bool int_rbias_on;
 	/* Holds codec specific interrupt mapping */
 	const struct wcd9xxx_mbhc_intr *intr_ids;
 
