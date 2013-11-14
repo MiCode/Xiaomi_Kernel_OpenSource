@@ -2110,7 +2110,7 @@ static ssize_t wcnss_wlan_write(struct file *fp, const char __user
 
 	if ((UINT32_MAX - count < penv->user_cal_rcvd) ||
 	     MAX_CALIBRATED_DATA_SIZE < count + penv->user_cal_rcvd) {
-		pr_err(DEVICE " invalid size to write %d\n", count +
+		pr_err(DEVICE " invalid size to write %zu\n", count +
 				penv->user_cal_rcvd);
 		rc = -ENOMEM;
 		goto exit;
