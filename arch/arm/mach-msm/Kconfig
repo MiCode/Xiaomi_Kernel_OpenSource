@@ -734,13 +734,6 @@ config EXTERNAL_MDM
 	  as well as a restart of the modem in the event
 	  of a crash.
 
-config MSM_RESET_MODEM
-	tristate "Reset Modem Driver"
-	depends on MSM_SMD
-	default m
-	help
-	  Allows the user to reset the modem through a device node.
-
 config MSM_SMD_LOGGING
 	depends on MSM_SMD
 	default y
