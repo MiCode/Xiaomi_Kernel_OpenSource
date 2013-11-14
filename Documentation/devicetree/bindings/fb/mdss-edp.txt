@@ -26,6 +26,8 @@ Required properties
 
 Optional properties:
 - qcom,cont-splash-enabled:             Boolean used to enable continuous splash mode.
+- qcom,mdss-brightness-max-level:	Specifies the max brightness level supported.
+					255 = default value.
 
 Example:
 	mdss_edp: qcom,mdss_edp@fd923400 {
