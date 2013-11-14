@@ -132,6 +132,16 @@ int mdss_mdp_wb_set_secure(struct msm_fb_data_type *mfd, int enable)
 
 	pr_debug("setting secure=%d\n", enable);
 
+	if (!ctl || !ctl->mdata) {
+		pr_err("%s : ctl is NULL", __func__);
+		return -EINVAL;
+	}
+
+	if (!wb) {
+		pr_err("unable to start, writeback is not initialized\n");
+		return -ENODEV;
+	}
+
 	ctl->is_secure = enable;
 	wb->is_secure = enable;
 
