@@ -33,14 +33,13 @@
 #include <linux/miscdevice.h>
 #include <linux/interrupt.h>
 #include <linux/of_gpio.h>
+#include <linux/platform_device.h>
 
 #include <asm/current.h>
 
 #include <mach/socinfo.h>
 #include <mach/subsystem_notif.h>
 #include <mach/subsystem_restart.h>
-
-#include "smd_private.h"
 
 static int enable_debug;
 module_param(enable_debug, int, S_IRUGO | S_IWUSR);
