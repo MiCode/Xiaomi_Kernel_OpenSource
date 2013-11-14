@@ -42,6 +42,9 @@
 #define CMD_A_REG			0x30
 #define CMD_B_REG			0x31
 
+/* Revision register */
+#define CHG_REVISION_REG		0x34
+
 /* IRQ status registers */
 #define IRQ_A_REG			0x35
 #define IRQ_B_REG			0x36
@@ -103,6 +106,8 @@
 #define THERM_A_THERM_MONITOR_EN_BIT		0x0
 #define THERM_A_THERM_MONITOR_EN_MASK		BIT(4)
 #define VFLOAT_MASK				0x3F
+#define SMB349_REV_MASK				0x0F
+#define SMB349_REV_A4				0x4
 
 /* IRQ status bits */
 #define IRQ_A_TEMP_HARD_LIMIT			(BIT(6) | BIT(4))
@@ -153,6 +158,10 @@
 #define SMB_FAST_CHG_CURRENT_MASK	0xF0
 #define SMB349_DEFAULT_BATT_CAPACITY	50
 
+enum {
+	WRKARND_APSD_FAIL = BIT(0),
+};
+
 struct smb349_regulator {
 	struct regulator_desc	rdesc;
 	struct regulator_dev	*rdev;
@@ -181,6 +190,8 @@ struct smb349_charger {
 
 	int			charging_disabled;
 	int			fastchg_current_max_ma;
+	int			workaround_flags;
+
 
 	struct power_supply	*usb_psy;
 	struct power_supply	*bms_psy;
@@ -431,6 +442,23 @@ static int smb349_hw_init(struct smb349_charger *chip)
 		dev_dbg(chip->dev, "Charger configured for autonomous mode\n");
 		return 0;
 	}
+
+	rc = smb349_read_reg(chip, CHG_REVISION_REG, &reg);
+	if (rc) {
+		dev_err(chip->dev, "Couldn't read CHG_REVISION_REG rc=%d\n",
+									rc);
+		return rc;
+	}
+	/*
+	 * A4 silicon revision of SMB349 fails charger type detection
+	 * (apsd) due to interference on the D+/- lines by the USB phy.
+	 * Set the workaround flag to disable charger type reporting
+	 * for this revision.
+	 */
+	if ((reg & SMB349_REV_MASK) == SMB349_REV_A4)
+		chip->workaround_flags |= WRKARND_APSD_FAIL;
+
+	pr_debug("workaround_flags = %x\n", chip->workaround_flags);
 
 	rc = smb349_enable_volatile_writes(chip);
 	if (rc) {
@@ -915,6 +943,14 @@ static int apsd_complete(struct smb349_charger *chip, u8 status)
 	}
 
 	chip->chg_present = !!status;
+
+	/*
+	 * Report the charger type as UNKNOWN if the
+	 * apsd-fail flag is set. This nofifies the USB driver
+	 * to initiate a s/w based charger type detection.
+	 */
+	if (chip->workaround_flags & WRKARND_APSD_FAIL)
+		type = POWER_SUPPLY_TYPE_UNKNOWN;
 
 	dev_dbg(chip->dev, "APSD complete. USB type detected=%d chg_present=%d",
 						type, chip->chg_present);
