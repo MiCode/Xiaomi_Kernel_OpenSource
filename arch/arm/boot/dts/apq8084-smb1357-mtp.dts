@@ -35,6 +35,8 @@
 		regulator-name = "smb1357_otg_vreg";
 		qcom,soft-vfloat-comp-disabled;
 		therm-bias-supply = <&pma8084_lvs2>;
+		qcom,dc-psy-type = "Wireless";
+		qcom,dc-psy-ma = <1000>;
 	};
 };
 
