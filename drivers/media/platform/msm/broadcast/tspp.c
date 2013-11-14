@@ -2935,6 +2935,7 @@ static int msm_tspp_probe(struct platform_device *pdev)
 	struct resource *mem_bam;
 	struct tspp_channel *channel;
 	struct msm_bus_scale_pdata *tspp_bus_pdata = NULL;
+	unsigned long rate;
 
 	if (pdev->dev.of_node) {
 		/* get information from device tree */
@@ -3029,6 +3030,10 @@ static int msm_tspp_probe(struct platform_device *pdev)
 			device->tsif_ref_clk = NULL;
 			goto err_refclock;
 		}
+		rate = clk_round_rate(device->tsif_ref_clk, 1);
+		rc = clk_set_rate(device->tsif_ref_clk, rate);
+		if (rc)
+			goto err_res_tsif0;
 	}
 
 	/* map I/O memory */
