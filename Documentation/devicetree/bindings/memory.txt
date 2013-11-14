@@ -34,7 +34,7 @@ wit the following convention:
 
 (name): region@(base-address) {
 	reg = <(baseaddr) (size)>;
-	(linux,contiguous-region);
+	(linux,reserve-contiguous-region);
 	(linux,default-contiguous-region);
 	(linux,reserve-region);
 	(linux,memory-limit);
@@ -44,7 +44,7 @@ wit the following convention:
 name:		an name given to the defined region.
 base-address:	the base address of the defined region.
 size:		the size of the memory region.
-linux,contiguous-region: property indicating that the defined memory
+linux,reserve-contiguous-region: property indicating that the defined memory
 		region is used for contiguous memory allocations,
 		Linux specific (optional)
 linux,default-contiguous-region: property indicating that the region
@@ -98,13 +98,13 @@ logo appears.
 			0x70000000 0x10000000>;
 
 		contig_mem: region@72000000 {
-			linux,contiguous-region;
+			linux,reserve-contiguous-region;
 			linux,default-contiguous-region;
 			reg = <0x72000000 0x4000000>;
 		};
 
 		display_mem: region@78000000 {
-			linux,contiguous-region;
+			linux,reserve-contiguous-region;
 			reg = <0x78000000 0x1000000>;
 		};
 	};

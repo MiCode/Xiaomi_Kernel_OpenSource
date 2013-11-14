@@ -26,31 +26,31 @@
 
 	memory {
 		secure_mem: secure_region@0 {
-			linux,contiguous-region;
+			linux,reserve-contiguous-region;
 			reg = <0 0x6D00000>;
 			label = "secure_mem";
 		};
 
 		adsp_mem: adsp_region@0 {
-			linux,contiguous-region;
+			linux,reserve-contiguous-region;
 			reg = <0 0x2a00000>;
 			label = "adsp_mem";
 		};
 
 		qsecom_mem: qsecom_region@0 {
-			linux,contiguous-region;
+			linux,reserve-contiguous-region;
 			reg = <0 0xd00000>;
 			label = "qsecom_mem";
 		};
 
 		fb_mem: fb_region@0 {
-			linux,contiguous-region;
+			linux,reserve-contiguous-region;
 			reg = <0 0x800000>;
 			label = "fb_mem";
 		};
 
 		audio_mem: audio_region@0 {
-			linux,contiguous-region;
+			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			reg = <0 0x314000>;
 			label = "audio_mem";
