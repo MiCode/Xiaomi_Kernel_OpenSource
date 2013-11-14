@@ -3905,7 +3905,7 @@ int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 			mutex_unlock(&ad->lock);
 			mutex_lock(&mfd->bl_lock);
 			MDSS_BRIGHT_TO_BL(bl, bl, mfd->panel_info->bl_max,
-							MDSS_MAX_BL_BRIGHTNESS);
+					mfd->panel_info->brightness_max);
 			mdss_fb_set_backlight(mfd, bl);
 			mutex_unlock(&mfd->bl_lock);
 			mutex_lock(&ad->lock);
