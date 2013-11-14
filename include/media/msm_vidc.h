@@ -5,6 +5,7 @@
 
 #include <linux/poll.h>
 #include <linux/videodev2.h>
+#include <media/msm_smem.h>
 
 enum core_id {
 	MSM_VIDC_CORE_0 = 0,
@@ -46,6 +47,18 @@ int msm_vidc_dqevent(void *instance, struct v4l2_event *event);
 int msm_vidc_wait(void *instance);
 int msm_vidc_s_parm(void *instance, struct v4l2_streamparm *a);
 int msm_vidc_enum_framesizes(void *instance, struct v4l2_frmsizeenum *fsize);
+struct msm_smem *msm_vidc_smem_alloc(void *instance,
+			size_t size, u32 align, u32 flags,
+			enum hal_buffer buffer_type, int map_kernel);
+void msm_vidc_smem_free(void *instance, struct msm_smem *mem);
+int msm_vidc_smem_cache_operations(void *instance,
+		struct msm_smem *mem, enum smem_cache_ops);
+struct msm_smem *msm_vidc_smem_user_to_kernel(void *instance,
+			int fd, u32 offset, enum hal_buffer buffer_type);
+int msm_vidc_smem_get_domain_partition(void *instance,
+		u32 flags, enum hal_buffer buffer_type,
+		int *domain_num, int *partition_num);
+void *msm_vidc_smem_get_client(void *instance);
 #endif
 struct msm_vidc_extradata_header {
 	unsigned int size;
