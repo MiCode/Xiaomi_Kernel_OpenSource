@@ -299,6 +299,8 @@ struct mdss_panel_info {
 	struct ion_handle *splash_ihdl;
 	u32 panel_power_on;
 
+	uint32_t panel_dead;
+
 	struct lcd_panel_info lcdc;
 	struct fbc_panel_info fbc;
 	struct mipi_panel_info mipi;

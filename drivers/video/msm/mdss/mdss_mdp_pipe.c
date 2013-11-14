@@ -728,7 +728,8 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 	dst = pipe->dst;
 	src = pipe->src;
 
-	mdss_mdp_crop_rect(&src, &dst, &sci);
+	if (pipe->mixer->type == MDSS_MDP_MIXER_TYPE_INTF)
+		mdss_mdp_crop_rect(&src, &dst, &sci);
 
 	src_size = (src.h << 16) | src.w;
 	src_xy = (src.y << 16) | src.x;
