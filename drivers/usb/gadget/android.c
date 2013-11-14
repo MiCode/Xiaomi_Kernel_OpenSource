@@ -2181,6 +2181,22 @@ android_unbind_enabled_functions(struct android_dev *dev,
 	}
 }
 
+static inline void check_streaming_func(struct usb_gadget *gadget,
+		struct android_usb_platform_data *pdata,
+		char *name)
+{
+	int i;
+
+	for (i = 0; i < pdata->streaming_func_count; i++) {
+		if (!strcmp(name,
+			pdata->streaming_func[i])) {
+			pr_debug("set streaming_enabled to true\n");
+			gadget->streaming_enabled = true;
+			break;
+		}
+	}
+}
+
 static int android_enable_function(struct android_dev *dev,
 				   struct android_configuration *conf,
 				   char *name)
@@ -2188,6 +2204,9 @@ static int android_enable_function(struct android_dev *dev,
 	struct android_usb_function **functions = dev->functions;
 	struct android_usb_function *f;
 	struct android_usb_function_holder *f_holder;
+	struct android_usb_platform_data *pdata = dev->pdata;
+	struct usb_gadget *gadget = dev->cdev->gadget;
+
 	while ((f = *functions++)) {
 		if (!strcmp(name, f->name)) {
 			if (f->android_dev && f->android_dev != dev)
@@ -2205,6 +2224,13 @@ static int android_enable_function(struct android_dev *dev,
 				f_holder->f = f;
 				list_add_tail(&f_holder->enabled_list,
 					      &conf->enabled_functions);
+				pr_debug("func:%s is enabled.\n", f->name);
+				/*
+				 * compare enable function with streaming func
+				 * list and based on the same request streaming.
+				 */
+				check_streaming_func(gadget, pdata, f->name);
+
 				return 0;
 			}
 		}
@@ -2577,6 +2603,10 @@ static void android_unbind_config(struct usb_configuration *c)
 {
 	struct android_dev *dev = cdev_to_android_dev(c->cdev);
 
+	if (c->cdev->gadget->streaming_enabled) {
+		c->cdev->gadget->streaming_enabled = false;
+		pr_debug("setting streaming_enabled to false.\n");
+	}
 	android_unbind_enabled_functions(dev, c);
 }
 
@@ -2899,7 +2929,7 @@ static int __devinit android_probe(struct platform_device *pdev)
 	struct android_usb_platform_data *pdata;
 	struct android_dev *android_dev;
 	struct resource *res;
-	int ret = 0;
+	int ret = 0, i, len = 0;
 
 	if (pdev->dev.of_node) {
 		dev_dbg(&pdev->dev, "device tree enabled\n");
@@ -2916,6 +2946,33 @@ static int __devinit android_probe(struct platform_device *pdev)
 				"qcom,android-usb-cdrom");
 		pdata->internal_ums = of_property_read_bool(pdev->dev.of_node,
 				"qcom,android-usb-internal-ums");
+		len = of_property_count_strings(pdev->dev.of_node,
+				"qcom,streaming-func");
+		if (len > MAX_STREAMING_FUNCS) {
+			pr_err("Invalid number of functions used.\n");
+			return -EINVAL;
+		}
+
+		for (i = 0; i < len; i++) {
+			const char *name = NULL;
+
+			of_property_read_string_index(pdev->dev.of_node,
+				"qcom,streaming-func", i, &name);
+			if (!name)
+				continue;
+
+			if (sizeof(name) > FUNC_NAME_LEN) {
+				pr_err("Function name is bigger than allowed.\n");
+				continue;
+			}
+
+			strlcpy(pdata->streaming_func[i], name,
+				sizeof(pdata->streaming_func[i]));
+			pr_debug("name of streaming function:%s\n",
+				pdata->streaming_func[i]);
+		}
+
+		pdata->streaming_func_count = len;
 	} else {
 		pdata = pdev->dev.platform_data;
 	}
