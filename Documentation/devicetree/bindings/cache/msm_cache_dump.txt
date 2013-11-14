@@ -9,10 +9,6 @@ Required properties:
 - qcom,memory-reservation-size: Combined reserved memory for the dump buffers
 - qcom,memory-reservation-type: Type of memory to be reserved
 
-Optional properties:
-- qcom,use-imem-dump-offset: If specified, store cache dump buffer addresses
-  in IMEM rather than using the memory dump reservation table.
-
 Example:
 	qcom,cache_dump {
 		compatible = "qcom,cache_dump";
