@@ -54,5 +54,26 @@
 			qcom,virtual-addr-pool = <0x00001000 0x80000000>;
 			qcom,secure-domain;
 		};
+
+		venus_domain_sec_bitstream: qcom,iommu-domain7 {
+			label = "venus_sec_bitstream";
+			qcom,iommu-contexts = <&venus_sec_bitstream>;
+			qcom,virtual-addr-pool = <0x4b000000 0x12c00000>;
+			qcom,secure-domain;
+		};
+
+		venus_domain_sec_pixel: qcom,iommu-domain8 {
+			label = "venus_sec_pixel";
+			qcom,iommu-contexts = <&venus_sec_pixel>;
+			qcom,virtual-addr-pool = <0x25800000 0x25800000>;
+			qcom,secure-domain;
+		};
+
+		venus_domain_sec_non_pixel: qcom,iommu-domain9 {
+			label = "venus_sec_non_pixel";
+			qcom,iommu-contexts = <&venus_sec_non_pixel>;
+			qcom,virtual-addr-pool = <0x1000000 0x24800000>;
+			qcom,secure-domain;
+		};
 	};
 };
