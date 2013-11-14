@@ -3471,13 +3471,21 @@
 	};
 
 	qcom,pil-vpu@fde0b000{
-		compatible = "qcom,pil-vpu";
+		compatible = "qcom,pil-tz-generic";
 		reg = <0xfde0b000 0x80>;
-		reg-names = "maple_csr_base";
-		vdd-supply = <&gdsc_vpu>;
-		clock-names = "core_clk", "iface_clk", "bus_clk", "vdp_clk",
-					"vdp_bus_clk", "cxo_clk", "sleep_clk", "maple_bus_clk";
 
+		vdd-supply = <&gdsc_vpu>;
+		proxy-reg-names = "vdd";
+		active-reg-names = "vdd";
+		clock-names = "core_clk", "iface_clk", "bus_clk",
+				"vdp_clk", "vdp_bus_clk", "cxo_clk",
+				"sleep_clk", "maple_bus_clk";
+		proxy-clock-names = "core_clk", "iface_clk", "bus_clk",
+					"vdp_clk", "vdp_bus_clk", "cxo_clk",
+					"sleep_clk", "maple_bus_clk";
+
+		qcom,pas-id = <10>;
+		qcom,proxy-timeout-ms = <10000>;
 		qcom,firmware-name = "vpu";
 	};
 
