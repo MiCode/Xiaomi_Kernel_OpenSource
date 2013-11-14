@@ -14,6 +14,8 @@
 #include <linux/genalloc.h>	/* gen_pool_alloc() */
 #include <linux/io.h>
 #include <linux/ratelimit.h>
+#include <mach/msm_bus.h>
+#include <mach/msm_bus_board.h>
 #include "ipa_i.h"
 
 #define IPA_V1_CLK_RATE (92.31 * 1000 * 1000UL)
@@ -109,6 +111,112 @@ static const int ep_mapping[2][IPA_CLIENT_MAX] = {
 	[IPA_2_0][IPA_CLIENT_APPS_WAN_CONS]      =  5,
 	[IPA_2_0][IPA_CLIENT_Q6_LAN_CONS]        =  8,
 	[IPA_2_0][IPA_CLIENT_Q6_WAN_CONS]        =  9,
+};
+
+static struct msm_bus_vectors ipa_init_vectors_v1_1[]  = {
+	{
+		.src = MSM_BUS_MASTER_IPA,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+	{
+		.src = MSM_BUS_MASTER_BAM_DMA,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+	{
+		.src = MSM_BUS_MASTER_BAM_DMA,
+		.dst = MSM_BUS_SLAVE_OCIMEM,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+
+static struct msm_bus_vectors ipa_init_vectors_v2_0[]  = {
+	{
+		.src = MSM_BUS_MASTER_IPA,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+	{
+		.src = MSM_BUS_MASTER_IPA,
+		.dst = MSM_BUS_SLAVE_OCIMEM,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+
+static struct msm_bus_vectors ipa_max_perf_vectors_v1_1[]  = {
+	{
+		.src = MSM_BUS_MASTER_IPA,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 50000000,
+		.ib = 960000000,
+	},
+	{
+		.src = MSM_BUS_MASTER_BAM_DMA,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 50000000,
+		.ib = 960000000,
+	},
+	{
+		.src = MSM_BUS_MASTER_BAM_DMA,
+		.dst = MSM_BUS_SLAVE_OCIMEM,
+		.ab = 50000000,
+		.ib = 960000000,
+	},
+};
+
+static struct msm_bus_vectors ipa_nominal_perf_vectors_v2_0[]  = {
+	{
+		.src = MSM_BUS_MASTER_IPA,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 100000000,
+		.ib = 1300000000,
+	},
+	{
+		.src = MSM_BUS_MASTER_IPA,
+		.dst = MSM_BUS_SLAVE_OCIMEM,
+		.ab = 100000000,
+		.ib = 1300000000,
+	},
+};
+
+static struct msm_bus_paths ipa_usecases_v1_1[]  = {
+	{
+		ARRAY_SIZE(ipa_init_vectors_v1_1),
+		ipa_init_vectors_v1_1,
+	},
+	{
+		ARRAY_SIZE(ipa_max_perf_vectors_v1_1),
+		ipa_max_perf_vectors_v1_1,
+	},
+};
+
+static struct msm_bus_paths ipa_usecases_v2_0[]  = {
+	{
+		ARRAY_SIZE(ipa_init_vectors_v2_0),
+		ipa_init_vectors_v2_0,
+	},
+	{
+		ARRAY_SIZE(ipa_nominal_perf_vectors_v2_0),
+		ipa_nominal_perf_vectors_v2_0,
+	},
+};
+
+static struct msm_bus_scale_pdata ipa_bus_client_pdata_v1_1 = {
+	ipa_usecases_v1_1,
+	ARRAY_SIZE(ipa_usecases_v1_1),
+	.name = "ipa",
+};
+
+static struct msm_bus_scale_pdata ipa_bus_client_pdata_v2_0 = {
+	ipa_usecases_v2_0,
+	ARRAY_SIZE(ipa_usecases_v2_0),
+	.name = "ipa",
 };
 
 /* read how much SRAM is available for SW use
@@ -2793,6 +2901,7 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_commit_hdr = __ipa_commit_hdr_v1;
 		ctrl->ipa_enable_clks = _ipa_enable_clks_v1;
 		ctrl->ipa_disable_clks = _ipa_disable_clks_v1;
+		ctrl->msm_bus_data_ptr = &ipa_bus_client_pdata_v1_1;
 		break;
 	case (IPA_HW_v1_1):
 		ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v1_1;
@@ -2818,6 +2927,7 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_commit_hdr = __ipa_commit_hdr_v1;
 		ctrl->ipa_enable_clks = _ipa_enable_clks_v1;
 		ctrl->ipa_disable_clks = _ipa_disable_clks_v1;
+		ctrl->msm_bus_data_ptr = &ipa_bus_client_pdata_v1_1;
 		break;
 	case (IPA_HW_v2_0):
 		ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v2_0;
@@ -2843,6 +2953,7 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_commit_hdr = __ipa_commit_hdr_v2;
 		ctrl->ipa_enable_clks = _ipa_enable_clks_v2_0;
 		ctrl->ipa_disable_clks = _ipa_disable_clks_v2_0;
+		ctrl->msm_bus_data_ptr = &ipa_bus_client_pdata_v2_0;
 		break;
 	default:
 		return -EPERM;
