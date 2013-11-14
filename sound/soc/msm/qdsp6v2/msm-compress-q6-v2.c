@@ -372,9 +372,11 @@ static void populate_codec_list(struct msm_compr_audio *prtd)
 			COMPR_PLAYBACK_MIN_NUM_FRAGMENTS;
 	prtd->compr_cap.max_fragments =
 			COMPR_PLAYBACK_MAX_NUM_FRAGMENTS;
-	prtd->compr_cap.num_codecs = 2;
+	prtd->compr_cap.num_codecs = 4;
 	prtd->compr_cap.codecs[0] = SND_AUDIOCODEC_MP3;
 	prtd->compr_cap.codecs[1] = SND_AUDIOCODEC_AAC;
+	prtd->compr_cap.codecs[2] = SND_AUDIOCODEC_AC3;
+	prtd->compr_cap.codecs[3] = SND_AUDIOCODEC_EAC3;
 }
 
 static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
@@ -399,6 +401,10 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 							  &aac_cfg, stream_id);
 		if (ret < 0)
 			pr_err("%s: CMD Format block failed\n", __func__);
+		break;
+	case FORMAT_AC3:
+		break;
+	case FORMAT_EAC3:
 		break;
 	default:
 		pr_debug("%s, unsupported format, skip", __func__);
@@ -682,6 +688,16 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 		pr_debug("SND_AUDIOCODEC_AAC\n");
 		prtd->codec = FORMAT_MPEG4_AAC;
 		frame_sz = AAC_OUTPUT_FRAME_SZ;
+		break;
+	}
+
+	case SND_AUDIOCODEC_AC3: {
+		prtd->codec = FORMAT_AC3;
+		break;
+	}
+
+	case SND_AUDIOCODEC_EAC3: {
+		prtd->codec = FORMAT_EAC3;
 		break;
 	}
 
@@ -1225,6 +1241,10 @@ static int msm_compr_get_codec_caps(struct snd_compr_stream *cstream,
 		codec->descriptor[1].formats =
 			(SND_AUDIOSTREAMFORMAT_MP4ADTS |
 				SND_AUDIOSTREAMFORMAT_RAW);
+		break;
+	case SND_AUDIOCODEC_AC3:
+		break;
+	case SND_AUDIOCODEC_EAC3:
 		break;
 	default:
 		pr_err("%s: Unsupported audio codec %d\n",
