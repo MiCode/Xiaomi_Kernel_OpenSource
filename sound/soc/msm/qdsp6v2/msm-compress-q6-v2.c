@@ -173,17 +173,11 @@ static int msm_compr_send_buffer(struct msm_compr_audio *prtd)
 
 	pr_debug("%s: bytes_received = %d copied_total = %d\n",
 		__func__, prtd->bytes_received, prtd->copied_total);
-	/*
-	 * FIXME: Initial and trailing silence removal API call to DSP results
-	 *	to a glitch during the stream transition for gapless playback.
-	 *	Add this when the issue is fixed from DSP.
-	 */
-/*
 	if (prtd->first_buffer)
 		q6asm_send_meta_data(prtd->audio_client,
 				prtd->gapless_state.initial_samples_drop,
 				prtd->gapless_state.trailing_samples_drop);
-*/
+
 	buffer_length = prtd->codec_param.buffer.fragment_size;
 	bytes_available = prtd->bytes_received - prtd->copied_total;
 	if (bytes_available < prtd->codec_param.buffer.fragment_size)
