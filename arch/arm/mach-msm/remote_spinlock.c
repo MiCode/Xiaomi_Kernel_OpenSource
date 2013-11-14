@@ -24,7 +24,6 @@
 #include <mach/remote_spinlock.h>
 #include <mach/dal.h>
 #include <mach/msm_smem.h>
-#include "smd_private.h"
 
 
 #define SPINLOCK_PID_APPS 1
