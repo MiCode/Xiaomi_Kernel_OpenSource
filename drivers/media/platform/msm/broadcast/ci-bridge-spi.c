@@ -48,11 +48,6 @@ struct ci_bridge {
 
 };
 
-static struct of_device_id cibridge_match_table[] = {
-	{.compatible = "smartv,cimax"},
-	{}
-};
-
 static struct ci_bridge ci;
 
 static int ci_bridge_spi_dt_to_pdata(struct spi_device *spi,
@@ -78,97 +73,6 @@ static int ci_bridge_spi_dt_to_pdata(struct spi_device *spi,
 	return 0;
 }
 
-static int ci_bridge_spi_probe(struct spi_device *spi)
-{
-	int ret;
-
-	if (spi->dev.of_node) {
-		struct ci_bridge_platform_data pdata;
-
-		/* get information from device tree */
-		ret = ci_bridge_spi_dt_to_pdata(spi, &pdata);
-		if (ret < 0) {
-			pr_err("%s: parsing DT failed %d\n", __func__, ret);
-			return ret;
-		}
-
-		ci.gpio_reset_pin = pdata.reset_pin;
-		ci.gpio_interrupt_pin = pdata.interrupt_pin;
-	} else {
-		struct ci_bridge_platform_data *pdata = spi->dev.platform_data;
-		if (!pdata) {
-			pr_err("%s: platform data is missing\n", __func__);
-			return -EINVAL;
-		}
-
-		ci.gpio_reset_pin = pdata->reset_pin;
-		ci.gpio_interrupt_pin = pdata->interrupt_pin;
-	}
-
-	ci.spi = spi;
-	ci.num_opened = 0;
-	mutex_init(&ci.lock);
-	spi_set_drvdata(spi, &ci);
-
-	ret = gpio_request(ci.gpio_reset_pin, "ci_bridge_spi");
-	if (ret) {
-		pr_err("%s: GPIO request for pin number %u failed\n",
-			   __func__, ci.gpio_reset_pin);
-		return ret;
-	}
-	ret = gpio_direction_output(ci.gpio_reset_pin, 1);
-	if (ret) {
-		pr_err("%s: unable to set GPIO direction, err=%d\n",
-			  __func__, ret);
-		goto err_free_reset_pin;
-	}
-
-	ret = gpio_request(ci.gpio_interrupt_pin, "ci_bridge_spi");
-	if (ret) {
-		pr_err("%s: GPIO request for pin number %u failed\n",
-			   __func__, ci.gpio_interrupt_pin);
-		goto err_free_reset_pin;
-	}
-	ret = gpio_direction_input(ci.gpio_interrupt_pin);
-	if (ret) {
-		pr_err("%s: unable to set GPIO direction, err=%d\n",
-			   __func__, ret);
-		goto err_free_int_pin;
-	}
-
-	return 0;
-
-err_free_int_pin:
-	gpio_free(ci.gpio_interrupt_pin);
-err_free_reset_pin:
-	gpio_free(ci.gpio_reset_pin);
-
-	return ret;
-}
-
-static int ci_bridge_spi_remove(struct spi_device *spi)
-{
-	struct ci_bridge *bridge = spi_get_drvdata(spi);
-
-	spi_set_drvdata(bridge->spi, NULL);
-	bridge->spi = NULL;
-	mutex_destroy(&ci.lock);
-
-	gpio_free(ci.gpio_reset_pin);
-	gpio_free(ci.gpio_interrupt_pin);
-
-	return 0;
-}
-
-static struct spi_driver ci_bridge_driver = {
-	.driver = {
-		.name = "ci_bridge_spi",
-		.of_match_table = cibridge_match_table,
-		.owner = THIS_MODULE,
-	},
-	.probe = ci_bridge_spi_probe,
-	.remove = ci_bridge_spi_remove,
-};
 
 static void ci_bridge_spi_completion_cb(void *arg)
 {
@@ -196,7 +100,13 @@ static ssize_t ci_bridge_spi_read(struct file *filp,
 	memset(&spi_transfer, 0, sizeof(struct spi_transfer));
 	memset(&spi_message, 0, sizeof(struct spi_message));
 
-	mutex_lock(&bridge->lock);
+	if (mutex_lock_interruptible(&bridge->lock))
+		return -ERESTARTSYS;
+
+	if (!bridge->num_opened) {
+		mutex_unlock(&bridge->lock);
+		return -ENODEV;
+	}
 
 	spi_transfer.rx_buf = bridge->read_buffer;
 	spi_transfer.len =  count;
@@ -258,7 +168,14 @@ static ssize_t ci_bridge_spi_write(struct file *filp,
 	memset(&spi_transfer, 0, sizeof(struct spi_transfer));
 	memset(&spi_message, 0, sizeof(struct spi_message));
 
-	mutex_lock(&bridge->lock);
+	if (mutex_lock_interruptible(&bridge->lock))
+		return -ERESTARTSYS;
+
+	if (!bridge->num_opened) {
+		mutex_unlock(&bridge->lock);
+		return -ENODEV;
+	}
+
 	/* copy user data to our SPI Tx buffer */
 	not_copied = copy_from_user(bridge->write_buffer, buf, count);
 	if (not_copied != 0) {
@@ -296,10 +213,16 @@ static ssize_t ci_bridge_spi_write(struct file *filp,
 
 static int ci_bridge_spi_open(struct inode *inode, struct file *filp)
 {
-	/* forbid opening more then one instance at a time,
-	   parallel execution can still be problematic */
-	if (ci.num_opened != 0)
+	int ret;
+
+	/* forbid opening more then one instance at a time */
+	if (mutex_lock_interruptible(&ci.lock))
+		return -ERESTARTSYS;
+
+	if (ci.num_opened) {
+		mutex_unlock(&ci.lock);
 		return -EBUSY;
+	}
 
 	/* allocate write buffer */
 	ci.write_buffer =
@@ -307,6 +230,7 @@ static int ci_bridge_spi_open(struct inode *inode, struct file *filp)
 	if (ci.write_buffer == NULL) {
 		pr_err("%s: Error allocating memory for write buffer\n",
 			__func__);
+		mutex_unlock(&ci.lock);
 		return -ENOMEM;
 	}
 	/* allocate read buffer */
@@ -315,16 +239,56 @@ static int ci_bridge_spi_open(struct inode *inode, struct file *filp)
 	if (ci.read_buffer == NULL) {
 		pr_err("%s: Error allocating memory for read buffer\n",
 			__func__);
-		kfree(ci.write_buffer);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto err_read_buff_mem_fail;
 	}
+
+	ret = gpio_request(ci.gpio_reset_pin, "ci_bridge_spi");
+	if (ret) {
+		pr_err("%s: GPIO request for pin number %u failed\n",
+			   __func__, ci.gpio_reset_pin);
+		goto err_reset_pin_req_fail;
+	}
+	ret = gpio_direction_output(ci.gpio_reset_pin, 1);
+	if (ret) {
+		pr_err("%s: unable to set GPIO direction, err=%d\n",
+			  __func__, ret);
+		goto err_reset_pin_set_fail;
+	}
+
+	ret = gpio_request(ci.gpio_interrupt_pin, "ci_bridge_spi");
+	if (ret) {
+		pr_err("%s: GPIO request for pin number %u failed\n",
+			   __func__, ci.gpio_interrupt_pin);
+		goto err_int_pin_req_fail;
+	}
+	ret = gpio_direction_input(ci.gpio_interrupt_pin);
+	if (ret) {
+		pr_err("%s: unable to set GPIO direction, err=%d\n",
+			   __func__, ret);
+		goto err_int_pin_set_fail;
+	}
+
 	/* device is non-seekable */
 	nonseekable_open(inode, filp);
 
 	filp->private_data = &ci;
 	ci.num_opened = 1;
+	mutex_unlock(&ci.lock);
 
 	return 0;
+
+err_int_pin_set_fail:
+	gpio_free(ci.gpio_interrupt_pin);
+err_int_pin_req_fail:
+err_reset_pin_set_fail:
+	gpio_free(ci.gpio_reset_pin);
+err_reset_pin_req_fail:
+	kfree(ci.read_buffer);
+err_read_buff_mem_fail:
+	kfree(ci.write_buffer);
+	mutex_unlock(&ci.lock);
+	return ret;
 }
 
 static int ci_bridge_ioctl_get_int(void *arg)
@@ -355,9 +319,20 @@ static long ci_bridge_spi_ioctl(struct file *file, unsigned int cmd,
 	unsigned long arg)
 {
 	int ret;
+	struct ci_bridge *bridge = file->private_data;
+
+	if ((bridge == NULL) || (bridge->spi == NULL))
+		return -ENODEV;
+
+	if (mutex_lock_interruptible(&bridge->lock))
+		return -ERESTARTSYS;
+
+	if (!bridge->num_opened) {
+		mutex_unlock(&bridge->lock);
+		return -ENODEV;
+	}
 
 	switch (cmd) {
-
 	case CI_BRIDGE_IOCTL_RESET:
 		ret = ci_bridge_ioctl_reset(arg);
 		break;
@@ -371,6 +346,8 @@ static long ci_bridge_spi_ioctl(struct file *file, unsigned int cmd,
 		break;
 	}
 
+	mutex_unlock(&bridge->lock);
+
 	return ret;
 }
 
@@ -381,10 +358,22 @@ static int ci_bridge_spi_release(struct inode *inode, struct file *filp)
 	if ((bridge == NULL) || (bridge->spi == NULL))
 		return -ENODEV;
 
+	mutex_lock(&bridge->lock);
+
+	if (!bridge->num_opened) {
+		mutex_unlock(&bridge->lock);
+		return -ENODEV;
+	}
+
+	gpio_free(bridge->gpio_reset_pin);
+	gpio_free(bridge->gpio_interrupt_pin);
+
 	kfree(bridge->write_buffer);
 	kfree(bridge->read_buffer);
 	filp->private_data = NULL;
-	ci.num_opened = 0;
+	bridge->num_opened = 0;
+
+	mutex_unlock(&bridge->lock);
 
 	return 0;
 }
@@ -399,9 +388,37 @@ static const struct file_operations ci_bridge_spi_fops = {
 	.llseek  = no_llseek,
 };
 
-static int __init ci_bridge_init(void)
+static int ci_bridge_spi_probe(struct spi_device *spi)
 {
-	int ret = 0;
+	int ret;
+
+	if (spi->dev.of_node) {
+		struct ci_bridge_platform_data pdata;
+
+		/* get information from device tree */
+		ret = ci_bridge_spi_dt_to_pdata(spi, &pdata);
+		if (ret < 0) {
+			pr_err("%s: parsing DT failed %d\n", __func__, ret);
+			return ret;
+		}
+
+		ci.gpio_reset_pin = pdata.reset_pin;
+		ci.gpio_interrupt_pin = pdata.interrupt_pin;
+	} else {
+		struct ci_bridge_platform_data *pdata = spi->dev.platform_data;
+		if (!pdata) {
+			pr_err("%s: platform data is missing\n", __func__);
+			return -EINVAL;
+		}
+
+		ci.gpio_reset_pin = pdata->reset_pin;
+		ci.gpio_interrupt_pin = pdata->interrupt_pin;
+	}
+
+	ci.spi = spi;
+	ci.num_opened = 0;
+	mutex_init(&ci.lock);
+	spi_set_drvdata(spi, &ci);
 
 	ret = alloc_chrdev_region(&ci.ci_bridge_dev, 0, 1, "ci_bridge_spi");
 	if (ret != 0)
@@ -423,44 +440,72 @@ static int __init ci_bridge_init(void)
 	}
 
 	ci.bridge_dev = device_create(ci.bridge_class, NULL, ci.cdev.dev,
-				     &ci, "ci_bridge_spi0");
+					 &ci, "ci_bridge_spi0");
 	if (IS_ERR(ci.bridge_dev)) {
 		ret = PTR_ERR(ci.bridge_dev);
 		pr_err("device_create failed: %d\n", ret);
 		goto del_cdev;
 	}
 
-	ret = spi_register_driver(&ci_bridge_driver);
-	if (ret != 0) {
-		pr_err("Error registering spi driver: %d\n", ret);
-		goto device_destroy;
-	}
-
-	/* successful return */
 	return 0;
-
-device_destroy:
-	device_destroy(ci.bridge_class, ci.ci_bridge_dev);
 
 del_cdev:
 	cdev_del(&ci.cdev);
-
 class_destroy:
 	class_destroy(ci.bridge_class);
-
 free_region:
 	unregister_chrdev_region(ci.ci_bridge_dev, 1);
 
 	return ret;
 }
 
-static void __exit ci_bridge_exit(void)
+static int ci_bridge_spi_remove(struct spi_device *spi)
 {
-	spi_unregister_driver(&ci_bridge_driver);
+	struct ci_bridge *bridge = spi_get_drvdata(spi);
+
 	device_destroy(ci.bridge_class, ci.ci_bridge_dev);
 	cdev_del(&ci.cdev);
 	class_destroy(ci.bridge_class);
 	unregister_chrdev_region(ci.ci_bridge_dev, 1);
+
+	spi_set_drvdata(bridge->spi, NULL);
+	bridge->spi = NULL;
+	mutex_destroy(&ci.lock);
+
+	return 0;
+}
+
+static struct of_device_id cibridge_match_table[] = {
+	{.compatible = "smartv,cimax"},
+	{}
+};
+
+static struct spi_driver ci_bridge_driver = {
+	.driver = {
+		.name = "ci_bridge_spi",
+		.of_match_table = cibridge_match_table,
+		.owner = THIS_MODULE,
+	},
+	.probe = ci_bridge_spi_probe,
+	.remove = ci_bridge_spi_remove,
+};
+
+static int __init ci_bridge_init(void)
+{
+	int ret = 0;
+
+	ret = spi_register_driver(&ci_bridge_driver);
+	if (ret != 0) {
+		pr_err("Error registering spi driver: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static void __exit ci_bridge_exit(void)
+{
+	spi_unregister_driver(&ci_bridge_driver);
 }
 
 module_init(ci_bridge_init);
