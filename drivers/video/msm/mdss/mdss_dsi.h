@@ -118,6 +118,8 @@ enum dsi_ctrl_op_mode {
 
 #define DSI_INTR_ERROR_MASK		BIT(25)
 #define DSI_INTR_ERROR			BIT(24)
+#define DSI_INTR_BTA_DONE_MASK          BIT(21)
+#define DSI_INTR_BTA_DONE               BIT(20)
 #define DSI_INTR_VIDEO_DONE_MASK	BIT(17)
 #define DSI_INTR_VIDEO_DONE		BIT(16)
 #define DSI_INTR_CMD_MDP_DONE_MASK	BIT(9)
@@ -133,6 +135,7 @@ enum dsi_ctrl_op_mode {
 
 #define DSI_VIDEO_TERM  BIT(16)
 #define DSI_MDP_TERM    BIT(8)
+#define DSI_BTA_TERM    BIT(1)
 #define DSI_CMD_TERM    BIT(0)
 
 extern struct device dsi_dev;
@@ -315,6 +318,7 @@ struct mdss_dsi_ctrl_pdata {
 	int (*on) (struct mdss_panel_data *pdata);
 	int (*off) (struct mdss_panel_data *pdata);
 	int (*partial_update_fnc) (struct mdss_panel_data *pdata);
+	int (*check_status) (struct mdss_dsi_ctrl_pdata *pdata);
 	struct mdss_panel_data panel_data;
 	unsigned char *ctrl_base;
 	int reg_size;
@@ -360,6 +364,7 @@ struct mdss_dsi_ctrl_pdata {
 	struct completion dma_comp;
 	struct completion mdp_comp;
 	struct completion video_comp;
+	struct completion bta_comp;
 	spinlock_t irq_lock;
 	spinlock_t mdp_lock;
 	int mdp_busy;
@@ -428,6 +433,7 @@ int mdss_dsi_cmdlist_put(struct mdss_dsi_ctrl_pdata *ctrl,
 				struct dcs_cmd_req *cmdreq);
 struct dcs_cmd_req *mdss_dsi_cmdlist_get(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_cmdlist_kickoff(int intf);
+int mdss_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl);
 
 int mdss_dsi_panel_init(struct device_node *node,
 		struct mdss_dsi_ctrl_pdata *ctrl_pdata,

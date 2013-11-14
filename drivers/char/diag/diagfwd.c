@@ -1051,9 +1051,10 @@ static int diag_check_mode_reset(unsigned char *buf)
 	return is_mode_reset;
 }
 
-void diag_send_data(struct diag_master_table entry, unsigned char *buf,
+int diag_send_data(struct diag_master_table entry, unsigned char *buf,
 					 int len, int type)
 {
+	int success = 1;
 	driver->pkt_length = len;
 
 	/* If the process_id corresponds to an apps process */
@@ -1069,13 +1070,19 @@ void diag_send_data(struct diag_master_table entry, unsigned char *buf,
 			if (entry.client_id < NUM_SMD_DATA_CHANNELS) {
 				struct diag_smd_info *smd_info;
 				int index = entry.client_id;
+				if (!driver->rcvd_feature_mask[
+					entry.client_id]) {
+					pr_debug("diag: In %s, feature mask for peripheral: %d not received yet\n",
+						__func__, entry.client_id);
+					return 0;
+				}
 				/*
 				 * Mode reset should work even if
 				 * modem is down
 				 */
 				if ((index == MODEM_DATA) &&
 					diag_check_mode_reset(buf)) {
-					return;
+					return 1;
 				}
 				smd_info = (driver->separate_cmdrsp[index] &&
 						index < NUM_SMD_CMD_CHANNELS) ?
@@ -1095,9 +1102,12 @@ void diag_send_data(struct diag_master_table entry, unsigned char *buf,
 			} else {
 				pr_alert("diag: In %s, incorrect channel: %d",
 					__func__, entry.client_id);
+				success = 0;
 			}
 		}
 	}
+
+	return success;
 }
 
 void diag_process_stm_mask(uint8_t cmd, uint8_t data_mask, int data_type,
@@ -1191,6 +1201,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 	unsigned char *temp = buf;
 	int data_type;
 	int mask_ret;
+	int status = 0;
 #if defined(CONFIG_DIAG_OVER_USB)
 	unsigned char *ptr;
 #endif
@@ -1217,14 +1228,15 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 	pr_debug("diag: %d %d %d", cmd_code, subsys_id, subsys_cmd_code);
 	for (i = 0; i < diag_max_reg; i++) {
 		entry = driver->table[i];
-		if (entry.process_id != NO_PROCESS &&
-				driver->rcvd_feature_mask[entry.client_id]) {
+		if (entry.process_id != NO_PROCESS) {
 			if (entry.cmd_code == cmd_code && entry.subsys_id ==
 				 subsys_id && entry.cmd_code_lo <=
 							 subsys_cmd_code &&
 				  entry.cmd_code_hi >= subsys_cmd_code) {
-				diag_send_data(entry, buf, len, data_type);
-				packet_type = 0;
+				status = diag_send_data(entry, buf, len,
+								data_type);
+				if (status)
+					packet_type = 0;
 			} else if (entry.cmd_code == 255
 				  && cmd_code == 75) {
 				if (entry.subsys_id ==
@@ -1233,9 +1245,10 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 					subsys_cmd_code &&
 					 entry.cmd_code_hi >=
 					subsys_cmd_code) {
-					diag_send_data(entry, buf, len,
-								 data_type);
-					packet_type = 0;
+					status = diag_send_data(entry, buf,
+								len, data_type);
+					if (status)
+						packet_type = 0;
 				}
 			} else if (entry.cmd_code == 255 &&
 				  entry.subsys_id == 255) {
@@ -1243,9 +1256,10 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 						 cmd_code &&
 						 entry.
 						cmd_code_hi >= cmd_code) {
-					diag_send_data(entry, buf, len,
+					status = diag_send_data(entry, buf, len,
 								 data_type);
-					packet_type = 0;
+					if (status)
+						packet_type = 0;
 				}
 			}
 		}
@@ -1280,22 +1294,38 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 		driver->apps_rsp_buf[0] = 0x73;
 		*(int *)(driver->apps_rsp_buf + 4) = 0x1; /* operation ID */
 		*(int *)(driver->apps_rsp_buf + 8) = 0x0; /* success code */
-		*(int *)(driver->apps_rsp_buf + 12) = LOG_GET_ITEM_NUM(LOG_0);
-		*(int *)(driver->apps_rsp_buf + 16) = LOG_GET_ITEM_NUM(LOG_1);
-		*(int *)(driver->apps_rsp_buf + 20) = LOG_GET_ITEM_NUM(LOG_2);
-		*(int *)(driver->apps_rsp_buf + 24) = LOG_GET_ITEM_NUM(LOG_3);
-		*(int *)(driver->apps_rsp_buf + 28) = LOG_GET_ITEM_NUM(LOG_4);
-		*(int *)(driver->apps_rsp_buf + 32) = LOG_GET_ITEM_NUM(LOG_5);
-		*(int *)(driver->apps_rsp_buf + 36) = LOG_GET_ITEM_NUM(LOG_6);
-		*(int *)(driver->apps_rsp_buf + 40) = LOG_GET_ITEM_NUM(LOG_7);
-		*(int *)(driver->apps_rsp_buf + 44) = LOG_GET_ITEM_NUM(LOG_8);
-		*(int *)(driver->apps_rsp_buf + 48) = LOG_GET_ITEM_NUM(LOG_9);
-		*(int *)(driver->apps_rsp_buf + 52) = LOG_GET_ITEM_NUM(LOG_10);
-		*(int *)(driver->apps_rsp_buf + 56) = LOG_GET_ITEM_NUM(LOG_11);
-		*(int *)(driver->apps_rsp_buf + 60) = LOG_GET_ITEM_NUM(LOG_12);
-		*(int *)(driver->apps_rsp_buf + 64) = LOG_GET_ITEM_NUM(LOG_13);
-		*(int *)(driver->apps_rsp_buf + 68) = LOG_GET_ITEM_NUM(LOG_14);
-		*(int *)(driver->apps_rsp_buf + 72) = LOG_GET_ITEM_NUM(LOG_15);
+		*(int *)(driver->apps_rsp_buf + 12) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[0]);
+		*(int *)(driver->apps_rsp_buf + 16) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[1]);
+		*(int *)(driver->apps_rsp_buf + 20) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[2]);
+		*(int *)(driver->apps_rsp_buf + 24) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[3]);
+		*(int *)(driver->apps_rsp_buf + 28) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[4]);
+		*(int *)(driver->apps_rsp_buf + 32) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[5]);
+		*(int *)(driver->apps_rsp_buf + 36) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[6]);
+		*(int *)(driver->apps_rsp_buf + 40) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[7]);
+		*(int *)(driver->apps_rsp_buf + 44) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[8]);
+		*(int *)(driver->apps_rsp_buf + 48) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[9]);
+		*(int *)(driver->apps_rsp_buf + 52) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[10]);
+		*(int *)(driver->apps_rsp_buf + 56) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[11]);
+		*(int *)(driver->apps_rsp_buf + 60) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[12]);
+		*(int *)(driver->apps_rsp_buf + 64) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[13]);
+		*(int *)(driver->apps_rsp_buf + 68) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[14]);
+		*(int *)(driver->apps_rsp_buf + 72) =
+				LOG_GET_ITEM_NUM(log_code_last_tbl[15]);
 		encode_rsp_and_send(75);
 		return 0;
 	}

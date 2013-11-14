@@ -374,7 +374,6 @@ struct mdss_mdp_pipe {
 
 struct mdss_mdp_writeback_arg {
 	struct mdss_mdp_data *data;
-	void (*callback_fnc) (void *arg);
 	void *priv_data;
 };
 
