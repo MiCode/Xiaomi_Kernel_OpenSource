@@ -26,10 +26,10 @@
 #include <mach/ramdump.h>
 #include <mach/msm_smem.h>
 #include <mach/msm_bus_board.h>
+#include <mach/msm_smsm.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
-#include "smd_private.h"
 
 #define RIVA_PMU_A2XB_CFG		0xB8
 #define RIVA_PMU_A2XB_CFG_EN		BIT(0)
