@@ -20,8 +20,6 @@
 #include <linux/spinlock.h>
 #include <mach/ocmem.h>
 #include <mach/iommu_domains.h>
-#include <media/msm_smem.h>
-
 #include "vidc_hfi_api.h"
 #include "vidc_hfi_helper.h"
 #include "vidc_hfi_api.h"

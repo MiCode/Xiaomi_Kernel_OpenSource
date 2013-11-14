@@ -34,7 +34,6 @@
 #include <linux/timer.h>
 #include <mach/iommu_domains.h>
 #include <media/msm_vidc.h>
-#include <media/msm_smem.h>
 #include "dvbdev.h"
 #include "mpq_adapter.h"
 #include "mpq_stream_buffer.h"
@@ -509,7 +508,7 @@ static int mpq_v4l2_queue_input_buffer(
 	plane[0].data_offset = pbinfo->offset;
 	buf.m.planes = plane;
 	if (pbinfo->handle) {
-		rc = msm_smem_cache_operations(v4l2_inst->mem_client,
+		rc = msm_vidc_smem_cache_operations(v4l2_inst->vidc_inst,
 			pbinfo->handle, SMEM_CACHE_CLEAN);
 		if (rc)
 			ERR("[%s] Failed to clean caches: %d\n", __func__, rc);
@@ -622,7 +621,7 @@ static int mpq_v4l2_deque_output_buffer(
 	v4l2_inst->buf_info[CAPTURE_PORT][buf.index].bytesused =
 		buf.m.planes[0].bytesused;
 	if (v4l2_inst->buf_info[CAPTURE_PORT][buf.index].handle) {
-		rc = msm_smem_cache_operations(v4l2_inst->mem_client,
+		rc = msm_vidc_smem_cache_operations(v4l2_inst->vidc_inst,
 			v4l2_inst->buf_info[CAPTURE_PORT][buf.index].handle,
 			SMEM_CACHE_INVALIDATE);
 		if (rc)
@@ -670,7 +669,7 @@ static int mpq_v4l2_prepare_buffer(
 	}
 	buf.m.planes = plane;
 	if (pbinfo->handle) {
-		rc = msm_smem_cache_operations(v4l2_inst->mem_client,
+		rc = msm_vidc_smem_cache_operations(v4l2_inst->vidc_inst,
 			pbinfo->handle, SMEM_CACHE_CLEAN);
 		if (rc)
 			ERR("[%s]Failed to clean caches: %d\n", __func__, rc);
@@ -706,7 +705,7 @@ static int mpq_translate_from_dvb_buf(
 		pbinfo->buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
 	else
 		pbinfo->buf_type =  V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-	handle = msm_smem_user_to_kernel(v4l2_inst->mem_client,
+	handle = msm_vidc_smem_user_to_kernel(v4l2_inst->vidc_inst,
 				pbinfo->fd, pbinfo->buf_offset,
 				(port_num == OUTPUT_PORT) ?
 				HAL_BUFFER_OUTPUT : HAL_BUFFER_INPUT);
@@ -1487,8 +1486,7 @@ static int mpq_dvb_open_v4l2(
 		DBG("Enum fmt: description: %s, fmt: %x, flags = %x\n",
 			fdesc.description, fdesc.pixelformat, fdesc.flags);
 	}
-	v4l2_inst->mem_client = msm_smem_new_client(SMEM_ION,
-		msm_vidc_get_resources(v4l2_inst->vidc_inst));
+	v4l2_inst->mem_client = msm_vidc_smem_get_client(v4l2_inst->vidc_inst);
 	if (!v4l2_inst->mem_client) {
 		ERR("Failed to create SMEM Client\n");
 		rc = -ENOMEM;
@@ -1538,8 +1536,6 @@ static int mpq_dvb_close_v4l2(
 				v4l2_inst->buf_info[OUTPUT_PORT][0].handle);
 		}
 	}
-	DBG("Close MSM MEM Client\n");
-	msm_smem_delete_client(v4l2_inst->mem_client);
 	DBG("Close MSM VIDC Decoder\n");
 	rc = msm_vidc_close(v4l2_inst->vidc_inst);
 	DBG("MSM VIDC Decoder Closed\n");

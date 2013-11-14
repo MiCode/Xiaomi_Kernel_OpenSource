@@ -307,4 +307,17 @@ int qbuf_dynamic_buf(struct msm_vidc_inst *inst,
 			struct buffer_info *binfo);
 int unmap_and_deregister_buf(struct msm_vidc_inst *inst,
 			struct buffer_info *binfo);
+
+void *msm_smem_new_client(enum smem_type mtype,
+				void *platform_resources);
+struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
+		enum hal_buffer buffer_type, int map_kernel);
+void msm_smem_free(void *clt, struct msm_smem *mem);
+void msm_smem_delete_client(void *clt);
+int msm_smem_cache_operations(void *clt, struct msm_smem *mem,
+		enum smem_cache_ops);
+struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
+				enum hal_buffer buffer_type);
+int msm_smem_get_domain_partition(void *clt, u32 flags, enum hal_buffer
+		buffer_type, int *domain_num, int *partition_num);
 #endif
