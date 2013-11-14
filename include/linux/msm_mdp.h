@@ -156,6 +156,7 @@ enum {
 
 #define MDSS_MDP_ROT_ONLY		0x80
 #define MDSS_MDP_RIGHT_MIXER		0x100
+#define MDSS_MDP_DUAL_PIPE		0x200
 
 /* mdp_blit_req flag values */
 #define MDP_ROT_NOP 0
