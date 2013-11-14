@@ -2040,6 +2040,7 @@ static ssize_t _ft_hang_intr_status_store(struct device *dev,
 	old_setting =
 		(test_bit(ADRENO_DEVICE_HANG_INTR, &adreno_dev->priv) ? 1 : 0);
 	if (new_setting != old_setting) {
+		int clk_on = 0;
 		if (new_setting)
 			set_bit(ADRENO_DEVICE_HANG_INTR, &adreno_dev->priv);
 		else
@@ -2050,8 +2051,13 @@ static ssize_t _ft_hang_intr_status_store(struct device *dev,
 		case KGSL_STATE_SLEEP:
 			kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_ON,
 					device->state);
+			clk_on = 1;
 		case KGSL_STATE_ACTIVE:
 			adreno_dev->gpudev->irq_control(adreno_dev, 1);
+			/* switch off clocks if we turned it on */
+			if (clk_on)
+				kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_OFF,
+					device->state);
 		/*
 		 * For following states setting will be picked up on device
 		 * start. Still need them in switch statement to differentiate
