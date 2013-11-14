@@ -270,6 +270,7 @@ struct smb135x_chg {
 	u32				workaround_flags;
 	bool				soft_vfloat_comp_disabled;
 	struct mutex			irq_complete;
+	struct regulator		*therm_bias_vreg;
 };
 
 static int smb135x_read(struct smb135x_chg *chip, int reg,
@@ -1833,6 +1834,14 @@ static int smb135x_hw_init(struct smb135x_chg *chip)
 	int i;
 	u8 reg, mask, dc_cur_val;
 
+	if (chip->therm_bias_vreg) {
+		rc = regulator_enable(chip->therm_bias_vreg);
+		if (rc) {
+			pr_err("Couldn't enable therm-bias rc = %d\n", rc);
+			return rc;
+		}
+	}
+
 	rc = smb135x_enable_volatile_writes(chip);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't configure for volatile rc = %d\n",
@@ -2197,6 +2206,15 @@ static int smb_parse_dt(struct smb135x_chg *chip)
 
 	chip->soft_vfloat_comp_disabled = of_property_read_bool(node,
 					"qcom,soft-vfloat-comp-disabled");
+
+	if (of_find_property(node, "therm-bias-supply", NULL)) {
+		/* get the thermistor bias regulator */
+		chip->therm_bias_vreg = devm_regulator_get(chip->dev,
+							"therm-bias");
+		if (IS_ERR(chip->therm_bias_vreg))
+			return PTR_ERR(chip->therm_bias_vreg);
+	}
+
 	return 0;
 }
 
@@ -2426,7 +2444,14 @@ free_regulator:
 
 static int smb135x_charger_remove(struct i2c_client *client)
 {
+	int rc;
 	struct smb135x_chg *chip = i2c_get_clientdata(client);
+
+	if (chip->therm_bias_vreg) {
+		rc = regulator_disable(chip->therm_bias_vreg);
+		if (rc)
+			pr_err("Couldn't disable therm-bias rc = %d\n", rc);
+	}
 
 	debugfs_remove_recursive(chip->debug_root);
 
