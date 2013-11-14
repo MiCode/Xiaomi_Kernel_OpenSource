@@ -1811,7 +1811,7 @@ static int __init msm_pm_8x60_init(void)
 
 	return platform_driver_register(&msm_pm_8x60_driver);
 }
-device_initcall(msm_pm_8x60_init);
+late_initcall(msm_pm_8x60_init);
 
 void __init msm_pm_sleep_status_init(void)
 {
