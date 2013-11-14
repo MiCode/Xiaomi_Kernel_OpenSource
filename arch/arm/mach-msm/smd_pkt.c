@@ -962,7 +962,7 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 			goto out;
 		}
 
-		peripheral = smd_edge_to_subsystem(smd_pkt_devp->edge);
+		peripheral = smd_edge_to_pil_str(smd_pkt_devp->edge);
 		if (peripheral) {
 			smd_pkt_devp->pil = subsystem_get(peripheral);
 			if (IS_ERR(smd_pkt_devp->pil)) {
@@ -977,38 +977,36 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 				msleep((smd_pkt_devp->open_modem_wait * 1000));
 				goto release_pd;
 			}
+		}
 
-			/* Wait for the modem SMSM to be inited for the SMD
-			** Loopback channel to be allocated at the modem. Since
-			** the wait need to be done atmost once, using msleep
-			** doesn't degrade the performance. */
-			if (!strncmp(smd_pkt_devp->ch_name, "LOOPBACK",
-						SMD_MAX_CH_NAME_LEN)) {
-				if (!is_modem_smsm_inited())
-					msleep(5000);
-				smsm_change_state(SMSM_APPS_STATE,
-						  0, SMSM_SMD_LOOPBACK);
-				msleep(100);
-			}
+		/* Wait for the modem SMSM to be inited for the SMD
+		** Loopback channel to be allocated at the modem. Since
+		** the wait need to be done atmost once, using msleep
+		** doesn't degrade the performance. */
+		if (!strcmp(smd_pkt_devp->ch_name, "LOOPBACK")) {
+			if (!is_modem_smsm_inited())
+				msleep(5000);
+			smsm_change_state(SMSM_APPS_STATE,
+					  0, SMSM_SMD_LOOPBACK);
+			msleep(100);
+		}
 
-			/*
-			 * Wait for a packet channel to be allocated so we know
-			 * the modem is ready enough.
-			 */
-			if (smd_pkt_devp->open_modem_wait) {
-				r = wait_for_completion_interruptible_timeout(
-					&smd_pkt_devp->ch_allocated,
-					msecs_to_jiffies(
-						smd_pkt_devp->open_modem_wait
-							 * 1000));
-				if (r == 0)
-					r = -ETIMEDOUT;
-				if (r < 0) {
-					pr_err("%s: wait on smd_pkt_dev id:%d"
-					       " allocation failed rc:%d\n",
-						__func__, smd_pkt_devp->i, r);
-					goto release_pil;
-				}
+		/*
+		 * Wait for a packet channel to be allocated so we know
+		 * the modem is ready enough.
+		 */
+		if (smd_pkt_devp->open_modem_wait) {
+			r = wait_for_completion_interruptible_timeout(
+				&smd_pkt_devp->ch_allocated,
+				msecs_to_jiffies(
+					smd_pkt_devp->open_modem_wait
+						 * 1000));
+			if (r == 0)
+				r = -ETIMEDOUT;
+			if (r < 0) {
+				pr_err("%s: wait on smd_pkt_dev id:%d allocation failed rc:%d\n",
+					__func__, smd_pkt_devp->i, r);
+				goto release_pil;
 			}
 		}
 

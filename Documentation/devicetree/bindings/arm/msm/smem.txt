@@ -24,10 +24,11 @@ Required properties:
 	interrupts
 -qcom,smd-irq-bitmask : the sending irq bitmask
 -interrupts : the receiving interrupt line
+-label : the name of the remote subsystem for this edge
 
 Optional properties:
--qcom,pil-string : the name to use when loading this edge
 -qcom,irq-no-suspend: configure the incoming irq line as active during suspend
+-qcom,not-loadable : indicates this processor cannot be loaded by PIL
 
 qcom,smsm
 Required properties:
@@ -53,8 +54,8 @@ Example:
 			qcom,smd-edge = <0>;
 			qcom,smd-irq-offset = <0x8>;
 			qcom,smd-irq-bitmask = <0x1000>;
-			qcom,pil-string = "modem";
 			interrupts = <0 25 1>;
+			label = "modem";
 		};
 
 		qcom,smsm-modem {
@@ -70,8 +71,8 @@ Example:
 			qcom,smd-edge = <1>;
 			qcom,smd-irq-offset = <0x8>;
 			qcom,smd-irq-bitmask = <0x100>;
-			qcom,pil-string = "adsp";
 			interrupts = <0 156 1>;
+			label = "adsp";
 		};
 
 		qcom,smsm-adsp {
@@ -87,8 +88,8 @@ Example:
 			qcom,smd-edge = <6>;
 			qcom,smd-irq-offset = <0x8>;
 			qcom,smd-irq-bitmask = <0x20000>;
-			qcom,pil-string = "wcnss";
 			interrupts = <0 142 1>;
+			label = "wcnss";
 		};
 
 		qcom,smsm-wcnss {
@@ -105,7 +106,9 @@ Example:
 			qcom,smd-irq-offset = <0x8>;
 			qcom,smd-irq-bitmask = <0x1>;
 			interrupts = <0 168 1>;
+			label = "rpm";
 			qcom,irq-no-syspend;
+			qcom,not-loadable;
 		};
 	};
 

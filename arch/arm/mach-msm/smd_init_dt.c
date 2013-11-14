@@ -164,7 +164,7 @@ static int msm_smd_probe(struct platform_device *pdev)
 	uint32_t irq_bitmask;
 	uint32_t irq_line;
 	unsigned long irq_flags = IRQF_TRIGGER_RISING;
-	const char *pilstr;
+	const char *subsys_name;
 	struct interrupt_config_item *private_irq;
 	struct device_node *node;
 	void *irq_out_base;
@@ -173,6 +173,7 @@ static int msm_smd_probe(struct platform_device *pdev)
 	struct resource *r;
 	struct interrupt_config *private_intr_config;
 	uint32_t remote_pid;
+	bool skip_pil;
 
 	node = pdev->dev.of_node;
 
@@ -227,10 +228,27 @@ static int msm_smd_probe(struct platform_device *pdev)
 		goto missing_key;
 	SMD_DBG("%s: %s = %d", __func__, key, irq_line);
 
-	key = "qcom,pil-string";
-	pilstr = of_get_property(node, key, NULL);
-	if (pilstr)
-		SMD_DBG("%s: %s = %s", __func__, key, pilstr);
+	key = "label";
+	subsys_name = of_get_property(node, key, NULL);
+	SMD_DBG("%s: %s = %s", __func__, key, subsys_name);
+	/*
+	 * Backwards compatibility.  Although label is required, some DTs may
+	 * still list the legacy pil-string.  Sanely handle pil-string.
+	 */
+	if (!subsys_name) {
+		pr_warn("Missing required property - label.  Using legacy parsing\n");
+		key = "qcom,pil-string";
+		subsys_name = of_get_property(node, key, NULL);
+		SMD_DBG("%s: %s = %s", __func__, key, subsys_name);
+		if (subsys_name)
+			skip_pil = false;
+		else
+			skip_pil = true;
+	} else {
+		key = "qcom,not-loadable";
+		skip_pil = of_property_read_bool(node, key);
+		SMD_DBG("%s: %s = %d\n", __func__, key, skip_pil);
+	}
 
 	key = "qcom,irq-no-suspend";
 	ret = of_property_read_bool(node, key);
@@ -265,8 +283,8 @@ static int msm_smd_probe(struct platform_device *pdev)
 					irq_line);
 	}
 
-	if (pilstr)
-		smd_set_edge_subsys_name(edge, pilstr);
+	smd_set_edge_subsys_name(edge, subsys_name);
+	smd_proc_set_skip_pil(smd_edge_to_remote_pid(edge), skip_pil);
 
 	smd_set_edge_initialized(edge);
 	smd_post_init(0, remote_pid);
