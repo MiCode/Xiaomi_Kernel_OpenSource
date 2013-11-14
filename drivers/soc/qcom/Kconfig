@@ -293,15 +293,6 @@ config MSM_PIL_SSR_GENERIC
 	  or a fatal error. Subsystems include LPASS, Venus, VPU, WCNSS and
 	  BCSS.
 
-config MSM_PIL_LPASS_QDSP6V5
-	tristate "LPASS QDSP6v5 (Hexagon) Boot Support"
-	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
-	help
-	  Support for booting and shutting down QDSP6v5 (Hexagon) processors
-	  in low power audio subsystems. This driver also monitors the ADSP
-	  SMSM status bits and the ADSP's watchdog interrupt and restarts the
-	  ADSP if the processor encounters a fatal error.
-
 config MSM_PIL_MSS_QDSP6V5
 	tristate "MSS QDSP6v5 (Hexagon) Boot Support"
 	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
