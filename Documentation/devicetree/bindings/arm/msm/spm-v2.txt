@@ -40,6 +40,8 @@ Optional properties
 - qcom,saw2-spm-cmd-wfi: The WFI command sequence
 - qcom,saw2-spm-cmd-ret: The Retention command sequence
 - qcom,saw2-spm-cmd-spc: The Standalone PC command sequence
+- qcom,saw2-spm-cmd-pc-no-rpm: The Power Collapse command sequence where APPS
+	proc won't inform the RPM.
 - qcom,saw2-spm-cmd-pc: The Power Collapse command sequence
 - qcom,saw2-spm-cmd-gdhs: L2 GDHS command sequence
 - qcom,L2-spm-is-apcs-master: Boolean indicates if the target uses L2 SAW to

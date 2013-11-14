@@ -39,7 +39,7 @@
 
 		qsecom_mem: qsecom_region {
 			linux,contiguous-region;
-			reg = <0 0x780000>;
+			reg = <0 0xd00000>;
 			label = "qsecom_mem";
 		};
 	};
