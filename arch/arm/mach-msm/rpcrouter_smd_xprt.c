@@ -21,8 +21,8 @@
 #include <linux/export.h>
 
 #include <mach/msm_smd.h>
+#include <mach/msm_smsm.h>
 #include "smd_rpcrouter.h"
-#include "smd_private.h"
 
 struct rpcrouter_smd_xprt {
 	struct rpcrouter_xprt xprt;
