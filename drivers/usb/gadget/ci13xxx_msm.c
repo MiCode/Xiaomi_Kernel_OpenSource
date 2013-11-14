@@ -271,6 +271,10 @@ static int ci13xxx_msm_probe(struct platform_device *pdev)
 				1 << (pdata->log2_itc-1);
 
 		is_l1_supported = pdata->l1_supported;
+		/* Set ahb2ahb bypass flag if it is requested. */
+		if (pdata->enable_ahb2ahb_bypass)
+			ci13xxx_msm_udc_driver.flags |=
+				CI13XXX_ENABLE_AHB2AHB_BYPASS;
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);

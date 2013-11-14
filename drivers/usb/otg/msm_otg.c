@@ -470,6 +470,20 @@ static int msm_otg_phy_reset(struct msm_otg *motg)
 	int ret;
 	struct msm_otg_platform_data *pdata = motg->pdata;
 
+	/*
+	 * AHB2AHB Bypass mode shouldn't be enable before doing
+	 * async clock reset. If it is enable, disable the same.
+	 */
+	val = readl_relaxed(USB_AHBMODE);
+	if (val & AHB2AHB_BYPASS) {
+		pr_err("%s(): AHB2AHB_BYPASS SET: AHBMODE:%x\n",
+				__func__, val);
+		val &= ~AHB2AHB_BYPASS_BIT_MASK;
+		writel_relaxed(val | AHB2AHB_BYPASS_CLEAR, USB_AHBMODE);
+		pr_err("%s(): AHBMODE: %x\n", __func__,
+				readl_relaxed(USB_AHBMODE));
+	}
+
 	ret = msm_otg_link_clk_reset(motg, 1);
 	if (ret)
 		return ret;
@@ -3835,6 +3849,8 @@ static struct platform_device *msm_otg_add_pdev(
 		ci_pdata.log2_itc = otg_pdata->log2_itc;
 		ci_pdata.usb_core_id = 0;
 		ci_pdata.l1_supported = otg_pdata->l1_supported;
+		ci_pdata.enable_ahb2ahb_bypass =
+				otg_pdata->enable_ahb2ahb_bypass;
 		retval = platform_device_add_data(pdev, &ci_pdata,
 			sizeof(ci_pdata));
 		if (retval)
@@ -4165,6 +4181,8 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 
 	pdata->l1_supported = of_property_read_bool(node,
 				"qcom,hsusb-l1-supported");
+	pdata->enable_ahb2ahb_bypass = of_property_read_bool(node,
+				"qcom,ahb-async-bridge-bypass");
 
 	return pdata;
 }

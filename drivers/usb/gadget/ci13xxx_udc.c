@@ -406,6 +406,13 @@ static int hw_device_state(u32 dma)
 			udc->udc_driver->notify_event(udc,
 				CI13XXX_CONTROLLER_CONNECT_EVENT);
 
+		/* Set BIT(31) to enable AHB2AHB Bypass functionality */
+		if (udc->udc_driver->flags & CI13XXX_ENABLE_AHB2AHB_BYPASS) {
+			hw_awrite(ABS_AHBMODE, AHB2AHB_BYPASS, AHB2AHB_BYPASS);
+			pr_debug("%s(): ByPass Mode is enabled. AHBMODE:%x\n",
+					__func__, hw_aread(ABS_AHBMODE, ~0));
+		}
+
 		/* interrupt, error, port change, reset, sleep/suspend */
 		hw_cwrite(CAP_USBINTR, ~0,
 			     USBi_UI|USBi_UEI|USBi_PCI|USBi_URI|USBi_SLI);
@@ -413,6 +420,12 @@ static int hw_device_state(u32 dma)
 	} else {
 		hw_cwrite(CAP_USBCMD, USBCMD_RS, 0);
 		hw_cwrite(CAP_USBINTR, ~0, 0);
+		/* Clear BIT(31) to disable AHB2AHB Bypass functionality */
+		if (udc->udc_driver->flags & CI13XXX_ENABLE_AHB2AHB_BYPASS) {
+			hw_awrite(ABS_AHBMODE, AHB2AHB_BYPASS, 0);
+			pr_debug("%s(): ByPass Mode is disabled. AHBMODE:%x\n",
+					__func__, hw_aread(ABS_AHBMODE, ~0));
+		}
 	}
 	return 0;
 }
