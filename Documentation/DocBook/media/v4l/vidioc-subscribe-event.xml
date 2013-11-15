@@ -150,7 +150,23 @@
 	      buffer underrun it might not be able to generate this event.
 	      In such cases the <structfield>frame_sequence</structfield>
 	      field in &v4l2-event-frame-sync; will not be incremented. This
-	      causes two consecutive frame sequence numbers to have n times
+	      causes two consecutive frame sync events to have n times
+	      frame interval in between them.</para>
+	    </entry>
+	  </row>
+	  <row>
+	    <entry><constant>V4L2_EVENT_FRAME_END</constant></entry>
+	    <entry>5</entry>
+	    <entry>
+	      <para>Triggered immediately when the reception of a
+	      frame has ended. This event has a
+	      &v4l2-event-frame-sync; associated with it.</para>
+
+	      <para>If the hardware needs to be stopped in the case of a
+	      buffer underrun it might not be able to generate this event.
+	      In such cases the <structfield>frame_sequence</structfield>
+	      field in &v4l2-event-frame-sync; will not be incremented. This
+	      causes two consecutive frame end events to have n times
 	      frame interval in between them.</para>
 	    </entry>
 	  </row>
