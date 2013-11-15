@@ -56,10 +56,10 @@
 		qcom,saw2-spm-dly= <0x3c102800>;
 		qcom,saw2-spm-ctl = <0x8>;
 		qcom,saw2-spm-cmd-wfi = [60 03 60 0b 0f];
-		qcom,saw2-spm-cmd-spc = [00 20 10 80 30 90 5b 60 03 60 3b 76 76
-				0b 94 5b 80 10 06 26 30 0f];
-		qcom,saw2-spm-cmd-pc = [00 20 10 80 30 90 5b 60 03 60 3b 76 76
-				0b 94 5b 80 10 06 26 30 0f];
+		qcom,saw2-spm-cmd-spc = [20 10 80 30 90 5b 60 03 60 3b 76 76
+				0b 94 5b 80 10 26 30 0f];
+		qcom,saw2-spm-cmd-pc = [20 10 80 30 90 5b 60 03 60 3b 76 76
+				0b 94 5b 80 10 26 30 0f];
 	};
 
 	qcom,spm@f90b9000 {
@@ -101,6 +101,9 @@
 		qcom,saw2-spm-cmd-pc = [00 32 b0 10 e0 d0 6b c0 42 f0
 				11 07 01 b0 50 4e 02 02 c0 d0 12 e0 6b 02 32
 				50 f0 0f]; /*APCS_PMIC_OFF_L2RAM_OFF*/
+		qcom,saw2-spm-cmd-pc-no-rpm = [00 32 b0 10 e0 d0 6b c0 42 f0
+				11 03 01 b0 50 4e 02 02 c0 d0 12 e0 6b 02 32
+				50 f0 0f]; /*APCS_PMIC_OFF_L2RAM_OFF*/
 		qcom,L2-spm-is-apcs-master;
 	};
 
@@ -134,17 +137,27 @@
 			reg = <0x2>;
 			qcom,mode = "pc";
 			qcom,l2 = "l2_cache_gdhs";
-			qcom,latency-us = <10700>;
-			qcom,ss-power = <325>;
-			qcom,energy-overhead = <441250>;
-			qcom,time-overhead = <1020>;
+			qcom,latency-us = <11700>;
+			qcom,ss-power = <372>;
+			qcom,energy-overhead = <738750>;
+			qcom,time-overhead = <1410>;
 		};
 
 		qcom,lpm-level@3 {
 			reg = <0x3>;
 			qcom,mode = "pc";
+			qcom,l2 = "l2_cache_pc_no_rpm";
+			qcom,latency-us = <1000>;
+			qcom,ss-power = <315>;
+			qcom,energy-overhead = <1027150>;
+			qcom,time-overhead = <2400>;
+		};
+
+		qcom,lpm-level@4 {
+			reg = <0x4>;
+			qcom,mode = "pc";
 			qcom,l2 = "l2_cache_pc";
-			qcom,latency-us = <11700>;
+			qcom,latency-us = <12700>;
 			qcom,ss-power = <315>;
 			qcom,energy-overhead = <1027150>;
 			qcom,time-overhead = <2400>;

@@ -53,6 +53,7 @@
 #define MMA8X5X_BUF_SIZE	7
 
 #define	MMA_SHUTTEDDOWN		(1 << 31)
+#define MMA_STATE_MASK		(~MMA_SHUTTEDDOWN)
 
 struct sensor_regulator {
 	struct regulator *vreg;
@@ -349,7 +350,7 @@ static void mma8x5x_report_data(struct mma8x5x_data *pdata)
 	struct input_polled_dev *poll_dev = pdata->poll_dev;
 	struct mma8x5x_data_axis data;
 	mutex_lock(&pdata->data_lock);
-	if (pdata->active == MMA_STANDBY) {
+	if ((pdata->active & MMA_STATE_MASK) == MMA_STANDBY) {
 		poll_dev->poll_interval = POLL_STOP_TIME;
 		/* if standby ,set as 10s to slow the poll. */
 		goto out;

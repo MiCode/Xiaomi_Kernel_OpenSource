@@ -1113,6 +1113,10 @@ static long do_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		if (copy_from_user(&cmap, argp, sizeof(cmap)))
 			return -EFAULT;
 		ret = fb_set_user_cmap(&cmap, info);
+		if (ret) {
+			if (info)
+				fb_dealloc_cmap(&info->cmap);
+		}
 		break;
 	case FBIOGETCMAP:
 		if (copy_from_user(&cmap, argp, sizeof(cmap)))

@@ -1485,26 +1485,25 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		return err;
 	}
 	if (pkt_type == CALLBACK_DATA_TYPE) {
-		if (payload_size > itemsize) {
+		if (payload_size > driver->itemsize) {
 			pr_err("diag: Dropping packet, packet payload size crosses 4KB limit. Current payload size %d\n",
 				payload_size);
 			driver->dropped_count++;
 			return -EBADMSG;
 		}
 
-		mutex_lock(&driver->diagchar_mutex);
 		buf_copy = diagmem_alloc(driver, payload_size, POOL_TYPE_COPY);
 		if (!buf_copy) {
 			driver->dropped_count++;
-			mutex_unlock(&driver->diagchar_mutex);
 			return -ENOMEM;
 		}
 
 		err = copy_from_user(buf_copy, buf + 4, payload_size);
 		if (err) {
 			pr_err("diag: copy failed for user space data\n");
-			ret = -EIO;
-			goto fail_free_copy;
+			diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
+			buf_copy = NULL;
+			return -EIO;
 		}
 		/* Check for proc_type */
 		remote_proc = diag_get_remote(*(int *)buf_copy);
@@ -1513,7 +1512,9 @@ static int diagchar_write(struct file *file, const char __user *buf,
 			wait_event_interruptible(driver->wait_q,
 				 (driver->in_busy_pktdata == 0));
 			ret = diag_process_apps_pkt(buf_copy, payload_size);
-			goto fail_free_copy;
+			diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
+			buf_copy = NULL;
+			return ret;
 		}
 		/* The packet is for the remote processor */
 		token_offset = 4;
@@ -1526,7 +1527,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 							1 + payload_size);
 		send.terminate = 1;
 
-
+		mutex_lock(&driver->diagchar_mutex);
 		if (!buf_hdlc)
 			buf_hdlc = diagmem_alloc(driver, HDLC_OUT_BUF_SIZE,
 							POOL_TYPE_HDLC);

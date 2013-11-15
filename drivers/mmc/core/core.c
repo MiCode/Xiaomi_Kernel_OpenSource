@@ -61,6 +61,7 @@ static void mmc_clk_scaling(struct mmc_host *host, bool from_wq);
 
 /* Flushing a large amount of cached data may take a long time. */
 #define MMC_FLUSH_REQ_TIMEOUT_MS 90000 /* msec */
+#define MMC_CACHE_DISBALE_TIMEOUT_MS 180000 /* msec */
 
 static struct workqueue_struct *workqueue;
 
@@ -3393,14 +3394,14 @@ int mmc_cache_ctrl(struct mmc_host *host, u8 enable)
 
 		if (card->ext_csd.cache_ctrl ^ enable) {
 			if (!enable)
-				timeout = MMC_FLUSH_REQ_TIMEOUT_MS;
+				timeout = MMC_CACHE_DISBALE_TIMEOUT_MS;
 
 			err = mmc_switch_ignore_timeout(card,
 					EXT_CSD_CMD_SET_NORMAL,
 					EXT_CSD_CACHE_CTRL, enable, timeout);
 
 			if (err == -ETIMEDOUT && !enable) {
-				pr_debug("%s:cache disable operation timeout\n",
+				pr_err("%s:cache disable operation timeout\n",
 						mmc_hostname(card->host));
 				rc = mmc_interrupt_hpi(card);
 				if (rc)
