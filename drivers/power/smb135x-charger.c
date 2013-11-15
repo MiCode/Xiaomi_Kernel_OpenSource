@@ -271,6 +271,7 @@ struct smb135x_chg {
 	bool				soft_vfloat_comp_disabled;
 	struct mutex			irq_complete;
 	struct regulator		*therm_bias_vreg;
+	struct delayed_work		wireless_insertion_work;
 };
 
 static int smb135x_read(struct smb135x_chg *chip, int reg,
@@ -1126,6 +1127,16 @@ static void smb135x_regulator_deinit(struct smb135x_chg *chip)
 		regulator_unregister(chip->otg_vreg.rdev);
 }
 
+static void wireless_insertion_work(struct work_struct *work)
+{
+	struct smb135x_chg *chip =
+		container_of(work, struct smb135x_chg,
+				wireless_insertion_work.work);
+
+	/* unsuspend dc */
+	smb135x_dc_suspend(chip, false);
+}
+
 static int hot_hard_handler(struct smb135x_chg *chip, u8 rt_stat)
 {
 	pr_debug("rt_stat = 0x%02x\n", rt_stat);
@@ -1192,12 +1203,23 @@ static int safety_timeout_handler(struct smb135x_chg *chip, u8 rt_stat)
 }
 
 /**
- * power_ok_handler() - called  when any charger is inserted or removed,
- *		use it to handle dc charger insertion and removal
+ * power_ok_handler() - called when the switcher turns on or turns off
  * @chip: pointer to smb135x_chg chip
- * @rt_stat: the status bit indicating chg insertion/removal
+ * @rt_stat: the status bit indicating switcher turning on or off
  */
 static int power_ok_handler(struct smb135x_chg *chip, u8 rt_stat)
+{
+	pr_debug("rt_stat = 0x%02x\n", rt_stat);
+	return 0;
+}
+
+/**
+ * dcin_uv_handler() - called when the dc voltage crosses the uv threshold
+ * @chip: pointer to smb135x_chg chip
+ * @rt_stat: the status bit indicating whether dc voltage is uv
+ */
+#define DCIN_UNSUSPEND_DELAY_MS		1000
+static int dcin_uv_handler(struct smb135x_chg *chip, u8 rt_stat)
 {
 	bool dc_present = is_dc_present(chip);
 
@@ -1207,7 +1229,11 @@ static int power_ok_handler(struct smb135x_chg *chip, u8 rt_stat)
 	if (chip->dc_present && !dc_present) {
 		/* dc removed */
 		chip->dc_present = dc_present;
-
+		if (chip->dc_psy_type == POWER_SUPPLY_TYPE_WIRELESS) {
+			cancel_delayed_work_sync(
+				&chip->wireless_insertion_work);
+			smb135x_dc_suspend(chip, true);
+		}
 		if (chip->dc_psy_type != -EINVAL)
 			power_supply_set_online(&chip->dc_psy,
 							chip->dc_present);
@@ -1216,6 +1242,9 @@ static int power_ok_handler(struct smb135x_chg *chip, u8 rt_stat)
 	if (!chip->dc_present && dc_present) {
 		/* dc inserted */
 		chip->dc_present = dc_present;
+		if (chip->dc_psy_type == POWER_SUPPLY_TYPE_WIRELESS)
+			schedule_delayed_work(&chip->wireless_insertion_work,
+				msecs_to_jiffies(DCIN_UNSUSPEND_DELAY_MS));
 		if (chip->dc_psy_type != -EINVAL)
 			power_supply_set_online(&chip->dc_psy,
 							chip->dc_present);
@@ -1404,6 +1433,7 @@ static struct irq_handler_info handlers[] = {
 			},
 			{
 				.name		= "dcin_uv",
+				.smb_irq	= dcin_uv_handler,
 			},
 			{
 				.name		= "dcin_ov",
@@ -1825,6 +1855,18 @@ static int determine_initial_status(struct smb135x_chg *chip)
 	else
 		handle_usb_removal(chip);
 
+	if (chip->dc_psy_type != -EINVAL) {
+		if (chip->dc_psy_type == POWER_SUPPLY_TYPE_WIRELESS) {
+			/*
+			 * put the dc path in suspend state if it is powered
+			 * by wireless charger
+			 */
+			if (chip->dc_present)
+				smb135x_dc_suspend(chip, false);
+			else
+				smb135x_dc_suspend(chip, true);
+		}
+	}
 	return 0;
 }
 
@@ -2243,6 +2285,8 @@ static int smb135x_charger_probe(struct i2c_client *client,
 	chip->usb_psy = usb_psy;
 	chip->fake_battery_soc = -EINVAL;
 
+	INIT_DELAYED_WORK(&chip->wireless_insertion_work,
+					wireless_insertion_work);
 	/* probe the device to check if its actually connected */
 	rc = smb135x_read(chip, CFG_4_REG, &reg);
 	if (rc) {
