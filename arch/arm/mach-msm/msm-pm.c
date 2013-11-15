@@ -1056,8 +1056,7 @@ static void msm_suspend_wake(void)
 		if (collapsed) {
 			msm_pm_add_stat(MSM_PM_STAT_SUSPEND, suspend_time);
 			msm_pm_l2_add_stat(l2_stat_id, suspend_time);
-		}
-		else
+		} else
 			msm_pm_add_stat(MSM_PM_STAT_FAILED_SUSPEND,
 					suspend_time);
 		suspend_power_collapsed = false;
@@ -1402,12 +1401,12 @@ static int msm_pm_clk_init(struct platform_device *pdev)
 	return PTR_RET(l2_clk);
 }
 
-static int msm_pm_8x60_probe(struct platform_device *pdev)
+static int msm_cpu_pm_probe(struct platform_device *pdev)
 {
 	char *key = NULL;
 	struct dentry *dent = NULL;
 	struct resource *res = NULL;
-	int i ;
+	int i;
 	struct msm_pm_init_data_type pdata_local;
 	int ret = 0;
 
@@ -1441,7 +1440,7 @@ static int msm_pm_8x60_probe(struct platform_device *pdev)
 		struct msm_pm_init_data_type *d = pdev->dev.platform_data;
 
 		if (!d)
-			goto pm_8x60_probe_done;
+			goto pm_cpu_probe_done;
 
 		memcpy(&pdata_local, d, sizeof(struct msm_pm_init_data_type));
 
@@ -1498,7 +1497,7 @@ static int msm_pm_8x60_probe(struct platform_device *pdev)
 	msm_pm_use_sync_timer = pdata_local.use_sync_timer;
 	msm_pm_retention_calls_tz = pdata_local.retention_calls_tz;
 
-pm_8x60_probe_done:
+pm_cpu_probe_done:
 	msm_pm_init();
 	if (pdev->dev.of_node)
 		of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
@@ -1506,21 +1505,21 @@ pm_8x60_probe_done:
 	return ret;
 }
 
-static struct of_device_id msm_pm_8x60_table[] = {
-		{.compatible = "qcom,pm-8x60"},
-		{},
+static struct of_device_id msm_cpu_pm_table[] = {
+	{.compatible = "qcom,pm"},
+	{},
 };
 
-static struct platform_driver msm_pm_8x60_driver = {
-		.probe = msm_pm_8x60_probe,
-		.driver = {
-			.name = "pm-8x60",
-			.owner = THIS_MODULE,
-			.of_match_table = msm_pm_8x60_table,
-		},
+static struct platform_driver msm_cpu_pm_driver = {
+	.probe = msm_cpu_pm_probe,
+	.driver = {
+		.name = "msm-pm",
+		.owner = THIS_MODULE,
+		.of_match_table = msm_cpu_pm_table,
+	},
 };
 
-static int __init msm_pm_8x60_init(void)
+static int __init msm_pm_drv_init(void)
 {
 	int rc;
 
@@ -1532,9 +1531,9 @@ static int __init msm_pm_8x60_init(void)
 		return rc;
 	}
 
-	return platform_driver_register(&msm_pm_8x60_driver);
+	return platform_driver_register(&msm_cpu_pm_driver);
 }
-late_initcall(msm_pm_8x60_init);
+late_initcall(msm_pm_drv_init);
 
 void __init msm_pm_sleep_status_init(void)
 {

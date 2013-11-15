@@ -17,7 +17,7 @@ config ARCH_MSM8974
 	select MSM_SPM_V2
 	select MSM_L2_SPM
 	select MSM_NATIVE_RESTART
-	select MSM_PM8X60 if PM
+	select MSM_PM if PM
 	select MSM_RPM_SMD
 	select REGULATOR
 	select HAVE_ARM_ARCH_TIMER
@@ -47,7 +47,7 @@ config ARCH_APQ8084
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_GPIOMUX
 	select MSM_NATIVE_RESTART
-	select MSM_PM8X60 if PM
+	select MSM_PM if PM
 	select REGULATOR
 	select MSM_QDSP6V2_CODECS
 	select MSM_QDSP6_APRV2 if SND_SOC
@@ -61,7 +61,6 @@ config ARCH_APQ8084
 	select QMI_ENCDEC
 	select MSM_SPM_V2
 	select MSM_L2_SPM
-	select MSM_PM8X60 if PM
 	select MSM_RPM_SMD
 	select MSM_RPM_STATS_LOG
 	select MSM_RPM_LOG
@@ -138,7 +137,7 @@ config ARCH_MDM9630
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_NATIVE_RESTART
 	select MSM_SPM_V2
-	select MSM_PM8X60 if PM
+	select MSM_PM if PM
 	select GPIO_MSM_V3
 	select MIGHT_HAVE_PCI
 	select ARCH_SUPPORTS_MSI
@@ -168,7 +167,7 @@ config ARCH_MSM8610
 	select MSM_RPM_SMD
 	select MSM_SPM_V2
 	select MSM_L2_SPM
-	select MSM_PM8X60 if PM
+	select MSM_PM if PM
 	select MEMORY_HOLE_CARVEOUT
 	select MSM_BUS_SCALING
 	select MSM_CORTEX_A7
@@ -210,7 +209,7 @@ config ARCH_MSM8226
 	select MSM_RPM_SMD
 	select MSM_SPM_V2
 	select MSM_L2_SPM
-	select MSM_PM8X60 if PM
+	select MSM_PM if PM
 	select MEMORY_HOLE_CARVEOUT
 	select MSM_BUS_SCALING
 	select MSM_CORTEX_A7
@@ -252,7 +251,7 @@ config ARCH_MSMSAMARIUM
 	select MSM_NATIVE_RESTART
 	select MSM_QDSP6_APRV2
 	select MSM_QDSP6V2_CODECS
-	select MSM_PM8X60 if PM
+	select MSM_PM if PM
 	select MSM_RPM_SMD
 	select REGULATOR
 	select REGULATOR_RPM_SMD
@@ -333,7 +332,7 @@ config MSM_MPM_OF
 config MSM_LPM_TEST
 	bool "Low Power Mode test framework"
 	depends on MSM_RPM || MSM_RPM_SMD
-	depends on MSM_PM8X60
+	depends on MSM_PM
 	help
 	  LPM_TEST is a test framework that assists in exercising the low
 	  power mode algorithm on MSM targets. This test framework tracks
@@ -568,7 +567,7 @@ config MSM7X00A_IDLE_SPIN_TIME
 
 menuconfig MSM_IDLE_STATS
 	bool "Collect idle statistics"
-	depends on MSM_PM8X60
+	depends on MSM_PM
 	default y
 	help
 	  Collect idle statistics and export them in proc/msm_pm_stats.
@@ -1112,7 +1111,7 @@ config MSM_GPIOMUX
 config MSM_NATIVE_RESTART
 	bool
 
-config MSM_PM8X60
+config MSM_PM
 	depends on PM
 	bool
 

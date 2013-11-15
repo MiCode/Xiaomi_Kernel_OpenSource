@@ -314,8 +314,8 @@
 			<41 141>;
 	};
 
-	qcom,pm-8x60@fe805664 {
-		compatible = "qcom,pm-8x60";
+	qcom,pm@fe805664 {
+		compatible = "qcom,pm";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;

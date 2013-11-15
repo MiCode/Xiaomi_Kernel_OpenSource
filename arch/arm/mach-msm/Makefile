@@ -110,7 +110,7 @@ obj-$(CONFIG_ARCH_MSM8610) += clock-dsi-8610.o
 obj-$(CONFIG_ARCH_MDM9630) += clock-local2.o clock-pll.o clock-9630.o clock-rpm.o clock-voter.o
 obj-$(CONFIG_ARCH_MDM9630) += clock-alpha-pll.o
 
-obj-$(CONFIG_MSM_PM8X60) += pm-8x60.o pm-data.o
+obj-$(CONFIG_MSM_PM) += msm-pm.o pm-data.o
 
 CFLAGS_msm_vibrator.o += -Idrivers/staging/android
 
