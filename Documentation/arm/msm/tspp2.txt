@@ -172,6 +172,9 @@ struct tspp2_operation raw_op;
 struct sps_event_notify event;
 struct sps_iovec desc;
 
+/* Open TSPP2 device for use */
+tspp2_device_open(dev_id);
+
 /* Set global configuration */
 tspp2_config_set(dev_id, &cfg);
 
@@ -240,6 +243,7 @@ tspp2_filter_close(filter_handle);
 tspp2_src_pipe_detach(src_handle, pipe_handle);
 tspp2_pipe_close(pipe_handle);
 tspp2_src_close(src_handle);
+tspp2_device_close(dev_id);
 
 Debug facilities
 ----------------
@@ -298,6 +302,13 @@ Kernel-space API
 
 Control path API
 -------------------
+
+TSPP2 device open / close API:
+------------------------------
+int tspp2_device_open(u32 dev_id);
+
+int tspp2_device_close(u32 dev_id);
+
 Global configuration for the TSPP2 device:
 ------------------------------------------
 int tspp2_config_set(u32 dev_id, const struct tspp2_config *cfg);

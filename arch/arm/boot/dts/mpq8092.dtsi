@@ -387,9 +387,19 @@
 			"TSIF0",
 			"TSIF1",
 			"TSPP2_BAM";
+		vdd-supply = <&gdsc_bcss>;
 		qcom,tspp2-ahb-clk = "bcc_tspp2_ahb_clk";
 		qcom,tspp2-core-clk = "bcc_tspp2_core_clk";
-		qcom,tsif-ref-clk = "tsif_ref_clk_src";
+		qcom,tspp2-vbif-clk = "bcc_vbif_tspp2_clk";
+		qcom,tspp2-klm-ahb-clk = "bcc_klm_ahb_clk";
+		qcom,tsif-ref-clk = "gcc_tsif_ref_clk";
+		qcom,msm-bus,name = "tspp2";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<96 512 0 0>, /* No vote */
+				<96 512 1024 1024>, /* Register access only. 8Mbps should be more than enough */
+				<96 512 24576 61440>; /* Max. bandwidth required is 480Mbps */
 		qcom,iommu-hlos-group = "bcast_hlos";
 		qcom,iommu-hlos-partition = <0>;
 		qcom,iommu-cpz-group = "bcast_cpz";

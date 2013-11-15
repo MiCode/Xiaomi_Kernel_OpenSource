@@ -32,6 +32,8 @@
  *
  * @tspp2_ahb_clk:		TSPP2 device AHB clock name.
  * @tspp2_core_clk:		TSPP2 device core clock name.
+ * @tspp2_vbif_clk:		TSPP2 VBIF clock name.
+ * @tspp2_klm_ahb_clk:		TSPP2 key ladder AHB clock name.
  * @tsif_ref_clk:		TSIF device reference clock name.
  * @hlos_group:			IOMMU HLOS group name.
  * @cpz_group:			IOMMU CPZ group name.
@@ -41,6 +43,8 @@
 struct msm_tspp2_platform_data {
 	const char *tspp2_ahb_clk;
 	const char *tspp2_core_clk;
+	const char *tspp2_vbif_clk;
+	const char *tspp2_klm_ahb_clk;
 	const char *tsif_ref_clk;
 	const char *hlos_group;
 	const char *cpz_group;
@@ -611,6 +615,11 @@ struct tspp2_operation {
 		struct tspp2_op_copy_packet_params copy_packet;
 	} params;
 };
+
+/* TSPP2 device open / close API */
+int tspp2_device_open(u32 dev_id);
+
+int tspp2_device_close(u32 dev_id);
 
 /* Global configuration API */
 int tspp2_config_set(u32 dev_id, const struct tspp2_config *cfg);
