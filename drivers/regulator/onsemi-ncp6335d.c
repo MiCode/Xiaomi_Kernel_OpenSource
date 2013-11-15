@@ -36,6 +36,7 @@
 /* constraints */
 #define NCP6335D_MIN_VOLTAGE_UV		600000
 #define NCP6335D_STEP_VOLTAGE_UV	6250
+#define NCP6335D_VOLTAGE_STEPS		128
 #define NCP6335D_MIN_SLEW_NS		166
 #define NCP6335D_MAX_SLEW_NS		1333
 
@@ -169,6 +170,17 @@ static int ncp6335d_set_voltage(struct regulator_dev *rdev,
 	return rc;
 }
 
+static int ncp6335d_list_voltage(struct regulator_dev *rdev,
+					unsigned selector)
+{
+	struct ncp6335d_info *dd = rdev_get_drvdata(rdev);
+
+	if (selector >= NCP6335D_VOLTAGE_STEPS)
+		return 0;
+
+	return selector * dd->step_size + dd->min_voltage;
+}
+
 static int ncp6335d_set_mode(struct regulator_dev *rdev,
 					unsigned int mode)
 {
@@ -223,6 +235,7 @@ static unsigned int ncp6335d_get_mode(struct regulator_dev *rdev)
 static struct regulator_ops ncp6335d_ops = {
 	.set_voltage = ncp6335d_set_voltage,
 	.get_voltage = ncp6335d_get_voltage,
+	.list_voltage = ncp6335d_list_voltage,
 	.enable = ncp6335d_enable,
 	.disable = ncp6335d_disable,
 	.set_mode = ncp6335d_set_mode,
@@ -232,7 +245,7 @@ static struct regulator_ops ncp6335d_ops = {
 static struct regulator_desc rdesc = {
 	.name = "ncp6335d",
 	.owner = THIS_MODULE,
-	.n_voltages = 128,
+	.n_voltages = NCP6335D_VOLTAGE_STEPS,
 	.ops = &ncp6335d_ops,
 };
 
