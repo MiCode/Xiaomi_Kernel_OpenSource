@@ -128,7 +128,7 @@ module_param(impedance_detect_en, int,
 			S_IRUGO | S_IWUSR | S_IWGRP);
 MODULE_PARM_DESC(impedance_detect_en, "enable/disable impedance detect");
 
-static bool detect_use_vddio_switch = true;
+static bool detect_use_vddio_switch;
 
 struct wcd9xxx_mbhc_detect {
 	u16 dce;
@@ -1766,6 +1766,7 @@ wcd9xxx_codec_get_plug_type(struct wcd9xxx_mbhc *mbhc, bool highhph)
 
 	/* GND and MIC swap detection requires at least 2 rounds of DCE */
 	BUG_ON(NUM_DCE_PLUG_INS_DETECT < 2);
+	detect_use_vddio_switch = mbhc->mbhc_cfg->use_vddio_meas;
 
 	/*
 	 * There are chances vddio switch is on and cfilt voltage is adjusted
