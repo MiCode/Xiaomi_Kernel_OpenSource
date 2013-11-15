@@ -237,6 +237,7 @@ struct diag_smd_info {
 
 	int in_busy_1;
 	int in_busy_2;
+	spinlock_t in_busy_lock;
 
 	unsigned char *buf_in_1;
 	unsigned char *buf_in_2;
@@ -379,6 +380,7 @@ struct diagchar_dev {
 	struct work_struct diag_usb_disconnect_work;
 #endif
 	struct workqueue_struct *diag_wq;
+	struct workqueue_struct *diag_usb_wq;
 	struct work_struct diag_drain_work;
 	struct workqueue_struct *diag_cntl_wq;
 	uint8_t *msg_masks;
