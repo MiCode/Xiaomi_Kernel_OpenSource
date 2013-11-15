@@ -334,13 +334,13 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 					(OTGSESSVLDHV_INTEN | IDHV_INTEN));
 
 		/* can turn off regulators if disconnected in device mode */
-		if (!host || !chg_connected) {
+		if (!host && !chg_connected) {
 			if (phy->ext_vbus_id)
 				msm_hsusb_ldo_enable(phy, 0);
 			msm_hsusb_config_vdd(phy, 0);
 		}
 	} else {
-		if (!host || !chg_connected) {
+		if (!host && !chg_connected) {
 			msm_hsusb_config_vdd(phy, 1);
 			if (phy->ext_vbus_id)
 				msm_hsusb_ldo_enable(phy, 1);
