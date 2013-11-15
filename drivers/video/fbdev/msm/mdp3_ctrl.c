@@ -526,6 +526,8 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 		goto on_error;
 	}
 
+	mdp3_batfet_ctrl(true);
+
 	rc = mdp3_iommu_enable(MDP3_CLIENT_DMA_P);
 	if (rc) {
 		pr_err("fail to attach MDP DMA SMMU\n");
@@ -659,6 +661,7 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 	if (rc)
 		pr_err("fail to dettach MDP DMA SMMU\n");
 
+	mdp3_batfet_ctrl(false);
 	mdp3_session->vsync_enabled = 0;
 	atomic_set(&mdp3_session->vsync_countdown, 0);
 	mdp3_session->clk_on = 0;
