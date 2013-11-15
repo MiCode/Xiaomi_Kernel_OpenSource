@@ -2350,6 +2350,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	struct resource *res;
 	void __iomem *tcsr;
 	unsigned long flags;
+	bool host_mode;
 	int ret = 0;
 
 	mdwc = devm_kzalloc(&pdev->dev, sizeof(*mdwc), GFP_KERNEL);
@@ -2632,6 +2633,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		goto put_psupply;
 	}
 
+	host_mode = of_property_read_bool(dwc3_node, "host-only-mode");
+
 	mdwc->dwc3 = of_find_device_by_node(dwc3_node);
 	of_node_put(dwc3_node);
 	if (!mdwc->dwc3) {
@@ -2695,7 +2698,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 									ret);
 			goto put_dwc3;
 		}
-	} else {
+	} else if (host_mode) {
 		dev_dbg(&pdev->dev, "No OTG, DWC3 running in host only mode\n");
 		mdwc->scope = POWER_SUPPLY_SCOPE_SYSTEM;
 		mdwc->hs_phy->flags |= PHY_HOST_MODE;
@@ -2710,6 +2713,10 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 				dev_err(&pdev->dev, "Failed to enable vbus_otg\n");
 			}
 		}
+	} else {
+		dev_err(&pdev->dev, "DWC3 device-only mode not supported\n");
+		ret = -ENODEV;
+		goto put_dwc3;
 	}
 
 	if (mdwc->ext_xceiv.otg_capability && mdwc->charger.start_detection) {
