@@ -39,8 +39,6 @@
 /* Support for first 5 EDID blocks */
 #define MAX_EDID_BLOCK_SIZE (0x80 * 5)
 
-#define BUFF_SIZE_3D 128
-
 enum data_block_types {
 	RESERVED,
 	AUDIO_DATA_BLOCK,
