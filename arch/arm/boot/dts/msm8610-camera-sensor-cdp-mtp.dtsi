@@ -261,10 +261,11 @@
 		qcom,sensor-mode = <1>;
 		qcom,cci-master = <0>;
 	};
-	qcom,camera@0 {
+
+	qcom,camera@1 {
 		cell-index = <0>;
 		compatible = "qcom,camera";
-		reg = <0x0>;
+		reg = <0x1>;
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <90>;
@@ -294,10 +295,10 @@
 		status = "ok";
 	};
 
-	qcom,camera@1 {
+	qcom,camera@2 {
 		cell-index = <1>;
 		compatible = "qcom,camera";
-		reg = <0x1>;
+		reg = <0x2>;
 		qcom,csiphy-sd-index = <1>;
 		qcom,csid-sd-index = <1>;
 		qcom,mount-angle = <90>;
@@ -322,5 +323,4 @@
 			"CAM_STANDBY";
 		status = "ok";
 	};
-
 };
