@@ -209,6 +209,7 @@
 		qcom,resume-soc = <99>;
 		qcom,tchg-mins = <150>;
 		qcom,chg-vadc = <&pm8941_vadc>;
+		qcom,chg-iadc = <&pm8941_iadc>;
 		qcom,chg-adc_tm = <&pm8941_adc_tm>;
 		qcom,ibat-calibration-enabled;
 
