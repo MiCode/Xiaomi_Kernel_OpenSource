@@ -1157,6 +1157,7 @@ static int diagchar_read(struct file *file, char __user *buf, size_t count,
 	int remote_token;
 	int exit_stat;
 	int clear_read_wakelock;
+	unsigned long flags;
 
 	for (i = 0; i < driver->num_clients; i++)
 		if (driver->client_map[i].pid == current->tgid)
@@ -1238,7 +1239,10 @@ drop:
 					process_lock_on_copy(&data->nrt_lock);
 					clear_read_wakelock++;
 				}
+				spin_lock_irqsave(&data->in_busy_lock, flags);
 				data->in_busy_1 = 0;
+				spin_unlock_irqrestore(&data->in_busy_lock,
+						       flags);
 			}
 			if (data->in_busy_2 == 1) {
 				num_data++;
@@ -1253,7 +1257,10 @@ drop:
 					process_lock_on_copy(&data->nrt_lock);
 					clear_read_wakelock++;
 				}
+				spin_lock_irqsave(&data->in_busy_lock, flags);
 				data->in_busy_2 = 0;
+				spin_unlock_irqrestore(&data->in_busy_lock,
+						       flags);
 			}
 		}
 		if (driver->supports_separate_cmdrsp) {
