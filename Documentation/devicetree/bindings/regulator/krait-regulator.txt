@@ -24,7 +24,13 @@ Required properties:
 				pmic will be made to operate in PFM mode.
 - qcom,cores-per-phase		Value that indicates the number of cores running at max frequency
 				a phase can support.
-
+- qcom,valid-phases		An array containing the phase count the platform supports. The phase count
+				entries must be in increasing order.
+- qcom,phase-coeff-threshold	An array representing the coeff values supported by the phase counts
+				mentioned in qcom,valid-phases array. The location of 0-based index
+				of an element in the list corresponds to the max coefficient supported
+				by the phase count mentioned in qcom,valid-phases array at that index. The
+				coefficient entries must be in increasing order.
 Optional properties:
 - qcom,use-phase-switching	indicates whether the driver should add/shed phases on the PMIC
 				ganged regulator as cpus are hotplugged.
@@ -72,6 +78,9 @@ Example:
 		qcom,use-phase-switching;
 		qcom,use-phase-scaling-factor;
 		qcom,pfm-threshold = <376975>;
+		qcom,valid-phases = <1 2 4>;
+		qcom,phase-coeff-threshold = <1000000 2000000 4000000>;
+
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
