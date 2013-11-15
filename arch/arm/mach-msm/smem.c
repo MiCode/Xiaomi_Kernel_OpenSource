@@ -650,52 +650,6 @@ static void *alloc_item_secure(unsigned id, unsigned size_in, unsigned to_proc,
 	return ret;
 }
 
-/* smem_alloc2 returns the pointer to smem item.  If it is not allocated,
- * it allocates it and then returns the pointer to it.
- */
-void *smem_alloc2(unsigned id, unsigned size_in)
-{
-	struct smem_shared *shared = (void *) MSM_SHARED_RAM_BASE;
-	struct smem_heap_entry *toc = shared->heap_toc;
-	unsigned long flags;
-	void *ret = NULL;
-	int rc;
-
-	if (!smem_initialized_check())
-		return NULL;
-
-	if (id >= SMEM_NUM_ITEMS) {
-		SMEM_INFO("%s: invalid id %u\n", __func__, id);
-		return NULL;
-	}
-
-	if (unlikely(!spinlocks_initialized)) {
-		rc = init_smem_remote_spinlock();
-		if (unlikely(rc)) {
-			SMEM_INFO("%s: remote spinlock init failed %d\n",
-								__func__, rc);
-			return NULL;
-		}
-	}
-
-	size_in = ALIGN(size_in, 8);
-	remote_spin_lock_irqsave(&remote_spinlock, flags);
-	if (toc[id].allocated) {
-		SMEM_INFO("%s: %u already allocated\n", __func__, id);
-		if (size_in != toc[id].size)
-			SMEM_INFO("%s: wrong size %u (expected %u)\n",
-				__func__, toc[id].size, size_in);
-		else
-			ret = (void *)(MSM_SHARED_RAM_BASE + toc[id].offset);
-	} else if (id > SMEM_FIXED_ITEM_LAST) {
-		SMEM_INFO("%s: allocating %u\n", __func__, id);
-		ret = alloc_item_nonsecure(id, size_in);
-	}
-	remote_spin_unlock_irqrestore(&remote_spinlock, flags);
-	return ret;
-}
-EXPORT_SYMBOL(smem_alloc2);
-
 /**
  * smem_alloc - Find an existing item, otherwise allocate it with security
  *		support
