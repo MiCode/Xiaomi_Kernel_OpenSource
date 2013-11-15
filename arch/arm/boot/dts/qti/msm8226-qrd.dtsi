@@ -27,6 +27,7 @@
 			vcc_i2c-supply = <&pm8226_lvs1>;
 			synaptics,reset-gpio = <&msmgpio 16 0x00>;
 			synaptics,irq-gpio = <&msmgpio 17 0x2008>;
+			synaptics,fw-image-name = "PR1468813.img";
 			synaptics,button-map = <139 102 158>;
 			synaptics,i2c-pull-up;
 			synaptics,power-down;
