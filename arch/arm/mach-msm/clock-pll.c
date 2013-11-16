@@ -26,23 +26,15 @@
 #define PLL_RESET_N BIT(2)
 #define PLL_MODE_MASK BM(3, 0)
 
-#define PLL_EN_REG(x) ((x)->base ? (*(x)->base + (u32)((x)->en_reg)) : \
-				((x)->en_reg))
-#define PLL_STATUS_REG(x) ((x)->base ? (*(x)->base + (u32)((x)->status_reg)) : \
-				((x)->status_reg))
-#define PLL_MODE_REG(x) ((x)->base ? (*(x)->base + (u32)((x)->mode_reg)) : \
-				((x)->mode_reg))
-#define PLL_L_REG(x) ((x)->base ? (*(x)->base + (u32)((x)->l_reg)) : \
-				((x)->l_reg))
-#define PLL_M_REG(x) ((x)->base ? (*(x)->base + (u32)((x)->m_reg)) : \
-				((x)->m_reg))
-#define PLL_N_REG(x) ((x)->base ? (*(x)->base + (u32)((x)->n_reg)) : \
-				((x)->n_reg))
-#define PLL_CONFIG_REG(x) ((x)->base ? (*(x)->base + (u32)((x)->config_reg)) : \
-				((x)->config_reg))
-#define PLL_CFG_CTL_REG(x) ((x)->base ? (*(x)->base + \
-			(u32)((x)->config_alt_reg)) : ((x)->config_alt_reg))
-
+#define PLL_EN_REG(x)		(*(x)->base + (unsigned long) (x)->en_reg)
+#define PLL_STATUS_REG(x)	(*(x)->base + (unsigned long) (x)->status_reg)
+#define PLL_MODE_REG(x)		(*(x)->base + (unsigned long) (x)->mode_reg)
+#define PLL_L_REG(x)		(*(x)->base + (unsigned long) (x)->l_reg)
+#define PLL_M_REG(x)		(*(x)->base + (unsigned long) (x)->m_reg)
+#define PLL_N_REG(x)		(*(x)->base + (unsigned long) (x)->n_reg)
+#define PLL_CONFIG_REG(x)	(*(x)->base + (unsigned long) (x)->config_reg)
+#define PLL_CFG_CTL_REG(x)	(*(x)->base + (unsigned long) \
+							(x)->config_alt_reg)
 
 static DEFINE_SPINLOCK(pll_reg_lock);
 
