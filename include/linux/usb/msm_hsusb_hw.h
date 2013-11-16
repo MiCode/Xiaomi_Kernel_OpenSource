@@ -49,6 +49,10 @@
 #define L1_CONFIG_PHY_LPM	BIT(10)
 #define L1_CONFIG_PLL		BIT(11)
 
+#define AHB2AHB_BYPASS		BIT(31)
+#define AHB2AHB_BYPASS_BIT_MASK	BIT(31)
+#define AHB2AHB_BYPASS_CLEAR	(0 << 31)
+
 #define PORTSC_PHCD            (1 << 23) /* phy suspend mode */
 #define PORTSC_PTS_MASK         (3 << 30)
 #define PORTSC_PTS_ULPI         (3 << 30)

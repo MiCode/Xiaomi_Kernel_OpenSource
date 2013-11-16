@@ -60,6 +60,9 @@ struct kgsl_dma_buf_meta {
 	struct sg_table *table;
 };
 
+static void kgsl_put_process_private(struct kgsl_device *device,
+			 struct kgsl_process_private *private);
+
 static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry);
 
 static void
@@ -341,14 +344,19 @@ kgsl_mem_entry_untrack_gpuaddr(struct kgsl_process_private *process,
  */
 static int
 kgsl_mem_entry_attach_process(struct kgsl_mem_entry *entry,
-				   struct kgsl_process_private *process)
+				   struct kgsl_device_private *dev_priv)
 {
 	int ret;
+	struct kgsl_process_private *process = dev_priv->process_priv;
+	
+	ret = kref_get_unless_zero(&process->refcount);
+	if (!ret)
+		return -EBADF;
 
 	while (1) {
 		if (idr_pre_get(&process->mem_idr, GFP_KERNEL) == 0) {
 			ret = -ENOMEM;
-			goto err;
+			goto err_put_proc_priv;
 		}
 
 		spin_lock(&process->mem_lock);
@@ -359,9 +367,10 @@ kgsl_mem_entry_attach_process(struct kgsl_mem_entry *entry,
 		if (ret == 0)
 			break;
 		else if (ret != -EAGAIN)
-			goto err;
+			goto err_put_proc_priv;
 	}
 	entry->priv = process;
+	entry->dev_priv = dev_priv;
 
 	spin_lock(&process->mem_lock);
 	ret = kgsl_mem_entry_track_gpuaddr(process, entry);
@@ -369,14 +378,17 @@ kgsl_mem_entry_attach_process(struct kgsl_mem_entry *entry,
 		idr_remove(&process->mem_idr, entry->id);
 	spin_unlock(&process->mem_lock);
 	if (ret)
-		goto err;
+		goto err_put_proc_priv;
 	/* map the memory after unlocking if gpuaddr has been assigned */
 	if (entry->memdesc.gpuaddr) {
 		ret = kgsl_mmu_map(process->pagetable, &entry->memdesc);
 		if (ret)
 			kgsl_mem_entry_detach_process(entry);
 	}
-err:
+	return ret;
+
+err_put_proc_priv:
+	kgsl_put_process_private(dev_priv->device, process);
 	return ret;
 }
 
@@ -399,6 +411,7 @@ static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 
 	entry->priv->stats[entry->memtype].cur -= entry->memdesc.size;
 	spin_unlock(&entry->priv->mem_lock);
+	kgsl_put_process_private(entry->dev_priv->device, entry->priv);
 
 	entry->priv = NULL;
 }
@@ -767,11 +780,6 @@ EXPORT_SYMBOL(kgsl_resume_driver);
  */
 static void kgsl_destroy_process_private(struct kref *kref)
 {
-
-	struct kgsl_mem_entry *entry = NULL;
-	int next = 0;
-
-
 	struct kgsl_process_private *private = container_of(kref,
 			struct kgsl_process_private, refcount);
 
@@ -795,20 +803,6 @@ static void kgsl_destroy_process_private(struct kref *kref)
 	if (private->debug_root)
 		debugfs_remove_recursive(private->debug_root);
 
-	while (1) {
-		spin_lock(&private->mem_lock);
-		entry = idr_get_next(&private->mem_idr, &next);
-		spin_unlock(&private->mem_lock);
-		if (entry == NULL)
-			break;
-		kgsl_mem_entry_put(entry);
-		/*
-		 * Always start back at the beginning, to
-		 * ensure all entries are removed,
-		 * like list_for_each_entry_safe.
-		 */
-		next = 0;
-	}
 	idr_destroy(&private->mem_idr);
 	kgsl_mmu_putpagetable(private->pagetable);
 
@@ -953,6 +947,7 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 	struct kgsl_process_private *private = dev_priv->process_priv;
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_context *context;
+	struct kgsl_mem_entry *entry;
 	int next = 0;
 
 	filep->private_data = NULL;
@@ -979,6 +974,25 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 			}
 		}
 
+		next = next + 1;
+	}
+	next = 0;
+	while (1) {
+		spin_lock(&private->mem_lock);
+		entry = idr_get_next(&private->mem_idr, &next);
+		spin_unlock(&private->mem_lock);
+		if (entry == NULL)
+			break;
+		/*
+		 * If the free pending flag is not set it means that user space
+		 * did not free it's reference to this entry, in that case
+		 * free a reference to this entry, other references are from
+		 * within kgsl so they will be freed eventually by kgsl
+		 */
+		if (entry->dev_priv == dev_priv && !entry->pending_free) {
+			entry->pending_free = 1;
+			kgsl_mem_entry_put(entry);
+		}
 		next = next + 1;
 	}
 	/*
@@ -2743,7 +2757,7 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	/* echo back flags */
 	param->flags = entry->memdesc.flags;
 
-	result = kgsl_mem_entry_attach_process(entry, private);
+	result = kgsl_mem_entry_attach_process(entry, dev_priv);
 	if (result)
 		goto error_attach;
 
@@ -3031,7 +3045,7 @@ kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 	if (result)
 		return result;
 
-	result = kgsl_mem_entry_attach_process(entry, private);
+	result = kgsl_mem_entry_attach_process(entry, dev_priv);
 	if (result != 0)
 		goto err;
 
@@ -3064,7 +3078,7 @@ kgsl_ioctl_gpumem_alloc_id(struct kgsl_device_private *dev_priv,
 	if (result != 0)
 		goto err;
 
-	result = kgsl_mem_entry_attach_process(entry, private);
+	result = kgsl_mem_entry_attach_process(entry, dev_priv);
 	if (result != 0)
 		goto err;
 
