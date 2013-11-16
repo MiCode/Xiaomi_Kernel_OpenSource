@@ -162,10 +162,10 @@ static struct msm_pcie_clk_info_t
 static struct msm_pcie_clk_info_t
 	msm_pcie_pipe_clk_info[MAX_RC_NUM][MSM_PCIE_MAX_PIPE_CLK] = {
 	{
-	{NULL, "pcie_0_pipe_clk", 250000000, true},
+	{NULL, "pcie_0_pipe_clk", 125000000, true},
 	},
 	{
-	{NULL, "pcie_1_pipe_clk", 250000000, true},
+	{NULL, "pcie_1_pipe_clk", 125000000, true},
 	}
 };
 
