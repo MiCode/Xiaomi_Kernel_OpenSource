@@ -176,7 +176,8 @@ dtb-$(CONFIG_ARCH_MSMSAMARIUM) += msmsamarium-sim.dtb \
 	msmsamarium-mtp.dtb \
 	apqsamarium-mtp.dtb
 dtb-$(CONFIG_ARCH_MPQ8092) += mpq8092-sim.dtb \
-	mpq8092-rumi.dtb
+	mpq8092-rumi.dtb \
+	mpq8092-cdp.dtb
 dtb-$(CONFIG_ARCH_APQ8084) += apq8084-sim.dtb \
 	apq8084-interposer-cdp.dtb \
 	apq8084-liquid.dtb \
