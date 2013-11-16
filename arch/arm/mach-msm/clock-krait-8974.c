@@ -680,8 +680,18 @@ static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 	rows = parse_tbl(dev, prop_name, 3,
 			(u32 **) &freq, (u32 **) &uv, (u32 **) &ua);
 	if (rows < 0) {
+		/* Fall back to most conservative PVS table */
 		dev_err(dev, "Unable to load voltage plan %s!\n", prop_name);
-		return rows;
+		ret = parse_tbl(dev, "qcom,speed0-pvs0-bin-v0", 3,
+				(u32 **) &freq, (u32 **) &uv, (u32 **) &ua);
+		if (ret < 0) {
+			dev_err(dev, "Unable to load safe voltage plan\n");
+			return rows;
+		} else {
+			dev_info(dev, "Safe voltage plan loaded.\n");
+			pvs = 0;
+			rows = ret;
+		}
 	}
 
 	krait_update_uv(uv, rows, pvs ? 25000 : 0);
