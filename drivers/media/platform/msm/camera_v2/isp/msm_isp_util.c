@@ -440,6 +440,18 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 	struct msm_vfe_reg_cfg_cmd *reg_cfg_cmd,
 	uint32_t *cfg_data, uint32_t cmd_len)
 {
+	if (!vfe_dev || !reg_cfg_cmd) {
+		pr_err("%s:%d failed: vfe_dev %p reg_cfg_cmd %p\n", __func__,
+			__LINE__, vfe_dev, reg_cfg_cmd);
+		return -EINVAL;
+	}
+	if ((reg_cfg_cmd->cmd_type != VFE_CFG_MASK) &&
+		(!cfg_data || !cmd_len)) {
+		pr_err("%s:%d failed: cmd type %d cfg_data %p cmd_len %d\n",
+			__func__, __LINE__, reg_cfg_cmd->cmd_type, cfg_data,
+			cmd_len);
+		return -EINVAL;
+	}
 	switch (reg_cfg_cmd->cmd_type) {
 	case VFE_WRITE: {
 		if (resource_size(vfe_dev->vfe_mem) <
@@ -615,7 +627,7 @@ int msm_isp_proc_cmd(struct vfe_device *vfe_dev, void *arg)
 	int rc = 0, i;
 	struct msm_vfe_cfg_cmd2 *proc_cmd = arg;
 	struct msm_vfe_reg_cfg_cmd *reg_cfg_cmd;
-	uint32_t *cfg_data;
+	uint32_t *cfg_data = NULL;
 
 	if (!proc_cmd->num_cfg) {
 		pr_err("%s: Passed num_cfg as 0\n", __func__);
@@ -630,19 +642,6 @@ int msm_isp_proc_cmd(struct vfe_device *vfe_dev, void *arg)
 		goto reg_cfg_failed;
 	}
 
-	if (!proc_cmd->cmd_len) {
-		pr_err("%s: Passed cmd_len as 0\n", __func__);
-		rc = -EINVAL;
-		goto cfg_data_failed;
-	}
-
-	cfg_data = kzalloc(proc_cmd->cmd_len, GFP_KERNEL);
-	if (!cfg_data) {
-		pr_err("%s: cfg_data alloc failed\n", __func__);
-		rc = -ENOMEM;
-		goto cfg_data_failed;
-	}
-
 	if (copy_from_user(reg_cfg_cmd,
 		(void __user *)(proc_cmd->cfg_cmd),
 		sizeof(struct msm_vfe_reg_cfg_cmd) * proc_cmd->num_cfg)) {
@@ -650,11 +649,20 @@ int msm_isp_proc_cmd(struct vfe_device *vfe_dev, void *arg)
 		goto copy_cmd_failed;
 	}
 
-	if (copy_from_user(cfg_data,
+	if (proc_cmd->cmd_len > 0) {
+		cfg_data = kzalloc(proc_cmd->cmd_len, GFP_KERNEL);
+		if (!cfg_data) {
+			pr_err("%s: cfg_data alloc failed\n", __func__);
+			rc = -ENOMEM;
+			goto cfg_data_failed;
+		}
+
+		if (copy_from_user(cfg_data,
 			(void __user *)(proc_cmd->cfg_data),
 			proc_cmd->cmd_len)) {
-		rc = -EFAULT;
-		goto copy_cmd_failed;
+			rc = -EFAULT;
+			goto copy_cmd_failed;
+		}
 	}
 
 	for (i = 0; i < proc_cmd->num_cfg; i++)
