@@ -620,6 +620,39 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = ipa_get_ep_mapping(arg);
 			break;
 		}
+	case IPA_IOC_QUERY_RT_TBL_INDEX:
+		if (copy_from_user(header, (u8 *)arg,
+				sizeof(struct ipa_ioc_get_rt_tbl_indx))) {
+			retval = -EFAULT;
+			break;
+		}
+		if (ipa_query_rt_index(
+			 (struct ipa_ioc_get_rt_tbl_indx *)header)) {
+			retval = -EFAULT;
+			break;
+		}
+		if (copy_to_user((u8 *)arg, header,
+				sizeof(struct ipa_ioc_get_rt_tbl_indx))) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+	case IPA_IOC_WRITE_QMAPID:
+		if (copy_from_user(header, (u8 *)arg,
+					sizeof(struct ipa_ioc_write_qmapid))) {
+			retval = -EFAULT;
+			break;
+		}
+		if (ipa_write_qmap_id((struct ipa_ioc_write_qmapid *)header)) {
+			retval = -EFAULT;
+			break;
+		}
+		if (copy_to_user((u8 *)arg, header,
+					sizeof(struct ipa_ioc_write_qmapid))) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
 
 	default:        /* redundant, as cmd was checked against MAXNR */
 		ipa_dec_client_disable_clks();

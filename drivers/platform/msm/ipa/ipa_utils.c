@@ -2520,6 +2520,95 @@ int ipa_cfg_ep_deaggr(u32 clnt_hdl,
 }
 EXPORT_SYMBOL(ipa_cfg_ep_deaggr);
 
+static void _ipa_cfg_ep_metadata_v1_1(u32 pipe_number,
+					const struct ipa_ep_cfg_metadata *meta)
+{
+	IPADBG("Not supported for version 1.1\n");
+}
+
+static void _ipa_cfg_ep_metadata_v2_0(u32 pipe_number,
+					const struct ipa_ep_cfg_metadata *meta)
+{
+	u32 reg_val = 0;
+
+	IPA_SETFIELD_IN_REG(reg_val, meta->qmap_id,
+			IPA_ENDP_INIT_HDR_METADATA_n_MUX_ID_SHFT,
+			IPA_ENDP_INIT_HDR_METADATA_n_MUX_ID_BMASK);
+
+	ipa_write_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_HDR_METADATA_n_OFST(pipe_number),
+			reg_val);
+}
+
+/**
+ * ipa_cfg_ep_metadata() - IPA end-point metadata configuration
+ * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
+ * @ipa_ep_cfg:	[in] IPA end-point configuration params
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_cfg_ep_metadata(u32 clnt_hdl, const struct ipa_ep_cfg_metadata *ep_md)
+{
+	if (clnt_hdl >= IPA_NUM_PIPES || ipa_ctx->ep[clnt_hdl].valid == 0 ||
+			ep_md == NULL) {
+		IPAERR("bad parm, clnt_hdl = %d , ep_valid = %d\n",
+					clnt_hdl, ipa_ctx->ep[clnt_hdl].valid);
+		return -EINVAL;
+	}
+
+	IPADBG("pipe=%d, mux id=%d\n", clnt_hdl, ep_md->qmap_id);
+
+	/* copy over EP cfg */
+	ipa_ctx->ep[clnt_hdl].cfg.meta = *ep_md;
+
+	ipa_inc_client_enable_clks();
+
+	ipa_ctx->ctrl->ipa_cfg_ep_metadata(clnt_hdl, ep_md);
+
+	ipa_dec_client_disable_clks();
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa_cfg_ep_metadata);
+
+int ipa_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
+{
+	struct ipa_ep_cfg_metadata meta;
+	struct ipa_ep_context *ep;
+	int ipa_ep_idx;
+	int result = -EINVAL;
+
+	if (param_in->client  >= IPA_CLIENT_MAX) {
+		IPAERR("bad parm client:%d\n", param_in->client);
+		goto fail;
+	}
+
+	ipa_ep_idx = ipa_get_ep_mapping(param_in->client);
+	if (ipa_ep_idx == -1) {
+		IPAERR("Invalid client.\n");
+		goto fail;
+	}
+
+	ep = &ipa_ctx->ep[ipa_ep_idx];
+	if (!ep->valid) {
+		IPAERR("EP not allocated.\n");
+		goto fail;
+	}
+
+	meta.qmap_id = param_in->qmap_id;
+	if (param_in->client == IPA_CLIENT_USB_PROD) {
+		result = ipa_cfg_ep_metadata(ipa_ep_idx, &meta);
+	} else if (param_in->client == IPA_CLIENT_WLAN1_PROD) {
+		ipa_ctx->ep[ipa_ep_idx].cfg.meta = meta;
+		result = 0;
+	}
+
+fail:
+	return result;
+}
+
 /**
  * ipa_dump_buff_internal() - dumps buffer for debug purposes
  * @base: buffer base address
@@ -2902,6 +2991,7 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_enable_clks = _ipa_enable_clks_v1;
 		ctrl->ipa_disable_clks = _ipa_disable_clks_v1;
 		ctrl->msm_bus_data_ptr = &ipa_bus_client_pdata_v1_1;
+		ctrl->ipa_cfg_ep_metadata = _ipa_cfg_ep_metadata_v1_1;
 		break;
 	case (IPA_HW_v1_1):
 		ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v1_1;
@@ -2928,6 +3018,7 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_enable_clks = _ipa_enable_clks_v1;
 		ctrl->ipa_disable_clks = _ipa_disable_clks_v1;
 		ctrl->msm_bus_data_ptr = &ipa_bus_client_pdata_v1_1;
+		ctrl->ipa_cfg_ep_metadata = _ipa_cfg_ep_metadata_v1_1;
 		break;
 	case (IPA_HW_v2_0):
 		ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v2_0;
@@ -2954,6 +3045,7 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_enable_clks = _ipa_enable_clks_v2_0;
 		ctrl->ipa_disable_clks = _ipa_disable_clks_v2_0;
 		ctrl->msm_bus_data_ptr = &ipa_bus_client_pdata_v2_0;
+		ctrl->ipa_cfg_ep_metadata = _ipa_cfg_ep_metadata_v2_0;
 		break;
 	default:
 		return -EPERM;

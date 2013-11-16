@@ -344,6 +344,15 @@ struct ipa_ep_cfg_metadata_mask {
 };
 
 /**
+ * struct ipa_ep_cfg_metadata - Meta Data configuration in IPA end-point
+ * @md:	This defines the meta data from tx data descriptor
+ * @qmap_id: qmap id
+ */
+struct ipa_ep_cfg_metadata {
+	u32 qmap_id;
+};
+
+/**
  * struct ipa_ep_cfg - configuration of IPA end-point
  * @nat:	NAT parmeters
  * @hdr:	Header parameters
@@ -364,8 +373,13 @@ struct ipa_ep_cfg {
 	struct ipa_ep_cfg_status status;
 	struct ipa_ep_cfg_cfg cfg;
 	struct ipa_ep_cfg_metadata_mask metadata_mask;
+	struct ipa_ep_cfg_metadata meta;
 };
 
+/**
+ * x should be in bytes
+ */
+#define IPA_NUM_OF_FIFO_DESC(x) (x/sizeof(struct sps_iovec))
 typedef void (*ipa_notify_cb)(void *priv, enum ipa_dp_evt_type evt,
 		       unsigned long data);
 
@@ -650,6 +664,20 @@ struct teth_bridge_connect_params {
 	enum ipa_client_type client_type;
 };
 
+/**
+ * struct  ipa_tx_data_desc - information needed
+ * to send data packet to HW link: link to data descriptors
+ * priv: client specific private data
+ * @pyld_buffer: pointer to the data buffer that holds frame
+ * @pyld_len: length of the data packet
+ */
+struct ipa_tx_data_desc {
+	struct list_head link;
+	void *priv;
+	void *pyld_buffer;
+	u16  pyld_len;
+};
+
 #ifdef CONFIG_IPA
 
 /*
@@ -731,6 +759,8 @@ int ipa_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup);
 
 int ipa_put_rt_tbl(u32 rt_tbl_hdl);
 
+int ipa_query_rt_index(struct ipa_ioc_get_rt_tbl_indx *in);
+
 /*
  * Filtering
  */
@@ -794,6 +824,16 @@ int ipa_bridge_teardown(enum ipa_bridge_dir dir, enum ipa_bridge_type type,
  */
 int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		struct ipa_tx_meta *metadata);
+
+/*
+ * To transfer multiple data packets
+ * While passing the data descriptor list, the anchor node
+ * should be of type struct ipa_tx_data_desc not list_head
+*/
+int ipa_tx_dp_mul(enum ipa_client_type dst,
+			struct ipa_tx_data_desc *data_desc);
+
+void ipa_free_skb(struct sk_buff *);
 
 /*
  * System pipes
@@ -875,6 +915,9 @@ int teth_bridge_set_mbim_aggr_params(struct teth_aggr_params *aggr_params,
 
 void ipa_bam_reg_dump(void);
 bool ipa_emb_ul_pipes_empty(void);
+
+/* mux id*/
+int ipa_write_qmap_id(struct ipa_ioc_write_qmapid *param_in);
 
 #else /* CONFIG_IPA */
 
@@ -1090,6 +1133,11 @@ static inline int ipa_put_rt_tbl(u32 rt_tbl_hdl)
 	return -EPERM;
 }
 
+static inline int ipa_query_rt_index(struct ipa_ioc_get_rt_tbl_indx *in)
+{
+	return -EPERM;
+}
+
 /*
  * Filtering
  */
@@ -1228,6 +1276,22 @@ static inline int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 }
 
 /*
+ * To transfer multiple data packets
+*/
+static inline int ipa_tx_dp_mul(
+	enum ipa_client_type dst,
+	struct ipa_tx_data_desc *data_desc)
+{
+	return -EPERM;
+}
+
+static inline void ipa_free_skb(struct sk_buff *skb)
+{
+	return;
+}
+
+
+/*
  * System pipes
  */
 static inline int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in,
@@ -1361,6 +1425,12 @@ static inline void ipa_bam_reg_dump(void)
 static inline bool ipa_emb_ul_pipes_empty(void)
 {
 	return false;
+}
+
+/* mux id */
+static inline int ipa_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
+{
+	return -EPERM;
 }
 
 #endif /* CONFIG_IPA*/

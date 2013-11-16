@@ -648,6 +648,32 @@ struct ipa_rt_tbl *__ipa_find_rt_tbl(enum ipa_ip_type ip, const char *name)
 	return NULL;
 }
 
+/**
+ * ipa_query_rt_index() - find the routing table index
+ *			which name and ip type are given as parameters
+ * @in:	[out] the index of the wanted routing table
+ *
+ * Returns: the routing table which name is given as parameter, or NULL if it
+ * doesn't exist
+ */
+int ipa_query_rt_index(struct ipa_ioc_get_rt_tbl_indx *in)
+{
+	struct ipa_rt_tbl *entry;
+
+	if (in->ip >= IPA_IP_MAX) {
+		IPAERR("bad parm\n");
+		return -EINVAL;
+	}
+
+	/* check if this table exists */
+	entry = __ipa_find_rt_tbl(in->ip, in->name);
+	if (!entry)
+		return -EFAULT;
+
+	in->idx  = entry->idx;
+	return 0;
+}
+
 static struct ipa_rt_tbl *__ipa_add_rt_tbl(enum ipa_ip_type ip,
 		const char *name)
 {

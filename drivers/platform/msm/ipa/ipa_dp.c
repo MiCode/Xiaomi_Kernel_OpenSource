@@ -36,6 +36,7 @@
  * part of the data buffer */
 #define IPA_LAN_RX_BUFF_SZ 7936
 
+static struct sk_buff *ipa_get_skb_ipa_rx(unsigned int len, gfp_t flags);
 static void ipa_replenish_rx_cache(struct ipa_sys_context *sys);
 static void replenish_rx_work_func(struct work_struct *work);
 static void ipa_wq_handle_rx(struct work_struct *work);
@@ -867,8 +868,10 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	char buff[IPA_RESOURCE_NAME_MAX];
 
 	if (sys_in == NULL || clnt_hdl == NULL ||
-	    sys_in->client >= IPA_CLIENT_MAX || sys_in->desc_fifo_sz == 0) {
-		IPAERR("bad parm.\n");
+	    sys_in->client >= IPA_CLIENT_MAX ||
+			sys_in->desc_fifo_sz == 0) {
+		IPAERR("bad parm client:%d fifo_sz:%d\n",
+			sys_in->client, sys_in->desc_fifo_sz);
 		goto fail_gen;
 	}
 
@@ -932,7 +935,9 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	ep->client_notify = sys_in->notify;
 	ep->priv = sys_in->priv;
 	ep->sys->ep = ep;
+	ep->avail_fifo_desc = (sys_in->desc_fifo_sz/sizeof(struct sps_iovec));
 	INIT_LIST_HEAD(&ep->sys->head_desc_list);
+
 	spin_lock_init(&ep->sys->spinlock);
 
 	if (ipa_cfg_ep(ipa_ep_idx, &sys_in->ipa_ep_cfg)) {
@@ -969,6 +974,13 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		ep->connect.dest_pipe_index = ipa_ep_idx;
 	}
 
+	IPADBG("client:%d ep:%d",
+		sys_in->client, ipa_ep_idx);
+
+	IPADBG("dest_pipe_index:%d src_pipe_index:%d\n",
+		ep->connect.dest_pipe_index,
+		ep->connect.src_pipe_index);
+
 	ep->connect.options = ep->sys->sps_option;
 	ep->connect.desc.size = sys_in->desc_fifo_sz;
 	ep->connect.desc.base = dma_alloc_coherent(NULL, ep->connect.desc.size,
@@ -1002,6 +1014,7 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 
 	if (IPA_CLIENT_IS_CONS(sys_in->client))
 		ipa_replenish_rx_cache(ep->sys);
+
 
 	IPADBG("client %d (ep: %d) connected sys=%p\n", sys_in->client,
 			ipa_ep_idx, ep->sys);
@@ -1321,6 +1334,130 @@ static void ipa_cleanup_rx(struct ipa_sys_context *sys)
 	}
 }
 
+static int ipa_wlan_rx_pyld_hdlr(struct sk_buff *skb,
+		struct ipa_sys_context *sys)
+{
+	int rc = 0;
+	struct ipa_hw_pkt_status *status;
+	struct sk_buff *skb2;
+	int pad_len_byte;
+	int len;
+
+	IPADBG("\n");
+	IPA_DUMP_BUFF(skb->data, 0, skb->len);
+
+	if (skb->len == 0) {
+		IPAERR("ZLT\n");
+		sys->free_skb(skb);
+		return rc;
+	}
+
+	while (skb->len) {
+		IPADBG("LEN_REM %d\n", skb->len);
+
+		if (skb->len < IPA_PKT_STATUS_SIZE) {
+			IPAERR("status straddles buffer, not supported\n");
+			sys->free_skb(skb);
+			return rc;
+		}
+
+		status = (struct ipa_hw_pkt_status *)skb->data;
+		IPADBG("STATUS opcode=%d src=%d dst=%d len=%d\n",
+				status->status_opcode, status->endp_src_idx,
+				status->endp_dest_idx, status->pkt_len);
+
+		if (status->status_opcode != IPA_HW_STATUS_OPCODE_PACKET) {
+			IPAERR("unsupported opcode\n");
+			skb_pull(skb, IPA_PKT_STATUS_SIZE);
+			continue;
+		}
+
+		if (status->endp_dest_idx >= IPA_NUM_PIPES ||
+			status->endp_src_idx >= IPA_NUM_PIPES ||
+			status->pkt_len > IPA_GENERIC_AGGR_BYTE_LIMIT * 1024) {
+			IPAERR(
+				"status fields invalid endp_dest_idx:%d endp_src_idx:%d pkt_len:%d\n",
+				status->endp_dest_idx,
+				status->endp_src_idx,
+				status->pkt_len);
+				BUG();
+		}
+
+		/* Not sure what is this */
+		if (status->pkt_len == 0) {
+			IPADBG("Skip aggr close status\n");
+			skb_pull(skb, IPA_PKT_STATUS_SIZE);
+			continue;
+		}
+
+		if (status->endp_dest_idx == (sys->ep - ipa_ctx->ep)) {
+			/* RX data */
+			if (skb->len == IPA_PKT_STATUS_SIZE) {
+				IPAERR("Only status packet, not expected\n");
+				sys->free_skb(skb);
+				return rc;
+			}
+
+			if (sys->ep->cfg.hdr_ext.hdr_total_len_or_pad_valid) {
+				IPADBG("padding is set\n");
+				pad_len_byte = *(u8 *)(status+1);
+				len = status->pkt_len + (pad_len_byte & 0x3f);
+			} else {
+				IPADBG("padding is not set\n");
+				pad_len_byte = 0;
+				len = status->pkt_len;
+			}
+			IPADBG("pad_byte:0x%x pkt_len:%d len:%d\n",
+			pad_len_byte, status->pkt_len, len);
+
+			skb2 = skb_clone(skb, GFP_KERNEL);
+			if (likely(skb2)) {
+				if (skb->len < len) {
+					IPAERR(
+					"Pkt straddles across buf skb_len:%d len:%d\n",
+					skb->len, len);
+					skb_pull(skb, skb->len);
+				} else {
+					IPADBG("rx avail for %d\n",
+						status->endp_dest_idx);
+					skb_trim(skb2,
+					status->pkt_len + IPA_PKT_STATUS_SIZE);
+
+					skb_pull(skb2, IPA_PKT_STATUS_SIZE);
+					IPADBG("skb2 len bfr clnt notify %d\n",
+						skb2->len);
+					sys->ep->client_notify(sys->ep->priv,
+							IPA_RECEIVE,
+							(unsigned long)(skb2));
+					ipa_ctx->stats.wlan_tx_pkts++;
+					skb_pull(skb,
+						len + IPA_PKT_STATUS_SIZE);
+					IPADBG("skb len aftr cur pk pull:%d\n",
+						skb->len);
+				}
+			} else {
+				IPAERR("fail to clone\n");
+				if (skb->len < len) {
+					IPAERR(
+					"Pkt straddles across buf skb_len:%d len:%d\n",
+					skb->len, len);
+					skb_pull(skb, skb->len);
+				} else {
+					skb_pull(skb,
+						len + IPA_PKT_STATUS_SIZE);
+				}
+			}
+		} else {
+			IPAERR("tx completion not expected for %d\n",
+				status->endp_src_idx);
+			skb_pull(skb, IPA_PKT_STATUS_SIZE);
+		}
+	};
+
+	sys->free_skb(skb);
+	return rc;
+}
+
 static int ipa_lan_rx_pyld_hdlr(struct sk_buff *skb,
 		struct ipa_sys_context *sys)
 {
@@ -1434,7 +1571,7 @@ begin:
 				WARN_ON(sys->prev_skb != NULL);
 				IPADBG("Ins header in next buffer\n");
 				sys->prev_skb = skb;
-				sys->len_partial = skb->len;
+				sys->len_partial =	 skb->len;
 				return rc;
 			}
 
@@ -1792,8 +1929,10 @@ static void ipa_wq_rx_common(struct ipa_sys_context *sys, u32 size)
 	rx_skb->len = rx_pkt_expected->len;
 	rx_skb->truesize = rx_pkt_expected->len + sizeof(struct sk_buff);
 	sys->pyld_hdlr(rx_skb, sys);
-	ipa_replenish_rx_cache(sys);
-	kmem_cache_free(ipa_ctx->rx_pkt_wrapper_cache, rx_pkt_expected);
+
+		ipa_replenish_rx_cache(sys);
+		kmem_cache_free(ipa_ctx->rx_pkt_wrapper_cache, rx_pkt_expected);
+
 }
 
 static void ipa_wq_rx_avail(struct work_struct *work)
@@ -1913,6 +2052,33 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 						IPA_CLIENT_APPS_WAN_CONS) {
 					sys->pyld_hdlr = ipa_wan_rx_pyld_hdlr;
 				}
+			} else if (in->client == IPA_CLIENT_WLAN1_CONS ||
+					in->client == IPA_CLIENT_WLAN2_CONS ||
+					in->client == IPA_CLIENT_WLAN3_CONS ||
+					in->client == IPA_CLIENT_WLAN4_CONS) {
+				IPADBG("assigning policy to client:%d",
+					in->client);
+				INIT_DELAYED_WORK(&sys->replenish_rx_work,
+					replenish_rx_work_func);
+				sys->rx_buff_sz =
+					IPA_WLAN_GENERIC_AGGR_BYTE_LIMIT * 1024;
+				sys->rx_pool_sz = IPA_WLAN_GENERIC_RX_POOL_SZ;
+				sys->pyld_hdlr = ipa_wlan_rx_pyld_hdlr;
+				sys->get_skb = ipa_get_skb_ipa_rx;
+				sys->free_skb = ipa_free_skb_rx;
+				in->ipa_ep_cfg.aggr.aggr_en = IPA_ENABLE_AGGR;
+				in->ipa_ep_cfg.aggr.aggr = IPA_GENERIC;
+				in->ipa_ep_cfg.aggr.aggr_byte_limit =
+				((IPA_WLAN_GENERIC_AGGR_RX_SIZE/1024)-1);
+				in->ipa_ep_cfg.aggr.aggr_time_limit =
+					 IPA_GENERIC_AGGR_TIME_LIMIT;
+				in->ipa_ep_cfg.aggr.aggr_pkt_limit =
+					 IPA_GENERIC_AGGR_PKT_LIMIT;
+				IPADBG("aggr en:%d aggr_byte_limit:%d",
+					in->ipa_ep_cfg.aggr.aggr_en,
+					in->ipa_ep_cfg.aggr.aggr_byte_limit);
+				IPADBG("aggr_pkt_limit:%d",
+					in->ipa_ep_cfg.aggr.aggr_pkt_limit);
 			} else {
 				IPAERR("Need to install a RX pipe hdlr\n");
 				WARN_ON(1);
@@ -1929,4 +2095,147 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 	return 0;
 }
 
+/**
+ * ipa_tx_client_rx_notify_release() - Callback function
+ * which will call the user supplied callback function to
+ * release the skb, or release it on its own if no callback
+ * function was supplied
+ *
+ * @user1: [in] - Data Descriptor
+ * @user2: [in] - endpoint idx
+ *
+ * This notified callback is for the destination client
+ * This function is supplied in ipa_tx_dp_mul
+ */
+static void ipa_tx_client_rx_notify_release(void *user1, void *user2)
+{
+	struct ipa_tx_data_desc *dd = (struct ipa_tx_data_desc *)user1;
+	struct ipa_tx_data_desc *entry;
+	u32 ep_idx = (u32)user2;
+
+	IPADBG("Received data desc anchor:%p\n", dd);
+	list_for_each_entry(entry, &dd->link, link) {
+		IPADBG("data desc=0x%p priv=0x%p ep=%d\n",
+			entry, entry->priv, ep_idx);
+		ipa_ctx->ep[ep_idx].avail_fifo_desc++;
+		ipa_ctx->stats.wlan_rx_comp++;
+		}
+
+  /* wlan host driver waits till tx complete before unload */
+	IPADBG("ep=%d fifo_desc_free_count=%d\n",
+		ep_idx, ipa_ctx->ep[ep_idx].avail_fifo_desc);
+	IPADBG("calling client notify callback with priv:%p\n",
+		ipa_ctx->ep[ep_idx].priv);
+	if (ipa_ctx->ep[ep_idx].client_notify)
+		ipa_ctx->ep[ep_idx].client_notify(ipa_ctx->ep[ep_idx].priv,
+				IPA_WRITE_DONE, (unsigned long)user1);
+
+}
+
+
+/**
+ * ipa_tx_dp_mul() - Data-path tx handler for multiple packets
+ * @src: [in] - Client that is sending data
+ * @ipa_tx_data_desc:	[in] data descriptors from wlan
+ *
+ * this is used for to transfer data descriptors that received
+ * from WLAN1_PROD pipe to IPA HW
+ *
+ * The function will send data descriptors from WLAN1_PROD (one
+ * at a time) using sps_transfer_one. Will set EOT flag for last
+ * descriptor Once this send was done from SPS point-of-view the
+ * IPA driver will get notified by the supplied callback -
+ * ipa_sps_irq_tx_no_aggr_notify()
+ *
+ * ipa_sps_irq_tx_no_aggr_notify will call to the user supplied
+ * callback (from ipa_connect)
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_tx_dp_mul(enum ipa_client_type src,
+			struct ipa_tx_data_desc *data_desc)
+{
+	/* The second byte in wlan header holds qmap id */
+#define IPA_WLAN_HDR_QMAP_ID_OFFSET 1
+	struct ipa_tx_data_desc *entry;
+	struct ipa_sys_context *sys;
+	struct ipa_desc desc;
+	u32 num_desc, cnt;
+	int ep_idx;
+
+	IPADBG("Received data desc anchor:%p\n", data_desc);
+
+	ep_idx = ipa_get_ep_mapping(src);
+	if (unlikely(ep_idx == -1)) {
+		IPAERR("dest EP does not exist.\n");
+		goto fail_send;
+	}
+	IPADBG("ep idx:%d\n", ep_idx);
+	sys = ipa_ctx->ep[ep_idx].sys;
+
+	if (unlikely(ipa_ctx->ep[ep_idx].valid == 0)) {
+		IPAERR("dest EP not valid.\n");
+		goto fail_send;
+	}
+
+	/* Calculate the number of descriptors */
+	num_desc = 0;
+	list_for_each_entry(entry, &data_desc->link, link) {
+		num_desc++;
+	}
+	IPADBG("Number of Data Descriptors:%d", num_desc);
+
+	if (ipa_ctx->ep[ep_idx].avail_fifo_desc < num_desc) {
+		IPAERR("Insufficient data descriptors available\n");
+		goto fail_send;
+	}
+
+	/* Assign callback only for last data descriptor */
+	cnt = 0;
+	list_for_each_entry(entry, &data_desc->link, link) {
+		IPADBG("Parsing data desc :%d\n", cnt);
+		cnt++;
+		((u8 *)entry->pyld_buffer)[IPA_WLAN_HDR_QMAP_ID_OFFSET] =
+			(u8)ipa_ctx->ep[ep_idx].cfg.meta.qmap_id;
+		desc.pyld = entry->pyld_buffer;
+		desc.len = entry->pyld_len;
+		desc.type = IPA_DATA_DESC_SKB;
+		desc.user1 = data_desc;
+		desc.user2 = (void *)ep_idx;
+		IPADBG("priv:%p pyld_buf:0x%p pyld_len:%d\n",
+			entry->priv, desc.pyld, desc.len);
+
+		/* In case of last descriptor populate callback */
+		if (cnt == num_desc) {
+			IPADBG("data desc:%p\n", data_desc);
+			desc.callback = ipa_tx_client_rx_notify_release;
+		} else {
+			desc.callback = NULL;
+		}
+
+		IPADBG("calling ipa_send_one()\n");
+		if (ipa_send_one(sys, &desc, true)) {
+			IPAERR("fail to send skb\n");
+			goto fail_send;
+		}
+
+		ipa_ctx->ep[ep_idx].avail_fifo_desc--;
+		ipa_ctx->stats.wlan_rx_pkts++;
+		IPADBG("ep=%d fifo desc=%d\n",
+			ep_idx, ipa_ctx->ep[ep_idx].avail_fifo_desc);
+	}
+
+	return 0;
+
+fail_send:
+	return -EFAULT;
+
+}
+EXPORT_SYMBOL(ipa_tx_dp_mul);
+
+void ipa_free_skb(struct sk_buff *skb)
+{
+	dev_kfree_skb_any(skb);
+}
+EXPORT_SYMBOL(ipa_free_skb);
 
