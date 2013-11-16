@@ -25,6 +25,11 @@ The optional properties are:
 - qcom,saw-turns-off-pll: Version of SAW2.1 or can turn off the HFPLL, when
 	doing power collapse and so the core need to switch to Global PLL before
 	PC.
+- qcom,synced-clocks: Indicates that all cpus running off a single clock source and to
+	instantiate the necessary clock source.
+- qcom,cpus-as-clocks: Indicates that the CPU clocks are implemented using clock APIs and should
+	switch to using generic clock APIs to enable/disable power collapse.
+	If set, the pm driver would ignore clock API errors and continue to call acpuclock API directly.
 - qcom,pc-resets-timer: Indicates that the timer gets reset during power collapse.
 
 Example:

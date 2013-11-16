@@ -16,6 +16,8 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/clk.h>
+#include <linux/clkdev.h>
 #include <linux/completion.h>
 #include <linux/cpuidle.h>
 #include <linux/interrupt.h>
@@ -82,6 +84,8 @@ static int msm_pm_sleep_time_override;
 module_param_named(sleep_time_override,
 	msm_pm_sleep_time_override, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
+static bool use_acpuclk_apis;
+
 enum {
 	MSM_PM_DEBUG_SUSPEND = BIT(0),
 	MSM_PM_DEBUG_POWER_COLLAPSE = BIT(1),
@@ -134,6 +138,9 @@ static bool msm_pm_retention_calls_tz;
 static bool msm_no_ramp_down_pc;
 static struct msm_pm_sleep_status_data *msm_pm_slp_sts;
 static bool msm_pm_pc_reset_timer;
+
+DEFINE_PER_CPU(struct clk *, cpu_clks);
+static struct clk *l2_clk;
 
 static int msm_pm_get_pc_mode(struct device_node *node,
 		const char *key, uint32_t *pc_mode_val)
@@ -560,6 +567,58 @@ static bool msm_pm_power_collapse_standalone(bool from_idle)
 	return collapsed;
 }
 
+static int ramp_down_last_cpu(int cpu)
+{
+	struct clk *cpu_clk = per_cpu(cpu_clks, cpu);
+	int ret = 0;
+
+	if (use_acpuclk_apis) {
+		ret = acpuclk_power_collapse();
+		if (MSM_PM_DEBUG_CLOCK & msm_pm_debug_mask)
+			pr_info("CPU%u: %s: change clk rate(old rate = %d)\n",
+					cpu, __func__, ret);
+	} else {
+		clk_disable(cpu_clk);
+		clk_disable(l2_clk);
+	}
+	return ret;
+}
+
+static int ramp_up_first_cpu(int cpu, int saved_rate)
+{
+	struct clk *cpu_clk = per_cpu(cpu_clks, cpu);
+	int rc = 0;
+
+	if (MSM_PM_DEBUG_CLOCK & msm_pm_debug_mask)
+		pr_info("CPU%u: %s: restore clock rate\n",
+				cpu, __func__);
+
+	if (use_acpuclk_apis) {
+		rc = acpuclk_set_rate(cpu, saved_rate, SETRATE_PC);
+		if (rc)
+			pr_err("CPU:%u: Error restoring cpu clk\n", cpu);
+	} else {
+		if (l2_clk) {
+			rc = clk_enable(l2_clk);
+			if (rc)
+				pr_err("%s(): Error restoring l2 clk\n",
+						__func__);
+		}
+
+		if (cpu_clk) {
+			int ret = clk_enable(cpu_clk);
+
+			if (ret) {
+				pr_err("%s(): Error restoring cpu clk\n",
+						__func__);
+				return ret;
+			}
+		}
+	}
+
+	return rc;
+}
+
 static bool msm_pm_power_collapse(bool from_idle)
 {
 	unsigned int cpu = smp_processor_id();
@@ -581,11 +640,7 @@ static bool msm_pm_power_collapse(bool from_idle)
 	avs_set_avscsr(0); /* Disable AVS */
 
 	if (cpu_online(cpu) && !msm_no_ramp_down_pc)
-		saved_acpuclk_rate = acpuclk_power_collapse();
-
-	if (MSM_PM_DEBUG_CLOCK & msm_pm_debug_mask)
-		pr_info("CPU%u: %s: change clock rate (old rate = %lu)\n",
-			cpu, __func__, saved_acpuclk_rate);
+		saved_acpuclk_rate = ramp_down_last_cpu(cpu);
 
 	if (cp15_data.save_cp15)
 		msm_pm_save_cpu_reg();
@@ -595,15 +650,8 @@ static bool msm_pm_power_collapse(bool from_idle)
 	if (cp15_data.save_cp15)
 		msm_pm_restore_cpu_reg();
 
-	if (cpu_online(cpu)) {
-		if (MSM_PM_DEBUG_CLOCK & msm_pm_debug_mask)
-			pr_info("CPU%u: %s: restore clock rate to %lu\n",
-				cpu, __func__, saved_acpuclk_rate);
-		if (!msm_no_ramp_down_pc &&
-			acpuclk_set_rate(cpu, saved_acpuclk_rate, SETRATE_PC)
-				< 0)
-			pr_err("CPU%u: %s: failed to restore clock rate(%lu)\n",
-				cpu, __func__, saved_acpuclk_rate);
+	if (cpu_online(cpu) && !msm_no_ramp_down_pc) {
+		ramp_up_first_cpu(cpu, saved_acpuclk_rate);
 	} else {
 		unsigned int gic_dist_enabled;
 		unsigned int gic_dist_pending;
@@ -1617,6 +1665,46 @@ static const struct file_operations msm_pc_debug_counters_fops = {
 	.llseek = no_llseek,
 };
 
+static int msm_pm_clk_init(struct platform_device *pdev)
+{
+	bool synced_clocks;
+	u32 cpu;
+	char clk_name[] = "cpu??_clk";
+	bool cpu_as_clocks;
+	char *key;
+
+	key = "qcom,cpus-as-clocks";
+	cpu_as_clocks = of_property_read_bool(pdev->dev.of_node, key);
+
+	if (!cpu_as_clocks) {
+		use_acpuclk_apis = true;
+		return 0;
+	}
+
+	key = "qcom,synced-clocks";
+	synced_clocks = of_property_read_bool(pdev->dev.of_node, key);
+
+	for_each_possible_cpu(cpu) {
+		struct clk *clk;
+		snprintf(clk_name, sizeof(clk_name), "cpu%d_clk", cpu);
+		clk = devm_clk_get(&pdev->dev, clk_name);
+		if (IS_ERR(clk)) {
+			if (cpu && synced_clocks)
+				return 0;
+			else
+				return PTR_ERR(clk);
+		}
+		per_cpu(cpu_clks, cpu) = clk;
+	}
+
+	if (synced_clocks)
+		return 0;
+
+	l2_clk = devm_clk_get(&pdev->dev, "l2_clk");
+
+	return PTR_RET(l2_clk);
+}
+
 static int __devinit msm_pm_8x60_probe(struct platform_device *pdev)
 {
 	char *key = NULL;
@@ -1661,6 +1749,12 @@ static int __devinit msm_pm_8x60_probe(struct platform_device *pdev)
 		memcpy(&pdata_local, d, sizeof(struct msm_pm_init_data_type));
 
 	} else {
+		ret = msm_pm_clk_init(pdev);
+		if (ret) {
+			pr_info("msm_pm_clk_init returned error\n");
+			return ret;
+		}
+
 		key = "qcom,pc-mode";
 		ret = msm_pm_get_pc_mode(pdev->dev.of_node,
 				key,
