@@ -95,7 +95,7 @@ struct kgsl_functable {
 	int (*stop) (struct kgsl_device *device);
 	int (*getproperty) (struct kgsl_device *device,
 		enum kgsl_property_type type, void *value,
-		unsigned int sizebytes);
+		size_t sizebytes);
 	int (*waittimestamp) (struct kgsl_device *device,
 		struct kgsl_context *context, unsigned int timestamp,
 		unsigned int msecs);
