@@ -32,7 +32,6 @@
 #include <linux/types.h>
 #include <linux/android_alarm.h>
 #include <linux/thermal.h>
-#include <mach/cpufreq.h>
 #include <mach/rpm-regulator.h>
 #include <mach/rpm-regulator-smd.h>
 #include <linux/regulator/consumer.h>
