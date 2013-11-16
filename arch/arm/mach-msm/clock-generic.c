@@ -285,23 +285,19 @@ struct clk_mux_ops mux_reg_ops = {
 
 /* ==================== Divider clock ==================== */
 
-static long __div_round_rate(struct clk *c, unsigned long rate, int *best_div)
+static long __div_round_rate(struct div_data *data, unsigned long rate,
+	struct clk *parent, unsigned int *best_div)
 {
-	struct div_clk *d = to_div_clk(c);
 	unsigned int div, min_div, max_div, rrate_div = 1;
 	unsigned long p_rrate, rrate = 0;
 
 	rate = max(rate, 1UL);
 
-	if (!d->ops || !d->ops->set_div)
-		min_div = max_div = d->div;
-	else {
-		min_div = max(d->min_div, 1U);
-		max_div = min(d->max_div, (unsigned int) (ULONG_MAX / rate));
-	}
+	min_div = max(data->min_div, 1U);
+	max_div = min(data->max_div, (unsigned int) (ULONG_MAX / rate));
 
 	for (div = min_div; div <= max_div; div++) {
-		p_rrate = clk_round_rate(c->parent, rate * div);
+		p_rrate = clk_round_rate(parent, rate * div);
 		if (IS_ERR_VALUE(p_rrate))
 			break;
 
@@ -322,7 +318,7 @@ static long __div_round_rate(struct clk *c, unsigned long rate, int *best_div)
 		if (p_rrate < rate)
 			break;
 
-		if (rrate <= rate + d->rate_margin)
+		if (rrate <= rate + data->rate_margin)
 			break;
 	}
 
@@ -336,7 +332,9 @@ static long __div_round_rate(struct clk *c, unsigned long rate, int *best_div)
 
 static long div_round_rate(struct clk *c, unsigned long rate)
 {
-	return __div_round_rate(c, rate, NULL);
+	struct div_clk *d = to_div_clk(c);
+
+	return __div_round_rate(&d->data, rate, c->parent, NULL);
 }
 
 static int div_set_rate(struct clk *c, unsigned long rate)
@@ -344,8 +342,9 @@ static int div_set_rate(struct clk *c, unsigned long rate)
 	struct div_clk *d = to_div_clk(c);
 	int div, rc = 0;
 	long rrate, old_prate;
+	struct div_data *data = &d->data;
 
-	rrate = __div_round_rate(c, rate, &div);
+	rrate = __div_round_rate(data, rate, c->parent, &div);
 	if (rrate != rate)
 		return -EINVAL;
 
@@ -355,7 +354,7 @@ static int div_set_rate(struct clk *c, unsigned long rate)
 	 * !d->ops and return an error. __div_round_rate() ensures div ==
 	 * d->div if !d->ops.
 	 */
-	if (div > d->div)
+	if (div > data->div)
 		rc = d->ops->set_div(d, div);
 	if (rc)
 		return rc;
@@ -365,12 +364,12 @@ static int div_set_rate(struct clk *c, unsigned long rate)
 	if (rc)
 		goto set_rate_fail;
 
-	if (div < d->div)
+	if (div < data->div)
 		rc = d->ops->set_div(d, div);
 	if (rc)
 		goto div_dec_fail;
 
-	d->div = div;
+	data->div = div;
 
 	return 0;
 
@@ -378,8 +377,8 @@ div_dec_fail:
 	WARN(clk_set_rate(c->parent, old_prate),
 		"Set rate failed for %s. Also in bad state!\n", c->dbg_name);
 set_rate_fail:
-	if (div > d->div)
-		WARN(d->ops->set_div(d, d->div),
+	if (div > data->div)
+		WARN(d->ops->set_div(d, data->div),
 			"Set rate failed for %s. Also in bad state!\n",
 			c->dbg_name);
 	return rc;
@@ -403,11 +402,16 @@ static void div_disable(struct clk *c)
 static enum handoff div_handoff(struct clk *c)
 {
 	struct div_clk *d = to_div_clk(c);
+	unsigned int div = d->data.div;
 
 	if (d->ops && d->ops->get_div)
-		d->div = max(d->ops->get_div(d), 1);
-	d->div = max(d->div, 1U);
-	c->rate = clk_get_rate(c->parent) / d->div;
+		div = max(d->ops->get_div(d), 1);
+	div = max(div, 1U);
+	c->rate = clk_get_rate(c->parent) / div;
+
+	if (!d->ops || !d->ops->set_div)
+		d->data.min_div = d->data.max_div = div;
+	d->data.div = div;
 
 	if (d->en_mask && d->ops && d->ops->is_enabled)
 		return d->ops->is_enabled(d)
@@ -443,12 +447,8 @@ static long __slave_div_round_rate(struct clk *c, unsigned long rate,
 
 	rate = max(rate, 1UL);
 
-	if (!d->ops || !d->ops->set_div)
-		min_div = max_div = d->div;
-	else {
-		min_div = d->min_div;
-		max_div = d->max_div;
-	}
+	min_div = d->data.min_div;
+	max_div = d->data.max_div;
 
 	p_rate = clk_get_rate(c->parent);
 	div = p_rate / rate;
@@ -475,20 +475,20 @@ static int slave_div_set_rate(struct clk *c, unsigned long rate)
 	if (rrate != rate)
 		return -EINVAL;
 
-	if (div == d->div)
+	if (div == d->data.div)
 		return 0;
 
 	/*
 	 * For fixed divider clock we don't want to return an error if the
 	 * requested rate matches the achievable rate. So, don't check for
 	 * !d->ops and return an error. __slave_div_round_rate() ensures
-	 * div == d->div if !d->ops.
+	 * div == d->data.div if !d->ops.
 	 */
 	rc = d->ops->set_div(d, div);
 	if (rc)
 		return rc;
 
-	d->div = div;
+	d->data.div = div;
 
 	return 0;
 }

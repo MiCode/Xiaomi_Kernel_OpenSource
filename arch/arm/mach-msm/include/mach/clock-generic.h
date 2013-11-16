@@ -80,11 +80,16 @@ struct clk_div_ops {
 	void (*disable)(struct div_clk *clk);
 };
 
+struct div_data {
+	unsigned int div;
+	unsigned int min_div;
+	unsigned int max_div;
+	unsigned long rate_margin;
+};
+
 struct div_clk {
-	unsigned int	div;
-	unsigned int	min_div;
-	unsigned int	max_div;
-	unsigned long	rate_margin;
+	struct div_data data;
+
 	/* Optional */
 	struct clk_div_ops *ops;
 
@@ -114,7 +119,9 @@ extern struct clk_ops clk_ops_ext;
 
 #define DEFINE_FIXED_DIV_CLK(clk_name, _div, _parent) \
 static struct div_clk clk_name = {	\
-	.div = _div,				\
+	.data = {				\
+		.div = _div,			\
+	},					\
 	.c = {					\
 		.parent = _parent,		\
 		.dbg_name = #clk_name,		\
@@ -125,7 +132,9 @@ static struct div_clk clk_name = {	\
 
 #define DEFINE_FIXED_SLAVE_DIV_CLK(clk_name, _div, _parent) \
 static struct div_clk clk_name = {	\
-	.div = _div,				\
+	.data = {				\
+		.div = _div,			\
+	},					\
 	.c = {					\
 		.parent = _parent,		\
 		.dbg_name = #clk_name,		\
