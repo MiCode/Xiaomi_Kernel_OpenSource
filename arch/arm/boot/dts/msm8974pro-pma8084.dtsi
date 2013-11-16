@@ -100,20 +100,10 @@
 		};
 	};
 
-	qcom,acpuclk@f9000000 {
-		krait0_mem-supply = <&pma8084_s1_ao>;
-		krait1_mem-supply = <&pma8084_s1_ao>;
-		krait2_mem-supply = <&pma8084_s1_ao>;
-		krait3_mem-supply = <&pma8084_s1_ao>;
-		krait0_dig-supply = <&pma8084_s2_corner_ao>;
-		krait1_dig-supply = <&pma8084_s2_corner_ao>;
-		krait2_dig-supply = <&pma8084_s2_corner_ao>;
-		krait3_dig-supply = <&pma8084_s2_corner_ao>;
-		krait0_hfpll-supply = <&pma8084_l12_ao>;
-		krait1_hfpll-supply = <&pma8084_l12_ao>;
-		krait2_hfpll-supply = <&pma8084_l12_ao>;
-		krait3_hfpll-supply = <&pma8084_l12_ao>;
-		l2_hfpll-supply = <&pma8084_l12_ao>;
+	qcom,clock-krait@f9016000 {
+		l2-dig-supply = <&pma8084_s2_corner_ao>;
+		hfpll-dig-supply = <&pma8084_s2_corner_ao>;
+		hfpll-analog-supply = <&pma8084_l12_ao>;
 	};
 
 	qcom,ssusb@f9200000 {

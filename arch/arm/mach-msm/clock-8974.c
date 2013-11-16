@@ -4953,8 +4953,10 @@ static struct clk_lookup msm_clocks_8974_common[] __initdata = {
 
 	CLK_LOOKUP("measure",	measure_clk.c,	"debug"),
 
+	CLK_LOOKUP("hfpll_src", cxo_a_clk_src.c,   "f9016000.qcom,clock-krait"),
+	CLK_LOOKUP("aux_clk",   gpll0_ao_clk_src.c,
+						"f9016000.qcom,clock-krait"),
 	CLK_LOOKUP("gpll0", gpll0_clk_src.c, ""),
-	CLK_LOOKUP("gpll0_ao", gpll0_ao_clk_src.c, ""),
 
 	CLK_LOOKUP("dma_bam_pclk", gcc_bam_dma_ahb_clk.c, "msm_sps"),
 	CLK_LOOKUP("iface_clk", gcc_blsp1_ahb_clk.c, "f991f000.serial"),
