@@ -39,8 +39,23 @@ static int mux_set_parent(struct clk *c, struct clk *p)
 	struct mux_clk *mux = to_mux_clk(c);
 	int sel = parent_to_src_sel(mux, p);
 	struct clk *old_parent;
-	int rc = 0;
+	int rc = 0, i;
 	unsigned long flags;
+
+	if (sel < 0 && mux->rec_set_par) {
+		for (i = 0; i < mux->num_parents; i++) {
+			rc = clk_set_parent(mux->parents[i].src, p);
+			if (!rc) {
+				sel = mux->parents[i].sel;
+				/*
+				 * This is necessary to ensure prepare/enable
+				 * counts get propagated correctly.
+				 */
+				p = mux->parents[i].src;
+				break;
+			}
+		}
+	}
 
 	if (sel < 0)
 		return sel;
