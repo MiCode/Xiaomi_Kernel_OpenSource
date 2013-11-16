@@ -18,45 +18,6 @@
 #include <mach/clk-provider.h>
 
 /**
- * enum - For PLL IDs
- */
-enum {
-	PLL_TCXO	= -1,
-	PLL_0	= 0,
-	PLL_1,
-	PLL_2,
-	PLL_3,
-	PLL_4,
-	PLL_END,
-};
-
-/**
- * struct pll_shared_clk -  PLL shared with other processors without
- * any HW voting
- * @id: PLL ID
- * @mode_reg: enable register
- * @c: clock
- */
-struct pll_shared_clk {
-	unsigned int id;
-	void __iomem *const mode_reg;
-	struct clk c;
-	void *const __iomem *base;
-};
-
-extern struct clk_ops clk_ops_pll;
-
-static inline struct pll_shared_clk *to_pll_shared_clk(struct clk *c)
-{
-	return container_of(c, struct pll_shared_clk, c);
-}
-
-/**
- * msm_shared_pll_control_init() - Initialize shared pll control structure
- */
-void msm_shared_pll_control_init(void);
-
-/**
  * struct pll_freq_tbl - generic PLL frequency definition
  * @freq_hz: pll frequency in hz
  * @l_val: pll l value
