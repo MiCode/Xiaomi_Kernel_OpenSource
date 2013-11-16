@@ -222,11 +222,12 @@ static int mux_reg_enable(struct mux_clk *clk)
 {
 	u32 regval;
 	unsigned long flags;
+	u32 offset = clk->en_reg ? clk->en_offset : clk->offset;
 
 	spin_lock_irqsave(&mux_reg_lock, flags);
-	regval = readl_relaxed(*clk->base + clk->offset);
+	regval = readl_relaxed(*clk->base + offset);
 	regval |= clk->en_mask;
-	writel_relaxed(regval, *clk->base + clk->offset);
+	writel_relaxed(regval, *clk->base + offset);
 	/* Ensure enable request goes through before returning */
 	mb();
 	spin_unlock_irqrestore(&mux_reg_lock, flags);
@@ -238,11 +239,12 @@ static void mux_reg_disable(struct mux_clk *clk)
 {
 	u32 regval;
 	unsigned long flags;
+	u32 offset = clk->en_reg ? clk->en_offset : clk->offset;
 
 	spin_lock_irqsave(&mux_reg_lock, flags);
-	regval = readl_relaxed(*clk->base + clk->offset);
+	regval = readl_relaxed(*clk->base + offset);
 	regval &= ~clk->en_mask;
-	writel_relaxed(regval, *clk->base + clk->offset);
+	writel_relaxed(regval, *clk->base + offset);
 	spin_unlock_irqrestore(&mux_reg_lock, flags);
 }
 
