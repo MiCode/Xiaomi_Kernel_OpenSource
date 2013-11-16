@@ -74,6 +74,9 @@ static void *smem_ipc_log_ctx;
 
 #define SMEM_SPINLOCK_SMEM_ALLOC       "S:3"
 
+static void *smem_ram_base;
+static resource_size_t smem_ram_size;
+static phys_addr_t smem_ram_phys;
 static remote_spinlock_t remote_spinlock;
 static uint32_t num_smem_areas;
 static struct smem_area *smem_areas;
@@ -195,18 +198,18 @@ static void *smem_phys_to_virt(phys_addr_t base, unsigned offset)
 		 * with a new function that knows how to lookup the
 		 * SMEM base address before SMEM has been probed.
 		 */
-		phys_addr = msm_shared_ram_phys;
-		size = MSM_SHARED_RAM_SIZE;
+		phys_addr = smem_ram_phys;
+		size = smem_ram_size;
 
 		if (base >= phys_addr && base + offset < phys_addr + size) {
 			if (OVERFLOW_ADD_UNSIGNED(uintptr_t,
-				(uintptr_t)MSM_SHARED_RAM_BASE, offset)) {
+				(uintptr_t)smem_ram_base, offset)) {
 				SMEM_INFO("%s: overflow %p %x\n", __func__,
-					MSM_SHARED_RAM_BASE, offset);
+					smem_ram_base, offset);
 				return NULL;
 			}
 
-			return MSM_SHARED_RAM_BASE + offset;
+			return smem_ram_base + offset;
 		} else {
 			return NULL;
 		}
@@ -276,7 +279,7 @@ EXPORT_SYMBOL(smem_virt_to_phys);
 static void *__smem_get_entry(unsigned id, unsigned *size,
 		bool skip_init_check, bool use_rspinlock)
 {
-	struct smem_shared *shared = (void *) MSM_SHARED_RAM_BASE;
+	struct smem_shared *shared = smem_ram_base;
 	struct smem_heap_entry *toc = shared->heap_toc;
 	int use_spinlocks = spinlocks_initialized && use_rspinlock;
 	void *ret = 0;
@@ -299,7 +302,7 @@ static void *__smem_get_entry(unsigned id, unsigned *size,
 
 		phys_base = toc[id].reserved & BASE_ADDR_MASK;
 		if (!phys_base)
-			phys_base = (phys_addr_t)msm_shared_ram_phys;
+			phys_base = smem_ram_phys;
 		ret = smem_phys_to_virt(phys_base, toc[id].offset);
 	} else {
 		*size = 0;
@@ -513,7 +516,7 @@ EXPORT_SYMBOL(smem_find_to_proc);
  */
 static void *alloc_item_nonsecure(unsigned id, unsigned size_in)
 {
-	void *smem_base = MSM_SHARED_RAM_BASE;
+	void *smem_base = smem_ram_base;
 	struct smem_shared *shared = smem_base;
 	struct smem_heap_entry *toc = shared->heap_toc;
 	void *ret = NULL;
@@ -564,7 +567,7 @@ static void *alloc_item_nonsecure(unsigned id, unsigned size_in)
 static void *alloc_item_secure(unsigned id, unsigned size_in, unsigned to_proc,
 								unsigned flags)
 {
-	void *smem_base = MSM_SHARED_RAM_BASE;
+	void *smem_base = smem_ram_base;
 	struct smem_partition_header *hdr;
 	struct smem_partition_allocation_header *alloc_hdr;
 	uint32_t a_hdr_size;
@@ -820,7 +823,7 @@ unsigned smem_get_free_space(unsigned to_proc)
 		hdr = smem_areas[0].virt_addr + partitions[to_proc].offset;
 		return hdr->offset_free_cached - hdr->offset_free_uncached;
 	} else {
-		shared = (void *)MSM_SHARED_RAM_BASE;
+		shared = smem_ram_base;
 		return shared->heap_info.heap_remaining;
 	}
 }
@@ -905,7 +908,7 @@ bool smem_initialized_check(void)
 		return is_inited;
 	}
 
-	smem = (void *)MSM_SHARED_RAM_BASE;
+	smem = smem_ram_base;
 
 	if (smem->heap_info.initialized != 1)
 		goto failed;
@@ -1168,6 +1171,22 @@ static int msm_smem_probe(struct platform_device *pdev)
 	int smem_idx = 0;
 	bool security_enabled;
 
+	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "smem");
+	if (!r) {
+		LOG_ERR("%s: missing reg\n", __func__);
+		return -ENODEV;
+	}
+
+	smem_ram_base = ioremap(r->start, resource_size(r));
+	smem_ram_size = resource_size(r);
+	smem_ram_phys = r->start;
+	if (!smem_ram_base) {
+		LOG_ERR("%s: ioremap_nocache() of addr:%pa size: %pa\n",
+				__func__,
+				&smem_ram_phys, &smem_ram_size);
+		return -ENODEV;
+	}
+
 	if (!smem_initialized_check())
 		return -ENODEV;
 
@@ -1219,7 +1238,7 @@ static int msm_smem_probe(struct platform_device *pdev)
 	}
 	smem_areas_tmp[smem_idx].phys_addr =  r->start;
 	smem_areas_tmp[smem_idx].size = resource_size(r);
-	smem_areas_tmp[smem_idx].virt_addr = MSM_SHARED_RAM_BASE;
+	smem_areas_tmp[smem_idx].virt_addr = smem_ram_base;
 
 	ramdump_segments_tmp[smem_idx].address = r->start;
 	ramdump_segments_tmp[smem_idx].size = resource_size(r);
