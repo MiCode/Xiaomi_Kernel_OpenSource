@@ -120,7 +120,7 @@ struct ion_heap_ops {
 			 struct vm_area_struct *vma);
 	void (*unmap_user) (struct ion_heap *mapper, struct ion_buffer *buffer);
 	int (*print_debug)(struct ion_heap *heap, struct seq_file *s,
-			   const struct rb_root *mem_map);
+			   const struct list_head *mem_map);
 	int (*secure_heap)(struct ion_heap *heap, int version, void *data);
 	int (*unsecure_heap)(struct ion_heap *heap, int version, void *data);
 	int (*secure_buffer)(struct ion_buffer *buffer, int version,
