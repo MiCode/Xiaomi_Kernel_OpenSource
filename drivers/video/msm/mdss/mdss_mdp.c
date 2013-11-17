@@ -25,6 +25,7 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/iommu.h>
+#include <linux/iopoll.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/pm.h>
@@ -54,6 +55,8 @@
 #include "mdss_mdp.h"
 #include "mdss_panel.h"
 #include "mdss_debug.h"
+
+#define AXI_HALT_TIMEOUT_US	0x4000
 
 struct mdss_data_type *mdss_res;
 
@@ -134,6 +137,52 @@ static int mdss_mdp_parse_dt_smp(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_misc(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_ad_cfg(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev);
+
+/**
+ * mdss_mdp_vbif_axi_halt() - Halt MDSS AXI ports
+ * @mdata: pointer to the global mdss data structure.
+ *
+ * Check if MDSS AXI ports are idle or not. If not send a halt request and
+ * wait for it be idle.
+ *
+ * This function can be called during deep suspend, display off or for
+ * debugging purposes. On success it should be assumed that AXI ports are in
+ * idle state and would not fetch any more data. This function cannot be
+ * called from interrupt context.
+ */
+int mdss_mdp_vbif_axi_halt(struct mdss_data_type *mdata)
+{
+	bool is_idle;
+	int rc = 0;
+	u32 reg_val, idle_mask, status;
+
+	idle_mask = BIT(4);
+	if (mdata->axi_port_cnt == 2)
+		idle_mask |= BIT(5);
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	reg_val = readl_relaxed(mdata->vbif_base + MMSS_VBIF_AXI_HALT_CTRL1);
+
+	is_idle = (reg_val & idle_mask) ? true : false;
+	if (!is_idle) {
+		pr_err("axi is not idle. halt_ctrl1=%d\n", reg_val);
+
+		writel_relaxed(1, mdata->vbif_base + MMSS_VBIF_AXI_HALT_CTRL0);
+
+		rc = readl_poll_timeout(mdata->vbif_base +
+			MMSS_VBIF_AXI_HALT_CTRL1, status, (status & idle_mask),
+			1000, AXI_HALT_TIMEOUT_US);
+		if (rc == -ETIMEDOUT)
+			pr_err("VBIF axi is not halting. TIMEDOUT.\n");
+		else
+			pr_debug("VBIF axi is halted\n");
+
+		writel_relaxed(0, mdata->vbif_base + MMSS_VBIF_AXI_HALT_CTRL0);
+	}
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+
+	return rc;
+}
 
 u32 mdss_mdp_fb_stride(u32 fb_index, u32 xres, int bpp)
 {
