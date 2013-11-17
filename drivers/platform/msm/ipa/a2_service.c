@@ -517,6 +517,8 @@ static void ipa_tethered_notify(void *priv,
 				a2_mux_ctx->bam_ch[A2_MUX_TETHERED_0].user_data,
 				A2_MUX_RECEIVE,
 				data);
+		else
+			dev_kfree_skb_any((struct sk_buff *)data);
 		break;
 	case IPA_WRITE_DONE:
 		a2_mux_write_done(true, (struct sk_buff *)data);
