@@ -255,9 +255,6 @@ static int alloc_mem(struct fastrpc_buf *buf)
 		VERIFY(err, 0 != (sg = ion_sg_table(clnt, buf->handle)));
 		if (err)
 			goto bail;
-		VERIFY(err, 1 == sg->nents);
-		if (err)
-			goto bail;
 		buf->phys = sg_dma_address(sg->sgl);
 	}
  bail:
