@@ -440,6 +440,7 @@
 		ranges;
 		qcom,pfm-threshold = <76>;
 		qcom,use-phase-switching;
+		qcom,cores-per-phase = <1>;
 
 		krait0_vreg: regulator@f9088000 {
 			compatible = "qcom,krait-regulator";

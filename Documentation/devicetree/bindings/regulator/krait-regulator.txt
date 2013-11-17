@@ -22,6 +22,8 @@ Required properties:
 				the phase scaling factor eFuse address.
 - qcom,pfm-threshold		The power coeff threshold in abstract power units below which
 				pmic will be made to operate in PFM mode.
+- qcom,cores-per-phase		Value that indicates the number of cores running at max frequency
+				a phase can support.
 
 Optional properties:
 - qcom,use-phase-switching	indicates whether the driver should add/shed phases on the PMIC

@@ -194,6 +194,7 @@ struct pmic_gang_vreg {
 	bool			manage_phases;
 	int			pfm_threshold;
 	int			efuse_phase_scaling_factor;
+	int			cores_per_phase;
 };
 
 static struct pmic_gang_vreg *the_gang;
@@ -516,9 +517,12 @@ static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 	else
 		phase_count = 4;
 
-	/* don't increase the phase count higher than number of online cpus */
-	if (phase_count > n_online)
-		phase_count = n_online;
+	/*
+	 * don't increase the phase count higher than that required
+	 * by the number of online CPUs
+	 */
+	if (phase_count > DIV_ROUND_UP(n_online, pvreg->cores_per_phase))
+		phase_count = DIV_ROUND_UP(n_online, pvreg->cores_per_phase);
 
 	if (phase_count != pvreg->pmic_phase_count) {
 		rc = set_pmic_gang_phases(pvreg, phase_count);
@@ -1513,6 +1517,7 @@ static int krait_pdn_probe(struct platform_device *pdev)
 	struct device_node *node = dev->of_node;
 	struct pmic_gang_vreg *pvreg;
 	struct resource *res;
+	int cores_per_phase;
 
 	if (!dev->of_node) {
 		dev_err(dev, "device tree information missing\n");
@@ -1525,6 +1530,13 @@ static int krait_pdn_probe(struct platform_device *pdev)
 	rc = of_property_read_u32(node, "qcom,pfm-threshold", &pfm_threshold);
 	if (rc < 0) {
 		dev_err(dev, "pfm-threshold missing rc=%d, pfm disabled\n", rc);
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32(node, "qcom,cores-per-phase",
+			&cores_per_phase);
+	if (rc < 0) {
+		dev_err(dev, "cores-per-phase missing rc=%d\n", rc);
 		return -EINVAL;
 	}
 
@@ -1558,6 +1570,7 @@ static int krait_pdn_probe(struct platform_device *pdev)
 	pvreg->pmic_min_uV_for_retention = INT_MAX;
 	pvreg->use_phase_switching = use_phase_switching;
 	pvreg->pfm_threshold = pfm_threshold;
+	pvreg->cores_per_phase = cores_per_phase;
 
 	mutex_init(&pvreg->krait_power_vregs_lock);
 	INIT_LIST_HEAD(&pvreg->krait_power_vregs);
