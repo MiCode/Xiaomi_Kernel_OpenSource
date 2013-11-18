@@ -51,17 +51,7 @@ int dsi_cmds_tx_v2(struct mdss_panel_data *pdata,
 			struct dsi_buf *tp, struct dsi_cmd_desc *cmds,
 			int cnt);
 
-char *dsi_buf_init(struct dsi_buf *dp);
-
 int dsi_buf_alloc(struct dsi_buf *dp, int size);
-
-int dsi_cmd_dma_add(struct dsi_buf *dp, struct dsi_cmd_desc *cm);
-
-int dsi_short_read1_resp(struct dsi_buf *rp);
-
-int dsi_short_read2_resp(struct dsi_buf *rp);
-
-int dsi_long_read_resp(struct dsi_buf *rp);
 
 void dsi_set_tx_power_mode(int mode);
 
