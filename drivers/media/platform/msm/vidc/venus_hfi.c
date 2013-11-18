@@ -1057,30 +1057,32 @@ static int venus_hfi_iface_cmdq_write(struct venus_hfi_device *device,
 		dprintk(VIDC_ERR, "cannot write to shared Q's");
 		goto err_q_null;
 	}
-	mutex_lock(&device->clk_pwr_lock);
-	result = venus_hfi_clk_gating_off(device);
-	if (result) {
-		dprintk(VIDC_ERR, "%s : Clock enable failed\n",
-			__func__);
-		goto err_q_write;
-	}
-	result = venus_hfi_scale_clocks(device, device->clk_load);
-	if (result) {
-		dprintk(VIDC_ERR, "Clock scaling failed\n");
-		goto err_q_write;
-	}
 	if (!venus_hfi_write_queue(q_info, (u8 *)pkt, &rx_req_is_set)) {
+		mutex_lock(&device->clk_pwr_lock);
+		result = venus_hfi_clk_gating_off(device);
+		if (result) {
+			dprintk(VIDC_ERR, "%s : Clock enable failed\n",
+					__func__);
+			mutex_unlock(&device->clk_pwr_lock);
+			goto err_q_write;
+		}
+		result = venus_hfi_scale_clocks(device, device->clk_load);
+		if (result) {
+			dprintk(VIDC_ERR, "Clock scaling failed\n");
+			mutex_unlock(&device->clk_pwr_lock);
+			goto err_q_write;
+		}
 		if (rx_req_is_set)
 			venus_hfi_write_register(
 				device,
 				VIDC_CPU_IC_SOFTINT,
 				1 << VIDC_CPU_IC_SOFTINT_H2A_SHFT, 0);
 		result = 0;
+		mutex_unlock(&device->clk_pwr_lock);
 	} else {
 		dprintk(VIDC_ERR, "venus_hfi_iface_cmdq_write:queue_full");
 	}
 err_q_write:
-	mutex_unlock(&device->clk_pwr_lock);
 err_q_null:
 	mutex_unlock(&device->write_lock);
 	return result;
@@ -1104,26 +1106,27 @@ static int venus_hfi_iface_msgq_read(struct venus_hfi_device *device, void *pkt)
 		goto read_error_null;
 	}
 	q_info = &device->iface_queues[VIDC_IFACEQ_MSGQ_IDX];
-	mutex_lock(&device->clk_pwr_lock);
-	rc = venus_hfi_clk_gating_off(device);
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"%s : Clock enable failed\n", __func__);
-		goto read_error;
-	}
 	if (!venus_hfi_read_queue(q_info, (u8 *)pkt, &tx_req_is_set)) {
+		mutex_lock(&device->clk_pwr_lock);
+		rc = venus_hfi_clk_gating_off(device);
+		if (rc) {
+			dprintk(VIDC_ERR,
+					"%s : Clock enable failed\n", __func__);
+			mutex_unlock(&device->clk_pwr_lock);
+			goto read_error;
+		}
 		if (tx_req_is_set)
 			venus_hfi_write_register(
 				device,
 				VIDC_CPU_IC_SOFTINT,
 				1 << VIDC_CPU_IC_SOFTINT_H2A_SHFT, 0);
 		rc = 0;
+		mutex_unlock(&device->clk_pwr_lock);
 	} else {
 		dprintk(VIDC_INFO, "venus_hfi_iface_msgq_read:queue_empty");
 		rc = -ENODATA;
 	}
 read_error:
-	mutex_unlock(&device->clk_pwr_lock);
 read_error_null:
 	mutex_unlock(&device->read_lock);
 	return rc;
@@ -1146,27 +1149,28 @@ static int venus_hfi_iface_dbgq_read(struct venus_hfi_device *device, void *pkt)
 		rc = -ENODATA;
 		goto dbg_error_null;
 	}
-	mutex_lock(&device->clk_pwr_lock);
-	rc = venus_hfi_clk_gating_off(device);
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"%s : Clock enable failed\n", __func__);
-		goto dbg_error;
-	}
 	q_info = &device->iface_queues[VIDC_IFACEQ_DBGQ_IDX];
 	if (!venus_hfi_read_queue(q_info, (u8 *)pkt, &tx_req_is_set)) {
+		mutex_lock(&device->clk_pwr_lock);
+		rc = venus_hfi_clk_gating_off(device);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s : Clock enable failed\n", __func__);
+			mutex_unlock(&device->clk_pwr_lock);
+			goto dbg_error;
+		}
 		if (tx_req_is_set)
 			venus_hfi_write_register(
 				device,
 				VIDC_CPU_IC_SOFTINT,
 				1 << VIDC_CPU_IC_SOFTINT_H2A_SHFT, 0);
 		rc = 0;
+		mutex_unlock(&device->clk_pwr_lock);
 	} else {
 		dprintk(VIDC_INFO, "venus_hfi_iface_dbgq_read:queue_empty");
 		rc = -ENODATA;
 	}
 dbg_error:
-	mutex_unlock(&device->clk_pwr_lock);
 dbg_error_null:
 	mutex_unlock(&device->read_lock);
 	return rc;
@@ -1567,20 +1571,59 @@ static int venus_hfi_core_release(void *device)
 	return 0;
 }
 
+static int venus_hfi_is_cmd_pending(struct venus_hfi_device *dev)
+{
+	struct hfi_queue_header *queue;
+	struct vidc_iface_q_info *q_info;
+	u32 write_ptr, read_ptr;
+	u32 rc = 0;
+	q_info = &dev->iface_queues[VIDC_IFACEQ_CMDQ_IDX];
+	if (!q_info)
+		dprintk(VIDC_ERR, "cannot read shared Q's");
+	queue = (struct hfi_queue_header *) q_info->q_hdr;
+	if (!queue) {
+		dprintk(VIDC_ERR, "queue not present");
+		return -ENOENT;
+	}
+	write_ptr = (u32)queue->qhdr_write_idx;
+	read_ptr = (u32)queue->qhdr_read_idx;
+	rc = read_ptr - write_ptr;
+	return rc;
+}
+
+static inline void venus_hfi_clk_gating_on(struct venus_hfi_device *device)
+{
+	if (!device) {
+		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
+		return;
+	}
+	if (!device->clocks_enabled) {
+		dprintk(VIDC_DBG, "Clocks are already disabled");
+		goto already_disabled;
+	}
+	venus_hfi_clk_disable(device);
+	if (!queue_delayed_work(device->venus_pm_workq, &venus_hfi_pm_work,
+			msecs_to_jiffies(msm_vidc_pwr_collapse_delay)))
+		dprintk(VIDC_DBG, "PM work already scheduled\n");
+already_disabled:
+	device->clocks_enabled = 0;
+}
+
 static void venus_hfi_core_clear_interrupt(struct venus_hfi_device *device)
 {
 	u32 intr_status = 0;
-	int rc = 0;
+	int rc = 0, ctrl_status;
 
 	if (!device->callback)
 		return;
+
+	mutex_lock(&device->write_lock);
 	mutex_lock(&device->clk_pwr_lock);
 	rc = venus_hfi_clk_gating_off(device);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"%s : Clock enable failed\n", __func__);
-		mutex_unlock(&device->clk_pwr_lock);
-		return;
+		goto err_clk_gating_off;
 	}
 	intr_status = venus_hfi_read_register(
 			device,
@@ -1603,8 +1646,23 @@ static void venus_hfi_core_clear_interrupt(struct venus_hfi_device *device)
 			VIDC_CPU_CS_A2HSOFTINTCLR, 1, 0);
 	venus_hfi_write_register(device,
 			VIDC_WRAPPER_INTR_CLEAR, intr_status, 0);
-	mutex_unlock(&device->clk_pwr_lock);
+	rc = venus_hfi_is_cmd_pending(device);
+	ctrl_status = venus_hfi_read_register(
+			device,
+			VIDC_CPU_CS_SCIACMDARG0);
+	dprintk(VIDC_INFO,
+			"CLEAR INTERRUPT - cmd_pending %d, ctrl_status 0x%x\n",
+			rc, ctrl_status);
+	if ((ctrl_status & VIDC_CPU_CS_SCIACMDARG0_HFI_CTRL_INIT_IDLE_MSG_BMSK)
+			&& !rc) {
+		dprintk(VIDC_DBG, "SYS_IDLE interrupt, disable clocks\n");
+		venus_hfi_clk_gating_on(device);
+	}
+
 	dprintk(VIDC_DBG, "Cleared WRAPPER/A2H interrupt");
+err_clk_gating_off:
+	mutex_unlock(&device->clk_pwr_lock);
+	mutex_unlock(&device->write_lock);
 }
 
 static int venus_hfi_core_set_resource(void *device,
@@ -2321,26 +2379,6 @@ static void venus_hfi_process_sys_watchdog_timeout(
 	device->callback(SYS_WATCHDOG_TIMEOUT, &cmd_done);
 }
 
-static int venus_hfi_is_cmd_pending(struct venus_hfi_device *dev)
-{
-	struct hfi_queue_header *queue;
-	struct vidc_iface_q_info *q_info;
-	u32 write_ptr, read_ptr;
-	u32 rc = 0;
-	q_info = &dev->iface_queues[VIDC_IFACEQ_CMDQ_IDX];
-	if (!q_info)
-		dprintk(VIDC_ERR, "cannot read shared Q's");
-	queue = (struct hfi_queue_header *) q_info->q_hdr;
-	if (!queue) {
-		dprintk(VIDC_ERR, "queue not present");
-		return -ENOENT;
-	}
-	write_ptr = (u32)queue->qhdr_write_idx;
-	read_ptr = (u32)queue->qhdr_read_idx;
-	rc = read_ptr - write_ptr;
-	return rc;
-}
-
 static int venus_hfi_core_pc_prep(void *device)
 {
 	struct hfi_cmd_sys_pc_prep_packet pkt;
@@ -2406,24 +2444,6 @@ static void venus_hfi_pm_hndlr(struct work_struct *work)
 		dprintk(VIDC_ERR, "Failed venus power off");
 clks_enabled:
 	mutex_unlock(&device->clk_pwr_lock);
-}
-
-static inline void venus_hfi_clk_gating_on(struct venus_hfi_device *device)
-{
-	if (!device) {
-		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
-		return;
-	}
-	if (!device->clocks_enabled) {
-		dprintk(VIDC_DBG, "Clocks are already disabled");
-		goto already_disabled;
-	}
-	venus_hfi_clk_disable(device);
-	if (!queue_delayed_work(device->venus_pm_workq, &venus_hfi_pm_work,
-			msecs_to_jiffies(msm_vidc_pwr_collapse_delay)))
-		dprintk(VIDC_DBG, "PM work already scheduled\n");
-already_disabled:
-	device->clocks_enabled = 0;
 }
 
 static int venus_hfi_try_clk_gating(struct venus_hfi_device *device)
@@ -2506,10 +2526,12 @@ static void venus_hfi_response_handler(struct venus_hfi_device *device)
 				(struct hfi_msg_sys_debug_packet *) packet;
 			dprintk(VIDC_FW, "FW-SAYS: %s", pkt->rg_msg_data);
 		}
-		if (rc == HFI_MSG_SYS_IDLE)
+		if (rc == HFI_MSG_SYS_IDLE) {
+			dprintk(VIDC_DBG, "Received HFI_MSG_SYS_IDLE\n");
 			rc = venus_hfi_try_clk_gating(device);
-		else if (rc == HFI_MSG_SYS_PC_PREP_DONE) {
-			dprintk(VIDC_DBG, "Received HFI_MSG_SYS_PC_PREP_DONE");
+		} else if (rc == HFI_MSG_SYS_PC_PREP_DONE) {
+			dprintk(VIDC_DBG,
+					"Received HFI_MSG_SYS_PC_PREP_DONE\n");
 			rc = venus_hfi_try_clk_gating(device);
 			if (rc)
 				dprintk(VIDC_ERR,

@@ -592,7 +592,7 @@ int mdss_mdp_calc_phase_step(u32 src, u32 dst, u32 *out_phase)
 		return -EINVAL;
 
 	unit = 1 << PHASE_STEP_SHIFT;
-	*out_phase = mult_frac(src, unit, dst);
+	*out_phase = mult_frac(unit, src, dst);
 
 	/* check if overflow is possible */
 	if (src > dst) {

@@ -101,6 +101,7 @@
 #define BUCK_VCHG_OV				0x77
 #define BUCK_TEST_SMBC_MODES			0xE6
 #define BUCK_CTRL_TRIM1				0xF1
+#define BUCK_CTRL_TRIM3				0xF3
 #define SEC_ACCESS				0xD0
 #define BAT_IF_VREF_BAT_THM_CTRL		0x4A
 #define BAT_IF_BPD_CTRL				0x48
@@ -310,6 +311,9 @@ struct qpnp_chg_chip {
 	bool				btc_disabled;
 	bool				use_default_batt_values;
 	bool				duty_cycle_100p;
+	bool				ibat_calibration_enabled;
+	bool				aicl_settled;
+	bool				use_external_rsense;
 	unsigned int			bpd_detection;
 	unsigned int			max_bat_chg_current;
 	unsigned int			warm_bat_chg_ma;
@@ -362,6 +366,7 @@ struct qpnp_chg_chip {
 	bool				batfet_ext_en;
 	struct work_struct		batfet_lcl_work;
 	struct qpnp_vadc_chip		*vadc_dev;
+	struct qpnp_iadc_chip		*iadc_dev;
 	struct qpnp_adc_tm_chip		*adc_tm_dev;
 	struct mutex			jeita_configure_lock;
 	spinlock_t			usbin_health_monitor_lock;
@@ -419,6 +424,16 @@ get_bpd(const char *name)
 			return i;
 	}
 	return -EINVAL;
+}
+
+static bool
+is_within_range(int value, int left, int right)
+{
+	if (left >= right && left >= value && value >= right)
+		return 1;
+	if (left <= right && left <= value && value <= right)
+		return 1;
+	return 0;
 }
 
 static int
@@ -621,6 +636,22 @@ qpnp_chg_is_usb_chg_plugged_in(struct qpnp_chg_chip *chip)
 	pr_debug("chgr usb sts 0x%x\n", usbin_valid_rt_sts);
 
 	return (usbin_valid_rt_sts & USB_VALID_BIT) ? 1 : 0;
+}
+
+static bool
+qpnp_chg_is_ibat_loop_active(struct qpnp_chg_chip *chip)
+{
+	int rc;
+	u8 buck_sts;
+
+	rc = qpnp_chg_read(chip, &buck_sts,
+			INT_RT_STS(chip->buck_base), 1);
+	if (rc) {
+		pr_err("failed to read buck RT status rc=%d\n", rc);
+		return 0;
+	}
+
+	return !!(buck_sts & IBAT_LOOP_IRQ);
 }
 
 #define USB_VALID_MASK 0xC0
@@ -1422,6 +1453,7 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 			}
 			qpnp_chg_usb_suspend_enable(chip, 1);
 			chip->prev_usb_max_ma = -EINVAL;
+			chip->aicl_settled = false;
 		} else {
 			/* when OVP clamped usbin, and then decrease
 			 * the charger voltage to lower than the OVP
@@ -1656,6 +1688,7 @@ qpnp_batt_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_TRIM:
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED:
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN:
 	case POWER_SUPPLY_PROP_COOL_TEMP:
 	case POWER_SUPPLY_PROP_WARM_TEMP:
@@ -1769,6 +1802,7 @@ static enum power_supply_property msm_batt_power_props[] = {
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_MAX,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_TRIM,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
 	POWER_SUPPLY_PROP_VOLTAGE_MIN,
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
@@ -2243,6 +2277,9 @@ qpnp_batt_power_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_TRIM:
 		val->intval = qpnp_chg_iusb_trim_get(chip);
 		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED:
+		val->intval = chip->aicl_settled;
+		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN:
 		val->intval = qpnp_chg_vinmin_get(chip) * 1000;
 		break;
@@ -2349,6 +2386,24 @@ qpnp_chg_ibatmax_set(struct qpnp_chg_chip *chip, int chg_current)
 			QPNP_CHG_I_MASK, temp, 1);
 }
 
+static int
+qpnp_chg_ibatmax_get(struct qpnp_chg_chip *chip, int *chg_current)
+{
+	int rc;
+	u8 temp;
+
+	*chg_current = 0;
+	rc = qpnp_chg_read(chip, &temp, chip->chgr_base + CHGR_IBAT_MAX, 1);
+	if (rc) {
+		pr_err("failed read ibat_max rc=%d\n", rc);
+		return rc;
+	}
+
+	*chg_current = ((temp & QPNP_CHG_I_MASK) * QPNP_CHG_I_STEP_MA);
+
+	return 0;
+}
+
 #define QPNP_CHG_TCHG_MASK	0x7F
 #define QPNP_CHG_TCHG_MIN	4
 #define QPNP_CHG_TCHG_MAX	512
@@ -2382,6 +2437,155 @@ qpnp_chg_vddsafe_set(struct qpnp_chg_chip *chip, int voltage)
 	return qpnp_chg_write(chip, &temp,
 		chip->chgr_base + CHGR_VDD_SAFE, 1);
 }
+
+#define IBAT_TRIM_TGT_MA		500
+#define IBAT_TRIM_OFFSET_MASK		0x7F
+#define IBAT_TRIM_GOOD_BIT		BIT(7)
+#define IBAT_TRIM_LOW_LIM		20
+#define IBAT_TRIM_HIGH_LIM		114
+#define IBAT_TRIM_MEAN			64
+
+static void
+qpnp_chg_trim_ibat(struct qpnp_chg_chip *chip, u8 ibat_trim)
+{
+	int ibat_now_ma, ibat_diff_ma, rc;
+	struct qpnp_iadc_result i_result;
+	enum qpnp_iadc_channels iadc_channel;
+
+	iadc_channel = chip->use_external_rsense ?
+				EXTERNAL_RSENSE : INTERNAL_RSENSE;
+	rc = qpnp_iadc_read(chip->iadc_dev, iadc_channel, &i_result);
+	if (rc) {
+		pr_err("Unable to read bat rc=%d\n", rc);
+		return;
+	}
+
+	ibat_now_ma = i_result.result_ua / 1000;
+
+	if (qpnp_chg_is_ibat_loop_active(chip)) {
+		ibat_diff_ma = ibat_now_ma - IBAT_TRIM_TGT_MA;
+
+		if (abs(ibat_diff_ma) > 50) {
+			ibat_trim += (ibat_diff_ma / 20);
+			ibat_trim &= IBAT_TRIM_OFFSET_MASK;
+			/* reject new ibat_trim if it is outside limits */
+			if (!is_within_range(ibat_trim, IBAT_TRIM_LOW_LIM,
+						IBAT_TRIM_HIGH_LIM))
+				return;
+		}
+		ibat_trim |= IBAT_TRIM_GOOD_BIT;
+		rc = qpnp_chg_write(chip, &ibat_trim,
+				chip->buck_base + BUCK_CTRL_TRIM3, 1);
+		if (rc)
+			pr_err("failed to set IBAT_TRIM rc=%d\n", rc);
+
+		pr_debug("ibat_now=%dmA, itgt=%dmA, ibat_diff=%dmA, ibat_trim=%x\n",
+					ibat_now_ma, IBAT_TRIM_TGT_MA,
+					ibat_diff_ma, ibat_trim);
+	} else {
+		pr_debug("ibat loop not active - cannot calibrate ibat\n");
+	}
+}
+
+static int
+qpnp_chg_input_current_settled(struct qpnp_chg_chip *chip)
+{
+	int rc, ibat_max_ma;
+	u8 reg, chgr_sts, ibat_trim, i;
+
+	chip->aicl_settled = true;
+
+	/*
+	 * Perform the ibat calibration.
+	 * This is for devices which have a IBAT_TRIM error
+	 * which can show IBAT_MAX out of spec.
+	 */
+	if (!chip->ibat_calibration_enabled)
+		return 0;
+
+	if (chip->type != SMBB)
+		return 0;
+
+	rc = qpnp_chg_read(chip, &reg,
+			chip->buck_base + BUCK_CTRL_TRIM3, 1);
+	if (rc) {
+		pr_err("failed to read BUCK_CTRL_TRIM3 rc=%d\n", rc);
+		return rc;
+	}
+	if (reg & IBAT_TRIM_GOOD_BIT) {
+		pr_debug("IBAT_TRIM_GOOD bit already set. Quitting!\n");
+		return 0;
+	}
+	ibat_trim = reg & IBAT_TRIM_OFFSET_MASK;
+
+	if (!is_within_range(ibat_trim, IBAT_TRIM_LOW_LIM,
+					IBAT_TRIM_HIGH_LIM)) {
+		pr_debug("Improper ibat_trim value=%x setting to value=%x\n",
+						ibat_trim, IBAT_TRIM_MEAN);
+		ibat_trim = IBAT_TRIM_MEAN;
+		rc = qpnp_chg_masked_write(chip,
+				chip->buck_base + BUCK_CTRL_TRIM3,
+				IBAT_TRIM_OFFSET_MASK, ibat_trim, 1);
+		if (rc) {
+			pr_err("failed to set ibat_trim to %x rc=%d\n",
+						IBAT_TRIM_MEAN, rc);
+			return rc;
+		}
+	}
+
+	rc = qpnp_chg_read(chip, &chgr_sts,
+				INT_RT_STS(chip->chgr_base), 1);
+	if (rc) {
+		pr_err("failed to read interrupt sts rc=%d\n", rc);
+		return rc;
+	}
+	if (!(chgr_sts & FAST_CHG_ON_IRQ)) {
+		pr_debug("Not in fastchg\n");
+		return rc;
+	}
+
+	/* save the ibat_max to restore it later */
+	rc = qpnp_chg_ibatmax_get(chip, &ibat_max_ma);
+	if (rc) {
+		pr_debug("failed to save ibatmax rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_chg_ibatmax_set(chip, IBAT_TRIM_TGT_MA);
+	if (rc) {
+		pr_err("failed to set ibatmax rc=%d\n", rc);
+		return rc;
+	}
+
+	for (i = 0; i < 3; i++) {
+		/*
+		 * ibat settling delay - to make sure the BMS controller
+		 * has sufficient time to sample ibat for the configured
+		 * ibat_max
+		 */
+		msleep(20);
+		if (qpnp_chg_is_ibat_loop_active(chip))
+			qpnp_chg_trim_ibat(chip, ibat_trim);
+		else
+			pr_debug("ibat loop not active\n");
+
+		/* read the adjusted ibat_trim for further adjustments */
+		rc = qpnp_chg_read(chip, &ibat_trim,
+			chip->buck_base + BUCK_CTRL_TRIM3, 1);
+		if (rc) {
+			pr_err("failed to read BUCK_CTRL_TRIM3 rc=%d\n", rc);
+			break;
+		}
+	}
+
+	/* restore IBATMAX */
+	rc = qpnp_chg_ibatmax_set(chip, ibat_max_ma);
+	if (rc)
+		pr_err("failed to restore ibatmax rc=%d\n", rc);
+
+	return rc;
+}
+
 
 #define BOOST_MIN_UV	4200000
 #define BOOST_MAX_UV	5500000
@@ -3377,6 +3581,9 @@ qpnp_batt_power_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_TRIM:
 		qpnp_chg_iusb_trim_set(chip, val->intval);
 		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED:
+		qpnp_chg_input_current_settled(chip);
+		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN:
 		qpnp_chg_vinmin_set(chip, val->intval / 1000);
 		break;
@@ -4098,6 +4305,11 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 			return rc;
 	}
 
+	/* Get the use-external-rsense property */
+	chip->use_external_rsense = of_property_read_bool(
+			chip->spmi->dev.of_node,
+			"qcom,use-external-rsense");
+
 	/* Get the btc-disabled property */
 	chip->btc_disabled = of_property_read_bool(chip->spmi->dev.of_node,
 					"qcom,btc-disabled");
@@ -4130,17 +4342,21 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 			of_property_read_bool(chip->spmi->dev.of_node,
 					"qcom,power-stage-reduced");
 
+	chip->ibat_calibration_enabled =
+			of_property_read_bool(chip->spmi->dev.of_node,
+					"qcom,ibat-calibration-enabled");
+
 	of_get_property(chip->spmi->dev.of_node, "qcom,thermal-mitigation",
 		&(chip->thermal_levels));
 
 	if (chip->thermal_levels > sizeof(int)) {
-		chip->thermal_mitigation = kzalloc(
+		chip->thermal_mitigation = devm_kzalloc(chip->dev,
 			chip->thermal_levels,
 			GFP_KERNEL);
 
 		if (chip->thermal_mitigation == NULL) {
 			pr_err("thermal mitigation kzalloc() failed.\n");
-			return rc;
+			return -ENOMEM;
 		}
 
 		chip->thermal_levels /= sizeof(int);
@@ -4165,7 +4381,8 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	struct spmi_resource *spmi_resource;
 	int rc = 0;
 
-	chip = kzalloc(sizeof *chip, GFP_KERNEL);
+	chip = devm_kzalloc(&spmi->dev,
+			sizeof(struct qpnp_chg_chip), GFP_KERNEL);
 	if (chip == NULL) {
 		pr_err("kzalloc() failed.\n");
 		return -ENOMEM;
@@ -4197,7 +4414,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	/* Get all device tree properties */
 	rc = qpnp_charger_read_dt_props(chip);
 	if (rc)
-		goto fail_chg_enable;
+		return rc;
 
 	/*
 	 * Check if bat_if is set in DT and make sure VADC is present
@@ -4235,6 +4452,17 @@ qpnp_charger_probe(struct spmi_device *spmi)
 				if (rc != -EPROBE_DEFER)
 					pr_err("vadc property missing\n");
 				goto fail_chg_enable;
+			}
+
+			if (subtype == SMBB_BAT_IF_SUBTYPE) {
+				chip->iadc_dev = qpnp_get_iadc(chip->dev,
+						"chg");
+				if (IS_ERR(chip->iadc_dev)) {
+					rc = PTR_ERR(chip->iadc_dev);
+					if (rc != -EPROBE_DEFER)
+						pr_err("iadc property missing\n");
+					goto fail_chg_enable;
+				}
 			}
 
 			rc = qpnp_chg_load_battery_data(chip);
@@ -4509,9 +4737,6 @@ unregister_batt:
 fail_chg_enable:
 	regulator_unregister(chip->otg_vreg.rdev);
 	regulator_unregister(chip->boost_vreg.rdev);
-	kfree(chip->thermal_mitigation);
-	kfree(chip);
-	dev_set_drvdata(&spmi->dev, NULL);
 	return rc;
 }
 
@@ -4524,14 +4749,26 @@ qpnp_charger_remove(struct spmi_device *spmi)
 		qpnp_adc_tm_disable_chan_meas(chip->adc_tm_dev,
 							&chip->adc_param);
 	}
-	cancel_work_sync(&chip->adc_measure_work);
+
+	cancel_delayed_work_sync(&chip->aicl_check_work);
+	power_supply_unregister(&chip->dc_psy);
+	cancel_work_sync(&chip->soc_check_work);
+	cancel_delayed_work_sync(&chip->usbin_health_check);
+	cancel_delayed_work_sync(&chip->arb_stop_work);
 	cancel_delayed_work_sync(&chip->eoc_work);
+	cancel_work_sync(&chip->adc_disable_work);
+	cancel_work_sync(&chip->adc_measure_work);
+	power_supply_unregister(&chip->batt_psy);
+	cancel_work_sync(&chip->batfet_lcl_work);
+	cancel_work_sync(&chip->insertion_ocv_work);
+	cancel_work_sync(&chip->reduce_power_stage_work);
+	alarm_cancel(&chip->reduce_power_stage_alarm);
+
+	mutex_destroy(&chip->batfet_vreg_lock);
+	mutex_destroy(&chip->jeita_configure_lock);
 
 	regulator_unregister(chip->otg_vreg.rdev);
 	regulator_unregister(chip->boost_vreg.rdev);
-
-	dev_set_drvdata(&spmi->dev, NULL);
-	kfree(chip);
 
 	return 0;
 }
