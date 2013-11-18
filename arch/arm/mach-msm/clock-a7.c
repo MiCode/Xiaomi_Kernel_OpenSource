@@ -385,4 +385,4 @@ static int __init clock_a7_init(void)
 {
 	return platform_driver_probe(&clock_a7_driver, clock_a7_probe);
 }
-device_initcall(clock_a7_init);
+subsys_initcall(clock_a7_init);
