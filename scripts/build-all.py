@@ -201,11 +201,15 @@ def scan_configs():
         r'mdm*_defconfig',
 	r'mpq*_defconfig',
         )
+    arch64_pats = (
+        r'msm_defconfig',
+        )
     for p in arch_pats:
         for n in glob.glob('arch/arm/configs/' + p):
             name = os.path.basename(n)[:-10]
             names.append(Builder(name, n))
-        if 'CROSS_COMPILE64' in os.environ:
+    if 'CROSS_COMPILE64' in os.environ:
+        for p in arch64_pats:
             for n in glob.glob('arch/arm64/configs/' + p):
                 name = os.path.basename(n)[:-10] + "-64"
                 names.append(Builder(name, n))
