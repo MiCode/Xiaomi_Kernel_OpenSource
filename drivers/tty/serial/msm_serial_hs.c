@@ -567,16 +567,17 @@ static void dump_uart_hs_registers(struct msm_hs_port *msm_uport)
 	msm_hs_clock_vote(msm_uport);
 	MSM_HS_DBG("============= UART Registers ================\n");
 	MSM_HS_DBG("UART_DM_MR1:%x\n", msm_hs_read(&(msm_uport->uport),
-		UARTDM_MR1_ADDR));
+		UART_DM_MR1));
 	MSM_HS_DBG("UART_DM_MR2:%x\n", msm_hs_read(&(msm_uport->uport),
-		UARTDM_MR2_ADDR));
+		UART_DM_MR2));
 	MSM_HS_DBG("UART_DM_IPR:%x\n", msm_hs_read(&(msm_uport->uport),
-		UARTDM_IPR_ADDR));
+		UART_DM_IPR));
 	MSM_HS_DBG("UART_DM_RFWR:%x\n", msm_hs_read(&(msm_uport->uport),
-		UARTDM_RFWR_ADDR));
+		UART_DM_RFWR));
 	MSM_HS_DBG("UART_DM_SR:%x\n", msm_hs_read(&(msm_uport->uport),
-		UARTDM_SR_ADDR));
-	MSM_HS_DBG("UART_DM_IMR: %lu\n", msm_uport->imr_reg);
+		UART_DM_SR));
+	MSM_HS_DBG("UART_DM_IMR: %x\n", msm_hs_read(&(msm_uport->uport),
+		UART_DM_IMR));
 	MSM_HS_DBG("=============================================\n");
 	msm_hs_clock_unvote(msm_uport);
 }
