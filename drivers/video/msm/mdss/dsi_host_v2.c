@@ -545,8 +545,8 @@ int msm_dsi_cmds_tx(struct mdss_panel_data *pdata,
 
 	cm = cmds;
 	for (i = 0; i < cnt; i++) {
-		dsi_buf_init(tp);
-		rc = dsi_cmd_dma_add(tp, cm);
+		mdss_dsi_buf_init(tp);
+		rc = mdss_dsi_cmd_dma_add(tp, cm);
 		if (!rc) {
 			pr_err("%s: dsi_cmd_dma_add fail\n", __func__);
 			rc = -EINVAL;
@@ -638,8 +638,8 @@ int msm_dsi_cmds_rx(struct mdss_panel_data *pdata,
 		/* packet size need to be set at every read */
 		pkt_size = len;
 		max_pktsize[0] = pkt_size;
-		dsi_buf_init(tp);
-		rc = dsi_cmd_dma_add(tp, pkt_size_cmd);
+		mdss_dsi_buf_init(tp);
+		rc = mdss_dsi_cmd_dma_add(tp, pkt_size_cmd);
 		if (!rc) {
 			pr_err("%s: dsi_cmd_dma_add failed\n", __func__);
 			rp->len = 0;
@@ -654,8 +654,8 @@ int msm_dsi_cmds_rx(struct mdss_panel_data *pdata,
 		pr_debug("%s: Max packet size sent\n", __func__);
 	}
 
-	dsi_buf_init(tp);
-	rc = dsi_cmd_dma_add(tp, cmds);
+	mdss_dsi_buf_init(tp);
+	rc = mdss_dsi_cmd_dma_add(tp, cmds);
 	if (!rc) {
 		pr_err("%s: dsi_cmd_dma_add failed\n", __func__);
 		rp->len = 0;
@@ -674,7 +674,7 @@ int msm_dsi_cmds_rx(struct mdss_panel_data *pdata,
 	 * return data from client is ready and stored
 	 * at RDBK_DATA register already
 	 */
-	dsi_buf_init(rp);
+	mdss_dsi_buf_init(rp);
 	if (pdata->panel_info.mipi.no_max_pkt_size) {
 		/*
 		 * expect rlen = n * 4
@@ -704,15 +704,15 @@ int msm_dsi_cmds_rx(struct mdss_panel_data *pdata,
 		break;
 	case DTYPE_GEN_READ1_RESP:
 	case DTYPE_DCS_READ1_RESP:
-		dsi_short_read1_resp(rp);
+		mdss_dsi_short_read1_resp(rp);
 		break;
 	case DTYPE_GEN_READ2_RESP:
 	case DTYPE_DCS_READ2_RESP:
-		dsi_short_read2_resp(rp);
+		mdss_dsi_short_read2_resp(rp);
 		break;
 	case DTYPE_GEN_LREAD_RESP:
 	case DTYPE_DCS_LREAD_RESP:
-		dsi_long_read_resp(rp);
+		mdss_dsi_long_read_resp(rp);
 		rp->len -= 2; /* extra 2 bytes added */
 		rp->len -= diff; /* align bytes */
 		break;
