@@ -213,6 +213,10 @@ Optional properties:
 				the virtual corner value. For example, the first element in the list is the fuse corner
 				value that virtual corner 1 maps to.
 				This is required if qcom,cpr-quot-adjust-table is present.
+- qcom,cpr-quotient-adjustment:	Present: CPR adjusts quotient value. The
+				adjustment equals to the quotient adjustment
+				in millivolts multiply the KV value.
+				Not Present: CPR will not adjust quotient value.
 
 Example:
 	apc_vreg_corner: regulator@f9018000 {
