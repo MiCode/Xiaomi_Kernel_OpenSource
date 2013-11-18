@@ -55,3 +55,13 @@ config TSC
 	CI: communication with the internal Conditional Access Module (CAM)
 	over Common Interface (CI).
 	This can also be compiled as a loadable module.
+
+config DEMOD_WRAPPER
+	depends on ARCH_MPQ8092
+	tristate "Demod Wrapper (Part of broadcast HW block) Support"
+	---help---
+	The Demod wrapper block contains HW units that
+	are responsible for navigating and filtering an analog TV or
+	digital TV signal to integrated demodulators.
+	The driver supports the operation of those units and provides
+	a way to set and configure a desired signal path.
