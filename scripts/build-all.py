@@ -109,7 +109,7 @@ class LogRunner:
         print
         result = proc.wait()
 
-        self.fd.close()
+        self.fd.flush()
         return result
 
 class Builder():
@@ -167,12 +167,8 @@ class Builder():
                     cmd_line.append(c)
                 else:
                     build_targets.append(c)
+            build = LogRunner(log_name, self.make_env)
             for t in build_targets:
-                # TODO: This is incorrect, the log is wiped out for
-                # each target, meaning the log file will only contain
-                # the output of the last target built.
-                build = LogRunner(log_name, self.make_env)
-
                 result = build.run(cmd_line + [t])
                 if result != 0:
                     if all_options.keep_going:
