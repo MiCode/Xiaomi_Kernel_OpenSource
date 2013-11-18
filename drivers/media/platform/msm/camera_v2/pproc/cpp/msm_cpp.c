@@ -1285,8 +1285,8 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 
 	in_phyaddr = msm_cpp_fetch_buffer_info(cpp_dev,
 		&new_frame->input_buffer_info,
-		((new_frame->identity >> 16) & 0xFFFF),
-		(new_frame->identity & 0xFFFF), &in_fd);
+		((new_frame->input_buffer_info.identity >> 16) & 0xFFFF),
+		(new_frame->input_buffer_info.identity & 0xFFFF), &in_fd);
 	if (!in_phyaddr) {
 		pr_err("error gettting input physical address\n");
 		rc = -EINVAL;
