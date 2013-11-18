@@ -93,6 +93,9 @@ Parent node optional properties:
 					set, the charger ovp status is monitored in software.
 - qcom,ext-ovp-present			Indicates if an external OVP exists which reduces the
 					overall input resistance of the charge path.
+- qcom,ibat-calibration-enabled		Indicates if ibat calibration is enabled. This is
+					required for devices which have a ibat trim error
+					causing ibatmax to go out of spec.
 - qcom,power-stage-reduced		Indicates if power stage workaround is enabled. This work
 					around reduces the power stage segments while charging
 					under high load during low battery voltages. It's for
