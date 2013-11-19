@@ -862,6 +862,7 @@ struct vidc_frame_data {
 	u32 mark_target;
 	u32 mark_data;
 	u32 clnt_data;
+	u32 extradata_size;
 };
 
 struct vidc_seq_hdr {
