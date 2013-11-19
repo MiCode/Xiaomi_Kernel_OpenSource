@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,9 +23,8 @@
 
 #include <mach/msm_smd.h>
 #include <mach/subsystem_notif.h>
-
+#include <mach/sysmon.h>
 #include "hsic_sysmon.h"
-#include "sysmon.h"
 
 #define TX_BUF_SIZE	50
 #define RX_BUF_SIZE	500

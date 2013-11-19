@@ -23,9 +23,9 @@
 #include <linux/uaccess.h>
 #include <linux/usb.h>
 #include <linux/debugfs.h>
+#include <mach/sysmon.h>
 
 #include "hsic_sysmon.h"
-#include "sysmon.h"
 
 #define DRIVER_DESC	"HSIC System monitor driver"
 

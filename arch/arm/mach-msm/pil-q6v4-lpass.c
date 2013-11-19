@@ -28,8 +28,8 @@
 #include <mach/msm_smem.h>
 #include <mach/msm_bus_board.h>
 #include <mach/msm_smsm.h>
+#include <mach/sysmon.h>
 
-#include "sysmon.h"
 #include "peripheral-loader.h"
 #include "pil-q6v4.h"
 #include "scm-pas.h"
