@@ -30,6 +30,25 @@
 #include <time.h>
 #endif
 
+#define V4L2_MPEG_VIDC_EXTRADATA_MB_QUANTIZATION_BIT	0x00000001
+#define V4L2_MPEG_VIDC_EXTRADATA_INTERLACE_VIDEO_BIT	0x00000002
+#define V4L2_MPEG_VIDC_EXTRADATA_VC1_FRAMEDISP_BIT		0x00000004
+#define V4L2_MPEG_VIDC_EXTRADATA_VC1_SEQDISP_BIT		0x00000008
+#define V4L2_MPEG_VIDC_EXTRADATA_TIMESTAMP_BIT			0x00000010
+#define V4L2_MPEG_VIDC_EXTRADATA_S3D_FRAME_PACKING_BIT	0x00000020
+#define V4L2_MPEG_VIDC_EXTRADATA_FRAME_RATE_BIT			0x00000040
+#define V4L2_MPEG_VIDC_EXTRADATA_PANSCAN_WINDOW_BIT		0x00000080
+#define V4L2_MPEG_VIDC_EXTRADATA_RECOVERY_POINT_SEI_BIT	0x00000100
+#define V4L2_MPEG_VIDC_EXTRADATA_CLOSED_CAPTION_UD_BIT	0x00000200
+#define V4L2_MPEG_VIDC_EXTRADATA_AFD_UD_BIT 0x00000400
+#define V4L2_MPEG_VIDC_EXTRADATA_MULTISLICE_INFO_BIT	0x00000800
+#define V4L2_MPEG_VIDC_EXTRADATA_NUM_CONCEALED_MB_BIT	0x00001000
+#define V4L2_MPEG_VIDC_EXTRADATA_METADATA_FILLER_BIT	0x00002000
+#define V4L2_MPEG_VIDC_INDEX_EXTRADATA_INPUT_CROP_BIT	0x00004000
+#define V4L2_MPEG_VIDC_INDEX_EXTRADATA_DIGITAL_ZOOM_BIT	0x00008000
+#define V4L2_MPEG_VIDC_INDEX_EXTRADATA_ASPECT_RATIO_BIT	0x00010000
+#define V4L2_MPEG_VIDC_EXTRADATA_MPEG2_SEQDISP_BIT		0x00020000
+
 typedef enum {
 	VIDEO_FORMAT_4_3,     /* Select 4:3 format */
 	VIDEO_FORMAT_16_9,    /* Select 16:9 format. */
@@ -66,6 +85,12 @@ enum video_codec_t {
 enum video_out_format_t {
 	VIDEO_YUV_FORMAT_NV12,
 	VIDEO_YUV_FORMAT_TILE_4x2
+};
+
+enum video_playback_mode_t {
+	VIDEO_PLAYBACK_NORMAL = 0,
+	VIDEO_PLAYBACK_TRICKMODE_COARSE = 1,
+	VIDEO_PLAYBACK_TRICKMODE_SMOOTH = 2
 };
 
 typedef struct {
@@ -112,6 +137,9 @@ typedef enum {
 #define VIDEO_CMD_CLEAR_INPUT_BUFFER  (18)
 #define VIDEO_CMD_CLEAR_OUTPUT_BUFFER (19)
 #define VIDEO_CMD_SET_BUFFER_COUNT    (20)
+#define VIDEO_CMD_SET_EXTRADATA_TYPES  (21)
+#define VIDEO_CMD_SET_EXTRADATA_BUFFER (22)
+#define VIDEO_CMD_SET_PLAYBACK_MODE		(23)
 
 /* Flags for VIDEO_CMD_FREEZE */
 #define VIDEO_CMD_FREEZE_TO_BLACK	(1 << 0)
@@ -147,6 +175,7 @@ struct video_buffer_req {
 	unsigned int num_output_buffers; /* Number of Output Buffers */
 	struct video_buffer_prop input_buf_prop; /* Input Buffer Properties */
 	struct video_buffer_prop output_buf_prop; /* Output Buffer Prop */
+	size_t	extradata_size;
 };
 
 enum scan_format {
@@ -166,6 +195,13 @@ struct video_data_buffer {
 	void *ip_buffer_tag;
 	__u64 pts;
 	enum scan_format interlaced_format;
+};
+
+struct extradata_buffer {
+	void __user	*bufferaddr;
+	size_t buffer_len;
+	int	ion_fd;
+	size_t offset;
 };
 
 struct video_h264_mv {
@@ -213,6 +249,9 @@ struct video_command {
 			struct video_data_buffer buffer; /* Buffer Details */
 			struct video_mv_buff_size mv_buffer_req;
 			struct video_h264_mv mv_buffer_prop;
+			unsigned int extradata_type;
+			struct extradata_buffer extradata_buffer;
+			enum video_playback_mode_t video_mode;
 		};
 
 		struct {
