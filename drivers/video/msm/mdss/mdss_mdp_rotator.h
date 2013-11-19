@@ -51,13 +51,19 @@ struct mdss_mdp_rotator_session {
 	struct work_struct commit_work;
 };
 
-static inline u32 mdss_mdp_get_rotator_dst_format(u32 in_format, u8 in_rot90)
+static inline u32 mdss_mdp_get_rotator_dst_format(u32 in_format, u8 in_rot90,
+	u8 bwc)
 {
 	switch (in_format) {
 	case MDP_RGB_565:
 	case MDP_BGR_565:
 		if (in_rot90)
 			return MDP_RGB_888;
+		else
+			return in_format;
+	case MDP_RGBA_8888:
+		if (bwc)
+			return MDP_BGRA_8888;
 		else
 			return in_format;
 	case MDP_Y_CBCR_H2V2_VENUS:
