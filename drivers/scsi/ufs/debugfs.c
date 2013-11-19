@@ -238,7 +238,7 @@ static ssize_t ufsdbg_tag_stats_write(struct file *filp,
 		pr_debug("%s: Enabling & Resetting UFS tag statistics",
 			 __func__);
 		memset(ufs_stats->tag_stats, 0,
-		       sizeof(unsigned int) * hba->nutrs);
+		       sizeof(*ufs_stats->tag_stats) * hba->nutrs);
 	}
 
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
