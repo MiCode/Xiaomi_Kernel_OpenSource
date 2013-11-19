@@ -48,11 +48,16 @@ struct mdp3_session_data {
 	struct mdp_overlay req_overlay;
 	struct mdp3_buffer_queue bufq_in;
 	struct mdp3_buffer_queue bufq_out;
+	struct work_struct clk_off_work;
 	int histo_status;
 	struct mutex histo_lock;
 	int lut_sel;
 	int cc_vect_sel;
 	bool first_commit;
+	int clk_on;
+
+	int vsync_enabled;
+	atomic_t vsync_countdown; /* Used to count down  */
 };
 
 int mdp3_ctrl_init(struct msm_fb_data_type *mfd);
