@@ -1,0 +1,28 @@
+#
+# External soc control infrastructure and drivers
+#
+menuconfig ESOC
+	bool "External SOCs Control"
+	help
+	  External SOCs can be powered on and monitored by user
+	  space or kernel drivers. Additionally they can be controlled
+	  to respond to control commands. This framework provides an
+	  interface to track events related to the external slave socs.
+
+if ESOC
+
+config ESOC_DEV
+	bool "ESOC userspace interface"
+	help
+	  Say yes here to enable a userspace representation of the control
+	  link. Userspace can register a request engine or a command engine
+	  for the external soc. It can receive event notifications from the
+	  control link.
+
+config ESOC_DEBUG
+	bool "ESOC debug support"
+	help
+	  Say yes here to enable debugging support in the ESOC framework
+	  and individual esoc drivers.
+endif
+
