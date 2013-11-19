@@ -373,10 +373,12 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		return -EINVAL;
 	}
 
-	if ((req->flags & MDP_BWC_EN) || ((req->flags & MDP_SOURCE_ROTATED_90)
+	bwc_enabled = req->flags & MDP_BWC_EN;
+	if (bwc_enabled || ((req->flags & MDP_SOURCE_ROTATED_90)
 		&& ((mdata->mdp_rev < MDSS_MDP_HW_REV_102) || !fmt->is_yuv))) {
 		req->src.format =
-			mdss_mdp_get_rotator_dst_format(req->src.format, 1);
+			mdss_mdp_get_rotator_dst_format(req->src.format, 1,
+				bwc_enabled);
 		fmt = mdss_mdp_get_format_params(req->src.format);
 		if (!fmt) {
 			pr_err("invalid pipe format %d\n", req->src.format);
@@ -460,7 +462,6 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	}
 
 	pipe->flags = req->flags;
-	bwc_enabled = req->flags & MDP_BWC_EN;
 	if (bwc_enabled  &&  !mdp5_data->mdata->has_bwc) {
 		pr_err("BWC is not supported in MDP version %x\n",
 			mdp5_data->mdata->mdp_rev);
