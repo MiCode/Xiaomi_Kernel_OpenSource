@@ -2175,7 +2175,7 @@ static struct clk_lookup msm_clocks_krypton[] = {
 	CLK_LOOKUP("sleep_b_clk", gcc_usb2b_phy_sleep_clk.c,
 		   "f9200000.qcom,ssusb"),
 
-	CLK_LOOKUP("", qpic_clk.c, ""),
+	CLK_LOOKUP("core_clk", qpic_clk.c, "f9ac0000.qcom,nand"),
 	CLK_LOOKUP("", qpic_a_clk.c, ""),
 };
 
