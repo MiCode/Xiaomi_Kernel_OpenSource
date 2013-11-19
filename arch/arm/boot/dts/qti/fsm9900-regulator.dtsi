@@ -93,6 +93,7 @@
 			regulator-max-microvolt = <1740000>;
 			qcom,enable-time = <500>;
 			qcom,pull-down-enable = <1>;
+			regulator-always-on;
 			status = "okay";
 		};
 
@@ -211,17 +212,27 @@
 			status = "okay";
 		};
 
-		/* FTR2_VDD_2P2 */
+		/* USB_HSS1_VDDA LDO024 */
 		pma8084_l24: regulator@5700 {
 			regulator-min-microvolt = <3075000>;
 			regulator-max-microvolt = <3075000>;
 			qcom,enable-time = <500>;
 			qcom,pull-down-enable = <1>;
+			regulator-always-on;
 			status = "okay";
 		};
 
 		/* FTR2 LDO25*/
 		pma8084_l25: regulator@5800 {
+			regulator-min-microvolt = <2200000>;
+			regulator-max-microvolt = <2200000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			status = "okay";
+		};
+
+		/* Mantaray LDO26*/
+		pma8084_l26: regulator@5900 {
 			regulator-min-microvolt = <2200000>;
 			regulator-max-microvolt = <2200000>;
 			qcom,enable-time = <500>;

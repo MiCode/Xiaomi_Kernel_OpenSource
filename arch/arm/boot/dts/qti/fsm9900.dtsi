@@ -719,6 +719,105 @@
 			< 1958400000 950000 569 >;
 	};
 
+	qti,bbif@fd300000 {
+		compatible = "qti,bbif";
+		reg = <0xfd300000 0x10000>;
+		vdd-lbbrx-supply = <&pma8084_l4>;
+		vdd-hbbrx-supply = <&pma8084_l14>;
+	};
+
+	qti,rfic@fd4a4090 {
+		compatible = "qti,rfic";
+		reg = <0xfd4a4090 0x40>;
+		vdd-switch-supply = <&pma8084_l18>;
+		vdd-wtr-supply = <&pma8084_l19>;
+		vdd-ftr1-supply = <&pma8084_l23>;
+		vdd-ftr2-supply = <&pma8084_l25>;
+		vdd-mtr-supply = <&pma8084_l26>;
+	};
+
+	qti,pdm@f9b10000 {
+		compatible = "qti,rfic";
+		reg = <0xf9b10000 0x8000>;
+	};
+
+	ssbi1:  qcom,ssbi@f9b18000 {
+		compatible = "qcom,ssbi";
+		reg = <0xf9b18000 0x4000>;
+		reg-names = "ssbi1_base";
+		qcom,controller-type = "geni-ssbi-arbiter";
+
+		rfic@1 {
+			compatible = "qti,rfic";
+		};
+	};
+
+	ssbi2:  qcom,ssbi@f9b1c000 {
+		compatible = "qcom,ssbi";
+		reg = <0xf9b1c000 0x4000>;
+		reg-names = "ssbi2_base";
+		qcom,controller-type = "geni-ssbi-arbiter";
+
+		rfic@2 {
+			compatible = "qti,rfic";
+		};
+	};
+
+	ssbi3:  qcom,ssbi@f9b20000 {
+		compatible = "qcom,ssbi";
+		reg = <0xf9b20000 0x4000>;
+		reg-names = "ssbi3_base";
+		qcom,controller-type = "geni-ssbi-arbiter";
+
+		rfic@3 {
+			compatible = "qti,rfic";
+		};
+	};
+
+	ssbi4:  qcom,ssbi@f9b24000 {
+		compatible = "qcom,ssbi";
+		reg = <0xf9b24000 0x4000>;
+		reg-names = "ssbi4_base";
+		qcom,controller-type = "geni-ssbi-arbiter";
+
+		rfic@4 {
+			compatible = "qti,rfic";
+		};
+	};
+
+	ssbi5:  qcom,ssbi@f9b28000 {
+		compatible = "qcom,ssbi";
+		reg = <0xf9b28000 0x4000>;
+		reg-names = "ssbi5_base";
+		qcom,controller-type = "geni-ssbi-arbiter";
+
+		rfic@5 {
+			compatible = "qti,rfic";
+		};
+	};
+
+	ssbi6:  qcom,ssbi@f9b2c000 {
+		compatible = "qcom,ssbi";
+		reg = <0xf9b2c000 0x4000>;
+		reg-names = "ssbi6_base";
+		qcom,controller-type = "geni-ssbi-arbiter";
+
+		rfic@6 {
+			compatible = "qti,rfic";
+		};
+	};
+
+	ssbi7:  qcom,ssbi@f9b30000 {
+		compatible = "qcom,ssbi";
+		reg = <0xf9b30000 0x4000>;
+		reg-names = "ssbi7_base";
+		qcom,controller-type = "geni-ssbi-arbiter";
+
+		rfic@7 {
+			compatible = "qti,rfic";
+		};
+	};
+
 	qcom,fuse@fc4b8000 {
 		compatible = "qcom,qfp-fuse";
 		reg = <0xfc4b8000 0x7000>;
@@ -934,6 +1033,61 @@
 #include "fsm9900-regulator.dtsi"
 
 &pma8084_vadc {
+	chan@32 {
+		label = "xo_therm";
+		reg = <0x32>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <4>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@33 {
+		label = "amux_therm1";
+		reg = <0x33>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@34 {
+		label = "amux_therm2";
+		reg = <0x34>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@35 {
+		label = "amux_therm3";
+		reg = <0x35>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@37 {
+		label = "amux_therm4";
+		reg = <0x37>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+
 	chan@b0 {
 		label = "apq_therm";
 		reg = <0xb0>;
