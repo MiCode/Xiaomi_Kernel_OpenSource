@@ -35,6 +35,7 @@ enum esoc_notify {
 	ESOC_UPGRADE_AVAILABLE,
 	ESOC_DEBUG_DONE,
 	ESOC_DEBUG_FAIL,
+	ESOC_PRIMARY_CRASH,
 };
 
 enum esoc_req {
