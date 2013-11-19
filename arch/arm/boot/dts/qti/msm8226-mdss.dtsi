@@ -34,6 +34,8 @@
 		qcom,mdss-high-ib-factor = <2 1>;	/* 2 times    */
 		qcom,mdss-clk-factor = <5 4>;		/* 1.25 times */
 
+		qcom,max-bandwidth-low-kbps = <1660000>;
+		qcom,max-bandwidth-high-kbps = <1660000>;
 		qcom,max-clk-rate = <200000000>;
 		qcom,mdss-pipe-vig-off = <0x00001200>;
 		qcom,mdss-pipe-rgb-off = <0x00001E00>;
