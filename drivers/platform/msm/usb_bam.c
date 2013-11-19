@@ -2409,6 +2409,7 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 	bool reset_bam;
 	u32 bam;
 	u32 addr;
+	u32 threshold;
 
 	ctx.max_connections = 0;
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
@@ -2436,6 +2437,14 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 
 	pdata->disable_clk_gating = of_property_read_bool(node,
 		"qcom,disable-clk-gating");
+
+	rc = of_property_read_u32(node, "qcom,usb-bam-override-threshold",
+			&threshold);
+	if (rc)
+		pdata->override_threshold = USB_THRESHOLD;
+	else
+		pdata->override_threshold = threshold;
+
 
 	for_each_child_of_node(pdev->dev.of_node, node)
 		ctx.max_connections++;
@@ -2612,8 +2621,8 @@ static int usb_bam_init(int bam_idx)
 	props->virt_addr = usb_virt_addr;
 	props->virt_size = resource_size(res);
 	props->irq = irq;
-	props->summing_threshold = USB_THRESHOLD;
-	props->event_threshold = USB_THRESHOLD;
+	props->summing_threshold = pdata->override_threshold;
+	props->event_threshold = pdata->override_threshold;
 	props->num_pipes = pdata->usb_bam_num_pipes;
 	props->callback = usb_bam_sps_events;
 	props->user = bam_enable_strings[bam_idx];
