@@ -163,6 +163,8 @@ void __init fsm9900_init(void)
 	 */
 	board_dt_populate(adata);
 
+	msm_smem_init();
+
 	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
