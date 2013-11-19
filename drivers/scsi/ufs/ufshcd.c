@@ -4519,6 +4519,13 @@ static int ufshcd_set_dev_pwr_mode(struct ufs_hba *hba,
 	if (!sdp || !scsi_device_online(sdp))
 		return -ENODEV;
 
+	/*
+	 * If scsi commands fail, the scsi mid-layer schedules scsi error-
+	 * handling, which would wait for host to be resumed. Since we know
+	 * we are functional while we are here, skip host resume in error
+	 * handling context.
+	 */
+	hba->host->eh_noresume = 1;
 	if (pwr_mode != UFS_ACTIVE_PWR_MODE) {
 		ret = ufshcd_send_request_sense(hba, sdp);
 		if (ret)
@@ -4547,6 +4554,7 @@ static int ufshcd_set_dev_pwr_mode(struct ufs_hba *hba,
 	if (!ret)
 		hba->curr_dev_pwr_mode = pwr_mode;
 out:
+	hba->host->eh_noresume = 0;
 	return ret;
 }
 
