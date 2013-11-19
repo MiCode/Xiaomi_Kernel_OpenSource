@@ -250,7 +250,12 @@ Optional properties:
 					as below:
 					--> Reset GPIO value
 					--> Sleep value (in ms)
-
+- qcom,mdss-dsi-lp11-init:		Boolean used to enable the DSI clocks and data lanes (low power 11)
+					before issuing hardware reset line.
+- qcom,mdss-dsi-init-delay-us:		Delay in microseconds(us) before performing any DSI activity in lp11
+					mode. This master delay (t_init_delay as per DSI spec) should be sum
+					of DSI internal delay to reach fuctional after power up and minimum
+					delay required by panel to reach functional.
 
 Note, if a given optional qcom,* binding is not present, then the driver will configure
 the default values specified.
@@ -343,5 +348,7 @@ Example:
 		qcom,mdss-dsi-panel-mode-gpio-state = "low";
 		qcom,partial-update-enabled;
 		qcom,mdss-dsi-reset-sequence = <1 2>, <0 10>, <1 10>;
+		qcom,mdss-dsi-lp11-init;
+		qcom,mdss-dsi-init-delay-us = <100>;
 	};
 };
