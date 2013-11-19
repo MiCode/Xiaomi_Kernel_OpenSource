@@ -3427,7 +3427,9 @@ static u32 gen6_rps_pm_mask(struct drm_i915_private *dev_priv, u8 val)
 	/* IVB and SNB hard hangs on looping batchbuffer
 	 * if GEN6_PM_UP_EI_EXPIRED is masked.
 	 */
-	if (INTEL_INFO(dev_priv->dev)->gen <= 7 && !IS_HASWELL(dev_priv->dev))
+	if (INTEL_INFO(dev_priv->dev)->gen <= 7 &&
+		!IS_HASWELL(dev_priv->dev) &&
+		!dev_priv->rps.use_RC0_residency_for_turbo)
 		mask |= GEN6_PM_RP_UP_EI_EXPIRED;
 
 	if (IS_GEN8(dev_priv->dev))
@@ -3698,8 +3700,13 @@ static void gen6_disable_rps_interrupts(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	I915_WRITE(GEN6_PMINTRMSK, 0xffffffff);
-	I915_WRITE(GEN6_PMIER, I915_READ(GEN6_PMIER) &
-				~dev_priv->pm_rps_events);
+	if (dev_priv->rps.use_RC0_residency_for_turbo)
+		I915_WRITE(GEN6_PMIER, I915_READ(GEN6_PMIER) &
+						~GEN6_PM_RP_UP_EI_EXPIRED);
+	else
+		I915_WRITE(GEN6_PMIER, I915_READ(GEN6_PMIER) &
+						~dev_priv->pm_rps_events);
+
 	/* Complete PM interrupt masking here doesn't race with the rps work
 	 * item again unmasking PM interrupts because that is using a different
 	 * register (PMIMR) to mask PM interrupts. The only risk is in leaving
@@ -3709,7 +3716,10 @@ static void gen6_disable_rps_interrupts(struct drm_device *dev)
 	dev_priv->rps.pm_iir = 0;
 	spin_unlock_irq(&dev_priv->irq_lock);
 
-	I915_WRITE(GEN6_PMIIR, dev_priv->pm_rps_events);
+	if (dev_priv->rps.use_RC0_residency_for_turbo)
+		I915_WRITE(GEN6_PMIIR, GEN6_PM_RP_UP_EI_EXPIRED);
+	else
+		I915_WRITE(GEN6_PMIIR, dev_priv->pm_rps_events);
 }
 
 static void gen6_disable_rps(struct drm_device *dev)
@@ -3808,10 +3818,16 @@ static void gen6_enable_rps_interrupts(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
+	/* Clear out any stale interrupts first */
 	spin_lock_irq(&dev_priv->irq_lock);
 	WARN_ON(dev_priv->rps.pm_iir);
-	snb_enable_pm_irq(dev_priv, dev_priv->pm_rps_events);
-	I915_WRITE(GEN6_PMIIR, dev_priv->pm_rps_events);
+	if (dev_priv->rps.use_RC0_residency_for_turbo) {
+		snb_enable_pm_irq(dev_priv, GEN6_PM_RP_UP_EI_EXPIRED);
+		I915_WRITE(GEN6_PMIIR, GEN6_PM_RP_UP_EI_EXPIRED);
+	} else {
+		snb_enable_pm_irq(dev_priv, dev_priv->pm_rps_events);
+		I915_WRITE(GEN6_PMIIR, dev_priv->pm_rps_events);
+	}
 	spin_unlock_irq(&dev_priv->irq_lock);
 }
 
@@ -4272,6 +4288,7 @@ static void valleyview_enable_rps(struct drm_device *dev)
 	I915_WRITE(GEN6_RP_DOWN_EI, 350000);
 
 	I915_WRITE(GEN6_RP_IDLE_HYSTERSIS, 10);
+	I915_WRITE(GEN6_RP_DOWN_TIMEOUT, 0xf4240);
 
 	dev_priv->rps.rps_mask = GEN6_RP_MEDIA_TURBO |
 				   GEN6_RP_MEDIA_HW_NORMAL_MODE |
@@ -4290,10 +4307,7 @@ static void valleyview_enable_rps(struct drm_device *dev)
 	I915_WRITE(GEN6_RC6_THRESHOLD, 0x557);
 
 	/* allows RC6 residency counter to work */
-	I915_WRITE(VLV_COUNTER_CONTROL,
-		   _MASKED_BIT_ENABLE(VLV_COUNT_RANGE_HIGH |
-				      VLV_MEDIA_RC6_COUNT_EN |
-				      VLV_RENDER_RC6_COUNT_EN));
+	I915_WRITE(VLV_COUNTER_CONTROL, VLV_RC_COUNTER_CONTROL);
 
 	rc6_mode = GEN7_RC_CTL_TO_MODE | VLV_RC_CTL_CTX_RST_PARALLEL;
 	dev_priv->rps.rc6_mask = rc6_mode;
@@ -4318,6 +4332,9 @@ static void valleyview_enable_rps(struct drm_device *dev)
 			 dev_priv->rps.efficient_freq);
 
 	valleyview_set_rps(dev_priv->dev, dev_priv->rps.efficient_freq);
+
+	/* enable WA for RC6+turbo to work together */
+	dev_priv->rps.use_RC0_residency_for_turbo = true;
 
 	vlv_set_rps_mode(dev, false);
 

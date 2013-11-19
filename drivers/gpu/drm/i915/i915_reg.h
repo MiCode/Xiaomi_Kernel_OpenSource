@@ -534,6 +534,7 @@ enum punit_power_well {
 #define PUNIT_REG_GPU_FREQ_STS			0xd8
 #define   GENFREQSTATUS				(1<<0)
 #define PUNIT_REG_MEDIA_TURBO_FREQ_REQ		0xdc
+#define PUNIT_REG_CZ_TIMESTAMP			0xce
 
 #define PUNIT_FUSE_BUS2				0xf6 /* bits 47:40 */
 #define PUNIT_FUSE_BUS1				0xf5 /* bits 55:48 */
@@ -548,6 +549,11 @@ enum punit_power_well {
 #define IOSF_NC_FB_GFX_FMAX_FUSE_LO		0x30
 #define   FB_FMAX_VMIN_FREQ_LO_SHIFT		27
 #define   FB_FMAX_VMIN_FREQ_LO_MASK		0xf8000000
+
+#define VLV_CZ_CLOCK_TO_MILLI_SEC		100000
+#define VLV_RP_UP_EI_THRESHOLD			90
+#define VLV_RP_DOWN_EI_THRESHOLD		70
+#define VLV_INT_COUNT_FOR_DOWN_EI		5
 
 /* vlv2 north clock has */
 #define CCK_FUSE_REG				0x8
@@ -5414,6 +5420,7 @@ enum punit_power_well {
 #define   VLV_GTLC_ALLOWWAKEERR			(1 << 1)
 #define   VLV_GTLC_PW_MEDIA_STATUS_MASK		(1 << 5)
 #define   VLV_GTLC_PW_RENDER_STATUS_MASK	(1 << 7)
+#define VLV_GTLC_SURVIVABILITY_REG              0x130098
 #define  FORCEWAKE_MT				0xa188 /* multi-threaded */
 #define   FORCEWAKE_KERNEL			0x1
 #define   FORCEWAKE_USER			0x2
@@ -5421,6 +5428,11 @@ enum punit_power_well {
 #define  ECOBUS					0xa180
 #define    FORCEWAKE_MT_ENABLE			(1<<5)
 #define  VLV_SPAREG2H				0xA194
+
+#define VLV_GFX_CLK_FORCE_ON_BIT                (1<<2)
+#define VLV_GFX_CLK_STATUS_BIT                  (1<<3)
+
+#define VLV_RC_COUNTER_CONTROL                  0xFFFF00FF
 
 #define  GTFIFODBG				0x120000
 #define    GT_FIFO_SBDROPERR			(1<<6)
@@ -5557,6 +5569,9 @@ enum punit_power_well {
 #define VLV_GTLC_SURVIVABILITY_REG              0x130098
 #define VLV_GFX_CLK_STATUS_BIT			(1<<3)
 #define VLV_GFX_CLK_FORCE_ON_BIT		(1<<2)
+
+#define VLV_RENDER_C0_COUNT_REG		0x138118
+#define VLV_MEDIA_C0_COUNT_REG			0x13811C
 
 #define GEN6_GT_GFX_RC6_LOCKED			0x138104
 #define VLV_COUNTER_CONTROL			0x138104
