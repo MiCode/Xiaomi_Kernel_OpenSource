@@ -36,6 +36,7 @@
 #include <linux/usb/msm_hsusb.h>
 #include <linux/usb/msm_ext_chg.h>
 #include <linux/regulator/consumer.h>
+#include <linux/regulator/rpm-smd-regulator.h>
 #include <linux/pm_wakeup.h>
 #include <linux/power_supply.h>
 #include <linux/qpnp/qpnp-adc.h>
@@ -44,7 +45,6 @@
 #include <linux/clk/msm-clk.h>
 
 #include <mach/rpm-regulator.h>
-#include <mach/rpm-regulator-smd.h>
 #include <mach/msm_bus.h>
 #include <mach/scm.h>
 

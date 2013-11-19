@@ -20,9 +20,9 @@
 #include <linux/clk.h>
 #include <linux/iopoll.h>
 #include <linux/regulator/consumer.h>
+#include <linux/regulator/rpm-smd-regulator.h>
 #include <linux/clk/msm-clock-generic.h>
 
-#include <mach/rpm-regulator-smd.h>
 #include <mach/rpm-smd.h>
 
 #include "clock-local2.h"

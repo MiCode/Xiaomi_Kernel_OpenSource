@@ -70,7 +70,7 @@
 			regulator-min-microvolt = <675000>;
 			regulator-max-microvolt = <1050000>;
 			status = "okay";
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			proxy-supply = <&pm8841_s1_ao>;
 			qcom,proxy-consumer-voltage = <1050000 1050000>;
 			qcom,proxy-consumer-enable;
@@ -82,7 +82,7 @@
 			regulator-max-microvolt = <1050000>;
 			qcom,init-voltage = <675000>;
 			status = "okay";
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 		};
 	};
 
@@ -99,7 +99,7 @@
 			regulator-min-microvolt = <1>;
 			regulator-max-microvolt = <7>;
 			qcom,use-voltage-corner;
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			qcom,consumer-supplies = "vdd_dig", "";
 			proxy-supply = <&pm8841_s2_corner>;
 			qcom,proxy-consumer-voltage = <7 7>;
@@ -111,10 +111,10 @@
 			regulator-min-microvolt = <1>;
 			regulator-max-microvolt = <7>;
 			qcom,use-voltage-corner;
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 		};
 		pm8841_s2_floor_corner: regulator-s2-floor-corner {
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "8841_s2_floor_corner";
 			qcom,set = <3>;
 			regulator-min-microvolt = <1>;
@@ -142,7 +142,7 @@
 			status = "okay";
 		};
 		pm8841_s4_corner: regulator-s4-corner {
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "8841_s4_corner";
 			qcom,set = <3>;
 			qcom,use-voltage-corner;
@@ -151,7 +151,7 @@
 			qcom,init-voltage-corner = <3>; /* SVS SOC */
 		};
 		pm8841_s4_floor_corner: regulator-s4-floor-corner {
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "8841_s4_floor_corner";
 			qcom,set = <3>;
 			regulator-min-microvolt = <1>;
@@ -317,7 +317,7 @@
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			status = "okay";
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 		};
 	};
 

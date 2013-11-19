@@ -32,7 +32,7 @@
 #include <linux/types.h>
 #include <linux/thermal.h>
 #include <mach/rpm-regulator.h>
-#include <mach/rpm-regulator-smd.h>
+#include <linux/regulator/rpm-smd-regulator.h>
 #include <linux/regulator/consumer.h>
 #include <linux/msm_thermal_ioctl.h>
 

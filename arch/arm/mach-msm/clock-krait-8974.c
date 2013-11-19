@@ -19,6 +19,7 @@
 #include <linux/io.h>
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
+#include <linux/regulator/rpm-smd-regulator.h>
 #include <linux/of.h>
 #include <linux/cpumask.h>
 #include <linux/clk/msm-clk-provider.h>
@@ -27,7 +28,6 @@
 
 #include <asm/cputype.h>
 
-#include <mach/rpm-regulator-smd.h>
 #include "clock-krait.h"
 #include "clock-local2.h"
 #include "clock.h"

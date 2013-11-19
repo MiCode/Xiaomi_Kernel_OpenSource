@@ -26,7 +26,7 @@
 			regulator-min-microvolt = <750000>;
 			regulator-max-microvolt = <1260000>;
 			status = "okay";
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 		};
 		pma8084_s1_so: regulator-s1-so {
 			regulator-name = "8084_s1_so";
@@ -35,7 +35,7 @@
 			regulator-max-microvolt = <1260000>;
 			qcom,init-voltage = <750000>;
 			status = "okay";
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 		};
 	};
 
@@ -48,7 +48,7 @@
 			regulator-min-microvolt = <1>;
 			regulator-max-microvolt = <7>;
 			qcom,use-voltage-corner;
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			qcom,consumer-supplies = "vdd_dig", "";
 		};
 		pma8084_s2_corner_ao: regulator-s2-corner-ao {
@@ -57,10 +57,10 @@
 			regulator-min-microvolt = <1>;
 			regulator-max-microvolt = <7>;
 			qcom,use-voltage-corner;
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 		};
 		pma8084_s2_floor_corner: regulator-s2-floor-corner {
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "8084_s2_floor_corner";
 			qcom,set = <3>;
 			regulator-min-microvolt = <1>;
@@ -114,7 +114,7 @@
 	rpm-regulator-smpa7 {
 		status = "okay";
 		pma8084_s7_corner: regulator-s7-corner {
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "8084_s7_corner";
 			qcom,set = <3>;
 			qcom,use-voltage-corner;
@@ -123,7 +123,7 @@
 			qcom,init-voltage-corner = <3>; /* SVS SOC */
 		};
 		pma8084_s7_floor_corner: regulator-s7-floor-corner {
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "8084_s7_floor_corner";
 			qcom,set = <3>;
 			regulator-min-microvolt = <1>;
@@ -257,7 +257,7 @@
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			status = "okay";
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 		};
 	};
 

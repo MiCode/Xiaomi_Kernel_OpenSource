@@ -16,6 +16,7 @@
 #include <linux/gpio.h>
 #include <linux/delay.h>
 #include <linux/regulator/consumer.h>
+#include <linux/regulator/rpm-smd-regulator.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/mfd/pm8xxx/gpio.h>
 #include <linux/wcnss_wlan.h>
@@ -25,7 +26,6 @@
 #include <linux/clk.h>
 #include <mach/msm_xo.h>
 #include <mach/msm_iomap.h>
-#include <mach/rpm-regulator-smd.h>
 
 
 static void __iomem *msm_wcnss_base;

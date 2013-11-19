@@ -70,7 +70,6 @@ obj-$(CONFIG_SURF_FFA_GPIO_KEYPAD) += keypad-surf-ffa.o
 
 obj-$(CONFIG_MSM_BOOT_STATS) += boot_stats.o
 
-obj-$(CONFIG_MSM_RPM_REGULATOR_SMD) += rpm-regulator-smd.o
 obj-$(CONFIG_MSM_SPM_REGULATOR) += spm-regulator.o
 
 ifdef CONFIG_MSM_SUBSYSTEM_RESTART

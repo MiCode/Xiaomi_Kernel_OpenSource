@@ -25,6 +25,7 @@
 #include <linux/of_irq.h>
 #include <linux/memory.h>
 #include <linux/regulator/qpnp-regulator.h>
+#include <linux/regulator/rpm-smd-regulator.h>
 #include <linux/msm_tsens.h>
 #include <linux/clk/msm-clk-provider.h>
 #include <asm/mach/map.h>
@@ -39,7 +40,6 @@
 #include <mach/board.h>
 #include <mach/msm_smd.h>
 #include <mach/rpm-smd.h>
-#include <mach/rpm-regulator-smd.h>
 #include <soc/msm/smem.h>
 #include <linux/msm_thermal.h>
 #include "board-dt.h"
@@ -88,7 +88,7 @@ void __init msm8226_add_drivers(void)
 	msm_rpm_driver_init();
 	msm_spm_device_init();
 	msm_pm_sleep_status_init();
-	rpm_regulator_smd_driver_init();
+	rpm_smd_regulator_driver_init();
 	qpnp_regulator_init();
 	if (of_board_is_rumi())
 		msm_clock_init(&msm8226_rumi_clock_init_data);

@@ -19,10 +19,10 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
+#include <linux/regulator/rpm-smd-regulator.h>
 #include <linux/iopoll.h>
 #include <linux/clk/msm-clk.h>
 
-#include <mach/rpm-regulator-smd.h>
 #include <mach/socinfo.h>
 
 #include "clock-local2.h"

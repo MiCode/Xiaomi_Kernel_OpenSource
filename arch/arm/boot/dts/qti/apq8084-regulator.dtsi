@@ -39,14 +39,14 @@
 			status = "okay";
 		};
 		pma8084_s1_ao: regulator-s1-ao {
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "8084_s1_ao";
 			qcom,set = <1>;
 			regulator-min-microvolt = <675000>;
 			regulator-max-microvolt = <1050000>;
 		};
 		pma8084_s1_so: regulator-s1-so {
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "8084_s1_so";
 			qcom,set = <2>;
 			regulator-min-microvolt = <675000>;
@@ -64,7 +64,7 @@
 			status = "okay";
 		};
 		pma8084_s2_corner: regulator-s2-corner {
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "8084_s2_corner";
 			qcom,set = <3>;
 			regulator-min-microvolt = <1>;
@@ -73,7 +73,7 @@
 			qcom,consumer-supplies = "vdd_dig", "";
 		};
 		pma8084_s2_corner_ao: regulator-s2-corner-ao {
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "8084_s2_corner_ao";
 			qcom,set = <1>;
 			regulator-min-microvolt = <1>;
@@ -81,7 +81,7 @@
 			qcom,use-voltage-corner;
 		};
 		pma8084_s2_floor_corner: regulator-s2-floor-corner {
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "8084_s2_floor_corner";
 			qcom,set = <3>;
 			regulator-min-microvolt = <1>;
@@ -130,7 +130,7 @@
                         status = "okay";
                 };
                 pma8084_s6_corner: regulator-s6-corner {
-                        compatible = "qcom,rpm-regulator-smd";
+                        compatible = "qcom,rpm-smd-regulator";
                         regulator-name = "8084_s6_corner";
                         qcom,set = <3>;
                         qcom,use-voltage-corner;
@@ -139,7 +139,7 @@
                         qcom,init-voltage-corner = <3>; /* SVS SOC */
                 };
                 pma8084_s6_floor_corner: regulator-s6-floor-corner {
-                        compatible = "qcom,rpm-regulator-smd";
+                        compatible = "qcom,rpm-smd-regulator";
                         regulator-name = "8084_s6_floor_corner";
                         qcom,set = <3>;
                         regulator-min-microvolt = <1>;
@@ -241,7 +241,7 @@
 			status = "okay";
 		};
 		pma8084_l12_ao: regulator-l12-ao {
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "8084_l12_ao";
 			qcom,set = <1>;
 			regulator-min-microvolt = <1800000>;
