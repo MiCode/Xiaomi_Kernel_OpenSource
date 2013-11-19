@@ -30,9 +30,9 @@
 #include <linux/device.h>
 #include <linux/idr.h>
 #include <linux/debugfs.h>
-#include <linux/miscdevice.h>
 #include <linux/interrupt.h>
 #include <linux/of_gpio.h>
+#include <linux/cdev.h>
 #include <linux/platform_device.h>
 
 #include <asm/current.h>
@@ -158,10 +158,11 @@ struct subsys_device {
 	struct dentry *dentry;
 #endif
 	bool do_ramdump_on_put;
-	struct miscdevice misc_dev;
-	char miscdevice_name[32];
+	struct cdev char_dev;
+	dev_t dev_no;
 	struct completion err_ready;
 	bool crashed;
+	struct list_head list;
 };
 
 static struct subsys_device *to_subsys(struct device *d)
@@ -261,10 +262,14 @@ static int enable_ramdumps;
 module_param(enable_ramdumps, int, S_IRUGO | S_IWUSR);
 
 struct workqueue_struct *ssr_wq;
+static struct class *char_class;
 
 static LIST_HEAD(restart_log_list);
+static LIST_HEAD(subsys_list);
 static DEFINE_MUTEX(soc_order_reg_lock);
 static DEFINE_MUTEX(restart_log_mutex);
+static DEFINE_MUTEX(subsys_list_lock);
+static DEFINE_MUTEX(char_device_lock);
 
 /* SOC specific restart orders go here */
 
@@ -952,11 +957,16 @@ static void subsys_debugfs_remove(struct subsys_device *subsys) { }
 
 static int subsys_device_open(struct inode *inode, struct file *file)
 {
+	struct subsys_device *device, *subsys_dev = 0;
 	void *retval;
-	struct subsys_device *subsys_dev = container_of(file->private_data,
-		struct subsys_device, misc_dev);
 
-	if (!file->private_data)
+	mutex_lock(&subsys_list_lock);
+	list_for_each_entry(device, &subsys_list, list)
+		if (MINOR(device->dev_no) == iminor(inode))
+			subsys_dev = device;
+	mutex_unlock(&subsys_list_lock);
+
+	if (!subsys_dev)
 		return -EINVAL;
 
 	retval = subsystem_get(subsys_dev->desc->name);
@@ -968,14 +978,18 @@ static int subsys_device_open(struct inode *inode, struct file *file)
 
 static int subsys_device_close(struct inode *inode, struct file *file)
 {
-	struct subsys_device *subsys_dev = container_of(file->private_data,
-		struct subsys_device, misc_dev);
+	struct subsys_device *device, *subsys_dev = 0;
 
-	if (!file->private_data)
+	mutex_lock(&subsys_list_lock);
+	list_for_each_entry(device, &subsys_list, list)
+		if (MINOR(device->dev_no) == iminor(inode))
+			subsys_dev = device;
+	mutex_unlock(&subsys_list_lock);
+
+	if (!subsys_dev)
 		return -EINVAL;
 
 	subsystem_put(subsys_dev);
-
 	return 0;
 }
 
@@ -1007,31 +1021,58 @@ static irqreturn_t subsys_err_ready_intr_handler(int irq, void *subsys)
 	return IRQ_HANDLED;
 }
 
-static int subsys_misc_device_add(struct subsys_device *subsys_dev)
+static int subsys_char_device_add(struct subsys_device *subsys_dev)
 {
-	int ret;
-	memset(subsys_dev->miscdevice_name, 0,
-			ARRAY_SIZE(subsys_dev->miscdevice_name));
-	snprintf(subsys_dev->miscdevice_name,
-			 ARRAY_SIZE(subsys_dev->miscdevice_name), "subsys_%s",
-			 subsys_dev->desc->name);
+	int ret = 0;
+	static int major, minor;
+	dev_t dev_no;
 
-	subsys_dev->misc_dev.minor = MISC_DYNAMIC_MINOR;
-	subsys_dev->misc_dev.name = subsys_dev->miscdevice_name;
-	subsys_dev->misc_dev.fops = &subsys_device_fops;
-	subsys_dev->misc_dev.parent = &subsys_dev->dev;
+	mutex_lock(&char_device_lock);
+	if (!major) {
+		ret = alloc_chrdev_region(&dev_no, 0, 4, "subsys");
+		if (ret < 0) {
+			pr_err("Failed to alloc subsys_dev region, err %d\n",
+									ret);
+			goto fail;
+		}
+		major = MAJOR(dev_no);
+		minor = MINOR(dev_no);
+	} else
+		dev_no = MKDEV(major, minor);
 
-	ret = misc_register(&subsys_dev->misc_dev);
-	if (ret) {
-		pr_err("%s: misc_register() failed for %s (%d)", __func__,
-				subsys_dev->miscdevice_name, ret);
+	if (!device_create(char_class, subsys_dev->desc->dev, dev_no,
+			NULL, "subsys_%s", subsys_dev->desc->name)) {
+		pr_err("Failed to create subsys_%s device\n",
+						subsys_dev->desc->name);
+		goto fail_unregister_cdev_region;
 	}
+
+	cdev_init(&subsys_dev->char_dev, &subsys_device_fops);
+	subsys_dev->char_dev.owner = THIS_MODULE;
+	ret = cdev_add(&subsys_dev->char_dev, dev_no, 1);
+	if (ret < 0)
+		goto fail_destroy_device;
+
+	subsys_dev->dev_no = dev_no;
+	minor++;
+	mutex_unlock(&char_device_lock);
+
+	return 0;
+
+fail_destroy_device:
+	device_destroy(char_class, dev_no);
+fail_unregister_cdev_region:
+	unregister_chrdev_region(dev_no, 1);
+fail:
+	mutex_unlock(&char_device_lock);
 	return ret;
 }
 
-static void subsys_misc_device_remove(struct subsys_device *subsys_dev)
+static void subsys_char_device_remove(struct subsys_device *subsys_dev)
 {
-	misc_deregister(&subsys_dev->misc_dev);
+	cdev_del(&subsys_dev->char_dev);
+	device_destroy(char_class, subsys_dev->dev_no);
+	unregister_chrdev_region(subsys_dev->dev_no, 1);
 }
 
 static int __get_gpio(struct subsys_desc *desc, const char *prop,
@@ -1203,27 +1244,29 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 		goto err_register;
 	}
 
-	ret = subsys_misc_device_add(subsys);
+	ret = subsys_char_device_add(subsys);
 	if (ret) {
 		put_device(&subsys->dev);
 		goto err_register;
 	}
 
-	if (!desc->dev->of_node)
-		return subsys;
+	if (desc->dev->of_node) {
+		ret = subsys_parse_devicetree(desc);
+		if (ret)
+			goto err_register;
 
-	ret = subsys_parse_devicetree(desc);
-	if (ret)
-		goto err_misc_device;
+		ret = subsys_setup_irqs(subsys);
+		if (ret < 0)
+			goto err_register;
+	}
 
-	ret = subsys_setup_irqs(subsys);
-	if (ret < 0)
-		goto err_misc_device;
+	mutex_lock(&subsys_list_lock);
+	INIT_LIST_HEAD(&subsys->list);
+	list_add_tail(&subsys->list, &subsys_list);
+	mutex_unlock(&subsys_list_lock);
 
 	return subsys;
 
-err_misc_device:
-	subsys_misc_device_remove(subsys);
 err_register:
 	subsys_debugfs_remove(subsys);
 err_debugfs:
@@ -1247,7 +1290,7 @@ void subsys_unregister(struct subsys_device *subsys)
 		device_unregister(&subsys->dev);
 		mutex_unlock(&subsys->track.lock);
 		subsys_debugfs_remove(subsys);
-		subsys_misc_device_remove(subsys);
+		subsys_char_device_remove(subsys);
 		put_device(&subsys->dev);
 	}
 }
@@ -1321,12 +1364,21 @@ static int __init subsys_restart_init(void)
 	ret = subsys_debugfs_init();
 	if (ret)
 		goto err_debugfs;
+	char_class = class_create(THIS_MODULE, "subsys");
+	if (IS_ERR(char_class)) {
+		ret = -ENOMEM;
+		pr_err("Failed to create subsys_dev class\n");
+		goto err_class;
+	}
 	ret = ssr_init_soc_restart_orders();
 	if (ret)
 		goto err_soc;
+
 	return 0;
 
 err_soc:
+	class_destroy(char_class);
+err_class:
 	subsys_debugfs_exit();
 err_debugfs:
 	bus_unregister(&subsys_bus_type);
