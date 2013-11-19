@@ -155,7 +155,6 @@ struct msm_hs_rx {
 	struct tasklet_struct tlet;
 	struct msm_hs_sps_ep_conn_data prod;
 };
-
 enum buffer_states {
 	NONE_PENDING = 0x0,
 	FIFO_OVERRUN = 0x1,
@@ -219,6 +218,7 @@ struct msm_hs_port {
 	struct msm_bus_scale_pdata *bus_scale_table;
 	bool rx_discard_flush_issued;
 	int rx_count_callback;
+	bool rx_bam_inprogress;
 	unsigned int *reg_ptr;
 };
 
@@ -998,6 +998,14 @@ static void msm_hs_set_termios(struct uart_port *uport,
 	mutex_lock(&msm_uport->clk_mutex);
 	msm_hs_write(uport, UART_DM_IMR, 0);
 
+	/* Clear the Rx Ready Ctl bit - This ensures that
+	* flow control lines stop the other side from sending
+	* data while we change the parameters
+	*/
+	data = msm_hs_read(uport, UART_DM_MR1);
+	data &= ~UARTDM_MR1_RX_RDY_CTL_BMSK;
+	msm_hs_write(uport, UART_DM_MR1, data);
+
 	/*
 	 * Disable Rx channel of UARTDM
 	 * DMA Rx Stall happens if enqueue and flush of Rx command happens
@@ -1071,18 +1079,6 @@ static void msm_hs_set_termios(struct uart_port *uport,
 	/* write parity/bits per char/stop bit configuration */
 	msm_hs_write(uport, UART_DM_MR2, data);
 
-	/* Configure HW flow control */
-	data = msm_hs_read(uport, UART_DM_MR1);
-
-	data &= ~(UARTDM_MR1_CTS_CTL_BMSK | UARTDM_MR1_RX_RDY_CTL_BMSK);
-
-	if (c_cflag & CRTSCTS) {
-		data |= UARTDM_MR1_CTS_CTL_BMSK;
-		data |= UARTDM_MR1_RX_RDY_CTL_BMSK;
-	}
-
-	msm_hs_write(uport, UART_DM_MR1, data);
-
 	uport->ignore_status_mask = termios->c_iflag & INPCK;
 	uport->ignore_status_mask |= termios->c_iflag & IGNPAR;
 	uport->ignore_status_mask |= termios->c_iflag & IGNBRK;
@@ -1106,6 +1102,10 @@ static void msm_hs_set_termios(struct uart_port *uport,
 		 */
 		mb();
 		if (is_blsp_uart(msm_uport)) {
+			if (msm_uport->rx_bam_inprogress)
+				ret = wait_event_timeout(msm_uport->rx.wait,
+					msm_uport->rx_bam_inprogress == false,
+					RX_FLUSH_COMPLETE_TIMEOUT);
 			ret = sps_disconnect(sps_pipe_handle);
 			if (ret)
 				pr_err("%s(): sps_disconnect failed\n",
@@ -1126,6 +1126,20 @@ static void msm_hs_set_termios(struct uart_port *uport,
 								__func__);
 		}
 	}
+
+	/* Configure HW flow control
+	 * UART Core would see status of CTS line when it is sending data
+	 * to remote uart to confirm that it can receive or not.
+	 * UART Core would trigger RFR if it is not having any space with
+	 * RX FIFO.
+	 */
+	data = msm_hs_read(uport, UART_DM_MR1);
+	data &= ~(UARTDM_MR1_CTS_CTL_BMSK | UARTDM_MR1_RX_RDY_CTL_BMSK);
+	if (c_cflag & CRTSCTS) {
+		data |= UARTDM_MR1_CTS_CTL_BMSK;
+		data |= UARTDM_MR1_RX_RDY_CTL_BMSK;
+	}
+	msm_hs_write(uport, UART_DM_MR1, data);
 
 	msm_hs_write(uport, UART_DM_IMR, msm_uport->imr_reg);
 	mb();
@@ -1358,10 +1372,13 @@ static void msm_hs_start_rx_locked(struct uart_port *uport)
 	msm_uport->rx.flush = FLUSH_NONE;
 
 	if (is_blsp_uart(msm_uport)) {
+		msm_uport->rx_bam_inprogress = true;
 		sps_pipe_handle = rx->prod.pipe_handle;
 		/* Queue transfer request to SPS */
 		sps_transfer_one(sps_pipe_handle, rx->rbuffer,
 			UARTDM_RX_BUF_SIZE, msm_uport, flags);
+		msm_uport->rx_bam_inprogress = false;
+		wake_up(&msm_uport->rx.wait);
 	} else {
 		msm_dmov_enqueue_cmd(msm_uport->dma_rx_channel,
 				&msm_uport->rx.xfer);
@@ -1531,10 +1548,13 @@ static void msm_serial_hs_rx_tlet(unsigned long tlet_ptr)
 	if (!msm_uport->rx.buffer_pending) {
 		if (is_blsp_uart(msm_uport)) {
 			msm_uport->rx.flush = FLUSH_NONE;
+			msm_uport->rx_bam_inprogress = true;
 			sps_pipe_handle = rx->prod.pipe_handle;
 			/* Queue transfer request to SPS */
 			sps_transfer_one(sps_pipe_handle, rx->rbuffer,
 				UARTDM_RX_BUF_SIZE, msm_uport, sps_flags);
+			msm_uport->rx_bam_inprogress = false;
+			wake_up(&msm_uport->rx.wait);
 		} else {
 			msm_hs_start_rx_locked(uport);
 		}
@@ -2832,9 +2852,9 @@ static int msm_hs_sps_init_ep_conn(struct msm_hs_port *msm_uport,
 	/* Now save the sps pipe handle */
 	ep->pipe_handle = sps_pipe_handle;
 	pr_debug("msm_serial_hs: success !! %s: pipe_handle=0x%x\n"
-		"desc_fifo.phys_base=0x%x\n",
+		"desc_fifo.phys_base=0x%llx\n",
 		is_producer ? "READ" : "WRITE",
-		(u32)sps_pipe_handle, sps_config->desc.phys_base);
+		(u32) sps_pipe_handle, (u64) sps_config->desc.phys_base);
 	return 0;
 
 get_config_err:

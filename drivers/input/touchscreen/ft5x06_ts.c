@@ -717,7 +717,9 @@ static int ft5x06_fw_upgrade_start(struct i2c_client *client,
 
 		if (r_buf[0] != info.upgrade_id_1
 			|| r_buf[1] != info.upgrade_id_2) {
-			dev_err(&client->dev, "Upgrade ID mismatch(%d)\n", i);
+			dev_err(&client->dev, "Upgrade ID mismatch(%d), IC=0x%x 0x%x, info=0x%x 0x%x\n",
+				i, r_buf[0], r_buf[1],
+				info.upgrade_id_1, info.upgrade_id_2);
 		} else
 			break;
 	}
@@ -742,6 +744,10 @@ static int ft5x06_fw_upgrade_start(struct i2c_client *client,
 		is_5336_new_bootloader = FT_BLOADER_VERSION_GZF;
 	else
 		is_5336_new_bootloader = FT_BLOADER_VERSION_LZ4;
+
+	dev_dbg(&client->dev, "bootloader type=%d, r_buf=0x%x, family_id=0x%x\n",
+		is_5336_new_bootloader, r_buf[0], ts_data->family_id);
+	/* is_5336_new_bootloader = FT_BLOADER_VERSION_GZF; */
 
 	/* erase app and panel paramenter area */
 	w_buf[0] = FT_ERASE_APP_REG;
@@ -1537,7 +1543,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 		goto free_reset_gpio;
 	}
 
-	data->family_id = reg_value;
+	data->family_id = pdata->family_id;
 
 	err = request_threaded_irq(client->irq, NULL,
 				   ft5x06_ts_interrupt, pdata->irqflags,
