@@ -205,6 +205,18 @@ Fudge Factors:			Fudge factors are used to boost demand for
 - qcom,mdss-clk-factor:		This fudge factor is applied to calculated mdp
 				clk rate in default conditions.
 
+- qcom,max-bandwidth-low-kbps:	This value indicates the max bandwidth in KB
+				that can be supported without underflow.
+				This is a low bandwidth threshold which should
+				be applied in most scenarios to be safe from
+				underflows when unable to satisfy bandwith
+				requirements.
+- qcom,max-bandwidth-high-kbps:	This value indicates the max bandwidth in KB
+				that can be supported without underflow.
+				This is a high bandwidth threshold which can be
+				applied in scenarios where panel interface can
+				be more tolerant to memory latency such as
+				command mode panels.
 Optional subnodes:
 Child nodes representing the frame buffer virtual devices.
 
@@ -267,6 +279,9 @@ Example:
 		qcom,mdss-ib-factor = <3 2>;		/* 1.5 times  */
 		qcom,mdss-high-ib-factor = <2 1>;	/* 2 times    */
 		qcom,mdss-clk-factor = <5 4>;		/* 1.25 times */
+
+		qcom,max-bandwidth-low-kbps = <2300000>;
+		qcom,max-bandwidth-high-kbps = <3000000>;
 
 		qcom,max-clk-rate = <320000000>;
 		qcom,vbif-settings = <0x0004 0x00000001>,
