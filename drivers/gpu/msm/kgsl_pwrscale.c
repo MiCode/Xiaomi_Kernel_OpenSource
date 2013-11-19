@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -228,6 +228,10 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 	}
 
 	kgsl_pwrctrl_pwrlevel_change(device, level);
+
+	/*Invalidate the constraint set */
+	pwr->constraint.type = KGSL_CONSTRAINT_NONE;
+
 	*freq = kgsl_pwrctrl_active_freq(pwr);
 
 	mutex_unlock(&device->mutex);
