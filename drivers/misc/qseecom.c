@@ -865,6 +865,10 @@ int __qseecom_process_rpmb_svc_cmd(struct qseecom_dev_handle *data_ptr,
 			req_ptr, send_svc_ireq_ptr);
 		return -EINVAL;
 	}
+	if ((!req_ptr->cmd_req_buf) || (!req_ptr->resp_buf)) {
+		pr_err("Invalid req/resp buffer, exiting\n");
+		return -EINVAL;
+	}
 	send_svc_ireq_ptr->qsee_cmd_id = req_ptr->cmd_id;
 	send_svc_ireq_ptr->key_type =
 	((struct qseecom_rpmb_provision_key *)req_ptr->cmd_req_buf)->key_type;
