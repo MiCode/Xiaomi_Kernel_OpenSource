@@ -275,6 +275,9 @@ Optional properties :
 - qcom,ignore-core-reset-ack: If present then BAM ignores ACK from USB core
 	    while performing PIPE RESET
 - qcom,disable-clk-gating: If present then disable BAM clock gating.
+- qcom,usb-bam-override-threshold: If present then the default 512 byte threshold
+		is overriden. This threshold configures the threshold value for Read/Write
+		event generation by the BAM towards another BAM.
 
 Example USB BAM controller device node:
 

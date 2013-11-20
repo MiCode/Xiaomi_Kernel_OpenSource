@@ -157,6 +157,8 @@ struct usb_bam_pipe_connect {
  *                         private memory.
  * @ignore_core_reset_ack: BAM can ignore ACK from USB core during PIPE RESET
  * @disable_clk_gating: Disable clock gating
+ * @override_threshold: Override the default threshold value for Read/Write
+ *                         event generation by the BAM towards another BAM.
  */
 struct msm_usb_bam_platform_data {
 	struct usb_bam_pipe_connect *connections;
@@ -166,6 +168,7 @@ struct msm_usb_bam_platform_data {
 	bool ignore_core_reset_ack;
 	bool reset_on_connect[MAX_BAMS];
 	bool disable_clk_gating;
+	u32 override_threshold;
 };
 
 #ifdef CONFIG_USB_BAM
