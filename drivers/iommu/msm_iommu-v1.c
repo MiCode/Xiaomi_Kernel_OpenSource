@@ -62,9 +62,13 @@ static int __enable_regulators(struct msm_iommu_drvdata *drvdata)
 		if (drvdata->alt_gdsc)
 			ret = regulator_enable(drvdata->alt_gdsc);
 
-		if (ret)
+		if (ret) {
 			regulator_disable(drvdata->gdsc);
+			goto fail;
+		}
+
 	}
+	++drvdata->powered_on;
 fail:
 	return ret;
 }
@@ -76,6 +80,8 @@ static void __disable_regulators(struct msm_iommu_drvdata *drvdata)
 
 	if (drvdata->gdsc)
 		regulator_disable(drvdata->gdsc);
+
+	--drvdata->powered_on;
 }
 
 static int apply_bus_vote(struct msm_iommu_drvdata *drvdata, unsigned int vote)
@@ -1097,7 +1103,7 @@ irqreturn_t msm_iommu_global_fault_handler(int irq, void *dev_id)
 	drvdata = dev_get_drvdata(&pdev->dev);
 	BUG_ON(!drvdata);
 
-	if (!drvdata->ctx_attach_count) {
+	if (!drvdata->powered_on) {
 		pr_err("Unexpected IOMMU global fault !!\n");
 		pr_err("name = %s\n", drvdata->name);
 		pr_err("Power is OFF. Can't read global fault information\n");
@@ -1150,7 +1156,7 @@ irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)
 	ctx_drvdata = dev_get_drvdata(&pdev->dev);
 	BUG_ON(!ctx_drvdata);
 
-	if (!drvdata->ctx_attach_count) {
+	if (!drvdata->powered_on) {
 		pr_err("Unexpected IOMMU page fault!\n");
 		pr_err("name = %s\n", drvdata->name);
 		pr_err("Power is OFF. Unable to read page fault information\n");

@@ -103,6 +103,7 @@ struct msm_iommu_bfb_settings {
  * @ctx_attach_count: Count of how many context are attached.
  * @bus_client  : Bus client needed to vote for bus bandwidth.
  * @needs_rem_spinlock  : 1 if remote spinlock is needed, 0 otherwise
+ * @powered_on: Powered status of the IOMMU. 0 means powered off.
  *
  * A msm_iommu_drvdata holds the global driver data about a single piece
  * of an IOMMU hardware instance.
@@ -129,6 +130,7 @@ struct msm_iommu_drvdata {
 	unsigned int ctx_attach_count;
 	unsigned int bus_client;
 	int needs_rem_spinlock;
+	int powered_on;
 };
 
 /**
