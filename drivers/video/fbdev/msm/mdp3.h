@@ -193,6 +193,8 @@ int mdp3_parse_dt_splash(struct msm_fb_data_type *mfd);
 void mdp3_release_splash_memory(void);
 int mdp3_create_sysfs_link(struct device *dev);
 int mdp3_get_cont_spash_en(void);
+int mdp3_get_mdp_dsi_clk(void);
+int mdp3_put_mdp_dsi_clk(void);
 
 int mdp3_misr_set(struct mdp_misr *misr_req);
 int mdp3_misr_get(struct mdp_misr *misr_resp);
