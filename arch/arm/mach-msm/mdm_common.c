@@ -45,7 +45,6 @@
 #include <linux/of_platform.h>
 #include "msm_watchdog.h"
 #include "mdm_private.h"
-#include "sysmon.h"
 
 #define MDM_MODEM_TIMEOUT	6000
 #define MDM_MODEM_DELTA	100

@@ -31,11 +31,11 @@
 #include <mach/ramdump.h>
 #include <mach/msm_smem.h>
 #include <mach/msm_bus_board.h>
+#include <mach/sysmon.h>
 
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
 #include "scm-pas.h"
-#include "sysmon.h"
 
 #define QDSP6SS_RST_EVB			0x010
 #define PROXY_TIMEOUT_MS		10000
