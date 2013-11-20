@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,42 +19,26 @@
 #include <mach/qdsp6v2/apr_tal.h>
 #include <mach/qdsp6v2/dsp_debug.h>
 
-static const char *lpass_subsys_name = "adsp";
+#define DEST_ID APR_DEST_MODEM
 
 void apr_set_subsys_state(void)
 {
-	apr_set_q6_state(APR_SUBSYS_DOWN);
 	apr_set_modem_state(APR_SUBSYS_UP);
-}
-
-const char *apr_get_lpass_subsys_name(void)
-{
-	return lpass_subsys_name;
 }
 
 uint16_t apr_get_data_src(struct apr_hdr *hdr)
 {
-	if (hdr->src_domain == APR_DOMAIN_MODEM)
-		return APR_DEST_MODEM;
-	else if (hdr->src_domain == APR_DOMAIN_ADSP)
-		return APR_DEST_QDSP6;
-	else {
-		pr_err("APR: Pkt from wrong source: %d\n", hdr->src_domain);
-		return APR_DEST_MAX;		/*RETURN INVALID VALUE*/
-	}
+	return DEST_ID;
 }
 
 int apr_get_dest_id(char *dest)
 {
-	if (!strcmp(dest, "ADSP"))
-		return APR_DEST_QDSP6;
-	else
-		return APR_DEST_MODEM;
+	return DEST_ID;
 }
 
 void subsys_notif_register(struct notifier_block *mod_notif,
 				struct notifier_block *lp_notif)
 {
 	subsys_notif_register_notifier("modem", mod_notif);
-	subsys_notif_register_notifier(apr_get_lpass_subsys_name(), lp_notif);
 }
+

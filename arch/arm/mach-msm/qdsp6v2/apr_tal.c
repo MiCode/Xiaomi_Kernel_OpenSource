@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2011, 2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -229,7 +229,10 @@ static int apr_smd_probe(struct platform_device *pdev)
 	if (pdev->id == APR_DEST_MODEM) {
 		pr_info("apr_tal:Modem Is Up\n");
 		dest = APR_DEST_MODEM;
-		clnt = APR_CLIENT_VOICE;
+		if (!strcmp(pdev->name, "apr_audio_svc"))
+			clnt = APR_CLIENT_AUDIO;
+		else
+			clnt = APR_CLIENT_VOICE;
 		apr_svc_ch[APR_DL_SMD][dest][clnt].dest_state = 1;
 		wake_up(&apr_svc_ch[APR_DL_SMD][dest][clnt].dest);
 	} else if (pdev->id == APR_DEST_QDSP6) {

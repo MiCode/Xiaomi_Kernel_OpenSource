@@ -14,6 +14,7 @@
 #define __APR_H_
 
 #include <linux/mutex.h>
+#include <mach/subsystem_notif.h>
 
 enum apr_subsys_state {
 	APR_SUBSYS_DOWN,
@@ -124,6 +125,7 @@ struct apr_svc {
 	uint16_t id;
 	uint16_t dest_id;
 	uint16_t client_id;
+	uint16_t dest_domain;
 	uint8_t rvd;
 	uint8_t port_cnt;
 	uint8_t svc_cnt;
@@ -159,6 +161,10 @@ inline int apr_fill_hdr(void *handle, uint32_t *buf, uint16_t src_port,
 
 int apr_send_pkt(void *handle, uint32_t *buf);
 int apr_deregister(void *handle);
+void subsys_notif_register(struct notifier_block *mod_notif,
+				struct notifier_block *lp_notif);
+int apr_get_dest_id(char *dest);
+uint16_t apr_get_data_src(struct apr_hdr *hdr);
 void change_q6_state(int state);
 void q6audio_dsp_not_responding(void);
 void apr_reset(void *handle);
