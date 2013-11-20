@@ -47,6 +47,14 @@
 		compatible = "qcom,msm-imem";
 		reg = <0xfe805000 0x1000>; /* Address and size of IMEM */
 	};
+
+	qcom,gcc@fc400000 {
+		compatible = "qcom,gcc-8974v2";
+	};
+
+	qcom,mmsscc@fd8c0000 {
+		compatible = "qcom,mmsscc-8974v2";
+	};
 };
 
 /* GPU overrides */

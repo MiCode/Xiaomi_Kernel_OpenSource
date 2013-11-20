@@ -1566,6 +1566,14 @@
 			    "lpaif_tert_mode_muxsel",
 			    "lpaif_quat_mode_muxsel";
 	};
+
+	qcom,gcc@fc400000 {
+		compatible = "qcom,gcc-8974pro";
+	};
+
+	qcom,mmsscc@fd8c0000 {
+		compatible = "qcom,mmsscc-8974pro";
+	};
 };
 
 /* GPU overrides */
