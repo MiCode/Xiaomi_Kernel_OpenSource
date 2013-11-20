@@ -50,6 +50,7 @@ module_param(tspp2_buff_heap, int, S_IRUGO | S_IWUSR);
  * @index_tables:		TSPP2 indexing tables info
  * @polling_timer:		Section/Recording pipe polling timer
  * @mutex:			Mutex protecting access to this structure
+ * @user_count:			tspp2 device reference count
  * @debugfs_dmx_dir:		'tspp2_demux' debug-fs root directory object
  * @debugfs_pipes_file:		Pipes information
  * @debugfs_filters_file:	Filters information
@@ -68,6 +69,7 @@ static struct
 		u16 ref_count; /* number of pipes using the timer */
 	} polling_timer;
 	struct mutex mutex;
+	u32 user_count;
 
 	/* debug-fs */
 	struct dentry *debugfs_dmx_dir;
@@ -501,6 +503,80 @@ static int mpq_dmx_tspp2_set_global_config(int id)
 			__func__, ret);
 
 	return ret;
+}
+
+/**
+ * mpq_dmx_tspp2_open_device() - opens a TSPP2 device instance and set global
+ * configuration according to reference count.
+ * mpq_dmx_tspp2_info.mutex should be acquired by caller.
+ *
+ * Return error status
+ */
+static int mpq_dmx_tspp2_open_device(void)
+{
+	int ret;
+
+	if (mpq_dmx_tspp2_info.user_count == 0) {
+		ret = tspp2_device_open(TSPP2_DEVICE_ID);
+		if (ret) {
+			MPQ_DVB_ERR_PRINT(
+				"%s: tspp2_device_open failed, ret=%d\n",
+				__func__, ret);
+			return ret;
+		}
+		MPQ_DVB_DBG_PRINT("%s: tspp2_device_open OK\n", __func__);
+
+		ret = mpq_dmx_tspp2_set_global_config(TSPP2_DEVICE_ID);
+		if (ret) {
+			MPQ_DVB_ERR_PRINT(
+				"%s: mpq_dmx_tspp2_set_global_config failed, ret=%d\n",
+				__func__, ret);
+			tspp2_device_close(TSPP2_DEVICE_ID);
+			return ret;
+		}
+		MPQ_DVB_DBG_PRINT("%s: mpq_dmx_tspp2_set_global_config OK\n",
+			__func__);
+	}
+
+	mpq_dmx_tspp2_info.user_count++;
+	MPQ_DVB_DBG_PRINT("%s: tspp2 device use count = %u\n",
+		__func__, mpq_dmx_tspp2_info.user_count);
+
+	return 0;
+}
+
+/**
+ * mpq_dmx_tspp2_close_device() - closes an open instance of a TSPP2 device
+ * according to reference count.
+ * mpq_dmx_tspp2_info.mutex should be acquired by caller.
+ *
+ * Return error status
+ */
+static int mpq_dmx_tspp2_close_device(void)
+{
+	int ret;
+
+	if (mpq_dmx_tspp2_info.user_count == 0) {
+		MPQ_DVB_DBG_PRINT(
+			"%s: tspp2 device is not open\n", __func__);
+		return 0;
+	}
+
+	mpq_dmx_tspp2_info.user_count--;
+	if (mpq_dmx_tspp2_info.user_count == 0) {
+		ret = tspp2_device_close(TSPP2_DEVICE_ID);
+		if (ret) {
+			MPQ_DVB_ERR_PRINT(
+				"%s: tspp2_device_close failed, ret=%d\n",
+				__func__, ret);
+			return ret;
+		}
+		MPQ_DVB_DBG_PRINT("%s: tspp2 device closed\n", __func__);
+	}
+	MPQ_DVB_DBG_PRINT("%s: tspp2 device use count = %u\n",
+		__func__, mpq_dmx_tspp2_info.user_count);
+
+	return 0;
 }
 
 /**
@@ -1819,6 +1895,14 @@ static int mpq_dmx_tspp2_init_source(struct mpq_demux *mpq_demux,
 	int tsif_mode = mpq_dmx_get_param_tsif_mode();
 	struct tspp2_src_cfg src_cfg;
 
+	ret = mpq_dmx_tspp2_open_device();
+	if (ret) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: mpq_dmx_tspp2_open_device failed, ret=%d\n",
+			__func__, ret);
+		goto end;
+	}
+
 	src_cfg.input = TSPP2_INPUT_MEMORY;
 	if (mpq_demux->source == DMX_SOURCE_FRONT0 ||
 		mpq_demux->source == DMX_SOURCE_FRONT1) {
@@ -1860,7 +1944,7 @@ static int mpq_dmx_tspp2_init_source(struct mpq_demux *mpq_demux,
 		MPQ_DVB_ERR_PRINT(
 			"%s: tspp2_src_open failed, ret=%d\n",
 			__func__, ret);
-		goto end;
+		goto close_device;
 	}
 	MPQ_DVB_DBG_PRINT(
 		"%s: tspp2_src_open success, source handle=0x%0x\n",
@@ -1878,6 +1962,8 @@ static int mpq_dmx_tspp2_init_source(struct mpq_demux *mpq_demux,
 close_source:
 	tspp2_src_close(source_info->handle);
 	source_info->handle = TSPP2_INVALID_HANDLE;
+close_device:
+	mpq_dmx_tspp2_close_device();
 end:
 	return ret;
 }
@@ -1910,6 +1996,12 @@ static int mpq_dmx_tspp2_terminate_source(struct source_info *source_info)
 
 	source_info->handle = TSPP2_INVALID_HANDLE;
 	source_info->demux_src.mpq_demux = NULL;
+
+	ret = mpq_dmx_tspp2_close_device();
+	if (ret)
+		MPQ_DVB_ERR_PRINT(
+			"%s: mpq_dmx_tspp2_close_device failed, ret=%d\n",
+			__func__, ret);
 
 	return ret;
 }
@@ -4816,9 +4908,8 @@ static int mpq_dmx_tspp2_allocate_ts_insert_pipe(
 		pipe_cfg->sps_cfg.descriptor_size =
 			TSPP2_DMX_SPS_TS_INSERTION_DESC_SIZE;
 		pipe_cfg->sps_cfg.descriptor_flags = 0;
-		pipe_cfg->sps_cfg.setting = SPS_O_AUTO_ENABLE |
-			SPS_O_ACK_TRANSFERS | SPS_O_DESC_DONE;
-		pipe_cfg->sps_cfg.wakeup_events = SPS_O_DESC_DONE;
+		pipe_cfg->sps_cfg.setting = SPS_O_AUTO_ENABLE | SPS_O_EOT;
+		pipe_cfg->sps_cfg.wakeup_events = SPS_O_EOT;
 
 		ret = tspp2_pipe_open(TSPP2_DEVICE_ID, pipe_cfg,
 			&pipe_info->buffer.iova, &pipe_info->handle);
@@ -5521,7 +5612,6 @@ static int mpq_dmx_tspp2_disconnect_frontend(struct dmx_demux *demux)
 						"%s: tspp2_src_pipe_detach failed, ret=%d\n",
 						__func__, ret);
 				source_info->ref_count--;
-				mpq_dmx_tspp2_close_source(source_info);
 			}
 
 			ret = tspp2_pipe_close(pipe_info->handle);
@@ -5534,6 +5624,13 @@ static int mpq_dmx_tspp2_disconnect_frontend(struct dmx_demux *demux)
 
 		source_info->input_pipe = NULL;
 	}
+
+	/*
+	 * Closing the source can close the TSPP2 device instance, so it needs
+	 * to be done last, after input pipe was detached and closed properly.
+	 */
+	if (source_info->handle != TSPP2_INVALID_HANDLE)
+		mpq_dmx_tspp2_close_source(source_info);
 
 	mutex_unlock(&mpq_dmx_tspp2_info.mutex);
 	return ret;
@@ -6465,7 +6562,7 @@ static int __init mpq_dmx_tspp2_plugin_init(void)
 		mutex_init(&mpq_dmx_tspp2_info.pipes[i].mutex);
 		spin_lock_init(&mpq_dmx_tspp2_info.pipes[i].lock);
 	}
-
+	mpq_dmx_tspp2_info.user_count = 0;
 	mutex_init(&mpq_dmx_tspp2_info.mutex);
 
 	ret = mpq_dmx_plugin_init(mpq_dmx_tsppv2_init);
@@ -6519,14 +6616,6 @@ static int __init mpq_dmx_tspp2_plugin_init(void)
 				NULL,
 				&dbgfs_sources_fops);
 
-	}
-
-	ret = mpq_dmx_tspp2_set_global_config(TSPP2_DEVICE_ID);
-	if (ret) {
-		MPQ_DVB_ERR_PRINT(
-			"%s: mpq_dmx_tspp2_set_global_config failed, ret=%d\n",
-			__func__, ret);
-		mpq_dmx_tspp2_plugin_terminate();
 	}
 
 	return ret;
