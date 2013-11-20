@@ -134,7 +134,7 @@ static int ion_no_pages_cache_ops(struct ion_client *client,
 			unsigned int offset, unsigned int length,
 			unsigned int cmd)
 {
-	unsigned int size_to_vmap, total_size;
+	unsigned long size_to_vmap, total_size;
 	int i, j, ret;
 	void *ptr = NULL;
 	ion_phys_addr_t buff_phys = 0;
