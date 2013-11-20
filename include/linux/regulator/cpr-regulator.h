@@ -16,7 +16,7 @@
 
 #include <linux/regulator/machine.h>
 
-#define CPR_REGULATOR_DRIVER_NAME	"qcom,cpr-regulator"
+#define CPR_REGULATOR_DRIVER_NAME	"qti,cpr-regulator"
 
 #define CPR_PVS_EFUSE_BITS_MAX		5
 #define CPR_PVS_EFUSE_BINS_MAX		(1 << CPR_PVS_EFUSE_BITS_MAX)

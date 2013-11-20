@@ -30,7 +30,7 @@
 &soc {
 	apc_vreg_corner: regulator@f9018000 {
 		status = "okay";
-		compatible = "qcom,cpr-regulator";
+		compatible = "qti,cpr-regulator";
 		reg = <0xf9018000 0x1000>, <0xf9011064 4>, <0xfc4b8000 0x1000>;
 		reg-names = "rbcpr", "rbcpr_clk", "efuse_addr";
 		interrupts = <0 15 0>;
@@ -38,54 +38,54 @@
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <3>;
 
-		qcom,pvs-fuse-redun-sel = <53 25 3 2>;
-		qcom,pvs-fuse = <23 6 5>;
-		qcom,pvs-fuse-redun = <61 47 5>;
+		qti,pvs-fuse-redun-sel = <53 25 3 2>;
+		qti,pvs-fuse = <23 6 5>;
+		qti,pvs-fuse-redun = <61 47 5>;
 
-		qcom,pvs-init-voltage = <1275000 1275000 1275000 1275000 1275000
+		qti,pvs-init-voltage = <1275000 1275000 1275000 1275000 1275000
 					1275000 1275000 1275000 1275000 1275000
 					1275000 1275000 1275000 1275000 1275000
 					1275000 1275000 1275000 1275000 1275000
 					1275000 1275000 1275000 1275000 1275000
 					1275000 1275000 1275000 1275000 1275000
 					1275000 1275000>;
-		qcom,pvs-corner-ceiling-slow = <1150000 1150000 1275000>;
-		qcom,pvs-corner-ceiling-nom  = <1075000 1075000 1200000>;
-		qcom,pvs-corner-ceiling-fast = <1050000 1050000 1140000>;
+		qti,pvs-corner-ceiling-slow = <1150000 1150000 1275000>;
+		qti,pvs-corner-ceiling-nom  = <1075000 1075000 1200000>;
+		qti,pvs-corner-ceiling-fast = <1050000 1050000 1140000>;
 		vdd-apc-supply = <&pm8110_s2>;
 
 		vdd-mx-supply = <&pm8110_l3_ao>;
-		qcom,vdd-mx-vmax = <1350000>;
-		qcom,vdd-mx-vmin-method = <1>;
+		qti,vdd-mx-vmax = <1350000>;
+		qti,vdd-mx-vmin-method = <1>;
 
-		qcom,cpr-ref-clk = <19200>;
-		qcom,cpr-timer-delay = <5000>;
-		qcom,cpr-timer-cons-up = <0>;
-		qcom,cpr-timer-cons-down = <2>;
-		qcom,cpr-irq-line = <0>;
-		qcom,cpr-step-quotient = <15>;
-		qcom,cpr-up-threshold = <0>;
-		qcom,cpr-down-threshold = <10>;
-		qcom,cpr-idle-clocks = <5>;
-		qcom,cpr-gcnt-time = <1>;
-		qcom,vdd-apc-step-up-limit = <1>;
-		qcom,vdd-apc-step-down-limit = <1>;
-		qcom,cpr-apc-volt-step = <5000>;
+		qti,cpr-ref-clk = <19200>;
+		qti,cpr-timer-delay = <5000>;
+		qti,cpr-timer-cons-up = <0>;
+		qti,cpr-timer-cons-down = <2>;
+		qti,cpr-irq-line = <0>;
+		qti,cpr-step-quotient = <15>;
+		qti,cpr-up-threshold = <0>;
+		qti,cpr-down-threshold = <10>;
+		qti,cpr-idle-clocks = <5>;
+		qti,cpr-gcnt-time = <1>;
+		qti,vdd-apc-step-up-limit = <1>;
+		qti,vdd-apc-step-down-limit = <1>;
+		qti,cpr-apc-volt-step = <5000>;
 
-		qcom,cpr-fuse-redun-sel = <53 25 3 2>;
-		qcom,cpr-fuse-row = <61>;
-		qcom,cpr-fuse-bp-cpr-disable = <39>;
-		qcom,cpr-fuse-bp-scheme = <40>;
-		qcom,cpr-fuse-target-quot = <27 15 3>;
-		qcom,cpr-fuse-ro-sel = <47 41 44>;
-		qcom,cpr-fuse-redun-row = <52>;
-		qcom,cpr-fuse-redun-bp-cpr-disable = <24>;
-		qcom,cpr-fuse-redun-bp-scheme = <25>;
-		qcom,cpr-fuse-redun-target-quot = <32 12 0>;
-		qcom,cpr-fuse-redun-ro-sel = <44 26 29>;
+		qti,cpr-fuse-redun-sel = <53 25 3 2>;
+		qti,cpr-fuse-row = <61>;
+		qti,cpr-fuse-bp-cpr-disable = <39>;
+		qti,cpr-fuse-bp-scheme = <40>;
+		qti,cpr-fuse-target-quot = <27 15 3>;
+		qti,cpr-fuse-ro-sel = <47 41 44>;
+		qti,cpr-fuse-redun-row = <52>;
+		qti,cpr-fuse-redun-bp-cpr-disable = <24>;
+		qti,cpr-fuse-redun-bp-scheme = <25>;
+		qti,cpr-fuse-redun-target-quot = <32 12 0>;
+		qti,cpr-fuse-redun-ro-sel = <44 26 29>;
 
-		qcom,cpr-enable;
-		qcom,use-tz-api;
+		qti,cpr-enable;
+		qti,use-tz-api;
 	};
 };
 
