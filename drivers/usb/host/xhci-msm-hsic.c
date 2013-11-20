@@ -230,6 +230,9 @@ static int mxhci_hsic_init_clocks(struct mxhci_hsic_hcd *mxhci, u32 init)
 		goto out;
 	}
 
+	/* enable force-on mode for periph_on */
+	clk_set_flags(mxhci->system_clk, CLKFLAG_RETAIN_PERIPH);
+
 	ret = clk_prepare_enable(mxhci->core_clk);
 	if (ret) {
 		dev_err(mxhci->dev, "failed to enable core_clk\n");
@@ -588,11 +591,11 @@ static int mxhci_hsic_suspend(struct mxhci_hsic_hcd *mxhci)
 
 	init_completion(&mxhci->phy_in_lpm);
 
-	clk_disable_unprepare(mxhci->system_clk);
 	clk_disable_unprepare(mxhci->core_clk);
 	clk_disable_unprepare(mxhci->utmi_clk);
 	clk_disable_unprepare(mxhci->hsic_clk);
 	clk_disable_unprepare(mxhci->cal_clk);
+	clk_disable_unprepare(mxhci->system_clk);
 
 	ret = regulator_set_voltage(mxhci->hsic_vddcx, mxhci->vdd_no_vol_level,
 			mxhci->vdd_high_vol_level);
@@ -614,6 +617,9 @@ static int mxhci_hsic_suspend(struct mxhci_hsic_hcd *mxhci)
 		enable_irq(mxhci->wakeup_irq);
 	}
 
+	/* disable force-on mode for periph_on */
+	clk_set_flags(mxhci->system_clk, CLKFLAG_NORETAIN_PERIPH);
+
 	pm_relax(mxhci->dev);
 
 	dev_dbg(mxhci->dev, "HSIC-USB in low power mode\n");
@@ -634,6 +640,9 @@ static int mxhci_hsic_resume(struct mxhci_hsic_hcd *mxhci)
 	}
 
 	pm_stay_awake(mxhci->dev);
+
+	/* enable force-on mode for periph_on */
+	clk_set_flags(mxhci->system_clk, CLKFLAG_RETAIN_PERIPH);
 
 	if (mxhci->bus_perf_client) {
 		mxhci->bus_vote = true;
@@ -660,11 +669,12 @@ static int mxhci_hsic_resume(struct mxhci_hsic_hcd *mxhci)
 		dev_err(mxhci->dev,
 			"unable to set nominal vddcx voltage (no VDD MIN)\n");
 
+
 	clk_prepare_enable(mxhci->system_clk);
-	clk_prepare_enable(mxhci->core_clk);
-	clk_prepare_enable(mxhci->utmi_clk);
-	clk_prepare_enable(mxhci->hsic_clk);
 	clk_prepare_enable(mxhci->cal_clk);
+	clk_prepare_enable(mxhci->hsic_clk);
+	clk_prepare_enable(mxhci->utmi_clk);
+	clk_prepare_enable(mxhci->core_clk);
 
 	if (mxhci->wakeup_irq)
 		usb_hcd_resume_root_hub(hcd);
