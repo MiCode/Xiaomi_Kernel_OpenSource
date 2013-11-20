@@ -100,6 +100,24 @@ static int msm_buf_mngr_put_buf(struct msm_buf_mngr_device *buf_mngr_dev,
 	return ret;
 }
 
+static void msm_buf_mngr_sd_shutdown(struct msm_buf_mngr_device *buf_mngr_dev)
+{
+	unsigned long flags;
+	struct msm_get_bufs *bufs, *save;
+
+	spin_lock_irqsave(&buf_mngr_dev->buf_q_spinlock, flags);
+	if (!list_empty(&buf_mngr_dev->buf_qhead)) {
+		list_for_each_entry_safe(bufs,
+			save, &buf_mngr_dev->buf_qhead, entry) {
+			pr_err("%s: Delete invalid bufs =%x\n", __func__,
+				(unsigned int)bufs);
+			list_del_init(&bufs->entry);
+			kfree(bufs);
+		}
+	}
+	spin_unlock_irqrestore(&buf_mngr_dev->buf_q_spinlock, flags);
+}
+
 static long msm_buf_mngr_subdev_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
 {
@@ -122,6 +140,9 @@ static long msm_buf_mngr_subdev_ioctl(struct v4l2_subdev *sd,
 		break;
 	case VIDIOC_MSM_BUF_MNGR_PUT_BUF:
 		rc = msm_buf_mngr_put_buf(buf_mngr_dev, argp);
+		break;
+	case MSM_SD_SHUTDOWN:
+		msm_buf_mngr_sd_shutdown(buf_mngr_dev);
 		break;
 	default:
 		return -ENOIOCTLCMD;
