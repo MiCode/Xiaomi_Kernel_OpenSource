@@ -491,6 +491,8 @@
 		qcom,pfm-threshold = <76>;
 		qcom,use-phase-scaling-factor;
 		qcom,cores-per-phase = <1>;
+		qcom,valid-phases = <1 2 4>;
+		qcom,phase-coeff-threshold = <1000000 2000000 4000000>;
 
 		krait0_vreg: regulator@f9088000 {
 			compatible = "qcom,krait-regulator";

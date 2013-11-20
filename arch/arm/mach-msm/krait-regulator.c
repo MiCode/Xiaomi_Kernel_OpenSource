@@ -195,6 +195,9 @@ struct pmic_gang_vreg {
 	int			pfm_threshold;
 	int			efuse_phase_scaling_factor;
 	int			cores_per_phase;
+	int			*phase_coeff_threshold;
+	int			*valid_phases;
+	int			num_phase_entries;
 };
 
 static struct pmic_gang_vreg *the_gang;
@@ -464,6 +467,7 @@ static bool enable_phase_management(struct pmic_gang_vreg *pvreg)
 static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 				int coeff_total)
 {
+	int i;
 	struct pmic_gang_vreg *pvreg = from->pvreg;
 	int phase_count;
 	int rc = 0;
@@ -509,13 +513,13 @@ static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 		udelay(PWM_SETTLING_TIME_US);
 	}
 
-	/* calculate phases */
-	if (coeff_total < ONE_PHASE_COEFF)
-		phase_count = 1;
-	else if (coeff_total < TWO_PHASE_COEFF)
-		phase_count = 2;
-	else
-		phase_count = 4;
+	phase_count = pvreg->valid_phases[pvreg->num_phase_entries - 1];
+	for (i = 0; i < pvreg->num_phase_entries; i++) {
+		if (coeff_total < pvreg->phase_coeff_threshold[i]) {
+			phase_count = pvreg->valid_phases[i];
+			break;
+		}
+	}
 
 	/*
 	 * don't increase the phase count higher than that required
@@ -1518,6 +1522,11 @@ static int krait_pdn_probe(struct platform_device *pdev)
 	struct pmic_gang_vreg *pvreg;
 	struct resource *res;
 	int cores_per_phase;
+	int *valid_phases;
+	int *phase_coeff_threshold;
+	int num_phase_entries;
+	int valid_phase_len, phase_coeff_threshold_entries;
+	int i;
 
 	if (!dev->of_node) {
 		dev_err(dev, "device tree information missing\n");
@@ -1540,11 +1549,71 @@ static int krait_pdn_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	if (!of_find_property(node, "qcom,valid-phases", &valid_phase_len)) {
+		dev_err(dev, "valid-phases missing rc=%d\n", rc);
+		return -EINVAL;
+	}
+
+	if (!of_find_property(node, "qcom,phase-coeff-threshold",
+				&phase_coeff_threshold_entries)) {
+		dev_err(dev, "phase-coeff-threshold missing rc=%d\n", rc);
+		return -EINVAL;
+	}
+
+	if (valid_phase_len != phase_coeff_threshold_entries) {
+		dev_err(dev, "length mismatch rc=%d\n", rc);
+		return -EINVAL;
+	}
+
+	num_phase_entries = valid_phase_len / sizeof(u32);
+
+	valid_phases = devm_kzalloc(&pdev->dev, num_phase_entries * sizeof(int),
+								GFP_KERNEL);
+	if (!valid_phases) {
+		pr_err("kzalloc for valid-phases failed.\n");
+		return -ENOMEM;
+	}
+
+	rc = of_property_read_u32_array(node, "qcom,valid-phases", valid_phases,
+							num_phase_entries);
+	if (rc < 0) {
+		dev_err(dev, "Couldn't get valid-phases array rc=%d\n", rc);
+		return -EINVAL;
+	}
+
+	phase_coeff_threshold = devm_kzalloc(&pdev->dev,
+						num_phase_entries * sizeof(int),
+						GFP_KERNEL);
+	if (!phase_coeff_threshold) {
+		pr_err("kzalloc for phase-coeff-threshold failed.\n");
+		return -ENOMEM;
+	}
+
+	rc = of_property_read_u32_array(node, "qcom,phase-coeff-threshold",
+							phase_coeff_threshold,
+							num_phase_entries);
+	if (rc < 0) {
+		dev_err(dev, "Couldn't get phase-coeff-threshold array rc=%d\n",
+									rc);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < num_phase_entries - 1; i++) {
+		if (phase_coeff_threshold[i] > phase_coeff_threshold[i + 1]) {
+			dev_err(dev, "phase-coeff-threshold entries not in increasing order");
+			return -EINVAL;
+		}
+		if (valid_phases[i] > valid_phases[i + 1]) {
+			dev_err(dev, "valid-phases entries not in increasing order");
+			return -EINVAL;
+		}
+	}
+
 	pvreg = devm_kzalloc(&pdev->dev,
 			sizeof(struct pmic_gang_vreg), GFP_KERNEL);
 	if (!pvreg) {
-		pr_err("kzalloc failed.\n");
-		return 0;
+		pr_err("kzalloc for pmic_gang_vreg failed.\n");
+		return -ENOMEM;
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apcs_gcc");
@@ -1571,6 +1640,9 @@ static int krait_pdn_probe(struct platform_device *pdev)
 	pvreg->use_phase_switching = use_phase_switching;
 	pvreg->pfm_threshold = pfm_threshold;
 	pvreg->cores_per_phase = cores_per_phase;
+	pvreg->valid_phases = valid_phases;
+	pvreg->phase_coeff_threshold = phase_coeff_threshold;
+	pvreg->num_phase_entries = num_phase_entries;
 
 	mutex_init(&pvreg->krait_power_vregs_lock);
 	INIT_LIST_HEAD(&pvreg->krait_power_vregs);
