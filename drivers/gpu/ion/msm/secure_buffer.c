@@ -47,6 +47,7 @@ struct cp2_lock_req {
 
 #define MEM_PROTECT_LOCK_ID2     0x0A
 #define V2_CHUNK_SIZE		SZ_1M
+#define FEATURE_ID_CP 12
 
 static void secure_meta_add(struct secure_meta *meta)
 {
@@ -280,4 +281,18 @@ int msm_ion_unsecure_buffer(struct ion_client *client,
 
 out:
 	return ret;
+}
+
+#define MAKE_CP_VERSION(major, minor, patch) \
+	(((major & 0x3FF) << 22) | ((minor & 0x3FF) << 12) | (patch & 0xFFF))
+
+bool msm_secure_v2_is_supported(void)
+{
+	int version = scm_get_feat_version(FEATURE_ID_CP);
+
+	/*
+	 * if the version is < 1.1.0 then dynamic buffer allocation is
+	 * not supported
+	 */
+	return version >= MAKE_CP_VERSION(1, 1, 0);
 }

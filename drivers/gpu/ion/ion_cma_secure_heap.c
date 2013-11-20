@@ -492,7 +492,13 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 	if (buf) {
 		int ret;
 
-		ret = msm_ion_secure_table(buf->table, 0, 0);
+		if (!msm_secure_v2_is_supported()) {
+			pr_debug("%s: securing buffers is not supported on this platform\n",
+				__func__);
+			ret = 1;
+		} else {
+			ret = msm_ion_secure_table(buf->table, 0, 0);
+		}
 		if (ret) {
 			/*
 			 * Don't treat the secure buffer failing here as an
@@ -516,7 +522,8 @@ static void ion_secure_cma_free(struct ion_buffer *buffer)
 	struct ion_secure_cma_buffer_info *info = buffer->priv_virt;
 
 	dev_dbg(sheap->dev, "Release buffer %p\n", buffer);
-	msm_ion_unsecure_table(info->table);
+	if (msm_secure_v2_is_supported())
+		msm_ion_unsecure_table(info->table);
 	atomic_sub(buffer->size, &sheap->total_allocated);
 	BUG_ON(atomic_read(&sheap->total_allocated) < 0);
 	/* release memory */
