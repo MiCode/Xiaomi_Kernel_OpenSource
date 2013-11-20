@@ -191,6 +191,8 @@ void mdp3_free(void);
 int mdp3_parse_dt_splash(struct msm_fb_data_type *mfd);
 void mdp3_release_splash_memory(void);
 int mdp3_create_sysfs_link(struct device *dev);
+int mdp3_get_mdp_dsi_clk(void);
+int mdp3_put_mdp_dsi_clk(void);
 
 #define MDP3_REG_WRITE(addr, val) writel_relaxed(val, mdp3_res->mdp_base + addr)
 #define MDP3_REG_READ(addr) readl_relaxed(mdp3_res->mdp_base + addr)

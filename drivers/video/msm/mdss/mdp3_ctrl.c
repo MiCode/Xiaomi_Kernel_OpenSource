@@ -666,7 +666,7 @@ static int mdp3_ctrl_reset(struct msm_fb_data_type *mfd)
 	if (rc)
 		pr_err("fail to turn off panel\n");
 
-	rc = mdp3_ctrl_res_req_clk(mfd, 0);
+	rc = mdp3_put_mdp_dsi_clk();
 	if (rc) {
 		pr_err("fail to release mdp clocks\n");
 		goto reset_error;
@@ -696,7 +696,7 @@ static int mdp3_ctrl_reset(struct msm_fb_data_type *mfd)
 		goto reset_error;
 	}
 
-	rc = mdp3_ctrl_res_req_clk(mfd, 1);
+	rc = mdp3_get_mdp_dsi_clk();
 	if (rc) {
 		pr_err("fail to turn on mdp clks\n");
 		goto reset_error;
