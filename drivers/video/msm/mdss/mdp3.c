@@ -622,6 +622,27 @@ void mdp3_clk_unprepare(void)
 	mutex_unlock(&mdp3_res->res_mutex);
 }
 
+int mdp3_get_mdp_dsi_clk(void)
+{
+	int rc;
+
+	mutex_lock(&mdp3_res->res_mutex);
+	clk_prepare(mdp3_res->clocks[MDP3_CLK_DSI]);
+	rc = mdp3_clk_update(MDP3_CLK_DSI, 1);
+	mutex_unlock(&mdp3_res->res_mutex);
+	return rc;
+}
+
+int mdp3_put_mdp_dsi_clk(void)
+{
+	int rc;
+	mutex_lock(&mdp3_res->res_mutex);
+	rc = mdp3_clk_update(MDP3_CLK_DSI, 0);
+	clk_unprepare(mdp3_res->clocks[MDP3_CLK_DSI]);
+	mutex_unlock(&mdp3_res->res_mutex);
+	return rc;
+}
+
 static int mdp3_irq_setup(void)
 {
 	int ret;
