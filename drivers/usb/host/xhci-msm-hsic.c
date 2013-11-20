@@ -466,6 +466,13 @@ static void mxhci_hsic_plat_quirks(struct device *dev, struct xhci_hcd *xhci)
 	if (mxhci->wakeup_irq)
 		xhci->quirks |= XHCI_NO_SELECTIVE_SUSPEND;
 
+	/*
+	 * Observing hw tr deq pointer getting stuck to a noop trb
+	 * when aborting transfer during suspend. Reset tr deq pointer
+	 * to start of the first seg of the xfer ring.
+	 */
+	xhci->quirks |= XHCI_TR_DEQ_RESET_QUIRK;
+
 	if (!pdata)
 		return;
 	if (pdata->vendor == SYNOPSIS_DWC3_VENDOR &&

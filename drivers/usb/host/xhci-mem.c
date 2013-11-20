@@ -294,7 +294,7 @@ void xhci_free_or_cache_endpoint_ring(struct xhci_hcd *xhci,
 /* Zero an endpoint ring (except for link TRBs) and move the enqueue and dequeue
  * pointers to the beginning of the ring.
  */
-static void xhci_reinit_cached_ring(struct xhci_hcd *xhci,
+void xhci_reinit_cached_ring(struct xhci_hcd *xhci,
 			struct xhci_ring *ring, unsigned int cycle_state,
 			enum xhci_ring_type type)
 {

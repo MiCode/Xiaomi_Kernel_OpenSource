@@ -260,6 +260,83 @@ int xhci_find_slot_id_by_port(struct usb_hcd *hcd, struct xhci_hcd *xhci,
 }
 
 /*
+ * For ep 0 to 30 it resets sw enq and deq pointers to the first seg trb of the
+ * ring and issues set tr deq cmd to reset hw deq pointers to the first seg trb
+ * of the ring. And wait for the last command to complete.
+ */
+static int xhci_reset_xfer_ring(struct xhci_hcd *xhci, int slot_id)
+{
+	struct xhci_virt_device *virt_dev;
+	struct xhci_virt_ep *ep;
+	struct xhci_dequeue_state deq_state;
+	struct xhci_ep_ctx *ep_ctx;
+	struct xhci_command *cmd;
+	unsigned long flags;
+	unsigned int ep_state;
+	int i;
+	int timeleft;
+	int ret;
+
+	virt_dev = xhci->devs[slot_id];
+	cmd = xhci_alloc_command(xhci, false, true, GFP_NOIO);
+	if (!cmd) {
+		xhci_dbg(xhci, "Couldn't allocate command structure.\n");
+		return -ENOMEM;
+	}
+
+	spin_lock_irqsave(&xhci->lock, flags);
+	for (i = LAST_EP_INDEX; i >= 0; i--) {
+		ep_ctx = xhci_get_ep_ctx(xhci, virt_dev->out_ctx, i);
+		ep_state = ep_ctx->ep_info & cpu_to_le32(EP_STATE_MASK);
+		ep = &virt_dev->eps[i];
+		if (ep->ring && ep->ring->dequeue
+			&& ep_state == cpu_to_le32(EP_STATE_STOPPED)
+			&& ep->ring->enqueue != ep->ring->dequeue) {
+			ep->stopped_td = NULL;
+			ep->stopped_trb = NULL;
+			xhci_reinit_cached_ring(xhci, ep->ring, 1,
+					ep->ring->type);
+			memset(&deq_state, 0, sizeof(deq_state));
+			deq_state.new_deq_ptr = ep->ring->first_seg->trbs;
+			deq_state.new_deq_seg = ep->ring->first_seg;
+			deq_state.new_cycle_state = 0x1;
+			cmd->command_trb =
+				xhci_find_next_enqueue(xhci->cmd_ring);
+			xhci_queue_new_dequeue_state(xhci,
+				slot_id, i, ep->ring->stream_id,
+				&deq_state);
+		}
+	}
+
+	if (!cmd->command_trb) {
+		spin_unlock_irqrestore(&xhci->lock, flags);
+		goto command_cleanup;
+	}
+
+	list_add_tail(&cmd->cmd_list, &virt_dev->cmd_list);
+	xhci_ring_cmd_db(xhci);
+	spin_unlock_irqrestore(&xhci->lock, flags);
+
+	/* Wait for last set tr deq command to finish */
+	timeleft = wait_for_completion_interruptible_timeout(
+			cmd->completion,
+			XHCI_CMD_DEFAULT_TIMEOUT);
+	if (timeleft <= 0) {
+		xhci_warn(xhci, "%s while waiting for set tr deq command\n",
+				timeleft == 0 ? "Timeout" : "Signal");
+		spin_lock_irqsave(&xhci->lock, flags);
+		if (cmd->cmd_list.next != LIST_POISON1)
+			list_del(&cmd->cmd_list);
+		spin_unlock_irqrestore(&xhci->lock, flags);
+		ret = -ETIME;
+	}
+
+command_cleanup:
+	xhci_free_command(xhci, cmd);
+	return ret;
+}
+
+/*
  * Stop device
  * It issues stop endpoint command for EP 0 to 30. And wait the last command
  * to complete.
@@ -1257,6 +1334,8 @@ int xhci_bus_suspend(struct usb_hcd *hcd)
 					port_index + 1);
 			if (slot_id) {
 				spin_unlock_irqrestore(&xhci->lock, flags);
+				if (xhci->quirks & XHCI_TR_DEQ_RESET_QUIRK)
+					xhci_reset_xfer_ring(xhci, slot_id);
 				xhci_stop_device(xhci, slot_id, 1);
 				spin_lock_irqsave(&xhci->lock, flags);
 			}
