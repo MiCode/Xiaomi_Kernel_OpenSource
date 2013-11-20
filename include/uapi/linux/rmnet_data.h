@@ -55,6 +55,7 @@ struct rmnet_nl_msg_s {
 			uint32_t flags;
 			uint16_t agg_size;
 			uint16_t agg_count;
+			uint8_t  tail_spacing;
 		} data_format;
 		struct {
 			uint8_t dev[RMNET_MAX_STR_LEN];
