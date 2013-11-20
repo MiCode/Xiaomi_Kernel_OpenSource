@@ -20,24 +20,6 @@
 /* physical offset of RAM */
 #define PLAT_PHYS_OFFSET UL(CONFIG_PHYS_OFFSET)
 
-#define MAX_PHYSMEM_BITS 32
-#define SECTION_SIZE_BITS 28
-
-/* Maximum number of Memory Regions
-*  The largest system can have 4 memory banks, each divided into 8 regions
-*/
-#define MAX_NR_REGIONS 32
-
-/* The number of regions each memory bank is divided into */
-#define NR_REGIONS_PER_BANK 8
-
-/* Certain configurations of MSM7x30 have multiple memory banks.
-*  One or more of these banks can contain holes in the memory map as well.
-*  These macros define appropriate conversion routines between the physical
-*  and virtual address domains for supporting these configurations using
-*  SPARSEMEM and a 3G/1G VM split.
-*/
-
 #ifndef __ASSEMBLY__
 void *allocate_contiguous_ebi(unsigned long, unsigned long, int);
 phys_addr_t allocate_contiguous_ebi_nomap(unsigned long, unsigned long);
@@ -45,11 +27,6 @@ void clean_and_invalidate_caches(unsigned long, unsigned long, unsigned long);
 void clean_caches(unsigned long, unsigned long, unsigned long);
 void invalidate_caches(unsigned long, unsigned long, unsigned long);
 int msm_get_memory_type_from_name(const char *memtype_name);
-
-#if defined(CONFIG_ARCH_MSM_ARM11) || defined(CONFIG_ARCH_MSM_CORTEX_A5)
-void write_to_strongly_ordered_memory(void);
-void map_page_strongly_ordered(void);
-#endif
 
 #ifdef CONFIG_CACHE_L2X0
 extern void l2x0_cache_sync(void);
