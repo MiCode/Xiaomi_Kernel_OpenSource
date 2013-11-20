@@ -173,6 +173,13 @@ static u32 igc_limited[IGC_LUT_ENTRIES] = {
 	GAMUT_T2_SIZE + GAMUT_T3_SIZE + GAMUT_T4_SIZE + \
 	GAMUT_T5_SIZE + GAMUT_T6_SIZE + GAMUT_T7_SIZE)
 
+#define MDSS_MDP_PA_SIZE		0xC
+#define MDSS_MDP_GC_SIZE		0x28
+#define MDSS_MDP_PCC_SIZE		0xB8
+#define MDSS_MDP_GAMUT_SIZE		0x5C
+#define MDSS_MDP_IGC_DSPP_COLORS	0x3
+#define TOTAL_BLEND_STAGES		0x4
+
 #define PP_FLAGS_DIRTY_PA	0x1
 #define PP_FLAGS_DIRTY_PCC	0x2
 #define PP_FLAGS_DIRTY_IGC	0x4
@@ -4263,71 +4270,271 @@ int mdss_mdp_ad_addr_setup(struct mdss_data_type *mdata, u32 *ad_offsets)
 	return rc;
 }
 
-static int is_valid_calib_addr(void *addr)
+static int is_valid_calib_ctrl_addr(char __iomem *ptr)
+{
+	char __iomem *base;
+	int ret = 0, counter = 0;
+	int stage = 0;
+	struct mdss_mdp_ctl *ctl;
+
+	/* Controller */
+	for (counter = 0; counter < mdss_res->nctl; counter++) {
+		ctl = mdss_res->ctl_off + counter;
+		base = ctl->base;
+
+		if (ptr == base + MDSS_MDP_REG_CTL_TOP) {
+			ret = MDP_PP_OPS_READ;
+			break;
+		} else if (ptr == base + MDSS_MDP_REG_CTL_FLUSH) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		}
+
+		for (stage = 0; stage < mdss_res->nmixers_intf; stage++)
+			if (ptr == base + MDSS_MDP_REG_CTL_LAYER(stage)) {
+				ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+				goto End;
+			}
+	}
+
+End:
+	return ret;
+}
+
+static int is_valid_calib_dspp_addr(char __iomem *ptr)
+{
+	char __iomem *base;
+	int ret = 0, counter = 0;
+	struct mdss_mdp_mixer *mixer;
+
+	for (counter = 0; counter < mdss_res->nmixers_intf; counter++) {
+		mixer = mdss_res->mixer_intf + counter;
+		base = mixer->dspp_base;
+
+		if (ptr == base) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		/* PA range */
+		} else if ((ptr >= base + MDSS_MDP_REG_DSPP_PA_BASE) &&
+				(ptr <= base + MDSS_MDP_REG_DSPP_PA_BASE +
+						MDSS_MDP_PA_SIZE)) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		/* PCC range */
+		} else if ((ptr >= base + MDSS_MDP_REG_DSPP_PCC_BASE) &&
+				(ptr <= base + MDSS_MDP_REG_DSPP_PCC_BASE +
+						MDSS_MDP_PCC_SIZE)) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		/* Gamut range */
+		} else if ((ptr >= base + MDSS_MDP_REG_DSPP_GAMUT_BASE) &&
+				(ptr <= base + MDSS_MDP_REG_DSPP_GAMUT_BASE +
+						MDSS_MDP_GAMUT_SIZE)) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		/* GC range */
+		} else if ((ptr >= base + MDSS_MDP_REG_DSPP_GC_BASE) &&
+				(ptr <= base + MDSS_MDP_REG_DSPP_GC_BASE +
+						MDSS_MDP_GC_SIZE)) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		/* Dither enable/disable */
+		} else if ((ptr == base + MDSS_MDP_REG_DSPP_DITHER_DEPTH)) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		}
+	}
+
+	return ret;
+}
+
+static int is_valid_calib_vig_addr(char __iomem *ptr)
+{
+	char __iomem *base;
+	int ret = 0, counter = 0;
+	struct mdss_mdp_pipe *pipe;
+
+	for (counter = 0; counter < mdss_res->nvig_pipes; counter++) {
+		pipe = mdss_res->vig_pipes + counter;
+		base = pipe->base;
+
+		if (ptr == base + MDSS_MDP_REG_SSPP_SRC_FORMAT) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		} else if (ptr == base + MDSS_MDP_REG_SSPP_SRC_CONSTANT_COLOR) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		} else if (ptr == base + MDSS_MDP_REG_SSPP_SRC_UNPACK_PATTERN) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		} else if ((ptr == base + MDSS_MDP_REG_VIG_QSEED2_SHARP)) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		/* PA range */
+		} else if ((ptr >= base + MDSS_MDP_REG_VIG_PA_BASE) &&
+				(ptr <= base + MDSS_MDP_REG_VIG_PA_BASE +
+						MDSS_MDP_PA_SIZE)) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		/* IGC range */
+		} else if ((ptr >= base + MDSS_MDP_REG_IGC_VIG_BASE) &&
+				(ptr <= base + MDSS_MDP_REG_IGC_VIG_BASE +
+						MDSS_MDP_GC_SIZE)) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		}
+	}
+
+	return ret;
+}
+
+static int is_valid_calib_rgb_addr(char __iomem *ptr)
+{
+	char __iomem *base;
+	int ret = 0, counter = 0;
+	struct mdss_mdp_pipe *pipe;
+
+	for (counter = 0; counter < mdss_res->nrgb_pipes; counter++) {
+		pipe = mdss_res->rgb_pipes + counter;
+		base = pipe->base;
+
+		if (ptr == base + MDSS_MDP_REG_SSPP_SRC_FORMAT) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		} else if (ptr == base + MDSS_MDP_REG_SSPP_SRC_CONSTANT_COLOR) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		} else if (ptr == base + MDSS_MDP_REG_SSPP_SRC_UNPACK_PATTERN) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		/* IGC range */
+		} else if ((ptr >= base + MDSS_MDP_REG_IGC_RGB_BASE) &&
+				(ptr <= base + MDSS_MDP_REG_IGC_RGB_BASE +
+						MDSS_MDP_GC_SIZE)) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		}
+	}
+
+	return ret;
+}
+
+static int is_valid_calib_dma_addr(char __iomem *ptr)
+{
+	char __iomem *base;
+	int ret = 0, counter = 0;
+	struct mdss_mdp_pipe *pipe;
+
+	for (counter = 0; counter < mdss_res->ndma_pipes; counter++) {
+		pipe = mdss_res->dma_pipes + counter;
+		base = pipe->base;
+
+		if (ptr == base + MDSS_MDP_REG_SSPP_SRC_FORMAT) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		} else if (ptr == base + MDSS_MDP_REG_SSPP_SRC_CONSTANT_COLOR) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		} else if (ptr == base + MDSS_MDP_REG_SSPP_SRC_UNPACK_PATTERN) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		/* IGC range */
+		} else if ((ptr >= base + MDSS_MDP_REG_IGC_DMA_BASE) &&
+				(ptr <= base + MDSS_MDP_REG_IGC_DMA_BASE +
+						MDSS_MDP_GC_SIZE)) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		}
+	}
+
+	return ret;
+}
+
+static int is_valid_calib_mixer_addr(char __iomem *ptr)
+{
+	char __iomem *base;
+	int ret = 0, counter = 0;
+	int stage = 0;
+	struct mdss_mdp_mixer *mixer;
+
+	for (counter = 0; counter < mdss_res->nmixers_intf; counter++) {
+		mixer = mdss_res->mixer_intf + counter;
+		base = mixer->base;
+
+		if (ptr == base + MDSS_MDP_REG_LM_OP_MODE) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		/* GC range */
+		} else if ((ptr >= base + MDSS_MDP_REG_LM_GC_LUT_BASE) &&
+			(ptr <= base + MDSS_MDP_REG_LM_GC_LUT_BASE +
+						MDSS_MDP_GC_SIZE)) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		}
+
+		for (stage = 0; stage < TOTAL_BLEND_STAGES; stage++)
+			if (ptr == base + MDSS_MDP_REG_LM_BLEND_OFFSET(stage) +
+						 MDSS_MDP_REG_LM_BLEND_OP) {
+				ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+				goto End;
+			} else if (ptr == base +
+					MDSS_MDP_REG_LM_BLEND_OFFSET(stage) +
+					MDSS_MDP_REG_LM_BLEND_FG_ALPHA) {
+				ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+				goto End;
+			} else if (ptr == base +
+					 MDSS_MDP_REG_LM_BLEND_OFFSET(stage) +
+					 MDSS_MDP_REG_LM_BLEND_BG_ALPHA) {
+				ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+				goto End;
+			}
+	}
+
+End:
+	return ret;
+}
+
+static int is_valid_calib_addr(void *addr, u32 operation)
 {
 	int ret = 0;
-	unsigned int ptr;
-	ptr = (unsigned int) addr;
-	/* if request is outside the MDP reg-map or is not aligned 4 */
-	if (ptr > 0x5138 || ptr % 0x4)
-		goto end;
-	if (ptr >= 0x100 && ptr <= 0x5138) {
-		/* if ptr is in dspp range */
-		if (ptr >= 0x4600 && ptr <= 0x5138) {
-			/* if ptr is in dspp0 range*/
-			if (ptr >= 0x4600 && ptr <= 0x4938)
-				ptr -= 0x4600;
-			/* if ptr is in dspp1 range */
-			else if (ptr >= 0x4a00 && ptr <= 0x4d38)
-				ptr -= 0x4a00;
-			/* if ptr is in dspp2 range */
-			else if (ptr >= 0x4e00 && ptr <= 0x5138)
-				ptr -= 0x4e00;
-			/* if ptr is in pcc plane rgb coeff.range */
-			if (ptr >= 0x30 && ptr <= 0xe8)
-				ret = 1;
-			/* if ptr is in ARLUT red range */
-			else if (ptr >= 0x2b0 && ptr <= 0x2b8)
-				ret = 1;
-			/* if ptr is in PA range */
-			else if (ptr >= 0x238 && ptr <= 0x244)
-				ret = 1;
-			 /* if ptr is in ARLUT green range */
-			else if (ptr >= 0x2c0 && ptr <= 0x2c8)
-				ret = 1;
-			/* if ptr is in ARLUT blue range or
-			    gamut map table range */
-			else if (ptr >= 0x2d0 && ptr <= 0x338)
-				ret = 1;
-			/* if ptr is dspp0,dspp1,dspp2 op mode
-						register */
-			else if (ptr == 0)
-				ret = 1;
-		} else if (ptr >= 0x600 && ptr <= 0x608)
-				ret = 1;
-		else if (ptr >= 0x400 && ptr <= 0x408)
-				ret = 1;
-		else if ((ptr == 0x1830) || (ptr == 0x1c30) ||
-				(ptr == 0x1430) || (ptr == 0x1e38))
-				ret = 1;
-		else if ((ptr == 0x1e3c) || (ptr == 0x1e30))
-				ret = 1;
-		else if (ptr >= 0x3220 && ptr <= 0x3228)
-				ret = 1;
-		else if (ptr == 0x3200 || ptr == 0x100)
-				ret = 1;
-		else if (ptr == 0x104 || ptr == 0x614 || ptr == 0x714 ||
-			ptr == 0x814 || ptr == 0x914 || ptr == 0xa14)
-				ret = 1;
-		else if (ptr == 0x618 || ptr == 0x718 || ptr == 0x818 ||
-				 ptr == 0x918 || ptr == 0xa18)
-				ret = 1;
-		else if (ptr == 0x2234 || ptr == 0x1e34 || ptr == 0x2634)
-				ret = 1;
-	} else if (ptr == 0x0)
-		ret = 1;
-end:
-	return ret;
+	char __iomem *ptr = addr;
+	char __iomem *mixer_base = mdss_res->mixer_intf->base;
+	char __iomem *rgb_base   = mdss_res->rgb_pipes->base;
+	char __iomem *dma_base   = mdss_res->dma_pipes->base;
+	char __iomem *vig_base   = mdss_res->vig_pipes->base;
+	char __iomem *ctl_base   = mdss_res->ctl_off->base;
+	char __iomem *dspp_base  = mdss_res->mixer_intf->dspp_base;
+
+	if ((unsigned int)addr % 4) {
+		ret = 0;
+	} else if (ptr == (mdss_res->mdp_base + MDSS_MDP_REG_HW_VERSION) ||
+	    ptr == (mdss_res->mdp_base + MDSS_MDP_REG_DISP_INTF_SEL)) {
+		ret = MDP_PP_OPS_READ;
+	} else if (ptr >= (mdss_res->mdp_base + MDSS_MDP_REG_IGC_DSPP_BASE) &&
+		    ptr < (mdss_res->mdp_base + MDSS_MDP_REG_IGC_DSPP_BASE +
+						MDSS_MDP_IGC_DSPP_COLORS)) {
+		ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+	} else if (ptr >= dspp_base && ptr < (dspp_base +
+		(mdss_res->nmixers_intf * MDSS_MDP_DSPP_ADDRESS_OFFSET))) {
+		ret = is_valid_calib_dspp_addr(ptr);
+	} else if (ptr >= ctl_base && ptr < (ctl_base + (mdss_res->nctl
+					* MDSS_MDP_CTL_ADDRESS_OFFSET))) {
+		ret = is_valid_calib_ctrl_addr(ptr);
+	} else if (ptr >= vig_base && ptr < (vig_base + (mdss_res->nvig_pipes
+					* MDSS_MDP_SSPP_ADDRESS_OFFSET))) {
+		ret = is_valid_calib_vig_addr(ptr);
+	} else if (ptr >= rgb_base && ptr < (rgb_base + (mdss_res->nrgb_pipes
+					* MDSS_MDP_SSPP_ADDRESS_OFFSET))) {
+		ret = is_valid_calib_rgb_addr(ptr);
+	} else if (ptr >= dma_base && ptr < (dma_base + (mdss_res->ndma_pipes
+					* MDSS_MDP_SSPP_ADDRESS_OFFSET))) {
+		ret = is_valid_calib_dma_addr(ptr);
+	} else if (ptr >= mixer_base && ptr < (mixer_base +
+		(mdss_res->nmixers_intf * MDSS_MDP_LM_ADDRESS_OFFSET))) {
+		ret = is_valid_calib_mixer_addr(ptr);
+	}
+
+	return ret & operation;
 }
 
 int mdss_mdp_calib_config(struct mdp_calib_config_data *cfg, u32 *copyback)
@@ -4335,11 +4542,12 @@ int mdss_mdp_calib_config(struct mdp_calib_config_data *cfg, u32 *copyback)
 	int ret = -1;
 	void *ptr = (void *) cfg->addr;
 
-	if (is_valid_calib_addr(ptr))
+	ptr = (void *)(((unsigned int) ptr) + (mdss_res->mdp_base));
+	if (is_valid_calib_addr(ptr, cfg->ops))
 		ret = 0;
 	else
 		return ret;
-	ptr = (void *)(((unsigned int) ptr) + (mdss_res->mdp_base));
+
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 
 	if (cfg->ops & MDP_PP_OPS_READ) {
@@ -4374,65 +4582,50 @@ int mdss_mdp_calib_config_buffer(struct mdp_calib_config_buffer *cfg,
 	int i = 0;
 
 	if (!cfg) {
-		pr_err("Invalid buffer pointer");
+		pr_err("Invalid buffer pointer\n");
 		return ret;
 	}
 
 	if (cfg->size == 0) {
-		pr_err("Invalid buffer size");
+		pr_err("Invalid buffer size\n");
 		return ret;
 	}
 
 	counter = cfg->size / (sizeof(uint32_t) * 2);
 	buff_org = buff = kzalloc(cfg->size, GFP_KERNEL);
 	if (buff == NULL) {
-		pr_err("Allocation failed");
+		pr_err("Config buffer allocation failed\n");
 		return ret;
 	}
 
 	if (copy_from_user(buff, cfg->buffer, cfg->size)) {
 		kfree(buff);
-		pr_err("Copy failed");
+		pr_err("config buffer copy failed\n");
 		return ret;
 	}
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 
-	if (cfg->ops & MDP_PP_OPS_READ) {
-		for (i = 0 ; i < counter ; i++) {
-			if (is_valid_calib_addr((void *) *buff)) {
-				ret = 0;
-			} else {
-				ret = -1;
-				pr_err("Address validation failed");
-				break;
-			}
+	for (i = 0; i < counter; i++) {
+		ptr = (void *) (((unsigned int) *buff) + mdss_res->mdp_base);
 
-			ptr = (void *)(((unsigned int) *buff) +
-					 (mdss_res->mdp_base));
-			buff++;
+		if (!is_valid_calib_addr(ptr, cfg->ops)) {
+			ret = -1;
+			pr_err("Address validation failed or access not permitted\n");
+			break;
+		}
+
+		buff++;
+		if (cfg->ops & MDP_PP_OPS_READ)
 			*buff = readl_relaxed(ptr);
-			buff++;
-		}
-		if (!ret)
-			ret = copy_to_user(cfg->buffer, buff_org, cfg->size);
-		*copyback = 1;
-	} else if (cfg->ops & MDP_PP_OPS_WRITE) {
-		for (i = 0 ; i < counter ; i++) {
-			if (is_valid_calib_addr((void *) *buff)) {
-				ret = 0;
-			} else {
-				ret = -1;
-				pr_err("Address validation failed");
-				break;
-			}
-
-			ptr = (void *)(((unsigned int) *buff) +
-					 (mdss_res->mdp_base));
-			buff++;
+		else if (cfg->ops & MDP_PP_OPS_WRITE)
 			writel_relaxed(*buff, ptr);
-			buff++;
-		}
+		buff++;
+	}
+
+	if (ret & MDP_PP_OPS_READ) {
+		ret = copy_to_user(cfg->buffer, buff_org, cfg->size);
+		*copyback = 1;
 	}
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
