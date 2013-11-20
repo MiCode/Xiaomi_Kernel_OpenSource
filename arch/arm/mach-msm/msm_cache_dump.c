@@ -41,18 +41,11 @@ static void *msm_cache_dump_vaddr;
  */
 static struct l1_cache_dump *l1_dump;
 static struct l2_cache_dump *l2_dump;
-static int use_imem_dump_offset;
 
 static int msm_cache_dump_panic(struct notifier_block *this,
 				unsigned long event, void *ptr)
 {
 #ifdef CONFIG_MSM_CACHE_DUMP_ON_PANIC
-	/*
-	 * Clear the bootloader magic so the dumps aren't overwritten
-	 */
-	if (use_imem_dump_offset)
-		__raw_writel(0, MSM_IMEM_BASE + L2_DUMP_OFFSET);
-
 	scm_call_atomic1(L1C_SERVICE_ID, CACHE_BUFFER_DUMP_COMMAND_ID, 2);
 	scm_call_atomic1(L1C_SERVICE_ID, CACHE_BUFFER_DUMP_COMMAND_ID, 1);
 #endif
@@ -90,15 +83,9 @@ static int msm_cache_dump_probe(struct platform_device *pdev)
 					   "qcom,l2-dump-size", &l2_size);
 		if (ret)
 			return ret;
-
-		use_imem_dump_offset = of_property_read_bool(pdev->dev.of_node,
-						   "qcom,use-imem-dump-offset");
 	} else {
 		l1_size = d->l1_size;
 		l2_size = d->l2_size;
-
-		/* Non-DT targets assume the IMEM dump offset shall be used */
-		use_imem_dump_offset = 1;
 	};
 
 	total_size = l1_size + l2_size;
@@ -143,26 +130,21 @@ static int msm_cache_dump_probe(struct platform_device *pdev)
 			__func__, ret);
 #endif
 
-	if (use_imem_dump_offset)
-		__raw_writel(msm_cache_dump_addr + l1_size,
-			MSM_IMEM_BASE + L2_DUMP_OFFSET);
-	else {
-		l1_dump_entry.id = MSM_L1_CACHE;
-		l1_dump_entry.start_addr = msm_cache_dump_addr;
-		l1_dump_entry.end_addr = l1_dump_entry.start_addr + l1_size - 1;
+	l1_dump_entry.id = MSM_L1_CACHE;
+	l1_dump_entry.start_addr = msm_cache_dump_addr;
+	l1_dump_entry.end_addr = l1_dump_entry.start_addr + l1_size - 1;
 
-		l2_dump_entry.id = MSM_L2_CACHE;
-		l2_dump_entry.start_addr = msm_cache_dump_addr + l1_size;
-		l2_dump_entry.end_addr = l2_dump_entry.start_addr + l2_size - 1;
+	l2_dump_entry.id = MSM_L2_CACHE;
+	l2_dump_entry.start_addr = msm_cache_dump_addr + l1_size;
+	l2_dump_entry.end_addr = l2_dump_entry.start_addr + l2_size - 1;
 
-		ret = msm_dump_table_register(&l1_dump_entry);
-		if (ret)
-			pr_err("Could not register L1 dump area: %d\n", ret);
+	ret = msm_dump_table_register(&l1_dump_entry);
+	if (ret)
+		pr_err("Could not register L1 dump area: %d\n", ret);
 
-		ret = msm_dump_table_register(&l2_dump_entry);
-		if (ret)
-			pr_err("Could not register L2 dump area: %d\n", ret);
-	}
+	ret = msm_dump_table_register(&l2_dump_entry);
+	if (ret)
+		pr_err("Could not register L2 dump area: %d\n", ret);
 
 	atomic_notifier_chain_register(&panic_notifier_list,
 						&msm_cache_dump_blk);
