@@ -136,7 +136,7 @@ static int __get_pgprot(int prot, int len)
 	}
 
 	if (prot & IOMMU_CACHE)
-		tex = (pgprot_kernel >> 2) & 0x07;
+		tex = (pgprot_val(PAGE_KERNEL) >> 2) & 0x07;
 	else
 		tex = msm_iommu_tex_class[MSM_IOMMU_ATTR_NONCACHED];
 
