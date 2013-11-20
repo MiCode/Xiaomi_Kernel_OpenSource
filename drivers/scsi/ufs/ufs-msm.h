@@ -93,6 +93,11 @@ struct msm_ufs_host {
 	struct ufs_hba *hba;
 	struct msm_ufs_bus_vote bus_vote;
 	struct ufs_pa_layer_attr dev_req_params;
+	struct clk *rx_l0_sync_clk;
+	struct clk *tx_l0_sync_clk;
+	struct clk *rx_l1_sync_clk;
+	struct clk *tx_l1_sync_clk;
+	bool is_lane_clks_enabled;
 };
 
 static unsigned long
