@@ -23,6 +23,9 @@
 #include "rmnet_data_vnd.h"
 #include "rmnet_map.h"
 
+RMNET_LOG_MODULE(RMNET_DATA_LOGMASK_HANDLER);
+
+
 void rmnet_egress_handler(struct sk_buff *skb,
 			  struct rmnet_logical_ep_conf_s *ep);
 

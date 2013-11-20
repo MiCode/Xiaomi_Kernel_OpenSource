@@ -26,6 +26,8 @@
 #include "rmnet_data_vnd.h"
 #include "rmnet_data_private.h"
 
+RMNET_LOG_MODULE(RMNET_DATA_LOGMASK_CONFIG);
+
 /* ***************** Local Definitions and Declarations ********************* */
 static struct sock *nl_socket_handle;
 
@@ -316,6 +318,41 @@ static void _rmnet_netlink_get_vnd_name
 	resp_rmnet->arg_length = RMNET_NL_MSG_SIZE(vnd);
 }
 
+static void _rmnet_netlink_add_del_vnd_tc_flow
+					(uint32_t command,
+					 struct rmnet_nl_msg_s *rmnet_header,
+					 struct rmnet_nl_msg_s *resp_rmnet)
+{
+	uint32_t id;
+	uint32_t map_flow_id;
+	uint32_t tc_flow_id;
+
+	_RMNET_NETLINK_NULL_CHECKS();
+	resp_rmnet->crd = RMNET_NETLINK_MSG_RETURNCODE;
+
+	id = rmnet_header->flow_control.id;
+	map_flow_id = rmnet_header->flow_control.map_flow_id;
+	tc_flow_id = rmnet_header->flow_control.tc_flow_id;
+
+	switch (command) {
+	case RMNET_NETLINK_ADD_VND_TC_FLOW:
+		resp_rmnet->return_code = rmnet_vnd_add_tc_flow(id,
+								map_flow_id,
+								tc_flow_id);
+		break;
+	case RMNET_NETLINK_DEL_VND_TC_FLOW:
+		resp_rmnet->return_code = rmnet_vnd_del_tc_flow(id,
+								map_flow_id,
+								tc_flow_id);
+		break;
+	default:
+		LOGM("%s(): called with unhandled command %d\n",
+		     __func__, command);
+		resp_rmnet->return_code = RMNET_CONFIG_INVALID_REQUEST;
+		break;
+	}
+}
+
 /**
  * rmnet_config_netlink_msg_handler() - Netlink message handler callback
  * @skb:      Packet containing netlink messages
@@ -418,6 +455,13 @@ void rmnet_config_netlink_msg_handler(struct sk_buff *skb)
 		_rmnet_netlink_get_vnd_name(rmnet_header, resp_rmnet);
 		break;
 
+	case RMNET_NETLINK_DEL_VND_TC_FLOW:
+	case RMNET_NETLINK_ADD_VND_TC_FLOW:
+		_rmnet_netlink_add_del_vnd_tc_flow(rmnet_header->message_type,
+						   rmnet_header,
+						   resp_rmnet);
+		break;
+
 	default:
 		resp_rmnet->crd = RMNET_NETLINK_MSG_RETURNCODE;
 		resp_rmnet->return_code = RMNET_CONFIG_UNKNOWN_MESSAGE;
@@ -425,6 +469,7 @@ void rmnet_config_netlink_msg_handler(struct sk_buff *skb)
 	}
 	rtnl_unlock();
 	nlmsg_unicast(nl_socket_handle, skb_response, return_pid);
+	LOGD("%s(): Done processing command\n", __func__);
 
 }
 
