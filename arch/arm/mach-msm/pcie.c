@@ -702,6 +702,12 @@ static int msm_pcie_get_resources(u32 rc_idx, struct platform_device *pdev)
 		vreg_info->hdl =
 				devm_regulator_get(&pdev->dev, vreg_info->name);
 
+		if (PTR_ERR(vreg_info->hdl) == -EPROBE_DEFER) {
+			PCIE_DBG("EPROBE_DEFER for PCIe_%d:%s\n",
+				rc_idx, vreg_info->name);
+			return PTR_ERR(vreg_info->hdl);
+		}
+
 		if (IS_ERR(vreg_info->hdl)) {
 			if (vreg_info->required) {
 				PCIE_DBG("Vreg %s doesn't exist\n",
