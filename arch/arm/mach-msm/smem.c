@@ -1190,6 +1190,18 @@ static int msm_smem_probe(struct platform_device *pdev)
 	if (!smem_initialized_check())
 		return -ENODEV;
 
+	/*
+	 * The software implementation requires smem_find(), which needs
+	 * smem_ram_base to be intitialized.  The remote spinlock item is
+	 * guarenteed to be allocated by the bootloader, so this is the
+	 * safest and earliest place to init the spinlock.
+	 */
+	ret = init_smem_remote_spinlock();
+	if (ret) {
+		LOG_ERR("%s: remote spinlock init failed %d\n", __func__, ret);
+		return ret;
+	}
+
 	key = "irq-reg-base";
 	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, key);
 	if (!r) {
@@ -1351,12 +1363,6 @@ int __init msm_smem_init(void)
 	if (!smem_ipc_log_ctx) {
 		pr_err("%s: unable to create logging context\n", __func__);
 		msm_smem_debug_mask = 0;
-	}
-
-	rc = init_smem_remote_spinlock();
-	if (rc) {
-		LOG_ERR("%s: remote spinlock init failed %d\n", __func__, rc);
-		return rc;
 	}
 
 	rc = platform_driver_register(&msm_smem_driver);
