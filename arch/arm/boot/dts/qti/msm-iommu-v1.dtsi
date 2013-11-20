@@ -1157,7 +1157,8 @@
 					0x220c
 					0x22bc
 					0x2008
-					0x200c>;
+					0x200c
+					0x2060>;
 
 		qti,iommu-bfb-data = <0x0ff
 					0x00000004
@@ -1172,7 +1173,8 @@
 					0x003008
 					0x0
 					0x0
-					0x0>;
+					0x0
+					0x1555>;
 
 		qti,iommu-ctx@fdfbe000 {
 			compatible = "qti,msm-smmu-v1-ctx";
@@ -1254,7 +1256,8 @@
 					0x2014
 					0x2018
 					0x201c
-					0x2020>;
+					0x2020
+					0x2060>;
 
 		qti,iommu-bfb-data = <0xffffffff
 					0x1
@@ -1275,7 +1278,8 @@
 					0x0
 					0x0
 					0x0
-					0x0>;
+					0x0
+					0x1555>;
 
 		bcast_cb0_hlos: qti,iommu-ctx@fc73c000 {
 			compatible = "qti,msm-smmu-v1-ctx";
