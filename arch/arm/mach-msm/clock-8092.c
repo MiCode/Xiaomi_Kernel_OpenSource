@@ -1795,9 +1795,9 @@ static struct pll_config_regs mmpll3_regs __initdata = {
 };
 
 static struct pll_config mmpll3_config __initdata = {
-	.l = 48,
-	.m = 7,
-	.n = 16,
+	.l = 45,
+	.m = 5,
+	.n = 6,
 	.vco_val = 0x0,
 	.vco_mask = BM(21, 20),
 	.pre_div_val = 0x0,
@@ -3206,7 +3206,7 @@ static struct clk_freq_tbl ftbl_venus0_vcodec0_clk[] = {
 	F_MMSS( 133330000,     mmpll0,	 6,    0,    0),
 	F_MMSS( 200000000,     mmpll0,	 4,    0,    0),
 	F_MMSS( 266670000,     mmpll0,	 3,    0,    0),
-	F_MMSS( 465000000,     mmpll3,	 2,    0,    0),
+	F_MMSS( 440000000,     mmpll3,	 2,    0,    0),
 	F_END
 };
 
