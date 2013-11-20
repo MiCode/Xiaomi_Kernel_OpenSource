@@ -27,7 +27,6 @@
 #include <linux/seq_file.h>
 #include "ion_priv.h"
 
-#include <asm/mach/map.h>
 #include <asm/cacheflush.h>
 #include <linux/msm_ion.h>
 

@@ -30,15 +30,10 @@
 #include <linux/dma-mapping.h>
 #include <trace/events/kmem.h>
 
-#include <asm/mach/map.h>
-
-#include <mach/msm_memtypes.h>
 #include <mach/scm.h>
-#include <mach/iommu_domains.h>
 
 #include "ion_priv.h"
 
-#include <asm/mach/map.h>
 #include <asm/cacheflush.h>
 
 #include "msm/ion_cp_common.h"
