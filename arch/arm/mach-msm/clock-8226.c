@@ -694,6 +694,7 @@ static struct clk_freq_tbl ftbl_gcc_blsp1_uart1_6_apps_clk[] = {
 	F_GCC(  56000000,      gpll0,   1,    7,   75),
 	F_GCC(  58982400,      gpll0,   1, 1536, 15625),
 	F_GCC(  60000000,      gpll0,  10,    0,    0),
+	F_GCC(  63160000,      gpll0, 9.5,    0,    0),
 	F_END
 };
 
