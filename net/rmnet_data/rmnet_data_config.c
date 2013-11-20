@@ -218,9 +218,10 @@ static void _rmnet_netlink_set_link_ingress_data_format
 		return;
 	}
 
-	resp_rmnet->return_code =
-		rmnet_set_ingress_data_format(dev,
-					      rmnet_header->data_format.flags);
+	resp_rmnet->return_code = rmnet_set_ingress_data_format(
+					dev,
+					rmnet_header->data_format.flags,
+					rmnet_header->data_format.tail_spacing);
 	dev_put(dev);
 }
 
@@ -384,6 +385,7 @@ static void _rmnet_netlink_get_link_ingress_data_format
 	resp_rmnet->crd = RMNET_NETLINK_MSG_RETURNDATA;
 	resp_rmnet->arg_length = RMNET_NL_MSG_SIZE(data_format);
 	resp_rmnet->data_format.flags = config->ingress_data_format;
+	resp_rmnet->data_format.tail_spacing = config->tail_spacing;
 	dev_put(dev);
 }
 
@@ -643,7 +645,8 @@ int rmnet_unassociate_network_device(struct net_device *dev)
  *      - RMNET_CONFIG_UNKNOWN_ERROR net_device private section is null
  */
 int rmnet_set_ingress_data_format(struct net_device *dev,
-				      uint32_t ingress_data_format)
+				  uint32_t ingress_data_format,
+				  uint8_t  tail_spacing)
 {
 	struct rmnet_phys_ep_conf_s *config;
 	ASSERT_RTNL();
@@ -659,6 +662,7 @@ int rmnet_set_ingress_data_format(struct net_device *dev,
 		return RMNET_CONFIG_INVALID_REQUEST;
 
 	config->ingress_data_format = ingress_data_format;
+	config->tail_spacing = tail_spacing;
 
 	return RMNET_CONFIG_OK;
 }
