@@ -206,6 +206,13 @@
 
 enum {
 	WRKARND_USB100_BIT = BIT(0),
+	WRKARND_APSD_FAIL = BIT(1),
+};
+
+enum {
+	REV_1 = 1,	/* Rev v1.0 */
+	REV_1_1,	/* Rev v1.1 */
+	REV_1_2,	/* Rev v1.2 */
 };
 
 static int chg_time[] = {
@@ -1281,6 +1288,13 @@ static int handle_usb_insertion(struct smb135x_chg *chip)
 	}
 	usb_type_name = get_usb_type_name(reg);
 	usb_supply_type = get_usb_supply_type(reg);
+	/*
+	 * Report the charger type as UNKNOWN if the
+	 * apsd-fail flag is set. This nofifies the USB driver
+	 * to initiate a s/w based charger type detection.
+	 */
+	if (chip->workaround_flags & WRKARND_APSD_FAIL)
+		usb_supply_type = POWER_SUPPLY_TYPE_UNKNOWN;
 	pr_debug("inserted %s, usb psy type = %d stat_5 = 0x%02x\n",
 			usb_type_name, usb_supply_type, reg);
 	if (chip->usb_psy) {
@@ -1904,6 +1918,22 @@ static int smb135x_hw_init(struct smb135x_chg *chip)
 	else
 		/* this ignores APSD results */
 		reg = USE_REGISTER_FOR_CURRENT;
+
+	rc = read_version(chip, &reg);
+	if (rc) {
+		dev_err(chip->dev, "Couldn't read chip revision\n");
+		return rc;
+	}
+	/*
+	 * Rev v1.0 and v1.1 of SMB135x fails charger type detection
+	 * (apsd) due to interference on the D+/- lines by the USB phy.
+	 * Set the workaround flag to disable charger type reporting
+	 * for this revision.
+	 */
+	if ((reg == REV_1) || (reg == REV_1_1))
+		chip->workaround_flags |= WRKARND_APSD_FAIL;
+
+	pr_debug("workaround_flags = %x\n", chip->workaround_flags);
 
 	rc = smb135x_masked_write(chip, CMD_INPUT_LIMIT, mask, reg);
 	if (rc < 0) {
