@@ -341,6 +341,40 @@ void coresight_cti_reset(struct coresight_cti *cti)
 }
 EXPORT_SYMBOL(coresight_cti_reset);
 
+static int __cti_pulse_trig(struct cti_drvdata *drvdata, int ch)
+{
+	if (!drvdata->refcnt)
+		return -EINVAL;
+
+	CTI_UNLOCK(drvdata);
+
+	cti_writel(drvdata, (1 << ch), CTIAPPPULSE);
+
+	CTI_LOCK(drvdata);
+
+	return 0;
+}
+
+int coresight_cti_pulse_trig(struct coresight_cti *cti, int ch)
+{
+	struct cti_drvdata *drvdata;
+	int ret;
+
+	if (IS_ERR_OR_NULL(cti))
+		return -EINVAL;
+	ret = cti_verify_channel_bound(ch);
+	if (ret)
+		return ret;
+
+	drvdata = to_cti_drvdata(cti);
+
+	mutex_lock(&drvdata->mutex);
+	ret = __cti_pulse_trig(drvdata, ch);
+	mutex_unlock(&drvdata->mutex);
+	return ret;
+}
+EXPORT_SYMBOL(coresight_cti_pulse_trig);
+
 struct coresight_cti *coresight_cti_get(const char *name)
 {
 	struct coresight_cti *cti;
@@ -525,6 +559,25 @@ err:
 }
 static DEVICE_ATTR(show_trigout, S_IRUGO, cti_show_trigout, NULL);
 
+static ssize_t cti_store_pulse_trig(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t size)
+{
+	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+	int ret;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	ret = coresight_cti_pulse_trig(&drvdata->cti, val);
+
+	if (ret)
+		return ret;
+	return size;
+}
+static DEVICE_ATTR(pulse_trig, S_IWUSR, NULL, cti_store_pulse_trig);
+
 static struct attribute *cti_attrs[] = {
 	&dev_attr_map_trigin.attr,
 	&dev_attr_map_trigout.attr,
@@ -533,6 +586,7 @@ static struct attribute *cti_attrs[] = {
 	&dev_attr_reset.attr,
 	&dev_attr_show_trigin.attr,
 	&dev_attr_show_trigout.attr,
+	&dev_attr_pulse_trig.attr,
 	NULL,
 };
 
