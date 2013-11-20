@@ -380,10 +380,11 @@ static void qcrypto_ce_set_bus(struct crypto_engine *pengine,
 	int ret = 0;
 
 	if (high_bw_req && pengine->high_bw_req == false) {
+		pm_stay_awake(&pengine->pdev->dev);
 		ret = qce_enable_clk(pengine->qce);
 		if (ret) {
 			pr_err("%s Unable enable clk\n", __func__);
-			return;
+			goto clk_err;
 		}
 		ret = msm_bus_scale_client_update_request(
 				pengine->bus_scale_handle, 1);
@@ -391,7 +392,7 @@ static void qcrypto_ce_set_bus(struct crypto_engine *pengine,
 			pr_err("%s Unable to set to high bandwidth\n",
 						__func__);
 			qce_disable_clk(pengine->qce);
-			return;
+			goto clk_err;
 		}
 		pengine->high_bw_req = true;
 	} else if (high_bw_req == false && pengine->high_bw_req == true) {
@@ -400,7 +401,7 @@ static void qcrypto_ce_set_bus(struct crypto_engine *pengine,
 		if (ret) {
 			pr_err("%s Unable to set to low bandwidth\n",
 						__func__);
-			return;
+			goto clk_err;
 		}
 		ret = qce_disable_clk(pengine->qce);
 		if (ret) {
@@ -410,10 +411,16 @@ static void qcrypto_ce_set_bus(struct crypto_engine *pengine,
 			if (ret)
 				pr_err("%s Unable to set to high bandwidth\n",
 						__func__);
-			return;
+			goto clk_err;
 		}
 		pengine->high_bw_req = false;
+		pm_relax(&pengine->pdev->dev);
 	}
+	return;
+clk_err:
+	pm_relax(&pengine->pdev->dev);
+	return;
+
 }
 
 static void qcrypto_bw_scale_down_timer_callback(unsigned long data)
@@ -804,6 +811,7 @@ static void _qcrypto_remove_engine(struct crypto_engine *pengine)
 	tasklet_kill(&pengine->done_tasklet);
 	cancel_work_sync(&pengine->low_bw_req_ws);
 	del_timer_sync(&pengine->bw_scale_down_timer);
+	device_init_wakeup(&pengine->pdev->dev, false);
 
 	if (pengine->bus_scale_handle != 0)
 		msm_bus_scale_unregister_client(pengine->bus_scale_handle);
@@ -3792,6 +3800,9 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	INIT_WORK(&pengine->low_bw_req_ws, qcrypto_low_bw_req_work);
 	pengine->bw_scale_down_timer.function =
 			qcrypto_bw_scale_down_timer_callback;
+
+	device_init_wakeup(&pengine->pdev->dev, true);
+
 	tasklet_init(&pengine->done_tasklet, req_done, (unsigned long)pengine);
 	crypto_init_queue(&pengine->req_queue, 50);
 
