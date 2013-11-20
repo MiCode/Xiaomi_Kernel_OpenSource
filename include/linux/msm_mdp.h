@@ -422,7 +422,7 @@ struct mdp_pa_mem_col_cfg {
 	uint32_t val_region;
 };
 
-#define MDP_SIX_ZONE_TABLE_NUM		384
+#define MDP_SIX_ZONE_LUT_SIZE		384
 
 struct mdp_pa_v2_data {
 	/* Mask bits for PA features */
@@ -431,6 +431,7 @@ struct mdp_pa_v2_data {
 	uint32_t global_sat_adj;
 	uint32_t global_val_adj;
 	uint32_t global_cont_adj;
+	uint32_t six_zone_len;
 	uint32_t *six_zone_curve_p0;
 	uint32_t *six_zone_curve_p1;
 	uint32_t six_zone_thresh;
