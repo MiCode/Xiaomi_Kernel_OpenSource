@@ -521,7 +521,8 @@ uint32_t socinfo_get_pmic_die_revision(void)
 
 static char *socinfo_get_image_version_base_address(void)
 {
-	return smem_find(SMEM_IMAGE_VERSION_TABLE, SMEM_IMAGE_VERSION_SIZE);
+	return smem_find_to_proc(SMEM_IMAGE_VERSION_TABLE,
+				SMEM_IMAGE_VERSION_SIZE, 0, SMEM_ANY_HOST_FLAG);
 }
 
 static uint32_t socinfo_get_format(void)
@@ -1058,35 +1059,52 @@ static void socinfo_print(void)
 
 int __init socinfo_init(void)
 {
-	socinfo = smem_find(SMEM_HW_SW_BUILD_ID, sizeof(struct socinfo_v8));
+	socinfo = smem_find_to_proc(SMEM_HW_SW_BUILD_ID,
+				sizeof(struct socinfo_v8),
+				0,
+				SMEM_ANY_HOST_FLAG);
 
 	if (!socinfo)
-		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v7));
+		socinfo = smem_find_to_proc(SMEM_HW_SW_BUILD_ID,
+				sizeof(struct socinfo_v7),
+				0,
+				SMEM_ANY_HOST_FLAG);
 
 	if (!socinfo)
-		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v6));
+		socinfo = smem_find_to_proc(SMEM_HW_SW_BUILD_ID,
+				sizeof(struct socinfo_v6),
+				0,
+				SMEM_ANY_HOST_FLAG);
 
 	if (!socinfo)
-		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v5));
+		socinfo = smem_find_to_proc(SMEM_HW_SW_BUILD_ID,
+				sizeof(struct socinfo_v5),
+				0,
+				SMEM_ANY_HOST_FLAG);
 
 	if (!socinfo)
-		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v4));
+		socinfo = smem_find_to_proc(SMEM_HW_SW_BUILD_ID,
+				sizeof(struct socinfo_v4),
+				0,
+				SMEM_ANY_HOST_FLAG);
 
 	if (!socinfo)
-		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v3));
+		socinfo = smem_find_to_proc(SMEM_HW_SW_BUILD_ID,
+				sizeof(struct socinfo_v3),
+				0,
+				SMEM_ANY_HOST_FLAG);
 
 	if (!socinfo)
-		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v2));
+		socinfo = smem_find_to_proc(SMEM_HW_SW_BUILD_ID,
+				sizeof(struct socinfo_v2),
+				0,
+				SMEM_ANY_HOST_FLAG);
 
 	if (!socinfo)
-		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v1));
+		socinfo = smem_find_to_proc(SMEM_HW_SW_BUILD_ID,
+				sizeof(struct socinfo_v1),
+				0,
+				SMEM_ANY_HOST_FLAG);
 
 	if (!socinfo) {
 		pr_warn("%s: Can't find SMEM_HW_SW_BUILD_ID; falling back on dummy values.\n",
