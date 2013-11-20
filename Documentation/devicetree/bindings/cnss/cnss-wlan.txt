@@ -2,14 +2,22 @@
 
 This platform driver adds support for the CNSS subsystem used for PCIe
 based Wi-Fi devices. It also adds support to integrate PCIe WLAN module
-to subsystem restart framework. The main purpose of this device tree
-entry below is to invoke the CNSS platform driver.
+to subsystem restart framework. Apart from that, it also manages the
+3.3V voltage regulator, WLAN Enable GPIO signal and PCIe link dynamically
+with support for suspend and resume by retaining the PCI config space
+states when PCIe link is shutdown. The main purpose of this device tree
+entry below is to invoke the CNSS platform driver and provide handle to
+the WLAN enable GPIO, 3.3V fixed voltage regulator resources.
 
 Required properties:
-- compatible: "cnss_wlan"
+  - compatible: "qcom,cnss"
+  - wlan-en-gpio: WLAN_EN GPIO signal specified by QCA6174 specifications
+  - vdd-wlan-supply: phandle to the regulator device tree node
 
 Example:
 
     qcom,cnss {
-        compatible = "qcom,cnss_wlan";
+        compatible = "qcom,cnss";
+        wlan-en-gpio = <&msmgpio 82 0>;
+        vdd-wlan-supply = <&wlan_vreg>;
     };
