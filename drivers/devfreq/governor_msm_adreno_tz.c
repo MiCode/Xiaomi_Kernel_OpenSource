@@ -64,7 +64,8 @@ static int __secure_tz_entry3(u32 cmd, u32 val1, u32 val2, u32 val3)
 }
 
 
-static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq)
+static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
+				u32 *flag)
 {
 	int result = 0;
 	struct devfreq_msm_adreno_tz_data *priv = devfreq->data;
