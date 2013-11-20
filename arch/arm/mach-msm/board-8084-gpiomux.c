@@ -851,6 +851,21 @@ static struct gpiomux_setting gpio_qca1530_config_mpp7 = {
 	.pull = GPIOMUX_PULL_UP,
 };
 
+static struct gpiomux_setting gpio_pcie_clkreq_config = {
+	.func = GPIOMUX_FUNC_2,
+	.drv  = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct msm_gpiomux_config msm_pcie_configs[] __initdata = {
+	{
+		.gpio = 68,    /* qca1530 reset */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_pcie_clkreq_config,
+		},
+	},
+};
+
 static struct msm_gpiomux_config msm_qca1530_cdp_configs[] __initdata = {
 	{
 		.gpio = 133,    /* qca1530 reset */
@@ -918,6 +933,7 @@ void __init apq8084_init_gpiomux(void)
 	if (of_board_is_cdp())
 		msm_gpiomux_install(eth_pwr, ARRAY_SIZE(eth_pwr));
 	msm_gpiomux_install(msm_sensor_configs, ARRAY_SIZE(msm_sensor_configs));
+	msm_gpiomux_install(msm_pcie_configs, ARRAY_SIZE(msm_pcie_configs));
 
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 	if (of_board_is_cdp())
