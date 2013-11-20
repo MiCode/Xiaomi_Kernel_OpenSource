@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -108,12 +108,13 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 
 	maph = (struct rmnet_map_header_s *) skb->data;
 	packet_len = ntohs(maph->pkt_len) + sizeof(struct rmnet_map_header_s);
+
 	if ((((int)skb->len) - ((int)packet_len)) < 0) {
 		LOGM("%s(): Got malformed packet. Dropping\n", __func__);
 		return 0;
 	}
 
-	skbn = skb_copy(skb, GFP_ATOMIC);
+	skbn = skb_clone(skb, GFP_ATOMIC);
 	if (!skbn)
 		return 0;
 
