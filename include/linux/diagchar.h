@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,7 @@
 #define CALLBACK_DATA_TYPE	0x00000080
 #define DCI_LOG_MASKS_TYPE	0x00000100
 #define DCI_EVENT_MASKS_TYPE	0x00000200
+#define DCI_PKT_TYPE		0x00000400
 
 #define USB_MODE			1
 #define MEMORY_DEVICE_MODE		2

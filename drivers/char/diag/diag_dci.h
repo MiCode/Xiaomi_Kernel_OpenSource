@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -128,6 +128,14 @@ struct diag_log_event_stats {
 	int is_set;
 };
 
+struct diag_dci_pkt_header_t {
+	uint8_t start;
+	uint8_t version;
+	uint16_t len;
+	uint8_t pkt_code;
+	int tag;
+} __packed;
+
 enum {
 	DIAG_DCI_NO_ERROR = 1001,	/* No error */
 	DIAG_DCI_NO_REG,		/* Could not register */
@@ -163,8 +171,8 @@ void diag_process_apps_dci_read_data(int data_type, void *buf, int recd_bytes);
 int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
 								int recd_bytes);
 int diag_process_dci_transaction(unsigned char *buf, int len);
-void extract_dci_pkt_rsp(struct diag_smd_info *smd_info, unsigned char *buf,
-								int len);
+void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
+			 struct diag_smd_info *smd_info);
 struct diag_dci_client_tbl *diag_dci_get_client_entry(void);
 /* DCI Log streaming functions */
 void create_dci_log_mask_tbl(unsigned char *tbl_buf);
