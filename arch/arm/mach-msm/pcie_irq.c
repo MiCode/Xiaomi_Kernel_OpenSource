@@ -173,6 +173,8 @@ int arch_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
 	msg.data = irq - irq_find_mapping(dev->irq_domain, 0);
 	write_msi_msg(irq, &msg);
 
+	irq_set_chip_and_handler(irq, &pcie_msi_chip, handle_simple_irq);
+	set_irq_flags(irq, IRQF_VALID);
 	return 0;
 }
 
