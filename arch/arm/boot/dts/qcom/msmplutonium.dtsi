@@ -11,6 +11,7 @@
  */
 
 #include "skeleton64.dtsi"
+#include <dt-bindings/clock/msm-clocks-plutonium.h>
 
 / {
 	model = "Qualcomm MSM plutonium";
@@ -117,6 +118,21 @@
 		reg = <0xf991f000 0x1000>;
 		interrupts = <0 109 0>;
 		status = "disabled";
+	};
+
+	clock_gcc: qcom,gcc {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
+	clock_mmss: qcom,mmsscc {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
+	clock_rpm: qcom,rpmcc {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
 	};
 };
 
