@@ -4179,8 +4179,7 @@ static void pp_ad_calc_worker(struct work_struct *work)
 						MDSS_MDP_REG_AD_BL_OUT);
 				if (ad->state & PP_AD_STATE_BL_LIN) {
 					bl = bl >> ad->bl_bright_shift;
-					bl = min_t(u32, bl,
-						MDSS_MAX_BL_BRIGHTNESS);
+					bl = min_t(u32, bl, (AD_BL_LIN_LEN-1));
 					bl = ad->bl_lin_inv[bl];
 					bl = bl << ad->bl_bright_shift;
 				}
