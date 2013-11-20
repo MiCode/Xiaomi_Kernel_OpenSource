@@ -421,6 +421,11 @@ static enum msm_cpu cpu_of_id[] = {
 
 	/* krypton IDs */
 	[187] = MSM_CPU_KRYPTON,
+	[227] = MSM_CPU_KRYPTON,
+	[228] = MSM_CPU_KRYPTON,
+	[229] = MSM_CPU_KRYPTON,
+	[230] = MSM_CPU_KRYPTON,
+	[231] = MSM_CPU_KRYPTON,
 
 	/* FSM9900 ID */
 	[188] = FSM_CPU_9900,
