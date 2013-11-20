@@ -3088,7 +3088,7 @@ static struct clk_lookup msm_clocks_8226[] = {
 	CLK_LOOKUP("mem_clk",    gcc_boot_rom_ahb_clk.c, "fc880000.qcom,mss"),
 
 	/* NFC */
-	CLK_LOOKUP("ref_clk",            cxo_d1_a_pin.c, "2-000e"),
+	CLK_LOOKUP("ref_clk",            cxo_d1_pin.c, "2-000e"),
 	CLK_LOOKUP("bb_clk2",            cxo_d1.c, ""),
 
 	/* PIL-PRONTO */
