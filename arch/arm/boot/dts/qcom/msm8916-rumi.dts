@@ -12,8 +12,8 @@
 
 /dts-v1/;
 
-/include/ "msm8916.dtsi"
-/include/ "msm8916-pinctrl.dtsi"
+#include "msm8916.dtsi"
+#include "msm8916-pinctrl.dtsi"
 
 / {
 	model = "Qualcomm MSM8916 RUMI";
