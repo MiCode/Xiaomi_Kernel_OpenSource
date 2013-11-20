@@ -146,6 +146,16 @@
 			status = "okay";
 		};
 
+		/* pcie LDO12 */
+		pma8084_l12: regulator@4b00 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,enable-time = <500>;
+			qcom,pull-down-enable = <1>;
+			regulator-always-on;
+			status = "okay";
+		};
+
 		/* HVDDA_BBRX_CHx; VDDA_TXDACx */
 		pma8084_l14: regulator@4d00 {
 			regulator-min-microvolt = <1800000>;
@@ -252,4 +262,21 @@
 
 &rpm_bus {
 
+};
+
+&soc {
+	pcie0_power_en_vreg: pcie0_power_en_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "pcie0_power_en_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&pma8084_gpios 16 0>;
+	};
+	pcie1_power_en_vreg: pcie1_power_en_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "pcie1_power_en_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&pma8084_gpios 22 0>;
+	};
 };
