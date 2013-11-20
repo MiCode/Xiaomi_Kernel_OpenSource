@@ -1835,6 +1835,43 @@ out:
 }
 
 /**
+ * ufshcd_query_attr_retry() - API function for sending query
+ * attribute with retries
+ * @hba: per-adapter instance
+ * @opcode: attribute opcode
+ * @idn: attribute idn to access
+ * @index: index field
+ * @selector: selector field
+ * @attr_val: the attribute value after the query request
+ * completes
+ *
+ * Returns 0 for success, non-zero in case of failure
+*/
+int ufshcd_query_attr_retry(struct ufs_hba *hba, enum query_opcode opcode,
+			enum attr_idn idn, u8 index, u8 selector,
+			u32 *attr_val)
+{
+	int ret = 0;
+	u32 retries;
+
+	 for (retries = QUERY_REQ_RETRIES; retries > 0; retries--) {
+		ret = ufshcd_query_attr(hba, opcode, idn, index,
+						selector, attr_val);
+		if (ret)
+			dev_dbg(hba->dev, "%s: failed with error %d\n",
+				__func__, ret);
+		else
+			break;
+	}
+
+	if (ret)
+		dev_err(hba->dev,
+			"%s: query attribute, idn %d, failed with error %d after %d retires\n",
+			__func__, idn, ret, retries);
+	return ret;
+}
+
+/**
  * ufshcd_query_descriptor - API function for sending descriptor requests
  * hba: per-adapter instance
  * opcode: attribute opcode
@@ -4232,24 +4269,6 @@ out:
 	return icc_level;
 }
 
-static int ufshcd_set_icc_levels_attr(struct ufs_hba *hba, u32 icc_level)
-{
-	int ret = 0;
-	int retries;
-
-	for (retries = QUERY_REQ_RETRIES; retries > 0; retries--) {
-		/* write attribute */
-		ret = ufshcd_query_attr(hba, UPIU_QUERY_OPCODE_WRITE_ATTR,
-			QUERY_ATTR_IDN_ACTIVE_ICC_LVL, 0, 0, &icc_level);
-		if (!ret)
-			break;
-
-		dev_dbg(hba->dev, "%s: failed with error %d\n", __func__, ret);
-	}
-
-	return ret;
-}
-
 static void ufshcd_init_icc_levels(struct ufs_hba *hba)
 {
 	int ret;
@@ -4270,8 +4289,9 @@ static void ufshcd_init_icc_levels(struct ufs_hba *hba)
 	dev_dbg(hba->dev, "%s: setting icc_level 0x%x",
 			__func__, hba->init_prefetch_data.icc_level);
 
-	ret = ufshcd_set_icc_levels_attr(hba,
-					 hba->init_prefetch_data.icc_level);
+	ret = ufshcd_query_attr_retry(hba, UPIU_QUERY_OPCODE_WRITE_ATTR,
+		QUERY_ATTR_IDN_ACTIVE_ICC_LVL, 0, 0,
+		&hba->init_prefetch_data.icc_level);
 
 	if (ret)
 		dev_err(hba->dev,
@@ -4356,18 +4376,10 @@ static int ufshcd_get_device_ref_clk(struct ufs_hba *hba)
 {
 	int err = 0;
 	int val = -1;
-	int retries;
 	char *arr[] = {"19.2 MHz", "26 MHz", "38.4 MHz", "52 MHz"};
 
-	for (retries = QUERY_REQ_RETRIES; retries > 0; retries--) {
-		/* write attribute */
-		err = ufshcd_query_attr(hba, UPIU_QUERY_OPCODE_READ_ATTR,
+	err = ufshcd_query_attr_retry(hba, UPIU_QUERY_OPCODE_READ_ATTR,
 			QUERY_ATTR_IDN_REF_CLK_FREQ, 0, 0, &val);
-		if (!err)
-			break;
-
-		dev_dbg(hba->dev, "%s: failed with error %d\n", __func__, err);
-	}
 
 	if (err || val >= sizeof(arr) || val < 0) {
 		dev_err(hba->dev, "%s: err = %d, val = %d",
