@@ -1,5 +1,5 @@
 /*
- * wm5110-tables.c  --  WM5110 data tables
+ * florida-tables.c  --  data tables for Florida-class codecs
  *
  * Copyright 2012 Wolfson Microelectronics plc
  *
@@ -18,10 +18,10 @@
 
 #include "arizona.h"
 
-#define WM5110_NUM_AOD_ISR 2
-#define WM5110_NUM_ISR 5
+#define FLORIDA_NUM_AOD_ISR 2
+#define FLORIDA_NUM_ISR 5
 
-static const struct reg_default wm5110_reva_patch[] = {
+static const struct reg_default florida_reva_patch[] = {
 	{ 0x80, 0x3 },
 	{ 0x44, 0x20 },
 	{ 0x45, 0x40 },
@@ -134,7 +134,7 @@ static const struct reg_default wm5110_reva_patch[] = {
 	{ 0x209, 0x002A },
 };
 
-static const struct reg_default wm5110_revb_patch[] = {
+static const struct reg_default florida_revb_patch[] = {
 	{ 0x80, 0x3 },
 	{ 0x36e, 0x0210 },
 	{ 0x370, 0x0210 },
@@ -224,7 +224,7 @@ static const struct reg_default wm5110_revb_patch[] = {
 	{ 0x80, 0x0 },
 };
 
-static const struct reg_default wm5110_revd_patch[] = {
+static const struct reg_default florida_revd_patch[] = {
 	{ 0x80, 0x3 },
 	{ 0x80, 0x3 },
 	{ 0x393, 0x27 },
@@ -250,28 +250,28 @@ static const struct reg_default wm5110_revd_patch[] = {
 };
 
 /* We use a function so we can use ARRAY_SIZE() */
-int wm5110_patch(struct arizona *arizona)
+int florida_patch(struct arizona *arizona)
 {
 	switch (arizona->rev) {
 	case 0:
 		return regmap_register_patch(arizona->regmap,
-					     wm5110_reva_patch,
-					     ARRAY_SIZE(wm5110_reva_patch));
+					     florida_reva_patch,
+					     ARRAY_SIZE(florida_reva_patch));
 	case 1:
 		return regmap_register_patch(arizona->regmap,
-					     wm5110_revb_patch,
-					     ARRAY_SIZE(wm5110_revb_patch));
+					     florida_revb_patch,
+					     ARRAY_SIZE(florida_revb_patch));
 	case 3:
 		return regmap_register_patch(arizona->regmap,
-					     wm5110_revd_patch,
-					     ARRAY_SIZE(wm5110_revd_patch));
+					     florida_revd_patch,
+					     ARRAY_SIZE(florida_revd_patch));
 	default:
 		return 0;
 	}
 }
-EXPORT_SYMBOL_GPL(wm5110_patch);
+EXPORT_SYMBOL_GPL(florida_patch);
 
-static const struct regmap_irq wm5110_aod_irqs[ARIZONA_NUM_IRQ] = {
+static const struct regmap_irq florida_aod_irqs[ARIZONA_NUM_IRQ] = {
 	[ARIZONA_IRQ_MICD_CLAMP_FALL] = {
 		.mask = ARIZONA_MICD_CLAMP_FALL_EINT1
 	},
@@ -284,20 +284,20 @@ static const struct regmap_irq wm5110_aod_irqs[ARIZONA_NUM_IRQ] = {
 	[ARIZONA_IRQ_JD_RISE] = { .mask = ARIZONA_JD1_RISE_EINT1 },
 };
 
-const struct regmap_irq_chip wm5110_aod = {
-	.name = "wm5110 AOD",
+const struct regmap_irq_chip florida_aod = {
+	.name = "florida AOD",
 	.status_base = ARIZONA_AOD_IRQ1,
 	.mask_base = ARIZONA_AOD_IRQ_MASK_IRQ1,
 	.ack_base = ARIZONA_AOD_IRQ1,
 	.wake_base = ARIZONA_WAKE_CONTROL,
 	.wake_invert = 1,
 	.num_regs = 1,
-	.irqs = wm5110_aod_irqs,
-	.num_irqs = ARRAY_SIZE(wm5110_aod_irqs),
+	.irqs = florida_aod_irqs,
+	.num_irqs = ARRAY_SIZE(florida_aod_irqs),
 };
-EXPORT_SYMBOL_GPL(wm5110_aod);
+EXPORT_SYMBOL_GPL(florida_aod);
 
-static const struct regmap_irq wm5110_irqs[ARIZONA_NUM_IRQ] = {
+static const struct regmap_irq florida_irqs[ARIZONA_NUM_IRQ] = {
 	[ARIZONA_IRQ_GP4] = { .reg_offset = 0, .mask = ARIZONA_GP4_EINT1 },
 	[ARIZONA_IRQ_GP3] = { .reg_offset = 0, .mask = ARIZONA_GP3_EINT1 },
 	[ARIZONA_IRQ_GP2] = { .reg_offset = 0, .mask = ARIZONA_GP2_EINT1 },
@@ -434,18 +434,18 @@ static const struct regmap_irq wm5110_irqs[ARIZONA_NUM_IRQ] = {
 	},
 };
 
-const struct regmap_irq_chip wm5110_irq = {
-	.name = "wm5110 IRQ",
+const struct regmap_irq_chip florida_irq = {
+	.name = "florida IRQ",
 	.status_base = ARIZONA_INTERRUPT_STATUS_1,
 	.mask_base = ARIZONA_INTERRUPT_STATUS_1_MASK,
 	.ack_base = ARIZONA_INTERRUPT_STATUS_1,
 	.num_regs = 5,
-	.irqs = wm5110_irqs,
-	.num_irqs = ARRAY_SIZE(wm5110_irqs),
+	.irqs = florida_irqs,
+	.num_irqs = ARRAY_SIZE(florida_irqs),
 };
-EXPORT_SYMBOL_GPL(wm5110_irq);
+EXPORT_SYMBOL_GPL(florida_irq);
 
-static const struct reg_default wm5110_reg_default[] = {
+static const struct reg_default florida_reg_default[] = {
 	{ 0x00000008, 0x0019 },    /* R8     - Ctrl IF SPI CFG 1 */
 	{ 0x00000009, 0x0001 },    /* R9     - Ctrl IF I2C1 CFG 1 */
 	{ 0x0000000A, 0x0001 },    /* R10    - Ctrl IF I2C2 CFG 1 */
@@ -1411,7 +1411,7 @@ static const struct reg_default wm5110_reg_default[] = {
 	{ 0x00001404, 0x0000 },    /* R5124  - DSP4 Status 1 */
 };
 
-static bool wm5110_is_rev_b_adsp_memory(unsigned int reg)
+static bool florida_is_rev_b_adsp_memory(unsigned int reg)
 {
 	if ((reg >= 0x100000 && reg < 0x103000) ||
 	    (reg >= 0x180000 && reg < 0x181000) ||
@@ -1434,7 +1434,7 @@ static bool wm5110_is_rev_b_adsp_memory(unsigned int reg)
 		return false;
 }
 
-static bool wm5110_is_rev_d_adsp_memory(unsigned int reg)
+static bool florida_is_rev_d_adsp_memory(unsigned int reg)
 {
 	if ((reg >= 0x100000 && reg < 0x106000) ||
 	    (reg >= 0x180000 && reg < 0x182000) ||
@@ -1457,19 +1457,19 @@ static bool wm5110_is_rev_d_adsp_memory(unsigned int reg)
 		return false;
 }
 
-static bool wm5110_is_adsp_memory(struct device *dev, unsigned int reg)
+static bool florida_is_adsp_memory(struct device *dev, unsigned int reg)
 {
 	struct arizona *arizona = dev_get_drvdata(dev);
 
 	switch (arizona->rev) {
 	case 0 ... 2:
-		return wm5110_is_rev_b_adsp_memory(reg);
+		return florida_is_rev_b_adsp_memory(reg);
 	default:
-		return wm5110_is_rev_d_adsp_memory(reg);
+		return florida_is_rev_d_adsp_memory(reg);
 	}
 }
 
-static bool wm5110_readable_register(struct device *dev, unsigned int reg)
+static bool florida_readable_register(struct device *dev, unsigned int reg)
 {
 	switch (reg) {
 	case ARIZONA_SOFTWARE_RESET:
@@ -2498,11 +2498,11 @@ static bool wm5110_readable_register(struct device *dev, unsigned int reg)
 	case ARIZONA_DSP4_SCRATCH_3:
 		return true;
 	default:
-		return wm5110_is_adsp_memory(dev, reg);
+		return florida_is_adsp_memory(dev, reg);
 	}
 }
 
-static bool wm5110_volatile_register(struct device *dev, unsigned int reg)
+static bool florida_volatile_register(struct device *dev, unsigned int reg)
 {
 	switch (reg) {
 	case ARIZONA_SOFTWARE_RESET:
@@ -2575,37 +2575,37 @@ static bool wm5110_volatile_register(struct device *dev, unsigned int reg)
 	case ARIZONA_DSP4_SCRATCH_3:
 		return true;
 	default:
-		return wm5110_is_adsp_memory(dev, reg);
+		return florida_is_adsp_memory(dev, reg);
 	}
 }
 
-#define WM5110_MAX_REGISTER 0x4a9fff
+#define FLORIDA_MAX_REGISTER 0x4a9fff
 
-const struct regmap_config wm5110_spi_regmap = {
+const struct regmap_config florida_spi_regmap = {
 	.reg_bits = 32,
 	.pad_bits = 16,
 	.val_bits = 16,
 
-	.max_register = WM5110_MAX_REGISTER,
-	.readable_reg = wm5110_readable_register,
-	.volatile_reg = wm5110_volatile_register,
+	.max_register = FLORIDA_MAX_REGISTER,
+	.readable_reg = florida_readable_register,
+	.volatile_reg = florida_volatile_register,
 
 	.cache_type = REGCACHE_RBTREE,
-	.reg_defaults = wm5110_reg_default,
-	.num_reg_defaults = ARRAY_SIZE(wm5110_reg_default),
+	.reg_defaults = florida_reg_default,
+	.num_reg_defaults = ARRAY_SIZE(florida_reg_default),
 };
-EXPORT_SYMBOL_GPL(wm5110_spi_regmap);
+EXPORT_SYMBOL_GPL(florida_spi_regmap);
 
-const struct regmap_config wm5110_i2c_regmap = {
+const struct regmap_config florida_i2c_regmap = {
 	.reg_bits = 32,
 	.val_bits = 16,
 
-	.max_register = WM5110_MAX_REGISTER,
-	.readable_reg = wm5110_readable_register,
-	.volatile_reg = wm5110_volatile_register,
+	.max_register = FLORIDA_MAX_REGISTER,
+	.readable_reg = florida_readable_register,
+	.volatile_reg = florida_volatile_register,
 
 	.cache_type = REGCACHE_RBTREE,
-	.reg_defaults = wm5110_reg_default,
-	.num_reg_defaults = ARRAY_SIZE(wm5110_reg_default),
+	.reg_defaults = florida_reg_default,
+	.num_reg_defaults = ARRAY_SIZE(florida_reg_default),
 };
-EXPORT_SYMBOL_GPL(wm5110_i2c_regmap);
+EXPORT_SYMBOL_GPL(florida_i2c_regmap);

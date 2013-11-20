@@ -41,9 +41,9 @@ static int arizona_spi_probe(struct spi_device *spi)
 		regmap_config = &wm5102_spi_regmap;
 		break;
 #endif
-#ifdef CONFIG_MFD_WM5110
+#ifdef CONFIG_MFD_FLORIDA
 	case WM5110:
-		regmap_config = &wm5110_spi_regmap;
+		regmap_config = &florida_spi_regmap;
 		break;
 #endif
 	default:

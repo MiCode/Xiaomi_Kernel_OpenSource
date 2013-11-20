@@ -40,8 +40,8 @@ obj-$(CONFIG_MFD_ARIZONA_SPI)	+= arizona-spi.o
 ifneq ($(CONFIG_MFD_WM5102),n)
 obj-$(CONFIG_MFD_ARIZONA)	+= wm5102-tables.o
 endif
-ifneq ($(CONFIG_MFD_WM5110),n)
-obj-$(CONFIG_MFD_ARIZONA)	+= wm5110-tables.o
+ifneq ($(CONFIG_MFD_FLORIDA),n)
+obj-$(CONFIG_MFD_ARIZONA)	+= florida-tables.o
 endif
 ifneq ($(CONFIG_MFD_WM8997),n)
 obj-$(CONFIG_MFD_ARIZONA)	+= wm8997-tables.o
