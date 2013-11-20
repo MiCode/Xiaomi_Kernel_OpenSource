@@ -35,6 +35,8 @@ extern void coresight_cti_unmap_trigin(
 extern void coresight_cti_unmap_trigout(
 			struct coresight_cti *cti, int trig, int ch);
 extern void coresight_cti_reset(struct coresight_cti *cti);
+extern int coresight_cti_set_trig(struct coresight_cti *cti, int ch);
+extern void coresight_cti_clear_trig(struct coresight_cti *cti, int ch);
 extern int coresight_cti_pulse_trig(struct coresight_cti *cti, int ch);
 #else
 static inline struct coresight_cti *coresight_cti_get(const char *name)
@@ -57,6 +59,12 @@ static inline void coresight_cti_unmap_trigin(
 static inline void coresight_cti_unmap_trigout(
 			struct coresight_cti *cti, int trig, int ch) {}
 static inline void coresight_cti_reset(struct coresight_cti *cti) {}
+static inline int coresight_cti_set_trig(struct coresight_cti *cti, int ch)
+{
+	return -ENOSYS;
+}
+static inline void coresight_cti_clear_trig(struct coresight_cti *cti, int ch)
+{}
 static inline int coresight_cti_pulse_trig(struct coresight_cti *cti, int ch)
 {
 	return -ENOSYS;
