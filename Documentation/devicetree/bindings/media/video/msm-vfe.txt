@@ -11,7 +11,6 @@ Required properties:
 - reg-names : should specify relevant names to each reg property defined.
     - "vfe" - Required.
     - "vfe_vbif" - Optional for "vfe32". Required for "vfe40".
-    - "tcsr" - Optional for "vfe32". Required for "vfe40".
 - interrupts : should contain the vfe interrupt.
 - interrupt-names : should specify relevant names to each interrupts
   property defined.

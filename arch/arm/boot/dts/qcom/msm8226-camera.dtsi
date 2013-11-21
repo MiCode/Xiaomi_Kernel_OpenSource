@@ -74,9 +74,8 @@
 		cell-index = <0>;
 		compatible = "qcom,vfe40";
 		reg = <0xfda10000 0x1000>,
-			<0xfda40000 0x200>,
-			<0xfd4a8000 0x4>;
-		reg-names = "vfe", "vfe_vbif", "tcsr";
+			<0xfda40000 0x200>;
+		reg-names = "vfe", "vfe_vbif";
 		interrupts = <0 57 0>;
 		interrupt-names = "vfe";
 		vdd-supply = <&gdsc_vfe>;
