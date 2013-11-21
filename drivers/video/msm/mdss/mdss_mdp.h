@@ -19,6 +19,7 @@
 #include <linux/msm_mdp.h>
 #include <linux/platform_device.h>
 #include <linux/notifier.h>
+#include <linux/irqreturn.h>
 
 #include "mdss.h"
 #include "mdss_mdp_hwio.h"
