@@ -64,6 +64,27 @@ struct msm_vidc_frame_bits_info_payload {
 	unsigned int frame_bits;
 	unsigned int header_bits;
 };
+struct msm_vidc_s3d_frame_packing_payload {
+	unsigned int fpa_id;
+	unsigned int cancel_flag;
+	unsigned int fpa_type;
+	unsigned int quin_cunx_flag;
+	unsigned int content_interprtation_type;
+	unsigned int spatial_flipping_flag;
+	unsigned int frame0_flipped_flag;
+	unsigned int field_views_flag;
+	unsigned int current_frame_is_frame0_flag;
+	unsigned int frame0_self_contained_flag;
+	unsigned int frame1_self_contained_flag;
+	unsigned int frame0_graid_pos_x;
+	unsigned int frame0_graid_pos_y;
+	unsigned int frame1_graid_pos_x;
+	unsigned int frame1_graid_pos_y;
+	unsigned int fpa_reserved_byte;
+	unsigned int fpa_repetition_period;
+	unsigned int fpa_extension_flag;
+};
+
 enum msm_vidc_extradata_type {
 	MSM_VIDC_EXTRADATA_NONE = 0x00000000,
 	MSM_VIDC_EXTRADATA_MB_QUANTIZATION = 0x00000001,
