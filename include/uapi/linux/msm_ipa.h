@@ -156,6 +156,12 @@ enum ipa_client_type {
 	IPA_CLIENT_MAX,
 };
 
+#define IPA_CLIENT_IS_USB_CONS(client) \
+	((client) == IPA_CLIENT_USB_CONS || \
+	(client) == IPA_CLIENT_USB2_CONS || \
+	(client) == IPA_CLIENT_USB3_CONS || \
+	(client) == IPA_CLIENT_USB4_CONS)
+
 /**
  * enum ipa_ip_type - Address family: IPv4 or IPv6
  */
