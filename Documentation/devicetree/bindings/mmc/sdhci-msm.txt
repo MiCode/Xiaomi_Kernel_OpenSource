@@ -47,6 +47,11 @@ In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltag
 	Tlmm pins are specified as <clk cmd data> and starting with eMMC5.0 as
 	<clk cmd data rclk>
 
+	- Refer to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
+	  for following optional properties:
+		- pinctrl-names
+		- pinctrl-0, pinctrl-1,.. pinctrl-n
+
 Example:
 
 	aliases {
@@ -69,6 +74,11 @@ Example:
 		qcom,vdd-io-lpm-sup;
 		qcom,vdd-io-voltage-level = <1800000 2950000>;
 		qcom,vdd-io-current-level = <6 22000>;
+
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on>;
+		pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_on &sdc1_data_on>;
+
 
                 qcom,bus-width = <4>;
 		qcom,nonremovable;

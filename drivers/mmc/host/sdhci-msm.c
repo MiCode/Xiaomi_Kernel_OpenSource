@@ -35,6 +35,8 @@
 #include <linux/mmc/slot-gpio.h>
 #include <linux/dma-mapping.h>
 #include <linux/iopoll.h>
+#include <linux/pinctrl/consumer.h>
+#include <linux/iopoll.h>
 #include <linux/msm-bus.h>
 
 #include "sdhci-pltfm.h"
@@ -225,8 +227,13 @@ struct sdhci_msm_pin_data {
 	 * = 1 if controller pins are using gpios
 	 * = 0 if controller has dedicated MSM pads
 	 */
-	bool cfg_sts;
 	struct sdhci_msm_gpio_data *gpio_data;
+};
+
+struct sdhci_pinctrl_data {
+	struct pinctrl          *pctrl;
+	struct pinctrl_state    *pins_active;
+	struct pinctrl_state    *pins_sleep;
 };
 
 struct sdhci_msm_bus_voting_data {
@@ -245,7 +252,9 @@ struct sdhci_msm_pltfm_data {
 	unsigned long mmc_bus_width;
 	struct sdhci_msm_slot_reg_data *vreg_data;
 	bool nonremovable;
+	bool pin_cfg_sts;
 	struct sdhci_msm_pin_data *pin_data;
+	struct sdhci_pinctrl_data *pctrl_data;
 	u32 cpu_dma_latency_us;
 	int status_gpio; /* card detection GPIO that is configured as IRQ */
 	struct sdhci_msm_bus_voting_data *voting_data;
@@ -1001,16 +1010,43 @@ free_gpios:
 	return ret;
 }
 
+static int sdhci_msm_setup_pinctrl(struct sdhci_msm_pltfm_data *pdata,
+		bool enable)
+{
+	int ret = 0;
+
+	if (enable)
+		ret = pinctrl_select_state(pdata->pctrl_data->pctrl,
+			pdata->pctrl_data->pins_active);
+	else
+		ret = pinctrl_select_state(pdata->pctrl_data->pctrl,
+			pdata->pctrl_data->pins_sleep);
+
+	if (ret < 0)
+		pr_err("%s state for pinctrl failed with %d\n",
+			enable ? "Enabling" : "Disabling", ret);
+
+	return ret;
+}
+
 static int sdhci_msm_setup_pins(struct sdhci_msm_pltfm_data *pdata, bool enable)
 {
 	int ret = 0;
 
-	if (!pdata->pin_data || (pdata->pin_data->cfg_sts == enable))
+	if  (pdata->pin_cfg_sts == enable) {
 		return 0;
+	} else if (pdata->pctrl_data) {
+		ret = sdhci_msm_setup_pinctrl(pdata, enable);
+		goto out;
+	} else if (!pdata->pin_data) {
+		return 0;
+	}
 
 	ret = sdhci_msm_setup_gpio(pdata, enable);
+
+out:
 	if (!ret)
-		pdata->pin_data->cfg_sts = enable;
+		pdata->pin_cfg_sts = enable;
 
 	return ret;
 }
@@ -1119,6 +1155,46 @@ static int sdhci_msm_dt_parse_vreg_info(struct device *dev,
 	return ret;
 }
 
+static int sdhci_msm_parse_pinctrl_info(struct device *dev,
+		struct sdhci_msm_pltfm_data *pdata)
+{
+	struct sdhci_pinctrl_data *pctrl_data;
+	struct pinctrl *pctrl;
+	int ret = 0;
+
+	/* Try to obtain pinctrl handle */
+	pctrl = devm_pinctrl_get(dev);
+	if (IS_ERR(pctrl)) {
+		ret = PTR_ERR(pctrl);
+		goto out;
+	}
+	pctrl_data = devm_kzalloc(dev, sizeof(*pctrl_data), GFP_KERNEL);
+	if (!pctrl_data) {
+		dev_err(dev, "No memory for sdhci_pinctrl_data\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+	pctrl_data->pctrl = pctrl;
+	/* Look-up and keep the states handy to be used later */
+	pctrl_data->pins_active = pinctrl_lookup_state(
+			pctrl_data->pctrl, "active");
+	if (IS_ERR(pctrl_data->pins_active)) {
+		ret = PTR_ERR(pctrl_data->pins_active);
+		dev_err(dev, "Could not get active pinstates, err:%d\n", ret);
+		goto out;
+	}
+	pctrl_data->pins_sleep = pinctrl_lookup_state(
+			pctrl_data->pctrl, "sleep");
+	if (IS_ERR(pctrl_data->pins_sleep)) {
+		ret = PTR_ERR(pctrl_data->pins_sleep);
+		dev_err(dev, "Could not get sleep pinstates, err:%d\n", ret);
+		goto out;
+	}
+	pdata->pctrl_data = pctrl_data;
+out:
+	return ret;
+}
+
 #define GPIO_NAME_MAX_LEN 32
 static int sdhci_msm_dt_parse_gpio_info(struct device *dev,
 		struct sdhci_msm_pltfm_data *pdata)
@@ -1127,6 +1203,16 @@ static int sdhci_msm_dt_parse_gpio_info(struct device *dev,
 	struct sdhci_msm_pin_data *pin_data;
 	struct device_node *np = dev->of_node;
 
+	ret = sdhci_msm_parse_pinctrl_info(dev, pdata);
+	if (!ret) {
+		goto out;
+	} else if (ret == -EPROBE_DEFER) {
+		dev_err(dev, "Pinctrl framework not registered, err:%d\n", ret);
+		goto out;
+	} else {
+		dev_err(dev, "Parsing Pinctrl failed with %d, falling back on GPIO lib\n",
+			ret);
+	}
 	pin_data = devm_kzalloc(dev, sizeof(*pin_data), GFP_KERNEL);
 	if (!pin_data) {
 		dev_err(dev, "No memory for pin_data\n");
@@ -2894,8 +2980,8 @@ static int sdhci_msm_remove(struct platform_device *pdev)
 
 	sdhci_msm_vreg_init(&pdev->dev, msm_host->pdata, false);
 
-	if (pdata->pin_data)
-		sdhci_msm_setup_gpio(pdata, false);
+	sdhci_msm_setup_pins(pdata, true);
+	sdhci_msm_setup_pins(pdata, false);
 
 	if (msm_host->msm_bus_vote.client_handle) {
 		sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
