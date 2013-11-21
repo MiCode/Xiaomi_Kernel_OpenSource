@@ -1296,7 +1296,7 @@ static void hfi_process_sys_get_prop_image_version(
 	version[i] = '\0';
 	dprintk(VIDC_DBG, "F/W version: %s\n", version);
 
-	smem_table_ptr = smem_get_entry_to_proc(SMEM_IMAGE_VERSION_TABLE,
+	smem_table_ptr = smem_get_entry(SMEM_IMAGE_VERSION_TABLE,
 			&smem_block_size, 0, SMEM_ANY_HOST_FLAG);
 	if (smem_table_ptr &&
 			((smem_image_index_venus +

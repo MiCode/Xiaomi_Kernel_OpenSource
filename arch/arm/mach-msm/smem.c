@@ -268,7 +268,7 @@ phys_addr_t smem_virt_to_phys(void *smem_address)
 EXPORT_SYMBOL(smem_virt_to_phys);
 
 /**
- * __smem_get_entry - Get pointer and size of existing SMEM item
+ * __smem_get_entry_nonsecure - Get pointer and size of existing SMEM item
  *
  * @id:              ID of SMEM item
  * @size:            Pointer to size variable for storing the result
@@ -276,7 +276,7 @@ EXPORT_SYMBOL(smem_virt_to_phys);
  * @use_rspinlock:   True to use the remote spinlock
  * @returns:         Pointer to SMEM item or NULL if it doesn't exist
  */
-static void *__smem_get_entry(unsigned id, unsigned *size,
+static void *__smem_get_entry_nonsecure(unsigned id, unsigned *size,
 		bool skip_init_check, bool use_rspinlock)
 {
 	struct smem_shared *shared = smem_ram_base;
@@ -314,7 +314,7 @@ static void *__smem_get_entry(unsigned id, unsigned *size,
 }
 
 /**
- * __smem_get_entry_to_proc - Get pointer and size of existing SMEM item with
+ * __smem_get_entry_secure - Get pointer and size of existing SMEM item with
  *                   security support
  *
  * @id:              ID of SMEM item
@@ -325,7 +325,7 @@ static void *__smem_get_entry(unsigned id, unsigned *size,
  * @use_rspinlock:   True to use the remote spinlock
  * @returns:         Pointer to SMEM item or NULL if it doesn't exist
  */
-static void *__smem_get_entry_to_proc(unsigned id,
+static void *__smem_get_entry_secure(unsigned id,
 					unsigned *size,
 					unsigned to_proc,
 					unsigned flags,
@@ -358,7 +358,7 @@ static void *__smem_get_entry_to_proc(unsigned id,
 	}
 
 	if (flags & SMEM_ANY_HOST_FLAG || !partitions[to_proc].offset)
-		return __smem_get_entry(id, size, skip_init_check,
+		return __smem_get_entry_nonsecure(id, size, skip_init_check,
 								use_rspinlock);
 
 	partition_num = partitions[to_proc].partition_num;
@@ -450,7 +450,7 @@ static void *__smem_find(unsigned id, unsigned size_in, bool skip_init_check)
 	unsigned size;
 	void *ptr;
 
-	ptr = __smem_get_entry(id, &size, skip_init_check, true);
+	ptr = __smem_get_entry_nonsecure(id, &size, skip_init_check, true);
 	if (!ptr)
 		return 0;
 
@@ -481,7 +481,7 @@ void *smem_find(unsigned id, unsigned size_in, unsigned to_proc, unsigned flags)
 	SMEM_DBG("%s(%u, %u, %u, %u)\n", __func__, id, size_in, to_proc,
 									flags);
 
-	ptr = smem_get_entry_to_proc(id, &size, to_proc, flags);
+	ptr = smem_get_entry(id, &size, to_proc, flags);
 	if (!ptr)
 		return 0;
 
@@ -694,7 +694,7 @@ void *smem_alloc(unsigned id, unsigned size_in, unsigned to_proc,
 	a_size_in = ALIGN(size_in, 8);
 	remote_spin_lock_irqsave(&remote_spinlock, lflags);
 
-	ret = __smem_get_entry_to_proc(id, &size_out, to_proc, flags, true,
+	ret = __smem_get_entry_secure(id, &size_out, to_proc, flags, true,
 									false);
 	if (ret) {
 		SMEM_INFO("%s: %u already allocated\n", __func__, id);
@@ -728,7 +728,7 @@ void *smem_alloc(unsigned id, unsigned size_in, unsigned to_proc,
 EXPORT_SYMBOL(smem_alloc);
 
 /**
- * smem_get_entry_to_proc - Get existing item with security support
+ * smem_get_entry - Get existing item with security support
  *
  * @id:       ID of SMEM item
  * @size:     Pointer to size variable for storing the result
@@ -736,14 +736,14 @@ EXPORT_SYMBOL(smem_alloc);
  * @flags:    Item attribute flags
  * @returns:  Pointer to SMEM item or NULL if it doesn't exist
  */
-void *smem_get_entry_to_proc(unsigned id, unsigned *size, unsigned to_proc,
+void *smem_get_entry(unsigned id, unsigned *size, unsigned to_proc,
 								unsigned flags)
 {
 	SMEM_DBG("%s(%u, %u, %u, %u)\n", __func__, id, *size, to_proc, flags);
 
-	return __smem_get_entry_to_proc(id, size, to_proc, flags, false, true);
+	return __smem_get_entry_secure(id, size, to_proc, flags, false, true);
 }
-EXPORT_SYMBOL(smem_get_entry_to_proc);
+EXPORT_SYMBOL(smem_get_entry);
 
 /**
  * smem_get_entry_no_rlock - Get existing item without using remote spinlock
@@ -761,7 +761,7 @@ EXPORT_SYMBOL(smem_get_entry_to_proc);
 void *smem_get_entry_no_rlock(unsigned id, unsigned *size_out, unsigned to_proc,
 								unsigned flags)
 {
-	return __smem_get_entry_to_proc(id, size_out, to_proc, flags, false,
+	return __smem_get_entry_secure(id, size_out, to_proc, flags, false,
 									false);
 }
 EXPORT_SYMBOL(smem_get_entry_no_rlock);

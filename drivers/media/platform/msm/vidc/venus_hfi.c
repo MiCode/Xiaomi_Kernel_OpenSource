@@ -3505,7 +3505,7 @@ int venus_hfi_get_core_capabilities(void)
 	u8 version_info[256];
 	const u32 smem_image_index_venus = 14 * 128;
 
-	smem_table_ptr = smem_get_entry_to_proc(SMEM_IMAGE_VERSION_TABLE,
+	smem_table_ptr = smem_get_entry(SMEM_IMAGE_VERSION_TABLE,
 			&smem_block_size, 0, SMEM_ANY_HOST_FLAG);
 	if (smem_table_ptr &&
 			((smem_image_index_venus + 128) <= smem_block_size))

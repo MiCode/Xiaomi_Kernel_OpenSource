@@ -550,8 +550,7 @@ void smd_diag(void)
 		SMD_INFO("smem: DIAG '%s'\n", x);
 	}
 
-	x = smem_get_entry_to_proc(SMEM_ERR_CRASH_LOG, &size, 0,
-							SMEM_ANY_HOST_FLAG);
+	x = smem_get_entry(SMEM_ERR_CRASH_LOG, &size, 0, SMEM_ANY_HOST_FLAG);
 	if (x != 0) {
 		x[size - 1] = 0;
 		pr_err("smem: CRASH LOG\n'%s'\n", x);
@@ -761,7 +760,7 @@ static void smd_channel_probe_worker(struct work_struct *work)
 
 	r_info = container_of(work, struct remote_proc_info, probe_work);
 
-	shared = smem_get_entry_to_proc(ID_CH_ALLOC_TBL, &tbl_size,
+	shared = smem_get_entry(ID_CH_ALLOC_TBL, &tbl_size,
 							r_info->remote_pid, 0);
 
 	if (!shared) {
@@ -775,7 +774,7 @@ static void smd_channel_probe_worker(struct work_struct *work)
 						tbl_size / sizeof(*shared),
 						r_info);
 
-	shared = smem_get_entry_to_proc(SMEM_CHANNEL_ALLOC_TBL_2, &tbl_size,
+	shared = smem_get_entry(SMEM_CHANNEL_ALLOC_TBL_2, &tbl_size,
 							r_info->remote_pid, 0);
 	if (shared)
 		scan_alloc_table(shared,
@@ -1026,13 +1025,12 @@ void smd_channel_reset(uint32_t restart_pid)
 
 	SMD_POWER_INFO("%s: starting reset\n", __func__);
 
-	shared_pri = smem_get_entry_to_proc(ID_CH_ALLOC_TBL, &pri_size,
-								restart_pid, 0);
+	shared_pri = smem_get_entry(ID_CH_ALLOC_TBL, &pri_size,	restart_pid, 0);
 	if (!shared_pri) {
 		pr_err("%s: allocation table not initialized\n", __func__);
 		return;
 	}
-	shared_sec = smem_get_entry_to_proc(SMEM_CHANNEL_ALLOC_TBL_2, &sec_size,
+	shared_sec = smem_get_entry(SMEM_CHANNEL_ALLOC_TBL_2, &sec_size,
 								restart_pid, 0);
 
 	/* reset SMSM entry */
@@ -1803,7 +1801,7 @@ static int smd_alloc_v2(struct smd_channel *ch, int table_id,
 	}
 	ch->half_ch = get_half_ch_funcs(ch->type);
 
-	buffer = smem_get_entry_to_proc(fifo_id + ch->n, &buffer_sz,
+	buffer = smem_get_entry(fifo_id + ch->n, &buffer_sz,
 							r_info->remote_pid, 0);
 	if (!buffer) {
 		SMD_INFO("smem_get_entry failed\n");
