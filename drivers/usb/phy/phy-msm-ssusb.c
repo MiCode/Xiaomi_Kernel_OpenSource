@@ -420,11 +420,11 @@ static int msm_ssphy_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",
+	ret = of_property_read_u32_array(dev->of_node, "qti,vdd-voltage-level",
 					 (u32 *) phy->vdd_levels,
 					 ARRAY_SIZE(phy->vdd_levels));
 	if (ret) {
-		dev_err(dev, "error reading qcom,vdd-voltage-level property\n");
+		dev_err(dev, "error reading qti,vdd-voltage-level property\n");
 		return ret;
 	}
 
@@ -461,10 +461,10 @@ static int msm_ssphy_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, phy);
 
-	if (of_property_read_bool(dev->of_node, "qcom,vbus-valid-override"))
+	if (of_property_read_bool(dev->of_node, "qti,vbus-valid-override"))
 		phy->phy.flags |= PHY_VBUS_VALID_OVERRIDE;
 
-	if (of_property_read_u32(dev->of_node, "qcom,deemphasis-value",
+	if (of_property_read_u32(dev->of_node, "qti,deemphasis-value",
 						&phy->deemphasis_val))
 		dev_dbg(dev, "unable to read ssphy deemphasis value\n");
 
@@ -510,7 +510,7 @@ static int msm_ssphy_remove(struct platform_device *pdev)
 
 static const struct of_device_id msm_usb_id_table[] = {
 	{
-		.compatible = "qcom,usb-ssphy",
+		.compatible = "qti,usb-ssphy",
 	},
 	{ },
 };

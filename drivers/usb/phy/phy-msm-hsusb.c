@@ -489,16 +489,16 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 				phy->tcsr);
 	}
 
-	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",
+	ret = of_property_read_u32_array(dev->of_node, "qti,vdd-voltage-level",
 					 (u32 *) phy->vdd_levels,
 					 ARRAY_SIZE(phy->vdd_levels));
 	if (ret) {
-		dev_err(dev, "error reading qcom,vdd-voltage-level property\n");
+		dev_err(dev, "error reading qti,vdd-voltage-level property\n");
 		goto err_ret;
 	}
 
 	phy->ext_vbus_id = of_property_read_bool(dev->of_node,
-						"qcom,ext-vbus-id");
+						"qti,ext-vbus-id");
 	phy->phy.dev = dev;
 
 	phy->vdd = devm_regulator_get(dev, "vdd");
@@ -540,7 +540,7 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		goto disable_hs_vdd;
 	}
 
-	if (of_property_read_u32(dev->of_node, "qcom,hsphy-init",
+	if (of_property_read_u32(dev->of_node, "qti,hsphy-init",
 					&phy->hsphy_init_seq))
 		dev_dbg(dev, "unable to read hsphy init seq\n");
 	else if (!phy->hsphy_init_seq)
@@ -548,7 +548,7 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, phy);
 
-	if (of_property_read_bool(dev->of_node, "qcom,vbus-valid-override"))
+	if (of_property_read_bool(dev->of_node, "qti,vbus-valid-override"))
 		phy->phy.flags |= PHY_VBUS_VALID_OVERRIDE;
 
 	phy->phy.init			= msm_hsphy_init;
@@ -592,7 +592,7 @@ static int msm_hsphy_remove(struct platform_device *pdev)
 
 static const struct of_device_id msm_usb_id_table[] = {
 	{
-		.compatible = "qcom,usb-hsphy",
+		.compatible = "qti,usb-hsphy",
 	},
 	{ },
 };

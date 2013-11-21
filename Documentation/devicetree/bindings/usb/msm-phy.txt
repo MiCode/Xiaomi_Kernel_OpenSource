@@ -3,14 +3,14 @@ MSM USB PHY transceivers
 HSUSB PHY
 
 Required properties:
- - compatible: Should be "qcom,usb-hsphy"
+ - compatible: Should be "qti,usb-hsphy"
  - reg: Address and length of the register set for the device
  - <supply-name>-supply: phandle to the regulator device tree node
    Required "supply-name" examples are:
 	"vdd" : vdd supply for HSPHY digital circuit operation
 	"vdda18" : 1.8v supply for HSPHY
 	"vdda33" : 3.3v supply for HSPHY
- - qcom,vdd-voltage-level: This property must be a list of three integer
+ - qti,vdd-voltage-level: This property must be a list of three integer
    values (no, min, max) where each value represents either a voltage in
    microvolts or a value corresponding to voltage corner
 
@@ -19,54 +19,54 @@ Optional properties:
    a block reset, as well as to intialize the internal MUX to select the
    correct controller. If present this must be the second register listed.
 
- - qcom,hsphy-init: Init value used to override HSPHY parameters into
+ - qti,hsphy-init: Init value used to override HSPHY parameters into
    QSCRATCH register. This 32-bit value represents parameters as follows:
 		bits 0-5   PARAMETER_OVERRIDE_A
 		bits 6-12  PARAMETER_OVERRIDE_B
 		bits 13-19 PARAMETER_OVERRIDE_C
 		bits 20-25 PARAMETER_OVERRIDE_D
- - qcom,ext-vbus-id: If present then PHY does not handle VBUS and ID changes.
- - qcom,vbus-valid-override: If present, indicates VBUS pin is not connected to
+ - qti,ext-vbus-id: If present then PHY does not handle VBUS and ID changes.
+ - qti,vbus-valid-override: If present, indicates VBUS pin is not connected to
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually enable the D+ pull-up resistor.
 
 Example:
 	hsphy@f9200000 {
-		compatible = "qcom,usb-hsphy";
+		compatible = "qti,usb-hsphy";
 		reg = <0xf9200000 0xfc000>;
-		qcom,hsphy-init = <0x00D191A4>;
+		qti,hsphy-init = <0x00D191A4>;
 		vdd-supply = <&pm8841_s2_corner>;
 		vdda18-supply = <&pm8941_l6>;
 		vdda33-supply = <&pm8941_l24>;
-		qcom,vdd-voltage-level = <1 5 7>;
+		qti,vdd-voltage-level = <1 5 7>;
 	};
 
 SSUSB PHY
 
 Required properties:
- - compatible: Should be "qcom,usb-ssphy"
+ - compatible: Should be "qti,usb-ssphy"
  - reg: Address and length of the register set for the device
  - <supply-name>-supply: phandle to the regulator device tree node
    Required "supply-name" examples are:
 	"vdd" : vdd supply for SSPHY digital circuit operation
 	"vdda18" : 1.8v high-voltage analog supply for SSPHY
- - qcom,vdd-voltage-level: This property must be a list of three integer
+ - qti,vdd-voltage-level: This property must be a list of three integer
    values (no, min, max) where each value represents either a voltage in
    microvolts or a value corresponding to voltage corner
 
 Optional properties:
- - qcom,vbus-valid-override: If present, indicates VBUS pin is not connected to
+ - qti,vbus-valid-override: If present, indicates VBUS pin is not connected to
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually relay the notification to the SSPHY.
- - qcom,deemphasis-value: This property if present represents ss phy
+ - qti,deemphasis-value: This property if present represents ss phy
    deemphasis value to be used for overriding into SSPHY register.
 
 Example:
 	ssphy@f9200000 {
-		compatible = "qcom,usb-ssphy";
+		compatible = "qti,usb-ssphy";
 		reg = <0xf9200000 0xfc000>;
 		vdd-supply = <&pm8841_s2_corner>;
 		vdda18-supply = <&pm8941_l6>;
-		qcom,vdd-voltage-level = <1 5 7>;
-		qcom,deemphasis-value = <26>;
+		qti,vdd-voltage-level = <1 5 7>;
+		qti,deemphasis-value = <26>;
 	};

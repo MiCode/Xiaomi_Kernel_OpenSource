@@ -159,11 +159,11 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",
+	ret = of_property_read_u32_array(dev->of_node, "qti,vdd-voltage-level",
 					 (u32 *) phy->vdd_levels,
 					 ARRAY_SIZE(phy->vdd_levels));
 	if (ret) {
-		dev_err(dev, "error reading qcom,vdd-voltage-level property\n");
+		dev_err(dev, "error reading qti,vdd-voltage-level property\n");
 		return ret;
 	}
 
@@ -199,7 +199,7 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, phy);
 
-	if (of_property_read_bool(dev->of_node, "qcom,vbus-valid-override"))
+	if (of_property_read_bool(dev->of_node, "qti,vbus-valid-override"))
 		phy->phy.flags |= PHY_VBUS_VALID_OVERRIDE;
 
 	phy->phy.dev			= dev;
@@ -242,7 +242,7 @@ static int msm_ssphy_qmp_remove(struct platform_device *pdev)
 
 static const struct of_device_id msm_usb_id_table[] = {
 	{
-		.compatible = "qcom,usb-ssphy-qmp",
+		.compatible = "qti,usb-ssphy-qmp",
 	},
 	{ },
 };
