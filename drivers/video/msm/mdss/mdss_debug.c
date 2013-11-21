@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,7 +113,7 @@ static ssize_t mdss_debug_base_offset_read(struct file *file,
 	if (*ppos)
 		return 0;	/* the end */
 
-	len = snprintf(buf, sizeof(buf), "0x%08x %x\n", dbg->off, dbg->cnt);
+	len = snprintf(buf, sizeof(buf), "0x%08zx %zx\n", dbg->off, dbg->cnt);
 	if (len < 0)
 		return 0;
 
@@ -145,7 +145,7 @@ static ssize_t mdss_debug_base_reg_write(struct file *file,
 
 	buf[count] = 0;	/* end of string */
 
-	cnt = sscanf(buf, "%x %x", &off, &data);
+	cnt = sscanf(buf, "%zx %x", &off, &data);
 
 	if (cnt < 2)
 		return -EFAULT;
@@ -161,7 +161,7 @@ static ssize_t mdss_debug_base_reg_write(struct file *file,
 	if (mdata->debug_inf.debug_enable_clock)
 		mdata->debug_inf.debug_enable_clock(0);
 
-	pr_debug("addr=%x data=%x\n", off, data);
+	pr_debug("addr=%zx data=%x\n", off, data);
 
 	return count;
 }
@@ -204,7 +204,8 @@ static ssize_t mdss_debug_base_reg_read(struct file *file,
 					   sizeof(dump_buf), false);
 			len = scnprintf(dbg->buf + tot, dbg->buf_len - tot,
 					"0x%08x: %s\n",
-					((int)ptr) - ((int)dbg->base),
+					((int) (unsigned long) ptr) -
+					((int) (unsigned long) dbg->base),
 					dump_buf);
 
 			ptr += ROW_BYTES;

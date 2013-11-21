@@ -17,6 +17,7 @@
 #include <linux/list.h>
 #include <linux/mdss_io_util.h>
 #include <mach/scm-io.h>
+#include <linux/irqreturn.h>
 
 #include "mdss_panel.h"
 #include "mdss_dsi_cmd.h"

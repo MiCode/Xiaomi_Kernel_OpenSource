@@ -805,7 +805,7 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		}
 		break;
 	case MDSS_EVENT_PANEL_CLK_CTRL:
-		mdss_dsi_clk_req(ctrl_pdata, (int)arg);
+		mdss_dsi_clk_req(ctrl_pdata, (int) (unsigned long) arg);
 		break;
 	case MDSS_EVENT_DSI_CMDLIST_KOFF:
 		ctrl_pdata->recovery = (struct mdss_panel_recovery *)arg;
@@ -813,9 +813,10 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		break;
 	case MDSS_EVENT_PANEL_UPDATE_FPS:
 		if (arg != NULL) {
-			rc = mdss_dsi_dfps_config(pdata, (int)arg);
+			rc = mdss_dsi_dfps_config(pdata,
+					 (int) (unsigned long) arg);
 			pr_debug("%s:update fps to = %d\n",
-				__func__, (int)arg);
+				 __func__, (int) (unsigned long) arg);
 		}
 		break;
 	case MDSS_EVENT_CONT_SPLASH_BEGIN:
@@ -1134,7 +1135,8 @@ int mdss_dsi_retrieve_ctrl_resources(struct platform_device *pdev, int mode,
 	ctrl->reg_size = resource_size(mdss_dsi_mres);
 
 	pr_info("%s: dsi base=%x size=%x\n",
-		__func__, (int)ctrl->ctrl_base, ctrl->reg_size);
+		__func__, (int) (unsigned long) ctrl->ctrl_base,
+		ctrl->reg_size);
 
 	return 0;
 }
