@@ -65,8 +65,8 @@
 #define EPM_ADC_MILLI_VOLTS_SOURCE	4750
 #define EPM_ADC_SCALE_FACTOR		64
 #define GPIO_EPM_GLOBAL_ENABLE		86
-#define GPIO_EPM_MARKER1		85
-#define GPIO_EPM_MARKER2		96
+#define GPIO_EPM_MARKER1		96
+#define GPIO_EPM_MARKER2		85
 #define EPM_ADC_CONVERSION_TIME_MIN	50000
 #define EPM_ADC_CONVERSION_TIME_MAX	51000
 /* PSoc Commands */
@@ -102,6 +102,7 @@
 #define EPM_PSOC_GPIO_BUFFER_REQUEST_RESPONSE_CMD	0x50
 #define EPM_PSOC_GET_GPIO_BUFFER_CMD			0x51
 #define EPM_PSOC_GET_GPIO_BUFFER_RESPONSE_CMD		0x52
+#define EPM_PSOC_16_BIT_AVERAGED_DATA_CMD		0x53
 
 #define EPM_PSOC_GLOBAL_ENABLE				81
 #define EPM_PSOC_VREF_VOLTAGE				2048
@@ -390,8 +391,8 @@ static int epm_adc_ads_spi_write(struct epm_adc_drv *epm_adc,
 
 	spi_setup(epm_adc->epm_spi_client);
 
-	memset(&t, 0, sizeof t);
-	memset(tx_buf, 0, sizeof tx_buf);
+	memset(&t, 0, sizeof(t));
+	memset(tx_buf, 0, sizeof(tx_buf));
 	t.tx_buf = tx_buf;
 	spi_message_init(&m);
 	spi_message_add_tail(&t, &m);
@@ -432,8 +433,8 @@ static int epm_adc_ads_pulse_convert(struct epm_adc_drv *epm_adc)
 
 	spi_setup(epm_adc->epm_spi_client);
 
-	memset(&t, 0, sizeof t);
-	memset(tx_buf, 0, sizeof tx_buf);
+	memset(&t, 0, sizeof(t));
+	memset(tx_buf, 0, sizeof(tx_buf));
 	t.tx_buf = tx_buf;
 	spi_message_init(&m);
 	spi_message_add_tail(&t, &m);
@@ -456,9 +457,9 @@ static int epm_adc_ads_read_data(struct epm_adc_drv *epm_adc, char *adc_data)
 
 	spi_setup(epm_adc->epm_spi_client);
 
-	memset(&t, 0, sizeof t);
-	memset(tx_buf, 0, sizeof tx_buf);
-	memset(rx_buf, 0, sizeof tx_buf);
+	memset(&t, 0, sizeof(t));
+	memset(tx_buf, 0, sizeof(tx_buf));
+	memset(rx_buf, 0, sizeof(tx_buf));
 	t.tx_buf = tx_buf;
 	t.rx_buf = rx_buf;
 	spi_message_init(&m);
@@ -725,7 +726,7 @@ static int epm_adc_psoc_gpio_init(bool enable)
 	return 0;
 }
 
-static int epm_set_marker1(struct epm_marker_level *marker_init)
+static int epm_request_marker1(void)
 {
 	int rc = 0;
 
@@ -738,12 +739,17 @@ static int epm_set_marker1(struct epm_marker_level *marker_init)
 		return rc;
 	}
 
+	return 0;
+}
+
+static int epm_set_marker1(struct epm_marker_level *marker_init)
+{
 	gpio_set_value(GPIO_EPM_MARKER1, marker_init->level);
 
 	return 0;
 }
 
-static int epm_set_marker2(struct epm_marker_level *marker_init)
+static int epm_request_marker2(void)
 {
 	int rc = 0;
 
@@ -756,6 +762,11 @@ static int epm_set_marker2(struct epm_marker_level *marker_init)
 		return rc;
 	}
 
+	return 0;
+}
+
+static int epm_set_marker2(struct epm_marker_level *marker_init)
+{
 	gpio_set_value(GPIO_EPM_MARKER2, marker_init->level);
 
 	return 0;
@@ -784,9 +795,9 @@ static int epm_psoc_pause_conversion(struct epm_adc_drv *epm_adc)
 
 	spi_setup(epm_adc->epm_spi_client);
 
-	memset(&t, 0, sizeof t);
-	memset(tx_buf, 0, sizeof tx_buf);
-	memset(rx_buf, 0, sizeof tx_buf);
+	memset(&t, 0, sizeof(t));
+	memset(tx_buf, 0, sizeof(tx_buf));
+	memset(rx_buf, 0, sizeof(tx_buf));
 	t.tx_buf = tx_buf;
 	t.rx_buf = rx_buf;
 	spi_message_init(&m);
@@ -821,9 +832,9 @@ static int epm_psoc_unpause_conversion(struct epm_adc_drv *epm_adc)
 
 	spi_setup(epm_adc->epm_spi_client);
 
-	memset(&t, 0, sizeof t);
-	memset(tx_buf, 0, sizeof tx_buf);
-	memset(rx_buf, 0, sizeof tx_buf);
+	memset(&t, 0, sizeof(t));
+	memset(tx_buf, 0, sizeof(tx_buf));
+	memset(rx_buf, 0, sizeof(tx_buf));
 	t.tx_buf = tx_buf;
 	t.rx_buf = rx_buf;
 	spi_message_init(&m);
@@ -859,9 +870,9 @@ static int epm_psoc_init(struct epm_adc_drv *epm_adc,
 
 	spi_setup(epm_adc->epm_spi_client);
 
-	memset(&t, 0, sizeof t);
-	memset(tx_buf, 0, sizeof tx_buf);
-	memset(rx_buf, 0, sizeof tx_buf);
+	memset(&t, 0, sizeof(t));
+	memset(tx_buf, 0, sizeof(tx_buf));
+	memset(rx_buf, 0, sizeof(tx_buf));
 	t.tx_buf = tx_buf;
 	t.rx_buf = rx_buf;
 	spi_message_init(&m);
@@ -901,9 +912,9 @@ static int epm_psoc_channel_configure(struct epm_adc_drv *epm_adc,
 
 	spi_setup(epm_adc->epm_spi_client);
 
-	memset(&t, 0, sizeof t);
-	memset(tx_buf, 0, sizeof tx_buf);
-	memset(rx_buf, 0, sizeof tx_buf);
+	memset(&t, 0, sizeof(t));
+	memset(tx_buf, 0, sizeof(tx_buf));
+	memset(rx_buf, 0, sizeof(tx_buf));
 	t.tx_buf = tx_buf;
 	t.rx_buf = rx_buf;
 	spi_message_init(&m);
@@ -948,9 +959,9 @@ static int epm_psoc_set_averaging(struct epm_adc_drv *epm_adc,
 
 	spi_setup(epm_adc->epm_spi_client);
 
-	memset(&t, 0, sizeof t);
-	memset(tx_buf, 0, sizeof tx_buf);
-	memset(rx_buf, 0, sizeof tx_buf);
+	memset(&t, 0, sizeof(t));
+	memset(tx_buf, 0, sizeof(tx_buf));
+	memset(rx_buf, 0, sizeof(tx_buf));
 	t.tx_buf = tx_buf;
 	t.rx_buf = rx_buf;
 	spi_message_init(&m);
@@ -986,9 +997,9 @@ static int epm_psoc_get_data(struct epm_adc_drv *epm_adc,
 
 	spi_setup(epm_adc->epm_spi_client);
 
-	memset(&t, 0, sizeof t);
-	memset(tx_buf, 0, sizeof tx_buf);
-	memset(rx_buf, 0, sizeof tx_buf);
+	memset(&t, 0, sizeof(t));
+	memset(tx_buf, 0, sizeof(tx_buf));
+	memset(rx_buf, 0, sizeof(tx_buf));
 	t.tx_buf = tx_buf;
 	t.rx_buf = rx_buf;
 	spi_message_init(&m);
@@ -1030,9 +1041,9 @@ static int epm_psoc_get_buffered_data(struct epm_adc_drv *epm_adc,
 
 	spi_setup(epm_adc->epm_spi_client);
 
-	memset(&t, 0, sizeof t);
-	memset(tx_buf, 0, sizeof tx_buf);
-	memset(rx_buf, 0, sizeof tx_buf);
+	memset(&t, 0, sizeof(t));
+	memset(tx_buf, 0, sizeof(tx_buf));
+	memset(rx_buf, 0, sizeof(tx_buf));
 	t.tx_buf = tx_buf;
 	t.rx_buf = rx_buf;
 	spi_message_init(&m);
@@ -1081,9 +1092,9 @@ static int epm_psoc_get_timestamp(struct epm_adc_drv *epm_adc,
 
 	spi_setup(epm_adc->epm_spi_client);
 
-	memset(&t, 0, sizeof t);
-	memset(tx_buf, 0, sizeof tx_buf);
-	memset(rx_buf, 0, sizeof tx_buf);
+	memset(&t, 0, sizeof(t));
+	memset(tx_buf, 0, sizeof(tx_buf));
+	memset(rx_buf, 0, sizeof(tx_buf));
 	t.tx_buf = tx_buf;
 	t.rx_buf = rx_buf;
 	spi_message_init(&m);
@@ -1120,9 +1131,9 @@ static int epm_psoc_set_timestamp(struct epm_adc_drv *epm_adc,
 
 	spi_setup(epm_adc->epm_spi_client);
 
-	memset(&t, 0, sizeof t);
-	memset(tx_buf, 0, sizeof tx_buf);
-	memset(rx_buf, 0, sizeof tx_buf);
+	memset(&t, 0, sizeof(t));
+	memset(tx_buf, 0, sizeof(tx_buf));
+	memset(rx_buf, 0, sizeof(tx_buf));
 	t.tx_buf = tx_buf;
 	t.rx_buf = rx_buf;
 	spi_message_init(&m);
@@ -1163,9 +1174,9 @@ static int epm_psoc_get_avg_buffered_switch_data(struct epm_adc_drv *epm_adc,
 
 	spi_setup(epm_adc->epm_spi_client);
 
-	memset(&t, 0, sizeof t);
-	memset(tx_buf, 0, sizeof tx_buf);
-	memset(rx_buf, 0, sizeof tx_buf);
+	memset(&t, 0, sizeof(t));
+	memset(tx_buf, 0, sizeof(tx_buf));
+	memset(rx_buf, 0, sizeof(tx_buf));
 	t.tx_buf = tx_buf;
 	t.rx_buf = rx_buf;
 	spi_message_init(&m);
@@ -1260,9 +1271,9 @@ static int epm_psoc_set_vadc(struct epm_adc_drv *epm_adc,
 
 	spi_setup(epm_adc->epm_spi_client);
 
-	memset(&t, 0, sizeof t);
-	memset(tx_buf, 0, sizeof tx_buf);
-	memset(rx_buf, 0, sizeof tx_buf);
+	memset(&t, 0, sizeof(t));
+	memset(tx_buf, 0, sizeof(tx_buf));
+	memset(rx_buf, 0, sizeof(tx_buf));
 	t.tx_buf = tx_buf;
 	t.rx_buf = rx_buf;
 	spi_message_init(&m);
@@ -1304,9 +1315,9 @@ static int epm_psoc_set_channel_switch(struct epm_adc_drv *epm_adc,
 
 	spi_setup(epm_adc->epm_spi_client);
 
-	memset(&t, 0, sizeof t);
-	memset(tx_buf, 0, sizeof tx_buf);
-	memset(rx_buf, 0, sizeof tx_buf);
+	memset(&t, 0, sizeof(t));
+	memset(tx_buf, 0, sizeof(tx_buf));
+	memset(rx_buf, 0, sizeof(tx_buf));
 	t.tx_buf = tx_buf;
 	t.rx_buf = rx_buf;
 	spi_message_init(&m);
@@ -1348,9 +1359,9 @@ static int epm_psoc_clear_buffer(struct epm_adc_drv *epm_adc)
 
 	spi_setup(epm_adc->epm_spi_client);
 
-	memset(&t, 0, sizeof t);
-	memset(tx_buf, 0, sizeof tx_buf);
-	memset(rx_buf, 0, sizeof tx_buf);
+	memset(&t, 0, sizeof(t));
+	memset(tx_buf, 0, sizeof(tx_buf));
+	memset(rx_buf, 0, sizeof(tx_buf));
 	t.tx_buf = tx_buf;
 	t.rx_buf = rx_buf;
 	spi_message_init(&m);
@@ -1384,9 +1395,9 @@ static int epm_psoc_get_gpio_buffer_data(struct epm_adc_drv *epm_adc,
 
 	spi_setup(epm_adc->epm_spi_client);
 
-	memset(&t, 0, sizeof t);
-	memset(tx_buf, 0, sizeof tx_buf);
-	memset(rx_buf, 0, sizeof tx_buf);
+	memset(&t, 0, sizeof(t));
+	memset(tx_buf, 0, sizeof(tx_buf));
+	memset(rx_buf, 0, sizeof(tx_buf));
 	t.tx_buf = tx_buf;
 	t.rx_buf = rx_buf;
 	spi_message_init(&m);
@@ -1400,6 +1411,8 @@ static int epm_psoc_get_gpio_buffer_data(struct epm_adc_drv *epm_adc,
 	rc = spi_sync(epm_adc->epm_spi_client, &m);
 	if (rc)
 		return rc;
+
+	memset(tx_buf, 0, sizeof(tx_buf));
 
 	rc = spi_sync(epm_adc->epm_spi_client, &m);
 	if (rc)
@@ -1424,9 +1437,9 @@ static int epm_psoc_gpio_buffer_request_configure(struct epm_adc_drv *epm_adc,
 
 	spi_setup(epm_adc->epm_spi_client);
 
-	memset(&t, 0, sizeof t);
-	memset(tx_buf, 0, sizeof tx_buf);
-	memset(rx_buf, 0, sizeof tx_buf);
+	memset(&t, 0, sizeof(t));
+	memset(tx_buf, 0, sizeof(tx_buf));
+	memset(rx_buf, 0, sizeof(tx_buf));
 	t.tx_buf = tx_buf;
 	t.rx_buf = rx_buf;
 	spi_message_init(&m);
@@ -1448,6 +1461,90 @@ static int epm_psoc_gpio_buffer_request_configure(struct epm_adc_drv *epm_adc,
 
 	gpio_request->cmd = rx_buf[0];
 	gpio_request->status = rx_buf[1];
+
+	return rc;
+}
+
+static int epm_psoc_get_16_bit_avg_data(struct epm_adc_drv *epm_adc,
+		struct epm_get_high_res_avg_data *psoc_get_data)
+{
+	struct spi_message m;
+	struct spi_transfer t;
+	char tx_buf[1], rx_buf[64];
+	int rc = 0, data_loop = 0;
+
+	spi_setup(epm_adc->epm_spi_client);
+
+	memset(&t, 0, sizeof(t));
+	memset(tx_buf, 0, sizeof(tx_buf));
+	memset(rx_buf, 0, sizeof(tx_buf));
+	t.tx_buf = tx_buf;
+	t.rx_buf = rx_buf;
+	spi_message_init(&m);
+	spi_message_add_tail(&t, &m);
+
+	tx_buf[0] = psoc_get_data->cmd;
+
+	t.len = sizeof(tx_buf);
+	t.bits_per_word = EPM_ADC_ADS_SPI_BITS_PER_WORD;
+
+	rc = spi_sync(epm_adc->epm_spi_client, &m);
+	if (rc)
+		return rc;
+
+	memset(tx_buf, 0, sizeof(tx_buf));
+
+	rc = spi_sync(epm_adc->epm_spi_client, &m);
+	if (rc)
+		return rc;
+
+	psoc_get_data->cmd		= rx_buf[0];
+	psoc_get_data->status		= rx_buf[1];
+	psoc_get_data->channel_mask	= rx_buf[2];
+	psoc_get_data->timestamp	= rx_buf[3];
+
+	for (data_loop = 0; data_loop < 54; data_loop++)
+		psoc_get_data->buf_data[data_loop] = rx_buf[data_loop + 4];
+
+	return rc;
+}
+
+static int epm_psoc_generic_request(struct epm_adc_drv *epm_adc,
+		struct epm_generic_request *psoc_get_data)
+{
+	struct spi_message m;
+	struct spi_transfer t;
+	char tx_buf[65], rx_buf[65];
+	int rc = 0, data_loop = 0;
+
+	spi_setup(epm_adc->epm_spi_client);
+
+	memset(&t, 0, sizeof(t));
+	memset(tx_buf, 0, sizeof(tx_buf));
+	memset(rx_buf, 0, sizeof(tx_buf));
+	t.tx_buf = tx_buf;
+	t.rx_buf = rx_buf;
+	spi_message_init(&m);
+	spi_message_add_tail(&t, &m);
+
+	for (data_loop = 0; data_loop < 65; data_loop++)
+		tx_buf[data_loop] = psoc_get_data->buf_data[data_loop];
+
+	t.len = sizeof(tx_buf);
+	t.bits_per_word = EPM_ADC_ADS_SPI_BITS_PER_WORD;
+
+	rc = spi_sync(epm_adc->epm_spi_client, &m);
+	if (rc)
+		return rc;
+
+	memset(tx_buf, 0, sizeof(tx_buf));
+
+	rc = spi_sync(epm_adc->epm_spi_client, &m);
+	if (rc)
+		return rc;
+
+	for (data_loop = 0; data_loop < 65; data_loop++)
+		rx_buf[data_loop] = psoc_get_data->buf_data[data_loop];
 
 	return rc;
 }
@@ -1510,6 +1607,26 @@ static long epm_adc_ioctl(struct file *file, unsigned int cmd,
 		}
 	case EPM_MARKER1_REQUEST:
 		{
+			uint32_t result;
+			result = epm_request_marker1();
+
+			if (copy_to_user((void __user *)arg, &result,
+						sizeof(uint32_t)))
+				return -EFAULT;
+			break;
+		}
+	case EPM_MARKER2_REQUEST:
+		{
+			uint32_t result;
+			result = epm_request_marker2();
+
+			if (copy_to_user((void __user *)arg, &result,
+						sizeof(uint32_t)))
+				return -EFAULT;
+			break;
+		}
+	case EPM_MARKER1_SET_LEVEL:
+		{
 			struct epm_marker_level marker_init;
 			uint32_t result;
 
@@ -1524,7 +1641,7 @@ static long epm_adc_ioctl(struct file *file, unsigned int cmd,
 				return -EFAULT;
 			break;
 		}
-	case EPM_MARKER2_REQUEST:
+	case EPM_MARKER2_SET_LEVEL:
 		{
 			struct epm_marker_level marker_init;
 			uint32_t result;
@@ -1882,6 +1999,54 @@ static long epm_adc_ioctl(struct file *file, unsigned int cmd,
 
 			if (copy_to_user((void __user *)arg, &result,
 						sizeof(uint32_t)))
+				return -EFAULT;
+			break;
+		}
+	case EPM_PSOC_16_BIT_AVERAGED_REQUEST:
+		{
+			struct epm_get_high_res_avg_data psoc_get_data;
+			int rc;
+
+			if (copy_from_user(&psoc_get_data,
+				(void __user *)arg,
+				sizeof(struct
+				epm_get_high_res_avg_data)))
+				return -EFAULT;
+
+			psoc_get_data.cmd = EPM_PSOC_16_BIT_AVERAGED_DATA_CMD;
+			rc = epm_psoc_get_16_bit_avg_data(epm_adc,
+								&psoc_get_data);
+			if (rc) {
+				pr_err("Get averaged buffered data failed\n");
+				return -EINVAL;
+			}
+
+			if (copy_to_user((void __user *)arg, &psoc_get_data,
+				sizeof(struct
+				epm_get_high_res_avg_data)))
+				return -EFAULT;
+			break;
+		}
+	case EPM_PSOC_GENERIC_REQUEST:
+		{
+			struct epm_generic_request psoc_get_data;
+			int rc;
+
+			if (copy_from_user(&psoc_get_data,
+				(void __user *)arg,
+				sizeof(struct
+				epm_generic_request)))
+				return -EFAULT;
+
+			rc = epm_psoc_generic_request(epm_adc, &psoc_get_data);
+			if (rc) {
+				pr_err("Generic request failed\n");
+				return -EINVAL;
+			}
+
+			if (copy_to_user((void __user *)arg, &psoc_get_data,
+				sizeof(struct
+				epm_generic_request)))
 				return -EFAULT;
 			break;
 		}
