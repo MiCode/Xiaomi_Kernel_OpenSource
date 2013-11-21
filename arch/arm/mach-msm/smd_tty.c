@@ -24,6 +24,7 @@
 #include <linux/pm.h>
 #include <linux/platform_device.h>
 #include <linux/sched.h>
+#include <linux/slab.h>
 
 #include <linux/tty.h>
 #include <linux/tty_driver.h>
@@ -73,7 +74,6 @@ static int smd_tty_probe_done;
  * @tty_tsklt:  read tasklet
  * @buf_req_timer:  RX buffer retry timer
  * @ch_allocated:  completion set when SMD channel is allocated
- * @driver:  SMD channel platform driver context structure
  * @pil:  Peripheral Image Loader handle
  * @edge:  SMD edge associated with port
  * @ch_name:  SMD channel name associated with port
@@ -100,7 +100,6 @@ struct smd_tty_info {
 	struct tasklet_struct tty_tsklt;
 	struct timer_list buf_req_timer;
 	struct completion ch_allocated;
-	struct platform_driver driver;
 	void *pil;
 	uint32_t edge;
 	char ch_name[SMD_MAX_CH_NAME_LEN];
@@ -118,6 +117,19 @@ struct smd_tty_info {
 	spinlock_t ra_lock_lha3;
 	char ra_wakeup_source_name[MAX_RA_WAKE_LOCK_NAME_LEN];
 	struct wakeup_source ra_wakeup_source;
+};
+
+/**
+ * struct smd_tty_pfdriver - SMD tty channel platform driver structure
+ *
+ * @list:  Adds this structure into smd_tty_platform_driver_list::list.
+ * @ref_cnt:  reference count for this structure.
+ * @driver:  SMD channel platform driver context structure
+ */
+struct smd_tty_pfdriver {
+	struct list_head list;
+	int ref_cnt;
+	struct platform_driver driver;
 };
 
 /**
@@ -161,6 +173,9 @@ static struct smd_config smd_configs[] = {
 
 static struct delayed_work loopback_work;
 static struct smd_tty_info smd_tty[MAX_SMD_TTYS];
+
+static DEFINE_MUTEX(smd_tty_pfdriver_lock_lha1);
+static LIST_HEAD(smd_tty_pfdriver_list);
 
 static int is_in_reset(struct smd_tty_info *info)
 {
@@ -403,6 +418,113 @@ static int smd_tty_dummy_probe(struct platform_device *pdev)
 	return -ENODEV;
 }
 
+/**
+ * smd_tty_add_driver() - Add platform drivers for smd tty device
+ *
+ * @info: context for an individual SMD TTY device
+ *
+ * @returns: 0 for success, standard Linux error code otherwise
+ *
+ * This function is used to register platform driver once for all
+ * smd tty devices which have same names and increment the reference
+ * count for 2nd to nth devices.
+ */
+static int smd_tty_add_driver(struct smd_tty_info *info)
+{
+	int r = 0;
+	struct smd_tty_pfdriver *smd_tty_pfdriverp;
+	struct smd_tty_pfdriver *item;
+
+	if (!info) {
+		pr_err("%s on a NULL device structure\n", __func__);
+		return -EINVAL;
+	}
+
+	SMD_TTY_INFO("Begin %s on smd_tty[%s]\n", __func__,
+					info->ch_name);
+
+	mutex_lock(&smd_tty_pfdriver_lock_lha1);
+	list_for_each_entry(item, &smd_tty_pfdriver_list, list) {
+		if (!strcmp(item->driver.driver.name, info->ch_name)) {
+			SMD_TTY_INFO("%s:%s Driver Already reg. cnt:%d\n",
+				__func__, info->ch_name, item->ref_cnt);
+			++item->ref_cnt;
+			goto exit;
+		}
+	}
+
+	smd_tty_pfdriverp = kzalloc(sizeof(*smd_tty_pfdriverp), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(smd_tty_pfdriverp)) {
+		pr_err("%s: kzalloc() failed for smd_tty_pfdriver[%s]\n",
+			__func__, info->ch_name);
+		r = -ENOMEM;
+		goto exit;
+	}
+
+	smd_tty_pfdriverp->driver.probe = smd_tty_dummy_probe;
+	smd_tty_pfdriverp->driver.driver.name = info->dev_name;
+	smd_tty_pfdriverp->driver.driver.owner = THIS_MODULE;
+	r = platform_driver_register(&smd_tty_pfdriverp->driver);
+	if (r) {
+		pr_err("%s: %s Platform driver reg. failed\n",
+			__func__, info->ch_name);
+		kfree(smd_tty_pfdriverp);
+		goto exit;
+	}
+	++smd_tty_pfdriverp->ref_cnt;
+	list_add(&smd_tty_pfdriverp->list, &smd_tty_pfdriver_list);
+
+exit:
+	SMD_TTY_INFO("End %s on smd_tty_ch[%s]\n", __func__, info->ch_name);
+	mutex_unlock(&smd_tty_pfdriver_lock_lha1);
+	return r;
+}
+
+/**
+ * smd_tty_remove_driver() - Remove the platform drivers for smd tty device
+ *
+ * @info: context for an individual SMD TTY device
+ *
+ * This function is used to decrement the reference count on
+ * platform drivers for smd pkt devices and removes the drivers
+ * when the reference count becomes zero.
+ */
+static void smd_tty_remove_driver(struct smd_tty_info *info)
+{
+	struct smd_tty_pfdriver *smd_tty_pfdriverp;
+
+	if (!info) {
+		pr_err("%s on a NULL device\n", __func__);
+		return;
+	}
+
+	SMD_TTY_INFO("Begin %s on smd_tty_ch[%s]\n", __func__,
+					info->ch_name);
+	mutex_lock(&smd_tty_pfdriver_lock_lha1);
+	list_for_each_entry(smd_tty_pfdriverp, &smd_tty_pfdriver_list, list) {
+		if (!strcmp(smd_tty_pfdriverp->driver.driver.name,
+					info->ch_name)) {
+			SMD_TTY_INFO("%s:%s Platform driver cnt:%d\n",
+				__func__, info->ch_name,
+				smd_tty_pfdriverp->ref_cnt);
+			if (smd_tty_pfdriverp->ref_cnt > 0)
+				--smd_tty_pfdriverp->ref_cnt;
+			else
+				pr_warn("%s reference count <= 0\n", __func__);
+			break;
+		}
+	}
+
+	if (smd_tty_pfdriverp->ref_cnt == 0) {
+		platform_driver_unregister(&smd_tty_pfdriverp->driver);
+		smd_tty_pfdriverp->driver.probe = NULL;
+		list_del(&smd_tty_pfdriverp->list);
+		kfree(smd_tty_pfdriverp);
+	}
+	mutex_unlock(&smd_tty_pfdriver_lock_lha1);
+	SMD_TTY_INFO("End %s on smd_tty_ch[%s]\n", __func__, info->ch_name);
+}
+
 static int smd_tty_port_activate(struct tty_port *tport,
 				 struct tty_struct *tty)
 {
@@ -410,7 +532,6 @@ static int smd_tty_port_activate(struct tty_port *tport,
 	unsigned int n = tty->index;
 	struct smd_tty_info *info;
 	const char *peripheral = NULL;
-
 
 	if (n >= MAX_SMD_TTYS || !smd_tty[n].ch_name)
 		return -ENODEV;
@@ -420,14 +541,10 @@ static int smd_tty_port_activate(struct tty_port *tport,
 	mutex_lock(&info->open_lock_lha1);
 	tty->driver_data = info;
 
-	info->driver.probe = smd_tty_dummy_probe;
-	info->driver.driver.name = smd_tty[n].dev_name;
-	info->driver.driver.owner = THIS_MODULE;
-	res = platform_driver_register(&info->driver);
+	res = smd_tty_add_driver(info);
 	if (res) {
 		SMD_TTY_ERR("%s:%d Idx smd_tty_driver register failed %d\n",
 							__func__, n, res);
-		info->driver.probe = NULL;
 		goto out;
 	}
 
@@ -532,7 +649,7 @@ release_pil:
 	subsystem_put(info->pil);
 
 platform_unregister:
-	platform_driver_unregister(&info->driver);
+	smd_tty_remove_driver(info);
 
 out:
 	mutex_unlock(&info->open_lock_lha1);
@@ -571,7 +688,7 @@ static void smd_tty_port_shutdown(struct tty_port *tport)
 	smd_close(info->ch);
 	info->ch = NULL;
 	subsystem_put(info->pil);
-	platform_driver_unregister(&info->driver);
+	smd_tty_remove_driver(info);
 
 	mutex_unlock(&info->open_lock_lha1);
 	tty_kref_put(tty);
