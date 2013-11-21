@@ -29,6 +29,8 @@ Optional properties:
  - qti,vbus-valid-override: If present, indicates VBUS pin is not connected to
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually enable the D+ pull-up resistor.
+ - qti,primary-phy: If present, indicates this is a secondary PHY and is
+   dependent on the primary PHY referenced by this phandle.
 
 Example:
 	hsphy@f9200000 {
@@ -60,6 +62,8 @@ Optional properties:
    order to manually relay the notification to the SSPHY.
  - qti,deemphasis-value: This property if present represents ss phy
    deemphasis value to be used for overriding into SSPHY register.
+ - qti,primary-phy: If present, indicates this is a secondary PHY and is
+   dependent on the primary PHY referenced by this phandle.
 
 Example:
 	ssphy@f9200000 {

@@ -32,11 +32,15 @@ MODULE_PARM_DESC(override_phy_init, "Override HSPHY Init Seq");
 #define MSM_CORE_VER_120		0x10020061
 
 /* QSCRATCH register offsets */
+#define GENERAL_CFG_REG			(0x08)
 #define HS_PHY_CTRL_REG			(0x10)
 #define PARAMETER_OVERRIDE_X_REG	(0x14)
 #define ALT_INTERRUPT_EN_REG		(0x20)
 #define HS_PHY_IRQ_STAT_REG		(0x24)
 #define HS_PHY_CTRL_COMMON_REG		(0xEC)	/* ver >= MSM_CORE_VER_120 */
+
+/* GENERAL_CFG_REG bits */
+#define SEC_UTMI_FREE_CLK_GFM_SEL1	(0x80)
 
 /* HS_PHY_CTRL_REG bits */
 #define RETENABLEN			BIT(1)
@@ -58,7 +62,10 @@ MODULE_PARM_DESC(override_phy_init, "Override HSPHY Init Seq");
 #define USB2_SUSPEND_N_SEL		BIT(23)
 #define DMSEHV_CLAMP_EN_N		BIT(24)
 #define CLAMP_MPM_DPSE_DMSE_EN_N	BIT(26)
-#define SW_SESSVLD_SEL			BIT(28)	/* ver >= MSM_CORE_VER_120 */
+/* Following exist only when core_ver >= MSM_CORE_VER_120 */
+#define FREECLK_DIS_WHEN_SUSP		BIT(27)
+#define SW_SESSVLD_SEL			BIT(28)
+#define FREECLOCK_SEL			BIT(29)
 
 /* HS_PHY_CTRL_COMMON_REG bits used when core_ver >= MSM_CORE_VER_120 */
 #define COMMON_VBUSVLDEXTSEL0		BIT(12)
@@ -236,9 +243,10 @@ static void msm_usb_write_readback(void *base, u32 offset,
 static int msm_hsphy_init(struct usb_phy *uphy)
 {
 	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
+	u32 val;
 
 	if (phy->tcsr) {
-		u32 val = readl_relaxed(phy->tcsr);
+		val = readl_relaxed(phy->tcsr);
 
 		/* Assert/deassert TCSR Reset */
 		writel_relaxed((val | TCSR_HSPHY_ARES), phy->tcsr);
@@ -253,12 +261,21 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 	 * HSPHY Initialization: Enable UTMI clock and clamp enable HVINTs,
 	 * and disable RETENTION (power-on default is ENABLED)
 	 */
-	writel_relaxed(RETENABLEN | FSEL_DEFAULT | CLAMP_EN_N |
-			OTGSESSVLD_HV_CLAMP_EN_N | ID_HV_CLAMP_EN_N |
-			COMMONONN | DPSEHV_CLAMP_EN_N | USB2_UTMI_CLK_EN |
-			DMSEHV_CLAMP_EN_N | CLAMP_MPM_DPSE_DMSE_EN_N,
-			phy->base + HS_PHY_CTRL_REG);
+	val = readl_relaxed(phy->base + HS_PHY_CTRL_REG);
+	val |= (USB2_UTMI_CLK_EN | CLAMP_MPM_DPSE_DMSE_EN_N | RETENABLEN);
+
+	if (uphy->flags & ENABLE_SECONDARY_PHY) {
+		val &= ~(USB2_UTMI_CLK_EN | FREECLOCK_SEL);
+		val |= FREECLK_DIS_WHEN_SUSP;
+	}
+
+	writel_relaxed(val, phy->base + HS_PHY_CTRL_REG);
 	usleep_range(2000, 2200);
+
+	if (uphy->flags & ENABLE_SECONDARY_PHY)
+		msm_usb_write_readback(phy->base, GENERAL_CFG_REG,
+					SEC_UTMI_FREE_CLK_GFM_SEL1,
+					SEC_UTMI_FREE_CLK_GFM_SEL1);
 
 	if (phy->core_ver >= MSM_CORE_VER_120)
 		writel_relaxed(COMMON_OTGDISABLE0 | COMMON_OTGTUNE0_DEFAULT |
@@ -487,6 +504,11 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		/* switch MUX to let SNPS controller use the primary HSPHY */
 		writel_relaxed(readl_relaxed(phy->tcsr) | TCSR_USB30_CONTROL,
 				phy->tcsr);
+	}
+
+	if (of_get_property(dev->of_node, "qti,primary-phy", NULL)) {
+		dev_dbg(dev, "secondary HSPHY\n");
+		phy->phy.flags |= ENABLE_SECONDARY_PHY;
 	}
 
 	ret = of_property_read_u32_array(dev->of_node, "qti,vdd-voltage-level",
