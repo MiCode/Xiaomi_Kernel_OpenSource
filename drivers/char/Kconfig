@@ -650,14 +650,13 @@ config MSM_ROTATOR_USE_IMEM
           different function.
 
 config MSM_ADSPRPC
-        tristate "Qualcomm ADSP RPC driver"
-        depends on MSM_AUDIO_QDSP6 || MSM_AUDIO_QDSP6V2
-        default m
-        help
-          Provides a communication mechanism that allows for clients to
-          make remote method invocations across processor boundary to
-          applications DSP processor. Say M if you want to enable this
-          module.
+	tristate "Qualcomm ADSP RPC driver"
+	depends on MSM_AUDIO_QDSP6 || MSM_AUDIO_QDSP6V2
+	help
+	  Provides a communication mechanism that allows for clients to
+	  make remote method invocations across processor boundary to
+	  applications DSP processor. Say M if you want to enable this
+	  module.
 
 config MMC_GENERIC_CSDIO
 	tristate "Generic sdio driver"
