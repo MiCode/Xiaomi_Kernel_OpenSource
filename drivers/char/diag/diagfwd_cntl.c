@@ -349,10 +349,19 @@ void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 	int wr_size = -ENOMEM, retry_count = 0, timer;
 	struct diag_smd_info *data = NULL;
 
-	/* For now only allow the modem to receive the message */
-	if (!smd_info || smd_info->type != SMD_CNTL_TYPE ||
-		(smd_info->peripheral != MODEM_DATA))
+	if (!smd_info || smd_info->type != SMD_CNTL_TYPE) {
+		pr_err("diag: In %s, invalid channel info, smd_info: %p type: %d\n",
+					__func__, smd_info,
+					((smd_info) ? smd_info->type : -1));
 		return;
+	}
+
+	if (smd_info->peripheral < MODEM_DATA ||
+					smd_info->peripheral > WCNSS_DATA) {
+		pr_err("diag: In %s, invalid peripheral %d\n", __func__,
+							smd_info->peripheral);
+		return;
+	}
 
 	data = &driver->smd_data[smd_info->peripheral];
 	if (!data)
