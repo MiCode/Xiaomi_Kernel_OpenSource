@@ -61,7 +61,7 @@
 /* Memory type and cache policy attributes */
 #define MT_SO                   0
 #define MT_DEV                  1
-#define MT_NORMAL               2
+#define MT_IOMMU_NORMAL         2
 #define CP_NONCACHED            0
 #define CP_WB_WA                1
 #define CP_WT                   2
@@ -681,16 +681,17 @@ static int __init get_tex_class(int icp, int ocp, int mt, int nos)
 static void __init setup_iommu_tex_classes(void)
 {
 	msm_iommu_tex_class[MSM_IOMMU_ATTR_NONCACHED] =
-			get_tex_class(CP_NONCACHED, CP_NONCACHED, MT_NORMAL, 1);
+			get_tex_class(CP_NONCACHED, CP_NONCACHED,
+			MT_IOMMU_NORMAL, 1);
 
 	msm_iommu_tex_class[MSM_IOMMU_ATTR_CACHED_WB_WA] =
-			get_tex_class(CP_WB_WA, CP_WB_WA, MT_NORMAL, 1);
+			get_tex_class(CP_WB_WA, CP_WB_WA, MT_IOMMU_NORMAL, 1);
 
 	msm_iommu_tex_class[MSM_IOMMU_ATTR_CACHED_WB_NWA] =
-			get_tex_class(CP_WB_NWA, CP_WB_NWA, MT_NORMAL, 1);
+			get_tex_class(CP_WB_NWA, CP_WB_NWA, MT_IOMMU_NORMAL, 1);
 
 	msm_iommu_tex_class[MSM_IOMMU_ATTR_CACHED_WT] =
-			get_tex_class(CP_WT, CP_WT, MT_NORMAL, 1);
+			get_tex_class(CP_WT, CP_WT, MT_IOMMU_NORMAL, 1);
 }
 
 void __init msm_iommu_pagetable_init(void)
