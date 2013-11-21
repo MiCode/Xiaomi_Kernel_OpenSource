@@ -1565,7 +1565,7 @@ static int cm36283_probe(struct i2c_client *client,
 		__func__, lpi->ls_cmd);
 	
 	if (pdata->ls_cmd == 0) {
-		lpi->ls_cmd  = CM36283_ALS_IT_160ms | CM36283_ALS_GAIN_2;
+		lpi->ls_cmd  = CM36283_ALS_IT_80ms | CM36283_ALS_GAIN_2;
 	}
 
 	lp_info = lpi;
@@ -1582,17 +1582,17 @@ static int cm36283_probe(struct i2c_client *client,
 	mutex_init(&ps_get_adc_mutex);
 
 
-  //SET LUX STEP FACTOR HERE
-  // if adc raw value one step = 5/100 = 1/20 = 0.05 lux
-  // the following will set the factor 0.05 = 1/20
-  // and lpi->golden_adc = 1;  
-  // set als_kadc = (ALS_CALIBRATED <<16) | 20;
+	/*
+	 * SET LUX STEP FACTOR HERE
+	 * if adc raw value one step = 5/100 = 1/20 = 0.05 lux
+	 * the following will set the factor 0.05 = 1/20
+	 * and lpi->golden_adc = 1;
+	 * set als_kadc = (ALS_CALIBRATED << 16) | 20;
+	 */
 
-  als_kadc = (ALS_CALIBRATED <<16) | 20;
-  lpi->golden_adc = 1;
-
-  //ls calibrate always set to 1 
-  lpi->ls_calibrate = 1;
+	als_kadc = (ALS_CALIBRATED << 16) | 10;
+	lpi->golden_adc = 100;
+	lpi->ls_calibrate = 0;
 
 	lightsensor_set_kvalue(lpi);
 	ret = lightsensor_update_table(lpi);
