@@ -320,6 +320,7 @@ struct sdhci_ops {
 	int	(*config_auto_tuning_cmd)(struct sdhci_host *host,
 					  bool enable,
 					  u32 type);
+	int	(*enable_controller_clock)(struct sdhci_host *host);
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS
