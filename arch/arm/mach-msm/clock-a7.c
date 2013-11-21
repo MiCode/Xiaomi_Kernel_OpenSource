@@ -293,7 +293,7 @@ static int of_get_clk_src(struct platform_device *pdev, struct clk_src *parents)
 static int clock_a7_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	int speed_bin = 0, version = 0, rc, cpu;
+	int speed_bin = 0, version = 0, rc;
 	unsigned long rate, aux_rate;
 	struct clk *aux_clk, *main_pll;
 	char prop_name[] = "qcom,speedX-bin-vX";
@@ -362,10 +362,8 @@ static int clock_a7_probe(struct platform_device *pdev)
 	 * that the clocks have already been prepared and enabled by the time
 	 * they take over.
 	 */
-	for_each_online_cpu(cpu) {
-		WARN(clk_prepare_enable(&a7ssmux.c),
-			"Unable to turn on CPU%d clock", cpu);
-	}
+	WARN(clk_prepare_enable(&a7ssmux.c),
+		"Unable to turn on CPU clock");
 	return 0;
 }
 
