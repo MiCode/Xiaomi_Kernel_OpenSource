@@ -2760,18 +2760,27 @@ static int hsw_set_pixelformat(struct drm_crtc *crtc, u32 pixel_format)
 		break;
 	case DRM_FORMAT_XRGB1555:
 	case DRM_FORMAT_ARGB1555:
-		dspcntr |= DISPPLANE_BGRX555;
+		if (intel_crtc->primary_alpha)
+			dspcntr |= DISPPLANE_BGRA555;
+		else
+			dspcntr |= DISPPLANE_BGRX555;
 		break;
 	case DRM_FORMAT_RGB565:
 		dspcntr |= DISPPLANE_BGRX565;
 		break;
 	case DRM_FORMAT_XRGB8888:
 	case DRM_FORMAT_ARGB8888:
-		dspcntr |= DISPPLANE_BGRX888;
+		if (intel_crtc->primary_alpha)
+			dspcntr |= DISPPLANE_BGRA888;
+		else
+			dspcntr |= DISPPLANE_BGRX888;
 		break;
 	case DRM_FORMAT_XBGR8888:
 	case DRM_FORMAT_ABGR8888:
-		dspcntr |= DISPPLANE_RGBX888;
+		if (intel_crtc->primary_alpha)
+			dspcntr |= DISPPLANE_RGBA888;
+		else
+			dspcntr |= DISPPLANE_RGBX888;
 		break;
 	case DRM_FORMAT_XRGB2101010:
 	case DRM_FORMAT_ARGB2101010:
@@ -2779,7 +2788,10 @@ static int hsw_set_pixelformat(struct drm_crtc *crtc, u32 pixel_format)
 		break;
 	case DRM_FORMAT_XBGR2101010:
 	case DRM_FORMAT_ABGR2101010:
-		dspcntr |= DISPPLANE_RGBX101010;
+		if (intel_crtc->primary_alpha)
+			dspcntr |= DISPPLANE_RGBA101010;
+		else
+			dspcntr |= DISPPLANE_RGBX101010;
 		break;
 	default:
 		DRM_ERROR("Unsupported pixel format 0x%08x\n", pixel_format);
@@ -11832,6 +11844,10 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	dev_priv->pipe_to_crtc_mapping[intel_crtc->pipe] = &intel_crtc->base;
 
 	drm_crtc_helper_add(&intel_crtc->base, &intel_helper_funcs);
+
+	intel_crtc->primary_alpha = false;
+	intel_crtc->sprite0_alpha = true;
+	intel_crtc->sprite1_alpha = true;
 
 	WARN_ON(drm_crtc_index(&intel_crtc->base) != intel_crtc->pipe);
 }
