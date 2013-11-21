@@ -1375,9 +1375,9 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto probe_done;
 	}
-	pr_info("MDP HW Base phy_Address=0x%x virt=0x%x\n",
-		(int) res->start,
-		(int) mdata->mdss_base);
+	pr_info("MDSS HW Base phy_Address=0x%x virt=0x%x\n",
+		(int) (unsigned long) res->start,
+		(int) (unsigned long) mdata->mdss_base);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vbif_phys");
 	if (!res) {
@@ -1394,8 +1394,8 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		goto probe_done;
 	}
 	pr_info("MDSS VBIF HW Base phy_Address=0x%x virt=0x%x\n",
-		(int) res->start,
-		(int) mdata->vbif_base);
+		(int) (unsigned long) res->start,
+		(int) (unsigned long) mdata->vbif_base);
 
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (!res) {
