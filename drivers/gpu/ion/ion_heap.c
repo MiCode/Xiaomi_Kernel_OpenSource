@@ -117,7 +117,7 @@ int ion_heap_pages_zero(struct page **pages, int num_pages,
 	 * It's cheaper just to use writecombine memory and skip the
 	 * cache vs. using a cache memory and trying to flush it afterwards
 	 */
-	pgprot_t pgprot = pgprot_writecombine(pgprot_kernel);
+	pgprot_t pgprot = pgprot_writecombine(PAGE_KERNEL);
 
 	/*
 	 * As an optimization, we manually zero out all of the pages
