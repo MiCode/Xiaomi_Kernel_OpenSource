@@ -187,6 +187,36 @@ static struct gpiomux_setting dan_spi_func1_config = {
 	.pull = GPIOMUX_PULL_UP,
 };
 
+static struct gpiomux_setting mdm_grfc_config = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting ctu_bridge_config = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting ctu_grfc_config = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting mdm_gpio_config = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting pdm_func1_config = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
 static struct msm_gpiomux_config fsm_dan_spi_configs[] __initdata = {
 	{
 		.gpio      = 12,       /* BLSP DAN0 SPI_MOSI */
@@ -246,6 +276,279 @@ static struct msm_gpiomux_config fsm_dan_spi_configs[] __initdata = {
 		.gpio      = 82,       /* BLSP DAN1 SPI_CS1 */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &dan_spi_func1_config,
+		},
+	},
+};
+
+struct msm_gpiomux_config fsm_gluon_grfc_configs[] = {
+	{
+		.gpio      = 82,       /* CTU_GPIO_BRIDGE[48] */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ctu_bridge_config,
+		},
+	},
+	{
+		.gpio      = 83,       /* CTU_GPIO_BRIDGE[47] */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ctu_bridge_config,
+		},
+	},
+	{
+		.gpio      = 88,       /* TX1_HB_PA_EN / TX1_PA_EN */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ctu_grfc_config,
+		},
+	},
+	{
+		.gpio      = 90,       /* TX2_HB_PA_EN / FTR1_DPD_SEL0 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ctu_grfc_config,
+		},
+	},
+	{
+		.gpio      = 92,       /* TX2_LB_PA_EN  / FTR1_DPD_SEL1 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ctu_grfc_config,
+		},
+	},
+	{
+		.gpio      = 94,       /* TX3_HB_PA_EN / TX3_PA_EN */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ctu_grfc_config,
+		},
+	},
+	{
+		.gpio      = 96,       /* TX3_LB_PA_EN / TX4_PA_EN */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ctu_grfc_config,
+		},
+	},
+	{
+		.gpio      = 98,       /* TX4_HB_PA_EN / FTR2_DPD_SEL0 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ctu_grfc_config,
+		},
+	},
+	{
+		.gpio      = 101,       /* HB_HDD / SPARE */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ctu_grfc_config,
+		},
+	},
+	{
+		.gpio      = 103,       /* FTR1_SEL0 / FTR2_TXRX_SW_SEL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 104,       /* FTR1_SEL1 / FTR1_TXRX_SW_SEL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 105,       /* FTR2_SEL0  / FTR1_RX_ON */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 106,       /* FTR2_SEL1 / FTR1_DPD_ON */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 112,       /* TX1_VPA_EN */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 114,       /* TX1_VPA_EN */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+};
+
+struct msm_gpiomux_config fsm_mdm_grfc_configs[] = {
+	{
+		.gpio      = 88,       /* TX1_HB_PA_EN / TX1_PA_EN */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 89,       /* TX1_LB_PA_EN / TX2_PA_EN */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 90,       /* TX2_HB_PA_EN / FTR1_DPD_SEL0 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 91,       /* TX2_LB_PA_EN  / FTR1_DPD_SEL1 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 92,       /* TX3_HB_PA_EN / TX3_PA_EN */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 93,       /* TX3_LB_PA_EN / TX4_PA_EN */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 94,       /* TX4_HB_PA_EN / FTR2_DPD_SEL0 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 95,       /* TX4_LB_PA_EN  / FTR2_DPD_SEL1 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 96,       /* TX3_TX4_HB_PA_EN / FTR1_NL_SW1_SEL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_gpio_config,
+		},
+	},
+	{
+		.gpio      = 97,       /* TX3_TX4_LB_PA_EN / FTR1_NL_SW2_SEL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_gpio_config,
+		},
+	},
+	{
+		.gpio      = 98,       /* TX1_TX2_HB_PA_EN / FTR2_NL_SW1_SEL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_gpio_config,
+		},
+	},
+	{
+		.gpio      = 99,       /* TX1_TX2_LB_PA_EN  / FTR2_NL_SW2_SEL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_gpio_config,
+		},
+	},
+	{
+		.gpio      = 100,       /* ANT1_HBLB_FTR_SEL / SPARE */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 101,       /* HB_HDD / SPARE */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 103,       /* FTR1_SEL0 / FTR2_TXRX_SW_SEL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_gpio_config,
+		},
+	},
+	{
+		.gpio      = 104,       /* FTR1_SEL1 / FTR1_TXRX_SW_SEL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_gpio_config,
+		},
+	},
+	{
+		.gpio      = 105,       /* FTR2_SEL0  / FTR1_RX_ON */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_gpio_config,
+		},
+	},
+	{
+		.gpio      = 106,       /* FTR2_SEL1 / FTR1_DPD_ON */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_gpio_config,
+		},
+	},
+	{
+		.gpio      = 109,       /* WTR1605_RX_ON / FTR1_INTERRUPT */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 110,       /* WTR1605_RF_ON / FTR2_INTERRUPT */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 111,       /* WTR2605_RX_ON  / SPARE */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 112,       /* TX1_VPA_EN */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 113 ,       /* TX2_VPA_EN */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 114,       /* TX3_VPA_EN */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+	{
+		.gpio      = 115,       /* TX4_VPA_EN  */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mdm_grfc_config,
+		},
+	},
+};
+
+static struct msm_gpiomux_config fsm_pdm_configs[] __initdata = {
+	{
+		.gpio      = 116,       /* TX1_VPA_CTL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &pdm_func1_config,
+		},
+	},
+	{
+		.gpio      = 117,       /* TX2_VPA_CTL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &pdm_func1_config,
+		},
+	},
+	{
+		.gpio      = 118,       /* TX3_VPA_CTL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &pdm_func1_config,
+		},
+	},
+	{
+		.gpio      = 121,       /* TX4_VPA_CTL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &pdm_func1_config,
 		},
 	},
 };
@@ -360,6 +663,13 @@ static struct gpiomux_setting sd_detect_config = {
 	.pull = GPIOMUX_PULL_UP,
 };
 
+static struct gpiomux_setting rf_detect_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_IN,
+};
+
 static struct gpiomux_setting sd_wp_config = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_6MA,
@@ -420,6 +730,57 @@ static struct msm_gpiomux_config fsm_mdio_configs[] __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config fsm_rf_configs[] __initdata = {
+	{
+		.gpio      = 96,       /* FTR2_HB_NL_SEL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &rf_detect_config,
+		},
+	},
+	{
+		.gpio      = 97,      /* FTR2_LB_NL_SEL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &rf_detect_config,
+		},
+	},
+	{
+		.gpio      = 98,       /* FTR1_HB_NL_SEL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &rf_detect_config,
+		},
+	},
+	{
+		.gpio      = 99,       /* FTR1_LB_NL_SEL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &rf_detect_config,
+		},
+	},
+	{
+		.gpio      = 103,       /* FTR1_SBI_SEL0 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &rf_detect_config,
+		},
+	},
+	{
+		.gpio      = 104,       /* FTR1_SBI_SEL1 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &rf_detect_config,
+		},
+	},
+	{
+		.gpio      = 105,       /* FTR2_SBI_SEL0 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &rf_detect_config,
+		},
+	},
+	{
+		.gpio      = 106,       /* FTR2_SBI_SEL1 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &rf_detect_config,
+		},
+	},
+};
+
 void __init fsm9900_init_gpiomux(void)
 {
 	int rc;
@@ -433,10 +794,23 @@ void __init fsm9900_init_gpiomux(void)
 	msm_gpiomux_install(fsm_blsp_configs, ARRAY_SIZE(fsm_blsp_configs));
 	msm_gpiomux_install(fsm_geni_configs, ARRAY_SIZE(fsm_geni_configs));
 	msm_gpiomux_install(fsm_dan_spi_configs,
-			    ARRAY_SIZE(fsm_dan_spi_configs));
+			ARRAY_SIZE(fsm_dan_spi_configs));
 	msm_gpiomux_install(fsm_uim_configs, ARRAY_SIZE(fsm_uim_configs));
 	msm_gpiomux_install(fsm_pcie_configs, ARRAY_SIZE(fsm_pcie_configs));
 	msm_gpiomux_install(fsm_gps_configs, ARRAY_SIZE(fsm_gps_configs));
 	msm_gpiomux_install(fsm_sd_configs, ARRAY_SIZE(fsm_sd_configs));
 	msm_gpiomux_install(fsm_mdio_configs, ARRAY_SIZE(fsm_mdio_configs));
+	msm_gpiomux_install(fsm_pdm_configs, ARRAY_SIZE(fsm_pdm_configs));
+	msm_gpiomux_install(fsm_rf_configs, ARRAY_SIZE(fsm_rf_configs));
+}
+
+void fsm9900_gluon_init(void)
+{
+	msm_gpiomux_install(fsm_gluon_grfc_configs,
+			ARRAY_SIZE(fsm_gluon_grfc_configs));
+}
+void fsm9900_rfic_init(void)
+{
+	msm_gpiomux_install(fsm_mdm_grfc_configs,
+			ARRAY_SIZE(fsm_mdm_grfc_configs));
 }
