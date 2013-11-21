@@ -2242,8 +2242,15 @@ static void gtp_esd_check_func(struct work_struct *work)
 }
 #endif
 
-static SIMPLE_DEV_PM_OPS(goodix_ts_dev_pm_ops, goodix_ts_suspend,
-					goodix_ts_resume);
+#if (!defined(CONFIG_FB) && !defined(CONFIG_HAS_EARLYSUSPEND))
+static const struct dev_pm_ops goodix_ts_dev_pm_ops = {
+	.suspend = goodix_ts_suspend,
+	.resume = goodix_ts_resume,
+};
+#else
+static const struct dev_pm_ops goodix_ts_dev_pm_ops = {
+};
+#endif
 
 static const struct i2c_device_id goodix_ts_id[] = {
 	{ GTP_I2C_NAME, 0 },
