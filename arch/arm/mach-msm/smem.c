@@ -727,12 +727,6 @@ void *smem_alloc(unsigned id, unsigned size_in, unsigned to_proc,
 }
 EXPORT_SYMBOL(smem_alloc);
 
-void *smem_get_entry(unsigned id, unsigned *size)
-{
-	return __smem_get_entry(id, size, false, true);
-}
-EXPORT_SYMBOL(smem_get_entry);
-
 /**
  * smem_get_entry_to_proc - Get existing item with security support
  *
