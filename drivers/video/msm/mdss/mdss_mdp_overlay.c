@@ -1157,11 +1157,13 @@ done:
 /**
  * mdss_mdp_overlay_release_all() - release any overlays associated with fb dev
  * @mfd:	Msm frame buffer structure associated with fb device
+ * @release_all: ignore pid and release all the pipes
  *
  * Release any resources allocated by calling process, this can be called
  * on fb_release to release any overlays/rotator sessions left open.
  */
-static int __mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd)
+static int __mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd,
+	bool release_all)
 {
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_mdp_rotator_session *rot, *tmp;
@@ -1175,7 +1177,7 @@ static int __mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd)
 	mutex_lock(&mdp5_data->ov_lock);
 	mutex_lock(&mfd->lock);
 	list_for_each_entry(pipe, &mdp5_data->pipes_used, used_list) {
-		if (!mfd->ref_cnt || (pipe->pid == pid)) {
+		if (release_all || (pipe->pid == pid)) {
 			unset_ndx |= pipe->ndx;
 			cnt++;
 		}
@@ -1186,6 +1188,9 @@ static int __mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd)
 			mfd->index);
 		cnt++;
 	}
+
+	pr_debug("release_all=%d mfd->ref_cnt=%d unset_ndx=0x%x cnt=%d\n",
+		release_all, mfd->ref_cnt, unset_ndx, cnt);
 
 	mutex_unlock(&mfd->lock);
 
