@@ -3051,7 +3051,7 @@ static int tavarua_vidioc_s_ext_ctrls(struct file *file, void *priv,
 	int retval = 0;
 	int bytes_to_copy;
 	int bytes_copied = 0;
-	int bytes_left = 0;
+	__u32 bytes_left = 0;
 	int chunk_index = 0;
 	char tx_data[XFR_REG_NUM];
 	struct tavarua_device *radio = video_get_drvdata(video_devdata(file));
@@ -3066,15 +3066,15 @@ static int tavarua_vidioc_s_ext_ctrls(struct file *file, void *priv,
 
 		chunk_index = 0;
 		bytes_copied = 0;
-		bytes_left = min((int)(ctrl->controls[0]).size,
-			MAX_PS_LENGTH);
+		bytes_left = min((ctrl->controls[0]).size,
+			(__u32)MAX_PS_LENGTH);
 		data = (ctrl->controls[0]).string;
 
 		/* send payload to FM hardware */
 		while (bytes_left) {
 			chunk_index++;
 			FMDBG("chunk is %d", chunk_index);
-			bytes_to_copy = min(bytes_left, XFR_REG_NUM);
+			bytes_to_copy = min(bytes_left, (__u32)XFR_REG_NUM);
 			/*Clear the tx_data */
 			memset(tx_data, 0, XFR_REG_NUM);
 			if (copy_from_user(tx_data,
@@ -3116,12 +3116,12 @@ static int tavarua_vidioc_s_ext_ctrls(struct file *file, void *priv,
 		FMDBG("Passed RT String : %s\n",
 			(ctrl->controls[0]).string);
 		bytes_left =
-		    min((int)(ctrl->controls[0]).size, MAX_RT_LENGTH);
+		    min((ctrl->controls[0]).size, (__u32)MAX_RT_LENGTH);
 		data = (ctrl->controls[0]).string;
 		/* send payload to FM hardware */
 		while (bytes_left) {
 			chunk_index++;
-			bytes_to_copy = min(bytes_left, XFR_REG_NUM);
+			bytes_to_copy = min(bytes_left, (__u32)XFR_REG_NUM);
 			memset(tx_data, 0, XFR_REG_NUM);
 			if (copy_from_user(tx_data,
 				    data + bytes_copied, bytes_to_copy))
