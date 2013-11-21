@@ -179,6 +179,15 @@ config CORESIGHT_AUDIO_ETM
 	  on audio processor via sysfs by configuring the required CoreSight
 	  components.
 
+config CORESIGHT_AUDIO_ETM_DEFAULT_ENABLE
+	bool "Turn on audio processor ETM tracing by default"
+	help
+	  Turns on CoreSight audio processor ETM tracing by default. Otherwise,
+	  tracing is disabled by default but can be enabled via sysfs.
+
+	  If unsure, say 'N' here to avoid potential power and performance
+	  penalty.
+
 config CORESIGHT_MODEM_ETM
 	bool "Modem processor ETM trace support"
 	help
@@ -186,6 +195,15 @@ config CORESIGHT_MODEM_ETM
 	  CoreSight framework. Enabling this will allow turning on ETM tracing
 	  on modem processor via sysfs by configuring the required CoreSight
 	  components.
+
+config CORESIGHT_MODEM_ETM_DEFAULT_ENABLE
+	bool "Turn on modem processor ETM tracing by default"
+	help
+	  Turns on CoreSight modem processor ETM tracing by default. Otherwise,
+	  tracing is disabled by default but can be enabled via sysfs.
+
+	  If unsure, say 'N' here to avoid potential power and performance
+	  penalty.
 
 config CORESIGHT_WCN_ETM
 	bool "Wireless subsystem processor ETM trace support"
@@ -195,6 +213,16 @@ config CORESIGHT_WCN_ETM
 	  turning on ETM tracing on wireless subsystem via sysfs by configuring
 	  the required CoreSight components.
 
+config CORESIGHT_WCN_ETM_DEFAULT_ENABLE
+	bool "Turn on wireless subsystem processor ETM tracing by default"
+	help
+	  Turns on CoreSight wireless subsystem processor ETM tracing by
+	  default. Otherwise, tracing is disabled by default but can be enabled
+	  via sysfs.
+
+	  If unsure, say 'N' here to avoid potential power and performance
+	  penalty.
+
 config CORESIGHT_RPM_ETM
 	bool "RPM processor ETM trace support"
 	help
@@ -202,6 +230,15 @@ config CORESIGHT_RPM_ETM
 	  CoreSight framework. Enabling this will allow turning on ETM
 	  tracing on RPM processor via sysfs by configuring the required
 	  CoreSight components.
+
+config CORESIGHT_RPM_ETM_DEFAULT_ENABLE
+	bool "Turn on RPM processor ETM tracing by default"
+	help
+	  Turns on CoreSight RPM processor ETM tracing by default. Otherwise,
+	  tracing is disabled by default but can be enabled via sysfs.
+
+	  If unsure, say 'N' here to avoid potential power and performance
+	  penalty.
 
 endif
 
