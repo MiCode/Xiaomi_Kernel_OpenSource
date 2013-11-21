@@ -817,12 +817,6 @@ else
   endif
 endif
 
-ifdef NO_JSON_EXPORT
-	BASIC_CFLAGS += -DNO_JSON_EXPORT
-else
-	LIB_OBJS += $(OUTPUT)util/scripting-engines/trace-event-json-export.o
-endif
-
 ifdef NO_DEMANGLE
 	BASIC_CFLAGS += -DNO_DEMANGLE
 else
