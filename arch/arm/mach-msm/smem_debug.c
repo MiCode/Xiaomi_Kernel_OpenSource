@@ -40,7 +40,8 @@ static void debug_f3(struct seq_file *s)
 
 	seq_puts(s, "Printing to log\n");
 
-	x = smem_get_entry(SMEM_ERR_F3_TRACE_LOG, &size);
+	x = smem_get_entry_to_proc(SMEM_ERR_F3_TRACE_LOG, &size, 0,
+							SMEM_ANY_HOST_FLAG);
 	if (x != 0) {
 		pr_info("smem: F3 TRACE LOG\n");
 		while (size > 0) {
@@ -82,7 +83,8 @@ static void debug_modem_err_f3(struct seq_file *s)
 	unsigned cols = 0;
 	char str[4*sizeof(unsigned)+1] = {0};
 
-	x = smem_get_entry(SMEM_ERR_F3_TRACE_LOG, &size);
+	x = smem_get_entry_to_proc(SMEM_ERR_F3_TRACE_LOG, &size, 0,
+							SMEM_ANY_HOST_FLAG);
 	if (x != 0) {
 		pr_info("smem: F3 TRACE LOG\n");
 		while (size > 0) {
@@ -128,7 +130,8 @@ static void debug_modem_err(struct seq_file *s)
 		seq_printf(s, "smem: DIAG '%s'\n", x);
 	}
 
-	x = smem_get_entry(SMEM_ERR_CRASH_LOG, &size);
+	x = smem_get_entry_to_proc(SMEM_ERR_CRASH_LOG, &size, 0,
+							SMEM_ANY_HOST_FLAG);
 	if (x != 0) {
 		x[size - 1] = 0;
 		seq_printf(s, "smem: CRASH LOG\n'%s'\n", x);
@@ -199,7 +202,8 @@ static void debug_read_build_id(struct seq_file *s)
 	unsigned size;
 	void *data;
 
-	data = smem_get_entry(SMEM_HW_SW_BUILD_ID, &size);
+	data = smem_get_entry_to_proc(SMEM_HW_SW_BUILD_ID, &size, 0,
+							SMEM_ANY_HOST_FLAG);
 	if (!data)
 		return;
 
