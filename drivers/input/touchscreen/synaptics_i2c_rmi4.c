@@ -3192,8 +3192,10 @@ static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data)
 	}
 
 	if (device_ctrl.nosleep == NO_SLEEP_OFF &&
-		device_ctrl.sleep_mode == NORMAL_OPERATION)
+		device_ctrl.sleep_mode == NORMAL_OPERATION) {
+		rmi4_data->sensor_sleep = false;
 		return;
+	}
 
 	device_ctrl.sleep_mode = NORMAL_OPERATION;
 	device_ctrl.nosleep = NO_SLEEP_OFF;
