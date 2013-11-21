@@ -975,7 +975,8 @@ int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 		data_byte = 12;	/* NOT first read */
 		pkt_size += data_byte;
 		pr_debug("%s: rp data=%x len=%d dlen=%d diff=%d\n",
-			__func__, (int)rp->data, rp->len, dlen, diff);
+			 __func__, (int) (unsigned long) rp->data,
+			 rp->len, dlen, diff);
 	}
 
 	rp->data = rp->start;	/* move back to start position */
