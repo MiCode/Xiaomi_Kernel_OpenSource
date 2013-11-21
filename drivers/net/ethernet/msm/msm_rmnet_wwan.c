@@ -586,6 +586,10 @@ static int wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	case RMNET_IOCTL_GET_LLP:           /* Get link protocol state */
 		ifr->ifr_ifru.ifru_data = (void *) RMNET_MODE_LLP_IP;
 		break;
+	case RMNET_IOCTL_SET_QOS_ENABLE:    /* Set QoS header enabled  */
+		pr_debug("[%s] wwan_ioctl(): QOS header addition is not supported\n",
+			dev->name);
+		return -EPERM;
 	case RMNET_IOCTL_SET_QOS_DISABLE:   /* Set QoS header disabled */
 		break;
 	case RMNET_IOCTL_FLOW_ENABLE:
