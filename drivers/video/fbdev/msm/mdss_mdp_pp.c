@@ -643,19 +643,24 @@ static void pp_update_pa_v2_mem_col(char __iomem *addr,
 static void pp_update_pa_v2_mem_col_regs(char __iomem *addr,
 				struct mdp_pa_mem_col_cfg *cfg)
 {
-	pr_debug("ADDR: 0x%x, P0: 0x%x\n", (u32)addr, cfg->color_adjust_p0);
+	pr_debug("ADDR: 0x%x, P0: 0x%x\n", (u32) (unsigned long) addr,
+		 cfg->color_adjust_p0);
 	writel_relaxed(cfg->color_adjust_p0, addr);
 	addr += 4;
-	pr_debug("ADDR: 0x%x, P1: 0x%x\n", (u32)addr, cfg->color_adjust_p1);
+	pr_debug("ADDR: 0x%x, P1: 0x%x\n", (u32) (unsigned long) addr,
+		 cfg->color_adjust_p1);
 	writel_relaxed(cfg->color_adjust_p1, addr);
 	addr += 4;
-	pr_debug("ADDR: 0x%x, HUE REGION: 0x%x\n", (u32)addr, cfg->hue_region);
+	pr_debug("ADDR: 0x%x, HUE REGION: 0x%x\n", (u32) (unsigned long) addr,
+		 cfg->hue_region);
 	writel_relaxed(cfg->hue_region, addr);
 	addr += 4;
-	pr_debug("ADDR: 0x%x, SAT REGION: 0x%x\n", (u32)addr, cfg->sat_region);
+	pr_debug("ADDR: 0x%x, SAT REGION: 0x%x\n", (u32) (unsigned long) addr,
+		 cfg->sat_region);
 	writel_relaxed(cfg->sat_region, addr);
 	addr += 4;
-	pr_debug("ADDR: 0x%x, VAL REGION: 0x%x\n", (u32)addr, cfg->val_region);
+	pr_debug("ADDR: 0x%x, VAL REGION: 0x%x\n", (u32) (unsigned long) addr,
+		 cfg->val_region);
 	writel_relaxed(cfg->val_region, addr);
 }
 
@@ -3046,7 +3051,7 @@ static int pp_hist_enable(struct pp_hist_col_info *hist_info,
 	/* check if it is idle */
 	if (hist_info->col_en) {
 		pr_info("%s Hist collection has already been enabled %d",
-			__func__, (u32) hist_info->base);
+			__func__, (u32) (unsigned long) hist_info->base);
 		ret = -EINVAL;
 		goto exit;
 	}
@@ -3184,8 +3189,8 @@ static int pp_hist_disable(struct pp_hist_col_info *hist_info)
 
 	mutex_lock(&hist_info->hist_mutex);
 	if (hist_info->col_en == false) {
-		pr_debug("Histogram already disabled (%d)",
-							(u32) hist_info->base);
+		pr_debug("Histogram already disabled (%x)",
+			 (u32) (unsigned long) hist_info->base);
 		ret = -EINVAL;
 		goto exit;
 	}
@@ -4955,7 +4960,7 @@ static int is_valid_calib_addr(void *addr, u32 operation)
 	char __iomem *ctl_base   = mdss_res->ctl_off->base;
 	char __iomem *dspp_base  = mdss_res->mixer_intf->dspp_base;
 
-	if ((unsigned int)addr % 4) {
+	if ((unsigned int) (unsigned long) addr % 4) {
 		ret = 0;
 	} else if (ptr == (mdss_res->mdp_base + MDSS_MDP_REG_HW_VERSION) ||
 	    ptr == (mdss_res->mdp_base + MDSS_MDP_REG_DISP_INTF_SEL)) {
@@ -5007,9 +5012,10 @@ valid_addr:
 int mdss_mdp_calib_config(struct mdp_calib_config_data *cfg, u32 *copyback)
 {
 	int ret = -1;
-	void *ptr = (void *) cfg->addr;
+	void *ptr = (void *) (unsigned long) cfg->addr;
 
-	ptr = (void *)(((unsigned int) ptr) + (mdss_res->mdss_base));
+	ptr = (void *)(((unsigned int) (unsigned long) ptr) +
+		       (mdss_res->mdss_base));
 	if (is_valid_calib_addr(ptr, cfg->ops))
 		ret = 0;
 	else
