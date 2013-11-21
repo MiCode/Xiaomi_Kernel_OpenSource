@@ -763,15 +763,19 @@ EXPORT_SYMBOL(smem_get_entry_to_proc);
  *
  * @id:       ID of SMEM item
  * @size_out: Pointer to size variable for storing the result
+ * @to_proc:  SMEM host that shares the item with apps
+ * @flags:    Item attribute flags
  * @returns:  Pointer to SMEM item or NULL if it doesn't exist
  *
  * This function does not lock the remote spinlock and should only be used in
  * failure-recover cases such as retrieving the subsystem failure reason during
  * subsystem restart.
  */
-void *smem_get_entry_no_rlock(unsigned id, unsigned *size_out)
+void *smem_get_entry_no_rlock(unsigned id, unsigned *size_out, unsigned to_proc,
+								unsigned flags)
 {
-	return __smem_get_entry(id, size_out, false, false);
+	return __smem_get_entry_to_proc(id, size_out, to_proc, flags, false,
+									false);
 }
 EXPORT_SYMBOL(smem_get_entry_no_rlock);
 
