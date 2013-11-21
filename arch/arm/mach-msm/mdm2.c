@@ -155,7 +155,11 @@ static void mdm_do_first_power_on(struct mdm_modem_drv *mdm_drv)
 	 */
 	if (!mdm_drv->pdata->no_reset_on_first_powerup)
 		mdm_toggle_soft_reset(mdm_drv);
-
+	/*
+	 * In the first power up, the PMIC pon sequence can take upto
+	 * 50msecs to be ready for ipc communications.
+	 */
+	msleep(50);
 	/* If the device has a kpd pwr gpio then toggle it. */
 	if (GPIO_IS_VALID(MDM_GPIO(AP2MDM_KPDPWR))) {
 		/* Pull AP2MDM_KPDPWR gpio high and wait for PS_HOLD to settle,
