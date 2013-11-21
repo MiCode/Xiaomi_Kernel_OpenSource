@@ -28,6 +28,7 @@
 #include "ion_priv.h"
 
 #include <asm/cacheflush.h>
+#include <linux/io.h>
 #include <linux/msm_ion.h>
 
 struct ion_removed_heap {
@@ -193,7 +194,7 @@ void ion_removed_heap_unmap_kernel(struct ion_heap *heap,
 	struct ion_removed_heap *removed_heap =
 		container_of(heap, struct ion_removed_heap, heap);
 
-	__arm_iounmap(buffer->vaddr);
+	iounmap(buffer->vaddr);
 	buffer->vaddr = NULL;
 
 	ion_removed_release_region(removed_heap);
