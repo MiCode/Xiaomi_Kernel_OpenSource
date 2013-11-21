@@ -91,6 +91,11 @@ In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltag
 	- qcom,msm-bus,num-paths
 	- qcom,msm-bus,vectors-KBps
 
+	- Refer to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
+	  for following optional properties:
+		- pinctrl-names
+		- pinctrl-0, pinctrl-1,.. pinctrl-n
+
 Example:
 
 	aliases {
@@ -114,6 +119,11 @@ Example:
 		qcom,vdd-io-lpm-sup;
 		qcom,vdd-io-voltage-level = <1800000 2950000>;
 		qcom,vdd-io-current-level = <6 22000>;
+
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on>;
+		pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_on &sdc1_data_on>;
+
 
                 qcom,bus-width = <4>;
 		qcom,nonremovable;
@@ -147,6 +157,11 @@ Example:
 
 		vdd-supply = <&pm8941_l21>;
 		vdd-io-supply = <&pm8941_l13>;
+
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on>;
+		pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_on &sdc2_data_on>;
+
 
                 qcom,bus-width = <4>;
 		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
