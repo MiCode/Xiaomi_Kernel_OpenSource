@@ -572,7 +572,7 @@ static int remote_spinlock_init_address_smem(int id, _remote_spinlock_t *lock)
 	if (id >= SMEM_SPINLOCK_COUNT)
 		return -EINVAL;
 
-	spinlock_start = smem_find_to_proc(SMEM_SPINLOCK_ARRAY,
+	spinlock_start = smem_find(SMEM_SPINLOCK_ARRAY,
 				    SMEM_SPINLOCK_ARRAY_SIZE,
 				    0,
 				    SMEM_ANY_HOST_FLAG);

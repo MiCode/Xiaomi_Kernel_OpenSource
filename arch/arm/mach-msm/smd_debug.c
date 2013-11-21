@@ -107,7 +107,7 @@ static void debug_read_smd_version(struct seq_file *s)
 	uint32_t *smd_ver;
 	uint32_t n, version;
 
-	smd_ver = smem_find_to_proc(SMEM_VERSION_SMD, 32 * sizeof(uint32_t),
+	smd_ver = smem_find(SMEM_VERSION_SMD, 32 * sizeof(uint32_t),
 							0, SMEM_ANY_HOST_FLAG);
 
 	if (smd_ver)
@@ -265,7 +265,7 @@ ID|CHANNEL NAME       |T|PROC |STATE  |FIFO SZ|RDPTR  |WRPTR  |FLAGS   |DATAPEN
 		else
 			half_ch_size = sizeof(struct smd_half_channel);
 
-		half_ch = smem_find_to_proc(ch_base_id + n, 2 * half_ch_size,
+		half_ch = smem_find(ch_base_id + n, 2 * half_ch_size,
 								pid, flags);
 		buffer = smem_get_entry_to_proc(fifo_base_id + n, &buffer_size,
 								pid, flags);
