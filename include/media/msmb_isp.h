@@ -1,3 +1,14 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
 #ifndef __MSMB_ISP__
 #define __MSMB_ISP__
 
@@ -295,7 +306,7 @@ struct msm_isp_buf_request {
 
 struct msm_isp_qbuf_info {
 	uint32_t handle;
-	int buf_idx;
+	int32_t buf_idx;
 	/*Only used for prepare buffer*/
 	struct v4l2_buffer buffer;
 	/*Only used for diverted buffer*/
