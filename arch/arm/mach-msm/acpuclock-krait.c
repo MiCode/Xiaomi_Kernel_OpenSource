@@ -908,7 +908,7 @@ static int __cpuinit per_cpu_init(int cpu)
 			ret = -ENODEV;
 			goto err_table;
 		}
-		dev_dbg(drv.dev, "CPU%d is running at an unknown rate. Defaulting to %lu KHz.\n",
+		dev_warn(drv.dev, "CPU%d is running at an unknown rate. Defaulting to %lu KHz.\n",
 			cpu, acpu_level->speed.khz);
 	} else {
 		dev_dbg(drv.dev, "CPU%d is running at %lu KHz\n", cpu,
@@ -1215,7 +1215,7 @@ static void __init hw_init(void)
 	l2_level = find_cur_l2_level();
 	if (!l2_level) {
 		l2_level = drv.l2_freq_tbl;
-		dev_dbg(drv.dev, "L2 is running at an unknown rate. Defaulting to %lu KHz.\n",
+		dev_warn(drv.dev, "L2 is running at an unknown rate. Defaulting to %lu KHz.\n",
 			l2_level->speed.khz);
 	} else {
 		dev_dbg(drv.dev, "L2 is running at %lu KHz\n",
