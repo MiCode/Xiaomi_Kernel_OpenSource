@@ -79,6 +79,12 @@ static int ipa_nat_mmap(struct file *filp, struct vm_area_struct *vma)
 	} else {
 		IPADBG("Mapping shared(local) memory\n");
 		IPADBG("map sz=0x%lx\n", vsize);
+
+		if ((IPA_NAT_PHYS_MEM_SIZE == 0) ||
+				(vsize > IPA_NAT_PHYS_MEM_SIZE)) {
+			result = -EINVAL;
+			goto bail;
+		}
 		phys_addr = ipa_ctx->ipa_wrapper_base + IPA_REG_BASE_OFST +
 			IPA_SRAM_DIRECT_ACCESS_N_OFST(IPA_NAT_PHYS_MEM_OFFSET);
 
