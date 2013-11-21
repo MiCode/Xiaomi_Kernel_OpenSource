@@ -42,6 +42,7 @@ static int arizona_spi_probe(struct spi_device *spi)
 		break;
 #endif
 #ifdef CONFIG_MFD_FLORIDA
+	case WM8280:
 	case WM5110:
 		regmap_config = &florida_spi_regmap;
 		break;
@@ -80,6 +81,7 @@ static int arizona_spi_remove(struct spi_device *spi)
 
 static const struct spi_device_id arizona_spi_ids[] = {
 	{ "wm5102", WM5102 },
+	{ "wm8280", WM8280 },
 	{ "wm5110", WM5110 },
 	{ },
 };

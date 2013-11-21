@@ -201,6 +201,7 @@ int arizona_irq_init(struct arizona *arizona)
 		break;
 #endif
 #ifdef CONFIG_MFD_FLORIDA
+	case WM8280:
 	case WM5110:
 		aod = &florida_aod;
 		irq = &florida_irq;
