@@ -1198,7 +1198,11 @@ static int gtp_request_irq(struct goodix_ts_data *ts)
 	int ret;
 	const u8 irq_table[] = GTP_IRQ_TAB;
 
-	ret = request_irq(ts->client->irq, goodix_ts_irq_handler,
+	GTP_DEBUG("INT trigger type:%x, irq=%d", ts->int_trigger_type,
+			ts->client->irq);
+
+	ret = request_threaded_irq(ts->client->irq, NULL,
+			goodix_ts_irq_handler,
 			irq_table[ts->int_trigger_type],
 			ts->client->name, ts);
 	if (ret) {
