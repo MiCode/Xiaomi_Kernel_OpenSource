@@ -784,8 +784,11 @@ static int rdbg_open(struct inode *inode, struct file *filp)
 		goto bail;
 	}
 
-	rdbgdata->smem_addr = smem_find(proc_info[device_id].smem_buffer_addr,
-		rdbgdata->smem_size);
+	rdbgdata->smem_addr = smem_find_to_proc(
+		proc_info[device_id].smem_buffer_addr,
+		rdbgdata->smem_size,
+		0,
+		SMEM_ANY_HOST_FLAG);
 	if (!rdbgdata->smem_addr) {
 		dev_err(rdbgdata->device, "%s: Could not allocate smem memory",
 			__func__);
