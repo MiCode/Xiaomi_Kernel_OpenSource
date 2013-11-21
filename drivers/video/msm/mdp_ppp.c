@@ -32,8 +32,6 @@
 #include <linux/semaphore.h>
 #include <linux/msm_kgsl.h>
 
-#include "mdp.h"
-#include "msm_fb.h"
 
 #define MDP_IS_IMGTYPE_BAD(x) (((x) >= MDP_IMGTYPE_LIMIT) && \
 				(((x) < MDP_IMGTYPE2_START) || \
@@ -1384,7 +1382,7 @@ static int mdp_ppp_blit_addr(struct fb_info *info, struct mdp_blit_req *req,
 		iBuf.mdpImg.mdpOp |= MDPOP_DITHER;
 
 	if (req->flags & MDP_BLEND_FG_PREMULT) {
-#if defined(CONFIG_FB_MSM_MDP31) || defined(CONFIG_FB_MSM_MDP303)
+#if defined(CONFIG_FB_MSM_MDP31)
 		iBuf.mdpImg.mdpOp |= MDPOP_FG_PM_ALPHA;
 #else
 		put_img(p_src_file, *src_ihdl);

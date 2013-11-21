@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -106,7 +106,7 @@ struct pm8xxx_mpp_config_data {
 };
 
 /* API */
-#if defined(CONFIG_GPIO_PM8XXX_MPP) || defined(CONFIG_GPIO_PM8XXX_MPP_MODULE)
+#if defined(CONFIG_GPIO_PM8XXX_MPP_MODULE)
 
 /**
  * pm8xxx_mpp_config() - configure control options of a multi-purpose pin (MPP)

@@ -665,35 +665,6 @@ config INPUT_XEN_KBDDEV_FRONTEND
 	  To compile this driver as a module, choose M here: the
 	  module will be called xen-kbdfront.
 
-config PMIC8058_OTHC
-        tristate "Qualcomm PMIC8058 OTHC support"
-        default n
-        depends on PMIC8058
-        help
-          Say Y here if you want support PMIC8058 OTHC.
-
-          To compile this driver as a module, choose M here: the
-          module will be called pmic8058-othc.
-
-config INPUT_PMIC8058_VIBRA_MEMLESS
-	tristate "Qualcomm PM8058 vibrator support (ff-memless)"
-	depends on PMIC8058 && INPUT_FF_MEMLESS
-	default n
-	help
-	  This option enables device driver support for the vibrator
-	  on Qualcomm PM8058 chip. This driver supports ff-memless interface
-	  from input framework.
-
-	  To compile this driver as module, choose M here: the
-	  module will be called pmic8058-vib-memless.
-
-config STM_LIS3DH
-        tristate "STM LIS3DH acceleration sensor support"
-        depends on I2C=y
-        help
-          If you say yes here you get support for STMicroelectronics's
-          acceleration sensors LIS3DH.
-
 config BMP18X
        tristate "BMP18X digital pressure sensor"
        depends on (I2C ) && SYSFS

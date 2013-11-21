@@ -123,7 +123,6 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_WM9705 if SND_SOC_AC97_BUS
 	select SND_SOC_WM9712 if SND_SOC_AC97_BUS
 	select SND_SOC_WM9713 if SND_SOC_AC97_BUS
-	select SND_SOC_TIMPANI if MARIMBA_CORE
         help
           Normally ASoC codec drivers are only built if a machine driver which
           uses them is also built since they are only usable with a machine
@@ -356,13 +355,7 @@ config SND_SOC_UDA134X
 config SND_SOC_UDA1380
         tristate
 
-config SND_SOC_WCD9304
-	tristate
-
 config SND_SOC_WCD9310
-	tristate
-
-config SND_SOC_CS8427
 	tristate
 
 config SND_SOC_WCD9320

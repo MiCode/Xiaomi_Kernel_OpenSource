@@ -46,7 +46,7 @@ static inline s64 pm8xxx_ccadc_reading_to_microvolt(int revision, s64 cc)
 					CCADC_READING_RESOLUTION_D);
 }
 
-#if defined(CONFIG_PM8XXX_CCADC) || defined(CONFIG_PM8XXX_CCADC_MODULE)
+#if defined(CONFIG_PM8XXX_CCADC_MODULE)
 /**
  * pm8xxx_cc_adjust_for_gain - the function to adjust the voltage read from
  *			ccadc for gain compensation

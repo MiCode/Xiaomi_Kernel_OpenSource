@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -143,7 +143,7 @@ struct pm_gpio {
 	int		disable_pin;
 };
 
-#if defined(CONFIG_GPIO_PM8XXX) || defined(CONFIG_GPIO_PM8XXX_MODULE)
+#if defined(CONFIG_GPIO_PM8XXX_MODULE)
 /**
  * pm8xxx_gpio_config - configure a gpio controlled by a pm8xxx chip
  * @gpio: gpio number to configure

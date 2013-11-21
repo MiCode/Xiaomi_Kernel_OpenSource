@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -305,101 +305,6 @@ struct pm8xxx_adc_chan_result {
 	int64_t		physical;
 };
 
-#if defined(CONFIG_SENSORS_PM8XXX_ADC)					\
-			|| defined(CONFIG_SENSORS_PM8XXX_ADC_MODULE)
-/**
- * pm8xxx_adc_scale_default() - Scales the pre-calibrated digital output
- *		of an ADC to the ADC reference and compensates for the
- *		gain and offset.
- * @adc_code:	pre-calibrated digital ouput of the ADC.
- * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
- *		reference voltage.
- * @chan_prop:	individual channel properties to compensate the i/p scaling,
- *		slope and offset.
- * @chan_rslt:	Physical result to be stored.
- */
-int32_t pm8xxx_adc_scale_default(int32_t adc_code,
-			const struct pm8xxx_adc_properties *adc_prop,
-			const struct pm8xxx_adc_chan_properties *chan_prop,
-			struct pm8xxx_adc_chan_result *chan_rslt);
-/**
- * pm8xxx_adc_scale_tdkntcg_therm() - Scales the pre-calibrated digital output
- *		of an ADC to the ADC reference and compensates for the
- *		gain and offset. Returns the temperature of the xo therm in mili
-		degC.
- * @adc_code:	pre-calibrated digital ouput of the ADC.
- * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
- *		reference voltage.
- * @chan_prop:	individual channel properties to compensate the i/p scaling,
- *		slope and offset.
- * @chan_rslt:	physical result to be stored.
- */
-int32_t pm8xxx_adc_tdkntcg_therm(int32_t adc_code,
-			const struct pm8xxx_adc_properties *adc_prop,
-			const struct pm8xxx_adc_chan_properties *chan_prop,
-			struct pm8xxx_adc_chan_result *chan_rslt);
-/**
- * pm8xxx_adc_scale_batt_therm() - Scales the pre-calibrated digital output
- *		of an ADC to the ADC reference and compensates for the
- *		gain and offset. Returns the temperature in degC.
- * @adc_code:	pre-calibrated digital ouput of the ADC.
- * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
- *		reference voltage.
- * @chan_prop:	individual channel properties to compensate the i/p scaling,
- *		slope and offset.
- * @chan_rslt:	physical result to be stored.
- */
-int32_t pm8xxx_adc_scale_batt_therm(int32_t adc_code,
-			const struct pm8xxx_adc_properties *adc_prop,
-			const struct pm8xxx_adc_chan_properties *chan_prop,
-			struct pm8xxx_adc_chan_result *chan_rslt);
-/**
- * pm8xxx_adc_scale_pa_therm() - Scales the pre-calibrated digital output
- *		of an ADC to the ADC reference and compensates for the
- *		gain and offset. Returns the temperature in degC.
- * @adc_code:	pre-calibrated digital ouput of the ADC.
- * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
- *		reference voltage.
- * @chan_prop:	individual channel properties to compensate the i/p scaling,
- *		slope and offset.
- * @chan_rslt:	physical result to be stored.
- */
-int32_t pm8xxx_adc_scale_pa_therm(int32_t adc_code,
-			const struct pm8xxx_adc_properties *adc_prop,
-			const struct pm8xxx_adc_chan_properties *chan_prop,
-			struct pm8xxx_adc_chan_result *chan_rslt);
-/**
- * pm8xxx_adc_scale_pmic_therm() - Scales the pre-calibrated digital output
- *		of an ADC to the ADC reference and compensates for the
- *		gain and offset. Performs the AMUX out as 2mv/K and returns
- *		the temperature in mili degC.
- * @adc_code:	pre-calibrated digital ouput of the ADC.
- * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
- *		reference voltage.
- * @chan_prop:	individual channel properties to compensate the i/p scaling,
- *		slope and offset.
- * @chan_rslt:	physical result to be stored.
- */
-int32_t pm8xxx_adc_scale_pmic_therm(int32_t adc_code,
-			const struct pm8xxx_adc_properties *adc_prop,
-			const struct pm8xxx_adc_chan_properties *chan_prop,
-			struct pm8xxx_adc_chan_result *chan_rslt);
-/**
- * pm8xxx_adc_scale_batt_id() - Scales the pre-calibrated digital output
- *		of an ADC to the ADC reference and compensates for the
- *		gain and offset.
- * @adc_code:	pre-calibrated digital ouput of the ADC.
- * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
- *		reference voltage.
- * @chan_prop:	individual channel properties to compensate the i/p scaling,
- *		slope and offset.
- * @chan_rslt:	physical result to be stored.
- */
-int32_t pm8xxx_adc_scale_batt_id(int32_t adc_code,
-			const struct pm8xxx_adc_properties *adc_prop,
-			const struct pm8xxx_adc_chan_properties *chan_prop,
-			struct pm8xxx_adc_chan_result *chan_rslt);
-#else
 static inline int32_t pm8xxx_adc_scale_default(int32_t adc_code,
 			const struct pm8xxx_adc_properties *adc_prop,
 			const struct pm8xxx_adc_chan_properties *chan_prop,
@@ -430,7 +335,6 @@ static inline int32_t pm8xxx_adc_scale_batt_id(int32_t adc_code,
 			const struct pm8xxx_adc_chan_properties *chan_prop,
 			struct pm8xxx_adc_chan_result *chan_rslt)
 { return -ENXIO; }
-#endif
 
 /**
  * struct pm8xxx_adc_scale_fn - Scaling function prototype
@@ -511,80 +415,6 @@ struct pm8xxx_adc_platform_data {
 };
 
 /* Public API */
-#if defined(CONFIG_SENSORS_PM8XXX_ADC)				\
-			|| defined(CONFIG_SENSORS_PM8XXX_ADC_MODULE)
-/**
- * pm8xxx_adc_read() - Performs ADC read on the channel.
- * @channel:	Input channel to perform the ADC read.
- * @result:	Structure pointer of type adc_chan_result
- *		in which the ADC read results are stored.
- */
-uint32_t pm8xxx_adc_read(enum pm8xxx_adc_channels channel,
-				struct pm8xxx_adc_chan_result *result);
-/**
- * pm8xxx_adc_mpp_config_read() - Configure's the PM8XXX MPP
- * to AMUX6 and performs an ADC read.
- *
- * On PM8921 ADC the MPP needs to first be configured
- * as an analog input to the AMUX pre-mux channel before
- * issuing a read request. PM8921 MPP 8 is mapped to AMUX8
- * and is common between remote processor's.
- *
- * On PM8018 ADC the MPP is directly connected to the AMUX
- * pre-mux. Therefore clients of the PM8018 MPP do not need
- * to configure the MPP as an analog input to the pre-mux.
- * Clients can directly issue request on the pre-mux AMUX
- * channel to read the ADC on the MPP. Clients can directly
- * call the pm8xxx_adc_read().
- * @mpp_num	PM8XXX MPP number to configure to AMUX6.
- * @channel:	Input channel to perform the ADC read.
- *		a) 'ADC_MPP_1_AMUX6' if the input voltage is less than 1.8V
- *		b) 'ADC_MPP_2_AMUX6' if the input voltage is greater then 1.8V
- *		the input voltage is pre-divided by 3 and passed to the ADC.
- *		The appropriate scaling function needs to be selected to let
- *		the driver know a post scaling is required before returning
- *		the result.
- * @result:	Structure pointer of type adc_chan_result
- *		in which the ADC read results are stored.
- */
-uint32_t pm8xxx_adc_mpp_config_read(uint32_t mpp_num,
-				enum pm8xxx_adc_channels channel,
-				struct pm8xxx_adc_chan_result *result);
-/**
- * pm8xxx_adc_btm_start() - Configure the BTM registers and start
-			monitoring the BATT_THERM channel for
-			threshold warm/cold temperature set
-			by the Battery client. The btm_start
-			api is to be used after calling the
-			pm8xxx_btm_configure() api which sets
-			the temperature thresholds, interval
-			and functions to call when warm/cold
-			events are triggered.
- * @param:	none.
- */
-uint32_t pm8xxx_adc_btm_start(void);
-
-/**
- * pm8xxx_adc_btm_end() - Configures the BTM registers to stop
- *			monitoring the BATT_THERM channel for
- *			warm/cold events and disables the
- *			interval timer.
- * @param:	none.
- */
-uint32_t pm8xxx_adc_btm_end(void);
-
-/**
- * pm8xxx_adc_btm_configure() - Configures the BATT_THERM channel
- *			parameters for warm/cold thresholds.
- *			Sets the interval timer for perfoming
- *			reading the temperature done by the HW.
- * @btm_param:		Structure pointer of type adc_arb_btm_param *
- *			which client provides for threshold warm/cold,
- *			interval and functions to call when warm/cold
- *			events are triggered.
- */
-uint32_t pm8xxx_adc_btm_configure(struct pm8xxx_adc_arb_btm_param *);
-#else
 static inline uint32_t pm8xxx_adc_read(uint32_t channel,
 				struct pm8xxx_adc_chan_result *result)
 { return -ENXIO; }
@@ -599,6 +429,5 @@ static inline uint32_t pm8xxx_adc_btm_end(void)
 static inline uint32_t pm8xxx_adc_btm_configure(
 		struct pm8xxx_adc_arb_btm_param *param)
 { return -ENXIO; }
-#endif
 
 #endif /* PM8XXX_ADC_H */

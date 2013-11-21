@@ -95,7 +95,7 @@ enum pm8xxx_hsed_bias {
 	PM8XXX_HSED_BIAS2,
 };
 
-#if defined(CONFIG_MFD_PM8XXX_MISC) || defined(CONFIG_MFD_PM8XXX_MISC_MODULE)
+#if defined(CONFIG_MFD_PM8XXX_MISC_MODULE)
 
 /**
  * pm8xxx_reset_pwr_off - switch all PM8XXX PMIC chips attached to the system to

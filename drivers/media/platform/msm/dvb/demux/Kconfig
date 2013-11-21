@@ -19,7 +19,7 @@ config DVB_MPQ_NUM_DMX_DEVICES
 choice
 	prompt "Demux Hardware Plugin"
 	depends on DVB_MPQ_DEMUX
-	default DVB_MPQ_TSIF
+	default DVB_MPQ_TSPP1
 	help
 	  Enable support of specific demux HW plugin depending on the existing HW support.
 	  Depending on the enabled HW, demux may take advantage of HW capbailities to perform some tasks in HW instead of SW.
@@ -42,10 +42,5 @@ choice
 			- Indexing of video
 			- Crytographic operations
 
-	config DVB_MPQ_TSIF
-		bool "TSIF plugin"
-		depends on TSIF
-		help
-			Use this option if your HW has only TSIF input without any Transport Stream Packet Processor (TSPP) support
 endchoice
 

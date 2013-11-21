@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,16 +14,9 @@
 
 #include <linux/types.h>
 
-#ifdef CONFIG_MSM_SECURE_IO
-
-extern u32 secure_readl(void __iomem *c);
-extern void secure_writel(u32 v, void __iomem *c);
-
-#else
 
 #define secure_readl(c) readl(c)
 #define secure_writel(v, c) writel(v, c)
 
-#endif
 
 #endif

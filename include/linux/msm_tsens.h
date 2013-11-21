@@ -57,7 +57,7 @@ static inline int tsens_get_hw_id_mapping(
 { return -ENXIO; }
 #endif
 
-#if defined(CONFIG_THERMAL_TSENS8974) || defined(CONFIG_THERMAL_TSENS8960)
+#if defined(CONFIG_THERMAL_TSENS8974)
 int tsens_get_max_sensor_num(uint32_t *tsens_num_sensors);
 #else
 static inline int tsens_get_max_sensor_num(uint32_t *tsens_num_sensors)

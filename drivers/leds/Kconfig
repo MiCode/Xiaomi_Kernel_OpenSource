@@ -181,44 +181,6 @@ config LEDS_GPIO
 	  defined as platform devices and/or OpenFirmware platform devices.
 	  The code to use these bindings can be selected below.
 
-config LEDS_MSM_PDM
-	tristate "LED Support through PDM"
-	depends on LEDS_CLASS
-	help
-	  This option enables support for the LEDs operated through Pulse
-	  Denisty Modulation.
-
-	  If unsure, say N.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called leds-msm-pdm.
-
-config LEDS_PMIC_MPP
-        tristate "LED Support for Qualcomm PMIC MPP connected LEDs"
-        depends on LEDS_CLASS && MSM_SMD
-        help
-          This option enables support for LEDs connected to  PMIC MPPs
-	  on Qualcomm reference boards.
-
-	  If unsure, say N.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called leds-pmic-mpp.
-
-config LEDS_MSM_TRICOLOR
-        tristate "LED Support for Qualcomm tricolor LEDs"
-        depends on LEDS_CLASS && MSM_SMD
-        help
-          This option enables support for tricolor LEDs connected to
-	  to Qualcomm reference boards. Red, green and blue color leds
-	  are supported. These leds are turned on/off, blink on/off
-	  by Modem upon receiving command through rpc from this driver.
-
-	  If unsure, say N.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called leds-msm-tricolor.
-
 config LEDS_LP3944
 	tristate "LED Support for N.S. LP3944 (Fun Light) I2C chip"
 	depends on LEDS_CLASS
@@ -238,12 +200,6 @@ config LEDS_LP55XX_COMMON
 	help
 	  This option supports common operations for LP5521 and LP5523/55231
 	  devices.
-
-config LEDS_CPLD
-	tristate "LED Support for CPLD connected LEDs"
-	depends on LEDS_CLASS
-	help
-	  This option enables support for the LEDs connected to CPLD
 
 config LEDS_LP5521
 	tristate "LED Support for N.S. LP5521 LED driver chip"
@@ -322,17 +278,6 @@ config LEDS_PCA955X
 	  This option enables support for LEDs connected to PCA955x
 	  LED driver chips accessed via the I2C bus.  Supported
 	  devices include PCA9550, PCA9551, PCA9552, and PCA9553.
-
-config LEDS_PM8XXX
-	tristate "LED Support for Qualcomm PMIC8XXX"
-	depends on MFD_PM8XXX
-	help
-	  This option enables support for LEDs connected over PMIC8XXX
-	  (Power Management IC) chip on Qualcomm reference boards,
-	  for example SURF and FFAs.
-
-	  To compile this driver as a module, choose M here: the module will
-	  be called leds-pmic8xxx.
 
 config LEDS_PCA9633
 	tristate "LED support for PCA9633 I2C chip"
@@ -424,24 +369,6 @@ config LEDS_BD2802
 	  This option enables support for BD2802GU RGB LED driver chips
 	  accessed via the I2C bus.
 
-config LEDS_MSM_PMIC
-        tristate "LED Support for Qualcomm PMIC connected LEDs"
-        default n
-        depends on ARCH_MSM
-        help
-          This option enables support for LEDs connected over PMIC
-          (Power Management IC) chip on Qualcomm reference boards,
-          for example SURF and FFAs.
-
-config LEDS_PMIC8058
-	tristate "LED Support for Qualcomm PMIC8058"
-	default n
-	depends on PMIC8058
-	help
-	  This option enables support for LEDs connected over PMIC8058
-	  (Power Management IC) chip on Qualcomm reference boards,
-	  for example SURF and FFAs.
-
 config LEDS_INTEL_SS4200
 	tristate "LED driver for Intel NAS SS4200 series"
 	depends on LEDS_CLASS
@@ -487,14 +414,6 @@ config LEDS_MC13783
 	help
 	  This option enable support for on-chip LED drivers found
 	  on Freescale Semiconductor MC13783 PMIC.
-
-config LEDS_QCIBL
-	tristate "LED Support for Quanta LCD backlight"
-	depends on SENSORS_WPCE775X && ARCH_MSM_SCORPION
-	default n
-	help
-	  Say Y here if you want to use the Quanta backlight driver for ST15
-	  platform.
 
 config LEDS_NS2
 	tristate "LED support for Network Space v2 GPIO LEDs"

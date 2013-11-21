@@ -312,10 +312,6 @@ config  MSM_RESTART_V2
 config  ARCH_MSM_CORTEX_A5
 	bool
 
-config MSM_RPM
-	bool "Resource Power Manager"
-	select MSM_MPM
-
 config MSM_RPM_SMD
 	depends on MSM_SMD
 	select MSM_MPM_OF
@@ -326,14 +322,6 @@ config MSM_RPM_SMD
 	  transport layer communication with RPM hardware. It also selects
 	  the MSM_MPM config that programs the MPM module to monitor interrupts
 	  during sleep modes.
-
-config MSM_MPM
-	bool "Modem Power Manager"
-	help
-	  MPM is a dedicated hardware resource responsible for entering and
-	  waking up from a system wide low power mode. The MPM driver tracks
-	  the wakeup interrupts and configures the MPM to monitor the wakeup
-	  interrupts when going to a system wide sleep mode.
 
 config MSM_MPM_OF
 	bool "Modem Power Manager"
@@ -619,20 +607,6 @@ config CPU_HAS_L2_PMU
 	help
 	 Select this if the L2 cache controller has a Performance Monitoring Unit.
 
-config MSM_FIQ_SUPPORT
-	default y
-	bool "Enable installation of an FIQ handler."
-
-config MSM_SERIAL_DEBUGGER
-	select MSM_FIQ_SUPPORT
-	select KERNEL_DEBUGGER_CORE
-	default n
-	bool "FIQ Mode Serial Debugger"
-	help
-	  The FIQ serial debugger can accept commands even when the
-	  kernel is unresponsive due to being stuck with interrupts
-	  disabled.  Depends on the kernel debugger core in drivers/misc.
-
 config MSM_SERIAL_DEBUGGER_CONSOLE
 	depends on MSM_SERIAL_DEBUGGER
 	default n
@@ -772,14 +746,6 @@ config MSM_SMD_PKT
 
 	  If in doubt, say yes.
 
-config MSM_ONCRPCROUTER
-	depends on MSM_SMD
-	default n
-	bool "MSM ONCRPC router support"
-	help
-	  Support for the MSM ONCRPC router for communication between
-	  the ARM9 and ARM11
-
 config MSM_IPC_ROUTER
 	depends on NET
 	default n
@@ -852,50 +818,6 @@ config MSM_RPC_LOOPBACK_XPRT
 	help
 	  Support for routing RPC messages between APPS clients
 	  and APPS servers.  Helps in testing APPS RPC framework.
-
-config MSM_RPCSERVER_TIME_REMOTE
-	depends on MSM_ONCRPCROUTER && RTC_HCTOSYS
-	default y
-	bool "Time remote RPC server"
-	help
-	  The time remote server receives notification of time bases and
-	  reports these events to registered callback functions.
-
-config MSM_RPCSERVER_WATCHDOG
-	depends on MSM_ONCRPCROUTER
-	default y
-	bool "Watchdog RPC server"
-	help
-	  The dog_keepalive server handles watchdog events.
-
-config MSM_RPC_WATCHDOG
-	depends on MSM_ONCRPCROUTER
-	default n
-	bool "Watchdog RPC client"
-	help
-	  The dog_keepalive client module.
-
-config MSM_RPC_PING
-	depends on MSM_ONCRPCROUTER && DEBUG_FS
-	default m
-	bool "MSM rpc ping"
-	help
-	  Implements MSM rpc ping test module.
-
-config MSM_RPC_OEM_RAPI
-	depends on MSM_ONCRPCROUTER
-	default m
-	bool "MSM oem rapi"
-	help
-	  Implements MSM oem rapi client module.
-
-config MSM_RPCSERVER_HANDSET
-	depends on MSM_ONCRPCROUTER
-	default y
-	bool "Handset events RPC server"
-	help
-	  Support for receiving handset events like headset detect,
-	  headset switch and clamshell state.
 
 config MSM_RMT_STORAGE_CLIENT
 	depends on (ARCH_MSM && MSM_ONCRPCROUTER)
@@ -1118,39 +1040,6 @@ config MSM_PIL
 
 	  Say yes to support these devices.
 
-config MSM_PIL_MODEM
-	tristate "Modem (ARM11) Boot Support"
-	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
-	help
-	  Support for booting and shutting down ARM11 Modem processors.
-
-config MSM_PIL_QDSP6V3
-	tristate "QDSP6v3 (Hexagon) Boot Support"
-	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
-	help
-	  Support for booting and shutting down QDSP6v3 processors (hexagon).
-	  The QDSP6 is a low power DSP used in audio software applications.
-
-config MSM_PIL_LPASS_QDSP6V4
-	tristate "LPASS QDSP6v4 (Hexagon) Boot Support"
-	depends on MSM_SUBSYSTEM_RESTART
-	help
-	  Support for booting and shutting down QDSP6v4 processors (hexagon)
-	  in low power audio subsystems. If you would like to record or
-	  play audio then say Y here.
-
-	  If unsure, say N.
-
-config MSM_PIL_MODEM_QDSP6V4
-	tristate "Modem QDSP6v4 (Hexagon) Boot Support"
-	depends on MSM_SUBSYSTEM_RESTART
-	help
-	  Support for booting and shutting down QDSP6v4 processors (hexagon)
-	  in modem subsystems. If you would like to make or receive phone
-	  calls then say Y here.
-
-	  If unsure, say N.
-
 config MSM_PIL_LPASS_QDSP6V5
 	tristate "LPASS QDSP6v5 (Hexagon) Boot Support"
 	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
@@ -1169,39 +1058,6 @@ config MSM_PIL_MSS_QDSP6V5
 	  calls then say Y here.
 
 	  If unsure, say N.
-
-config MSM_PIL_RIVA
-	tristate "RIVA (WCNSS) Boot Support"
-	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
-	help
-	  Support for booting and shutting down the RIVA processor (WCNSS).
-	  Riva is the wireless subsystem processor used in bluetooth, wireless
-	  LAN, and FM software applications.
-
-config MSM_PIL_TZAPPS
-	tristate "TZApps Boot Support"
-	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
-	help
-	  Support for booting and shutting down TZApps.
-
-	  TZApps is an image that runs in the secure processor state. It is
-	  used to decrypt data and perform secure operations on the behalf of
-	  the kernel.
-
-config MSM_PIL_DSPS
-	tristate "DSPS Boot Support"
-	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
-	help
-	  Support for booting and shutting down ARM7 DSPS processors.
-
-	  DSPS is a sensors offloading processor used for applications such
-	  as rotation detection, temperature, etc.
-
-config MSM_PIL_VIDC
-	tristate "Video Core Secure Boot Support"
-	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
-	help
-	  Support for authenticating the video core image.
 
 config MSM_PIL_VENUS
 	tristate "VENUS (Video) Boot Support"
@@ -1228,13 +1084,6 @@ config MSM_PIL_BCSS
 
 	  BCSS is the Broadcast subsystem processor to receive and process the
 	  Analog/Digital broadcast data from tuners / external demodulator.
-
-config MSM_PIL_GSS
-	tristate "GSS (Cortex A5) Boot Support"
-	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
-	help
-	  Support for booting and shutting down Cortex A5 processors which run
-	  GPS subsystem firmware.
 
 config MSM_PIL_PRONTO
 	tristate "PRONTO (WCNSS) Boot Support"
@@ -1297,16 +1146,6 @@ config MSM_RPM_STATS_LOG
 	  the low power modes that RPM enters. The drivers outputs the message
 	  via a debugfs node.
 
-config MSM_RPM_RBCPR_STATS_LOG
-        tristate "MSM Resource Power Manager RPBCPR Stat Driver"
-        depends on DEBUG_FS
-        depends on MSM_RPM
-          help
-          This option enables a driver which reads RPM messages from a shared
-          memory location. These messages provide statistical information about
-          RBCPR (Rapid Bridge Core Power Reduction) information . The drivers
-          outputs the message via a debugfs node.
-
 config MSM_RPM_RBCPR_STATS_V2_LOG
         tristate "MSM Resource Power Manager RPBCPR Stat Driver"
         depends on DEBUG_FS
@@ -1324,9 +1163,6 @@ config IOMMU_API
        bool
 
 config MSM_GPIOMUX
-	bool
-
-config MSM_SECURE_IO
 	bool
 
 config MSM_NATIVE_RESTART
@@ -1406,9 +1242,6 @@ config MSM_JTAG_MM
 	  If unsure, say 'N' here to avoid potential power, performance and
 	  memory penalty.
 
-config MSM_SLEEP_STATS_DEVICE
-	bool "Enable exporting of MSM sleep device stats to userspace"
-
 config MSM_RUN_QUEUE_STATS
 	bool "Enable collection and exporting of MSM Run Queue stats to userspace"
 	default n
@@ -1436,13 +1269,6 @@ config MSM_SHOW_RESUME_IRQ
 		This option logs wake up interrupts that have triggered just before
 		the resume loop unrolls. Say Y if you want to debug why the system
 		resumed.
-
-config MSM_FAKE_BATTERY
-		depends on POWER_SUPPLY
-		default n
-		bool "MSM Fake Battery"
-		help
-		 Enables MSM fake battery driver.
 
 config MSM_QDSP6_APRV2
 	bool "Audio QDSP6 APRv2 support"
@@ -1492,14 +1318,6 @@ config MSM_ULTRASOUND_B
 	  ultrasound data paths between
 	  HW and services, calculating input events
 	  upon the ultrasound data.
-
-config MSM_RPC_VIBRATOR
-	bool "RPC based MSM Vibrator Support"
-	depends on MSM_ONCRPCROUTER
-	help
-	  Enable the vibrator support on MSM over RPC. The vibrator
-	  is connected on the PMIC. Say Y if you want to enable this
-	  feature.
 
 config PM8XXX_RPC_VIBRATOR
 	bool "RPC based Vibrator on PM8xxx PMICs"
@@ -1613,16 +1431,6 @@ config USE_PINCTRL_IRQ
 	 attributes to be configured, prior to configuring them as
 	 interrupt triggers.
 
-config MSM_EBI_ERP
-	bool "External Bus Interface (EBI) error reporting"
-	help
-	  Say 'Y' here to enable reporting of external bus interface errors to
-	  the kernel log. Information such as the offending address and
-	  transaction type will be logged. This may be useful for debugging
-	  seemingly broken memory accesses.
-
-	  For production builds, you should probably say 'N' here.
-
 config MSM_CACHE_ERP
 	bool "Cache / CPU error reporting"
 	depends on ARCH_MSM_KRAIT
@@ -1717,15 +1525,6 @@ config MSM_L2_ERP_2BIT_PANIC
 	  For production builds, it may be acceptable to say 'N' here, since
 	  an uncorrectable error might not necessarily cause further problems.
 
-config MSM_DCVS
-	bool "Use MSM DCVS for CPU/GPU Frequency control"
-	depends on MSM_SCM
-	help
-	  Enable support for MSM DCVS to control all CPU and GPU core frequencies.
-	  The DCVS manager allows idle driver to feed the idle information to the
-	  algorithm and the algorithm returns a frequency for the core which is
-	  passed to the frequency change driver.
-
 config MSM_CPR
 	tristate "Use MSM CPR in S/W mode"
 	help
@@ -1768,15 +1567,6 @@ config MSM_HSIC_SYSMON_TEST
 	  can be read and written to send character data to the sysmon port of
 	  the modem over USB.
 
-config MSM_RPC_PMIC
-	tristate "MSM RPC PMIC driver"
-	depends on MSM_ONCRPCROUTER
-	help
-	 This driver supports the PMIC functionality over RPC for those MSM's
-	 which do not have a direct access to PMIC. It supports ability to
-	 configure MPP, GPIO and all the other supported peripherals of the
-	 PMIC.
-
 config MSM_RPC_USB
 	tristate "MSM RPC USB driver"
 	depends on MSM_ONCRPCROUTER
@@ -1786,15 +1576,6 @@ config MSM_RPC_USB
 	 and FS USB which is connected over the PMIC. This support is
 	 required for MSMs on which the APPS does not have a direct access
 	 to the PMIC.
-
-config MSM_RPC_PMAPP
-	tristate "MSM RPC PMIC APP driver"
-	depends on MSM_ONCRPCROUTER
-	help
-	 This driver supports the configuration of various PMIC APP modules
-	 such as display backlight, vreg pin-ctrl, smps clock over the RPC
-	 interface. This support is required for MSMs on which the APPS
-	 does not have a direct access to the PMIC.
 
 config MSM_ENABLE_WDOG_DEBUG_CONTROL
 	bool "Enable control of watchdog debug and boot partition select"

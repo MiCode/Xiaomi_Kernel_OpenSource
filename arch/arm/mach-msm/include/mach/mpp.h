@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,11 +14,7 @@
 #ifndef __ARCH_ARM_MACH_MSM_MPP_H
 #define __ARCH_ARM_MACH_MSM_MPP_H
 
-#ifdef CONFIG_PMIC8058
-#define	MPPS		12
-#else
 #define	MPPS		22
-#endif
 
 /* Digital Logical Output Level */
 enum {
@@ -57,27 +53,17 @@ int mpp_config_digital_in(unsigned mpp, unsigned config);
 /* PM8058/PM8901 definitions */
 
 /* APIs */
-#ifdef CONFIG_PMIC8058
-int pm8058_mpp_config(unsigned mpp, unsigned type, unsigned level,
-		      unsigned control);
-#else
 static inline int pm8058_mpp_config(unsigned mpp, unsigned type,
 				    unsigned level, unsigned control)
 {
 	return -EINVAL;
 }
-#endif
 
-#ifdef CONFIG_PMIC8901
-int pm8901_mpp_config(unsigned mpp, unsigned type, unsigned level,
-		      unsigned control);
-#else
 static inline int pm8901_mpp_config(unsigned mpp, unsigned type,
 				    unsigned level, unsigned control)
 {
 	return -EINVAL;
 }
-#endif
 
 /* MPP Type: type */
 #define	PM_MPP_TYPE_D_INPUT		0

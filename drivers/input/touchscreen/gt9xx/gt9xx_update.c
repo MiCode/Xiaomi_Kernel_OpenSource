@@ -39,7 +39,6 @@
 #if GTP_HEADER_FW_UPDATE
 #include <linux/namei.h>
 #include <linux/mount.h>
-#include "gt9xx_firmware.h"
 #endif
 
 #define FIRMWARE_NAME_LEN_MAX		256

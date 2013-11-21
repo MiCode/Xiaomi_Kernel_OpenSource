@@ -38,7 +38,7 @@ extern struct msm_mpm_device_data apq8064_mpm_dev_data;
 
 void msm_mpm_irq_extn_init(struct msm_mpm_device_data *mpm_data);
 
-#if defined(CONFIG_MSM_MPM) || defined(CONFIG_MSM_MPM_OF)
+#if defined(CONFIG_MSM_MPM_OF)
 /**
  * msm_mpm_enable_pin() -  Enable/Disable a MPM pin for idle wakeups.
  *

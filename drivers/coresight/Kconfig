@@ -71,13 +71,6 @@ config CORESIGHT_TPIU
 	  This driver provides support for Trace Port Interface Unit which
 	  acts as a conduit for offchip trace collection.
 
-config CORESIGHT_ETB
-	bool "CoreSight Embedded Trace Buffer driver"
-	select HAVE_CORESIGHT_SINK
-	help
-	  This driver provides support for the legacy Embedded Trace Buffer
-	  which is a circular buffer.
-
 if HAVE_CORESIGHT_SINK
 
 config CORESIGHT_FUNNEL

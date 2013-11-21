@@ -629,14 +629,6 @@ config KEYBOARD_XTKBD
 	  To compile this driver as a module, choose M here: the
 	  module will be called xtkbd.
 
-config KEYBOARD_QCIKBD
-   tristate "Quanta Computer Inc. keyboard"
-   depends on I2C
-   default n
-   help
-     Say Y here if you want to use the Quanta keyboard driver for ST 1.5
-     platform.
-
 config KEYBOARD_QCIKBD_REPEAT
 	bool "Enable Quanta Computer Inc. keyboard key repeat feature"
 	depends on KEYBOARD_QCIKBD

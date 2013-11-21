@@ -56,16 +56,7 @@ obj-$(CONFIG_VMWARE_VMCI)	+= vmw_vmci/
 obj-$(CONFIG_LATTICE_ECP3_CONFIG)	+= lattice-ecp3-config.o
 obj-$(CONFIG_SRAM)		+= sram.o
 obj-$(CONFIG_TSIF) += msm_tsif.o
-msm_tsif-objs := tsif.o
-obj-$(CONFIG_TSIF_CHRDEV) += tsif_chrdev.o
 obj-$(CONFIG_HAPTIC_ISA1200)		+= isa1200.o
-obj-$(CONFIG_PMIC8058_PWM) += pmic8058-pwm.o
-obj-$(CONFIG_PMIC8XXX_VIBRATOR) += pm8xxx-vibrator.o
-obj-$(CONFIG_PMIC8XXX_NFC) += pm8xxx-nfc.o
-obj-$(CONFIG_PMIC8XXX_UPL) += pm8xxx-upl.o
-obj-$(CONFIG_MSM_MEMORY_LOW_POWER_MODE_SUSPEND_DEEP_POWER_DOWN) \
-	+= msm_migrate_pages.o
-obj-$(CONFIG_PMIC8058_XOADC) += pmic8058-xoadc.o
 obj-$(CONFIG_QSEECOM) += qseecom.o
 obj-$(CONFIG_QFP_FUSE) += qfp_fuse.o
 obj-$(CONFIG_TI_DRV2667) += ti_drv2667.o

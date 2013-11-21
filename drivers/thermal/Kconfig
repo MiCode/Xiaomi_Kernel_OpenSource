@@ -91,39 +91,6 @@ config THERMAL_EMULATION
 	  because userland can easily disable the thermal policy by simply
 	  flooding this sysfs node with low temperature values.
 
-config THERMAL_MSM_POPMEM
-	tristate "Qualcomm MSM POP memory temperature sensor"
-	depends on THERMAL
-	default n
-	help
-	  This enables a thermal sysfs driver for MSM POP memory. It shows up in
-	  sysfs as a thermal zone with one trip point. Due to hardware
-	  limitations, the temperatures are reported as "Low Temperature" (20 C)
-	  "Normal Temperature" (50 C) and "Out of Spec High Temperature" (85 C).
-	  This driver is designed to be used in conjunction with a user space
-	  application to make all policy decisions.
-
-config THERMAL_TSENS
-	tristate "Qualcomm Tsens Temperature Alarm"
-	depends on THERMAL
-	default n
-	help
-	  This enables the thermal sysfs driver for the Tsens device. It shows
-	  up in Sysfs as a thermal zone with mutiple trip points. Disabling the
-	  thermal zone device via the mode file results in disabling the sensor.
-	  Also able to set threshold temperature for both hot and cold and update
-	  when a threshold is reached.
-
-config THERMAL_TSENS8960
-	tristate "Qualcomm 8960 Tsens Temperature Alarm"
-	depends on THERMAL
-	help
-	  This enables the thermal sysfs driver for the Tsens device. It shows
-	  up in Sysfs as a thermal zone with mutiple trip points. Disabling the
-	  thermal zone device via the mode file results in disabling the sensor.
-	  Also able to set threshold temperature for both hot and cold and update
-	  when a threshold is reached.
-
 config THERMAL_TSENS8974
 	tristate "Qualcomm 8974 TSENS Temperature driver"
 	depends on THERMAL
@@ -133,17 +100,6 @@ config THERMAL_TSENS8974
 	  to set threshold temperature for both warm and cool and update
 	  thermal userspace client when a threshold is reached. Warm/Cool
 	  temperature thresholds can be set independently for each sensor.
-
-config THERMAL_PM8XXX
-	tristate "Qualcomm PMIC PM8xxx Temperature Alarm"
-	depends on THERMAL
-	depends on MFD_PM8XXX
-	help
-	  This enables a thermal Sysfs driver for the PMIC PM8xxx devices. It
-	  shows up in Sysfs as a thermal zone with multiple trip points.
-	  Enabling the thermal zone device via the mode file results in
-	  shifting over temperature shutdown control of the PMIC from hardware
-	  to software.
 
 config THERMAL_MONITOR
 	bool "Monitor thermal state and limit CPU Frequency"

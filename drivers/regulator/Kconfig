@@ -533,47 +533,6 @@ config REGULATOR_AS3711
 	  This driver provides support for the voltage regulators on the
 	  AS3711 PMIC
 
-config REGULATOR_PMIC8058
-        tristate "PMIC8058 regulator driver"
-        depends on PMIC8058 && (ARCH_MSM8X60 || ARCH_FSM9XXX)
-        default y if PMIC8058 && (ARCH_MSM8X60 || ARCH_FSM9XXX)
-        help
-         Say Y here to support the voltage regulators on PMIC8058
-
-config REGULATOR_PMIC8901
-        tristate "PMIC8901 regulator driver"
-        depends on PMIC8901 && ARCH_MSM8X60
-        default y if PMIC8901 && ARCH_MSM8X60
-        help
-         Say Y here to support the voltage regulators on PMIC8901
-
-config REGULATOR_PM8XXX
-	tristate "Qualcomm PM8XXX PMIC Voltage regulators"
-	depends on MFD_PM8XXX
-	help
-	  This driver supports voltage regulators in Qualcomm PM8XXX PMIC chips.
-	  PM8XXX chips provide several different varieties of LDO and switching
-	  regulators.  They also provide negative charge pumps and voltage
-	  switches.
-
-config REGULATOR_MSM_GPIO
-	tristate "MSM GPIO regulator"
-	depends on GPIOLIB
-	help
-	  This driver provides a regulator wrapper around a GPIO pin that is set
-	  to output.  It is intended to be used for GPIO pins that provide the
-	  enable signal to a physical regulator.  The GPIO enable signal can
-	  be configured to be active high (default) or active low.
-
-config REGULATOR_PM8058_XO
-	tristate "PM8058 XO Buffer driver"
-	depends on PMIC8058
-	default n
-	help
-	  This driver supports xo buffer control in the Qualcomm PM8058 PMIC
-	  chip. It is only supposed to be used when Linux on application
-	  processor is the master in control of XO buffers.
-
 config REGULATOR_STUB
 	tristate "Stub Regulator"
 	help

@@ -543,20 +543,6 @@ config TSIF
 	  To compile this driver as module, choose M here: the
 	  module will be called msm_tsif.
 
-config TSIF_CHRDEV
-	tristate "TSIF character device"
-	depends on TSIF
-	default n
-	---help---
-	  This driver uses low level TSIF interface. It provides character
-	  device useable from user space programs: one can read TSIF stream
-	  from this device.
-
-	  This driver may be used as example for TSIF API usage.
-
-	  To compile this driver as module, choose M here: the
-	  module will be called tsif_chrdev.
-
 config TSIF_DEBUG
 	bool "Turn on debugging information for tsif driver"
 	depends on TSIF
@@ -570,49 +556,6 @@ config HAPTIC_ISA1200
 	default n
 	help
 	  The ISA1200 is a high performance enhanced haptic driver.
-
-config PMIC8058_PWM
-	tristate "Qualcomm PM8058 PWM support"
-	depends on PMIC8058
-	default y
-	help
-	  This option enables device driver support for the PWM channels
-	  on Qualcomm PM8058 chip. Pulse Width Modulation is used for
-	  purposes including software controlled brightness of backlight,
-	  motor control, and waveform generation.
-
-config PMIC8XXX_VIBRATOR
-	tristate "Qualcomm Vibrator support for PMIC8XXX"
-	depends on MFD_PM8XXX && ANDROID_TIMED_OUTPUT
-	help
-	  This option enables device driver support for the vibrator
-	  on the PM8XXX chips. The vibrator is controlled using the
-	  timed output class.
-
-config PMIC8XXX_NFC
-	tristate "Qualcomm PM8XXX support for Near Field Communication"
-	depends on MFD_PM8XXX
-	help
-	  Qualcomm PM8XXX chips have a module to support NFC (Near Field
-	  Communication). This option enables the driver to support it.
-
-config PMIC8XXX_UPL
-	tristate "Qualcomm PM8XXX support for User Programmable Logic"
-	depends on MFD_PM8XXX
-	help
-	  This option enables device driver support for User Programmable Logic
-	  on Qualcomm PM8XXX chips. The UPL module provides a means to implement
-	  simple truth table based logic via a set of control registers. I/O may
-	  be routed in and out of the UPL module via GPIO or DTEST pins.
-
-config PMIC8058_XOADC
-	tristate "Qualcomm PM8058 XOADC driver"
-	depends on PMIC8058
-	default n
-	help
-	  Enables User processor ADC reads over the XOADC module of Qualcomm's
-	  PMIC8058. Driver interface to program registers of the ADC over
-	  AMUX channels, devices on programmable MPP's and xotherm.
 
 config QSEECOM
 	tristate "Qualcomm Secure Execution Communicator driver"

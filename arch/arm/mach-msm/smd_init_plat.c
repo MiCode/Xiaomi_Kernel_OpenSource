@@ -47,21 +47,16 @@
 #endif
 
 #if defined(CONFIG_ARCH_QSD8X50) || defined(CONFIG_ARCH_MSM8X60) \
-	|| defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_FSM9XXX) \
+	|| defined(CONFIG_ARCH_FSM9XXX) \
 	|| defined(CONFIG_ARCH_MSM9615)	|| defined(CONFIG_ARCH_APQ8064)
 #define CONFIG_QDSP6 1
 #endif
 
-#if defined(CONFIG_ARCH_MSM8X60) || defined(CONFIG_ARCH_MSM8960) \
+#if defined(CONFIG_ARCH_MSM8X60) \
 	|| defined(CONFIG_ARCH_APQ8064)
 #define CONFIG_DSPS 1
 #endif
 
-#if defined(CONFIG_ARCH_MSM8960) \
-	|| defined(CONFIG_ARCH_APQ8064)
-#define CONFIG_WCNSS 1
-#define CONFIG_DSPS_SMSM 1
-#endif
 
 #if defined(CONFIG_ARCH_MSM7X30)
 #define MSM_CFG_A2M_SMD_INT     \
