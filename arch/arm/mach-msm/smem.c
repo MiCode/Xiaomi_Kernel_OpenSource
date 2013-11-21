@@ -464,12 +464,6 @@ static void *__smem_find(unsigned id, unsigned size_in, bool skip_init_check)
 	return ptr;
 }
 
-void *smem_find(unsigned id, unsigned size_in)
-{
-	return __smem_find(id, size_in, false);
-}
-EXPORT_SYMBOL(smem_find);
-
 /**
  * smem_find_to_proc - Find existing item with security support
  *
