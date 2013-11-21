@@ -3962,10 +3962,17 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 		break;
 	case KGSL_CACHEMODE_WRITETHROUGH:
-		vma->vm_page_prot = pgprot_writethroughcache(vma->vm_page_prot);
+		/*
+		 * WRITETHROUGH is not supported in arm64, so we tell the
+		 * user that we use WRITEBACK which is the default caching
+		 * policy.
+		 */
+		entry->memdesc.flags |= (KGSL_CACHEMODE_WRITEBACK >>
+					KGSL_CACHEMODE_SHIFT) &
+					KGSL_CACHEMODE_MASK;
+		WARN_ONCE(1, "WRITETHROUGH is deprecated");
 		break;
 	case KGSL_CACHEMODE_WRITEBACK:
-		vma->vm_page_prot = pgprot_writebackcache(vma->vm_page_prot);
 		break;
 	case KGSL_CACHEMODE_WRITECOMBINE:
 	default:
