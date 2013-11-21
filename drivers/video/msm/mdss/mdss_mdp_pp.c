@@ -1416,7 +1416,7 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 		flags = 0;
 
 	mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
-	if (dspp_num < mdata->nad_cfgs &&
+	if (dspp_num < mdata->nad_cfgs && disp_num < mdata->nad_cfgs &&
 				(mixer_cnt <= mdata->nmax_concurrent_ad_hw)) {
 		ad = &mdata->ad_cfgs[disp_num];
 		ad_flags = ad->reg_sts;
