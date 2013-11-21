@@ -1560,7 +1560,7 @@ static int __devinit qpnp_bsi_init_irqs(struct qpnp_bsi_chip *chip,
 	int rc;
 
 	rc = devm_request_irq(dev, chip->irq[QPNP_BSI_IRQ_ERR],
-			qpnp_bsi_isr, IRQF_TRIGGER_RISING, "bsi-err", chip);
+			qpnp_bsi_isr, IRQF_TRIGGER_HIGH, "bsi-err", chip);
 	if (rc < 0) {
 		dev_err(dev, "%s: request for bsi-err irq %d failed, rc=%d\n",
 			__func__, chip->irq[QPNP_BSI_IRQ_ERR], rc);
@@ -1575,7 +1575,7 @@ static int __devinit qpnp_bsi_init_irqs(struct qpnp_bsi_chip *chip,
 	}
 
 	rc = devm_request_irq(dev, chip->irq[QPNP_BSI_IRQ_RX],
-			qpnp_bsi_isr, IRQF_TRIGGER_RISING, "bsi-rx", chip);
+			qpnp_bsi_isr, IRQF_TRIGGER_HIGH, "bsi-rx", chip);
 	if (rc < 0) {
 		dev_err(dev, "%s: request for bsi-rx irq %d failed, rc=%d\n",
 			__func__, chip->irq[QPNP_BSI_IRQ_RX], rc);
@@ -1590,7 +1590,7 @@ static int __devinit qpnp_bsi_init_irqs(struct qpnp_bsi_chip *chip,
 	}
 
 	rc = devm_request_irq(dev, chip->irq[QPNP_BSI_IRQ_TX],
-			qpnp_bsi_isr, IRQF_TRIGGER_RISING, "bsi-tx", chip);
+			qpnp_bsi_isr, IRQF_TRIGGER_HIGH, "bsi-tx", chip);
 	if (rc < 0) {
 		dev_err(dev, "%s: request for bsi-tx irq %d failed, rc=%d\n",
 			__func__, chip->irq[QPNP_BSI_IRQ_TX], rc);
