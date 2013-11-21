@@ -174,8 +174,13 @@ struct msm_pcie_dev_t {
 
 	bool                         l1ss_supported;
 	bool                         aux_clk_sync;
+
+	uint32_t                     rc_idx;
+	bool                         enumerated;
+	struct work_struct	     handle_wake_work;
 };
 
+extern int msm_pcie_enumerate(u32 rc_idx);
 extern void msm_pcie_config_msi_controller(struct msm_pcie_dev_t *dev);
 extern int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev);
 extern void msm_pcie_irq_deinit(struct msm_pcie_dev_t *dev);
