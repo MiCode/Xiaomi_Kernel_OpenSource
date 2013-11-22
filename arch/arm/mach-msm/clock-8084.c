@@ -1626,7 +1626,7 @@ static struct rcg_clk pcie_1_aux_clk_src = {
 	.c = {
 		.dbg_name = "pcie_1_aux_clk_src",
 		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP1(LOW, 1000000),
+		VDD_DIG_FMAX_MAP1(LOW, 1010000),
 		CLK_INIT(pcie_1_aux_clk_src.c),
 	},
 };
