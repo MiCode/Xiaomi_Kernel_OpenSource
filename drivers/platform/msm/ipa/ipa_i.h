@@ -797,6 +797,7 @@ struct ipa_plat_drv_res {
 	enum ipa_hw_mode ipa_hw_mode;
 	struct a2_mux_pipe_connection a2_to_ipa_pipe;
 	struct a2_mux_pipe_connection ipa_to_a2_pipe;
+	u32 ee;
 };
 
 struct ipa_controller {
