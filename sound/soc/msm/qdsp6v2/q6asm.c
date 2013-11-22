@@ -3963,6 +3963,58 @@ fail_cmd:
 	return -EINVAL;
 }
 
+int q6asm_send_audio_effects_params(struct audio_client *ac, char *params,
+				    uint32_t params_length)
+{
+	char *asm_params = NULL;
+	struct apr_hdr hdr;
+	struct asm_stream_cmd_set_pp_params_v2 payload_params;
+	int sz, rc;
+
+	pr_debug("%s\n", __func__);
+	if (!ac || ac->apr == NULL || params == NULL) {
+		pr_err("APR handle NULL or params NULL\n");
+		return -EINVAL;
+	}
+	sz = sizeof(struct apr_hdr) +
+	     sizeof(struct asm_stream_cmd_set_pp_params_v2) +
+	     params_length;
+	asm_params = kzalloc(sz, GFP_KERNEL);
+	if (!asm_params) {
+		pr_err("%s, adm params memory alloc failed", __func__);
+		return -ENOMEM;
+	}
+	q6asm_add_hdr_async(ac, &hdr, (sizeof(struct apr_hdr) +
+			    sizeof(struct asm_stream_cmd_set_pp_params_v2) +
+			    params_length), TRUE);
+	hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS_V2;
+	payload_params.data_payload_addr_lsw = 0;
+	payload_params.data_payload_addr_msw = 0;
+	payload_params.mem_map_handle = 0;
+	payload_params.data_payload_size = params_length;
+	memcpy(((u8 *)asm_params), &hdr, sizeof(struct apr_hdr));
+	memcpy(((u8 *)asm_params + sizeof(struct apr_hdr)), &payload_params,
+		sizeof(struct asm_stream_cmd_set_pp_params_v2));
+	memcpy(((u8 *)asm_params + sizeof(struct apr_hdr) +
+		 sizeof(struct asm_stream_cmd_set_pp_params_v2)),
+		params, params_length);
+	rc = apr_send_pkt(ac->apr, (uint32_t *) asm_params);
+	if (rc < 0) {
+		pr_err("%s: audio effects set-params send failed\n", __func__);
+		goto fail_send_param;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+				(atomic_read(&ac->cmd_state) == 0), 1*HZ);
+	if (!rc) {
+		pr_err("%s: timeout, audio effects set-params\n", __func__);
+		goto fail_send_param;
+	}
+	rc = 0;
+fail_send_param:
+	kfree(asm_params);
+	return rc;
+}
+
 static int __q6asm_cmd(struct audio_client *ac, int cmd, uint32_t stream_id)
 {
 	struct apr_hdr hdr;
