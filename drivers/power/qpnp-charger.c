@@ -1435,10 +1435,10 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 				       (chip->usb_valid_check_ovp)) {
 				usbin_health =
 					qpnp_chg_check_usbin_health(chip);
-				if (chip->usbin_health != usbin_health) {
+				if ((chip->usbin_health != usbin_health)
+					&& (usbin_health == USBIN_OVP)) {
 					chip->usbin_health = usbin_health;
-					if (usbin_health == USBIN_OVP)
-						psy_health_sts =
+					psy_health_sts =
 					POWER_SUPPLY_HEALTH_OVERVOLTAGE;
 					power_supply_set_health_state(
 						chip->usb_psy,
@@ -1451,7 +1451,7 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 				qpnp_chg_set_appropriate_vddmax(chip);
 				chip->chg_done = false;
 			}
-			qpnp_chg_usb_suspend_enable(chip, 1);
+			qpnp_chg_usb_suspend_enable(chip, 0);
 			chip->prev_usb_max_ma = -EINVAL;
 			chip->aicl_settled = false;
 		} else {
@@ -1464,10 +1464,10 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 				       (chip->usb_valid_check_ovp)) {
 				usbin_health =
 					qpnp_chg_check_usbin_health(chip);
-				if (chip->usbin_health != usbin_health) {
+				if ((chip->usbin_health != usbin_health)
+					&& (usbin_health == USBIN_OK)) {
 					chip->usbin_health = usbin_health;
-					 if (usbin_health == USBIN_OK)
-						psy_health_sts =
+					psy_health_sts =
 						POWER_SUPPLY_HEALTH_GOOD;
 					power_supply_set_health_state(
 						chip->usb_psy,
@@ -2167,7 +2167,8 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 
 		if (ret.intval <= 2 && !chip->use_default_batt_values &&
 						get_prop_batt_present(chip)) {
-			qpnp_chg_usb_suspend_enable(chip, 1);
+			if (ret.intval ==  2)
+				qpnp_chg_usb_suspend_enable(chip, 1);
 			qpnp_chg_iusbmax_set(chip, QPNP_CHG_I_MAX_MIN_100);
 		} else {
 			qpnp_chg_usb_suspend_enable(chip, 0);

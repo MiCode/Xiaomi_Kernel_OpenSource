@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -475,6 +475,7 @@ static long pcm_in_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	}
 	case AUDIO_GET_CONFIG: {
 		struct msm_audio_config config;
+		memset(&config, 0, sizeof(config));
 		config.buffer_size = pcm->buffer_size;
 		config.buffer_count = pcm->buffer_count;
 		config.sample_rate = pcm->sample_rate;

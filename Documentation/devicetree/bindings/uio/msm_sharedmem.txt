@@ -1,0 +1,13 @@
+msm_sharedmem provides the shared memory addresses for various clients in user-space
+
+Required properties:
+- compatible:		Must be "qcom,sharedmem-uio"
+- reg : The address and size of the shared memory. The address/sizes may vary.
+- reg-names : indicates various client-names.
+
+Example:
+	msm_sharedmem {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x0dc80000 0x00180000>,
+		reg-names = "rmtfs";
+	};

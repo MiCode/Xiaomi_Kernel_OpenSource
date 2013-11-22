@@ -36,6 +36,8 @@
 #define MDP_PPP_MAX_BPP 4
 #define MDP_PPP_DYNAMIC_FACTOR 3
 #define MDP_PPP_MAX_READ_WRITE 3
+#define ENABLE_SOLID_FILL	0x2
+#define DISABLE_SOLID_FILL	0x0
 
 static const bool valid_fmt[MDP_IMGTYPE_LIMIT] = {
 	[MDP_RGB_565] = true,
@@ -370,14 +372,14 @@ int mdp3_ppp_turnon(struct msm_fb_data_type *mfd, int on_off)
 		ib = (ab * 3) / 2;
 	}
 	mdp3_clk_set_rate(MDP3_CLK_CORE, rate, MDP3_CLIENT_PPP);
-	rc = mdp3_clk_enable(on_off);
+	rc = mdp3_clk_enable(on_off, 0);
 	if (rc < 0) {
 		pr_err("%s: mdp3_clk_enable failed\n", __func__);
 		return rc;
 	}
 	rc = mdp3_bus_scale_set_quota(MDP3_CLIENT_PPP, ab, ib);
 	if (rc < 0) {
-		mdp3_clk_enable(!on_off);
+		mdp3_clk_enable(!on_off, 0);
 		pr_err("%s: scale_set_quota failed\n", __func__);
 		return rc;
 	}
@@ -390,6 +392,23 @@ void mdp3_start_ppp(struct ppp_blit_op *blit_op)
 	/* Wait for the pipe to clear */
 	do { } while (mdp3_ppp_pipe_wait() <= 0);
 	config_ppp_op_mode(blit_op);
+	if (blit_op->solid_fill) {
+		MDP3_REG_WRITE(0x10138, 0x10000000);
+		MDP3_REG_WRITE(0x1014c, 0xffffffff);
+		MDP3_REG_WRITE(0x101b8, 0);
+		MDP3_REG_WRITE(0x101bc, 0);
+		MDP3_REG_WRITE(0x1013c, 0);
+		MDP3_REG_WRITE(0x10140, 0);
+		MDP3_REG_WRITE(0x10144, 0);
+		MDP3_REG_WRITE(0x10148, 0);
+		MDP3_REG_WRITE(MDP3_TFETCH_FILL_COLOR,
+					blit_op->solid_fill_color);
+		MDP3_REG_WRITE(MDP3_TFETCH_SOLID_FILL,
+					ENABLE_SOLID_FILL);
+	} else {
+		MDP3_REG_WRITE(MDP3_TFETCH_SOLID_FILL,
+					DISABLE_SOLID_FILL);
+	}
 	mdp3_ppp_kickoff();
 }
 
@@ -489,6 +508,26 @@ static void mdp3_ppp_process_req(struct ppp_blit_op *blit_op,
 
 	if (req->flags & MDP_BLUR)
 		blit_op->mdp_op |= MDPOP_ASCALE | MDPOP_BLUR;
+
+	if (req->flags & MDP_SOLID_FILL) {
+		blit_op->solid_fill = true;
+
+		/* Avoid odd width, as it could hang ppp during solid fill */
+		blit_op->dst.roi.width = (blit_op->dst.roi.width / 2) * 2;
+		blit_op->src.roi.width = (blit_op->src.roi.width / 2) * 2;
+
+		/* Avoid RGBA format, as it could hang ppp during solid fill */
+		if (blit_op->src.color_fmt == MDP_RGBA_8888)
+			blit_op->src.color_fmt = MDP_RGBX_8888;
+		if (blit_op->dst.color_fmt == MDP_RGBA_8888)
+			blit_op->dst.color_fmt = MDP_RGBX_8888;
+		blit_op->solid_fill_color = (req->const_color.g & 0xFF)|
+				(req->const_color.b & 0xFF) << 8 |
+				(req->const_color.r & 0xFF)  << 16 |
+				(req->const_color.alpha & 0xFF) << 24;
+	} else {
+		blit_op->solid_fill = false;
+	}
 }
 
 static void mdp3_ppp_tile_workaround(struct ppp_blit_op *blit_op,
@@ -791,9 +830,10 @@ int mdp3_ppp_start_blit(struct msm_fb_data_type *mfd,
 	}
 	is_bpp_4 = (ret == 4) ? 1 : 0;
 
-	if ((is_bpp_4 && (remainder == 6 || remainder == 14)))
+	if ((is_bpp_4 && (remainder == 6 || remainder == 14)) &&
+						!(req->flags & MDP_SOLID_FILL))
 		ret = mdp3_ppp_blit_workaround(mfd, req, remainder,
-				src_data, dst_data);
+							src_data, dst_data);
 	else
 		ret = mdp3_ppp_blit(mfd, req, src_data, dst_data);
 	return ret;

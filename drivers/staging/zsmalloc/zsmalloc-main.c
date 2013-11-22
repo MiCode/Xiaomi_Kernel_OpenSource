@@ -472,7 +472,7 @@ static void reset_page(struct page *page)
 	set_page_private(page, 0);
 	page->mapping = NULL;
 	page->freelist = NULL;
-	page_mapcount_reset(page);
+	reset_page_mapcount(page);
 }
 
 static void free_zspage(struct page *first_page)

@@ -169,6 +169,7 @@ enum {
 #define MDP_BLUR 0x10
 #define MDP_BLEND_FG_PREMULT 0x20000
 #define MDP_IS_FG 0x40000
+#define MDP_SOLID_FILL 0x0000100
 #define MDP_DEINTERLACE 0x80000000
 #define MDP_SHARPENING  0x40000000
 #define MDP_NO_DMA_BARRIER_START	0x20000000
@@ -254,11 +255,19 @@ struct mdp_csc {
 
 #define MDP_BLIT_REQ_VERSION 2
 
+struct color {
+	uint32_t r;
+	uint32_t g;
+	uint32_t b;
+	uint32_t alpha;
+};
+
 struct mdp_blit_req {
 	struct mdp_img src;
 	struct mdp_img dst;
 	struct mdp_rect src_rect;
 	struct mdp_rect dst_rect;
+	struct color const_color;
 	uint32_t alpha;
 	uint32_t transp_mask;
 	uint32_t flags;

@@ -56,10 +56,26 @@
 &dsi_hx8389b_qhd_vid {
 	qcom,cont-splash-enabled;
 };
+
 &soc {
 	i2c@f9925000 {
 		fsl@1c {
 			fsl,sensors-position = <7>;
 		};
 	};
+};
+
+&qrd_batterydata {
+	qcom,rpull-up-kohm = <100>;
+	qcom,vref-batt-therm = <1800000>;
+
+	/include/ "batterydata-qrd-4v2-2200mah.dtsi"
+};
+
+&pm8110_bms {
+	qcom,battery-data = <&qrd_batterydata>;
+};
+
+&pm8110_chg {
+	qcom,battery-data = <&qrd_batterydata>;
 };

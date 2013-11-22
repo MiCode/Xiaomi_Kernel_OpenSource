@@ -251,6 +251,12 @@ static struct qseecom_registered_listener_list *__qseecom_find_svc(
 			break;
 	}
 	spin_unlock_irqrestore(&qseecom.registered_listener_list_lock, flags);
+
+	if ((entry != NULL) && (entry->svc.listener_id != listener_id)) {
+		pr_err("Service id: %u is not found\n", listener_id);
+		return NULL;
+	}
+
 	return entry;
 }
 
@@ -494,6 +500,11 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 		}
 		spin_unlock_irqrestore(&qseecom.registered_listener_list_lock,
 				flags);
+
+		if (ptr_svc == NULL) {
+			pr_err("Listener Svc %d does not exist\n", lstnr);
+			return -EINVAL;
+		}
 		if (ptr_svc->svc.listener_id != lstnr) {
 			pr_warning("Service requested for does on exist\n");
 			return -ERESTARTSYS;
@@ -858,6 +869,10 @@ int __qseecom_process_rpmb_svc_cmd(struct qseecom_dev_handle *data_ptr,
 	if ((req_ptr == NULL) || (send_svc_ireq_ptr == NULL)) {
 		pr_err("Error with pointer: req_ptr = %p, send_svc_ptr = %p\n",
 			req_ptr, send_svc_ireq_ptr);
+		return -EINVAL;
+	}
+	if ((!req_ptr->cmd_req_buf) || (!req_ptr->resp_buf)) {
+		pr_err("Invalid req/resp buffer, exiting\n");
 		return -EINVAL;
 	}
 	send_svc_ireq_ptr->qsee_cmd_id = req_ptr->cmd_id;
@@ -1273,6 +1288,11 @@ static int qseecom_receive_req(struct qseecom_dev_handle *data)
 	struct qseecom_registered_listener_list *this_lstnr;
 
 	this_lstnr = __qseecom_find_svc(data->listener.id);
+	if (!this_lstnr) {
+		pr_err("Invalid listener ID\n");
+		return -ENODATA;
+	}
+
 	while (1) {
 		if (wait_event_freezable(this_lstnr->rcv_req_wq,
 				__qseecom_listener_has_rcvd_req(data,

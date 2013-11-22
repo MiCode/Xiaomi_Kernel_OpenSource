@@ -385,26 +385,27 @@ struct smsc_hub_platform_data *msm_hub_dt_to_pdata(
 static int __devinit smsc_hub_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	const struct smsc_hub_platform_data *pdata;
+	struct smsc_hub_platform_data *pdata;
 	struct device_node *node = pdev->dev.of_node;
 	struct i2c_adapter *i2c_adap;
 	struct i2c_board_info i2c_info;
+	struct of_dev_auxdata *hsic_host_auxdata;
 
 	if (pdev->dev.of_node) {
 		dev_dbg(&pdev->dev, "device tree enabled\n");
-		pdev->dev.platform_data = msm_hub_dt_to_pdata(pdev);
-		if (IS_ERR(pdev->dev.platform_data))
-			return PTR_ERR(pdev->dev.platform_data);
-
-		dev_set_name(&pdev->dev, smsc_hub_driver.driver.name);
+		hsic_host_auxdata = dev_get_platdata(&pdev->dev);
+		pdata = msm_hub_dt_to_pdata(pdev);
+		if (IS_ERR(pdata))
+			return PTR_ERR(pdata);
+	} else {
+		pdata = pdev->dev.platform_data;
 	}
 
-	if (!pdev->dev.platform_data) {
+	if (!pdata) {
 		dev_err(&pdev->dev, "No platform data\n");
 		return -ENODEV;
 	}
 
-	pdata = pdev->dev.platform_data;
 	if (!pdata->hub_reset)
 		return -EINVAL;
 
@@ -413,7 +414,7 @@ static int __devinit smsc_hub_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	smsc_hub->dev = &pdev->dev;
-	smsc_hub->pdata = pdev->dev.platform_data;
+	smsc_hub->pdata = pdata;
 
 	smsc_hub->hub_vbus_reg = devm_regulator_get(&pdev->dev, "hub_vbus");
 	ret = PTR_ERR(smsc_hub->hub_vbus_reg);
@@ -494,7 +495,7 @@ static int __devinit smsc_hub_probe(struct platform_device *pdev)
 	i2c_put_adapter(i2c_adap);
 
 i2c_add_fail:
-	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
+	ret = of_platform_populate(node, NULL, hsic_host_auxdata, &pdev->dev);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to add child node, ret=%d\n", ret);
 		goto uninit_gpio;
@@ -523,7 +524,7 @@ static int smsc_hub_remove(struct platform_device *pdev)
 {
 	const struct smsc_hub_platform_data *pdata;
 
-	pdata = pdev->dev.platform_data;
+	pdata = smsc_hub->pdata;
 	if (smsc_hub->client) {
 		i2c_unregister_device(smsc_hub->client);
 		smsc_hub->client = NULL;
