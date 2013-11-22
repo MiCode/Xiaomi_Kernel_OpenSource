@@ -411,10 +411,11 @@
 		      <0xfd4c4000 0x15820>;
 		reg-names = "ipa-base", "bam-base";
 		interrupts = <0 252 0>,
-		             <0 253 0>;
+		             <0 254 0>;
 		interrupt-names = "ipa-irq", "bam-irq";
 		qti,ipa-hw-ver = <3>; /* IPA core version = IPAv2.0 */
 		qti,ipa-hw-mode = <0>; /* IPA hw type = Normal */
+		qti,ee = <2>;
 	};
 
 	usb3: qcom,ssusb@f9200000 {
