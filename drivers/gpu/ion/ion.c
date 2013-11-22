@@ -703,6 +703,8 @@ static bool startswith(const char *string, const char *prefix)
 {
 	size_t l1 = strlen(string);
 	size_t l2 = strlen(prefix);
+	if (l2 > l1)
+		return false;
 	return strncmp(string, prefix, min(l1, l2)) == 0;
 }
 
