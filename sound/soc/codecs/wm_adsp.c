@@ -238,26 +238,29 @@ struct wm_adsp_alg_xm_struct {
 };
 
 struct wm_adsp_host_buffer {
-	__be32 X_buf_base;
-	__be32 X_buf_size;
-	__be32 X_buf_base2;
-	__be32 X_buf_size2;
-	__be32 Y_buf_base;
-	__be32 Y_buf_size;
-	__be32 high_water_mark;
-	__be32 low_water_mark;
-	__be32 next_write_index;
-	__be32 next_read_index;
-	__be32 overflow;
-	__be32 state;
-	__be32 wrapped;
-	__be32 requested_rewind;
-	__be32 applied_rewind;
+	__be32 X_buf_base;		/* XM base addr of first X area */
+	__be32 X_buf_size;		/* Size of 1st X area in words */
+	__be32 X_buf_base2;		/* XM base addr of 2nd X area */
+	__be32 X_buf_brk;		/* Total X size in words */
+	__be32 Y_buf_base;		/* YM base addr of Y area */
+	__be32 wrap;			/* Total size X and Y in words */
+	__be32 high_water_mark;		/* Point at which IRQ is asserted */
+	__be32 irq_count;		/* bits 1-31 count IRQ assertions */
+	__be32 irq_ack;			/* acked IRQ count, bit 0 enables IRQ */
+	__be32 next_write_index;	/* word index of next write */
+	__be32 next_read_index;		/* word index of next read */
+	__be32 error;			/* error if any */
+	__be32 oldest_block_index;	/* word index of oldest surviving */
+	__be32 requested_rewind;	/* how many blocks rewind was done */
+	__be32 reserved_space;		/* internal */
+	__be32 min_free;		/* min free space since stream start */
+	__be32 blocks_written[2];	/* total blocks written (64 bit) */
+	__be32 words_written[2];	/* total words written (64 bit) */
 };
 
 #define WM_ADSP_DATA_WORD_SIZE         3
-#define WM_ADSP_RAW_BUFFER_SAMPS       384
-#define WM_ADSP_ALG_XM_STRUCT_MAGIC    0x58b90c
+#define WM_ADSP_MAX_READ_SIZE          256
+#define WM_ADSP_ALG_XM_STRUCT_MAGIC    0x49aec7
 
 #define ADSP2_SYSTEM_CONFIG_XM_PTR \
 	(offsetof(struct wmfw_adsp2_id_hdr, xm) / sizeof(__be32))
@@ -271,16 +274,6 @@ struct wm_adsp_host_buffer {
 #define ALG_XM_FIELD(field) \
 	(offsetof(struct wm_adsp_alg_xm_struct, field) / sizeof(__be32))
 
-static const struct {
-	int words_per_group;
-	int samps_per_group;
-} wm_adsp_sample_group[4] = {
-	[2] = {
-		.words_per_group = 2,
-		.samps_per_group = 3,
-	},
-};
-
 struct wm_adsp_buffer_region_def ez2control_regions[] = {
 	{
 		.mem_type = WMFW_ADSP2_XM,
@@ -290,12 +283,12 @@ struct wm_adsp_buffer_region_def ez2control_regions[] = {
 	{
 		.mem_type = WMFW_ADSP2_XM,
 		.base_offset = HOST_BUFFER_FIELD(X_buf_base2),
-		.size_offset = HOST_BUFFER_FIELD(X_buf_size2),
+		.size_offset = HOST_BUFFER_FIELD(X_buf_brk),
 	},
 	{
 		.mem_type = WMFW_ADSP2_YM,
 		.base_offset = HOST_BUFFER_FIELD(Y_buf_base),
-		.size_offset = HOST_BUFFER_FIELD(Y_buf_size),
+		.size_offset = HOST_BUFFER_FIELD(wrap),
 	},
 };
 
@@ -2334,27 +2327,6 @@ static int wm_adsp_write_data_word(struct wm_adsp *adsp, int mem_type,
 	return regmap_raw_write(adsp->regmap, reg, &data, sizeof(data));
 }
 
-static inline unsigned int wm_adsp_words_to_samps(const struct wm_adsp *adsp,
-						  unsigned int words)
-{
-	return (words * WM_ADSP_DATA_WORD_SIZE) / adsp->sample_size;
-}
-
-static inline unsigned int wm_adsp_samps_to_words(const struct wm_adsp *adsp,
-						  unsigned int samples,
-						  unsigned int offset)
-{
-	unsigned int groups;
-	unsigned int words_per_group =
-		wm_adsp_sample_group[adsp->sample_size].words_per_group;
-
-	samples += offset;
-	samples += words_per_group - 1;
-	groups = samples / words_per_group;
-
-	return groups * words_per_group;
-}
-
 static inline int wm_adsp_host_buffer_read(struct wm_adsp *adsp,
 					   unsigned int field_offset, u32 *data)
 {
@@ -2373,8 +2345,7 @@ static inline int wm_adsp_host_buffer_write(struct wm_adsp *adsp,
 static int wm_adsp_populate_buffer_regions(struct wm_adsp *adsp)
 {
 	int i, ret;
-	u32 size;
-	u32 cumulative_samps = 0;
+	u32 offset = 0;
 	struct wm_adsp_buffer_region_def *host_region_defs =
 		adsp->firmwares[adsp->fw].caps->host_region_defs;
 	struct wm_adsp_buffer_region *region;
@@ -2382,7 +2353,7 @@ static int wm_adsp_populate_buffer_regions(struct wm_adsp *adsp)
 	for (i = 0; i < adsp->firmwares[adsp->fw].caps->num_host_regions; ++i) {
 		region = &adsp->host_regions[i];
 
-		region->offset_samps = cumulative_samps;
+		region->offset = offset;
 		region->mem_type = host_region_defs[i].mem_type;
 
 		ret = wm_adsp_host_buffer_read(adsp,
@@ -2393,119 +2364,89 @@ static int wm_adsp_populate_buffer_regions(struct wm_adsp *adsp)
 
 		ret = wm_adsp_host_buffer_read(adsp,
 					       host_region_defs[i].size_offset,
-					       &size);
+					       &offset);
 		if (ret < 0)
 			return ret;
 
-		cumulative_samps += wm_adsp_words_to_samps(adsp, size);
+		region->cumulative_size = offset;
 
-		region->cumulative_samps = cumulative_samps;
+		adsp_dbg(adsp,
+			 "Region %d type %d base %04x off %04x size %04x\n",
+			 i, region->mem_type, region->base_addr,
+			 region->offset, region->cumulative_size);
 	}
 
 	return 0;
 }
 
-static void wm_adsp_extract_16bit(struct wm_adsp *adsp, int num_samps,
-				  int group_offset)
+static int wm_adsp_read_buffer(struct wm_adsp *adsp, int32_t read_index,
+			       int avail)
 {
-	int i;
-	int16_t sample;
-	u32 *raw_buf = adsp->raw_capt_buf;
-	int words_per_group =
-		wm_adsp_sample_group[sizeof(int16_t)].words_per_group;
-
-	for (i = 0; i < num_samps; ++i) {
-		switch (group_offset++) {
-		case 2:
-			sample = (raw_buf[1] >> 8) & 0xffff;
-			raw_buf += words_per_group;
-			group_offset = 0;
-			break;
-		case 1:
-			sample = ((raw_buf[0] & 0xff) << 8) |
-				 (raw_buf[1] & 0xff);
-			break;
-		default:
-			sample = (raw_buf[0] >> 8) & 0xffff;
-			break;
-		}
-
-		*(int16_t*)(adsp->capt_buf.buf + adsp->capt_buf.head) = sample;
-
-		adsp->capt_buf.head += adsp->sample_size;
-		adsp->capt_buf.head &= adsp->capt_buf_size - 1;
-	}
-}
-
-static int wm_adsp_read_samples(struct wm_adsp *adsp, int32_t read_index,
-				int avail)
-{
-	int circ_space_s = CIRC_SPACE(adsp->capt_buf.head,
-				      adsp->capt_buf.tail,
-				      adsp->capt_buf_size) / adsp->sample_size;
-	int samps_per_group =
-		wm_adsp_sample_group[adsp->sample_size].samps_per_group;
-	int words_per_group =
-		wm_adsp_sample_group[adsp->sample_size].words_per_group;
+	int circ_space_words = CIRC_SPACE(adsp->capt_buf.head,
+					  adsp->capt_buf.tail,
+					  adsp->capt_buf_size) /
+			       WM_ADSP_DATA_WORD_SIZE;
+	u8 *capt_buf = (u8 *)adsp->capt_buf.buf;
+	int capt_buf_h = adsp->capt_buf.head;
+	int capt_buf_mask = adsp->capt_buf_size - 1;
 	int mem_type;
-	unsigned int adsp_addr, adsp_read_len;
-	int group_index, group_offset;
-	int num_samps;
+	unsigned int adsp_addr;
+	int num_words;
 	int i, ret;
 
 	/* Calculate read parameters */
-	for (i = 0; i < adsp->firmwares[adsp->fw].caps->num_host_regions; ++i) {
-		if (read_index < adsp->host_regions[i].cumulative_samps)
+	for (i = 0; i < wm_adsp_fw[adsp->fw].caps->num_host_regions; ++i) {
+		if (read_index < adsp->host_regions[i].cumulative_size)
 			break;
 	}
 
 	if (i == adsp->firmwares[adsp->fw].caps->num_host_regions)
 		return -EINVAL;
 
-	num_samps = adsp->host_regions[i].cumulative_samps - read_index;
-	group_index = (read_index - adsp->host_regions[i].offset_samps) /
-		      samps_per_group;
-	group_offset = read_index % samps_per_group;
+	num_words = adsp->host_regions[i].cumulative_size - read_index;
 	mem_type = adsp->host_regions[i].mem_type;
 	adsp_addr = adsp->host_regions[i].base_addr +
-		    (group_index * words_per_group);
+		    (read_index - adsp->host_regions[i].offset);
 
-	if (circ_space_s < num_samps)
-		num_samps = circ_space_s;
-	if (avail < num_samps)
-		num_samps = avail;
-	if (num_samps >= adsp->raw_buf_samps) {
-		num_samps = adsp->raw_buf_samps;
-		num_samps -= group_offset;
+	if (circ_space_words < num_words)
+		num_words = circ_space_words;
+	if (avail < num_words)
+		num_words = avail;
+	if (num_words >= WM_ADSP_MAX_READ_SIZE) {
+		num_words = WM_ADSP_MAX_READ_SIZE;
 	}
-	if (!num_samps)
+	if (!num_words)
 		return 0;
 
 	/* Read data from DSP */
-	adsp_read_len = wm_adsp_samps_to_words(adsp, num_samps, group_offset);
 	ret = wm_adsp_read_data_block(adsp, mem_type, adsp_addr,
-				      adsp_read_len, adsp->raw_capt_buf);
+				      num_words, adsp->raw_capt_buf);
 	if (ret != 0)
 		return ret;
 
-	/* Extract samples from raw buffer into the capture buffer */
-	switch (adsp->sample_size) {
-	case 2:
-		wm_adsp_extract_16bit(adsp, num_samps, group_offset);
-		break;
-	default:
-		return -EINVAL;
+	/* Copy to circular buffer */
+	for (i = 0; i < num_words; ++i) {
+		u32 x = adsp->raw_capt_buf[i];
+
+		capt_buf[capt_buf_h++] = (u8)((x >> 0) & 0xff);
+		capt_buf_h &= capt_buf_mask;
+		capt_buf[capt_buf_h++] = (u8)((x >> 8) & 0xff);
+		capt_buf_h &= capt_buf_mask;
+		capt_buf[capt_buf_h++] = (u8)((x >> 16) & 0xff);
+		capt_buf_h &= capt_buf_mask;
 	}
 
-	return num_samps;
+	adsp->capt_buf.head = capt_buf_h;
+
+	return num_words;
 }
 
 static int wm_adsp_capture_block(struct wm_adsp *adsp, int *avail)
 {
-	int last_region = adsp->firmwares[adsp->fw].caps->num_host_regions - 1;
-	int host_size_samps =
-		adsp->host_regions[last_region].cumulative_samps;
-	int num_samps;
+	int last_region = wm_adsp_fw[adsp->fw].caps->num_host_regions - 1;
+	int host_size =
+		adsp->host_regions[last_region].cumulative_size;
+	int num_words;
 	u32 next_read_index, next_write_index;
 	int32_t write_index, read_index;
 	int ret;
@@ -2525,21 +2466,24 @@ static int wm_adsp_capture_block(struct wm_adsp *adsp, int *avail)
 	read_index = sign_extend32(next_read_index, 23);
 	write_index = sign_extend32(next_write_index, 23);
 
+	/* Don't empty the buffer as it kills the firmware */
+	write_index--;
+
 	if (read_index < 0)
 		return -EIO;	/* stream has not yet started */
 
 	*avail = write_index - read_index;
 	if (*avail < 0)
-		*avail += host_size_samps;
+		*avail += host_size;
 
 	/* Read data from DSP */
-	num_samps = wm_adsp_read_samples(adsp, read_index, *avail);
-	if (num_samps <= 0)
-		return num_samps;
+	num_words = wm_adsp_read_buffer(adsp, read_index, *avail);
+	if (num_words <= 0)
+		return num_words;
 
-	/* update read index to account for samples read */
-	next_read_index += num_samps;
-	if (next_read_index == host_size_samps)
+	/* update read index to account for words read */
+	next_read_index += num_words;
+	if (next_read_index == host_size)
 		next_read_index = 0;
 
 	ret = wm_adsp_host_buffer_write(adsp,
@@ -2548,7 +2492,7 @@ static int wm_adsp_capture_block(struct wm_adsp *adsp, int *avail)
 	if (ret < 0)
 		return ret;
 
-	return num_samps;
+	return num_words;
 }
 
 int wm_adsp_stream_alloc(struct wm_adsp *adsp,
@@ -2557,13 +2501,7 @@ int wm_adsp_stream_alloc(struct wm_adsp *adsp,
 	int ret;
 	unsigned int size;
 
-	switch (params->codec.format) {
-	case SNDRV_PCM_FORMAT_S16_LE:
-		adsp->sample_size = 2;
-		break;
-	default:
-		return -EINVAL;
-	}
+	adsp->dsp_error = 0;
 
 	if (!adsp->capt_buf.buf) {
 		adsp->capt_buf_size = WM_ADSP_CAPTURE_BUFFER_SIZE;
@@ -2577,9 +2515,7 @@ int wm_adsp_stream_alloc(struct wm_adsp *adsp,
 	adsp->capt_buf.tail = 0;
 
 	if (!adsp->raw_capt_buf) {
-		adsp->raw_buf_samps = WM_ADSP_RAW_BUFFER_SAMPS;
-		size = wm_adsp_samps_to_words(adsp, adsp->raw_buf_samps, 0) *
-		       sizeof(*adsp->raw_capt_buf);
+		size = WM_ADSP_MAX_READ_SIZE * sizeof(*adsp->raw_capt_buf);
 		adsp->raw_capt_buf = kzalloc(size, GFP_KERNEL);
 
 		if (!adsp->raw_capt_buf) {
@@ -2668,12 +2604,7 @@ int wm_adsp_stream_start(struct wm_adsp *adsp)
 	if (!adsp->host_buf_ptr)
 		return -EIO;
 
-	ret = wm_adsp_host_buffer_read(adsp,
-				       HOST_BUFFER_FIELD(low_water_mark),
-				       &adsp->low_water_mark);
-	if (ret < 0)
-		return ret;
-
+	adsp->max_dsp_read_bytes = WM_ADSP_MAX_READ_SIZE * sizeof(u32);
 	ret = wm_adsp_populate_buffer_regions(adsp);
 	if (ret < 0)
 		return ret;
@@ -2682,7 +2613,7 @@ int wm_adsp_stream_start(struct wm_adsp *adsp)
 }
 EXPORT_SYMBOL_GPL(wm_adsp_stream_start);
 
-int wm_adsp_stream_capture(struct wm_adsp *adsp)
+static int wm_adsp_stream_capture(struct wm_adsp *adsp)
 {
 	int avail = 0;
 	int amount_read;
@@ -2702,14 +2633,51 @@ int wm_adsp_stream_capture(struct wm_adsp *adsp)
 		} while (ret > 0);
 
 		total_read += amount_read;
-	} while (amount_read > 0 && avail > adsp->low_water_mark);
+	} while (amount_read > 0 && avail > WM_ADSP_MAX_READ_SIZE);
 
-	if (avail > adsp->low_water_mark)
+	if (avail > WM_ADSP_MAX_READ_SIZE)
 		adsp->buffer_drain_pending = true;
 
-	return total_read;
+	return total_read * WM_ADSP_DATA_WORD_SIZE;
 }
-EXPORT_SYMBOL_GPL(wm_adsp_stream_capture);
+
+int wm_adsp_stream_handle_irq(struct wm_adsp *adsp)
+{
+	int ret, bytes_captured;
+	u32 irq_ack;
+
+	ret = wm_adsp_host_buffer_read(adsp,
+				       HOST_BUFFER_FIELD(error),
+				       &adsp->dsp_error);
+	if (ret < 0)
+		return ret;
+	if (adsp->dsp_error != 0) {
+		adsp_err(adsp, "DSP error occurred: %d\n", adsp->dsp_error);
+		return -EIO;
+	}
+
+	bytes_captured = wm_adsp_stream_capture(adsp);
+	if (bytes_captured < 0)
+		return bytes_captured;
+
+	ret = wm_adsp_host_buffer_read(adsp,
+				       HOST_BUFFER_FIELD(irq_count),
+				       &irq_ack);
+	if (ret < 0)
+		return ret;
+
+	if (!adsp->buffer_drain_pending)
+		irq_ack |= 1;		/* enable further IRQs */
+
+	ret = wm_adsp_host_buffer_write(adsp,
+					HOST_BUFFER_FIELD(irq_ack),
+					irq_ack);
+	if (ret < 0)
+		return ret;
+
+	return bytes_captured;
+}
+EXPORT_SYMBOL_GPL(wm_adsp_stream_handle_irq);
 
 int wm_adsp_stream_read(struct wm_adsp *adsp, char __user *buf, size_t count)
 {
@@ -2727,6 +2695,9 @@ int wm_adsp_stream_read(struct wm_adsp *adsp, char __user *buf, size_t count)
 
 	if (avail < count)
 		count = avail;
+
+	adsp_dbg(adsp, "%s: avail=%d toend=%d count=%d\n",
+		 __func__, avail, to_end, count);
 
 	if (count > to_end) {
 		if (copy_to_user(buf,

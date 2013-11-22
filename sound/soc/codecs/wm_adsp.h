@@ -38,8 +38,8 @@ struct wm_adsp_alg_region {
 };
 
 struct wm_adsp_buffer_region {
-	unsigned int offset_samps;
-	unsigned int cumulative_samps;
+	unsigned int offset;
+	unsigned int cumulative_size;
 	unsigned int mem_type;
 	unsigned int base_addr;
 };
@@ -92,11 +92,11 @@ struct wm_adsp {
 	struct regulator *dvfs;
 
 	u32 host_buf_ptr;
-	u32 low_water_mark;
 
-	int sample_size;
+
+	int max_dsp_read_bytes;
+	u32 dsp_error;
 	u32 *raw_capt_buf;
-	int raw_buf_samps;
 	struct circ_buf capt_buf;
 	int capt_buf_size;
 	struct wm_adsp_buffer_region *host_regions;
@@ -147,9 +147,11 @@ extern int wm_adsp_stream_alloc(struct wm_adsp *adsp,
 				const struct snd_compr_params *params);
 extern int wm_adsp_stream_free(struct wm_adsp *adsp);
 extern int wm_adsp_stream_start(struct wm_adsp *adsp);
-extern int wm_adsp_stream_capture(struct wm_adsp *adsp);
+
+extern int wm_adsp_stream_handle_irq(struct wm_adsp *adsp);
 extern int wm_adsp_stream_read(struct wm_adsp *adsp, char __user *buf,
 			       size_t count);
 extern int wm_adsp_stream_avail(const struct wm_adsp *adsp);
 
 #endif
+

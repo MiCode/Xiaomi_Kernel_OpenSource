@@ -1696,7 +1696,7 @@ static irqreturn_t adsp2_irq(int irq, void *data)
 	if (!florida->compr_info.stream)
 		goto out;
 
-	ret = wm_adsp_stream_capture(florida->compr_info.adsp);
+	ret = wm_adsp_stream_handle_irq(florida->compr_info.adsp);
 	if (ret < 0) {
 		dev_err(florida->core.arizona->dev,
 			"Failed to capture DSP data: %d\n",
