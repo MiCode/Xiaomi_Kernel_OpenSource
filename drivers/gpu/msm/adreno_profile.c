@@ -441,6 +441,11 @@ static void transfer_results(struct kgsl_device *device,
 					profile, *(ptr + buf_off++));
 			if (assigns_list == NULL) {
 				*log_ptr = (unsigned int) -1;
+
+				shared_buf_inc(profile->shared_size,
+					&profile->shared_tail,
+					SIZE_SHARED_ENTRY(cnt));
+
 				goto err;
 			} else {
 				*log_ptr = assigns_list->groupid << 16 |
