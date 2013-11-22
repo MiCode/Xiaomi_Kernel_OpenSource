@@ -941,7 +941,7 @@
 			qcom,thresh = <800000>;
 			qcom,dual-conf;
 			qcom,bimc,bw = <300000>;
-			qcom,bimc,gp = <5>;
+			qcom,bimc,gp = <5000>;
 			qcom,bimc,thmp = <50>;
 		};
 

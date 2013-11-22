@@ -1651,7 +1651,7 @@ static void msm_bus_bimc_set_qos_bw(struct msm_bus_bimc_info *binfo,
 	/* Only calculate if there's a requested bandwidth and window */
 	if (qbw->bw && qbw->ws) {
 		int64_t th, tm, tl;
-		uint32_t gp, gc, data_width;
+		uint32_t gp, gc;
 		int64_t gp_nominal, gp_required, gp_calc, data, temp;
 		int64_t win = qbw->ws * binfo->qos_freq;
 		temp = win;
@@ -1666,16 +1666,7 @@ static void msm_bus_bimc_set_qos_bw(struct msm_bus_bimc_info *binfo,
 		 * Calculate max window size, defined by bw request.
 		 * Units: (KHz, MB/s)
 		 */
-		data_width = (readl_relaxed(M_CONFIG_INFO_2_ADDR(
-			binfo->base, mas_index)) &
-			M_CONFIG_INFO_2_M_DATA_WIDTH_BMSK) >>
-			M_CONFIG_INFO_2_M_DATA_WIDTH_SHFT;
-
-		/* If unspecified, use data-width 8 by default */
-		if (!data_width)
-			data_width = 8;
-
-		gp_calc = MAX_GC * data_width * binfo->qos_freq * 1000;
+		gp_calc = MAX_GC * binfo->qos_freq * 1000;
 		gp_required = gp_calc;
 		bimc_div(&gp_required, qbw->bw);
 
@@ -1684,7 +1675,7 @@ static void msm_bus_bimc_set_qos_bw(struct msm_bus_bimc_info *binfo,
 
 		/* Calculate bandwith in grants and ceil. */
 		temp = qbw->bw * gp;
-		data = data_width * binfo->qos_freq * 1000;
+		data = binfo->qos_freq * 1000;
 		bimc_div(&temp, data);
 		gc = min_t(int64_t, MAX_GC, temp);
 
@@ -1978,8 +1969,8 @@ static int msm_bus_bimc_commit(struct msm_bus_fabric_registration
 static void bimc_set_static_qos_bw(struct msm_bus_bimc_info *binfo,
 	int mport, struct msm_bus_bimc_qos_bw *qbw)
 {
-	int32_t bw_MBps, thh = 0, thm, thl, gc;
-	int16_t gp;
+	int32_t bw_mbps, thh = 0, thm, thl, gc;
+	int32_t gp;
 	u64 temp;
 
 	if (binfo->qos_freq == 0) {
@@ -1995,17 +1986,17 @@ static void bimc_set_static_qos_bw(struct msm_bus_bimc_info *binfo,
 	/* Convert bandwidth to MBPS */
 	temp = qbw->bw;
 	bimc_div(&temp, 1000000);
-	bw_MBps = temp;
+	bw_mbps = temp;
 
 	/* Grant period in clock cycles
 	 * Grant period from bandwidth structure
-	 * is in micro seconds, QoS freq is in KHz.
+	 * is in nano seconds, QoS freq is in KHz.
 	 * Divide by 1000 to get clock cycles */
-	gp = (binfo->qos_freq * qbw->gp) / 1000;
+	gp = (binfo->qos_freq * qbw->gp) / (1000 * NSEC_PER_USEC);
 
 	/* Grant count = BW in MBps * Grant period
 	 * in micro seconds */
-	gc = bw_MBps * qbw->gp;
+	gc = bw_mbps * (qbw->gp / NSEC_PER_USEC);
 
 	/* Medium threshold = -((Medium Threshold percentage *
 	 * Grant count) / 100) */
@@ -2015,6 +2006,9 @@ static void bimc_set_static_qos_bw(struct msm_bus_bimc_info *binfo,
 	/* Low threshold = -(Grant count) */
 	thl = -gc;
 	qbw->thl = thl;
+
+	MSM_BUS_DBG("%s: BKE parameters: gp %d, gc %d, thm %d thl %d thh %d",
+			__func__, gp, gc, thm, thl, thh);
 
 	set_qos_bw_regs(binfo->base, mport, thh, thm, thl, gp, gc);
 }
