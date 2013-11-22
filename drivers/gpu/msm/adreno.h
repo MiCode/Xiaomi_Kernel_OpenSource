@@ -377,7 +377,7 @@ struct adreno_gpudev {
 	void (*postmortem_dump)(struct adreno_device *adreno_dev);
 };
 
-#define FT_DETECT_REGS_COUNT 12
+#define FT_DETECT_REGS_COUNT 14
 
 struct log_field {
 	bool show;
