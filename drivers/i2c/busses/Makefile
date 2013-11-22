@@ -49,7 +49,6 @@ obj-$(CONFIG_I2C_IMX)		+= i2c-imx.o
 obj-$(CONFIG_I2C_INTEL_MID)	+= i2c-intel-mid.o
 obj-$(CONFIG_I2C_IOP3XX)	+= i2c-iop3xx.o
 obj-$(CONFIG_I2C_MPC)		+= i2c-mpc.o
-obj-$(CONFIG_I2C_MSM)		+= i2c-msm.o
 obj-$(CONFIG_I2C_QUP)           += i2c-qup.o
 obj-$(CONFIG_I2C_QUP)           += i2c-msm-v2.o
 obj-$(CONFIG_I2C_SSBI)          += i2c-ssbi.o
