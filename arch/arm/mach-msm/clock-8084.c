@@ -6057,21 +6057,24 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("",	gcc_usb3_phy_clk.c,	""),
 
 	/* PCIE clocks */
-	CLK_LOOKUP("pcie_0_aux_clk", gcc_pcie_0_aux_clk.c, "msm_pcie"),
-	CLK_LOOKUP("pcie_0_cfg_ahb_clk", gcc_pcie_0_cfg_ahb_clk.c, "msm_pcie"),
+	CLK_LOOKUP("pcie_0_aux_clk", gcc_pcie_0_aux_clk.c, "msm_pcie.1"),
+	CLK_LOOKUP("pcie_0_cfg_ahb_clk", gcc_pcie_0_cfg_ahb_clk.c,
+			"msm_pcie.1"),
 	CLK_LOOKUP("pcie_0_mstr_axi_clk", gcc_pcie_0_mstr_axi_clk.c,
-			"msm_pcie"),
-	CLK_LOOKUP("pcie_0_pipe_clk", gcc_pcie_0_pipe_clk.c, "msm_pcie"),
-	CLK_LOOKUP("pcie_0_slv_axi_clk", gcc_pcie_0_slv_axi_clk.c, "msm_pcie"),
-	CLK_LOOKUP("pcie_0_ref_clk_src", rf_clk3.c, "msm_pcie"),
-	CLK_LOOKUP("pcie_1_aux_clk", gcc_pcie_1_aux_clk.c, "msm_pcie"),
-	CLK_LOOKUP("pcie_1_cfg_ahb_clk", gcc_pcie_1_cfg_ahb_clk.c, "msm_pcie"),
+			"msm_pcie.1"),
+	CLK_LOOKUP("pcie_0_pipe_clk", gcc_pcie_0_pipe_clk.c, "msm_pcie.1"),
+	CLK_LOOKUP("pcie_0_slv_axi_clk", gcc_pcie_0_slv_axi_clk.c,
+			"msm_pcie.1"),
+	CLK_LOOKUP("pcie_0_ref_clk_src", rf_clk3.c, "msm_pcie.1"),
+	CLK_LOOKUP("pcie_1_aux_clk", gcc_pcie_1_aux_clk.c, "msm_pcie.2"),
+	CLK_LOOKUP("pcie_1_cfg_ahb_clk", gcc_pcie_1_cfg_ahb_clk.c,
+			"msm_pcie.2"),
 	CLK_LOOKUP("pcie_1_mstr_axi_clk", gcc_pcie_1_mstr_axi_clk.c,
-			"msm_pcie"),
-	CLK_LOOKUP("pcie_1_pipe_clk", gcc_pcie_1_pipe_clk.c, "msm_pcie"),
+			"msm_pcie.2"),
+	CLK_LOOKUP("pcie_1_pipe_clk", gcc_pcie_1_pipe_clk.c, "msm_pcie.2"),
 	CLK_LOOKUP("pcie_1_slv_axi_clk", gcc_pcie_1_slv_axi_clk.c,
-			"msm_pcie"),
-	CLK_LOOKUP("pcie_1_ref_clk_src", rf_clk3.c, "msm_pcie"),
+			"msm_pcie.2"),
+	CLK_LOOKUP("pcie_1_ref_clk_src", rf_clk3.c, "msm_pcie.2"),
 
 	/* CoreSight clocks */
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc326000.tmc"),
@@ -6577,8 +6580,8 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("",		byte_clk_src_8084.c,               ""),
 
 	/* LDO */
-	CLK_LOOKUP("pcie_0_ldo",	pcie_0_phy_ldo.c,  "msm_pcie"),
-	CLK_LOOKUP("pcie_1_ldo",	pcie_1_phy_ldo.c,  "msm_pcie"),
+	CLK_LOOKUP("pcie_0_ldo",	pcie_0_phy_ldo.c,  "msm_pcie.1"),
+	CLK_LOOKUP("pcie_1_ldo",	pcie_1_phy_ldo.c,  "msm_pcie.2"),
 	CLK_LOOKUP("",		sata_phy_ldo.c,               ""),
 
 	CLK_LOOKUP("qca,rtc_clk",	div_clk3.c, "qca1530.1"),
