@@ -1432,62 +1432,6 @@ static size_t ion_debug_heap_total(struct ion_client *client,
 }
 
 /**
- * Searches through a clients handles to find if the buffer is owned
- * by this client. Used for debug output.
- * @param client pointer to candidate owner of buffer
- * @param buf pointer to buffer that we are trying to find the owner of
- * @return 1 if found, 0 otherwise
- */
-static int ion_debug_find_buffer_owner(const struct ion_client *client,
-				       const struct ion_buffer *buf)
-{
-	struct rb_node *n;
-
-	for (n = rb_first(&client->handles); n; n = rb_next(n)) {
-		const struct ion_handle *handle = rb_entry(n,
-						     const struct ion_handle,
-						     node);
-		if (handle->buffer == buf)
-			return 1;
-	}
-	return 0;
-}
-
-/**
- * Adds mem_map_data pointer to the list of mem_map
- * Used for debug output.
- * @param mem_map The mem_map list
- * @param data The new data to add to the list
- */
-static void ion_debug_mem_map_add(struct list_head *mem_map,
-				  struct mem_map_data *data)
-{
-	list_add(&data->node, mem_map);
-}
-
-/**
- * Search for an owner of a buffer by iterating over all ION clients.
- * @param dev ion device containing pointers to all the clients.
- * @param buffer pointer to buffer we are trying to find the owner of.
- * @return name of owner.
- */
-const char *ion_debug_locate_owner(const struct ion_device *dev,
-					 const struct ion_buffer *buffer)
-{
-	struct rb_node *j;
-	const char *client_name = NULL;
-
-	for (j = rb_first(&dev->clients); j && !client_name;
-			  j = rb_next(j)) {
-		struct ion_client *client = rb_entry(j, struct ion_client,
-						     node);
-		if (ion_debug_find_buffer_owner(client, buffer))
-			client_name = client->name;
-	}
-	return client_name;
-}
-
-/**
  * Create a mem_map of the heap.
  * @param s seq_file to log error message to.
  * @param heap The heap to create mem_map for.
@@ -1497,32 +1441,52 @@ void ion_debug_mem_map_create(struct seq_file *s, struct ion_heap *heap,
 			      struct list_head *mem_map)
 {
 	struct ion_device *dev = heap->dev;
-	struct rb_node *n;
+	struct rb_node *cnode;
 	size_t size;
+	struct ion_client *client;
 
 	if (!heap->ops->phys)
 		return;
 
-	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
-		struct ion_buffer *buffer =
-				rb_entry(n, struct ion_buffer, node);
-		if (buffer->heap->id == heap->id) {
-			struct mem_map_data *data =
-					kzalloc(sizeof(*data), GFP_KERNEL);
-			if (!data) {
-				seq_printf(s, "ERROR: out of memory. "
-					   "Part of memory map will not be logged\n");
-				break;
-			}
+	down_read(&dev->lock);
+	for (cnode = rb_first(&dev->clients); cnode; cnode = rb_next(cnode)) {
+		struct rb_node *hnode;
+		client = rb_entry(cnode, struct ion_client, node);
 
-			buffer->heap->ops->phys(buffer->heap, buffer,
-						&(data->addr), &size);
-			data->size = (unsigned long) size;
-			data->addr_end = data->addr + data->size - 1;
-			data->client_name = ion_debug_locate_owner(dev, buffer);
-			ion_debug_mem_map_add(mem_map, data);
+		mutex_lock(&client->lock);
+		for (hnode = rb_first(&client->handles);
+		     hnode;
+		     hnode = rb_next(hnode)) {
+			struct ion_handle *handle = rb_entry(
+				hnode, struct ion_handle, node);
+			if (handle->buffer->heap == heap) {
+				struct mem_map_data *data =
+					kzalloc(sizeof(*data), GFP_KERNEL);
+				if (!data)
+					goto inner_error;
+				heap->ops->phys(heap, handle->buffer,
+							&(data->addr), &size);
+				data->size = (unsigned long) size;
+				data->addr_end = data->addr + data->size - 1;
+				data->client_name = kstrdup(client->name,
+							GFP_KERNEL);
+				if (!data->client_name) {
+					kfree(data);
+					goto inner_error;
+				}
+				list_add(&data->node, mem_map);
+			}
 		}
+		mutex_unlock(&client->lock);
 	}
+	up_read(&dev->lock);
+	return;
+
+inner_error:
+	seq_puts(s,
+		"ERROR: out of memory. Part of memory map will not be logged\n");
+	mutex_unlock(&client->lock);
+	up_read(&dev->lock);
 }
 
 /**
@@ -1535,6 +1499,7 @@ static void ion_debug_mem_map_destroy(struct list_head *mem_map)
 		struct mem_map_data *data, *tmp;
 		list_for_each_entry_safe(data, tmp, mem_map, node) {
 			list_del(&data->node);
+			kfree(data->client_name);
 			kfree(data);
 		}
 	}
