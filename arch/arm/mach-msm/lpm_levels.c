@@ -376,7 +376,7 @@ static void lpm_system_prepare(struct lpm_system_state *system_state,
 	if (!lvl->notify_rpm)
 		goto skip_rpm;
 
-	ret = msm_rpm_enter_sleep(dbg_mask);
+	ret = msm_rpm_enter_sleep(dbg_mask, &nextcpu);
 	if (ret) {
 		pr_info("msm_rpm_enter_sleep() failed with rc = %d\n", ret);
 		goto bail_system_sleep;
@@ -384,7 +384,7 @@ static void lpm_system_prepare(struct lpm_system_state *system_state,
 
 	do_div(us, USEC_PER_SEC/SCLK_HZ);
 	sclk = (uint32_t)us;
-	msm_mpm_enter_sleep(sclk, from_idle);
+	msm_mpm_enter_sleep(sclk, from_idle, &nextcpu);
 skip_rpm:
 	system_state->last_entered_cluster_index = index;
 	spin_unlock(&system_state->sync_lock);

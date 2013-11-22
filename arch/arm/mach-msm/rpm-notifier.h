@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,10 +42,11 @@ int msm_rpm_unregister_notifier(struct notifier_block *nb);
  * msm_rpm_enter_sleep - Notify RPM driver to prepare for entering sleep
  *
  * @bool - flag to enable print contents of sleep buffer.
+ * @cpumask - cpumask of next wakeup cpu
  *
  * return 0 on success errno on failure.
  */
-int msm_rpm_enter_sleep(bool print);
+int msm_rpm_enter_sleep(bool print, const struct cpumask *cpumask);
 
 /**
  * msm_rpm_exit_sleep - Notify RPM driver about resuming from power collapse
