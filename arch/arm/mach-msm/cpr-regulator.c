@@ -130,6 +130,8 @@
 
 #define BYTES_PER_FUSE_ROW		8
 
+#define FLAGS_SET_MIN_VOLTAGE		BIT(1)
+
 enum voltage_change_dir {
 	NO_CHANGE,
 	DOWN,
@@ -201,6 +203,7 @@ struct cpr_regulator {
 	u32		gcnt_time_us;
 	u32		vdd_apc_step_up_limit;
 	u32		vdd_apc_step_down_limit;
+	u32		flags;
 };
 
 #define CPR_DEBUG_MASK_IRQ	BIT(0)
@@ -1463,11 +1466,35 @@ static void cpr_efuse_free(struct cpr_regulator *cpr_vreg)
 	iounmap(cpr_vreg->efuse_base);
 }
 
+static void cpr_parse_cond_min_volt_fuse(struct cpr_regulator *cpr_vreg,
+						struct device_node *of_node)
+{
+	int rc;
+	u32 fuse[4];
+	u64 blown_data, fuse_data;
+
+	/*
+	 * Restrict all pvs corner voltages to a minimum value of
+	 * qti,cpr-cond-min-voltage if the fuse defined in
+	 * qti,cpr-cond-min-volt-fuse does not read back with the expected
+	 * value.
+	 */
+	rc = of_property_read_u32_array(of_node, "qti,cpr-cond-min-volt-fuse",
+					fuse, 4);
+	if (!rc) {
+		blown_data = cpr_read_efuse_row(cpr_vreg, fuse[0], fuse[3]);
+		fuse_data = ((u64)fuse[1] << 32) | fuse[2];
+		if (blown_data != fuse_data)
+			cpr_vreg->flags |= FLAGS_SET_MIN_VOLTAGE;
+	}
+}
+
 static int __devinit cpr_voltage_plan_init(struct platform_device *pdev,
 					struct cpr_regulator *cpr_vreg)
 {
 	struct device_node *of_node = pdev->dev.of_node;
-	int rc, i;
+	int rc, i, j;
+	u32 min_uv = 0;
 
 	rc = of_property_read_u32_array(of_node,
 		"qti,pvs-corner-ceiling-slow",
@@ -1494,6 +1521,18 @@ static int __devinit cpr_voltage_plan_init(struct platform_device *pdev,
 	if (rc < 0) {
 		pr_err("pvs-corner-ceiling-fast missing: rc=%d\n", rc);
 		return rc;
+	}
+
+	cpr_parse_cond_min_volt_fuse(cpr_vreg, of_node);
+
+	if (cpr_vreg->flags & FLAGS_SET_MIN_VOLTAGE) {
+		of_property_read_u32(of_node, "qti,cpr-cond-min-voltage",
+					&min_uv);
+
+		for (i = APC_PVS_SLOW; i < NUM_APC_PVS; i++)
+			for (j = CPR_CORNER_SVS; j < CPR_CORNER_MAX; j++)
+				if (cpr_vreg->pvs_corner_v[i][j] < min_uv)
+					cpr_vreg->pvs_corner_v[i][j] = min_uv;
 	}
 
 	/* Set ceiling max and use it for APC_PVS_NO */
