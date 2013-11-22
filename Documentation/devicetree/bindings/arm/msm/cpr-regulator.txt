@@ -56,38 +56,50 @@ Required properties:
 - qti,cpr-gcnt-time:		The time for gate count in microseconds.
 - qti,cpr-apc-volt-step:	The voltage in microvolt per CPR step, such as 5000uV.
 
-- qti,pvs-fuse-redun-sel:	Array of 4 elements to indicate where to read the bits and what value to
+- qti,pvs-fuse-redun-sel:	Array of 5 elements to indicate where to read the bits, what value to
 				compare with in order to decide if the redundant PVS fuse bits would be
-				used instead of the original bits. The 4 elements with index [0..3] are:
+				used instead of the original bits and method to read fuse row, reading
+				register through SCM or directly. The 5 elements with index [0..4] are:
 				  [0] => the fuse row number of the selector
 				  [1] => LSB bit position of the bits
 				  [2] => number of bits
 				  [3] => the value to indicate redundant selection
+				  [4] => fuse reading method, 0 for direct reading or 1 for SCM reading
 				When the value of the fuse bits specified by first 3 elements equals to
 				the value in 4th element, redundant PVS fuse bits should be selected.
-				Otherwise, the original PVS bits should be selected.
-- qti,pvs-fuse:		Array of three elements to indicate the bits for PVS fuse. The array
-				should have index and value like this:
+				Otherwise, the original PVS bits should be selected. If the 5th
+				element is 0, read the fuse row from register directly. Otherwise,
+				read it through SCM.
+- qti,pvs-fuse:			Array of 4 elements to indicate the bits for PVS fuse and read method.
+				The array should have index and value like this:
 				  [0] => the PVS fuse row number
 				  [1] => LSB bit position of the bits
 				  [2] => number of bits
-- qti,pvs-fuse-redun:		Array of three elements to indicate the bits for redundant PVS fuse.
+				  [3] => fuse reading method, 0 for direct reading or 1 for SCM reading
+- qti,pvs-fuse-redun:		Array of 4 elements to indicate the bits for redundant PVS fuse.
 				The array should have index and value like this:
 				  [0] => the redundant PVS fuse row number
 				  [1] => LSB bit position of the bits
 				  [2] => number of bits
-
-- qti,cpr-fuse-redun-sel:	Array of 4 elements to indicate where to read the bits and what value to
+				  [3] => fuse reading method, 0 for direct reading or 1 for SCM reading
+- qti,cpr-fuse-redun-sel:	Array of 5 elements to indicate where to read the bits, what value to
 				compare with in order to decide if the redundant CPR fuse bits would be
-				used instead of the original bits. The 4 elements with index [0..3] are:
+				used instead of the original bits and method to read fuse row, using SCM
+				to read or read register directly. The 5 elements with index [0..4] are:
 				  [0] => the fuse row number of the selector
 				  [1] => LSB bit position of the bits
 				  [2] => number of bits
 				  [3] => the value to indicate redundant selection
+				  [4] => fuse reading method, 0 for direct reading or 1 for SCM reading
 				When the value of the fuse bits specified by first 3 elements equals to
 				the value in 4th element, redundant CPR fuse bits should be selected.
-				Otherwise, the original CPR bits should be selected.
-- qti,cpr-fuse-row:		Row number of CPR fuse
+				Otherwise, the original CPR bits should be selected. If the 5th element
+				is 0, read the fuse row from register directly. Otherwise, read it through
+				SCM.
+- qti,cpr-fuse-row:		Array of row number of CPR fuse and method to read that row. It should have
+				index and value like this:
+				 [0] => the fuse row number
+				 [1] => fuse reading method, 0 for direct reading or 1 for SCM reading
 - qti,cpr-fuse-bp-cpr-disable:	Bit position of the bit to indicate if CPR should be disable
 - qti,cpr-fuse-bp-scheme:	Bit position of the bit to indicate if it's a global/local scheme
 - qti,cpr-fuse-target-quot:	Array of bit positions in fuse for Target Quotient of all corners.
@@ -100,7 +112,10 @@ Required properties:
 				  [0] => bit position of the LSB bit for SVS RO select bits
 				  [1] => bit position of the LSB bit for NOMINAL RO select bits
 				  [2] => bit position of the LSB bit for TURBO RO select bits
-- qti,cpr-fuse-redun-row:	Row number of the redundant CPR fuse
+- qti,cpr-fuse-redun-row:	Array of row number of redundant CPR fuse and method to read that
+				row. It should have index and value like this:
+				 [0] => the redundant fuse row number
+				 [1] => the value to indicate reading the fuse row directly or using SCM
 - qti,cpr-fuse-redun-target-quot:	Array of bit positions in fuse for redundant Target Quotient of all corners.
 				It should have index and value like this:
 				  [0] => bit position of the LSB bit for redundant SVS target quotient
@@ -132,8 +147,6 @@ Optional properties:
 					is present, and vise versa.
 - qti,cpr-enable:		Present: CPR enabled by default.
 				Not Present: CPR disable by default.
-- qti,use-tz-api:		Present: CPR reads efuse parameters through trustzone API.
-				Not Present: CPR reads efuse parameters directly.
 
 
 Example:
@@ -147,9 +160,9 @@ Example:
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <3>;
 
-		qti,pvs-fuse = <22 6 5>;
-		qti,pvs-fuse-redun-sel = <22 24 3 2>;
-		qti,pvs-fuse-redun = <22 27 5>;
+		qti,pvs-fuse = <22 6 5 1>;
+		qti,pvs-fuse-redun-sel = <22 24 3 2 1>;
+		qti,pvs-fuse-redun = <22 27 5 1>;
 
 		qti,pvs-init-voltage = <1330000 1330000 1330000 1320000
 						1310000 1300000 1290000 1280000
@@ -180,13 +193,13 @@ Example:
 		qti,cpr-gcnt-time = <1>;
 		qti,cpr-apc-volt-step = <5000>;
 
-		qti,cpr-fuse-row = <138>;
+		qti,cpr-fuse-row = <138 1>;
 		qti,cpr-fuse-bp-cpr-disable = <36>;
 		qti,cpr-fuse-bp-scheme = <37>;
 		qti,cpr-fuse-target-quot = <24 12 0>;
 		qti,cpr-fuse-ro-sel = <54 38 41>;
-		qti,cpr-fuse-redun-sel = <138 57 1 1>;
-		qti,cpr-fuse-redun-row = <139>;
+		qti,cpr-fuse-redun-sel = <138 57 1 1 1>;
+		qti,cpr-fuse-redun-row = <139 1>;
 		qti,cpr-fuse-redun-target-quot = <24 12 0>;
 		qti,cpr-fuse-redun-ro-sel = <46 36 39>;
 	};
