@@ -572,6 +572,11 @@ struct cxsr_latency {
 #define to_intel_framebuffer(x) container_of(x, struct intel_framebuffer, base)
 #define to_intel_plane(x) container_of(x, struct intel_plane, base)
 
+/* HDMI bits are shared with the DP bits */
+#define   HDMIB_HOTPLUG_LIVE_STATUS             (1 << 29)
+#define   HDMIC_HOTPLUG_LIVE_STATUS             (1 << 28)
+#define   HDMID_HOTPLUG_LIVE_STATUS             (1 << 27)
+
 struct intel_hdmi {
 	u32 hdmi_reg;
 	int ddc_bus;
@@ -583,6 +588,8 @@ struct intel_hdmi {
 	enum panel_fitter pfit;
 	struct intel_connector *attached_connector;
 	bool rgb_quant_range_selectable;
+	struct edid *edid;
+	u32 edid_mode_count;
 	void (*write_infoframe)(struct drm_encoder *encoder,
 				enum hdmi_infoframe_type type,
 				const void *frame, ssize_t len);
@@ -998,6 +1005,7 @@ bool intel_is_dual_link_lvds(struct drm_device *dev);
 int intel_connector_update_modes(struct drm_connector *connector,
 				 struct edid *edid);
 int intel_ddc_get_modes(struct drm_connector *c, struct i2c_adapter *adapter);
+void intel_cleanup_modes(struct drm_connector *connector);
 void intel_attach_force_audio_property(struct drm_connector *connector);
 void intel_attach_broadcast_rgb_property(struct drm_connector *connector);
 void intel_attach_force_pfit_property(struct drm_connector *connector);

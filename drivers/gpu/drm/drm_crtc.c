@@ -811,12 +811,13 @@ EXPORT_SYMBOL(drm_crtc_index);
  *
  * Remove @mode from @connector's mode list, then free it.
  */
-static void drm_mode_remove(struct drm_connector *connector,
+void drm_mode_remove(struct drm_connector *connector,
 			    struct drm_display_mode *mode)
 {
 	list_del(&mode->head);
 	drm_mode_destroy(connector->dev, mode);
 }
+EXPORT_SYMBOL(drm_mode_remove);
 
 /**
  * drm_connector_init - Init a preallocated connector

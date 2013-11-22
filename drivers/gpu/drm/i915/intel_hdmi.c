@@ -997,6 +997,46 @@ bool intel_hdmi_compute_config(struct intel_encoder *encoder,
 	return true;
 }
 
+static int hdmi_live_status(struct drm_device *dev,
+			struct intel_hdmi *intel_hdmi)
+{
+	u32 bit = 0;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_digital_port *intel_dig_port =
+					hdmi_to_dig_port(intel_hdmi);
+
+	DRM_DEBUG_KMS("Reading Live status");
+	switch (intel_dig_port->port) {
+	case PORT_B:
+		bit = HDMIB_HOTPLUG_LIVE_STATUS;
+		break;
+	case PORT_C:
+		bit = HDMIC_HOTPLUG_LIVE_STATUS;
+		break;
+	case PORT_D:
+		bit = HDMID_HOTPLUG_LIVE_STATUS;
+		break;
+	default:
+		DRM_ERROR("No valid HDMI port\n");
+	}
+
+	/* Return results of connector connection status */
+	return ((I915_READ(PORT_HOTPLUG_STAT) & bit) ?
+		connector_status_connected : connector_status_disconnected);
+}
+
+void intel_hdmi_reset(struct drm_connector *connector)
+{
+	struct intel_hdmi *intel_hdmi = intel_attached_hdmi(connector);
+
+	/* Clean previous detects and modes */
+	intel_hdmi->edid_mode_count = 0;
+	intel_cleanup_modes(connector);
+	kfree(intel_hdmi->edid);
+	intel_hdmi->edid = NULL;
+	connector->status = connector_status_disconnected;
+}
+
 static enum drm_connector_status
 intel_hdmi_detect(struct drm_connector *connector, bool force)
 {
@@ -1024,6 +1064,18 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 	power_domain = intel_display_port_power_domain(intel_encoder);
 	intel_display_power_get(dev_priv, power_domain);
 
+	/* If its force detection, dont read EDID again */
+	if (force) {
+		status = connector->status;
+		goto det_out;
+	}
+
+	/* Suppress spurious IRQ, if current status is same as live status */
+	if (connector->status == hdmi_live_status(dev, intel_hdmi)) {
+		status = connector->status;
+		goto det_out;
+	}
+
 	intel_hdmi->has_hdmi_sink = false;
 	intel_hdmi->has_audio = false;
 	intel_hdmi->rgb_quant_range_selectable = false;
@@ -1050,8 +1102,23 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 			intel_hdmi->has_audio = drm_detect_monitor_audio(edid);
 			intel_hdmi->rgb_quant_range_selectable =
 				drm_rgb_quant_range_selectable(edid);
+
+			/*
+			 * Free previously saved EDID and save new one
+			 * for read modes. kfree is NULL protected
+			 */
+			kfree(intel_hdmi->edid);
+			intel_hdmi->edid = edid;
+		} else {
+			DRM_ERROR("No digital form EDID? Using stored one\n");
+			kfree(edid);
+			goto det_out;
 		}
-		kfree(edid);
+	} else {
+
+		/* HDMI is disconneted, so remove saved old EDID */
+		kfree(intel_hdmi->edid);
+		intel_hdmi->edid = NULL;
 	}
 
 	if (status == connector_status_connected) {
@@ -1097,6 +1164,7 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 	}
 #endif
 
+det_out:
 	intel_display_power_put(dev_priv, power_domain);
 
 #ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
@@ -1109,11 +1177,14 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 
 static int intel_hdmi_get_modes(struct drm_connector *connector)
 {
+	int count = 0;
+	struct drm_display_mode *mode = NULL;
 	struct intel_encoder *intel_encoder = intel_attached_encoder(connector);
 	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(&intel_encoder->base);
 	struct drm_i915_private *dev_priv = connector->dev->dev_private;
 	enum intel_display_power_domain power_domain;
-	int ret;
+	struct edid *edid = intel_hdmi->edid;
+	int ret = 0;
 
 	/* We should parse the EDID data and find out if it's an HDMI sink so
 	 * we can send audio to it.
@@ -1122,10 +1193,45 @@ static int intel_hdmi_get_modes(struct drm_connector *connector)
 	power_domain = intel_display_port_power_domain(intel_encoder);
 	intel_display_power_get(dev_priv, power_domain);
 
-	ret = intel_ddc_get_modes(connector,
-				   intel_gmbus_get_adapter(dev_priv,
-							   intel_hdmi->ddc_bus));
+	/* No need to read modes if no connection */
+	if (connector->status != connector_status_connected)
+		goto e_out;
 
+	/*
+	 * Need not to read modes again if previously read modes are
+	 * available and display is consistent
+	 */
+	if (connector->status) {
+		list_for_each_entry(mode, &connector->modes, head) {
+			if (mode) {
+				mode->status = MODE_OK;
+				count++;
+			}
+		}
+
+		/* If modes are available, no need to read again */
+		if (count) {
+			ret = count;
+			goto e_out;
+		}
+	}
+
+	/*
+	 * EDID was saved in detect, re-use that if available, avoid
+	 * reading EDID everytime. If __unlikely(EDID not available),
+	 * read now
+	 */
+	if (edid) {
+		drm_mode_connector_update_edid_property(connector, edid);
+		ret = drm_add_edid_modes(connector, edid);
+		drm_edid_to_eld(connector, edid);
+	} else {
+		ret = intel_ddc_get_modes(connector,
+			   intel_gmbus_get_adapter(dev_priv,
+			   intel_hdmi->ddc_bus));
+	}
+
+e_out:
 	intel_display_power_put(dev_priv, power_domain);
 
 	return ret;

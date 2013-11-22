@@ -72,6 +72,18 @@ int intel_ddc_get_modes(struct drm_connector *connector,
 	return ret;
 }
 
+void intel_cleanup_modes(struct drm_connector *connector)
+{
+	struct drm_display_mode *mode = NULL;
+	struct drm_display_mode *t = NULL;
+
+	list_for_each_entry_safe(mode, t, &connector->probed_modes, head)
+		drm_mode_remove(connector, mode);
+
+	list_for_each_entry_safe(mode, t, &connector->modes, head)
+		drm_mode_remove(connector, mode);
+}
+
 static const struct drm_prop_enum_list force_audio_names[] = {
 	{ HDMI_AUDIO_OFF_DVI, "force-dvi" },
 	{ HDMI_AUDIO_OFF, "off" },

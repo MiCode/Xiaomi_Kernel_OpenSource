@@ -1128,7 +1128,8 @@ extern int drm_format_plane_cpp(uint32_t format, int plane);
 extern int drm_format_horz_chroma_subsampling(uint32_t format);
 extern int drm_format_vert_chroma_subsampling(uint32_t format);
 extern const char *drm_get_format_name(uint32_t format);
-
+extern void drm_mode_remove(struct drm_connector *connector,
+				struct drm_display_mode *mode);
 /* Helpers */
 
 static inline struct drm_plane *drm_plane_find(struct drm_device *dev,
