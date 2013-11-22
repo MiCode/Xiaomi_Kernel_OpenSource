@@ -11,23 +11,23 @@
  */
 
 &soc {
-	qcom,ion {
-		compatible = "qcom,msm-ion";
+	qti,ion {
+		compatible = "qti,msm-ion";
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		qcom,ion-heap@25 {
+		qti,ion-heap@25 {
 			reg = <25>;
-			qcom,ion-heap-type = "SYSTEM";
+			qti,ion-heap-type = "SYSTEM";
 		};
 
-		qcom,ion-heap@28 { /* AUDIO HEAP */
-			compatible = "qcom,msm-ion-reserve";
+		qti,ion-heap@28 { /* AUDIO HEAP */
+			compatible = "qti,msm-ion-reserve";
 			reg = <28>;
-			qcom,heap-align = <0x1000>;
-			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
-			qcom,memory-reservation-size = <0xAF000>;
-			qcom,ion-heap-type = "CARVEOUT";
+			qti,heap-align = <0x1000>;
+			qti,memory-reservation-type = "EBI1"; /* reserve EBI memory */
+			qti,memory-reservation-size = <0xAF000>;
+			qti,ion-heap-type = "CARVEOUT";
 		};
 	};
 };

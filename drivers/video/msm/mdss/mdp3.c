@@ -1729,7 +1729,7 @@ int mdp3_parse_dt_splash(struct msm_fb_data_type *mfd)
 	u32 offsets[2];
 
 	rc = of_property_read_u32_array(pdev->dev.of_node,
-				"qcom,memblock-reserve", offsets, 2);
+				"qti,memblock-reserve", offsets, 2);
 
 	if (rc) {
 		pr_err("fail to get memblock-reserve property\n");
