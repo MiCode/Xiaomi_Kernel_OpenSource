@@ -1,0 +1,58 @@
+== Introduction ==
+
+In case of multiple external socs each exposing more than one interface to a
+primary SOC, it is possible for the different interface drivers/clients to
+expect notifications regarding the state of the external soc that they are
+interested in. In some cases clients may need notifications of the status of
+multiple external socs. The bindings referred to below enable a client device
+to register for notifications from multiple external socs.
+
+== Esoc client devices ==
+
+For each esoc client device, every external soc that it is associated with, is
+assigned an integer id. These ids start at 0 and are contiguous. Each id
+represents a unique external soc. Each external soc is additionally assigned a
+name. An additional property is used to spcify the names. A mapping is
+performed from the name to the id.
+
+Required properties:
+esoc-0:		A phandle pointing to the esoc node that the esoc client is
+		interested in.
+
+esoc-names:	A list of string names for all the esocs that a given client
+		is interested in. Must have atleast one name corresponding to
+		esoc-0.
+
+Optional properties:
+esoc-1:		A phandle to the external soc, mapping to the second name in
+		esoc-names.
+...
+esoc-n:		A phandle to the nth external soc mapping to the nth name in
+		the esoc-names
+
+== Example ==
+
+esoc_a {
+	compatible = "esoc_mdm";
+	....
+	...
+	..
+};
+
+esoc_b {
+	compatible = "esoc_wlan";
+	..
+	..
+};
+
+pcie@0x0001 {
+	compatible = "esoc-pcie-client"
+	....
+	..
+	..
+	esoc-names = "mdm", "wlan";
+	esoc-0 = <&esoc_a>;
+	esoc-1 = <&esoc_b>;
+	..
+	..
+};
