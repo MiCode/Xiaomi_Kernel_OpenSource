@@ -1578,15 +1578,16 @@ static void msm_bus_bimc_set_qos_prio(struct msm_bus_bimc_info *binfo,
 
 static void set_qos_bw_regs(void __iomem *baddr, uint32_t mas_index,
 	int32_t th, int32_t tm, int32_t tl, uint32_t gp,
-	uint32_t gc, bool bke_en)
+	uint32_t gc)
 {
 	int32_t reg_val, val;
+	int32_t bke_reg_val;
 	int16_t val2;
 
 	/* Disable BKE before writing to registers as per spec */
-	reg_val = readl_relaxed(M_BKE_EN_ADDR(baddr, mas_index)) &
+	bke_reg_val = readl_relaxed(M_BKE_EN_ADDR(baddr, mas_index)) &
 		M_BKE_EN_RMSK;
-	writel_relaxed((reg_val & ~(M_BKE_EN_EN_BMSK)),
+	writel_relaxed((bke_reg_val & ~(M_BKE_EN_EN_BMSK)),
 		M_BKE_EN_ADDR(baddr, mas_index));
 
 	/* Write values of registers calculated */
@@ -1624,8 +1625,7 @@ static void set_qos_bw_regs(void __iomem *baddr, uint32_t mas_index,
 	/* Set BKE enable to the value it was */
 	reg_val = readl_relaxed(M_BKE_EN_ADDR(baddr, mas_index)) &
 		M_BKE_EN_RMSK;
-	val =  bke_en << M_BKE_EN_EN_SHFT;
-	writel_relaxed(((reg_val & ~(M_BKE_EN_EN_BMSK)) | (val &
+	writel_relaxed(((reg_val & ~(M_BKE_EN_EN_BMSK)) | (bke_reg_val &
 		M_BKE_EN_EN_BMSK)), M_BKE_EN_ADDR(baddr, mas_index));
 	/* Ensure that all bandwidth register writes have completed
 	 * before returning
@@ -1704,12 +1704,10 @@ static void msm_bus_bimc_set_qos_bw(struct msm_bus_bimc_info *binfo,
 			mas_index, th, tm);
 		MSM_BUS_DBG("BIMC: tl: %llu gp:%u gc: %u bke_en: %u\n",
 			tl, gp, gc, bke_en);
-		set_qos_bw_regs(binfo->base, mas_index, th, tm, tl, gp,
-			gc, bke_en);
+		set_qos_bw_regs(binfo->base, mas_index, th, tm, tl, gp, gc);
 	} else
 		/* Clear bandwidth registers */
-		set_qos_bw_regs(binfo->base, mas_index, 0, 0, 0, 0, 0,
-			bke_en);
+		set_qos_bw_regs(binfo->base, mas_index, 0, 0, 0, 0, 0);
 }
 
 static int msm_bus_bimc_allocate_commit_data(struct msm_bus_fabric_registration
@@ -1816,16 +1814,27 @@ static void free_commit_data(void *cdata)
 	kfree(cd);
 }
 
-static void bke_switch(void __iomem *baddr, uint32_t mas_index, bool req)
+static void bke_switch(
+	void __iomem *baddr, uint32_t mas_index, bool req, int mode)
 {
 	uint32_t reg_val, val;
 
 	val = req << M_BKE_EN_EN_SHFT;
 	reg_val = readl_relaxed(M_BKE_EN_ADDR(baddr, mas_index)) &
 		M_BKE_EN_RMSK;
+	if (val == reg_val)
+		return;
+
+	if (!req && mode == BIMC_QOS_MODE_FIXED)
+		set_qos_mode(baddr, mas_index, 1, 1, 1);
+
 	writel_relaxed(((reg_val & ~(M_BKE_EN_EN_BMSK)) | (val &
 		M_BKE_EN_EN_BMSK)), M_BKE_EN_ADDR(baddr, mas_index));
+	/* Make sure BKE on/off goes through before changing priorities */
 	wmb();
+
+	if (req)
+		set_qos_mode(baddr, mas_index, 0, 0, 0);
 }
 
 static void msm_bus_bimc_config_master(
@@ -1854,13 +1863,13 @@ static void msm_bus_bimc_config_master(
 	case BIMC_QOS_MODE_FIXED:
 		for (i = 0; i < ports; i++)
 			bke_switch(binfo->base, info->node_info->qport[i],
-				BKE_OFF);
+				BKE_OFF, mode);
 		break;
 	case BIMC_QOS_MODE_REGULATOR:
 	case BIMC_QOS_MODE_LIMITER:
 		for (i = 0; i < ports; i++)
 			bke_switch(binfo->base, info->node_info->qport[i],
-				BKE_ON);
+				BKE_ON, mode);
 		break;
 	default:
 		break;
@@ -2007,8 +2016,7 @@ static void bimc_set_static_qos_bw(struct msm_bus_bimc_info *binfo,
 	thl = -gc;
 	qbw->thl = thl;
 
-	set_qos_bw_regs(binfo->base, mport, thh, thm, thl, gp,
-		gc, 1);
+	set_qos_bw_regs(binfo->base, mport, thh, thm, thl, gp, gc);
 }
 
 static void bimc_init_mas_reg(struct msm_bus_bimc_info *binfo,
