@@ -185,11 +185,11 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 	}
 	drvdata->glb_base = drvdata->base;
 
-	if (!of_property_read_u32(pdev->dev.of_node, "qcom,glb-offset",
+	if (!of_property_read_u32(pdev->dev.of_node, "qti,glb-offset",
 			&glb_offset)) {
 		drvdata->glb_base += glb_offset;
 	} else {
-		pr_err("%s: Missing property qcom,glb-offset\n", __func__);
+		pr_err("%s: Missing property qti,glb-offset\n", __func__);
 		ret = -EINVAL;
 		goto fail;
 	}
@@ -206,7 +206,7 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 	}
 
 	needs_alt_core_clk = of_property_read_bool(pdev->dev.of_node,
-						   "qcom,needs-alt-core-clk");
+						   "qti,needs-alt-core-clk");
 
 	ret = __get_clocks(pdev, drvdata, needs_alt_core_clk);
 
@@ -217,7 +217,7 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 	drvdata->ttbr_split = 0;
 
 	drvdata->needs_rem_spinlock = of_property_read_bool(pdev->dev.of_node,
-					"qcom,msm-enable-remote-spinlock");
+					"qti,msm-enable-remote-spinlock");
 
 	if (drvdata->needs_rem_spinlock)
 		pr_info("%s enabled remote spinlock\n", drvdata->name);
@@ -288,24 +288,24 @@ static int msm_iommu_pmon_parse_dt(struct platform_device *pdev,
 		pmon_info->iommu.evt_irq = platform_get_irq(pdev, 0);
 
 		ret = of_property_read_u32(pdev->dev.of_node,
-					   "qcom,iommu-pmu-ngroups",
+					   "qti,iommu-pmu-ngroups",
 					   &pmon_info->num_groups);
 		if (ret) {
-			pr_err("Error reading qcom,iommu-pmu-ngroups\n");
+			pr_err("Error reading qti,iommu-pmu-ngroups\n");
 			goto fail;
 		}
 		ret = of_property_read_u32(pdev->dev.of_node,
-					   "qcom,iommu-pmu-ncounters",
+					   "qti,iommu-pmu-ncounters",
 					   &pmon_info->num_counters);
 		if (ret) {
-			pr_err("Error reading qcom,iommu-pmu-ncounters\n");
+			pr_err("Error reading qti,iommu-pmu-ncounters\n");
 			goto fail;
 		}
 
 		if (!of_get_property(pdev->dev.of_node,
-				     "qcom,iommu-pmu-event-classes",
+				     "qti,iommu-pmu-event-classes",
 				     &cls_prop_size)) {
-			pr_err("Error reading qcom,iommu-pmu-event-classes\n");
+			pr_err("Error reading qti,iommu-pmu-event-classes\n");
 			return -EINVAL;
 		}
 
@@ -320,11 +320,11 @@ static int msm_iommu_pmon_parse_dt(struct platform_device *pdev,
 		pmon_info->nevent_cls_supported = cls_prop_size / sizeof(u32);
 
 		ret = of_property_read_u32_array(pdev->dev.of_node,
-					"qcom,iommu-pmu-event-classes",
+					"qti,iommu-pmu-event-classes",
 					pmon_info->event_cls_supported,
 					pmon_info->nevent_cls_supported);
 		if (ret) {
-			pr_err("Error reading qcom,iommu-pmu-event-classes\n");
+			pr_err("Error reading qti,iommu-pmu-event-classes\n");
 			return ret;
 		}
 	} else {
@@ -516,7 +516,7 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 		goto out;
 	}
 
-	if (!of_get_property(pdev->dev.of_node, "qcom,iommu-ctx-mids",
+	if (!of_get_property(pdev->dev.of_node, "qti,iommu-ctx-mids",
 			     &nmid_array_size)) {
 		pr_err("Could not find iommu-ctx-mids property\n");
 		ret = -EINVAL;
@@ -530,7 +530,7 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 	}
 	nmid = nmid_array_size / sizeof(*ctx_drvdata->sids);
 
-	if (of_property_read_u32_array(pdev->dev.of_node, "qcom,iommu-ctx-mids",
+	if (of_property_read_u32_array(pdev->dev.of_node, "qti,iommu-ctx-mids",
 				       ctx_drvdata->sids, nmid)) {
 		pr_err("Could not find iommu-ctx-mids property\n");
 		ret = -EINVAL;
@@ -666,7 +666,7 @@ static int msm_iommu_ctx_remove(struct platform_device *pdev)
 
 
 static struct of_device_id msm_iommu_match_table[] = {
-	{ .compatible = "qcom,msm-smmu-v0", },
+	{ .compatible = "qti,msm-smmu-v0", },
 	{}
 };
 
@@ -680,7 +680,7 @@ static struct platform_driver msm_iommu_driver = {
 };
 
 static struct of_device_id msm_iommu_v0_ctx_match_table[] = {
-	{ .compatible = "qcom,msm-smmu-v0-ctx", },
+	{ .compatible = "qti,msm-smmu-v0-ctx", },
 	{}
 };
 

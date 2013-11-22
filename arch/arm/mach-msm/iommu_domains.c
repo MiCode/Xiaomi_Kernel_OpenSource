@@ -574,7 +574,7 @@ static int find_and_add_contexts(struct iommu_group *group,
 
 	for (i = 0; i < num_contexts; ++i) {
 		ctx_node = of_parse_phandle((struct device_node *) node,
-					    "qcom,iommu-contexts", i);
+					    "qti,iommu-contexts", i);
 		if (!ctx_node) {
 			pr_err("Unable to parse phandle #%u\n", i);
 			ret_val = -EINVAL;
@@ -614,7 +614,7 @@ static int create_and_add_domain(struct iommu_group *group,
 	int secure_domain;
 	int l2_redirect;
 
-	if (of_get_property(node, "qcom,virtual-addr-pool", &array_size)) {
+	if (of_get_property(node, "qti,virtual-addr-pool", &array_size)) {
 		l.npartitions = array_size / sizeof(unsigned int) / 2;
 		part = kmalloc(
 			sizeof(struct msm_iova_partition) * l.npartitions,
@@ -634,7 +634,7 @@ static int create_and_add_domain(struct iommu_group *group,
 		}
 
 		ret_val = of_property_read_u32_array(node,
-					"qcom,virtual-addr-pool",
+					"qti,virtual-addr-pool",
 					addr_array,
 					array_size/sizeof(unsigned int));
 		if (ret_val) {
@@ -664,10 +664,10 @@ static int create_and_add_domain(struct iommu_group *group,
 	l.client_name = name;
 	l.partitions = part;
 
-	secure_domain = of_property_read_bool(node, "qcom,secure-domain");
+	secure_domain = of_property_read_bool(node, "qti,secure-domain");
 	l.is_secure = (secure_domain) ? MSM_IOMMU_DOMAIN_SECURE : 0;
 
-	l2_redirect = of_property_read_bool(node, "qcom,l2-redirect");
+	l2_redirect = of_property_read_bool(node, "qti,l2-redirect");
 	l.domain_flags = (l2_redirect) ? MSM_IOMMU_DOMAIN_PT_CACHEABLE : 0;
 
 	domain_no = msm_register_domain(&l);
@@ -757,8 +757,8 @@ static int iommu_domain_parse_dt(const struct device_node *dt_node)
 		}
 		iommu_group_set_name(group, name);
 
-		if (!of_get_property(node, "qcom,iommu-contexts", &sz)) {
-			pr_err("Could not find qcom,iommu-contexts property\n");
+		if (!of_get_property(node, "qti,iommu-contexts", &sz)) {
+			pr_err("Could not find qti,iommu-contexts property\n");
 			ret_val = -EINVAL;
 			goto free_group;
 		}
@@ -874,7 +874,7 @@ static int iommu_domain_exit(struct platform_device *pdev)
 }
 
 static struct of_device_id msm_iommu_domain_match_table[] = {
-	{ .name = "qcom,iommu-domains", },
+	{ .name = "qti,iommu-domains", },
 	{}
 };
 

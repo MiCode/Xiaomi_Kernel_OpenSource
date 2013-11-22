@@ -11,26 +11,26 @@
  */
 
 &soc {
-	qcom,iommu-domains {
-		compatible = "qcom,iommu-domains";
+	qti,iommu-domains {
+		compatible = "qti,iommu-domains";
 
-		qcom,iommu-domain1 {
+		qti,iommu-domain1 {
 			label = "lpass_secure";
-			qcom,iommu-contexts = <&lpass_q6_fw>;
-			qcom,virtual-addr-pool = <0x00000000 0x0FFFFFFF
+			qti,iommu-contexts = <&lpass_q6_fw>;
+			qti,virtual-addr-pool = <0x00000000 0x0FFFFFFF
 						  0xF0000000 0x0FFFFFFF>;
 		};
 
-		qcom,iommu-domain2 {
+		qti,iommu-domain2 {
 			label = "lpass_audio";
-			qcom,iommu-contexts = <&lpass_audio_shared>;
-			qcom,virtual-addr-pool = <0x10000000 0x0FFFFFFF>;
+			qti,iommu-contexts = <&lpass_audio_shared>;
+			qti,virtual-addr-pool = <0x10000000 0x0FFFFFFF>;
 		};
 
-		q6_domain_ns:qcom,iommu-domain3 {
+		q6_domain_ns:qti,iommu-domain3 {
 			label = "lpass_video";
-			qcom,iommu-contexts = <&lpass_video_shared>;
-			qcom,virtual-addr-pool = <0x20000000 0x0FFFFFFF>;
+			qti,iommu-contexts = <&lpass_video_shared>;
+			qti,virtual-addr-pool = <0x20000000 0x0FFFFFFF>;
 		};
 	};
 };

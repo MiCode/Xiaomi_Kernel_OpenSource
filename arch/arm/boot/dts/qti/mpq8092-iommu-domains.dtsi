@@ -11,69 +11,69 @@
  */
 
 &soc {
-	qcom,iommu-domains {
-		compatible = "qcom,iommu-domains";
+	qti,iommu-domains {
+		compatible = "qti,iommu-domains";
 
-		venus_domain_ns: qcom,iommu-domain1 {
+		venus_domain_ns: qti,iommu-domain1 {
 			label = "venus_ns";
-			qcom,iommu-contexts = <&venus_ns>;
-			qcom,virtual-addr-pool = <0x40000000 0x3f000000
+			qti,iommu-contexts = <&venus_ns>;
+			qti,virtual-addr-pool = <0x40000000 0x3f000000
 						  0x7f000000 0x1000000>;
 		};
 
-		venus_domain_cp: qcom,iommu-domain2 {
+		venus_domain_cp: qti,iommu-domain2 {
 			label = "venus_cp";
-			qcom,iommu-contexts = <&venus_cp>;
-			qcom,virtual-addr-pool = <0x1000000 0x3f000000>;
-			qcom,secure-domain;
+			qti,iommu-contexts = <&venus_cp>;
+			qti,virtual-addr-pool = <0x1000000 0x3f000000>;
+			qti,secure-domain;
 		};
 
-		bcast_domain_hlos: qcom,iommu-domain3 {
+		bcast_domain_hlos: qti,iommu-domain3 {
 			label = "bcast_hlos";
-			qcom,iommu-contexts = <&bcast_cb0_hlos>;
-			qcom,virtual-addr-pool = <0x00001000 0x70000000
+			qti,iommu-contexts = <&bcast_cb0_hlos>;
+			qti,virtual-addr-pool = <0x00001000 0x70000000
 						  0x80000000 0x80000000>;
 		};
 
-		bcast_domain_cpz: qcom,iommu-domain4 {
+		bcast_domain_cpz: qti,iommu-domain4 {
 			label = "bcast_cpz";
-			qcom,iommu-contexts = <&bcast_cb1_cpz>;
-			qcom,virtual-addr-pool = <0x00001000 0x80000000>;
-			qcom,secure-domain;
+			qti,iommu-contexts = <&bcast_cb1_cpz>;
+			qti,virtual-addr-pool = <0x00001000 0x80000000>;
+			qti,secure-domain;
 		};
 
-		bcast_domain_demod: qcom,iommu-domain5 {
+		bcast_domain_demod: qti,iommu-domain5 {
 			label = "bcast_demod";
-			qcom,iommu-contexts = <&bcast_cb2_demod>;
-			qcom,virtual-addr-pool = <0x00000000 0x80000000>;
+			qti,iommu-contexts = <&bcast_cb2_demod>;
+			qti,virtual-addr-pool = <0x00000000 0x80000000>;
 		};
 
-		bcast_domain_apz: qcom,iommu-domain6 {
+		bcast_domain_apz: qti,iommu-domain6 {
 			label = "bcast_apz";
-			qcom,iommu-contexts = <&bcast_cb3_apz>;
-			qcom,virtual-addr-pool = <0x00001000 0x80000000>;
-			qcom,secure-domain;
+			qti,iommu-contexts = <&bcast_cb3_apz>;
+			qti,virtual-addr-pool = <0x00001000 0x80000000>;
+			qti,secure-domain;
 		};
 
-		venus_domain_sec_bitstream: qcom,iommu-domain7 {
+		venus_domain_sec_bitstream: qti,iommu-domain7 {
 			label = "venus_sec_bitstream";
-			qcom,iommu-contexts = <&venus_sec_bitstream>;
-			qcom,virtual-addr-pool = <0x4b000000 0x12c00000>;
-			qcom,secure-domain;
+			qti,iommu-contexts = <&venus_sec_bitstream>;
+			qti,virtual-addr-pool = <0x4b000000 0x12c00000>;
+			qti,secure-domain;
 		};
 
-		venus_domain_sec_pixel: qcom,iommu-domain8 {
+		venus_domain_sec_pixel: qti,iommu-domain8 {
 			label = "venus_sec_pixel";
-			qcom,iommu-contexts = <&venus_sec_pixel>;
-			qcom,virtual-addr-pool = <0x25800000 0x25800000>;
-			qcom,secure-domain;
+			qti,iommu-contexts = <&venus_sec_pixel>;
+			qti,virtual-addr-pool = <0x25800000 0x25800000>;
+			qti,secure-domain;
 		};
 
-		venus_domain_sec_non_pixel: qcom,iommu-domain9 {
+		venus_domain_sec_non_pixel: qti,iommu-domain9 {
 			label = "venus_sec_non_pixel";
-			qcom,iommu-contexts = <&venus_sec_non_pixel>;
-			qcom,virtual-addr-pool = <0x1000000 0x24800000>;
-			qcom,secure-domain;
+			qti,iommu-contexts = <&venus_sec_non_pixel>;
+			qti,virtual-addr-pool = <0x1000000 0x24800000>;
+			qti,secure-domain;
 		};
 	};
 };

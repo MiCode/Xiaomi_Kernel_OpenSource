@@ -15,9 +15,9 @@
 &venus_iommu {
 	status = "ok";
 	vdd-supply = <&gdsc_venus>;
-	qcom,iommu-enable-halt;
+	qti,iommu-enable-halt;
 
-	qcom,iommu-bfb-regs =  <0x204c
+	qti,iommu-bfb-regs =  <0x204c
 				0x2050
 				0x2514
 				0x2540
@@ -42,7 +42,7 @@
 				0x2034
 				0x2038>;
 
-	qcom,iommu-bfb-data =  <0xffffffff
+	qti,iommu-bfb-data =  <0xffffffff
 				0xffffffff
 				0x4
 				0x8
@@ -67,40 +67,40 @@
 				0x0
 				0x0>;
 
-	venus_ns: qcom,iommu-ctx@fdc8c000 {
-		qcom,iommu-ctx-sids = <0 1 2 3 4 5 7>;
+	venus_ns: qti,iommu-ctx@fdc8c000 {
+		qti,iommu-ctx-sids = <0 1 2 3 4 5 7>;
 	};
 
-	venus_sec_bitstream: qcom,iommu-ctx@fdc8d000 {
-		qcom,iommu-ctx-sids = <0x80 0x81 0x82 0x83 0x84>;
+	venus_sec_bitstream: qti,iommu-ctx@fdc8d000 {
+		qti,iommu-ctx-sids = <0x80 0x81 0x82 0x83 0x84>;
 		label = "venus_sec_bitstream";
 	};
 
-	venus_sec_pixel: qcom,iommu-ctx@fdc8f000 {
-		compatible = "qcom,msm-smmu-v1-ctx";
+	venus_sec_pixel: qti,iommu-ctx@fdc8f000 {
+		compatible = "qti,msm-smmu-v1-ctx";
 		reg = <0xfdc8f000 0x1000>;
 		interrupts = <0 42 0>, <0 43 0>;
-		qcom,iommu-ctx-sids = <0x85>;
+		qti,iommu-ctx-sids = <0x85>;
 		label = "venus_sec_pixel";
-		qcom,secure-context;
+		qti,secure-context;
 	};
 
-	venus_sec_non_pixel: qcom,iommu-ctx@fdc90000 {
-		compatible = "qcom,msm-smmu-v1-ctx";
+	venus_sec_non_pixel: qti,iommu-ctx@fdc90000 {
+		compatible = "qti,msm-smmu-v1-ctx";
 		reg = <0xfdc90000 0x1000>;
 		interrupts = <0 42 0>, <0 43 0>;
-		qcom,iommu-ctx-sids = <0x87 0xA0>;
+		qti,iommu-ctx-sids = <0x87 0xA0>;
 		label = "venus_sec_non_pixel";
-		qcom,secure-context;
+		qti,secure-context;
 	};
 };
 
 &jpeg_iommu {
 	status = "ok";
 	vdd-supply = <&gdsc_jpeg>;
-	qcom,iommu-enable-halt;
+	qti,iommu-enable-halt;
 
-	qcom,iommu-bfb-regs =  <0x204c
+	qti,iommu-bfb-regs =  <0x204c
 				0x2050
 				0x2514
 				0x2540
@@ -116,7 +116,7 @@
 				0x2010
 				0x2014>;
 
-	qcom,iommu-bfb-data =  <0xffff
+	qti,iommu-bfb-data =  <0xffff
 				0x0
 				0x4
 				0x4
@@ -136,9 +136,9 @@
 &mdp_iommu {
 	status = "ok";
 	vdd-supply = <&gdsc_mdss>;
-	qcom,iommu-enable-halt;
+	qti,iommu-enable-halt;
 
-	qcom,iommu-bfb-regs =  <0x204c
+	qti,iommu-bfb-regs =  <0x204c
 				0x2050
 				0x2514
 				0x2540
@@ -157,7 +157,7 @@
 				0x201c
 				0x2020>;
 
-	qcom,iommu-bfb-data =  <0xffffffff
+	qti,iommu-bfb-data =  <0xffffffff
 				0x0
 				0x4
 				0x10
@@ -180,11 +180,11 @@
 &kgsl_iommu {
 	status = "ok";
 	vdd-supply = <&gdsc_oxili_cx>;
-	qcom,alt-vdd-supply = <&gdsc_oxili_gx>;
-	qcom,iommu-enable-halt;
-	qcom,needs-alt-core-clk;
+	qti,alt-vdd-supply = <&gdsc_oxili_gx>;
+	qti,iommu-enable-halt;
+	qti,needs-alt-core-clk;
 
-	qcom,iommu-bfb-regs =  <0x204c
+	qti,iommu-bfb-regs =  <0x204c
 				0x2050
 				0x2514
 				0x2540
@@ -197,7 +197,7 @@
 				0x2414
 				0x2008>;
 
-	qcom,iommu-bfb-data =  <0x3
+	qti,iommu-bfb-data =  <0x3
 				0x0
 				0x4
 				0x10
@@ -214,9 +214,9 @@
 &vfe_iommu {
 	status = "ok";
 	vdd-supply = <&gdsc_vfe>;
-	qcom,iommu-enable-halt;
+	qti,iommu-enable-halt;
 
-	qcom,iommu-bfb-regs =  <0x204c
+	qti,iommu-bfb-regs =  <0x204c
 				0x2050
 				0x2514
 				0x2540
@@ -235,7 +235,7 @@
 				0x201c
 				0x2020>;
 
-	qcom,iommu-bfb-data =  <0xffffffff
+	qti,iommu-bfb-data =  <0xffffffff
 				0x0
 				0x4
 				0x8

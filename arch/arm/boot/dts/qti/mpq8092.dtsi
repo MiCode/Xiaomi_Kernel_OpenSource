@@ -485,10 +485,10 @@
 				<96 512 0 0>, /* No vote */
 				<96 512 1024 1024>, /* Register access only. 8Mbps should be more than enough */
 				<96 512 24576 61440>; /* Max. bandwidth required is 480Mbps */
-		qcom,iommu-hlos-group = "bcast_hlos";
-		qcom,iommu-hlos-partition = <0>;
-		qcom,iommu-cpz-group = "bcast_cpz";
-		qcom,iommu-cpz-partition = <0>;
+		qti,iommu-hlos-group = "bcast_hlos";
+		qti,iommu-hlos-partition = <0>;
+		qti,iommu-cpz-group = "bcast_cpz";
+		qti,iommu-cpz-partition = <0>;
 	};
 
         qcom,msm-rng@f9bff000 {

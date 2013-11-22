@@ -11,49 +11,49 @@
  */
 
 &soc {
-	qcom,iommu-domains {
-		compatible = "qcom,iommu-domains";
+	qti,iommu-domains {
+		compatible = "qti,iommu-domains";
 
-		qcom,iommu-domain1 {
+		qti,iommu-domain1 {
 			label = "lpass_secure";
-			qcom,iommu-contexts = <&lpass_q6_fw>;
-			qcom,virtual-addr-pool = <0x00000000 0x0FFFFFFF
+			qti,iommu-contexts = <&lpass_q6_fw>;
+			qti,virtual-addr-pool = <0x00000000 0x0FFFFFFF
 						  0xF0000000 0x0FFFFFFF>;
 		};
 
-		qcom,iommu-domain2 {
+		qti,iommu-domain2 {
 			label = "lpass_audio";
-			qcom,iommu-contexts = <&lpass_audio_shared
+			qti,iommu-contexts = <&lpass_audio_shared
 					       &lpass_core_audio>;
-			qcom,virtual-addr-pool = <0x10000000 0x0FFFFFFF>;
+			qti,virtual-addr-pool = <0x10000000 0x0FFFFFFF>;
 		};
 
-		venus_domain_ns: qcom,iommu-domain3 {
+		venus_domain_ns: qti,iommu-domain3 {
 			label = "venus_ns";
-			qcom,iommu-contexts = <&venus_ns>;
-			qcom,virtual-addr-pool = <0x5dc00000 0x7f000000
+			qti,iommu-contexts = <&venus_ns>;
+			qti,virtual-addr-pool = <0x5dc00000 0x7f000000
 						 0xdcc00000 0x1000000>;
 		};
 
-		venus_domain_sec_bitstream: qcom,iommu-domain4 {
+		venus_domain_sec_bitstream: qti,iommu-domain4 {
 			label = "venus_sec_bitstream";
-			qcom,iommu-contexts = <&venus_sec_bitstream>;
-			qcom,virtual-addr-pool = <0x4b000000 0x12c00000>;
-			qcom,secure-domain;
+			qti,iommu-contexts = <&venus_sec_bitstream>;
+			qti,virtual-addr-pool = <0x4b000000 0x12c00000>;
+			qti,secure-domain;
 		};
 
-		venus_domain_sec_pixel: qcom,iommu-domain5 {
+		venus_domain_sec_pixel: qti,iommu-domain5 {
 			label = "venus_sec_pixel";
-			qcom,iommu-contexts = <&venus_sec_pixel>;
-			qcom,virtual-addr-pool = <0x25800000 0x25800000>;
-			qcom,secure-domain;
+			qti,iommu-contexts = <&venus_sec_pixel>;
+			qti,virtual-addr-pool = <0x25800000 0x25800000>;
+			qti,secure-domain;
 		};
 
-		venus_domain_sec_non_pixel: qcom,iommu-domain6 {
+		venus_domain_sec_non_pixel: qti,iommu-domain6 {
 			label = "venus_sec_non_pixel";
-			qcom,iommu-contexts = <&venus_sec_non_pixel>;
-			qcom,virtual-addr-pool = <0x1000000 0x24800000>;
-			qcom,secure-domain;
+			qti,iommu-contexts = <&venus_sec_non_pixel>;
+			qti,virtual-addr-pool = <0x1000000 0x24800000>;
+			qti,secure-domain;
 		};
 	};
 };

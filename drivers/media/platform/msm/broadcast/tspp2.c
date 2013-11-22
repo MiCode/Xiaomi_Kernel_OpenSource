@@ -7015,28 +7015,28 @@ msm_tspp2_dt_to_pdata(struct platform_device *pdev)
 	}
 
 	/* Get IOMMU information */
-	rc = of_property_read_string(node, "qcom,iommu-hlos-group",
+	rc = of_property_read_string(node, "qti,iommu-hlos-group",
 					&data->hlos_group);
 	if (rc) {
 		pr_err("%s: Could not find iommu-hlos-group property, err = %d\n",
 			__func__, rc);
 		return NULL;
 	}
-	rc = of_property_read_string(node, "qcom,iommu-cpz-group",
+	rc = of_property_read_string(node, "qti,iommu-cpz-group",
 					&data->cpz_group);
 	if (rc) {
 		pr_err("%s: Could not find iommu-cpz-group property, err = %d\n",
 			__func__, rc);
 		return NULL;
 	}
-	rc = of_property_read_u32(node, "qcom,iommu-hlos-partition",
+	rc = of_property_read_u32(node, "qti,iommu-hlos-partition",
 					&data->hlos_partition);
 	if (rc) {
 		pr_err("%s: Could not find iommu-hlos-partition property, err = %d\n",
 			__func__, rc);
 		return NULL;
 	}
-	rc = of_property_read_u32(node, "qcom,iommu-cpz-partition",
+	rc = of_property_read_u32(node, "qti,iommu-cpz-partition",
 					&data->cpz_partition);
 	if (rc) {
 		pr_err("%s: Could not find iommu-cpz-partition property, err = %d\n",
