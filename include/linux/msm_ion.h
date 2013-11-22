@@ -5,8 +5,7 @@
 
 enum msm_ion_heap_types {
 	ION_HEAP_TYPE_MSM_START = ION_HEAP_TYPE_CUSTOM + 1,
-	ION_HEAP_TYPE_IOMMU = ION_HEAP_TYPE_MSM_START,
-	ION_HEAP_TYPE_DMA,
+	ION_HEAP_TYPE_DMA = ION_HEAP_TYPE_MSM_START,
 	ION_HEAP_TYPE_CP,
 	ION_HEAP_TYPE_SECURE_DMA,
 	ION_HEAP_TYPE_REMOVED,
@@ -35,16 +34,22 @@ enum ion_heap_ids {
 	ION_ADSP_HEAP_ID = 22,
 	ION_PIL1_HEAP_ID = 23, /* Currently used for other PIL images */
 	ION_SF_HEAP_ID = 24,
-	ION_IOMMU_HEAP_ID = 25,
+	ION_SYSTEM_HEAP_ID = 25,
 	ION_PIL2_HEAP_ID = 26, /* Currently used for modem firmware images */
 	ION_QSECOM_HEAP_ID = 27,
 	ION_AUDIO_HEAP_ID = 28,
 
 	ION_MM_FIRMWARE_HEAP_ID = 29,
-	ION_SYSTEM_HEAP_ID = 30,
 
 	ION_HEAP_ID_RESERVED = 31 /** Bit reserved for ION_FLAG_SECURE flag */
 };
+
+/*
+ * The IOMMU heap is deprecated! Here are some aliases for backwards
+ * compatibility:
+ */
+#define ION_IOMMU_HEAP_ID ION_SYSTEM_HEAP_ID
+#define ION_HEAP_TYPE_IOMMU ION_HEAP_TYPE_SYSTEM
 
 enum ion_fixed_position {
 	NOT_FIXED,
