@@ -858,4 +858,19 @@ static inline int adreno_bootstrap_ucode(struct adreno_device *adreno_dev)
 		return 0;
 }
 
+/**
+ * adreno_get_rptr() - Get the current ringbuffer read pointer
+ * @rb: Pointer the ringbuffer to query
+ *
+ * Get the current read pointer from the GPU register.
+ */
+static inline unsigned int
+adreno_get_rptr(struct adreno_ringbuffer *rb)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(rb->device);
+	unsigned int result;
+	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR, &result);
+	return result;
+}
+
 #endif /*__ADRENO_H */

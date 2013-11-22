@@ -368,60 +368,25 @@ static int _ringbuffer_bootstrap_ucode(struct adreno_ringbuffer *rb,
  */
 void _ringbuffer_setup_common(struct adreno_ringbuffer *rb)
 {
-	union reg_cp_rb_cntl cp_rb_cntl;
-	unsigned int rb_cntl;
 	struct kgsl_device *device = rb->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-
-	kgsl_sharedmem_set(rb->device, &rb->memptrs_desc, 0, 0,
-			   sizeof(struct kgsl_rbmemptrs));
 
 	kgsl_sharedmem_set(rb->device, &rb->buffer_desc, 0, 0xAA,
 			   (rb->sizedwords << 2));
 
-	if (adreno_is_a2xx(adreno_dev)) {
-		kgsl_regwrite(device, REG_CP_RB_WPTR_BASE,
-			(rb->memptrs_desc.gpuaddr
-			+ GSL_RB_MEMPTRS_WPTRPOLL_OFFSET));
-
-		/* setup WPTR delay */
-		kgsl_regwrite(device, REG_CP_RB_WPTR_DELAY,
-			0 /*0x70000010 */);
-	}
-
-	/*setup REG_CP_RB_CNTL */
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_CNTL, &rb_cntl);
-	cp_rb_cntl.val = rb_cntl;
-
 	/*
 	 * The size of the ringbuffer in the hardware is the log2
-	 * representation of the size in quadwords (sizedwords / 2)
+	 * representation of the size in quadwords (sizedwords / 2).
+	 * Also disable the host RPTR shadow register as it might be unreliable
+	 * in certain circumstances.
 	 */
-	cp_rb_cntl.f.rb_bufsz = ilog2(rb->sizedwords >> 1);
 
-	/*
-	 * Specify the quadwords to read before updating mem RPTR.
-	 * Like above, pass the log2 representation of the blocksize
-	 * in quadwords.
-	*/
-	cp_rb_cntl.f.rb_blksz = ilog2(KGSL_RB_BLKSIZE >> 3);
-
-	if (adreno_is_a2xx(adreno_dev)) {
-		/* WPTR polling */
-		cp_rb_cntl.f.rb_poll_en = GSL_RB_CNTL_POLL_EN;
-	}
-
-	/* mem RPTR writebacks */
-	cp_rb_cntl.f.rb_no_update =  GSL_RB_CNTL_NO_UPDATE;
-
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_CNTL, cp_rb_cntl.val);
+	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_CNTL,
+		(ilog2(rb->sizedwords >> 1) & 0x3F) |
+		(1 << 27));
 
 	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_BASE,
 					rb->buffer_desc.gpuaddr);
-
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_RPTR_ADDR,
-				rb->memptrs_desc.gpuaddr +
-				GSL_RB_MEMPTRS_RPTR_OFFSET);
 
 	if (adreno_is_a2xx(adreno_dev)) {
 		/* explicitly clear all cp interrupts */
@@ -621,20 +586,6 @@ int adreno_ringbuffer_init(struct kgsl_device *device)
 		return status;
 	}
 
-	/* allocate memory for polling and timestamps */
-	/* This really can be at 4 byte alignment boundry but for using MMU
-	 * we need to make it at page boundary */
-	status = kgsl_allocate_contiguous(&rb->memptrs_desc,
-		sizeof(struct kgsl_rbmemptrs));
-
-	if (status != 0) {
-		adreno_ringbuffer_close(rb);
-		return status;
-	}
-
-	/* overlay structure on memptrs memory */
-	rb->memptrs = (struct kgsl_rbmemptrs *) rb->memptrs_desc.hostptr;
-
 	rb->global_ts = 0;
 
 	return 0;
@@ -645,7 +596,6 @@ void adreno_ringbuffer_close(struct adreno_ringbuffer *rb)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(rb->device);
 
 	kgsl_sharedmem_free(&rb->buffer_desc);
-	kgsl_sharedmem_free(&rb->memptrs_desc);
 
 	kfree(adreno_dev->pfp_fw);
 	kfree(adreno_dev->pm4_fw);
