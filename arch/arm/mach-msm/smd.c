@@ -544,8 +544,7 @@ void smd_diag(void)
 	char *x;
 	int size;
 
-	x = smem_find_to_proc(ID_DIAG_ERR_MSG, SZ_DIAG_ERR_MSG, 0,
-							SMEM_ANY_HOST_FLAG);
+	x = smem_find(ID_DIAG_ERR_MSG, SZ_DIAG_ERR_MSG, 0, SMEM_ANY_HOST_FLAG);
 	if (x != 0) {
 		x[SZ_DIAG_ERR_MSG - 1] = 0;
 		SMD_INFO("smem: DIAG '%s'\n", x);
@@ -982,11 +981,11 @@ static void smd_channel_reset_state(struct smd_alloc_elm *shared, int table_id,
 		type = SMD_CHANNEL_TYPE(shared[n].type);
 		is_word_access = is_word_access_ch(type);
 		if (is_word_access)
-			shared2 = smem_find_to_proc(base_id + n,
+			shared2 = smem_find(base_id + n,
 				sizeof(struct smd_shared_v2_word_access), pid,
 				0);
 		else
-			shared2 = smem_find_to_proc(base_id + n,
+			shared2 = smem_find(base_id + n,
 				sizeof(struct smd_shared_v2), pid, 0);
 		if (!shared2)
 			continue;
@@ -1783,7 +1782,7 @@ static int smd_alloc_v2(struct smd_channel *ch, int table_id,
 
 	if (is_word_access_ch(ch->type)) {
 		struct smd_shared_v2_word_access *shared2;
-		shared2 = smem_find_to_proc(base_id + ch->n, sizeof(*shared2),
+		shared2 = smem_find(base_id + ch->n, sizeof(*shared2),
 							r_info->remote_pid, 0);
 		if (!shared2) {
 			SMD_INFO("smem_find failed ch=%d\n", ch->n);
@@ -1793,7 +1792,7 @@ static int smd_alloc_v2(struct smd_channel *ch, int table_id,
 		ch->recv = &shared2->ch1;
 	} else {
 		struct smd_shared_v2 *shared2;
-		shared2 = smem_find_to_proc(base_id + ch->n, sizeof(*shared2),
+		shared2 = smem_find(base_id + ch->n, sizeof(*shared2),
 							r_info->remote_pid, 0);
 		if (!shared2) {
 			SMD_INFO("smem_find failed ch=%d\n", ch->n);
@@ -1839,7 +1838,7 @@ static int smd_alloc_v2(struct smd_channel *ch, int table_id,
 static int smd_alloc_v1(struct smd_channel *ch)
 {
 	struct smd_shared_v1 *shared1;
-	shared1 = smem_find_to_proc(ID_SMD_CHANNELS + ch->n, sizeof(*shared1),
+	shared1 = smem_find(ID_SMD_CHANNELS + ch->n, sizeof(*shared1),
 							0, SMEM_ANY_HOST_FLAG);
 	if (!shared1) {
 		pr_err("smd_alloc_channel() cid %d does not exist\n", ch->n);
@@ -2578,7 +2577,7 @@ static int smsm_init(void)
 	}
 	remote_spin_unlock_irqrestore(remote_spinlock, flags);
 
-	smsm_size_info = smem_find_to_proc(SMEM_SMSM_SIZE_INFO,
+	smsm_size_info = smem_find(SMEM_SMSM_SIZE_INFO,
 				sizeof(struct smsm_size_info_type), 0,
 				SMEM_ANY_HOST_FLAG);
 	if (smsm_size_info) {

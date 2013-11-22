@@ -465,7 +465,7 @@ static void *__smem_find(unsigned id, unsigned size_in, bool skip_init_check)
 }
 
 /**
- * smem_find_to_proc - Find existing item with security support
+ * smem_find - Find existing item with security support
  *
  * @id:       ID of SMEM item
  * @size_in:  Size of the SMEM item
@@ -473,8 +473,7 @@ static void *__smem_find(unsigned id, unsigned size_in, bool skip_init_check)
  * @flags:    Item attribute flags
  * @returns:  Pointer to SMEM item or NULL if it doesn't exist
  */
-void *smem_find_to_proc(unsigned id, unsigned size_in, unsigned to_proc,
-								unsigned flags)
+void *smem_find(unsigned id, unsigned size_in, unsigned to_proc, unsigned flags)
 {
 	unsigned size;
 	void *ptr;
@@ -488,14 +487,14 @@ void *smem_find_to_proc(unsigned id, unsigned size_in, unsigned to_proc,
 
 	size_in = ALIGN(size_in, 8);
 	if (size_in != size) {
-		SMEM_INFO("smem_find_to_proc(%u, %u, %u, %u): wrong size %u\n",
+		SMEM_INFO("smem_find(%u, %u, %u, %u): wrong size %u\n",
 			id, size_in, to_proc, flags, size);
 		return 0;
 	}
 
 	return ptr;
 }
-EXPORT_SYMBOL(smem_find_to_proc);
+EXPORT_SYMBOL(smem_find);
 
 /**
  * alloc_item_nonsecure - Allocate an SMEM item in the nonsecure partition

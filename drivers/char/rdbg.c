@@ -784,7 +784,7 @@ static int rdbg_open(struct inode *inode, struct file *filp)
 		goto bail;
 	}
 
-	rdbgdata->smem_addr = smem_find_to_proc(
+	rdbgdata->smem_addr = smem_find(
 		proc_info[device_id].smem_buffer_addr,
 		rdbgdata->smem_size,
 		0,
