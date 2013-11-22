@@ -1,4 +1,4 @@
-* Qualcomm Connectivity Network SubSystem Platform Driver
+* Qualcomm ConNectivity SubSystem Platform Driver
 
 This platform driver adds support for the CNSS subsystem used for PCIe
 based Wi-Fi devices. It also adds support to integrate PCIe WLAN module
@@ -7,17 +7,22 @@ to subsystem restart framework. Apart from that, it also manages the
 with support for suspend and resume by retaining the PCI config space
 states when PCIe link is shutdown. The main purpose of this device tree
 entry below is to invoke the CNSS platform driver and provide handle to
-the WLAN enable GPIO, 3.3V fixed voltage regulator resources.
+the WLAN enable GPIO, 3.3V fixed voltage regulator resources. It also
+provides the reserved RAM dump memory location and size.
 
 Required properties:
   - compatible: "qti,cnss"
+  - reg: Memory regions defined as starting address and size
+  - reg-names: Names of the memory regions defined in reg entry
   - wlan-en-gpio: WLAN_EN GPIO signal specified by QCA6174 specifications
   - vdd-wlan-supply: phandle to the regulator device tree node
 
 Example:
 
-    qti,cnss {
+    qti,cnss@0d400000 {
         compatible = "qti,cnss";
+        reg = <0x0d400000 0x200000>;
+        reg-names = "ramdump";
         wlan-en-gpio = <&msmgpio 82 0>;
         vdd-wlan-supply = <&wlan_vreg>;
     };

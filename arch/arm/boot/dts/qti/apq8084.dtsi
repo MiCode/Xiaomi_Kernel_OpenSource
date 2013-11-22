@@ -2564,8 +2564,10 @@
 		interrupts = <0 1 0>;
 	};
 
-	qti,cnss {
+	qti,cnss@0d400000 {
 		compatible = "qti,cnss";
+		reg = <0x0d400000 0x200000>;
+		reg-names = "ramdump";
 		wlan-en-gpio = <&msmgpio 82 0>;
 		vdd-wlan-supply = <&wlan_vreg>;
 	};

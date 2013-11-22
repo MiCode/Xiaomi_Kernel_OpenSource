@@ -62,6 +62,7 @@ struct cnss_wlan_vreg_info {
  */
 static struct cnss_data {
 	struct dev_info *device_info;
+	struct platform_device *pldev;
 	struct subsys_device *subsys;
 	struct subsys_desc    subsysdesc;
 	struct ramdump_device *ramdump_dev;
@@ -453,7 +454,7 @@ EXPORT_SYMBOL(cnss_deinit);
 
 void cnss_device_crashed(void)
 {
-	if (penv && penv->device_info) {
+	if (penv && penv->subsys) {
 		subsys_set_crash_status(penv->subsys, true);
 		subsystem_restart_dev(penv->subsys);
 	}
@@ -498,38 +499,171 @@ int cnss_get_wlan_unsafe_channel(u16 *unsafe_ch_list,
 }
 EXPORT_SYMBOL(cnss_get_wlan_unsafe_channel);
 
-static int cnss_shutdown(const struct subsys_desc *subsys, bool force_stop)
+int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size)
 {
-	if (penv && penv->device_info &&
-			penv->device_info->dev_shutdown)
-		return penv->device_info->dev_shutdown();
+	struct resource *res;
+
+	if (!penv || !penv->pldev)
+		return -ENODEV;
+
+	res = platform_get_resource_byname(penv->pldev,
+			IORESOURCE_MEM, "ramdump");
+	if (!res)
+		return -EINVAL;
+
+	*address = res->start;
+	*size = resource_size(res);
 
 	return 0;
+}
+EXPORT_SYMBOL(cnss_get_ramdump_mem);
+
+static int cnss_shutdown(const struct subsys_desc *subsys, bool force_stop)
+{
+	struct cnss_wlan_driver *wdrv;
+	struct pci_dev *pdev;
+	struct cnss_wlan_vreg_info *vreg_info;
+	struct cnss_wlan_gpio_info *gpio_info;
+	int ret = 0;
+
+	if (!penv)
+		return -ENODEV;
+
+	wdrv = penv->driver;
+	pdev = penv->pdev;
+	vreg_info = &penv->vreg_info;
+	gpio_info = &penv->gpio_info;
+
+	if (wdrv && wdrv->shutdown)
+		wdrv->shutdown(pdev);
+
+	if (!pdev) {
+		ret = -EINVAL;
+		goto cut_power;
+	}
+
+	if (penv->pcie_link_state) {
+		pci_save_state(pdev);
+		penv->saved_state = pci_store_saved_state(pdev);
+
+		if (msm_pcie_pm_control(MSM_PCIE_SUSPEND,
+					cnss_get_pci_dev_bus_number(pdev),
+					NULL, NULL, PM_OPTIONS)) {
+			pr_debug("cnss: Failed to shutdown PCIe link!\n");
+			ret = -EFAULT;
+		}
+
+		penv->pcie_link_state = PCIE_LINK_DOWN;
+	}
+
+cut_power:
+	cnss_wlan_gpio_set(gpio_info, WLAN_EN_LOW);
+
+	if (cnss_wlan_vreg_set(vreg_info, VREG_OFF))
+		pr_err("cnss: Failed to set WLAN VREG_OFF!\n");
+
+	return ret;
 }
 
 static int cnss_powerup(const struct subsys_desc *subsys)
 {
-	if (penv && penv->device_info &&
-			penv->device_info->dev_powerup)
-		return penv->device_info->dev_powerup();
+	struct cnss_wlan_driver *wdrv;
+	struct pci_dev *pdev;
+	struct cnss_wlan_vreg_info *vreg_info;
+	struct cnss_wlan_gpio_info *gpio_info;
+	int ret = 0;
 
-	return 0;
+	if (!penv)
+		return -ENODEV;
+
+	if (penv->driver) {
+		wdrv = penv->driver;
+		pdev = penv->pdev;
+		vreg_info = &penv->vreg_info;
+		gpio_info = &penv->gpio_info;
+
+		ret = cnss_wlan_vreg_set(vreg_info, VREG_ON);
+		if (ret) {
+			pr_err("cnss: Failed to set WLAN VREG_ON!\n");
+			goto err_wlan_vreg_on;
+		}
+
+		usleep(POWER_ON_DELAY);
+		cnss_wlan_gpio_set(gpio_info, WLAN_EN_HIGH);
+		usleep(WLAN_ENABLE_DELAY);
+
+		if (!penv->pcie_link_state) {
+			ret = msm_pcie_pm_control(MSM_PCIE_RESUME,
+					  cnss_get_pci_dev_bus_number(pdev),
+					  NULL, NULL, PM_OPTIONS);
+
+			if (ret) {
+				pr_err("cnss: Failed to bring-up PCIe link!\n");
+				goto err_pcie_link_up;
+			}
+
+			penv->pcie_link_state = PCIE_LINK_UP;
+		}
+
+		if (pdev && wdrv && wdrv->reinit) {
+			if (penv->saved_state)
+				pci_load_and_free_saved_state(pdev,
+					&penv->saved_state);
+
+			pci_restore_state(pdev);
+
+			ret = wdrv->reinit(pdev, penv->id);
+			if (ret)
+				goto err_wlan_reinit;
+		} else
+			goto err_pcie_link_up;
+	}
+
+	return ret;
+
+err_wlan_reinit:
+	pci_save_state(pdev);
+	penv->saved_state = pci_store_saved_state(pdev);
+	msm_pcie_pm_control(MSM_PCIE_SUSPEND,
+			cnss_get_pci_dev_bus_number(pdev),
+			NULL, NULL, PM_OPTIONS);
+	penv->pcie_link_state = PCIE_LINK_DOWN;
+
+err_pcie_link_up:
+	cnss_wlan_gpio_set(gpio_info, WLAN_EN_LOW);
+	cnss_wlan_vreg_set(vreg_info, VREG_OFF);
+
+err_wlan_vreg_on:
+	return ret;
 }
 
 static int cnss_ramdump(int enable, const struct subsys_desc *subsys)
 {
-	int result = 0;
+	void __iomem *ramdump_address;
 	struct ramdump_segment segment;
-	if (!penv || !penv->device_info || !penv->device_info->dump_buffer)
+	unsigned long address = 0;
+	unsigned long size = 0;
+	int ret = 0;
+
+	if (!penv)
 		return -ENODEV;
 
 	if (!enable)
-		return result;
+		return ret;
 
-	segment.address = (unsigned long) penv->device_info->dump_buffer;
-	segment.size = penv->device_info->dump_size;
-	result = do_ramdump(penv->ramdump_dev, &segment, 1);
-	return result;
+	if (cnss_get_ramdump_mem(&address, &size))
+		return -EINVAL;
+
+	ramdump_address = ioremap(address, size);
+	if (!ramdump_address)
+		return -EINVAL;
+
+	segment.address = (unsigned long)ramdump_address;
+	segment.size = size;
+	ret = do_ramdump(penv->ramdump_dev, &segment, 1);
+	iounmap(ramdump_address);
+
+	return ret;
 }
 
 static void cnss_crash_shutdown(const struct subsys_desc *subsys)
@@ -549,6 +683,9 @@ static int cnss_probe(struct platform_device *pdev)
 	penv = devm_kzalloc(&pdev->dev, sizeof(*penv), GFP_KERNEL);
 	if (!penv)
 		return -ENOMEM;
+
+	penv->pldev = pdev;
+
 	penv->subsysdesc.name = "AR6320";
 	penv->subsysdesc.owner = THIS_MODULE;
 	penv->subsysdesc.shutdown = cnss_shutdown;
@@ -561,6 +698,8 @@ static int cnss_probe(struct platform_device *pdev)
 		ret = PTR_ERR(penv->subsys);
 		goto err_subsys_reg;
 	}
+
+	subsystem_get(penv->subsysdesc.name);
 
 	penv->ramdump_dev = create_ramdump_device(penv->subsysdesc.name,
 				penv->subsysdesc.dev);
@@ -585,6 +724,7 @@ static int cnss_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_pci_reg;
 
+	pr_info("cnss: Platform driver probed successfully.\n");
 	return ret;
 
 err_pci_reg:
