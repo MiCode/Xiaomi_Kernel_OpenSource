@@ -170,8 +170,7 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 		max_order = info->order;
 		i++;
 	}
-
-	table = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
+	table = kzalloc(sizeof(struct sg_table), GFP_KERNEL);
 	if (!table)
 		goto err;
 
