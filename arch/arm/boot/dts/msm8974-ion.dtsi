@@ -16,12 +16,14 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		qcom,ion-heap@30 { /* SYSTEM HEAP */
+		qcom,ion-heap@30 {
 			reg = <30>;
+			qcom,ion-heap-type = "SYSTEM";
 		};
 
-		qcom,ion-heap@21 { /* SYSTEM CONTIG HEAP */
+		qcom,ion-heap@21 {
 			reg = <21>;
+			qcom,ion-heap-type = "SYSTEM_CONTIG";
 		};
 
 		qcom,ion-heap@8 { /* CP_MM HEAP */
@@ -29,6 +31,7 @@
 			reg = <8>;
 			qcom,heap-align = <0x1000>;
 			linux,contiguous-region = <&secure_mem>;
+			qcom,ion-heap-type = "SECURE_DMA";
 		};
 
 		qcom,ion-heap@22 { /* adsp heap */
@@ -36,16 +39,19 @@
 			reg = <22>;
 			qcom,heap-align = <0x1000>;
 			linux,contiguous-region = <&adsp_mem>;
+			qcom,ion-heap-type = "DMA";
 		};
 
-		qcom,ion-heap@25 { /* IOMMU HEAP */
+		qcom,ion-heap@25 {
 			reg = <25>;
+			qcom,ion-heap-type = "IOMMU";
 		};
 
 		qcom,ion-heap@27 { /* QSECOM HEAP */
 			compatible = "qcom,msm-ion-reserve";
 			reg = <27>;
 			linux,contiguous-region = <&qsecom_mem>;
+			qcom,ion-heap-type = "DMA";
 		};
 
 		qcom,ion-heap@28 { /* AUDIO HEAP */
@@ -54,6 +60,7 @@
 			qcom,heap-align = <0x1000>;
 			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
 			qcom,memory-reservation-size = <0x614000>;
+			qcom,ion-heap-type = "CARVEOUT";
 		};
 
 		qcom,ion-heap@23 { /* OTHER PIL HEAP */
@@ -61,6 +68,7 @@
 			reg = <23>;
 			qcom,heap-align = <0x1000>;
 			qcom,memory-fixed = <0x05d00000 0x1e00000>;
+			qcom,ion-heap-type = "CARVEOUT";
 		};
 	};
 };
