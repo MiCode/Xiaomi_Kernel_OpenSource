@@ -703,6 +703,35 @@ static const struct file_operations debug_client_fops = {
 	.release = single_release,
 };
 
+static bool startswith(const char *string, const char *prefix)
+{
+	size_t l1 = strlen(string);
+	size_t l2 = strlen(prefix);
+	return strncmp(string, prefix, min(l1, l2)) == 0;
+}
+
+static int ion_get_client_serial(const struct rb_root *root,
+					const unsigned char *name)
+{
+	int serial = -1;
+	struct rb_node *node;
+	for (node = rb_first(root); node; node = rb_next(node)) {
+		int n;
+		char *serial_string;
+		struct ion_client *client = rb_entry(node, struct ion_client,
+						node);
+		if (!startswith(client->name, name))
+			continue;
+		serial_string = strrchr(client->name, '-');
+		if (!serial_string)
+			continue;
+		serial_string++;
+		sscanf(serial_string, "%d", &n);
+		serial = max(serial, n);
+	}
+	return serial + 1;
+}
+
 struct ion_client *ion_client_create(struct ion_device *dev,
 				     const char *name)
 {
@@ -712,13 +741,16 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 	struct rb_node *parent = NULL;
 	struct ion_client *entry;
 	pid_t pid;
-	unsigned int name_len;
+	int name_len;
+	int client_serial;
 
 	if (!name) {
 		pr_err("%s: Name cannot be null\n", __func__);
 		return ERR_PTR(-EINVAL);
 	}
 	name_len = strnlen(name, 64);
+	/* add some space to accommodate the serial number suffix */
+	name_len = min(64, name_len + 11);
 
 	get_task_struct(current->group_leader);
 	task_lock(current->group_leader);
@@ -749,14 +781,14 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 		put_task_struct(current->group_leader);
 		kfree(client);
 		return ERR_PTR(-ENOMEM);
-	} else {
-		strlcpy(client->name, name, name_len+1);
 	}
 
 	client->task = task;
 	client->pid = pid;
 
 	down_write(&dev->lock);
+	client_serial = ion_get_client_serial(&dev->clients, name);
+	snprintf(client->name, name_len, "%s-%d", name, client_serial);
 	p = &dev->clients.rb_node;
 	while (*p) {
 		parent = *p;
@@ -771,14 +803,14 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 	rb_insert_color(&client->node, &dev->clients);
 
 
-	client->debug_root = debugfs_create_file(name, 0664,
+	client->debug_root = debugfs_create_file(client->name, 0664,
 						dev->clients_debug_root,
 						client, &debug_client_fops);
 	if (!client->debug_root) {
 		char buf[256], *path;
 		path = dentry_path(dev->clients_debug_root, buf, 256);
 		pr_err("Failed to created client debugfs at %s/%s\n",
-			path, name);
+			path, client->name);
 	}
 
 	up_write(&dev->lock);
