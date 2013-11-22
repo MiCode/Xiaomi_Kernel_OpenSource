@@ -202,6 +202,7 @@ struct adreno_device {
 	struct adreno_busy_data busy_data;
 
 	struct work_struct start_work;
+	struct work_struct input_work;
 };
 
 /**
