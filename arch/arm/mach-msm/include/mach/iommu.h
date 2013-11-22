@@ -321,6 +321,7 @@ static inline struct device *msm_iommu_get_ctx(const char *ctx_name)
 void msm_iommu_sec_set_access_ops(struct iommu_access_ops *access_ops);
 int msm_iommu_sec_program_iommu(int sec_id);
 
+#ifdef CONFIG_MSM_IOMMU_V0
 static inline int msm_soc_version_supports_iommu_v0(void)
 {
 	static int soc_supports_v0 = -1;
@@ -332,13 +333,6 @@ static inline int msm_soc_version_supports_iommu_v0(void)
 		return soc_supports_v0;
 
 #ifdef CONFIG_OF
-	node = of_find_compatible_node(NULL, NULL, "qcom,msm-smmu-v1");
-	if (node) {
-		soc_supports_v0 = 0;
-		of_node_put(node);
-		return 0;
-	}
-
 	node = of_find_compatible_node(NULL, NULL, "qcom,msm-smmu-v0");
 	if (node) {
 		soc_supports_v0 = 1;
@@ -362,7 +356,12 @@ static inline int msm_soc_version_supports_iommu_v0(void)
 	soc_supports_v0 = 1;
 	return 1;
 }
-
+#else
+static inline int msm_soc_version_supports_iommu_v0(void)
+{
+	return 0;
+}
+#endif
 u32 msm_iommu_get_mair0(void);
 u32 msm_iommu_get_mair1(void);
 u32 msm_iommu_get_prrr(void);
