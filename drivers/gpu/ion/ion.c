@@ -737,16 +737,12 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 	struct rb_node *parent = NULL;
 	struct ion_client *entry;
 	pid_t pid;
-	int name_len;
 	int client_serial;
 
 	if (!name) {
 		pr_err("%s: Name cannot be null\n", __func__);
 		return ERR_PTR(-EINVAL);
 	}
-	name_len = strnlen(name, 64);
-	/* add some space to accommodate the serial number suffix */
-	name_len = min(64, name_len + 11);
 
 	get_task_struct(current->group_leader);
 	task_lock(current->group_leader);
@@ -772,19 +768,18 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 	client->handles = RB_ROOT;
 	mutex_init(&client->lock);
 
-	client->name = kzalloc(name_len+1, GFP_KERNEL);
-	if (!client->name) {
-		put_task_struct(current->group_leader);
-		kfree(client);
-		return ERR_PTR(-ENOMEM);
-	}
-
 	client->task = task;
 	client->pid = pid;
 
 	down_write(&dev->lock);
 	client_serial = ion_get_client_serial(&dev->clients, name);
-	snprintf(client->name, name_len, "%s-%d", name, client_serial);
+	client->name = kasprintf(GFP_KERNEL, "%s-%d", name, client_serial);
+	if (!client->name) {
+		up_write(&dev->lock);
+		put_task_struct(current->group_leader);
+		kfree(client);
+		return ERR_PTR(-ENOMEM);
+	}
 	p = &dev->clients.rb_node;
 	while (*p) {
 		parent = *p;
