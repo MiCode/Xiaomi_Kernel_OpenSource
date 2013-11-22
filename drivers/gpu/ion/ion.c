@@ -24,6 +24,7 @@
 #include <linux/ion.h>
 #include <linux/kthread.h>
 #include <linux/list.h>
+#include <linux/list_sort.h>
 #include <linux/memblock.h>
 #include <linux/miscdevice.h>
 #include <linux/export.h>
@@ -1453,33 +1454,15 @@ static int ion_debug_find_buffer_owner(const struct ion_client *client,
 }
 
 /**
- * Adds mem_map_data pointer to the tree of mem_map
+ * Adds mem_map_data pointer to the list of mem_map
  * Used for debug output.
- * @param mem_map The mem_map tree
- * @param data The new data to add to the tree
+ * @param mem_map The mem_map list
+ * @param data The new data to add to the list
  */
-static void ion_debug_mem_map_add(struct rb_root *mem_map,
+static void ion_debug_mem_map_add(struct list_head *mem_map,
 				  struct mem_map_data *data)
 {
-	struct rb_node **p = &mem_map->rb_node;
-	struct rb_node *parent = NULL;
-	struct mem_map_data *entry;
-
-	while (*p) {
-		parent = *p;
-		entry = rb_entry(parent, struct mem_map_data, node);
-
-		if (data->addr < entry->addr) {
-			p = &(*p)->rb_left;
-		} else if (data->addr > entry->addr) {
-			p = &(*p)->rb_right;
-		} else {
-			pr_err("%s: mem_map_data already found.", __func__);
-			BUG();
-		}
-	}
-	rb_link_node(&data->node, parent, p);
-	rb_insert_color(&data->node, mem_map);
+	list_add(&data->node, mem_map);
 }
 
 /**
@@ -1511,7 +1494,7 @@ const char *ion_debug_locate_owner(const struct ion_device *dev,
  * @param mem_map The mem map to be created.
  */
 void ion_debug_mem_map_create(struct seq_file *s, struct ion_heap *heap,
-			      struct rb_root *mem_map)
+			      struct list_head *mem_map)
 {
 	struct ion_device *dev = heap->dev;
 	struct rb_node *n;
@@ -1546,17 +1529,25 @@ void ion_debug_mem_map_create(struct seq_file *s, struct ion_heap *heap,
  * Free the memory allocated by ion_debug_mem_map_create
  * @param mem_map The mem map to free.
  */
-static void ion_debug_mem_map_destroy(struct rb_root *mem_map)
+static void ion_debug_mem_map_destroy(struct list_head *mem_map)
 {
 	if (mem_map) {
-		struct rb_node *n;
-		while ((n = rb_first(mem_map)) != 0) {
-			struct mem_map_data *data =
-					rb_entry(n, struct mem_map_data, node);
-			rb_erase(&data->node, mem_map);
+		struct mem_map_data *data, *tmp;
+		list_for_each_entry_safe(data, tmp, mem_map, node) {
+			list_del(&data->node);
 			kfree(data);
 		}
 	}
+}
+
+static int mem_map_cmp(void *priv, struct list_head *a, struct list_head *b)
+{
+	struct mem_map_data *d1, *d2;
+	d1 = list_entry(a, struct mem_map_data, node);
+	d2 = list_entry(b, struct mem_map_data, node);
+	if (d1->addr == d2->addr)
+		return d1->size - d2->size;
+	return d1->addr - d2->addr;
 }
 
 /**
@@ -1567,8 +1558,9 @@ static void ion_debug_mem_map_destroy(struct rb_root *mem_map)
 static void ion_heap_print_debug(struct seq_file *s, struct ion_heap *heap)
 {
 	if (heap->ops->print_debug) {
-		struct rb_root mem_map = RB_ROOT;
+		struct list_head mem_map = LIST_HEAD_INIT(mem_map);
 		ion_debug_mem_map_create(s, heap, &mem_map);
+		list_sort(NULL, &mem_map, mem_map_cmp);
 		heap->ops->print_debug(heap, s, &mem_map);
 		ion_debug_mem_map_destroy(&mem_map);
 	}
