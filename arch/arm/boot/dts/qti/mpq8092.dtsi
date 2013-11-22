@@ -573,8 +573,8 @@
 		venus-core1-supply = <&gdsc_venus_core1>;
 		qcom,clock-names= "core_clk", "core0_clk", "core1_clk", "iface_clk", "bus_clk", "mem_clk";
 		qcom,clock-configs = <0x3 0x0 0x0 0x0 0x0 0x0>;
-		qcom,load-freq-tbl = <979200 465000000>,
-			<783360 465000000>,
+		qcom,load-freq-tbl = <979200 440000000>,
+			<783360 440000000>,
 			<489600 266670000>,
 			<244800 133330000>;
 		qcom,bus-ports = <1>;
