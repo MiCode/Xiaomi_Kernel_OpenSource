@@ -212,6 +212,7 @@ static int lpm_set_l2_mode(struct lpm_system_state *system_state,
 
 	switch (sleep_mode) {
 	case MSM_SPM_L2_MODE_POWER_COLLAPSE:
+		pr_info("Configuring for L2 power collapse\n");
 		msm_pm_set_l2_flush_flag(MSM_SCM_L2_OFF);
 		break;
 	case MSM_SPM_L2_MODE_GDHS:
@@ -371,6 +372,7 @@ static void lpm_system_prepare(struct lpm_system_state *system_state,
 			pr_err("rpm_enter_sleep() failed with rc = %d\n", ret);
 			goto bail_system_sleep;
 		}
+
 
 		if (!from_idle)
 			us = USEC_PER_SEC * msm_pm_sleep_time_override;
