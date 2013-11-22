@@ -70,15 +70,18 @@ static struct sensor_info *get_sensor(uint32_t sensor_id)
 
 	list_for_each_entry_safe(pos, var, &sensor_info_list, sensor_list) {
 		if (pos->sensor_id == sensor_id)
-			break;
+			return pos;
 	}
 
-	return pos;
+	return NULL;
 }
 
 int sensor_get_id(char *name)
 {
 	struct sensor_info *pos, *var;
+
+	if (!name)
+		return -ENODEV;
 
 	list_for_each_entry_safe(pos, var, &sensor_info_list, sensor_list) {
 		if (!strcmp(pos->tz->type, name))
