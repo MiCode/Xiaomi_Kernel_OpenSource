@@ -627,7 +627,7 @@
 			< 748800000 5>,
 			< 998400000 7>;
 
-		cpu-vdd-supply = <&pmd9635_l3_corner>;
+		cpu-vdd-supply = <&pmd9635_l3_corner_ao>;
 	};
 
 	qcom,msm-cpufreq@0 {
