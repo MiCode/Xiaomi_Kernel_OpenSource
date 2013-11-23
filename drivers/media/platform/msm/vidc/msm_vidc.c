@@ -1051,6 +1051,8 @@ void *msm_vidc_smem_get_client(void *instance)
 
 	return inst->mem_client;
 }
+EXPORT_SYMBOL(msm_vidc_smem_get_client);
+
 static void *vidc_get_userptr(void *alloc_ctx, unsigned long vaddr,
 				unsigned long size, int write)
 {

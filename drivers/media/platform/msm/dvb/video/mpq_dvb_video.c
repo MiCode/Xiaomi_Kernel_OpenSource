@@ -38,7 +38,11 @@
 #include "mpq_adapter.h"
 #include "mpq_stream_buffer.h"
 #include "mpq_dvb_video_internal.h"
-
+/*
+ * Allow dev->read() to get the data from the ringbuffer
+ * You must not call ioctl(VIDEO_PLAY) if you use the
+ * read() for debugging
+ */
 #define V4L2_PORT_CHANGE \
 V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED_INSUFFICIENT
 #define V4L2_PORT_REDO \
@@ -53,8 +57,14 @@ struct smem_client {
 static int mpq_dvb_input_data_handler(void *pparam);
 static int mpq_dvb_vidc_event_handler(void *pparam);
 static int mpq_dvb_demux_data_handler(void *pparam);
+static int mpq_dvb_flush(struct mpq_dvb_video_instance *dvb_video_inst);
 
-int mpq_debug = 0x000001;
+/*
+  default is not to print out any driver message
+  you may override this by setting mpq_debug as
+  module param
+*/
+int mpq_debug = 0x000000;
 static int default_height = 1088;
 static int default_width = 1920;
 static int default_input_buf_size = 1024*1024;
@@ -88,6 +98,108 @@ static int v4l2_sub_event[] = {
 	V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED_INSUFFICIENT,
 	V4L2_EVENT_MSM_VIDC_CLOSE_DONE,
 	V4L2_EVENT_MSM_VIDC_SYS_ERROR
+};
+
+#define V4L2_MPEG_VIDC_EXTRADATA_MB_QUANTIZATION_BIT 0x00000001
+#define V4L2_MPEG_VIDC_EXTRADATA_INTERLACE_VIDEO_BIT 0x00000002
+#define V4L2_MPEG_VIDC_EXTRADATA_VC1_FRAMEDISP_BIT 0x00000004
+#define V4L2_MPEG_VIDC_EXTRADATA_VC1_SEQDISP_BIT 0x00000008
+#define V4L2_MPEG_VIDC_EXTRADATA_TIMESTAMP_BIT 0x00000010
+#define V4L2_MPEG_VIDC_EXTRADATA_S3D_FRAME_PACKING_BIT 0x00000020
+#define V4L2_MPEG_VIDC_EXTRADATA_FRAME_RATE_BIT	0x00000040
+#define V4L2_MPEG_VIDC_EXTRADATA_PANSCAN_WINDOW_BIT	0x00000080
+#define V4L2_MPEG_VIDC_EXTRADATA_RECOVERY_POINT_SEI_BIT	0x00000100
+#define V4L2_MPEG_VIDC_EXTRADATA_CLOSED_CAPTION_UD_BIT 0x00000200
+#define V4L2_MPEG_VIDC_EXTRADATA_AFD_UD_BIT	0x00000400
+#define V4L2_MPEG_VIDC_EXTRADATA_MULTISLICE_INFO_BIT 0x00000800
+#define V4L2_MPEG_VIDC_EXTRADATA_NUM_CONCEALED_MB_BIT 0x00001000
+#define V4L2_MPEG_VIDC_EXTRADATA_METADATA_FILLER_BIT 0x00002000
+#define V4L2_MPEG_VIDC_INDEX_EXTRADATA_INPUT_CROP_BIT 0x00004000
+#define V4L2_MPEG_VIDC_INDEX_EXTRADATA_DIGITAL_ZOOM_BIT	0x00008000
+#define V4L2_MPEG_VIDC_INDEX_EXTRADATA_ASPECT_RATIO_BIT	0x00010000
+#define V4L2_MPEG_VIDC_EXTRADATA_MPEG2_SEQDISP_BIT 0x00020000
+
+struct v4l2_extradata_type {
+	int type;
+	int mask;
+};
+
+static struct v4l2_extradata_type mpq_v4l2_extradata[] = {
+{
+V4L2_MPEG_VIDC_EXTRADATA_MB_QUANTIZATION,
+V4L2_MPEG_VIDC_EXTRADATA_MB_QUANTIZATION_BIT
+},
+{
+V4L2_MPEG_VIDC_EXTRADATA_INTERLACE_VIDEO,
+V4L2_MPEG_VIDC_EXTRADATA_INTERLACE_VIDEO_BIT
+},
+{
+V4L2_MPEG_VIDC_EXTRADATA_VC1_FRAMEDISP,
+V4L2_MPEG_VIDC_EXTRADATA_VC1_FRAMEDISP_BIT
+},
+{
+V4L2_MPEG_VIDC_EXTRADATA_VC1_SEQDISP,
+V4L2_MPEG_VIDC_EXTRADATA_VC1_SEQDISP_BIT
+},
+{
+
+V4L2_MPEG_VIDC_EXTRADATA_TIMESTAMP,
+V4L2_MPEG_VIDC_EXTRADATA_TIMESTAMP_BIT
+},
+{
+V4L2_MPEG_VIDC_EXTRADATA_S3D_FRAME_PACKING,
+V4L2_MPEG_VIDC_EXTRADATA_S3D_FRAME_PACKING_BIT
+},
+{
+V4L2_MPEG_VIDC_EXTRADATA_FRAME_RATE,
+V4L2_MPEG_VIDC_EXTRADATA_FRAME_RATE_BIT
+},
+{
+V4L2_MPEG_VIDC_EXTRADATA_PANSCAN_WINDOW,
+V4L2_MPEG_VIDC_EXTRADATA_PANSCAN_WINDOW_BIT
+},
+{
+V4L2_MPEG_VIDC_EXTRADATA_RECOVERY_POINT_SEI,
+V4L2_MPEG_VIDC_EXTRADATA_RECOVERY_POINT_SEI_BIT
+},
+/*
+{
+V4L2_MPEG_VIDC_EXTRADATA_CLOSED_CAPTION_UD,
+V4L2_MPEG_VIDC_EXTRADATA_CLOSED_CAPTION_UD_BIT
+},
+{
+V4L2_MPEG_VIDC_EXTRADATA_AFD_UD,
+V4L2_MPEG_VIDC_EXTRADATA_AFD_UD_BIT
+},
+*/
+{
+V4L2_MPEG_VIDC_EXTRADATA_MULTISLICE_INFO,
+V4L2_MPEG_VIDC_EXTRADATA_MULTISLICE_INFO_BIT
+},
+{
+V4L2_MPEG_VIDC_EXTRADATA_NUM_CONCEALED_MB,
+V4L2_MPEG_VIDC_EXTRADATA_NUM_CONCEALED_MB_BIT
+},
+{
+V4L2_MPEG_VIDC_EXTRADATA_METADATA_FILLER,
+V4L2_MPEG_VIDC_EXTRADATA_METADATA_FILLER_BIT
+},
+{
+V4L2_MPEG_VIDC_INDEX_EXTRADATA_INPUT_CROP,
+V4L2_MPEG_VIDC_INDEX_EXTRADATA_INPUT_CROP_BIT
+},
+{
+V4L2_MPEG_VIDC_INDEX_EXTRADATA_DIGITAL_ZOOM,
+V4L2_MPEG_VIDC_INDEX_EXTRADATA_DIGITAL_ZOOM_BIT
+},
+{
+V4L2_MPEG_VIDC_INDEX_EXTRADATA_ASPECT_RATIO,
+V4L2_MPEG_VIDC_INDEX_EXTRADATA_ASPECT_RATIO_BIT
+},
+{
+V4L2_MPEG_VIDC_EXTRADATA_MPEG2_SEQDISP,
+V4L2_MPEG_VIDC_EXTRADATA_MPEG2_SEQDISP_BIT
+}
 };
 
 static int mpq_map_kernel(void *hndl, struct msm_smem *mem)
@@ -159,10 +271,24 @@ static int mpq_ring_buffer_flush(
 		ERR("Invalid Ring Buffer\n");
 		return -EINVAL;
 	}
+	if (down_interruptible(&pbuf->sem))
+		return -ERESTARTSYS;
 	pbuf->flush_buffer = 1;
+	up(&pbuf->sem);
 	wake_up(&pbuf->write_wait);
 	wake_up(&pbuf->read_wait);
-	schedule();
+	DBG("LEAVE mpq_ring_buffer_flush\n");
+	return 0;
+}
+
+static int mpq_ring_buffer_reset(
+struct mpq_ring_buffer *pbuf)
+{
+	DBG("ENTER mpq_ring_buffer_reset\n");
+	if (!pbuf) {
+		ERR("Invalid Ring Buffer\n");
+		return -EINVAL;
+	}
 	if (down_interruptible(&pbuf->sem))
 		return -ERESTARTSYS;
 	pbuf->read_idx = 0;
@@ -170,7 +296,7 @@ static int mpq_ring_buffer_flush(
 	pbuf->write_idx = 0;
 	pbuf->flush_buffer = 0;
 	up(&pbuf->sem);
-	DBG("LEAVE mpq_ring_buffer_flush\n");
+	DBG("LEAVE mpq_ring_buffer_reset\n");
 	return 0;
 }
 
@@ -235,8 +361,6 @@ static int mpq_ring_buffer_release(
 		release_size = release_offset + pbuf->len - pbuf->release_idx;
 	if (release_offset == pbuf->release_idx)
 		release_size = 0;
-	if (release_size > mpq_ring_buffer_get_release_size(pbuf))
-		goto release_err;
 	pbuf->release_idx = release_offset % pbuf->len;
 	INF("RINGBUFFFER(len %d) Status write:%d read:%d release:%d\n",
 		pbuf->len, pbuf->write_idx, pbuf->read_idx, pbuf->release_idx);
@@ -263,6 +387,8 @@ static int mpq_ring_buffer_write(
 	DBG("ENTER mpq_ring_buffer_write\n");
 	if (wr_buf == NULL || wr_buf_size > pbuf->len)
 		return -EINVAL;
+	if (pbuf->flush_buffer)
+		return 0;
 	if (down_interruptible(&pbuf->sem))
 		return -ERESTARTSYS;
 	while (mpq_ring_buffer_get_write_size(pbuf) < wr_buf_size) {
@@ -324,6 +450,11 @@ static int mpq_ring_buffer_write_demux(
 	DBG("ENTER mpq_ring_buffer_write_demux\n");
 	if (streambuff == NULL || wr_buf_size > pbuf->len)
 		return -EINVAL;
+	if (pbuf->flush_buffer) {
+		mpq_streambuffer_data_read_dispose(
+		   streambuff, wr_buf_size);
+		return 0;
+	}
 	if (down_interruptible(&pbuf->sem))
 		return -ERESTARTSYS;
 	while (mpq_ring_buffer_get_write_size(pbuf) < wr_buf_size) {
@@ -335,8 +466,11 @@ static int mpq_ring_buffer_write_demux(
 			timeout_jiffies);
 		if (rc < 0)
 			return -ERESTARTSYS;
-		if (pbuf->flush_buffer)
+		if (pbuf->flush_buffer) {
+			mpq_streambuffer_data_read_dispose(
+			   streambuff, wr_buf_size);
 			return 0;
+		}
 		if (down_interruptible(&pbuf->sem))
 			return -ERESTARTSYS;
 	}
@@ -392,6 +526,8 @@ static int mpq_ring_buffer_read_v4l2(
 	if (pbinfo == NULL || buf_size > pbuf->len)
 		return -EINVAL;
 	DBG("ENTER mpq_ring_buffer_read_v4l2()\n");
+	if (pbuf->flush_buffer)
+		return 0;
 	if (down_interruptible(&pbuf->sem))
 		return -ERESTARTSYS;
 	while (!mpq_ring_buffer_get_read_size(pbuf)) {
@@ -437,6 +573,8 @@ static int mpq_ring_buffer_read_user(
 	DBG("ENTER mpq_ring_buffer_read_user\n");
 	if (pbuf == NULL || buf_size > pbuf->len)
 		return -EINVAL;
+	if (pbuf->flush_buffer)
+		return 0;
 	if (down_interruptible(&pbuf->sem))
 		return -ERESTARTSYS;
 	while (mpq_ring_buffer_get_read_size(pbuf) < buf_size) {
@@ -480,6 +618,139 @@ static int mpq_ring_buffer_read_user(
 	return buf_size;
 }
 
+static void mpq_dvb_get_stream_if(
+	enum mpq_adapter_stream_if interface_id,
+	void *arg)
+{
+	struct mpq_dvb_video_instance *dvb_video_inst = arg;
+	struct mpq_streambuffer *sbuff;
+	struct mpq_dmx_source *dmx_data;
+	DBG("In mpq_dvb_video_get_stream_if : %d\n", interface_id);
+	if (!dvb_video_inst || !dvb_video_inst->dmx_src_data) {
+		ERR("Passed NULL pointer!!\n");
+		return;
+	}
+	dmx_data = dvb_video_inst->dmx_src_data;
+
+
+	mpq_adapter_get_stream_if(interface_id,
+			&dvb_video_inst->dmx_src_data->stream_buffer);
+
+
+	DBG("Receive StreamBuffer from Adapter card:%u\n",
+		(u32)dmx_data->stream_buffer);
+	sbuff = dmx_data->stream_buffer;
+	if (!sbuff) {
+		ERR("Receive NULL stream buffer\n");
+		return;
+	}
+	DBG("RAW DATA Size:%u and Pkt Data Size: %u\n",
+		(u32)sbuff->raw_data.size,
+		(u32)sbuff->packet_data.size);
+	DBG("BUFFER number:%u and buffer_desc: %u; handle:%d base:%u\n",
+		(u32)sbuff->buffers_num,
+		(u32)sbuff->buffers[0].size,
+		sbuff->buffers[0].handle,
+		(u32)sbuff->buffers[0].base);
+	wake_up(&dvb_video_inst->dmx_src_data->dmx_wait);
+}
+
+static int mpq_dvb_init_dmx_src(
+	struct mpq_dvb_video_instance *dvb_video_inst,
+	int device_id)
+{
+	int rc = 0;
+	struct mpq_dmx_source *dmx_data;
+	DBG("ENTER mpq_dvb_init_dmx_src\n");
+	dvb_video_inst->dmx_src_data =  kzalloc(sizeof(struct mpq_dmx_source),
+						GFP_KERNEL);
+	if (dvb_video_inst->dmx_src_data == NULL) {
+		ERR("Error allocate memory\n");
+		return -ENOMEM;
+	}
+	dmx_data = dvb_video_inst->dmx_src_data;
+	dvb_video_inst->dmx_src_data->device_id = device_id;
+	init_waitqueue_head(&dvb_video_inst->dmx_src_data->dmx_wait);
+	DBG("LEAVE mpq_dvb_init_dmx_src\n");
+	return rc;
+}
+
+static int mpq_dvb_start_dmx_src(
+	struct mpq_dvb_video_instance *dvb_video_inst)
+{
+	int rc;
+	struct mpq_streambuffer *sbuff;
+	struct mpq_dmx_source *dmx_data = dvb_video_inst->dmx_src_data;
+	DBG("ENTER mpq_dvb_start_dmx_src\n");
+	if (NULL == dmx_data)
+		return 0;
+	rc = mpq_adapter_get_stream_if(
+		(enum mpq_adapter_stream_if)dmx_data->device_id,
+		&dmx_data->stream_buffer);
+
+	if (rc) {
+		ERR("Error in mpq_adapter_get_stream_if()");
+		return -ENODEV;
+	} else if (dmx_data->stream_buffer == NULL) {
+		DBG("Stream Buffer is NULL. Resigtering Notifier.\n");
+		rc = mpq_adapter_notify_stream_if(
+			(enum mpq_adapter_stream_if)dmx_data->device_id,
+			mpq_dvb_get_stream_if,
+			(void *)dvb_video_inst);
+		if (rc)
+			return -ENODEV;
+	} else {
+		DBG("Receive StreamBuffer from Adapter card:%u\n",
+			(u32)dmx_data->stream_buffer);
+		sbuff = dmx_data->stream_buffer;
+		DBG("RAW DATA Size:%u and Pkt Data Size: %u\n",
+			(u32)sbuff->raw_data.size,
+			(u32)sbuff->packet_data.size);
+		DBG("BUFFER number:%u and buffer_desc: %u; handle:%d base:%u\n",
+			(u32)sbuff->buffers_num,
+			(u32)sbuff->buffers[0].size,
+			sbuff->buffers[0].handle,
+			(u32)sbuff->buffers[0].base);
+	}
+	dvb_video_inst->demux_task = kthread_run(
+			mpq_dvb_demux_data_handler,	(void *)dvb_video_inst,
+			vid_dmx_thread_names[dmx_data->device_id]);
+
+	DBG("LEAVE mpq_dvb_start_dmx_src\n");
+	return 0;
+}
+
+static int mpq_dvb_stop_dmx_src(
+	struct mpq_dvb_video_instance *dvb_video_inst)
+{
+
+	struct mpq_dmx_source *dmx_data = dvb_video_inst->dmx_src_data;
+
+	if (NULL == dmx_data)
+		return 0;
+	if (dvb_video_inst->demux_task) {
+		kthread_stop(dvb_video_inst->demux_task);
+		dvb_video_inst->demux_task = NULL;
+	}
+	return 0;
+
+}
+
+static int mpq_dvb_term_dmx_src(
+	struct mpq_dvb_video_instance *dvb_video_inst)
+{
+
+	struct mpq_dmx_source *dmx_data = dvb_video_inst->dmx_src_data;
+
+	if (NULL == dmx_data)
+		return 0;
+	if (dvb_video_inst->demux_task)
+		kthread_stop(dvb_video_inst->demux_task);
+	kfree(dmx_data);
+	dvb_video_inst->dmx_src_data = NULL;
+	return 0;
+}
+
 /*
  *	V4L2 VIDC Driver API Wrapper Implementation
  */
@@ -490,6 +761,8 @@ static int mpq_v4l2_queue_input_buffer(
 	int rc;
 	struct v4l2_buffer buf;
 	struct v4l2_plane plane[VIDEO_MAX_PLANES];
+	u32 lo_pts;
+	u32 hi_pts;
 	if (!v4l2_inst || !pbinfo)
 		return -EINVAL;
 	DBG("ENTER mpq_v4l2_queue_input_buffer [%d]\n", pbinfo->index);
@@ -500,6 +773,13 @@ static int mpq_v4l2_queue_input_buffer(
 	buf.type = pbinfo->buf_type;
 	buf.memory = V4L2_MEMORY_USERPTR;
 	buf.length = 1;
+	lo_pts = pbinfo->pts & 0xffffffff;
+	hi_pts = pbinfo->pts >> 32;
+	buf.timestamp.tv_sec = lo_pts/90000;
+	buf.timestamp.tv_usec = (lo_pts % 90000)*100/9;
+	DBG("Queue Buffer with timestamp %u-%u\n",
+		(u32)buf.timestamp.tv_sec,
+		(u32)buf.timestamp.tv_usec/1000);
 	plane[0].bytesused = pbinfo->bytesused;
 	plane[0].length = pbinfo->size;
 	plane[0].m.userptr = (unsigned long)pbinfo->dev_addr;
@@ -514,6 +794,8 @@ static int mpq_v4l2_queue_input_buffer(
 			ERR("[%s] Failed to clean caches: %d\n", __func__, rc);
 	}
 	rc = msm_vidc_qbuf(v4l2_inst->vidc_inst, &buf);
+	if (!rc)
+		v4l2_inst->vidc_etb++;
 	if (rc)
 		ERR("[%s]msm_vidc_qbuf error\n", __func__);
 	DBG("LEAVE mpq_v4l2_queue_input_buffer\n");
@@ -546,10 +828,29 @@ static int mpq_v4l2_queue_output_buffer(
 	if (v4l2_inst->fmt[CAPTURE_PORT].fmt.pix_mp.num_planes > 1) {
 		extra_idx = EXTRADATA_IDX(
 			v4l2_inst->fmt[CAPTURE_PORT].fmt.pix_mp.num_planes);
-		plane[extra_idx].length = 0;
-		plane[extra_idx].reserved[0] = 0;
-		plane[extra_idx].reserved[1] = 0;
-		plane[extra_idx].data_offset = 0;
+		if (v4l2_inst->extradata_handle) {
+			plane[extra_idx].length = pbinfo->extradata.length;
+			plane[extra_idx].m.userptr =
+				v4l2_inst->extradata_handle->device_addr +
+				buf.index * pbinfo->extradata.length;
+			plane[extra_idx].reserved[0] =
+				pbinfo->extradata.ion_fd;
+			plane[extra_idx].reserved[1] =
+				pbinfo->extradata.fd_offset;
+			plane[extra_idx].data_offset = 0;
+			DBG("EX:[%d]-[%d]:addr:%u len:%u fd:%d off:%d\n",
+				buf.index,
+				extra_idx,
+				(u32)plane[extra_idx].m.userptr,
+				(u32)plane[extra_idx].length,
+				(int)plane[extra_idx].reserved[0],
+				(int)plane[extra_idx].reserved[1]);
+		} else {
+			plane[extra_idx].length = 0;
+			plane[extra_idx].reserved[0] = 0;
+			plane[extra_idx].reserved[1] = 0;
+			plane[extra_idx].data_offset = 0;
+		}
 		buf.length = v4l2_inst->fmt[CAPTURE_PORT].fmt.pix_mp.num_planes;
 	} else {
 		buf.length = 1;
@@ -557,6 +858,8 @@ static int mpq_v4l2_queue_output_buffer(
 	buf.m.planes = plane;
 
 	rc = msm_vidc_qbuf(v4l2_inst->vidc_inst, &buf);
+	if (!rc)
+		v4l2_inst->vidc_ftb++;
 	if (rc)
 		ERR("[%s]msm_vidc_qbuf error\n", __func__);
 	DBG("LEAVE mpq_v4l2_queue_output_buffer\n");
@@ -564,15 +867,18 @@ static int mpq_v4l2_queue_output_buffer(
 }
 
 static int mpq_v4l2_deque_input_buffer(
-	struct v4l2_instance *v4l2_inst,
+	struct mpq_dvb_video_instance *dvb_video_inst,
 	int *p_buf_index)
 {
+	struct v4l2_instance *v4l2_inst;
 	struct v4l2_buffer buf;
 	struct v4l2_plane plane[VIDEO_MAX_PLANES];
 	int rc = 0;
 	u32 release_offset = 0;
+	v4l2_inst = dvb_video_inst->v4l2_inst;
 	if (!v4l2_inst)
 		return -EINVAL;
+
 	*p_buf_index = -1;
 	memset(&buf, 0, sizeof(buf));
 	memset(&plane, 0, sizeof(plane));
@@ -582,6 +888,10 @@ static int mpq_v4l2_deque_input_buffer(
 	buf.length = 1;
 
 	rc = msm_vidc_dqbuf(v4l2_inst->vidc_inst, &buf);
+
+	if (!rc)
+		v4l2_inst->vidc_ebd++;
+
 	if (rc)
 		return rc;
 	if (v4l2_inst->input_mode == INPUT_MODE_RING) {
@@ -603,7 +913,9 @@ static int mpq_v4l2_deque_output_buffer(
 {
 	struct v4l2_buffer buf;
 	struct v4l2_plane plane[VIDEO_MAX_PLANES];
+	struct buffer_info *pbuf;
 	int rc = 0;
+	int extra_idx;
 	if (!v4l2_inst)
 		return -EINVAL;
 	*p_buf_index = -1;
@@ -615,19 +927,55 @@ static int mpq_v4l2_deque_output_buffer(
 	buf.length = v4l2_inst->fmt[CAPTURE_PORT].fmt.pix_mp.num_planes;
 
 	rc = msm_vidc_dqbuf(v4l2_inst->vidc_inst, &buf);
+	if (!rc)
+		v4l2_inst->vidc_fbd++;
 	if (rc)
 		return rc;
+	DBG("DEQUEUE OUTPUT Buffer with timestamp %u-%u\n",
+		(u32)buf.timestamp.tv_sec,
+		(u32)buf.timestamp.tv_usec/1000);
+	if (buf.flags & 0x80000)
+		DBG("v4l2_buf IDR Frame\n");
+	else if (buf.flags & 0x8)
+		DBG("v4l2_buf I Frame\n");
+	else if (buf.flags & 0x10)
+		DBG("v4l2_buf P Frame\n");
+	else if (buf.flags & 0x20)
+		DBG("v4l2_buf B Frame\n");
+
 	*p_buf_index = buf.index;
-	v4l2_inst->buf_info[CAPTURE_PORT][buf.index].bytesused =
-		buf.m.planes[0].bytesused;
-	if (v4l2_inst->buf_info[CAPTURE_PORT][buf.index].handle) {
+	pbuf = &v4l2_inst->buf_info[CAPTURE_PORT][buf.index];
+	pbuf->bytesused = buf.m.planes[0].bytesused;
+	pbuf->pts = buf.timestamp.tv_sec*90000 +
+		buf.timestamp.tv_usec*9/100;
+
+	if (pbuf->handle) {
 		rc = msm_vidc_smem_cache_operations(v4l2_inst->vidc_inst,
-			v4l2_inst->buf_info[CAPTURE_PORT][buf.index].handle,
+			pbuf->handle,
 			SMEM_CACHE_INVALIDATE);
 		if (rc)
 			ERR("[%s]Failed to invalidate caches: %d\n",
 				 __func__, rc);
 	}
+	if (buf.length > 1) {
+		extra_idx = EXTRADATA_IDX(buf.length);
+		pbuf->extradata.bytesused =
+			buf.m.planes[extra_idx].bytesused;
+		if (v4l2_inst->extradata_handle) {
+			rc = msm_vidc_smem_cache_operations(
+				v4l2_inst->vidc_inst,
+				v4l2_inst->extradata_handle,
+				SMEM_CACHE_INVALIDATE);
+			if (rc)
+				ERR("[%s]Failed to invalidate caches: %d\n",
+					 __func__, rc);
+		}
+	} else {
+		pbuf->extradata.bytesused = 0;
+	}
+	DBG("EXTRADATA: Buf[%d] get bytesused: %u\n",
+		buf.index,
+		pbuf->extradata.bytesused);
 	return rc;
 }
 
@@ -640,7 +988,6 @@ static int mpq_v4l2_prepare_buffer(
 	struct v4l2_plane plane[VIDEO_MAX_PLANES];
 	struct buffer_info *pbinfo;
 	int rc = 0;
-	int extra_idx;
 	if (!v4l2_inst || buf_index >= MAX_NUM_BUFS || port_num >= MAX_PORTS)
 		return -EINVAL;
 	pbinfo = &v4l2_inst->buf_info[port_num][buf_index];
@@ -657,12 +1004,26 @@ static int mpq_v4l2_prepare_buffer(
 	plane[0].data_offset = pbinfo->offset;
 	if ((port_num == CAPTURE_PORT) &&
 		(v4l2_inst->fmt[CAPTURE_PORT].fmt.pix_mp.num_planes > 1)) {
+		int extra_idx;
 		extra_idx = EXTRADATA_IDX(
-			v4l2_inst->fmt[CAPTURE_PORT].fmt.pix_mp.num_planes);
-		plane[extra_idx].length = 0;
-		plane[extra_idx].reserved[0] = 0;
-		plane[extra_idx].reserved[1] = 0;
-		plane[extra_idx].data_offset = 0;
+		v4l2_inst->fmt[CAPTURE_PORT].fmt.pix_mp.num_planes);
+		if (v4l2_inst->extradata_handle) {
+			plane[extra_idx].length = pbinfo->extradata.length;
+			plane[extra_idx].m.userptr =
+				v4l2_inst->extradata_handle->device_addr +
+				buf_index * pbinfo->extradata.length;
+			plane[extra_idx].reserved[0] =
+				pbinfo->extradata.ion_fd;
+			plane[extra_idx].reserved[1] =
+				pbinfo->extradata.fd_offset;
+			plane[extra_idx].data_offset = 0;
+		} else {
+			plane[extra_idx].length = 0;
+			plane[extra_idx].m.userptr = 0;
+			plane[extra_idx].reserved[0] = 0;
+			plane[extra_idx].reserved[1] = 0;
+			plane[extra_idx].data_offset = 0;
+		}
 		buf.length = v4l2_inst->fmt[CAPTURE_PORT].fmt.pix_mp.num_planes;
 	} else {
 		buf.length = 1;
@@ -674,7 +1035,6 @@ static int mpq_v4l2_prepare_buffer(
 		if (rc)
 			ERR("[%s]Failed to clean caches: %d\n", __func__, rc);
 	}
-
 	rc = msm_vidc_prepare_buf(v4l2_inst->vidc_inst, &buf);
 
 	return rc;
@@ -695,7 +1055,6 @@ static int mpq_translate_from_dvb_buf(
 		return -EINVAL;
 	}
 	pbinfo = &v4l2_inst->buf_info[port_num][buf_index];
-	memset(pbinfo, 0, sizeof(*pbinfo));
 	pbinfo->index = buf_index;
 	pbinfo->vaddr = (u32)p_dvb_buf->bufferaddr;
 	pbinfo->buf_offset = p_dvb_buf->offset;
@@ -708,7 +1067,7 @@ static int mpq_translate_from_dvb_buf(
 	handle = msm_vidc_smem_user_to_kernel(v4l2_inst->vidc_inst,
 				pbinfo->fd, pbinfo->buf_offset,
 				(port_num == OUTPUT_PORT) ?
-				HAL_BUFFER_OUTPUT : HAL_BUFFER_INPUT);
+				HAL_BUFFER_INPUT : HAL_BUFFER_OUTPUT);
 
 	if (!handle) {
 		ERR("[%s]Error in msm_smem_user_to_kernel\n", __func__);
@@ -802,14 +1161,14 @@ static int mpq_dvb_set_input_buf(
 	}
 	rc = mpq_translate_from_dvb_buf(v4l2_inst, pvideo_buf,
 			v4l2_inst->input_buf_count, OUTPUT_PORT);
-
 	rc = mpq_v4l2_prepare_buffer(v4l2_inst,
 			v4l2_inst->input_buf_count, OUTPUT_PORT);
-
 	if (rc) {
 		ERR("ERROR in msm_vidc_prepare_buf for OUTPUT_PORT\n");
 		return rc;
 	}
+	v4l2_inst->buf_info[OUTPUT_PORT][v4l2_inst->input_buf_count].state =
+		MPQ_INPUT_BUFFER_FREE;
 	v4l2_inst->input_buf_count++;
 	if (v4l2_inst->input_mode == INPUT_MODE_RING) {
 		if (v4l2_inst->ringbuf) {
@@ -822,8 +1181,10 @@ static int mpq_dvb_set_input_buf(
 		}
 		mpq_map_kernel(v4l2_inst->mem_client,
 				v4l2_inst->buf_info[OUTPUT_PORT][0].handle);
-		v4l2_inst->buf_info[OUTPUT_PORT][0].kernel_vaddr =
+		if (v4l2_inst->buf_info[OUTPUT_PORT][0].handle) {
+			v4l2_inst->buf_info[OUTPUT_PORT][0].kernel_vaddr =
 			(u32)v4l2_inst->buf_info[OUTPUT_PORT][0].handle->kvaddr;
+		}
 		rc = mpq_ring_buffer_create(&v4l2_inst->ringbuf,
 				v4l2_inst->buf_info[OUTPUT_PORT][0]);
 		if (!rc) {
@@ -840,14 +1201,16 @@ static int mpq_dvb_set_input_buf(
 			}
 			v4l2_inst->flag |= MPQ_DVB_INPUT_BUF_SETUP_BIT;
 			if (v4l2_inst->flag & MPQ_DVB_OUTPUT_BUF_SETUP_BIT)
-				v4l2_inst->state = MPQ_STATE_READY;
+				v4l2_inst->state = MPQ_STATE_IDLE;
 			default_input_buf_size = pvideo_buf->buffer_len /
 				v4l2_inst->num_input_buffers;
+			if (v4l2_inst->state == MPQ_STATE_IDLE)
+				DBG("Video decoder is in IDLE state now\n");
 		}
 	} else if (v4l2_inst->input_buf_count == v4l2_inst->num_input_buffers) {
 		v4l2_inst->flag |= MPQ_DVB_INPUT_BUF_SETUP_BIT;
 		if (v4l2_inst->flag & MPQ_DVB_OUTPUT_BUF_SETUP_BIT)
-			v4l2_inst->state = MPQ_STATE_READY;
+			v4l2_inst->state = MPQ_STATE_IDLE;
 	}
 	DBG("LEAVE mpq_dvb_set_input_buf\n");
 	return rc;
@@ -890,10 +1253,134 @@ static int mpq_dvb_set_output_buf(
 			v4l2_inst->num_output_buffers) {
 			v4l2_inst->flag |= MPQ_DVB_OUTPUT_BUF_SETUP_BIT;
 			if (v4l2_inst->flag & MPQ_DVB_INPUT_BUF_SETUP_BIT)
-				v4l2_inst->state = MPQ_STATE_READY;
+				v4l2_inst->state = MPQ_STATE_IDLE;
 		}
 	}
 	DBG("LEAVE mpq_dvb_set_output_buf\n");
+	return rc;
+}
+
+static int mpq_dvb_set_extradata_buf(
+	struct v4l2_instance *v4l2_inst,
+	struct extradata_buffer *pextradata_buf)
+{
+	int rc = 0;
+	int i;
+	struct msm_smem     *handle;
+	DBG("ENTER mpq_dvb_set_extradata_buf\n");
+	if (!v4l2_inst || !pextradata_buf) {
+		ERR("[%s]Input parameter is NULL or invalid\n", __func__);
+		return -EINVAL;
+	}
+	if (v4l2_inst->state != MPQ_STATE_INIT)
+		return -EINVAL;
+
+	if (!(v4l2_inst->flag & MPQ_DVB_INPUT_BUF_REQ_BIT)) {
+		ERR("[%s]Call reqbufs() before set buffer\n",
+			 __func__);
+		return -EINVAL;
+	}
+	if (!v4l2_inst->extradata_types)
+		return -EINVAL;
+
+	if (pextradata_buf->buffer_len <
+		(v4l2_inst->num_output_buffers *
+		 v4l2_inst->extradata_size)) {
+		ERR("Buf Size is too small");
+		return -EINVAL;
+	}
+
+	memcpy(&v4l2_inst->extradata,
+		   pextradata_buf,
+		   sizeof(v4l2_inst->extradata));
+	handle = msm_vidc_smem_user_to_kernel(v4l2_inst->vidc_inst,
+				v4l2_inst->extradata.ion_fd,
+				v4l2_inst->extradata.offset,
+				HAL_BUFFER_OUTPUT);
+
+	if (!handle) {
+		ERR("[%s]Error in msm_smem_user_to_kernel\n", __func__);
+		return -EFAULT;
+	}
+	rc = msm_vidc_smem_cache_operations(v4l2_inst->vidc_inst,
+		handle, SMEM_CACHE_CLEAN);
+	if (rc) {
+		ERR("[%s]Failed to clean caches: %d\n", __func__, rc);
+		return rc;
+	}
+	v4l2_inst->extradata_handle = handle;
+	DBG("EXTRADATA: map to device mem: %u\n", (u32)handle->device_addr);
+	for (i = 0; i < v4l2_inst->num_output_buffers; i++) {
+		struct buffer_info *pbinfo =
+			&v4l2_inst->buf_info[CAPTURE_PORT][i];
+		pbinfo->extradata.index = i;
+		pbinfo->extradata.length =
+			v4l2_inst->extradata_size;
+		pbinfo->extradata.uaddr =
+			(u32)v4l2_inst->extradata.bufferaddr +
+			i * v4l2_inst->extradata_size;
+		pbinfo->extradata.ion_fd =
+			v4l2_inst->extradata.ion_fd;
+		pbinfo->extradata.fd_offset =
+			v4l2_inst->extradata.offset +
+			i * v4l2_inst->extradata_size;
+	}
+	DBG("LEAVE mpq_dvb_set_extradata_buf\n");
+	return rc;
+}
+
+static int mpq_dvb_free_input_buffers(
+	struct v4l2_instance *v4l2_inst)
+{
+	int rc = 0;
+	struct v4l2_requestbuffers v4l2_buffer_req;
+	DBG("ENTER mpq_dvb_free_input_buf\n");
+	if (!v4l2_inst) {
+		ERR("[%s]Input parameter is NULL or invalid\n", __func__);
+		return -EINVAL;
+	}
+	memset(&v4l2_buffer_req, 0, sizeof(v4l2_buffer_req));
+	v4l2_buffer_req.count = 0;
+	v4l2_buffer_req.memory = V4L2_MEMORY_USERPTR;
+	v4l2_buffer_req.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+	rc = msm_vidc_reqbufs(v4l2_inst->vidc_inst, &v4l2_buffer_req);
+	if (rc) {
+		ERR("ERROR in msm_vidc_reqbufs for OUTPUT_PORT");
+		return rc;
+	}
+	DBG("LEAVE mpq_dvb_free_input_buf\n");
+	return rc;
+}
+
+static int mpq_dvb_free_output_buffers(
+	struct v4l2_instance *v4l2_inst)
+{
+	int rc = 0;
+	struct v4l2_requestbuffers v4l2_buffer_req;
+	DBG("ENTER mpq_dvb_free_output_buf\n");
+	if (!v4l2_inst) {
+		ERR("[%s]Input parameter is NULL or invalid\n", __func__);
+		return -EINVAL;
+	}
+	rc = msm_vidc_release_buffers(
+	   v4l2_inst->vidc_inst,
+	   V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+	if (rc) {
+		ERR("ERROR in msm_vidc_reqbufs for OUTPUT_PORT");
+		return rc;
+	}
+	memset(&v4l2_buffer_req, 0, sizeof(v4l2_buffer_req));
+	v4l2_buffer_req.count = 0;
+	v4l2_buffer_req.memory = V4L2_MEMORY_USERPTR;
+	v4l2_buffer_req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+	rc = msm_vidc_reqbufs(
+	   v4l2_inst->vidc_inst,
+	   &v4l2_buffer_req);
+	if (rc) {
+		ERR("ERROR in msm_vidc_reqbufs for CAPTURE_PORT");
+		return rc;
+	}
+	DBG("LEAVE mpq_dvb_free_output_buf\n");
 	return rc;
 }
 
@@ -922,6 +1409,8 @@ static int mpq_dvb_get_buffer_req(
 	struct video_buffer_req *vdec_buf_req)
 {
 	int rc = 0;
+	int i;
+	int extradata_num;
 	if (!v4l2_inst || !vdec_buf_req)
 		return -EINVAL;
 	if (v4l2_inst->state != MPQ_STATE_INIT)
@@ -966,6 +1455,22 @@ static int mpq_dvb_get_buffer_req(
 				return rc;
 			}
 			DBG("Set Ctrl VIDEO_FRAME_ASSEMBLY\n");
+		}
+		if (v4l2_inst->extradata_types) {
+			control.id = V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA;
+			extradata_num = sizeof(mpq_v4l2_extradata) /
+				sizeof(struct v4l2_extradata_type);
+			for (i = 0; i < extradata_num; i++) {
+				if (v4l2_inst->extradata_types &
+					mpq_v4l2_extradata[i].mask) {
+					control.value =
+						mpq_v4l2_extradata[i].type;
+					rc = msm_vidc_s_ctrl(
+					   v4l2_inst->vidc_inst, &control);
+					if (rc)
+						return rc;
+				}
+			}
 		}
 		memset(&v4l2_inst->fmt[OUTPUT_PORT], 0,
 				sizeof(v4l2_inst->fmt[OUTPUT_PORT]));
@@ -1032,8 +1537,13 @@ static int mpq_dvb_get_buffer_req(
 			fmt.fmt.pix_mp.pixelformat;
 		v4l2_inst->fmt[CAPTURE_PORT].fmt.pix_mp.plane_fmt[0].sizeimage =
 			fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
+		v4l2_inst->extradata_size =
+			fmt.fmt.pix_mp.plane_fmt[1].sizeimage;
+		INF("EXTRADATA Buffer Size: %d\n",
+			fmt.fmt.pix_mp.plane_fmt[1].sizeimage);
+
 		memset(&v4l2_buffer_req, 0, sizeof(v4l2_buffer_req));
-		v4l2_buffer_req.count = v4l2_inst->num_input_buffers;
+		v4l2_buffer_req.count = default_buf_num_for_ringbuf;
 		v4l2_buffer_req.memory = V4L2_MEMORY_USERPTR;
 		v4l2_buffer_req.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
 		rc = msm_vidc_reqbufs(v4l2_inst->vidc_inst, &v4l2_buffer_req);
@@ -1043,10 +1553,9 @@ static int mpq_dvb_get_buffer_req(
 		}
 		if (default_buf_num_for_ringbuf > v4l2_buffer_req.count)
 			v4l2_inst->num_input_buffers =
-				default_buf_num_for_ringbuf;
+			default_buf_num_for_ringbuf;
 		else
-			v4l2_inst->num_input_buffers =
-				v4l2_buffer_req.count;
+			v4l2_inst->num_input_buffers = v4l2_buffer_req.count;
 
 		v4l2_buffer_req.count = v4l2_inst->num_output_buffers;
 		v4l2_buffer_req.memory = V4L2_MEMORY_USERPTR;
@@ -1061,7 +1570,7 @@ static int mpq_dvb_get_buffer_req(
 		vdec_buf_req->input_buf_prop.buf_poolid = 0;
 		vdec_buf_req->input_buf_prop.buf_size	=
 		v4l2_inst->fmt[OUTPUT_PORT].fmt.pix_mp.plane_fmt[0].sizeimage;
-		vdec_buf_req->num_input_buffers		 =
+		vdec_buf_req->num_input_buffers	=
 			v4l2_inst->num_input_buffers;
 
 
@@ -1071,7 +1580,7 @@ static int mpq_dvb_get_buffer_req(
 		v4l2_inst->fmt[CAPTURE_PORT].fmt.pix_mp.plane_fmt[0].sizeimage;
 		vdec_buf_req->num_output_buffers		 =
 			v4l2_inst->num_output_buffers;
-
+		vdec_buf_req->extradata_size = v4l2_inst->extradata_size;
 		v4l2_inst->flag |= MPQ_DVB_INPUT_BUF_REQ_BIT;
 		v4l2_inst->flag |= MPQ_DVB_OUTPUT_BUF_REQ_BIT;
 
@@ -1116,6 +1625,214 @@ static int mpq_dvb_set_output_format(
 
 }
 
+static int mpq_playback_coarse_to_normal(struct v4l2_instance *v4l2_inst)
+{
+	int rc = 0;
+	struct v4l2_control control;
+	if (!v4l2_inst) {
+		ERR("ERROR passed Null pointer\n");
+		return -EINVAL;
+	}
+	control.id = V4L2_CID_MPEG_VIDC_VIDEO_ENABLE_PICTURE_TYPE;
+	control.value = 15;
+	rc = msm_vidc_s_ctrl(v4l2_inst->vidc_inst, &control);
+	if (rc) {
+		ERR("ERROR set VIDEO_ENABLE_PICTURE_TYPE\n");
+		return rc;
+	}
+	DBG("Set Ctrl V4L2_CID_MPEG_VIDC_VIDEO_ENABLE_PICTURE_TYPE\n");
+	control.id = V4L2_CID_MPEG_VIDC_VIDEO_OUTPUT_ORDER;
+	control.value = 0;
+	rc = msm_vidc_s_ctrl(v4l2_inst->vidc_inst, &control);
+	if (rc) {
+		ERR("ERROR set VIDEO_OUTPUT_ORDER\n");
+		return rc;
+	}
+	DBG("Set Ctrl VIDEO_OUTPUT_ORDER\n");
+	return rc;
+}
+
+static int mpq_playback_normal_to_coarse(struct v4l2_instance *v4l2_inst)
+{
+	int rc = 0;
+	struct v4l2_control control;
+	if (!v4l2_inst) {
+		ERR("ERROR passed Null pointer\n");
+		return -EINVAL;
+	}
+
+	control.id = V4L2_CID_MPEG_VIDC_SET_PERF_LEVEL;
+	control.value = V4L2_CID_MPEG_VIDC_PERF_LEVEL_TURBO;
+	rc = msm_vidc_s_ctrl(v4l2_inst->vidc_inst, &control);
+	if (rc) {
+		ERR("ERROR set VIDEO_ENABLE_PICTURE_TYPE\n");
+		return rc;
+	}
+
+	control.id = V4L2_CID_MPEG_VIDC_VIDEO_ENABLE_PICTURE_TYPE;
+	control.value = 9;
+	rc = msm_vidc_s_ctrl(v4l2_inst->vidc_inst, &control);
+	if (rc) {
+		ERR("ERROR set VIDEO_ENABLE_PICTURE_TYPE\n");
+		return rc;
+	}
+	DBG("Set Ctrl ENABLE_PICTURE_TYPE\n");
+	control.id = V4L2_CID_MPEG_VIDC_VIDEO_OUTPUT_ORDER;
+	control.value = 1;
+	rc = msm_vidc_s_ctrl(v4l2_inst->vidc_inst, &control);
+	if (rc) {
+		ERR("ERROR set VIDEO_OUTPUT_ORDER\n");
+		return rc;
+	}
+	DBG("Set Ctrl VIDEO_OUTPUT_ORDER\n");
+	return rc;
+}
+
+static int mpq_playback_smooth_to_normal(struct v4l2_instance *v4l2_inst)
+{
+	return 0;
+}
+
+static int mpq_playback_normal_to_smooth(struct v4l2_instance *v4l2_inst)
+{
+	return 0;
+}
+
+
+static int mpq_playback_smooth_to_coarse(struct v4l2_instance *v4l2_inst)
+{
+	int rc = 0;
+	struct v4l2_control control;
+	if (!v4l2_inst) {
+		ERR("ERROR passed Null pointer\n");
+		return -EINVAL;
+	}
+	control.id = V4L2_CID_MPEG_VIDC_VIDEO_ENABLE_PICTURE_TYPE;
+	control.value = 9;
+	rc = msm_vidc_s_ctrl(v4l2_inst->vidc_inst, &control);
+	if (rc) {
+		ERR("ERROR set VIDEO_ENABLE_PICTURE_TYPE\n");
+		return rc;
+	}
+	DBG("Set Ctrl ENABLE_PICTURE_TYPE\n");
+	control.id = V4L2_CID_MPEG_VIDC_VIDEO_OUTPUT_ORDER;
+	control.value = 1;
+	rc = msm_vidc_s_ctrl(v4l2_inst->vidc_inst, &control);
+	if (rc) {
+		ERR("ERROR set VIDEO_OUTPUT_ORDER\n");
+		return rc;
+	}
+	DBG("Set Ctrl VIDEO_OUTPUT_ORDER\n");
+	return rc;
+}
+
+
+static int mpq_playback_coarse_to_smooth(struct v4l2_instance *v4l2_inst)
+{
+	int rc = 0;
+	struct v4l2_control control;
+	if (!v4l2_inst) {
+		ERR("ERROR passed Null pointer\n");
+		return -EINVAL;
+	}
+	control.id = V4L2_CID_MPEG_VIDC_VIDEO_ENABLE_PICTURE_TYPE;
+	control.value = 15;
+	rc = msm_vidc_s_ctrl(v4l2_inst->vidc_inst, &control);
+	if (rc) {
+		ERR("ERROR set VIDEO_ENABLE_PICTURE_TYPE\n");
+		return rc;
+	}
+	DBG("Set Ctrl ENABLE_PICTURE_TYPE\n");
+	control.id = V4L2_CID_MPEG_VIDC_VIDEO_OUTPUT_ORDER;
+	control.value = 0;
+	rc = msm_vidc_s_ctrl(v4l2_inst->vidc_inst, &control);
+	if (rc) {
+		ERR("ERROR set VIDEO_OUTPUT_ORDER\n");
+		return rc;
+	}
+	DBG("Set Ctrl VIDEO_OUTPUT_ORDER\n");
+	return rc;
+}
+
+static int mpq_dvb_set_decode_mode(
+struct mpq_dvb_video_instance *dvb_video_inst,
+int decode_mode)
+{
+	int rc = 0;
+	struct v4l2_instance *v4l2_inst;
+	if (!dvb_video_inst || !dvb_video_inst->v4l2_inst) {
+		ERR("ERROR passed Null pointer\n");
+		return -EINVAL;
+	}
+	v4l2_inst = dvb_video_inst->v4l2_inst;
+
+	if (decode_mode == VIDEO_PLAYBACK_TRICKMODE_COARSE) {
+		switch (v4l2_inst->playback_mode) {
+		case VIDEO_PLAYBACK_NORMAL:
+			rc = mpq_dvb_flush(dvb_video_inst);
+			if (rc) {
+				ERR("Error in flush buffers\n");
+				return rc;
+			}
+			DBG("Decoder Flush DONE\n");
+			rc = mpq_playback_normal_to_coarse(v4l2_inst);
+			break;
+		case VIDEO_PLAYBACK_TRICKMODE_SMOOTH:
+			rc = mpq_dvb_flush(dvb_video_inst);
+			if (rc) {
+				ERR("Error in flush buffers\n");
+				return rc;
+			}
+			DBG("Decoder Flush DONE\n");
+			rc = mpq_playback_smooth_to_coarse(v4l2_inst);
+			break;
+		default:
+			break;
+		}
+	}
+	if (decode_mode == VIDEO_PLAYBACK_TRICKMODE_SMOOTH) {
+		switch (v4l2_inst->playback_mode) {
+		case VIDEO_PLAYBACK_NORMAL:
+			rc = mpq_playback_normal_to_smooth(v4l2_inst);
+			break;
+		case VIDEO_PLAYBACK_TRICKMODE_COARSE:
+			rc = mpq_dvb_flush(dvb_video_inst);
+			if (rc) {
+				ERR("Error in flush buffers\n");
+				return rc;
+			}
+			DBG("Decoder Flush DONE\n");
+			rc = mpq_playback_coarse_to_smooth(v4l2_inst);
+			break;
+		default:
+			break;
+		}
+	}
+	if (decode_mode == VIDEO_PLAYBACK_NORMAL) {
+		switch (v4l2_inst->playback_mode) {
+		case VIDEO_PLAYBACK_TRICKMODE_COARSE:
+			rc = mpq_dvb_flush(dvb_video_inst);
+			if (rc) {
+				ERR("Error in flush buffers\n");
+				return rc;
+			}
+			DBG("Decoder Flush DONE\n");
+			rc = mpq_playback_coarse_to_normal(v4l2_inst);
+			break;
+		case VIDEO_PLAYBACK_TRICKMODE_SMOOTH:
+			rc = mpq_playback_smooth_to_normal(v4l2_inst);
+			break;
+		default:
+			break;
+		}
+	}
+	if (!rc)
+		v4l2_inst->playback_mode = decode_mode;
+	else
+		WRN("Error in settting decode mode\n");
+	return rc;
+}
+
 static int mpq_dvb_get_output_format(
 	struct v4l2_instance *v4l2_inst,
 	enum video_out_format_t *format)
@@ -1149,46 +1866,6 @@ static int mpq_dvb_get_codec(
 	return rc;
 }
 
-static int mpq_dvb_start_decoder(
-	struct mpq_dvb_video_instance *dvb_video_inst)
-{
-	int rc = 0;
-	int device_id = 0;
-	struct v4l2_instance *v4l2_inst;
-
-	if (!dvb_video_inst || !dvb_video_inst->v4l2_inst) {
-		ERR("Input parameter is NULL or invalid\n");
-		return -EINVAL;
-	}
-	v4l2_inst = dvb_video_inst->v4l2_inst;
-	if (v4l2_inst->state != MPQ_STATE_READY)
-		return -EINVAL;
-	dvb_video_inst->event_task = kthread_run(
-			mpq_dvb_vidc_event_handler,
-			(void *)dvb_video_inst,
-			vid_thread_names[0]);
-	if (!dvb_video_inst->event_task)
-		return -ENOMEM;
-	if (v4l2_inst->input_mode == INPUT_MODE_RING) {
-		dvb_video_inst->input_task = kthread_run(
-				mpq_dvb_input_data_handler,
-				(void *)dvb_video_inst,
-				vid_data_thread_names[device_id]);
-		if (!dvb_video_inst->input_task)
-			return -ENOMEM;
-	}
-	rc = msm_vidc_streamon(v4l2_inst->vidc_inst,
-			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
-	if (rc) {
-		ERR("MSM Vidc streamon->CAPTURE_PORT error\n");
-		return rc;
-	}
-	v4l2_inst->flag |= MPQ_DVB_OUTPUT_STREAMON_BIT;
-	v4l2_inst->flag &= ~MPQ_DVB_INPUT_STREAMON_BIT;
-	v4l2_inst->state = MPQ_STATE_IDLE;
-	return rc;
-}
-
 static int mpq_dvb_start_play(
 	struct mpq_dvb_video_instance *dvb_video_inst)
 {
@@ -1202,35 +1879,102 @@ static int mpq_dvb_start_play(
 		return -EINVAL;
 	}
 	v4l2_inst = dvb_video_inst->v4l2_inst;
-	if ((v4l2_inst->state != MPQ_STATE_READY) &&
-		(v4l2_inst->state != MPQ_STATE_IDLE))
-		return -EINVAL;
-	if (v4l2_inst->state == MPQ_STATE_READY)
-		mpq_dvb_start_decoder(dvb_video_inst);
-
-	if (v4l2_inst->state != MPQ_STATE_IDLE)
-		return -EINVAL;
+	if (v4l2_inst->input_mode == INPUT_MODE_RING)
+		mpq_ring_buffer_reset(v4l2_inst->ringbuf);
 	if (down_interruptible(&v4l2_inst->inq_sem))
 		return -ERESTARTSYS;
 	for (i = 0; i < v4l2_inst->num_input_buffers; i++) {
-		p_inq_msg = kzalloc(sizeof(struct mpq_inq_msg), GFP_KERNEL);
-		if (!p_inq_msg)
-			return -ENOMEM;
-		p_inq_msg->buf_index = i;
-		list_add_tail(&p_inq_msg->list, &v4l2_inst->inq);
+		if (v4l2_inst->buf_info[OUTPUT_PORT][i].state ==
+			MPQ_INPUT_BUFFER_FREE) {
+			p_inq_msg = kzalloc(
+			   sizeof(struct mpq_inq_msg),
+			   GFP_KERNEL);
+			if (!p_inq_msg)
+				return -ENOMEM;
+			p_inq_msg->buf_index = i;
+			list_add_tail(&p_inq_msg->list, &v4l2_inst->inq);
+			v4l2_inst->buf_info[OUTPUT_PORT][i].state =
+				MPQ_INPUT_BUFFER_IN_USE;
+		}
 	}
 	up(&v4l2_inst->inq_sem);
 	wake_up(&v4l2_inst->inq_wait);
-	/* maybe we should let user queue the capture_port buffers */
-	for (i = 0; i < v4l2_inst->output_buf_count; i++) {
-		rc = mpq_v4l2_queue_output_buffer(v4l2_inst,
-					&v4l2_inst->buf_info[CAPTURE_PORT][i]);
+	if (!rc) {
+		struct mpq_outq_msg *p_msg;
+		v4l2_inst->state = MPQ_STATE_RUNNING;
+		DBG("Send Decoder is playing\n");
+		p_msg = kzalloc(sizeof(*p_msg), GFP_KERNEL);
+		p_msg->type = MPQ_MSG_VIDC_EVENT;
+		p_msg->vidc_event.type =
+			VIDEO_EVENT_DECODER_PLAYING;
+		p_msg->vidc_event.status =
+			VIDEO_STATUS_SUCESS;
+		if (down_interruptible(&v4l2_inst->outq_sem))
+			return -ERESTARTSYS;
+		list_add_tail(&p_msg->list, &v4l2_inst->outq);
+		up(&v4l2_inst->outq_sem);
+		wake_up(&v4l2_inst->outq_wait);
+	} else {
+		ERR("Unable to start play the decoder\n");
+	}
+	return rc;
+}
+
+static int mpq_dvb_start_decoder(
+	struct mpq_dvb_video_instance *dvb_video_inst)
+{
+	int rc = 0;
+	int device_id = 0;
+	struct v4l2_instance *v4l2_inst;
+
+	if (!dvb_video_inst || !dvb_video_inst->v4l2_inst) {
+		ERR("Input parameter is NULL or invalid\n");
+		return -EINVAL;
+	}
+	v4l2_inst = dvb_video_inst->v4l2_inst;
+	if (v4l2_inst->state != MPQ_STATE_IDLE) {
+		ERR("Decoder is not in IDLE state\n");
+		return -EINVAL;
+	}
+	v4l2_inst->vidc_etb = 0;
+	v4l2_inst->vidc_ebd = 0;
+	v4l2_inst->vidc_ftb = 0;
+	v4l2_inst->vidc_fbd = 0;
+	if (!dvb_video_inst->event_task) {
+		dvb_video_inst->event_task = kthread_run(
+				mpq_dvb_vidc_event_handler,
+				(void *)dvb_video_inst,
+				vid_thread_names[device_id]);
+		if (!dvb_video_inst->event_task) {
+			ERR("Unable to start event task\n");
+			return -ENOMEM;
+		}
+	}
+	rc = msm_vidc_streamon(v4l2_inst->vidc_inst,
+			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+	if (rc) {
+		ERR("MSM Vidc streamon->CAPTURE_PORT error\n");
+		return rc;
+	}
+	v4l2_inst->flag |= MPQ_DVB_OUTPUT_STREAMON_BIT;
+	v4l2_inst->flag &= ~MPQ_DVB_INPUT_STREAMON_BIT;
+
+	rc = mpq_dvb_start_play(dvb_video_inst);
+	if (v4l2_inst->input_mode == INPUT_MODE_RING) {
+		dvb_video_inst->input_task = kthread_run(
+				mpq_dvb_input_data_handler,
+				(void *)dvb_video_inst,
+				vid_data_thread_names[device_id]);
+		if (!dvb_video_inst->input_task)
+			return -ENOMEM;
+	}
+	if (dvb_video_inst->source == VIDEO_SOURCE_DEMUX) {
+		rc = mpq_dvb_start_dmx_src(dvb_video_inst);
 		if (rc) {
-			ERR("Queue Output Buffer error\n");
+			ERR("Error start dmx thread\n");
 			return rc;
 		}
 	}
-	v4l2_inst->state = MPQ_STATE_RUNNING;
 	return rc;
 }
 
@@ -1240,14 +1984,24 @@ static int mpq_dvb_flush(
 	int rc = 0;
 	struct v4l2_instance *v4l2_inst;
 	struct v4l2_decoder_cmd cmd;
+	int i;
+	struct mpq_inq_msg *p_inq_msg;
 	DBG("ENTER mpq_dvb_flush\n");
 	if (!dvb_video_inst || !dvb_video_inst->v4l2_inst) {
 		ERR("Input parameter is NULL or invalid\n");
 		return -EINVAL;
 	}
 	v4l2_inst = dvb_video_inst->v4l2_inst;
-	v4l2_inst->flag &= ~MPQ_DVB_FLUSH_DONE_BIT;
-	v4l2_inst->flag |= MPQ_DVB_FLUSH_IN_PROGRESS_BIT;
+	mutex_lock(&v4l2_inst->flush_lock);
+	v4l2_inst->flag &= ~MPQ_DVB_EVENT_FLUSH_DONE_BIT;
+	v4l2_inst->flag |= MPQ_DVB_INPUT_FLUSH_IN_PROGRESS_BIT;
+	v4l2_inst->flag |= MPQ_DVB_OUTPUT_FLUSH_IN_PROGRESS_BIT;
+	mutex_unlock(&v4l2_inst->flush_lock);
+
+	if (v4l2_inst->input_mode == INPUT_MODE_RING)
+		mpq_ring_buffer_flush(v4l2_inst->ringbuf);
+
+
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.cmd = V4L2_DEC_QCOM_CMD_FLUSH;
 	cmd.flags = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE |
@@ -1258,22 +2012,73 @@ static int mpq_dvb_flush(
 		return rc;
 	}
 	DBG("Decoder Flush INPUT Success\n");
-	if (!(v4l2_inst->flag & MPQ_DVB_FLUSH_DONE_BIT)) {
+	if (!((v4l2_inst->flag & MPQ_DVB_EVENT_FLUSH_DONE_BIT) &&
+		  (v4l2_inst->vidc_etb == v4l2_inst->vidc_ebd) &&
+		  (v4l2_inst->vidc_ftb == v4l2_inst->vidc_fbd))) {
 		wait_event_interruptible(v4l2_inst->msg_wait,
-			(v4l2_inst->flag & MPQ_DVB_FLUSH_DONE_BIT));
+			(v4l2_inst->flag & MPQ_DVB_EVENT_FLUSH_DONE_BIT) &&
+			(v4l2_inst->vidc_etb == v4l2_inst->vidc_ebd) &&
+			(v4l2_inst->vidc_ftb == v4l2_inst->vidc_fbd));
 	}
-	v4l2_inst->flag &= ~MPQ_DVB_FLUSH_IN_PROGRESS_BIT;
+	DBG("Decoder Flush ALL Success\n");
+	/* sanity check: ETB == EBD & FTB == FBD */
+	if ((v4l2_inst->vidc_etb == v4l2_inst->vidc_ebd) &&
+		(v4l2_inst->vidc_ftb == v4l2_inst->vidc_fbd)) {
+		INF("vidc flush success: ETB(%u) EBD(%u) FTB(%u) FBD(%u)\n",
+			v4l2_inst->vidc_etb,
+			v4l2_inst->vidc_ebd,
+			v4l2_inst->vidc_ftb,
+			v4l2_inst->vidc_fbd);
+	} else {
+		INF("vidc flush ERROR: ETB(%u) EBD(%u) FTB(%u) FBD(%u)\n",
+			v4l2_inst->vidc_etb,
+			v4l2_inst->vidc_ebd,
+			v4l2_inst->vidc_ftb,
+			v4l2_inst->vidc_fbd);
+	}
+	INF("================RINGBUFFER FLUSH here================\n");
+	if (v4l2_inst->input_mode == INPUT_MODE_RING)
+		mpq_ring_buffer_flush(v4l2_inst->ringbuf);
+	mutex_lock(&v4l2_inst->flush_lock);
+	v4l2_inst->flag &= ~MPQ_DVB_INPUT_FLUSH_IN_PROGRESS_BIT;
+	v4l2_inst->flag &= ~MPQ_DVB_OUTPUT_FLUSH_IN_PROGRESS_BIT;
+	mutex_unlock(&v4l2_inst->flush_lock);
+
+
+	INF("================RINGBUFFER Reset here================\n");
+	if (v4l2_inst->input_mode == INPUT_MODE_RING)
+		mpq_ring_buffer_reset(v4l2_inst->ringbuf);
+	if (down_interruptible(&v4l2_inst->inq_sem))
+		return -ERESTARTSYS;
+	for (i = 0; i < v4l2_inst->num_input_buffers; i++) {
+		if (v4l2_inst->buf_info[OUTPUT_PORT][i].state ==
+			MPQ_INPUT_BUFFER_FREE) {
+			p_inq_msg = kzalloc(
+			   sizeof(struct mpq_inq_msg),
+			   GFP_KERNEL);
+			if (!p_inq_msg)
+				return -ENOMEM;
+			p_inq_msg->buf_index = i;
+			list_add_tail(&p_inq_msg->list, &v4l2_inst->inq);
+			v4l2_inst->buf_info[OUTPUT_PORT][i].state =
+				MPQ_INPUT_BUFFER_IN_USE;
+		}
+	}
+	up(&v4l2_inst->inq_sem);
+	wake_up(&v4l2_inst->inq_wait);
+
+
+
 	DBG("LEAVE mpq_dvb_flush\n");
 	return rc;
 }
+
 static int mpq_dvb_stop_play(
 	struct mpq_dvb_video_instance *dvb_video_inst)
 {
 	int rc = 0;
 	struct v4l2_instance *v4l2_inst;
-	struct list_head *ptr, *next, *head;
-	struct mpq_inq_msg	*inq_entry;
-	struct mpq_outq_msg	*outq_entry;
+	struct mpq_outq_msg *p_msg;
 	DBG("ENTER mpq_dvb_stop_play\n");
 	if (!dvb_video_inst || !dvb_video_inst->v4l2_inst) {
 		ERR("Input parameter is NULL or invalid\n");
@@ -1289,33 +2094,20 @@ static int mpq_dvb_stop_play(
 		return rc;
 	}
 	DBG("Decoder Flush DONE\n");
-	if (down_interruptible(&v4l2_inst->inq_sem))
-		return -ERESTARTSYS;
-	if (!list_empty(&v4l2_inst->inq)) {
-		head = &v4l2_inst->inq;
-		list_for_each_safe(ptr, next, head) {
-			inq_entry = list_entry(ptr, struct mpq_inq_msg,
-					list);
-			list_del(&inq_entry->list);
-			kfree(inq_entry);
-		}
-	}
-	up(&v4l2_inst->inq_sem);
-	if (v4l2_inst->input_mode == INPUT_MODE_RING)
-		mpq_ring_buffer_flush(v4l2_inst->ringbuf);
+	DBG("Send Decoder Stopped Msg\n");
+	p_msg = kzalloc(sizeof(*p_msg), GFP_KERNEL);
+	p_msg->type = MPQ_MSG_VIDC_EVENT;
+	p_msg->vidc_event.type =
+		VIDEO_EVENT_DECODER_STOPPED;
+	p_msg->vidc_event.status =
+		VIDEO_STATUS_SUCESS;
 	if (down_interruptible(&v4l2_inst->outq_sem))
 		return -ERESTARTSYS;
-	if (!list_empty(&v4l2_inst->outq)) {
-		head = &v4l2_inst->outq;
-		list_for_each_safe(ptr, next, head) {
-			outq_entry = list_entry(ptr, struct mpq_outq_msg,
-					list);
-			list_del(&outq_entry->list);
-			kfree(outq_entry);
-		}
-	}
+	list_add_tail(&p_msg->list, &v4l2_inst->outq);
 	up(&v4l2_inst->outq_sem);
-	v4l2_inst->state = MPQ_STATE_IDLE;
+	wake_up(&v4l2_inst->outq_wait);
+
+
 	DBG("LEAVE mpq_dvb_stop_play\n");
 	return rc;
 }
@@ -1325,7 +2117,6 @@ static int mpq_dvb_stop_decoder(
 {
 	int rc = 0;
 	struct v4l2_instance *v4l2_inst;
-	struct v4l2_decoder_cmd cmd;
 	DBG("ENTER mpq_dvb_stop_decoder\n");
 	if (!dvb_video_inst || !dvb_video_inst->v4l2_inst) {
 		ERR("Input parameter is NULL or invalid\n");
@@ -1333,13 +2124,14 @@ static int mpq_dvb_stop_decoder(
 	}
 
 	v4l2_inst = dvb_video_inst->v4l2_inst;
-	if (v4l2_inst->state != MPQ_STATE_IDLE)
-		return 0;
-	if (dvb_video_inst->source == VIDEO_SOURCE_DEMUX) {
-		DBG("Kthread[DEMUX] try to stop...\n");
-		if (dvb_video_inst->demux_task)
-			kthread_stop(dvb_video_inst->demux_task);
-		DBG("Kthread[DEMUX] stops\n");
+
+	if (v4l2_inst->state != MPQ_STATE_RUNNING)
+		return -EINVAL;
+
+	rc = mpq_dvb_stop_play(dvb_video_inst);
+	if (rc) {
+		ERR("Error in stopping play\n");
+		return -EINVAL;
 	}
 	if (v4l2_inst->input_mode == INPUT_MODE_RING) {
 		DBG("Kthread[Input] try to stop...\n");
@@ -1348,6 +2140,14 @@ static int mpq_dvb_stop_decoder(
 		DBG("Kthread[Input] stops\n");
 		mpq_ring_buffer_flush(v4l2_inst->ringbuf);
 	}
+	if (dvb_video_inst->source == VIDEO_SOURCE_DEMUX) {
+		rc = mpq_dvb_stop_dmx_src(dvb_video_inst);
+		if (rc) {
+			ERR("Error stop dmx thread\n");
+			return rc;
+		}
+	}
+
 	rc = msm_vidc_streamoff(v4l2_inst->vidc_inst,
 			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
 	if (rc) {
@@ -1360,14 +2160,8 @@ static int mpq_dvb_stop_decoder(
 		ERR("Stream Off on OUTPUT_PORT failed\n");
 		return rc;
 	}
-	memset(&cmd, 0, sizeof(cmd));
-	cmd.cmd = V4L2_DEC_CMD_STOP;
-	rc = msm_vidc_decoder_cmd(v4l2_inst->vidc_inst, &cmd);
-	if (rc) {
-		ERR("DECODER_CMD_STOP failed\n");
-		return rc;
-	}
-	v4l2_inst->state = MPQ_STATE_STOPPED;
+
+	v4l2_inst->state = MPQ_STATE_IDLE;
 	DBG("LEAVE mpq_dvb_stop_decoder\n");
 	return rc;
 }
@@ -1421,11 +2215,35 @@ static int mpq_dvb_queue_output_buffer(
 		ERR("Could not find video output buffer in the list\n");
 		return -EINVAL;
 	}
+	/* we need to short circuit the qbuf() to avoid race conditions */
+	mutex_lock(&v4l2_inst->flush_lock);
+	if (v4l2_inst->flag & MPQ_DVB_OUTPUT_FLUSH_IN_PROGRESS_BIT) {
+		struct mpq_outq_msg *p_msg;
+		mutex_unlock(&v4l2_inst->flush_lock);
+		p_msg = kzalloc(sizeof(*p_msg), GFP_KERNEL);
+		p_msg->type = MPQ_MSG_OUTPUT_BUFFER_DONE;
+		p_msg->vidc_event.type = VIDEO_EVENT_OUTPUT_BUFFER_DONE;
+		p_msg->vidc_event.status = VIDEO_STATUS_SUCESS;
+		p_msg->vidc_event.timestamp = 0;
+		p_msg->vidc_event.u.buffer.bufferaddr = (void *)pbuf->vaddr;
+		p_msg->vidc_event.u.buffer.buffer_len = 0;
+		p_msg->vidc_event.u.buffer.ion_fd = pbuf->fd;
+		p_msg->vidc_event.u.buffer.offset = pbuf->offset;
+		p_msg->vidc_event.u.buffer.mmaped_size = 0;
+		if (down_interruptible(&v4l2_inst->outq_sem))
+			return -ERESTARTSYS;
+		list_add_tail(&p_msg->list, &v4l2_inst->outq);
+		up(&v4l2_inst->outq_sem);
+		wake_up(&v4l2_inst->outq_wait);
+		return 0;
+	}
+	mutex_unlock(&v4l2_inst->flush_lock);
 	return mpq_v4l2_queue_output_buffer(v4l2_inst, pbuf);
 }
 
 static int mpq_dvb_open_v4l2(
-	struct mpq_dvb_video_instance *dvb_video_inst)
+	struct mpq_dvb_video_instance *dvb_video_inst,
+	int device_id)
 {
 	int rc = 0;
 	struct v4l2_instance *v4l2_inst;
@@ -1492,7 +2310,10 @@ static int mpq_dvb_open_v4l2(
 		rc = -ENOMEM;
 		goto fail_create_mem_client;
 	}
+
+	v4l2_inst->playback_mode = VIDEO_PLAYBACK_NORMAL;
 	mutex_init(&v4l2_inst->lock);
+	mutex_init(&v4l2_inst->flush_lock);
 	INIT_LIST_HEAD(&v4l2_inst->msg_queue);
 	sema_init(&v4l2_inst->msg_sem, 1);
 	INIT_LIST_HEAD(&v4l2_inst->inq);
@@ -1520,24 +2341,54 @@ static int mpq_dvb_close_v4l2(
 {
 	int rc;
 	struct v4l2_instance *v4l2_inst;
+	struct v4l2_decoder_cmd cmd;
 	if (!dvb_video_inst || !dvb_video_inst->v4l2_inst) {
 		ERR("Input parameter is NULL or invalid\n");
 		return -EINVAL;
 	}
 	v4l2_inst = dvb_video_inst->v4l2_inst;
 	if (v4l2_inst->state == MPQ_STATE_RUNNING)
-		mpq_dvb_stop_play(dvb_video_inst);
-	if (v4l2_inst->state == MPQ_STATE_IDLE)
 		mpq_dvb_stop_decoder(dvb_video_inst);
-	if (v4l2_inst->input_mode == INPUT_MODE_RING) {
-		if (v4l2_inst->ringbuf) {
+
+	/* state IDLE --> LOADED */
+	if (dvb_video_inst->source == VIDEO_SOURCE_DEMUX)
+		mpq_dvb_term_dmx_src(dvb_video_inst);
+
+	if (v4l2_inst->flag & MPQ_DVB_INPUT_BUF_SETUP_BIT) {
+		rc = mpq_dvb_free_input_buffers(v4l2_inst);
+		if (rc) {
+			ERR("Release Input Buffers failed\n");
+			return rc;
+		}
+		if (v4l2_inst->input_mode == INPUT_MODE_RING &&
+			v4l2_inst->ringbuf) {
 			mpq_ring_buffer_delete(v4l2_inst->ringbuf);
 			mpq_unmap_kernel(v4l2_inst->mem_client,
-				v4l2_inst->buf_info[OUTPUT_PORT][0].handle);
+			v4l2_inst->buf_info[OUTPUT_PORT][0].handle);
+			v4l2_inst->ringbuf = NULL;
 		}
 	}
+
+	if (v4l2_inst->flag & MPQ_DVB_OUTPUT_BUF_SETUP_BIT) {
+		rc = mpq_dvb_free_output_buffers(v4l2_inst);
+		if (rc) {
+			ERR("Release Output Buffers failed\n");
+			return rc;
+		}
+	}
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.cmd = V4L2_DEC_CMD_STOP;
+	rc = msm_vidc_decoder_cmd(v4l2_inst->vidc_inst, &cmd);
+	if (rc) {
+		ERR("DECODER_CMD_STOP failed\n");
+		return rc;
+	}
+	v4l2_inst->state = MPQ_STATE_STOPPED;
+
 	DBG("Close MSM VIDC Decoder\n");
 	rc = msm_vidc_close(v4l2_inst->vidc_inst);
+	kfree(dvb_video_inst->v4l2_inst);
+	dvb_video_inst->v4l2_inst = NULL;
 	DBG("MSM VIDC Decoder Closed\n");
 	return rc;
 }
@@ -1556,7 +2407,7 @@ static int mpq_dvb_empty_buffer_done(
 	}
 	v4l2_inst = dvb_video_inst->v4l2_inst;
 
-	rc = mpq_v4l2_deque_input_buffer(v4l2_inst, &buf_index);
+	rc = mpq_v4l2_deque_input_buffer(dvb_video_inst, &buf_index);
 	if (rc) {
 		ERR("Error dequeue input buffer (EBD)\n");
 		return -EFAULT;
@@ -1564,15 +2415,24 @@ static int mpq_dvb_empty_buffer_done(
 	if (buf_index == -1)
 		return -EFAULT;
 	INF("Empty Buffer Done[%d]\n", buf_index);
-	p_inq_msg = kzalloc(sizeof(*p_inq_msg), GFP_KERNEL);
-	if (!p_inq_msg)
-		return -ENOMEM;
-	p_inq_msg->buf_index = buf_index;
-	if (down_interruptible(&v4l2_inst->inq_sem))
-		return -ERESTARTSYS;
-	list_add_tail(&p_inq_msg->list, &v4l2_inst->inq);
-	up(&v4l2_inst->inq_sem);
-	wake_up(&v4l2_inst->inq_wait);
+	if (v4l2_inst->flag & MPQ_DVB_INPUT_FLUSH_IN_PROGRESS_BIT) {
+		v4l2_inst->buf_info[OUTPUT_PORT][buf_index].state =
+			MPQ_INPUT_BUFFER_FREE;
+		if (v4l2_inst->vidc_etb == v4l2_inst->vidc_ebd) {
+			INF("VIDC flushed all input buffers\n");
+			wake_up(&v4l2_inst->msg_wait);
+		}
+	} else {
+		p_inq_msg = kzalloc(sizeof(*p_inq_msg), GFP_KERNEL);
+		if (!p_inq_msg)
+			return -ENOMEM;
+		p_inq_msg->buf_index = buf_index;
+		if (down_interruptible(&v4l2_inst->inq_sem))
+			return -ERESTARTSYS;
+		list_add_tail(&p_inq_msg->list, &v4l2_inst->inq);
+		up(&v4l2_inst->inq_sem);
+		wake_up(&v4l2_inst->inq_wait);
+	}
 	DBG("LEAVE mpq_dvb_empty_buffer_done\n");
 	return 0;
 }
@@ -1596,7 +2456,12 @@ static int mpq_dvb_fill_buffer_done(
 	pbuf = &(v4l2_inst->buf_info[CAPTURE_PORT][buf_index]);
 	if (!pbuf->bytesused) {
 		INF("This is an empty buffer dequeued\n");
-		return 0;
+	}
+	if (v4l2_inst->flag & MPQ_DVB_OUTPUT_FLUSH_IN_PROGRESS_BIT) {
+		if (v4l2_inst->vidc_ftb == v4l2_inst->vidc_fbd) {
+			INF("VIDC flushed all output buffers\n");
+			wake_up(&v4l2_inst->msg_wait);
+		}
 	}
 	p_msg = kzalloc(sizeof(*p_msg), GFP_KERNEL);
 	p_msg->type = MPQ_MSG_OUTPUT_BUFFER_DONE;
@@ -1608,6 +2473,10 @@ static int mpq_dvb_fill_buffer_done(
 	p_msg->vidc_event.u.buffer.ion_fd = pbuf->fd;
 	p_msg->vidc_event.u.buffer.offset = pbuf->offset;
 	p_msg->vidc_event.u.buffer.mmaped_size = pbuf->bytesused;
+
+	p_msg->vidc_event.u.buffer.pts = pbuf->pts;
+	DBG("Video Timestamp is %llu ticks\n", p_msg->vidc_event.u.buffer.pts);
+	p_msg->vidc_event.u.buffer.client_data = (void *)pbuf->extradata.uaddr;
 	if (down_interruptible(&v4l2_inst->outq_sem))
 		return -ERESTARTSYS;
 	list_add_tail(&p_msg->list, &v4l2_inst->outq);
@@ -1648,83 +2517,53 @@ static int mpq_dvb_get_pic_res(
 	return -EINVAL;
 }
 
-static void mpq_dvb_get_stream_if(
-	enum mpq_adapter_stream_if interface_id,
-	void *arg)
+static int mpq_dvb_video_play(struct mpq_dvb_video_instance *dvb_video_inst)
 {
-	struct mpq_dvb_video_instance *dvb_video_inst = arg;
-
-	DBG("In mpq_dvb_video_get_stream_if : %d\n", interface_id);
-
-	mpq_adapter_get_stream_if(interface_id,
-			&dvb_video_inst->dmx_src_data->stream_buffer);
-	wake_up(&dvb_video_inst->dmx_src_data->dmx_wait);
-}
-
-static int mpq_dvb_init_dmx_src(
-	struct mpq_dvb_video_instance *dvb_video_inst,
-	int device_id)
-{
-	int rc;
-	struct mpq_streambuffer *sbuff;
-	DBG("ENTER mpq_dvb_init_dmx_src\n");
-	dvb_video_inst->dmx_src_data =  kzalloc(sizeof(struct mpq_dmx_source),
-						GFP_KERNEL);
-	if (dvb_video_inst->dmx_src_data == NULL)
-		return -ENOMEM;
-	init_waitqueue_head(&dvb_video_inst->dmx_src_data->dmx_wait);
-	rc = mpq_adapter_get_stream_if(
-		(enum mpq_adapter_stream_if)device_id,
-		&dvb_video_inst->dmx_src_data->stream_buffer);
-
-	if (rc) {
-		kfree(dvb_video_inst->dmx_src_data);
-		ERR("Error in mpq_adapter_get_stream_if()");
-		return -ENODEV;
-	} else if (dvb_video_inst->dmx_src_data->stream_buffer == NULL) {
-		DBG("Stream Buffer is NULL. Resigtering Notifier.\n");
-		rc = mpq_adapter_notify_stream_if(
-			(enum mpq_adapter_stream_if)device_id,
-			mpq_dvb_get_stream_if,
-			(void *)dvb_video_inst);
-		if (rc) {
-			kfree(dvb_video_inst->dmx_src_data);
-			return -ENODEV;
-		}
-	} else {
-		DBG("Receive StreamBuffer from Adapter card:%u\n",
-			(u32)dvb_video_inst->dmx_src_data->stream_buffer);
-		sbuff = dvb_video_inst->dmx_src_data->stream_buffer;
-		DBG("RAW DATA Size:%u and Pkt Data Size: %u\n",
-			(u32)sbuff->raw_data.size,
-			(u32)sbuff->packet_data.size);
+	int rc = 0;
+	struct v4l2_instance *v4l2_inst;
+	if (!dvb_video_inst || !dvb_video_inst->v4l2_inst) {
+		ERR("Input parameter is NULL or invalid\n");
+		return -EINVAL;
 	}
-
-	dvb_video_inst->demux_task = kthread_run(
-			mpq_dvb_demux_data_handler,	(void *)dvb_video_inst,
-			vid_dmx_thread_names[device_id]);
-
-	DBG("LEAVE mpq_dvb_init_dmx_src\n");
-	return 0;
+	v4l2_inst = dvb_video_inst->v4l2_inst;
+	if (v4l2_inst->state == MPQ_STATE_IDLE) {
+		rc = mpq_dvb_start_decoder(dvb_video_inst);
+	} else if (v4l2_inst->state == MPQ_STATE_RUNNING) {
+		rc = mpq_dvb_start_play(dvb_video_inst);
+	} else {
+		ERR("Invalid state to start play\n");
+		rc = -EINVAL;
+	}
+	return rc;
 }
 
-static int mpq_dvb_term_dmx_src(
-	struct mpq_dvb_video_instance *dvb_video_inst,
-	int device_id)
+static int mpq_dvb_video_stop(struct mpq_dvb_video_instance *dvb_video_inst)
 {
+	return mpq_dvb_stop_play(dvb_video_inst);
+}
 
-	struct mpq_dmx_source *dmx_data = dvb_video_inst->dmx_src_data;
-
-	if (NULL == dmx_data)
+static int mpq_dvb_clear_buffer(struct mpq_dvb_video_instance *dvb_video_inst)
+{
+	int rc = 0;
+	struct v4l2_instance *v4l2_inst;
+	DBG("ENTER mpq_dvb_clear_buffer\n");
+	if (!dvb_video_inst || !dvb_video_inst->v4l2_inst) {
+		ERR("Input parameter is NULL or invalid\n");
+		return -EINVAL;
+	}
+	v4l2_inst = dvb_video_inst->v4l2_inst;
+	if (v4l2_inst->state != MPQ_STATE_RUNNING)
 		return 0;
 
-	kthread_stop(dvb_video_inst->demux_task);
-	kfree(dmx_data);
-	dvb_video_inst->dmx_src_data = NULL;
-	return 0;
-
+	rc = mpq_dvb_flush(dvb_video_inst);
+	if (rc) {
+		ERR("Error in flush buffers\n");
+		return rc;
+	}
+	DBG("Decoder Flush DONE\n");
+	DBG("LEAVE mpq_dvb_clear_buffer\n");
+	return rc;
 }
-
 static int mpq_dvb_set_source(
 	struct dvb_device *device,
 	video_stream_source_t source)
@@ -1734,7 +2573,7 @@ static int mpq_dvb_set_source(
 		(struct mpq_dvb_video_instance *)device->priv;
 	if ((VIDEO_SOURCE_MEMORY == source) &&
 		(VIDEO_SOURCE_DEMUX == dvb_video_inst->source))
-		rc = mpq_dvb_term_dmx_src(dvb_video_inst, device->id);
+		rc = mpq_dvb_term_dmx_src(dvb_video_inst);
 	if (rc) {
 		ERR("ERR in mpq_dvb_term_dmx_src()\n");
 		return rc;
@@ -1802,22 +2641,35 @@ static int mpq_dvb_input_data_handler(void *pparam)
 				rc = -EAGAIN;
 				goto thread_exit;
 			}
-			if (count == 0) {
-				INF("Flush Buffer in progress\n");
-				continue;
-			}
-			mpq_v4l2_queue_input_buffer(
+			mutex_lock(&v4l2_inst->flush_lock);
+			if (v4l2_inst->flag &
+			MPQ_DVB_INPUT_FLUSH_IN_PROGRESS_BIT) {
+				struct buffer_info *pbuf;
+				pbuf =
+				&v4l2_inst->buf_info[OUTPUT_PORT][buf_index];
+				pbuf->state = MPQ_INPUT_BUFFER_FREE;
+			} else {
+				rc = mpq_v4l2_queue_input_buffer(
 				v4l2_inst,
 				&v4l2_inst->buf_info[OUTPUT_PORT][buf_index]);
-			if (!(v4l2_inst->flag & MPQ_DVB_INPUT_STREAMON_BIT)) {
+			if (rc) {
+				ERR("Unable to queue input buffer\n");
+				mutex_unlock(&v4l2_inst->flush_lock);
+				goto thread_exit;
+			}
+			if (!(v4l2_inst->flag &
+				  MPQ_DVB_INPUT_STREAMON_BIT)) {
 				rc = msm_vidc_streamon(v4l2_inst->vidc_inst,
-					V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
 				if (rc) {
 					ERR("ERROR in Streamon OUTPUT_PORT\n");
+					mutex_unlock(&v4l2_inst->flush_lock);
 					goto thread_exit;
 				}
 				v4l2_inst->flag |= MPQ_DVB_INPUT_STREAMON_BIT;
 			}
+			}
+			mutex_unlock(&v4l2_inst->flush_lock);
 			if (down_interruptible(&v4l2_inst->inq_sem))
 				return -ERESTARTSYS;
 		}
@@ -1884,11 +2736,16 @@ static int mpq_dvb_demux_data_handler(void *pparam)
 
 		switch (meta_data.packet_type) {
 		case DMX_FRAMING_INFO_PACKET:
-			DBG("RAW Data Read: %d\n", pkt_hdr.raw_data_len);
+			DBG("RAW Data Handle:%d Offset:%d Len: %d\n",
+				pkt_hdr.raw_data_handle,
+				pkt_hdr.raw_data_offset,
+				pkt_hdr.raw_data_len);
+			if (meta_data.info.framing.pts_dts_info.pts_exist)
+				DBG("PTS is %llu\n",
+				meta_data.info.framing.pts_dts_info.pts);
 			mpq_ring_buffer_write_demux(v4l2_inst->ringbuf,
 					streambuff,
 					pkt_hdr.raw_data_len);
-
 			mpq_streambuffer_pkt_dispose(streambuff, indx, 0);
 			break;
 		case DMX_EOS_PACKET:
@@ -1981,7 +2838,9 @@ static int mpq_dvb_vidc_event_handler(void *pparam)
 				break;
 			case V4L2_EVENT_MSM_VIDC_FLUSH_DONE:
 				DBG("Receive FLUSH DONE\n");
-				v4l2_inst->flag |= MPQ_DVB_FLUSH_DONE_BIT;
+				mutex_lock(&v4l2_inst->flush_lock);
+				v4l2_inst->flag |= MPQ_DVB_EVENT_FLUSH_DONE_BIT;
+				mutex_unlock(&v4l2_inst->flush_lock);
 				wake_up(&v4l2_inst->msg_wait);
 				p_msg = kzalloc(sizeof(*p_msg), GFP_KERNEL);
 				p_msg->type = MPQ_MSG_VIDC_EVENT;
@@ -2055,9 +2914,11 @@ static int mpq_dvb_command_handler(
 		break;
 	case VIDEO_CMD_FREE_INPUT_BUFFERS:
 		DBG("cmd : VIDEO_CMD_FREE_INPUT_BUFFERS\n");
+		rc = mpq_dvb_free_input_buffers(v4l2_inst);
 		break;
 	case VIDEO_CMD_FREE_OUTPUT_BUFFERS:
 		DBG("cmd : VIDEO_CMD_FREE_OUTPUT_BUFFERS\n");
+		rc = mpq_dvb_free_output_buffers(v4l2_inst);
 		break;
 	case VIDEO_CMD_GET_BUFFER_REQ:
 		DBG("cmd : VIDEO_CMD_GET_BUFFER_REQ\n");
@@ -2066,7 +2927,7 @@ static int mpq_dvb_command_handler(
 	case VIDEO_CMD_SET_BUFFER_COUNT:
 		DBG("cmd : VIDEO_CMD_SET_BUFFER_COUNT\n");
 		rc = mpq_dvb_set_input_buf_count(v4l2_inst,
-				cmd->buf_req.num_input_buffers);
+			cmd->buf_req.num_input_buffers);
 		rc = mpq_dvb_set_output_buf_count(v4l2_inst,
 				cmd->buf_req.num_output_buffers);
 
@@ -2084,6 +2945,20 @@ static int mpq_dvb_command_handler(
 		break;
 	case VIDEO_CMD_CLEAR_OUTPUT_BUFFER:
 		DBG("cmd : VIDEO_CMD_CLEAR_OUTPUT_BUFFER\n");
+		break;
+	case VIDEO_CMD_SET_EXTRADATA_TYPES:
+		DBG("cmd : VIDEO_CMD_SET_EXTRADATA_TYPES\n");
+		v4l2_inst->extradata_types = cmd->extradata_type;
+		break;
+	case VIDEO_CMD_SET_EXTRADATA_BUFFER:
+		DBG("cmd : VIDEO_CMD_SET_EXTRADATA_BUFFER\n");
+		rc = mpq_dvb_set_extradata_buf(
+		   v4l2_inst, &cmd->extradata_buffer);
+		break;
+	case VIDEO_CMD_SET_PLAYBACK_MODE:
+		DBG("cmd : VIDEO_CMD_SET_PLAYBACK_MODE\n");
+		rc = mpq_dvb_set_decode_mode(
+		   dvb_video_inst, cmd->video_mode);
 		break;
 	default:
 		rc = -EINVAL;
@@ -2208,7 +3083,7 @@ static int mpq_dvb_video_dev_open(
 	dvb_video_inst = (struct mpq_dvb_video_instance *)device->priv;
 
 
-	rc = mpq_dvb_open_v4l2(dvb_video_inst);
+	rc = mpq_dvb_open_v4l2(dvb_video_inst, device->id);
 	if (rc) {
 		dvb_generic_release(inode, file);
 		return rc;
@@ -2222,7 +3097,7 @@ static int mpq_dvb_video_dev_release(
 	struct inode *inode,
 	struct file *file)
 {
-	int rc;
+	int rc = 0;
 	struct mpq_dvb_video_instance *dvb_video_inst	= NULL;
 	struct dvb_device		 *device	 = NULL;
 
@@ -2232,10 +3107,9 @@ static int mpq_dvb_video_dev_release(
 	dvb_video_inst = (struct mpq_dvb_video_instance *)device->priv;
 	if (dvb_video_inst == NULL)
 		return -EINVAL;
-
 	rc = mpq_dvb_close_v4l2(dvb_video_inst);
-	kfree(dvb_video_inst->v4l2_inst);
-	dvb_video_inst->v4l2_inst = NULL;
+	if (rc)
+		ERR("Error in closing V4L2 driver\n");
 	dvb_generic_release(inode, file);
 	return rc;
 }
@@ -2289,11 +3163,11 @@ static int mpq_dvb_video_dev_ioctl(
 	switch (cmd) {
 	case VIDEO_PLAY:
 		DBG("ioctl : VIDEO_PLAY\n");
-		rc = mpq_dvb_start_play(dvb_video_inst);
+		rc = mpq_dvb_video_play(dvb_video_inst);
 		break;
 	case VIDEO_STOP:
 		DBG("ioctl : VIDEO_STOP\n");
-		rc = mpq_dvb_stop_play(dvb_video_inst);
+		rc = mpq_dvb_video_stop(dvb_video_inst);
 		break;
 	case VIDEO_FREEZE:
 		DBG("ioctl : VIDEO_FREEZE\n");
@@ -2303,6 +3177,7 @@ static int mpq_dvb_video_dev_ioctl(
 		break;
 	case VIDEO_CLEAR_BUFFER:
 		DBG("ioctl : VIDEO_CLEAR_BUFFER\n");
+		rc = mpq_dvb_clear_buffer(dvb_video_inst);
 		break;
 	case VIDEO_COMMAND:
 	case VIDEO_TRY_COMMAND:

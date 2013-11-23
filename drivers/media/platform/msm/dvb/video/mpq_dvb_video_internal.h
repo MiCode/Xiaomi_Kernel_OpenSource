@@ -17,6 +17,8 @@
 #define MPQ_DBG_INFO  "mpq_video:%d "
 #define MPQ_VID_DEC_NAME "mpq_vidc_dec"
 
+#define TRICKMODE_SUPPORT
+
 extern int mpq_debug;
 enum {
 	MPQ_ERR = 0x001,
@@ -28,7 +30,7 @@ enum {
 #define dprintk(dbg_mask, fmt, arg...)    \
 	do { \
 		if (mpq_debug & dbg_mask) { \
-			pr_debug(MPQ_DBG_INFO fmt, dbg_mask, ## arg); \
+			printk(MPQ_DBG_INFO fmt, dbg_mask, ## arg); \
 		} \
 	} while (0)
 
@@ -51,13 +53,15 @@ enum {
 #define MPQ_DVB_OUTPUT_BUF_SETUP_BIT	0x00000020
 #define MPQ_DVB_INPUT_STREAMON_BIT		0x00000040
 #define MPQ_DVB_OUTPUT_STREAMON_BIT		0x00000080
-#define MPQ_DVB_FLUSH_DONE_BIT			0x00000100
-#define MPQ_DVB_FLUSH_IN_PROGRESS_BIT	0x00000200
+#define MPQ_DVB_EVENT_FLUSH_DONE_BIT		0x00000100
+#define MPQ_DVB_INPUT_FLUSH_IN_PROGRESS_BIT	0x00000200
+#define MPQ_DVB_OUTPUT_FLUSH_IN_PROGRESS_BIT	0x00000400
 
 #define DEFAULT_INPUT_BUF_SIZE	        (1024*1024)
 #define DEFAULT_INPUT_BUF_NUM		16
 
 #define MPQ_VID_DEC_NAME "mpq_vidc_dec"
+#define EXTRADATA_HANDLING
 #define EXTRADATA_IDX(__num_planes) (__num_planes - 1)
 
 enum {
@@ -69,6 +73,11 @@ enum {
 enum {
 	INPUT_MODE_LINEAR,
 	INPUT_MODE_RING
+};
+
+enum {
+	MPQ_INPUT_BUFFER_FREE,
+	MPQ_INPUT_BUFFER_IN_USE
 };
 
 enum {
@@ -99,7 +108,16 @@ struct mpq_msg_q_msg {
 	struct list_head	list;
 	u32			msg_type;
 };
-#ifdef EXTRADATA_HANDLING
+
+struct mpq_pkt_msg {
+	struct list_head	list;
+	int	ion_fd;
+	u32		offset;
+	u32		len;
+	u64		pts;
+};
+
+
 struct mpq_extradata {
 	int index;
 	u32	uaddr;
@@ -108,9 +126,10 @@ struct mpq_extradata {
 	int	ion_fd;
 	int fd_offset;
 };
-#endif
+
 struct buffer_info {
 	int			index;
+	int			state;
 	enum v4l2_buf_type	buf_type;
 	u32			size;
 	u32			offset;
@@ -120,10 +139,11 @@ struct buffer_info {
 	u32			dev_addr;
 	u32			kernel_vaddr;
 	u32			buf_offset;
+	u64			pts;
 	struct msm_smem     *handle;
-#ifdef EXTRADATA_HANDLING
+
 	struct mpq_extradata extradata;
-#endif
+
 };
 
 struct mpq_ring_buffer {
@@ -162,13 +182,35 @@ struct v4l2_instance {
 	u32				input_buf_count;
 	u32				num_output_buffers;
 	u32				output_buf_count;
+
 	u32				flag;
 	u32				state;
+	u32		vidc_etb;
+	u32		vidc_ebd;
+	u32		vidc_ftb;
+	u32		vidc_fbd;
+	struct mutex flush_lock;
+
+	struct msm_smem     *extradata_handle;
+	u32					extradata_types;
+	u32					extradata_size;
+	struct extradata_buffer extradata;
+
+
+	int		playback_mode;
+
 };
 
 struct mpq_dmx_source {
 	struct mpq_streambuffer *stream_buffer;
 	wait_queue_head_t		dmx_wait;
+	int						device_id;
+#ifdef DMX_NO_COPY
+	struct video_data_buffer dmx_video_buf;
+	struct list_head		pkt_queue;
+	struct semaphore		pkt_sem;
+	wait_queue_head_t		pkt_wait;
+#endif
 };
 
 struct mpq_dvb_video_instance {
