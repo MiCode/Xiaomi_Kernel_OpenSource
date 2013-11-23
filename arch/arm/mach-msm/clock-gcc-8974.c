@@ -2241,6 +2241,13 @@ struct measure_clk_data debug_mux_priv = {
 
 static int gcc_set_mux_sel(struct mux_clk *clk, int sel)
 {
+	u32 regval;
+
+	/* Zero out CDIV bits in top level debug mux register */
+	regval = readl_relaxed(GCC_REG_BASE(GCC_DEBUG_CLK_CTL_REG));
+	regval &= ~BM(15, 12);
+	writel_relaxed(regval, GCC_REG_BASE(GCC_DEBUG_CLK_CTL_REG));
+
 	/*
 	 * RPM clocks use the same GCC debug mux. Don't reprogram
 	 * the mux (selection) register.
