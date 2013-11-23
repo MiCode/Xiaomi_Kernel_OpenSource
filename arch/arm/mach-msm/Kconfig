@@ -11,6 +11,8 @@ config ARCH_MSM8974
 	select MSM_SCM
 	select MSM_GPIOMUX
 	select MSM_MULTIMEDIA_USE_ION
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_CPUBW
 	select MSM_PIL
 	select MSM_SPM_V2
 	select MSM_L2_SPM
@@ -66,6 +68,8 @@ config ARCH_APQ8084
 	select MSM_RPM_LOG
 	select USB_ARCH_HAS_XHCI
 	select KRAIT_REGULATOR
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_CPUBW
 	select MSM_PIL
 	select ENABLE_VMALLOC_SAVINGS
 	select MSM_ULTRASOUND_B
@@ -75,6 +79,8 @@ config ARCH_MPQ8092
 	bool "MPQ8092"
 	select REGULATOR
 	select ARCH_MSM_KRAITMP
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_CPUBW
 	select GPIO_MSM_V3
 	select ARM_GIC
 	select HAVE_ARM_ARCH_TIMER
@@ -103,6 +109,8 @@ config ARCH_FSM9900
 	select MSM_SCM
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_GPIOMUX
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_CPUBW
 	select MSM_PIL
 	select MSM_NATIVE_RESTART
 	select REGULATOR
@@ -133,6 +141,8 @@ config ARCH_MSMKRYPTON
 	select QMI_ENCDEC
 	select MSM_JTAG_MM if CORESIGHT_ETM
 	select MSM_CORTEX_A7
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_CPUBW
 
 config ARCH_MSM8610
 	bool "MSM8610"
@@ -159,6 +169,8 @@ config ARCH_MSM8610
 	select MSM_CORTEX_A7
 	select CPU_FREQ_MSM
 	select CPU_FREQ
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_CPUBW
 	select MSM_PIL
 	select MSM_RUN_QUEUE_STATS
 	select ARM_HAS_SG_CHAIN
@@ -200,6 +212,8 @@ config ARCH_MSM8226
 	select MSM_CORTEX_A7
 	select CPU_FREQ_MSM
 	select CPU_FREQ
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_CPUBW
 	select MSM_PIL
 	select MSM_RUN_QUEUE_STATS
 	select ARM_HAS_SG_CHAIN
@@ -224,6 +238,8 @@ config ARCH_MSMSAMARIUM
 	select CPU_V7
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_SCM
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_CPUBW
 	select MSM_PIL
 	select MSM_GPIOMUX
 	select MSM_SPM_V2
@@ -806,6 +822,19 @@ config MSM_CPU_FREQ_MIN
 	default 245760
 
 endif # CPU_FREQ_MSM
+
+config MSM_DEVFREQ_CPUBW
+	bool "Devfreq device for CPU<->DDR IB/AB BW voting"
+	depends on PM_DEVFREQ
+	select DEVFREQ_GOV_PERFORMANCE
+	select DEVFREQ_GOV_POWERSAVE
+	select DEVFREQ_GOV_USERSPACE
+	default n
+	help
+	  Different devfreq governors use this devfreq device to make CPU to
+	  DDR IB/AB bandwidth votes. This driver provides a SoC topology
+	  agnostic interface to so that some of the devfreq governors can be
+	  shared across SoCs.
 
 config MSM_AVS_HW
 	bool "Enable Adaptive Voltage Scaling (AVS)"
