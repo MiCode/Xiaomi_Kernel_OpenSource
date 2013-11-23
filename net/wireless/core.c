@@ -887,25 +887,24 @@ void cfg80211_update_iface_num(struct cfg80211_registered_device *rdev,
 		rdev->num_running_monitor_ifaces += num;
 }
 
-void __cfg80211_leave(struct cfg80211_registered_device *rdev,
-		      struct wireless_dev *wdev)
+void cfg80211_leave(struct cfg80211_registered_device *rdev,
+                   struct wireless_dev *wdev)
 {
 	struct net_device *dev = wdev->netdev;
 	struct cfg80211_sched_scan_request *sched_scan_req;
 
 	ASSERT_RTNL();
-	ASSERT_WDEV_LOCK(wdev);
 
 	switch (wdev->iftype) {
 	case NL80211_IFTYPE_ADHOC:
-		__cfg80211_leave_ibss(rdev, dev, true);
+		cfg80211_leave_ibss(rdev, dev, true);
 		break;
 	case NL80211_IFTYPE_P2P_CLIENT:
 	case NL80211_IFTYPE_STATION:
 		sched_scan_req = rtnl_dereference(rdev->sched_scan_req);
 		if (sched_scan_req && dev == sched_scan_req->dev)
 			__cfg80211_stop_sched_scan(rdev, false);
-
+              wdev_lock(wdev);
 #ifdef CONFIG_CFG80211_WEXT
 		kfree(wdev->wext.ie);
 		wdev->wext.ie = NULL;
@@ -914,13 +913,14 @@ void __cfg80211_leave(struct cfg80211_registered_device *rdev,
 #endif
 		cfg80211_disconnect(rdev, dev,
 				    WLAN_REASON_DEAUTH_LEAVING, true);
+              wdev_unlock(wdev);
 		break;
 	case NL80211_IFTYPE_MESH_POINT:
-		__cfg80211_leave_mesh(rdev, dev);
+              cfg80211_leave_mesh(rdev, dev);
 		break;
 	case NL80211_IFTYPE_AP:
 	case NL80211_IFTYPE_P2P_GO:
-		__cfg80211_stop_ap(rdev, dev, true);
+              cfg80211_stop_ap(rdev, dev, true);
 		break;
 	case NL80211_IFTYPE_OCB:
 		__cfg80211_leave_ocb(rdev, dev);
@@ -941,36 +941,6 @@ void __cfg80211_leave(struct cfg80211_registered_device *rdev,
 		break;
 	}
 }
-
-void cfg80211_leave(struct cfg80211_registered_device *rdev,
-		    struct wireless_dev *wdev)
-{
-	wdev_lock(wdev);
-	__cfg80211_leave(rdev, wdev);
-	wdev_unlock(wdev);
-}
-
-void cfg80211_stop_iface(struct wiphy *wiphy, struct wireless_dev *wdev,
-			 gfp_t gfp)
-{
-	struct cfg80211_registered_device *rdev = wiphy_to_rdev(wiphy);
-	struct cfg80211_event *ev;
-	unsigned long flags;
-
-	trace_cfg80211_stop_iface(wiphy, wdev);
-
-	ev = kzalloc(sizeof(*ev), gfp);
-	if (!ev)
-		return;
-
-	ev->type = EVENT_STOPPED;
-
-	spin_lock_irqsave(&wdev->event_lock, flags);
-	list_add_tail(&ev->list, &wdev->event_list);
-	spin_unlock_irqrestore(&wdev->event_lock, flags);
-	queue_work(cfg80211_wq, &rdev->event_work);
-}
-EXPORT_SYMBOL(cfg80211_stop_iface);
 
 static int cfg80211_netdev_notifier_call(struct notifier_block *nb,
 					 unsigned long state, void *ptr)
