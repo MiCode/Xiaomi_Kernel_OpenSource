@@ -6,12 +6,11 @@
 #include "core.h"
 #include "trace.h"
 
-static inline int rdev_suspend(struct cfg80211_registered_device *rdev,
-			       struct cfg80211_wowlan *wowlan)
+static inline int rdev_suspend(struct cfg80211_registered_device *rdev)
 {
 	int ret;
-	trace_rdev_suspend(&rdev->wiphy, wowlan);
-	ret = rdev->ops->suspend(&rdev->wiphy, wowlan);
+	trace_rdev_suspend(&rdev->wiphy, rdev->wiphy.wowlan_config);
+	ret = rdev->ops->suspend(&rdev->wiphy, rdev->wiphy.wowlan_config);
 	trace_rdev_return_int(&rdev->wiphy, ret);
 	return ret;
 }
