@@ -313,20 +313,12 @@ static inline int cpu_is_msm8x60(void)
 
 static inline int cpu_is_msm8960(void)
 {
-#ifdef CONFIG_ARCH_MSM8960
-	return read_msm_cpu_type() == MSM_CPU_8960;
-#else
 	return 0;
-#endif
 }
 
 static inline int cpu_is_msm8960ab(void)
 {
-#ifdef CONFIG_ARCH_MSM8960
-	return read_msm_cpu_type() == MSM_CPU_8960AB;
-#else
 	return 0;
-#endif
 }
 
 static inline int cpu_is_apq8064(void)

@@ -843,14 +843,6 @@ config RTC_DRV_NUC900
 
 comment "on-CPU RTC drivers"
 
-config RTC_DRV_MSM
-	tristate "RTC on Qualcomm Chipsets"
-	depends on ARCH_MSM
-	default y
-	help
-	  RTC driver for Qualcomm chipsets
-
-
 config RTC_SECURE_TIME_SUPPORT
         bool "Support for secure time on Qualcomm Chipsets"
         depends on RTC_DRV_MSM = y
@@ -866,13 +858,6 @@ config RTC_ASYNC_MODEM_SUPPORT
 	help
 	 Say yes here to have the system time updated if there is
 	 an asynchronous MODEM boot.
-
-config RTC_DRV_MSM7X00A
-	tristate "MSM7X00A"
-	depends on ARCH_MSM
-	default n
-	help
-	  RTC driver for Qualcomm MSM7K chipsets
 
 config RTC_DRV_DAVINCI
 	tristate "TI DaVinci RTC"

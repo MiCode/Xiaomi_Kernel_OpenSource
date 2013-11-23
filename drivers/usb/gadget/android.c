@@ -70,7 +70,6 @@
 #include "u_ether.c"
 #include "u_qc_ether.c"
 #ifdef CONFIG_TARGET_CORE
-#include "f_tcm.c"
 #endif
 #ifdef CONFIG_SND_PCM
 #include "u_uac1.c"

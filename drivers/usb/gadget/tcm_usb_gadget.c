@@ -18,7 +18,6 @@
 #include "config.c"
 #include "composite.c"
 
-#include "f_tcm.c"
 
 #define UAS_VENDOR_ID	0x0525	/* NetChip */
 #define UAS_PRODUCT_ID	0xa4a5	/* Linux-USB File-backed Storage Gadget */

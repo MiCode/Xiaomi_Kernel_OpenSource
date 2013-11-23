@@ -230,7 +230,7 @@ int msm_bus_hw_fab_init(struct msm_bus_fabric_registration *pdata,
 void msm_bus_board_init(struct msm_bus_fabric_registration *pdata);
 void msm_bus_board_set_nfab(struct msm_bus_fabric_registration *pdata,
 	int nfab);
-#if defined(CONFIG_MSM_RPM) || defined(CONFIG_MSM_RPM_SMD)
+#if defined(CONFIG_MSM_RPM_SMD)
 int msm_bus_rpm_hw_init(struct msm_bus_fabric_registration *pdata,
 	struct msm_bus_hw_algorithm *hw_algo);
 int msm_bus_remote_hw_commit(struct msm_bus_fabric_registration

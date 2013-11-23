@@ -269,20 +269,6 @@ config GENERIC_BUG
 	def_bool y
 	depends on BUG
 
-config GENERIC_TIME_VSYSCALL
-	bool "Enable gettimeofday updates"
-	depends on CPU_V7
-	help
-	  Enables updating the kernel user helper area with the xtime struct
-	  data for gettimeofday via kernel user helpers.
-
-config ARM_USE_USER_ACCESSIBLE_TIMERS
-	bool "Enables mapping a timer counter page to user space"
-	depends on USE_USER_ACCESSIBLE_TIMERS && GENERIC_TIME_VSYSCALL
-	help
-	 Enables ARM-specific user-accessible timers via a shared
-	 memory page containing the cycle counter.
-
 config ARM_USER_ACCESSIBLE_TIMER_BASE
 	hex "Base address of user-accessible timer counter page"
 	default 0xfffef000

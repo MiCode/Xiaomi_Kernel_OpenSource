@@ -25,12 +25,6 @@
 #include "clock.h"
 #include "clock-pll.h"
 
-#ifdef CONFIG_MSM_SECURE_IO
-#undef readl_relaxed
-#undef writel_relaxed
-#define readl_relaxed secure_readl
-#define writel_relaxed secure_writel
-#endif
 
 #define PLL_OUTCTRL BIT(0)
 #define PLL_BYPASSNL BIT(1)

@@ -3,7 +3,6 @@ ifeq ($(CONFIG_CRYPTO_DEV_QCE50), y)
 	obj-$(CONFIG_CRYPTO_DEV_QCE) += qce50.o
 else
 	ifeq ($(CONFIG_CRYPTO_DEV_QCE40), y)
-		obj-$(CONFIG_CRYPTO_DEV_QCE) += qce40.o
 	else
 		obj-$(CONFIG_CRYPTO_DEV_QCE) += qce.o
 	endif

@@ -233,30 +233,6 @@ config MFD_JANZ_CMODIO
 	  host many different types of MODULbus daughterboards, including
 	  CAN and GPIO controllers.
 
-config TPS65023
-        tristate "TPS65023 Power Management chip"
-        depends on I2C && ARCH_MSM_SCORPION && !MSM_SMP
-        default y if I2C && ARCH_MSM_SCORPION && !MSM_SMP
-        help
-          Say yes here for Qualcomm QSD chips. The TI PMIC is used by the
-          QSD8x50 series of chips for power management.
-
-config PMIC8058
-	tristate "PMIC8058 Power Management chip"
-	depends on MSM_SSBI
-	select MFD_CORE
-	select MFD_PM8XXX
-	help
-	  Say yes here for Qualcomm PM8058 chip.
-
-config PMIC8901
-	tristate "PMIC8901 Power Management chip"
-	depends on MSM_SSBI
-	select MFD_CORE
-	select MFD_PM8XXX
-	help
-	  Say yes here for Qualcomm PM8901 chip.
-
 config MFD_JZ4740_ADC
 	bool "Janz JZ4740 ADC core"
 	select MFD_CORE
@@ -348,41 +324,6 @@ config MFD_MAX8925
 	  a Power Management IC. This driver provides common support for
 	  accessing the device, additional drivers must be enabled in order
 	  to use the functionality of the device.
-
-config MARIMBA_CORE
-	tristate "Marimba Core"
-	depends on I2C && (ARCH_MSM7X30 || ARCH_MSM8X60 || ARCH_MSM7X27A || ARCH_MSM8960)
-	default n
-	help
-	  Enables the Marimba Core driver. The core driver provides
-	  read/write capability to registers which are part of the
-	  marimba core.
-	  This driver dynamically detects the SoC and works for both
-	  Marimba and Bahama Chip.
-
-config MARIMBA_CODEC
-	tristate "Marimba Codec"
-	depends on MARIMBA_CORE
-	default n
-	help
-	 This driver programs Marimba Wideband Codec for input/output of
-	 audio signal.
-
-config TIMPANI_CODEC
-	tristate "Timpani Codec"
-	depends on MARIMBA_CORE
-	default n
-	help
-	 This driver programs Timpani Wideband Codec for input/output of
-	 audio signal.
-
-config MARIMBA_TSADC
-	tristate "Support for Marimba Touchscreen ADC"
-	depends on MARIMBA_CORE && ARCH_MSM7X30
-	default y if MARIMBA_CORE
-	help
-	  Say yes here if you want to include support for TSADC in the
-	  Qualcomm Marimba chip.
 
 config MFD_MAX8997
 	bool "Maxim Semiconductor MAX8997/8966 PMIC Support"
@@ -491,51 +432,6 @@ config MFD_PM8921_CORE
 	  Say M here if you want to include support for PM8921 chip as a module.
 	  This will build a module called "pm8921-core".
 
-config MFD_PM8821_CORE
-	tristate "Qualcomm PM8821 PMIC chip"
-	depends on MSM_SSBI
-	select MFD_CORE
-	select MFD_PM8XXX
-	help
-	  If you say yes to this option, support will be included for the
-	  built-in PM8821 PMIC chip.
-
-	  This is required if your board has a PM8821 and uses its features,
-	  such as: MPPs, and interrupts.
-
-	  Say M here if you want to include support for PM8821 chip as a module.
-	  This will build a module called "pm8821-core".
-
-config MFD_PM8018_CORE
-	tristate "Qualcomm PM8018 PMIC chip"
-	depends on MSM_SSBI
-	select MFD_CORE
-	select MFD_PM8XXX
-	help
-	  If you say yes to this option, support will be included for the
-	  built-in PM8018 PMIC chip.
-
-	  This is required if your board has a PM8018 and uses its features,
-	  such as: MPPs, GPIOs, regulators, interrupts, and PWM.
-
-	  Say M here if you want to include support for PM8018 chip as a module.
-	  This will build a module called "pm8018-core".
-
-config MFD_PM8038_CORE
-	tristate "Qualcomm PM8038 PMIC chip"
-	depends on MSM_SSBI
-	select MFD_CORE
-	select MFD_PM8XXX
-	help
-	  If you say yes to this option, support will be included for the
-	  built-in PM8038 PMIC chip.
-
-	  This is required if your board has a PM8038 and uses its features,
-	  such as: MPPs, GPIOs, regulators, interrupts, and PWM.
-
-	  Say M here if you want to include support for PM8038 chip as a module.
-	  This will build a module called "pm8038-core".
-
 config MFD_PM8XXX_IRQ
 	bool "Qualcomm PM8xxx IRQ features"
 	depends on MFD_PM8XXX
@@ -545,49 +441,6 @@ config MFD_PM8XXX_IRQ
 
 	  This is required to use certain other PM 8xxx features, such as GPIO
 	  and MPP.
-
-config MFD_PM8XXX_PWM
-	tristate "Support for Qualcomm PM8xxx PWM feature"
-	depends on MFD_PM8XXX
-	default y if MFD_PM8XXX
-	help
-	  This is the Pulse Width Modulation (PWM) driver for Qualcomm
-	  PM 8xxx PMIC chips. It can drive 8 channels of PWM output, and
-	  has a lookup table with size of 64 to be shared by any of the
-	  8 channels.
-
-config MFD_PM8XXX_MISC
-	tristate "Support for Qualcomm PM8xxx miscellaneous APIs"
-	depends on MFD_PM8XXX
-	default y if MFD_PM8XXX
-	help
-	  This driver implements several miscellaneous APIs that may be needed
-	  in order to control the PM8XXX PMIC chip.
-
-config MFD_PM8XXX_SPK
-	tristate "Support for Qualcomm PM8xxx speaker APIs"
-	depends on MFD_PM8XXX
-	help
-	  This driver implements several external speaker amplifier APIs that
-	  may be needed in order to control the PM8XXX PMIC chip.
-
-config MFD_PM8XXX_BATT_ALARM
-	tristate "Support for Qualcomm PM8xxx battery voltage alarm"
-	depends on MFD_PM8XXX
-	help
-	  This driver provides a means monitor battery under and over-voltage
-	  conditions.  An upper and/or lower threshold can be specified for
-	  normal operation.  A wakeable interrupt is triggered when the battery
-	  voltage leaves the accepatable range which then calls a notifier call
-	  chain.
-
-config MFD_PM8821_IRQ
-	bool "Support for Qualcomm PM8821 IRQ features"
-	default y if MFD_PM8821_CORE
-	help
-	  This is the IRQ driver for Qualcomm PM 8821 PMIC chips.
-
-	  This is required to use certain other PM 8821 features, such as MPPs.
 
 config MFD_RDC321X
 	tristate "RDC R-321x southbridge"
@@ -1192,16 +1045,6 @@ config MFD_WM5110
 	depends on MFD_ARIZONA
 	help
 	  Support for Wolfson Microelectronics WM5110 low power audio SoC
-
-config MFD_PM8XXX_DEBUG
-	tristate "Qualcomm PM8xxx debugfs support"
-	depends on MFD_PM8XXX && DEBUG_FS
-	default y if MFD_PM8XXX
-	help
-	  This driver provides a debugfs interface to the SSBI registers on
-	  Qualcomm PM 8xxx PMIC chips.  It allows for reads and writes to
-	  arbitrary addresses.  Writes are blocking so values are guaranteed to
-	  be set into hardware registers upon return.
 
 config MFD_WM8400
 	bool "Wolfson Microelectronics WM8400"

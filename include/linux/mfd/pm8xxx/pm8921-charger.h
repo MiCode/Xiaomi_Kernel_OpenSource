@@ -199,7 +199,7 @@ enum pm8921_charger_source {
 	PM8921_CHG_SRC_DC,
 };
 
-#if defined(CONFIG_PM8921_CHARGER) || defined(CONFIG_PM8921_CHARGER_MODULE)
+#if defined(CONFIG_PM8921_CHARGER_MODULE)
 void pm8921_charger_vbus_draw(unsigned int mA);
 int pm8921_charger_register_vbus_sn(void (*callback)(int));
 void pm8921_charger_unregister_vbus_sn(void (*callback)(int));

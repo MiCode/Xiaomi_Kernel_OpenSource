@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,99 +70,6 @@ enum pm8xxx_batt_alarm_hold_time {
 #define PM8XXX_BATT_ALARM_STATUS_BELOW_LOWER	BIT(0)
 #define PM8XXX_BATT_ALARM_STATUS_ABOVE_UPPER	BIT(1)
 
-#if defined(CONFIG_MFD_PM8XXX_BATT_ALARM) \
-	|| defined(CONFIG_MFD_PM8XXX_BATT_ALARM_MODULE)
-
-/**
- * pm8xxx_batt_alarm_enable - enable one of the battery voltage threshold
- *			      comparators
- * @comparator:	selects which comparator to enable
- *
- * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
- */
-int pm8xxx_batt_alarm_enable(enum pm8xxx_batt_alarm_comparator comparator);
-
-/**
- * pm8xxx_batt_alarm_disable - disable one of the battery voltage threshold
- *			       comparators
- * @comparator:	selects which comparator to disable
- *
- * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
- */
-int pm8xxx_batt_alarm_disable(enum pm8xxx_batt_alarm_comparator comparator);
-
-
-/**
- * pm8xxx_batt_alarm_threshold_set - set the lower and upper alarm thresholds
- * @comparator:		selects which comparator to set the threshold of
- * @threshold_mV:	battery voltage threshold in millivolts
- *			set points = 2500-5675 mV in 25 mV steps
- *
- * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
- */
-int pm8xxx_batt_alarm_threshold_set(
-	enum pm8xxx_batt_alarm_comparator comparator, int threshold_mV);
-
-/**
- * pm8xxx_batt_alarm_status_read - get status of both threshold comparators
- *
- * RETURNS:	< 0	   = error
- *		  0	   = battery voltage ok
- *		BIT(0) set = battery voltage below lower threshold
- *		BIT(1) set = battery voltage above upper threshold
- */
-int pm8xxx_batt_alarm_status_read(void);
-
-/**
- * pm8xxx_batt_alarm_register_notifier - register a notifier to run when a
- *	battery voltage change interrupt fires
- * @nb:	notifier block containing callback function to register
- *
- * nb->notifier_call must point to a function of this form -
- * int (*notifier_call)(struct notifier_block *nb, unsigned long status,
- *			void *unused);
- * "status" will receive the battery alarm status; "unused" will be NULL.
- *
- * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
- */
-int pm8xxx_batt_alarm_register_notifier(struct notifier_block *nb);
-
-/**
- * pm8xxx_batt_alarm_unregister_notifier - unregister a notifier that is run
- *	when a battery voltage change interrupt fires
- * @nb:	notifier block containing callback function to unregister
- *
- * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
- */
-int pm8xxx_batt_alarm_unregister_notifier(struct notifier_block *nb);
-
-/**
- * pm8xxx_batt_alarm_hold_time_set - set hold time of interrupt output *
- * @hold_time:	amount of time that battery voltage must remain outside of the
- *		threshold range before the battery alarm interrupt triggers
- *
- * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
- */
-int pm8xxx_batt_alarm_hold_time_set(enum pm8xxx_batt_alarm_hold_time hold_time);
-
-/**
- * pm8xxx_batt_alarm_pwm_rate_set - set battery alarm update rate *
- * @use_pwm:		1 = use PWM update rate, 0 = comparators always active
- * @clock_scaler:	PWM clock scaler = 2 to 9
- * @clock_divider:	PWM clock divider = 2 to 8
- *
- * This function sets the rate at which the battery alarm module enables
- * the threshold comparators.  The rate is determined by the following equation:
- *
- * f_update = (1024 Hz) / (clock_divider * (2 ^ clock_scaler))
- *
- * Thus, the update rate can range from 0.25 Hz to 128 Hz.
- *
- * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
- */
-int pm8xxx_batt_alarm_pwm_rate_set(int use_pwm, int clock_scaler,
-				   int clock_divider);
-#else
 
 static inline int
 pm8xxx_batt_alarm_enable(enum pm8xxx_batt_alarm_comparator comparator)
@@ -195,7 +102,6 @@ static inline int
 pm8xxx_batt_alarm_pwm_rate_set(int use_pwm, int clock_scaler, int clock_divider)
 { return -ENODEV; }
 
-#endif
 
 
 #endif /* __MFD_PM8XXX_BATT_ALARM_H__ */

@@ -11,14 +11,6 @@ menuconfig ESOC
 
 if ESOC
 
-config ESOC_DEV
-	bool "ESOC userspace interface"
-	help
-	  Say yes here to enable a userspace representation of the control
-	  link. Userspace can register a request engine or a command engine
-	  for the external soc. It can receive event notifications from the
-	  control link.
-
 config ESOC_DEBUG
 	bool "ESOC debug support"
 	help

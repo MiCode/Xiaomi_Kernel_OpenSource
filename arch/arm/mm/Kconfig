@@ -878,16 +878,6 @@ config CACHE_PL310
 	  This option enables optimisations for the PL310 cache
 	  controller.
 
-config CACHE_PL310_ERP
-	tristate "PL310 CACHE Error Reporting"
-	depends on CACHE_PL310
-	help
-	  Say 'Y' here to enable reporting of external L2 cache errors.
-	  This feature can be used as a system debugging technique if cache
-	  corruption is suspected.
-	  Cache error statistics will also be reported in sysfs
-	  /sys/devices/platform/pl310_erp/cache_erp
-
 config CACHE_TAUROS2
 	bool "Enable the Tauros2 L2 cache controller"
 	depends on (ARCH_DOVE || ARCH_MMP || CPU_PJ4)

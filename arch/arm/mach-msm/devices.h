@@ -32,11 +32,6 @@ void __init msm_rotator_set_split_iommu_domain(void);
 extern struct platform_device asoc_msm_pcm;
 extern struct platform_device asoc_msm_dai0;
 extern struct platform_device asoc_msm_dai1;
-#if defined (CONFIG_SND_MSM_MVS_DAI_SOC)
-extern struct platform_device asoc_msm_mvs;
-extern struct platform_device asoc_mvs_dai0;
-extern struct platform_device asoc_mvs_dai1;
-#endif
 
 extern struct platform_device msm_ebi0_thermal;
 extern struct platform_device msm_ebi1_thermal;
@@ -195,9 +190,6 @@ extern struct platform_device msm_device_nand;
 extern struct platform_device msm_device_tssc;
 
 extern struct platform_device msm_rotator_device;
-#ifdef CONFIG_MSM_VCAP
-extern struct platform_device msm8064_device_vcap;
-#endif
 
 #ifdef CONFIG_MSM_BUS_SCALING
 extern struct msm_bus_scale_pdata rotator_bus_scale_pdata;

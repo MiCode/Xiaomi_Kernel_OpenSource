@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1125,48 +1125,6 @@ extern struct msm_rpm_platform_data msm8930_rpm_data;
 extern struct msm_rpm_platform_data msm8930_rpm_data_pm8917;
 extern struct msm_rpm_platform_data apq8064_rpm_data;
 
-#if defined(CONFIG_MSM_RPM)
-
-int msm_rpm_local_request_is_outstanding(void);
-int msm_rpm_get_status(struct msm_rpm_iv_pair *status, int count);
-int msm_rpm_set(int ctx, struct msm_rpm_iv_pair *req, int count);
-int msm_rpm_set_noirq(int ctx, struct msm_rpm_iv_pair *req, int count);
-
-static inline int msm_rpm_set_nosleep(
-	int ctx, struct msm_rpm_iv_pair *req, int count)
-{
-	unsigned long flags;
-	int rc;
-
-	local_irq_save(flags);
-	rc = msm_rpm_set_noirq(ctx, req, count);
-	local_irq_restore(flags);
-
-	return rc;
-}
-
-int msm_rpm_clear(int ctx, struct msm_rpm_iv_pair *req, int count);
-int msm_rpm_clear_noirq(int ctx, struct msm_rpm_iv_pair *req, int count);
-
-static inline int msm_rpm_clear_nosleep(
-	int ctx, struct msm_rpm_iv_pair *req, int count)
-{
-	unsigned long flags;
-	int rc;
-
-	local_irq_save(flags);
-	rc = msm_rpm_clear_noirq(ctx, req, count);
-	local_irq_restore(flags);
-
-	return rc;
-}
-
-int msm_rpm_register_notification(struct msm_rpm_notification *n,
-	struct msm_rpm_iv_pair *req, int count);
-int msm_rpm_unregister_notification(struct msm_rpm_notification *n);
-int msm_rpm_init(struct msm_rpm_platform_data *data);
-
-#else
 
 static inline int msm_rpm_local_request_is_outstanding(void)
 {
@@ -1230,6 +1188,5 @@ static inline int msm_rpm_init(struct msm_rpm_platform_data *data)
 	return -ENODEV;
 }
 
-#endif /* CONFIG_RPM */
 
 #endif /* __ARCH_ARM_MACH_MSM_RPM_H */
