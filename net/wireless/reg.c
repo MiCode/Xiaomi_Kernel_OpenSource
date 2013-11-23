@@ -1676,12 +1676,48 @@ static void reg_leave_invalid_chans(struct wiphy *wiphy)
 {
 	struct wireless_dev *wdev;
 	struct cfg80211_registered_device *rdev = wiphy_to_rdev(wiphy);
-
+	struct net_device *dev;
+	struct cfg80211_sched_scan_request *sched_scan_req;
 	ASSERT_RTNL();
 
 	list_for_each_entry(wdev, &rdev->wdev_list, list)
-		if (!reg_wdev_chan_valid(wiphy, wdev))
-			cfg80211_leave(rdev, wdev);
+		if (!reg_wdev_chan_valid(wiphy, wdev)) {
+			dev = wdev->netdev;
+			switch (wdev->iftype) {
+			case NL80211_IFTYPE_ADHOC:
+				cfg80211_leave_ibss(rdev, dev, true);
+				break;
+			case NL80211_IFTYPE_P2P_CLIENT:
+			case NL80211_IFTYPE_STATION:
+				ASSERT_RTNL();
+				sched_scan_req = rtnl_dereference(rdev->sched_scan_req);
+				if (sched_scan_req && dev == sched_scan_req->dev)
+					__cfg80211_stop_sched_scan(rdev, false);
+
+				wdev_lock(wdev);
+#ifdef CONFIG_CFG80211_WEXT
+				kfree(wdev->wext.ie);
+				wdev->wext.ie = NULL;
+				wdev->wext.ie_len = 0;
+				wdev->wext.connect.auth_type =
+							NL80211_AUTHTYPE_AUTOMATIC;
+#endif
+				cfg80211_disconnect(rdev, dev,
+						WLAN_REASON_DEAUTH_LEAVING, true);
+				cfg80211_mlme_down(rdev, dev);
+				wdev_unlock(wdev);
+				break;
+			case NL80211_IFTYPE_MESH_POINT:
+				cfg80211_leave_mesh(rdev, dev);
+				break;
+			case NL80211_IFTYPE_AP:
+				cfg80211_stop_ap(rdev, dev, false);
+				break;
+			default:
+				break;
+			}
+			wdev->beacon_interval = 0;
+		}
 }
 
 static void reg_check_chans_work(struct work_struct *work)
