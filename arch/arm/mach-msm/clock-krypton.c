@@ -2190,6 +2190,10 @@ static void __init reg_init(void)
 	regval = readl_relaxed(GCC_REG_BASE(APCS_GPLL_ENA_VOTE));
 	regval |= BIT(0);
 	writel_relaxed(regval, GCC_REG_BASE(APCS_GPLL_ENA_VOTE));
+
+	regval = readl_relaxed(GCC_REG_BASE(APCS_CLOCK_BRANCH_ENA_VOTE));
+	regval |= BIT(26);
+	writel_relaxed(regval, GCC_REG_BASE(APCS_CLOCK_BRANCH_ENA_VOTE));
 }
 
 static void __init msmkrypton_clock_post_init(void)
