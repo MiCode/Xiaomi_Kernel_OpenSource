@@ -1782,6 +1782,11 @@ int mdss_mdp_display_wait4comp(struct mdss_mdp_ctl *ctl)
 {
 	int ret;
 
+	if (!ctl) {
+		pr_err("invalid ctl\n");
+		return -ENODEV;
+	}
+
 	ret = mutex_lock_interruptible(&ctl->lock);
 	if (ret)
 		return ret;
