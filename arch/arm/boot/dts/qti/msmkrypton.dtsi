@@ -405,16 +405,16 @@
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 	};
 
-	ipa_hw: qcom,ipa@fd4c0000 {
-		compatible = "qcom,ipa";
+	ipa_hw: qti,ipa@fd4c0000 {
+		compatible = "qti,ipa";
 		reg = <0xfd4c0000 0x29000>,
 		      <0xfd4c4000 0x15820>;
 		reg-names = "ipa-base", "bam-base";
 		interrupts = <0 252 0>,
 		             <0 253 0>;
 		interrupt-names = "ipa-irq", "bam-irq";
-		qcom,ipa-hw-ver = <3>; /* IPA core version = IPAv2.0 */
-		qcom,ipa-hw-mode = <0>; /* IPA hw type = Normal */
+		qti,ipa-hw-ver = <3>; /* IPA core version = IPAv2.0 */
+		qti,ipa-hw-mode = <0>; /* IPA hw type = Normal */
 	};
 
 	usb3: qcom,ssusb@f9200000 {

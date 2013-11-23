@@ -32,7 +32,7 @@
 };
 
 &ipa_hw {
-	qcom,ipa-hw-ver = <2>; /* IPA h-w revision */
+	qti,ipa-hw-ver = <2>; /* IPA h-w revision */
 };
 
 &hsic_host {

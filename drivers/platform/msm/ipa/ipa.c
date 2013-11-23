@@ -54,7 +54,7 @@
 static struct ipa_plat_drv_res ipa_res = {0, };
 static struct of_device_id ipa_plat_drv_match[] = {
 	{
-		.compatible = "qcom,ipa",
+		.compatible = "qti,ipa",
 	},
 
 	{
@@ -1247,55 +1247,55 @@ static int ipa_update_connections_info(struct device_node *node,
 	if (!pipe_connection || !node)
 		return -EINVAL;
 
-	key = "qcom,src-bam-physical-address";
+	key = "qti,src-bam-physical-address";
 	rc = of_property_read_u32(node, key, &val);
 	if (rc)
 		goto err;
 	pipe_connection->src_phy_addr = val;
 
-	key = "qcom,ipa-bam-mem-type";
+	key = "qti,ipa-bam-mem-type";
 	rc = of_property_read_u32(node, key, &mem_type);
 	if (rc)
 		goto err;
 	pipe_connection->mem_type = mem_type;
 
-	key = "qcom,src-bam-pipe-index";
+	key = "qti,src-bam-pipe-index";
 	rc = of_property_read_u32(node, key, &val);
 	if (rc)
 		goto err;
 	pipe_connection->src_pipe_index = val;
 
-	key = "qcom,dst-bam-physical-address";
+	key = "qti,dst-bam-physical-address";
 	rc = of_property_read_u32(node, key, &val);
 	if (rc)
 		goto err;
 	pipe_connection->dst_phy_addr = val;
 
-	key = "qcom,dst-bam-pipe-index";
+	key = "qti,dst-bam-pipe-index";
 	rc = of_property_read_u32(node, key, &val);
 	if (rc)
 		goto err;
 	pipe_connection->dst_pipe_index = val;
 
-	key = "qcom,data-fifo-offset";
+	key = "qti,data-fifo-offset";
 	rc = of_property_read_u32(node, key, &val);
 	if (rc)
 		goto err;
 	pipe_connection->data_fifo_base_offset = val;
 
-	key = "qcom,data-fifo-size";
+	key = "qti,data-fifo-size";
 	rc = of_property_read_u32(node, key, &val);
 	if (rc)
 		goto err;
 	pipe_connection->data_fifo_size = val;
 
-	key = "qcom,descriptor-fifo-offset";
+	key = "qti,descriptor-fifo-offset";
 	rc = of_property_read_u32(node, key, &val);
 	if (rc)
 		goto err;
 	pipe_connection->desc_fifo_base_offset = val;
 
-	key = "qcom,descriptor-fifo-size";
+	key = "qti,descriptor-fifo-size";
 	rc = of_property_read_u32(node, key, &val);
 	if (rc)
 		goto err;
@@ -2210,7 +2210,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->ipa_hw_mode = 0;
 
 	/* Get IPA HW Version */
-	result = of_property_read_u32(pdev->dev.of_node, "qcom,ipa-hw-ver",
+	result = of_property_read_u32(pdev->dev.of_node, "qti,ipa-hw-ver",
 					&ipa_drv_res->ipa_hw_type);
 	if ((result) || (ipa_drv_res->ipa_hw_type == 0)) {
 		IPAERR(":get resource failed for ipa-hw-ver!\n");
@@ -2219,7 +2219,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	IPADBG(": ipa_hw_type = %d", ipa_drv_res->ipa_hw_type);
 
 	/* Get IPA HW mode */
-	result = of_property_read_u32(pdev->dev.of_node, "qcom,ipa-hw-mode",
+	result = of_property_read_u32(pdev->dev.of_node, "qti,ipa-hw-mode",
 			&ipa_drv_res->ipa_hw_mode);
 	if (result)
 		IPADBG("using default (IPA_MODE_NORMAL) for ipa-hw-mode\n");
@@ -2229,20 +2229,20 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 
 	ipa_drv_res->use_ipa_bamdma_a2_bridge =
 			of_property_read_bool(pdev->dev.of_node,
-			"qcom,use-ipa-bamdma-a2-bridge");
+			"qti,use-ipa-bamdma-a2-bridge");
 	IPADBG(": using A2-BAMDMA bridge = %s",
 		ipa_drv_res->use_ipa_bamdma_a2_bridge ?
 				"True" : "False");
 
 	ipa_drv_res->use_a2_service = of_property_read_bool(pdev->dev.of_node,
-			"qcom,use-a2-service");
+			"qti,use-a2-service");
 	IPADBG(": using A2 service = %s",
 			ipa_drv_res->use_a2_service
 			? "True" : "False");
 
 	ipa_drv_res->use_ipa_teth_bridge =
 			of_property_read_bool(pdev->dev.of_node,
-			"qcom,use-ipa-tethering-bridge");
+			"qti,use-ipa-tethering-bridge");
 	IPADBG(": using TBDr = %s",
 		ipa_drv_res->use_ipa_teth_bridge
 		? "True" : "False");

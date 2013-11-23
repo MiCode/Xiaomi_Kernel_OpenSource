@@ -8,7 +8,7 @@ Required properties:
 
 IPA node:
 
-- compatible : "qcom,ipa"
+- compatible : "qti,ipa"
 - reg: Specifies the base physical addresses and the sizes of the IPA
        registers.
 - reg-names: "ipa-base" - string to identify the IPA CORE base registers.
@@ -18,32 +18,32 @@ IPA node:
 - interrupt-names: "ipa-irq" - string to identify the IPA core interrupt.
                    "bam-irq" - string to identify the IPA BAM interrupt.
                    "a2-bam-irq" - string to identify the A2 BAM interrupt.
-- qcom,ipa-hw-ver: Specifies the IPA hardware version.
+- qti,ipa-hw-ver: Specifies the IPA hardware version.
 
 Optional:
 
-- qcom,use-a2-service: determine if A2 service will be used
-- qcom,use-ipa-tethering-bridge: determine if tethering bridge will be used
-- qcom,use-ipa-bamdma-a2-bridge: determine if a2/ipa hw bridge will be used
+- qti,use-a2-service: determine if A2 service will be used
+- qti,use-ipa-tethering-bridge: determine if tethering bridge will be used
+- qti,use-ipa-bamdma-a2-bridge: determine if a2/ipa hw bridge will be used
 
 IPA pipe sub nodes (A2 static pipes configurations):
 
 -label: two labels are supported, a2-to-ipa and ipa-to-a2 which
 supply static configuration for A2-IPA connection.
--qcom,src-bam-physical-address: The physical address of the source BAM
--qcom,ipa-bam-mem-type:The memory type:
+-qti,src-bam-physical-address: The physical address of the source BAM
+-qti,ipa-bam-mem-type:The memory type:
                        0(Pipe memory), 1(Private memory), 2(System memory)
--qcom,src-bam-pipe-index: Source pipe index
--qcom,dst-bam-physical-address: The physical address of the
+-qti,src-bam-pipe-index: Source pipe index
+-qti,dst-bam-physical-address: The physical address of the
                                 destination BAM
--qcom,dst-bam-pipe-index: Destination pipe index
--qcom,data-fifo-offset: Data fifo base offset
--qcom,data-fifo-size:  Data fifo size (bytes)
--qcom,descriptor-fifo-offset: Descriptor fifo base offset
--qcom,descriptor-fifo-size: Descriptor fifo size (bytes)
+-qti,dst-bam-pipe-index: Destination pipe index
+-qti,data-fifo-offset: Data fifo base offset
+-qti,data-fifo-size:  Data fifo size (bytes)
+-qti,descriptor-fifo-offset: Descriptor fifo base offset
+-qti,descriptor-fifo-size: Descriptor fifo size (bytes)
 
 Optional properties:
--qcom,ipa-pipe-mem: Specifies the base physical address and the
+-qti,ipa-pipe-mem: Specifies the base physical address and the
                     size of the IPA pipe memory region.
                     Pipe memory is a feature which may be supported by the
                     target (HW platform). The Driver support using pipe
@@ -53,8 +53,8 @@ Optional properties:
 
 Example:
 
-qcom,ipa@fd4c0000 {
-	compatible = "qcom,ipa";
+qti,ipa@fd4c0000 {
+	compatible = "qti,ipa";
 	reg = <0xfd4c0000 0x26000>,
 	      <0xfd4c4000 0x14818>;
 	      <0xfc834000 0x7000>;
@@ -63,31 +63,31 @@ qcom,ipa@fd4c0000 {
 	             <0 253 0>;
 	             <0 29 1>;
 	interrupt-names = "ipa-irq", "bam-irq"; "a2-bam-irq";
-	qcom,ipa-hw-ver = <1>;
+	qti,ipa-hw-ver = <1>;
 
-	qcom,pipe1 {
+	qti,pipe1 {
 		label = "a2-to-ipa";
-		qcom,src-bam-physical-address = <0xfc834000>;
-		qcom,ipa-bam-mem-type = <0>;
-		qcom,src-bam-pipe-index = <1>;
-		qcom,dst-bam-physical-address = <0xfd4c0000>;
-		qcom,dst-bam-pipe-index = <6>;
-		qcom,data-fifo-offset = <0x1000>;
-		qcom,data-fifo-size = <0xd00>;
-		qcom,descriptor-fifo-offset = <0x1d00>;
-		qcom,descriptor-fifo-size = <0x300>;
+		qti,src-bam-physical-address = <0xfc834000>;
+		qti,ipa-bam-mem-type = <0>;
+		qti,src-bam-pipe-index = <1>;
+		qti,dst-bam-physical-address = <0xfd4c0000>;
+		qti,dst-bam-pipe-index = <6>;
+		qti,data-fifo-offset = <0x1000>;
+		qti,data-fifo-size = <0xd00>;
+		qti,descriptor-fifo-offset = <0x1d00>;
+		qti,descriptor-fifo-size = <0x300>;
 	};
 
-	qcom,pipe2 {
+	qti,pipe2 {
 		label = "ipa-to-a2";
-		qcom,src-bam-physical-address = <0xfd4c0000>;
-		qcom,ipa-bam-mem-type = <0>;
-		qcom,src-bam-pipe-index = <7>;
-		qcom,dst-bam-physical-address = <0xfc834000>;
-		qcom,dst-bam-pipe-index = <0>;
-		qcom,data-fifo-offset = <0x00>;
-		qcom,data-fifo-size = <0xd00>;
-		qcom,descriptor-fifo-offset = <0xd00>;
-		qcom,descriptor-fifo-size = <0x300>;
+		qti,src-bam-physical-address = <0xfd4c0000>;
+		qti,ipa-bam-mem-type = <0>;
+		qti,src-bam-pipe-index = <7>;
+		qti,dst-bam-physical-address = <0xfc834000>;
+		qti,dst-bam-pipe-index = <0>;
+		qti,data-fifo-offset = <0x00>;
+		qti,data-fifo-size = <0xd00>;
+		qti,descriptor-fifo-offset = <0xd00>;
+		qti,descriptor-fifo-size = <0x300>;
 	};
 };
