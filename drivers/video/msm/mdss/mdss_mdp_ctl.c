@@ -1804,11 +1804,25 @@ void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 			ctl->roi.x, ctl->roi.y, ctl->roi.w, ctl->roi.h);
 }
 
+static inline u32 mdss_mdp_mpq_pipe_num_map(u32 pipe_num)
+{
+	u32 mpq_num;
+	if (pipe_num == MDSS_MDP_SSPP_VIG3)
+		mpq_num = MDSS_MDP_SSPP_VIG2 + 1;
+	else if (pipe_num == MDSS_MDP_SSPP_RGB0)
+		mpq_num = MDSS_MDP_SSPP_VIG2 + 2;
+	else if (pipe_num == MDSS_MDP_SSPP_RGB1)
+		mpq_num = MDSS_MDP_SSPP_VIG2 + 3;
+	else
+		mpq_num = pipe_num;
+	return mpq_num;
+}
+
 static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 				struct mdss_mdp_mixer *mixer)
 {
 	struct mdss_mdp_pipe *pipe;
-	u32 off, blend_op, blend_stage;
+	u32 off, blend_op, blend_stage, mpq_num;
 	u32 mixercfg = 0, blend_color_out = 0, bg_alpha_enable = 0;
 	u32 fg_alpha = 0, bg_alpha = 0;
 	int stage, secure = 0;
@@ -1834,7 +1848,10 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 	if (pipe == NULL) {
 		mixercfg = MDSS_MDP_LM_BORDER_COLOR;
 	} else {
-		if (pipe->num == MDSS_MDP_SSPP_VIG3 ||
+		if (ctl->mdata->mdp_rev == MDSS_MDP_HW_REV_200) {
+			mpq_num = mdss_mdp_mpq_pipe_num_map(pipe->num);
+			mixercfg = 1 << (3 * mpq_num);
+		} else if (pipe->num == MDSS_MDP_SSPP_VIG3 ||
 			pipe->num == MDSS_MDP_SSPP_RGB3) {
 			/* Add 2 to account for Cursor & Border bits */
 			mixercfg = 1 << ((3 * pipe->num)+2);
@@ -1923,7 +1940,10 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 		if (!pipe->src_fmt->alpha_enable && bg_alpha_enable)
 			blend_color_out = 0;
 
-		if (pipe->num == MDSS_MDP_SSPP_VIG3 ||
+		if (ctl->mdata->mdp_rev == MDSS_MDP_HW_REV_200) {
+			mpq_num = mdss_mdp_mpq_pipe_num_map(pipe->num);
+			mixercfg |= stage << (3 * mpq_num);
+		} else if (pipe->num == MDSS_MDP_SSPP_VIG3 ||
 			pipe->num == MDSS_MDP_SSPP_RGB3) {
 			/* Add 2 to account for Cursor & Border bits */
 			mixercfg |= stage << ((3 * pipe->num)+2);
@@ -2119,6 +2139,7 @@ int mdss_mdp_mixer_pipe_update(struct mdss_mdp_pipe *pipe, int params_changed)
 	struct mdss_mdp_ctl *ctl;
 	struct mdss_mdp_mixer *mixer;
 	int i;
+	u32 mpq_num;
 
 	if (!pipe)
 		return -EINVAL;
@@ -2150,7 +2171,10 @@ int mdss_mdp_mixer_pipe_update(struct mdss_mdp_pipe *pipe, int params_changed)
 		}
 	}
 
-	if (pipe->type == MDSS_MDP_PIPE_TYPE_DMA)
+	if (ctl->mdata->mdp_rev == MDSS_MDP_HW_REV_200) {
+		mpq_num = mdss_mdp_mpq_pipe_num_map(pipe->num);
+		ctl->flush_bits |= BIT(mpq_num);
+	} else if (pipe->type == MDSS_MDP_PIPE_TYPE_DMA)
 		ctl->flush_bits |= BIT(pipe->num) << 5;
 	else if (pipe->num == MDSS_MDP_SSPP_VIG3 ||
 			pipe->num == MDSS_MDP_SSPP_RGB3)
