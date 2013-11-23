@@ -1418,6 +1418,24 @@ static int msm_pcie_pm_resume(struct pci_dev *dev, u32 rc_idx,
 	return ret;
 }
 
+void msm_pcie_fixup_resume(struct pci_dev *dev)
+{
+	int ret;
+	u32 rc_idx = pcie_drv.current_rc;
+
+	PCIE_DBG("\n");
+
+	if ((msm_pcie_dev[rc_idx].link_status != MSM_PCIE_LINK_DISABLED) ||
+		msm_pcie_dev[rc_idx].user_suspend)
+		return;
+
+	ret = msm_pcie_pm_resume(dev, rc_idx, NULL, NULL, 0);
+	if (ret)
+		pr_err("PCIe: got failure in fixup resume:%d.\n", ret);
+}
+DECLARE_PCI_FIXUP_RESUME(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
+				 msm_pcie_fixup_resume);
+
 void msm_pcie_fixup_resume_early(struct pci_dev *dev)
 {
 	int ret;
