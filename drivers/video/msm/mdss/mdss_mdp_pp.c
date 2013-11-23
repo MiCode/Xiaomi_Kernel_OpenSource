@@ -312,8 +312,8 @@ static struct mdss_pp_res_type *mdss_pp_res;
 
 static u32 pp_hist_read(char __iomem *v_addr,
 				struct pp_hist_col_info *hist_info);
-static int pp_histogram_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix);
-static int pp_histogram_disable(struct pp_hist_col_info *hist_info,
+static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix);
+static int pp_hist_disable(struct pp_hist_col_info *hist_info,
 					u32 done_bit, char __iomem *ctl_base);
 static void pp_update_pcc_regs(char __iomem *addr,
 				struct mdp_pcc_cfg_data *cfg_ptr);
@@ -816,7 +816,7 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 		}
 	}
 
-	pp_histogram_setup(&opmode, MDSS_PP_SSPP_CFG | pipe->num, pipe->mixer);
+	pp_hist_setup(&opmode, MDSS_PP_SSPP_CFG | pipe->num, pipe->mixer);
 
 	if (pipe->flags & MDP_OVERLAY_PP_CFG_EN) {
 		if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_PA_CFG) &&
@@ -1131,7 +1131,7 @@ void mdss_mdp_pipe_sspp_term(struct mdss_mdp_pipe *pipe)
 			hist_info = &pipe->pp_res.hist;
 			ctl_base = pipe->base +
 				MDSS_MDP_REG_VIG_HIST_CTL_BASE;
-			pp_histogram_disable(hist_info, done_bit, ctl_base);
+			pp_hist_disable(hist_info, done_bit, ctl_base);
 		}
 		memset(&pipe->pp_cfg, 0, sizeof(struct mdp_overlay_pp_params));
 		memset(&pipe->pp_res, 0, sizeof(struct mdss_pipe_pp_res));
@@ -1266,7 +1266,7 @@ static char __iomem *mdss_mdp_get_dspp_addr_off(u32 dspp_num)
 }
 
 /* Assumes that function will be called from within clock enabled space*/
-static int pp_histogram_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
+static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
 {
 	int ret = -EINVAL;
 	char __iomem *base;
@@ -1430,7 +1430,7 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 
-	ret = pp_histogram_setup(&opmode, MDSS_PP_DSPP_CFG | dspp_num, mixer);
+	ret = pp_hist_setup(&opmode, MDSS_PP_DSPP_CFG | dspp_num, mixer);
 	if (ret)
 		goto dspp_exit;
 
@@ -2836,7 +2836,7 @@ static u32 pp_hist_read(char __iomem *v_addr,
 }
 
 /* Assumes that relevant clocks are enabled */
-static int pp_histogram_enable(struct pp_hist_col_info *hist_info,
+static int pp_hist_enable(struct pp_hist_col_info *hist_info,
 				struct mdp_histogram_start_req *req,
 				u32 shift_bit, char __iomem *ctl_base)
 {
@@ -2942,7 +2942,7 @@ int mdss_mdp_hist_start(struct mdp_histogram_start_req *req)
 			hist_info = &pipe->pp_res.hist;
 			ctl_base = pipe->base +
 				MDSS_MDP_REG_VIG_HIST_CTL_BASE;
-			ret = pp_histogram_enable(hist_info, req,
+			ret = pp_hist_enable(hist_info, req,
 						done_shift_bit,	ctl_base);
 			mdss_mdp_pipe_unmap(pipe);
 		}
@@ -2953,7 +2953,7 @@ int mdss_mdp_hist_start(struct mdp_histogram_start_req *req)
 			hist_info = &mdss_pp_res->dspp_hist[dspp_num];
 			ctl_base = mdss_mdp_get_dspp_addr_off(dspp_num) +
 				MDSS_MDP_REG_DSPP_HIST_CTL_BASE;
-			ret = pp_histogram_enable(hist_info, req,
+			ret = pp_hist_enable(hist_info, req,
 						done_shift_bit,	ctl_base);
 			mdss_pp_res->pp_disp_flags[disp_num] |=
 							PP_FLAGS_DIRTY_HIST_COL;
@@ -2965,7 +2965,7 @@ hist_exit:
 	return ret;
 }
 
-static int pp_histogram_disable(struct pp_hist_col_info *hist_info,
+static int pp_hist_disable(struct pp_hist_col_info *hist_info,
 					u32 done_bit, char __iomem *ctl_base)
 {
 	int ret = 0;
@@ -3042,7 +3042,7 @@ int mdss_mdp_hist_stop(u32 block)
 			hist_info = &pipe->pp_res.hist;
 			ctl_base = pipe->base +
 				MDSS_MDP_REG_VIG_HIST_CTL_BASE;
-			ret = pp_histogram_disable(hist_info, done_bit,
+			ret = pp_hist_disable(hist_info, done_bit,
 								ctl_base);
 			mdss_mdp_pipe_unmap(pipe);
 			if (ret)
@@ -3055,7 +3055,7 @@ int mdss_mdp_hist_stop(u32 block)
 			hist_info = &mdss_pp_res->dspp_hist[dspp_num];
 			ctl_base = mdss_mdp_get_dspp_addr_off(dspp_num) +
 				  MDSS_MDP_REG_DSPP_HIST_CTL_BASE;
-			ret = pp_histogram_disable(hist_info, done_bit,
+			ret = pp_hist_disable(hist_info, done_bit,
 								ctl_base);
 			if (ret)
 				goto hist_stop_clk;
