@@ -269,6 +269,7 @@ int msm_audio_ion_mmap(struct audio_buffer *ab,
 	} else {
 		ion_phys_addr_t phys_addr;
 		size_t phys_len;
+		size_t va_len = 0;
 		pr_debug("%s: page is NULL\n", __func__);
 
 		ret = ion_phys(ab->client, ab->handle, &phys_addr, &phys_len);
@@ -282,6 +283,12 @@ int msm_audio_ion_mmap(struct audio_buffer *ab,
 			vma, (unsigned int)vma->vm_start,
 			(unsigned int)vma->vm_end, vma->vm_pgoff,
 			(unsigned long int)vma->vm_page_prot);
+		va_len = vma->vm_end - vma->vm_start;
+		if ((offset > phys_len) || (va_len > phys_len-offset)) {
+			pr_err("wrong offset size %ld, lens= %d, va_len=%d\n",
+				offset, phys_len, va_len);
+			return -EINVAL;
+		}
 		ret =  remap_pfn_range(vma, vma->vm_start,
 				__phys_to_pfn(phys_addr) + vma->vm_pgoff,
 				vma->vm_end - vma->vm_start,

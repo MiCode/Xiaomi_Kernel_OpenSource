@@ -676,6 +676,7 @@ static struct clk_freq_tbl ftbl_gcc_blsp1_qup1_6_spi_apps_clk[] = {
 	F(  960000, gcc_xo, 10, 1, 2),
 	F( 4800000, gcc_xo,  4, 0, 0),
 	F( 9600000, gcc_xo,  2, 0, 0),
+	F(12000000,  gpll0, 10, 1, 5),
 	F(15000000,  gpll0, 10, 1, 4),
 	F(19200000, gcc_xo,  1, 0, 0),
 	F(25000000,  gpll0, 12, 1, 2),
@@ -782,6 +783,7 @@ static struct clk_freq_tbl ftbl_gcc_blsp1_uart1_6_apps_clk[] = {
 	F(56000000,  gpll0,    1,    7,    75),
 	F(58982400,  gpll0,    1, 1536, 15625),
 	F(60000000,  gpll0,   10,    0,     0),
+	F(63160000,  gpll0,  9.5,    0,     0),
 	F_END,
 };
 
@@ -1283,6 +1285,7 @@ static struct local_vote_clk gcc_ce1_clk = {
 	.en_mask = BIT(5),
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &ce1_clk_src.c,
 		.dbg_name = "gcc_ce1_clk",
 		.ops = &clk_ops_vote,
 		CLK_INIT(gcc_ce1_clk.c),

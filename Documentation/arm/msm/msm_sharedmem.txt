@@ -1,0 +1,115 @@
+Introduction
+============
+
+This is a new platform driver for newly introduced UIO devices
+to facilitate clients in Userspace.
+
+Hardware description
+====================
+This driver does not implement any specific hardware driver.
+
+Software description
+====================
+
+Design
+======
+
+The goal of this driver is to ensure there is no security lapse in the
+Userspace clients' functionality. This new driver uses the existing
+UIO framework to facilitate the clients to be able to memory map their
+respective allotted shared memory address in the client's address space.
+
+				  |
+    Userspace			  |		Kernel space
+ +--------------+	+---------------+	+---------------+
+ |   Client	|	|  Shared	|	|  shrdmem_uio	|
+ |		<------->    Memory	<------->  driver	|
+ +--------------+	+---------------+	+---------------+
+				  |
+				  |
+
+The shared memory (a transport buffer) address is unique for each
+individual client and is made available to the driver via device tree.
+
+For a given client the probe would be called once in the shrdmem_uio driver.
+This driver would parse the device tree and register a new UIO device with kernel
+available under /dev/uioX (where X would start from zero, being serially
+incremented for the next UIO device probed)
+
+The client in Userspace would be able to access the respective UIO device
+under the sysfs entry(/sys/class/uio/uioX) upon verifying the name and version
+of the device under this sysfs node. Once verified it could access the physical
+address under /sys/class/uio/uioX/maps/map0/addr
+
+The client would request for memory mapping which would be taken care of in the
+kernel space by the UIO framework. No explicit mmap() implementation required by
+the shrdmem_uio driver.
+
+Power Management
+================
+Does not implement any power management.
+
+SMP/multi-core
+==============
+
+The platform driver would be loaded/probed once per client.
+DTS files will be looked up for shared memory addresses and sizes for all the clients.
+The UIO char device will be created under /dev/uioX.
+
+This being one time activity for a given client it does not require SMP/multi-core safety.
+
+Security
+========
+
+The devices (/dev/uioX) would have permission checks for restricted access
+
+Performance
+===========
+
+None.
+
+Interface
+=========
+
+This driver does not export any APIs for kernel.
+Android user space can access the shared memory by mmaping it.
+
+Driver parameters
+=================
+
+None.
+
+Config options
+==============
+
+None.
+
+Dependencies
+============
+
+The only dependency is the kernel device tree files for the
+Userspace client details.
+
+User space utilities
+====================
+This driver communicates with the following user space clients/utilities:
+
+Remote File System:
+ - Based on Qualcomm Messaging Interface (QMI)
+ - This service enables the modules on the MSM modem processor to
+   read data from and write data to the embedded multimedia card (eMMC),
+   which is solely controlled by the applications processor.
+
+Remote File System Access (QMI_RFSA):
+ - Based on Qualcomm Messaging Interface (QMI)
+ - This service provides access from the Hexagon processor to a High-Level
+   Operating Sytem (HLOS) file system
+Other
+=====
+
+None.
+
+Known issues
+============
+
+None.

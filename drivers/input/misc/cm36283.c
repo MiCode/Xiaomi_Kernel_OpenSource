@@ -674,17 +674,9 @@ static int lightsensor_enable(struct cm36283_info *lpi)
 {
 	int ret = -EIO;
 	unsigned int delay;
-	
-	mutex_lock(&als_enable_mutex);
 
-	if (lpi->als_enable) {
-		dev_err(&lpi->i2c_client->dev, "%s: already enabled\n",
-			       __func__);
-		ret = 0;
-	} else {
-		ret = control_and_report(lpi, CONTROL_ALS, 1, 0);
-	}
-	
+	mutex_lock(&als_enable_mutex);
+	ret = control_and_report(lpi, CONTROL_ALS, 1, 0);
 	mutex_unlock(&als_enable_mutex);
 
 	delay = atomic_read(&lpi->ls_poll_delay);
@@ -2009,27 +2001,40 @@ static int cm36283_suspend(struct device *dev)
 	struct cm36283_info *lpi = lp_info;
 
 	if (lpi->als_enable) {
-		lightsensor_disable(lpi);
+		if (lightsensor_disable(lpi))
+			goto out;
 		lpi->als_enable = 1;
 	}
-	cm36283_power_set(lpi, 0);
+	if (cm36283_power_set(lpi, 0))
+		goto out;
 
 	return 0;
+
+out:
+	dev_err(&lpi->i2c_client->dev, "%s:failed during resume operation.\n",
+			__func__);
+	return -EIO;
 }
 
 static int cm36283_resume(struct device *dev)
 {
 	struct cm36283_info *lpi = lp_info;
 
-	cm36283_power_set(lpi, 1);
+	if (cm36283_power_set(lpi, 1))
+		goto out;
 
 	if (lpi->als_enable) {
-		cm36283_setup(lpi);
-		lightsensor_setup(lpi);
-		psensor_setup(lpi);
-		lightsensor_enable(lpi);
+		ls_initial_cmd(lpi);
+		psensor_initial_cmd(lpi);
+		if (lightsensor_enable(lpi))
+			goto out;
 	}
 	return 0;
+
+out:
+	dev_err(&lpi->i2c_client->dev, "%s:failed during resume operation.\n",
+			__func__);
+	return -EIO;
 }
 #endif
 

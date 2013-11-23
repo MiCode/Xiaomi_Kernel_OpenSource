@@ -765,10 +765,22 @@ static bool is_battery_full(struct qpnp_bms_chip *chip)
 	return get_battery_status(chip) == POWER_SUPPLY_STATUS_FULL;
 }
 
+#define BAT_PRES_BIT		BIT(7)
 static bool is_battery_present(struct qpnp_bms_chip *chip)
 {
 	union power_supply_propval ret = {0,};
+	int rc;
+	u8 batt_pres;
 
+	/* first try to use the batt_pres register if given */
+	if (chip->batt_pres_addr) {
+		rc = qpnp_read_wrapper(chip, &batt_pres,
+				chip->batt_pres_addr, 1);
+		if (!rc && (batt_pres & BAT_PRES_BIT))
+			return true;
+		else
+			return false;
+	}
 	if (chip->batt_psy == NULL)
 		chip->batt_psy = power_supply_get_by_name("battery");
 	if (chip->batt_psy) {
