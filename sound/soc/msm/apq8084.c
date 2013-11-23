@@ -107,7 +107,7 @@ static void param_set_mask(struct snd_pcm_hw_params *p, int n, unsigned bit)
 	}
 }
 
-static const char *const auxpcm_rate_text[] = {"rate_8000", "rate_16000"};
+static const char *const auxpcm_rate_text[] = {"8000", "16000"};
 static const struct soc_enum apq8084_auxpcm_enum[] = {
 		SOC_ENUM_SINGLE_EXT(2, auxpcm_rate_text),
 };
@@ -866,13 +866,13 @@ static int msm_slim_1_rate_put(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
 	switch (ucontrol->value.integer.value[0]) {
-	case 16000:
-		msm_slim_1_rate = SAMPLING_RATE_16KHZ;
-		break;
-	case 48000:
+	case 2:
 		msm_slim_1_rate = SAMPLING_RATE_48KHZ;
 		break;
-	case 8000:
+	case 1:
+		msm_slim_1_rate = SAMPLING_RATE_16KHZ;
+		break;
+	case 0:
 	default:
 		msm_slim_1_rate = SAMPLING_RATE_8KHZ;
 		break;
