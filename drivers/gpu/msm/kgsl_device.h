@@ -749,4 +749,19 @@ static inline int kgsl_cmdbatch_sync_pending(struct kgsl_cmdbatch *cmdbatch)
 	return ret;
 }
 
+/**
+ * kgsl_property_read_u32() - Read a u32 property from the device tree
+ * @device: Pointer to the KGSL device
+ * @prop: String name of the property to query
+ * @ptr: Pointer to the variable to store the property
+ */
+static inline int kgsl_property_read_u32(struct kgsl_device *device,
+	const char *prop, unsigned int *ptr)
+{
+	struct platform_device *pdev =
+		container_of(device->parentdev, struct platform_device, dev);
+
+	return of_property_read_u32(pdev->dev.of_node, prop, ptr);
+}
+
 #endif  /* __KGSL_DEVICE_H */
