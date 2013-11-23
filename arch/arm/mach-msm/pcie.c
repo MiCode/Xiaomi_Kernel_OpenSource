@@ -1322,9 +1322,8 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev, u32 rc_idx,
 
 	if (dev) {
 		ret = pci_save_state(dev);
-		if (msm_pcie_dev[rc_idx].user_suspend)
-			msm_pcie_dev[rc_idx].saved_state =
-						pci_store_saved_state(dev);
+		msm_pcie_dev[rc_idx].saved_state =
+					pci_store_saved_state(dev);
 	}
 	if (ret) {
 		pr_err("PCIe: fail to save state of RC 0x%p:%d.\n",
@@ -1407,8 +1406,7 @@ static int msm_pcie_pm_resume(struct pci_dev *dev, u32 rc_idx,
 		PCIE_DBG("dev->bus->number = %d dev->bus->primary = %d\n",
 			 dev->bus->number, dev->bus->primary);
 
-		if (msm_pcie_dev[rc_idx].user_suspend)
-			pci_load_and_free_saved_state(dev,
+		pci_load_and_free_saved_state(dev,
 					&msm_pcie_dev[rc_idx].saved_state);
 
 		pci_restore_state(dev);
