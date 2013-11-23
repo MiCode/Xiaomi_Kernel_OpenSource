@@ -112,6 +112,19 @@ struct epm_get_gpio_buffer_resp {
 	uint32_t	timestamp;
 };
 
+struct epm_get_high_res_avg_data {
+	uint8_t		cmd;
+	uint8_t		status;
+	uint32_t	channel_mask;
+	uint32_t	timestamp;
+	uint8_t		buf_data[54];
+};
+
+struct epm_generic_request {
+	uint8_t		buf_data[65];
+};
+
+
 #define EPM_ADC_IOCTL_CODE		0x91
 
 #define EPM_ADC_REQUEST		_IOWR(EPM_ADC_IOCTL_CODE, 1,	\
@@ -123,16 +136,23 @@ struct epm_get_gpio_buffer_resp {
 #define EPM_ADC_DEINIT		_IOR(EPM_ADC_IOCTL_CODE, 3,	\
 					     uint32_t)
 
-#define EPM_MARKER1_REQUEST	_IOWR(EPM_ADC_IOCTL_CODE, 90,	\
+#define EPM_MARKER1_REQUEST	_IOR(EPM_ADC_IOCTL_CODE, 90,	\
 						uint32_t)
 
-#define EPM_MARKER1_RELEASE	_IOWR(EPM_ADC_IOCTL_CODE, 91,	\
+
+#define EPM_MARKER1_RELEASE	_IOR(EPM_ADC_IOCTL_CODE, 91,	\
 						uint32_t)
 
-#define EPM_MARKER2_REQUEST	_IOWR(EPM_ADC_IOCTL_CODE, 95,	\
+#define EPM_MARKER1_SET_LEVEL	_IOWR(EPM_ADC_IOCTL_CODE, 92,	\
 						uint32_t)
 
-#define EPM_MARKER2_RELEASE	_IOWR(EPM_ADC_IOCTL_CODE, 92,	\
+#define EPM_MARKER2_REQUEST	_IOR(EPM_ADC_IOCTL_CODE, 93,	\
+						uint32_t)
+
+#define EPM_MARKER2_SET_LEVEL	_IOWR(EPM_ADC_IOCTL_CODE, 94,	\
+						uint32_t)
+
+#define EPM_MARKER2_RELEASE	_IOR(EPM_ADC_IOCTL_CODE, 95,	\
 						uint32_t)
 
 #define EPM_PSOC_ADC_INIT		_IOWR(EPM_ADC_IOCTL_CODE, 4, \
@@ -185,4 +205,11 @@ struct epm_get_gpio_buffer_resp {
 
 #define EPM_PSOC_UNPAUSE_CONVERSION_REQUEST _IOWR(EPM_ADC_IOCTL_CODE, 20, \
 								uint32_t)
+
+#define EPM_PSOC_16_BIT_AVERAGED_REQUEST	_IOWR(EPM_ADC_IOCTL_CODE, 21, \
+					struct epm_get_high_res_avg_data)
+
+#define EPM_PSOC_GENERIC_REQUEST		_IOWR(EPM_ADC_IOCTL_CODE, 22, \
+					struct epm_generic_request)
+
 #endif /* _UAPI_EPM_ADC_H */
