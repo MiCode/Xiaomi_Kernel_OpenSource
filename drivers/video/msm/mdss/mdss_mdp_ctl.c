@@ -1812,6 +1812,11 @@ int mdss_mdp_display_wait4comp(struct mdss_mdp_ctl *ctl)
 	u32 reg_data, flush_data;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
+	if (!ctl) {
+		pr_err("invalid ctl\n");
+		return -ENODEV;
+	}
+
 	ret = mutex_lock_interruptible(&ctl->lock);
 	if (ret)
 		return ret;
