@@ -142,6 +142,20 @@ config DEVFREQ_SIMPLE_DEV
 	  Device driver for simple devices that control their frequency using
 	  clock APIs and don't have any form of status reporting.
 
+config QCOM_DEVFREQ_DEVBW
+	bool "Qualcomm Technologies Inc. DEVFREQ device for device master <-> slave IB/AB BW voting"
+	depends on ARCH_QCOM
+	select DEVFREQ_GOV_PERFORMANCE
+	select DEVFREQ_GOV_POWERSAVE
+	select DEVFREQ_GOV_USERSPACE
+	select DEVFREQ_GOV_CPUFREQ
+	default n
+	help
+	  Different devfreq governors use this devfreq device to make CPU to
+	  DDR IB/AB bandwidth votes. This driver provides a SoC topology
+	  agnostic interface to so that some of the devfreq governors can be
+	  shared across SoCs.
+
 source "drivers/devfreq/event/Kconfig"
 
 endif # PM_DEVFREQ
