@@ -1551,6 +1551,8 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 									ret);
 		goto exit;
 	}
+	if (mdata->nad_cfgs == 0)
+		valid_mixers = false;
 	for (i = 0; i < mixer_cnt && valid_mixers; i++) {
 		if (mixer_id[i] > mdata->nad_cfgs)
 			valid_mixers = false;
