@@ -187,6 +187,8 @@ struct adreno_device {
 	struct adreno_dispatcher dispatcher;
 	struct kgsl_memdesc pwron_fixup;
 	unsigned int pwron_fixup_dwords;
+
+	struct work_struct start_work;
 };
 
 /**
