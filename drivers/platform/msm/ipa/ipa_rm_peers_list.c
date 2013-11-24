@@ -61,6 +61,7 @@ int ipa_rm_peers_list_create(int max_peers,
 	int result;
 	*peers_list = kzalloc(sizeof(**peers_list), GFP_KERNEL);
 	if (!*peers_list) {
+		IPA_RM_ERR("no mem\n");
 		result = -ENOMEM;
 		goto bail;
 	}
@@ -69,6 +70,7 @@ int ipa_rm_peers_list_create(int max_peers,
 	(*peers_list)->peers = kzalloc((*peers_list)->max_peers *
 				sizeof(struct ipa_rm_resource *), GFP_KERNEL);
 	if (!((*peers_list)->peers)) {
+		IPA_RM_ERR("no mem\n");
 		result = -ENOMEM;
 		goto list_alloc_fail;
 	}
