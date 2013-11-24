@@ -71,6 +71,14 @@ config DEVFREQ_GOV_MSM_ADRENO_TZ
 	  Sets the frequency using a "on-demand" algorithm.
 	  This governor is unlikely to be useful for other devices.
 
+config DEVFREQ_GOV_MSM_CPUFREQ
+	bool "MSM CPUfreq"
+	depends on CPU_FREQ_MSM
+	help
+	  MSM CPUfreq based governor for CPU bandwidth voting.  Sets the CPU
+	  to DDR BW vote based on the current CPU frequency.  This governor
+	  is unlikely to be useful for non-MSM devices.
+
 comment "DEVFREQ Drivers"
 
 config ARM_EXYNOS4_BUS_DEVFREQ
