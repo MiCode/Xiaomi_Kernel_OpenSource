@@ -4,6 +4,9 @@ config MSM_KGSL
 	depends on ARCH_MSM && !ARCH_MSM7X00A && !ARCH_MSM7X25
 	select GENERIC_ALLOCATOR
 	select FW_LOADER
+	select PM_DEVFREQ
+	select DEVFREQ_GOV_SIMPLE_ONDEMAND
+	select DEVFREQ_GOV_PERFORMANCE
 	---help---
 	  3D graphics driver. Required to use hardware accelerated
 	  OpenGL ES 2.0 and 1.1.
@@ -59,6 +62,16 @@ config MSM_KGSL_2D
 	tristate "MSM 2D graphics driver. Required for OpenVG"
 	default y
 	depends on MSM_KGSL && !ARCH_MSM7X27 && !ARCH_MSM7X27A && !(ARCH_QSD8X50 && !MSM_SOC_REV_A)
+
+config MSM_ADRENO_DEFAULT_GOVERNOR
+	string "devfreq governor for the adreno core"
+	default "simple_ondemand"
+	depends on MSM_KGSL
+
+config MSM_Z180_DEFAULT_GOVERNOR
+	string "devfreq governor for the z180 core(s)"
+	default "performance"
+	depends on MSM_KGSL_2D
 
 config MSM_KGSL_DRM
 	bool "Build a DRM interface for the MSM_KGSL driver"
