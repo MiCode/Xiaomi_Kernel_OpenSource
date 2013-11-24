@@ -189,6 +189,7 @@ struct adreno_device {
 	unsigned int pwron_fixup_dwords;
 
 	struct work_struct start_work;
+	struct work_struct input_work;
 };
 
 /**
