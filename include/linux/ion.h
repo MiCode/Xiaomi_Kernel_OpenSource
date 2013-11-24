@@ -42,7 +42,6 @@ struct ion_buffer;
  * @name:	used for debug purposes
  * @base:	base address of heap in physical memory if applicable
  * @size:	size of the heap in bytes if applicable
- * @memory_type:Memory type used for the heap
  * @has_outer_cache:    set to 1 if outer cache is used, 0 otherwise.
  * @extra_data:	Extra data specific to each heap type
  * @priv:	heap private data
