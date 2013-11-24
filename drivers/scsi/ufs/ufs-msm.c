@@ -851,6 +851,116 @@ static void msm_ufs_phy_calibrate(struct msm_ufs_phy *phy)
 	mb();
 }
 
+static int msm_ufs_host_clk_get(struct device *dev,
+		const char *name, struct clk **clk_out)
+{
+	struct clk *clk;
+	int err = 0;
+
+	clk = devm_clk_get(dev, name);
+	if (IS_ERR(clk)) {
+		err = PTR_ERR(clk);
+		dev_err(dev, "%s: failed to get %s err %d",
+				__func__, name, err);
+	} else {
+		*clk_out = clk;
+	}
+
+	return err;
+}
+
+static int msm_ufs_host_clk_enable(struct device *dev,
+		const char *name, struct clk *clk)
+{
+	int err = 0;
+
+	err = clk_prepare_enable(clk);
+	if (err)
+		dev_err(dev, "%s: %s enable failed %d\n", __func__, name, err);
+
+	return err;
+}
+
+static void msm_ufs_disable_lane_clks(struct msm_ufs_host *host)
+{
+	if (!host->is_lane_clks_enabled)
+		return;
+
+	clk_disable_unprepare(host->tx_l1_sync_clk);
+	clk_disable_unprepare(host->tx_l0_sync_clk);
+	clk_disable_unprepare(host->rx_l1_sync_clk);
+	clk_disable_unprepare(host->rx_l0_sync_clk);
+
+	host->is_lane_clks_enabled = false;
+}
+
+static int msm_ufs_enable_lane_clks(struct msm_ufs_host *host)
+{
+	int err = 0;
+	struct device *dev = host->hba->dev;
+
+	if (host->is_lane_clks_enabled)
+		return 0;
+
+	err = msm_ufs_host_clk_enable(dev,
+			"rx_lane0_sync_clk", host->rx_l0_sync_clk);
+	if (err)
+		goto out;
+
+	err = msm_ufs_host_clk_enable(dev,
+			"rx_lane1_sync_clk", host->rx_l1_sync_clk);
+	if (err)
+		goto disable_rx_l0;
+
+	err = msm_ufs_host_clk_enable(dev,
+			"tx_lane0_sync_clk", host->tx_l0_sync_clk);
+	if (err)
+		goto disable_rx_l1;
+
+	err = msm_ufs_host_clk_enable(dev,
+			"tx_lane1_sync_clk", host->tx_l1_sync_clk);
+	if (err)
+		goto disable_tx_l0;
+
+	host->is_lane_clks_enabled = true;
+	goto out;
+
+disable_tx_l0:
+	clk_disable_unprepare(host->tx_l0_sync_clk);
+disable_rx_l1:
+	clk_disable_unprepare(host->rx_l1_sync_clk);
+disable_rx_l0:
+	clk_disable_unprepare(host->rx_l0_sync_clk);
+out:
+	return err;
+}
+
+static int msm_ufs_init_lane_clks(struct msm_ufs_host *host)
+{
+	int err = 0;
+	struct device *dev = host->hba->dev;
+
+	err = msm_ufs_host_clk_get(dev,
+			"rx_lane0_sync_clk", &host->rx_l0_sync_clk);
+	if (err)
+		goto out;
+
+	err = msm_ufs_host_clk_get(dev,
+			"rx_lane1_sync_clk", &host->rx_l1_sync_clk);
+	if (err)
+		goto out;
+
+	err = msm_ufs_host_clk_get(dev,
+			"tx_lane0_sync_clk", &host->tx_l0_sync_clk);
+	if (err)
+		goto out;
+
+	err = msm_ufs_host_clk_get(dev,
+			"tx_lane1_sync_clk", &host->tx_l1_sync_clk);
+out:
+	return err;
+}
+
 static int msm_ufs_enable_tx_lanes(struct ufs_hba *hba)
 {
 	int err;
@@ -1013,9 +1123,16 @@ static int msm_ufs_hce_enable_notify(struct ufs_hba *hba, bool status)
 		/* poll for PCS_READY for max. 1sec */
 		err = readl_poll_timeout(phy->mmio + UFS_PHY_PCS_READY_STATUS,
 				val, (val & MASK_PCS_READY), 10, 1000000);
-		if (err)
+		if (err) {
 			dev_err(phy->dev, "%s: phy init failed, %d\n",
 					__func__, err);
+			break;
+		}
+		/*
+		 * The PHY PLL output is the source of tx/rx lane symbol clocks.
+		 * Hence, enable the lane clocks only after PHY is initialized.
+		 */
+		err = msm_ufs_enable_lane_clks(host);
 		break;
 	case POST_CHANGE:
 		/* check if UFS PHY moved from DISABLED to HIBERN8 */
@@ -1060,6 +1177,12 @@ static int msm_ufs_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		return 0;
 
 	if (ufshcd_is_link_off(hba)) {
+		/*
+		 * Disable the tx/rx lane symbol clocks before PHY is
+		 * powered down as the PLL source should be disabled
+		 * after downstream clocks are disabled.
+		 */
+		msm_ufs_disable_lane_clks(host);
 		msm_ufs_phy_power_off(phy);
 		goto out;
 	}
@@ -1698,7 +1821,11 @@ static int msm_ufs_init(struct ufs_hba *hba)
 
 	err = msm_ufs_phy_power_on(phy);
 	if (err)
-		goto out_host_free;
+		goto out_unregister_bus;
+
+	err = msm_ufs_init_lane_clks(host);
+	if (err)
+		goto out_disable_phy;
 
 	msm_ufs_advertise_quirks(hba);
 	if (hba->quirks & UFSHCD_QUIRK_BROKEN_SUSPEND) {
@@ -1727,11 +1854,15 @@ static int msm_ufs_init(struct ufs_hba *hba)
 		hba->spm_lvl = UFS_PM_LVL_3;
 	}
 
+	goto out;
+
+out_disable_phy:
+	msm_ufs_phy_power_off(phy);
+out_unregister_bus:
+	msm_bus_scale_unregister_client(host->bus_vote.client_handle);
 out_host_free:
-	if (err) {
-		devm_kfree(dev, host);
-		hba->priv = NULL;
-	}
+	devm_kfree(dev, host);
+	hba->priv = NULL;
 out:
 	return err;
 }
@@ -1742,6 +1873,7 @@ static void msm_ufs_exit(struct ufs_hba *hba)
 	struct msm_ufs_phy *phy = host->phy;
 
 	msm_bus_scale_unregister_client(host->bus_vote.client_handle);
+	msm_ufs_disable_lane_clks(host);
 	msm_ufs_phy_power_off(phy);
 }
 
