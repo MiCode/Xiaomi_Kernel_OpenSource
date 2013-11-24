@@ -3471,11 +3471,11 @@ int ufshcd_dme_set_attr(struct ufs_hba *hba, u32 attr_sel,
 	uic_cmd.argument2 = UIC_ARG_ATTR_TYPE(attr_set);
 	uic_cmd.argument3 = mib_val;
 
-	/* for stability purposes */
-	if (hba->quirks & UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS)
-		usleep_range(1000, 1100);
-
 	do {
+		/* for stability purposes */
+		if (hba->quirks & UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS)
+			usleep_range(1000, 1100);
+
 		/* for peer attributes we retry upon failure */
 		ret = ufshcd_send_uic_cmd(hba, &uic_cmd);
 		if (ret)
@@ -3483,10 +3483,10 @@ int ufshcd_dme_set_attr(struct ufs_hba *hba, u32 attr_sel,
 				set, UIC_GET_ATTR_ID(attr_sel), mib_val, ret);
 	} while (ret && peer && --retries);
 
-	if (ret)
+	if (!retries)
 		dev_err(hba->dev, "%s: attr-id 0x%x val 0x%x failed %d retries\n",
-			set, UIC_GET_ATTR_ID(attr_sel), mib_val,
-			UFS_UIC_COMMAND_RETRIES - retries);
+				set, UIC_GET_ATTR_ID(attr_sel), mib_val,
+				retries);
 
 	return ret;
 }
@@ -3542,11 +3542,11 @@ int ufshcd_dme_get_attr(struct ufs_hba *hba, u32 attr_sel,
 		UIC_CMD_DME_PEER_GET : UIC_CMD_DME_GET;
 	uic_cmd.argument1 = attr_sel;
 
-	/* for stability purposes */
-	if (hba->quirks & UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS)
-		usleep_range(1000, 1100);
-
 	do {
+		/* for stability purposes */
+		if (hba->quirks & UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS)
+			usleep_range(1000, 1100);
+
 		/* for peer attributes we retry upon failure */
 		ret = ufshcd_send_uic_cmd(hba, &uic_cmd);
 		if (ret)
@@ -3554,10 +3554,9 @@ int ufshcd_dme_get_attr(struct ufs_hba *hba, u32 attr_sel,
 				get, UIC_GET_ATTR_ID(attr_sel), ret);
 	} while (ret && peer && --retries);
 
-	if (ret)
+	if (!retries)
 		dev_err(hba->dev, "%s: attr-id 0x%x failed %d retries\n",
-			get, UIC_GET_ATTR_ID(attr_sel),
-			UFS_UIC_COMMAND_RETRIES - retries);
+				get, UIC_GET_ATTR_ID(attr_sel), retries);
 
 	if (mib_val && !ret)
 		*mib_val = uic_cmd.argument3;
