@@ -30,6 +30,7 @@
 #include "msmkrypton-coresight.dtsi"
 #include "msm-gdsc.dtsi"
 #include "msmkrypton-pm.dtsi"
+#include "msmkrypton-bus.dtsi"
 
 &soc {
 	#address-cells = <1>;
