@@ -70,6 +70,9 @@ static unsigned int hispeed_freq;
 #define DEFAULT_GO_HISPEED_LOAD 99
 static unsigned long go_hispeed_load = DEFAULT_GO_HISPEED_LOAD;
 
+/* Sampling down factor to be applied to min_sample_time at max freq */
+static unsigned int sampling_down_factor;
+
 /* Target load.  Lower values result in higher CPU speeds. */
 #define DEFAULT_TARGET_LOAD 90
 static unsigned int default_target_loads[] = {DEFAULT_TARGET_LOAD};
@@ -376,6 +379,7 @@ static void cpufreq_interactive_timer(unsigned long data)
 	unsigned int index;
 	unsigned long flags;
 	bool boosted;
+	unsigned long mod_min_sample_time;
 
 	if (!down_read_trylock(&pcpu->enable_sem))
 		return;
@@ -432,8 +436,14 @@ static void cpufreq_interactive_timer(unsigned long data)
 	 * Do not scale below floor_freq unless we have been at or above the
 	 * floor frequency for the minimum sample time since last validated.
 	 */
+	if (pcpu->policy->cur == pcpu->policy->max) {
+		mod_min_sample_time = sampling_down_factor;
+	} else {
+		mod_min_sample_time = min_sample_time;
+	}
+
 	if (new_freq < pcpu->floor_freq) {
-		if (now - pcpu->floor_validate_time < min_sample_time) {
+		if (now - pcpu->floor_validate_time < mod_min_sample_time) {
 			trace_cpufreq_interactive_notyet(
 				data, cpu_load, pcpu->target_freq,
 				pcpu->policy->cur, new_freq);
@@ -838,6 +848,29 @@ static ssize_t store_hispeed_freq(struct kobject *kobj,
 static struct global_attr hispeed_freq_attr = __ATTR(hispeed_freq, 0644,
 		show_hispeed_freq, store_hispeed_freq);
 
+static ssize_t show_sampling_down_factor(struct kobject *kobj,
+				struct attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", sampling_down_factor);
+}
+
+static ssize_t store_sampling_down_factor(struct kobject *kobj,
+				struct attribute *attr, const char *buf,
+				size_t count)
+{
+	int ret;
+	long unsigned int val;
+
+	ret = strict_strtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+	sampling_down_factor = val;
+	return count;
+}
+
+static struct global_attr sampling_down_factor_attr =
+				__ATTR(sampling_down_factor, 0644,
+		show_sampling_down_factor, store_sampling_down_factor);
 
 static ssize_t show_go_hispeed_load(struct kobject *kobj,
 				     struct attribute *attr, char *buf)
@@ -1034,6 +1067,7 @@ static struct attribute *interactive_attributes[] = {
 	&boostpulse.attr,
 	&boostpulse_duration.attr,
 	&io_is_busy_attr.attr,
+	&sampling_down_factor_attr.attr,
 	NULL,
 };
 
