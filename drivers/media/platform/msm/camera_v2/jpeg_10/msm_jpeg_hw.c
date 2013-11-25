@@ -393,7 +393,7 @@ void msm_jpeg_io_dump(void *base, int size)
 	p_str = line_str;
 	for (i = 0; i < size/4; i++) {
 		if (i % 4 == 0) {
-			snprintf(p_str, 12, "%08x: ", (u32) p);
+			snprintf(p_str, 12, "%08lx: ", (unsigned long)p);
 			p_str += 10;
 		}
 		data = readl_relaxed(p++);
