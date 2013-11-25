@@ -496,7 +496,8 @@ int32_t qpnp_adc_scale_pmic_therm(struct qpnp_vadc_chip *vadc,
 
 	if (!chan_properties || !chan_properties->offset_gain_numerator ||
 		!chan_properties->offset_gain_denominator || !adc_properties
-		|| !adc_chan_result)
+		|| !adc_chan_result
+		|| !chan_properties->adc_graph[CALIB_ABSOLUTE].dy)
 		return -EINVAL;
 
 	pmic_voltage = (adc_code -
