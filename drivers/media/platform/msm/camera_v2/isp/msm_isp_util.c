@@ -1122,6 +1122,8 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	if (!vfe_dev->vfe_open_cnt) {
 		pr_err("%s invalid state open cnt %d\n", __func__,
 			vfe_dev->vfe_open_cnt);
+		mutex_unlock(&vfe_dev->core_mutex);
+		mutex_unlock(&vfe_dev->realtime_mutex);
 		return -EINVAL;
 	}
 
