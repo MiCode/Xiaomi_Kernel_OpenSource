@@ -1256,6 +1256,15 @@ config MSM_QDSP6_APRV2
 	  used by audio driver to configure QDSP6's
 	  ASM, ADM and AFE.
 
+config MSM_QDSP6_APRV3
+	bool "Audio Modem DSP APRv3 support"
+	depends on MSM_SMD
+	help
+	  Enable APRv3 IPC protocol support between
+	  application processor and Modem DSP. APR is
+	  used by audio driver to configure MDSP's
+	  ASM, ADM and AFE.
+
 config MSM_QDSP6V2_CODECS
 	bool "Audio QDSP6V2 APR support"
 	depends on MSM_SMD
