@@ -147,6 +147,8 @@
 			qcom,mode = "Fixed";
 			qcom,qport = <6>;
 			qcom,mas-hw-id = <59>;
+			qcom,hw-sel = "NoC";
+			qcom,iface-clk-node = "msm_ipa";
 		};
 
 		mas-qdss-etr {
@@ -167,6 +169,8 @@
 			qcom,qport = <7>;
 			qcom,mode = "Fixed";
 			qcom,mas-hw-id = <32>;
+			qcom,hw-sel = "NoC";
+			qcom,iface-clk-node = "msm_usb3";
 		};
 
 		mas-pcie-0 {
