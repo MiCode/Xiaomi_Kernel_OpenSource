@@ -130,8 +130,7 @@ struct slp_buf {
 	bool valid;
 };
 static struct rb_root tr_root = RB_ROOT;
-
-static int msm_rpm_send_smd_buffer(char *buf, int size, bool noirq);
+static int msm_rpm_send_smd_buffer(char *buf, uint32_t size, bool noirq);
 static uint32_t msm_rpm_get_next_msg_id(void);
 
 static inline unsigned int get_rsc_type(char *buf)
@@ -187,7 +186,8 @@ static inline void *get_data(struct kvp *k)
 static void delete_kvp(char *msg, struct kvp *d)
 {
 	struct kvp *n;
-	int dec, size;
+	int dec;
+	uint32_t size;
 
 	n = get_next_kvp(d);
 	dec = (void *)n - (void *)d;
@@ -206,7 +206,7 @@ static inline void update_kvp_data(struct kvp *dest, struct kvp *src)
 
 static void add_kvp(char *buf, struct kvp *n)
 {
-	int inc = sizeof(*n) + n->s;
+	uint32_t inc = sizeof(*n) + n->s;
 	BUG_ON((get_req_len(buf) + inc) > MAX_SLEEP_BUFFER);
 
 	memcpy(buf + get_buf_len(buf), n, inc);
@@ -311,7 +311,7 @@ static void tr_update(struct slp_buf *s, char *buf)
 	}
 }
 
-int msm_rpm_smd_buffer_request(char *buf, int size, gfp_t flag)
+int msm_rpm_smd_buffer_request(char *buf, uint32_t size, gfp_t flag)
 {
 	struct slp_buf *slp;
 	static DEFINE_SPINLOCK(slp_buffer_lock);
@@ -367,7 +367,7 @@ static void msm_rpm_print_sleep_buffer(struct slp_buf *s)
 	pos += scnprintf(buf + pos, buflen - pos, " id = 0%x",
 			get_rsc_id(s->buf));
 	for_each_kvp(s->buf, e) {
-		int i;
+		uint32_t i;
 		char *data = get_data(e);
 
 		memcpy(ch, &e->k, sizeof(u32));
@@ -482,13 +482,16 @@ static void msm_rpm_notify_sleep_chain(struct rpm_message_header *hdr,
 static int msm_rpm_add_kvp_data_common(struct msm_rpm_request *handle,
 		uint32_t key, const uint8_t *data, int size, bool noirq)
 {
-	int i;
-	int data_size, msg_size;
+	uint32_t i;
+	uint32_t data_size, msg_size;
 
 	if (!handle) {
 		pr_err("%s(): Invalid handle\n", __func__);
 		return -EINVAL;
 	}
+
+	if (size < 0)
+		return  -EINVAL;
 
 	data_size = ALIGN(size, SZ_4);
 	msg_size = data_size + sizeof(struct rpm_request_header);
@@ -813,7 +816,7 @@ static inline int msm_rpm_get_error_from_ack(uint8_t *buf)
 
 static int msm_rpm_read_smd_data(char *buf)
 {
-	int pkt_sz;
+	uint32_t pkt_sz;
 	int bytes_read = 0;
 
 	pkt_sz = smd_cur_packet_size(msm_rpm_data.ch_info);
@@ -867,7 +870,8 @@ static void msm_rpm_log_request(struct msm_rpm_request *cdata)
 	size_t buflen = DEBUG_PRINT_BUFFER_SIZE;
 	char name[5];
 	u32 value;
-	int i, j, prev_valid;
+	uint32_t i;
+	int j, prev_valid;
 	int valid_count = 0;
 	int pos = 0;
 
@@ -992,7 +996,7 @@ static void msm_rpm_log_request(struct msm_rpm_request *cdata)
 	pos += scnprintf(buf + pos, buflen - pos, "\n");
 	printk(buf);
 }
-static int msm_rpm_send_smd_buffer(char *buf, int size, bool noirq)
+static int msm_rpm_send_smd_buffer(char *buf, uint32_t size, bool noirq)
 {
 	unsigned long flags;
 	int ret;
@@ -1027,8 +1031,9 @@ static int msm_rpm_send_data(struct msm_rpm_request *cdata,
 		int msg_type, bool noirq)
 {
 	uint8_t *tmpbuff;
-	int i, ret, msg_size;
-
+	int ret;
+	uint32_t i;
+	uint32_t msg_size;
 	int req_hdr_sz, msg_hdr_sz;
 
 	if (!cdata->msg_hdr.data_len)
