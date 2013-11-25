@@ -1027,8 +1027,11 @@ iso_stream_init (
 			/* c-mask as specified in USB 2.0 11.18.4 3.c */
 			tmp = (1 << (hs_transfers + 2)) - 1;
 			stream->raw_mask |= tmp << (8 + 2);
-		} else
+		} else if (hs_transfers <=
+				(sizeof(smask_out) / sizeof(smask_out[0]))) {
 			stream->raw_mask = smask_out [hs_transfers - 1];
+		}
+
 		bandwidth = stream->usecs + stream->c_usecs;
 		bandwidth /= interval << 3;
 
