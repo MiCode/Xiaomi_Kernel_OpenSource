@@ -995,4 +995,11 @@ config FB_MSM_MDSS_EDP_PANEL
 	which runs in Video mode only and is responsible for transmitting
 	frame buffer from host SOC to eDP display panel.
 
+config FB_MSM_MDSS_MDP3
+	depends on FB_MSM_MDSS
+	bool "MDP3 display controller"
+	---help---
+	The MDP3 provides support for an older version display controller
+	included in latest display sub-system, known as MDSS.
+
 endif
