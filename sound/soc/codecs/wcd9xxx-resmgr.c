@@ -92,6 +92,9 @@ static char wcd9xxx_event_string[][64] = {
 
 	"WCD9XXX_EVENT_POST_RESUME",
 
+	"WCD9XXX_EVENT_PRE_TX_3_ON",
+	"WCD9XXX_EVENT_POST_TX_3_OFF",
+
 	"WCD9XXX_EVENT_LAST",
 };
 
