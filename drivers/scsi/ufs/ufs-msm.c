@@ -1579,7 +1579,6 @@ static void msm_ufs_advertise_quirks(struct ufs_hba *hba)
 			      | UFSHCD_QUIRK_BROKEN_HIBERN8
 			      | UFSHCD_QUIRK_BROKEN_VER_REG_1_1
 			      | UFSHCD_QUIRK_BROKEN_CAP_64_BIT_0
-			      | UFSHCD_QUIRK_BROKEN_PWR_MODE_CHANGE
 			      | UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
 			      | UFSHCD_QUIRK_BROKEN_SUSPEND);
 }
