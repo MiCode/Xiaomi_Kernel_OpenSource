@@ -364,6 +364,8 @@ struct adreno_gpudev {
 	void (*perfcounter_close)(struct adreno_device *);
 	void (*perfcounter_save)(struct adreno_device *);
 	void (*perfcounter_restore)(struct adreno_device *);
+	void (*fault_detect_start)(struct adreno_device *);
+	void (*fault_detect_stop)(struct adreno_device *);
 	void (*start)(struct adreno_device *);
 	int (*perfcounter_enable)(struct adreno_device *, unsigned int group,
 		unsigned int counter, unsigned int countable);

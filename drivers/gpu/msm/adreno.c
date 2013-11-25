@@ -2334,12 +2334,29 @@ static int _ft_fast_hang_detect_store(struct device *dev,
 				     const char *buf, size_t count)
 {
 	struct adreno_device *adreno_dev = _get_adreno_dev(dev);
-	int ret;
+	int ret, tmp;
+
 	if (adreno_dev == NULL)
 		return 0;
 
 	mutex_lock(&adreno_dev->dev.mutex);
+
+	tmp = adreno_dev->fast_hang_detect;
+
 	ret = _ft_sysfs_store(buf, count, &adreno_dev->fast_hang_detect);
+
+	if (tmp != adreno_dev->fast_hang_detect) {
+		if (adreno_dev->fast_hang_detect) {
+			if (adreno_dev->gpudev->fault_detect_start)
+				adreno_dev->gpudev->fault_detect_start(
+					adreno_dev);
+		} else {
+			if (adreno_dev->gpudev->fault_detect_stop)
+				adreno_dev->gpudev->fault_detect_stop(
+					adreno_dev);
+		}
+	}
+
 	mutex_unlock(&adreno_dev->dev.mutex);
 
 	return ret;
@@ -2594,11 +2611,19 @@ static int adreno_setproperty(struct kgsl_device *device,
 			if (enable) {
 				device->pwrctrl.ctrl_flags = 0;
 				adreno_dev->fast_hang_detect = 1;
+
+				if (adreno_dev->gpudev->fault_detect_start)
+					adreno_dev->gpudev->fault_detect_start(
+						adreno_dev);
+
 				kgsl_pwrscale_enable(device);
 			} else {
 				kgsl_pwrctrl_wake(device, 0);
 				device->pwrctrl.ctrl_flags = KGSL_PWR_ON;
 				adreno_dev->fast_hang_detect = 0;
+				if (adreno_dev->gpudev->fault_detect_stop)
+					adreno_dev->gpudev->fault_detect_stop(
+						adreno_dev);
 				kgsl_pwrscale_disable(device);
 			}
 
