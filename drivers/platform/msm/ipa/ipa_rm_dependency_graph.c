@@ -17,6 +17,7 @@
 static int ipa_rm_dep_get_index(enum ipa_rm_resource_name resource_name)
 {
 	int resource_index = IPA_RM_INDEX_INVALID;
+
 	if (IPA_RM_RESORCE_IS_PROD(resource_name))
 		resource_index = ipa_rm_prod_index(resource_name);
 	else if (IPA_RM_RESORCE_IS_CONS(resource_name))
@@ -34,8 +35,10 @@ static int ipa_rm_dep_get_index(enum ipa_rm_resource_name resource_name)
 int  ipa_rm_dep_graph_create(struct ipa_rm_dep_graph **dep_graph)
 {
 	int result = 0;
+
 	*dep_graph = kzalloc(sizeof(**dep_graph), GFP_KERNEL);
 	if (!*dep_graph) {
+		IPA_RM_ERR("no mem\n");
 		result = -ENOMEM;
 		goto bail;
 	}
@@ -52,8 +55,11 @@ bail:
 void ipa_rm_dep_graph_delete(struct ipa_rm_dep_graph *graph)
 {
 	int resource_index;
-	if (!graph)
+
+	if (!graph) {
+		IPA_RM_ERR("invalid params\n");
 		return;
+	}
 	for (resource_index = 0;
 			resource_index < IPA_RM_RESOURCE_MAX;
 			resource_index++)
@@ -76,6 +82,7 @@ int ipa_rm_dep_graph_get_resource(
 {
 	int result;
 	int resource_index;
+
 	if (!graph) {
 		result = -EINVAL;
 		goto bail;
@@ -134,8 +141,8 @@ int ipa_rm_dep_graph_remove(struct ipa_rm_dep_graph *graph,
 {
 	if (!graph)
 		return -EINVAL;
-
 	graph->resource_table[resource_name] = NULL;
+
 	return 0;
 }
 
@@ -155,26 +162,34 @@ int ipa_rm_dep_graph_add_dependency(struct ipa_rm_dep_graph *graph,
 	struct ipa_rm_resource *dependant = NULL;
 	struct ipa_rm_resource *dependency = NULL;
 	int result;
+
 	if (!graph ||
 		!IPA_RM_RESORCE_IS_PROD(resource_name) ||
 		!IPA_RM_RESORCE_IS_CONS(depends_on_name)) {
+		IPA_RM_ERR("invalid params\n");
 		result = -EINVAL;
 		goto bail;
 	}
 	if (ipa_rm_dep_graph_get_resource(graph,
 					  resource_name,
 					  &dependant)) {
+		IPA_RM_ERR("%s does not exist\n",
+					ipa_rm_resource_str(resource_name));
 		result = -EINVAL;
 		goto bail;
 	}
 	if (ipa_rm_dep_graph_get_resource(graph,
 					depends_on_name,
 					  &dependency)) {
+		IPA_RM_ERR("%s does not exist\n",
+					ipa_rm_resource_str(depends_on_name));
 		result = -EINVAL;
 		goto bail;
 	}
 	result = ipa_rm_resource_add_dependency(dependant, dependency);
 bail:
+	IPA_RM_DBG("EXIT with %d\n", result);
+
 	return result;
 }
 
@@ -195,25 +210,33 @@ int ipa_rm_dep_graph_delete_dependency(struct ipa_rm_dep_graph *graph,
 	struct ipa_rm_resource *dependant = NULL;
 	struct ipa_rm_resource *dependency = NULL;
 	int result;
+
 	if (!graph ||
 		!IPA_RM_RESORCE_IS_PROD(resource_name) ||
 		!IPA_RM_RESORCE_IS_CONS(depends_on_name)) {
+		IPA_RM_ERR("invalid params\n");
 		result = -EINVAL;
 		goto bail;
 	}
 	if (ipa_rm_dep_graph_get_resource(graph,
 					  resource_name,
 					  &dependant)) {
+		IPA_RM_ERR("%s does not exist\n",
+					ipa_rm_resource_str(resource_name));
 		result = -EINVAL;
 		goto bail;
 	}
 	if (ipa_rm_dep_graph_get_resource(graph,
 					  depends_on_name,
 					  &dependency)) {
+		IPA_RM_ERR("%s does not exist\n",
+					ipa_rm_resource_str(depends_on_name));
 		result = -EINVAL;
 		goto bail;
 	}
 	result = ipa_rm_resource_delete_dependency(dependant, dependency);
 bail:
+	IPA_RM_DBG("EXIT with %d\n", result);
+
 	return result;
 }

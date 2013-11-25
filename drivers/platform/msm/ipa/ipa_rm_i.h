@@ -16,6 +16,13 @@
 #include <linux/workqueue.h>
 #include <mach/ipa.h>
 
+#define IPA_RM_DRV_NAME "ipa_rm"
+
+#define IPA_RM_DBG(fmt, args...) \
+	pr_debug(IPA_RM_DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+#define IPA_RM_ERR(fmt, args...) \
+	pr_err(IPA_RM_DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+
 #define IPA_RM_RESOURCE_CONS_MAX \
 	(IPA_RM_RESOURCE_MAX - IPA_RM_RESOURCE_PROD_MAX)
 #define IPA_RM_RESORCE_IS_PROD(x) \
@@ -64,6 +71,8 @@ int ipa_rm_wq_send_cmd(enum ipa_rm_wq_cmd wq_cmd,
 int ipa_rm_initialize(void);
 
 int ipa_rm_stat(char *buf, int size);
+
+const char *ipa_rm_resource_str(enum ipa_rm_resource_name resource_name);
 
 void ipa_rm_exit(void);
 
