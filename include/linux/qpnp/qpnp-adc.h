@@ -1622,7 +1622,11 @@ static inline int32_t qpnp_iadc_calibrate_for_trim(struct qpnp_iadc_chip *iadc,
 							bool batfet_closed)
 { return -ENXIO; }
 static inline int32_t qpnp_iadc_comp_result(struct qpnp_iadc_chip *iadc,
-						int64_t *result, int32_t sign)
+						int64_t *result)
+{ return -ENXIO; }
+static inline int qpnp_iadc_skip_calibration(struct qpnp_iadc_chip *iadc)
+{ return -ENXIO; }
+static inline int qpnp_iadc_resume_calibration(struct qpnp_iadc_chip *iadc)
 { return -ENXIO; }
 #endif
 
