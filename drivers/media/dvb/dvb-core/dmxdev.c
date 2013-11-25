@@ -899,7 +899,9 @@ static int dvb_dvr_release(struct inode *inode, struct file *file)
 	} else {
 		int i;
 
+		spin_lock(&dmxdev->dvr_in_lock);
 		dmxdev->dvr_in_exit = 1;
+		spin_unlock(&dmxdev->dvr_in_lock);
 
 		wake_up_all(&dmxdev->dvr_cmd_buffer.queue);
 
