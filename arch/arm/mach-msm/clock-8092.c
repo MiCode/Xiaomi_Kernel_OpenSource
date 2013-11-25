@@ -3777,7 +3777,7 @@ static struct branch_clk mdss_hdmi_clk = {
 
 static struct branch_clk mdss_mdp_clk = {
 	.cbcr_reg = MDSS_MDP_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
 		.dbg_name = "mdss_mdp_clk",
@@ -5791,6 +5791,8 @@ struct measure_mux_entry measure_mux[] = {
 	{&vcap_ahb_clk.c,			MMSS_BASE,	0x0039},
 	{&avsync_vp_clk.c,			MMSS_BASE,	0x004e},
 	{&avsync_ahb_clk.c,			MMSS_BASE,	0x0052},
+	{&venus0_core0_vcodec_clk.c,		MMSS_BASE,	0x0054},
+	{&venus0_core1_vcodec_clk.c,		MMSS_BASE,	0x0055},
 
 	/* BCAST */
 	{&adc_clk_src.c,			BCSS_BASE,	0x0000},
