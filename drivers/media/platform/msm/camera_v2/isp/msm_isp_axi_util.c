@@ -68,9 +68,17 @@ int msm_isp_validate_axi_request(struct msm_vfe_axi_shared_data *axi_data,
 	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd)
 {
 	int rc = -1, i;
-	struct msm_vfe_axi_stream *stream_info =
-		&axi_data->stream_info[
-			HANDLE_TO_IDX(stream_cfg_cmd->axi_stream_handle)];
+	struct msm_vfe_axi_stream *stream_info = NULL;
+	uint32_t idx = 0;
+
+	if (NULL == stream_cfg_cmd || NULL == axi_data)
+		return rc;
+
+	idx = HANDLE_TO_IDX(stream_cfg_cmd->axi_stream_handle);
+	if (idx < MAX_NUM_STREAM)
+		stream_info = &axi_data->stream_info[idx];
+	else
+		return rc;
 
 	switch (stream_cfg_cmd->output_format) {
 	case V4L2_PIX_FMT_SBGGR8:
@@ -427,11 +435,22 @@ void msm_isp_calculate_framedrop(
 	struct msm_vfe_axi_shared_data *axi_data,
 	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd)
 {
-	struct msm_vfe_axi_stream *stream_info =
-		&axi_data->stream_info[
-		HANDLE_TO_IDX(stream_cfg_cmd->axi_stream_handle)];
-	uint32_t framedrop_period = msm_isp_get_framedrop_period(
-	   stream_cfg_cmd->frame_skip_pattern);
+	struct msm_vfe_axi_stream *stream_info = NULL;
+	uint32_t framedrop_period = 0;
+	uint8_t idx = 0;
+
+	if (NULL == axi_data || NULL == stream_cfg_cmd)
+		return;
+
+	idx = HANDLE_TO_IDX(stream_cfg_cmd->axi_stream_handle);
+
+	if (idx < MAX_NUM_STREAM)
+		stream_info = &axi_data->stream_info[idx];
+	else
+		return;
+
+	framedrop_period = msm_isp_get_framedrop_period(
+			stream_cfg_cmd->frame_skip_pattern);
 
 	if (stream_cfg_cmd->frame_skip_pattern == SKIP_ALL)
 		stream_info->framedrop_pattern = 0x0;
@@ -760,8 +779,9 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 	rc = vfe_dev->buf_mgr->ops->get_buf(vfe_dev->buf_mgr,
 			vfe_dev->pdev->id, bufq_handle, &buf);
 	if (rc < 0) {
-		vfe_dev->error_info.
-			stream_framedrop_count[stream_idx]++;
+		if(stream_idx < MAX_NUM_STREAM)
+			vfe_dev->error_info.
+				stream_framedrop_count[stream_idx]++;
 		return rc;
 	}
 

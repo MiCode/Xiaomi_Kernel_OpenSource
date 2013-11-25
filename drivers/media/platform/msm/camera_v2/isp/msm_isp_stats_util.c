@@ -39,8 +39,9 @@ static int msm_isp_stats_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 	rc = vfe_dev->buf_mgr->ops->get_buf(vfe_dev->buf_mgr,
 			vfe_dev->pdev->id, bufq_handle, &buf);
 	if (rc < 0) {
-		vfe_dev->error_info.stats_framedrop_count[
-			STATS_IDX(stream_info->stream_handle)]++;
+		uint8_t idx = STATS_IDX(stream_info->stream_handle);
+		if (idx < MSM_ISP_STATS_MAX)
+			vfe_dev->error_info.stats_framedrop_count[idx]++;
 		return rc;
 	}
 
