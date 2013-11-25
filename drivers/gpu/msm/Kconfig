@@ -59,21 +59,11 @@ config MSM_KGSL_PSTMRTMDMP_RB_HEX
 	  Use hex version for the ring-buffer in the post-mortem dump, instead
 	  of the human readable version.
 
-config MSM_KGSL_2D
-	tristate "MSM 2D graphics driver. Required for OpenVG"
-	default y
-	depends on MSM_KGSL && !ARCH_MSM7X27 && !ARCH_MSM7X27A && !(ARCH_QSD8X50 && !MSM_SOC_REV_A)
-
 config MSM_ADRENO_DEFAULT_GOVERNOR
 	string "devfreq governor for the adreno core"
 	default "msm-adreno-tz" if DEVFREQ_GOV_MSM_ADRENO_TZ
 	default "simple_ondemand"
 	depends on MSM_KGSL
-
-config MSM_Z180_DEFAULT_GOVERNOR
-	string "devfreq governor for the z180 core(s)"
-	default "performance"
-	depends on MSM_KGSL_2D
 
 config MSM_KGSL_DRM
 	bool "Build a DRM interface for the MSM_KGSL driver"
