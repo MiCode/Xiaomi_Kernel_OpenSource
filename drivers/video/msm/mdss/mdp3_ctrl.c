@@ -1640,7 +1640,8 @@ static int mdp3_ctrl_ioctl_handler(struct msm_fb_data_type *mfd,
 
 	req = &mdp3_session->req_overlay;
 
-	if (!mdp3_session->status && cmd != MSMFB_METADATA_GET) {
+	if (!mdp3_session->status && cmd != MSMFB_METADATA_GET &&
+		cmd != MSMFB_HISTOGRAM_STOP) {
 		pr_err("mdp3_ctrl_ioctl_handler, display off!\n");
 		return -EPERM;
 	}
