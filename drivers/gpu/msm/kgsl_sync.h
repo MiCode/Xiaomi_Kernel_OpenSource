@@ -36,30 +36,15 @@ struct kgsl_sync_fence_waiter {
 };
 
 #if defined(CONFIG_SYNC)
-struct sync_pt *kgsl_sync_pt_create(struct sync_timeline *timeline,
-	unsigned int timestamp);
-void kgsl_sync_pt_destroy(struct sync_pt *pt);
 int kgsl_add_fence_event(struct kgsl_device *device,
 	u32 context_id, u32 timestamp, void __user *data, int len,
 	struct kgsl_device_private *owner);
 int kgsl_sync_timeline_create(struct kgsl_context *context);
-void kgsl_sync_timeline_signal(struct sync_timeline *timeline,
-	unsigned int timestamp);
 void kgsl_sync_timeline_destroy(struct kgsl_context *context);
 struct kgsl_sync_fence_waiter *kgsl_sync_fence_async_wait(int fd,
 	void (*func)(void *priv), void *priv);
 int kgsl_sync_fence_async_cancel(struct kgsl_sync_fence_waiter *waiter);
 #else
-static inline struct sync_pt
-*kgsl_sync_pt_create(struct sync_timeline *timeline, unsigned int timestamp)
-{
-	return NULL;
-}
-
-static inline void kgsl_sync_pt_destroy(struct sync_pt *pt)
-{
-}
-
 static inline int kgsl_add_fence_event(struct kgsl_device *device,
 	u32 context_id, u32 timestamp, void __user *data, int len,
 	struct kgsl_device_private *owner)
@@ -71,12 +56,6 @@ static int kgsl_sync_timeline_create(struct kgsl_context *context)
 {
 	context->timeline = NULL;
 	return 0;
-}
-
-static inline void
-kgsl_sync_timeline_signal(struct sync_timeline *timeline,
-	unsigned int timestamp)
-{
 }
 
 static inline void kgsl_sync_timeline_destroy(struct kgsl_context *context)

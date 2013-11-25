@@ -324,7 +324,8 @@ EXPORT_SYMBOL(kgsl_devfreq_get_cur_freq);
  * Add a notifier to recieve ADRENO_DEVFREQ_NOTIFY_* events
  * from the device.
  */
-int kgsl_devfreq_add_notifier(struct device *dev, struct notifier_block *nb)
+int kgsl_devfreq_add_notifier(struct device *dev,
+		struct notifier_block *nb)
 {
 	struct kgsl_device *device = dev_get_drvdata(dev);
 
@@ -336,14 +337,7 @@ int kgsl_devfreq_add_notifier(struct device *dev, struct notifier_block *nb)
 
 	return srcu_notifier_chain_register(&device->pwrscale.nh, nb);
 }
-
-void kgsl_pwrscale_idle(struct kgsl_device *device)
-{
-	BUG_ON(!mutex_is_locked(&device->mutex));
-	queue_work(device->pwrscale.devfreq_wq,
-		&device->pwrscale.devfreq_notify_ws);
-}
-EXPORT_SYMBOL(kgsl_pwrscale_idle);
+EXPORT_SYMBOL(kgsl_devfreq_add_notifier);
 
 /*
  * kgsl_devfreq_del_notifier - remove a fine grained notifier.

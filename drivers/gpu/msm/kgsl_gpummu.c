@@ -350,7 +350,7 @@ err_ptpool_remove:
 	return NULL;
 }
 
-int kgsl_gpummu_pt_equal(struct kgsl_mmu *mmu,
+static int kgsl_gpummu_pt_equal(struct kgsl_mmu *mmu,
 			struct kgsl_pagetable *pt,
 			phys_addr_t pt_base)
 {
@@ -358,7 +358,7 @@ int kgsl_gpummu_pt_equal(struct kgsl_mmu *mmu,
 	return gpummu_pt && pt_base && (gpummu_pt->base.gpuaddr == pt_base);
 }
 
-void kgsl_gpummu_destroy_pagetable(struct kgsl_pagetable *pt)
+static void kgsl_gpummu_destroy_pagetable(struct kgsl_pagetable *pt)
 {
 	struct kgsl_gpummu_pt *gpummu_pt = pt->priv;
 	kgsl_ptpool_free((struct kgsl_ptpool *)kgsl_driver.ptpool,

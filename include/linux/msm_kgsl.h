@@ -77,7 +77,7 @@ struct kgsl_pwrlevel {
  * @bus_scale_table:	Bus table with different b/w votes
  * @iommu_data:		Struct holding iommu context data
  * @iommu_count:	Number of IOMMU units for the GPU
- * @core_info:		Core specific info used by dcvs algorithm
+ * @csdev:		Pointer to the coresight device for this device
  * @coresight_pdata:	Coresight configuration for specific device
  * @chipid:		Chip ID for the device's GPU
  */
@@ -85,7 +85,6 @@ struct kgsl_device_platform_data {
 	struct kgsl_pwrlevel pwrlevel[KGSL_MAX_PWRLEVELS];
 	int init_level;
 	int num_levels;
-	int (*set_grp_async)(void);
 	unsigned int idle_timeout;
 	bool strtstp_sleepwake;
 	bool bus_control;
@@ -95,7 +94,6 @@ struct kgsl_device_platform_data {
 	struct msm_bus_scale_pdata *bus_scale_table;
 	struct kgsl_device_iommu_data *iommu_data;
 	int iommu_count;
-	struct msm_dcvs_core_info *core_info;
 	struct coresight_device *csdev;
 	struct coresight_platform_data *coresight_pdata;
 	unsigned int chipid;
