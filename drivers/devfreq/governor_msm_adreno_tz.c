@@ -29,6 +29,11 @@ static DEFINE_SPINLOCK(tz_lock);
  * per frame for 60fps content.
  */
 #define FLOOR			5000
+#define LONG_FLOOR		50000
+#define HIST			5
+#define TARGET			80
+#define CAP			75
+
 /*
  * CEILING is 50msec, larger than any standard
  * frame length, but less than the idle timer.
@@ -63,6 +68,17 @@ static int __secure_tz_entry3(u32 cmd, u32 val1, u32 val2, u32 val3)
 	return ret;
 }
 
+static void _update_cutoff(struct devfreq_msm_adreno_tz_data *priv,
+				unsigned int norm_max)
+{
+	int i;
+
+	priv->bus.max = norm_max;
+	for (i = 0; i < priv->bus.num; i++) {
+		priv->bus.up[i] = priv->bus.p_up[i] * norm_max / 100;
+		priv->bus.down[i] = priv->bus.p_down[i] * norm_max / 100;
+	}
+}
 
 static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
 				u32 *flag)
@@ -70,8 +86,16 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
 	int result = 0;
 	struct devfreq_msm_adreno_tz_data *priv = devfreq->data;
 	struct devfreq_dev_status stats;
+	struct xstats b;
 	int val, level = 0;
+	int act_level;
+	int norm_cycles;
+	int gpu_percent;
 
+	if (priv->bus.num)
+		stats.private_data = &b;
+	else
+		stats.private_data = NULL;
 	result = devfreq->profile->get_dev_status(devfreq->dev.parent, &stats);
 	if (result) {
 		pr_err(TAG "get_status failed %d\n", result);
@@ -79,8 +103,16 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
 	}
 
 	*freq = stats.current_frequency;
+	*flag = 0;
 	priv->bin.total_time += stats.total_time;
 	priv->bin.busy_time += stats.busy_time;
+	if (priv->bus.num) {
+		priv->bus.total_time += stats.total_time;
+		priv->bus.gpu_time += stats.busy_time;
+		priv->bus.ram_time += b.ram_time;
+		priv->bus.ram_time += b.ram_wait;
+	}
+
 	/*
 	 * Do not waste CPU cycles running this algorithm if
 	 * the GPU just started, or if less than FLOOR time
@@ -92,6 +124,7 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
 	}
 
 	level = devfreq_get_freq_level(devfreq, stats.current_frequency);
+
 	if (level < 0) {
 		pr_err(TAG "bad freq %ld\n", stats.current_frequency);
 		return level;
@@ -113,23 +146,54 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
 	priv->bin.busy_time = 0;
 
 	/*
-	 * If the decision is to move to a lower level, make sure the GPU
-	 * frequency drops.
+	 * If the decision is to move to a different level, make sure the GPU
+	 * frequency changes.
 	 */
-	level += val;
-	level = max(level, 0);
-	level = min_t(int, level, devfreq->profile->max_state);
-	*freq = devfreq->profile->freq_table[level];
-
-	/*
-	 * By setting freq as UINT_MAX we notify the kgsl target function
-	 * to go up one power level without considering the freq value
-	 */
-	if (val < 0) {
-		*flag = DEVFREQ_FLAG_FAST_HINT;
-		*freq = UINT_MAX;
+	if (val) {
+		level += val;
+		level = max(level, 0);
+		level = min_t(int, level, devfreq->profile->max_state);
+		goto clear;
 	}
 
+	if (priv->bus.total_time < LONG_FLOOR)
+		goto end;
+	norm_cycles = (unsigned int)priv->bus.ram_time /
+			(unsigned int) priv->bus.total_time;
+	gpu_percent = (100 * (unsigned int)priv->bus.gpu_time) /
+			(unsigned int) priv->bus.total_time;
+	/*
+	 * If there's a new high watermark, update the cutoffs and send the
+	 * FAST hint.  Otherwise check the current value against the current
+	 * cutoffs.
+	 */
+	if (norm_cycles > priv->bus.max) {
+		_update_cutoff(priv, norm_cycles);
+		*flag = DEVFREQ_FLAG_FAST_HINT;
+	} else {
+		/*
+		 * Normalize by gpu_time unless it is a small fraction of
+		 * the total time interval.
+		 */
+		norm_cycles = (100 * norm_cycles) / TARGET;
+		act_level = priv->bus.index[level] + b.mod;
+		act_level = (act_level < 0) ? 0 : act_level;
+		act_level = (act_level >= priv->bus.num) ?
+			(priv->bus.num - 1) : act_level;
+		if (norm_cycles > priv->bus.up[act_level] &&
+			gpu_percent > CAP)
+			*flag = DEVFREQ_FLAG_FAST_HINT;
+		else if (norm_cycles < priv->bus.down[act_level] && level)
+			*flag = DEVFREQ_FLAG_SLOW_HINT;
+	}
+
+clear:
+	priv->bus.total_time = 0;
+	priv->bus.gpu_time = 0;
+	priv->bus.ram_time = 0;
+
+end:
+	*freq = devfreq->profile->freq_table[level];
 	return 0;
 }
 
@@ -157,6 +221,7 @@ static int tz_start(struct devfreq *devfreq)
 {
 	struct devfreq_msm_adreno_tz_data *priv;
 	unsigned int tz_pwrlevels[MSM_ADRENO_MAX_PWRLEVELS + 1];
+	unsigned int t1, t2 = 2 * HIST;
 	int i, out, ret;
 
 	if (devfreq->data == NULL) {
@@ -183,6 +248,24 @@ static int tz_start(struct devfreq *devfreq)
 	if (ret != 0)
 		pr_err(TAG "tz_init failed\n");
 
+	/* Set up the cut-over percentages for the bus calculation. */
+	if (priv->bus.num) {
+		for (i = 0; i < priv->bus.num; i++) {
+			t1 = (u32)(100 * priv->bus.ib[i]) /
+					(u32)priv->bus.ib[priv->bus.num - 1];
+			priv->bus.p_up[i] = t1 - HIST;
+			priv->bus.p_down[i] = t2 - 2 * HIST;
+			t2 = t1;
+		}
+		/* Set the upper-most and lower-most bounds correctly. */
+		priv->bus.p_down[0] = 0;
+		priv->bus.p_down[1] = (priv->bus.p_down[1] > (2 * HIST)) ?
+					priv->bus.p_down[1] : (2 * HIST);
+		if (priv->bus.num - 1 >= 0)
+			priv->bus.p_up[priv->bus.num - 1] = 100;
+		_update_cutoff(priv, priv->bus.max);
+	}
+
 	return kgsl_devfreq_add_notifier(devfreq->dev.parent, &priv->nb);
 }
 
@@ -202,8 +285,7 @@ static int tz_resume(struct devfreq *devfreq)
 
 	freq = profile->initial_freq;
 
-	return profile->target(devfreq->dev.parent, &freq,
-				DEVFREQ_FLAG_LEAST_UPPER_BOUND);
+	return profile->target(devfreq->dev.parent, &freq, 0);
 }
 
 static int tz_suspend(struct devfreq *devfreq)
@@ -214,6 +296,9 @@ static int tz_suspend(struct devfreq *devfreq)
 
 	priv->bin.total_time = 0;
 	priv->bin.busy_time = 0;
+	priv->bus.total_time = 0;
+	priv->bus.gpu_time = 0;
+	priv->bus.ram_time = 0;
 	return 0;
 }
 

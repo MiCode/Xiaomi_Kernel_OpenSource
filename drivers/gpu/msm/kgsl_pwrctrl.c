@@ -17,6 +17,7 @@
 #include <linux/pm_runtime.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_bus.h>
+#include <mach/msm_bus_board.h>
 #include <linux/ktime.h>
 #include <linux/delay.h>
 
@@ -123,13 +124,34 @@ static inline int _adjust_pwrlevel(struct kgsl_pwrctrl *pwr, int level)
 	return level;
 }
 
+void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
+			bool on)
+{
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	int cur = pwr->pwrlevels[pwr->active_pwrlevel].bus_freq;
+	int buslevel = 0;
+	if (!pwr->pcl)
+		return;
+	/*
+	 * If the bus should remain on calculate our request and submit it,
+	 * otherwise request bus level 0, off.
+	 */
+	if (on) {
+		buslevel = min_t(int, pwr->pwrlevels[0].bus_freq,
+				cur + pwr->bus_mod);
+		buslevel = max_t(int, buslevel, 1);
+	}
+	msm_bus_scale_client_update_request(pwr->pcl, buslevel);
+	trace_kgsl_pwrlevel(device, pwr->active_pwrlevel, buslevel);
+}
+EXPORT_SYMBOL(kgsl_pwrctrl_buslevel_update);
+
 void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 				unsigned int new_level)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct kgsl_pwrlevel *pwrlevel;
-	int delta;
-	int level;
+	int delta, level;
 
 	/* Adjust the power level to the current constraints */
 	new_level = _adjust_pwrlevel(pwr, new_level);
@@ -150,14 +172,12 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	 */
 
 	pwr->active_pwrlevel = new_level;
+	pwr->bus_mod = 0;
 	pwrlevel = &pwr->pwrlevels[pwr->active_pwrlevel];
 
 	if (test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->power_flags)) {
-
-		if (pwr->pcl)
-			msm_bus_scale_client_update_request(pwr->pcl,
-				pwrlevel->bus_freq);
-		else if (pwr->ebi1_clk)
+		kgsl_pwrctrl_buslevel_update(device, true);
+		if (pwr->ebi1_clk)
 			clk_set_rate(pwr->ebi1_clk, pwrlevel->bus_freq);
 	}
 
@@ -917,9 +937,7 @@ static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 				clk_set_rate(pwr->ebi1_clk, 0);
 				clk_disable_unprepare(pwr->ebi1_clk);
 			}
-			if (pwr->pcl)
-				msm_bus_scale_client_update_request(pwr->pcl,
-								    0);
+			kgsl_pwrctrl_buslevel_update(device, false);
 		}
 	} else if (state == KGSL_PWRFLAGS_ON) {
 		if (!test_and_set_bit(KGSL_PWRFLAGS_AXI_ON,
@@ -931,10 +949,7 @@ static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 					pwr->pwrlevels[pwr->active_pwrlevel].
 					bus_freq);
 			}
-			if (pwr->pcl)
-				msm_bus_scale_client_update_request(pwr->pcl,
-					pwr->pwrlevels[pwr->active_pwrlevel].
-						bus_freq);
+			kgsl_pwrctrl_buslevel_update(device, true);
 		}
 	}
 }
@@ -1004,7 +1019,7 @@ EXPORT_SYMBOL(kgsl_pwrctrl_irq);
 
 int kgsl_pwrctrl_init(struct kgsl_device *device)
 {
-	int i, result = 0;
+	int i, k, m, n = 0, result = 0;
 	struct clk *clk;
 	struct platform_device *pdev =
 		container_of(device->parentdev, struct platform_device, dev);
@@ -1085,26 +1100,61 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		clk_set_rate(pwr->ebi1_clk,
 					 pwr->pwrlevels[pwr->active_pwrlevel].
 						bus_freq);
-	if (pdata->bus_scale_table != NULL) {
-		pwr->pcl = msm_bus_scale_register_client(pdata->
-							bus_scale_table);
-		if (!pwr->pcl) {
-			KGSL_PWR_ERR(device,
-					"msm_bus_scale_register_client failed: "
-					"id %d table %p", device->id,
-					pdata->bus_scale_table);
-			result = -EINVAL;
-			goto done;
-		}
-	}
-
-	/* Set the power level step multiplier with 1 as the default */
-	pwr->step_mul = pdata->step_mul ? pdata->step_mul : 1;
 
 	/* Set the CPU latency to 501usec to allow low latency PC modes */
 	pwr->pm_qos_latency = 501;
 
 	pm_runtime_enable(device->parentdev);
+
+	if (pdata->bus_scale_table == NULL)
+		return result;
+
+	pwr->pcl = msm_bus_scale_register_client(pdata->
+						bus_scale_table);
+	if (!pwr->pcl) {
+		KGSL_PWR_ERR(device,
+				"msm_bus_scale_register_client failed: "
+				"id %d table %p", device->id,
+				pdata->bus_scale_table);
+		result = -EINVAL;
+		goto done;
+	}
+
+	/* Set if independent bus BW voting is supported */
+	pwr->bus_control = pdata->bus_control;
+	/*
+	 * Pull the BW vote out of the bus table.  They will be used to
+	 * calculate the ratio between the votes.
+	 */
+	for (i = 0; i < pdata->bus_scale_table->num_usecases; i++) {
+		struct msm_bus_paths *usecase =
+				&pdata->bus_scale_table->usecase[i];
+		struct msm_bus_vectors *vector = &usecase->vectors[0];
+		if (vector->dst == MSM_BUS_SLAVE_EBI_CH0 &&
+				vector->ib != 0) {
+			for (k = 0; k < n; k++)
+				if (vector->ib == pwr->bus_ib[k])
+					break;
+			/* if this is a new ib value, save it */
+			if (k == n) {
+				pwr->bus_ib[k] = vector->ib;
+				n++;
+				/* find which pwrlevels use this ib */
+				for (m = 0; m < pwr->num_pwrlevels - 1; m++) {
+					if (pdata->bus_scale_table->
+						usecase[pwr->pwrlevels[m].
+						bus_freq].vectors[0].ib
+						== vector->ib)
+						pwr->bus_index[m] = k;
+				}
+				printk("kgsl bus ib [%d] = %llu\n", k, vector->ib);
+			}
+		}
+	}
+
+	for (m = 0; m < pwr->num_pwrlevels - 1; m++)
+		printk("kgsl bus index is %d for pwrlevel %d\n", pwr->bus_index[m], m);
+
 	return result;
 
 clk_err:
@@ -1279,9 +1329,9 @@ _nap(struct kgsl_device *device)
 
 		/*
 		 * Read HW busy counters before going to NAP state.
-		 * The data might be used by power scale govenors
+		 * The data might be used by power scale governors
 		 * independently of the HW activity. For example
-		 * the simple-on-demand governer will get the latest
+		 * the simple-on-demand governor will get the latest
 		 * busy_time data even if the gpu isn't active.
 		*/
 		device->ftbl->power_stats(device, &stats);
@@ -1606,6 +1656,8 @@ void kgsl_active_count_put(struct kgsl_device *device)
 
 		mod_timer(&device->idle_timer,
 			jiffies + device->pwrctrl.interval_timeout);
+	} else {
+		kgsl_pwrscale_update(device);
 	}
 
 	trace_kgsl_active_count(device,

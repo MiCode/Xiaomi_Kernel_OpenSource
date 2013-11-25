@@ -16,12 +16,31 @@ int kgsl_devfreq_del_notifier(struct device *, struct notifier_block *);
 /* same as KGSL_MAX_PWRLEVELS */
 #define MSM_ADRENO_MAX_PWRLEVELS 10
 
+struct xstats {
+	u64 ram_time;
+	u64 ram_wait;
+	int mod;
+};
+
 struct devfreq_msm_adreno_tz_data {
 	struct notifier_block nb;
 	struct {
 		s64 total_time;
 		s64 busy_time;
 	} bin;
+	struct {
+		u64 total_time;
+		u64 ram_time;
+		u64 gpu_time;
+		u32 num;
+		u32 max;
+		u32 up[MSM_ADRENO_MAX_PWRLEVELS];
+		u32 down[MSM_ADRENO_MAX_PWRLEVELS];
+		u32 p_up[MSM_ADRENO_MAX_PWRLEVELS];
+		u32 p_down[MSM_ADRENO_MAX_PWRLEVELS];
+		unsigned int *index;
+		uint64_t *ib;
+	} bus;
 	unsigned int device_id;
 };
 

@@ -287,31 +287,6 @@ TRACE_EVENT(kgsl_gpubusy,
 	)
 );
 
-TRACE_EVENT(kgsl_pwrstats,
-	TP_PROTO(struct kgsl_device *device, u64 total_time,
-		 struct kgsl_power_stats *pstats),
-
-	TP_ARGS(device, total_time, pstats),
-
-	TP_STRUCT__entry(
-		__string(device_name, device->name)
-		__field(u64, total_time)
-		__field(u64, busy_time)
-	),
-
-	TP_fast_assign(
-		__assign_str(device_name, device->name);
-		__entry->total_time = total_time;
-		__entry->busy_time = pstats->busy_time;
-	),
-
-	TP_printk(
-		"d_name=%s total=%lld busy=%lld",
-		__get_str(device_name),
-		__entry->total_time, __entry->busy_time
-	)
-);
-
 DECLARE_EVENT_CLASS(kgsl_pwrstate_template,
 	TP_PROTO(struct kgsl_device *device, unsigned int state),
 
@@ -820,6 +795,37 @@ TRACE_EVENT(kgsl_active_count,
 		__get_str(device_name), __entry->count, (void *) __entry->ip
 	)
 );
+
+
+TRACE_EVENT(kgsl_pwrstats,
+	TP_PROTO(struct kgsl_device *device, s64 time,
+		struct kgsl_power_stats *pstats),
+
+	TP_ARGS(device, time, pstats),
+
+	TP_STRUCT__entry(
+		__string(device_name, device->name)
+		__field(s64, total_time)
+		__field(u64, busy_time)
+		__field(u64, ram_time)
+		__field(u64, ram_wait)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, device->name);
+		__entry->total_time = time;
+		__entry->busy_time = pstats->busy_time;
+		__entry->ram_time = pstats->ram_time;
+		__entry->ram_wait = pstats->ram_wait;
+	),
+
+	TP_printk(
+		"d_name=%s total=%lld busy=%lld ram_time=%lld ram_wait=%lld",
+		__get_str(device_name), __entry->total_time, __entry->busy_time,
+		__entry->ram_time, __entry->ram_wait
+	)
+);
+
 
 #endif /* _KGSL_TRACE_H */
 

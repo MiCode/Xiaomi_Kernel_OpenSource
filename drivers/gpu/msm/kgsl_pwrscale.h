@@ -22,6 +22,8 @@
 
 struct kgsl_power_stats {
 	u64 busy_time;
+	u64 ram_time;
+	u64 ram_wait;
 };
 
 struct kgsl_pwrscale {
