@@ -92,6 +92,12 @@ const unsigned int a330_registers[] = {
 
 const unsigned int a330_registers_count = ARRAY_SIZE(a330_registers) / 2;
 
+/* EN/CLR mask for the VBIF counters we care about */
+#define VBIF_PERF_MASK (VBIF_PERF_CNT_0 | VBIF_PERF_PWR_CNT_0)
+#define RBBM_PERF_ENABLE_MASK (RBBM_RBBM_CTL_ENABLE_PWR_CTR1)
+#define RBBM_PERF_RESET_MASK (RBBM_RBBM_CTL_RESET_PWR_CTR1)
+#define _SET(_shift, _val) ((_val) << (_shift))
+
 /*
  * Define registers for a3xx that contain addresses used by the
  * cp parser logic
@@ -1459,31 +1465,57 @@ unsigned int a3xx_irq_pending(struct adreno_device *adreno_dev)
 	return (status & A3XX_INT_MASK) ? 1 : 0;
 }
 
-/*
- * a3xx_busy_cycles() - Returns number of gpu cycles
- * @adreno_dev: Pointer to device ehose cycles are checked
- *
- * Returns number of busy clycles since the last time this function is called
- * Function is common between a3xx and a4xx devices
- */
-unsigned int a3xx_busy_cycles(struct adreno_device *adreno_dev)
+static unsigned int counter_delta(struct adreno_device *adreno_dev,
+			unsigned int reg, unsigned int *counter)
 {
+	struct kgsl_device *device = &adreno_dev->dev;
 	unsigned int val;
 	unsigned int ret = 0;
 
 	/* Read the value */
-	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_PERFCTR_PWR_1_LO, &val);
+	if (reg == ADRENO_REG_RBBM_PERFCTR_PWR_1_LO)
+		adreno_readreg(adreno_dev, reg, &val);
+	else
+		kgsl_regread(device, reg, &val);
 
 	/* Return 0 for the first read */
-	if (adreno_dev->gpu_cycles != 0) {
-		if (val < adreno_dev->gpu_cycles)
-			ret = (0xFFFFFFFF - adreno_dev->gpu_cycles) + val;
+	if (*counter != 0) {
+		if (val < *counter)
+			ret = (0xFFFFFFFF - *counter) + val;
 		else
-			ret = val - adreno_dev->gpu_cycles;
+			ret = val - *counter;
 	}
 
-	adreno_dev->gpu_cycles = val;
+	*counter = val;
 	return ret;
+}
+
+/*
+ * a3xx_busy_cycles() - Returns number of gpu cycles
+ * @adreno_dev: Pointer to device ehose cycles are checked
+ *
+ * Returns number of busy cycles since the last time this function is called
+ * Function is common between a3xx and a4xx devices
+ */
+void a3xx_busy_cycles(struct adreno_device *adreno_dev,
+				struct adreno_busy_data *data)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+	struct adreno_busy_data *busy = &adreno_dev->busy_data;
+
+	memset(data, 0, sizeof(*data));
+
+	data->gpu_busy = counter_delta(adreno_dev,
+					ADRENO_REG_RBBM_PERFCTR_PWR_1_LO,
+					&busy->gpu_busy);
+	if (device->pwrctrl.bus_control) {
+		data->vbif_ram_cycles = counter_delta(adreno_dev,
+					A3XX_VBIF_PERF_CNT0_LO,
+					&busy->vbif_ram_cycles);
+		data->vbif_starved_ram = counter_delta(adreno_dev,
+					A3XX_VBIF_PERF_PWR_CNT0_LO,
+					&busy->vbif_starved_ram);
+	}
 }
 
 /* VBIF registers start after 0x3000 so use 0x0 as end of list marker */
@@ -1906,9 +1938,18 @@ int a3xx_perfcounter_init(struct adreno_device *adreno_dev)
 	if (adreno_dev->fast_hang_detect)
 		a3xx_fault_detect_start(adreno_dev);
 
-	/* Reserve and start countable 1 in the PWR perfcounter group */
+	/* Turn on the GPU busy counter(s) and let them run free */
+	/* GPU busy counts */
 	ret = adreno_perfcounter_get(adreno_dev, KGSL_PERFCOUNTER_GROUP_PWR, 1,
 			NULL, PERFCOUNTER_FLAG_KERNEL);
+	/* VBIF waiting for RAM */
+	ret |= adreno_perfcounter_get(adreno_dev,
+				KGSL_PERFCOUNTER_GROUP_VBIF_PWR, 0,
+				NULL, PERFCOUNTER_FLAG_KERNEL);
+	/* VBIF DDR cycles */
+	ret |= adreno_perfcounter_get(adreno_dev, KGSL_PERFCOUNTER_GROUP_VBIF,
+				VBIF_AXI_TOTAL_BEATS, NULL,
+				PERFCOUNTER_FLAG_KERNEL);
 
 	/* Default performance counter profiling to false */
 	adreno_dev->profile.enabled = false;
@@ -2012,13 +2053,13 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	a3xx_protect_init(device);
 
 	/* Turn on performance counters */
-	kgsl_regwrite(device, A3XX_RBBM_PERFCTR_CTL, 0x01);
-
-	/* Turn on the GPU busy counter and let it run free */
-
-	adreno_dev->gpu_cycles = 0;
+	kgsl_regwrite(device, A3XX_RBBM_PERFCTR_CTL, RBBM_PERF_ENABLE_MASK);
+	kgsl_regwrite(device, A3XX_VBIF_PERF_CNT_SEL,
+			_SET(VBIF_PERF_CNT_0_SEL, VBIF_AXI_TOTAL_BEATS));
+	kgsl_regwrite(device, A3XX_VBIF_PERF_CNT_EN, VBIF_PERF_MASK);
 
 	kgsl_regwrite(device, A3XX_CP_DEBUG, A3XX_CP_DEBUG_DEFAULT);
+	memset(&adreno_dev->busy_data, 0, sizeof(adreno_dev->busy_data));
 }
 
 static struct adreno_coresight_register a3xx_coresight_registers[] = {

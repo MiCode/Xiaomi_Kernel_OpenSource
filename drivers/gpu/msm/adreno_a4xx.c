@@ -300,7 +300,7 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 	/* Turn on performance counters */
 	kgsl_regwrite(device, A4XX_RBBM_PERFCTR_CTL, 0x01);
 	/* Turn on the GPU busy counter and let it run free */
-	adreno_dev->gpu_cycles = 0;
+	memset(&adreno_dev->busy_data, 0, sizeof(adreno_dev->busy_data));
 
 	/* On A420 cores turn on SKIP_IB2_DISABLE in addition to the default */
 	kgsl_regwrite(device, A4XX_CP_DEBUG, A4XX_CP_DEBUG_DEFAULT |

@@ -142,6 +142,12 @@ enum adreno_dispatcher_flags {
 
 struct adreno_gpudev;
 
+struct adreno_busy_data {
+	unsigned int gpu_busy;
+	unsigned int vbif_ram_cycles;
+	unsigned int vbif_starved_ram;
+};
+
 struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
 	unsigned long priv;
@@ -182,14 +188,13 @@ struct adreno_device {
 	unsigned int gpulist_index;
 	struct ocmem_buf *ocmem_hdl;
 	unsigned int ocmem_base;
-	unsigned int gpu_cycles;
 	struct adreno_profile profile;
 	struct adreno_dispatcher dispatcher;
 	struct kgsl_memdesc pwron_fixup;
 	unsigned int pwron_fixup_dwords;
-
 	struct work_struct start_work;
 	struct work_struct input_work;
+	struct adreno_busy_data busy_data;
 };
 
 /**
@@ -508,7 +513,7 @@ struct adreno_gpudev {
 	void (*fault_detect_start)(struct adreno_device *);
 	void (*fault_detect_stop)(struct adreno_device *);
 	void (*start)(struct adreno_device *);
-	unsigned int (*busy_cycles)(struct adreno_device *);
+	void (*busy_cycles)(struct adreno_device *, struct adreno_busy_data *);
 	int (*perfcounter_enable)(struct adreno_device *, unsigned int group,
 		unsigned int counter, unsigned int countable);
 	uint64_t (*perfcounter_read)(struct adreno_device *adreno_dev,
