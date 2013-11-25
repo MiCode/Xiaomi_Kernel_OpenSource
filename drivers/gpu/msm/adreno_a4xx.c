@@ -18,7 +18,7 @@
 #include "adreno_cp_parser.h"
 
 /*
- * Set of registers to dump for A4XX on postmortem and snapshot.
+ * Set of registers to dump for A4XX on snapshot.
  * Registers in pairs - first value is the start offset, second
  * is the stop offset (inclusive)
  */

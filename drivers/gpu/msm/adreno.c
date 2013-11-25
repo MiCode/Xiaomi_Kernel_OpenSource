@@ -126,7 +126,6 @@ static struct adreno_device device_3d0 = {
 		.drv_log = KGSL_LOG_LEVEL_DEFAULT,
 		.mem_log = KGSL_LOG_LEVEL_DEFAULT,
 		.pwr_log = KGSL_LOG_LEVEL_DEFAULT,
-		.pm_dump_enable = 0,
 	},
 	.gmem_base = 0,
 	.gmem_size = SZ_256K,
@@ -3087,7 +3086,6 @@ static const struct kgsl_functable adreno_functable = {
 	.drawctxt_detach = adreno_drawctxt_detach,
 	.drawctxt_destroy = adreno_drawctxt_destroy,
 	.setproperty = adreno_setproperty,
-	.postmortem_dump = adreno_dump,
 	.drawctxt_sched = adreno_drawctxt_sched,
 	.resume = adreno_dispatcher_start,
 };
