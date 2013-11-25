@@ -342,6 +342,11 @@ static int adreno_ft_init_sysfs(struct kgsl_device *device);
 static void adreno_ft_uninit_sysfs(struct kgsl_device *device);
 static int adreno_soft_reset(struct kgsl_device *device);
 
+static inline void adreno_irqctrl(struct adreno_device *adreno_dev, int state)
+{
+	adreno_dev->gpudev->irq_control(adreno_dev, state);
+}
+
 /**
  * adreno_perfcounter_init: Reserve kernel performance counters
  * @device: device to configure
@@ -1807,7 +1812,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	adreno_coresight_start(adreno_dev);
 
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
-	device->ftbl->irqctrl(device, 1);
+	adreno_irqctrl(adreno_dev, 1);
 
 	status = adreno_ringbuffer_cold_start(&adreno_dev->ringbuffer);
 	if (status)
@@ -1906,7 +1911,7 @@ static int adreno_stop(struct kgsl_device *device)
 
 	kgsl_mmu_stop(&device->mmu);
 
-	device->ftbl->irqctrl(device, 0);
+	adreno_irqctrl(adreno_dev, 0);
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 	del_timer_sync(&device->idle_timer);
 
@@ -2580,7 +2585,7 @@ static int adreno_soft_reset(struct kgsl_device *device)
 	adreno_ringbuffer_stop(&adreno_dev->ringbuffer);
 
 	if (kgsl_pwrctrl_isenabled(device))
-		device->ftbl->irqctrl(device, 0);
+		adreno_irqctrl(adreno_dev, 0);
 
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 
@@ -2609,7 +2614,7 @@ static int adreno_soft_reset(struct kgsl_device *device)
 
 	/* Enable IRQ */
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
-	device->ftbl->irqctrl(device, 1);
+	adreno_irqctrl(adreno_dev, 1);
 
 	/*
 	 * If we have offsets for the jump tables we can try to do a warm start,
@@ -3035,12 +3040,6 @@ static void adreno_power_stats(struct kgsl_device *device,
 	stats->ram_wait = busy_data.vbif_starved_ram;
 }
 
-static void adreno_irqctrl(struct kgsl_device *device, int state)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	adreno_dev->gpudev->irq_control(adreno_dev, state);
-}
-
 static unsigned int adreno_gpuid(struct kgsl_device *device,
 	unsigned int *chipid)
 {
@@ -3078,7 +3077,6 @@ static const struct kgsl_functable adreno_functable = {
 	.setup_pt = adreno_setup_pt,
 	.cleanup_pt = adreno_cleanup_pt,
 	.power_stats = adreno_power_stats,
-	.irqctrl = adreno_irqctrl,
 	.gpuid = adreno_gpuid,
 	.snapshot = adreno_snapshot,
 	.irq_handler = adreno_irq_handler,

@@ -1375,7 +1375,7 @@ static struct adreno_irq a3xx_irq = {
  *
  * Called during initialization
  */
-void a3xx_irq_setup(struct adreno_device *adreno_dev)
+static void a3xx_irq_setup(struct adreno_device *adreno_dev)
 {
 	struct adreno_irq *irq_params = adreno_dev->gpudev->irq;
 	int i;
