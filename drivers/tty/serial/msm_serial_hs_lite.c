@@ -1412,8 +1412,13 @@ static void wait_for_xmitr(struct uart_port *port)
 			touch_nmi_watchdog();
 			cpu_relax();
 			if (++count == msm_hsl_port->tx_timeout) {
+				pr_info("%s: UART TX Stuck, Resetting TX\n",
+								 __func__);
+				msm_hsl_write(port, RESET_TX,
+					regmap[vid][UARTDM_CR]);
+				mb();
 				dump_hsl_regs(port);
-				panic("MSM HSL wait_for_xmitr is stuck!");
+				break;
 			}
 		}
 		msm_hsl_write(port, CLEAR_TX_READY, regmap[vid][UARTDM_CR]);
