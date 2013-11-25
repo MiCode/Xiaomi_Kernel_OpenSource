@@ -200,6 +200,8 @@ struct adreno_device {
 	unsigned int pwron_fixup_dwords;
 	struct adreno_dispatcher dispatcher;
 	struct adreno_busy_data busy_data;
+
+	struct work_struct start_work;
 };
 
 /**
