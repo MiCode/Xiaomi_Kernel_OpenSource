@@ -45,23 +45,19 @@
 #define DEFAULT_NUM_SMD_PKT_PORTS 31
 #endif
 
-#define PDRIVER_NAME_MAX_SIZE 32
-
 #define MODULE_NAME "msm_smdpkt"
 #define DEVICE_NAME "smdpkt"
 #define WAKELOCK_TIMEOUT (2*HZ)
 
 struct smd_pkt_dev {
 	struct list_head dev_list;
-	char dev_name[PDRIVER_NAME_MAX_SIZE];
+	char dev_name[SMD_MAX_CH_NAME_LEN];
 	char ch_name[SMD_MAX_CH_NAME_LEN];
 	uint32_t edge;
 
 	struct cdev cdev;
 	struct device *devicep;
 	void *pil;
-	char pdriver_name[PDRIVER_NAME_MAX_SIZE];
-	struct platform_driver driver;
 
 	struct smd_channel *ch;
 	struct mutex ch_lock;
@@ -88,6 +84,17 @@ struct smd_pkt_dev {
 	struct spinlock pa_spinlock;
 	int wakelock_locked;
 };
+
+
+struct smd_pkt_driver {
+	struct list_head list;
+	int ref_cnt;
+	char pdriver_name[SMD_MAX_CH_NAME_LEN];
+	struct platform_driver driver;
+};
+
+static DEFINE_MUTEX(smd_pkt_driver_lock_lha1);
+static LIST_HEAD(smd_pkt_driver_list);
 
 struct class *smd_pkt_classp;
 static dev_t smd_pkt_number;
@@ -906,8 +913,7 @@ static int smd_pkt_dummy_probe(struct platform_device *pdev)
 	list_for_each_entry(smd_pkt_devp, &smd_pkt_dev_list, dev_list) {
 		if (smd_pkt_devp->edge == pdev->id
 		    && !strncmp(pdev->name, smd_pkt_devp->ch_name,
-				SMD_MAX_CH_NAME_LEN)
-		    && smd_pkt_devp->driver.probe) {
+				SMD_MAX_CH_NAME_LEN)) {
 			complete_all(&smd_pkt_devp->ch_allocated);
 			D_STATUS("%s allocated SMD ch for smd_pkt_dev id:%d\n",
 				 __func__, smd_pkt_devp->i);
@@ -925,6 +931,114 @@ static uint32_t is_modem_smsm_inited(void)
 
 	modem_state = smsm_get_state(SMSM_MODEM_STATE);
 	return (modem_state & ready_state) == ready_state;
+}
+
+/**
+ * smd_pkt_add_driver() - Add platform drivers for smd pkt device
+ *
+ * @smd_pkt_devp: pointer to the smd pkt device structure
+ *
+ * @returns:	0 for success, standard Linux error code otherwise
+ *
+ * This function is used to register platform driver once for all
+ * smd pkt devices which have same names and increment the reference
+ * count for 2nd to nth devices.
+ */
+static int smd_pkt_add_driver(struct smd_pkt_dev *smd_pkt_devp)
+{
+	int r = 0;
+	struct smd_pkt_driver *smd_pkt_driverp;
+	struct smd_pkt_driver *item;
+
+	if (!smd_pkt_devp) {
+		pr_err("%s on a NULL device\n", __func__);
+		return -EINVAL;
+	}
+	D_STATUS("Begin %s on smd_pkt_ch[%s]\n", __func__,
+					smd_pkt_devp->ch_name);
+
+	mutex_lock(&smd_pkt_driver_lock_lha1);
+	list_for_each_entry(item, &smd_pkt_driver_list, list) {
+		if (!strcmp(item->pdriver_name, smd_pkt_devp->ch_name)) {
+			D_STATUS("%s:%s Already Platform driver reg. cnt:%d\n",
+				__func__, smd_pkt_devp->ch_name, item->ref_cnt);
+			++item->ref_cnt;
+			goto exit;
+		}
+	}
+
+	smd_pkt_driverp = kzalloc(sizeof(*smd_pkt_driverp), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(smd_pkt_driverp)) {
+		pr_err("%s: kzalloc() failed for smd_pkt_driver[%s]\n",
+			__func__, smd_pkt_devp->ch_name);
+		r = -ENOMEM;
+		goto exit;
+	}
+
+	smd_pkt_driverp->driver.probe = smd_pkt_dummy_probe;
+	scnprintf(smd_pkt_driverp->pdriver_name, SMD_MAX_CH_NAME_LEN,
+		  "%s", smd_pkt_devp->ch_name);
+	smd_pkt_driverp->driver.driver.name = smd_pkt_driverp->pdriver_name;
+	smd_pkt_driverp->driver.driver.owner = THIS_MODULE;
+	r = platform_driver_register(&smd_pkt_driverp->driver);
+	if (r) {
+		pr_err("%s: %s Platform driver reg. failed\n",
+			__func__, smd_pkt_devp->ch_name);
+		kfree(smd_pkt_driverp);
+		goto exit;
+	}
+	++smd_pkt_driverp->ref_cnt;
+	list_add(&smd_pkt_driverp->list, &smd_pkt_driver_list);
+
+exit:
+	D_STATUS("End %s on smd_pkt_ch[%s]\n", __func__, smd_pkt_devp->ch_name);
+	mutex_unlock(&smd_pkt_driver_lock_lha1);
+	return r;
+}
+
+/**
+ * smd_pkt_remove_driver() - Remove the platform drivers for smd pkt device
+ *
+ * @smd_pkt_devp: pointer to the smd pkt device structure
+ *
+ * This function is used to decrement the reference count on
+ * platform drivers for smd pkt devices and removes the drivers
+ * when the reference count becomes zero.
+ */
+static void smd_pkt_remove_driver(struct smd_pkt_dev *smd_pkt_devp)
+{
+	struct smd_pkt_driver *smd_pkt_driverp;
+
+	if (!smd_pkt_devp) {
+		pr_err("%s on a NULL device\n", __func__);
+		return;
+	}
+
+	D_STATUS("Begin %s on smd_pkt_ch[%s]\n", __func__,
+					smd_pkt_devp->ch_name);
+	mutex_lock(&smd_pkt_driver_lock_lha1);
+	list_for_each_entry(smd_pkt_driverp, &smd_pkt_driver_list, list) {
+		if (!strcmp(smd_pkt_driverp->pdriver_name,
+					smd_pkt_devp->ch_name)) {
+			D_STATUS("%s:%s Platform driver cnt:%d\n",
+				__func__, smd_pkt_devp->ch_name,
+				smd_pkt_driverp->ref_cnt);
+			if (smd_pkt_driverp->ref_cnt > 0)
+				--smd_pkt_driverp->ref_cnt;
+			else
+				pr_warn("%s reference count <= 0\n", __func__);
+			break;
+		}
+	}
+
+	if (smd_pkt_driverp->ref_cnt == 0) {
+		platform_driver_unregister(&smd_pkt_driverp->driver);
+		smd_pkt_driverp->driver.probe = NULL;
+		list_del(&smd_pkt_driverp->list);
+		kfree(smd_pkt_driverp);
+	}
+	mutex_unlock(&smd_pkt_driver_lock_lha1);
+	D_STATUS("End %s on smd_pkt_ch[%s]\n", __func__, smd_pkt_devp->ch_name);
 }
 
 int smd_pkt_open(struct inode *inode, struct file *file)
@@ -950,12 +1064,8 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 		INIT_WORK(&smd_pkt_devp->packet_arrival_work,
 				packet_arrival_worker);
 		init_completion(&smd_pkt_devp->ch_allocated);
-		smd_pkt_devp->driver.probe = smd_pkt_dummy_probe;
-		scnprintf(smd_pkt_devp->pdriver_name, PDRIVER_NAME_MAX_SIZE,
-			  "%s", smd_pkt_devp->ch_name);
-		smd_pkt_devp->driver.driver.name = smd_pkt_devp->pdriver_name;
-		smd_pkt_devp->driver.driver.owner = THIS_MODULE;
-		r = platform_driver_register(&smd_pkt_devp->driver);
+
+		r = smd_pkt_add_driver(smd_pkt_devp);
 		if (r) {
 			pr_err("%s: %s Platform driver reg. failed\n",
 				__func__, smd_pkt_devp->ch_name);
@@ -1055,10 +1165,8 @@ release_pil:
 		subsystem_put(smd_pkt_devp->pil);
 
 release_pd:
-	if (r < 0) {
-		platform_driver_unregister(&smd_pkt_devp->driver);
-		smd_pkt_devp->driver.probe = NULL;
-	}
+	if (r < 0)
+		smd_pkt_remove_driver(smd_pkt_devp);
 out:
 	if (!smd_pkt_devp->ch)
 		wake_lock_destroy(&smd_pkt_devp->pa_wake_lock);
@@ -1093,8 +1201,7 @@ int smd_pkt_release(struct inode *inode, struct file *file)
 		smd_pkt_devp->ch = 0;
 		smd_pkt_devp->blocking_write = 0;
 		smd_pkt_devp->poll_mode = 0;
-		platform_driver_unregister(&smd_pkt_devp->driver);
-		smd_pkt_devp->driver.probe = NULL;
+		smd_pkt_remove_driver(smd_pkt_devp);
 		if (smd_pkt_devp->pil)
 			subsystem_put(smd_pkt_devp->pil);
 		smd_pkt_devp->has_reset = 0;
@@ -1266,7 +1373,7 @@ static int smd_pkt_core_init(void)
 		strlcpy(smd_pkt_devp->ch_name, smd_ch_name[i],
 							SMD_MAX_CH_NAME_LEN);
 		strlcpy(smd_pkt_devp->dev_name, smd_pkt_dev_name[i],
-							PDRIVER_NAME_MAX_SIZE);
+							SMD_MAX_CH_NAME_LEN);
 
 		r = smd_pkt_init_add_device(smd_pkt_devp, i);
 		if (r < 0) {
@@ -1320,7 +1427,7 @@ static int parse_smdpkt_devicetree(struct device_node *node,
 	if (!dev_name)
 		goto error;
 
-	strlcpy(smd_pkt_devp->dev_name, dev_name, PDRIVER_NAME_MAX_SIZE);
+	strlcpy(smd_pkt_devp->dev_name, dev_name, SMD_MAX_CH_NAME_LEN);
 	D_STATUS("%s dev_name = %s\n", __func__, dev_name);
 
 	return 0;
@@ -1452,6 +1559,7 @@ static int __init smd_pkt_init(void)
 	int rc;
 
 	INIT_LIST_HEAD(&smd_pkt_dev_list);
+	INIT_LIST_HEAD(&smd_pkt_driver_list);
 	rc = platform_driver_register(&msm_smd_pkt_driver);
 	if (rc) {
 		pr_err("%s: msm_smd_driver register failed %d\n",
