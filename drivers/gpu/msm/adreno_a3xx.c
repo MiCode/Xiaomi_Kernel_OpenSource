@@ -3990,7 +3990,9 @@ static int a3xx_perfcounter_init(struct adreno_device *adreno_dev)
 	 * USP L1 instruction miss request.
 	 * Set SP to count SP_FS_FULL_ALU_INSTRUCTIONS, it
 	 * counts USP flow control instruction execution.
-	 * we will use this to augment our hang detection
+	 * Set TSE to count TSE_INPUT_PRIM_NUM, it counts
+	 * number of input primitives in TSE.
+	 * we will use above countables for our hang detection
 	 */
 	if (adreno_dev->fast_hang_detect) {
 		ret = adreno_perfcounter_get(adreno_dev,
@@ -4014,6 +4016,10 @@ static int a3xx_perfcounter_init(struct adreno_device *adreno_dev)
 		if (ret)
 			goto err;
 		ft_detect_regs[11] = ft_detect_regs[10] + 1;
+		adreno_perfcounter_get(adreno_dev, KGSL_PERFCOUNTER_GROUP_TSE,
+			TSE_INPUT_PRIM_NUM, &ft_detect_regs[12],
+			PERFCOUNTER_FLAG_KERNEL);
+		ft_detect_regs[13] = ft_detect_regs[12] + 1;
 	}
 
 	ret = adreno_perfcounter_get(adreno_dev, KGSL_PERFCOUNTER_GROUP_SP,
