@@ -28,8 +28,8 @@ struct alpha_pll_masks {
 
 struct alpha_pll_vco_tbl {
 	u32 vco_val;
-	u32 min_freq;
-	u32 max_freq;
+	unsigned long min_freq;
+	unsigned long max_freq;
 };
 
 #define VCO(a, b, c) { \
