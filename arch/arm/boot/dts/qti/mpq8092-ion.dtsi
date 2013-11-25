@@ -30,7 +30,7 @@
 			compatible = "qcom,msm-ion-reserve";
 			reg = <23>;
 			qcom,heap-align = <0x1000>;
-			qcom,memory-fixed = <0x0db00000 0x1d00000>;
+			qcom,memory-fixed = <0x0d000000 0x2800000>;
 			qcom,ion-heap-type = "CARVEOUT";
 		};
 	};
