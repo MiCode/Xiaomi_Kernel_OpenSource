@@ -19,7 +19,6 @@
  */
 
 #define KGSL_RB_SIZE (32 * 1024)
-#define KGSL_RB_BLKSIZE 16
 
 /* CP timestamp register */
 #define	REG_CP_TIMESTAMP		 REG_SCRATCH_REG0
@@ -28,26 +27,11 @@
 struct kgsl_device;
 struct kgsl_device_private;
 
-#define GSL_RB_MEMPTRS_SCRATCH_COUNT	 8
-struct kgsl_rbmemptrs {
-	int  rptr;
-	int  wptr_poll;
-};
-
-#define GSL_RB_MEMPTRS_RPTR_OFFSET \
-	(offsetof(struct kgsl_rbmemptrs, rptr))
-
-#define GSL_RB_MEMPTRS_WPTRPOLL_OFFSET \
-	(offsetof(struct kgsl_rbmemptrs, wptr_poll))
-
 struct adreno_ringbuffer {
 	struct kgsl_device *device;
 	uint32_t flags;
 
 	struct kgsl_memdesc buffer_desc;
-
-	struct kgsl_memdesc memptrs_desc;
-	struct kgsl_rbmemptrs *memptrs;
 
 	/*ringbuffer size */
 	unsigned int sizedwords;
@@ -69,25 +53,6 @@ struct adreno_ringbuffer {
 
 /* enable timestamp (...scratch0) memory shadowing */
 #define GSL_RB_MEMPTRS_SCRATCH_MASK 0x1
-
-/* mem rptr */
-#define GSL_RB_CNTL_NO_UPDATE 0x0 /* enable */
-
-/**
- * adreno_get_rptr - Get the current ringbuffer read pointer
- * @rb -  the ringbuffer
- *
- * Get the current read pointer, which is written by the GPU.
- */
-static inline unsigned int
-adreno_get_rptr(struct adreno_ringbuffer *rb)
-{
-	unsigned int result = rb->memptrs->rptr;
-	rmb();
-	return result;
-}
-
-#define GSL_RB_CNTL_POLL_EN 0x0 /* disable */
 
 /*
  * protected mode error checking below register address 0x800
