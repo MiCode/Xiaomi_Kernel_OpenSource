@@ -1,7 +1,7 @@
 /*
  * u_smd.c - utilities for USB gadget serial over smd
  *
- * Copyright (c) 2011, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, 2013, The Linux Foundation. All rights reserved.
  *
  * This code also borrows from drivers/usb/gadget/u_serial.c, which is
  * Copyright (C) 2000 - 2003 Al Borchers (alborchers@steinerpoint.com)
@@ -327,6 +327,7 @@ static void gsmd_tx_pull(struct work_struct *w)
 		req = list_entry(pool->next, struct usb_request, list);
 		list_del(&req->list);
 		req->length = smd_read(pi->ch, req->buf, avail);
+		req->zero = 1;
 
 		spin_unlock_irq(&port->port_lock);
 		ret = usb_ep_queue(in, req, GFP_KERNEL);
