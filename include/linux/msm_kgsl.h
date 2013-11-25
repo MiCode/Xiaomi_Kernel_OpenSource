@@ -692,7 +692,8 @@ struct kgsl_gpumem_sync_cache {
  * struct kgsl_perfcounter_get - argument to IOCTL_KGSL_PERFCOUNTER_GET
  * @groupid: Performance counter group ID
  * @countable: Countable to select within the group
- * @offset: Return offset of the reserved counter
+ * @offset: Return offset of the reserved LO counter
+ * @offset_hi: Return offset of the reserved HI counter
  *
  * Get an available performance counter from a specified groupid.  The offset
  * of the performance counter will be returned after successfully assigning
@@ -707,8 +708,9 @@ struct kgsl_perfcounter_get {
 	unsigned int groupid;
 	unsigned int countable;
 	unsigned int offset;
+	unsigned int offset_hi;
 /* private: reserved for future use */
-	unsigned int __pad[2]; /* For future binary compatibility */
+	unsigned int __pad; /* For future binary compatibility */
 };
 
 #define IOCTL_KGSL_PERFCOUNTER_GET \
