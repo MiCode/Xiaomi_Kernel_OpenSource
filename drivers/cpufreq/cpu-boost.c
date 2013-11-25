@@ -39,6 +39,8 @@ static struct workqueue_struct *boost_rem_wq;
 static unsigned int boost_ms = 50;
 module_param(boost_ms, uint, 0644);
 
+static unsigned int sync_threshold;
+module_param(sync_threshold, uint, 0644);
 /*
  * The CPUFREQ_ADJUST notifier is used to override the current policy min to
  * make sure policy min >= boost_min. The cpufreq framework then does the job
@@ -118,8 +120,18 @@ static int boost_mig_sync_thread(void *data)
 			continue;
 		}
 
+		if (sync_threshold && (dest_policy.cur >= sync_threshold))
+			continue;
+
 		cancel_delayed_work_sync(&s->boost_rem);
-		s->boost_min = src_policy.cur;
+		if (sync_threshold) {
+			if (src_policy.cur >= sync_threshold)
+				s->boost_min = sync_threshold;
+			else
+				s->boost_min = src_policy.cur;
+		} else {
+			s->boost_min = src_policy.cur;
+		}
 		/* Force policy re-evaluation to trigger adjust notifier. */
 		cpufreq_update_policy(dest_cpu);
 		queue_delayed_work_on(s->cpu, boost_rem_wq,
