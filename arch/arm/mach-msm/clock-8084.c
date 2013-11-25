@@ -1598,7 +1598,7 @@ static struct rcg_clk pcie_0_aux_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_pcie_0_1_pipe_clk[] = {
-	F_EXT(125000000, pcie_pipe,    2, 0, 0),
+	F_EXT(125000000, pcie_pipe,    1, 0, 0),
 	F_EXT(250000000, pcie_pipe,    1, 0, 0),
 	F_END
 };
