@@ -934,7 +934,7 @@ static bool _parse_ibs(struct kgsl_device_private *dev_priv,
 		return false;
 	}
 
-	hostaddr = (uint *)kgsl_gpuaddr_to_vaddr(&entry->memdesc, gpuaddr);
+	hostaddr = kgsl_gpuaddr_to_vaddr(&entry->memdesc, gpuaddr);
 	if (hostaddr == NULL) {
 		KGSL_CMD_ERR(dev_priv->device,
 			     "no mapping for gpuaddr: 0x%08x\n", gpuaddr);

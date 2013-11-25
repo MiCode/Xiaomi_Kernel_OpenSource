@@ -197,7 +197,7 @@ static int ib_save_mip_addresses(struct kgsl_device *device, unsigned int *pkt,
 		if (!ent)
 			return -EINVAL;
 
-		hostptr = (unsigned int *)kgsl_gpuaddr_to_vaddr(&ent->memdesc,
+		hostptr = kgsl_gpuaddr_to_vaddr(&ent->memdesc,
 				pkt[2] & 0xFFFFFFFC);
 		if (!hostptr) {
 			kgsl_mem_entry_put(ent);
@@ -735,7 +735,7 @@ static int adreno_ib_find_objs(struct kgsl_device *device,
 	if (!entry)
 		return -EINVAL;
 
-	src = (unsigned int *)kgsl_gpuaddr_to_vaddr(&entry->memdesc, gpuaddr);
+	src = kgsl_gpuaddr_to_vaddr(&entry->memdesc, gpuaddr);
 	if (!src) {
 		kgsl_mem_entry_put(entry);
 		return -EINVAL;
