@@ -208,7 +208,7 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 				level = i;
 				break;
 			}
-	} else if (flags) {
+	} else if (flags && pwr->bus_control) {
 		/*
 		 * Signal for faster or slower bus.  If KGSL isn't already
 		 * running at the desired speed for the given level, modify
