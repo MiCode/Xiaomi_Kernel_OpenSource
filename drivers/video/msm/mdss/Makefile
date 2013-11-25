@@ -1,6 +1,6 @@
 mdss-mdp3-objs = mdp3.o mdp3_dma.o mdp3_ctrl.o
 mdss-mdp3-objs += mdp3_ppp.o mdp3_ppp_hwio.o mdp3_ppp_data.o
-obj-$(CONFIG_FB_MSM_MDSS) += mdss-mdp3.o
+obj-$(CONFIG_FB_MSM_MDSS_MDP3) += mdss-mdp3.o
 
 mdss-mdp-objs := mdss_mdp.o mdss_mdp_ctl.o mdss_mdp_pipe.o mdss_mdp_util.o
 mdss-mdp-objs += mdss_mdp_pp.o
@@ -17,7 +17,7 @@ obj-$(CONFIG_DEBUG_FS) += mdss_debug.o
 endif
 
 dsi-v2-objs = dsi_v2.o dsi_host_v2.o dsi_io_v2.o
-obj-$(CONFIG_FB_MSM_MDSS) += dsi-v2.o
+obj-$(CONFIG_FB_MSM_MDSS_MDP3) += dsi-v2.o
 
 mdss-dsi-objs := mdss_dsi.o mdss_dsi_host.o mdss_dsi_cmd.o
 mdss-dsi-objs += mdss_dsi_panel.o
