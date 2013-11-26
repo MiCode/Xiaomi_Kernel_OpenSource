@@ -107,13 +107,6 @@
 #define MSM_STRONGLY_ORDERED_PAGE	0xFA0F0000
 #define MSM8625_CPU_PHYS		0x0FE00000
 
-#include "msm_iomap-7xxx.h"
-#include "msm_iomap-7x30.h"
-#include "msm_iomap-8625.h"
-#include "msm_iomap-8960.h"
-#include "msm_iomap-8930.h"
-#include "msm_iomap-8064.h"
-#include "msm_iomap-9615.h"
 #include "msm_iomap-8974.h"
 #include "msm_iomap-8084.h"
 #include "msm_iomap-9625.h"
