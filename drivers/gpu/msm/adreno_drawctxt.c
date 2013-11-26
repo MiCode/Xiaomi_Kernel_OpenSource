@@ -589,7 +589,6 @@ void adreno_drawctxt_destroy(struct kgsl_context *context)
 int adreno_context_restore(struct adreno_device *adreno_dev,
 				  struct adreno_context *context)
 {
-	int ret;
 	struct kgsl_device *device;
 	unsigned int cmds[5];
 
@@ -597,6 +596,7 @@ int adreno_context_restore(struct adreno_device *adreno_dev,
 		return -EINVAL;
 
 	device = &adreno_dev->dev;
+
 	/* write the context identifier to the ringbuffer */
 	cmds[0] = cp_nop_packet(1);
 	cmds[1] = KGSL_CONTEXT_TO_MEM_IDENTIFIER;
@@ -604,14 +604,8 @@ int adreno_context_restore(struct adreno_device *adreno_dev,
 	cmds[3] = device->memstore.gpuaddr +
 		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL, current_context);
 	cmds[4] = context->base.id;
-	ret = adreno_ringbuffer_issuecmds(device, context, KGSL_CMD_FLAGS_NONE,
-					cmds, 5);
-	if (ret)
-		return ret;
-
-	return kgsl_mmu_setstate(&device->mmu,
-			context->base.proc_priv->pagetable,
-			context->base.id);
+	return adreno_ringbuffer_issuecmds(device, context,
+				KGSL_CMD_FLAGS_NONE, cmds, 5);
 }
 
 
@@ -710,9 +704,6 @@ int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 			return ret;
 		}
 
-		/* Put the old instance of the active drawctxt */
-		kgsl_context_put(&adreno_dev->drawctxt_active->base);
-		adreno_dev->drawctxt_active = NULL;
 	}
 
 	/* Get a refcount to the new instance */
@@ -720,6 +711,11 @@ int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 		if (!_kgsl_context_get(&drawctxt->base))
 			return -EINVAL;
 
+		ret = kgsl_mmu_setstate(&device->mmu,
+			drawctxt->base.proc_priv->pagetable,
+			adreno_dev->drawctxt_active ?
+			adreno_dev->drawctxt_active->base.id :
+			KGSL_CONTEXT_INVALID);
 		/* Set the new context */
 		ret = drawctxt->ops->restore(adreno_dev, drawctxt);
 		if (ret) {
@@ -737,9 +733,11 @@ int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 		 */
 		ret = kgsl_mmu_setstate(&device->mmu,
 					 device->mmu.defaultpagetable,
-					 KGSL_CONTEXT_INVALID);
+					adreno_dev->drawctxt_active->base.id);
 	}
-
+	/* Put the old instance of the active drawctxt */
+	if (adreno_dev->drawctxt_active)
+		kgsl_context_put(&adreno_dev->drawctxt_active->base);
 	adreno_dev->drawctxt_active = drawctxt;
 	return 0;
 }
