@@ -536,7 +536,8 @@ void __init msm_shared_pll_control_init(void)
 
 	remote_spin_lock_init(&pll_lock, PLL_REMOTE_SPINLOCK_ID);
 
-	pll_control = smem_get_entry(SMEM_CLKREGIM_SOURCES, &smem_size);
+	pll_control = smem_get_entry_to_proc(SMEM_CLKREGIM_SOURCES, &smem_size,
+							0, SMEM_ANY_HOST_FLAG);
 	if (!pll_control) {
 		pr_err("Can't find shared PLL control data structure!\n");
 		BUG();
