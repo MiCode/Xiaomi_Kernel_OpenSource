@@ -27,6 +27,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/switch.h>
 #include <linux/of.h>
+#include <linux/device.h>
 
 #include <sound/soc.h>
 
@@ -70,6 +71,7 @@ struct arizona_extcon_info {
 	struct input_dev *input;
 
 	u16 last_jackdet;
+	u32 hp_impedance;
 
 	int micd_mode;
 	const struct arizona_micd_config *micd_modes;
@@ -135,6 +137,11 @@ enum headset_state {
 	BIT_HEADSET = (1 << 0),
 	BIT_HEADSET_NO_MIC = (1 << 1),
 };
+
+static ssize_t arizona_extcon_show(struct device *dev,
+				   struct device_attribute *attr,
+				   char *buf);
+DEVICE_ATTR(hp_impedance, S_IRUGO, arizona_extcon_show, NULL);
 
 static void arizona_start_hpdet_acc_id(struct arizona_extcon_info *info);
 
@@ -480,6 +487,7 @@ static int arizona_hpdet_read(struct arizona_extcon_info *info)
 		}
 	}
 
+	info->hp_impedance = val;
 	dev_dbg(arizona->dev, "HP impedance %d ohms\n", val);
 	return val;
 }
@@ -1059,6 +1067,7 @@ static irqreturn_t arizona_jackdet(int irq, void *data)
 		info->mic = false;
 		info->hpdet_done = false;
 		info->hpdet_retried = false;
+		info->hp_impedance = 0;
 
 		for (i = 0; i < info->num_micd_ranges; i++)
 			input_report_key(info->input,
@@ -1153,6 +1162,16 @@ static int arizona_extcon_get_pdata(struct arizona *arizona)
 	arizona_of_read_u32(arizona, "wlf,gpsw", false, &pdata->gpsw);
 
 	return 0;
+}
+
+static ssize_t arizona_extcon_show(struct device *dev,
+				   struct device_attribute *attr,
+				   char *buf)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct arizona_extcon_info *info = platform_get_drvdata(pdev);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", info->hp_impedance);
 }
 
 static int arizona_extcon_probe(struct platform_device *pdev)
@@ -1464,6 +1483,12 @@ static int arizona_extcon_probe(struct platform_device *pdev)
 		goto err_hpdet;
 	}
 
+	ret = device_create_file(&pdev->dev, &dev_attr_hp_impedance);
+	if (ret != 0)
+		dev_err(&pdev->dev,
+			"Failed to create sysfs node for hp_impedance %d\n",
+			ret);
+
 	return 0;
 
 err_hpdet:
@@ -1516,6 +1541,8 @@ static int arizona_extcon_remove(struct platform_device *pdev)
 	regmap_update_bits(arizona->regmap, ARIZONA_JACK_DETECT_ANALOGUE,
 			   ARIZONA_JD1_ENA, 0);
 	arizona_clk32k_disable(arizona);
+
+	device_remove_file(&pdev->dev, &dev_attr_hp_impedance);
 	switch_dev_unregister(&info->edev);
 
 	return 0;
