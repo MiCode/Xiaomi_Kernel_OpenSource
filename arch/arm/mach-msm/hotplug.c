@@ -22,8 +22,6 @@
 #include "pm.h"
 #include "spm.h"
 
-#include "common.h"
-
 static cpumask_t cpu_dying_mask;
 
 static DEFINE_PER_CPU(unsigned int, warm_boot_flag);
