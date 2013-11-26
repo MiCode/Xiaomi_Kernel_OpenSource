@@ -1213,7 +1213,7 @@ static int register_memory(void)
 
 	result = allocate_col_data();
 	if (result) {
-		pr_err("%s: allocate_hw_delay_entries failed, rc = %d\n",
+		pr_err("%s: allocate_col_data failed, rc = %d\n",
 			__func__, result);
 		goto err_done;
 	}
