@@ -1684,7 +1684,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 	const char *tsens_calib_mode;
 
 	rc = of_property_read_u32(of_node,
-			"qcom,sensors", &tsens_num_sensors);
+			"qti,sensors", &tsens_num_sensors);
 	if (rc) {
 		dev_err(&pdev->dev, "missing sensor number\n");
 		return -ENODEV;
@@ -1698,14 +1698,14 @@ static int get_device_tree_data(struct platform_device *pdev)
 	}
 
 	rc = of_property_read_u32_array(of_node,
-		"qcom,slope", tsens_slope_data, tsens_num_sensors);
+		"qti,slope", tsens_slope_data, tsens_num_sensors);
 	if (rc) {
 		dev_err(&pdev->dev, "invalid or missing property: tsens-slope\n");
 		return rc;
 	};
 
 	rc = of_property_read_string(of_node,
-				"qcom,calib-mode", &tsens_calib_mode);
+				"qti,calib-mode", &tsens_calib_mode);
 	if (rc) {
 		dev_err(&pdev->dev, "missing calib-mode\n");
 		return -ENODEV;
@@ -1739,10 +1739,10 @@ static int get_device_tree_data(struct platform_device *pdev)
 	tmdev->tsens_factor = TSENS_SLOPE_FACTOR;
 	tmdev->tsens_num_sensor = tsens_num_sensors;
 	tmdev->calibration_less_mode = of_property_read_bool(of_node,
-				"qcom,calibration-less-mode");
+				"qti,calibration-less-mode");
 	tmdev->calib_mode = calib_type;
 	tmdev->tsens_local_init = of_property_read_bool(of_node,
-				"qcom,tsens-local-init");
+				"qti,tsens-local-init");
 
 	sensor_id = devm_kzalloc(&pdev->dev,
 		tsens_num_sensors * sizeof(u32), GFP_KERNEL);
@@ -1752,7 +1752,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 	}
 
 	rc = of_property_read_u32_array(of_node,
-		"qcom,sensor-id", sensor_id, tsens_num_sensors);
+		"qti,sensor-id", sensor_id, tsens_num_sensors);
 	if (rc) {
 		pr_debug("Default sensor id mapping\n");
 		for (i = 0; i < tsens_num_sensors; i++) {
@@ -1988,7 +1988,7 @@ static int tsens_tm_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id tsens_match[] = {
-	{	.compatible = "qcom,msm-tsens",
+	{	.compatible = "qti,msm-tsens",
 	},
 	{}
 };

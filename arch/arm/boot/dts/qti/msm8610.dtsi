@@ -858,15 +858,15 @@
 	};
 
 	tsens: tsens@fc4a8000 {
-		compatible = "qcom,msm-tsens";
+		compatible = "qti,msm-tsens";
 		reg = <0xfc4a8000 0x2000>,
 		      <0xfc4bc000 0x1000>;
 		reg-names = "tsens_physical", "tsens_eeprom_physical";
 		interrupts = <0 184 0>;
-		qcom,sensors = <2>;
-		qcom,slope = <2901 2846>;
-		qcom,calib-mode = "fuse_map3";
-		qcom,sensor-id = <0 5>;
+		qti,sensors = <2>;
+		qti,slope = <2901 2846>;
+		qti,calib-mode = "fuse_map3";
+		qti,sensor-id = <0 5>;
 	};
 
 	qcom,msm-thermal {

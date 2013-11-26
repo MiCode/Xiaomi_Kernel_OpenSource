@@ -50,7 +50,7 @@
 };
 
 &tsens {
-	qcom,calibration-less-mode;
+	qti,calibration-less-mode;
 };
 
 /* I2C clock frequency overrides */
