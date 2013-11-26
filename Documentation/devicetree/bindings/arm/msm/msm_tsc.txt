@@ -1,0 +1,152 @@
+MSM TSC - Transport Stream Controller
+
+TSPP2 is a HW unit for routing MPEG-2 Transport Stream packets and communicating
+with the CAM over Common Interface.
+For information on the TSC driver, please refer to the TSC driver
+documentation: Documentation/arm/msm/tsc.txt.
+
+The device tree representation of the TSPP2 block should be:
+
+Required properties:
+
+- compatible: "qti,msm-tsc"
+- reg: physical memory base addresses and sizes for the TSC.
+- reg-names: name of the memory region: "tsc-base".
+- interrupts: represents IRQ numbers for the TSC.
+- interrupt-names: TSC interrupt names: "cam-cmd" and "card-detect".
+- qti,iommu-group: phandle for the Broadcast HLOS IOMMU domain.
+	The Broadcast HLOS IOMMU domain includes a context bank and virtual address
+	pools definitions, used for mapping non-secured pipe memory buffers.
+- qti,iommu-partition: partition number in the HLOS IOMMU domain.
+- vdd-supply: phandle of the Broadcast GDSC as defined in msm-gdsc.dtsi.
+- Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+	the below optional properties:
+	- qcom,msm-bus,name
+	- qcom,msm-bus,num-cases
+	- qcom,msm-bus,num-paths
+	- qcom,msm-bus,vectors-KBps
+- pinctrl-states: the names of the pinctrl states that used by the driver to
+	configure the TLMM pins.
+- pinctrl-#: a list of pinctrl phandles for the different pinctrl states. Refer
+	to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt" for the
+	pinctrl handles definitions. Each pinctrl-# corresponds to the respective
+	state name that appears under pinctrl-state list.
+- qti,tsc-reset-cam-gpio: gpio for HW reset to the CAM.
+
+Example:
+
+	tsc: msm_tsc@fc74a000 {
+		compatible = "qti,msm-tsc";
+		reg = <0xfc74a000 0x1110>;
+		reg-names = "tsc-base";
+		interrupts = <0 267 0>, /* cam-cmd */
+			<0 268 0>; /* card-detect */
+		interrupt-names = "cam-cmd",
+				"card-detect";
+		qti,iommu-group = <&bcast_domain_hlos>;
+		qti,iommu-partition = <1>;
+		vdd-supply = <&gdsc_bcss>;
+		qti,msm-bus,name = "tsc-bus";
+		qti,msm-bus,num-cases = <2>;
+		qti,msm-bus,num-paths = <1>;
+		qti,msm-bus,vectors-KBps = <96 512 0 0>, /* No vote */
+					<96 512 448 896>; /* Max. 7Mbps */
+		pinctrl-states = "ts0-a-start-active", "ts0-a-start-sleep",
+				"ts0-a-valid-active", "ts0-a-valid-sleep",
+				"ts0-a-err-active", "ts0-a-err-sleep", "ts0-a-ser-active",
+				"ts0-a-ser-sleep", "ts0-a-par-active", "ts0-a-par-sleep",
+				"ts0-b-start-active", "ts0-b-start-sleep",
+				"ts0-b-valid-active", "ts0-b-valid-sleep",
+				"ts0-b-err-active", "ts0-b-err-sleep", "ts0-b-ser-active",
+				"ts0-b-ser-sleep", "ts0-b-par-active", "ts0-b-par-sleep",
+				"ts1-a-start-active", "ts1-a-start-sleep",
+				"ts1-a-valid-active", "ts1-a-valid-sleep",
+				"ts1-a-err-active", "ts1-a-err-sleep", "ts1-a-ser-active",
+				"ts1-a-ser-sleep", "ts1-a-par-active", "ts1-a-par-sleep",
+				"ts1-b-start-active", "ts1-b-start-sleep",
+				"ts1-b-valid-active", "ts1-b-valid-sleep",
+				"ts1-b-err-active", "ts1-b-err-sleep", "ts1-b-ser-active",
+				"ts1-b-ser-sleep", "card-detect-pins",
+				"card-power-up-disable", "card-insert-enable",
+				"card-not-ci-disable", "card-ci-enable",
+				"not-ci-plus-disable-ireq";
+		pinctrl-0 = <&ts_in_0_a_start_active>;	/* ts0-a-start-active */
+		pinctrl-1 = <&ts_in_0_a_start_sleep>;	/* ts0-a-start-sleep */
+		pinctrl-2 = <&ts_in_0_a_valid_active>;	/* ts0-a-valid-active */
+		pinctrl-3 = <&ts_in_0_a_valid_sleep>;	/* ts0-a-valid-sleep */
+		pinctrl-4 = <&ts_in_0_a_err_active>;	/* ts0-a-err-active */
+		pinctrl-5 = <&ts_in_0_a_err_active>;	/* ts0-a-err-sleep */
+		pinctrl-6 = <&ts_in_0_a_ser_active>;	/* ts0-a-ser-active */
+		pinctrl-7 = <&ts_in_0_a_ser_sleep>;		/* ts0-a-ser-sleep */
+		pinctrl-8 = <&ts_in_0_a_ser_active		/* ts0-a-par-active */
+					&ts_in_0_a_par_active>;
+		pinctrl-9 = <&ts_in_0_a_ser_sleep		/* ts0-a-par-sleep */
+					&ts_in_0_a_par_sleep>;
+		pinctrl-10 = <&ts_in_0_b_start_active>;	/* ts0-b-start-active */
+		pinctrl-11 = <&ts_in_0_b_start_sleep>;	/* ts0-b-start-sleep */
+		pinctrl-12 = <&ts_in_0_b_valid_active>;	/* ts0-b-valid-active */
+		pinctrl-13 = <&ts_in_0_b_valid_sleep>;	/* ts0-b-valid-sleep */
+		pinctrl-14 = <&ts_in_0_b_err_active>;	/* ts0-b-err-active */
+		pinctrl-15 = <&ts_in_0_b_err_sleep>;	/* ts0-b-err-sleep */
+		pinctrl-16 = <&ts_in_0_b_ser_active>;	/* ts0-b-ser-active */
+		pinctrl-17 = <&ts_in_0_b_ser_sleep>;	/* ts0-b-ser-sleep */
+		pinctrl-18 = <&ts_in_0_b_ser_active	/* ts0-b-par-active */
+					&ts_in_0_b_par_1_active
+					&ts_in_0_b_par_2_active
+					&ts_in_0_b_par_3_active>;
+		pinctrl-19 = <&ts_in_0_b_ser_sleep		/* ts0-b-par-sleep */
+					&ts_in_0_b_par_1_sleep
+					&ts_in_0_b_par_2_active
+					&ts_in_0_b_par_3_sleep>;
+		pinctrl-20 = <&ts_in_1_a_start_active>;	/* ts1-a-start-active */
+		pinctrl-21 = <&ts_in_1_a_start_sleep>;	/* ts1-a-start-sleep */
+		pinctrl-22 = <&ts_in_1_a_valid_active>;	/* ts1-a-valid-active */
+		pinctrl-23 = <&ts_in_1_a_valid_sleep>;	/* ts1-a-valid-sleep */
+		pinctrl-24 = <&ts_in_1_a_err_active>;	/* ts1-a-err-active */
+		pinctrl-25 = <&ts_in_1_a_err_sleep>;	/* ts1-a-err-sleep */
+		pinctrl-26 = <&ts_in_1_a_ser_active>;	/* ts1-a-ser-active */
+		pinctrl-27 = <&ts_in_1_a_ser_sleep>;	/* ts1-a-ser-sleep */
+		pinctrl-28 = <&ts_in_1_a_ser_active	/* ts1-a-par-active */
+					&ts_in_1_a_par_active>;
+		pinctrl-29 = <&ts_in_1_a_ser_sleep		/* ts1-a-par-sleep */
+					&ts_in_1_a_par_sleep>;
+		pinctrl-30 = <&ts_in_1_b_start_active>;	/* ts1-b-start-active */
+		pinctrl-31 = <&ts_in_1_b_start_sleep>;	/* ts1-b-start-sleep */
+		pinctrl-32 = <&ts_in_1_b_valid_active>;	/* ts1-b-valid-active */
+		pinctrl-33 = <&ts_in_1_b_valid_sleep>;	/* ts1-b-valid-sleep */
+		pinctrl-34 = <&ts_in_1_b_err_active>;	/* ts1-b-err-active */
+		pinctrl-35 = <&ts_in_1_b_err_sleep>;	/* ts1-b-err-sleep */
+		pinctrl-36 = <&ts_in_1_b_1_ser_active	/* ts1-b-ser-active */
+					&ts_in_1_b_2_ser_active>;
+		pinctrl-37 = <&ts_in_1_b_1_ser_sleep	/* ts1-b-ser-sleep */
+					&ts_in_1_b_2_ser_sleep>;
+		pinctrl-38 = <&tsc_cd_pins_active>;		/* card-detect-pins */
+		pinctrl-39 = <&tsc_pcmcia_8ma_down_pc_card_sleep /* card-power-up-disable */
+				&tsc_pcmcia_8ma_up_pc_card_sleep
+				&tsc_cam_reset_pc_card_sleep
+				&tsc_pcmcia_8ma_none_pc_card_sleep
+				&tsc_pcmcia_ireq_pc_card_sleep
+				&tsc_pcmcia_2_pc_card_sleep
+				&tsc_pcmcia_1_down_ci_sleep
+				&tsc_pcmcia_1_up_ci_sleep
+				&tsc_pcmcia_1_none_ci_sleep
+				&tsc_pcmcia_4_ci_sleep>;
+		pinctrl-40 = <&tsc_pcmcia_8ma_down_pc_card_active /* card-insert-enable */
+				&tsc_pcmcia_8ma_up_pc_card_active
+				&tsc_cam_reset_pc_card_active
+				&tsc_pcmcia_8ma_none_pc_card_active
+				&tsc_pcmcia_ireq_pc_card_active
+				&tsc_pcmcia_2_pc_card_active>;
+		pinctrl-41 = <&tsc_pcmcia_8ma_down_pc_card_sleep /* card-not-ci-disable */
+				&tsc_pcmcia_8ma_up_pc_card_sleep
+				&tsc_cam_reset_pc_card_sleep
+				&tsc_pcmcia_8ma_none_pc_card_sleep
+				&tsc_pcmcia_ireq_pc_card_sleep
+				&tsc_pcmcia_2_pc_card_sleep>;
+		pinctrl-42 = <&tsc_pcmcia_1_down_ci_active	/* card-ci-enable */
+				&tsc_pcmcia_1_up_ci_active
+				&tsc_pcmcia_1_none_ci_active
+				&tsc_pcmcia_4_ci_active>;
+		pinctrl-43 = <&tsc_pcmcia_ireq_pc_card_sleep>;	/* not-ci-plus-disable-ireq */
+		qti,tsc-reset-cam-gpio = <&msm_gpio 138 0>;	/* reset-pin controller */
+	};
