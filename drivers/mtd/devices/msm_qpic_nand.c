@@ -2994,6 +2994,7 @@ static int msm_nand_probe(struct platform_device *pdev)
 	err = msm_nand_setup_clocks_and_bus_bw(info, true);
 	if (err)
 		goto bus_unregister;
+	dev_set_drvdata(&pdev->dev, info);
 	err = pm_runtime_set_active(&pdev->dev);
 	if (err)
 		pr_err("pm_runtime_set_active() failed with error %d", err);
@@ -3031,7 +3032,6 @@ static int msm_nand_probe(struct platform_device *pdev)
 		pr_err("Unable to register MTD partitions %d\n", err);
 		goto free_bam;
 	}
-	dev_set_drvdata(&pdev->dev, info);
 
 	pr_info("NANDc phys addr 0x%lx, BAM phys addr 0x%lx, BAM IRQ %d\n",
 			info->nand_phys, info->bam_phys, info->bam_irq);
