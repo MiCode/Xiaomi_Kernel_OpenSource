@@ -466,3 +466,4 @@ header-y += xattr.h
 header-y += xfrm.h
 header-y += hw_breakpoint.h
 header-y += android_pmem.h
+header-y += tsc.h
