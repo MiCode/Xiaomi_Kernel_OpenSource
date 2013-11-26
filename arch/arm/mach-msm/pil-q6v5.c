@@ -364,7 +364,7 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 		return ERR_PTR(-ENOMEM);
 
 	desc = &drv->desc;
-	ret = of_property_read_string(pdev->dev.of_node, "qcom,firmware-name",
+	ret = of_property_read_string(pdev->dev.of_node, "qti,firmware-name",
 				      &desc->name);
 	if (ret)
 		return ERR_PTR(ret);
@@ -372,7 +372,7 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 	desc->dev = &pdev->dev;
 
 	drv->qdsp6v5_2_0 = of_device_is_compatible(pdev->dev.of_node,
-						   "qcom,pil-femto-modem");
+						   "qti,pil-femto-modem");
 
 	if (drv->qdsp6v5_2_0)
 		return drv;
@@ -384,9 +384,9 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 		return ERR_PTR(-ENOMEM);
 
 	drv->qdsp6v55 = of_device_is_compatible(pdev->dev.of_node,
-						"qcom,pil-q6v55-mss");
+						"qti,pil-q6v55-mss");
 	drv->qdsp6v55 |= of_device_is_compatible(pdev->dev.of_node,
-						"qcom,pil-q6v55-lpass");
+						"qti,pil-q6v55-lpass");
 
 	drv->xo = devm_clk_get(&pdev->dev, "xo");
 	if (IS_ERR(drv->xo))
@@ -399,7 +399,7 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 	drv->vreg_pll = devm_regulator_get(&pdev->dev, "vdd_pll");
 	if (!IS_ERR_OR_NULL(drv->vreg_pll)) {
 		int voltage;
-		ret = of_property_read_u32(pdev->dev.of_node, "qcom,vdd_pll",
+		ret = of_property_read_u32(pdev->dev.of_node, "qti,vdd_pll",
 					   &voltage);
 		if (ret) {
 			dev_err(&pdev->dev, "Failed to find vdd_pll voltage.\n");

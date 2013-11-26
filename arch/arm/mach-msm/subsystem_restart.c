@@ -1130,19 +1130,19 @@ static int subsys_parse_devicetree(struct subsys_desc *desc)
 	struct platform_device *pdev = container_of(desc->dev,
 					struct platform_device, dev);
 
-	ret = __get_irq(desc, "qcom,gpio-err-fatal", &desc->err_fatal_irq);
+	ret = __get_irq(desc, "qti,gpio-err-fatal", &desc->err_fatal_irq);
 	if (ret && ret != -ENOENT)
 		return ret;
 
-	ret = __get_irq(desc, "qcom,gpio-err-ready", &desc->err_ready_irq);
+	ret = __get_irq(desc, "qti,gpio-err-ready", &desc->err_ready_irq);
 	if (ret && ret != -ENOENT)
 		return ret;
 
-	ret = __get_irq(desc, "qcom,gpio-stop-ack", &desc->stop_ack_irq);
+	ret = __get_irq(desc, "qti,gpio-stop-ack", &desc->stop_ack_irq);
 	if (ret && ret != -ENOENT)
 		return ret;
 
-	ret = __get_gpio(desc, "qcom,gpio-force-stop", &desc->force_stop_gpio);
+	ret = __get_gpio(desc, "qti,gpio-force-stop", &desc->force_stop_gpio);
 	if (ret && ret != -ENOENT)
 		return ret;
 

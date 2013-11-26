@@ -2498,15 +2498,15 @@ static struct clk_lookup msm_clocks_gcc_8974[] = {
 	CLK_LOOKUP_OF("core_clk", gcc_usb_hs_system_clk,   "msm_ehci_host"),
 	CLK_LOOKUP_OF("sleep_clk", gcc_usb2b_phy_sleep_clk, "msm_ehci_host"),
 
-	CLK_LOOKUP_OF("bus_clk", gcc_mss_q6_bimc_axi_clk, "fc880000.qcom,mss"),
-	CLK_LOOKUP_OF("iface_clk", gcc_mss_cfg_ahb_clk, "fc880000.qcom,mss"),
-	CLK_LOOKUP_OF("mem_clk", gcc_boot_rom_ahb_clk,  "fc880000.qcom,mss"),
+	CLK_LOOKUP_OF("bus_clk", gcc_mss_q6_bimc_axi_clk, "fc880000.qti,mss"),
+	CLK_LOOKUP_OF("iface_clk", gcc_mss_cfg_ahb_clk, "fc880000.qti,mss"),
+	CLK_LOOKUP_OF("mem_clk", gcc_boot_rom_ahb_clk,  "fc880000.qti,mss"),
 	CLK_LOOKUP_OF("core_clk", gcc_prng_ahb_clk, "msm_rng"),
 
 	CLK_LOOKUP_OF("iface_clk", gcc_mmss_noc_cfg_ahb_clk, ""),
 	CLK_LOOKUP_OF("iface_clk", gcc_ocmem_noc_cfg_ahb_clk, ""),
 
-	CLK_LOOKUP_OF("bus_clk", gcc_lpass_q6_axi_clk,  "fe200000.qcom,lpass"),
+	CLK_LOOKUP_OF("bus_clk", gcc_lpass_q6_axi_clk,  "fe200000.qti,lpass"),
 	CLK_LOOKUP_OF("iface_clk", gcc_blsp1_ahb_clk, "f9928000.i2c"),
 	CLK_LOOKUP_OF("core_clk",
 			gcc_blsp1_qup6_i2c_apps_clk, "f9928000.i2c"),

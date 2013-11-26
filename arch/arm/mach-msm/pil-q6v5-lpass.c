@@ -520,8 +520,8 @@ static int pil_lpass_driver_exit(struct platform_device *pdev)
 }
 
 static struct of_device_id lpass_match_table[] = {
-	{ .compatible = "qcom,pil-q6v5-lpass" },
-	{ .compatible = "qcom,pil-q6v55-lpass" },
+	{ .compatible = "qti,pil-q6v5-lpass" },
+	{ .compatible = "qti,pil-q6v55-lpass" },
 	{}
 };
 

@@ -417,7 +417,7 @@ static int pil_pronto_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	desc = &drv->desc;
-	ret = of_property_read_string(pdev->dev.of_node, "qcom,firmware-name",
+	ret = of_property_read_string(pdev->dev.of_node, "qti,firmware-name",
 				      &desc->name);
 	if (ret)
 		return ret;
@@ -510,7 +510,7 @@ static int pil_pronto_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id msm_pil_pronto_match[] = {
-	{.compatible = "qcom,pil-pronto"},
+	{.compatible = "qti,pil-pronto"},
 	{}
 };
 
