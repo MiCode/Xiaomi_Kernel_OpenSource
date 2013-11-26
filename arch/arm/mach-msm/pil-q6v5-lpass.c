@@ -240,7 +240,7 @@ static void adsp_log_failure_reason(void)
 	char buffer[81];
 	unsigned size;
 
-	reason = smem_get_entry_to_proc(SMEM_SSR_REASON_LPASS0, &size, 0,
+	reason = smem_get_entry(SMEM_SSR_REASON_LPASS0, &size, 0,
 							SMEM_ANY_HOST_FLAG);
 
 	if (!reason) {

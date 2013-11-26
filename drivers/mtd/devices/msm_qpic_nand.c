@@ -2842,7 +2842,7 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 	pr_info("Parsing partition table info from SMEM\n");
 	/* Read only the header portion of ptable */
 	ptable = *(struct flash_partition_table *)
-			(smem_get_entry_to_proc(SMEM_AARM_PARTITION_TABLE, &len,
+			(smem_get_entry(SMEM_AARM_PARTITION_TABLE, &len,
 							0, SMEM_ANY_HOST_FLAG));
 	/* Verify ptable magic */
 	if (ptable.magic1 != FLASH_PART_MAGIC1 ||
@@ -2869,7 +2869,7 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 
 	*nr_parts = ptable.numparts;
 	ptable = *(struct flash_partition_table *)
-			(smem_get_entry_to_proc(SMEM_AARM_PARTITION_TABLE, &len,
+			(smem_get_entry(SMEM_AARM_PARTITION_TABLE, &len,
 							0, SMEM_ANY_HOST_FLAG));
 	for (i = 0; i < ptable.numparts; i++) {
 		pentry = &ptable.part_entry[i];
