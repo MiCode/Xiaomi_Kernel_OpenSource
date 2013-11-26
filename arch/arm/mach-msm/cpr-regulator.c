@@ -1485,7 +1485,7 @@ static void cpr_parse_cond_min_volt_fuse(struct cpr_regulator *cpr_vreg,
 	if (!rc) {
 		blown_data = cpr_read_efuse_row(cpr_vreg, fuse[0], fuse[3]);
 		fuse_data = ((u64)fuse[1] << 32) | fuse[2];
-		if (blown_data == fuse_data)
+		if (blown_data != fuse_data)
 			cpr_vreg->flags |= FLAGS_SET_MIN_VOLTAGE;
 	}
 }
