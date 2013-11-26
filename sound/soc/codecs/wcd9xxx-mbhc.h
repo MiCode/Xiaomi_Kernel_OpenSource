@@ -228,6 +228,7 @@ struct wcd9xxx_mbhc_config {
 	bool (*swap_gnd_mic) (struct snd_soc_codec *);
 	unsigned long cs_enable_flags;
 	bool use_int_rbias;
+	bool do_recalibration;
 };
 
 struct wcd9xxx_cfilt_mode {
