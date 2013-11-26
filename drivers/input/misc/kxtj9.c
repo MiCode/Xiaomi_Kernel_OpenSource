@@ -418,19 +418,16 @@ static int kxtj9_enable(struct kxtj9_data *tj9)
 		}
 	}
 
-	tj9->enable = true;
 	return 0;
 
 fail:
 	kxtj9_device_power_off(tj9);
-	tj9->enable = false;
 	return err;
 }
 
 static void kxtj9_disable(struct kxtj9_data *tj9)
 {
 	kxtj9_device_power_off(tj9);
-	tj9->enable = false;
 }
 
 
@@ -499,18 +496,21 @@ static ssize_t kxtj9_enable_store(struct device *dev,
 	if (error)
 		return error;
 	mutex_lock(&input_dev->mutex);
-	disable_irq(client->irq);
 
-	if (data == 0)
+	if (data == 0) {
+		disable_irq(client->irq);
 		kxtj9_disable(tj9);
-	else if (data == 1)
-		kxtj9_enable(tj9);
-	else {
+		tj9->enable = false;
+	} else if (data == 1) {
+		if (!kxtj9_enable(tj9)) {
+			enable_irq(client->irq);
+			tj9->enable = true;
+		}
+	} else {
 		dev_err(&tj9->client->dev,
 			"Invalid value of input, input=%ld\n", data);
 	}
 
-	enable_irq(client->irq);
 	mutex_unlock(&input_dev->mutex);
 
 	return count;
@@ -558,7 +558,8 @@ static ssize_t kxtj9_set_poll_delay(struct device *dev,
 	/* Lock the device to prevent races with open/close (and itself) */
 	mutex_lock(&input_dev->mutex);
 
-	disable_irq(client->irq);
+	if (tj9->enable)
+		disable_irq(client->irq);
 
 	/*
 	 * Set current interval to the greater of the minimum interval or
@@ -566,9 +567,10 @@ static ssize_t kxtj9_set_poll_delay(struct device *dev,
 	 */
 	tj9->last_poll_interval = max(interval, tj9->pdata.min_interval);
 
-	kxtj9_update_odr(tj9, tj9->last_poll_interval);
-
-	enable_irq(client->irq);
+	if (tj9->enable) {
+		kxtj9_update_odr(tj9, tj9->last_poll_interval);
+		enable_irq(client->irq);
+	}
 	mutex_unlock(&input_dev->mutex);
 
 	return count;
@@ -860,6 +862,8 @@ static int kxtj9_probe(struct i2c_client *client,
 			goto err_destroy_input;
 		}
 
+		disable_irq(tj9->client->irq);
+
 		err = sysfs_create_group(&client->dev.kobj, &kxtj9_attribute_group);
 		if (err) {
 			dev_err(&client->dev, "sysfs create failed: %d\n", err);
@@ -926,7 +930,7 @@ static int kxtj9_suspend(struct device *dev)
 
 	mutex_lock(&input_dev->mutex);
 
-	if (input_dev->users)
+	if (input_dev->users && tj9->enable)
 		kxtj9_disable(tj9);
 
 	mutex_unlock(&input_dev->mutex);
@@ -942,7 +946,7 @@ static int kxtj9_resume(struct device *dev)
 
 	mutex_lock(&input_dev->mutex);
 
-	if (input_dev->users)
+	if (input_dev->users && tj9->enable)
 		kxtj9_enable(tj9);
 
 	mutex_unlock(&input_dev->mutex);
