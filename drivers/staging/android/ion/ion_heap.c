@@ -79,6 +79,7 @@ int ion_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 	unsigned long offset = vma->vm_pgoff * PAGE_SIZE;
 	struct scatterlist *sg;
 	int i;
+	int ret;
 
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		struct page *page = sg_page(sg);
@@ -94,8 +95,10 @@ int ion_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 			offset = 0;
 		}
 		len = min(len, remainder);
-		remap_pfn_range(vma, addr, page_to_pfn(page), len,
+		ret = remap_pfn_range(vma, addr, page_to_pfn(page), len,
 				vma->vm_page_prot);
+		if (ret)
+			return ret;
 		addr += len;
 		if (addr >= vma->vm_end)
 			return 0;
