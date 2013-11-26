@@ -10,14 +10,14 @@ entry below is to invoke the CNSS platform driver and provide handle to
 the WLAN enable GPIO, 3.3V fixed voltage regulator resources.
 
 Required properties:
-  - compatible: "qcom,cnss"
+  - compatible: "qti,cnss"
   - wlan-en-gpio: WLAN_EN GPIO signal specified by QCA6174 specifications
   - vdd-wlan-supply: phandle to the regulator device tree node
 
 Example:
 
-    qcom,cnss {
-        compatible = "qcom,cnss";
+    qti,cnss {
+        compatible = "qti,cnss";
         wlan-en-gpio = <&msmgpio 82 0>;
         vdd-wlan-supply = <&wlan_vreg>;
     };

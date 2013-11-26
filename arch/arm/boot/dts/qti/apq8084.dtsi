@@ -2564,8 +2564,8 @@
 		interrupts = <0 1 0>;
 	};
 
-	qcom,cnss {
-		compatible = "qcom,cnss";
+	qti,cnss {
+		compatible = "qti,cnss";
 		wlan-en-gpio = <&msmgpio 82 0>;
 		vdd-wlan-supply = <&wlan_vreg>;
 	};

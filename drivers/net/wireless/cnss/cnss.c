@@ -616,7 +616,7 @@ static int cnss_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id cnss_dt_match[] = {
-	{.compatible = "qcom,cnss"},
+	{.compatible = "qti,cnss"},
 	{}
 };
 
