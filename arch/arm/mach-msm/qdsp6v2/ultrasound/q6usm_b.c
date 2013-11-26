@@ -12,7 +12,7 @@
  */
 #include <linux/mutex.h>
 #include <linux/wait.h>
-#include <linux/dma-mapping.h>
+#include <linux/msm_audio_ion.h>
 #include <linux/sched.h>
 #include <linux/spinlock.h>
 #include <linux/slab.h>
@@ -26,7 +26,7 @@
 #define MEM_4K_OFFSET 4095
 #define MEM_4K_MASK 0xfffff000
 
-#define SESSION_MAX 0x02 /* aDSP:USM limit */
+#define USM_SESSION_MAX 0x02 /* aDSP:USM limit */
 
 #define READDONE_IDX_STATUS     0
 
@@ -37,7 +37,7 @@
 
 static DEFINE_MUTEX(session_lock);
 
-static struct us_client *session[SESSION_MAX];
+static struct us_client *session[USM_SESSION_MAX];
 static int32_t q6usm_mmapcallback(struct apr_client_data *data, void *priv);
 static int32_t q6usm_callback(struct apr_client_data *data, void *priv);
 static void q6usm_add_hdr(struct us_client *usc, struct apr_hdr *hdr,
@@ -159,7 +159,7 @@ static int q6usm_session_alloc(struct us_client *usc)
 	int ind = 0;
 
 	mutex_lock(&session_lock);
-	for (ind = 0; ind < SESSION_MAX; ++ind) {
+	for (ind = 0; ind < USM_SESSION_MAX; ++ind) {
 		if (!session[ind]) {
 			session[ind] = usc;
 			mutex_unlock(&session_lock);
@@ -179,7 +179,7 @@ static void q6usm_session_free(struct us_client *usc)
 	uint16_t ind = (uint16_t)usc->session - 1;
 
 	pr_debug("%s: to free session[%d]\n", __func__, ind);
-	if (ind < SESSION_MAX) {
+	if (ind < USM_SESSION_MAX) {
 		mutex_lock(&session_lock);
 		session[ind] = 0;
 		mutex_unlock(&session_lock);
@@ -191,7 +191,6 @@ int q6usm_us_client_buf_free(unsigned int dir,
 {
 	struct us_port_data *port;
 	int rc = 0;
-	uint32_t size = 0;
 
 	if ((usc == NULL) ||
 	    ((dir != IN) && (dir != OUT)))
@@ -210,15 +209,17 @@ int q6usm_us_client_buf_free(unsigned int dir,
 	}
 
 	rc = q6usm_memory_unmap(usc, port->phys, dir);
-	pr_debug("%s: data[%p]phys[%p][%p]\n", __func__,
-		 (void *)port->data, (void *)port->phys, (void *)&port->phys);
-	/* 4K boundary is required by the API with QDSP6 */
-	size = (port->buf_size * port->buf_cnt + MEM_4K_OFFSET) & MEM_4K_MASK;
-	dma_free_coherent(NULL, size, port->data, port->phys);
+	pr_debug("%s: data[%p]phys[%llx][%p]\n", __func__,
+		 (void *)port->data, (u64)port->phys, (void *)&port->phys);
+
+	msm_audio_ion_free(port->client, port->handle);
+
 	port->data = NULL;
 	port->phys = 0;
 	port->buf_size = 0;
 	port->buf_cnt = 0;
+	port->client = NULL;
+	port->handle = NULL;
 
 	mutex_unlock(&usc->cmd_lock);
 	return rc;
@@ -344,10 +345,11 @@ int q6usm_us_client_buf_alloc(unsigned int dir,
 	int rc = 0;
 	struct us_port_data *port = NULL;
 	unsigned int size = bufsz*bufcnt;
+	int len;
 
 	if ((usc == NULL) ||
 	    ((dir != IN) && (dir != OUT)) || (size == 0) ||
-	    (usc->session <= 0 || usc->session > SESSION_MAX)) {
+	    (usc->session <= 0 || usc->session > USM_SESSION_MAX)) {
 		pr_err("%s: wrong parameters: size=%d; bufcnt=%d\n",
 		       __func__, size, bufcnt);
 		return -EINVAL;
@@ -357,21 +359,28 @@ int q6usm_us_client_buf_alloc(unsigned int dir,
 
 	port = &usc->port[dir];
 
-	port->data = dma_alloc_coherent(NULL, size, &(port->phys), GFP_KERNEL);
-	if (port->data == NULL) {
-		pr_err("%s: US region allocation failed\n", __func__);
+	/* The size to allocate should be multiple of 4K bytes */
+	size = PAGE_ALIGN(size);
+
+	rc = msm_audio_ion_alloc("ultrasound_client",
+		&port->client, &port->handle,
+		size, (ion_phys_addr_t *)&port->phys,
+		(size_t *)&len, &port->data);
+
+	if (rc) {
+		pr_err("%s: US ION allocation failed, rc = %d\n",
+			__func__, rc);
 		mutex_unlock(&usc->cmd_lock);
 		return -ENOMEM;
 	}
 
 	port->buf_cnt = bufcnt;
 	port->buf_size = bufsz;
-	pr_debug("%s: data[%p]; phys[%p]; [%p]\n", __func__,
+	pr_debug("%s: data[%p]; phys[%llx]; [%p]\n", __func__,
 		 (void *)port->data,
-		 (void *)port->phys,
+		 (u64)port->phys,
 		 (void *)&port->phys);
 
-	size = (size + MEM_4K_OFFSET) & MEM_4K_MASK;
 	rc = q6usm_memory_map(usc, port->phys, dir, size, 1);
 	if (rc < 0) {
 		pr_err("%s: CMD Memory_map failed\n", __func__);
@@ -583,12 +592,19 @@ uint32_t q6usm_get_virtual_address(int dir,
 
 	if (vms && (usc != NULL) && ((dir == IN) || (dir == OUT))) {
 		struct us_port_data *port = &usc->port[dir];
-		int size = (port->buf_size * port->buf_cnt + MEM_4K_OFFSET)
-								& MEM_4K_MASK;
+		int size = PAGE_ALIGN(port->buf_size * port->buf_cnt);
+		struct audio_buffer ab;
 
-		ret = dma_mmap_coherent(NULL, vms,
-					port->data, port->phys,
-					size);
+		ab.phys = port->phys;
+		ab.data = port->data;
+		ab.used = 1;
+		ab.size = size;
+		ab.actual_size = size;
+		ab.handle = port->handle;
+		ab.client = port->client;
+
+		ret = msm_audio_ion_mmap(&ab, vms);
+
 	}
 	return ret;
 }

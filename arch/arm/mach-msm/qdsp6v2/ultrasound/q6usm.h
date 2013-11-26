@@ -62,6 +62,10 @@ struct us_port_data {
 	/* read or write locks */
 	struct mutex	lock;
 	spinlock_t	dsp_lock;
+	/* ION memory handle */
+	struct      ion_handle *handle;
+	/* ION memory client */
+	struct      ion_client *client;
 	/* extended parameters, related to q6 variants */
 	void		*ext;
 };
