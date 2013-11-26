@@ -20,6 +20,7 @@
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/input.h>
+#include <linux/sensors.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -76,6 +77,21 @@
  * The following table lists the maximum appropriate poll interval for each
  * available output data rate.
  */
+
+static struct sensors_classdev sensors_cdev = {
+	.name = "kxtj9-accel",
+	.vendor = "Kionix",
+	.version = 1,
+	.handle = 0,
+	.type = 1,
+	.max_range = "19.6",
+	.resolution = "0.01",
+	.sensor_power = "0.2",
+	.min_delay = 2000,
+	.fifo_reserved_event_count = 0,
+	.fifo_max_event_count = 0,
+};
+
 static const struct {
 	unsigned int cutoff;
 	u8 mask;
@@ -874,6 +890,12 @@ static int kxtj9_probe(struct i2c_client *client,
 		err = kxtj9_setup_polled_device(tj9);
 		if (err)
 			goto err_power_off;
+	}
+
+	err = sensors_classdev_register(&client->dev, &sensors_cdev);
+	if (err) {
+		dev_err(&client->dev, "class device create failed: %d\n", err);
+		goto err_free_irq;
 	}
 
 	dev_dbg(&client->dev, "%s: kxtj9_probe OK.\n", __func__);
