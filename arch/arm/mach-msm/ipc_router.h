@@ -23,6 +23,8 @@
 
 #include <net/sock.h>
 
+#include <mach/msm_ipc_router.h>
+
 /* definitions for the R2R wire protcol */
 #define IPC_ROUTER_V1		1
 /*
@@ -35,16 +37,6 @@
 
 #define IPC_ROUTER_NID_LOCAL			1
 #define MAX_IPC_PKT_SIZE 66000
-
-#define IPC_ROUTER_CTRL_CMD_DATA		1
-#define IPC_ROUTER_CTRL_CMD_HELLO		2
-#define IPC_ROUTER_CTRL_CMD_BYE			3
-#define IPC_ROUTER_CTRL_CMD_NEW_SERVER		4
-#define IPC_ROUTER_CTRL_CMD_REMOVE_SERVER	5
-#define IPC_ROUTER_CTRL_CMD_REMOVE_CLIENT	6
-#define IPC_ROUTER_CTRL_CMD_RESUME_TX		7
-#define IPC_ROUTER_CTRL_CMD_EXIT		8
-#define IPC_ROUTER_CTRL_CMD_PING		9
 
 #define IPC_ROUTER_DEFAULT_RX_QUOTA	5
 
@@ -76,34 +68,6 @@ enum {
 	NULL_MODE,
 	SINGLE_LINK_MODE,
 	MULTI_LINK_MODE,
-};
-
-/**
- * rr_control_msg - Control message structure
- * @cmd: Command identifier for HELLO message in Version 1.
- * @hello: Message structure for HELLO message in Version 2.
- * @srv: Message structure for NEW_SERVER/REMOVE_SERVER events.
- * @cli: Message structure for REMOVE_CLIENT event.
- */
-union rr_control_msg {
-	uint32_t cmd;
-	struct {
-		uint32_t cmd;
-		uint32_t magic;
-		uint32_t capability;
-	} hello;
-	struct {
-		uint32_t cmd;
-		uint32_t service;
-		uint32_t instance;
-		uint32_t node_id;
-		uint32_t port_id;
-	} srv;
-	struct {
-		uint32_t cmd;
-		uint32_t node_id;
-		uint32_t port_id;
-	} cli;
 };
 
 /**
@@ -217,17 +181,31 @@ void msm_ipc_router_xprt_notify(struct msm_ipc_router_xprt *xprt,
 struct rr_packet *clone_pkt(struct rr_packet *pkt);
 void release_pkt(struct rr_packet *pkt);
 
-
+/**
+ * msm_ipc_router_create_raw_port() - Create an IPC Router port
+ * @endpoint: User-space space socket information to be cached.
+ * @notify: Function to notify incoming events on the port.
+ *   @event: Event ID to be handled.
+ *   @oob_data: Any out-of-band data associated with the event.
+ *   @oob_data_len: Size of the out-of-band data, if valid.
+ *   @priv: Private data registered during the port creation.
+ * @priv: Private Data to be passed during the event notification.
+ *
+ * @return: Valid pointer to port on success, NULL on failure.
+ *
+ * This function is used to create an IPC Router port. The port is used for
+ * communication locally or outside the subsystem.
+ */
 struct msm_ipc_port *msm_ipc_router_create_raw_port(void *endpoint,
-		void (*notify)(unsigned event, void *priv),
-		void *priv);
+	void (*notify)(unsigned event, void *oob_data,
+		       size_t oob_data_len, void *priv),
+	void *priv);
 int msm_ipc_router_send_to(struct msm_ipc_port *src,
 			   struct sk_buff_head *data,
 			   struct msm_ipc_addr *dest);
 int msm_ipc_router_read(struct msm_ipc_port *port_ptr,
 			struct rr_packet **pkt,
 			size_t buf_len);
-int msm_ipc_router_bind_control_port(struct msm_ipc_port *port_ptr);
 
 int msm_ipc_router_recv_from(struct msm_ipc_port *port_ptr,
 		      struct rr_packet **pkt,
