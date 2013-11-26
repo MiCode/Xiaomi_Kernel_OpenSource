@@ -33,7 +33,6 @@
 #include <mach/msm_smem.h>
 #include "board-dt.h"
 #include "clock.h"
-#include "devices.h"
 #include "modem_notifier.h"
 #include "spm.h"
 

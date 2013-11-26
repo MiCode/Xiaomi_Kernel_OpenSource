@@ -35,7 +35,6 @@
 #include <mach/subsystem_restart.h>
 #include <linux/msm_charm.h>
 #include "msm_watchdog.h"
-#include "devices.h"
 #include "clock.h"
 #include "mdm_private.h"
 #define MDM_PBLRDY_CNT		20
