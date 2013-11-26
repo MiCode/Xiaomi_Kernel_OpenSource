@@ -110,13 +110,16 @@
 #define SMB349_REV_A4				0x4
 
 /* IRQ status bits */
-#define IRQ_A_TEMP_HARD_LIMIT			(BIT(6) | BIT(4))
-#define IRQ_A_TEMP_SOFT_LIMIT			(BIT(2) | BIT(0))
+#define IRQ_A_HOT_HARD_BIT			BIT(6)
+#define IRQ_A_COLD_HARD_BIT			BIT(4)
+#define IRQ_A_HOT_SOFT_BIT			BIT(2)
+#define IRQ_A_COLD_SOFT_BIT			BIT(0)
 #define IRQ_B_BATT_MISSING_BIT			BIT(4)
 #define IRQ_B_BATT_LOW_BIT			BIT(2)
 #define IRQ_B_BATT_OV_BIT			BIT(6)
 #define IRQ_B_PRE_FAST_CHG_BIT			BIT(0)
-#define IRQ_C_TERM_TAPER_CHG_BIT		(BIT(0) | BIT(2))
+#define IRQ_C_TAPER_CHG_BIT			BIT(2)
+#define IRQ_C_TERM_BIT				BIT(0)
 #define IRQ_C_INT_OVER_TEMP_BIT			BIT(6)
 #define IRQ_D_CHG_TIMEOUT_BIT			(BIT(0) | BIT(2))
 #define IRQ_D_AICL_DONE_BIT			BIT(4)
@@ -136,6 +139,7 @@
 #define STATUS_C_TAPER_CHARGING			(BIT(2) | BIT(1))
 #define STATUS_C_CHG_ERR_STATUS_BIT		BIT(6)
 #define STATUS_C_CHG_ENABLE_STATUS_BIT		BIT(0)
+#define STATUS_C_CHG_HOLD_OFF_BIT		BIT(3)
 #define STATUS_D_PORT_OTHER			BIT(0)
 #define STATUS_D_PORT_SDP			BIT(1)
 #define STATUS_D_PORT_DCP			BIT(2)
@@ -188,10 +192,16 @@ struct smb349_charger {
 	bool			resume_completed;
 	bool			irq_waiting;
 
+	/* status tracking */
+	bool			batt_full;
+	bool			batt_hot;
+	bool			batt_cold;
+	bool			batt_warm;
+	bool			batt_cool;
+
 	int			charging_disabled;
 	int			fastchg_current_max_ma;
 	int			workaround_flags;
-
 
 	struct power_supply	*usb_psy;
 	struct power_supply	*bms_psy;
@@ -643,6 +653,7 @@ static enum power_supply_property smb349_battery_properties[] = {
 	POWER_SUPPLY_PROP_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_MODEL_NAME,
 };
@@ -650,8 +661,10 @@ static enum power_supply_property smb349_battery_properties[] = {
 static int smb349_get_prop_batt_status(struct smb349_charger *chip)
 {
 	int rc;
-	int status = POWER_SUPPLY_STATUS_DISCHARGING;
 	u8 reg = 0;
+
+	if (chip->batt_full)
+		return POWER_SUPPLY_STATUS_FULL;
 
 	rc = smb349_read_reg(chip, STATUS_C_REG, &reg);
 	if (rc) {
@@ -659,14 +672,16 @@ static int smb349_get_prop_batt_status(struct smb349_charger *chip)
 		return POWER_SUPPLY_STATUS_UNKNOWN;
 	}
 
-	if ((reg & (STATUS_C_CHARGING_MASK |
-			STATUS_C_CHG_ENABLE_STATUS_BIT)) &&
-			!(reg & STATUS_C_CHG_ERR_STATUS_BIT))
-		status = POWER_SUPPLY_STATUS_CHARGING;
-
 	dev_dbg(chip->dev, "%s: STATUS_C_REG=%x\n", __func__, reg);
 
-	return status;
+	if (reg & STATUS_C_CHG_HOLD_OFF_BIT)
+		return POWER_SUPPLY_STATUS_NOT_CHARGING;
+
+	if ((reg & STATUS_C_CHARGING_MASK) &&
+			!(reg & STATUS_C_CHG_ERR_STATUS_BIT))
+		return POWER_SUPPLY_STATUS_CHARGING;
+
+	return POWER_SUPPLY_STATUS_DISCHARGING;
 }
 
 static int smb349_get_prop_batt_present(struct smb349_charger *chip)
@@ -711,6 +726,24 @@ static int smb349_get_prop_charge_type(struct smb349_charger *chip)
 		return POWER_SUPPLY_CHARGE_TYPE_TRICKLE;
 	else
 		return POWER_SUPPLY_CHARGE_TYPE_NONE;
+}
+
+static int smb349_get_prop_batt_health(struct smb349_charger *chip)
+{
+	union power_supply_propval ret = {0, };
+
+	if (chip->batt_hot)
+		ret.intval = POWER_SUPPLY_HEALTH_OVERHEAT;
+	else if (chip->batt_cold)
+		ret.intval = POWER_SUPPLY_HEALTH_COLD;
+	else if (chip->batt_warm)
+		ret.intval = POWER_SUPPLY_HEALTH_WARM;
+	else if (chip->batt_cool)
+		ret.intval = POWER_SUPPLY_HEALTH_COOL;
+	else
+		ret.intval = POWER_SUPPLY_HEALTH_GOOD;
+
+	return ret.intval;
 }
 
 static int smb349_get_charging_status(struct smb349_charger *chip)
@@ -880,6 +913,9 @@ static int smb349_battery_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
 		val->intval = smb349_get_prop_charge_type(chip);
 		break;
+	case POWER_SUPPLY_PROP_HEALTH:
+		val->intval = smb349_get_prop_batt_health(chip);
+		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
 		break;
@@ -1000,6 +1036,32 @@ static int fast_chg(struct smb349_charger *chip, u8 status)
 static int chg_term(struct smb349_charger *chip, u8 status)
 {
 	dev_dbg(chip->dev, "%s\n", __func__);
+	chip->batt_full = !!status;
+	return 0;
+}
+
+static int hot_hard_handler(struct smb349_charger *chip, u8 status)
+{
+	pr_debug("status = 0x%02x\n", status);
+	chip->batt_hot = !!status;
+	return 0;
+}
+static int cold_hard_handler(struct smb349_charger *chip, u8 status)
+{
+	pr_debug("status = 0x%02x\n", status);
+	chip->batt_cold = !!status;
+	return 0;
+}
+static int hot_soft_handler(struct smb349_charger *chip, u8 status)
+{
+	pr_debug("status = 0x%02x\n", status);
+	chip->batt_warm = !!status;
+	return 0;
+}
+static int cold_soft_handler(struct smb349_charger *chip, u8 status)
+{
+	pr_debug("status = 0x%02x\n", status);
+	chip->batt_cool = !!status;
 	return 0;
 }
 
@@ -1020,16 +1082,20 @@ static struct irq_handler_info handlers[] = {
 		.prev_val	= 0,
 		.irq_info	= {
 			{
-				.name	= "cold_soft",
+				.name		= "cold_soft",
+				.smb_irq	= cold_soft_handler,
 			},
 			{
-				.name	= "hot_soft",
+				.name		= "hot_soft",
+				.smb_irq	= hot_soft_handler,
 			},
 			{
-				.name	= "cold_hard",
+				.name		= "cold_hard",
+				.smb_irq	= cold_hard_handler,
 			},
 			{
-				.name	= "hot_hard",
+				.name		= "hot_hard",
+				.smb_irq	= hot_hard_handler,
 			},
 		},
 	},
@@ -1043,14 +1109,14 @@ static struct irq_handler_info handlers[] = {
 				.smb_irq	= fast_chg,
 			},
 			{
-				.name	= "vbat_low",
+				.name		= "vbat_low",
 			},
 			{
 				.name		= "battery_missing",
 				.smb_irq	= battery_missing
 			},
 			{
-				.name	= "battery_ov",
+				.name		= "battery_ov",
 			},
 		},
 	},
@@ -1064,13 +1130,13 @@ static struct irq_handler_info handlers[] = {
 				.smb_irq	= chg_term,
 			},
 			{
-				.name	= "taper",
+				.name		= "taper",
 			},
 			{
-				.name	= "recharge",
+				.name		= "recharge",
 			},
 			{
-				.name	= "chg_hot",
+				.name		= "chg_hot",
 			},
 		},
 	},
@@ -1080,13 +1146,13 @@ static struct irq_handler_info handlers[] = {
 		.prev_val	= 0,
 		.irq_info	= {
 			{
-				.name	= "prechg_timeout",
+				.name		= "prechg_timeout",
 			},
 			{
-				.name	= "safety_timeout",
+				.name		= "safety_timeout",
 			},
 			{
-				.name	= "aicl_complete",
+				.name		= "aicl_complete",
 			},
 			{
 				.name		= "src_detect",
@@ -1104,13 +1170,13 @@ static struct irq_handler_info handlers[] = {
 				.smb_irq	= chg_uv,
 			},
 			{
-				.name	= "dcin_ov",
+				.name		= "dcin_ov",
 			},
 			{
-				.name	= "afvc_active",
+				.name		= "afvc_active",
 			},
 			{
-				.name	= "unknown",
+				.name		= "unknown",
 			},
 		},
 	},
@@ -1120,16 +1186,16 @@ static struct irq_handler_info handlers[] = {
 		.prev_val	= 0,
 		.irq_info	= {
 			{
-				.name	= "power_ok",
+				.name		= "power_ok",
 			},
 			{
-				.name	= "otg_det",
+				.name		= "otg_det",
 			},
 			{
-				.name	= "otg_batt_uv",
+				.name		= "otg_batt_uv",
 			},
 			{
-				.name	= "otg_oc",
+				.name		= "otg_oc",
 			},
 		},
 	},
@@ -1556,6 +1622,28 @@ static int determine_initial_state(struct smb349_charger *chip)
 	}
 
 	chip->battery_missing = (reg & IRQ_B_BATT_MISSING_BIT) ? true : false;
+
+	rc = smb349_read_reg(chip, IRQ_C_REG, &reg);
+	if (rc) {
+		dev_err(chip->dev, "Couldn't read IRQ_C rc = %d\n", rc);
+		goto fail_init_status;
+	}
+	chip->batt_full = (reg & IRQ_C_TERM_BIT) ? true : false;
+
+	rc = smb349_read_reg(chip, IRQ_A_REG, &reg);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read irq A rc = %d\n", rc);
+		return rc;
+	}
+
+	if (reg & IRQ_A_HOT_HARD_BIT)
+		chip->batt_hot = true;
+	if (reg & IRQ_A_COLD_HARD_BIT)
+		chip->batt_cold = true;
+	if (reg & IRQ_A_HOT_SOFT_BIT)
+		chip->batt_warm = true;
+	if (reg & IRQ_A_COLD_SOFT_BIT)
+		chip->batt_cool = true;
 
 	rc = smb349_read_reg(chip, IRQ_E_REG, &reg);
 	if (rc) {
