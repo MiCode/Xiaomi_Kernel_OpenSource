@@ -669,6 +669,8 @@ int msm_jpeg_ioctl_hw_cmd(struct msm_jpeg_device *pgmn_dev,
 			JPEG_PR_ERR("%s:%d] failed\n", __func__, __LINE__);
 			return -EFAULT;
 		}
+	} else {
+		return is_copy_to_user;
 	}
 
 	return 0;
