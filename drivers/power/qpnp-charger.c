@@ -2515,7 +2515,7 @@ get_prop_batt_temp(struct qpnp_chg_chip *chip)
 		pr_debug("Unable to read batt temperature rc=%d\n", rc);
 		return 0;
 	}
-	pr_debug("get_bat_temp %d %lld\n",
+	pr_debug("get_bat_temp %d, %lld\n",
 		results.adc_code, results.physical);
 
 	return (int)results.physical;
