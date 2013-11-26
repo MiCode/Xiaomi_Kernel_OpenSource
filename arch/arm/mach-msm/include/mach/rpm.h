@@ -18,12 +18,6 @@
 #include <linux/list.h>
 #include <linux/semaphore.h>
 
-#include <mach/rpm-8660.h>
-#include <mach/rpm-9615.h>
-#include <mach/rpm-8960.h>
-#include <mach/rpm-8930.h>
-#include <mach/rpm-8064.h>
-
 #define SEL_MASK_SIZE (5)
 
 enum {
