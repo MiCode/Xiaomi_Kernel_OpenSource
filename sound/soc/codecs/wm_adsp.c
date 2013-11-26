@@ -1102,7 +1102,6 @@ static int wm_adsp_create_grouped_control(struct wm_adsp *dsp,
 	struct wm_adsp_alg_region *r;
 	int ret;
 
-	region->block = 0;
 	/* This is the quick case for control groups of a single block */
 	if (region->len <= 512)
 		return wm_adsp_create_control(dsp, region);
@@ -1130,10 +1129,11 @@ static int wm_adsp_create_grouped_control(struct wm_adsp *dsp,
 		else
 			r->len = len - offset;
 		offset += r->len;
+		/* We do not need to create the control for this new
+		 * region as it will be created once we reach the region
+		 * whilst processing the alg_regions list.
+		 */
 		list_add_tail(&r->list, &dsp->alg_regions);
-		ret = wm_adsp_create_control(dsp, r);
-		if (ret < 0)
-			return ret;
 	} while (offset < len);
 
 	return 0;
