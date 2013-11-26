@@ -498,7 +498,8 @@ static unsigned long branch_clk_get_rate(struct clk *c)
 
 static long branch_clk_list_rate(struct clk *c, unsigned n)
 {
-	int level, fmax = 0, rate;
+	int level;
+	unsigned long fmax = 0, rate;
 	struct branch_clk *branch = to_branch_clk(c);
 	struct clk *parent = c->parent;
 
@@ -510,7 +511,7 @@ static long branch_clk_list_rate(struct clk *c, unsigned n)
 
 	/* Find max frequency supported within voltage constraints. */
 	if (!parent->vdd_class) {
-		fmax = INT_MAX;
+		fmax = ULONG_MAX;
 	} else {
 		for (level = 0; level < parent->num_fmax; level++)
 			if (parent->fmax[level])
@@ -1093,7 +1094,7 @@ static struct clk *edp_clk_get_parent(struct clk *c)
 	struct rcg_clk *rcg = to_rcg_clk(c);
 	struct clk *clk;
 	struct clk_freq_tbl *freq;
-	uint32_t rate;
+	unsigned long rate;
 	u32 cmd_rcgr_regval;
 
 	/* Is there a pending configuration? */
