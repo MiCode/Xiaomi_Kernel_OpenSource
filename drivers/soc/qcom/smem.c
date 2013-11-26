@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -148,6 +148,16 @@ struct smem_partition_info {
 
 static struct smem_partition_info partitions[NUM_SMEM_SUBSYSTEMS];
 /* end smem security feature components */
+
+/* Identifier for the SMEM target info struct. */
+#define SMEM_TARG_INFO_IDENTIFIER 0x49494953 /* "SIII" in little-endian. */
+
+struct smem_targ_info_type {
+	/* Identifier is a constant, set to SMEM_TARG_INFO_IDENTIFIER. */
+	uint32_t identifier;
+	uint32_t size;
+	phys_addr_t phys_base_addr;
+};
 
 struct restart_notifier_block {
 	unsigned processor;
@@ -1152,6 +1162,38 @@ static void smem_init_security(void)
 	SMEM_DBG("%s done\n", __func__);
 }
 
+/**
+ * smem_init_target_info - Init smem target information
+ *
+ * @info_addr : smem target info physical address.
+ * @size : size of the smem target info structure.
+ *
+ * This function is used to initialize the smem_targ_info structure and checks
+ * for valid identifier, if identifier is valid initialize smem variables.
+ */
+static int smem_init_target_info(phys_addr_t info_addr, resource_size_t size)
+{
+	struct smem_targ_info_type *smem_targ_info;
+	void *smem_targ_info_addr;
+	smem_targ_info_addr = ioremap_nocache(info_addr, size);
+	if (!smem_targ_info_addr) {
+		LOG_ERR("%s: failed ioremap_nocache() of addr:%pa size:%pa\n",
+				__func__, &info_addr, &size);
+		return -ENODEV;
+	}
+	smem_targ_info =
+		(struct smem_targ_info_type __iomem *)smem_targ_info_addr;
+
+	if (smem_targ_info->identifier != SMEM_TARG_INFO_IDENTIFIER) {
+		LOG_ERR("%s failed: invalid TARGET INFO magic\n", __func__);
+		return -ENODEV;
+	}
+	smem_ram_phys = smem_targ_info->phys_base_addr;
+	smem_ram_size = smem_targ_info->size;
+	iounmap(smem_targ_info_addr);
+	return 0;
+}
+
 static int msm_smem_probe(struct platform_device *pdev)
 {
 	char *key;
@@ -1166,15 +1208,50 @@ static int msm_smem_probe(struct platform_device *pdev)
 	int smem_idx = 0;
 	bool security_enabled;
 
+	r = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"smem_targ_info_imem");
+	if (r) {
+		if (smem_init_target_info(r->start, resource_size(r)))
+			goto smem_targ_info_legacy;
+		goto smem_targ_info_done;
+	}
+
+	r = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"smem_targ_info_reg");
+	if (r) {
+		void *reg_base_addr;
+		uint64_t base_addr;
+		reg_base_addr = ioremap_nocache(r->start, resource_size(r));
+		base_addr = (uint32_t)readl_relaxed(reg_base_addr);
+		base_addr |=
+			((uint64_t)readl_relaxed(reg_base_addr + 0x4) << 32);
+		iounmap(reg_base_addr);
+		if ((base_addr == 0) || ((base_addr >> 32) != 0)) {
+			SMEM_INFO("%s: Invalid SMEM address\n", __func__);
+			goto smem_targ_info_legacy;
+		}
+		if (smem_init_target_info(base_addr,
+				sizeof(struct smem_targ_info_type)))
+			goto smem_targ_info_legacy;
+		goto smem_targ_info_done;
+	}
+
+smem_targ_info_legacy:
+	SMEM_INFO("%s: reading dt-specified SMEM address\n", __func__);
 	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "smem");
-	if (!r) {
-		LOG_ERR("%s: missing reg\n", __func__);
+	if (r) {
+		smem_ram_size = resource_size(r);
+		smem_ram_phys = r->start;
+	}
+
+smem_targ_info_done:
+	if (!smem_ram_phys || !smem_ram_size) {
+		LOG_ERR("%s: Missing SMEM TARGET INFO\n", __func__);
 		return -ENODEV;
 	}
 
-	smem_ram_base = ioremap(r->start, resource_size(r));
-	smem_ram_size = resource_size(r);
-	smem_ram_phys = r->start;
+	smem_ram_base = ioremap_nocache(smem_ram_phys, smem_ram_size);
+
 	if (!smem_ram_base) {
 		LOG_ERR("%s: ioremap_nocache() of addr:%pa size: %pa\n",
 				__func__,
@@ -1221,13 +1298,6 @@ static int msm_smem_probe(struct platform_device *pdev)
 		}
 	}
 	/* Initialize main SMEM region and SSR ramdump region */
-	key = "smem";
-	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, key);
-	if (!r) {
-		LOG_ERR("%s: missing '%s'\n", __func__, key);
-		return -ENODEV;
-	}
-
 	smem_areas_tmp = kmalloc_array(num_smem_areas, sizeof(struct smem_area),
 				GFP_KERNEL);
 	if (!smem_areas_tmp) {
@@ -1243,12 +1313,12 @@ static int msm_smem_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto free_smem_areas;
 	}
-	smem_areas_tmp[smem_idx].phys_addr =  r->start;
-	smem_areas_tmp[smem_idx].size = resource_size(r);
+	smem_areas_tmp[smem_idx].phys_addr =  smem_ram_phys;
+	smem_areas_tmp[smem_idx].size = smem_ram_size;
 	smem_areas_tmp[smem_idx].virt_addr = smem_ram_base;
 
-	ramdump_segments_tmp[smem_idx].address = r->start;
-	ramdump_segments_tmp[smem_idx].size = resource_size(r);
+	ramdump_segments_tmp[smem_idx].address = smem_ram_phys;
+	ramdump_segments_tmp[smem_idx].size = smem_ram_size;
 	++smem_idx;
 
 	/* Configure auxiliary SMEM regions */
