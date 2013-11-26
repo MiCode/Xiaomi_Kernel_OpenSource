@@ -965,6 +965,7 @@ end:
 static void msm_ispif_release(struct ispif_device *ispif)
 {
 	BUG_ON(!ispif);
+	BUG_ON(!ispif->base);
 
 	if (ispif->ispif_state != ISPIF_POWER_UP) {
 		pr_err("%s: ispif invalid state %d\n", __func__,
@@ -1114,29 +1115,6 @@ static int ispif_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	v4l2_subdev_init(&ispif->msm_sd.sd, &msm_ispif_subdev_ops);
-	ispif->msm_sd.sd.internal_ops = &msm_ispif_internal_ops;
-	ispif->msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
-
-	snprintf(ispif->msm_sd.sd.name,
-		ARRAY_SIZE(ispif->msm_sd.sd.name), MSM_ISPIF_DRV_NAME);
-	v4l2_set_subdevdata(&ispif->msm_sd.sd, ispif);
-
-	platform_set_drvdata(pdev, &ispif->msm_sd.sd);
-	mutex_init(&ispif->mutex);
-
-	media_entity_init(&ispif->msm_sd.sd.entity, 0, NULL, 0);
-	ispif->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
-	ispif->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_ISPIF;
-	ispif->msm_sd.sd.entity.name = pdev->name;
-	ispif->msm_sd.close_seq = MSM_SD_CLOSE_1ST_CATEGORY | 0x1;
-	rc = msm_sd_register(&ispif->msm_sd);
-	if (rc) {
-		pr_err("%s: msm_sd_register error = %d\n", __func__, rc);
-		goto error_sd_register;
-	}
-
-
 	if (pdev->dev.of_node) {
 		of_property_read_u32((&pdev->dev)->of_node,
 		"cell-index", &pdev->id);
@@ -1149,6 +1127,7 @@ static int ispif_probe(struct platform_device *pdev)
 		rc = 0;
 	}
 
+	mutex_init(&ispif->mutex);
 	ispif->mem = platform_get_resource_byname(pdev,
 		IORESOURCE_MEM, "ispif");
 	if (!ispif->mem) {
@@ -1181,15 +1160,33 @@ static int ispif_probe(struct platform_device *pdev)
 			pr_err("%s: no valid csi_mux region\n", __func__);
 	}
 
+	v4l2_subdev_init(&ispif->msm_sd.sd, &msm_ispif_subdev_ops);
+	ispif->msm_sd.sd.internal_ops = &msm_ispif_internal_ops;
+	ispif->msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+
+	snprintf(ispif->msm_sd.sd.name,
+		ARRAY_SIZE(ispif->msm_sd.sd.name), MSM_ISPIF_DRV_NAME);
+	v4l2_set_subdevdata(&ispif->msm_sd.sd, ispif);
+
+	platform_set_drvdata(pdev, &ispif->msm_sd.sd);
+
+	media_entity_init(&ispif->msm_sd.sd.entity, 0, NULL, 0);
+	ispif->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
+	ispif->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_ISPIF;
+	ispif->msm_sd.sd.entity.name = pdev->name;
+	ispif->msm_sd.close_seq = MSM_SD_CLOSE_1ST_CATEGORY | 0x1;
+	rc = msm_sd_register(&ispif->msm_sd);
+	if (rc) {
+		pr_err("%s: msm_sd_register error = %d\n", __func__, rc);
+		goto error;
+	}
+
 	ispif->pdev = pdev;
 	ispif->ispif_state = ISPIF_POWER_DOWN;
 	ispif->open_cnt = 0;
-
 	return 0;
 
 error:
-	msm_sd_unregister(&ispif->msm_sd);
-error_sd_register:
 	mutex_destroy(&ispif->mutex);
 	kfree(ispif);
 	return rc;
