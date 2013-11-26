@@ -47,13 +47,6 @@
 
 #define MSM8625_WARM_BOOT_PHYS  0x0FD00000
 
-/* Legacy single-target iomap */
-#if defined(CONFIG_ARCH_QSD8X50)
-#include "msm_iomap-8x50.h"
-#elif defined(CONFIG_ARCH_MSM8X60)
-#include "msm_iomap-8x60.h"
-#else
-
 /* Unified iomap */
 
 #define MSM_TMR_BASE		IOMEM(0xFA000000)	/*  4K	*/
@@ -107,23 +100,13 @@
 #define MSM_STRONGLY_ORDERED_PAGE	0xFA0F0000
 #define MSM8625_CPU_PHYS		0x0FE00000
 
-#include "msm_iomap-7xxx.h"
-#include "msm_iomap-7x30.h"
-#include "msm_iomap-8625.h"
-#include "msm_iomap-8960.h"
-#include "msm_iomap-8930.h"
-#include "msm_iomap-8064.h"
-#include "msm_iomap-9615.h"
 #include "msm_iomap-8974.h"
 #include "msm_iomap-8084.h"
-#include "msm_iomap-9625.h"
 #include "msm_iomap-8092.h"
 #include "msm_iomap-8226.h"
 #include "msm_iomap-8610.h"
 #include "msm_iomap-krypton.h"
 #include "msm_iomap-fsm9900.h"
 #include "msm_iomap-samarium.h"
-
-#endif
 
 #endif
