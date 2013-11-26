@@ -1930,6 +1930,7 @@ static int florida_codec_probe(struct snd_soc_codec *codec)
 		return ret;
 	}
 
+	snd_soc_dapm_enable_pin(&codec->dapm, "DRC2 Signal Activity");
 	ret = regmap_update_bits(arizona->regmap, ARIZONA_IRQ2_STATUS_3_MASK,
 				 ARIZONA_IM_DRC2_SIG_DET_EINT2,
 				 ARIZONA_IM_DRC2_SIG_DET_EINT2);
