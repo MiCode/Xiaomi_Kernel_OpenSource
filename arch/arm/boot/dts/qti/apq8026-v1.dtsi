@@ -26,6 +26,6 @@
 };
 
 &tsens {
-	qcom,sensors = <4>;
-	qcom,slope = <2901 2846 3038 2955>;
+	qti,sensors = <4>;
+	qti,slope = <2901 2846 3038 2955>;
 };
