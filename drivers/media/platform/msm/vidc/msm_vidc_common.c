@@ -612,17 +612,9 @@ static void handle_session_prop_info(enum command_response cmd, void *data)
 		dprintk(VIDC_ERR, "%s: getprop kzalloc failed\n", __func__);
 		goto failed;
 	}
-	getprop->data = kzalloc(response->size, GFP_KERNEL);
-	if (!getprop->data) {
-		dprintk(VIDC_ERR, "%s: getprop->data kzalloc failed\n",
-					__func__);
-		kfree(getprop);
-		goto failed;
-	}
 	getprop->data = kmemdup(response->data, response->size, GFP_KERNEL);
 	if (!getprop->data) {
 		dprintk(VIDC_ERR, "%s: kmemdup failed\n", __func__);
-		kfree(getprop->data);
 		kfree(getprop);
 		goto failed;
 	}
