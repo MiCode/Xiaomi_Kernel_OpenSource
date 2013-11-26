@@ -3778,7 +3778,7 @@ unsigned int adreno_ft_detect(struct kgsl_device *device,
 				if (task)
 					get_task_comm(pid_name, task);
 			} else {
-				KGSL_DRV_ERR(device,
+				KGSL_DRV_INFO(device,
 					"Fault tolerance no context found\n");
 			}
 		}
