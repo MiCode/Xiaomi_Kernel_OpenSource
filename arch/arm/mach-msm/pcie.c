@@ -997,6 +997,8 @@ static int msm_pcie_enable(u32 rc_idx, u32 options)
 
 	msm_pcie_config_controller(rc_idx);
 
+	msm_pcie_config_msi_controller(dev);
+
 	if (options & PM_IRQ) {
 		ret = msm_pcie_irq_init(dev);
 		if (!ret)
