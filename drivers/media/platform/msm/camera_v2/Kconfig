@@ -101,24 +101,6 @@ config MSM_ISPIF_V1
           of any CID of MSM_CSI22_HEADER can be routed to of pixel
           or raw data interface in VFE.
 
-config S5K3L1YX
-	bool "Sensor S5K3L1YX (BAYER 12M)"
-	depends on MSMB_CAMERA
-	---help---
-		Samsung 12 MP Bayer Sensor with auto focus, uses
-		4 mipi lanes, preview config = 1984 * 1508 at 30 fps,
-		snapshot config = 4000 * 3000 at 20 fps,
-		hfr video at 60, 90 and 120 fps.
-
-config IMX135
-	bool "Sensor IMX135 (BAYER 12M)"
-	depends on MSMB_CAMERA
-	---help---
-		Sony 12 MP Bayer Sensor with auto focus, uses
-		4 mipi lanes, preview config = 2104 x 1560 at 49 fps,
-		snapshot config = 4208 x 3120 at 24 fps,
-		Video HDR support.
-
 config IMX134
 	bool "Sensor IMX134 (BAYER 8M)"
 	depends on MSMB_CAMERA
