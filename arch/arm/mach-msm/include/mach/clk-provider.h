@@ -49,7 +49,7 @@ struct clk_register_data {
 #ifdef CONFIG_DEBUG_FS
 void clk_debug_print_hw(struct clk *clk, struct seq_file *f);
 #else
-static inline void clock_debug_print_hw(struct clk *clk, struct seq_file *f) {}
+static inline void clk_debug_print_hw(struct clk *clk, struct seq_file *f) {}
 #endif
 
 #define CLK_WARN(clk, cond, fmt, ...) do {				\
