@@ -238,6 +238,7 @@
 			<0xff 191>, /* lpass_irq_out_apcs(3) */
 			<0xff 192>, /* lpass_irq_out_apcs(4) */
 			<0xff 194>, /* lpass_irq_out_apcs(6) */
+			<0xff 198>, /* QDSS - u_qdss */
 			<0xff 200>, /* rpm_ipc(4) */
 			<0xff 201>, /* rpm_ipc(5) */
 			<0xff 202>, /* rpm_ipc(6) */

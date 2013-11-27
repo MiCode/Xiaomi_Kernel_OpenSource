@@ -235,6 +235,9 @@
 			<0xff 191>, /* lpass_irq_out_apcs(3) */
 			<0xff 192>, /* lpass_irq_out_apcs(4) */
 			<0xff 194>, /* lpass_irq_out_apcs(6) */
+			<0xff 195>, /* SLIMbus  slimbus_core_ee1_irq */
+			<0xff 196>, /* BAM-Lite - SlimBus */
+			<0xff 198>, /* coresight-tmc-etr interrupt */
 			<0xff 200>, /* rpm_ipc(4) */
 			<0xff 201>, /* rpm_ipc(5) */
 			<0xff 202>, /* rpm_ipc(6) */
