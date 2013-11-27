@@ -53,6 +53,7 @@
 #include "mpq8092-iommu-domains.dtsi"
 #include "msm-gdsc.dtsi"
 #include "mpq8092-ion.dtsi"
+#include "mpq8092-gpu.dtsi"
 #include "mpq8092-pinctrl.dtsi"
 #include "mpq8092-smp2p.dtsi"
 #include "mpq8092-coresight.dtsi"
