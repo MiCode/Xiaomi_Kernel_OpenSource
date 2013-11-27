@@ -2654,9 +2654,6 @@ static int wm_adsp_capture_block(struct wm_adsp *adsp, int *avail)
 	read_index = sign_extend32(next_read_index, 23);
 	write_index = sign_extend32(next_write_index, 23);
 
-	/* Don't empty the buffer as it kills the firmware */
-	write_index--;
-
 	if (read_index < 0)
 		return -EIO;	/* stream has not yet started */
 
