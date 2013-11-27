@@ -274,9 +274,6 @@ static void mdss_mdp_rotator_commit_wq_handler(struct work_struct *work)
 	rot = container_of(work, struct mdss_mdp_rotator_session, commit_work);
 
 	mutex_lock(&rotator_lock);
-	ret = mdss_mdp_rotator_queue_helper(rot);
-
-	atomic_inc(&rot->rot_sync_pt_data->commit_cnt);
 
 	ret = mdss_mdp_rotator_queue_helper(rot);
 	if (ret) {
@@ -284,6 +281,8 @@ static void mdss_mdp_rotator_commit_wq_handler(struct work_struct *work)
 		mutex_unlock(&rotator_lock);
 		return;
 	}
+
+	atomic_inc(&rot->rot_sync_pt_data->commit_cnt);
 
 	if (rot->rot_sync_pt_data)
 		mdss_fb_signal_timeline(rot->rot_sync_pt_data);
