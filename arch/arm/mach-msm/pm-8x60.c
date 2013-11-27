@@ -52,7 +52,6 @@
 #ifdef CONFIG_VFP
 #include <asm/vfp.h>
 #endif
-#include "acpuclock.h"
 #include "clock.h"
 #include "avs.h"
 #include <mach/cpuidle.h>
@@ -83,8 +82,6 @@ module_param_named(
 static int msm_pm_sleep_time_override;
 module_param_named(sleep_time_override,
 	msm_pm_sleep_time_override, int, S_IRUGO | S_IWUSR | S_IWGRP);
-
-static bool use_acpuclk_apis;
 
 enum {
 	MSM_PM_DEBUG_SUSPEND = BIT(0),
@@ -515,15 +512,11 @@ static void msm_pm_swfi(void)
 static void msm_pm_retention(void)
 {
 	int ret = 0;
-	int saved_rate = 0;
 	unsigned int cpu = smp_processor_id();
 	struct clk *cpu_clk = per_cpu(cpu_clks, cpu);
 
 	msm_pm_config_hw_before_retention();
-	if (use_acpuclk_apis)
-		saved_rate = acpuclk_power_collapse();
-	else
-		clk_disable(cpu_clk);
+	clk_disable(cpu_clk);
 
 	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_POWER_RETENTION, false);
 	WARN_ON(ret);
@@ -534,14 +527,8 @@ static void msm_pm_retention(void)
 	else
 		msm_arch_idle();
 
-	if (use_acpuclk_apis) {
-		if (acpuclk_set_rate(cpu, saved_rate, SETRATE_PC))
-			pr_err("%s(): Error setting acpuclk_set_rate\n",
-					__func__);
-	} else {
-		if (clk_enable(cpu_clk))
-			pr_err("%s(): Error restore cpu clk\n", __func__);
-	}
+	if (clk_enable(cpu_clk))
+		pr_err("%s(): Error restore cpu clk\n", __func__);
 
 	msm_pm_config_hw_after_retention();
 }
@@ -683,15 +670,9 @@ static int ramp_down_last_cpu(int cpu)
 	struct clk *cpu_clk = per_cpu(cpu_clks, cpu);
 	int ret = 0;
 
-	if (use_acpuclk_apis) {
-		ret = acpuclk_power_collapse();
-		if (MSM_PM_DEBUG_CLOCK & msm_pm_debug_mask)
-			pr_info("CPU%u: %s: change clk rate(old rate = %d)\n",
-					cpu, __func__, ret);
-	} else {
-		clk_disable(cpu_clk);
-		clk_disable(l2_clk);
-	}
+	clk_disable(cpu_clk);
+	clk_disable(l2_clk);
+
 	return ret;
 }
 
@@ -704,26 +685,20 @@ static int ramp_up_first_cpu(int cpu, int saved_rate)
 		pr_info("CPU%u: %s: restore clock rate\n",
 				cpu, __func__);
 
-	if (use_acpuclk_apis) {
-		rc = acpuclk_set_rate(cpu, saved_rate, SETRATE_PC);
+	if (l2_clk) {
+		rc = clk_enable(l2_clk);
 		if (rc)
-			pr_err("CPU:%u: Error restoring cpu clk\n", cpu);
-	} else {
-		if (l2_clk) {
-			rc = clk_enable(l2_clk);
-			if (rc)
-				pr_err("%s(): Error restoring l2 clk\n",
-						__func__);
-		}
+			pr_err("%s(): Error restoring l2 clk\n",
+					__func__);
+	}
 
-		if (cpu_clk) {
-			int ret = clk_enable(cpu_clk);
+	if (cpu_clk) {
+		int ret = clk_enable(cpu_clk);
 
-			if (ret) {
-				pr_err("%s(): Error restoring cpu clk\n",
-						__func__);
-				return ret;
-			}
+		if (ret) {
+			pr_err("%s(): Error restoring cpu clk\n",
+					__func__);
+			return ret;
 		}
 	}
 
@@ -1644,16 +1619,7 @@ static int msm_pm_clk_init(struct platform_device *pdev)
 	bool synced_clocks;
 	u32 cpu;
 	char clk_name[] = "cpu??_clk";
-	bool cpu_as_clocks;
 	char *key;
-
-	key = "qcom,cpus-as-clocks";
-	cpu_as_clocks = of_property_read_bool(pdev->dev.of_node, key);
-
-	if (!cpu_as_clocks) {
-		use_acpuclk_apis = true;
-		return 0;
-	}
 
 	key = "qcom,synced-clocks";
 	synced_clocks = of_property_read_bool(pdev->dev.of_node, key);
