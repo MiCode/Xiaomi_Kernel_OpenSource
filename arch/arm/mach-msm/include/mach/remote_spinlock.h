@@ -24,23 +24,15 @@
 
 /* Remote spinlock definitions. */
 
-struct dek_spinlock {
-	volatile uint8_t self_lock;
-	volatile uint8_t other_lock;
-	volatile uint8_t next_yield;
-	uint8_t pad;
-};
-
-typedef union {
+typedef struct {
 	volatile uint32_t lock;
-	struct dek_spinlock dek;
 } raw_remote_spinlock_t;
 
 typedef raw_remote_spinlock_t *_remote_spinlock_t;
 
 #define remote_spinlock_id_t const char *
 
-#if defined(CONFIG_MSM_SMD) || defined(CONFIG_MSM_REMOTE_SPINLOCK_SFPB)
+#if defined(CONFIG_MSM_SMD)
 int _remote_spin_lock_init(remote_spinlock_id_t, _remote_spinlock_t *lock);
 void _remote_spin_release_all(uint32_t pid);
 void _remote_spin_lock(_remote_spinlock_t *lock);
