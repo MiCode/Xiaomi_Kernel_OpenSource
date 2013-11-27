@@ -164,7 +164,7 @@ config ARCH_XGENE
 	  This enables support for AppliedMicro X-Gene SOC Family
 
 config ARCH_MSM
-	bool "Qualcomm MSM"
+	bool "Qualcomm Platforms"
 	select HAVE_CLK
 	select HAVE_CLK_PREPARE
 	select CLKDEV_LOOKUP
@@ -173,6 +173,13 @@ config ARCH_MSM
 	select PINCTRL
 	help
 	  This enables support for the ARMv8 based Qualcomm chipsets.
+
+config ARCH_MSM8916
+	bool "Enable Support for Qualcomm MSM8916"
+	depends on ARCH_MSM
+	help
+	  This enables support for the MSM8916 chipset. If you dont
+	  know what do here, say N
 
 endmenu
 
