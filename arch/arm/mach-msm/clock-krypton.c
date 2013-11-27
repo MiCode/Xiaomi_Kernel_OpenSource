@@ -2062,6 +2062,7 @@ static struct clk_lookup msm_clocks_krypton[] = {
 	CLK_LOOKUP("bus_a_clk",	pnoc_msmbus_a_clk.c,	"msm_periph_noc"),
 	CLK_LOOKUP("mem_clk",	bimc_msmbus_clk.c,	"msm_bimc"),
 	CLK_LOOKUP("mem_a_clk",	bimc_msmbus_a_clk.c,	"msm_bimc"),
+	CLK_LOOKUP("iface_clk", ipa_clk.c,              "msm_ipa"),
 
 	CLK_LOOKUP("a7_m_clk", a7_m_clk, ""),
 
