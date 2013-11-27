@@ -2535,13 +2535,12 @@ static int __devinit msm_sps_probe(struct platform_device *pdev)
 			ret = -EPROBE_DEFER;
 		else
 			SPS_ERR("sps:fail to get dfab_clk.");
-		goto clk_err;
+		goto dfab_clk_err;
 	} else {
 		ret = clk_set_rate(sps->dfab_clk, 64000000);
 		if (ret) {
 			SPS_ERR("sps:failed to set dfab_clk rate.");
-			clk_put(sps->dfab_clk);
-			goto clk_err;
+			goto dfab_clk_set_err;
 		}
 	}
 
@@ -2552,12 +2551,12 @@ static int __devinit msm_sps_probe(struct platform_device *pdev)
 				ret = -EPROBE_DEFER;
 			else
 				SPS_ERR("sps:fail to get pmem_clk.");
-			goto clk_err;
+			goto dfab_clk_set_err;
 		} else {
 			ret = clk_prepare_enable(sps->pmem_clk);
 			if (ret) {
 				SPS_ERR("sps:failed to enable pmem_clk.");
-				goto clk_err;
+				goto pmem_clk_set_err;
 			}
 		}
 	}
@@ -2569,19 +2568,21 @@ static int __devinit msm_sps_probe(struct platform_device *pdev)
 			ret = -EPROBE_DEFER;
 		else
 			SPS_ERR("sps:fail to get bamdma_clk.");
-		goto clk_err;
+		goto pmem_clk_set_err;
 	} else {
 		ret = clk_prepare_enable(sps->bamdma_clk);
 		if (ret) {
 			SPS_ERR("sps:failed to enable bamdma_clk. ret=%d", ret);
-			goto clk_err;
+			clk_put(sps->bamdma_clk);
+			goto pmem_clk_set_err;
 		}
 	}
 
 	ret = clk_prepare_enable(sps->dfab_clk);
 	if (ret) {
 		SPS_ERR("sps:failed to enable dfab_clk. ret=%d", ret);
-		goto clk_err;
+		clk_put(sps->bamdma_clk);
+		goto pmem_clk_set_err;
 	}
 #endif
 	ret = sps_device_init();
@@ -2590,8 +2591,9 @@ static int __devinit msm_sps_probe(struct platform_device *pdev)
 #ifdef CONFIG_SPS_SUPPORT_BAMDMA
 		clk_disable_unprepare(sps->dfab_clk);
 		clk_disable_unprepare(sps->bamdma_clk);
+		clk_put(sps->bamdma_clk);
 #endif
-		goto sps_device_init_err;
+		goto pmem_clk_set_err;
 	}
 #ifdef CONFIG_SPS_SUPPORT_BAMDMA
 	clk_disable_unprepare(sps->dfab_clk);
@@ -2602,8 +2604,12 @@ static int __devinit msm_sps_probe(struct platform_device *pdev)
 	SPS_INFO("sps:sps is ready.");
 
 	return 0;
-clk_err:
-sps_device_init_err:
+pmem_clk_set_err:
+	if (!d_type)
+		clk_put(sps->pmem_clk);
+dfab_clk_set_err:
+	clk_put(sps->dfab_clk);
+dfab_clk_err:
 	device_destroy(sps->dev_class, sps->dev_num);
 device_create_err:
 	unregister_chrdev_region(sps->dev_num, 1);
