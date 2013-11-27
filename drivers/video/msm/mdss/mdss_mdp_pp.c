@@ -3619,7 +3619,6 @@ int mdss_mdp_ad_config(struct msm_fb_data_type *mfd,
 			struct mdss_ad_init_cfg *init_cfg)
 {
 	struct mdss_ad_info *ad;
-	struct mdss_mdp_ctl *ctl;
 	struct msm_fb_data_type *bl_mfd;
 	int lin_ret = -1, inv_ret = -1, ret = 0;
 	u32 ratio_temp, shift = 0;
@@ -3642,10 +3641,12 @@ int mdss_mdp_ad_config(struct msm_fb_data_type *mfd,
 		if (init_cfg->params.init.bl_lin_len == AD_BL_LIN_LEN) {
 			lin_ret = copy_from_user(&ad->bl_lin,
 				init_cfg->params.init.bl_lin,
-				AD_BL_LIN_LEN * sizeof(uint32_t));
+				init_cfg->params.init.bl_lin_len *
+				sizeof(uint32_t));
 			inv_ret = copy_from_user(&ad->bl_lin_inv,
 				init_cfg->params.init.bl_lin_inv,
-				AD_BL_LIN_LEN * sizeof(uint32_t));
+				init_cfg->params.init.bl_lin_len *
+				sizeof(uint32_t));
 			if (lin_ret || inv_ret)
 				ret = -ENOMEM;
 			ratio_temp =  mfd->panel_info->bl_max / AD_BL_LIN_LEN;
@@ -3654,13 +3655,14 @@ int mdss_mdp_ad_config(struct msm_fb_data_type *mfd,
 				shift++;
 			}
 			ad->bl_bright_shift = shift;
-		} else if (init_cfg->params.init.bl_lin_len) {
+		} else {
 			ret = -EINVAL;
 		}
-		if (!lin_ret && !inv_ret)
+		if (ret) {
+			ad->state &= ~PP_AD_STATE_BL_LIN;
+			goto ad_config_exit;
+		} else
 			ad->state |= PP_AD_STATE_BL_LIN;
-		else
-			ad->state &= !PP_AD_STATE_BL_LIN;
 
 		ad->sts |= PP_AD_STS_DIRTY_INIT;
 	} else if (init_cfg->ops & MDP_PP_AD_CFG) {
@@ -3686,8 +3688,8 @@ int mdss_mdp_ad_config(struct msm_fb_data_type *mfd,
 		ad->mfd = mfd;
 		ad->bl_mfd = bl_mfd;
 	}
+ad_config_exit:
 	mutex_unlock(&ad->lock);
-	ctl = mfd_to_ctl(mfd);
 	return ret;
 }
 
