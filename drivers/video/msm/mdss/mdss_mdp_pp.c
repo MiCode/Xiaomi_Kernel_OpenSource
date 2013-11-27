@@ -4156,6 +4156,7 @@ static void pp_ad_calc_worker(struct work_struct *work)
 		return;
 	}
 
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 	if (PP_AD_STATE_RUN & ad->state) {
 		/* Kick off calculation */
 		ad->calc_itr--;
@@ -4195,6 +4196,7 @@ static void pp_ad_calc_worker(struct work_struct *work)
 			ad->last_str = 0xFFFFFFFF;
 		}
 	}
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	complete(&ad->comp);
 
 	if (!ad->calc_itr) {
