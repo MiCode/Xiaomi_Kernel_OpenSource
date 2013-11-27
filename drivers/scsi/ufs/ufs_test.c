@@ -201,9 +201,9 @@ static struct test_scenario test_scenario[SCEN_RANDOM_MAX] = {
 		{NULL, WRITE, 0, 50, true, 5}, /* SCEN_RANDOM_WRITE_50 */
 
 		/* SCEN_RANDOM_READ_32_NO_FLUSH */
-		{NULL, READ, 1, 32, true, 64},
+		{NULL, READ, 0, 32, true, 64},
 		/* SCEN_RANDOM_WRITE_32_NO_FLUSH */
-		{NULL, WRITE, 1, 32, true, 64},
+		{NULL, WRITE, 0, 32, true, 64},
 };
 
 static
@@ -602,15 +602,21 @@ static bool ufs_test_multi_thread_completion(void)
 }
 
 /**
- * ufs_test_do_toggling() - decides whether toggling is needed
- * toggle_factor - iteration to toggle
- * iteration - what is the current iteration
+ * ufs_test_toggle_direction() - decides whether toggling is
+ * needed. Toggle factor zero means no toggling.
+ *
+ * toggle_factor - iteration to toggle = toggling frequency
+ * iteration - the current request iteration
+ *
+ * Returns nonzero if toggling is needed, and 0 when toggling is
+ * not needed.
  */
 static inline int ufs_test_toggle_direction(int toggle_factor, int iteration)
 {
-	if (toggle_factor)
-		return 1;
-	return iteration % toggle_factor;
+	if (!toggle_factor)
+		return 0;
+
+	return !(iteration % toggle_factor);
 }
 
 static void ufs_test_run_scenario(void *data, async_cookie_t cookie)
@@ -704,7 +710,7 @@ static int ufs_test_run_parallel_read_and_write_test(struct test_data *td)
 	utd->fail_threads = 0;
 	init_completion(&utd->outstanding_complete);
 
-	for (i = 0; i < (RANDOM_REQUEST_THREADS % 2); i++) {
+	for (i = 0; i < (RANDOM_REQUEST_THREADS / 2); i++) {
 		async_schedule(ufs_test_run_scenario, read_data);
 		async_schedule(ufs_test_run_scenario, write_data);
 		atomic_add(2, &utd->outstanding_threads);
