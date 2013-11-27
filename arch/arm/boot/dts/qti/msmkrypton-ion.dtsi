@@ -1,0 +1,31 @@
+/* Copyright (c) 2013, Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	qcom,ion {
+		compatible = "qcom,msm-ion";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,ion-heap@25 {
+			reg = <25>;
+			qcom,ion-heap-type = "SYSTEM";
+		};
+
+		qcom,ion-heap@28 { /* AUDIO HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <28>;
+			linux,contiguous-region = <&audio_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+	};
+};
