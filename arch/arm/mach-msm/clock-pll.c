@@ -304,6 +304,22 @@ static enum handoff local_pll_clk_handoff(struct clk *c)
 	return HANDOFF_ENABLED_CLK;
 }
 
+static long local_pll_clk_round_rate(struct clk *c, unsigned long rate)
+{
+	struct pll_freq_tbl *nf;
+	struct pll_clk *pll = to_pll_clk(c);
+
+	if (!pll->freq_tbl)
+		return -EINVAL;
+
+	for (nf = pll->freq_tbl; nf->freq_hz != PLL_FREQ_END; nf++)
+		if (nf->freq_hz >= rate)
+			return nf->freq_hz;
+
+	nf--;
+	return nf->freq_hz;
+}
+
 static int local_pll_clk_set_rate(struct clk *c, unsigned long rate)
 {
 	struct pll_freq_tbl *nf;
@@ -426,6 +442,7 @@ struct clk_ops clk_ops_sr2_pll = {
 	.enable = sr2_pll_clk_enable,
 	.disable = local_pll_clk_disable,
 	.set_rate = local_pll_clk_set_rate,
+	.round_rate = local_pll_clk_round_rate,
 	.handoff = local_pll_clk_handoff,
 };
 
