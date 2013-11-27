@@ -42,8 +42,8 @@ static int cma_heap_has_outer_cache;
  * This function could be replace by dma_common_get_sgtable
  * as soon as it will avalaible.
  */
-int ion_cma_get_sgtable(struct device *dev, struct sg_table *sgt,
-			void *cpu_addr, dma_addr_t handle, size_t size)
+static int ion_cma_get_sgtable(struct device *dev, struct sg_table *sgt,
+			       void *cpu_addr, dma_addr_t handle, size_t size)
 {
 	struct page *page = pfn_to_page(PFN_DOWN(handle));
 	int ret;
@@ -135,16 +135,16 @@ static int ion_cma_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 	return 0;
 }
 
-struct sg_table *ion_cma_heap_map_dma(struct ion_heap *heap,
-					 struct ion_buffer *buffer)
+static struct sg_table *ion_cma_heap_map_dma(struct ion_heap *heap,
+					     struct ion_buffer *buffer)
 {
 	struct ion_cma_buffer_info *info = buffer->priv_virt;
 
 	return info->table;
 }
 
-void ion_cma_heap_unmap_dma(struct ion_heap *heap,
-			       struct ion_buffer *buffer)
+static void ion_cma_heap_unmap_dma(struct ion_heap *heap,
+				   struct ion_buffer *buffer)
 {
 	return;
 }

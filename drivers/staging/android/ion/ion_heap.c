@@ -41,7 +41,7 @@ void *ion_heap_map_kernel(struct ion_heap *heap,
 	struct page **tmp = pages;
 
 	if (!pages)
-		return 0;
+		return NULL;
 
 	if (buffer->flags & ION_FLAG_CACHED)
 		pgprot = PAGE_KERNEL;
@@ -304,7 +304,7 @@ size_t ion_heap_freelist_drain_from_shrinker(struct ion_heap *heap, size_t size)
 	return _ion_heap_freelist_drain(heap, size, true);
 }
 
-int ion_heap_deferred_free(void *data)
+static int ion_heap_deferred_free(void *data)
 {
 	struct ion_heap *heap = data;
 
