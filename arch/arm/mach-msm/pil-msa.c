@@ -251,7 +251,8 @@ static int pil_msa_pbl_reset(struct pil_desc *pil)
 err_q6v5_reset:
 	pil_msa_pbl_disable_clks(drv);
 err_clks:
-	writel_relaxed(1, drv->restart_reg);
+	if (drv->restart_reg)
+		writel_relaxed(1, drv->restart_reg);
 	pil_msa_pbl_power_down(drv);
 err_power:
 	return ret;
