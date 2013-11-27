@@ -289,8 +289,8 @@ struct mdss_pp_res_type {
 	u32 enhist_lut[MDSS_BLOCK_DISP_NUM][ENHIST_LUT_ENTRIES];
 	struct mdp_pa_cfg pa_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pa_v2_data pa_v2_disp_cfg[MDSS_BLOCK_DISP_NUM];
-	u32 six_zone_lut_curve_p0[MDSS_BLOCK_DISP_NUM][SIX_ZONE_LUT_ENTRIES];
-	u32 six_zone_lut_curve_p1[MDSS_BLOCK_DISP_NUM][SIX_ZONE_LUT_ENTRIES];
+	u32 six_zone_lut_curve_p0[MDSS_BLOCK_DISP_NUM][MDP_SIX_ZONE_LUT_SIZE];
+	u32 six_zone_lut_curve_p1[MDSS_BLOCK_DISP_NUM][MDP_SIX_ZONE_LUT_SIZE];
 	struct mdp_pcc_cfg_data pcc_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_igc_lut_data igc_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pgc_lut_data argc_disp_cfg[MDSS_BLOCK_DISP_NUM];
@@ -641,7 +641,7 @@ static void pp_update_pa_v2_six_zone_regs(char __iomem *addr,
 				data, addr);
 
 		/* Remove Index Update */
-		for (i = 1; i < SIX_ZONE_LUT_ENTRIES; i++) {
+		for (i = 1; i < MDP_SIX_ZONE_LUT_SIZE; i++) {
 			addr += 4;
 			writel_relaxed(pa_v2_config->six_zone_curve_p1[i],
 					addr);
@@ -1928,10 +1928,13 @@ static int pp_read_pa_v2_regs(char __iomem *addr,
 
 	/* Six zone LUT and thresh data */
 	if (pa_v2_config->flags & MDP_PP_PA_SIX_ZONE_ENABLE) {
+		if (pa_v2_config->six_zone_len != MDP_SIX_ZONE_LUT_SIZE)
+			return -EINVAL;
+
 		data = (3 << 25);
 		writel_relaxed(data, addr);
 
-		for (i = 0; i < SIX_ZONE_LUT_ENTRIES; i++) {
+		for (i = 0; i < MDP_SIX_ZONE_LUT_SIZE; i++) {
 			addr += 4;
 			mdss_pp_res->six_zone_lut_curve_p1[disp_num][i] =
 				readl_relaxed(addr);
@@ -1942,13 +1945,13 @@ static int pp_read_pa_v2_regs(char __iomem *addr,
 
 		if (copy_to_user(pa_v2_config->six_zone_curve_p0,
 			&mdss_pp_res->six_zone_lut_curve_p0[disp_num][0],
-			SIX_ZONE_LUT_ENTRIES * sizeof(u32))) {
+			pa_v2_config->six_zone_len * sizeof(u32))) {
 			return -EFAULT;
 		}
 
 		if (copy_to_user(pa_v2_config->six_zone_curve_p1,
 			&mdss_pp_res->six_zone_lut_curve_p1[disp_num][0],
-			SIX_ZONE_LUT_ENTRIES * sizeof(u32))) {
+			pa_v2_config->six_zone_len * sizeof(u32))) {
 			return -EFAULT;
 		}
 
@@ -1993,14 +1996,17 @@ static void pp_read_pa_mem_col_regs(char __iomem *addr,
 static int pp_copy_pa_six_zone_lut(struct mdp_pa_v2_cfg_data *pa_v2_config,
 				u32 disp_num)
 {
+	if (pa_v2_config->pa_v2_data.six_zone_len != MDP_SIX_ZONE_LUT_SIZE)
+		return -EINVAL;
+
 	if (copy_from_user(&mdss_pp_res->six_zone_lut_curve_p0[disp_num][0],
 			pa_v2_config->pa_v2_data.six_zone_curve_p0,
-			SIX_ZONE_LUT_ENTRIES * sizeof(u32))) {
+			pa_v2_config->pa_v2_data.six_zone_len * sizeof(u32))) {
 		return -EFAULT;
 	}
 	if (copy_from_user(&mdss_pp_res->six_zone_lut_curve_p1[disp_num][0],
 			pa_v2_config->pa_v2_data.six_zone_curve_p1,
-			SIX_ZONE_LUT_ENTRIES * sizeof(u32))) {
+			pa_v2_config->pa_v2_data.six_zone_len * sizeof(u32))) {
 		return -EFAULT;
 	}
 
