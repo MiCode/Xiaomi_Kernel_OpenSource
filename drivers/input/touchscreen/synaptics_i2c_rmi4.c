@@ -67,10 +67,10 @@
 #define F11_STD_CTRL_LEN 10
 #define F11_STD_DATA_LEN 12
 
-#define NORMAL_OPERATION (0 << 0)
-#define SENSOR_SLEEP (1 << 0)
-#define NO_SLEEP_OFF (0 << 2)
-#define NO_SLEEP_ON (1 << 2)
+#define NORMAL_OPERATION 0
+#define SENSOR_SLEEP 1
+#define NO_SLEEP_OFF 0
+#define NO_SLEEP_ON 1
 
 enum device_status {
 	STATUS_NO_ERROR = 0x00,
@@ -110,6 +110,13 @@ static int synaptics_rmi4_i2c_write(struct synaptics_rmi4_data *rmi4_data,
 		unsigned short length);
 
 static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data);
+
+static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data);
+
+static void synaptics_rmi4_sensor_sleep(struct synaptics_rmi4_data *rmi4_data);
+
+static int synaptics_rmi4_check_configuration(struct synaptics_rmi4_data
+		*rmi4_data);
 
 #ifdef CONFIG_PM
 static int synaptics_rmi4_suspend(struct device *dev);
@@ -3031,12 +3038,21 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 			goto err_sysfs;
 		}
 	}
+
+	synaptics_rmi4_sensor_wake(rmi4_data);
+
 	retval = synaptics_rmi4_irq_enable(rmi4_data, true);
 	if (retval < 0) {
 		dev_err(&client->dev,
 			"%s: Failed to enable attention interrupt\n",
 			__func__);
 		goto err_sysfs;
+	}
+
+	retval = synaptics_rmi4_check_configuration(rmi4_data);
+	if (retval < 0) {
+		dev_err(&client->dev, "Failed to check configuration\n");
+		return retval;
 	}
 
 	return retval;
@@ -3216,6 +3232,12 @@ static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data)
 				"%s: Failed to wake from sleep mode\n",
 				__func__);
 		rmi4_data->sensor_sleep = true;
+		return;
+	}
+
+	if (device_ctrl.nosleep == NO_SLEEP_OFF &&
+		device_ctrl.sleep_mode == NORMAL_OPERATION) {
+		rmi4_data->sensor_sleep = false;
 		return;
 	}
 
@@ -3602,6 +3624,22 @@ static const struct dev_pm_ops synaptics_rmi4_dev_pm_ops = {
 static const struct dev_pm_ops synaptics_rmi4_dev_pm_ops = {
 };
 #endif
+#else
+static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data)
+{
+	return;
+};
+
+static void synaptics_rmi4_sensor_sleep(struct synaptics_rmi4_data *rmi4_data)
+{
+	return;
+};
+
+static int synaptics_rmi4_check_configuration(struct synaptics_rmi4_data
+						*rmi4_data)
+{
+	return 0;
+};
 #endif
 
 static const struct i2c_device_id synaptics_rmi4_id_table[] = {
