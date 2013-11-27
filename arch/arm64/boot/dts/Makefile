@@ -12,6 +12,9 @@ DTB_LIST := $(dtb-y)
 endif
 targets += $(DTB_LIST)
 
+#used for cleaning - not building
+subdir- := qcom
+
 dtbs: $(addprefix $(obj)/, $(DTB_LIST))
 
 clean-files := dts/*.dtb *.dtb
