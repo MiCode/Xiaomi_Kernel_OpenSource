@@ -3446,10 +3446,13 @@ static void venus_hfi_unload_fw(void *dev)
 		mutex_lock(&device->clk_pwr_lock);
 		subsystem_put(device->resources.fw.cookie);
 		venus_hfi_disable_regulators(device);
-		device->power_enabled = 0;
 		mutex_unlock(&device->clk_pwr_lock);
 		venus_hfi_interface_queues_release(dev);
 		venus_hfi_iommu_detach(device);
+
+		mutex_lock(&device->clk_pwr_lock);
+		device->power_enabled = 0;
+		mutex_unlock(&device->clk_pwr_lock);
 		device->resources.fw.cookie = NULL;
 	}
 }
