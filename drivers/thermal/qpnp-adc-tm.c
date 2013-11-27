@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +39,7 @@
 #define QPNP_PERPH_SUBTYPE				0x5
 #define QPNP_PERPH_TYPE2				0x2
 #define QPNP_REVISION_EIGHT_CHANNEL_SUPPORT		2
+#define QPNP_PERPH_SUBTYPE_TWO_CHANNEL_SUPPORT		0x22
 #define QPNP_STATUS1					0x8
 #define QPNP_STATUS1_OP_MODE				4
 #define QPNP_STATUS1_MEAS_INTERVAL_EN_STS		BIT(2)
@@ -486,6 +487,13 @@ static int32_t qpnp_adc_tm_check_revision(struct qpnp_adc_tm_chip *chip,
 		if ((rev < QPNP_REVISION_EIGHT_CHANNEL_SUPPORT) &&
 			(btm_chan_num > QPNP_ADC_TM_M4_ADC_CH_SEL_CTL)) {
 			pr_debug("Version does not support more than 5 channels\n");
+			return -EINVAL;
+		}
+	}
+
+	if (perph_subtype == QPNP_PERPH_SUBTYPE_TWO_CHANNEL_SUPPORT) {
+		if (btm_chan_num > QPNP_ADC_TM_M1_ADC_CH_SEL_CTL) {
+			pr_debug("Version does not support more than 2 channels\n");
 			return -EINVAL;
 		}
 	}
