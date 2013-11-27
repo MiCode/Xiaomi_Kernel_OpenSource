@@ -1618,6 +1618,9 @@ blsp_core_init:
 	 */
 	if (dev->pdata->keep_ahb_clk_on)
 		clk_prepare_enable(dev->pclk);
+	pm_runtime_set_autosuspend_delay(&pdev->dev, MSEC_PER_SEC);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
 
 	ret = i2c_add_numbered_adapter(&dev->adapter);
 	if (ret) {
@@ -1633,9 +1636,6 @@ blsp_core_init:
 			of_i2c_register_devices(&dev->adapter);
 		}
 
-		pm_runtime_set_autosuspend_delay(&pdev->dev, MSEC_PER_SEC);
-		pm_runtime_use_autosuspend(&pdev->dev);
-		pm_runtime_enable(&pdev->dev);
 		return 0;
 	}
 
