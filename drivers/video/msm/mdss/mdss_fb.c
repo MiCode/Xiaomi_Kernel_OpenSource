@@ -1176,6 +1176,8 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 	struct mdss_fb_proc_info *pinfo = NULL, *temp_pinfo = NULL;
 	int ret = 0;
 	int pid = current->tgid;
+	bool unknown_pid = true;
+	struct task_struct *task;
 
 	if (!mfd->ref_cnt) {
 		pr_info("try to close unopened fb %d!\n", mfd->index);
@@ -1190,6 +1192,7 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 		if (!release_all && (pinfo->pid != pid))
 			continue;
 
+		unknown_pid = false;
 		pr_debug("found process entry pid=%d ref=%d\n", pinfo->pid,
 			pinfo->ref_cnt);
 
@@ -1212,6 +1215,20 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 			}
 			list_del(&pinfo->list);
 			kfree(pinfo);
+		}
+	}
+
+	if (unknown_pid) {
+		task = current->group_leader;
+		pr_debug("unknown process %s pid=%d mfd->ref_cnt=%d\n",
+			task->comm, pid, mfd->ref_cnt);
+
+		mfd->ref_cnt--;
+		if (mfd->mdp.release_fnc) {
+			ret = mfd->mdp.release_fnc(mfd);
+			if (ret)
+				pr_err("error releasing fb%d pid=%d\n",
+					mfd->index, pinfo->pid);
 		}
 	}
 
