@@ -370,6 +370,8 @@ static int arizona_runtime_resume(struct device *dev)
 				goto err;
 		}
 		break;
+	default:
+		break;
 	}
 
 	switch (arizona->type) {
