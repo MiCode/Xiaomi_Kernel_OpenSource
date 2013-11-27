@@ -542,6 +542,8 @@
 		qcom,msm-bus,vectors-KBps =
 				<1 618 0 0>,		/* No vote */
 				<1 618 0 800>;		/* 100 MB/s */
+		clocks = <&clock_gcc clk_gcc_prng_ahb_clk>;
+		clock-names = "iface_clk";
 		status = "disabled";
 	};
 	sound {
