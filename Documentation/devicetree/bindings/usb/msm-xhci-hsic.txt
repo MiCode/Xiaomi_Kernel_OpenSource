@@ -26,6 +26,8 @@ Optional properties :
     - qcom,msm_bus,num_cases
     - qcom,msm_bus,num_paths
     - qcom,msm_bus,vectors
+- qti,disable-hw-clk-gating: If present then hw clock gating in controller
+  is disabled. Internal clock gating is enabled by default in hw.
 
 Example MSM HSIC XHCI controller device node :
 	xhci_hsic_host: qcom,xhci-msm-hsic@0xf9c00000 {

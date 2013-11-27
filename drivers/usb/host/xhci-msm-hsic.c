@@ -43,6 +43,7 @@
 #define TLMM_GPIO_HSIC_STROBE_PAD_CTL	(MSM_TLMM_BASE + 0x2050)
 #define TLMM_GPIO_HSIC_DATA_PAD_CTL	(MSM_TLMM_BASE + 0x2054)
 
+#define GCTL_DSBLCLKGTNG	BIT(0)
 #define GCTL_CORESOFTRESET	BIT(11)
 
 /* Global USB2 PHY Configuration Register */
@@ -941,6 +942,11 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 	reg = readl_relaxed(MSM_HSIC_CTRL_REG);
 	reg |= CTRLREG_PLL_CTRL_SLEEP | CTRLREG_PLL_CTRL_SUSP;
 	writel_relaxed(reg, MSM_HSIC_CTRL_REG);
+
+	if (of_property_read_bool(node, "qti,disable-hw-clk-gating")) {
+		reg = readl_relaxed(MSM_HSIC_GCTL);
+		writel_relaxed((reg | GCTL_DSBLCLKGTNG), MSM_HSIC_GCTL);
+	}
 
 	/* enable pwr event irq for LPM_IN_L2_IRQ */
 	writel_relaxed(LPM_IN_L2_IRQ_MASK, MSM_HSIC_PWR_EVNT_IRQ_MASK);
