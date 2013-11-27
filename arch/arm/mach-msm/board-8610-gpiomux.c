@@ -450,6 +450,16 @@ static struct gpiomux_setting cam_settings[] = {
 	},
 };
 
+static struct msm_gpiomux_config msm_non_qrd_configs[] __initdata = {
+	{
+		.gpio = 8, /* CAM1_STANDBY_N */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &cam_settings[3],
+			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[1],
+		},
+	},
+};
+
 static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 	{
 		.gpio = 13, /* CAM_MCLK0 */
@@ -653,5 +663,8 @@ void __init msm8610_init_gpiomux(void)
 			ARRAY_SIZE(msm_interrupt_configs));
 		msm_gpiomux_install(msm_nfc_configs,
 			ARRAY_SIZE(msm_nfc_configs));
+	} else {
+		msm_gpiomux_install(msm_non_qrd_configs,
+			ARRAY_SIZE(msm_non_qrd_configs));
 	}
 }
