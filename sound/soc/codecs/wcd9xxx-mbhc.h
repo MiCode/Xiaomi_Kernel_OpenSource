@@ -228,6 +228,8 @@ struct wcd9xxx_mbhc_config {
 	bool (*swap_gnd_mic) (struct snd_soc_codec *);
 	unsigned long cs_enable_flags;
 	bool use_int_rbias;
+	bool do_recalibration;
+	bool use_vddio_meas;
 };
 
 struct wcd9xxx_cfilt_mode {
@@ -336,7 +338,6 @@ struct wcd9xxx_mbhc {
 	u32 rco_clk_rate;
 
 	bool update_z;
-	bool int_rbias_on;
 	/* Holds codec specific interrupt mapping */
 	const struct wcd9xxx_mbhc_intr *intr_ids;
 
