@@ -292,6 +292,8 @@
 		qcom,pc-mode = "tz_l2_int";
 		qcom,use-sync-timer;
 		qcom,pc-resets-timer;
+		qcom,cpus-as-clocks;
+		qcom,synced-clocks;
 	};
 
 	qcom,cpu-sleep-status@f9088008{

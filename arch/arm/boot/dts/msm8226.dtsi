@@ -1000,11 +1000,37 @@
 		qcom,scl-gpio = <&msmgpio 19 0>;
 	};
 
-	qcom,acpuclk@f9011050 {
-		compatible = "qcom,acpuclk-a7";
+	qcom,clock-a7@f9011050 {
+		compatible = "qcom,clock-a7-8226";
 		reg = <0xf9011050 0x8>;
-		reg-names = "rcg_base";
-		a7_cpu-supply = <&apc_vreg_corner>;
+		reg-names = "rcg-base";
+		clock-names = "clk-4", "clk-5";
+		qcom,speed0-bin-v0 =
+			<         0 0>,
+			< 384000000 1>,
+			< 787200000 2>,
+			<1190400000 3>;
+
+		cpu-vdd-supply = <&apc_vreg_corner>;
+	};
+
+	qcom,msm-cpufreq@0 {
+		reg = <0 4>;
+		compatible = "qcom,msm-cpufreq";
+		qcom,cpu-mem-ports = <1 512>;
+		qcom,cpufreq-table =
+			<  300000 1600 /* 200 MHz */ >,
+			<  384000 1600 /* 200 MHz */ >,
+			<  600000 3200 /* 320 MHz */ >,
+			<  787200 4264 /* 533 MHz */ >,
+			<  998400 4264 /* 533 MHz */ >,
+			< 1094400 4264 /* 533 MHz */ >,
+			< 1190400 4264 /* 533 MHz */ >,
+			< 1305600 4264 /* 533 MHz */ >,
+			< 1344000 4264 /* 533 MHz */ >,
+			< 1401600 4264 /* 533 MHz */ >,
+			< 1497600 4264 /* 533 MHz */ >,
+			< 1593600 4264 /* 533 MHz */ >;
 	};
 
 	qcom,ocmem@fdd00000 {
