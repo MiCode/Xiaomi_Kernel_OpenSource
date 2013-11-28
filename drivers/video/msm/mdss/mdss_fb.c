@@ -919,6 +919,9 @@ static struct fb_ops mdss_fb_ops = {
 	.fb_blank = mdss_fb_blank,	/* blank display */
 	.fb_pan_display = mdss_fb_pan_display,	/* pan display */
 	.fb_ioctl = mdss_fb_ioctl,	/* perform fb specific ioctl */
+#ifdef CONFIG_COMPAT
+	.fb_compat_ioctl = mdss_fb_compat_ioctl,
+#endif
 	.fb_mmap = mdss_fb_mmap,
 };
 
@@ -2239,8 +2242,17 @@ static int mdss_fb_display_commit(struct fb_info *info,
 	return ret;
 }
 
-
-static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
+/*
+ * mdss_fb_do_ioctl() - MDSS Framebuffer ioctl function
+ * @info:	pointer to framebuffer info
+ * @cmd:	ioctl command
+ * @arg:	argument to ioctl
+ *
+ * This function provides an architecture agnostic implementation
+ * of the mdss framebuffer ioctl. This function can be called
+ * by compat ioctl or regular ioctl to handle the supported commands.
+ */
+int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg)
 {
 	struct msm_fb_data_type *mfd;
@@ -2317,6 +2329,15 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		pr_err("unsupported ioctl (%x)\n", cmd);
 
 	return ret;
+}
+
+static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
+			 unsigned long arg)
+{
+	if (!info || !info->par)
+		return -EINVAL;
+
+	return mdss_fb_do_ioctl(info, cmd, arg);
 }
 
 struct fb_info *msm_fb_get_writeback_fb(void)
