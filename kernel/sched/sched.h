@@ -2,6 +2,7 @@
 #include <linux/sched.h>
 #include <linux/sched/sysctl.h>
 #include <linux/sched/rt.h>
+#include <linux/sched/deadline.h>
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
 #include <linux/stop_machine.h>
@@ -82,9 +83,19 @@ static inline int rt_policy(int policy)
 	return policy == SCHED_FIFO || policy == SCHED_RR;
 }
 
+static inline int dl_policy(int policy)
+{
+	return policy == SCHED_DEADLINE;
+}
+
 static inline int task_has_rt_policy(struct task_struct *p)
 {
 	return rt_policy(p->policy);
+}
+
+static inline int task_has_dl_policy(struct task_struct *p)
+{
+	return dl_policy(p->policy);
 }
 
 /*
@@ -380,6 +391,15 @@ struct rt_rq {
 #endif
 };
 
+/* Deadline class' related fields in a runqueue */
+struct dl_rq {
+	/* runqueue is an rbtree, ordered by deadline */
+	struct rb_root rb_root;
+	struct rb_node *rb_leftmost;
+
+	unsigned long dl_nr_running;
+};
+
 #ifdef CONFIG_SMP
 
 /*
@@ -444,6 +464,7 @@ struct rq {
 
 	struct cfs_rq cfs;
 	struct rt_rq rt;
+	struct dl_rq dl;
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	/* list of leaf cfs_rq on this cpu: */
@@ -1288,6 +1309,7 @@ static const u32 prio_to_wmult[40] = {
 #define ENQUEUE_WAKING		0
 #endif
 #define ENQUEUE_MIGRATING	8
+#define ENQUEUE_REPLENISH	16
 
 #define DEQUEUE_SLEEP		1
 #define DEQUEUE_MIGRATING	2
@@ -1348,6 +1370,7 @@ struct sched_class {
    for (class = sched_class_highest; class; class = class->next)
 
 extern const struct sched_class stop_sched_class;
+extern const struct sched_class dl_sched_class;
 extern const struct sched_class rt_sched_class;
 extern const struct sched_class fair_sched_class;
 extern const struct sched_class idle_sched_class;
@@ -1393,6 +1416,8 @@ extern void resched_cpu(int cpu);
 
 extern struct rt_bandwidth def_rt_bandwidth;
 extern void init_rt_bandwidth(struct rt_bandwidth *rt_b, u64 period, u64 runtime);
+
+extern void init_dl_task_timer(struct sched_dl_entity *dl_se);
 
 extern void update_idle_cpu_load(struct rq *this_rq);
 
@@ -1652,6 +1677,7 @@ extern void print_rt_stats(struct seq_file *m, int cpu);
 
 extern void init_cfs_rq(struct cfs_rq *cfs_rq);
 extern void init_rt_rq(struct rt_rq *rt_rq, struct rq *rq);
+extern void init_dl_rq(struct dl_rq *dl_rq, struct rq *rq);
 
 extern void cfs_bandwidth_usage_inc(void);
 extern void cfs_bandwidth_usage_dec(void);
