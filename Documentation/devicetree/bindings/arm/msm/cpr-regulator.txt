@@ -147,17 +147,22 @@ Optional properties:
 					is present, and vise versa.
 - qti,cpr-enable:		Present: CPR enabled by default.
 				Not Present: CPR disable by default.
-- qti,cpr-cond-min-voltage:	Minimum voltage in microvolts for SVS, NOM and TURBO mode
-				if the fuse defined in qti,cpr-cond-min-volt-fuse has not be programmed with the expected data.
-- qti,cpr-cond-min-volt-fuse:	Array of row number of fuse, data in that row and reading method.
-				This property can be used to capture hardware requirements determined
-				by the value of the mem-accel fuse. It should have index and value like this:
-				 [0]: the fuse row number
-				 [1]: high 32 bits of the expected data in that row.
-				 [2]: low 32 bits of the expected data in that row.
-				 [3]: reading method, 0 for direct reading or 1 for SCM reading
-
-
+- qti,cpr-fuse-cond-min-volt-sel:	Array of 5 elements to indicate where to read the bits,  what value to
+				compare with in order to decide if the conditional minimum apc voltage needs
+				to be applied and the fuse reading method.
+				The 5 elements with index[0..4] are:
+				[0] => the fuse row number;
+				[1] => LSB bit position of the bits;
+				[2] => number of the bits;
+				[3] => the expected data to read;
+				[4] => fuse reading method, 0 for direct reading or 1 for SCM reading;
+				When the value of the fuse bits specified by first 3 elements is not equal to
+				the value in 4th element, then set the apc voltage for all parts running
+				at each voltage corner to be not lower than the voltage defined
+				using "qti,cpr-cond-min-voltage".
+- qti,cpr-cond-min-voltage:	Minimum voltage in microvolts for SVS, NOM and TURBO mode if the fuse bits
+				defined in qti,cpr-fuse-cond-min-volt-sel have not been programmed with the
+				expected data. This is required if cpr-fuse-cond-min-volt-sel is present.
 Example:
 	apc_vreg_corner: regulator@f9018000 {
 		status = "okay";
@@ -211,6 +216,7 @@ Example:
 		qti,cpr-fuse-redun-row = <139 1>;
 		qti,cpr-fuse-redun-target-quot = <24 12 0>;
 		qti,cpr-fuse-redun-ro-sel = <46 36 39>;
-		qti,cpr-cond-min-volt-fuse = <54 0xc100 0x0 1>;
+		qti,cpr-fuse-cond-min-volt-sel = <54 42 6 7 1>;
+		qti,cpr-cond-min-voltage = <1140000>;
 	};
 
