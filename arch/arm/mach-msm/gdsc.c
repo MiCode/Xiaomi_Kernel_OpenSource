@@ -51,7 +51,6 @@ struct gdsc {
 	bool			toggle_periph;
 	bool			toggle_logic;
 	bool			resets_asserted;
-	bool			support_hw_trigger;
 };
 
 static int gdsc_is_enabled(struct regulator_dev *rdev)
@@ -156,9 +155,6 @@ static unsigned int gdsc_get_mode(struct regulator_dev *rdev)
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval;
 
-	if (!sc->support_hw_trigger)
-		return REGULATOR_MODE_NORMAL;
-
 	regval = readl_relaxed(sc->gdscr);
 	if (regval & HW_CONTROL_MASK)
 		return REGULATOR_MODE_FAST;
@@ -170,11 +166,6 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval;
 	int ret;
-
-	if (!sc->support_hw_trigger) {
-		dev_err(&rdev->dev, "hw collapse not available\n");
-		return -ENODEV;
-	}
 
 	regval = readl_relaxed(sc->gdscr);
 
@@ -249,7 +240,7 @@ static int gdsc_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct gdsc *sc;
 	uint32_t regval;
-	bool retain_mem, retain_periph;
+	bool retain_mem, retain_periph, support_hw_trigger;
 	int i, ret;
 
 	sc = devm_kzalloc(&pdev->dev, sizeof(struct gdsc), GFP_KERNEL);
@@ -263,9 +254,6 @@ static int gdsc_probe(struct platform_device *pdev)
 	if (of_get_property(pdev->dev.of_node, "parent-supply", NULL))
 		init_data->supply_regulator = "parent";
 
-	init_data->constraints.valid_ops_mask |= REGULATOR_CHANGE_MODE;
-	init_data->constraints.valid_modes_mask |= REGULATOR_MODE_NORMAL
-						| REGULATOR_MODE_FAST;
 	ret = of_property_read_string(pdev->dev.of_node, "regulator-name",
 				      &sc->rdesc.name);
 	if (ret)
@@ -332,8 +320,14 @@ static int gdsc_probe(struct platform_device *pdev)
 	sc->toggle_periph = !retain_periph;
 	sc->toggle_logic = !of_property_read_bool(pdev->dev.of_node,
 						"qcom,skip-logic-collapse");
-	sc->support_hw_trigger = of_property_read_bool(pdev->dev.of_node,
+	support_hw_trigger = of_property_read_bool(pdev->dev.of_node,
 						    "qcom,support-hw-trigger");
+	if (support_hw_trigger) {
+		init_data->constraints.valid_ops_mask |= REGULATOR_CHANGE_MODE;
+		init_data->constraints.valid_modes_mask |=
+				REGULATOR_MODE_NORMAL | REGULATOR_MODE_FAST;
+	}
+
 	if (!sc->toggle_logic) {
 		regval &= ~SW_COLLAPSE_MASK;
 		writel_relaxed(regval, sc->gdscr);
