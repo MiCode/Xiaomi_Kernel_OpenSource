@@ -139,7 +139,7 @@ static struct gpiomux_setting gpio_sd_card_vreg_config = {
 
 static struct msm_gpiomux_config msm_sd_card_configs[] __initdata = {
 	{
-		.gpio      = 51,		/* SD CARD VREG EN GPIO */
+		.gpio      = 89,		/* SD CARD VREG EN GPIO */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_sd_card_vreg_config,
 		},
