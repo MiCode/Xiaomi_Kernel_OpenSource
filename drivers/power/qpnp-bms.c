@@ -934,14 +934,67 @@ static void reset_for_new_battery(struct qpnp_bms_chip *chip, int batt_temp)
 	}
 }
 
+#define SIGN(x) ((x) < 0 ? -1 : 1)
+#define UV_PER_SPIN 50000
+static int find_ocv_for_pc(struct qpnp_bms_chip *chip, int batt_temp, int pc)
+{
+	int new_pc;
+	int batt_temp_degc = batt_temp / 10;
+	int ocv_mv;
+	int delta_mv = 5;
+	int max_spin_count;
+	int count = 0;
+	int sign, new_sign;
+
+	ocv_mv = interpolate_ocv(chip->pc_temp_ocv_lut, batt_temp_degc, pc);
+
+	new_pc = interpolate_pc(chip->pc_temp_ocv_lut, batt_temp_degc, ocv_mv);
+	pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv_mv);
+	max_spin_count = 1 + (chip->max_voltage_uv - chip->v_cutoff_uv)
+						/ UV_PER_SPIN;
+	sign = SIGN(pc - new_pc);
+
+	while (abs(new_pc - pc) != 0 && count < max_spin_count) {
+		/*
+		 * If the newly interpolated pc is larger than the lookup pc,
+		 * the ocv should be reduced and vice versa
+		 */
+		new_sign = SIGN(pc - new_pc);
+		/*
+		 * If the sign has changed, then we have passed the lookup pc.
+		 * reduce the ocv step size to get finer results.
+		 *
+		 * If we have already reduced the ocv step size and still
+		 * passed the lookup pc, just stop and use the current ocv.
+		 * This can only happen if the batterydata profile is
+		 * non-monotonic anyways.
+		 */
+		if (new_sign != sign) {
+			if (delta_mv > 1)
+				delta_mv = 1;
+			else
+				break;
+		}
+		sign = new_sign;
+
+		ocv_mv = ocv_mv + delta_mv * sign;
+		new_pc = interpolate_pc(chip->pc_temp_ocv_lut,
+				batt_temp_degc, ocv_mv);
+		pr_debug("test revlookup pc = %d for ocv = %d\n",
+			new_pc, ocv_mv);
+		count++;
+	}
+
+	return ocv_mv * 1000;
+}
+
 #define OCV_RAW_UNINITIALIZED	0xFFFF
 #define MIN_OCV_UV		2000000
 static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 				struct raw_soc_params *raw,
 				int batt_temp)
 {
-	int warm_reset;
-	int rc;
+	int warm_reset, rc;
 
 	mutex_lock(&chip->bms_output_lock);
 
@@ -989,8 +1042,8 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 		chip->done_charging = false;
 		/* if we just finished charging, reset CC and fake 100% */
 		chip->ocv_reading_at_100 = raw->last_good_ocv_raw;
-		chip->last_ocv_uv = chip->max_voltage_uv;
-		raw->last_good_ocv_uv = chip->max_voltage_uv;
+		chip->last_ocv_uv = find_ocv_for_pc(chip, batt_temp, 100);
+		raw->last_good_ocv_uv = chip->last_ocv_uv;
 		raw->cc = 0;
 		raw->shdw_cc = 0;
 		reset_cc(chip, CLEAR_CC | CLEAR_SHDW_CC);
@@ -1367,60 +1420,6 @@ static int find_pc_for_soc(struct qpnp_bms_chip *chip,
 	return pc;
 }
 
-#define SIGN(x) ((x) < 0 ? -1 : 1)
-#define UV_PER_SPIN 50000
-static int find_ocv_for_pc(struct qpnp_bms_chip *chip, int batt_temp, int pc)
-{
-	int new_pc;
-	int batt_temp_degc = batt_temp / 10;
-	int ocv_mv;
-	int delta_mv = 5;
-	int max_spin_count;
-	int count = 0;
-	int sign, new_sign;
-
-	ocv_mv = interpolate_ocv(chip->pc_temp_ocv_lut, batt_temp_degc, pc);
-
-	new_pc = interpolate_pc(chip->pc_temp_ocv_lut, batt_temp_degc, ocv_mv);
-	pr_debug("test revlookup pc = %d for ocv = %d\n", new_pc, ocv_mv);
-	max_spin_count = 1 + (chip->max_voltage_uv - chip->v_cutoff_uv)
-						/ UV_PER_SPIN;
-	sign = SIGN(pc - new_pc);
-
-	while (abs(new_pc - pc) != 0 && count < max_spin_count) {
-		/*
-		 * If the newly interpolated pc is larger than the lookup pc,
-		 * the ocv should be reduced and vice versa
-		 */
-		new_sign = SIGN(pc - new_pc);
-		/*
-		 * If the sign has changed, then we have passed the lookup pc.
-		 * reduce the ocv step size to get finer results.
-		 *
-		 * If we have already reduced the ocv step size and still
-		 * passed the lookup pc, just stop and use the current ocv.
-		 * This can only happen if the batterydata profile is
-		 * non-monotonic anyways.
-		 */
-		if (new_sign != sign) {
-			if (delta_mv > 1)
-				delta_mv = 1;
-			else
-				break;
-		}
-		sign = new_sign;
-
-		ocv_mv = ocv_mv + delta_mv * sign;
-		new_pc = interpolate_pc(chip->pc_temp_ocv_lut,
-				batt_temp_degc, ocv_mv);
-		pr_debug("test revlookup pc = %d for ocv = %d\n",
-			new_pc, ocv_mv);
-		count++;
-	}
-
-	return ocv_mv * 1000;
-}
-
 static int get_current_time(unsigned long *now_tm_sec)
 {
 	struct rtc_time tm;
@@ -1689,10 +1688,13 @@ static void backup_soc_and_iavg(struct qpnp_bms_chip *chip, int batt_temp,
 
 	rc = qpnp_write_wrapper(chip, &temp, chip->base + IAVG_STORAGE_REG, 1);
 
-	/* don't store soc if temperature is below 5degC */
+	/* store an invalid soc if temperature is below 5degC */
 	if (batt_temp > IGNORE_SOC_TEMP_DECIDEG)
 		qpnp_masked_write_base(chip, chip->soc_storage_addr,
 				SOC_STORAGE_MASK, (soc + 1) << 1);
+	else
+		qpnp_masked_write_base(chip, chip->soc_storage_addr,
+				SOC_STORAGE_MASK, SOC_STORAGE_MASK);
 }
 
 static int scale_soc_while_chg(struct qpnp_bms_chip *chip, int chg_time_sec,
@@ -1829,8 +1831,15 @@ static int report_cc_based_soc(struct qpnp_bms_chip *chip)
 					chip->catch_up_time_sec,
 					soc, chip->last_soc);
 
-		soc_change = min((int)abs(chip->last_soc - soc),
-			time_since_last_change_sec / SOC_CHANGE_PER_SEC);
+		/* if the battery is close to cutoff allow more change */
+		if (wake_lock_active(&chip->low_voltage_wake_lock))
+			soc_change = min((int)abs(chip->last_soc - soc),
+				time_since_last_change_sec);
+		else
+			soc_change = min((int)abs(chip->last_soc - soc),
+				time_since_last_change_sec
+					/ SOC_CHANGE_PER_SEC);
+
 		if (chip->last_soc_unbound) {
 			chip->last_soc_unbound = false;
 		} else {
@@ -2006,7 +2015,7 @@ static void cv_voltage_check(struct qpnp_bms_chip *chip, int vbat_uv)
 	}
 }
 
-#define NO_ADJUST_HIGH_SOC_THRESHOLD	90
+#define NO_ADJUST_HIGH_SOC_THRESHOLD	98
 static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 							int soc, int batt_temp)
 {
@@ -2062,9 +2071,10 @@ static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 	 * because we might pull it low
 	 * and cause a bad user experience
 	 */
-	if (soc_est == soc
-		|| soc_est > chip->adjust_soc_low_threshold
-		|| soc >= NO_ADJUST_HIGH_SOC_THRESHOLD)
+	if (!wake_lock_active(&chip->low_voltage_wake_lock) &&
+			(soc_est == soc
+			|| soc_est > chip->adjust_soc_low_threshold
+			|| soc >= NO_ADJUST_HIGH_SOC_THRESHOLD))
 		goto out;
 
 	if (chip->last_soc_est == -EINVAL)
@@ -2109,8 +2119,11 @@ static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 		pr_debug("new delta ocv = %d\n", delta_ocv_uv);
 	}
 
-	if (wake_lock_active(&chip->low_voltage_wake_lock))
+	if (wake_lock_active(&chip->low_voltage_wake_lock)) {
+		/* when in the cutoff region, do not correct upwards */
+		delta_ocv_uv = max(0, delta_ocv_uv);
 		goto skip_limits;
+	}
 
 	if (chip->last_ocv_uv > chip->flat_ocv_threshold_uv)
 		correction_limit_uv = chip->high_ocv_correction_limit_uv;

@@ -135,7 +135,7 @@
 		qcom,low-voltage-threshold = <3420000>;
 		qcom,tm-temp-margin = <5000>;
 		qcom,low-ocv-correction-limit-uv = <100>;
-		qcom,high-ocv-correction-limit-uv = <50>;
+		qcom,high-ocv-correction-limit-uv = <250>;
 		qcom,hold-soc-est = <3>;
 		qcom,bms-vadc = <&pm8941_vadc>;
 		qcom,bms-iadc = <&pm8941_iadc>;

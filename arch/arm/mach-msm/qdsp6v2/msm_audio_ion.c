@@ -328,6 +328,11 @@ int msm_audio_ion_import_legacy(const char *name, struct ion_client *client,
 			ion_phys_addr_t *paddr, size_t *pa_len, void **vaddr)
 {
 	int rc = 0;
+	if (!name || !client || !handle || !paddr || !vaddr || !pa_len) {
+		pr_err("%s: Invalid params\n", __func__);
+		rc = -EINVAL;
+		goto err;
+	}
 	/* client is already created for legacy and given*/
 	/* name should be audio_acdb_client or Audio_Dec_Client,
 	bufsz should be 0 and fd shouldn't be 0 as of now
@@ -338,14 +343,16 @@ int msm_audio_ion_import_legacy(const char *name, struct ion_client *client,
 	if (IS_ERR_OR_NULL((void *)(*handle))) {
 		pr_err("%s: ion import dma buffer failed\n",
 			__func__);
-		goto err_ion_handle;
-		}
+		rc = -EINVAL;
+		goto err_destroy_client;
+	}
 
 	if (ionflag != NULL) {
 		rc = ion_handle_get_flags(client, *handle, ionflag);
 		if (rc) {
 			pr_err("%s: could not get flags for the handle\n",
 							__func__);
+			rc = -EINVAL;
 			goto err_ion_handle;
 		}
 	}
@@ -354,6 +361,7 @@ int msm_audio_ion_import_legacy(const char *name, struct ion_client *client,
 	if (rc) {
 		pr_err("%s: ION Get Physical for AUDIO failed, rc = %d\n",
 			__func__, rc);
+		rc = -EINVAL;
 		goto err_ion_handle;
 	}
 
@@ -361,6 +369,7 @@ int msm_audio_ion_import_legacy(const char *name, struct ion_client *client,
 	*vaddr = ion_map_kernel(client, *handle);
 	if (IS_ERR_OR_NULL((void *)*vaddr)) {
 		pr_err("%s: ION memory mapping for AUDIO failed\n", __func__);
+		rc = -EINVAL;
 		goto err_ion_handle;
 	}
 
@@ -371,8 +380,12 @@ int msm_audio_ion_import_legacy(const char *name, struct ion_client *client,
 
 err_ion_handle:
 	ion_free(client, *handle);
-	return -EINVAL;
-
+err_destroy_client:
+	msm_audio_ion_client_destroy(client);
+	client = NULL;
+	*handle = NULL;
+err:
+	return rc;
 }
 
 int msm_audio_ion_free_legacy(struct ion_client *client,
