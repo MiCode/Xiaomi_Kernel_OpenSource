@@ -63,7 +63,7 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 		reg = <0xfd510000 0x4000>;
-		ngpio = <89>;
+		ngpio = <90>;
 		interrupts = <0 208 0>;
 		qcom,direct-connect-irqs = <8>;
 	};
