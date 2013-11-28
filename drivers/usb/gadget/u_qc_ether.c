@@ -347,6 +347,16 @@ void gether_qc_cleanup_name(const char *netname)
 	}
 }
 
+struct net_device *gether_qc_get_net(const char *netname)
+{
+	struct net_device *net_dev;
+
+	net_dev = dev_get_by_name(&init_net, netname);
+	if (!net_dev)
+		return ERR_PTR(-EINVAL);
+
+	return net_dev;
+}
 /**
  * gether_qc_connect_name - notify network layer that USB link
  * is active

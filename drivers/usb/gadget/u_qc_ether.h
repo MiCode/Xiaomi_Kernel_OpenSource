@@ -83,6 +83,7 @@ int gether_qc_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 /* connect/disconnect is handled by individual functions */
 struct net_device *gether_qc_connect_name(struct qc_gether *link,
 		const char *netname, bool netif_enable);
+struct net_device *gether_qc_get_net(const char *netname);
 void gether_qc_disconnect_name(struct qc_gether *link, const char *netname);
 
 /* each configuration may bind one instance of an ethernet link */
@@ -92,7 +93,7 @@ int ecm_qc_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 int
 rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 					 u32 vendorID, const char *manufacturer,
-					 u8 maxPktPerXfer);
+					 u8 maxPktPerXfer, char *xport_name);
 
 void gether_qc_get_macs(u8 dev_mac[ETH_ALEN], u8 host_mac[ETH_ALEN]);
 
