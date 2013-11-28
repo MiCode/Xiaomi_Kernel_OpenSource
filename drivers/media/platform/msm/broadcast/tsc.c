@@ -41,6 +41,8 @@
 #include <linux/pm_wakeup.h>	/* debugfs support */
 #include <linux/regulator/consumer.h> /* gdsc */
 #include <mach/msm_bus.h>	/* bus client */
+#include <linux/delay.h>	/* usleep function */
+
 
 /*
  * General defines
@@ -62,7 +64,7 @@ static inline u32 GETL_BITS(u32 x, int b0, int b1)
 static int tsc_iommu_bypass; /* defualt=0 using iommu */
 static int ts0_config;
 static int ts1_config;
-module_param(tsc_iommu_bypass, int, S_IRUGO);
+module_param(tsc_iommu_bypass, int, S_IRUGO | S_IWUSR | S_IWGRP);
 module_param(ts0_config, int, S_IRUGO | S_IWUSR | S_IWGRP);
 module_param(ts1_config, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
@@ -377,6 +379,8 @@ struct tsc_ci_chdev {
  *			clocks.
  * @gdsc:               The Broadcast GDSC.
  * @bus_client:         The TSC bus client.
+ * @pinctrl_info:	TSC pinctrl parameters.
+ * @reset_cam_gpio:	GPIO No. for CAM HW reset.
  * @hw_card_status:	The card status as reflected by the HW registers.
  * @debugfs_entry:      TSC device debugfs entry.
  */
@@ -406,6 +410,7 @@ struct tsc_device {
 	struct regulator *gdsc;
 	uint32_t bus_client;
 	struct pinctrl_info pinctrl_info;
+	int reset_cam_gpio;
 	enum tsc_card_status hw_card_status;
 	struct dentry *debugfs_entry;
 };
@@ -777,6 +782,7 @@ static int tsc_config_tsif(struct tsc_mux_chdev *tsc_mux,
 		reg_addr_offs = TSC_IN_IFC_CFG_INT;
 		break;
 	default:
+		pr_err("%s: unidentified source parameter\n", __func__);
 		ret = -EINVAL;
 		goto err;
 	}
@@ -1139,6 +1145,7 @@ static int tsc_enable_disable_tsif(struct tsc_mux_chdev *tsc_mux,
 		addr_offs = TSC_IN_IFC_CFG_INT;
 		break;
 	default:
+		pr_err("%s: unidentified source parameter\n", __func__);
 		ret = -EINVAL;
 		return ret;
 	}
@@ -1157,7 +1164,8 @@ static int tsc_enable_disable_tsif(struct tsc_mux_chdev *tsc_mux,
 			/* Disabling the TS-in pins in the TLMM */
 			ret = tsc_suspend_ts_pins(source, reg_offs);
 			if (ret != 0) {
-				pr_err("tsc: Error suspending TS-in pins");
+				pr_err("%s: Error suspending TS-in pins",
+						__func__);
 				return ret;
 			}
 		}
@@ -1173,7 +1181,8 @@ static int tsc_enable_disable_tsif(struct tsc_mux_chdev *tsc_mux,
 			/* Enabling the TS-in pins in the TLMM */
 			ret = tsc_activate_ts_pins(source, reg_offs);
 			if (ret != 0) {
-				pr_err("tsc: Error activating TS-in pins");
+				pr_err("%s: Error activating TS-in pins",
+						__func__);
 				return ret;
 			}
 		}
@@ -1224,6 +1233,7 @@ static int tsc_route_mux(struct tsc_mux_chdev *tsc_mux, enum tsc_source source,
 		src_val = MUX_CICAM;
 		break;
 	default:
+		pr_err("%s: unidentified source parameter\n", __func__);
 		ret = -EINVAL;
 		goto err;
 	}
@@ -1242,6 +1252,8 @@ static int tsc_route_mux(struct tsc_mux_chdev *tsc_mux, enum tsc_source source,
 		break;
 	case TSC_DEST_CICAM:
 		if (src_val == TSC_SOURCE_CICAM) {
+			pr_err("%s: Error: CICAM cannot be source and dest\n",
+					__func__);
 			ret = -EINVAL;
 			goto err;
 		}
@@ -1249,6 +1261,7 @@ static int tsc_route_mux(struct tsc_mux_chdev *tsc_mux, enum tsc_source source,
 		mux_cfg_reg |= (src_val << MUX_CAM_OFFS);
 		break;
 	default:
+		pr_err("%s: unidentified dest parameter\n", __func__);
 		ret = -EINVAL;
 		goto err;
 	}
@@ -1438,9 +1451,9 @@ static int tsc_data_transaction(struct tsc_ci_chdev *tsc_ci, uint io_mem,
 		ion_handle = ion_import_dma_buf
 			(tsc_device->iommu_info.ion_client, arg_buff.buffer_fd);
 		if (IS_ERR_OR_NULL(ion_handle)) {
-				pr_err("tsc: get_ION_handle failed\n");
-				ret =  -EIO;
-				goto err_ion_handle;
+			pr_err("%s: get_ION_handle failed\n", __func__);
+			ret =  -EIO;
+			goto err_ion_handle;
 		}
 
 		/*
@@ -1451,7 +1464,8 @@ static int tsc_data_transaction(struct tsc_ci_chdev *tsc_ci, uint io_mem,
 				ion_handle, tsc_device->iommu_info.domain_num,
 				addr_size, tsc_device->iommu_info.partition_num,
 				0, &iova, &buffer_size, 0, 0)) {
-			pr_err("tsc: get_ION_kernel physical addr fail\n");
+			pr_err("%s: get_ION_kernel physical addr fail\n",
+					__func__);
 			ret = -EIO;
 			goto err_ion_map;
 		}
@@ -1486,6 +1500,7 @@ static int tsc_data_transaction(struct tsc_ci_chdev *tsc_ci, uint io_mem,
 	/* waiting for EOT interrupt or timeout */
 	if (!wait_for_completion_timeout(&tsc_ci->transaction_complete,
 			msecs_to_jiffies(timeout))) {
+		pr_err("%s: Error: wait for transaction timed-out\n", __func__);
 		ret =  -ETIMEDOUT;
 		mutex_lock(&tsc_ci->mutex);
 		/* Aborting the transaction if it's buffer mode */
@@ -1505,11 +1520,14 @@ static int tsc_data_transaction(struct tsc_ci_chdev *tsc_ci, uint io_mem,
 	if (tsc_ci->transaction_state == TRANSACTION_ERROR) {
 		tsc_ci->transaction_state = BEFORE_TRANSACTION;
 		spin_unlock_irqrestore(&tsc_ci->spinlock, flags);
+		pr_err("%s: Transaction error\n", __func__);
 		ret =  -EBADE; /* Invalid exchange error code */
 		goto finish;
 	} else if (tsc_ci->transaction_state == TRANSACTION_CARD_REMOVED) {
 		tsc_ci->transaction_state = BEFORE_TRANSACTION;
 		spin_unlock_irqrestore(&tsc_ci->spinlock, flags);
+		pr_err("%s: Card was removed during the transaction. Aborting\n",
+				__func__);
 		ret = -ECONNABORTED;
 		/* Aborting the transaction if it's buffer mode */
 		if (buff_mode) {
@@ -1555,13 +1573,50 @@ err_copy_arg:
 }
 
 /**
- * tsc_reset_registers() - Reset the TSC registers.
+ * tsc_reset_cam() - HW reset to the CAM.
  *
- * Write specific reset values to the TSC registers, managed by the driver.
+ * Toggle the reset pin of the pcmcia to make a HW reset.
+ * This function assumes that pinctrl_select_state was already called on the
+ * reset pin with its active state (happens during personality change).
  *
  * Return 0 on success, error value otherwise.
  */
-static int tsc_reset_registers(void)
+static int tsc_reset_cam(void)
+{
+	int ret;
+	int reset_gpio = tsc_device->reset_cam_gpio;
+
+	/* Toggle the GPIO to create a reset pulse */
+	ret = gpio_direction_output(reset_gpio, 0); /* Make sure it's 0 */
+	if (ret != 0)
+		goto err;
+
+	ret = gpio_direction_output(reset_gpio, 1); /* Assert */
+	if (ret != 0)
+		goto err;
+
+	/*
+	 * Waiting to enable the CAM to process the assertion before the
+	 * deassertion. 1ms is needed for this processing.
+	 */
+	usleep(1000);
+
+	ret = gpio_direction_output(reset_gpio, 0); /* Deassert */
+	if (ret != 0)
+		goto err;
+
+	return 0;
+err:
+	pr_err("%s: Failed writing to reset cam GPIO\n", __func__);
+	return ret;
+}
+
+/**
+ * tsc_reset_registers() - Reset the TSC registers.
+ *
+ * Write specific reset values to the TSC registers, managed by the driver.
+ */
+static void tsc_reset_registers(void)
 {
 	/* Reset state - all mux transfer ext. demod 0 */
 	writel_relaxed(0x00000000, tsc_device->base + TSC_MUX_CFG);
@@ -1592,8 +1647,6 @@ static int tsc_reset_registers(void)
 
 	/* Disabling TSIF out to cicam*/
 	writel_relaxed(0x00000000, tsc_device->base + TSC_CICAM_TSIF);
-
-	return 0;
 }
 
 /**
@@ -1752,8 +1805,10 @@ static int tsc_device_power_up(void)
 
 	/* Enable the GDSC */
 	ret = regulator_enable(tsc_device->gdsc);
-	if (ret != 0)
+	if (ret != 0) {
+		pr_err("%s: Failed to enable regulator\n", __func__);
 		goto err_regulator;
+	}
 
 	/* Power-on the clocks needed by Mux and CI */
 	ret = tsc_power_on_clocks();
@@ -1765,23 +1820,19 @@ static int tsc_device_power_up(void)
 		ret = msm_bus_scale_client_update_request
 				(tsc_device->bus_client, 1);
 		if (ret) {
-			pr_err("tsc: Can't enable bus\n");
+			pr_err("%s: Can't enable bus\n", __func__);
 			goto err_bus;
 		}
 	}
 
 	/* Reset TSC registers to a default known state */
-	ret = tsc_reset_registers();
-	if (ret != 0)
-		goto err_registers;
+	tsc_reset_registers();
 
 not_first_device:
 	tsc_device->num_device_open++;
 	mutex_unlock(&tsc_device->mutex);
 	return ret;
 
-err_registers:
-	tsc_power_off_clocks();
 err_power_clocks:
 	if (tsc_device->bus_client)
 		msm_bus_scale_client_update_request(tsc_device->bus_client, 0);
@@ -1839,7 +1890,7 @@ static int tsc_mux_open(struct inode *inode, struct file *filp)
 		return -ERESTARTSYS;
 
 	if (tsc_device->num_mux_opened > 0) {
-		pr_err("TSC-Mux: Too many devices open\n");
+		pr_err("%s: Too many devices open\n", __func__);
 		mutex_unlock(&tsc_device->mux_chdev.mutex);
 		return -EMFILE;
 	}
@@ -1917,7 +1968,7 @@ static int tsc_ci_open(struct inode *inode, struct file *filp)
 		return -ERESTARTSYS;
 
 	if (tsc_device->num_ci_opened > 0) {
-		pr_err("TSC-CI: Too many devices open\n");
+		pr_err("%s: Too many devices open\n", __func__);
 		mutex_unlock(&tsc_device->ci_chdev.mutex);
 		return -EMFILE;
 	}
@@ -1932,12 +1983,21 @@ static int tsc_ci_open(struct inode *inode, struct file *filp)
 	if (ret != 0)
 		goto err_first_device;
 
+	/* Request reset CAM GPIO */
+	ret = gpio_request(tsc_device->reset_cam_gpio, "tsc_ci_reset");
+	if (ret != 0) {
+		pr_err("%s: Failed to request reset CAM GPIO\n", __func__);
+		goto err_gpio_req;
+	}
+
 	/* Attach the iommu group to support the required memory mapping */
 	if (!tsc_iommu_bypass) {
 		ret = iommu_attach_group(tsc_device->iommu_info.domain,
 				tsc_device->iommu_info.group);
-		if (ret != 0)
+		if (ret != 0) {
+			pr_err("%s: iommu_attach_group failed\n", __func__);
 			goto err_iommu_attach;
+		}
 	}
 
 	/* Init TSC CI args */
@@ -1958,13 +2018,24 @@ static int tsc_ci_open(struct inode *inode, struct file *filp)
 
 	/* TODO: Set to default configuration pcmcia pins in the TLMM */
 
-	/* TODO: Deassert the reset line (1) */
+	/* Set the reset line to default "no card" state */
+	ret = gpio_direction_output(tsc_device->reset_cam_gpio, 1);
+	if (ret != 0) {
+		pr_err("%s: Failed to assert the reset CAM GPIO\n", __func__);
+		goto err_assert;
+	}
 
 	mutex_unlock(&tsc_device->ci_chdev.mutex);
 
 	return ret;
 
+err_assert:
+	if (!tsc_iommu_bypass)
+		iommu_detach_group(tsc_device->iommu_info.domain,
+				tsc_device->iommu_info.group);
 err_iommu_attach:
+	gpio_free(tsc_device->reset_cam_gpio);
+err_gpio_req:
 	/* De-init all resources if it's the only device (checked inside) */
 	tsc_device_power_off();
 err_first_device:
@@ -2047,6 +2118,8 @@ static int tsc_ci_release(struct inode *inode, struct file *filp)
 	if (!tsc_iommu_bypass)
 		iommu_detach_group(tsc_device->iommu_info.domain,
 				tsc_device->iommu_info.group);
+
+	gpio_free(tsc_device->reset_cam_gpio);
 
 	/* clearing EOT and ERR interrupts */
 	ena_reg = readl_relaxed(tsc_device->base + TSC_IRQ_ENA);
@@ -2186,7 +2259,7 @@ static long tsc_mux_ioctl(struct file *filp,
 		break;
 	default:
 		ret = -EINVAL;
-		pr_err("tsc_mux: Unknown ioctl %i", cmd);
+		pr_err("%s: Unknown ioctl %i", __func__, cmd);
 	}
 
 	mutex_unlock(&tsc_mux->mutex);
@@ -2223,13 +2296,12 @@ static long tsc_ci_ioctl(struct file *filp,
 	switch (cmd) {
 
 	case TSC_CAM_RESET:
-		/* TODO: deassert, assert, wait 10ms, deassert */
+		ret = tsc_reset_cam();
 		break;
 	case TSC_CICAM_PERSONALITY_CHANGE:
 		/* TODO: set the pcmcia pins accordingly */
 		break;
 	case TSC_GET_CARD_STATUS:
-		/* TODO: mutex */
 		spin_lock_irqsave(&tsc_ci->spinlock, flags);
 		tsc_ci->card_status = tsc_device->hw_card_status;
 		ret = __put_user(tsc_ci->card_status,
@@ -2262,7 +2334,7 @@ static long tsc_ci_ioctl(struct file *filp,
 		break;
 	default:
 		ret = -EINVAL;
-		pr_err("tsc_ci: Unknown ioctl %i\n", cmd);
+		pr_err("%s: Unknown ioctl %i\n", __func__, cmd);
 	}
 
 	mutex_unlock(&tsc_ci->mutex);
@@ -2377,7 +2449,7 @@ static int tsc_get_pinctrl(struct platform_device *pdev)
 
 	pinctrl = devm_pinctrl_get(&pdev->dev);
 	if (IS_ERR(pinctrl)) {
-		pr_err("tsc: Unable to get pinctrl handle\n");
+		pr_err("%s: Unable to get pinctrl handle\n", __func__);
 		return -EINVAL;
 	}
 
@@ -2503,7 +2575,7 @@ static int tsc_get_pinctrl(struct platform_device *pdev)
 			!tsc_device->pinctrl_info.ts1_b_err_sleep ||
 			!tsc_device->pinctrl_info.ts1_b_ser_active ||
 			!tsc_device->pinctrl_info.ts1_b_ser_sleep) {
-		pr_err("tsc: Unable to get pinctrl states handles\n");
+		pr_err("%s: Unable to get pinctrl states handles\n", __func__);
 		return -EINVAL;
 	}
 
@@ -2524,21 +2596,24 @@ static int tsc_get_regulator_bus(struct platform_device *pdev)
 	/* Reading the GDSC info */
 	tsc_device->gdsc = devm_regulator_get(&pdev->dev, "vdd");
 	if (IS_ERR(tsc_device->gdsc)) {
-		dev_err(&pdev->dev, "Failed to get vdd power regulator\n");
+		dev_err(&pdev->dev, "%s: Failed to get vdd power regulator\n",
+				__func__);
 		return PTR_ERR(tsc_device->gdsc);
 	}
 
 	/* Reading the bus platform data */
 	tsc_bus_pdata = msm_bus_cl_get_pdata(pdev);
 	if (tsc_bus_pdata == NULL) {
-		dev_err(&pdev->dev, "Could not find the bus property\n");
+		dev_err(&pdev->dev, "%s: Could not find the bus property\n",
+				__func__);
 		goto err;
 	}
 
 	/* Register the bus client */
 	tsc_device->bus_client = msm_bus_scale_register_client(tsc_bus_pdata);
 	if (!tsc_device->bus_client) {
-		pr_err("tsc: Unable to register bus client\n");
+		dev_err(&pdev->dev, "%s: Unable to register bus client\n",
+				__func__);
 		goto err;
 	}
 
@@ -2581,7 +2656,7 @@ static int tsc_map_irqs(struct platform_device *pdev)
 	if (irq > 0) {
 		tsc_device->cam_cmd_irq = irq;
 	} else {
-		dev_err(&pdev->dev, "%s: Failed to get TSC CAM_CMD IRQ = %d",
+		dev_err(&pdev->dev, "%s: Failed to get CAM_CMD IRQ = %d",
 				__func__, irq);
 		return -EINVAL;
 	}
@@ -2589,7 +2664,7 @@ static int tsc_map_irqs(struct platform_device *pdev)
 	if (irq > 0) {
 		tsc_device->card_detection_irq = irq;
 	} else {
-		dev_err(&pdev->dev, "%s: Failed to get TSC CARD_DETECT IRQ = %d",
+		dev_err(&pdev->dev, "%s: Failed to get CARD_DETECT IRQ = %d",
 				__func__, irq);
 		return -EINVAL;
 	}
@@ -2597,8 +2672,8 @@ static int tsc_map_irqs(struct platform_device *pdev)
 	ret = request_irq(tsc_device->cam_cmd_irq, tsc_cam_cmd_irq_handler,
 			IRQF_SHARED, dev_name(&pdev->dev), tsc_device);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to request TSC IRQ %d : %d",
-				tsc_device->cam_cmd_irq, ret);
+		dev_err(&pdev->dev, "%s: failed to request TSC IRQ %d : %d",
+				__func__, tsc_device->cam_cmd_irq, ret);
 		goto err_cam;
 	}
 
@@ -2606,8 +2681,8 @@ static int tsc_map_irqs(struct platform_device *pdev)
 			tsc_card_detect_irq_handler, IRQF_SHARED,
 			dev_name(&pdev->dev), tsc_device);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to request TSC IRQ %d : %d",
-				tsc_device->card_detection_irq, ret);
+		dev_err(&pdev->dev, "%s: failed to request TSC IRQ %d : %d",
+				__func__, tsc_device->card_detection_irq, ret);
 		goto err_card;
 	}
 
@@ -2688,42 +2763,49 @@ static int tsc_clocks_get(struct platform_device *pdev)
 
 	tsc_device->ahb_clk = clk_get(&pdev->dev, "bcc_tsc_ahb_clk");
 	if (IS_ERR(tsc_device->ahb_clk)) {
+		pr_err("%s: Failed to get bcc_tsc_ahb_clk\n", __func__);
 		ret = PTR_ERR(tsc_device->ahb_clk);
 		goto ahb_err;
 	}
 
 	tsc_device->ci_clk = clk_get(&pdev->dev, "bcc_tsc_ci_clk");
 	if (IS_ERR(tsc_device->ci_clk)) {
+		pr_err("%s: Failed to get bcc_tsc_ci_clk\n", __func__);
 		ret = PTR_ERR(tsc_device->ci_clk);
 		goto ci_err;
 	}
 
 	tsc_device->ser_clk = clk_get(&pdev->dev, "bcc_tsc_ser_clk");
 	if (IS_ERR(tsc_device->ser_clk)) {
+		pr_err("%s: Failed to get bcc_tsc_ser_clk\n", __func__);
 		ret = PTR_ERR(tsc_device->ser_clk);
 		goto ser_err;
 	}
 
 	tsc_device->par_clk = clk_get(&pdev->dev, "bcc_tsc_par_clk");
 	if (IS_ERR(tsc_device->par_clk)) {
+		pr_err("%s: Failed to get bcc_tsc_par_clk", __func__);
 		ret = PTR_ERR(tsc_device->par_clk);
 		goto par_err;
 	}
 
 	tsc_device->cicam_ts_clk = clk_get(&pdev->dev, "bcc_tsc_cicam_ts_clk");
 	if (IS_ERR(tsc_device->cicam_ts_clk)) {
+		pr_err("%s: Failed to get bcc_tsc_cicam_ts_clk", __func__);
 		ret = PTR_ERR(tsc_device->cicam_ts_clk);
 		goto cicam_err;
 	}
 
 	tsc_device->tspp2_core_clk = clk_get(&pdev->dev, "bcc_tspp2_core_clk");
 	if (IS_ERR(tsc_device->tspp2_core_clk)) {
+		pr_err("%s: Failed to get bcc_tspp2_core_clk", __func__);
 		ret = PTR_ERR(tsc_device->tspp2_core_clk);
 		goto tspp2_err;
 	}
 
 	tsc_device->vbif_tspp2_clk = clk_get(&pdev->dev, "bcc_vbif_tspp2_clk");
 	if (IS_ERR(tsc_device->vbif_tspp2_clk)) {
+		pr_err("%s: Failed to get bcc_vbif_tspp2_clk", __func__);
 		ret = PTR_ERR(tsc_device->vbif_tspp2_clk);
 		goto vbif_err;
 	}
@@ -2789,7 +2871,7 @@ static int tsc_get_iommu_info(struct platform_device *pdev)
 	tsc_device->iommu_info.ion_client = msm_ion_client_create(UINT_MAX,
 			"tsc_client");
 	if (IS_ERR_OR_NULL(tsc_device->iommu_info.ion_client)) {
-		pr_err("tsc: error in ion_client_create");
+		pr_err("%s: error in ion_client_create", __func__);
 		ret = PTR_ERR(tsc_device->iommu_info.ion_client);
 		if (!ret)
 			ret = -ENOMEM;
@@ -2800,7 +2882,7 @@ static int tsc_get_iommu_info(struct platform_device *pdev)
 	/* Find the iommu group by the name obtained from the device tree */
 	tsc_device->iommu_info.group = iommu_group_find(pdata->iommu_group);
 	if (!tsc_device->iommu_info.group) {
-		pr_err("tsc: error in iommu_group_find");
+		pr_err("%s: error in iommu_group_find", __func__);
 		ret = -EINVAL;
 		goto err_group;
 	}
@@ -2809,7 +2891,7 @@ static int tsc_get_iommu_info(struct platform_device *pdev)
 	tsc_device->iommu_info.domain =
 			iommu_group_get_iommudata(tsc_device->iommu_info.group);
 	if (IS_ERR_OR_NULL(tsc_device->iommu_info.domain)) {
-		pr_err("iommu_group_get_iommudata failed");
+		pr_err("%s: iommu_group_get_iommudata failed", __func__);
 		ret = -EINVAL;
 		goto err_domain;
 	}
@@ -2858,22 +2940,24 @@ static struct msm_tsc_platform_data *msm_tsc_dt_to_pdata
 
 	/* Check that power regulator property exist  */
 	if (!of_get_property(node, "vdd-supply", NULL)) {
-		dev_err(&pdev->dev, "Could not find vdd-supply property\n");
+		dev_err(&pdev->dev, "%s: Could not find vdd-supply property\n",
+				__func__);
 		return NULL;
 	}
 
 	/* Reading IOMMU group label by obtaining the group's phandle */
 	iommu_pnode = of_parse_phandle(node, "qti,iommu-group", 0);
 	if (!iommu_pnode) {
-		dev_err(&pdev->dev, "Couldn't find iommu-group property\n");
+		dev_err(&pdev->dev, "%s: Couldn't find iommu-group property\n",
+				__func__);
 		return NULL;
 	}
 	ret = of_property_read_string(iommu_pnode, "label",
 			&pdata->iommu_group);
 	of_node_put(iommu_pnode);
 	if (ret) {
-		dev_err(&pdev->dev, "Couldn't find label property of the IOMMU group, err=%d\n",
-				ret);
+		dev_err(&pdev->dev, "%s: Couldn't find label property of the IOMMU group, err=%d\n",
+				__func__, ret);
 		return NULL;
 	}
 
@@ -2881,8 +2965,17 @@ static struct msm_tsc_platform_data *msm_tsc_dt_to_pdata
 	ret = of_property_read_u32(node, "qti,iommu-partition",
 			&pdata->iommu_partition);
 	if (ret) {
-		dev_err(&pdev->dev, "Couldn't find iommu-partition property, err=%d\n",
-				ret);
+		dev_err(&pdev->dev, "%s: Couldn't find iommu-partition property, err=%d\n",
+				__func__, ret);
+		return NULL;
+	}
+
+	/* Reading reset cam gpio */
+	tsc_device->reset_cam_gpio = of_get_named_gpio(node,
+			"qti,tsc-reset-cam-gpio", 0);
+	if (tsc_device->reset_cam_gpio < 0) {
+		dev_err(&pdev->dev, "%s: Couldn't find qti,tsc-reset-cam-gpio property\n",
+				__func__);
 		return NULL;
 	}
 
@@ -2924,7 +3017,7 @@ static int msm_tsc_probe(struct platform_device *pdev)
 
 	tsc_device = kzalloc(sizeof(struct tsc_device), GFP_KERNEL);
 	if (!tsc_device) {
-		pr_err("%s Unable to allocate memory for struct\n", __func__);
+		pr_err("%s: Unable to allocate memory for struct\n", __func__);
 		return -ENOMEM;
 	}
 
@@ -2937,7 +3030,7 @@ static int msm_tsc_probe(struct platform_device *pdev)
 	}
 
 	if (!pdata) {
-		pr_err("tsc: Platform data not available");
+		pr_err("%s: Platform data not available", __func__);
 		ret =  -EINVAL;
 		goto err_pdata;
 	}
@@ -2985,7 +3078,7 @@ static int msm_tsc_probe(struct platform_device *pdev)
 	tsc_class = class_create(THIS_MODULE, "tsc");
 	if (IS_ERR(tsc_class)) {
 		ret = PTR_ERR(tsc_class);
-		pr_err("tsc: Error creating class: %d\n", ret);
+		pr_err("%s: Error creating class: %d\n", __func__, ret);
 		goto err_class;
 	}
 
@@ -3118,7 +3211,8 @@ static int __init tsc_init(void)
 	/* register the driver, and check hardware */
 	ret = platform_driver_register(&msm_tsc_driver);
 	if (ret) {
-		pr_err("tsc: platform_driver_register failed: %d\n", ret);
+		pr_err("%s: platform_driver_register failed: %d\n", __func__,
+				ret);
 		return ret;
 	}
 
