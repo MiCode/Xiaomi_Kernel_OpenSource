@@ -125,6 +125,14 @@
 		qca,reset-gpio = <&msmgpio 128 0>;	/* Reset line */
 		qca,pwr-supply = <&qca1530_vreg>;	/* Power regulator */
 	};
+
+	liquid_dock {
+		compatible = "qti,apq8084-dock";
+		qti,dock-detect-gpio = <&msmgpio 103 0>;
+		qti,dock-hub-reset-gpio = <&msmgpio 65 0>;
+		qti,dock-enable-gpio = <&msmgpio 93 0>;
+		qti,dock-eth-reset-gpio = <&msmgpio 94 0>;
+	};
 };
 
 #include "dsi-panel-jdi-dualmipi0-video.dtsi"
