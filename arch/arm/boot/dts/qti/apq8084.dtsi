@@ -1806,6 +1806,31 @@
 			tx-fifo-resize;
 			usb-phy = <&hsphy0>, <&ssphy0>;
 		};
+
+		usb3_sec: qcom,ssusb@f9400000 {
+			compatible = "qcom,dwc-usb3-msm";
+			reg = <0xf9400000 0xfc000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges;
+			interrupt-parent = <&intc>;
+			interrupts = <0 261 4>;
+			interrupt-names = "hs_phy_irq";
+			USB3_GDSC-supply = <&gdsc_usb30_sec>;
+			qcom,restore-sec-cfg-for-scm-dev-id = <10>;
+			qcom,charging-disabled;
+			status = "disabled";
+
+			dwc3@f9400000 {
+				compatible = "synopsys,dwc3";
+				reg = <0xf9400000 0xfc000>;
+				interrupt-parent = <&intc>;
+				interrupts = <0 258 4>, <0 262 4>;
+				interrupt-names = "irq", "otg_irq";
+				usb-phy = <&hsphy1>, <&ssphy1>;
+				host-only-mode;
+			};
+		};
 	};
 
 	android_usb@fe8050c8 {
@@ -1834,6 +1859,29 @@
 		vdda18-supply = <&pma8084_l6>;
 		qti,vdd-voltage-level = <0 900000 1050000>;
 		qti,vbus-valid-override;
+	};
+
+	hsphy1: hsphy@f94f8800 {
+		compatible = "qti,usb-hsphy";
+		reg = <0xf94f8800 0x3ff>;
+		qti,hsphy-init = <0x00D191A4>;
+		vdd-supply = <&pma8084_s1>;
+		vdda18-supply = <&pma8084_l6>;
+		vdda33-supply = <&pma8084_l24>;
+		qti,vdd-voltage-level = <0 900000 1050000>;
+		qti,ext-vbus-id;
+		qti,primary-phy = <&hsphy0>;
+		status = "disabled";
+	};
+
+	ssphy1: ssphy@f94f8800 {
+		compatible = "qti,usb-ssphy";
+		reg = <0xf94f8800 0x3ff>;
+		vdd-supply = <&pma8084_s1>;
+		vdda18-supply = <&pma8084_l6>;
+		qti,vdd-voltage-level = <0 900000 1050000>;
+		qti,primary-phy = <&ssphy0>;
+		status = "disabled";
 	};
 
 	tsens: tsens@fc4a8000 {
