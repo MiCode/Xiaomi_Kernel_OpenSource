@@ -655,7 +655,7 @@ int mdss_dsi_cmdlist_put(struct mdss_dsi_ctrl_pdata *ctrl,
 {
 	struct dcs_cmd_req *req;
 	struct dcs_cmd_list *clist;
-	int ret = 0;
+	int ret = -EINVAL;
 
 	mutex_lock(&ctrl->cmd_mutex);
 	clist = &ctrl->cmdlist;
@@ -674,7 +674,6 @@ int mdss_dsi_cmdlist_put(struct mdss_dsi_ctrl_pdata *ctrl,
 	}
 	mutex_unlock(&ctrl->cmd_mutex);
 
-	ret++;
 	pr_debug("%s: tot=%d put=%d get=%d\n", __func__,
 		clist->tot, clist->put, clist->get);
 
@@ -682,7 +681,7 @@ int mdss_dsi_cmdlist_put(struct mdss_dsi_ctrl_pdata *ctrl,
 		if (!ctrl->cmdlist_commit)
 			pr_err("cmdlist_commit not implemented!\n");
 		else
-			ctrl->cmdlist_commit(ctrl, 0);
+			ret = ctrl->cmdlist_commit(ctrl, 0);
 	}
 	return ret;
 }
