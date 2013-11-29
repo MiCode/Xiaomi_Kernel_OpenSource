@@ -128,15 +128,15 @@
 	ssphy@f92f8800 {
 		vdd-supply = <&pma8084_s2_corner>;
 		vdda18-supply = <&pma8084_l6>;
-		qcom,vbus-valid-override;
-		qcom,deemphasis-value = <26>;
+		qti,vbus-valid-override;
+		qti,deemphasis-value = <26>;
 	};
 
 	hsphy@f92f8800 {
 		vdd-supply = <&pma8084_s2_corner>;
 		vdda18-supply = <&pma8084_l6>;
 		vdda33-supply = <&pma8084_l24>;
-		qcom,vbus-valid-override;
+		qti,vbus-valid-override;
 	};
 
 	qcom,ehci-host@f9a55000 {
