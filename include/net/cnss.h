@@ -31,6 +31,8 @@ struct cnss_wlan_driver {
 	char *name;
 	int  (*probe)(struct pci_dev *, const struct pci_device_id *);
 	void (*remove)(struct pci_dev *);
+	int  (*reinit)(struct pci_dev *, const struct pci_device_id *);
+	void (*shutdown)(struct pci_dev *);
 	int  (*suspend)(struct pci_dev *, pm_message_t state);
 	int  (*resume)(struct pci_dev *);
 	const struct pci_device_id *id_table;
@@ -39,6 +41,7 @@ struct cnss_wlan_driver {
 extern int cnss_config(struct dev_info *device_info);
 extern void cnss_deinit(void);
 extern void cnss_device_crashed(void);
+extern int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size);
 extern int cnss_set_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 ch_count);
 extern int cnss_get_wlan_unsafe_channel(u16 *unsafe_ch_list,
 						u16 *ch_count, u16 buf_len);
