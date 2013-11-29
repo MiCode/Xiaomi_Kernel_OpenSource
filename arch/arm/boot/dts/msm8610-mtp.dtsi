@@ -142,7 +142,7 @@
 				0x2800>;
 			capella,ps_close_thd_set = <0xa>;
 			capella,ps_away_thd_set = <0x5>;
-			capella,ls_cmd = <0x44>; /* PS_IT=160ms, INT_PERS=2*/
+			capella,ls_cmd = <0x04>; /* ALS_IT=80ms, INT_PERS=2*/
 			capella,ps_conf1_val = <0x0006>;
 			capella,ps_conf3_val = <0x3010>;
 		};
