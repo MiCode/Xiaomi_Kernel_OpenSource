@@ -692,6 +692,13 @@ static void __msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, u32 va,
 	}
 }
 
+phys_addr_t msm_iommu_iova_to_phys_soft(struct iommu_domain *domain,
+							phys_addr_t va)
+{
+	pr_err("iova_to_phys is not implemented for LPAE\n");
+	return 0;
+}
+
 void __init msm_iommu_pagetable_init(void)
 {
 }

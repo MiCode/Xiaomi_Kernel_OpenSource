@@ -340,6 +340,9 @@ static int msm_iommu_probe(struct platform_device *pdev)
 			return PTR_ERR(drvdata->aiclk);
 	}
 
+	drvdata->no_atos_support = of_property_read_bool(pdev->dev.of_node,
+						"qti,no-atos-support");
+
 	if (clk_get_rate(drvdata->clk) == 0) {
 		ret = clk_round_rate(drvdata->clk, 1000);
 		clk_set_rate(drvdata->clk, ret);

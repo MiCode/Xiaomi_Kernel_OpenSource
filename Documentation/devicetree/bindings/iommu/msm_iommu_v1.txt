@@ -29,6 +29,7 @@ Optional properties:
 - qti,iommu-pmu-ncounters: Number of PMU counters per group.
 - qti,iommu-pmu-event-classes: List of event classes supported.
 - Bus scaling properties: See msm_bus.txt
+- qti,no-atos-support: boolean indicating that IOMMU doesn't have ATS support
 
 - List of sub nodes, one for each of the translation context banks supported.
   Each sub node has the following required properties:

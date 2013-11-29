@@ -131,6 +131,7 @@ struct msm_iommu_drvdata {
 	unsigned int bus_client;
 	int needs_rem_spinlock;
 	int powered_on;
+	int no_atos_support;
 };
 
 /**
