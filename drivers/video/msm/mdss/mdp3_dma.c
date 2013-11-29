@@ -268,6 +268,23 @@ static int mdp3_dma_sync_config(struct mdp3_dma *dma,
 	return 0;
 }
 
+static void mdp3_dma_stride_config(struct mdp3_dma *dma, int stride)
+{
+	struct mdp3_dma_source *source_config;
+	u32 dma_stride_offset;
+
+	if (dma->dma_sel == MDP3_DMA_P)
+		dma_stride_offset = MDP3_REG_DMA_P_IBUF_Y_STRIDE;
+	else
+		dma_stride_offset = MDP3_REG_DMA_S_IBUF_Y_STRIDE;
+
+	source_config = &dma->source_config;
+	source_config->stride = stride;
+	pr_debug("%s: Update the fb stride for DMA to %d", __func__,
+						(u32)source_config->stride);
+	MDP3_REG_WRITE(dma_stride_offset, source_config->stride);
+}
+
 static int mdp3_dmap_config(struct mdp3_dma *dma,
 			struct mdp3_dma_source *source_config,
 			struct mdp3_dma_output_config *output_config)
@@ -855,6 +872,7 @@ int mdp3_dma_init(struct mdp3_dma *dma)
 		dma->vsync_enable = mdp3_dma_vsync_enable;
 		dma->start = mdp3_dma_start;
 		dma->stop = mdp3_dma_stop;
+		dma->config_stride = mdp3_dma_stride_config;
 		break;
 	case MDP3_DMA_S:
 		dma->dma_config = mdp3_dmas_config;
@@ -869,6 +887,7 @@ int mdp3_dma_init(struct mdp3_dma *dma)
 		dma->vsync_enable = mdp3_dma_vsync_enable;
 		dma->start = mdp3_dma_start;
 		dma->stop = mdp3_dma_stop;
+		dma->config_stride = mdp3_dma_stride_config;
 		break;
 	case MDP3_DMA_E:
 	default:
