@@ -49,6 +49,7 @@ struct mdp3_session_data {
 	struct mdp3_buffer_queue bufq_in;
 	struct mdp3_buffer_queue bufq_out;
 	struct work_struct clk_off_work;
+	struct work_struct dma_done_work;
 	int histo_status;
 	struct mutex histo_lock;
 	int lut_sel;
@@ -56,6 +57,7 @@ struct mdp3_session_data {
 	bool vsync_before_commit;
 	bool first_commit;
 	int clk_on;
+	struct blocking_notifier_head notifier_head;
 
 	int vsync_enabled;
 	atomic_t vsync_countdown; /* Used to count down  */
