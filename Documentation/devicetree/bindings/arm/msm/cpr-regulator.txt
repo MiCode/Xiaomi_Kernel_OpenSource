@@ -163,6 +163,42 @@ Optional properties:
 - qti,cpr-cond-min-voltage:	Minimum voltage in microvolts for SVS, NOM and TURBO mode if the fuse bits
 				defined in qti,cpr-fuse-cond-min-volt-sel have not been programmed with the
 				expected data. This is required if cpr-fuse-cond-min-volt-sel is present.
+- qti,cpr-fuse-uplift-sel: 	Array of 5 elements to indicate where to read the bits, what value to
+				compare with in order to enable or disable the pvs voltage uplift workaround,
+				and the fuse reading method.
+				The 5 elements with index[0..4] are:
+				[0]: => the fuse row number of the selector;
+				[1]: => LSB bit position of the bits;
+				[2]: => number of the bits;
+				[3]: => the value to indicate if the apc pvs voltage uplift workaround will
+					be enabled;
+				[4]: => fuse reading method, 0 for direct reading or 1 for SCM reading.
+				When the value of the fuse bits specified by first 3 elements equals to the
+				value in 4th element, the pvs voltage uplift workaround will be enabled.
+- qti,speed-bin-fuse-sel:	Array of 4 elements to indicate where to read the speed bin of the processor,
+				and the fuse reading method.
+				The 4 elements with index[0..3] are:
+				[0]: => the fuse row number of the selector;
+				[1]: => LSB bit position of the bits;
+				[2]: => number of the bits;
+				[3]: => fuse reading method, 0 for direct reading or 1 for SCM reading.
+				This is required if cpr-fuse-uplift-disable-sel is present.
+- qti,cpr-uplift-voltage:	Uplift in microvolts used for increasing pvs init voltage. If this property is present,
+				This is required if cpr-fuse-uplift-disable-sel is present.
+- qti,cpr-uplift-max-volt:	Maximum voltage in microvolts used for pvs voltage uplift workaround to limit
+				the maximum pvs voltage.
+				This is required if cpr-fuse-uplift-disable-sel is present.
+- qti,cpr-uplift-quotient:	Three numbers used for pvs voltage uplift workaround to be added to the target
+				quotient for each corner.
+				The 3 quotient increment with index[0..2] are:
+				[0]: => for SVS corner target quotient;
+				[1]: => for NORM corner target quotient;
+				[2]: => for TURBO corner target quotient;
+				This is required if cpr-fuse-uplift-disable-sel is present.
+- qti,cpr-uplift-speed-bin:	The speed bin value corresponding to one type of processor which needs to apply the
+				pvs voltage uplift workaround.
+				This is required if cpr-fuse-uplift-disable-sel is present.
+
 Example:
 	apc_vreg_corner: regulator@f9018000 {
 		status = "okay";
@@ -218,5 +254,11 @@ Example:
 		qti,cpr-fuse-redun-ro-sel = <46 36 39>;
 		qti,cpr-fuse-cond-min-volt-sel = <54 42 6 7 1>;
 		qti,cpr-cond-min-voltage = <1140000>;
+		qti,cpr-fuse-uplift-sel = <22 53 1 0 0>;
+		qti,cpr-uplift-voltage = <50000>;
+		qti,cpr-uplift-quotient = <0 0 120>;
+		qti,cpr-uplift-max-volt = <1350000>;
+		qti,cpr-uplift-speed-bin = <1>;
+		qti,speed-bin-fuse-sel = <22 0 3 0>;
 	};
 
