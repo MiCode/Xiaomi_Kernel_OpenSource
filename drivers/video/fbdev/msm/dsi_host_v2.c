@@ -78,6 +78,9 @@ void msm_dsi_ack_err_status(unsigned char *ctrl_base)
 
 	if (status) {
 		MIPI_OUTP(ctrl_base + DSI_ACK_ERR_STATUS, status);
+
+		/* Writing of an extra 0 needed to clear error bits */
+		MIPI_OUTP(ctrl_base + DSI_ACK_ERR_STATUS, 0);
 		pr_err("%s: status=%x\n", __func__, status);
 	}
 }
