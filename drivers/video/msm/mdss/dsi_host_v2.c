@@ -883,17 +883,18 @@ void msm_dsi_cmdlist_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 	if (req->cb)
 		req->cb(len);
 }
-void msm_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
+int msm_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 {
 	struct dcs_cmd_req *req;
 	int dsi_on;
+	int ret = -EINVAL;
 
 	mutex_lock(&ctrl->mutex);
 	dsi_on = dsi_host_private->dsi_on;
 	mutex_unlock(&ctrl->mutex);
 	if (!dsi_on) {
 		pr_err("try to send DSI commands while dsi is off\n");
-		return;
+		return ret;
 	}
 
 	mutex_lock(&ctrl->cmd_mutex);
@@ -901,7 +902,7 @@ void msm_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 
 	if (!req) {
 		mutex_unlock(&ctrl->cmd_mutex);
-		return;
+		return ret;
 	}
 
 	msm_dsi_clk_ctrl(&ctrl->panel_data, 1);
@@ -916,6 +917,7 @@ void msm_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 	msm_dsi_clk_ctrl(&ctrl->panel_data, 0);
 
 	mutex_unlock(&ctrl->cmd_mutex);
+	return 0;
 }
 
 static int msm_dsi_cal_clk_rate(struct mdss_panel_data *pdata,
