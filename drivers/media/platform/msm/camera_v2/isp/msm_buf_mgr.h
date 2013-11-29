@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,6 +54,11 @@ struct msm_isp_buffer_mapped_info {
 	unsigned long len;
 	dma_addr_t paddr;
 	struct ion_handle *handle;
+};
+
+struct buffer_cmd {
+	struct list_head list;
+	struct msm_isp_buffer_mapped_info *mapped_info;
 };
 
 struct msm_isp_buffer {
@@ -153,6 +158,7 @@ struct msm_isp_buf_mgr {
 
 	int num_iommu_ctx;
 	struct device *iommu_ctx[2];
+	struct list_head buffer_q;
 };
 
 int msm_isp_create_isp_buf_mgr(struct msm_isp_buf_mgr *buf_mgr,
