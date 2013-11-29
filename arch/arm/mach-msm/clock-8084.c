@@ -5988,10 +5988,8 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("",	gcc_sdcc4_apps_clk.c,	""),
 
 	CLK_LOOKUP("",	gcc_spss_ahb_clk.c,	""),
-	CLK_LOOKUP("",	gcc_sys_noc_usb3_axi_clk.c,	""),
 	CLK_LOOKUP("mem_iface_clk",	gcc_sys_noc_usb3_axi_clk.c,
 						"f9304000.qcom,usbbam"),
-	CLK_LOOKUP("",	gcc_sys_noc_usb3_sec_axi_clk.c,	""),
 
 	CLK_LOOKUP("",	gcc_tsif_ahb_clk.c,	""),
 	CLK_LOOKUP("",	gcc_tsif_ref_clk.c,	""),
@@ -6020,7 +6018,6 @@ static struct clk_lookup apq_clocks_8084[] = {
 
 	/* USB clocks */
 	CLK_LOOKUP("ref_clk", diff_clk1.c, "f9200000.qcom,ssusb"),
-	CLK_LOOKUP("ref_clk", diff_clk1.c, "f9400000.qcom,ssusb"),
 	CLK_LOOKUP("xo", cxo_dwc3_clk.c, "f9200000.qcom,ssusb"),
 	CLK_LOOKUP("core_clk", gcc_usb30_master_clk.c, "f9200000.qcom,ssusb"),
 	CLK_LOOKUP("iface_clk", gcc_sys_noc_usb3_axi_clk.c,
@@ -6031,14 +6028,22 @@ static struct clk_lookup apq_clocks_8084[] = {
 			"f9200000.qcom,ssusb"),
 	CLK_LOOKUP("utmi_clk",   gcc_usb30_mock_utmi_clk.c,
 			"f9200000.qcom,ssusb"),
+
+	CLK_LOOKUP("ref_clk", diff_clk1.c, "f9400000.qcom,ssusb"),
+	CLK_LOOKUP("xo", cxo_dwc3_clk.c, "f9400000.qcom,ssusb"),
+	CLK_LOOKUP("core_clk", gcc_usb30_sec_master_clk.c,
+			"f9400000.qcom,ssusb"),
+	CLK_LOOKUP("iface_clk", gcc_sys_noc_usb3_sec_axi_clk.c,
+			"f9400000.qcom,ssusb"),
+	CLK_LOOKUP("sleep_clk", gcc_usb30_sec_sleep_clk.c,
+			"f9400000.qcom,ssusb"),
+	CLK_LOOKUP("sleep_a_clk", gcc_usb2a_phy_sleep_clk.c,
+			"f9400000.qcom,ssusb"),
+	CLK_LOOKUP("utmi_clk",  gcc_usb30_sec_mock_utmi_clk.c,
+			"f9400000.qcom,ssusb"),
+
 	CLK_LOOKUP("",	gcc_usb2b_phy_sleep_clk.c,	""),
-	CLK_LOOKUP("",	gcc_usb30_master_clk.c,	""),
 	CLK_LOOKUP("mem_clk",	gcc_usb30_master_clk.c,	"f9304000.qcom,usbbam"),
-	CLK_LOOKUP("",	gcc_usb30_mock_utmi_clk.c,	""),
-	CLK_LOOKUP("",	gcc_usb30_sleep_clk.c,	""),
-	CLK_LOOKUP("",	gcc_usb30_sec_master_clk.c,	""),
-	CLK_LOOKUP("",	gcc_usb30_sec_mock_utmi_clk.c,	""),
-	CLK_LOOKUP("",	gcc_usb30_sec_sleep_clk.c,	""),
 
 	CLK_LOOKUP("xo",	cxo_otg_clk.c,			"f9a55000.usb"),
 	CLK_LOOKUP("iface_clk",	gcc_usb_hs_ahb_clk.c,		"f9a55000.usb"),
