@@ -494,7 +494,7 @@ static int msm_vidc_load_iommu_groups(struct msm_vidc_platform_resources *res)
 				domain_idx,
 				iommu_map->name);
 
-		if (!of_get_property(ctx_node, "qcom,virtual-addr-pool",
+		if (!of_get_property(ctx_node, "qti,virtual-addr-pool",
 				&array_size)) {
 			dprintk(VIDC_ERR,
 				"Could not find any addr pool for group : %s\n",
@@ -511,7 +511,7 @@ static int msm_vidc_load_iommu_groups(struct msm_vidc_platform_resources *res)
 				domain_idx);
 
 		rc = of_property_read_u32_array(ctx_node,
-				"qcom,virtual-addr-pool",
+				"qti,virtual-addr-pool",
 				(u32 *)iommu_map->addr_range,
 				iommu_map->npartitions * 2);
 		if (rc) {
@@ -523,7 +523,7 @@ static int msm_vidc_load_iommu_groups(struct msm_vidc_platform_resources *res)
 		}
 
 		iommu_map->is_secure =
-			of_property_read_bool(ctx_node,	"qcom,secure-domain");
+			of_property_read_bool(ctx_node,	"qti,secure-domain");
 
 		dprintk(VIDC_DBG,
 				"domain %s : secure = %d\n",

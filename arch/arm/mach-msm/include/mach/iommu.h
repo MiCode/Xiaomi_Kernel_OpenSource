@@ -333,7 +333,7 @@ static inline int msm_soc_version_supports_iommu_v0(void)
 		return soc_supports_v0;
 
 #ifdef CONFIG_OF
-	node = of_find_compatible_node(NULL, NULL, "qcom,msm-smmu-v0");
+	node = of_find_compatible_node(NULL, NULL, "qti,msm-smmu-v0");
 	if (node) {
 		soc_supports_v0 = 1;
 		of_node_put(node);

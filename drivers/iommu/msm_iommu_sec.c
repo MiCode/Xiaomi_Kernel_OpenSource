@@ -283,8 +283,8 @@ static int msm_iommu_sec_ptbl_init(void)
 	unsigned int spare;
 	int ret, ptbl_ret = 0;
 
-	for_each_compatible_node(np, NULL, "qcom,msm-smmu-v1")
-		if (of_find_property(np, "qcom,iommu-secure-id", NULL))
+	for_each_compatible_node(np, NULL, "qti,msm-smmu-v1")
+		if (of_find_property(np, "qti,iommu-secure-id", NULL))
 			break;
 
 	if (!np)

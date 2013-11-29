@@ -33,17 +33,17 @@ for more information on the following four properties:
 - qcom,msm-bus,num-paths
 - qcom,msm-bus,vectors-KBps: represents the bandwidths required for the above
 	usecases.
-- qcom,iommu-hlos-group: Name of the Broadcast HLOS IOMMU domain as defined in
+- qti,iommu-hlos-group: Name of the Broadcast HLOS IOMMU domain as defined in
 	<target>-iommu-domains.dtsi, (e.g. mpq8092-iommu-domains.dtsi).
 	The Broadcast HLOS IOMMU domain includes a context bank and virtual
 	address pools definitions, used for mapping non-secured pipe memory
 	buffers.
-- qcom,iommu-hlos-partition: Partition number in the HLOS IOMMU domain.
-- qcom,iommu-cpz-group: Name of the Broadcast CPZ IOMMU domain as defined in
+- qti,iommu-hlos-partition: Partition number in the HLOS IOMMU domain.
+- qti,iommu-cpz-group: Name of the Broadcast CPZ IOMMU domain as defined in
 	<target>-iommu-domains.dtsi, (e.g. mpq8092-iommu-domains.dtsi).
 	The Broadcast CPZ IOMMU domain includes a context bank and virtual
 	address pool definitions, used for mapping secured pipe memory buffers.
-- qcom,iommu-cpz-partition: Partition number in the CPZ IOMMU domain.
+- qti,iommu-cpz-partition: Partition number in the CPZ IOMMU domain.
 
 Example (for MPQ8092 platform, avaialble at mpq8092.dtsi):
 
@@ -79,10 +79,10 @@ Example (for MPQ8092 platform, avaialble at mpq8092.dtsi):
 				<96 512 0 0>, /* No vote */
 				<96 512 1024 1024>, /* Register access only. 8Mbps should be more than enough */
 				<96 512 24576 61440>; /* Max. bandwidth required is 480Mbps */
-		qcom,iommu-hlos-group = "bcast_hlos";
-		qcom,iommu-hlos-partition = <0>;
-		qcom,iommu-cpz-group = "bcast_cpz";
-		qcom,iommu-cpz-partition = <0>;
+		qti,iommu-hlos-group = "bcast_hlos";
+		qti,iommu-hlos-partition = <0>;
+		qti,iommu-cpz-group = "bcast_cpz";
+		qti,iommu-cpz-partition = <0>;
 	};
 
 

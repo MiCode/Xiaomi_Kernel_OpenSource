@@ -15,9 +15,9 @@
 &jpeg_iommu {
 	status = "ok";
 	vdd-supply = <&gdsc_jpeg>;
-	qcom,iommu-enable-halt;
+	qti,iommu-enable-halt;
 
-	qcom,iommu-bfb-regs =  <0x204c
+	qti,iommu-bfb-regs =  <0x204c
 				0x2050
 				0x2514
 				0x2540
@@ -33,7 +33,7 @@
 				0x2010
 				0x2014>;
 
-	qcom,iommu-bfb-data =  <0x0000ffff
+	qti,iommu-bfb-data =  <0x0000ffff
 				0x00000000
 				0x4
 				0x4
@@ -53,9 +53,9 @@
 &mdp_iommu {
 	status = "ok";
 	vdd-supply = <&gdsc_mdss>;
-	qcom,iommu-enable-halt;
+	qti,iommu-enable-halt;
 
-	qcom,iommu-bfb-regs =  <0x204c
+	qti,iommu-bfb-regs =  <0x204c
 				0x2050
 				0x2514
 				0x2540
@@ -74,7 +74,7 @@
 				0x201c
 				0x2020>;
 
-	qcom,iommu-bfb-data =  <0xffffffff
+	qti,iommu-bfb-data =  <0xffffffff
 				0x00000000
 				0x00000004
 				0x00000010
@@ -97,9 +97,9 @@
 &venus_iommu {
 	status = "ok";
 	vdd-supply = <&gdsc_venus>;
-	qcom,iommu-enable-halt;
+	qti,iommu-enable-halt;
 
-	qcom,iommu-bfb-regs =  <0x204c
+	qti,iommu-bfb-regs =  <0x204c
 				0x2050
 				0x2514
 				0x2540
@@ -124,7 +124,7 @@
 				0x2034
 				0x2038>;
 
-	qcom,iommu-bfb-data =  <0xffffffff
+	qti,iommu-bfb-data =  <0xffffffff
 				0xffffffff
 				0x00000004
 				0x00000008
@@ -151,21 +151,21 @@
 };
 
 &venus_ns {
-	   qcom,iommu-ctx-sids = <0 1 2 3 4 5 7>;
+	   qti,iommu-ctx-sids = <0 1 2 3 4 5 7>;
 };
 
 &venus_cp {
-	   qcom,iommu-ctx-sids = <0x80 0x81 0x82 0x83 0x84>;
+	   qti,iommu-ctx-sids = <0x80 0x81 0x82 0x83 0x84>;
 };
 
 &kgsl_iommu {
 	status = "ok";
 	vdd-supply = <&gdsc_oxili_cx>;
-	qcom,alt-vdd-supply = <&gdsc_oxili_gx>;
-	qcom,iommu-enable-halt;
-	qcom,needs-alt-core-clk;
+	qti,alt-vdd-supply = <&gdsc_oxili_gx>;
+	qti,iommu-enable-halt;
+	qti,needs-alt-core-clk;
 
-	qcom,iommu-bfb-regs =  <0x204c
+	qti,iommu-bfb-regs =  <0x204c
 				0x2050
 				0x2514
 				0x2540
@@ -178,7 +178,7 @@
 				0x2414
 				0x2008>;
 
-	qcom,iommu-bfb-data =  <0x00000003
+	qti,iommu-bfb-data =  <0x00000003
 				0x0
 				0x00000004
 				0x00000010
@@ -195,9 +195,9 @@
 &vfe_iommu {
 	status = "ok";
 	vdd-supply = <&gdsc_vfe>;
-	qcom,iommu-enable-halt;
+	qti,iommu-enable-halt;
 
-	qcom,iommu-bfb-regs =  <0x204c
+	qti,iommu-bfb-regs =  <0x204c
 				0x2050
 				0x2514
 				0x2540
@@ -216,7 +216,7 @@
 				0x201c
 				0x2020>;
 
-	qcom,iommu-bfb-data =  <0xffffffff
+	qti,iommu-bfb-data =  <0xffffffff
 				0x00000000
 				0x4
 				0x8

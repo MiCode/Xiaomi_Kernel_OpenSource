@@ -2,7 +2,7 @@
 
 Required properties:
 - compatible : one of:
-	- "qcom,msm-smmu-v1"
+	- "qti,msm-smmu-v1"
 - reg : offset and length of the register set for the device. Optional
 	offset and length for clock register for additional clock that
 	needs to be turned on for access to this IOMMU.
@@ -10,11 +10,11 @@ Required properties:
 - label: name of this IOMMU instance.
 
 Optional properties:
-- qcom,iommu-secure-id : Secure identifier for the IOMMU block
-- qcom,secure-context : boolean indicating that a context is secure and
+- qti,iommu-secure-id : Secure identifier for the IOMMU block
+- qti,secure-context : boolean indicating that a context is secure and
   programmed by the secure environment.
-- qcom,vdd-supply: Regulator needed to access IOMMU
-- qcom,alt-vdd-supply : Alternative regulator needed to access IOMMU
+- qti,vdd-supply: Regulator needed to access IOMMU
+- qti,alt-vdd-supply : Alternative regulator needed to access IOMMU
   configuration registers.
 - interrupts : Interrupt numbers for permormance and global fault interrupts
 - interrupt-names: Refers to the interrupts number mentioned above.
@@ -23,77 +23,77 @@ Optional properties:
 	"global_client_NS_irq" : the global client non-secure interrupt number
 	"global_cfg_S_irq" : the global config secure interrupt number
 	"global_client_S_irq" : the global client secure interrupt number
-- qcom,iommu-enable-halt : Enable halt of the IOMMU before programming certain	19
+- qti,iommu-enable-halt : Enable halt of the IOMMU before programming certain	19
   registers
-- qcom,iommu-pmu-ngroups: Number of Performance Monitor Unit (PMU) groups.
-- qcom,iommu-pmu-ncounters: Number of PMU counters per group.
-- qcom,iommu-pmu-event-classes: List of event classes supported.
+- qti,iommu-pmu-ngroups: Number of Performance Monitor Unit (PMU) groups.
+- qti,iommu-pmu-ncounters: Number of PMU counters per group.
+- qti,iommu-pmu-event-classes: List of event classes supported.
 - Bus scaling properties: See msm_bus.txt
 
 - List of sub nodes, one for each of the translation context banks supported.
   Each sub node has the following required properties:
 
-  - compatible : "qcom,msm-smmu-v1-ctx"
+  - compatible : "qti,msm-smmu-v1-ctx"
   - reg : offset and length of the register set for the context bank.
   - interrupts : should contain the context bank interrupt. If this is
     a secure context bank, this should be a list of 2 3-tuples where
     the first is the non-secure interrupt, and the second is the
     secure interrupt.
-  - qcom,iommu-ctx-sids : List of stream identifiers associated with this
+  - qti,iommu-ctx-sids : List of stream identifiers associated with this
     translation context.
   - label : Name of the context bank
   - vdd-supply : vdd-supply: phandle to GDSC regulator controlling this IOMMU.
 
 Optional properties:
-- qcom,needs-alt-core-clk : boolean to enable the secondary core clock for
+- qti,needs-alt-core-clk : boolean to enable the secondary core clock for
   access to the IOMMU configuration registers
-- qcom,needs-alt-iface-clk : boolean to enable the secondary iface clock for
+- qti,needs-alt-iface-clk : boolean to enable the secondary iface clock for
   access to the IOMMU configuration registers
-- qcom,iommu-bfb-regs : An array of unsigned 32-bit integers corresponding to
+- qti,iommu-bfb-regs : An array of unsigned 32-bit integers corresponding to
   BFB register addresses that need to be configured for performance tuning
-  purposes. If this property is present, the qcom,iommu-bfb-data must also be
+  purposes. If this property is present, the qti,iommu-bfb-data must also be
   present. Register addresses are specified as an offset from the base of the
   IOMMU hardware block. This property may be omitted if no BFB register
   configuration needs to be done for a particular IOMMU hardware instance. The
   registers specified by this property shall fall within the IOMMU
   implementation-defined register region.
-- qcom,iommu-bfb-data : An array of unsigned 32-bit integers representing the
+- qti,iommu-bfb-data : An array of unsigned 32-bit integers representing the
   values to be programmed into the corresponding registers given by the
-  qcom,iommu-bfb-regs property. If this property is present, the
-  qcom,iommu-bfb-regs property shall also be present, and the lengths of both
+  qti,iommu-bfb-regs property. If this property is present, the
+  qti,iommu-bfb-regs property shall also be present, and the lengths of both
   properties shall be the same.
-- qcom,iommu-lpae-bfb-regs : See description for qcom,iommu-bfb-regs. This is
+- qti,iommu-lpae-bfb-regs : See description for qti,iommu-bfb-regs. This is
   the same property except this is for IOMMU with LPAE support.
-- qcom,iommu-lpae-bfb-data : See description for qcom,iommu-bfb-data. This is
+- qti,iommu-lpae-bfb-data : See description for qti,iommu-bfb-data. This is
   the same property except this is for IOMMU with LPAE support.
 
 Example:
 
-	qcom,iommu@fda64000 {
-		compatible = "qcom,msm-smmu-v1";
+	qti,iommu@fda64000 {
+		compatible = "qti,msm-smmu-v1";
 		reg = <0xfda64000 0x10000>;
 		reg-names = "iommu_base";
 		vdd-supply = <&gdsc_iommu>;
-		qcom,iommu-bfb-regs = <0x204c 0x2050>;
-		qcom,iommu-bfb-data = <0xffff 0xffce>;
+		qti,iommu-bfb-regs = <0x204c 0x2050>;
+		qti,iommu-bfb-data = <0xffff 0xffce>;
 		label = "iommu_0";
-		qcom,iommu-pmu-ngroups = <1>;
-		qcom,iommu-pmu-ncounters = <8>;
-		qcom,iommu-pmu-event-classes = <0x00,
+		qti,iommu-pmu-ngroups = <1>;
+		qti,iommu-pmu-ncounters = <8>;
+		qti,iommu-pmu-event-classes = <0x00,
 						0x01>;
 
-		qcom,iommu-ctx@fda6c000 {
-			compatible = "qcom,msm-smmu-v1-ctx";
+		qti,iommu-ctx@fda6c000 {
+			compatible = "qti,msm-smmu-v1-ctx";
 			reg = <0xfda6c000 0x1000>;
 			interrupts = <0 70 0>;
-			qcom,iommu-ctx-sids = <0 2>;
+			qti,iommu-ctx-sids = <0 2>;
 			label = "ctx_0";
 		};
-		qcom,iommu-ctx@fda6d000 {
-			compatible = "qcom,msm-smmu-v1-ctx";
+		qti,iommu-ctx@fda6d000 {
+			compatible = "qti,msm-smmu-v1-ctx";
 			reg = <0xfda6d000 0x1000>;
 			interrupts = <0 71 0>;
-			qcom,iommu-ctx-sids = <1>;
+			qti,iommu-ctx-sids = <1>;
 			label = "ctx_1";
 		};
 	};

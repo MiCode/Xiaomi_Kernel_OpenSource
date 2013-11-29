@@ -11,21 +11,21 @@
  */
 
 &soc {
-	qcom,iommu-domains {
-		compatible = "qcom,iommu-domains";
+	qti,iommu-domains {
+		compatible = "qti,iommu-domains";
 
-		venus_domain_ns: qcom,iommu-domain1 {
+		venus_domain_ns: qti,iommu-domain1 {
 			label = "venus_ns";
-			qcom,iommu-contexts = <&venus_ns>;
-			qcom,virtual-addr-pool = <0x40000000 0x3f000000
+			qti,iommu-contexts = <&venus_ns>;
+			qti,virtual-addr-pool = <0x40000000 0x3f000000
 						  0x7f000000 0x1000000>;
 		};
 
-		venus_domain_cp: qcom,iommu-domain2 {
+		venus_domain_cp: qti,iommu-domain2 {
 			label = "venus_cp";
-			qcom,iommu-contexts = <&venus_cp>;
-			qcom,virtual-addr-pool = <0x1000000 0x3f000000>;
-			qcom,secure-domain;
+			qti,iommu-contexts = <&venus_cp>;
+			qti,virtual-addr-pool = <0x1000000 0x3f000000>;
+			qti,secure-domain;
 		};
 	};
 };

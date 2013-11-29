@@ -129,8 +129,8 @@
 		<1010000 1818000>,
 		<1616000 2908800>,
 		<2020000 6400000>;
-	qcom,iommu-groups = <&venus_domain_ns &venus_domain_cp>;
-	qcom,iommu-group-buffer-types = <0xfff 0x1ff>;
+	qti,iommu-groups = <&venus_domain_ns &venus_domain_cp>;
+	qti,iommu-group-buffer-types = <0xfff 0x1ff>;
 	qcom,buffer-type-tz-usage-table = <0x1 0x1>,
 					<0x7fe 0x2>;
 };
