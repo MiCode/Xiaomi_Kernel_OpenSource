@@ -205,6 +205,9 @@ static void compr_event_handler(uint32_t opcode,
 		snd_compr_fragment_elapsed(cstream);
 
 		if (!atomic_read(&prtd->start)) {
+			/* Writes must be restarted from _copy() */
+			pr_debug("write_done received while not started, treat as xrun");
+			atomic_set(&prtd->xrun, 1);
 			spin_unlock_irq(&prtd->lock);
 			break;
 		}
