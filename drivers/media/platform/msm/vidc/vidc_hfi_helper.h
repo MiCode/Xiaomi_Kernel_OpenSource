@@ -693,7 +693,7 @@ struct hfi_aspect_ratio {
 #define HFI_MVC_BUFFER_LAYOUT_TOP_BOTTOM  (0)
 #define HFI_MVC_BUFFER_LAYOUT_SIDEBYSIDE  (1)
 #define HFI_MVC_BUFFER_LAYOUT_SEQ         (2)
-struct hfi_mvc_buffer_lauout_descp_type {
+struct hfi_mvc_buffer_layout_descp_type {
 	u32    layout_type;
 	u32    bright_view_first;
 	u32    ngap;

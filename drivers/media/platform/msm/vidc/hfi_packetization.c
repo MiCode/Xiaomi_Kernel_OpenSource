@@ -33,6 +33,7 @@ static int profile_table[] = {
 	[ilog2(HAL_H264_PROFILE_CONSTRAINED_HIGH)] =
 		HFI_H264_PROFILE_CONSTRAINED_HIGH,
 	[ilog2(HAL_VPX_PROFILE_VERSION_1)] = HFI_VPX_PROFILE_VERSION_1,
+	[ilog2(HAL_MVC_PROFILE_STEREO_HIGH)] = HFI_H264_PROFILE_STEREO_HIGH,
 };
 
 static int entropy_mode[] = {
@@ -104,6 +105,74 @@ static inline int hal_to_hfi_type(int property, int hal_type)
 	default:
 		return -ENOTSUPP;
 	}
+}
+
+static inline u32 get_hfi_layout(enum hal_buffer_layout_type hal_buf_layout)
+{
+	u32 hfi_layout;
+	switch (hal_buf_layout) {
+	case HAL_BUFFER_LAYOUT_TOP_BOTTOM:
+		hfi_layout = HFI_MVC_BUFFER_LAYOUT_TOP_BOTTOM;
+		break;
+	case HAL_BUFFER_LAYOUT_SEQ:
+		hfi_layout = HFI_MVC_BUFFER_LAYOUT_SEQ;
+		break;
+	default:
+		dprintk(VIDC_ERR, "Invalid buffer layout: 0x%x\n",
+			hal_buf_layout);
+		hfi_layout = HFI_MVC_BUFFER_LAYOUT_SEQ;
+		break;
+	}
+	return hfi_layout;
+}
+
+static inline u32 get_hfi_codec(enum hal_video_codec hal_codec)
+{
+	u32 hfi_codec;
+	switch (hal_codec) {
+	case HAL_VIDEO_CODEC_MVC:
+	case HAL_VIDEO_CODEC_H264:
+		hfi_codec = HFI_VIDEO_CODEC_H264;
+		break;
+	case HAL_VIDEO_CODEC_H263:
+		hfi_codec = HFI_VIDEO_CODEC_H263;
+		break;
+	case HAL_VIDEO_CODEC_MPEG1:
+		hfi_codec = HFI_VIDEO_CODEC_MPEG1;
+		break;
+	case HAL_VIDEO_CODEC_MPEG2:
+		hfi_codec = HFI_VIDEO_CODEC_MPEG2;
+		break;
+	case HAL_VIDEO_CODEC_MPEG4:
+		hfi_codec = HFI_VIDEO_CODEC_MPEG4;
+		break;
+	case HAL_VIDEO_CODEC_DIVX_311:
+		hfi_codec = HFI_VIDEO_CODEC_DIVX_311;
+		break;
+	case HAL_VIDEO_CODEC_DIVX:
+		hfi_codec = HFI_VIDEO_CODEC_DIVX;
+		break;
+	case HAL_VIDEO_CODEC_VC1:
+		hfi_codec = HFI_VIDEO_CODEC_VC1;
+		break;
+	case HAL_VIDEO_CODEC_SPARK:
+		hfi_codec = HFI_VIDEO_CODEC_SPARK;
+		break;
+	case HAL_VIDEO_CODEC_VP8:
+		hfi_codec = HFI_VIDEO_CODEC_VP8;
+		break;
+	case HAL_VIDEO_CODEC_HEVC:
+		hfi_codec = HFI_VIDEO_CODEC_HEVC;
+		break;
+	case HAL_VIDEO_CODEC_HEVC_HYBRID:
+		hfi_codec = HFI_VIDEO_CODEC_HEVC_HYBRID;
+		break;
+	default:
+		dprintk(VIDC_ERR, "Invalid codec 0x%x\n", hal_codec);
+		hfi_codec = 0;
+		break;
+	}
+	return hfi_codec;
 }
 
 int create_pkt_cmd_sys_init(struct hfi_cmd_sys_init_packet *pkt,
@@ -246,7 +315,9 @@ inline int create_pkt_cmd_sys_session_init(
 	pkt->packet_type = HFI_CMD_SYS_SESSION_INIT;
 	pkt->session_id = session_id;
 	pkt->session_domain = session_domain;
-	pkt->session_codec = session_codec;
+	pkt->session_codec = get_hfi_codec(session_codec);
+	if (!pkt->session_codec)
+		return -EINVAL;
 
 	return rc;
 }
@@ -1496,6 +1567,20 @@ int create_pkt_cmd_session_set_property(
 		hfi->threshold_value =
 			((struct hfi_scs_threshold *) pdata)->threshold_value;
 		pkt->size += sizeof(u32) + sizeof(struct hfi_scs_threshold);
+		break;
+	}
+	case HAL_PARAM_MVC_BUFFER_LAYOUT:
+	{
+		struct hfi_mvc_buffer_layout_descp_type *hfi;
+		struct hal_mvc_buffer_layout *layout_info = pdata;
+		pkt->rg_property_data[0] = HFI_PROPERTY_PARAM_MVC_BUFFER_LAYOUT;
+		hfi = (struct hfi_mvc_buffer_layout_descp_type *)
+			&pkt->rg_property_data[1];
+		hfi->layout_type = get_hfi_layout(layout_info->layout_type);
+		hfi->bright_view_first = layout_info->bright_view_first;
+		hfi->ngap = layout_info->ngap;
+		pkt->size += sizeof(u32) +
+			sizeof(struct hfi_mvc_buffer_layout_descp_type);
 		break;
 	}
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */

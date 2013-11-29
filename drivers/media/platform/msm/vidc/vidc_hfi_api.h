@@ -185,6 +185,7 @@ enum hal_property {
 	HAL_PARAM_VDEC_CONCEAL_COLOR,
 	HAL_PARAM_VDEC_SCS_THRESHOLD,
 	HAL_PARAM_GET_BUFFER_REQUIREMENTS,
+	HAL_PARAM_MVC_BUFFER_LAYOUT,
 };
 
 enum hal_domain {
@@ -392,7 +393,6 @@ enum hal_divx_profile {
 
 enum hal_mvc_profile {
 	HAL_MVC_PROFILE_STEREO_HIGH  = 0x00000001,
-	HAL_MVC_PROFILE_MV_HIGH      = 0x00000002,
 	HAL_UNUSED_MVC_PROFILE = 0x10000000,
 };
 
@@ -786,6 +786,18 @@ struct hal_nal_stream_format_select {
 struct hal_multi_view_format {
 	u32 views;
 	u32 rg_view_order[1];
+};
+
+enum hal_buffer_layout_type {
+	HAL_BUFFER_LAYOUT_TOP_BOTTOM,
+	HAL_BUFFER_LAYOUT_SEQ,
+	HAL_UNUSED_BUFFER_LAYOUT = 0x10000000,
+};
+
+struct hal_mvc_buffer_layout {
+	enum hal_buffer_layout_type layout_type;
+	u32 bright_view_first;
+	u32 ngap;
 };
 
 struct hal_seq_header_info {
