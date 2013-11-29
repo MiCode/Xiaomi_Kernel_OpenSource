@@ -303,6 +303,7 @@ static void compr_event_handler(uint32_t opcode,
 			param.flags = time_stamp_flag;
 			param.uid =  (unsigned long)buf[prtd->out_head].phys
 					+ output_meta_data.meta_data_length;
+			param.metadata_len = COMPRE_OUTPUT_METADATA_SIZE;
 			if (q6asm_async_write(prtd->audio_client,
 						&param) < 0)
 				pr_err("%s:q6asm_async_write failed\n",

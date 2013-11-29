@@ -130,6 +130,7 @@ struct audio_aio_write_param {
 	uint32_t      lsw_ts;
 	uint32_t      msw_ts;
 	uint32_t      flags;
+	uint32_t      metadata_len;
 };
 
 struct audio_aio_read_param {
