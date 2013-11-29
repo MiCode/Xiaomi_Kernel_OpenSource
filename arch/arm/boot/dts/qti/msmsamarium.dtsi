@@ -1267,6 +1267,7 @@
 		vdd_mss-supply = <&pma8084_s6>;
 		vdd_cx-supply = <&pma8084_s2_corner>;
 		vdd_mx-supply = <&pma8084_s1>;
+		vdd_mx-uV = <1050000>;
 		vdd_pll-supply = <&pma8084_l12>;
 		qcom,vdd_pll = <1800000>;
 		qcom,firmware-name = "mba";

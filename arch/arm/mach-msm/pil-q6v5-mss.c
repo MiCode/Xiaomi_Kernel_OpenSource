@@ -325,6 +325,11 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 	q6->vreg_mx = devm_regulator_get(&pdev->dev, "vdd_mx");
 	if (IS_ERR(q6->vreg_mx))
 		return PTR_ERR(q6->vreg_mx);
+	prop = of_find_property(pdev->dev.of_node, "vdd_mx-uV", NULL);
+	if (!prop) {
+		dev_err(&pdev->dev, "Missing vdd_mx-uV property\n");
+		return -EINVAL;
+	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 		"cxrail_bhs_reg");
