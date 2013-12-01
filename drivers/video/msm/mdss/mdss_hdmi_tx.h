@@ -54,6 +54,7 @@ struct hdmi_tx_ctrl {
 	struct hdmi_audio audio_data;
 
 	struct mutex mutex;
+	struct mutex lut_lock;
 	struct kobject *kobj;
 	struct switch_dev sdev;
 	struct switch_dev audio_sdev;
