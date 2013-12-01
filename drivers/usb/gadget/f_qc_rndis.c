@@ -33,7 +33,8 @@
 #include "u_ether.h"
 #include "u_qc_ether.h"
 #include "rndis.h"
-
+#include "u_bam_data.h"
+#include <mach/rndis_ipa.h>
 
 /*
  * This function is an RNDIS Ethernet port -- a Microsoft protocol that's
@@ -95,7 +96,12 @@ struct f_rndis_qc {
 	struct usb_request		*notify_req;
 	atomic_t			notify_count;
 	struct data_port		bam_port;
+	enum transport_type		xport;
 };
+
+static struct ipa_usb_init_params rndis_ipa_params;
+static bool rndis_ipa_supported;
+static void rndis_qc_open(struct qc_gether *geth);
 
 static inline struct f_rndis_qc *func_to_rndis_qc(struct usb_function *f)
 {
@@ -424,6 +430,8 @@ static int rndis_qc_bam_connect(struct f_rndis_qc *dev)
 	u8 src_connection_idx, dst_connection_idx;
 	struct usb_composite_dev *cdev = dev->port.func.config->cdev;
 	struct usb_gadget *gadget = cdev->gadget;
+	enum peer_bam peer_bam = (dev->xport == USB_GADGET_XPORT_BAM2BAM_IPA) ?
+		IPA_P_BAM : A2_P_BAM;
 
 	dev->bam_port.cdev = cdev;
 	dev->bam_port.func = &dev->port.func;
@@ -431,16 +439,24 @@ static int rndis_qc_bam_connect(struct f_rndis_qc *dev)
 	dev->bam_port.out = dev->port.out_ep;
 
 	/* currently we use the first connection */
-	src_connection_idx = usb_bam_get_connection_idx(gadget->name, A2_P_BAM,
+	src_connection_idx = usb_bam_get_connection_idx(gadget->name, peer_bam,
 		USB_TO_PEER_PERIPHERAL, 0);
-	dst_connection_idx = usb_bam_get_connection_idx(gadget->name, A2_P_BAM,
+	dst_connection_idx = usb_bam_get_connection_idx(gadget->name, peer_bam,
 		PEER_PERIPHERAL_TO_USB, 0);
 	if (src_connection_idx < 0 || dst_connection_idx < 0) {
 		pr_err("%s: usb_bam_get_connection_idx failed\n", __func__);
 		return ret;
 	}
-	ret = bam_data_connect(&dev->bam_port, 0, USB_GADGET_XPORT_BAM2BAM,
-		src_connection_idx, dst_connection_idx, USB_FUNC_RNDIS);
+	if (peer_bam == A2_P_BAM)
+		ret = bam_data_connect(&dev->bam_port, 0,
+			USB_GADGET_XPORT_BAM2BAM, src_connection_idx,
+			dst_connection_idx, USB_FUNC_RNDIS);
+	else {
+		ret = bam_data_connect(&dev->bam_port, 0,
+			USB_GADGET_XPORT_BAM2BAM_IPA, src_connection_idx,
+			dst_connection_idx, USB_FUNC_RNDIS);
+		rndis_qc_open(&dev->port);
+	}
 	if (ret) {
 		pr_err("bam_data_connect failed: err:%d\n",
 				ret);
@@ -586,6 +602,7 @@ static void rndis_qc_command_complete(struct usb_ep *ep,
 	if (buf->MessageType == RNDIS_MSG_INIT) {
 		rndis->max_pkt_size = buf->MaxTransferSize;
 		pr_debug("MaxTransferSize: %d\n", buf->MaxTransferSize);
+		u_bam_data_set_max_xfer_size(rndis->max_pkt_size);
 	}
 }
 
@@ -694,7 +711,10 @@ static int rndis_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			 * we can disconnect the port from the network layer.
 			 */
 			rndis_qc_bam_disconnect(rndis);
-			gether_qc_disconnect_name(&rndis->port, "rndis0");
+
+			if (rndis->xport != USB_GADGET_XPORT_BAM2BAM_IPA)
+				gether_qc_disconnect_name(&rndis->port,
+					"rndis0");
 		}
 
 		if (!rndis->port.in_ep->desc || !rndis->port.out_ep->desc) {
@@ -708,6 +728,16 @@ static int rndis_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 				goto fail;
 			}
 		}
+		if (rndis->xport == USB_GADGET_XPORT_BAM2BAM_IPA &&
+			gadget_is_dwc3(cdev->gadget)) {
+				if (msm_ep_config(rndis->port.in_ep) ||
+					msm_ep_config(rndis->port.out_ep)) {
+					pr_err("%s: ep_config failed\n",
+						__func__);
+					goto fail;
+				}
+		} else
+			pr_debug("RNDIS is being used with non DWC3 core\n");
 
 		/* Avoid ZLPs; they can be troublesome. */
 		rndis->port.is_zlp_ok = false;
@@ -730,7 +760,11 @@ static int rndis_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			goto fail;
 
 		DBG(cdev, "RNDIS RX/TX early activation ...\n");
-		net = gether_qc_connect_name(&rndis->port, "rndis0", false);
+		if (rndis->xport != USB_GADGET_XPORT_BAM2BAM_IPA)
+			net = gether_qc_connect_name(&rndis->port, "rndis0",
+				false);
+		else
+			net = gether_qc_get_net("rndis0");
 		if (IS_ERR(net))
 			return PTR_ERR(net);
 
@@ -755,7 +789,10 @@ static void rndis_qc_disable(struct usb_function *f)
 
 	rndis_uninit(rndis->config);
 	rndis_qc_bam_disconnect(rndis);
-	gether_qc_disconnect_name(&rndis->port, "rndis0");
+	if (rndis->xport != USB_GADGET_XPORT_BAM2BAM_IPA)
+		gether_qc_disconnect_name(&rndis->port, "rndis0");
+	else
+		rndis_ipa_supported = false;
 
 	usb_ep_disable(rndis->notify);
 	rndis->notify->driver_data = NULL;
@@ -923,9 +960,10 @@ rndis_qc_bind(struct usb_configuration *c, struct usb_function *f)
 	rndis_set_param_medium(rndis->config, RNDIS_MEDIUM_802_3, 0);
 	rndis_set_host_mac(rndis->config, rndis->ethaddr);
 
-	if (rndis_set_param_vendor(rndis->config, rndis->vendorID,
-				   rndis->manufacturer))
-			goto fail;
+	if (rndis->manufacturer && rndis->vendorID &&
+		rndis_set_param_vendor(rndis->config, rndis->vendorID,
+			rndis->manufacturer))
+		goto fail;
 
 	rndis_set_max_pkt_xfer(rndis->config, rndis->max_pkt_per_xfer);
 
@@ -989,7 +1027,17 @@ rndis_qc_unbind(struct usb_configuration *c, struct usb_function *f)
 	kfree(rndis->notify_req->buf);
 	usb_ep_free_request(rndis->notify, rndis->notify_req);
 
+	if (rndis->xport == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		rndis_ipa_cleanup(rndis_ipa_params.private);
+		rndis_ipa_supported = false;
+	}
+
 	kfree(rndis);
+}
+
+bool is_rndis_ipa_supported(void)
+{
+	return rndis_ipa_supported;
 }
 
 /* Some controllers can't support RNDIS ... */
@@ -1014,13 +1062,13 @@ static inline bool can_support_rndis_qc(struct usb_configuration *c)
 int
 rndis_qc_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN])
 {
-	return rndis_qc_bind_config_vendor(c, ethaddr, 0, NULL, 1);
+	return rndis_qc_bind_config_vendor(c, ethaddr, 0, NULL, 1, NULL);
 }
 
 int
 rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 					 u32 vendorID, const char *manufacturer,
-					 u8 max_pkt_per_xfer)
+					 u8 max_pkt_per_xfer, char *xport_name)
 {
 	struct f_rndis_qc	*rndis;
 	int		status;
@@ -1075,13 +1123,26 @@ rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 		goto fail;
 	}
 
-	memcpy(rndis->ethaddr, ethaddr, ETH_ALEN);
+	rndis->xport = str_to_xport(xport_name);
+
+	/* export host's Ethernet address in CDC format */
+	if (rndis->xport == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		gether_qc_get_macs(rndis_ipa_params.device_ethaddr,
+				rndis_ipa_params.host_ethaddr);
+		pr_debug("setting host_ethaddr=%pM, device_ethaddr=%pM",
+			rndis_ipa_params.host_ethaddr,
+			rndis_ipa_params.device_ethaddr);
+		rndis_ipa_supported = true;
+	} else
+		memcpy(rndis->ethaddr, ethaddr, ETH_ALEN);
+
 	rndis->vendorID = vendorID;
 	rndis->manufacturer = manufacturer;
 
 	/* if max_pkt_per_xfer was not configured set to default value */
 	rndis->max_pkt_per_xfer =
 		max_pkt_per_xfer ? max_pkt_per_xfer : DEFAULT_MAX_PKT_PER_XFER;
+	u_bam_data_set_max_pkt_num(rndis->max_pkt_per_xfer);
 
 	/* RNDIS activates when the host changes this filter */
 	rndis->port.cdc_filter = 0;
@@ -1107,9 +1168,23 @@ rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 	status = usb_add_function(c, &rndis->port.func);
 	if (status) {
 		kfree(rndis);
-fail:
-		rndis_exit();
+		goto fail;
 	}
+
+	if (rndis->xport != USB_GADGET_XPORT_BAM2BAM_IPA)
+		return status;
+
+	status = rndis_ipa_init(&rndis_ipa_params);
+	if (status) {
+		pr_err("%s: failed to initialize rndis_ipa\n", __func__);
+		kfree(rndis);
+		goto fail;
+	} else {
+		pr_debug("%s: rndis_ipa successful created\n", __func__);
+		return status;
+	}
+fail:
+	rndis_exit();
 	return status;
 }
 
@@ -1220,4 +1295,17 @@ static void rndis_qc_cleanup(void)
 	_rndis_qc = NULL;
 }
 
+void *rndis_qc_get_ipa_rx_cb(void)
+{
+	return rndis_ipa_params.ipa_rx_notify;
+}
 
+void *rndis_qc_get_ipa_tx_cb(void)
+{
+	return rndis_ipa_params.ipa_tx_notify;
+}
+
+void *rndis_qc_get_ipa_priv(void)
+{
+	return rndis_ipa_params.private;
+}

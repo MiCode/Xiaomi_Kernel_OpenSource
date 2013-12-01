@@ -64,9 +64,9 @@
 #include "rndis.c"
 #include "f_qc_ecm.c"
 #include "f_mbim.c"
+#include "f_qc_rndis.c"
 #include "u_bam_data.c"
 #include "f_ecm.c"
-#include "f_qc_rndis.c"
 #include "u_ether.c"
 #include "u_qc_ether.c"
 #ifdef CONFIG_TARGET_CORE
@@ -1649,6 +1649,8 @@ static struct android_usb_function ptp_function = {
 	.bind_config	= ptp_function_bind_config,
 };
 
+/* rndis transport string */
+static char rndis_transports[MAX_XPORT_STR_LEN];
 
 struct rndis_function_config {
 	u8      ethaddr[ETH_ALEN];
@@ -1741,6 +1743,7 @@ static int rndis_qc_function_bind_config(struct android_usb_function *f,
 					struct usb_configuration *c)
 {
 	int ret;
+	char *trans;
 	struct rndis_function_config *rndis = f->config;
 
 	if (!rndis) {
@@ -1752,10 +1755,16 @@ static int rndis_qc_function_bind_config(struct android_usb_function *f,
 		rndis->ethaddr[0], rndis->ethaddr[1], rndis->ethaddr[2],
 		rndis->ethaddr[3], rndis->ethaddr[4], rndis->ethaddr[5]);
 
-	ret = gether_qc_setup_name(c->cdev->gadget, rndis->ethaddr, "rndis");
-	if (ret) {
-		pr_err("%s: gether_setup failed\n", __func__);
-		return ret;
+	pr_debug("%s: rndis_transport is %s", __func__, rndis_transports);
+
+	trans = strim(rndis_transports);
+	if (strcmp("BAM2BAM_IPA", trans)) {
+		ret = gether_qc_setup_name(c->cdev->gadget,
+					rndis->ethaddr, "rndis");
+		if (ret) {
+			pr_err("%s: gether_setup failed\n", __func__);
+			return ret;
+		}
 	}
 
 	if (rndis->wceis) {
@@ -1772,7 +1781,7 @@ static int rndis_qc_function_bind_config(struct android_usb_function *f,
 
 	return rndis_qc_bind_config_vendor(c, rndis->ethaddr, rndis->vendorID,
 				    rndis->manufacturer,
-					rndis->max_pkt_per_xfer);
+					rndis->max_pkt_per_xfer, trans);
 }
 
 static void rndis_function_unbind_config(struct android_usb_function *f,
@@ -1785,7 +1794,10 @@ static void rndis_function_unbind_config(struct android_usb_function *f,
 static void rndis_qc_function_unbind_config(struct android_usb_function *f,
 						struct usb_configuration *c)
 {
-	gether_qc_cleanup_name("rndis0");
+	char *trans = strim(rndis_transports);
+
+	if (strcmp("BAM2BAM_IPA", trans))
+		gether_qc_cleanup_name("rndis0");
 }
 
 static ssize_t rndis_manufacturer_show(struct device *dev,
@@ -1919,6 +1931,21 @@ static ssize_t rndis_max_pkt_per_xfer_store(struct device *dev,
 static DEVICE_ATTR(max_pkt_per_xfer, S_IRUGO | S_IWUSR,
 				   rndis_max_pkt_per_xfer_show,
 				   rndis_max_pkt_per_xfer_store);
+static ssize_t rndis_transports_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%s\n", rndis_transports);
+}
+
+static ssize_t rndis_transports_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	strlcpy(rndis_transports, buf, sizeof(rndis_transports));
+	return size;
+}
+
+static DEVICE_ATTR(rndis_transports, S_IRUGO | S_IWUSR, rndis_transports_show,
+					       rndis_transports_store);
 
 static ssize_t rndis_rx_trigger_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
@@ -1941,6 +1968,7 @@ static struct device_attribute *rndis_function_attributes[] = {
 	&dev_attr_ethaddr,
 	&dev_attr_vendorID,
 	&dev_attr_max_pkt_per_xfer,
+	&dev_attr_rndis_transports,
 	&dev_attr_rx_trigger,
 	NULL
 };

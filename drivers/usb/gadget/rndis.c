@@ -35,7 +35,7 @@
 #include <asm/io.h>
 #include <asm/byteorder.h>
 #include <asm/unaligned.h>
-
+#include "u_bam_data.h"
 
 #undef	VERBOSE_DEBUG
 
@@ -544,14 +544,24 @@ static int gen_ndis_set_resp(u8 configNr, u32 OID, u8 *buf, u32 buf_len,
 		 */
 		retval = 0;
 		if (*params->filter) {
+			if (!is_rndis_ipa_supported()) {
+				netif_carrier_on(params->dev);
+				if (netif_running(params->dev))
+					netif_wake_queue(params->dev);
+			} else {
+				if (params->state != RNDIS_DATA_INITIALIZED)
+					u_bam_data_start_rndis_ipa();
+			}
 			params->state = RNDIS_DATA_INITIALIZED;
-			netif_carrier_on(params->dev);
-			if (netif_running(params->dev))
-				netif_wake_queue(params->dev);
 		} else {
+			if (!is_rndis_ipa_supported()) {
+				netif_carrier_off(params->dev);
+				netif_stop_queue(params->dev);
+			} else {
+				if (params->state == RNDIS_DATA_INITIALIZED)
+					u_bam_data_stop_rndis_ipa();
+			}
 			params->state = RNDIS_INITIALIZED;
-			netif_carrier_off(params->dev);
-			netif_stop_queue(params->dev);
 		}
 		break;
 
