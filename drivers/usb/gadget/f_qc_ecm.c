@@ -608,6 +608,16 @@ static int ecm_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 					return PTR_ERR(net);
 			}
 
+			if (ecm->xport == USB_GADGET_XPORT_BAM2BAM_IPA &&
+			    gadget_is_dwc3(cdev->gadget)) {
+				if (msm_ep_config(ecm->port.in_ep) ||
+				    msm_ep_config(ecm->port.out_ep)) {
+					pr_err("%s: ep_config failed\n",
+						__func__);
+					goto fail;
+				}
+			}
+
 			if (ecm_qc_bam_connect(ecm))
 				goto fail;
 		}
