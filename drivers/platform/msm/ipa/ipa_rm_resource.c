@@ -609,6 +609,7 @@ int ipa_rm_resource_delete_dependency(struct ipa_rm_resource *resource,
 	unsigned long consumer_flags;
 	bool state_changed = false;
 	bool release_consumer = false;
+	enum ipa_rm_event evt;
 	if (!resource || !depends_on) {
 		IPA_RM_ERR("invalid params\n");
 		return -EINVAL;
@@ -640,6 +641,7 @@ int ipa_rm_resource_delete_dependency(struct ipa_rm_resource *resource,
 			resource)->pending_release == 0) {
 			resource->state = IPA_RM_RELEASED;
 			state_changed = true;
+			evt = IPA_RM_RESOURCE_RELEASED;
 		}
 		spin_unlock_irqrestore(&depends_on->state_lock, consumer_flags);
 		break;
@@ -655,6 +657,7 @@ int ipa_rm_resource_delete_dependency(struct ipa_rm_resource *resource,
 				resource)->pending_request == 0) {
 			resource->state = IPA_RM_GRANTED;
 			state_changed = true;
+			evt = IPA_RM_RESOURCE_GRANTED;
 		}
 		spin_unlock_irqrestore(&depends_on->state_lock, consumer_flags);
 		break;
@@ -667,7 +670,7 @@ int ipa_rm_resource_delete_dependency(struct ipa_rm_resource *resource,
 		ipa_rm_peers_list_has_last_peer(resource->peers_list)) {
 		(void) ipa_rm_wq_send_cmd(IPA_RM_WQ_NOTIFY_PROD,
 				resource->name,
-				resource->state,
+				evt,
 				false);
 		result = -EINPROGRESS;
 	}
