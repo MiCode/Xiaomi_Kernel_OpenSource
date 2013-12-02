@@ -87,61 +87,61 @@
 		status = "disabled";
 	};
 
-	qcom,smem@1c100000 {
-		compatible = "qcom,smem";
+	qti,smem@1c100000 {
+		compatible = "qti,smem";
 		reg = <0x1c100000 0x200000>,
 			<0xf9011000 0x1000>;
 		reg-names = "smem", "irq-reg-base";
 
-		qcom,smd-hex0 {
-			compatible = "qcom,smd";
-			qcom,smd-edge = <0>;
-			qcom,smd-irq-offset = <0x8>;
-			qcom,smd-irq-bitmask = <0x100>;
+		qti,smd-hex0 {
+			compatible = "qti,smd";
+			qti,smd-edge = <0>;
+			qti,smd-irq-offset = <0x8>;
+			qti,smd-irq-bitmask = <0x100>;
 			interrupts = <0 72 1>;
 			label = "hex0";
-			qcom,not-loadable;
+			qti,not-loadable;
 		};
 
-		qcom,smd-hex1 {
-			compatible = "qcom,smd";
-			qcom,smd-edge = <6>;
-			qcom,smd-irq-offset = <0x8>;
-			qcom,smd-irq-bitmask = <0x1000>;
+		qti,smd-hex1 {
+			compatible = "qti,smd";
+			qti,smd-edge = <6>;
+			qti,smd-irq-offset = <0x8>;
+			qti,smd-irq-bitmask = <0x1000>;
 			interrupts = <0 68 1>;
 			label = "hex1";
-			qcom,not-loadable;
+			qti,not-loadable;
 		};
 
-		qcom,smd-hex2 {
-			compatible = "qcom,smd";
-			qcom,smd-edge = <1>;
-			qcom,smd-irq-offset = <0x8>;
-			qcom,smd-irq-bitmask = <0x10000>;
+		qti,smd-hex2 {
+			compatible = "qti,smd";
+			qti,smd-edge = <1>;
+			qti,smd-irq-offset = <0x8>;
+			qti,smd-irq-bitmask = <0x10000>;
 			interrupts = <0 64 1>;
 			label = "hex2";
-			qcom,not-loadable;
+			qti,not-loadable;
 		};
 
-		qcom,smd-hex3 {
-			compatible = "qcom,smd";
-			qcom,smd-edge = <3>;
-			qcom,smd-irq-offset = <0x8>;
-			qcom,smd-irq-bitmask = <0x100000>;
+		qti,smd-hex3 {
+			compatible = "qti,smd";
+			qti,smd-edge = <3>;
+			qti,smd-irq-offset = <0x8>;
+			qti,smd-irq-bitmask = <0x100000>;
 			interrupts = <0 60 1>;
 			label = "hex3";
-			qcom,not-loadable;
+			qti,not-loadable;
 		};
 
 
-		qcom,smd-tenx {
-			compatible = "qcom,smd";
-			qcom,smd-edge = <10>;
-			qcom,smd-irq-offset = <0x8>;
-			qcom,smd-irq-bitmask = <0x10>;
+		qti,smd-tenx {
+			compatible = "qti,smd";
+			qti,smd-edge = <10>;
+			qti,smd-irq-offset = <0x8>;
+			qti,smd-irq-bitmask = <0x10>;
 			interrupts = <0 26 1>;
 			label = "tenx";
-			qcom,not-loadable;
+			qti,not-loadable;
 		};
 	};
 
