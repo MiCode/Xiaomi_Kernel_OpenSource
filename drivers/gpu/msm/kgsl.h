@@ -118,8 +118,6 @@ struct kgsl_driver {
 	/* Mutex for protecting the device list */
 	struct mutex devlock;
 
-	void *ptpool;
-
 	struct mutex memfree_hist_mutex;
 	struct kgsl_memfree_hist memfree_hist;
 
