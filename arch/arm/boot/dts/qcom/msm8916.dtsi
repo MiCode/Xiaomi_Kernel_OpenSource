@@ -768,5 +768,6 @@
 	status = "okay";
 };
 
+#include "msm-pm8916.dtsi"
 #include "msm8916-regulator.dtsi"
 #include "msm8916-pm.dtsi"
