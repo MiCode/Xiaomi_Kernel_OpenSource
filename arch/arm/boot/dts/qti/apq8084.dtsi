@@ -379,10 +379,10 @@
 		qcom,pipe-attr-ee;
 	};
 
-	pcie0: qcom,pcie@fc520000 {
-		compatible = "qcom,msm_pcie";
+	pcie0: qti,pcie@fc520000 {
+		compatible = "qti,msm_pcie";
 		cell-index = <0>;
-		qcom,ctrl-amt = <1>;
+		qti,ctrl-amt = <1>;
 
 		reg = <0xfc520000 0x2000>,
 		      <0xfc526000 0x1000>,
