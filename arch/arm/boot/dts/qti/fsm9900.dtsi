@@ -136,7 +136,7 @@
 
 		qcom,smd-tenx {
 			compatible = "qcom,smd";
-			qcom,smd-edge = <15>;
+			qcom,smd-edge = <10>;
 			qcom,smd-irq-offset = <0x8>;
 			qcom,smd-irq-bitmask = <0x10>;
 			interrupts = <0 26 1>;
