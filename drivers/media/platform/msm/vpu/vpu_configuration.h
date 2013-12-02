@@ -84,7 +84,8 @@ struct vpu_format_desc {
 
 const struct vpu_format_desc *query_supported_formats(int index);
 
-u32 get_bytesperline(u32 width, u32 bitsperpixel, u32 input_bytesperline);
+u32 get_bytesperline(u32 width, u32 bitsperpixel, u32 input_bytesperline,
+		u32 pixelformat);
 
 static inline u32 get_sizeimage(u32 bytesperline, u32 height, u32 heightfactor)
 {

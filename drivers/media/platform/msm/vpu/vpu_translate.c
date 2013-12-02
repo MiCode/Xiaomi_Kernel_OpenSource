@@ -187,40 +187,60 @@ void translate_colorspace_to_hfi(u32 api_colorspace,
 
 u32 translate_input_source(u32 in)
 {
-	u32 hfi_source = 100; /* invaid */
+	pr_debug("received input source = %d\n", in);
+
+	if (in & VPU_INPUT_TYPE_VCAP)
+		return INPUT_SOURCE_VCAP;
+	else
+		return INPUT_SOURCE_HOST;
+}
+
+u32 translate_input_source_ch(u32 in)
+{
+	u32 hfi_source_ch = 0;
 
 	if (in & VPU_INPUT_TYPE_VCAP) {
 		if (in & VPU_PIPE_VCAP0)
-			hfi_source = INPUT_SOURCE_VCAP0;
-		else if (in & VPU_PIPE_VCAP1)
-			hfi_source = INPUT_SOURCE_VCAP1;
-		else
-			pr_warn("Unsupported input pipe: %d\n", in);
-	} else {
-		hfi_source = INPUT_SOURCE_HOST;
+			hfi_source_ch = VPU_SOURCE_VCAP_CH_0;
+		if (in & VPU_PIPE_VCAP1)
+			hfi_source_ch |= VPU_SOURCE_VCAP_CH_1;
 	}
-	return hfi_source;
+
+	if (hfi_source_ch == 0)
+		pr_warn("No VCAP channel set: %d\n", in);
+
+	return hfi_source_ch;
 }
 
 u32 translate_output_destination(u32 out)
 {
-	u32 hfi_destination = OUTPUT_DEST_NULL; /* removed */
+	pr_debug("received output destination = %d\n", out);
+
+	if (out & VPU_OUTPUT_TYPE_DISPLAY)
+		return OUTPUT_DEST_MDSS;
+	else
+		return OUTPUT_DEST_HOST;
+}
+
+u32 translate_output_destination_ch(u32 out)
+{
+	u32 hfi_destination_ch = 0;
 
 	if (out & VPU_OUTPUT_TYPE_DISPLAY) {
 		if (out & VPU_PIPE_DISPLAY0)
-			hfi_destination = OUTPUT_DEST_MDSS0;
-		else if (out & VPU_PIPE_DISPLAY1)
-			hfi_destination = OUTPUT_DEST_MDSS1;
-		else if (out & VPU_PIPE_DISPLAY2)
-			hfi_destination = OUTPUT_DEST_MDSS2;
-		else if (out & VPU_PIPE_DISPLAY3)
-			hfi_destination = OUTPUT_DEST_MDSS3;
-		else
-			pr_warn("Unsupported output pipe: %d\n", out);
-	} else {
-		hfi_destination = OUTPUT_DEST_HOST;
+			hfi_destination_ch = VPU_DEST_MDSS_CH_0;
+		if (out & VPU_PIPE_DISPLAY1)
+			hfi_destination_ch |= VPU_DEST_MDSS_CH_1;
+		if (out & VPU_PIPE_DISPLAY2)
+			hfi_destination_ch |= VPU_DEST_MDSS_CH_2;
+		if (out & VPU_PIPE_DISPLAY3)
+			hfi_destination_ch |= VPU_DEST_MDSS_CH_3;
 	}
-	return hfi_destination;
+
+	if (hfi_destination_ch == 0)
+		pr_warn("No MDSS channel set: %d\n", out);
+
+	return hfi_destination_ch;
 }
 
 u32 translate_pixelformat_to_api(u32 hfi_pix_fmt)

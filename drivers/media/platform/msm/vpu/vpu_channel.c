@@ -1283,6 +1283,9 @@ static void vpu_buf_to_ipc_buf_info(struct vpu_buffer *vb, bool input,
 		flag |= (vb->vb.num_planes - 1) <<
 				BUFFER_PKT_FLAG_IN_PLANE_NUM_SHIFT;
 
+		/* field information */
+		flag |= translate_field_to_hfi(vb->vb.v4l2_buf.field);
+
 		/* store EOS info if present */
 		if (vb->vb.v4l2_buf.flags & V4L2_QCOM_BUF_FLAG_EOS) {
 			pr_debug("in EOS buf #%d\n", vb->vb.v4l2_buf.index);
@@ -1397,6 +1400,7 @@ int vpu_hw_session_register_buffers(u32 sid, bool input,
 	pbuf_info_ext = (struct _ipc_buffer_info_ext *) extra_info;
 	vpu_buf_to_ipc_buf_info(&vb[0], input, pbuf_info_ext,
 			&buffer_packet.buf_pkt_flag);
+
 	/* actual size of the buffer infor (excluding non used addr) */
 	extra_size = sizeof(struct vpu_ipc_buf_info) +
 			pbuf_info_ext->buf_info.buf_addr_size;
@@ -1483,7 +1487,6 @@ int vpu_hw_session_empty_buffer(u32 sid, struct vpu_buffer *vb)
 	int rc;
 	struct vpu_ipc_cmd_session_buffers_packet buffer_packet;
 	struct _ipc_buffer_info_ext buf_info_ext;
-	u32 field_flag = 0;
 	u32 extra_size;
 	int cid = SID2CID(sid);
 
@@ -1517,8 +1520,6 @@ int vpu_hw_session_empty_buffer(u32 sid, struct vpu_buffer *vb)
 	/* fill buffer_info, and the flag */
 	vpu_buf_to_ipc_buf_info(vb, true, &buf_info_ext,
 				&buffer_packet.buf_pkt_flag);
-	field_flag = translate_field_to_hfi(vb->vb.v4l2_buf.field);
-	buffer_packet.buf_pkt_flag |= field_flag;
 
 	extra_size = sizeof(struct vpu_ipc_buf_info) +
 				buf_info_ext.buf_info.buf_addr_size;

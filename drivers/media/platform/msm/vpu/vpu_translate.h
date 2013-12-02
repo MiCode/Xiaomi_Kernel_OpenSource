@@ -23,7 +23,9 @@
  * Translations between API parameters and HFI parameters
  */
 u32 translate_input_source(u32 in);
+u32 translate_input_source_ch(u32 in);
 u32 translate_output_destination(u32 out);
+u32 translate_output_destination_ch(u32 out);
 
 u32 translate_pixelformat_to_hfi(u32 api_pix_fmt);
 u32 translate_pixelformat_to_api(u32 hfi_pix_fmt);
