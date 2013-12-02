@@ -765,6 +765,7 @@ static void handle_sys_error(enum command_response cmd, void *data)
 			mutex_lock(&core->lock);
 			core->state = VIDC_CORE_INVALID;
 			mutex_unlock(&core->lock);
+			mutex_lock(&core->sync_lock);
 			list_for_each_entry(inst, &core->instances,
 					list) {
 				mutex_lock(&inst->lock);
@@ -786,6 +787,7 @@ static void handle_sys_error(enum command_response cmd, void *data)
 				msm_vidc_queue_v4l2_event(inst,
 						V4L2_EVENT_MSM_VIDC_SYS_ERROR);
 			}
+			mutex_unlock(&core->sync_lock);
 		} else {
 			dprintk(VIDC_ERR,
 				"Got SYS_ERR but unable to identify core");
@@ -813,6 +815,7 @@ static void handle_sys_watchdog_timeout(enum command_response cmd, void *data)
 	mutex_lock(&core->lock);
 	core->state = VIDC_CORE_INVALID;
 	mutex_unlock(&core->lock);
+	mutex_lock(&core->sync_lock);
 	list_for_each_entry(inst, &core->instances, list) {
 		if (inst) {
 			msm_vidc_queue_v4l2_event(inst,
@@ -834,6 +837,7 @@ static void handle_sys_watchdog_timeout(enum command_response cmd, void *data)
 			mutex_unlock(&inst->lock);
 		}
 	}
+	mutex_unlock(&core->sync_lock);
 }
 
 static void handle_session_close(enum command_response cmd, void *data)
@@ -3161,10 +3165,12 @@ static int msm_vidc_load_supported(struct msm_vidc_inst *inst)
 	int num_mbs_per_sec = 0;
 
 	if (inst->state == MSM_VIDC_OPEN_DONE) {
+		mutex_lock(&inst->core->sync_lock);
 		num_mbs_per_sec = msm_comm_get_load(inst->core,
 			MSM_VIDC_DECODER);
 		num_mbs_per_sec += msm_comm_get_load(inst->core,
 			MSM_VIDC_ENCODER);
+		mutex_unlock(&inst->core->sync_lock);
 		if (num_mbs_per_sec > inst->core->resources.max_load) {
 			dprintk(VIDC_ERR,
 				"H/w is overloaded. needed: %d max: %d\n",
