@@ -626,7 +626,8 @@ static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_chip *iadc,
 		temp_var = div64_s64(temp_var * sys_gain_coeff, 1000000);
 		*result = div64_s64(*result * 1000, temp_var);
 	}
-	pr_debug("%lld compensated into %lld\n", old, *result);
+	pr_debug("%lld compensated into %lld, a: %d, b: %d, sys_gain: %lld\n",
+			old, *result, coeff_a, coeff_b, sys_gain_coeff);
 
 	return 0;
 }
