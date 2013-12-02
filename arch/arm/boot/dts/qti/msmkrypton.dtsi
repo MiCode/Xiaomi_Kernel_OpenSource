@@ -472,6 +472,7 @@
 		qti,vdd-voltage-level = <1 5 7>;
 		qti,ext-vbus-id;
 		qti,vbus-valid-override;
+		qti,set-pllbtune;
 	};
 
 	ssphy0: ssphy@f9b38000 {
