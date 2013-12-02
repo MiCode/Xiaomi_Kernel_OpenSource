@@ -662,8 +662,8 @@ enum bam_nonsecure_reset {
 static inline u32 bam_read_reg(void *base, u32 offset)
 {
 	u32 val = ioread32(base + offset);
-	SPS_DBG("sps:bam 0x%x(va) read reg 0x%x r_val 0x%x.\n",
-			(u32) base, offset, val);
+	SPS_DBG("sps:bam 0x%p(va) read reg 0x%x r_val 0x%x.\n",
+			base, offset, val);
 	return val;
 }
 
@@ -682,8 +682,8 @@ static inline u32 bam_read_reg_field(void *base, u32 offset, const u32 mask)
 	u32 val = ioread32(base + offset);
 	val &= mask;		/* clear other bits */
 	val >>= shift;
-	SPS_DBG("sps:bam 0x%x(va) read reg 0x%x mask 0x%x r_val 0x%x.\n",
-			(u32) base, offset, mask, val);
+	SPS_DBG("sps:bam 0x%p(va) read reg 0x%x mask 0x%x r_val 0x%x.\n",
+			base, offset, mask, val);
 	return val;
 }
 
@@ -699,8 +699,8 @@ static inline u32 bam_read_reg_field(void *base, u32 offset, const u32 mask)
 static inline void bam_write_reg(void *base, u32 offset, u32 val)
 {
 	iowrite32(val, base + offset);
-	SPS_DBG("sps:bam 0x%x(va) write reg 0x%x w_val 0x%x.\n",
-			(u32) base, offset, val);
+	SPS_DBG("sps:bam 0x%p(va) write reg 0x%x w_val 0x%x.\n",
+			base, offset, val);
 }
 
 /**
@@ -721,8 +721,8 @@ static inline void bam_write_reg_field(void *base, u32 offset,
 	tmp &= ~mask;		/* clear written bits */
 	val = tmp | (val << shift);
 	iowrite32(val, base + offset);
-	SPS_DBG("sps:bam 0x%x(va) write reg 0x%x w_val 0x%x.\n",
-			(u32) base, offset, val);
+	SPS_DBG("sps:bam 0x%p(va) write reg 0x%x w_val 0x%x.\n",
+			base, offset, val);
 }
 
 /**
@@ -737,22 +737,23 @@ int bam_init(void *base, u32 ee,
 	u32 cfg_bits;
 	u32 ver = 0;
 
-	SPS_DBG2("sps:%s:bam=0x%x(va).ee=%d.", __func__, (u32) base, ee);
+	SPS_DBG2("sps:%s:bam=0x%p(va).ee=%d.", __func__, base, ee);
 
 	ver = bam_read_reg_field(base, REVISION, BAM_REVISION);
 
 	if ((ver < BAM_MIN_VERSION) || (ver > BAM_MAX_VERSION)) {
-		SPS_ERR("sps:bam 0x%x(va) Invalid BAM REVISION 0x%x.\n",
-				(u32) base, ver);
+		SPS_ERR("sps:bam 0x%p(va) Invalid BAM REVISION 0x%x.\n",
+				base, ver);
 		return -ENODEV;
 	} else
-		SPS_DBG2("sps:REVISION of BAM 0x%x is 0x%x.\n",
-				(u32) base, ver);
+		SPS_DBG2("sps:REVISION of BAM 0x%p is 0x%x.\n",
+				base, ver);
 
 	if (summing_threshold == 0) {
 		summing_threshold = 4;
-		SPS_ERR("sps:bam 0x%x(va) summing_threshold is zero , "
-				"use default 4.\n", (u32) base);
+		SPS_ERR(
+			"sps:bam 0x%p(va) summing_threshold is zero, "
+				"use default 4.\n", base);
 	}
 
 	if (options & SPS_BAM_NO_EXT_P_RST)
@@ -849,7 +850,7 @@ int bam_security_init(void *base, u32 ee, u32 vmid, u32 pipe_mask)
 	u32 mask;
 	u32 pipe;
 
-	SPS_DBG2("sps:%s:bam=0x%x(va).", __func__, (u32) base);
+	SPS_DBG2("sps:%s:bam=0x%p(va).", __func__, base);
 
 	/*
 	 * Discover the hardware version number and the number of pipes
@@ -858,14 +859,16 @@ int bam_security_init(void *base, u32 ee, u32 vmid, u32 pipe_mask)
 	version = bam_read_reg_field(base, REVISION, BAM_REVISION);
 	num_pipes = bam_read_reg_field(base, NUM_PIPES, BAM_NUM_PIPES);
 	if (version < 3 || version > 0x1F) {
-		SPS_ERR("sps:bam 0x%x(va) security is not supported for this"
-			"BAM version 0x%x.\n", (u32) base, version);
+		SPS_ERR(
+			"sps:bam 0x%p(va) security is not supported for this "
+				"BAM version 0x%x.\n", base, version);
 		return -ENODEV;
 	}
 
 	if (num_pipes > BAM_MAX_PIPES) {
-		SPS_ERR("sps:bam 0x%x(va) the number of pipes is more than "
-			"the maximum number allowed.", (u32) base);
+		SPS_ERR(
+			"sps:bam 0x%p(va) the number of pipes is more than "
+				"the maximum number allowed.\n", base);
 		return -ENODEV;
 	}
 
@@ -910,7 +913,7 @@ int bam_check(void *base, u32 *version, u32 ee, u32 *num_pipes)
 	u32 ver = 0;
 	u32 enabled = 0;
 
-	SPS_DBG2("sps:%s:bam=0x%x(va).", __func__, (u32) base);
+	SPS_DBG2("sps:%s:bam=0x%p(va).", __func__, base);
 
 	if (!enhd_pipe)
 		enabled = bam_read_reg_field(base, CTRL, BAM_EN);
@@ -918,8 +921,8 @@ int bam_check(void *base, u32 *version, u32 ee, u32 *num_pipes)
 		enabled = bam_get_pipe_attr(base, ee, true);
 
 	if (!enabled) {
-		SPS_ERR("sps:%s:bam 0x%x(va) is not enabled.\n",
-				__func__, (u32) base);
+		SPS_ERR("sps:%s:bam 0x%p(va) is not enabled.\n",
+				__func__, base);
 		return -ENODEV;
 	}
 
@@ -934,8 +937,8 @@ int bam_check(void *base, u32 *version, u32 ee, u32 *num_pipes)
 
 	/* Check BAM version */
 	if ((ver < BAM_MIN_VERSION) || (ver > BAM_MAX_VERSION)) {
-		SPS_ERR("sps:%s:bam 0x%x(va) Invalid BAM version 0x%x.\n",
-				__func__, (u32) base, ver);
+		SPS_ERR("sps:%s:bam 0x%p(va) Invalid BAM version 0x%x.\n",
+				__func__, base, ver);
 		return -ENODEV;
 	}
 
@@ -948,7 +951,7 @@ int bam_check(void *base, u32 *version, u32 ee, u32 *num_pipes)
  */
 void bam_exit(void *base, u32 ee)
 {
-	SPS_DBG2("sps:%s:bam=0x%x(va).ee=%d.", __func__, (u32) base, ee);
+	SPS_DBG2("sps:%s:bam=0x%p(va).ee=%d.", __func__, base, ee);
 
 	bam_write_reg_field(base, IRQ_SRCS_MSK_EE(ee), BAM_IRQ, 0);
 
@@ -975,8 +978,8 @@ void bam_output_register_content(void *base, u32 ee)
 
 	num_pipes = bam_read_reg_field(base, NUM_PIPES,
 					BAM_NUM_PIPES);
-	SPS_INFO("sps:bam 0x%x(va) has %d pipes.",
-			(u32) base, num_pipes);
+	SPS_INFO("sps:bam 0x%p(va) has %d pipes.",
+			base, num_pipes);
 
 	pipe_attr = enhd_pipe ?
 		bam_get_pipe_attr(base, ee, false) : 0x0;
@@ -1006,26 +1009,26 @@ u32 bam_check_irq_source(void *base, u32 ee, u32 mask,
 		status = bam_read_reg(base, IRQ_STTS);
 
 		if (status & IRQ_STTS_BAM_ERROR_IRQ) {
-			SPS_ERR("sps:bam 0x%x(va);bam irq status="
+			SPS_ERR("sps:bam 0x%p(va);bam irq status="
 				"0x%x.\nsps: BAM_ERROR_IRQ\n",
-				(u32) base, status);
+				base, status);
 			bam_output_register_content(base, ee);
 			*cb_case = SPS_CALLBACK_BAM_ERROR_IRQ;
 		} else if (status & IRQ_STTS_BAM_HRESP_ERR_IRQ) {
-			SPS_ERR("sps:bam 0x%x(va);bam irq status="
+			SPS_ERR("sps:bam 0x%p(va);bam irq status="
 				"0x%x.\nsps: BAM_HRESP_ERR_IRQ\n",
-				(u32) base, status);
+				base, status);
 			bam_output_register_content(base, ee);
 			*cb_case = SPS_CALLBACK_BAM_HRESP_ERR_IRQ;
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
 		} else if (status & IRQ_STTS_BAM_TIMER_IRQ) {
-			SPS_DBG1("sps:bam 0x%x(va);receive BAM_TIMER_IRQ\n",
-				(u32) base);
+			SPS_DBG1("sps:bam 0x%p(va);receive BAM_TIMER_IRQ\n",
+					base);
 			*cb_case = SPS_CALLBACK_BAM_TIMER_IRQ;
 #endif
 		} else
-			SPS_INFO("sps:bam 0x%x(va);bam irq status="
-				"0x%x.", (u32) base, status);
+			SPS_INFO("sps:bam 0x%p(va);bam irq status=0x%x.\n",
+					base, status);
 
 		bam_write_reg(base, IRQ_CLR, status);
 	}
@@ -1040,7 +1043,7 @@ u32 bam_check_irq_source(void *base, u32 ee, u32 mask,
 int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
 					u32 ee)
 {
-	SPS_DBG2("sps:%s:bam=0x%x(va).pipe=%d.", __func__, (u32) base, pipe);
+	SPS_DBG2("sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
 
 	/* Reset the BAM pipe */
 	bam_write_reg(base, P_RST(pipe), 1);
@@ -1073,8 +1076,8 @@ int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
 	bam_write_reg_field(base, P_CTRL(pipe), P_LOCK_GROUP,
 				param->lock_group);
 
-	SPS_DBG("sps:bam=0x%x(va).pipe=%d.lock_group=%d.\n",
-			(u32) base, pipe, param->lock_group);
+	SPS_DBG("sps:bam=0x%p(va).pipe=%d.lock_group=%d.\n",
+			base, pipe, param->lock_group);
 #endif
 
 	if (param->mode == BAM_PIPE_MODE_BAM2BAM) {
@@ -1088,9 +1091,9 @@ int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
 
 		bam_write_reg(base, P_EVNT_DEST_ADDR(pipe), peer_dest_addr);
 
-		SPS_DBG2("sps:bam=0x%x(va).pipe=%d.peer_bam=0x%x."
+		SPS_DBG2("sps:bam=0x%p(va).pipe=%d.peer_bam=0x%x."
 			"peer_pipe=%d.\n",
-			(u32) base, pipe,
+			base, pipe,
 			(u32) param->peer_phys_addr,
 			param->peer_pipe);
 
@@ -1121,7 +1124,7 @@ int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
  */
 void bam_pipe_exit(void *base, u32 pipe, u32 ee)
 {
-	SPS_DBG2("sps:%s:bam=0x%x(va).pipe=%d.", __func__, (u32) base, pipe);
+	SPS_DBG2("sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
 
 	bam_write_reg(base, P_IRQ_EN(pipe), 0);
 
@@ -1138,11 +1141,11 @@ void bam_pipe_exit(void *base, u32 pipe, u32 ee)
  */
 void bam_pipe_enable(void *base, u32 pipe)
 {
-	SPS_DBG2("sps:%s:bam=0x%x(va).pipe=%d.", __func__, (u32) base, pipe);
+	SPS_DBG2("sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
 
 	if (bam_read_reg_field(base, P_CTRL(pipe), P_EN))
-		SPS_DBG2("sps:bam=0x%x(va).pipe=%d is already enabled.\n",
-			(u32) base, pipe);
+		SPS_DBG2("sps:bam=0x%p(va).pipe=%d is already enabled.\n",
+				base, pipe);
 	else
 		bam_write_reg_field(base, P_CTRL(pipe), P_EN, 1);
 }
@@ -1153,7 +1156,7 @@ void bam_pipe_enable(void *base, u32 pipe)
  */
 void bam_pipe_disable(void *base, u32 pipe)
 {
-	SPS_DBG2("sps:%s:bam=0x%x(va).pipe=%d.", __func__, (u32) base, pipe);
+	SPS_DBG2("sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
 
 	bam_write_reg_field(base, P_CTRL(pipe), P_EN, 0);
 }
@@ -1174,7 +1177,7 @@ int bam_pipe_is_enabled(void *base, u32 pipe)
 void bam_pipe_set_irq(void *base, u32 pipe, enum bam_enable irq_en,
 		      u32 src_mask, u32 ee)
 {
-	SPS_DBG2("sps:%s:bam=0x%x(va).pipe=%d.", __func__, (u32) base, pipe);
+	SPS_DBG2("sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
 	if (src_mask & BAM_PIPE_IRQ_RST_ERROR) {
 		if (enhd_pipe)
 			bam_write_reg_field(base, IRQ_EN,
