@@ -1157,7 +1157,7 @@ unsigned int msm_hs_tx_empty(struct uart_port *uport)
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 
 	msm_hs_clock_vote(msm_uport);
-	data = msm_hs_read(uport, UARTDM_SR_ADDR);
+	data = msm_hs_read(uport, UART_DM_SR);
 	msm_hs_clock_unvote(msm_uport);
 
 	if (data & UARTDM_SR_TXEMT_BMSK)
@@ -2114,7 +2114,7 @@ void msm_hs_request_clock_off(struct uart_port *uport) {
 		msm_uport->clk_state = MSM_HS_CLK_REQUEST_OFF;
 		msm_uport->clk_req_off_state = CLK_REQ_OFF_START;
 		msm_uport->imr_reg |= UARTDM_ISR_TXLEV_BMSK;
-		msm_hs_write(uport, UARTDM_IMR, msm_uport->imr_reg);
+		msm_hs_write(uport, UART_DM_IMR, msm_uport->imr_reg);
 		/*
 		 * Complete device write before retuning back.
 		 * Hence mb() requires here.
