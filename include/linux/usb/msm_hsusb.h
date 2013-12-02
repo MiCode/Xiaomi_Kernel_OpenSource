@@ -238,6 +238,8 @@ enum usb_vdd_value {
  *		applied.
  * @enable_ahb2ahb_bypass: Indicates whether enable AHB2AHB BYPASS
  *		mode with controller in device mode.
+ * @bool disable_retention_with_vdd_min: Indicates whether to enable
+		allowing VDDmin without putting PHY into retention.
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -269,6 +271,7 @@ struct msm_otg_platform_data {
 	int vddmin_gpio;
 	bool rw_during_lpm_workaround;
 	bool enable_ahb2ahb_bypass;
+	bool disable_retention_with_vdd_min;
 };
 
 /* phy related flags */
@@ -443,6 +446,11 @@ struct msm_otg {
 	 * voltage regulator(VDDCX) during host mode.
 	 */
 #define ALLOW_HOST_PHY_RETENTION	BIT(4)
+	/*
+	* Allow VDD minimization without putting PHY into retention
+	* for fixing PHY current leakage issue when LDOs ar turned off.
+	*/
+#define ALLOW_VDD_MIN_WITH_RETENTION_DISABLED BIT(5)
 	unsigned long lpm_flags;
 #define PHY_PWR_COLLAPSED		BIT(0)
 #define PHY_RETENTIONED			BIT(1)
