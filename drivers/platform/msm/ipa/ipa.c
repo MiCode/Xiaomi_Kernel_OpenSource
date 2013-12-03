@@ -1832,6 +1832,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	bam_props.summing_threshold = IPA_SUMMING_THRESHOLD;
 	bam_props.event_threshold = IPA_EVENT_THRESHOLD;
 	bam_props.options |= SPS_BAM_NO_LOCAL_CLK_GATING;
+	bam_props.ee = resource_p->ee;
 
 	result = sps_register_bam_device(&bam_props, &ipa_ctx->bam_handle);
 	if (result) {
@@ -2315,6 +2316,11 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 		if (result)
 			return -ENODEV;
 	}
+
+	result = of_property_read_u32(pdev->dev.of_node, "qti,ee",
+			&ipa_drv_res->ee);
+	if (result)
+		ipa_drv_res->ee = 0;
 
 	return 0;
 }
