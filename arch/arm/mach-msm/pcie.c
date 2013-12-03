@@ -676,7 +676,9 @@ static void msm_pcie_config_l1ss(u32 rc_idx)
 		readl_relaxed(dev->dm_core + PCIE20_ACK_F_ASPM_CTRL_REG));
 
 	/* Enable the AUX Clock and the Core Clk to be synchronous for L1SS*/
-	msm_pcie_write_mask(dev->parf + PCIE20_PARF_SYS_CTRL, BIT(3), 0);
+	if (!dev->aux_clk_sync)
+		msm_pcie_write_mask(dev->parf +
+				PCIE20_PARF_SYS_CTRL, BIT(3), 0);
 
 	/* Enable L1SS on RC */
 	msm_pcie_write_mask(dev->dm_core + PCIE20_CAP_LINKCTRLSTATUS, 0,
@@ -1040,7 +1042,7 @@ static int msm_pcie_enable(u32 rc_idx, u32 options)
 
 	msm_pcie_config_msi_controller(dev);
 
-	if (msm_pcie_dev[rc_idx].vreg_n == MSM_PCIE_MAX_VREG)
+	if (dev->l1ss_supported)
 		msm_pcie_config_l1ss(rc_idx);
 
 	if (options & PM_IRQ) {
@@ -1200,6 +1202,17 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		pcie_drv.rc_num++;
 		PCIE_DBG("RC index is %d.", rc_idx);
 	}
+
+	msm_pcie_dev[rc_idx].l1ss_supported =
+		of_property_read_bool((&pdev->dev)->of_node,
+				"qti,l1ss-supported");
+	PCIE_DBG("L1ss is %s supported.\n",
+		msm_pcie_dev[rc_idx].l1ss_supported ? "" : "not");
+	msm_pcie_dev[rc_idx].aux_clk_sync =
+		of_property_read_bool((&pdev->dev)->of_node,
+				"qti,aux-clk-sync");
+	PCIE_DBG("AUX clock is %s synchronous to Core clock.\n",
+		msm_pcie_dev[rc_idx].aux_clk_sync ? "" : "not");
 
 	msm_pcie_dev[rc_idx].pdev = pdev;
 	msm_pcie_dev[rc_idx].vreg_n = 0;

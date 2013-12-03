@@ -164,6 +164,9 @@ struct msm_pcie_dev_t {
 	enum msm_pcie_link_status    link_status;
 	bool                         user_suspend;
 	struct pci_saved_state	     *saved_state;
+
+	bool                         l1ss_supported;
+	bool                         aux_clk_sync;
 };
 
 extern void msm_pcie_config_msi_controller(struct msm_pcie_dev_t *dev);
