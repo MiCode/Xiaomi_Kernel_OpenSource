@@ -1976,6 +1976,12 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	mutex_init(&ipa_ctx->ipa_active_clients_lock);
 	ipa_ctx->ipa_active_clients = 0;
 
+	/* wlan related member */
+	spin_lock_init(&ipa_ctx->wlan_spinlock);
+	spin_lock_init(&ipa_ctx->ipa_tx_mul_spinlock);
+	ipa_ctx->wlan_comm_cnt = 0;
+	INIT_LIST_HEAD(&ipa_ctx->wlan_comm_desc_list);
+	memset(&ipa_ctx->wstats, 0, sizeof(struct ipa_wlan_stats));
 	/* enable IPA clocks until the end of the initialization */
 	ipa_inc_client_enable_clks();
 

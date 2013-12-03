@@ -49,18 +49,6 @@
 #define WLAN3_CONS_RX_EP  17
 #define WLAN4_CONS_RX_EP  18
 
-#define IPA_WLAN_GENERIC_AGGR_BYTE_LIMIT 32
-#define IPA_WLAN_GENERIC_RX_POOL_SZ 4
-
-#define IPA_WLAN_HDR_SIZE 26
-#define IPA_WLAN_PADDING_BYTES 2
-#define IPA_IP_PKT_SIZE 1500
-
-#define IPA_WLAN_GENERIC_AGGR_RX_SIZE  \
-				((IPA_WLAN_GENERIC_AGGR_BYTE_LIMIT * 1024) - \
-				IPA_PKT_STATUS_SIZE - IPA_WLAN_HDR_SIZE - \
-				IPA_WLAN_PADDING_BYTES - IPA_IP_PKT_SIZE)
-
 #define MAX_NUM_EXCP     8
 #define MAX_NUM_IMM_CMD 20
 
@@ -480,9 +468,8 @@ struct ipa_desc {
  * @len: how many bytes are copied into skb's flat buffer
  */
 struct ipa_rx_pkt_wrapper {
-	struct sk_buff *skb;
-	dma_addr_t dma_address;
 	struct list_head link;
+	struct ipa_rx_data data;
 	u32 len;
 	struct work_struct work;
 	struct ipa_sys_context *sys;
@@ -582,10 +569,21 @@ struct ipa_stats {
 	u32 a2_power_off_reqs_out;
 	u32 a2_power_modem_acks;
 	u32 a2_power_apps_acks;
-	u32 wlan_rx_pkts;
-	u32 wlan_rx_comp;
-	u32 wlan_tx_pkts;
 };
+
+struct ipa_wlan_stats {
+	u32 rx_pkts_rcvd;
+	u32 rx_pkts_status_rcvd;
+	u32 rx_hd_processed;
+	u32 rx_hd_reply;
+	u32 rx_hd_rcvd;
+	u32 rx_pkt_leak;
+	u32 rx_dp_fail;
+	u32 tx_buf_cnt;
+	u32 tx_pkts_freed;
+	u32 tx_pkts_rcvd;
+};
+
 
 struct ipa_controller;
 
@@ -718,6 +716,13 @@ struct ipa_context {
 	void *smem_pipe_mem;
 	u32 ipa_bus_hdl;
 	struct ipa_controller *ctrl;
+
+	/* wlan related member */
+	spinlock_t wlan_spinlock;
+	spinlock_t ipa_tx_mul_spinlock;
+	u32 wlan_comm_cnt;
+	struct list_head wlan_comm_desc_list;
+	struct ipa_wlan_stats wstats;
 };
 
 /**
@@ -959,6 +964,6 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 		const struct ipa_rule_attrib *attrib,
 		struct ipa_ipfltri_rule_eq *eq_attrib);
 
-
+void ipa_skb_recycle(struct sk_buff *skb);
 
 #endif /* _IPA_I_H_ */

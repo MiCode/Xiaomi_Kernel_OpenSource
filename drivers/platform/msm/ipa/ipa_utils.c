@@ -3053,3 +3053,16 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 
 	return 0;
 }
+
+void ipa_skb_recycle(struct sk_buff *skb)
+{
+	struct skb_shared_info *shinfo;
+
+	shinfo = skb_shinfo(skb);
+	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
+	atomic_set(&shinfo->dataref, 1);
+
+	memset(skb, 0, offsetof(struct sk_buff, tail));
+	skb->data = skb->head + NET_SKB_PAD;
+	skb_reset_tail_pointer(skb);
+}
