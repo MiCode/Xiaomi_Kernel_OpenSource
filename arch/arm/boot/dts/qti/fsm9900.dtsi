@@ -732,9 +732,9 @@
 		qcom,msm-rng-iface-clk;
 	};
 
-	emac0: qcom,emac@feb20000 {
+	emac0: qti,emac@feb20000 {
 		cell-index = <0>;
-		compatible = "qcom,emac";
+		compatible = "qti,emac";
 		reg-names = "emac", "emac_csr", "emac_1588",
 			"emac_qserdes", "emac_sgmii_phy";
 		reg = <0xfeb20000 0x10000>,
@@ -759,17 +759,17 @@
 			"emac_core3_irq",
 			"emac_sgmii_irq",
 			"emac_wol_irq";
-		qcom,emac-gpio-mdc = <&msmgpio 123 0>;
-		qcom,emac-gpio-mdio = <&msmgpio 124 0>;
-		qcom,emac-tstamp-en;
+		qti,emac-gpio-mdc = <&msmgpio 123 0>;
+		qti,emac-gpio-mdio = <&msmgpio 124 0>;
+		qti,emac-tstamp-en;
 		phy-mode = "sgmii";
 		phy-addr = <0>;
 		status = "disable";
 	};
 
-	emac1: qcom,emac@feb00000 {
+	emac1: qti,emac@feb00000 {
 		cell-index = <1>;
-		compatible = "qcom,emac";
+		compatible = "qti,emac";
 		reg-names = "emac", "emac_csr", "emac_1588",
 			"emac_qserdes", "emac_sgmii_phy";
 		reg = <0xfeb00000 0x10000>,
@@ -794,9 +794,9 @@
 			"emac_core3_irq",
 			"emac_sgmii_irq",
 			"emac_wol_irq";
-		qcom,emac-gpio-mdc = <&msmgpio 125 0>;
-		qcom,emac-gpio-mdio = <&msmgpio 126 0>;
-		qcom,emac-tstamp-en;
+		qti,emac-gpio-mdc = <&msmgpio 125 0>;
+		qti,emac-gpio-mdio = <&msmgpio 126 0>;
+		qti,emac-tstamp-en;
 		phy-mode = "sgmii";
 		phy-addr = <1>;
 		status = "disable";

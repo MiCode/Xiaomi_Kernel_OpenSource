@@ -2608,12 +2608,12 @@ static struct clk_lookup fsm_clocks_9900[] = {
 	CLK_LOOKUP("xo",	xo_usb_hs_host_clk.c,      "msm_ehci_host"),
 
 	/* EMAC clocks */
-	CLK_LOOKUP("25m_clk",	emac0_sys_25m_clk_src.c, "feb20000.qcom,emac"),
-	CLK_LOOKUP("125m_clk",	emac0_125m_clk_src.c,	 "feb20000.qcom,emac"),
-	CLK_LOOKUP("tx_clk",	emac0_tx_clk_src.c,	 "feb20000.qcom,emac"),
-	CLK_LOOKUP("25m_clk",	emac1_sys_25m_clk_src.c, "feb00000.qcom,emac"),
-	CLK_LOOKUP("125m_clk",	emac1_125m_clk_src.c,	 "feb00000.qcom,emac"),
-	CLK_LOOKUP("tx_clk",	emac1_tx_clk_src.c,	 "feb00000.qcom,emac"),
+	CLK_LOOKUP("25m_clk",	emac0_sys_25m_clk_src.c, "feb20000.qti,emac"),
+	CLK_LOOKUP("125m_clk",	emac0_125m_clk_src.c,	 "feb20000.qti,emac"),
+	CLK_LOOKUP("tx_clk",	emac0_tx_clk_src.c,	 "feb20000.qti,emac"),
+	CLK_LOOKUP("25m_clk",	emac1_sys_25m_clk_src.c, "feb00000.qti,emac"),
+	CLK_LOOKUP("125m_clk",	emac1_125m_clk_src.c,	 "feb00000.qti,emac"),
+	CLK_LOOKUP("tx_clk",	emac1_tx_clk_src.c,	 "feb00000.qti,emac"),
 
 	/* PCIE clocks */
 	CLK_LOOKUP("",	gcc_pcie_0_aux_clk.c,	""),

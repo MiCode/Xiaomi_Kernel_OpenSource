@@ -38,11 +38,11 @@
 		vdd-blow-supply = <&pma8084_lvs1>;
 	};
 
-	emac0:qcom,emac@feb20000 {
+	emac0:qti,emac@feb20000 {
 		status = "ok";
 	};
 
-	emac1:qcom,emac@feb00000 {
+	emac1:qti,emac@feb00000 {
 		phy-addr = <4>;
 		status = "ok";
 	};
