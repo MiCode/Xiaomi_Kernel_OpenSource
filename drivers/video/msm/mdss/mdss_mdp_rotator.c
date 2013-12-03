@@ -437,6 +437,7 @@ int mdss_mdp_rotator_setup(struct msm_fb_data_type *mfd,
 		rot->flags |= MDP_DEINTERLACE;
 		rot->src_rect.h /= 2;
 		rot->src_rect.y = DIV_ROUND_UP(rot->src_rect.y, 2);
+		rot->src_rect.y &= ~1;
 	}
 
 	rot->dst = rot->src_rect;
