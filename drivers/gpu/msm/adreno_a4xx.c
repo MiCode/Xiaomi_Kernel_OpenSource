@@ -305,6 +305,17 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 	/* On A420 cores turn on SKIP_IB2_DISABLE in addition to the default */
 	kgsl_regwrite(device, A4XX_CP_DEBUG, A4XX_CP_DEBUG_DEFAULT |
 			(adreno_is_a420(adreno_dev) ? (1 << 29) : 0));
+	/*
+	 * For A420 set RBBM_CLOCK_DELAY_HLSQ.CGC_HLSQ_TP_EARLY_CYC >= 2
+	 * due to timing issue with HLSQ_TP_CLK_EN
+	 */
+	if (adreno_is_a420(adreno_dev)) {
+		unsigned int val;
+		kgsl_regread(device, A4XX_RBBM_CLOCK_DELAY_HLSQ, &val);
+		val &= ~A4XX_CGC_HLSQ_TP_EARLY_CYC_MASK;
+		val |= 2 << A4XX_CGC_HLSQ_TP_EARLY_CYC_SHIFT;
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_HLSQ, val);
+	}
 }
 
 int a4xx_perfcounter_enable_vbif(struct kgsl_device *device,
