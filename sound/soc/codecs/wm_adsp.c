@@ -197,13 +197,14 @@ static void wm_adsp_buf_free(struct list_head *list)
 /* Must remain a power of two */
 #define WM_ADSP_CAPTURE_BUFFER_SIZE      1048576
 
-#define WM_ADSP_NUM_FW 5
+#define WM_ADSP_NUM_FW 6
 
 #define WM_ADSP_FW_MBC_VSS        0
 #define WM_ADSP_FW_TX             1
 #define WM_ADSP_FW_TX_SPK         2
 #define WM_ADSP_FW_RX_ANC         3
 #define WM_ADSP_FW_EZ2CONTROL     4
+#define WM_ADSP_FW_TRACE          5
 
 static const char *wm_adsp_fw_text[WM_ADSP_NUM_FW] = {
 	[WM_ADSP_FW_MBC_VSS] =    "MBC/VSS",
@@ -211,6 +212,7 @@ static const char *wm_adsp_fw_text[WM_ADSP_NUM_FW] = {
 	[WM_ADSP_FW_TX_SPK] =     "Tx Speaker",
 	[WM_ADSP_FW_RX_ANC] =     "Rx ANC",
 	[WM_ADSP_FW_EZ2CONTROL] = "Ez2Control",
+	[WM_ADSP_FW_TRACE] =      "Trace",
 };
 
 struct wm_adsp_system_config_xm_hdr {
@@ -305,6 +307,37 @@ static const struct wm_adsp_fw_caps ez2control_caps[] = {
 	},
 };
 
+struct wm_adsp_buffer_region_def trace_regions[] = {
+	{
+		.mem_type = WMFW_ADSP2_XM,
+		.base_offset = HOST_BUFFER_FIELD(X_buf_base),
+		.size_offset = HOST_BUFFER_FIELD(X_buf_size),
+	},
+	{
+		.mem_type = WMFW_ADSP2_XM,
+		.base_offset = HOST_BUFFER_FIELD(X_buf_base2),
+		.size_offset = HOST_BUFFER_FIELD(X_buf_brk),
+	},
+	{
+		.mem_type = WMFW_ADSP2_YM,
+		.base_offset = HOST_BUFFER_FIELD(Y_buf_base),
+		.size_offset = HOST_BUFFER_FIELD(wrap),
+	},
+};
+
+static const struct wm_adsp_fw_caps trace_caps[] = {
+	{
+		.id = SND_AUDIOCODEC_PCM,
+		.desc = {
+			.max_ch = 8,
+			.sample_rates = SNDRV_PCM_RATE_8000_192000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		},
+		.num_host_regions = ARRAY_SIZE(trace_regions),
+		.host_region_defs = trace_regions,
+	},
+};
+
 static struct wm_adsp_fw_defs wm_adsp_fw[WM_ADSP_NUM_FW] = {
 	[WM_ADSP_FW_MBC_VSS] =    { .file = "mbc-vss" },
 	[WM_ADSP_FW_TX] =         { .file = "tx" },
@@ -315,6 +348,12 @@ static struct wm_adsp_fw_defs wm_adsp_fw[WM_ADSP_NUM_FW] = {
 		.compr_direction = SND_COMPRESS_CAPTURE,
 		.num_caps = ARRAY_SIZE(ez2control_caps),
 		.caps = ez2control_caps,
+	},
+	[WM_ADSP_FW_TRACE] = {
+		.file = "trace",
+		.compr_direction = SND_COMPRESS_CAPTURE,
+		.num_caps = ARRAY_SIZE(trace_caps),
+		.caps = trace_caps,
 	},
 };
 
