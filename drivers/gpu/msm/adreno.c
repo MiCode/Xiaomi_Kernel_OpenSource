@@ -626,6 +626,18 @@ int adreno_perfcounter_query_group(struct adreno_device *adreno_dev,
 	return 0;
 }
 
+static inline void refcount_group(struct adreno_perfcount_group *group,
+	unsigned int reg, unsigned int flags, unsigned int *lo)
+{
+	if (flags & PERFCOUNTER_FLAG_KERNEL)
+		group->regs[reg].kernelcount++;
+	else
+		group->regs[reg].usercount++;
+
+	if (lo)
+		*lo = group->regs[reg].offset;
+}
+
 /**
  * adreno_perfcounter_get: Try to put a countable in an available counter
  * @adreno_dev: Adreno device to configure
@@ -645,7 +657,7 @@ int adreno_perfcounter_get(struct adreno_device *adreno_dev,
 {
 	struct adreno_perfcounters *counters = adreno_dev->gpudev->perfcounters;
 	struct adreno_perfcount_group *group;
-	unsigned int i, empty = -1;
+	unsigned int empty = -1;
 	int ret = 0;
 
 	/* always clear return variables */
@@ -660,26 +672,41 @@ int adreno_perfcounter_get(struct adreno_device *adreno_dev,
 
 	group = &(counters->groups[groupid]);
 
-	/*
-	 * Check if the countable is already associated with a counter.
-	 * Refcount and return the offset, otherwise, try and find an empty
-	 * counter and assign the countable to it.
-	 */
-	for (i = 0; i < group->reg_count; i++) {
-		if (group->regs[i].countable == countable) {
-			/* Countable already associated with counter */
-			if (flags & PERFCOUNTER_FLAG_KERNEL)
-				group->regs[i].kernelcount++;
-			else
-				group->regs[i].usercount++;
+	if (group->flags & ADRENO_PERFCOUNTER_GROUP_FIXED) {
+		/*
+		 * In fixed groups the countable equals the fixed register the
+		 * user wants. First make sure it is in range
+		 */
 
-			if (offset)
-				*offset = group->regs[i].offset;
-			return 0;
-		} else if (group->regs[i].countable ==
+		if (countable >= group->reg_count)
+			return -EINVAL;
+
+		/* If it is already reserved, just increase the refcounts */
+		if ((group->regs[countable].kernelcount != 0) ||
+			(group->regs[countable].usercount != 0)) {
+				refcount_group(group, countable, flags, offset);
+				return 0;
+		}
+
+		empty = countable;
+	} else {
+		unsigned int i;
+
+		/*
+		 * Check if the countable is already associated with a counter.
+		 * Refcount and return the offset, otherwise, try and find an
+		 * empty counter and assign the countable to it.
+		 */
+
+		for (i = 0; i < group->reg_count; i++) {
+			if (group->regs[i].countable == countable) {
+				refcount_group(group, i, flags, offset);
+				return 0;
+			} else if (group->regs[i].countable ==
 			KGSL_PERFCOUNTER_NOT_USED) {
-			/* keep track of unused counter */
-			empty = i;
+				/* keep track of unused counter */
+				empty = i;
+			}
 		}
 	}
 
