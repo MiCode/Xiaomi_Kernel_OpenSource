@@ -111,6 +111,7 @@ struct msm_compr_audio {
 	atomic_t xrun;
 	atomic_t close;
 	atomic_t wait_on_close;
+	atomic_t error;
 
 	wait_queue_head_t eos_wait;
 	wait_queue_head_t drain_wait;
@@ -357,6 +358,14 @@ static void compr_event_handler(uint32_t opcode,
 	case ASM_SESSION_CMDRSP_GET_SESSIONTIME_V3:
 		pr_debug("ASM_SESSION_CMDRSP_GET_SESSIONTIME_V3\n");
 		break;
+	case RESET_EVENTS:
+		pr_err("Received reset events CB, move to error state");
+		spin_lock(&prtd->lock);
+		snd_compr_fragment_elapsed(cstream);
+		prtd->copied_total = prtd->bytes_received;
+		atomic_set(&prtd->error, 1);
+		spin_unlock(&prtd->lock);
+		break;
 	default:
 		pr_debug("Not Supported Event opcode[0x%x]\n", opcode);
 		break;
@@ -556,6 +565,7 @@ static int msm_compr_open(struct snd_compr_stream *cstream)
 	atomic_set(&prtd->xrun, 0);
 	atomic_set(&prtd->close, 0);
 	atomic_set(&prtd->wait_on_close, 0);
+	atomic_set(&prtd->error, 0);
 
 	init_waitqueue_head(&prtd->eos_wait);
 	init_waitqueue_head(&prtd->drain_wait);
@@ -770,6 +780,14 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		pr_err("%s: Unsupported stream type\n", __func__);
 		return -EINVAL;
 	}
+
+	spin_lock_irqsave(&prtd->lock, flags);
+	if (atomic_read(&prtd->error)) {
+		pr_err("%s Got RESET EVENTS notification, return immediately", __func__);
+		spin_unlock_irqrestore(&prtd->lock, flags);
+		return 0;
+	}
+	spin_unlock_irqrestore(&prtd->lock, flags);
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
@@ -1084,6 +1102,15 @@ static int msm_compr_pointer(struct snd_compr_stream *cstream,
 	tstamp.byte_offset = prtd->byte_offset;
 	tstamp.copied_total = prtd->copied_total;
 	first_buffer = prtd->first_buffer;
+
+	if (atomic_read(&prtd->error)) {
+		pr_err("%s Got RESET EVENTS notification, return error", __func__);
+		tstamp.pcm_io_frames = 0;
+		memcpy(arg, &tstamp, sizeof(struct snd_compr_tstamp));
+		spin_unlock_irqrestore(&prtd->lock, flags);
+		return -EINVAL;
+	}
+
 	spin_unlock_irqrestore(&prtd->lock, flags);
 
 	/*
@@ -1171,6 +1198,14 @@ static int msm_compr_copy(struct snd_compr_stream *cstream,
 		pr_err("%s: Buffer is not allocated yet ??", __func__);
 		return 0;
 	}
+
+	spin_lock_irqsave(&prtd->lock, flags);
+	if (atomic_read(&prtd->error)) {
+		pr_err("%s Got RESET EVENTS notification", __func__);
+		spin_unlock_irqrestore(&prtd->lock, flags);
+		return -EINVAL;
+	}
+	spin_unlock_irqrestore(&prtd->lock, flags);
 
 	dstn = prtd->buffer + prtd->app_pointer;
 	if (count < prtd->buffer_size - prtd->app_pointer) {
