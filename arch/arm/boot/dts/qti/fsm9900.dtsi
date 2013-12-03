@@ -895,7 +895,7 @@
 			reg-names = "rmb_base";
 			qcom,firmware-name = "mdm4";
 			qcom,modem-id = <4>;
-			qcom,max-num-images = <8>;
+			qcom,max-num-images = <1>;
 			qcom,pil-skip-entry-check;
 		};
 	};
