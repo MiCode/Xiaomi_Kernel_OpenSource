@@ -901,6 +901,7 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 		} else if (jack_type == SND_JACK_LINEOUT) {
 			mbhc->current_plug = PLUG_TYPE_HIGH_HPH;
 		} else if (jack_type == SND_JACK_ANC_HEADPHONE) {
+			mbhc->polling_active = BUTTON_POLLING_SUPPORTED;
 			mbhc->current_plug = PLUG_TYPE_ANC_HEADPHONE;
 		}
 
@@ -2268,34 +2269,30 @@ static void wcd9xxx_find_plug_and_report(struct wcd9xxx_mbhc *mbhc,
 		if (anc_mic_found) {
 			/* Report ANC headphone */
 			wcd9xxx_report_plug(mbhc, 1, SND_JACK_ANC_HEADPHONE);
-			wcd9xxx_cleanup_hs_polling(mbhc);
 		} else {
-
 			/*
 			 * If Headphone was reported previously, this will
 			 * only report the mic line
 			 */
 			wcd9xxx_report_plug(mbhc, 1, SND_JACK_HEADSET);
-			/* Button detection required RC oscillator */
-			wcd9xxx_mbhc_ctrl_clk_bandgap(mbhc, true);
-
-			/*
-			 * sleep so that audio path completely tears down
-			 * before report plug insertion to the user space
-			 */
-			msleep(100);
-
-			/*
-			 * if PA is already on, switch micbias
-			 * source to VDDIO
-			 */
-			if (mbhc->event_state &
-			  (1 << MBHC_EVENT_PA_HPHL | 1 << MBHC_EVENT_PA_HPHR |
-			   1 << MBHC_EVENT_PRE_TX_1_3_ON))
-				__wcd9xxx_switch_micbias(mbhc, 1, false,
-							 false);
-			wcd9xxx_start_hs_polling(mbhc);
 		}
+		/* Button detection required RC oscillator */
+		wcd9xxx_mbhc_ctrl_clk_bandgap(mbhc, true);
+		/*
+		 * sleep so that audio path completely tears down
+		 * before report plug insertion to the user space
+		 */
+		msleep(100);
+
+		/*
+		 * if PA is already on, switch micbias
+		 * source to VDDIO
+		 */
+		if (mbhc->event_state &
+		(1 << MBHC_EVENT_PA_HPHL | 1 << MBHC_EVENT_PA_HPHR))
+			__wcd9xxx_switch_micbias(mbhc, 1, false,
+						 false);
+		wcd9xxx_start_hs_polling(mbhc);
 	} else if (plug_type == PLUG_TYPE_HIGH_HPH) {
 		if (mbhc->mbhc_cfg->detect_extn_cable) {
 			/* High impedance device found. Report as LINEOUT*/
@@ -2382,12 +2379,6 @@ static void wcd9xxx_mbhc_decide_swch_plug(struct wcd9xxx_mbhc *mbhc)
 		pr_debug("%s: Valid plug found, determine plug type %d\n",
 			 __func__, plug_type);
 		wcd9xxx_find_plug_and_report(mbhc, plug_type);
-		if (mbhc->mbhc_cfg->detect_extn_cable &&
-		    mbhc->current_plug == PLUG_TYPE_ANC_HEADPHONE) {
-			/* Enable removal detection */
-			wcd9xxx_cleanup_hs_polling(mbhc);
-			wcd9xxx_enable_hs_detect(mbhc, 0, 0, false);
-		}
 	}
 	pr_debug("%s: leave\n", __func__);
 }
@@ -2583,7 +2574,8 @@ static void wcd9xxx_hs_remove_irq_noswch(struct wcd9xxx_mbhc *mbhc)
 	u32 mb_mv;
 
 	pr_debug("%s: enter\n", __func__);
-	if (mbhc->current_plug != PLUG_TYPE_HEADSET) {
+	if (mbhc->current_plug != PLUG_TYPE_HEADSET &&
+		mbhc->current_plug != PLUG_TYPE_ANC_HEADPHONE) {
 		pr_debug("%s(): Headset is not inserted, ignore removal\n",
 			 __func__);
 		snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL,
@@ -3147,8 +3139,6 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 		WCD9XXX_BCL_LOCK(mbhc->resmgr);
 		if ((mbhc->current_plug == PLUG_TYPE_HEADPHONE &&
 		    wrk_complete) ||
-		    (mbhc->current_plug == PLUG_TYPE_ANC_HEADPHONE &&
-		    wrk_complete) ||
 		    mbhc->current_plug == PLUG_TYPE_GND_MIC_SWAP ||
 		    mbhc->current_plug == PLUG_TYPE_INVALID ||
 		    (plug_type == PLUG_TYPE_INVALID && wrk_complete)) {
@@ -3222,6 +3212,9 @@ static void wcd9xxx_swch_irq_handler(struct wcd9xxx_mbhc *mbhc)
 			wcd9xxx_report_plug(mbhc, 0, SND_JACK_LINEOUT);
 			is_removed = true;
 		} else if (mbhc->current_plug == PLUG_TYPE_ANC_HEADPHONE) {
+			wcd9xxx_pause_hs_polling(mbhc);
+			wcd9xxx_mbhc_ctrl_clk_bandgap(mbhc, false);
+			wcd9xxx_cleanup_hs_polling(mbhc);
 			wcd9xxx_report_plug(mbhc, 0, SND_JACK_ANC_HEADPHONE);
 			is_removed = true;
 		}
