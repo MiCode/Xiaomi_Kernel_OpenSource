@@ -22,6 +22,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/usb/phy.h>
 #include <linux/usb/msm_hsusb.h>
+#include <linux/clk.h>
 
 #define USB_SSPHY_1P8_VOL_MIN		1800000 /* uV */
 #define USB_SSPHY_1P8_VOL_MAX		1800000 /* uV */
@@ -29,12 +30,64 @@
 
 #define SS_PHY_ENABLED 0
 
+#define PCIE_USB3_PHY_POWER_DOWN_CONTROL	0x604
+
+#define QSERDES_COM_SYSCLK_EN_SEL_TXBAND	0x48
+#define QSERDES_COM_DEC_START1			0xA4
+#define QSERDES_COM_DEC_START2			0x104
+#define QSERDES_COM_DIV_FRAC_START1		0xF8
+#define QSERDES_COM_DIV_FRAC_START2		0xFC
+#define QSERDES_COM_DIV_FRAC_START3		0x100
+#define QSERDES_COM_PLLLOCK_CMP_EN		0x94
+#define QSERDES_COM_PLLLOCK_CMP1		0x88
+#define QSERDES_COM_PLLLOCK_CMP2		0x8C
+#define QSERDES_COM_PLL_CRCTRL			0x10C
+#define QSERDES_COM_PLL_CP_SETI		0x34
+#define QSERDES_COM_PLL_IP_SETP		0x38
+#define QSERDES_COM_PLL_CP_SETP		0x3C
+#define QSERDES_COM_PLL_IP_SETI		0x24
+#define QSERDES_COM_IE_TRIM			0xC
+#define QSERDES_COM_IP_TRIM			0x10
+#define QSERDES_COM_PLL_CNTRL			0x14
+
+#define QSERDES_RX_CDR_CONTROL1		0x400
+#define QSERDES_RX_CDR_CONTROL2		0x404
+
+#define QSERDES_COM_RESETSM_CNTRL		0x4C
+#define QSERDES_COM_RESETSM_CNTRL2		0x50
+
+#define QSERDES_COM_RES_CODE_START_SEG1	0xD8
+#define QSERDES_COM_RES_CODE_CAL_CSR		0xE0
+#define QSERDES_COM_RES_TRIM_CONTROL		0xE8
+#define QSERDES_TX_RCV_DETECT_LVL		0x268
+#define QSERDES_RX_RX_EQU_ADAPTOR_CNTRL2	0x4BC
+#define QSERDES_RX_RX_EQU_ADAPTOR_CNTRL3	0x4C0
+#define QSERDES_RX_RX_EQU_ADAPTOR_CNTRL4	0x4C4
+#define QSERDES_RX_SIGDET_ENABLES		0x4F8
+#define QSERDES_RX_SIGDET_CNTRL		0x500
+#define QSERDES_RX_SIGDET_DEGLITCH_CNTRL	0x504
+#define PCIE_USB3_PHY_RX_IDLE_DTCT_CNTRL	0x64C
+#define QSERDES_COM_SSC_EN_CENTER		0xAC
+#define QSERDES_COM_SSC_ADJ_PER1		0xB0
+#define QSERDES_COM_SSC_PER1			0xB8
+#define QSERDES_COM_SSC_PER2			0xBC
+#define QSERDES_COM_SSC_STEP_SIZE1		0xC0
+#define QSERDES_COM_SSC_STEP_SIZE2		0xC4
+#define PCIE_USB3_PHY_POWER_STATE_CONFIG2	0x654
+
+#define PCIE_USB3_PHY_SW_RESET			0x600
+#define PCIE_USB3_PHY_START			0x608
+
+
 struct msm_ssphy_qmp {
 	struct usb_phy		phy;
 	void __iomem		*base;
 	struct regulator	*vdd;
 	struct regulator	*vdda18;
 	int			vdd_levels[3]; /* none, low, high */
+	struct clk		*aux_clk;
+	struct clk		*cfg_ahb_clk;
+	struct clk		*pipe_clk;
 };
 
 static int msm_ssusb_qmp_config_vdd(struct msm_ssphy_qmp *phy, int high)
@@ -103,10 +156,125 @@ put_vdda18_lpm:
 	return rc < 0 ? rc : 0;
 }
 
+static int msm_ssphy_qmp_init_clocks(struct msm_ssphy_qmp *phy)
+{
+	int ret = 0;
+
+	phy->aux_clk = devm_clk_get(phy->phy.dev, "aux_clk");
+	if (IS_ERR(phy->aux_clk)) {
+		dev_err(phy->phy.dev, "failed to get aux_clk\n");
+		ret = PTR_ERR(phy->aux_clk);
+		return ret;
+	}
+	clk_set_rate(phy->aux_clk, 1000000);
+	clk_prepare_enable(phy->aux_clk);
+
+	phy->cfg_ahb_clk = devm_clk_get(phy->phy.dev, "cfg_ahb_clk");
+	if (IS_ERR(phy->cfg_ahb_clk)) {
+		dev_err(phy->phy.dev, "failed to get cfg_ahb_clk\n");
+		ret = PTR_ERR(phy->cfg_ahb_clk);
+		goto disable_aux_clk;
+	}
+	clk_prepare_enable(phy->cfg_ahb_clk);
+
+	phy->pipe_clk = devm_clk_get(phy->phy.dev, "pipe_clk");
+	if (IS_ERR(phy->pipe_clk)) {
+		dev_err(phy->phy.dev, "failed to get pipe_clk\n");
+		ret = PTR_ERR(phy->pipe_clk);
+		goto disable_cfg_ahb_clk;
+	}
+	/*
+	 * Before PHY is initilized we must first use the xo clock
+	 * as the source clock for the gcc_usb3_pipe_clk in 19.2MHz
+	 * After PHY initilization we will set the rate again to 125MHz.
+	 */
+	clk_set_rate(phy->pipe_clk, 19200000);
+	clk_prepare_enable(phy->pipe_clk);
+
+	return ret;
+
+disable_cfg_ahb_clk:
+	clk_disable_unprepare(phy->cfg_ahb_clk);
+disable_aux_clk:
+	clk_disable_unprepare(phy->aux_clk);
+
+	return ret;
+}
+
 /* SSPHY Initialization */
 static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 {
+	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
+					phy);
+	int ret;
+
 	dev_dbg(uphy->dev, "%s\n", __func__);
+
+	ret = msm_ssphy_qmp_init_clocks(phy);
+	if (ret) {
+		dev_err(uphy->dev, "Fail to init qmp phy clocks\n");
+		return ret;
+	}
+
+	writel_relaxed(0x01, phy->base + PCIE_USB3_PHY_POWER_DOWN_CONTROL);
+
+	writel_relaxed(0x08, phy->base + QSERDES_COM_SYSCLK_EN_SEL_TXBAND);
+	writel_relaxed(0x82, phy->base + QSERDES_COM_DEC_START1);
+	writel_relaxed(0x03, phy->base + QSERDES_COM_DEC_START2);
+	writel_relaxed(0xD5, phy->base + QSERDES_COM_DIV_FRAC_START1);
+	writel_relaxed(0xAA, phy->base + QSERDES_COM_DIV_FRAC_START2);
+	writel_relaxed(0x4D, phy->base + QSERDES_COM_DIV_FRAC_START3);
+	writel_relaxed(0x01, phy->base + QSERDES_COM_PLLLOCK_CMP_EN);
+	writel_relaxed(0x2B, phy->base + QSERDES_COM_PLLLOCK_CMP1);
+	writel_relaxed(0x68, phy->base + QSERDES_COM_PLLLOCK_CMP2);
+	writel_relaxed(0x7C, phy->base + QSERDES_COM_PLL_CRCTRL);
+	writel_relaxed(0x02, phy->base + QSERDES_COM_PLL_CP_SETI);
+	writel_relaxed(0x1F, phy->base + QSERDES_COM_PLL_IP_SETP);
+	writel_relaxed(0x0F, phy->base + QSERDES_COM_PLL_CP_SETP);
+	writel_relaxed(0x01, phy->base + QSERDES_COM_PLL_IP_SETI);
+	writel_relaxed(0x0F, phy->base + QSERDES_COM_IE_TRIM);
+	writel_relaxed(0x0F, phy->base + QSERDES_COM_IP_TRIM);
+	writel_relaxed(0x46, phy->base + QSERDES_COM_PLL_CNTRL);
+
+	/* CDR Settings */
+	writel_relaxed(0xDA, phy->base + QSERDES_RX_CDR_CONTROL1);
+	writel_relaxed(0x42, phy->base + QSERDES_RX_CDR_CONTROL2);
+
+	/* Calibration Settings */
+	writel_relaxed(0x90, phy->base + QSERDES_COM_RESETSM_CNTRL);
+	writel_relaxed(0x05, phy->base + QSERDES_COM_RESETSM_CNTRL2);
+
+	writel_relaxed(0x20, phy->base + QSERDES_COM_RES_CODE_START_SEG1);
+	writel_relaxed(0x77, phy->base + QSERDES_COM_RES_CODE_CAL_CSR);
+	writel_relaxed(0x15, phy->base + QSERDES_COM_RES_TRIM_CONTROL);
+	writel_relaxed(0x03, phy->base + QSERDES_TX_RCV_DETECT_LVL);
+	writel_relaxed(0x02, phy->base + QSERDES_RX_RX_EQU_ADAPTOR_CNTRL2);
+	writel_relaxed(0x6C, phy->base + QSERDES_RX_RX_EQU_ADAPTOR_CNTRL3);
+	writel_relaxed(0xC7, phy->base + QSERDES_RX_RX_EQU_ADAPTOR_CNTRL4);
+	writel_relaxed(0x40, phy->base + QSERDES_RX_SIGDET_ENABLES);
+	writel_relaxed(0x70, phy->base + QSERDES_RX_SIGDET_CNTRL);
+	writel_relaxed(0x06, phy->base + QSERDES_RX_SIGDET_DEGLITCH_CNTRL);
+	writel_relaxed(0x48, phy->base + PCIE_USB3_PHY_RX_IDLE_DTCT_CNTRL);
+	writel_relaxed(0x01, phy->base + QSERDES_COM_SSC_EN_CENTER);
+	writel_relaxed(0x02, phy->base + QSERDES_COM_SSC_ADJ_PER1);
+	writel_relaxed(0x31, phy->base + QSERDES_COM_SSC_PER1);
+	writel_relaxed(0x01, phy->base + QSERDES_COM_SSC_PER2);
+	writel_relaxed(0x19, phy->base + QSERDES_COM_SSC_STEP_SIZE1);
+	writel_relaxed(0x19, phy->base + QSERDES_COM_SSC_STEP_SIZE2);
+	writel_relaxed(0x08, phy->base + PCIE_USB3_PHY_POWER_STATE_CONFIG2);
+
+	writel_relaxed(0x00, phy->base + PCIE_USB3_PHY_SW_RESET);
+	writel_relaxed(0x03, phy->base + PCIE_USB3_PHY_START);
+
+	/*
+	 * After PHY initilization above, the PHY is generating
+	 * the usb3_pipe_clk in 125MHz. Therefore now we can (and need)
+	 * to switch the gcc_usb3_pipe_clk to 125MHz as well, so
+	 * the gcc_usb3_pipe_clk is sourced now from the usb3_pipe3_clk
+	 * instead of from the xo clock.
+	 */
+	clk_set_rate(phy->pipe_clk, 125000000);
+
 	return 0;
 }
 
@@ -236,6 +404,9 @@ static int msm_ssphy_qmp_remove(struct platform_device *pdev)
 	msm_ssusb_qmp_ldo_enable(phy, 0);
 	regulator_disable(phy->vdd);
 	msm_ssusb_qmp_config_vdd(phy, 0);
+	clk_disable_unprepare(phy->aux_clk);
+	clk_disable_unprepare(phy->cfg_ahb_clk);
+	clk_disable_unprepare(phy->pipe_clk);
 	kfree(phy);
 	return 0;
 }
