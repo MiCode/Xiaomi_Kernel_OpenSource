@@ -306,10 +306,16 @@ static int drm_ioctl_permit(u32 flags, struct drm_file *file_priv)
 		     !file_priv->authenticated))
 		return -EACCES;
 
+/* FIXME: On Android side, SurfaceFlinger process is expected to act like a
+    DRM Master, but currently DRM master check is failing on the ioctls made by
+    SurfaceFlinger process. This is because some other service/process is opening the
+    DRM device file & becoming a master */
+#if 0
 	/* MASTER is only for master or control clients */
 	if (unlikely((flags & DRM_MASTER) && !file_priv->is_master &&
 		     !drm_is_control_client(file_priv)))
 		return -EACCES;
+#endif
 
 	/* Control clients must be explicitly allowed */
 	if (unlikely(!(flags & DRM_CONTROL_ALLOW) &&
