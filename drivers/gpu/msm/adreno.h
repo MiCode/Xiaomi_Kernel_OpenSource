@@ -203,6 +203,7 @@ struct adreno_device {
 
 	struct work_struct start_work;
 	struct work_struct input_work;
+	unsigned int ram_cycles_lo;
 };
 
 /**
