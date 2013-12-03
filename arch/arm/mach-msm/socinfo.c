@@ -429,6 +429,11 @@ static enum msm_cpu cpu_of_id[] = {
 
 	/* FSM9900 ID */
 	[188] = FSM_CPU_9900,
+	[189] = FSM_CPU_9900,
+	[190] = FSM_CPU_9900,
+	[191] = FSM_CPU_9900,
+	[192] = FSM_CPU_9900,
+	[193] = FSM_CPU_9900,
 
 	/* Samarium IDs */
 	[195] = MSM_CPU_SAMARIUM,
