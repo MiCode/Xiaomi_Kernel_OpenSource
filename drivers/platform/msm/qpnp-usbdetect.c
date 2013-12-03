@@ -106,8 +106,8 @@ static int qpnp_usbdetect_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id of_match_table[] = {
-	{	.compatible = "qcom,qpnp-usbdetect",
-	}
+	{ .compatible = "qcom,qpnp-usbdetect", },
+	{}
 };
 
 static struct platform_driver qpnp_usbdetect_driver = {
