@@ -565,19 +565,21 @@ struct mdp_histogram {
 	uint32_t *b;
 };
 
+#define MISR_CRC_BATCH_SIZE 32
 enum {
-	DISPLAY_MISR_EDP,
+	DISPLAY_MISR_EDP = 0,
 	DISPLAY_MISR_DSI0,
 	DISPLAY_MISR_DSI1,
 	DISPLAY_MISR_HDMI,
 	DISPLAY_MISR_LCDC,
+	DISPLAY_MISR_MDP,
 	DISPLAY_MISR_ATV,
 	DISPLAY_MISR_DSI_CMD,
 	DISPLAY_MISR_MAX
 };
 
 enum {
-	MISR_OP_NONE,
+	MISR_OP_NONE = 0,
 	MISR_OP_SFM,
 	MISR_OP_MFM,
 	MISR_OP_BM,
@@ -588,7 +590,7 @@ struct mdp_misr {
 	uint32_t block_id;
 	uint32_t frame_count;
 	uint32_t crc_op_mode;
-	uint32_t crc_value[32];
+	uint32_t crc_value[MISR_CRC_BATCH_SIZE];
 };
 
 /*

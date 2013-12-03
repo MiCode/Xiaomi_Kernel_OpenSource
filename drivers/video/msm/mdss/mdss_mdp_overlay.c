@@ -2103,7 +2103,10 @@ static int mdss_fb_set_metadata(struct msm_fb_data_type *mfd,
 				struct msmfb_metadata *metadata)
 {
 	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	int ret = 0;
+	if (!ctl)
+		return  -EPERM;
 	switch (metadata->op) {
 	case metadata_op_vic:
 		if (mfd->panel_info)
@@ -2115,7 +2118,7 @@ static int mdss_fb_set_metadata(struct msm_fb_data_type *mfd,
 	case metadata_op_crc:
 		if (!mfd->panel_power_on)
 			return -EPERM;
-		ret = mdss_misr_crc_set(mdata, &metadata->data.misr_request);
+		ret = mdss_misr_set(mdata, &metadata->data.misr_request, ctl);
 		break;
 	case metadata_op_wb_format:
 		ret = mdss_mdp_wb_set_format(mfd,
@@ -2151,7 +2154,10 @@ static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
 				struct msmfb_metadata *metadata)
 {
 	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	int ret = 0;
+	if (!ctl)
+		return -EPERM;
 	switch (metadata->op) {
 	case metadata_op_frame_rate:
 		metadata->data.panel_frame_rate =
@@ -2163,7 +2169,7 @@ static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
 	case metadata_op_crc:
 		if (!mfd->panel_power_on)
 			return -EPERM;
-		ret = mdss_misr_crc_get(mdata, &metadata->data.misr_request);
+		ret = mdss_misr_get(mdata, &metadata->data.misr_request, ctl);
 		break;
 	case metadata_op_wb_format:
 		ret = mdss_mdp_wb_get_format(mfd, &metadata->data.mixer_cfg);
