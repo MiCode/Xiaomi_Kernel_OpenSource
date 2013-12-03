@@ -335,15 +335,12 @@ static void config_debug_fs_init(void)
 static int q6asm_session_alloc(struct audio_client *ac)
 {
 	int n;
-	mutex_lock(&session_lock);
 	for (n = 1; n <= SESSION_MAX; n++) {
 		if (!session[n]) {
 			session[n] = ac;
-			mutex_unlock(&session_lock);
 			return n;
 		}
 	}
-	mutex_unlock(&session_lock);
 	return -ENOMEM;
 }
 
@@ -351,9 +348,7 @@ static void q6asm_session_free(struct audio_client *ac)
 {
 	pr_debug("%s: sessionid[%d]\n", __func__, ac->session);
 	rtac_remove_popp_from_adm_devices(ac->session);
-	mutex_lock(&session_lock);
 	session[ac->session] = 0;
-	mutex_unlock(&session_lock);
 	ac->session = 0;
 	ac->perf_mode = LEGACY_PCM_MODE;
 	ac->fptr_cache_ops = NULL;
@@ -724,6 +719,9 @@ void q6asm_audio_client_free(struct audio_client *ac)
 	struct audio_port_data *port;
 	if (!ac || !ac->session)
 		return;
+
+	mutex_lock(&session_lock);
+
 	pr_debug("%s: Session id %d\n", __func__, ac->session);
 	if (ac->io_mode & SYNC_IO_MODE) {
 		for (loopcnt = 0; loopcnt <= OUT; loopcnt++) {
@@ -748,6 +746,8 @@ void q6asm_audio_client_free(struct audio_client *ac)
 /*done:*/
 	kfree(ac);
 	ac = NULL;
+	mutex_unlock(&session_lock);
+
 	return;
 }
 
@@ -804,9 +804,13 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 	ac = kzalloc(sizeof(struct audio_client), GFP_KERNEL);
 	if (!ac)
 		return NULL;
+
+	mutex_lock(&session_lock);
 	n = q6asm_session_alloc(ac);
-	if (n <= 0)
+	if (n <= 0) {
+		mutex_unlock(&session_lock);
 		goto fail_session;
+	}
 	ac->session = n;
 	ac->cb = cb;
 	ac->priv = priv;
@@ -820,7 +824,8 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 
 	if (ac->apr == NULL) {
 		pr_err("%s Registration with APR failed\n", __func__);
-			goto fail;
+		mutex_unlock(&session_lock);
+		goto fail;
 	}
 	ac->apr2 = apr_register("ADSP", "ASM", \
 				(apr_fn)q6asm_callback,\
@@ -829,14 +834,17 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 
 	if (ac->apr2 == NULL) {
 		pr_err("%s Registration with APR-2 failed\n", __func__);
-			goto fail;
+		mutex_unlock(&session_lock);
+		goto fail;
 	}
 	rtac_set_asm_handle(n, ac->apr);
 
 	pr_debug("%s Registering the common port with APR\n", __func__);
 	ac->mmap_apr = q6asm_mmap_apr_reg();
-	if (ac->mmap_apr == NULL)
+	if (ac->mmap_apr == NULL) {
+		mutex_unlock(&session_lock);
 		goto fail;
+        }
 
 	init_waitqueue_head(&ac->cmd_wait);
 	init_waitqueue_head(&ac->time_wait);
@@ -855,6 +863,8 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 	send_asm_custom_topology(ac);
 
 	pr_debug("%s: session[%d]\n", __func__, ac->session);
+
+	mutex_unlock(&session_lock);
 
 	return ac;
 fail:
