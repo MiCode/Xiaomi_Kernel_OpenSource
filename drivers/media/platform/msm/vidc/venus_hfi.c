@@ -1517,7 +1517,7 @@ static void venus_hfi_set_registers(struct venus_hfi_device *device)
 	}
 }
 
-static int venus_hfi_sys_set_debug(struct venus_hfi_device *device, bool debug)
+static int venus_hfi_sys_set_debug(struct venus_hfi_device *device, u32 debug)
 {
 	u8 packet[VIDC_IFACEQ_VAR_SMALL_PKT_SIZE];
 	int rc = 0;
