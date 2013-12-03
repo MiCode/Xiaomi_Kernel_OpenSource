@@ -216,8 +216,6 @@ struct spi_dmov_cmd {
 	dma_addr_t cmd_ptr;
 };
 
-static struct pm_qos_request qos_req_list;
-
 #ifdef CONFIG_DEBUG_FS
 /* Used to create debugfs entries */
 static const struct {
@@ -369,10 +367,6 @@ struct msm_spi {
 	struct dentry *debugfs_spi_regs[ARRAY_SIZE(debugfs_spi_regs)];
 #endif
 	struct msm_spi_platform_data *pdata; /* Platform data */
-	/* Remote Spinlock Data */
-	bool                     use_rlock;
-	remote_mutex_t           r_lock;
-	uint32_t                 pm_lat;
 	/* When set indicates multiple transfers in a single message */
 	bool                     multi_xfr;
 	bool                     done;
