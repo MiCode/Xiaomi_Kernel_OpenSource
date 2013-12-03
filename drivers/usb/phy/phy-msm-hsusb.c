@@ -68,11 +68,14 @@ MODULE_PARM_DESC(override_phy_init, "Override HSPHY Init Seq");
 #define FREECLOCK_SEL			BIT(29)
 
 /* HS_PHY_CTRL_COMMON_REG bits used when core_ver >= MSM_CORE_VER_120 */
+#define COMMON_PLLBTUNE		BIT(15)
+#define COMMON_CLKCORE			BIT(14)
 #define COMMON_VBUSVLDEXTSEL0		BIT(12)
 #define COMMON_OTGDISABLE0		BIT(11)
 #define COMMON_OTGTUNE0_MASK		(0x7 << 8)
 #define COMMON_OTGTUNE0_DEFAULT		(0x4 << 8)
 #define COMMON_COMMONONN		BIT(7)
+#define COMMON_FSEL			(0x7 << 4)
 #define COMMON_RETENABLEN		BIT(3)
 
 /* ALT_INTERRUPT_EN/HS_PHY_IRQ_STAT bits */
@@ -108,6 +111,7 @@ struct msm_hsphy {
 	void __iomem		*base;
 	void __iomem		*tcsr;
 	int			hsphy_init_seq;
+	bool			set_pllbtune;
 	u32			core_ver;
 
 	struct regulator	*vdd;
@@ -277,11 +281,20 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 					SEC_UTMI_FREE_CLK_GFM_SEL1,
 					SEC_UTMI_FREE_CLK_GFM_SEL1);
 
-	if (phy->core_ver >= MSM_CORE_VER_120)
-		writel_relaxed(COMMON_OTGDISABLE0 | COMMON_OTGTUNE0_DEFAULT |
+	if (phy->core_ver >= MSM_CORE_VER_120) {
+		if (phy->set_pllbtune) {
+			val = readl_relaxed(phy->base + HS_PHY_CTRL_COMMON_REG);
+			val |= COMMON_PLLBTUNE | COMMON_CLKCORE;
+			val &= ~COMMON_FSEL;
+			writel_relaxed(val, phy->base + HS_PHY_CTRL_COMMON_REG);
+		} else {
+			writel_relaxed(COMMON_OTGDISABLE0 |
+				COMMON_OTGTUNE0_DEFAULT |
 				COMMON_COMMONONN | FSEL_DEFAULT |
 				COMMON_RETENABLEN,
 				phy->base + HS_PHY_CTRL_COMMON_REG);
+		}
+	}
 
 	/*
 	 * write HSPHY init value to QSCRATCH reg to set HSPHY parameters like
@@ -567,6 +580,9 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		dev_dbg(dev, "unable to read hsphy init seq\n");
 	else if (!phy->hsphy_init_seq)
 		dev_warn(dev, "hsphy init seq cannot be 0. Using POR value\n");
+
+	phy->set_pllbtune = of_property_read_bool(dev->of_node,
+						 "qti,set-pllbtune");
 
 	platform_set_drvdata(pdev, phy);
 
