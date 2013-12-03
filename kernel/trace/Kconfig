@@ -111,6 +111,14 @@ config MSM_RTB_SEPARATE_CPUS
 	  separately. This will guarantee that the last acesses for each cpu
 	  will be logged but there will be fewer entries per cpu
 
+config IPC_LOGGING
+	bool "Debug Logging for IPC Drivers"
+	select GENERIC_TRACER
+	help
+	  This option allows the debug logging for IPC Drivers.
+
+	  If in doubt, say no.
+
 # All tracer options should select GENERIC_TRACER. For those options that are
 # enabled by all tracers (context switch and event tracer) they select TRACING.
 # This allows those options to appear when no other tracer is selected. But the

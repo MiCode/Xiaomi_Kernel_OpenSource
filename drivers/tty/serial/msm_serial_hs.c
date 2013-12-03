@@ -59,6 +59,7 @@
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
 #include <linux/gpio.h>
+#include <linux/ipc_logging.h>
 #include <asm/atomic.h>
 #include <asm/irq.h>
 
@@ -67,7 +68,6 @@
 #include <mach/sps.h>
 #include <mach/msm_serial_hs.h>
 #include <mach/msm_bus.h>
-#include <mach/msm_ipc_logging.h>
 
 #include "msm_serial_hs_hwreg.h"
 #define UART_SPS_CONS_PERIPHERAL 0

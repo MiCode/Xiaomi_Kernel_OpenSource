@@ -26,10 +26,9 @@
 #include <linux/wait.h>
 #include <linux/delay.h>
 #include <linux/completion.h>
+#include <linux/ipc_logging.h>
 
-#include <mach/msm_ipc_logging.h>
-
-#include "ipc_logging.h"
+#include "ipc_logging_private.h"
 
 static DEFINE_MUTEX(ipc_log_debugfs_init_lock);
 static struct dentry *root_dent;

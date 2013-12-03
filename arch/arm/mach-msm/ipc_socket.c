@@ -25,6 +25,7 @@
 #include <linux/qmi_encdec.h>
 #include <linux/slab.h>
 #include <linux/kmemleak.h>
+#include <linux/ipc_logging.h>
 
 #include <asm/string.h>
 #include <asm/atomic.h>
@@ -32,7 +33,6 @@
 #include <net/sock.h>
 
 #include <mach/msm_ipc_router.h>
-#include <mach/msm_ipc_logging.h>
 
 #include "ipc_router.h"
 #include "msm_ipc_router_security.h"
