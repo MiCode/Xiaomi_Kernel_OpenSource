@@ -2376,6 +2376,10 @@ static struct super_block *yaffs_internal_read_super(int yaffs_version,
 
 	yaffs_gross_lock(dev);
 
+	spin_lock_init(&yaffs_dev_to_lc(dev)->work_lock);
+	INIT_DELAYED_WORK(&yaffs_dev_to_lc(dev)->sync_work,
+				yaffs_delayed_sync_fs);
+
 	err = yaffs_guts_initialise(dev);
 
 	yaffs_trace(YAFFS_TRACE_OS,
@@ -2412,9 +2416,7 @@ static struct super_block *yaffs_internal_read_super(int yaffs_version,
 		return NULL;
 	}
 	sb->s_root = root;
-	spin_lock_init(&yaffs_dev_to_lc(dev)->work_lock);
-	INIT_DELAYED_WORK(&yaffs_dev_to_lc(dev)->sync_work,
-				yaffs_delayed_sync_fs);
+
 	if (!dev->is_checkpointed)
 		yaffs_mark_sb_dirty(sb);
 	yaffs_trace(YAFFS_TRACE_ALWAYS,
