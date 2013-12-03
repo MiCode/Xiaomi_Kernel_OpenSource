@@ -2792,7 +2792,8 @@ static int mpq_dmx_process_video_packet_framing(
 				&(meta_data.info.framing.pts_dts_info));
 			mpq_dmx_save_pts_dts(feed_data);
 
-			packet.raw_data_len = feed_data->pending_pattern_len;
+			packet.raw_data_len = feed_data->pending_pattern_len -
+				framing_res.info[i].used_prefix_size;
 			packet.raw_data_offset = feed_data->frame_offset;
 			meta_data.info.framing.pattern_type =
 				feed_data->last_framing_match_type;
@@ -2835,11 +2836,51 @@ static int mpq_dmx_process_video_packet_framing(
 
 			feed->data_ready_cb.ts(&feed->feed.ts, &data);
 
-			feed_data->pending_pattern_len = 0;
 			mpq_streambuffer_get_data_rw_offset(
 				feed_data->video_buffer,
 				NULL,
 				&feed_data->frame_offset);
+
+			/*
+			 * In linear buffers, after writing the packet
+			 * we switched over to a new linear buffer for the new
+			 * frame. In that case, we should re-write the prefix
+			 * of the existing frame if any exists.
+			 */
+			if ((MPQ_STREAMBUFFER_BUFFER_MODE_LINEAR ==
+				 feed_data->video_buffer->mode) &&
+				framing_res.info[i].used_prefix_size) {
+				ret = mpq_streambuffer_data_write(stream_buffer,
+					feed_data->prev_pattern +
+					 DVB_DMX_MAX_PATTERN_LEN -
+					 framing_res.info[i].used_prefix_size,
+					framing_res.info[i].used_prefix_size);
+
+				if (ret < 0) {
+					feed_data->pending_pattern_len = 0;
+					mpq_demux->decoder_drop_count +=
+					 framing_res.info[i].used_prefix_size;
+					feed_data->ts_dropped_bytes +=
+					 framing_res.info[i].used_prefix_size;
+				} else {
+					feed_data->pending_pattern_len =
+					 framing_res.info[i].used_prefix_size;
+				}
+			} else {
+				s32 offset = (s32)feed_data->frame_offset;
+				u32 buff_size =
+				 feed_data->video_buffer->buffers[0].size;
+
+				offset -= framing_res.info[i].used_prefix_size;
+				offset += (offset < 0) ? buff_size : 0;
+				feed_data->pending_pattern_len =
+					framing_res.info[i].used_prefix_size;
+
+				if (MPQ_STREAMBUFFER_BUFFER_MODE_RING ==
+					feed_data->video_buffer->mode) {
+					feed_data->frame_offset = (u32)offset;
+				}
+			}
 		}
 
 		/* save the last match for next time */
@@ -2856,11 +2897,23 @@ static int mpq_dmx_process_video_packet_framing(
 	feed_data->prev_stc = curr_stc;
 	feed_data->first_prefix_size = 0;
 
+	/*
+	 * Save the trailing of the TS packet as we might have a pattern
+	 * split that we need to re-use when closing the next
+	 * video linear buffer.
+	 */
+	if (MPQ_STREAMBUFFER_BUFFER_MODE_LINEAR ==
+		feed_data->video_buffer->mode)
+		memcpy(feed_data->prev_pattern,
+			buf + 188 - DVB_DMX_MAX_PATTERN_LEN,
+			DVB_DMX_MAX_PATTERN_LEN);
+
 	if (pending_data_len) {
 		ret = mpq_streambuffer_data_write(
 			stream_buffer,
 			(buf + ts_payload_offset + bytes_written),
 			pending_data_len);
+
 		if (ret < 0) {
 			mpq_demux->decoder_drop_count += pending_data_len;
 			feed_data->ts_dropped_bytes += pending_data_len;
