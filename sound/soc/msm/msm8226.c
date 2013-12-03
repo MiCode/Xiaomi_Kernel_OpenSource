@@ -95,6 +95,7 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 			    1 << MBHC_CS_ENABLE_INSERTION |
 			    1 << MBHC_CS_ENABLE_REMOVAL),
 	.do_recalibration = true,
+	.use_vddio_meas = true,
 };
 
 struct msm_auxpcm_gpio {
