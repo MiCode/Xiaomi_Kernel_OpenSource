@@ -277,14 +277,17 @@ static void handle_sys_init_done(enum command_response cmd, void *data)
 		dprintk(VIDC_ERR, "Wrong device_id received\n");
 		return;
 	}
-	dprintk(VIDC_DBG, "index = %d\n", index);
-	dprintk(VIDC_DBG, "ptr = %p\n", &(core->completions[index]));
-	complete(&(core->completions[index]));
 	sys_init_msg = response->data;
 	if (!sys_init_msg) {
 		dprintk(VIDC_ERR, "sys_init_done message not proper\n");
 		return;
 	}
+	core->enc_codec_supported = sys_init_msg->enc_codec_supported;
+	core->dec_codec_supported = sys_init_msg->dec_codec_supported;
+	dprintk(VIDC_DBG, "supported_codecs: enc = 0x%x, dec = 0x%x\n",
+		core->enc_codec_supported, core->dec_codec_supported);
+	dprintk(VIDC_DBG, "ptr[%d] = %p\n", index, &(core->completions[index]));
+	complete(&(core->completions[index]));
 }
 
 static void handle_session_release_buf_done(enum command_response cmd,
@@ -1598,7 +1601,7 @@ static enum hal_domain get_hal_domain(int session_type)
 	return domain;
 }
 
-static enum hal_video_codec get_hal_codec_type(int fourcc)
+enum hal_video_codec get_hal_codec_type(int fourcc)
 {
 	enum hal_video_codec codec;
 	dprintk(VIDC_DBG, "codec is 0x%x", fourcc);
