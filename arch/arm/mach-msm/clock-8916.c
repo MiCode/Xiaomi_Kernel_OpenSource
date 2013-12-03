@@ -200,10 +200,10 @@ static struct clk_lookup msm_clocks_8916[] = {
 	CLK_DUMMY("",	gcc_venus0_ahb_clk.c,	"", OFF),
 	CLK_DUMMY("",	gcc_venus0_axi_clk.c,	"", OFF),
 	CLK_DUMMY("",	gcc_venus0_vcodec0_clk.c,	"", OFF),
-	CLK_DUMMY("core_clk",	NULL, "1f00000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk",	NULL, "1f00000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk",	NULL, "1e00000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk",	NULL, "1e00000.qcom,iommu", OFF),
+	CLK_DUMMY("core_clk",	NULL, "1f00000.qti,iommu", OFF),
+	CLK_DUMMY("iface_clk",	NULL, "1f00000.qti,iommu", OFF),
+	CLK_DUMMY("core_clk",	NULL, "1e00000.qti,iommu", OFF),
+	CLK_DUMMY("iface_clk",	NULL, "1e00000.qti,iommu", OFF),
 
 	/* HSUSB-OTG Clocks */
 	CLK_DUMMY("xo", NULL, "78d9000.usb", OFF),
