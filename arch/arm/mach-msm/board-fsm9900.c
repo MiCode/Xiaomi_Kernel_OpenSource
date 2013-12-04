@@ -119,7 +119,7 @@ static int emac_dt_update(int cell, phys_addr_t addr, unsigned long size)
 	pmac->name = (char *)mac_addr_prop_name;
 	memcpy(pmac->value, buf, ETH_ALEN);
 
-	for_each_compatible_node(np, NULL, "qcom,emac") {
+	for_each_compatible_node(np, NULL, "qti,emac") {
 		if (of_property_read_u32(np, "cell-index", &n))
 			continue;
 		if (n == cell)
