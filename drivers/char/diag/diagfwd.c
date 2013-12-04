@@ -1295,8 +1295,8 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 		driver->apps_rsp_buf[1] = 0x0;
 		*(uint16_t *)(driver->apps_rsp_buf + 2) = 0x0;
 		*(uint16_t *)(driver->apps_rsp_buf + 4) = EVENT_LAST_ID + 1;
-		for (i = 0; i < EVENT_LAST_ID/8 + 1; i++)
-			*(unsigned char *)(driver->apps_rsp_buf + 6 + i) = 0x0;
+		memcpy(driver->apps_rsp_buf+6, driver->event_masks,
+							EVENT_LAST_ID/8+1);
 		encode_rsp_and_send(6 + EVENT_LAST_ID/8);
 		return 0;
 	}
