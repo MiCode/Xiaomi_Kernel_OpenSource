@@ -35,7 +35,7 @@ static struct boot_stats *boot_stats =
 				(void __iomem *)(MSM_BOOT_STATS_IMEM_START);
 
 static const struct of_device_id mpm_counter_of_match[]	= {
-	{ .compatible	= "qcom,mpm2-sleep-counter",	},
+	{ .compatible	= "qti,mpm2-sleep-counter",	},
 	{},
 };
 
