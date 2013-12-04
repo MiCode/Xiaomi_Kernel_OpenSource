@@ -119,9 +119,9 @@
 		vdd_dig-supply = <&pma8084_s2_corner>;
 	};
 
-	qcom,ssusb@f9200000 {
+	ssusb@f9200000 {
 		/delete-property/ vbus_dwc3-supply;
-		/delete-property/ qcom,misc-ref;
+		/delete-property/ qti,misc-ref;
 		/delete-property/ dwc_usb3-adc_tm;
 	};
 

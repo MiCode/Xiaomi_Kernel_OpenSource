@@ -319,7 +319,7 @@
 };
 
 &usb3 {
-	qcom,charging-disabled;
+	qti,charging-disabled;
 };
 
 &usb3_sec {
