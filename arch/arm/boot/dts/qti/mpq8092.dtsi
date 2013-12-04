@@ -186,6 +186,11 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
+		mem_dump_table@14 {
+			compatible = "qti,msm-imem-mem_dump_table";
+			reg = <0x14 4>;
+		};
+
 		boot_stats@6b0 {
 			compatible = "qti,msm-imem-boot_stats";
 			reg = <0x6b0 32>;

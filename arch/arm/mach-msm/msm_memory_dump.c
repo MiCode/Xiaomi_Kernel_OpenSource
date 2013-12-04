@@ -14,11 +14,11 @@
 #include <linux/io.h>
 #include <linux/init.h>
 #include <linux/export.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_memory_dump.h>
 
-
-/*TODO: Needs to be set to correct value */
 #define DUMP_TABLE_OFFSET	0x14
 #define MSM_DUMP_TABLE_VERSION	MK_TABLE(1, 0)
 
@@ -45,19 +45,34 @@ EXPORT_SYMBOL(msm_dump_table_register);
 static int __init init_memory_dump(void)
 {
 	struct msm_dump_table *table;
+	struct device_node *np;
+	static void __iomem *imem_base;
+
+	np = of_find_compatible_node(NULL, NULL, "qti,msm-imem-mem_dump_table");
+	if (!np) {
+		pr_err("unable to find DT imem dump table node\n");
+		return -ENODEV;
+	}
+	imem_base = of_iomap(np, 0);
+	if (!imem_base) {
+		pr_err("unable to map imem dump table offset\n");
+		return -ENOMEM;
+	}
 
 	mem_dump_data.dump_table_ptr = kzalloc(sizeof(struct msm_dump_table),
 						GFP_KERNEL);
 	if (!mem_dump_data.dump_table_ptr) {
+		iounmap(imem_base);
 		printk(KERN_ERR "unable to allocate memory for dump table\n");
 		return -ENOMEM;
 	}
 	table = mem_dump_data.dump_table_ptr;
 	table->version = MSM_DUMP_TABLE_VERSION;
 	mem_dump_data.dump_table_phys = virt_to_phys(table);
-	writel_relaxed(mem_dump_data.dump_table_phys,
-				MSM_IMEM_BASE + DUMP_TABLE_OFFSET);
+	writel_relaxed(mem_dump_data.dump_table_phys, imem_base);
 	printk(KERN_INFO "MSM Memory Dump table set up\n");
+	iounmap(imem_base);
+
 	return 0;
 }
 
