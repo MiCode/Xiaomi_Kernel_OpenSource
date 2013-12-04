@@ -251,6 +251,7 @@ static void qpnpint_irq_unmask(struct irq_data *d)
 	struct q_chip_data *chip_d = irq_d->chip_d;
 	struct q_perip_data *per_d = irq_d->per_d;
 	int rc;
+	uint8_t buf[2];
 	uint8_t prev_int_en = per_d->int_en;
 
 	pr_debug("hwirq %lu irq: %d\n", d->hwirq, d->irq);
@@ -271,11 +272,28 @@ static void qpnpint_irq_unmask(struct irq_data *d)
 		 */
 		qpnpint_arbiter_op(d, irq_d, chip_d->cb->unmask);
 	}
-	rc = qpnpint_spmi_write(irq_d, QPNPINT_REG_EN_SET,
-					&irq_d->mask_shift, 1);
+
+	/* Check the current state of the interrupt enable bit. */
+	rc = qpnpint_spmi_read(irq_d, QPNPINT_REG_EN_SET, buf, 1);
 	if (rc) {
-		pr_err("spmi failure on irq %d\n", d->irq);
+		pr_err("SPMI read failure for IRQ %d, rc=%d\n", d->irq, rc);
 		return;
+	}
+
+	if (!(buf[0] & irq_d->mask_shift)) {
+		/*
+		 * Since the interrupt is currently disabled, write to both the
+		 * LATCHED_CLR and EN_SET registers so that a spurious interrupt
+		 * cannot be triggered when the interrupt is enabled.
+		 */
+		buf[0] = irq_d->mask_shift;
+		buf[1] = irq_d->mask_shift;
+		rc = qpnpint_spmi_write(irq_d, QPNPINT_REG_LATCHED_CLR, buf, 2);
+		if (rc) {
+			pr_err("SPMI write failure for IRQ %d, rc=%d\n", d->irq,
+				rc);
+			return;
+		}
 	}
 }
 
