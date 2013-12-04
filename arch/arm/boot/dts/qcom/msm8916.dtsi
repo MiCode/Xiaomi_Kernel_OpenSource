@@ -255,54 +255,54 @@
 		qcom,ipi-ping;
 	};
 
-	qcom,smem@8e380000 {
-		compatible = "qcom,smem";
+	qti,smem@8e380000 {
+		compatible = "qti,smem";
 		reg = <0x8e380000 0x100000>,
 			<0x0b011008 0x4>,
 			<0x60000 0x8000>;
 		reg-names = "smem", "irq-reg-base", "aux-mem1";
 
-		qcom,smd-modem {
-			compatible = "qcom,smd";
-			qcom,smd-edge = <0>;
-			qcom,smd-irq-offset = <0x0>;
-			qcom,smd-irq-bitmask = <0x1000>;
-			qcom,pil-string = "modem";
+		qti,smd-modem {
+			compatible = "qti,smd";
+			qti,smd-edge = <0>;
+			qti,smd-irq-offset = <0x0>;
+			qti,smd-irq-bitmask = <0x1000>;
+			qti,pil-string = "modem";
 			interrupts = <0 25 1>;
 		};
 
-		qcom,smsm-modem {
-			compatible = "qcom,smsm";
-			qcom,smsm-edge = <0>;
-			qcom,smsm-irq-offset = <0x0>;
-			qcom,smsm-irq-bitmask = <0x2000>;
+		qti,smsm-modem {
+			compatible = "qti,smsm";
+			qti,smsm-edge = <0>;
+			qti,smsm-irq-offset = <0x0>;
+			qti,smsm-irq-bitmask = <0x2000>;
 			interrupts = <0 26 1>;
 		};
 
-		qcom,smd-wcnss {
-			compatible = "qcom,smd";
-			qcom,smd-edge = <6>;
-			qcom,smd-irq-offset = <0x0>;
-			qcom,smd-irq-bitmask = <0x20000>;
-			qcom,pil-string = "wcnss";
+		qti,smd-wcnss {
+			compatible = "qti,smd";
+			qti,smd-edge = <6>;
+			qti,smd-irq-offset = <0x0>;
+			qti,smd-irq-bitmask = <0x20000>;
+			qti,pil-string = "wcnss";
 			interrupts = <0 142 1>;
 		};
 
-		qcom,smsm-wcnss {
-			compatible = "qcom,smsm";
-			qcom,smsm-edge = <6>;
-			qcom,smsm-irq-offset = <0x0>;
-			qcom,smsm-irq-bitmask = <0x80000>;
+		qti,smsm-wcnss {
+			compatible = "qti,smsm";
+			qti,smsm-edge = <6>;
+			qti,smsm-irq-offset = <0x0>;
+			qti,smsm-irq-bitmask = <0x80000>;
 			interrupts = <0 144 1>;
 		};
 
-		qcom,smd-rpm {
-			compatible = "qcom,smd";
-			qcom,smd-edge = <15>;
-			qcom,smd-irq-offset = <0x0>;
-			qcom,smd-irq-bitmask = <0x1>;
+		qti,smd-rpm {
+			compatible = "qti,smd";
+			qti,smd-edge = <15>;
+			qti,smd-irq-offset = <0x0>;
+			qti,smd-irq-bitmask = <0x1>;
 			interrupts = <0 168 1>;
-			qcom,irq-no-suspend;
+			qti,irq-no-suspend;
 		};
 	};
 
