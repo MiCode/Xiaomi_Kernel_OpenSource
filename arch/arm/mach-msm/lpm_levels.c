@@ -30,12 +30,6 @@ enum {
 	MSM_LPM_LVL_DBG_IDLE_LIMITS = BIT(1),
 };
 
-enum {
-	MSM_SCM_L2_ON = 0,
-	MSM_SCM_L2_OFF = 1,
-	MSM_SCM_L2_GDHS = 3,
-};
-
 struct msm_rpmrs_level {
 	enum msm_pm_sleep_mode sleep_mode;
 	uint32_t l2_cache;
