@@ -880,7 +880,7 @@ static int __init clock_krait_8974_init(void)
 {
 	return platform_driver_register(&clock_krait_8974_driver);
 }
-module_init(clock_krait_8974_init);
+subsys_initcall(clock_krait_8974_init);
 
 static void __exit clock_krait_8974_exit(void)
 {
