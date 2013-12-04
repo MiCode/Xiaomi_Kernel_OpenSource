@@ -618,7 +618,6 @@
 		interrupts = <0 184 0>;
 		qti,sensors = <5>;
 		qti,slope = <3200 3200 3200 3200 3200>;
-		qti,calib-mode = "fuse_map1";
 	};
 
 	qcom,msm-thermal {
