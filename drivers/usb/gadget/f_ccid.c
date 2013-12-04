@@ -682,6 +682,8 @@ requeue_req:
 			pr_debug("%s: USB cable not connected\n", __func__);
 			r = -ENODEV;
 			goto done;
+		} else {
+			r = xfer;
 		}
 		spin_unlock_irqrestore(&ccid_dev->lock, flags);
 	} else {
