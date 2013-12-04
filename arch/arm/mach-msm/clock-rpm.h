@@ -14,7 +14,6 @@
 #ifndef __ARCH_ARM_MACH_MSM_CLOCK_RPM_H
 #define __ARCH_ARM_MACH_MSM_CLOCK_RPM_H
 
-#include <mach/rpm.h>
 #include <mach/rpm-smd.h>
 #include <mach/clk-provider.h>
 
@@ -55,7 +54,6 @@ static inline struct rpm_clk *to_rpm_clk(struct clk *clk)
  */
 void enable_rpm_scaling(void);
 
-extern struct clk_rpmrs_data clk_rpmrs_data;
 extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 
 #define __DEFINE_CLK_RPM(name, active, type, r_id, stat_id, dep, key, \
@@ -125,18 +123,6 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 			CLK_INIT(active.c), \
 		}, \
 	};
-
-#define DEFINE_CLK_RPM(name, active, r_id, dep) \
-	__DEFINE_CLK_RPM(name, active, 0, MSM_RPM_ID_##r_id##_CLK, \
-		MSM_RPM_STATUS_ID_##r_id##_CLK, dep, 0, &clk_rpmrs_data)
-
-#define DEFINE_CLK_RPM_QDSS(name, active) \
-	__DEFINE_CLK_RPM(name, active, 0, MSM_RPM_ID_QDSS_CLK, \
-		MSM_RPM_STATUS_ID_QDSS_CLK, 0, 0, &clk_rpmrs_data)
-
-#define DEFINE_CLK_RPM_BRANCH(name, active, r_id, r) \
-	__DEFINE_CLK_RPM_BRANCH(name, active, 0, MSM_RPM_ID_##r_id##_CLK, \
-			MSM_RPM_STATUS_ID_##r_id##_CLK, r, 0, &clk_rpmrs_data)
 
 #define DEFINE_CLK_RPM_SMD(name, active, type, r_id, dep) \
 	__DEFINE_CLK_RPM(name, active, type, r_id, 0, dep, \

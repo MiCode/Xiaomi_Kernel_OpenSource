@@ -15,7 +15,6 @@
 #include <linux/mutex.h>
 #include <mach/clk-provider.h>
 
-#include "rpm_resources.h"
 #include "clock-rpm.h"
 
 #define __clk_rpmrs_set_rate(r, value, ctx) \
@@ -26,43 +25,6 @@
 
 #define clk_rpmrs_set_rate_active(r, value) \
 	   __clk_rpmrs_set_rate((r), (value), (r)->rpmrs_data->ctx_active_id)
-
-static int clk_rpmrs_set_rate(struct rpm_clk *r, uint32_t value,
-			   uint32_t context)
-{
-	struct msm_rpm_iv_pair iv = {
-		.id = r->rpm_clk_id,
-		.value = value,
-	};
-	return msm_rpmrs_set(context, &iv, 1);
-}
-
-static int clk_rpmrs_get_rate(struct rpm_clk *r)
-{
-	int rc;
-	struct msm_rpm_iv_pair iv = { .id = r->rpm_status_id, };
-	rc = msm_rpm_get_status(&iv, 1);
-	return (rc < 0) ? rc : iv.value * 1000;
-}
-
-static int clk_rpmrs_handoff(struct rpm_clk *r)
-{
-	struct msm_rpm_iv_pair iv = { .id = r->rpm_status_id, };
-	int rc = msm_rpm_get_status(&iv, 1);
-
-	if (rc < 0)
-		return rc;
-
-	if (!r->branch)
-		r->c.rate = iv.value * 1000;
-
-	return 0;
-}
-
-static int clk_rpmrs_is_enabled(struct rpm_clk *r)
-{
-	return !!clk_rpmrs_get_rate(r);
-}
 
 static int clk_rpmrs_set_rate_smd(struct rpm_clk *r, uint32_t value,
 				uint32_t context)
@@ -97,15 +59,6 @@ struct clk_rpmrs_data {
 	int (*is_enabled)(struct rpm_clk *r);
 	int ctx_active_id;
 	int ctx_sleep_id;
-};
-
-struct clk_rpmrs_data clk_rpmrs_data = {
-	.set_rate_fn = clk_rpmrs_set_rate,
-	.get_rate_fn = clk_rpmrs_get_rate,
-	.handoff_fn = clk_rpmrs_handoff,
-	.is_enabled = clk_rpmrs_is_enabled,
-	.ctx_active_id = MSM_RPM_CTX_SET_0,
-	.ctx_sleep_id = MSM_RPM_CTX_SET_SLEEP,
 };
 
 struct clk_rpmrs_data clk_rpmrs_data_smd = {
