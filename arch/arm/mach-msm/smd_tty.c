@@ -31,11 +31,10 @@
 #include <linux/tty_flip.h>
 
 #include <mach/msm_smd.h>
+#include <mach/msm_smsm.h>
 #include <mach/subsystem_restart.h>
 #include <mach/socinfo.h>
 #include <mach/msm_ipc_logging.h>
-
-#include "smd_private.h"
 
 #define MODULE_NAME "msm_smdtty"
 #define MAX_SMD_TTYS 37
@@ -302,7 +301,7 @@ static void smd_tty_read(unsigned long param)
 			*/
 			SMD_TTY_ERR(
 				"%s - Possible smd_tty_buffer mismatch for %s",
-				__func__, info->ch->name);
+				__func__, info->ch_name);
 		}
 
 		/*
