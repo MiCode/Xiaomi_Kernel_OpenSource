@@ -18,6 +18,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_fdt.h>
 #include <linux/of_irq.h>
+#include <linux/msm_tsens.h>
 #include <asm/mach/arch.h>
 #include <mach/socinfo.h>
 #include <mach/board.h>
@@ -103,6 +104,7 @@ void __init mpq8092_add_drivers(void)
 		msm_clock_init(&mpq8092_rumi_clock_init_data);
 	else
 		msm_clock_init(&mpq8092_clock_init_data);
+	tsens_tm_init_driver();
 }
 
 
