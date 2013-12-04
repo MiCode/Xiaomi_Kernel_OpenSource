@@ -31,3 +31,9 @@
 &blsp1_uart4 {
 	status = "ok";
 };
+
+&ehci {
+	status = "ok";
+	qti,ext-hub-reset-gpio = <&msmgpio 0 0>;
+	vbus-supply = <&hsusb2_otg>;
+};
