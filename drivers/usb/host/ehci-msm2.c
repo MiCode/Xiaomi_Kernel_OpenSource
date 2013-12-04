@@ -1302,6 +1302,9 @@ struct msm_usb_host_platform_data *ehci_msm2_dt_to_pdata(
 					"qti,no-selective-suspend");
 	pdata->resume_gpio = of_get_named_gpio(node, "qti,resume-gpio", 0);
 
+	pdata->ext_hub_reset_gpio = of_get_named_gpio(node,
+					"qti,ext-hub-reset-gpio", 0);
+
 	return pdata;
 }
 
@@ -1431,6 +1434,26 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 			ehci_bus_resume_func = ehci_msm2_hc_driver.bus_resume;
 			ehci_msm2_hc_driver.bus_resume =
 				msm_ehci_bus_resume_with_gpio;
+		}
+	}
+
+	if (pdata && gpio_is_valid(pdata->ext_hub_reset_gpio)) {
+		ret = devm_gpio_request(&pdev->dev, pdata->ext_hub_reset_gpio,
+							"hsusb_reset");
+		if (ret) {
+			dev_err(&pdev->dev,
+				"reset gpio(%d) request failed:%d\n",
+				pdata->ext_hub_reset_gpio, ret);
+			goto devote_xo_handle;
+		} else {
+			/* reset external hub */
+			gpio_direction_output(pdata->ext_hub_reset_gpio, 0);
+			/*
+			 * Hub reset should be asserted for minimum 5microsec
+			 * before deasserting.
+			 */
+			usleep_range(5, 1000);
+			gpio_direction_output(pdata->ext_hub_reset_gpio, 1);
 		}
 	}
 

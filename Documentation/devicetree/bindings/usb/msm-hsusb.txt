@@ -155,6 +155,9 @@ Optional properties :
 - qti,resume-gpio: if present then peripheral connected to usb controller
   cannot wakeup from XO shutdown using in-band usb bus resume. Use resume
   gpio to wakeup peripheral.
+- qti,ext-hub-reset-gpio: If present then an external HUB is connected to
+  the USB host controller and its RESET_N signal is connected to this
+  ext-hub-reset-gpio GPIO. It should be driven LOW to RESET the HUB.
 - qti,vdd-voltage-level: This property must be a list of five integer
   values (no, 0.5vsuspend, 0.75suspend, min, max) where each value respresents
   either a voltage in microvolts or a value corresponding to voltage corner.
