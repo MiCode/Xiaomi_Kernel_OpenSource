@@ -42,6 +42,22 @@ static int raw(yyscan_t scanner)
 	return __value(yylval, text + 1, 16, PE_RAW);
 }
 
+static int sh_raw(yyscan_t scanner)
+{
+	YYSTYPE *yylval = parse_events_get_lval(scanner);
+	char *text = parse_events_get_text(scanner);
+
+	return __value(yylval, text + 2, 16, PE_SH_RAW);
+}
+
+static int fab_raw(yyscan_t scanner)
+{
+	YYSTYPE *yylval = parse_events_get_lval(scanner);
+	char *text = parse_events_get_text(scanner);
+
+	return __value(yylval, text + 2, 16, PE_FAB_RAW);
+}
+
 static int str(yyscan_t scanner, int token)
 {
 	YYSTYPE *yylval = parse_events_get_lval(scanner);
@@ -174,6 +190,8 @@ branch_type		{ return term(yyscanner, PARSE_EVENTS__TERM_TYPE_BRANCH_SAMPLE_TYPE
 
 mem:			{ BEGIN(mem); return PE_PREFIX_MEM; }
 r{num_raw_hex}		{ return raw(yyscanner); }
+rs{num_raw_hex}		{ return sh_raw(yyscanner); }
+rm{num_raw_hex}		{ return fab_raw(yyscanner); }
 {num_dec}		{ return value(yyscanner, 10); }
 {num_hex}		{ return value(yyscanner, 16); }
 
