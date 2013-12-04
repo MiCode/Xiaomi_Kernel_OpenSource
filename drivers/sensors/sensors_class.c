@@ -106,17 +106,17 @@ static ssize_t sensors_fifo_max_show(struct device *dev,
 }
 
 static struct device_attribute sensors_class_attrs[] = {
-	__ATTR(name, 0644, sensors_name_show, NULL),
-	__ATTR(vendor, 0644, sensors_vendor_show, NULL),
-	__ATTR(version, 0644, sensors_version_show, NULL),
-	__ATTR(handle, 0644, sensors_handle_show, NULL),
-	__ATTR(type, 0644, sensors_type_show, NULL),
-	__ATTR(max_range, 0644, sensors_max_range_show, NULL),
-	__ATTR(resolution, 0644, sensors_resolution_show, NULL),
-	__ATTR(sensor_power, 0644, sensors_power_show, NULL),
-	__ATTR(min_delay, 0644, sensors_min_delay_show, NULL),
-	__ATTR(fifo_reserved_event_count, 0644, sensors_fifo_event_show, NULL),
-	__ATTR(fifo_max_event_count, 0644, sensors_fifo_max_show, NULL),
+	__ATTR(name, 0444, sensors_name_show, NULL),
+	__ATTR(vendor, 0444, sensors_vendor_show, NULL),
+	__ATTR(version, 0444, sensors_version_show, NULL),
+	__ATTR(handle, 0444, sensors_handle_show, NULL),
+	__ATTR(type, 0444, sensors_type_show, NULL),
+	__ATTR(max_range, 0444, sensors_max_range_show, NULL),
+	__ATTR(resolution, 0444, sensors_resolution_show, NULL),
+	__ATTR(sensor_power, 0444, sensors_power_show, NULL),
+	__ATTR(min_delay, 0444, sensors_min_delay_show, NULL),
+	__ATTR(fifo_reserved_event_count, 0444, sensors_fifo_event_show, NULL),
+	__ATTR(fifo_max_event_count, 0444, sensors_fifo_max_show, NULL),
 	__ATTR_NULL,
 };
 
