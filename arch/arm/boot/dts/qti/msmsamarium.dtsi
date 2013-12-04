@@ -234,6 +234,14 @@
 	qti,msm-imem@fe805000 {
 		compatible = "qti,msm-imem";
 		reg = <0xfe805000 0x1000>; /* Address and size of IMEM */
+		ranges = <0x0 0xfe805000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pil@94c {
+			compatible = "qti,msm-imem-pil";
+			reg = <0x94c 200>;
+		};
 	};
 
 	rmtfs_sharedmem {
