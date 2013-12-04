@@ -17,11 +17,6 @@
 /* 11 general purpose registers (r4-r14), 10 cp15 registers */
 #define CPU_SAVED_STATE_SIZE (4 * 11 + 4 * 10)
 
-#define ON	1
-#define OFF	0
-#define TARGET_IS_8625	1
-#define POWER_COLLAPSED 1
-
 #ifndef __ASSEMBLY__
 
 int msm_arch_idle(void);
@@ -40,9 +35,6 @@ void msm_pm_set_l2_flush_flag(unsigned int flag);
 int msm_pm_get_l2_flush_flag(void);
 extern unsigned long msm_pm_pc_pgd;
 extern unsigned long msm_pm_boot_vector[NR_CPUS];
-extern uint32_t target_type;
-extern uint32_t apps_power_collapse;
-extern uint32_t *l2x0_base_addr;
 #else
 static inline void msm_pm_set_l2_flush_flag(unsigned int flag)
 {
