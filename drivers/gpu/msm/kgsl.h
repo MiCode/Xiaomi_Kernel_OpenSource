@@ -345,7 +345,7 @@ static inline void kgsl_memdesc_unmap(struct kgsl_memdesc *memdesc)
 		memdesc->ops->unmap_kernel(memdesc);
 }
 
-static inline uint8_t *kgsl_gpuaddr_to_vaddr(struct kgsl_memdesc *memdesc,
+static inline void *kgsl_gpuaddr_to_vaddr(struct kgsl_memdesc *memdesc,
 					     unsigned int gpuaddr)
 {
 	void *hostptr = NULL;
