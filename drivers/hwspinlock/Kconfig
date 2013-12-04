@@ -29,4 +29,15 @@ config HSEM_U8500
 
 	  If unsure, say N.
 
+config REMOTE_SPINLOCK_MSM
+	bool "MSM Remote Spinlock Functionality"
+	depends on ARCH_MSM
+	select HWSPINLOCK
+	help
+	  Say y here to support the MSM Remote Spinlock functionality, which
+	  provides a synchronisation mechanism for the various processor on the
+	  SoC.
+
+	  If unsure, say N.
+
 endmenu

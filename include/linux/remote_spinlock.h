@@ -16,8 +16,7 @@
 
 #include <linux/spinlock.h>
 #include <linux/mutex.h>
-
-#include <asm/remote_spinlock.h>
+#include <linux/msm_remote_spinlock.h>
 
 /* Grabbing a local spin lock before going for a remote lock has several
  * advantages:

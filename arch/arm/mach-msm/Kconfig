@@ -592,6 +592,7 @@ config MSM_SERIAL_DEBUGGER_CONSOLE
 	  the debugger serial port as the occur.
 
 config MSM_SMD
+	depends on REMOTE_SPINLOCK_MSM
 	bool "MSM Shared Memory Driver (SMD)"
 	help
 	  Support for the shared memory interface between the apps

@@ -32,7 +32,7 @@ typedef raw_remote_spinlock_t *_remote_spinlock_t;
 
 #define remote_spinlock_id_t const char *
 
-#if defined(CONFIG_MSM_SMD)
+#if defined(CONFIG_REMOTE_SPINLOCK_MSM)
 int _remote_spin_lock_init(remote_spinlock_id_t, _remote_spinlock_t *lock);
 void _remote_spin_release_all(uint32_t pid);
 void _remote_spin_lock(_remote_spinlock_t *lock);
@@ -76,7 +76,7 @@ struct remote_mutex_id {
 	uint32_t		delay_us;
 };
 
-#ifdef CONFIG_MSM_SMD
+#ifdef CONFIG_REMOTE_SPINLOCK_MSM
 int _remote_mutex_init(struct remote_mutex_id *id, _remote_mutex_t *lock);
 void _remote_mutex_lock(_remote_mutex_t *lock);
 void _remote_mutex_unlock(_remote_mutex_t *lock);
