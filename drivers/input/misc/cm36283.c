@@ -20,6 +20,7 @@
 #include <linux/earlysuspend.h>
 #include <linux/i2c.h>
 #include <linux/input.h>
+#include <linux/sensors.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -62,6 +63,35 @@
 #define CM36283_PS_MIN_POLL_DELAY	1
 #define CM36283_PS_MAX_POLL_DELAY	1000
 #define CM36283_PS_DEFAULT_POLL_DELAY	100
+
+static struct sensors_classdev sensors_light_cdev = {
+	.name = "cm36283-light",
+	.vendor = "Capella",
+	.version = 1,
+	.handle = SENSORS_LIGHT_HANDLE,
+	.type = SENSOR_TYPE_LIGHT,
+	.max_range = "6553",
+	.resolution = "0.0125",
+	.sensor_power = "0.15",
+	.min_delay = 0,
+	.fifo_reserved_event_count = 0,
+	.fifo_max_event_count = 0,
+};
+
+static struct sensors_classdev sensors_proximity_cdev = {
+	.name = "cm36283-proximity",
+	.vendor = "Capella",
+	.version = 1,
+	.handle = SENSORS_PROXIMITY_HANDLE,
+	.type = SENSOR_TYPE_PROXIMITY,
+	.max_range = "5.0",
+	.resolution = "5.0",
+	.sensor_power = "0.18",
+	.min_delay = 0,
+	.fifo_reserved_event_count = 0,
+	.fifo_max_event_count = 0,
+};
+
 
 static const int als_range[] = {
 	[CM36283_ALS_IT0] = 6554,
@@ -1729,6 +1759,13 @@ static int cm36283_probe(struct i2c_client *client,
 	lpi->early_suspend.resume = cm36283_late_resume;
 	register_early_suspend(&lpi->early_suspend);
 #endif
+	ret = sensors_classdev_register(&client->dev, &sensors_light_cdev);
+	if (ret)
+		goto err_create_ps_device_file;
+
+	ret = sensors_classdev_register(&client->dev, &sensors_proximity_cdev);
+	if (ret)
+		goto err_create_class_sysfs;
 
 	mutex_init(&wq_lock);
 	INIT_DELAYED_WORK(&lpi->ldwork, lsensor_delay_work_handler);
@@ -1736,7 +1773,8 @@ static int cm36283_probe(struct i2c_client *client,
 	dev_dbg(&lpi->i2c_client->dev, "%s: Probe success!\n", __func__);
 
 	return ret;
-
+err_create_class_sysfs:
+	sensors_classdev_unregister(&sensors_light_cdev);
 err_create_ps_device_file:
 	device_unregister(lpi->ps_dev);
 err_create_ps_device:
