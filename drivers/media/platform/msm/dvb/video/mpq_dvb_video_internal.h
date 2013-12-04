@@ -205,12 +205,10 @@ struct mpq_dmx_source {
 	struct mpq_streambuffer *stream_buffer;
 	wait_queue_head_t		dmx_wait;
 	int						device_id;
-#ifdef DMX_NO_COPY
 	struct video_data_buffer dmx_video_buf;
 	struct list_head		pkt_queue;
 	struct semaphore		pkt_sem;
 	wait_queue_head_t		pkt_wait;
-#endif
 };
 
 struct mpq_dvb_video_instance {
