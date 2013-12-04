@@ -653,7 +653,8 @@ static void ufs_test_run_scenario(void *data, async_cookie_t cookie)
 		 * We want to run the queue every run_q requests, or,
 		 * when the requests pool is exhausted
 		 */
-		if (ts->td->test_count >= QUEUE_MAX_REQUESTS ||
+
+		if (ts->td->dispatched_count >= QUEUE_MAX_REQUESTS ||
 				(ts->run_q && !(i % ts->run_q)))
 			blk_run_queue(ts->td->req_q);
 	}
@@ -748,15 +749,12 @@ static int ufs_test_run_lun_depth_test(struct test_data *td)
 	struct scsi_device *sdev;
 	bool changed_seed = false;
 	int i = 0, num_req[LUN_DEPTH_TEST_SIZE];
-	int lun_qdepth, nutrs;
+	int lun_qdepth, nutrs, num_scenarios;
 
 	BUG_ON(!td || !td->req_q || !td->req_q->queuedata);
 	sdev = (struct scsi_device *)td->req_q->queuedata;
 	lun_qdepth = sdev->max_queue_depth;
 	nutrs = sdev->host->can_queue;
-	/* in case there is no specific queue size per LU */
-	if (lun_qdepth == nutrs)
-		lun_qdepth = lun_qdepth >> 2;
 
 	/* allow randomness even if user forgot */
 	if (utd->random_test_seed <= 0) {
@@ -770,22 +768,29 @@ static int ufs_test_run_lun_depth_test(struct test_data *td)
 	num_req[i++] = lun_qdepth - 1;
 	num_req[i++] = lun_qdepth;
 	num_req[i++] = lun_qdepth + 1;
-	num_req[i++] = lun_qdepth + 1 + ufs_test_pseudo_random_seed(
+	/* if (nutrs-lun_qdepth-2 <= 0), do not run this scenario */
+	if (nutrs - lun_qdepth - 2 > 0)
+		num_req[i++] = lun_qdepth + 1 + ufs_test_pseudo_random_seed(
 			&utd->random_test_seed, 1, nutrs - lun_qdepth - 2);
-	num_req[i++] = nutrs - 1;
-	num_req[i++] = nutrs;
-	num_req[i++] = nutrs + 1;
+
+	/* if nutrs == lun_qdepth, do not run these three scenarios */
+	if (nutrs != lun_qdepth) {
+		num_req[i++] = nutrs - 1;
+		num_req[i++] = nutrs;
+		num_req[i++] = nutrs + 1;
+	}
+
 	/* a random number up to 10, not to cause overflow or timeout */
 	num_req[i++] = nutrs + 1 + ufs_test_pseudo_random_seed(
 			&utd->random_test_seed, 1, 10);
 
-
+	num_scenarios = i;
 	utd->test_stage = UFS_TEST_LUN_DEPTH_TEST_RUNNING;
 	utd->fail_threads = 0;
 	read_data = get_scenario(td, SCEN_RANDOM_READ_32_NO_FLUSH);
-	write_data = get_scenario(td, SCEN_RANDOM_READ_32_NO_FLUSH);
+	write_data = get_scenario(td, SCEN_RANDOM_WRITE_32_NO_FLUSH);
 
-	for (i = 0; i < LUN_DEPTH_TEST_SIZE; i++) {
+	for (i = 0; i < num_scenarios; i++) {
 		int reqs = num_req[i];
 
 		read_data->total_req = reqs;
