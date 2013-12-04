@@ -874,6 +874,11 @@ int __qseecom_process_rpmb_svc_cmd(struct qseecom_dev_handle *data_ptr,
 		return -EINVAL;
 	}
 
+	if ((!req_ptr->cmd_req_buf) || (!req_ptr->resp_buf)) {
+		pr_err("Invalid req/resp buffer, exiting\n");
+		return -EINVAL;
+	}
+
 	if (((uint32_t)req_ptr->cmd_req_buf <
 			data_ptr->client.user_virt_sb_base)
 			|| ((uint32_t)req_ptr->cmd_req_buf >=
