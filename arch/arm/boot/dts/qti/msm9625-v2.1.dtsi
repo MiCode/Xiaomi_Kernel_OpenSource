@@ -19,8 +19,8 @@
 #include "msm9625.dtsi"
 
 &soc {
-	qcom,msm-imem@fe807800 {
-		compatible = "qcom,msm-imem";
+	qti,msm-imem@fe807800 {
+		compatible = "qti,msm-imem";
 		reg = <0xfe807800 0x1000>; /* Address and size of IMEM */
 	};
 
