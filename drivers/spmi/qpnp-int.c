@@ -318,6 +318,11 @@ static int qpnpint_irq_set_type(struct irq_data *d, unsigned int flow_type)
 		return rc;
 	}
 
+	if (flow_type & IRQ_TYPE_EDGE_BOTH)
+		__irq_set_handler_locked(d->irq, handle_edge_irq);
+	else
+		__irq_set_handler_locked(d->irq, handle_level_irq);
+
 	return 0;
 }
 
