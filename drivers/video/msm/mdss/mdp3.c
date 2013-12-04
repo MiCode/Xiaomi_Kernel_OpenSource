@@ -38,7 +38,7 @@
 #include <linux/major.h>
 #include <linux/bootmem.h>
 #include <linux/memblock.h>
-
+#include <linux/iopoll.h>
 #include <mach/board.h>
 #include <mach/clk.h>
 #include <mach/hardware.h>
@@ -54,6 +54,10 @@
 #include "mdp3_ctrl.h"
 #include "mdp3_ppp.h"
 #include "mdss_debug.h"
+
+#define MISR_POLL_SLEEP                 2000
+#define MISR_POLL_TIMEOUT               32000
+#define MDP3_REG_CAPTURED_DSI_PCLK_MASK 1
 
 #define MDP_CORE_HW_VERSION	0x03040310
 struct mdp3_hw_resource *mdp3_res;
@@ -1999,6 +2003,105 @@ int mdp3_create_sysfs_link(struct device *dev)
 			&mdp3_res->pdev->dev.kobj, "mdp");
 
 	return rc;
+}
+
+int mdp3_misr_get(struct mdp_misr *misr_resp)
+{
+	int result = 0, ret = -1;
+	int crc = 0;
+	pr_debug("%s CRC Capture on DSI\n", __func__);
+	switch (misr_resp->block_id) {
+	case DISPLAY_MISR_DSI0:
+		MDP3_REG_WRITE(MDP3_REG_DSI_VIDEO_EN, 0);
+		/* Sleep for one vsync after DSI video engine is disabled */
+		msleep(20);
+		/* Enable DSI_VIDEO_0 MISR Block */
+		MDP3_REG_WRITE(MDP3_REG_MODE_DSI_PCLK, 0x20);
+		/* Reset MISR Block */
+		MDP3_REG_WRITE(MDP3_REG_MISR_RESET_DSI_PCLK, 1);
+		/* Clear MISR capture done bit */
+		MDP3_REG_WRITE(MDP3_REG_CAPTURED_DSI_PCLK, 0);
+		/* Enable MDP DSI interface */
+		MDP3_REG_WRITE(MDP3_REG_DSI_VIDEO_EN, 1);
+		ret = readl_poll_timeout(mdp3_res->mdp_base +
+			MDP3_REG_CAPTURED_DSI_PCLK, result,
+			result & MDP3_REG_CAPTURED_DSI_PCLK_MASK,
+			MISR_POLL_SLEEP, MISR_POLL_TIMEOUT);
+			MDP3_REG_WRITE(MDP3_REG_MODE_DSI_PCLK, 0);
+		if (ret == 0) {
+			/* Disable DSI MISR interface */
+			MDP3_REG_WRITE(MDP3_REG_MODE_DSI_PCLK, 0x0);
+			crc = MDP3_REG_READ(MDP3_REG_MISR_CAPT_VAL_DSI_PCLK);
+			pr_debug("CRC Val %d\n", crc);
+		} else {
+			pr_err("CRC Read Timed Out\n");
+		}
+		break;
+
+	case DISPLAY_MISR_DSI_CMD:
+		/* Select DSI PCLK Domain */
+		MDP3_REG_WRITE(MDP3_REG_SEL_CLK_OR_HCLK_TEST_BUS, 0x004);
+		/* Select Block id DSI_CMD */
+		MDP3_REG_WRITE(MDP3_REG_MODE_DSI_PCLK, 0x10);
+		/* Reset MISR Block */
+		MDP3_REG_WRITE(MDP3_REG_MISR_RESET_DSI_PCLK, 1);
+		/* Drive Data on Test Bus */
+		MDP3_REG_WRITE(MDP3_REG_EXPORT_MISR_DSI_PCLK, 0);
+		/* Kikk off DMA_P */
+		MDP3_REG_WRITE(MDP3_REG_DMA_P_START, 0x11);
+		/* Wait for DMA_P Done */
+		ret = readl_poll_timeout(mdp3_res->mdp_base +
+			MDP3_REG_INTR_STATUS, result,
+			result & MDP3_INTR_DMA_P_DONE_BIT,
+			MISR_POLL_SLEEP, MISR_POLL_TIMEOUT);
+		if (ret == 0) {
+			crc = MDP3_REG_READ(MDP3_REG_MISR_CURR_VAL_DSI_PCLK);
+			pr_debug("CRC Val %d\n", crc);
+		} else {
+			pr_err("CRC Read Timed Out\n");
+		}
+		break;
+
+	default:
+		pr_err("%s CRC Capture not supported\n", __func__);
+		ret = -EINVAL;
+		break;
+	}
+
+	misr_resp->crc_value[0] = crc;
+	pr_debug("%s, CRC Capture on DSI Param Block = 0x%x, CRC 0x%x\n",
+			__func__, misr_resp->block_id, misr_resp->crc_value[0]);
+	return ret;
+}
+
+int mdp3_misr_set(struct mdp_misr *misr_req)
+{
+	int ret = 0;
+	pr_debug("%s Parameters Block = %d Cframe Count = %d CRC = %d\n",
+			__func__, misr_req->block_id, misr_req->frame_count,
+			misr_req->crc_value[0]);
+
+	switch (misr_req->block_id) {
+	case DISPLAY_MISR_DSI0:
+		pr_debug("In the case DISPLAY_MISR_DSI0\n");
+		MDP3_REG_WRITE(MDP3_REG_SEL_CLK_OR_HCLK_TEST_BUS, 1);
+		MDP3_REG_WRITE(MDP3_REG_MODE_DSI_PCLK, 0x20);
+		MDP3_REG_WRITE(MDP3_REG_MISR_RESET_DSI_PCLK, 0x1);
+		break;
+
+	case DISPLAY_MISR_DSI_CMD:
+		pr_debug("In the case DISPLAY_MISR_DSI_CMD\n");
+		MDP3_REG_WRITE(MDP3_REG_SEL_CLK_OR_HCLK_TEST_BUS, 1);
+		MDP3_REG_WRITE(MDP3_REG_MODE_DSI_PCLK, 0x10);
+		MDP3_REG_WRITE(MDP3_REG_MISR_RESET_DSI_PCLK, 0x1);
+		break;
+
+	default:
+		pr_err("%s CRC Capture not supported\n", __func__);
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
 }
 
 static int mdp3_probe(struct platform_device *pdev)
