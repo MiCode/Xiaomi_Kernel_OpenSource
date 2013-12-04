@@ -22,79 +22,7 @@
 #define KGSL_LOG_LEVEL_MAX     7
 
 struct dentry *kgsl_debugfs_dir;
-static struct dentry *pm_d_debugfs;
 struct dentry *proc_d_debugfs;
-
-static int pm_dump_set(void *data, u64 val)
-{
-	struct kgsl_device *device = data;
-
-	if (val) {
-		mutex_lock(&device->mutex);
-		kgsl_postmortem_dump(device, 1);
-		mutex_unlock(&device->mutex);
-	}
-
-	return 0;
-}
-DEFINE_SIMPLE_ATTRIBUTE(pm_dump_fops,
-			NULL,
-			pm_dump_set, "%llu\n");
-
-static int pm_regs_enabled_set(void *data, u64 val)
-{
-	struct kgsl_device *device = data;
-	device->pm_regs_enabled = val ? 1 : 0;
-	return 0;
-}
-
-static int pm_regs_enabled_get(void *data, u64 *val)
-{
-	struct kgsl_device *device = data;
-	*val = device->pm_regs_enabled;
-	return 0;
-}
-
-static int pm_ib_enabled_set(void *data, u64 val)
-{
-	struct kgsl_device *device = data;
-	device->pm_ib_enabled = val ? 1 : 0;
-	return 0;
-}
-
-static int pm_ib_enabled_get(void *data, u64 *val)
-{
-	struct kgsl_device *device = data;
-	*val = device->pm_ib_enabled;
-	return 0;
-}
-
-static int pm_enabled_set(void *data, u64 val)
-{
-	struct kgsl_device *device = data;
-	device->pm_dump_enable = val;
-	return 0;
-}
-
-static int pm_enabled_get(void *data, u64 *val)
-{
-	struct kgsl_device *device = data;
-	*val = device->pm_dump_enable;
-	return 0;
-}
-
-
-DEFINE_SIMPLE_ATTRIBUTE(pm_regs_enabled_fops,
-			pm_regs_enabled_get,
-			pm_regs_enabled_set, "%llu\n");
-
-DEFINE_SIMPLE_ATTRIBUTE(pm_ib_enabled_fops,
-			pm_ib_enabled_get,
-			pm_ib_enabled_set, "%llu\n");
-
-DEFINE_SIMPLE_ATTRIBUTE(pm_enabled_fops,
-			pm_enabled_get,
-			pm_enabled_set, "%llu\n");
 
 static inline int kgsl_log_set(unsigned int *log_val, void *data, u64 val)
 {
@@ -190,23 +118,6 @@ void kgsl_device_debugfs_init(struct kgsl_device *device)
 				&pwr_log_fops);
 	debugfs_create_file("memfree_history", 0444, device->d_debugfs, device,
 				&memfree_hist_fops);
-
-	/* Create postmortem dump control files */
-
-	pm_d_debugfs = debugfs_create_dir("postmortem", device->d_debugfs);
-
-	if (IS_ERR(pm_d_debugfs))
-		return;
-
-	debugfs_create_file("dump",  0600, pm_d_debugfs, device,
-			    &pm_dump_fops);
-	debugfs_create_file("regs_enabled", 0644, pm_d_debugfs, device,
-			    &pm_regs_enabled_fops);
-	debugfs_create_file("ib_enabled", 0644, pm_d_debugfs, device,
-				    &pm_ib_enabled_fops);
-	debugfs_create_file("enable", 0644, pm_d_debugfs, device,
-				    &pm_enabled_fops);
-
 }
 
 static const char * const memtype_strings[] = {

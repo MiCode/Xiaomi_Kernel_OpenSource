@@ -266,7 +266,6 @@ int kgsl_cmdbatch_add_sync(struct kgsl_device *device,
 			struct kgsl_cmd_syncpoint *sync);
 
 void kgsl_mem_entry_destroy(struct kref *kref);
-int kgsl_postmortem_dump(struct kgsl_device *device, int manual);
 
 struct kgsl_mem_entry *kgsl_get_mem_entry(struct kgsl_device *device,
 		phys_addr_t ptbase, unsigned int gpuaddr, unsigned int size);

@@ -33,32 +33,6 @@ config MSM_KGSL_CFF_DUMP_NO_CONTEXT_MEM_DUMP
 	  Dumping all the memory for every context switch can produce quite
 	  huge log files, to reduce this, turn this feature on.
 
-config MSM_KGSL_PSTMRTMDMP_CP_STAT_NO_DETAIL
-	bool "Disable human readable CP_STAT fields in post-mortem dump"
-	default n
-	depends on MSM_KGSL
-	---help---
-	  For a more compact kernel log the human readable output of
-	  CP_STAT can be turned off with this option.
-
-config MSM_KGSL_PSTMRTMDMP_NO_IB_DUMP
-	bool "Disable dumping current IB1 and IB2 in post-mortem dump"
-	default n
-	depends on MSM_KGSL
-	---help---
-	  For a more compact kernel log the IB1 and IB2 embedded dump
-	  can be turned off with this option.  Some IB dumps take up
-	  so much space that vital other information gets cut from the
-	  post-mortem dump.
-
-config MSM_KGSL_PSTMRTMDMP_RB_HEX
-	bool "Use hex version for ring-buffer in post-mortem dump"
-	default n
-	depends on MSM_KGSL
-	---help---
-	  Use hex version for the ring-buffer in the post-mortem dump, instead
-	  of the human readable version.
-
 config MSM_ADRENO_DEFAULT_GOVERNOR
 	string "devfreq governor for the adreno core"
 	default "msm-adreno-tz" if DEVFREQ_GOV_MSM_ADRENO_TZ
