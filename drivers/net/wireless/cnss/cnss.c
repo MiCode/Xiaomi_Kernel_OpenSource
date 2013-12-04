@@ -639,7 +639,6 @@ err_wlan_vreg_on:
 
 static int cnss_ramdump(int enable, const struct subsys_desc *subsys)
 {
-	void __iomem *ramdump_address;
 	struct ramdump_segment segment;
 	unsigned long address = 0;
 	unsigned long size = 0;
@@ -654,14 +653,9 @@ static int cnss_ramdump(int enable, const struct subsys_desc *subsys)
 	if (cnss_get_ramdump_mem(&address, &size))
 		return -EINVAL;
 
-	ramdump_address = ioremap(address, size);
-	if (!ramdump_address)
-		return -EINVAL;
-
-	segment.address = (unsigned long)ramdump_address;
+	segment.address = address;
 	segment.size = size;
 	ret = do_ramdump(penv->ramdump_dev, &segment, 1);
-	iounmap(ramdump_address);
 
 	return ret;
 }
