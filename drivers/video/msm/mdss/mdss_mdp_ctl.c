@@ -1950,8 +1950,9 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 	if (ctl->wait_pingpong)
 		ctl->wait_pingpong(ctl, NULL);
 
-	/* postprocessing setup, including dspp */
-	mdss_mdp_pp_setup_locked(ctl);
+	if (ctl->mfd && ctl->mfd->dcm_state != DTM_ENTER)
+		/* postprocessing setup, including dspp */
+		mdss_mdp_pp_setup_locked(ctl);
 
 	if (sctl && ctl->mdata->mdp_rev >= MDSS_MDP_HW_REV_103) {
 		ctl->flush_bits |= sctl->flush_bits;
