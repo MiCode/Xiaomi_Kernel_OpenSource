@@ -1,0 +1,17 @@
+QTI Base Band InterFace (BBIF)
+
+This is a platform driver for accessing the DAC/ADCs in FSM9900.
+
+Required properties:
+-compatible: should be "qti,bbif"
+-reg: specifies the base address of bbif registers.
+vdd-lbbrx-supply: regulator used to control low voltage of Base Band RX.
+vdd-hbbrx-supply: regulator used to control high voltage of Base Band RX.
+
+Example:
+	qti,bbif@fd300000 {
+		compatible = "qti,bbif";
+		reg = <0xfd300000 0x10000>;
+		vdd-lbbrx-supply = <&pma8084_l4>;
+		vdd-hbbrx-supply = <&pma8084_l14>;
+	};
