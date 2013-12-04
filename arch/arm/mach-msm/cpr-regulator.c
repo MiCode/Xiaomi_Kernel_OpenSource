@@ -25,6 +25,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
+#include <linux/cpufreq.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/cpr-regulator.h>
@@ -132,6 +133,13 @@
 
 #define FLAGS_SET_MIN_VOLTAGE		BIT(1)
 #define FLAGS_UPLIFT_QUOT_VOLT		BIT(2)
+#define FLAGS_QUOT_ADJUST_WITH_FREQ	BIT(3)
+
+struct cpufreq_mapping_info {
+	int freq;
+	int quot_adjust;
+	int corner;
+};
 
 enum voltage_change_dir {
 	NO_CHANGE,
@@ -171,6 +179,7 @@ struct cpr_regulator {
 	bool		cpr_fuse_disable;
 	bool		cpr_fuse_local;
 	int		cpr_fuse_target_quot[CPR_CORNER_MAX];
+	int		cpr_fuse_original_quot[CPR_CORNER_MAX];
 	int		cpr_fuse_ro_sel[CPR_CORNER_MAX];
 	int		gcnt;
 
@@ -205,6 +214,10 @@ struct cpr_regulator {
 	u32		vdd_apc_step_up_limit;
 	u32		vdd_apc_step_down_limit;
 	u32		flags;
+	struct notifier_block freq_transition;
+	unsigned int	freq;
+	struct cpufreq_mapping_info *cpufreq_mapping;
+	u32		cpufreq_mapping_size;
 };
 
 #define CPR_DEBUG_MASK_IRQ	BIT(0)
@@ -267,6 +280,28 @@ static u64 cpr_read_efuse_row(struct cpr_regulator *cpr_vreg, u32 row_num,
 	return efuse_bits;
 }
 
+static int cpr_get_freq_corner(struct cpr_regulator *cpr_vreg, int freq)
+{
+	int i;
+
+	for (i = 0; i < cpr_vreg->cpufreq_mapping_size; i++) {
+		if (freq == cpr_vreg->cpufreq_mapping[i].freq)
+			return cpr_vreg->cpufreq_mapping[i].corner;
+	}
+
+	return -EINVAL;
+}
+
+static int cpr_get_freq_quot_adjust(struct cpr_regulator *cpr_vreg, int freq)
+{
+	int i;
+
+	for (i = 0; i < cpr_vreg->cpufreq_mapping_size; i++) {
+		if (freq == cpr_vreg->cpufreq_mapping[i].freq)
+			return cpr_vreg->cpufreq_mapping[i].quot_adjust;
+	}
+	return 0;
+}
 
 static bool cpr_is_allowed(struct cpr_regulator *cpr_vreg)
 {
@@ -341,6 +376,13 @@ static void cpr_ctl_disable(struct cpr_regulator *cpr_vreg)
 	cpr_ctl_modify(cpr_vreg, RBCPR_CTL_LOOP_EN, 0);
 }
 
+static bool cpr_ctl_is_enabled(struct cpr_regulator *cpr_vreg)
+{
+	u32 val;
+	val = cpr_read(cpr_vreg, REG_RBCPR_CTL);
+	return ((val & RBCPR_CTL_LOOP_EN) == RBCPR_CTL_LOOP_EN);
+}
+
 static void cpr_regs_save(struct cpr_regulator *cpr_vreg)
 {
 	int i, offset;
@@ -373,6 +415,13 @@ static void cpr_corner_save(struct cpr_regulator *cpr_vreg, int corner)
 static void cpr_corner_restore(struct cpr_regulator *cpr_vreg, int corner)
 {
 	u32 gcnt, ctl, irq, ro_sel;
+	int adjust;
+
+	if (cpr_vreg->flags & FLAGS_QUOT_ADJUST_WITH_FREQ) {
+		adjust = cpr_get_freq_quot_adjust(cpr_vreg, cpr_vreg->freq);
+		cpr_vreg->cpr_fuse_target_quot[corner] =
+		cpr_vreg->cpr_fuse_original_quot[corner] - adjust;
+	}
 
 	ro_sel = cpr_vreg->cpr_fuse_ro_sel[corner];
 	gcnt = cpr_vreg->gcnt | cpr_vreg->cpr_fuse_target_quot[corner];
@@ -1201,6 +1250,78 @@ static int cpr_voltage_uplift_wa_inc_quot(struct cpr_regulator *cpr_vreg,
 	return rc;
 }
 
+static int cpr_get_of_cprfreq_mappings(struct cpr_regulator *cpr_vreg,
+					struct device *dev)
+{
+	int rc = 0;
+	int i, j, size, stripe_size, length;
+	struct property *prop;
+	u32 *tmp;
+
+	prop = of_find_property(dev->of_node, "qti,cpr-quot-adjust-table",
+				NULL);
+	if (prop) {
+		size = prop->length / sizeof(u32);
+		tmp = kzalloc(sizeof(u32) * size, GFP_KERNEL);
+		if (!tmp)
+			return -ENOMEM;
+
+		rc = of_property_read_u32_array(dev->of_node,
+				"qti,cpr-quot-adjust-table", tmp, size);
+		if (rc) {
+			pr_err("qti,cpr-quot-adjust-table missing, rc = %d",
+				rc);
+			kfree(tmp);
+			return rc;
+		}
+
+		length = 0;
+		stripe_size = 1 + sizeof(struct cpufreq_mapping_info) /
+				sizeof(int);
+		for (i = 0; i < size; i += stripe_size) {
+			if (tmp[i] == cpr_vreg->speed_bin)
+				length++;
+		}
+		if (i != size) {
+			pr_err("qti,cpr-quot-adjust-table data is not correct\n");
+			kfree(tmp);
+			return -EINVAL;
+		}
+
+		cpr_vreg->cpufreq_mapping_size = length;
+		if (length) {
+			cpr_vreg->cpufreq_mapping = devm_kzalloc(dev,
+				sizeof(struct cpufreq_mapping_info) * length,
+				GFP_KERNEL);
+
+			if (!cpr_vreg->cpufreq_mapping) {
+				kfree(tmp);
+				return -ENOMEM;
+			}
+
+			cpr_vreg->flags |= FLAGS_QUOT_ADJUST_WITH_FREQ;
+
+			for (i = 0, j = 0; i < size; i += stripe_size) {
+				if (tmp[i] == cpr_vreg->speed_bin) {
+					cpr_vreg->cpufreq_mapping[j].freq =
+						tmp[i+1];
+					cpr_vreg->cpufreq_mapping[j].quot_adjust
+					= tmp[i+2];
+					cpr_vreg->cpufreq_mapping[j].corner =
+						tmp[i+3];
+					++j;
+				}
+
+			}
+
+		}
+
+		kfree(tmp);
+	}
+
+	return rc;
+}
+
 static int __devinit cpr_init_cpr_efuse(struct platform_device *pdev,
 				     struct cpr_regulator *cpr_vreg)
 {
@@ -1329,6 +1450,15 @@ static int __devinit cpr_init_cpr_efuse(struct platform_device *pdev,
 				i, cpr_vreg->cpr_fuse_target_quot[i]);
 		}
 	}
+
+	for (i = CPR_CORNER_SVS; i < CPR_CORNER_MAX; i++) {
+		cpr_vreg->cpr_fuse_original_quot[i] =
+		cpr_vreg->cpr_fuse_target_quot[i];
+	}
+
+	rc = cpr_get_of_cprfreq_mappings(cpr_vreg, &pdev->dev);
+	if (rc)
+		return rc;
 
 	cpr_vreg->cpr_fuse_bits = fuse_bits;
 	if (!cpr_vreg->cpr_fuse_bits) {
@@ -1569,6 +1699,8 @@ static void cpr_parse_speed_bin_fuse(struct cpr_regulator *cpr_vreg,
 		pr_info("[row: %d]: 0x%llx, speed_bits = %d\n",
 				fuse_sel[0], fuse_bits, speed_bits);
 		cpr_vreg->speed_bin = speed_bits;
+	} else {
+		cpr_vreg->speed_bin = UINT_MAX;
 	}
 }
 
@@ -1662,6 +1794,51 @@ static int __devinit cpr_voltage_plan_init(struct platform_device *pdev,
 	return 0;
 }
 
+static int cpr_freq_transition(struct notifier_block *nb, unsigned long val,
+					void *data)
+{
+	int old_corner, new_corner;
+	struct cpr_regulator *cpr_vreg = container_of(nb, struct cpr_regulator,
+				freq_transition);
+	struct cpufreq_freqs *freqs = data;
+
+	mutex_lock(&cpr_vreg->cpr_mutex);
+	switch (val) {
+	case CPUFREQ_PRECHANGE:
+		cpr_vreg->freq = freqs->new;
+		if (freqs->new > freqs->old) {
+			old_corner = cpr_get_freq_corner(cpr_vreg, freqs->old);
+			new_corner = cpr_get_freq_corner(cpr_vreg, freqs->new);
+			if (new_corner > 0 && old_corner == new_corner &&
+				cpr_ctl_is_enabled(cpr_vreg)) {
+				cpr_ctl_disable(cpr_vreg);
+				cpr_irq_clr(cpr_vreg);
+				cpr_corner_restore(cpr_vreg, new_corner);
+				cpr_ctl_enable(cpr_vreg, new_corner);
+			}
+		}
+		break;
+	case CPUFREQ_POSTCHANGE:
+		if (freqs->new < freqs->old) {
+			old_corner = cpr_get_freq_corner(cpr_vreg, freqs->old);
+			new_corner = cpr_get_freq_corner(cpr_vreg, freqs->new);
+			if (new_corner > 0 && old_corner == new_corner &&
+				cpr_ctl_is_enabled(cpr_vreg)) {
+				cpr_ctl_disable(cpr_vreg);
+				cpr_irq_clr(cpr_vreg);
+				cpr_corner_restore(cpr_vreg, new_corner);
+				cpr_ctl_enable(cpr_vreg, new_corner);
+			}
+		}
+		break;
+	default:
+		break;
+	}
+	mutex_unlock(&cpr_vreg->cpr_mutex);
+
+	return NOTIFY_OK;
+}
+
 static int __devinit cpr_regulator_probe(struct platform_device *pdev)
 {
 	struct cpr_regulator *cpr_vreg;
@@ -1745,6 +1922,10 @@ static int __devinit cpr_regulator_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, cpr_vreg);
 	the_cpr = cpr_vreg;
+	cpr_vreg->freq_transition.notifier_call = cpr_freq_transition;
+	if (cpr_vreg->flags & FLAGS_QUOT_ADJUST_WITH_FREQ)
+		cpufreq_register_notifier(&cpr_vreg->freq_transition,
+						CPUFREQ_TRANSITION_NOTIFIER);
 
 	return 0;
 
@@ -1765,6 +1946,9 @@ static int __devexit cpr_regulator_remove(struct platform_device *pdev)
 			cpr_irq_set(cpr_vreg, 0);
 		}
 
+		if (cpr_vreg->flags & FLAGS_QUOT_ADJUST_WITH_FREQ)
+			cpufreq_unregister_notifier(&cpr_vreg->freq_transition,
+						CPUFREQ_TRANSITION_NOTIFIER);
 		cpr_apc_exit(cpr_vreg);
 		regulator_unregister(cpr_vreg->rdev);
 	}
