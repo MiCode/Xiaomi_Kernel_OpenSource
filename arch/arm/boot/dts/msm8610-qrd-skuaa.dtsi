@@ -33,21 +33,6 @@
 		<0x44 0x80 0x6a 0x81 0x34 0x82 0x13 0x83 0xffffffff>;
 	};
 
-	i2c@f9925000 { /* BLSP-1 QUP-3 */
-		nfc-nci@e {
-			compatible = "qcom,nfc-nci";
-			reg = <0x0e>;
-			qcom,irq-gpio = <&msmgpio 77 0x00>;
-			qcom,dis-gpio = <&msmgpio 93 0x00>;
-			qcom,clk-en-gpio = <&msmgpio 78 0x00>;
-			qcom,clk-src = "GPCLK";
-			interrupt-parent = <&msmgpio>;
-			interrupts = <77 0>;
-			qcom,clk-gpio = <&msmgpio 75 0x00>;
-			vlogic-supply = <&pm8110_l14>;
-		};
-	};
-
 	i2c@f9924000 { /* BLSP-1 QUP-2 */
 		nfc-nci@e {
 			compatible = "qcom,nfc-nci";
