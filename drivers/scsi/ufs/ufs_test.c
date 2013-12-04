@@ -28,7 +28,7 @@
 
 #define MODULE_NAME "ufs_test"
 
-#define TEST_MAX_BIOS_PER_REQ		16
+#define TEST_MAX_BIOS_PER_REQ		128
 #define TEST_MAX_SECTOR_RANGE		(10*1024*1024) /* 5GB */
 #define LARGE_PRIME_1	1103515367
 #define LARGE_PRIME_2	35757
@@ -601,6 +601,17 @@ static bool ufs_test_multi_thread_completion(void)
 			utd->test_stage != UFS_TEST_LUN_DEPTH_TEST_RUNNING;
 }
 
+static bool long_seq_test_check_completion(void)
+{
+	if (utd->completed_req_count > LONG_SEQ_TEST_NUM_REQS) {
+		pr_err("%s: Error: Completed more requests than total test requests"
+		       , __func__);
+		pr_err("%s: Terminating test.", __func__);
+		return true;
+	}
+	return (utd->completed_req_count == LONG_SEQ_TEST_NUM_REQS);
+}
+
 /**
  * ufs_test_toggle_direction() - decides whether toggling is
  * needed. Toggle factor zero means no toggling.
@@ -1024,6 +1035,8 @@ static ssize_t ufs_test_write(struct file *file, const char __user *buf,
 		utd->test_info.run_test_fn = run_long_seq_test;
 		utd->test_info.post_test_fn = long_seq_test_calc_throughput;
 		utd->test_info.check_test_result_fn = ufs_test_check_result;
+		utd->test_info.check_test_completion_fn =
+			long_seq_test_check_completion;
 		break;
 	case UFS_TEST_LONG_SEQUENTIAL_MIXED:
 		utd->test_info.timeout_msec = LONG_SEQUENTIAL_MIXED_TIMOUT_MS;
