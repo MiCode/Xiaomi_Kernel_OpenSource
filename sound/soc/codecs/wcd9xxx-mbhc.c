@@ -1468,6 +1468,12 @@ wcd9xxx_cs_find_plug_type(struct wcd9xxx_mbhc *mbhc,
 			type = PLUG_TYPE_INVALID;
 		}
 	}
+
+	if (type == PLUG_TYPE_HEADSET &&
+	    (mbhc->mbhc_cfg->micbias_enable_flags &
+	    (1 << MBHC_MICBIAS_ENABLE_REGULAR_HEADSET)))
+		mbhc->micbias_enable = true;
+
 exit:
 	pr_debug("%s: Plug type %d detected\n", __func__, type);
 	return type;
