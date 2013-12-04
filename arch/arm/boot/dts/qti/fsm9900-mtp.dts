@@ -17,7 +17,12 @@
 / {
 	model = "Qualcomm FSM9900 MTP";
 	compatible = "qcom,fsm9900-mtp", "qcom,fsm9900", "qcom,mtp";
-	qcom,msm-id = <188 8 0>;
+	qcom,msm-id = <188 8 0>,
+		      <189 8 0>,
+		      <190 8 0>,
+		      <191 8 0>,
+		      <192 8 0>,
+		      <193 8 0>;
 
 	aliases {
 		serial0 = &uart0;
