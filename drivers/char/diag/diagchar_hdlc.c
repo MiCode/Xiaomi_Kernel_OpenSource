@@ -242,8 +242,8 @@ int crc_check(uint8_t *buf, uint16_t len)
 	 * of data and 3 bytes for CRC
 	 */
 	if (!buf || len < 4) {
-		pr_err_ratelimited("diag: In %s, invalid packet or length, buf: 0x%x, len: %d",
-				   __func__, (int)buf, len);
+		pr_err_ratelimited("diag: In %s, invalid packet or length, buf: 0x%p, len: %d",
+				   __func__, buf, len);
 		return -EIO;
 	}
 
