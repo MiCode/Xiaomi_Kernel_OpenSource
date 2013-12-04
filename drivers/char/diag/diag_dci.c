@@ -1242,8 +1242,14 @@ int diag_send_dci_event_mask()
 	driver->event_mask->data_len = 7 + DCI_EVENT_MASK_SIZE;
 	driver->event_mask->stream_id = DCI_MASK_STREAM;
 	driver->event_mask->status = 3; /* status for valid mask */
-	driver->event_mask->event_config = 1; /* event config */
+	driver->event_mask->event_config = 0; /* event config */
 	driver->event_mask->event_mask_size = DCI_EVENT_MASK_SIZE;
+	for (i = 0; i < DCI_EVENT_MASK_SIZE; i++) {
+		if (dci_cumulative_event_mask[i] != 0) {
+			driver->event_mask->event_config = 1;
+			break;
+		}
+	}
 	memcpy(buf, driver->event_mask, header_size);
 	memcpy(buf+header_size, dci_cumulative_event_mask, DCI_EVENT_MASK_SIZE);
 	for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
