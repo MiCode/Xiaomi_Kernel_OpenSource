@@ -198,24 +198,40 @@
 			<62 222>, /* ee0_krait_hlos_spmi_periph_irq */
 			<2 216>, /* tsens_upper_lower_int */
 			<41 63>,  /* dino_gen_purpose_irq35 */
+			<0xff 18>,  /* APC_qgicQTmrSecPhysIrptReq */
+			<0xff 19>,  /* APC_qgicQTmrNonSecPhysIrptReq */
+			<0xff 35>,  /* WDT_barkInt */
+			<0xff 40>,  /* qtmr_phy_irq[0] */
+			<0xff 47>,  /* rbif_irq[0] */
 			<0xff 56>,  /* q6_wdog_expired_irq */
 			<0xff 57>,  /* mss_to_apps_irq(0) */
 			<0xff 58>,  /* mss_to_apps_irq(1) */
 			<0xff 59>,  /* mss_to_apps_irq(2) */
 			<0xff 60>,  /* mss_to_apps_irq(3) */
 			<0xff 61>,  /* mss_a2_bam_irq */
+			<0xff 65>,  /* o_gc_sys_irq[0] */
+			<0xff 74>,  /* venus0_mmu_cirpt[1] */
+			<0xff 75>,  /* venus0_mmu_cirpt[0] */
+			<0xff 78>,  /* mdss_mmu_cirpt[0] */
+			<0xff 79>,  /* mdss_mmu_cirpt[1] */
+			<0xff 97>,  /* camss_vfe_mmu_cirpt[1] */
+			<0xff 102>, /* camss_jpeg_mmu_cirpt[1] */
+			<0xff 109>, /* ocmem_dm_nonsec_irq */
+			<0xff 131>, /* blsp1_qup_5_irq */
+			<0xff 141>, /* blsp1_uart_3_irq */
+			<0xff 155>, /* sdc1_irq(0) */
+			<0xff 157>, /* sdc2_irq(0) */
+			<0xff 161>, /* lpass_irq_out_spare[4] */
+			<0xff 162>, /* lpass_irq_out_spare[5]*/
+			<0xff 170>, /* sdc1_pwr_cmd_irq */
 			<0xff 173>, /* o_wcss_apss_smd_hi */
 			<0xff 174>, /* o_wcss_apss_smd_med */
 			<0xff 175>, /* o_wcss_apss_smd_low */
 			<0xff 176>, /* o_wcss_apss_smsm_irq */
 			<0xff 177>, /* o_wcss_apss_wlan_data_xfer_done */
 			<0xff 178>, /* o_wcss_apss_wlan_rx_data_avail */
-			<0xff 179>, /* o_wcss_apss_asic_intr
+			<0xff 179>, /* o_wcss_apss_asic_intr */
 			<0xff 181>, /* o_wcss_apss_wdog_bite_and_reset_rdy */
-			<0xff 161>, /* lpass_irq_out_spare[4] /
-			<0xff 162>, /* lpass_irq_out_spare[5]*/
-			<0xff 234>, /* lpass_irq_out_spare[6]*/
-			<0xff 235>, /* lpass_irq_out_spare[7]*/
 			<0xff 188>, /* lpass_irq_out_apcs(0) */
 			<0xff 189>, /* lpass_irq_out_apcs(1) */
 			<0xff 190>, /* lpass_irq_out_apcs(2) */
@@ -230,12 +246,16 @@
 			<0xff 205>, /* rpm_ipc(25) */
 			<0xff 206>, /* rpm_ipc(26) */
 			<0xff 207>, /* rpm_ipc(27) */
+			<0xff 234>, /* lpass_irq_out_spare[6]*/
+			<0xff 235>, /* lpass_irq_out_spare[7]*/
+			<0xff 240>, /* summary_irq_kpss */
+			<0xff 253>, /* sdc2_pwr_cmd_irq */
 			<0xff 258>, /* rpm_ipc(28) */
 			<0xff 259>, /* rpm_ipc(29) */
-			<0xff 275>, /* rpm_ipc(30) */
-			<0xff 276>, /* rpm_ipc(31) */
 			<0xff 269>, /* rpm_wdog_expired_irq */
-			<0xff 240>; /* summary_irq_kpss */
+			<0xff 270>, /* blsp1_bam_irq[0] */
+			<0xff 275>, /* rpm_ipc(30) */
+			<0xff 276>; /* rpm_ipc(31) */
 
 		qcom,gpio-parent = <&msmgpio>;
 		qcom,gpio-map = <3  1>,
