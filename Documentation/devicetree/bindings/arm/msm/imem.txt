@@ -28,6 +28,12 @@ Required properties:
 -compatible: "qti,msm-imem-boot_stats"
 -reg: start address and size of boot_stats region in imem
 
+Cache error reporting:
+-----------------
+Required properties:
+-compatible: "qti,msm-imem-cache_erp"
+-reg: start address and size of cache_erp region in imem
+
 Example:
 
 	qti,msm-imem {
@@ -36,6 +42,11 @@ Example:
 		ranges = <0x0 0xdeadbeef 0x1000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
+
+		imem_cache_erp: cache_erp@6a4 {
+			compatible = "qti,msm-imem-cache_erp";
+			reg = <0x6a4 4>;
+		};
 
 		boot_stats@6b0 {
 			compatible = "qti,msm-imem-boot_stats";

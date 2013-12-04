@@ -19,6 +19,7 @@
 #include <linux/cpu.h>
 #include <linux/seq_file.h>
 #include <linux/io.h>
+#include <linux/of_address.h>
 #include <mach/msm-krait-l2-accessors.h>
 #include <mach/msm_iomap.h>
 #include <mach/socinfo.h>
@@ -136,6 +137,8 @@ static struct proc_dir_entry *procfs_entry;
 static int num_dump_regions;
 static struct msm_erp_dump_region *dump_regions;
 
+static void __iomem *msm_erp_log_base;
+
 #ifdef CONFIG_MSM_L1_ERR_LOG
 static struct proc_dir_entry *procfs_log_entry;
 #endif
@@ -240,8 +243,7 @@ static int cache_erp_log_show(struct seq_file *m, void *v)
 {
 	int log_value;
 
-	log_value = __raw_readl(MSM_IMEM_BASE + ERP_LOG_MAGIC_ADDR) ==
-			ERP_LOG_MAGIC ? 1 : 0;
+	log_value = __raw_readl(msm_erp_log_base) == ERP_LOG_MAGIC ? 1 : 0;
 
 	seq_printf(m, "%d\n", log_value);
 
@@ -262,7 +264,7 @@ static const struct file_operations cache_erp_log_fops = {
 
 static void log_cpu_event(void)
 {
-	__raw_writel(ERP_LOG_MAGIC, MSM_IMEM_BASE + ERP_LOG_MAGIC_ADDR);
+	__raw_writel(ERP_LOG_MAGIC, msm_erp_log_base);
 	mb();
 }
 
@@ -528,14 +530,30 @@ static int msm_erp_read_dump_regions(struct platform_device *pdev)
 static int msm_cache_erp_probe(struct platform_device *pdev)
 {
 	struct resource *r;
+	struct device_node *np = pdev->dev.of_node;
+	struct device_node *imem_node;
 	int ret, cpu;
+
+	imem_node = of_parse_phandle(np, "qti,msm-imem-phandle", 0);
+	if (!imem_node) {
+		pr_err("Could not get imem handle\n");
+		ret = -ENODEV;
+		goto fail;
+	}
+
+	msm_erp_log_base = of_iomap(imem_node, 0);
+	if (!msm_erp_log_base) {
+		pr_err("Failed to map imem region\n");
+		ret = -ENODEV;
+		goto fail;
+	}
 
 	r = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "l1_irq");
 
 	if (!r) {
 		pr_err("Could not get L1 resource\n");
 		ret = -ENODEV;
-		goto fail;
+		goto fail_imem_map;
 	}
 
 	l1_erp_irq = r->start;
@@ -545,7 +563,7 @@ static int msm_cache_erp_probe(struct platform_device *pdev)
 
 	if (ret) {
 		pr_err("Failed to request the L1 cache error interrupt\n");
-		goto fail;
+		goto fail_imem_map;
 	}
 
 	r = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "l2_irq");
@@ -594,6 +612,8 @@ fail_l2:
 	free_irq(l2_erp_irq, NULL);
 fail_l1:
 	free_percpu_irq(l1_erp_irq, NULL);
+fail_imem_map:
+	iounmap(msm_erp_log_base);
 fail:
 	return  ret;
 }

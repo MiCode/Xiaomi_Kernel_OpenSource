@@ -6,6 +6,7 @@ Required properties:
   the L2 cache interrupt number
 - interrupt-names: Should contain the interrupt names "l1_irq" and
   "l2_irq"
+- qti,msm-imem-phandle: phandle reference to the imem cache erp node
 
 Optional properties:
 - reg: A set of I/O regions to be dumped in the event of a hardware fault being
@@ -38,4 +39,6 @@ Example with "reg" property defined:
 		compatible = "qti,cache_erp";
 		interrupts = <1 9 0>, <0 2 0>;
 		interrupt-names = "l1_irq", "l2_irq";
+
+		qti,msm-imem-phandle = <&imem_cache_erp>;
 	};
