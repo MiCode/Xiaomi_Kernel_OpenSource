@@ -233,6 +233,7 @@ static int ipa_a5_svc_req_cb(struct qmi_handle *handle, void *conn_h,
 		break;
 	case QMI_IPA_INSTALL_FILTER_RULE_REQ_V01:
 		rc = handle_install_filter_rule_req(req_h, req);
+		rc = wwan_update_mux_channel_prop();
 		break;
 	case QMI_IPA_FILTER_INSTALLED_NOTIF_REQ_V01:
 		rc = handle_filter_installed_notify_req(req_h, req);

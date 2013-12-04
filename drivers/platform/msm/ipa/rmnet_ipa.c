@@ -22,7 +22,6 @@
 #include <linux/init.h>
 #include <linux/netdevice.h>
 #include <linux/skbuff.h>
-#include <uapi/linux/msm_rmnet.h>
 #include <linux/if_arp.h>
 #include <net/pkt_sched.h>
 #include <linux/workqueue.h>
@@ -34,6 +33,7 @@
 #define WWAN_DATA_LEN 2000
 #define HEADROOM_FOR_QMAP   8 /* for mux header */
 #define TAILROOM            0 /* for padding by mux layer */
+#define MAX_NUM_OF_MUX_CHANNEL  10 /* max mux channels */
 #define UL_FILTER_RULE_HANDLE_START 69
 
 #define IPA_WWAN_DEV_NAME "rmnet_ipa%d"
@@ -42,10 +42,15 @@ static struct net_device *ipa_netdevs[IPA_WWAN_DEVICE_COUNT];
 static struct ipa_sys_connect_params apps_to_ipa_ep_cfg, ipa_to_apps_ep_cfg;
 static u32 qmap_hdr_hdl, dflt_wan_rt_hdl;
 static struct ipa_ioc_ext_intf_prop q6_ul_filter_rule[MAX_NUM_Q6_RULE];
-static int num_q6_rule;
+static u32 q6_ul_filter_rule_hdl[MAX_NUM_Q6_RULE];
+static struct rmnet_mux_val mux_channel[MAX_NUM_OF_MUX_CHANNEL];
+static int num_q6_rule, old_num_q6_rule;
 static int rmnet_index;
+static bool egress_set, a7_ul_flt_set;
 
 u32 apps_to_ipa_hdl, ipa_to_apps_hdl; /* get handler from ipa */
+static int wwan_add_ul_flt_rule_to_ipa(void);
+static int wwan_del_ul_flt_rule_to_ipa(void);
 
 enum wwan_device_status {
 	WWAN_DEVICE_INACTIVE = 0,
@@ -140,7 +145,7 @@ static int ipa_add_qmap_hdr(uint32_t mux_id)
 
 	snprintf(hdr_name, IPA_RESOURCE_NAME_MAX, "%s%d",
 		 A2_MUX_HDR_NAME_V4_PREF,
-		 rmnet_index);
+		 mux_id);
 	 strlcpy(hdr_entry->name, hdr_name,
 				IPA_RESOURCE_NAME_MAX);
 
@@ -400,7 +405,7 @@ static int wwan_add_ul_flt_rule_to_ipa(void)
 	for (i = 0; i < num_q6_rule; i++) {
 		param->ip = q6_ul_filter_rule[i].ip;
 		memset(&flt_rule_entry, 0, sizeof(struct ipa_flt_rule_add));
-		flt_rule_entry.at_rear = false;
+		flt_rule_entry.at_rear = true;
 		flt_rule_entry.rule.action = q6_ul_filter_rule[i].action;
 		flt_rule_entry.rule.rt_tbl_idx
 		= q6_ul_filter_rule[i].rt_tbl_idx;
@@ -418,6 +423,9 @@ static int wwan_add_ul_flt_rule_to_ipa(void)
 		if (ipa_add_flt_rule((struct ipa_ioc_add_flt_rule *)param)) {
 			retval = -EFAULT;
 			IPAWANERR("add A7 UL filter rule(%d) failed\n", i);
+		} else {
+			/* store the rule handler */
+			q6_ul_filter_rule_hdl[i] = param->rules[0].flt_rule_hdl;
 		}
 	}
 
@@ -436,11 +444,67 @@ static int wwan_add_ul_flt_rule_to_ipa(void)
 		IPAWANDBG("add filter rule index on A7-RX failed\n");
 		retval = -EFAULT;
 	}
+	old_num_q6_rule = num_q6_rule;
+	IPAWANDBG("add (%d) filter rule index on A7-RX\n",
+			old_num_q6_rule);
 	kfree(param);
 	return retval;
 }
 
-static int wwan_register_to_ipa(const char *dev_name, uint32_t mux_id)
+
+static int wwan_del_ul_flt_rule_to_ipa(void)
+{
+	u32 pyld_sz;
+	int i, retval = 0;
+	struct ipa_ioc_del_flt_rule *param;
+	struct ipa_flt_rule_del flt_rule_entry;
+
+	pyld_sz = sizeof(struct ipa_ioc_del_flt_rule) +
+	   sizeof(struct ipa_flt_rule_del);
+	param = kzalloc(pyld_sz, GFP_KERNEL);
+	if (!param) {
+		IPAWANERR("kzalloc failed\n");
+		return -ENOMEM;
+	}
+
+	param->commit = 1;
+	param->num_hdls = (uint8_t) 1;
+
+	for (i = 0; i < old_num_q6_rule; i++) {
+		param->ip = q6_ul_filter_rule[i].ip;
+		memset(&flt_rule_entry, 0, sizeof(struct ipa_flt_rule_del));
+		flt_rule_entry.hdl = q6_ul_filter_rule_hdl[i];
+		/* debug rt-hdl*/
+		IPAWANDBG("delete-IPA rule index(%d)\n", i);
+		memcpy(&(param->hdl[0]), &flt_rule_entry,
+			sizeof(struct ipa_flt_rule_del));
+		if (ipa_del_flt_rule((struct ipa_ioc_del_flt_rule *)param)) {
+			IPAWANERR("del A7 UL filter rule(%d) failed\n", i);
+			return -EFAULT;
+		}
+	}
+
+	/* set UL filter-rule add-indication */
+	a7_ul_flt_set = false;
+	old_num_q6_rule = 0;
+
+	kfree(param);
+	return retval;
+}
+
+static int find_mux_channel_index(uint32_t mux_id)
+{
+	int i;
+
+	for (i = 0; i < MAX_NUM_OF_MUX_CHANNEL; i++) {
+		if (mux_id == mux_channel[i].mux_id)
+			return i;
+	}
+	return MAX_NUM_OF_MUX_CHANNEL;
+}
+
+
+static int wwan_register_to_ipa(int index)
 {
 	struct ipa_tx_intf tx_properties = {0};
 	struct ipa_ioc_tx_intf_prop tx_ioc_properties[2] = { {0}, {0} };
@@ -455,22 +519,30 @@ static int wwan_register_to_ipa(const char *dev_name, uint32_t mux_id)
 	u32 pyld_sz;
 	int ret = 0, i;
 
-	IPAWANDBG("device[%s]:\n", dev_name);
-	ipa_add_qmap_hdr(mux_id);
+	IPAWANDBG("index(%d) device[%s]:\n", index,
+		mux_channel[index].vchannel_name);
+	if (!mux_channel[index].mux_hdr_set) {
+		ret = ipa_add_qmap_hdr(mux_channel[index].mux_id);
+		if (ret) {
+			IPAWANERR("ipa_add_mux_hdr failed (%d)\n", index);
+			return ret;
+		}
+		mux_channel[index].mux_hdr_set = true;
+	}
 	tx_properties.prop = tx_ioc_properties;
 	tx_ipv4_property = &tx_properties.prop[0];
 	tx_ipv4_property->ip = IPA_IP_v4;
 	tx_ipv4_property->dst_pipe = IPA_CLIENT_APPS_WAN_CONS;
 	snprintf(tx_ipv4_property->hdr_name, IPA_RESOURCE_NAME_MAX, "%s%d",
 		 A2_MUX_HDR_NAME_V4_PREF,
-		 rmnet_index);
+		 mux_channel[index].mux_id);
 	tx_ipv6_property = &tx_properties.prop[1];
 	tx_ipv6_property->ip = IPA_IP_v6;
 	tx_ipv6_property->dst_pipe = IPA_CLIENT_APPS_WAN_CONS;
 	/* no need use A2_MUX_HDR_NAME_V6_PREF, same header */
 	snprintf(tx_ipv6_property->hdr_name, IPA_RESOURCE_NAME_MAX, "%s%d",
 		 A2_MUX_HDR_NAME_V4_PREF,
-		 rmnet_index);
+		 mux_channel[index].mux_id);
 	tx_properties.num_props = 2;
 
 	rx_properties.prop = rx_ioc_properties;
@@ -478,13 +550,14 @@ static int wwan_register_to_ipa(const char *dev_name, uint32_t mux_id)
 	rx_ipv4_property->ip = IPA_IP_v4;
 	rx_ipv4_property->attrib.attrib_mask |= IPA_FLT_META_DATA;
 	rx_ipv4_property->attrib.meta_data =
-		mux_id << WWAN_METADATA_SHFT;
+		mux_channel[index].mux_id << WWAN_METADATA_SHFT;
 	rx_ipv4_property->attrib.meta_data_mask = WWAN_METADATA_MASK;
 	rx_ipv4_property->src_pipe = IPA_CLIENT_APPS_LAN_WAN_PROD;
 	rx_ipv6_property = &rx_properties.prop[1];
 	rx_ipv6_property->ip = IPA_IP_v6;
 	rx_ipv6_property->attrib.attrib_mask |= IPA_FLT_META_DATA;
-	rx_ipv6_property->attrib.meta_data = mux_id << WWAN_METADATA_SHFT;
+	rx_ipv6_property->attrib.meta_data =
+		mux_channel[index].mux_id << WWAN_METADATA_SHFT;
 	rx_ipv6_property->attrib.meta_data_mask = WWAN_METADATA_MASK;
 	rx_ipv6_property->src_pipe = IPA_CLIENT_APPS_LAN_WAN_PROD;
 	rx_properties.num_props = 2;
@@ -497,29 +570,88 @@ static int wwan_register_to_ipa(const char *dev_name, uint32_t mux_id)
 		return -ENOMEM;
 	}
 
-	ext_properties.prop = ext_ioc_properties;
+		ext_properties.prop = ext_ioc_properties;
 	ext_properties.num_props = num_q6_rule;
 	for (i = 0; i < num_q6_rule; i++) {
 		memcpy(&(ext_properties.prop[i]),
 				 &(q6_ul_filter_rule[i]),
 				sizeof(struct ipa_ioc_ext_intf_prop));
-	ext_properties.prop[i].mux_id = mux_id;
-	IPAWANDBG("ip: %d rt-tbl:%d\n",
+	ext_properties.prop[i].mux_id = mux_channel[index].mux_id;
+	IPAWANDBG("index %d ip: %d rt-tbl:%d\n", i,
 		ext_properties.prop[i].ip,
 		ext_properties.prop[i].rt_tbl_idx);
 	IPAWANDBG("action: %d mux:%d\n",
 		ext_properties.prop[i].action,
 		ext_properties.prop[i].mux_id);
 	}
-	ret = ipa_register_intf_ext(dev_name, &tx_properties,
+	ret = ipa_register_intf_ext(mux_channel[index].
+		vchannel_name, &tx_properties,
 		&rx_properties, &ext_properties);
 	if (ret) {
-		IPAWANERR("[%s]:ipa_register_intf failed %d\n", dev_name, ret);
-		goto fail;
+		IPAWANERR("[%s]:ipa_register_intf failed %d\n",
+			mux_channel[index].vchannel_name, ret);
+	goto fail;
 	}
-	rmnet_index++;
+	mux_channel[index].ul_flt_reg = true;
 fail:
 	kfree(ext_ioc_properties);
+	return ret;
+}
+
+int wwan_update_mux_channel_prop(void)
+{
+	int ret = 0, i;
+	/* install UL filter rules */
+	if (egress_set) {
+		IPAWANDBG("setup UL filter rules\n");
+		if (a7_ul_flt_set) {
+			IPAWANDBG("del previous UL filter rules\n");
+			/* delete rule hdlers */
+			ret = wwan_del_ul_flt_rule_to_ipa();
+			if (ret) {
+				IPAWANERR("failed to del old UL rules\n");
+				return -EINVAL;
+			} else {
+				IPAWANDBG("success to del old UL rules\n");
+			}
+		}
+		ret = wwan_add_ul_flt_rule_to_ipa();
+		if (ret)
+			IPAWANERR("failed to install UL rules\n");
+		else
+			a7_ul_flt_set = true;
+	}
+	/* update Tx/Rx/Ext property */
+	IPAWANDBG("update Tx/Rx/Ext property in IPA\n");
+	if (rmnet_index == 0) {
+		IPAWANDBG("no Tx/Rx/Ext property registered in IPA\n");
+		return ret;
+	}
+
+	for (i = 0; i < rmnet_index; i++) {
+		if (mux_channel[i].ul_flt_reg) {
+			ret = ipa_deregister_intf(mux_channel[i].vchannel_name);
+			if (ret < 0) {
+				IPAWANERR("de-register device %s(%d) failed\n",
+					mux_channel[i].vchannel_name,
+					i);
+				return -ENODEV;
+			} else {
+				IPAWANDBG("de-register device %s(%d) success\n",
+					mux_channel[i].vchannel_name,
+					i);
+			}
+		}
+		ret = wwan_register_to_ipa(i);
+		if (ret < 0) {
+			IPAWANERR("failed to re-regist %s, mux %d, index %d\n",
+				mux_channel[i].vchannel_name,
+				mux_channel[i].mux_id,
+				i);
+			return -ENODEV;
+		}
+		mux_channel[i].ul_flt_reg = true;
+	}
 	return ret;
 }
 
@@ -625,7 +757,7 @@ static int ipa_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	if (netif_queue_stopped(dev)) {
 		IPAWANERR("[%s]fatal: ipa_wwan_xmit stopped\n", dev->name);
-		return 0;
+	return 0;
 	}
 
 	if (skb->protocol != htons(ETH_P_MAP)) {
@@ -742,7 +874,7 @@ static void apps_ipa_packet_receive_notify(void *priv,
 static int ipa_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
 	int rc = 0;
-	int mru = 1000, epid = 1;
+	int mru = 1000, epid = 1, mux_index;
 	struct rmnet_ioctl_extended_s extend_ioctl_data;
 
 	IPAWANDBG("rmnet_ipa got ioctl number 0x%08x", cmd);
@@ -876,18 +1008,49 @@ static int ipa_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			break;
 		/*  Add MUX ID  */
 		case RMNET_IOCTL_ADD_MUX_CHANNEL:
+			mux_index = find_mux_channel_index(
+				extend_ioctl_data.u.rmnet_mux_val.mux_id);
+			if (mux_index < MAX_NUM_OF_MUX_CHANNEL) {
+				IPAWANDBG("already setup mux(%d)\n",
+					extend_ioctl_data.u.
+					rmnet_mux_val.mux_id);
+				return rc;
+			}
 			IPAWANDBG("ADD_MUX_CHANNEL(%d, name: %s)\n",
 			extend_ioctl_data.u.rmnet_mux_val.mux_id,
 			extend_ioctl_data.u.rmnet_mux_val.vchannel_name);
-			rc = wwan_register_to_ipa(
+			/* cache the mux name and id */
+			mux_channel[rmnet_index].mux_id =
+				extend_ioctl_data.u.rmnet_mux_val.mux_id;
+			memcpy(mux_channel[rmnet_index].vchannel_name,
 				extend_ioctl_data.u.rmnet_mux_val.vchannel_name,
-				extend_ioctl_data.u.rmnet_mux_val.mux_id);
-			if (rc < 0) {
-				IPAWANERR("(%s) failed to register IPA rc %d\n",
-				extend_ioctl_data.u.rmnet_mux_val.vchannel_name,
-				rc);
-				return -ENODEV;
+				sizeof(mux_channel[rmnet_index].vchannel_name));
+			IPAWANDBG("cashe device[%s:%d] in IPA_wan[%d]\n",
+				mux_channel[rmnet_index].vchannel_name,
+				mux_channel[rmnet_index].mux_id,
+				rmnet_index);
+			/* check if UL filter rules coming*/
+			if (num_q6_rule != 0) {
+				IPAWANERR("dev(%s) register to IPA\n",
+					extend_ioctl_data.u.rmnet_mux_val.
+					vchannel_name);
+				rc = wwan_register_to_ipa(rmnet_index);
+				if (rc < 0) {
+					IPAWANERR("device %s reg IPA failed\n",
+						extend_ioctl_data.u.
+						rmnet_mux_val.vchannel_name);
+					return -ENODEV;
+				}
+				mux_channel[rmnet_index].mux_channel_set = true;
+				mux_channel[rmnet_index].ul_flt_reg = true;
+			} else {
+				IPAWANERR("dev(%s) not register to IPA\n",
+					extend_ioctl_data.u.
+					rmnet_mux_val.vchannel_name);
+				mux_channel[rmnet_index].mux_channel_set = true;
+				mux_channel[rmnet_index].ul_flt_reg = false;
 			}
+			rmnet_index++;
 			break;
 		case RMNET_IOCTL_SET_EGRESS_DATA_FORMAT:
 			IPAWANDBG("get RMNET_IOCTL_SET_EGRESS_DATA_FORMAT\n");
@@ -924,11 +1087,18 @@ static int ipa_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 				IPAWANERR("failed to config egress endpoint\n");
 
 			if (num_q6_rule != 0) {
+				/* already got Q6 UL filter rules*/
 				rc = wwan_add_ul_flt_rule_to_ipa();
+				egress_set = true;
 				if (rc)
 					IPAWANERR("install UL rules failed\n");
+				else
+					a7_ul_flt_set = true;
 			} else {
-				IPAWANERR("not get QMI UL rules from Q6\n");
+				/* wait Q6 UL filter rules*/
+				egress_set = true;
+				IPAWANDBG("no UL-rules, egress_set(%d)\n",
+					egress_set);
 			}
 			break;
 		case RMNET_IOCTL_SET_INGRESS_DATA_FORMAT:/*  Set IDF  */
@@ -1057,7 +1227,7 @@ static void ipa_wwan_setup(struct net_device *dev)
  */
 static int __init ipa_wwan_init(void)
 {
-	int ret;
+	int ret, i;
 	struct net_device *dev;
 	struct wwan_private *wwan_ptr;
 
@@ -1078,7 +1248,12 @@ static int __init ipa_wwan_init(void)
 	/* initialize ex property setup */
 	memset(q6_ul_filter_rule, 0, sizeof(q6_ul_filter_rule));
 	num_q6_rule = 0;
+	old_num_q6_rule = 0;
 	rmnet_index = 0;
+	egress_set = false;
+	a7_ul_flt_set = false;
+	for (i = 0; i < MAX_NUM_OF_MUX_CHANNEL; i++)
+		memset(&mux_channel[i], 0, sizeof(struct rmnet_mux_val));
 
 	dev = alloc_netdev(sizeof(struct wwan_private),
 			   IPA_WWAN_DEV_NAME, ipa_wwan_setup);
