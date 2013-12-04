@@ -37,7 +37,6 @@
 #include <asm/arch_timer.h>
 
 #include "smd_rpc_sym.h"
-#include "modem_notifier.h"
 #include "smem_private.h"
 
 #define DEBUG
