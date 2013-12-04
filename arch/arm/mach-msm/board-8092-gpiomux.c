@@ -68,6 +68,29 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting ehci_reset_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting ehci_reset_act_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
+static struct msm_gpiomux_config msm_ehci_configs[] = {
+	{
+		.gpio = 0,               /* EHCI HUB RESET */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &ehci_reset_act_cfg,
+			[GPIOMUX_SUSPENDED] = &ehci_reset_sus_cfg,
+		},
+	},
+};
+
 void __init mpq8092_init_gpiomux(void)
 {
 	int rc;
@@ -79,4 +102,5 @@ void __init mpq8092_init_gpiomux(void)
 	}
 
 	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
+	msm_gpiomux_install(msm_ehci_configs, ARRAY_SIZE(msm_ehci_configs));
 }
