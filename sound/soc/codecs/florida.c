@@ -1345,6 +1345,11 @@ static const struct snd_soc_dapm_route florida_dapm_routes[] = {
 	{ "Voice Control CPU", NULL, "SYSCLK" },
 	{ "Voice Control DSP", NULL, "SYSCLK" },
 
+	{ "Trace CPU", NULL, "Trace DSP" },
+	{ "Trace DSP", NULL, "DSP1" },
+	{ "Trace CPU", NULL, "SYSCLK" },
+	{ "Trace DSP", NULL, "SYSCLK" },
+
 	{ "IN1L PGA", NULL, "IN1L" },
 	{ "IN1R PGA", NULL, "IN1R" },
 
@@ -1674,6 +1679,27 @@ static struct snd_soc_dai_driver florida_dai[] = {
 			.stream_name = "Voice Control DSP",
 			.channels_min = 1,
 			.channels_max = 1,
+			.rates = FLORIDA_RATES,
+			.formats = FLORIDA_FORMATS,
+		},
+	},
+	{
+		.name = "florida-cpu-trace",
+		.capture = {
+			.stream_name = "Trace CPU",
+			.channels_min = 2,
+			.channels_max = 8,
+			.rates = FLORIDA_RATES,
+			.formats = FLORIDA_FORMATS,
+		},
+		.compress_dai = 1,
+	},
+	{
+		.name = "florida-dsp-trace",
+		.capture = {
+			.stream_name = "Trace DSP",
+			.channels_min = 2,
+			.channels_max = 8,
 			.rates = FLORIDA_RATES,
 			.formats = FLORIDA_FORMATS,
 		},
