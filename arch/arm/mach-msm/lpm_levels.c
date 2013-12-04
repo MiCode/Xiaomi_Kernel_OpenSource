@@ -60,6 +60,8 @@ struct lpm_system_level {
 	const char *name;
 	uint32_t l2_mode;
 	struct power_params pwr;
+	enum msm_pm_sleep_mode min_cpu_mode;
+	int num_cpu_votes;
 	bool notify_rpm;
 	bool available;
 	bool sync;
@@ -70,8 +72,12 @@ struct lpm_system_state {
 	int num_cpu_levels;
 	struct lpm_system_level *system_level;
 	int num_system_levels;
+	enum msm_pm_sleep_mode sync_cpu_mode;
+	int last_entered_cluster_index;
 	bool allow_synched_levels;
 	bool no_l2_saw;
+	struct spinlock sync_lock;
+	int num_cores_in_sync;
 };
 
 static struct lpm_system_state sys_state;
@@ -117,6 +123,7 @@ static int msm_pm_sleep_time_override;
 module_param_named(sleep_time_override,
 	msm_pm_sleep_time_override, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
+static int num_powered_cores;
 static struct hrtimer lpm_hrtimer;
 
 static struct kobj_attribute lpm_l2_kattr = __ATTR(l2,  S_IRUGO|S_IWUSR,\
@@ -228,7 +235,7 @@ static int lpm_set_l2_mode(struct lpm_system_state *system_state,
 			WARN_ON_ONCE(1);
 		else
 			pr_err("%s: Failed to set L2 low power mode %d, ERR %d",
-			__func__, lpm, rc);
+					__func__, lpm, rc);
 	}
 bail_set_l2_mode:
 	return rc;
@@ -243,6 +250,12 @@ static void lpm_system_level_update(void)
 
 	mutex_lock(&lpm_lock);
 
+	if (num_powered_cores == 1)
+		allowed_l2_mode = MSM_SPM_L2_MODE_POWER_COLLAPSE;
+	else if (sys_state.allow_synched_levels)
+		allowed_l2_mode = MSM_SPM_L2_MODE_POWER_COLLAPSE;
+	else
+		allowed_l2_mode = default_l2_mode;
 	max_l2_mode = min(allowed_l2_mode, sysfs_dbg_l2_mode);
 
 	for (i = 0; i < sys_state.num_system_levels; i++) {
@@ -271,6 +284,10 @@ static int lpm_system_mode_select(
 		struct power_params *pwr_param = &system_level->pwr;
 
 		if (!system_level->available)
+			continue;
+
+		if (system_level->sync &&
+			system_level->num_cpu_votes != num_powered_cores)
 			continue;
 
 		if (latency_us < pwr_param->latency_us)
@@ -310,22 +327,33 @@ static int lpm_system_mode_select(
 		}
 	}
 	return best_level;
-
 }
 
 static void lpm_system_prepare(struct lpm_system_state *system_state,
 		int index, bool from_idle)
 {
 	struct lpm_system_level *lvl;
+	struct clock_event_device *bc = tick_get_broadcast_device()->evtdev;
 	uint32_t sclk;
-	int64_t us = 0;
+	int64_t us = (~0ULL);
 	int dbg_mask;
 	int ret;
+	const struct cpumask *nextcpu;
 
-	if (from_idle)
+	spin_lock(&system_state->sync_lock);
+	if (num_powered_cores != system_state->num_cores_in_sync) {
+		spin_unlock(&system_state->sync_lock);
+		return;
+	}
+
+	if (from_idle) {
 		dbg_mask = lpm_lvl_dbg_msk & MSM_LPM_LVL_DBG_IDLE_LIMITS;
-	else
+		us = ktime_to_us(ktime_sub(bc->next_event, ktime_get()));
+		nextcpu = bc->cpumask;
+	} else {
 		dbg_mask = lpm_lvl_dbg_msk & MSM_LPM_LVL_DBG_SUSPEND_LIMITS;
+		nextcpu = cpumask_of(smp_processor_id());
+	}
 
 	lvl = &system_state->system_level[index];
 
@@ -337,29 +365,61 @@ static void lpm_system_prepare(struct lpm_system_state *system_state,
 		goto bail_system_sleep;
 	}
 
-	if (!lvl->notify_rpm)
-		return;
+	if (lvl->notify_rpm) {
+		ret = msm_rpm_enter_sleep(dbg_mask, nextcpu);
+		if (ret) {
+			pr_err("rpm_enter_sleep() failed with rc = %d\n", ret);
+			goto bail_system_sleep;
+		}
 
-	ret = msm_rpm_enter_sleep(dbg_mask);
-	if (ret) {
-		pr_info("msm_rpm_enter_sleep() failed with rc = %d\n", ret);
-		goto bail_system_sleep;
+		if (!from_idle)
+			us = USEC_PER_SEC * msm_pm_sleep_time_override;
+
+		do_div(us, USEC_PER_SEC/SCLK_HZ);
+		sclk = (uint32_t)us;
+		msm_mpm_enter_sleep(sclk, from_idle, nextcpu);
 	}
-
-	if (!from_idle)
-		us = USEC_PER_SEC * msm_pm_sleep_time_override;
-
-	do_div(us, USEC_PER_SEC/SCLK_HZ);
-	sclk = (uint32_t)us;
-	msm_mpm_enter_sleep(sclk, from_idle);
+	system_state->last_entered_cluster_index = index;
+	spin_unlock(&system_state->sync_lock);
 	return;
+
 bail_system_sleep:
-	lpm_set_l2_mode(system_state, default_l2_mode);
+	if (default_l2_mode != system_state->system_level[index].l2_mode)
+		lpm_set_l2_mode(system_state, default_l2_mode);
+	spin_unlock(&system_state->sync_lock);
 }
 
 static void lpm_system_unprepare(struct lpm_system_state *system_state,
-		int index, bool from_idle)
+		int cpu_index, bool from_idle)
 {
+	int index, i;
+	struct lpm_cpu_level *cpu_level = &system_state->cpu_level[cpu_index];
+	bool first_core_up;
+
+	if (cpu_level->mode < system_state->sync_cpu_mode)
+		return;
+
+	spin_lock(&system_state->sync_lock);
+
+	first_core_up = (system_state->num_cores_in_sync == num_powered_cores);
+
+	system_state->num_cores_in_sync--;
+
+	if (!system_state->system_level)
+		goto unlock_and_return;
+
+	index = system_state->last_entered_cluster_index;
+
+	for (i = 0; i < system_state->num_system_levels; i++) {
+		struct lpm_system_level *system_lvl
+					= &system_state->system_level[i];
+		if (cpu_level->mode >= system_lvl->min_cpu_mode)
+			system_lvl->num_cpu_votes--;
+	}
+
+	if (!first_core_up)
+		goto unlock_and_return;
+
 	if (default_l2_mode != system_state->system_level[index].l2_mode)
 		lpm_set_l2_mode(system_state, default_l2_mode);
 
@@ -367,6 +427,8 @@ static void lpm_system_unprepare(struct lpm_system_state *system_state,
 		msm_rpm_exit_sleep();
 		msm_mpm_exit_sleep(from_idle);
 	}
+unlock_and_return:
+	spin_unlock(&system_state->sync_lock);
 }
 
 s32 msm_cpuidle_get_deep_idle_latency(void)
@@ -393,13 +455,12 @@ static int lpm_cpu_callback(struct notifier_block *cpu_nb,
 {
 	switch (action & ~CPU_TASKS_FROZEN) {
 	case CPU_UP_PREPARE:
-		allowed_l2_mode = default_l2_mode;
+		++num_powered_cores;
 		lpm_system_level_update();
 		break;
 	case CPU_DEAD:
 	case CPU_UP_CANCELED:
-		if (num_online_cpus() == 1)
-			allowed_l2_mode = MSM_SPM_L2_MODE_POWER_COLLAPSE;
+		num_powered_cores = num_online_cpus();
 		lpm_system_level_update();
 		break;
 	case CPU_ONLINE:
@@ -422,10 +483,10 @@ static void msm_pm_set_timer(uint32_t modified_time_us)
 	u64 modified_time_ns = modified_time_us * NSEC_PER_USEC;
 	ktime_t modified_ktime = ns_to_ktime(modified_time_ns);
 	lpm_hrtimer.function = lpm_hrtimer_cb;
-	hrtimer_start(&lpm_hrtimer, modified_ktime, HRTIMER_MODE_REL);
+	hrtimer_start(&lpm_hrtimer, modified_ktime, HRTIMER_MODE_REL_PINNED);
 }
 
-static int lpm_cpu_power_select(struct cpuidle_device *dev, int *index)
+static noinline int lpm_cpu_power_select(struct cpuidle_device *dev, int *index)
 {
 	int best_level = -1;
 	uint32_t best_level_pwr = ~0UL;
@@ -450,7 +511,8 @@ static int lpm_cpu_power_select(struct cpuidle_device *dev, int *index)
 		enum msm_pm_sleep_mode mode = level->mode;
 		bool allow;
 
-		if (level->sync && num_online_cpus() > 1)
+		if (level->sync && num_online_cpus() > 1
+				&& !sys_state.allow_synched_levels)
 			continue;
 
 		allow = msm_cpu_pm_check_mode(dev->cpu, mode, true);
@@ -579,30 +641,68 @@ static int lpm_cpu_menu_select(struct cpuidle_device *dev, int *index)
 	return -EPERM;
 }
 
-static inline void lpm_cpu_prepare(struct lpm_cpu_level *cpu_level,
-		unsigned int cpu, bool from_idle)
+static inline void lpm_cpu_prepare(struct lpm_system_state *system_state,
+		int cpu_index, bool from_idle)
 {
-	if (from_idle && cpu_level->use_bc_timer)
+	struct lpm_cpu_level *cpu_level = &system_state->cpu_level[cpu_index];
+	unsigned int cpu = smp_processor_id();
+
+	/* Use broadcast timer for aggregating sleep mode within a cluster.
+	 * A broadcast timer could be used because of harware restriction or
+	 * to ensure that we BC timer is used incase a cpu mode could trigger
+	 * a cluster level sleep
+	 */
+	if (from_idle && (cpu_level->use_bc_timer ||
+			(cpu_level->mode >= system_state->sync_cpu_mode)))
 		clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_ENTER, &cpu);
 }
 
-static inline void lpm_cpu_unprepare(struct lpm_cpu_level *cpu_level,
-		unsigned int cpu, bool from_idle)
+static inline void lpm_cpu_unprepare(struct lpm_system_state *system_state,
+		int cpu_index, bool from_idle)
 {
-	if (from_idle && cpu_level->use_bc_timer)
+	struct lpm_cpu_level *cpu_level = &system_state->cpu_level[cpu_index];
+	unsigned int cpu = smp_processor_id();
+
+	if (from_idle && (cpu_level->use_bc_timer ||
+			(cpu_level->mode >= system_state->sync_cpu_mode)))
 		clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_EXIT, &cpu);
 }
 
 static int lpm_system_select(struct lpm_system_state *system_state,
 		int cpu_index, bool from_idle)
 {
-	uint64_t us;
-	struct clock_event_device *ed = tick_get_broadcast_device()->evtdev;
+	uint64_t us = (~0ULL);
+	struct clock_event_device *ed;
+	struct lpm_cpu_level *cpu_level = &system_state->cpu_level[cpu_index];
+	int i;
+	bool last_core_down;
 
-	if (!system_state->cpu_level[cpu_index].sync)
+	if (cpu_level->mode < system_state->sync_cpu_mode)
 		return -EINVAL;
 
-	if (!system_state->system_level)
+	spin_lock(&system_state->sync_lock);
+
+	last_core_down =
+		(++system_state->num_cores_in_sync == num_powered_cores);
+
+	if (!system_state->system_level) {
+		spin_unlock(&system_state->sync_lock);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < system_state->num_system_levels; i++) {
+		struct lpm_system_level *system_lvl =
+			&system_state->system_level[i];
+		if (cpu_level->mode >= system_lvl->min_cpu_mode)
+			system_lvl->num_cpu_votes++;
+	}
+	spin_unlock(&system_state->sync_lock);
+
+	if (!last_core_down)
+		return -EBUSY;
+
+	ed = tick_get_broadcast_device()->evtdev;
+	if (!ed)
 		return -EINVAL;
 
 	if (from_idle)
@@ -617,22 +717,22 @@ static void lpm_enter_low_power(struct lpm_system_state *system_state,
 		int cpu_index, bool from_idle)
 {
 	int idx;
-	unsigned int cpu = smp_processor_id();
 	struct lpm_cpu_level *cpu_level = &system_state->cpu_level[cpu_index];
 
-	lpm_cpu_prepare(cpu_level, cpu, from_idle);
+	cpu_level = &system_state->cpu_level[cpu_index];
+
+	lpm_cpu_prepare(system_state, cpu_index, from_idle);
 
 	idx = lpm_system_select(system_state, cpu_index, from_idle);
 
-	if (idx > 0)
+	if (idx >= 0)
 		lpm_system_prepare(system_state, idx, from_idle);
 
 	msm_cpu_pm_enter_sleep(cpu_level->mode, from_idle);
 
-	if (idx > 0)
-		lpm_system_unprepare(system_state, idx, from_idle);
+	lpm_system_unprepare(system_state, cpu_index, from_idle);
 
-	lpm_cpu_unprepare(cpu_level, cpu, from_idle);
+	lpm_cpu_unprepare(system_state, cpu_index, from_idle);
 }
 
 static int lpm_cpuidle_enter(struct cpuidle_device *dev,
@@ -689,7 +789,6 @@ static void lpm_suspend_wake(void)
 	suspend_in_progress = false;
 }
 
-
 static struct platform_device lpm_dev = {
 	.name = "msm_pm",
 	.id = -1,
@@ -712,6 +811,7 @@ static void setup_broadcast_timer(void *arg)
 
 	clockevents_notify(reason, &cpu);
 }
+
 static struct cpuidle_driver msm_cpuidle_driver = {
 	.name = "msm_idle",
 	.owner = THIS_MODULE,
@@ -786,7 +886,6 @@ static int lpm_cpu_probe(struct platform_device *pdev)
 
 	for_each_child_of_node(pdev->dev.of_node, node)
 		num_levels++;
-	pr_info("NUM_LEVELs:%d\n", num_levels);
 
 	level = kzalloc(num_levels * sizeof(struct lpm_cpu_level),
 			GFP_KERNEL);
@@ -853,6 +952,7 @@ static int lpm_system_probe(struct platform_device *pdev)
 
 	l = &level[0];
 	for_each_child_of_node(pdev->dev.of_node, node) {
+
 		key = "qcom,l2";
 		ret = of_property_read_string(node, key, &l->name);
 		if (ret) {
@@ -882,6 +982,32 @@ static int lpm_system_probe(struct platform_device *pdev)
 			goto fail;
 		}
 
+		key = "qcom,sync-cpus";
+		l->sync = of_property_read_bool(node, key);
+
+		if (l->sync) {
+			const char *name;
+
+			key = "qcom,min-cpu-mode";
+			ret = of_property_read_string(node, key, &name);
+			if (ret) {
+				pr_err("%s(): Required key %snot found\n",
+						__func__, name);
+				goto fail;
+			}
+
+			l->min_cpu_mode = msm_pm_get_sleep_mode_value(name);
+
+			if (l->min_cpu_mode < 0) {
+				pr_err("%s(): Cannot parse cpu mode:%s\n",
+						__func__, name);
+				goto fail;
+			}
+
+			if (l->min_cpu_mode < sys_state.sync_cpu_mode)
+				sys_state.sync_cpu_mode = l->min_cpu_mode;
+		}
+
 		l++;
 	}
 	sys_state.system_level = level;
@@ -899,9 +1025,16 @@ static int lpm_probe(struct platform_device *pdev)
 	int ret;
 
 	node = pdev->dev.of_node;
-	key = "qcom,no-l2-saw";
 
-	sys_state.no_l2_saw = of_property_read_bool(pdev->dev.of_node, key);
+	key = "qcom,allow-synced-levels";
+	sys_state.allow_synched_levels = of_property_read_bool(node, key);
+
+	key = "qcom,no-l2-saw";
+	sys_state.no_l2_saw = of_property_read_bool(node, key);
+
+	sys_state.sync_cpu_mode = MSM_PM_SLEEP_MODE_NR;
+	spin_lock_init(&sys_state.sync_lock);
+	sys_state.num_cores_in_sync = 0;
 
 	ret = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
 
@@ -909,13 +1042,15 @@ static int lpm_probe(struct platform_device *pdev)
 		goto fail;
 
 	/* Do the following two steps only if L2 SAW is present */
+	num_powered_cores = num_online_cpus();
+
 	if (!sys_state.no_l2_saw) {
 		int ret;
 		const char *l2;
 		key = "qcom,default-l2-state";
 		ret = of_property_read_string(node, key, &l2);
 		if (ret) {
-			pr_err("%s(): Failed to read defaiult L2 mode\n",
+			pr_err("%s(): Failed to read default L2 mode\n",
 					__func__);
 			goto fail;
 		}
@@ -999,14 +1134,14 @@ static int __init lpm_levels_module_init(void)
 	int rc;
 	rc = platform_driver_register(&cpu_modes_driver);
 	if (rc) {
-		pr_info("Error registering %s\n", cpu_modes_driver.driver.name);
+		pr_err("Error registering %s\n", cpu_modes_driver.driver.name);
 		goto fail;
 	}
 
 	rc = platform_driver_register(&system_modes_driver);
 	if (rc) {
 		platform_driver_unregister(&cpu_modes_driver);
-		pr_info("Error registering %s\n",
+		pr_err("Error registering %s\n",
 				system_modes_driver.driver.name);
 		goto fail;
 	}
@@ -1015,7 +1150,7 @@ static int __init lpm_levels_module_init(void)
 	if (rc) {
 		platform_driver_unregister(&cpu_modes_driver);
 		platform_driver_unregister(&system_modes_driver);
-		pr_info("Error registering %s\n",
+		pr_err("Error registering %s\n",
 				lpm_levels_driver.driver.name);
 	}
 fail:

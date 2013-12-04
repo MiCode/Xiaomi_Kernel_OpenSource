@@ -15,7 +15,12 @@ Required properties:
 
 The optional nodes for the First level nodes are:
 - qcom,no-l2-saw: Indicates if this target has an L2 SAW (SPM and AVS wrapper).
-- qcom,default-l2-state: Indicates what the default low power state of the L2 SAW should be. This property should be mentioned when there is a l2 saw.
+- qcom,default-l2-state: Indicates what the default low power state of the L2
+		SAW should be. This property should be mentioned when there is
+		a L2 saw.
+- qcom,allow-synced-levels:  Indicates if certain low power modes should be
+		synchronized across all cores so as to configure a system
+		low power mode.
 
 [Second Level Nodes]
 Required properties to define CPU low power modes :
@@ -50,6 +55,9 @@ Required propertieis to define System low power mode :
 - qcom,energy-overhead: The energy used up in entering and exiting this level
 		 in mWatts.uSec
 - qcom,time-overhead: The time spent in entering and exiting this level in uS
+- qcom,min-cpu-mode: The min cpu sleep mode at which the given system level is
+		 valid. All cpus should have entered this low power mode before
+		 this system level can be chosen.
 
 Example:
 qcom,lpm-levels {
