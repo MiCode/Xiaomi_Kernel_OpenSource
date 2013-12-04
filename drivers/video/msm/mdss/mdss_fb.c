@@ -1881,11 +1881,11 @@ static int mdss_fb_set_par(struct fb_info *info)
 
 int mdss_fb_dcm(struct msm_fb_data_type *mfd, int req_state)
 {
-	int ret = -EINVAL;
+	int ret = 0;
 
 	if (req_state == mfd->dcm_state) {
-		pr_warn("Already in correct DCM state");
-		ret = 0;
+		pr_warn("Already in correct DCM/DTM state");
+		return ret;
 	}
 
 	switch (req_state) {
@@ -1901,11 +1901,12 @@ int mdss_fb_dcm(struct msm_fb_data_type *mfd, int req_state)
 		break;
 	case DCM_ENTER:
 		if (mfd->dcm_state == DCM_UNBLANK) {
-			/* Keep unblank path available for only
-			DCM operation */
+			/*
+			 * Keep unblank path available for only
+			 * DCM operation
+			 */
 			mfd->panel_power_on = false;
 			mfd->dcm_state = DCM_ENTER;
-			ret = 0;
 		}
 		break;
 	case DCM_EXIT:
@@ -1913,7 +1914,6 @@ int mdss_fb_dcm(struct msm_fb_data_type *mfd, int req_state)
 			/* Release the unblank path for exit */
 			mfd->panel_power_on = true;
 			mfd->dcm_state = DCM_EXIT;
-			ret = 0;
 		}
 		break;
 	case DCM_BLANK:
@@ -1927,7 +1927,16 @@ int mdss_fb_dcm(struct msm_fb_data_type *mfd, int req_state)
 			}
 		}
 		break;
+	case DTM_ENTER:
+		if (mfd->dcm_state == DCM_UNINIT)
+			mfd->dcm_state = DTM_ENTER;
+		break;
+	case DTM_EXIT:
+		if (mfd->dcm_state == DTM_ENTER)
+			mfd->dcm_state = DCM_UNINIT;
+		break;
 	}
+
 	return ret;
 }
 
