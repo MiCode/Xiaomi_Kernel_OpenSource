@@ -288,8 +288,8 @@
 		reg = <0xfe805000 0x1000>; /* Address and size of IMEM */
 	};
 
-	qcom,cache_erp {
-		compatible = "qcom,cache_erp";
+	qti,cache_erp {
+		compatible = "qti,cache_erp";
 		interrupts = <1 9 0>, <0 2 0>;
 		interrupt-names = "l1_irq", "l2_irq";
 	};
