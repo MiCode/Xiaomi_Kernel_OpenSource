@@ -732,8 +732,8 @@ static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 	 * that the clocks have already been prepared and enabled by the time
 	 * they take over.
 	 */
-	clk_prepare_enable(&l2_clk.c);
 	for_each_online_cpu(cpu) {
+		clk_prepare_enable(&l2_clk.c);
 		WARN(clk_prepare_enable(cpu_clk[cpu]),
 			"Unable to turn on CPU%d clock", cpu);
 	}
