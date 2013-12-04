@@ -45,7 +45,7 @@
 static unsigned long compute_rate(u64 parent_rate,
 				u32 l_val, u64 a_val)
 {
-	u32 rate;
+	unsigned long rate;
 
 	/*
 	 * assuming parent_rate < 2^25, we need a_val < 2^39 to avoid
@@ -53,7 +53,8 @@ static unsigned long compute_rate(u64 parent_rate,
 	 */
 	a_val = a_val >> 1;
 	rate = parent_rate * l_val;
-	rate += (u32)((parent_rate * a_val) >> (ALPHA_REG_BITWIDTH - 1));
+	rate += (unsigned long)((parent_rate * a_val) >>
+				(ALPHA_REG_BITWIDTH - 1));
 	return rate;
 }
 
