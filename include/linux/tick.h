@@ -8,6 +8,7 @@
 
 #include <linux/clockchips.h>
 #include <linux/irqflags.h>
+#include <linux/hrtimer.h>
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS
 
