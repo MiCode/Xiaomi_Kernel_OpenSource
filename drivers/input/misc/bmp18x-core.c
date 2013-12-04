@@ -50,6 +50,7 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/input.h>
+#include <linux/sensors.h>
 #include <linux/workqueue.h>
 #include <linux/module.h>
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -101,6 +102,20 @@ struct bmp18x_data {
 	struct delayed_work work;
 	u32					delay;
 	u32					enable;
+};
+
+static struct sensors_classdev sensors_cdev = {
+	.name = "bmp18x-pressure",
+	.vendor = "Bosch",
+	.version = 1,
+	.handle = SENSORS_PRESSURE_HANDLE,
+	.type = SENSOR_TYPE_PRESSURE,
+	.max_range = "1100.0",
+	.resolution = "0.01",
+	.sensor_power = "0.67",
+	.min_delay = 20000,
+	.fifo_reserved_event_count = 0,
+	.fifo_max_event_count = 0,
 };
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -612,6 +627,13 @@ __devinit int bmp18x_probe(struct device *dev, struct bmp18x_data_bus *data_bus)
 	err = sysfs_create_group(&data->input->dev.kobj, &bmp18x_attr_group);
 	if (err)
 		goto error_sysfs;
+
+	err = sensors_classdev_register(&data->input->dev, &sensors_cdev);
+	if (err) {
+		pr_err("class device create failed: %d\n", err);
+		goto error_class_sysfs;
+	}
+
 	/* workqueue init */
 	INIT_DELAYED_WORK(&data->work, bmp18x_work_func);
 	data->delay  = BMP_DELAY_DEFAULT;
@@ -627,6 +649,8 @@ __devinit int bmp18x_probe(struct device *dev, struct bmp18x_data_bus *data_bus)
 	dev_info(dev, "Succesfully initialized bmp18x!\n");
 	return 0;
 
+error_class_sysfs:
+	sysfs_remove_group(&data->input->dev.kobj, &bmp18x_attr_group);
 error_sysfs:
 	bmp18x_input_delete(data);
 exit_free:
