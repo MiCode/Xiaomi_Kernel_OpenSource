@@ -595,6 +595,9 @@ struct qmi_handle *qmi_handle_create(
 	struct qmi_handle *temp_handle;
 	struct msm_ipc_port *port_ptr, *ctl_port_ptr;
 
+	/* Initialize before any handle receives any notifications */
+	init_msm_qmi();
+
 	temp_handle = kzalloc(sizeof(struct qmi_handle), GFP_KERNEL);
 	if (!temp_handle) {
 		pr_err("%s: Failure allocating client handle\n", __func__);
@@ -638,7 +641,6 @@ struct qmi_handle *qmi_handle_create(
 
 	/* Initialize service specific elements */
 	INIT_LIST_HEAD(&temp_handle->conn_list);
-	init_msm_qmi();
 	return temp_handle;
 }
 EXPORT_SYMBOL(qmi_handle_create);
