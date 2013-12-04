@@ -661,7 +661,7 @@ void wcnss_pronto_log_debug_regs(void)
 	pr_info_ratelimited("%s: WLAN_BRDG_ERR_SOURCE %08x\n", __func__, reg);
 
 	reg = readl_relaxed(penv->wlan_tx_status);
-	pr_info_ratelimited("%s: WLAN_TX_STATUS %08x\n", __func__, reg);
+	pr_info_ratelimited("%s: WLAN_TXP_STATUS %08x\n", __func__, reg);
 }
 EXPORT_SYMBOL(wcnss_pronto_log_debug_regs);
 
