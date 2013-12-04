@@ -1413,6 +1413,14 @@ int xhci_bus_resume(struct usb_hcd *hcd)
 	temp &= ~CMD_EIE;
 	xhci_writel(xhci, temp, &xhci->op_regs->command);
 
+	if ((xhci->quirks & XHCI_RESET_RS_ON_RESUME_QUIRK) &&
+			HC_IS_SUSPENDED(xhci->main_hcd->state) &&
+				HC_IS_SUSPENDED(xhci->shared_hcd->state)) {
+		xhci_halt(xhci);
+		if (!xhci_start(xhci))
+			xhci->cmd_ring_state = CMD_RING_STATE_RUNNING;
+	}
+
 	port_index = max_ports;
 	while (port_index--) {
 		/* Check whether need resume ports. If needed

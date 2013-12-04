@@ -1554,6 +1554,25 @@ struct xhci_hcd {
 #define XHCI_TR_DEQ_ERR_QUIRK	(1 << 19)
 #define XHCI_NO_SELECTIVE_SUSPEND (1 << 20)
 #define XHCI_TR_DEQ_RESET_QUIRK   (1 << 21)
+/*
+ * The DWC_usb3 controller has an internal bus interval counter for tracking the
+ * microframes. The following is the expected behavior of the counter: If all of
+ * the USB 3.0 and 2.0 ports are in either suspended or disconnected state, the
+ * counter is stopped. Whenever a suspended device is disconnected, or a new
+ * device is connected, or the root port exits the suspend state, the counter is
+ * restarted. Because of an error, when multiple connects/disconnects are
+ * performed and the suspend_clk frequency is less than the ref_clk frequency,
+ * the counter does not increment correctly after a suspended device is
+ * disconnected, or a new device is connected or the root port exits the suspend
+ * state.
+ *
+ * Workaround is if all the 2.0 and 3.0 ports are either in suspended or
+ * disconnect state and port status change event of device disconnect or port
+ * status change event of super speed device connect is reported from any of the
+ * root ports, clear and set the USBCMD.RunStop bit. And then follow the xHCI
+ * programming sequence of initiliazing the host controller from halted state.
+ */
+#define XHCI_RESET_RS_ON_RESUME_QUIRK	(1 << 22)
 	unsigned int		num_active_eps;
 	unsigned int		limit_active_eps;
 	/* There are two roothubs to keep track of bus suspend info for */
@@ -1798,6 +1817,7 @@ int xhci_handshake(struct xhci_hcd *xhci, void __iomem *ptr,
 		u32 mask, u32 done, int usec);
 void xhci_quiesce(struct xhci_hcd *xhci);
 int xhci_halt(struct xhci_hcd *xhci);
+int xhci_start(struct xhci_hcd *xhci);
 int xhci_reset(struct xhci_hcd *xhci);
 int xhci_init(struct usb_hcd *hcd);
 int xhci_run(struct usb_hcd *hcd);
