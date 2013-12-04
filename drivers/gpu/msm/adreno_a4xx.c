@@ -255,7 +255,7 @@ static const struct adreno_vbif_data a420_vbif[] = {
 	{0, 0},
 };
 
-const struct adreno_vbif_platform a4xx_vbif_platforms[] = {
+static const struct adreno_vbif_platform a4xx_vbif_platforms[] = {
 	{ adreno_is_a420, a420_vbif },
 };
 

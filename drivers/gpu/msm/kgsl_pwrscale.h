@@ -48,7 +48,6 @@ void kgsl_pwrscale_close(struct kgsl_device *device);
 
 void kgsl_pwrscale_update(struct kgsl_device *device);
 void kgsl_pwrscale_busy(struct kgsl_device *device);
-void kgsl_pwrscale_idle(struct kgsl_device *device);
 void kgsl_pwrscale_sleep(struct kgsl_device *device);
 void kgsl_pwrscale_wake(struct kgsl_device *device);
 

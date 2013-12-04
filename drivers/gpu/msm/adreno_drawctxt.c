@@ -170,7 +170,7 @@ static int _check_global_timestamp(struct kgsl_device *device,
 	return ret;
 }
 
-int adreno_drawctxt_wait_global(struct adreno_device *adreno_dev,
+static int adreno_drawctxt_wait_global(struct adreno_device *adreno_dev,
 		struct kgsl_context *context,
 		uint32_t timestamp, unsigned int timeout)
 {
@@ -291,7 +291,6 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 {
 	struct adreno_context *drawctxt;
 	struct kgsl_device *device = dev_priv->device;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret;
 
 	drawctxt = kzalloc(sizeof(struct adreno_context), GFP_KERNEL);
@@ -330,11 +329,7 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 
 	plist_node_init(&drawctxt->pending, ADRENO_CONTEXT_DEFAULT_PRIORITY);
 
-	if (adreno_dev->gpudev->ctxt_create) {
-		ret = adreno_dev->gpudev->ctxt_create(adreno_dev, drawctxt);
-		if (ret)
-			goto err;
-	} else if ((drawctxt->base.flags & KGSL_CONTEXT_PREAMBLE) == 0 ||
+	if ((drawctxt->base.flags & KGSL_CONTEXT_PREAMBLE) == 0 ||
 		  (drawctxt->base.flags & KGSL_CONTEXT_NO_GMEM_ALLOC) == 0) {
 		KGSL_DEV_ERR_ONCE(device,
 				"legacy context switch not supported\n");

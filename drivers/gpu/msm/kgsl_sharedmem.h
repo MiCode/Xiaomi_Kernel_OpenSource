@@ -30,8 +30,6 @@ struct kgsl_process_private;
 #define KGSL_CACHE_OP_FLUSH     0x02
 #define KGSL_CACHE_OP_CLEAN     0x03
 
-extern struct kgsl_memdesc_ops kgsl_page_alloc_ops;
-
 int kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 			   struct kgsl_pagetable *pagetable, size_t size);
 
@@ -123,10 +121,6 @@ static inline unsigned int kgsl_get_sg_pa(struct scatterlist *sg)
 		pa = sg_phys(sg);
 	return pa;
 }
-
-int
-kgsl_sharedmem_map_vma(struct vm_area_struct *vma,
-			const struct kgsl_memdesc *memdesc);
 
 /*
  * For relatively small sglists, it is preferable to use kzalloc
