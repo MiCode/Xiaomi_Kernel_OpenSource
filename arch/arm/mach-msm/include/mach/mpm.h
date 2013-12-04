@@ -112,11 +112,13 @@ bool msm_mpm_gpio_irqs_detectable(bool from_idle);
  * @sclk_count: wakeup time in sclk counts for programmed RPM wakeup
  * @from_idle: indicates if the sytem is entering low power mode as a part of
  *		suspend/idle task.
+ * @cpumask: the next cpu to wakeup.
  *
  * Low power management code calls into this API to configure the MPM to
  * monitor the active irqs before going to sleep.
  */
-void msm_mpm_enter_sleep(uint32_t sclk_count, bool from_idle);
+void msm_mpm_enter_sleep(uint32_t sclk_count, bool from_idle,
+		const struct cpumask *cpumask);
 /**
  * msm_mpm_exit_sleep() -Called from PM code after resuming from low power mode
  *
@@ -159,7 +161,8 @@ static inline bool msm_mpm_irqs_detectable(bool from_idle)
 { return false; }
 static inline bool msm_mpm_gpio_irqs_detectable(bool from_idle)
 { return false; }
-static inline void msm_mpm_enter_sleep(uint32_t sclk_count, bool from_idle) {}
+static inline void msm_mpm_enter_sleep(uint32_t sclk_count, bool from_idle
+		const struct cpumask *cpumask) {}
 static inline void msm_mpm_exit_sleep(bool from_idle) {}
 static inline void __init of_mpm_init(struct device_node *node) {}
 #endif
