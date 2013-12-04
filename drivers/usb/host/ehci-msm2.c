@@ -1301,8 +1301,6 @@ struct msm_usb_host_platform_data *ehci_msm2_dt_to_pdata(
 	pdata->no_selective_suspend = of_property_read_bool(node,
 					"qcom,no-selective-suspend");
 	pdata->resume_gpio = of_get_named_gpio(node, "qcom,resume-gpio", 0);
-	if (pdata->resume_gpio < 0)
-		pdata->resume_gpio = 0;
 
 	return pdata;
 }
@@ -1419,14 +1417,15 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 		goto free_xo_handle;
 	}
 
-	if (pdata && pdata->resume_gpio) {
+	if (pdata && gpio_is_valid(pdata->resume_gpio)) {
 		mhcd->resume_gpio = pdata->resume_gpio;
-		ret = gpio_request(mhcd->resume_gpio, "hsusb_resume");
+		ret = devm_gpio_request(&pdev->dev, mhcd->resume_gpio,
+							"hsusb_resume");
 		if (ret) {
 			dev_err(&pdev->dev,
 				"resume gpio(%d) request failed:%d\n",
 				mhcd->resume_gpio, ret);
-			mhcd->resume_gpio = 0;
+			mhcd->resume_gpio = -EINVAL;
 		} else {
 			/* to override ehci_bus_resume from ehci-hcd library */
 			ehci_bus_resume_func = ehci_msm2_hc_driver.bus_resume;
@@ -1556,8 +1555,6 @@ deinit_ldo:
 deinit_vddcx:
 	msm_ehci_init_vddcx(mhcd, 0);
 devote_xo_handle:
-	if (mhcd->resume_gpio)
-		gpio_free(mhcd->resume_gpio);
 	if (mhcd->xo_clk)
 		clk_disable_unprepare(mhcd->xo_clk);
 	else
@@ -1606,9 +1603,6 @@ static int ehci_msm2_remove(struct platform_device *pdev)
 			disable_irq_wake(mhcd->wakeup_irq);
 		free_irq(mhcd->wakeup_irq, mhcd);
 	}
-
-	if (mhcd->resume_gpio)
-		gpio_free(mhcd->resume_gpio);
 
 	device_init_wakeup(&pdev->dev, 0);
 	pm_runtime_set_suspended(&pdev->dev);
