@@ -2092,7 +2092,6 @@ int tspp2_device_open(u32 dev_id)
 	tspp2_reg_clock_stop(device);
 
 	/* Enable runtime power management */
-	pm_runtime_set_active(device->dev);
 	pm_runtime_set_autosuspend_delay(device->dev, MSEC_PER_SEC);
 	pm_runtime_use_autosuspend(device->dev);
 	pm_runtime_enable(device->dev);
