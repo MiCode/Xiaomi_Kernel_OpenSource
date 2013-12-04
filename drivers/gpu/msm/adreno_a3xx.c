@@ -92,12 +92,6 @@ const unsigned int a330_registers[] = {
 
 const unsigned int a330_registers_count = ARRAY_SIZE(a330_registers) / 2;
 
-/* EN/CLR mask for the VBIF counters we care about */
-#define VBIF_PERF_MASK (VBIF_PERF_CNT_0 | VBIF_PERF_PWR_CNT_0)
-#define RBBM_PERF_ENABLE_MASK (RBBM_RBBM_CTL_ENABLE_PWR_CTR1)
-#define RBBM_PERF_RESET_MASK (RBBM_RBBM_CTL_RESET_PWR_CTR1)
-#define _SET(_shift, _val) ((_val) << (_shift))
-
 /*
  * Define registers for a3xx that contain addresses used by the
  * cp parser logic
@@ -1510,7 +1504,7 @@ void a3xx_busy_cycles(struct adreno_device *adreno_dev,
 					&busy->gpu_busy);
 	if (device->pwrctrl.bus_control) {
 		data->vbif_ram_cycles = counter_delta(adreno_dev,
-					A3XX_VBIF_PERF_CNT0_LO,
+					adreno_dev->ram_cycles_lo,
 					&busy->vbif_ram_cycles);
 		data->vbif_starved_ram = counter_delta(adreno_dev,
 					A3XX_VBIF_PERF_PWR_CNT0_LO,
@@ -1950,7 +1944,8 @@ int a3xx_perfcounter_init(struct adreno_device *adreno_dev)
 				NULL, PERFCOUNTER_FLAG_KERNEL);
 	/* VBIF DDR cycles */
 	ret |= adreno_perfcounter_get(adreno_dev, KGSL_PERFCOUNTER_GROUP_VBIF,
-				VBIF_AXI_TOTAL_BEATS, NULL,
+				VBIF_AXI_TOTAL_BEATS,
+				&adreno_dev->ram_cycles_lo,
 				PERFCOUNTER_FLAG_KERNEL);
 
 	/* Default performance counter profiling to false */
@@ -2055,10 +2050,7 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	a3xx_protect_init(device);
 
 	/* Turn on performance counters */
-	kgsl_regwrite(device, A3XX_RBBM_PERFCTR_CTL, RBBM_PERF_ENABLE_MASK);
-	kgsl_regwrite(device, A3XX_VBIF_PERF_CNT_SEL,
-			_SET(VBIF_PERF_CNT_0_SEL, VBIF_AXI_TOTAL_BEATS));
-	kgsl_regwrite(device, A3XX_VBIF_PERF_CNT_EN, VBIF_PERF_MASK);
+	kgsl_regwrite(device, A3XX_RBBM_PERFCTR_CTL, 0x01);
 
 	kgsl_regwrite(device, A3XX_CP_DEBUG, A3XX_CP_DEBUG_DEFAULT);
 	memset(&adreno_dev->busy_data, 0, sizeof(adreno_dev->busy_data));
