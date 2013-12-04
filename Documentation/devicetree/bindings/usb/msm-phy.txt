@@ -31,6 +31,7 @@ Optional properties:
    order to manually enable the D+ pull-up resistor.
  - qti,primary-phy: If present, indicates this is a secondary PHY and is
    dependent on the primary PHY referenced by this phandle.
+ - qti,set-pllbtune: If present, PLL tune is required in PHY initialization.
 
 Example:
 	hsphy@f9200000 {
