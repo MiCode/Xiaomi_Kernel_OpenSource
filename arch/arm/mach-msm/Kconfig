@@ -308,7 +308,6 @@ config ARCH_APQ8084
 	select QMI_ENCDEC
 	select MSM_SPM_V2
 	select MSM_L2_SPM
-	select MSM_PM if PM
 	select MSM_RPM_SMD
 	select ENABLE_VMALLOC_SAVINGS
 
