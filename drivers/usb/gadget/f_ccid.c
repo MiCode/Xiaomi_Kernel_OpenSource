@@ -1,7 +1,7 @@
 /*
  * f_ccid.c -- CCID function Driver
  *
- * Copyright (c) 2011, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, 2013 The Linux Foundation. All rights reserved.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -307,12 +307,11 @@ ccid_function_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		ctrl_dev->buf[3] = 0x00;
 		ctrl_dev->tx_ctrl_done = 1;
 		wake_up(&ctrl_dev->tx_wait_q);
-		return 0;
+		ret = 0;
+		break;
 
 	case ((USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 			| CCIDGENERICREQ_GET_CLOCK_FREQUENCIES:
-		if (w_length > req->length)
-			goto invalid;
 		*(u32 *) req->buf =
 				cpu_to_le32(ccid_class_desc.dwDefaultClock);
 		ret = min_t(u32, w_length,
@@ -321,8 +320,6 @@ ccid_function_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 
 	case ((USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 			| CCIDGENERICREQ_GET_DATA_RATES:
-		if (w_length > req->length)
-			goto invalid;
 		*(u32 *) req->buf = cpu_to_le32(ccid_class_desc.dwDataRate);
 		ret = min_t(u32, w_length, sizeof(ccid_class_desc.dwDataRate));
 		break;
