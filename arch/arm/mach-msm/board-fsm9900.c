@@ -30,7 +30,6 @@
 #include <mach/clk-provider.h>
 #include "board-dt.h"
 #include "clock.h"
-#include "devices.h"
 #include "platsmp.h"
 
 #define FSM9900_MAC0_FUSE_PHYS	0xFC4B8440

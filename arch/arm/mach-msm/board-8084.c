@@ -35,7 +35,6 @@
 #include "spm.h"
 #include "board-dt.h"
 #include "clock.h"
-#include "devices.h"
 #include "platsmp.h"
 #include "modem_notifier.h"
 #include "pm.h"
