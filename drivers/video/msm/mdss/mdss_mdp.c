@@ -994,6 +994,9 @@ int mdss_hw_init(struct mdss_data_type *mdata)
 		/* swap */
 		writel_relaxed(1, offset + 16);
 	}
+
+	mdata->nmax_concurrent_ad_hw = (mdata->mdp_rev <= MDSS_MDP_HW_REV_102) ?
+									1 : 2;
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	pr_debug("MDP hw init done\n");
 
@@ -1978,8 +1981,10 @@ static int mdss_mdp_parse_dt_ad_cfg(struct platform_device *pdev)
 		mdata->ad_cfgs = NULL;
 		return 0;
 	}
+
 	if (mdata->nad_cfgs > mdata->nmixers_intf)
 		return -EINVAL;
+
 
 	mdata->has_wb_ad = of_property_read_bool(pdev->dev.of_node,
 		"qcom,mdss-has-wb-ad");

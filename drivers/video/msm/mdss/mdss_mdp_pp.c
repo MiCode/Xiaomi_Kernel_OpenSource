@@ -1416,7 +1416,8 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 		flags = 0;
 
 	mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
-	if (dspp_num < mdata->nad_cfgs && (mixer_cnt != 2)) {
+	if (dspp_num < mdata->nad_cfgs &&
+				(mixer_cnt <= mdata->nmax_concurrent_ad_hw)) {
 		ad = &mdata->ad_cfgs[disp_num];
 		ad_flags = ad->reg_sts;
 		ad_hw = &mdata->ad_off[dspp_num];
@@ -1554,7 +1555,7 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 		if (mixer_id[i] > mdata->nad_cfgs)
 			valid_mixers = false;
 	}
-	if (valid_mixers && (mixer_cnt != 2)) {
+	if (valid_mixers && (mixer_cnt <= mdata->nmax_concurrent_ad_hw)) {
 		ret = mdss_mdp_ad_setup(ctl->mfd);
 		if (ret < 0)
 			pr_warn("ad_setup(disp%d) returns %d", disp_num, ret);
@@ -3324,7 +3325,6 @@ static struct msm_fb_data_type *mdss_get_mfd_from_index(int index)
 	return out;
 }
 
-#define MDSS_AD_MAX_MIXERS 1
 static int mdss_ad_init_checks(struct msm_fb_data_type *mfd)
 {
 	u32 mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
@@ -3350,8 +3350,9 @@ static int mdss_ad_init_checks(struct msm_fb_data_type *mfd)
 		pr_debug("no mixers connected, %d", mixer_num);
 		return -EHOSTDOWN;
 	}
-	if (mixer_num > MDSS_AD_MAX_MIXERS) {
-		pr_debug("too many mixers, not supported, %d", mixer_num);
+	if (mixer_num > mdata->nmax_concurrent_ad_hw) {
+		pr_debug("too many mixers, not supported, %d > %d", mixer_num,
+						mdata->nmax_concurrent_ad_hw);
 		return ret;
 	}
 
