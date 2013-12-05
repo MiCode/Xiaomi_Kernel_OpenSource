@@ -2847,7 +2847,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"DAC1", "Switch", "CLASS_H_DSM MUX"},
 	{"HPHL DAC", "Switch", "CLASS_H_DSM MUX"},
-	{"HPHR DAC", NULL, "RX2 CHAIN"},
+	{"HPHR DAC", NULL, "RDAC3 MUX"},
 
 	{"LINEOUT1", NULL, "LINEOUT1 PA"},
 	{"LINEOUT2", NULL, "LINEOUT2 PA"},
@@ -2858,10 +2858,13 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"LINEOUT2 PA", NULL, "LINEOUT2_PA_MIXER"},
 	{"LINEOUT2_PA_MIXER", NULL, "LINEOUT2 DAC"},
 
-	{"LINEOUT1 DAC", NULL, "RX3 MIX1"},
 
 	{"RDAC5 MUX", "DEM3_INV", "RX3 MIX1"},
 	{"LINEOUT2 DAC", NULL, "RDAC5 MUX"},
+
+	{"RDAC4 MUX", "DEM3", "RX3 MIX1"},
+	{"RDAC4 MUX", "DEM2", "RX2 CHAIN"},
+	{"LINEOUT1 DAC", NULL, "RDAC4 MUX"},
 
 	{"SPK PA", NULL, "SPK DAC"},
 	{"SPK DAC", NULL, "VDD_SPKDRV"},
@@ -2875,7 +2878,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"LINEOUT1 DAC", NULL, "CDC_CP_VDD"},
 	{"LINEOUT2 DAC", NULL, "CDC_CP_VDD"},
 
-	{"RDAC3 MUX", "DEM2", "RX2 MIX1"},
+	{"RDAC3 MUX", "DEM2", "RX2 CHAIN"},
 	{"RDAC3 MUX", "DEM1", "RX1 CHAIN"},
 
 	{"RX1 MIX1", NULL, "RX1 MIX1 INP1"},
@@ -3010,9 +3013,6 @@ static const struct snd_soc_dapm_route audio_map[] = {
 static const struct snd_soc_dapm_route wcd9302_map[] = {
 	{"SPK DAC", "Switch", "RX3 MIX1"},
 
-	{"RDAC4 MUX", "DEM3", "RX3 MIX1"},
-	{"RDAC4 MUX", "DEM2", "RX2 CHAIN"},
-	{"LINEOUT1 DAC", NULL, "RDAC4 MUX"},
 
 	{"RDAC5 MUX", "DEM4", "RX3 MIX1"},
 	{"RDAC5 MUX", "DEM3_INV", "RDAC4 MUX"},
