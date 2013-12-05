@@ -80,43 +80,6 @@ void __init msm_dt_init_irq_l2x0(void)
 	msm_dt_init_irq();
 }
 
-int __init msm_scan_dt_map_imem(unsigned long node, const char *uname,
-			int depth, void *data)
-{
-	unsigned int *imem_prop;
-	unsigned long imem_prop_len;
-	struct map_desc map;
-	int ret;
-	const char *compat = "qti,msm-imem";
-
-	ret = of_flat_dt_is_compatible(node, compat);
-
-	if (!ret)
-		return 0;
-
-	imem_prop = of_get_flat_dt_prop(node, "reg",
-					&imem_prop_len);
-
-	if (!imem_prop) {
-		WARN(1, "IMEM reg field not found\n");
-		return 0;
-	}
-
-	if (imem_prop_len != (2*sizeof(u32))) {
-		WARN(1, "IMEM range malformed\n");
-		return 0;
-	}
-
-	map.virtual = (unsigned long)MSM_IMEM_BASE;
-	map.pfn = __phys_to_pfn(be32_to_cpu(imem_prop[0]));
-	map.length = be32_to_cpu(imem_prop[1]);
-	map.type = MT_DEVICE;
-	iotable_init(&map, 1);
-	pr_info("IMEM DT static mapping successful\n");
-
-	return 1;
-}
-
 void __init board_dt_populate(struct of_dev_auxdata *adata)
 {
 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
