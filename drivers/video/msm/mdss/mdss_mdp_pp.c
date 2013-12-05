@@ -198,6 +198,9 @@ static u32 igc_limited[IGC_LUT_ENTRIES] = {
 #define PP_STS_PA_MEM_COL_SKIN_MASK	0x40
 #define PP_STS_PA_MEM_COL_FOL_MASK	0x80
 #define PP_STS_PA_MEM_COL_SKY_MASK	0x100
+#define PP_STS_PA_SIX_ZONE_HUE_MASK	0x200
+#define PP_STS_PA_SIX_ZONE_SAT_MASK	0x400
+#define PP_STS_PA_SIX_ZONE_VAL_MASK	0x800
 #define PP_STS_PA_SAT_ZERO_EXP_EN	0x1000
 
 #define PP_AD_STATE_INIT	0x2
@@ -276,6 +279,8 @@ struct mdss_pp_res_type {
 	u32 enhist_lut[MDSS_BLOCK_DISP_NUM][ENHIST_LUT_ENTRIES];
 	struct mdp_pa_cfg pa_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pa_v2_data pa_v2_disp_cfg[MDSS_BLOCK_DISP_NUM];
+	u32 six_zone_lut_curve_p0[MDSS_BLOCK_DISP_NUM][SIX_ZONE_LUT_ENTRIES];
+	u32 six_zone_lut_curve_p1[MDSS_BLOCK_DISP_NUM][SIX_ZONE_LUT_ENTRIES];
 	struct mdp_pcc_cfg_data pcc_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_igc_lut_data igc_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pgc_lut_data argc_disp_cfg[MDSS_BLOCK_DISP_NUM];
@@ -339,12 +344,16 @@ static void pp_sharp_config(char __iomem *addr,
 				struct mdp_sharp_cfg *sharp_config);
 static void pp_update_pa_v2_vig_opmode(struct pp_sts_type *pp_sts,
 				u32 *opmode);
+static int pp_copy_pa_six_zone_lut(struct mdp_pa_v2_cfg_data *pa_v2_config,
+				u32 disp_num);
 static void pp_update_pa_v2_global_adj_regs(char __iomem *addr,
 				struct mdp_pa_v2_data *pa_config);
 static void pp_update_pa_v2_mem_col(char __iomem *addr,
 				struct mdp_pa_v2_data *pa_v2_config);
 static void pp_update_pa_v2_mem_col_regs(char __iomem *addr,
 				struct mdp_pa_mem_col_cfg *cfg);
+static void pp_update_pa_v2_six_zone_regs(char __iomem *addr,
+				struct mdp_pa_v2_data *pa_v2_config);
 static void pp_update_pa_v2_sts(struct pp_sts_type *pp_sts,
 				struct mdp_pa_v2_data *pa_v2_config);
 static int pp_read_pa_v2_regs(char __iomem *addr,
@@ -527,7 +536,9 @@ static void pp_pa_v2_config(unsigned long flags, char __iomem *addr,
 				pa_v2_config);
 		/* Update PA DSPP Regs */
 		if (mdp_location == PP_DSPP) {
-			addr += 0x1C;
+			addr += 0x10;
+			pp_update_pa_v2_six_zone_regs(addr, pa_v2_config);
+			addr += 0xC;
 			pp_update_pa_v2_mem_col(addr, pa_v2_config);
 		} else if (mdp_location == PP_SSPP) { /* Update PA SSPP Regs */
 			addr -= MDSS_MDP_REG_VIG_PA_BASE;
@@ -590,6 +601,35 @@ static void pp_update_pa_v2_mem_col_regs(char __iomem *addr,
 	writel_relaxed(cfg->val_region, addr);
 }
 
+static void pp_update_pa_v2_six_zone_regs(char __iomem *addr,
+				struct mdp_pa_v2_data *pa_v2_config)
+{
+	int i;
+	u32 data;
+	/* Update six zone memory color registers */
+	if (pa_v2_config->flags & MDP_PP_PA_SIX_ZONE_ENABLE) {
+		addr += 4;
+		writel_relaxed(pa_v2_config->six_zone_curve_p1[0], addr);
+		addr -= 4;
+		/* Index Update to trigger auto-incrementing LUT accesses */
+		data = (1 << 26);
+		writel_relaxed((pa_v2_config->six_zone_curve_p0[0] & 0xFFF) |
+				data, addr);
+
+		/* Remove Index Update */
+		for (i = 1; i < SIX_ZONE_LUT_ENTRIES; i++) {
+			addr += 4;
+			writel_relaxed(pa_v2_config->six_zone_curve_p1[i],
+					addr);
+			addr -= 4;
+			writel_relaxed(pa_v2_config->six_zone_curve_p0[i] &
+					0xFFF, addr);
+		}
+		addr += 8;
+		writel_relaxed(pa_v2_config->six_zone_thresh, addr);
+	}
+}
+
 static void pp_update_pa_v2_sts(struct pp_sts_type *pp_sts,
 				struct mdp_pa_v2_data *pa_v2_config)
 {
@@ -621,6 +661,14 @@ static void pp_update_pa_v2_sts(struct pp_sts_type *pp_sts,
 		pp_sts->pa_sts |= PP_STS_PA_MEM_COL_SKY_MASK;
 	if (pa_v2_config->flags & MDP_PP_PA_MEM_COL_FOL_MASK)
 		pp_sts->pa_sts |= PP_STS_PA_MEM_COL_FOL_MASK;
+
+	/* Six Zone STS update */
+	if (pa_v2_config->flags & MDP_PP_PA_SIX_ZONE_HUE_MASK)
+		pp_sts->pa_sts |= PP_STS_PA_SIX_ZONE_HUE_MASK;
+	if (pa_v2_config->flags & MDP_PP_PA_SIX_ZONE_SAT_MASK)
+		pp_sts->pa_sts |= PP_STS_PA_SIX_ZONE_SAT_MASK;
+	if (pa_v2_config->flags & MDP_PP_PA_SIX_ZONE_VAL_MASK)
+		pp_sts->pa_sts |= PP_STS_PA_SIX_ZONE_VAL_MASK;
 
 }
 
@@ -1293,6 +1341,12 @@ static void pp_dspp_opmode_config(struct pp_sts_type *pp_sts, u32 *opmode,
 			*opmode |= MDSS_MDP_DSPP_OP_PA_MEM_COL_FOL_MASK;
 		if (pp_sts->pa_sts & PP_STS_PA_MEM_COL_SKY_MASK)
 			*opmode |= MDSS_MDP_DSPP_OP_PA_MEM_COL_SKY_MASK;
+		if (pp_sts->pa_sts & PP_STS_PA_SIX_ZONE_HUE_MASK)
+			*opmode |= MDSS_MDP_DSPP_OP_PA_SIX_ZONE_HUE_MASK;
+		if (pp_sts->pa_sts & PP_STS_PA_SIX_ZONE_SAT_MASK)
+			*opmode |= MDSS_MDP_DSPP_OP_PA_SIX_ZONE_SAT_MASK;
+		if (pp_sts->pa_sts & PP_STS_PA_SIX_ZONE_VAL_MASK)
+			*opmode |= MDSS_MDP_DSPP_OP_PA_SIX_ZONE_VAL_MASK;
 	}
 	if (pp_sts->pcc_sts & PP_STS_ENABLE)
 		*opmode |= MDSS_MDP_DSPP_OP_PCC_EN; /* PCC_EN */
@@ -1723,11 +1777,6 @@ int mdss_mdp_pa_v2_config(struct mdp_pa_v2_cfg_data *config,
 		(config->block >= MDP_BLOCK_MAX))
 		return -EINVAL;
 
-	if (config->pa_v2_data.flags & MDP_PP_PA_SIX_ZONE_ENABLE) {
-		pr_err("Six zone adjustment not allowed\n");
-		return -EINVAL;
-	}
-
 	mutex_lock(&mdss_pp_mutex);
 	disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
 
@@ -1753,8 +1802,17 @@ int mdss_mdp_pa_v2_config(struct mdp_pa_v2_cfg_data *config,
 		*copyback = 1;
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	} else {
+		if (config->pa_v2_data.flags & MDP_PP_PA_SIX_ZONE_ENABLE) {
+			ret = pp_copy_pa_six_zone_lut(config, disp_num);
+			if (ret)
+				goto pa_config_exit;
+		}
 		mdss_pp_res->pa_v2_disp_cfg[disp_num] =
 			config->pa_v2_data;
+		mdss_pp_res->pa_v2_disp_cfg[disp_num].six_zone_curve_p0 =
+			&mdss_pp_res->six_zone_lut_curve_p0[disp_num][0];
+		mdss_pp_res->pa_v2_disp_cfg[disp_num].six_zone_curve_p1 =
+			&mdss_pp_res->six_zone_lut_curve_p1[disp_num][0];
 		mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_PA;
 	}
 
@@ -1768,6 +1826,9 @@ static int pp_read_pa_v2_regs(char __iomem *addr,
 				struct mdp_pa_v2_data *pa_v2_config,
 				u32 disp_num)
 {
+	int i;
+	u32 data;
+
 	if (pa_v2_config->flags & MDP_PP_PA_HUE_ENABLE)
 		pa_v2_config->global_hue_adj = readl_relaxed(addr);
 	addr += 4;
@@ -1779,7 +1840,40 @@ static int pp_read_pa_v2_regs(char __iomem *addr,
 	addr += 4;
 	if (pa_v2_config->flags & MDP_PP_PA_CONT_ENABLE)
 		pa_v2_config->global_cont_adj = readl_relaxed(addr);
-	addr += 0x10;
+	addr += 4;
+
+	/* Six zone LUT and thresh data */
+	if (pa_v2_config->flags & MDP_PP_PA_SIX_ZONE_ENABLE) {
+		data = (3 << 25);
+		writel_relaxed(data, addr);
+
+		for (i = 0; i < SIX_ZONE_LUT_ENTRIES; i++) {
+			addr += 4;
+			mdss_pp_res->six_zone_lut_curve_p1[disp_num][i] =
+				readl_relaxed(addr);
+			addr -= 4;
+			mdss_pp_res->six_zone_lut_curve_p0[disp_num][i] =
+				readl_relaxed(addr) & 0xFFF;
+		}
+
+		if (copy_to_user(pa_v2_config->six_zone_curve_p0,
+			&mdss_pp_res->six_zone_lut_curve_p0[disp_num][0],
+			SIX_ZONE_LUT_ENTRIES * sizeof(u32))) {
+			return -EFAULT;
+		}
+
+		if (copy_to_user(pa_v2_config->six_zone_curve_p1,
+			&mdss_pp_res->six_zone_lut_curve_p1[disp_num][0],
+			SIX_ZONE_LUT_ENTRIES * sizeof(u32))) {
+			return -EFAULT;
+		}
+
+		addr += 8;
+		pa_v2_config->six_zone_thresh = readl_relaxed(addr);
+		addr += 4;
+	} else {
+		addr += 12;
+	}
 
 	/* Skin memory color config registers */
 	if (pa_v2_config->flags & MDP_PP_PA_SKIN_ENABLE)
@@ -1810,6 +1904,23 @@ static void pp_read_pa_mem_col_regs(char __iomem *addr,
 	mem_col_cfg->sat_region = readl_relaxed(addr);
 	addr += 4;
 	mem_col_cfg->val_region = readl_relaxed(addr);
+}
+
+static int pp_copy_pa_six_zone_lut(struct mdp_pa_v2_cfg_data *pa_v2_config,
+				u32 disp_num)
+{
+	if (copy_from_user(&mdss_pp_res->six_zone_lut_curve_p0[disp_num][0],
+			pa_v2_config->pa_v2_data.six_zone_curve_p0,
+			SIX_ZONE_LUT_ENTRIES * sizeof(u32))) {
+		return -EFAULT;
+	}
+	if (copy_from_user(&mdss_pp_res->six_zone_lut_curve_p1[disp_num][0],
+			pa_v2_config->pa_v2_data.six_zone_curve_p1,
+			SIX_ZONE_LUT_ENTRIES * sizeof(u32))) {
+		return -EFAULT;
+	}
+
+	return 0;
 }
 
 static void pp_read_pcc_regs(char __iomem *addr,
