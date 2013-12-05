@@ -572,6 +572,33 @@ static int msm_clear_ev_constraint(struct perf_event *event)
 	return 1;
 }
 
+static DEFINE_PER_CPU(u32, krait_pm_pmactlr);
+
+static void krait_save_pm_registers(void *hcpu)
+{
+	u32 val;
+	u32 cpu = (int)hcpu;
+
+	/* Read PMACTLR */
+	asm volatile("mrc p15, 0, %0, c9, c15, 5" : "=r" (val));
+	per_cpu(krait_pm_pmactlr, cpu) = val;
+
+	armv7pmu_save_pm_registers(hcpu);
+}
+
+static void krait_restore_pm_registers(void *hcpu)
+{
+	u32 val;
+	u32 cpu = (int)hcpu;
+
+	val = per_cpu(krait_pm_pmactlr, cpu);
+	if (val != 0)
+		/* Restore PMACTLR */
+		asm volatile("mcr p15, 0, %0, c9, c15, 5" : : "r" (val));
+
+	armv7pmu_restore_pm_registers(hcpu);
+}
+
 static struct arm_pmu krait_pmu = {
 	.handle_irq		= armv7pmu_handle_irq,
 	.enable			= krait_pmu_enable_event,
@@ -585,6 +612,8 @@ static struct arm_pmu krait_pmu = {
 	.test_set_event_constraints	= msm_test_set_ev_constraint,
 	.clear_event_constraints	= msm_clear_ev_constraint,
 	.max_period		= (1LLU << 32) - 1,
+	.save_pm_registers	= krait_save_pm_registers,
+	.restore_pm_registers	= krait_restore_pm_registers,
 };
 
 /* NRCCG format for perf RAW codes. */

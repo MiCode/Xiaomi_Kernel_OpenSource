@@ -141,6 +141,8 @@ struct arm_pmu {
 	struct pmu_hw_events	*(*get_hw_events)(void);
 	int	(*test_set_event_constraints)(struct perf_event *event);
 	int	(*clear_event_constraints)(struct perf_event *event);
+	void		(*save_pm_registers)(void *hcpu);
+	void		(*restore_pm_registers)(void *hcpu);
 };
 
 #define to_arm_pmu(p) (container_of(p, struct arm_pmu, pmu))

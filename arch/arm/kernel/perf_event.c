@@ -883,6 +883,21 @@ static int __cpuinit pmu_cpu_notify(struct notifier_block *b,
 {
 	int irq;
 	struct pmu *pmu;
+	int cpu = (int)hcpu;
+
+	switch ((action & ~CPU_TASKS_FROZEN)) {
+	case CPU_DOWN_PREPARE:
+		if (cpu_pmu && cpu_pmu->save_pm_registers)
+			smp_call_function_single(cpu,
+						 cpu_pmu->save_pm_registers,
+						 hcpu, 1);
+		break;
+	case CPU_STARTING:
+		if (cpu_pmu && cpu_pmu->restore_pm_registers)
+			smp_call_function_single(cpu,
+						 cpu_pmu->restore_pm_registers,
+						 hcpu, 1);
+	}
 
 	if (cpu_has_active_perf((int)hcpu)) {
 		switch ((action & ~CPU_TASKS_FROZEN)) {
@@ -941,6 +956,8 @@ static int perf_cpu_pm_notifier(struct notifier_block *self, unsigned long cmd,
 	struct pmu *pmu;
 	switch (cmd) {
 	case CPU_PM_ENTER:
+		if (cpu_pmu && cpu_pmu->save_pm_registers)
+			cpu_pmu->save_pm_registers((void *)smp_processor_id());
 		if (cpu_has_active_perf((int)v)) {
 			armpmu_update_counters();
 			pmu = &cpu_pmu->pmu;
@@ -950,6 +967,9 @@ static int perf_cpu_pm_notifier(struct notifier_block *self, unsigned long cmd,
 
 	case CPU_PM_ENTER_FAILED:
 	case CPU_PM_EXIT:
+		if (cpu_pmu && cpu_pmu->restore_pm_registers)
+			cpu_pmu->restore_pm_registers(
+				(void *)smp_processor_id());
 		if (cpu_has_active_perf((int)v) && cpu_pmu->reset) {
 			/*
 			 * Flip this bit so armpmu_enable knows it needs
