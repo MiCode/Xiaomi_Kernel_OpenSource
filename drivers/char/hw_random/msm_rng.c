@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +25,9 @@
 #include <mach/msm_iomap.h>
 #include <mach/socinfo.h>
 #include <mach/msm_bus.h>
+#include <linux/qrng.h>
+#include <linux/fs.h>
+#include <linux/cdev.h>
 
 #define DRIVER_NAME "msm_rng"
 
@@ -50,6 +53,29 @@ struct msm_rng_device {
 	struct clk *prng_clk;
 	uint32_t qrng_perf_client;
 };
+
+struct msm_rng_device msm_rng_device_info;
+
+static long msm_rng_ioctl(struct file *filp, unsigned int cmd,
+				unsigned long arg)
+{
+	long ret = 0;
+
+	pr_debug("ioctl: cmd = %d\n", cmd);
+	switch (cmd) {
+	case QRNG_IOCTL_RESET_BUS_BANDWIDTH:
+		pr_info("calling msm_rng_bus_scale(LOW)\n");
+		ret = msm_bus_scale_client_update_request(
+				msm_rng_device_info.qrng_perf_client, 0);
+		if (ret)
+			pr_err("failed qrng_reset_bus_bw, ret = %ld\n", ret);
+		break;
+	default:
+		pr_err("Unsupported IOCTL call");
+		break;
+	}
+	return ret;
+}
 
 static int msm_rng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 {
@@ -79,12 +105,6 @@ static int msm_rng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 		dev_err(&pdev->dev, "failed to enable clock in callback\n");
 		return 0;
 	}
-	if (msm_rng_dev->qrng_perf_client) {
-		ret = msm_bus_scale_client_update_request(
-					msm_rng_dev->qrng_perf_client, 1);
-		if (ret)
-			pr_err("bus_scale_client_update_req failed!\n");
-	}
 	/* read random data from h/w */
 	do {
 		/* check status bit if data is available */
@@ -104,9 +124,6 @@ static int msm_rng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 		if ((maxsize - currsize) < 4)
 			break;
 	} while (currsize < maxsize);
-	if (msm_rng_dev->qrng_perf_client)
-		ret = msm_bus_scale_client_update_request(
-					msm_rng_dev->qrng_perf_client, 0);
 	/* vote to turn off clock */
 	clk_disable_unprepare(msm_rng_dev->prng_clk);
 
@@ -161,12 +178,14 @@ static int __devinit msm_rng_enable_hw(struct msm_rng_device *msm_rng_dev)
 		mb();
 	}
 	clk_disable_unprepare(msm_rng_dev->prng_clk);
-	if (msm_rng_dev->qrng_perf_client)
-		ret = msm_bus_scale_client_update_request(
-					msm_rng_dev->qrng_perf_client, 0);
-
 	return 0;
 }
+
+static const struct file_operations msm_rng_fops = {
+	.unlocked_ioctl = msm_rng_ioctl,
+};
+static struct class *msm_rng_class;
+static struct cdev msm_rng_cdev;
 
 static int __devinit msm_rng_probe(struct platform_device *pdev)
 {
@@ -174,6 +193,9 @@ static int __devinit msm_rng_probe(struct platform_device *pdev)
 	struct msm_rng_device *msm_rng_dev = NULL;
 	void __iomem *base = NULL;
 	int error = 0;
+	int ret = 0;
+	struct device *dev;
+
 	struct msm_bus_scale_pdata *qrng_platform_support = NULL;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -220,6 +242,8 @@ static int __devinit msm_rng_probe(struct platform_device *pdev)
 		qrng_platform_support = msm_bus_cl_get_pdata(pdev);
 		msm_rng_dev->qrng_perf_client = msm_bus_scale_register_client(
 						qrng_platform_support);
+		msm_rng_device_info.qrng_perf_client =
+					msm_rng_dev->qrng_perf_client;
 		if (!msm_rng_dev->qrng_perf_client)
 			pr_err("Unable to register bus client\n");
 	}
@@ -238,9 +262,27 @@ static int __devinit msm_rng_probe(struct platform_device *pdev)
 		error = -EPERM;
 		goto rollback_clk;
 	}
+	ret = register_chrdev(QRNG_IOC_MAGIC, DRIVER_NAME, &msm_rng_fops);
 
-	return 0;
+	msm_rng_class = class_create(THIS_MODULE, "msm-rng");
+	if (IS_ERR(msm_rng_class)) {
+		pr_err("class_create failed\n");
+		return PTR_ERR(msm_rng_class);
+	}
 
+	dev = device_create(msm_rng_class, NULL, MKDEV(QRNG_IOC_MAGIC, 0),
+				NULL, "msm-rng");
+	if (IS_ERR(dev)) {
+		pr_err("Device create failed\n");
+		error = PTR_ERR(dev);
+		goto unregister_chrdev;
+	}
+	cdev_init(&msm_rng_cdev, &msm_rng_fops);
+
+	return ret;
+
+unregister_chrdev:
+	unregister_chrdev(QRNG_IOC_MAGIC, DRIVER_NAME);
 rollback_clk:
 	clk_put(msm_rng_dev->prng_clk);
 err_clk_get:
@@ -254,7 +296,7 @@ err_exit:
 static int __devexit msm_rng_remove(struct platform_device *pdev)
 {
 	struct msm_rng_device *msm_rng_dev = platform_get_drvdata(pdev);
-
+	unregister_chrdev(QRNG_IOC_MAGIC, DRIVER_NAME);
 	hwrng_unregister(&msm_rng);
 	clk_put(msm_rng_dev->prng_clk);
 	iounmap(msm_rng_dev->base);
