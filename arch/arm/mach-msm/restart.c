@@ -25,6 +25,7 @@
 #include <linux/mfd/pmic8901.h>
 #include <linux/mfd/pm8xxx/misc.h>
 #include <linux/qpnp/power-on.h>
+#include <linux/of_address.h>
 
 #include <asm/cacheflush.h>
 
@@ -343,6 +344,8 @@ late_initcall(msm_pmic_restart_init);
 
 static int __init msm_restart_init(void)
 {
+	struct device_node *np;
+
 #ifdef CONFIG_MSM_DLOAD_MODE
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
 	dload_mode_addr = MSM_IMEM_BASE + DLOAD_MODE_ADDR;
@@ -351,7 +354,16 @@ static int __init msm_restart_init(void)
 	set_dload_mode(download_mode);
 #endif
 	msm_tmr0_base = msm_timer_get_timer0_base();
-	restart_reason = MSM_IMEM_BASE + RESTART_REASON_ADDR;
+	np = of_find_compatible_node(NULL, NULL, "qti,msm-imem-restart_reason");
+	if (!np) {
+		pr_err("unable to find DT imem restart reason node\n");
+		return -ENODEV;
+	}
+	restart_reason = of_iomap(np, 0);
+	if (!restart_reason) {
+		pr_err("unable to map imem restart reason offset\n");
+		return -ENOMEM;
+	}
 	pm_power_off = msm_power_off;
 
 	if (scm_is_call_available(SCM_SVC_PWR, SCM_IO_DISABLE_PMIC_ARBITER) > 0)

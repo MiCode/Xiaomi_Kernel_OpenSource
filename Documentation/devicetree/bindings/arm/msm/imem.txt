@@ -40,6 +40,12 @@ Required properties:
 -compatible: "qti,msm-imem-mem_dump_table"
 -reg: start address and size of mem_dump_table region in imem
 
+Restart Reason:
+---------------
+Required properties:
+-compatible: "qti,msm-imem-restart_reason
+-reg: start address and size of restart_reason region in imem
+
 Example:
 
 	qti,msm-imem {
@@ -48,6 +54,11 @@ Example:
 		ranges = <0x0 0xdeadbeef 0x1000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
+
+		restart_reason@65c {
+			compatible = "qti,msm-imem-restart_reason";
+			reg = <0x65c 4>;
+		};
 
 		imem_cache_erp: cache_erp@6a4 {
 			compatible = "qti,msm-imem-cache_erp";
