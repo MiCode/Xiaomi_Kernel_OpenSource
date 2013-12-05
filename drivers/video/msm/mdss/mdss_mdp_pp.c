@@ -221,6 +221,7 @@ static u32 igc_limited[IGC_LUT_ENTRIES] = {
 #define PP_AD_STS_DIRTY_CFG	0x4
 #define PP_AD_STS_DIRTY_DATA	0x8
 #define PP_AD_STS_DIRTY_VSYNC	0x10
+#define PP_AD_STS_DIRTY_ENABLE	0x20
 
 #define PP_AD_STS_IS_DIRTY(sts) (((sts) & PP_AD_STS_DIRTY_INIT) ||\
 					((sts) & PP_AD_STS_DIRTY_CFG))
@@ -1412,12 +1413,9 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 
 	mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
 	if (dspp_num < mdata->nad_cfgs && (mixer_cnt != 2)) {
-		ret = mdss_mdp_ad_setup(ctl->mfd);
 		ad = &mdata->ad_cfgs[disp_num];
 		ad_flags = ad->reg_sts;
 		ad_hw = &mdata->ad_off[dspp_num];
-		if (ret < 0)
-			pr_warn("ad_setup(dspp%d) returns %d", dspp_num, ret);
 	} else {
 		ad_flags = 0;
 	}
@@ -1427,9 +1425,8 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 		goto flush_exit;
 
 	/* nothing to update */
-	if ((!flags) && (!(opmode)) && (ret <= 0) && (!ad_flags))
+	if ((!flags) && (!(opmode)) && (!ad_flags))
 		goto dspp_exit;
-	ret = 0;
 
 	pp_sts = &mdss_pp_res->pp_disp_sts[disp_num];
 
@@ -1529,12 +1526,35 @@ error:
 int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_data_type *mdata = ctl->mdata;
+	int ret = 0;
+	u32 mixer_cnt;
+	u32 mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
 	u32 disp_num;
+	int i;
+	bool valid_mixers = true;
 	if ((!ctl->mfd) || (!mdss_pp_res))
 		return -EINVAL;
 
 	/* treat fb_num the same as block logical id*/
 	disp_num = ctl->mfd->index;
+
+	mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
+	if (!mixer_cnt) {
+		valid_mixers = false;
+		ret = -EINVAL;
+		pr_warn("Configuring post processing without mixers, err = %d",
+									ret);
+		goto exit;
+	}
+	for (i = 0; i < mixer_cnt && valid_mixers; i++) {
+		if (mixer_id[i] > mdata->nad_cfgs)
+			valid_mixers = false;
+	}
+	if (valid_mixers && (mixer_cnt != 2)) {
+		ret = mdss_mdp_ad_setup(ctl->mfd);
+		if (ret < 0)
+			pr_warn("ad_setup(disp%d) returns %d", disp_num, ret);
+	}
 
 	mutex_lock(&mdss_pp_mutex);
 	if (ctl->mixer_left) {
@@ -1552,8 +1572,8 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 			mdata->ad_cfgs[disp_num].reg_sts = 0;
 	}
 	mutex_unlock(&mdss_pp_mutex);
-
-	return 0;
+exit:
+	return ret;
 }
 
 /*
@@ -3699,12 +3719,19 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 	u32 bypass = MDSS_PP_AD_BYPASS_DEF, bl;
 
 	ret = mdss_mdp_get_ad(mfd, &ad);
-	if (ret)
-		return ret;
+	if (ret) {
+		ret = -EINVAL;
+		pr_debug("failed to get ad_info, err = %d", ret);
+		goto exit;
+	}
 	if (mfd->panel_info->type == WRITEBACK_PANEL) {
 		bl_mfd = mdss_get_mfd_from_index(0);
-		if (!bl_mfd)
-			return ret;
+		if (!bl_mfd) {
+			ret = -EINVAL;
+			pr_warn("failed to get primary FB bl handle, err = %d",
+									ret);
+			goto exit;
+		}
 	} else {
 		bl_mfd = mfd;
 	}
@@ -3778,7 +3805,7 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 
 	if ((ad->sts & PP_STS_ENABLE) && PP_AD_STATE_IS_READY(ad->state)) {
 		bypass = 0;
-		ret = 1;
+		ad->reg_sts |= PP_AD_STS_DIRTY_ENABLE;
 		ad->state |= PP_AD_STATE_RUN;
 		mutex_lock(&bl_mfd->bl_lock);
 		if (bl_mfd != mfd)
@@ -3789,7 +3816,7 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 
 	} else {
 		if (ad->state & PP_AD_STATE_RUN) {
-			ret = 1;
+			ad->reg_sts = PP_AD_STS_DIRTY_ENABLE;
 			/* Clear state and regs when going to off state*/
 			ad->sts = 0;
 			ad->sts |= PP_AD_STS_DIRTY_VSYNC;
@@ -3842,6 +3869,7 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 								ad->state);
 	}
 	mutex_unlock(&ad->lock);
+exit:
 	return ret;
 }
 
