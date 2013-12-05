@@ -87,7 +87,7 @@ int __init msm_scan_dt_map_imem(unsigned long node, const char *uname,
 	unsigned long imem_prop_len;
 	struct map_desc map;
 	int ret;
-	const char *compat = "qcom,msm-imem";
+	const char *compat = "qti,msm-imem";
 
 	ret = of_flat_dt_is_compatible(node, compat);
 

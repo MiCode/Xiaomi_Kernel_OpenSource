@@ -283,8 +283,8 @@
 		interrupts = <1 7 0xf00>;
 	};
 
-	qcom,msm-imem@fe805000 {
-		compatible = "qcom,msm-imem";
+	qti,msm-imem@fe805000 {
+		compatible = "qti,msm-imem";
 		reg = <0xfe805000 0x1000>; /* Address and size of IMEM */
 	};
 
