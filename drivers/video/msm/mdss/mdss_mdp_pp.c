@@ -372,7 +372,7 @@ static void pp_ad_vsync_handler(struct mdss_mdp_ctl *ctl, ktime_t t);
 static void pp_ad_cfg_write(struct mdss_mdp_ad *ad_hw,
 						struct mdss_ad_info *ad);
 static void pp_ad_init_write(struct mdss_mdp_ad *ad_hw,
-						struct mdss_ad_info *ad);
+			struct mdss_ad_info *ad, struct mdss_mdp_ctl *ctl);
 static void pp_ad_input_write(struct mdss_mdp_ad *ad_hw,
 						struct mdss_ad_info *ad);
 static void pp_ad_bypass_config(struct mdss_ad_info *ad, u32 *opmode);
@@ -1489,7 +1489,7 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 		if (ad_flags & PP_AD_STS_DIRTY_DATA)
 			pp_ad_input_write(ad_hw, ad);
 		if (ad_flags & PP_AD_STS_DIRTY_INIT)
-			pp_ad_init_write(ad_hw, ad);
+			pp_ad_init_write(ad_hw, ad, ctl);
 		if (ad_flags & PP_AD_STS_DIRTY_CFG)
 			pp_ad_cfg_write(ad_hw, ad);
 		pp_ad_bypass_config(ad, &ad_bypass);
@@ -1603,7 +1603,7 @@ int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 dspp_num)
 		if (PP_AD_STATE_CFG & ad->state)
 			pp_ad_cfg_write(&mdata->ad_off[dspp_num], ad);
 		if (PP_AD_STATE_INIT & ad->state)
-			pp_ad_init_write(&mdata->ad_off[dspp_num], ad);
+			pp_ad_init_write(&mdata->ad_off[dspp_num], ad, ctl);
 		if ((PP_AD_STATE_DATA & ad->state) &&
 			(ad->sts & PP_STS_ENABLE)) {
 			bl = ad->bl_mfd->bl_level;
@@ -3609,12 +3609,27 @@ static void pp_ad_input_write(struct mdss_mdp_ad *ad_hw,
 	}
 }
 
-static void pp_ad_init_write(struct mdss_mdp_ad *ad_hw, struct mdss_ad_info *ad)
+#define MDSS_AD_MERGED_WIDTH 4
+static void pp_ad_init_write(struct mdss_mdp_ad *ad_hw, struct mdss_ad_info *ad,
+						struct mdss_mdp_ctl *ctl)
 {
+	struct mdss_data_type *mdata = ctl->mdata;
 	u32 temp;
+	u32 frame_start, frame_end, procs_start, procs_end, tile_ctrl;
+	u32 num;
 	char __iomem *base;
+	bool is_calc, is_dual_pipe;
+	u32 mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
+	u32 mixer_num;
+	mixer_num = mdss_mdp_get_ctl_mixers(ctl->mfd->index, mixer_id);
+	if (mixer_num > 1)
+		is_dual_pipe = true;
+	else
+		is_dual_pipe = false;
 
 	base = ad_hw->base;
+	is_calc = ad->calc_hw_num == ad_hw->num;
+
 	writel_relaxed(ad->init.i_control[0] & 0x1F,
 				base + MDSS_MDP_REG_AD_CON_CTRL_0);
 	writel_relaxed(ad->init.i_control[1] << 8,
@@ -3649,6 +3664,41 @@ static void pp_ad_init_write(struct mdss_mdp_ad *ad_hw, struct mdss_ad_info *ad)
 
 	pp_ad_cfg_lut(base + MDSS_MDP_REG_AD_LUT_FI, ad->init.asym_lut);
 	pp_ad_cfg_lut(base + MDSS_MDP_REG_AD_LUT_CC, ad->init.color_corr_lut);
+
+	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_103) {
+		if (is_dual_pipe) {
+			num = ad_hw->num;
+			tile_ctrl = 0x5;
+			if (is_calc) {
+				frame_start = 0;
+				procs_start = 0;
+				frame_end = mdata->mixer_intf[num].width +
+							MDSS_AD_MERGED_WIDTH;
+				procs_end = mdata->mixer_intf[num].width;
+			} else {
+				tile_ctrl |= 0x10;
+				procs_start = ad->init.frame_w -
+					(mdata->mixer_intf[num].width);
+				procs_end = ad->init.frame_w;
+				frame_start = procs_start -
+							MDSS_AD_MERGED_WIDTH;
+				frame_end = procs_end;
+			}
+			procs_end -= 1;
+			frame_end -= 1;
+		} else {
+			frame_start = 0x0;
+			frame_end = 0xFFFF;
+			procs_start = 0x0;
+			procs_end = 0xFFFF;
+			tile_ctrl = 0x1;
+		}
+		writel_relaxed(frame_start, base + MDSS_MDP_REG_AD_FRAME_START);
+		writel_relaxed(frame_end, base + MDSS_MDP_REG_AD_FRAME_END);
+		writel_relaxed(procs_start, base + MDSS_MDP_REG_AD_PROCS_START);
+		writel_relaxed(procs_end, base + MDSS_MDP_REG_AD_PROCS_END);
+		writel_relaxed(tile_ctrl, base + MDSS_MDP_REG_AD_TILE_CTRL);
+	}
 }
 
 #define MDSS_PP_AD_DEF_CALIB 0x6E
