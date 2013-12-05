@@ -392,7 +392,7 @@ enum hal_divx_profile {
 };
 
 enum hal_mvc_profile {
-	HAL_MVC_PROFILE_STEREO_HIGH  = 0x00000001,
+	HAL_MVC_PROFILE_STEREO_HIGH  = 0x00001000,
 	HAL_UNUSED_MVC_PROFILE = 0x10000000,
 };
 
