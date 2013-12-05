@@ -947,7 +947,7 @@ static int pp_mixer_setup(u32 disp_num,
 	if (flags & PP_FLAGS_DIRTY_ARGC) {
 		pgc_config = &mdss_pp_res->argc_disp_cfg[disp_num];
 		if (pgc_config->flags & MDP_PP_OPS_WRITE) {
-			offset = MDSS_MDP_REG_LM_OFFSET(disp_num) +
+			offset = MDSS_MDP_REG_LM_OFFSET(dspp_num) +
 				MDSS_MDP_REG_LM_GC_LUT_BASE;
 			pp_update_argc_lut(offset, pgc_config);
 		}
