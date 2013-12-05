@@ -1758,6 +1758,11 @@ static int mdp3_fb_mem_get_iommu_domain(void)
 	return mdp3_res->domains[MDP3_DMA_IOMMU_DOMAIN].domain_idx;
 }
 
+int mdp3_get_cont_spash_en(void)
+{
+	return mdp3_res->cont_splash_en;
+}
+
 int mdp3_continuous_splash_copy(struct mdss_panel_data *pdata)
 {
 	unsigned long splash_phys, phys;
@@ -1827,6 +1832,9 @@ static int mdp3_continuous_splash_on(struct mdss_panel_data *pdata)
 
 	pr_debug("mdp3__continuous_splash_on\n");
 
+	mdp3_clk_set_rate(MDP3_CLK_VSYNC, MDP_VSYNC_CLK_RATE,
+			MDP3_CLIENT_DMA_P);
+
 	rc = mdp3_clk_prepare();
 	if (rc) {
 		pr_err("fail to prepare clk\n");
@@ -1870,6 +1878,8 @@ static int mdp3_continuous_splash_on(struct mdss_panel_data *pdata)
 		mdp3_res->intf[MDP3_DMA_OUTPUT_SEL_DSI_VIDEO].active = 1;
 	else
 		mdp3_res->intf[MDP3_DMA_OUTPUT_SEL_DSI_CMD].active = 1;
+
+	mdp3_res->cont_splash_en = 1;
 	return 0;
 
 splash_on_err:
