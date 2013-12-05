@@ -33,8 +33,6 @@
 #include <mach/board.h>
 #include "board-dt.h"
 
-#include "common.h"
-
 #define MSM_CHIP_DEVICE_TYPE(name, chip, mem_type) {			      \
 		.virtual = (unsigned long) MSM_##name##_BASE, \
 		.pfn = __phys_to_pfn(chip##_##name##_PHYS), \
