@@ -18,7 +18,7 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <mach/subsystem_restart.h>
-#include <mach/qdsp6v2/apr.h>
+#include <linux/qdsp6v2/apr.h>
 #include <linux/of_device.h>
 #include <linux/msm_audio_ion.h>
 

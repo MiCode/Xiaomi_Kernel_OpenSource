@@ -13,7 +13,7 @@
 #ifndef __APR_US_H__
 #define __APR_US_H__
 
-#include <mach/qdsp6v2/apr.h>
+#include <linux/qdsp6v2/apr.h>
 
 /* ======================================================================= */
 /*  Session Level commands */

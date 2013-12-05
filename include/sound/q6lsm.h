@@ -17,7 +17,7 @@
 #include <linux/msm_ion.h>
 #include <sound/apr_audio-v2.h>
 #include <sound/lsm_params.h>
-#include <mach/qdsp6v2/apr.h>
+#include <linux/qdsp6v2/apr.h>
 
 typedef void (*lsm_app_cb)(uint32_t opcode, uint32_t token,
 		       uint32_t *payload, void *priv);

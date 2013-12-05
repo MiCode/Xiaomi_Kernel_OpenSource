@@ -21,7 +21,7 @@
 #include <linux/msm_audio_acdb.h>
 #include <linux/atomic.h>
 #include <linux/msm_audio_ion.h>
-#include <mach/qdsp6v2/rtac.h>
+#include <linux/qdsp6v2/rtac.h>
 #include <sound/q6asm-v2.h>
 #include <sound/q6afe-v2.h>
 #include <sound/apr_audio-v2.h>

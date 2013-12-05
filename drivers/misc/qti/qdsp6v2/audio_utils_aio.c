@@ -27,7 +27,7 @@
 #include <linux/msm_audio_ion.h>
 #include "audio_utils_aio.h"
 #ifdef CONFIG_USE_DEV_CTRL_VOLUME
-#include <mach/qdsp6v2/audio_dev_ctl.h>
+#include <linux/qdsp6v2/audio_dev_ctl.h>
 #endif /*CONFIG_USE_DEV_CTRL_VOLUME*/
 
 #ifdef CONFIG_DEBUG_FS

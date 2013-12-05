@@ -12,8 +12,8 @@
 #ifndef __QDSP6VOICE_H__
 #define __QDSP6VOICE_H__
 
-#include <mach/qdsp6v2/apr.h>
-#include <mach/qdsp6v2/rtac.h>
+#include <linux/qdsp6v2/apr.h>
+#include <linux/qdsp6v2/rtac.h>
 #include <linux/msm_ion.h>
 #include <sound/voice_params.h>
 

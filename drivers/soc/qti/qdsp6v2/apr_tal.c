@@ -26,7 +26,7 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 #include <mach/msm_smd.h>
-#include <mach/qdsp6v2/apr_tal.h>
+#include <linux/qdsp6v2/apr_tal.h>
 
 static char *svc_names[APR_DEST_MAX][APR_CLIENT_MAX] = {
 	{

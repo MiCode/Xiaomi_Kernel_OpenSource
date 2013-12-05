@@ -23,7 +23,6 @@ config ARCH_MSM8974
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_QDSP6_APRV2
 	select MSM_QDSP6V2_CODECS
-	select MSM_AUDIO_QDSP6V2 if SND_SOC
 	select REGULATOR_RPM_SMD
 	select ARM_HAS_SG_CHAIN
 	select MSM_RUN_QUEUE_STATS
@@ -50,8 +49,7 @@ config ARCH_APQ8084
 	select MSM_PM8X60 if PM
 	select REGULATOR
 	select MSM_QDSP6V2_CODECS
-	select MSM_AUDIO_QDSP6V2 if SND_SOC
-	select MSM_QDSP6_APRV2 if MSM_AUDIO_QDSP6V2
+	select MSM_QDSP6_APRV2 if SND_SOC
 	select REGULATOR_RPM_SMD
 	select MIGHT_HAVE_PCI
 	select ARCH_SUPPORTS_MSI
@@ -89,8 +87,7 @@ config ARCH_MPQ8092
 	select MSM_SCM
 	select MSM_GPIOMUX
 	select MSM_QDSP6V2_CODECS
-	select MSM_AUDIO_QDSP6V2 if SND_SOC
-	select MSM_QDSP6_APRV2 if MSM_AUDIO_QDSP6V2
+	select MSM_QDSP6_APRV2 if SND_SOC
 	select MSM_NOPM
 	select MEMORY_HOLE_CARVEOUT
 	select DONT_MAP_HOLE_AFTER_MEMBANK0
@@ -163,7 +160,6 @@ config ARCH_MSM8610
 	select MSM_NATIVE_RESTART
 	select MSM_QDSP6_APRV2
 	select MSM_QDSP6V2_CODECS
-	select MSM_AUDIO_QDSP6V2 if SND_SOC
 	select QMI_ENCDEC
 	select MSM_RPM_SMD
 	select MSM_SPM_V2
@@ -205,7 +201,6 @@ config ARCH_MSM8226
 	select MSM_NATIVE_RESTART
 	select MSM_QDSP6_APRV2
 	select MSM_QDSP6V2_CODECS
-	select MSM_AUDIO_QDSP6V2 if SND_SOC
 	select QMI_ENCDEC
 	select MSM_RPM_SMD
 	select MSM_SPM_V2
@@ -251,7 +246,6 @@ config ARCH_MSMSAMARIUM
 	select MSM_NATIVE_RESTART
 	select MSM_QDSP6_APRV2
 	select MSM_QDSP6V2_CODECS
-	select MSM_AUDIO_QDSP6V2 if SND_SOC
 	select MSM_PM8X60 if PM
 	select MSM_RPM_SMD
 	select REGULATOR
@@ -1212,54 +1206,6 @@ config MSM_SHOW_RESUME_IRQ
 		This option logs wake up interrupts that have triggered just before
 		the resume loop unrolls. Say Y if you want to debug why the system
 		resumed.
-
-config MSM_QDSP6_APRV2
-	bool "Audio QDSP6 APRv2 support"
-	depends on MSM_SMD
-	default n
-	help
-	  Enable APRv2 IPC protocol support between
-	  application processor and QDSP6. APR is
-	  used by audio driver to configure QDSP6's
-	  ASM, ADM and AFE.
-
-config MSM_QDSP6_APRV3
-	bool "Audio Modem DSP APRv3 support"
-	depends on MSM_SMD
-	help
-	  Enable APRv3 IPC protocol support between
-	  application processor and Modem DSP. APR is
-	  used by audio driver to configure MDSP's
-	  ASM, ADM and AFE.
-
-config MSM_QDSP6V2_CODECS
-	bool "Audio QDSP6V2 APR support"
-	depends on MSM_SMD
-	help
-	  Enable Audio codecs with APR IPC protocol support between
-	  application processor and QDSP6 for B-family. APR is
-	  used by audio driver to configure QDSP6's
-	  ASM, ADM and AFE.
-
-config MSM_AUDIO_QDSP6V2
-        bool "QDSP6V2 HW Audio support"
-        select SND_SOC_MSM_QDSP6V2_INTF
-        help
-          Enable HW audio support in QDSP6V2.
-          QDSP6V2 can support HW encoder & decoder and
-          audio processing. It will enable support for
-          AAC, AMRNB, AMRWB, EVRC, MP3, QCELP among
-          others.
-
-config MSM_ADSP_LOADER
-        tristate "ADSP loader support"
-        select SND_SOC_MSM_APRV2_INTF
-	depends on MSM_AUDIO_QDSP6V2
-        help
-          Enable ADSP image loader.
-	  The ADSP loader brings ADSP out of reset
-	  for the platforms that use APRv2.
-	  Say M if you want to enable this module.
 
 config MSM_ULTRASOUND_B
 	bool "QDSP6V2 HW Ultrasound support"

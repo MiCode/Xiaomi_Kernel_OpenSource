@@ -33,7 +33,7 @@
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/tlv.h>
-#include <mach/qdsp6v2/apr.h>
+#include <linux/qdsp6v2/apr.h>
 #include <mach/subsystem_notif.h>
 #include "msm8x10-wcd.h"
 #include "wcd9xxx-resmgr.h"
