@@ -3,9 +3,9 @@ MSM PCIe
 MSM PCI express root complex
 
 Required properties:
-  - compatible: should be "qcom,msm-pcie"
+  - compatible: should be "qti,msm-pcie"
   - cell-index: defines root complex ID.
-  - qcom,ctrl-amt: Number of controllers.
+  - qti,ctrl-amt: Number of controllers.
   - #address-cells: Should provide a value of 0.
   - reg: should contain PCIe register maps.
   - reg-names: indicates various resources passed to driver by name.
@@ -36,7 +36,7 @@ Required properties:
     vreg-0.9-supply: phandle to the analog supply for the PCIe controller.
 
 Optional Properties:
-  - qcom,<supply-name>-voltage-level: specifies voltage levels for supply.
+  - qti,<supply-name>-voltage-level: specifies voltage levels for supply.
     Should be specified in pairs (max, min, optimal), units uV.
   - clock-names: list of names of clock inputs.
 		     Should be "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
@@ -48,10 +48,10 @@ Optional Properties:
 
 Example:
 
-	pcie0: qcom,pcie@fc520000 {
-		compatible = "qcom,msm_pcie";
+	pcie0: qti,pcie@fc520000 {
+		compatible = "qti,msm_pcie";
 		cell-index = <0>;
-		qcom,ctrl-amt = <1>;
+		qti,ctrl-amt = <1>;
 		#address-cells = <0>;
 		reg = <0xfc520000 0x2000>,
 		      <0xfc526000 0x1000>,
@@ -92,8 +92,8 @@ Example:
 		vreg-0.9-supply = <&pma8084_l4>;
 		vreg-3.3-supply = <&wlan_vreg>;
 
-		qcom,vreg-1.8-voltage-level = <1800000 1800000 1000>;
-		qcom,vreg-0.9-voltage-level = <950000 950000 24000>;
+		qti,vreg-1.8-voltage-level = <1800000 1800000 1000>;
+		qti,vreg-0.9-voltage-level = <950000 950000 24000>;
 
 		clock-names = "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
 				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",

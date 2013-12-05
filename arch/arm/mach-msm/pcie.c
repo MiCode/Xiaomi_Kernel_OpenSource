@@ -762,7 +762,7 @@ static int msm_pcie_get_resources(u32 rc_idx, struct platform_device *pdev)
 		} else {
 			dev->vreg_n++;
 			snprintf(prop_name, MAX_PROP_SIZE,
-				"qcom,%s-voltage-level", vreg_info->name);
+				"qti,%s-voltage-level", vreg_info->name);
 			prop = of_get_property((&pdev->dev)->of_node,
 						prop_name, &len);
 			if (!prop || (len != (3 * sizeof(__be32)))) {
@@ -1171,7 +1171,7 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	mutex_lock(&pcie_drv.drv_lock);
 
 	ret = of_property_read_u32((&pdev->dev)->of_node,
-				"qcom,ctrl-amt", &pcie_drv.rc_expected);
+				"qti,ctrl-amt", &pcie_drv.rc_expected);
 	if (ret) {
 		pr_err("PCIe: does not find controller amount.\n");
 		goto out;
@@ -1299,7 +1299,7 @@ out:
 }
 
 static struct of_device_id msm_pcie_match[] = {
-	{	.compatible = "qcom,msm_pcie",
+	{	.compatible = "qti,msm_pcie",
 	},
 	{}
 };
