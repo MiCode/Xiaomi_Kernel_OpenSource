@@ -152,6 +152,7 @@ struct msm_vfe_axi_stream_release_cmd {
 enum msm_vfe_axi_stream_cmd {
 	STOP_STREAM,
 	START_STREAM,
+	STOP_IMMEDIATELY,
 };
 
 struct msm_vfe_axi_stream_cfg_cmd {
