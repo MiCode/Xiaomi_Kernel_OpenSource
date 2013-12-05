@@ -62,37 +62,4 @@ static inline int _remote_spin_owner(_remote_spinlock_t *lock)
 	return -ENODEV;
 }
 #endif
-
-
-/* Remote mutex definitions. */
-
-typedef struct {
-	_remote_spinlock_t	r_spinlock;
-	uint32_t		delay_us;
-} _remote_mutex_t;
-
-struct remote_mutex_id {
-	remote_spinlock_id_t	r_spinlock_id;
-	uint32_t		delay_us;
-};
-
-#ifdef CONFIG_REMOTE_SPINLOCK_MSM
-int _remote_mutex_init(struct remote_mutex_id *id, _remote_mutex_t *lock);
-void _remote_mutex_lock(_remote_mutex_t *lock);
-void _remote_mutex_unlock(_remote_mutex_t *lock);
-int _remote_mutex_trylock(_remote_mutex_t *lock);
-#else
-static inline
-int _remote_mutex_init(struct remote_mutex_id *id, _remote_mutex_t *lock)
-{
-	return -EINVAL;
-}
-static inline void _remote_mutex_lock(_remote_mutex_t *lock) {}
-static inline void _remote_mutex_unlock(_remote_mutex_t *lock) {}
-static inline int _remote_mutex_trylock(_remote_mutex_t *lock)
-{
-	return 0;
-}
-#endif
-
 #endif /* __ASM__ARCH_QC_REMOTE_SPINLOCK_H */
