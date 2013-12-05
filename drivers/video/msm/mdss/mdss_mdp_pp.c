@@ -372,6 +372,7 @@ static void pp_ad_init_write(struct mdss_mdp_ad *ad_hw,
 						struct mdss_ad_info *ad);
 static void pp_ad_input_write(struct mdss_mdp_ad *ad_hw,
 						struct mdss_ad_info *ad);
+static void pp_ad_bypass_config(struct mdss_ad_info *ad, u32 *opmode);
 static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd);
 static void pp_ad_cfg_lut(char __iomem *addr, u32 *data);
 
@@ -1375,12 +1376,14 @@ static void pp_dspp_opmode_config(struct pp_sts_type *pp_sts, u32 *opmode,
 
 static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 {
-	u32 flags, dspp_num, opmode = 0;
+	u32 ad_flags, flags, dspp_num, opmode = 0, ad_bypass;
 	struct mdp_pgc_lut_data *pgc_config;
 	struct pp_sts_type *pp_sts;
 	char __iomem *base, *addr;
 	int ret = 0;
 	struct mdss_data_type *mdata;
+	struct mdss_ad_info *ad = NULL;
+	struct mdss_mdp_ad *ad_hw = NULL;
 	struct mdss_mdp_ctl *ctl;
 	u32 mixer_cnt;
 	u32 mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
@@ -1410,15 +1413,21 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 	mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
 	if (dspp_num < mdata->nad_cfgs && (mixer_cnt != 2)) {
 		ret = mdss_mdp_ad_setup(ctl->mfd);
+		ad = &mdata->ad_cfgs[disp_num];
+		ad_flags = ad->reg_sts;
+		ad_hw = &mdata->ad_off[dspp_num];
 		if (ret < 0)
 			pr_warn("ad_setup(dspp%d) returns %d", dspp_num, ret);
+	} else {
+		ad_flags = 0;
 	}
+
 	/* call calibration specific processing here */
 	if (ctl->mfd->calib_mode)
 		goto flush_exit;
 
 	/* nothing to update */
-	if ((!flags) && (!(opmode)) && (ret <= 0))
+	if ((!flags) && (!(opmode)) && (ret <= 0) && (!ad_flags))
 		goto dspp_exit;
 	ret = 0;
 
@@ -1472,6 +1481,20 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 			pp_sts->pgc_sts |= PP_STS_ENABLE;
 	}
 
+	if (ad_hw) {
+		mutex_lock(&ad->lock);
+		ad_flags = ad->reg_sts;
+		if (ad_flags & PP_AD_STS_DIRTY_DATA)
+			pp_ad_input_write(ad_hw, ad);
+		if (ad_flags & PP_AD_STS_DIRTY_INIT)
+			pp_ad_init_write(ad_hw, ad);
+		if (ad_flags & PP_AD_STS_DIRTY_CFG)
+			pp_ad_cfg_write(ad_hw, ad);
+		pp_ad_bypass_config(ad, &ad_bypass);
+		writel_relaxed(ad_bypass, ad_hw->base);
+		mutex_unlock(&ad->lock);
+	}
+
 	pp_dspp_opmode_config(pp_sts, &opmode, mdata->mdp_rev);
 flush_exit:
 	writel_relaxed(opmode, base + MDSS_MDP_REG_DSPP_OP_MODE);
@@ -1505,6 +1528,7 @@ error:
 /* call only when holding and mfd->lock */
 int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 {
+	struct mdss_data_type *mdata = ctl->mdata;
 	u32 disp_num;
 	if ((!ctl->mfd) || (!mdss_pp_res))
 		return -EINVAL;
@@ -1522,8 +1546,11 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 		pp_dspp_setup(disp_num, ctl->mixer_right);
 	}
 	/* clear dirty flag */
-	if (disp_num < MDSS_BLOCK_DISP_NUM)
+	if (disp_num < MDSS_BLOCK_DISP_NUM) {
 		mdss_pp_res->pp_disp_flags[disp_num] = 0;
+		if (disp_num < mdata->nad_cfgs)
+			mdata->ad_cfgs[disp_num].reg_sts = 0;
+	}
 	mutex_unlock(&mdss_pp_mutex);
 
 	return 0;
@@ -3654,15 +3681,21 @@ static void pp_ad_vsync_handler(struct mdss_mdp_ctl *ctl, ktime_t t)
 }
 
 #define MDSS_PP_AD_BYPASS_DEF 0x101
+static void pp_ad_bypass_config(struct mdss_ad_info *ad, u32 *opmode)
+{
+	if (ad->reg_sts & PP_STS_ENABLE)
+		*opmode = 0;
+	else
+		*opmode = MDSS_PP_AD_BYPASS_DEF;
+}
+
 static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 {
 	int ret = 0;
 	struct mdss_ad_info *ad;
-	struct mdss_mdp_ad *ad_hw;
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	struct msm_fb_data_type *bl_mfd;
 	struct mdss_data_type *mdata;
-	u32 temp;
 	u32 bypass = MDSS_PP_AD_BYPASS_DEF, bl;
 
 	ret = mdss_mdp_get_ad(mfd, &ad);
@@ -3677,7 +3710,6 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 	}
 
 	mdata = mfd_to_mdata(mfd);
-	ad_hw = &mdata->ad_off[ad->num];
 
 	mutex_lock(&ad->lock);
 	if (ad->sts != last_sts || ad->state != last_state) {
@@ -3710,14 +3742,14 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 			ad->bl_data = bl;
 		}
 		mutex_unlock(&bl_mfd->bl_lock);
-		pp_ad_input_write(ad_hw, ad);
+		ad->reg_sts |= PP_AD_STS_DIRTY_DATA;
 	}
 
 	if (ad->sts & PP_AD_STS_DIRTY_CFG) {
 		ad->sts &= ~PP_AD_STS_DIRTY_CFG;
 		ad->state |= PP_AD_STATE_CFG;
 
-		pp_ad_cfg_write(ad_hw, ad);
+		ad->reg_sts |= PP_AD_STS_DIRTY_CFG;
 
 		if (!MDSS_AD_MODE_DATA_MATCH(ad->cfg.mode, ad->ad_data_mode)) {
 			ad->sts &= ~PP_AD_STS_DIRTY_DATA;
@@ -3728,7 +3760,7 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 	if (ad->sts & PP_AD_STS_DIRTY_INIT) {
 		ad->sts &= ~PP_AD_STS_DIRTY_INIT;
 		ad->state |= PP_AD_STATE_INIT;
-		pp_ad_init_write(ad_hw, ad);
+		ad->reg_sts |= PP_AD_STS_DIRTY_INIT;
 	}
 
 	/* update ad screen size if it has changed since last configuration */
@@ -3741,9 +3773,7 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 							ctl->height);
 		ad->init.frame_w = ctl->width;
 		ad->init.frame_h = ctl->height;
-		temp = ad->init.frame_w << 16;
-		temp |= ad->init.frame_h & 0xFFFF;
-		writel_relaxed(temp, ad_hw->base + MDSS_MDP_REG_AD_FRAME_SIZE);
+		ad->reg_sts |= PP_AD_STS_DIRTY_INIT;
 	}
 
 	if ((ad->sts & PP_STS_ENABLE) && PP_AD_STATE_IS_READY(ad->state)) {
@@ -3786,7 +3816,10 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 		}
 		ad->state &= ~PP_AD_STATE_RUN;
 	}
-	writel_relaxed(bypass, ad_hw->base);
+	if (!bypass)
+		ad->reg_sts |= PP_STS_ENABLE;
+	else
+		ad->reg_sts &= ~PP_STS_ENABLE;
 
 	if (PP_AD_STS_DIRTY_VSYNC & ad->sts) {
 		pr_debug("dirty vsync, calc_itr = %d", ad->calc_itr);
@@ -3938,6 +3971,7 @@ int mdss_mdp_ad_addr_setup(struct mdss_data_type *mdata, u32 *ad_offsets)
 		mdata->ad_off[i].base = mdata->mdp_base + ad_offsets[i];
 		mdata->ad_off[i].num = i;
 		mdata->ad_cfgs[i].num = i;
+		mdata->ad_cfgs[i].reg_sts = 0;
 		mdata->ad_cfgs[i].calc_itr = 0;
 		mdata->ad_cfgs[i].last_str = 0xFFFFFFFF;
 		mdata->ad_cfgs[i].last_bl = 0;
