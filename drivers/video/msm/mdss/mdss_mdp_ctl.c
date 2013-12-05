@@ -2307,7 +2307,7 @@ int mdss_mdp_display_wait4comp(struct mdss_mdp_ctl *ctl)
 
 	mdss_mdp_ctl_perf_update(ctl, 0);
 
-	if (mdata->mdp_rev == MDSS_MDP_HW_REV_103) {
+	if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_103)) {
 		reg_data = mdss_mdp_ctl_read(ctl, MDSS_MDP_REG_CTL_FLUSH);
 		flush_data = readl_relaxed(mdata->mdp_base + AHB_CLK_OFFSET);
 		if ((reg_data != ctl->flush_reg_data) &&
