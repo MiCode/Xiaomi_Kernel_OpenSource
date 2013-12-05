@@ -16,6 +16,8 @@ Required properties:
 - interrupt-names : Names corresponding to the defined interrupts list.
     - "vpu_wdog" : Watchdog interrupt
     - "vpu_hfi" : Firmware to Host interrupt
+- clock-names: Array of clocks that the driver requires for the device.
+ The names here correspond to the clock names used in clk_get(<name>).
 
 - qcom,maple-clk-load-freq-tbl: Table of <load, freq> entries. An entry
   specifies a given VPU processing load (in bits per second), and a
@@ -41,6 +43,7 @@ Example:
 		reg-names = "vpu_csr", "vpu_smem";
 		interrupts = <0 44 0>, <0 45 0>;
 		interrupt-names = "vpu_wdog", "vpu_hfi";
+		clock-names = "core_clk", "bus_clock", "iface_clk";
 		qcom,maple-clk-load-freq-tbl = <100000 50000000>,
 			<500000 400000000>;
 		qcom,vdp-clk-load-freq-tbl = <200000 100000000>,

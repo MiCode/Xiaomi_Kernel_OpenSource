@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -78,10 +78,110 @@ static struct vpu_iommu_map iommus_array[VPU_MAX_IOMMU_DOMAIN] = {
 	},
 };
 
-static const char * const clk_table_dt_entries[] = {
-	[VPU_BUS_CLK] = "qcom,bus-clk-load-freq-tbl",
-	[VPU_MAPLE_CLK] = "qcom,maple-clk-load-freq-tbl",
-	[VPU_VDP_CLK] = "qcom,vdp-clk-load-freq-tbl",
+struct vpu_clock_descr {
+	char *name;
+	u32 flag;	/* enum vpu_clock_flag */
+	u32 pwr_frequencies[VPU_POWER_MAX];
+	char *load_freq_dt_entry;
+};
+
+const struct vpu_clock_descr vpu_clock_set[VPU_MAX_CLKS] = {
+		[VPU_BUS_CLK] = {
+			.name = "vdp_bus_clk",
+			.flag = CLOCK_CORE | CLOCK_BOOT | CLOCK_SCALABLE,
+			.pwr_frequencies = { 40000000,  80000000,  80000000},
+			.load_freq_dt_entry = "qcom,bus-clk-load-freq-tbl",
+		},
+		[VPU_MAPLE_CLK] = {
+			.name = "core_clk",
+			.flag = CLOCK_CORE | CLOCK_BOOT | CLOCK_SCALABLE,
+			.pwr_frequencies = {200000000, 400000000, 400000000},
+			.load_freq_dt_entry = "qcom,maple-clk-load-freq-tbl",
+		},
+		[VPU_VDP_CLK] = {
+			.name = "vdp_clk",
+			.flag = CLOCK_CORE | CLOCK_BOOT | CLOCK_SCALABLE,
+			.pwr_frequencies = {200000000, 200000000, 400000000},
+			.load_freq_dt_entry = "qcom,vdp-clk-load-freq-tbl",
+		},
+		[VPU_VDP_XIN] = {
+			.name = "vdp_xin_clk",
+			.flag = CLOCK_CORE | CLOCK_BOOT | CLOCK_SCALABLE,
+			.pwr_frequencies = {200000000, 467000000, 467000000},
+			.load_freq_dt_entry = "qcom,vdp-xin-clk-load-freq-tbl",
+		},
+		[VPU_AHB_CLK] = {
+			.name = "iface_clk",
+			.flag = CLOCK_CORE | CLOCK_BOOT,
+		},
+		[VPU_AXI_CLK] = {
+			.name = "bus_clk",
+			.flag = CLOCK_CORE | CLOCK_BOOT,
+		},
+		[VPU_SLEEP_CLK] = {
+			.name = "sleep_clk",
+			.flag = CLOCK_CORE | CLOCK_BOOT,
+		},
+		[VPU_CXO_CLK] = {
+			.name = "cxo_clk",
+			.flag = CLOCK_CORE | CLOCK_BOOT,
+		},
+		[VPU_MAPLE_AXI_CLK] = {
+			.name = "maple_bus_clk",
+			.flag = CLOCK_CORE | CLOCK_BOOT,
+		},
+		[VPU_PRNG_CLK] = {
+			.name = "prng_clk",
+			.flag = CLOCK_CORE | CLOCK_BOOT,
+		},
+		[VPU_FRC_GPROC] {
+			.name = "gproc_clk",
+			.flag = CLOCK_FRC | CLOCK_BOOT,
+		},
+		[VPU_FRC_KPROC] {
+			.name = "kproc_clk",
+			.flag = CLOCK_FRC | CLOCK_BOOT,
+		},
+		[VPU_FRC_SDMC_FRCS] {
+			.name = "sdmc_frcs_clk",
+			.flag = CLOCK_FRC,
+		},
+		[VPU_FRC_SDME_FRCF] {
+			.name = "sdme_frcf_clk",
+			.flag = CLOCK_FRC,
+		},
+		[VPU_FRC_SDME_FRCS] {
+			.name = "sdme_frcs_clk",
+			.flag = CLOCK_FRC,
+		},
+		[VPU_FRC_SDME_VPRO] {
+			.name = "sdme_vproc_clk",
+			.flag = CLOCK_FRC,
+		},
+		[VPU_FRC_HDMC_FRCF] {
+			.name = "hdmc_frcf_clk",
+			.flag = CLOCK_FRC,
+		},
+		[VPU_FRC_PREPROC] {
+			.name = "preproc_clk",
+			.flag = CLOCK_FRC,
+		},
+		[VPU_FRC_FRC_XIN] {
+			.name = "frc_xin_clk",
+			.flag = CLOCK_FRC,
+		},
+		[VPU_FRC_MAPLE_AXI] {
+			.name = "maple_axi_clk",
+			.flag = CLOCK_FRC,
+		},
+		[VPU_QDSS_AT] {
+			.name = "qdss_at_clk",
+			.flag = CLOCK_QDSS,
+		},
+		[VPU_QDSS_TSCTR_DIV8] {
+			.name = "qdss_tsctr_div8_clk",
+			.flag = CLOCK_QDSS,
+		},
 };
 
 struct bus_pdata_config {
@@ -125,7 +225,7 @@ static int __vpu_load_freq_table(struct vpu_platform_resources *res,
 	clk_table->entry = devm_kzalloc(&pdev->dev,
 		num_elements * sizeof(*clk_table->entry), GFP_KERNEL);
 	if (!clk_table->entry) {
-		pr_err("Failed alloc load_freq_tabll\n");
+		pr_err("Failed alloc load_freq_table\n");
 		return -ENOMEM;
 	}
 
@@ -148,11 +248,16 @@ static int __vpu_load_freq_tables(struct vpu_platform_resources *res)
 {
 	int ret = 0, i;
 
-	for (i = 0; i < ARRAY_SIZE(clk_table_dt_entries); i++) {
-		ret = __vpu_load_freq_table(res, clk_table_dt_entries[i],
-				&res->clock_tables[i]);
-		if (ret)
-			return ret;
+	for (i = 0; i < VPU_MAX_CLKS; i++) {
+		struct vpu_clock *cl = &res->clock[i];
+
+		if ((cl->flag & CLOCK_PRESENT) && (cl->flag & CLOCK_SCALABLE)) {
+			ret = __vpu_load_freq_table(res,
+					vpu_clock_set[i].load_freq_dt_entry,
+					&cl->load_freq_tbl);
+			if (ret)
+				return ret;
+		}
 	}
 
 	return ret;
@@ -259,6 +364,49 @@ static int __vpu_load_bus_vectors(struct vpu_platform_resources *res)
 	return 0;
 }
 
+static int __vpu_load_clk_names(struct vpu_platform_resources *res)
+{
+	int ret = 0, i, j, num_elements;
+	struct platform_device *pdev = res->pdev;
+	const char *name;
+
+	num_elements = of_property_count_strings(pdev->dev.of_node,
+				"qcom,clock-names");
+	if (num_elements <= 0) {
+		pr_err("No valid clock list in device tree.\n");
+		return -EINVAL;
+	} else if (num_elements > VPU_MAX_CLKS) {
+		pr_err("List of clocks to enable is too large\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < num_elements; i++) {
+		bool found = false;
+		ret = of_property_read_string_index(pdev->dev.of_node,
+				"qcom,clock-names", i, &name);
+		if (ret)
+			return ret;
+
+		for (j = 0; j < VPU_MAX_CLKS; j++) {
+			if (strcmp(name, vpu_clock_set[j].name) == 0) {
+				res->clock[j].name = vpu_clock_set[j].name;
+				res->clock[j].flag = vpu_clock_set[j].flag |
+								CLOCK_PRESENT;
+				res->clock[j].pwr_frequencies =
+					vpu_clock_set[j].pwr_frequencies;
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			pr_err("clock %s not found\n", name);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
 static int __vpu_load_iommu_maps(struct vpu_platform_resources *res)
 {
 	int ret = 0, i, j, num_elements;
@@ -350,6 +498,12 @@ int read_vpu_platform_resources(struct vpu_platform_resources *res,
 	if (!devres_open_group(&pdev->dev, read_vpu_platform_resources,
 			GFP_KERNEL))
 		return -ENOMEM;
+
+	ret = __vpu_load_clk_names(res);
+	if (ret) {
+		pr_err("Failed to load clock names: %d\n", ret);
+		goto err_read_dt_resources;
+	}
 
 	ret = __vpu_load_freq_tables(res);
 	if (ret) {
