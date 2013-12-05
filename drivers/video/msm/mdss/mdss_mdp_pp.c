@@ -1302,7 +1302,7 @@ static void pp_dither_config(char __iomem *addr,
 		data |= dither_depth_map[dither_cfg->r_cr_depth] << 4;
 		writel_relaxed(data, addr);
 		addr += 0x14;
-		for (i = 0; i << 16; i += 4) {
+		for (i = 0; i < 16; i += 4) {
 			data = dither_matrix[i] |
 				(dither_matrix[i + 1] << 4) |
 				(dither_matrix[i + 2] << 8) |
