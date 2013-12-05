@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -6497,7 +6497,8 @@ static int taiko_setup_zdet(struct wcd9xxx_mbhc *mbhc,
 		/* Clean up starts */
 		/* Turn off PA ramp generator */
 		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B1_CTL, 0x0);
-		wcd9xxx_enable_static_pa(mbhc, false);
+		if (!mbhc->hph_pa_dac_state)
+			wcd9xxx_enable_static_pa(mbhc, false);
 		wcd9xxx_restore_registers(codec, &taiko->reg_save_restore);
 		break;
 	}

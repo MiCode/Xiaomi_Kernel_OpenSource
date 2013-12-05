@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -5514,7 +5514,8 @@ static int tapan_setup_zdet(struct wcd9xxx_mbhc *mbhc,
 				mux_wait_us + WCD9XXX_USLEEP_RANGE_MARGIN_US);
 		break;
 	case PA_DISABLE:
-		wcd9xxx_enable_static_pa(mbhc, false);
+		if (!mbhc->hph_pa_dac_state)
+			wcd9xxx_enable_static_pa(mbhc, false);
 		wcd9xxx_restore_registers(codec, &tapan->reg_save_restore);
 		break;
 	}
