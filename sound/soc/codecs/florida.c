@@ -1747,7 +1747,7 @@ static int florida_open(struct snd_compr_stream *stream)
 	struct snd_soc_pcm_runtime *rtd = stream->private_data;
 	struct florida_priv *florida = snd_soc_codec_get_drvdata(rtd->codec);
 	struct arizona *arizona = florida->core.arizona;
-	int i, ret = 0;
+	int n_adsp, ret = 0;
 
 	mutex_lock(&florida->compr_info.lock);
 
@@ -1756,20 +1756,26 @@ static int florida_open(struct snd_compr_stream *stream)
 		goto out;
 	}
 
-	for (i = 0; i < FLORIDA_NUM_ADSP; ++i) {
-		if (wm_adsp_compress_supported(&florida->core.adsp[i], stream)) {
-			florida->compr_info.adsp = &florida->core.adsp[i];
-			break;
-		}
+	if (strcmp(rtd->codec_dai->name, "florida-dsp-voicectrl") == 0) {
+		n_adsp = 2;
+	} else if (strcmp(rtd->codec_dai->name, "florida-dsp-trace") == 0) {
+		n_adsp = 0;
+	} else {
+		dev_err(arizona->dev,
+			"No suitable compressed stream for dai '%s'\n",
+			rtd->codec_dai->name);
+		ret = -EINVAL;
+		goto out;
 	}
 
-	if (!florida->compr_info.adsp) {
+	if (!wm_adsp_compress_supported(&florida->core.adsp[n_adsp], stream)) {
 		dev_err(arizona->dev,
 			"No suitable firmware for compressed stream\n");
 		ret = -EINVAL;
 		goto out;
 	}
 
+	florida->compr_info.adsp = &florida->core.adsp[n_adsp];
 	florida->compr_info.stream = stream;
 out:
 	mutex_unlock(&florida->compr_info.lock);
