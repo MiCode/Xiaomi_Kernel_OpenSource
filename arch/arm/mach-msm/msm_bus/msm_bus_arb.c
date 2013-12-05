@@ -491,16 +491,7 @@ static int msm_bus_commit_fn(struct device *dev, void *data)
 	return ret;
 }
 
-/**
- * msm_bus_scale_register_client() - Register the clients with the msm bus
- * driver
- * @pdata: Platform data of the client, containing src, dest, ab, ib
- *
- * Client data contains the vectors specifying arbitrated bandwidth (ab)
- * and instantaneous bandwidth (ib) requested between a particular
- * src and dest.
- */
-uint32_t msm_bus_scale_register_client(struct msm_bus_scale_pdata *pdata)
+static uint32_t register_client_legacy(struct msm_bus_scale_pdata *pdata)
 {
 	struct msm_bus_client *client = NULL;
 	int i;
@@ -598,17 +589,8 @@ err:
 	mutex_unlock(&msm_bus_lock);
 	return 0;
 }
-EXPORT_SYMBOL(msm_bus_scale_register_client);
 
-/**
- * msm_bus_scale_client_update_request() - Update the request for bandwidth
- * from a particular client
- *
- * cl: Handle to the client
- * index: Index into the vector, to which the bw and clock values need to be
- * updated
- */
-int msm_bus_scale_client_update_request(uint32_t cl, unsigned index)
+static int update_request_legacy(uint32_t cl, unsigned index)
 {
 	int i, ret = 0;
 	struct msm_bus_scale_pdata *pdata;
@@ -697,9 +679,8 @@ err:
 	mutex_unlock(&msm_bus_lock);
 	return ret;
 }
-EXPORT_SYMBOL(msm_bus_scale_client_update_request);
 
-int reset_pnodes(int curr, int pnode)
+static int reset_pnodes(int curr, int pnode)
 {
 	struct msm_bus_inode_info *info;
 	struct msm_bus_fabric_device *fabdev;
@@ -786,11 +767,7 @@ void msm_bus_scale_client_reset_pnodes(uint32_t cl)
 	}
 }
 
-/**
- * msm_bus_scale_unregister_client() - Unregister the client from the bus driver
- * @cl: Handle to the client
- */
-void msm_bus_scale_unregister_client(uint32_t cl)
+static void unregister_client_legacy(uint32_t cl)
 {
 	int i;
 	struct msm_bus_client *client = (struct msm_bus_client *)(cl);
@@ -841,5 +818,11 @@ void msm_bus_scale_unregister_client(uint32_t cl)
 	kfree(client->src_pnode);
 	kfree(client);
 }
-EXPORT_SYMBOL(msm_bus_scale_unregister_client);
+
+void msm_bus_arb_setops_legacy(struct msm_bus_arb_ops *arb_ops)
+{
+	arb_ops->register_client = register_client_legacy;
+	arb_ops->update_request = update_request_legacy;
+	arb_ops->unregister_client = unregister_client_legacy;
+}
 

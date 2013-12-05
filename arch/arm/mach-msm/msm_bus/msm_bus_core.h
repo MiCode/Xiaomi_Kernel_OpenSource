@@ -53,7 +53,15 @@ enum msm_bus_hw_sel {
 	MSM_BUS_BIMC,
 };
 
+struct msm_bus_arb_ops {
+	uint32_t (*register_client)(struct msm_bus_scale_pdata *pdata);
+	int (*update_request)(uint32_t cl, unsigned int index);
+	void (*unregister_client)(uint32_t cl);
+};
+
 extern struct bus_type msm_bus_type;
+extern struct msm_bus_arb_ops arb_ops;
+extern void msm_bus_arb_setops_legacy(struct msm_bus_arb_ops *arb_ops);
 
 struct msm_bus_node_info {
 	unsigned int id;

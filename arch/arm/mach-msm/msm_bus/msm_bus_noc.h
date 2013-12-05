@@ -64,11 +64,12 @@ struct msm_bus_noc_qos_bw {
 };
 
 void msm_bus_noc_init(struct msm_bus_noc_info *ninfo);
-uint8_t msm_bus_noc_get_qos_mode(struct msm_bus_noc_info *ninfo,
+uint8_t msm_bus_noc_get_qos_mode(void __iomem *base, uint32_t qos_off,
 	uint32_t mport, uint32_t mode, uint32_t perm_mode);
-void msm_bus_noc_get_qos_priority(struct msm_bus_noc_info *ninfo,
+void msm_bus_noc_get_qos_priority(void __iomem *base, uint32_t qos_off,
 	uint32_t mport, struct msm_bus_noc_qos_priority *qprio);
-void msm_bus_noc_get_qos_bw(struct msm_bus_noc_info *ninfo,
-	uint32_t mport, uint8_t perm_mode, struct msm_bus_noc_qos_bw *qbw);
+void msm_bus_noc_get_qos_bw(void __iomem *base, uint32_t qos_off,
+	uint32_t qos_freq, uint32_t mport, uint8_t perm_mode,
+	struct msm_bus_noc_qos_bw *qbw);
 
 #endif /*_ARCH_ARM_MACH_MSM_BUS_NOC_H */

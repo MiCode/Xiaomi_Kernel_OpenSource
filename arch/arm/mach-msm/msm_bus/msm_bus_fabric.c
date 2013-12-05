@@ -915,6 +915,7 @@ int __init msm_bus_fabric_init_driver(void)
 		initialized = true;
 
 	MSM_BUS_ERR("msm_bus_fabric_init_driver\n");
+	msm_bus_arb_setops_legacy(&arb_ops);
 	return platform_driver_register(&msm_bus_fabric_driver);
 }
 EXPORT_SYMBOL(msm_bus_fabric_init_driver);
