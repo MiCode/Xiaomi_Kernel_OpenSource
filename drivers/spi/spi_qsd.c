@@ -32,8 +32,6 @@
 #include <linux/io.h>
 #include <linux/debugfs.h>
 #include <linux/gpio.h>
-#include <linux/remote_spinlock.h>
-#include <linux/pm_qos.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/dma-mapping.h>
@@ -2002,9 +2000,6 @@ static int msm_spi_transfer_one_message(struct spi_master *master,
 	if (!pm_runtime_enabled(dd->dev))
 		msm_spi_pm_resume_runtime(dd->dev);
 
-	if (dd->use_rlock)
-		remote_mutex_lock(&dd->r_lock);
-
 	if (!msm_spi_is_valid_state(dd)) {
 		dev_err(dd->dev, "%s: SPI operational state not valid\n",
 			__func__);
@@ -2024,9 +2019,6 @@ static int msm_spi_transfer_one_message(struct spi_master *master,
 	spin_lock_irqsave(&dd->queue_lock, flags);
 	dd->transfer_pending = 0;
 	spin_unlock_irqrestore(&dd->queue_lock, flags);
-
-	if (dd->use_rlock)
-		remote_mutex_unlock(&dd->r_lock);
 
 	mutex_unlock(&dd->core_lock);
 
@@ -2097,9 +2089,6 @@ static int msm_spi_setup(struct spi_device *spi)
 		return -EBUSY;
 	}
 
-	if (dd->use_rlock)
-		remote_mutex_lock(&dd->r_lock);
-
 	spi_ioc = readl_relaxed(dd->base + SPI_IO_CONTROL);
 	mask = SPI_IO_C_CS_N_POLARITY_0 << spi->chip_select;
 	if (spi->mode & SPI_CS_HIGH)
@@ -2117,9 +2106,6 @@ static int msm_spi_setup(struct spi_device *spi)
 
 	/* Ensure previous write completed before disabling the clocks */
 	mb();
-
-	if (dd->use_rlock)
-		remote_mutex_unlock(&dd->r_lock);
 
 	/* Counter-part of system-resume when runtime-pm is not enabled. */
 	if (!pm_runtime_enabled(dd->dev))
@@ -2922,28 +2908,7 @@ skip_dma_resources:
 		goto err_probe_reqmem;
 	}
 
-	if (pdata && pdata->rsl_id) {
-		struct remote_mutex_id rmid;
-		rmid.r_spinlock_id = pdata->rsl_id;
-		rmid.delay_us = SPI_TRYLOCK_DELAY;
-
-		rc = remote_mutex_init(&dd->r_lock, &rmid);
-		if (rc) {
-			dev_err(&pdev->dev, "%s: unable to init remote_mutex "
-				"(%s), (rc=%d)\n", rmid.r_spinlock_id,
-				__func__, rc);
-			goto err_probe_rlock_init;
-		}
-
-		dd->use_rlock = 1;
-		dd->pm_lat = pdata->pm_lat;
-		pm_qos_add_request(&qos_req_list, PM_QOS_CPU_DMA_LATENCY,
-						PM_QOS_DEFAULT_VALUE);
-	}
-
 	mutex_lock(&dd->core_lock);
-	if (dd->use_rlock)
-		remote_mutex_lock(&dd->r_lock);
 
 	locked = 1;
 	dd->dev = &pdev->dev;
@@ -3037,8 +3002,6 @@ skip_dma_resources:
 		goto err_probe_irq;
 
 	msm_spi_disable_irqs(dd);
-	if (dd->use_rlock)
-		remote_mutex_unlock(&dd->r_lock);
 
 	mutex_unlock(&dd->core_lock);
 	locked = 0;
@@ -3080,13 +3043,8 @@ err_probe_clk_enable:
 err_probe_pclk_get:
 	clk_put(dd->clk);
 err_probe_clk_get:
-	if (locked) {
-		if (dd->use_rlock)
-			remote_mutex_unlock(&dd->r_lock);
-
+	if (locked)
 		mutex_unlock(&dd->core_lock);
-	}
-err_probe_rlock_init:
 err_probe_reqmem:
 err_probe_res:
 	spi_master_put(master);
@@ -3136,9 +3094,6 @@ static int msm_spi_pm_suspend_runtime(struct device *device)
 
 	msm_spi_free_gpios(dd);
 
-	if (pm_qos_request_active(&qos_req_list))
-		pm_qos_update_request(&qos_req_list,
-				PM_QOS_DEFAULT_VALUE);
 suspend_exit:
 	return 0;
 }
@@ -3159,10 +3114,6 @@ static int msm_spi_pm_resume_runtime(struct device *device)
 
 	if (!dd->suspended)
 		return 0;
-
-	if (pm_qos_request_active(&qos_req_list))
-		pm_qos_update_request(&qos_req_list,
-				  dd->pm_lat);
 
 	/* Configure the spi clk, miso, mosi and cs gpio */
 	if (dd->pdata->gpio_config) {
@@ -3230,8 +3181,6 @@ static int msm_spi_resume(struct device *device)
 #else
 #define msm_spi_suspend NULL
 #define msm_spi_resume NULL
-#define msm_spi_pm_suspend_runtime NULL
-#define msm_spi_pm_resume_runtime NULL
 #endif /* CONFIG_PM */
 
 static int msm_spi_remove(struct platform_device *pdev)
@@ -3239,7 +3188,6 @@ static int msm_spi_remove(struct platform_device *pdev)
 	struct spi_master *master = platform_get_drvdata(pdev);
 	struct msm_spi    *dd = spi_master_get_devdata(master);
 
-	pm_qos_remove_request(&qos_req_list);
 	spi_debugfs_exit(dd);
 	sysfs_remove_group(&pdev->dev.kobj, &dev_attr_grp);
 
