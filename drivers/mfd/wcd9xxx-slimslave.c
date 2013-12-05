@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -230,10 +230,10 @@ int wcd9xxx_cfg_slim_sch_rx(struct wcd9xxx *wcd9xxx,
 
 	list_for_each_entry(rx, wcd9xxx_ch_list, list) {
 		codec_port = rx->port;
-		pr_debug("%s: codec_port %d rx 0x%x, payload %d\n"
+		pr_debug("%s: codec_port %d rx 0x%p, payload %d\n"
 			 "sh_ch.rx_port_ch_reg_base0 0x%x\n"
 			 "sh_ch.port_rx_cfg_reg_base 0x%x\n",
-			 __func__, codec_port, (u32)rx, payload,
+			 __func__, codec_port, rx, payload,
 			 sh_ch.rx_port_ch_reg_base,
 			sh_ch.port_rx_cfg_reg_base);
 
@@ -328,8 +328,8 @@ int wcd9xxx_cfg_slim_sch_tx(struct wcd9xxx *wcd9xxx,
 	pr_debug("%s: ch_cnt[%d] rate[%d]\n", __func__, ch_cnt, rate);
 	list_for_each_entry(tx, wcd9xxx_ch_list, list) {
 		codec_port = tx->port;
-		pr_debug("%s: codec_port %d rx 0x%x, payload 0x%x\n",
-			 __func__, codec_port, (u32)tx, payload);
+		pr_debug("%s: codec_port %d tx 0x%p, payload 0x%x\n",
+			 __func__, codec_port, tx, payload);
 		/* write to interface device */
 		ret = wcd9xxx_interface_reg_write(wcd9xxx,
 				SB_PGD_TX_PORT_MULTI_CHANNEL_0(codec_port),
@@ -498,20 +498,22 @@ EXPORT_SYMBOL_GPL(wcd9xxx_rx_vport_validation);
 
 
 /* This function is called with mutex acquired */
-int wcd9xxx_tx_vport_validation(u32 vtable, u32 port_id,
+int wcd9xxx_tx_vport_validation(u32 table, u32 port_id,
 				struct wcd9xxx_codec_dai_data *codec_dai)
 {
 	struct wcd9xxx_ch *ch;
 	int ret = 0;
 	u32 index;
-	u32 size = sizeof(vtable) * 8;
-	pr_debug("%s: vtable 0x%x port_id %u size %d\n", __func__,
+	unsigned long vtable = table;
+	u32 size = sizeof(table) * BITS_PER_BYTE;
+
+	pr_debug("%s: vtable 0x%lx port_id %u size %d\n", __func__,
 		 vtable, port_id, size);
-	for_each_set_bit(index, (unsigned long *)&vtable, size) {
+	for_each_set_bit(index, &vtable, size) {
 		list_for_each_entry(ch,
 				    &codec_dai[index].wcd9xxx_ch_list,
 				    list) {
-			pr_debug("%s: index %u ch->port %u vtable 0x%x\n",
+			pr_debug("%s: index %u ch->port %u vtable 0x%lx\n",
 				 __func__, index, ch->port, vtable);
 			if (ch->port == port_id) {
 				pr_err("%s: TX%u is used by AIF%u_CAP Mixer\n",

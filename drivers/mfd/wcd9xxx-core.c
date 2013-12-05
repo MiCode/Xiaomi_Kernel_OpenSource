@@ -1397,7 +1397,7 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 	BUG_ON(static_cnt <= 0 || ond_cnt < 0 || cp_supplies_cnt < 0);
 	if ((static_cnt + ond_cnt + cp_supplies_cnt)
 			> ARRAY_SIZE(pdata->regulator)) {
-		dev_err(dev, "%s: Num of supplies %u > max supported %u\n",
+		dev_err(dev, "%s: Num of supplies %u > max supported %zu\n",
 			__func__, static_cnt, ARRAY_SIZE(pdata->regulator));
 		goto err;
 	}
