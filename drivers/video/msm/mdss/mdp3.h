@@ -157,6 +157,9 @@ struct mdp3_hw_resource {
 
 	int clk_prepare_count;
 	int cont_splash_en;
+
+	bool batfet_required;
+	struct regulator *batfet;
 };
 
 struct mdp3_img_data {
@@ -197,6 +200,7 @@ int mdp3_create_sysfs_link(struct device *dev);
 int mdp3_get_cont_spash_en(void);
 int mdp3_get_mdp_dsi_clk(void);
 int mdp3_put_mdp_dsi_clk(void);
+void mdp3_batfet_ctrl(int enable);
 
 int mdp3_misr_set(struct mdp_misr *misr_req);
 int mdp3_misr_get(struct mdp_misr *misr_resp);

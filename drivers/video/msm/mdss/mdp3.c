@@ -1090,6 +1090,7 @@ get_dt_pan:
 static int mdp3_parse_dt(struct platform_device *pdev)
 {
 	struct resource *res;
+	struct property *prop = NULL;
 	int rc;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mdp_phys");
@@ -1124,7 +1125,42 @@ static int mdp3_parse_dt(struct platform_device *pdev)
 		return rc;
 	}
 
+	prop = of_find_property(pdev->dev.of_node, "batfet-supply", NULL);
+	mdp3_res->batfet_required = prop ? true : false;
+
 	return 0;
+}
+
+void mdp3_batfet_ctrl(int enable)
+{
+	int rc;
+	if (!mdp3_res->batfet_required)
+		return;
+
+	if (!mdp3_res->batfet) {
+		if (enable) {
+			mdp3_res->batfet =
+				devm_regulator_get(&mdp3_res->pdev->dev,
+				"batfet");
+			if (IS_ERR_OR_NULL(mdp3_res->batfet)) {
+				pr_debug("unable to get batfet reg. rc=%d\n",
+					PTR_RET(mdp3_res->batfet));
+				mdp3_res->batfet = NULL;
+				return;
+			}
+		} else {
+			pr_debug("Batfet regulator disable w/o enable\n");
+			return;
+		}
+	}
+
+	if (enable)
+		rc = regulator_enable(mdp3_res->batfet);
+	else
+		rc = regulator_disable(mdp3_res->batfet);
+
+	if (rc < 0)
+		pr_err("%s: reg enable/disable failed", __func__);
 }
 
 static void mdp3_iommu_heap_unmap_iommu(struct mdp3_iommu_meta *meta)
@@ -1879,6 +1915,7 @@ static int mdp3_continuous_splash_on(struct mdss_panel_data *pdata)
 	else
 		mdp3_res->intf[MDP3_DMA_OUTPUT_SEL_DSI_CMD].active = 1;
 
+	mdp3_batfet_ctrl(true);
 	mdp3_res->cont_splash_en = 1;
 	return 0;
 
@@ -2231,11 +2268,13 @@ int mdp3_panel_get_boot_cfg(void)
 
 static  int mdp3_suspend_sub(struct mdp3_hw_resource *mdata)
 {
+	mdp3_batfet_ctrl(false);
 	return 0;
 }
 
 static  int mdp3_resume_sub(struct mdp3_hw_resource *mdata)
 {
+	mdp3_batfet_ctrl(true);
 	return 0;
 }
 
