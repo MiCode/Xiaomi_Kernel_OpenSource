@@ -33,6 +33,7 @@
 #include <linux/device.h>
 #include <linux/of.h>
 #include <linux/iommu.h>
+#include <linux/kref.h>
 
 #ifndef ION_ADSPRPC_HEAP_ID
 #define ION_ADSPRPC_HEAP_ID ION_AUDIO_HEAP_ID
@@ -152,9 +153,11 @@ struct fastrpc_apps {
 	struct class *class;
 	struct device *dev;
 	struct fastrpc_smmu smmu;
+	struct mutex smd_mutex;
 	dev_t dev_no;
 	spinlock_t wrlock;
 	spinlock_t hlock;
+	struct kref kref;
 	struct hlist_head htbl[RPC_HASH_SZ];
 };
 
@@ -666,6 +669,7 @@ static int fastrpc_init(void)
 		spin_lock_init(&me->hlock);
 		spin_lock_init(&me->wrlock);
 		init_completion(&me->work);
+		mutex_init(&me->smd_mutex);
 		for (i = 0; i < RPC_HASH_SZ; ++i)
 			INIT_HLIST_HEAD(&me->htbl[i]);
 		VERIFY(err, 0 == context_list_ctor(&me->clst, SZ_4K));
@@ -692,23 +696,10 @@ static int fastrpc_init(void)
 			if (me->smmu.domain_id >= 0)
 				me->smmu.enabled = enabled;
 		}
-		VERIFY(err, 0 == smd_named_open_on_edge(FASTRPC_SMD_GUID,
-						SMD_APPS_QDSP, &me->chan,
-						me, smd_event_handler));
-		if (err)
-			goto smd_bail;
-		VERIFY(err, 0 != wait_for_completion_timeout(&me->work,
-							RPC_TIMEOUT));
-		if (err)
-			goto completion_bail;
 	}
 
 	return 0;
 
-completion_bail:
-	smd_close(me->chan);
-smd_bail:
-	ion_client_destroy(me->iclient);
 ion_bail:
 	context_list_dtor(&me->clst);
 context_list_bail:
@@ -1093,9 +1084,22 @@ static void cleanup_current_dev(void)
 	return;
 }
 
+static void fastrpc_channel_close(struct kref *kref)
+{
+	struct fastrpc_apps *me = &gfa;
+
+	smd_close(me->chan);
+	me->chan = 0;
+	mutex_unlock(&me->smd_mutex);
+	pr_info("'closed /dev/%s c %d 0'\n", DEVICE_NAME,
+						MAJOR(me->dev_no));
+}
+
 static int fastrpc_device_release(struct inode *inode, struct file *file)
 {
 	struct file_data *fdata = (struct file_data *)file->private_data;
+	struct fastrpc_apps *me = &gfa;
+
 	(void)fastrpc_release_current_dsp_process();
 	cleanup_current_dev();
 	if (fdata) {
@@ -1108,6 +1112,8 @@ static int fastrpc_device_release(struct inode *inode, struct file *file)
 			kfree(map);
 		}
 		kfree(fdata);
+		kref_put_mutex(&me->kref, fastrpc_channel_close,
+				&me->smd_mutex);
 	}
 	return 0;
 }
@@ -1115,6 +1121,25 @@ static int fastrpc_device_release(struct inode *inode, struct file *file)
 static int fastrpc_device_open(struct inode *inode, struct file *filp)
 {
 	int err = 0;
+	struct fastrpc_apps *me = &gfa;
+
+	mutex_lock(&me->smd_mutex);
+	if (kref_get_unless_zero(&me->kref) == 0) {
+		VERIFY(err, 0 == smd_named_open_on_edge(FASTRPC_SMD_GUID,
+						SMD_APPS_QDSP, &me->chan,
+						me, smd_event_handler));
+		if (err)
+			goto smd_bail;
+		VERIFY(err, 0 != wait_for_completion_timeout(&me->work,
+							RPC_TIMEOUT));
+		if (err)
+			goto completion_bail;
+		kref_init(&me->kref);
+		pr_info("'opened /dev/%s c %d 0'\n", DEVICE_NAME,
+						MAJOR(me->dev_no));
+	}
+	mutex_unlock(&me->smd_mutex);
+
 	filp->private_data = 0;
 	if (0 != try_module_get(THIS_MODULE)) {
 		struct file_data *fdata = 0;
@@ -1136,9 +1161,18 @@ bail:
 		if (err) {
 			cleanup_current_dev();
 			kfree(fdata);
+			kref_put_mutex(&me->kref, fastrpc_channel_close,
+					&me->smd_mutex);
 		}
 		module_put(THIS_MODULE);
 	}
+	return err;
+
+completion_bail:
+	smd_close(me->chan);
+	me->chan = 0;
+smd_bail:
+	mutex_unlock(&me->smd_mutex);
 	return err;
 }
 
@@ -1257,7 +1291,6 @@ static int __init fastrpc_device_init(void)
 	VERIFY(err, !IS_ERR(me->dev));
 	if (err)
 		goto device_create_bail;
-	pr_info("'created /dev/%s c %d 0'\n", DEVICE_NAME, MAJOR(me->dev_no));
 
 	return 0;
 
