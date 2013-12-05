@@ -662,7 +662,7 @@ static int mmc_read_ext_csd(struct mmc_card *card)
 		return err;
 	}
 
-	memcpy(&card->cached_ext_csd, ext_csd, sizeof(card->ext_csd));
+	card->cached_ext_csd = ext_csd;
 	err = mmc_decode_ext_csd(card, ext_csd);
 	kfree(ext_csd);
 	return err;
