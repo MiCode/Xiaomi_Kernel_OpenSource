@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -621,7 +621,7 @@ static int msm_cache_erp_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id cache_erp_match_table[] = {
-	{	.compatible = "qcom,cache_erp",	},
+	{	.compatible = "qti,cache_erp",	},
 	{}
 };
 

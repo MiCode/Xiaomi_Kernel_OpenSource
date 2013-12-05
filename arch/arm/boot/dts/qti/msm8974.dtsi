@@ -2113,7 +2113,7 @@
 		qcom,firmware-name = "venus";
 	};
 
-	qcom,cache_erp@f9012000 {
+	qti,cache_erp@f9012000 {
 		reg = <0xf9012000 0x80>,
 		      <0xf9089000 0x80>,
 		      <0xf9099000 0x80>,
@@ -2134,7 +2134,7 @@
 			    "krait2_acs",
 			    "krait3_acs";
 
-		compatible = "qcom,cache_erp";
+		compatible = "qti,cache_erp";
 		interrupts = <1 9 0>, <0 2 0>;
 		interrupt-names = "l1_irq", "l2_irq";
 	};
