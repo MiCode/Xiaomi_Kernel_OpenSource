@@ -100,9 +100,11 @@ int emac_hw_read_phy_reg(struct emac_hw *hw, bool ext, u8 dev, bool fast,
 	*phy_data = 0;
 	clk_sel = fast ? MDIO_CLK_25_4 : MDIO_CLK_25_28;
 
-	retval = emac_disable_mdio_autopoll(hw);
-	if (retval)
-		return retval;
+	if (hw->adpt->no_ephy == false) {
+		retval = emac_disable_mdio_autopoll(hw);
+		if (retval)
+			return retval;
+	}
 
 	emac_reg_update32(hw, EMAC, EMAC_PHY_STS, PHY_ADDR_BMSK,
 			  (dev << PHY_ADDR_SHFT));
@@ -142,7 +144,9 @@ int emac_hw_read_phy_reg(struct emac_hw *hw, bool ext, u8 dev, bool fast,
 	if (i == MDIO_WAIT_TIMES)
 		retval = -EIO;
 
-	emac_enable_mdio_autopoll(hw);
+	if (hw->adpt->no_ephy == false)
+		emac_enable_mdio_autopoll(hw);
+
 	return retval;
 }
 
@@ -154,9 +158,11 @@ int emac_hw_write_phy_reg(struct emac_hw *hw, bool ext, u8 dev,
 
 	clk_sel = fast ? MDIO_CLK_25_4 : MDIO_CLK_25_28;
 
-	retval = emac_disable_mdio_autopoll(hw);
-	if (retval)
-		return retval;
+	if (hw->adpt->no_ephy == false) {
+		retval = emac_disable_mdio_autopoll(hw);
+		if (retval)
+			return retval;
+	}
 
 	emac_reg_update32(hw, EMAC, EMAC_PHY_STS, PHY_ADDR_BMSK,
 			  (dev << PHY_ADDR_SHFT));
@@ -195,17 +201,20 @@ int emac_hw_write_phy_reg(struct emac_hw *hw, bool ext, u8 dev,
 	if (i == MDIO_WAIT_TIMES)
 		retval = -EIO;
 
-	emac_enable_mdio_autopoll(hw);
+	if (hw->adpt->no_ephy == false)
+		emac_enable_mdio_autopoll(hw);
+
 	return retval;
 }
 
-int emac_read_phy_reg(struct emac_hw *hw, u16 reg_addr, u16 *phy_data)
+int emac_read_phy_reg(struct emac_hw *hw, u16 phy_addr,
+		      u16 reg_addr, u16 *phy_data)
 {
 	unsigned long  flags;
 	int  retval;
 
 	spin_lock_irqsave(&hw->mdio_lock, flags);
-	retval = emac_hw_read_phy_reg(hw, false, hw->phy_addr, true,
+	retval = emac_hw_read_phy_reg(hw, false, phy_addr, true,
 				      reg_addr, phy_data);
 	spin_unlock_irqrestore(&hw->mdio_lock, flags);
 
@@ -218,13 +227,14 @@ int emac_read_phy_reg(struct emac_hw *hw, u16 reg_addr, u16 *phy_data)
 	return retval;
 }
 
-int emac_write_phy_reg(struct emac_hw *hw, u16 reg_addr, u16 phy_data)
+int emac_write_phy_reg(struct emac_hw *hw, u16 phy_addr,
+		       u16 reg_addr, u16 phy_data)
 {
 	unsigned long  flags;
 	int  retval;
 
 	spin_lock_irqsave(&hw->mdio_lock, flags);
-	retval = emac_hw_write_phy_reg(hw, false, hw->phy_addr, true,
+	retval = emac_hw_write_phy_reg(hw, false, phy_addr, true,
 				       reg_addr, phy_data);
 	spin_unlock_irqrestore(&hw->mdio_lock, flags);
 
@@ -409,15 +419,19 @@ int emac_hw_init_phy(struct emac_hw *hw)
 	spin_lock_init(&hw->mdio_lock);
 
 	if (hw->adpt->no_ephy == false) {
-		retval = emac_read_phy_reg(hw, MII_PHYSID1, &phy_id[0]);
+		retval = emac_read_phy_reg(hw, hw->phy_addr,
+					   MII_PHYSID1, &phy_id[0]);
 		if (retval)
 			return retval;
-		retval = emac_read_phy_reg(hw, MII_PHYSID2, &phy_id[1]);
+		retval = emac_read_phy_reg(hw, hw->phy_addr,
+					   MII_PHYSID2, &phy_id[1]);
 		if (retval)
 			return retval;
 
 		hw->phy_id[0] = phy_id[0];
 		hw->phy_id[1] = phy_id[1];
+	} else {
+		emac_disable_mdio_autopoll(hw);
 	}
 
 	hw->autoneg_advertised = EMAC_LINK_SPEED_DEFAULT;
@@ -483,11 +497,13 @@ static int emac_hw_setup_phy_link(struct emac_hw *hw, u32 speed, bool autoneg,
 		if (speed & EMAC_LINK_SPEED_1GB_FULL)
 			ctrl1000 |= ADVERTISE_1000FULL;
 
-		retval |= emac_write_phy_reg(hw, MII_ADVERTISE, adv);
-		retval |= emac_write_phy_reg(hw, MII_CTRL1000, ctrl1000);
+		retval |= emac_write_phy_reg(hw, hw->phy_addr,
+					     MII_ADVERTISE, adv);
+		retval |= emac_write_phy_reg(hw, hw->phy_addr,
+					     MII_CTRL1000, ctrl1000);
 
 		bmcr = BMCR_RESET | BMCR_ANENABLE | BMCR_ANRESTART;
-		retval |= emac_write_phy_reg(hw, MII_BMCR, bmcr);
+		retval |= emac_write_phy_reg(hw, hw->phy_addr, MII_BMCR, bmcr);
 	} else {
 		bmcr = BMCR_RESET;
 		switch (speed) {
@@ -507,7 +523,7 @@ static int emac_hw_setup_phy_link(struct emac_hw *hw, u32 speed, bool autoneg,
 			return -EINVAL;
 		}
 
-		retval |= emac_write_phy_reg(hw, MII_BMCR, bmcr);
+		retval |= emac_write_phy_reg(hw, hw->phy_addr, MII_BMCR, bmcr);
 	}
 
 	return retval;
@@ -558,7 +574,7 @@ int emac_check_phy_link(struct emac_hw *hw, u32 *speed, bool *link_up)
 		}
 	}
 
-	retval = emac_read_phy_reg(hw, MII_BMSR, &bmsr);
+	retval = emac_read_phy_reg(hw, hw->phy_addr, MII_BMSR, &bmsr);
 	if (retval)
 		return retval;
 
@@ -568,7 +584,7 @@ int emac_check_phy_link(struct emac_hw *hw, u32 *speed, bool *link_up)
 		return 0;
 	}
 	*link_up = true;
-	retval = emac_read_phy_reg(hw, MII_PSSR, &pssr);
+	retval = emac_read_phy_reg(hw, hw->phy_addr, MII_PSSR, &pssr);
 	if (retval)
 		return retval;
 
@@ -621,8 +637,8 @@ int emac_hw_get_lpa_speed(struct emac_hw *hw, u32 *speed)
 		}
 	}
 
-	retval = emac_read_phy_reg(hw, MII_LPA, &lpa);
-	retval |= emac_read_phy_reg(hw, MII_STAT1000, &stat1000);
+	retval = emac_read_phy_reg(hw, hw->phy_addr, MII_LPA, &lpa);
+	retval |= emac_read_phy_reg(hw, hw->phy_addr, MII_STAT1000, &stat1000);
 	if (retval)
 		return retval;
 
@@ -1147,12 +1163,13 @@ static int emac_get_fc_mode(struct emac_hw *hw, enum emac_fc_mode *mode)
 	int retval = 0;
 
 	for (i = 0; i < EMAC_MAX_SETUP_LNK_CYCLE; i++) {
-		retval = emac_read_phy_reg(hw, MII_BMSR, &bmsr);
+		retval = emac_read_phy_reg(hw, hw->phy_addr, MII_BMSR, &bmsr);
 		if (retval)
 			return retval;
 
 		if (bmsr & BMSR_LSTATUS) {
-			retval = emac_read_phy_reg(hw, MII_PSSR, &pssr);
+			retval = emac_read_phy_reg(hw, hw->phy_addr,
+						   MII_PSSR, &pssr);
 			if (retval)
 				return retval;
 

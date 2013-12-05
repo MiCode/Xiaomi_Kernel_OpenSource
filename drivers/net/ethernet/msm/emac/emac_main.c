@@ -1598,12 +1598,9 @@ static int emac_mii_ioctl(struct net_device *netdev,
 	struct mii_ioctl_data *data = if_mii(ifr);
 	int retval = 0;
 
-	if (!netif_running(netdev))
-		return -EINVAL;
-
 	switch (cmd) {
 	case SIOCGMIIPHY:
-		data->phy_id = 0;
+		data->phy_id = hw->phy_addr;
 		break;
 
 	case SIOCGMIIREG:
@@ -1617,7 +1614,18 @@ static int emac_mii_ioctl(struct net_device *netdev,
 			break;
 		}
 
-		retval = emac_read_phy_reg(hw, data->reg_num, &data->val_out);
+		if (data->phy_id >= PHY_MAX_ADDR) {
+			retval = -EFAULT;
+			break;
+		}
+
+		if (adpt->no_ephy == false && data->phy_id != hw->phy_addr) {
+			retval = -EFAULT;
+			break;
+		}
+
+		retval = emac_read_phy_reg(hw, data->phy_id,
+					   data->reg_num, &data->val_out);
 		break;
 
 	case SIOCSMIIREG:
@@ -1631,7 +1639,19 @@ static int emac_mii_ioctl(struct net_device *netdev,
 			break;
 		}
 
-		retval = emac_write_phy_reg(hw, data->reg_num, data->val_in);
+		if (data->phy_id >= PHY_MAX_ADDR) {
+			retval = -EFAULT;
+			break;
+		}
+
+		if (adpt->no_ephy == false && data->phy_id != hw->phy_addr) {
+			retval = -EFAULT;
+			break;
+		}
+
+		retval = emac_write_phy_reg(hw, data->phy_id,
+					    data->reg_num, data->val_in);
+
 		break;
 	}
 

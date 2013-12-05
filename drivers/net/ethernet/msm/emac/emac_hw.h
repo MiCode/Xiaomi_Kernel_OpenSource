@@ -33,8 +33,10 @@ extern int emac_hw_read_phy_reg(struct emac_hw *hw, bool ext, u8 dev,
 				bool fast, u16 reg_addr, u16 *phy_data);
 extern int emac_hw_write_phy_reg(struct emac_hw *hw, bool ext, u8 dev,
 				 bool fast, u16 reg_addr, u16 phy_data);
-extern int emac_read_phy_reg(struct emac_hw *hw, u16 reg_addr, u16 *phy_data);
-extern int emac_write_phy_reg(struct emac_hw *hw, u16 reg_addr, u16 phy_data);
+extern int emac_read_phy_reg(struct emac_hw *hw, u16 phy_addr,
+			     u16 reg_addr, u16 *phy_data);
+extern int emac_write_phy_reg(struct emac_hw *hw, u16 phy_addr,
+			      u16 reg_addr, u16 phy_data);
 extern int emac_setup_phy_link(struct emac_hw *hw, u32 speed,
 			       bool autoneg, bool fc);
 extern int emac_setup_phy_link_speed(struct emac_hw *hw, u32 speed,
