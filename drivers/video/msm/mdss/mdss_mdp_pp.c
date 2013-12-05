@@ -184,8 +184,21 @@ static u32 igc_limited[IGC_LUT_ENTRIES] = {
 #define PP_FLAGS_DIRTY_PGC	0x100
 #define PP_FLAGS_DIRTY_SHARP	0x200
 
+#define PP_SSPP		0
+#define PP_DSPP		1
+
 #define PP_STS_ENABLE	0x1
 #define PP_STS_GAMUT_FIRST	0x2
+
+#define PP_STS_PA_HUE_MASK		0x2
+#define PP_STS_PA_SAT_MASK		0x4
+#define PP_STS_PA_VAL_MASK		0x8
+#define PP_STS_PA_CONT_MASK		0x10
+#define PP_STS_PA_MEM_PROTECT_EN	0x20
+#define PP_STS_PA_MEM_COL_SKIN_MASK	0x40
+#define PP_STS_PA_MEM_COL_FOL_MASK	0x80
+#define PP_STS_PA_MEM_COL_SKY_MASK	0x100
+#define PP_STS_PA_SAT_ZERO_EXP_EN	0x1000
 
 #define PP_AD_STATE_INIT	0x2
 #define PP_AD_STATE_CFG		0x4
@@ -262,6 +275,7 @@ struct mdss_pp_res_type {
 		gc_lut_b[MDSS_BLOCK_DISP_NUM][GC_LUT_SEGMENTS];
 	u32 enhist_lut[MDSS_BLOCK_DISP_NUM][ENHIST_LUT_ENTRIES];
 	struct mdp_pa_cfg pa_disp_cfg[MDSS_BLOCK_DISP_NUM];
+	struct mdp_pa_v2_data pa_v2_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pcc_cfg_data pcc_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_igc_lut_data igc_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pgc_lut_data argc_disp_cfg[MDSS_BLOCK_DISP_NUM];
@@ -301,6 +315,10 @@ static void pp_gamut_config(struct mdp_gamut_cfg_data *gamut_cfg,
 static void pp_pa_config(unsigned long flags, char __iomem *addr,
 				struct pp_sts_type *pp_sts,
 				struct mdp_pa_cfg *pa_config);
+static void pp_pa_v2_config(unsigned long flags, char __iomem *addr,
+				struct pp_sts_type *pp_sts,
+				struct mdp_pa_v2_data *pa_v2_config,
+				int mdp_location);
 static void pp_pcc_config(unsigned long flags, char __iomem *addr,
 				struct pp_sts_type *pp_sts,
 				struct mdp_pcc_cfg_data *pcc_config);
@@ -314,10 +332,26 @@ static void pp_enhist_config(unsigned long flags, char __iomem *addr,
 static void pp_dither_config(char __iomem *addr,
 				struct pp_sts_type *pp_sts,
 				struct mdp_dither_cfg_data *dither_cfg);
-static void pp_dspp_opmode_config(struct pp_sts_type *pp_sts, u32 *opmode);
+static void pp_dspp_opmode_config(struct pp_sts_type *pp_sts, u32 *opmode,
+				int mdp_rev);
 static void pp_sharp_config(char __iomem *addr,
 				struct pp_sts_type *pp_sts,
 				struct mdp_sharp_cfg *sharp_config);
+static void pp_update_pa_v2_vig_opmode(struct pp_sts_type *pp_sts,
+				u32 *opmode);
+static void pp_update_pa_v2_global_adj_regs(char __iomem *addr,
+				struct mdp_pa_v2_data *pa_config);
+static void pp_update_pa_v2_mem_col(char __iomem *addr,
+				struct mdp_pa_v2_data *pa_v2_config);
+static void pp_update_pa_v2_mem_col_regs(char __iomem *addr,
+				struct mdp_pa_mem_col_cfg *cfg);
+static void pp_update_pa_v2_sts(struct pp_sts_type *pp_sts,
+				struct mdp_pa_v2_data *pa_v2_config);
+static int pp_read_pa_v2_regs(char __iomem *addr,
+				struct mdp_pa_v2_data *pa_v2_config,
+				u32 disp_num);
+static void pp_read_pa_mem_col_regs(char __iomem *addr,
+				struct mdp_pa_mem_col_cfg *mem_col_cfg);
 static int mdss_ad_init_checks(struct msm_fb_data_type *mfd);
 static int mdss_mdp_get_ad(struct msm_fb_data_type *mfd,
 					struct mdss_ad_info **ad);
@@ -482,6 +516,114 @@ static void pp_pa_config(unsigned long flags, char __iomem *addr,
 	}
 }
 
+static void pp_pa_v2_config(unsigned long flags, char __iomem *addr,
+				struct pp_sts_type *pp_sts,
+				struct mdp_pa_v2_data *pa_v2_config,
+				int mdp_location)
+{
+	if ((flags & PP_FLAGS_DIRTY_PA) &&
+			(pa_v2_config->flags & MDP_PP_OPS_WRITE)) {
+		pp_update_pa_v2_global_adj_regs(addr,
+				pa_v2_config);
+		/* Update PA DSPP Regs */
+		if (mdp_location == PP_DSPP) {
+			addr += 0x1C;
+			pp_update_pa_v2_mem_col(addr, pa_v2_config);
+		} else if (mdp_location == PP_SSPP) { /* Update PA SSPP Regs */
+			addr -= MDSS_MDP_REG_VIG_PA_BASE;
+			addr += MDSS_MDP_REG_VIG_MEM_COL_BASE;
+			pp_update_pa_v2_mem_col(addr, pa_v2_config);
+		}
+		pp_update_pa_v2_sts(pp_sts, pa_v2_config);
+	}
+}
+
+static void pp_update_pa_v2_global_adj_regs(char __iomem *addr,
+				struct mdp_pa_v2_data *pa_v2_config)
+{
+	if (pa_v2_config->flags & MDP_PP_PA_HUE_ENABLE)
+		writel_relaxed(pa_v2_config->global_hue_adj, addr);
+	addr += 4;
+	if (pa_v2_config->flags & MDP_PP_PA_SAT_ENABLE)
+		/* Sat Global Adjust reg includes Sat Threshold */
+		writel_relaxed(pa_v2_config->global_sat_adj, addr);
+	addr += 4;
+	if (pa_v2_config->flags & MDP_PP_PA_VAL_ENABLE)
+		writel_relaxed(pa_v2_config->global_val_adj, addr);
+	addr += 4;
+	if (pa_v2_config->flags & MDP_PP_PA_CONT_ENABLE)
+		writel_relaxed(pa_v2_config->global_cont_adj, addr);
+}
+
+static void pp_update_pa_v2_mem_col(char __iomem *addr,
+				struct mdp_pa_v2_data *pa_v2_config)
+{
+	/* Update skin zone memory color registers */
+	if (pa_v2_config->flags & MDP_PP_PA_SKIN_ENABLE)
+		pp_update_pa_v2_mem_col_regs(addr, &pa_v2_config->skin_cfg);
+	addr += 0x14;
+	/* Update sky zone memory color registers */
+	if (pa_v2_config->flags & MDP_PP_PA_SKY_ENABLE)
+		pp_update_pa_v2_mem_col_regs(addr, &pa_v2_config->sky_cfg);
+	addr += 0x14;
+	/* Update foliage zone memory color registers */
+	if (pa_v2_config->flags & MDP_PP_PA_FOL_ENABLE)
+		pp_update_pa_v2_mem_col_regs(addr, &pa_v2_config->fol_cfg);
+}
+
+static void pp_update_pa_v2_mem_col_regs(char __iomem *addr,
+				struct mdp_pa_mem_col_cfg *cfg)
+{
+	pr_debug("ADDR: 0x%x, P0: 0x%x\n", (u32)addr, cfg->color_adjust_p0);
+	writel_relaxed(cfg->color_adjust_p0, addr);
+	addr += 4;
+	pr_debug("ADDR: 0x%x, P1: 0x%x\n", (u32)addr, cfg->color_adjust_p1);
+	writel_relaxed(cfg->color_adjust_p1, addr);
+	addr += 4;
+	pr_debug("ADDR: 0x%x, HUE REGION: 0x%x\n", (u32)addr, cfg->hue_region);
+	writel_relaxed(cfg->hue_region, addr);
+	addr += 4;
+	pr_debug("ADDR: 0x%x, SAT REGION: 0x%x\n", (u32)addr, cfg->sat_region);
+	writel_relaxed(cfg->sat_region, addr);
+	addr += 4;
+	pr_debug("ADDR: 0x%x, VAL REGION: 0x%x\n", (u32)addr, cfg->val_region);
+	writel_relaxed(cfg->val_region, addr);
+}
+
+static void pp_update_pa_v2_sts(struct pp_sts_type *pp_sts,
+				struct mdp_pa_v2_data *pa_v2_config)
+{
+	pp_sts->pa_sts = 0;
+	/* PA STS update */
+	if (pa_v2_config->flags & MDP_PP_OPS_ENABLE)
+		pp_sts->pa_sts |= PP_STS_ENABLE;
+	else
+		pp_sts->pa_sts &= ~PP_STS_ENABLE;
+
+	/* Global HSV STS update */
+	if (pa_v2_config->flags & MDP_PP_PA_HUE_MASK)
+		pp_sts->pa_sts |= PP_STS_PA_HUE_MASK;
+	if (pa_v2_config->flags & MDP_PP_PA_SAT_MASK)
+		pp_sts->pa_sts |= PP_STS_PA_SAT_MASK;
+	if (pa_v2_config->flags & MDP_PP_PA_VAL_MASK)
+		pp_sts->pa_sts |= PP_STS_PA_VAL_MASK;
+	if (pa_v2_config->flags & MDP_PP_PA_CONT_MASK)
+		pp_sts->pa_sts |= PP_STS_PA_CONT_MASK;
+	if (pa_v2_config->flags & MDP_PP_PA_MEM_PROTECT_EN)
+		pp_sts->pa_sts |= PP_STS_PA_MEM_PROTECT_EN;
+	if (pa_v2_config->flags & MDP_PP_PA_SAT_ZERO_EXP_EN)
+		pp_sts->pa_sts |= PP_STS_PA_SAT_ZERO_EXP_EN;
+
+	/* Memory Color STS update */
+	if (pa_v2_config->flags & MDP_PP_PA_MEM_COL_SKIN_MASK)
+		pp_sts->pa_sts |= PP_STS_PA_MEM_COL_SKIN_MASK;
+	if (pa_v2_config->flags & MDP_PP_PA_MEM_COL_SKY_MASK)
+		pp_sts->pa_sts |= PP_STS_PA_MEM_COL_SKY_MASK;
+	if (pa_v2_config->flags & MDP_PP_PA_MEM_COL_FOL_MASK)
+		pp_sts->pa_sts |= PP_STS_PA_MEM_COL_FOL_MASK;
+
+}
+
 static void pp_pcc_config(unsigned long flags, char __iomem *addr,
 				struct pp_sts_type *pp_sts,
 				struct mdp_pcc_cfg_data *pcc_config)
@@ -565,9 +707,11 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	u32 opmode = 0;
 	unsigned long flags = 0;
 	char __iomem *offset;
+	struct mdss_data_type *mdata;
 
 	pr_debug("pnum=%x\n", pipe->num);
 
+	mdata = mdss_mdp_get_mdata();
 	if ((pipe->flags & MDP_OVERLAY_PP_CFG_EN) &&
 		(pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_CSC_CFG)) {
 			opmode |= !!(pipe->pp_cfg.csc_cfg.flags &
@@ -601,12 +745,27 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	pp_histogram_setup(&opmode, MDSS_PP_SSPP_CFG | pipe->num, pipe->mixer);
 
 	if (pipe->flags & MDP_OVERLAY_PP_CFG_EN) {
-		if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_PA_CFG) {
+		if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_PA_CFG) &&
+				(mdata->mdp_rev < MDSS_MDP_HW_REV_103)) {
 			flags = PP_FLAGS_DIRTY_PA;
 			pp_pa_config(flags,
 				pipe->base + MDSS_MDP_REG_VIG_PA_BASE,
 				&pipe->pp_res.pp_sts,
 				&pipe->pp_cfg.pa_cfg);
+
+			if (pipe->pp_res.pp_sts.pa_sts & PP_STS_ENABLE)
+				opmode |= MDSS_MDP_VIG_OP_PA_EN;
+		}
+		if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_PA_V2_CFG) &&
+			(mdata->mdp_rev >= MDSS_MDP_HW_REV_103)) {
+			flags = PP_FLAGS_DIRTY_PA;
+			pp_pa_v2_config(flags,
+				pipe->base + MDSS_MDP_REG_VIG_PA_BASE,
+				&pipe->pp_res.pp_sts,
+				&pipe->pp_cfg.pa_v2_cfg,
+				PP_SSPP);
+			pp_update_pa_v2_vig_opmode(&pipe->pp_res.pp_sts,
+						&opmode);
 
 			if (pipe->pp_res.pp_sts.pa_sts & PP_STS_ENABLE)
 				opmode |= MDSS_MDP_VIG_OP_PA_EN;
@@ -636,6 +795,29 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	*op |= opmode;
 
 	return 0;
+}
+
+static void pp_update_pa_v2_vig_opmode(struct pp_sts_type *pp_sts,
+				u32 *opmode)
+{
+	if (pp_sts->pa_sts & PP_STS_PA_HUE_MASK)
+		*opmode |= MDSS_MDP_VIG_OP_PA_HUE_MASK;
+	if (pp_sts->pa_sts & PP_STS_PA_SAT_MASK)
+		*opmode |= MDSS_MDP_VIG_OP_PA_SAT_MASK;
+	if (pp_sts->pa_sts & PP_STS_PA_VAL_MASK)
+		*opmode |= MDSS_MDP_VIG_OP_PA_VAL_MASK;
+	if (pp_sts->pa_sts & PP_STS_PA_CONT_MASK)
+		*opmode |= MDSS_MDP_VIG_OP_PA_CONT_MASK;
+	if (pp_sts->pa_sts & PP_STS_PA_MEM_PROTECT_EN)
+		*opmode |= MDSS_MDP_VIG_OP_PA_MEM_PROTECT_EN;
+	if (pp_sts->pa_sts & PP_STS_PA_SAT_ZERO_EXP_EN)
+		*opmode |= MDSS_MDP_VIG_OP_PA_SAT_ZERO_EXP_EN;
+	if (pp_sts->pa_sts & PP_STS_PA_MEM_COL_SKIN_MASK)
+		*opmode |= MDSS_MDP_VIG_OP_PA_MEM_COL_SKIN_MASK;
+	if (pp_sts->pa_sts & PP_STS_PA_MEM_COL_SKY_MASK)
+		*opmode |= MDSS_MDP_VIG_OP_PA_MEM_COL_SKY_MASK;
+	if (pp_sts->pa_sts & PP_STS_PA_MEM_COL_FOL_MASK)
+		*opmode |= MDSS_MDP_VIG_OP_PA_MEM_COL_FOL_MASK;
 }
 
 static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
@@ -1087,10 +1269,31 @@ static void pp_dither_config(char __iomem *addr,
 		pp_sts->dither_sts |= PP_STS_ENABLE;
 }
 
-static void pp_dspp_opmode_config(struct pp_sts_type *pp_sts, u32 *opmode)
+static void pp_dspp_opmode_config(struct pp_sts_type *pp_sts, u32 *opmode,
+			int mdp_rev)
 {
 	if (pp_sts->pa_sts & PP_STS_ENABLE)
 		*opmode |= MDSS_MDP_DSPP_OP_PA_EN; /* PA_EN */
+	if (mdp_rev >= MDSS_MDP_HW_REV_103) {
+		if (pp_sts->pa_sts & PP_STS_PA_HUE_MASK)
+			*opmode |= MDSS_MDP_DSPP_OP_PA_HUE_MASK;
+		if (pp_sts->pa_sts & PP_STS_PA_SAT_MASK)
+			*opmode |= MDSS_MDP_DSPP_OP_PA_SAT_MASK;
+		if (pp_sts->pa_sts & PP_STS_PA_VAL_MASK)
+			*opmode |= MDSS_MDP_DSPP_OP_PA_VAL_MASK;
+		if (pp_sts->pa_sts & PP_STS_PA_CONT_MASK)
+			*opmode |= MDSS_MDP_DSPP_OP_PA_CONT_MASK;
+		if (pp_sts->pa_sts & PP_STS_PA_MEM_PROTECT_EN)
+			*opmode |= MDSS_MDP_DSPP_OP_PA_MEM_PROTECT_EN;
+		if (pp_sts->pa_sts & PP_STS_PA_SAT_ZERO_EXP_EN)
+			*opmode |= MDSS_MDP_DSPP_OP_PA_SAT_ZERO_EXP_EN;
+		if (pp_sts->pa_sts & PP_STS_PA_MEM_COL_SKIN_MASK)
+			*opmode |= MDSS_MDP_DSPP_OP_PA_MEM_COL_SKIN_MASK;
+		if (pp_sts->pa_sts & PP_STS_PA_MEM_COL_FOL_MASK)
+			*opmode |= MDSS_MDP_DSPP_OP_PA_MEM_COL_FOL_MASK;
+		if (pp_sts->pa_sts & PP_STS_PA_MEM_COL_SKY_MASK)
+			*opmode |= MDSS_MDP_DSPP_OP_PA_MEM_COL_SKY_MASK;
+	}
 	if (pp_sts->pcc_sts & PP_STS_ENABLE)
 		*opmode |= MDSS_MDP_DSPP_OP_PCC_EN; /* PCC_EN */
 
@@ -1164,8 +1367,14 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 
 	pp_sts = &mdss_pp_res->pp_disp_sts[disp_num];
 
-	pp_pa_config(flags, base + MDSS_MDP_REG_DSPP_PA_BASE, pp_sts,
-					&mdss_pp_res->pa_disp_cfg[disp_num]);
+	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_103) {
+		pp_pa_v2_config(flags, base + MDSS_MDP_REG_DSPP_PA_BASE, pp_sts,
+				&mdss_pp_res->pa_v2_disp_cfg[disp_num],
+				PP_DSPP);
+	} else
+		pp_pa_config(flags, base + MDSS_MDP_REG_DSPP_PA_BASE, pp_sts,
+				&mdss_pp_res->pa_disp_cfg[disp_num]);
+
 	pp_pcc_config(flags, base + MDSS_MDP_REG_DSPP_PCC_BASE, pp_sts,
 					&mdss_pp_res->pcc_disp_cfg[disp_num]);
 
@@ -1206,7 +1415,7 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 			pp_sts->pgc_sts |= PP_STS_ENABLE;
 	}
 
-	pp_dspp_opmode_config(pp_sts, &opmode);
+	pp_dspp_opmode_config(pp_sts, &opmode, mdata->mdp_rev);
 flush_exit:
 	writel_relaxed(opmode, base + MDSS_MDP_REG_DSPP_OP_MODE);
 	ctl->flush_bits |= BIT(13 + dspp_num);
@@ -1303,10 +1512,17 @@ int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 dspp_num)
 
 	if (pp_sts.pa_sts & PP_STS_ENABLE) {
 		flags |= PP_FLAGS_DIRTY_PA;
-		if (!(mdss_pp_res->pa_disp_cfg[disp_num].flags
-					& MDP_PP_OPS_DISABLE))
-			mdss_pp_res->pa_disp_cfg[disp_num].flags |=
-				MDP_PP_OPS_WRITE;
+		if (mdata->mdp_rev >= MDSS_MDP_HW_REV_103) {
+			if (!(mdss_pp_res->pa_v2_disp_cfg[disp_num].flags
+						& MDP_PP_OPS_DISABLE))
+				mdss_pp_res->pa_v2_disp_cfg[disp_num].flags |=
+					MDP_PP_OPS_WRITE;
+		} else {
+			if (!(mdss_pp_res->pa_disp_cfg[disp_num].flags
+						& MDP_PP_OPS_DISABLE))
+				mdss_pp_res->pa_disp_cfg[disp_num].flags |=
+					MDP_PP_OPS_WRITE;
+		}
 	}
 	if (pp_sts.pcc_sts & PP_STS_ENABLE) {
 		flags |= PP_FLAGS_DIRTY_PCC;
@@ -1450,10 +1666,14 @@ int mdss_mdp_pa_config(struct mdp_pa_cfg_data *config,
 {
 	int ret = 0;
 	u32 disp_num, dspp_num = 0;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	char __iomem *pa_addr;
 
+	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_103)
+		return -EINVAL;
+
 	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
-		(config->block >= MDP_BLOCK_MAX))
+			(config->block >= MDP_BLOCK_MAX))
 		return -EINVAL;
 
 	mutex_lock(&mdss_pp_mutex);
@@ -1462,13 +1682,13 @@ int mdss_mdp_pa_config(struct mdp_pa_cfg_data *config,
 	if (config->pa_data.flags & MDP_PP_OPS_READ) {
 		ret = pp_get_dspp_num(disp_num, &dspp_num);
 		if (ret) {
-			pr_err("%s, no dspp connects to disp %d",
-				__func__, disp_num);
+			pr_err("no dspp connects to disp %d",
+					disp_num);
 			goto pa_config_exit;
 		}
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 		pa_addr = mdss_mdp_get_dspp_addr_off(dspp_num) +
-			  MDSS_MDP_REG_DSPP_PA_BASE;
+			MDSS_MDP_REG_DSPP_PA_BASE;
 		config->pa_data.hue_adj = readl_relaxed(pa_addr);
 		pa_addr += 4;
 		config->pa_data.sat_adj = readl_relaxed(pa_addr);
@@ -1486,6 +1706,110 @@ int mdss_mdp_pa_config(struct mdp_pa_cfg_data *config,
 pa_config_exit:
 	mutex_unlock(&mdss_pp_mutex);
 	return ret;
+}
+
+int mdss_mdp_pa_v2_config(struct mdp_pa_v2_cfg_data *config,
+			u32 *copyback)
+{
+	int ret = 0;
+	u32 disp_num, dspp_num = 0;
+	char __iomem *pa_addr;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (mdata->mdp_rev < MDSS_MDP_HW_REV_103)
+		return -EINVAL;
+
+	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
+		(config->block >= MDP_BLOCK_MAX))
+		return -EINVAL;
+
+	if (config->pa_v2_data.flags & MDP_PP_PA_SIX_ZONE_ENABLE) {
+		pr_err("Six zone adjustment not allowed\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&mdss_pp_mutex);
+	disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
+
+	if (config->pa_v2_data.flags & MDP_PP_OPS_READ) {
+		ret = pp_get_dspp_num(disp_num, &dspp_num);
+		if (ret) {
+			pr_err("no dspp connects to disp %d",
+				disp_num);
+			goto pa_config_exit;
+		}
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+		pa_addr = mdss_mdp_get_dspp_addr_off(dspp_num);
+		if (IS_ERR(pa_addr)) {
+			ret = PTR_ERR(pa_addr);
+			goto pa_config_exit;
+		} else
+			pa_addr += MDSS_MDP_REG_DSPP_PA_BASE;
+		ret = pp_read_pa_v2_regs(pa_addr,
+				&config->pa_v2_data,
+				disp_num);
+		if (ret)
+			goto pa_config_exit;
+		*copyback = 1;
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	} else {
+		mdss_pp_res->pa_v2_disp_cfg[disp_num] =
+			config->pa_v2_data;
+		mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_PA;
+	}
+
+pa_config_exit:
+	mutex_unlock(&mdss_pp_mutex);
+	return ret;
+}
+
+
+static int pp_read_pa_v2_regs(char __iomem *addr,
+				struct mdp_pa_v2_data *pa_v2_config,
+				u32 disp_num)
+{
+	if (pa_v2_config->flags & MDP_PP_PA_HUE_ENABLE)
+		pa_v2_config->global_hue_adj = readl_relaxed(addr);
+	addr += 4;
+	if (pa_v2_config->flags & MDP_PP_PA_SAT_ENABLE)
+		pa_v2_config->global_sat_adj = readl_relaxed(addr);
+	addr += 4;
+	if (pa_v2_config->flags & MDP_PP_PA_VAL_ENABLE)
+		pa_v2_config->global_val_adj = readl_relaxed(addr);
+	addr += 4;
+	if (pa_v2_config->flags & MDP_PP_PA_CONT_ENABLE)
+		pa_v2_config->global_cont_adj = readl_relaxed(addr);
+	addr += 0x10;
+
+	/* Skin memory color config registers */
+	if (pa_v2_config->flags & MDP_PP_PA_SKIN_ENABLE)
+		pp_read_pa_mem_col_regs(addr, &pa_v2_config->skin_cfg);
+
+	addr += 0x14;
+	/* Sky memory color config registers */
+	if (pa_v2_config->flags & MDP_PP_PA_SKY_ENABLE)
+		pp_read_pa_mem_col_regs(addr, &pa_v2_config->sky_cfg);
+
+	addr += 0x14;
+	/* Foliage memory color config registers */
+	if (pa_v2_config->flags & MDP_PP_PA_FOL_ENABLE)
+		pp_read_pa_mem_col_regs(addr, &pa_v2_config->fol_cfg);
+
+	return 0;
+}
+
+static void pp_read_pa_mem_col_regs(char __iomem *addr,
+				struct mdp_pa_mem_col_cfg *mem_col_cfg)
+{
+	mem_col_cfg->color_adjust_p0 = readl_relaxed(addr);
+	addr += 4;
+	mem_col_cfg->color_adjust_p1 = readl_relaxed(addr);
+	addr += 4;
+	mem_col_cfg->hue_region = readl_relaxed(addr);
+	addr += 4;
+	mem_col_cfg->sat_region = readl_relaxed(addr);
+	addr += 4;
+	mem_col_cfg->val_region = readl_relaxed(addr);
 }
 
 static void pp_read_pcc_regs(char __iomem *addr,
