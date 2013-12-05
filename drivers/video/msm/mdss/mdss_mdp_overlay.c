@@ -540,11 +540,10 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 					pipe->pp_cfg.hist_cfg.frame_cnt;
 				hist.bit_mask = pipe->pp_cfg.hist_cfg.bit_mask;
 				hist.num_bins = pipe->pp_cfg.hist_cfg.num_bins;
-				mdss_mdp_histogram_start(&hist);
+				mdss_mdp_hist_start(&hist);
 			} else if (pipe->pp_cfg.hist_cfg.ops &
 							MDP_PP_OPS_DISABLE) {
-				mdss_mdp_histogram_stop(
-					pipe->pp_cfg.hist_cfg.block);
+				mdss_mdp_hist_stop(pipe->pp_cfg.hist_cfg.block);
 			}
 		}
 		len = pipe->pp_cfg.hist_lut_cfg.len;
@@ -2064,7 +2063,7 @@ static int mdss_mdp_histo_ioctl(struct msm_fb_data_type *mfd, u32 cmd,
 		if (ret)
 			return ret;
 
-		ret = mdss_mdp_histogram_start(&hist_req);
+		ret = mdss_mdp_hist_start(&hist_req);
 		break;
 
 	case MSMFB_HISTOGRAM_STOP:
@@ -2072,7 +2071,7 @@ static int mdss_mdp_histo_ioctl(struct msm_fb_data_type *mfd, u32 cmd,
 		if (ret)
 			return ret;
 
-		ret = mdss_mdp_histogram_stop(block);
+		ret = mdss_mdp_hist_stop(block);
 		if (ret)
 			return ret;
 
