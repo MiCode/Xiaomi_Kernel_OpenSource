@@ -859,7 +859,7 @@ static int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 		mdss_hw_init(mdss_res);
 	}
 
-	rc = mdss_mdp_ctl_start(ctl);
+	rc = mdss_mdp_ctl_start(ctl, false);
 	if (rc == 0) {
 		atomic_inc(&ov_active_panels);
 
@@ -1580,8 +1580,8 @@ int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en)
 		return -ENODEV;
 	if (!ctl->add_vsync_handler || !ctl->remove_vsync_handler)
 		return -EOPNOTSUPP;
-
-	if (!ctl->power_on) {
+	if (!ctl->panel_data->panel_info.cont_splash_enabled
+			&& !ctl->power_on) {
 		pr_debug("fb%d vsync pending first update en=%d\n",
 				mfd->index, en);
 		return -EPERM;
@@ -1698,7 +1698,9 @@ static ssize_t mdss_mdp_vsync_show_event(struct device *dev,
 	u64 vsync_ticks;
 	int ret;
 
-	if (!mdp5_data->ctl || !mdp5_data->ctl->power_on)
+	if (!mdp5_data->ctl ||
+		(!mdp5_data->ctl->panel_data->panel_info.cont_splash_enabled
+			&& !mdp5_data->ctl->power_on))
 		return -EAGAIN;
 
 	vsync_ticks = ktime_to_ns(mdp5_data->vsync_time);
@@ -2535,9 +2537,15 @@ static int mdss_mdp_overlay_handoff(struct msm_fb_data_type *mfd)
 		mdp5_data->ctl = ctl;
 	}
 
-	rc = mdss_mdp_ctl_setup(ctl);
-	if (rc)
+	/*
+	 * vsync interrupt needs on during continuous splash, this is
+	 * to initialize necessary ctl members here.
+	 */
+	rc = mdss_mdp_ctl_start(ctl, true);
+	if (rc) {
+		pr_err("Failed to initialize ctl\n");
 		goto error;
+	}
 
 	ctl->clk_rate = mdss_mdp_get_clk_rate(MDSS_CLK_MDP_SRC);
 	pr_debug("Set the ctl clock rate to %d Hz\n", ctl->clk_rate);
