@@ -3640,10 +3640,10 @@ static struct clk_freq_tbl ftbl_ocmemnoc_clk[] = {
 	F_MM( 37500000,      gpll0,   16, 0, 0),
 	F_MM( 50000000,      gpll0,   12, 0, 0),
 	F_MM( 75000000,      gpll0,    8, 0, 0),
-	F_MM(100000000,      gpll0,    6, 0, 0),
+	F_MM(109090000,      gpll0,  5.5, 0, 0),
 	F_MM(150000000,      gpll0,    4, 0, 0),
+	F_MM(228570000,     mmpll0,  3.5, 0, 0),
 	F_MM(320000000,     mmpll0,  2.5, 0, 0),
-	F_MM(400000000,     mmpll0,    2, 0, 0),
 	F_END
 };
 
@@ -3656,8 +3656,8 @@ static struct rcg_clk ocmemnoc_clk_src = {
 	.c = {
 		.dbg_name = "ocmemnoc_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP3(LOW, 150000000, NOMINAL, 320000000,
-				  HIGH, 400000000),
+		VDD_DIG_FMAX_MAP3(LOW, 109090000, NOMINAL, 228570000,
+				  HIGH, 320000000),
 		CLK_INIT(ocmemnoc_clk_src.c),
 	},
 };
