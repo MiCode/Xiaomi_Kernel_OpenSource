@@ -245,14 +245,14 @@ int __init dt_scan_for_memory_reserve(unsigned long node, const char *uname,
 	int ret;
 
 	memory_name_prop = of_get_flat_dt_prop(node,
-						"qcom,memory-reservation-type",
+						"qti,memory-reservation-type",
 						&memory_name_prop_length);
 	memory_remove_prop = of_get_flat_dt_prop(node,
-						"qcom,memblock-remove",
+						"qti,memblock-remove",
 						&memory_remove_prop_length);
 
 	memory_reserve_prop = of_get_flat_dt_prop(node,
-						"qcom,memblock-reserve",
+						"qti,memblock-reserve",
 						&memory_reserve_prop_length);
 
 	if (memory_name_prop || memory_remove_prop || memory_reserve_prop) {
@@ -269,7 +269,7 @@ int __init dt_scan_for_memory_reserve(unsigned long node, const char *uname,
 		}
 
 		memory_size_prop = of_get_flat_dt_prop(node,
-						"qcom,memory-reservation-size",
+						"qti,memory-reservation-size",
 						&memory_size_prop_length);
 
 		if (memory_size_prop &&
@@ -372,7 +372,7 @@ int __init dt_scan_for_memory_hole(unsigned long node, const char *uname,
 	int i = 0;
 
 	memory_remove_prop = of_get_flat_dt_prop(node,
-						"qcom,memblock-remove",
+						"qti,memblock-remove",
 						&memory_remove_prop_length);
 
 	if (memory_remove_prop) {

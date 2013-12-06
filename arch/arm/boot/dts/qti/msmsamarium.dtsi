@@ -1090,7 +1090,7 @@
 
 	qcom,msm-mem-hole {
 		compatible = "qcom,msm-mem-hole";
-		qcom,memblock-remove = <0x05900000 0x7800000
+		qti,memblock-remove = <0x05900000 0x7800000
 					0x0fa00000 0x500000>; /* Address and size of hole */
 	};
 
