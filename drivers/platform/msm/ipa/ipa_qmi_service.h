@@ -16,6 +16,7 @@
 #include <mach/ipa.h>
 #include <linux/ipa_qmi_service_v01.h>
 #include <mach/msm_qmi_interface.h>
+#include <uapi/linux/msm_rmnet.h>
 #include "ipa_i.h"
 
 /**
@@ -31,6 +32,14 @@
 #define IPAWANERR(fmt, args...) \
 	pr_err(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 
+struct rmnet_mux_val {
+	uint32_t  mux_id;
+	int8_t    vchannel_name[IFNAMSIZ];
+	bool mux_channel_set;
+	bool ul_flt_reg;
+	bool mux_hdr_set;
+};
+
 int ipa_qmi_service_init(void);
 void ipa_qmi_service_exit(void);
 
@@ -42,6 +51,8 @@ int qmi_filter_notify_send(struct ipa_fltr_installed_notif_req_msg_v01 *req);
 
 int copy_ul_filter_rule_to_ipa(struct ipa_install_fltr_rule_req_msg_v01
 		*rule_req, uint32_t *rule_hdl);
+
+int wwan_update_mux_channel_prop(void);
 
 int wan_ioctl_init(void);
 
