@@ -22,6 +22,7 @@
 #include <linux/err.h>
 #include <linux/init.h>
 #include <linux/i2c.h>
+#include <linux/i2c/i2c-qup.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
@@ -1853,11 +1854,18 @@ static struct platform_driver qup_i2c_driver = {
 };
 
 /* QUP may be needed to bring up other drivers */
-static int __init
-qup_i2c_init_driver(void)
+int __init qup_i2c_init_driver(void)
 {
+	static bool initialized;
+
+	if (initialized)
+		return 0;
+	else
+		initialized = true;
+
 	return platform_driver_register(&qup_i2c_driver);
 }
+EXPORT_SYMBOL(qup_i2c_init_driver);
 arch_initcall(qup_i2c_init_driver);
 
 static void __exit qup_i2c_exit_driver(void)
