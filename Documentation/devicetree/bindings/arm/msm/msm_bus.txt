@@ -81,6 +81,8 @@ qti,mas-hw-id:		A unique hardware ID agreed upon by processors across
 qti,slv-hw-id:		A unique hardware ID agreed upon by processors across
 			the system. This ID is assigned to every slave. It can
 			be used to send slave specific data from
+qti,slaveclk-dual:	Dual set (active/sleep) slave clock name
+qti,slaveclk-active:	Active set slave clock name
 			Apps/Modem/LPASS to RPM.
 qti,gateway:		Flag indicating whether a particular node is a gateway.
 qti,slavep:		Hardware slave port number(s).

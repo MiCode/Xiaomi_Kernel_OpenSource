@@ -1334,15 +1334,26 @@
 			qcom,tier = <2>;
 		};
 
-		slv-ocmem {
+		slv-ocmemvs {
 			cell-id = <604>;
-			label = "slv-ocmem";
+			label = "slv-ocmemvs";
 			qcom,slavep = <0 1>;
 			qcom,tier = <2>;
 			qcom,buswidth = <16>;
 			qcom,slv-hw-id = <18>;
-			qcom,slaveclk-dual = "ocmem_clk";
-			qcom,slaveclk-active = "ocmem_a_clk";
+			qcom,slaveclk-dual = "ocmemvs_clk";
+			qcom,slaveclk-active = "ocmemvs_a_clk";
+		};
+
+		slv-ocmemgx {
+			cell-id = <662>;
+			label = "slv-ocmemgx";
+			qcom,slavep = <0 1>;
+			qcom,tier = <2>;
+			qcom,buswidth = <16>;
+			qcom,slv-hw-id = <18>;
+			qcom,slaveclk-dual = "ocmemgx_clk";
+			qcom,slaveclk-active = "ocmemgx_a_clk";
 		};
 
 		fab-snoc {
