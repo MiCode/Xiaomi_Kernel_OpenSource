@@ -32,6 +32,7 @@
 #include <linux/kdev_t.h>
 #include <linux/fs.h>
 #include <linux/input.h>
+#include <linux/sensors.h>
 #include <linux/workqueue.h>
 #include <linux/irq.h>
 #include <linux/delay.h>
@@ -181,6 +182,35 @@
 
 #define STK_FIR_LEN 16
 #define MAX_FIR_LEN 32
+
+static struct sensors_classdev sensors_light_cdev = {
+	.name = "stk3x1x-light",
+	.vendor = "Sensortek",
+	.version = 1,
+	.handle = SENSORS_LIGHT_HANDLE,
+	.type = SENSOR_TYPE_LIGHT,
+	.max_range = "6500",
+	.resolution = "0.0625",
+	.sensor_power = "0.09",
+	.min_delay = 0,
+	.fifo_reserved_event_count = 0,
+	.fifo_max_event_count = 0,
+};
+
+static struct sensors_classdev sensors_proximity_cdev = {
+	.name = "stk3x1x-proximity",
+	.vendor = "Sensortek",
+	.version = 1,
+	.handle = SENSORS_PROXIMITY_HANDLE,
+	.type = SENSOR_TYPE_PROXIMITY,
+	.max_range = "5.0",
+	.resolution = "5.0",
+	.sensor_power = "0.1",
+	.min_delay = 0,
+	.fifo_reserved_event_count = 0,
+	.fifo_max_event_count = 0,
+};
+
 struct data_filter {
 	u16 raw[MAX_FIR_LEN];
 	int sum;
@@ -2363,6 +2393,14 @@ static int stk3x1x_probe(struct i2c_client *client,
 	ps_data->stk_early_suspend.resume = stk3x1x_late_resume;
 	register_early_suspend(&ps_data->stk_early_suspend);
 #endif
+	/* make sure everything is ok before registering the class device */
+	err = sensors_classdev_register(&client->dev, &sensors_light_cdev);
+	if (err)
+		goto err_power_on;
+	err = sensors_classdev_register(&client->dev, &sensors_proximity_cdev);
+	if (err)
+		goto err_class_sysfs;
+
 	/* enable device power only when it is enabled */
 	err = stk3x1x_power_ctl(ps_data, false);
 	if (err)
@@ -2373,6 +2411,9 @@ static int stk3x1x_probe(struct i2c_client *client,
 
 err_init_all_setting:
 	stk3x1x_power_ctl(ps_data, false);
+	sensors_classdev_unregister(&sensors_proximity_cdev);
+err_class_sysfs:
+	sensors_classdev_unregister(&sensors_light_cdev);
 err_power_on:
 	stk3x1x_power_init(ps_data, false);
 err_power_init:
