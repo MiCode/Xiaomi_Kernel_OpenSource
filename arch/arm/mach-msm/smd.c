@@ -52,7 +52,6 @@
 #include <asm/io.h>
 
 #include "smd_private.h"
-#include "modem_notifier.h"
 #include "smem_private.h"
 
 #define SMD_VERSION 0x00020000
@@ -2801,10 +2800,6 @@ static irqreturn_t smsm_irq_handler(int irq, void *data)
 			 * smd state changes during reset
 			 */
 			smd_fake_irq_handler(0);
-
-			/* queue modem restart notify chain */
-			modem_queue_start_reset_notify();
-
 		} else if (modm & SMSM_RESET) {
 			pr_err("\nSMSM: Modem SMSM state changed to SMSM_RESET.");
 			if (!disable_smsm_reset_handshake) {
@@ -2812,14 +2807,9 @@ static irqreturn_t smsm_irq_handler(int irq, void *data)
 				flush_cache_all();
 				outer_flush_all();
 			}
-			modem_queue_start_reset_notify();
-
 		} else if (modm & SMSM_INIT) {
-			if (!(apps & SMSM_INIT)) {
+			if (!(apps & SMSM_INIT))
 				apps |= SMSM_INIT;
-				modem_queue_smsm_init_notify();
-			}
-
 			if (modm & SMSM_SMDINIT)
 				apps |= SMSM_SMDINIT;
 			if ((apps & (SMSM_INIT | SMSM_SMDINIT | SMSM_RPCINIT)) ==
@@ -2827,7 +2817,6 @@ static irqreturn_t smsm_irq_handler(int irq, void *data)
 				apps |= SMSM_RUN;
 		} else if (modm & SMSM_SYSTEM_DOWNLOAD) {
 			pr_err("\nSMSM: Modem SMSM state changed to SMSM_SYSTEM_DOWNLOAD.");
-			modem_queue_start_reset_notify();
 		}
 
 		if (old_apps != apps) {
