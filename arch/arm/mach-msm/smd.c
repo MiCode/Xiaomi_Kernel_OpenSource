@@ -47,13 +47,14 @@
 #include <mach/proc_comm.h>
 #include <mach/ramdump.h>
 #include <mach/board.h>
-#include <mach/msm_smem.h>
+
+#include <soc/msm/smem.h>
 
 #include <asm/cacheflush.h>
 #include <asm/io.h>
 
 #include "smd_private.h"
-#include "smem_private.h"
+#include "../../../drivers/soc/msm/smem_private.h"
 
 #define SMD_VERSION 0x00020000
 #define SMSM_SNAPSHOT_CNT 64

@@ -21,7 +21,8 @@
 #include <linux/jiffies.h>
 
 #include <mach/msm_iomap.h>
-#include <mach/msm_smem.h>
+
+#include <soc/msm/smem.h>
 
 #include "smd_private.h"
 

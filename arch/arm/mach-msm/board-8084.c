@@ -29,9 +29,9 @@
 #include <mach/msm_smd.h>
 #include <mach/restart.h>
 #include <mach/socinfo.h>
-#include <mach/msm_smem.h>
 #include <mach/rpm-smd.h>
 #include <mach/rpm-regulator-smd.h>
+#include <soc/msm/smem.h>
 #include "spm.h"
 #include "board-dt.h"
 #include "clock.h"

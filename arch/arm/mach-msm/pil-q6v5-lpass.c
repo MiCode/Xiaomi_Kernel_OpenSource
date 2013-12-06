@@ -29,9 +29,10 @@
 #include <mach/subsystem_notif.h>
 #include <mach/scm.h>
 #include <mach/ramdump.h>
-#include <mach/msm_smem.h>
 #include <mach/msm_bus_board.h>
 #include <mach/sysmon.h>
+
+#include <soc/msm/smem.h>
 
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"

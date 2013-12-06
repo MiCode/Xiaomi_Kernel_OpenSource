@@ -31,8 +31,9 @@
 #include <mach/iommu_hw-v0.h>
 #include <mach/msm_iommu_priv.h>
 #include <mach/iommu.h>
-#include <mach/msm_smem.h>
 #include <mach/msm_bus.h>
+
+#include <soc/msm/smem.h>
 
 /* Sharability attributes of MSM IOMMU mappings */
 #define MSM_IOMMU_ATTR_NON_SH		0x0

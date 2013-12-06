@@ -26,7 +26,8 @@
 #include <linux/types.h>
 
 #include <mach/socinfo.h>
-#include <mach/msm_smem.h>
+
+#include <soc/msm/smem.h>
 
 #include "boot_stats.h"
 
