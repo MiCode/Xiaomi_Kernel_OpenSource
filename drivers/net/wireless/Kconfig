@@ -339,10 +339,8 @@ config CLD_LL_CORE
 	select WEXT_CORE
 	select WEXT_SPY
 	select NL80211_TESTMODE
-	depends on MIGHT_HAVE_PCI
 	depends on PCI
 	depends on PCI_MSI
-	depends on MSM_PCIE
 	---help---
 	  Core driver for the Qualcomm QCA6174 Chipset
 
