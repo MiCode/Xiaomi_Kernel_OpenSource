@@ -9,8 +9,6 @@ obj-$(CONFIG_MSM_RPM_SMD) += msm_bus_rpm_smd.o
 
 ifdef CONFIG_ARCH_MSM8974
         obj-$(CONFIG_ARCH_MSM8974) += msm_bus_board_8974.o
-else ifdef CONFIG_ARCH_MSM9625
-        obj-$(CONFIG_ARCH_MSM9625) += msm_bus_board_9625.o
 else
         obj-y += msm_bus_id.o
 endif
