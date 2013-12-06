@@ -3598,9 +3598,15 @@ int venus_hfi_get_core_capabilities(void)
 	smem_table_ptr = smem_get_entry(SMEM_IMAGE_VERSION_TABLE,
 			&smem_block_size, 0, SMEM_ANY_HOST_FLAG);
 	if (smem_table_ptr &&
-			((smem_image_index_venus + 128) <= smem_block_size))
+			((smem_image_index_venus + 128) <= smem_block_size)) {
 		memcpy(version_info, smem_table_ptr + smem_image_index_venus,
 				128);
+	} else {
+		dprintk(VIDC_ERR,
+			"%s: failed to read version info from smem table\n",
+			__func__);
+		return -EINVAL;
+	}
 
 	while (version_info[i++] != 'V' && i < 128)
 		;
