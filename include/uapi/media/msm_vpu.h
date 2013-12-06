@@ -185,10 +185,10 @@ struct vpu_ctrl_auto_manual {
 	__s32 value;
 };
 
-struct vpu_ctrl_two_value {
+struct vpu_ctrl_range_mapping {
 	__u32 enable;		/* boolean: 0=disable, else=enable */
-	__u32 value1;
-	__u32 value2;
+	__u32 y_range;		/* the range mapping set for Y [0, 7] */
+	__u32 uv_range;		/* the range mapping set for UV [0, 7] */
 };
 
 #define VPU_ACTIVE_REGION_N_EXCLUSIONS 1
@@ -202,12 +202,20 @@ struct vpu_ctrl_active_region_param {
 	struct v4l2_rect    excluded_regions[VPU_ACTIVE_REGION_N_EXCLUSIONS];
 };
 
-struct vpu_info_statistics {
-	__u32 frames_dropped;
-	__u32 reset_count;
+struct vpu_ctrl_deinterlacing_mode {
+	__u32 field_polarity;
+	__u32 mvp_mode;
 };
 
-struct vpu_frame_timestamp_info {
+struct vpu_ctrl_hqv {
+	__u32 enable;
+	/* strength control of all sharpening features [0, 100] */
+	__u32 sharpen_strength;
+	/* strength control of Auto NR feature [0, 100] */
+	__u32 auto_nr_strength;
+};
+
+struct vpu_info_frame_timestamp {
 	/* presentation timestamp of the frame */
 	__u32 pts_low;
 	__u32 pts_high;
@@ -222,73 +230,101 @@ struct vpu_control {
 		__s32 value;
 		struct vpu_ctrl_standard standard;
 		struct vpu_ctrl_auto_manual auto_manual;
-		struct vpu_ctrl_two_value two_value;
+		struct vpu_ctrl_range_mapping range_mapping;
 		struct vpu_ctrl_active_region_param active_region_param;
 		struct v4l2_rect active_region_result;
-		struct vpu_info_statistics statistics;
+		struct vpu_ctrl_deinterlacing_mode deinterlacing_mode;
+		struct vpu_ctrl_hqv hqv;
+		struct vpu_info_frame_timestamp timestamp;
+		__u8 reserved[124];
 	} data;
 };
 
 /*
  * IDs for standard controls (use in control_id field of struct vpu_control)
  *
- * VPU_CTRL_NOISE_REDUCTION: noise reduction level, data: auto_manual
+ * VPU_CTRL_NOISE_REDUCTION: noise reduction level, data: auto_manual,
+ * value: [0, 100] (step in increments of 25).
  *
- * VPU_CTRL_IMAGE_ENHANCEMENT: image enhancement level, data: auto_manual
+ * VPU_CTRL_IMAGE_ENHANCEMENT: image enhancement level, data: auto_manual,
+ * value: [-100, 100] (step in increments of 1).
  *
- * VPU_CTRL_ANAMORPHIC_SCALING: anamorphic scaling config, data: standard
+ * VPU_CTRL_ANAMORPHIC_SCALING: anamorphic scaling config, data: standard,
+ * value: [0, 100] (step in increments of 1).
  *
  * VPU_CTRL_DIRECTIONAL_INTERPOLATION: directional interpolation config
- * data: standard
+ * data: standard, value: [0, 100] (step in increments of 1).
  *
- * VPU_CTRL_BACKGROUND_COLOR:
+ * VPU_CTRL_BACKGROUND_COLOR: , data: value,
+ * value: red[0:7] green[8:15] blue[16:23] alpha[24:31]
  *
- * VPU_CTRL_RANGE_MAPPING: Y/UV range mapping, data: two_value
+ * VPU_CTRL_RANGE_MAPPING: Y/UV range mapping, data: range_mapping,
+ * y_range: [0, 7], uv_range: [0, 7] (step in increments of 1).
  *
- * VPU_CTRL_DEINTERLACING: deinterlacing mode, data: two_value
+ * VPU_CTRL_DEINTERLACING_MODE: deinterlacing mode, data: deinterlacing_mode,
+ * field_polarity: [0, 2], mvp_mode: [0, 2] (step in increments of 1).
  *
  * VPU_CTRL_ACTIVE_REGION_PARAM: active region detection parameters (set only)
- * data: active_region_param
+ * data: active_region_param,
  *
  * VPU_CTRL_ACTIVE_REGION_RESULT: detected active region roi (get only)
  * data: active_region_result
  *
- * VPU_CTRL_PRIORITY: Session priority, data: value
+ * VPU_CTRL_PRIORITY: Session priority, data: value,
+ * value: high 100, normal 50
  *
- * VPU_CTRL_CONTENT_PROTECTION: input content protection status, data: value
+ * VPU_CTRL_CONTENT_PROTECTION: input content protection status, data: value,
+ * value: secure 1, non-secure 0
  *
  * VPU_CTRL_DISPLAY_REFRESH_RATE: display refresh rate (set only)
  * data: value (set to __u32 16.16 format)
  *
+ * VPU_CTRL_HQV: hqv block config, data: hqv,
+ * sharpen_strength: [0, 100] (step in increments of 25),
+ * auto_nr_strength: [0, 100] (step in increments of 1).
+ *
+ * VPU_CTRL_HQV_SHARPEN: , data: value,
+ * sharpen_strength: [0, 100] (step in increments of 1).
+ *
+ * VPU_CTRL_HQV_AUTONR: , data: value,
+ * auto_nr_strength: [0, 100] (step in increments of 1).
+ *
  * VPU_CTRL_ACE: , data: value
  *
- * VPU_CTRL_ACE_BRIGHTNESS: , data: value
+ * VPU_CTRL_ACE_BRIGHTNESS: , data: value,
+ * value: [-100, 100] (step in increments of 1).
  *
- * VPU_CTRL_ACE_CONTRAST: , data: value
+ * VPU_CTRL_ACE_CONTRAST: , data: value,
+ * value: [-100, 100] (step in increments of 1).
  *
- * VPU_CTRL_2D3D: , data: value
+ * VPU_CTRL_2D3D: , data: value,
+ * value: 1 enabled, 0 disabled
  *
- * VPU_CTRL_2D3D_DEPTH: , data: value
+ * VPU_CTRL_2D3D_DEPTH: , data: value,
+ * value: [0, 100] (step in increments of 1).
  *
  * VPU_CTRL_TIMESTAMP_INFO_MODE: timestamp reporting mode,
  *  data: value specifying how frequent a timestamp reporting info, value
  *  is in frames
  *
- * VPU_CTRL_FRC: enable/disable FRC, data: 0 for disable, 1 for enable
+ * VPU_INFO_TIMESTAMP: timestamp information (get only)
+ *  data: struct vpu_frame_timestamp_info
  *
- * VPU_CTRL_FRC_MOTION_SMOOTHNESS: , data: value
+ * VPU_CTRL_FRC: enable/disable FRC, data: value,
+ * value: 1 enable, 0 disable
  *
- * VPU_CTRL_FRC_MOTION_CLEAR: , data: value
+ * VPU_CTRL_FRC_MOTION_SMOOTHNESS: , data: value,
+ * value: [0, 100] (step in increments of 1).
+ *
+ * VPU_CTRL_FRC_MOTION_CLEAR: , data: value,
+ * value: [0, 100] (step in increments of 1).
  *
  * VPU_CTRL_LATENCY: session latency, data: value in us
  *
  * VPU_CTRL_LATENCY_MODE: data: value (ultra low, low, etc.)
  *
  * VPU_INFO_STATISTICS: frames dropped, etc (get only),
- *  data: struct vpu_info_statistics
- *
- * VPU_INFO_TIMESTAMP: timestamp information (get only)
- *  data: struct vpu_frame_timestamp_info
+ *  data: reserved
  */
 #define VPU_CTRL_ID_MIN						0
 
@@ -298,32 +334,32 @@ struct vpu_control {
 #define VPU_CTRL_DIRECTIONAL_INTERPOLATION			4
 #define VPU_CTRL_BACKGROUND_COLOR				5
 #define VPU_CTRL_RANGE_MAPPING					6
-#define VPU_CTRL_DEINTERLACING					7
+#define VPU_CTRL_DEINTERLACING_MODE				7
 #define VPU_CTRL_ACTIVE_REGION_PARAM				8
 #define VPU_CTRL_ACTIVE_REGION_RESULT				9
+#define VPU_CTRL_PRIORITY					10
+#define VPU_CTRL_CONTENT_PROTECTION				11
+#define VPU_CTRL_DISPLAY_REFRESH_RATE				12
 
-#define	VPU_CTRL_PRIORITY					10
-#define	VPU_CTRL_CONTENT_PROTECTION				11
-#define	VPU_CTRL_DISPLAY_REFRESH_RATE				14
+#define VPU_CTRL_HQV						20
+#define VPU_CTRL_HQV_SHARPEN					21
+#define VPU_CTRL_HQV_AUTONR					22
+#define VPU_CTRL_ACE						23
+#define VPU_CTRL_ACE_BRIGHTNESS					24
+#define VPU_CTRL_ACE_CONTRAST					25
+#define VPU_CTRL_2D3D						26
+#define VPU_CTRL_2D3D_DEPTH					27
+#define VPU_CTRL_FRC						28
+#define VPU_CTRL_FRC_MOTION_SMOOTHNESS				29
+#define VPU_CTRL_FRC_MOTION_CLEAR				30
 
-#define	VPU_CTRL_HQV						20
-#define	VPU_CTRL_HQV_SHARPEN					21
-#define	VPU_CTRL_HQV_AUTONR					22
-#define	VPU_CTRL_ACE						23
-#define	VPU_CTRL_ACE_BRIGHTNESS					24
-#define	VPU_CTRL_ACE_CONTRAST					25
-#define	VPU_CTRL_2D3D						26
-#define	VPU_CTRL_2D3D_DEPTH					27
-#define	VPU_CTRL_TIMESTAMP_INFO_MODE				28
-#define	VPU_CTRL_FRC						29
-#define	VPU_CTRL_FRC_MOTION_SMOOTHNESS				30
-#define	VPU_CTRL_FRC_MOTION_CLEAR				31
-#define	VPU_CTRL_LATENCY					32
-#define	VPU_CTRL_LATENCY_MODE					33
-#define VPU_INFO_STATISTICS					34
-#define	VPU_INFO_TIMESTAMP					35
+#define VPU_INFO_TIMESTAMP					35
+#define VPU_CTRL_TIMESTAMP_INFO_MODE				36
+#define VPU_INFO_STATISTICS					37
+#define VPU_CTRL_LATENCY					38
+#define VPU_CTRL_LATENCY_MODE					39
 
-#define VPU_CTRL_ID_MAX						36
+#define VPU_CTRL_ID_MAX						40
 
 
 /*

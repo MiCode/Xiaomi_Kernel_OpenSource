@@ -47,7 +47,6 @@ int apply_vpu_control_extended(struct vpu_client *client, int cmd,
 
 void *get_control(struct vpu_controller *controller, u32 id);
 
-
 int configure_nr_buffers(struct vpu_dev_session *session,
 		const struct vpu_ctrl_auto_manual *nr);
 

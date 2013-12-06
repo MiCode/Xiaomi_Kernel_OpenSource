@@ -767,9 +767,17 @@ struct vpu_prop_session_auto_hqv {
 /* associated structure for VPU_PROP_SESSION_TIMESTAMP
  *	property to poll for the timestamp information of the last buffer sent
  *	to MDSS
- *
- * struct vpu_ipc_msg_session_timestamp
  */
+struct vpu_timestamp_info {
+	u32 high;
+	u32 low;
+};
+
+struct vpu_prop_session_timestamp {
+	struct vpu_timestamp_info presentation;
+	struct vpu_timestamp_info qtimer;
+	u32 reserved;
+};
 
 /* associated structure for VPU_PROP_SESSION_TIMESTAMP_AUTO_MODE
  *	In auto mode, the timestamp is returned at the output frame frequency
@@ -815,12 +823,6 @@ struct vpu_prop_session_auto_hqv {
  *       size:       reserved
  *       payload[0]: reserved
  */
-
-/* values defined for VPU_PROP_SESSION_GENERIC */
-#define VPU_PROP_SESSION_TABLE_LOAD		0x30000111
-#define VPU_PROP_SESSION_TUNE			0x30000112
-#define VPU_PROP_SESSION_STATS_EXTENDED		0x30000113
-#define VPU_PROP_SESSION_MEASUREMENTS		0x30000114
 
 /* associated structure for VPU_PROP_SESSION_GENERIC
  *  struct vpu_data_pkt:

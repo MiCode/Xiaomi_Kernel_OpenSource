@@ -58,12 +58,21 @@ void translate_ctrl_standard_to_api(const void *hfi_data, void *api_data);
 void translate_ctrl_auto_manual_to_hfi(const void *api_data, void *hfi_data);
 void translate_ctrl_auto_manual_to_api(const void *hfi_data, void *api_data);
 
-void translate_ctrl_two_value_to_hfi(const void *api_data, void *hfi_data);
-void translate_ctrl_two_value_to_api(const void *hfi_data, void *api_data);
+void translate_range_mapping_to_hfi(const void *api_data, void *hfi_data);
+void translate_range_mapping_to_api(const void *hfi_data, void *api_data);
 
 void translate_active_region_param_to_hfi(const void *api_data,
 		void *hfi_data);
 void translate_active_region_result_to_api(const void *hfi_data,
 		void *api_data);
+
+void translate_deinterlacing_mode_to_hfi(const void *api_data, void *hfi_data);
+void translate_deinterlacing_mode_to_api(const void *hfi_data, void *api_data);
+
+void translate_hqv_to_hfi(const void *api_data, void *hfi_data);
+void translate_hqv_to_api(const void *hfi_data, void *api_data);
+
+void translate_timestamp_to_hfi(const void *api_data, void *hfi_data);
+void translate_timestamp_to_api(const void *hfi_data, void *api_data);
 
 #endif /* _H_VPU_TRANSLATE_H_ */
