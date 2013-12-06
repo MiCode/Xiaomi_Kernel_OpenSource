@@ -870,7 +870,7 @@ EXPORT_SYMBOL(subsystem_crashed);
 
 void subsys_set_crash_status(struct subsys_device *dev, bool crashed)
 {
-	dev->crashed = true;
+	dev->crashed = crashed;
 }
 
 bool subsys_get_crash_status(struct subsys_device *dev)
