@@ -11,16 +11,19 @@
  */
 
 #include <linux/export.h>
+#include <linux/err.h>
 #include <linux/init.h>
+#include <linux/ipc_logging.h>
 #include <linux/kernel.h>
 #include <linux/moduleparam.h>
-#include <linux/printk.h>
 #include <linux/notifier.h>
 #include <linux/of.h>
-#include <linux/ipc_logging.h>
+#include <linux/of_platform.h>
+#include <linux/platform_device.h>
+#include <linux/printk.h>
+#include <linux/slab.h>
+#include <linux/stat.h>
 
-#include <mach/board.h>
-#include <mach/msm_iomap.h>
 #include <mach/msm_smem.h>
 #include <mach/ramdump.h>
 #include <mach/subsystem_notif.h>
