@@ -20,10 +20,12 @@ The following properties are optional as a bus might not support
 these features:
 
 qcom,ntieredslaves:	Number of tiered slaves on the bus.
-qcom,qos-freq:		QoS frequency (In Hz)
+qcom,qos-freq:		QoS frequency (In KHz)
 qcom,hw-sel:		A string which decides whether QoS data
 			should be sent to RPM, set using BIMC or NoCs.
 			It can be set to "RPM", "NoC" or "BIMC".
+qcom,qos-baseoffset:	Base address offset of QoS registers from the bus device
+			base address.
 qcom,rpm-en:		A boolean flag indicating whether RPM transactions are
 			supported for nodes of the bus.
 qcom,ahb:		A boolean flag indicating whether the bus is ahb type.
