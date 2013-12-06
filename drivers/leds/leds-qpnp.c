@@ -2761,7 +2761,7 @@ static int __devinit qpnp_get_config_flash(struct qpnp_led_data *led,
 
 	rc = of_property_read_u32(node, "qcom,duration", &val);
 	if (!rc)
-		led->flash_cfg->duration = (((u8) val) - 10) / 10;
+		led->flash_cfg->duration = (u8)((val - 10) / 10);
 	else if (rc == -EINVAL)
 		led->flash_cfg->duration = FLASH_DURATION_200ms;
 	else
