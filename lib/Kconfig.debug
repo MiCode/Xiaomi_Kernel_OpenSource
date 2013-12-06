@@ -291,6 +291,15 @@ config SCHED_DEBUG
 	  that can help debug the scheduler. The runtime overhead of this
 	  option is minimal.
 
+config SYSRQ_SCHED_DEBUG
+	bool "Print scheduling debugging info from sysrq-trigger"
+	depends on SCHED_DEBUG
+	default y
+	help
+	  If you say Y here, the "show-task-states(T)" and
+	  "show-blocked-tasks(W)" sysrq-triggers will print additional
+	  scheduling statistics.
+
 config SCHEDSTATS
 	bool "Collect scheduler statistics"
 	depends on DEBUG_KERNEL && PROC_FS
