@@ -26,10 +26,6 @@
 };
 
 &soc {
-	qcom,hdmi_tx@fd922100 {
-		status = "disabled";
-	};
-
 	sound {
 		qcom,model = "apq8084-taiko-mtp-snd-card";
 
@@ -109,6 +105,10 @@
 		qcom,panel-maxy = <2084>;
 		qcom,key-codes = <158 139 102 217>;
 	};
+};
+
+&mdss_hdmi_tx {
+	qcom,conditional-power-on;
 };
 
 #include "dsi-panel-jdi-1080p-video.dtsi"
