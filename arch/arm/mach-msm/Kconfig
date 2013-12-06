@@ -619,6 +619,7 @@ endchoice
 config MSM_PCIE
 	bool "MSM PCIe Controller driver"
 	depends on PCI && PCI_MSI
+	select PCI_DOMAINS
 	help
 	  Enables the PCIe functionality by configures PCIe core on
 	  MSM chipset and by enabling the ARM PCI framework extension.
