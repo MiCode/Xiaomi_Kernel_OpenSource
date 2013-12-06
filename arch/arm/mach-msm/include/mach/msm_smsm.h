@@ -137,8 +137,6 @@ int smsm_state_cb_register(uint32_t smsm_entry, uint32_t mask,
 	void *data);
 int smsm_state_cb_deregister(uint32_t smsm_entry, uint32_t mask,
 	void (*notify)(void *, uint32_t, uint32_t), void *data);
-void smsm_print_sleep_info(uint32_t sleep_delay, uint32_t sleep_limit,
-	uint32_t irq_mask, uint32_t wakeup_reason, uint32_t pending_irqs);
 void smsm_reset_modem(unsigned mode);
 void smsm_reset_modem_cont(void);
 void smd_sleep_exit(void);
@@ -191,11 +189,6 @@ static inline int smsm_state_cb_deregister(uint32_t smsm_entry, uint32_t mask,
 	void (*notify)(void *, uint32_t, uint32_t), void *data)
 {
 	return -ENODEV;
-}
-static inline void smsm_print_sleep_info(uint32_t sleep_delay,
-	uint32_t sleep_limit, uint32_t irq_mask, uint32_t wakeup_reason,
-	uint32_t pending_irqs)
-{
 }
 static inline void smsm_reset_modem(unsigned mode)
 {
