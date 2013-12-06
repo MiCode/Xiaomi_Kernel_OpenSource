@@ -2520,6 +2520,12 @@ void diagfwd_init(void)
 	    && (driver->hdlc_buf = kzalloc(HDLC_MAX, GFP_KERNEL)) == NULL)
 		goto err;
 	kmemleak_not_leak(driver->hdlc_buf);
+	if (driver->user_space_data_buf == NULL)
+		driver->user_space_data_buf = kzalloc(USER_SPACE_DATA,
+							GFP_KERNEL);
+	if (driver->user_space_data_buf == NULL)
+		goto err;
+	kmemleak_not_leak(driver->user_space_data_buf);
 	if (driver->client_map == NULL &&
 	    (driver->client_map = kzalloc
 	     ((driver->num_clients) * sizeof(struct diag_client_map),
@@ -2607,6 +2613,7 @@ err:
 	kfree(driver->pkt_buf);
 	kfree(driver->usb_read_ptr);
 	kfree(driver->apps_rsp_buf);
+	kfree(driver->user_space_data_buf);
 	if (driver->diag_wq)
 		destroy_workqueue(driver->diag_wq);
 }
@@ -2646,5 +2653,6 @@ void diagfwd_exit(void)
 	kfree(driver->pkt_buf);
 	kfree(driver->usb_read_ptr);
 	kfree(driver->apps_rsp_buf);
+	kfree(driver->user_space_data_buf);
 	destroy_workqueue(driver->diag_wq);
 }
