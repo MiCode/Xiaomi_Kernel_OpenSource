@@ -38,7 +38,6 @@
 #include <mach/msm_ipc_logging.h>
 
 #include "ipc_router.h"
-#include "modem_notifier.h"
 #include "msm_ipc_router_security.h"
 
 enum {
