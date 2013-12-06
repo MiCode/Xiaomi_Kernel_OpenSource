@@ -252,7 +252,18 @@ struct adreno_perfcount_group {
 	struct adreno_perfcount_register *regs;
 	unsigned int reg_count;
 	const char *name;
+	unsigned long flags;
 };
+
+/*
+ * ADRENO_PERFCOUNTER_GROUP_FIXED indicates that a perfcounter group is fixed -
+ * instead of having configurable countables like the other groups, registers in
+ * fixed groups have a hardwired countable.  So when the user requests a
+ * countable in one of these groups, that countable should be used as the
+ * register offset to return
+ */
+
+#define ADRENO_PERFCOUNTER_GROUP_FIXED BIT(0)
 
 /**
  * adreno_perfcounts: all available perfcounter groups
@@ -265,7 +276,11 @@ struct adreno_perfcounters {
 };
 
 #define ADRENO_PERFCOUNTER_GROUP(core, name) { core##_perfcounters_##name, \
-	ARRAY_SIZE(core##_perfcounters_##name), __stringify(name) }
+	ARRAY_SIZE(core##_perfcounters_##name), __stringify(name), 0 }
+
+#define ADRENO_PERFCOUNTER_GROUP_FLAGS(core, name, flags) \
+	{ core##_perfcounters_##name, \
+	ARRAY_SIZE(core##_perfcounters_##name), __stringify(name), flags }
 
 /**
  * adreno_regs: List of registers that are used in kgsl driver for all

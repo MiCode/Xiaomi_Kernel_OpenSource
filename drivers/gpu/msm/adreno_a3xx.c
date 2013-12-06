@@ -3945,9 +3945,11 @@ static struct adreno_perfcount_group a3xx_perfcounter_groups[] = {
 	ADRENO_PERFCOUNTER_GROUP(a3xx, tp),
 	ADRENO_PERFCOUNTER_GROUP(a3xx, sp),
 	ADRENO_PERFCOUNTER_GROUP(a3xx, rb),
-	ADRENO_PERFCOUNTER_GROUP(a3xx, pwr),
+	ADRENO_PERFCOUNTER_GROUP_FLAGS(a3xx, pwr,
+		ADRENO_PERFCOUNTER_GROUP_FIXED),
 	ADRENO_PERFCOUNTER_GROUP(a3xx, vbif),
-	ADRENO_PERFCOUNTER_GROUP(a3xx, vbif_pwr),
+	ADRENO_PERFCOUNTER_GROUP_FLAGS(a3xx, vbif_pwr,
+		ADRENO_PERFCOUNTER_GROUP_FIXED),
 };
 
 static struct adreno_perfcounters a3xx_perfcounters = {
