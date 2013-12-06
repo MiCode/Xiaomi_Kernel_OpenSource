@@ -100,6 +100,12 @@ enum msm_hdmi_supported_audio_sample_rates {
 	AUDIO_SAMPLE_RATE_MAX
 };
 
+enum hdmi_tx_hpd_states {
+	HPD_OFF,
+	HPD_ON,
+	HPD_ON_CONDITIONAL_MTP
+};
+
 /* parameters for clock regeneration */
 struct hdmi_tx_audio_acr {
 	u32 n;
@@ -569,7 +575,13 @@ static ssize_t hdmi_tx_sysfs_wta_hpd(struct device *dev,
 	    (!hdmi_ctrl->mhl_hpd_on || hdmi_ctrl->hpd_feature_on))
 		return 0;
 
-	if (0 == hpd && hdmi_ctrl->hpd_feature_on) {
+	switch (hpd) {
+	case HPD_OFF:
+		if (!hdmi_ctrl->hpd_feature_on) {
+			DEV_DBG("%s: HPD is already off\n", __func__);
+			return ret;
+		}
+
 		rc = hdmi_tx_sysfs_enable_hpd(hdmi_ctrl, false);
 
 		if (hdmi_ctrl->panel_power_on && hdmi_ctrl->hpd_state) {
@@ -580,11 +592,37 @@ static ssize_t hdmi_tx_sysfs_wta_hpd(struct device *dev,
 		hdmi_tx_send_cable_notification(hdmi_ctrl, 0);
 		DEV_DBG("%s: Hdmi state switch to %d\n", __func__,
 			hdmi_ctrl->sdev.state);
-	} else if (1 == hpd && !hdmi_ctrl->hpd_feature_on) {
+		break;
+	case HPD_ON:
+		if (hdmi_ctrl->pdata.cond_power_on) {
+			DEV_ERR("%s: hpd state %d not allowed w/ cond. hpd\n",
+				__func__, hpd);
+			return ret;
+		}
+
+		if (hdmi_ctrl->hpd_feature_on) {
+			DEV_DBG("%s: HPD is already on\n", __func__);
+			return ret;
+		}
+
 		rc = hdmi_tx_sysfs_enable_hpd(hdmi_ctrl, true);
-	} else {
-		DEV_DBG("%s: hpd is already '%s'. return\n", __func__,
-			hdmi_ctrl->hpd_feature_on ? "enabled" : "disabled");
+		break;
+	case HPD_ON_CONDITIONAL_MTP:
+		if (!hdmi_ctrl->pdata.cond_power_on) {
+			DEV_ERR("%s: hpd state %d not allowed w/o cond. hpd\n",
+				__func__, hpd);
+			return ret;
+		}
+
+		if (hdmi_ctrl->hpd_feature_on) {
+			DEV_DBG("%s: HPD is already on\n", __func__);
+			return ret;
+		}
+
+		rc = hdmi_tx_sysfs_enable_hpd(hdmi_ctrl, true);
+		break;
+	default:
+		DEV_ERR("%s: Invalid HPD state requested\n", __func__);
 		return ret;
 	}
 
@@ -3789,6 +3827,9 @@ static int hdmi_tx_get_dt_data(struct platform_device *pdev,
 			&tmp);
 		pdata->primary = tmp ? true : false;
 	}
+
+	pdata->cond_power_on = of_property_read_bool(pdev->dev.of_node,
+		"qcom,conditional-power-on");
 
 	return rc;
 
