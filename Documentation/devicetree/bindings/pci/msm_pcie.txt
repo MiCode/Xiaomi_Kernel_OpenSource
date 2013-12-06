@@ -9,7 +9,7 @@ Required properties:
   - #address-cells: Should provide a value of 0.
   - reg: should contain PCIe register maps.
   - reg-names: indicates various resources passed to driver by name.
-		Should be "parf", "dm_core", "elbi", "conf", "bars", "phy".
+		Should be "parf", "phy", "dm_core", "elbi", "conf", "io", "bars".
 		These correspond to different modules within the PCIe core.
   - interrupts: Should be in the format <0 1 2> and it is an index to the
 		interrupt-map that contains PCIe related interrupts.
@@ -61,9 +61,10 @@ Example:
 		      <0xff000000 0x1000>,
 		      <0xff001000 0x1000>,
 		      <0xff100000 0x1000>,
-		      <0xff200000 0xe00000>;
+		      <0xff200000 0x100000>,
+		      <0xff300000 0xd00000>;
 		reg-names = "parf", "dm_core", "elbi",
-				"conf", "bars";
+				"conf", "io", "bars";
 		interrupt-parent = <&pcie0>;
 		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11 12>;
 		#interrupt-cells = <1>;

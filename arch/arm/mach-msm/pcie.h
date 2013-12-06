@@ -21,7 +21,7 @@
 #include <mach/msm_pcie.h>
 
 #define MSM_PCIE_MAX_VREG 3
-#define MSM_PCIE_MAX_CLK  6
+#define MSM_PCIE_MAX_CLK 6
 #define MSM_PCIE_MAX_PIPE_CLK 1
 
 #define MAX_RC_NUM 2
@@ -49,6 +49,7 @@ enum msm_pcie_res {
 	MSM_PCIE_RES_DM_CORE,
 	MSM_PCIE_RES_ELBI,
 	MSM_PCIE_RES_CONF,
+	MSM_PCIE_RES_IO,
 	MSM_PCIE_RES_BARS,
 	MSM_PCIE_MAX_RES,
 };
@@ -147,6 +148,7 @@ struct msm_pcie_dev_t {
 	uint32_t                      axi_bar_end;
 
 	struct resource               *dev_mem_res;
+	struct resource               *dev_io_res;
 
 	uint32_t                      wake_n;
 	uint32_t                      vreg_n;

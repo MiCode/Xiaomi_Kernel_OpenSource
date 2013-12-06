@@ -180,6 +180,7 @@ static const struct msm_pcie_res_info_t msm_pcie_res_info[MSM_PCIE_MAX_RES] = {
 	{"dm_core",	0, 0},
 	{"elbi",	0, 0},
 	{"conf",	0, 0},
+	{"io",		0, 0},
 	{"bars",	0, 0}
 };
 
@@ -910,6 +911,8 @@ static int msm_pcie_get_resources(u32 rc_idx, struct platform_device *pdev)
 	dev->conf = dev->res[MSM_PCIE_RES_CONF].base;
 	dev->bars = dev->res[MSM_PCIE_RES_BARS].base;
 	dev->dev_mem_res = dev->res[MSM_PCIE_RES_BARS].resource;
+	dev->dev_io_res = dev->res[MSM_PCIE_RES_IO].resource;
+	dev->dev_io_res->flags = IORESOURCE_IO;
 
 	return ret;
 }
@@ -922,6 +925,7 @@ static void msm_pcie_release_resources(u32 rc_idx)
 	msm_pcie_dev[rc_idx].conf = NULL;
 	msm_pcie_dev[rc_idx].bars = NULL;
 	msm_pcie_dev[rc_idx].dev_mem_res = NULL;
+	msm_pcie_dev[rc_idx].dev_io_res = NULL;
 }
 
 static int msm_pcie_enable(u32 rc_idx, u32 options)
@@ -1105,12 +1109,14 @@ static int msm_pcie_setup(int nr, struct pci_sys_data *sys)
 	 */
 	if (!init) {
 		sys->mem_offset = 0;
+		sys->io_offset = 0;
 		init = true;
 	}
 
 	pci_add_resource(&sys->resources,
+			msm_pcie_dev[pcie_drv.current_rc].dev_io_res);
+	pci_add_resource(&sys->resources,
 			msm_pcie_dev[pcie_drv.current_rc].dev_mem_res);
-
 	return 1;
 }
 
