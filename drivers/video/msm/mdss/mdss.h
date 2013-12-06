@@ -120,6 +120,9 @@ struct mdss_data_type {
 
 	u32 rot_block_size;
 
+	u32 max_bw_low;
+	u32 max_bw_high;
+
 	struct mdss_hw_settings *hw_settings;
 
 	struct mdss_mdp_pipe *vig_pipes;
