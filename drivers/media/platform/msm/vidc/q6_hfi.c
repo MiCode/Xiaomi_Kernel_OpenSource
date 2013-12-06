@@ -13,7 +13,7 @@
 
 #include <linux/slab.h>
 #include <linux/iommu.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include <mach/qdsp6v2/apr.h>
 #include <mach/subsystem_restart.h>
 #include "hfi_packetization.h"

@@ -29,7 +29,7 @@
 #include <linux/dma-mapping.h>
 #include <mach/board.h>
 #include <linux/uaccess.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 
 #include <linux/workqueue.h>
 #include <linux/string.h>

@@ -24,7 +24,7 @@
 #include <asm/sizes.h>
 #include <asm/page.h>
 #include <mach/iommu.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include <mach/msm_iommu_priv.h>
 #include <mach/socinfo.h>
 

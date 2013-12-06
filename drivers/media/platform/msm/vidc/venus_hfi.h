@@ -19,7 +19,7 @@
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
 #include <mach/ocmem.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include "vidc_hfi_api.h"
 #include "vidc_hfi_helper.h"
 #include "vidc_hfi_api.h"

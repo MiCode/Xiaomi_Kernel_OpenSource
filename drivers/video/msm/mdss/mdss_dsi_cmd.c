@@ -21,7 +21,7 @@
 #include <linux/iopoll.h>
 #include <linux/kthread.h>
 
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 
 #include "mdss_dsi_cmd.h"
 #include "mdss_dsi.h"

@@ -20,7 +20,7 @@
 #include <linux/wait.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include <media/msm_vidc.h>
 #include <media/v4l2-subdev.h>
 #include "enc-subdev.h"

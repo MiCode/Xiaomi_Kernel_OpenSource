@@ -23,7 +23,7 @@
 #include <linux/msm_audio_ion.h>
 
 #include <linux/iommu.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 
 struct msm_audio_ion_private {
 	bool smmu_enabled;

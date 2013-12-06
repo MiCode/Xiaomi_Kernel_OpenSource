@@ -17,7 +17,7 @@
 #include <linux/videodev2.h>
 #include <linux/msm_ion.h>
 #include <linux/iommu.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include <mach/iommu.h>
 #include <media/v4l2-dev.h>
 #include <media/v4l2-event.h>

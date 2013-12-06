@@ -15,7 +15,7 @@
 #define _H_VPU_RESOURCES_H_
 
 #include <linux/platform_device.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include <mach/msm_bus.h>
 
 /*

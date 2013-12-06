@@ -19,7 +19,7 @@
 #include <linux/of.h>
 #include <linux/iommu.h>
 #include <mach/iommu.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include <mach/ocmem.h>
 #include <mach/scm.h>
 #include <mach/subsystem_restart.h>

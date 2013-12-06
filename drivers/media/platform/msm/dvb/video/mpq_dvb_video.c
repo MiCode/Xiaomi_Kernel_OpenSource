@@ -32,7 +32,7 @@
 #include <linux/dvb/video.h>
 #include <linux/clk.h>
 #include <linux/timer.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include <media/msm_vidc.h>
 #include "dvbdev.h"
 #include "mpq_adapter.h"

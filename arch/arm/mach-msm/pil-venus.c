@@ -26,7 +26,7 @@
 #include <asm/sizes.h>
 
 #include <mach/iommu.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include <mach/subsystem_restart.h>
 #include <mach/msm_bus_board.h>
 #include <mach/msm_bus.h>
