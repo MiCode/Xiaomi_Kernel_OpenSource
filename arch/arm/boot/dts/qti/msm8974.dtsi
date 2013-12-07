@@ -2723,27 +2723,39 @@
 
 &gdsc_venus {
 	clock-names = "core_clk";
+	clocks = <&clock_mmss clk_venus0_vcodec0_clk>;
 	status = "ok";
 };
 
 &gdsc_mdss {
 	clock-names = "core_clk", "lut_clk";
+	clocks = <&clock_mmss clk_mdss_mdp_clk>,
+	         <&clock_mmss clk_mdss_mdp_lut_clk>;
 	status = "ok";
 };
 
 &gdsc_jpeg {
 	clock-names = "core0_clk", "core1_clk", "core2_clk";
+	clocks = <&clock_mmss clk_camss_jpeg_jpeg0_clk>,
+	         <&clock_mmss clk_camss_jpeg_jpeg1_clk>,
+		 <&clock_mmss clk_camss_jpeg_jpeg2_clk>;
 	status = "ok";
 };
 
 &gdsc_vfe {
 	clock-names = "core0_clk", "core1_clk", "csi0_clk", "csi1_clk",
-			   "cpp_clk";
+		      "cpp_clk";
+	clocks = <&clock_mmss clk_camss_vfe_vfe0_clk>,
+	         <&clock_mmss clk_camss_vfe_vfe1_clk>,
+	         <&clock_mmss clk_camss_csi_vfe0_clk>,
+	         <&clock_mmss clk_camss_csi_vfe1_clk>,
+	         <&clock_mmss clk_camss_vfe_cpp_clk>;
 	status = "ok";
 };
 
 &gdsc_oxili_gx {
 	clock-names = "core_clk";
+	clocks = <&clock_mmss clk_oxili_gfx3d_clk>;
 	status = "ok";
 };
 
