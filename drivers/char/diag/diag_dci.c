@@ -433,6 +433,34 @@ static inline int __diag_dci_query_event_mask(struct diag_dci_client_tbl *entry,
 	return ((*event_mask_ptr & byte_mask) == byte_mask) ? 1 : 0;
 }
 
+static int diag_dci_filter_commands(struct diag_pkt_header_t *header)
+{
+	if (!header)
+		return -ENOMEM;
+
+	switch (header->cmd_code) {
+	case 0x7d: /* Msg Mask Configuration */
+	case 0x73: /* Log Mask Configuration */
+	case 0x81: /* Event Mask Configuration */
+	case 0x82: /* Event Mask Change */
+	case 0x60: /* Event Mask Toggle */
+		return 1;
+	}
+
+	if (header->cmd_code == 0x4b && header->subsys_id == 0x12) {
+		switch (header->subsys_cmd_code) {
+		case 0x60: /* Extended Event Mask Config */
+		case 0x61: /* Extended Msg Mask Config */
+		case 0x62: /* Extended Log Mask Config */
+		case 0x20C: /* Set current Preset ID */
+		case 0x20D: /* Get current Preset ID */
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 static struct dci_pkt_req_entry_t *diag_register_dci_transaction(int uid)
 {
 	struct dci_pkt_req_entry_t *entry = NULL;
@@ -986,8 +1014,8 @@ static int diag_send_dci_pkt(struct diag_master_table entry,
 int diag_process_dci_transaction(unsigned char *buf, int len)
 {
 	unsigned char *temp = buf;
-	uint16_t subsys_cmd_code, log_code, item_num;
-	int subsys_id, cmd_code, ret = -1, found = 0;
+	uint16_t log_code, item_num;
+	int ret = -1, found = 0, req_uid;
 	struct diag_master_table entry;
 	int count, set_mask, num_codes, bit_index, event_id, offset = 0, i;
 	unsigned int byte_index, read_len = 0;
@@ -995,6 +1023,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 	uint8_t *event_mask_ptr;
 	struct diag_dci_client_tbl *dci_entry = NULL;
 	struct dci_pkt_req_entry_t *req_entry = NULL;
+	struct diag_pkt_header_t *header = NULL;
 
 	if (!temp) {
 		pr_err("diag: Invalid buffer in %s\n", __func__);
@@ -1008,59 +1037,55 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 								__func__);
 			return -EIO;
 		}
-		/* enter this UID into kernel table and return index */
-		req_entry = diag_register_dci_transaction(*(int *)temp);
-		if (!req_entry) {
-			pr_alert("diag: registering new DCI transaction failed\n");
-			return DIAG_DCI_NO_REG;
-		}
+		req_uid = *(int *)temp;
 		temp += sizeof(int);
-		/*
-		 * Check for registered peripheral and fwd pkt to
-		 * appropriate proc
-		 */
-		cmd_code = (int)(*(char *)temp);
-		temp++;
-		subsys_id = (int)(*(char *)temp);
-		temp++;
-		subsys_cmd_code = *(uint16_t *)temp;
-		temp += sizeof(uint16_t);
-		read_len += sizeof(int) + 2 + sizeof(uint16_t);
+		header = (struct diag_pkt_header_t *)temp;
+		temp += sizeof(struct diag_pkt_header_t);
+		read_len = sizeof(int) + sizeof(struct diag_pkt_header_t);
 		if (read_len >= USER_SPACE_DATA) {
 			pr_err("diag: dci: Invalid length in %s\n", __func__);
 			return -EIO;
 		}
-		pr_debug("diag: %d %d %d", cmd_code, subsys_id,
-			subsys_cmd_code);
+		/* check if the command is allowed on DCI */
+		if (diag_dci_filter_commands(header)) {
+			pr_debug("diag: command not supported %d %d %d",
+				 header->cmd_code,
+				 header->subsys_id,
+				 header->subsys_cmd_code);
+			return DIAG_DCI_SEND_DATA_FAIL;
+		}
+		/* enter this UID into kernel table */
+		req_entry = diag_register_dci_transaction(req_uid);
+		if (!req_entry) {
+			pr_alert("diag: registering new DCI transaction failed\n");
+			return DIAG_DCI_NO_REG;
+		}
 		for (i = 0; i < diag_max_reg; i++) {
 			entry = driver->table[i];
-			if (entry.process_id != NO_PROCESS) {
-				if (entry.cmd_code == cmd_code &&
-					entry.subsys_id == subsys_id &&
-					entry.cmd_code_lo <= subsys_cmd_code &&
-					entry.cmd_code_hi >= subsys_cmd_code) {
+			if (entry.process_id == NO_PROCESS)
+				continue;
+			if (entry.cmd_code == header->cmd_code &&
+			    entry.subsys_id == header->subsys_id &&
+			    entry.cmd_code_lo <= header->subsys_cmd_code &&
+			    entry.cmd_code_hi >= header->subsys_cmd_code) {
+				ret = diag_send_dci_pkt(entry, buf, len,
+							req_entry->tag);
+			} else if (entry.cmd_code == 255 &&
+				   header->cmd_code == 75) {
+				if (entry.subsys_id == header->subsys_id &&
+				    entry.cmd_code_lo <=
+				    header->subsys_cmd_code &&
+				    entry.cmd_code_hi >=
+				    header->subsys_cmd_code) {
 					ret = diag_send_dci_pkt(entry, buf, len,
 								req_entry->tag);
-				} else if (entry.cmd_code == 255
-					  && cmd_code == 75) {
-					if (entry.subsys_id == subsys_id &&
-						entry.cmd_code_lo <=
-						subsys_cmd_code &&
-						entry.cmd_code_hi >=
-						subsys_cmd_code) {
-						ret = diag_send_dci_pkt(entry,
-								buf, len,
+				}
+			} else if (entry.cmd_code == 255 &&
+				   entry.subsys_id == 255) {
+				if (entry.cmd_code_lo <= header->cmd_code &&
+				    entry.cmd_code_hi >= header->cmd_code) {
+					ret = diag_send_dci_pkt(entry, buf, len,
 								req_entry->tag);
-					}
-				} else if (entry.cmd_code == 255 &&
-					entry.subsys_id == 255) {
-					if (entry.cmd_code_lo <= cmd_code &&
-						entry.cmd_code_hi >=
-							cmd_code) {
-						ret = diag_send_dci_pkt(entry,
-								buf, len,
-								req_entry->tag);
-					}
 				}
 			}
 		}

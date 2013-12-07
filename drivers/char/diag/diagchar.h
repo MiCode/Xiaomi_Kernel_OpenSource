@@ -172,6 +172,12 @@ enum remote_procs {
 	QSC = 5,
 };
 
+struct diag_pkt_header_t {
+	uint8_t cmd_code;
+	uint8_t subsys_id;
+	uint16_t subsys_cmd_code;
+} __packed;
+
 struct diag_master_table {
 	uint16_t cmd_code;
 	uint16_t subsys_id;
