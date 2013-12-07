@@ -1070,12 +1070,12 @@
 };
 
 &gdsc_vfe {
-	qcom,clock-names = "core_clk", "iface_clk", "bus_clk";
+	clock-names = "core_clk", "iface_clk", "bus_clk";
 	status = "ok";
 };
 
 &gdsc_oxili_cx {
-	qcom,clock-names = "core_clk", "iface_clk", "mem_clk";
+	clock-names = "core_clk", "iface_clk", "mem_clk";
 	status = "ok";
 };
 

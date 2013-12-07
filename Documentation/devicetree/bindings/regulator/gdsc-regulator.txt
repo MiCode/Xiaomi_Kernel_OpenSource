@@ -11,7 +11,7 @@ Required properties:
 
 Optional properties:
  - parent-supply:   phandle to the parent supply/regulator node
- - qcom,clock-names: List of string names for core clocks
+ - clock-names:     List of string names for core clocks
  - qcom,retain-mem:  Presence denotes a hardware requirement to leave the
 		     forced core memory retention signals in the core's clock
 		     branch control registers asserted.
@@ -30,5 +30,5 @@ Example:
 		regulator-name = "gdsc_oxili_gx";
 		parent-supply = <&pm8841_s4>;
 		reg = <0xfd8c4024 0x4>;
-		qcom,clock-names = "core_clk";
+		clock-names = "core_clk";
 	};
