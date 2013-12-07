@@ -230,6 +230,8 @@ static unsigned int freq_to_above_hispeed_delay(unsigned int freq)
 		;
 
 	ret = above_hispeed_delay[i];
+	ret = (ret > (1 * USEC_PER_MSEC)) ? (ret - (1 * USEC_PER_MSEC)) : ret;
+
 	spin_unlock_irqrestore(&above_hispeed_delay_lock, flags);
 	return ret;
 }
