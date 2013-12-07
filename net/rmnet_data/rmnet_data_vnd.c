@@ -28,6 +28,7 @@
 #include "rmnet_data_private.h"
 #include "rmnet_map.h"
 #include "rmnet_data_vnd.h"
+#include "rmnet_data_stats.h"
 
 RMNET_LOG_MODULE(RMNET_DATA_LOGMASK_VND);
 
@@ -177,7 +178,7 @@ static netdev_tx_t rmnet_vnd_start_xmit(struct sk_buff *skb,
 		rmnet_egress_handler(skb, &dev_conf->local_ep);
 	} else {
 		dev->stats.tx_dropped++;
-		kfree_skb(skb);
+		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_VND_NO_EGRESS);
 	}
 	return NETDEV_TX_OK;
 }
