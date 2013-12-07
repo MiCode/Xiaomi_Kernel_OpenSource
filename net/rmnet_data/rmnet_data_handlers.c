@@ -22,6 +22,7 @@
 #include "rmnet_data_config.h"
 #include "rmnet_data_vnd.h"
 #include "rmnet_map.h"
+#include "rmnet_data_stats.h"
 
 RMNET_LOG_MODULE(RMNET_DATA_LOGMASK_HANDLER);
 
@@ -149,7 +150,7 @@ static rx_handler_result_t rmnet_bridge_handler(struct sk_buff *skb,
 	if (!ep->egress_dev) {
 		LOGD("Missing egress device for packet arriving on %s",
 		     skb->dev->name);
-		kfree_skb(skb);
+		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_BRDG_NO_EGRESS);
 	} else {
 		rmnet_egress_handler(skb, ep);
 	}
@@ -193,7 +194,7 @@ static rx_handler_result_t __rmnet_deliver_skb(struct sk_buff *skb,
 
 	default:
 		LOGD("Unkown ep mode %d", ep->rmnet_mode);
-		kfree_skb(skb);
+		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_DELIVER_NO_EP);
 		return RX_HANDLER_CONSUMED;
 	}
 }
@@ -220,7 +221,7 @@ static rx_handler_result_t rmnet_ingress_deliver_packet(struct sk_buff *skb,
 	if (!(config->local_ep.refcount)) {
 		LOGD("Packet on %s has no local endpoint configuration",
 			skb->dev->name);
-		kfree_skb(skb);
+		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_IPINGRESS_NO_EP);
 		return RX_HANDLER_CONSUMED;
 	}
 
@@ -258,7 +259,7 @@ static rx_handler_result_t _rmnet_map_ingress_handler(struct sk_buff *skb,
 	if (mux_id >= RMNET_DATA_MAX_LOGICAL_EP) {
 		LOGD("Got packet on %s with bad mux id %d",
 			skb->dev->name, mux_id);
-		kfree_skb(skb);
+		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_MAPINGRESS_BAD_MUX);
 			return RX_HANDLER_CONSUMED;
 	}
 
@@ -268,8 +269,8 @@ static rx_handler_result_t _rmnet_map_ingress_handler(struct sk_buff *skb,
 		LOGD("Packet on %s:%d; has no logical endpoint config",
 		     skb->dev->name, mux_id);
 
-		kfree_skb(skb);
-			return RX_HANDLER_CONSUMED;
+		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_MAPINGRESS_MUX_NO_EP);
+		return RX_HANDLER_CONSUMED;
 	}
 
 	if (config->ingress_data_format & RMNET_INGRESS_FORMAT_DEMUXING)
@@ -305,11 +306,12 @@ static rx_handler_result_t rmnet_map_ingress_handler(struct sk_buff *skb,
 
 	if (config->ingress_data_format & RMNET_INGRESS_FORMAT_DEAGGREGATION) {
 		while ((skbn = rmnet_map_deaggregate(skb, config)) != 0) {
-			LOGD("co=%d", co);
 			_rmnet_map_ingress_handler(skbn, config);
 			co++;
 		}
-		kfree_skb(skb);
+		LOGD("De-aggregated %d packets", co);
+		rmnet_stats_deagg_pkts(co);
+		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_MAPINGRESS_AGGBUF);
 		rc = RX_HANDLER_CONSUMED;
 	} else {
 		rc = _rmnet_map_ingress_handler(skb, config);
@@ -431,7 +433,8 @@ rx_handler_result_t rmnet_ingress_handler(struct sk_buff *skb)
 			} else {
 				LOGM("MAP command packet on %s; %s", dev->name,
 				     "Not configured for MAP commands");
-				kfree_skb(skb);
+				rmnet_kfree_skb(skb,
+				   RMNET_STATS_SKBFREE_INGRESS_NOT_EXPECT_MAPC);
 				return RX_HANDLER_CONSUMED;
 			}
 		} else {
@@ -446,7 +449,8 @@ rx_handler_result_t rmnet_ingress_handler(struct sk_buff *skb)
 			} else {
 				LOGD("MAP packet on %s; MAP not set",
 					dev->name);
-				kfree_skb(skb);
+				rmnet_kfree_skb(skb,
+				   RMNET_STATS_SKBFREE_INGRESS_NOT_EXPECT_MAPD);
 				rc = RX_HANDLER_CONSUMED;
 			}
 			break;
@@ -497,6 +501,7 @@ void rmnet_egress_handler(struct sk_buff *skb,
 {
 	struct rmnet_phys_ep_conf_s *config;
 	struct net_device *orig_dev;
+	int rc;
 	orig_dev = skb->dev;
 	skb->dev = ep->egress_dev;
 
@@ -524,7 +529,7 @@ void rmnet_egress_handler(struct sk_buff *skb,
 		default:
 			LOGD("MAP egress failed on packet on %s",
 			     skb->dev->name);
-			kfree_skb(skb);
+			rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_EGR_MAPFAIL);
 			return;
 		}
 	}
@@ -533,8 +538,10 @@ void rmnet_egress_handler(struct sk_buff *skb,
 		rmnet_vnd_tx_fixup(skb, orig_dev);
 
 	rmnet_print_packet(skb, skb->dev->name, 't');
-	if (dev_queue_xmit(skb) != 0) {
+	rc = dev_queue_xmit(skb);
+	if (rc != 0) {
 		LOGD("Failed to queue packet for transmission on [%s]",
 		      skb->dev->name);
 	}
+	rmnet_stats_queue_xmit(rc, RMNET_STATS_QUEUE_XMIT_EGRESS);
 }

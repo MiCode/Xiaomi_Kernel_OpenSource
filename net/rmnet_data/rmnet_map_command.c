@@ -21,6 +21,7 @@
 #include "rmnet_map.h"
 #include "rmnet_data_private.h"
 #include "rmnet_data_vnd.h"
+#include "rmnet_data_stats.h"
 
 RMNET_LOG_MODULE(RMNET_DATA_LOGMASK_MAPC);
 
@@ -63,7 +64,7 @@ static uint8_t rmnet_map_do_flow_control(struct sk_buff *skb,
 	if (mux_id >= RMNET_DATA_MAX_LOGICAL_EP) {
 		LOGD("Got packet on %s with bad mux id %d",
 		     skb->dev->name, mux_id);
-		kfree_skb(skb);
+		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_MAPC_BAD_MUX);
 		return RX_HANDLER_CONSUMED;
 	}
 
@@ -73,7 +74,7 @@ static uint8_t rmnet_map_do_flow_control(struct sk_buff *skb,
 		LOGD("Packet on %s:%d; has no logical endpoint config",
 		     skb->dev->name, mux_id);
 
-		kfree_skb(skb);
+		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_MAPC_MUX_NO_EP);
 			return RX_HANDLER_CONSUMED;
 	}
 
