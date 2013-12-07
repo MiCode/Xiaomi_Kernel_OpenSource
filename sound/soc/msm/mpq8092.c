@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -149,6 +149,16 @@ struct mpq8092_asoc_mach_data {
 	struct msm_auxpcm_ctrl *sec_auxpcm_ctrl;
 };
 
+static const struct afe_clk_cfg lpass_default = {
+	AFE_API_VERSION_I2S_CONFIG,
+	0,
+	Q6AFE_LPASS_OSR_CLK_12_P288_MHZ,
+	Q6AFE_LPASS_CLK_SRC_INTERNAL,
+	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
+	Q6AFE_LPASS_MODE_BOTH_INVALID,
+	0,
+};
+
 #define DT_PARSE_INDEX  1
 static const char *const spk_function[] = {"Off", "On"};
 static const char *const slim0_rx_ch_text[] = {"One", "Two"};
@@ -210,6 +220,39 @@ static int slim0_rx_sample_rate_get(struct snd_kcontrol *kcontrol,
 	ucontrol->value.integer.value[0] = sample_rate_val;
 	pr_debug("%s: slim0_rx_sample_rate = %d\n", __func__,
 				slim0_rx_sample_rate);
+
+	return 0;
+}
+
+static int lpass_mclk_ctrl(bool enable)
+{
+	struct afe_clk_cfg *lpass_clk = NULL;
+	int ret = 0;
+
+	lpass_clk = kzalloc(sizeof(struct afe_clk_cfg), GFP_KERNEL);
+	if (lpass_clk == NULL) {
+		pr_err("%s:Failed to allocate memory\n", __func__);
+		return -ENOMEM;
+	}
+
+	memcpy(lpass_clk, &lpass_default, sizeof(struct afe_clk_cfg));
+	pr_debug("%s:enable = %d\n", __func__, enable);
+
+	if (enable) {
+		lpass_clk->clk_val2 = Q6AFE_LPASS_OSR_CLK_12_P288_MHZ;
+		lpass_clk->clk_val1 = 0;
+		lpass_clk->clk_set_mode =
+			Q6AFE_LPASS_MODE_CLK2_VALID;
+	} else {
+		lpass_clk->clk_val2 = Q6AFE_LPASS_OSR_CLK_DISABLE;
+		lpass_clk->clk_set_mode =
+			Q6AFE_LPASS_MODE_BOTH_INVALID;
+	}
+	ret = afe_set_lpass_clock(AUDIO_PORT_ID_I2S_RX, lpass_clk);
+	if (ret < 0) {
+		pr_err("%s:afe_set_lpass_clock failed\n", __func__);
+		return ret;
+	}
 
 	return 0;
 }
@@ -775,6 +818,7 @@ static void mpq8092_snd_shudown(struct snd_pcm_substream *substream)
 {
 	pr_debug("%s(): substream = %s stream = %d\n", __func__,
 		 substream->name, substream->stream);
+	lpass_mclk_ctrl(false);
 
 }
 
@@ -782,7 +826,7 @@ static int mpq8092_snd_startup(struct snd_pcm_substream *substream)
 {
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
-	return 0;
+	return lpass_mclk_ctrl(true);
 }
 
 static int msm_snd_hw_params(struct snd_pcm_substream *substream,
@@ -905,7 +949,7 @@ static int mpq8092_prepare_codec_mclk(struct snd_soc_card *card)
 		ret = gpio_request(pdata->mclk_gpio, "TABLA_CODEC_PMIC_MCLK");
 		if (ret) {
 			dev_err(card->dev,
-				"%s: Failed to request taiko mclk gpio %d\n",
+				"%s: Failed to request tabla mclk gpio %d\n",
 				__func__, pdata->mclk_gpio);
 			return ret;
 		}
@@ -1016,11 +1060,6 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC6");
 
 	snd_soc_dapm_sync(dapm);
-
-	if (err) {
-		pr_err("%s: apq8084 mclk_gpio init failed (%d)\n",
-			__func__, err);
-	}
 
 	snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
 				    tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
@@ -1155,8 +1194,8 @@ static struct snd_soc_dai_link mpq8092_common_dai_links[] = {
 		.stream_name = "Slimbus Playback",
 		.cpu_dai_name = "msm-dai-q6-dev.16384",
 		.platform_name = "msm-pcm-routing",
-		.codec_name     = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-rx",
+		.codec_name     = "tabla_codec",
+		.codec_dai_name = "tabla_rx1",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_RX,
 		.init = &msm_audrx_init,
