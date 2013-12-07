@@ -64,6 +64,7 @@ int get_vocvol_cal(struct acdb_cal_block *cal_block);
 int get_sidetone_cal(struct sidetone_cal *cal_data);
 int get_spk_protection_cfg(struct msm_spk_prot_cfg *prot_cfg);
 int get_aanc_cal(struct acdb_cal_block *cal_block);
+int get_spkr_tx_cal(struct acdb_cal_block *cal_block);
 int get_hw_delay(int32_t path, struct hw_delay_entry *delay_info);
 
 #endif

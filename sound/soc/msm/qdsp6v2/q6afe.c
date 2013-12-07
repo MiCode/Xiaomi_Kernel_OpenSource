@@ -29,6 +29,7 @@ enum {
 	AFE_RX_CAL,
 	AFE_TX_CAL,
 	AFE_AANC_TX_CAL,
+	AFE_SPKR_PROT_CAL,
 	MAX_AFE_CAL_TYPES
 };
 
@@ -391,16 +392,25 @@ static void afe_send_cal_block(int32_t path, u16 port_id)
 	struct afe_audioif_config_command_no_payload	afe_cal;
 	atomic_t *hptr;
 	u32 handle;
+	struct msm_spk_prot_cfg prot_cfg;
 
+	/*Get spkr protection cfg data*/
+	get_spk_protection_cfg(&prot_cfg);
+
+	if ((prot_cfg.mode != MSM_SPKR_PROT_DISABLED)
+		&& this_afe.vi_tx_port == port_id)
+		path = AFE_SPKR_PROT_CAL;
 	pr_debug("%s: path %d\n", __func__, path);
-	if (path == AFE_AANC_TX_CAL) {
+	if (path == AFE_AANC_TX_CAL)
 		get_aanc_cal(&cal_block);
-	} else {
+	 else if (path == AFE_SPKR_PROT_CAL)
+		get_spkr_tx_cal(&cal_block);
+	 else
 		get_afe_cal(path, &cal_block);
-	}
 
 	if (cal_block.cal_size <= 0) {
-		pr_debug("%s: No AFE cal to send!\n", __func__);
+		pr_debug("%s: No AFE cal to send! for port %d\n",
+			__func__, port_id);
 		goto done;
 	}
 
