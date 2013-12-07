@@ -134,6 +134,18 @@
 		compatible = "qcom,dummycc";
 		#clock-cells = <1>;
 	};
+
+	qcom,sps@f9984000 {
+		compatible = "qcom,msm_sps";
+		reg-names = "bam_mem", "core_mem";
+		reg = <0xf9984000 0x15000>,
+		      <0xf9999000 0xb000>;
+		interrupts = <0 94 0>;
+		qcom,pipe-attr-ee;
+		clocks = <&clock_rpm clk_pnoc_sps_clk>,
+			 <&clock_gcc clk_gcc_bam_dma_ahb_clk>;
+		clock-names = "dfab_clk", "dma_bam_pclk";
+	};
 };
 
 /include/ "msmplutonium-regulator.dtsi"
