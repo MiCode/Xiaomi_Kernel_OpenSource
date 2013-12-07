@@ -734,6 +734,8 @@ void q6asm_audio_client_free(struct audio_client *ac)
 		}
 	}
 
+	apr_deregister(ac->apr2);
+	ac->apr2 = NULL;
 	apr_deregister(ac->apr);
 	ac->apr = NULL;
 	ac->mmap_apr = NULL;
@@ -814,13 +816,18 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 				(apr_fn)q6asm_callback,\
 				((ac->session) << 8 | 0x0001),\
 				ac);
+
+	if (ac->apr == NULL) {
+		pr_err("%s Registration with APR failed\n", __func__);
+			goto fail;
+	}
 	ac->apr2 = apr_register("ADSP", "ASM", \
 				(apr_fn)q6asm_callback,\
 				((ac->session) << 8 | 0x0002),\
 				ac);
 
-	if (ac->apr == NULL) {
-		pr_err("%s Registration with APR failed\n", __func__);
+	if (ac->apr2 == NULL) {
+		pr_err("%s Registration with APR-2 failed\n", __func__);
 			goto fail;
 	}
 	rtac_set_asm_handle(n, ac->apr);
