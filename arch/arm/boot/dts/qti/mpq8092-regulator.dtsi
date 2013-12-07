@@ -53,15 +53,6 @@
 			status = "okay";
 		};
 
-		pma8084_s6: regulator@2300 {
-			regulator-min-microvolt = <945000>;
-			regulator-max-microvolt = <945000>;
-			qcom,enable-time = <500>;
-			qcom,pull-down-enable = <1>;
-			regulator-always-on;
-			status = "okay";
-		};
-
 		pma8084_s12: regulator@3500 {
 			regulator-min-microvolt = <1500000>;
 			regulator-max-microvolt = <1500000>;
@@ -343,5 +334,86 @@
 			qcom,consumer-supplies = "vdd_dig", "";
 			qcom,use-voltage-corner;
 		 };
+	};
+};
+
+&soc {
+	krait_pdn: krait-pdn@f9011000 {
+		reg = <0xf9011000 0x1000>,
+		      <0xfc4b80b0 8>;
+		reg-names = "apcs_gcc", "phase-scaling-efuse";
+		compatible = "qcom,krait-pdn";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		qcom,pfm-threshold = <76>;
+		qcom,use-phase-switching;
+		qcom,cores-per-phase = <2>;
+		qcom,valid-phases = <1 2>;
+		qcom,phase-coeff-threshold = <2000000 4000000>;
+
+		krait0_vreg: regulator@f9088000 {
+			compatible = "qcom,krait-regulator";
+			regulator-name = "krait0";
+			reg = <0xf9088000 0x1000>, /* APCS_ALIAS0_KPSS_ACS */
+				<0xf908a800 0x1000>; /* APCS_ALIAS0_KPSS_MDD */
+			reg-names = "acs", "mdd";
+			regulator-min-microvolt = <500000>;
+			regulator-max-microvolt = <1100000>;
+			qcom,headroom-voltage = <150000>;
+			qcom,retention-voltage = <675000>;
+			qcom,ldo-default-voltage = <750000>;
+			qcom,ldo-threshold-voltage = <850000>;
+			qcom,ldo-delta-voltage = <25000>;
+			qcom,cpu-num = <0>;
+		};
+
+		krait1_vreg: regulator@f9098000 {
+			compatible = "qcom,krait-regulator";
+			regulator-name = "krait1";
+			reg = <0xf9098000 0x1000>, /* APCS_ALIAS1_KPSS_ACS */
+				<0xf909a800 0x1000>; /* APCS_ALIAS1_KPSS_MDD */
+			reg-names = "acs", "mdd";
+			regulator-min-microvolt = <500000>;
+			regulator-max-microvolt = <1100000>;
+			qcom,headroom-voltage = <150000>;
+			qcom,retention-voltage = <675000>;
+			qcom,ldo-default-voltage = <750000>;
+			qcom,ldo-threshold-voltage = <850000>;
+			qcom,ldo-delta-voltage = <25000>;
+			qcom,cpu-num = <1>;
+		};
+
+		krait2_vreg: regulator@f90a8000 {
+			compatible = "qcom,krait-regulator";
+			regulator-name = "krait2";
+			reg = <0xf90a8000 0x1000>, /* APCS_ALIAS2_KPSS_ACS */
+				<0xf90aa800 0x1000>; /* APCS_ALIAS2_KPSS_MDD */
+			reg-names = "acs", "mdd";
+			regulator-min-microvolt = <500000>;
+			regulator-max-microvolt = <1100000>;
+			qcom,headroom-voltage = <150000>;
+			qcom,retention-voltage = <675000>;
+			qcom,ldo-default-voltage = <750000>;
+			qcom,ldo-threshold-voltage = <850000>;
+			qcom,ldo-delta-voltage = <25000>;
+			qcom,cpu-num = <2>;
+		};
+
+		krait3_vreg: regulator@f90b8000 {
+			compatible = "qcom,krait-regulator";
+			regulator-name = "krait3";
+			reg = <0xf90b8000 0x1000>, /* APCS_ALIAS3_KPSS_ACS */
+				<0xf90ba800 0x1000>; /* APCS_ALIAS3_KPSS_MDD */
+			reg-names = "acs", "mdd";
+			regulator-min-microvolt = <500000>;
+			regulator-max-microvolt = <1100000>;
+			qcom,headroom-voltage = <150000>;
+			qcom,retention-voltage = <675000>;
+			qcom,ldo-default-voltage = <750000>;
+			qcom,ldo-threshold-voltage = <850000>;
+			qcom,ldo-delta-voltage = <25000>;
+			qcom,cpu-num = <3>;
+		};
 	};
 };

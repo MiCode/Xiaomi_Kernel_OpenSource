@@ -36,6 +36,7 @@
 #include <linux/irq.h>
 #include <linux/irqdomain.h>
 #include <linux/regulator/qpnp-regulator.h>
+#include <linux/regulator/krait-regulator.h>
 
 #include "board-dt.h"
 #include "clock.h"
@@ -76,6 +77,7 @@ void __init mpq8092_add_drivers(void)
 	msm_rpm_driver_init();
 	rpm_regulator_smd_driver_init();
 	qpnp_regulator_init();
+	krait_power_init();
 	if (of_board_is_rumi())
 		msm_clock_init(&mpq8092_rumi_clock_init_data);
 	else
