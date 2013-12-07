@@ -136,7 +136,6 @@ struct mdss_data_type {
 
 	struct mdss_fudge_factor ab_factor;
 	struct mdss_fudge_factor ib_factor;
-	struct mdss_fudge_factor high_ib_factor;
 	struct mdss_fudge_factor clk_factor;
 
 	struct mdss_hw_settings *hw_settings;
