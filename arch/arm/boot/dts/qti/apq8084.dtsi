@@ -453,6 +453,9 @@
 		vreg-3.3-supply = <&wlan_vreg>;
 
 		qti,l1ss-supported;
+
+		qcom,msi-gicm-addr = <0xf9040040>;
+		qcom,msi-gicm-base = <0x160>;
 	};
 
 	spmi_bus: qcom,spmi@fc4c0000 {
