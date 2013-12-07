@@ -50,8 +50,8 @@
 					1275000 1275000 1275000 1275000 1275000
 					1275000 1275000>;
 		qti,pvs-corner-ceiling-slow = <1150000 1150000 1275000>;
-		qti,pvs-corner-ceiling-nom  = <1075000 1075000 1200000>;
-		qti,pvs-corner-ceiling-fast = <1050000 1050000 1140000>;
+		qti,pvs-corner-ceiling-nom  = <1075000 1075000 1275000>;
+		qti,pvs-corner-ceiling-fast = <1050000 1050000 1275000>;
 		vdd-apc-supply = <&pm8110_s2>;
 
 		vdd-mx-supply = <&pm8110_l3_ao>;
