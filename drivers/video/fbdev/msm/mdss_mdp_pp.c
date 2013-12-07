@@ -318,7 +318,7 @@ static u32 pp_hist_read(char __iomem *v_addr,
 				struct pp_hist_col_info *hist_info);
 static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix);
 static int pp_hist_disable(struct pp_hist_col_info *hist_info,
-					u32 done_bit, char __iomem *ctl_base);
+					u32 shift, char __iomem *ctl_base);
 static void pp_update_pcc_regs(char __iomem *addr,
 				struct mdp_pcc_cfg_data *cfg_ptr);
 static void pp_update_igc_lut(struct mdp_igc_lut_data *cfg,
@@ -1139,17 +1139,17 @@ int mdss_mdp_pipe_pp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 
 void mdss_mdp_pipe_sspp_term(struct mdss_mdp_pipe *pipe)
 {
-	u32 done_bit;
+	u32 shift;
 	struct pp_hist_col_info *hist_info;
 	char __iomem *ctl_base;
 
 	if (pipe) {
 		if (pipe->pp_res.hist.col_en) {
-			done_bit = 3 << (pipe->num * 4);
+			shift = (pipe->num * 4);
 			hist_info = &pipe->pp_res.hist;
 			ctl_base = pipe->base +
 				MDSS_MDP_REG_VIG_HIST_CTL_BASE;
-			pp_hist_disable(hist_info, done_bit, ctl_base);
+			pp_hist_disable(hist_info, shift, ctl_base);
 		}
 		memset(&pipe->pp_cfg, 0, sizeof(struct mdp_overlay_pp_params));
 		memset(&pipe->pp_res, 0, sizeof(struct mdss_pipe_pp_res));
@@ -2894,11 +2894,12 @@ static u32 pp_hist_read(char __iomem *v_addr,
 /* Assumes that relevant clocks are enabled */
 static int pp_hist_enable(struct pp_hist_col_info *hist_info,
 				struct mdp_histogram_start_req *req,
-				u32 shift_bit, char __iomem *ctl_base)
+				u32 shift, char __iomem *ctl_base)
 {
 	unsigned long flag;
 	int ret = 0;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 intr_mask = 3;
 
 	mutex_lock(&hist_info->hist_mutex);
 	/* check if it is idle */
@@ -2918,7 +2919,7 @@ static int pp_hist_enable(struct pp_hist_col_info *hist_info,
 	hist_info->col_state = HIST_RESET;
 	hist_info->col_en = true;
 	spin_unlock_irqrestore(&hist_info->hist_lock, flag);
-	mdss_mdp_hist_intr_req(&mdata->hist_intr, 3 << shift_bit, true);
+	mdss_mdp_hist_intr_req(&mdata->hist_intr, intr_mask << shift, true);
 	writel_relaxed(req->frame_cnt, ctl_base + 8);
 	/* Kick out reset start */
 	writel_relaxed(1, ctl_base + 4);
@@ -3021,11 +3022,12 @@ hist_exit:
 }
 
 static int pp_hist_disable(struct pp_hist_col_info *hist_info,
-					u32 done_bit, char __iomem *ctl_base)
+					u32 shift, char __iomem *ctl_base)
 {
 	int ret = 0;
 	unsigned long flag;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 intr_mask = 3;
 
 	mutex_lock(&hist_info->hist_mutex);
 	if (hist_info->col_en == false) {
@@ -3038,7 +3040,7 @@ static int pp_hist_disable(struct pp_hist_col_info *hist_info,
 	hist_info->col_en = false;
 	hist_info->col_state = HIST_UNKNOWN;
 	spin_unlock_irqrestore(&hist_info->hist_lock, flag);
-	mdss_mdp_hist_intr_req(&mdata->hist_intr, done_bit, false);
+	mdss_mdp_hist_intr_req(&mdata->hist_intr, intr_mask << shift, false);
 	writel_relaxed(BIT(1), ctl_base);/* cancel */
 	ret = 0;
 exit:
@@ -3050,7 +3052,7 @@ int mdss_mdp_hist_stop(u32 block)
 {
 	int i, ret = 0;
 	char __iomem *ctl_base;
-	u32 dspp_num, disp_num, done_bit;
+	u32 dspp_num, disp_num, shift;
 	struct pp_hist_col_info *hist_info;
 	u32 mixer_cnt, mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
 	struct mdss_mdp_pipe *pipe;
@@ -3092,12 +3094,11 @@ int mdss_mdp_hist_stop(u32 block)
 				pr_warn("Invalid Hist pipe (%d)", i);
 				continue;
 			}
-			done_bit = 3 << (pipe->num * 4);
+			shift = pipe->num * 4;
 			hist_info = &pipe->pp_res.hist;
 			ctl_base = pipe->base +
 				MDSS_MDP_REG_VIG_HIST_CTL_BASE;
-			ret = pp_hist_disable(hist_info, done_bit,
-								ctl_base);
+			ret = pp_hist_disable(hist_info, shift, ctl_base);
 			mdss_mdp_pipe_unmap(pipe);
 			if (ret)
 				goto hist_stop_clk;
@@ -3105,12 +3106,11 @@ int mdss_mdp_hist_stop(u32 block)
 	} else if (PP_LOCAT(block) == MDSS_PP_DSPP_CFG) {
 		for (i = 0; i < mixer_cnt; i++) {
 			dspp_num = mixer_id[i];
-			done_bit = 3 << ((dspp_num * 4) + 12);
+			shift = (dspp_num * 4) + 12;
 			hist_info = &mdss_pp_res->dspp_hist[dspp_num];
 			ctl_base = mdss_mdp_get_dspp_addr_off(dspp_num) +
 				  MDSS_MDP_REG_DSPP_HIST_CTL_BASE;
-			ret = pp_hist_disable(hist_info, done_bit,
-								ctl_base);
+			ret = pp_hist_disable(hist_info, shift, ctl_base);
 			if (ret)
 				goto hist_stop_clk;
 			mdss_pp_res->pp_disp_flags[disp_num] |=
