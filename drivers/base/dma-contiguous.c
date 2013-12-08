@@ -229,11 +229,11 @@ int __init cma_fdt_scan(unsigned long node, const char *uname,
 
 	prop = of_get_flat_dt_prop(node, "#size-cells", NULL);
 	if (prop)
-		size_cells = be32_to_cpu(prop);
+		size_cells = be32_to_cpup(prop);
 
 	prop = of_get_flat_dt_prop(node, "#address-cells", NULL);
 	if (prop)
-		addr_cells = be32_to_cpu(prop);
+		addr_cells = be32_to_cpup(prop);
 
 	prop = of_get_flat_dt_prop(node, "reg", &len);
 	if (!prop || depth != 2)
