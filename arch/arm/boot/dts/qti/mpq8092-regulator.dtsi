@@ -380,6 +380,50 @@
 };
 
 &soc {
+	smb211_vreg: smb211_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "smb211_vreg";
+		regulator-always-on;
+		status = "disabled";
+	};
+
+	smb210_vreg: smb210_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "smb210_vreg";
+		regulator-always-on;
+		status = "disabled";
+	};
+
+	hsusb1_otg: hsusb1_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "hsusb1_vreg";
+		vin-supply = <&smb210_vreg>;
+		startup-delay-us = <16000>;
+		gpio = <&pma8084_gpios 9 0>;
+		enable-active-high;
+		status = "disabled";
+	};
+
+	hsusb2_otg: hsusb2_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "hsusb2_vreg";
+		vin-supply = <&smb210_vreg>;
+		startup-delay-us = <16000>;
+		gpio = <&pma8084_gpios 10 0>;
+		enable-active-high;
+		status = "disabled";
+	};
+
+	usb3_otg: usb3_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "usb3_vreg";
+		vin-supply = <&smb210_vreg>;
+		startup-delay-us = <16000>;
+		gpio = <&pma8084_gpios 8 0>;
+		enable-active-high;
+		status = "disabled";
+	};
+
 	krait_pdn: krait-pdn@f9011000 {
 		reg = <0xf9011000 0x1000>,
 		      <0xfc4b80b0 8>;
