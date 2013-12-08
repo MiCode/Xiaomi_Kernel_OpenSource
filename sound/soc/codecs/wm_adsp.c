@@ -2680,10 +2680,29 @@ static int wm_adsp_stream_capture(struct wm_adsp *adsp)
 	return total_read * WM_ADSP_DATA_WORD_SIZE;
 }
 
+static int wm_adsp_ack_buffer_interrupt(struct wm_adsp *adsp)
+{
+	u32 irq_ack;
+	int ret;
+
+	ret = wm_adsp_host_buffer_read(adsp,
+				       HOST_BUFFER_FIELD(irq_count),
+				       &irq_ack);
+	if (ret < 0)
+		return ret;
+
+	if (!adsp->buffer_drain_pending)
+		irq_ack |= 1;		/* enable further IRQs */
+
+	ret = wm_adsp_host_buffer_write(adsp,
+					HOST_BUFFER_FIELD(irq_ack),
+					irq_ack);
+	return ret;
+}
+
 int wm_adsp_stream_handle_irq(struct wm_adsp *adsp)
 {
 	int ret, bytes_captured;
-	u32 irq_ack;
 
 	ret = wm_adsp_host_buffer_read(adsp,
 				       HOST_BUFFER_FIELD(error),
@@ -2699,18 +2718,7 @@ int wm_adsp_stream_handle_irq(struct wm_adsp *adsp)
 	if (bytes_captured < 0)
 		return bytes_captured;
 
-	ret = wm_adsp_host_buffer_read(adsp,
-				       HOST_BUFFER_FIELD(irq_count),
-				       &irq_ack);
-	if (ret < 0)
-		return ret;
-
-	if (!adsp->buffer_drain_pending)
-		irq_ack |= 1;		/* enable further IRQs */
-
-	ret = wm_adsp_host_buffer_write(adsp,
-					HOST_BUFFER_FIELD(irq_ack),
-					irq_ack);
+	ret = wm_adsp_ack_buffer_interrupt(adsp);
 	if (ret < 0)
 		return ret;
 
@@ -2721,6 +2729,7 @@ EXPORT_SYMBOL_GPL(wm_adsp_stream_handle_irq);
 int wm_adsp_stream_read(struct wm_adsp *adsp, char __user *buf, size_t count)
 {
 	int avail, to_end;
+	int ret;
 
 	if (!adsp->running)
 		return -EIO;
@@ -2758,8 +2767,13 @@ int wm_adsp_stream_read(struct wm_adsp *adsp, char __user *buf, size_t count)
 	adsp->capt_buf.tail += count;
 	adsp->capt_buf.tail &= adsp->capt_buf_size - 1;
 
-	if (adsp->buffer_drain_pending)
+	if (adsp->buffer_drain_pending) {
 		wm_adsp_stream_capture(adsp);
+
+		ret = wm_adsp_ack_buffer_interrupt(adsp);
+		if (ret < 0)
+			return ret;
+	}
 
 	return count;
 }
