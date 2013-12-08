@@ -387,6 +387,12 @@
 		qcom,num-locks = <8>;
 	};
 
+	qcom,msm-adsp-loader {
+		compatible = "qcom,adsp-loader";
+		qcom,adsp-state = <0>;
+		qcom,proc-img-to-load = "modem";
+	};
+
 	qcom_crypto: qcrypto@fd400000 {
 		compatible = "qcom,qcrypto";
 		reg  =  <0xfd400000 0x20000>,
