@@ -2434,7 +2434,7 @@ static int wm_adsp_read_buffer(struct wm_adsp *adsp, int32_t read_index,
 	int i, ret;
 
 	/* Calculate read parameters */
-	for (i = 0; i < wm_adsp_fw[adsp->fw].caps->num_host_regions; ++i) {
+	for (i = 0; i < adsp->firmwares[adsp->fw].caps->num_host_regions; ++i) {
 		if (read_index < adsp->host_regions[i].cumulative_size)
 			break;
 	}
@@ -2482,9 +2482,8 @@ static int wm_adsp_read_buffer(struct wm_adsp *adsp, int32_t read_index,
 
 static int wm_adsp_capture_block(struct wm_adsp *adsp, int *avail)
 {
-	int last_region = wm_adsp_fw[adsp->fw].caps->num_host_regions - 1;
-	int host_size =
-		adsp->host_regions[last_region].cumulative_size;
+	int last_region = adsp->firmwares[adsp->fw].caps->num_host_regions -1;
+	int host_size = adsp->host_regions[last_region].cumulative_size;
 	int num_words;
 	u32 next_read_index, next_write_index;
 	int32_t write_index, read_index;
