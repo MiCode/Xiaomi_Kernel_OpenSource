@@ -146,11 +146,13 @@ DECLARE_EVENT_CLASS(adreno_drawctxt_template,
 	TP_ARGS(drawctxt),
 	TP_STRUCT__entry(
 		__field(unsigned int, id)
+		__field(unsigned int, priority)
 	),
 	TP_fast_assign(
 		__entry->id = drawctxt->base.id;
+		__entry->priority = drawctxt->base.priority;
 	),
-	TP_printk("ctx=%u", __entry->id)
+	TP_printk("ctx=%u priority=%u", __entry->id, __entry->priority)
 );
 
 DEFINE_EVENT(adreno_drawctxt_template, adreno_drawctxt_sleep,
