@@ -336,6 +336,7 @@ struct debugfs_files {
 	struct dentry *tag_stats;
 	struct dentry *show_hba;
 	struct dentry *host_regs;
+	struct dentry *dump_dev_desc;
 #ifdef CONFIG_UFS_FAULT_INJECTION
 	struct fault_attr fail_attr;
 #endif
@@ -664,6 +665,8 @@ static inline int ufshcd_dme_peer_get(struct ufs_hba *hba,
 {
 	return ufshcd_dme_get_attr(hba, attr_sel, mib_val, DME_PEER);
 }
+
+int ufshcd_read_device_desc(struct ufs_hba *hba, u8 *buf, u32 size);
 
 /* variant specific ops structures */
 #ifdef CONFIG_SCSI_UFS_MSM
