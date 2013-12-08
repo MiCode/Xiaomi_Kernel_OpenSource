@@ -294,7 +294,7 @@ struct wm_adsp_buffer_region_def ez2control_regions[] = {
 	},
 };
 
-static const struct wm_adsp_fw_caps ez2control_caps[] = {
+static struct wm_adsp_fw_caps ez2control_caps[] = {
 	{
 		.id = SND_AUDIOCODEC_PCM,
 		.desc = {
@@ -325,7 +325,7 @@ struct wm_adsp_buffer_region_def trace_regions[] = {
 	},
 };
 
-static const struct wm_adsp_fw_caps trace_caps[] = {
+static struct wm_adsp_fw_caps trace_caps[] = {
 	{
 		.id = SND_AUDIOCODEC_PCM,
 		.desc = {
@@ -2105,6 +2105,46 @@ err:
 }
 EXPORT_SYMBOL_GPL(wm_adsp2_event);
 
+static int wm_adsp_of_parse_caps(struct wm_adsp *adsp,
+				 struct device_node *np,
+				 struct wm_adsp_fw_defs *fw)
+{
+	int ret;
+	u32 of_caps[5];
+
+	ret = of_property_read_u32_array(np, "wlf,compr-caps",
+					 of_caps, ARRAY_SIZE(of_caps));
+
+	if (ret >= 0) {
+		fw->num_caps = 1;
+		fw->caps = devm_kzalloc(adsp->dev,
+					sizeof(struct wm_adsp_fw_caps),
+					GFP_KERNEL);
+		if (!fw->caps)
+			return -ENOMEM;
+
+		fw->caps->num_host_regions = ARRAY_SIZE(ez2control_regions);
+		fw->caps->host_region_defs =
+			devm_kzalloc(adsp->dev,
+				     sizeof(ez2control_regions),
+				     GFP_KERNEL);
+		if (!fw->caps->host_region_defs)
+			return -ENOMEM;
+
+		memcpy(fw->caps->host_region_defs,
+		       ez2control_regions,
+		       sizeof(ez2control_regions));
+
+		fw->caps->id = of_caps[0];
+		fw->caps->desc.max_ch = of_caps[1];
+		fw->caps->desc.sample_rates = of_caps[2];
+		fw->caps->desc.formats = of_caps[3];
+		fw->compr_direction = of_caps[4];
+	}
+
+	return ret;
+}
+
 static int wm_adsp_of_parse_firmware(struct wm_adsp *adsp,
 				     struct device_node *np)
 {
@@ -2155,6 +2195,8 @@ static int wm_adsp_of_parse_firmware(struct wm_adsp *adsp,
 					      &adsp->firmwares[i].binfile);
 		if (ret < 0)
 			adsp->firmwares[i].binfile = NULL;
+
+		wm_adsp_of_parse_caps(adsp, fw, &adsp->firmwares[i]);
 
 		i++;
 	}
