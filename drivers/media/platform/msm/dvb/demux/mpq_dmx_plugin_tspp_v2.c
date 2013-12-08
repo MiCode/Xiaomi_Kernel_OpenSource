@@ -3078,7 +3078,7 @@ static int mpq_dmx_tspp2_process_video_headers(struct mpq_feed *mpq_feed,
 		struct dmx_data_ready data;
 		size_t len = 0;
 
-		mpq_dmx_update_decoder_stat(mpq_feed->mpq_demux);
+		mpq_dmx_update_decoder_stat(mpq_feed);
 
 		data.data_length = 0;
 		data.buf.handle = packet.raw_data_handle;

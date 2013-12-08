@@ -249,35 +249,44 @@ static inline int mpq_dmx_get_pattern_params(
  * mpq_dmx_update_decoder_stat -
  * Update decoder output statistics in debug-fs.
  *
- * @mpq_demux: mpq_demux object
+ * @mpq_feed: decoder feed object
  */
-void mpq_dmx_update_decoder_stat(struct mpq_demux *mpq_demux)
+void mpq_dmx_update_decoder_stat(struct mpq_feed *mpq_feed)
 {
 	struct timespec curr_time;
 	u64 delta_time_ms;
+	struct mpq_demux *mpq_demux = mpq_feed->mpq_demux;
+	enum mpq_adapter_stream_if idx;
+
+	if (!dvb_dmx_is_video_feed(mpq_feed->dvb_demux_feed) ||
+		(mpq_feed->video_info.stream_interface >
+		 MPQ_ADAPTER_VIDEO3_STREAM_IF))
+		return;
+
+	idx = mpq_feed->video_info.stream_interface;
 
 	curr_time = current_kernel_time();
-	if (unlikely(!mpq_demux->decoder_out_count)) {
-		mpq_demux->decoder_out_last_time = curr_time;
-		mpq_demux->decoder_out_count++;
+	if (unlikely(!mpq_demux->decoder_stat[idx].out_count)) {
+		mpq_demux->decoder_stat[idx].out_last_time = curr_time;
+		mpq_demux->decoder_stat[idx].out_count++;
 		return;
 	}
 
 	/* calculate time-delta between frame */
 	delta_time_ms = mpq_dmx_calc_time_delta(&curr_time,
-		&mpq_demux->decoder_out_last_time);
+		&mpq_demux->decoder_stat[idx].out_last_time);
 
-	mpq_demux->decoder_out_interval_sum += (u32)delta_time_ms;
+	mpq_demux->decoder_stat[idx].out_interval_sum += (u32)delta_time_ms;
 
-	mpq_demux->decoder_out_interval_average =
-	  mpq_demux->decoder_out_interval_sum /
-	  mpq_demux->decoder_out_count;
+	mpq_demux->decoder_stat[idx].out_interval_average =
+	  mpq_demux->decoder_stat[idx].out_interval_sum /
+	  mpq_demux->decoder_stat[idx].out_count;
 
-	if (delta_time_ms > mpq_demux->decoder_out_interval_max)
-		mpq_demux->decoder_out_interval_max = delta_time_ms;
+	if (delta_time_ms > mpq_demux->decoder_stat[idx].out_interval_max)
+		mpq_demux->decoder_stat[idx].out_interval_max = delta_time_ms;
 
-	mpq_demux->decoder_out_last_time = curr_time;
-	mpq_demux->decoder_out_count++;
+	mpq_demux->decoder_stat[idx].out_last_time = curr_time;
+	mpq_demux->decoder_stat[idx].out_count++;
 }
 
 /*
@@ -392,6 +401,10 @@ static const struct file_operations sdmx_debug_fops = {
 /* Extend dvb-demux debugfs with common plug-in entries */
 void mpq_dmx_init_debugfs_entries(struct mpq_demux *mpq_demux)
 {
+	int i;
+	char file_name[50];
+	struct dentry *debugfs_decoder_dir;
+
 	/*
 	 * Extend dvb-demux debugfs with HW statistics.
 	 * Note that destruction of debugfs directory is done
@@ -435,47 +448,62 @@ void mpq_dmx_init_debugfs_entries(struct mpq_demux *mpq_demux)
 		mpq_demux->demux.dmx.debugfs_demux_dir,
 		&mpq_demux->hw_notification_min_size);
 
-	debugfs_create_u32(
-		"decoder_drop_count",
-		S_IRUGO | S_IWUSR | S_IWGRP,
-		mpq_demux->demux.dmx.debugfs_demux_dir,
-		&mpq_demux->decoder_drop_count);
+	debugfs_decoder_dir = debugfs_create_dir("decoder",
+		mpq_demux->demux.dmx.debugfs_demux_dir);
 
-	debugfs_create_u32(
-		"decoder_out_count",
-		S_IRUGO | S_IWUSR | S_IWGRP,
-		mpq_demux->demux.dmx.debugfs_demux_dir,
-		&mpq_demux->decoder_out_count);
+	for (i = 0;
+		 debugfs_decoder_dir &&
+		 (i < MPQ_ADAPTER_MAX_NUM_OF_INTERFACES);
+		 i++) {
+		snprintf(file_name, 50, "decoder%d_drop_count", i);
+		debugfs_create_u32(
+			file_name,
+			S_IRUGO,
+			debugfs_decoder_dir,
+			&mpq_demux->decoder_stat[i].drop_count);
 
-	debugfs_create_u32(
-		"decoder_out_interval_sum",
-		S_IRUGO | S_IWUSR | S_IWGRP,
-		mpq_demux->demux.dmx.debugfs_demux_dir,
-		&mpq_demux->decoder_out_interval_sum);
+		snprintf(file_name, 50, "decoder%d_out_count", i);
+		debugfs_create_u32(
+			file_name,
+			S_IRUGO,
+			debugfs_decoder_dir,
+			&mpq_demux->decoder_stat[i].out_count);
 
-	debugfs_create_u32(
-		"decoder_out_interval_average",
-		S_IRUGO | S_IWUSR | S_IWGRP,
-		mpq_demux->demux.dmx.debugfs_demux_dir,
-		&mpq_demux->decoder_out_interval_average);
+		snprintf(file_name, 50, "decoder%d_out_interval_sum", i);
+		debugfs_create_u32(
+			file_name,
+			S_IRUGO,
+			debugfs_decoder_dir,
+			&mpq_demux->decoder_stat[i].out_interval_sum);
 
-	debugfs_create_u32(
-		"decoder_out_interval_max",
-		S_IRUGO | S_IWUSR | S_IWGRP,
-		mpq_demux->demux.dmx.debugfs_demux_dir,
-		&mpq_demux->decoder_out_interval_max);
+		snprintf(file_name, 50, "decoder%d_out_interval_average", i);
+		debugfs_create_u32(
+			file_name,
+			S_IRUGO,
+			debugfs_decoder_dir,
+			&mpq_demux->decoder_stat[i].out_interval_average);
 
-	debugfs_create_u32(
-		"decoder_ts_errors",
-		S_IRUGO | S_IWUSR | S_IWGRP,
-		mpq_demux->demux.dmx.debugfs_demux_dir,
-		&mpq_demux->decoder_ts_errors);
+		snprintf(file_name, 50, "decoder%d_out_interval_max", i);
+		debugfs_create_u32(
+			file_name,
+			S_IRUGO,
+			debugfs_decoder_dir,
+			&mpq_demux->decoder_stat[i].out_interval_max);
 
-	debugfs_create_u32(
-		"decoder_cc_errors",
-		S_IRUGO | S_IWUSR | S_IWGRP,
-		mpq_demux->demux.dmx.debugfs_demux_dir,
-		&mpq_demux->decoder_cc_errors);
+		snprintf(file_name, 50, "decoder%d_ts_errors", i);
+		debugfs_create_u32(
+			file_name,
+			S_IRUGO,
+			debugfs_decoder_dir,
+			&mpq_demux->decoder_stat[i].ts_errors);
+
+		snprintf(file_name, 50, "decoder%d_cc_errors", i);
+		debugfs_create_u32(
+			file_name,
+			S_IRUGO,
+			debugfs_decoder_dir,
+			&mpq_demux->decoder_stat[i].cc_errors);
+	}
 
 	debugfs_create_u32(
 		"sdmx_process_count",
@@ -1451,12 +1479,14 @@ int mpq_dmx_init_video_feed(struct mpq_feed *mpq_feed)
 	feed_data->ts_dropped_bytes = 0;
 	feed_data->last_pkt_index = -1;
 
-	mpq_demux->decoder_drop_count = 0;
-	mpq_demux->decoder_out_count = 0;
-	mpq_demux->decoder_out_interval_sum = 0;
-	mpq_demux->decoder_out_interval_max = 0;
-	mpq_demux->decoder_ts_errors = 0;
-	mpq_demux->decoder_cc_errors = 0;
+	mpq_demux->decoder_stat[feed_data->stream_interface].drop_count = 0;
+	mpq_demux->decoder_stat[feed_data->stream_interface].out_count = 0;
+	mpq_demux->decoder_stat[feed_data->stream_interface].
+		out_interval_sum = 0;
+	mpq_demux->decoder_stat[feed_data->stream_interface].
+		out_interval_max = 0;
+	mpq_demux->decoder_stat[feed_data->stream_interface].ts_errors = 0;
+	mpq_demux->decoder_stat[feed_data->stream_interface].cc_errors = 0;
 
 	return 0;
 
@@ -2316,7 +2346,7 @@ static void mpq_dmx_decoder_frame_closure(struct mpq_demux *mpq_demux,
 			0, /* current write buffer handle */
 			&packet.raw_data_handle);
 
-		mpq_dmx_update_decoder_stat(mpq_demux);
+		mpq_dmx_update_decoder_stat(mpq_feed);
 
 		/* Writing meta-data that includes the framing information */
 		if (mpq_streambuffer_pkt_write(stream_buffer, &packet,
@@ -2384,7 +2414,7 @@ static void mpq_dmx_decoder_pes_closure(struct mpq_demux *mpq_demux,
 		meta_data.packet_type = DMX_PES_PACKET;
 		meta_data.info.pes.stc = feed_data->prev_stc;
 
-		mpq_dmx_update_decoder_stat(mpq_demux);
+		mpq_dmx_update_decoder_stat(mpq_feed);
 
 		if (mpq_streambuffer_pkt_write(stream_buffer, &packet,
 			(u8 *)&meta_data) < 0)
@@ -2603,11 +2633,13 @@ static int mpq_dmx_process_video_packet_framing(
 	/* Update error counters based on TS header */
 	feed_data->ts_packets_num++;
 	feed_data->tei_errs += ts_header->transport_error_indicator;
-	mpq_demux->decoder_ts_errors += ts_header->transport_error_indicator;
+	mpq_demux->decoder_stat[feed_data->stream_interface].ts_errors +=
+		ts_header->transport_error_indicator;
 	mpq_dmx_check_continuity(feed_data,
 				ts_header->continuity_counter,
 				discontinuity_indicator);
-	mpq_demux->decoder_cc_errors += feed_data->continuity_errs;
+	mpq_demux->decoder_stat[feed_data->stream_interface].cc_errors +=
+		feed_data->continuity_errs;
 
 	/* Need to back-up the PTS information of the very first frame */
 	if (feed_data->first_pts_dts_copy) {
@@ -2633,7 +2665,8 @@ static int mpq_dmx_process_video_packet_framing(
 		if (mpq_streambuffer_data_write(stream_buffer,
 					(feed_data->patterns[0]->pattern),
 					feed_data->first_prefix_size) < 0) {
-			mpq_demux->decoder_drop_count +=
+			mpq_demux->decoder_stat
+				[feed_data->stream_interface].drop_count +=
 				feed_data->first_prefix_size;
 			feed_data->ts_dropped_bytes +=
 				feed_data->first_prefix_size;
@@ -2727,7 +2760,9 @@ static int mpq_dmx_process_video_packet_framing(
 			stream_buffer,
 			(buf + ts_payload_offset + bytes_written),
 			bytes_to_write) < 0) {
-			mpq_demux->decoder_drop_count += bytes_to_write;
+			mpq_demux->decoder_stat
+				[feed_data->stream_interface].drop_count +=
+				bytes_to_write;
 			feed_data->ts_dropped_bytes += bytes_to_write;
 			MPQ_DVB_DBG_PRINT(
 				"%s: Couldn't write %d bytes to data buffer\n",
@@ -2768,7 +2803,7 @@ static int mpq_dmx_process_video_packet_framing(
 				0,	/* current write buffer handle */
 				&packet.raw_data_handle);
 
-			mpq_dmx_update_decoder_stat(mpq_demux);
+			mpq_dmx_update_decoder_stat(mpq_feed);
 
 			/*
 			 * writing meta-data that includes
@@ -2812,8 +2847,9 @@ static int mpq_dmx_process_video_packet_framing(
 
 				if (ret < 0) {
 					feed_data->pending_pattern_len = 0;
-					mpq_demux->decoder_drop_count +=
-					 framing_res.info[i].used_prefix_size;
+					mpq_demux->decoder_stat
+						[feed_data->stream_interface].
+						drop_count += bytes_avail;
 					feed_data->ts_dropped_bytes +=
 					 framing_res.info[i].used_prefix_size;
 				} else {
@@ -2869,7 +2905,9 @@ static int mpq_dmx_process_video_packet_framing(
 			pending_data_len);
 
 		if (ret < 0) {
-			mpq_demux->decoder_drop_count += pending_data_len;
+			mpq_demux->decoder_stat
+				[feed_data->stream_interface].drop_count +=
+				pending_data_len;
 			feed_data->ts_dropped_bytes += pending_data_len;
 			MPQ_DVB_DBG_PRINT(
 				"%s: Couldn't write %d bytes to data buffer\n",
@@ -2966,7 +3004,7 @@ static int mpq_dmx_process_video_packet_no_framing(
 				meta_data.packet_type = DMX_PES_PACKET;
 				meta_data.info.pes.stc = feed_data->prev_stc;
 
-				mpq_dmx_update_decoder_stat(mpq_demux);
+				mpq_dmx_update_decoder_stat(mpq_feed);
 
 				if (mpq_streambuffer_pkt_write(
 						stream_buffer,
@@ -3075,17 +3113,20 @@ static int mpq_dmx_process_video_packet_no_framing(
 	/* Update error counters based on TS header */
 	feed_data->ts_packets_num++;
 	feed_data->tei_errs += ts_header->transport_error_indicator;
-	mpq_demux->decoder_ts_errors += ts_header->transport_error_indicator;
+	mpq_demux->decoder_stat[feed_data->stream_interface].ts_errors +=
+		ts_header->transport_error_indicator;
 	mpq_dmx_check_continuity(feed_data,
 				ts_header->continuity_counter,
 				discontinuity_indicator);
-	mpq_demux->decoder_cc_errors += feed_data->continuity_errs;
+	mpq_demux->decoder_stat[feed_data->stream_interface].cc_errors +=
+		feed_data->continuity_errs;
 
 	if (mpq_streambuffer_data_write(
 				stream_buffer,
 				buf+ts_payload_offset,
 				bytes_avail) < 0) {
-		mpq_demux->decoder_drop_count += bytes_avail;
+		mpq_demux->decoder_stat
+			[feed_data->stream_interface].drop_count += bytes_avail;
 		feed_data->ts_dropped_bytes += bytes_avail;
 	} else {
 		feed->peslen += bytes_avail;
@@ -4483,7 +4524,7 @@ static void mpq_sdmx_decoder_filter_results(struct mpq_demux *mpq_demux,
 				"%s: mpq_streambuffer_data_write_deposit failed. ret=%d\n",
 				__func__, ret);
 		}
-		mpq_dmx_update_decoder_stat(mpq_demux);
+		mpq_dmx_update_decoder_stat(mpq_feed);
 		if (mpq_streambuffer_pkt_write(sbuf,
 				&packet,
 				(u8 *)&meta_data) < 0)
