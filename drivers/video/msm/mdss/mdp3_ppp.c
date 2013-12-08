@@ -412,12 +412,47 @@ void mdp3_start_ppp(struct ppp_blit_op *blit_op)
 	mdp3_ppp_kickoff();
 }
 
-static void mdp3_ppp_process_req(struct ppp_blit_op *blit_op,
+static int solid_fill_workaround(struct mdp_blit_req *req,
+						struct ppp_blit_op *blit_op)
+{
+	/* Make width 2 when there is a solid fill of width 1, and make
+	sure width does not become zero while trying to avoid odd width */
+	if (blit_op->dst.roi.width == 1) {
+		if (req->dst_rect.x + 2 > req->dst.width) {
+			pr_err("%s: Unable to handle solid fill of width 1",
+								__func__);
+			return -EINVAL;
+		}
+		blit_op->dst.roi.width = 2;
+	}
+	if (blit_op->src.roi.width == 1) {
+		if (req->src_rect.x + 2 > req->src.width) {
+			pr_err("%s: Unable to handle solid fill of width 1",
+								__func__);
+			return -EINVAL;
+		}
+		blit_op->src.roi.width = 2;
+	}
+
+	/* Avoid odd width, as it could hang ppp during solid fill */
+	blit_op->dst.roi.width = (blit_op->dst.roi.width / 2) * 2;
+	blit_op->src.roi.width = (blit_op->src.roi.width / 2) * 2;
+
+	/* Avoid RGBA format, as it could hang ppp during solid fill */
+	if (blit_op->src.color_fmt == MDP_RGBA_8888)
+		blit_op->src.color_fmt = MDP_RGBX_8888;
+	if (blit_op->dst.color_fmt == MDP_RGBA_8888)
+		blit_op->dst.color_fmt = MDP_RGBX_8888;
+	return 0;
+}
+
+static int mdp3_ppp_process_req(struct ppp_blit_op *blit_op,
 	struct mdp_blit_req *req, struct mdp3_img_data *src_data,
 	struct mdp3_img_data *dst_data)
 {
 	unsigned long srcp0_start, srcp0_len, dst_start, dst_len;
 	uint32_t dst_width, dst_height;
+	int ret = 0;
 
 	srcp0_start = (unsigned long) src_data->addr;
 	srcp0_len = (unsigned long) src_data->len;
@@ -510,24 +545,19 @@ static void mdp3_ppp_process_req(struct ppp_blit_op *blit_op,
 		blit_op->mdp_op |= MDPOP_ASCALE | MDPOP_BLUR;
 
 	if (req->flags & MDP_SOLID_FILL) {
-		blit_op->solid_fill = true;
+		ret = solid_fill_workaround(req, blit_op);
+		if (ret)
+			return ret;
 
-		/* Avoid odd width, as it could hang ppp during solid fill */
-		blit_op->dst.roi.width = (blit_op->dst.roi.width / 2) * 2;
-		blit_op->src.roi.width = (blit_op->src.roi.width / 2) * 2;
-
-		/* Avoid RGBA format, as it could hang ppp during solid fill */
-		if (blit_op->src.color_fmt == MDP_RGBA_8888)
-			blit_op->src.color_fmt = MDP_RGBX_8888;
-		if (blit_op->dst.color_fmt == MDP_RGBA_8888)
-			blit_op->dst.color_fmt = MDP_RGBX_8888;
 		blit_op->solid_fill_color = (req->const_color.g & 0xFF)|
 				(req->const_color.r & 0xFF) << 8 |
 				(req->const_color.b & 0xFF)  << 16 |
 				(req->const_color.alpha & 0xFF) << 24;
+		blit_op->solid_fill = true;
 	} else {
 		blit_op->solid_fill = false;
 	}
+	return ret;
 }
 
 static void mdp3_ppp_tile_workaround(struct ppp_blit_op *blit_op,
@@ -626,6 +656,7 @@ static int mdp3_ppp_blit(struct msm_fb_data_type *mfd,
 	struct mdp3_img_data *dst_data)
 {
 	struct ppp_blit_op blit_op;
+	int ret = 0;
 
 	memset(&blit_op, 0, sizeof(blit_op));
 
@@ -639,7 +670,11 @@ static int mdp3_ppp_blit(struct msm_fb_data_type *mfd,
 		return -EINVAL;
 	}
 
-	mdp3_ppp_process_req(&blit_op, req, src_data, dst_data);
+	ret = mdp3_ppp_process_req(&blit_op, req, src_data, dst_data);
+	if (ret) {
+		pr_err("%s: Failed to process the blit request", __func__);
+		return ret;
+	}
 
 	if (((blit_op.mdp_op & (MDPOP_TRANSP | MDPOP_ALPHAB)) ||
 	     (req->src.format == MDP_ARGB_8888) ||
