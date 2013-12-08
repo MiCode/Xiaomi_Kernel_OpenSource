@@ -403,6 +403,8 @@ static enum msm_pm_time_stats_id msm_pm_retention(bool from_idle)
 {
 	int ret = 0;
 	int cpu = smp_processor_id();
+	int saved_rate = 0;
+	struct clk *cpu_clk = per_cpu(cpu_clks, cpu);
 
 	spin_lock(&retention_lock);
 
@@ -412,10 +414,25 @@ static enum msm_pm_time_stats_id msm_pm_retention(bool from_idle)
 	cpumask_set_cpu(cpu, &retention_cpus);
 	spin_unlock(&retention_lock);
 
+	if (use_acpuclk_apis)
+		saved_rate = acpuclk_power_collapse();
+	else
+		clk_disable(cpu_clk);
+
 	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_POWER_RETENTION, false);
 	WARN_ON(ret);
 
 	msm_arch_idle();
+
+	if (use_acpuclk_apis) {
+		if (acpuclk_set_rate(cpu, saved_rate, SETRATE_PC))
+			pr_err("%s(): Error setting acpuclk_set_rate\n",
+					__func__);
+	} else {
+		if (clk_enable(cpu_clk))
+			pr_err("%s(): Error restoring cpu clk\n", __func__);
+	}
+
 	spin_lock(&retention_lock);
 	cpumask_clear_cpu(cpu, &retention_cpus);
 bailout:
