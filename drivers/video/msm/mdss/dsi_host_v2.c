@@ -432,24 +432,6 @@ void msm_dsi_op_mode_config(int mode, struct mdss_panel_data *pdata)
 	wmb();
 }
 
-int msm_dsi_cmd_reg_tx(u32 data)
-{
-	unsigned char *ctrl_base = dsi_host_private->dsi_base;
-
-	MIPI_OUTP(ctrl_base + DSI_TRIG_CTRL, 0x04);/* sw trigger */
-	MIPI_OUTP(ctrl_base + DSI_CTRL, 0x135);
-	wmb();
-
-	MIPI_OUTP(ctrl_base + DSI_COMMAND_MODE_DMA_CTRL, data);
-	wmb();
-	MIPI_OUTP(ctrl_base + DSI_CMD_MODE_DMA_SW_TRIGGER, 0x01);
-	wmb();
-
-	udelay(300); /*per spec*/
-
-	return 0;
-}
-
 int msm_dsi_cmd_dma_tx(struct dsi_buf *tp)
 {
 	int len, rc;
@@ -521,11 +503,12 @@ int msm_dsi_cmd_dma_rx(struct dsi_buf *rp, int rlen)
 	return 0;
 }
 
-int msm_dsi_cmds_tx(struct mdss_panel_data *pdata,
-			struct dsi_buf *tp, struct dsi_cmd_desc *cmds, int cnt)
+int msm_dsi_cmds_tx(struct mdss_dsi_ctrl_pdata *ctrl,
+			struct dsi_cmd_desc *cmds, int cnt)
 {
+	struct dsi_buf *tp;
 	struct dsi_cmd_desc *cm;
-	u32 dsi_ctrl, ctrl;
+	u32 dsi_ctrl, data;
 	int i, video_mode, rc = 0;
 	unsigned char *ctrl_base = dsi_host_private->dsi_base;
 
@@ -537,12 +520,13 @@ int msm_dsi_cmds_tx(struct mdss_panel_data *pdata,
 	dsi_ctrl = MIPI_INP(ctrl_base + DSI_CTRL);
 	video_mode = dsi_ctrl & 0x02; /* VIDEO_MODE_EN */
 	if (video_mode) {
-		ctrl = dsi_ctrl | 0x04; /* CMD_MODE_EN */
-		MIPI_OUTP(ctrl_base + DSI_CTRL, ctrl);
+		data = dsi_ctrl | 0x04; /* CMD_MODE_EN */
+		MIPI_OUTP(ctrl_base + DSI_CTRL, data);
 	}
 
 	msm_dsi_enable_irq();
 
+	tp = &ctrl->tx_buf;
 	cm = cmds;
 	for (i = 0; i < cnt; i++) {
 		mdss_dsi_buf_init(tp);
@@ -589,15 +573,16 @@ static struct dsi_cmd_desc pkt_size_cmd[] = {
  *
  * ov_mutex need to be acquired before call this function.
  */
-int msm_dsi_cmds_rx(struct mdss_panel_data *pdata,
-			struct dsi_buf *tp, struct dsi_buf *rp,
+int msm_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 			struct dsi_cmd_desc *cmds, int rlen)
 {
+	struct dsi_buf *tp, *rp;
 	int cnt, len, diff, pkt_size, rc = 0;
 	char cmd;
 	unsigned char *ctrl_base = dsi_host_private->dsi_base;
 	u32 dsi_ctrl, data;
 	int video_mode;
+	struct mdss_panel_data *pdata = &ctrl->panel_data;
 
 	/* turn on cmd mode for video mode */
 	dsi_ctrl = MIPI_INP(ctrl_base + DSI_CTRL);
@@ -633,6 +618,9 @@ int msm_dsi_cmds_rx(struct mdss_panel_data *pdata,
 	}
 
 	msm_dsi_enable_irq();
+
+	tp = &ctrl->tx_buf;
+	rp = &ctrl->rx_buf;
 
 	if (!pdata->panel_info.mipi.no_max_pkt_size) {
 		/* packet size need to be set at every read */
@@ -729,6 +717,54 @@ int msm_dsi_cmds_rx(struct mdss_panel_data *pdata,
 msm_dsi_cmds_rx_err:
 	msm_dsi_disable_irq();
 	return rp->len;
+}
+
+void msm_dsi_cmdlist_tx(struct mdss_dsi_ctrl_pdata *ctrl,
+				struct dcs_cmd_req *req)
+{
+	int ret;
+
+	ret = msm_dsi_cmds_tx(ctrl, req->cmds, req->cmds_cnt);
+
+	if (req->cb)
+		req->cb(ret);
+}
+
+void msm_dsi_cmdlist_rx(struct mdss_dsi_ctrl_pdata *ctrl,
+				struct dcs_cmd_req *req)
+{
+	struct dsi_buf *rp;
+	int len = 0;
+
+	if (req->rbuf) {
+		rp = &ctrl->rx_buf;
+		len = msm_dsi_cmds_rx(ctrl, req->cmds, req->rlen);
+		memcpy(req->rbuf, rp->data, rp->len);
+	} else {
+		pr_err("%s: No rx buffer provided\n", __func__);
+	}
+
+	if (req->cb)
+		req->cb(len);
+}
+void msm_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
+{
+	struct dcs_cmd_req *req;
+
+	mutex_lock(&ctrl->cmd_mutex);
+	req = mdss_dsi_cmdlist_get(ctrl);
+
+	if (!req) {
+		mutex_unlock(&ctrl->cmd_mutex);
+		return;
+	}
+
+	if (req->flags & CMD_REQ_RX)
+		msm_dsi_cmdlist_rx(ctrl, req);
+	else
+		msm_dsi_cmdlist_tx(ctrl, req);
+
+	mutex_unlock(&ctrl->cmd_mutex);
 }
 
 static int msm_dsi_cal_clk_rate(struct mdss_panel_data *pdata,
@@ -1106,6 +1142,22 @@ static int msm_dsi_clk_ctrl(struct mdss_panel_data *pdata, int enable)
 	return 0;
 }
 
+void msm_dsi_ctrl_init(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	init_completion(&ctrl->dma_comp);
+	init_completion(&ctrl->mdp_comp);
+	init_completion(&ctrl->video_comp);
+	spin_lock_init(&ctrl->irq_lock);
+	spin_lock_init(&ctrl->mdp_lock);
+	mutex_init(&ctrl->mutex);
+	mutex_init(&ctrl->cmd_mutex);
+	complete(&ctrl->mdp_comp);
+	dsi_buf_alloc(&ctrl->tx_buf, SZ_4K);
+	dsi_buf_alloc(&ctrl->rx_buf, SZ_4K);
+	ctrl->cmdlist_commit = msm_dsi_cmdlist_commit;
+	ctrl->panel_mode = ctrl->panel_data.panel_info.mipi.mode;
+}
+
 static int __devinit msm_dsi_probe(struct platform_device *pdev)
 {
 	struct dsi_interface intf;
@@ -1226,13 +1278,13 @@ static int __devinit msm_dsi_probe(struct platform_device *pdev)
 	intf.cont_on = msm_dsi_cont_on;
 	intf.clk_ctrl = msm_dsi_clk_ctrl;
 	intf.op_mode_config = msm_dsi_op_mode_config;
-	intf.tx = msm_dsi_cmds_tx;
-	intf.rx = msm_dsi_cmds_rx;
 	intf.index = 0;
 	intf.private = NULL;
 	dsi_register_interface(&intf);
 
 	msm_dsi_debug_init();
+
+	msm_dsi_ctrl_init(ctrl_pdata);
 
 	rc = dsi_panel_device_register_v2(pdev, ctrl_pdata);
 	if (rc) {

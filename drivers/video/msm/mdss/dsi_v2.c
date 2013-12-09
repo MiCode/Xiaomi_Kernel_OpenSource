@@ -21,7 +21,6 @@
 #include "dsi_v2.h"
 
 static struct dsi_interface dsi_intf;
-static struct dsi_buf dsi_panel_tx_buf;
 
 static int dsi_off(struct mdss_panel_data *pdata)
 {
@@ -67,21 +66,13 @@ static int dsi_panel_handler(struct mdss_panel_data *pdata, int enable)
 	if (enable) {
 		dsi_ctrl_gpio_request(ctrl_pdata);
 		mdss_dsi_panel_reset(pdata, 1);
-
-		rc = dsi_cmds_tx_v2(pdata, &dsi_panel_tx_buf,
-					ctrl_pdata->on_cmds.cmds,
-					ctrl_pdata->on_cmds.cmd_cnt);
-
+		rc = ctrl_pdata->on(pdata);
 		if (rc)
 			pr_err("dsi_panel_handler panel on failed %d\n", rc);
 	} else {
 		if (dsi_intf.op_mode_config)
 			dsi_intf.op_mode_config(DSI_CMD_MODE, pdata);
-
-		dsi_cmds_tx_v2(pdata, &dsi_panel_tx_buf,
-					ctrl_pdata->off_cmds.cmds,
-					ctrl_pdata->off_cmds.cmd_cnt);
-
+		rc = ctrl_pdata->off(pdata);
 		mdss_dsi_panel_reset(pdata, 0);
 		dsi_ctrl_gpio_free(ctrl_pdata);
 	}
@@ -572,19 +563,12 @@ int dsi_panel_device_register_v2(struct platform_device *dev,
 
 	ctrl_pdata->panel_data.event_handler = dsi_event_handler;
 
-	rc = dsi_buf_alloc(&dsi_panel_tx_buf,
-				ALIGN(DSI_BUF_SIZE,
-				SZ_4K));
-	if (rc)
-		return rc;
-
 	/*
 	 * register in mdp driver
 	 */
 	rc = mdss_register_panel(dev, &(ctrl_pdata->panel_data));
 	if (rc) {
 		dev_err(&dev->dev, "unable to register MIPI DSI panel\n");
-		kfree(dsi_panel_tx_buf.start);
 		return rc;
 	}
 
@@ -595,37 +579,6 @@ int dsi_panel_device_register_v2(struct platform_device *dev,
 void dsi_register_interface(struct dsi_interface *intf)
 {
 	dsi_intf = *intf;
-}
-
-int dsi_cmds_tx_v2(struct mdss_panel_data *pdata,
-			struct dsi_buf *tp, struct dsi_cmd_desc *cmds,
-			int cnt)
-{
-	int rc = 0;
-
-	if (!dsi_intf.tx)
-		return -EINVAL;
-
-	rc = dsi_intf.tx(pdata, tp, cmds, cnt);
-	return rc;
-}
-
-int dsi_cmds_rx_v2(struct mdss_panel_data *pdata,
-			struct dsi_buf *tp, struct dsi_buf *rp,
-			struct dsi_cmd_desc *cmds, int rlen)
-{
-	int rc = 0;
-
-	if (pdata == NULL) {
-		pr_err("%s: Invalid input data\n", __func__);
-		return -EINVAL;
-	}
-
-	if (!dsi_intf.rx)
-		return -EINVAL;
-
-	rc = dsi_intf.rx(pdata, tp, rp, cmds, rlen);
-	return rc;
 }
 
 int dsi_buf_alloc(struct dsi_buf *dp, int size)
