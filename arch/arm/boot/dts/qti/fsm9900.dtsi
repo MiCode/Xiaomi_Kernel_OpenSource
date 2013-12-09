@@ -49,6 +49,7 @@
 	soc: soc { };
 };
 
+#include "msm-gdsc.dtsi"
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
@@ -1027,6 +1028,131 @@
 		compatible = "qcom,android-usb";
 		qcom,android-usb-swfi-latency = <1>;
 	};
+
+	pcie0: qti,pcie@fc520000 {
+		compatible = "qti,msm_pcie";
+		cell-index = <0>;
+		qti,ctrl-amt = <1>;
+
+		reg = <0xfc520000 0x2000>,
+		      <0xfc526000 0x1000>,
+		      <0xff800000 0x1000>,
+		      <0xff801000 0x1000>,
+		      <0xff900000 0x1000>,
+		      <0xffA00000 0x100000>,
+		      <0xffB00000 0x500000>;
+
+		reg-names = "parf", "phy", "dm_core", "elbi",
+				"conf", "io", "bars";
+
+		#address-cells = <0>;
+		interrupt-parent = <&pcie0>;
+		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11 12>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 141 0
+				1 &intc 0 142 0
+				2 &intc 0 143 0
+				3 &intc 0 144 0
+				4 &intc 0 145 0
+				5 &intc 0 146 0
+				6 &intc 0 147 0
+				7 &intc 0 148 0
+				8 &intc 0 149 0
+				9 &intc 0 150 0
+				10 &intc 0 151 0
+				11 &intc 0 152 0
+				12 &msmgpio 35 0x2>;
+		interrupt-names = "int_msi", "int_a", "int_b", "int_c", "int_d",
+				"int_pls_pme", "int_pme_legacy", "int_pls_err",
+				"int_aer_legacy", "int_pls_link_up",
+				"int_pls_link_down", "int_bridge_flush_n",
+				"int_wake";
+
+		perst-gpio = <&msmgpio 33 0>;
+		wake-gpio = <&msmgpio 35 0>;
+		clkreq-gpio = <&msmgpio 32 0>;
+
+		gdsc_vdd-supply = <&gdsc_pcie_0>;
+		vreg-1.8-supply = <&pma8084_l12>;
+		vreg-0.9-supply = <&pma8084_l3>;
+		vreg-3.3-supply = <&pcie0_power_en_vreg>;
+		qti,vreg-0.9-voltage-level = <950000 950000 24000>;
+
+		clock-names = "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
+				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",
+				"pcie_0_mstr_axi_clk", "pcie_0_slv_axi_clk",
+				"pcie_0_ldo";
+		max-clock-frequency-hz = <125000000>, <0>, <1010000>,
+						<0>, <0>, <0>, <0>;
+	};
+
+	pcie1: qti,pcie@fc528000 {
+		status = "disabled";
+		compatible = "qti,msm_pcie";
+		cell-index = <1>;
+		qti,ctrl-amt = <1>;
+
+		reg = <0xfc528000 0x2000>,
+		      <0xfc52e000 0x1000>,
+		      <0xff000000 0x1000>,
+		      <0xff001000 0x1000>,
+		      <0xff100000 0x1000>,
+		      <0xff200000 0x100000>,
+		      <0xff300000 0x600000>;
+
+		reg-names = "parf", "phy", "dm_core", "elbi",
+				"conf", "io", "bars";
+
+		#address-cells = <0>;
+		interrupt-parent = <&pcie1>;
+		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11 12>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 81 0
+				1 &intc 0 82 0
+				2 &intc 0 83 0
+				3 &intc 0 84 0
+				4 &intc 0 85 0
+				5 &intc 0 86 0
+				6 &intc 0 87 0
+				7 &intc 0 88 0
+				8 &intc 0 89 0
+				9 &intc 0 90 0
+				10 &intc 0 91 0
+				11 &intc 0 92 0
+				12 &msmgpio 141 0x2>;
+		interrupt-names = "int_msi", "int_a", "int_b", "int_c", "int_d",
+				"int_pls_pme", "int_pme_legacy", "int_pls_err",
+				"int_aer_legacy", "int_pls_link_up",
+				"int_pls_link_down", "int_bridge_flush_n",
+				"int_wake";
+
+		perst-gpio = <&msmgpio 29 0>;
+		wake-gpio = <&msmgpio 141 0>;
+		clkreq-gpio = <&msmgpio 28 0>;
+
+		gdsc_vdd-supply = <&gdsc_pcie_1>;
+		vreg-1.8-supply = <&pma8084_l12>;
+		vreg-0.9-supply = <&pma8084_l3>;
+		vreg-3.3-supply = <&pcie1_power_en_vreg>;
+		qti,vreg-0.9-voltage-level = <950000 950000 24000>;
+
+		clock-names = "pcie_1_pipe_clk", "pcie_1_ref_clk_src",
+				"pcie_1_aux_clk", "pcie_1_cfg_ahb_clk",
+				"pcie_1_mstr_axi_clk", "pcie_1_slv_axi_clk",
+				"pcie_1_ldo";
+		max-clock-frequency-hz = <125000000>, <0>, <1010000>,
+						<0>, <0>, <0>, <0>;
+	};
+};
+
+&gdsc_pcie_0{
+	status = "ok";
+};
+
+&gdsc_pcie_1{
+	status = "ok";
 };
 
 #include "msm-pma8084.dtsi"
@@ -1199,6 +1325,15 @@
 	};
 
 	gpio@cf00 { /* GPIO 16 */
+		/* PCIe_3p3v_vreg regulator enable */
+		qcom,mode = <1>;                /* Digital output */
+		qcom,output-type = <0>;         /* CMOS logic */
+		qcom,invert = <1>;              /* high */
+		qcom,pull = <5>;                /* no pull */
+		qcom,vin-sel = <2>;             /* VPH_PWR */
+		qcom,src-sel = <0>;             /* Constant */
+		qcom,out-strength = <3>;        /* High */
+		qcom,master-en = <1>;           /* Enable GPIO */
 	};
 
 	gpio@d000 { /* GPIO 17 */
@@ -1217,6 +1352,15 @@
 	};
 
 	gpio@d500 { /* GPIO 22 */
+		/* PCIe_3p3v_vreg regulator enable */
+		qcom,mode = <1>;                /* Digital output */
+		qcom,output-type = <0>;         /* CMOS logic */
+		qcom,invert = <1>;              /* high */
+		qcom,pull = <5>;                /* no pull */
+		qcom,vin-sel = <2>;             /* VPH_PWR */
+		qcom,src-sel = <0>;             /* Constant */
+		qcom,out-strength = <3>;        /* High */
+		qcom,master-en = <1>;           /* Enable GPIO */
 	};
 };
 
