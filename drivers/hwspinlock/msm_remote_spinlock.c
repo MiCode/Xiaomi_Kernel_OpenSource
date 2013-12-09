@@ -419,37 +419,3 @@ int _remote_spin_owner(_remote_spinlock_t *lock)
 }
 EXPORT_SYMBOL(_remote_spin_owner);
 /* end common spinlock API -------------------------------------------------- */
-
-/* remote mutex implementation ---------------------------------------------- */
-int _remote_mutex_init(struct remote_mutex_id *id, _remote_mutex_t *lock)
-{
-	BUG_ON(id == NULL);
-
-	lock->delay_us = id->delay_us;
-	return _remote_spin_lock_init(id->r_spinlock_id, &(lock->r_spinlock));
-}
-EXPORT_SYMBOL(_remote_mutex_init);
-
-void _remote_mutex_lock(_remote_mutex_t *lock)
-{
-	while (!_remote_spin_trylock(&(lock->r_spinlock))) {
-		if (lock->delay_us >= 1000)
-			msleep(lock->delay_us/1000);
-		else
-			udelay(lock->delay_us);
-	}
-}
-EXPORT_SYMBOL(_remote_mutex_lock);
-
-void _remote_mutex_unlock(_remote_mutex_t *lock)
-{
-	_remote_spin_unlock(&(lock->r_spinlock));
-}
-EXPORT_SYMBOL(_remote_mutex_unlock);
-
-int _remote_mutex_trylock(_remote_mutex_t *lock)
-{
-	return _remote_spin_trylock(&(lock->r_spinlock));
-}
-EXPORT_SYMBOL(_remote_mutex_trylock);
-/* end remote mutex implementation ------------------------------------------ */
