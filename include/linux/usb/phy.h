@@ -123,6 +123,9 @@ struct usb_phy {
 			enum usb_device_speed speed);
 	int	(*notify_disconnect)(struct usb_phy *x,
 			enum usb_device_speed speed);
+
+	/* reset the PHY clocks */
+	int	(*reset)(struct usb_phy *x);
 };
 
 /**
@@ -195,6 +198,15 @@ usb_phy_vbus_off(struct usb_phy *x)
 		return 0;
 
 	return x->set_vbus(x, false);
+}
+
+static inline int
+usb_phy_reset(struct usb_phy *x)
+{
+	if (x && x->reset)
+		return x->reset(x);
+
+	return 0;
 }
 
 /* for usb host and peripheral controller drivers */
