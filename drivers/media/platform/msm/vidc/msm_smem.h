@@ -28,41 +28,6 @@ enum smem_prop {
 	SMEM_SECURE = ION_FLAG_SECURE,
 };
 
-/* NOTE: if you change this enum you MUST update the
- * "buffer-type-tz-usage-table" for any affected target
- * in arch/arm/boot/dts/<arch>.dtsi
- */
-enum hal_buffer {
-	HAL_BUFFER_INPUT = 0x1,
-	HAL_BUFFER_OUTPUT = 0x2,
-	HAL_BUFFER_OUTPUT2 = 0x4,
-	HAL_BUFFER_EXTRADATA_INPUT = 0x8,
-	HAL_BUFFER_EXTRADATA_OUTPUT = 0x10,
-	HAL_BUFFER_EXTRADATA_OUTPUT2 = 0x20,
-	HAL_BUFFER_INTERNAL_SCRATCH = 0x40,
-	HAL_BUFFER_INTERNAL_SCRATCH_1 = 0x80,
-	HAL_BUFFER_INTERNAL_SCRATCH_2 = 0x100,
-	HAL_BUFFER_INTERNAL_PERSIST = 0x200,
-	HAL_BUFFER_INTERNAL_PERSIST_1 = 0x400,
-	HAL_BUFFER_INTERNAL_CMD_QUEUE = 0x800,
-};
-
-struct msm_smem {
-	int mem_type;
-	size_t size;
-	void *kvaddr;
-	unsigned long device_addr;
-	u32 flags;
-	void *smem_priv;
-	enum hal_buffer buffer_type;
-};
-
-enum smem_cache_ops {
-	SMEM_CACHE_CLEAN,
-	SMEM_CACHE_INVALIDATE,
-	SMEM_CACHE_CLEAN_INVALIDATE,
-};
-
 void *msm_smem_new_client(enum smem_type mtype,
 				struct msm_vidc_platform_resources *res);
 struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
@@ -73,7 +38,6 @@ int msm_smem_cache_operations(void *clt, struct msm_smem *mem,
 		enum smem_cache_ops);
 struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
 				enum hal_buffer buffer_type);
-int msm_smem_clean_invalidate(void *clt, struct msm_smem *mem);
 int msm_smem_get_domain_partition(void *clt, u32 flags, enum hal_buffer
 		buffer_type, int *domain_num, int *partition_num);
 #endif
