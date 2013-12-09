@@ -2065,8 +2065,11 @@ static void wcd9xxx_mbhc_decide_swch_plug(struct wcd9xxx_mbhc *mbhc)
 	pr_debug("%s: enter\n", __func__);
 
 	WCD9XXX_BCL_ASSERT_LOCKED(mbhc->resmgr);
-	current_source_enable = ((mbhc->mbhc_cfg->cs_enable_flags &
-				  (1 << MBHC_CS_ENABLE_INSERTION)) != 0);
+
+	current_source_enable = (((mbhc->mbhc_cfg->cs_enable_flags &
+		      (1 << MBHC_CS_ENABLE_INSERTION)) != 0) &&
+		     (!(snd_soc_read(mbhc->codec,
+				     mbhc->mbhc_bias_regs.ctl_reg) & 0x80)));
 
 	if (current_source_enable) {
 		wcd9xxx_turn_onoff_current_source(mbhc, true, false);
@@ -2191,9 +2194,10 @@ static bool wcd9xxx_hs_remove_settle(struct wcd9xxx_mbhc *mbhc)
 	unsigned long retry = 0, timeout;
 	bool cs_enable;
 
-	cs_enable = ((mbhc->mbhc_cfg->cs_enable_flags &
-		      (1 << MBHC_CS_ENABLE_REMOVAL)) != 0);
-
+	cs_enable = (((mbhc->mbhc_cfg->cs_enable_flags &
+		      (1 << MBHC_CS_ENABLE_REMOVAL)) != 0) &&
+		     (!(snd_soc_read(mbhc->codec,
+				     mbhc->mbhc_bias_regs.ctl_reg) & 0x80)));
 	if (cs_enable)
 		wcd9xxx_turn_onoff_current_source(mbhc, true, false);
 
@@ -2705,8 +2709,11 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 
 	mbhc = container_of(work, struct wcd9xxx_mbhc, correct_plug_swch);
 	codec = mbhc->codec;
-	current_source_enable = ((mbhc->mbhc_cfg->cs_enable_flags &
-				  (1 << MBHC_CS_ENABLE_POLLING)) != 0);
+
+	current_source_enable = (((mbhc->mbhc_cfg->cs_enable_flags &
+		      (1 << MBHC_CS_ENABLE_POLLING)) != 0) &&
+		     (!(snd_soc_read(codec,
+				     mbhc->mbhc_bias_regs.ctl_reg) & 0x80)));
 
 	wcd9xxx_onoff_ext_mclk(mbhc, true);
 
@@ -4252,7 +4259,8 @@ static int wcd9xxx_event_notify(struct notifier_block *self, unsigned long val,
 		if (mbhc->hph_status & SND_JACK_OC_HPHL)
 			hphlocp_off_report(mbhc, SND_JACK_OC_HPHL);
 		if (!(mbhc->event_state &
-		      (1 << MBHC_EVENT_PA_HPHL | 1 << MBHC_EVENT_PA_HPHR)))
+		      (1 << MBHC_EVENT_PA_HPHL | 1 << MBHC_EVENT_PA_HPHR |
+		       1 << MBHC_EVENT_PRE_TX_3_ON)))
 			wcd9xxx_switch_micbias(mbhc, 0);
 		break;
 	case WCD9XXX_EVENT_POST_HPHR_PA_OFF:
@@ -4263,7 +4271,8 @@ static int wcd9xxx_event_notify(struct notifier_block *self, unsigned long val,
 		if (mbhc->hph_status & SND_JACK_OC_HPHR)
 			hphrocp_off_report(mbhc, SND_JACK_OC_HPHL);
 		if (!(mbhc->event_state &
-		      (1 << MBHC_EVENT_PA_HPHL | 1 << MBHC_EVENT_PA_HPHR)))
+		      (1 << MBHC_EVENT_PA_HPHL | 1 << MBHC_EVENT_PA_HPHR |
+		       1 << MBHC_EVENT_PRE_TX_3_ON)))
 			wcd9xxx_switch_micbias(mbhc, 0);
 		break;
 	/* Clock usage change */
@@ -4344,6 +4353,28 @@ static int wcd9xxx_event_notify(struct notifier_block *self, unsigned long val,
 	case WCD9XXX_EVENT_PRE_BG_MBHC_ON:
 	case WCD9XXX_EVENT_POST_BG_MBHC_ON:
 		/* Not used for now */
+		break;
+	case WCD9XXX_EVENT_PRE_TX_3_ON:
+		/*
+		 * if polling is ON, mbhc micbias not enabled
+		 *  switch micbias source to VDDIO
+		 */
+		set_bit(MBHC_EVENT_PRE_TX_3_ON, &mbhc->event_state);
+		if (!(snd_soc_read(codec, mbhc->mbhc_bias_regs.ctl_reg)
+		      & 0x80) &&
+		    mbhc->polling_active && !mbhc->mbhc_micbias_switched)
+			wcd9xxx_switch_micbias(mbhc, 1);
+		break;
+	case WCD9XXX_EVENT_POST_TX_3_OFF:
+		/*
+		 * Switch back to micbias if HPH PA or TX3 path
+		 * is disabled
+		 */
+		clear_bit(MBHC_EVENT_PRE_TX_3_ON, &mbhc->event_state);
+		if (mbhc->polling_active && mbhc->mbhc_micbias_switched &&
+		    !(mbhc->event_state & (1 << MBHC_EVENT_PA_HPHL |
+		      1 << MBHC_EVENT_PA_HPHR)))
+			wcd9xxx_switch_micbias(mbhc, 0);
 		break;
 	default:
 		WARN(1, "Unknown event %d\n", event);
