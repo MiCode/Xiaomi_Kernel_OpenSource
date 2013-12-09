@@ -33,7 +33,6 @@
 #include <mach/msm_smem.h>
 #include "board-dt.h"
 #include "clock.h"
-#include "modem_notifier.h"
 #include "spm.h"
 
 static struct memtype_reserve msmkrypton_reserve_table[] __initdata = {
@@ -66,7 +65,6 @@ static struct of_dev_auxdata msmkrypton_auxdata_lookup[] __initdata = {
  */
 void __init msmkrypton_add_drivers(void)
 {
-	msm_init_modem_notifier_list();
 	msm_smd_init();
 	msm_rpm_driver_init();
 	rpm_regulator_smd_driver_init();

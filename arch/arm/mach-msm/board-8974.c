@@ -41,7 +41,6 @@
 #include "clock.h"
 #include "spm.h"
 #include "pm.h"
-#include "modem_notifier.h"
 #include "platsmp.h"
 
 
@@ -85,7 +84,6 @@ static void __init msm8974_early_memory(void)
  */
 void __init msm8974_add_drivers(void)
 {
-	msm_init_modem_notifier_list();
 	msm_smd_init();
 	msm_rpm_driver_init();
 	msm_pm_sleep_status_init();
