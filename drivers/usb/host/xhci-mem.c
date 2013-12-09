@@ -320,6 +320,23 @@ static void xhci_reinit_cached_ring(struct xhci_hcd *xhci,
 	INIT_LIST_HEAD(&ring->td_list);
 }
 
+/* Zero an endpoint ring (except for link TRBs clear only cycle bit) and move
+ * the enqueue and dequeue pointers to the beginning of the ring.
+ */
+void xhci_reinit_xfer_ring(struct xhci_ring *ring, unsigned int cycle_state)
+{
+	struct xhci_segment	*seg = ring->first_seg;
+
+	do {
+		memset(seg->trbs, 0,
+				sizeof(union xhci_trb)*(TRBS_PER_SEGMENT - 1));
+		seg->trbs[TRBS_PER_SEGMENT - 1].link.control &= ~TRB_CYCLE;
+		seg = seg->next;
+	} while (seg != ring->first_seg);
+
+	xhci_initialize_ring_info(ring, cycle_state);
+}
+
 /*
  * Expand an existing ring.
  * Look for a cached ring or allocate a new ring which has same segment numbers

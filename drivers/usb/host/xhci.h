@@ -1553,6 +1553,7 @@ struct xhci_hcd {
  */
 #define XHCI_TR_DEQ_ERR_QUIRK	(1 << 19)
 #define XHCI_NO_SELECTIVE_SUSPEND (1 << 20)
+#define XHCI_TR_DEQ_RESET_QUIRK   (1 << 21)
 /*
  * The DWC_usb3 controller has an internal bus interval counter for tracking the
  * microframes. The following is the expected behavior of the counter: If all of
@@ -1749,6 +1750,7 @@ void xhci_slot_copy(struct xhci_hcd *xhci,
 int xhci_endpoint_init(struct xhci_hcd *xhci, struct xhci_virt_device *virt_dev,
 		struct usb_device *udev, struct usb_host_endpoint *ep,
 		gfp_t mem_flags);
+void xhci_reinit_xfer_ring(struct xhci_ring *ring, unsigned int cycle_state);
 void xhci_ring_free(struct xhci_hcd *xhci, struct xhci_ring *ring);
 int xhci_ring_expansion(struct xhci_hcd *xhci, struct xhci_ring *ring,
 				unsigned int num_trbs, gfp_t flags);
