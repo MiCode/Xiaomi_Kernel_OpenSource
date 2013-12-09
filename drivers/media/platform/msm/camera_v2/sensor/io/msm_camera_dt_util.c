@@ -347,8 +347,7 @@ ERROR:
 
 int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 	struct camera_vreg_t *cam_vreg, int num_vreg,
-	struct msm_sensor_power_setting **power_setting,
-	uint16_t *power_setting_size)
+	struct msm_camera_power_ctrl_t *power_info)
 {
 	int rc = 0, i, j;
 	int count = 0;
@@ -356,11 +355,18 @@ int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 	uint32_t *array = NULL;
 	struct msm_sensor_power_setting *ps;
 
-	if (!power_setting || !power_setting_size)
+	struct msm_sensor_power_setting *power_setting;
+	uint16_t *power_setting_size;
+
+	if (!power_info)
 		return -EINVAL;
+
+	power_setting = power_info->power_setting;
+	power_setting_size = &power_info->power_setting_size;
 
 	count = of_property_count_strings(of_node, "qcom,cam-power-seq-type");
 	*power_setting_size = count;
+
 	CDBG("%s qcom,cam-power-seq-type count %d\n", __func__, count);
 
 	if (count <= 0)
@@ -371,7 +377,7 @@ int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
-	*power_setting = ps;
+	power_setting = ps;
 
 	for (i = 0; i < count; i++) {
 		rc = of_property_read_string_index(of_node,
@@ -502,7 +508,6 @@ int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 	}
 	kfree(array);
 	return rc;
-
 ERROR2:
 	kfree(array);
 ERROR1:
@@ -1038,6 +1043,7 @@ power_up_failed:
 		power_setting = &ctrl->power_setting[index];
 		CDBG("%s type %d\n", __func__, power_setting->seq_type);
 		switch (power_setting->seq_type) {
+
 		case SENSOR_CLK:
 			msm_cam_clk_enable(ctrl->dev,
 				&ctrl->clk_info[0],
@@ -1081,12 +1087,34 @@ power_up_failed:
 	return rc;
 }
 
+static struct msm_sensor_power_setting*
+msm_camera_get_power_settings(struct msm_camera_power_ctrl_t *ctrl,
+				enum msm_sensor_power_seq_type_t seq_type,
+				uint16_t seq_val)
+{
+	struct msm_sensor_power_setting *power_setting, *ps = NULL;
+	int idx;
+
+	for (idx = 0; idx < ctrl->power_setting_size; idx++) {
+		power_setting = &ctrl->power_setting[idx];
+		if (power_setting->seq_type == seq_type &&
+			power_setting->seq_val ==  seq_val) {
+			ps = power_setting;
+			return ps;
+		}
+
+	}
+	return ps;
+}
+
 int msm_camera_power_down(struct msm_camera_power_ctrl_t *ctrl,
 	enum msm_camera_device_type_t device_type,
 	struct msm_camera_i2c_client *sensor_i2c_client)
 {
 	int index = 0;
-	struct msm_sensor_power_setting *power_setting = NULL;
+	struct msm_sensor_power_setting *pd = NULL;
+	struct msm_sensor_power_setting *ps;
+
 
 	CDBG("%s:%d\n", __func__, __LINE__);
 	if (!ctrl || !sensor_i2c_client) {
@@ -1099,46 +1127,64 @@ int msm_camera_power_down(struct msm_camera_power_ctrl_t *ctrl,
 		sensor_i2c_client->i2c_func_tbl->i2c_util(
 			sensor_i2c_client, MSM_CCI_RELEASE);
 
-	for (index = (ctrl->power_setting_size - 1); index >= 0; index--) {
+	for (index = 0; index < ctrl->power_down_setting_size; index++) {
 		CDBG("%s index %d\n", __func__, index);
-		power_setting = &ctrl->power_setting[index];
-		CDBG("%s type %d\n", __func__, power_setting->seq_type);
-		switch (power_setting->seq_type) {
+		pd = &ctrl->power_down_setting[index];
+		ps = NULL;
+		CDBG("%s type %d\n", __func__, pd->seq_type);
+		switch (pd->seq_type) {
 		case SENSOR_CLK:
-			msm_cam_clk_enable(ctrl->dev,
-				&ctrl->clk_info[0],
-				(struct clk **)&power_setting->data[0],
-				ctrl->clk_info_size,
-				0);
-			break;
+
+			ps = msm_camera_get_power_settings(ctrl,
+						pd->seq_type,
+						pd->seq_val);
+			if (ps)
+				msm_cam_clk_enable(ctrl->dev,
+					&ctrl->clk_info[0],
+					(struct clk **)&ps->data[0],
+					ctrl->clk_info_size,
+					0);
+			else
+				pr_err("%s error in power up/down seq data\n",
+								__func__);
+				break;
 		case SENSOR_GPIO:
-			if (power_setting->seq_val >= SENSOR_GPIO_MAX ||
+			if (pd->seq_val >= SENSOR_GPIO_MAX ||
 				!ctrl->gpio_conf->gpio_num_info) {
 				pr_err("%s gpio index %d >= max %d\n", __func__,
-					power_setting->seq_val,
+					pd->seq_val,
 					SENSOR_GPIO_MAX);
 				continue;
 			}
 			if (!ctrl->gpio_conf->gpio_num_info->valid
-				[power_setting->seq_val])
+				[pd->seq_val])
 				continue;
 			gpio_set_value_cansleep(
 				ctrl->gpio_conf->gpio_num_info->gpio_num
-				[power_setting->seq_val],
+				[pd->seq_val],
 				ctrl->gpio_conf->gpio_num_info->gpio_num
-				[power_setting->config_val]);
+				[pd->config_val]);
 			break;
 		case SENSOR_VREG:
-			if (power_setting->seq_val >= CAM_VREG_MAX) {
+			if (pd->seq_val >= CAM_VREG_MAX) {
 				pr_err("%s vreg index %d >= max %d\n", __func__,
-					power_setting->seq_val,
+					pd->seq_val,
 					SENSOR_GPIO_MAX);
 				continue;
 			}
-			msm_camera_config_single_vreg(ctrl->dev,
-				&ctrl->cam_vreg[power_setting->seq_val],
-				(struct regulator **)&power_setting->data[0],
-				0);
+
+			ps = msm_camera_get_power_settings(ctrl,
+						pd->seq_type,
+						pd->seq_val);
+
+			if (ps)
+				msm_camera_config_single_vreg(ctrl->dev,
+					&ctrl->cam_vreg[pd->seq_val],
+					(struct regulator **)&ps->data[0],
+					0);
+			else
+				pr_err("%s error in power up/down seq data\n",
+								__func__);
 			break;
 		case SENSOR_I2C_MUX:
 			if (ctrl->i2c_conf && ctrl->i2c_conf->use_i2c_mux)
@@ -1146,14 +1192,14 @@ int msm_camera_power_down(struct msm_camera_power_ctrl_t *ctrl,
 			break;
 		default:
 			pr_err("%s error power seq type %d\n", __func__,
-				power_setting->seq_type);
+				pd->seq_type);
 			break;
 		}
-		if (power_setting->delay > 20) {
-			msleep(power_setting->delay);
-		} else if (power_setting->delay) {
-			usleep_range(power_setting->delay * 1000,
-				(power_setting->delay * 1000) + 1000);
+		if (pd->delay > 20) {
+			msleep(pd->delay);
+		} else if (pd->delay) {
+			usleep_range(pd->delay * 1000,
+				(pd->delay * 1000) + 1000);
 		}
 	}
 	msm_camera_request_gpio_table(
