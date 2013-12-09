@@ -15,4 +15,10 @@ config GENERIC_PHY
 	  phy users can obtain reference to the PHY. All the users of this
 	  framework should select this config.
 
+config PHY_MSM_SATA
+	tristate "MSM SoC SATA 6Gbps PHY driver"
+	depends on OF && ARCH_MSM
+	select GENERIC_PHY
+	help
+	  Support for 6Gbps SATA PHY on MSM chipsets.
 endmenu
