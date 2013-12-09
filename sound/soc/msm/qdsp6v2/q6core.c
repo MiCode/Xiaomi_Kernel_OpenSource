@@ -41,6 +41,11 @@ static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 	uint32_t nseg;
 	int i, j;
 
+	if (data == NULL) {
+		pr_err("%s: data argument is null\n", __func__);
+		return -EINVAL;
+	}
+
 	pr_debug("core msg: payload len = %u, apr resp opcode = 0x%X\n",
 		data->payload_size, data->opcode);
 
