@@ -277,16 +277,12 @@ struct adreno_invalid_countables {
 	int num_countables;
 };
 
-#define ADRENO_PERFCOUNTER_GROUP(core, name) { core##_perfcounters_##name, \
-	ARRAY_SIZE(core##_perfcounters_##name), __stringify(name), 0 }
-
-#define ADRENO_PERFCOUNTER_GROUP_FLAGS(core, name, flags) \
-	{ core##_perfcounters_##name, \
+#define ADRENO_PERFCOUNTER_GROUP_FLAGS(core, offset, name, flags) \
+	[KGSL_PERFCOUNTER_GROUP_##offset] = { core##_perfcounters_##name, \
 	ARRAY_SIZE(core##_perfcounters_##name), __stringify(name), flags }
 
-#define ADRENO_PERFCOUNTER_GROUP_OFF(core, name, offset) \
-	[KGSL_PERFCOUNTER_GROUP_##offset] = { core##_perfcounters_##name, \
-	ARRAY_SIZE(core##_perfcounters_##name), __stringify(name), 0 }
+#define ADRENO_PERFCOUNTER_GROUP(core, offset, name) \
+	ADRENO_PERFCOUNTER_GROUP_FLAGS(core, offset, name, 0)
 
 #define ADRENO_PERFCOUNTER_INVALID_COUNTABLE(name, off) \
 	[KGSL_PERFCOUNTER_GROUP_##off] = { name##_invalid_countables, \
