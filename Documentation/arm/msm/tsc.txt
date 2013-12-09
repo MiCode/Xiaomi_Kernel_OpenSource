@@ -367,11 +367,9 @@ These IOCTLs performs a read/write data transaction of the requested type.
 
 Driver parameters
 =================
-The TSC module receives three parameter:
+The TSC module receives one parameter:
 tsc_iommu_bypass -  0 for using the VBIF, 1 for not using it. Not using the VBIF
 is a debug configuration.
-ts0_config- 1 for TS0-A configuration, 2 for TS0-B configuration.
-ts1_config- 1 for TS1-A configuration, 2 for TS1-B configuration.
 
 Config options
 ==============

@@ -43,7 +43,6 @@
 #include <mach/msm_bus.h>	/* bus client */
 #include <linux/delay.h>	/* usleep function */
 
-
 /*
  * General defines
  */
@@ -62,15 +61,7 @@ static inline u32 GETL_BITS(u32 x, int b0, int b1)
 
 /* Bypass VBIF/IOMMU for debug and bring-up purposes */
 static int tsc_iommu_bypass; /* defualt=0 using iommu */
-static int ts0_config;
-static int ts1_config;
 module_param(tsc_iommu_bypass, int, S_IRUGO | S_IWUSR | S_IWGRP);
-module_param(ts0_config, int, S_IRUGO | S_IWUSR | S_IWGRP);
-module_param(ts1_config, int, S_IRUGO | S_IWUSR | S_IWGRP);
-
-/* TS-in A/B configuration */
-#define TS_A_CONFIG			1
-#define TS_B_CONFIG			2
 
 /* The rate of the clock that control TS from TSC to the CAM */
 #define CICAM_CLK_RATE_12MHZ		12000000
@@ -198,6 +189,16 @@ enum transaction_state {
 };
 
 /**
+ * enum pcmcia_state - states for the pcmcia pinctrl states
+ */
+enum pcmcia_state {
+	DISABLE,
+	PC_CARD,
+	CI_CARD,
+	CI_PLUS
+};
+
+/**
  * struct iommu_info - manage all the iommu information
  *
  * @group:		TSC IOMMU group.
@@ -215,88 +216,78 @@ struct iommu_info {
 };
 
 /**
+ * struct pinctrl_current_state - represent which TLMM pins currently active
+ *
+ * @ts0:		true if TS-in 0 is active, false otherwise.
+ * @ts1:		true if TS-in 1 is active, false otherwise.
+ * @pcmcia_state:	Represent the pcmcia pins state.
+ */
+struct pinctrl_current_state {
+	bool ts0;
+	bool ts1;
+	enum pcmcia_state pcmcia_state;
+};
+/**
  * struct pinctrl_info - manage all the pinctrl information
  *
  * @pinctrl:		TSC pinctrl state holder.
- * @ts0_a_start_active:	pinctrl state to activate TS0-A start signal.
- * @ts0_a_start_sleep:	pinctrl state to suspend TS0-A start signal.
- * @ts0_a_valid_active:	pinctrl state to activate TS0-A valid signal.
- * @ts0_a_valid_sleep:	pinctrl state to suspend TS0-A valid signal.
- * @ts0_a_err_active:	pinctrl state to activate TS0-A err signal.
- * @ts0_a_err_sleep:	pinctrl state to suspend TS0-A err signal.
- * @ts0_a_ser_active:	pinctrl state to activate TS0-A serial data config.
- * @ts0_a_ser_sleep:	pinctrl state to suspend TS0-A serial data config.
- * @ts0_a_par_active:	pinctrl state to activate TS0-A parallel data config.
- * @ts0_a_par_sleep:	pinctrl state to suspend TS0-A parallel data config.
- * @ts0_b_start_active:	pinctrl state to activate TS0-B start signal.
- * @ts0_b_start_sleep:	pinctrl state to suspend TS0-B start signal.
- * @ts0_b_valid_active:	pinctrl state to activate TS0-B valid signal.
- * @ts0_b_valid_sleep:	pinctrl state to suspend TS0-B valid signal.
- * @ts0_b_err_active:	pinctrl state to activate TS0-B err signal.
- * @ts0_b_err_sleep:	pinctrl state to suspend TS0-B err signal.
- * @ts0_b_ser_active:	pinctrl state to activate TS0-B serial data config.
- * @ts0_b_ser_sleep:	pinctrl state to suspend TS0-B serial data config.
- * @ts0_b_par_active:	pinctrl state to activate TS0-B parallel data config.
- * @ts0_b_par_sleep:	pinctrl state to suspend TS0-B parallel data config.
- * @ts1_a_start_active:	pinctrl state to activate TS1-A start signal.
- * @ts1_a_start_sleep:	pinctrl state to suspend TS1-A start signal.
- * @ts1_a_valid_active:	pinctrl state to activate TS1-A valid signal.
- * @ts1_a_valid_sleep:	pinctrl state to suspend TS1-A valid signal.
- * @ts1_a_err_active:	pinctrl state to activate TS1-A err signal.
- * @ts1_a_err_sleep:	pinctrl state to suspend TS1-A err signal.
- * @ts1_a_ser_active:	pinctrl state to activate TS1-A serial data config.
- * @ts1_a_ser_sleep:	pinctrl state to suspend TS1-A serial data config.
- * @ts1_a_par_active:	pinctrl state to activate TS1-A parallel data config.
- * @ts1_a_par_sleep:	pinctrl state to suspend TS1-A parallel data config.
- * @ts1_b_start_active:	pinctrl state to activate TS1-B start signal.
- * @ts1_b_start_sleep:	pinctrl state to suspend TS1-B start signal.
- * @ts1_b_valid_active:	pinctrl state to activate TS1-B valid signal.
- * @ts1_b_valid_sleep:	pinctrl state to suspend TS1-B valid signal.
- * @ts1_b_err_active:	pinctrl state to activate TS1-B err signal.
- * @ts1_b_err_sleep:	pinctrl state to suspend TS1-B err signal.
- * @ts1_b_ser_active:	pinctrl state to activate TS1-B serial data config.
- * @ts1_b_ser_sleep:	pinctrl state to suspend TS1-B serial data config.
+ * @disable:		pinctrl state to disable all the pins.
+ * @ts0:		pinctrl state to activate TS-in 0 alone.
+ * @ts1:		pinctrl state to activate TS-in 1 alone.
+ * @dual_ts:		pinctrl state to activate both TS-in.
+ * @pc_card:		pinctrl state to activate pcmcia upon card insertion.
+ * @ci_card:		pinctrl state to activate pcmcia after personality
+ *			change to CI card.
+ * @ci_plus:		pinctrl state to activate pcmcia after personality
+ *			change to CI+ card.
+ * @ts0_pc_card:	pinctrl state to activate TS-in 0 and pcmcia upon card
+ *			insertion.
+ * @ts0_ci_card:	pinctrl state to activate TS-in 0 and pcmcia after
+ *			personality change to CI card.
+ * @ts0_ci_plus:	pinctrl state to activate TS-in 0 and pcmcia after
+ *			personality change to CI+ card.
+ * @ts1_pc_card:	pinctrl state to activate TS-in 1 and pcmcia upon card
+ *			insertion.
+ * @ts1_ci_card:	pinctrl state to activate TS-in 1 and pcmcia after
+ *			personality change to CI card.
+ * @ts1_ci_plus:	pinctrl state to activate TS-in 1 and pcmcia after
+ *			personality change to CI+ card.
+ * @dual_ts_pc_card:	pinctrl state to activate both TS-in and pcmcia upon
+ *			card insertion.
+ * @dual_ts_ci_card:	pinctrl state to activate both TS-in and pcmcia after
+ *			personality change to CI card.
+ * @dual_ts_ci_plus:	pinctrl state to activate both TS-in and pcmcia after
+ *			personality change to CI+ card.
+ * @is_ts0:		true if ts0 pinctrl states exist in device tree, false
+ *			otherwise.
+ * @is_ts1:		true if ts1 pinctrl states exist in device tree, false
+ *			otherwise.
+ * @is_pcmcia:		true if pcmcia pinctrl states exist in device tree,
+ *			false otherwise.
+ * @curr_state:		the current state of the TLMM pins.
  */
 struct pinctrl_info {
 	struct pinctrl *pinctrl;
-	struct pinctrl_state *ts0_a_start_active;
-	struct pinctrl_state *ts0_a_start_sleep;
-	struct pinctrl_state *ts0_a_valid_active;
-	struct pinctrl_state *ts0_a_valid_sleep;
-	struct pinctrl_state *ts0_a_err_active;
-	struct pinctrl_state *ts0_a_err_sleep;
-	struct pinctrl_state *ts0_a_ser_active;
-	struct pinctrl_state *ts0_a_ser_sleep;
-	struct pinctrl_state *ts0_a_par_active;
-	struct pinctrl_state *ts0_a_par_sleep;
-	struct pinctrl_state *ts0_b_start_active;
-	struct pinctrl_state *ts0_b_start_sleep;
-	struct pinctrl_state *ts0_b_valid_active;
-	struct pinctrl_state *ts0_b_valid_sleep;
-	struct pinctrl_state *ts0_b_err_active;
-	struct pinctrl_state *ts0_b_err_sleep;
-	struct pinctrl_state *ts0_b_ser_active;
-	struct pinctrl_state *ts0_b_ser_sleep;
-	struct pinctrl_state *ts0_b_par_active;
-	struct pinctrl_state *ts0_b_par_sleep;
-	struct pinctrl_state *ts1_a_start_active;
-	struct pinctrl_state *ts1_a_start_sleep;
-	struct pinctrl_state *ts1_a_valid_active;
-	struct pinctrl_state *ts1_a_valid_sleep;
-	struct pinctrl_state *ts1_a_err_active;
-	struct pinctrl_state *ts1_a_err_sleep;
-	struct pinctrl_state *ts1_a_ser_active;
-	struct pinctrl_state *ts1_a_ser_sleep;
-	struct pinctrl_state *ts1_a_par_active;
-	struct pinctrl_state *ts1_a_par_sleep;
-	struct pinctrl_state *ts1_b_start_active;
-	struct pinctrl_state *ts1_b_start_sleep;
-	struct pinctrl_state *ts1_b_valid_active;
-	struct pinctrl_state *ts1_b_valid_sleep;
-	struct pinctrl_state *ts1_b_err_active;
-	struct pinctrl_state *ts1_b_err_sleep;
-	struct pinctrl_state *ts1_b_ser_active;
-	struct pinctrl_state *ts1_b_ser_sleep;
+	struct pinctrl_state *disable;
+	struct pinctrl_state *ts0;
+	struct pinctrl_state *ts1;
+	struct pinctrl_state *dual_ts;
+	struct pinctrl_state *pc_card;
+	struct pinctrl_state *ci_card;
+	struct pinctrl_state *ci_plus;
+	struct pinctrl_state *ts0_pc_card;
+	struct pinctrl_state *ts0_ci_card;
+	struct pinctrl_state *ts0_ci_plus;
+	struct pinctrl_state *ts1_pc_card;
+	struct pinctrl_state *ts1_ci_card;
+	struct pinctrl_state *ts1_ci_plus;
+	struct pinctrl_state *dual_ts_pc_card;
+	struct pinctrl_state *dual_ts_ci_card;
+	struct pinctrl_state *dual_ts_ci_plus;
+	bool is_ts0;
+	bool is_ts1;
+	bool is_pcmcia;
+	struct pinctrl_current_state curr_state;
 };
 
 /**
@@ -308,8 +299,6 @@ struct pinctrl_info {
  * @spinlock:	        A spinlock to protect accesses to
  *			data structures that happen from APIs and ISRs.
  * @rate_interrupt:	A flag indicating if rate mismatch interrupt received.
- * @ts0_enable:		True if TS0 is enabled, false otherwise.
- * @ts1_enable:		True if TS1 is enabled, false otherwise.
  */
 struct tsc_mux_chdev {
 	struct cdev cdev;
@@ -317,8 +306,6 @@ struct tsc_mux_chdev {
 	wait_queue_head_t poll_queue;
 	spinlock_t spinlock;
 	bool rate_interrupt;
-	bool ts0_enable;
-	bool ts1_enable;
 };
 
 /**
@@ -765,13 +752,6 @@ static int tsc_config_tsif(struct tsc_mux_chdev *tsc_mux,
 	case TSC_SOURCE_EXTERNAL1:
 		reg_internal_offs = 16;
 		reg_addr_offs = TSC_IN_IFC_EXT;
-		/*
-		 * When TS1 is in B configuration, parallel mode for data
-		 * is not supported (TSC HW restriction)
-		 */
-		if (ts1_config == TS_B_CONFIG &&
-			tsif_params->data_type == TSC_DATA_TYPE_PARALLEL)
-			return -EPERM;
 		break;
 	case TSC_SOURCE_INTERNAL:
 		reg_internal_offs = 0;
@@ -829,124 +809,115 @@ err:
  * tsc_suspend_ts_pins() - Suspend TS-in pins
  *
  * @source:     The TSIF to configure.
- * @reg_offs:   The offset for the TSIF inside the register
  *
  * Config the TLMM pins of a TSIF as TS-in pins in sleep state according to
- * the config saved in the register and the a/b configuration determined.
+ * the current pinctrl configuration of the other pins.
  *
  * Return 0 on success, error value otherwise.
  */
-static int tsc_suspend_ts_pins(enum tsc_source source, int reg_offs)
+static int tsc_suspend_ts_pins(enum tsc_source source)
 {
-	int ret_data = 0;
-	int ret_start = 0;
-	int ret_valid = 0;
-	int ret_err = 0;
-	u32 reg;
-	int ser_par;            /* 0-serial, 1-parallel */
-	int error;              /* 1-use error, 0-don't use */
-	u32 start_valid;        /* 0-valid & start, 1-start, 2-valid */
-	struct pinctrl_info *ptsc_pinctrl = &tsc_device->pinctrl_info;
+	int ret = 0;
+	struct pinctrl_info *ppinctrl = &tsc_device->pinctrl_info;
+	struct pinctrl_current_state *pcurr_state = &ppinctrl->curr_state;
 
-	/* Get the TSIF config from the register */
-	reg = readl_relaxed(tsc_device->base + TSC_IN_IFC_EXT);
-	ser_par = GETL_BITS(reg, TSIF_SER_PAR_OFFS + reg_offs,
-			TSIF_SER_PAR_OFFS + reg_offs);
-	error = GETL_BITS(reg, TSIF_ERR_INSERT_OFFS + reg_offs,
-			TSIF_ERR_INSERT_OFFS + reg_offs);
-	start_valid = GETL_BITS(reg, TSIF_REC_MODE_OFFS + reg_offs,
-			TSIF_REC_MODE_OFFS + 1 + reg_offs);
+	if (source == TSC_SOURCE_EXTERNAL0) {
+		if (!ppinctrl->is_ts0) {
+			pr_err("%s: No TS0-in pinctrl definitions were found in the TSC devicetree\n",
+					__func__);
+			return -EPERM;
+		}
 
-	if (source == TSC_SOURCE_EXTERNAL0 && ts0_config == TS_A_CONFIG) {
-		/* TS0 a*/
-		if (ser_par)    /* parallel */
-			ret_data = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts0_a_par_sleep);
-		else          /* serial */
-			ret_data = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts0_a_ser_sleep);
-		if (start_valid == TSC_RECEIVE_MODE_START_VALID ||
-				start_valid == TSC_RECEIVE_MODE_START_ONLY)
-			/* use start */
-			ret_start = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts0_a_start_sleep);
-		if (start_valid == TSC_RECEIVE_MODE_START_VALID ||
-				start_valid == TSC_RECEIVE_MODE_VALID_ONLY)
-			/* use valid */
-			ret_valid = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts0_a_valid_sleep);
-		if (error)      /* use err */
-			ret_err = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts0_a_err_sleep);
-	} else if (source == TSC_SOURCE_EXTERNAL0 &&
-			ts0_config == TS_B_CONFIG) {
-		/* TS0 b */
-		if (ser_par)    /* parallel */
-			ret_data = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts0_b_par_sleep);
-		else          /* serial */
-			ret_data = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts0_b_ser_sleep);
-		if (start_valid == TSC_RECEIVE_MODE_START_VALID ||
-				start_valid == TSC_RECEIVE_MODE_START_ONLY)
-			/* use start */
-			ret_start = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts0_b_start_sleep);
-		if (start_valid == TSC_RECEIVE_MODE_START_VALID ||
-				start_valid == TSC_RECEIVE_MODE_VALID_ONLY)
-			/* use valid */
-			ret_valid = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts0_b_valid_sleep);
-		if (error)      /* use err */
-			ret_err = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts0_b_err_sleep);
-	} else if (source == TSC_SOURCE_EXTERNAL1 &&
-			ts1_config == TS_A_CONFIG) {
-		/* TS1 a */
-		if (ser_par)    /* parallel */
-			ret_data = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts1_a_par_sleep);
-		else          /* serial */
-			ret_data = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts1_a_ser_sleep);
-		if (start_valid == TSC_RECEIVE_MODE_START_VALID ||
-				start_valid == TSC_RECEIVE_MODE_START_ONLY)
-			/* use start */
-			ret_start = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts1_a_start_sleep);
-		if (start_valid == TSC_RECEIVE_MODE_START_VALID ||
-				start_valid == TSC_RECEIVE_MODE_VALID_ONLY)
-			/* use valid */
-			ret_valid = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts1_a_valid_sleep);
-		if (error)      /* use err */
-			ret_err = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts1_a_err_sleep);
-	} else {
-		/* TS1 b */
-		/* must be serial */
-		ret_data = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-				ptsc_pinctrl->ts1_b_ser_sleep);
-		if (start_valid == TSC_RECEIVE_MODE_START_VALID ||
-				start_valid == TSC_RECEIVE_MODE_START_ONLY)
-			/* use start */
-			ret_start = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts1_b_start_sleep);
-		if (start_valid == TSC_RECEIVE_MODE_START_VALID ||
-				start_valid == TSC_RECEIVE_MODE_VALID_ONLY)
-			/* use valid */
-			ret_valid = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts1_b_valid_sleep);
-		if (error)       /* use err */
-			ret_err = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts1_b_err_sleep);
+		/* Transition from current pinctrl state to curr + ts0 sleep */
+		switch (pcurr_state->pcmcia_state) {
+		case DISABLE:
+			if (pcurr_state->ts1)
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+						ppinctrl->ts1);
+			else
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+						ppinctrl->disable);
+			break;
+		case PC_CARD:
+			if (pcurr_state->ts1)
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->ts1_pc_card);
+			else
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->pc_card);
+			break;
+		case CI_CARD:
+			if (pcurr_state->ts1)
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->ts1_ci_card);
+			else
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->ci_card);
+			break;
+		case CI_PLUS:
+			if (pcurr_state->ts1)
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->ts1_ci_plus);
+			else
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->ci_plus);
+			break;
+		}
+	} else  { /* source == TSC_SOURCE_EXTERNAL1 */
+		if (!ppinctrl->is_ts1) {
+			pr_err("%s: No TS1-in pinctrl definitions were found in the TSC devicetree\n",
+					__func__);
+			return -EPERM;
+		}
+
+		/* Transition from current pinctrl state to curr + ts1 sleep */
+		switch (pcurr_state->pcmcia_state) {
+		case DISABLE:
+			if (pcurr_state->ts0)
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->ts0);
+			else
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->disable);
+			break;
+		case PC_CARD:
+			if (pcurr_state->ts0)
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->ts0_pc_card);
+			else
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->pc_card);
+			break;
+		case CI_CARD:
+			if (pcurr_state->ts0)
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->ts0_ci_card);
+			else
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->ci_card);
+			break;
+		case CI_PLUS:
+			if (pcurr_state->ts0)
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->ts0_ci_plus);
+			else
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->ci_plus);
+			break;
+		}
 	}
 
-	if (ret_data || ret_start || ret_valid || ret_err) {
-		pr_err("%s: error suspending TS-in pins. ret values: data = %d, start = %d, valid = %d, err = %d\n",
-			__func__, ret_data, ret_start, ret_valid, ret_err);
+	if (ret != 0) {
+		pr_err("%s: error disabling TS-in pins. ret value = %d\n",
+			__func__, ret);
 		return -EINVAL;
 	}
+
+	/* Update the current pinctrl state in the internal struct */
+	if (source == TSC_SOURCE_EXTERNAL0)
+		pcurr_state->ts0 = false;
+	else
+		pcurr_state->ts1 = false;
 
 	return 0;
 }
@@ -955,125 +926,115 @@ static int tsc_suspend_ts_pins(enum tsc_source source, int reg_offs)
  * tsc_activate_ts_pins() - Activate TS-in pins
  *
  * @source:	The TSIF to configure.
- * @reg_offs:	The offset for the TSIF inside the register.
  *
  * Config the TLMM pins of a TSIF as TS-in pins in active state according to
- * the config saved in the register and the a/b configuration determined.
+ * the current pinctrl configuration of the other pins
  *
  * Return 0 on success, error value otherwise.
  */
-static int tsc_activate_ts_pins(enum tsc_source source, int reg_offs)
+static int tsc_activate_ts_pins(enum tsc_source source)
 {
-	int ret_data = 0;
-	int ret_start = 0;
-	int ret_valid = 0;
-	int ret_err = 0;
-	u32 reg;
-	int ser_par;            /* 0-serial, 1-parallel */
-	int error;              /* 1-use error, 0-don't use */
-	u32 start_valid;        /* 0-valid & start, 1-start, 2-valid */
-	struct pinctrl_info *ptsc_pinctrl = &tsc_device->pinctrl_info;
+	int ret = 0;
+	struct pinctrl_info *ppinctrl = &tsc_device->pinctrl_info;
+	struct pinctrl_current_state *pcurr_state = &ppinctrl->curr_state;
 
-	/* Get the TSIF config from the register */
-	reg = readl_relaxed(tsc_device->base + TSC_IN_IFC_EXT);
-	ser_par = GETL_BITS(reg, TSIF_SER_PAR_OFFS + reg_offs,
-			TSIF_SER_PAR_OFFS + reg_offs);
-	error = GETL_BITS(reg, TSIF_ERR_INSERT_OFFS + reg_offs,
-			TSIF_ERR_INSERT_OFFS + reg_offs);
-	start_valid = GETL_BITS(reg, TSIF_REC_MODE_OFFS + reg_offs,
-			TSIF_REC_MODE_OFFS + 1 + reg_offs);
+	if (source == TSC_SOURCE_EXTERNAL0) {
+		if (!ppinctrl->is_ts0) {
+			pr_err("%s: No TS0-in pinctrl definitions were found in the TSC devicetree\n",
+					__func__);
+			return -EPERM;
+		}
 
-	if (source == TSC_SOURCE_EXTERNAL0 && ts0_config == TS_A_CONFIG) {
-		/* TS0 a*/
-		if (ser_par)    /* parallel */
-			ret_data = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts0_a_par_active);
-		else          /* serial */
-			ret_data = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts0_a_ser_active);
-		if (start_valid == TSC_RECEIVE_MODE_START_VALID ||
-				start_valid == TSC_RECEIVE_MODE_START_ONLY)
-			/* use start */
-			ret_start = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts0_a_start_active);
-		if (start_valid == TSC_RECEIVE_MODE_START_VALID ||
-				start_valid == TSC_RECEIVE_MODE_VALID_ONLY)
-			/* use valid */
-			ret_valid = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts0_a_valid_active);
-		if (error)      /* use err */
-			ret_err = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts0_a_err_active);
-	} else if (source == TSC_SOURCE_EXTERNAL0 &&
-			ts0_config == TS_B_CONFIG) {
-		/* TS0 b */
-		if (ser_par)    /* parallel */
-			ret_data = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts0_b_par_active);
-		else          /* serial */
-			ret_data = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts0_b_ser_active);
-		if (start_valid == TSC_RECEIVE_MODE_START_VALID ||
-				start_valid == TSC_RECEIVE_MODE_START_ONLY)
-			/* use start */
-			ret_start = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts0_b_start_active);
-		if (start_valid == TSC_RECEIVE_MODE_START_VALID ||
-				start_valid == TSC_RECEIVE_MODE_VALID_ONLY)
-			/* use valid */
-			ret_valid = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts0_b_valid_active);
-		if (error)      /* use err */
-			ret_err = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts0_b_err_active);
-	} else if (source == TSC_SOURCE_EXTERNAL1 &&
-			ts1_config == TS_A_CONFIG) {
-		/* TS1 a */
-		if (ser_par)    /* parallel */
-			ret_data = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts1_a_par_active);
-		else          /* serial */
-			ret_data = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts1_a_ser_active);
-		if (start_valid == TSC_RECEIVE_MODE_START_VALID ||
-				start_valid == TSC_RECEIVE_MODE_START_ONLY)
-			/* use start */
-			ret_start = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts1_a_start_active);
-		if (start_valid == TSC_RECEIVE_MODE_START_VALID ||
-				start_valid == TSC_RECEIVE_MODE_VALID_ONLY)
-			/* use valid */
-			ret_valid = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts1_a_valid_active);
-		if (error)      /* use err */
-			ret_err = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts1_a_err_active);
-	} else {
-		/* TS1 b */
-		/* must be serial */
-		ret_data = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-				ptsc_pinctrl->ts1_b_ser_active);
-		if (start_valid == TSC_RECEIVE_MODE_START_VALID ||
-				start_valid == TSC_RECEIVE_MODE_START_ONLY)
-			/* use start */
-			ret_start = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts1_b_start_active);
-		if (start_valid == TSC_RECEIVE_MODE_START_VALID ||
-				start_valid == TSC_RECEIVE_MODE_VALID_ONLY)
-			/* use valid */
-			ret_valid = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts1_b_valid_active);
-		if (error)       /* use err */
-			ret_err = pinctrl_select_state(ptsc_pinctrl->pinctrl,
-					ptsc_pinctrl->ts1_b_err_active);
+		/* Transition from current pinctrl state to curr + ts0 active */
+		switch (pcurr_state->pcmcia_state) {
+		case DISABLE:
+			if (pcurr_state->ts1)
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+						ppinctrl->dual_ts);
+			else
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+						ppinctrl->ts0);
+			break;
+		case PC_CARD:
+			if (pcurr_state->ts1)
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->dual_ts_pc_card);
+			else
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->ts0_pc_card);
+			break;
+		case CI_CARD:
+			if (pcurr_state->ts1)
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->dual_ts_ci_card);
+			else
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->ts0_ci_card);
+			break;
+		case CI_PLUS:
+			if (pcurr_state->ts1)
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->dual_ts_ci_plus);
+			else
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->ts0_ci_plus);
+			break;
+		}
+	} else  { /* source == TSC_SOURCE_EXTERNAL1 */
+		if (!ppinctrl->is_ts1) {
+			pr_err("%s: No TS1-in pinctrl definitions were found in the TSC devicetree\n",
+					__func__);
+			return -EPERM;
+		}
+
+		/* Transition from current pinctrl state to curr + ts1 active */
+		switch (pcurr_state->pcmcia_state) {
+		case DISABLE:
+			if (pcurr_state->ts0)
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->dual_ts);
+			else
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->ts1);
+			break;
+		case PC_CARD:
+			if (pcurr_state->ts0)
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->dual_ts_pc_card);
+			else
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->ts1_pc_card);
+			break;
+		case CI_CARD:
+			if (pcurr_state->ts0)
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->dual_ts_ci_card);
+			else
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->ts1_ci_card);
+			break;
+		case CI_PLUS:
+			if (pcurr_state->ts0)
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->dual_ts_ci_plus);
+			else
+				ret = pinctrl_select_state(ppinctrl->pinctrl,
+					ppinctrl->ts1_ci_plus);
+			break;
+		}
 	}
 
-	if (ret_data || ret_start || ret_valid || ret_err) {
-		pr_err("%s: error activating TS-in pins. ret values: data = %d, start = %d, valid = %d, err = %d\n",
-			__func__, ret_data, ret_start, ret_valid, ret_err);
-		tsc_suspend_ts_pins(source, reg_offs);
+	if (ret != 0) {
+		pr_err("%s: error activating TS-in pins. ret value = %d\n",
+			__func__, ret);
 		return -EINVAL;
 	}
+
+	/* Update the current pinctrl state in the internal struct */
+	if (source == TSC_SOURCE_EXTERNAL0)
+		pcurr_state->ts0 = true;
+	else
+		pcurr_state->ts1 = true;
 
 	return 0;
 }
@@ -1103,38 +1064,10 @@ static int tsc_enable_disable_tsif(struct tsc_mux_chdev *tsc_mux,
 	case TSC_SOURCE_EXTERNAL0:
 		reg_offs = 0;
 		addr_offs = TSC_IN_IFC_EXT;
-
-		/*
-		 * When TSC-CI is in use, TS-in A configuration cannot be used.
-		 * (TSC HW restriction)
-		 */
-		if (mutex_lock_interruptible(&tsc_device->ci_chdev.mutex))
-			return -ERESTARTSYS;
-		if (ts0_config == TS_A_CONFIG &&
-				tsc_device->num_ci_opened > 0) {
-			mutex_unlock(&tsc_device->ci_chdev.mutex);
-			return -EPERM;
-		}
-		mutex_unlock(&tsc_device->ci_chdev.mutex);
-
 		break;
 	case TSC_SOURCE_EXTERNAL1:
 		reg_offs = 16;
 		addr_offs = TSC_IN_IFC_EXT;
-
-		/*
-		 * When TSC-CI is in use, TS-in A configuration cannot be used.
-		 * (TSC HW restriction)
-		 */
-		if (mutex_lock_interruptible(&tsc_device->ci_chdev.mutex))
-			return -ERESTARTSYS;
-		if (ts1_config == TS_A_CONFIG &&
-				tsc_device->num_ci_opened > 0) {
-			mutex_unlock(&tsc_device->ci_chdev.mutex);
-			return -EPERM;
-		}
-		mutex_unlock(&tsc_device->ci_chdev.mutex);
-
 		break;
 	case TSC_SOURCE_INTERNAL:
 		reg_offs = 0;
@@ -1162,7 +1095,7 @@ static int tsc_enable_disable_tsif(struct tsc_mux_chdev *tsc_mux,
 		if (source == TSC_SOURCE_EXTERNAL0 ||
 				source == TSC_SOURCE_EXTERNAL1) {
 			/* Disabling the TS-in pins in the TLMM */
-			ret = tsc_suspend_ts_pins(source, reg_offs);
+			ret = tsc_suspend_ts_pins(source);
 			if (ret != 0) {
 				pr_err("%s: Error suspending TS-in pins",
 						__func__);
@@ -1170,16 +1103,11 @@ static int tsc_enable_disable_tsif(struct tsc_mux_chdev *tsc_mux,
 			}
 		}
 		SET_BIT((reg_offs + TSIF_DISABLE_OFFS), reg);
-		/* Update internal flag */
-		if (source == TSC_SOURCE_EXTERNAL0)
-			tsc_mux->ts0_enable = false;
-		if (source == TSC_SOURCE_EXTERNAL1)
-			tsc_mux->ts1_enable = false;
 	} else {
 		if (source == TSC_SOURCE_EXTERNAL0 ||
 				source == TSC_SOURCE_EXTERNAL1) {
 			/* Enabling the TS-in pins in the TLMM */
-			ret = tsc_activate_ts_pins(source, reg_offs);
+			ret = tsc_activate_ts_pins(source);
 			if (ret != 0) {
 				pr_err("%s: Error activating TS-in pins",
 						__func__);
@@ -1187,11 +1115,6 @@ static int tsc_enable_disable_tsif(struct tsc_mux_chdev *tsc_mux,
 			}
 		}
 		CLEAR_BIT((reg_offs + TSIF_DISABLE_OFFS), reg);
-		/* Update internal flag */
-		if (source == TSC_SOURCE_EXTERNAL0)
-			tsc_mux->ts0_enable = true;
-		if (source == TSC_SOURCE_EXTERNAL1)
-			tsc_mux->ts1_enable = true;
 	}
 
 	/* Writing back to the reg the enable/disable of the TSIF */
@@ -1825,6 +1748,18 @@ static int tsc_device_power_up(void)
 		}
 	}
 
+	/* Reset the TSC TLMM pins to a default state */
+	ret = pinctrl_select_state(tsc_device->pinctrl_info.pinctrl,
+			tsc_device->pinctrl_info.disable);
+	if (ret != 0) {
+		pr_err("%s: Failed to disable the TLMM pins\n", __func__);
+		goto err_pinctrl;
+	}
+	/* Update the current pinctrl state in the internal struct */
+	tsc_device->pinctrl_info.curr_state.ts0 = false;
+	tsc_device->pinctrl_info.curr_state.ts1 = false;
+	tsc_device->pinctrl_info.curr_state.pcmcia_state = DISABLE;
+
 	/* Reset TSC registers to a default known state */
 	tsc_reset_registers();
 
@@ -1833,10 +1768,12 @@ not_first_device:
 	mutex_unlock(&tsc_device->mutex);
 	return ret;
 
-err_power_clocks:
+err_pinctrl:
 	if (tsc_device->bus_client)
 		msm_bus_scale_client_update_request(tsc_device->bus_client, 0);
 err_bus:
+	tsc_power_off_clocks();
+err_power_clocks:
 	regulator_disable(tsc_device->gdsc);
 err_regulator:
 	mutex_unlock(&tsc_device->mutex);
@@ -1847,7 +1784,7 @@ err_regulator:
  * tsc_device_power_off() - Power off done by the last device closed.
  *
  * Check if it's the last device and unvote the bus, power-off the TSC clocks
- * required for both Mux and CI and disable the GDSC.
+ * required for both Mux and CI, disable the TLMM pins and disable the GDSC.
  */
 static void tsc_device_power_off(void)
 {
@@ -1856,6 +1793,8 @@ static void tsc_device_power_off(void)
 	if (tsc_device->num_device_open > 1)
 		goto not_last_device;
 
+	pinctrl_select_state(tsc_device->pinctrl_info.pinctrl,
+			tsc_device->pinctrl_info.disable);
 	if (tsc_device->bus_client)
 		msm_bus_scale_client_update_request(tsc_device->bus_client, 0);
 	tsc_power_off_clocks();
@@ -1913,8 +1852,6 @@ static int tsc_mux_open(struct inode *inode, struct file *filp)
 	spin_lock_init(&tsc_mux->spinlock);
 	init_waitqueue_head(&tsc_mux->poll_queue);
 	tsc_mux->rate_interrupt = false;
-	tsc_mux->ts0_enable = false;
-	tsc_mux->ts1_enable = false;
 
 	/* Enabling TSC Mux cam interrupt of rate mismatch */
 	ena_reg = readl_relaxed(tsc_device->base + TSC_IRQ_ENA);
@@ -1952,18 +1889,6 @@ static int tsc_ci_open(struct inode *inode, struct file *filp)
 	int ret = 0;
 	u32 ena_reg;
 
-	/* If one of the open TSIFs is in A configuration - cannot use PCMCIA
-	 * pins and therefore, open the device should fail */
-	if (mutex_lock_interruptible(&tsc_device->mux_chdev.mutex))
-		return -ERESTARTSYS;
-	if ((ts0_config == TS_A_CONFIG && tsc_device->mux_chdev.ts0_enable) ||
-		(ts1_config == TS_A_CONFIG &&
-				tsc_device->mux_chdev.ts1_enable)) {
-		mutex_unlock(&tsc_device->mux_chdev.mutex);
-		return -EPERM;
-	}
-	mutex_unlock(&tsc_device->mux_chdev.mutex);
-
 	if (mutex_lock_interruptible(&tsc_device->ci_chdev.mutex))
 		return -ERESTARTSYS;
 
@@ -1971,6 +1896,13 @@ static int tsc_ci_open(struct inode *inode, struct file *filp)
 		pr_err("%s: Too many devices open\n", __func__);
 		mutex_unlock(&tsc_device->ci_chdev.mutex);
 		return -EMFILE;
+	}
+
+	if (!tsc_device->pinctrl_info.is_pcmcia) {
+		pr_err("%s: No pcmcia pinctrl definitions were found in the TSC devicetree\n",
+				__func__);
+		mutex_unlock(&tsc_device->ci_chdev.mutex);
+		return -EPERM;
 	}
 
 	tsc_device->num_ci_opened++;
@@ -2403,43 +2335,13 @@ err_devrgn:
 }
 
 /**
- * tsc_get_ab_config() - Get the a/b configuration if exist in the device tree.
- *
- * @pdev:	A pointer to the TSC platform device.
- *
- * Update the global parameters of the TS0 and TS1 configuration. If a valid
- * module parameter was received, then it is not changed. If it's not received,
- * the global parameter is updated according to a device tree configuration.
- * If such configuration doesn't exist, it is updated according to defualt pre-
- * determined values.
- */
-static void tsc_get_ab_config(struct platform_device *pdev)
-{
-	struct msm_tsc_platform_data *pdata = pdev->dev.platform_data;
-
-	if (ts0_config != TS_A_CONFIG && ts0_config != TS_B_CONFIG) {
-		/* no valid module params supplied */
-		if (pdata->ts0_config)
-			/* Update according to device tree - if exist */
-			ts0_config = pdata->ts0_config;
-		else	/* No device tree - hardcoded default config */
-			ts0_config = TS_B_CONFIG;
-	}
-
-	if (ts1_config != TS_A_CONFIG && ts1_config != TS_B_CONFIG) {
-		/* no valid module params supplied */
-		if (pdata->ts1_config)
-			/* Update according to device tree - if exist */
-			ts1_config = pdata->ts1_config;
-		else	/* No device tree - default config */
-			ts1_config = TS_A_CONFIG;
-	}
-}
-
-/**
  * tsc_get_pinctrl() - Get the TSC pinctrl definitions.
  *
  * @pdev:	A pointer to the TSC platform device.
+ *
+ * Get the pinctrl states' handles from the device tree. The function doesn't
+ * enforce wrong pinctrl definitions, i.e. it's the client's responsibility to
+ * define all the necessary states for the board being used.
  *
  * Return 0 on success, error value otherwise.
  */
@@ -2452,132 +2354,65 @@ static int tsc_get_pinctrl(struct platform_device *pdev)
 		pr_err("%s: Unable to get pinctrl handle\n", __func__);
 		return -EINVAL;
 	}
+	tsc_device->pinctrl_info.pinctrl = pinctrl;
 
-	/* get all the states handles of TS0-A */
-	tsc_device->pinctrl_info.ts0_a_start_active =
-			pinctrl_lookup_state(pinctrl, "ts0-a-start-active");
-	tsc_device->pinctrl_info.ts0_a_start_sleep =
-			pinctrl_lookup_state(pinctrl, "ts0-a-start-sleep");
-	tsc_device->pinctrl_info.ts0_a_valid_active =
-			pinctrl_lookup_state(pinctrl, "ts0-a-valid-active");
-	tsc_device->pinctrl_info.ts0_a_valid_sleep =
-			pinctrl_lookup_state(pinctrl, "ts0-a-valid-sleep");
-	tsc_device->pinctrl_info.ts0_a_err_active =
-			pinctrl_lookup_state(pinctrl, "ts0-a-err-active");
-	tsc_device->pinctrl_info.ts0_a_err_sleep =
-			pinctrl_lookup_state(pinctrl, "ts0-a-err-sleep");
-	tsc_device->pinctrl_info.ts0_a_ser_active =
-			pinctrl_lookup_state(pinctrl, "ts0-a-ser-active");
-	tsc_device->pinctrl_info.ts0_a_ser_sleep =
-			pinctrl_lookup_state(pinctrl, "ts0-a-ser-sleep");
-	tsc_device->pinctrl_info.ts0_a_par_active =
-			pinctrl_lookup_state(pinctrl, "ts0-a-par-active");
-	tsc_device->pinctrl_info.ts0_a_par_sleep =
-			pinctrl_lookup_state(pinctrl, "ts0-a-par-sleep");
+	/* get all the states handles */
+	tsc_device->pinctrl_info.disable =
+			pinctrl_lookup_state(pinctrl, "disable");
+	tsc_device->pinctrl_info.ts0 =
+			pinctrl_lookup_state(pinctrl, "ts-in-0");
+	tsc_device->pinctrl_info.ts1 =
+			pinctrl_lookup_state(pinctrl, "ts-in-1");
+	tsc_device->pinctrl_info.dual_ts =
+			pinctrl_lookup_state(pinctrl, "dual-ts");
+	tsc_device->pinctrl_info.pc_card =
+			pinctrl_lookup_state(pinctrl, "pc-card");
+	tsc_device->pinctrl_info.ci_card =
+			pinctrl_lookup_state(pinctrl, "ci-card");
+	tsc_device->pinctrl_info.ci_plus =
+			pinctrl_lookup_state(pinctrl, "ci-plus");
+	tsc_device->pinctrl_info.ts0_pc_card =
+			pinctrl_lookup_state(pinctrl, "ts-in-0-pc-card");
+	tsc_device->pinctrl_info.ts0_ci_card =
+			pinctrl_lookup_state(pinctrl, "ts-in-0-ci-card");
+	tsc_device->pinctrl_info.ts0_ci_plus =
+			pinctrl_lookup_state(pinctrl, "ts-in-0-ci-plus");
+	tsc_device->pinctrl_info.ts1_pc_card =
+			pinctrl_lookup_state(pinctrl, "ts-in-1-pc-card");
+	tsc_device->pinctrl_info.ts1_ci_card =
+			pinctrl_lookup_state(pinctrl, "ts-in-1-ci-card");
+	tsc_device->pinctrl_info.ts1_ci_plus =
+			pinctrl_lookup_state(pinctrl, "ts-in-1-ci-plus");
+	tsc_device->pinctrl_info.dual_ts_pc_card =
+			pinctrl_lookup_state(pinctrl, "dual-ts-pc-card");
+	tsc_device->pinctrl_info.dual_ts_ci_card =
+			pinctrl_lookup_state(pinctrl, "dual-ts-ci-card");
+	tsc_device->pinctrl_info.dual_ts_ci_plus =
+			pinctrl_lookup_state(pinctrl, "dual-ts-ci-plus");
 
-	/* get all the states handles of TS0-B */
-	tsc_device->pinctrl_info.ts0_b_start_active =
-			pinctrl_lookup_state(pinctrl, "ts0-b-start-active");
-	tsc_device->pinctrl_info.ts0_b_start_sleep =
-			pinctrl_lookup_state(pinctrl, "ts0-b-start-sleep");
-	tsc_device->pinctrl_info.ts0_b_valid_active =
-			pinctrl_lookup_state(pinctrl, "ts0-b-valid-active");
-	tsc_device->pinctrl_info.ts0_b_valid_sleep =
-			pinctrl_lookup_state(pinctrl, "ts0-b-valid-sleep");
-	tsc_device->pinctrl_info.ts0_b_err_active =
-			pinctrl_lookup_state(pinctrl, "ts0-b-err-active");
-	tsc_device->pinctrl_info.ts0_b_err_sleep =
-			pinctrl_lookup_state(pinctrl, "ts0-b-err-sleep");
-	tsc_device->pinctrl_info.ts0_b_ser_active =
-			pinctrl_lookup_state(pinctrl, "ts0-b-ser-active");
-	tsc_device->pinctrl_info.ts0_b_ser_sleep =
-			pinctrl_lookup_state(pinctrl, "ts0-b-ser-sleep");
-	tsc_device->pinctrl_info.ts0_b_par_active =
-			pinctrl_lookup_state(pinctrl, "ts0-b-par-active");
-	tsc_device->pinctrl_info.ts0_b_par_sleep =
-			pinctrl_lookup_state(pinctrl, "ts0-b-par-sleep");
-
-	/* get all the states handles of TS1-A */
-	tsc_device->pinctrl_info.ts1_a_start_active =
-			pinctrl_lookup_state(pinctrl, "ts1-a-start-active");
-	tsc_device->pinctrl_info.ts1_a_start_sleep =
-			pinctrl_lookup_state(pinctrl, "ts1-a-start-sleep");
-	tsc_device->pinctrl_info.ts1_a_valid_active =
-			pinctrl_lookup_state(pinctrl, "ts1-a-valid-active");
-	tsc_device->pinctrl_info.ts1_a_valid_sleep =
-			pinctrl_lookup_state(pinctrl, "ts1-a-valid-sleep");
-	tsc_device->pinctrl_info.ts1_a_err_active =
-			pinctrl_lookup_state(pinctrl, "ts1-a-err-active");
-	tsc_device->pinctrl_info.ts1_a_err_sleep =
-			pinctrl_lookup_state(pinctrl, "ts1-a-err-sleep");
-	tsc_device->pinctrl_info.ts1_a_ser_active =
-			pinctrl_lookup_state(pinctrl, "ts1-a-ser-active");
-	tsc_device->pinctrl_info.ts1_a_ser_sleep =
-			pinctrl_lookup_state(pinctrl, "ts1-a-ser-sleep");
-	tsc_device->pinctrl_info.ts1_a_par_active =
-			pinctrl_lookup_state(pinctrl, "ts1-a-par-active");
-	tsc_device->pinctrl_info.ts1_a_par_sleep =
-			pinctrl_lookup_state(pinctrl, "ts1-a-par-sleep");
-
-	/* get all the states handles of TS1-B */
-	tsc_device->pinctrl_info.ts1_b_start_active =
-			pinctrl_lookup_state(pinctrl, "ts1-b-start-active");
-	tsc_device->pinctrl_info.ts1_b_start_sleep =
-			pinctrl_lookup_state(pinctrl, "ts1-b-start-sleep");
-	tsc_device->pinctrl_info.ts1_b_valid_active =
-			pinctrl_lookup_state(pinctrl, "ts1-b-valid-active");
-	tsc_device->pinctrl_info.ts1_b_valid_sleep =
-			pinctrl_lookup_state(pinctrl, "ts1-b-valid-sleep");
-	tsc_device->pinctrl_info.ts1_b_err_active =
-			pinctrl_lookup_state(pinctrl, "ts1-b-err-active");
-	tsc_device->pinctrl_info.ts1_b_err_sleep =
-			pinctrl_lookup_state(pinctrl, "ts1-b-err-sleep");
-	tsc_device->pinctrl_info.ts1_b_ser_active =
-			pinctrl_lookup_state(pinctrl, "ts1-b-ser-active");
-	tsc_device->pinctrl_info.ts1_b_ser_sleep =
-			pinctrl_lookup_state(pinctrl, "ts1-b-ser-sleep");
-
-	if (!tsc_device->pinctrl_info.ts0_a_start_active ||
-			!tsc_device->pinctrl_info.ts0_a_start_sleep ||
-			!tsc_device->pinctrl_info.ts0_a_valid_active ||
-			!tsc_device->pinctrl_info.ts0_a_valid_sleep ||
-			!tsc_device->pinctrl_info.ts0_a_err_active ||
-			!tsc_device->pinctrl_info.ts0_a_err_sleep ||
-			!tsc_device->pinctrl_info.ts0_a_ser_active ||
-			!tsc_device->pinctrl_info.ts0_a_ser_sleep ||
-			!tsc_device->pinctrl_info.ts0_a_par_active ||
-			!tsc_device->pinctrl_info.ts0_a_par_sleep ||
-			!tsc_device->pinctrl_info.ts0_b_start_active ||
-			!tsc_device->pinctrl_info.ts0_b_start_sleep ||
-			!tsc_device->pinctrl_info.ts0_b_valid_active ||
-			!tsc_device->pinctrl_info.ts0_b_valid_sleep ||
-			!tsc_device->pinctrl_info.ts0_b_err_active ||
-			!tsc_device->pinctrl_info.ts0_b_err_sleep ||
-			!tsc_device->pinctrl_info.ts0_b_ser_active ||
-			!tsc_device->pinctrl_info.ts0_b_ser_sleep ||
-			!tsc_device->pinctrl_info.ts0_b_par_active ||
-			!tsc_device->pinctrl_info.ts0_b_par_sleep ||
-			!tsc_device->pinctrl_info.ts1_a_start_active ||
-			!tsc_device->pinctrl_info.ts1_a_start_sleep ||
-			!tsc_device->pinctrl_info.ts1_a_valid_active ||
-			!tsc_device->pinctrl_info.ts1_a_valid_sleep ||
-			!tsc_device->pinctrl_info.ts1_a_err_active ||
-			!tsc_device->pinctrl_info.ts1_a_err_sleep ||
-			!tsc_device->pinctrl_info.ts1_a_ser_active ||
-			!tsc_device->pinctrl_info.ts1_a_ser_sleep ||
-			!tsc_device->pinctrl_info.ts1_a_par_active ||
-			!tsc_device->pinctrl_info.ts1_a_par_sleep ||
-			!tsc_device->pinctrl_info.ts1_b_start_active ||
-			!tsc_device->pinctrl_info.ts1_b_start_sleep ||
-			!tsc_device->pinctrl_info.ts1_b_valid_active ||
-			!tsc_device->pinctrl_info.ts1_b_valid_sleep ||
-			!tsc_device->pinctrl_info.ts1_b_err_active ||
-			!tsc_device->pinctrl_info.ts1_b_err_sleep ||
-			!tsc_device->pinctrl_info.ts1_b_ser_active ||
-			!tsc_device->pinctrl_info.ts1_b_ser_sleep) {
-		pr_err("%s: Unable to get pinctrl states handles\n", __func__);
+	if (IS_ERR(tsc_device->pinctrl_info.disable)) {
+		pr_err("%s: Unable to get pinctrl disable state handle\n",
+				__func__);
 		return -EINVAL;
 	}
+
+	/* Basic checks to inquire what pinctrl states are available */
+	if (IS_ERR(tsc_device->pinctrl_info.ts0))
+		tsc_device->pinctrl_info.is_ts0 = false;
+	else
+		tsc_device->pinctrl_info.is_ts0 = true;
+
+	if (IS_ERR(tsc_device->pinctrl_info.ts1))
+		tsc_device->pinctrl_info.is_ts1 = false;
+	else
+		tsc_device->pinctrl_info.is_ts1 = true;
+
+	if (IS_ERR(tsc_device->pinctrl_info.pc_card) ||
+			IS_ERR(tsc_device->pinctrl_info.ci_card) ||
+			IS_ERR(tsc_device->pinctrl_info.ci_plus))
+		tsc_device->pinctrl_info.is_pcmcia = false;
+	else
+		tsc_device->pinctrl_info.is_pcmcia = true;
 
 	return 0;
 }
@@ -3070,9 +2905,6 @@ static int msm_tsc_probe(struct platform_device *pdev)
 	ret = tsc_get_pinctrl(pdev);
 	if (ret != 0)
 		goto err_pinctrl;
-
-	/* get the a/b configuration of TS-in pins */
-	tsc_get_ab_config(pdev);
 
 	/* creating the tsc device's class */
 	tsc_class = class_create(THIS_MODULE, "tsc");
