@@ -35,7 +35,6 @@
 #include "board-dt.h"
 #include "clock.h"
 #include "platsmp.h"
-#include "modem_notifier.h"
 #include "pm.h"
 
 static struct of_dev_auxdata msmsamarium_auxdata_lookup[] __initdata = {
@@ -94,7 +93,6 @@ static void __init msmsamarium_early_memory(void)
  */
 void __init msmsamarium_add_drivers(void)
 {
-	msm_init_modem_notifier_list();
 	msm_smd_init();
 	msm_rpm_driver_init();
 	msm_pm_sleep_status_init();
