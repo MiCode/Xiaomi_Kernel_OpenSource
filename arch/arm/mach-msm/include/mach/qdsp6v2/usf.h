@@ -149,6 +149,8 @@ struct us_input_info_type {
 	int tsc_y_tilt[MIN_MAX_DIM];
 	/* Touch screen pressure limits: min & max; for input module */
 	int tsc_pressure[MIN_MAX_DIM];
+	/* The requested side buttons bitmap */
+	uint16_t req_side_buttons_bitmap;
 	/* Bitmap of types of events (USF_X_EVENT), produced by calculator */
 	uint16_t event_types;
 	/* Input event source */
@@ -177,6 +179,8 @@ struct point_event_type {
 	int inclinations[TILTS_DIM];
 /* [0-1023] (10bits); 0 - pen up */
 	uint32_t pressure;
+/* Bitmap for side button state. 1 - down, 0 - up */
+	uint16_t side_buttons_state_bitmap;
 };
 
 /* Mouse buttons, supported by USF */
