@@ -534,7 +534,7 @@ static int msm_otg_link_reset(struct msm_otg *motg)
 	return 0;
 }
 
-static void usb_phy_reset(struct msm_otg *motg)
+static void msm_usb_phy_reset(struct msm_otg *motg)
 {
 	u32 val;
 
@@ -598,7 +598,7 @@ static int msm_otg_reset(struct usb_phy *phy)
 	msleep(100);
 
 	/* Reset USB PHY after performing USB Link RESET */
-	usb_phy_reset(motg);
+	msm_usb_phy_reset(motg);
 
 	/* Program USB PHY Override registers. */
 	ulpi_init(motg);
@@ -607,7 +607,7 @@ static int msm_otg_reset(struct usb_phy *phy)
 	 * It is recommended in HPG to reset USB PHY after programming
 	 * USB PHY Override registers.
 	 */
-	usb_phy_reset(motg);
+	msm_usb_phy_reset(motg);
 
 	if (motg->clk)
 		clk_disable_unprepare(motg->clk);

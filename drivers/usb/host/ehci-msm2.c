@@ -603,7 +603,7 @@ static int msm_ehci_phy_reset(struct msm_hcd *mhcd)
 	return 0;
 }
 
-static void usb_phy_reset(struct msm_hcd *mhcd)
+static void msm_usb_phy_reset(struct msm_hcd *mhcd)
 {
 	u32 val;
 
@@ -661,7 +661,7 @@ static int msm_hsusb_reset(struct msm_hcd *mhcd)
 								USB_PHY_CTRL2);
 
 	/* Reset USB PHY after performing USB Link RESET */
-	usb_phy_reset(mhcd);
+	msm_usb_phy_reset(mhcd);
 
 	msleep(100);
 
