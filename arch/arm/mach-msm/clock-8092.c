@@ -6680,11 +6680,11 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("",	gcc_mmss_a5ss_axi_clk.c,	""),
 
 	/* PCIE */
-	CLK_LOOKUP("",	gcc_pcie_axi_clk.c,	""),
-	CLK_LOOKUP("",	gcc_pcie_axi_mstr_clk.c,	""),
-	CLK_LOOKUP("",	gcc_pcie_cfg_ahb_clk.c,	""),
-	CLK_LOOKUP("",	gcc_pcie_pipe_clk.c,	""),
-	CLK_LOOKUP("",	gcc_pcie_sleep_clk.c,	""),
+	CLK_LOOKUP("pcie_0_slv_axi_clk", gcc_pcie_axi_clk.c, "msm_pcie"),
+	CLK_LOOKUP("pcie_0_mstr_axi_clk", gcc_pcie_axi_mstr_clk.c, "msm_pcie"),
+	CLK_LOOKUP("pcie_0_cfg_ahb_clk", gcc_pcie_cfg_ahb_clk.c, "msm_pcie"),
+	CLK_LOOKUP("pcie_0_pipe_clk",	gcc_pcie_pipe_clk.c,	"msm_pcie"),
+	CLK_LOOKUP("pcie_0_aux_clk",	gcc_pcie_sleep_clk.c,	"msm_pcie"),
 
 	CLK_LOOKUP("",	gcc_pdm2_clk.c,	""),
 	CLK_LOOKUP("",	gcc_pdm_ahb_clk.c,	""),
@@ -7105,7 +7105,7 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("alt_core_clk", vcap_vp_clk_src.c, "fdfb6000.qti,iommu"),
 
 	/* LDO clocks */
-	CLK_LOOKUP("", pcie_gpio_ldo.c, ""),
+	CLK_LOOKUP("pcie_0_ldo", pcie_gpio_ldo.c, "msm_pcie"),
 	CLK_LOOKUP("", sata_phy_ldo.c, ""),
 	CLK_LOOKUP("", vby1_gpio_ldo.c, ""),
 
