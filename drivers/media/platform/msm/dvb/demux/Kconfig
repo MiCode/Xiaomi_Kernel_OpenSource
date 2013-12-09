@@ -1,6 +1,6 @@
 config DVB_MPQ_DEMUX
 	tristate "DVB Demux Device"
-	depends on DVB_MPQ && ION && ION_MSM && QSEECOM
+	depends on DVB_MPQ && ION && ION_MSM
 	default n
 
 	help
