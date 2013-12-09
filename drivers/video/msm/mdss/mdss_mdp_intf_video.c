@@ -600,12 +600,16 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 {
 	struct mdss_panel_data *pdata;
 	int i, ret = 0, off;
-	int mdss_mdp_rev = MDSS_MDP_REG_READ(MDSS_MDP_REG_HW_VERSION);
-	int mdss_v2_intf_off = 0;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(ctl->mfd);
 	u32 data, flush;
+	struct mdss_mdp_video_ctx *ctx;
 
 	off = 0;
+	ctx = (struct mdss_mdp_video_ctx *) ctl->priv_data;
+	if (!ctx) {
+		pr_err("invalid ctx for ctl=%d\n", ctl->num);
+		return -ENODEV;
+	}
 
 	pdata = ctl->panel_data;
 
@@ -634,13 +638,7 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 		}
 		mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, flush);
 
-		off = MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
-
-		if (mdss_mdp_rev >= MDSS_MDP_HW_REV_102)
-			mdss_v2_intf_off =  0xEC00;
-
-		MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_TIMING_ENGINE_EN -
-				mdss_v2_intf_off, 0);
+		mdp_video_write(ctx, MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 0);
 		/* wait for 1 VSYNC for the pipe to be unstaged */
 		msleep(20);
 
