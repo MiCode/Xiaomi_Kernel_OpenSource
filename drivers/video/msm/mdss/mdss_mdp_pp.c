@@ -3745,7 +3745,7 @@ error:
 			mutex_unlock(&ad->lock);
 		}
 		if (wait) {
-			ret = wait_for_completion_interruptible_timeout(
+			ret = wait_for_completion_timeout(
 					&ad->comp, HIST_WAIT_TIMEOUT(1));
 			if (ret == 0)
 				ret = -ETIMEDOUT;
