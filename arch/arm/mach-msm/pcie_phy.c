@@ -82,6 +82,40 @@ void pcie_phy_init(struct msm_pcie_dev_t *dev)
 	write_phy(dev->phy, PCIE_PHY_SW_RESET, 0x00);
 	write_phy(dev->phy, PCIE_PHY_START, 0x03);
 }
+#elif defined(CONFIG_ARCH_FSM9900)
+void pcie_phy_init(struct msm_pcie_dev_t *dev)
+{
+	PCIE_DBG("Initializing 28nm ATE phy - 100MHz\n");
+
+	/*  1 */
+	write_phy(dev->phy, PCIE_PHY_POWER_DOWN_CONTROL, 0x01);
+	/*  2 */
+	write_phy(dev->phy, QSERDES_COM_SYS_CLK_CTRL, 0x3e);
+	/*  3 */
+	write_phy(dev->phy, QSERDES_COM_PLL_CP_SETI, 0x0f);
+	/*  4 */
+	write_phy(dev->phy, QSERDES_COM_PLL_IP_SETP, 0x23);
+	/*  5 */
+	write_phy(dev->phy, QSERDES_COM_PLL_IP_SETI, 0x3f);
+	/*  6 */
+	write_phy(dev->phy, QSERDES_RX_CDR_CONTROL, 0xf3);
+	/*  7 */
+	write_phy(dev->phy, QSERDES_RX_CDR_CONTROL2, 0x6b);
+	/*  8 */
+	write_phy(dev->phy, QSERDES_COM_RESETSM_CNTRL, 0x10);
+	/*  9 */
+	write_phy(dev->phy, QSERDES_RX_RX_TERM_HIGHZ_CM_AC_COUPLE, 0x87);
+	/* 10 */
+	write_phy(dev->phy, QSERDES_RX_RX_EQ_GAIN12, 0x54);
+	/* 11 */
+	write_phy(dev->phy, PCIE_PHY_POWER_STATE_CONFIG1, 0xa3);
+	/* 12 */
+	write_phy(dev->phy, PCIE_PHY_POWER_STATE_CONFIG2, 0x1b);
+	/* 13 */
+	write_phy(dev->phy, PCIE_PHY_SW_RESET,		0x00);
+	/* 14 */
+	write_phy(dev->phy, PCIE_PHY_START,		0x03);
+}
 #else
 void pcie_phy_init(struct msm_pcie_dev_t *dev)
 {
