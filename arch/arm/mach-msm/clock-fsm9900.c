@@ -1113,7 +1113,7 @@ static struct rcg_clk pcie_0_aux_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_pcie_0_1_pipe_clk[] = {
-	F_EXT(125000000, pcie_pipe,    2, 0, 0),
+	F_EXT(125000000, pcie_pipe,    1, 0, 0),
 	F_EXT(250000000, pcie_pipe,    1, 0, 0),
 	F_END
 };
@@ -2086,6 +2086,28 @@ static struct branch_clk gcc_usb_hs_system_clk = {
 	},
 };
 
+static struct gate_clk pcie_0_phy_ldo = {
+	.en_reg = PCIE_0_PHY_LDO_EN,
+	.en_mask = BIT(0),
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "pcie_0_phy_ldo",
+		.ops = &clk_ops_gate,
+		CLK_INIT(pcie_0_phy_ldo.c),
+	},
+};
+
+static struct gate_clk pcie_1_phy_ldo = {
+	.en_reg = PCIE_1_PHY_LDO_EN,
+	.en_mask = BIT(0),
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "pcie_1_phy_ldo",
+		.ops = &clk_ops_gate,
+		CLK_INIT(pcie_1_phy_ldo.c),
+	},
+};
+
 static struct clk_freq_tbl ftbl_gcc_emac0_1_125m_clk[] = {
 	F(     19200000,              xo,    1, 0, 0),
 	F_EXT( 125000000,      emac0_125m,   1, 0, 0),
@@ -2616,16 +2638,30 @@ static struct clk_lookup fsm_clocks_9900[] = {
 	CLK_LOOKUP("tx_clk",	emac1_tx_clk_src.c,	 "feb00000.qti,emac"),
 
 	/* PCIE clocks */
-	CLK_LOOKUP("",	gcc_pcie_0_aux_clk.c,	""),
-	CLK_LOOKUP("",	gcc_pcie_0_cfg_ahb_clk.c,	""),
-	CLK_LOOKUP("",	gcc_pcie_0_mstr_axi_clk.c,	""),
-	CLK_LOOKUP("",	gcc_pcie_0_pipe_clk.c,	""),
-	CLK_LOOKUP("",	gcc_pcie_0_slv_axi_clk.c,	""),
-	CLK_LOOKUP("",	gcc_pcie_1_aux_clk.c,	""),
-	CLK_LOOKUP("",	gcc_pcie_1_cfg_ahb_clk.c,	""),
-	CLK_LOOKUP("",	gcc_pcie_1_mstr_axi_clk.c,	""),
-	CLK_LOOKUP("",	gcc_pcie_1_pipe_clk.c,	""),
-	CLK_LOOKUP("",	gcc_pcie_1_slv_axi_clk.c,	""),
+
+	CLK_LOOKUP("pcie_0_aux_clk", gcc_pcie_0_aux_clk.c,
+						"fc520000.qti,pcie"),
+	CLK_LOOKUP("pcie_0_cfg_ahb_clk", gcc_pcie_0_cfg_ahb_clk.c,
+						"fc520000.qti,pcie"),
+	CLK_LOOKUP("pcie_0_mstr_axi_clk", gcc_pcie_0_mstr_axi_clk.c,
+						"fc520000.qti,pcie"),
+	CLK_LOOKUP("pcie_0_pipe_clk", gcc_pcie_0_pipe_clk.c,
+						"fc520000.qti,pcie"),
+	CLK_LOOKUP("pcie_0_slv_axi_clk", gcc_pcie_0_slv_axi_clk.c,
+						"fc520000.qti,pcie"),
+	CLK_DUMMY("pcie_0_ref_clk_src", NULL, "fc520000.qti,pcie", OFF),
+
+	CLK_LOOKUP("pcie_1_aux_clk", gcc_pcie_1_aux_clk.c,
+						"fc528000.qti,pcie"),
+	CLK_LOOKUP("pcie_1_cfg_ahb_clk", gcc_pcie_1_cfg_ahb_clk.c,
+						"fc528000.qti,pcie"),
+	CLK_LOOKUP("pcie_1_mstr_axi_clk", gcc_pcie_1_mstr_axi_clk.c,
+						"fc528000.qti,pcie"),
+	CLK_LOOKUP("pcie_1_pipe_clk", gcc_pcie_1_pipe_clk.c,
+						"fc528000.qti,pcie"),
+	CLK_LOOKUP("pcie_1_slv_axi_clk", gcc_pcie_1_slv_axi_clk.c,
+						"fc528000.qti,pcie"),
+	CLK_DUMMY("pcie_1_ref_clk_src", NULL, "fc528000.qti,pcie", OFF),
 
 	CLK_LOOKUP("hfpll_src", xo_a_clk_src.c,
 					"f9016000.qcom,clock-krait"),
@@ -2635,6 +2671,10 @@ static struct clk_lookup fsm_clocks_9900[] = {
 
 	/* MPM */
 	CLK_LOOKUP("xo", xo_clk_src.c, "fc4281d0.qcom,mpm"),
+
+	/* LDO */
+	CLK_LOOKUP("pcie_0_ldo",        pcie_0_phy_ldo.c, "fc520000.qti,pcie"),
+	CLK_LOOKUP("pcie_1_ldo",        pcie_1_phy_ldo.c, "fc528000.qti,pcie"),
 };
 
 static struct pll_config_regs gpll4_regs __initdata = {
