@@ -27,8 +27,24 @@
 #include "unipro.h"
 #include "ufs-msm.h"
 
+/* vendor specific pre-defined parameters */
+#define SLOW 1
+#define FAST 2
 
-static struct msm_ufs_phy_calibration phy_cal_table[] = {
+#define UFS_MSM_LIMIT_NUM_LANES_RX	2
+#define UFS_MSM_LIMIT_NUM_LANES_TX	1
+#define UFS_MSM_LIMIT_HSGEAR_RX	UFS_HS_G2
+#define UFS_MSM_LIMIT_HSGEAR_TX	UFS_HS_G2
+#define UFS_MSM_LIMIT_PWMGEAR_RX	UFS_PWM_G4
+#define UFS_MSM_LIMIT_PWMGEAR_TX	UFS_PWM_G4
+#define UFS_MSM_LIMIT_RX_PWR_PWM	SLOW_MODE
+#define UFS_MSM_LIMIT_TX_PWR_PWM	SLOW_MODE
+#define UFS_MSM_LIMIT_RX_PWR_HS	FAST_MODE
+#define UFS_MSM_LIMIT_TX_PWR_HS	FAST_MODE
+#define UFS_MSM_LIMIT_HS_RATE		PA_HS_MODE_A
+#define UFS_MSM_LIMIT_DESIRED_MODE	FAST
+
+static struct msm_ufs_phy_calibration phy_cal_table_rate_A[] = {
 	{
 		.cfg_value = 0x01,
 		.reg_offset = UFS_PHY_POWER_DOWN_CONTROL,
@@ -635,6 +651,49 @@ static struct msm_ufs_phy_calibration phy_cal_table[] = {
 	},
 };
 
+static struct msm_ufs_phy_calibration phy_cal_table_rate_B[] = {
+	{
+		.cfg_value = 0x03,
+		.reg_offset = QSERDES_COM_PLL_CLKEPDIV,
+	},
+	{
+		.cfg_value = 0x98,
+		.reg_offset = QSERDES_COM_DEC_START1,
+	},
+	{
+		.cfg_value = 0x03,
+		.reg_offset = QSERDES_COM_DEC_START2,
+	},
+	{
+		.cfg_value = 0x80,
+		.reg_offset = QSERDES_COM_DIV_FRAC_START1,
+	},
+	{
+		.cfg_value = 0x80,
+		.reg_offset = QSERDES_COM_DIV_FRAC_START2,
+	},
+	{
+		.cfg_value = 0x10,
+		.reg_offset = QSERDES_COM_DIV_FRAC_START3,
+	},
+	{
+		.cfg_value = 0x65,
+		.reg_offset = QSERDES_COM_PLLLOCK_CMP1,
+	},
+	{
+		.cfg_value = 0x1E,
+		.reg_offset = QSERDES_COM_PLLLOCK_CMP2,
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_COM_PLLLOCK_CMP3,
+	},
+	{
+		.cfg_value = 0x03,
+		.reg_offset = QSERDES_COM_PLLLOCK_CMP_EN,
+	},
+};
+
 static struct msm_ufs_phy *msm_get_ufs_phy(struct device *dev)
 {
 	int err  = -EPROBE_DEFER;
@@ -840,12 +899,21 @@ out:
 
 static void msm_ufs_phy_calibrate(struct msm_ufs_phy *phy)
 {
-	struct msm_ufs_phy_calibration *tbl = phy_cal_table;
-	int tbl_size = ARRAY_SIZE(phy_cal_table);
+	struct msm_ufs_phy_calibration *tbl = phy_cal_table_rate_A;
+	int tbl_size = ARRAY_SIZE(phy_cal_table_rate_A);
 	int i;
 
 	for (i = 0; i < tbl_size; i++)
 		writel_relaxed(tbl[i].cfg_value, phy->mmio + tbl[i].reg_offset);
+
+	if (UFS_MSM_LIMIT_HS_RATE == PA_HS_MODE_B) {
+		tbl = phy_cal_table_rate_B;
+		tbl_size = ARRAY_SIZE(phy_cal_table_rate_B);
+
+		for (i = 0; i < tbl_size; i++)
+			writel_relaxed(tbl[i].cfg_value,
+					phy->mmio + tbl[i].reg_offset);
+	}
 
 	/* flush buffered writes */
 	mb();
@@ -1217,23 +1285,6 @@ static int msm_ufs_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 	return msm_ufs_phy_power_on(phy);
 }
-
-/* vendor specific pre-defined parameters */
-#define SLOW 1
-#define FAST 2
-
-#define UFS_MSM_LIMIT_NUM_LANES_RX	2
-#define UFS_MSM_LIMIT_NUM_LANES_TX	1
-#define UFS_MSM_LIMIT_HSGEAR_RX	UFS_HS_G2
-#define UFS_MSM_LIMIT_HSGEAR_TX	UFS_HS_G2
-#define UFS_MSM_LIMIT_PWMGEAR_RX	UFS_PWM_G4
-#define UFS_MSM_LIMIT_PWMGEAR_TX	UFS_PWM_G4
-#define UFS_MSM_LIMIT_RX_PWR_PWM	SLOW_MODE
-#define UFS_MSM_LIMIT_TX_PWR_PWM	SLOW_MODE
-#define UFS_MSM_LIMIT_RX_PWR_HS	FAST_MODE
-#define UFS_MSM_LIMIT_TX_PWR_HS	FAST_MODE
-#define UFS_MSM_LIMIT_HS_RATE		PA_HS_MODE_A
-#define UFS_MSM_LIMIT_DESIRED_MODE	FAST
 
 struct ufs_msm_dev_params {
 	u32 pwm_rx_gear;	/* pwm rx gear to work in */
