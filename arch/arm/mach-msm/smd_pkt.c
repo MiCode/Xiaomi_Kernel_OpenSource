@@ -494,7 +494,13 @@ wait_for_packet:
 		goto wait_for_packet;
 	}
 
-	if (pkt_size > count) {
+	if (pkt_size < 0) {
+		pr_err("%s: Error %d obtaining packet size for Channel %s",
+				__func__, pkt_size, smd_pkt_devp->ch_name);
+		return pkt_size;
+	}
+
+	if ((uint32_t)pkt_size > count) {
 		pr_err("%s: failure on smd_pkt_dev id: %d - packet size %d"
 		       " > buffer size %d,", __func__, smd_pkt_devp->i,
 			pkt_size, count);
