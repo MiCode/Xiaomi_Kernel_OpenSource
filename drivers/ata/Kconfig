@@ -97,6 +97,17 @@ config SATA_AHCI_PLATFORM
 
 	  If unsure, say N.
 
+config SATA_AHCI_MSM
+	tristate "MSM AHCI SATA support"
+	depends on OF && ARCH_MSM
+	select SATA_AHCI_PLATFORM
+	help
+	  This option enables support for AHCI SATA controller
+	  integrated into MSM chipsets. For more information
+	  please refer to http://www.qualcomm.com/chipsets.
+
+	  If unsure, say N.
+
 config SATA_FSL
 	tristate "Freescale 3.0Gbps SATA support"
 	depends on FSL_SOC
