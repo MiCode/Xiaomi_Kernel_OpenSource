@@ -507,7 +507,6 @@ static void cpufreq_interactive_idle_start(void)
 	struct cpufreq_interactive_cpuinfo *pcpu =
 		&per_cpu(cpuinfo, smp_processor_id());
 	int pending;
-	int cpu = pcpu->policy->cpu;
 	u64 now;
 
 	if (!down_read_trylock(&pcpu->enable_sem))
@@ -536,8 +535,6 @@ static void cpufreq_interactive_idle_start(void)
 				(now - pcpu->hispeed_validate_time) >
 							MIN_BUSY_TIME) {
 				pcpu->floor_validate_time = now;
-				trace_cpufreq_interactive_idle_start(cpu,
-					pcpu->target_freq, pcpu->policy->cur);
 			}
 
 		}
