@@ -122,6 +122,9 @@ struct usb_phy {
 			enum usb_device_speed speed);
 	int	(*notify_disconnect)(struct usb_phy *x,
 			enum usb_device_speed speed);
+
+	/* reset the PHY clocks */
+	int	(*reset)(struct usb_phy *x);
 };
 
 /**
@@ -210,6 +213,15 @@ usb_phy_post_init(struct usb_phy *x)
 {
 	if (x && x->post_init)
 		return x->post_init(x);
+
+	return 0;
+}
+
+static inline int
+usb_phy_reset(struct usb_phy *x)
+{
+	if (x && x->reset)
+		return x->reset(x);
 
 	return 0;
 }
