@@ -878,6 +878,8 @@ long diagchar_ioctl(struct file *filp,
 	struct diag_log_event_stats le_stats;
 	struct diagpkt_delay_params delay_params;
 	struct real_time_vote_t rt_vote;
+	struct list_head *start, *req_temp;
+	struct dci_pkt_req_entry_t *req_entry = NULL;
 
 	switch (iocmd) {
 	case DIAG_IOCTL_COMMAND_REG:
@@ -993,10 +995,16 @@ long diagchar_ioctl(struct file *filp,
 			}
 			result = i;
 			/* Delete this process from DCI table */
-			for (i = 0; i < dci_max_reg; i++)
-				if (driver->req_tracking_tbl[i].pid ==
-					 current->tgid)
-					driver->req_tracking_tbl[i].pid = 0;
+			list_for_each_safe(start, req_temp,
+							&driver->dci_req_list) {
+				req_entry = list_entry(start,
+						struct dci_pkt_req_entry_t,
+						track);
+				if (req_entry->pid == current->tgid) {
+					list_del(&req_entry->track);
+					kfree(req_entry);
+				}
+			}
 			driver->dci_client_tbl[result].client = NULL;
 			kfree(driver->dci_client_tbl[result].dci_data);
 			driver->dci_client_tbl[result].dci_data = NULL;
