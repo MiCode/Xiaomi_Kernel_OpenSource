@@ -19,7 +19,6 @@
 #define __ASM_ARCH_MSM_SMD_H
 
 #include <linux/io.h>
-#include <linux/notifier.h>
 
 #include <soc/msm/smem.h>
 
@@ -75,71 +74,7 @@ enum {
 	SMD_WCNSS_RPM,
 	SMD_TZ_RPM,
 	SMD_NUM_TYPE,
-	SMD_LOOPBACK_TYPE = 100,
 
-};
-
-/*
- * SMD IRQ Configuration
- *
- * Used to initialize IRQ configurations from platform data
- *
- * @irq_name: irq_name to query platform data
- * @irq_id: initialized to -1 in platform data, stores actual irq id on
- *		successful registration
- * @out_base: if not null then settings used for outgoing interrupt
- *		initialied from platform data
- */
-
-struct smd_irq_config {
-	/* incoming interrupt config */
-	const char *irq_name;
-	unsigned long flags;
-	int irq_id;
-	const char *device_name;
-	const void *dev_id;
-
-	/* outgoing interrupt config */
-	uint32_t out_bit_pos;
-	void __iomem *out_base;
-	uint32_t out_offset;
-};
-
-/*
- * SMD subsystem configurations
- *
- * SMD subsystems configurations for platform data. This contains the
- * M2A and A2M interrupt configurations for both SMD and SMSM per
- * subsystem.
- *
- * @subsys_name: name of subsystem passed to PIL
- * @irq_config_id: unique id for each subsystem
- * @edge: maps to actual remote subsystem edge
- *
- */
-struct smd_subsystem_config {
-	unsigned irq_config_id;
-	const char *subsys_name;
-	int edge;
-
-	struct smd_irq_config smd_int;
-	struct smd_irq_config smsm_int;
-
-};
-
-/*
- * Subsystem Restart Configuration
- *
- * @disable_smsm_reset_handshake
- */
-struct smd_subsystem_restart_config {
-	int disable_smsm_reset_handshake;
-};
-
-struct smd_platform {
-	uint32_t num_ss_configs;
-	struct smd_subsystem_config *smd_ss_configs;
-	struct smd_subsystem_restart_config *smd_ssr_config;
 };
 
 #ifdef CONFIG_MSM_SMD
@@ -171,15 +106,6 @@ int smd_read_avail(smd_channel_t *ch);
 ** Returns 0 if no packets available or a stream channel.
 */
 int smd_cur_packet_size(smd_channel_t *ch);
-
-
-#if 0
-/* these are interruptable waits which will block you until the specified
-** number of bytes are readable or writable.
-*/
-int smd_wait_until_readable(smd_channel_t *ch, int bytes);
-int smd_wait_until_writable(smd_channel_t *ch, int bytes);
-#endif
 
 /* these are used to get and set the IF sigs of a channel.
  * DTR and RTS can be set; DSR, CTS, CD and RI can be read.

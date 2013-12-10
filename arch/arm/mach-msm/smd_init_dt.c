@@ -12,7 +12,6 @@
  * GNU General Public License for more details.
  *
  */
-#ifdef CONFIG_OF
 #include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -65,8 +64,6 @@ static int msm_smsm_probe(struct platform_device *pdev)
 	struct resource *r;
 	struct interrupt_config *private_intr_config;
 	uint32_t remote_pid;
-
-	disable_smsm_reset_handshake = 1;
 
 	node = pdev->dev.of_node;
 
@@ -287,7 +284,7 @@ static int msm_smd_probe(struct platform_device *pdev)
 	smd_proc_set_skip_pil(smd_edge_to_remote_pid(edge), skip_pil);
 
 	smd_set_edge_initialized(edge);
-	smd_post_init(0, remote_pid);
+	smd_post_init(remote_pid);
 	return 0;
 
 missing_key:
@@ -347,4 +344,3 @@ EXPORT_SYMBOL(msm_smd_driver_register);
 
 MODULE_DESCRIPTION("MSM SMD Device Tree Init");
 MODULE_LICENSE("GPL v2");
-#endif

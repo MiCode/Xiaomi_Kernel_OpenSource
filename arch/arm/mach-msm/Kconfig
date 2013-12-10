@@ -599,20 +599,6 @@ config MSM_SMD
 	  used to communicate with various services on the baseband
 	  processor.
 
-choice
-	prompt "MSM Shared memory interface version"
-	depends on MSM_SMD
-	default MSM_SMD_PKG4
-
-	config MSM_SMD_PKG3
-	  bool
-	    prompt "Package 3"
-
-	config MSM_SMD_PKG4
-	  bool
-	    prompt "Package 4"
-endchoice
-
 config MSM_PCIE
 	bool "MSM PCIe Controller driver"
 	depends on PCI && PCI_MSI
@@ -638,22 +624,6 @@ config MSM_BAM_DMUX
 	  BAM has a limited number of pipes.  This driver
 	  provides a means to support more logical channels
 	  via muxing than BAM could without muxing.
-
-config MSM_N_WAY_SMD
-	depends on MSM_SMD
-	default y
-	bool "MSM N-WAY SMD support"
-	help
-	  Supports APPS-QDSP SMD communication along with
-	  normal APPS-MODEM SMD communication.
-
-config MSM_N_WAY_SMSM
-	depends on MSM_SMD
-	default y
-	bool "MSM N-WAY SMSM support"
-	help
-	  Supports APPS-QDSP SMSM communication along with
-	  normal APPS-MODEM SMSM communication.
 
 config MSM_SMP2P
 	bool "SMSM Point-to-Point (SMP2P)"

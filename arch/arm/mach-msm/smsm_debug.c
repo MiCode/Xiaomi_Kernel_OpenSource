@@ -20,7 +20,6 @@
 #include <linux/ctype.h>
 #include <linux/jiffies.h>
 
-#include <mach/msm_iomap.h>
 #include <mach/msm_smsm.h>
 
 #include <soc/msm/smem.h>
@@ -279,21 +278,6 @@ static void debug_read_intr_mask(struct seq_file *s)
 		}
 }
 
-static void debug_read_intr_mux(struct seq_file *s)
-{
-	uint32_t *smsm;
-	int n;
-
-	smsm = smem_find(SMEM_SMD_SMSM_INTR_MUX,
-			  SMSM_NUM_INTR_MUX * sizeof(uint32_t),
-			  0,
-			  SMEM_ANY_HOST_FLAG);
-
-	if (smsm)
-		for (n = 0; n < SMSM_NUM_INTR_MUX; n++)
-			seq_printf(s, "entry %d: %d\n", n, smsm[n]);
-}
-
 static int debugfs_show(struct seq_file *s, void *data)
 {
 	void (*show)(struct seq_file *) = s->private;
@@ -336,7 +320,6 @@ static int __init smsm_debugfs_init(void)
 
 	debug_create("state", 0444, dent, debug_read_smsm_state);
 	debug_create("intr_mask", 0444, dent, debug_read_intr_mask);
-	debug_create("intr_mux", 0444, dent, debug_read_intr_mux);
 	debug_create("smsm_test", 0444, dent, debug_test_smsm);
 
 	init_completion(&smsm_cb_completion);

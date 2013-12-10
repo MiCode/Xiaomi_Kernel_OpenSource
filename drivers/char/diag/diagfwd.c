@@ -2197,12 +2197,10 @@ static int diag_smd_probe(struct platform_device *pdev)
 		index = MODEM_DATA;
 		channel_name = "DIAG";
 	}
-#if defined(CONFIG_MSM_N_WAY_SMD)
 	else if (pdev->id == SMD_APPS_QDSP) {
 		index = LPASS_DATA;
 		channel_name = "DIAG";
 	}
-#endif
 	else if (pdev->id == SMD_APPS_WCNSS) {
 		index = WCNSS_DATA;
 		channel_name = "APPS_RIVA_DATA";
