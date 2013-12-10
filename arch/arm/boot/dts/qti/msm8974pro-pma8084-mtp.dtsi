@@ -94,7 +94,7 @@
 		};
 	};
 
-	qcom,ssusb@f9200000 {
+	ssusb@f9200000 {
 		vbus_dwc3-supply = <&pm8941_mvs1>;
 	};
 

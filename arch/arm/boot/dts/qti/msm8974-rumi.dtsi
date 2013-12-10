@@ -109,7 +109,7 @@
 		status = "disable";
 	};
 
-	qcom,ssusb@F9200000 {
+	ssusb@F9200000 {
 		status = "disable";
 	};
 
