@@ -965,9 +965,10 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 	while (1) {
 		spin_lock(&private->mem_lock);
 		entry = idr_get_next(&private->mem_idr, &next);
-		spin_unlock(&private->mem_lock);
-		if (entry == NULL)
+		if (entry == NULL) {
+			spin_unlock(&private->mem_lock);
 			break;
+		}
 		/*
 		 * If the free pending flag is not set it means that user space
 		 * did not free it's reference to this entry, in that case
@@ -976,7 +977,10 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 		 */
 		if (entry->dev_priv == dev_priv && !entry->pending_free) {
 			entry->pending_free = 1;
+			spin_unlock(&private->mem_lock);
 			kgsl_mem_entry_put(entry);
+		} else {
+			spin_unlock(&private->mem_lock);
 		}
 		next = next + 1;
 	}
