@@ -1133,6 +1133,8 @@ rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 			rndis_ipa_params.host_ethaddr,
 			rndis_ipa_params.device_ethaddr);
 		rndis_ipa_supported = true;
+		memcpy(rndis->ethaddr, &rndis_ipa_params.host_ethaddr,
+			ETH_ALEN);
 	} else
 		memcpy(rndis->ethaddr, ethaddr, ETH_ALEN);
 
