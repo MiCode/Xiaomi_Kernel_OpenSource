@@ -713,6 +713,7 @@ static int
 frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
 	struct f_rmnet			*dev = func_to_rmnet(f);
+	enum transport_type	dxport = rmnet_ports[dev->port_num].data_xport;
 	struct usb_composite_dev	*cdev = dev->cdev;
 	int				ret;
 	struct list_head *cpkt;
@@ -749,6 +750,17 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		}
 		ret = gport_rmnet_connect(dev);
 	}
+
+	if (dxport == USB_GADGET_XPORT_BAM2BAM_IPA &&
+	    gadget_is_dwc3(cdev->gadget)) {
+		if (msm_ep_config(dev->port.in) ||
+		    msm_ep_config(dev->port.out)) {
+			pr_err("%s: msm_ep_config failed\n", __func__);
+			return -EINVAL;
+		}
+	} else
+		pr_debug("Rmnet is being used with non DWC3 core\n");
+
 
 	atomic_set(&dev->online, 1);
 
