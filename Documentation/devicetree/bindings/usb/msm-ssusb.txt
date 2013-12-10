@@ -8,7 +8,9 @@ Required properties :
 - interrupts: IRQ lines used by this controller
 - <supply-name>-supply: phandle to the regulator device tree node
   Required "supply-name" examples are:
-	"vbus_dwc3" : vbus supply for host mode
+	"vbus_dwc3" : vbus supply for host mode when DWC3 operating as DRD.
+	This can be left as optional if "host-only-mode" is selected in the
+	'dwc3' sub node for "DWC3-USB3 Core device".
 - qti,dwc-usb3-msm-dbm-eps: Number of endpoints avaliable for
   the DBM (Device Bus Manager). The DBM is HW unit which is part of
   the MSM USB3.0 core (which also includes the Synopsys DesignWare

@@ -2677,15 +2677,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (node) {
-		ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
-		if (ret) {
-			dev_err(&pdev->dev,
-				"failed to add create dwc3 core\n");
-			goto put_psupply;
-		}
-	}
-
 	/* Assumes dwc3 is the only DT child of dwc3-msm */
 	dwc3_node = of_get_next_available_child(node, NULL);
 	if (!dwc3_node) {
@@ -2694,12 +2685,37 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	host_mode = of_property_read_bool(dwc3_node, "host-only-mode");
+	if (host_mode && of_get_property(pdev->dev.of_node, "vbus_dwc3-supply",
+									NULL)) {
+		mdwc->vbus_otg = devm_regulator_get(&pdev->dev, "vbus_dwc3");
+		if (IS_ERR(mdwc->vbus_otg)) {
+			dev_err(&pdev->dev, "Failed to get vbus regulator\n");
+			ret = PTR_ERR(mdwc->vbus_otg);
+			of_node_put(dwc3_node);
+			goto put_psupply;
+		}
+		ret = regulator_enable(mdwc->vbus_otg);
+		if (ret) {
+			mdwc->vbus_otg = 0;
+			dev_err(&pdev->dev, "Failed to enable vbus_otg\n");
+			of_node_put(dwc3_node);
+			goto put_psupply;
+		}
+	}
+
+	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"failed to add create dwc3 core\n");
+		of_node_put(dwc3_node);
+		goto disable_vbus;
+	}
 
 	mdwc->dwc3 = of_find_device_by_node(dwc3_node);
 	of_node_put(dwc3_node);
 	if (!mdwc->dwc3) {
 		dev_err(&pdev->dev, "failed to get dwc3 platform device\n");
-		goto put_psupply;
+		goto put_dwc3;
 	}
 
 	mdwc->hs_phy = devm_usb_get_phy_by_phandle(&mdwc->dwc3->dev,
@@ -2762,17 +2778,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "No OTG, DWC3 running in host only mode\n");
 		mdwc->scope = POWER_SUPPLY_SCOPE_SYSTEM;
 		mdwc->hs_phy->flags |= PHY_HOST_MODE;
-		mdwc->vbus_otg = devm_regulator_get(&pdev->dev, "vbus_dwc3");
-		if (IS_ERR(mdwc->vbus_otg)) {
-			dev_dbg(&pdev->dev, "Failed to get vbus regulator\n");
-			mdwc->vbus_otg = 0;
-		} else {
-			ret = regulator_enable(mdwc->vbus_otg);
-			if (ret) {
-				mdwc->vbus_otg = 0;
-				dev_err(&pdev->dev, "Failed to enable vbus_otg\n");
-			}
-		}
 	} else {
 		dev_err(&pdev->dev, "DWC3 device-only mode not supported\n");
 		ret = -ENODEV;
@@ -2819,6 +2824,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 put_dwc3:
 	platform_device_put(mdwc->dwc3);
+disable_vbus:
+	if (!IS_ERR_OR_NULL(mdwc->vbus_otg))
+		regulator_disable(mdwc->vbus_otg);
 put_psupply:
 	if (mdwc->usb_psy.dev)
 		power_supply_unregister(&mdwc->usb_psy);
@@ -2865,7 +2873,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 		dwc3_start_chg_det(&mdwc->charger, false);
 	if (mdwc->usb_psy.dev)
 		power_supply_unregister(&mdwc->usb_psy);
-	if (mdwc->vbus_otg)
+	if (!IS_ERR_OR_NULL(mdwc->vbus_otg))
 		regulator_disable(mdwc->vbus_otg);
 
 	pm_runtime_disable(mdwc->dev);
