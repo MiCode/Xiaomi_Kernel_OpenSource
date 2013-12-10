@@ -3964,6 +3964,58 @@ int mpq_dmx_set_cipher_ops(struct dvb_demux_feed *feed,
 }
 EXPORT_SYMBOL(mpq_dmx_set_cipher_ops);
 
+static int mpq_sdmx_invalidate_buffer(struct mpq_feed *mpq_feed)
+{
+	struct dvb_demux_feed *feed = mpq_feed->dvb_demux_feed;
+	struct mpq_video_feed_info *feed_data;
+	struct dvb_ringbuffer *buffer;
+	struct ion_handle *ion_handle;
+	int ret = 0;
+	int i;
+
+	if (!dvb_dmx_is_video_feed(feed)) {
+		if (dvb_dmx_is_sec_feed(feed) ||
+			dvb_dmx_is_pcr_feed(feed)) {
+			buffer = (struct dvb_ringbuffer *)
+				&mpq_feed->sdmx_buf;
+			ion_handle = mpq_feed->sdmx_buf_handle;
+		} else {
+			buffer = (struct dvb_ringbuffer *)
+				feed->feed.ts.buffer.ringbuff;
+			ion_handle = feed->feed.ts.buffer.priv_handle;
+		}
+
+		ret = msm_ion_do_cache_op(mpq_feed->mpq_demux->ion_client,
+			ion_handle, buffer->data,
+			buffer->size, ION_IOC_INV_CACHES);
+		if (ret)
+			MPQ_DVB_ERR_PRINT(
+				"%s: msm_ion_do_cache_op failed, ret = %d\n",
+				__func__, ret);
+		return ret;
+	}
+
+	/* Video buffers */
+	feed_data = &mpq_feed->video_info;
+	for (i = 0; i < feed_data->buffer_desc.decoder_buffers_num; i++) {
+		if (feed_data->buffer_desc.desc[i].base) {
+			/* Non-secured buffer */
+			ret = msm_ion_do_cache_op(
+				mpq_feed->mpq_demux->ion_client,
+				feed_data->buffer_desc.ion_handle[i],
+				feed_data->buffer_desc.desc[i].base,
+				feed_data->buffer_desc.desc[i].size,
+				ION_IOC_INV_CACHES);
+			if (ret)
+				MPQ_DVB_ERR_PRINT(
+					"%s: msm_ion_do_cache_op failed, ret = %d\n",
+					__func__, ret);
+		}
+	}
+
+	return ret;
+}
+
 static void mpq_sdmx_prepare_filter_status(struct mpq_demux *mpq_demux,
 	struct sdmx_filter_status *filter_sts,
 	struct mpq_feed *mpq_feed)
@@ -4757,6 +4809,9 @@ static void mpq_sdmx_process_results(struct mpq_demux *mpq_demux)
 			 mpq_feed->session_id))
 			continue;
 
+		/* Invalidate output buffer before processing the results */
+		mpq_sdmx_invalidate_buffer(mpq_feed);
+
 		if (sts->error_indicators & SDMX_FILTER_ERR_MD_BUF_FULL)
 			MPQ_DVB_ERR_PRINT(
 				"%s: meta-data buff for pid %d overflowed!\n",
@@ -4831,7 +4886,6 @@ static int mpq_sdmx_process_buffer(struct mpq_demux *mpq_demux,
 	for (i = 0; i < MPQ_MAX_DMX_FILES; i++) {
 		mpq_feed = &mpq_demux->feeds[i];
 		if ((mpq_feed->sdmx_filter_handle != SDMX_INVALID_FILTER_HANDLE)
-			&& (mpq_feed->dvb_demux_feed->state == DMX_STATE_GO)
 			&& (!mpq_feed->secondary_feed)) {
 			sts = mpq_demux->sdmx_filters_state.status +
 				filter_index;
@@ -4950,6 +5004,10 @@ static int mpq_sdmx_write(struct mpq_demux *mpq_demux,
 	const char *buf,
 	size_t count)
 {
+	struct ion_handle *ion_handle =
+		mpq_demux->demux.dmx.dvr_input.priv_handle;
+	struct dvb_ringbuffer *rbuf = (struct dvb_ringbuffer *)
+		mpq_demux->demux.dmx.dvr_input.ringbuff;
 	struct sdmx_buff_descr buf_desc;
 	u32 read_offset;
 	int ret;
@@ -4967,6 +5025,19 @@ static int mpq_sdmx_write(struct mpq_demux *mpq_demux,
 		return ret;
 	}
 	read_offset = mpq_demux->demux.dmx.dvr_input.ringbuff->pread;
+
+
+	/*
+	 * We must flush the buffer before SDMX starts reading from it
+	 * so that it gets a valid data in memory.
+	 */
+	ret = msm_ion_do_cache_op(mpq_demux->ion_client,
+		ion_handle, rbuf->data,
+		rbuf->size, ION_IOC_CLEAN_CACHES);
+	if (ret)
+		MPQ_DVB_ERR_PRINT(
+			"%s: msm_ion_do_cache_op failed, ret = %d\n",
+			__func__, ret);
 
 	return mpq_sdmx_process(mpq_demux, &buf_desc, count,
 				read_offset, mpq_demux->demux.ts_packet_size);
