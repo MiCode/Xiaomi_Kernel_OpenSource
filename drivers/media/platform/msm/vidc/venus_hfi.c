@@ -25,6 +25,7 @@
 #include <mach/subsystem_restart.h>
 #include <mach/msm_smem.h>
 #include <asm/memory.h>
+#include <linux/iopoll.h>
 #include "hfi_packetization.h"
 #include "venus_hfi.h"
 #include "vidc_hfi_io.h"
@@ -65,6 +66,9 @@ struct tzbsp_resp {
 
 #define TZBSP_VIDEO_SET_STATE 0xa
 
+/* Poll interval in uS */
+#define POLL_INTERVAL_US 50
+
 enum tzbsp_video_state {
 	TZBSP_VIDEO_STATE_SUSPEND = 0,
 	TZBSP_VIDEO_STATE_RESUME
@@ -74,6 +78,9 @@ struct tzbsp_video_set_state_req {
 	u32 state; /*shoud be tzbsp_video_state enum value*/
 	u32 spare; /*reserved for future, should be zero*/
 };
+
+
+static inline int venus_hfi_clk_gating_off(struct venus_hfi_device *device);
 
 static int venus_hfi_power_enable(void *dev);
 
@@ -874,6 +881,34 @@ static inline void venus_hfi_clk_disable(struct venus_hfi_device *device)
 }
 
 static DECLARE_COMPLETION(pc_prep_done);
+
+static int venus_hfi_halt_axi(struct venus_hfi_device *device)
+{
+	u32 reg;
+	int rc = 0;
+	if (!device) {
+		dprintk(VIDC_ERR, "Invalid input: %p\n", device);
+		return -EINVAL;
+	}
+	if (venus_hfi_clk_gating_off(device)) {
+		dprintk(VIDC_ERR, "Failed to turn off clk gating\n");
+		return -EIO;
+	}
+	/* Halt AXI and AXI OCMEM VBIF Access */
+	reg = venus_hfi_read_register(device, VENUS_VBIF_AXI_HALT_CTRL0);
+	reg |= VENUS_VBIF_AXI_HALT_CTRL0_HALT_REQ;
+	venus_hfi_write_register(device, VENUS_VBIF_AXI_HALT_CTRL0, reg, 0);
+
+	/* Request for AXI bus port halt */
+	rc = readl_poll_timeout((u32)device->hal_data->register_base_addr
+			+ VENUS_VBIF_AXI_HALT_CTRL1,
+			reg, reg & VENUS_VBIF_AXI_HALT_CTRL1_HALT_ACK,
+			POLL_INTERVAL_US,
+			VENUS_VBIF_AXI_HALT_ACK_TIMEOUT_US);
+	if (rc)
+		dprintk(VIDC_WARN, "AXI bus port halt timeout\n");
+	return rc;
+}
 
 static inline int venus_hfi_power_off(struct venus_hfi_device *device)
 {
@@ -3306,15 +3341,21 @@ static void venus_hfi_unload_fw(void *dev)
 	if (device->resources.fw.cookie) {
 		flush_workqueue(device->vidc_workq);
 		flush_workqueue(device->venus_pm_workq);
+		subsystem_put(device->resources.fw.cookie);
+		venus_hfi_interface_queues_release(dev);
+		/* IOMMU operations need to be done before AXI halt.*/
+		venus_hfi_iommu_detach(device);
+		/* Halt the AXI to make sure there are no pending transactions.
+		 * Clocks should be unprepared after making sure axi is halted.
+		 */
+		if(venus_hfi_halt_axi(device))
+			dprintk(VIDC_WARN, "Failed to halt AXI\n");
 		venus_hfi_disable_clks(device);
 		mutex_lock(&device->clk_pwr_lock);
-		subsystem_put(device->resources.fw.cookie);
 		regulator_disable(device->gdsc);
 		device->power_enabled = 0;
 		--device->pwr_cnt;
 		mutex_unlock(&device->clk_pwr_lock);
-		venus_hfi_interface_queues_release(dev);
-		venus_hfi_iommu_detach(device);
 		device->resources.fw.cookie = NULL;
 	}
 }
