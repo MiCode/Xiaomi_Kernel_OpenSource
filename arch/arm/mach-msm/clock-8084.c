@@ -5993,6 +5993,8 @@ static struct clk_lookup apq_clocks_8084[] = {
 
 	CLK_LOOKUP("",	gcc_tsif_ahb_clk.c,	""),
 	CLK_LOOKUP("",	gcc_tsif_ref_clk.c,	""),
+	CLK_LOOKUP("iface_clk", gcc_tsif_ahb_clk.c, "f99d8000.msm_tspp"),
+	CLK_LOOKUP("ref_clk", gcc_tsif_ref_clk.c, "f99d8000.msm_tspp"),
 
 	/* UFS clocks */
 	CLK_LOOKUP("ref_clk", rf_clk1.c,                 "msm_ufs.1"),
