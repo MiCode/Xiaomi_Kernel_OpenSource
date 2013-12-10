@@ -72,11 +72,8 @@ struct clk *of_clk_get_by_name(struct device_node *np, const char *name)
 		clk = of_clk_get(np, index);
 		if (!IS_ERR(clk))
 			break;
-		else if (name && index >= 0) {
-			pr_err("ERROR: could not get clock %s:%s(%i)\n",
-				np->full_name, name ? name : "", index);
+		else if (name && index >= 0)
 			return clk;
-		}
 
 		/*
 		 * No matching clock found on this node.  If the parent node
