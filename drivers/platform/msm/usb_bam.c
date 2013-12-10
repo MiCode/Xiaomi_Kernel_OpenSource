@@ -188,6 +188,7 @@ static spinlock_t usb_bam_lock; /* Protect ctx and usb_bam_connections */
 static struct usb_bam_pipe_connect *usb_bam_connections;
 static struct usb_bam_ctx_type ctx;
 static struct usb_bam_host_info host_info[MAX_BAMS];
+static struct device *usb_device;
 
 static int __usb_bam_register_wake_cb(int idx, int (*callback)(void *user),
 	void *param, bool trigger_cb_per_pipe);
@@ -211,6 +212,12 @@ void msm_bam_set_hsic_host_dev(struct device *dev)
 
 	host_info[HSIC_BAM].dev = dev;
 	host_info[HSIC_BAM].in_lpm = false;
+}
+
+void msm_bam_set_usb_dev(struct device *dev)
+{
+	pr_debug("%s: Updating usb device for power managment\n", __func__);
+	usb_device = dev;
 }
 
 void msm_bam_set_usb_host_dev(struct device *dev)
@@ -649,11 +656,14 @@ static int disconnect_pipe(u8 idx)
 
 static bool _usb_bam_resume_core(void)
 {
-	struct usb_phy *phy = usb_get_phy(USB_PHY_TYPE_USB2);
-
-	BUG_ON(IS_ERR_OR_NULL(phy));
 	pr_debug("%s: Resuming usb peripheral/host device", __func__);
-	pm_runtime_resume(phy->dev);
+
+	if (usb_device)
+		pm_runtime_resume(usb_device);
+	else {
+		pr_err("%s: usb device is not initialized\n", __func__);
+		return false;
+	}
 
 	return true;
 }
@@ -683,22 +693,25 @@ static bool _hsic_device_bam_resume_core(void)
 
 static void _usb_bam_suspend_core(enum usb_bam bam_type, bool disconnect)
 {
-	struct usb_phy *phy = usb_get_phy(USB_PHY_TYPE_USB2);
 
-	BUG_ON(IS_ERR_OR_NULL(phy));
 	pr_debug("%s: enter bam=%s\n", __func__, bam_enable_strings[bam_type]);
+
+	if (!usb_device) {
+		pr_err("%s: usb device is not initialized\n", __func__);
+		return;
+	}
 
 	spin_lock(&usb_bam_ipa_handshake_info_lock);
 	info[bam_type].lpm_wait_handshake = false;
 	info[bam_type].lpm_wait_pipes = 0;
 	if (disconnect)
-		pm_runtime_put_noidle(phy->dev);
+		pm_runtime_put_noidle(usb_device);
 
 	if (info[bam_type].pending_lpm) {
 		info[bam_type].pending_lpm = 0;
 		spin_unlock(&usb_bam_ipa_handshake_info_lock);
 		pr_debug("%s: Going to LPM\n", __func__);
-		pm_runtime_suspend(phy->dev);
+		pm_runtime_suspend(usb_device);
 	} else
 		spin_unlock(&usb_bam_ipa_handshake_info_lock);
 }
@@ -1529,14 +1542,12 @@ static void usb_bam_start_suspend(struct work_struct *w)
 
 static void usb_bam_finish_resume(struct work_struct *w)
 {
-	struct usb_phy *phy = usb_get_phy(USB_PHY_TYPE_USB2);
 	/* TODO: Change this when HSIC device support is introduced */
 	enum usb_bam cur_bam;
 	struct usb_bam_ipa_handshake_info *info_ptr;
 	struct usb_bam_pipe_connect *pipe_connect;
 	u32 idx, dst_idx, suspended;
 
-	BUG_ON(IS_ERR_OR_NULL(phy));
 	info_ptr = container_of(w, struct usb_bam_ipa_handshake_info,
 			resume_work);
 	cur_bam = info_ptr->bam_type;
