@@ -515,6 +515,7 @@ static void subsystem_powerup(struct subsys_device *dev, void *data)
 			current, name);
 	}
 	subsys_set_state(dev, SUBSYS_ONLINE);
+	subsys_set_crash_status(dev, false);
 }
 
 static int __find_subsys(struct device *dev, void *data)
