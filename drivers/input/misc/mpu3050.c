@@ -37,6 +37,7 @@
 #include <linux/err.h>
 #include <linux/i2c.h>
 #include <linux/input.h>
+#include <linux/sensors.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
@@ -126,6 +127,20 @@ struct mpu3050_sensor {
 	u32    dlpf_index;
 	u32    enable_gpio;
 	u32    enable;
+};
+
+static struct sensors_classdev sensors_cdev = {
+	.name = "mpu3050-gyro",
+	.vendor = "Invensense",
+	.version = 1,
+	.handle = SENSORS_GYROSCOPE_HANDLE,
+	.type = SENSOR_TYPE_GYROSCOPE,
+	.max_range = "35.0",
+	.resolution = "0.06",
+	.sensor_power = "0.2",
+	.min_delay = 2000,
+	.fifo_reserved_event_count = 0,
+	.fifo_max_event_count = 0,
 };
 
 struct sensor_regulator {
@@ -804,10 +819,16 @@ static int __devinit mpu3050_probe(struct i2c_client *client,
 		goto err_free_irq;
 	}
 
+	error = sensors_classdev_register(&client->dev, &sensors_cdev);
+	if (error < 0) {
+		dev_err(&client->dev, "failed to create class device\n");
+		goto err_input_cleanup;
+	}
+
 	error = create_sysfs_interfaces(&idev->dev);
 	if (error < 0) {
 		dev_err(&client->dev, "failed to create sysfs\n");
-		goto err_input_cleanup;
+		goto err_class_sysfs;
 	}
 
 	pm_runtime_enable(&client->dev);
@@ -815,6 +836,8 @@ static int __devinit mpu3050_probe(struct i2c_client *client,
 
 	return 0;
 
+err_class_sysfs:
+	sensors_classdev_unregister(&sensors_cdev);
 err_input_cleanup:
 	input_unregister_device(idev);
 err_free_irq:
