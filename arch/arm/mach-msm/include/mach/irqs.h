@@ -41,11 +41,6 @@
 #define NR_QPNP_IRQS 32768
 #define NR_BOARD_IRQS NR_QPNP_IRQS
 
-#elif defined(CONFIG_ARCH_MSM9625)
-#define NR_MSM_IRQS 288
-#define NR_GPIO_IRQS 76
-#define NR_BOARD_IRQS 0
-
 #endif
 
 #define NR_IRQS (NR_MSM_IRQS + NR_GPIO_IRQS + NR_BOARD_IRQS)
