@@ -90,6 +90,20 @@ Optional properties
 			phandle_of_regulator is defined by reuglator device tree.
 
 Optional child nodes
+- qti,pmic-opt-curr-temp: Threshold temperature for requesting optimum current (request
+			dual phase) for rails with PMIC, in degC. If this property exists,
+			then the properties, qti,pmic-opt-curr-temp-hysteresis and
+			qti,pmic-opt-curr-regs should also be defined to enable this
+			feature.
+- qti,pmic-opt-curr-temp-hysteresis: Degree below the threshold to disable the optimum
+			current request for a rail, in degC. If this property exists,
+			then the properties, qti,pmic-opt-curr-temp and
+			qti,pmic-opt-curr-regs should also be defined to enable
+			this feature.
+- qti,pmic-opt-curr-regs: Name of the rails for which the optimum current should be
+			requested. If this property exists, then the properties,
+			qti,pmic-opt-curr-temp and qti,pmic-opt-curr-temp-hysteresis
+			should also be defined to enable this feature.
 - qcom,<vdd restriction child node name>: Define the name of the child node.
 			If this property exisits, qcom,vdd-rstr-reg, qcom,levels
 			need to exist. qcom,min-level is optional if qcom,freq-req
@@ -129,6 +143,9 @@ Example:
 		qcom,pmic-sw-mode-regs = "vdd-dig";
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
+		qti,pmic-opt-curr-temp = <85>;
+		qti,pmic-opt-curr-temp-hysteresis = <10>;
+		qti,pmic-opt-curr-regs = "vdd-dig";
 		vdd-dig-supply=<&pm8841_s2_floor_corner>
 
 		qcom,vdd-dig-rstr{

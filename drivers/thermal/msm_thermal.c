@@ -37,6 +37,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/msm_thermal_ioctl.h>
 
+#define MAX_CURRENT_UA 1000000
 #define MAX_RAILS 5
 #define MAX_THRESHOLD 2
 
@@ -58,6 +59,7 @@ static struct completion freq_mitigation_complete;
 static int enabled;
 static int rails_cnt;
 static int psm_rails_cnt;
+static int ocr_rail_cnt;
 static int limit_idx;
 static int limit_idx_low;
 static int limit_idx_high;
@@ -73,9 +75,13 @@ static bool psm_nodes_called;
 static bool psm_probed;
 static bool hotplug_enabled;
 static bool freq_mitigation_enabled;
+static bool ocr_enabled;
+static bool ocr_nodes_called;
+static bool ocr_probed;
 static int *tsens_id_map;
 static DEFINE_MUTEX(vdd_rstr_mutex);
 static DEFINE_MUTEX(psm_mutex);
+static DEFINE_MUTEX(ocr_mutex);
 static uint32_t min_freq_limit;
 
 enum thermal_threshold {
@@ -121,10 +127,12 @@ struct psm_rail {
 	uint8_t mode;
 	struct kobj_attribute mode_attr;
 	struct rpm_regulator *reg;
+	struct regulator *phase_reg;
 	struct attribute_group attr_gp;
 };
 
 static struct psm_rail *psm_rails;
+static struct psm_rail *ocr_rails;
 static struct rail *rails;
 static struct cpu_info cpus[NR_CPUS];
 
@@ -138,6 +146,12 @@ enum PMIC_SW_MODE {
 	PMIC_AUTO_MODE  = RPM_REGULATOR_MODE_AUTO,
 	PMIC_IPEAK_MODE = RPM_REGULATOR_MODE_IPEAK,
 	PMIC_PWM_MODE   = RPM_REGULATOR_MODE_HPM,
+};
+
+enum ocr_request {
+	OPTIMUM_CURRENT_MIN,
+	OPTIMUM_CURRENT_MAX,
+	OPTIMUM_CURRENT_NR,
 };
 
 #define VDD_RES_RO_ATTRIB(_rail, ko_attr, j, _name) \
@@ -164,6 +178,14 @@ enum PMIC_SW_MODE {
 
 #define VDD_RSTR_REG_LEVEL_FROM_ATTRIBS(attr) \
 	(container_of(attr, struct rail, level_attr));
+
+#define OCR_RW_ATTRIB(_rail, ko_attr, j, _name) \
+	ko_attr.attr.name = __stringify(_name); \
+	ko_attr.attr.mode = 644; \
+	ko_attr.show = ocr_reg_##_name##_show; \
+	ko_attr.store = ocr_reg_##_name##_store; \
+	sysfs_attr_init(&ko_attr.attr); \
+	_rail.attr_gp.attrs[j] = &ko_attr.attr;
 
 #define PSM_RW_ATTRIB(_rail, ko_attr, j, _name) \
 	ko_attr.attr.name = __stringify(_name); \
@@ -479,6 +501,92 @@ static ssize_t vdd_rstr_reg_level_store(struct kobject *kobj,
 
 done_store_level:
 	mutex_unlock(&vdd_rstr_mutex);
+	return count;
+}
+
+static int request_optimum_current(struct psm_rail *rail, enum ocr_request req)
+{
+	int ret = 0;
+
+	if ((!rail) || (req >= OPTIMUM_CURRENT_NR) ||
+		(req < 0)) {
+		pr_err("%s:%s Invalid input\n", KBUILD_MODNAME, __func__);
+		ret = -EINVAL;
+		goto request_ocr_exit;
+	}
+
+	ret = regulator_set_optimum_mode(rail->phase_reg,
+		(req == OPTIMUM_CURRENT_MAX) ? MAX_CURRENT_UA : 0);
+	if (ret < 0) {
+		pr_err("%s: Optimum current request failed\n", KBUILD_MODNAME);
+		goto request_ocr_exit;
+	}
+	ret = 0; /*regulator_set_optimum_mode returns the mode on success*/
+	pr_debug("%s: Requested optimum current mode: %d\n",
+		KBUILD_MODNAME, req);
+
+request_ocr_exit:
+	return ret;
+}
+
+static int ocr_set_mode_all(enum ocr_request req)
+{
+	int ret = 0, i;
+
+	for (i = 0; i < ocr_rail_cnt; i++) {
+		if (ocr_rails[i].mode == req)
+			continue;
+		ret = request_optimum_current(&ocr_rails[i], req);
+		if (ret)
+			goto ocr_set_mode_exit;
+		ocr_rails[i].mode = req;
+	}
+
+ocr_set_mode_exit:
+	return ret;
+}
+
+static int ocr_reg_mode_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	struct psm_rail *reg = PSM_REG_MODE_FROM_ATTRIBS(attr);
+	return snprintf(buf, PAGE_SIZE, "%d\n", reg->mode);
+}
+
+static ssize_t ocr_reg_mode_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int ret = 0;
+	int val = 0;
+	struct psm_rail *reg = PSM_REG_MODE_FROM_ATTRIBS(attr);
+
+	if (!ocr_enabled)
+		return count;
+
+	mutex_lock(&ocr_mutex);
+	ret = kstrtoint(buf, 10, &val);
+	if (ret) {
+		pr_err("%s: Invalid input %s for mode\n",
+			KBUILD_MODNAME, buf);
+		goto done_ocr_store;
+	}
+
+	if ((val != OPTIMUM_CURRENT_MAX) &&
+		(val != OPTIMUM_CURRENT_MIN)) {
+		pr_err("%s: Invalid value %d for mode\n",
+			KBUILD_MODNAME, val);
+		goto done_ocr_store;
+	}
+
+	if (val != reg->mode) {
+		ret = request_optimum_current(reg, val);
+		if (ret)
+			goto done_ocr_store;
+		reg->mode = val;
+	}
+
+done_ocr_store:
+	mutex_unlock(&ocr_mutex);
 	return count;
 }
 
@@ -832,6 +940,63 @@ static __ref int do_hotplug(void *data)
 }
 #endif
 
+static int do_ocr(void)
+{
+	struct tsens_device tsens_dev;
+	long temp = 0;
+	int ret = 0;
+	int i = 0, j = 0;
+	int auto_cnt = 0;
+
+	if (!ocr_enabled)
+		return ret;
+
+	mutex_lock(&ocr_mutex);
+	for (i = 0; i < max_tsens_num; i++) {
+		tsens_dev.sensor_num = tsens_id_map[i];
+		ret = tsens_get_temp(&tsens_dev, &temp);
+		if (ret) {
+			pr_debug("%s: Unable to read TSENS sensor %d\n",
+					__func__, tsens_dev.sensor_num);
+			auto_cnt++;
+			continue;
+		}
+
+		if (temp > msm_thermal_info.ocr_temp_degC) {
+			if (ocr_rails[0].init != OPTIMUM_CURRENT_NR)
+				for (j = 0; j < ocr_rail_cnt; j++)
+					ocr_rails[j].init = OPTIMUM_CURRENT_NR;
+			ret = ocr_set_mode_all(OPTIMUM_CURRENT_MAX);
+			if (ret)
+				pr_err("Error setting max optimum current\n");
+			goto do_ocr_exit;
+		} else if (temp <= (msm_thermal_info.ocr_temp_degC -
+			msm_thermal_info.ocr_temp_hyst_degC))
+			auto_cnt++;
+	}
+
+	if (auto_cnt == max_tsens_num ||
+		ocr_rails[0].init != OPTIMUM_CURRENT_NR) {
+		/* 'init' not equal to OPTIMUM_CURRENT_NR means this is the
+		** first polling iteration after device probe. During first
+		** iteration, if temperature is less than the set point, clear
+		** the max current request made and reset the 'init'.
+		*/
+		if (ocr_rails[0].init != OPTIMUM_CURRENT_NR)
+			for (j = 0; j < ocr_rail_cnt; j++)
+				ocr_rails[j].init = OPTIMUM_CURRENT_NR;
+		ret = ocr_set_mode_all(OPTIMUM_CURRENT_MIN);
+		if (ret) {
+			pr_err("Error setting min optimum current\n");
+			goto do_ocr_exit;
+		}
+	}
+
+do_ocr_exit:
+	mutex_unlock(&ocr_mutex);
+	return ret;
+}
+
 static int do_vdd_restriction(void)
 {
 	struct tsens_device tsens_dev;
@@ -995,6 +1160,7 @@ static void __ref check_temp(struct work_struct *work)
 	do_core_control(temp);
 	do_vdd_restriction();
 	do_psm();
+	do_ocr();
 	do_freq_control(temp);
 
 reschedule:
@@ -1631,6 +1797,42 @@ int __devinit msm_thermal_init(struct msm_thermal_data *pdata)
 	return ret;
 }
 
+static int ocr_reg_init(struct platform_device *pdev)
+{
+	int ret = 0;
+	int i, j;
+
+	for (i = 0; i < ocr_rail_cnt; i++) {
+		/* Check if vdd_restriction has already initialized any
+		 * regualtor handle. If so use the same handle.*/
+		for (j = 0; j < rails_cnt; j++) {
+			if (!strcmp(ocr_rails[i].name, rails[j].name)) {
+				if (rails[j].reg == NULL)
+					break;
+				ocr_rails[i].phase_reg = rails[j].reg;
+				goto reg_init;
+			}
+
+		}
+		ocr_rails[i].phase_reg = devm_regulator_get(&pdev->dev,
+					ocr_rails[i].name);
+		if (IS_ERR_OR_NULL(ocr_rails[i].phase_reg)) {
+			ret = PTR_ERR(ocr_rails[i].phase_reg);
+			if (ret != -EPROBE_DEFER) {
+				pr_err("%s, could not get regulator: %s\n",
+					__func__, ocr_rails[i].name);
+				ocr_rails[i].phase_reg = NULL;
+				ocr_rails[i].mode = 0;
+				ocr_rails[i].init = 0;
+			}
+			return ret;
+		}
+reg_init:
+		ocr_rails[i].mode = OPTIMUM_CURRENT_MIN;
+	}
+	return ret;
+}
+
 static int vdd_restriction_reg_init(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -1796,6 +1998,80 @@ thermal_sysfs_add_exit:
 		}
 		if (vdd_rstr_kobj)
 			kobject_del(vdd_rstr_kobj);
+	}
+	return rc;
+}
+
+static int msm_thermal_add_ocr_nodes(void)
+{
+	struct kobject *module_kobj = NULL;
+	struct kobject *ocr_kobj = NULL;
+	struct kobject *ocr_reg_kobj[MAX_RAILS] = {0};
+	int rc = 0;
+	int i = 0;
+
+	if (!ocr_probed) {
+		ocr_nodes_called = true;
+		return rc;
+	}
+
+	if (ocr_probed && ocr_rail_cnt == 0)
+		return rc;
+
+	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
+	if (!module_kobj) {
+		pr_err("%s: cannot find kobject for module %s\n",
+			__func__, KBUILD_MODNAME);
+		rc = -ENOENT;
+		goto ocr_node_exit;
+	}
+
+	ocr_kobj = kobject_create_and_add("opt_curr_req", module_kobj);
+	if (!ocr_kobj) {
+		pr_err("%s: cannot create ocr kobject\n", KBUILD_MODNAME);
+		rc = -ENOMEM;
+		goto ocr_node_exit;
+	}
+
+	for (i = 0; i < ocr_rail_cnt; i++) {
+		ocr_reg_kobj[i] = kobject_create_and_add(ocr_rails[i].name,
+					ocr_kobj);
+		if (!ocr_reg_kobj[i]) {
+			pr_err("%s: cannot create for kobject for %s\n",
+					KBUILD_MODNAME, ocr_rails[i].name);
+			rc = -ENOMEM;
+			goto ocr_node_exit;
+		}
+		ocr_rails[i].attr_gp.attrs = kzalloc( \
+				sizeof(struct attribute *) * 2, GFP_KERNEL);
+		if (!ocr_rails[i].attr_gp.attrs) {
+			rc = -ENOMEM;
+			goto ocr_node_exit;
+		}
+
+		OCR_RW_ATTRIB(ocr_rails[i], ocr_rails[i].mode_attr, 0, mode);
+		ocr_rails[i].attr_gp.attrs[1] = NULL;
+
+		rc = sysfs_create_group(ocr_reg_kobj[i], &ocr_rails[i].attr_gp);
+		if (rc) {
+			pr_err("%s: cannot create attribute group for %s\n",
+				KBUILD_MODNAME, ocr_rails[i].name);
+			goto ocr_node_exit;
+		}
+	}
+
+ocr_node_exit:
+	if (rc) {
+		for (i = 0; i < ocr_rail_cnt; i++) {
+			if (ocr_reg_kobj[i])
+				kobject_del(ocr_reg_kobj[i]);
+			if (ocr_rails[i].attr_gp.attrs) {
+				kfree(ocr_rails[i].attr_gp.attrs);
+				ocr_rails[i].attr_gp.attrs = NULL;
+			}
+		}
+		if (ocr_kobj)
+			kobject_del(ocr_kobj);
 	}
 	return rc;
 }
@@ -1969,6 +2245,83 @@ read_node_fail:
 	}
 	if (ret == -EPROBE_DEFER)
 		vdd_rstr_probed = false;
+	return ret;
+}
+
+static int probe_ocr(struct device_node *node, struct msm_thermal_data *data,
+		struct platform_device *pdev)
+{
+	int ret = 0;
+	int j = 0;
+	char *key = NULL;
+
+	if (ocr_probed) {
+		pr_info("%s: Nodes already probed\n",
+			__func__);
+		goto read_ocr_exit;
+	}
+	ocr_rails = NULL;
+
+	key = "qti,pmic-opt-curr-temp";
+	ret = of_property_read_u32(node, key, &data->ocr_temp_degC);
+	if (ret)
+		goto read_ocr_fail;
+
+	key = "qti,pmic-opt-curr-temp-hysteresis";
+	ret = of_property_read_u32(node, key, &data->ocr_temp_hyst_degC);
+	if (ret)
+		goto read_ocr_fail;
+
+	key = "qti,pmic-opt-curr-regs";
+	ocr_rail_cnt = of_property_count_strings(node, key);
+	ocr_rails = kzalloc(sizeof(struct psm_rail) * ocr_rail_cnt,
+			GFP_KERNEL);
+	if (!ocr_rails) {
+		pr_err("%s: Fail to allocate memory for ocr rails\n", __func__);
+		ocr_rail_cnt = 0;
+		return -ENOMEM;
+	}
+
+	for (j = 0; j < ocr_rail_cnt; j++) {
+		ret = of_property_read_string_index(node, key, j,
+				&ocr_rails[j].name);
+		if (ret)
+			goto read_ocr_fail;
+		ocr_rails[j].phase_reg = NULL;
+		ocr_rails[j].init = OPTIMUM_CURRENT_MAX;
+	}
+
+	if (ocr_rail_cnt) {
+		ret = ocr_reg_init(pdev);
+		if (ret) {
+			pr_info("%s:Failed to get regulators. KTM continues.\n",
+					__func__);
+			goto read_ocr_fail;
+		}
+		ocr_enabled = true;
+		ocr_nodes_called = false;
+		/*
+		 * Vote for max optimum current by default until we have made
+		 * our first temp reading
+		 */
+		if (ocr_set_mode_all(OPTIMUM_CURRENT_MAX))
+			pr_err("Set max optimum current failed\n");
+	}
+
+read_ocr_fail:
+	ocr_probed = true;
+	if (ret) {
+		dev_info(&pdev->dev,
+			"%s:Failed reading node=%s, key=%s. KTM continues\n",
+			__func__, node->full_name, key);
+		if (ocr_rails)
+			kfree(ocr_rails);
+		ocr_rails = NULL;
+		ocr_rail_cnt = 0;
+	}
+	if (ret == -EPROBE_DEFER)
+		ocr_probed = false;
+read_ocr_exit:
 	return ret;
 }
 
@@ -2204,11 +2557,17 @@ static int __devinit msm_thermal_dev_probe(struct platform_device *pdev)
 	 * Probe optional properties below. Call probe_psm before
 	 * probe_vdd_rstr because rpm_regulator_get has to be called
 	 * before devm_regulator_get
+	 * probe_ocr should be called after probe_vdd_rstr to reuse the
+	 * regualtor handle. calling devm_regulator_get more than once
+	 * will fail.
 	 */
 	ret = probe_psm(node, &data, pdev);
 	if (ret == -EPROBE_DEFER)
 		goto fail;
 	ret = probe_vdd_rstr(node, &data, pdev);
+	if (ret == -EPROBE_DEFER)
+		goto fail;
+	ret = probe_ocr(node, &data, pdev);
 	if (ret == -EPROBE_DEFER)
 		goto fail;
 
@@ -2223,6 +2582,10 @@ static int __devinit msm_thermal_dev_probe(struct platform_device *pdev)
 	if (vdd_rstr_nodes_called) {
 		msm_thermal_add_vdd_rstr_nodes();
 		vdd_rstr_nodes_called = false;
+	}
+	if (ocr_nodes_called) {
+		msm_thermal_add_ocr_nodes();
+		ocr_nodes_called = false;
 	}
 	msm_thermal_ioctl_init();
 	ret = msm_thermal_init(&data);
@@ -2268,6 +2631,7 @@ int __init msm_thermal_late_init(void)
 		msm_thermal_add_cc_nodes();
 	msm_thermal_add_psm_nodes();
 	msm_thermal_add_vdd_rstr_nodes();
+	msm_thermal_add_ocr_nodes();
 	alarm_init(&thermal_rtc, ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP,
 			thermal_rtc_callback);
 	INIT_WORK(&timer_work, timer_work_fn);
