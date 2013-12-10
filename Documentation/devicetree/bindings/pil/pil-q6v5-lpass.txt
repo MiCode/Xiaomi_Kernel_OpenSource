@@ -21,6 +21,8 @@ Optional properties:
 - qti,gpio-err-fatal: GPIO used by the lpass to indicate error fatal to the apps.
 - qti,gpio-err-ready: GPIO used by the lpass to indicate apps error service is ready.
 - qti,gpio-proxy-unvote: GPIO used by the lpass to indicate apps clock is ready.
+- qti,gpio-stop-ack: GPIO used by lpass to ack force stop or a graceful stop
+  to Apps.
 - qti,gpio-force-stop: GPIO used by the apps to force the lpass to shutdown.
 
 Example:
@@ -37,6 +39,7 @@ Example:
 		/* GPIO inputs from lpass */
 		qti,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_2_in 0 0>;
 		qti,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_2_in 2 0>;
+		qti,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_2_in 3 0>;
 
 		/* GPIO output to lpass */
 		qti,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
