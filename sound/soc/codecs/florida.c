@@ -2048,6 +2048,8 @@ static int florida_probe(struct platform_device *pdev)
 	struct florida_priv *florida;
 	int i, ret;
 
+	BUILD_BUG_ON(ARRAY_SIZE(florida_dai) > ARIZONA_MAX_DAI);
+
 	florida = devm_kzalloc(&pdev->dev, sizeof(struct florida_priv),
 			      GFP_KERNEL);
 	if (florida == NULL)
