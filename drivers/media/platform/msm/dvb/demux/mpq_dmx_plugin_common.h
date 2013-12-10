@@ -405,20 +405,7 @@ struct mpq_feed {
  * @hw_notification_size: Notification size in bytes, exposed in debugfs.
  * @hw_notification_min_size: Minimum notification size in bytes,
  * exposed in debugfs.
- * @decoder_drop_count: Accumulated number of bytes dropped due to decoder
- * buffer fullness, exposed in debugfs.
- * @decoder_out_count: Counter incremeneted for each video frame output by
- * demux, exposed in debugfs.
- * @decoder_out_interval_sum: Sum of intervals (msec) holding the time between
- * two successive video frames output, exposed in debugfs.
- * @decoder_out_interval_average: Average interval (msec) between two
- * successive video frames output, exposed in debugfs.
- * @decoder_out_interval_max: Max interval (msec) between two
- * successive video frames output, exposed in debugfs.
- * @decoder_ts_errors: Counter for number of decoder packets with TEI bit
- * set, exposed in debugfs.
- * @decoder_cc_errors: Counter for number of decoder packets with continuity
- * counter errors, exposed in debugfs.
+ * @decoder_stat: Decoder output statistics, exposed in debug-fs.
  * @sdmx_process_count: Total number of times sdmx_process is called.
  * @sdmx_process_time_sum: Total time sdmx_process takes.
  * @sdmx_process_time_average: Average time sdmx_process takes.
@@ -426,7 +413,6 @@ struct mpq_feed {
  * @sdmx_process_packets_sum: Total packets number sdmx_process handled.
  * @sdmx_process_packets_average: Average packets number sdmx_process handled.
  * @sdmx_process_packets_min: Minimum packets number sdmx_process handled.
- * @decoder_out_last_time: Time of last video frame output.
  * @last_notification_time: Time of last HW notification.
  */
 struct mpq_demux {
@@ -475,13 +461,48 @@ struct mpq_demux {
 	u32 hw_notification_count;
 	u32 hw_notification_size;
 	u32 hw_notification_min_size;
-	u32 decoder_drop_count;
-	u32 decoder_out_count;
-	u32 decoder_out_interval_sum;
-	u32 decoder_out_interval_average;
-	u32 decoder_out_interval_max;
-	u32 decoder_ts_errors;
-	u32 decoder_cc_errors;
+
+	struct {
+		/*
+		 * Accumulated number of bytes
+		 * dropped due to decoder buffer fullness.
+		 */
+		u32 drop_count;
+
+		/* Counter incremeneted for each video frame output by demux */
+		u32 out_count;
+
+		/*
+		 * Sum of intervals (msec) holding the time
+		 * between two successive video frames output.
+		 */
+		u32 out_interval_sum;
+
+		/*
+		 * Average interval (msec) between two
+		 * successive video frames output.
+		 */
+		u32 out_interval_average;
+
+		/*
+		 * Max interval (msec) between two
+		 * successive video frames output.
+		 */
+		u32 out_interval_max;
+
+		/* Counter for number of decoder packets with TEI bit set */
+		u32 ts_errors;
+
+		/*
+		 * Counter for number of decoder packets
+		 * with continuity counter errors.
+		 */
+		u32 cc_errors;
+
+		/* Time of last video frame output */
+		struct timespec out_last_time;
+	} decoder_stat[MPQ_ADAPTER_MAX_NUM_OF_INTERFACES];
+
 	u32 sdmx_process_count;
 	u32 sdmx_process_time_sum;
 	u32 sdmx_process_time_average;
@@ -491,7 +512,6 @@ struct mpq_demux {
 	u32 sdmx_process_packets_min;
 	enum sdmx_log_level sdmx_log_level;
 
-	struct timespec decoder_out_last_time;
 	struct timespec last_notification_time;
 };
 
@@ -980,7 +1000,7 @@ static inline u32 mpq_dmx_calc_time_delta(struct timespec *curr_time,
 	return (u32)delta_time_ms;
 }
 
-void mpq_dmx_update_decoder_stat(struct mpq_demux *mpq_demux);
+void mpq_dmx_update_decoder_stat(struct mpq_feed *mpq_feed);
 
 /* Return the common module parameter tsif_mode */
 int mpq_dmx_get_param_tsif_mode(void);
