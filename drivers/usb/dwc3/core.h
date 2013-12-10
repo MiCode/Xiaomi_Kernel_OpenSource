@@ -845,6 +845,8 @@ struct dwc3 {
 
 	/* Indicate if software connect was issued by the usb_gadget_driver */
 	unsigned		softconnect:1;
+
+	unsigned		nominal_elastic_buffer:1;
 };
 
 /* -------------------------------------------------------------------------- */

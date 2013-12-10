@@ -14,6 +14,8 @@ Optional properties:
  - phys: from the *Generic PHY* bindings
  - phy-names: from the *Generic PHY* bindings
  - tx-fifo-resize: determines if the FIFO *has* to be reallocated.
+ - snps,nominal-elastic-buffer: When set, the nominal elastic buffer setting
+	is used. By default, the half-full setting is used.
 
 This is usually a subnode to DWC3 glue to which it is connected.
 
