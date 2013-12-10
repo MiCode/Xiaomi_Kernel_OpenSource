@@ -84,6 +84,16 @@ struct mdss_intr {
 	spinlock_t lock;
 };
 
+struct mdss_prefill_data {
+	u32 ot_bytes;
+	u32 y_buf_bytes;
+	u32 y_scaler_lines_bilinear;
+	u32 y_scaler_lines_caf;
+	u32 post_scaler_pixels;
+	u32 pp_pixels;
+	u32 fbc_lines;
+};
+
 struct mdss_data_type {
 	u32 mdp_rev;
 	struct clk *mdp_clk[MDSS_MAX_CLK];
@@ -182,6 +192,7 @@ struct mdss_data_type {
 	struct mdss_debug_inf debug_inf;
 	bool mixer_switched;
 	struct mdss_panel_cfg pan_cfg;
+	struct mdss_prefill_data prefill_data;
 };
 extern struct mdss_data_type *mdss_res;
 
