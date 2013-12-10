@@ -2473,11 +2473,14 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	clk_set_rate(mdwc->sleep_clk, 32000);
 	clk_prepare_enable(mdwc->sleep_clk);
 
-	mdwc->hsphy_sleep_clk = devm_clk_get(&pdev->dev, "sleep_a_clk");
+	mdwc->hsphy_sleep_clk = devm_clk_get(&pdev->dev, "phy_sleep_clk");
 	if (IS_ERR(mdwc->hsphy_sleep_clk)) {
-		dev_err(&pdev->dev, "failed to get sleep_a_clk\n");
-		ret = PTR_ERR(mdwc->hsphy_sleep_clk);
-		goto disable_sleep_clk;
+		mdwc->hsphy_sleep_clk = devm_clk_get(&pdev->dev, "sleep_a_clk");
+		if (IS_ERR(mdwc->hsphy_sleep_clk)) {
+			dev_err(&pdev->dev, "failed to get sleep_a_clk\n");
+			ret = PTR_ERR(mdwc->hsphy_sleep_clk);
+			goto disable_sleep_clk;
+		}
 	}
 	clk_prepare_enable(mdwc->hsphy_sleep_clk);
 
@@ -2485,7 +2488,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (IS_ERR(mdwc->utmi_clk)) {
 		dev_err(&pdev->dev, "failed to get utmi_clk\n");
 		ret = PTR_ERR(mdwc->utmi_clk);
-		goto disable_sleep_a_clk;
+		goto disable_hsphy_sleep_clk;
 	}
 	clk_set_rate(mdwc->utmi_clk, 19200000);
 	clk_prepare_enable(mdwc->utmi_clk);
@@ -2785,6 +2788,24 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	pm_runtime_set_active(mdwc->dev);
 	pm_runtime_enable(mdwc->dev);
 
+	if (of_property_read_bool(node, "qti,reset_hsphy_sleep_clk_on_init")) {
+		ret = clk_reset(mdwc->hsphy_sleep_clk, CLK_RESET_ASSERT);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"hsphy_sleep_clk assert failed\n");
+			return ret;
+		}
+
+		usleep_range(1000, 1200);
+
+		ret = clk_reset(mdwc->hsphy_sleep_clk, CLK_RESET_DEASSERT);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"hsphy_sleep_clk reset deassert failed\n");
+			return ret;
+		}
+	}
+
 	return 0;
 
 put_dwc3:
@@ -2796,7 +2817,7 @@ disable_ref_clk:
 	clk_disable_unprepare(mdwc->ref_clk);
 disable_utmi_clk:
 	clk_disable_unprepare(mdwc->utmi_clk);
-disable_sleep_a_clk:
+disable_hsphy_sleep_clk:
 	clk_disable_unprepare(mdwc->hsphy_sleep_clk);
 disable_sleep_clk:
 	clk_disable_unprepare(mdwc->sleep_clk);
