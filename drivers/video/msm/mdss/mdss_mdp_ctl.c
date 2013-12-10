@@ -82,54 +82,99 @@ struct mdss_mdp_prefill_params {
 	u32 smp_bytes;
 	u32 xres;
 	u32 src_w;
+	u32 dst_w;
 	u32 src_h;
 	u32 dst_h;
 	u32 dst_y;
 	u32 bpp;
 	bool is_yuv;
 	bool is_caf;
+	bool is_fbc;
 };
+
+static inline bool mdss_mdp_perf_is_caf(struct mdss_mdp_pipe *pipe)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	/*
+	 * CAF mode filter is enabled when format is yuv and
+	 * upscaling. Post processing had the decision to use CAF
+	 * under these conditions.
+	 */
+	return ((mdata->mdp_rev >= MDSS_MDP_HW_REV_102) &&
+		pipe->src_fmt->is_yuv && ((pipe->src.h >> pipe->vert_deci) <=
+			pipe->dst.h));
+}
 
 static u32 mdss_mdp_perf_calc_pipe_prefill_bytes(struct mdss_mdp_prefill_params
 	*params)
 {
-	u32 prefill_bytes = 0, pp_bytes = 0,  ot_bytes = 8 * 128;
-	u32 y_buf_bytes = 4096;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_prefill_data *prefill = &mdata->prefill_data;
+	u32 prefill_bytes;
+	u32 y_buf_bytes;
 	u32 y_scaler_lines = 0, y_scaler_bytes = 0;
-	u32 pp_pixels = 4096, pp_lines;
+	u32 pp_bytes = 0, pp_lines = 0;
+	u32 post_scaler_bytes;
+	u32 fbc_bytes = 0;
 
-	/*
-	 * todo:
-	 * 1. add post_scaler_bytes and fbc
-	 * 2. add h/w related buffer parameters in device tree
-	 * 3. do is_caf check
-	 */
-	prefill_bytes += ot_bytes + params->smp_bytes;
+	prefill_bytes = prefill->ot_bytes + params->smp_bytes;
 
 	if (params->is_yuv) {
-		y_scaler_lines = (params->is_caf) ? 4 : 2;
-		if (params->src_h != params->dst_h)
-			y_scaler_bytes += y_scaler_lines * params->src_w * 2;
+		y_buf_bytes = prefill->y_buf_bytes;
+		if (params->src_h != params->dst_h) {
+			y_scaler_lines = (params->is_caf) ?
+				prefill->y_scaler_lines_caf :
+				prefill->y_scaler_lines_bilinear;
+			/*
+			 * y is src_width, u is src_width/2 and v is
+			 * src_width/2, so the total is scaler_lines *
+			 * src_w * 2
+			 */
+			y_scaler_bytes = y_scaler_lines * params->src_w * 2;
+		}
 	} else {
-		y_buf_bytes = 0;
-		y_scaler_lines = (params->src_h != params->dst_h) ? 2 : 0;
-		y_scaler_bytes = y_scaler_lines * params->src_w * params->bpp;
+		y_buf_bytes = 0; /* alway 0 for single plane sources */
+		if (params->src_h != params->dst_h) {
+			y_scaler_lines = prefill->y_scaler_lines_bilinear;
+			y_scaler_bytes = y_scaler_lines * params->src_w *
+				params->bpp;
+		}
 	}
 
 	prefill_bytes += y_buf_bytes + y_scaler_bytes;
 
-	pp_lines = (params->xres) ? DIV_ROUND_UP(pp_pixels, params->xres) : 0;
-	if (params->xres && params->dst_h && (params->dst_y <= pp_lines))
-		pp_bytes = ((params->src_w * params->bpp * pp_pixels /
-				params->xres) * params->src_h) / params->dst_h;
-	else
-		pp_bytes = 0;
+	post_scaler_bytes = prefill->post_scaler_pixels * params->bpp;
+	if (params->dst_h)
+		post_scaler_bytes = mult_frac(post_scaler_bytes, params->src_h,
+			params->dst_h);
+	if (params->dst_w)
+		post_scaler_bytes = mult_frac(post_scaler_bytes, params->src_w,
+			params->dst_w);
+	prefill_bytes += post_scaler_bytes;
 
+	if (params->xres)
+		pp_lines = DIV_ROUND_UP(prefill->pp_pixels, params->xres);
+	if (params->xres && params->dst_h && (params->dst_y <= pp_lines))
+		pp_bytes = ((params->src_w * params->bpp * prefill->pp_pixels /
+				params->xres) * params->src_h) / params->dst_h;
 	prefill_bytes += pp_bytes;
 
+	if (params->is_fbc) {
+		fbc_bytes = prefill->fbc_lines * params->bpp;
+		if (params->dst_h)
+			fbc_bytes = mult_frac(fbc_bytes, params->src_h,
+				params->dst_h);
+		if (params->dst_w)
+			fbc_bytes = mult_frac(fbc_bytes, params->src_w,
+				params->dst_w);
+	}
+	prefill_bytes += fbc_bytes;
+
 	pr_debug("ot=%d smp=%d y_buf=%d y_sc_l=%d y_sc=%d pp_lines=%d pp=%d\n",
-		ot_bytes, params->smp_bytes, y_buf_bytes, y_scaler_lines,
-		y_scaler_bytes, pp_lines, pp_bytes);
+		prefill->ot_bytes, params->smp_bytes, y_buf_bytes,
+		y_scaler_lines,	y_scaler_bytes, pp_lines, pp_bytes);
+	pr_debug("post_sc=%d fbc_bytes=%d\n", post_scaler_bytes, fbc_bytes);
 
 	return prefill_bytes;
 }
@@ -152,6 +197,7 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	int fps = DEFAULT_FRAME_RATE;
 	u32 quota, rate, v_total, src_h, xres = 0;
 	struct mdss_mdp_img_rect src, dst;
+	bool is_fbc = false;
 	struct mdss_mdp_prefill_params prefill_params;
 
 	if (!pipe || !perf || !pipe->mixer)
@@ -170,6 +216,7 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 		fps = mdss_panel_get_framerate(pinfo);
 		v_total = mdss_panel_get_vtotal(pinfo);
 		xres = pinfo->xres;
+		is_fbc = pinfo->fbc.enabled;
 	} else {
 		v_total = mixer->height;
 		xres = mixer->width;
@@ -223,12 +270,14 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	prefill_params.smp_bytes = mdss_mdp_smp_get_size(pipe);
 	prefill_params.xres = xres;
 	prefill_params.src_w = src.w;
+	prefill_params.dst_w = dst.w;
 	prefill_params.src_h = src_h;
 	prefill_params.dst_h = dst.h;
 	prefill_params.dst_y = dst.y;
 	prefill_params.bpp = pipe->src_fmt->bpp;
 	prefill_params.is_yuv = pipe->src_fmt->is_yuv;
-	prefill_params.is_caf = false;
+	prefill_params.is_caf = mdss_mdp_perf_is_caf(pipe);
+	prefill_params.is_fbc = is_fbc;
 
 	if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF)
 		perf->prefill_bytes =
