@@ -502,7 +502,7 @@ static int msm_ipc_router_smd_remote_probe(struct platform_device *pdev)
 	smd_xprtp = find_smd_xprt_list(pdev);
 	if (!smd_xprtp) {
 		pr_err("%s No device with name %s\n", __func__, pdev->name);
-		return -ENODEV;
+		return -EPROBE_DEFER;
 	}
 	if (strcmp(pdev->name, smd_xprtp->ch_name)
 			|| (pdev->id != smd_xprtp->edge)) {
