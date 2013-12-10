@@ -249,6 +249,7 @@ struct dwc3_msm {
 	bool ext_chg_active;
 	struct completion ext_chg_wait;
 	unsigned int scm_dev_id;
+	bool suspend_resume_no_support;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -1537,6 +1538,11 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 
 	dev_dbg(mdwc->dev, "%s: entering lpm\n", __func__);
 
+	if (mdwc->suspend_resume_no_support) {
+		dev_dbg(mdwc->dev, "%s no support for suspend\n", __func__);
+		return -EPERM;
+	}
+
 	if (atomic_read(&mdwc->in_lpm)) {
 		dev_dbg(mdwc->dev, "%s: Already suspended\n", __func__);
 		return 0;
@@ -2514,6 +2520,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	mdwc->charger.skip_chg_detect = of_property_read_bool(node,
 				"qti,skip-charger-detection");
+
+	mdwc->suspend_resume_no_support = of_property_read_bool(node,
+				"qti,no-suspend-resume");
 	/*
 	 * DWC3 has separate IRQ line for OTG events (ID/BSV) and for
 	 * DP and DM linestate transitions during low power mode.
