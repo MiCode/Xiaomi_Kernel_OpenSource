@@ -110,10 +110,6 @@ enum mdss_mdp_ctl_index {
 	MDSS_MDP_MAX_CTL
 };
 
-#define MDSS_MDP_CTL_ADDRESS_OFFSET			0x100
-#define MDSS_MDP_REG_CTL_OFFSET(ctl) (0x00600 + ((ctl) * \
-					 MDSS_MDP_CTL_ADDRESS_OFFSET))
-
 #define MDSS_MDP_REG_CTL_LAYER(lm)			((lm) * 0x004)
 #define MDSS_MDP_REG_CTL_TOP				0x014
 #define MDSS_MDP_REG_CTL_FLUSH				0x018
@@ -162,11 +158,6 @@ enum mdss_mdp_sspp_chroma_samp_type {
 	MDSS_MDP_CHROMA_H1V2,
 	MDSS_MDP_CHROMA_420
 };
-
-
-#define MDSS_MDP_SSPP_ADDRESS_OFFSET			0x400
-#define MDSS_MDP_REG_SSPP_OFFSET(pipe) (0x01200 + ((pipe) * \
-					MDSS_MDP_SSPP_ADDRESS_OFFSET))
 
 #define MDSS_MDP_REG_SSPP_SRC_SIZE			0x000
 #define MDSS_MDP_REG_SSPP_SRC_IMG_SIZE			0x004
@@ -288,7 +279,6 @@ enum mdss_mdp_stage_index {
 	MDSS_MDP_MAX_STAGE
 };
 
-#define MDSS_MDP_LM_ADDRESS_OFFSET			0x400
 #define MDSS_MDP_REG_LM_OP_MODE				0x000
 #define MDSS_MDP_REG_LM_OUT_SIZE			0x004
 #define MDSS_MDP_REG_LM_BORDER_COLOR_0			0x008
@@ -350,8 +340,6 @@ enum mdss_mdp_writeback_index {
 	MDSS_MDP_WRITEBACK4,
 	MDSS_MDP_MAX_WRITEBACK
 };
-
-#define MDSS_MDP_REG_WB_OFFSET(wb)	(0x11100 + ((wb) * 0x2000))
 
 #define MDSS_MDP_REG_WB_DST_FORMAT			0x000
 #define MDSS_MDP_REG_WB_DST_OP_MODE			0x004
@@ -430,9 +418,6 @@ enum mdss_mdp_dspp_index {
 	MDSS_MDP_MAX_DSPP
 };
 
-#define MDSS_MDP_DSPP_ADDRESS_OFFSET			0x400
-#define MDSS_MDP_REG_DSPP_OFFSET(pipe)	(0x4600 + ((pipe) * \
-					MDSS_MDP_DSPP_ADDRESS_OFFSET))
 #define MDSS_MDP_REG_DSPP_OP_MODE			0x000
 #define MDSS_MDP_REG_DSPP_PCC_BASE			0x030
 #define MDSS_MDP_REG_DSPP_DITHER_DEPTH			0x150

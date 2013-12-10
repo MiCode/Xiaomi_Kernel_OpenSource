@@ -4861,22 +4861,22 @@ static int is_valid_calib_addr(void *addr, u32 operation)
 						MDSS_MDP_IGC_DSPP_COLORS)) {
 		ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
 	} else if (ptr >= dspp_base && ptr < (dspp_base +
-		(mdss_res->nmixers_intf * MDSS_MDP_DSPP_ADDRESS_OFFSET))) {
+		(mdss_res->nmixers_intf * mdss_res->size_dspp))) {
 		ret = is_valid_calib_dspp_addr(ptr);
 	} else if (ptr >= ctl_base && ptr < (ctl_base + (mdss_res->nctl
-					* MDSS_MDP_CTL_ADDRESS_OFFSET))) {
+					* mdss_res->size_ctl))) {
 		ret = is_valid_calib_ctrl_addr(ptr);
 	} else if (ptr >= vig_base && ptr < (vig_base + (mdss_res->nvig_pipes
-					* MDSS_MDP_SSPP_ADDRESS_OFFSET))) {
+					* mdss_res->size_sspp))) {
 		ret = is_valid_calib_vig_addr(ptr);
 	} else if (ptr >= rgb_base && ptr < (rgb_base + (mdss_res->nrgb_pipes
-					* MDSS_MDP_SSPP_ADDRESS_OFFSET))) {
+					* mdss_res->size_sspp))) {
 		ret = is_valid_calib_rgb_addr(ptr);
 	} else if (ptr >= dma_base && ptr < (dma_base + (mdss_res->ndma_pipes
-					* MDSS_MDP_SSPP_ADDRESS_OFFSET))) {
+					* mdss_res->size_sspp))) {
 		ret = is_valid_calib_dma_addr(ptr);
 	} else if (ptr >= mixer_base && ptr < (mixer_base +
-		(mdss_res->nmixers_intf * MDSS_MDP_LM_ADDRESS_OFFSET))) {
+		(mdss_res->nmixers_intf * mdss_res->size_mixer_intf))) {
 		ret = is_valid_calib_mixer_addr(ptr);
 	}
 

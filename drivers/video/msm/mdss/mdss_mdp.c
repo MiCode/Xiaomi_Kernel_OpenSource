@@ -1617,6 +1617,11 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 		goto dma_alloc_fail;
 	}
 
+	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-sspp-len",
+		&mdata->size_sspp, 1);
+	if (rc)
+		goto parse_fail;
+
 	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-vig-fetch-id",
 		ftch_id, mdata->nvig_pipes);
 	if (rc)
@@ -1770,6 +1775,11 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 	if (rc)
 		goto parse_done;
 
+	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-mixer-intf-len",
+		&mdata->size_mixer_intf, 1);
+	if (rc)
+		goto parse_done;
+
 	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-mixer-wb-off",
 		mixer_offsets + mdata->nmixers_intf, mdata->nmixers_wb);
 	if (rc)
@@ -1777,6 +1787,11 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 
 	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-dspp-off",
 		dspp_offsets, ndspp);
+	if (rc)
+		goto parse_done;
+
+	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-dspp-len",
+		&mdata->size_dspp, 1);
 	if (rc)
 		goto parse_done;
 
@@ -1841,6 +1856,11 @@ static int mdss_mdp_parse_dt_ctl(struct platform_device *pdev)
 
 	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-ctl-off",
 		ctl_offsets, mdata->nctl);
+	if (rc)
+		goto parse_done;
+
+	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-ctl-len",
+		&mdata->size_ctl, 1);
 	if (rc)
 		goto parse_done;
 
