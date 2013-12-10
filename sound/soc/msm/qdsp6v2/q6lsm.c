@@ -30,6 +30,7 @@
 #include <asm/ioctls.h>
 #include <mach/memory.h>
 #include <mach/debug_mm.h>
+#include <linux/msm_audio_ion.h>
 #include "audio_acdb.h"
 #include "q6core.h"
 
@@ -686,11 +687,10 @@ int q6lsm_snd_model_buf_free(struct lsm_client *client)
 		pr_err("%s CMD Memory_unmap_regions failed\n", __func__);
 
 	if (client->sound_model.data) {
-		ion_unmap_kernel(client->sound_model.client,
+		msm_audio_ion_free(client->sound_model.client,
 				 client->sound_model.handle);
-		ion_free(client->sound_model.client,
-			 client->sound_model.handle);
-		ion_client_destroy(client->sound_model.client);
+		client->sound_model.client = NULL;
+		client->sound_model.handle = NULL;
 		client->sound_model.data = NULL;
 		client->sound_model.phys = 0;
 	}
@@ -786,46 +786,26 @@ static int q6lsm_mmapcallback(struct apr_client_data *data, void *priv)
 int q6lsm_snd_model_buf_alloc(struct lsm_client *client, uint32_t len)
 {
 	int rc = -EINVAL;
+	int size;
 
 	if (!client)
 		return rc;
 
 	mutex_lock(&client->cmd_lock);
 	if (!client->sound_model.data) {
-		client->sound_model.client =
-		    msm_ion_client_create(UINT_MAX, "lsm_client");
-		if (IS_ERR_OR_NULL(client->sound_model.client)) {
-			pr_err("%s: ION create client for AUDIO failed\n",
-			       __func__);
-			goto fail;
-		}
-		client->sound_model.handle =
-			ion_alloc(client->sound_model.client,
-				  len, SZ_4K, (0x1 << ION_AUDIO_HEAP_ID), 0);
-		if (IS_ERR_OR_NULL(client->sound_model.handle)) {
-			pr_err("%s: ION memory allocation for AUDIO failed\n",
-			       __func__);
-			goto fail;
-		}
-
-		rc = ion_phys(client->sound_model.client,
-			      client->sound_model.handle,
-			      (ion_phys_addr_t *)&client->sound_model.phys,
-			      (size_t *)&len);
+		rc = msm_audio_ion_alloc("lsm_client",
+				&client->sound_model.client,
+				&client->sound_model.handle,
+				len,
+				(ion_phys_addr_t *)&client->sound_model.phys,
+				(size_t *)&size,
+				&client->sound_model.data);
 		if (rc) {
-			pr_err("%s: ION get physical mem failed, rc%d\n",
-			       __func__, rc);
+			pr_err("%s: Audio ION alloc is failed, rc = %d\n",
+				__func__, rc);
 			goto fail;
 		}
 
-		client->sound_model.data =
-		    ion_map_kernel(client->sound_model.client,
-				   client->sound_model.handle);
-		if (IS_ERR_OR_NULL(client->sound_model.data)) {
-			pr_err("%s: ION memory mapping failed\n", __func__);
-			goto fail;
-		}
-		memset(client->sound_model.data, 0, len);
 		client->sound_model.size = len;
 	} else {
 		rc = -EBUSY;
@@ -834,7 +814,7 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, uint32_t len)
 	mutex_unlock(&client->cmd_lock);
 
 	rc = q6lsm_memory_map_regions(client, client->sound_model.phys,
-				      client->sound_model.size,
+				      size,
 				      &client->sound_model.mem_map_handle);
 	if (rc < 0) {
 		pr_err("%s:CMD Memory_map_regions failed\n", __func__);
