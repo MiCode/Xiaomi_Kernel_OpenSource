@@ -23,6 +23,7 @@
 #include <linux/usb/phy.h>
 #include <linux/usb/msm_hsusb.h>
 #include <linux/clk.h>
+#include <mach/clk.h>
 
 #define USB_SSPHY_1P8_VOL_MIN		1800000 /* uV */
 #define USB_SSPHY_1P8_VOL_MAX		1800000 /* uV */
@@ -88,6 +89,8 @@ struct msm_ssphy_qmp {
 	struct clk		*aux_clk;
 	struct clk		*cfg_ahb_clk;
 	struct clk		*pipe_clk;
+	struct clk		*phy_com_reset;
+	struct clk		*phy_reset;
 };
 
 static int msm_ssusb_qmp_config_vdd(struct msm_ssphy_qmp *phy, int high)
@@ -183,6 +186,7 @@ static int msm_ssphy_qmp_init_clocks(struct msm_ssphy_qmp *phy)
 		ret = PTR_ERR(phy->pipe_clk);
 		goto disable_cfg_ahb_clk;
 	}
+
 	/*
 	 * Before PHY is initilized we must first use the xo clock
 	 * as the source clock for the gcc_usb3_pipe_clk in 19.2MHz
@@ -191,8 +195,24 @@ static int msm_ssphy_qmp_init_clocks(struct msm_ssphy_qmp *phy)
 	clk_set_rate(phy->pipe_clk, 19200000);
 	clk_prepare_enable(phy->pipe_clk);
 
+	phy->phy_com_reset = devm_clk_get(phy->phy.dev, "phy_com_reset");
+	if (IS_ERR(phy->phy_com_reset)) {
+		dev_err(phy->phy.dev, "failed to get phy_com_reset\n");
+		ret = PTR_ERR(phy->phy_com_reset);
+		goto disable_pipe_clk;
+	}
+
+	phy->phy_reset = devm_clk_get(phy->phy.dev, "phy_reset");
+	if (IS_ERR(phy->phy_reset)) {
+		dev_err(phy->phy.dev, "failed to get phy_reset\n");
+		ret = PTR_ERR(phy->phy_reset);
+		goto disable_pipe_clk;
+	}
+
 	return ret;
 
+disable_pipe_clk:
+	clk_disable_unprepare(phy->pipe_clk);
 disable_cfg_ahb_clk:
 	clk_disable_unprepare(phy->cfg_ahb_clk);
 disable_aux_clk:
@@ -206,15 +226,8 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 {
 	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
 					phy);
-	int ret;
 
 	dev_dbg(uphy->dev, "%s\n", __func__);
-
-	ret = msm_ssphy_qmp_init_clocks(phy);
-	if (ret) {
-		dev_err(uphy->dev, "Fail to init qmp phy clocks\n");
-		return ret;
-	}
 
 	writel_relaxed(0x01, phy->base + PCIE_USB3_PHY_POWER_DOWN_CONTROL);
 
@@ -276,6 +289,58 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	clk_set_rate(phy->pipe_clk, 125000000);
 
 	return 0;
+}
+
+static int msm_ssphy_qmp_reset(struct usb_phy *uphy)
+{
+	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
+					phy);
+	int ret;
+
+	dev_dbg(uphy->dev, "%s\n", __func__);
+
+	/* Assert USB3 PHY reset */
+	ret = clk_reset(phy->phy_com_reset, CLK_RESET_ASSERT);
+	if (ret) {
+		dev_err(uphy->dev, "phy_com_reset clk assert failed\n");
+		return ret;
+	}
+	ret = clk_reset(phy->phy_reset, CLK_RESET_ASSERT);
+	if (ret) {
+		dev_err(uphy->dev, "phy_reset clk assert failed\n");
+		goto deassert_phy_com_reset;
+	}
+	ret = clk_reset(phy->pipe_clk, CLK_RESET_ASSERT);
+	if (ret) {
+		dev_err(uphy->dev, "pipe_clk reset assert failed\n");
+		goto deassert_phy_reset;
+	}
+
+	/* Clear USB3 PHY reset */
+	ret = clk_reset(phy->pipe_clk, CLK_RESET_DEASSERT);
+	if (ret) {
+		dev_err(uphy->dev, "pipe_clk reset assert failed\n");
+		goto deassert_phy_reset;
+	}
+	ret = clk_reset(phy->phy_reset, CLK_RESET_DEASSERT);
+	if (ret) {
+		dev_err(uphy->dev, "phy_reset clk deassert failed\n");
+		goto deassert_phy_com_reset;
+	}
+	ret = clk_reset(phy->phy_com_reset, CLK_RESET_DEASSERT);
+	if (ret) {
+		dev_err(uphy->dev, "phy_com_reset clk deassert failed\n");
+		return ret;
+	}
+
+	return 0;
+
+deassert_phy_reset:
+	clk_reset(phy->phy_reset, CLK_RESET_DEASSERT);
+deassert_phy_com_reset:
+	clk_reset(phy->phy_com_reset, CLK_RESET_DEASSERT);
+
+	return ret;
 }
 
 static int msm_ssphy_qmp_set_params(struct usb_phy *uphy)
@@ -376,7 +441,14 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	phy->phy.set_params		= msm_ssphy_qmp_set_params;
 	phy->phy.notify_connect		= msm_ssphy_qmp_notify_connect;
 	phy->phy.notify_disconnect	= msm_ssphy_qmp_notify_disconnect;
+	phy->phy.reset			= msm_ssphy_qmp_reset;
 	phy->phy.type			= USB_PHY_TYPE_USB3;
+
+	ret = msm_ssphy_qmp_init_clocks(phy);
+	if (ret) {
+		dev_err(dev, "Fail to init qmp phy clocks\n");
+		goto disable_ss_ldo;
+	}
 
 	ret = usb_add_phy_dev(&phy->phy);
 	if (ret)
