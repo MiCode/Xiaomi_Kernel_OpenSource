@@ -59,6 +59,9 @@ struct usb_bam_connect_ipa_params {
 	u32 *src_pipe;
 	u32 *dst_pipe;
 	enum usb_bam_pipe_dir dir;
+	/* Parameters for Port Mapper */
+	u32 ipa_cons_ep_idx;
+	u32 ipa_prod_ep_idx;
 	/* client handle assigned by IPA to client */
 	u32 prod_clnt_hdl;
 	u32 cons_clnt_hdl;
