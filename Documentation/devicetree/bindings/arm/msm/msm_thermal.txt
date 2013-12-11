@@ -185,7 +185,23 @@ Optional child nodes
 			bands for CX and GFX phase selection. This property should
 			be defined along with the other properties required for CX
 			and GFX phase selection feature.
-
+- qcom,mx-restriction-temp: Threshold temperature below which the module votes for
+			higher data retention voltage of MX supply. If and only if this
+			property exists, then the property qcom,mx-restriction-temp-hysteresis,
+			qcom,mx-retention-min should also be present. Also, if this
+			property is defined, will have to define vdd-mx-supply =
+			<&phandle_of_regulator>
+- qcom,mx-restriction-temp-hysteresis: Degree above the threshold to remove MX vote.
+			If this property exists, then the property qcom,mx-restriction-temp,
+			qcom,mx-retention-min should also be present.Also, if this
+			property is defined, will have to define vdd-mx-supply =
+			<&phandle_of_regulator>
+- qcom,mx-retention-min: Minimum data retention voltage to be applied to MX rail if
+			the low threshold is crossed. If this property exists, then the
+			property qcom,mx-restriction-temp and
+			qcom,mx-restriction-temp-hysteresis should also be present.
+			Also, if this property is defined, will have to define
+			vdd-mx-supply = <&phandle_of_regulator>
 
 Example:
 
@@ -225,6 +241,10 @@ Example:
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
 		vdd-dig-supply=<&pm8841_s2_floor_corner>
+		qcom,mx-restriction-temp = <5>;
+		qcom,mx-restriction-temp-hysteresis = <10>;
+		qcom,mx-retention-min = <710000>;
+		vdd-mx-supply = <&pma8084_s1>
 
 		qcom,vdd-dig-rstr{
 			qcom,vdd-rstr-reg = "vdd-dig";

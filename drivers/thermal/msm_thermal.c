@@ -34,6 +34,7 @@
 #include <mach/rpm-regulator.h>
 #include <linux/regulator/rpm-smd-regulator.h>
 #include <linux/regulator/consumer.h>
+#include <linux/regulator/driver.h>
 #include <linux/msm_thermal_ioctl.h>
 #include <soc/qcom/rpm-smd.h>
 
@@ -50,6 +51,7 @@ static bool core_control_enabled;
 static uint32_t cpus_offlined;
 static DEFINE_MUTEX(core_control_mutex);
 static struct kobject *cc_kobj;
+static struct kobject *mx_kobj;
 static struct task_struct *hotplug_task;
 static struct task_struct *freq_mitigation_task;
 static struct task_struct *thermal_monitor_task;
@@ -85,19 +87,24 @@ static bool interrupt_mode_enable;
 static bool msm_thermal_probed;
 static bool gfx_phase_ctrl_enabled;
 static bool cx_phase_ctrl_enabled;
+static bool vdd_mx_enabled;
 static int *tsens_id_map;
 static DEFINE_MUTEX(vdd_rstr_mutex);
 static DEFINE_MUTEX(psm_mutex);
 static DEFINE_MUTEX(cx_mutex);
 static DEFINE_MUTEX(gfx_mutex);
 static DEFINE_MUTEX(ocr_mutex);
+static DEFINE_MUTEX(vdd_mx_mutex);
 static uint32_t min_freq_limit;
 static uint32_t curr_gfx_band;
 static uint32_t curr_cx_band;
 static struct kobj_attribute cx_mode_attr;
 static struct kobj_attribute gfx_mode_attr;
+static struct kobj_attribute mx_enabled_attr;
 static struct attribute_group cx_attr_gp;
 static struct attribute_group gfx_attr_gp;
+static struct attribute_group mx_attr_group;
+static struct regulator *vdd_mx;
 
 enum thermal_threshold {
 	HOTPLUG_THRESHOLD_HIGH,
@@ -175,6 +182,7 @@ enum msm_thresh_list {
 	MSM_GFX_PHASE_CTRL_WARM,
 	MSM_GFX_PHASE_CTRL_HOT,
 	MSM_OCR,
+	MSM_VDD_MX_RESTRICTION,
 	MSM_LIST_MAX_NR,
 };
 
@@ -200,6 +208,7 @@ static struct psm_rail *ocr_rails;
 static struct rail *rails;
 static struct cpu_info cpus[NR_CPUS];
 static struct threshold_info *thresh;
+static bool mx_restr_applied;
 
 struct vdd_rstr_enable {
 	struct kobj_attribute ko_attr;
@@ -270,6 +279,14 @@ enum ocr_request {
 	_attr.store = _phase##_phase_store; \
 	sysfs_attr_init(&_attr.attr); \
 	_attr_gr.attrs[j] = &_attr.attr;
+
+#define MX_RW_ATTR(ko_attr, _name, _attr_gp) \
+	ko_attr.attr.name = __stringify(_name); \
+	ko_attr.attr.mode = 0644; \
+	ko_attr.show = show_mx_##_name; \
+	ko_attr.store = store_mx_##_name; \
+	sysfs_attr_init(&ko_attr.attr); \
+	_attr_gp.attrs[0] = &ko_attr.attr;
 
 static int  msm_thermal_cpufreq_callback(struct notifier_block *nfb,
 		unsigned long event, void *data)
@@ -1055,6 +1072,140 @@ set_threshold_exit:
 	return ret;
 }
 
+static int apply_vdd_mx_restriction(void)
+{
+	int ret = 0;
+
+	if (mx_restr_applied)
+		goto done;
+
+	ret = regulator_set_voltage(vdd_mx, msm_thermal_info.vdd_mx_min,
+			INT_MAX);
+	if (ret) {
+		pr_err("Failed to add mx vote, error %d\n", ret);
+		goto done;
+	}
+
+	ret = regulator_enable(vdd_mx);
+	if (ret)
+		pr_err("Failed to vote for mx voltage %d, error %d\n",
+				msm_thermal_info.vdd_mx_min, ret);
+	else
+		mx_restr_applied = true;
+
+done:
+	return ret;
+}
+
+static int remove_vdd_mx_restriction(void)
+{
+	int ret = 0;
+
+	if (!mx_restr_applied)
+		goto done;
+
+	ret = regulator_disable(vdd_mx);
+	if (ret) {
+		pr_err("Failed to disable mx voting, error %d\n", ret);
+		goto done;
+	}
+
+	ret = regulator_set_voltage(vdd_mx, 0, INT_MAX);
+	if (ret)
+		pr_err("Failed to remove mx vote, error %d\n", ret);
+	else
+		mx_restr_applied = false;
+
+done:
+	return ret;
+}
+
+static int do_vdd_mx(void)
+{
+	long temp = 0;
+	int ret = 0;
+	int i = 0;
+	int dis_cnt = 0;
+
+	if (!vdd_mx_enabled)
+		return ret;
+
+	mutex_lock(&vdd_mx_mutex);
+	for (i = 0; i < thresh[MSM_VDD_MX_RESTRICTION].thresh_ct; i++) {
+		ret = therm_get_temp(
+			thresh[MSM_VDD_MX_RESTRICTION].thresh_list[i].sensor_id,
+			thresh[MSM_VDD_MX_RESTRICTION].thresh_list[i].id_type,
+			&temp);
+		if (ret) {
+			pr_err("Unable to read TSENS sensor:%d, err:%d\n",
+				thresh[MSM_VDD_MX_RESTRICTION].thresh_list[i].
+					sensor_id, ret);
+			dis_cnt++;
+			continue;
+		}
+		if (temp <=  msm_thermal_info.vdd_mx_temp_degC) {
+			ret = apply_vdd_mx_restriction();
+			if (ret)
+				pr_err(
+				"Failed to apply mx restriction\n");
+			goto exit;
+		} else if (temp >= (msm_thermal_info.vdd_mx_temp_degC +
+				msm_thermal_info.vdd_mx_temp_hyst_degC)) {
+			dis_cnt++;
+		}
+	}
+
+	if ((dis_cnt == thresh[MSM_VDD_MX_RESTRICTION].thresh_ct)) {
+		ret = remove_vdd_mx_restriction();
+		if (ret)
+			pr_err("Failed to remove vdd mx restriction\n");
+	}
+
+exit:
+	mutex_unlock(&vdd_mx_mutex);
+	return ret;
+}
+
+static void vdd_mx_notify(struct therm_threshold *trig_thresh)
+{
+	static uint32_t mx_sens_status;
+	int ret;
+
+	pr_debug("Sensor%d trigger recevied for type %d\n",
+		trig_thresh->sensor_id,
+		trig_thresh->trip_triggered);
+
+	if (!vdd_mx_enabled)
+		return;
+
+	mutex_lock(&vdd_mx_mutex);
+
+	switch (trig_thresh->trip_triggered) {
+	case THERMAL_TRIP_CONFIGURABLE_LOW:
+		mx_sens_status |= BIT(trig_thresh->sensor_id);
+		break;
+	case THERMAL_TRIP_CONFIGURABLE_HI:
+		if (mx_sens_status & BIT(trig_thresh->sensor_id))
+			mx_sens_status ^= BIT(trig_thresh->sensor_id);
+		break;
+	default:
+		pr_err("Unsupported trip type\n");
+		break;
+	}
+
+	if (mx_sens_status) {
+		ret = apply_vdd_mx_restriction();
+		if (ret)
+			pr_err("Failed to apply mx restriction\n");
+	} else if (!mx_sens_status) {
+		ret = remove_vdd_mx_restriction();
+		if (ret)
+			pr_err("Failed to remove vdd mx restriction\n");
+	}
+	mutex_unlock(&vdd_mx_mutex);
+	set_threshold(trig_thresh->sensor_id, trig_thresh->threshold);
+}
+
 #ifdef CONFIG_SMP
 static void __ref do_core_control(long temp)
 {
@@ -1485,6 +1636,7 @@ static void check_temp(struct work_struct *work)
 		goto reschedule;
 	}
 	do_core_control(temp);
+	do_vdd_mx();
 	do_psm();
 	do_gfx_phase_cond();
 	do_cx_phase_cond();
@@ -2133,6 +2285,9 @@ static void thermal_monitor_init(void)
 	if ((ocr_enabled) &&
 		!(convert_to_zone_id(&thresh[MSM_OCR])))
 		therm_set_threshold(&thresh[MSM_OCR]);
+	if (vdd_mx_enabled &&
+		!(convert_to_zone_id(&thresh[MSM_VDD_MX_RESTRICTION])))
+		therm_set_threshold(&thresh[MSM_VDD_MX_RESTRICTION]);
 
 init_exit:
 	return;
@@ -2521,6 +2676,88 @@ static __init int msm_thermal_add_cc_nodes(void)
 done_cc_nodes:
 	if (cc_kobj)
 		kobject_del(cc_kobj);
+	return ret;
+}
+
+static ssize_t show_mx_enabled(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", vdd_mx_enabled);
+}
+
+static ssize_t __ref store_mx_enabled(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int ret = 0;
+	int val = 0;
+
+	ret = kstrtoint(buf, 10, &val);
+	if (ret) {
+		pr_err("Invalid input %s\n", buf);
+		goto done_store_mx;
+	}
+
+	if (vdd_mx_enabled == !!val)
+		goto done_store_mx;
+
+	vdd_mx_enabled = !!val;
+
+	mutex_lock(&vdd_mx_mutex);
+	if (!vdd_mx_enabled)
+		remove_vdd_mx_restriction();
+	else if (!(convert_to_zone_id(&thresh[MSM_VDD_MX_RESTRICTION])))
+		therm_set_threshold(&thresh[MSM_VDD_MX_RESTRICTION]);
+	mutex_unlock(&vdd_mx_mutex);
+
+done_store_mx:
+	return count;
+}
+
+static __init int msm_thermal_add_mx_nodes(void)
+{
+	struct kobject *module_kobj = NULL;
+	int ret = 0;
+
+	if (!vdd_mx_enabled)
+		return -EINVAL;
+
+	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
+	if (!module_kobj) {
+		pr_err("cannot find kobject for module\n");
+		ret = -ENOENT;
+		goto done_mx_nodes;
+	}
+
+	mx_kobj = kobject_create_and_add("vdd_mx", module_kobj);
+	if (!mx_kobj) {
+		pr_err("cannot create mx restriction kobj\n");
+		ret = -ENOMEM;
+		goto done_mx_nodes;
+	}
+
+	mx_attr_group.attrs = kzalloc(sizeof(struct attribute *) * 2,
+					GFP_KERNEL);
+	if (!mx_attr_group.attrs) {
+		ret = -ENOMEM;
+		pr_err("cannot allocate memory for mx_attr_group.attrs");
+		goto done_mx_nodes;
+	}
+
+	MX_RW_ATTR(mx_enabled_attr, enabled, mx_attr_group);
+	mx_attr_group.attrs[1] = NULL;
+
+	ret = sysfs_create_group(mx_kobj, &mx_attr_group);
+	if (ret) {
+		pr_err("cannot create group\n");
+		goto done_mx_nodes;
+	}
+
+done_mx_nodes:
+	if (ret) {
+		if (mx_kobj)
+			kobject_del(mx_kobj);
+		kfree(mx_attr_group.attrs);
+	}
 	return ret;
 }
 
@@ -2949,6 +3186,52 @@ psm_node_exit:
 			kobject_del(psm_kobj);
 	}
 	return rc;
+}
+
+static int probe_vdd_mx(struct device_node *node,
+		struct msm_thermal_data *data, struct platform_device *pdev)
+{
+	int ret = 0;
+	char *key = NULL;
+
+	key = "qcom,mx-restriction-temp";
+	ret = of_property_read_u32(node, key, &data->vdd_mx_temp_degC);
+	if (ret)
+		goto read_node_done;
+
+	key = "qcom,mx-restriction-temp-hysteresis";
+	ret = of_property_read_u32(node, key, &data->vdd_mx_temp_hyst_degC);
+	if (ret)
+		goto read_node_done;
+
+	key = "qcom,mx-retention-min";
+	ret = of_property_read_u32(node, key, &data->vdd_mx_min);
+	if (ret)
+		goto read_node_done;
+
+	vdd_mx = devm_regulator_get(&pdev->dev, "vdd-mx");
+	if (IS_ERR_OR_NULL(vdd_mx)) {
+		ret = PTR_ERR(vdd_mx);
+		if (ret != -EPROBE_DEFER) {
+			pr_err(
+			"Could not get regulator: vdd-mx, err:%d\n", ret);
+		}
+		goto read_node_done;
+	}
+
+	ret = init_threshold(MSM_VDD_MX_RESTRICTION, MONITOR_ALL_TSENS,
+			data->vdd_mx_temp_degC + data->vdd_mx_temp_hyst_degC,
+			data->vdd_mx_temp_degC, vdd_mx_notify);
+
+read_node_done:
+	if (!ret)
+		vdd_mx_enabled = true;
+	else if (ret != -EPROBE_DEFER)
+		dev_info(&pdev->dev,
+			"%s:Failed reading node=%s, key=%s. KTM continues\n",
+			__func__, node->full_name, key);
+
+	return ret;
 }
 
 static int probe_vdd_rstr(struct device_node *node,
@@ -3517,6 +3800,10 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	ret = probe_freq_mitigation(node, &data, pdev);
 	ret = probe_cx_phase_ctrl(node, &data, pdev);
 	ret = probe_gfx_phase_ctrl(node, &data, pdev);
+
+	ret = probe_vdd_mx(node, &data, pdev);
+	if (ret == -EPROBE_DEFER)
+		goto fail;
 	/*
 	 * Probe optional properties below. Call probe_psm before
 	 * probe_vdd_rstr because rpm_regulator_get has to be called
@@ -3588,6 +3875,11 @@ static int msm_thermal_dev_exit(struct platform_device *inp_dev)
 			ocr_rails = NULL;
 			kfree(thresh[MSM_OCR].thresh_list);
 		}
+		if (vdd_mx_enabled) {
+			kfree(mx_kobj);
+			kfree(mx_attr_group.attrs);
+			kfree(thresh[MSM_VDD_MX_RESTRICTION].thresh_list);
+		}
 		kfree(thresh);
 		thresh = NULL;
 	}
@@ -3627,6 +3919,7 @@ int __init msm_thermal_late_init(void)
 			msm_thermal_add_ocr_nodes();
 		}
 	}
+	msm_thermal_add_mx_nodes();
 	interrupt_mode_init();
 	return 0;
 }
