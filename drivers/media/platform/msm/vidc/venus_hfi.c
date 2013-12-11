@@ -528,7 +528,7 @@ static int venus_hfi_core_start_cpu(struct venus_hfi_device *device)
 	u32 ctrl_status = 0, count = 0, rc = 0;
 	int max_tries = 100;
 	venus_hfi_write_register(device,
-			VIDC_WRAPPER_INTR_MASK, 0x8, 0);
+			VIDC_WRAPPER_INTR_MASK, VIDC_WRAPPER_INTR_MASK_A2HVCODEC_BMSK, 0);
 	venus_hfi_write_register(device,
 			VIDC_CPU_CS_SCIACMDARG3, 1, 0);
 
@@ -1061,6 +1061,8 @@ static inline int venus_hfi_clk_gating_off(struct venus_hfi_device *device)
 			dprintk(VIDC_ERR, "Failed venus clock enable");
 			goto fail_clk_power_on;
 		}
+	        venus_hfi_write_register(device,
+			        VIDC_WRAPPER_INTR_MASK, VIDC_WRAPPER_INTR_MASK_A2HVCODEC_BMSK, 0);
 	}
 already_enabled:
 	device->clocks_enabled = 1;
@@ -1662,6 +1664,11 @@ static inline void venus_hfi_clk_gating_on(struct venus_hfi_device *device)
 		dprintk(VIDC_DBG, "Clocks are already disabled");
 		goto already_disabled;
 	}
+	/*SYS Idle should be last message so mask any further interrupts
+	 * until clocks are enabled again.*/
+	venus_hfi_write_register(device,
+			VIDC_WRAPPER_INTR_MASK,
+			VIDC_WRAPPER_INTR_MASK_A2HVCODEC_BMSK | VIDC_WRAPPER_INTR_MASK_A2HCPU_BMSK, 0);
 	venus_hfi_clk_disable(device);
 	if (!queue_delayed_work(device->venus_pm_workq, &venus_hfi_pm_work,
 			msecs_to_jiffies(msm_vidc_pwr_collapse_delay)))
@@ -1673,7 +1680,7 @@ already_disabled:
 static void venus_hfi_core_clear_interrupt(struct venus_hfi_device *device)
 {
 	u32 intr_status = 0;
-	int rc = 0, ctrl_status;
+	int rc = 0;
 
 	if (!device->callback)
 		return;
@@ -1707,19 +1714,6 @@ static void venus_hfi_core_clear_interrupt(struct venus_hfi_device *device)
 			VIDC_CPU_CS_A2HSOFTINTCLR, 1, 0);
 	venus_hfi_write_register(device,
 			VIDC_WRAPPER_INTR_CLEAR, intr_status, 0);
-	rc = venus_hfi_is_cmd_pending(device);
-	ctrl_status = venus_hfi_read_register(
-			device,
-			VIDC_CPU_CS_SCIACMDARG0);
-	dprintk(VIDC_INFO,
-			"CLEAR INTERRUPT - cmd_pending %d, ctrl_status 0x%x\n",
-			rc, ctrl_status);
-	if ((ctrl_status & VIDC_CPU_CS_SCIACMDARG0_HFI_CTRL_INIT_IDLE_MSG_BMSK)
-			&& !rc) {
-		dprintk(VIDC_DBG, "SYS_IDLE interrupt, disable clocks\n");
-		venus_hfi_clk_gating_on(device);
-	}
-
 	dprintk(VIDC_DBG, "Cleared WRAPPER/A2H interrupt");
 err_clk_gating_off:
 	mutex_unlock(&device->clk_pwr_lock);
