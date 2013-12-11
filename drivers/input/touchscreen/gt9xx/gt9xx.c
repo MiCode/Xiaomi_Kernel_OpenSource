@@ -1139,53 +1139,70 @@ static int gtp_request_io_port(struct goodix_ts_data *ts)
 	struct i2c_client *client = ts->client;
 	struct goodix_ts_platform_data *pdata = ts->pdata;
 	int ret;
+
 	if (gpio_is_valid(pdata->irq_gpio)) {
 		ret = gpio_request(pdata->irq_gpio, "goodix_ts_irq_gpio");
 		if (ret) {
-			dev_err(&client->dev, "irq gpio request failed\n");
-			goto pwr_off;
+			dev_err(&client->dev, "Unable to request irq gpio [%d]\n",
+				pdata->irq_gpio);
+			goto err_pwr_off;
 		}
 		ret = gpio_direction_input(pdata->irq_gpio);
 		if (ret) {
-			dev_err(&client->dev,
-					"set_direction for irq gpio failed\n");
-			goto free_irq_gpio;
+			dev_err(&client->dev, "Unable to set direction for irq gpio [%d]\n",
+				pdata->irq_gpio);
+			goto err_free_irq_gpio;
 		}
 	} else {
-		dev_err(&client->dev, "irq gpio is invalid!\n");
+		dev_err(&client->dev, "Invalid irq gpio [%d]!\n",
+			pdata->irq_gpio);
 		ret = -EINVAL;
-		goto free_irq_gpio;
+		goto err_pwr_off;
 	}
 
 	if (gpio_is_valid(pdata->reset_gpio)) {
-		ret = gpio_request(pdata->reset_gpio, "goodix_ts__reset_gpio");
+		ret = gpio_request(pdata->reset_gpio, "goodix_ts_reset_gpio");
 		if (ret) {
-			dev_err(&client->dev, "reset gpio request failed\n");
-			goto free_irq_gpio;
+			dev_err(&client->dev, "Unable to request reset gpio [%d]\n",
+				pdata->reset_gpio);
+			goto err_free_irq_gpio;
 		}
 
 		ret = gpio_direction_output(pdata->reset_gpio, 0);
 		if (ret) {
-			dev_err(&client->dev,
-					"set_direction for reset gpio failed\n");
-			goto free_reset_gpio;
+			dev_err(&client->dev, "Unable to set direction for reset gpio [%d]\n",
+				pdata->reset_gpio);
+			goto err_free_reset_gpio;
 		}
 	} else {
-		dev_err(&client->dev, "reset gpio is invalid!\n");
+		dev_err(&client->dev, "Invalid irq gpio [%d]!\n",
+			pdata->reset_gpio);
 		ret = -EINVAL;
-		goto free_reset_gpio;
+		goto err_free_irq_gpio;
 	}
-	gpio_direction_input(pdata->reset_gpio);
+	/* IRQ GPIO is an input signal, but we are setting it to output
+	  * direction and pulling it down, to comply with power up timing
+	  * requirements, mentioned in power up timing section of device
+	  * datasheet.
+	  */
+	ret = gpio_direction_output(pdata->irq_gpio, 0);
+	if (ret)
+		dev_warn(&client->dev,
+			"pull down interrupt gpio failed\n");
+	ret = gpio_direction_output(pdata->reset_gpio, 0);
+	if (ret)
+		dev_warn(&client->dev,
+			"pull down reset gpio failed\n");
 
 	return ret;
 
-free_reset_gpio:
+err_free_reset_gpio:
 	if (gpio_is_valid(pdata->reset_gpio))
 		gpio_free(pdata->reset_gpio);
-free_irq_gpio:
+err_free_irq_gpio:
 	if (gpio_is_valid(pdata->irq_gpio))
 		gpio_free(pdata->irq_gpio);
-pwr_off:
+err_pwr_off:
 	return ret;
 }
 
@@ -1771,10 +1788,16 @@ static int goodix_ts_probe(struct i2c_client *client,
 	ts->gtp_rawdiff_mode = 0;
 	ts->power_on = false;
 
+	ret = gtp_request_io_port(ts);
+	if (ret) {
+		dev_err(&client->dev, "GTP request IO port failed.\n");
+		goto exit_free_client_data;
+	}
+
 	ret = goodix_power_init(ts);
 	if (ret) {
 		dev_err(&client->dev, "GTP power init failed\n");
-		goto exit_free_client_data;
+		goto exit_free_io_port;
 	}
 
 	ret = goodix_power_on(ts);
@@ -1783,18 +1806,12 @@ static int goodix_ts_probe(struct i2c_client *client,
 		goto exit_deinit_power;
 	}
 
-	ret = gtp_request_io_port(ts);
-	if (ret) {
-		dev_err(&client->dev, "GTP request IO port failed.\n");
-		goto exit_power_off;
-	}
-
 	gtp_reset_guitar(ts, 20);
 
 	ret = gtp_i2c_test(client);
 	if (ret != 2) {
 		dev_err(&client->dev, "I2C communication ERROR!\n");
-		goto exit_free_io_port;
+		goto exit_power_off;
 	}
 
 	if (pdata->fw_name)
@@ -1900,15 +1917,15 @@ exit_free_irq:
 	}
 exit_free_inputdev:
 	kfree(ts->config_data);
+exit_power_off:
+	goodix_power_off(ts);
+exit_deinit_power:
+	goodix_power_deinit(ts);
 exit_free_io_port:
 	if (gpio_is_valid(pdata->reset_gpio))
 		gpio_free(pdata->reset_gpio);
 	if (gpio_is_valid(pdata->irq_gpio))
 		gpio_free(pdata->irq_gpio);
-exit_power_off:
-	goodix_power_off(ts);
-exit_deinit_power:
-	goodix_power_deinit(ts);
 exit_free_client_data:
 	i2c_set_clientdata(client, NULL);
 	kfree(ts);
