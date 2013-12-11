@@ -23,6 +23,10 @@ Required properties
 					interface is mapped.
 - gpio-panel-hpd :			gpio pin use for edp hpd
 
+
+Optional properties:
+- qcom,cont-splash-enabled:             Boolean used to enable continuous splash mode.
+
 Example:
 	mdss_edp: qcom,mdss_edp@fd923400 {
 		compatible = "qcom,mdss-edp";

@@ -30,6 +30,11 @@
 		qcom,panel-pwm-period = <53>;
         };
 
+	qcom,mdss_edp@fd923400 {
+		status = "ok";
+		qcom,cont-splash-enabled;
+	};
+
 	i2c@f9967000 {
 		battery@b {
 			compatible = "ti,bq28400-battery";
