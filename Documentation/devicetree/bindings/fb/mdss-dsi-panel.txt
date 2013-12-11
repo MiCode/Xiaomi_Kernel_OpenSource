@@ -254,6 +254,8 @@ Optional properties:
 					mode. This master delay (t_init_delay as per DSI spec) should be sum
 					of DSI internal delay to reach fuctional after power up and minimum
 					delay required by panel to reach functional.
+- qcom,mdss-dsi-rx-eot-ignore:		Boolean used to enable ignoring end of transmission packets.
+- qcom,mdss-dsi-tx-eot-append:		Boolean used to enable appending end of transmission packets.
 
 Note, if a given optional qcom,* binding is not present, then the driver will configure
 the default values specified.
@@ -348,5 +350,7 @@ Example:
 		qcom,mdss-dsi-reset-sequence = <1 2>, <0 10>, <1 10>;
 		qcom,mdss-dsi-lp11-init;
 		qcom,mdss-dsi-init-delay-us = <100>;
+		mdss-dsi-rx-eot-ignore;
+		mdss-dsi-tx-eot-append;
 	};
 };
