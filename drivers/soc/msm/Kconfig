@@ -11,3 +11,5 @@ config MSM_SMEM
 	  inter-processor communication.
 
 endif # ARCH_MSM
+
+source "drivers/soc/msm/memshare/Kconfig"
