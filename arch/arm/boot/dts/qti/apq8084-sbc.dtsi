@@ -1,0 +1,467 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	aliases {
+		serial0 = &blsp2_uart1;
+	};
+
+	bt_qca6174 {
+		compatible = "qca,qca6174";
+		qca,bt-reset-gpio = <&pma8084_gpios 4 0>; /* BT_EN */
+	};
+};
+
+&soc {
+	i2c@f9926000 { /* BLSP-1 QUP-4 */
+		status = "disabled";
+	};
+
+	serial@f991f000 {
+		status = "disabled";
+	};
+
+	sound {
+		qcom,model = "apq8084-taiko-sbc-snd-card";
+
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"LDO_H", "MCLK",
+			"AIF4 MAD", "MCLK",
+			"AMIC2", "MIC BIAS2 External",
+			"MIC BIAS2 External", "Headset Mic",
+			"AMIC5", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Analog Mic5",
+			"AMIC6", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Analog Mic6",
+			"DMIC1", "MIC BIAS4 External",
+			"MIC BIAS4 External", "Digital Mic4",
+			"DMIC2", "MIC BIAS4 External",
+			"MIC BIAS4 External", "Digital Mic3",
+			"DMIC3", "MIC BIAS4 External",
+			"MIC BIAS4 External", "Digital Mic2",
+			"DMIC4", "MIC BIAS4 External",
+			"MIC BIAS4 External", "Digital Mic1",
+			"DMIC5", "MIC BIAS4 External",
+			"MIC BIAS4 External", "Digital Mic5",
+			"DMIC6", "MIC BIAS4 External",
+			"MIC BIAS4 External", "Digital Mic6";
+
+		qcom,hdmi-audio-rx;
+		qcom,cdc-micbias2-headset-only;
+	};
+
+	gnss_qca1530: qca,qca1530@0 {
+		compatible = "qca,qca1530";
+		qca,reset-gpio = <&msmgpio 128 0>;
+		qca,clk-gpio = <&pma8084_gpios 17 0>;
+		qca,pwr-supply = <&pma8084_l26>;
+		qca,xlna-supply = <&pma8084_l22>;
+	};
+
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "hdmi";
+};
+
+&mdss_hdmi_tx {
+	qcom,mdss-fb-map = <&mdss_fb0>;
+};
+
+&uart6 {
+	status = "ok";
+	qcom,tx-gpio = <&msmgpio 43 0x00>;
+	qcom,rx-gpio = <&msmgpio 44 0x00>;
+	qcom,cts-gpio = <&msmgpio 45 0x00>;
+	qcom,rfr-gpio = <&msmgpio 46 0x00>;
+	qcom,inject-rx-on-wakeup = <1>;
+	qcom,rx-char-to-inject = <0xFD>;
+};
+
+&blsp1_uart1 {
+	status = "disabled";
+};
+
+&blsp2_uart0 {
+	status = "disabled";
+};
+
+&blsp2_uart1 {
+	status = "ok";
+	qcom,config-gpio = <2>;
+	qcom,tx-gpio = <&msmgpio 51 0x00>;
+	qcom,rx-gpio = <&msmgpio 52 0x00>;
+};
+
+&blsp2_uart4 {
+	status = "ok";
+	qcom,config-gpio = <2>;
+	qcom,tx-gpio = <&msmgpio 112 0>;
+	qcom,rx-gpio = <&msmgpio 113 0>;
+};
+
+&spi_0 {
+	status = "disabled";
+};
+
+&i2c_0 {
+	status = "ok";
+};
+
+&i2c_1 {
+	status = "ok";
+};
+
+&i2c_2 {
+	status = "disabled";
+};
+
+&ufsphy1 {
+	status = "disabled";
+};
+
+&ufs1 {
+	status = "disabled";
+};
+
+/* CoreSight */
+&tpiu {
+	qcom,seta-gpios = <&msmgpio 4 0>,
+			  <&msmgpio 5 0>,
+			  <&msmgpio 6 0>,
+			  <&msmgpio 7 0>,
+			  <&msmgpio 48 0>,
+			  <&msmgpio 49 0>,
+			  <&msmgpio 50 0>,
+			  <&msmgpio 51 0>,
+			  <&msmgpio 52 0>,
+			  <&msmgpio 53 0>,
+			  <&msmgpio 54 0>,
+			  <&msmgpio 55 0>,
+			  <&msmgpio 56 0>,
+			  <&msmgpio 57 0>,
+			  <&msmgpio 63 0>,
+			  <&msmgpio 64 0>,
+			  <&msmgpio 75 0>,
+			  <&msmgpio 122 0>;
+	qcom,seta-gpios-func = <4 4 4 4 5 4 4 5 5 4 4 4 4 4 4 5 2 1>;
+	qcom,seta-gpios-drv =  <7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7>;
+	qcom,seta-gpios-pull = <0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
+	qcom,seta-gpios-dir =  <2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2>;
+
+	qcom,setb-gpios = <&msmgpio 10 0>,
+			  <&msmgpio 11 0>,
+			  <&msmgpio 29 0>,
+			  <&msmgpio 30 0>,
+			  <&msmgpio 39 0>,
+			  <&msmgpio 40 0>,
+			  <&msmgpio 43 0>,
+			  <&msmgpio 44 0>,
+			  <&msmgpio 45 0>,
+			  <&msmgpio 46 0>,
+			  <&msmgpio 67 0>,
+			  <&msmgpio 68 0>,
+			  <&msmgpio 69 0>,
+			  <&msmgpio 70 0>,
+			  <&msmgpio 71 0>,
+			  <&msmgpio 72 0>,
+			  <&msmgpio 102 0>,
+			  <&msmgpio 121 0>;
+	qcom,setb-gpios-func = <4 4 5 4 4 4 4 4 4 4 3 3 2 4 3 3 2 1>;
+	qcom,setb-gpios-drv =  <7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7>;
+	qcom,setb-gpios-pull = <0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
+	qcom,setb-gpios-dir =  <2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2>;
+};
+
+&sdhc_1 {
+	status = "ok";
+	vdd-supply = <&pma8084_l20>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <200 500000>;
+
+	vdd-io-supply = <&pma8084_s4>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 154000>;
+
+	qcom,pad-pull-on = <0x0 0x3 0x3 0x1>; /* no-pull, pull-up, pull-up, pull-down */
+	qcom,pad-pull-off = <0x0 0x3 0x3 0x1>; /* no-pull, pull-up, pull-up, pull-down */
+	qcom,pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
+	qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 192000000 384000000>;
+	qcom,nonremovable;
+	qcom,bus-speed-mode = "HS400_1p8v", "HS200_1p8v", "DDR_1p8v";
+};
+
+&sdhc_2 {
+	status = "ok";
+	vdd-supply = <&pma8084_l21>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pma8084_l13>;
+	qcom,vdd-io-voltage-level = <1800000 2950000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	qcom,pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+	qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+	qcom,pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
+	qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+
+	#address-cells = <0>;
+	interrupt-parent = <&sdhc_2>;
+	interrupts = <0 1 2>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 125 0
+			1 &intc 0 221 0
+			2 &msmgpio 122 0x3>;
+	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
+	cd-gpios = <&msmgpio 122 0x1>;
+};
+
+&vph_pwr_vreg {
+	status = "ok";
+};
+&slim_msm {
+	taiko_codec {
+		qcom,cdc-micbias1-ext-cap;
+		qcom,cdc-micbias2-ext-cap;
+		qcom,cdc-micbias3-ext-cap;
+
+		/*
+		 * SBC has external spkrdrv supply that will be always ON.
+		 * Give a dummy supply to make codec driver happy.
+		 */
+		cdc-vdd-spkdrv-supply = <&vph_pwr_vreg>;
+		qcom,cdc-vdd-spkdrv-voltage = <0 0>;
+		qcom,cdc-vdd-spkdrv-current = <0>;
+
+		qcom,cdc-on-demand-supplies = "cdc-vdd-spkdrv";
+	};
+};
+
+&usb3 {
+	qcom,charging-disabled;
+};
+
+&usb3_sec {
+	status = "ok";
+};
+
+&hsphy1 {
+	status = "ok";
+};
+
+&ssphy1 {
+	status = "ok";
+};
+
+&pma8084_gpios {
+	gpio@c000 { /* GPIO 1 */
+	};
+
+	gpio@c100 { /* GPIO 2 */
+		/* KYPD_VOLP_N */
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+	};
+
+	gpio@c200 { /* GPIO 3 */
+	};
+
+	gpio@c300 { /* GPIO 4 */
+		/* BT_CHARGE_EN */
+		qcom,mode = <1>;         /* Digital output*/
+		qcom,pull = <4>;         /* Pulldown 10uA */
+		qcom,vin-sel = <2>;      /* VIN2 */
+		qcom,src-sel = <0>;      /* GPIO */
+		qcom,invert = <0>;       /* Invert */
+		qcom,master-en = <1>;    /* Enable GPIO */
+	};
+
+	gpio@c400 { /* GPIO 5 */
+		/* Expansion PWM2 */
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+	};
+
+	gpio@c500 { /* GPIO 6 */
+	};
+
+	gpio@c600 { /* GPIO 7 */
+		/* BACKLIGHT_PWM */
+
+	};
+
+	gpio@c700 { /* GPIO 8 */
+		/* Expansion PWM */
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+	};
+
+	gpio@c800 { /* GPIO 9 */
+		/* BACKLIGHT2_PWM */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <0>;		/* Do not invert the output */
+		qcom,vin-sel = <0>;		/* VPH_PWR */
+		qcom,src-sel = <0>;		/* GPIO */
+		qcom,out-strength = <1>;	/* High drive strength */
+		qcom,master-en = <1>;		/* Enable GPIO */
+	};
+
+	gpio@c900 { /* GPIO 10 */
+		/* LED1 */
+		qcom,mode = <1>;		         /* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,pull = <4>;                /* Pull down */
+		qcom,invert = <0>;		/* Do not invert the output */
+		qcom,vin-sel = <2>;		/* VIN 2*/
+		qcom,src-sel = <0>;		/* GPIO */
+		qcom,out-strength = <2>;	/* Medium drive strength */
+		qcom,master-en = <1>;		/* Enable GPIO */
+	};
+
+	gpio@ca00 { /* GPIO 11 */
+		/* USB_VBUS_CNTL0 VBUS interrupt */
+		qcom,mode = <0>;
+		qcom,pull = <1>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+	};
+
+	gpio@cb00 { /* GPIO 12 */
+	};
+
+	gpio@cc00 { /* GPIO 13 */
+	};
+
+	gpio@cd00 { /* GPIO 14 */
+	};
+
+	gpio@ce00 { /* GPIO 15 */
+		/* DIV_CLK1 Codec */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <0>;		/* Output low initially */
+		qcom,vin-sel = <2>;		/* VIN 2 */
+		qcom,src-sel = <2>;		/* Function 1 */
+		qcom,out-strength = <2>;	/* Medium */
+		qcom,master-en = <1>;		/* Enable GPIO */
+	};
+
+	gpio@cf00 { /* GPIO 16 */
+	};
+
+	gpio@d000 { /* GPIO 17 */
+		/* DIV_CLK3 SLEEP_CLK */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <0>;		/* Output low initially */
+		qcom,vin-sel = <2>;		/* VIN 2 */
+		qcom,src-sel = <3>;		/* Function 2 */
+		qcom,out-strength = <2>;	/* Medium */
+		qcom,master-en = <1>;		/* Enable GPIO */
+	};
+
+	gpio@d100 { /* GPIO 18 */
+		/* DIV_CLK4 SLEEP_CLK */
+		qcom,mode = <1>;               /* Digital output */
+		qcom,output-type = <0>;        /* CMOS logic */
+		qcom,invert = <0>;             /* Output low initially */
+		qcom,vin-sel = <2>;            /* VIN 2 */
+		qcom,src-sel = <3>;            /* Function 2 */
+		qcom,out-strength = <2>;       /* Medium */
+		qcom,master-en = <1>;          /* Enable GPIO */
+	};
+
+	gpio@d200 { /* GPIO 19 */
+	};
+
+	gpio@d300 { /* GPIO 20 */
+		/* LED2 */
+		qcom,mode = <1>;		        /* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,pull = <4>;                /* Pull down */
+		qcom,invert = <0>;		/* Do not invert the output */
+		qcom,vin-sel = <2>;		/* VIN 2 */
+		qcom,src-sel = <0>;		/* GPIO */
+		qcom,out-strength = <2>;	/* Medium drive strength ?*/
+		qcom,master-en = <1>;		/* Enable GPIO */
+	};
+
+	gpio@d400 { /* GPIO 21 */
+	};
+
+	gpio@d500 { /* GPIO 22 */
+	};
+};
+
+&pma8084_mpps {
+	mpp@a000 { /* MPP 1 */
+	};
+
+	mpp@a100 { /* MPP 2 */
+	};
+
+	mpp@a200 { /* MPP 3 */
+	};
+
+	mpp@a300 { /* MPP 4 */
+	};
+
+	mpp@a400 { /* MPP 5 */
+	};
+
+	mpp@a500 { /* MPP 6 */
+	};
+
+	mpp@a600 { /* MPP 7 */
+	};
+
+	mpp@a700 { /* MPP 8 */
+	};
+};
+
+&pma8084_l16 {
+	status = "disabled";
+};
+
+&pma8084_l17 {
+	status = "ok";
+	regulator-min-microvolt = <2850000>;
+	regulator-max-microvolt = <2850000>;
+	qcom,init-voltage = <2850000>;
+};
+
+&pma8084_l22 {
+	status = "ok";
+	regulator-min-microvolt = <2850000>;
+	regulator-max-microvolt = <2850000>;
+	qcom,init-voltage = <2850000>;
+};
+
+&pcie0 {
+	vreg-3.3-supply = <&vph_pwr_vreg>;
+};
