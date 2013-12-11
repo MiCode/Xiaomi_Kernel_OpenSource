@@ -442,9 +442,11 @@ static int dwc3_core_init(struct dwc3 *dwc)
 	 * it results in high link errors and could cause SS mode transfer
 	 * failure.
 	 */
-	reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
-	reg &= ~DWC3_GUSB3PIPECTL_ELASTIC_BUF_MODE;
-	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
+	if (!dwc->nominal_elastic_buffer) {
+		reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
+		reg &= ~DWC3_GUSB3PIPECTL_ELASTIC_BUF_MODE;
+		dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
+	}
 
 	return 0;
 
@@ -625,6 +627,9 @@ static int dwc3_probe(struct platform_device *pdev)
 			goto err0;
 		}
 	}
+
+	dwc->nominal_elastic_buffer = of_property_read_bool(node,
+			"nominal-elastic-buffer");
 
 	ret = dwc3_core_init(dwc);
 	if (ret) {
