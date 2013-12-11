@@ -47,7 +47,7 @@
 #define TSPP2_DMX_SPS_PCR_DESC_SIZE		195	/* size of PCR packet */
 #define TSPP2_DMX_SPS_INDEXING_DESC_SIZE	28	/* index entry size */
 #define TSPP2_DMX_SPS_VPES_HEADER_DESC_SIZE	204	/* Video PES header */
-#define TSPP2_DMX_SPS_VPES_PAYLOAD_DESC_SIZE	1024	/* Video PES payload */
+#define TSPP2_DMX_SPS_VPES_PAYLOAD_DESC_SIZE	2048	/* Video PES payload */
 #define TSPP2_DMX_SPS_NON_VID_PES_DESC_SIZE	256	/* Non-Video PES */
 
 #define TSPP2_DMX_SPS_188_RECORDING_DESC_SIZE	1128
