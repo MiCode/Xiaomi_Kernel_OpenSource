@@ -6,16 +6,20 @@ to read and write the fuse values. The write operation can be done one time
 only.
 
 Required Properties:
-compatible: component name used for driver matching, should be "qcom,qfp-fuse"
+compatible: component name used for driver matching, should be "qti,qfp-fuse"
 reg: physical base address and length of the register set
-qcom,blow-status-offset: offset of the blow status registers.
 vdd-blow-supply: regulator used to blow fuses. For backward compatibility, the
 regulator name must contain the string vdd-blow.
 
+Optional Properties:
+- qti,blow-status-offset: offset of the blow status registers.
+  The default offset is 0x204C. Include this only if the blow status register
+  is at the different offset.
+
 Example:
-	qcom,qfpfuse@fc4b8000 {
-		compatible = "qcom,qfp-fuse";
+	qti,qfpfuse@fc4b8000 {
+		compatible = "qti,qfp-fuse";
 		reg = <0xfc4b8000 0x7000>;
-		qcom,blow-status-offset = 0x204c;
+		qti,blow-status-offset = 0x204c;
 		vdd-blow-supply: <&vdd_blow>;
 	};

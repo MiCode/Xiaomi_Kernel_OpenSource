@@ -827,10 +827,10 @@
 		};
 	};
 
-	qcom,fuse@fc4b8000 {
-		compatible = "qcom,qfp-fuse";
+	qti,fuse@fc4b8000 {
+		compatible = "qti,qfp-fuse";
 		reg = <0xfc4b8000 0x7000>;
-		qcom,blow-status-offset = <0x2048>;
+		qti,blow-status-offset = <0x2048>;
 		status = "disabled";
 	};
 

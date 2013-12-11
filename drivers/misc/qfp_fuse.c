@@ -352,7 +352,7 @@ static int qfp_get_resource(struct platform_device *pdev,
 	if (pdev->dev.of_node) {
 		struct device_node *np = pdev->dev.of_node;
 
-		if (of_property_read_u32(np, "qcom,blow-status-offset",
+		if (of_property_read_u32(np, "qti,blow-status-offset",
 					 &blow_status_offset) == 0) {
 			if ((res->start + blow_status_offset) > res->end) {
 				pr_err("Invalid blow-status-offset\n");
@@ -453,7 +453,7 @@ static int qfp_fuse_remove(struct platform_device *plat)
 }
 
 static struct of_device_id __attribute__ ((unused)) qfp_fuse_of_match[] = {
-	{ .compatible = "qcom,qfp-fuse", },
+	{ .compatible = "qti,qfp-fuse", },
 	{}
 };
 
