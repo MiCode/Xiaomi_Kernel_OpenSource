@@ -373,6 +373,7 @@ static int mpq_dmx_tspp2_init_idx_table(enum dmx_video_codec codec,
 			__func__, table_id, ret);
 		return ret;
 	}
+	table->num_patterns = 0;
 
 	ret = tspp2_indexing_prefix_set(TSPP2_DEVICE_ID, table_id,
 		INDEX_TABLE_PREFIX_VALUE, INDEX_TABLE_PREFIX_MASK);
