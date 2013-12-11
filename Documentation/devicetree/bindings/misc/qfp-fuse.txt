@@ -15,6 +15,15 @@ Optional Properties:
 - qti,blow-status-offset: offset of the blow status registers.
   The default offset is 0x204C. Include this only if the blow status register
   is at the different offset.
+- qti,blow-timer: blow timer value.
+  The value specifies the blow time in number of blow timer clock cycles.
+  The default setting is 0xF0. It meets the requirement for 28nm HPm fuse
+  technology with blow timer clock at 19.2Mhz (12us blow time).
+  Specify this only if the fuse blow time is different. The following are the
+  recommended settings:
+  - 0x280 (10us) for 45nm LP technology with 64Mhz blow timer clock
+  - 0x100 (4us)  for 28nm LP technology with 64Mhz blow timer clock
+  - 0x1E  (12us) for 28nm LP technology with 2.5Mhz blow timer clock
 
 Example:
 	qti,qfpfuse@fc4b8000 {
