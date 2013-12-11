@@ -1118,8 +1118,8 @@ static int qpnp_pon_remove(struct spmi_device *spmi)
 }
 
 static struct of_device_id spmi_match_table[] = {
-	{	.compatible = "qcom,qpnp-power-on",
-	}
+	{ .compatible = "qcom,qpnp-power-on", },
+	{}
 };
 
 static struct spmi_driver qpnp_pon_driver = {
