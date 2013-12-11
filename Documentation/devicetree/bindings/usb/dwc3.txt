@@ -16,6 +16,8 @@ Optional properties:
  - host-only-mode: if present then dwc3 should be run in HOST only mode.
  - nominal-elastic-buffer: When set, the nominal elastic buffer setting
 	is used. By default, the half-full setting is used.
+ - core_reset_after_phy_init: If present, PHY reset and initialization is
+   performed before core reset.
 
 This is usually a subnode to DWC3 glue to which it is connected.
 

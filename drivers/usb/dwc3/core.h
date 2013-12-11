@@ -825,6 +825,7 @@ struct dwc3 {
 	bool			tx_fifo_reduced;
 
 	bool			nominal_elastic_buffer;
+	bool			core_reset_after_phy_init;
 };
 
 /* -------------------------------------------------------------------------- */
