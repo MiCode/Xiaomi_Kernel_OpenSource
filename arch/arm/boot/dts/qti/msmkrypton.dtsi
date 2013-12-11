@@ -25,7 +25,7 @@
 	};
 
 	memory {
-		audio_mem: audio_region {
+		audio_mem: audio_region@0 {
 			linux,contiguous-region;
 			linux,reserve-region;
 			reg = <0 0xAF000>;
