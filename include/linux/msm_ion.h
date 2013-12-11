@@ -504,6 +504,11 @@ struct ion_flush_data {
 	unsigned int length;
 };
 
+struct ion_prefetch_data {
+       int heap_id;
+       unsigned long len;
+};
+
 #define ION_IOC_MSM_MAGIC 'M'
 
 /**
@@ -527,5 +532,11 @@ struct ion_flush_data {
  */
 #define ION_IOC_CLEAN_INV_CACHES	_IOWR(ION_IOC_MSM_MAGIC, 2, \
 						struct ion_flush_data)
+
+#define ION_IOC_PREFETCH               _IOWR(ION_IOC_MSM_MAGIC, 3, \
+                                               struct ion_prefetch_data)
+
+#define ION_IOC_DRAIN                  _IOWR(ION_IOC_MSM_MAGIC, 4, \
+                                               struct ion_prefetch_data)
 
 #endif

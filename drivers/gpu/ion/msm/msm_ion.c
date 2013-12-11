@@ -957,6 +957,31 @@ static long msm_ion_custom_ioctl(struct ion_client *client,
 		break;
 
 	}
+	case ION_IOC_PREFETCH:
+	{
+		struct ion_prefetch_data data;
+
+		if (copy_from_user(&data, (void __user *)arg,
+					sizeof(struct ion_prefetch_data)))
+			return -EFAULT;
+
+		ion_walk_heaps(client, data.heap_id, (void *)data.len,
+						ion_secure_cma_prefetch);
+		break;
+	}
+	case ION_IOC_DRAIN:
+	{
+		struct ion_prefetch_data data;
+
+		if (copy_from_user(&data, (void __user *)arg,
+					sizeof(struct ion_prefetch_data)))
+			return -EFAULT;
+
+		ion_walk_heaps(client, data.heap_id, (void *)data.len,
+						ion_secure_cma_drain_pool);
+		break;
+	}
+
 	default:
 		return -ENOTTY;
 	}
