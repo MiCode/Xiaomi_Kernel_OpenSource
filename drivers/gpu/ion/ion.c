@@ -1784,6 +1784,28 @@ int ion_secure_heap(struct ion_device *dev, int heap_id, int version,
 }
 EXPORT_SYMBOL(ion_secure_heap);
 
+int ion_walk_heaps(struct ion_client *client, int heap_id, void *data,
+			int (*f)(struct ion_heap *heap, void *data))
+{
+	int ret_val = -EINVAL;
+	struct ion_heap *heap;
+	struct ion_device *dev = client->dev;
+	/*
+	 * traverse the list of heaps available in this system
+	 * and find the heap that is specified.
+	 */
+	down_write(&dev->lock);
+	plist_for_each_entry(heap, &dev->heaps, node) {
+		if (ION_HEAP(heap->id) != heap_id)
+			continue;
+		ret_val = f(heap, data);
+		break;
+	}
+	up_write(&dev->lock);
+	return ret_val;
+}
+EXPORT_SYMBOL(ion_walk_heaps);
+
 int ion_unsecure_heap(struct ion_device *dev, int heap_id, int version,
 			void *data)
 {
