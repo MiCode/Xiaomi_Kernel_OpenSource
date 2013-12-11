@@ -66,6 +66,7 @@ struct msm_hcd {
 	struct clk				*xo_clk;
 	struct clk				*iface_clk;
 	struct clk				*core_clk;
+	long                                    core_clk_rate;
 	struct clk				*alt_core_clk;
 	struct clk				*phy_sleep_clk;
 	struct regulator			*hsusb_vddcx;
@@ -1242,7 +1243,22 @@ static int msm_ehci_init_clocks(struct msm_hcd *mhcd, u32 init)
 			dev_err(mhcd->dev, "failed to get core_clk\n");
 		goto put_iface_clk;
 	}
-	clk_set_rate(mhcd->core_clk, INT_MAX);
+
+	/*
+	 * Get Max supported clk frequency for USB Core CLK and request
+	 * to set the same.
+	 */
+	mhcd->core_clk_rate = clk_round_rate(mhcd->core_clk, LONG_MAX);
+	if (IS_ERR_VALUE(mhcd->core_clk_rate)) {
+		dev_err(mhcd->dev, "fail to get core clk max freq\n");
+		goto put_core_clk;
+	} else {
+		ret = clk_set_rate(mhcd->core_clk, mhcd->core_clk_rate);
+		if (ret) {
+			dev_err(mhcd->dev, "fail to set core_clk: %d\n", ret);
+			goto put_core_clk;
+		}
+	}
 
 	mhcd->phy_sleep_clk = clk_get(mhcd->dev, "sleep_clk");
 	if (IS_ERR(mhcd->phy_sleep_clk)) {
