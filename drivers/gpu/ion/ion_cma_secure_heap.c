@@ -361,7 +361,13 @@ static int ion_secure_cma_shrinker(struct shrinker *shrinker,
 	if (!(sc->gfp_mask & __GFP_MOVABLE))
 		return atomic_read(&sheap->total_pool_size);
 
-	mutex_lock(&sheap->chunk_lock);
+	/*
+	 * Allocation path may recursively call the shrinker. Don't shrink if
+	 * that happens.
+	 */
+	if (!mutex_trylock(&sheap->chunk_lock))
+		return -1;
+
 	list_for_each_safe(entry, _n, &sheap->chunks) {
 		struct ion_cma_alloc_chunk *chunk = container_of(entry,
 					struct ion_cma_alloc_chunk, entry);
