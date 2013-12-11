@@ -41,11 +41,14 @@ struct dsi_host_v2_private {
 	unsigned char *dsi_base;
 	size_t dsi_reg_size;
 	struct device dis_dev;
+	int clk_count;
+	int dsi_on;
 
 	void (*debug_enable_clk)(int on);
 };
 
 static struct dsi_host_v2_private *dsi_host_private;
+static int msm_dsi_clk_ctrl(struct mdss_panel_data *pdata, int enable);
 
 int msm_dsi_init(void)
 {
@@ -883,6 +886,15 @@ void msm_dsi_cmdlist_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 void msm_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 {
 	struct dcs_cmd_req *req;
+	int dsi_on;
+
+	mutex_lock(&ctrl->mutex);
+	dsi_on = dsi_host_private->dsi_on;
+	mutex_unlock(&ctrl->mutex);
+	if (!dsi_on) {
+		pr_err("try to send DSI commands while dsi is off\n");
+		return;
+	}
 
 	mutex_lock(&ctrl->cmd_mutex);
 	req = mdss_dsi_cmdlist_get(ctrl);
@@ -892,6 +904,7 @@ void msm_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 		return;
 	}
 
+	msm_dsi_clk_ctrl(&ctrl->panel_data, 1);
 	dsi_set_tx_power_mode(0);
 
 	if (req->flags & CMD_REQ_RX)
@@ -900,6 +913,7 @@ void msm_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 		msm_dsi_cmdlist_tx(ctrl, req);
 
 	dsi_set_tx_power_mode(1);
+	msm_dsi_clk_ctrl(&ctrl->panel_data, 0);
 
 	mutex_unlock(&ctrl->cmd_mutex);
 }
@@ -973,11 +987,14 @@ static int msm_dsi_on(struct mdss_panel_data *pdata)
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
+	mutex_lock(&ctrl_pdata->mutex);
+
 	ret = msm_dss_enable_vreg(
 		ctrl_pdata->power_data.vreg_config,
 		ctrl_pdata->power_data.num_vreg, 1);
 	if (ret) {
 		pr_err("%s: DSI power on failed\n", __func__);
+		mutex_unlock(&ctrl_pdata->mutex);
 		return ret;
 	}
 
@@ -1065,6 +1082,9 @@ static int msm_dsi_on(struct mdss_panel_data *pdata)
 	msm_dsi_op_mode_config(mipi->mode, pdata);
 
 	msm_dsi_set_irq(ctrl_pdata, DSI_INTR_ERROR_MASK);
+	dsi_host_private->clk_count = 1;
+	dsi_host_private->dsi_on = 1;
+	mutex_unlock(&ctrl_pdata->mutex);
 
 	return ret;
 }
@@ -1084,6 +1104,7 @@ static int msm_dsi_off(struct mdss_panel_data *pdata)
 				panel_data);
 
 	pr_debug("msm_dsi_off\n");
+	mutex_lock(&ctrl_pdata->mutex);
 	msm_dsi_clear_irq(ctrl_pdata, ctrl_pdata->dsi_irq_mask);
 	msm_dsi_controller_cfg(0);
 	msm_dsi_clk_set_rate(DSI_ESC_CLK_RATE, 0, 0, 0);
@@ -1097,8 +1118,11 @@ static int msm_dsi_off(struct mdss_panel_data *pdata)
 		ctrl_pdata->power_data.num_vreg, 0);
 	if (ret) {
 		pr_err("%s: Panel power off failed\n", __func__);
-		return ret;
 	}
+	dsi_host_private->clk_count = 0;
+	dsi_host_private->dsi_on = 0;
+
+	mutex_unlock(&ctrl_pdata->mutex);
 
 	return ret;
 }
@@ -1122,11 +1146,13 @@ static int msm_dsi_cont_on(struct mdss_panel_data *pdata)
 				panel_data);
 
 	pinfo = &pdata->panel_info;
+	mutex_lock(&ctrl_pdata->mutex);
 	ret = msm_dss_enable_vreg(
 		ctrl_pdata->power_data.vreg_config,
 		ctrl_pdata->power_data.num_vreg, 1);
 	if (ret) {
 		pr_err("%s: DSI power on failed\n", __func__);
+		mutex_unlock(&ctrl_pdata->mutex);
 		return ret;
 	}
 
@@ -1134,6 +1160,9 @@ static int msm_dsi_cont_on(struct mdss_panel_data *pdata)
 	msm_dsi_prepare_clocks();
 	msm_dsi_clk_enable();
 	msm_dsi_set_irq(ctrl_pdata, DSI_INTR_ERROR_MASK);
+	dsi_host_private->clk_count = 1;
+	dsi_host_private->dsi_on = 1;
+	mutex_unlock(&ctrl_pdata->mutex);
 	return 0;
 }
 
@@ -1265,21 +1294,34 @@ static struct device_node *dsi_find_panel_of_node(
 static int msm_dsi_clk_ctrl(struct mdss_panel_data *pdata, int enable)
 {
 	u32 bitclk_rate = 0, byteclk_rate = 0, pclk_rate = 0, dsiclk_rate = 0;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
 	pr_debug("%s:\n", __func__);
 
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+	mutex_lock(&ctrl_pdata->mutex);
+
 	if (enable) {
-		msm_dsi_ahb_ctrl(1);
-		msm_dsi_cal_clk_rate(pdata, &bitclk_rate, &dsiclk_rate,
-					&byteclk_rate, &pclk_rate);
-		msm_dsi_clk_set_rate(DSI_ESC_CLK_RATE, dsiclk_rate,
-					byteclk_rate, pclk_rate);
-		msm_dsi_clk_enable();
+		dsi_host_private->clk_count++;
+		if (dsi_host_private->clk_count == 1) {
+			msm_dsi_ahb_ctrl(1);
+			msm_dsi_cal_clk_rate(pdata, &bitclk_rate, &dsiclk_rate,
+						&byteclk_rate, &pclk_rate);
+			msm_dsi_clk_set_rate(DSI_ESC_CLK_RATE, dsiclk_rate,
+						byteclk_rate, pclk_rate);
+			msm_dsi_clk_enable();
+		}
 	} else {
-		msm_dsi_clk_set_rate(DSI_ESC_CLK_RATE, 0, 0, 0);
-		msm_dsi_clk_disable();
-		msm_dsi_ahb_ctrl(0);
+		dsi_host_private->clk_count--;
+		if (dsi_host_private->clk_count == 0) {
+			msm_dsi_clk_set_rate(DSI_ESC_CLK_RATE, 0, 0, 0);
+			msm_dsi_clk_disable();
+			msm_dsi_ahb_ctrl(0);
+		}
 	}
+	mutex_unlock(&ctrl_pdata->mutex);
 	return 0;
 }
 
