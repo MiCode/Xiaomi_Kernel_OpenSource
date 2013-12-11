@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +21,7 @@
 #include <linux/device.h>
 #include <linux/uaccess.h>
 #include <linux/miscdevice.h>
-#include <linux/memory_alloc.h>
+#include <linux/dma-mapping.h>
 #include <mach/rpm-smd.h>
 #include "msm-buspm-dev.h"
 
@@ -65,9 +65,9 @@ static void msm_buspm_dev_free(struct file *filp)
 {
 	struct msm_buspm_map_dev *dev = filp->private_data;
 
-	if (dev) {
+	if (dev && dev->vaddr) {
 		pr_debug("freeing memory at 0x%p\n", dev->vaddr);
-		free_contiguous_memory(dev->vaddr);
+		dma_free_coherent(NULL, dev->buflen, dev->vaddr, dev->paddr);
 		dev->paddr = 0L;
 		dev->vaddr = NULL;
 	}
@@ -93,7 +93,7 @@ static int msm_buspm_dev_open(struct inode *inode, struct file *filp)
 static int
 msm_buspm_dev_alloc(struct file *filp, struct buspm_alloc_params data)
 {
-	unsigned long paddr;
+	dma_addr_t paddr;
 	void *vaddr;
 	struct msm_buspm_map_dev *dev = filp->private_data;
 
@@ -102,8 +102,7 @@ msm_buspm_dev_alloc(struct file *filp, struct buspm_alloc_params data)
 		msm_buspm_dev_free(filp);
 
 	/* Allocate uncached memory */
-	vaddr = allocate_contiguous_ebi(data.size, PAGE_SIZE, 0);
-	paddr = (vaddr) ? memory_pool_node_paddr(vaddr) : 0L;
+	vaddr = dma_alloc_coherent(NULL, data.size, &paddr, GFP_KERNEL);
 
 	if (vaddr == NULL) {
 		pr_err("allocation of 0x%x bytes failed", data.size);
