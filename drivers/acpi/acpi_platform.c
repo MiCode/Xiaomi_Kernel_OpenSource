@@ -34,6 +34,7 @@ static const struct acpi_device_id acpi_platform_device_ids[] = {
 
 	/* Intel Smart Sound Technology */
 	{ "INT33C8" },
+	{ "INT3438" },
 	{ "80860F28" },
 
 	{ }
