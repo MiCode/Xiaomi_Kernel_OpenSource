@@ -6708,6 +6708,15 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("core_clk",	gcc_sdcc2_apps_clk.c,	"msm_sdcc.2"),
 
 	/* USB */
+	CLK_LOOKUP("ref_clk",	diff_clk1.c,		     "f9200000.ssusb"),
+	CLK_LOOKUP("xo",	cxo_dwc3_clk.c,		     "f9200000.ssusb"),
+	CLK_LOOKUP("core_clk",	gcc_usb30_master_clk.c,	     "f9200000.ssusb"),
+	CLK_LOOKUP("iface_clk",	gcc_sys_noc_usb3_axi_clk.c,  "f9200000.ssusb"),
+	CLK_LOOKUP("iface_clk", gcc_sys_noc_usb3_axi_clk.c,  "msm_usb3"),
+	CLK_LOOKUP("sleep_clk",	gcc_usb30_sleep_clk.c,	     "f9200000.ssusb"),
+	CLK_LOOKUP("sleep_a_clk", gcc_usb2a_phy_sleep_clk.c, "f9200000.ssusb"),
+	CLK_LOOKUP("utmi_clk",   gcc_usb30_mock_utmi_clk.c,  "f9200000.ssusb"),
+
 	CLK_LOOKUP("",	gcc_sys_noc_usb3_axi_clk.c,	""),
 	CLK_LOOKUP("",	gcc_usb2a_phy_sleep_clk.c,	""),
 	CLK_LOOKUP("",	usb30_master_clk_src.c,	""),
