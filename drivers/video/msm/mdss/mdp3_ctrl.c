@@ -50,7 +50,7 @@ static void mdp3_bufq_deinit(struct mdp3_buffer_queue *bufq)
 	if (!count)
 		return;
 
-	while (count--) {
+	while (count-- && (bufq->pop_idx >= 0)) {
 		struct mdp3_img_data *data = &bufq->img_data[bufq->pop_idx];
 		bufq->pop_idx = (bufq->pop_idx + 1) % MDP3_MAX_BUF_QUEUE;
 		mdp3_put_img(data, MDP3_CLIENT_DMA_P);
@@ -937,7 +937,7 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 {
 	struct mdp3_session_data *mdp3_session;
 	struct mdp3_img_data *data;
-	struct mdss_panel_info *panel_info = mfd->panel_info;
+	struct mdss_panel_info *panel_info;
 	int rc = 0;
 	bool reset_done = false;
 	struct mdss_panel_data *panel;
@@ -945,6 +945,7 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 	if (!mfd || !mfd->mdp.private1)
 		return -EINVAL;
 
+	panel_info = mfd->panel_info;
 	mdp3_session = mfd->mdp.private1;
 	if (!mdp3_session || !mdp3_session->dma)
 		return -EINVAL;
@@ -982,7 +983,8 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 
 	if (mdp3_bufq_count(&mdp3_session->bufq_out) > 2) {
 		data = mdp3_bufq_pop(&mdp3_session->bufq_out);
-		mdp3_put_img(data, MDP3_CLIENT_DMA_P);
+		if (data)
+			mdp3_put_img(data, MDP3_CLIENT_DMA_P);
 	}
 
 	if (mdp3_session->first_commit) {
@@ -1008,12 +1010,13 @@ static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 	struct mdp3_session_data *mdp3_session;
 	u32 offset;
 	int bpp;
-	struct mdss_panel_info *panel_info = mfd->panel_info;
+	struct mdss_panel_info *panel_info;
 
 	pr_debug("mdp3_ctrl_pan_display\n");
 	if (!mfd || !mfd->mdp.private1)
 		return;
 
+	panel_info = mfd->panel_info;
 	mdp3_session = (struct mdp3_session_data *)mfd->mdp.private1;
 	if (!mdp3_session || !mdp3_session->dma)
 		return;
