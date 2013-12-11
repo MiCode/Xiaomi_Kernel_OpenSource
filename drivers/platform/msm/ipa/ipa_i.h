@@ -558,6 +558,10 @@ enum ipa_hw_mode {
 	IPA_HW_MODE_PCIE    = 2
 };
 
+enum ipa_config_this_ep {
+	IPA_CONFIGURE_THIS_EP,
+	IPA_DO_NOT_CONFIGURE_THIS_EP,
+};
 
 struct ipa_stats {
 	u32 imm_cmds[MAX_NUM_IMM_CMD];
@@ -942,7 +946,7 @@ int a2_mux_exit(void);
 
 void wwan_cleanup(void);
 
-int teth_bridge_driver_init(void);
+int teth_bridge_driver_init(enum ipa_hw_type ipa_hw_type);
 void ipa_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data);
 
 int __ipa_commit_flt_v1(enum ipa_ip_type ip);

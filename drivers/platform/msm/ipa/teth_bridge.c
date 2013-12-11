@@ -225,6 +225,7 @@ struct teth_bridge_ctx {
 	struct mutex init_mutex;
 	struct mutex request_resource_mutex;
 	u16 debugfs_lcid;
+	enum ipa_hw_type ipa_hw_type;
 };
 static struct teth_bridge_ctx *teth_ctx;
 
@@ -253,47 +254,131 @@ struct teth_work {
 static char dbg_buff[TETH_MAX_MSG_LEN];
 #endif
 
+static int client_prod_to_lcid[IPA_CLIENT_CONS] = {
+	A2_MUX_TETHERED_0,	/* IPA_CLIENT_HSIC1_PROD */
+	A2_MUX_TETHERED_0,	/* IPA_CLIENT_WLAN1_PROD */
+	A2_MUX_TETHERED_0,	/* IPA_CLIENT_HSIC2_PROD */
+	A2_MUX_MULTI_RMNET_10,	/* IPA_CLIENT_USB2_PROD */
+	A2_MUX_TETHERED_0,	/* IPA_CLIENT_HSIC3_PROD */
+	A2_MUX_MULTI_RMNET_11,	/* IPA_CLIENT_USB3_PROD */
+	A2_MUX_TETHERED_0,	/* IPA_CLIENT_HSIC4_PROD */
+	A2_MUX_MULTI_RMNET_12,	/* IPA_CLIENT_USB4_PROD */
+	A2_MUX_TETHERED_0,	/* IPA_CLIENT_HSIC5_PROD */
+	A2_MUX_TETHERED_0,	/* IPA_CLIENT_USB_PROD */
+	A2_MUX_TETHERED_0,	/* IPA_CLIENT_A5_WLAN_AMPDU_PROD */
+	A2_MUX_TETHERED_0,	/* IPA_CLIENT_A2_EMBEDDED_PROD */
+	A2_MUX_TETHERED_0,	/* IPA_CLIENT_A2_TETHERED_PROD */
+	A2_MUX_TETHERED_0,	/* IPA_CLIENT_APPS_LAN_WAN_PROD */
+	A2_MUX_TETHERED_0,	/* IPA_CLIENT_APPS_CMD_PROD */
+	A2_MUX_TETHERED_0,	/* IPA_CLIENT_Q6_LAN_PROD */
+	A2_MUX_TETHERED_0,	/* IPA_CLIENT_Q6_CMD_PROD */
+};
+
 static u16 get_channel_id_from_client_prod(enum ipa_client_type client)
 {
 	TETH_DBG("client_id=%d\n", client);
-	if (client == IPA_CLIENT_USB_PROD)
-		return A2_MUX_TETHERED_0;
-	if (client > IPA_CLIENT_USB_PROD || client <= IPA_CLIENT_PROD) {
+	if (client >= IPA_CLIENT_CONS || client < IPA_CLIENT_PROD) {
 		TETH_ERR("%s: Invalid client type %d\n", __func__, client);
 		return A2_MUX_TETHERED_0;
 	}
 
-	return client - IPA_CLIENT_USB2_PROD + A2_MUX_MULTI_RMNET_10;
+	return client_prod_to_lcid[client];
 }
+
+static int lcid_to_cons_client[A2_MUX_NUM_CHANNELS] = {
+	IPA_CLIENT_USB_CONS,	/* A2_MUX_WWAN_0 */
+	IPA_CLIENT_USB_CONS,	/* A2_MUX_WWAN_1 */
+	IPA_CLIENT_USB_CONS,	/* A2_MUX_WWAN_2 */
+	IPA_CLIENT_USB_CONS,	/* A2_MUX_WWAN_3 */
+	IPA_CLIENT_USB_CONS,	/* A2_MUX_WWAN_4 */
+	IPA_CLIENT_USB_CONS,	/* A2_MUX_WWAN_5 */
+	IPA_CLIENT_USB_CONS,	/* A2_MUX_WWAN_6 */
+	IPA_CLIENT_USB_CONS,	/* A2_MUX_WWAN_7 */
+	IPA_CLIENT_USB_CONS,	/* A2_MUX_TETHERED_0 */
+	IPA_CLIENT_USB_CONS,	/* A2_MUX_RESERVED_9 */
+	IPA_CLIENT_USB2_CONS,	/* A2_MUX_MULTI_RMNET_10 */
+	IPA_CLIENT_USB3_CONS,	/* A2_MUX_MULTI_RMNET_11 */
+	IPA_CLIENT_USB4_CONS,	/* A2_MUX_MULTI_RMNET_12 */
+	IPA_CLIENT_USB_CONS,	/* A2_MUX_MULTI_MBIM_13 */
+	IPA_CLIENT_USB_CONS,	/* A2_MUX_MULTI_MBIM_14 */
+	IPA_CLIENT_USB_CONS,	/* A2_MUX_MULTI_MBIM_15 */
+	IPA_CLIENT_USB_CONS,	/* A2_MUX_MULTI_MBIM_16 */
+	IPA_CLIENT_USB_CONS,	/* A2_MUX_MULTI_MBIM_17 */
+	IPA_CLIENT_USB_CONS,	/* A2_MUX_MULTI_MBIM_18 */
+	IPA_CLIENT_USB_CONS,	/* A2_MUX_MULTI_MBIM_19 */
+	IPA_CLIENT_USB_CONS,	/* A2_MUX_MULTI_MBIM_20 */
+};
 
 static u16 get_cons_client(enum a2_mux_logical_channel_id lcid)
 {
 	TETH_DBG("lcid=%d\n", lcid);
 
-	if (lcid < A2_MUX_TETHERED_0 || lcid >= A2_MUX_NUM_CHANNELS ||
-			lcid == A2_MUX_RESERVED_9) {
+	if (lcid < 0 || lcid > A2_MUX_NUM_CHANNELS) {
 		TETH_ERR("%s: Invalid lcid %d\n", __func__, lcid);
 		return IPA_CLIENT_USB_CONS;
 	}
-	if (lcid == A2_MUX_TETHERED_0)
-		return IPA_CLIENT_USB_CONS;
 
-	return lcid - A2_MUX_MULTI_RMNET_10 + IPA_CLIENT_USB2_CONS;
+	return lcid_to_cons_client[lcid];
 }
+
+static int lcid_to_prod_client[A2_MUX_NUM_CHANNELS] = {
+	IPA_CLIENT_USB_PROD,	/* A2_MUX_WWAN_0 */
+	IPA_CLIENT_USB_PROD,	/* A2_MUX_WWAN_1 */
+	IPA_CLIENT_USB_PROD,	/* A2_MUX_WWAN_2 */
+	IPA_CLIENT_USB_PROD,	/* A2_MUX_WWAN_3 */
+	IPA_CLIENT_USB_PROD,	/* A2_MUX_WWAN_4 */
+	IPA_CLIENT_USB_PROD,	/* A2_MUX_WWAN_5 */
+	IPA_CLIENT_USB_PROD,	/* A2_MUX_WWAN_6 */
+	IPA_CLIENT_USB_PROD,	/* A2_MUX_WWAN_7 */
+	IPA_CLIENT_USB_PROD,	/* A2_MUX_TETHERED_0 */
+	IPA_CLIENT_USB_PROD,	/* A2_MUX_RESERVED_9 */
+	IPA_CLIENT_USB2_PROD,	/* A2_MUX_MULTI_RMNET_10 */
+	IPA_CLIENT_USB3_PROD,	/* A2_MUX_MULTI_RMNET_11 */
+	IPA_CLIENT_USB4_PROD,	/* A2_MUX_MULTI_RMNET_12 */
+	IPA_CLIENT_USB_PROD,	/* A2_MUX_MULTI_MBIM_13 */
+	IPA_CLIENT_USB_PROD,	/* A2_MUX_MULTI_MBIM_14 */
+	IPA_CLIENT_USB_PROD,	/* A2_MUX_MULTI_MBIM_15 */
+	IPA_CLIENT_USB_PROD,	/* A2_MUX_MULTI_MBIM_16 */
+	IPA_CLIENT_USB_PROD,	/* A2_MUX_MULTI_MBIM_17 */
+	IPA_CLIENT_USB_PROD,	/* A2_MUX_MULTI_MBIM_18 */
+	IPA_CLIENT_USB_PROD,	/* A2_MUX_MULTI_MBIM_19 */
+	IPA_CLIENT_USB_PROD,	/* A2_MUX_MULTI_MBIM_20 */
+};
 
 static u16 get_prod_client(enum a2_mux_logical_channel_id lcid)
 {
 	TETH_DBG("lcid=%d\n", lcid);
-	if (lcid < A2_MUX_TETHERED_0 || lcid >= A2_MUX_NUM_CHANNELS ||
-				lcid == A2_MUX_RESERVED_9) {
-			TETH_ERR("%s: Invalid lcid %d\n", __func__, lcid);
-			return IPA_CLIENT_USB_PROD;
-	}
-	if (lcid == A2_MUX_TETHERED_0)
+	if (lcid < 0 || lcid > A2_MUX_NUM_CHANNELS) {
+		TETH_ERR("%s: Invalid lcid %d\n", __func__, lcid);
 		return IPA_CLIENT_USB_PROD;
+	}
 
-	return lcid - A2_MUX_MULTI_RMNET_10 + IPA_CLIENT_USB2_PROD;
+	return lcid_to_prod_client[lcid];
 }
+
+static int lcid_to_ch_info_idx[A2_MUX_NUM_CHANNELS] = {
+	0,	/* A2_MUX_WWAN_0 */
+	0,	/* A2_MUX_WWAN_1 */
+	0,	/* A2_MUX_WWAN_2 */
+	0,	/* A2_MUX_WWAN_3 */
+	0,	/* A2_MUX_WWAN_4 */
+	0,	/* A2_MUX_WWAN_5 */
+	0,	/* A2_MUX_WWAN_6 */
+	0,	/* A2_MUX_WWAN_7 */
+	0,	/* A2_MUX_TETHERED_0 */
+	0,	/* A2_MUX_RESERVED_9 */
+	1,	/* A2_MUX_MULTI_RMNET_10 */
+	2,	/* A2_MUX_MULTI_RMNET_11 */
+	3,	/* A2_MUX_MULTI_RMNET_12 */
+	4,	/* A2_MUX_MULTI_MBIM_13 */
+	5,	/* A2_MUX_MULTI_MBIM_14 */
+	6,	/* A2_MUX_MULTI_MBIM_15 */
+	7,	/* A2_MUX_MULTI_MBIM_16 */
+	8,	/* A2_MUX_MULTI_MBIM_17 */
+	9,	/* A2_MUX_MULTI_MBIM_18 */
+	10,	/* A2_MUX_MULTI_MBIM_19 */
+	11,	/* A2_MUX_MULTI_MBIM_20 */
+};
 
 static u16 get_ch_info_idx(enum a2_mux_logical_channel_id lcid)
 {
@@ -302,10 +387,8 @@ static u16 get_ch_info_idx(enum a2_mux_logical_channel_id lcid)
 			TETH_ERR("%s: Invalid lcid %d\n", __func__, lcid);
 			return 0;
 	}
-	if (lcid == A2_MUX_TETHERED_0)
-		return 0;
 
-	return lcid - A2_MUX_RESERVED_9;
+	return lcid_to_ch_info_idx[lcid];
 }
 
 static int get_completed_ch_num(void)
@@ -1404,6 +1487,7 @@ static int teth_request_resource(void)
 		res = 0;
 	}
 	mutex_unlock(&teth_ctx->request_resource_mutex);
+
 	return res;
 }
 
@@ -1961,10 +2045,26 @@ int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr, void **private_data_ptr,
 		return -EINVAL;
 	}
 
-	*usb_notify_cb_ptr = usb_notify_cb;
-	lcid = get_channel_id_from_client_prod(client);
-	*private_data_ptr = (void *)lcid;
-	idx = get_ch_info_idx(lcid);
+	switch (teth_ctx->ipa_hw_type) {
+	case IPA_HW_v1_1:
+		*usb_notify_cb_ptr = usb_notify_cb;
+		lcid = get_channel_id_from_client_prod(client);
+		*private_data_ptr = (void *)lcid;
+		idx = get_ch_info_idx(lcid);
+		TETH_DBG("init private data with lcid=%d\n", lcid);
+		break;
+
+	case IPA_HW_v2_0:
+		*usb_notify_cb_ptr = NULL;
+		*private_data_ptr = (void *)IPA_DO_NOT_CONFIGURE_THIS_EP;
+		break;
+
+	default:
+		TETH_ERR("Invalid HW type.\n");
+		res = -EINVAL;
+		goto bail;
+		break;
+	}
 
 	mutex_lock(&teth_ctx->init_mutex);
 	if (teth_ctx->init_status == TETH_INITIALIZATION_ERROR) {
@@ -1972,7 +2072,6 @@ int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr, void **private_data_ptr,
 		goto bail;
 	}
 
-	TETH_DBG("init private data with lcid=%d\n", lcid);
 
 	if (teth_ctx->init_status == TETH_INITIALIZED) {
 		teth_ctx->ch_init_cnt++;
@@ -1983,31 +2082,33 @@ int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr, void **private_data_ptr,
 	TETH_DBG("first call to init: build dependency graph\n");
 	/* Build IPA Resource manager dependency graph */
 	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_BRIDGE_PROD,
-					IPA_RM_RESOURCE_USB_CONS);
+				    IPA_RM_RESOURCE_USB_CONS);
 	if (res && res != -EINPROGRESS) {
 		TETH_ERR("ipa_rm_add_dependency() failed\n");
 		goto fail;
 	}
 
-	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_BRIDGE_PROD,
-					IPA_RM_RESOURCE_A2_CONS);
-	if (res && res != -EINPROGRESS) {
-		TETH_ERR("ipa_rm_add_dependency() failed\n");
-		goto fail_add_dependency_1;
-	}
+	if (teth_ctx->ipa_hw_type == IPA_HW_v1_1) {
+		res = ipa_rm_add_dependency(IPA_RM_RESOURCE_BRIDGE_PROD,
+						IPA_RM_RESOURCE_A2_CONS);
+		if (res && res != -EINPROGRESS) {
+			TETH_ERR("ipa_rm_add_dependency() failed\n");
+			goto fail_add_dependency_1;
+		}
 
-	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_USB_PROD,
-					IPA_RM_RESOURCE_A2_CONS);
-	if (res && res != -EINPROGRESS) {
-		TETH_ERR("ipa_rm_add_dependency() failed\n");
-		goto fail_add_dependency_2;
-	}
+		res = ipa_rm_add_dependency(IPA_RM_RESOURCE_USB_PROD,
+						IPA_RM_RESOURCE_A2_CONS);
+		if (res && res != -EINPROGRESS) {
+			TETH_ERR("ipa_rm_add_dependency() failed\n");
+			goto fail_add_dependency_2;
+		}
 
-	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_A2_PROD,
-					IPA_RM_RESOURCE_USB_CONS);
-	if (res && res != -EINPROGRESS) {
-		TETH_ERR("ipa_rm_add_dependency() failed\n");
-		goto fail_add_dependency_3;
+		res = ipa_rm_add_dependency(IPA_RM_RESOURCE_A2_PROD,
+						IPA_RM_RESOURCE_USB_CONS);
+		if (res && res != -EINPROGRESS) {
+			TETH_ERR("ipa_rm_add_dependency() failed\n");
+			goto fail_add_dependency_3;
+		}
 	}
 
 	/* Return 0 as EINPROGRESS is a valid return value at this point */
@@ -2144,6 +2245,7 @@ static void initialize_context(void)
 static int delete_usb_dependencies(void)
 {
 	int res;
+
 	/*
 	 * Delete part of IPA resource manager dependency graph. Only the
 	 * BRIDGE_PROD <-> A2 dependency remains intact
@@ -2153,16 +2255,20 @@ static int delete_usb_dependencies(void)
 	if ((res != 0) && (res != -EINPROGRESS))
 		TETH_ERR(
 			"Failed deleting ipa_rm dependency BRIDGE_PROD <-> USB_CONS\n");
-	res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
-				       IPA_RM_RESOURCE_A2_CONS);
-	if ((res != 0) && (res != -EINPROGRESS))
-		TETH_ERR(
-			"Failed deleting ipa_rm dependency USB_PROD <-> A2_CONS\n");
-	res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_A2_PROD,
-				       IPA_RM_RESOURCE_USB_CONS);
-	if ((res != 0) && (res != -EINPROGRESS))
-		TETH_ERR(
-			"Failed deleting ipa_rm dependency A2_PROD <-> USB_CONS\n");
+
+	if (teth_ctx->ipa_hw_type == IPA_HW_v1_1) {
+		res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
+					       IPA_RM_RESOURCE_A2_CONS);
+		if ((res != 0) && (res != -EINPROGRESS))
+			TETH_ERR(
+				"Failed deleting ipa_rm dependency USB_PROD <-> A2_CONS\n");
+		res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_A2_PROD,
+					       IPA_RM_RESOURCE_USB_CONS);
+		if ((res != 0) && (res != -EINPROGRESS))
+			TETH_ERR(
+				"Failed deleting ipa_rm dependency A2_PROD <-> USB_CONS\n");
+	}
+
 	return res;
 }
 
@@ -2205,41 +2311,47 @@ static int disconnect_ch(u16 lcid)
 	u16 idx = get_ch_info_idx(lcid);
 
 	TETH_DBG_FUNC_ENTRY();
-	/* Request the BRIDGE_PROD resource, A2 and IPA should power up */
-	res = teth_request_resource();
-	if (res) {
-		TETH_ERR("request_resource() failed.\n");
-		goto bail;
-	}
+	if (teth_ctx->ipa_hw_type == IPA_HW_v1_1) {
+		/* Request the BRIDGE_PROD resource */
+		res = teth_request_resource();
+		if (res) {
+			TETH_ERR("request_resource() failed.\n");
+			goto bail;
+		}
 
-	/* Close the channel to A2 */
-	if (a2_mux_close_channel(lcid))
-		TETH_ERR("a2_mux_close_channel(%d) failed\n", lcid);
-	/* Tear down the IPA HW bridge */
-	if (teth_ctx->ch_info[idx].is_hw_bridge_complete)
-		teardown_hw_bridge(idx);
+		/* Close the channel to A2 */
+		if (a2_mux_close_channel(lcid))
+			TETH_ERR("a2_mux_close_channel(%d) failed\n", lcid);
+		/* Tear down the IPA HW bridge */
+		if (teth_ctx->ch_info[idx].is_hw_bridge_complete)
+			teardown_hw_bridge(idx);
 
-	ipa_rm_inactivity_timer_release_resource(IPA_RM_RESOURCE_BRIDGE_PROD);
+		ipa_rm_inactivity_timer_release_resource(
+			IPA_RM_RESOURCE_BRIDGE_PROD);
 
-	/* Deregister from A2_PROD notifications */
-	if (teth_ctx->ch_info[idx].ch_type == TETH_TETHERED_CH) {
-		a2_prod_reg_params.user_data = NULL;
-		a2_prod_reg_params.notify_cb = a2_prod_notify_cb;
-		res = ipa_rm_deregister(IPA_RM_RESOURCE_A2_PROD,
-				&a2_prod_reg_params);
-		if (res)
-			TETH_ERR(
-				"Failed deregistering from A2_prod notifications.\n");
+		/* Deregister from A2_PROD notifications */
+		if (teth_ctx->ch_info[idx].ch_type == TETH_TETHERED_CH) {
+			a2_prod_reg_params.user_data = NULL;
+			a2_prod_reg_params.notify_cb = a2_prod_notify_cb;
+			res = ipa_rm_deregister(IPA_RM_RESOURCE_A2_PROD,
+					&a2_prod_reg_params);
+			if (res)
+				TETH_ERR(
+					"Failed deregistering from A2_prod notifications.\n");
+		}
 	}
 
 	if (get_connected_ch_num() <= 1) {
 		initialize_context();
-		/* Delete the last ipa_rm dependency - BRIDGE_PROD <-> A2 */
-		res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_BRIDGE_PROD,
-					       IPA_RM_RESOURCE_A2_CONS);
-		if ((res != 0) && (res != -EINPROGRESS))
-			TETH_ERR(
-				"Failed deleting ipa_rm dependency BRIDGE_PROD <-> A2_CONS\n");
+		if (teth_ctx->ipa_hw_type == IPA_HW_v1_1) {
+			/* Delete ipa_rm dependency - BRIDGE_PROD <-> A2 */
+			res = ipa_rm_delete_dependency(
+				IPA_RM_RESOURCE_BRIDGE_PROD,
+				IPA_RM_RESOURCE_A2_CONS);
+			if ((res != 0) && (res != -EINPROGRESS))
+				TETH_ERR(
+					"Failed deleting ipa_rm dependency BRIDGE_PROD <-> A2_CONS\n");
+		}
 	}
 	initialize_ch_info(idx);
 
@@ -2264,6 +2376,7 @@ static int disconnect_first_ch(u16 lcid)
 	teth_ctx->init_status = TETH_NOT_INITIALIZED;
 
 	TETH_DBG_FUNC_EXIT();
+
 	return 0;
 }
 
@@ -2274,7 +2387,8 @@ int teth_bridge_disconnect(enum ipa_client_type client)
 {
 	u16 lcid;
 	u16 idx;
-	u16 num_of_iteration = 1, i;
+	u16 num_of_iteration = 1;
+	u16 i;
 
 	TETH_DBG_FUNC_ENTRY();
 	if (teth_ctx->tethering_mode == TETH_TETHERING_MODE_MBIM) {
@@ -2308,19 +2422,18 @@ bail:
 EXPORT_SYMBOL(teth_bridge_disconnect);
 
 
-/**
-* teth_bridge_connect() - Connect bridge for a tethered Rmnet / MBIM call
-* @connect_params:	Connection info
-*
-* Return codes: 0: success
-*		-EINVAL: invalid parameters
-*		-EPERM: Operation not permitted as the bridge is already
-*		connected
-*/
-int teth_bridge_connect(struct teth_bridge_connect_params *connect_params)
+static int __teth_bridge_connect_2_0(struct teth_bridge_connect_params
+				     *connect_params)
 {
-	int res, num_of_iterations = 1, i;
+	return 0;
+}
 
+static int __teth_bridge_connect_1_1(struct teth_bridge_connect_params
+				     *connect_params)
+{
+	int res;
+	int num_of_iterations = 1;
+	int i;
 	struct ipa_ep_cfg ipa_ep_cfg;
 	u16 lcid;
 	u16 idx;
@@ -2329,7 +2442,6 @@ int teth_bridge_connect(struct teth_bridge_connect_params *connect_params)
 	struct ipa_rm_register_params a2_prod_reg_params;
 
 	TETH_DBG_FUNC_ENTRY();
-
 	if (connect_params == NULL ||
 	    connect_params->ipa_usb_pipe_hdl <= 0 ||
 	    connect_params->usb_ipa_pipe_hdl <= 0 ||
@@ -2471,6 +2583,33 @@ bail:
 
 	return res;
 }
+
+/**
+* teth_bridge_connect() - Connect bridge for a tethered Rmnet / MBIM call
+* @connect_params:	Connection info
+*
+* Return codes: 0: success
+*		-EINVAL: invalid parameters
+*		-EPERM: Operation not permitted as the bridge is already
+*		connected
+*/
+int teth_bridge_connect(struct teth_bridge_connect_params *connect_params)
+{
+	int res;
+
+	TETH_DBG_FUNC_ENTRY();
+
+	if (teth_ctx->ipa_hw_type == IPA_HW_v1_1)
+		res = __teth_bridge_connect_1_1(connect_params);
+	else if (teth_ctx->ipa_hw_type == IPA_HW_v2_0)
+		res = __teth_bridge_connect_2_0(connect_params);
+	else {
+		TETH_ERR("Non supported HW type,\n");
+		res = -EINVAL;
+	}
+
+	return res;
+}
 EXPORT_SYMBOL(teth_bridge_connect);
 
 static void set_aggr_default_params(struct teth_aggr_params_link *params)
@@ -2514,6 +2653,9 @@ static int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params,
 	u16 idx;
 	u16 lcid, i;
 	int num_of_iteration = 1;
+
+	if (teth_ctx->ipa_hw_type != IPA_HW_v1_1)
+		return -EFAULT;
 
 	TETH_DBG_FUNC_ENTRY();
 	if (!aggr_params) {
@@ -2595,6 +2737,9 @@ static int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params,
 int teth_bridge_set_mbim_aggr_params(struct teth_aggr_params *aggr_params,
 	enum ipa_client_type client)
 {
+	if (ipa_ctx->ipa_hw_type != IPA_HW_v1_1)
+		TETH_ERR("This API should not be called on Krypton !\n");
+
 	teth_ctx->tethering_mode = TETH_TETHERING_MODE_MBIM;
 	return teth_bridge_set_aggr_params(aggr_params, client);
 }
@@ -2610,6 +2755,11 @@ static long teth_bridge_ioctl(struct file *filp,
 	struct teth_ioc_set_bridge_mode bridge_mode_params;
 	struct hw_bridge_work_wrap *work_data;
 	u16 i = 0;
+
+	if (teth_ctx->ipa_hw_type != IPA_HW_v1_1) {
+		IPAERR("No ioctls are supported for krypton !\n");
+		return -ENOIOCTLCMD;
+	}
 
 	TETH_DBG("cmd=%x nr=%d\n", cmd, _IOC_NR(cmd));
 
@@ -3096,22 +3246,17 @@ const struct file_operations teth_hw_bridge_status_ops = {
 	.read = teth_debugfs_hw_bridge_status,
 };
 
-void teth_debugfs_init(void)
+static int __debugfs_create_v1_1(struct dentry *dent)
 {
 	const mode_t read_only_mode = S_IRUSR | S_IRGRP | S_IROTH;
 	const mode_t read_write_mode = S_IRUSR | S_IRGRP | S_IROTH |
 			S_IWUSR | S_IWGRP | S_IWOTH;
 
-	dent = debugfs_create_dir("ipa_teth", 0);
-	if (IS_ERR(dent)) {
-		IPAERR("fail to create folder ipa_teth debug_fs.\n");
-		return;
-	}
 	dfile_lcid = debugfs_create_file("lcid", read_write_mode, dent, 0,
 					&teth_lcid_ops);
 	if (!dfile_lcid || IS_ERR(dfile_lcid)) {
 		IPAERR("fail to create file lcid\n");
-		goto fail;
+		return -EFAULT;
 	}
 
 	dfile_link_protocol =
@@ -3119,7 +3264,7 @@ void teth_debugfs_init(void)
 				    &teth_link_protocol_ops);
 	if (!dfile_link_protocol || IS_ERR(dfile_link_protocol)) {
 		IPAERR("fail to create file link_protocol\n");
-		goto fail;
+		return -EFAULT;
 	}
 
 	dfile_get_aggr_params =
@@ -3127,7 +3272,7 @@ void teth_debugfs_init(void)
 				    &teth_get_aggr_params_ops);
 	if (!dfile_get_aggr_params || IS_ERR(dfile_get_aggr_params)) {
 		IPAERR("fail to create file get_aggr_params\n");
-		goto fail;
+		return -EFAULT;
 	}
 
 	dfile_set_aggr_protocol =
@@ -3135,7 +3280,7 @@ void teth_debugfs_init(void)
 				    0, &teth_set_aggr_protocol_ops);
 	if (!dfile_set_aggr_protocol || IS_ERR(dfile_set_aggr_protocol)) {
 		IPAERR("fail to create file set_aggr_protocol\n");
-		goto fail;
+		return -EFAULT;
 	}
 
 	dfile_stats =
@@ -3143,7 +3288,7 @@ void teth_debugfs_init(void)
 				    0, &teth_stats_ops);
 	if (!dfile_stats || IS_ERR(dfile_stats)) {
 		IPAERR("fail to create file stats\n");
-		goto fail;
+		return -EFAULT;
 	}
 
 	dfile_is_hw_bridge_complete =
@@ -3152,12 +3297,40 @@ void teth_debugfs_init(void)
 	if (!dfile_is_hw_bridge_complete ||
 	    IS_ERR(dfile_is_hw_bridge_complete)) {
 		IPAERR("fail to create file is_hw_bridge_complete\n");
-		goto fail;
+		return -EFAULT;
 	}
 
+	return 0;
+}
+
+static int __debugfs_create_v2_0(struct dentry *dent)
+{
+	return 0;
+}
+
+void teth_debugfs_init(void)
+{
+	int res;
+
+	dent = debugfs_create_dir("ipa_teth", 0);
+	if (IS_ERR(dent)) {
+		IPAERR("fail to create folder ipa_teth debug_fs.\n");
+		return;
+	}
+
+	if (teth_ctx->ipa_hw_type == IPA_HW_v1_1)
+		res = __debugfs_create_v1_1(dent);
+	else if (teth_ctx->ipa_hw_type == IPA_HW_v2_0)
+		res = __debugfs_create_v2_0(dent);
+	else {
+		TETH_ERR("Invalid HW type, debugfs disabled !\n");
+		res = -EFAULT;
+	}
+
+	if (res)
+		debugfs_remove_recursive(dent);
+
 	return;
-fail:
-	debugfs_remove_recursive(dent);
 }
 #else
 void teth_debugfs_init(void) {}
@@ -3256,7 +3429,7 @@ fail_alloc_routing_del_ipv4:
 * teth_bridge_driver_init() - Initialize tethering bridge driver
 *
 */
-int teth_bridge_driver_init(void)
+int teth_bridge_driver_init(enum ipa_hw_type ipa_hw_type)
 {
 	int res;
 	struct ipa_rm_create_params bridge_prod_params;
@@ -3269,6 +3442,8 @@ int teth_bridge_driver_init(void)
 		return -ENOMEM;
 	}
 
+	teth_ctx->ipa_hw_type = ipa_hw_type;
+
 	teth_ctx->ch_info =
 		kzalloc(sizeof(struct logic_ch_info)*TETH_NUM_CHANNELS,
 		   GFP_KERNEL);
@@ -3277,10 +3452,12 @@ int teth_bridge_driver_init(void)
 		goto fail_alloc_channel_info;
 	}
 
-	res = set_aggr_capabilities();
-	if (res) {
-		TETH_ERR("kzalloc err.\n");
-		goto fail_alloc_aggr_caps;
+	if (teth_ctx->ipa_hw_type == IPA_HW_v1_1) {
+		res = set_aggr_capabilities();
+		if (res) {
+			TETH_ERR("kzalloc err.\n");
+			goto fail_alloc_aggr_caps;
+		}
 	}
 
 	teth_ctx->class = class_create(THIS_MODULE, TETH_BRIDGE_DRV_NAME);
@@ -3334,10 +3511,12 @@ int teth_bridge_driver_init(void)
 		goto fail_cdev_add;
 	}
 
-	teth_ctx->teth_wq = create_workqueue(TETH_WORKQUEUE_NAME);
-	if (!teth_ctx->teth_wq) {
-		TETH_ERR("workqueue creation failed\n");
-		goto fail_cdev_add;
+	if (teth_ctx->ipa_hw_type == IPA_HW_v1_1) {
+		teth_ctx->teth_wq = create_workqueue(TETH_WORKQUEUE_NAME);
+		if (!teth_ctx->teth_wq) {
+			TETH_ERR("workqueue creation failed\n");
+			goto fail_cdev_add;
+		}
 	}
 
 	res = alloc_del_hnds();
