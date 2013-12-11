@@ -262,6 +262,7 @@
 			<0x0b011008 0x4>,
 			<0x60000 0x8000>;
 		reg-names = "smem", "irq-reg-base", "aux-mem1";
+		qti,mpu-enabled;
 
 		qti,smd-modem {
 			compatible = "qti,smd";
