@@ -20,6 +20,7 @@
 			reg = <0x1700 0x100>;
 			regulator-min-microvolt = <900000>;
 			regulator-max-microvolt = <1275000>;
+			qcom,mode = "auto";
 		};
 	};
 };
