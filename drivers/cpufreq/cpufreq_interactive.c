@@ -53,6 +53,7 @@ struct cpufreq_interactive_cpuinfo {
 	u64 hispeed_validate_time;
 	struct rw_semaphore enable_sem;
 	int governor_enabled;
+	int prev_load;
 };
 
 static DEFINE_PER_CPU(struct cpufreq_interactive_cpuinfo, cpuinfo);
@@ -121,6 +122,13 @@ static u64 boostpulse_endtime;
 static int timer_slack_val = DEFAULT_TIMER_SLACK;
 
 static bool io_is_busy;
+
+/*
+ * If the max load among the other CPUs is higher than sync_freq_load_threshold
+ * then do not let the frequency to drop below sync_freq
+ */
+static unsigned int sync_freq_load_threshold;
+static unsigned int sync_freq;
 
 static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 		unsigned int event);
@@ -385,6 +393,8 @@ static void cpufreq_interactive_timer(unsigned long data)
 	unsigned long flags;
 	bool boosted;
 	unsigned long mod_min_sample_time;
+	int i, max_load_other_cpu;
+	unsigned int max_freq_other_cpu;
 
 	if (!down_read_trylock(&pcpu->enable_sem))
 		return;
@@ -403,7 +413,22 @@ static void cpufreq_interactive_timer(unsigned long data)
 	do_div(cputime_speedadj, delta_time);
 	loadadjfreq = (unsigned int)cputime_speedadj * 100;
 	cpu_load = loadadjfreq / pcpu->target_freq;
+	pcpu->prev_load = cpu_load;
 	boosted = boost_val || now < boostpulse_endtime;
+
+	max_load_other_cpu = 0;
+	max_freq_other_cpu = 0;
+	for_each_online_cpu(i) {
+		struct cpufreq_interactive_cpuinfo *picpu =
+						&per_cpu(cpuinfo, i);
+		if (i == data)
+			continue;
+		if (max_load_other_cpu < picpu->prev_load)
+			max_load_other_cpu = picpu->prev_load;
+
+		if (picpu->policy->cur > max_freq_other_cpu)
+			max_freq_other_cpu = picpu->policy->cur;
+	}
 
 	if (cpu_load >= go_hispeed_load || boosted) {
 		if (pcpu->target_freq < hispeed_freq) {
@@ -416,6 +441,10 @@ static void cpufreq_interactive_timer(unsigned long data)
 		}
 	} else {
 		new_freq = choose_freq(pcpu, loadadjfreq);
+		if (sync_freq && (max_freq_other_cpu > sync_freq) &&
+			(max_load_other_cpu > sync_freq_load_threshold) &&
+				(new_freq < sync_freq))
+			new_freq = sync_freq;
 	}
 
 	if (pcpu->target_freq >= hispeed_freq &&
@@ -1073,6 +1102,52 @@ static ssize_t store_io_is_busy(struct kobject *kobj,
 static struct global_attr io_is_busy_attr = __ATTR(io_is_busy, 0644,
 		show_io_is_busy, store_io_is_busy);
 
+static ssize_t show_sync_freq(struct kobject *kobj,
+			struct attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", sync_freq);
+}
+
+static ssize_t store_sync_freq(struct kobject *kobj,
+			struct attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+	sync_freq = val;
+	return count;
+}
+
+static struct global_attr sync_freq_attr = __ATTR(sync_freq, 0644,
+		show_sync_freq, store_sync_freq);
+
+static ssize_t show_sync_freq_load_threshold(struct kobject *kobj,
+			struct attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", sync_freq_load_threshold);
+}
+
+static ssize_t store_sync_freq_load_threshold(struct kobject *kobj,
+			struct attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+	sync_freq_load_threshold = val;
+	return count;
+}
+
+static struct global_attr sync_freq_load_threshold_attr =
+		__ATTR(sync_freq_load_threshold, 0644,
+		show_sync_freq_load_threshold, store_sync_freq_load_threshold);
+
+
 static struct attribute *interactive_attributes[] = {
 	&target_loads_attr.attr,
 	&above_hispeed_delay_attr.attr,
@@ -1086,6 +1161,8 @@ static struct attribute *interactive_attributes[] = {
 	&boostpulse_duration.attr,
 	&io_is_busy_attr.attr,
 	&sampling_down_factor_attr.attr,
+	&sync_freq_attr.attr,
+	&sync_freq_load_threshold_attr.attr,
 	NULL,
 };
 
