@@ -311,7 +311,7 @@ int dwc3_send_gadget_ep_cmd(struct dwc3 *dwc, unsigned ep,
 		unsigned cmd, struct dwc3_gadget_ep_cmd_params *params)
 {
 	struct dwc3_ep		*dep = dwc->eps[ep];
-	u32			timeout = 500;
+	u32			timeout = 1500;
 	u32			reg;
 
 	trace_dwc3_gadget_ep_cmd(dep, cmd, params);
