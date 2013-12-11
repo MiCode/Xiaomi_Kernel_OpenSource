@@ -76,6 +76,13 @@ static struct gpiomux_setting hap_lvl_shft_suspended_config = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
+static struct gpiomux_setting gpio_epm_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv  = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_OUT_HIGH,
+};
+
 static struct msm_gpiomux_config hap_lvl_shft_config[] __initdata = {
 	{
 		.gpio = 48,
@@ -312,13 +319,13 @@ static struct msm_gpiomux_config msm_eth_configs[] __initdata = {
 		}
 	},
 	{
-		.gpio	  = 116,		/* CS */
+		.gpio	  = 117,		/* CS */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_eth_config,
 		}
 	},
 	{
-		.gpio      = 117,		/* BLSP1 QUP1 SPI_CS2 */
+		.gpio      = 116,		/* BLSP1 QUP1 SPI_CS2 */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
 		},
@@ -890,6 +897,15 @@ static struct msm_gpiomux_config msm_qca1530_liquid_configs[] __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config msm_epm_configs[] __initdata = {
+	{
+		.gpio      = 92,		/* EPM enable */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_epm_config,
+		},
+	},
+};
+
 void __init apq8084_init_gpiomux(void)
 {
 	int rc;
@@ -934,6 +950,7 @@ void __init apq8084_init_gpiomux(void)
 		msm_gpiomux_install(eth_pwr, ARRAY_SIZE(eth_pwr));
 	msm_gpiomux_install(msm_sensor_configs, ARRAY_SIZE(msm_sensor_configs));
 	msm_gpiomux_install(msm_pcie_configs, ARRAY_SIZE(msm_pcie_configs));
+	msm_gpiomux_install(msm_epm_configs, ARRAY_SIZE(msm_epm_configs));
 
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 	if (of_board_is_cdp())
