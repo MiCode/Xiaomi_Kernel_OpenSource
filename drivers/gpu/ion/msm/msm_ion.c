@@ -19,6 +19,7 @@
 #include <linux/memory_alloc.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
+#include <linux/of_address.h>
 #include <linux/mm.h>
 #include <linux/mm_types.h>
 #include <linux/sched.h>
@@ -26,6 +27,7 @@
 #include <linux/uaccess.h>
 #include <linux/memblock.h>
 #include <linux/dma-mapping.h>
+#include <linux/dma-contiguous.h>
 #include <mach/ion.h>
 #include <mach/msm_memtypes.h>
 #include <asm/cacheflush.h>
@@ -699,6 +701,7 @@ static int msm_ion_get_heap_size(struct device_node *node,
 	int ret = 0;
 	u32 out_values[2];
 	const char *memory_name_prop;
+	struct device_node *pnode;
 
 	ret = of_property_read_u32(node, "qcom,memory-reservation-size", &val);
 	if (!ret) {
@@ -720,14 +723,33 @@ static int msm_ion_get_heap_size(struct device_node *node,
 				__func__);
 			ret = -EINVAL;
 		}
-	} else {
-		ret = of_property_read_u32_array(node, "qcom,memory-fixed",
-								out_values, 2);
-		if (!ret)
-			heap->size = out_values[1];
-		else
-			ret = 0;
+		goto out;
 	}
+
+	ret = of_property_read_u32_array(node, "qcom,memory-fixed",
+								out_values, 2);
+	if (!ret) {
+		heap->size = out_values[1];
+		goto out;
+	}
+
+	pnode = of_parse_phandle(node, "linux,contiguous-region", 0);
+	if (pnode != NULL) {
+		const u32 *addr;
+		u64 size;
+
+		addr = of_get_address(pnode, 0, &size, NULL);
+		if (!addr) {
+			of_node_put(pnode);
+			ret = -EINVAL;
+			goto out;
+		}
+		heap->size = (u32) size;
+		ret = 0;
+		of_node_put(pnode);
+	}
+
+	ret = 0;
 out:
 	return ret;
 }
@@ -737,11 +759,19 @@ static void msm_ion_get_heap_base(struct device_node *node,
 {
 	u32 out_values[2];
 	int ret = 0;
+	struct device_node *pnode;
 
 	ret = of_property_read_u32_array(node, "qcom,memory-fixed",
 							out_values, 2);
 	if (!ret)
 		heap->base = out_values[0];
+
+	pnode = of_parse_phandle(node, "linux,contiguous-region", 0);
+	if (pnode != NULL) {
+		heap->base = cma_get_base(heap->priv);
+		of_node_put(pnode);
+	}
+
 	return;
 }
 
