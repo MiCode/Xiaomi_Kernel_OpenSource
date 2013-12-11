@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,7 @@
 		reg = <0xfd900000 0x100000>;
 		reg-names = "mdp_phys";
 		interrupts = <0 72 0>;
+		vdd-cx-supply = <&pm8110_s1_corner>;
 
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
