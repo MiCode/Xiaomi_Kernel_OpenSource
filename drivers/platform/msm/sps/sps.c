@@ -184,6 +184,11 @@ static ssize_t sps_set_info(struct file *file, const char __user *buf,
 		return -EFAULT;
 	}
 
+	if (buf_size_kb > (INT_MAX/SZ_1K)) {
+		pr_err("sps:debugfs: buffer size is too large\n");
+		return -EFAULT;
+	}
+
 	new_buf_size = buf_size_kb * SZ_1K;
 
 	if (debugfs_record_enabled) {
