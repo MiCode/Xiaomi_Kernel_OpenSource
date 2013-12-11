@@ -197,6 +197,14 @@ struct ion_co_heap_pdata {
 	enum ion_memory_types memory_type;
 };
 
+/*
+ * struct ion_cma_pdata - extra data for CMA regions
+ * @default_prefetch_size - default size to use for prefetching
+ */
+struct ion_cma_pdata {
+	unsigned long default_prefetch_size;
+};
+
 #ifdef CONFIG_ION
 /**
  *  msm_ion_client_create - allocate a client using the ion_device specified in

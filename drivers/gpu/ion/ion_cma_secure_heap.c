@@ -92,6 +92,7 @@ struct ion_cma_secure_heap {
 	atomic_t total_allocated;
 	atomic_t total_pool_size;
 	unsigned long heap_size;
+	unsigned long default_prefetch_size;
 };
 
 static void ion_secure_pool_pages(struct work_struct *work);
@@ -223,6 +224,9 @@ int ion_secure_cma_prefetch(struct ion_heap *heap, void *data)
 
 	if ((int) heap->type != ION_HEAP_TYPE_SECURE_DMA)
 		return -EINVAL;
+
+	if (len == 0)
+		len = sheap->default_prefetch_size;
 
 	/*
 	 * Only prefetch as much space as there is left in the pool so
@@ -667,12 +671,17 @@ struct ion_heap *ion_secure_cma_heap_create(struct ion_platform_heap *data)
 	sheap->shrinker.seeks = DEFAULT_SEEKS;
 	sheap->shrinker.batch = 0;
 	sheap->shrinker.shrink = ion_secure_cma_shrinker;
+	sheap->default_prefetch_size = sheap->heap_size;
 	register_shrinker(&sheap->shrinker);
-
 
 	if (!sheap->bitmap) {
 		kfree(sheap);
 		return ERR_PTR(-ENOMEM);
+	}
+
+	if (data->extra_data) {
+		struct ion_cma_pdata *extra = data->extra_data;
+		sheap->default_prefetch_size = extra->default_prefetch_size;
 	}
 
 	/*
