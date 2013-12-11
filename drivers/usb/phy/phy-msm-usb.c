@@ -4345,6 +4345,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	struct msm_otg *motg;
 	struct usb_phy *phy;
 	struct msm_otg_platform_data *pdata;
+	void __iomem *tcsr;
 
 	dev_info(&pdev->dev, "msm_otg probe\n");
 
@@ -4515,6 +4516,27 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		goto devote_bus_bw;
 	}
 	dev_info(&pdev->dev, "OTG regs = %p\n", motg->regs);
+
+	if (pdata->enable_sec_phy) {
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+		if (!res) {
+			dev_dbg(&pdev->dev, "missing TCSR memory resource\n");
+		} else {
+			tcsr = devm_ioremap_nocache(&pdev->dev, res->start,
+				resource_size(res));
+			if (!tcsr) {
+				dev_dbg(&pdev->dev, "tcsr ioremap failed\n");
+			} else {
+				/* Enable USB2 on secondary HSPHY. */
+				writel_relaxed(0x1, tcsr);
+				/*
+				 * Ensure that TCSR write is completed before
+				 * USB registers initialization.
+				 */
+				mb();
+			}
+		}
+	}
 
 	if (pdata->enable_sec_phy)
 		motg->usb_phy_ctrl_reg = USB_PHY_CTRL2;
