@@ -646,6 +646,7 @@ void mdss_bus_bandwidth_ctrl(int enable)
 		if (!enable) {
 			msm_bus_scale_client_update_request(
 				mdata->bus_hdl, 0);
+			mdss_iommu_dettach(mdata);
 			pm_runtime_put(&mdata->pdev->dev);
 		} else {
 			pm_runtime_get_sync(&mdata->pdev->dev);
