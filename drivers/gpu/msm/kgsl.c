@@ -1597,6 +1597,7 @@ void kgsl_cmdbatch_destroy(struct kgsl_cmdbatch *cmdbatch)
 {
 	struct kgsl_cmdbatch_sync_event *event, *tmp;
 	LIST_HEAD(cancel_synclist);
+	int sched = 0;
 
 	spin_lock(&cmdbatch->lock);
 
@@ -1616,6 +1617,7 @@ void kgsl_cmdbatch_destroy(struct kgsl_cmdbatch *cmdbatch)
 	 */
 	list_for_each_entry_safe(event, tmp, &cancel_synclist, node) {
 
+		sched = 1;
 		if (event->type == KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP) {
 			/*
 			 * Timestamp events are guaranteed to signal
@@ -1634,6 +1636,15 @@ void kgsl_cmdbatch_destroy(struct kgsl_cmdbatch *cmdbatch)
 		list_del_init(&event->node);
 		kgsl_cmdbatch_sync_event_put(event);
 	}
+
+	/*
+	 * If we cancelled an event, there's a good chance that the context is
+	 * on a dispatcher queue, so schedule to get it removed.
+	 */
+	if (sched && cmdbatch->device->ftbl->drawctxt_sched)
+		cmdbatch->device->ftbl->drawctxt_sched(cmdbatch->device,
+							cmdbatch->context);
+
 	kgsl_cmdbatch_put(cmdbatch);
 }
 EXPORT_SYMBOL(kgsl_cmdbatch_destroy);
