@@ -34,12 +34,6 @@ DEFINE_EVENT(set, cpufreq_interactive_setspeed,
 	TP_ARGS(cpu_id, targfreq, actualfreq)
 );
 
-DEFINE_EVENT(set, cpufreq_interactive_idle_start,
-	TP_PROTO(u32 cpu_id, unsigned long targfreq,
-	     unsigned long actualfreq),
-	TP_ARGS(cpu_id, targfreq, actualfreq)
-);
-
 DECLARE_EVENT_CLASS(loadeval,
 	    TP_PROTO(unsigned long cpu_id, unsigned long load,
 		     unsigned long curtarg, unsigned long curactual,
