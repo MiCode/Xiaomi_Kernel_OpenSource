@@ -1835,6 +1835,7 @@ static int tapan_codec_enable_adc(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
 	u16 adc_reg;
 	u8 init_bit_shift;
 
@@ -1862,6 +1863,9 @@ static int tapan_codec_enable_adc(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		if (w->reg == TAPAN_A_TX_3_EN)
+			wcd9xxx_resmgr_notifier_call(&tapan->resmgr,
+						     WCD9XXX_EVENT_PRE_TX_3_ON);
 		snd_soc_update_bits(codec, adc_reg, 1 << init_bit_shift,
 				1 << init_bit_shift);
 		break;
@@ -1869,6 +1873,11 @@ static int tapan_codec_enable_adc(struct snd_soc_dapm_widget *w,
 
 		snd_soc_update_bits(codec, adc_reg, 1 << init_bit_shift, 0x00);
 
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		if (w->reg == TAPAN_A_TX_3_EN)
+			wcd9xxx_resmgr_notifier_call(&tapan->resmgr,
+						     WCD9XXX_EVENT_POST_TX_3_OFF);
 		break;
 	}
 	return 0;
@@ -2853,7 +2862,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"DAC1", "Switch", "CLASS_H_DSM MUX"},
 	{"HPHL DAC", "Switch", "CLASS_H_DSM MUX"},
-	{"HPHR DAC", NULL, "RX2 CHAIN"},
+	{"HPHR DAC", NULL, "RDAC3 MUX"},
 
 	{"LINEOUT1", NULL, "LINEOUT1 PA"},
 	{"LINEOUT2", NULL, "LINEOUT2 PA"},
@@ -2864,10 +2873,13 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"LINEOUT2 PA", NULL, "LINEOUT2_PA_MIXER"},
 	{"LINEOUT2_PA_MIXER", NULL, "LINEOUT2 DAC"},
 
-	{"LINEOUT1 DAC", NULL, "RX3 MIX1"},
 
 	{"RDAC5 MUX", "DEM3_INV", "RX3 MIX1"},
 	{"LINEOUT2 DAC", NULL, "RDAC5 MUX"},
+
+	{"RDAC4 MUX", "DEM3", "RX3 MIX1"},
+	{"RDAC4 MUX", "DEM2", "RX2 CHAIN"},
+	{"LINEOUT1 DAC", NULL, "RDAC4 MUX"},
 
 	{"SPK PA", NULL, "SPK DAC"},
 	{"SPK DAC", NULL, "VDD_SPKDRV"},
@@ -2881,7 +2893,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"LINEOUT1 DAC", NULL, "CDC_CP_VDD"},
 	{"LINEOUT2 DAC", NULL, "CDC_CP_VDD"},
 
-	{"RDAC3 MUX", "DEM2", "RX2 MIX1"},
+	{"RDAC3 MUX", "DEM2", "RX2 CHAIN"},
 	{"RDAC3 MUX", "DEM1", "RX1 CHAIN"},
 
 	{"RX1 MIX1", NULL, "RX1 MIX1 INP1"},
@@ -3016,9 +3028,6 @@ static const struct snd_soc_dapm_route audio_map[] = {
 static const struct snd_soc_dapm_route wcd9302_map[] = {
 	{"SPK DAC", "Switch", "RX3 MIX1"},
 
-	{"RDAC4 MUX", "DEM3", "RX3 MIX1"},
-	{"RDAC4 MUX", "DEM2", "RX2 CHAIN"},
-	{"LINEOUT1 DAC", NULL, "RDAC4 MUX"},
 
 	{"RDAC5 MUX", "DEM4", "RX3 MIX1"},
 	{"RDAC5 MUX", "DEM3_INV", "RDAC4 MUX"},

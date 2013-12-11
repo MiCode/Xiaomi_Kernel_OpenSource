@@ -70,8 +70,9 @@
 #define CHGR_IBAT_TERM_CHGR			0x5B
 #define CHGR_IBAT_TERM_BMS			0x5C
 #define CHGR_VBAT_DET				0x5D
+#define CHGR_TTRKL_MAX_EN			0x5E
 #define CHGR_TTRKL_MAX				0x5F
-#define CHGR_TTRKL_MAX_EN			0x60
+#define CHGR_TCHG_MAX_EN			0x60
 #define CHGR_TCHG_MAX				0x61
 #define CHGR_CHG_WDOG_TIME			0x62
 #define CHGR_CHG_WDOG_DLY			0x63
@@ -1187,9 +1188,16 @@ static irqreturn_t
 qpnp_chg_usb_chg_gone_irq_handler(int irq, void *_chip)
 {
 	struct qpnp_chg_chip *chip = _chip;
+	u8 usb_sts;
+	int rc;
+
+	rc = qpnp_chg_read(chip, &usb_sts,
+			INT_RT_STS(chip->usb_chgpth_base), 1);
+	if (rc)
+		pr_err("failed to read usb_chgpth_sts rc=%d\n", rc);
 
 	pr_debug("chg_gone triggered\n");
-	if (qpnp_chg_is_usb_chg_plugged_in(chip)) {
+	if (qpnp_chg_is_usb_chg_plugged_in(chip) && (usb_sts & CHG_GONE_IRQ)) {
 		qpnp_chg_charge_en(chip, 0);
 		qpnp_chg_force_run_on_batt(chip, 1);
 		schedule_delayed_work(&chip->arb_stop_work,
@@ -2406,21 +2414,44 @@ qpnp_chg_ibatmax_get(struct qpnp_chg_chip *chip, int *chg_current)
 }
 
 #define QPNP_CHG_TCHG_MASK	0x7F
+#define QPNP_CHG_TCHG_EN_MASK	0x80
 #define QPNP_CHG_TCHG_MIN	4
 #define QPNP_CHG_TCHG_MAX	512
 #define QPNP_CHG_TCHG_STEP	4
 static int qpnp_chg_tchg_max_set(struct qpnp_chg_chip *chip, int minutes)
 {
 	u8 temp;
+	int rc;
 
 	if (minutes < QPNP_CHG_TCHG_MIN || minutes > QPNP_CHG_TCHG_MAX) {
 		pr_err("bad max minutes =%d asked to set\n", minutes);
 		return -EINVAL;
 	}
 
-	temp = (minutes - 1)/QPNP_CHG_TCHG_STEP;
-	return qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_TCHG_MAX,
+	rc = qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_TCHG_MAX_EN,
+			QPNP_CHG_TCHG_EN_MASK, 0, 1);
+	if (rc) {
+		pr_err("failed write tchg_max_en rc=%d\n", rc);
+		return rc;
+	}
+
+	temp = minutes / QPNP_CHG_TCHG_STEP - 1;
+
+	rc = qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_TCHG_MAX,
 			QPNP_CHG_TCHG_MASK, temp, 1);
+	if (rc) {
+		pr_err("failed write tchg_max_en rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_TCHG_MAX_EN,
+			QPNP_CHG_TCHG_EN_MASK, QPNP_CHG_TCHG_EN_MASK, 1);
+	if (rc) {
+		pr_err("failed write tchg_max_en rc=%d\n", rc);
+		return rc;
+	}
+
+	return 0;
 }
 
 static int
@@ -4708,6 +4739,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		goto unregister_dc_psy;
 	}
 
+	qpnp_chg_usb_chg_gone_irq_handler(chip->chg_gone.irq, chip);
 	qpnp_chg_usb_usbin_valid_irq_handler(chip->usbin_valid.irq, chip);
 	qpnp_chg_dc_dcin_valid_irq_handler(chip->dcin_valid.irq, chip);
 	power_supply_set_present(chip->usb_psy,

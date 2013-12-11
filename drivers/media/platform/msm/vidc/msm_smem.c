@@ -171,8 +171,10 @@ static int ion_user_to_kernel(struct smem_client *client, int fd, u32 offset,
 	mem->smem_priv = hndl;
 	mem->device_addr = iova;
 	mem->size = buffer_size;
-	dprintk(VIDC_DBG, "NOTE: Buffer device address: 0x%lx, size: %d\n",
-		mem->device_addr, mem->size);
+	dprintk(VIDC_DBG,
+		"%s: ion_handle = 0x%p, fd = %d, device_addr = 0x%x, size = %d, kvaddr = 0x%p, buffer_type = %d\n",
+		__func__, mem->smem_priv, fd, (u32)mem->device_addr,
+		mem->size, mem->kvaddr, mem->buffer_type);
 	return rc;
 fail_device_address:
 	ion_free(client->clnt, hndl);
@@ -241,10 +243,11 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 		goto fail_device_address;
 	}
 	mem->device_addr = iova;
-	dprintk(VIDC_DBG,
-		"device_address = 0x%lx, kvaddr = 0x%p, size = %d\n",
-		mem->device_addr, mem->kvaddr, size);
 	mem->size = size;
+	dprintk(VIDC_DBG,
+		"%s: ion_handle = 0x%p, device_addr = 0x%x, size = %d, kvaddr = 0x%p, buffer_type = %d\n",
+		__func__, mem->smem_priv, (u32)mem->device_addr,
+		mem->size, mem->kvaddr, mem->buffer_type);
 	return rc;
 fail_device_address:
 	ion_unmap_kernel(client->clnt, hndl);
@@ -258,6 +261,10 @@ static void free_ion_mem(struct smem_client *client, struct msm_smem *mem)
 {
 	int domain, partition, rc;
 
+	dprintk(VIDC_DBG,
+		"%s: ion_handle = 0x%p, device_addr = 0x%x, size = %d, kvaddr = 0x%p, buffer_type = %d\n",
+		__func__, mem->smem_priv, (u32)mem->device_addr,
+		mem->size, mem->kvaddr, mem->buffer_type);
 	rc = msm_smem_get_domain_partition((void *)client, mem->flags,
 			mem->buffer_type, &domain, &partition);
 	if (rc) {
