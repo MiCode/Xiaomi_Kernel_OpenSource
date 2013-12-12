@@ -157,6 +157,7 @@ struct qseecom_control {
 	uint32_t          qsee_version;
 	struct device *pdev;
 	bool  commonlib_loaded;
+	struct ion_handle *cmnlib_ion_handle;
 	struct ce_hw_usage_info ce_info;
 
 	int qsee_bw_count;
@@ -1804,7 +1805,7 @@ static int __qseecom_load_fw(struct qseecom_dev_handle *data, char *appname)
 
 static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data)
 {
-	int32_t ret = 0;
+	int ret = 0;
 	uint32_t fw_size = 0;
 	struct qseecom_load_app_ireq load_req = {0, 0, 0, 0};
 	struct qseecom_command_scm_resp resp;
@@ -1813,23 +1814,32 @@ static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data)
 	if (__qseecom_get_fw_size("cmnlib", &fw_size))
 		return -EIO;
 
-	img_data = kzalloc(fw_size, GFP_KERNEL);
-	if (!img_data) {
-		pr_err("Mem allocation for lib image data failed\n");
+	qseecom.cmnlib_ion_handle = ion_alloc(qseecom.ion_clnt, fw_size,
+					SZ_4K, ION_HEAP(ION_QSECOM_HEAP_ID), 0);
+	if (IS_ERR_OR_NULL(qseecom.cmnlib_ion_handle)) {
+		pr_err("%s: ION alloc failed\n",  __func__);
 		return -ENOMEM;
+	}
+
+	img_data = (u8 *)ion_map_kernel(qseecom.ion_clnt,
+					qseecom.cmnlib_ion_handle);
+	if (IS_ERR_OR_NULL(img_data)) {
+		pr_err("%s: ION memory mapping for cmnlib failed\n", __func__);
+		ret = -ENOMEM;
+		goto exit_ion_free;
 	}
 	ret = __qseecom_get_fw_data("cmnlib", img_data, &load_req);
 	if (ret) {
-		kzfree(img_data);
-		return -EIO;
+		ret = -EIO;
+		goto exit_ion_unmap_kernel;
 	}
 	/* Populate the remaining parameters */
 	load_req.qsee_cmd_id = QSEOS_LOAD_SERV_IMAGE_COMMAND;
 	/* Vote for the SFPB clock */
 	ret = __qseecom_enable_clk_scale_up(data);
 	if (ret) {
-		kzfree(img_data);
-		return -EIO;
+		ret = -EIO;
+		goto exit_ion_unmap_kernel;
 	}
 
 	__cpuc_flush_dcache_area((void *)img_data, fw_size);
@@ -1840,30 +1850,40 @@ static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data)
 	if (ret) {
 		pr_err("scm_call to load failed : ret %d\n", ret);
 		ret = -EIO;
-	} else {
-		switch (resp.result) {
-		case QSEOS_RESULT_SUCCESS:
-			break;
-		case QSEOS_RESULT_FAILURE:
-			pr_err("scm call failed w/response result%d\n",
-						resp.result);
-			ret = -EINVAL;
-			break;
-		case  QSEOS_RESULT_INCOMPLETE:
-			ret = __qseecom_process_incomplete_cmd(data, &resp);
-			if (ret)
-				pr_err("process_incomplete_cmd failed err: %d\n",
-					ret);
-			break;
-		default:
-			pr_err("scm call return unknown response %d\n",
-						resp.result);
-			ret = -EINVAL;
-			break;
-		}
+		goto exit_disable_clk_vote;
 	}
-	kzfree(img_data);
+
+	switch (resp.result) {
+	case QSEOS_RESULT_SUCCESS:
+		break;
+	case QSEOS_RESULT_FAILURE:
+		pr_err("scm call failed w/response result%d\n", resp.result);
+		ret = -EINVAL;
+		goto exit_disable_clk_vote;
+	case  QSEOS_RESULT_INCOMPLETE:
+		ret = __qseecom_process_incomplete_cmd(data, &resp);
+		if (ret) {
+			pr_err("process_incomplete_cmd failed err: %d\n", ret);
+			goto exit_disable_clk_vote;
+		}
+		break;
+	default:
+		pr_err("scm call return unknown response %d\n",	resp.result);
+		ret = -EINVAL;
+		goto exit_disable_clk_vote;
+	}
 	__qseecom_disable_clk_scale_down(data);
+	return ret;
+
+exit_disable_clk_vote:
+	__qseecom_disable_clk_scale_down(data);
+
+exit_ion_unmap_kernel:
+	ion_unmap_kernel(qseecom.ion_clnt, qseecom.cmnlib_ion_handle);
+
+exit_ion_free:
+	ion_free(qseecom.ion_clnt, qseecom.cmnlib_ion_handle);
+	qseecom.cmnlib_ion_handle = NULL;
 	return ret;
 }
 
@@ -1896,6 +1916,11 @@ static int qseecom_unload_commonlib_image(void)
 			break;
 		}
 	}
+
+	ion_unmap_kernel(qseecom.ion_clnt, qseecom.cmnlib_ion_handle);
+	ion_free(qseecom.ion_clnt, qseecom.cmnlib_ion_handle);
+	qseecom.cmnlib_ion_handle = NULL;
+
 	return ret;
 }
 
