@@ -103,13 +103,11 @@ static inline int __init qpnpint_of_init(struct device_node *node,
 static inline int qpnpint_register_controller(struct device_node *node,
 					      struct spmi_controller *ctrl,
 					      struct qpnp_local_int *li_cb)
-
 {
 	return -ENXIO;
 }
 
 static inline int qpnpint_unregister_controller(struct device_node *node)
-
 {
 	return -ENXIO;
 }

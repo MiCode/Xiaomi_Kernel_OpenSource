@@ -17,10 +17,10 @@
 #include <linux/of_fdt.h>
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/irqchip.h>
+#include <linux/irqchip/qpnp-int.h>
 #include <asm/mach/map.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <mach/mpm.h>
-#include <mach/qpnp-int.h>
 #include <mach/msm_iomap.h>
 #include <mach/scm.h>
 

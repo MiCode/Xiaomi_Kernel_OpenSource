@@ -25,7 +25,7 @@
 #include <linux/module.h>
 #include <linux/seq_file.h>
 #include <linux/syscore_ops.h>
-#include <mach/qpnp-int.h>
+#include <linux/irqchip/qpnp-int.h>
 #include "spmi-dbgfs.h"
 
 #define SPMI_PMIC_ARB_NAME		"spmi_pmic_arb"
