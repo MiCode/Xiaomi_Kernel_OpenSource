@@ -211,9 +211,14 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	ep->client_notify = in->notify;
 	ep->priv = in->priv;
 
-	if (ipa_cfg_ep(ipa_ep_idx, &in->ipa_ep_cfg)) {
-		IPAERR("fail to configure EP.\n");
-		goto ipa_cfg_ep_fail;
+	if (ipa_ctx->ipa_hw_type != IPA_HW_v2_0 || ep->priv == NULL ||
+	    (enum ipa_config_this_ep)ep->priv != IPA_DO_NOT_CONFIGURE_THIS_EP) {
+		if (ipa_cfg_ep(ipa_ep_idx, &in->ipa_ep_cfg)) {
+			IPAERR("fail to configure EP.\n");
+			goto ipa_cfg_ep_fail;
+		}
+	} else {
+		IPADBG("Skipping endpoint configuration.\n");
 	}
 
 	result = ipa_connect_configure_sps(in, ep, ipa_ep_idx);
