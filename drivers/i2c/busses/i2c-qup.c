@@ -1662,7 +1662,7 @@ err_res_failed:
 	release_mem_region(qup_mem->start, resource_size(qup_mem));
 get_res_failed:
 	if (pdev->dev.of_node)
-		kfree(pdata);
+		devm_kfree(&pdev->dev, pdata);
 	return ret;
 }
 
