@@ -2092,7 +2092,8 @@ static int msm_vdec_op_s_ctrl(struct v4l2_ctrl *ctrl)
 
 failed_open_done:
 	if (rc)
-		dprintk(VIDC_ERR, "Failed to set hal property for framesize\n");
+		dprintk(VIDC_ERR, "Failed setting control: %x (%s)",
+				ctrl->id, v4l2_ctrl_get_name(ctrl->id));
 	return rc;
 }
 
