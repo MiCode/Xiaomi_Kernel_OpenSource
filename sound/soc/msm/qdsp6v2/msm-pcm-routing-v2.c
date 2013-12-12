@@ -54,6 +54,11 @@ struct msm_pcm_routing_bdai_data {
 #define SESSION_TYPE_RX 0
 #define SESSION_TYPE_TX 1
 
+#define EC_PORT_ID_PRIMARY_MI2S_TX    1
+#define EC_PORT_ID_SECONDARY_MI2S_TX  2
+#define EC_PORT_ID_TERTIARY_MI2S_TX   3
+#define EC_PORT_ID_QUATERNARY_MI2S_TX 4
+
 static struct mutex routing_lock;
 
 static int fm_switch_enable;
@@ -63,6 +68,7 @@ static int lsm_mux_slim_port;
 static int slim0_rx_aanc_fb_port;
 static int msm_route_ec_ref_rx = 3; /* NONE */
 static uint32_t voc_session_id = ALL_SESSION_VSID;
+static int msm_route_ext_ec_ref = AFE_PORT_INVALID;
 
 enum {
 	MADNONE,
@@ -1368,6 +1374,76 @@ static const struct snd_kcontrol_new ec_ref_rx_mixer_controls[] = {
 	SOC_ENUM_EXT("EC_REF_RX", msm_route_ec_ref_rx_enum[0],
 		     msm_routing_ec_ref_rx_get, msm_routing_ec_ref_rx_put),
 };
+
+static int msm_routing_ext_ec_get(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: ext_ec_ref_rx  = %x\n", __func__, msm_route_ext_ec_ref);
+
+	mutex_lock(&routing_lock);
+	ucontrol->value.integer.value[0] = msm_route_ext_ec_ref;
+	mutex_unlock(&routing_lock);
+	return 0;
+}
+
+static int msm_routing_ext_ec_put(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	int mux = ucontrol->value.enumerated.item[0];
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+	int ret = 0;
+	bool state = false;
+
+	pr_debug("%s: msm_route_ec_ref_rx = %d value = %ld\n",
+		 __func__, msm_route_ext_ec_ref,
+		 ucontrol->value.integer.value[0]);
+
+	mutex_lock(&routing_lock);
+	switch (ucontrol->value.integer.value[0]) {
+	case EC_PORT_ID_PRIMARY_MI2S_TX:
+		msm_route_ext_ec_ref = AFE_PORT_ID_PRIMARY_MI2S_TX;
+		state = true;
+		break;
+	case EC_PORT_ID_SECONDARY_MI2S_TX:
+		msm_route_ext_ec_ref = AFE_PORT_ID_SECONDARY_MI2S_TX;
+		state = true;
+		break;
+	case EC_PORT_ID_TERTIARY_MI2S_TX:
+		msm_route_ext_ec_ref = AFE_PORT_ID_TERTIARY_MI2S_TX;
+		state = true;
+		break;
+	case EC_PORT_ID_QUATERNARY_MI2S_TX:
+		msm_route_ext_ec_ref = AFE_PORT_ID_QUATERNARY_MI2S_TX;
+		state = true;
+		break;
+	default:
+		msm_route_ext_ec_ref = AFE_PORT_INVALID;
+		break;
+	}
+	if (voc_set_ext_ec_ref(msm_route_ext_ec_ref, state)) {
+		mutex_unlock(&routing_lock);
+		snd_soc_dapm_mux_update_power(widget, kcontrol, 1, mux, e);
+	} else {
+		ret = -EINVAL;
+		mutex_unlock(&routing_lock);
+	}
+	return ret;
+}
+
+static const char * const ext_ec_ref_rx[] = {"NONE", "PRI_MI2S_TX",
+					     "SEC_MI2S_TX", "TERT_MI2S_TX",
+					     "QUAT_MI2S_TX"};
+
+static const struct soc_enum msm_route_ext_ec_ref_rx_enum[] = {
+	SOC_ENUM_SINGLE_EXT(5, ext_ec_ref_rx),
+};
+
+static const struct snd_kcontrol_new voc_ext_ec_mux =
+	SOC_DAPM_ENUM_EXT("VOC_EXT_EC MUX Mux", msm_route_ext_ec_ref_rx_enum[0],
+			  msm_routing_ext_ec_get, msm_routing_ext_ec_put);
+
 
 static const struct snd_kcontrol_new pri_i2s_rx_mixer_controls[] = {
 	SOC_SINGLE_EXT("MultiMedia1", MSM_BACKEND_DAI_PRI_I2S_RX ,
@@ -3263,6 +3339,8 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 
 	SND_SOC_DAPM_MUX("SLIM0_RX_VI_FB_LCH_MUX", SND_SOC_NOPM, 0, 0,
 				&slim0_rx_vi_fb_lch_mux),
+	SND_SOC_DAPM_MUX("VOC_EXT_EC MUX", SND_SOC_NOPM, 0, 0,
+			 &voc_ext_ec_mux),
 
 };
 
@@ -3562,6 +3640,12 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"MI2S_RX_Voice Mixer", "Voice Stub", "VOICE_STUB_DL"},
 	{"MI2S_RX_Voice Mixer", "QCHAT", "QCHAT_DL"},
 	{"MI2S_RX", NULL, "MI2S_RX_Voice Mixer"},
+
+	{"VOC_EXT_EC MUX", "PRI_MI2S_TX" , "PRI_MI2S_TX"},
+	{"VOC_EXT_EC MUX", "SEC_MI2S_TX" , "SEC_MI2S_TX"},
+	{"VOC_EXT_EC MUX", "TERT_MI2S_TX" , "TERT_MI2S_TX"},
+	{"VOC_EXT_EC MUX", "QUAT_MI2S_TX" , "QUAT_MI2S_TX"},
+	{"CS-VOICE_UL1", NULL, "VOC_EXT_EC MUX"},
 
 	{"Voice_Tx Mixer", "PRI_TX_Voice", "PRI_I2S_TX"},
 	{"Voice_Tx Mixer", "PRI_MI2S_TX_Voice", "PRI_MI2S_TX"},

@@ -1160,8 +1160,14 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 			 * since for burst case, write masters already skip
 			 * all frames.
 			 */
+			if (stream_info->stream_src == RDI_INTF_0 ||
+				stream_info->stream_src == RDI_INTF_1 ||
+				stream_info->stream_src == RDI_INTF_2)
+				wait_for_complete = 1;
+			else {
 			msm_isp_axi_stream_enable_cfg(vfe_dev, stream_info);
 			stream_info->state = INACTIVE;
+			}
 		} else {
 			wait_for_complete = 1;
 		}

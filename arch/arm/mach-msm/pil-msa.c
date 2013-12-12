@@ -233,18 +233,17 @@ static int pil_msa_pbl_reset(struct pil_desc *pil)
 	if (drv->self_auth) {
 		ret = pil_msa_wait_for_mba_ready(drv);
 		if (ret)
-			goto err_auth;
+			goto err_q6v5_reset;
 	}
 
 	drv->is_booted = true;
 
 	return 0;
 
-err_auth:
-	pil_q6v5_shutdown(pil);
 err_q6v5_reset:
 	pil_msa_pbl_disable_clks(drv);
 err_clks:
+	writel_relaxed(1, drv->restart_reg);
 	pil_msa_pbl_power_down(drv);
 err_power:
 	return ret;

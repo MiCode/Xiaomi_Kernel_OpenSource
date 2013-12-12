@@ -301,7 +301,7 @@ struct diagchar_dev {
 	/* Whether or not the peripheral supports STM */
 	int peripheral_supports_stm[NUM_SMD_CONTROL_CHANNELS];
 	/* DCI related variables */
-	struct dci_pkt_req_tracking_tbl *req_tracking_tbl;
+	struct list_head dci_req_list;
 	struct diag_dci_client_tbl *dci_client_tbl;
 	int dci_tag;
 	int dci_client_id;
@@ -348,6 +348,7 @@ struct diagchar_dev {
 	int separate_cmdrsp[NUM_SMD_CONTROL_CHANNELS];
 	unsigned char *usb_buf_out;
 	unsigned char *apps_rsp_buf;
+	unsigned char *user_space_data_buf;
 	/* buffer for updating mask to peripherals */
 	unsigned char *buf_msg_mask_update;
 	unsigned char *buf_log_mask_update;

@@ -866,6 +866,42 @@ int32_t sp1628_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 		}
 		break;
 	}
+	case CFG_SET_SATURATION: {
+
+		break;
+	}
+	case CFG_SET_CONTRAST: {
+
+		break;
+	}
+	case CFG_SET_SHARPNESS: {
+
+		break;
+	}
+	case CFG_SET_ISO: {
+
+		break;
+	}
+	case CFG_SET_EXPOSURE_COMPENSATION: {
+
+		break;
+	}
+	case CFG_SET_EFFECT: {
+
+		break;
+	}
+	case CFG_SET_ANTIBANDING: {
+
+		break;
+	}
+	case CFG_SET_BESTSHOT_MODE: {
+
+		break;
+	}
+	case CFG_SET_WHITE_BALANCE: {
+
+		break;
+	}
 	default:
 		rc = -EFAULT;
 		break;
