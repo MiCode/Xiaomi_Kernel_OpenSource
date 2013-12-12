@@ -24,7 +24,6 @@
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
-#include <linux/memory_alloc.h>
 #include <linux/seq_file.h>
 #include <linux/iommu.h>
 #include <linux/dma-mapping.h>

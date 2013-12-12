@@ -13,7 +13,6 @@
 
 #include <linux/export.h>
 #include <linux/vmalloc.h>
-#include <linux/memory_alloc.h>
 #include <asm/cacheflush.h>
 #include <linux/slab.h>
 #include <linux/kmemleak.h>

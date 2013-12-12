@@ -21,7 +21,6 @@
 #include <linux/miscdevice.h>
 #include <linux/of_coresight.h>
 #include <linux/coresight.h>
-#include <linux/memory_alloc.h>
 #include <linux/io.h>
 #include <linux/of.h>
 

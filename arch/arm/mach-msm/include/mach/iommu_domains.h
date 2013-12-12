@@ -14,9 +14,20 @@
 #define _ARCH_IOMMU_DOMAINS_H
 
 #include <linux/errno.h>
-#include <linux/memory_alloc.h>
+#include <linux/mutex.h>
+#include <linux/genalloc.h>
+#include <linux/rbtree.h>
 
 #define MSM_IOMMU_DOMAIN_SECURE	0x1
+
+struct mem_pool {
+	struct mutex pool_mutex;
+	struct gen_pool *gpool;
+	phys_addr_t paddr;
+	unsigned long size;
+	unsigned long free;
+	unsigned int id;
+};
 
 enum {
 	VIDEO_DOMAIN,

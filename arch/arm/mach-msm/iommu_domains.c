@@ -13,7 +13,6 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/iommu.h>
-#include <linux/memory_alloc.h>
 #include <linux/platform_device.h>
 #include <linux/rbtree.h>
 #include <linux/slab.h>

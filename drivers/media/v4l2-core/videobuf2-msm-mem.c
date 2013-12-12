@@ -25,7 +25,6 @@
 #include <linux/sched.h>
 #include <linux/io.h>
 
-#include <linux/memory_alloc.h>
 #include <media/videobuf2-msm-mem.h>
 #include <media/msm_camera.h>
 #include <mach/memory.h>
