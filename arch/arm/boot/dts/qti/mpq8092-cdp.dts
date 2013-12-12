@@ -24,10 +24,10 @@
 			<21 1>;
 
 	aliases {
-		serial0 = &blsp1_uart5;
+		serial0 = &blsp1_uart4;
 	};
 };
 
-&blsp1_uart5 {
+&blsp1_uart4 {
 	status = "ok";
 };
