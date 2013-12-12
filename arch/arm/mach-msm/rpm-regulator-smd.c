@@ -864,7 +864,7 @@ static unsigned int rpm_vreg_get_optimum_mode(struct regulator_dev *rdev,
 		load_mA = params[RPM_REGULATOR_PARAM_CURRENT].max;
 
 	rpm_vreg_lock(reg->rpm_vreg);
-	RPM_VREG_SET_PARAM(reg, CURRENT, MICRO_TO_MILLI(load_uA));
+	RPM_VREG_SET_PARAM(reg, CURRENT, load_mA);
 	rpm_vreg_unlock(reg->rpm_vreg);
 
 	return (load_uA >= reg->rpm_vreg->hpm_min_load)
