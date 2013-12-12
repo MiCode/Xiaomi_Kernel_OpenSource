@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _MSM_IPC_LOGGING_H
-#define _MSM_IPC_LOGGING_H
+#ifndef _IPC_LOGGING_H
+#define _IPC_LOGGING_H
 
 #include <linux/types.h>
 
@@ -41,7 +41,7 @@ struct decode_context {
 	int size;               /* size of output buffer */
 };
 
-#if defined(CONFIG_MSM_IPC_LOGGING)
+#if defined(CONFIG_IPC_LOGGING)
 /*
  * ipc_log_context_create: Create a debug log context
  *                         Should not be called from atomic context

@@ -26,10 +26,9 @@
 #include <linux/wait.h>
 #include <linux/delay.h>
 #include <linux/completion.h>
+#include <linux/ipc_logging.h>
 
-#include <mach/msm_ipc_logging.h>
-
-#include "ipc_logging.h"
+#include "ipc_logging_private.h"
 
 static LIST_HEAD(ipc_log_context_list);
 DEFINE_RWLOCK(ipc_log_context_list_lock);

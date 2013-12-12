@@ -16,7 +16,7 @@
 
 #include <linux/types.h>
 #include <linux/spinlock.h>
-#include <mach/msm_ipc_logging.h>
+#include <linux/ipc_logging.h>
 #include "smp2p_private_api.h"
 
 #define SMP2P_MAX_ENTRY 16

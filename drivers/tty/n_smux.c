@@ -25,10 +25,10 @@
 #include <linux/types.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
+#include <linux/ipc_logging.h>
 #include <mach/subsystem_notif.h>
 #include <mach/subsystem_restart.h>
 #include <mach/msm_serial_hs.h>
-#include <mach/msm_ipc_logging.h>
 #include "smux_private.h"
 #include "smux_loopback.h"
 

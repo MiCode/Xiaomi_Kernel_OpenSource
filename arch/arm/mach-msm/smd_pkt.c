@@ -33,10 +33,10 @@
 #include <asm/ioctls.h>
 #include <linux/wakelock.h>
 #include <linux/of.h>
+#include <linux/ipc_logging.h>
 
 #include <mach/msm_smd.h>
 #include <mach/subsystem_restart.h>
-#include <mach/msm_ipc_logging.h>
 #include <mach/msm_smsm.h>
 
 #ifdef CONFIG_ARCH_FSM9XXX

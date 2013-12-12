@@ -28,7 +28,7 @@
 #include <linux/wakelock.h>
 #include <linux/kfifo.h>
 #include <linux/of.h>
-#include <mach/msm_ipc_logging.h>
+#include <linux/ipc_logging.h>
 #include <mach/sps.h>
 #include <mach/bam_dmux.h>
 #include <mach/msm_smsm.h>

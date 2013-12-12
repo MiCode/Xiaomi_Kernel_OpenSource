@@ -37,6 +37,7 @@
 #include <linux/suspend.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
+#include <linux/ipc_logging.h>
 
 #include <mach/msm_smd.h>
 #include <mach/msm_iomap.h>
@@ -44,7 +45,6 @@
 #include <mach/subsystem_restart.h>
 #include <mach/socinfo.h>
 #include <mach/proc_comm.h>
-#include <mach/msm_ipc_logging.h>
 #include <mach/ramdump.h>
 #include <mach/board.h>
 #include <mach/msm_smem.h>

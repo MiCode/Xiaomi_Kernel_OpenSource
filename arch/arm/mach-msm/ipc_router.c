@@ -28,6 +28,7 @@
 #include <linux/uaccess.h>
 #include <linux/debugfs.h>
 #include <linux/rwsem.h>
+#include <linux/ipc_logging.h>
 
 #include <asm/uaccess.h>
 #include <asm/byteorder.h>
@@ -35,7 +36,6 @@
 #include <mach/smem_log.h>
 #include <mach/subsystem_notif.h>
 #include <mach/msm_ipc_router.h>
-#include <mach/msm_ipc_logging.h>
 
 #include "ipc_router.h"
 #include "msm_ipc_router_security.h"

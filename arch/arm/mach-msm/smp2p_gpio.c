@@ -20,7 +20,7 @@
 #include <linux/irqdomain.h>
 #include <linux/slab.h>
 #include <linux/list.h>
-#include <mach/msm_ipc_logging.h>
+#include <linux/ipc_logging.h>
 #include "smp2p_private_api.h"
 #include "smp2p_private.h"
 

@@ -25,6 +25,7 @@
 #include <linux/platform_device.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+#include <linux/ipc_logging.h>
 
 #include <linux/tty.h>
 #include <linux/tty_driver.h>
@@ -34,7 +35,6 @@
 #include <mach/msm_smsm.h>
 #include <mach/subsystem_restart.h>
 #include <mach/socinfo.h>
-#include <mach/msm_ipc_logging.h>
 
 #define MODULE_NAME "msm_smdtty"
 #define MAX_SMD_TTYS 37

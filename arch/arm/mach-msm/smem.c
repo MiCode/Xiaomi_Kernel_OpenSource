@@ -17,13 +17,13 @@
 #include <linux/printk.h>
 #include <linux/notifier.h>
 #include <linux/of.h>
+#include <linux/ipc_logging.h>
 
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_smem.h>
 #include <mach/ramdump.h>
 #include <mach/subsystem_notif.h>
-#include <mach/msm_ipc_logging.h>
 
 #include "smem_private.h"
 

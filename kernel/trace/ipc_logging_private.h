@@ -10,10 +10,10 @@
  * GNU General Public License for more details.
  *
  */
-#ifndef _IPC_LOGGING_H
-#define _IPC_LOGGING_H
+#ifndef _IPC_LOGGING_PRIVATE_H
+#define _IPC_LOGGING_PRIVATE_H
 
-#include <mach/msm_ipc_logging.h>
+#include <linux/ipc_logging.h>
 
 struct ipc_log_page_header {
 	uint32_t magic;
