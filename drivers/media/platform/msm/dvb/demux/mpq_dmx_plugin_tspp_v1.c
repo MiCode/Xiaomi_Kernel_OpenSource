@@ -1676,14 +1676,14 @@ static int mpq_tspp_dmx_get_caps(struct dmx_demux *demux,
 		DMX_BUFFER_CACHED;
 	caps->playback_188_tsp.max_buffer_num = 1;
 	caps->playback_188_tsp.max_size = 0xFFFFFFFF;
-	caps->playback_188_tsp.size_alignment = 0;
+	caps->playback_188_tsp.size_alignment = 188;
 	caps->playback_192_tsp.flags =
 		DMX_BUFFER_EXTERNAL_SUPPORT	|
 		DMX_BUFFER_INTERNAL_SUPPORT |
 		DMX_BUFFER_CACHED;
 	caps->playback_192_tsp.max_buffer_num = 1;
 	caps->playback_192_tsp.max_size = 0xFFFFFFFF;
-	caps->playback_192_tsp.size_alignment = 0;
+	caps->playback_192_tsp.size_alignment = 192;
 	caps->decoder.flags =
 		DMX_BUFFER_SECURED_IF_DECRYPTED	|
 		DMX_BUFFER_EXTERNAL_SUPPORT	|
