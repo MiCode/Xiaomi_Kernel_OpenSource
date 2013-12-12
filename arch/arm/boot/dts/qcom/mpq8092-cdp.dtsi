@@ -38,6 +38,12 @@
 					&ts_in_1_a_valid_active
 					&ts_in_1_a_ser_active>;	/* dual-ts */
 	};
+        sound {
+                qcom,model = "mpq8092-tabla-cdp-snd-card";
+                qcom,hdmi-audio-rx;
+                qcom,cdc-micbias2-headset-only;
+                qcom,ext-mclk-gpio  = <&msmgpio 42 0>;
+        };
 };
 
 &smb211_vreg {
@@ -236,3 +242,9 @@
 	mpp@a700 { /* MPP 8 */
 	};
 };
+
+&slim_msm {
+	tabla_codec {
+	};
+};
+
