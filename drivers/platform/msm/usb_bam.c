@@ -597,6 +597,7 @@ static int disconnect_pipe(u8 idx)
 
 	sps_disconnect(pipe);
 	sps_free_endpoint(pipe);
+	ctx.usb_bam_sps.sps_pipes[idx] = NULL;
 
 	switch (pipe_connect->mem_type) {
 	case SYSTEM_MEM:
