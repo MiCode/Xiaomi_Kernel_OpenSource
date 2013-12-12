@@ -125,7 +125,7 @@
 					1140000 1140000>;
 	qti,pvs-corner-ceiling-slow = <1050000 1150000 1280000>;
 	qti,pvs-corner-ceiling-nom  = <1050000 1080000 1200000>;
-	qti,pvs-corner-ceiling-fast = <1050000 1050000 1140000>;
+	qti,pvs-corner-ceiling-fast = <1050000 1050000 1100000>;
 	qti,cpr-step-quotient = <30>;
 	qti,cpr-up-threshold = <0>;
 	qti,cpr-down-threshold = <5>;
