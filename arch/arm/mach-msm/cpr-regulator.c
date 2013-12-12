@@ -144,6 +144,7 @@
 
 #define FLAGS_IGNORE_1ST_IRQ_STATUS	BIT(0)
 #define FLAGS_SET_MIN_VOLTAGE		BIT(1)
+#define FLAGS_UPLIFT_QUOT_VOLT		BIT(2)
 
 enum voltage_change_dir {
 	NO_CHANGE,
@@ -168,7 +169,7 @@ struct cpr_regulator {
 	/* Process voltage variables */
 	u32		pvs_bin;
 	u32		process;
-
+	u32		speed_bin;
 	/* APC voltage regulator */
 	struct regulator	*vdd_apc;
 
@@ -1007,6 +1008,35 @@ static int cpr_fuse_is_setting_expected(struct cpr_regulator *cpr_vreg,
 	return ret;
 }
 
+static int cpr_voltage_uplift_wa_inc_volt(struct cpr_regulator *cpr_vreg,
+					struct device_node *of_node)
+{
+	u32 uplift_voltage;
+	u32 uplift_max_volt = 0;
+	int rc, i;
+
+	rc = of_property_read_u32(of_node,
+		"qti,cpr-uplift-voltage", &uplift_voltage);
+	if (rc < 0) {
+		pr_err("cpr-uplift-voltage is missing, rc = %d", rc);
+		return rc;
+	}
+	rc = of_property_read_u32(of_node,
+		"qti,cpr-uplift-max-volt", &uplift_max_volt);
+	if (rc < 0) {
+		pr_err("cpr-uplift-max-volt is missing, rc = %d", rc);
+		return rc;
+	}
+
+	for (i = 0; i < CPR_PVS_EFUSE_BINS_MAX; i++) {
+		cpr_vreg->pvs_init_v[i] += uplift_voltage;
+		if (cpr_vreg->pvs_init_v[i] > uplift_max_volt)
+			cpr_vreg->pvs_init_v[i] = uplift_max_volt;
+	}
+
+	return rc;
+}
+
 static int cpr_pvs_init(struct platform_device *pdev,
 			       struct cpr_regulator *cpr_vreg)
 {
@@ -1056,6 +1086,14 @@ static int cpr_pvs_init(struct platform_device *pdev,
 	if (rc < 0) {
 		pr_err("pvs-init-voltage missing: rc=%d\n", rc);
 		return rc;
+	}
+
+	if (cpr_vreg->flags & FLAGS_UPLIFT_QUOT_VOLT) {
+		rc = cpr_voltage_uplift_wa_inc_volt(cpr_vreg, of_node);
+		if (rc < 0) {
+			pr_err("pvs volt uplift wa apply failed: %d", rc);
+			return rc;
+		}
 	}
 
 	init_v = cpr_vreg->pvs_init_v[cpr_vreg->pvs_bin];
@@ -1156,6 +1194,23 @@ static void cpr_apc_exit(struct cpr_regulator *cpr_vreg)
 		if (cpr_vreg->vdd_mx)
 			regulator_disable(cpr_vreg->vdd_mx);
 	}
+}
+
+static int cpr_voltage_uplift_wa_inc_quot(struct cpr_regulator *cpr_vreg,
+					struct device_node *of_node)
+{
+	u32 delta_quot[3];
+	int rc, i;
+
+	rc = of_property_read_u32_array(of_node,
+			"qti,cpr-uplift-quotient", delta_quot, 3);
+	if (rc < 0) {
+		pr_err("cpr-uplift-quotient is missing: %d", rc);
+		return rc;
+	}
+	for (i = CPR_CORNER_SVS; i < CPR_CORNER_MAX; i++)
+		cpr_vreg->cpr_fuse_target_quot[i] += delta_quot[i-1];
+	return rc;
 }
 
 static int cpr_init_cpr_efuse(struct platform_device *pdev,
@@ -1277,6 +1332,14 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 		cpr_vreg->cpr_fuse_ro_sel[i] = ro_sel;
 		pr_info("Corner[%d]: ro_sel = %d, target quot = %d\n",
 			i, ro_sel, val);
+	}
+
+	if (cpr_vreg->flags & FLAGS_UPLIFT_QUOT_VOLT) {
+		cpr_voltage_uplift_wa_inc_quot(cpr_vreg, of_node);
+		for (i = CPR_CORNER_SVS; i < CPR_CORNER_MAX; i++) {
+			pr_info("Corner[%d]: uplifted target quot = %d\n",
+				i, cpr_vreg->cpr_fuse_target_quot[i]);
+		}
 	}
 
 	cpr_vreg->cpr_fuse_bits = fuse_bits;
@@ -1500,6 +1563,54 @@ static void cpr_parse_cond_min_volt_fuse(struct cpr_regulator *cpr_vreg,
 	}
 }
 
+static void cpr_parse_speed_bin_fuse(struct cpr_regulator *cpr_vreg,
+				struct device_node *of_node)
+{
+	int rc;
+	u64 fuse_bits;
+	u32 fuse_sel[4];
+	u32 speed_bits;
+
+	rc = of_property_read_u32_array(of_node,
+			"qti,speed-bin-fuse-sel", fuse_sel, 4);
+
+	if (!rc) {
+		fuse_bits = cpr_read_efuse_row(cpr_vreg,
+				fuse_sel[0], fuse_sel[3]);
+		speed_bits = (fuse_bits >> fuse_sel[1]) &
+			((1 << fuse_sel[2]) - 1);
+		pr_info("[row: %d]: 0x%llx, speed_bits = %d\n",
+				fuse_sel[0], fuse_bits, speed_bits);
+		cpr_vreg->speed_bin = speed_bits;
+	}
+}
+
+static int cpr_voltage_uplift_enable_check(struct cpr_regulator *cpr_vreg,
+					struct device_node *of_node)
+{
+	int rc;
+	u32 fuse_sel[5];
+	u32 uplift_speed_bin;
+
+	rc = of_property_read_u32_array(of_node,
+			"qti,cpr-fuse-uplift-sel", fuse_sel, 5);
+	if (!rc) {
+		rc = of_property_read_u32(of_node,
+				"qti,cpr-uplift-speed-bin",
+				&uplift_speed_bin);
+		if (rc < 0) {
+			pr_err("qti,cpr-uplift-speed-bin missing\n");
+			return rc;
+		}
+		if (cpr_fuse_is_setting_expected(cpr_vreg, fuse_sel)
+			&& (uplift_speed_bin == cpr_vreg->speed_bin)
+			&& !(cpr_vreg->flags & FLAGS_SET_MIN_VOLTAGE)) {
+			cpr_vreg->flags |= FLAGS_UPLIFT_QUOT_VOLT;
+		}
+	}
+	return 0;
+}
+
 static int cpr_voltage_plan_init(struct platform_device *pdev,
 					struct cpr_regulator *cpr_vreg)
 {
@@ -1535,11 +1646,15 @@ static int cpr_voltage_plan_init(struct platform_device *pdev,
 	}
 
 	cpr_parse_cond_min_volt_fuse(cpr_vreg, of_node);
-
+	cpr_parse_speed_bin_fuse(cpr_vreg, of_node);
+	rc = cpr_voltage_uplift_enable_check(cpr_vreg, of_node);
+	if (rc < 0) {
+		pr_err("voltage uplift enable check failed, %d\n", rc);
+		return rc;
+	}
 	if (cpr_vreg->flags & FLAGS_SET_MIN_VOLTAGE) {
 		of_property_read_u32(of_node, "qti,cpr-cond-min-voltage",
 					&min_uv);
-
 		for (i = APC_PVS_SLOW; i < NUM_APC_PVS; i++)
 			for (j = CPR_CORNER_SVS; j < CPR_CORNER_MAX; j++)
 				if (cpr_vreg->pvs_corner_v[i][j] < min_uv)
