@@ -20,7 +20,7 @@
 #include <linux/delay.h>
 #include <linux/firmware.h>
 #include <linux/i2c.h>
-#include <linux/i2c/atmel_mxt_ts.h>
+#include <linux/input/atmel_maxtouch_ts.h>
 #include <linux/input/mt.h>
 #include <linux/interrupt.h>
 #include <linux/slab.h>
@@ -2123,10 +2123,17 @@ static int mxt_read_t9_resolution(struct mxt_data *data)
 
 static void mxt_regulator_enable(struct mxt_data *data)
 {
+	int rc;
 	gpio_set_value(data->pdata->gpio_reset, 0);
 
-	regulator_enable(data->reg_vdd);
-	regulator_enable(data->reg_avdd);
+	rc = regulator_enable(data->reg_vdd);
+	if (rc)
+		dev_err(&data->client->dev,
+			"Regulator vdd enable failed, rc=%d\n", rc);
+	rc = regulator_enable(data->reg_avdd);
+	if (rc)
+		dev_err(&data->client->dev,
+			"Regulator avdd enable failed, rc=%d\n", rc);
 	msleep(MXT_REGULATOR_DELAY);
 
 	INIT_COMPLETION(data->bl_completion);
@@ -2300,7 +2307,7 @@ static int mxt_initialize_t100_input_device(struct mxt_data *data)
 				     0, 255, 0, 0);
 
 	/* For multi touch */
-	error = input_mt_init_slots(input_dev, data->num_touchids);
+	error = input_mt_init_slots(input_dev, data->num_touchids, 0);
 	if (error) {
 		dev_err(dev, "Error %d initialising slots\n", error);
 		goto err_free_mem;
@@ -3051,7 +3058,7 @@ static int mxt_initialize_t9_input_device(struct mxt_data *data)
 
 	/* For multi touch */
 	num_mt_slots = data->num_touchids + data->num_stylusids;
-	error = input_mt_init_slots(input_dev, num_mt_slots);
+	error = input_mt_init_slots(input_dev, num_mt_slots, 0);
 	if (error) {
 		dev_err(dev, "Error %d initialising slots\n", error);
 		goto err_free_mem;
@@ -3102,7 +3109,7 @@ err_free_mem:
 	return error;
 }
 
-static int __devinit mxt_probe(struct i2c_client *client,
+static int mxt_probe(struct i2c_client *client,
 			       const struct i2c_device_id *id)
 {
 	struct mxt_data *data;
@@ -3183,7 +3190,7 @@ err_free_mem:
 	return error;
 }
 
-static int __devexit mxt_remove(struct i2c_client *client)
+static int mxt_remove(struct i2c_client *client)
 {
 	struct mxt_data *data = i2c_get_clientdata(client);
 
@@ -3262,7 +3269,7 @@ static struct i2c_driver mxt_driver = {
 		.pm	= &mxt_pm_ops,
 	},
 	.probe		= mxt_probe,
-	.remove		= __devexit_p(mxt_remove),
+	.remove		= mxt_remove,
 	.shutdown	= mxt_shutdown,
 	.id_table	= mxt_id,
 };
