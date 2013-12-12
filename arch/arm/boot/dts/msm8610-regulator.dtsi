@@ -38,9 +38,9 @@
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <3>;
 
-		qti,pvs-fuse-redun-sel = <53 25 3 2>;
-		qti,pvs-fuse = <23 6 5>;
-		qti,pvs-fuse-redun = <61 47 5>;
+		qti,pvs-fuse-redun-sel = <53 25 3 2 1>;
+		qti,pvs-fuse = <23 6 5 1>;
+		qti,pvs-fuse-redun = <61 47 5 1>;
 
 		qti,pvs-init-voltage = <1275000 1275000 1275000 1275000 1275000
 					1275000 1275000 1275000 1275000 1275000
@@ -72,20 +72,19 @@
 		qti,vdd-apc-step-down-limit = <1>;
 		qti,cpr-apc-volt-step = <5000>;
 
-		qti,cpr-fuse-redun-sel = <53 25 3 2>;
-		qti,cpr-fuse-row = <61>;
+		qti,cpr-fuse-redun-sel = <53 25 3 2 1>;
+		qti,cpr-fuse-row = <61 1>;
 		qti,cpr-fuse-bp-cpr-disable = <39>;
 		qti,cpr-fuse-bp-scheme = <40>;
 		qti,cpr-fuse-target-quot = <27 15 3>;
 		qti,cpr-fuse-ro-sel = <47 41 44>;
-		qti,cpr-fuse-redun-row = <52>;
+		qti,cpr-fuse-redun-row = <52 1>;
 		qti,cpr-fuse-redun-bp-cpr-disable = <24>;
 		qti,cpr-fuse-redun-bp-scheme = <25>;
 		qti,cpr-fuse-redun-target-quot = <32 12 0>;
 		qti,cpr-fuse-redun-ro-sel = <44 26 29>;
 
 		qti,cpr-enable;
-		qti,use-tz-api;
 	};
 };
 
