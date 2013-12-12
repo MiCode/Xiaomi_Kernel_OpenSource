@@ -1003,7 +1003,7 @@ static int __devinit cpr_pvs_init(struct platform_device *pdev,
 	bool redundant;
 	size_t pvs_bins;
 
-	rc = of_property_read_u32_array(of_node, "qcom,pvs-fuse-redun-sel",
+	rc = of_property_read_u32_array(of_node, "qti,pvs-fuse-redun-sel",
 					pvs_fuse_redun_sel, 4);
 	if (rc < 0) {
 		pr_err("pvs-fuse-redun-sel missing: rc=%d\n", rc);
@@ -1013,14 +1013,14 @@ static int __devinit cpr_pvs_init(struct platform_device *pdev,
 	redundant = cpr_is_fuse_redundant(cpr_vreg, pvs_fuse_redun_sel);
 
 	if (redundant) {
-		rc = of_property_read_u32_array(of_node, "qcom,pvs-fuse-redun",
+		rc = of_property_read_u32_array(of_node, "qti,pvs-fuse-redun",
 						pvs_fuse, 3);
 		if (rc < 0) {
 			pr_err("pvs-fuse-redun missing: rc=%d\n", rc);
 			return rc;
 		}
 	} else {
-		rc = of_property_read_u32_array(of_node, "qcom,pvs-fuse",
+		rc = of_property_read_u32_array(of_node, "qti,pvs-fuse",
 						pvs_fuse, 3);
 		if (rc < 0) {
 			pr_err("pvs-fuse missing: rc=%d\n", rc);
@@ -1036,7 +1036,7 @@ static int __devinit cpr_pvs_init(struct platform_device *pdev,
 
 	pvs_bins = 1 << pvs_fuse[2];
 
-	rc = of_property_read_u32_array(of_node, "qcom,pvs-init-voltage",
+	rc = of_property_read_u32_array(of_node, "qti,pvs-init-voltage",
 					cpr_vreg->pvs_init_v, pvs_bins);
 	if (rc < 0) {
 		pr_err("pvs-init-voltage missing: rc=%d\n", rc);
@@ -1073,7 +1073,7 @@ static int __devinit cpr_pvs_init(struct platform_device *pdev,
 do {									\
 	if (!rc) {							\
 		rc = of_property_read_u32(of_node,			\
-				"qcom," cpr_property,			\
+				"qti," cpr_property,			\
 				cpr_config);				\
 		if (rc) {						\
 			pr_err("Missing " #cpr_property			\
@@ -1110,14 +1110,14 @@ static int __devinit cpr_apc_init(struct platform_device *pdev,
 
 	/* Parse dependency parameters */
 	if (cpr_vreg->vdd_mx) {
-		rc = of_property_read_u32(of_node, "qcom,vdd-mx-vmax",
+		rc = of_property_read_u32(of_node, "qti,vdd-mx-vmax",
 				 &cpr_vreg->vdd_mx_vmax);
 		if (rc < 0) {
 			pr_err("vdd-mx-vmax missing: rc=%d\n", rc);
 			return rc;
 		}
 
-		rc = of_property_read_u32(of_node, "qcom,vdd-mx-vmin-method",
+		rc = of_property_read_u32(of_node, "qti,vdd-mx-vmin-method",
 				 &cpr_vreg->vdd_mx_vmin_method);
 		if (rc < 0) {
 			pr_err("vdd-mx-vmin-method missing: rc=%d\n", rc);
@@ -1158,7 +1158,7 @@ static int __devinit cpr_init_cpr_efuse(struct platform_device *pdev,
 	u32 ro_sel, val;
 	u64 fuse_bits, fuse_bits_2;
 
-	rc = of_property_read_u32_array(of_node, "qcom,cpr-fuse-redun-sel",
+	rc = of_property_read_u32_array(of_node, "qti,cpr-fuse-redun-sel",
 					cpr_fuse_redun_sel, 4);
 	if (rc < 0) {
 		pr_err("cpr-fuse-redun-sel missing: rc=%d\n", rc);
@@ -1170,13 +1170,13 @@ static int __devinit cpr_init_cpr_efuse(struct platform_device *pdev,
 	if (redundant) {
 		CPR_PROP_READ_U32(of_node, "cpr-fuse-redun-row",
 				  &cpr_fuse_row, rc);
-		targ_quot_str = "qcom,cpr-fuse-redun-target-quot";
-		ro_sel_str = "qcom,cpr-fuse-redun-ro-sel";
+		targ_quot_str = "qti,cpr-fuse-redun-target-quot";
+		ro_sel_str = "qti,cpr-fuse-redun-ro-sel";
 	} else {
 		CPR_PROP_READ_U32(of_node, "cpr-fuse-row",
 				  &cpr_fuse_row, rc);
-		targ_quot_str = "qcom,cpr-fuse-target-quot";
-		ro_sel_str = "qcom,cpr-fuse-ro-sel";
+		targ_quot_str = "qti,cpr-fuse-target-quot";
+		ro_sel_str = "qti,cpr-fuse-ro-sel";
 	}
 	if (rc)
 		return rc;
@@ -1205,7 +1205,7 @@ static int __devinit cpr_init_cpr_efuse(struct platform_device *pdev,
 
 	if (redundant) {
 		if (of_property_read_bool(of_node,
-				"qcom,cpr-fuse-redun-bp-cpr-disable")) {
+				"qti,cpr-fuse-redun-bp-cpr-disable")) {
 			CPR_PROP_READ_U32(of_node,
 					  "cpr-fuse-redun-bp-cpr-disable",
 					  &bp_cpr_disable, rc);
@@ -1364,7 +1364,7 @@ static int __devinit cpr_init_cpr_parameters(struct platform_device *pdev,
 		return rc;
 
 	/* Init module parameter with the DT value */
-	cpr_vreg->enable = of_property_read_bool(of_node, "qcom,cpr-enable");
+	cpr_vreg->enable = of_property_read_bool(of_node, "qti,cpr-enable");
 	cpr_enable = (int) cpr_vreg->enable;
 	pr_info("CPR is %s by default.\n",
 		cpr_vreg->enable ? "enabled" : "disabled");
@@ -1452,7 +1452,7 @@ static int __devinit cpr_efuse_init(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	if (of_property_read_bool(pdev->dev.of_node, "qcom,use-tz-api"))
+	if (of_property_read_bool(pdev->dev.of_node, "qti,use-tz-api"))
 		cpr_vreg->use_tz_api = true;
 	else
 		cpr_vreg->use_tz_api = false;
@@ -1472,7 +1472,7 @@ static int __devinit cpr_voltage_plan_init(struct platform_device *pdev,
 	int rc, i;
 
 	rc = of_property_read_u32_array(of_node,
-		"qcom,pvs-corner-ceiling-slow",
+		"qti,pvs-corner-ceiling-slow",
 		&cpr_vreg->pvs_corner_v[APC_PVS_SLOW][CPR_CORNER_SVS],
 		CPR_CORNER_MAX - CPR_CORNER_SVS);
 	if (rc < 0) {
@@ -1481,7 +1481,7 @@ static int __devinit cpr_voltage_plan_init(struct platform_device *pdev,
 	}
 
 	rc = of_property_read_u32_array(of_node,
-		"qcom,pvs-corner-ceiling-nom",
+		"qti,pvs-corner-ceiling-nom",
 		&cpr_vreg->pvs_corner_v[APC_PVS_NOM][CPR_CORNER_SVS],
 		CPR_CORNER_MAX - CPR_CORNER_SVS);
 	if (rc < 0) {
@@ -1490,7 +1490,7 @@ static int __devinit cpr_voltage_plan_init(struct platform_device *pdev,
 	}
 
 	rc = of_property_read_u32_array(of_node,
-		"qcom,pvs-corner-ceiling-fast",
+		"qti,pvs-corner-ceiling-fast",
 		&cpr_vreg->pvs_corner_v[APC_PVS_FAST][CPR_CORNER_SVS],
 		CPR_CORNER_MAX - CPR_CORNER_SVS);
 	if (rc < 0) {
