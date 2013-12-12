@@ -1324,7 +1324,8 @@ void kgsl_timer(unsigned long data)
 bool kgsl_pwrctrl_isenabled(struct kgsl_device *device)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	return (test_bit(KGSL_PWRFLAGS_CLK_ON, &pwr->power_flags) != 0);
+	return ((test_bit(KGSL_PWRFLAGS_CLK_ON, &pwr->power_flags) != 0) &&
+		(test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->power_flags) != 0));
 }
 
 /**
