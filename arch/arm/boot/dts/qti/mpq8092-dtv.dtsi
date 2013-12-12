@@ -17,6 +17,33 @@
 };
 
 &soc {
+	msm_tsc@fc74a000 {
+		pinctrl-names = "disable", "ts-in-0", "ts-in-1", "dual-ts";
+		pinctrl-0 = <&ts_in_0_b_start_sleep
+					&ts_in_0_b_valid_sleep
+					&ts_in_0_b_ser_sleep
+					&ts_in_1_a_start_sleep
+					&ts_in_1_a_valid_sleep
+					&ts_in_1_a_ser_sleep>;	/* disable */
+		pinctrl-1 = <&ts_in_0_b_start_active
+					&ts_in_0_b_valid_active
+					&ts_in_0_b_ser_active
+					&ts_in_1_a_start_sleep
+					&ts_in_1_a_valid_sleep
+					&ts_in_1_a_ser_sleep>; /* ts-in-0 */
+		pinctrl-2 = <&ts_in_0_b_start_sleep
+					&ts_in_0_b_valid_sleep
+					&ts_in_0_b_ser_sleep
+					&ts_in_1_a_start_active
+					&ts_in_1_a_valid_active
+					&ts_in_1_a_ser_active>;	/* ts-in-1 */
+		pinctrl-3 = <&ts_in_0_b_start_active
+					&ts_in_0_b_valid_active
+					&ts_in_0_b_ser_active
+					&ts_in_1_a_start_active
+					&ts_in_1_a_valid_active
+					&ts_in_1_a_ser_active>;	/* dual-ts */
+	};
 };
 
 &blsp1_uart5 {
