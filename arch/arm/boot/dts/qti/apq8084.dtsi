@@ -615,6 +615,11 @@
 		qcom,ea-pc = <0xb0>;
 		qcom,slim-mdm;
 
+		audio_slimslave {
+			compatible = "qcom,audio-slimslave";
+			elemental-addr = [ff ff ff ff 17 02];
+		};
+
 		taiko_codec {
 			compatible = "qcom,taiko-slim-pgd";
 			elemental-addr = [00 01 A0 00 17 02];

@@ -244,6 +244,13 @@ Required properties:
 
  - interrupt-names :                       Name of interrupt on the parent
                                            interrupt controller
+* audio_slimslave
+
+Required properties:
+
+ - compatible :                            "qcom,audio-slimslave"
+
+ - elemental-addr:                         slimbus slave enumeration address.
 
 Example:
 
@@ -445,6 +452,11 @@ Example:
 		interrupt-parent = <&msmgpio>;
 		interrupts = <72 0>;
 		interrupt-names = "cdc-int";
+	};
+
+	audio_slimslave {
+		compatible = "qcom,audio-slimslave";
+		elemental-addr = [ff ff ff ff 17 02];
 	};
 
 * MSM8974 ASoC Machine driver
