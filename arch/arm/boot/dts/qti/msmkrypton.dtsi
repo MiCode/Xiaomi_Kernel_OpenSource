@@ -418,6 +418,7 @@
 		qti,ipa-hw-ver = <3>; /* IPA core version = IPAv2.0 */
 		qti,ipa-hw-mode = <0>; /* IPA hw type = Normal */
 		qti,ee = <2>;
+		qti,use-ipa-tethering-bridge;
 	};
 
 	usb3: ssusb@f9200000 {
