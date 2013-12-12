@@ -18,7 +18,6 @@
 #include <linux/mm_types.h>
 #include <linux/bootmem.h>
 #include <linux/module.h>
-#include <linux/memory_alloc.h>
 #include <linux/memblock.h>
 #include <asm/memblock.h>
 #include <asm/pgtable.h>
@@ -68,113 +67,6 @@ char *memtype_name[] = {
 	"EBI1"
 };
 
-struct reserve_info *reserve_info;
-
-/**
- * calculate_reserve_limits() - calculate reserve limits for all
- * memtypes
- *
- * for each memtype in the reserve_info->memtype_reserve_table, sets
- * the `limit' field to the largest size of any memblock of that
- * memtype.
- */
-static void __init calculate_reserve_limits(void)
-{
-	struct memblock_region *mr;
-	int memtype;
-	struct memtype_reserve *mt;
-
-	for_each_memblock(memory, mr) {
-		memtype = reserve_info->paddr_to_memtype(mr->base);
-		if (memtype == MEMTYPE_NONE) {
-			pr_warning("unknown memory type for region at %lx\n",
-				(long unsigned int)mr->base);
-			continue;
-		}
-		mt = &reserve_info->memtype_reserve_table[memtype];
-		mt->limit = max_t(unsigned long, mt->limit, mr->size);
-	}
-}
-
-static void __init adjust_reserve_sizes(void)
-{
-	int i;
-	struct memtype_reserve *mt;
-
-	mt = &reserve_info->memtype_reserve_table[0];
-	for (i = 0; i < MEMTYPE_MAX; i++, mt++) {
-		if (mt->flags & MEMTYPE_FLAGS_1M_ALIGN)
-			mt->size = (mt->size + SECTION_SIZE - 1) & SECTION_MASK;
-		if (mt->size > mt->limit) {
-			pr_warning("%pa size for %s too large, setting to %pa\n",
-				&mt->size, memtype_name[i], &mt->limit);
-			mt->size = mt->limit;
-		}
-	}
-}
-
-static void __init reserve_memory_for_mempools(void)
-{
-	int memtype;
-	struct memtype_reserve *mt;
-	phys_addr_t alignment;
-
-	mt = &reserve_info->memtype_reserve_table[0];
-	for (memtype = 0; memtype < MEMTYPE_MAX; memtype++, mt++) {
-		if (mt->flags & MEMTYPE_FLAGS_FIXED || !mt->size)
-			continue;
-		alignment = (mt->flags & MEMTYPE_FLAGS_1M_ALIGN) ?
-			SZ_1M : PAGE_SIZE;
-		mt->start = arm_memblock_steal(mt->size, alignment);
-		BUG_ON(!mt->start);
-	}
-}
-
-static void __init initialize_mempools(void)
-{
-	struct mem_pool *mpool;
-	int memtype;
-	struct memtype_reserve *mt;
-
-	mt = &reserve_info->memtype_reserve_table[0];
-	for (memtype = 0; memtype < MEMTYPE_MAX; memtype++, mt++) {
-		if (!mt->size)
-			continue;
-		mpool = initialize_memory_pool(mt->start, mt->size, memtype);
-		if (!mpool)
-			pr_warning("failed to create %s mempool\n",
-				memtype_name[memtype]);
-	}
-}
-
-void __init msm_reserve(void)
-{
-	memory_pool_init();
-	if (reserve_info->calculate_reserve_sizes)
-		reserve_info->calculate_reserve_sizes();
-
-	calculate_reserve_limits();
-	adjust_reserve_sizes();
-	reserve_memory_for_mempools();
-	initialize_mempools();
-}
-
-void *allocate_contiguous_ebi(unsigned long size,
-	unsigned long align, int cached)
-{
-	return allocate_contiguous_memory(size, MEMTYPE_EBI1,
-		align, cached);
-}
-EXPORT_SYMBOL(allocate_contiguous_ebi);
-
-phys_addr_t allocate_contiguous_ebi_nomap(unsigned long size,
-	unsigned long align)
-{
-	return _allocate_contiguous_memory_nomap(size, MEMTYPE_EBI1,
-		align, __builtin_return_address(0));
-}
-EXPORT_SYMBOL(allocate_contiguous_ebi_nomap);
-
 unsigned int msm_ttbr0;
 
 void store_ttbr0(void)
@@ -182,38 +74,6 @@ void store_ttbr0(void)
 	/* Store TTBR0 for post-mortem debugging purposes. */
 	asm("mrc p15, 0, %0, c2, c0, 0\n"
 		: "=r" (msm_ttbr0));
-}
-
-static char * const memtype_names[] = {
-	[MEMTYPE_EBI0] = "EBI0",
-	[MEMTYPE_EBI1] = "EBI1",
-};
-
-int msm_get_memory_type_from_name(const char *memtype_name)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(memtype_names); i++) {
-		if (memtype_names[i] &&
-		    strcmp(memtype_name, memtype_names[i]) == 0)
-			return i;
-	}
-
-	pr_err("Could not find memory type %s\n", memtype_name);
-	return -EINVAL;
-}
-
-static int reserve_memory_type(const char *mem_name,
-				struct memtype_reserve *reserve_table,
-				int size)
-{
-	int ret = msm_get_memory_type_from_name(mem_name);
-
-	if (ret >= 0) {
-		reserve_table[ret].size += size;
-		ret = 0;
-	}
-	return ret;
 }
 
 static int __init check_for_compat(unsigned long node)
@@ -230,12 +90,8 @@ static int __init check_for_compat(unsigned long node)
 int __init dt_scan_for_memory_reserve(unsigned long node, const char *uname,
 		int depth, void *data)
 {
-	char *memory_name_prop;
 	unsigned int *memory_remove_prop;
-	unsigned long memory_name_prop_length;
 	unsigned long memory_remove_prop_length;
-	unsigned long memory_size_prop_length;
-	unsigned int *memory_size_prop;
 	unsigned int *memory_reserve_prop;
 	unsigned long memory_reserve_prop_length;
 	unsigned int memory_size;
@@ -244,9 +100,6 @@ int __init dt_scan_for_memory_reserve(unsigned long node, const char *uname,
 	int i;
 	int ret;
 
-	memory_name_prop = of_get_flat_dt_prop(node,
-						"qti,memory-reservation-type",
-						&memory_name_prop_length);
 	memory_remove_prop = of_get_flat_dt_prop(node,
 						"qti,memblock-remove",
 						&memory_remove_prop_length);
@@ -255,41 +108,12 @@ int __init dt_scan_for_memory_reserve(unsigned long node, const char *uname,
 						"qti,memblock-reserve",
 						&memory_reserve_prop_length);
 
-	if (memory_name_prop || memory_remove_prop || memory_reserve_prop) {
+	if (memory_remove_prop || memory_reserve_prop) {
 		if (!check_for_compat(node))
 			goto out;
 	} else {
 		goto out;
 	}
-
-	if (memory_name_prop) {
-		if (strnlen(memory_name_prop, memory_name_prop_length) == 0) {
-			WARN(1, "Memory name was malformed\n");
-			goto mem_remove;
-		}
-
-		memory_size_prop = of_get_flat_dt_prop(node,
-						"qti,memory-reservation-size",
-						&memory_size_prop_length);
-
-		if (memory_size_prop &&
-		    (memory_size_prop_length == sizeof(unsigned int))) {
-			memory_size = be32_to_cpu(*memory_size_prop);
-
-			if (reserve_memory_type(memory_name_prop,
-						data, memory_size) == 0)
-				pr_info("%s reserved %s size %x\n",
-					uname, memory_name_prop, memory_size);
-			else
-				WARN(1, "Node %s reserve failed\n",
-						uname);
-		} else {
-			WARN(1, "Node %s specified bad/nonexistent size\n",
-					uname);
-		}
-	}
-
-mem_remove:
 
 	if (memory_remove_prop) {
 		if (!memory_remove_prop_length || (memory_remove_prop_length %
