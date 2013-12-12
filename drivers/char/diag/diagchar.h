@@ -301,7 +301,7 @@ struct diagchar_dev {
 	/* Whether or not the peripheral supports STM */
 	int peripheral_supports_stm[NUM_SMD_CONTROL_CHANNELS];
 	/* DCI related variables */
-	struct dci_pkt_req_tracking_tbl *req_tracking_tbl;
+	struct list_head dci_req_list;
 	struct diag_dci_client_tbl *dci_client_tbl;
 	int dci_tag;
 	int dci_client_id;
