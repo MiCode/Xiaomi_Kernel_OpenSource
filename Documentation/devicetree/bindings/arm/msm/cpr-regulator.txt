@@ -11,7 +11,7 @@ CPR regulator device is for Qualcomm RBCPR (RapidBridge CPR) on
 	bits to indicate what bin (and voltage range) a chip is in.
 
 Required properties:
-- compatible:			Must be "qcom,cpr-regulator"
+- compatible:			Must be "qti,cpr-regulator"
 - reg:				Register addresses for RBCPR, RBCPR clock
 				select, PVS and CPR eFuse address
 - reg-names:			Register names. Must be "rbcpr", "rbcpr_clk",
@@ -22,41 +22,41 @@ Required properties:
 				should be 1 for SVS corner
 - regulator-max-microvolt:	Maximum corner value as max constraint, which
 				should be 4 for SUPER_TURBO or 3 for TURBO
-- qcom,pvs-init-voltage:  	A list of integers whose length is equal to 2
-				to the power of qcom,pvs-fuse[num-of-bits]. The
+- qti,pvs-init-voltage:  	A list of integers whose length is equal to 2
+				to the power of qti,pvs-fuse[num-of-bits]. The
 				location or 0-based index of an element in the
 				list corresponds to the bin number. The value of
 				each integer corresponds to the initial voltage
 				of the PVS bin in turbo mode in microvolts.
-- qcom,pvs-corner-ceiling-slow:	Ceiling voltages of all corners for APC_PVS_SLOW
-- qcom,pvs-corner-ceiling-nom:	Ceiling voltages of all corners for APC_PVS_NOM
-- qcom,pvs-corner-ceiling-fast:	Ceiling voltages of all corners for APC_PVS_FAST
+- qti,pvs-corner-ceiling-slow:	Ceiling voltages of all corners for APC_PVS_SLOW
+- qti,pvs-corner-ceiling-nom:	Ceiling voltages of all corners for APC_PVS_NOM
+- qti,pvs-corner-ceiling-fast:	Ceiling voltages of all corners for APC_PVS_FAST
 				The ceiling voltages for each of above three
 				properties may look like this:
 				  0 (SVS voltage):		1050000 uV
 				  1 (NORMAL voltage):		1150000 uV
 				  2 (TURBO voltage):		1275000 uV
 - vdd-apc-supply:		Regulator to supply VDD APC power
-- qcom,vdd-apc-step-up-limit:	Limit of vdd-apc-supply steps for scaling up.
-- qcom,vdd-apc-step-down-limit:	Limit of vdd-apc-supply steps for scaling down.
-- qcom,cpr-ref-clk:		The reference clock in kHz.
-- qcom,cpr-timer-delay:		The delay in microseconds for the timer interval.
-- qcom,cpr-timer-cons-up:	Consecutive number of timer interval (qcom,cpr-timer-delay)
+- qti,vdd-apc-step-up-limit:	Limit of vdd-apc-supply steps for scaling up.
+- qti,vdd-apc-step-down-limit:	Limit of vdd-apc-supply steps for scaling down.
+- qti,cpr-ref-clk:		The reference clock in kHz.
+- qti,cpr-timer-delay:		The delay in microseconds for the timer interval.
+- qti,cpr-timer-cons-up:	Consecutive number of timer interval (qti,cpr-timer-delay)
 				occurred before issuing UP interrupt.
-- qcom,cpr-timer-cons-down:	Consecutive number of timer interval (qcom,cpr-timer-delay)
+- qti,cpr-timer-cons-down:	Consecutive number of timer interval (qti,cpr-timer-delay)
 				occurred before issuing DOWN interrupt.
-- qcom,cpr-irq-line:		Internal interrupt route signal of RBCPR, one of 0, 1 or 2.
-- qcom,cpr-step-quotient:	Number of CPR quotient (Ring Oscillator(RO) count) per vdd-apc-supply step
+- qti,cpr-irq-line:		Internal interrupt route signal of RBCPR, one of 0, 1 or 2.
+- qti,cpr-step-quotient:	Number of CPR quotient (Ring Oscillator(RO) count) per vdd-apc-supply step
 				to issue error_steps.
-- qcom,cpr-up-threshold:	The threshold for CPR to issue interrupt when
+- qti,cpr-up-threshold:	The threshold for CPR to issue interrupt when
 				error_steps is greater than it when stepping up.
-- qcom,cpr-down-threshold:	The threshold for CPR to issue interrupt when
+- qti,cpr-down-threshold:	The threshold for CPR to issue interrupt when
 				error_steps is greater than it when stepping down.
-- qcom,cpr-idle-clocks:		Idle clock cycles RO can be in.
-- qcom,cpr-gcnt-time:		The time for gate count in microseconds.
-- qcom,cpr-apc-volt-step:	The voltage in microvolt per CPR step, such as 5000uV.
+- qti,cpr-idle-clocks:		Idle clock cycles RO can be in.
+- qti,cpr-gcnt-time:		The time for gate count in microseconds.
+- qti,cpr-apc-volt-step:	The voltage in microvolt per CPR step, such as 5000uV.
 
-- qcom,pvs-fuse-redun-sel:	Array of 4 elements to indicate where to read the bits and what value to
+- qti,pvs-fuse-redun-sel:	Array of 4 elements to indicate where to read the bits and what value to
 				compare with in order to decide if the redundant PVS fuse bits would be
 				used instead of the original bits. The 4 elements with index [0..3] are:
 				  [0] => the fuse row number of the selector
@@ -66,18 +66,18 @@ Required properties:
 				When the value of the fuse bits specified by first 3 elements equals to
 				the value in 4th element, redundant PVS fuse bits should be selected.
 				Otherwise, the original PVS bits should be selected.
-- qcom,pvs-fuse:		Array of three elements to indicate the bits for PVS fuse. The array
+- qti,pvs-fuse:		Array of three elements to indicate the bits for PVS fuse. The array
 				should have index and value like this:
 				  [0] => the PVS fuse row number
 				  [1] => LSB bit position of the bits
 				  [2] => number of bits
-- qcom,pvs-fuse-redun:		Array of three elements to indicate the bits for redundant PVS fuse.
+- qti,pvs-fuse-redun:		Array of three elements to indicate the bits for redundant PVS fuse.
 				The array should have index and value like this:
 				  [0] => the redundant PVS fuse row number
 				  [1] => LSB bit position of the bits
 				  [2] => number of bits
 
-- qcom,cpr-fuse-redun-sel:	Array of 4 elements to indicate where to read the bits and what value to
+- qti,cpr-fuse-redun-sel:	Array of 4 elements to indicate where to read the bits and what value to
 				compare with in order to decide if the redundant CPR fuse bits would be
 				used instead of the original bits. The 4 elements with index [0..3] are:
 				  [0] => the fuse row number of the selector
@@ -87,26 +87,26 @@ Required properties:
 				When the value of the fuse bits specified by first 3 elements equals to
 				the value in 4th element, redundant CPR fuse bits should be selected.
 				Otherwise, the original CPR bits should be selected.
-- qcom,cpr-fuse-row:		Row number of CPR fuse
-- qcom,cpr-fuse-bp-cpr-disable:	Bit position of the bit to indicate if CPR should be disable
-- qcom,cpr-fuse-bp-scheme:	Bit position of the bit to indicate if it's a global/local scheme
-- qcom,cpr-fuse-target-quot:	Array of bit positions in fuse for Target Quotient of all corners.
+- qti,cpr-fuse-row:		Row number of CPR fuse
+- qti,cpr-fuse-bp-cpr-disable:	Bit position of the bit to indicate if CPR should be disable
+- qti,cpr-fuse-bp-scheme:	Bit position of the bit to indicate if it's a global/local scheme
+- qti,cpr-fuse-target-quot:	Array of bit positions in fuse for Target Quotient of all corners.
 				It should have index and value like this:
 				  [0] => bit position of the LSB bit for SVS target quotient
 				  [1] => bit position of the LSB bit for NOMINAL target quotient
 				  [2] => bit position of the LSB bit for TURBO target quotient
-- qcom,cpr-fuse-ro-sel:		Array of bit positions in fuse for RO select of all corners.
+- qti,cpr-fuse-ro-sel:		Array of bit positions in fuse for RO select of all corners.
 				It should have index and value like this:
 				  [0] => bit position of the LSB bit for SVS RO select bits
 				  [1] => bit position of the LSB bit for NOMINAL RO select bits
 				  [2] => bit position of the LSB bit for TURBO RO select bits
-- qcom,cpr-fuse-redun-row:	Row number of the redundant CPR fuse
-- qcom,cpr-fuse-redun-target-quot:	Array of bit positions in fuse for redundant Target Quotient of all corners.
+- qti,cpr-fuse-redun-row:	Row number of the redundant CPR fuse
+- qti,cpr-fuse-redun-target-quot:	Array of bit positions in fuse for redundant Target Quotient of all corners.
 				It should have index and value like this:
 				  [0] => bit position of the LSB bit for redundant SVS target quotient
 				  [1] => bit position of the LSB bit for redundant NOMINAL target quotient
 				  [2] => bit position of the LSB bit for redundant TURBO target quotient
-- qcom,cpr-fuse-redun-ro-sel:	Array of bit positions in eFuse for redundant RO select.
+- qti,cpr-fuse-redun-ro-sel:	Array of bit positions in eFuse for redundant RO select.
 				It should have index and value like this:
 				  [0] => bit position of the LSB bit for redundant SVS RO select bits
 				  [1] => bit position of the LSB bit for redundant NOMINAL RO select bits
@@ -116,30 +116,30 @@ Required properties:
 Optional properties:
 - vdd-mx-supply:		Regulator to supply memory power as dependency
 				of VDD APC.
-- qcom,vdd-mx-vmax:		The maximum voltage in uV for vdd-mx-supply. This
+- qti,vdd-mx-vmax:		The maximum voltage in uV for vdd-mx-supply. This
 				is required when vdd-mx-supply is present.
-- qcom,vdd-mx-vmin-method:	The method to determine the minimum voltage for
+- qti,vdd-mx-vmin-method:	The method to determine the minimum voltage for
 				vdd-mx-supply, which can be one of following
 				choices compared with VDD APC:
 				  0 => equal to the voltage(vmin) of VDD APC
 				  1 => equal to PVS corner ceiling voltage
 				  2 => equal to slow speed corner ceiling
-				  3 => equal to qcom,vdd-mx-vmax
+				  3 => equal to qti,vdd-mx-vmax
 				This is required when vdd-mx-supply is present.
-- qcom,cpr-fuse-redun-bp-cpr-disable:	Redundant bit position of the bit to indicate if CPR should be disable
-- qcom,cpr-fuse-redun-bp-scheme:	Redundant bit position of the bit to indicate if it's a global/local scheme
+- qti,cpr-fuse-redun-bp-cpr-disable:	Redundant bit position of the bit to indicate if CPR should be disable
+- qti,cpr-fuse-redun-bp-scheme:	Redundant bit position of the bit to indicate if it's a global/local scheme
 					This property is required if cpr-fuse-redun-bp-cpr-disable
 					is present, and vise versa.
-- qcom,cpr-enable:		Present: CPR enabled by default.
+- qti,cpr-enable:		Present: CPR enabled by default.
 				Not Present: CPR disable by default.
-- qcom,use-tz-api:		Present: CPR reads efuse parameters through trustzone API.
+- qti,use-tz-api:		Present: CPR reads efuse parameters through trustzone API.
 				Not Present: CPR reads efuse parameters directly.
 
 
 Example:
 	apc_vreg_corner: regulator@f9018000 {
 		status = "okay";
-		compatible = "qcom,cpr-regulator";
+		compatible = "qti,cpr-regulator";
 		reg = <0xf9018000 0x1000>, <0xfc4b8000 0x1000>;
 		reg-names = "rbcpr", "efuse_addr";
 		interrupts = <0 15 0>;
@@ -147,11 +147,11 @@ Example:
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <3>;
 
-		qcom,pvs-fuse = <22 6 5>;
-		qcom,pvs-fuse-redun-sel = <22 24 3 2>;
-		qcom,pvs-fuse-redun = <22 27 5>;
+		qti,pvs-fuse = <22 6 5>;
+		qti,pvs-fuse-redun-sel = <22 24 3 2>;
+		qti,pvs-fuse-redun = <22 27 5>;
 
-		qcom,pvs-init-voltage = <1330000 1330000 1330000 1320000
+		qti,pvs-init-voltage = <1330000 1330000 1330000 1320000
 						1310000 1300000 1290000 1280000
 						1270000 1260000 1250000 1240000
 						1230000 1220000 1210000 1200000
@@ -159,35 +159,35 @@ Example:
 						1150000 1140000 1140000 1140000
 						1140000 1140000 1140000 1140000
 						1140000 1140000 1140000 1140000>;
-		qcom,pvs-corner-ceiling-slow = <1050000 1160000 1275000>;
-		qcom,pvs-corner-ceiling-nom  =  <975000 1075000 1200000>;
-		qcom,pvs-corner-ceiling-fast =  <900000 1000000 1140000>;
+		qti,pvs-corner-ceiling-slow = <1050000 1160000 1275000>;
+		qti,pvs-corner-ceiling-nom  =  <975000 1075000 1200000>;
+		qti,pvs-corner-ceiling-fast =  <900000 1000000 1140000>;
 		vdd-apc-supply = <&pm8226_s2>;
 		vdd-mx-supply = <&pm8226_l3_ao>;
-		qcom,vdd-mx-vmax = <1350000>;
-		qcom,vdd-mx-vmin-method = <1>;
-		qcom,vdd-apc-step-up-limit = <1>;
-		qcom,vdd-apc-step-down-limit = <1>;
-		qcom,cpr-ref-clk = <19200>;
-		qcom,cpr-timer-delay = <5000>;
-		qcom,cpr-timer-cons-up = <1>;
-		qcom,cpr-timer-cons-down = <2>;
-		qcom,cpr-irq-line = <0>;
-		qcom,cpr-step-quotient = <15>;
-		qcom,cpr-up-threshold = <1>;
-		qcom,cpr-down-threshold = <2>;
-		qcom,cpr-idle-clocks = <5>;
-		qcom,cpr-gcnt-time = <1>;
-		qcom,cpr-apc-volt-step = <5000>;
+		qti,vdd-mx-vmax = <1350000>;
+		qti,vdd-mx-vmin-method = <1>;
+		qti,vdd-apc-step-up-limit = <1>;
+		qti,vdd-apc-step-down-limit = <1>;
+		qti,cpr-ref-clk = <19200>;
+		qti,cpr-timer-delay = <5000>;
+		qti,cpr-timer-cons-up = <1>;
+		qti,cpr-timer-cons-down = <2>;
+		qti,cpr-irq-line = <0>;
+		qti,cpr-step-quotient = <15>;
+		qti,cpr-up-threshold = <1>;
+		qti,cpr-down-threshold = <2>;
+		qti,cpr-idle-clocks = <5>;
+		qti,cpr-gcnt-time = <1>;
+		qti,cpr-apc-volt-step = <5000>;
 
-		qcom,cpr-fuse-row = <138>;
-		qcom,cpr-fuse-bp-cpr-disable = <36>;
-		qcom,cpr-fuse-bp-scheme = <37>;
-		qcom,cpr-fuse-target-quot = <24 12 0>;
-		qcom,cpr-fuse-ro-sel = <54 38 41>;
-		qcom,cpr-fuse-redun-sel = <138 57 1 1>;
-		qcom,cpr-fuse-redun-row = <139>;
-		qcom,cpr-fuse-redun-target-quot = <24 12 0>;
-		qcom,cpr-fuse-redun-ro-sel = <46 36 39>;
+		qti,cpr-fuse-row = <138>;
+		qti,cpr-fuse-bp-cpr-disable = <36>;
+		qti,cpr-fuse-bp-scheme = <37>;
+		qti,cpr-fuse-target-quot = <24 12 0>;
+		qti,cpr-fuse-ro-sel = <54 38 41>;
+		qti,cpr-fuse-redun-sel = <138 57 1 1>;
+		qti,cpr-fuse-redun-row = <139>;
+		qti,cpr-fuse-redun-target-quot = <24 12 0>;
+		qti,cpr-fuse-redun-ro-sel = <46 36 39>;
 	};
 
