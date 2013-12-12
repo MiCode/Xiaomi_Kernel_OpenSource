@@ -374,10 +374,12 @@ static int sched_debug_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+#ifdef CONFIG_SYSRQ_SCHED_DEBUG
 void sysrq_sched_debug_show(void)
 {
 	sched_debug_show(NULL, NULL);
 }
+#endif
 
 static int sched_debug_open(struct inode *inode, struct file *filp)
 {
