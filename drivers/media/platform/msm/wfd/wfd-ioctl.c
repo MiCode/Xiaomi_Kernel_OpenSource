@@ -1425,6 +1425,7 @@ static struct vb2_mem_ops wfd_vb2_mem_ops = {
 
 int wfd_initialize_vb2_queue(struct vb2_queue *q, void *priv)
 {
+	q->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 	q->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	q->io_modes = VB2_USERPTR;
 	q->ops = &wfd_vidbuf_ops;
