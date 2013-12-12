@@ -56,10 +56,10 @@ static inline int dvb_dmxdev_verify_buffer_size(u32 size, u32 max_size,
 		return size <= max_size;
 }
 
-static int dvb_filter_verify_buffer_size(struct dmxdev_filter *filter,
-	size_t size)
+static int dvb_filter_verify_buffer_size(struct dmxdev_filter *filter)
 {
 	struct dmx_caps caps;
+	size_t size = filter->buffer.size;
 
 	/*
 	 * For backward compatibility, if no demux capabilities can
@@ -80,6 +80,9 @@ static int dvb_filter_verify_buffer_size(struct dmxdev_filter *filter,
 				size,
 				caps.pes.max_size,
 				caps.pes.size_alignment);
+
+		size = (filter->params.pes.output == DMX_OUT_TS_TAP) ?
+			filter->dev->dvr_buffer.size : size;
 
 		if (filter->params.pes.output == DMX_OUT_TSDEMUX_TAP ||
 			filter->params.pes.output == DMX_OUT_TS_TAP) {
@@ -3379,7 +3382,7 @@ static int dvb_dmxdev_filter_start(struct dmxdev_filter *filter)
 	if (filter->state >= DMXDEV_STATE_GO)
 		dvb_dmxdev_filter_stop(filter);
 
-	if (!dvb_filter_verify_buffer_size(filter, filter->buffer.size))
+	if (!dvb_filter_verify_buffer_size(filter))
 		return -EINVAL;
 
 	if (!filter->buffer.data) {
