@@ -49,6 +49,7 @@
 	#address-cells = <1>;
 	#size-cells = <1>;
 	ranges;
+	compatible = "simple-bus";
 
 	intc: interrupt-controller@b000000 {
 		compatible = "qcom,msm-qgic2";

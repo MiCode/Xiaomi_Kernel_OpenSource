@@ -70,7 +70,7 @@ static void __init msm8916_init(void)
 	 * of msm_smem_init.  socinfo_init needs smem support so call
 	 * msm_smem_init before it.
 	 */
-	board_dt_populate(adata);
+	of_platform_populate(NULL, of_default_bus_match_table, adata, NULL);
 	msm_smem_init();
 
 	if (socinfo_init() < 0)
