@@ -85,6 +85,12 @@
 		qti,cpr-enable;
 		qti,cpr-fuse-cond-min-volt-sel = <54 42 6 7 1>;
 		qti,cpr-cond-min-voltage = <1140000>;
+		qti,cpr-fuse-uplift-sel = <22 53 1 0 0>;
+		qti,cpr-uplift-voltage = <50000>;
+		qti,cpr-uplift-quotient = <0 0 120>;
+		qti,cpr-uplift-max-volt = <1350000>;
+		qti,cpr-uplift-speed-bin = <1>;
+		qti,speed-bin-fuse-sel = <22 0 3 0>;
 	};
 };
 
