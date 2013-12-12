@@ -7,9 +7,32 @@ Required properties
 -compatible: "qti,msm-imem"
 -reg: start address and size of imem memory
 
+If any children nodes exist the following properties are required:
+-#address-cells: should be 1
+-#size-cells: should be 1
+-ranges: A triplet that includes the child address, parent address, &
+	 length.  The child address is assumed to be 0.
+
+Child nodes:
+------------
+
+Peripheral Image Loader (pil):
+------------------------------
+Required properties:
+-compatible: "qti,msm-imem-pil"
+-reg: start address and size of PIL region in imem
+
 Example:
 
 	qti,msm-imem {
 		compatible = "qti,msm-imem";
 		reg = <0xdeadbeef 0x1000>; /* < start_address size > */
+		ranges = <0x0 0xdeadbeef 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pil@94c {
+			compatible = "qti,msm-imem-pil";
+			reg = <0x94c 200>;
+		};
 	};

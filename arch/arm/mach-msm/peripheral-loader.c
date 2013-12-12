@@ -31,6 +31,7 @@
 #include <linux/idr.h>
 #include <linux/interrupt.h>
 #include <linux/of_gpio.h>
+#include <linux/of_address.h>
 #include <linux/io.h>
 
 #include <asm/uaccess.h>
@@ -47,7 +48,8 @@
 #define pil_info(desc, fmt, ...)					\
 	dev_info(desc->dev, "%s: " fmt, desc->name, ##__VA_ARGS__)
 
-#define PIL_IMAGE_INFO_BASE	(MSM_IMEM_BASE + 0x94c)
+#define PIL_NUM_DESC		10
+static void __iomem *pil_info_base;
 
 /**
  * proxy_timeout - Override for proxy vote timeouts
@@ -457,9 +459,11 @@ static int pil_setup_region(struct pil_priv *priv, const struct pil_mdt *mdt)
 		priv->base_addr = min_addr_n;
 	}
 
-	writeq(priv->region_start, &priv->info->start);
-	writel_relaxed(priv->region_end - priv->region_start,
-			&priv->info->size);
+	if (priv->info) {
+		writeq(priv->region_start, &priv->info->start);
+		writel_relaxed(priv->region_end - priv->region_start,
+				&priv->info->size);
+	}
 
 	return ret;
 }
@@ -513,8 +517,10 @@ static void pil_release_mmap(struct pil_desc *desc)
 	struct pil_priv *priv = desc->priv;
 	struct pil_seg *p, *tmp;
 
-	writeq(0, &priv->info->start);
-	writel_relaxed(0, &priv->info->size);
+	if (priv->info) {
+		writeq(0, &priv->info->start);
+		writel_relaxed(0, &priv->info->size);
+	}
 
 	list_for_each_entry_safe(p, tmp, &priv->segs, list) {
 		list_del(&p->list);
@@ -784,15 +790,17 @@ int pil_desc_init(struct pil_desc *desc)
 	desc->priv = priv;
 	priv->desc = desc;
 
-	priv->id = ret = ida_simple_get(&pil_ida, 0, 10, GFP_KERNEL);
+	priv->id = ret = ida_simple_get(&pil_ida, 0, PIL_NUM_DESC, GFP_KERNEL);
 	if (priv->id < 0)
 		goto err;
 
-	addr = PIL_IMAGE_INFO_BASE + sizeof(struct pil_image_info) * priv->id;
-	priv->info = (struct pil_image_info __iomem *)addr;
+	if (pil_info_base) {
+		addr = pil_info_base + sizeof(struct pil_image_info) * priv->id;
+		priv->info = (struct pil_image_info __iomem *)addr;
 
-	strncpy(buf, desc->name, sizeof(buf));
-	__iowrite32_copy(priv->info->name, buf, sizeof(buf) / 4);
+		strncpy(buf, desc->name, sizeof(buf));
+		__iowrite32_copy(priv->info->name, buf, sizeof(buf) / 4);
+	}
 
 	pil_parse_devicetree(desc);
 
@@ -873,6 +881,17 @@ static struct notifier_block pil_pm_notifier = {
 
 static int __init msm_pil_init(void)
 {
+	struct device_node *np;
+
+	np = of_find_compatible_node(NULL, NULL, "qti,msm-imem-pil");
+	if (np) {
+		pil_info_base = of_iomap(np, 0);
+		if (!pil_info_base)
+			pr_warn("pil: could not map imem region\n");
+	} else {
+		pr_warn("pil: failed to find qti,msm-imem-pil node\n");
+	}
+
 	ion = msm_ion_client_create(UINT_MAX, "pil");
 	if (IS_ERR(ion)) /* Can't support relocatable images */
 		ion = NULL;
@@ -885,6 +904,8 @@ static void __exit msm_pil_exit(void)
 	unregister_pm_notifier(&pil_pm_notifier);
 	if (ion)
 		ion_client_destroy(ion);
+	if (pil_info_base)
+		iounmap(pil_info_base);
 }
 module_exit(msm_pil_exit);
 
