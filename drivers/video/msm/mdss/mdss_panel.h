@@ -222,6 +222,9 @@ struct mipi_panel_info {
 
 	char vsync_enable;
 	char hw_vsync_mode;
+
+	char lp11_init;
+	u32  init_delay;
 };
 
 enum dynamic_fps_update {
