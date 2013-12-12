@@ -1,0 +1,85 @@
+Atmel touch controller
+
+Required properties:
+
+ - compatible	: should be "atmel,maxtouch-ts"
+ - reg			: i2c slave address of the device
+ - interrupt-parent	: parent of interrupt
+ - interrupts		: touch sample interrupt to indicate presense or release
+				of fingers on the panel.
+ - atmel,panel-coords	: touch panel minimum x, minimum y, maximum x and
+				maximum y resolution
+ - atmel,display-coords : LCD display minimum x, minimum y, maximum x and
+				maximum y resolution
+ - vdd-supply		: digital power supply. It powers up the digital
+			block of the controller to enable i2c communication.
+ - avdd-supply		: analog Power supply. It powers up the analog
+			channel block of the controller to detect the touches.
+ - atmel,irq-gpio	: irq gpio
+ - atmel,reset-gpio	: reset gpio
+
+Optional property:
+ - atmel,cfg-name	: Configuration file name with file extension as "raw".
+			Default value maxtouch_generic_cfg.raw.
+ - atmel,ignore-crc	: Boolean flag to ignore cyclic redundancy check (CRC) on
+			configuration
+ - xvdd-supply		: x-line drive voltage supply. It is used for charging
+			the capacitors on the touch panel.
+ - atmel,bl-addr	: bootloader address, by default is looked up
+				in mxt_slave_addresses structure
+ - atmel,key-codes	: key codes corresponding to keyarray object
+ - atmel,i2cmode-gpio	: i2cmode gpio. This pin is used for selecting the i2c communication mode.
+			Pull the line low for HID and high for STANDARD i2c.
+ - pinctrl-names	: This should be defined if a target uses pinctrl framework.
+			See "pinctrl" in Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt.
+			It should specify the names of the configs that pinctrl can install in driver.
+			Following are the pinctrl configs that can be installed:
+			"pmx_ts_active" : Active configuration of pins, this should specify active
+			config defined in pin groups of interrupt, i2cmode and reset gpio.
+			"pmx_ts_suspend" : Disabled configuration of pins, this should specify sleep
+			config defined in pin groups of interrupt, i2cmode and reset gpio.
+ - clocks		: specify the clocks associated with the underlying bus when secure touch
+			is enabled.
+			This property is required only if secure touch is enabled and used with
+			this driver.
+ - clock-names:		: clock names used for secure touch. The names are:
+			"iface_clk", "core_clk".
+
+Optional sub-child properties:
+The sub-child properties are used to identify different firmware versions supported.
+- atmel,version		: Firmware version of the controller
+- atmel,build		: Firmware build of the controller
+- atmel,fw-name		: Firmware file name for the next upgrade. Do not specify this
+			when the firmware version is latest.
+
+Example:
+	i2c@f9966000 {
+		atmel_maxtouch_ts@4a {
+			compatible = "atmel,maxtouch-ts";
+			reg = <0x4a>
+			interrupt-parent = <&msmgpio>
+			interrupts = <48 0x0>;
+			vdd-supply = <&pm8941_l18>;
+			avdd-supply = <&pm8941_lvs1>;
+			xvdd-supply = <&pm8941_s4>;
+			atmel,panel-coords = <0 0 479 799>;
+			atmel,display-coords = <0 0 479 799>;
+			atmel,irq-gpio = <&msmgpio 48 0>;
+			atmel,reset-gpio = <&msmgpio 26 0>;
+			atmel,i2cmode-gpio = <&msmgpio 27 0>;
+			atmel,ignore-crc;
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
+			pinctrl-0 = <&ts_int_active &ts_reset_active &ts_i2cmode_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend &ts_i2cmode_suspend>;
+			/* Underlying clocks used by secure touch */
+			clock-names = "iface_clk", "core_clk";
+			clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+				 <&clock_gcc clk_gcc_blsp1_qup2_i2c_apps_clk>;
+			atmel,cfg-name = "maxtouch_8994_liquid_cfg.raw";
+			atmel,cfg_1 {
+				atmel,version = <0x10>;
+				atmel,build = <0xaa>;
+				atmel,fw-name = "maxtouch_8994_liquid_v1_1_AB.fw";
+			};
+		};
+	};

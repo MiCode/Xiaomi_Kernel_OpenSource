@@ -967,7 +967,8 @@ config TOUCHSCREEN_ZFORCE
 config SECURE_TOUCH
 	bool "Secure Touch"
 	depends on (TOUCHSCREEN_SYNAPTICS_I2C_RMI4 || \
-	  TOUCHSCREEN_SYNAPTICS_DSX_I2C_v21)
+	  TOUCHSCREEN_SYNAPTICS_DSX_I2C_v21 || TOUCHSCREEN_ATMEL_MXT || \
+	  TOUCHSCREEN_ATMEL_MAXTOUCH_TS)
 	help
 	  Say Y here to enable Secure Touch in supported drivers.
 
