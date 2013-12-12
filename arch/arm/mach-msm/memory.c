@@ -33,10 +33,6 @@
 #include <linux/sched.h>
 #include <linux/of_fdt.h>
 
-/* fixme */
-#include <asm/tlbflush.h>
-#include <../../mm/mm.h>
-
 /* These cache related routines make the assumption (if outer cache is
  * available) that the associated physical memory is contiguous.
  * They will operate on all (L1 and L2 if present) caches.
