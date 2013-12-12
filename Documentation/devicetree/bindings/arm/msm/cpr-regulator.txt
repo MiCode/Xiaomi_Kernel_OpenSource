@@ -198,6 +198,16 @@ Optional properties:
 - qti,cpr-uplift-speed-bin:	The speed bin value corresponding to one type of processor which needs to apply the
 				pvs voltage uplift workaround.
 				This is required if cpr-fuse-uplift-disable-sel is present.
+- qti,cpr-quot-adjust-table:	Array of 4-tuples in which each 4-tuple indicates the speed bin
+				of the CPU, the frequency of the CPU, the quotient adjustment and the voltage corner to use.
+				The 4 elements in one 4-tuple are:
+				[0]: => the speed bin of the CPU;
+				[1]: => the frequency in kHz of the CPU;
+				[2]: => the quotient adjustment of the corresponding frequency;
+				[3]: => the voltage corner to use.
+				If the speed bin in a tuple is eqaul to the speed bin of the CPU, then the quotient
+				adjustment would be subtracted from the quotient value of the voltage corner
+				when the CPU is running at that frequency.
 
 Example:
 	apc_vreg_corner: regulator@f9018000 {
@@ -260,5 +270,9 @@ Example:
 		qti,cpr-uplift-max-volt = <1350000>;
 		qti,cpr-uplift-speed-bin = <1>;
 		qti,speed-bin-fuse-sel = <22 0 3 0>;
+		qti,cpr-quot-adjust-table = <1 998400 450 3>,
+				<1 1094400 375 3>, <1 1190400 300 3>,
+				<1 1305600 225 3>, <1 1344000 187 3>,
+				<1 1401600 150 3>, <1 1497600 75 3>;
 	};
 
