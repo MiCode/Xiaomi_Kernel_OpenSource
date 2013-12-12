@@ -170,6 +170,7 @@ struct fastrpc_mmap {
 	struct hlist_node hn;
 	struct ion_handle *handle;
 	void *virt;
+	ion_phys_addr_t phys;
 	uint32_t vaddrin;
 	uint32_t vaddrout;
 	int size;
@@ -237,10 +238,15 @@ static void free_mem(struct fastrpc_buf *buf, int cid)
 	}
 }
 
-static void free_map(struct fastrpc_mmap *map)
+static void free_map(struct fastrpc_mmap *map, int cid)
 {
 	struct fastrpc_apps *me = &gfa;
 	if (!IS_ERR_OR_NULL(map->handle)) {
+		if (me->channel[cid].smmu.enabled && map->phys) {
+			ion_unmap_iommu(me->iclient, map->handle,
+					me->channel[cid].smmu.domain_id, 0);
+			map->phys = 0;
+		}
 		if (!IS_ERR_OR_NULL(map->virt)) {
 			ion_unmap_kernel(me->iclient, map->handle);
 			map->virt = 0;
@@ -1042,7 +1048,7 @@ static int fastrpc_internal_munmap(struct fastrpc_apps *me,
 	spin_unlock(&fdata->hlock);
 bail:
 	if (mapfree) {
-		free_map(mapfree);
+		free_map(mapfree, fdata->cid);
 		kfree(mapfree);
 	}
 	return err;
@@ -1057,7 +1063,7 @@ static int fastrpc_internal_mmap(struct fastrpc_apps *me,
 	struct fastrpc_mmap *map = 0;
 	struct smq_phy_page *pages = 0;
 	void *buf;
-	int len;
+	unsigned long len;
 	int num;
 	int err = 0;
 
@@ -1078,9 +1084,22 @@ static int fastrpc_internal_mmap(struct fastrpc_apps *me,
 	VERIFY(err, 0 != (pages = kzalloc(num * sizeof(*pages), GFP_KERNEL)));
 	if (err)
 		goto bail;
-	VERIFY(err, 0 < (num = buf_get_pages(buf, len, num, 1, pages, num)));
-	if (err)
-		goto bail;
+
+	if (me->channel[fdata->cid].smmu.enabled) {
+		VERIFY(err, 0 == ion_map_iommu(clnt, map->handle,
+				me->channel[fdata->cid].smmu.domain_id, 0,
+				SZ_4K, 0, &map->phys, &len, 0, 0));
+		if (err)
+			goto bail;
+		pages->addr = map->phys;
+		pages->size = len;
+		num = 1;
+	} else {
+		VERIFY(err, 0 < (num = buf_get_pages(buf, len, num, 1,
+							pages, num)));
+		if (err)
+			goto bail;
+	}
 
 	VERIFY(err, 0 == fastrpc_mmap_on_dsp(me, mmap, pages, fdata->cid, num));
 	if (err)
@@ -1094,7 +1113,7 @@ static int fastrpc_internal_mmap(struct fastrpc_apps *me,
 	spin_unlock(&fdata->hlock);
  bail:
 	if (err && map) {
-		free_map(map);
+		free_map(map, fdata->cid);
 		kfree(map);
 	}
 	kfree(pages);
@@ -1157,7 +1176,7 @@ static int fastrpc_device_release(struct inode *inode, struct file *file)
 		file->private_data = 0;
 		hlist_for_each_entry_safe(map, n, &fdata->hlst, hn) {
 			hlist_del(&map->hn);
-			free_map(map);
+			free_map(map, cid);
 			kfree(map);
 		}
 		kfree(fdata);
