@@ -848,3 +848,61 @@ Example:
 		qcom,tabla-mclk-clk-freq = <12288000>;
 		qcom,hdmi-audio-rx;
 	};
+
+* MDM9630 ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,mdm9630-audio-taiko"
+- qcom,model : The user-visible name of this sound card.
+- qcom,audio-routing : A list of the connections between audio components.
+  Each entry is a pair of strings, the first being the connection's sink,
+  the second being the connection's source.
+- qcom,taiko-mclk-clk-freq : Master clock value given to codec. Some WCD9XXX
+  codec can run at different mclk values. Mclk value can be 9.6MHz or 12.288MHz.
+  This element represents the value for MCLK provided to codec.
+- qcom,prim-i2s-gpio-ws : Specifies gpio assigned for primary WS I2S pin.
+- qcom,prim-i2s-gpio-din : Specifies gpio assigned for primary DIN I2S pin.
+- qcom,prim-i2s-gpio-dout : Specifies gpio assigned for primary DOUT I2S pin.
+- qcom,prim-i2s-gpio-sclk : Specifies gpio assigned for primary SCLK I2S pin.
+- qcom,prim-i2s-gpio-mclk : Specifies gpio assigned for MCLK I2S pin.
+
+Example:
+
+	sound {
+                compatible = "qcom,mdm9630-audio-taiko";
+                qcom,model = "mdm9630-taiko-i2s-snd-card";
+
+                qcom,audio-routing =
+                        "RX_BIAS", "MCLK",
+                        "LDO_H", "MCLK",
+                        "Ext Spk Bottom Pos", "LINEOUT1",
+                        "Ext Spk Bottom Neg", "LINEOUT3",
+                        "Ext Spk Top Pos", "LINEOUT2",
+                        "Ext Spk Top Neg", "LINEOUT4",
+                        "AMIC1", "MIC BIAS1 External",
+                        "MIC BIAS1 External", "Handset Mic",
+                        "AMIC2", "MIC BIAS2 External",
+                        "MIC BIAS2 External", "Headset Mic",
+                        "AMIC3", "MIC BIAS3 Internal1",
+                        "MIC BIAS3 Internal1", "ANCRight Headset Mic",
+                        "AMIC4", "MIC BIAS1 Internal2",
+                        "MIC BIAS1 Internal2", "ANCLeft Headset Mic",
+                        "DMIC1", "MIC BIAS1 External",
+                        "MIC BIAS1 External", "Digital Mic1",
+                        "DMIC2", "MIC BIAS1 External",
+                        "MIC BIAS1 External", "Digital Mic2",
+                        "DMIC3", "MIC BIAS3 External",
+                        "MIC BIAS3 External", "Digital Mic3",
+                        "DMIC4", "MIC BIAS3 External",
+                        "MIC BIAS3 External", "Digital Mic4",
+                        "DMIC5", "MIC BIAS4 External",
+                        "MIC BIAS4 External", "Digital Mic5",
+                        "DMIC6", "MIC BIAS4 External",
+                        "MIC BIAS4 External", "Digital Mic6";
+                        qcom,taiko-mclk-clk-freq = <12288000>;
+                        qcom,prim-i2s-gpio-ws   =  <&msmgpio 12 0>;
+                        qcom,prim-i2s-gpio-din  =  <&msmgpio 13 0>;
+                        qcom,prim-i2s-gpio-dout =  <&msmgpio 14 0>;
+                        qcom,prim-i2s-gpio-sclk =  <&msmgpio 15 0>;
+                        qcom,prim-i2s-gpio-mclk =  <&msmgpio 71 0>;
+	};
