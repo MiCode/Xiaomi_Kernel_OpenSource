@@ -302,14 +302,16 @@ void *a4xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 	struct kgsl_snapshot_registers regs[5];
 	struct adreno_snapshot_data *snap_data =
 			adreno_dev->gpudev->snapshot_data;
-	unsigned int clock_ctl;
+	unsigned int clock_ctl, clock_ctl2;
 
 	list.registers = regs;
 	list.count = 0;
 
 	/* Disable Clock gating temporarily for the debug bus to work */
-	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_CLOCK_CTL, &clock_ctl);
-	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_CLOCK_CTL, 0x00);
+	kgsl_regread(device, A4XX_RBBM_CLOCK_CTL, &clock_ctl);
+	kgsl_regread(device, A4XX_RBBM_CLOCK_CTL2, &clock_ctl2);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL, 0);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2, 0);
 
 	/* Store relevant registers in list to snapshot */
 	_snapshot_a3xx_regs(regs, &list, a4xx_registers,
@@ -392,8 +394,10 @@ skip_regs:
 			a4xx_snapshot_shader_memory,
 			&snap_data->sect_sizes->shader_mem);
 
-	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_CLOCK_CTL,
+	kgsl_regwrite(device, ADRENO_REG_RBBM_CLOCK_CTL,
 			clock_ctl);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2,
+			clock_ctl2);
 
 	/* This will only disable the clock if no one else turned on */
 	kgsl_mmu_disable_clk_on_ts(&device->mmu, 0, 0);
