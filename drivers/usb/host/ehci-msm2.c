@@ -550,8 +550,8 @@ static int msm_ehci_link_clk_reset(struct msm_hcd *mhcd, bool assert)
 			ret = clk_reset(mhcd->alt_core_clk, CLK_RESET_ASSERT);
 		} else {
 			/* Using asynchronous block reset to the hardware */
-			clk_disable(mhcd->iface_clk);
-			clk_disable(mhcd->core_clk);
+			clk_disable_unprepare(mhcd->iface_clk);
+			clk_disable_unprepare(mhcd->core_clk);
 			ret = clk_reset(mhcd->core_clk, CLK_RESET_ASSERT);
 		}
 		if (ret)
@@ -562,8 +562,8 @@ static int msm_ehci_link_clk_reset(struct msm_hcd *mhcd, bool assert)
 		} else {
 			ret = clk_reset(mhcd->core_clk, CLK_RESET_DEASSERT);
 			ndelay(200);
-			clk_enable(mhcd->core_clk);
-			clk_enable(mhcd->iface_clk);
+			clk_prepare_enable(mhcd->core_clk);
+			clk_prepare_enable(mhcd->iface_clk);
 		}
 		if (ret)
 			dev_err(mhcd->dev, "usb clk deassert failed\n");
