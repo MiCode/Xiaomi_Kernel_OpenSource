@@ -14,7 +14,7 @@
 #include <linux/slab.h>
 #include <linux/msm_ion.h>
 #include <linux/types.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include "msm_vidc_resources.h"
 #include "msm_vidc_debug.h"
 

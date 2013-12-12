@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,7 @@
 #include <media/msm_jpeg.h>
 #include "msm_jpeg_hw_reg.h"
 #include <linux/ion.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 
 struct msm_jpeg_hw_buf {
 	struct msm_jpeg_buf vbuf;

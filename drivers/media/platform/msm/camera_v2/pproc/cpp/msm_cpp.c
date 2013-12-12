@@ -28,7 +28,7 @@
 #include <linux/kernel.h>
 #include <linux/workqueue.h>
 #include <mach/clk.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include <mach/iommu.h>
 #include <mach/vreg.h>
 #include <media/msm_isp.h>

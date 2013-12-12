@@ -29,7 +29,7 @@
 #include <media/msm_camera.h>
 #include <mach/memory.h>
 #include <media/videobuf2-core.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 
 #define MAGIC_PMEM 0x0733ac64
 #define MAGIC_CHECK(is, should)               \

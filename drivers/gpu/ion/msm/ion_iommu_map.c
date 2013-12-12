@@ -20,7 +20,7 @@
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
 
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 
 enum {
 	DI_PARTITION_NUM = 0,

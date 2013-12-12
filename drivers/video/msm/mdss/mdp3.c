@@ -44,7 +44,7 @@
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
 #include <mach/iommu.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include <mach/msm_memtypes.h>
 
 #include "mdp3.h"

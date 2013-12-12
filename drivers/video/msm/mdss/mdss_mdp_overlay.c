@@ -24,7 +24,7 @@
 #include <linux/msm_mdp.h>
 #include <linux/memblock.h>
 
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include <mach/event_timer.h>
 #include <mach/msm_bus.h>
 #include <mach/scm.h>

@@ -28,7 +28,7 @@
 #include <linux/workqueue.h>
 #include <linux/iommu.h>
 #include <mach/iommu.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_tspp2.h>
 

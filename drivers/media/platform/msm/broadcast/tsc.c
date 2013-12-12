@@ -19,7 +19,7 @@
 #include <linux/fs.h>
 #include <linux/completion.h>	/* for completion signaling after interrupts */
 #include <linux/uaccess.h>	/* for copy from/to user in the ioctls */
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include <linux/mutex.h>
 #include <linux/of.h>		/* parsing device tree data */
 #include <linux/of_gpio.h>

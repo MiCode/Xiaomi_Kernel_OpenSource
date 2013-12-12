@@ -25,7 +25,7 @@
 #include <linux/hash.h>
 #include <linux/msm_ion.h>
 #include <mach/msm_smd.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include <linux/scatterlist.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>

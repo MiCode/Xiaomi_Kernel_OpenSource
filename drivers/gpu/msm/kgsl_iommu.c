@@ -21,7 +21,7 @@
 #include <mach/socinfo.h>
 #include <mach/msm_iomap.h>
 #include <mach/board.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include <stddef.h>
 
 #include "kgsl.h"

@@ -12,7 +12,7 @@
 */
 #include <linux/msm_mdp.h>
 #include <linux/slab.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include <media/videobuf2-core.h>
 #include "enc-subdev.h"
 #include "mdp-subdev.h"

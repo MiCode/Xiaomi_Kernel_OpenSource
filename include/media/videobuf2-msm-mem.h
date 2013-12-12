@@ -16,7 +16,7 @@
 #define _VIDEOBUF2_PMEM_CONTIG_H
 
 #include <media/videobuf2-core.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include <linux/msm_ion.h>
 
 struct videobuf2_mapping {

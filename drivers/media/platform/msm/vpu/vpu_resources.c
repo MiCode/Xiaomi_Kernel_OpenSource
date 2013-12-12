@@ -16,7 +16,7 @@
 #include <linux/msm_ion.h>
 #include <linux/iommu.h>
 #include <mach/iommu.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include <mach/msm_bus_board.h>
 #include <asm-generic/sizes.h>
 
