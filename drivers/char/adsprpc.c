@@ -165,6 +165,7 @@ struct fastrpc_mmap {
 	struct hlist_node hn;
 	struct ion_handle *handle;
 	void *virt;
+	ion_phys_addr_t phys;
 	uint32_t vaddrin;
 	uint32_t vaddrout;
 	int size;
@@ -214,6 +215,11 @@ static void free_map(struct fastrpc_mmap *map)
 {
 	struct fastrpc_apps *me = &gfa;
 	if (!IS_ERR_OR_NULL(map->handle)) {
+		if (me->smmu.enabled && map->phys) {
+			ion_unmap_iommu(me->iclient, map->handle,
+					me->smmu.domain_id, 0);
+			map->phys = 0;
+		}
 		if (!IS_ERR_OR_NULL(map->virt)) {
 			ion_unmap_kernel(me->iclient, map->handle);
 			map->virt = 0;
@@ -1010,7 +1016,7 @@ static int fastrpc_internal_mmap(struct fastrpc_apps *me,
 	struct fastrpc_mmap *map = 0;
 	struct smq_phy_page *pages = 0;
 	void *buf;
-	int len;
+	unsigned long len;
 	int num;
 	int err = 0;
 
@@ -1031,9 +1037,22 @@ static int fastrpc_internal_mmap(struct fastrpc_apps *me,
 	VERIFY(err, 0 != (pages = kzalloc(num * sizeof(*pages), GFP_KERNEL)));
 	if (err)
 		goto bail;
-	VERIFY(err, 0 < (num = buf_get_pages(buf, len, num, 1, pages, num)));
-	if (err)
-		goto bail;
+
+	if (me->smmu.enabled) {
+		VERIFY(err, 0 == ion_map_iommu(clnt, map->handle,
+				me->smmu.domain_id, 0,
+				SZ_4K, 0, &map->phys, &len, 0, 0));
+		if (err)
+			goto bail;
+		pages->addr = map->phys;
+		pages->size = len;
+		num = 1;
+	} else {
+		VERIFY(err, 0 < (num = buf_get_pages(buf, len, num, 1,
+							pages, num)));
+		if (err)
+			goto bail;
+	}
 
 	VERIFY(err, 0 == fastrpc_mmap_on_dsp(me, mmap, pages, num));
 	if (err)
