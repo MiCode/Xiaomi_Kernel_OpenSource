@@ -917,7 +917,6 @@ struct rpm_regulator *rpm_regulator_get(struct device *dev, const char *supply)
 	if (priv_reg == NULL) {
 		vreg_err(framework_reg, "could not allocate memory for "
 			"regulator\n");
-		rpm_vreg_unlock(rpm_vreg);
 		return ERR_PTR(-ENOMEM);
 	}
 
@@ -930,7 +929,6 @@ struct rpm_regulator *rpm_regulator_get(struct device *dev, const char *supply)
 		vreg_err(framework_reg, "could not allocate memory for "
 			"regulator_dev\n");
 		kfree(priv_reg);
-		rpm_vreg_unlock(rpm_vreg);
 		return ERR_PTR(-ENOMEM);
 	}
 	priv_reg->rdev->reg_data	= priv_reg;
