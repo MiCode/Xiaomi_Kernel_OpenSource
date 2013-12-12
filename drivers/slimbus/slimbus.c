@@ -650,6 +650,36 @@ void slim_report_absent(struct slim_device *sbdev)
 EXPORT_SYMBOL(slim_report_absent);
 
 /*
+ * slim_framer_booted: This function is called by controller after the active
+ * framer has booted (using Bus Reset sequence, or after it has shutdown and has
+ * come back up). Components, devices on the bus may be in undefined state,
+ * and this function triggers their drivers to do the needful
+ * to bring them back in Reset state so that they can acquire sync, report
+ * present and be operational again.
+ */
+void slim_framer_booted(struct slim_controller *ctrl)
+{
+	struct slim_device *sbdev;
+	struct list_head *pos, *next;
+	if (!ctrl)
+		return;
+	mutex_lock(&ctrl->m_ctrl);
+	list_for_each_safe(pos, next, &ctrl->devs) {
+		struct slim_driver *sbdrv;
+		sbdev = list_entry(pos, struct slim_device, dev_list);
+		mutex_unlock(&ctrl->m_ctrl);
+		if (sbdev && sbdev->dev.driver) {
+			sbdrv = to_slim_driver(sbdev->dev.driver);
+			if (sbdrv->reset_device)
+				sbdrv->reset_device(sbdev);
+		}
+		mutex_lock(&ctrl->m_ctrl);
+	}
+	mutex_unlock(&ctrl->m_ctrl);
+}
+EXPORT_SYMBOL(slim_framer_booted);
+
+/*
  * slim_msg_response: Deliver Message response received from a device to the
  *	framework.
  * @ctrl: Controller handle
