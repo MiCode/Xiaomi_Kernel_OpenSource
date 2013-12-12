@@ -607,6 +607,7 @@ static ssize_t synaptics_rmi4_0dbutton_store(struct device *dev,
 	if (rmi4_data->button_0d_enabled == input)
 		return count;
 
+	mutex_lock(&rmi->support_fn_list_mutex);
 	if (!list_empty(&rmi->support_fn_list)) {
 		list_for_each_entry(fhandler, &rmi->support_fn_list, link) {
 			if (fhandler->fn_number == SYNAPTICS_RMI4_F1A) {
@@ -618,7 +619,7 @@ static ssize_t synaptics_rmi4_0dbutton_store(struct device *dev,
 						&intr_enable,
 						sizeof(intr_enable));
 				if (retval < 0)
-					return retval;
+					goto exit;
 
 				if (input == 1)
 					intr_enable |= fhandler->intr_mask;
@@ -631,14 +632,17 @@ static ssize_t synaptics_rmi4_0dbutton_store(struct device *dev,
 						&intr_enable,
 						sizeof(intr_enable));
 				if (retval < 0)
-					return retval;
+					goto exit;
 			}
 		}
 	}
-
+	mutex_unlock(&rmi->support_fn_list_mutex);
 	rmi4_data->button_0d_enabled = input;
 
 	return count;
+exit:
+	mutex_unlock(&rmi->support_fn_list_mutex);
+	return retval;
 }
 
 static ssize_t synaptics_rmi4_flipx_show(struct device *dev,
@@ -1313,6 +1317,7 @@ static int synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data)
 	 * Traverse the function handler list and service the source(s)
 	 * of the interrupt accordingly.
 	 */
+	mutex_lock(&rmi->support_fn_list_mutex);
 	if (!list_empty(&rmi->support_fn_list)) {
 		list_for_each_entry(fhandler, &rmi->support_fn_list, link) {
 			if (fhandler->num_of_data_sources) {
@@ -1324,6 +1329,7 @@ static int synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data)
 			}
 		}
 	}
+	mutex_unlock(&rmi->support_fn_list_mutex);
 
 	mutex_lock(&exp_fn_list_mutex);
 	if (!list_empty(&exp_fn_list)) {
@@ -2074,10 +2080,12 @@ static int synaptics_rmi4_check_fn_list(struct synaptics_rmi4_data *rmi4_data,
 
 	rmi = &(rmi4_data->rmi4_mod_info);
 
+	mutex_lock(&rmi->support_fn_list_mutex);
 	if (!list_empty(&rmi->support_fn_list))
 		list_for_each_entry(new_fhandler, &rmi->support_fn_list, link)
 			if (new_fhandler->fn_number == fhandler->fn_number)
 				found = 1;
+	mutex_unlock(&rmi->support_fn_list_mutex);
 
 	return found;
 }
@@ -2253,8 +2261,11 @@ static int synaptics_rmi4_query_device(struct synaptics_rmi4_data *rmi4_data)
 						fhandler);
 
 				if (!found) {
+					mutex_lock(&rmi->support_fn_list_mutex);
 					list_add_tail(&fhandler->link,
-						&rmi->support_fn_list);
+							&rmi->support_fn_list);
+					mutex_unlock(
+						&rmi->support_fn_list_mutex);
 				} else {
 					if (fhandler->fn_number ==
 							SYNAPTICS_RMI4_F1A)
@@ -2282,20 +2293,25 @@ flash_prog_mode:
 	 * Map out the interrupt bit masks for the interrupt sources
 	 * from the registered function handlers.
 	 */
+	mutex_lock(&rmi->support_fn_list_mutex);
 	if (!list_empty(&rmi->support_fn_list)) {
 		list_for_each_entry(fhandler, &rmi->support_fn_list, link)
 			data_sources += fhandler->num_of_data_sources;
 	}
+	mutex_unlock(&rmi->support_fn_list_mutex);
+
 	if (data_sources) {
+		mutex_lock(&rmi->support_fn_list_mutex);
 		if (!list_empty(&rmi->support_fn_list)) {
 			list_for_each_entry(fhandler,
 						&rmi->support_fn_list, link) {
 				if (fhandler->num_of_data_sources) {
 					rmi4_data->intr_mask[fhandler->intr_reg_num] |=
-							fhandler->intr_mask;
+						fhandler->intr_mask;
 				}
 			}
 		}
+		mutex_unlock(&rmi->support_fn_list_mutex);
 	}
 
 	/* Enable the interrupt sources */
@@ -2901,6 +2917,7 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 	mutex_init(&(rmi4_data->rmi4_io_ctrl_mutex));
 
 	INIT_LIST_HEAD(&rmi->support_fn_list);
+	mutex_init(&rmi->support_fn_list_mutex);
 
 	retval = synaptics_rmi4_query_device(rmi4_data);
 	if (retval < 0) {
@@ -2955,12 +2972,14 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, rmi4_data);
 
 	f1a = NULL;
+	mutex_lock(&rmi->support_fn_list_mutex);
 	if (!list_empty(&rmi->support_fn_list)) {
 		list_for_each_entry(fhandler, &rmi->support_fn_list, link) {
 			if (fhandler->fn_number == SYNAPTICS_RMI4_F1A)
 				f1a = fhandler->data;
 		}
 	}
+	mutex_unlock(&rmi->support_fn_list_mutex);
 
 	if (f1a) {
 		for (ii = 0; ii < f1a->valid_button_count; ii++) {
@@ -3073,6 +3092,7 @@ err_enable_irq:
 	input_unregister_device(rmi4_data->input_dev);
 
 err_register_input:
+	mutex_lock(&rmi->support_fn_list_mutex);
 	if (!list_empty(&rmi->support_fn_list)) {
 		list_for_each_entry_safe(fhandler, next_fhandler,
 					&rmi->support_fn_list, link) {
@@ -3085,6 +3105,7 @@ err_register_input:
 			kfree(fhandler);
 		}
 	}
+	mutex_unlock(&rmi->support_fn_list_mutex);
 err_free_gpios:
 	if (gpio_is_valid(rmi4_data->board->reset_gpio))
 		gpio_free(rmi4_data->board->reset_gpio);
@@ -3140,6 +3161,7 @@ static int __devexit synaptics_rmi4_remove(struct i2c_client *client)
 
 	input_unregister_device(rmi4_data->input_dev);
 
+	mutex_lock(&rmi->support_fn_list_mutex);
 	if (!list_empty(&rmi->support_fn_list)) {
 		list_for_each_entry_safe(fhandler, next_fhandler,
 					&rmi->support_fn_list, link) {
@@ -3152,6 +3174,7 @@ static int __devexit synaptics_rmi4_remove(struct i2c_client *client)
 			kfree(fhandler);
 		}
 	}
+	mutex_unlock(&rmi->support_fn_list_mutex);
 
 	if (gpio_is_valid(rmi4_data->board->reset_gpio))
 		gpio_free(rmi4_data->board->reset_gpio);
