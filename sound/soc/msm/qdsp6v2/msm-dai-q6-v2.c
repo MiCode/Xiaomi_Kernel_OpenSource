@@ -2033,8 +2033,8 @@ static struct snd_soc_dai_ops msm_dai_q6_mi2s_ops = {
 static struct snd_soc_dai_driver msm_dai_q6_mi2s_dai[] = {
 	{
 		.playback = {
-			.stream_name = "Primary I2S Playback",
-			.aif_name = "PRI_I2S_RX",
+			.stream_name = "Primary MI2S Playback",
+			.aif_name = "PRI_MI2S_RX",
 			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
 			SNDRV_PCM_RATE_16000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,
@@ -2042,8 +2042,8 @@ static struct snd_soc_dai_driver msm_dai_q6_mi2s_dai[] = {
 			.rate_max =     48000,
 		},
 		.capture = {
-			.stream_name = "Primary I2S Capture",
-			.aif_name = "PRI_I2S_TX",
+			.stream_name = "Primary MI2S Capture",
+			.aif_name = "PRI_MI2S_TX",
 			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
 			SNDRV_PCM_RATE_16000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,
