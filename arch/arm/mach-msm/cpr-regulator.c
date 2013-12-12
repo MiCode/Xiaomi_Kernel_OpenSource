@@ -974,23 +974,25 @@ static int __devinit cpr_config(struct cpr_regulator *cpr_vreg)
 	return 0;
 }
 
-static int __devinit cpr_is_fuse_redundant(struct cpr_regulator *cpr_vreg,
-					 u32 redun_sel[5])
+static int __devinit cpr_fuse_is_setting_expected(struct cpr_regulator *cpr_vreg,
+					u32 sel_array[5])
 {
 	u64 fuse_bits;
-	int redundant;
+	u32 ret;
 
-	fuse_bits = cpr_read_efuse_row(cpr_vreg, redun_sel[0], redun_sel[4]);
-	fuse_bits = (fuse_bits >> redun_sel[1]) & ((1 << redun_sel[2]) - 1);
-	if (fuse_bits == redun_sel[3])
-		redundant = 1;
+	fuse_bits = cpr_read_efuse_row(cpr_vreg, sel_array[0], sel_array[4]);
+	ret = (fuse_bits >> sel_array[1]) & ((1 << sel_array[2]) - 1);
+	if (ret == sel_array[3])
+		ret = 1;
 	else
-		redundant = 0;
+		ret = 0;
 
-	pr_info("[row:%d] = 0x%llx @%d:%d = %d?: redundant=%d\n",
-		redun_sel[0], fuse_bits,
-		redun_sel[1], redun_sel[2], redun_sel[3], redundant);
-	return redundant;
+	pr_info("[row:%d] = 0x%llx @%d:%d == %d ?: %s\n",
+			sel_array[0], fuse_bits,
+			sel_array[1], sel_array[2],
+			sel_array[3],
+			(ret == 1) ? "yes" : "no");
+	return ret;
 }
 
 static int __devinit cpr_pvs_init(struct platform_device *pdev,
@@ -1011,7 +1013,7 @@ static int __devinit cpr_pvs_init(struct platform_device *pdev,
 		return rc;
 	}
 
-	redundant = cpr_is_fuse_redundant(cpr_vreg, pvs_fuse_redun_sel);
+	redundant = cpr_fuse_is_setting_expected(cpr_vreg, pvs_fuse_redun_sel);
 
 	if (redundant) {
 		rc = of_property_read_u32_array(of_node, "qti,pvs-fuse-redun",
@@ -1166,7 +1168,7 @@ static int __devinit cpr_init_cpr_efuse(struct platform_device *pdev,
 		return rc;
 	}
 
-	redundant = cpr_is_fuse_redundant(cpr_vreg, cpr_fuse_redun_sel);
+	redundant = cpr_fuse_is_setting_expected(cpr_vreg, cpr_fuse_redun_sel);
 
 	if (redundant) {
 		rc = of_property_read_u32_array(of_node,
@@ -1470,21 +1472,17 @@ static void cpr_parse_cond_min_volt_fuse(struct cpr_regulator *cpr_vreg,
 						struct device_node *of_node)
 {
 	int rc;
-	u32 fuse[4];
-	u64 blown_data, fuse_data;
-
+	u32 fuse_sel[5];
 	/*
 	 * Restrict all pvs corner voltages to a minimum value of
 	 * qti,cpr-cond-min-voltage if the fuse defined in
-	 * qti,cpr-cond-min-volt-fuse does not read back with the expected
-	 * value.
+	 * qti,cpr-fuse-cond-min-volt-sel does not read back with
+	 * the expected value.
 	 */
-	rc = of_property_read_u32_array(of_node, "qti,cpr-cond-min-volt-fuse",
-					fuse, 4);
+	rc = of_property_read_u32_array(of_node,
+			"qti,cpr-fuse-cond-min-volt-sel", fuse_sel, 5);
 	if (!rc) {
-		blown_data = cpr_read_efuse_row(cpr_vreg, fuse[0], fuse[3]);
-		fuse_data = ((u64)fuse[1] << 32) | fuse[2];
-		if (blown_data != fuse_data)
+		if (!cpr_fuse_is_setting_expected(cpr_vreg, fuse_sel))
 			cpr_vreg->flags |= FLAGS_SET_MIN_VOLTAGE;
 	}
 }
