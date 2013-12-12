@@ -16,6 +16,8 @@
 #include <linux/kernel.h>
 #include <linux/err.h>
 #include <linux/slab.h>
+#include <linux/clk.h>
+#include <linux/clk/msm-clk.h>
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -53,6 +55,8 @@ MODULE_PARM_DESC(ss_phy_override_deemphasis, "Override SSPHY demphasis value");
 struct msm_ssphy {
 	struct usb_phy		phy;
 	void __iomem		*base;
+	struct clk		*com_reset_clk;	/* PHY common block reset */
+	struct clk		*reset_clk;	/* SS PHY reset */
 	struct regulator	*vdd;
 	struct regulator	*vdda18;
 	bool			suspended;
@@ -214,18 +218,23 @@ static int msm_ssphy_init(struct usb_phy *uphy)
 	/* read initial value */
 	val = readl_relaxed(phy->base + SS_PHY_CTRL_REG);
 
+	/* Use clk reset, if available; otherwise use SS_PHY_RESET bit */
+	if (phy->com_reset_clk) {
+		clk_reset(phy->com_reset_clk, CLK_RESET_ASSERT);
+		clk_reset(phy->reset_clk, CLK_RESET_ASSERT);
+		udelay(10); /* 10us required before de-asserting */
+		clk_reset(phy->com_reset_clk, CLK_RESET_DEASSERT);
+		clk_reset(phy->reset_clk, CLK_RESET_DEASSERT);
+	} else {
+		writel_relaxed(val | SS_PHY_RESET, phy->base + SS_PHY_CTRL_REG);
+		udelay(10); /* 10us required before de-asserting */
+		writel_relaxed(val, phy->base + SS_PHY_CTRL_REG);
+	}
+
 	/* Use ref_clk from pads and set its parameters */
 	val |= REF_USE_PAD;
 	writel_relaxed(val, phy->base + SS_PHY_CTRL_REG);
 	msleep(30);
-
-	/* Assert SSPHY reset */
-	writel_relaxed(val | SS_PHY_RESET, phy->base + SS_PHY_CTRL_REG);
-	usleep_range(2000, 2200);
-
-	/* De-assert SSPHY reset - power and ref_clock must be ON */
-	writel_relaxed(val, phy->base + SS_PHY_CTRL_REG);
-	usleep_range(2000, 2200);
 
 	/* Ref clock must be stable now, enable ref clock for HS mode */
 	val |= LANE0_PWR_PRESENT | REF_SS_PHY_EN;
@@ -332,6 +341,13 @@ static int msm_ssphy_set_suspend(struct usb_phy *uphy, int suspend)
 		/* Set TEST_POWERDOWN (enables PHY retention) */
 		msm_usb_write_readback(base, SS_PHY_CTRL_REG, TEST_POWERDOWN,
 								TEST_POWERDOWN);
+		if (phy->com_reset_clk &&
+			!(phy->phy.flags & ENABLE_SECONDARY_PHY)) {
+			/* leave these asserted until resuming */
+			clk_reset(phy->com_reset_clk, CLK_RESET_ASSERT);
+			clk_reset(phy->reset_clk, CLK_RESET_ASSERT);
+		}
+
 		msm_ssusb_ldo_enable(phy, 0);
 		msm_ssusb_config_vdd(phy, 0);
 	} else {
@@ -343,9 +359,15 @@ static int msm_ssphy_set_suspend(struct usb_phy *uphy, int suspend)
 			goto done;
 		}
 
-		/* Assert SS PHY RESET */
-		msm_usb_write_readback(base, SS_PHY_CTRL_REG, SS_PHY_RESET,
-								SS_PHY_RESET);
+		if (phy->com_reset_clk) {
+			clk_reset(phy->com_reset_clk, CLK_RESET_DEASSERT);
+			clk_reset(phy->reset_clk, CLK_RESET_DEASSERT);
+		} else {
+			/* Assert SS PHY RESET */
+			msm_usb_write_readback(base, SS_PHY_CTRL_REG,
+						SS_PHY_RESET, SS_PHY_RESET);
+		}
+
 		/* Set REF_USE_PAD */
 		msm_usb_write_readback(base, SS_PHY_CTRL_REG, REF_USE_PAD,
 								REF_USE_PAD);
@@ -355,9 +377,11 @@ static int msm_ssphy_set_suspend(struct usb_phy *uphy, int suspend)
 		/* Clear TEST_POWERDOWN */
 		msm_usb_write_readback(base, SS_PHY_CTRL_REG, TEST_POWERDOWN,
 								0);
-		/* 10usec delay required before de-asserting SS PHY RESET */
-		udelay(10);
-		msm_usb_write_readback(base, SS_PHY_CTRL_REG, SS_PHY_RESET, 0);
+		if (!phy->com_reset_clk) {
+			udelay(10); /* 10us required before de-asserting */
+			msm_usb_write_readback(base, SS_PHY_CTRL_REG,
+						SS_PHY_RESET, 0);
+		}
 
 		/*
 		 * Reinitialize SSPHY parameters as SS_PHY RESET will reset
@@ -424,6 +448,18 @@ static int msm_ssphy_probe(struct platform_device *pdev)
 	if (!phy->base) {
 		dev_err(dev, "ioremap failed\n");
 		return -ENODEV;
+	}
+
+	phy->com_reset_clk = devm_clk_get(dev, "com_reset_clk");
+	if (IS_ERR(phy->com_reset_clk)) {
+		dev_dbg(dev, "com_reset_clk unavailable\n");
+		phy->com_reset_clk = NULL;
+	}
+
+	phy->reset_clk = devm_clk_get(dev, "reset_clk");
+	if (IS_ERR(phy->reset_clk)) {
+		dev_dbg(dev, "reset_clk unavailable\n");
+		phy->reset_clk = NULL;
 	}
 
 	if (of_get_property(dev->of_node, "qti,primary-phy", NULL)) {
