@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -127,12 +127,11 @@ static const char *msm8226_dt_match[] __initconst = {
 };
 
 DT_MACHINE_START(MSM8226_DT, "Qualcomm MSM 8226 (Flattened Device Tree)")
-	.map_io = msm_map_msm8226_io,
-	.init_irq = msm_dt_init_irq,
-	.init_machine = msm8226_init,
-	.dt_compat = msm8226_dt_match,
-	.reserve = msm8226_reserve,
-	.init_very_early = msm8226_early_memory,
-	.restart = msm_restart,
-	.smp = &arm_smp_ops,
+	.map_io			= msm_map_msm8226_io,
+	.init_machine		= msm8226_init,
+	.dt_compat		= msm8226_dt_match,
+	.reserve		= msm8226_reserve,
+	.init_very_early	= msm8226_early_memory,
+	.restart		= msm_restart,
+	.smp			= &arm_smp_ops,
 MACHINE_END

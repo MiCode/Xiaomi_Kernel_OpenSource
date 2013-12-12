@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -114,12 +114,11 @@ static const char *mpq8092_dt_match[] __initconst = {
 };
 
 DT_MACHINE_START(MSM8092_DT, "Qualcomm MSM 8092 (Flattened Device Tree)")
-	.map_io = mpq8092_map_io,
-	.init_irq = msm_dt_init_irq_nompm,
-	.init_machine = mpq8092_init,
-	.dt_compat = mpq8092_dt_match,
-	.reserve = mpq8092_dt_reserve,
-	.init_very_early = mpq8092_early_memory,
-	.restart = msm_restart,
-	.smp = &msm8974_smp_ops,
+	.map_io			= mpq8092_map_io,
+	.init_machine		= mpq8092_init,
+	.dt_compat		= mpq8092_dt_match,
+	.reserve		= mpq8092_dt_reserve,
+	.init_very_early	= mpq8092_early_memory,
+	.restart		= msm_restart,
+	.smp			= &msm8974_smp_ops,
 MACHINE_END

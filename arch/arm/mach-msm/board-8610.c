@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,12 +113,11 @@ static const char *msm8610_dt_match[] __initconst = {
 };
 
 DT_MACHINE_START(MSM8610_DT, "Qualcomm MSM 8610 (Flattened Device Tree)")
-	.map_io = msm_map_msm8610_io,
-	.init_irq = msm_dt_init_irq,
-	.init_machine = msm8610_init,
-	.dt_compat = msm8610_dt_match,
-	.restart = msm_restart,
-	.reserve = msm8610_reserve,
-	.init_very_early = msm8610_early_memory,
-	.smp = &arm_smp_ops,
+	.map_io			= msm_map_msm8610_io,
+	.init_machine		= msm8610_init,
+	.dt_compat		= msm8610_dt_match,
+	.restart		= msm_restart,
+	.reserve		= msm8610_reserve,
+	.init_very_early	= msm8610_early_memory,
+	.smp			= &arm_smp_ops,
 MACHINE_END

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,7 +12,4 @@
 
 #include <linux/of_platform.h>
 
-void __init msm_dt_init_irq(void);
-void __init msm_dt_init_irq_nompm(void);
-void __init msm_dt_init_irq_l2x0(void);
 void __init board_dt_populate(struct of_dev_auxdata *adata);
