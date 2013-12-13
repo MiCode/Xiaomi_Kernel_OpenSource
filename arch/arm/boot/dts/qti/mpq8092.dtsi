@@ -784,3 +784,22 @@
 #include "msm-pma8084-rpm-regulator.dtsi"
 #include "msm-pma8084.dtsi"
 #include "mpq8092-regulator.dtsi"
+
+&krait_regulator_pmic {
+	status = "ok";
+
+	qcom,ctl@2300 {
+		reg = <0x2300 0x100>;
+		status = "ok";
+	};
+
+	qcom,ps@2400 {
+		reg = <0x2400 0x100>;
+		status = "ok";
+	};
+
+	qcom,freq@2500 {
+		reg = <0x2500 0x100>;
+		status = "ok";
+	};
+};
