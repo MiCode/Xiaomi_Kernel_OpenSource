@@ -2161,6 +2161,7 @@ static struct clk_lookup msm_clocks_krypton[] = {
 	CLK_LOOKUP("pcie_0_pipe_clk", gcc_pcie_pipe_clk.c, "msm_pcie"),
 	CLK_LOOKUP("pcie_0_aux_clk", gcc_pcie_sleep_clk.c, "msm_pcie"),
 	CLK_LOOKUP("iface_clk",	gcc_sys_noc_usb3_axi_clk.c, "f9200000.ssusb"),
+	CLK_LOOKUP("iface_clk",	gcc_sys_noc_usb3_axi_clk.c, "msm_usb3"),
 	CLK_LOOKUP("aux_clk",	gcc_usb3_aux_clk.c,
 		   "f9b38000.ssphy"),
 	CLK_LOOKUP("pipe_clk",	gcc_usb3_pipe_clk.c,
