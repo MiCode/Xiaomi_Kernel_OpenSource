@@ -6028,6 +6028,9 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("sleep_a_clk", gcc_usb2a_phy_sleep_clk.c, "f9200000.ssusb"),
 	CLK_LOOKUP("utmi_clk",   gcc_usb30_mock_utmi_clk.c, "f9200000.ssusb"),
 
+	CLK_LOOKUP("com_reset_clk", gcc_usb30_phy_com_clk.c, "f92f8800.ssphy"),
+	CLK_LOOKUP("reset_clk",	gcc_usb3_phy_clk.c, "f92f8800.ssphy"),
+
 	CLK_LOOKUP("ref_clk", diff_clk1.c, "f9400000.ssusb"),
 	CLK_LOOKUP("xo", cxo_dwc3_clk.c, "f9400000.ssusb"),
 	CLK_LOOKUP("core_clk", gcc_usb30_sec_master_clk.c, "f9400000.ssusb"),
@@ -6053,9 +6056,6 @@ static struct clk_lookup apq_clocks_8084[] = {
 			"msm_hsic_host"),
 	CLK_LOOKUP("utmi_clk", gcc_usb_hsic_mock_utmi_clk.c, "msm_hsic_host"),
 	CLK_LOOKUP("system_clk", gcc_usb_hsic_system_clk.c, "msm_hsic_host"),
-
-	CLK_LOOKUP("",	gcc_usb30_phy_com_clk.c,	""),
-	CLK_LOOKUP("",	gcc_usb3_phy_clk.c,	""),
 
 	/* PCIE clocks */
 	CLK_LOOKUP("pcie_0_aux_clk", gcc_pcie_0_aux_clk.c, "msm_pcie.1"),
