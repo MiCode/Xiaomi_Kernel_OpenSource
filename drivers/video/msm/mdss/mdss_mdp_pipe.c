@@ -1036,6 +1036,11 @@ static int mdss_mdp_src_addr_setup(struct mdss_mdp_pipe *pipe,
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC2_ADDR, data.p[2].addr);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC3_ADDR, data.p[3].addr);
 
+	/* Flush Sel register only exists in mpq */
+	if ((mdata->mdp_rev == MDSS_MDP_HW_REV_200) &&
+		(pipe->flags & MDP_VPU_PIPE))
+		mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_VIG_FLUSH_SEL, 0);
+
 	return 0;
 }
 

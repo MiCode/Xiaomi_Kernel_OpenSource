@@ -215,6 +215,9 @@ enum mdss_mdp_sspp_chroma_samp_type {
 #define MDSS_MDP_REG_VIG_MEM_COL_BASE			0x288
 #define MDSS_MDP_REG_VIG_PA_BASE			0x310
 
+/* in mpq product */
+#define MDSS_MDP_REG_VIG_FLUSH_SEL			0x204
+
 #define MDSS_MDP_VIG_OP_PA_SAT_ZERO_EXP_EN		BIT(2)
 #define MDSS_MDP_VIG_OP_PA_MEM_PROTECT_EN		BIT(3)
 #define MDSS_MDP_VIG_OP_PA_EN				BIT(4)
