@@ -67,6 +67,8 @@ int pmic_reset_irq;
 static void __iomem *msm_tmr0_base;
 
 #ifdef CONFIG_MSM_DLOAD_MODE
+#define DL_MODE_PROP "qti,msm-imem-emergency_download_mode"
+#define EDL_MODE_PROP "qti,msm-imem-download_mode"
 static int in_panic;
 static void *dload_mode_addr;
 static bool dload_mode_enabled;
@@ -345,24 +347,50 @@ late_initcall(msm_pmic_restart_init);
 static int __init msm_restart_init(void)
 {
 	struct device_node *np;
+	int ret = 0;
 
 #ifdef CONFIG_MSM_DLOAD_MODE
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
-	dload_mode_addr = MSM_IMEM_BASE + DLOAD_MODE_ADDR;
-	emergency_dload_mode_addr = MSM_IMEM_BASE +
-		EMERGENCY_DLOAD_MODE_ADDR;
+	np = of_find_compatible_node(NULL, NULL, DL_MODE_PROP);
+	if (!np) {
+		pr_err("unable to find DT imem download mode node\n");
+		ret = -ENODEV;
+		goto err_dl_mode;
+	}
+	dload_mode_addr = of_iomap(np, 0);
+	if (!dload_mode_addr) {
+		pr_err("unable to map imem download model offset\n");
+		ret = -ENOMEM;
+		goto err_dl_mode;
+	}
+
+	np = of_find_compatible_node(NULL, NULL, EDL_MODE_PROP);
+	if (!np) {
+		pr_err("unable to find DT imem emergency download mode node\n");
+		ret = -ENODEV;
+		goto err_edl_mode;
+	}
+	emergency_dload_mode_addr = of_iomap(np, 0);
+	if (!emergency_dload_mode_addr) {
+		pr_err("unable to map imem emergency download model offset\n");
+		ret = -ENOMEM;
+		goto err_edl_mode;
+	}
+
 	set_dload_mode(download_mode);
 #endif
 	msm_tmr0_base = msm_timer_get_timer0_base();
 	np = of_find_compatible_node(NULL, NULL, "qti,msm-imem-restart_reason");
 	if (!np) {
 		pr_err("unable to find DT imem restart reason node\n");
-		return -ENODEV;
+		ret = -ENODEV;
+		goto err_restart_reason;
 	}
 	restart_reason = of_iomap(np, 0);
 	if (!restart_reason) {
 		pr_err("unable to map imem restart reason offset\n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto err_restart_reason;
 	}
 	pm_power_off = msm_power_off;
 
@@ -370,5 +398,14 @@ static int __init msm_restart_init(void)
 		scm_pmic_arbiter_disable_supported = true;
 
 	return 0;
+
+err_restart_reason:
+#ifdef CONFIG_MSM_DLOAD_MODE
+	iounmap(emergency_dload_mode_addr);
+err_edl_mode:
+	iounmap(dload_mode_addr);
+err_dl_mode:
+#endif
+	return ret;
 }
 early_initcall(msm_restart_init);

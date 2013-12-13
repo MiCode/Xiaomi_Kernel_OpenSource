@@ -291,6 +291,11 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
+		download_mode@0 {
+			compatible = "qti,msm-imem-download_mode";
+			reg = <0x0 8>;
+		};
+
 		mem_dump_table@14 {
 			compatible = "qti,msm-imem-mem_dump_table";
 			reg = <0x14 4>;
@@ -314,6 +319,11 @@
 		pil@94c {
 			compatible = "qti,msm-imem-pil";
 			reg = <0x94c 200>;
+		};
+
+		emergency_download_mode@fe0 {
+			compatible = "qti,msm-imem-emergency_download_mode";
+			reg = <0xfe0 12>;
 		};
 	};
 
