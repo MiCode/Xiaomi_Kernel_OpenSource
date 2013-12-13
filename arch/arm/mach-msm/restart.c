@@ -53,12 +53,6 @@
 
 #define SCM_IO_DISABLE_PMIC_ARBITER	1
 
-#ifdef CONFIG_MSM_RESTART_V2
-#define use_restart_v2()	1
-#else
-#define use_restart_v2()	0
-#endif
-
 static int restart_mode;
 void *restart_reason;
 
@@ -183,12 +177,8 @@ static void __msm_power_off(int lower_pshold)
 	qpnp_pon_system_pwr_off(PON_POWER_OFF_SHUTDOWN);
 
 	if (lower_pshold) {
-		if (!use_restart_v2()) {
-			__raw_writel(0, PSHOLD_CTL_SU);
-		} else {
-			halt_spmi_pmic_arbiter();
-			__raw_writel(0, MSM_MPM2_PSHOLD_BASE);
-		}
+		halt_spmi_pmic_arbiter();
+		__raw_writel(0, MSM_MPM2_PSHOLD_BASE);
 
 		mdelay(10000);
 		printk(KERN_ERR "Powering off has failed\n");
@@ -200,47 +190,6 @@ static void msm_power_off(void)
 {
 	/* MSM initiated power off, lower ps_hold */
 	__msm_power_off(1);
-}
-
-static void cpu_power_off(void *data)
-{
-	int rc;
-
-	pr_err("PMIC Initiated shutdown %s cpu=%d\n", __func__,
-						smp_processor_id());
-	if (smp_processor_id() == 0) {
-		/*
-		 * PMIC initiated power off, do not lower ps_hold, pmic will
-		 * shut msm down
-		 */
-		__msm_power_off(0);
-
-		pet_watchdog();
-		pr_err("Calling scm to disable arbiter\n");
-		/* call secure manager to disable arbiter and never return */
-		rc = scm_call_atomic1(SCM_SVC_PWR,
-						SCM_IO_DISABLE_PMIC_ARBITER, 1);
-
-		pr_err("SCM returned even when asked to busy loop rc=%d\n", rc);
-		pr_err("waiting on pmic to shut msm down\n");
-	}
-
-	preempt_disable();
-	while (1)
-		;
-}
-
-static irqreturn_t resout_irq_handler(int irq, void *dev_id)
-{
-	pr_warn("%s PMIC Initiated shutdown\n", __func__);
-	oops_in_progress = 1;
-	smp_call_function_many(cpu_online_mask, cpu_power_off, NULL, 0);
-	if (smp_processor_id() == 0)
-		cpu_power_off(NULL);
-	preempt_disable();
-	while (1)
-		;
-	return IRQ_HANDLED;
 }
 
 static void msm_restart_prepare(const char *cmd)
@@ -296,50 +245,14 @@ void msm_restart(char mode, const char *cmd)
 
 	msm_restart_prepare(cmd);
 
-	if (!use_restart_v2()) {
-		__raw_writel(0, msm_tmr0_base + WDT0_EN);
-			mb();
-			 /* Actually reset the chip */
-			__raw_writel(0, PSHOLD_CTL_SU);
-			mdelay(5000);
-			pr_notice("PS_HOLD didn't work, falling back to watchdog\n");
-
-		__raw_writel(1, msm_tmr0_base + WDT0_RST);
-		__raw_writel(5*0x31F3, msm_tmr0_base + WDT0_BARK_TIME);
-		__raw_writel(0x31F3, msm_tmr0_base + WDT0_BITE_TIME);
-		__raw_writel(1, msm_tmr0_base + WDT0_EN);
-	} else {
-		/* Needed to bypass debug image on some chips */
-		msm_disable_wdog_debug();
-		halt_spmi_pmic_arbiter();
-		__raw_writel(0, MSM_MPM2_PSHOLD_BASE);
-	}
+	/* Needed to bypass debug image on some chips */
+	msm_disable_wdog_debug();
+	halt_spmi_pmic_arbiter();
+	__raw_writel(0, MSM_MPM2_PSHOLD_BASE);
 
 	mdelay(10000);
 	printk(KERN_ERR "Restarting has failed\n");
 }
-
-static int __init msm_pmic_restart_init(void)
-{
-	int rc;
-
-	if (use_restart_v2())
-		return 0;
-
-	if (pmic_reset_irq != 0) {
-		rc = request_any_context_irq(pmic_reset_irq,
-					resout_irq_handler, IRQF_TRIGGER_HIGH,
-					"restart_from_pmic", NULL);
-		if (rc < 0)
-			pr_err("pmic restart irq fail rc = %d\n", rc);
-	} else {
-		pr_warn("no pmic restart interrupt specified\n");
-	}
-
-	return 0;
-}
-
-late_initcall(msm_pmic_restart_init);
 
 static int __init msm_restart_init(void)
 {
