@@ -21,11 +21,11 @@
 #include <linux/clk/msm-clk-provider.h>
 #include <linux/clk/msm-clk.h>
 #include <linux/clk/msm-clock-generic.h>
+#include <mach/avs.h>
 
 #include <linux/clk.h>
 #include <mach/msm-krait-l2-accessors.h>
 #include "clock-krait.h"
-#include "avs.h"
 
 static DEFINE_SPINLOCK(kpss_clock_reg_lock);
 
