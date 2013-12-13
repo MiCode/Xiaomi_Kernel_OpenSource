@@ -128,8 +128,22 @@ struct vpu_hfi_device {
 	struct vpu_platform_resources	*platform_resouce;
 };
 
+struct addr_range {
+	u32 start;
+	u32 end;
+};
+
 /* global */
 static struct vpu_hfi_device g_hfi_device;
+
+static struct addr_range csr_skip_addrs[] = {
+	/* start and end offsets of inaccessible address ranges */
+	{ 0x0000, 0x000F },
+	{ 0x0018, 0x001B },
+	{ 0x0020, 0x0037 },
+	{ 0x00C0, 0x00DF },
+	{ 0x01A0, 0x01AF },
+};
 
 /*
  * write a packet into the IPC memory
@@ -422,9 +436,9 @@ static int vpu_hfi_queues_init(struct vpu_hfi_device *dev, void *start_addr,
 					(u32) dev->mem_base;
 		dev->rxqs[i].q_data_size = vpu_hfi_q_size(RX_Q_IDX_TO_Q_ID(i));
 		dev->rxqs[i].state = HFI_QUEUE_STATE_DISABLED;
-		vpu_hfi_init_qhdr(dev->txqs[i].q_hdr, false,
-				dev->txqs[i].q_data_offset,
-				dev->txqs[i].q_data_size);
+		vpu_hfi_init_qhdr(dev->rxqs[i].q_hdr, false,
+				dev->rxqs[i].q_data_offset,
+				dev->rxqs[i].q_data_size);
 		qmem_size_sum += vpu_hfi_q_size(RX_Q_IDX_TO_Q_ID(i));
 
 		mutex_init(&dev->rxqs[i].lock);
@@ -519,7 +533,7 @@ static int vpu_hfi_boot(struct vpu_hfi_device *hdevice)
 
 	/* wait for VPU FW up (poll status register) */
 	timeout = vpu_pil_timeout/20;
-	while ((raw_hfi_status_read((u32)(hdevice->reg_base)) & 1) == 0) {
+	while (!raw_hfi_fw_ready((u32)hdevice->reg_base)) {
 		if (timeout-- <= 0) {
 			/* FW bootup timed out */
 			pr_err("VPU FW bootup timeout\n");
@@ -791,9 +805,9 @@ void vpu_hfi_stop(void)
 	free_irq(hdevice->irq_wd, hdevice);
 
 	if (!hdevice->watchdog_bited) {
-		if (!raw_hfi_fw_halted((u32)(hdevice->reg_base))) {
+		if (!raw_hfi_fw_halted((u32)hdevice->reg_base)) {
 			msleep(20);
-			if (!raw_hfi_fw_halted((u32)(hdevice->reg_base)))
+			if (!raw_hfi_fw_halted((u32)hdevice->reg_base))
 				pr_warn("firmware not halted!\n");
 		}
 	}
@@ -1144,15 +1158,48 @@ size_t vpu_hfi_print_queues(char *buf, size_t buf_size)
 	return strlcat(buf, "", buf_size);
 }
 
-
 int vpu_hfi_dump_csr_regs(char *buf, size_t buf_size)
 {
 	struct vpu_hfi_device *hdevice = &g_hfi_device;
 	u32 v_base = (u32)(hdevice->reg_base);
 	u32 p_base = (u32)(hdevice->platform_resouce->register_base_phy);
+	u32 last_addr = v_base +
+			csr_skip_addrs[ARRAY_SIZE(csr_skip_addrs) - 1].end;
+	u32 addr;
+	char temp[32];
+	int i = 0, skip = 0, temp_size = 32;
 
 	strlcpy(buf, "", buf_size);
-	raw_hfi_dump_csr_regs(v_base, p_base, buf, buf_size);
+
+	/* read one at a time. Print 4 registers per line */
+	for (addr = v_base; addr <= last_addr; addr += sizeof(u32)) {
+		if ((addr % 0x10) == 0) {
+			snprintf(temp, temp_size, "@0x%08x -",
+					(addr - v_base + p_base));
+			strlcat(buf, temp, buf_size);
+		}
+
+		if ((addr - v_base) >= csr_skip_addrs[i].start &&
+				(addr - v_base) <= csr_skip_addrs[i].end) {
+			skip = 1;
+			snprintf(temp, temp_size, " xxxxxxxxxx");
+			strlcat(buf, temp, buf_size);
+		} else {
+			if (skip) {
+				i++;
+				skip = 0;
+			}
+
+			snprintf(temp, temp_size, " 0x%08x",
+					readl_relaxed(addr + 0 * sizeof(u32)));
+			strlcat(buf, temp, buf_size);
+		}
+
+		if ((addr % 0x10) == 0xc) {
+			snprintf(temp, temp_size, "\n");
+			strlcat(buf, temp, buf_size);
+		}
+	}
 
 	return strlcat(buf, "\n", buf_size);
 }

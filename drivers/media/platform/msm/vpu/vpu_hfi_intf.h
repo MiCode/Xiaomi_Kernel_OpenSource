@@ -44,10 +44,9 @@ struct hfi_queue_table_header {
 #define VPU_MAX_QUEUE_NUM		(VPU_MAX_TXQ_NUM + VPU_MAX_RXQ_NUM)
 
 /* qhdr_q_size in bytes */
-#define VPU_SYS_QUEUE_SIZE		1024
-#define VPU_SESSION_QUEUE_SIZE		2048
-#define VPU_LOGGING_QUEUE_SIZE		2048 /* assume this size */
-#define VPU_TUNE_QUEUE_SIZE		20480
+#define VPU_SYS_QUEUE_SIZE		SZ_1K
+#define VPU_SESSION_QUEUE_SIZE		SZ_2K
+#define VPU_LOGGING_QUEUE_SIZE		SZ_64K
 
 #define TX_Q_IDX_TO_Q_ID(idx)		(VPU_SYSTEM_CMD_QUEUE_ID + (idx * 2))
 #define RX_Q_IDX_TO_Q_ID(idx)		(VPU_SYSTEM_MSG_QUEUE_ID + (idx * 2))
@@ -146,8 +145,6 @@ static inline u32 vpu_hfi_q_size(int q_id)
  * VPU CSR register offsets
  */
 
-/* A5 control */
-#define VPU_CSR_A5_CONTROL			0x018
 /* fw -> apps sgi interrupt */
 #define VPU_CSR_APPS_SGI_STS			0x050
 #define VPU_CSR_APPS_SGI_CLR			0x054
@@ -226,43 +223,18 @@ static inline u32 raw_hfi_status_read(u32 regbase)
 	return val;
 }
 
-static inline bool raw_hfi_fw_halted(u32 regbase)
+static inline bool raw_hfi_fw_ready(u32 regbase)
 {
-	u32 val;
+	u32 val = raw_hfi_status_read(regbase);
 
-	val = readl_relaxed(regbase + VPU_CSR_A5_CONTROL);
-
-	/* bit 7 is Firmware WFI status */
-	if (val & (1 << 7))
-		return true;
-	else
-		return false;
+	return (val & 0x1) ? true : false;
 }
 
-#define add2buf(dest, dest_size, temp, temp_size, __fmt, arg...) \
-	do { \
-		snprintf(temp, temp_size, __fmt, ## arg); \
-		strlcat(dest, temp, dest_size); \
-	} while (0)
-
-static inline void raw_hfi_dump_csr_regs(u32 v_base, u32 p_base,
-		char *buf, size_t buf_size)
+static inline bool raw_hfi_fw_halted(u32 regbase)
 {
-	/* temporary buffer */
-	size_t t_s = SZ_128;
-	char t[t_s];
-	u32 addr;
-	u32 last_addr = v_base + VPU_HW_VERSION;
+	u32 val = raw_hfi_status_read(regbase);
 
-	/* read each register (4 per line) */
-	for (addr = v_base; addr <= last_addr; addr += 4 * sizeof(u32))
-		add2buf(buf, buf_size, t, t_s,
-			"@0x%08x - 0x%08x 0x%08x 0x%08x 0x%08x\n",
-			(addr - v_base + p_base),
-			readl_relaxed(addr + 0 * sizeof(u32)),
-			readl_relaxed(addr + 1 * sizeof(u32)),
-			readl_relaxed(addr + 2 * sizeof(u32)),
-			readl_relaxed(addr + 3 * sizeof(u32)));
+	return (val & 0x2) ? true : false;
 }
 
 #endif /* __H_VPU_HFI_INTF_H__ */
