@@ -707,15 +707,6 @@ config MSM_SMD_LOGGING
 
 	  If in doubt, say yes.
 
-config MSM_SMD_TTY
-	bool "SMD TTY Driver"
-	depends on MSM_SMD
-	default y
-	help
-	  Provides TTY interfaces to interact with the modem.
-
-	  If in doubt, say yes.
-
 config MSM_SMD_PKT
 	bool "SMD Packet Driver"
 	depends on MSM_SMD
