@@ -2447,10 +2447,10 @@ static struct snd_soc_dai_link apq8084_common_dai_links[] = {
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA7,
 	},
 	{
-		.name = "APQ8084 Compr4",
-		.stream_name = "COMPR4",
+		.name = "APQ8084 Compr8",
+		.stream_name = "COMPR8",
 		.cpu_dai_name	= "MultiMedia8",
-		.platform_name  = "msm-compress-dsp",
+		.platform_name  = "msm-compr-dsp",
 		.dynamic = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			 SND_SOC_DPCM_TRIGGER_POST},
