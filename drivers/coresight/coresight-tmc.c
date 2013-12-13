@@ -178,6 +178,7 @@ struct tmc_drvdata {
 	wait_queue_head_t	wq;
 	char			*byte_cntr_node;
 	uint32_t		mem_size;
+	bool			sticky_enable;
 };
 
 static void tmc_wait_for_flush(struct tmc_drvdata *drvdata)
@@ -436,6 +437,41 @@ static void tmc_etr_byte_cntr_stop(struct tmc_drvdata *drvdata)
 	wake_up(&drvdata->wq);
 }
 
+static int tmc_etr_alloc_mem(struct tmc_drvdata *drvdata)
+{
+	int ret;
+
+	if (!drvdata->vaddr) {
+		drvdata->vaddr = dma_zalloc_coherent(drvdata->dev,
+						     drvdata->size,
+						     &drvdata->paddr,
+						     GFP_KERNEL);
+		if (!drvdata->vaddr) {
+			ret = -ENOMEM;
+			goto err;
+		}
+	}
+	/*
+	 * Need to reinitialize buf for each tmc enable session since it is
+	 * getting modified during tmc etr dump.
+	 */
+	drvdata->buf = drvdata->vaddr;
+	return 0;
+err:
+	dev_err(drvdata->dev, "etr ddr memory allocation failed\n");
+	return ret;
+}
+
+static void tmc_etr_free_mem(struct tmc_drvdata *drvdata)
+{
+	if (drvdata->vaddr) {
+		dma_free_coherent(drvdata->dev, drvdata->size,
+				  drvdata->vaddr, drvdata->paddr);
+		drvdata->vaddr = 0;
+		drvdata->paddr = 0;
+	}
+}
+
 static void __tmc_etb_enable(struct tmc_drvdata *drvdata)
 {
 	/* Zero out the memory to help with debug */
@@ -508,6 +544,22 @@ static int tmc_enable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 		coresight_cti_map_trigin(drvdata->cti_reset, 0, 0);
 	} else if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
 		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
+
+			/*
+			 * ETR DDR memory is not allocated until user enables
+			 * tmc at least once. If user specifies different ETR
+			 * DDR size than the default size after enabling tmc;
+			 * the newly specified size will be honored from next
+			 * tmc enable session.
+			 */
+			if (drvdata->size != drvdata->mem_size) {
+				tmc_etr_free_mem(drvdata);
+				drvdata->size = drvdata->mem_size;
+			}
+			ret = tmc_etr_alloc_mem(drvdata);
+			if (ret)
+				goto err0;
+
 			tmc_etr_byte_cntr_start(drvdata);
 			if (!drvdata->reset_flush_race) {
 				coresight_cti_map_trigout(drvdata->cti_flush,
@@ -549,6 +601,12 @@ static int tmc_enable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 			__tmc_etf_enable(drvdata);
 	}
 	drvdata->enable = true;
+
+	/*
+	 * sticky_enable prevents users from reading tmc dev node before
+	 * enabling tmc at least once.
+	 */
+	drvdata->sticky_enable = true;
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 	mutex_unlock(&drvdata->usb_lock);
 
@@ -863,6 +921,11 @@ static int tmc_read_prepare(struct tmc_drvdata *drvdata)
 	enum tmc_mode mode;
 
 	spin_lock_irqsave(&drvdata->spinlock, flags);
+	if (!drvdata->sticky_enable) {
+		dev_err(drvdata->dev, "enable tmc once before reading\n");
+		ret = -EPERM;
+		goto err;
+	}
 	if (!drvdata->enable)
 		goto out;
 
@@ -1338,10 +1401,14 @@ static ssize_t tmc_etr_store_mem_size(struct device *dev,
 	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (sscanf(buf, "%lx", &val) != 1)
+	mutex_lock(&drvdata->usb_lock);
+	if (sscanf(buf, "%lx", &val) != 1) {
+		mutex_unlock(&drvdata->usb_lock);
 		return -EINVAL;
+	}
 
 	drvdata->mem_size = val;
+	mutex_unlock(&drvdata->usb_lock);
 	return size;
 }
 static DEVICE_ATTR(mem_size, S_IRUGO | S_IWUSR,
@@ -1628,6 +1695,7 @@ static int tmc_probe(struct platform_device *pdev)
 				clk_disable_unprepare(drvdata->clk);
 				return ret;
 			}
+			drvdata->mem_size = drvdata->size;
 		}
 	} else {
 		drvdata->size = tmc_readl(drvdata, TMC_RSZ) * BYTES_PER_WORD;
@@ -1636,12 +1704,6 @@ static int tmc_probe(struct platform_device *pdev)
 	clk_disable_unprepare(drvdata->clk);
 
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
-		drvdata->vaddr = dma_zalloc_coherent(&pdev->dev, drvdata->size,
-						     &drvdata->paddr,
-						     GFP_KERNEL);
-		if (!drvdata->vaddr)
-			return -ENOMEM;
-		drvdata->buf = drvdata->vaddr;
 		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
 		if (pdev->dev.of_node)
 			drvdata->byte_cntr_present = !of_property_read_bool
@@ -1780,10 +1842,6 @@ err2:
 err1:
 	tmc_etr_byte_cntr_exit(drvdata);
 err0:
-	if (drvdata->vaddr)
-		dma_free_coherent(&pdev->dev, drvdata->size,
-				  drvdata->vaddr,
-				  drvdata->paddr);
 	return ret;
 }
 
@@ -1795,9 +1853,8 @@ static int tmc_remove(struct platform_device *pdev)
 	misc_deregister(&drvdata->miscdev);
 	coresight_unregister(drvdata->csdev);
 	tmc_etr_bam_exit(drvdata);
-	if (drvdata->vaddr)
-		dma_free_coherent(&pdev->dev, drvdata->size, drvdata->vaddr,
-				  drvdata->paddr);
+	tmc_etr_free_mem(drvdata);
+
 	return 0;
 }
 
