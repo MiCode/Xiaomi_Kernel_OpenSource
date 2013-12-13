@@ -30,11 +30,11 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/of_gpio.h>
+#include <linux/clk/msm-clk.h>
 #include <asm/mach/pci.h>
 #include <mach/gpiomux.h>
 #include <mach/hardware.h>
 #include <mach/msm_iomap.h>
-#include <mach/clk.h>
 
 #include "pcie.h"
 

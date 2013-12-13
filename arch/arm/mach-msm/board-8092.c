@@ -19,12 +19,12 @@
 #include <linux/of_fdt.h>
 #include <linux/of_irq.h>
 #include <linux/msm_tsens.h>
+#include <linux/clk/msm-clk-provider.h>
 #include <asm/mach/arch.h>
 #include <mach/socinfo.h>
 #include <mach/board.h>
 #include <mach/msm_memtypes.h>
 #include <mach/qpnp-int.h>
-#include <mach/clk-provider.h>
 #include <mach/msm_smem.h>
 #include <mach/msm_smd.h>
 #include <mach/restart.h>

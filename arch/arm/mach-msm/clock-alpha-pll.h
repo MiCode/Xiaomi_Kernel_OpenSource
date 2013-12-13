@@ -15,8 +15,8 @@
 #ifndef __ARCH_ARM_MACH_MSM_CLOCK_ALPHA_PLL_H
 #define __ARCH_ARM_MACH_MSM_CLOCK_ALPHA_PLL_H
 
-#include <mach/clk-provider.h>
 #include <linux/spinlock.h>
+#include <linux/clk/msm-clk-provider.h>
 
 struct alpha_pll_masks {
 	u32 lock_mask;

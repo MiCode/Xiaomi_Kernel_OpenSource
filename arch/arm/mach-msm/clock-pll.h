@@ -15,7 +15,7 @@
 #ifndef __ARCH_ARM_MACH_MSM_CLOCK_PLL_H
 #define __ARCH_ARM_MACH_MSM_CLOCK_PLL_H
 
-#include <mach/clk-provider.h>
+#include <linux/clk/msm-clk-provider.h>
 
 /**
  * struct pll_freq_tbl - generic PLL frequency definition

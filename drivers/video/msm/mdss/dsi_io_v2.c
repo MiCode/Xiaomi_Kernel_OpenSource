@@ -16,8 +16,8 @@
 #include <linux/io.h>
 #include <linux/slab.h>
 #include <linux/regulator/consumer.h>
+#include <linux/clk/msm-clk.h>
 
-#include <mach/clk.h>
 
 #include "dsi_v2.h"
 #include "dsi_io_v2.h"

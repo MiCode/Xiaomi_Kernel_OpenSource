@@ -46,9 +46,9 @@
 #include <linux/wait.h>
 #include <linux/pm_qos.h>
 #include <linux/dma-mapping.h>
+#include <linux/clk/msm-clk.h>
 
 #include <mach/msm_bus.h>
-#include <mach/clk.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_xo.h>
 #include <mach/rpm-regulator.h>

@@ -20,8 +20,8 @@
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
 #include <linux/iopoll.h>
+#include <linux/clk/msm-clk.h>
 
-#include <mach/clk.h>
 #include <mach/rpm-regulator-smd.h>
 #include <mach/socinfo.h>
 

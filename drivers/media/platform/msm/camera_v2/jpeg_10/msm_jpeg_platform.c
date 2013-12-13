@@ -15,8 +15,8 @@
 #include <linux/module.h>
 #include <linux/pm_qos.h>
 #include <linux/clk.h>
-#include <mach/clk.h>
 #include <linux/io.h>
+#include <linux/clk/msm-clk.h>
 
 #include <mach/camera.h>
 #include <linux/msm_iommu_domains.h>

@@ -18,10 +18,10 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/errno.h>
+#include <linux/clk/msm-clk-provider.h>
+#include <linux/clk/msm-clk.h>
 
 #include <linux/clk.h>
-#include <mach/clk-provider.h>
-#include <mach/clk.h>
 #include <mach/clock-generic.h>
 #include <mach/msm-krait-l2-accessors.h>
 #include "clock-krait.h"

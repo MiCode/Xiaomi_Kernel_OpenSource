@@ -22,10 +22,10 @@
 #include <linux/dma-mapping.h>
 #include <linux/bitops.h>
 #include <linux/workqueue.h>
+#include <linux/clk/msm-clk.h>
 
 #include <mach/msm_bus.h>
 #include <mach/rpm-regulator.h>
-#include <mach/clk.h>
 #include <mach/msm_iomap.h>
 
 #include "xhci.h"

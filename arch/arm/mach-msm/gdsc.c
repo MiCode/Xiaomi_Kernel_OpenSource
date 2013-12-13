@@ -24,7 +24,7 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/slab.h>
 #include <linux/clk.h>
-#include <mach/clk.h>
+#include <linux/clk/msm-clk.h>
 
 #define PWR_ON_MASK		BIT(31)
 #define EN_REST_WAIT_MASK	(0xF << 20)

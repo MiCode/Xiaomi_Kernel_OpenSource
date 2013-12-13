@@ -13,8 +13,8 @@
  *
  */
 
-#ifndef __MACH_CLK_PROVIDER_H
-#define __MACH_CLK_PROVIDER_H
+#ifndef __MSM_CLK_PROVIDER_H
+#define __MSM_CLK_PROVIDER_H
 
 #include <linux/types.h>
 #include <linux/err.h>
@@ -26,7 +26,7 @@
 #include <linux/mutex.h>
 #include <linux/regulator/consumer.h>
 #include <linux/seq_file.h>
-#include <mach/clk.h>
+#include <linux/clk/msm-clk.h>
 
 /*
  * Bit manipulation macros

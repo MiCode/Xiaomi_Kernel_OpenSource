@@ -26,9 +26,9 @@
 #include <linux/interrupt.h>
 #include <linux/dma-mapping.h>
 #include <linux/of_gpio.h>
+#include <linux/clk/msm-clk.h>
 
 #include <mach/subsystem_restart.h>
-#include <mach/clk.h>
 #include <mach/msm_smsm.h>
 #include <mach/ramdump.h>
 #include <mach/msm_smem.h>

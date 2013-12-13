@@ -37,13 +37,13 @@
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include <linux/irq.h>
+#include <linux/clk/msm-clk.h>
 
 #include <linux/usb/ulpi.h>
 #include <linux/usb/msm_hsusb_hw.h>
 #include <linux/usb/msm_hsusb.h>
 #include <linux/of.h>
 
-#include <mach/clk.h>
 #include <mach/msm_xo.h>
 #include <mach/msm_iomap.h>
 #include <linux/debugfs.h>

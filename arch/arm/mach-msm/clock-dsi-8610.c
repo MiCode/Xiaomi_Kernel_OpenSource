@@ -17,10 +17,10 @@
 #include <linux/string.h>
 #include <linux/iopoll.h>
 #include <linux/clk.h>
+#include <linux/clk/msm-clk-provider.h>
 
 #include <asm/processor.h>
 #include <mach/msm_iomap.h>
-#include <mach/clk-provider.h>
 
 #include "clock-dsi-8610.h"
 

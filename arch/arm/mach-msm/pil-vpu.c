@@ -20,12 +20,12 @@
 #include <linux/of.h>
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
+#include <linux/clk/msm-clk-provider.h>
 
 #include <mach/subsystem_restart.h>
 #include <mach/msm_bus_board.h>
 #include <mach/msm_bus.h>
 #include <mach/ramdump.h>
-#include <mach/clk-provider.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"

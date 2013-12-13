@@ -41,11 +41,11 @@
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/cdev.h>
 #include <linux/completion.h>
+#include <linux/clk/msm-clk.h>
 
 #include <mach/rpm-regulator.h>
 #include <mach/rpm-regulator-smd.h>
 #include <mach/msm_bus.h>
-#include <mach/clk.h>
 #include <mach/scm.h>
 
 #include "dwc3_otg.h"

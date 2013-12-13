@@ -24,8 +24,8 @@
 #include <linux/uaccess.h>
 #include <linux/mutex.h>
 #include <linux/io.h>
+#include <linux/clk/msm-clk-provider.h>
 
-#include <mach/clk-provider.h>
 
 #include "clock.h"
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,7 @@
 #ifndef __ARCH_ARM_MACH_MSM_CLOCK_VOTER_H
 #define __ARCH_ARM_MACH_MSM_CLOCK_VOTER_H
 
-#include <mach/clk-provider.h>
+#include <linux/clk/msm-clk-provider.h>
 
 struct clk_ops;
 extern struct clk_ops clk_ops_voter;

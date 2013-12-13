@@ -21,13 +21,13 @@
 #include <linux/regulator/consumer.h>
 #include <linux/of.h>
 #include <linux/cpumask.h>
+#include <linux/clk/msm-clk-provider.h>
+#include <linux/clk/msm-clk.h>
 
 #include <asm/cputype.h>
 
 #include <mach/rpm-regulator-smd.h>
-#include <mach/clk-provider.h>
 #include <mach/clock-generic.h>
-#include <mach/clk.h>
 #include "clock-krait.h"
 #include "clock-local2.h"
 #include "clock.h"
