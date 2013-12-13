@@ -1,3 +1,4 @@
-# Makefile for cnss platform driver
+# Makefile for CNSS platform driver
 
-obj-$(CONFIG_CNSS) +=cnss.o
+cnsscore-objs += cnss.o ../wcnss/qcomwlan_secif.o
+obj-$(CONFIG_CNSS) += cnsscore.o
