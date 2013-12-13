@@ -138,6 +138,12 @@
 #define FLAGS_SET_MIN_VOLTAGE		BIT(1)
 #define FLAGS_UPLIFT_QUOT_VOLT		BIT(2)
 
+struct quot_adjust_info {
+	int speed_bin;
+	int virtual_corner;
+	int quot_adjust;
+};
+
 enum voltage_change_dir {
 	NO_CHANGE,
 	DOWN,
@@ -186,11 +192,11 @@ struct cpr_regulator {
 
 	int		ceiling_volt[CPR_CORNER_MAX];
 	int		floor_volt[CPR_CORNER_MAX];
-	int		last_volt[CPR_CORNER_MAX];
+	int		*last_volt;
 	int		step_volt;
 
-	int		save_ctl[CPR_CORNER_MAX];
-	int		save_irq[CPR_CORNER_MAX];
+	int		*save_ctl;
+	int		*save_irq;
 
 	u32		save_regs[CPR_NUM_SAVE_REGS];
 	u32		save_reg_val[CPR_NUM_SAVE_REGS];
@@ -210,6 +216,9 @@ struct cpr_regulator {
 	u32		vdd_apc_step_up_limit;
 	u32		vdd_apc_step_down_limit;
 	u32		flags;
+	int		*corner_map;
+	u32		num_corners;
+	int		*quot_adjust;
 };
 
 #define CPR_DEBUG_MASK_IRQ	BIT(0)
@@ -332,9 +341,11 @@ static void cpr_ctl_modify(struct cpr_regulator *cpr_vreg, u32 mask, u32 value)
 static void cpr_ctl_enable(struct cpr_regulator *cpr_vreg, int corner)
 {
 	u32 val;
+	int fuse_corner = cpr_vreg->corner_map[corner];
 
 	if (cpr_is_allowed(cpr_vreg) &&
-	    (cpr_vreg->ceiling_volt[corner] > cpr_vreg->floor_volt[corner]))
+	    (cpr_vreg->ceiling_volt[fuse_corner] >
+		cpr_vreg->floor_volt[fuse_corner]))
 		val = RBCPR_CTL_LOOP_EN;
 	else
 		val = 0;
@@ -378,9 +389,12 @@ static void cpr_corner_save(struct cpr_regulator *cpr_vreg, int corner)
 static void cpr_corner_restore(struct cpr_regulator *cpr_vreg, int corner)
 {
 	u32 gcnt, ctl, irq, ro_sel;
+	int fuse_corner = cpr_vreg->corner_map[corner];
 
-	ro_sel = cpr_vreg->cpr_fuse_ro_sel[corner];
-	gcnt = cpr_vreg->gcnt | cpr_vreg->cpr_fuse_target_quot[corner];
+	ro_sel = cpr_vreg->cpr_fuse_ro_sel[fuse_corner];
+	gcnt = cpr_vreg->gcnt | (cpr_vreg->cpr_fuse_target_quot[fuse_corner] -
+					cpr_vreg->quot_adjust[corner]);
+
 	cpr_write(cpr_vreg, REG_RBCPR_GCNT_TARGET(ro_sel), gcnt);
 	ctl = cpr_vreg->save_ctl[corner];
 	cpr_write(cpr_vreg, REG_RBCPR_CTL, ctl);
@@ -418,8 +432,9 @@ static int cpr_enable_param_set(const char *val, const struct kernel_param *kp)
 		goto _exit;
 	}
 
-	cpr_debug("%d -> %d [corner=%d]\n",
-		  old_cpr_enable, cpr_enable, the_cpr->corner);
+	cpr_debug("%d -> %d [corner=%d, fuse_corner=%d]\n",
+		  old_cpr_enable, cpr_enable, the_cpr->corner,
+		  the_cpr->corner_map[the_cpr->corner]);
 
 	if (the_cpr->cpr_fuse_disable) {
 		/* Already disabled */
@@ -465,13 +480,14 @@ static int cpr_apc_set(struct cpr_regulator *cpr_vreg, u32 new_volt)
 static int cpr_mx_get(struct cpr_regulator *cpr_vreg, int corner, int apc_volt)
 {
 	int vdd_mx;
+	int fuse_corner = cpr_vreg->corner_map[corner];
 
 	switch (cpr_vreg->vdd_mx_vmin_method) {
 	case VDD_MX_VMIN_APC:
 		vdd_mx = apc_volt;
 		break;
 	case VDD_MX_VMIN_APC_CORNER_CEILING:
-		vdd_mx = cpr_vreg->ceiling_volt[corner];
+		vdd_mx = cpr_vreg->ceiling_volt[fuse_corner];
 		break;
 	case VDD_MX_VMIN_APC_SLOW_CORNER_CEILING:
 		vdd_mx = cpr_vreg->pvs_corner_v[APC_PVS_SLOW]
@@ -492,15 +508,19 @@ static int cpr_mx_set(struct cpr_regulator *cpr_vreg, int corner,
 		      int vdd_mx_vmin)
 {
 	int rc;
+	int fuse_corner = cpr_vreg->corner_map[corner];
 
 	rc = regulator_set_voltage(cpr_vreg->vdd_mx, vdd_mx_vmin,
 				   cpr_vreg->vdd_mx_vmax);
-	cpr_debug("[corner:%d] %d uV\n", corner, vdd_mx_vmin);
-	if (!rc)
+	cpr_debug("[corner:%d, fuse_corner:%d] %d uV\n", corner,
+			fuse_corner, vdd_mx_vmin);
+
+	if (!rc) {
 		cpr_vreg->vdd_mx_vmin = vdd_mx_vmin;
-	else
-		pr_err("set: vdd_mx [%d] = %d uV: rc=%d\n",
-		       corner, vdd_mx_vmin, rc);
+	} else {
+		pr_err("set: vdd_mx [corner:%d, fuse_corner:%d] = %d uV failed: rc=%d\n",
+			corner, fuse_corner, vdd_mx_vmin, rc);
+	}
 	return rc;
 }
 
@@ -538,10 +558,11 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 		      enum voltage_change_dir dir)
 {
 	u32 reg_val, error_steps, reg_mask;
-	int last_volt, new_volt, corner;
+	int last_volt, new_volt, corner, fuse_corner;
 	u32 gcnt, quot;
 
 	corner = cpr_vreg->corner;
+	fuse_corner = cpr_vreg->corner_map[corner];
 
 	reg_val = cpr_read(cpr_vreg, REG_RBCPR_RESULT_0);
 
@@ -549,20 +570,22 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 				& RBCPR_RESULT0_ERROR_STEPS_MASK;
 	last_volt = cpr_vreg->last_volt[corner];
 
-	cpr_debug_irq("last_volt[corner:%d] = %d uV\n", corner, last_volt);
+	cpr_debug_irq("last_volt[corner:%d, fuse_corner:%d] = %d uV\n", corner,
+			fuse_corner, last_volt);
 
 	gcnt = cpr_read(cpr_vreg, REG_RBCPR_GCNT_TARGET
-			(cpr_vreg->cpr_fuse_ro_sel[corner]));
+			(cpr_vreg->cpr_fuse_ro_sel[fuse_corner]));
 	quot = gcnt & ((1 << RBCPR_GCNT_TARGET_GCNT_SHIFT) - 1);
 
 	if (dir == UP) {
 		cpr_debug_irq("Up: cpr status = 0x%08x (error_steps=%d)\n",
 			      reg_val, error_steps);
 
-		if (last_volt >= cpr_vreg->ceiling_volt[corner]) {
-			cpr_debug_irq("[corn:%d] @ ceiling: %d >= %d: NACK\n",
-				      corner, last_volt,
-				      cpr_vreg->ceiling_volt[corner]);
+		if (last_volt >= cpr_vreg->ceiling_volt[fuse_corner]) {
+			cpr_debug_irq(
+			"[corn:%d, fuse_corn:%d] @ ceiling: %d >= %d: NACK\n",
+				corner, fuse_corner, last_volt,
+				cpr_vreg->ceiling_volt[fuse_corner]);
 			cpr_irq_clr_nack(cpr_vreg);
 
 			cpr_debug_irq("gcnt = 0x%08x (quot = %d)\n", gcnt,
@@ -585,11 +608,12 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 
 		/* Calculate new voltage */
 		new_volt = last_volt + (error_steps * cpr_vreg->step_volt);
-		if (new_volt > cpr_vreg->ceiling_volt[corner]) {
+		if (new_volt > cpr_vreg->ceiling_volt[fuse_corner]) {
 			cpr_debug_irq("new_volt(%d) >= ceiling(%d): Clamp\n",
 				      new_volt,
-				      cpr_vreg->ceiling_volt[corner]);
-			new_volt = cpr_vreg->ceiling_volt[corner];
+				      cpr_vreg->ceiling_volt[fuse_corner]);
+
+			new_volt = cpr_vreg->ceiling_volt[fuse_corner];
 		}
 
 		if (cpr_scale_voltage(cpr_vreg, corner, new_volt, dir)) {
@@ -614,16 +638,18 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 		/* Ack */
 		cpr_irq_clr_ack(cpr_vreg);
 
-		cpr_debug_irq("UP: -> new_volt[corner:%d] = %d uV\n",
-			      corner, new_volt);
+		cpr_debug_irq(
+			"UP: -> new_volt[corner:%d, fuse_corner:%d] = %d uV\n",
+			corner, fuse_corner, new_volt);
 	} else if (dir == DOWN) {
 		cpr_debug_irq("Down: cpr status = 0x%08x (error_steps=%d)\n",
 			      reg_val, error_steps);
 
-		if (last_volt <= cpr_vreg->floor_volt[corner]) {
-			cpr_debug_irq("[corn:%d] @ floor: %d <= %d: NACK\n",
-				      corner, last_volt,
-				      cpr_vreg->floor_volt[corner]);
+		if (last_volt <= cpr_vreg->floor_volt[fuse_corner]) {
+			cpr_debug_irq(
+			"[corn:%d, fuse_corner:%d] @ floor: %d <= %d: NACK\n",
+				corner, fuse_corner, last_volt,
+				cpr_vreg->floor_volt[fuse_corner]);
 			cpr_irq_clr_nack(cpr_vreg);
 
 			/* Maximize the DOWN threshold */
@@ -654,11 +680,11 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 
 		/* Calculte new voltage */
 		new_volt = last_volt - (error_steps * cpr_vreg->step_volt);
-		if (new_volt < cpr_vreg->floor_volt[corner]) {
+		if (new_volt < cpr_vreg->floor_volt[fuse_corner]) {
 			cpr_debug_irq("new_volt(%d) < floor(%d): Clamp\n",
 				      new_volt,
-				      cpr_vreg->floor_volt[corner]);
-			new_volt = cpr_vreg->floor_volt[corner];
+				      cpr_vreg->floor_volt[fuse_corner]);
+			new_volt = cpr_vreg->floor_volt[fuse_corner];
 		}
 
 		if (cpr_scale_voltage(cpr_vreg, corner, new_volt, dir)) {
@@ -677,8 +703,9 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 		/* Ack */
 		cpr_irq_clr_ack(cpr_vreg);
 
-		cpr_debug_irq("DOWN: -> new_volt[corner:%d] = %d uV\n",
-			      corner, new_volt);
+		cpr_debug_irq(
+		"DOWN: -> new_volt[corner:%d, fuse_corner:%d] = %d uV\n",
+			corner, fuse_corner, new_volt);
 	}
 }
 
@@ -800,6 +827,7 @@ static int cpr_regulator_set_voltage(struct regulator_dev *rdev,
 	int rc;
 	int new_volt;
 	enum voltage_change_dir change_dir = NO_CHANGE;
+	int fuse_corner = cpr_vreg->corner_map[corner];
 
 	mutex_lock(&cpr_vreg->cpr_mutex);
 
@@ -807,10 +835,12 @@ static int cpr_regulator_set_voltage(struct regulator_dev *rdev,
 		cpr_ctl_disable(cpr_vreg);
 		new_volt = cpr_vreg->last_volt[corner];
 	} else {
-		new_volt = cpr_vreg->pvs_corner_v[cpr_vreg->process][corner];
+		new_volt = cpr_vreg->pvs_corner_v
+				[cpr_vreg->process][fuse_corner];
 	}
 
-	cpr_debug("[corner:%d] = %d uV\n", corner, new_volt);
+	cpr_debug("[corner:%d, fuse_corner:%d] = %d uV\n", corner, fuse_corner,
+		new_volt);
 
 	if (corner > cpr_vreg->corner)
 		change_dir = UP;
@@ -903,11 +933,13 @@ static int cpr_regulator_resume(struct platform_device *pdev)
 #define cpr_regulator_resume NULL
 #endif
 
-static int __devinit cpr_config(struct cpr_regulator *cpr_vreg)
+static int __devinit cpr_config(struct cpr_regulator *cpr_vreg,
+				struct device *dev)
 {
 	int i;
 	u32 val, gcnt, reg;
 	void __iomem *rbcpr_clk;
+	int size;
 
 	/* Use 19.2 MHz clock for CPR. */
 	rbcpr_clk = ioremap(cpr_vreg->rbcpr_clk_addr, 4);
@@ -990,9 +1022,14 @@ static int __devinit cpr_config(struct cpr_regulator *cpr_vreg)
 	if (val <= RBCPR_VER_2)
 		cpr_vreg->flags |= FLAGS_IGNORE_1ST_IRQ_STATUS;
 
-	cpr_corner_save(cpr_vreg, CPR_CORNER_SVS);
-	cpr_corner_save(cpr_vreg, CPR_CORNER_NORMAL);
-	cpr_corner_save(cpr_vreg, CPR_CORNER_TURBO);
+	size = cpr_vreg->num_corners + 1;
+	cpr_vreg->save_ctl = devm_kzalloc(dev, sizeof(int) * size, GFP_KERNEL);
+	cpr_vreg->save_irq = devm_kzalloc(dev, sizeof(int) * size, GFP_KERNEL);
+	if (!cpr_vreg->save_ctl || !cpr_vreg->save_irq)
+		return -ENOMEM;
+
+	for (i = 1; i < size; i++)
+		cpr_corner_save(cpr_vreg, i);
 
 	return 0;
 }
@@ -1223,6 +1260,106 @@ static int cpr_voltage_uplift_wa_inc_quot(struct cpr_regulator *cpr_vreg,
 	return rc;
 }
 
+static int cpr_get_of_corner_mappings(struct cpr_regulator *cpr_vreg,
+					struct device *dev)
+{
+	int rc = 0;
+	int i, size, stripe_size;
+	struct property *prop;
+	u32 *tmp;
+	bool corners_mapped;
+
+	prop = of_find_property(dev->of_node, "qti,cpr-corner-map", NULL);
+
+	if (prop) {
+		size = prop->length / sizeof(u32);
+		corners_mapped = true;
+	} else {
+		size = CPR_CORNER_MAX - 1;
+		corners_mapped = false;
+	}
+
+	cpr_vreg->corner_map = devm_kzalloc(dev, sizeof(int) * (size + 1),
+					GFP_KERNEL);
+	if (!cpr_vreg->corner_map) {
+		pr_err("Can't allocate cpr_vreg->corner_map memory\n");
+		return -ENOMEM;
+	}
+	cpr_vreg->num_corners = size;
+
+	if (!corners_mapped) {
+		for (i = CPR_CORNER_SVS; i < CPR_CORNER_MAX; i++)
+			cpr_vreg->corner_map[i] = i;
+	} else {
+		rc = of_property_read_u32_array(dev->of_node,
+			"qti,cpr-corner-map", &cpr_vreg->corner_map[1], size);
+
+		if (rc) {
+			pr_err("qti,cpr-corner-map missing, rc = %d", rc);
+			return rc;
+		}
+	}
+
+	cpr_vreg->quot_adjust = devm_kzalloc(dev,
+			sizeof(int) * (cpr_vreg->num_corners + 1),
+			GFP_KERNEL);
+	if (!cpr_vreg->quot_adjust) {
+		pr_err("Can't allocate cpr_vreg->quot_adjust memory\n");
+		return -ENOMEM;
+	}
+
+	prop = of_find_property(dev->of_node, "qti,cpr-quot-adjust-table",
+				NULL);
+
+	if (prop) {
+		if (!corners_mapped) {
+			pr_err("qti,cpr-corner-map missing\n");
+			return -EINVAL;
+		}
+
+		size = prop->length / sizeof(u32);
+		tmp = kzalloc(sizeof(u32) * size, GFP_KERNEL);
+		if (!tmp)
+			return -ENOMEM;
+
+		rc = of_property_read_u32_array(dev->of_node,
+				"qti,cpr-quot-adjust-table", tmp, size);
+		if (rc) {
+			pr_err("qti,cpr-quot-adjust-table missing, rc = %d",
+				rc);
+			kfree(tmp);
+			return rc;
+		}
+
+		stripe_size = sizeof(struct quot_adjust_info) / sizeof(int);
+
+		if ((size % stripe_size) != 0) {
+			pr_err("qti,cpr-quot-adjust-table data is not correct");
+			kfree(tmp);
+			return -EINVAL;
+		}
+
+		for (i = 0; i < size; i += stripe_size) {
+			if (tmp[i] == cpr_vreg->speed_bin) {
+				if (tmp[i + 1] >= 1 &&
+					tmp[i + 1] <=
+					cpr_vreg->num_corners) {
+					cpr_vreg->quot_adjust[tmp[i + 1]] =
+					tmp[i + 2];
+				} else {
+					pr_err("qti,cpr-quot-adjust-table data is not correct");
+					kfree(tmp);
+					return -EINVAL;
+				}
+			}
+		}
+
+		kfree(tmp);
+	}
+
+	return 0;
+}
+
 static int __devinit cpr_init_cpr_efuse(struct platform_device *pdev,
 				     struct cpr_regulator *cpr_vreg)
 {
@@ -1352,6 +1489,10 @@ static int __devinit cpr_init_cpr_efuse(struct platform_device *pdev,
 		}
 	}
 
+	rc = cpr_get_of_corner_mappings(cpr_vreg, &pdev->dev);
+	if (rc)
+		return rc;
+
 	cpr_vreg->cpr_fuse_bits = fuse_bits;
 	if (!cpr_vreg->cpr_fuse_bits) {
 		cpr_vreg->cpr_fuse_disable = 1;
@@ -1380,9 +1521,15 @@ static int __devinit cpr_init_cpr_efuse(struct platform_device *pdev,
 	return 0;
 }
 
-static int __devinit cpr_init_cpr_voltages(struct cpr_regulator *cpr_vreg)
+static int __devinit cpr_init_cpr_voltages(struct cpr_regulator *cpr_vreg,
+			struct device *dev)
 {
 	int i;
+	int size = cpr_vreg->num_corners + 1;
+
+	cpr_vreg->last_volt = devm_kzalloc(dev, sizeof(int) * size, GFP_KERNEL);
+	if (!cpr_vreg->last_volt)
+		return -EINVAL;
 
 	/* Construct CPR voltage limits */
 	for (i = CPR_CORNER_SVS; i < CPR_CORNER_MAX; i++) {
@@ -1390,8 +1537,11 @@ static int __devinit cpr_init_cpr_voltages(struct cpr_regulator *cpr_vreg)
 			cpr_vreg->pvs_corner_v[APC_PVS_FAST][i];
 		cpr_vreg->ceiling_volt[i] =
 			cpr_vreg->pvs_corner_v[APC_PVS_SLOW][i];
-		cpr_vreg->last_volt[i] =
-			cpr_vreg->pvs_corner_v[cpr_vreg->process][i];
+	}
+
+	for (i = 1; i < size; i++) {
+		cpr_vreg->last_volt[i] = cpr_vreg->pvs_corner_v
+				[cpr_vreg->process][cpr_vreg->corner_map[i]];
 	}
 
 	return 0;
@@ -1491,7 +1641,9 @@ static int __devinit cpr_init_cpr(struct platform_device *pdev,
 					    resource_size(res));
 
 	/* Init all voltage set points of APC regulator for CPR */
-	cpr_init_cpr_voltages(cpr_vreg);
+	rc = cpr_init_cpr_voltages(cpr_vreg, &pdev->dev);
+	if (rc)
+		return rc;
 
 	/* Init CPR configuration parameters */
 	rc = cpr_init_cpr_parameters(pdev, cpr_vreg);
@@ -1506,7 +1658,7 @@ static int __devinit cpr_init_cpr(struct platform_device *pdev,
 	}
 
 	/* Configure CPR HW but keep it disabled */
-	rc = cpr_config(cpr_vreg);
+	rc = cpr_config(cpr_vreg, &pdev->dev);
 	if (rc)
 		return rc;
 
@@ -1591,6 +1743,8 @@ static void cpr_parse_speed_bin_fuse(struct cpr_regulator *cpr_vreg,
 		pr_info("[row: %d]: 0x%llx, speed_bits = %d\n",
 				fuse_sel[0], fuse_bits, speed_bits);
 		cpr_vreg->speed_bin = speed_bits;
+	} else {
+		cpr_vreg->speed_bin = UINT_MAX;
 	}
 }
 
