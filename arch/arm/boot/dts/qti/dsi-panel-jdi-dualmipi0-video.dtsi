@@ -11,7 +11,7 @@
  */
 
 &mdss_mdp {
-	dsi_dual0_jdi_video: qcom,mdss_dsi_jdi_dualmipi0_video {
+	dsi_dual_jdi_video_0: qcom,dsi_jdi_qhd_video_0 {
 		qcom,mdss-dsi-panel-name = "Dual 0 video mode dsi panel";
 		qcom,mdss-dsi-panel-controller = <&mdss_dsi0>;
 		qcom,mdss-dsi-panel-type = "dsi_video_mode";
