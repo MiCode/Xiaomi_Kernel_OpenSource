@@ -6458,6 +6458,9 @@ static int mpq_dmx_tsppv2_init(struct dvb_adapter *mpq_adapter,
 		mpq_demux->feeds[i].plugin_priv = &mpq_tspp2_demux->feeds[i];
 	}
 
+	/* Extend dvb-demux debugfs with TSPP statistics. */
+	mpq_dmx_init_debugfs_entries(mpq_demux);
+
 	return 0;
 
 init_failed_dmxdev_release:
