@@ -71,6 +71,7 @@
 				    0x2010
 				    0x2014
 				    0x2018
+				    0x2000
 				    0x201c>;
 
 	qti,iommu-lpae-bfb-data = <0x7ffffff
@@ -90,6 +91,7 @@
 				    0x0
 				    0x0
 				    0x0
+				    0x3
 				    0x0>;
 
 
@@ -172,6 +174,7 @@
 				    0x22bc
 				    0x2008
 				    0x200c
+				    0x2000
 				    0x2010>;
 
 	qti,iommu-lpae-bfb-data = <0x3fff
@@ -188,6 +191,7 @@
 				    0x9614
 				    0x0
 				    0x0
+				    0x3
 				    0x0>;
 
 };
@@ -248,6 +252,7 @@
 				    0x200c
 				    0x2010
 				    0x2014
+				    0x2000
 				    0x2018>;
 
 	qti,iommu-lpae-bfb-data = <0x7fffff
@@ -266,6 +271,7 @@
 				    0x0
 				    0x0
 				    0x0
+				    0x3
 				    0x0>;
 
 };
@@ -351,6 +357,7 @@
 				    0x2620
 				    0x2624
 				    0x2628
+				    0x2000
 				    0x262c>;
 
 	qti,iommu-lpae-bfb-data = <0x3
@@ -377,6 +384,7 @@
 				    0x6c
 				    0x0
 				    0x8
+				    0x3
 				    0x10>;
 
 };
@@ -444,6 +452,7 @@
 				    0x2014
 				    0x2018
 				    0x201c
+				    0x2000
 				    0x2020>;
 
 	qti,iommu-lpae-bfb-data = <0xffffffff
@@ -464,6 +473,7 @@
 				    0x0
 				    0x0
 				    0x0
+				    0x3
 				    0x0>;
 
 };

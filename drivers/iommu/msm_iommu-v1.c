@@ -708,7 +708,6 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 				goto unlock;
 			}
 		}
-		SET_MICRO_MMU_CTRL_RESERVED(iommu_drvdata->base, 0x3);
 		program_iommu_bfb_settings(iommu_drvdata->base,
 					   iommu_drvdata->bfb_settings);
 		set_m2v = true;
