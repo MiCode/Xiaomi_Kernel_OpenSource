@@ -17,10 +17,10 @@
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
-#include <mach/subsystem_restart.h>
 #include <linux/qdsp6v2/apr.h>
 #include <linux/of_device.h>
 #include <linux/msm_audio_ion.h>
+#include <soc/qcom/subsystem_restart.h>
 
 #include <linux/iommu.h>
 #include <linux/msm_iommu_domains.h>

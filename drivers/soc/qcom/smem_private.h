@@ -14,8 +14,8 @@
 #define _ARCH_ARM_MACH_MSM_SMEM_PRIVATE_H_
 
 #include <linux/remote_spinlock.h>
+#include <soc/qcom/ramdump.h>
 
-#include <mach/ramdump.h>
 
 #define SMD_HEAP_SIZE 512
 

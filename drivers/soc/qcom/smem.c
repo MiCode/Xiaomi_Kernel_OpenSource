@@ -23,11 +23,11 @@
 #include <linux/printk.h>
 #include <linux/slab.h>
 #include <linux/stat.h>
+#include <soc/qcom/subsystem_notif.h>
+#include <soc/qcom/ramdump.h>
 
 #include <soc/qcom/smem.h>
 
-#include <mach/ramdump.h>
-#include <mach/subsystem_notif.h>
 
 #include "smem_private.h"
 

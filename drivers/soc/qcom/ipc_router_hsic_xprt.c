@@ -23,9 +23,9 @@
 #include <linux/skbuff.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
+#include <soc/qcom/subsystem_restart.h>
 
 #include <mach/ipc_bridge.h>
-#include <mach/subsystem_restart.h>
 
 static int msm_ipc_router_hsic_xprt_debug_mask;
 module_param_named(debug_mask, msm_ipc_router_hsic_xprt_debug_mask,

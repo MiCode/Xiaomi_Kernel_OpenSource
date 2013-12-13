@@ -14,7 +14,7 @@
 #define __APR_H_
 
 #include <linux/mutex.h>
-#include <mach/subsystem_notif.h>
+#include <soc/qcom/subsystem_notif.h>
 
 enum apr_subsys_state {
 	APR_SUBSYS_DOWN,

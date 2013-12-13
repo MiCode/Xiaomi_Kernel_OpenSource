@@ -29,8 +29,8 @@
 #include <linux/of_device.h>
 #include <linux/msm_dsps.h>
 #include <linux/uaccess.h>
+#include <soc/qcom/subsystem_restart.h>
 #include <asm/arch_timer.h>
-#include <mach/subsystem_restart.h>
 #include <mach/ocmem.h>
 #include <mach/msm_smd.h>
 #include <mach/sensors_adsp.h>

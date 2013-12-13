@@ -22,7 +22,7 @@
 #include <linux/termios.h>
 #include <linux/sched.h>
 #include <linux/smux.h>
-#include <mach/subsystem_restart.h>
+#include <soc/qcom/subsystem_restart.h>
 #include "smux_private.h"
 
 #define DEBUG_BUFMAX 4096

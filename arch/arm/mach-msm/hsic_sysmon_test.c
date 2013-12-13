@@ -19,7 +19,7 @@
 #include <linux/device.h>
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
-#include <mach/sysmon.h>
+#include <soc/qcom/sysmon.h>
 
 #include "hsic_sysmon.h"
 

@@ -24,8 +24,8 @@
 #include <linux/uaccess.h>
 #include <linux/elf.h>
 #include <linux/wait.h>
+#include <soc/qcom/ramdump.h>
 
-#include <mach/ramdump.h>
 
 #define RAMDUMP_WAIT_MSECS	120000
 

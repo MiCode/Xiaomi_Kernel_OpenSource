@@ -16,7 +16,7 @@
 #include <linux/irq.h>
 #include <linux/kthread.h>
 #include <soc/qcom/msm_qmi_interface.h>
-#include <mach/subsystem_notif.h>
+#include <soc/qcom/subsystem_notif.h>
 
 /* Per spec.max 40 bytes per received message */
 #define SLIM_MSGQ_BUF_LEN	40

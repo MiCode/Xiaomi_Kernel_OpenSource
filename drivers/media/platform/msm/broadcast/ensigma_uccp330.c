@@ -35,13 +35,11 @@
 #include <linux/platform_device.h>
 #include <linux/errno.h>
 #include <linux/regulator/consumer.h>
-#include <mach/subsystem_restart.h>
-#include <mach/subsystem_notif.h>
+#include <soc/qcom/subsystem_restart.h>
+#include <soc/qcom/subsystem_notif.h>
 #include <mach/msm_bus_board.h>
 #include <mach/msm_bus.h>
 #include <linux/clk/msm-clk.h>
-#include <mach/subsystem_restart.h>
-#include <mach/subsystem_notif.h>
 #include <linux/iommu.h>
 #include <mach/iommu.h>
 #include <mach/iommu_domains.h>

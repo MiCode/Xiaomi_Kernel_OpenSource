@@ -16,7 +16,7 @@
 #include <linux/jiffies.h>
 #include <linux/delay.h>
 #include <linux/completion.h>
-#include <mach/subsystem_restart.h>
+#include <soc/qcom/subsystem_restart.h>
 #include "smp2p_private.h"
 #include "smp2p_test_common.h"
 

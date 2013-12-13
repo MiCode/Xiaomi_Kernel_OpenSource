@@ -30,12 +30,12 @@
 #include <linux/of.h>
 #include <linux/ipc_logging.h>
 #include <linux/srcu.h>
+#include <soc/qcom/subsystem_restart.h>
+#include <soc/qcom/subsystem_notif.h>
 #include <mach/sps.h>
 #include <mach/bam_dmux.h>
 #include <mach/msm_smsm.h>
-#include <mach/subsystem_notif.h>
 #include <mach/socinfo.h>
-#include <mach/subsystem_restart.h>
 
 #include "bam_dmux_private.h"
 

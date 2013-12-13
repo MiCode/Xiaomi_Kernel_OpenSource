@@ -38,11 +38,11 @@
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/ipc_logging.h>
+#include <soc/qcom/subsystem_restart.h>
+#include <soc/qcom/subsystem_notif.h>
+#include <soc/qcom/ramdump.h>
 
 #include <mach/msm_smd.h>
-#include <mach/subsystem_notif.h>
-#include <mach/subsystem_restart.h>
-#include <mach/ramdump.h>
 
 #include <soc/qcom/smem.h>
 
