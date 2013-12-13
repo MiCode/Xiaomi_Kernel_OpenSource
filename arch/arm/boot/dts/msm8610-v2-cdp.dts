@@ -19,8 +19,7 @@
 / {
 	model = "Qualcomm MSM 8610v2 CDP";
 	compatible = "qcom,msm8610-cdp", "qcom,msm8610", "qcom,cdp";
-	qcom,msm-id = <147 1 0x10001>, <165 1 0x10001>, <161 1 0x10001>, <162 1 0x10001>,
-		      <163 1 0x10001>, <164 1 0x10001>, <166 1 0x10001>;
+	qcom,board-id = <1 0>;
 };
 
 

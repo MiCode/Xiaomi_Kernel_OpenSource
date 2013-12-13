@@ -42,15 +42,18 @@
 #define DCI_MAX_LOG_CODES		16
 #define DCI_MAX_ITEMS_PER_LOG_CODE	512
 
+#define MIN_DELAYED_RSP_LEN		12
+
 extern unsigned int dci_max_reg;
 extern unsigned int dci_max_clients;
 extern struct mutex dci_health_mutex;
 
-struct dci_pkt_req_tracking_tbl {
+struct dci_pkt_req_entry_t {
 	int pid;
 	int uid;
 	int tag;
-};
+	struct list_head track;
+} __packed;
 
 struct diag_dci_client_tbl {
 	struct task_struct *client;
@@ -115,8 +118,6 @@ void diag_dci_notify_client(int peripheral_mask, int data);
 int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
 								int recd_bytes);
 int diag_process_dci_transaction(unsigned char *buf, int len);
-int diag_send_dci_pkt(struct diag_master_table entry, unsigned char *buf,
-							 int len, int index);
 void extract_dci_pkt_rsp(struct diag_smd_info *smd_info, unsigned char *buf);
 int diag_dci_find_client_index(int client_id);
 /* DCI Log streaming functions */

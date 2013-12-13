@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,8 +23,6 @@
 #define UNDEF_ID    0xffffffff
 #define SLOT_CMD_ID 0
 #define MAX_RETRIES 10
-
-
 
 enum usdev_event_status {
 	USFCDEV_EVENT_ENABLED,
@@ -98,8 +96,14 @@ static struct input_handler s_usfc_handlers[MAX_EVENT_TYPE_NUM] = {
 	},
 };
 
-/* For each event type, one conflicting device (and handle) is supported */
-static struct input_handle s_usfc_handles[MAX_EVENT_TYPE_NUM] = {
+/*
+ * For each event type, there are a number conflicting devices (handles)
+ * The first registered device (primary) is real TSC device; it's mandatory
+ * Optionally, later registered devices are simulated ones.
+ * They are dynamically managed
+ * The primary device's handles are stored in the below static array
+ */
+static struct input_handle s_usfc_primary_handles[MAX_EVENT_TYPE_NUM] = {
 	{ /* TSC handle */
 		.handler	= &s_usfc_handlers[TSC_EVENT_TYPE_IND],
 		.name		= "usfc_tsc_handle",
@@ -142,22 +146,48 @@ static int usfcdev_connect(struct input_handler *handler, struct input_dev *dev,
 {
 	int ret = 0;
 	uint16_t ind = handler->minor;
+	struct input_handle *usfc_handle = NULL;
 
-	s_usfc_handles[ind].dev = dev;
-	ret = input_register_handle(&s_usfc_handles[ind]);
-	if (ret) {
+	if (s_usfc_primary_handles[ind].dev == NULL) {
+		pr_debug("%s: primary device; ind=%d\n",
+			__func__,
+			ind);
+		usfc_handle = &s_usfc_primary_handles[ind];
+	} else {
+		pr_debug("%s: secondary device; ind=%d\n",
+			__func__,
+			ind);
+		usfc_handle = kzalloc(sizeof(struct input_handle),
+					GFP_KERNEL);
+		if (!usfc_handle) {
+			pr_err("%s: memory allocation failed; ind=%d\n",
+				__func__,
+				ind);
+			return -ENOMEM;
+		}
+		usfc_handle->handler = &s_usfc_handlers[ind];
+		usfc_handle->name = s_usfc_primary_handles[ind].name;
+	}
+	usfc_handle->dev = dev;
+	ret = input_register_handle(usfc_handle);
+	pr_debug("%s: name=[%s]; ind=%d; dev=0x%p\n",
+		 __func__,
+		dev->name,
+		ind,
+		usfc_handle->dev);
+	if (ret)
 		pr_err("%s: input_register_handle[%d] failed: ret=%d\n",
 			__func__,
 			ind,
 			ret);
-	} else {
-		ret = input_open_device(&s_usfc_handles[ind]);
+	else {
+		ret = input_open_device(usfc_handle);
 		if (ret) {
 			pr_err("%s: input_open_device[%d] failed: ret=%d\n",
 				__func__,
 				ind,
 				ret);
-			input_unregister_handle(&s_usfc_handles[ind]);
+			input_unregister_handle(usfc_handle);
 		} else
 			pr_debug("%s: device[%d] is opened\n",
 				__func__,
@@ -169,10 +199,18 @@ static int usfcdev_connect(struct input_handler *handler, struct input_dev *dev,
 
 static void usfcdev_disconnect(struct input_handle *handle)
 {
+	int ind = handle->handler->minor;
+
+	input_close_device(handle);
 	input_unregister_handle(handle);
-	pr_debug("%s: handle[%d] is disconnect\n",
+	pr_debug("%s: handle[%d], name=[%s] is disconnected\n",
 		__func__,
-		handle->handler->minor);
+		ind,
+		handle->dev->name);
+	if (s_usfc_primary_handles[ind].dev == handle->dev)
+		s_usfc_primary_handles[ind].dev = NULL;
+	else
+		kfree(handle);
 }
 
 static bool usfcdev_filter(struct input_handle *handle,
@@ -297,8 +335,13 @@ static void usfcdev_clean_dev(uint16_t event_type_ind)
 			event_type_ind);
 		return;
 	}
-
-	dev = s_usfc_handles[event_type_ind].dev;
+	/* Only primary device must exist */
+	dev = s_usfc_primary_handles[event_type_ind].dev;
+	if (dev == NULL) {
+		pr_err("%s: NULL primary device\n",
+		__func__);
+		return;
+	}
 
 	for (i = 0; i < ARRAY_SIZE(initial_clear_cmds); i++)
 		usfcdev_send_cmd(dev, initial_clear_cmds[i]);
@@ -307,7 +350,7 @@ static void usfcdev_clean_dev(uint16_t event_type_ind)
 	/* Send commands to free all slots */
 	for (i = 0; i < dev->mtsize; i++) {
 		s_usfcdev_events[event_type_ind].interleaved = false;
-		if (input_mt_get_value(&(dev->mt[i]), ABS_MT_TRACKING_ID) < 0) {
+		if (input_mt_get_value(&dev->mt[i], ABS_MT_TRACKING_ID) < 0) {
 			pr_debug("%s: skipping slot %d",
 				__func__, i);
 			continue;
@@ -323,7 +366,7 @@ static void usfcdev_clean_dev(uint16_t event_type_ind)
 				--i;
 				continue;
 			}
-			pr_warning("%s: index(%d) reached max retires",
+			pr_warn("%s: index(%d) reached max retires",
 				__func__, i);
 		}
 

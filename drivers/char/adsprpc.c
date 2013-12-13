@@ -1279,7 +1279,7 @@ static int __init fastrpc_device_init(void)
 	VERIFY(err, 0 == cdev_add(&me->cdev, MKDEV(MAJOR(me->dev_no), 0), 1));
 	if (err)
 		goto cdev_init_bail;
-	me->class = class_create(THIS_MODULE, "chardrv");
+	me->class = class_create(THIS_MODULE, "fastrpc");
 	VERIFY(err, !IS_ERR(me->class));
 	if (err)
 		goto class_create_bail;

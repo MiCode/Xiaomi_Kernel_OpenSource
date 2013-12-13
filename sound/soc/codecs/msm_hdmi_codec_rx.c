@@ -21,6 +21,8 @@
 
 #define MSM_HDMI_PCM_RATES	SNDRV_PCM_RATE_48000
 
+static int msm_hdmi_audio_codec_return_value;
+
 struct msm_hdmi_audio_codec_rx_data {
 	struct platform_device *hdmi_core_pdev;
 	struct msm_hdmi_audio_codec_ops hdmi_ops;
@@ -54,8 +56,8 @@ static int msm_hdmi_edid_get(struct snd_kcontrol *kcontrol,
 	int rc;
 
 	codec_data = snd_soc_codec_get_drvdata(codec);
-	rc = codec_data->hdmi_ops.get_audio_edid_blk(codec_data->hdmi_core_pdev,
-						     &edid_blk);
+	rc = codec_data->hdmi_ops.get_audio_edid_blk(
+			codec_data->hdmi_core_pdev, &edid_blk);
 
 	if (!IS_ERR_VALUE(rc)) {
 		memcpy(ucontrol->value.bytes.data, edid_blk.audio_data_blk,
@@ -80,6 +82,24 @@ static const struct snd_kcontrol_new msm_hdmi_codec_rx_controls[] = {
 	},
 };
 
+static int msm_hdmi_audio_codec_rx_dai_startup(
+		struct snd_pcm_substream *substream,
+		struct snd_soc_dai *dai)
+{
+	struct msm_hdmi_audio_codec_rx_data *codec_data =
+			dev_get_drvdata(dai->codec->dev);
+
+	msm_hdmi_audio_codec_return_value =
+		codec_data->hdmi_ops.hdmi_cable_status(
+		codec_data->hdmi_core_pdev, 1);
+	if (IS_ERR_VALUE(msm_hdmi_audio_codec_return_value)) {
+		dev_err(dai->dev,
+			"%s() HDMI core is not ready\n", __func__);
+	}
+
+	return msm_hdmi_audio_codec_return_value;
+}
+
 static int msm_hdmi_audio_codec_rx_dai_hw_params(
 		struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params,
@@ -89,11 +109,18 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 	u32 level_shift  = 0; /* 0dB */
 	bool down_mix = 0;
 	u32 num_channels = params_channels(params);
+	int rc = 0;
 
 	struct msm_hdmi_audio_codec_rx_data *codec_data =
 			dev_get_drvdata(dai->codec->dev);
 
 	/*refer to HDMI spec CEA-861-E: Table 28 Audio InfoFrame Data Byte 4*/
+	if (IS_ERR_VALUE(msm_hdmi_audio_codec_return_value)) {
+		dev_err(dai->dev,
+			"%s() HDMI core is not ready\n", __func__);
+		return msm_hdmi_audio_codec_return_value;
+	}
+
 	switch (num_channels) {
 	case 2:
 		channel_allocation  = 0;
@@ -121,19 +148,47 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 		return -EINVAL;
 	}
 
-	dev_dbg(dai->dev, "%s() num_ch %u  samplerate %u channel_allocation = %u\n",
+	dev_dbg(dai->dev,
+		"%s() num_ch %u  samplerate %u channel_allocation = %u\n",
 		__func__, num_channels, params_rate(params),
 		channel_allocation);
 
-	codec_data->hdmi_ops.audio_info_setup(codec_data->hdmi_core_pdev,
-			params_rate(params), num_channels, channel_allocation,
-			level_shift, down_mix);
+	rc = codec_data->hdmi_ops.audio_info_setup(
+			codec_data->hdmi_core_pdev,
+			params_rate(params), num_channels,
+			channel_allocation, level_shift, down_mix);
+	if (IS_ERR_VALUE(rc)) {
+		dev_err(dai->dev,
+			"%s() HDMI core is not ready\n", __func__);
+	}
 
-	return 0;
+	return rc;
+}
+
+static void msm_hdmi_audio_codec_rx_dai_shutdown(
+		struct snd_pcm_substream *substream,
+		struct snd_soc_dai *dai)
+{
+	int rc;
+
+	struct msm_hdmi_audio_codec_rx_data *codec_data =
+			dev_get_drvdata(dai->codec->dev);
+
+	rc = codec_data->hdmi_ops.hdmi_cable_status(
+			codec_data->hdmi_core_pdev, 0);
+	if (IS_ERR_VALUE(rc)) {
+		dev_err(dai->dev,
+			"%s() HDMI core had problems releasing HDMI audio flag\n",
+			__func__);
+	}
+
+	return;
 }
 
 static struct snd_soc_dai_ops msm_hdmi_audio_codec_rx_dai_ops = {
+	.startup	= msm_hdmi_audio_codec_rx_dai_startup,
 	.hw_params	= msm_hdmi_audio_codec_rx_dai_hw_params,
+	.shutdown	= msm_hdmi_audio_codec_rx_dai_shutdown
 };
 
 static int msm_hdmi_audio_codec_rx_probe(struct snd_soc_codec *codec)
