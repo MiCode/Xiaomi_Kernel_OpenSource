@@ -760,4 +760,25 @@ static inline int kgsl_property_read_u32(struct kgsl_device *device,
 	return of_property_read_u32(pdev->dev.of_node, prop, ptr);
 }
 
+/**
+ * kgsl_sysfs_store() - parse a string from a sysfs store function
+ * @buf: Incoming string to parse
+ * @count: Size of the incoming string
+ * @ptr: Pointer to an unsigned int to store the value
+ */
+static inline ssize_t kgsl_sysfs_store(const char *buf, size_t count,
+		unsigned int *ptr)
+{
+	unsigned int val;
+	int rc;
+
+	rc = kstrtou32(buf, 0, &val);
+	if (rc)
+		return rc;
+
+	if (ptr)
+		*ptr = val;
+
+	return count;
+}
 #endif  /* __KGSL_DEVICE_H */
