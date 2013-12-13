@@ -799,3 +799,40 @@ sound {
 		"DMIC4", "MIC BIAS3 External",
 		"MIC BIAS3 External", "Digital Mic4",
 };
+
+* MPQ8092 ASoC Machine driver
+
+Required properties:
+- compatible : "qti,mpq8092-audio-tabla"
+- qti,model : The user-visible name of this sound card.
+- qti,audio-routing : A list of the connections between audio components.
+  Each entry is a pair of strings, the first being the connection's sink,
+  the second being the connection's source.
+- qti,cdc-mclk-gpios : GPIO on which mclk signal is comming.
+- qti,tabla-mclk-clk-freq : Tabla mclk Freq in Hz.
+Optional properties:
+- qti,hdmi-audio-rx: specifies if HDMI audio support is enabled or not.
+
+Example:
+
+	sound {
+		compatible = "qti,mpq8092-audio-tabla";
+		qti,model = "mpq8092-tabla-snd-card";
+
+		qti,audio-routing =
+			"RX_BIAS", "MCLK",
+			"LDO_H", "MCLK",
+			"AMIC1", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Handset Mic",
+			"AMIC2", "MIC BIAS2 External",
+			"MIC BIAS2 External", "Headset Mic",
+			"AMIC3", "MIC BIAS3 External",
+			"MIC BIAS3 Eternal", "ANCRight Headset Mic",
+			"AMIC4", "MIC BIAS1 External",
+			"MIC BIAS1 External", "ANCLeft Headset Mic",
+                        "HEADPHONE", "LDO_H";
+
+		qti,cdc-mclk-gpios = <&msmgpio 42 0>;
+		qti,tabla-mclk-clk-freq = <12288000>;
+		qti,hdmi-audio-rx;
+	};
