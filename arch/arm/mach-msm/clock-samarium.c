@@ -20,10 +20,10 @@
 #include <linux/clk.h>
 #include <linux/iopoll.h>
 #include <linux/regulator/consumer.h>
+#include <linux/clk/msm-clock-generic.h>
 
 #include <mach/rpm-regulator-smd.h>
 #include <mach/rpm-smd.h>
-#include <mach/clock-generic.h>
 
 #include "clock-local2.h"
 #include "clock-pll.h"

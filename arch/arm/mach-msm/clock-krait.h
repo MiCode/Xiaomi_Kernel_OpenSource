@@ -15,7 +15,7 @@
 #define __ARCH_ARM_MACH_MSM_CLOCK_KRAIT_H
 
 #include <linux/clk/msm-clk-provider.h>
-#include <mach/clock-generic.h>
+#include <linux/clk/msm-clock-generic.h>
 
 extern struct clk_mux_ops clk_mux_ops_kpss;
 extern struct clk_div_ops clk_div_ops_kpss_div2;

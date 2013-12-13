@@ -22,9 +22,9 @@
 #include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/clk/msm-clock-generic.h>
 
 #include <mach/rpm-regulator-smd.h>
-#include <mach/clock-generic.h>
 
 #include <dt-bindings/clock/msm-clocks-8974.h>
 

@@ -23,11 +23,11 @@
 #include <linux/cpumask.h>
 #include <linux/clk/msm-clk-provider.h>
 #include <linux/clk/msm-clk.h>
+#include <linux/clk/msm-clock-generic.h>
 
 #include <asm/cputype.h>
 
 #include <mach/rpm-regulator-smd.h>
-#include <mach/clock-generic.h>
 #include "clock-krait.h"
 #include "clock-local2.h"
 #include "clock.h"
