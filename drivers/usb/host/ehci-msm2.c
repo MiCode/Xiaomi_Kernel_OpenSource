@@ -1005,6 +1005,10 @@ static int msm_ehci_reset(struct usb_hcd *hcd)
 		writel_relaxed(readl_relaxed(USB_PHY_CTRL2) | (1<<16),
 								USB_PHY_CTRL2);
 
+	/* Disable ULPI_TX_PKT_EN_CLR_FIX which is valid only for HSIC */
+	writel_relaxed(readl_relaxed(USB_GENCONFIG2) & ~(1<<19),
+					USB_GENCONFIG2);
+
 	return 0;
 }
 
