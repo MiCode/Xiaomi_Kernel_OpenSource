@@ -6538,7 +6538,7 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("",	gcc_blsp1_uart6_apps_clk.c,	""),
 
 	/* BLSP2 */
-	CLK_LOOKUP("",	gcc_blsp2_ahb_clk.c,	""),
+	CLK_LOOKUP("iface_clk",	gcc_blsp2_ahb_clk.c,	"f9967000.i2c"),
 	CLK_LOOKUP("",	gcc_blsp2_qup1_i2c_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp2_qup1_spi_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp2_qup2_i2c_apps_clk.c,	""),
@@ -6547,7 +6547,7 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("",	gcc_blsp2_qup3_spi_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp2_qup4_i2c_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp2_qup4_spi_apps_clk.c,	""),
-	CLK_LOOKUP("",	gcc_blsp2_qup5_i2c_apps_clk.c,	""),
+	CLK_LOOKUP("core_clk",	gcc_blsp2_qup5_i2c_apps_clk.c,	"f9967000.i2c"),
 	CLK_LOOKUP("",	gcc_blsp2_qup5_spi_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp2_qup6_i2c_apps_clk.c,	""),
 	CLK_LOOKUP("",	gcc_blsp2_qup6_spi_apps_clk.c,	""),
