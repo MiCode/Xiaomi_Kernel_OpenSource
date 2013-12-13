@@ -338,7 +338,7 @@ static bool results_available(struct kgsl_device *device,
 	if (shared_buf_empty(profile))
 		return false;
 
-	global_eop = kgsl_readtimestamp(device, NULL, KGSL_TIMESTAMP_RETIRED);
+	kgsl_readtimestamp(device, NULL, KGSL_TIMESTAMP_RETIRED, &global_eop);
 	do {
 		cnt = *(shared_ptr + off + 1);
 		if (cnt == 0)

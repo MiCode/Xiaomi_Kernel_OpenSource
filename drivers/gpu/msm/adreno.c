@@ -2867,33 +2867,60 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	return ret;
 }
 
-static unsigned int adreno_readtimestamp(struct kgsl_device *device,
-		struct kgsl_context *context, enum kgsl_timestamp_type type)
+/**
+ * adreno_readtimestamp(): Return the value of given type of timestamp
+ * @device: GPU device whose timestamp values are being queried
+ * @context: The context for which timestamp is to be read
+ * @type: The type of timestamp (one of 3) to be read
+ * @timestamp: Pointer to where the read timestamp is to be written to
+ *
+ * CONSUMED and RETIRED type timestamps are sorted by id and are constantly
+ * updated by the GPU through shared memstore memory. QUEUED type timestamps
+ * are read directly from context struct.
+
+ * The function returns 0 on success and timestamp value at the *timestamp
+ * address and returns -EINVAL on any read error/invalid type and timestamp = 0.
+ */
+static int adreno_readtimestamp(struct kgsl_device *device,
+					struct kgsl_context *context,
+					enum kgsl_timestamp_type type,
+					unsigned int *timestamp)
 {
-	unsigned int timestamp = 0;
+	int status = 0;
 	unsigned int id = context ? context->id : KGSL_MEMSTORE_GLOBAL;
+
+	/*
+	 * If user passed in a NULL pointer for timestamp, return without
+	 * doing anything.
+	 */
+	if (!timestamp)
+		return status;
 
 	switch (type) {
 	case KGSL_TIMESTAMP_QUEUED: {
 		struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-		timestamp = adreno_context_timestamp(context,
+		*timestamp = adreno_context_timestamp(context,
 				&adreno_dev->ringbuffer);
 		break;
 	}
 	case KGSL_TIMESTAMP_CONSUMED:
-		kgsl_sharedmem_readl(&device->memstore, &timestamp,
+		kgsl_sharedmem_readl(&device->memstore, timestamp,
 			KGSL_MEMSTORE_OFFSET(id, soptimestamp));
 		break;
 	case KGSL_TIMESTAMP_RETIRED:
-		kgsl_sharedmem_readl(&device->memstore, &timestamp,
+		kgsl_sharedmem_readl(&device->memstore, timestamp,
 			KGSL_MEMSTORE_OFFSET(id, eoptimestamp));
+		break;
+	default:
+		status = -EINVAL;
+		*timestamp = 0;
 		break;
 	}
 
 	rmb();
 
-	return timestamp;
+	return status;
 }
 
 static long adreno_ioctl(struct kgsl_device_private *dev_priv,

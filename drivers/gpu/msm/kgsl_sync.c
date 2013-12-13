@@ -200,7 +200,7 @@ static unsigned int kgsl_sync_get_timestamp(
 			ktimeline->context_id);
 
 	if (context)
-		ret = kgsl_readtimestamp(ktimeline->device, context, type);
+		kgsl_readtimestamp(ktimeline->device, context, type, &ret);
 
 	kgsl_context_put(context);
 	return ret;
