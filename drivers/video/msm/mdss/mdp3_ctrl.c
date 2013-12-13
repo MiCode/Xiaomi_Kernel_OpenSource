@@ -979,7 +979,7 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 		mdp3_bufq_push(&mdp3_session->bufq_out, data);
 	}
 
-	if (mdp3_bufq_count(&mdp3_session->bufq_out) > 2) {
+	if (mdp3_bufq_count(&mdp3_session->bufq_out) > 1) {
 		data = mdp3_bufq_pop(&mdp3_session->bufq_out);
 		mdp3_put_img(data, MDP3_CLIENT_DMA_P);
 	}

@@ -256,6 +256,7 @@ struct mdp3_dma {
 	struct mdp3_dma_histogram_config histogram_config;
 	int histo_state;
 	struct mdp3_dma_histogram_data histo_data;
+	unsigned int vsync_status;
 
 	int (*dma_config)(struct mdp3_dma *dma,
 			struct mdp3_dma_source *source_config,
