@@ -132,6 +132,7 @@
 		qti,dock-hub-reset-gpio = <&msmgpio 65 0>;
 		qti,dock-enable-gpio = <&msmgpio 93 0>;
 		qti,dock-eth-reset-gpio = <&msmgpio 94 0>;
+		status = "disabled";
 	};
 };
 
@@ -320,18 +321,6 @@
 
 &usb3 {
 	qti,charging-disabled;
-};
-
-&usb3_sec {
-	status = "ok";
-};
-
-&hsphy1 {
-	status = "ok";
-};
-
-&ssphy1 {
-	status = "ok";
 };
 
 &pma8084_gpios {
