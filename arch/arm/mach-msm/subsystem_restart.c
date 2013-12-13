@@ -1146,9 +1146,9 @@ static int subsys_parse_devicetree(struct subsys_desc *desc)
 	if (ret && ret != -ENOENT)
 		return ret;
 
-	desc->wdog_bite_irq = platform_get_irq(pdev, 0);
-	if (desc->wdog_bite_irq < 0)
-		return desc->wdog_bite_irq;
+	ret = platform_get_irq(pdev, 0);
+	if (ret > 0)
+		desc->wdog_bite_irq = ret;
 
 	return 0;
 }
