@@ -4576,7 +4576,7 @@ int mdss_mdp_ad_addr_setup(struct mdss_data_type *mdata, u32 *ad_offsets)
 
 	mdata->ad_calc_wq = create_singlethread_workqueue("ad_calc_wq");
 	for (i = 0; i < mdata->nad_cfgs; i++) {
-		mdata->ad_off[i].base = mdata->mdp_base + ad_offsets[i];
+		mdata->ad_off[i].base = mdata->mdss_base + ad_offsets[i];
 		mdata->ad_off[i].num = i;
 		mdata->ad_cfgs[i].num = i;
 		mdata->ad_cfgs[i].ops = 0;
@@ -4879,7 +4879,7 @@ int mdss_mdp_calib_config(struct mdp_calib_config_data *cfg, u32 *copyback)
 	int ret = -1;
 	void *ptr = (void *) cfg->addr;
 
-	ptr = (void *)(((unsigned int) ptr) + (mdss_res->mdp_base));
+	ptr = (void *)(((unsigned int) ptr) + (mdss_res->mdss_base));
 	if (is_valid_calib_addr(ptr, cfg->ops))
 		ret = 0;
 	else
@@ -4944,7 +4944,7 @@ int mdss_mdp_calib_config_buffer(struct mdp_calib_config_buffer *cfg,
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 
 	for (i = 0; i < counter; i++) {
-		ptr = (void *) (((unsigned int) *buff) + mdss_res->mdp_base);
+		ptr = (void *) (((unsigned int) *buff) + mdss_res->mdss_base);
 
 		if (!is_valid_calib_addr(ptr, cfg->ops)) {
 			ret = -1;

@@ -75,15 +75,19 @@ static int mdss_mdp_smp_mmb_set(int client_id, unsigned long *smp)
 {
 	u32 mmb, off, data, s;
 	int cnt = 0;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	for_each_set_bit(mmb, smp, SMP_MB_CNT) {
 		off = (mmb / 3) * 4;
 		s = (mmb % 3) * 8;
-		data = MDSS_MDP_REG_READ(MDSS_MDP_REG_SMP_ALLOC_W0 + off);
+		data = readl_relaxed(mdata->mdp_base +
+			MDSS_MDP_REG_SMP_ALLOC_W0 + off);
 		data &= ~(0xFF << s);
 		data |= client_id << s;
-		MDSS_MDP_REG_WRITE(MDSS_MDP_REG_SMP_ALLOC_W0 + off, data);
-		MDSS_MDP_REG_WRITE(MDSS_MDP_REG_SMP_ALLOC_R0 + off, data);
+		writel_relaxed(data, mdata->mdp_base +
+			MDSS_MDP_REG_SMP_ALLOC_W0 + off);
+		writel_relaxed(data, mdata->mdp_base +
+			MDSS_MDP_REG_SMP_ALLOC_R0 + off);
 		cnt++;
 	}
 	return cnt;
@@ -393,7 +397,8 @@ int mdss_mdp_smp_handoff(struct mdss_data_type *mdata)
 	for (i = 0; i < SMP_MB_CNT; i++) {
 		off = (i / 3) * 4;
 		s = (i % 3) * 8;
-		data = MDSS_MDP_REG_READ(MDSS_MDP_REG_SMP_ALLOC_W0 + off);
+		data = readl_relaxed(mdata->mdp_base +
+			MDSS_MDP_REG_SMP_ALLOC_W0 + off);
 		client_id = (data >> s) & 0xFF;
 		if (test_bit(i, mdata->mmb_alloc_map)) {
 			/*
@@ -992,7 +997,7 @@ int mdss_mdp_pipe_addr_setup(struct mdss_data_type *mdata,
 		head[i].xin_id = xin_id[i];
 		head[i].num = i + num_base;
 		head[i].ndx = BIT(i + num_base);
-		head[i].base = mdata->mdp_base + offsets[i];
+		head[i].base = mdata->mdss_base + offsets[i];
 	}
 
 	return 0;

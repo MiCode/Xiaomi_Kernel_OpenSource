@@ -35,7 +35,7 @@
 #define MAX_MIXER_HEIGHT	0xFFFF
 #define MAX_IMG_WIDTH		0x3FFF
 #define MAX_IMG_HEIGHT		0x3FFF
-#define AHB_CLK_OFFSET		0x3B4
+#define AHB_CLK_OFFSET		0x2B4
 #define MAX_DST_W		MAX_MIXER_WIDTH
 #define MAX_DST_H		MAX_MIXER_HEIGHT
 #define MAX_DOWNSCALE_RATIO	4
@@ -56,26 +56,6 @@
 #define OVERFETCH_DISABLE_BOTTOM	BIT(1)
 #define OVERFETCH_DISABLE_LEFT		BIT(2)
 #define OVERFETCH_DISABLE_RIGHT		BIT(3)
-
-#ifdef MDSS_MDP_DEBUG_REG
-static inline void mdss_mdp_reg_write(u32 addr, u32 val)
-{
-	pr_debug("0x%05X = 0x%08X\n", addr, val);
-	MDSS_REG_WRITE(addr, val);
-}
-#define MDSS_MDP_REG_WRITE(addr, val) mdss_mdp_reg_write((u32)addr, (u32)(val))
-static inline u32 mdss_mdp_reg_read(u32 addr)
-{
-	u32 val;
-	val = MDSS_REG_READ(addr);
-	pr_debug("0x%05X = 0x%08X\n", addr, val);
-	return val;
-}
-#define MDSS_MDP_REG_READ(addr) mdss_mdp_reg_read((u32)(addr))
-#else
-#define MDSS_MDP_REG_WRITE(addr, val)	MDSS_REG_WRITE((u32)(addr), (u32)(val))
-#define MDSS_MDP_REG_READ(addr)		MDSS_REG_READ((u32)(addr))
-#endif
 
 enum mdss_mdp_block_power_state {
 	MDP_BLOCK_POWER_OFF = 0,

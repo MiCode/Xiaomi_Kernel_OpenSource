@@ -216,7 +216,7 @@ static inline int mdss_irq_dispatch(u32 hw_ndx, int irq, void *ptr)
 static irqreturn_t mdss_irq_handler(int irq, void *ptr)
 {
 	struct mdss_data_type *mdata = ptr;
-	u32 intr = MDSS_MDP_REG_READ(MDSS_REG_HW_INTR_STATUS);
+	u32 intr = readl_relaxed(mdata->mdss_base + MDSS_REG_HW_INTR_STATUS);
 
 	if (!mdata)
 		return IRQ_NONE;
@@ -464,21 +464,23 @@ int mdss_mdp_irq_enable(u32 intr_type, u32 intf_num)
 	u32 irq;
 	unsigned long irq_flags;
 	int ret = 0;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	irq = mdss_mdp_irq_mask(intr_type, intf_num);
 
 	spin_lock_irqsave(&mdp_lock, irq_flags);
-	if (mdss_res->mdp_irq_mask & irq) {
+	if (mdata->mdp_irq_mask & irq) {
 		pr_warn("MDSS MDP IRQ-0x%x is already set, mask=%x\n",
-				irq, mdss_res->mdp_irq_mask);
+				irq, mdata->mdp_irq_mask);
 		ret = -EBUSY;
 	} else {
 		pr_debug("MDP IRQ mask old=%x new=%x\n",
-				mdss_res->mdp_irq_mask, irq);
-		mdss_res->mdp_irq_mask |= irq;
-		MDSS_MDP_REG_WRITE(MDSS_MDP_REG_INTR_CLEAR, irq);
-		MDSS_MDP_REG_WRITE(MDSS_MDP_REG_INTR_EN,
-				mdss_res->mdp_irq_mask);
+				mdata->mdp_irq_mask, irq);
+		mdata->mdp_irq_mask |= irq;
+		writel_relaxed(irq, mdata->mdp_base +
+			MDSS_MDP_REG_INTR_CLEAR);
+		writel_relaxed(mdata->mdp_irq_mask, mdata->mdp_base +
+			MDSS_MDP_REG_INTR_EN);
 		mdss_enable_irq(&mdss_mdp_hw);
 	}
 	spin_unlock_irqrestore(&mdp_lock, irq_flags);
@@ -489,19 +491,21 @@ int mdss_mdp_hist_irq_enable(u32 irq)
 {
 	unsigned long irq_flags;
 	int ret = 0;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	spin_lock_irqsave(&mdp_lock, irq_flags);
-	if (mdss_res->mdp_hist_irq_mask & irq) {
+	if (mdata->mdp_hist_irq_mask & irq) {
 		pr_warn("MDSS MDP Hist IRQ-0x%x is already set, mask=%x\n",
-				irq, mdss_res->mdp_hist_irq_mask);
+				irq, mdata->mdp_hist_irq_mask);
 		ret = -EBUSY;
 	} else {
 		pr_debug("MDP IRQ mask old=%x new=%x\n",
-				mdss_res->mdp_hist_irq_mask, irq);
-		mdss_res->mdp_hist_irq_mask |= irq;
-		MDSS_MDP_REG_WRITE(MDSS_MDP_REG_HIST_INTR_CLEAR, irq);
-		MDSS_MDP_REG_WRITE(MDSS_MDP_REG_HIST_INTR_EN,
-				mdss_res->mdp_hist_irq_mask);
+				mdata->mdp_hist_irq_mask, irq);
+		mdata->mdp_hist_irq_mask |= irq;
+		writel_relaxed(irq, mdata->mdp_base +
+			MDSS_MDP_REG_HIST_INTR_CLEAR);
+		writel_relaxed(mdata->mdp_hist_irq_mask, mdata->mdp_base +
+			MDSS_MDP_REG_HIST_INTR_EN);
 		mdss_enable_irq(&mdss_mdp_hw);
 	}
 	spin_unlock_irqrestore(&mdp_lock, irq_flags);
@@ -513,20 +517,21 @@ void mdss_mdp_irq_disable(u32 intr_type, u32 intf_num)
 {
 	u32 irq;
 	unsigned long irq_flags;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	irq = mdss_mdp_irq_mask(intr_type, intf_num);
 
 	spin_lock_irqsave(&mdp_lock, irq_flags);
-	if (!(mdss_res->mdp_irq_mask & irq)) {
+	if (!(mdata->mdp_irq_mask & irq)) {
 		pr_warn("MDSS MDP IRQ-%x is NOT set, mask=%x\n",
-				irq, mdss_res->mdp_irq_mask);
+				irq, mdata->mdp_irq_mask);
 	} else {
-		mdss_res->mdp_irq_mask &= ~irq;
+		mdata->mdp_irq_mask &= ~irq;
 
-		MDSS_MDP_REG_WRITE(MDSS_MDP_REG_INTR_EN,
-				mdss_res->mdp_irq_mask);
-		if ((mdss_res->mdp_irq_mask == 0) &&
-			(mdss_res->mdp_hist_irq_mask == 0))
+		writel_relaxed(mdata->mdp_irq_mask, mdata->mdp_base +
+			MDSS_MDP_REG_INTR_EN);
+		if ((mdata->mdp_irq_mask == 0) &&
+			(mdata->mdp_hist_irq_mask == 0))
 			mdss_disable_irq(&mdss_mdp_hw);
 	}
 	spin_unlock_irqrestore(&mdp_lock, irq_flags);
@@ -535,17 +540,18 @@ void mdss_mdp_irq_disable(u32 intr_type, u32 intf_num)
 void mdss_mdp_hist_irq_disable(u32 irq)
 {
 	unsigned long irq_flags;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	spin_lock_irqsave(&mdp_lock, irq_flags);
-	if (!(mdss_res->mdp_hist_irq_mask & irq)) {
+	if (!(mdata->mdp_hist_irq_mask & irq)) {
 		pr_warn("MDSS MDP IRQ-%x is NOT set, mask=%x\n",
-				irq, mdss_res->mdp_hist_irq_mask);
+				irq, mdata->mdp_hist_irq_mask);
 	} else {
-		mdss_res->mdp_hist_irq_mask &= ~irq;
-		MDSS_MDP_REG_WRITE(MDSS_MDP_REG_HIST_INTR_EN,
-				mdss_res->mdp_hist_irq_mask);
-		if ((mdss_res->mdp_irq_mask == 0) &&
-			(mdss_res->mdp_hist_irq_mask == 0))
+		mdata->mdp_hist_irq_mask &= ~irq;
+		writel_relaxed(mdata->mdp_hist_irq_mask, mdata->mdp_base +
+			MDSS_MDP_REG_HIST_INTR_EN);
+		if ((mdata->mdp_irq_mask == 0) &&
+			(mdata->mdp_hist_irq_mask == 0))
 			mdss_disable_irq(&mdss_mdp_hw);
 	}
 	spin_unlock_irqrestore(&mdp_lock, irq_flags);
@@ -555,18 +561,19 @@ void mdss_mdp_hist_irq_disable(u32 irq)
 void mdss_mdp_irq_disable_nosync(u32 intr_type, u32 intf_num)
 {
 	u32 irq;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	irq = mdss_mdp_irq_mask(intr_type, intf_num);
 
-	if (!(mdss_res->mdp_irq_mask & irq)) {
+	if (!(mdata->mdp_irq_mask & irq)) {
 		pr_warn("MDSS MDP IRQ-%x is NOT set, mask=%x\n",
-				irq, mdss_res->mdp_irq_mask);
+				irq, mdata->mdp_irq_mask);
 	} else {
-		mdss_res->mdp_irq_mask &= ~irq;
-		MDSS_MDP_REG_WRITE(MDSS_MDP_REG_INTR_EN,
-				mdss_res->mdp_irq_mask);
-		if ((mdss_res->mdp_irq_mask == 0) &&
-			(mdss_res->mdp_hist_irq_mask == 0))
+		mdata->mdp_irq_mask &= ~irq;
+		writel_relaxed(mdata->mdp_irq_mask, mdata->mdp_base +
+			MDSS_MDP_REG_INTR_EN);
+		if ((mdata->mdp_irq_mask == 0) &&
+			(mdata->mdp_hist_irq_mask == 0))
 			mdss_disable_irq_nosync(&mdss_mdp_hw);
 	}
 }
@@ -992,7 +999,7 @@ static int mdss_mdp_debug_init(struct mdss_data_type *mdata)
 	if (rc)
 		return rc;
 
-	mdss_debug_register_base(NULL, mdata->mdp_base, mdata->mdp_reg_size);
+	mdss_debug_register_base(NULL, mdata->mdss_base, mdata->mdp_reg_size);
 
 	return 0;
 }
@@ -1004,7 +1011,8 @@ int mdss_hw_init(struct mdss_data_type *mdata)
 	struct mdss_mdp_pipe *vig;
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-	mdata->mdp_rev = MDSS_MDP_REG_READ(MDSS_MDP_REG_HW_VERSION);
+	mdata->mdp_rev = readl_relaxed(mdata->mdp_base +
+		MDSS_MDP_REG_HW_VERSION);
 	pr_info_once("MDP Rev=%x\n", mdata->mdp_rev);
 
 	/* disable hw underrun recovery */
@@ -1193,16 +1201,16 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	}
 
 	mdata->mdp_reg_size = resource_size(res);
-	mdata->mdp_base = devm_ioremap(&pdev->dev, res->start,
+	mdata->mdss_base = devm_ioremap(&pdev->dev, res->start,
 				       mdata->mdp_reg_size);
-	if (unlikely(!mdata->mdp_base)) {
+	if (unlikely(!mdata->mdss_base)) {
 		pr_err("unable to map MDP base\n");
 		rc = -ENOMEM;
 		goto probe_done;
 	}
 	pr_info("MDP HW Base phy_Address=0x%x virt=0x%x\n",
 		(int) res->start,
-		(int) mdata->mdp_base);
+		(int) mdata->mdss_base);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vbif_phys");
 	if (!res) {
@@ -1338,7 +1346,7 @@ int mdss_mdp_parse_dt_hw_settings(struct platform_device *pdev)
 		return -ENOMEM;
 
 	mdss_mdp_parse_dt_regs_array(vbif_arr, mdata->vbif_base, hws, vbif_len);
-	mdss_mdp_parse_dt_regs_array(mdp_arr, mdata->mdp_base,
+	mdss_mdp_parse_dt_regs_array(mdp_arr, mdata->mdss_base,
 		hws + vbif_len, mdp_len);
 
 	mdata->hw_settings = hws;
@@ -1535,7 +1543,8 @@ get_dt_pan:
 
 static int mdss_mdp_parse_dt(struct platform_device *pdev)
 {
-	int rc;
+	int rc, data;
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 
 	rc = mdss_mdp_parse_dt_hw_settings(pdev);
 	if (rc) {
@@ -1604,6 +1613,14 @@ static int mdss_mdp_parse_dt(struct platform_device *pdev)
 		return rc;
 	}
 
+	/* Parse the mdp specific register base offset*/
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,mdss-mdp-reg-offset", &data);
+	if (rc) {
+		pr_err("Error in device tree : mdp reg base\n");
+		return rc;
+	}
+	mdata->mdp_base = mdata->mdss_base + data;
 	return 0;
 }
 

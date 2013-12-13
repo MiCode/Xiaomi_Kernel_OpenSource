@@ -25,9 +25,6 @@
 
 #include "mdss_panel.h"
 
-#define MDSS_REG_WRITE(addr, val) writel_relaxed(val, mdss_res->mdp_base + addr)
-#define MDSS_REG_READ(addr) readl_relaxed(mdss_res->mdp_base + addr)
-
 #define MAX_DRV_SUP_MMB_BLKS	44
 
 enum mdss_mdp_clk_type {
@@ -104,9 +101,10 @@ struct mdss_data_type {
 	u32 max_mdp_clk_rate;
 
 	struct platform_device *pdev;
-	char __iomem *mdp_base;
+	char __iomem *mdss_base;
 	size_t mdp_reg_size;
 	char __iomem *vbif_base;
+	char __iomem *mdp_base;
 
 	struct mutex reg_lock;
 

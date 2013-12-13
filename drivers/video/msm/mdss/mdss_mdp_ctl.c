@@ -1491,13 +1491,17 @@ static void mdss_mdp_ctl_split_display_enable(int enable,
 				lower |= BIT(8);
 		}
 	}
-	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_SPLIT_DISPLAY_UPPER_PIPE_CTRL, upper);
-	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_SPLIT_DISPLAY_LOWER_PIPE_CTRL, lower);
-	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_SPLIT_DISPLAY_EN, enable);
+	writel_relaxed(upper, main_ctl->mdata->mdp_base +
+		MDSS_MDP_REG_SPLIT_DISPLAY_UPPER_PIPE_CTRL);
+	writel_relaxed(lower, main_ctl->mdata->mdp_base +
+		MDSS_MDP_REG_SPLIT_DISPLAY_LOWER_PIPE_CTRL);
+	writel_relaxed(enable, main_ctl->mdata->mdp_base +
+		MDSS_MDP_REG_SPLIT_DISPLAY_EN);
 
 	if (main_ctl->split_flush_en)
-		MDSS_MDP_REG_WRITE(MMSS_MDP_MDP_SSPP_SPARE_0,
-			enable ? 0x1 : 0x0);
+		writel_relaxed(enable ? 0x1 : 0x0,
+			main_ctl->mdata->mdp_base +
+			MMSS_MDP_MDP_SSPP_SPARE_0);
 }
 
 int mdss_mdp_ctl_destroy(struct mdss_mdp_ctl *ctl)
@@ -1588,9 +1592,11 @@ static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl, bool handoff)
 	mdss_mdp_pp_resume(ctl, mixer->num);
 	mixer->params_changed++;
 
-	temp = MDSS_MDP_REG_READ(MDSS_MDP_REG_DISP_INTF_SEL);
+	temp = readl_relaxed(ctl->mdata->mdp_base +
+		MDSS_MDP_REG_DISP_INTF_SEL);
 	temp |= (ctl->intf_type << ((ctl->intf_num - MDSS_MDP_INTF0) * 8));
-	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_DISP_INTF_SEL, temp);
+	writel_relaxed(temp, ctl->mdata->mdp_base +
+		MDSS_MDP_REG_DISP_INTF_SEL);
 
 	outsize = (mixer->height << 16) | mixer->width;
 	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_OUT_SIZE, outsize);
@@ -1983,12 +1989,12 @@ int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata,
 
 	for (i = 0; i < len; i++) {
 		head[i].type = type;
-		head[i].base = mdata->mdp_base + mixer_offsets[i];
+		head[i].base = mdata->mdss_base + mixer_offsets[i];
 		head[i].ref_cnt = 0;
 		head[i].num = i;
 		if (type == MDSS_MDP_MIXER_TYPE_INTF) {
-			head[i].dspp_base = mdata->mdp_base + dspp_offsets[i];
-			head[i].pingpong_base = mdata->mdp_base +
+			head[i].dspp_base = mdata->mdss_base + dspp_offsets[i];
+			head[i].pingpong_base = mdata->mdss_base +
 				pingpong_offsets[i];
 		}
 	}
@@ -2049,8 +2055,8 @@ int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata,
 
 	for (i = 0; i < len; i++) {
 		head[i].num = i;
-		head[i].base = (mdata->mdp_base) + ctl_offsets[i];
-		head[i].wb_base = (mdata->mdp_base) + wb_offsets[i];
+		head[i].base = (mdata->mdss_base) + ctl_offsets[i];
+		head[i].wb_base = (mdata->mdss_base) + wb_offsets[i];
 		head[i].ref_cnt = 0;
 	}
 
