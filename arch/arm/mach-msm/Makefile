@@ -27,13 +27,6 @@ obj-$(CONFIG_MSM_SMP2P) += smp2p.o smp2p_debug.o smp2p_gpio.o
 obj-$(CONFIG_MSM_SMP2P_TEST) += smp2p_loopback.o smp2p_test.o smp2p_gpio_test.o smp2p_spinlock_test.o
 obj-$(CONFIG_MSM_SCM) += scm-boot.o
 obj-$(CONFIG_MSM_XPU_ERR_FATAL) += scm-xpu.o
-obj-$(CONFIG_MSM_PIL) += peripheral-loader.o
-obj-$(CONFIG_MSM_PIL_SSR_GENERIC) += subsys-pil-tz.o
-obj-$(CONFIG_MSM_PIL) += scm-pas.o
-obj-$(CONFIG_MSM_PIL_LPASS_QDSP6V5) += pil-q6v5.o pil-q6v5-lpass.o
-obj-$(CONFIG_MSM_PIL_MSS_QDSP6V5) += pil-q6v5.o pil-msa.o pil-q6v5-mss.o
-obj-$(CONFIG_MSM_PIL_PRONTO) += pil-pronto.o
-obj-$(CONFIG_MSM_PIL_FEMTO) += pil-q6v5.o pil-msa.o pil-femto-modem.o
 obj-$(CONFIG_MSM_TEST_QMI_CLIENT) += kernel_test_service_v01.o test_qmi_client.o
 obj-y += qdsp6v2/
 obj-$(CONFIG_PM) += pm-boot.o
@@ -50,13 +43,6 @@ obj-$(CONFIG_SURF_FFA_GPIO_KEYPAD) += keypad-surf-ffa.o
 obj-$(CONFIG_MSM_BOOT_STATS) += boot_stats.o
 
 obj-$(CONFIG_MSM_SPM_REGULATOR) += spm-regulator.o
-
-ifdef CONFIG_MSM_SUBSYSTEM_RESTART
-	obj-y += subsystem_notif.o
-	obj-y += subsystem_restart.o
-	obj-y += ramdump.o
-endif
-obj-$(CONFIG_MSM_SYSMON_COMM) += sysmon.o
 
 obj-$(CONFIG_ARCH_FSM9900) += board-fsm9900.o board-fsm9900-gpiomux.o
 obj-$(CONFIG_ARCH_FSM9900) += clock-fsm9900.o
