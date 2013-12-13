@@ -197,6 +197,12 @@ do { \
 #define QPNP_PWM_SIZE_7_8_BIT		0x6
 #define QPNP_PWM_SIZE_6_7_9_BIT		0xB
 
+/* Supported time levels */
+enum time_level {
+	LVL_NSEC,
+	LVL_USEC,
+};
+
 /* LPG revisions */
 enum qpnp_lpg_revision {
 	QPNP_LPG_REVISION_0 = 0x0,
@@ -290,7 +296,8 @@ struct qpnp_lpg_config {
 
 struct _qpnp_pwm_config {
 	int				pwm_value;
-	int				pwm_duty;
+	int				pwm_period;	/* in microseconds */
+	int				pwm_duty;	/* in microseconds */
 	struct pwm_period_config	period;
 	int				supported_sizes;
 	int				force_pwm_size;
@@ -420,7 +427,8 @@ static int qpnp_lpg_save_and_write(u8 value, u8 mask, u8 *reg, u16 addr,
  * This is the formula to figure out m for the best pre-divide and clock:
  * (PWM Period / N) = (Pre-divide * Clock Period) * 2^m
  */
-static void qpnp_lpg_calc_period(unsigned int period_us,
+static void qpnp_lpg_calc_period(enum time_level tm_lvl,
+				unsigned int period_value,
 				struct qpnp_pwm_chip *chip)
 {
 	int		n, m, clk, div;
@@ -437,14 +445,18 @@ static void qpnp_lpg_calc_period(unsigned int period_us,
 	else
 		n = 6;
 
-	if (period_us < ((unsigned)(-1) / NSEC_PER_USEC)) {
-		period_n = (period_us * NSEC_PER_USEC) >> n;
+	if (tm_lvl == LVL_USEC) {
+		if (period_value < ((unsigned)(-1) / NSEC_PER_USEC)) {
+			period_n = (period_value * NSEC_PER_USEC) >> n;
+		} else {
+			if (supported_sizes == QPNP_PWM_SIZE_7_8_BIT)
+				n = 8;
+			else
+				n = 9;
+			period_n = (period_value >> n) * NSEC_PER_USEC;
+		}
 	} else {
-		if (supported_sizes == QPNP_PWM_SIZE_7_8_BIT)
-			n = 8;
-		else
-			n = 9;
-		period_n = (period_us >> n) * NSEC_PER_USEC;
+		period_n = period_value >> n;
 	}
 
 	if (force_pwm_size != 0) {
@@ -515,19 +527,19 @@ static void qpnp_lpg_calc_period(unsigned int period_us,
 }
 
 static void qpnp_lpg_calc_pwm_value(struct _qpnp_pwm_config *pwm_config,
-				      unsigned int period_us,
-				      unsigned int duty_us)
+				      unsigned int period_value,
+				      unsigned int duty_value)
 {
 	unsigned int max_pwm_value, tmp;
 
 	/* Figure out pwm_value with overflow handling */
 	tmp = 1 << (sizeof(tmp) * 8 - pwm_config->period.pwm_size);
-	if (duty_us < tmp) {
-		tmp = duty_us << pwm_config->period.pwm_size;
-		pwm_config->pwm_value = tmp / period_us;
+	if (duty_value < tmp) {
+		tmp = duty_value << pwm_config->period.pwm_size;
+		pwm_config->pwm_value = tmp / period_value;
 	} else {
-		tmp = period_us >> pwm_config->period.pwm_size;
-		pwm_config->pwm_value = duty_us / tmp;
+		tmp = period_value >> pwm_config->period.pwm_size;
+		pwm_config->pwm_value = duty_value / tmp;
 	}
 	max_pwm_value = (1 << pwm_config->period.pwm_size) - 1;
 	if (pwm_config->pwm_value > max_pwm_value)
@@ -1068,14 +1080,16 @@ out:
 }
 
 static int _pwm_config(struct qpnp_pwm_chip *chip,
-			int duty_us, int period_us)
+				enum time_level tm_lvl,
+				int duty_value, int period_value)
 {
 	int rc;
 	struct _qpnp_pwm_config *pwm_config = &chip->pwm_config;
 	struct pwm_period_config *period = &pwm_config->period;
 
-	pwm_config->pwm_duty = duty_us;
-	qpnp_lpg_calc_pwm_value(pwm_config, period_us, duty_us);
+	pwm_config->pwm_duty = (tm_lvl == LVL_USEC) ? duty_value :
+			duty_value / NSEC_PER_USEC;
+	qpnp_lpg_calc_pwm_value(pwm_config, period_value, duty_value);
 	rc = qpnp_lpg_save_pwm_value(chip);
 	if (rc)
 		goto out;
@@ -1086,8 +1100,9 @@ static int _pwm_config(struct qpnp_pwm_chip *chip,
 	if (rc)
 		goto out;
 
-	pr_debug("duty/period=%u/%u usec: pwm_value=%d (of %d)\n",
-		 (unsigned)duty_us, (unsigned)period_us,
+	pr_debug("duty/period=%u/%u %s: pwm_value=%d (of %d)\n",
+		 (unsigned)duty_value, (unsigned)period_value,
+		 (tm_lvl == LVL_USEC) ? "usec" : "nsec",
 		 pwm_config->pwm_value, 1 << period->pwm_size);
 
 out:
@@ -1185,7 +1200,7 @@ static int _pwm_enable(struct qpnp_pwm_chip *chip)
  * @pwm_chip: the PWM chip
  * @pwm: the PWM device
  */
-void qpnp_pwm_free(struct pwm_chip *pwm_chip,
+static void qpnp_pwm_free(struct pwm_chip *pwm_chip,
 		struct pwm_device *pwm)
 {
 	struct qpnp_pwm_chip	*chip = qpnp_pwm_from_pwm_chip(pwm_chip);
@@ -1203,31 +1218,31 @@ void qpnp_pwm_free(struct pwm_chip *pwm_chip,
 /**
  * qpnp_pwm_config - change a PWM device configuration
  * @pwm: the PWM device
- * @period_us: period in microseconds
- * @duty_us: duty cycle in microseconds
+ * @period_ns: period in nanoseconds
+ * @duty_ns: duty cycle in nanoseconds
  */
-int qpnp_pwm_config(struct pwm_chip *pwm_chip,
-	struct pwm_device *pwm, int duty_us, int period_us)
+static int qpnp_pwm_config(struct pwm_chip *pwm_chip,
+	struct pwm_device *pwm, int duty_ns, int period_ns)
 {
 	int rc;
 	unsigned long flags;
 	struct qpnp_pwm_chip *chip = qpnp_pwm_from_pwm_chip(pwm_chip);
 
-	if ((unsigned)period_us > PM_PWM_PERIOD_MAX ||
-		(unsigned)period_us < PM_PWM_PERIOD_MIN) {
+	if ((unsigned)period_ns < PM_PWM_PERIOD_MIN * NSEC_PER_USEC) {
 		pr_err("Invalid pwm handle or parameters\n");
 		return -EINVAL;
 	}
 
 	spin_lock_irqsave(&chip->lpg_lock, flags);
 
-	if (pwm->period != period_us) {
-		qpnp_lpg_calc_period(period_us, chip);
+	if (pwm->period != period_ns) {
+		qpnp_lpg_calc_period(LVL_NSEC, period_ns, chip);
 		qpnp_lpg_save_period(chip);
-		pwm->period = period_us;
+		pwm->period = period_ns;
+		chip->pwm_config.pwm_period = period_ns / NSEC_PER_USEC;
 	}
 
-	rc = _pwm_config(chip, duty_us, period_us);
+	rc = _pwm_config(chip, LVL_NSEC, duty_ns, period_ns);
 
 	spin_unlock_irqrestore(&chip->lpg_lock, flags);
 
@@ -1242,7 +1257,7 @@ int qpnp_pwm_config(struct pwm_chip *pwm_chip,
  * @pwm_chip: the PWM chip
  * @pwm: the PWM device
  */
-int qpnp_pwm_enable(struct pwm_chip *pwm_chip,
+static int qpnp_pwm_enable(struct pwm_chip *pwm_chip,
 		struct pwm_device *pwm)
 {
 	int rc;
@@ -1259,7 +1274,7 @@ int qpnp_pwm_enable(struct pwm_chip *pwm_chip,
  * @pwm_chip: the PWM chip
  * @pwm: the PWM device
  */
-void qpnp_pwm_disable(struct pwm_chip *pwm_chip,
+static void qpnp_pwm_disable(struct pwm_chip *pwm_chip,
 		struct pwm_device *pwm)
 {
 
@@ -1436,6 +1451,51 @@ out_unlock:
 EXPORT_SYMBOL_GPL(pwm_config_pwm_value);
 
 /**
+ * pwm_config_us - change a PWM device configuration
+ * @pwm: the PWM device
+ * @period_us: period in microseconds
+ * @duty_us: duty cycle in microseconds
+ */
+int pwm_config_us(struct pwm_device *pwm, int duty_us, int period_us)
+{
+	int rc;
+	unsigned long flags;
+	struct qpnp_pwm_chip *chip;
+
+	if (pwm == NULL || IS_ERR(pwm) ||
+		duty_us > period_us ||
+		(unsigned)period_us > PM_PWM_PERIOD_MAX ||
+		(unsigned)period_us < PM_PWM_PERIOD_MIN) {
+		pr_err("Invalid pwm handle or parameters\n");
+		return -EINVAL;
+	}
+
+	chip = qpnp_pwm_from_pwm_dev(pwm);
+
+	spin_lock_irqsave(&chip->lpg_lock, flags);
+
+	if (chip->pwm_config.pwm_period != period_us) {
+		qpnp_lpg_calc_period(LVL_USEC, period_us, chip);
+		qpnp_lpg_save_period(chip);
+		chip->pwm_config.pwm_period = period_us;
+		if ((unsigned)period_us > (unsigned)(-1) / NSEC_PER_USEC)
+			pwm->period = 0;
+		else
+			pwm->period = (unsigned)period_us * NSEC_PER_USEC;
+	}
+
+	rc = _pwm_config(chip, LVL_USEC, duty_us, period_us);
+
+	spin_unlock_irqrestore(&chip->lpg_lock, flags);
+
+	if (rc)
+		pr_err("Failed to configure PWM mode\n");
+
+	return rc;
+}
+EXPORT_SYMBOL(pwm_config_us);
+
+/**
  * pwm_lut_config - change LPG LUT device configuration
  * @pwm: the PWM device
  * @period_us: period in micro second
@@ -1483,10 +1543,10 @@ int pwm_lut_config(struct pwm_device *pwm, int period_us,
 
 	spin_lock_irqsave(&chip->lpg_lock, flags);
 
-	if (pwm->period != period_us) {
-		qpnp_lpg_calc_period(period_us, chip);
+	if (chip->pwm_config.pwm_period != period_us) {
+		qpnp_lpg_calc_period(LVL_USEC, period_us, chip);
 		qpnp_lpg_save_period(chip);
-		pwm->period = period_us;
+		chip->pwm_config.pwm_period = period_us;
 	}
 
 	rc = _pwm_lut_config(chip, period_us, duty_pct, lut_params);
@@ -1518,7 +1578,7 @@ static int qpnp_parse_pwm_dt_config(struct device_node *of_pwm_node,
 		return rc;
 	}
 
-	rc = _pwm_config(chip, chip->pwm_config.pwm_duty, period);
+	rc = _pwm_config(chip, LVL_USEC, chip->pwm_config.pwm_duty, period);
 
 	return rc;
 }
