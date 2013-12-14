@@ -17,7 +17,7 @@
 #include <linux/delay.h>
 #include "msm_vidc_internal.h"
 
-#define VIDC_DBG_TAG "msm_vidc: %d: "
+#define VIDC_DBG_TAG "msm_vidc: %4s: "
 
 /* To enable messages OR these values and
  * echo the result to debugfs file.
@@ -55,18 +55,54 @@ extern int msm_fw_low_power_mode;
 extern int msm_vp8_low_tier;
 extern int msm_vidc_hw_rsp_timeout;
 
+#define VIDC_MSG_PRIO2STRING(__level) ({ \
+	char *__str; \
+	\
+	switch (__level) { \
+	case VIDC_ERR: \
+		__str = "err"; \
+		break; \
+	case VIDC_WARN: \
+		__str = "warn"; \
+		break; \
+	case VIDC_INFO: \
+		__str = "info"; \
+		break; \
+	case VIDC_DBG: \
+		__str = "dbg"; \
+		break; \
+	case VIDC_PROF: \
+		__str = "prof"; \
+		break; \
+	case VIDC_PKT: \
+		__str = "pkt"; \
+		break; \
+	case VIDC_FW: \
+		__str = "fw"; \
+		break; \
+	default: \
+		__str = "????"; \
+		break; \
+	} \
+	\
+	__str; \
+	})
+
 #define dprintk(__level, __fmt, arg...)	\
 	do { \
 		if (msm_vidc_debug & __level) { \
 			if (msm_vidc_debug_out == VIDC_OUT_PRINTK) { \
-				printk(KERN_DEBUG VIDC_DBG_TAG \
-						__fmt, __level, ## arg); \
+				pr_info(VIDC_DBG_TAG __fmt, \
+						VIDC_MSG_PRIO2STRING(__level), \
+						## arg); \
 			} else if (msm_vidc_debug_out == VIDC_OUT_FTRACE) { \
-				trace_printk(KERN_DEBUG VIDC_DBG_TAG \
-						__fmt, __level, ## arg); \
+				trace_printk(KERN_DEBUG VIDC_DBG_TAG __fmt, \
+						VIDC_MSG_PRIO2STRING(__level), \
+						## arg); \
 			} \
 		} \
 	} while (0)
+
 
 
 struct dentry *msm_vidc_debugfs_init_drv(void);
@@ -116,7 +152,7 @@ static inline void show_stats(struct msm_vidc_inst *i)
 				i->debug.pdata[x].name,
 				i->debug.pdata[x].cumulative /
 					i->debug.samples);
-			dprintk(VIDC_PROF, "%s Samples: %d",
+			dprintk(VIDC_PROF, "%s Samples: %d\n",
 					i->debug.pdata[x].name,
 					i->debug.samples);
 		}

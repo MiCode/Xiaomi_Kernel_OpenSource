@@ -541,7 +541,7 @@ static int is_ctrl_valid_for_codec(struct msm_vidc_inst *inst,
 	switch (ctrl->id) {
 	case V4L2_CID_MPEG_VIDC_VIDEO_MVC_BUFFER_LAYOUT:
 		if (inst->fmts[OUTPUT_PORT]->fourcc != V4L2_PIX_FMT_H264_MVC) {
-			dprintk(VIDC_ERR, "Control 0x%x only valid for MVC",
+			dprintk(VIDC_ERR, "Control 0x%x only valid for MVC\n",
 					ctrl->id);
 			rc = -ENOTSUPP;
 			break;
@@ -550,7 +550,8 @@ static int is_ctrl_valid_for_codec(struct msm_vidc_inst *inst,
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
 		if (inst->fmts[OUTPUT_PORT]->fourcc == V4L2_PIX_FMT_H264_MVC &&
 			ctrl->val != V4L2_MPEG_VIDEO_H264_PROFILE_STEREO_HIGH) {
-			dprintk(VIDC_ERR, "Profile 0x%x not supported for MVC",
+			dprintk(VIDC_ERR,
+					"Profile 0x%x not supported for MVC\n",
 					ctrl->val);
 			rc = -ENOTSUPP;
 			break;
@@ -559,7 +560,7 @@ static int is_ctrl_valid_for_codec(struct msm_vidc_inst *inst,
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
 		if (inst->fmts[OUTPUT_PORT]->fourcc == V4L2_PIX_FMT_H264_MVC &&
 			ctrl->val >= V4L2_MPEG_VIDEO_H264_LEVEL_5_2) {
-			dprintk(VIDC_ERR, "Level 0x%x not supported for MVC",
+			dprintk(VIDC_ERR, "Level 0x%x not supported for MVC\n",
 					ctrl->val);
 			rc = -ENOTSUPP;
 			break;
@@ -727,7 +728,7 @@ int msm_vdec_prepare_buf(struct msm_vidc_inst *inst,
 	struct hfi_device *hdev;
 
 	if (!inst || !inst->core || !inst->core->device) {
-		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
 	hdev = inst->core->device;
@@ -775,7 +776,7 @@ int msm_vdec_prepare_buf(struct msm_vidc_inst *inst,
 					(void *)inst->session, &buffer_info);
 			if (rc)
 				dprintk(VIDC_ERR,
-				"vidc_hal_session_set_buffers failed");
+				"vidc_hal_session_set_buffers failed\n");
 		break;
 	default:
 		dprintk(VIDC_ERR, "Buffer type not recognized: %d\n", b->type);
@@ -795,7 +796,7 @@ int msm_vdec_release_buf(struct msm_vidc_inst *inst,
 	struct hfi_device *hdev;
 
 	if (!inst || !inst->core || !inst->core->device) {
-		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
 
@@ -854,7 +855,7 @@ int msm_vdec_release_buf(struct msm_vidc_inst *inst,
 				(void *)inst->session, &buffer_info);
 			if (rc)
 				dprintk(VIDC_ERR,
-				"vidc_hal_session_release_buffers failed");
+				"vidc_hal_session_release_buffers failed\n");
 		break;
 	default:
 		dprintk(VIDC_ERR, "Buffer type not recognized: %d\n", b->type);
@@ -1115,7 +1116,7 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	int max_input_size = 0;
 
 	if (!inst || !f) {
-		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
@@ -1322,7 +1323,7 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 	inst = q->drv_priv;
 
 	if (!inst || !inst->core || !inst->core->device) {
-		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
 
@@ -1480,7 +1481,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		HAL_VIDEO_DECODER_SECONDARY)
 		rc = msm_vidc_check_scaling_supported(inst);
 	if (rc) {
-		dprintk(VIDC_ERR, "H/w scaling is not in valid range");
+		dprintk(VIDC_ERR, "H/w scaling is not in valid range\n");
 		return -EINVAL;
 	}
 	rc = msm_comm_set_scratch_buffers(inst);
@@ -1565,7 +1566,7 @@ static int msm_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 	}
 	inst = q->drv_priv;
 	if (!inst || !inst->core || !inst->core->device) {
-		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
 	hdev = inst->core->device;
@@ -1639,7 +1640,7 @@ int msm_vdec_cmd(struct msm_vidc_inst *inst, struct v4l2_decoder_cmd *dec)
 	struct msm_vidc_core *core = inst->core;
 
 	if (!dec || !inst || !inst->core) {
-		dprintk(VIDC_ERR, "%s invalid params", __func__);
+		dprintk(VIDC_ERR, "%s invalid params\n", __func__);
 		return -EINVAL;
 	}
 	switch (dec->cmd) {
@@ -1738,7 +1739,7 @@ static inline enum buffer_mode_type get_buf_type(int val)
 	case V4L2_MPEG_VIDC_VIDEO_DYNAMIC:
 		return HAL_BUFFER_MODE_DYNAMIC;
 	default:
-		dprintk(VIDC_ERR, "%s: invalid buf type: %d", __func__, val);
+		dprintk(VIDC_ERR, "%s: invalid buf type: %d\n", __func__, val);
 	}
 	return 0;
 }
@@ -1770,7 +1771,7 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	union hal_get_property hprop;
 
 	if (!inst || !inst->core || !inst->core->device) {
-		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
 
@@ -1836,7 +1837,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_mvc_buffer_layout layout;
 
 	if (!inst || !inst->core || !inst->core->device) {
-		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
 	hdev = inst->core->device;
@@ -1919,7 +1920,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			inst->flags |= VIDC_TURBO;
 			break;
 		default:
-			dprintk(VIDC_ERR, "Perf mode %x not supported",
+			dprintk(VIDC_ERR, "Perf mode %x not supported\n",
 					ctrl->val);
 			rc = -ENOTSUPP;
 			break;
@@ -1968,7 +1969,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE:
 		if (ctrl->val && !(inst->capability.pixelprocess_capabilities &
 				HAL_VIDEO_DECODER_MULTI_STREAM_CAPABILITY)) {
-			dprintk(VIDC_ERR, "Downscaling not supported: 0x%x",
+			dprintk(VIDC_ERR, "Downscaling not supported: 0x%x\n",
 				ctrl->id);
 			rc = -ENOTSUPP;
 			break;
@@ -2069,7 +2070,7 @@ static int msm_vdec_op_s_ctrl(struct v4l2_ctrl *ctrl)
 	struct msm_vidc_inst *inst = container_of(ctrl->handler,
 				struct msm_vidc_inst, ctrl_handler);
 	if (!inst) {
-		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
 	rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
@@ -2083,7 +2084,7 @@ static int msm_vdec_op_s_ctrl(struct v4l2_ctrl *ctrl)
 		if (ctrl->cluster[c]->is_new) {
 			rc = try_set_ctrl(inst, ctrl->cluster[c]);
 			if (rc) {
-				dprintk(VIDC_ERR, "Failed setting %x",
+				dprintk(VIDC_ERR, "Failed setting %x\n",
 						ctrl->cluster[c]->id);
 				break;
 			}
@@ -2113,7 +2114,7 @@ static int msm_vdec_op_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 		if (master->cluster[c]->id == ctrl->id) {
 			rc = try_get_ctrl(inst, ctrl);
 			if (rc) {
-				dprintk(VIDC_ERR, "Failed getting %x",
+				dprintk(VIDC_ERR, "Failed getting %x\n",
 					ctrl->id);
 				return rc;
 			}
@@ -2256,7 +2257,8 @@ int msm_vdec_ctrl_init(struct msm_vidc_inst *inst)
 
 		cluster = get_cluster(idx, &cluster_size);
 		if (!cluster || !cluster_size) {
-			dprintk(VIDC_WARN, "Failed to setup cluster of type %d",
+			dprintk(VIDC_WARN,
+					"Failed to setup cluster of type %d\n",
 					idx);
 			continue;
 		}
