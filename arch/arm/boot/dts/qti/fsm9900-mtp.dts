@@ -38,7 +38,7 @@
 		status = "disabled";
 	};
 
-	qcom,fuse@fc4b8000 {
+	qti,fuse@fc4b8000 {
 		status = "ok";
 		vdd-blow-supply = <&pma8084_lvs1>;
 	};
