@@ -278,8 +278,12 @@ static int q6_hfi_init_resources(struct q6_hfi_device *device,
 
 	device->res = res;
 	rc = q6_hfi_register_iommu_domains(device);
-	if (rc)
-		dprintk(VIDC_ERR, "Failed to register iommu domains: %d\n", rc);
+	if (rc) {
+		if (rc != -EPROBE_DEFER) {
+			dprintk(VIDC_ERR,
+				"Failed to register iommu domains: %d\n", rc);
+		}
+	}
 
 	return rc;
 }
@@ -354,14 +358,15 @@ static void *q6_hfi_get_device(u32 device_id,
 
 	rc = q6_hfi_init_resources(device, res);
 	if (rc) {
-		dprintk(VIDC_ERR, "Failed to init resources: %d\n", rc);
+		if (rc != -EPROBE_DEFER)
+			dprintk(VIDC_ERR, "Failed to init resources: %d\n", rc);
 		goto err_fail_init_res;
 	}
 	return device;
 
 err_fail_init_res:
 	q6_hfi_delete_device(device);
-	return NULL;
+	return ERR_PTR(rc);
 }
 
 void q6_hfi_delete_device(void *device)
@@ -1381,6 +1386,12 @@ int q6_hfi_initialize(struct hfi_device *hdev, u32 device_id,
 		goto err_hfi_init;
 	}
 	hdev->hfi_device_data = q6_hfi_get_device(device_id, res, callback);
+
+	if (IS_ERR_OR_NULL(hdev->hfi_device_data)) {
+		rc = PTR_ERR(hdev->hfi_device_data);
+		rc = !rc ? -EINVAL : rc;
+		goto err_hfi_init;
+	}
 
 	q6_init_hfi_callbacks(hdev);
 
