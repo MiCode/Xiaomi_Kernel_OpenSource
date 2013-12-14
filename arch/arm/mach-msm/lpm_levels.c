@@ -291,7 +291,7 @@ static int lpm_system_mode_select(
 			system_level->num_cpu_votes != num_powered_cores)
 			continue;
 
-		if (latency_us < pwr_param->latency_us)
+		if (latency_us < pwr_param->latency_us && from_idle)
 			continue;
 
 		if (sleep_us < pwr_param->time_overhead_us)
