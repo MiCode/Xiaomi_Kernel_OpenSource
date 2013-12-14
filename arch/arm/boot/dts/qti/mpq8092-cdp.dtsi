@@ -61,6 +61,37 @@
 	status = "ok";
  };
 
+&sdhc_2 {
+	vdd-supply = <&pma8084_l21>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pma8084_l13>;
+	qcom,vdd-io-voltage-level = <1800000 2950000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	qcom,pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+	qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+	qcom,pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
+	qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+
+	#address-cells = <0>;
+	interrupt-parent = <&sdhc_2>;
+	interrupts = <0 1 2>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 125 0
+			1 &intc 0 221 0
+			2 &pma8084_gpios 20 0x3>;
+	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
+	cd-gpios = <&pma8084_gpios 20 0x1>;
+
+	status = "ok";
+};
+
 &pma8084_gpios {
 	gpio@c000 { /* GPIO 1 */
 	};
@@ -120,6 +151,10 @@
 	};
 
 	gpio@d300 { /* GPIO 20 */
+		qcom,mode = <0>;	/* Digitial input */
+		qcom,pull = <1>;	/* QPNP_PIN_GPIO_PULL_UP_1P5 */
+		qcom,vin-sel = <2>;	/* VIN2 */
+		qcom,src-sel = <0>;	/* GPIO */
 	};
 
 	gpio@d400 { /* GPIO 21 */
