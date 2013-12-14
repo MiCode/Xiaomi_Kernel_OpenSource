@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,9 +24,11 @@
 #define SCM_SVC_MP			0xC
 #define SCM_SVC_DCVS			0xD
 #define SCM_SVC_ES			0x10
+#define SCM_SVC_HDCP			0x11
 #define SCM_SVC_TZSCHEDULER		0xFC
 
 #define SCM_FUSE_READ			0x7
+#define SCM_CMD_HDCP			0x01
 
 #define DEFINE_SCM_BUFFER(__n) \
 static char __n[PAGE_SIZE] __aligned(PAGE_SIZE);
@@ -55,6 +57,13 @@ extern s32 scm_call_atomic4_3(u32 svc, u32 cmd, u32 arg1, u32 arg2, u32 arg3,
 extern u32 scm_get_version(void);
 extern int scm_is_call_available(u32 svc_id, u32 cmd_id);
 extern int scm_get_feat_version(u32 feat);
+
+#define SCM_HDCP_MAX_REG 5
+
+struct scm_hdcp_req {
+	u32 addr;
+	u32 val;
+};
 
 #else
 
