@@ -955,6 +955,15 @@ int mdss_hw_init(struct mdss_data_type *mdata)
 	mdata->mdp_rev = MDSS_MDP_REG_READ(MDSS_MDP_REG_HW_VERSION);
 	pr_info_once("MDP Rev=%x\n", mdata->mdp_rev);
 
+	/*
+	 * This smp workaround is temporary until under-run root cause
+	 * is identified and fix is implemented.
+	 */
+	if (mdata->mdp_rev == MDSS_MDP_HW_REV_103) {
+		set_bit(0x6, mdata->mmb_alloc_map);
+		set_bit(0x7, mdata->mmb_alloc_map);
+	}
+
 	/* disable hw underrun recovery */
 	writel_relaxed(0x0, mdata->mdp_base +
 			MDSS_MDP_REG_VIDEO_INTF_UNDERFLOW_CTL);
