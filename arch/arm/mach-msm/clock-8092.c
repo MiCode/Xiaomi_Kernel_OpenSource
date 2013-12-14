@@ -326,6 +326,7 @@ static void __iomem *virt_bases[N_BASES];
 #define GP3_CMD_RCGR				0x1984
 #define BCSS_CFG_AHB_CBCR			0x1A44
 #define BCSS_SLEEP_CBCR				0x1A4C
+#define USB_HS2_BCR				0x1A80
 #define USB_HS2_SYSTEM_CBCR			0x1A84
 #define USB_HS2_AHB_CBCR			0x1A88
 #define USB_HS2_SYSTEM_CMD_RCGR			0x1A90
@@ -442,6 +443,10 @@ static void __iomem *virt_bases[N_BASES];
 #define GLB_CLK_DIAG				0x001C
 #define GLB_TEST_BUS_SEL			0x0020
 #define L2_CBCR					0x004C
+#define PCIE_GPIO_LDO_EN			0x1EC0
+#define SATA_PHY_LDO_EN				0x1EC4
+#define VBY1_GPIO_LDO_EN			0x1EC8
+#define PCIEPHY_PHY_BCR				0x1E1C
 #define LPASS_DEBUG_CLK_CTL			0x29000
 
 /* Mux source select values */
@@ -619,6 +624,7 @@ static DEFINE_CLK_VOTER(ocmemgx_msmbus_clk, &ocmemgx_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(ocmemgx_msmbus_a_clk, &ocmemgx_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(ocmemgx_core_clk, &ocmemgx_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_sps_clk, &pnoc_clk.c, 0);
+static DEFINE_CLK_VOTER(pnoc_keepalive_a_clk, &pnoc_a_clk.c, LONG_MAX);
 
 static DEFINE_CLK_BRANCH_VOTER(cxo_otg_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(cxo_dwc3_clk, &xo_clk_src.c);
@@ -1318,6 +1324,7 @@ static struct rcg_clk geni_ser_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_gmac_125m_clk[] = {
+	F_EXT(   19200000,	      xo,   1,	  0,	0),
 	F_EXT(	125000000, gmac_125m_clk,   1,	  0,	0),
 	F_END
 };
@@ -1337,6 +1344,7 @@ static struct rcg_clk gmac_125m_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_gmac_core_clk[] = {
+	F_EXT(   19200000,	      xo,   1,	  0,	0),
 	F_EXT(	125000000, gmac_125m_clk,   1,	  0,	0),
 	F_END
 };
@@ -1356,6 +1364,7 @@ static struct rcg_clk gmac_core_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_gmac_sys_25m_clk[] = {
+	F_EXT(   19200000,	      xo,   1,	  0,	0),
 	F_EXT(	125000000, gmac_125m_clk,   1,	  0,	0),
 	F_END
 };
@@ -1424,7 +1433,7 @@ static struct rcg_clk gp3_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_pcie_sleep_clk[] = {
-	F(   1000000,	      xo,   1,	  1,   19),
+	F(   1010000,	      xo,   1,	  1,   19),
 	F_END
 };
 
@@ -1437,13 +1446,13 @@ static struct rcg_clk pcie_aux_clk_src = {
 	.c = {
 		.dbg_name = "pcie_aux_clk_src",
 		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP1(LOW, 1000000),
+		VDD_DIG_FMAX_MAP1(LOW, 1010000),
 		CLK_INIT(pcie_aux_clk_src.c),
 	},
 };
 
 static struct clk_freq_tbl ftbl_gcc_pcie_pipe_clk[] = {
-	F_EXT( 125000000, pcie_pipe_clk,   2,	 0,    0),
+	F_EXT( 125000000, pcie_pipe_clk,   1,	 0,    0),
 	F_EXT( 250000000, pcie_pipe_clk,   1,	 0,    0),
 	F_END
 };
@@ -2769,6 +2778,7 @@ static struct branch_clk gcc_pcie_cfg_ahb_clk = {
 };
 
 static struct branch_clk gcc_pcie_pipe_clk = {
+	.bcr_reg = PCIEPHY_PHY_BCR,
 	.cbcr_reg = PCIE_PIPE_CBCR,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
@@ -3033,9 +3043,10 @@ static struct branch_clk gcc_usb2c_phy_sleep_clk = {
 	},
 };
 
+/* Allow clk_set_rate on the branch */
 static struct branch_clk gcc_usb30_master_clk = {
 	.cbcr_reg = USB30_MASTER_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.parent = &usb30_master_clk_src.c,
@@ -3105,6 +3116,7 @@ static struct branch_clk gcc_usb_hs2_ahb_clk = {
 
 static struct branch_clk gcc_usb_hs2_system_clk = {
 	.cbcr_reg = USB_HS2_SYSTEM_CBCR,
+	.bcr_reg = USB_HS2_BCR,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
@@ -3422,7 +3434,8 @@ static struct rcg_clk cfg_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_vcap_md_clk[] = {
-	F_MMSS(  19200000,	  xo,	1,    0,    0),
+	F_MMSS(  19200000,	  xo,    1,    0,    0),
+	F_MMSS(  50000000,     mmpll0,	16,    0,    0),
 	F_MMSS(  88890000,     mmpll0,	 9,    0,    0),
 	F_END
 };
@@ -3894,7 +3907,6 @@ static struct branch_clk oxili_ocmemgx_clk = {
 
 static struct branch_clk oxili_gfx3d_clk = {
 	.cbcr_reg = OXILI_GFX3D_CBCR,
-	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
 		.dbg_name = "oxili_gfx3d_clk",
@@ -4223,6 +4235,17 @@ static struct branch_clk vpu_sdme_vproc_clk = {
 	},
 };
 
+static struct branch_clk vpu_cxo_clk = {
+	.cbcr_reg = VPU_CXO_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.dbg_name = "vpu_cxo_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(vpu_cxo_clk.c),
+	},
+};
+
 static struct branch_clk vpu_sleep_clk = {
 	.cbcr_reg = VPU_SLEEP_CBCR,
 	.has_sibling = 0,
@@ -4257,9 +4280,6 @@ static struct branch_clk vpu_vdp_xin_clk = {
 		CLK_INIT(vpu_vdp_xin_clk.c),
 	},
 };
-
-DEFINE_CLK_DUMMY(vpu_cxo_clk, 0)
-DEFINE_CLK_DUMMY(gcc_mmss_vpu_maple_sys_noc_axi_clk, 0)
 
 /* BCAST Clocks */
 static struct pll_config_regs bcc_pll0_regs __initdata = {
@@ -5619,6 +5639,39 @@ static struct branch_clk nidaq_in_clk = {
 	},
 };
 
+static struct gate_clk pcie_gpio_ldo = {
+	.en_reg = PCIE_GPIO_LDO_EN,
+	.en_mask = BIT(0),
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "pcie_gpio_ldo",
+		.ops = &clk_ops_gate,
+		CLK_INIT(pcie_gpio_ldo.c),
+	},
+};
+
+static struct gate_clk sata_phy_ldo = {
+	.en_reg = SATA_PHY_LDO_EN,
+	.en_mask = BIT(0),
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "sata_phy_ldo",
+		.ops = &clk_ops_gate,
+		CLK_INIT(sata_phy_ldo.c),
+	},
+};
+
+static struct gate_clk vby1_gpio_ldo = {
+	.en_reg = VBY1_GPIO_LDO_EN,
+	.en_mask = BIT(0),
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "vby1_gpio_ldo",
+		.ops = &clk_ops_gate,
+		CLK_INIT(vby1_gpio_ldo.c),
+	},
+};
+
 static DEFINE_CLK_MEASURE(l2_m_clk);
 static DEFINE_CLK_MEASURE(krait0_m_clk);
 static DEFINE_CLK_MEASURE(krait1_m_clk);
@@ -5822,6 +5875,7 @@ struct measure_mux_entry measure_mux[] = {
 	{&bcc_gram_clk.c,			BCSS_BASE,	0x00c1},
 	{&bcc_adc_clk.c,			BCSS_BASE,	0x00c2},
 	{&nidaq_out_clk.c,			BCSS_BASE,	0x00c7},
+	{&dem_core_clk_src.c,			BCSS_BASE,	0x0100},
 	{&dem_core_clk_x2_src.c,		BCSS_BASE,	0x0102},
 	{&bcc_ts_out_clk.c,			BCSS_BASE,	0x0103},
 	{&dig_dem_core_clk_src.c,		BCSS_BASE,	0x010a},
@@ -6504,6 +6558,7 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("ocmem_clk",	ocmemgx_msmbus_clk.c,	  "msm_bus"),
 	CLK_LOOKUP("ocmem_a_clk", ocmemgx_msmbus_a_clk.c, "msm_bus"),
 	CLK_LOOKUP("dfab_clk", pnoc_sps_clk.c, "msm_sps"),
+	CLK_LOOKUP("bus_clk", pnoc_keepalive_a_clk.c, ""),
 
 	CLK_LOOKUP("dma_bam_pclk", gcc_bam_dma_ahb_clk.c, "msm_sps"),
 	CLK_LOOKUP("",	gcc_bcss_cfg_ahb_clk.c,	""),
@@ -6598,7 +6653,6 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("",	gcc_sys_noc_lpass_mport_clk.c,	""),
 	CLK_LOOKUP("",	gcc_sys_noc_lpass_sway_clk.c,	""),
 	CLK_LOOKUP("",	gcc_mmss_a5ss_axi_clk.c,	""),
-	CLK_LOOKUP("",	gcc_mmss_noc_cfg_ahb_clk.c,	""),
 
 	/* PCIE */
 	CLK_LOOKUP("",	gcc_pcie_axi_clk.c,	""),
@@ -6664,16 +6718,14 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("",	mdss_mdp_clk.c,	""),
 	CLK_LOOKUP("",	mdss_mdp_lut_clk.c,	""),
 	CLK_LOOKUP("",	mmss_misc_ahb_clk.c,	""),
-	CLK_LOOKUP("",	mmss_mmssnoc_ahb_clk.c,	""),
-	CLK_LOOKUP("",	mmss_mmssnoc_bto_ahb_clk.c,	""),
 	CLK_LOOKUP("",	mmss_mmssnoc_axi_clk.c,	""),
 	CLK_LOOKUP("",	mmss_s0_axi_clk.c,	""),
-	CLK_LOOKUP("",	ocmemcx_ahb_clk.c,	""),
-	CLK_LOOKUP("core_clk",  ocmemgx_core_clk.c,	"fdd00000.qcom,ocmem"),
+	CLK_LOOKUP("bus_clk",	mmss_s0_axi_clk.c, "msm_mmss_noc"),
+	CLK_LOOKUP("bus_a_clk",	mmss_s0_axi_clk.c, "msm_mmss_noc"),
+	CLK_LOOKUP("core_clk",  ocmemgx_core_clk.c, "fdd00000.qcom,ocmem"),
 	CLK_LOOKUP("iface_clk",	ocmemcx_ocmemnoc_clk.c,	"fdd00000.qcom,ocmem"),
-	CLK_LOOKUP("",	oxili_ocmemgx_clk.c,	""),
-	CLK_LOOKUP("",	oxili_gfx3d_clk.c,	""),
-	CLK_LOOKUP("",	oxilicx_ahb_clk.c,	""),
+	CLK_LOOKUP("core_clk",	oxili_gfx3d_clk.c, "fdb00000.qcom,kgsl-3d0"),
+	CLK_LOOKUP("iface_clk",	oxilicx_ahb_clk.c, "fdb00000.qcom,kgsl-3d0"),
 	CLK_LOOKUP("",	bcss_mmss_ifdemod_clk.c,	""),
 	CLK_LOOKUP("iface_clk",	vcap_ahb_clk.c,	"fdf80000.qti,vcap"),
 	CLK_LOOKUP("iface_clk",	vcap_ahb_clk.c,	"fdfac000.qti,vcap_ttl"),
@@ -6715,8 +6767,6 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("cxo_clk", vpu_cxo_clk.c, "fde0b000.qti,vpu"),
 	CLK_LOOKUP("core_clk", vpu_maple_clk.c, "fde0b000.qti,vpu"),
 	CLK_LOOKUP("sleep_clk", vpu_sleep_clk.c, "fde0b000.qti,vpu"),
-	CLK_LOOKUP("maple_bus_clk", gcc_mmss_vpu_maple_sys_noc_axi_clk.c,
-							"fde0b000.qti,vpu"),
 	CLK_LOOKUP("prng_clk", gcc_prng_ahb_clk.c, "fde0b000.qti,vpu"),
 
 	CLK_LOOKUP("",	vpu_ahb_clk.c,	""),
@@ -7007,6 +7057,11 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("iface_clk", vcap_ahb_clk.c, "fdfb6000.qti,iommu"),
 	CLK_LOOKUP("core_clk", vcap_axi_clk.c, "fdfb6000.qti,iommu"),
 	CLK_LOOKUP("alt_core_clk", vcap_vp_clk_src.c, "fdfb6000.qti,iommu"),
+
+	/* LDO clocks */
+	CLK_LOOKUP("", pcie_gpio_ldo.c, ""),
+	CLK_LOOKUP("", sata_phy_ldo.c, ""),
+	CLK_LOOKUP("", vby1_gpio_ldo.c, ""),
 };
 
 static void __init reg_init(void)
@@ -7018,9 +7073,6 @@ static void __init reg_init(void)
 	configure_sr_hpm_lp_pll(&mmpll3_config, &mmpll3_regs, 0);
 	configure_sr_hpm_lp_pll(&mmpll6_config, &mmpll6_regs, 1);
 
-	configure_sr_hpm_lp_pll(&bcc_pll0_config, &bcc_pll0_regs, 0);
-	configure_sr_hpm_lp_pll(&bcc_pll1_config, &bcc_pll1_regs, 0);
-
 	/* Vote for GPLL0 to turn on. Needed by acpuclock. */
 	regval = readl_relaxed(GCC_REG_BASE(APCS_GPLL_ENA_VOTE));
 	regval |= BIT(0);
@@ -7030,6 +7082,7 @@ static void __init reg_init(void)
 	regval = readl_relaxed(GCC_REG_BASE(APCS_CLOCK_BRANCH_ENA_VOTE));
 	regval |= BIT(30) | BIT(29);
 	writel_relaxed(regval, GCC_REG_BASE(APCS_CLOCK_BRANCH_ENA_VOTE));
+
 	/*
 	 * No clocks need to be enabled during sleep.
 	 */
@@ -7038,6 +7091,8 @@ static void __init reg_init(void)
 
 static void __init mpq8092_clock_post_init(void)
 {
+	u32 index = 0, regval = 0;
+
 	clk_set_rate(&axi_clk_src.c, 311330000);
 	clk_set_rate(&ocmemnoc_clk_src.c, 320000000);
 
@@ -7047,17 +7102,38 @@ static void __init mpq8092_clock_post_init(void)
 	 */
 	clk_set_rate(&mmssnoc_ahb_a_clk.c, 40000000);
 	clk_prepare_enable(&mmssnoc_ahb_a_clk.c);
+
+	/*
+	 * Hold an active set vote for the PNOC AHB source. Sleep set vote is 0.
+	 */
+	clk_set_rate(&pnoc_keepalive_a_clk.c, 19200000);
+	clk_prepare_enable(&pnoc_keepalive_a_clk.c);
+
+
 	/*
 	 * Hold an active set vote for CXO; this is because CXO is expected
 	 * to remain on whenever CPUs aren't power collapsed.
 	 */
 	clk_prepare_enable(&xo_a_clk_src.c);
 
-	/*
-	 * TODO: Temporarily enable NOC configuration AHB clocks. Remove when
-	 * the bus driver is ready.
-	 */
-	clk_prepare_enable(&gcc_mmss_noc_cfg_ahb_clk.c);
+	/* BCR */
+	clk_prepare_enable(&gcc_bcss_cfg_ahb_clk.c);
+	writel_relaxed(0x00222000, BCSS_REG_BASE(0x128));
+	clk_prepare_enable(&bcc_xo_clk.c);
+
+	for (index = 0x100; index < 0x128; index = index+4) {
+		regval = readl_relaxed(BCSS_REG_BASE(index));
+		regval &= ~BIT(0);
+		writel_relaxed(regval, BCSS_REG_BASE(index));
+	}
+	for (index = 0x134; index < 0x1B4; index = index+4) {
+		regval = readl_relaxed(BCSS_REG_BASE(index));
+		regval &= ~BIT(0);
+		writel_relaxed(regval, BCSS_REG_BASE(index));
+	}
+	configure_sr_hpm_lp_pll(&bcc_pll0_config, &bcc_pll0_regs, 0);
+	configure_sr_hpm_lp_pll(&bcc_pll1_config, &bcc_pll1_regs, 0);
+	writel_relaxed(0x00222001, BCSS_REG_BASE(0x128));
 }
 
 #define GCC_CC_PHYS		0xFC400000
@@ -7079,8 +7155,6 @@ static void __init mpq8092_clock_post_init(void)
 
 static void __init mpq8092_clock_pre_init(void)
 {
-	u32 index = 0, regval = 0;
-
 	virt_bases[GCC_BASE] = ioremap(GCC_CC_PHYS, GCC_CC_SIZE);
 	if (!virt_bases[GCC_BASE])
 		panic("clock-8092: Unable to ioremap GCC memory!");
@@ -7106,25 +7180,6 @@ static void __init mpq8092_clock_pre_init(void)
 	vdd_dig.regulator[0] = regulator_get(NULL, "vdd_dig");
 	if (IS_ERR(vdd_dig.regulator[0]))
 		panic("clock-8092: Unable to get the vdd_dig regulator!");
-
-	/* BCSS: BCR & CBCR reset values are enabled, so explicitly disable
-	 * them before SW uses them. This will be fixed in the next versions
-	 * of the chip
-	 */
-
-	/* BCR */
-	for (index = 0x100; index < 0x128; index = index+4) {
-		regval = readl_relaxed(BCSS_REG_BASE(index));
-		regval &= ~BIT(0);
-		writel_relaxed(regval, BCSS_REG_BASE(index));
-	}
-
-	/* CBCR */
-	for (index = 0x130; index < 0x1B4; index = index+4) {
-		regval = readl_relaxed(BCSS_REG_BASE(index));
-		regval &= ~BIT(0);
-		writel_relaxed(regval, BCSS_REG_BASE(index));
-	}
 
 	enable_rpm_scaling();
 
