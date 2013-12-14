@@ -85,9 +85,12 @@
 
 	gnss_qca1530: qca,qca1530 {
 		compatible = "qca,qca1530";
-		qca,reset-gpio = <&msmgpio 133 0>;	/* Reset line */
-		qca,reset-supply = <&pma8084_l9>;	/* Reset power regulator */
-		qca,pwr-supply = <&pma8084_l26>;	/* Power regulator */
+		qca,reset-gpio = <&msmgpio 133 0>;
+		qca,reset-supply = <&pma8084_l9>;
+		qca,pwr-supply = <&pma8084_l26>;
+		qca,xlna-supply = <&pma8084_l22>;
+		qca,xlna-voltage-level = <3000000 3000000>;
+		qca,xlna-current-level = <90000 100>;
 	};
 };
 

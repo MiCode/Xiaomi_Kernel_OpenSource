@@ -122,8 +122,12 @@
 
 	gnss_qca1530: qca,qca1530@0 {
 		compatible = "qca,qca1530";
-		qca,reset-gpio = <&msmgpio 128 0>;	/* Reset line */
-		qca,pwr-supply = <&qca1530_vreg>;	/* Power regulator */
+		qca,reset-gpio = <&msmgpio 128 0>;
+		qca,pwr-supply = <&qca1530_vreg>;
+		qca,pwr-gpio = <&msmgpio 66 0>;
+		qca,xlna-supply = <&pma8084_l22>;
+		qca,xlna-voltage-level = <3000000 3000000>;
+		qca,xlna-current-level = <90000 100>;
 	};
 
 	liquid_dock {
