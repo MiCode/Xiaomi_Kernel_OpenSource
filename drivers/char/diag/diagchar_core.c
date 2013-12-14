@@ -266,6 +266,7 @@ static int diagchar_close(struct inode *inode, struct file *file)
 {
 	int i = -1;
 	struct diagchar_priv *diagpriv_data = file->private_data;
+	struct diag_dci_client_tbl *dci_entry = NULL;
 
 	pr_debug("diag: process exit %s\n", current->comm);
 	if (!(file->private_data)) {
@@ -280,7 +281,9 @@ static int diagchar_close(struct inode *inode, struct file *file)
 	* This will specially help in case of ungraceful exit of any DCI client
 	* This call will remove any pending registrations of such client
 	*/
-	diag_dci_deinit_client();
+	dci_entry = dci_lookup_client_entry_pid(current->pid);
+	if (dci_entry)
+		diag_dci_deinit_client(dci_entry);
 	/* If the exiting process is the socket process */
 	mutex_lock(&driver->diagchar_mutex);
 	if (driver->socket_process &&
@@ -973,6 +976,7 @@ long diagchar_ioctl(struct file *filp,
 	struct diag_log_event_stats le_stats;
 	struct diagpkt_delay_params delay_params;
 	struct real_time_vote_t rt_vote;
+	struct diag_dci_client_tbl *dci_client = NULL;
 
 	switch (iocmd) {
 	case DIAG_IOCTL_COMMAND_REG:
@@ -1013,7 +1017,13 @@ long diagchar_ioctl(struct file *filp,
 		kfree(dci_reg_params);
 		break;
 	case DIAG_IOCTL_DCI_DEINIT:
-		result = diag_dci_deinit_client();
+		if (copy_from_user((void *)&client_id, (void *)ioarg,
+				sizeof(int)))
+			return -EFAULT;
+		dci_client = diag_dci_get_client_entry(client_id);
+		if (!dci_client)
+			return DIAG_DCI_NOT_SUPPORTED;
+		result = diag_dci_deinit_client(dci_client);
 		break;
 	case DIAG_IOCTL_DCI_SUPPORT:
 		support_list |= DIAG_CON_APSS;
@@ -1032,8 +1042,7 @@ long diagchar_ioctl(struct file *filp,
 				 sizeof(struct diag_dci_health_stats_proc)))
 			return -EFAULT;
 
-		result = diag_dci_copy_health_stats(stats.health,
-						    stats.proc);
+		result = diag_dci_copy_health_stats(&stats);
 		if (result != DIAG_DCI_NO_ERROR)
 			break;
 
@@ -1046,7 +1055,11 @@ long diagchar_ioctl(struct file *filp,
 		if (copy_from_user(&le_stats, (void *)ioarg,
 				sizeof(struct diag_log_event_stats)))
 			return -EFAULT;
-		le_stats.is_set = diag_dci_query_log_mask(le_stats.code);
+		dci_client = diag_dci_get_client_entry(le_stats.client_id);
+		if (!dci_client)
+			return DIAG_DCI_NOT_SUPPORTED;
+		le_stats.is_set = diag_dci_query_log_mask(dci_client,
+							  le_stats.code);
 		if (copy_to_user((void *)ioarg, &le_stats,
 				sizeof(struct diag_log_event_stats)))
 			return -EFAULT;
@@ -1056,7 +1069,11 @@ long diagchar_ioctl(struct file *filp,
 		if (copy_from_user(&le_stats, (void *)ioarg,
 					sizeof(struct diag_log_event_stats)))
 			return -EFAULT;
-		le_stats.is_set = diag_dci_query_event_mask(le_stats.code);
+		dci_client = diag_dci_get_client_entry(le_stats.client_id);
+		if (!dci_client)
+			return DIAG_DCI_NOT_SUPPORTED;
+		le_stats.is_set = diag_dci_query_event_mask(dci_client,
+							    le_stats.code);
 		if (copy_to_user((void *)ioarg, &le_stats,
 				sizeof(struct diag_log_event_stats)))
 			return -EFAULT;
@@ -1066,13 +1083,13 @@ long diagchar_ioctl(struct file *filp,
 		if (copy_from_user((void *)&client_id, (void *)ioarg,
 				sizeof(int)))
 			return -EFAULT;
-		result = diag_dci_clear_log_mask();
+		result = diag_dci_clear_log_mask(client_id);
 		break;
 	case DIAG_IOCTL_DCI_CLEAR_EVENTS:
 		if (copy_from_user(&client_id, (void *)ioarg,
 				sizeof(int)))
 			return -EFAULT;
-		result = diag_dci_clear_event_mask();
+		result = diag_dci_clear_event_mask(client_id);
 		break;
 	case DIAG_IOCTL_LSM_DEINIT:
 		for (i = 0; i < driver->num_clients; i++)
@@ -1100,7 +1117,8 @@ long diagchar_ioctl(struct file *filp,
 			return -EFAULT;
 		driver->real_time_update_busy++;
 		if (rt_vote.proc == DIAG_PROC_DCI) {
-			diag_dci_set_real_time(rt_vote.real_time_vote);
+			diag_dci_set_real_time(rt_vote.client_id,
+					       rt_vote.real_time_vote);
 			real_time = diag_dci_get_cumulative_real_time();
 		} else {
 			real_time = rt_vote.real_time_vote;
@@ -1405,7 +1423,7 @@ drop:
 		data_type = driver->data_ready[index] & DCI_DATA_TYPE;
 		driver->data_ready[index] ^= DCI_DATA_TYPE;
 		/* check the current client and copy its data */
-		entry = diag_dci_get_client_entry();
+		entry = dci_lookup_client_entry_pid(current->tgid);
 		if (entry) {
 			if (!entry->in_service)
 				goto exit;
