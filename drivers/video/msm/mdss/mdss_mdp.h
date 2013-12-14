@@ -378,6 +378,7 @@ struct mdss_mdp_pipe {
 	u8 blend_op;
 	u8 overfetch_disable;
 	u32 transp;
+	u8 has_buf;
 	u32 bg_color;
 
 	struct msm_fb_data_type *mfd;
