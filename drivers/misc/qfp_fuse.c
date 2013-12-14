@@ -34,7 +34,7 @@
 /*
  * Denotes number of cycles required to blow the fuse.
  */
-#define QFPROM_BLOW_TIMER_VALUE     (QFPROM_BLOW_TIMEOUT_US * 83)
+#define QFPROM_BLOW_TIMER_VALUE     0xF0
 
 #define QFPROM_BLOW_STATUS_OFFSET   0x204C
 #define QFPROM_BLOW_STATUS_BUSY     0x01
@@ -51,6 +51,7 @@ struct qfp_priv_t {
 	uint32_t base;
 	uint32_t end;
 	uint32_t blow_status_offset;
+	uint32_t blow_timer;
 	struct mutex lock;
 	struct regulator *fuse_vdd;
 	u8 state;
@@ -60,6 +61,7 @@ struct qfp_resource {
 	resource_size_t	start;
 	resource_size_t	size;
 	uint32_t	blow_status_offset;
+	uint32_t	blow_timer;
 	const char	*regulator_name;
 };
 
@@ -143,7 +145,7 @@ static int qfp_fuse_write_word(u32 *addr, u32 data)
 	int err;
 
 	/* Set QFPROM  blow timer register */
-	writel_relaxed(QFPROM_BLOW_TIMER_VALUE,
+	writel_relaxed(qfp_priv->blow_timer,
 			qfp_priv->base + QFPROM_BLOW_TIMER_OFFSET);
 	mb();
 
@@ -344,6 +346,7 @@ static int qfp_get_resource(struct platform_device *pdev,
 	struct resource *res;
 	const char *regulator_name = NULL;
 	uint32_t blow_status_offset = QFPROM_BLOW_STATUS_OFFSET;
+	uint32_t blow_timer = QFPROM_BLOW_TIMER_VALUE;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
@@ -369,6 +372,8 @@ static int qfp_get_resource(struct platform_device *pdev,
 			return -EINVAL;
 		}
 
+		of_property_read_u32(np, "qti,blow-timer", &blow_timer);
+
 	} else {
 		regulator_name = pdev->dev.platform_data;
 	}
@@ -379,6 +384,7 @@ static int qfp_get_resource(struct platform_device *pdev,
 	qfp_res->start = res->start;
 	qfp_res->size = resource_size(res);
 	qfp_res->blow_status_offset = blow_status_offset;
+	qfp_res->blow_timer = blow_timer;
 	qfp_res->regulator_name = regulator_name;
 
 	return 0;
@@ -408,6 +414,7 @@ static int qfp_fuse_probe(struct platform_device *pdev)
 	}
 	qfp_priv->end = qfp_priv->base + res.size;
 	qfp_priv->blow_status_offset = res.blow_status_offset;
+	qfp_priv->blow_timer = res.blow_timer;
 
 	/* Get regulator for QFPROM writes */
 	qfp_priv->fuse_vdd = regulator_get(&pdev->dev, res.regulator_name);
