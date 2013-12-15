@@ -80,8 +80,7 @@ static struct of_dev_auxdata msm8974_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,hsusb-otg", 0xF9A55000, "msm_otg", NULL),
 	OF_DEV_AUXDATA("qti,ehci-host", 0xF9A55000, "msm_ehci_host", NULL),
 	OF_DEV_AUXDATA("qti,dwc-usb3-msm", 0xF9200000, "msm_dwc3", NULL),
-	OF_DEV_AUXDATA("qcom,usb-bam-msm", 0xF9304000, \
-			"usb_bam", NULL),
+	OF_DEV_AUXDATA("qti,usb-bam-msm", 0xF9304000, "usb_bam", NULL),
 	OF_DEV_AUXDATA("qcom,spi-qup-v2", 0xF9924000, \
 			"spi_qsd.1", NULL),
 	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF9824000, \

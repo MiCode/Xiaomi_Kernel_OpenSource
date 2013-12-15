@@ -2173,8 +2173,8 @@ static struct clk_lookup msm_clocks_krypton[] = {
 						"f9b38000.ssphy"),
 
 	CLK_LOOKUP("mem_iface_clk",   gcc_sys_noc_usb3_axi_clk.c,
-		   "f9304000.qcom,usbbam"),
-	CLK_LOOKUP("mem_clk",   gcc_usb30_master_clk.c, "f9304000.qcom,usbbam"),
+		   "f9304000.qti,usbbam"),
+	CLK_LOOKUP("mem_clk",   gcc_usb30_master_clk.c, "f9304000.qti,usbbam"),
 
 	CLK_LOOKUP("",	ce1_clk_src.c,	""),
 	CLK_LOOKUP("phy_com_reset",  gcc_usb3_phy_com_reset.c,
