@@ -111,6 +111,7 @@
 		qcom,enable-load = <0 0 300000 0>;
 		qcom,disable-load = <0 0 0 0>;
 
+		qcom,hdmi-tx-ddc-mux-sel = <&pma8084_gpios 6 0>;
 		qcom,hdmi-tx-cec = <&msmgpio 26 0>;
 		qcom,hdmi-tx-ddc-clk = <&msmgpio 24 0>;
 		qcom,hdmi-tx-ddc-data = <&msmgpio 27 0>;
