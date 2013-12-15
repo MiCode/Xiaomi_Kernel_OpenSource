@@ -407,6 +407,37 @@ static int __vpu_load_clk_names(struct vpu_platform_resources *res)
 	return 0;
 }
 
+static int __vpu_load_reg_values_table(struct vpu_platform_resources *res,
+		struct reg_value_set *reg_set, const char *propname)
+{
+	int ret = 0;
+	int num_elements = 0;
+	struct platform_device *pdev = res->pdev;
+
+	num_elements = __get_u32_array_num_elements(pdev, propname, 2);
+	if (num_elements == 0) {
+		pr_debug("no elements in %s\n", propname);
+		return 0;
+	}
+
+	reg_set->count = num_elements;
+	reg_set->table = devm_kzalloc(&pdev->dev,
+		sizeof(*reg_set->table) * num_elements, GFP_KERNEL);
+	if (!reg_set->table) {
+		pr_err("Failed to allocate memory for %s\n", propname);
+		return -ENOMEM;
+	}
+
+	ret = of_property_read_u32_array(pdev->dev.of_node, propname,
+			(u32 *)reg_set->table, num_elements * 2);
+	if (ret) {
+		pr_err("Failed to read %s table entries\n", propname);
+		return ret;
+	}
+
+	return 0;
+}
+
 static int __vpu_load_iommu_maps(struct vpu_platform_resources *res)
 {
 	int ret = 0, i, j, num_elements;
@@ -466,28 +497,37 @@ int read_vpu_platform_resources(struct vpu_platform_resources *res,
 
 	kres = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vpu_csr");
 	res->register_base_phy = kres ? kres->start : -1;
-	res->register_size = kres ? (kres->end + 1 - kres->start) : -1;
+	res->register_size = kres ? (kres->end + 1 - kres->start) : 0;
 
 	kres = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vpu_smem");
 	res->mem_base_phy = kres ? kres->start : -1;
-	res->mem_size = kres ? (kres->end + 1 - kres->start) : -1;
+	res->mem_size = kres ? (kres->end + 1 - kres->start) : 0;
 
-	kres = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "vpu_wdog");
-	res->irq_wd = kres ? kres->start : -1;
+	kres = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vpu_vbif");
+	res->vbif_base_phy = kres ? kres->start : -1;
+	res->vbif_size = kres ? (kres->end + 1 - kres->start) : 0;
 
-	kres = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "vpu_hfi");
-	res->irq = kres ? kres->start : -1;
-
-	if ((res->register_base_phy | res->register_size |
-			res->mem_base_phy | res->mem_size |
-			res->irq_wd | res->irq) < 0) {
-		pr_err("Failed to read platform resources\n");
+	if (res->register_size == 0 || res->mem_size == 0) {
+		pr_err("Failed to read IO memory resources\n");
 		return -ENODEV;
 	}
 	pr_debug("CSR base = 0x%08x, size = 0x%x\n",
 			(u32) res->register_base_phy, res->register_size);
 	pr_debug("Shared mem base = 0x%08x, size = 0x%x\n",
 			(u32) res->mem_base_phy, res->mem_size);
+	pr_debug("VBIF base = 0x%08x, size = 0x%x\n",
+			(u32) res->vbif_base_phy, res->vbif_size);
+
+	kres = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "vpu_wdog");
+	res->irq_wd = kres ? kres->start : 0;
+
+	kres = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "vpu_hfi");
+	res->irq = kres ? kres->start : 0;
+
+	if (res->irq_wd == 0 || res->irq == 0) {
+		pr_err("Failed to read IRQ resources\n");
+		return -ENODEV;
+	}
 	pr_debug("Wdog IRQ = %d\n", res->irq_wd);
 	pr_debug("IPC IRQ = %d\n", res->irq);
 
@@ -513,6 +553,12 @@ int read_vpu_platform_resources(struct vpu_platform_resources *res,
 	ret = __vpu_load_bus_vectors(res);
 	if (ret) {
 		pr_err("Failed to load bus vectors: %d\n", ret);
+		goto err_read_dt_resources;
+	}
+	ret = __vpu_load_reg_values_table(res, &res->vbif_reg_set,
+			"qcom,vbif-reg-presets");
+	if (ret) {
+		pr_err("Failed to load register values table: %d\n", ret);
 		goto err_read_dt_resources;
 	}
 	ret = __vpu_load_iommu_maps(res);

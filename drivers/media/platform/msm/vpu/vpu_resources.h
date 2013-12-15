@@ -100,8 +100,13 @@ struct bus_load_tbl {
 };
 
 struct reg_value_pair {
-	u32 reg;
+	u32 reg_offset;
 	u32 value;
+};
+
+struct reg_value_set {
+	struct reg_value_pair *table;
+	int count;
 };
 
 struct vpu_iommu_map {
@@ -123,22 +128,25 @@ struct iommu_set {
 };
 
 struct vpu_platform_resources {
+	struct platform_device *pdev;
+
 	/* device register and mem window */
 	phys_addr_t register_base_phy;
 	phys_addr_t mem_base_phy;
+	phys_addr_t vbif_base_phy;
 	u32 register_size;
 	u32 mem_size;
+	u32 vbif_size;
 
 	/* interrupt number */
 	u32 irq; /* Firmware to APPS IPC irq */
 	u32 irq_wd; /* Firmware's watchdog irq */
 
+	/* device tree configs */
 	struct bus_load_tbl bus_table;
 	struct msm_bus_scale_pdata bus_pdata;
+	struct reg_value_set vbif_reg_set;
 	struct iommu_set iommu_set;
-
-	struct platform_device *pdev;
-
 	struct vpu_clock clock[VPU_MAX_CLKS];
 
 	/* VPU memory client */

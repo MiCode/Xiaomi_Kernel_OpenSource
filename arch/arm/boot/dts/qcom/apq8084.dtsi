@@ -349,8 +349,9 @@
 	qcom,vpu@fde0b000 {
 		compatible = "qcom,vpu";
 		reg = <0xfde0b000 0x1000>,
-			<0x0f800000 0x200000>;
-		reg-names = "vpu_csr", "vpu_smem";
+			<0x0f800000 0x200000>,
+			<0xfdee0000 0x1000>;
+		reg-names = "vpu_csr", "vpu_smem", "vpu_vbif";
 		interrupts = <0 24 0>, <0 26 0>;
 		interrupt-names = "vpu_wdog", "vpu_hfi";
 		qcom,clock-names = "vdp_bus_clk", "core_clk", "vdp_clk",
@@ -376,6 +377,13 @@
 			<783360 3240000 970000>,
 			<979200 4048000 1212000>,
 			<9792000 4264000 1279000>;
+		qcom,vbif-reg-presets = <0x00b0 0x10101010>,
+			<0x00b4 0x00001010>,
+			<0x00b8 0x00000000>,
+			<0x00c0 0x00000000>,
+			<0x00c4 0x10100000>,
+			<0x00c8 0x00101010>,
+			<0x0124 0x00000003>;
 		qcom,enabled-iommu-maps = "vpu_nonsecure", "vpu_secure";
 		vdd-supply = <&gdsc_vpu>;
 	};

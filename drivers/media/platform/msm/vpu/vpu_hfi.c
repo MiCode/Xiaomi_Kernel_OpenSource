@@ -105,6 +105,7 @@ struct vpu_hfi_device {
 	/* io space, already mapped */
 	void __iomem *reg_base;
 	void __iomem *mem_base;
+	void __iomem *vbif_base;
 
 	/* subsystem */
 	void *vpu_sub_sys;
@@ -684,8 +685,22 @@ int vpu_hfi_init(struct vpu_platform_resources *res)
 		goto error_map_fail2;
 	} else {
 		pr_debug("MEM mapped from 0x%08x to 0x%p\n",
-				(u32) res->mem_base_phy,
-				hdevice->mem_base);
+				(u32) res->mem_base_phy, hdevice->mem_base);
+	}
+
+	/* map the VBIF registers */
+	if (res->vbif_size > 0) {
+		hdevice->vbif_base =
+			ioremap_nocache(res->vbif_base_phy, res->vbif_size);
+		if (unlikely(!hdevice->vbif_base)) {
+			pr_err("could not map vbif addr 0x%x of size 0x%x\n",
+				(u32) res->vbif_base_phy, res->vbif_size);
+			rc = -ENODEV;
+			goto error_map_fail3;
+		} else {
+			pr_debug("VBIF mapped from 0x%08x to 0x%p\n",
+				(u32) res->vbif_base_phy, hdevice->vbif_base);
+		}
 	}
 
 	/* init the IPC queues */
@@ -699,6 +714,9 @@ int vpu_hfi_init(struct vpu_platform_resources *res)
 	return 0;
 
 error_hfiq:
+	if (res->vbif_size > 0)
+		iounmap(hdevice->vbif_base);
+error_map_fail3:
 	iounmap(hdevice->mem_base);
 error_map_fail2:
 	iounmap(hdevice->reg_base);
@@ -718,7 +736,33 @@ void vpu_hfi_deinit(void)
 
 	iounmap(hdevice->reg_base);
 	iounmap(hdevice->mem_base);
+	if (hdevice->platform_resouce->vbif_size > 0)
+		iounmap(hdevice->vbif_base);
 	destroy_workqueue(hdevice->main_workq);
+}
+
+static void program_preset_registers(void)
+{
+	struct vpu_hfi_device *hdevice = &g_hfi_device;
+	struct vpu_platform_resources *res = hdevice->platform_resouce;
+	struct reg_value_set *vbif_regs = &res->vbif_reg_set;
+
+	if (res->vbif_size > 0 && vbif_regs->count && vbif_regs->table) {
+		int i;
+		for (i = 0; i < vbif_regs->count; i++) {
+			if (vbif_regs->table[i].reg_offset > res->vbif_size) {
+				pr_warn("Preset reg offset 0x%08x not mapped\n",
+						vbif_regs->table[i].reg_offset);
+			} else {
+				pr_debug("Writing offset 0x%08x value 0x%08x\n",
+					vbif_regs->table[i].reg_offset,
+					vbif_regs->table[i].value);
+				raw_hfi_reg_write((u32)hdevice->vbif_base +
+						vbif_regs->table[i].reg_offset,
+						vbif_regs->table[i].value);
+			}
+		}
+	}
 }
 
 /*
@@ -741,6 +785,8 @@ int vpu_hfi_start(hfi_handle_msg msg_handler,
 	hdevice->irq_no = res->irq;
 
 	hdevice->watchdog_bited = 0;
+
+	program_preset_registers();
 
 	rc = vpu_hfi_boot(hdevice);
 	if (rc)
