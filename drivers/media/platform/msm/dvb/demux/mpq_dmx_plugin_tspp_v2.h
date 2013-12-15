@@ -34,7 +34,7 @@
 
 #define TSPP2_DMX_MAX_FEED_OPS			4
 
-#define TSPP2_DMX_PIPE_WORK_POOL_SIZE		100
+#define TSPP2_DMX_PIPE_WORK_POOL_SIZE		500
 
 /* Max number of section filters */
 #define TSPP2_DMX_MAX_SECTION_FILTER_NUM	64
@@ -218,15 +218,18 @@ enum mpq_dmx_tspp2_pipe_event {
 /**
  * struct pipe_work - Work scheduled each time we receive data from a pipe
  *
- * @pipe_info:	Associated pipe
- * @event:	Source event type for this work item
- * @session_id:	pipe_info.session_id cached value at time of pipe work creation
- * @next:	List node field for pipe_work_queue lists
+ * @pipe_info:		Associated pipe
+ * @event:		Source event type for this work item
+ * @session_id:		pipe_info.session_id cached value at time of pipe
+ *			work creation.
+ * @event_count:	Number of events included in this work
+ * @next:		List node field for pipe_work_queue lists
  */
 struct pipe_work {
 	struct pipe_info *pipe_info;
 	enum mpq_dmx_tspp2_pipe_event event;
 	u32 session_id;
+	u32 event_count;
 	struct list_head next;
 };
 
@@ -237,14 +240,12 @@ struct pipe_work {
  * @work_list:	Queue of pipe_work element source thread should process
  * @free_list:	List of free pipe_work objects
  * @lock:	Lock to protect modifications to lists
- * @wait_queue:	Processing thread wait queue
  */
 struct pipe_work_queue {
 	struct pipe_work work_pool[TSPP2_DMX_PIPE_WORK_POOL_SIZE];
 	struct list_head work_list;
 	struct list_head free_list;
 	spinlock_t lock;
-	wait_queue_head_t wait_queue;
 };
 
 /**
@@ -315,6 +316,7 @@ struct mpq_dmx_tspp2_pipe_buffer {
  * @mutex:		Mutex for protecting access to pipe info
  * @eos_pending:	Flag specifying whether the pipe handler has an
  *			end of stream notification that should be handled.
+ * @work_queue:		pipe_work queue of work pending for this pipe
  * @hw_notif_count:	Total number of HW notifications
  * @hw_notif_rate_hz:	Rate of HW notifications in unit of Hz
  * @hw_notif_last_time:	Time at which previous HW notification was received
@@ -337,10 +339,13 @@ struct pipe_info {
 		enum mpq_dmx_tspp2_pipe_event event);
 	struct mutex mutex;
 	int eos_pending;
+	struct pipe_work_queue work_queue;
 
 	/* debug-fs */
 	u32 hw_notif_count;
 	u32 hw_notif_rate_hz;
+	u32 hw_missed_notif;
+	u32 handler_count;
 	struct timespec hw_notif_last_time;
 };
 
@@ -490,7 +495,7 @@ struct buffer_insertion_source {
  * struct demuxing_source - demuxing source related resources
  *
  * @thread:			Source processing thread
- * @work_queue:			Pipe work queue object
+ * @wait_queue:			Processing thread wait queue
  * @mpq_demux:			Pointer to the demux connected to this source
  * @clear_section_pipe:		Pipe opened to hold clear TS packets of sections
  * @scrambled_section_pipe:	Pipe opened to hold scrambled TS packets of
@@ -498,7 +503,7 @@ struct buffer_insertion_source {
  */
 struct demuxing_source {
 	struct task_struct *thread;
-	struct pipe_work_queue work_queue;
+	wait_queue_head_t wait_queue;
 	struct mpq_demux *mpq_demux;
 	struct pipe_info *clear_section_pipe;
 	struct pipe_info *scrambled_section_pipe;
