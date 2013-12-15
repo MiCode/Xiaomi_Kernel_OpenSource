@@ -22,20 +22,20 @@
 #define CPR_PVS_EFUSE_BINS_MAX		(1 << CPR_PVS_EFUSE_BITS_MAX)
 
 /**
- * enum cpr_corner_enum - CPR corner enum values
- * %CPR_CORNER_SVS:		Lowest voltage for APC
- * %CPR_CORNER_NORMAL:		Normal mode voltage
- * %CPR_CORNER_TURBO:		Turbo mode voltage
- * %CPR_CORNER_SUPER_TURBO:	Super Turbo mode voltage
+ * enum cpr_fuse_corner_enum - CPR fuse corner enum values
+ * %CPR_FUSE_CORNER_SVS:		Lowest voltage for APC
+ * %CPR_FUSE_CORNER_NORMAL:		Normal mode voltage
+ * %CPR_FUSE_CORNER_TURBO:		Turbo mode voltage
+ * %CPR_FUSE_CORNER_SUPER_TURBO:	Super Turbo mode voltage
  *
  * These should be used in regulator_set_voltage() for CPR
  * regulator as if they had units of uV.
  */
-enum cpr_corner_enum {
-	CPR_CORNER_SVS = 1,
-	CPR_CORNER_NORMAL,
-	CPR_CORNER_TURBO,
-	CPR_CORNER_MAX,
+enum cpr_fuse_corner_enum {
+	CPR_FUSE_CORNER_SVS = 1,
+	CPR_FUSE_CORNER_NORMAL,
+	CPR_FUSE_CORNER_TURBO,
+	CPR_FUSE_CORNER_MAX,
 };
 
 /**
