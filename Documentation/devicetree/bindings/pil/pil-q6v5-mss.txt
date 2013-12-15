@@ -6,7 +6,7 @@ preparing the subsystem's processor to execute code. It's also responsible for
 shutting down the processor when it's not needed.
 
 Required properties:
-- compatible:	      Must be "qcom,pil-q6v5-mss" or "qcom,pil-q6v55-mss"
+- compatible:	      Must be "qti,pil-q6v5-mss" or "qti,pil-q6v55-mss"
 - reg:		      Pairs of physical base addresses and region sizes of
 		      memory mapped registers.
 - reg-names:	      Names of the bases for the above registers. "qdsp6_base",
@@ -15,7 +15,7 @@ Required properties:
 - vdd_cx-supply:      Reference to the regulator that supplies the vdd_cx domain.
 - vdd_mx-supply:      Reference to the regulator that supplies the memory rail.
 - vdd_mx-uV:          Voltage setting for the mx rail.
-- qcom,firmware-name: Base name of the firmware image. Ex. "mdsp"
+- qti,firmware-name: Base name of the firmware image. Ex. "mdsp"
 
 Optional properties:
 - vdd_mss-supply:     Reference to the regulator that supplies the processor.
@@ -23,23 +23,23 @@ Optional properties:
 		      on in the PIL proxy voting code (and also managed by the
 		      modem on its own), hence we mark it as as optional.
 - vdd_pll-supply:     Reference to the regulator that supplies the PLL's rail.
-- qcom,vdd_pll:       Voltage to be set for the PLL's rail.
+- qti,vdd_pll:       Voltage to be set for the PLL's rail.
 - reg-names:          "cxrail_bhs_reg" - control register for modem power
 		      domain.
-- qcom,is-not-loadable: Boolean- Present if the image does not need to
+- qti,is-not-loadable: Boolean- Present if the image does not need to
 			be loaded.
-- qcom,pil-self-auth: Boolean- True if authentication is required.
-- qcom,gpio-err-fatal: GPIO used by the modem to indicate error fatal to the apps.
-- qcom,gpio-err-ready: GPIO used by the modem to indicate error ready to the apps.
-- qcom,gpio-proxy-unvote: GPIO used by the modem to trigger proxy unvoting in
+- qti,pil-self-auth: Boolean- True if authentication is required.
+- qti,gpio-err-fatal: GPIO used by the modem to indicate error fatal to the apps.
+- qti,gpio-err-ready: GPIO used by the modem to indicate error ready to the apps.
+- qti,gpio-proxy-unvote: GPIO used by the modem to trigger proxy unvoting in
   the apps.
-- qcom,gpio-force-stop: GPIO used by the apps to force the modem to shutdown.
-- qcom,gpio-stop-ack: GPIO used by the modem to ack force stop or a graceful stop
+- qti,gpio-force-stop: GPIO used by the apps to force the modem to shutdown.
+- qti,gpio-stop-ack: GPIO used by the modem to ack force stop or a graceful stop
 		      to the apps.
 
 Example:
-	qcom,mss@fc880000 {
-		compatible = "qcom,pil-q6v5-mss";
+	qti,mss@fc880000 {
+		compatible = "qti,pil-q6v5-mss";
 		reg = <0xfc880000 0x100>,
 		      <0xfd485000 0x400>,
 		      <0xfc820000 0x020>,
@@ -52,15 +52,15 @@ Example:
 		vdd_mx-supply = <&pm8841_s1>;
 		vdd_mx-uV = <105000>;
 
-		qcom,is-not-loadable;
-		qcom,firmware-name = "mba";
-		qcom,pil-self-auth;
+		qti,is-not-loadable;
+		qti,firmware-name = "mba";
+		qti,pil-self-auth;
 
 		/* GPIO inputs from mss */
-		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
-		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_1_in 1 0>;
-		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_1_in 2 0>;
+		qti,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
+		qti,gpio-err-ready = <&smp2pgpio_ssr_smp2p_1_in 1 0>;
+		qti,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_1_in 2 0>;
 
 		/* GPIO output to mss */
-		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
+		qti,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 	};

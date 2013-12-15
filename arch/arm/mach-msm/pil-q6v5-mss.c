@@ -287,7 +287,7 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 	q6_desc->proxy_timeout = PROXY_TIMEOUT_MS;
 
 	q6->self_auth = of_property_read_bool(pdev->dev.of_node,
-							"qcom,pil-self-auth");
+							"qti,pil-self-auth");
 	if (q6->self_auth) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						    "rmb_base");
@@ -382,7 +382,7 @@ static int pil_mss_driver_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, drv);
 
 	is_not_loadable = of_property_read_bool(pdev->dev.of_node,
-							"qcom,is-not-loadable");
+							"qti,is-not-loadable");
 	if (is_not_loadable) {
 		drv->subsys_desc.is_not_loadable = 1;
 	} else {
@@ -409,8 +409,8 @@ static int pil_mss_driver_exit(struct platform_device *pdev)
 }
 
 static struct of_device_id mss_match_table[] = {
-	{ .compatible = "qcom,pil-q6v5-mss" },
-	{ .compatible = "qcom,pil-q6v55-mss" },
+	{ .compatible = "qti,pil-q6v5-mss" },
+	{ .compatible = "qti,pil-q6v55-mss" },
 	{}
 };
 

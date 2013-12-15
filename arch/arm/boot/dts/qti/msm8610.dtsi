@@ -640,8 +640,8 @@
 		qcom,master-id = <86>;
 	};
 
-	qcom,pronto@fb21b000 {
-		compatible = "qcom,pil-pronto";
+	qti,pronto@fb21b000 {
+		compatible = "qti,pil-pronto";
 		reg = <0xfb21b000 0x3000>,
 		      <0xfc401700 0x4>,
 		      <0xfd485300 0xc>;
@@ -649,15 +649,15 @@
 		interrupts = <0 149 1>;
 		vdd_pronto_pll-supply = <&pm8110_l10>;
 
-		qcom,firmware-name = "wcnss";
+		qti,firmware-name = "wcnss";
 
 		/* GPIO inputs from wcnss */
-		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_4_in 0 0>;
-		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_4_in 1 0>;
-		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_4_in 2 0>;
+		qti,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_4_in 0 0>;
+		qti,gpio-err-ready = <&smp2pgpio_ssr_smp2p_4_in 1 0>;
+		qti,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_4_in 2 0>;
 
 		/* GPIO output to wcnss */
-		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_4_out 0 0>;
+		qti,gpio-force-stop = <&smp2pgpio_ssr_smp2p_4_out 0 0>;
 	};
 
 	qcom,iris-fm {
@@ -822,8 +822,8 @@
 		qcom,has-autodetect-xo;
 	};
 
-	qcom,mss@fc880000 {
-		compatible = "qcom,pil-q6v5-mss";
+	qti,mss@fc880000 {
+		compatible = "qti,pil-q6v5-mss";
 		reg = <0xfc880000 0x100>,
 		      <0xfd485000 0x400>,
 		      <0xfc820000 0x020>,
@@ -837,38 +837,38 @@
 		vdd_mx-supply = <&pm8110_l3>;
 		vdd_mx-uV = <1050000>;
 		vdd_pll-supply = <&pm8110_l10>;
-		qcom,vdd_pll = <1800000>;
-		qcom,is-loadable;
-		qcom,firmware-name = "mba";
-		qcom,pil-self-auth;
+		qti,vdd_pll = <1800000>;
+		qti,is-loadable;
+		qti,firmware-name = "mba";
+		qti,pil-self-auth;
 
 		/* GPIO inputs from mss */
-		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
-		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_1_in 1 0>;
-		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_1_in 2 0>;
-		qcom,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_1_in 3 0>;
+		qti,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
+		qti,gpio-err-ready = <&smp2pgpio_ssr_smp2p_1_in 1 0>;
+		qti,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_1_in 2 0>;
+		qti,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_1_in 3 0>;
 
 		/* GPIO output to mss */
-		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
+		qti,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 	};
 
-	qcom,lpass@fe200000 {
-		compatible = "qcom,pil-q6v5-lpass";
+	qti,lpass@fe200000 {
+		compatible = "qti,pil-q6v5-lpass";
 		reg = <0xfe200000 0x00100>,
 		      <0xfd485100 0x00010>,
 		      <0xfc4016c0 0x00004>;
 		reg-names = "qdsp6_base", "halt_base", "restart_reg";
 		interrupts = <0 162 1>;
 		vdd_cx-supply = <&pm8110_s1_corner>;
-		qcom,firmware-name = "adsp";
+		qti,firmware-name = "adsp";
 
 		/* GPIO inputs from lpass */
-		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_2_in 0 0>;
-		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_2_in 2 0>;
-		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_2_in 1 0>;
+		qti,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_2_in 0 0>;
+		qti,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_2_in 2 0>;
+		qti,gpio-err-ready = <&smp2pgpio_ssr_smp2p_2_in 1 0>;
 
 		/* GPIO output to lpass */
-		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
+		qti,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
 	};
 
 	tsens: tsens@fc4a8000 {

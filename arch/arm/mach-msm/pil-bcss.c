@@ -101,7 +101,7 @@ static int pil_bcss_driver_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, drv);
 
 	desc = &drv->desc;
-	ret = of_property_read_string(pdev->dev.of_node, "qcom,firmware-name",
+	ret = of_property_read_string(pdev->dev.of_node, "qti,firmware-name",
 			&desc->name);
 	if (ret)
 		return ret;
@@ -162,7 +162,7 @@ static int pil_bcss_driver_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id msm_pil_bcss_match[] = {
-	{.compatible = "qcom,pil-bcss"},
+	{.compatible = "qti,pil-bcss"},
 	{}
 };
 

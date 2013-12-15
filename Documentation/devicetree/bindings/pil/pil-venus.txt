@@ -11,15 +11,15 @@ Required properties:
 - reg-names: names of the bases for the above registers. "wrapper_base" and
              "vbif_base" are expected.
 - vdd-supply: regulator to supply venus.
-- qcom,firmware-name: Base name of the firmware image. Ex. "venus"
+- qti,firmware-name: Base name of the firmware image. Ex. "venus"
 
 Example:
-        qcom,venus@fdce0000 {
-                compatible = "qcom,pil-venus";
+        qti,venus@fdce0000 {
+                compatible = "qti,pil-venus";
                 reg = <0xfdce0000 0x4000>,
                       <0xfdc80208 0x8>;
 		reg-names = "wrapper_base", "vbif_base";
                 vdd-supply = <&gdsc_venus>;
 
-                qcom,firmware-name = "venus";
+                qti,firmware-name = "venus";
         };

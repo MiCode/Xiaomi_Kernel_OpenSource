@@ -602,10 +602,10 @@ static void pil_parse_devicetree(struct pil_desc *desc)
 
 	if (desc->ops->proxy_unvote &&
 		of_find_property(desc->dev->of_node,
-				"qcom,gpio-proxy-unvote",
+				"qti,gpio-proxy-unvote",
 				NULL)) {
 		clk_ready = of_get_named_gpio(desc->dev->of_node,
-				"qcom,gpio-proxy-unvote", 0);
+				"qti,gpio-proxy-unvote", 0);
 
 		if (clk_ready < 0) {
 			dev_err(desc->dev,

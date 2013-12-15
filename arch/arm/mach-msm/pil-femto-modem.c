@@ -554,7 +554,7 @@ static int pil_femto_modem_desc_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	ret = of_property_read_u32(node, "qcom,modem-id", &id);
+	ret = of_property_read_u32(node, "qti,modem-id", &id);
 	if (ret)
 		return ret;
 
@@ -576,18 +576,18 @@ static int pil_femto_modem_desc_probe(struct platform_device *pdev)
 		drv->q6->rmb_base = rmb;
 
 	/* Retrieve the firmware name */
-	ret = of_property_read_string(node, "qcom,firmware-name", &modem->name);
+	ret = of_property_read_string(node, "qti,firmware-name", &modem->name);
 	if (ret)
 		return ret;
 
 	/* Retrieve the maximum number of images for this modem */
-	ret = of_property_read_u32(node, "qcom,max-num-images",
+	ret = of_property_read_u32(node, "qti,max-num-images",
 		&modem->num_images);
 	if (ret)
 		return ret;
 
 	/* Read the skip entry check flag */
-	skip_entry = of_property_read_bool(node, "qcom,pil-skip-entry-check");
+	skip_entry = of_property_read_bool(node, "qti,pil-skip-entry-check");
 
 	/* Initialize the image attributes */
 	mba = &modem->image;
@@ -648,7 +648,7 @@ static int pil_femto_modem_driver_probe(
 	platform_set_drvdata(pdev, drv);
 
 	/* Retrieve the maximum number of modems */
-	ret = of_property_read_u32(p_node, "qcom,max-num-modems",
+	ret = of_property_read_u32(p_node, "qti,max-num-modems",
 		&drv->max_num_modems);
 	if (ret)
 		return ret;
@@ -715,13 +715,13 @@ static int pil_femto_modem_driver_exit(
 }
 
 static struct of_device_id pil_femto_modem_match_table[] = {
-	{ .compatible = "qcom,pil-femto-modem" },
+	{ .compatible = "qti,pil-femto-modem" },
 	{}
 };
 MODULE_DEVICE_TABLE(of, pil_femto_modem_match_table);
 
 static struct of_device_id pil_femto_modem_desc_match_table[] = {
-	{ .compatible = "qcom,pil-femto-modem-desc" },
+	{ .compatible = "qti,pil-femto-modem-desc" },
 	{}
 };
 MODULE_DEVICE_TABLE(of, pil_femto_modem_desc_match_table);

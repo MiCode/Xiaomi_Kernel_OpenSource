@@ -385,8 +385,8 @@
 		qcom,rtb-size = <0x1000>; /* 4K EBI1 buffer */
 	};
 
-	qcom,mss@fc880000 {
-		compatible = "qcom,pil-q6v55-mss";
+	qti,mss@fc880000 {
+		compatible = "qti,pil-q6v55-mss";
 		reg = <0xfc880000 0x100>,
 		      <0xfd485000 0x400>,
 		      <0xfc820000 0x020>,
@@ -400,19 +400,19 @@
 		vdd_mx-supply = <&pmd9635_s3>;
 		vdd_mx-uV = <7>;
 		vdd_pll-supply = <&pmd9635_l7>;
-		qcom,vdd_pll = <1800000>;
+		qti,vdd_pll = <1800000>;
 
-		qcom,firmware-name = "mba";
-		qcom,pil-self-auth;
+		qti,firmware-name = "mba";
+		qti,pil-self-auth;
 
 		/* GPIO inputs from mss */
-		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
-		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_1_in 1 0>;
-		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_1_in 2 0>;
-		qcom,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_1_in 3 0>;
+		qti,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
+		qti,gpio-err-ready = <&smp2pgpio_ssr_smp2p_1_in 1 0>;
+		qti,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_1_in 2 0>;
+		qti,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_1_in 3 0>;
 
 		/* GPIO output to mss */
-		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
+		qti,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 	};
 
 	ipa_hw: qti,ipa@fd4c0000 {
@@ -698,8 +698,8 @@
 		qcom,freq-control-mask = <0x0>;
 	};
 
-	qcom,lpass@fe200000 {
-		compatible = "qcom,pil-q6v5-lpass";
+	qti,lpass@fe200000 {
+		compatible = "qti,pil-q6v5-lpass";
 		reg = <0xfe200000 0x00100>,
 		      <0xfd485100 0x00010>,
 		      <0xfc4016c0 0x00004>;
@@ -708,16 +708,16 @@
 		vdd_cx-supply = <&pmd9635_l3_corner>;
 		interrupts = <0 162 1>;
 
-		qcom,firmware-name = "adsp";
-		qcom,qdsp6v5cinco;
+		qti,firmware-name = "adsp";
+		qti,qdsp6v5cinco;
 
 		/* GPIO inputs from lpass */
-		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_2_in 0 0>;
-		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_2_in 2 0>;
-		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_2_in 1 0>;
+		qti,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_2_in 0 0>;
+		qti,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_2_in 2 0>;
+		qti,gpio-err-ready = <&smp2pgpio_ssr_smp2p_2_in 1 0>;
 
 		/* GPIO output to lpass */
-		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
+		qti,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
 	};
 
 	sdhc_2: sdhci@f98a4900 {

@@ -537,7 +537,7 @@ static int pil_venus_probe(struct platform_device *pdev)
 	}
 
 	desc = &drv->desc;
-	rc = of_property_read_string(pdev->dev.of_node, "qcom,firmware-name",
+	rc = of_property_read_string(pdev->dev.of_node, "qti,firmware-name",
 				      &desc->name);
 	if (rc)
 		return rc;
@@ -596,7 +596,7 @@ static int pil_venus_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_OF
 static const struct of_device_id msm_pil_venus_match[] = {
-	{.compatible = "qcom,pil-venus"},
+	{.compatible = "qti,pil-venus"},
 	{}
 };
 #endif

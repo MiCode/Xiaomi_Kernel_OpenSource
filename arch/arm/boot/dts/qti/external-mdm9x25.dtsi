@@ -11,8 +11,8 @@
  */
 
 &soc {
-	mdm0: qcom,mdm0 {
-                compatible = "qcom,mdm2-modem";
+	mdm0: qti,mdm0 {
+                compatible = "qti,mdm2-modem";
 		cell-index = <0>;
 		#address-cells = <0>;
                 interrupt-parent = <&mdm0>;
@@ -25,13 +25,13 @@
 			"plbrdy_irq",
 			"mdm2ap_vddmin_irq";
 		/* modem attributes */
-                qcom,ramdump-delay-ms = <2000>;
-                qcom,ramdump-timeout-ms = <120000>;
-                qcom,vddmin-modes  = "normal";
-                qcom,vddmin-drive-strength = <8>;
-		qcom,sfr-query;
-		qcom,sysmon-subsys-id = <20>;
-		qcom,support-shutdown;
+                qti,ramdump-delay-ms = <2000>;
+                qti,ramdump-timeout-ms = <120000>;
+                qti,vddmin-modes  = "normal";
+                qti,vddmin-drive-strength = <8>;
+		qti,sfr-query;
+		qti,sysmon-subsys-id = <20>;
+		qti,support-shutdown;
 		status = "disabled";
 	};
 };

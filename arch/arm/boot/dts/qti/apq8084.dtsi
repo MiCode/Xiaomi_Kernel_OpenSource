@@ -2064,18 +2064,18 @@
 		};
 	};
 
-	qcom,venus@fdce0000 {
-		compatible = "qcom,pil-venus";
+	qti,venus@fdce0000 {
+		compatible = "qti,pil-venus";
 		reg = <0xfdce0000 0x4000>,
 		      <0xfdc80000 0x400>;
 		reg-names = "wrapper_base", "vbif_base";
 		vdd-supply = <&gdsc_venus>;
 
-		qcom,firmware-name = "venus";
+		qti,firmware-name = "venus";
 	};
 
-	qcom,lpass@fe200000 {
-		compatible = "qcom,pil-q6v5-lpass";
+	qti,lpass@fe200000 {
+		compatible = "qti,pil-q6v5-lpass";
 		reg = <0xfe200000 0x00100>,
 		      <0xfd485100 0x00010>,
 		      <0xfc4016c0 0x00004>;
@@ -2083,15 +2083,15 @@
 		vdd_cx-supply = <&pma8084_s2_corner>;
 		interrupts = <0 162 1>;
 
-		qcom,firmware-name = "adsp";
+		qti,firmware-name = "adsp";
 
 		/* GPIO inputs from lpass */
-		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_2_in 0 0>;
-		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_2_in 2 0>;
-		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_2_in 1 0>;
+		qti,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_2_in 0 0>;
+		qti,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_2_in 2 0>;
+		qti,gpio-err-ready = <&smp2pgpio_ssr_smp2p_2_in 1 0>;
 
 		/* GPIO output to lpass */
-		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
+		qti,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
 	};
 
 	ufsphy1: ufsphy@0xfc597000 {
@@ -2651,15 +2651,15 @@
 			<11 604 32506 32506>;
 	};
 
-	qcom,pil-vpu@fde0b000{
-		compatible = "qcom,pil-vpu";
+	qti,pil-vpu@fde0b000{
+		compatible = "qti,pil-vpu";
 		reg = <0xfde0b000 0x80>;
 		reg-names = "maple_csr_base";
 		vdd-supply = <&gdsc_vpu>;
 		clock-names = "core_clk", "iface_clk", "bus_clk", "vdp_clk",
 					"vdp_bus_clk", "cxo_clk", "sleep_clk", "maple_bus_clk";
 
-		qcom,firmware-name = "vpu";
+		qti,firmware-name = "vpu";
 	};
 
 	cpu-pmu {

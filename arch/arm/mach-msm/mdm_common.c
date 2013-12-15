@@ -132,18 +132,18 @@ static struct gpio_map {
 	const char *name;
 	int index;
 } gpio_map[] = {
-	{"qcom,mdm2ap-errfatal-gpio",   MDM2AP_ERRFATAL},
-	{"qcom,ap2mdm-errfatal-gpio",   AP2MDM_ERRFATAL},
-	{"qcom,mdm2ap-status-gpio",     MDM2AP_STATUS},
-	{"qcom,ap2mdm-status-gpio",     AP2MDM_STATUS},
-	{"qcom,mdm2ap-pblrdy-gpio",     MDM2AP_PBLRDY},
-	{"qcom,ap2mdm-wakeup-gpio",     AP2MDM_WAKEUP},
-	{"qcom,ap2mdm-chnlrdy-gpio",     AP2MDM_CHNLRDY},
-	{"qcom,mdm2ap-wakeup-gpio",     MDM2AP_WAKEUP},
-	{"qcom,ap2mdm-vddmin-gpio",     AP2MDM_VDDMIN},
-	{"qcom,mdm2ap-vddmin-gpio",     MDM2AP_VDDMIN},
-	{"qcom,ap2mdm-pmic-pwr-en-gpio", AP2MDM_PMIC_PWR_EN},
-	{"qcom,use-usb-port-gpio",       USB_SW},
+	{"qti,mdm2ap-errfatal-gpio",   MDM2AP_ERRFATAL},
+	{"qti,ap2mdm-errfatal-gpio",   AP2MDM_ERRFATAL},
+	{"qti,mdm2ap-status-gpio",     MDM2AP_STATUS},
+	{"qti,ap2mdm-status-gpio",     AP2MDM_STATUS},
+	{"qti,mdm2ap-pblrdy-gpio",     MDM2AP_PBLRDY},
+	{"qti,ap2mdm-wakeup-gpio",     AP2MDM_WAKEUP},
+	{"qti,ap2mdm-chnlrdy-gpio",     AP2MDM_CHNLRDY},
+	{"qti,mdm2ap-wakeup-gpio",     MDM2AP_WAKEUP},
+	{"qti,ap2mdm-vddmin-gpio",     AP2MDM_VDDMIN},
+	{"qti,mdm2ap-vddmin-gpio",     MDM2AP_VDDMIN},
+	{"qti,ap2mdm-pmic-pwr-en-gpio", AP2MDM_PMIC_PWR_EN},
+	{"qti,use-usb-port-gpio",       USB_SW},
 };
 
 static void mdm_debug_gpio_show(struct mdm_device *mdev)
@@ -848,7 +848,7 @@ static int mdm_dt_to_gpio_rscs(struct device_node *node,
 	}
 
 	/* These two are special because they can be inverted. */
-	val = of_get_named_gpio_flags(node, "qcom,ap2mdm-soft-reset-gpio",
+	val = of_get_named_gpio_flags(node, "qti,ap2mdm-soft-reset-gpio",
 						0, &flags);
 	if (val >= 0) {
 		MDM_GPIO(AP2MDM_SOFT_RESET) = val;
@@ -856,7 +856,7 @@ static int mdm_dt_to_gpio_rscs(struct device_node *node,
 			mdm_drv->pdata->soft_reset_inverted = 1;
 	}
 
-	val = of_get_named_gpio_flags(node, "qcom,ap2mdm-kpdpwr-gpio",
+	val = of_get_named_gpio_flags(node, "qti,ap2mdm-kpdpwr-gpio",
 						0, &flags);
 	if (val >= 0) {
 		MDM_GPIO(AP2MDM_KPDPWR) = val;
@@ -887,7 +887,7 @@ static int mdm_dt_to_vddmin_rscs(struct device_node *node,
 		 (MDM_GPIO(MDM2AP_VDDMIN) == INVALID_GPIO))
 		return -ENXIO;
 
-	ret = of_property_read_string(node, "qcom,vddmin-modes", &modes_str);
+	ret = of_property_read_string(node, "qti,vddmin-modes", &modes_str);
 	if (ret < 0) {
 		pr_debug("%s: vddmin_modes not set.\n", __func__);
 		return -ENXIO;
@@ -898,7 +898,7 @@ static int mdm_dt_to_vddmin_rscs(struct device_node *node,
 			return -ENXIO;
 	}
 
-	ret = of_property_read_u32(node, "qcom,vddmin-drive-strength",
+	ret = of_property_read_u32(node, "qti,vddmin-drive-strength",
 		&mdev->vddmin_resource.drive_strength);
 	if (ret < 0) {
 		pr_debug("%s: vddmin_drive_strength not set.\n", __func__);
@@ -922,34 +922,34 @@ static int mdm_dt_to_pdata(struct device_node *node,
 	if (ret)
 		return ret;
 
-	ret = of_property_read_u32(node, "qcom,ramdump-delay-ms",
+	ret = of_property_read_u32(node, "qti,ramdump-delay-ms",
 				   &pdata->ramdump_delay_ms);
 	if (ret < 0)
 		pr_debug("%s: ramdump_delay not set.\n", __func__);
 
-	ret = of_property_read_u32(node, "qcom,ps-hold-delay-ms",
+	ret = of_property_read_u32(node, "qti,ps-hold-delay-ms",
 				&pdata->ps_hold_delay_ms);
 	if (ret < 0)
 		pr_debug("%s: ps_hold_delay not set.\n", __func__);
 
 	pdata->early_power_on = of_property_read_bool(node,
-					"qcom,early-power-on");
+					"qti,early-power-on");
 
 	pdata->sfr_query = of_property_read_bool(node,
-					"qcom,sfr-query");
+					"qti,sfr-query");
 
-	ret = of_property_read_u32(node, "qcom,ramdump-timeout-ms",
+	ret = of_property_read_u32(node, "qti,ramdump-timeout-ms",
 				&pdata->ramdump_timeout_ms);
 	if (ret < 0)
 		pr_debug("%s: ramdump_timeout not set.\n", __func__);
 
 	pdata->image_upgrade_supported = of_property_read_bool(node,
-					"qcom,image-upgrade-supported");
+					"qti,image-upgrade-supported");
 
 	pdata->send_shdn = of_property_read_bool(node,
-					"qcom,support-shutdown");
+					"qti,support-shutdown");
 
-	ret = of_property_read_u32(node, "qcom,sysmon-subsys-id",
+	ret = of_property_read_u32(node, "qti,sysmon-subsys-id",
 				  &pdata->sysmon_subsys_id);
 	if (ret < 0)
 		pr_debug("%s: sysmon_subsys_id not set.\n", __func__);
@@ -957,10 +957,10 @@ static int mdm_dt_to_pdata(struct device_node *node,
 		pdata->sysmon_subsys_id_valid = 1;
 
 	pdata->no_a2m_errfatal_on_ssr = of_property_read_bool(node,
-					"qcom,no-a2m-errfatal-on-ssr");
+					"qti,no-a2m-errfatal-on-ssr");
 
 	pdata->no_reset_on_first_powerup = of_property_read_bool(node,
-					"qcom,no-reset-on-first-powerup");
+					"qti,no-reset-on-first-powerup");
 
 	/* vddmin resources may be absent */
 	if (!mdm_dt_to_vddmin_rscs(node, mdev))
@@ -1392,7 +1392,7 @@ static void mdm_modem_shutdown(struct platform_device *pdev)
 }
 
 static struct of_device_id mdm_match_table[] = {
-	{.compatible = "qcom,mdm2-modem"},
+	{.compatible = "qti,mdm2-modem"},
 	{},
 };
 

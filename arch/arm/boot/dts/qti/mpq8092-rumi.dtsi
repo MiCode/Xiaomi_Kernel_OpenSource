@@ -114,15 +114,15 @@
 		status = "disable";
 	};
 
-	qcom,lpass@fe200000 {
+	qti,lpass@fe200000 {
 		status = "disable";
 	};
 
-	qcom,pronto@fb21b000 {
+	qti,pronto@fb21b000 {
 		status = "disable";
 	};
 
-	qcom,mss@fc880000 {
+	qti,mss@fc880000 {
 		status = "disable";
 	};
 
