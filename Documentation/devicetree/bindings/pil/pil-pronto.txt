@@ -19,6 +19,8 @@ Optional properties:
 - qti,gpio-err-ready: GPIO used by the wcnss to indicate error ready to the Apps.
 - qti,gpio-proxy-unvote: GPIO used by the wcnss to trigger proxy unvoting in
   the Apps
+- qti,gpio-stop-ack: GPIO used by wcnss to ack force stop or a graceful stop
+  to Apps.
 - qti,gpio-force-stop: GPIO used by the Apps to force the wcnss to shutdown.
 
 Example:
@@ -37,6 +39,7 @@ Example:
 		qti,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_4_in 0 0>;
 		qti,gpio-err-ready = <&smp2pgpio_ssr_smp2p_4_in 1 0>;
 		qti,proxy-unvote = <&smp2pgpio_ssr_smp2p_4_in 2 0>;
+		qti,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_4_in 3 0>;
 
 		/* GPIO output to wcnss */
 		qti,gpio-force-stop = <&smp2pgpio_ssr_smp2p_4_out 0 0>;
