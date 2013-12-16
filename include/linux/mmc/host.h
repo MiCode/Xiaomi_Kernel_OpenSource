@@ -510,8 +510,6 @@ int mmc_power_restore_host(struct mmc_host *host);
 void mmc_detect_change(struct mmc_host *, unsigned long delay);
 void mmc_request_done(struct mmc_host *, struct mmc_request *);
 
-int mmc_cache_ctrl(struct mmc_host *, u8);
-
 static inline void mmc_signal_sdio_irq(struct mmc_host *host)
 {
 	if (!host->sdio_irqs) {
