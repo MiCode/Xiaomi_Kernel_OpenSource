@@ -6,6 +6,7 @@
  */
 #include <linux/pci.h>
 #include <linux/io.h>
+#include <linux/msm_rtb.h>
 
 #include <linux/export.h>
 
@@ -71,26 +72,31 @@ static void bad_io_access(unsigned long port, const char *access)
 
 unsigned int ioread8(void __iomem *addr)
 {
-	IO_COND(addr, return inb(port), return readb(addr));
+	uncached_logk_pc(LOGK_READL, __builtin_return_address(0), addr);
+	IO_COND(addr, return inb(port), return readb_no_log(addr));
 	return 0xff;
 }
 unsigned int ioread16(void __iomem *addr)
 {
-	IO_COND(addr, return inw(port), return readw(addr));
+	uncached_logk_pc(LOGK_READL, __builtin_return_address(0), addr);
+	IO_COND(addr, return inw(port), return readw_no_log(addr));
 	return 0xffff;
 }
 unsigned int ioread16be(void __iomem *addr)
 {
+	uncached_logk_pc(LOGK_READL, __builtin_return_address(0), addr);
 	IO_COND(addr, return pio_read16be(port), return mmio_read16be(addr));
 	return 0xffff;
 }
 unsigned int ioread32(void __iomem *addr)
 {
-	IO_COND(addr, return inl(port), return readl(addr));
+	uncached_logk_pc(LOGK_READL, __builtin_return_address(0), addr);
+	IO_COND(addr, return inl(port), return readl_no_log(addr));
 	return 0xffffffff;
 }
 unsigned int ioread32be(void __iomem *addr)
 {
+	uncached_logk_pc(LOGK_READL, __builtin_return_address(0), addr);
 	IO_COND(addr, return pio_read32be(port), return mmio_read32be(addr));
 	return 0xffffffff;
 }
@@ -112,22 +118,27 @@ EXPORT_SYMBOL(ioread32be);
 
 void iowrite8(u8 val, void __iomem *addr)
 {
-	IO_COND(addr, outb(val,port), writeb(val, addr));
+	uncached_logk_pc(LOGK_WRITEL, __builtin_return_address(0), addr);
+	IO_COND(addr, outb(val, port), writeb_no_log(val, addr));
 }
 void iowrite16(u16 val, void __iomem *addr)
 {
-	IO_COND(addr, outw(val,port), writew(val, addr));
+	uncached_logk_pc(LOGK_WRITEL, __builtin_return_address(0), addr);
+	IO_COND(addr, outw(val, port), writew_no_log(val, addr));
 }
 void iowrite16be(u16 val, void __iomem *addr)
 {
+	uncached_logk_pc(LOGK_WRITEL, __builtin_return_address(0), addr);
 	IO_COND(addr, pio_write16be(val,port), mmio_write16be(val, addr));
 }
 void iowrite32(u32 val, void __iomem *addr)
 {
-	IO_COND(addr, outl(val,port), writel(val, addr));
+	uncached_logk_pc(LOGK_WRITEL, __builtin_return_address(0), addr);
+	IO_COND(addr, outl(val, port), writel_no_log(val, addr));
 }
 void iowrite32be(u32 val, void __iomem *addr)
 {
+	uncached_logk_pc(LOGK_WRITEL, __builtin_return_address(0), addr);
 	IO_COND(addr, pio_write32be(val,port), mmio_write32be(val, addr));
 }
 EXPORT_SYMBOL(iowrite8);
