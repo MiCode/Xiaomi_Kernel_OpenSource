@@ -2137,6 +2137,8 @@
 		compatible = "qti,cache_erp";
 		interrupts = <1 9 0>, <0 2 0>;
 		interrupt-names = "l1_irq", "l2_irq";
+
+		qti,msm-imem-phandle = <&imem_cache_erp>;
 	};
 
 	qcom,cache_dump {

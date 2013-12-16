@@ -236,6 +236,7 @@
 		compatible = "qti,cache_erp";
 		interrupts = <1 9 0>, <0 2 0>;
 		interrupt-names = "l1_irq", "l2_irq";
+		qti,msm-imem-phandle = <&imem_cache_erp>;
 	};
 
 	qcom,cache_dump {
@@ -256,6 +257,11 @@
 		ranges = <0x0 0xfe805000 0x1000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
+
+		imem_cache_erp: cache_erp@6a4 {
+			compatible = "qti,msm-imem-cache_erp";
+			reg = <0x6a4 4>;
+		};
 
 		boot_stats@6b0 {
 			compatible = "qti,msm-imem-boot_stats";
