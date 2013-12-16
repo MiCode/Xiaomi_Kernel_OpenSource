@@ -67,6 +67,8 @@
 /* Enable Sample_Rate/Channel_Mode notification event from Decoder */
 #define SR_CM_NOTIFY_ENABLE	0x0004
 
+#define TUN_WRITE_IO_MODE 0x0008 /* tunnel read write mode */
+#define TUN_READ_IO_MODE  0x0004 /* tunnel read write mode */
 #define SYNC_IO_MODE	0x0001
 #define ASYNC_IO_MODE	0x0002
 #define COMPRESSED_IO	0x0040
