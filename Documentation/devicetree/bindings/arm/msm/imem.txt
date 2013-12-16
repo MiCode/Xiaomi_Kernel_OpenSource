@@ -22,6 +22,12 @@ Required properties:
 -compatible: "qti,msm-imem-pil"
 -reg: start address and size of PIL region in imem
 
+Bootloader Stats:
+-----------------
+Required properties:
+-compatible: "qti,msm-imem-boot_stats"
+-reg: start address and size of boot_stats region in imem
+
 Example:
 
 	qti,msm-imem {
@@ -30,6 +36,11 @@ Example:
 		ranges = <0x0 0xdeadbeef 0x1000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
+
+		boot_stats@6b0 {
+			compatible = "qti,msm-imem-boot_stats";
+			reg = <0x6b0 32>;
+		};
 
 		pil@94c {
 			compatible = "qti,msm-imem-pil";

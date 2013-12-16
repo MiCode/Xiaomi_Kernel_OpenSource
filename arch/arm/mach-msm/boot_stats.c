@@ -25,26 +25,34 @@
 #include <linux/of_address.h>
 #include <mach/msm_iomap.h>
 
-#include "boot_stats.h"
-
-#define MSM_BOOT_STATS_IMEM_START	(MSM_IMEM_BASE+0x6b0)
+struct boot_stats {
+	uint32_t bootloader_start;
+	uint32_t bootloader_end;
+	uint32_t bootloader_display;
+	uint32_t bootloader_load_kernel;
+};
 
 static void __iomem *mpm_counter_base;
 static uint32_t mpm_counter_freq;
-static struct boot_stats *boot_stats =
-				(void __iomem *)(MSM_BOOT_STATS_IMEM_START);
-
-static const struct of_device_id mpm_counter_of_match[]	= {
-	{ .compatible	= "qti,mpm2-sleep-counter",	},
-	{},
-};
+static struct boot_stats __iomem *boot_stats;
 
 static int mpm_parse_dt(void)
 {
 	struct device_node *np;
 	u32 freq;
 
-	np = of_find_matching_node(NULL, mpm_counter_of_match);
+	np = of_find_compatible_node(NULL, NULL, "qti,msm-imem-boot_stats");
+	if (!np) {
+		pr_err("can't find qti,msm-imem node\n");
+		return -ENODEV;
+	}
+	boot_stats = of_iomap(np, 0);
+	if (!boot_stats) {
+		pr_err("boot_stats: Can't map imem\n");
+		return -ENODEV;
+	}
+
+	np = of_find_compatible_node(NULL, NULL, "qti,mpm2-sleep-counter");
 	if (!np) {
 		pr_err("mpm_counter: can't find DT node\n");
 		return -ENODEV;
@@ -69,31 +77,31 @@ static int mpm_parse_dt(void)
 static void print_boot_stats(void)
 {
 	pr_info("KPI: Bootloader start count = %u\n",
-			boot_stats->bootloader_start);
+		readl_relaxed(&boot_stats->bootloader_start));
 	pr_info("KPI: Bootloader end count = %u\n",
-			boot_stats->bootloader_end);
+		readl_relaxed(&boot_stats->bootloader_end));
 	pr_info("KPI: Bootloader display count = %u\n",
-			boot_stats->bootloader_display);
+		readl_relaxed(&boot_stats->bootloader_display));
 	pr_info("KPI: Bootloader load kernel count = %u\n",
-			boot_stats->bootloader_load_kernel);
+		readl_relaxed(&boot_stats->bootloader_load_kernel));
 	pr_info("KPI: Kernel MPM timestamp = %u\n",
-			__raw_readl(mpm_counter_base));
+		readl_relaxed(mpm_counter_base));
 	pr_info("KPI: Kernel MPM Clock frequency = %u\n",
-			mpm_counter_freq);
+		mpm_counter_freq);
 }
 
 int boot_stats_init(void)
 {
 	int ret;
 
-	if (!boot_stats)
-		return -ENODEV;
-
 	ret = mpm_parse_dt();
 	if (ret < 0)
 		return -ENODEV;
 
 	print_boot_stats();
+
+	iounmap(boot_stats);
+	iounmap(mpm_counter_base);
 
 	return 0;
 }
