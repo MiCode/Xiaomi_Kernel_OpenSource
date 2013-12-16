@@ -17,59 +17,52 @@
 		venus_domain_ns: qti,iommu-domain1 {
 			label = "venus_ns";
 			qti,iommu-contexts = <&venus_ns>;
-			qti,virtual-addr-pool = <0x40000000 0x3f000000
-						  0x7f000000 0x1000000>;
+			qti,virtual-addr-pool = <0x5dc00000 0x7f000000
+						  0xdcc00000 0x1000000>;
 		};
 
-		venus_domain_cp: qti,iommu-domain2 {
-			label = "venus_cp";
-			qti,iommu-contexts = <&venus_cp>;
-			qti,virtual-addr-pool = <0x1000000 0x3f000000>;
-			qti,secure-domain;
-		};
-
-		bcast_domain_hlos: qti,iommu-domain3 {
+		bcast_domain_hlos: qti,iommu-domain2 {
 			label = "bcast_hlos";
 			qti,iommu-contexts = <&bcast_cb0_hlos>;
 			qti,virtual-addr-pool = <0x00001000 0x70000000
 						  0x80000000 0x80000000>;
 		};
 
-		bcast_domain_cpz: qti,iommu-domain4 {
+		bcast_domain_cpz: qti,iommu-domain3 {
 			label = "bcast_cpz";
 			qti,iommu-contexts = <&bcast_cb1_cpz>;
 			qti,virtual-addr-pool = <0x00001000 0x80000000>;
 			qti,secure-domain;
 		};
 
-		bcast_domain_demod: qti,iommu-domain5 {
+		bcast_domain_demod: qti,iommu-domain4 {
 			label = "bcast_demod";
 			qti,iommu-contexts = <&bcast_cb2_demod>;
 			qti,virtual-addr-pool = <0x00000000 0x80000000>;
 		};
 
-		bcast_domain_apz: qti,iommu-domain6 {
+		bcast_domain_apz: qti,iommu-domain5 {
 			label = "bcast_apz";
 			qti,iommu-contexts = <&bcast_cb3_apz>;
 			qti,virtual-addr-pool = <0x00001000 0x80000000>;
 			qti,secure-domain;
 		};
 
-		venus_domain_sec_bitstream: qti,iommu-domain7 {
+		venus_domain_sec_bitstream: qti,iommu-domain6 {
 			label = "venus_sec_bitstream";
 			qti,iommu-contexts = <&venus_sec_bitstream>;
 			qti,virtual-addr-pool = <0x4b000000 0x12c00000>;
 			qti,secure-domain;
 		};
 
-		venus_domain_sec_pixel: qti,iommu-domain8 {
+		venus_domain_sec_pixel: qti,iommu-domain7 {
 			label = "venus_sec_pixel";
 			qti,iommu-contexts = <&venus_sec_pixel>;
 			qti,virtual-addr-pool = <0x25800000 0x25800000>;
 			qti,secure-domain;
 		};
 
-		venus_domain_sec_non_pixel: qti,iommu-domain9 {
+		venus_domain_sec_non_pixel: qti,iommu-domain8 {
 			label = "venus_sec_non_pixel";
 			qti,iommu-contexts = <&venus_sec_non_pixel>;
 			qti,virtual-addr-pool = <0x1000000 0x24800000>;
