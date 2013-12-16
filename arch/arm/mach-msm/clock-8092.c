@@ -6752,6 +6752,17 @@ static struct clk_lookup mpq_clocks_8092[] = {
 						 "fdce0000.qti,venus"),
 	CLK_LOOKUP("",	vcodec0_clk_src.c,	""),
 
+	CLK_LOOKUP("iface_clk", venus0_ahb_clk.c, "fdc00000.qcom,vidc"),
+	CLK_LOOKUP("bus_clk", venus0_axi_clk.c, "fdc00000.qcom,vidc"),
+	CLK_LOOKUP("core0_clk", venus0_core0_vcodec_clk.c,
+						"fdc00000.qcom,vidc"),
+	CLK_LOOKUP("core1_clk", venus0_core1_vcodec_clk.c,
+						"fdc00000.qcom,vidc"),
+	CLK_LOOKUP("mem_clk",   venus0_ocmemnoc_clk.c,
+						"fdc00000.qcom,vidc"),
+	CLK_LOOKUP("core_clk",  venus0_vcodec0_clk.c,
+						"fdc00000.qcom,vidc"),
+
 	CLK_LOOKUP("iface_clk", vpu_ahb_clk.c, "fde0b000.qti,pil-vpu"),
 	CLK_LOOKUP("bus_clk", vpu_axi_clk.c, "fde0b000.qti,pil-vpu"),
 	CLK_LOOKUP("vdp_clk", vpu_vdp_clk.c, "fde0b000.qti,pil-vpu"),
