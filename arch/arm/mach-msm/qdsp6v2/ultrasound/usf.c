@@ -338,6 +338,8 @@ static struct usf_input_dev_type s_usf_input_devs[] = {
 		prepare_mouse_input_device, notify_mouse_event},
 	{USF_KEYBOARD_EVENT, "usf_kb",
 		prepare_keyboard_input_device, notify_key_event},
+	{USF_TSC_EXT_EVENT, "usf_tsc_ext",
+		prepare_tsc_input_device, notify_tsc_event},
 };
 
 static void usf_rx_cb(uint32_t opcode, uint32_t token,
