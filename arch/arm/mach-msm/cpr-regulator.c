@@ -226,7 +226,9 @@ struct cpr_regulator {
 static int cpr_debug_enable = CPR_DEBUG_MASK_IRQ;
 static int cpr_enable;
 static struct cpr_regulator *the_cpr;
+#if defined(CONFIG_DEBUG_FS)
 static struct dentry *cpr_debugfs_entry;
+#endif
 
 module_param_named(debug_enable, cpr_debug_enable, int, S_IRUGO | S_IWUSR);
 #define cpr_debug(message, ...) \
