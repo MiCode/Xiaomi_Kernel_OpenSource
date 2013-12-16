@@ -199,7 +199,8 @@
 
 	usb_otg: usb@f9a55000 {
 		compatible = "qti,hsusb-otg";
-		reg = <0xf9a55000 0x400>;
+		reg = <0xf9a55000 0x400>,
+			 <0xfd4ab000 0x4>;
 		interrupts = <0 134 0>, <0 140 0>;
 		interrupt-names = "core_irq", "async_irq";
 
@@ -210,8 +211,11 @@
 
 		qti,hsusb-otg-phy-type = <2>;
 		qti,hsusb-otg-mode = <1>;
-		qti,hsusb-otg-otg-control = <1>;
+		qti,hsusb-otg-otg-control = <3>;
+		qti,hsusb-otg-default-mode = <1>;
 		qti,hsusb-otg-disable-reset;
+		qti,dp-manual-pullup;
+		qti,usb2-enable-hsphy2;
 
 		qti,msm-bus,name = "usb_otg";
 		qti,msm-bus,num_cases = <3>;
