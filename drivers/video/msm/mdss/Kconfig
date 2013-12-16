@@ -28,3 +28,10 @@ config FB_MSM_MDSS_DSI_CTRL_STATUS
 	  seconds) by sending Bus-Turn-Around (BTA) command. If DSI controller
 	  fails to acknowledge the BTA command, it sends PANEL_ALIVE=0 status
 	  to HAL layer to reset the controller.
+
+config FB_MSM_MDSS_MDP3
+	depends on FB_MSM_MDSS
+	bool "MDP3 display controller"
+	---help---
+	The MDP3 provides support for an older version display controller
+	included in latest display sub-system, known as MDSS.

@@ -178,7 +178,7 @@ static int mdp3_ctrl_vsync_enable(struct msm_fb_data_type *mfd, int enable)
 	 * active or when dsi clocks are currently off
 	 */
 	if (enable && mdp3_session->status == 1
-			&& !mdp3_session->intf->active) {
+			&& mdp3_session->vsync_before_commit) {
 		mod_timer(&mdp3_session->vsync_timer,
 			jiffies + msecs_to_jiffies(mdp3_session->vsync_period));
 	} else if (enable && !mdp3_session->clk_on) {
@@ -194,7 +194,7 @@ static int mdp3_ctrl_vsync_enable(struct msm_fb_data_type *mfd, int enable)
 void mdp3_vsync_timer_func(unsigned long arg)
 {
 	struct mdp3_session_data *session = (struct mdp3_session_data *)arg;
-	if (session->status == 1 && !session->intf->active) {
+	if (session->status == 1 && session->vsync_before_commit) {
 		pr_debug("mdp3_vsync_timer_func trigger\n");
 		vsync_notify_handler(session);
 		mod_timer(&session->vsync_timer,
@@ -835,6 +835,14 @@ static int mdp3_overlay_set(struct msm_fb_data_type *mfd,
 {
 	int rc = 0;
 	struct mdp3_session_data *mdp3_session = mfd->mdp.private1;
+	struct fb_var_screeninfo *var;
+	struct fb_fix_screeninfo *fix;
+	struct fb_info *fbi = mfd->fbi;
+	int stride;
+
+	fix = &fbi->fix;
+	var = &fbi->var;
+	stride = req->src.width * var->bits_per_pixel/8;
 
 	mutex_lock(&mdp3_session->lock);
 
@@ -843,6 +851,9 @@ static int mdp3_overlay_set(struct msm_fb_data_type *mfd,
 
 	mdp3_session->overlay = *req;
 	if (req->id == MSMFB_NEW_REQUEST) {
+		if (fix->line_length != stride)
+			mdp3_session->dma->config_stride(
+						mdp3_session->dma, stride);
 		mdp3_session->overlay.id = 1;
 		req->id = 1;
 	}
@@ -856,10 +867,15 @@ static int mdp3_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
 {
 	int rc = 0;
 	struct mdp3_session_data *mdp3_session = mfd->mdp.private1;
+	struct fb_info *fbi = mfd->fbi;
+	struct fb_fix_screeninfo *fix;
 
+	fix = &fbi->fix;
 	mutex_lock(&mdp3_session->lock);
 
 	if (mdp3_session->overlay.id == ndx && ndx == 1) {
+		mdp3_session->dma->config_stride(mdp3_session->dma,
+							fix->line_length);
 		mdp3_session->overlay.id = MSMFB_NEW_REQUEST;
 		mdp3_bufq_deinit(&mdp3_session->bufq_in);
 	} else {
@@ -973,6 +989,8 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 		msleep(1000 / panel_info->mipi.frame_rate);
 		mdp3_session->first_commit = false;
 	}
+
+	mdp3_session->vsync_before_commit = 0;
 	if (reset_done && (panel && panel->set_backlight))
 		panel->set_backlight(panel, panel->panel_info.bl_max);
 
@@ -1042,6 +1060,8 @@ static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 		msleep(1000 / panel_info->mipi.frame_rate);
 		mdp3_session->first_commit = false;
 	}
+
+	mdp3_session->vsync_before_commit = 0;
 
 pan_error:
 	mutex_unlock(&mdp3_session->lock);
@@ -1682,6 +1702,7 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 	if (mdp3_get_cont_spash_en())
 		mdp3_session->clk_on = 1;
 
+	mdp3_session->vsync_before_commit = true;
 init_done:
 	if (IS_ERR_VALUE(rc))
 		kfree(mdp3_session);
