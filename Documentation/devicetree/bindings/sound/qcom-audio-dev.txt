@@ -102,6 +102,12 @@ Required properties:
 
  - compatible : "qcom,msm-lsm-client"
 
+* msm-pcm-loopback
+
+Required properties:
+
+ - compatible : "qti,msm-pcm-loopback"
+
 * msm-dai-q6
 
 [First Level Nodes]
