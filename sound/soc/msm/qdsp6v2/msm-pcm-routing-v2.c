@@ -592,6 +592,12 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 				msm_bedais[reg].sample_rate, channels,
 				topology, false, bits_per_sample);
 
+			if (session_type == SESSION_TYPE_RX &&
+			    fdai->event_info.event_func)
+				fdai->event_info.event_func(
+					MSM_PCM_RT_EVT_DEVSWITCH,
+					fdai->event_info.priv_data);
+
 			msm_pcm_routing_build_matrix(val,
 				fdai->strm_id, path_type,
 				fe_dai_perf_mode[val][session_type]);
