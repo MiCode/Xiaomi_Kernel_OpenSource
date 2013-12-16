@@ -61,6 +61,6 @@
 
 &usb_otg {
 	status = "ok";
-	qcom,hsusb-otg-otg-control = <2>;
-	qcom,dp-manual-pullup;
+	qti,hsusb-otg-otg-control = <2>;
+	qti,dp-manual-pullup;
 };

@@ -313,7 +313,7 @@
 	};
 
 	usb_otg: usb@f9a55000 {
-		compatible = "qcom,hsusb-otg";
+		compatible = "qti,hsusb-otg";
 		status = "disabled";
 
 		reg = <0xf9a55000 0x400>;
@@ -322,20 +322,20 @@
 		HSUSB_VDDCX-supply = <&pm8841_s2_corner>;
 		HSUSB_1p8-supply = <&pm8941_l6>;
 		HSUSB_3p3-supply = <&pm8941_l24>;
-		qcom,vdd-voltage-level = <1 5 7>;
+		qti,vdd-voltage-level = <1 5 7>;
 
-		qcom,hsusb-otg-phy-type = <2>;
-		qcom,hsusb-otg-phy-init-seq = <0x63 0x81 0xffffffff>;
-		qcom,hsusb-otg-mode = <1>;
-		qcom,hsusb-otg-otg-control = <1>;
-		qcom,hsusb-otg-disable-reset;
-		qcom,hsusb-otg-mpm-dpsehv-int = <49>;
-		qcom,hsusb-otg-mpm-dmsehv-int = <58>;
+		qti,hsusb-otg-phy-type = <2>;
+		qti,hsusb-otg-phy-init-seq = <0x63 0x81 0xffffffff>;
+		qti,hsusb-otg-mode = <1>;
+		qti,hsusb-otg-otg-control = <1>;
+		qti,hsusb-otg-disable-reset;
+		qti,hsusb-otg-mpm-dpsehv-int = <49>;
+		qti,hsusb-otg-mpm-dmsehv-int = <58>;
 
-		qcom,msm-bus,name = "usb2";
-		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,num-paths = <1>;
-		qcom,msm-bus,vectors-KBps =
+		qti,msm-bus,name = "usb2";
+		qti,msm-bus,num-cases = <2>;
+		qti,msm-bus,num-paths = <1>;
+		qti,msm-bus,vectors-KBps =
 				<87 512 0 0>,
 				<87 512 60000 960000>;
 	};

@@ -1189,7 +1189,7 @@
 	};
 
 	usb_otg: usb@f9a55000 {
-		compatible = "qcom,hsusb-otg";
+		compatible = "qti,hsusb-otg";
 
 		reg = <0xf9a55000 0x400>;
 		interrupts = <0 134 0>, <0 140 0>;
@@ -1197,20 +1197,20 @@
 		hsusb_vdd_dig-supply = <&pma8084_s2_corner>;
 		HSUSB_1p8-supply = <&pma8084_l6>;
 		HSUSB_3p3-supply = <&pma8084_l24>;
-		qcom,vdd-voltage-level = <1 5 7>;
+		qti,vdd-voltage-level = <1 5 7>;
 
-		qcom,hsusb-otg-phy-type = <2>;
-		qcom,hsusb-otg-phy-init-seq =
+		qti,hsusb-otg-phy-type = <2>;
+		qti,hsusb-otg-phy-init-seq =
 			<0x44 0x80 0x68 0x81 0x24 0x82 0x13 0x83 0xffffffff>;
-		qcom,hsusb-otg-mode = <1>;
-		qcom,hsusb-otg-otg-control = <2>;
-		qcom,hsusb-otg-disable-reset;
-		qcom,dp-manual-pullup;
+		qti,hsusb-otg-mode = <1>;
+		qti,hsusb-otg-otg-control = <2>;
+		qti,hsusb-otg-disable-reset;
+		qti,dp-manual-pullup;
 
-		qcom,msm-bus,name = "usb2";
-		qcom,msm-bus,num-cases = <3>;
-		qcom,msm-bus,num-paths = <1>;
-		qcom,msm-bus,vectors-KBps =
+		qti,msm-bus,name = "usb2";
+		qti,msm-bus,num-cases = <3>;
+		qti,msm-bus,num-paths = <1>;
+		qti,msm-bus,vectors-KBps =
 				<87 512 0 0>,
 				<87 512 60000 960000>,
 				<87 512 6000  6000>;

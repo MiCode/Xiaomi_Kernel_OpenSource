@@ -3,22 +3,22 @@ MSM SoC HSUSB controllers
 OTG:
 
 Required properties :
-- compatible : should be "qcom,hsusb-otg"
+- compatible : should be "qti,hsusb-otg"
 - regs : offset and length of the register set in the memory map
 - interrupts: IRQ line
 - interrupt-names: OTG interrupt name(s) referenced in interrupts above
             HSUSB OTG expects "core_irq" which is IRQ line from CORE and
             optional ones are described in next section.
-- qcom,hsusb-otg-phy-type: PHY type can be one of
+- qti,hsusb-otg-phy-type: PHY type can be one of
             1 - Chipidea 45nm PHY
 	    2 - Synopsis 28nm PHY
-- qcom,hsusb-otg-mode: Operational mode. Can be one of
+- qti,hsusb-otg-mode: Operational mode. Can be one of
             1 - Peripheral only mode
 	    2 - Host only mode
 	    3 - OTG mode
 	    Based on the mode, OTG driver registers platform devices for
 	    gadget and host.
-- qcom,hsusb-otg-control: OTG control (VBUS and ID notifications)
+- qti,hsusb-otg-otg-control: OTG control (VBUS and ID notifications)
   can be one of
             1 - PHY control
 	    2 - PMIC control
@@ -32,108 +32,108 @@ Optional properties :
 - interrupt-names : Optional interrupt resource entries are:
     "async_irq" : Interrupt from HSPHY for asynchronous wakeup events in LPM.
     "pmic_id_irq" : Interrupt from PMIC for external ID pin notification.
-- qcom,hsusb-otg-disable-reset: If present then core is RESET only during
+- qti,hsusb-otg-disable-reset: If present then core is RESET only during
 	    init, otherwise core is RESET for every cable disconnect as well
-- qcom,hsusb-otg-pnoc-errata-fix: If present then workaround for PNOC
+- qti,hsusb-otg-pnoc-errata-fix: If present then workaround for PNOC
 	    performance issue is applied which requires changing the mem-type
 	    attribute via VMIDMT.
-- qcom,hsusb-otg-default-mode: The default USB mode after boot-up.
+- qti,hsusb-otg-default-mode: The default USB mode after boot-up.
   Applicable only when OTG is controlled by user. Can be one of
             0 - None. Low power mode
             1 - Peripheral
 	    2 - Host
-- qcom,hsusb-otg-phy-init-seq: PHY configuration sequence. val, reg pairs
+- qti,hsusb-otg-phy-init-seq: PHY configuration sequence. val, reg pairs
   terminate with -1
-- qcom,hsusb-otg-power-budget: VBUS power budget in mA
+- qti,hsusb-otg-power-budget: VBUS power budget in mA
   0 will be treated as 500mA
-- qcom,hsusb-otg-pclk-src-name: The source of pclk
-- Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+- qti,hsusb-otg-pclk-src-name: The source of pclk
+- Refer to "Documentation/devicetree/bindings/arm/msm/msm-bus.txt" for
   below optional properties:
-    - qcom,msm_bus,name
-    - qcom,msm_bus,num_cases - There are three valid cases for this: NONE, MAX
+    - qti,msm-bus,name
+    - qti,msm-bus,num_cases - There are three valid cases for this: NONE, MAX
 		and MIN bandwidth votes. Minimum two cases must be defined for
 		both NONE and MAX votes. If MIN vote is different from NONE VOTE
 		then specify third case for MIN VOTE.
-    - qcom,msm_bus,num_paths
-    - qcom,msm_bus,vectors
-- qcom,hsusb-otg-lpm-on-dev-suspend: If present then USB enter to
+    - qti,msm-bus,num_paths
+    - qti,msm-bus,vectors
+- qti,hsusb-otg-lpm-on-dev-suspend: If present then USB enter to
 	    low power mode upon receiving bus suspend.
-- qcom,hsusb-otg-clk-always-on-workaround: If present then USB core clocks
+- qti,hsusb-otg-clk-always-on-workaround: If present then USB core clocks
 	    remain active upon receiving bus suspend and USB cable is connected.
 	    Used for allowing USB to respond for remote wakup.
-- qcom,hsusb-otg-delay-lpm: If present then USB core will wait one second
+- qti,hsusb-otg-delay-lpm: If present then USB core will wait one second
 	after disconnect before entering low power mode.
-- qcom,hsusb-otg-delay-lpm-hndshk-on-disconnect: If present then USB core will
+- qti,hsusb-otg-delay-lpm-hndshk-on-disconnect: If present then USB core will
 	wait for the handshake with the IPA to complete before entering low
 	power mode.
 - <supply-name>-supply: handle to the regulator device tree node.
          Optional "supply-name" is "vbus_otg" to supply vbus in host mode.
-- qcom,vdd-voltage-level: This property must be a list of three integer
+- qti,vdd-voltage-level: This property must be a list of three integer
 	values (no, min, max) where each value represents either a voltage
 	in microvolts or a value corresponding to voltage corner.
-- qcom,dp-manual-pullup: If present, vbus is not routed to USB controller/phy
+- qti,dp-manual-pullup: If present, vbus is not routed to USB controller/phy
 	and controller driver therefore enables pull-up explicitly before
 	starting controller using usbcmd run/stop bit.
-- qcom,usb2-enable-hsphy2: If present then USB2 controller is connected to 2nd
+- qti,usb2-enable-hsphy2: If present then USB2 controller is connected to 2nd
 	HSPHY.
-- qcom,hsusb-log2-itc: value of 2^(log2_itc-1) will be used as the
+- qti,hsusb-log2-itc: value of 2^(log2_itc-1) will be used as the
 	interrupt threshold (ITC), when log2_itc is between 1 to 7.
-- qcom,hsusb-l1-supported: If present, the device supports l1 (Link power
+- qti,hsusb-l1-supported: If present, the device supports l1 (Link power
 	management).
-- qcom,no-selective-suspend: If present selective suspend is disabled on hub ports.
-- qcom,hsusb-otg-dpsehv-int: If present, indicates mpm interrupt to be configured
-	for detection of dp line transition during VDD minimization.
-- qcom,hsusb-otg-dmsehv-int: If present, indicates mpm interrupt to be configured
-	for detection of dm line transition during VDD minimization.
-- qcom,hsusb-otg-vddmin-gpio = If present, indicates a gpio that will be used
+- qti,no-selective-suspend: If present selective suspend is disabled on hub ports.
+- qti,hsusb-otg-mpm-dpsehv-int: If present, indicates mpm interrupt to be
+	configured for detection of dp line transition during VDD minimization.
+- qti,hsusb-otg-mpm-dmsehv-int: If present, indicates mpm interrupt to be
+	configured for detection of dm line transition during VDD minimization.
+- qti,hsusb-otg-vddmin-gpio = If present, indicates a gpio that will be used
 	to supply voltage to the D+ line during VDD minimization and peripheral
 	bus suspend. If not exists, then VDD minimization will not be allowed
 	during peripheral bus suspend.
-- qcom,hsusb-otg-rw-during-lpm-workaround: If present, indicates that remote-
+- qti,hsusb-otg-rw-during-lpm-workaround: If present, indicates that remote-
 	wakeup during USB low-power mode SW workaround will be applied. When
 	this workaround is applied, the PHCD and the FPR bits are written
 	to the PORTSC register in the same register write operation.
-- qcom,ahb-async-bridge-bypass: If present, indicates that enable AHB2AHB By Pass
+- qti,ahb-async-bridge-bypass: If present, indicates that enable AHB2AHB By Pass
 	mode with device controller for better throughput. With this mode, USB Core
 	runs using PNOC clock and synchronous to it. Hence it is must to have proper
-	"qcom,msm_bus,vectors" to have high bus frequency. User shouldn't try to
+	"qti,msm-bus,vectors" to have high bus frequency. User shouldn't try to
 	enable this feature without proper bus voting.
 - qti,disable-retention-with-vdd-min: If present don't allow phy retention but allow
 	vdd min.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
-		compatible = "qcom,hsusb-otg";
+		compatible = "qti,hsusb-otg";
 		reg = <0xf9690000 0x400>;
 		interrupts = <134>;
 		interrupt-names = "core_irq";
 
-		qcom,hsusb-otg-phy-type = <2>;
-		qcom,hsusb-otg-mode = <1>;
-		qcom,hsusb-otg-otg-control = <1>;
-		qcom,hsusb-otg-disable-reset;
-		qcom,hsusb-otg-pnoc-errata-fix;
-		qcom,hsusb-otg-default-mode = <2>;
-		qcom,hsusb-otg-phy-init-seq = <0x01 0x90 0xffffffff>;
-		qcom,hsusb-otg-power-budget = <500>;
-		qcom,hsusb-otg-pclk-src-name = "dfab_usb_clk";
-		qcom,hsusb-otg-lpm-on-dev-suspend;
-		qcom,hsusb-otg-clk-always-on-workaround;
+		qti,hsusb-otg-phy-type = <2>;
+		qti,hsusb-otg-mode = <1>;
+		qti,hsusb-otg-otg-control = <1>;
+		qti,hsusb-otg-disable-reset;
+		qti,hsusb-otg-pnoc-errata-fix;
+		qti,hsusb-otg-default-mode = <2>;
+		qti,hsusb-otg-phy-init-seq = <0x01 0x90 0xffffffff>;
+		qti,hsusb-otg-power-budget = <500>;
+		qti,hsusb-otg-pclk-src-name = "dfab_usb_clk";
+		qti,hsusb-otg-lpm-on-dev-suspend;
+		qti,hsusb-otg-clk-always-on-workaround;
 		hsusb_vdd_dig-supply = <&pm8226_s1_corner>;
                 HSUSB_1p8-supply = <&pm8226_l10>;
                 HSUSB_3p3-supply = <&pm8226_l20>;
-		qcom,vdd-voltage-level = <1 5 7>;
-		qcom,dp-manual-pullup;
-		qcom,hsusb-otg-dpsehv-int = <49>;
-		qcom,hsusb-otg-dmsehv-int = <58>;
-		qcom,msm_bus,name = "usb2";
-		qcom,msm_bus,num_cases = <2>;
-		qcom,msm_bus,num_paths = <1>;
-		qcom,msm_bus,vectors =
+		qti,vdd-voltage-level = <1 5 7>;
+		qti,dp-manual-pullup;
+		qti,hsusb-otg-mpm-dpsehv-int = <49>;
+		qti,hsusb-otg-mpm-dmsehv-int = <58>;
+		qti,msm-bus,name = "usb2";
+		qti,msm-bus,num_cases = <2>;
+		qti,msm-bus,num_paths = <1>;
+		qti,msm-bus,vectors =
 				<87 512 0 0>,
 				<87 512 60000000 960000000>;
-		qcom,hsusb-otg-vddmin-gpio = <&pm8019_mpps 6 0>;
-		qcom,hsusb-otg-rw-during-lpm-workaround = <1>;
+		qti,hsusb-otg-vddmin-gpio = <&pm8019_mpps 6 0>;
+		qti,hsusb-otg-rw-during-lpm-workaround = <1>;
 		qti,disable-retention-with-vdd-min;
 	};
 

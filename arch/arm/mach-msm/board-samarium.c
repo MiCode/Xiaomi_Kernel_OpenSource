@@ -46,8 +46,7 @@ static struct of_dev_auxdata msmsamarium_auxdata_lookup[] __initdata = {
 			"msm_sdcc.2", NULL),
 	OF_DEV_AUXDATA("qcom,sdhci-msm", 0xF98A4900,
 			"msm_sdcc.2", NULL),
-	OF_DEV_AUXDATA("qcom,hsusb-otg", 0xF9A55000, \
-			"msm_otg", NULL),
+	OF_DEV_AUXDATA("qti,hsusb-otg", 0xF9A55000, "msm_otg", NULL),
 	OF_DEV_AUXDATA("qcom,spi-qup-v2", 0xF9923000, \
 			"spi_qsd.1", NULL),
 	{},

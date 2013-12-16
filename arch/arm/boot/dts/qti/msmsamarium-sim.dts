@@ -115,7 +115,7 @@
 
 &usb_otg {
 	status = "ok";
-	qcom,hsusb-otg-otg-control = <1>;
+	qti,hsusb-otg-otg-control = <1>;
 };
 
 &spmi_bus {
