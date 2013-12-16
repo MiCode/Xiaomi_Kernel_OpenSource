@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011, 2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,9 +11,14 @@
  *
  */
 
+#include <linux/module.h>
+
 #include "kgsl.h"
 #include "kgsl_device.h"
 
 /* Instantiate tracepoints */
 #define CREATE_TRACE_POINTS
 #include "kgsl_trace.h"
+
+EXPORT_TRACEPOINT_SYMBOL(kgsl_regwrite);
+EXPORT_TRACEPOINT_SYMBOL(kgsl_issueibcmds);
