@@ -6628,14 +6628,15 @@ static struct clk_lookup mpq_clocks_8092[] = {
 
 	/* USB */
 	CLK_LOOKUP("",	gcc_sys_noc_usb3_axi_clk.c,	""),
-	CLK_LOOKUP("",	gcc_usb2b_phy_sleep_clk.c,	""),
-	CLK_LOOKUP("",	gcc_usb2c_phy_sleep_clk.c,	""),
+	CLK_LOOKUP("",	gcc_usb2a_phy_sleep_clk.c,	""),
 	CLK_LOOKUP("",	usb30_master_clk_src.c,	""),
 	CLK_LOOKUP("",	gcc_usb30_master_clk.c,	""),
 	CLK_LOOKUP("",	gcc_usb30_mock_utmi_clk.c,	""),
 	CLK_LOOKUP("",	gcc_usb30_sleep_clk.c,	""),
-	CLK_LOOKUP("",	gcc_usb_hs2_ahb_clk.c,	""),
-	CLK_LOOKUP("",	gcc_usb_hs2_system_clk.c,	""),
+	CLK_LOOKUP("xo",	cxo_ehci_host_clk.c,	   "f9a95000.msm_ehci"),
+	CLK_LOOKUP("iface_clk",	gcc_usb_hs2_ahb_clk.c,	   "f9a95000.msm_ehci"),
+	CLK_LOOKUP("core_clk",	gcc_usb_hs2_system_clk.c,  "f9a95000.msm_ehci"),
+	CLK_LOOKUP("sleep_clk",	gcc_usb2c_phy_sleep_clk.c, "f9a95000.msm_ehci"),
 	CLK_LOOKUP("",	gcc_usb_hsic_ahb_clk.c,	""),
 	CLK_LOOKUP("",	gcc_usb_hsic_clk.c,	""),
 	CLK_LOOKUP("",	gcc_usb_hsic_io_cal_clk.c,	""),
@@ -6644,7 +6645,7 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("xo",	cxo_otg_clk.c,			"f9a55000.usb"),
 	CLK_LOOKUP("iface_clk",	gcc_usb_hs_ahb_clk.c,		"f9a55000.usb"),
 	CLK_LOOKUP("core_clk",	gcc_usb_hs_system_clk.c,	"f9a55000.usb"),
-	CLK_LOOKUP("sleep_clk",	gcc_usb2a_phy_sleep_clk.c,	"f9a55000.usb"),
+	CLK_LOOKUP("sleep_clk",	gcc_usb2b_phy_sleep_clk.c,	"f9a55000.usb"),
 
 	CLK_LOOKUP("bus_clk_src", axi_clk_src.c, ""),
 	CLK_LOOKUP("",	avsync_ahb_clk.c,	""),
