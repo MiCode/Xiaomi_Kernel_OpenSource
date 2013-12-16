@@ -27,8 +27,8 @@
 #include "usfcdev.h"
 
 /* The driver version*/
-#define DRV_VERSION "1.4.2"
-#define USF_VERSION_ID 0x0142
+#define DRV_VERSION "1.5.1"
+#define USF_VERSION_ID 0x0151
 
 /* Standard timeout in the asynchronous ops */
 #define USF_TIMEOUT_JIFFIES (1*HZ) /* 1 sec */
@@ -56,6 +56,8 @@
 
 /* Place for US detection result, received from QDSP6 */
 #define APR_US_DETECT_RESULT_IND 0
+
+#define BITS_IN_BYTE 8
 
 /* The driver states */
 enum usf_state_type {
@@ -117,6 +119,8 @@ struct usf_type {
 	uint16_t conflicting_event_types;
 	/* Bitmap of types of events from devs, conflicting with USF */
 	uint16_t conflicting_event_filters;
+	/* The requested side buttons bitmap */
+	uint16_t req_side_buttons_bitmap;
 };
 
 struct usf_input_dev_type {
@@ -144,6 +148,12 @@ static const int s_event_src_map[] = {
 	BTN_TOOL_PEN, /* US_INPUT_SRC_PEN*/
 	0,            /* US_INPUT_SRC_FINGER */
 	0,            /* US_INPUT_SRC_UNDEF */
+};
+
+/* Supported buttons container */
+static const int s_button_map[] = {
+	BTN_STYLUS,
+	BTN_STYLUS2
 };
 
 /* The opened devices container */
@@ -176,14 +186,35 @@ static int prepare_tsc_input_device(uint16_t ind,
 				struct us_input_info_type *input_info,
 				const char *name)
 {
+	int i = 0;
+	int num_side_buttons = min(ARRAY_SIZE(s_button_map),
+		sizeof(input_info->req_side_buttons_bitmap) *
+		BITS_IN_BYTE);
+	uint16_t max_side_button_bitmap = ((1 << ARRAY_SIZE(s_button_map)) - 1);
 	struct input_dev *in_dev = allocate_dev(ind, name);
-
 	if (in_dev == NULL)
 		return -ENOMEM;
 
+	if (input_info->req_side_buttons_bitmap > max_side_button_bitmap) {
+		pr_err("%s: Requested side buttons[%d] exceeds max side buttons available[%d]\n",
+		__func__,
+		input_info->req_side_buttons_bitmap,
+		max_side_button_bitmap);
+		return -EINVAL;
+	}
+
 	usf_info->input_ifs[ind] = in_dev;
+	usf_info->req_side_buttons_bitmap =
+		input_info->req_side_buttons_bitmap;
 	in_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
 	in_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
+
+
+	for (i = 0; i < num_side_buttons; i++)
+		if (input_info->req_side_buttons_bitmap & (1 << i))
+			in_dev->keybit[BIT_WORD(s_button_map[i])] |=
+			BIT_MASK(s_button_map[i]);
+
 	input_set_abs_params(in_dev, ABS_X,
 			     input_info->tsc_x_dim[MIN_IND],
 			     input_info->tsc_x_dim[MAX_IND],
@@ -260,6 +291,11 @@ static void notify_tsc_event(struct usf_type *usf_info,
 			     struct usf_event_type *event)
 
 {
+	int i = 0;
+	int num_side_buttons = min(ARRAY_SIZE(s_button_map),
+		sizeof(usf_info->req_side_buttons_bitmap) *
+		BITS_IN_BYTE);
+
 	struct input_dev *input_if = usf_info->input_ifs[if_ind];
 	struct point_event_type *pe = &(event->event_data.point_event);
 
@@ -273,19 +309,27 @@ static void notify_tsc_event(struct usf_type *usf_info,
 	input_report_abs(input_if, ABS_PRESSURE, pe->pressure);
 	input_report_key(input_if, BTN_TOUCH, !!(pe->pressure));
 
+	for (i = 0; i < num_side_buttons; i++) {
+		uint16_t mask = (1 << i),
+		btn_state = !!(pe->side_buttons_state_bitmap & mask);
+		if (usf_info->req_side_buttons_bitmap & mask)
+			input_report_key(input_if, s_button_map[i], btn_state);
+	}
+
 	if (usf_info->event_src)
 		input_report_key(input_if, usf_info->event_src, 1);
 
 	input_sync(input_if);
 
-	pr_debug("%s: TSC event: xyz[%d;%d;%d], incl[%d;%d], pressure[%d]\n",
+	pr_debug("%s: TSC event: xyz[%d;%d;%d], incl[%d;%d], pressure[%d], side_buttons[%d]\n",
 		 __func__,
 		 pe->coordinates[X_IND],
 		 pe->coordinates[Y_IND],
 		 pe->coordinates[Z_IND],
 		 pe->inclinations[X_IND],
 		 pe->inclinations[Y_IND],
-		 pe->pressure);
+		 pe->pressure,
+		 pe->side_buttons_state_bitmap);
 }
 
 static void notify_mouse_event(struct usf_type *usf_info,
