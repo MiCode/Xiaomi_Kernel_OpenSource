@@ -1250,6 +1250,12 @@ static void gen6_pm_rps_work(struct work_struct *work)
 
 	mutex_lock(&dev_priv->rps.hw_lock);
 
+	/* May have just entered manual mode. */
+	if (dev_priv->rps.manual_mode) {
+		mutex_unlock(&dev_priv->rps.hw_lock);
+		return;
+	}
+
 	adj = dev_priv->rps.last_adj;
 	if (pm_iir & GEN6_PM_RP_UP_THRESHOLD) {
 		if (adj > 0)

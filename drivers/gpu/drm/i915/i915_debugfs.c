@@ -3661,6 +3661,115 @@ DEFINE_SIMPLE_ATTRIBUTE(i915_min_freq_fops,
 			i915_min_freq_get, i915_min_freq_set,
 			"%llu\n");
 
+static int i915_cur_freq_get(void *data, u64 *val)
+{
+	struct drm_device *dev = data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if ((INTEL_INFO(dev)->gen < 6) ||
+	     IS_VALLEYVIEW(dev) ||
+	     IS_BROADWELL(dev))
+		return -ENODEV;
+
+	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
+
+	*val = dev_priv->rps.cur_freq * GT_FREQUENCY_MULTIPLIER;
+
+	return 0;
+}
+
+static int i915_cur_freq_set(void *data, u64 val)
+{
+	struct drm_device *dev = data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u64 freq = val;
+	int ret;
+
+	if ((INTEL_INFO(dev)->gen < 6) ||
+	     IS_VALLEYVIEW(dev) ||
+	     IS_BROADWELL(dev))
+		return -ENODEV;
+
+	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
+
+	ret = mutex_lock_interruptible(&dev_priv->rps.hw_lock);
+	if (ret)
+		return ret;
+
+	/* Must be in manual mode to guarantee setting will persist. */
+	if (!dev_priv->rps.manual_mode) {
+		mutex_unlock(&dev_priv->rps.hw_lock);
+		return -EINVAL;
+	}
+
+	do_div(val, GT_FREQUENCY_MULTIPLIER);
+
+	if (val < dev_priv->rps.min_freq_softlimit || val > dev_priv->rps.max_freq_softlimit) {
+		mutex_unlock(&dev_priv->rps.hw_lock);
+		return -EINVAL;
+	}
+
+	DRM_DEBUG_DRIVER("Setting current freq to %llu\n", freq);
+
+	gen6_set_rps(dev, val);
+
+	mutex_unlock(&dev_priv->rps.hw_lock);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(i915_cur_freq_fops,
+			i915_cur_freq_get, i915_cur_freq_set,
+			"%llu\n");
+
+static int i915_rps_manual_get(void *data, u64 *val)
+{
+	struct drm_device *dev = data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if ((INTEL_INFO(dev)->gen < 6) ||
+	     IS_VALLEYVIEW(dev) ||
+	     IS_BROADWELL(dev))
+		return -ENODEV;
+
+	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
+
+	*val = dev_priv->rps.manual_mode;
+
+	return 0;
+}
+
+static int i915_rps_manual_set(void *data, u64 val)
+{
+	struct drm_device *dev = data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int ret;
+
+	if ((INTEL_INFO(dev)->gen < 6) ||
+	     IS_VALLEYVIEW(dev) ||
+	     IS_BROADWELL(dev))
+		return -ENODEV;
+
+	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
+
+	DRM_DEBUG_DRIVER("Setting RPS mode to %s\n",
+			 val ? "manual" : "normal");
+
+	ret = mutex_lock_interruptible(&dev_priv->rps.hw_lock);
+	if (ret)
+		return ret;
+
+	gen6_set_rps_mode(dev, val);
+
+	mutex_unlock(&dev_priv->rps.hw_lock);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(i915_rps_manual_fops,
+			i915_rps_manual_get, i915_rps_manual_set,
+			"%llu\n");
+
 static int
 i915_cache_sharing_get(void *data, u64 *val)
 {
@@ -3833,6 +3942,8 @@ static const struct i915_debugfs_files {
 	{"i915_wedged", &i915_wedged_fops},
 	{"i915_max_freq", &i915_max_freq_fops},
 	{"i915_min_freq", &i915_min_freq_fops},
+	{"i915_cur_freq", &i915_cur_freq_fops},
+	{"i915_rps_manual", &i915_rps_manual_fops},
 	{"i915_cache_sharing", &i915_cache_sharing_fops},
 	{"i915_ring_stop", &i915_ring_stop_fops},
 	{"i915_ring_missed_irq", &i915_ring_missed_irq_fops},

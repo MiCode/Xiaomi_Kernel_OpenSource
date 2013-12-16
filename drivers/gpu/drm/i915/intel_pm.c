@@ -3334,7 +3334,8 @@ void gen6_set_rps(struct drm_device *dev, u8 val)
 	 * write the limits value.
 	 */
 	if (val != dev_priv->rps.cur_freq) {
-		gen6_set_rps_thresholds(dev_priv, val);
+		if (!dev_priv->rps.manual_mode)
+			gen6_set_rps_thresholds(dev_priv, val);
 
 		if (IS_HASWELL(dev) || IS_BROADWELL(dev))
 			I915_WRITE(GEN6_RPNSWREQ,
@@ -3404,12 +3405,44 @@ static void vlv_set_rps_idle(struct drm_i915_private *dev_priv)
 		   gen6_rps_pm_mask(dev_priv, dev_priv->rps.cur_freq));
 }
 
+void gen6_set_rps_mode(struct drm_device *dev, bool manual)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u8 delay;
+
+	if ((INTEL_INFO(dev)->gen < 6) ||
+	     IS_VALLEYVIEW(dev) ||
+	     IS_BROADWELL(dev)) {
+		DRM_DEBUG_DRIVER("RPS mode change not supported\n");
+		return;
+	}
+
+	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
+
+	dev_priv->rps.manual_mode = manual;
+
+	/* Manual mode disables/ignores load-based inputs and allows render
+	 * performance state to be controlled externally. */
+	if (manual) {
+		I915_WRITE(GEN6_RP_CONTROL,
+			   GEN6_RP_MEDIA_HW_NORMAL_MODE);
+		delay = (I915_READ(GEN6_GT_PERF_STATUS) & 0xff00) >> 8;
+	} else {
+		/* Force a reset */
+		dev_priv->rps.power = HIGH_POWER;
+		dev_priv->rps.cur_freq = 0;
+		delay = dev_priv->rps.min_freq_softlimit;
+	}
+
+	gen6_set_rps(dev, delay);
+}
+
 void gen6_rps_idle(struct drm_i915_private *dev_priv)
 {
 	struct drm_device *dev = dev_priv->dev;
 
 	mutex_lock(&dev_priv->rps.hw_lock);
-	if (dev_priv->rps.enabled) {
+	if (dev_priv->rps.enabled && !dev_priv->rps.manual_mode) {
 		if (IS_VALLEYVIEW(dev))
 			vlv_set_rps_idle(dev_priv);
 		else
@@ -3424,7 +3457,7 @@ void gen6_rps_boost(struct drm_i915_private *dev_priv)
 	struct drm_device *dev = dev_priv->dev;
 
 	mutex_lock(&dev_priv->rps.hw_lock);
-	if (dev_priv->rps.enabled) {
+	if (dev_priv->rps.enabled && !dev_priv->rps.manual_mode) {
 		if (IS_VALLEYVIEW(dev))
 			valleyview_set_rps(dev_priv->dev, dev_priv->rps.max_freq_softlimit);
 		else
@@ -3783,8 +3816,7 @@ static void gen6_enable_rps(struct drm_device *dev)
 		dev_priv->rps.max_freq = pcu_mbox & 0xff;
 	}
 
-	dev_priv->rps.power = HIGH_POWER; /* force a reset */
-	gen6_set_rps(dev_priv->dev, dev_priv->rps.min_freq_softlimit);
+	gen6_set_rps_mode(dev, dev_priv->rps.manual_mode);
 
 	gen6_enable_rps_interrupts(dev);
 
