@@ -269,7 +269,7 @@
 		venus-supply = <&gdsc_venus>;
 		qcom,hfi = "venus";
 		qcom,ocmem-size = <524288>; /* 512 * 1024*/
-		qcom,max-hw-load = <1224450>; /* 4k @ 30 + 1080p @ 30*/
+		qcom,max-hw-load = <1216800>; /* 3840 x 2160 @ 30 + 1080p @ 30*/
 		qcom,clock-names = "core_clk", "iface_clk", "bus_clk", "mem_clk";
 		qcom,clock-configs = <0x3 0x0 0x0 0x0>;
 	};
