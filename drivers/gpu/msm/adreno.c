@@ -1720,8 +1720,8 @@ static int adreno_init(struct kgsl_device *device)
 	for (i = 6; i < FT_DETECT_REGS_COUNT; i++)
 		ft_detect_regs[i] = 0;
 
-	/* turn on hang interrupt for A4XX by default */
-	if (adreno_is_a4xx(adreno_dev))
+	/* turn on hang interrupt for A4XX and a330v2 by default */
+	if ((adreno_is_a4xx(adreno_dev)) || (adreno_is_a330v2(adreno_dev)))
 		set_bit(ADRENO_DEVICE_HANG_INTR, &adreno_dev->priv);
 
 	if (adreno_dev->gpudev->irq_setup)
