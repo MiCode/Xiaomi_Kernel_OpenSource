@@ -2169,6 +2169,12 @@ static int ufshcd_config_max_pwr_mode(struct ufs_hba *hba)
 	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_CONNECTEDRXDATALANES), &lanes[RX]);
 	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_CONNECTEDTXDATALANES), &lanes[TX]);
 
+	if (!lanes[RX] || !lanes[TX]) {
+		dev_err(hba->dev, "%s: invalid connected lanes value. rx=%d, tx=%d\n",
+				__func__, lanes[RX], lanes[TX]);
+		return -EINVAL;
+	}
+
 	/*
 	 * First, get the maximum gears of HS speed.
 	 * If a zero value, it means there is no HSGEAR capability.
@@ -2177,6 +2183,11 @@ static int ufshcd_config_max_pwr_mode(struct ufs_hba *hba)
 	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_MAXRXHSGEAR), &gear[RX]);
 	if (!gear[RX]) {
 		ufshcd_dme_get(hba, UIC_ARG_MIB(PA_MAXRXPWMGEAR), &gear[RX]);
+		if (!gear[RX]) {
+			dev_err(hba->dev, "%s: invalid rx gear read = %d\n",
+				__func__, gear[RX]);
+			return -EINVAL;
+		}
 		pwr[RX] = SLOWAUTO_MODE;
 	}
 
@@ -2184,6 +2195,11 @@ static int ufshcd_config_max_pwr_mode(struct ufs_hba *hba)
 	if (!gear[TX]) {
 		ufshcd_dme_peer_get(hba, UIC_ARG_MIB(PA_MAXRXPWMGEAR),
 				    &gear[TX]);
+		if (!gear[TX]) {
+			dev_err(hba->dev, "%s: invalid tx gear read = %d\n",
+				__func__, gear[TX]);
+			return -EINVAL;
+		}
 		pwr[TX] = SLOWAUTO_MODE;
 	}
 
@@ -3943,7 +3959,10 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	ufshcd_force_reset_auto_bkops(hba);
 	hba->ufshcd_state = UFSHCD_STATE_OPERATIONAL;
 
-	ufshcd_config_max_pwr_mode(hba);
+	if (ufshcd_config_max_pwr_mode(hba))
+		dev_err(hba->dev,
+			"%s: Failed configuring max supported power mode\n",
+			__func__);
 
 	/*
 	 * If we are in error handling context or in power management callbacks
