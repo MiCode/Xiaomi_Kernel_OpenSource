@@ -101,4 +101,8 @@ extern int pci_v3_setup(int nr, struct pci_sys_data *);
 extern void pci_v3_preinit(void);
 extern void pci_v3_postinit(void);
 
+#ifdef CONFIG_MSM_PCIE
+#define arch_setup_msi_irqs arch_setup_msi_irqs
+#endif
+
 #endif /* __ASM_MACH_PCI_H */
