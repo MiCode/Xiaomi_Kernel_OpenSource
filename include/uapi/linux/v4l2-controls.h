@@ -845,6 +845,8 @@ enum v4l2_mpeg_vidc_video_mvc_layout {
 
 #define V4L2_CID_MPEG_VIDC_VIDEO_VP8_MIN_QP (V4L2_CID_MPEG_MSM_VIDC_BASE + 44)
 #define V4L2_CID_MPEG_VIDC_VIDEO_VP8_MAX_QP (V4L2_CID_MPEG_MSM_VIDC_BASE + 45)
+#define V4L2_CID_MPEG_VIDC_VIDEO_CONCEAL_COLOR \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 46)
 
 /*  Camera class control IDs */
 
