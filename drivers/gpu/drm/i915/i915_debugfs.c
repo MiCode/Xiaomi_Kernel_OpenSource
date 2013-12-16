@@ -3770,6 +3770,54 @@ DEFINE_SIMPLE_ATTRIBUTE(i915_rps_manual_fops,
 			i915_rps_manual_get, i915_rps_manual_set,
 			"%llu\n");
 
+static int i915_rc6_disable_get(void *data, u64 *val)
+{
+	struct drm_device *dev = data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if ((INTEL_INFO(dev)->gen < 6) ||
+	     IS_VALLEYVIEW(dev) ||
+	     IS_BROADWELL(dev))
+		return -ENODEV;
+
+	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
+
+	*val = dev_priv->rps.rc6_disable;
+
+	return 0;
+}
+
+static int i915_rc6_disable_set(void *data, u64 val)
+{
+	struct drm_device *dev = data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int ret;
+
+	if ((INTEL_INFO(dev)->gen < 6) ||
+	     IS_VALLEYVIEW(dev) ||
+	     IS_BROADWELL(dev))
+		return -ENODEV;
+
+	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
+
+	DRM_DEBUG_DRIVER("Setting RC6 disable %s\n",
+			 val ? "true" : "false");
+
+	ret = mutex_lock_interruptible(&dev_priv->rps.hw_lock);
+	if (ret)
+		return ret;
+
+	gen6_set_rc6_mode(dev, val);
+
+	mutex_unlock(&dev_priv->rps.hw_lock);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(i915_rc6_disable_fops,
+			i915_rc6_disable_get, i915_rc6_disable_set,
+			"%llu\n");
+
 static int
 i915_cache_sharing_get(void *data, u64 *val)
 {
@@ -3944,6 +3992,7 @@ static const struct i915_debugfs_files {
 	{"i915_min_freq", &i915_min_freq_fops},
 	{"i915_cur_freq", &i915_cur_freq_fops},
 	{"i915_rps_manual", &i915_rps_manual_fops},
+	{"i915_rc6_disable", &i915_rc6_disable_fops},
 	{"i915_cache_sharing", &i915_cache_sharing_fops},
 	{"i915_ring_stop", &i915_ring_stop_fops},
 	{"i915_ring_missed_irq", &i915_ring_missed_irq_fops},

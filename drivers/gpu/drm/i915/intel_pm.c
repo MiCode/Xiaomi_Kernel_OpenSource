@@ -3437,6 +3437,30 @@ void gen6_set_rps_mode(struct drm_device *dev, bool manual)
 	gen6_set_rps(dev, delay);
 }
 
+void gen6_set_rc6_mode(struct drm_device *dev, bool disable)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if ((INTEL_INFO(dev)->gen < 6) ||
+	     IS_VALLEYVIEW(dev) ||
+	     IS_BROADWELL(dev)) {
+		DRM_DEBUG_DRIVER("RC6 disable not supported\n");
+		return;
+	}
+
+	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
+
+	dev_priv->rps.rc6_disable = disable;
+
+	if (disable)
+		I915_WRITE(GEN6_RC_CONTROL, 0);
+	else
+		I915_WRITE(GEN6_RC_CONTROL,
+			   dev_priv->rps.rc6_mask |
+			   GEN6_RC_CTL_EI_MODE(1) |
+			   GEN6_RC_CTL_HW_ENABLE);
+}
+
 void gen6_rps_idle(struct drm_i915_private *dev_priv)
 {
 	struct drm_device *dev = dev_priv->dev;
@@ -3795,10 +3819,9 @@ static void gen6_enable_rps(struct drm_device *dev)
 
 	intel_print_rc6_info(dev, rc6_mask);
 
-	I915_WRITE(GEN6_RC_CONTROL,
-		   rc6_mask |
-		   GEN6_RC_CTL_EI_MODE(1) |
-		   GEN6_RC_CTL_HW_ENABLE);
+	dev_priv->rps.rc6_mask = rc6_mask;
+
+	gen6_set_rc6_mode(dev, dev_priv->rps.rc6_disable);
 
 	/* Power down if completely idle for over 50ms */
 	I915_WRITE(GEN6_RP_DOWN_TIMEOUT, 50000);

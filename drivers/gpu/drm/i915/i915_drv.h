@@ -926,6 +926,10 @@ struct intel_gen6_power_mgmt {
 
 	bool manual_mode;
 	bool enabled;
+
+	u32 rc6_mask;
+	bool rc6_disable;
+
 	struct delayed_work delayed_resume_work;
 
 	/*
@@ -2639,6 +2643,7 @@ extern bool intel_fbc_enabled(struct drm_device *dev);
 extern void intel_disable_fbc(struct drm_device *dev);
 extern bool ironlake_set_drps(struct drm_device *dev, u8 val);
 extern void intel_init_pch_refclk(struct drm_device *dev);
+extern void gen6_set_rc6_mode(struct drm_device *dev, bool disable);
 extern void gen6_set_rps_mode(struct drm_device *dev, bool manual);
 extern void gen6_set_rps(struct drm_device *dev, u8 val);
 extern void valleyview_set_rps(struct drm_device *dev, u8 val);
