@@ -92,7 +92,16 @@ extern struct cpumask *tick_get_broadcast_mask(void);
 #  ifdef CONFIG_TICK_ONESHOT
 extern struct cpumask *tick_get_broadcast_oneshot_mask(void);
 #  endif
+#else
+static inline struct tick_device *tick_get_broadcast_device(void)
+{
+	return NULL;
+}
 
+static inline struct cpumask *tick_get_broadcast_mask(void)
+{
+	return NULL;
+}
 # endif /* BROADCAST */
 
 # ifdef CONFIG_TICK_ONESHOT
@@ -109,6 +118,10 @@ static inline void tick_clock_notify(void) { }
 static inline int tick_check_oneshot_change(int allow_nohz) { return 0; }
 static inline void tick_check_idle(int cpu) { }
 static inline int tick_oneshot_mode_active(void) { return 0; }
+static inline struct cpumask *tick_get_broadcast_oneshot_mask(void)
+{
+	return NULL;
+}
 # endif
 
 #else /* CONFIG_GENERIC_CLOCKEVENTS */
