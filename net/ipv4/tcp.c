@@ -3562,10 +3562,7 @@ restart:
 			tcp_done(sk);
 			bh_unlock_sock(sk);
 			local_bh_enable();
-			if (!sock_flag(sk, SOCK_DEAD)) {
-				sock_orphan(sk);
-				sock_put(sk);
-			}
+			sock_put(sk);
 
 			goto restart;
 		}
