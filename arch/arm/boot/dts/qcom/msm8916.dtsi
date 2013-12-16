@@ -478,6 +478,19 @@
 		qcom,rx-ring-size = <32>;
 	};
 
+	qcom_rng: qrng@22000 {
+		compatible = "qcom,msm-rng";
+		reg = <0x22000 0x200>;
+		qcom,msm-rng-iface-clk;
+		qcom,msm-bus,name = "msm-rng-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<1 618 0 0>,		/* No vote */
+				<1 618 0 800>;		/* 100 MB/s */
+		status = "disabled";
+	};
+
 	qcom,smdtty {
 		compatible = "qcom,smdtty";
 

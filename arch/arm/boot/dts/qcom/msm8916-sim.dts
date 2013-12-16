@@ -34,6 +34,10 @@
 	interrupt-names = "core_irq";
 };
 
+&qcom_rng {
+	status = "okay";
+};
+
 &qcom_crypto {
 	status = "okay";
 };
