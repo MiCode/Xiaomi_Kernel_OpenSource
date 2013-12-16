@@ -4273,7 +4273,7 @@ static void valleyview_enable_rps(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_engine_cs *ring;
-	u32 gtfifodbg, val, rc6_mode = 0;
+	u32 gtfifodbg, val, rc6_mode = 0, pcbr;
 	int i;
 
 	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
@@ -4319,7 +4319,12 @@ static void valleyview_enable_rps(struct drm_device *dev)
 	rc6_mode = GEN7_RC_CTL_TO_MODE | VLV_RC_CTL_CTX_RST_PARALLEL;
 	dev_priv->rps.rc6_mask = rc6_mode;
 
-	if (intel_enable_rc6(dev) & INTEL_RC6_ENABLE)
+	/* Enable RC6 Only if the PCBR address is configured either by
+	 * BIOS or Gfx Driver */
+	pcbr = I915_READ(VLV_PCBR);
+
+	if (intel_enable_rc6(dev) & INTEL_RC6_ENABLE &&
+				(pcbr >> VLV_PCBR_ADDR_SHIFT))
 		vlv_set_rc6_mode(dev, false);
 
 	intel_print_rc6_info(dev, rc6_mode);
