@@ -1505,6 +1505,9 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 		pp_sts_set_split_bits(&pp_sts->pgc_sts, pgc_config->flags);
 	}
 
+	pp_dspp_opmode_config(ctl, dspp_num, pp_sts, mdata->mdp_rev, &opmode);
+
+flush_exit:
 	if (ad_hw) {
 		mutex_lock(&ad->lock);
 		ad_flags = ad->reg_sts;
@@ -1519,8 +1522,6 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 		mutex_unlock(&ad->lock);
 	}
 
-	pp_dspp_opmode_config(ctl, dspp_num, pp_sts, mdata->mdp_rev, &opmode);
-flush_exit:
 	writel_relaxed(opmode, base + MDSS_MDP_REG_DSPP_OP_MODE);
 	ctl->flush_bits |= BIT(13 + dspp_num);
 	wmb();
