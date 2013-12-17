@@ -118,6 +118,10 @@ static struct page_info *alloc_largest_available(struct ion_system_heap *heap,
 	int i;
 	bool from_pool;
 
+	info = kmalloc(sizeof(struct page_info), GFP_KERNEL);
+	if (!info)
+		return NULL;
+
 	for (i = 0; i < num_orders; i++) {
 		if (size < order_to_size(orders[i]))
 			continue;
@@ -128,14 +132,13 @@ static struct page_info *alloc_largest_available(struct ion_system_heap *heap,
 		if (!page)
 			continue;
 
-		info = kmalloc(sizeof(struct page_info), GFP_KERNEL);
-		if (info) {
-			info->page = page;
-			info->order = orders[i];
-			info->from_pool = from_pool;
-		}
+		info->page = page;
+		info->order = orders[i];
+		info->from_pool = from_pool;
 		return info;
 	}
+	kfree(info);
+
 	return NULL;
 }
 static unsigned int process_info(struct page_info *info,
