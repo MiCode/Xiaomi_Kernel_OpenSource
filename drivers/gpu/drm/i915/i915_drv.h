@@ -1526,6 +1526,8 @@ struct drm_i915_private {
 	 * mchdev_lock in intel_pm.c */
 	struct intel_ilk_power_mgmt ips;
 
+	bool ips_disable;
+
 	struct i915_power_domains power_domains;
 
 	struct i915_psr psr;

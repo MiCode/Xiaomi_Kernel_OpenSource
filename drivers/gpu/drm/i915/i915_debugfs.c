@@ -1523,6 +1523,52 @@ static int i915_ips_status(struct seq_file *m, void *unused)
 	return 0;
 }
 
+static int i915_ips_disable_get(void *data, u64 *val)
+{
+	struct drm_device *dev = data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if (!HAS_IPS(dev))
+		return -ENODEV;
+
+	*val = dev_priv->ips_disable;
+
+	return 0;
+}
+
+static int i915_ips_disable_set(void *data, u64 val)
+{
+	struct drm_device *dev = data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_crtc *crtc;
+
+	if (!HAS_IPS(dev))
+		return -ENODEV;
+
+	if (dev_priv->ips_disable == (bool)val)
+		return 0;
+
+	drm_modeset_lock_all(dev);
+
+	DRM_DEBUG_DRIVER("Setting IPS disable %s\n",
+			 val ? "true" : "false");
+
+	dev_priv->ips_disable = (bool)val;
+
+	/* Reset enabled crtc to force IPS state update */
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
+		if (crtc->enabled)
+			intel_crtc_restore_mode(crtc);
+
+	drm_modeset_unlock_all(dev);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(i915_ips_disable_fops,
+			i915_ips_disable_get, i915_ips_disable_set,
+			"%llu\n");
+
 static int i915_sr_status(struct seq_file *m, void *unused)
 {
 	struct drm_info_node *node = m->private;
@@ -3993,6 +4039,7 @@ static const struct i915_debugfs_files {
 	{"i915_cur_freq", &i915_cur_freq_fops},
 	{"i915_rps_manual", &i915_rps_manual_fops},
 	{"i915_rc6_disable", &i915_rc6_disable_fops},
+	{"i915_ips_disable", &i915_ips_disable_fops},
 	{"i915_cache_sharing", &i915_cache_sharing_fops},
 	{"i915_ring_stop", &i915_ring_stop_fops},
 	{"i915_ring_missed_irq", &i915_ring_missed_irq_fops},
