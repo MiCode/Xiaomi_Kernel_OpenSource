@@ -1557,7 +1557,8 @@ static void reg_process_hint(struct regulatory_request *reg_request,
 	if (reg_request->wiphy_idx != WIPHY_IDX_INVALID)
 		wiphy = wiphy_idx_to_wiphy(reg_request->wiphy_idx);
 
-	if (reg_initiator == NL80211_REGDOM_SET_BY_DRIVER && !wiphy) {
+	if ((reg_initiator == NL80211_REGDOM_SET_BY_DRIVER ||
+	     reg_initiator == NL80211_REGDOM_SET_BY_COUNTRY_IE) && !wiphy) {
 		kfree(reg_request);
 		return;
 	}
