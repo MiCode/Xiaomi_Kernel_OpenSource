@@ -12,6 +12,8 @@
 
 /dts-v1/;
 
+/memreserve/ 0x80000000 0x00000100;
+
 #include "msm8916.dtsi"
 #include "msm8916-pinctrl.dtsi"
 
