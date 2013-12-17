@@ -301,7 +301,7 @@ struct mdss_pp_res_type {
 static DEFINE_MUTEX(mdss_pp_mutex);
 static struct mdss_pp_res_type *mdss_pp_res;
 
-static void pp_hist_read(char __iomem *v_addr,
+static u32 pp_hist_read(char __iomem *v_addr,
 				struct pp_hist_col_info *hist_info);
 static int pp_histogram_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix);
 static int pp_histogram_disable(struct pp_hist_col_info *hist_info,
@@ -2773,19 +2773,27 @@ gamut_config_exit:
 	mutex_unlock(&mdss_pp_mutex);
 	return ret;
 }
-static void pp_hist_read(char __iomem *v_addr,
+
+static u32 pp_hist_read(char __iomem *v_addr,
 				struct pp_hist_col_info *hist_info)
 {
 	int i, i_start;
+	u32 sum = 0;
 	u32 data;
 	data = readl_relaxed(v_addr);
 	i_start = data >> 24;
 	hist_info->data[i_start] = data & 0xFFFFFF;
-	for (i = i_start + 1; i < HIST_V_SIZE; i++)
+	sum += hist_info->data[i_start];
+	for (i = i_start + 1; i < HIST_V_SIZE; i++) {
 		hist_info->data[i] = readl_relaxed(v_addr) & 0xFFFFFF;
-	for (i = 0; i < i_start; i++)
+		sum += hist_info->data[i];
+	}
+	for (i = 0; i < i_start; i++) {
 		hist_info->data[i] = readl_relaxed(v_addr) & 0xFFFFFF;
+		sum += hist_info->data[i];
+	}
 	hist_info->hist_cnt_read++;
+	return sum;
 }
 
 /* Assumes that relevant clocks are enabled */
@@ -3168,10 +3176,10 @@ exit:
 
 static int pp_hist_collect(struct mdp_histogram_data *hist,
 				struct pp_hist_col_info *hist_info,
-				char __iomem *ctl_base)
+				char __iomem *ctl_base, u32 expect_sum)
 {
 	int wait_ret, ret = 0;
-	u32 timeout;
+	u32 timeout, sum;
 	char __iomem *v_base;
 	unsigned long flag;
 	struct mdss_pipe_pp_res *res;
@@ -3238,10 +3246,13 @@ static int pp_hist_collect(struct mdp_histogram_data *hist,
 		spin_unlock_irqrestore(&hist_info->hist_lock, flag);
 		v_base = ctl_base + 0x1C;
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-		pp_hist_read(v_base, hist_info);
+		sum = pp_hist_read(v_base, hist_info);
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 		spin_lock_irqsave(&hist_info->hist_lock, flag);
-		hist_info->read_request = false;
+		if (!expect_sum || sum == expect_sum)
+			hist_info->read_request = false;
+		else
+			ret = -ENODATA;
 		hist_info->col_state = HIST_IDLE;
 	}
 	spin_unlock_irqrestore(&hist_info->hist_lock, flag);
@@ -3261,6 +3272,7 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 	u32 *hist_data_addr;
 	u32 pipe_cnt = 0;
 	u32 pipe_num = MDSS_MDP_SSPP_VIG0;
+	u32 exp_sum = 0;
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
@@ -3290,7 +3302,10 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 			hist_info = &mdss_pp_res->dspp_hist[dspp_num];
 			ctl_base = mdss_mdp_get_dspp_addr_off(dspp_num) +
 				MDSS_MDP_REG_DSPP_HIST_CTL_BASE;
-			ret = pp_hist_collect(hist, hist_info, ctl_base);
+			exp_sum = (mdata->mixer_intf[dspp_num].width *
+					mdata->mixer_intf[dspp_num].height);
+			ret = pp_hist_collect(hist, hist_info, ctl_base,
+								exp_sum);
 			if (ret)
 				goto hist_collect_exit;
 		}
@@ -3359,7 +3374,8 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 			hist_info = &pipe->pp_res.hist;
 			ctl_base = pipe->base +
 				MDSS_MDP_REG_VIG_HIST_CTL_BASE;
-			ret = pp_hist_collect(hist, hist_info, ctl_base);
+			ret = pp_hist_collect(hist, hist_info, ctl_base,
+								exp_sum);
 			mdss_mdp_pipe_unmap(pipe);
 			if (ret)
 				goto hist_collect_exit;
