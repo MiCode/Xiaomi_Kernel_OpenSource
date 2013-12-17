@@ -200,18 +200,26 @@ static rx_handler_result_t __rmnet_deliver_skb(struct sk_buff *skb,
 }
 
 /**
- * rmnet_ip_ingress_handler() - Ingress handler for all raw IP packets
- * @skb:     Packet needing a destination
- * @config:  Physical end point configuration that packet arived on.
+ * rmnet_ingress_deliver_packet() - Ingress handler for raw IP and bridged
+ *                                  MAP packets.
+ * @skb:     Packet needing a destination.
+ * @config:  Physical end point configuration that the packet arrived on.
  *
  * Return:
  *      - RX_HANDLER_CONSUMED if packet forwarded/dropped
  *      - RX_HANDLER_PASS if packet should be passed up the stack by caller
  */
-static rx_handler_result_t rmnet_ip_ingress_handler(struct sk_buff *skb,
+static rx_handler_result_t rmnet_ingress_deliver_packet(struct sk_buff *skb,
 					    struct rmnet_phys_ep_conf_s *config)
 {
-	if (!config->local_ep.refcount) {
+	if (0 == config) {
+		LOGD("%s(): NULL physical EP provided\n",
+			__func__);
+		kfree_skb(skb);
+		return RX_HANDLER_CONSUMED;
+	}
+
+	if (!(config->local_ep.refcount)) {
 		LOGD("%s(): Packet on %s has no local endpoint configuration\n",
 			__func__, skb->dev->name);
 		kfree_skb(skb);
@@ -220,7 +228,7 @@ static rx_handler_result_t rmnet_ip_ingress_handler(struct sk_buff *skb,
 
 	skb->dev = config->local_ep.egress_dev;
 
-	return __rmnet_deliver_skb(skb, &config->local_ep);
+	return __rmnet_deliver_skb(skb, &(config->local_ep));
 }
 
 /* ***************** MAP handler ******************************************** */
@@ -435,16 +443,21 @@ rx_handler_result_t rmnet_ingress_handler(struct sk_buff *skb)
 	} else {
 		switch (ntohs(skb->protocol)) {
 		case ETH_P_MAP:
-			LOGD("%s(): MAP packet on %s; not configured for MAP\n",
-				__func__, dev->name);
-			kfree_skb(skb);
-			rc = RX_HANDLER_CONSUMED;
+			if (config->local_ep.rmnet_mode ==
+				RMNET_EPMODE_BRIDGE) {
+				rc = rmnet_ingress_deliver_packet(skb, config);
+			} else {
+				LOGD("%s(): MAP packet on %s; MAP not set\n",
+				     __func__, dev->name);
+				kfree_skb(skb);
+				rc = RX_HANDLER_CONSUMED;
+			}
 			break;
 
 		case ETH_P_ARP:
 		case ETH_P_IP:
 		case ETH_P_IPV6:
-			rc = rmnet_ip_ingress_handler(skb, config);
+			rc = rmnet_ingress_deliver_packet(skb, config);
 			break;
 
 		default:
