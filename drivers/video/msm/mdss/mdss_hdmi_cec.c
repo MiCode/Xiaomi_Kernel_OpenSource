@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -875,7 +875,7 @@ int hdmi_cec_config(void *input)
 	DSS_REG_W(io, HDMI_CEC_REFTIMER, (0x3B6 & 0xFFF) | BIT(16));
 
 	hdmi_hw_version = DSS_REG_R(io, HDMI_VERSION);
-	if (hdmi_hw_version == 0x30000001) {
+	if (hdmi_hw_version >= 0x30000001) {
 		DSS_REG_W(io, HDMI_CEC_RD_RANGE, 0x30AB9888);
 		DSS_REG_W(io, HDMI_CEC_WR_RANGE, 0x888AA888);
 
