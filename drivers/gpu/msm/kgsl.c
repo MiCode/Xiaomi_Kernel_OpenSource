@@ -2878,7 +2878,7 @@ kgsl_ioctl_gpumem_sync_cache_bulk(struct kgsl_device_private *dev_priv,
 	bool full_flush = false;
 
 	if (param->id_list == NULL || param->count == 0
-			|| param->count > (UINT_MAX/sizeof(unsigned int)))
+			|| param->count > (PAGE_SIZE / sizeof(unsigned int)))
 		return -EINVAL;
 
 	id_list = kzalloc(param->count * sizeof(unsigned int), GFP_KERNEL);
