@@ -521,6 +521,11 @@ void intel_update_fbc(struct drm_device *dev)
 			DRM_DEBUG_KMS("fbc disabled per module param\n");
 		goto out_disable;
 	}
+	if (dev_priv->fbc.disable) {
+		if (set_no_fbc_reason(dev_priv, FBC_DEBUG_FS))
+			DRM_DEBUG_KMS("fbc disabled per debugfs\n");
+		goto out_disable;
+	}
 	if ((adjusted_mode->flags & DRM_MODE_FLAG_INTERLACE) ||
 	    (adjusted_mode->flags & DRM_MODE_FLAG_DBLSCAN)) {
 		if (set_no_fbc_reason(dev_priv, FBC_UNSUPPORTED_MODE))
