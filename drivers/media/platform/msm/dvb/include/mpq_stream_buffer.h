@@ -103,19 +103,19 @@
  * - Disposal of packets:
  *      mpq_streambuffer_pkt_dispose(...)
  *
- *   For linear buffer mode, disposing of a packet with data size > 0, causes
- *   the current buffer to be marked as free for writing, and triggers moving to
+ *   For linear buffer mode, disposing of a packet with data size > 0,
+ *   regardless of the 'dispose_data' parameter, causes the current buffer's
+ *   data to be disposed and marked as free for writing, and triggers moving to
  *   the next available buffer, that shall now be the current read buffer.
-
- *
  */
 
 struct mpq_streambuffer;
 struct mpq_streambuffer_packet_header;
 
-typedef void (*mpq_streambuffer_pkt_dispose_cb) (
+typedef void (*mpq_streambuffer_dispose_cb) (
 	struct mpq_streambuffer *sbuff,
-	struct mpq_streambuffer_packet_header *packet,
+	u32 offset,
+	size_t len,
 	void *user_data);
 
 enum mpq_streambuffer_mode {
@@ -143,7 +143,7 @@ struct mpq_streambuffer {
 	enum mpq_streambuffer_mode mode;
 	u32 buffers_num;
 	u32 pending_buffers_count;
-	mpq_streambuffer_pkt_dispose_cb cb;
+	mpq_streambuffer_dispose_cb cb;
 	void *cb_user_data;
 };
 
@@ -357,8 +357,8 @@ ssize_t mpq_streambuffer_data_read_user(
  * mpq_streambuffer_data_read_dispose - Advances the raw-buffer read pointer.
  * Assumes the raw-data was read by the user directly.
  *
- * @sbuff: The stream buffer
- * @len: The length of the raw-data to be disposed
+ * @sbuff:	The stream buffer
+ * @len:	The length of the raw-data to be disposed
  *
  * Return  error status, -EINVAL if buffer there's no enough data to
  *			be disposed
@@ -422,9 +422,9 @@ ssize_t mpq_streambuffer_data_avail(
  * Returns error status
  * -EINVAL if arguments are invalid
  */
-int mpq_streambuffer_register_pkt_dispose(
+int mpq_streambuffer_register_data_dispose(
 	struct mpq_streambuffer *sbuff,
-	mpq_streambuffer_pkt_dispose_cb cb_func,
+	mpq_streambuffer_dispose_cb cb_func,
 	void *user_data);
 
 /**
