@@ -78,6 +78,9 @@ void msm_dsi_ack_err_status(unsigned char *ctrl_base)
 
 	if (status) {
 		MIPI_OUTP(ctrl_base + DSI_ACK_ERR_STATUS, status);
+
+		/* Writing of an extra 0 needed to clear error bits */
+		MIPI_OUTP(ctrl_base + DSI_ACK_ERR_STATUS, 0);
 		pr_err("%s: status=%x\n", __func__, status);
 	}
 }
@@ -220,6 +223,12 @@ irqreturn_t msm_dsi_isr_handler(int irq, void *ptr)
 
 	spin_unlock(&ctrl->mdp_lock);
 
+	if (isr & DSI_INTR_BTA_DONE)
+		complete(&ctrl->bta_comp);
+
+	if (isr & DSI_INTR_CMD_MDP_DONE)
+		complete(&ctrl->mdp_comp);
+
 	return IRQ_HANDLED;
 }
 
@@ -258,6 +267,49 @@ static void msm_dsi_release_cmd_engine(struct mdss_dsi_ctrl_pdata *ctrl)
 		dsi_ctrl = MIPI_INP(ctrl_base + DSI_CTRL);
 		dsi_ctrl &= ~0x04;
 		MIPI_OUTP(ctrl_base + DSI_CTRL, dsi_ctrl);
+	}
+}
+
+static int msm_dsi_wait4mdp_done(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	int rc;
+	unsigned long flag;
+
+	spin_lock_irqsave(&ctrl->mdp_lock, flag);
+	INIT_COMPLETION(ctrl->mdp_comp);
+	msm_dsi_set_irq(ctrl, DSI_INTR_CMD_MDP_DONE_MASK);
+	spin_unlock_irqrestore(&ctrl->mdp_lock, flag);
+
+	rc = wait_for_completion_timeout(&ctrl->mdp_comp,
+			msecs_to_jiffies(VSYNC_PERIOD * 4));
+
+	if (rc == 0) {
+		pr_err("DSI wait 4 mdp done time out\n");
+		rc = -ETIME;
+	} else if (!IS_ERR_VALUE(rc)) {
+		rc = 0;
+	}
+
+	msm_dsi_clear_irq(ctrl, DSI_INTR_CMD_MDP_DONE_MASK);
+
+	return rc;
+}
+
+void msm_dsi_cmd_mdp_busy(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	int rc;
+	u32 dsi_status;
+	unsigned char *ctrl_base = dsi_host_private->dsi_base;
+
+	if (ctrl->panel_mode == DSI_VIDEO_MODE)
+		return;
+
+	dsi_status = MIPI_INP(ctrl_base + DSI_STATUS);
+	if (dsi_status & 0x04) {
+		pr_debug("dsi command engine is busy\n");
+		rc = msm_dsi_wait4mdp_done(ctrl);
+		if (rc)
+			pr_err("Timed out waiting for mdp done");
 	}
 }
 
@@ -1166,6 +1218,38 @@ static int msm_dsi_cont_on(struct mdss_panel_data *pdata)
 	return 0;
 }
 
+static int msm_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	int ret = 0;
+
+	if (ctrl_pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return 0;
+	}
+
+	mutex_lock(&ctrl_pdata->cmd_mutex);
+	msm_dsi_clk_ctrl(&ctrl_pdata->panel_data, 1);
+	msm_dsi_cmd_mdp_busy(ctrl_pdata);
+	msm_dsi_set_irq(ctrl_pdata, DSI_INTR_BTA_DONE_MASK);
+	INIT_COMPLETION(ctrl_pdata->bta_comp);
+
+	/* BTA trigger */
+	MIPI_OUTP(dsi_host_private->dsi_base + DSI_CMD_MODE_BTA_SW_TRIGGER,
+									0x01);
+	wmb();
+	ret = wait_for_completion_killable_timeout(&ctrl_pdata->bta_comp,
+									HZ/10);
+	msm_dsi_clear_irq(ctrl_pdata, DSI_INTR_BTA_DONE_MASK);
+	msm_dsi_clk_ctrl(&ctrl_pdata->panel_data, 0);
+	mutex_unlock(&ctrl_pdata->cmd_mutex);
+
+	if (ret <= 0)
+		pr_err("%s: DSI BTA error: %i\n", __func__, __LINE__);
+
+	pr_debug("%s: BTA done with ret: %d\n", __func__, ret);
+	return ret;
+}
+
 static void msm_dsi_debug_enable_clock(int on)
 {
 	if (dsi_host_private->debug_enable_clk)
@@ -1329,6 +1413,7 @@ void msm_dsi_ctrl_init(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	init_completion(&ctrl->dma_comp);
 	init_completion(&ctrl->mdp_comp);
+	init_completion(&ctrl->bta_comp);
 	init_completion(&ctrl->video_comp);
 	spin_lock_init(&ctrl->irq_lock);
 	spin_lock_init(&ctrl->mdp_lock);
@@ -1339,6 +1424,7 @@ void msm_dsi_ctrl_init(struct mdss_dsi_ctrl_pdata *ctrl)
 	dsi_buf_alloc(&ctrl->rx_buf, SZ_4K);
 	ctrl->cmdlist_commit = msm_dsi_cmdlist_commit;
 	ctrl->panel_mode = ctrl->panel_data.panel_info.mipi.mode;
+	ctrl->check_status = msm_dsi_bta_status_check;
 }
 
 static int __devinit msm_dsi_probe(struct platform_device *pdev)
