@@ -458,7 +458,6 @@
 		USB3_GDSC-supply = <&gdsc_usb30>;
 		qti,dwc-usb3-msm-dbm-eps = <8>;
 		qti,otg-capability;
-		qti,dwc-hsphy-init = <0x00D191A4>;
 
 		qti,msm-bus,name = "usb3";
 		qti,msm-bus,num-cases = <2>;
@@ -466,7 +465,6 @@
 		qti,msm-bus,vectors-KBps =
 						<61 512 0 0>,
 						<61 512 240000 960000>;
-		qti,reset_hsphy_sleep_on_init;
 		qti,no-suspend-resume;
 
 		dwc3@f9200000 {
@@ -719,7 +717,6 @@
 		interrupts = <0 162 1>;
 
 		qti,firmware-name = "adsp";
-		qti,qdsp6v5cinco;
 
 		/* GPIO inputs from lpass */
 		qti,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_2_in 0 0>;
