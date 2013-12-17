@@ -295,23 +295,6 @@ static int mdp3_dma_sync_config(struct mdp3_dma *dma,
 	return 0;
 }
 
-static void mdp3_dma_stride_config(struct mdp3_dma *dma, int stride)
-{
-	struct mdp3_dma_source *source_config;
-	u32 dma_stride_offset;
-
-	if (dma->dma_sel == MDP3_DMA_P)
-		dma_stride_offset = MDP3_REG_DMA_P_IBUF_Y_STRIDE;
-	else
-		dma_stride_offset = MDP3_REG_DMA_S_IBUF_Y_STRIDE;
-
-	source_config = &dma->source_config;
-	source_config->stride = stride;
-	pr_debug("%s: Update the fb stride for DMA to %d", __func__,
-						(u32)source_config->stride);
-	MDP3_REG_WRITE(dma_stride_offset, source_config->stride);
-}
-
 static int mdp3_dmap_config(struct mdp3_dma *dma,
 			struct mdp3_dma_source *source_config,
 			struct mdp3_dma_output_config *output_config)
@@ -348,6 +331,22 @@ static int mdp3_dmap_config(struct mdp3_dma *dma,
 	return 0;
 }
 
+static void mdp3_dmap_config_source(struct mdp3_dma *dma)
+{
+	struct mdp3_dma_source *source_config = &dma->source_config;
+	u32 dma_p_cfg_reg, dma_p_size;
+
+	dma_p_cfg_reg = MDP3_REG_READ(MDP3_REG_DMA_P_CONFIG);
+	dma_p_cfg_reg &= ~MDP3_DMA_IBUF_FORMAT_MASK;
+	dma_p_cfg_reg |= source_config->format << 25;
+
+	dma_p_size = source_config->width | (source_config->height << 16);
+
+	MDP3_REG_WRITE(MDP3_REG_DMA_P_CONFIG, dma_p_cfg_reg);
+	MDP3_REG_WRITE(MDP3_REG_DMA_P_SIZE, dma_p_size);
+	MDP3_REG_WRITE(MDP3_REG_DMA_P_IBUF_Y_STRIDE, source_config->stride);
+}
+
 static int mdp3_dmas_config(struct mdp3_dma *dma,
 			struct mdp3_dma_source *source_config,
 			struct mdp3_dma_output_config *output_config)
@@ -381,6 +380,22 @@ static int mdp3_dmas_config(struct mdp3_dma *dma,
 
 	mdp3_dma_callback_setup(dma);
 	return 0;
+}
+
+static void mdp3_dmas_config_source(struct mdp3_dma *dma)
+{
+	struct mdp3_dma_source *source_config = &dma->source_config;
+	u32 dma_s_cfg_reg, dma_s_size;
+
+	dma_s_cfg_reg = MDP3_REG_READ(MDP3_REG_DMA_S_CONFIG);
+	dma_s_cfg_reg &= ~MDP3_DMA_IBUF_FORMAT_MASK;
+	dma_s_cfg_reg |= source_config->format << 25;
+
+	dma_s_size = source_config->width | (source_config->height << 16);
+
+	MDP3_REG_WRITE(MDP3_REG_DMA_S_CONFIG, dma_s_cfg_reg);
+	MDP3_REG_WRITE(MDP3_REG_DMA_S_SIZE, dma_s_size);
+	MDP3_REG_WRITE(MDP3_REG_DMA_S_IBUF_Y_STRIDE, source_config->stride);
 }
 
 static int mdp3_dmap_cursor_config(struct mdp3_dma *dma,
@@ -901,6 +916,7 @@ int mdp3_dma_init(struct mdp3_dma *dma)
 	switch (dma->dma_sel) {
 	case MDP3_DMA_P:
 		dma->dma_config = mdp3_dmap_config;
+		dma->dma_config_source = mdp3_dmap_config_source;
 		dma->config_cursor = mdp3_dmap_cursor_config;
 		dma->config_ccs = mdp3_dmap_ccs_config;
 		dma->config_histo = mdp3_dmap_histo_config;
@@ -913,10 +929,10 @@ int mdp3_dma_init(struct mdp3_dma *dma)
 		dma->dma_done_notifier = mdp3_dma_done_notifier;
 		dma->start = mdp3_dma_start;
 		dma->stop = mdp3_dma_stop;
-		dma->config_stride = mdp3_dma_stride_config;
 		break;
 	case MDP3_DMA_S:
 		dma->dma_config = mdp3_dmas_config;
+		dma->dma_config_source = mdp3_dmas_config_source;
 		dma->config_cursor = NULL;
 		dma->config_ccs = NULL;
 		dma->config_histo = NULL;
@@ -928,7 +944,6 @@ int mdp3_dma_init(struct mdp3_dma *dma)
 		dma->vsync_enable = mdp3_dma_vsync_enable;
 		dma->start = mdp3_dma_start;
 		dma->stop = mdp3_dma_stop;
-		dma->config_stride = mdp3_dma_stride_config;
 		break;
 	case MDP3_DMA_E:
 	default:
