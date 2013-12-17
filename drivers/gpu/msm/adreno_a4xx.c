@@ -392,6 +392,10 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 	/* Turn on the GPU busy counter and let it run free */
 	memset(&adreno_dev->busy_data, 0, sizeof(adreno_dev->busy_data));
 
+	/* Disable L2 bypass to avoid UCHE out of bounds errors */
+	kgsl_regwrite(device, UCHE_TRAP_BASE_LO, 0xffff0000);
+	kgsl_regwrite(device, UCHE_TRAP_BASE_HI, 0xffff0000);
+
 	/* On A420 cores turn on SKIP_IB2_DISABLE in addition to the default */
 	kgsl_regwrite(device, A4XX_CP_DEBUG, A4XX_CP_DEBUG_DEFAULT |
 			(adreno_is_a420(adreno_dev) ? (1 << 29) : 0));
