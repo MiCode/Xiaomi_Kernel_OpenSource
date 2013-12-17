@@ -99,7 +99,6 @@ header-y += comstats.h
 header-y += connector.h
 header-y += const.h
 header-y += cramfs_fs.h
-header-y += csdio.h
 header-y += cuda.h
 header-y += cyclades.h
 header-y += cycx_cfm.h
