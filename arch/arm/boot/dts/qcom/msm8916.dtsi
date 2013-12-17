@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#include "skeleton.dtsi"
+#include "skeleton64.dtsi"
 
 / {
 	model = "Qualcomm MSM8916";
@@ -48,7 +48,7 @@
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
-	ranges;
+	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
 
 	intc: interrupt-controller@b000000 {
