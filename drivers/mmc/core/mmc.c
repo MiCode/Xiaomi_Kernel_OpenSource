@@ -1189,9 +1189,9 @@ int mmc_set_clock_bus_speed(struct mmc_card *card, unsigned long freq)
 		mmc_set_timing(card->host, MMC_TIMING_LEGACY);
 		mmc_set_clock(card->host, MMC_HIGH_26_MAX_DTR);
 
-		err = mmc_select_hs(card, &card->cached_ext_csd);
+		err = mmc_select_hs(card, card->cached_ext_csd);
 	} else {
-		err = mmc_select_hs400(card, &card->cached_ext_csd);
+		err = mmc_select_hs400(card, card->cached_ext_csd);
 	}
 
 	return err;
@@ -1439,7 +1439,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		err = mmc_get_ext_csd(card, &ext_csd);
 		if (err)
 			goto free_card;
-		memcpy(&card->cached_ext_csd, ext_csd, sizeof(card->ext_csd));
+		card->cached_ext_csd = ext_csd;
 		err = mmc_read_ext_csd(card, ext_csd);
 		if (err)
 			goto free_card;
@@ -1637,15 +1637,12 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	if (!oldcard)
 		host->card = card;
 
-	mmc_free_ext_csd(ext_csd);
 	return 0;
 
 free_card:
 	if (!oldcard)
 		mmc_remove_card(card);
 err:
-	mmc_free_ext_csd(ext_csd);
-
 	return err;
 }
 

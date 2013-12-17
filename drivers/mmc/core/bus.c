@@ -467,6 +467,7 @@ void mmc_remove_card(struct mmc_card *card)
 	}
 
 	kfree(card->wr_pack_stats.packing_events);
+	kfree(card->cached_ext_csd);
 
 	put_device(&card->dev);
 }
