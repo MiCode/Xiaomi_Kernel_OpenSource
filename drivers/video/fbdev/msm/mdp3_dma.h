@@ -264,6 +264,8 @@ struct mdp3_dma {
 			struct mdp3_dma_source *source_config,
 			struct mdp3_dma_output_config *output_config);
 
+	void (*dma_config_source)(struct mdp3_dma *dma);
+
 	int (*start)(struct mdp3_dma *dma, struct mdp3_intf *intf);
 
 	int (*stop)(struct mdp3_dma *dma, struct mdp3_intf *intf);
@@ -289,8 +291,6 @@ struct mdp3_dma {
 				struct mdp3_dma_histogram_config *histo_config);
 
 	int (*histo_op)(struct mdp3_dma *dma, u32 op);
-
-	void (*config_stride)(struct mdp3_dma *dma, int stride);
 
 	void (*vsync_enable)(struct mdp3_dma *dma,
 			struct mdp3_notification *vsync_client);
