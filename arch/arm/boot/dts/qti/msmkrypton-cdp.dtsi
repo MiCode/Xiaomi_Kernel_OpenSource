@@ -23,6 +23,7 @@
 		qcom,charging-timeout = <1536>;
 		qcom,recharge-thresh-mv = <200>;
 		qcom,iterm-ma = <100>;
+		qcom,charging-disabled;
 		regulator-name = "smb1357_otg_supply";
 	};
 };
