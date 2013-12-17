@@ -1116,14 +1116,8 @@ static int msm_ufs_phy_power_on(struct msm_ufs_phy *phy)
 	if (err)
 		goto out_disable_pll;
 
-	err = msm_ufs_enable_phy_iface_clk(phy);
-	if (err)
-		goto out_disable_ref;
-
 	goto out;
 
-out_disable_ref:
-	msm_ufs_disable_phy_ref_clk(phy);
 out_disable_pll:
 	msm_ufs_phy_disable_vreg(phy, &phy->vdda_pll);
 out_disable_phy:
@@ -1137,7 +1131,6 @@ static int msm_ufs_phy_power_off(struct msm_ufs_phy *phy)
 	writel_relaxed(0x0, phy->mmio + UFS_PHY_POWER_DOWN_CONTROL);
 	mb();
 
-	msm_ufs_disable_phy_iface_clk(phy);
 	msm_ufs_disable_phy_ref_clk(phy);
 
 	msm_ufs_phy_disable_vreg(phy, &phy->vdda_pll);
@@ -1362,9 +1355,6 @@ static int msm_ufs_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		msm_ufs_phy_power_off(phy);
 		goto out;
 	}
-
-	/* M-PHY RMMI interface clocks can be turned off */
-	msm_ufs_disable_phy_iface_clk(phy);
 
 	/*
 	 * If UniPro link is not active, PHY ref_clk, main PHY analog power
@@ -1797,10 +1787,17 @@ static int msm_ufs_setup_clocks(struct ufs_hba *hba, bool on)
 		return 0;
 
 	if (on) {
+		err = msm_ufs_enable_phy_iface_clk(host->phy);
+		if (err)
+			goto out;
+
 		vote = host->bus_vote.saved_vote;
 		if (vote == host->bus_vote.min_bw_vote)
 			msm_ufs_update_bus_bw_vote(host);
 	} else {
+		/* M-PHY RMMI interface clocks can be turned off */
+		msm_ufs_disable_phy_iface_clk(host->phy);
+
 		vote = host->bus_vote.min_bw_vote;
 	}
 
@@ -1809,6 +1806,7 @@ static int msm_ufs_setup_clocks(struct ufs_hba *hba, bool on)
 		dev_err(hba->dev, "%s: set bus vote failed %d\n",
 				__func__, err);
 
+out:
 	return err;
 }
 
@@ -1954,6 +1952,8 @@ static int msm_ufs_init(struct ufs_hba *hba)
 		hba->spm_lvl = UFS_PM_LVL_3;
 	}
 
+	hba->caps |= UFSHCD_CAP_CLK_GATING |
+			UFSHCD_CAP_HIBERN8_WITH_CLK_GATING;
 	msm_ufs_setup_clocks(hba, true);
 	goto out;
 
