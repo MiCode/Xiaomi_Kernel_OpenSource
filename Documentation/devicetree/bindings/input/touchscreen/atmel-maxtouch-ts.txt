@@ -1,0 +1,38 @@
+Atmel touch controller
+
+Required properties:
+
+ - compatible	: should be "atmel,maxtouch-ts"
+ - reg			: i2c slave address of the device
+ - interrupt-parent	: parent of interrupt
+ - interrupts		: touch sample interrupt to indicate presense or release
+				of fingers on the panel.
+ - atmel,panel-coords	: touch panel minimum x, minimum y, maximum x and
+				maximum y resolution
+ - atmel,display-coords : LCD display minimum x, minimum y, maximum x and
+				maximum y resolution
+ - vdd-supply	: Analog power supply needed to power device
+ - avcc-supply		: Power source required to pull up i2c bus
+ - atmel,irq-gpio	: irq gpio
+ - atmel,reset-gpio	: reset gpio
+
+Optional property:
+ - atmel,bl-addr		: bootloader address, by default is looked up
+					in mxt_slave_addresses structure
+ - atmel,key-codes		: key codes corresponding to keyarray object
+
+Example:
+	i2c@f9966000 {
+		atmel_maxtouch_ts@4a {
+			compatible = "atmel,maxtouch-ts";
+			reg = <0x4a>
+			interrupt-parent = <&msmgpio>
+			interrupts = <48 0x0>;
+			vdd-supply = <&pm8941_l18>;
+			avdd-supply = <&pm8941_lvs1>;
+			atmel,panel-coords = <0 0 479 799>;
+			atmel,display-coords = <0 0 479 799>;
+			atmel,irq-gpio = <&msmgpio 48 0>;
+			atmel,reset-gpio = <&msmgpio 26 0>;
+		};
+	};
