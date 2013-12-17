@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -200,28 +200,34 @@ void mdss_dsi_disable_irq_nosync(struct mdss_dsi_ctrl_pdata *ctrl, u32 term)
 	spin_unlock(&ctrl->irq_lock);
 }
 
-void mdss_dsi_cmd_test_pattern(struct mdss_panel_data *pdata)
+void mdss_dsi_video_test_pattern(struct mdss_dsi_ctrl_pdata *ctrl)
 {
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	int i;
 
-	if (pdata == NULL) {
-		pr_err("%s: Invalid input data\n", __func__);
-		return;
-	}
-
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
-
-	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x015c, 0x201);
-	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x016c, 0xff0000); /* red */
+	MIPI_OUTP((ctrl->ctrl_base) + 0x015c, 0x021);
+	MIPI_OUTP((ctrl->ctrl_base) + 0x0164, 0xff0000); /* red */
 	i = 0;
 	while (i++ < 50) {
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0184, 0x1);
+		MIPI_OUTP((ctrl->ctrl_base) + 0x0180, 0x1);
 		/* Add sleep to get ~50 fps frame rate*/
 		msleep(20);
 	}
-	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x015c, 0x0);
+	MIPI_OUTP((ctrl->ctrl_base) + 0x015c, 0x0);
+}
+
+void mdss_dsi_cmd_test_pattern(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	int i;
+
+	MIPI_OUTP((ctrl->ctrl_base) + 0x015c, 0x201);
+	MIPI_OUTP((ctrl->ctrl_base) + 0x016c, 0xff0000); /* red */
+	i = 0;
+	while (i++ < 50) {
+		MIPI_OUTP((ctrl->ctrl_base) + 0x0184, 0x1);
+		/* Add sleep to get ~50 fps frame rate*/
+		msleep(20);
+	}
+	MIPI_OUTP((ctrl->ctrl_base) + 0x015c, 0x0);
 }
 
 void mdss_dsi_host_init(struct mipi_panel_info *pinfo,
