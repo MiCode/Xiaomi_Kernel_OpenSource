@@ -809,6 +809,7 @@ static int32_t msm_eeprom_platform_probe(struct platform_device *pdev)
 	e_ctrl->is_supported = 0;
 	if (!of_node) {
 		pr_err("%s dev.of_node NULL\n", __func__);
+		kfree(e_ctrl);
 		return -EINVAL;
 	}
 
@@ -817,6 +818,7 @@ static int32_t msm_eeprom_platform_probe(struct platform_device *pdev)
 	CDBG("cell-index %d, rc %d\n", pdev->id, rc);
 	if (rc < 0) {
 		pr_err("failed rc %d\n", rc);
+		kfree(e_ctrl);
 		return rc;
 	}
 	e_ctrl->subdev_id = pdev->id;
@@ -826,12 +828,14 @@ static int32_t msm_eeprom_platform_probe(struct platform_device *pdev)
 	CDBG("qcom,cci-master %d, rc %d\n", e_ctrl->cci_master, rc);
 	if (rc < 0) {
 		pr_err("%s failed rc %d\n", __func__, rc);
+		kfree(e_ctrl);
 		return rc;
 	}
 	rc = of_property_read_u32(of_node, "qcom,slave-addr",
 		&temp);
 	if (rc < 0) {
 		pr_err("%s failed rc %d\n", __func__, rc);
+		kfree(e_ctrl);
 		return rc;
 	}
 
@@ -844,6 +848,7 @@ static int32_t msm_eeprom_platform_probe(struct platform_device *pdev)
 		struct msm_camera_cci_client), GFP_KERNEL);
 	if (!e_ctrl->i2c_client.cci_client) {
 		pr_err("%s failed no memory\n", __func__);
+		kfree(e_ctrl);
 		return -ENOMEM;
 	}
 
@@ -936,6 +941,7 @@ board_free:
 	kfree(e_ctrl->eboard_info);
 cciclient_free:
 	kfree(e_ctrl->i2c_client.cci_client);
+	kfree(e_ctrl);
 	return rc;
 }
 
