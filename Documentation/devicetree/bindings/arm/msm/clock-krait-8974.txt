@@ -41,6 +41,8 @@ Optional properties:
 - qcom,hfpll-user-vco-mask:
 			The mask to be used when programming the VCO selection
 			bits in the user control register.
+- qcom,pvs-config-ver:
+			The version of the data in qcom,speedX-pvsY-bin-vZ.
 
 Example:
 	qcom,clock-krait@f9016000 {
