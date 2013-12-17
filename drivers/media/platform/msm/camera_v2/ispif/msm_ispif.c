@@ -1049,7 +1049,8 @@ static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd,
 		return 0;
 	}
 	default:
-		pr_err("%s: invalid cmd 0x%x received\n", __func__, cmd);
+		pr_err_ratelimited("%s: invalid cmd 0x%x received\n",
+			__func__, cmd);
 		return -ENOIOCTLCMD;
 	}
 }
