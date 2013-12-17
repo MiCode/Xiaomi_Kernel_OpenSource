@@ -94,7 +94,7 @@ static struct clk_lookup msm_clocks_8916[] = {
 	CLK_DUMMY("",	usb_hs_system_clk_src.c,	"", OFF),
 	CLK_DUMMY("",	vcodec0_clk_src.c,	"", OFF),
 	CLK_DUMMY("",	gcc_blsp1_ahb_clk.c,	"", OFF),
-	CLK_DUMMY("",	gcc_prng_ahb_clk.c,	"", OFF),
+	CLK_DUMMY("iface_clk", gcc_prng_ahb_clk.c, "22000.qrng", OFF),
 	CLK_DUMMY("",	gcc_boot_rom_ahb_clk.c,	"", OFF),
 	CLK_DUMMY("",	gcc_gfx_tbu_clk.c,	"", OFF),
 	CLK_DUMMY("",	gcc_gtcu_ahb_clk.c,	"", OFF),
