@@ -65,6 +65,8 @@ Required properties:
 			3 : Returns current across 0.1 ohm resistor.
 			4 : Returns XO thermistor voltage in degree's Centigrade.
 			5 : Returns result in degC for 150k pull-up.
+			9 : Conversion to temperature based on -15~55 allowable
+			    battery charging tempeature setting for btm parameters.
 - qcom,hw-settle-time : Settling period for the channel before ADC read.
 			Select from the following unsigned int.
 			0 : 0us
