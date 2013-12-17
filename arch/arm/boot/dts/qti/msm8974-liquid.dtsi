@@ -20,7 +20,7 @@
 
 	memory {
 
-		fb_mem: fb_region {
+		fb_mem: fb_region@0 {
 			reg = <0 0x1000000>;
 		};
 	};

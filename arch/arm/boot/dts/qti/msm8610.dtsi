@@ -26,7 +26,7 @@
 	interrupt-parent = <&intc>;
 
 	memory {
-		qsecom_mem: qsecom_region {
+		qsecom_mem: qsecom_region@0 {
 			linux,contiguous-region;
 			reg = <0 0x100000>;
 			label = "qsecom_mem";
