@@ -1181,7 +1181,7 @@ static void pineview_update_wm(struct drm_crtc *unused_crtc)
 	}
 
 	crtc = single_enabled_crtc(dev);
-	if (crtc) {
+	if (crtc && !dev_priv->sr_disable) {
 		const struct drm_display_mode *adjusted_mode;
 		int pixel_size = crtc->primary->fb->bits_per_pixel / 8;
 		int clock;
@@ -1475,6 +1475,7 @@ static void valleyview_update_wm(struct drm_crtc *crtc)
 		enabled |= 1 << PIPE_B;
 
 	if (single_plane_enabled(enabled) &&
+	    !dev_priv->sr_disable &&
 	    g4x_compute_srwm(dev, ffs(enabled) - 1,
 			     sr_latency_ns,
 			     &valleyview_wm_info,
@@ -1532,6 +1533,7 @@ static void g4x_update_wm(struct drm_crtc *crtc)
 		enabled |= 1 << PIPE_B;
 
 	if (single_plane_enabled(enabled) &&
+	    !dev_priv->sr_disable &&
 	    g4x_compute_srwm(dev, ffs(enabled) - 1,
 			     sr_latency_ns,
 			     &g4x_wm_info,
@@ -1573,7 +1575,7 @@ static void i965_update_wm(struct drm_crtc *unused_crtc)
 
 	/* Calc sr entries for one plane configs */
 	crtc = single_enabled_crtc(dev);
-	if (crtc) {
+	if (crtc && !dev_priv->sr_disable) {
 		/* self-refresh has much higher latency */
 		static const int sr_latency_ns = 12000;
 		const struct drm_display_mode *adjusted_mode =
@@ -1753,7 +1755,7 @@ static void i9xx_update_wm(struct drm_crtc *unused_crtc)
 	I915_WRITE(FW_BLC2, fwater_hi);
 
 	if (HAS_FW_BLC(dev)) {
-		if (enabled) {
+		if (enabled && !dev_priv->sr_disable) {
 			if (IS_I945G(dev) || IS_I945GM(dev))
 				I915_WRITE(FW_BLC_SELF,
 					   FW_BLC_SELF_EN_MASK | FW_BLC_SELF_EN);
@@ -2537,11 +2539,33 @@ static void ilk_compute_wm_results(struct drm_device *dev,
 				   enum intel_ddb_partitioning partitioning,
 				   struct ilk_wm_values *results)
 {
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc;
 	int level, wm_lp;
 
 	results->enable_fbc_wm = merged->fbc_wm_enabled;
 	results->partitioning = partitioning;
+
+	/* LP0 register values */
+	for_each_intel_crtc(dev, intel_crtc) {
+		enum pipe pipe = intel_crtc->pipe;
+		const struct intel_wm_level *r =
+			&intel_crtc->wm.active.wm[0];
+
+		if (WARN_ON(!r->enable))
+			continue;
+
+		results->wm_linetime[pipe] = intel_crtc->wm.active.linetime;
+
+		results->wm_pipe[pipe] =
+			(r->pri_val << WM0_PIPE_PLANE_SHIFT) |
+			(r->spr_val << WM0_PIPE_SPRITE_SHIFT) |
+			r->cur_val;
+	}
+
+	/* Leave LP1+ registers zeroed if self-refresh is not to be used */
+	if (dev_priv->sr_disable)
+		return;
 
 	/* LP1+ register values */
 	for (wm_lp = 1; wm_lp <= 3; wm_lp++) {
@@ -2579,23 +2603,6 @@ static void ilk_compute_wm_results(struct drm_device *dev,
 			results->wm_lp_spr[wm_lp - 1] = WM1S_LP_EN | r->spr_val;
 		} else
 			results->wm_lp_spr[wm_lp - 1] = r->spr_val;
-	}
-
-	/* LP0 register values */
-	for_each_intel_crtc(dev, intel_crtc) {
-		enum pipe pipe = intel_crtc->pipe;
-		const struct intel_wm_level *r =
-			&intel_crtc->wm.active.wm[0];
-
-		if (WARN_ON(!r->enable))
-			continue;
-
-		results->wm_linetime[pipe] = intel_crtc->wm.active.linetime;
-
-		results->wm_pipe[pipe] =
-			(r->pri_val << WM0_PIPE_PLANE_SHIFT) |
-			(r->spr_val << WM0_PIPE_SPRITE_SHIFT) |
-			r->cur_val;
 	}
 }
 

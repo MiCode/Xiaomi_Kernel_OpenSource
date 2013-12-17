@@ -1531,6 +1531,8 @@ struct drm_i915_private {
 
 	bool ips_disable;
 
+	bool sr_disable;
+
 	struct i915_power_domains power_domains;
 
 	struct i915_psr psr;
