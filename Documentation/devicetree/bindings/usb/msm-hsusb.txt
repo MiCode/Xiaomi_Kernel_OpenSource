@@ -29,6 +29,8 @@ Required properties :
          "HSUSB_1p8-supply" and "HSUSB_3p3-supply".
 
 Optional properties :
+- reg : offset and length of the TCSR register for routing USB Controller
+	signals to either picoPHY0 or picoPHY1.
 - interrupt-names : Optional interrupt resource entries are:
     "async_irq" : Interrupt from HSPHY for asynchronous wakeup events in LPM.
     "pmic_id_irq" : Interrupt from PMIC for external ID pin notification.
