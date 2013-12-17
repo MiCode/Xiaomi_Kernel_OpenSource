@@ -302,8 +302,10 @@ static int ufsdbg_host_regs_show(struct seq_file *file, void *data)
 {
 	struct ufs_hba *hba = (struct ufs_hba *)file->private;
 
+	ufshcd_hold(hba, false);
 	ufsdbg_pr_buf_to_std(file, hba->mmio_base, UFSHCI_REG_SPACE_SIZE,
 			"host regs");
+	ufshcd_release(hba);
 	return 0;
 }
 
@@ -408,6 +410,8 @@ static int ufsdbg_show_hba_show(struct seq_file *file, void *data)
 			hba->auto_bkops_enabled);
 
 	seq_printf(file, "hba->ufshcd_state = 0x%x\n", hba->ufshcd_state);
+	seq_printf(file, "hba->clk_gating.state = 0x%x\n",
+			hba->clk_gating.state);
 	seq_printf(file, "hba->eh_flags = 0x%x\n", hba->eh_flags);
 	seq_printf(file, "hba->intr_mask = 0x%x\n", hba->intr_mask);
 	seq_printf(file, "hba->ee_ctrl_mask = 0x%x\n", hba->ee_ctrl_mask);
