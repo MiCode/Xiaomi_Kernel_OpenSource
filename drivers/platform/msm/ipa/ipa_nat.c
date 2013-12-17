@@ -225,6 +225,7 @@ int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 	struct ipa_ip_v4_nat_init *cmd;
 	u16 size = sizeof(struct ipa_ip_v4_nat_init);
 	int result;
+	u32 offset = 0;
 
 	IPADBG("\n");
 	if (init->tbl_index < 0 || init->table_entries <= 0) {
@@ -245,6 +246,26 @@ int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 		cmd->index_table_addr_type = IPA_NAT_SYSTEM_MEMORY;
 		cmd->index_table_expansion_addr_type = IPA_NAT_SYSTEM_MEMORY;
 
+		offset = UINT_MAX - ipa_ctx->nat_mem.dma_handle;
+
+		if ((init->ipv4_rules_offset > offset) ||
+			(init->expn_rules_offset > offset) ||
+			(init->index_offset > offset) ||
+			(init->index_expn_offset > offset)) {
+			IPAERR("Failed due to integer overflow\n");
+			IPAERR("nat.mem.dma_handle: 0x%x\n",
+				ipa_ctx->nat_mem.dma_handle);
+			IPAERR("ipv4_rules_offset: 0x%x\n",
+				init->ipv4_rules_offset);
+			IPAERR("expn_rules_offset: 0x%x\n",
+				init->expn_rules_offset);
+			IPAERR("index_offset: 0x%x\n",
+				init->index_offset);
+			IPAERR("index_expn_offset: 0x%x\n",
+				init->index_expn_offset);
+			result = -EPERM;
+			goto free_cmd;
+		}
 		cmd->ipv4_rules_addr =
 			ipa_ctx->nat_mem.dma_handle + init->ipv4_rules_offset;
 		IPADBG("ipv4_rules_offset:0x%x\n", init->ipv4_rules_offset);
