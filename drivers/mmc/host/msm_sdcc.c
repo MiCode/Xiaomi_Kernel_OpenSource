@@ -6962,7 +6962,7 @@ static const struct dev_pm_ops msmsdcc_dev_pm_ops = {
 
 static const struct of_device_id msmsdcc_dt_match[] = {
 	{.compatible = "qcom,msm-sdcc"},
-
+	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, msmsdcc_dt_match);
 
