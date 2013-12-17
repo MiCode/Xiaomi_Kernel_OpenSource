@@ -4086,6 +4086,48 @@ DEFINE_SIMPLE_ATTRIBUTE(i915_cache_sharing_fops,
 			i915_cache_sharing_get, i915_cache_sharing_set,
 			"%llu\n");
 
+#define TIMESTAMP_BUFFER_LEN  100U
+
+ssize_t i915_timestamp_read(struct file *filp,
+		 char __user *ubuf,
+		 size_t max,
+		 loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int len = 0;
+	char buf[TIMESTAMP_BUFFER_LEN] = {0,};
+	unsigned long flags;
+	unsigned int gpu_ts;
+	unsigned int cpu;
+	u32 sec, nsec;
+	u64 ftrace_ts;
+
+	local_irq_save(flags);
+	cpu = smp_processor_id();
+	gpu_ts = I915_READ(RING_TIMESTAMP(RENDER_RING_BASE));
+	ftrace_ts = ftrace_now(cpu);
+	local_irq_restore(flags);
+
+	sec  = (u32)(ftrace_ts / NSEC_PER_SEC);
+	nsec = (u32)(ftrace_ts % NSEC_PER_SEC);
+
+	len = snprintf(buf, TIMESTAMP_BUFFER_LEN,
+		      "CPU%03u %u.%09u s\nGPU %u ticks\n",
+		      cpu, sec, nsec, gpu_ts);
+
+	return simple_read_from_buffer(ubuf, max, ppos,
+				       (const void *) buf, sizeof(buf));
+}
+
+static const struct file_operations i915_timestamp_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_timestamp_read,
+	.write = NULL,
+	.llseek = default_llseek,
+};
+
 static int i915_forcewake_open(struct inode *inode, struct file *file)
 {
 	struct drm_device *dev = inode->i_private;
@@ -4221,6 +4263,7 @@ static const struct i915_debugfs_files {
 	{"i915_pri_wm_latency", &i915_pri_wm_latency_fops},
 	{"i915_spr_wm_latency", &i915_spr_wm_latency_fops},
 	{"i915_cur_wm_latency", &i915_cur_wm_latency_fops},
+	{"i915_timestamp", &i915_timestamp_fops},
 };
 
 void intel_display_crc_init(struct drm_device *dev)
