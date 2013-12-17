@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,3 +61,15 @@ void wcnss_wlan_crypto_free_ablkcipher(struct crypto_ablkcipher *tfm)
 }
 EXPORT_SYMBOL(wcnss_wlan_crypto_free_ablkcipher);
 
+void wcnss_wlan_crypto_free_cipher(struct crypto_cipher *tfm)
+{
+	crypto_free_cipher(tfm);
+}
+EXPORT_SYMBOL(wcnss_wlan_crypto_free_cipher);
+
+struct crypto_cipher *
+wcnss_wlan_crypto_alloc_cipher(const char *alg_name, u32 type, u32 mask)
+{
+	return crypto_alloc_cipher(alg_name, type, mask);
+}
+EXPORT_SYMBOL(wcnss_wlan_crypto_alloc_cipher);
