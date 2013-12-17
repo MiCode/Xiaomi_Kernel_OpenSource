@@ -40,7 +40,8 @@ do {									\
 
 #define ANDROID_ALARM_WAKEUP_MASK ( \
 	ANDROID_ALARM_RTC_WAKEUP_MASK | \
-	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK)
+	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK | \
+	ANDROID_ALARM_RTC_POWEROFF_WAKEUP_MASK)
 
 static int alarm_opened;
 static DEFINE_SPINLOCK(alarm_slock);
@@ -64,7 +65,8 @@ static struct devalarm alarms[ANDROID_ALARM_TYPE_COUNT];
 static int is_wakeup(enum android_alarm_type type)
 {
 	return (type == ANDROID_ALARM_RTC_WAKEUP ||
-		type == ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP);
+		type == ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP ||
+		type == ANDROID_ALARM_RTC_POWEROFF_WAKEUP);
 }
 
 
@@ -108,6 +110,8 @@ static void alarm_clear(enum android_alarm_type alarm_type)
 	alarm_enabled &= ~alarm_type_mask;
 	spin_unlock_irqrestore(&alarm_slock, flags);
 
+	if (alarm_type == ANDROID_ALARM_RTC_POWEROFF_WAKEUP)
+		set_power_on_alarm(0);
 }
 
 static void alarm_set(enum android_alarm_type alarm_type,
@@ -122,6 +126,9 @@ static void alarm_set(enum android_alarm_type alarm_type,
 	alarm_enabled |= alarm_type_mask;
 	devalarm_start(&alarms[alarm_type], timespec_to_ktime(*ts));
 	spin_unlock_irqrestore(&alarm_slock, flags);
+
+	if (alarm_type == ANDROID_ALARM_RTC_POWEROFF_WAKEUP)
+		set_power_on_alarm(ts->tv_sec);
 }
 
 static int alarm_wait(void)
@@ -181,6 +188,7 @@ static int alarm_get_time(enum android_alarm_type alarm_type,
 	switch (alarm_type) {
 	case ANDROID_ALARM_RTC_WAKEUP:
 	case ANDROID_ALARM_RTC:
+	case ANDROID_ALARM_RTC_POWEROFF_WAKEUP:
 		getnstimeofday(ts);
 		break;
 	case ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP:
@@ -421,6 +429,8 @@ static int __init alarm_dev_init(void)
 			CLOCK_BOOTTIME, HRTIMER_MODE_ABS);
 	hrtimer_init(&alarms[ANDROID_ALARM_SYSTEMTIME].u.hrt,
 			CLOCK_MONOTONIC, HRTIMER_MODE_ABS);
+	alarm_init(&alarms[ANDROID_ALARM_RTC_POWEROFF_WAKEUP].u.alrm,
+			ALARM_REALTIME, devalarm_alarmhandler);
 
 	for (i = 0; i < ANDROID_ALARM_TYPE_COUNT; i++) {
 		alarms[i].type = i;

@@ -26,6 +26,8 @@
 #include <linux/workqueue.h>
 #include <linux/freezer.h>
 
+#define ALARM_DELTA 120
+
 /**
  * struct alarm_base - Alarm timer bases
  * @lock:		Lock for syncrhonized access to the base
@@ -52,6 +54,54 @@ static struct wakeup_source *ws;
 static struct rtc_timer		rtctimer;
 static struct rtc_device	*rtcdev;
 static DEFINE_SPINLOCK(rtcdev_lock);
+static unsigned long power_on_alarm;
+static struct mutex power_on_alarm_lock;
+
+void set_power_on_alarm(long secs)
+{
+	int rc;
+	long rtc_secs, alarm_time;
+	struct rtc_time rtc_time;
+	struct rtc_wkalrm alarm;
+
+	rc = mutex_lock_interruptible(&power_on_alarm_lock);
+	if (rc != 0)
+		return;
+
+	rtc_read_time(rtcdev, &rtc_time);
+	rtc_tm_to_time(&rtc_time, &rtc_secs);
+
+	if (!secs)
+		goto disable_alarm;
+	else
+		power_on_alarm = secs + rtc_secs;
+
+	alarm_time = power_on_alarm;
+
+	/*
+	 *Substract ALARM_DELTA from actual alarm time
+	 *to power up the device before actual alarm
+	 *expiration
+	 */
+	if ((alarm_time - ALARM_DELTA) > rtc_secs)
+		alarm_time -= ALARM_DELTA;
+
+	if (alarm_time <= rtc_secs)
+		goto disable_alarm;
+
+	rtc_time_to_tm(alarm_time, &alarm.time);
+	alarm.enabled = 1;
+	rc = rtc_set_alarm(rtcdev, &alarm);
+	if (rc)
+		goto disable_alarm;
+
+	mutex_unlock(&power_on_alarm_lock);
+	return;
+
+disable_alarm:
+	rtc_alarm_irq_enable(rtcdev, 0);
+	mutex_unlock(&power_on_alarm_lock);
+}
 
 static void alarmtimer_triggered_func(void *p)
 {
@@ -837,6 +887,7 @@ static int __init alarmtimer_init(void)
 		.nsleep		= alarm_timer_nsleep,
 	};
 
+	mutex_init(&power_on_alarm_lock);
 	alarmtimer_rtc_timer_init();
 
 	posix_timers_register_clock(CLOCK_REALTIME_ALARM, &alarm_clock);
