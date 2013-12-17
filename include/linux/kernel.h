@@ -535,6 +535,9 @@ enum ftrace_dump_mode {
 };
 
 #ifdef CONFIG_TRACING
+
+typedef u64 cycle_t;
+
 void tracing_on(void);
 void tracing_off(void);
 int tracing_is_on(void);
@@ -543,6 +546,7 @@ void tracing_snapshot_alloc(void);
 
 extern void tracing_start(void);
 extern void tracing_stop(void);
+extern cycle_t ftrace_now(int cpu);
 
 static inline __printf(1, 2)
 void ____trace_printk_check_format(const char *fmt, ...)
@@ -681,6 +685,7 @@ extern void ftrace_dump(enum ftrace_dump_mode oops_dump_mode);
 static inline void tracing_start(void) { }
 static inline void tracing_stop(void) { }
 static inline void trace_dump_stack(int skip) { }
+static inline cycle_t ftrace_now(int cpu) { return 0 };
 
 static inline void tracing_on(void) { }
 static inline void tracing_off(void) { }

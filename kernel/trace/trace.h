@@ -642,8 +642,6 @@ static inline void __trace_stack(struct trace_array *tr, unsigned long flags,
 }
 #endif /* CONFIG_STACKTRACE */
 
-extern cycle_t ftrace_now(int cpu);
-
 extern void trace_find_cmdline(int pid, char comm[]);
 extern int trace_find_tgid(int pid);
 
