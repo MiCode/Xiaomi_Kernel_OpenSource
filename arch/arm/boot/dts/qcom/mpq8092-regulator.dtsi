@@ -289,7 +289,17 @@
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
+			proxy-supply = <&pma8084_l22>;
+			qcom,proxy-consumer-enable;
 			status = "okay";
+		};
+
+		pma8084_l22_ao: regulator-l22-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "8084_l22_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
 		};
 	};
 
