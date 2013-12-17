@@ -33,6 +33,8 @@ Optional properties:
                         which will cause the PIL entry address check
                         to fail.  This parameter will disable the
                         check.
+- qti,restart-group: List of subsystems that will need to restart together.
+
 Example:
         qti,modem-femto@fbc00000 {
                 compatible = "qti,pil-femto-modem";

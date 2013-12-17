@@ -13,6 +13,9 @@ Required properties:
 - vdd-supply: regulator to supply venus.
 - qti,firmware-name: Base name of the firmware image. Ex. "venus"
 
+Optional properties:
+- qti,restart-group: List of subsystems that will need to restart together.
+
 Example:
         qti,venus@fdce0000 {
                 compatible = "qti,pil-venus";

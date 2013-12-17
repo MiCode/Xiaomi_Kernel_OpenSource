@@ -100,6 +100,7 @@ Optional driver parameters:
 		This value is passed to RPM and is used by the RPM module to determine the
 		gpio mux function. The only currently supported modes string is "normal" and
 		corresponds to the value 0x03 that is passed to RPM.
+- qti,restart-group: List of subsystems that will need to restart together.
 
 Example:
 	mdm0: qti,mdm0 {

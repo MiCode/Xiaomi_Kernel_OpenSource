@@ -36,6 +36,7 @@ Optional properties:
 - qti,gpio-force-stop: GPIO used by the apps to force the modem to shutdown.
 - qti,gpio-stop-ack: GPIO used by the modem to ack force stop or a graceful stop
 		      to the apps.
+- qti,restart-group: List of subsystems that will need to restart together.
 
 Example:
 	qti,mss@fc880000 {

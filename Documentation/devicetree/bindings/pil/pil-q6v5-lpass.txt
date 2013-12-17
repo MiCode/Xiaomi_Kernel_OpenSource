@@ -24,6 +24,7 @@ Optional properties:
 - qti,gpio-stop-ack: GPIO used by lpass to ack force stop or a graceful stop
   to Apps.
 - qti,gpio-force-stop: GPIO used by the apps to force the lpass to shutdown.
+- qti,restart-group: List of subsystems that will need to restart together.
 
 Example:
 	qti,lpass@fe200000 {

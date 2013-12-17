@@ -22,6 +22,7 @@ Optional properties:
 - qti,gpio-stop-ack: GPIO used by wcnss to ack force stop or a graceful stop
   to Apps.
 - qti,gpio-force-stop: GPIO used by the Apps to force the wcnss to shutdown.
+- qti,restart-group: List of subsystems that will need to restart together.
 
 Example:
 	qti,pronto@fb21b000 {
