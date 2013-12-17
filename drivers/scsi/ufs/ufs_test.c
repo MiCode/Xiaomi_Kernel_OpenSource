@@ -934,9 +934,6 @@ static int run_long_seq_test(struct test_data *td)
 		/* NUM_OF_BLOCK * (BLOCK_SIZE / SECTOR_SIZE) */
 		sector += TEST_MAX_BIOS_PER_REQ * (PAGE_SIZE /
 				td->req_q->limits.logical_block_size);
-		td->test_info.test_byte_count +=
-			(TEST_MAX_BIOS_PER_REQ * sizeof(unsigned int) *
-			BIO_U32_SIZE);
 
 	} while (inserted_requests < LONG_SEQ_TEST_NUM_REQS);
 
