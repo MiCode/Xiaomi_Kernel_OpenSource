@@ -17,6 +17,7 @@
 #include <linux/of.h>
 #include <linux/spmi.h>
 #include <linux/delay.h>
+#include <linux/debugfs.h>
 
 #define KRAIT_REG_PMIC_DEV_NAME "qcom,krait-regulator-pmic"
 
@@ -67,7 +68,22 @@ struct krait_vreg_pmic_chip {
 	u16			freq_base;
 	u8			ctrl_dig_major;
 	u8			ctrl_dig_minor;
-	bool			unexpected_config;
+	u32			unexpected_config;
+	struct dentry		*dent;
+};
+
+enum {
+	BAD_VCTL_VAL_BIT	= BIT(0),
+	BAD_AUTO_BIT		= BIT(1),
+	BAD_NPM_BIT		= BIT(2),
+	BAD_EN_BIT		= BIT(3),
+	BAD_PD_CTL_BIT		= BIT(4),
+	BAD_MULTIPHASE_EN_BIT	= BIT(5),
+	BAD_BALANCE_EN_BIT	= BIT(6),
+	BAD_VS_CTL_BIT		= BIT(7),
+	BAD_CTRL_GANG_EN_BIT	= BIT(8),
+	BAD_PS_GANG_EN_BIT	= BIT(9),
+	BAD_FREQ_GANG_EN_BIT	= BIT(10),
 };
 
 static struct krait_vreg_pmic_chip *the_chip;
@@ -220,7 +236,7 @@ static int gang_configuration_check(struct krait_vreg_pmic_chip *chip)
 	if (val != V_CTL1_VAL) {
 		pr_err("v ctl1 addr = 0x%05x val = 0x%x expected val = 0x%x\n",
 				chip->ctrl_base + REG_V_CTL1, val, V_CTL1_VAL);
-		chip->unexpected_config = true;
+		chip->unexpected_config |= BAD_VCTL_VAL_BIT;
 	}
 
 	READ_BYTE(chip, chip->ctrl_base + REG_MODE_CTL, val, rc);
@@ -231,14 +247,14 @@ static int gang_configuration_check(struct krait_vreg_pmic_chip *chip)
 		pr_err("mode addr = 0x%05x val = 0x%x expect bit 0x%x to be not set\n",
 				chip->ctrl_base + REG_MODE_CTL, val,
 				(u32)AUTO_MODE_BIT);
-		chip->unexpected_config = true;
+		chip->unexpected_config |= BAD_AUTO_BIT;
 	}
 	/* The NPM mode should be on */
 	if (!(val & NPM_MODE_BIT)) {
 		pr_err("mode ctl addr = 0x%05x val = 0x%x expect bit 0x%x to be set\n",
 				chip->ctrl_base + REG_MODE_CTL, val,
 				(u32)NPM_MODE_BIT);
-		chip->unexpected_config = true;
+		chip->unexpected_config |= BAD_NPM_BIT;
 	}
 
 	READ_BYTE(chip, chip->ctrl_base + REG_EN_CTL, val, rc);
@@ -249,7 +265,7 @@ static int gang_configuration_check(struct krait_vreg_pmic_chip *chip)
 		pr_err("en ctl addr = 0x%05x val = 0x%x expect bit 0x%x to be set\n",
 				chip->ctrl_base + REG_EN_CTL, val,
 				(u32)EN_BIT);
-		chip->unexpected_config = true;
+		chip->unexpected_config |= BAD_EN_BIT;
 	}
 
 	READ_BYTE(chip, chip->ctrl_base + REG_PD_CTL, val, rc);
@@ -259,7 +275,7 @@ static int gang_configuration_check(struct krait_vreg_pmic_chip *chip)
 		pr_err("pd ctl addr = 0x%05x val = 0x%x expected val = 0x%x\n",
 				chip->ctrl_base + REG_PD_CTL, val,
 				(u32)PD_CTL_VAL);
-		chip->unexpected_config = true;
+		chip->unexpected_config |= BAD_PD_CTL_BIT;
 	}
 
 	READ_BYTE(chip, chip->ctrl_base + REG_MULTIPHASE_CTL, val, rc);
@@ -269,7 +285,7 @@ static int gang_configuration_check(struct krait_vreg_pmic_chip *chip)
 		pr_err("multi ctl addr = 0x%05x val = 0x%x expect bit 0x%x to be set\n",
 				chip->ctrl_base + REG_MULTIPHASE_CTL, val,
 				(u32)MULTIPHASE_EN_BIT);
-		chip->unexpected_config = true;
+		chip->unexpected_config |= BAD_MULTIPHASE_EN_BIT;
 	}
 
 	READ_BYTE(chip, chip->ctrl_base + REG_PHASE_CTL, val, rc);
@@ -279,7 +295,7 @@ static int gang_configuration_check(struct krait_vreg_pmic_chip *chip)
 		pr_err("phase ctl addr = 0x%05x val = 0x%x expect bit 0x%x to be set\n",
 				chip->ctrl_base + REG_PHASE_CTL, val,
 				(u32)BALANCE_EN_BIT);
-		chip->unexpected_config = true;
+		chip->unexpected_config |= BAD_BALANCE_EN_BIT;
 	}
 
 	READ_BYTE(chip, chip->ctrl_base + REG_VS_CTL, val, rc);
@@ -289,7 +305,7 @@ static int gang_configuration_check(struct krait_vreg_pmic_chip *chip)
 		pr_err("vs ctl addr = 0x%05x val = 0x%x expected val = 0x%x\n",
 				chip->ctrl_base + REG_VS_CTL, val,
 				(u32)VS_CTL_VAL);
-		chip->unexpected_config = true;
+		chip->unexpected_config |= BAD_VS_CTL_BIT;
 	}
 
 	for (i = 1; i < GANGED_VREG_COUNT; i++) {
@@ -300,7 +316,7 @@ static int gang_configuration_check(struct krait_vreg_pmic_chip *chip)
 
 		if (!(val & GANG_EN_BIT)) {
 			pr_err("buck = %d, ctrl gang not enabled\n", i);
-			chip->unexpected_config = true;
+			chip->unexpected_config |= BAD_CTRL_GANG_EN_BIT;
 		}
 	}
 
@@ -312,7 +328,7 @@ static int gang_configuration_check(struct krait_vreg_pmic_chip *chip)
 
 		if (!(val & GANG_EN_BIT)) {
 			pr_err("buck = %d, ps gang not enabled\n", i);
-			chip->unexpected_config = true;
+			chip->unexpected_config |= BAD_PS_GANG_EN_BIT;
 		}
 	}
 
@@ -324,7 +340,7 @@ static int gang_configuration_check(struct krait_vreg_pmic_chip *chip)
 
 		if (!(val & GANG_EN_BIT)) {
 			pr_err("buck = %d, freq gang not enabled\n", i);
-			chip->unexpected_config = true;
+			chip->unexpected_config |= BAD_FREQ_GANG_EN_BIT;
 		}
 	}
 
@@ -412,6 +428,9 @@ static int krait_vreg_pmic_probe(struct spmi_device *spmi)
 
 	gang_configuration_check(chip);
 
+	chip->dent = debugfs_create_dir("krait-regulator-pmic", NULL);
+	debugfs_create_x32("unexpected_config", 0444,
+				 chip->dent, &(chip->unexpected_config));
 	the_chip = chip;
 	return 0;
 }
