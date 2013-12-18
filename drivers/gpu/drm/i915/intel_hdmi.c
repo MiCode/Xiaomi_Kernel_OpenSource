@@ -1046,7 +1046,8 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 		hdmi_to_dig_port(intel_hdmi);
 	struct intel_encoder *intel_encoder = &intel_dig_port->base;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct edid *edid;
+	struct i2c_adapter *i2c_adpter = NULL;
+	struct edid *edid = NULL;
 	enum intel_display_power_domain power_domain;
 	enum drm_connector_status status = connector_status_disconnected;
 #ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
@@ -1071,7 +1072,8 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 	}
 
 	/* Suppress spurious IRQ, if current status is same as live status */
-	if (connector->status == hdmi_live_status(dev, intel_hdmi)) {
+	status = hdmi_live_status(dev, intel_hdmi);
+	if (connector->status == status) {
 		status = connector->status;
 		goto det_out;
 	}
@@ -1089,13 +1091,22 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 	}
 #endif
 
-	edid = drm_get_edid(connector,
-			    intel_gmbus_get_adapter(dev_priv,
-						    intel_hdmi->ddc_bus));
+	/* Read EDID only if live status permits */
+	if (status == connector_status_connected) {
+		i2c_adpter = intel_gmbus_get_adapter(dev_priv,
+						intel_hdmi->ddc_bus);
+
+		if (i2c_adpter == NULL) {
+			DRM_ERROR("Can't get correct I2C [ddc_bus:%x]\n",
+					intel_hdmi->ddc_bus);
+		} else {
+			DRM_INFO("Probed [ddc_bus:%x]\n", intel_hdmi->ddc_bus);
+			edid = drm_get_edid(connector, i2c_adpter);
+		}
+	}
 
 	if (edid) {
 		if (edid->input & DRM_EDID_INPUT_DIGITAL) {
-			status = connector_status_connected;
 			if (intel_hdmi->force_audio != HDMI_AUDIO_OFF_DVI)
 				intel_hdmi->has_hdmi_sink =
 						drm_detect_hdmi_monitor(edid);

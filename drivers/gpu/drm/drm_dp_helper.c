@@ -197,7 +197,7 @@ static int
 i2c_dp_aux_prepare_bus(struct i2c_adapter *adapter)
 {
 	adapter->algo = &i2c_dp_aux_algo;
-	adapter->retries = 3;
+	adapter->retries = 50;
 	i2c_dp_aux_reset_bus(adapter);
 	return 0;
 }
