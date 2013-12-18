@@ -2461,6 +2461,7 @@ si_is_sprom_available(si_t *sih)
 		return ((sih->chipst & CST4335_SPROM_MASK) &&
 			!(sih->chipst & CST4335_SFLASH_MASK));
 	case BCM4350_CHIP_ID:
+	case BCM4354_CHIP_ID:
 		return (sih->chipst & CST4350_SPROM_PRESENT) != 0;
 	case BCM43131_CHIP_ID:
 	case BCM43217_CHIP_ID:

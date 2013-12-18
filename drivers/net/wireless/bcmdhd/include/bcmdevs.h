@@ -69,6 +69,7 @@
 #define BCM_DNGL_BL_PID_4335	0xbd20
 #define BCM_DNGL_BL_PID_4350	0xbd23
 #define BCM_DNGL_BL_PID_43341	0xbd22
+#define BCM_DNGL_BL_PID_4354    0xbd26
 
 #define BCM_DNGL_BDC_PID	0x0bdc
 #define BCM_DNGL_JTAG_PID	0x4a44
@@ -298,6 +299,7 @@
 #define BCM43341_CHIP_ID	43341		/* 43341 chipcommon chipid */
 #define BCM43342_CHIP_ID	43342		/* 43342 chipcommon chipid */
 #define BCM4350_CHIP_ID		0x4350          /* 4350 chipcommon chipid */
+#define BCM4354_CHIP_ID         0x4354          /* 4354 chip id */
 
 #define	BCM4342_CHIP_ID		4342		/* 4342 chipcommon chipid (OTP, RBBU) */
 #define	BCM4402_CHIP_ID		0x4402		/* 4402 chipid */
