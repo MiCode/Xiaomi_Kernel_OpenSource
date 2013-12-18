@@ -732,6 +732,27 @@
 									<96 512 448 896>; /* Max. 7Mbps */
 		qti,tsc-reset-cam-gpio = <&msm_gpio 138 0>;	/* reset-pin controller */
 	};
+
+	qcom,msm-thermal {
+		compatible = "qcom,msm-thermal";
+		qcom,sensor-id = <3>;
+		qcom,poll-ms = <250>;
+		qcom,limit-temp = <60>;
+		qcom,temp-hysteresis = <10>;
+		qcom,freq-step = <2>;
+		qcom,freq-control-mask = <0xf>;
+		qcom,core-limit-temp = <80>;
+		qcom,core-temp-hysteresis = <10>;
+		qcom,core-control-mask = <0xe>;
+		qcom,hotplug-temp = <110>;
+		qcom,hotplug-temp-hysteresis = <20>;
+		qcom,cpu-sensors = "tsens_tz_sensor3", "tsens_tz_sensor4",
+				"tsens_tz_sensor5", "tsens_tz_sensor6";
+		qcom,freq-mitigation-temp = <110>;
+		qcom,freq-mitigation-temp-hysteresis = <20>;
+		qcom,freq-mitigation-value = <960000>;
+		qcom,freq-mitigation-control-mask = <0x01>;
+	};
 };
 
 &gdsc_venus {
