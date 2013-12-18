@@ -46,6 +46,17 @@ Required properties:
 -compatible: "qti,msm-imem-restart_reason
 -reg: start address and size of restart_reason region in imem
 
+Download Mode:
+--------------
+Required properties:
+-compatible: "qti,msm-imem-download_mode"
+-reg: start address and size of download_mode region in imem
+
+Emergency Download Mode:
+------------------------
+-compatible: "qti,msm-imem-emergency_download_mode"
+-reg: start address and size of emergency_download_mode region in imem
+
 Example:
 
 	qti,msm-imem {
@@ -54,6 +65,11 @@ Example:
 		ranges = <0x0 0xdeadbeef 0x1000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
+
+		download_mode@0 {
+			compatible = "qti,msm-imem-download_mode";
+			reg = <0x0 8>;
+		};
 
 		restart_reason@65c {
 			compatible = "qti,msm-imem-restart_reason";
@@ -73,5 +89,10 @@ Example:
 		pil@94c {
 			compatible = "qti,msm-imem-pil";
 			reg = <0x94c 200>;
+		};
+
+		emergency_download_mode@fe0 {
+			compatible = "qti,msm-imem-emergency_download_mode";
+			reg = <0xfe0 12>;
 		};
 	};
