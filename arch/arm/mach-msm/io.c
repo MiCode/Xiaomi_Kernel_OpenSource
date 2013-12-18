@@ -58,7 +58,6 @@ static struct map_desc msm_8974_io_desc[] __initdata = {
 void __init msm_map_8974_io(void)
 {
 	iotable_init(msm_8974_io_desc, ARRAY_SIZE(msm_8974_io_desc));
-	of_scan_flat_dt(msm_scan_dt_map_imem, NULL);
 }
 #endif /* CONFIG_ARCH_MSM8974 */
 
@@ -74,7 +73,6 @@ static struct map_desc msm_8084_io_desc[] __initdata = {
 void __init msm_map_8084_io(void)
 {
 	iotable_init(msm_8084_io_desc, ARRAY_SIZE(msm_8084_io_desc));
-	of_scan_flat_dt(msm_scan_dt_map_imem, NULL);
 }
 #endif /* CONFIG_ARCH_APQ8084 */
 
@@ -90,7 +88,6 @@ static struct map_desc fsm9900_io_desc[] __initdata = {
 void __init msm_map_fsm9900_io(void)
 {
 	iotable_init(fsm9900_io_desc, ARRAY_SIZE(fsm9900_io_desc));
-	of_scan_flat_dt(msm_scan_dt_map_imem, NULL);
 }
 #endif /* CONFIG_ARCH_FSM9900 */
 
@@ -103,7 +100,6 @@ static struct map_desc msmkrypton_io_desc[] __initdata = {
 void __init msm_map_msmkrypton_io(void)
 {
 	iotable_init(msmkrypton_io_desc, ARRAY_SIZE(msmkrypton_io_desc));
-	of_scan_flat_dt(msm_scan_dt_map_imem, NULL);
 }
 #endif /* CONFIG_ARCH_MSMKRYPTON */
 
@@ -119,7 +115,6 @@ static struct map_desc mpq8092_io_desc[] __initdata = {
 void __init msm_map_mpq8092_io(void)
 {
 	iotable_init(mpq8092_io_desc, ARRAY_SIZE(mpq8092_io_desc));
-	of_scan_flat_dt(msm_scan_dt_map_imem, NULL);
 }
 #endif /* CONFIG_ARCH_MPQ8092 */
 
@@ -137,7 +132,6 @@ static struct map_desc msm_8226_io_desc[] __initdata = {
 void __init msm_map_msm8226_io(void)
 {
 	iotable_init(msm_8226_io_desc, ARRAY_SIZE(msm_8226_io_desc));
-	of_scan_flat_dt(msm_scan_dt_map_imem, NULL);
 }
 #endif /* CONFIG_ARCH_MSM8226 */
 
@@ -151,7 +145,6 @@ static struct map_desc msm8610_io_desc[] __initdata = {
 void __init msm_map_msm8610_io(void)
 {
 	iotable_init(msm8610_io_desc, ARRAY_SIZE(msm8610_io_desc));
-	of_scan_flat_dt(msm_scan_dt_map_imem, NULL);
 }
 #endif /* CONFIG_ARCH_MSM8610 */
 
@@ -167,6 +160,5 @@ static struct map_desc msmsamarium_io_desc[] __initdata = {
 void __init msm_map_msmsamarium_io(void)
 {
 	iotable_init(msmsamarium_io_desc, ARRAY_SIZE(msmsamarium_io_desc));
-	of_scan_flat_dt(msm_scan_dt_map_imem, NULL);
 }
 #endif /* CONFIG_ARCH_MSMSAMARIUM */
