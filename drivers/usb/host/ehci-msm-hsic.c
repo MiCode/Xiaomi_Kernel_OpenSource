@@ -891,7 +891,7 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 	if (pdata->consider_ipa_handshake) {
 		dev_dbg(mehci->dev, "%s:Wait for producer resource\n",
 			__func__);
-		msm_bam_wait_for_hsic_prod_granted();
+		msm_bam_wait_for_hsic_host_prod_granted();
 		dev_dbg(mehci->dev, "%s:Producer resource obtained\n",
 			__func__);
 	}
@@ -986,7 +986,7 @@ skip_phy_resume:
 	if (pdata->consider_ipa_handshake) {
 		dev_dbg(mehci->dev, "%s:Notify usb bam on resume complete\n",
 			__func__);
-		msm_bam_hsic_notify_on_resume();
+		msm_bam_hsic_host_notify_on_resume();
 	}
 
 	return 0;

@@ -696,9 +696,9 @@ static int mbim_bam_connect(struct f_mbim *dev)
 	pr_info("dev:%p portno:%d\n", dev, dev->port_num);
 
 	src_connection_idx = usb_bam_get_connection_idx(gadget->name, bam_name,
-					USB_TO_PEER_PERIPHERAL, dev->port_num);
+		USB_TO_PEER_PERIPHERAL, USB_BAM_DEVICE, dev->port_num);
 	dst_connection_idx = usb_bam_get_connection_idx(gadget->name, bam_name,
-					PEER_PERIPHERAL_TO_USB, dev->port_num);
+		PEER_PERIPHERAL_TO_USB, USB_BAM_DEVICE, dev->port_num);
 	if (src_connection_idx < 0 || dst_connection_idx < 0) {
 		pr_err("%s: usb_bam_get_connection_idx failed\n", __func__);
 		return ret;

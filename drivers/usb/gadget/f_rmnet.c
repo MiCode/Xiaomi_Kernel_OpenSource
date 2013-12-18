@@ -449,9 +449,11 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 	switch (dxport) {
 	case USB_GADGET_XPORT_BAM2BAM:
 		src_connection_idx = usb_bam_get_connection_idx(gadget->name,
-			A2_P_BAM, USB_TO_PEER_PERIPHERAL, port_num);
+			A2_P_BAM, USB_TO_PEER_PERIPHERAL, USB_BAM_DEVICE,
+			port_num);
 		dst_connection_idx = usb_bam_get_connection_idx(gadget->name,
-			A2_P_BAM, PEER_PERIPHERAL_TO_USB, port_num);
+			A2_P_BAM, PEER_PERIPHERAL_TO_USB, USB_BAM_DEVICE,
+			port_num);
 		if (dst_connection_idx < 0 || src_connection_idx < 0) {
 			pr_err("%s: usb_bam_get_connection_idx failed\n",
 				__func__);
@@ -470,9 +472,11 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 		break;
 	case USB_GADGET_XPORT_BAM2BAM_IPA:
 		src_connection_idx = usb_bam_get_connection_idx(gadget->name,
-			IPA_P_BAM, USB_TO_PEER_PERIPHERAL, port_num);
+			IPA_P_BAM, USB_TO_PEER_PERIPHERAL, USB_BAM_DEVICE,
+			port_num);
 		dst_connection_idx = usb_bam_get_connection_idx(gadget->name,
-			IPA_P_BAM, PEER_PERIPHERAL_TO_USB, port_num);
+			IPA_P_BAM, PEER_PERIPHERAL_TO_USB, USB_BAM_DEVICE,
+			port_num);
 		if (dst_connection_idx < 0 || src_connection_idx < 0) {
 			pr_err("%s: usb_bam_get_connection_idx failed\n",
 				__func__);

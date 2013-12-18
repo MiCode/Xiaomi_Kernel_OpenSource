@@ -23,6 +23,11 @@ enum usb_bam {
 	MAX_BAMS,
 };
 
+enum usb_bam_mode {
+	USB_BAM_DEVICE = 0,
+	USB_BAM_HOST,
+};
+
 enum peer_bam {
 	A2_P_BAM = 0,
 	QDSS_P_BAM,
@@ -120,6 +125,7 @@ struct usb_bam_pipe_connect {
 	enum usb_pipe_mem_type mem_type;
 	enum usb_bam_pipe_dir dir;
 	enum usb_bam bam_type;
+	enum usb_bam_mode bam_mode;
 	enum peer_bam peer_bam;
 	u32 src_phy_addr;
 	u32 src_pipe_index;
@@ -357,7 +363,7 @@ void usb_bam_set_qdss_core(const char *qdss_core);
 * @return 0 on success, negative value on error
 */
 int usb_bam_get_connection_idx(const char *name, enum peer_bam client,
-	enum usb_bam_pipe_dir dir, u32 num);
+	enum usb_bam_pipe_dir dir, enum usb_bam_mode bam_mode, u32 num);
 
 #else
 static inline int usb_bam_connect(u8 idx, u32 *bam_pipe_idx)
@@ -448,7 +454,8 @@ static inline void usb_bam_set_qdss_core(const char *qdss_core)
 }
 
 static inline int usb_bam_get_connection_idx(const char *name,
-		enum peer_bam client, enum usb_bam_pipe_dir dir, u32 num)
+		enum peer_bam client, enum usb_bam_pipe_dir dir,
+		enum usb_bam_mode bam_mode, u32 num)
 {
 	return -ENODEV;
 }
