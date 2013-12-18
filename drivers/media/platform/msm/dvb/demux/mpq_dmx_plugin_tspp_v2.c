@@ -380,7 +380,7 @@ static int mpq_dmx_tspp2_init_idx_table(enum dmx_video_codec codec,
 			__func__, table_id, ret);
 		return ret;
 	}
-	table->num_patterns = 0;
+
 	MPQ_DVB_DBG_PRINT(
 		"%s: Initialize new index table #%d, prefix=0x%X, mask=0x%X\n",
 		__func__, table_id, INDEX_TABLE_PREFIX_VALUE,
@@ -2181,9 +2181,6 @@ static void mpq_dmx_sps_producer_cb(struct sps_event_notify *notify)
 	struct pipe_info *pipe_info = notify->user;
 	int ret;
 
-	MPQ_DVB_DBG_PRINT("%s: Notification event id=%d, handle=%p, type=%d\n",
-		__func__, notify->event_id, pipe_info, pipe_info->type);
-
 	if (unlikely(pipe_info == NULL))
 		return;
 
@@ -2245,10 +2242,10 @@ static void mpq_dmx_timer_cb(unsigned long param)
 		pipe_info = &mpq_dmx_tspp2_info.pipes[i];
 
 		spin_lock(&pipe_info->lock);
-		if ((!pipe_info->ref_count) ||
-			((pipe_info->type != CLEAR_SECTION_PIPE) &&
-			(pipe_info->type != SCRAMBLED_SECTION_PIPE) &&
-			(pipe_info->type != REC_PIPE))) {
+		if (!pipe_info->ref_count ||
+			(pipe_info->type != CLEAR_SECTION_PIPE &&
+			pipe_info->type != SCRAMBLED_SECTION_PIPE &&
+			pipe_info->type != REC_PIPE)) {
 			spin_unlock(&pipe_info->lock);
 			continue;
 		}
@@ -2713,6 +2710,94 @@ static int mpq_dmx_tspp2_section_pipe_handler(struct pipe_info *pipe_info,
 	return ret;
 }
 
+static int mpq_dmx_tspp2_process_full_pes_desc(struct pipe_info *pipe_info,
+	struct dvb_demux_feed *feed, struct sps_iovec *iovec)
+{
+	u8 pes_status;
+	u8 *data_buffer = NULL;
+	struct dmx_data_ready data;
+	int ret;
+
+	data_buffer = mpq_dmx_get_kernel_addr(pipe_info, iovec->addr);
+	if (unlikely(!data_buffer)) {
+		/* Should NEVER happen! */
+		MPQ_DVB_ERR_PRINT(
+			"%s: mpq_dmx_get_kernel_addr failed\n",
+			__func__);
+		return -EFAULT;
+	}
+
+	/*
+	 * Extract STC value for this PES:
+	 * Descriptor data starts with 8 bytes of STC:
+	 * 7 bytes STC@27MHz and 1 zero byte for padding.
+	 */
+	if (feed->peslen < PES_STC_FIELD_LENGTH) {
+		if (iovec->size < PES_STC_FIELD_LENGTH) {
+			/* Descriptor too small to hold STC */
+			MPQ_DVB_ERR_PRINT(
+				"%s: descriptor size %d is too small (peslen=%d)\n",
+				__func__, iovec->size, feed->peslen);
+			return -EINVAL;
+		}
+
+		feed->prev_stc = mpq_dmx_tspp2_get_stc(&data_buffer[0], 7);
+	}
+
+	/*
+	 * Report the whole descriptor allocated size to dmxdev so that
+	 * DMX_OK_PES_END event total size will be correct.
+	 */
+	data.status = DMX_OK;
+	data.data_length = TSPP2_DMX_SPS_NON_VID_PES_DESC_SIZE;
+	feed->data_ready_cb.ts(&feed->feed.ts, &data);
+
+	if (iovec->flags & SPS_IOVEC_FLAG_EOT) {
+		/* PES assembly status is the last byte in the descriptor */
+		pes_status =
+			data_buffer[iovec->size - PES_ASM_STATUS_FIELD_LENGTH];
+
+		/*
+		 * EOT descriptor might not have been used completely.
+		 * The next PES will begin on the next descriptor and
+		 * not immediately following this PES. Need to account
+		 * for this gap when PES is reported.
+		 */
+		feed->peslen += iovec->size;
+
+		data.status = DMX_OK_PES_END;
+		data.data_length = 0;
+		data.pes_end.start_gap = PES_STC_FIELD_LENGTH;
+		data.pes_end.actual_length =
+			feed->peslen - PES_STC_FIELD_LENGTH -
+			PES_ASM_STATUS_FIELD_LENGTH;
+		data.pes_end.stc = feed->prev_stc;
+		data.pes_end.disc_indicator_set =
+			pes_status & PES_ASM_STATUS_DCI;
+		data.pes_end.pes_length_mismatch =
+			pes_status & PES_ASM_STATUS_SIZE_MISMATCH;
+		/* TSPPv2 does not report the following */
+		data.pes_end.tei_counter = 0;
+		data.pes_end.cont_err_counter = 0;
+		data.pes_end.ts_packets_num = 0;
+
+		ret = mpq_dmx_tspp2_ts_event_check(feed, pipe_info);
+		if (ret)
+			return ret;
+		feed->data_ready_cb.ts(&feed->feed.ts, &data);
+
+		/* Reset accumulated PES length for next iteration */
+		feed->peslen = 0;
+
+		return 0;
+	}
+
+	/* DESC_DONE case */
+	feed->peslen += iovec->size;
+
+	return 0;
+}
+
 /**
  * mpq_dmx_tspp2_pes_pipe_handler() - Handler for non-video full PES
  * pipe notifications.
@@ -2726,17 +2811,13 @@ static int mpq_dmx_tspp2_pes_pipe_handler(struct pipe_info *pipe_info,
 	enum mpq_dmx_tspp2_pipe_event event)
 {
 	int ret;
-	u64 stc = 0;
-	u32 pes_length;
 	u32 tspp_write_offset = 0;
 	u32 tspp_last_addr;
 	size_t pes_leftover = 0;
 	struct sps_iovec iovec;
 	u8 *data_buffer = NULL;
-	u8 pes_status;
 	struct dmx_data_ready data;
 	struct dvb_demux_feed *feed;
-	int found_pes;
 
 	feed = pipe_info->parent->mpq_feed->dvb_demux_feed;
 	if (unlikely(!feed)) {
@@ -2759,13 +2840,11 @@ static int mpq_dmx_tspp2_pes_pipe_handler(struct pipe_info *pipe_info,
 	}
 
 	/*
-	 * Read all filled up descriptors (DESC_DONE) until EOT.
+	 * Read pending descriptors (DESC_DONE and EOT).
 	 * In case PES is very short and fits in 1 descriptor, only EOT will
 	 * be received.
 	 */
-	found_pes = 0;
-	pes_length = 0;
-	while (!found_pes) {
+	while (1) {
 		ret = tspp2_pipe_descriptor_get(pipe_info->handle, &iovec);
 		if (ret) {
 			/* should NEVER happen! */
@@ -2775,132 +2854,35 @@ static int mpq_dmx_tspp2_pes_pipe_handler(struct pipe_info *pipe_info,
 			return -EINVAL;
 		}
 
+		/* No more descriptors */
 		if (!iovec.size)
 			break;
 
-		if (iovec.flags & SPS_IOVEC_FLAG_EOT) {
-			if (!data_buffer) {
-				/*
-				 * PES start address in payload buffer. This is
-				 * also where STC is located.
-				 */
-				data_buffer = mpq_dmx_get_kernel_addr(
-					pipe_info, iovec.addr);
-			}
+		pipe_info->tspp_write_offset +=
+			TSPP2_DMX_SPS_NON_VID_PES_DESC_SIZE;
+		if (pipe_info->tspp_write_offset >= pipe_info->buffer.size)
+			pipe_info->tspp_write_offset -= pipe_info->buffer.size;
 
-			if (unlikely(!data_buffer)) {
-				/* Should NEVER happen! */
-				MPQ_DVB_ERR_PRINT(
-					"%s: mpq_dmx_get_kernel_addr failed\n",
-					__func__);
-				continue;
-			}
-
-			/*
-			 * At this point data_buffer always points to beginning
-			 * of payload data, which starts with 8 bytes of STC:
-			 * 7 bytes STC@27MHz and 1 zero byte for padding.
-			 */
-			stc = mpq_dmx_tspp2_get_stc(&data_buffer[0], 7);
-
-			/*
-			 * Now data_buffer will point to the beginning of the
-			 * last descriptor. The last byte there is the PES
-			 * assembly status flags.
-			 */
-			data_buffer = mpq_dmx_get_kernel_addr(pipe_info,
-				iovec.addr);
-			if (unlikely(!data_buffer)) {
-				/* should NEVER happen! */
-				MPQ_DVB_ERR_PRINT(
-					"%s: mpq_dmx_get_kernel_addr failed\n",
-					__func__);
-				continue;
-			}
-
-			pes_status = data_buffer[iovec.size
-				- PES_ASM_STATUS_FIELD_LENGTH];
-
-			/*
-			 * EOT descriptor might not have been used completely.
-			 * The next PES will begin on the next descriptor and
-			 * not immediately following this PES. Need to account
-			 * for this gap when PES is reported.
-			 */
-			pes_leftover = TSPP2_DMX_SPS_NON_VID_PES_DESC_SIZE -
-				iovec.size;
-			pes_length += iovec.size;
-			pipe_info->tspp_write_offset +=
-				TSPP2_DMX_SPS_NON_VID_PES_DESC_SIZE;
-			if (pipe_info->tspp_write_offset >=
-				pipe_info->buffer.size)
-				pipe_info->tspp_write_offset -=
-				pipe_info->buffer.size;
-
-			/*
-			 * Must first report the last chunk of data for
-			 * DMX_OK_PES_END event total size to be correct.
-			 */
-			data.status = DMX_OK;
-			data.data_length = TSPP2_DMX_SPS_NON_VID_PES_DESC_SIZE;
-			feed->data_ready_cb.ts(&feed->feed.ts, &data);
-
-			data.status = DMX_OK_PES_END;
-			data.data_length = 0;
-			data.pes_end.start_gap = PES_STC_FIELD_LENGTH;
-			data.pes_end.actual_length =
-				pes_length - PES_STC_FIELD_LENGTH -
-				PES_ASM_STATUS_FIELD_LENGTH;
-			data.pes_end.stc = stc;
-			data.pes_end.disc_indicator_set =
-				pes_status & PES_ASM_STATUS_DCI;
-			data.pes_end.pes_length_mismatch =
-				pes_status & PES_ASM_STATUS_SIZE_MISMATCH;
-			/* TSPPv2 does not report the following */
-			data.pes_end.tei_counter = 0;
-			data.pes_end.cont_err_counter = 0;
-			data.pes_end.ts_packets_num = 0;
-
-			ret = mpq_dmx_tspp2_ts_event_check(feed, pipe_info);
-			if (ret)
-				return ret;
-			feed->data_ready_cb.ts(&feed->feed.ts, &data);
-			found_pes = 1;
-		} else {
-			if (!data_buffer) {
-				/*
-				 * PES start address in payload buffer. This is
-				 * also where STC is located.
-				 */
-				data_buffer = mpq_dmx_get_kernel_addr(
-					pipe_info, iovec.addr);
-			}
-
-			pes_length += iovec.size;
-			pipe_info->tspp_write_offset += iovec.size;
-			if (pipe_info->tspp_write_offset >=
-				pipe_info->buffer.size)
-				pipe_info->tspp_write_offset -=
-					pipe_info->buffer.size;
-
-			data.status = DMX_OK;
-			data.data_length = iovec.size;
-			feed->data_ready_cb.ts(&feed->feed.ts, &data);
+		ret = mpq_dmx_tspp2_process_full_pes_desc(pipe_info, feed,
+			&iovec);
+		if (ret) {
+			MPQ_DVB_ERR_PRINT(
+				"%s: mpq_dmx_tspp2_process_full_pes_desc failed, ret=%d\n",
+				__func__, ret);
+			return ret;
 		}
 	}
 
 	if (event == PIPE_EOS_EVENT) {
 		/*
 		 * There are 3 cases for End-of-Stream:
-		 * 1. No new data so no need to notify on PES end
-		 *    (pes_leftover is 0)
-		 * 2. New data is in a single partial descriptor so no
-		 *    descriptor done events were received and stc is in this
-		 *    partial descriptor
-		 *    (pes_length = 0, pes_leftover < 256)
-		 * 3. New data spreads across several descriptors and a
-		 *    partial descriptor.
-		 *    (pes_length > 0, pes_leftover < 256)
+		 * 1. No new data so just need to notify on end of partial PES
+		 *    consisting of previous DESC_DONE descriptors.
+		 *    (feed->peslen > 0, pes_leftover = 0)
+		 * 2. New PES begins in this partial descriptor with stc
+		 *    (feed->peslen = 0, pes_leftover < 256)
+		 * 3. New PES began is a previous descriptors, stc is valid
+		 *    (feed->peslen > 0, pes_leftover < 256)
 		 */
 		tspp2_pipe_last_address_used_get(pipe_info->handle,
 			&tspp_last_addr);
@@ -2913,40 +2895,59 @@ static int mpq_dmx_tspp2_pes_pipe_handler(struct pipe_info *pipe_info,
 				pipe_info->buffer.size);
 		}
 
+
+		if (feed->peslen < PES_STC_FIELD_LENGTH &&
+			pes_leftover < PES_STC_FIELD_LENGTH) {
+			/* Insufficient data to report, just report EOS event */
+			MPQ_DVB_DBG_PRINT(
+				"%s: PES leftover too small = %d bytes\n",
+				__func__, pes_leftover);
+
+			data.status = DMX_OK_EOS;
+			data.data_length = 0;
+			feed->data_ready_cb.ts(&feed->feed.ts, &data);
+
+			return 0;
+		}
+
 		if (pes_leftover) {
 			MPQ_DVB_DBG_PRINT("%s: PES leftover %d bytes\n",
 				__func__, pes_leftover);
-
-			if (!data_buffer)
-				data_buffer = pipe_info->buffer.mem +
-					tspp_write_offset;
+			data_buffer = pipe_info->buffer.mem + tspp_write_offset;
 
 			/* Notify there is more data */
 			data.status = DMX_OK;
 			data.data_length = pes_leftover;
 			feed->data_ready_cb.ts(&feed->feed.ts, &data);
-
-			/* Notify PES has ended */
-			data.status = DMX_OK_PES_END;
-			data.data_length = 0;
-			data.pes_end.start_gap = PES_STC_FIELD_LENGTH;
-			/* In EOS case there is no PES assembly status byte */
-			data.pes_end.actual_length = pes_length + pes_leftover
-				- PES_STC_FIELD_LENGTH;
-			data.pes_end.stc =
-				mpq_dmx_tspp2_get_stc(data_buffer, 7);
-			data.pes_end.disc_indicator_set = 0;
-			data.pes_end.pes_length_mismatch = 0;
-			data.pes_end.tei_counter = 0;
-			data.pes_end.cont_err_counter = 0;
-			data.pes_end.ts_packets_num = 0;
-			pipe_info->tspp_write_offset = tspp_write_offset;
-
-			ret = mpq_dmx_tspp2_ts_event_check(feed, pipe_info);
-			if (ret)
-				return ret;
-			feed->data_ready_cb.ts(&feed->feed.ts, &data);
 		}
+
+		if (feed->peslen < PES_STC_FIELD_LENGTH)
+			feed->prev_stc =
+				mpq_dmx_tspp2_get_stc(&data_buffer[0], 7);
+
+		feed->peslen += pes_leftover;
+
+		/* Notify PES has ended */
+		data.status = DMX_OK_PES_END;
+		data.data_length = 0;
+		data.pes_end.start_gap = PES_STC_FIELD_LENGTH;
+		/* In EOS case there is no PES assembly status byte */
+		data.pes_end.actual_length =
+			feed->peslen - PES_STC_FIELD_LENGTH;
+		data.pes_end.stc = feed->prev_stc;
+		data.pes_end.disc_indicator_set = 0;
+		data.pes_end.pes_length_mismatch = 0;
+		data.pes_end.tei_counter = 0;
+		data.pes_end.cont_err_counter = 0;
+		data.pes_end.ts_packets_num = 0;
+		pipe_info->tspp_write_offset = tspp_write_offset;
+
+		ret = mpq_dmx_tspp2_ts_event_check(feed, pipe_info);
+		if (ret)
+			return ret;
+		feed->data_ready_cb.ts(&feed->feed.ts, &data);
+
+		feed->peslen = 0;
 
 		data.status = DMX_OK_EOS;
 		data.data_length = 0;
@@ -3028,6 +3029,10 @@ static int mpq_dmx_tspp2_process_video_headers(struct mpq_feed *mpq_feed,
 	mpq_dmx_parse_video_header_suffix(buffer, partial_header,
 		&stc, &pes_payload_sa, &pes_payload_ea,
 		&status_flags);
+	if (status_flags)
+		MPQ_DVB_DBG_PRINT(
+			"%s: status_flags=0x%x, sa=%u, ea=%u\n", __func__,
+			status_flags, pes_payload_sa, pes_payload_ea);
 
 	ts_header = (struct ts_packet_header *)buffer;
 
@@ -3136,7 +3141,7 @@ static int mpq_dmx_tspp2_process_video_headers(struct mpq_feed *mpq_feed,
 	ret = mpq_streambuffer_data_write_deposit(stream_buffer,
 		packet.raw_data_len);
 	if (ret) {
-		MPQ_DVB_ERR_PRINT(
+		MPQ_DVB_DBG_PRINT(
 			"%s: mpq_streambuffer_data_write_deposit failed, ret=%d\n",
 			__func__, ret);
 		return ret;
@@ -3261,11 +3266,18 @@ static int mpq_dmx_tspp2_video_pipe_handler(struct pipe_info *pipe_info,
 	feed = mpq_feed->dvb_demux_feed;
 	feed_data = &mpq_feed->video_info;
 
-	found_pes = 0;
-	feed->peslen = 0;
-	feed_data->pes_header_offset = 0;
-	feed_data->pes_header_left_bytes = PES_MANDATORY_FIELDS_LEN;
-	while (!found_pes) {
+	/*
+	 * Read all pending header descriptors. Typically only one descriptor
+	 * will be read for each call of the pipe handler, but producer
+	 * notifications might be missed so need to pick up the lost
+	 * descriptors.
+	 */
+	while (1) {
+		found_pes = 0;
+		feed->peslen = 0;
+		feed_data->pes_header_offset = 0;
+		feed_data->pes_header_left_bytes = PES_MANDATORY_FIELDS_LEN;
+
 		ret = tspp2_pipe_descriptor_get(pipe_info->handle, &iovec);
 		if (ret) {
 			/* should NEVER happen! */
@@ -3275,36 +3287,36 @@ static int mpq_dmx_tspp2_video_pipe_handler(struct pipe_info *pipe_info,
 			return -EINVAL;
 		}
 
+		/* No more descriptors */
 		if (iovec.size == 0)
 			break;
 
-		if (unlikely(iovec.size !=
+		data_buffer = mpq_dmx_get_kernel_addr(pipe_info, iovec.addr);
+		if (unlikely(!data_buffer || iovec.size !=
 			TSPP2_DMX_SPS_VPES_HEADER_DESC_SIZE)) {
 			/* should NEVER happen! */
-			MPQ_DVB_ERR_PRINT(
-				"%s: invalid VPES header desc size %d\n",
-				__func__, iovec.size);
-			return -EINVAL;
-		}
-
-		data_buffer = mpq_dmx_get_kernel_addr(pipe_info, iovec.addr);
-		if (unlikely(!data_buffer)) {
-			/* should NEVER happen! */
-			MPQ_DVB_ERR_PRINT(
-				"%s: mpq_dmx_get_kernel_addr failed\n",
-				__func__);
-			return -EFAULT;
+			if (!data_buffer) {
+				MPQ_DVB_ERR_PRINT(
+					"%s: mpq_dmx_get_kernel_addr failed\n",
+					__func__);
+				ret = -EFAULT;
+			} else {
+				MPQ_DVB_ERR_PRINT(
+					"%s: invalid VPES header desc size %d, expected %d\n",
+					__func__, iovec.size,
+					TSPP2_DMX_SPS_VPES_HEADER_DESC_SIZE);
+				ret = -EINVAL;
+			}
+			return ret;
 		}
 
 		ret = mpq_dmx_tspp2_process_video_headers(mpq_feed,
 			data_buffer, 0, pipe_info, main_pipe);
-		if (ret < 0) {
+		found_pes = (ret == 1);
+		if (ret < 0)
 			MPQ_DVB_ERR_PRINT(
 				"%s: mpq_dmx_tspp2_process_video_pes failed, ret=%d\n",
 				__func__, ret);
-			return ret;
-		}
-		found_pes = (ret == 1);
 
 		/* re-queue buffer holding TS packet of PES header */
 		ret = tspp2_pipe_descriptor_put(pipe_info->handle,
@@ -3315,15 +3327,11 @@ static int mpq_dmx_tspp2_video_pipe_handler(struct pipe_info *pipe_info,
 				__func__, ret);
 
 		pipe_info->tspp_write_offset += iovec.size;
-		if (pipe_info->tspp_write_offset >=
-			pipe_info->buffer.size)
-			pipe_info->tspp_write_offset -=
-			pipe_info->buffer.size;
+		if (pipe_info->tspp_write_offset >= pipe_info->buffer.size)
+			pipe_info->tspp_write_offset -= pipe_info->buffer.size;
 
-		pipe_info->tspp_read_offset =
-			pipe_info->tspp_write_offset;
-		pipe_info->bam_read_offset =
-			pipe_info->tspp_write_offset;
+		pipe_info->tspp_read_offset = pipe_info->tspp_write_offset;
+		pipe_info->bam_read_offset = pipe_info->tspp_write_offset;
 	}
 
 	if (event == PIPE_EOS_EVENT) {
@@ -6010,6 +6018,9 @@ static int mpq_dmx_tspp2_thread(void *arg)
 				pipe_work->session_id ==
 					pipe_info->session_id) {
 				spin_unlock_irqrestore(&pipe_info->lock, flags);
+				MPQ_DVB_DBG_PRINT(
+					"%s: calling pipe %d handler %d times\n",
+					__func__, i, pipe_work->event_count);
 				for (j = 0; j < pipe_work->event_count; j++)
 					pipe_info->pipe_handler(pipe_info,
 						pipe_work->event);
