@@ -122,6 +122,7 @@ struct ce_hw_support {
 	bool use_sw_ahash_algo;
 	bool use_sw_hmac_algo;
 	bool use_sw_aes_ccm_algo;
+	bool clk_mgmt_sus_res;
 };
 
 /* Sha operation parameters */

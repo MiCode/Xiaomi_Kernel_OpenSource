@@ -73,6 +73,7 @@ struct qce_device {
 	int is_shared;			/* CE HW is shared */
 	bool support_cmd_dscr;
 	bool support_hw_key;
+	bool support_clk_mgmt_sus_res;
 
 	void __iomem *iobase;	    /* Virtual io base of CE HW  */
 	unsigned int phy_iobase;    /* Physical io base of CE HW    */
@@ -5104,6 +5105,8 @@ static int __qce_get_device_tree_data(struct platform_device *pdev,
 	pce_dev->use_sw_aes_ccm_algo =
 				of_property_read_bool((&pdev->dev)->of_node,
 				"qcom,use-sw-aes-ccm-algo");
+	pce_dev->support_clk_mgmt_sus_res = of_property_read_bool(
+		(&pdev->dev)->of_node, "qcom,clk-mgmt-sus-res");
 
 	if (of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,bam-pipe-pair",
@@ -5432,6 +5435,7 @@ int qce_hw_support(void *handle, struct ce_hw_support *ce_support)
 	ce_support->is_shared = (pce_dev->is_shared == 1) ? true : false;
 	ce_support->hw_key = pce_dev->support_hw_key;
 	ce_support->aes_ccm = true;
+	ce_support->clk_mgmt_sus_res = pce_dev->support_clk_mgmt_sus_res;
 	if (pce_dev->ce_sps.minor_version)
 		ce_support->aligned_only = false;
 	else
