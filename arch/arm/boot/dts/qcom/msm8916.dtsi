@@ -34,6 +34,8 @@
 		smd11 = &smdtty_data11;
 		smd21 = &smdtty_data21;
 		smd36 = &smdtty_loopback;
+
+		spi0 = &spi_0; /* SPI0 controller device */
 	};
 
 	cpus {
@@ -587,6 +589,30 @@
 			qcom,smdpkt-dev-name = "smd_pkt_loopback";
 		};
 	};
+
+	spi_0: spi@78b7000 { /* BLSP1 QUP3 */
+		compatible = "qcom,spi-qup-v2";
+                #address-cells = <1>;
+                #size-cells = <0>;
+                reg-names = "spi_physical", "spi_bam_physical";
+                reg = <0x78b7000 0x600>,
+                      <0x7884000 0x23000>;
+                interrupt-names = "spi_irq", "spi_bam_irq";
+                interrupts = <0 97 0>, <0 238 0>;
+                spi-max-frequency = <19200000>;
+                pinctrl-names = "default", "sleep", "cs_default";
+                pinctrl-0 = <&spi0_default>;
+		pinctrl-1 = <&spi0_sleep>;
+		pinctrl-2 = <&spi0_cs_sleep>;
+
+                qcom,infinite-mode = <0>;
+		qcom,use-bam;
+		qcom,use-pinctrl;
+                qcom,ver-reg-exists;
+                qcom,bam-consumer-pipe-index = <8>;
+                qcom,bam-producer-pipe-index = <9>;
+                qcom,master-id = <86>;
+        };
 };
 
 &gdsc_venus {
