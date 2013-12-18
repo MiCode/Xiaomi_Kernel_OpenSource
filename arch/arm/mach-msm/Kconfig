@@ -15,7 +15,6 @@ config ARCH_MSM8974
 	select MSM_SPM_V2
 	select MSM_L2_SPM
 	select MSM_NATIVE_RESTART
-	select MSM_RESTART_V2
 	select MSM_PM8X60 if PM
 	select MSM_RPM_SMD
 	select REGULATOR
@@ -46,7 +45,6 @@ config ARCH_APQ8084
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_GPIOMUX
 	select MSM_NATIVE_RESTART
-	select MSM_RESTART_V2
 	select MSM_PM8X60 if PM
 	select REGULATOR
 	select MSM_QDSP6V2_CODECS
@@ -81,7 +79,6 @@ config ARCH_MPQ8092
 	select ARM_GIC
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_NATIVE_RESTART
-	select MSM_RESTART_V2
 	select CPU_V7
 	select MSM_SCM
 	select MSM_GPIOMUX
@@ -108,7 +105,6 @@ config ARCH_FSM9900
 	select MSM_GPIOMUX
 	select MSM_PIL
 	select MSM_NATIVE_RESTART
-	select MSM_RESTART_V2
 	select REGULATOR
 	select ARM_HAS_SG_CHAIN
 	select MSM_RUN_QUEUE_STATS
@@ -128,7 +124,6 @@ config ARCH_MSMKRYPTON
 	select MSM_RPM_REGULATOR_SMD
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_NATIVE_RESTART
-	select MSM_RESTART_V2
 	select MSM_SPM_V2
 	select MSM_PM8X60 if PM
 	select GPIO_MSM_V3
@@ -151,7 +146,6 @@ config ARCH_MSM8610
 	select MSM_GPIOMUX
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_NATIVE_RESTART
-	select MSM_RESTART_V2
 	select MSM_QDSP6_APRV2
 	select MSM_QDSP6V2_CODECS
 	select MSM_AUDIO_QDSP6V2 if SND_SOC
@@ -193,7 +187,6 @@ config ARCH_MSM8226
 	select MSM_GPIOMUX
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_NATIVE_RESTART
-	select MSM_RESTART_V2
 	select MSM_QDSP6_APRV2
 	select MSM_QDSP6V2_CODECS
 	select MSM_AUDIO_QDSP6V2 if SND_SOC
@@ -236,7 +229,6 @@ config ARCH_MSMSAMARIUM
 	select MSM_SPM_V2
 	select MSM_L2_SPM
 	select MSM_NATIVE_RESTART
-	select MSM_RESTART_V2
 	select MSM_QDSP6_APRV2
 	select MSM_QDSP6V2_CODECS
 	select MSM_AUDIO_QDSP6V2 if SND_SOC
@@ -289,9 +281,6 @@ config  ARCH_MSM_CORTEXMP
 	bool
 
 config  MSM_KRAIT_WFE_FIXUP
-	bool
-
-config  MSM_RESTART_V2
 	bool
 
 config  ARCH_MSM_CORTEX_A5
