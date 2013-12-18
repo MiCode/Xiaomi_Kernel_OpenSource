@@ -37,6 +37,9 @@
 
 #define QCA6174_VENDOR_ID	(0x168C)
 #define QCA6174_DEVICE_ID	(0x003E)
+#define QCA6174_REV_ID_OFFSET	(0x08)
+#define QCA6174_FW_1_1	(0x11)
+#define QCA6174_FW_1_3	(0x13)
 
 #define WLAN_VREG_NAME		"vdd-wlan"
 #define WLAN_EN_GPIO_NAME	"wlan-en-gpio"
@@ -75,6 +78,8 @@ static struct cnss_data {
 	struct cnss_wlan_gpio_info gpio_info;
 	bool pcie_link_state;
 	struct pci_saved_state *saved_state;
+	u16 revision_id;
+	struct cnss_fw_files fw_files;
 } *penv;
 
 static int cnss_wlan_vreg_set(struct cnss_wlan_vreg_info *vreg_info, bool state)
@@ -223,6 +228,56 @@ static u8 cnss_get_pci_dev_bus_number(struct pci_dev *pdev)
 	return pdev->bus->number;
 }
 
+void cnss_setup_fw_files(u16 revision)
+{
+	switch (revision) {
+
+	case QCA6174_FW_1_1:
+		strlcpy(penv->fw_files.image_file, "athwlan11.bin",
+			CNSS_MAX_FILE_NAME);
+		strlcpy(penv->fw_files.board_data, "bdatawlan11.bin",
+			CNSS_MAX_FILE_NAME);
+		strlcpy(penv->fw_files.otp_data, "otp11.bin",
+			CNSS_MAX_FILE_NAME);
+		strlcpy(penv->fw_files.utf_file, "utf11.bin",
+			CNSS_MAX_FILE_NAME);
+		break;
+
+	case QCA6174_FW_1_3:
+		strlcpy(penv->fw_files.image_file, "athwlan13.bin",
+			CNSS_MAX_FILE_NAME);
+		strlcpy(penv->fw_files.board_data, "bdatawlan13.bin",
+			CNSS_MAX_FILE_NAME);
+		strlcpy(penv->fw_files.otp_data, "otp13.bin",
+			CNSS_MAX_FILE_NAME);
+		strlcpy(penv->fw_files.utf_file, "utf13.bin",
+			CNSS_MAX_FILE_NAME);
+		break;
+
+	default:
+		strlcpy(penv->fw_files.image_file, "athwlan.bin",
+			CNSS_MAX_FILE_NAME);
+		strlcpy(penv->fw_files.board_data, "bdatawlan.bin",
+			CNSS_MAX_FILE_NAME);
+		strlcpy(penv->fw_files.otp_data, "otp.bin",
+			CNSS_MAX_FILE_NAME);
+		strlcpy(penv->fw_files.utf_file, "utf.bin",
+			CNSS_MAX_FILE_NAME);
+		break;
+	}
+}
+
+int cnss_get_fw_files(struct cnss_fw_files *pfw_files)
+{
+	if (!penv || !pfw_files)
+		return -ENODEV;
+
+	*pfw_files = penv->fw_files;
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_get_fw_files);
+
 static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 			       const struct pci_device_id *id)
 {
@@ -232,6 +287,9 @@ static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 
 	penv->pdev = pdev;
 	penv->id = id;
+
+	pci_read_config_word(pdev, QCA6174_REV_ID_OFFSET, &penv->revision_id);
+	cnss_setup_fw_files(penv->revision_id);
 
 	if (penv->pcie_link_state) {
 		pci_save_state(pdev);
