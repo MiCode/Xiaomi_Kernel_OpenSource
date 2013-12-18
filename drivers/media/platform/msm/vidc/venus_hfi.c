@@ -3614,10 +3614,6 @@ int venus_hfi_capability_check(u32 fourcc, u32 width,
 		return -EINVAL;
 	}
 
-	if (msm_vp8_low_tier && fourcc == V4L2_PIX_FMT_VP8) {
-		*max_width = DEFAULT_WIDTH;
-		*max_height = DEFAULT_HEIGHT;
-	}
 	if (width > *max_width) {
 		dprintk(VIDC_ERR,
 		"Unsupported width = %u supported max width = %u\n",
