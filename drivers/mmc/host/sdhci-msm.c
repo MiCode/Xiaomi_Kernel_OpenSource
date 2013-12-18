@@ -37,9 +37,9 @@
 #include <linux/pm_runtime.h>
 #include <linux/mmc/slot-gpio.h>
 #include <linux/dma-mapping.h>
+#include <linux/irqchip/msm-mpm-irq.h>
 #include <mach/gpio.h>
 #include <mach/msm_bus.h>
-#include <mach/mpm.h>
 #include <linux/iopoll.h>
 
 #include "sdhci-pltfm.h"

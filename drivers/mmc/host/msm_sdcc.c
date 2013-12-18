@@ -48,6 +48,7 @@
 #include <linux/pm_qos.h>
 #include <linux/iopoll.h>
 #include <linux/clk/msm-clk.h>
+#include <linux/irqchip/msm-mpm-irq.h>
 
 #include <asm/cacheflush.h>
 #include <asm/div64.h>
@@ -57,7 +58,6 @@
 #include <mach/msm_iomap.h>
 #include <mach/dma.h>
 #include <mach/sdio_al.h>
-#include <mach/mpm.h>
 #include <mach/msm_bus.h>
 
 #include "msm_sdcc.h"
