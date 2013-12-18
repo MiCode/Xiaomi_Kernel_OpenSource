@@ -93,7 +93,7 @@ static int emac_get_settings(struct net_device *netdev,
 	ecmd->advertising |= hw->autoneg_advertised;
 
 	ecmd->port = PORT_TP;
-	ecmd->phy_address = 0;
+	ecmd->phy_address = hw->phy_addr;
 	ecmd->transceiver = XCVR_INTERNAL;
 	ecmd->autoneg = AUTONEG_ENABLE;
 
