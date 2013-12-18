@@ -1082,6 +1082,13 @@
 		qcom,freq-mitigation-value = <960000>;
 		qcom,freq-mitigation-control-mask = <0x01>;
 	};
+
+	qcom,avtimer {
+		compatible = "qcom,avtimer";
+		reg = <0xfe0c900c 0x4>,
+			<0xfe0c9010 0x4>;
+		reg-names = "avtimer_lsb_addr", "avtimer_msb_addr";
+	};
 };
 
 &gdsc_venus {
