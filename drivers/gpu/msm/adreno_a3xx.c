@@ -4077,6 +4077,7 @@ static void a3xx_perfcounter_close(struct adreno_device *adreno_dev)
 static int a3xx_perfcounter_init(struct adreno_device *adreno_dev)
 {
 	int ret;
+	struct kgsl_device *device = &adreno_dev->dev;
 	/* SP[3] counter is broken on a330 so disable it if a330 device */
 	if (adreno_is_a330(adreno_dev))
 		a3xx_perfcounters_sp[3].countable = KGSL_PERFCOUNTER_BROKEN;
@@ -4088,15 +4089,18 @@ static int a3xx_perfcounter_init(struct adreno_device *adreno_dev)
 	ret = adreno_perfcounter_get(adreno_dev, KGSL_PERFCOUNTER_GROUP_PWR, 1,
 			NULL, PERFCOUNTER_FLAG_KERNEL);
 
-	/* VBIF waiting for RAM */
-	ret |= adreno_perfcounter_get(adreno_dev,
+	if (device->pwrctrl.bus_control) {
+		/* VBIF waiting for RAM */
+		ret |= adreno_perfcounter_get(adreno_dev,
 				KGSL_PERFCOUNTER_GROUP_VBIF_PWR, 0,
 				NULL, PERFCOUNTER_FLAG_KERNEL);
-	/* VBIF DDR cycles */
-	ret |= adreno_perfcounter_get(adreno_dev, KGSL_PERFCOUNTER_GROUP_VBIF,
+		/* VBIF DDR cycles */
+		ret |= adreno_perfcounter_get(adreno_dev,
+				KGSL_PERFCOUNTER_GROUP_VBIF,
 				VBIF_AXI_TOTAL_BEATS,
 				&adreno_dev->ram_cycles_lo,
 				PERFCOUNTER_FLAG_KERNEL);
+	}
 
 	/* Default performance counter profiling to false */
 	adreno_dev->profile.enabled = false;
