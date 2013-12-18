@@ -301,6 +301,12 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
 		},
+	},
+	{
+		.gpio      = 116,		/* BLSP1 QUP1 SPI_CS1 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
 	}
 };
 
@@ -323,12 +329,6 @@ static struct msm_gpiomux_config msm_eth_configs[] __initdata = {
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_eth_config,
 		}
-	},
-	{
-		.gpio      = 116,		/* BLSP1 QUP1 SPI_CS2 */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
-		},
 	},
 };
 #endif
