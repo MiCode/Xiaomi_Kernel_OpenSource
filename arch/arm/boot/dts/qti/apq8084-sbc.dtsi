@@ -134,6 +134,14 @@
 	status = "disabled";
 };
 
+&sataphy0 {
+	status = "ok";
+};
+
+&sata0 {
+	status = "ok";
+};
+
 /* CoreSight */
 &tpiu {
 	qcom,seta-gpios = <&msmgpio 4 0>,
