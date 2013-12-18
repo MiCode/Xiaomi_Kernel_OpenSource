@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,12 +34,20 @@
 #define ISPIF_VFE_m_INTF_CMD_0(m)                (0x0004 + ISPIF_VFE(m))
 #define ISPIF_VFE_m_INTF_CMD_1(m)                (0x0030 + ISPIF_VFE(m))
 #define ISPIF_VFE_m_PIX_INTF_n_CID_MASK(m, n)    (0x0010 + ISPIF_VFE(m) + 4*(n))
-#define ISPIF_VFE_m_RDI_INTF_n_CID_MASK(m, n)    (0x0014 + ISPIF_VFE(m) + 4*(n))
+#define ISPIF_VFE_m_RDI_INTF_n_CID_MASK(m, n)    (0x0014 + ISPIF_VFE(m) + \
+							((n > 0) ? (0x20) : 0) \
+							+ 8*(n))
 #define ISPIF_VFE_m_PIX_OUTPUT_n_MISR(m, n)      (0x0290 + ISPIF_VFE(m) + 4*(n))
-#define ISPIF_VFE_m_RDI_OUTPUT_n_MISR_0(m, n)    (0x0298 + ISPIF_VFE(m) + 8*(n))
-#define ISPIF_VFE_m_RDI_OUTPUT_n_MISR_1(m, n)    (0x029C + ISPIF_VFE(m) + 8*(n))
+#define ISPIF_VFE_m_RDI_OUTPUT_n_MISR_0(m, n)    (0x001C + ISPIF_VFE(m) + \
+							((n > 0) ? (0x24) : 0) \
+							+ 0xc*(n))
+#define ISPIF_VFE_m_RDI_OUTPUT_n_MISR_1(m, n)    (0x0020 + ISPIF_VFE(m) + \
+							((n > 0) ? (0x24) : 0) \
+							+ 0xc*(n))
 #define ISPIF_VFE_m_PIX_INTF_n_STATUS(m, n)      (0x0024 + ISPIF_VFE(m) + 4*(n))
-#define ISPIF_VFE_m_RDI_INTF_n_STATUS(m, n)      (0x0028 + ISPIF_VFE(m) + 4*(n))
+#define ISPIF_VFE_m_RDI_INTF_n_STATUS(m, n)      (0x0028 + ISPIF_VFE(m) + \
+							((n > 0) ? (0x34) : 0) \
+							+ 8*(n))
 
 /* Defines for compatibility with newer ISPIF versions */
 #define ISPIF_RST_CMD_1_ADDR                     (0x0000)
