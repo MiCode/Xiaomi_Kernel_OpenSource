@@ -127,6 +127,7 @@ struct qseecom_send_svc_cmd_req {
 
 enum qseecom_key_management_usage_type {
 	QSEOS_KM_USAGE_DISK_ENCRYPTION = 0x01,
+	QSEOS_KM_USAGE_MAX
 };
 
 struct qseecom_create_key_req {
@@ -135,6 +136,12 @@ struct qseecom_create_key_req {
 };
 
 struct qseecom_wipe_key_req {
+	enum qseecom_key_management_usage_type usage;
+};
+
+struct qseecom_update_key_userinfo_req {
+	unsigned char current_hash32[QSEECOM_HASH_SIZE];
+	unsigned char new_hash32[QSEECOM_HASH_SIZE];
 	enum qseecom_key_management_usage_type usage;
 };
 
@@ -255,5 +262,8 @@ struct qseecom_send_modfd_listener_resp {
 
 #define QSEECOM_IOCTL_SET_BUS_SCALING_REQ \
 	_IOWR(QSEECOM_IOC_MAGIC, 23, int)
+
+#define QSEECOM_IOCTL_UPDATE_KEY_USER_INFO_REQ \
+	_IOWR(QSEECOM_IOC_MAGIC, 24, struct qseecom_update_key_userinfo_req)
 
 #endif /* __QSEECOM_H_ */
