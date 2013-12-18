@@ -597,26 +597,6 @@ exit_work_func:
 
 /*******************************************************
 Function:
-	Timer interrupt service routine for polling mode.
-Input:
-	timer: timer struct pointer
-Output:
-	Timer work mode.
-	HRTIMER_NORESTART: no restart mode
-*********************************************************/
-static enum hrtimer_restart goodix_ts_timer_handler(struct hrtimer *timer)
-{
-	struct goodix_ts_data
-		*ts = container_of(timer, struct goodix_ts_data, timer);
-
-	queue_work(ts->goodix_wq, &ts->work);
-	hrtimer_start(&ts->timer, ktime_set(0, (GTP_POLL_TIME + 6) * 1000000),
-			HRTIMER_MODE_REL);
-	return HRTIMER_NORESTART;
-}
-
-/*******************************************************
-Function:
 	External interrupt service routine for interrupt mode.
 Input:
 	irq:  interrupt number.
@@ -1206,15 +1186,6 @@ static int gtp_request_irq(struct goodix_ts_data *ts)
 			irq_table[ts->int_trigger_type],
 			ts->client->name, ts);
 	if (ret) {
-		dev_err(&ts->client->dev, "Request IRQ failed!ERRNO:%d.\n",
-				ret);
-		gpio_direction_input(ts->pdata->irq_gpio);
-
-		hrtimer_init(&ts->timer, CLOCK_MONOTONIC,
-				HRTIMER_MODE_REL);
-		ts->timer.function = goodix_ts_timer_handler;
-		hrtimer_start(&ts->timer, ktime_set(1, 0),
-				HRTIMER_MODE_REL);
 		ts->use_irq = false;
 		return ret;
 	}
@@ -1750,7 +1721,7 @@ static int goodix_parse_dt(struct device *dev,
 				prop->value, pdata->config_data_len[i]);
 		read_cfg_num++;
 	}
-	dev_dbg(dev, "%d config data read from device tree.\n", read_cfg_num);
+	dev_dbg(dev, "%d config data read from device tree\n", read_cfg_num);
 
 	return 0;
 }
@@ -1839,7 +1810,7 @@ static int goodix_ts_probe(struct i2c_client *client,
 
 	ret = gtp_i2c_test(client);
 	if (ret != 2) {
-		dev_err(&client->dev, "I2C communication ERROR!\n");
+		dev_err(&client->dev, "I2C communication ERROR\n");
 		goto exit_power_off;
 	}
 
@@ -1890,18 +1861,18 @@ static int goodix_ts_probe(struct i2c_client *client,
 	INIT_WORK(&ts->work, goodix_ts_work_func);
 
 	ret = gtp_request_irq(ts);
-	if (ret < 0)
-		dev_info(&client->dev, "GTP works in polling mode.\n");
+	if (ret)
+		dev_info(&client->dev, "GTP request irq failed %d\n", ret);
 	else
-		dev_info(&client->dev, "GTP works in interrupt mode.\n");
+		dev_info(&client->dev, "GTP works in interrupt mode\n");
 
 	ret = gtp_read_fw_version(client, &version_info);
 	if (ret != 2)
-		dev_err(&client->dev, "GTP firmware version read failed.\n");
+		dev_err(&client->dev, "GTP firmware version read failed\n");
 
 	ret = gtp_check_product_id(client);
 	if (ret != 0) {
-		dev_err(&client->dev, "GTP Product id doesn't match.\n");
+		dev_err(&client->dev, "GTP Product id doesn't match\n");
 		goto exit_free_irq;
 	}
 	if (ts->use_irq)
@@ -1916,7 +1887,7 @@ static int goodix_ts_probe(struct i2c_client *client,
 #endif
 	ret = sysfs_create_group(&client->dev.kobj, &gtp_attr_grp);
 	if (ret < 0) {
-		dev_err(&client->dev, "sys file creation failed.\n");
+		dev_err(&client->dev, "sys file creation failed\n");
 		goto exit_free_irq;
 	}
 
@@ -1931,7 +1902,7 @@ exit_free_irq:
 #if defined(CONFIG_FB)
 	if (fb_unregister_client(&ts->fb_notif))
 		dev_err(&client->dev,
-			"Error occurred while unregistering fb_notifier.\n");
+			"Error occurred while unregistering fb_notifier\n");
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	unregister_early_suspend(&ts->early_suspend);
 #endif
@@ -1983,7 +1954,7 @@ static int goodix_ts_remove(struct i2c_client *client)
 #if defined(CONFIG_FB)
 	if (fb_unregister_client(&ts->fb_notif))
 		dev_err(&client->dev,
-			"Error occurred while unregistering fb_notifier.\n");
+			"Error occurred while unregistering fb_notifier\n");
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	unregister_early_suspend(&ts->early_suspend);
 #endif
