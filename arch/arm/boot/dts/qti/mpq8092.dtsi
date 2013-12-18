@@ -959,22 +959,22 @@
 	};
 
 	tsc: msm_tsc@fc74a000 {
-		compatible = "qti,msm-tsc";
+		compatible = "qcom,msm-tsc";
 		reg = <0xfc74a000 0x1110>;
 		reg-names = "tsc-base";
 		interrupts = <0 267 0>, /* cam-cmd */
 					 <0 268 0>; /* card-detect */
 		interrupt-names = "cam-cmd",
 						  "card-detect";
-		qti,iommu-group = <&bcast_domain_hlos>;
-		qti,iommu-partition = <1>;
+		qcom,iommu-group = <&bcast_domain_hlos>;
+		qcom,iommu-partition = <1>;
 		vdd-supply = <&gdsc_bcss>;
-		qti,msm-bus,name = "tsc-bus";
-		qti,msm-bus,num-cases = <2>;
-		qti,msm-bus,num-paths = <1>;
-		qti,msm-bus,vectors-KBps = <96 512 0 0>, /* No vote */
+		qcom,msm-bus,name = "tsc-bus";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <96 512 0 0>, /* No vote */
 									<96 512 448 896>; /* Max. 7Mbps */
-		qti,tsc-reset-cam-gpio = <&msm_gpio 138 0>;	/* reset-pin controller */
+		qcom,tsc-reset-cam-gpio = <&msm_gpio 138 0>;	/* reset-pin controller */
 	};
 
 	qcom,msm-thermal {
