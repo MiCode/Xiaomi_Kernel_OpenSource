@@ -250,6 +250,11 @@
 			reg = <0x14 4>;
 		};
 
+		restart_reason@65c {
+			compatible = "qti,msm-imem-restart_reason";
+			reg = <0x65c 4>;
+		};
+
 		boot_stats@6b0 {
 			compatible = "qti,msm-imem-boot_stats";
 			reg = <0x6b0 32>;
