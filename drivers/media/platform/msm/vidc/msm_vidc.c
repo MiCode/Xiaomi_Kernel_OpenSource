@@ -1183,7 +1183,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	}
 
 	pr_info(VIDC_DBG_TAG "Opening video instance: %p, %d\n",
-		VIDC_INFO, inst, session_type);
+		VIDC_MSG_PRIO2STRING(VIDC_INFO), inst, session_type);
 	mutex_init(&inst->sync_lock);
 	mutex_init(&inst->bufq[CAPTURE_PORT].lock);
 	mutex_init(&inst->bufq[OUTPUT_PORT].lock);
@@ -1379,7 +1379,8 @@ int msm_vidc_close(void *instance)
 		dprintk(VIDC_ERR,
 			"Failed to move video instance to uninit state\n");
 
-	pr_info(VIDC_DBG_TAG "Closed video instance: %p\n", VIDC_INFO, inst);
+	pr_info(VIDC_DBG_TAG "Closed video instance: %p\n",
+			VIDC_MSG_PRIO2STRING(VIDC_INFO), inst);
 	kfree(inst);
 	return 0;
 }
