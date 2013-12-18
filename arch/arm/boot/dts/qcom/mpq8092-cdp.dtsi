@@ -66,6 +66,14 @@
 	status = "ok";
 };
 
+&sataphy0 {
+	status = "ok";
+};
+
+&sata0 {
+	status = "ok";
+};
+
 &sdhc_1 {
 	vdd-supply = <&pma8084_l20>;
 	qcom,vdd-voltage-level = <2950000 2950000>;

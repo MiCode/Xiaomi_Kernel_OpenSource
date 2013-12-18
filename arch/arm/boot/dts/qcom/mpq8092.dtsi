@@ -570,6 +570,33 @@
 		qcom,vreg-0.9-voltage-level = <950000 950000 24000>;
 	};
 
+	sataphy0: sataphy@0xfc581000 {
+		compatible = "qcom,sataphy";
+		reg = <0xfc581000 0x400>;
+		reg-names = "phy_mem";
+		#phy-cells = <0>;
+		vdda-phy-supply = <&pma8084_l19>;
+		vdda-pll-supply = <&pma8084_l22>;
+		vdda-phy-max-microamp = <50000>;
+		vdda-pll-max-microamp = <12000>;
+
+		status = "disabled";
+	};
+
+	sata0: sata@0xfc580000 {
+		compatible = "qcom,msm-ahci";
+		reg = <0xfc580000 0x400>;
+		interrupts = <0 292 0>;
+
+		phys = <&sataphy0>;
+		phy-names = "sata-6g";
+		clock-names = "core_clk", "iface_clk", "pmalive_clk",
+				"rxoob_clk", "asic0_clk", "rbc0_clk";
+		max-clock-frequency-hz = <0 0 100000000
+					100000000 300000000 300000000>;
+		status = "disabled";
+	};
+
 	qcom,wdt@f9017000 {
 		compatible = "qcom,msm-watchdog";
 		reg = <0xf9017000 0x1000>;
