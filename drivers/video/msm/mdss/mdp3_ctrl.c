@@ -1721,13 +1721,13 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 	kobject_uevent(&dev->kobj, KOBJ_ADD);
 	pr_debug("vsync kobject_uevent(KOBJ_ADD)\n");
 
+	if (mdp3_get_cont_spash_en())
+		mdp3_session->clk_on = 1;
+
 	if (splash_mismatch) {
 		pr_err("splash memory mismatch, stop splash\n");
 		mdp3_ctrl_off(mfd);
 	}
-
-	if (mdp3_get_cont_spash_en())
-		mdp3_session->clk_on = 1;
 
 	mdp3_session->vsync_before_commit = true;
 init_done:
