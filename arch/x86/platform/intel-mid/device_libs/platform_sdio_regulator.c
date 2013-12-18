@@ -32,6 +32,7 @@ static struct acpi_ids intel_sdio_ids[] = {
 
 static struct acpi_ids intel_brc_ids[] = {
 	{"BCM4321", NULL}, /* BYT SDIO */
+	{"RTL8723" , NULL}, /* BCR SDIO */
 	{ },
 };
 
