@@ -1445,7 +1445,9 @@ int mdp3_self_map_iommu(struct ion_client *client, struct ion_handle *handle,
 			ret = 0;
 		} else {
 			ret = PTR_ERR(iommu_meta);
-			goto out_unlock;
+			mutex_unlock(&mdp3_res->iommu_lock);
+			pr_err("%s: meta_create failed err=%d", __func__, ret);
+			return ret;
 		}
 	} else {
 		if (iommu_meta->flags != iommu_flags) {
