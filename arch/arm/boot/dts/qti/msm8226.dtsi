@@ -1171,7 +1171,6 @@
 		vdd_pll-supply = <&pm8226_l8>;
 		qti,vdd_pll = <1800000>;
 
-		qti,is-loadable;
 		qti,firmware-name = "mba";
 		qti,pil-self-auth;
 
