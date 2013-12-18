@@ -1788,6 +1788,14 @@ static int msm_ufs_setup_clocks(struct ufs_hba *hba, bool on)
 	int err;
 	int vote;
 
+	/*
+	 * In case msm_ufs_init() is not yet done, simply ignore.
+	 * This msm_ufs_setup_clocks() shall be called from
+	 * msm_ufs_init() after init is done.
+	 */
+	if (!host)
+		return 0;
+
 	if (on) {
 		vote = host->bus_vote.saved_vote;
 		if (vote == host->bus_vote.min_bw_vote)
@@ -1946,6 +1954,7 @@ static int msm_ufs_init(struct ufs_hba *hba)
 		hba->spm_lvl = UFS_PM_LVL_3;
 	}
 
+	msm_ufs_setup_clocks(hba, true);
 	goto out;
 
 out_disable_phy:
