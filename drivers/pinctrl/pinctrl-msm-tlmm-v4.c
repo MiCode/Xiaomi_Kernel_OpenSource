@@ -115,6 +115,13 @@
 #define TLMMV4_GP_INTR_CFG(base, pin)		(base + 0x8 + 0x1000 * (pin))
 #define TLMMV4_GP_INTR_STATUS(base, pin)	(base + 0xc + 0x1000 * (pin))
 
+/* QDSD Pin type register offsets */
+#define TLMMV4_QDSD_OFFSET		0x0019C000
+#define TLMMV4_QDSD_PULL_MASK	0x3
+#define TLMMV4_QDSD_PULL_OFFSET	0x3
+#define TLMMV4_QDSD_CONFIG_WIDTH	0x5
+#define TLMMV4_QDSD_DRV_MASK	0x7
+
 struct msm_sdc_regs {
 	unsigned int offset;
 	unsigned long pull_mask;
@@ -247,6 +254,81 @@ static void msm_tlmm_v4_sdc_set_reg_base(void __iomem **ptype_base,
 {
 	*ptype_base = tlmm_base + TLMMV4_SDC_OFFSET;
 }
+
+static int msm_tlmm_v4_qdsd_cfg(uint pin_no, unsigned long *config,
+						void __iomem *reg_base,
+						bool write)
+{
+	unsigned int val, id, data;
+	u32 mask, shft;
+	void __iomem *cfg_reg;
+
+	cfg_reg = reg_base;
+	id = pinconf_to_config_param(*config);
+	val = readl_relaxed(cfg_reg);
+	/* Get mask and shft values for this config type */
+	switch (id) {
+	case PIN_CONFIG_BIAS_DISABLE:
+		mask = TLMMV4_QDSD_PULL_MASK;
+		shft = id * TLMMV4_QDSD_CONFIG_WIDTH + TLMMV4_QDSD_PULL_OFFSET;
+		data = TLMMV4_NO_PULL;
+		if (!write) {
+			val >>= shft;
+			val &= mask;
+			data = rval_to_pull(val);
+		}
+		break;
+	case PIN_CONFIG_BIAS_PULL_DOWN:
+		mask = TLMMV4_QDSD_PULL_MASK;
+		shft = id * TLMMV4_QDSD_CONFIG_WIDTH + TLMMV4_QDSD_PULL_OFFSET;
+		data = TLMMV4_PULL_DOWN;
+		if (!write) {
+			val >>= shft;
+			val &= mask;
+			data = rval_to_pull(val);
+		}
+		break;
+	case PIN_CONFIG_BIAS_PULL_UP:
+		mask = TLMMV4_QDSD_PULL_MASK;
+		shft = id * TLMMV4_QDSD_CONFIG_WIDTH + TLMMV4_QDSD_PULL_OFFSET;
+		data = TLMMV4_PULL_UP;
+		if (!write) {
+			val >>= shft;
+			val &= mask;
+			data = rval_to_pull(val);
+		}
+		break;
+	case PIN_CONFIG_DRIVE_STRENGTH:
+		mask = TLMMV4_QDSD_DRV_MASK;
+		shft = id * TLMMV4_QDSD_CONFIG_WIDTH;
+		if (write) {
+			data = pinconf_to_config_argument(*config);
+			data = drv_str_to_rval(data);
+		} else {
+			val >>= shft;
+			val &= mask;
+			data = rval_to_drv_str(val);
+		}
+		break;
+	default:
+		return -EINVAL;
+	};
+
+	if (write) {
+		val &= ~(mask << shft);
+		val |= (data << shft);
+		writel_relaxed(val, cfg_reg);
+	} else
+		*config = pinconf_to_config_packed(id, data);
+	return 0;
+}
+
+static void msm_tlmm_v4_qdsd_set_reg_base(void __iomem **ptype_base,
+							void __iomem *tlmm_base)
+{
+	*ptype_base = tlmm_base + TLMMV4_QDSD_OFFSET;
+}
+
 
 static int msm_tlmm_v4_gp_cfg(uint pin_no, unsigned long *config,
 						void *reg_base, bool write)
@@ -796,6 +878,13 @@ static struct msm_pintype_info tlmm_v4_pininfo[] = {
 		.reg_base = NULL,
 		.prop_name = "qcom,pin-type-sdc",
 		.name = "sdc",
+	},
+	{
+		.prg_cfg = msm_tlmm_v4_qdsd_cfg,
+		.set_reg_base = msm_tlmm_v4_qdsd_set_reg_base,
+		.reg_base = NULL,
+		.prop_name = "qcom,pin-type-qdsd",
+		.name = "qdsd",
 	}
 };
 
