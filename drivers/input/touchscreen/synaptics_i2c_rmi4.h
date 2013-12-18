@@ -161,6 +161,7 @@ struct synaptics_rmi4_device_info {
 	unsigned char product_id_string[SYNAPTICS_RMI4_PRODUCT_ID_SIZE + 1];
 	unsigned char build_id[SYNAPTICS_RMI4_BUILD_ID_SIZE];
 	unsigned char config_id[3];
+	struct mutex support_fn_list_mutex;
 	struct list_head support_fn_list;
 };
 
