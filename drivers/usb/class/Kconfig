@@ -46,3 +46,15 @@ config USB_TMC
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called usbtmc.
+
+config USB_CCID_BRIDGE
+	tristate "USB  Smart Card Class (CCID) support"
+	help
+	  Say Y here if you want to connect a USB Smart Card device that
+	  follows the USB.org specification for Integrated Circuit(s) Cards
+	  Interface Devices to your computer's USB port.  This module
+	  provides a character device interface to exchange the messages.
+	  Ioctls facilitate control transfers and interrupt transfers.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ccid_bridge.
