@@ -1105,7 +1105,7 @@ static irqreturn_t qpnp_regulator_vs_ocp_isr(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static const char const *qpnp_print_actions[] = {
+static const char * const qpnp_print_actions[] = {
 	[QPNP_REGULATOR_ACTION_INIT]	= "initial    ",
 	[QPNP_REGULATOR_ACTION_ENABLE]	= "enable     ",
 	[QPNP_REGULATOR_ACTION_DISABLE]	= "disable    ",
