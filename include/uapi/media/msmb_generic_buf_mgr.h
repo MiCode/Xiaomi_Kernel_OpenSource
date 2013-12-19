@@ -20,4 +20,10 @@ struct v4l2_subdev *msm_buf_mngr_get_subdev(void);
 #define VIDIOC_MSM_BUF_MNGR_BUF_DONE \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 35, struct msm_buf_mngr_info)
 
+#define VIDIOC_MSM_BUF_MNGR_INIT \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 36, struct msm_buf_mngr_info)
+
+#define VIDIOC_MSM_BUF_MNGR_DEINIT \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 37, struct msm_buf_mngr_info)
+
 #endif
