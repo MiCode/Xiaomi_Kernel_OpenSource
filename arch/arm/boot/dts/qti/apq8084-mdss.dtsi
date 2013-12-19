@@ -75,8 +75,7 @@
 		qcom,mdss-has-decimation;
 		qcom,mdss-has-wfd-blk;
 
-		qcom,vbif-settings = <0x004 0x00000001>,
-				     <0x0B0 0x00080808>,
+		qcom,vbif-settings = <0x0B0 0x00080808>,
 				     <0x0B4 0x08000808>,
 				     <0x0B8 0x00080808>,
 				     <0x0BC 0x00000808>,
