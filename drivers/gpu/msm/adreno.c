@@ -2051,6 +2051,8 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	device->reset_counter++;
 
+	set_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
+
 	return 0;
 
 error_rb_stop:
@@ -2088,7 +2090,25 @@ static void adreno_start_work(struct work_struct *work)
 	set_user_nice(current, _wake_nice);
 
 	mutex_lock(&device->mutex);
-	_status = _adreno_start(adreno_dev);
+	/*
+	 *  If adreno start is already called, no need to call it again
+	 *  it can lead to unpredictable behavior if we try to start
+	 *  the device that is already started.
+	 *  Below is the sequence of events that can go bad without the check
+	 *  1) thread 1 calls adreno_start to be scheduled on high priority wq
+	 *  2) thread 2 calls adreno_start with normal priority
+	 *  3) thread 1 after checking the device to be in slumber state gives
+	 *     up mutex to be scheduled on high priority wq
+	 *  4) thread 2 after checking the device to be in slumber state gets
+	 *     the mutex and finishes adreno_start before thread 1 is scheduled
+	 *     on high priority wq.
+	 *  5) thread 1 gets scheduled on high priority wq and executes
+	 *     adreno_start again. This leads to unpredictable behavior.
+	 */
+	if (!test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv))
+		_status = _adreno_start(adreno_dev);
+	else
+		_status = 0;
 	mutex_unlock(&device->mutex);
 }
 
@@ -2148,6 +2168,8 @@ static int adreno_stop(struct kgsl_device *device)
 	kgsl_pwrctrl_disable(device);
 
 	kgsl_cffdump_close(device);
+
+	clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
 
 	return 0;
 }
