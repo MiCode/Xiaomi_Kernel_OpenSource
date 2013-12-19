@@ -59,22 +59,28 @@ static int qpnp_usbdetect_probe(struct platform_device *pdev)
 	usb->pdev = pdev;
 	usb->usb_psy = usb_psy;
 
-	usb->vin = devm_regulator_get(&pdev->dev, "vin");
-	if (IS_ERR(usb->vin)) {
-		dev_err(&pdev->dev, "Failed to get VIN regulator: %ld\n",
-			PTR_ERR(usb->vin));
-		return PTR_ERR(usb->vin);
+	if (of_get_property(pdev->dev.of_node, "vin-supply", NULL)) {
+		usb->vin = devm_regulator_get(&pdev->dev, "vin");
+		if (IS_ERR(usb->vin)) {
+			dev_err(&pdev->dev, "Failed to get VIN regulator: %ld\n",
+				PTR_ERR(usb->vin));
+			return PTR_ERR(usb->vin);
+		}
 	}
 
-	rc = regulator_enable(usb->vin);
-	if (rc) {
-		dev_err(&pdev->dev, "Failed to enable VIN regulator: %d\n", rc);
-		return rc;
+	if (usb->vin) {
+		rc = regulator_enable(usb->vin);
+		if (rc) {
+			dev_err(&pdev->dev, "Failed to enable VIN regulator: %d\n",
+				rc);
+			return rc;
+		}
 	}
 
 	usb->vbus_det_irq = platform_get_irq_byname(pdev, "vbus_det_irq");
 	if (usb->vbus_det_irq < 0) {
-		regulator_disable(usb->vin);
+		if (usb->vin)
+			regulator_disable(usb->vin);
 		return usb->vbus_det_irq;
 	}
 
@@ -85,7 +91,8 @@ static int qpnp_usbdetect_probe(struct platform_device *pdev)
 	if (rc) {
 		dev_err(&pdev->dev, "request for vbus_det_irq failed: %d\n",
 			rc);
-		regulator_disable(usb->vin);
+		if (usb->vin)
+			regulator_disable(usb->vin);
 		return rc;
 	}
 
@@ -108,7 +115,8 @@ static int qpnp_usbdetect_remove(struct platform_device *pdev)
 
 	disable_irq_wake(usb->vbus_det_irq);
 	disable_irq(usb->vbus_det_irq);
-	regulator_disable(usb->vin);
+	if (usb->vin)
+		regulator_disable(usb->vin);
 
 	return 0;
 }

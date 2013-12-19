@@ -11,7 +11,9 @@ Required Properties:
  - compatible: must be "qcom,qpnp-usbdetect"
  - interrupts: an interrupt triggered by the output of the detection circuit
  - interrupt-names: must be "vbus_det_irq"
- - vin-supply: phandle to a regulator that supplies 5V to this circuit
+
+Optional Properties:
+ - vin-supply: phandle to a regulator that powers this circuit, if needed
 
 Example:
 
