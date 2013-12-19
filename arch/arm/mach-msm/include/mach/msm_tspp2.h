@@ -757,5 +757,13 @@ int tspp2_filter_event_notification_register(u32 filter_handle,
 			void (*callback)(void *cookie, u32 event_bitmask),
 			void *cookie);
 
+int tspp2_get_reserved_hw_index(u32 src_handle);
+
+int tspp2_get_filter_hw_index(u32 filter_handle);
+
+int tspp2_get_ops_array(u32 filter_handle,
+		struct tspp2_operation ops_array[TSPP2_MAX_OPS_PER_FILTER],
+		u8 *num_of_ops);
+
 #endif /* _MSM_TSPP2_H_ */
 

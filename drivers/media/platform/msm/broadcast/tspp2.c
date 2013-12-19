@@ -982,7 +982,7 @@ static void tspp2_tsif_debugfs_init(struct tspp2_tsif_device *tsif_device)
 			"stat_pkt_read_err",
 			S_IRUGO | S_IWUSR | S_IWGRP,
 			dentry,
-			&tsif_device->stat_pkt_write_err);
+			&tsif_device->stat_pkt_read_err);
 
 		debugfs_create_u32(
 			"stat_overflow",
@@ -1003,6 +1003,286 @@ static void tspp2_tsif_debugfs_init(struct tspp2_tsif_device *tsif_device)
 			&tsif_device->stat_timeout);
 	}
 }
+
+static char *op_to_string(enum tspp2_operation_type op)
+{
+	switch (op) {
+	case TSPP2_OP_PES_ANALYSIS:
+		return "TSPP2_OP_PES_ANALYSIS";
+	case TSPP2_OP_RAW_TRANSMIT:
+		return "TSPP2_OP_RAW_TRANSMIT";
+	case TSPP2_OP_PES_TRANSMIT:
+		return "TSPP2_OP_PES_TRANSMIT";
+	case TSPP2_OP_PCR_EXTRACTION:
+		return "TSPP2_OP_PCR_EXTRACTION";
+	case TSPP2_OP_CIPHER:
+		return "TSPP2_OP_CIPHER";
+	case TSPP2_OP_INDEXING:
+		return "TSPP2_OP_INDEXING";
+	case TSPP2_OP_COPY_PACKET:
+		return "TSPP2_OP_COPY_PACKET";
+	default:
+		return "Invalid Operation";
+	}
+}
+
+static char *src_input_to_string(enum tspp2_src_input src_input)
+{
+	switch (src_input) {
+	case TSPP2_INPUT_TSIF0:
+		return "TSPP2_INPUT_TSIF0";
+	case TSPP2_INPUT_TSIF1:
+		return "TSPP2_INPUT_TSIF1";
+	case TSPP2_INPUT_MEMORY:
+		return "TSPP2_INPUT_MEMORY";
+	default:
+		return "Unknown source input type";
+	}
+}
+
+static char *pkt_format_to_string(enum tspp2_packet_format pkt_format)
+{
+	switch (pkt_format) {
+	case TSPP2_PACKET_FORMAT_188_RAW:
+		return "TSPP2_PACKET_FORMAT_188_RAW";
+	case TSPP2_PACKET_FORMAT_192_HEAD:
+		return "TSPP2_PACKET_FORMAT_192_HEAD";
+	case TSPP2_PACKET_FORMAT_192_TAIL:
+		return "TSPP2_PACKET_FORMAT_192_TAIL";
+	default:
+		return "Unknown packet format";
+	}
+}
+
+/**
+ * debugfs service to print device information.
+ */
+static int tspp2_device_debugfs_print(struct seq_file *s, void *p)
+{
+	int count;
+	int exist_flag = 0;
+	struct tspp2_device *device = (struct tspp2_device *)s->private;
+
+	seq_printf(s, "dev_id: %d\n", device->dev_id);
+	seq_puts(s, "Enabled filters:");
+	for (count = 0; count < TSPP2_NUM_HW_FILTERS; count++)
+		if (device->filters[count].enabled) {
+			seq_printf(s, "\n\tfilter%3d", count);
+			exist_flag = 1;
+		}
+	if (!exist_flag)
+		seq_puts(s, " none\n");
+	else
+		seq_puts(s, "\n");
+
+	exist_flag = 0;
+	seq_puts(s, "Opened filters:");
+	for (count = 0; count < TSPP2_NUM_HW_FILTERS; count++)
+		if (device->filters[count].opened) {
+			seq_printf(s, "\n\tfilter%3d", count);
+			exist_flag = 1;
+		}
+	if (!exist_flag)
+		seq_puts(s, " none\n");
+	else
+		seq_puts(s, "\n");
+
+	exist_flag = 0;
+	seq_puts(s, "Opened pipes:\n");
+	for (count = 0; count < TSPP2_NUM_PIPES; count++)
+		if (device->pipes[count].opened) {
+			seq_printf(s, "\tpipe%2d\n", count);
+			exist_flag = 1;
+		}
+	if (!exist_flag)
+		seq_puts(s, " none\n");
+	else
+		seq_puts(s, "\n");
+
+	return 0;
+}
+
+/**
+ * debugfs service to print source information.
+ */
+static int tspp2_src_debugfs_print(struct seq_file *s, void *p)
+{
+	struct tspp2_filter_batch *batch;
+	struct tspp2_filter *filter;
+	struct tspp2_output_pipe *output_pipe;
+	struct tspp2_src *src = (struct tspp2_src *)s->private;
+
+	if (!src) {
+		seq_puts(s, "error\n");
+		return 1;
+	}
+	seq_printf(s, "Status: %s\n", src->enabled ? "enabled" : "disabled");
+	seq_printf(s, "hw_index: %d\n", src->hw_index);
+	seq_printf(s, "event_bitmask: 0x%08X\n", src->event_bitmask);
+	if (src->input_pipe)
+		seq_printf(s, "input_pipe hw_index: %d\n",
+				src->input_pipe->hw_index);
+	seq_printf(s, "tspp2_src_input: %s\n", src_input_to_string(src->input));
+	seq_printf(s, "pkt_format: %s\n",
+			pkt_format_to_string(src->pkt_format));
+	seq_printf(s, "num_associated_batches: %d\n",
+			src->num_associated_batches);
+
+	if (src->num_associated_batches) {
+		seq_puts(s, "batch_ids: ");
+		list_for_each_entry(batch, &src->batches_list, link)
+			seq_printf(s, "%d  ", batch->batch_id);
+		seq_puts(s, "\n");
+	}
+
+	seq_printf(s, "num_associated_pipes: %d\n", src->num_associated_pipes);
+	if (src->num_associated_pipes) {
+		seq_puts(s, "pipes_hw_idxs: ");
+		list_for_each_entry(output_pipe, &src->output_pipe_list, link) {
+			seq_printf(s, "%d  ", output_pipe->pipe->hw_index);
+		}
+		seq_puts(s, "\n");
+	}
+
+	seq_printf(s, "reserved_filter_hw_index: %d\n",
+			src->reserved_filter_hw_index);
+
+	seq_printf(s, "num_associated_filters: %d\n",
+			src->num_associated_filters);
+	if (src->num_associated_filters) {
+		int i;
+		seq_puts(s, "Open filters:\n");
+		list_for_each_entry(filter, &src->filters_list, link) {
+			if (!filter->opened)
+				continue;
+			seq_printf(s, "\thw_index: %d\n",
+					filter->hw_index);
+			seq_printf(s, "\tStatus: %s\n",
+					filter->enabled ? "enabled"
+							: "disabled");
+			seq_printf(s, "\tpid_value: 0x%08X\n",
+					filter->pid_value);
+			seq_printf(s, "\tmask: 0x%08X\n", filter->mask);
+			seq_printf(s, "\tnum_user_operations: %d\n",
+					filter->num_user_operations);
+			if (filter->num_user_operations) {
+				seq_puts(
+					s, "\tTypes of operations:\n");
+				for (i = 0;
+					i < filter->num_user_operations; i++) {
+					seq_printf(s, "\t\t%s\n", op_to_string(
+						filter->operations[i].type));
+				}
+			}
+		}
+
+	} else {
+		seq_puts(s, "no filters\n");
+	}
+
+	return 0;
+}
+
+/**
+ * debugfs service to print filter information.
+ */
+static int filter_debugfs_print(struct seq_file *s, void *p)
+{
+	int i;
+	struct tspp2_filter *filter = (struct tspp2_filter *)s->private;
+
+	seq_printf(s, "Status: %s\n", filter->opened ? "opened" : "closed");
+	if (filter->batch)
+		seq_printf(s, "Located in batch %d\n", filter->batch->batch_id);
+	if (filter->src)
+		seq_printf(s, "Associated with src %d\n",
+				filter->src->hw_index);
+	seq_printf(s, "hw_index: %d\n", filter->hw_index);
+	seq_printf(s, "pid_value: 0x%08X\n", filter->pid_value);
+	seq_printf(s, "mask: 0x%08X\n", filter->mask);
+	seq_printf(s, "context: %d\n", filter->context);
+	seq_printf(s, "indexing_table_id: %d\n", filter->indexing_table_id);
+	seq_printf(s, "num_user_operations: %d\n", filter->num_user_operations);
+	seq_puts(s, "Types of operations:\n");
+	for (i = 0; i < filter->num_user_operations; i++)
+		seq_printf(s, "\t%s\n", op_to_string(
+				filter->operations[i].type));
+	seq_printf(s, "indexing_op_set: %d\n", filter->indexing_op_set);
+	seq_printf(s, "raw_op_with_indexing: %d\n",
+			filter->raw_op_with_indexing);
+	seq_printf(s, "pes_analysis_op_set: %d\n", filter->pes_analysis_op_set);
+	seq_printf(s, "raw_op_set: %d\n", filter->raw_op_set);
+	seq_printf(s, "pes_tx_op_set: %d\n", filter->pes_tx_op_set);
+	seq_printf(s, "Status: %s\n", filter->enabled ? "enabled" : "disabled");
+	return 0;
+}
+
+/**
+ * debugfs service to print pipe information.
+ */
+static int pipe_debugfs_print(struct seq_file *s, void *p)
+{
+	struct tspp2_pipe *pipe = (struct tspp2_pipe *)s->private;
+	seq_printf(s, "hw_index: %d\n", pipe->hw_index);
+	seq_printf(s, "iova: 0x%08X\n", pipe->iova);
+	seq_printf(s, "threshold: %d\n", pipe->threshold);
+	seq_printf(s, "Status: %s\n", pipe->opened ? "opened" : "closed");
+	seq_printf(s, "ref_cnt: %d\n", pipe->ref_cnt);
+	return 0;
+}
+
+static int tspp2_dev_dbgfs_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, tspp2_device_debugfs_print,
+			inode->i_private);
+}
+
+static int tspp2_filter_dbgfs_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, filter_debugfs_print, inode->i_private);
+}
+
+static int tspp2_pipe_dbgfs_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, pipe_debugfs_print, inode->i_private);
+}
+
+static int tspp2_src_dbgfs_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, tspp2_src_debugfs_print, inode->i_private);
+}
+
+static const struct file_operations dbgfs_tspp2_device_fops = {
+	.open = tspp2_dev_dbgfs_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+	.owner = THIS_MODULE,
+};
+
+static const struct file_operations dbgfs_filter_fops = {
+	.open = tspp2_filter_dbgfs_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+	.owner = THIS_MODULE,
+};
+
+static const struct file_operations dbgfs_pipe_fops = {
+	.open = tspp2_pipe_dbgfs_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+	.owner = THIS_MODULE,
+};
+
+static const struct file_operations dbgfs_src_fops = {
+	.open = tspp2_src_dbgfs_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+	.owner = THIS_MODULE,
+};
 
 /**
  * tspp2_tsif_debugfs_exit() - TSIF device debugfs teardown.
@@ -1297,6 +1577,41 @@ static void tspp2_debugfs_init(struct tspp2_device *device)
 					base + TSPP2_INDEX_TABLE_MASK(i, j),
 					&fops_iomem_x32);
 			}
+		}
+	}
+	dir = debugfs_create_dir("software", device->debugfs_entry);
+	debugfs_create_file("device", S_IRUGO, dir, device,
+					&dbgfs_tspp2_device_fops);
+
+	dentry = debugfs_create_dir("filters", dir);
+	if (dentry) {
+		for (i = 0; i < TSPP2_NUM_HW_FILTERS; i++) {
+			snprintf(name, 20, "filter%03i", i);
+			debugfs_create_file(name, S_IRUGO, dentry,
+				&(device->filters[i]), &dbgfs_filter_fops);
+		}
+	}
+
+	dentry = debugfs_create_dir("pipes", dir);
+	if (dentry) {
+		for (i = 0; i < TSPP2_NUM_PIPES; i++) {
+			snprintf(name, 20, "pipe%02i", i);
+			debugfs_create_file(name, S_IRUGO, dentry,
+					&(device->pipes[i]), &dbgfs_pipe_fops);
+		}
+	}
+
+	dentry = debugfs_create_dir("sources", dir);
+	if (dentry) {
+		for (i = 0; i < TSPP2_NUM_TSIF_INPUTS; i++) {
+			snprintf(name, 20, "tsif%d", i);
+			debugfs_create_file(name, S_IRUGO, dentry,
+				&(device->tsif_sources[i]), &dbgfs_src_fops);
+		}
+		for (i = 0; i < TSPP2_NUM_MEM_INPUTS; i++) {
+			snprintf(name, 20, "mem%d", i);
+			debugfs_create_file(name, S_IRUGO, dentry,
+				&(device->mem_sources[i]), &dbgfs_src_fops);
 		}
 	}
 }
@@ -6947,6 +7262,69 @@ int tspp2_filter_event_notification_register(u32 filter_handle,
 	return 0;
 }
 EXPORT_SYMBOL(tspp2_filter_event_notification_register);
+
+/**
+ * tspp2_get_filter_hw_index() - Get a filter's hardware index.
+ *
+ * @filter_handle:		Filter handle.
+ *
+ * This is an helper function to support tspp2 auto-testing.
+ *
+ * Return the filter's hardware index on success, error value otherwise.
+ */
+int tspp2_get_filter_hw_index(u32 filter_handle)
+{
+	struct tspp2_filter *filter = (struct tspp2_filter *)filter_handle;
+	if (!filter_handle)
+		return -EINVAL;
+	return filter->hw_index;
+}
+EXPORT_SYMBOL(tspp2_get_filter_hw_index);
+
+/**
+ * tspp2_get_reserved_hw_index() - Get a source's reserved hardware index.
+ *
+ * @src_handle:		Source handle.
+ *
+ * This is an helper function to support tspp2 auto-testing.
+ *
+ * Return the source's reserved hardware index on success,
+ * error value otherwise.
+ */
+int tspp2_get_reserved_hw_index(u32 src_handle)
+{
+	struct tspp2_src *src = (struct tspp2_src *)src_handle;
+	if (!src_handle)
+		return -EINVAL;
+	return src->reserved_filter_hw_index;
+}
+EXPORT_SYMBOL(tspp2_get_reserved_hw_index);
+
+/**
+ * tspp2_get_ops_array() - Get filter's operations.
+ *
+ * @filter_handle:		Filter handle.
+ * @ops_array:			The filter's operations.
+ * @num_of_ops:			The filter's number of operations.
+ *
+ * This is an helper function to support tspp2 auto-testing.
+ *
+ * Return 0 on success, error value otherwise.
+ */
+int tspp2_get_ops_array(u32 filter_handle,
+		struct tspp2_operation ops_array[TSPP2_MAX_OPS_PER_FILTER],
+		u8 *num_of_ops)
+{
+	int i;
+	struct tspp2_filter *filter = (struct tspp2_filter *)filter_handle;
+	if (!filter_handle || !num_of_ops)
+		return -EINVAL;
+	*num_of_ops = filter->num_user_operations;
+	for (i = 0; i < *num_of_ops; i++)
+		ops_array[i] = filter->operations[i];
+	return 0;
+}
+EXPORT_SYMBOL(tspp2_get_ops_array);
 
 /* Platform driver related functions: */
 
