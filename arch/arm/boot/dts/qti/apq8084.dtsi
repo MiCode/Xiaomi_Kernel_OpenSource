@@ -158,6 +158,12 @@
 		};
 	};
 
+	qti,mpm2-sleep-counter@fc4a3000 {
+		compatible = "qti,mpm2-sleep-counter";
+		reg = <0xfc4a3000 0x1000>;
+		clock-frequency = <32768>;
+	};
+
         blsp1_uart1: serial@f991e000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0xf991e000 0x1000>;
