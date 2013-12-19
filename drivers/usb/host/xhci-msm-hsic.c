@@ -599,6 +599,10 @@ static int mxhci_hsic_suspend(struct mxhci_hsic_hcd *mxhci)
 
 	init_completion(&mxhci->phy_in_lpm);
 
+	/* Don't poll the roothubs after bus suspend. */
+	clear_bit(HCD_FLAG_POLL_RH, &hcd->flags);
+	del_timer_sync(&hcd->rh_timer);
+
 	clk_disable_unprepare(mxhci->core_clk);
 	clk_disable_unprepare(mxhci->utmi_clk);
 	clk_disable_unprepare(mxhci->hsic_clk);
@@ -683,6 +687,10 @@ static int mxhci_hsic_resume(struct mxhci_hsic_hcd *mxhci)
 	clk_prepare_enable(mxhci->hsic_clk);
 	clk_prepare_enable(mxhci->utmi_clk);
 	clk_prepare_enable(mxhci->core_clk);
+
+	/* Re-enable port polling. */
+	set_bit(HCD_FLAG_POLL_RH, &hcd->flags);
+	usb_hcd_poll_rh_status(hcd);
 
 	if (mxhci->wakeup_irq)
 		usb_hcd_resume_root_hub(hcd);
