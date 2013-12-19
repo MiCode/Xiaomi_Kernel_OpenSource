@@ -24,13 +24,45 @@
 
 int sysctl_tcp_thin_linear_timeouts __read_mostly;
 
+static void set_tcp_default(void)
+{
+	sysctl_tcp_delack_seg = TCP_DELACK_SEG;
+}
+
+/*sysctl handler for tcp_ack realted master control */
+int tcp_proc_delayed_ack_control(struct ctl_table *table, int write,
+				 void __user *buffer, size_t *length,
+				 loff_t *ppos)
+{
+	int ret = proc_dointvec_minmax(table, write, buffer, length, ppos);
+
+	/* The ret value will be 0 if the input validation is successful
+	 * and the values are written to sysctl table. If not, the stack
+	 * will continue to work with currently configured values
+	 */
+	return ret;
+}
+
+/*sysctl handler for tcp_ack realted master control */
+int tcp_use_userconfig_sysctl_handler(struct ctl_table *table, int write,
+				      void __user *buffer, size_t *length,
+				      loff_t *ppos)
+{
+	int ret = proc_dointvec_minmax(table, write, buffer, length, ppos);
+
+	if (write && ret == 0) {
+		if (!sysctl_tcp_use_userconfig)
+			set_tcp_default();
+	}
+	return ret;
+}
+
 /**
  *  tcp_write_err() - close socket and save error info
  *  @sk:  The socket the error has appeared on.
  *
  *  Returns: Nothing (void)
  */
-
 static void tcp_write_err(struct sock *sk)
 {
 	sk->sk_err = sk->sk_err_soft ? : ETIMEDOUT;
