@@ -4395,28 +4395,12 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		goto put_core_clk;
 	}
 
-	/*
-	 * Targets on which link uses asynchronous reset methodology,
-	 * free running clock is not required during the reset.
-	 */
-	motg->clk = clk_get(&pdev->dev, "alt_core_clk");
-	if (IS_ERR(motg->clk)) {
-		ret = PTR_ERR(motg->clk);
-		motg->clk = NULL;
-		if (ret != -EPROBE_DEFER)
-			dev_dbg(&pdev->dev, "alt_core_clk is not present\n");
-		else
-			goto put_pclk;
-	} else {
-		clk_set_rate(motg->clk, 60000000);
-	}
-
 	motg->xo_clk = clk_get(&pdev->dev, "xo");
 	if (IS_ERR(motg->xo_clk)) {
 		ret = PTR_ERR(motg->xo_clk);
 		motg->xo_clk = NULL;
 		if (ret == -EPROBE_DEFER)
-			goto put_clk;
+			goto put_pclk;
 	}
 
 	/*
@@ -4438,6 +4422,18 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 						__func__, ret);
 			goto put_xo_clk;
 		}
+	}
+
+	/*
+	 * Targets on which link uses asynchronous reset methodology,
+	 * free running clock is not required during the reset.
+	 */
+	motg->clk = clk_get(&pdev->dev, "alt_core_clk");
+	if (IS_ERR(motg->clk)) {
+		motg->clk = NULL;
+		dev_dbg(&pdev->dev, "alt_core_clk is not present\n");
+	} else {
+		clk_set_rate(motg->clk, 60000000);
 	}
 
 	if (pdev->dev.of_node) {
@@ -4873,9 +4869,6 @@ put_sleep_clk:
 put_xo_clk:
 	if (motg->xo_clk)
 		clk_put(motg->xo_clk);
-put_clk:
-	if (motg->clk)
-		clk_put(motg->clk);
 put_pclk:
 	if (motg->pclk)
 		clk_put(motg->pclk);
