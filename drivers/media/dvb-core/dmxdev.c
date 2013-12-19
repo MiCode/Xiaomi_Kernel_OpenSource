@@ -2862,7 +2862,7 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 		event.type = DMX_EVENT_EOS;
 		dvb_dmxdev_add_event(events, &event);
 		spin_unlock(&dmxdevfilter->dev->lock);
-		wake_up_all(&dmxdevfilter->buffer.queue);
+		wake_up_all(&buffer->queue);
 		return 0;
 	}
 
@@ -2873,7 +2873,7 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 		event.params.marker.id = dmx_data_ready->marker.id;
 		dvb_dmxdev_add_event(events, &event);
 		spin_unlock(&dmxdevfilter->dev->lock);
-		wake_up_all(&dmxdevfilter->buffer.queue);
+		wake_up_all(&buffer->queue);
 		return 0;
 	}
 
@@ -2957,7 +2957,7 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 		return 0;
 	}
 
-	free = dvb_ringbuffer_free(&dmxdevfilter->buffer);
+	free = dvb_ringbuffer_free(buffer);
 
 	if ((DMX_OVERRUN_ERROR == dmx_data_ready->status) ||
 		(dmx_data_ready->data_length > free)) {
@@ -2982,8 +2982,7 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 	if (dmxdevfilter->params.pes.output == DMX_OUT_TAP) {
 		if ((dmx_data_ready->status == DMX_OK) &&
 			(!events->current_event_data_size)) {
-			events->current_event_start_offset =
-				dmxdevfilter->buffer.pwrite;
+			events->current_event_start_offset = buffer->pwrite;
 		} else if (dmx_data_ready->status == DMX_OK_PES_END) {
 			event.type = DMX_EVENT_NEW_PES;
 
@@ -2992,7 +2991,7 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 			event.params.pes.start_offset =
 				(events->current_event_start_offset +
 				dmx_data_ready->pes_end.start_gap) %
-				dmxdevfilter->buffer.size;
+				buffer->size;
 
 			event.params.pes.actual_length =
 				dmx_data_ready->pes_end.actual_length;
@@ -3021,12 +3020,11 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 		}
 	} else {
 		if (!events->current_event_data_size)
-			events->current_event_start_offset =
-					dmxdevfilter->buffer.pwrite;
+			events->current_event_start_offset = buffer->pwrite;
 	}
 
 	events->current_event_data_size += dmx_data_ready->data_length;
-	DVB_RINGBUFFER_PUSH(&dmxdevfilter->buffer, dmx_data_ready->data_length);
+	DVB_RINGBUFFER_PUSH(buffer, dmx_data_ready->data_length);
 
 	if ((dmxdevfilter->params.pes.output == DMX_OUT_TS_TAP) ||
 		(dmxdevfilter->params.pes.output == DMX_OUT_TSDEMUX_TAP)) {
@@ -3396,12 +3394,15 @@ static int dvb_dmxdev_filter_start(struct dmxdev_filter *filter)
 		 * even if user sets the buffer in deocder
 		 * filter as external buffer.
 		 */
-		if ((filter->type == DMXDEV_TYPE_PES) &&
-			(filter->params.pes.output == DMX_OUT_DECODER))
+		if (filter->type == DMXDEV_TYPE_PES &&
+			(filter->params.pes.output == DMX_OUT_DECODER ||
+			filter->params.pes.output == DMX_OUT_TS_TAP))
 			filter->buffer_mode = DMX_BUFFER_MODE_INTERNAL;
 
-		if ((filter->buffer_mode == DMX_BUFFER_MODE_EXTERNAL) ||
-			dvb_filter_external_buffer_only(dmxdev, filter))
+		if (!(filter->type == DMXDEV_TYPE_PES &&
+			filter->params.pes.output == DMX_OUT_TS_TAP) &&
+			(filter->buffer_mode == DMX_BUFFER_MODE_EXTERNAL ||
+			dvb_filter_external_buffer_only(dmxdev, filter)))
 			return -ENOMEM;
 
 		mem = vmalloc_user(filter->buffer.size);
@@ -4623,6 +4624,7 @@ static int dvb_dmxdev_dbgfs_print(struct seq_file *s, void *p)
 	struct dmx_buffer_status buffer_status;
 	struct dmx_scrambling_bits scrambling_bits;
 	const char *pes_feeds[] = {"DEC", "PES", "DVR", "REC"};
+	int ret;
 
 	if (!dmxdev)
 		return 0;
@@ -4650,8 +4652,14 @@ static int dvb_dmxdev_dbgfs_print(struct seq_file *s, void *p)
 			dvb_dmxdev_get_scrambling_bits(filter,
 				&scrambling_bits);
 
-			if (0 == dvb_dmxdev_get_buffer_status(
-						filter, &buffer_status)) {
+			if (filter->type == DMXDEV_TYPE_PES &&
+				filter->params.pes.output == DMX_OUT_TS_TAP)
+				ret = dvb_dvr_get_buffer_status(dmxdev,
+					O_RDONLY, &buffer_status);
+			else
+				ret = dvb_dmxdev_get_buffer_status(filter,
+					&buffer_status);
+			if (!ret) {
 				seq_printf(s, "size: %08d, ",
 					buffer_status.size);
 				seq_printf(s, "fullness: %08d, ",
