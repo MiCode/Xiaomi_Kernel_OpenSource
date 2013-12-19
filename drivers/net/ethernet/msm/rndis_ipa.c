@@ -470,7 +470,7 @@ int rndis_ipa_init(struct ipa_usb_init_params *params)
 	rndis_ipa_ctx->tx_filter = false;
 	rndis_ipa_ctx->rx_filter = false;
 	rndis_ipa_ctx->icmp_filter = true;
-	rndis_ipa_ctx->rm_enable = true;
+	rndis_ipa_ctx->rm_enable = false;
 	rndis_ipa_ctx->tx_dropped = 0;
 	rndis_ipa_ctx->rx_dropped = 0;
 	rndis_ipa_ctx->outstanding_high = DEFAULT_OUTSTANDING_HIGH;
