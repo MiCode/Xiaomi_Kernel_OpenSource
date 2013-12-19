@@ -111,11 +111,6 @@ extern u16 total_len;
 #define GTP_CHANGE_X2Y			0
 #define GTP_DRIVER_SEND_CFG		1
 #define GTP_HAVE_TOUCH_KEY		1
-
-/* auto updated by head_fw_array in gt9xx_firmware.h,
- * function together with CONFIG_GT9XX_TOUCHPANEL_UPDATE */
-#define GTP_HEADER_FW_UPDATE	0
-
 #define GTP_ESD_PROTECT			0
 #define GTP_WITH_PEN			0
 
