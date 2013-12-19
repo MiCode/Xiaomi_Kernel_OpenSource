@@ -2526,8 +2526,6 @@ static int emac_probe(struct platform_device *pdev)
 	netdev->vlan_features |= NETIF_F_SG | NETIF_F_HW_CSUM |
 				 NETIF_F_TSO | NETIF_F_TSO6;
 
-	netdev->flags |= IFF_PROMISC;
-
 	setup_timer(&adpt->emac_timer, &emac_timer_routine,
 		    (unsigned long)adpt);
 	INIT_WORK(&adpt->emac_task, emac_task_routine);
