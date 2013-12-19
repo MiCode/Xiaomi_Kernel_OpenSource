@@ -32,6 +32,50 @@
 #include <linux/mutex.h>
 #include <linux/atomic.h>
 #include "radio-iris-commands.h"
+const unsigned char MIN_TX_TONE_VAL = 0x00;
+const unsigned char MAX_TX_TONE_VAL = 0x07;
+const unsigned char MIN_HARD_MUTE_VAL = 0x00;
+const unsigned char MAX_HARD_MUTE_VAL = 0x03;
+const unsigned char MIN_SRCH_MODE = 0x00;
+const unsigned char MAX_SRCH_MODE = 0x01;
+const unsigned char MIN_SCAN_DWELL = 0x00;
+const unsigned char MAX_SCAN_DWELL = 0x0F;
+const unsigned char MIN_SIG_TH = 0x00;
+const unsigned char MAX_SIG_TH = 0x03;
+const unsigned char MIN_PTY = 0X00;
+const unsigned char MAX_PTY = 0x1F;
+const unsigned short MIN_PI = 0x0000;
+const unsigned short MAX_PI = 0xFFFF;
+const unsigned char MIN_SRCH_STATIONS_CNT = 0x00;
+const unsigned char MAX_SRCH_STATIONS_CNT = 0x14;
+const unsigned char MIN_CHAN_SPACING = 0x00;
+const unsigned char MAX_CHAN_SPACING = 0x02;
+const unsigned char MIN_EMPHASIS = 0x00;
+const unsigned char MAX_EMPHASIS = 0x01;
+const unsigned char MIN_RDS_STD = 0x00;
+const unsigned char MAX_RDS_STD = 0x02;
+const unsigned char MIN_ANTENNA_VAL = 0x00;
+const unsigned char MAX_ANTENNA_VAL = 0x01;
+const unsigned char MIN_TX_PS_REPEAT_CNT = 0x01;
+const unsigned char MAX_TX_PS_REPEAT_CNT = 0x0F;
+const unsigned char MIN_SOFT_MUTE = 0x00;
+const unsigned char MAX_SOFT_MUTE = 0x01;
+const unsigned char MIN_PEEK_ACCESS_LEN = 0x01;
+const unsigned char MAX_PEEK_ACCESS_LEN = 0xF9;
+const unsigned char MIN_RESET_CNTR = 0x00;
+const unsigned char MAX_RESET_CNTR = 0x01;
+const unsigned char MIN_HLSI = 0x00;
+const unsigned char MAX_HLSI = 0x02;
+const unsigned char MIN_NOTCH_FILTER = 0x00;
+const unsigned char MAX_NOTCH_FILTER = 0x02;
+const unsigned char MIN_INTF_DET_OUT_LW_TH = 0x00;
+const unsigned char MAX_INTF_DET_OUT_LW_TH = 0xFF;
+const unsigned char MIN_INTF_DET_OUT_HG_TH = 0x00;
+const unsigned char MAX_INTF_DET_OUT_HG_TH = 0xFF;
+const signed char MIN_SINR_TH = -128;
+const signed char MAX_SINR_TH = 127;
+const unsigned char MIN_SINR_SAMPLES = 0x01;
+const unsigned char MAX_SINR_SAMPLES = 0xFF;
 
 /* ---- HCI Packet structures ---- */
 #define RADIO_HCI_COMMAND_HDR_SIZE sizeof(struct radio_hci_command_hdr)
@@ -630,6 +674,7 @@ enum radio_state_t {
 	FM_TURNING_OFF,
 	FM_RECV_TURNING_ON,
 	FM_TRANS_TURNING_ON,
+	FM_MAX_NO_STATES,
 };
 
 enum emphasis_type {
@@ -828,4 +873,209 @@ int hci_def_data_write(struct hci_fm_def_data_wr_req *arg,
 int hci_fm_do_calibration(__u8 *arg, struct radio_hci_dev *hdev);
 int hci_fm_do_calibration(__u8 *arg, struct radio_hci_dev *hdev);
 
+static inline int is_valid_tone(int tone)
+{
+	if ((tone >= MIN_TX_TONE_VAL) &&
+		(tone <= MAX_TX_TONE_VAL))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_hard_mute(int hard_mute)
+{
+	if ((hard_mute >= MIN_HARD_MUTE_VAL) &&
+		(hard_mute <= MAX_HARD_MUTE_VAL))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_srch_mode(int srch_mode)
+{
+	if ((srch_mode >= MIN_SRCH_MODE) &&
+		(srch_mode <= MAX_SRCH_MODE))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_scan_dwell_prd(int scan_dwell_prd)
+{
+	if ((scan_dwell_prd >= MIN_SCAN_DWELL) &&
+		(scan_dwell_prd <= MAX_SCAN_DWELL))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_sig_th(int sig_th)
+{
+	if ((sig_th >= MIN_SIG_TH) &&
+		(sig_th <= MAX_SIG_TH))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_pty(int pty)
+{
+	if ((pty >= MIN_PTY) &&
+		(pty <= MAX_PTY))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_pi(int pi)
+{
+	if ((pi >= MIN_PI) &&
+		(pi <= MAX_PI))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_srch_station_cnt(int cnt)
+{
+	if ((cnt >= MIN_SRCH_STATIONS_CNT) &&
+		(cnt <= MAX_SRCH_STATIONS_CNT))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_chan_spacing(int spacing)
+{
+	if ((spacing >= MIN_CHAN_SPACING) &&
+		(spacing <= MAX_CHAN_SPACING))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_emphasis(int emphasis)
+{
+	if ((emphasis >= MIN_EMPHASIS) &&
+		(emphasis <= MAX_EMPHASIS))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_rds_std(int rds_std)
+{
+	if ((rds_std >= MIN_RDS_STD) &&
+		(rds_std <= MAX_RDS_STD))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_antenna(int antenna_type)
+{
+	if ((antenna_type >= MIN_ANTENNA_VAL) &&
+		(antenna_type <= MAX_ANTENNA_VAL))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_ps_repeat_cnt(int cnt)
+{
+	if ((cnt >= MIN_TX_PS_REPEAT_CNT) &&
+		(cnt <= MAX_TX_PS_REPEAT_CNT))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_soft_mute(int soft_mute)
+{
+	if ((soft_mute >= MIN_SOFT_MUTE) &&
+		(soft_mute <= MAX_SOFT_MUTE))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_peek_len(int len)
+{
+	if ((len >= MIN_PEEK_ACCESS_LEN) &&
+		(len <= MAX_PEEK_ACCESS_LEN))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_reset_cntr(int cntr)
+{
+	if ((cntr >= MIN_RESET_CNTR) &&
+		(cntr <= MAX_RESET_CNTR))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_hlsi(int hlsi)
+{
+	if ((hlsi >= MIN_HLSI) &&
+		(hlsi <= MAX_HLSI))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_notch_filter(int filter)
+{
+	if ((filter >= MIN_NOTCH_FILTER) &&
+		(filter <= MAX_NOTCH_FILTER))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_intf_det_low_th(int th)
+{
+	if ((th >= MIN_INTF_DET_OUT_LW_TH) &&
+		(th <= MAX_INTF_DET_OUT_LW_TH))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_intf_det_hgh_th(int th)
+{
+	if ((th >= MIN_INTF_DET_OUT_HG_TH) &&
+		(th <= MAX_INTF_DET_OUT_HG_TH))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_sinr_th(int th)
+{
+	if ((th >= MIN_SINR_TH) &&
+		(th <= MAX_SINR_TH))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_sinr_samples(int samples_cnt)
+{
+	if ((samples_cnt >= MIN_SINR_SAMPLES) &&
+		(samples_cnt <= MAX_SINR_SAMPLES))
+		return 1;
+	else
+		return 0;
+}
+
+static inline int is_valid_fm_state(int state)
+{
+	if ((state >= 0) && (state < FM_MAX_NO_STATES))
+		return 1;
+	else
+		return 0;
+}
 #endif /* __RADIO_HCI_CORE_H */
