@@ -17,7 +17,6 @@
  */
 
 #include <linux/delay.h>
-#include <linux/earlysuspend.h>
 #include <linux/i2c.h>
 #include <linux/input.h>
 #include <linux/sensors.h>
@@ -118,7 +117,6 @@ struct cm36283_info {
 	struct input_dev *ls_input_dev;
 	struct input_dev *ps_input_dev;
 
-	struct early_suspend early_suspend;
 	struct i2c_client *i2c_client;
 	struct workqueue_struct *lp_wq;
 
@@ -1426,29 +1424,6 @@ fail_free_intr_pin:
 	return ret;
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void cm36283_early_suspend(struct early_suspend *h)
-{
-	struct cm36283_info *lpi = lp_info;
-
-	D("[LS][CM36283] %s\n", __func__);
-
-	if (lpi->als_enable)
-		lightsensor_disable(lpi);
-
-}
-
-static void cm36283_late_resume(struct early_suspend *h)
-{
-	struct cm36283_info *lpi = lp_info;
-
-	D("[LS][CM36283] %s\n", __func__);
-
-	if (!lpi->als_enable)
-		lightsensor_enable(lpi);
-}
-#endif
-
 static int cm36283_parse_dt(struct device *dev,
 				struct cm36283_platform_data *pdata)
 {
@@ -1744,13 +1719,6 @@ static int cm36283_probe(struct i2c_client *client,
 	if (ret)
 		goto err_create_ps_device_file;
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	lpi->early_suspend.level =
-			EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
-	lpi->early_suspend.suspend = cm36283_early_suspend;
-	lpi->early_suspend.resume = cm36283_late_resume;
-	register_early_suspend(&lpi->early_suspend);
-#endif
 	ret = sensors_classdev_register(&client->dev, &sensors_light_cdev);
 	if (ret)
 		goto err_create_ps_device_file;
