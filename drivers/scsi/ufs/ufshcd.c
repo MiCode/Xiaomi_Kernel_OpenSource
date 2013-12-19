@@ -4826,14 +4826,14 @@ out:
 /**
  * ufshcd_suspend - helper function for suspend operations
  * @hba: per adapter instance
- * @pm_op: runtime PM or system PM
- *
- * This is common function called by both ufshcd_system_suspend() and
- * ufshcd_runtime_suspend().
+ * @pm_op: desired low power operation type
  *
  * This function will try to put the UFS device and link into low power
  * mode based on the "rpm_lvl" (Runtime PM level) or "spm_lvl"
  * (System PM level).
+ *
+ * If this function is called during shutdown, it will make sure that
+ * both UFS device and UFS link is powered off.
  *
  * NOTE: UFS device & link must be active before we enter in this function.
  *
@@ -4847,9 +4847,15 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	enum uic_link_state req_link_state;
 
 	hba->pm_op_in_progress = 1;
-	pm_lvl = ufshcd_is_runtime_pm(pm_op) ? hba->rpm_lvl : hba->spm_lvl;
-	req_dev_pwr_mode = ufs_get_pm_lvl_to_dev_pwr_mode(pm_lvl);
-	req_link_state = ufs_get_pm_lvl_to_link_pwr_state(pm_lvl);
+	if (!ufshcd_is_shutdown_pm(pm_op)) {
+		pm_lvl = ufshcd_is_runtime_pm(pm_op) ?
+			 hba->rpm_lvl : hba->spm_lvl;
+		req_dev_pwr_mode = ufs_get_pm_lvl_to_dev_pwr_mode(pm_lvl);
+		req_link_state = ufs_get_pm_lvl_to_link_pwr_state(pm_lvl);
+	} else {
+		req_dev_pwr_mode = UFS_POWERDOWN_PWR_MODE;
+		req_link_state = UIC_LINK_OFF_STATE;
+	}
 
 	/*
 	 * If we can't transition into any of the low power modes
@@ -4882,7 +4888,7 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 	if ((req_dev_pwr_mode != hba->curr_dev_pwr_mode) &&
 	     ((ufshcd_is_runtime_pm(pm_op) && !hba->auto_bkops_enabled) ||
-	       ufshcd_is_system_pm(pm_op))) {
+	       !ufshcd_is_runtime_pm(pm_op))) {
 		/* ensure that bkops is disabled */
 		ufshcd_disable_auto_bkops(hba);
 		ret = ufshcd_set_dev_pwr_mode(hba, req_dev_pwr_mode);
@@ -5174,6 +5180,36 @@ int ufshcd_runtime_idle(struct ufs_hba *hba)
 	return 0;
 }
 EXPORT_SYMBOL(ufshcd_runtime_idle);
+
+/**
+ * ufshcd_shutdown - shutdown routine
+ * @hba: per adapter instance
+ *
+ * This function would power off both UFS device and UFS link.
+ *
+ * Returns 0 always to allow force shutdown even in case of errors.
+ */
+int ufshcd_shutdown(struct ufs_hba *hba)
+{
+	int ret = 0;
+
+	if (ufshcd_is_ufs_dev_poweroff(hba) && ufshcd_is_link_off(hba))
+		goto out;
+
+	if (pm_runtime_suspended(hba->dev)) {
+		ret = ufshcd_runtime_resume(hba);
+		if (ret)
+			goto out;
+	}
+
+	ret = ufshcd_suspend(hba, UFS_SHUTDOWN_PM);
+out:
+	if (ret)
+		dev_err(hba->dev, "%s failed, err %d\n", __func__, ret);
+	/* allow force shutdown even in case of errors */
+	return 0;
+}
+EXPORT_SYMBOL(ufshcd_shutdown);
 
 /**
  * ufshcd_remove - de-allocate SCSI host and host memory space

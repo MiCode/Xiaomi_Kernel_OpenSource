@@ -258,6 +258,11 @@ static int ufshcd_pltfrm_runtime_idle(struct device *dev)
 #define ufshcd_pltfrm_runtime_idle	NULL
 #endif /* CONFIG_PM_RUNTIME */
 
+static void ufshcd_pltfrm_shutdown(struct platform_device *pdev)
+{
+	ufshcd_shutdown((struct ufs_hba *)platform_get_drvdata(pdev));
+}
+
 /**
  * ufshcd_pltfrm_probe - probe routine of the driver
  * @pdev: pointer to Platform device handle
@@ -362,6 +367,7 @@ static const struct dev_pm_ops ufshcd_dev_pm_ops = {
 static struct platform_driver ufshcd_pltfrm_driver = {
 	.probe	= ufshcd_pltfrm_probe,
 	.remove	= ufshcd_pltfrm_remove,
+	.shutdown = ufshcd_pltfrm_shutdown,
 	.driver	= {
 		.name	= "ufshcd",
 		.owner	= THIS_MODULE,
