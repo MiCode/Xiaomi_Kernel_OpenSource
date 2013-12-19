@@ -1820,17 +1820,21 @@ static void tspp2_event_work_handler(struct work_struct *work)
 {
 	struct tspp2_event_work *event_work =
 		container_of(work, struct tspp2_event_work, work);
+	struct tspp2_event_work cb_info = *event_work;
 
 	if (mutex_lock_interruptible(&event_work->device->mutex))
 		return;
 
-	if (event_work->callback)
-		event_work->callback(event_work->cookie,
-					event_work->event_bitmask);
-
 	list_add_tail(&event_work->link, &event_work->device->free_work_list);
 
 	mutex_unlock(&event_work->device->mutex);
+
+	/*
+	 * Must run callback with tspp2 device mutex unlocked,
+	 * as callback might call tspp2 driver API and cause a deadlock.
+	 */
+	if (cb_info.callback)
+		cb_info.callback(cb_info.cookie, cb_info.event_bitmask);
 }
 
 /**
