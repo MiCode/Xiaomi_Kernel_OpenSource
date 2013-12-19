@@ -581,6 +581,7 @@ bool msm_bam_usb_lpm_ok(void);
 void msm_bam_notify_lpm_resume(void);
 void msm_bam_set_usb_host_dev(struct device *dev);
 void msm_bam_set_hsic_host_dev(struct device *dev);
+void msm_bam_set_usb_dev(struct device *dev);
 void msm_bam_wait_for_usb_host_prod_granted(void);
 void msm_bam_wait_for_hsic_host_prod_granted(void);
 bool msm_bam_hsic_lpm_ok(void);
@@ -591,6 +592,7 @@ static inline bool msm_bam_usb_lpm_ok(void) { return true; }
 static inline void msm_bam_notify_lpm_resume(void) {}
 static inline void msm_bam_set_usb_host_dev(struct device *dev) {}
 static inline void msm_bam_set_hsic_host_dev(struct device *dev) {}
+static inline void msm_bam_set_usb_dev(struct device *dev) {}
 static inline void msm_bam_wait_for_usb_host_prod_granted(void) {}
 static inline void msm_bam_wait_for_hsic_host_prod_granted(void) {}
 static inline bool msm_bam_hsic_lpm_ok(void) { return true; }
