@@ -624,6 +624,7 @@
 		compatible = "qti,msm-pcm-dsp";
 		qti,msm-pcm-dsp-id = <1>;
 		qti,msm-pcm-low-latency;
+		qti,latency-level = "ultra";
 	};
 
 	qcom,msm-pcm-routing {

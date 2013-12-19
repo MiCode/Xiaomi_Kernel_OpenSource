@@ -442,6 +442,7 @@
 		compatible = "qti,msm-pcm-dsp";
 		qti,msm-pcm-dsp-id = <1>;
 		qti,msm-pcm-low-latency;
+		qti,latency-level = "regular";
 	};
 
 	qcom,msm-pcm-lpa {
