@@ -702,7 +702,8 @@ done:
 	return;
 }
 
-static int send_adm_cal_block(int port_id, struct acdb_cal_block *aud_cal)
+static int send_adm_cal_block(int port_id, struct acdb_cal_block *aud_cal,
+			      int perf_mode)
 {
 	s32				result = 0;
 	struct adm_cmd_set_pp_params_v5	adm_params;
@@ -731,7 +732,14 @@ static int send_adm_cal_block(int port_id, struct acdb_cal_block *aud_cal)
 	adm_params.hdr.src_port = port_id;
 	adm_params.hdr.dest_svc = APR_SVC_ADM;
 	adm_params.hdr.dest_domain = APR_DOMAIN_ADSP;
-	adm_params.hdr.dest_port = atomic_read(&this_adm.copp_id[index]);
+
+	if (!perf_mode)
+		adm_params.hdr.dest_port =
+			atomic_read(&this_adm.copp_id[index]);
+	else
+		adm_params.hdr.dest_port =
+			atomic_read(&this_adm.copp_low_latency_id[index]);
+
 	adm_params.hdr.token = port_id;
 	adm_params.hdr.opcode = ADM_CMD_SET_PP_PARAMS_V5;
 	adm_params.payload_addr_lsw = aud_cal->cal_paddr;
@@ -767,7 +775,7 @@ done:
 	return result;
 }
 
-static void send_adm_cal(int port_id, int path)
+static void send_adm_cal(int port_id, int path, int perf_mode)
 {
 	int			result = 0;
 	s32			acdb_path;
@@ -808,7 +816,7 @@ static void send_adm_cal(int port_id, int path)
 		}
 	}
 
-	if (!send_adm_cal_block(port_id, &aud_cal))
+	if (!send_adm_cal_block(port_id, &aud_cal, perf_mode))
 		pr_debug("%s: Audproc cal sent for port id: %#x, path %d\n",
 			__func__, port_id, acdb_path);
 	else
@@ -842,7 +850,7 @@ static void send_adm_cal(int port_id, int path)
 		}
 	}
 
-	if (!send_adm_cal_block(port_id, &aud_cal))
+	if (!send_adm_cal_block(port_id, &aud_cal, perf_mode))
 		pr_debug("%s: Audvol cal sent for port id: %#x, path %d\n",
 			__func__, port_id, acdb_path);
 	else
@@ -1323,8 +1331,7 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 		else
 			continue;
 		pr_debug("%s: port_id[%#x]: %d, index: %d act coppid[0x%x]\n",
-			__func__, i, port_id[i], tmp,
-			atomic_read(&this_adm.copp_id[tmp]));
+			__func__, i, port_id[i], tmp, copps_list[i]);
 	}
 	atomic_set(&this_adm.copp_stat[index], 0);
 
@@ -1344,25 +1351,27 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	if (!perf_mode) {
-		for (i = 0; i < num_copps; i++)
-			send_adm_cal(port_id[i], path);
 
-		for (i = 0; i < num_copps; i++) {
-			int tmp;
-			tmp = afe_get_port_index(port_id[i]);
-			if (tmp >= 0 && tmp < AFE_MAX_PORTS) {
-				rtac_add_adm_device(port_id[i],
-					atomic_read(&this_adm.copp_id[tmp]),
-					path, session_id);
-				pr_debug("%s, copp_id: %d\n", __func__,
-					atomic_read(&this_adm.copp_id[tmp]));
-			} else {
-				pr_debug("%s: Invalid port index %d",
-					__func__, tmp);
-			}
+	for (i = 0; i < num_copps; i++)
+		send_adm_cal(port_id[i], path, perf_mode);
+
+	for (i = 0; i < num_copps; i++) {
+		int tmp, copp_id;
+		tmp = afe_get_port_index(port_id[i]);
+		if (tmp >= 0 && tmp < AFE_MAX_PORTS) {
+			if (!perf_mode)
+				copp_id = atomic_read(&this_adm.copp_id[tmp]);
+			else
+				copp_id =
+				atomic_read(&this_adm.copp_low_latency_id[tmp]);
+			rtac_add_adm_device(port_id[i],
+						copp_id, path, session_id);
+			pr_debug("%s, copp_id: %d\n", __func__, copp_id);
+		} else {
+			pr_debug("%s: Invalid port index %d", __func__, tmp);
 		}
 	}
+
 fail_cmd:
 	kfree(matrix_map);
 	return ret;
@@ -1514,7 +1523,25 @@ fail_cmd:
 	return ret;
 }
 
+#ifdef CONFIG_RTAC
 int adm_get_copp_id(int port_index)
+{
+	int copp_id;
+	pr_debug("%s\n", __func__);
+
+	if (port_index < 0) {
+		pr_err("%s: invalid port_id = %d\n", __func__, port_index);
+		return -EINVAL;
+	}
+
+	copp_id = atomic_read(&this_adm.copp_id[port_index]);
+	if (copp_id == RESET_COPP_ID)
+		copp_id = atomic_read(
+			&this_adm.copp_low_latency_id[port_index]);
+	return copp_id;
+}
+
+int adm_get_lowlatency_copp_id(int port_index)
 {
 	pr_debug("%s\n", __func__);
 
@@ -1523,8 +1550,19 @@ int adm_get_copp_id(int port_index)
 		return -EINVAL;
 	}
 
-	return atomic_read(&this_adm.copp_id[port_index]);
+	return atomic_read(&this_adm.copp_low_latency_id[port_index]);
 }
+#else
+int adm_get_copp_id(int port_index)
+{
+	return -EINVAL;
+}
+
+int adm_get_lowlatency_copp_id(int port_index)
+{
+	return -EINVAL;
+}
+#endif /* #ifdef CONFIG_RTAC */
 
 void adm_ec_ref_rx_id(int port_id)
 {
@@ -1538,6 +1576,7 @@ int adm_close(int port_id, bool perf_mode)
 
 	int ret = 0;
 	int index = 0;
+	int copp_id = RESET_COPP_ID;
 
 	port_id = q6audio_convert_virtual_to_portid(port_id);
 
@@ -1588,17 +1627,21 @@ int adm_close(int port_id, bool perf_mode)
 		atomic_set(&this_adm.copp_stat[index], 0);
 
 		if (perf_mode) {
+			copp_id = atomic_read(
+				&this_adm.copp_low_latency_id[index]);
 			pr_debug("%s:coppid %d portid=%#x index=%d coppcnt=%d\n",
-			    __func__,
-			    atomic_read(&this_adm.copp_low_latency_id[index]),
-			    port_id, index,
-			    atomic_read(&this_adm.copp_low_latency_cnt[index]));
+				__func__,
+				copp_id,
+				port_id, index,
+				atomic_read(
+					&this_adm.copp_low_latency_cnt[index]));
 			atomic_set(&this_adm.copp_low_latency_id[index],
 				RESET_COPP_ID);
 		} else {
+			copp_id = atomic_read(&this_adm.copp_id[index]);
 			pr_debug("%s:coppid %d portid=%#x index=%d coppcnt=%d\n",
 				__func__,
-				atomic_read(&this_adm.copp_id[index]),
+				copp_id,
 				port_id, index,
 				atomic_read(&this_adm.copp_cnt[index]));
 			atomic_set(&this_adm.copp_id[index],
@@ -1623,10 +1666,8 @@ int adm_close(int port_id, bool perf_mode)
 		}
 	}
 
-	if (!perf_mode) {
-		pr_debug("%s: remove adm device from rtac\n", __func__);
-		rtac_remove_adm_device(port_id);
-	}
+	pr_debug("%s: remove adm device from rtac\n", __func__);
+	rtac_remove_adm_device(port_id, copp_id);
 
 fail_cmd:
 	return ret;
