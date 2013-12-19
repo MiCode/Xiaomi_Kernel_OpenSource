@@ -43,7 +43,6 @@ struct kgsl_clk_stats {
 /**
  * struct kgsl_pwrctrl - Power control settings for a KGSL device
  * @interrupt_num - The interrupt number for the device
- * @ebi1_clk - Pointer to the EBI clock structure
  * @grp_clks - Array of clocks structures that we control
  * @power_flags - Control flags for power
  * @pwrlevels - List of supported power levels
@@ -59,7 +58,6 @@ struct kgsl_clk_stats {
  * @gpu_reg - pointer to the regulator structure for gpu_reg
  * @gpu_cx - pointer to the regulator structure for gpu_cx
  * @pcl - bus scale identifier
- * @idle_needed - true if the device needs a idle before clock change
  * @irq_name - resource name for the IRQ
  * @clk_stats - structure of clock statistics
  * @pm_qos_req_dma - the power management quality of service structure
@@ -72,7 +70,6 @@ struct kgsl_clk_stats {
 
 struct kgsl_pwrctrl {
 	int interrupt_num;
-	struct clk *ebi1_clk;
 	struct clk *grp_clks[KGSL_MAX_CLKS];
 	unsigned long power_flags;
 	unsigned long ctrl_flags;
@@ -90,7 +87,6 @@ struct kgsl_pwrctrl {
 	struct regulator *gpu_reg;
 	struct regulator *gpu_cx;
 	uint32_t pcl;
-	unsigned int idle_needed;
 	const char *irq_name;
 	struct kgsl_clk_stats clk_stats;
 	struct pm_qos_request pm_qos_req_dma;
