@@ -415,6 +415,7 @@ u64 arch_counter_get_cntpct(void)
 	else
 		return arch_counter_get_cntpct_mem();
 }
+EXPORT_SYMBOL(arch_counter_get_cntpct);
 
 u64 arch_counter_get_cntvct(void)
 {
