@@ -198,6 +198,7 @@ void mdss_edp_set_backlight(struct mdss_panel_data *pdata, u32 bl_level)
 	int ret = 0;
 	struct mdss_edp_drv_pdata *edp_drv = NULL;
 	int bl_max;
+	int period_ns;
 
 	edp_drv = container_of(pdata, struct mdss_edp_drv_pdata, panel_data);
 	if (!edp_drv) {
@@ -210,13 +211,29 @@ void mdss_edp_set_backlight(struct mdss_panel_data *pdata, u32 bl_level)
 		if (bl_level > bl_max)
 			bl_level = bl_max;
 
-		ret = pwm_config_us(edp_drv->bl_pwm,
-				bl_level * edp_drv->pwm_period / bl_max,
-				edp_drv->pwm_period);
-		if (ret) {
-			pr_err("%s: pwm_config_us() failed err=%d.\n", __func__,
-					ret);
-			return;
+		/* In order to avoid overflow, use the microsecond version
+		 * of pwm_config if the pwm_period is greater than or equal
+		 * to 1 second.
+		 */
+		if (edp_drv->pwm_period >= USEC_PER_SEC) {
+			ret = pwm_config_us(edp_drv->bl_pwm,
+					bl_level * edp_drv->pwm_period / bl_max,
+					edp_drv->pwm_period);
+			if (ret) {
+				pr_err("%s: pwm_config_us() failed err=%d.\n",
+						__func__, ret);
+				return;
+			}
+		} else {
+			period_ns = edp_drv->pwm_period * NSEC_PER_USEC;
+			ret = pwm_config(edp_drv->bl_pwm,
+					bl_level * period_ns / bl_max,
+					period_ns);
+			if (ret) {
+				pr_err("%s: pwm_config() failed err=%d.\n",
+						__func__, ret);
+				return;
+			}
 		}
 
 		ret = pwm_enable(edp_drv->bl_pwm);
