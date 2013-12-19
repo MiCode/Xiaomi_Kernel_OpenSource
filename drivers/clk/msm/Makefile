@@ -41,3 +41,4 @@ obj-$(CONFIG_ARCH_APQ8084)	+= clock-krait-8974.o
 obj-$(CONFIG_ARCH_MSM8974)	+= clock-krait-8974.o
 
 obj-y				+= gdsc.o
+obj-y				+= mdss/
