@@ -4,21 +4,21 @@ Qualcomm audio devices for ALSA sound SoC
 
 Required properties:
 
- - compatible : "qcom,msm-pcm-dsp"
+ - compatible : "qti,msm-pcm-dsp"
 
- - qcom,msm-pcm-dsp-id : device node id
+ - qti,msm-pcm-dsp-id : device node id
 
 * msm-pcm-low-latency
 
 Required properties:
 
- - compatible : "qcom,msm-pcm-dsp"
+ - compatible : "qti,msm-pcm-dsp"
 
- - qcom,msm-pcm-dsp-id : device node id
+ - qti,msm-pcm-dsp-id : device node id
 
    Optional properties
 
-      - qcom,msm-pcm-low-latency : Flag indicating whether
+      - qti,msm-pcm-low-latency : Flag indicating whether
         the device node is of type low latency.
 
 * msm-pcm-routing
@@ -226,16 +226,16 @@ Required properties:
 
 Example:
 
-        qcom,msm-pcm {
-		compatible = "qcom,msm-pcm-dsp";
-		qcom,msm-pcm-dsp-id = <0>;
+	qti,msm-pcm {
+		compatible = "qti,msm-pcm-dsp";
+		qti,msm-pcm-dsp-id = <0>;
 	};
 
-	qcom,msm-pcm-low-latency {
-		compatible = "qcom,msm-pcm-dsp";
-		qcom,msm-pcm-dsp-id = <1>;
-		qcom,msm-pcm-low-latency;
-        };
+	qti,msm-pcm-low-latency {
+		compatible = "qti,msm-pcm-dsp";
+		qti,msm-pcm-dsp-id = <1>;
+		qti,msm-pcm-low-latency;
+	};
 
         qcom,msm-pcm-routing {
                 compatible = "qcom,msm-pcm-routing";
