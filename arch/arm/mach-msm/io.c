@@ -129,7 +129,6 @@ static struct map_desc msm8916_io_desc[] __initdata = {
 void __init msm_map_msm8916_io(void)
 {
 	iotable_init(msm8916_io_desc, ARRAY_SIZE(msm8916_io_desc));
-	of_scan_flat_dt(msm_scan_dt_map_imem, NULL);
 }
 #endif /* CONFIG_ARCH_MSM8916 */
 
