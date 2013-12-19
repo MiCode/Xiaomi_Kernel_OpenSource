@@ -18,6 +18,7 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <linux/hwmon.h>
 #include <linux/delay.h>
 #include <linux/epm_adc.h>
@@ -133,6 +134,7 @@ struct epm_adc_drv {
 	uint32_t			bus_id;
 	struct miscdevice		misc;
 	uint32_t			channel_mask;
+	uint32_t			epm_global_en_gpio;
 	struct epm_chan_properties	epm_psoc_ch_prop[0];
 };
 
@@ -705,22 +707,24 @@ conv_err:
 	return rc;
 }
 
-static int epm_adc_psoc_gpio_init(bool enable)
+static int epm_adc_psoc_gpio_init(struct epm_adc_drv *epm_adc,
+							bool enable)
 {
 	int rc = 0;
 
 	if (enable) {
-		rc = gpio_request(EPM_PSOC_GLOBAL_ENABLE, "EPM_PSOC_GLOBAL_EN");
+		rc = gpio_request(epm_adc->epm_global_en_gpio,
+							"EPM_PSOC_GLOBAL_EN");
 		if (!rc) {
-			gpio_direction_output(EPM_PSOC_GLOBAL_ENABLE, 1);
+			gpio_direction_output(epm_adc->epm_global_en_gpio, 1);
 		} else {
 			pr_err("%s: Configure EPM_GLOBAL_EN Failed\n",
 								__func__);
 			return rc;
 		}
 	} else {
-		gpio_direction_output(EPM_PSOC_GLOBAL_ENABLE, 0);
-		gpio_free(EPM_PSOC_GLOBAL_ENABLE);
+		gpio_direction_output(epm_adc->epm_global_en_gpio, 0);
+		gpio_free(epm_adc->epm_global_en_gpio);
 	}
 
 	return 0;
@@ -1694,7 +1698,7 @@ static long epm_adc_ioctl(struct file *file, unsigned int cmd,
 			}
 
 			if (!rc) {
-				rc = epm_adc_psoc_gpio_init(true);
+				rc = epm_adc_psoc_gpio_init(epm_adc, true);
 				if (rc) {
 					pr_err("GPIO init failed\n");
 					return -EINVAL;
@@ -1709,7 +1713,7 @@ static long epm_adc_ioctl(struct file *file, unsigned int cmd,
 	case EPM_PSOC_ADC_DEINIT:
 		{
 			uint32_t result;
-			result = epm_adc_psoc_gpio_init(false);
+			result = epm_adc_psoc_gpio_init(epm_adc, false);
 
 			if (copy_to_user((void __user *)arg, &result,
 						sizeof(uint32_t)))
@@ -2071,7 +2075,7 @@ static ssize_t epm_adc_psoc_show_in(struct device *dev,
 	struct epm_psoc_get_data psoc_get_meas;
 	int rc = 0;
 
-	rc = epm_adc_psoc_gpio_init(true);
+	rc = epm_adc_psoc_gpio_init(epm_adc, true);
 	if (rc) {
 		pr_err("GPIO init failed\n");
 		return 0;
@@ -2111,7 +2115,7 @@ static ssize_t epm_adc_psoc_show_in(struct device *dev,
 			psoc_get_meas.reading_value,
 			attr->index);
 
-	rc = epm_adc_psoc_gpio_init(false);
+	rc = epm_adc_psoc_gpio_init(epm_adc, false);
 	if (rc) {
 		pr_err("GPIO de-init failed\n");
 		return 0;
@@ -2177,7 +2181,7 @@ static int get_device_tree_data(struct spi_device *spi)
 	const struct device_node *node = spi->dev.of_node;
 	struct epm_adc_drv *epm_adc;
 	u32 *epm_ch_gain, *epm_ch_rsense;
-	u32 rc = 0, epm_num_channels, i, channel_mask;
+	u32 rc = 0, epm_num_channels, i, channel_mask, epm_gpio_num;
 
 	if (!node)
 		return -EINVAL;
@@ -2224,6 +2228,13 @@ static int get_device_tree_data(struct spi_device *spi)
 		return -ENODEV;
 	}
 
+	epm_gpio_num = of_get_named_gpio(spi->dev.of_node,
+						"qcom,epm-enable-gpio", 0);
+	if (epm_gpio_num < 0) {
+		dev_err(&spi->dev, "missing global en gpio num\n");
+		return -ENODEV;
+	}
+
 	epm_adc = devm_kzalloc(&spi->dev,
 			sizeof(struct epm_adc_drv) +
 			(epm_num_channels *
@@ -2242,6 +2253,7 @@ static int get_device_tree_data(struct spi_device *spi)
 	}
 
 	epm_adc->channel_mask = channel_mask;
+	epm_adc->epm_global_en_gpio = epm_gpio_num;
 	epm_adc_drv = epm_adc;
 
 	return 0;

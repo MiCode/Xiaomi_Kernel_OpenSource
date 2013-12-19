@@ -23,3 +23,6 @@ Required properties:
 - qcom,channel-type : Bitmak of channels to set as voltage and current.
 		      These are platform dependent and the appropriate scaling
 		      functions are used for returning voltage and current.
+- qcom,<gpio-name>-gpio : Handle to the GPIO node, see "gpios property" in
+		Documentation/devicetree/bindings/gpio/gpio.txt.
+  "gpio-name" can be "epm-enable" which is the EPM global enable GPIO for powering up the PSoC.

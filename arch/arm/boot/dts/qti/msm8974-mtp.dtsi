@@ -728,6 +728,7 @@
 				100 500 20 200 1000 20 1000 1000 70 200
 				50>;
 		qcom,channel-type = <0x1540>;
+		qcom,epm-enable-gpio = <&msmgpio 81 0>;
 	};
 };
 
