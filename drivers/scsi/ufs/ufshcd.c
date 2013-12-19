@@ -3,6 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd.c
  * Copyright (C) 2011-2013 Samsung India Software Operations
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -31,6 +32,9 @@
  * circumstances will the contributor of this Program be liable for
  * any damages of any kind arising from your use or distribution of
  * this program.
+ *
+ * The Linux Foundation chooses to take subject only to the GPLv2
+ * license terms, and distributes only under these terms.
  */
 
 #include <linux/async.h>
@@ -2564,6 +2568,62 @@ static void ufshcd_set_queue_depth(struct scsi_device *sdev)
 	scsi_activate_tcq(sdev, lun_qdepth);
 }
 
+/*
+ * ufshcd_get_lu_wp - returns the "b_lu_write_protect" from UNIT DESCRIPTOR
+ * @hba: per-adapter instance
+ * @lun: UFS device lun id
+ * @b_lu_write_protect: pointer to buffer to hold the LU's write protect info
+ *
+ * Returns 0 in case of success and b_lu_write_protect status would be returned
+ * @b_lu_write_protect parameter.
+ * Returns -ENOTSUPP if reading b_lu_write_protect is not supported.
+ * Returns -EINVAL in case of invalid parameters passed to this function.
+ */
+static int ufshcd_get_lu_wp(struct ufs_hba *hba,
+			    u8 lun,
+			    u8 *b_lu_write_protect)
+{
+	int ret;
+
+	if (!b_lu_write_protect)
+		ret = -EINVAL;
+	/*
+	 * According to UFS device spec, RPMB LU can't be write
+	 * protected so skip reading bLUWriteProtect parameter for
+	 * it. For other W-LUs, UNIT DESCRIPTOR is not available.
+	 */
+	else if (lun >= UFS_UPIU_MAX_GENERAL_LUN)
+		ret = -ENOTSUPP;
+	else
+		ret = ufshcd_read_unit_desc_param(hba,
+					  lun,
+					  UNIT_DESC_PARAM_LU_WR_PROTECT,
+					  b_lu_write_protect,
+					  sizeof(*b_lu_write_protect));
+	return ret;
+}
+
+/**
+ * ufshcd_get_lu_power_on_wp_status - get LU's power on write protect
+ * status
+ * @hba: per-adapter instance
+ * @sdev: pointer to SCSI device
+ *
+ */
+static inline void ufshcd_get_lu_power_on_wp_status(struct ufs_hba *hba,
+						    struct scsi_device *sdev)
+{
+	if (hba->dev_info.f_power_on_wp_en &&
+	    !hba->dev_info.is_lu_power_on_wp) {
+		u8 b_lu_write_protect;
+
+		if (!ufshcd_get_lu_wp(hba, ufshcd_scsi_to_upiu_lun(sdev->lun),
+				      &b_lu_write_protect) &&
+		    (b_lu_write_protect == UFS_LU_POWER_ON_WP))
+			hba->dev_info.is_lu_power_on_wp = true;
+	}
+}
+
 /**
  * ufshcd_slave_alloc - handle initial SCSI device configurations
  * @sdev: pointer to SCSI device
@@ -2594,6 +2654,8 @@ static int ufshcd_slave_alloc(struct scsi_device *sdev)
 	sdev->no_write_same = 1;
 
 	ufshcd_set_queue_depth(sdev);
+
+	ufshcd_get_lu_power_on_wp_status(hba, sdev);
 
 	/*
 	 * For selecting the UFS device power mode (Active / UFS_Sleep /
@@ -3950,6 +4012,14 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	 * context, no need to scan the host
 	 */
 	if (!ufshcd_eh_in_progress(hba) && !hba->pm_op_in_progress) {
+		bool flag;
+
+		/* clear any previous UFS device information */
+		memset(&hba->dev_info, 0, sizeof(hba->dev_info));
+		if (!ufshcd_query_flag(hba, UPIU_QUERY_OPCODE_READ_FLAG,
+				       QUERY_FLAG_IDN_PWR_ON_WPE, &flag))
+			hba->dev_info.f_power_on_wp_en = flag;
+
 		ufshcd_init_icc_levels(hba);
 		scsi_scan_host(hba->host);
 		pm_runtime_put_sync(hba->dev);
@@ -4215,6 +4285,42 @@ static struct scsi_host_template ufshcd_driver_template = {
 	.can_queue		= UFSHCD_CAN_QUEUE,
 };
 
+static int ufshcd_config_vreg_load(struct device *dev, struct ufs_vreg *vreg,
+				   int ua)
+{
+	int ret = 0;
+	struct regulator *reg = vreg->reg;
+	const char *name = vreg->name;
+
+	BUG_ON(!vreg);
+
+	ret = regulator_set_optimum_mode(reg, ua);
+	if (ret >= 0) {
+		/*
+		 * regulator_set_optimum_mode() returns new regulator
+		 * mode upon success.
+		 */
+		ret = 0;
+	} else {
+		dev_err(dev, "%s: %s set optimum mode(ua=%d) failed, err=%d\n",
+				__func__, name, ua, ret);
+	}
+
+	return ret;
+}
+
+static inline int ufshcd_config_vreg_lpm(struct ufs_hba *hba,
+					 struct ufs_vreg *vreg)
+{
+	return ufshcd_config_vreg_load(hba->dev, vreg, UFS_VREG_LPM_LOAD_UA);
+}
+
+static inline int ufshcd_config_vreg_hpm(struct ufs_hba *hba,
+					 struct ufs_vreg *vreg)
+{
+	return ufshcd_config_vreg_load(hba->dev, vreg, vreg->max_uA);
+}
+
 static int ufshcd_config_vreg(struct device *dev,
 		struct ufs_vreg *vreg, bool on)
 {
@@ -4235,18 +4341,9 @@ static int ufshcd_config_vreg(struct device *dev,
 		}
 
 		uA_load = on ? vreg->max_uA : 0;
-		ret = regulator_set_optimum_mode(reg, uA_load);
-		if (ret >= 0) {
-			/*
-			 * regulator_set_optimum_mode() returns new regulator
-			 * mode upon success.
-			 */
-			ret = 0;
-		} else {
-			dev_err(dev, "%s: %s set optimum mode(uA_load=%d) failed, err=%d\n",
-					__func__, name, uA_load, ret);
+		ret = ufshcd_config_vreg_load(dev, vreg, uA_load);
+		if (ret)
 			goto out;
-		}
 	}
 out:
 	return ret;
@@ -4672,6 +4769,60 @@ out:
 	return ret;
 }
 
+static void ufshcd_vreg_set_lpm(struct ufs_hba *hba)
+{
+	/*
+	 * If UFS device is either in UFS_Sleep turn off VCC rail to save some
+	 * power.
+	 *
+	 * If UFS device and link is in OFF state, all power supplies (VCC,
+	 * VCCQ, VCCQ2) can be turned off if power on write protect is not
+	 * required. If UFS link is inactive (Hibern8 or OFF state) and device
+	 * is in sleep state, put VCCQ & VCCQ2 rails in LPM mode.
+	 *
+	 * Ignore the error returned by ufshcd_toggle_vreg() as device is anyway
+	 * in low power state which would save some power.
+	 */
+	if (ufshcd_is_ufs_dev_poweroff(hba) &&
+	    !hba->dev_info.is_lu_power_on_wp) {
+		ufshcd_setup_vreg(hba, false);
+	} else if (!ufshcd_is_ufs_dev_active(hba)) {
+		ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, false);
+		if (!ufshcd_is_link_active(hba)) {
+			ufshcd_config_vreg_lpm(hba, hba->vreg_info.vccq);
+			ufshcd_config_vreg_lpm(hba, hba->vreg_info.vccq2);
+		}
+	}
+}
+
+static int ufshcd_vreg_set_hpm(struct ufs_hba *hba)
+{
+	int ret = 0;
+
+	if (ufshcd_is_ufs_dev_poweroff(hba) &&
+	    !hba->dev_info.is_lu_power_on_wp) {
+		ret = ufshcd_setup_vreg(hba, true);
+	} else if (!ufshcd_is_ufs_dev_active(hba)) {
+		ret = ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, true);
+		if (!ret && !ufshcd_is_link_active(hba)) {
+			ret = ufshcd_config_vreg_hpm(hba, hba->vreg_info.vccq);
+			if (ret)
+				goto vcc_disable;
+			ret = ufshcd_config_vreg_hpm(hba, hba->vreg_info.vccq2);
+			if (ret)
+				goto vccq_lpm;
+		}
+	}
+	goto out;
+
+vccq_lpm:
+	ufshcd_config_vreg_lpm(hba, hba->vreg_info.vccq);
+vcc_disable:
+	ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, false);
+out:
+	return ret;
+}
+
 /**
  * ufshcd_suspend - helper function for suspend operations
  * @hba: per adapter instance
@@ -4743,18 +4894,7 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	if (ret)
 		goto set_dev_active;
 
-	/*
-	 * If UFS device is either in UFS_Sleep turn off VCC rail to
-	 * save some power.
-	 * If UFS device is in UFS_Poweroff state, all power supplies
-	 * (VCC, VCCQ, VCCQ2) can be turned off.
-	 * Ignore the error returned by ufshcd_toggle_vreg() as device
-	 * is anyway in low power state which would save some power.
-	 */
-	if (ufshcd_is_ufs_dev_poweroff(hba))
-		ufshcd_setup_vreg(hba, false);
-	else if (ufshcd_is_ufs_dev_sleep(hba))
-		ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, false);
+	ufshcd_vreg_set_lpm(hba);
 
 disable_clks:
 	/*
@@ -4791,10 +4931,7 @@ vops_resume:
 	if (hba->vops && hba->vops->resume)
 		hba->vops->resume(hba, pm_op);
 set_link_active:
-	if (ufshcd_is_ufs_dev_poweroff(hba))
-		ufshcd_setup_vreg(hba, true);
-	else if (ufshcd_is_ufs_dev_sleep(hba))
-		ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, true);
+	ufshcd_vreg_set_hpm(hba);
 	if (ufshcd_is_link_hibern8(hba) && !ufshcd_uic_hibern8_exit(hba))
 		ufshcd_set_link_active(hba);
 	else if (ufshcd_is_link_off(hba))
@@ -4838,12 +4975,7 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	/* enable the host irq as host controller would be active soon */
 	ufshcd_enable_irq(hba);
 
-	/* Bring regulators back online if its turned off during suspend. */
-	if (ufshcd_is_ufs_dev_poweroff(hba))
-		ret = ufshcd_setup_vreg(hba, true);
-	else if (ufshcd_is_ufs_dev_sleep(hba))
-		ret = ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, true);
-
+	ret = ufshcd_vreg_set_hpm(hba);
 	if (ret)
 		goto disable_irq_and_vops_clks;
 
@@ -4889,10 +5021,7 @@ vendor_suspend:
 	if (hba->vops && hba->vops->suspend)
 		hba->vops->suspend(hba, pm_op);
 disable_vreg:
-	if (ufshcd_is_ufs_dev_poweroff(hba))
-		ufshcd_setup_vreg(hba, false);
-	else if (ufshcd_is_ufs_dev_sleep(hba))
-		ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, false);
+	ufshcd_vreg_set_lpm(hba);
 disable_irq_and_vops_clks:
 	ufshcd_disable_irq(hba);
 	if (hba->vops && hba->vops->setup_clocks)
