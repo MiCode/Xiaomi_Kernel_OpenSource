@@ -131,7 +131,7 @@ static inline unsigned int kgsl_get_sg_pa(struct scatterlist *sg)
 
 static inline void *kgsl_sg_alloc(unsigned int sglen)
 {
-	if (sglen >= ULONG_MAX / sizeof(struct scatterlist))
+	if ((sglen == 0) || (sglen >= ULONG_MAX / sizeof(struct scatterlist)))
 		return NULL;
 
 	if ((sglen * sizeof(struct scatterlist)) <  PAGE_SIZE)
