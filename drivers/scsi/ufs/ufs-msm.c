@@ -1259,16 +1259,13 @@ static int msm_ufs_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	msm_ufs_disable_phy_iface_clk(phy);
 
 	/*
-	 * If UniPro link is not active, PHY ref_clk and main PHY analog power
-	 * can be switched off.
+	 * If UniPro link is not active, PHY ref_clk, main PHY analog power
+	 * rail and low noise analog power rail for PLL can be switched off.
 	 */
 	if (!ufshcd_is_link_active(hba)) {
 		msm_ufs_disable_phy_ref_clk(phy);
-		ret = msm_ufs_phy_disable_vreg(phy, &phy->vdda_phy);
-		/*
-		 * TODO: Check if "vdda_pll" can voted off when link is hibern8
-		 * or power off state?
-		 */
+		msm_ufs_phy_disable_vreg(phy, &phy->vdda_phy);
+		msm_ufs_phy_disable_vreg(phy, &phy->vdda_pll);
 	}
 
 out:
