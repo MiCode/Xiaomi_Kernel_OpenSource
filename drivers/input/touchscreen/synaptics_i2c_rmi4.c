@@ -2424,6 +2424,8 @@ static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data)
 		}
 	}
 
+	INIT_LIST_HEAD(&rmi->support_fn_list);
+
 	retval = synaptics_rmi4_query_device(rmi4_data);
 	if (retval < 0) {
 		dev_err(&rmi4_data->i2c_client->dev,
