@@ -459,7 +459,7 @@ static int mdss_dsi_parse_dcs_cmds(struct device_node *np,
 	}
 
 	data = of_get_property(np, link_key, NULL);
-	if (!strncmp(data, "dsi_hs_mode", 11))
+	if (data && !strcmp(data, "dsi_hs_mode"))
 		pcmds->link_state = DSI_HS_MODE;
 	else
 		pcmds->link_state = DSI_LP_MODE;
@@ -695,18 +695,23 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	pdest = of_get_property(np,
 		"qcom,mdss-dsi-panel-destination", NULL);
 
-	if (strlen(pdest) != 9) {
-		pr_err("%s: Unknown pdest specified\n", __func__);
+	if (pdest) {
+		if (strlen(pdest) != 9) {
+			pr_err("%s: Unknown pdest specified\n", __func__);
+			return -EINVAL;
+		}
+		if (!strcmp(pdest, "display_1"))
+			pinfo->pdest = DISPLAY_1;
+		else if (!strcmp(pdest, "display_2"))
+			pinfo->pdest = DISPLAY_2;
+		else {
+			pr_debug("%s: pdest not specified. Set Default\n",
+								__func__);
+			pinfo->pdest = DISPLAY_1;
+		}
+	} else {
+		pr_err("%s: pdest not specified\n", __func__);
 		return -EINVAL;
-	}
-	if (!strncmp(pdest, "display_1", 9))
-		pinfo->pdest = DISPLAY_1;
-	else if (!strncmp(pdest, "display_2", 9))
-		pinfo->pdest = DISPLAY_2;
-	else {
-		pr_debug("%s: pdest not specified. Set Default\n",
-							__func__);
-		pinfo->pdest = DISPLAY_1;
 	}
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-h-front-porch", &tmp);
 	pinfo->lcdc.h_front_porch = (!rc ? tmp : 6);
