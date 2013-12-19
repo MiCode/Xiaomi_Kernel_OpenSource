@@ -15,7 +15,7 @@
 
 #include <linux/notifier.h>
 
-#include <mach/msm_smem.h>
+#include <soc/msm/smem.h>
 
 #if defined(CONFIG_MSM_N_WAY_SMSM)
 enum {

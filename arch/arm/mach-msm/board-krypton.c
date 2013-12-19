@@ -30,7 +30,7 @@
 #include <mach/rpm-regulator-smd.h>
 #include <mach/restart.h>
 #include <mach/socinfo.h>
-#include <mach/msm_smem.h>
+#include <soc/msm/smem.h>
 #include "board-dt.h"
 #include "clock.h"
 #include "spm.h"

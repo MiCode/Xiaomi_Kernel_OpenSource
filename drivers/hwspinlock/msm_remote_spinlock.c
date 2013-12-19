@@ -19,7 +19,7 @@
 #include <linux/of_address.h>
 #include <linux/msm_remote_spinlock.h>
 
-#include <mach/msm_smem.h>
+#include <soc/msm/smem.h>
 
 
 #define SPINLOCK_PID_APPS 1

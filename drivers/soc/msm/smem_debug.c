@@ -20,7 +20,7 @@
 #include <linux/ctype.h>
 #include <linux/jiffies.h>
 
-#include <mach/msm_smem.h>
+#include <soc/msm/smem.h>
 
 #include "smem_private.h"
 

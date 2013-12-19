@@ -21,7 +21,7 @@
 #include <linux/termios.h>
 #include <linux/module.h>
 #include <linux/remote_spinlock.h>
-#include "smem_private.h"
+#include "../../../drivers/soc/msm/smem_private.h"
 #include "smp2p_private.h"
 
 /**

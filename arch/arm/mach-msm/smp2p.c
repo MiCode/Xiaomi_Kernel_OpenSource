@@ -20,7 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/ipc_logging.h>
-#include <mach/msm_smem.h>
+#include <soc/msm/smem.h>
 #include "smp2p_private_api.h"
 #include "smp2p_private.h"
 

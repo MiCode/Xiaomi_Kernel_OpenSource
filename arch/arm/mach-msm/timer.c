@@ -34,8 +34,8 @@
 #include <mach/irqs.h>
 #include <mach/socinfo.h>
 
+#include <soc/msm/smem.h>
 #if defined(CONFIG_MSM_SMD)
-#include <mach/msm_smem.h>
 #include <mach/msm_smsm.h>
 #endif
 #include "timer.h"

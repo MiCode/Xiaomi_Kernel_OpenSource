@@ -14,7 +14,7 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/interrupt.h>
-#include <mach/msm_smem.h>
+#include <soc/msm/smem.h>
 #include "vidc_hfi_helper.h"
 #include "vidc_hfi_io.h"
 #include "msm_vidc_debug.h"

@@ -32,12 +32,13 @@
 
 #include <mach/msm_iomap.h>
 #include <mach/smem_log.h>
-#include <mach/msm_smem.h>
+
+#include <soc/msm/smem.h>
 
 #include <asm/arch_timer.h>
 
 #include "smd_rpc_sym.h"
-#include "smem_private.h"
+#include "../../../drivers/soc/msm/smem_private.h"
 
 #define DEBUG
 #undef DEBUG

@@ -25,7 +25,7 @@
 #include <mach/board.h>
 #include <mach/msm_memtypes.h>
 #include <mach/qpnp-int.h>
-#include <mach/msm_smem.h>
+#include <soc/msm/smem.h>
 #include <mach/msm_smd.h>
 #include <mach/restart.h>
 #include <mach/rpm-smd.h>

@@ -21,7 +21,7 @@
 #include <linux/io.h>
 #include <linux/notifier.h>
 
-#include <mach/msm_smem.h>
+#include <soc/msm/smem.h>
 
 typedef struct smd_channel smd_channel_t;
 

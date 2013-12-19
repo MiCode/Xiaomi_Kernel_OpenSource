@@ -35,7 +35,7 @@
 #ifdef CONFIG_MSM_SDIO_SMEM
 #include <mach/sdio_smem.h>
 #endif
-#include <mach/msm_smem.h>
+#include <soc/msm/smem.h>
 
 enum {
 	RMT_STORAGE_EVNT_OPEN = 0,

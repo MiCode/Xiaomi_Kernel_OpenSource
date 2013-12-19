@@ -31,8 +31,9 @@
 #include <mach/subsystem_restart.h>
 #include <mach/msm_smsm.h>
 #include <mach/ramdump.h>
-#include <mach/msm_smem.h>
 #include <mach/sysmon.h>
+
+#include <soc/msm/smem.h>
 
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
