@@ -110,6 +110,8 @@ void emac_reinit_locked(struct emac_adapter *adpt)
 	}
 
 	emac_down(adpt, EMAC_HW_CTRL_RESET_MAC);
+	if (adpt->phy_mode == PHY_INTERFACE_MODE_SGMII)
+		emac_hw_reset_sgmii(&adpt->hw);
 	emac_up(adpt);
 
 	CLI_ADPT_FLAG(STATE_RESETTING);
@@ -961,7 +963,15 @@ static irqreturn_t emac_sgmii_interrupt(int irq, void *data)
 		if (status & SGMII_ISR_AN_MASK)
 			emac_check_lsc(adpt);
 
-		emac_hw_clear_sgmii_intr_status(hw, status);
+		if (emac_hw_clear_sgmii_intr_status(hw, status) != 0) {
+			emac_warn(adpt, intr,
+				  "failed to clear sgmii intr, status=0x%x\n",
+				  status);
+			/* reset */
+			SET_ADPT_FLAG(TASK_REINIT_REQ);
+			emac_task_schedule(adpt);
+			break;
+		}
 	} while (1);
 
 	return IRQ_HANDLED;
