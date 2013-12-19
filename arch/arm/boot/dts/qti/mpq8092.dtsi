@@ -258,6 +258,14 @@
 		qcom,android-usb-swfi-latency = <1>;
 	};
 
+	usb_detect {
+		compatible = "qcom,qpnp-usbdetect";
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x0 0xca 0x0>;  /* PMA8084 GPIO 11 */
+		interrupt-names = "vbus_det_irq";
+		vin-supply = <&smb210_vreg>;
+	};
+
 	spmi_bus: qcom,spmi@fc4c0000 {
 		cell-index = <0>;
 		compatible = "qcom,spmi-pmic-arb";

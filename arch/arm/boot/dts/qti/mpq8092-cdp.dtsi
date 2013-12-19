@@ -165,7 +165,12 @@
 		qcom,master-en = <1>;	/* Enable GPIO */
 	};
 
-	gpio@ca00 { /* GPIO 11 */
+	gpio@ca00 { /* GPIO 11 - VBUS interrupt */
+		qcom,mode = <0>;	/* Digital input */
+		qcom,pull = <1>;	/* 1.5uA pull-up */
+		qcom,vin-sel = <2>;	/* PMA8084 S4 = 1.8V */
+		qcom,src-sel = <0>;	/* Constant Function */
+		qcom,master-en = <1>;	/* Enable GPIO */
 	};
 
 	gpio@cb00 { /* GPIO 12 */
