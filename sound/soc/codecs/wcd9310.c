@@ -8620,26 +8620,6 @@ static int tabla_handle_pdata(struct tabla_priv *tabla)
 			0xE0, (pdata->ocp.hph_ocp_limit << 5));
 	}
 
-	for (i = 0; i < ARRAY_SIZE(pdata->regulator); i++) {
-		if (!strncmp(pdata->regulator[i].name, "CDC_VDDA_RX", 11)) {
-			if (pdata->regulator[i].min_uV == 1800000 &&
-			    pdata->regulator[i].max_uV == 1800000) {
-				snd_soc_write(codec, TABLA_A_BIAS_REF_CTL,
-					      0x1C);
-			} else if (pdata->regulator[i].min_uV == 2200000 &&
-				   pdata->regulator[i].max_uV == 2200000) {
-				snd_soc_write(codec, TABLA_A_BIAS_REF_CTL,
-					      0x1E);
-			} else {
-				pr_err("%s: unsupported CDC_VDDA_RX voltage "
-				       "min %d, max %d\n", __func__,
-				       pdata->regulator[i].min_uV,
-				       pdata->regulator[i].max_uV);
-				rc = -EINVAL;
-			}
-			break;
-		}
-	}
 done:
 	return rc;
 }
