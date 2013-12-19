@@ -23,3 +23,4 @@ obj-$(CONFIG_ARCH_QCOM) += clock-gcc-cobalt.o
 # CPU clocks
 
 obj-y				+= gdsc.o
+obj-y				+= mdss/
