@@ -280,6 +280,10 @@ Optional Properties for Subnode:
 - qti,descriptor-fifo-offset: descriptor fifo offset address
 
 Optional properties :
+- qti,bam-mode: BAM mode can be one of.
+	0 - BAM_MODE_DEVICE
+	1 - BAM_MODE_HOST
+	(If not set will be set by default to BAM_MODE_DEVICE)
 - qti,ignore-core-reset-ack: If present then BAM ignores ACK from USB core
 	    while performing PIPE RESET
 - qti,disable-clk-gating: If present then disable BAM clock gating.
@@ -303,6 +307,7 @@ Example USB BAM controller device node:
 			label = "hsusb-ipa-out-0";
 			qti,usb-bam-mem-type = <0>;
 			qti,bam-type = <1>;
+			qti,bam-mode = <0>;
 			qti,dir = <0>;
 			qti,pipe-num = <0>;
 			qti,peer-bam = <2>;
@@ -317,6 +322,7 @@ Example USB BAM controller device node:
 			label = "hsusb-ipa-in-0";
 			qti,usb-bam-mem-type = <0>;
 			qti,bam-type = <1>;
+			qti,bam-mode = <0>;
 			qti,dir = <1>;
 			qti,pipe-num = <0>;
 			qti,peer-bam = <2>;

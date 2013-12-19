@@ -900,7 +900,8 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	if (atomic_read(&motg->in_lpm))
 		return 0;
 
-	if (motg->pdata->delay_lpm_hndshk_on_disconnect && !msm_bam_lpm_ok())
+	if (motg->pdata->delay_lpm_hndshk_on_disconnect &&
+			!msm_bam_usb_lpm_ok())
 		return -EBUSY;
 
 	motg->ui_enabled = 0;

@@ -69,7 +69,7 @@ static int set_qdss_data_connection(struct usb_gadget *gadget,
 
 	/* There is only one qdss pipe, so the pipe number can be set to 0 */
 	idx = usb_bam_get_connection_idx(gadget->name, QDSS_P_BAM,
-		PEER_PERIPHERAL_TO_USB, 0);
+		PEER_PERIPHERAL_TO_USB, USB_BAM_DEVICE, 0);
 	if (idx < 0) {
 		pr_err("%s: usb_bam_get_connection_idx failed\n", __func__);
 		return idx;

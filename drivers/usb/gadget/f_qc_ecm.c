@@ -395,9 +395,9 @@ static int ecm_qc_bam_connect(struct f_ecm_qc *dev)
 
 	/* currently we use the first connection */
 	src_connection_idx = usb_bam_get_connection_idx(gadget->name, peer_bam,
-		USB_TO_PEER_PERIPHERAL, 0);
+		USB_TO_PEER_PERIPHERAL, USB_BAM_DEVICE, 0);
 	dst_connection_idx = usb_bam_get_connection_idx(gadget->name, peer_bam,
-		PEER_PERIPHERAL_TO_USB, 0);
+		PEER_PERIPHERAL_TO_USB, USB_BAM_DEVICE, 0);
 	if (src_connection_idx < 0 || dst_connection_idx < 0) {
 		pr_err("usb_bam_get_connection_idx failed\n");
 		return ret;

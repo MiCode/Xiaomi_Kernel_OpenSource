@@ -150,7 +150,7 @@ static int ehci_msm_probe(struct platform_device *pdev)
 	device_init_wakeup(&pdev->dev, 1);
 	pm_runtime_enable(&pdev->dev);
 
-	/* FIXME: need to call usb_add_hcd() here? */
+	msm_bam_set_usb_host_dev(&pdev->dev);
 
 	return 0;
 

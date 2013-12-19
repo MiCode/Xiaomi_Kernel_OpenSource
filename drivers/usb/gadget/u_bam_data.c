@@ -271,7 +271,8 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 			struct usb_bam_data_connect_info bam_info;
 
 			idx = usb_bam_get_connection_idx(gadget->name,
-				IPA_P_BAM, USB_TO_PEER_PERIPHERAL, 0);
+				IPA_P_BAM, USB_TO_PEER_PERIPHERAL,
+				USB_BAM_DEVICE, 0);
 			if (idx < 0) {
 				pr_err("%s: get_connection_idx failed\n",
 					__func__);
@@ -310,7 +311,8 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 			struct usb_bam_data_connect_info bam_info;
 
 			idx = usb_bam_get_connection_idx(gadget->name,
-				IPA_P_BAM, PEER_PERIPHERAL_TO_USB, 0);
+				IPA_P_BAM, PEER_PERIPHERAL_TO_USB,
+				USB_BAM_DEVICE, 0);
 			if (idx < 0) {
 				pr_err("%s: get_connection_idx failed\n",
 					__func__);
