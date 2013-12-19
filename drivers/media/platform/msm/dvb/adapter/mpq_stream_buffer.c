@@ -51,6 +51,7 @@ int mpq_streambuffer_init(
 	sbuff->buffers = data_buffers;
 	sbuff->pending_buffers_count = 0;
 	sbuff->buffers_num = data_buff_num;
+	sbuff->cb = NULL;
 	dvb_ringbuffer_init(&sbuff->packet_data, packet_buff, packet_buff_size);
 
 	return 0;
@@ -182,7 +183,7 @@ int mpq_streambuffer_pkt_dispose(
 		(dispose_data)) {
 		/* Advance the read pointer in the raw-data buffer first */
 		ret = mpq_streambuffer_data_read_dispose(sbuff,
-				packet.raw_data_len);
+			packet.raw_data_len);
 		if (ret != 0)
 			return ret;
 	}
@@ -221,9 +222,6 @@ int mpq_streambuffer_pkt_dispose(
 
 	spin_unlock(&sbuff->raw_data.lock);
 	spin_unlock(&sbuff->packet_data.lock);
-
-	if (sbuff->cb)
-		sbuff->cb(sbuff, &packet, sbuff->cb_user_data);
 
 	return 0;
 }
@@ -414,6 +412,7 @@ ssize_t mpq_streambuffer_data_read(
 				u8 *buf, size_t len)
 {
 	ssize_t actual_len = 0;
+	u32 offset;
 
 	if ((NULL == sbuff) || (NULL == buf))
 		return -EINVAL;
@@ -436,6 +435,7 @@ ssize_t mpq_streambuffer_data_read(
 			return -EPERM;
 		}
 
+		offset = sbuff->raw_data.pread;
 		actual_len = dvb_ringbuffer_avail(&sbuff->raw_data);
 		if (actual_len < len)
 			len = actual_len;
@@ -463,10 +463,15 @@ ssize_t mpq_streambuffer_data_read(
 		if (actual_len < len)
 			len = actual_len;
 		memcpy(buf, desc->base + desc->read_ptr, len);
+		offset = desc->read_ptr;
 		desc->read_ptr += len;
 	}
 
 	spin_unlock(&sbuff->raw_data.lock);
+
+	if (sbuff->cb)
+		sbuff->cb(sbuff, offset, len, sbuff->cb_user_data);
+
 	return len;
 }
 EXPORT_SYMBOL(mpq_streambuffer_data_read);
@@ -477,6 +482,7 @@ ssize_t mpq_streambuffer_data_read_user(
 		u8 __user *buf, size_t len)
 {
 	ssize_t actual_len = 0;
+	u32 offset;
 
 	if ((NULL == sbuff) || (NULL == buf))
 		return -EINVAL;
@@ -493,6 +499,7 @@ ssize_t mpq_streambuffer_data_read_user(
 		if (NULL == sbuff->raw_data.data)
 			return -EPERM;
 
+		offset = sbuff->raw_data.pread;
 		actual_len = dvb_ringbuffer_avail(&sbuff->raw_data);
 		if (actual_len < len)
 			len = actual_len;
@@ -519,8 +526,12 @@ ssize_t mpq_streambuffer_data_read_user(
 		if (copy_to_user(buf, desc->base + desc->read_ptr, len))
 			return -EFAULT;
 
+		offset = desc->read_ptr;
 		desc->read_ptr += len;
 	}
+
+	if (sbuff->cb)
+		sbuff->cb(sbuff, offset, len, sbuff->cb_user_data);
 
 	return len;
 }
@@ -530,6 +541,8 @@ int mpq_streambuffer_data_read_dispose(
 			struct mpq_streambuffer *sbuff,
 			size_t len)
 {
+	u32 offset;
+
 	if (NULL == sbuff)
 		return -EINVAL;
 
@@ -547,6 +560,7 @@ int mpq_streambuffer_data_read_dispose(
 			return -EINVAL;
 		}
 
+		offset = sbuff->raw_data.pread;
 		DVB_RINGBUFFER_SKIP(&sbuff->raw_data, len);
 		wake_up_all(&sbuff->raw_data.queue);
 	} else {
@@ -554,6 +568,8 @@ int mpq_streambuffer_data_read_dispose(
 
 		desc = (struct mpq_streambuffer_buffer_desc *)
 				&sbuff->raw_data.data[sbuff->raw_data.pread];
+		offset = desc->read_ptr;
+
 		if ((desc->read_ptr + len) > desc->size)
 			desc->read_ptr = desc->size;
 		else
@@ -561,6 +577,9 @@ int mpq_streambuffer_data_read_dispose(
 	}
 
 	spin_unlock(&sbuff->raw_data.lock);
+
+	if (sbuff->cb)
+		sbuff->cb(sbuff, offset, len, sbuff->cb_user_data);
 
 	return 0;
 }
@@ -604,9 +623,9 @@ int mpq_streambuffer_get_buffer_handle(
 EXPORT_SYMBOL(mpq_streambuffer_get_buffer_handle);
 
 
-int mpq_streambuffer_register_pkt_dispose(
+int mpq_streambuffer_register_data_dispose(
 	struct mpq_streambuffer *sbuff,
-	mpq_streambuffer_pkt_dispose_cb cb_func,
+	mpq_streambuffer_dispose_cb cb_func,
 	void *user_data)
 {
 	if ((NULL == sbuff) || (NULL == cb_func))
@@ -617,7 +636,7 @@ int mpq_streambuffer_register_pkt_dispose(
 
 	return 0;
 }
-EXPORT_SYMBOL(mpq_streambuffer_register_pkt_dispose);
+EXPORT_SYMBOL(mpq_streambuffer_register_data_dispose);
 
 
 ssize_t mpq_streambuffer_data_free(

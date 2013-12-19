@@ -4639,8 +4639,7 @@ static int mpq_dmx_tspp2_notify_data_read(struct dmx_ts_feed *ts_feed,
 }
 
 static void mpq_dmx_tspp2_streambuffer_cb(struct mpq_streambuffer *sbuff,
-	struct mpq_streambuffer_packet_header *packet,
-	void *user_data)
+	u32 offset, size_t len, void *user_data)
 {
 	int ret;
 	struct pipe_info *pipe_info = user_data;
@@ -4654,7 +4653,7 @@ static void mpq_dmx_tspp2_streambuffer_cb(struct mpq_streambuffer *sbuff,
 		return;
 	}
 
-	ret = mpq_dmx_release_data(pipe_info, packet->raw_data_len);
+	ret = mpq_dmx_release_data(pipe_info, len);
 	if (ret)
 		MPQ_DVB_ERR_PRINT("%s: mpq_dmx_release_data failed, ret=%d\n",
 			__func__, ret);
@@ -5449,7 +5448,7 @@ static int mpq_dmx_tspp2_start_filtering(struct dvb_demux_feed *feed)
 	}
 
 	if (dvb_dmx_is_video_feed(feed)) {
-		ret = mpq_streambuffer_register_pkt_dispose(
+		ret = mpq_streambuffer_register_data_dispose(
 			mpq_feed->video_info.video_buffer,
 			mpq_dmx_tspp2_streambuffer_cb,
 			tspp2_feed->main_pipe);
