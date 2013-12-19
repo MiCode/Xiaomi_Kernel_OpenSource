@@ -1339,7 +1339,7 @@ static int qpnp_adc_tm_read_status(struct qpnp_adc_tm_chip *chip)
 {
 	u8 status_low = 0, status_high = 0, qpnp_adc_tm_meas_en = 0;
 	u8 adc_tm_low_enable = 0, adc_tm_high_enable = 0;
-	u8 sensor_mask = 0;
+	u8 sensor_mask = 0, adc_tm_low_thr_set = 0, adc_tm_high_thr_set = 0;
 	int rc = 0, sensor_notify_num = 0, i = 0, sensor_num = 0;
 	uint32_t btm_chan_num = 0;
 	struct qpnp_adc_thr_client_info *client_info = NULL;
@@ -1368,6 +1368,20 @@ static int qpnp_adc_tm_read_status(struct qpnp_adc_tm_chip *chip)
 		goto fail;
 	}
 
+	rc = qpnp_adc_tm_read_reg(chip, QPNP_ADC_TM_LOW_THR_INT_EN,
+						&adc_tm_low_thr_set);
+	if (rc) {
+		pr_err("adc-tm-tm read low thr failed with %d\n", rc);
+		goto fail;
+	}
+
+	rc = qpnp_adc_tm_read_reg(chip, QPNP_ADC_TM_HIGH_THR_INT_EN,
+						&adc_tm_high_thr_set);
+	if (rc) {
+		pr_err("adc-tm-tm read high thr failed with %d\n", rc);
+		goto fail;
+	}
+
 	/* Check which interrupt threshold is lower and measure against the
 	 * enabled channel */
 	rc = qpnp_adc_tm_read_reg(chip, QPNP_ADC_TM_MULTI_MEAS_EN,
@@ -1378,7 +1392,9 @@ static int qpnp_adc_tm_read_status(struct qpnp_adc_tm_chip *chip)
 	}
 
 	adc_tm_low_enable = qpnp_adc_tm_meas_en & status_low;
+	adc_tm_low_enable &= adc_tm_low_thr_set;
 	adc_tm_high_enable = qpnp_adc_tm_meas_en & status_high;
+	adc_tm_high_enable &= adc_tm_high_thr_set;
 
 	if (adc_tm_high_enable) {
 		sensor_notify_num = adc_tm_high_enable;
