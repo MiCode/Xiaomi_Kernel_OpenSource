@@ -80,7 +80,8 @@ extern void subsys_unregister(struct subsys_device *dev);
 extern void subsys_default_online(struct subsys_device *dev);
 extern void subsys_set_crash_status(struct subsys_device *dev, bool crashed);
 extern bool subsys_get_crash_status(struct subsys_device *dev);
-
+void notify_proxy_vote(struct device *device);
+void notify_proxy_unvote(struct device *device);
 #else
 
 static inline int subsys_get_restart_level(struct subsys_device *dev)
@@ -125,7 +126,8 @@ static inline bool subsys_get_crash_status(struct subsys_device *dev)
 {
 	return false;
 }
-
+void notify_proxy_vote(struct device *device) { }
+void notify_proxy_unvote(struct device *device) { }
 #endif /* CONFIG_MSM_SUBSYSTEM_RESTART */
 
 #endif
