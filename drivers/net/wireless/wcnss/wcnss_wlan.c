@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2371,9 +2371,31 @@ exit:
 static int wcnss_notif_cb(struct notifier_block *this, unsigned long code,
 				void *ss_handle)
 {
+	struct platform_device *pdev = wcnss_get_platform_device();
+	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
+	int ret, xo_mode;
+
 	pr_debug("%s: wcnss notification event: %lu\n", __func__, code);
 
-	if (SUBSYS_POWERUP_FAILURE == code)
+	if (code == SUBSYS_PROXY_VOTE) {
+		if (pdev && pwlanconfig) {
+			ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
+					WCNSS_WLAN_SWITCH_ON, &xo_mode);
+			wcnss_set_iris_xo_mode(xo_mode);
+			if (ret)
+				pr_err("Failed to execute wcnss_wlan_power\n");
+		}
+	} else if (code == SUBSYS_PROXY_UNVOTE) {
+		if (pdev && pwlanconfig) {
+			/* Temporary workaround as some pronto images have an
+			 * issue of sending an interrupt that it is capable of
+			 * voting for it's resources too early.
+			 */
+			msleep(20);
+			wcnss_wlan_power(&pdev->dev, pwlanconfig,
+					WCNSS_WLAN_SWITCH_OFF, NULL);
+		}
+	} else if (code == SUBSYS_POWERUP_FAILURE)
 		wcnss_pronto_log_debug_regs();
 
 	return NOTIFY_DONE;
@@ -2382,7 +2404,6 @@ static int wcnss_notif_cb(struct notifier_block *this, unsigned long code,
 static struct notifier_block wnb = {
 	.notifier_call = wcnss_notif_cb,
 };
-
 
 static const struct file_operations wcnss_node_fops = {
 	.owner = THIS_MODULE,
