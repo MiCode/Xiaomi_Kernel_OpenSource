@@ -283,33 +283,33 @@ static unsigned long cached_align;
 static unsigned long vmap_area_pcpu_hole;
 
 #ifdef CONFIG_ENABLE_VMALLOC_SAVING
+#define POSSIBLE_VMALLOC_START	PAGE_OFFSET
+
+#define VMALLOC_BITMAP_SIZE	((VMALLOC_END - PAGE_OFFSET) >> \
+					PAGE_SHIFT)
+#define VMALLOC_TO_BIT(addr)	((addr - PAGE_OFFSET) >> PAGE_SHIFT)
+#define BIT_TO_VMALLOC(i)	(PAGE_OFFSET + i * PAGE_SIZE)
+
+DECLARE_BITMAP(possible_areas, VMALLOC_BITMAP_SIZE);
+
+void mark_vmalloc_reserved_area(void *x, unsigned long size)
+{
+	unsigned long addr = (unsigned long)x;
+
+	bitmap_set(possible_areas, VMALLOC_TO_BIT(addr), size >> PAGE_SHIFT);
+}
+
 int is_vmalloc_addr(const void *x)
 {
-	struct vmap_area *va;
-	int ret = 0;
+	unsigned long addr = (unsigned long)x;
 
-	spin_lock(&vmap_area_lock);
-	list_for_each_entry(va, &vmap_area_list, list) {
-		if (va->flags & (VM_LAZY_FREE | VM_LAZY_FREEING))
-			continue;
+	if (addr < POSSIBLE_VMALLOC_START || addr >= VMALLOC_END)
+		return 0;
 
-		if (!(va->flags & VM_VM_AREA))
-			continue;
+	if (test_bit(VMALLOC_TO_BIT(addr), possible_areas))
+		return 0;
 
-		if (va->vm == NULL)
-			continue;
-
-		if (va->vm->flags & VM_LOWMEM)
-			continue;
-
-		if ((unsigned long)x >= va->va_start &&
-		    (unsigned long)x < va->va_end) {
-			ret = 1;
-			break;
-		}
-	}
-	spin_unlock(&vmap_area_lock);
-	return ret;
+	return 1;
 }
 #else
 int is_vmalloc_addr(const void *x)
