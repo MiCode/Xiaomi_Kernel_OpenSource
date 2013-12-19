@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -146,6 +146,12 @@ struct lut_params {
 int pwm_lut_config(struct pwm_device *pwm, int period_us,
 		int duty_pct[], struct lut_params lut_params);
 
+/*
+ * support microsecond level configuration
+ */
+int pwm_config_us(struct pwm_device *pwm,
+		int duty_us, int period_us);
+
 /* Standard APIs supported */
 /*
  * pwm_request - request a PWM device
@@ -161,8 +167,8 @@ int pwm_lut_config(struct pwm_device *pwm, int period_us,
 /*
  * pwm_config - change a PWM device configuration
  * @pwm: the PWM device
- * @period_us: period in microsecond
- * @duty_us: duty cycle in microsecond
+ * @period_ns: period in nanosecond
+ * @duty_ns: duty cycle in nanosecond
  */
 
 /*
