@@ -1126,6 +1126,8 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 		dev_err(&pon->spmi->dev, "Unable to read PON_RESASON1 reg\n");
 		return rc;
 	}
+
+	boot_reason = ffs(pon_sts);
 	index = ffs(pon_sts);
 	if ((index > PON_REASON_MAX) || (index < 0))
 		index = 0;
