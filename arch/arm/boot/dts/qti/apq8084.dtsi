@@ -1878,7 +1878,7 @@
 		};
 	};
 
-	spi_0: spi@f9923000 { /* BLSP1 QUP1 */
+	spi_0: spi_epm: spi@f9923000 { /* BLSP1 QUP1 */
 		compatible = "qcom,spi-qup-v2";
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -1891,8 +1891,9 @@
 		qcom,gpio-mosi = <&msmgpio 0 0>;
 		qcom,gpio-miso = <&msmgpio 1 0>;
 		qcom,gpio-clk  = <&msmgpio 3 0>;
-		qcom,gpio-cs0  = <&msmgpio 0 0>;
-		qcom,gpio-cs2  = <&msmgpio 117 0>;
+		qcom,gpio-cs0  = <&msmgpio 2 0>;
+		qcom,gpio-cs1  = <&msmgpio 116 0>;
+		qcom,gpio-cs3  = <&msmgpio 117 0>;
 
 		qcom,infinite-mode = <0>;
 		qcom,use-bam;
