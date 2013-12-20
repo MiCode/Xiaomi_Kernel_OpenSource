@@ -5245,8 +5245,8 @@ static struct clk_div_ops tsc_par_clk_src_ops = {
 
 static struct div_clk tsc_par_clk_src = {
 	.data = {
-		.max_div = 48,
-		.min_div = 48,
+		.max_div = 40,
+		.min_div = 40,
 	},
 	.offset = TSC_MISC,
 	.ops = &tsc_par_clk_src_ops,
@@ -5286,8 +5286,8 @@ static struct clk_div_ops tsc_ser_clk_src_ops = {
 
 static struct div_clk tsc_ser_clk_src = {
 	.data = {
-		.max_div = 6,
-		.min_div = 6,
+		.max_div = 5,
+		.min_div = 5,
 	},
 	.offset = TSC_MISC,
 	.ops = &tsc_ser_clk_src_ops,
