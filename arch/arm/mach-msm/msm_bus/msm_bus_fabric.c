@@ -364,7 +364,7 @@ void msm_bus_fabric_update_bw(struct msm_bus_fabric_device *fabdev,
 {
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
 	void *sel_cdata;
-	long rounded_rate;
+	long rounded_rate, cur_rate;
 
 	sel_cdata = fabric->cdata[ctx];
 
@@ -379,16 +379,20 @@ void msm_bus_fabric_update_bw(struct msm_bus_fabric_device *fabdev,
 	}
 
 	/* Enable clocks before accessing QoS registers */
-	if (fabric->info.nodeclk[DUAL_CTX].clk)
+	if (fabric->info.nodeclk[DUAL_CTX].clk) {
 		if (fabric->info.nodeclk[DUAL_CTX].rate == 0) {
-			rounded_rate = clk_round_rate(fabric->
-				info.nodeclk[DUAL_CTX].clk, 1);
+			cur_rate = clk_get_rate(
+					fabric->info.nodeclk[DUAL_CTX].clk);
+			rounded_rate = clk_round_rate(
+					fabric->info.nodeclk[DUAL_CTX].clk,
+					cur_rate ? cur_rate : 1);
 		if (clk_set_rate(fabric->info.nodeclk[DUAL_CTX].clk,
 				rounded_rate))
 			MSM_BUS_ERR("Error: clk: en: Node: %d rate: %ld",
 				fabric->fabdev.id, rounded_rate);
 
 		clk_prepare_enable(fabric->info.nodeclk[DUAL_CTX].clk);
+		}
 	}
 
 	if (info->iface_clk.clk)
@@ -514,22 +518,26 @@ static void msm_bus_fabric_config_master(
 	struct msm_bus_inode_info *info, uint64_t req_clk, uint64_t req_bw)
 {
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
-	long rounded_rate;
+	long rounded_rate, cur_rate;
 
 	if (fabdev->hw_algo.config_master == NULL)
 		return;
 
 	/* Enable clocks before accessing QoS registers */
-	if (fabric->info.nodeclk[DUAL_CTX].clk)
+	if (fabric->info.nodeclk[DUAL_CTX].clk) {
 		if (fabric->info.nodeclk[DUAL_CTX].rate == 0) {
-			rounded_rate = clk_round_rate(fabric->
-				info.nodeclk[DUAL_CTX].clk, 1);
+			cur_rate = clk_get_rate(
+					fabric->info.nodeclk[DUAL_CTX].clk);
+			rounded_rate = clk_round_rate(
+					fabric->info.nodeclk[DUAL_CTX].clk,
+					cur_rate ? cur_rate : 1);
 		if (clk_set_rate(fabric->info.nodeclk[DUAL_CTX].clk,
 				rounded_rate))
 			MSM_BUS_ERR("Error: clk: en: Node: %d rate: %ld",
 				fabric->fabdev.id, rounded_rate);
 
 		clk_prepare_enable(fabric->info.nodeclk[DUAL_CTX].clk);
+		}
 	}
 
 	if (info->iface_clk.clk)
