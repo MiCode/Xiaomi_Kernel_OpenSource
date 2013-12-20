@@ -46,7 +46,7 @@ static long msm_led_flash_subdev_ioctl(struct v4l2_subdev *sd,
 		*(int *)argp = MSM_CAMERA_LED_RELEASE;
 		return fctrl->func_tbl->flash_led_config(fctrl, argp);
 	default:
-		pr_err("invalid cmd %d\n", cmd);
+		pr_err_ratelimited("invalid cmd %d\n", cmd);
 		return -ENOIOCTLCMD;
 	}
 }
