@@ -130,17 +130,15 @@ void msm_mpm_exit_sleep(bool from_idle);
 /**
  * of_mpm_init() - Device tree initialization function
  *
- * @node: MPM device tree node.
- *
- * The initialization function is called from the machine irq function after
- * GPIO/GIC device initialization routines are called. MPM driver keeps track
- * of all enabled/wakeup interrupts in the system to be able to configure MPM
- * when entering a system wide low power mode. The MPM is a alway-on low power
- * hardware block that monitors 64 wakeup interrupts when the system is in a
- * low power mode. The initialization function constructs the MPM mapping
- * between the IRQs and the MPM pin based on data in the device tree.
+ * The initialization function is called after * GPIO/GIC device initialization
+ * routines are called and before any device irqs are requested. MPM driver
+ * keeps track of all enabled/wakeup interrupts in the system to be able to
+ * configure MPM when entering a system wide low power mode. The MPM is a
+ * alway-on low power hardware block that monitors 64 wakeup interrupts when the
+ * system is in a low power mode. The initialization function constructs the MPM
+ * mapping between the IRQs and the MPM pin based on data in the device tree.
  */
-void __init of_mpm_init(struct device_node *node);
+void __init of_mpm_init(void);
 #else
 static inline int msm_mpm_enable_irq(unsigned int irq, unsigned int enable)
 { return -ENODEV; }
@@ -161,7 +159,7 @@ static inline bool msm_mpm_gpio_irqs_detectable(bool from_idle)
 { return false; }
 static inline void msm_mpm_enter_sleep(uint32_t sclk_count, bool from_idle) {}
 static inline void msm_mpm_exit_sleep(bool from_idle) {}
-static inline void __init of_mpm_init(struct device_node *node) {}
+static inline void __init of_mpm_init(void) {}
 #endif
 #ifdef CONFIG_MSM_MPM_OF
 /** msm_mpm_suspend_prepare() - Called at prepare_late() op during suspend

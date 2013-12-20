@@ -739,7 +739,7 @@ static inline int __init mpm_irq_domain_legacy_size(struct irq_domain *d)
 	return d->revmap_data.legacy.size;
 }
 
-void __init of_mpm_init(struct device_node *node)
+static void __init __of_mpm_init(struct device_node *node)
 {
 	const __be32 *list;
 
@@ -908,3 +908,13 @@ int __init msm_mpm_device_init(void)
 	return platform_driver_register(&msm_mpm_dev_driver);
 }
 arch_initcall(msm_mpm_device_init);
+
+void __init of_mpm_init(void)
+{
+	struct device_node *node;
+
+	node = of_find_matching_node(NULL, msm_mpm_match_table);
+	WARN_ON(!node);
+	if (node)
+		__of_mpm_init(node);
+}
