@@ -30,6 +30,7 @@
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
 #include "i915_trace.h"
+#include "intel_sync.h"
 #include "intel_drv.h"
 #include <linux/oom.h>
 #include <linux/shmem_fs.h>
@@ -2289,6 +2290,8 @@ i915_gem_init_seqno(struct drm_device *dev, u32 seqno)
 		for (j = 0; j < ARRAY_SIZE(ring->semaphore.sync_seqno); j++)
 			ring->semaphore.sync_seqno[j] = 0;
 	}
+
+	i915_sync_reset_timelines(dev_priv);
 
 	return 0;
 }

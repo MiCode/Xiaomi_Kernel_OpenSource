@@ -82,4 +82,6 @@ i915-y += i915_dma.o \
 
 obj-$(CONFIG_DRM_I915)  += i915.o
 
+obj-$(CONFIG_DRM_I915_SYNC)  += intel_sync.o
+
 CFLAGS_i915_trace_points.o := -I$(src)

@@ -135,6 +135,7 @@
 #include <drm/drmP.h>
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
+#include "intel_sync.h"
 
 #define GEN8_LR_CONTEXT_RENDER_SIZE (20 * PAGE_SIZE)
 #define GEN8_LR_CONTEXT_OTHER_SIZE (2 * PAGE_SIZE)
@@ -573,6 +574,32 @@ static int logical_ring_invalidate_all_caches(struct intel_ringbuffer *ringbuf)
 	return 0;
 }
 
+static int logical_ring_alloc_seqno(struct intel_engine_cs *ring,
+				    struct intel_context *ctx)
+{
+	if (ring->outstanding_lazy_seqno)
+		return 0;
+
+	if (ring->preallocated_lazy_request == NULL) {
+		struct drm_i915_gem_request *request;
+
+		request = kmalloc(sizeof(*request), GFP_KERNEL);
+		if (request == NULL)
+			return -ENOMEM;
+
+		/* Hold a reference to the context this request belongs to
+		 * (we will need it when the time comes to emit/retire the
+		 * request).
+		 */
+		request->ctx = ctx;
+		i915_gem_context_reference(request->ctx);
+
+		ring->preallocated_lazy_request = request;
+	}
+
+	return i915_gem_get_seqno(ring->dev, &ring->outstanding_lazy_seqno);
+}
+
 static int execlists_move_to_gpu(struct intel_ringbuffer *ringbuf,
 				 struct list_head *vmas)
 {
@@ -634,6 +661,8 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 	int instp_mode;
 	u32 instp_mask;
 	int ret;
+	u32 seqno;
+	void *handle = NULL;
 
 	instp_mode = args->flags & I915_EXEC_CONSTANTS_MASK;
 	instp_mask = I915_EXEC_CONSTANTS_MASK;
@@ -678,7 +707,15 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 
 	if (args->flags & I915_EXEC_GEN7_SOL_RESET) {
 		DRM_DEBUG("sol reset is gen7 only\n");
-		return -EINVAL;
+		return ret;
+	}
+
+	seqno = ring->outstanding_lazy_seqno;
+	handle = gen8_sync_prepare_request(args, ringbuf, seqno);
+	if (handle && IS_ERR(handle)) {
+		ret = PTR_ERR(handle);
+		if (ret)
+			return ret;
 	}
 
 	ret = execlists_move_to_gpu(ringbuf, vmas);
@@ -703,6 +740,10 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 	ret = ring->emit_bb_start(ringbuf, exec_start, flags);
 	if (ret)
 		return ret;
+
+	ret = gen8_sync_finish_request(handle, args, ringbuf);
+	if (ret)
+		i915_sync_cancel_request(handle, args, ring);
 
 	i915_gem_execbuffer_move_to_active(vmas, ring);
 	i915_gem_execbuffer_retire_commands(dev, file, ring, batch_obj);
@@ -768,32 +809,6 @@ void intel_logical_ring_advance_and_submit(struct intel_ringbuffer *ringbuf)
 		return;
 
 	execlists_context_queue(ring, ctx, ringbuf->tail);
-}
-
-static int logical_ring_alloc_seqno(struct intel_engine_cs *ring,
-				    struct intel_context *ctx)
-{
-	if (ring->outstanding_lazy_seqno)
-		return 0;
-
-	if (ring->preallocated_lazy_request == NULL) {
-		struct drm_i915_gem_request *request;
-
-		request = kmalloc(sizeof(*request), GFP_KERNEL);
-		if (request == NULL)
-			return -ENOMEM;
-
-		/* Hold a reference to the context this request belongs to
-		 * (we will need it when the time comes to emit/retire the
-		 * request).
-		 */
-		request->ctx = ctx;
-		i915_gem_context_reference(request->ctx);
-
-		ring->preallocated_lazy_request = request;
-	}
-
-	return i915_gem_get_seqno(ring->dev, &ring->outstanding_lazy_seqno);
 }
 
 static int logical_ring_wait_request(struct intel_ringbuffer *ringbuf,
@@ -895,7 +910,6 @@ static int logical_ring_wrap_buffer(struct intel_ringbuffer *ringbuf)
 
 	if (ringbuf->space < rem) {
 		int ret = logical_ring_wait_for_space(ringbuf, rem);
-
 		if (ret)
 			return ret;
 	}
@@ -1198,6 +1212,10 @@ void intel_logical_ring_cleanup(struct intel_engine_cs *ring)
 
 	intel_logical_ring_stop(ring);
 	WARN_ON((I915_READ_MODE(ring) & MODE_IDLE) == 0);
+
+	i915_sync_timeline_advance(ring);
+	i915_sync_timeline_destroy(ring);
+
 	ring->preallocated_lazy_request = NULL;
 	ring->outstanding_lazy_seqno = 0;
 
@@ -1231,6 +1249,14 @@ static int logical_ring_init(struct drm_device *dev, struct intel_engine_cs *rin
 	ret = i915_cmd_parser_init_ring(ring);
 	if (ret)
 		return ret;
+
+	/* Create a timeline for HW Native Sync support*/
+	ret = i915_sync_timeline_create(ring->dev, ring->name, ring);
+	if (ret) {
+		DRM_ERROR("Sync timeline creation failed for ring %s\n",
+			ring->name);
+		return ret;
+	}
 
 	if (ring->init) {
 		ret = ring->init(ring);

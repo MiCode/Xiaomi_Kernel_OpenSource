@@ -35,6 +35,7 @@
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
 #include "i915_trace.h"
+#include "intel_sync.h"
 #include "intel_drv.h"
 
 static const u32 hpd_ibx[] = {
@@ -1249,6 +1250,8 @@ static void notify_ring(struct drm_device *dev,
 
 	wake_up_all(&ring->irq_queue);
 	i915_queue_hangcheck(dev);
+
+	i915_sync_timeline_advance(ring);
 }
 
 static u32 vlv_c0_residency(struct drm_i915_private *dev_priv,
@@ -3611,6 +3614,9 @@ static void gen5_gt_irq_postinstall(struct drm_device *dev)
 
 	if (IS_GEN7(dev))
 		gt_irqs |= GT_RENDER_PERFMON_BUFFER_INTERRUPT;
+
+	if (IS_VALLEYVIEW(dev))
+		dev_priv->gt_irq_mask &= ~(I915_SYNC_USER_INTERRUPTS);
 
 	gt_irqs |= GT_RENDER_USER_INTERRUPT;
 	if (IS_GEN5(dev)) {

@@ -30,6 +30,7 @@
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
 #include "i915_trace.h"
+#include "intel_sync.h"
 #include "intel_drv.h"
 #include <linux/dma_remapping.h>
 
@@ -1051,6 +1052,9 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 	int instp_mode;
 	u32 instp_mask;
 	int i, ret = 0;
+	u32 seqno;
+	int sync_err = 0;
+	void *handle = NULL;
 
 	if (args->num_cliprects != 0) {
 		if (ring != &dev_priv->ring[RCS]) {
@@ -1093,6 +1097,18 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 			DRM_DEBUG("0 cliprects but dirt in cliprects fields\n");
 			return -EINVAL;
 		}
+	}
+
+	ret = intel_ring_alloc_seqno(ring);
+	if (ret)
+		goto error;
+
+	seqno = ring->outstanding_lazy_seqno;
+	handle = i915_sync_prepare_request(args, ring, seqno);
+	if (handle && IS_ERR(handle)) {
+		ret = PTR_ERR(handle);
+		if (ret)
+			goto error;
 	}
 
 	ret = i915_gem_execbuffer_move_to_gpu(ring, vmas);
@@ -1183,12 +1199,17 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 			return ret;
 	}
 
+	sync_err = i915_sync_finish_request(handle, args, ring);
+
 	trace_i915_gem_ring_dispatch(ring, intel_ring_get_seqno(ring), flags);
 
 	i915_gem_execbuffer_move_to_active(vmas, ring);
 	i915_gem_execbuffer_retire_commands(dev, file, ring, batch_obj);
 
 error:
+	if (ret || sync_err)
+		i915_sync_cancel_request(handle, args, ring);
+
 	kfree(cliprects);
 	return ret;
 }

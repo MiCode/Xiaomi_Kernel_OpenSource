@@ -31,6 +31,7 @@
 #include "i915_drv.h"
 #include <drm/i915_drm.h>
 #include "i915_trace.h"
+#include "intel_sync.h"
 #include "intel_drv.h"
 
 bool
@@ -1651,6 +1652,14 @@ static int intel_init_ring_buffer(struct drm_device *dev,
 		goto error;
 	}
 
+	/* Create a timeline for HW Native Sync support*/
+	ret = i915_sync_timeline_create(ring->dev, ring->name, ring);
+	if (ret) {
+		DRM_ERROR("Sync timeline creation failed for ring %s\n",
+			ring->name);
+		return ret;
+	}
+
 	/* Workaround an erratum on the i830 which causes a hang if
 	 * the TAIL pointer points to within the last 2 cachelines
 	 * of the buffer.
@@ -1685,6 +1694,9 @@ void intel_cleanup_ring_buffer(struct intel_engine_cs *ring)
 
 	intel_stop_ring_buffer(ring);
 	WARN_ON(!IS_GEN2(ring->dev) && (I915_READ_MODE(ring) & MODE_IDLE) == 0);
+
+	i915_sync_timeline_advance(ring);
+	i915_sync_timeline_destroy(ring);
 
 	intel_destroy_ringbuffer_obj(ringbuf);
 	ring->preallocated_lazy_request = NULL;
@@ -1845,7 +1857,7 @@ int intel_ring_idle(struct intel_engine_cs *ring)
 	return i915_wait_seqno(ring, seqno);
 }
 
-static int
+int
 intel_ring_alloc_seqno(struct intel_engine_cs *ring)
 {
 	if (ring->outstanding_lazy_seqno)

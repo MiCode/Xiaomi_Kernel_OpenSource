@@ -82,6 +82,22 @@ config DRM_I915_UMS
 
 	  If in doubt, say "N".
 
+config DRM_I915_SYNC
+	bool "Enable Native sync support"
+	depends on DRM_I915 && SYNC
+	default y
+	help
+	  Choose this option if you require Native sync support within the i915
+	  driver;
+
+	  i915 driver implements a synchronization timeline and users can
+	  request a fence when they submit work to the GPU. A fence is a
+	  collection of synchronization points and it will be signalled when
+	  the work is completed. Since GPU Scheduler is not yet available this
+	  requires userspace support to actually make use of this functionality.
+
+	  If in doubt, say "Y".
+
 config SUPPORT_LPDMA_HDMI_AUDIO
 	bool "Enable LP DMA HDMI audio"
 	depends on DRM_I915
