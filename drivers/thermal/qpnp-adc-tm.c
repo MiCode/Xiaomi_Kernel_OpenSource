@@ -1902,7 +1902,7 @@ static int __devinit qpnp_adc_tm_probe(struct spmi_device *spmi)
 			pr_debug("thermal node%x\n", btm_channel_num);
 			chip->sensor[sen_idx].mode = THERMAL_DEVICE_DISABLED;
 			chip->sensor[sen_idx].thermal_node = true;
-			snprintf(name, sizeof(name),
+			snprintf(name, sizeof(name), "%s",
 				chip->adc->adc_channels[sen_idx].name);
 			chip->sensor[sen_idx].meas_interval =
 				QPNP_ADC_TM_MEAS_INTERVAL;
