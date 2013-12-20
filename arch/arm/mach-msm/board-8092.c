@@ -20,6 +20,7 @@
 #include <linux/of_irq.h>
 #include <linux/msm_tsens.h>
 #include <linux/clk/msm-clk-provider.h>
+#include <linux/regulator/rpm-smd-regulator.h>
 #include <asm/mach/arch.h>
 #include <mach/socinfo.h>
 #include <mach/board.h>
@@ -29,7 +30,6 @@
 #include <mach/msm_smd.h>
 #include <mach/restart.h>
 #include <mach/rpm-smd.h>
-#include <mach/rpm-regulator-smd.h>
 
 #include <linux/io.h>
 #include <linux/gpio.h>
@@ -75,7 +75,7 @@ void __init mpq8092_add_drivers(void)
 {
 	msm_smd_init();
 	msm_rpm_driver_init();
-	rpm_regulator_smd_driver_init();
+	rpm_smd_regulator_driver_init();
 	qpnp_regulator_init();
 	krait_power_init();
 	if (of_board_is_rumi())

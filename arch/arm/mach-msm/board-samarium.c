@@ -19,6 +19,7 @@
 #include <linux/msm_tsens.h>
 #include <linux/msm_thermal.h>
 #include <linux/clk/msm-clk-provider.h>
+#include <linux/regulator/rpm-smd-regulator.h>
 #include <asm/mach/map.h>
 #include <asm/mach/arch.h>
 #include <mach/board.h>
@@ -30,7 +31,6 @@
 #include <soc/msm/smem.h>
 #include <mach/msm_smd.h>
 #include <mach/rpm-smd.h>
-#include <mach/rpm-regulator-smd.h>
 #include "spm.h"
 #include "board-dt.h"
 #include "clock.h"
@@ -73,7 +73,7 @@ void __init msmsamarium_add_drivers(void)
 	msm_smd_init();
 	msm_rpm_driver_init();
 	msm_pm_sleep_status_init();
-	rpm_regulator_smd_driver_init();
+	rpm_smd_regulator_driver_init();
 	msm_spm_device_init();
 	if (of_board_is_rumi())
 		msm_clock_init(&msmsamarium_rumi_clock_init_data);

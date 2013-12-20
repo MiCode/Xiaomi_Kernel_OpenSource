@@ -34,6 +34,7 @@
 #include <linux/tspp.h>          /* tspp functions */
 #include <linux/bitops.h>        /* BIT() macro */
 #include <linux/regulator/consumer.h>
+#include <linux/regulator/rpm-smd-regulator.h>
 #include <mach/sps.h>            /* BAM stuff */
 #include <mach/gpio.h>
 #include <linux/wakelock.h>      /* Locking functions */
@@ -41,7 +42,6 @@
 #include <linux/jiffies.h>       /* Jiffies counter */
 #include <mach/dma.h>
 #include <mach/msm_tspp.h>
-#include <mach/rpm-regulator-smd.h>
 #include <linux/debugfs.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>

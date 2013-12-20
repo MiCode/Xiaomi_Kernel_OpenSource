@@ -17,7 +17,7 @@
 #include "msm_camera_io_util.h"
 #include "msm_camera_i2c_mux.h"
 #include <mach/rpm-regulator.h>
-#include <mach/rpm-regulator-smd.h>
+#include <linux/regulator/rpm-smd-regulator.h>
 #include <linux/regulator/consumer.h>
 
 /*#define CONFIG_MSMB_CAMERA_DEBUG*/

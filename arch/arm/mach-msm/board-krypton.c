@@ -19,6 +19,7 @@
 #include <linux/msm_tsens.h>
 #include <linux/msm_thermal.h>
 #include <linux/clk/msm-clk-provider.h>
+#include <linux/regulator/rpm-smd-regulator.h>
 #include <asm/mach/map.h>
 #include <asm/mach/arch.h>
 #include <mach/board.h>
@@ -27,7 +28,6 @@
 #include <mach/msm_memtypes.h>
 #include <mach/msm_smd.h>
 #include <mach/rpm-smd.h>
-#include <mach/rpm-regulator-smd.h>
 #include <mach/restart.h>
 #include <mach/socinfo.h>
 #include <soc/msm/smem.h>
@@ -51,7 +51,7 @@ void __init msmkrypton_add_drivers(void)
 {
 	msm_smd_init();
 	msm_rpm_driver_init();
-	rpm_regulator_smd_driver_init();
+	rpm_smd_regulator_driver_init();
 	msm_spm_device_init();
 	msm_clock_init(&msmkrypton_clock_init_data);
 	tsens_tm_init_driver();

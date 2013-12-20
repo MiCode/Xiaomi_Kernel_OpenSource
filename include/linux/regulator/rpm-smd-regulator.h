@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __ARCH_ARM_MACH_MSM_INCLUDE_MACH_RPM_REGULATOR_SMD_H
-#define __ARCH_ARM_MACH_MSM_INCLUDE_MACH_RPM_REGULATOR_SMD_H
+#ifndef _LINUX_REGULATOR_RPM_SMD_H
+#define _LINUX_REGULATOR_RPM_SMD_H
 
 #include <linux/device.h>
 
@@ -64,7 +64,7 @@ enum rpm_regulator_mode {
 	RPM_REGULATOR_MODE_HPM,
 };
 
-#if defined(CONFIG_MSM_RPM_REGULATOR_SMD) || defined(CONFIG_MSM_RPM_REGULATOR)
+#ifdef CONFIG_REGULATOR_RPM_SMD
 
 struct rpm_regulator *rpm_regulator_get(struct device *dev, const char *supply);
 
@@ -77,7 +77,10 @@ int rpm_regulator_disable(struct rpm_regulator *regulator);
 int rpm_regulator_set_voltage(struct rpm_regulator *regulator, int min_uV,
 			      int max_uV);
 
-int __init rpm_regulator_smd_driver_init(void);
+int rpm_regulator_set_mode(struct rpm_regulator *regulator,
+				enum rpm_regulator_mode mode);
+
+int __init rpm_smd_regulator_driver_init(void);
 
 #else
 
@@ -95,16 +98,11 @@ static inline int rpm_regulator_disable(struct rpm_regulator *regulator)
 static inline int rpm_regulator_set_voltage(struct rpm_regulator *regulator,
 					int min_uV, int max_uV) { return 0; }
 
-static inline int __init rpm_regulator_smd_driver_init(void) { return 0; }
-
-#endif /* CONFIG_MSM_RPM_REGULATOR_SMD || CONFIG_MSM_RPM_REGULATOR */
-
-#ifdef CONFIG_MSM_RPM_REGULATOR_SMD
-int rpm_regulator_set_mode(struct rpm_regulator *regulator,
-				enum rpm_regulator_mode mode);
-#else
 static inline int rpm_regulator_set_mode(struct rpm_regulator *regulator,
 				enum rpm_regulator_mode mode) { return 0; }
-#endif
+
+static inline int __init rpm_smd_regulator_driver_init(void) { return 0; }
+
+#endif /* CONFIG_REGULATOR_RPM_SMD */
 
 #endif

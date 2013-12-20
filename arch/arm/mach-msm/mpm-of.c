@@ -31,13 +31,13 @@
 #include <linux/err.h>
 #include <linux/power_supply.h>
 #include <linux/regulator/consumer.h>
+#include <linux/regulator/rpm-smd-regulator.h>
 #include <linux/workqueue.h>
 #include <linux/irqchip/arm-gic.h>
 #include <linux/clk/msm-clk.h>
 #include <asm/arch_timer.h>
 #include <mach/gpio.h>
 #include <mach/mpm.h>
-#include <mach/rpm-regulator-smd.h>
 
 enum {
 	MSM_MPM_GIC_IRQ_DOMAIN,

@@ -24,7 +24,7 @@ config ARCH_MSM8974
 	select MSM_QDSP6_APRV2
 	select MSM_QDSP6V2_CODECS
 	select MSM_AUDIO_QDSP6V2 if SND_SOC
-	select MSM_RPM_REGULATOR_SMD
+	select REGULATOR_RPM_SMD
 	select ARM_HAS_SG_CHAIN
 	select MSM_RUN_QUEUE_STATS
 	select MEMORY_HOLE_CARVEOUT
@@ -52,7 +52,7 @@ config ARCH_APQ8084
 	select MSM_QDSP6V2_CODECS
 	select MSM_AUDIO_QDSP6V2 if SND_SOC
 	select MSM_QDSP6_APRV2 if MSM_AUDIO_QDSP6V2
-	select MSM_RPM_REGULATOR_SMD
+	select REGULATOR_RPM_SMD
 	select MIGHT_HAVE_PCI
 	select ARCH_SUPPORTS_MSI
 	select ARM_HAS_SG_CHAIN
@@ -94,7 +94,7 @@ config ARCH_MPQ8092
 	select QMI_ENCDEC
 	select ARM_HAS_SG_CHAIN
 	select MSM_RPM_SMD
-	select MSM_RPM_REGULATOR_SMD
+	select REGULATOR_RPM_SMD
 	select PINCTRL
 	select PINCTRL_MSM_TLMM_V3
 	select MSM_MULTIMEDIA_USE_ION
@@ -129,7 +129,7 @@ config ARCH_MSMKRYPTON
 	select MSM_GPIOMUX
 	select MSM_RPM_SMD
 	select REGULATOR
-	select MSM_RPM_REGULATOR_SMD
+	select REGULATOR_RPM_SMD
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_NATIVE_RESTART
 	select MSM_SPM_V2
@@ -175,7 +175,7 @@ config ARCH_MSM8610
 	select MSM_RUN_QUEUE_STATS
 	select ARM_HAS_SG_CHAIN
 	select REGULATOR
-	select MSM_RPM_REGULATOR_SMD
+	select REGULATOR_RPM_SMD
 	select MSM_SPM_REGULATOR
 	select MSM_JTAG_MM if CORESIGHT_ETM
 	select MSM_CPR_REGULATOR
@@ -218,7 +218,7 @@ config ARCH_MSM8226
 	select MSM_RUN_QUEUE_STATS
 	select ARM_HAS_SG_CHAIN
 	select REGULATOR
-	select MSM_RPM_REGULATOR_SMD
+	select REGULATOR_RPM_SMD
 	select MSM_SPM_REGULATOR
 	select MSM_JTAG_MM if CORESIGHT_ETM
 	select MSM_CPR_REGULATOR
@@ -251,7 +251,7 @@ config ARCH_MSMSAMARIUM
 	select MSM_PM8X60 if PM
 	select MSM_RPM_SMD
 	select REGULATOR
-	select MSM_RPM_REGULATOR_SMD
+	select REGULATOR_RPM_SMD
 	select MSM_SPM_REGULATOR
 	select ARM_HAS_SG_CHAIN
 	select MSM_RUN_QUEUE_STATS
@@ -930,18 +930,6 @@ config MSM_IDLE_WAIT_ON_MODEM
 	  If Modem is not ready to handle Application Processor's request
 	  for idle power collapse, wait the number of microseconds in case
 	  Modem becomes ready soon.
-
-config MSM_RPM_REGULATOR_SMD
-	bool "SMD RPM regulator driver"
-	depends on REGULATOR
-	depends on OF
-	depends on MSM_RPM_SMD
-	help
-	  Compile in support for the SMD RPM regulator driver which is used for
-	  setting voltages and other parameters of the various power rails
-	  supplied by some Qualcomm PMICs.  The SMD RPM regulator driver should
-	  be used on systems which contain an RPM which communicates with the
-	  application processor over SMD.
 
 config MSM_SPM_REGULATOR
 	bool "SPM regulator driver"

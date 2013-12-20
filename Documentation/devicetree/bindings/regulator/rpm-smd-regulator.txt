@@ -13,7 +13,7 @@ Required structure:
 [First Level Nodes]
 
 Required properties:
-- compatible:          Must be "qcom,rpm-regulator-smd-resource"
+- compatible:          Must be "qcom,rpm-smd-regulator-resource"
 - qcom,resource-name:  Resource name string for this regulator to be used in RPM
 			transactions.  Length is 4 characters max.
 - qcom,resource-id:    Resource instance ID for this regulator to be used in RPM
@@ -40,7 +40,7 @@ Optional properties:
 [Second Level Nodes]
 
 Required properties:
-- compatible:          Must be "qcom,rpm-regulator-smd"
+- compatible:          Must be "qcom,rpm-smd-regulator"
 - regulator-name:      A string used as a descriptive name for regulator outputs
 - qcom,set:            Specifies which sets that requests made with this
 			regulator interface should be sent to.  Regulator
@@ -192,7 +192,7 @@ rpm-regulator-smpb1 {
 	qcom,resource-id = <1>;
 	qcom,regulator-type = <1>;
 	qcom,hpm-min-load = <100000>;
-	compatible = "qcom,rpm-regulator-smd-resource";
+	compatible = "qcom,rpm-smd-regulator-resource";
 	status = "disabled";
 
 	pm8841_s1: regulator-s1 {
@@ -201,14 +201,14 @@ rpm-regulator-smpb1 {
 		regulator-min-microvolt = <900000>;
 		regulator-max-microvolt = <1150000>;
 		qcom,init-voltage = <1150000>;
-		compatible = "qcom,rpm-regulator-smd";
+		compatible = "qcom,rpm-smd-regulator";
 	};
 	pm8841_s1_ao: regulator-s1-ao {
 		regulator-name = "8841_s1_ao";
 		qcom,set = <1>;
 		regulator-min-microvolt = <900000>;
 		regulator-max-microvolt = <1150000>;
-		compatible = "qcom,rpm-regulator-smd";
+		compatible = "qcom,rpm-smd-regulator";
 	};
 	pm8841_s1_corner: regulator-s1-corner {
 		regulator-name = "8841_s1_corner";
@@ -217,6 +217,6 @@ rpm-regulator-smpb1 {
 		regulator-max-microvolt = <6>;
 		qcom,init-voltage-corner = <3>;
 		qcom,use-voltage-corner;
-		compatible = "qcom,rpm-regulator-smd";
+		compatible = "qcom,rpm-smd-regulator";
 	};
 };

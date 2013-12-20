@@ -105,7 +105,7 @@
 			status = "okay";
 		};
 		pm8226_s1_corner: regulator-s1-corner {
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "8226_s1_corner";
 			qcom,set = <3>;
 			regulator-min-microvolt = <1>;
@@ -114,7 +114,7 @@
 			qcom,consumer-supplies = "vdd_dig", "";
 		};
 		pm8226_s1_corner_ao: regulator-s1-corner-ao {
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "8226_s1_corner_ao";
 			qcom,set = <1>;
 			regulator-min-microvolt = <1>;
@@ -123,7 +123,7 @@
 			qcom,consumer-supplies = "vdd_sr2_dig", "";
 		};
 		pm8226_s1_floor_corner: regulator-s1-floor-corner {
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "8226_s1_floor_corner";
 			qcom,set = <3>;
 			regulator-min-microvolt = <1>;
@@ -193,7 +193,7 @@
 			status = "okay";
 		};
 		pm8226_l3_ao: regulator-3-ao {
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "8226_l3_ao";
 			qcom,set = <1>;
 			regulator-min-microvolt = <750000>;
@@ -201,7 +201,7 @@
 			status = "okay";
 		};
 		pm8226_l3_so: regulator-l3-so {
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "8226_l3_so";
 			qcom,set = <2>;
 			regulator-min-microvolt = <750000>;
@@ -265,7 +265,7 @@
 		};
 
 		pm8226_l8_ao: regulator-l8-ao {
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "8226_l8_ao";
 			qcom,set = <1>;
 			regulator-min-microvolt = <1800000>;
@@ -275,7 +275,7 @@
 		};
 
 		pm8226_l8_so: regulator-l8-so {
-			compatible = "qcom,rpm-regulator-smd";
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "8226_l8_so";
 			qcom,set = <2>;
 			regulator-min-microvolt = <1800000>;
