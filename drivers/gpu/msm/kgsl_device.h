@@ -302,6 +302,28 @@ struct kgsl_cmdbatch {
 };
 
 /**
+ * struct kgsl_cmdbatch_sync_event
+ * @type: Syncpoint type
+ * @node: Local list node for the cmdbatch sync point list
+ * @cmdbatch: Pointer to the cmdbatch that owns the sync event
+ * @context: Pointer to the KGSL context that owns the cmdbatch
+ * @timestamp: Pending timestamp for the event
+ * @handle: Pointer to a sync fence handle
+ * @device: Pointer to the KGSL device
+ * @refcount: Allow event to be destroyed asynchronously
+ */
+struct kgsl_cmdbatch_sync_event {
+	int type;
+	struct list_head node;
+	struct kgsl_cmdbatch *cmdbatch;
+	struct kgsl_context *context;
+	unsigned int timestamp;
+	struct kgsl_sync_fence_waiter *handle;
+	struct kgsl_device *device;
+	struct kref refcount;
+};
+
+/**
  * enum kgsl_cmdbatch_priv - Internal cmdbatch flags
  * @CMDBATCH_FLAG_SKIP - skip the entire command batch
  * @CMDBATCH_FLAG_FORCE_PREAMBLE - Force the preamble on for the cmdbatch

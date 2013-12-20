@@ -14,6 +14,7 @@
 #include <linux/slab.h>
 #include <linux/msm_kgsl.h>
 #include <linux/sched.h>
+#include <linux/debugfs.h>
 
 #include "kgsl.h"
 #include "kgsl_sharedmem.h"
@@ -380,6 +381,9 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 	kgsl_sharedmem_writel(device, &device->memstore,
 			KGSL_MEMSTORE_OFFSET(drawctxt->base.id, eoptimestamp),
 			0);
+
+	adreno_context_debugfs_init(ADRENO_DEVICE(device), drawctxt);
+
 	/* copy back whatever flags we dediced were valid */
 	*flags = drawctxt->base.flags;
 	return &drawctxt->base;
@@ -499,6 +503,7 @@ void adreno_drawctxt_destroy(struct kgsl_context *context)
 		return;
 
 	drawctxt = ADRENO_CONTEXT(context);
+	debugfs_remove_recursive(drawctxt->debug_root);
 	kfree(drawctxt);
 }
 
