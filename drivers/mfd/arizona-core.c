@@ -246,7 +246,8 @@ static int arizona_wait_for_boot(struct arizona *arizona)
 	return ret;
 }
 
-static int arizona_apply_hardware_patch(struct arizona* arizona)
+static int arizona_exec_with_sysclk(struct arizona* arizona,
+				    int (*exec)(struct arizona*))
 {
 	unsigned int fll, sysclk;
 	int ret, err;
@@ -290,23 +291,8 @@ static int arizona_apply_hardware_patch(struct arizona* arizona)
 		goto err_fll;
 	}
 
-	/* Start the write sequencer and wait for it to finish */
-	ret = regmap_write(arizona->regmap, ARIZONA_WRITE_SEQUENCER_CTRL_0,
-			ARIZONA_WSEQ_ENA | ARIZONA_WSEQ_START | 160);
-	if (ret != 0) {
-		dev_err(arizona->dev, "Failed to start write sequencer: %d\n",
-			ret);
-		goto err_sysclk;
-	}
-	ret = arizona_poll_reg(arizona, 5, ARIZONA_WRITE_SEQUENCER_CTRL_1,
-			       ARIZONA_WSEQ_BUSY, 0);
-	if (ret != 0) {
-		regmap_write(arizona->regmap, ARIZONA_WRITE_SEQUENCER_CTRL_0,
-				ARIZONA_WSEQ_ABORT);
-		ret = -ETIMEDOUT;
-	}
+	ret = exec(arizona);
 
-err_sysclk:
 	err = regmap_write(arizona->regmap, ARIZONA_SYSTEM_CLOCK_1, sysclk);
 	if (err != 0) {
 		dev_err(arizona->dev,
@@ -328,6 +314,34 @@ err_fll:
 		return ret;
 	else
 		return err;
+}
+
+static int arizona_hardware_patch_wseq(struct arizona* arizona)
+{
+	int ret;
+
+	/* Start the write sequencer and wait for it to finish */
+	ret = regmap_write(arizona->regmap, ARIZONA_WRITE_SEQUENCER_CTRL_0,
+			ARIZONA_WSEQ_ENA | ARIZONA_WSEQ_START | 160);
+	if (ret != 0) {
+		dev_err(arizona->dev, "Failed to start write sequencer: %d\n",
+			ret);
+		return ret;
+	}
+	ret = arizona_poll_reg(arizona, 5, ARIZONA_WRITE_SEQUENCER_CTRL_1,
+			       ARIZONA_WSEQ_BUSY, 0);
+	if (ret != 0) {
+		regmap_write(arizona->regmap, ARIZONA_WRITE_SEQUENCER_CTRL_0,
+				ARIZONA_WSEQ_ABORT);
+		ret = -ETIMEDOUT;
+	}
+
+	return ret;
+}
+
+static int arizona_apply_hardware_patch(struct arizona* arizona)
+{
+	return arizona_exec_with_sysclk(arizona, arizona_hardware_patch_wseq);
 }
 
 static int arizona_soft_reset(struct arizona *arizona)
