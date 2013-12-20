@@ -387,6 +387,7 @@ static int wwan_add_ul_flt_rule_to_ipa(void)
 {
 	u32 pyld_sz;
 	int i, retval = 0;
+	int num_v4_rule = 0, num_v6_rule = 0;
 	struct ipa_ioc_add_flt_rule *param;
 	struct ipa_flt_rule_add flt_rule_entry;
 	struct ipa_fltr_installed_notif_req_msg_v01 req;
@@ -436,9 +437,15 @@ static int wwan_add_ul_flt_rule_to_ipa(void)
 	req.install_status = QMI_RESULT_SUCCESS_V01;
 	req.filter_index_list_len = num_q6_rule;
 	for (i = 0; i < num_q6_rule; i++) {
+		if (q6_ul_filter_rule[i].ip == IPA_IP_v4) {
+			req.filter_index_list[i].filter_index = num_v4_rule;
+			num_v4_rule++;
+		} else {
+			req.filter_index_list[i].filter_index = num_v6_rule;
+			num_v6_rule++;
+		}
 		req.filter_index_list[i].filter_handle =
 			q6_ul_filter_rule[i].filter_hdl;
-		req.filter_index_list[i].filter_index = i;
 	}
 	if (qmi_filter_notify_send(&req)) {
 		IPAWANDBG("add filter rule index on A7-RX failed\n");
