@@ -344,6 +344,26 @@ static int arizona_apply_hardware_patch(struct arizona* arizona)
 	return arizona_exec_with_sysclk(arizona, arizona_hardware_patch_wseq);
 }
 
+static int arizona_sleep_patch(struct arizona* arizona)
+{
+	int ret;
+
+	ret = regmap_write(arizona->regmap, 0x377A, 0xC100);
+	if (ret != 0)
+		return ret;
+
+	ret = regmap_write(arizona->regmap, 0x377B, 0x0041);
+	if (ret != 0)
+		return ret;
+
+	return 0;
+}
+
+static int arizona_apply_sleep_patch(struct arizona* arizona)
+{
+	return arizona_exec_with_sysclk(arizona, arizona_sleep_patch);
+}
+
 static int arizona_soft_reset(struct arizona *arizona)
 {
 	int ret;
@@ -1122,6 +1142,16 @@ int arizona_dev_init(struct arizona *arizona)
 			if (ret != 0) {
 				dev_err(arizona->dev,
 					"Failed to apply hardware patch: %d\n",
+					ret);
+				goto err_reset;
+			}
+			break;
+		case WM5110:
+		case WM8280:
+			ret = arizona_apply_sleep_patch(arizona);
+			if (ret != 0) {
+				dev_err(arizona->dev,
+					"Failed to apply sleep patch: %d\n",
 					ret);
 				goto err_reset;
 			}
