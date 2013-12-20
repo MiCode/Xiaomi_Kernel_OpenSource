@@ -475,7 +475,6 @@ config ARCH_MSM8610
 	select MSM_RPM_LOG
 	select MSM_IOMMU_SYNC
 	select MSM_RPM_STATS_LOG
-	select ENABLE_VMALLOC_SAVINGS
 
 config ARCH_MSM8226
 	bool "MSM8226"
