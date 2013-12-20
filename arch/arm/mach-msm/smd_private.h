@@ -25,9 +25,6 @@
 #include <mach/msm_smsm.h>
 #include <mach/msm_smd.h>
 
-#define PC_APPS  0
-#define PC_MODEM 1
-
 #define VERSION_QDSP6     4
 #define VERSION_APPS_SBL  6
 #define VERSION_MODEM_SBL 7
@@ -35,30 +32,6 @@
 #define VERSION_MODEM     9
 #define VERSION_DSPS      10
 
-#if defined(CONFIG_MSM_SMD_PKG4)
-struct smsm_interrupt_info {
-	uint32_t aArm_en_mask;
-	uint32_t aArm_interrupts_pending;
-	uint32_t aArm_wakeup_reason;
-	uint32_t aArm_rpc_prog;
-	uint32_t aArm_rpc_proc;
-	char aArm_smd_port_name[20];
-	uint32_t aArm_gpio_info;
-};
-#elif defined(CONFIG_MSM_SMD_PKG3)
-struct smsm_interrupt_info {
-  uint32_t aArm_en_mask;
-  uint32_t aArm_interrupts_pending;
-  uint32_t aArm_wakeup_reason;
-};
-#elif !defined(CONFIG_MSM_SMD)
-/* Don't trigger the error */
-#else
-#error No SMD Package Specified; aborting
-#endif
-
-#define SZ_DIAG_ERR_MSG 0xC8
-#define ID_DIAG_ERR_MSG SMEM_DIAG_ERR_MESSAGE
 #define ID_SMD_CHANNELS SMEM_SMD_BASE_ID
 #define ID_SHARED_STATE SMEM_SMSM_SHARED_STATE
 #define ID_CH_ALLOC_TBL SMEM_CHANNEL_ALLOC_TBL
@@ -71,8 +44,6 @@ struct smsm_interrupt_info {
 #define SMD_SS_RESET             0x00000005
 #define SMD_SS_RESET_OPENING     0x00000006
 
-#define SMD_BUF_SIZE             8192
-#define SMD_CHANNELS             64
 #define SMD_HEADER_SIZE          20
 
 /* 'type' field of smd_alloc_elm structure
@@ -201,9 +172,6 @@ struct smd_channel {
 
 extern spinlock_t smem_lock;
 
-
-void smd_diag(void);
-
 struct interrupt_stat {
 	uint32_t smd_in_count;
 	uint32_t smd_out_count;
@@ -248,8 +216,6 @@ struct edge_to_pid {
 
 extern void *smd_log_ctx;
 extern int msm_smd_debug_mask;
-extern int disable_smsm_reset_handshake;
-extern bool smem_initialized_check(void);
 
 extern irqreturn_t smd_modem_irq_handler(int irq, void *data);
 extern irqreturn_t smsm_modem_irq_handler(int irq, void *data);
@@ -263,7 +229,7 @@ extern irqreturn_t smd_rpm_irq_handler(int irq, void *data);
 extern irqreturn_t smd_modemfw_irq_handler(int irq, void *data);
 
 extern int msm_smd_driver_register(void);
-extern void smd_post_init(bool is_legacy, unsigned remote_pid);
+extern void smd_post_init(unsigned remote_pid);
 extern int smsm_post_init(void);
 
 extern struct interrupt_config *smd_get_intr_config(uint32_t edge);

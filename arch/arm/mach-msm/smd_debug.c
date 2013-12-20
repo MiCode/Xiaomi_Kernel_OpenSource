@@ -20,8 +20,6 @@
 #include <linux/ctype.h>
 #include <linux/jiffies.h>
 
-#include <mach/msm_iomap.h>
-
 #include <soc/msm/smem.h>
 
 #include "smd_private.h"
@@ -94,12 +92,6 @@ static void debug_int_stats_reset(struct seq_file *s)
 		stats->smsm_out_count = 0;
 		++stats;
 	}
-}
-
-static void debug_diag(struct seq_file *s)
-{
-	seq_puts(s, "Printing to log\n");
-	smd_diag();
 }
 
 /* NNV: revist, it may not be smd version */
@@ -404,7 +396,6 @@ static int __init smd_debugfs_init(void)
 
 	debug_create("ch", 0444, dent, debug_ch);
 	debug_create("version", 0444, dent, debug_read_smd_version);
-	debug_create("print_diag", 0444, dent, debug_diag);
 	debug_create("int_stats", 0444, dent, debug_int_stats);
 	debug_create("int_stats_reset", 0444, dent, debug_int_stats_reset);
 

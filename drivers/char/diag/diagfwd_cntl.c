@@ -483,12 +483,10 @@ static int diag_smd_cntl_probe(struct platform_device *pdev)
 			index = MODEM_DATA;
 			channel_name = "DIAG_CNTL";
 		}
-#if defined(CONFIG_MSM_N_WAY_SMD)
 		else if (pdev->id == SMD_APPS_QDSP) {
 			index = LPASS_DATA;
 			channel_name = "DIAG_CNTL";
 		}
-#endif
 		else if (pdev->id == SMD_APPS_WCNSS) {
 			index = WCNSS_DATA;
 			channel_name = "APPS_RIVA_CTRL";
