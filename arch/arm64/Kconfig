@@ -9,7 +9,7 @@ config ARM64
 	select ARM_ARCH_TIMER
 	select ARM_GIC
 	select CLONE_BACKWARDS
-	select COMMON_CLK
+	select COMMON_CLK if !ARCH_MSM
 	select GENERIC_CLOCKEVENTS
 	select GENERIC_IOMAP
 	select GENERIC_IRQ_PROBE

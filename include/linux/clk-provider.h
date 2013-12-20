@@ -443,6 +443,14 @@ void of_clk_init(const struct of_device_id *matches);
 	static const struct of_device_id __clk_of_table_##name	\
 		__used __section(__clk_of_table)		\
 		= { .compatible = compat, .data = fn };
+#else
+
+struct of_device_id;
+
+static inline void __init of_clk_init(const struct of_device_id *matches)
+{
+	return;
+}
 
 #endif /* CONFIG_COMMON_CLK */
 #endif /* CLK_PROVIDER_H */
