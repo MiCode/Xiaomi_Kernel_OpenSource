@@ -18,7 +18,7 @@ struct v4l2_subdev *msm_buf_mngr_get_subdev(void)
 	return &msm_buf_mngr_dev->subdev.sd;
 }
 
-static int msm_buf_mngr_get_buf(struct msm_buf_mngr_device *buf_mngr_dev,
+static int32_t msm_buf_mngr_get_buf(struct msm_buf_mngr_device *buf_mngr_dev,
 	void __user *argp)
 {
 	unsigned long flags;
@@ -48,12 +48,12 @@ static int msm_buf_mngr_get_buf(struct msm_buf_mngr_device *buf_mngr_dev,
 	return 0;
 }
 
-static int msm_buf_mngr_buf_done(struct msm_buf_mngr_device *buf_mngr_dev,
+static int32_t msm_buf_mngr_buf_done(struct msm_buf_mngr_device *buf_mngr_dev,
 	struct msm_buf_mngr_info *buf_info)
 {
 	unsigned long flags;
 	struct msm_get_bufs *bufs, *save;
-	int ret = -EINVAL;
+	int32_t ret = -EINVAL;
 
 	spin_lock_irqsave(&buf_mngr_dev->buf_q_spinlock, flags);
 	list_for_each_entry_safe(bufs, save, &buf_mngr_dev->buf_qhead, entry) {
@@ -77,12 +77,12 @@ static int msm_buf_mngr_buf_done(struct msm_buf_mngr_device *buf_mngr_dev,
 }
 
 
-static int msm_buf_mngr_put_buf(struct msm_buf_mngr_device *buf_mngr_dev,
+static int32_t msm_buf_mngr_put_buf(struct msm_buf_mngr_device *buf_mngr_dev,
 	struct msm_buf_mngr_info *buf_info)
 {
 	unsigned long flags;
 	struct msm_get_bufs *bufs, *save;
-	int ret = -EINVAL;
+	int32_t ret = -EINVAL;
 
 	spin_lock_irqsave(&buf_mngr_dev->buf_q_spinlock, flags);
 	list_for_each_entry_safe(bufs, save, &buf_mngr_dev->buf_qhead, entry) {
@@ -152,7 +152,7 @@ static int msm_generic_buf_mngr_close(struct v4l2_subdev *sd,
 static long msm_buf_mngr_subdev_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
 {
-	int rc = 0;
+	int32_t rc = 0;
 	struct msm_buf_mngr_device *buf_mngr_dev = v4l2_get_subdevdata(sd);
 	void __user *argp = (void __user *)arg;
 
@@ -206,9 +206,27 @@ static const struct of_device_id msm_buf_mngr_dt_match[] = {
 	{}
 };
 
-static int __init msm_buf_mngr_init(void)
+static struct v4l2_file_operations msm_buf_v4l2_subdev_fops;
+
+static long msm_bmgr_subdev_do_ioctl(
+		struct file *file, unsigned int cmd, void *arg)
 {
-	int rc = 0;
+	struct video_device *vdev = video_devdata(file);
+	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
+
+	return v4l2_subdev_call(sd, core, ioctl, cmd, arg);
+}
+
+
+static long msm_buf_subdev_fops_ioctl(struct file *file, unsigned int cmd,
+		unsigned long arg)
+{
+	return video_usercopy(file, cmd, arg, msm_bmgr_subdev_do_ioctl);
+}
+
+static int32_t __init msm_buf_mngr_init(void)
+{
+	int32_t rc = 0;
 	msm_buf_mngr_dev = kzalloc(sizeof(*msm_buf_mngr_dev),
 		GFP_KERNEL);
 	if (WARN_ON(!msm_buf_mngr_dev)) {
@@ -218,6 +236,13 @@ static int __init msm_buf_mngr_init(void)
 	/* Sub-dev */
 	v4l2_subdev_init(&msm_buf_mngr_dev->subdev.sd,
 		&msm_buf_mngr_subdev_ops);
+
+	msm_buf_v4l2_subdev_fops.owner = v4l2_subdev_fops.owner;
+	msm_buf_v4l2_subdev_fops.open = v4l2_subdev_fops.open;
+	msm_buf_v4l2_subdev_fops.unlocked_ioctl = msm_buf_subdev_fops_ioctl;
+	msm_buf_v4l2_subdev_fops.release = v4l2_subdev_fops.release;
+	msm_buf_v4l2_subdev_fops.poll = v4l2_subdev_fops.poll;
+
 	snprintf(msm_buf_mngr_dev->subdev.sd.name,
 		ARRAY_SIZE(msm_buf_mngr_dev->subdev.sd.name), "msm_buf_mngr");
 	msm_buf_mngr_dev->subdev.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
@@ -235,6 +260,8 @@ static int __init msm_buf_mngr_init(void)
 		pr_err("%s: msm_sd_register error = %d\n", __func__, rc);
 		goto end;
 	}
+
+	msm_buf_mngr_dev->subdev.sd.devnode->fops = &msm_buf_v4l2_subdev_fops;
 
 	v4l2_subdev_notify(&msm_buf_mngr_dev->subdev.sd, MSM_SD_NOTIFY_REQ_CB,
 		&msm_buf_mngr_dev->vb2_ops);
