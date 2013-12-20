@@ -266,6 +266,19 @@
 		vin-supply = <&smb210_vreg>;
 	};
 
+	ehci: msm_ehci@f9a95000 {
+		compatible = "qti,ehci-host";
+		status = "disabled";
+		reg = <0xf9a95000 0x400>;
+		interrupts = <0 293 0>, <0 294 0>;
+		interrupt-names = "core_irq", "async_irq";
+		HSUSB_VDDCX-supply = <&pma8084_s8_corner>;
+		qti,vdd-voltage-level = <1 2 3 5 7>;
+		HSUSB_1p8-supply = <&pma8084_l22>;
+		HSUSB_3p3-supply = <&pma8084_l24>;
+		qti,usb2-power-budget = <500>;
+	};
+
 	spmi_bus: qcom,spmi@fc4c0000 {
 		cell-index = <0>;
 		compatible = "qcom,spmi-pmic-arb";
