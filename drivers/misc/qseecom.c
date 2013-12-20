@@ -1806,10 +1806,12 @@ static int __qseecom_load_fw(struct qseecom_dev_handle *data, char *appname)
 static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data)
 {
 	int ret = 0;
+	int len = 0;
 	uint32_t fw_size = 0;
 	struct qseecom_load_app_ireq load_req = {0, 0, 0, 0};
 	struct qseecom_command_scm_resp resp;
 	u8 *img_data = NULL;
+	ion_phys_addr_t pa;
 
 	if (__qseecom_get_fw_size("cmnlib", &fw_size))
 		return -EIO;
@@ -1817,19 +1819,28 @@ static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data)
 	qseecom.cmnlib_ion_handle = ion_alloc(qseecom.ion_clnt, fw_size,
 					SZ_4K, ION_HEAP(ION_QSECOM_HEAP_ID), 0);
 	if (IS_ERR_OR_NULL(qseecom.cmnlib_ion_handle)) {
-		pr_err("%s: ION alloc failed\n",  __func__);
+		pr_err("ION alloc failed\n");
 		return -ENOMEM;
 	}
 
 	img_data = (u8 *)ion_map_kernel(qseecom.ion_clnt,
 					qseecom.cmnlib_ion_handle);
 	if (IS_ERR_OR_NULL(img_data)) {
-		pr_err("%s: ION memory mapping for cmnlib failed\n", __func__);
+		pr_err("ION memory mapping for cmnlib failed\n");
 		ret = -ENOMEM;
 		goto exit_ion_free;
 	}
 	ret = __qseecom_get_fw_data("cmnlib", img_data, &load_req);
 	if (ret) {
+		ret = -EIO;
+		goto exit_ion_unmap_kernel;
+	}
+	/* Get the physical address of the ION BUF */
+	ret = ion_phys(qseecom.ion_clnt, qseecom.cmnlib_ion_handle,
+					&pa, &len);
+	load_req.phy_addr = (s32)pa;
+	if (ret) {
+		pr_err("physical memory retrieval failure\n");
 		ret = -EIO;
 		goto exit_ion_unmap_kernel;
 	}
