@@ -490,3 +490,7 @@
 &dsi_nt35590_720_vid {
 	qcom,cont-splash-enabled;
 };
+
+&dsi_nt35590_720_cmd {
+	qcom,cont-splash-enabled;
+};
