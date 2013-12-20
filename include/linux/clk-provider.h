@@ -655,6 +655,13 @@ static inline void clk_writel(u32 val, u32 __iomem *reg)
 struct dentry *clk_debugfs_add_file(struct clk *clk, char *name, umode_t mode,
 				void *data, const struct file_operations *fops);
 #endif
+#else
+struct of_device_id;
+
+static inline void __init of_clk_init(const struct of_device_id *matches)
+{
+	return;
+}
 
 #endif /* CONFIG_COMMON_CLK */
 #endif /* CLK_PROVIDER_H */
