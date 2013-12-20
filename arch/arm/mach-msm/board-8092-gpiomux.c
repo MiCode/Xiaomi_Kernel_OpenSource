@@ -143,6 +143,7 @@ static struct msm_gpiomux_config mpq8092_spkr_mi2s_mclk_configs[] __initdata = {
 		}
 	}
 };
+
 static struct msm_gpiomux_config mpq8092_spdif_config[] __initdata = {
 	{
 		.gpio = 41,
@@ -156,6 +157,30 @@ static struct msm_gpiomux_config mpq8092_spdif_config[] __initdata = {
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &spdif_opt_sus_cfg,
 			[GPIOMUX_ACTIVE] = &spdif_opt_act_cfg,
+		},
+	},
+};
+
+static struct gpiomux_setting hdmi_mux_int_active_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_16MA,
+	.pull = GPIOMUX_PULL_UP,
+	.dir = GPIOMUX_IN,
+};
+
+static struct gpiomux_setting hdmi_mux_int_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_IN,
+};
+
+static struct msm_gpiomux_config mpq_hdmi_mux_configs[] __initdata = {
+	{
+		.gpio = 22, /* hdmi_mux interrupt */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hdmi_mux_int_active_cfg,
+			[GPIOMUX_SUSPENDED] = &hdmi_mux_int_suspend_cfg,
 		},
 	},
 };
@@ -178,4 +203,6 @@ void __init mpq8092_init_gpiomux(void)
 			ARRAY_SIZE(mpq8092_spkr_mi2s_mclk_configs));
 	msm_gpiomux_install(mpq8092_spdif_config,
 			ARRAY_SIZE(mpq8092_spdif_config));
+	msm_gpiomux_install(mpq_hdmi_mux_configs,
+			ARRAY_SIZE(mpq_hdmi_mux_configs));
 }
