@@ -108,5 +108,6 @@ struct bms_battery_data qrd_4v2_1300mah_data = {
 	.fcc_sf_lut = &fcc_sf,
 	.pc_temp_ocv_lut = &pc_temp_ocv,
 	.rbatt_sf_lut = &rbatt_sf,
-	.default_rbatt_mohm = 172
+	.default_rbatt_mohm = 172,
+	.battery_type = "qrd_4v2_1300mah",
 };

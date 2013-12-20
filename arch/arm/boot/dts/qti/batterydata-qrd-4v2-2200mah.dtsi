@@ -19,6 +19,7 @@ qcom,qrd-4v2-2200mah-data {
 	qcom,chg-term-ua = <100000>;
 	qcom,batt-id-kohm = <10>;
 	qcom,flat-ocv-threshold-uv = <3800000>;
+	qcom,battery-type = "qrd_4v2_2200mah";
 
 	qcom,fcc-temp-lut {
 		qcom,lut-col-legend = <(-20) 0 25 40 60>;

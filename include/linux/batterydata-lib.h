@@ -125,6 +125,7 @@ struct bms_battery_data {
 	int			cutoff_uv;
 	int			iterm_ua;
 	int			batt_id_kohm;
+	const char		*battery_type;
 };
 
 #if defined(CONFIG_PM8921_BMS) || \

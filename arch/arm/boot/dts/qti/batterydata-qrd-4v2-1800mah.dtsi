@@ -19,6 +19,7 @@ qcom,qrd-4v2-1800mah-data {
 	qcom,v-cutoff-uv = <3400000>;
 	qcom,chg-term-ua = <100000>;
 	qcom,batt-id-kohm = <47>;
+	qcom,battery-type = "qrd_4v2_1800mah";
 
 	qcom,rbatt-sf-lut {
 		qcom,lut-col-legend = <(-20) 0 25 40 60>;
