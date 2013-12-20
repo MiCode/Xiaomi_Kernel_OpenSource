@@ -209,6 +209,7 @@ int get_tz_id(int);
 int ocmem_enable_sec_program(int);
 int ocmem_enable_dump(enum ocmem_client, unsigned long, unsigned long);
 int ocmem_disable_dump(enum ocmem_client, unsigned long, unsigned long);
+bool is_probe_done(void);
 int check_id(int);
 int dispatch_notification(int, enum ocmem_notif_type, struct ocmem_buf *);
 
