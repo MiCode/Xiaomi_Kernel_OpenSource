@@ -1255,8 +1255,7 @@ static int mmc_change_bus_speed(struct mmc_host *host, unsigned long *freq)
 		mmc_set_clock(host, (unsigned int) (*freq));
 	}
 
-	if ((mmc_card_hs400(card) || mmc_card_hs200(card))
-		&& card->host->ops->execute_tuning) {
+	if (mmc_card_hs200(card) && card->host->ops->execute_tuning) {
 		/*
 		 * We try to probe host driver for tuning for any
 		 * frequency, it is host driver responsibility to
