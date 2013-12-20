@@ -1364,7 +1364,7 @@ int voc_alloc_cal_shared_memory(void)
 	} else {
 		/* Allocate memory for calibration memory map table. */
 		rc = voice_alloc_cal_mem_map_table();
-		if (rc < 0) {
+		if ((rc < 0) && (rc != -EPROBE_DEFER)) {
 			pr_err("%s: Failed to allocate cal memory, err=%d",
 			       __func__, rc);
 		}
@@ -5965,7 +5965,7 @@ static int voice_alloc_cal_mem_map_table(void)
 			      (ion_phys_addr_t *)&common.cal_mem_map_table.phys,
 				(size_t *) &len,
 				&(common.cal_mem_map_table.data));
-	if (ret < 0) {
+	if ((ret < 0) && (ret != -EPROBE_DEFER)) {
 		pr_err("%s: audio ION alloc failed, rc = %d\n",
 			__func__, ret);
 		goto done;
