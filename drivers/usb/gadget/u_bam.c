@@ -25,6 +25,7 @@
 
 #include <mach/usb_gadget_xport.h>
 #include <linux/usb/msm_hsusb.h>
+#include <linux/usb/rmnet_ctrl_qti.h>
 #include <mach/usb_bam.h>
 
 #include "u_rmnet.h"
@@ -913,6 +914,10 @@ static void gbam2bam_connect_work(struct work_struct *w)
 					     bam_info.data_fifo.size,
 					     bam_info.usb_bam_pipe_idx);
 		}
+
+		gqti_ctrl_update_ipa_pipes(port->port_usb, port->port_num,
+			d->ipa_params.ipa_prod_ep_idx ,
+			d->ipa_params.ipa_cons_ep_idx);
 
 		connect_params.ipa_usb_pipe_hdl = d->ipa_params.prod_clnt_hdl;
 		connect_params.usb_ipa_pipe_hdl = d->ipa_params.cons_clnt_hdl;

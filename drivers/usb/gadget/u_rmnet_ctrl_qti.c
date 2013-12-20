@@ -23,6 +23,9 @@ struct rmnet_ctrl_qti_port {
 
 	bool		is_open;
 	int index;
+	unsigned	intf;
+	int		ipa_prod_idx;
+	int		ipa_cons_idx;
 
 	atomic_t	connected;
 	atomic_t	line_state;
@@ -152,7 +155,7 @@ gqti_ctrl_notify_modem(void *gptr, u8 portno, int val)
 	rmnet_ctrl_queue_notify(port);
 }
 
-int gqti_ctrl_connect(struct grmnet *gr, u8 port_num)
+int gqti_ctrl_connect(struct grmnet *gr, u8 port_num, unsigned intf)
 {
 	struct rmnet_ctrl_qti_port	*port;
 	unsigned long		flags;
@@ -177,6 +180,7 @@ int gqti_ctrl_connect(struct grmnet *gr, u8 port_num)
 
 	spin_lock_irqsave(&port->lock, flags);
 	port->port_usb = gr;
+	port->intf = intf;
 	gr->send_encap_cmd = grmnet_ctrl_qti_send_cpkt_tomodem;
 	gr->notify_modem = gqti_ctrl_notify_modem;
 	spin_unlock_irqrestore(&port->lock, flags);
@@ -232,6 +236,24 @@ void gqti_ctrl_disconnect(struct grmnet *gr, u8 port_num)
 	/* send 0 len pkt to qti to notify state change */
 	rmnet_ctrl_queue_notify(port);
 }
+
+void gqti_ctrl_update_ipa_pipes(struct grmnet *gr, u8 port_num, u32 ipa_prod,
+				u32 ipa_cons)
+{
+	struct rmnet_ctrl_qti_port	*port;
+
+	if (port_num >= NR_QTI_PORTS) {
+		pr_err("%s: Invalid QTI port %d\n", __func__, port_num);
+		return;
+	}
+
+	port = ctrl_port[port_num];
+
+	port->ipa_prod_idx = ipa_prod;
+	port->ipa_cons_idx = ipa_cons;
+
+}
+
 
 static int rmnet_ctrl_open(struct inode *ip, struct file *fp)
 {
@@ -423,6 +445,7 @@ rmnet_ctrl_write(struct file *fp, const char __user *buf, size_t count,
 static long rmnet_ctrl_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 {
 	struct rmnet_ctrl_qti_port *port = fp->private_data;
+	struct ep_info info;
 	int val, ret = 0;
 
 	pr_debug("%s: Received command %d", __func__, cmd);
@@ -440,6 +463,33 @@ static long rmnet_ctrl_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 		}
 		pr_debug("%s: Sent line_state: %d", __func__,
 				 atomic_read(&port->line_state));
+		break;
+	case FRMNET_CTRL_EP_LOOKUP:
+		val = atomic_read(&port->connected);
+		if (!val) {
+			pr_err("EP_LOOKUP failed - not connected");
+			ret = -EAGAIN;
+			break;
+		}
+
+		if (port->ipa_prod_idx == -1 ||  port->ipa_cons_idx == -1) {
+			pr_err("EP_LOOKUP failed - ipa pipes were not updated");
+			ret = -EAGAIN;
+			break;
+
+		}
+
+		info.ph_ep_info.ep_type = DATA_EP_TYPE_HSUSB;
+		info.ph_ep_info.peripheral_iface_id = port->intf;
+		info.ipa_ep_pair.cons_pipe_num = port->ipa_cons_idx;
+		info.ipa_ep_pair.prod_pipe_num = port->ipa_prod_idx;
+
+		ret = copy_to_user((void __user *)arg, &info,
+			sizeof(info));
+		if (ret) {
+			pr_err("copying to user space failed");
+			ret = -EFAULT;
+		}
 		break;
 	default:
 		pr_err("wrong parameter");
@@ -527,6 +577,8 @@ static int __init gqti_ctrl_init(void)
 
 		ctrl_port[i] = port;
 		port->index = i;
+		port->ipa_prod_idx = -1;
+		port->ipa_cons_idx = -1;
 
 		ret = misc_register(&rmnet_device[i]);
 		if (ret) {

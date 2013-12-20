@@ -563,6 +563,7 @@ static int connect_pipe_ipa(u8 idx,
 		sps_connection->destination = sps_out_params.ipa_bam_hdl;
 		sps_connection->src_pipe_index = pipe_connect->src_pipe_index;
 		sps_connection->dest_pipe_index = sps_out_params.ipa_ep_idx;
+		ipa_params->ipa_cons_ep_idx = sps_out_params.ipa_ep_idx;
 		*(ipa_params->src_pipe) = sps_connection->src_pipe_index;
 		pipe_connect->dst_pipe_index = sps_out_params.ipa_ep_idx;
 		pr_debug("%s: BAM pipe usb[%x]->ipa[%x] connection\n",
@@ -577,6 +578,7 @@ static int connect_pipe_ipa(u8 idx,
 		sps_connection->source = sps_out_params.ipa_bam_hdl;
 		sps_connection->destination = usb_handle;
 		sps_connection->src_pipe_index = sps_out_params.ipa_ep_idx;
+		ipa_params->ipa_prod_ep_idx = sps_out_params.ipa_ep_idx;
 		sps_connection->dest_pipe_index = pipe_connect->dst_pipe_index;
 		*(ipa_params->dst_pipe) = sps_connection->dest_pipe_index;
 		pipe_connect->src_pipe_index = sps_out_params.ipa_ep_idx;

@@ -388,7 +388,7 @@ static int rmnet_gport_setup(void)
 	return 0;
 }
 
-static int gport_rmnet_connect(struct f_rmnet *dev)
+static int gport_rmnet_connect(struct f_rmnet *dev, unsigned intf)
 {
 	int			ret;
 	unsigned		port_num;
@@ -413,7 +413,7 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 		}
 		break;
 	case USB_GADGET_XPORT_QTI:
-		ret = gqti_ctrl_connect(&dev->port, port_num);
+		ret = gqti_ctrl_connect(&dev->port, port_num, intf);
 		if (ret) {
 			pr_err("%s: gqti_ctrl_connect failed: err:%d\n",
 					__func__, ret);
@@ -752,7 +752,7 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 				dev->port.out->desc = NULL;
 				return -EINVAL;
 		}
-		ret = gport_rmnet_connect(dev);
+		ret = gport_rmnet_connect(dev, intf);
 	}
 
 	if (dxport == USB_GADGET_XPORT_BAM2BAM_IPA &&
