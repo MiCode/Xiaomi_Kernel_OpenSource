@@ -481,6 +481,7 @@
 						<61 512 0 0>,
 						<61 512 240000 960000>;
 		qti,no-suspend-resume;
+		qti,reset_hsphy_sleep_clk_on_init;
 
 		dwc3@f9200000 {
 				compatible = "synopsys,dwc3";
