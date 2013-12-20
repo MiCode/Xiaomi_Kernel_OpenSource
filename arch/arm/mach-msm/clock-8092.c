@@ -7108,6 +7108,24 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("", pcie_gpio_ldo.c, ""),
 	CLK_LOOKUP("", sata_phy_ldo.c, ""),
 	CLK_LOOKUP("", vby1_gpio_ldo.c, ""),
+
+	CLK_LOOKUP("core_clk", vpu_vdp_clk.c, "fd8c1404.qcom,gdsc"),
+	CLK_LOOKUP("maple_clk", vpu_maple_clk.c, "fd8c1404.qcom,gdsc"),
+	CLK_LOOKUP("bus_clk", vpu_axi_clk.c, "fd8c1404.qcom,gdsc"),
+	CLK_LOOKUP("frc_xin_clk", vpu_frc_xin_clk.c, "fd8c1404.qcom,gdsc"),
+	CLK_LOOKUP("hdmc_frcf_clk", vpu_hdmc_frcf_clk.c, "fd8c1404.qcom,gdsc"),
+	CLK_LOOKUP("sdmc_frcs_clk", vpu_sdmc_frcs_clk.c, "fd8c1404.qcom,gdsc"),
+	CLK_LOOKUP("sdme_frcf_clk", vpu_sdme_frcf_clk.c, "fd8c1404.qcom,gdsc"),
+	CLK_LOOKUP("vproc_clk", vpu_sdme_vproc_clk.c, "fd8c1404.qcom,gdsc"),
+	CLK_LOOKUP("vdp_xin_clk", vpu_vdp_xin_clk.c, "fd8c1404.qcom,gdsc"),
+
+	CLK_LOOKUP("bus_clk", vcap_axi_clk.c, "fd8c1804.qcom,gdsc"),
+	CLK_LOOKUP("vp_clk", vcap_vp_clk.c, "fd8c1804.qcom,gdsc"),
+
+	CLK_LOOKUP("core_clk", mdss_mdp_clk.c, "fd8c2304.qcom,gdsc"),
+	CLK_LOOKUP("lut_clk", mdss_mdp_lut_clk.c, "fd8c2304.qcom,gdsc"),
+
+	CLK_LOOKUP("core_clk", oxili_gfx3d_clk.c, "fd8c4024.qcom,gdsc"),
 };
 
 static void __init reg_init(void)
