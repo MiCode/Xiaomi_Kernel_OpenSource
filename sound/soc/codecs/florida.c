@@ -349,6 +349,9 @@ SOC_ENUM("LHPF2 Mode", arizona_lhpf2_mode),
 SOC_ENUM("LHPF3 Mode", arizona_lhpf3_mode),
 SOC_ENUM("LHPF4 Mode", arizona_lhpf4_mode),
 
+SOC_VALUE_ENUM("Sample Rate 2", arizona_sample_rate[0]),
+SOC_VALUE_ENUM("Sample Rate 3", arizona_sample_rate[1]),
+
 SOC_VALUE_ENUM("ISRC1 FSL", arizona_isrc_fsl[0]),
 SOC_VALUE_ENUM("ISRC2 FSL", arizona_isrc_fsl[1]),
 SOC_VALUE_ENUM("ISRC3 FSL", arizona_isrc_fsl[2]),
@@ -2088,12 +2091,6 @@ static int florida_probe(struct platform_device *pdev)
 	arizona_init_fll(arizona, 2, ARIZONA_FLL2_CONTROL_1 - 1,
 			 ARIZONA_IRQ_FLL2_LOCK, ARIZONA_IRQ_FLL2_CLOCK_OK,
 			 &florida->fll[1]);
-
-	/* SR2 fixed at 8kHz, SR3 fixed at 16kHz */
-	regmap_update_bits(arizona->regmap, ARIZONA_SAMPLE_RATE_2,
-			   ARIZONA_SAMPLE_RATE_2_MASK, 0x11);
-	regmap_update_bits(arizona->regmap, ARIZONA_SAMPLE_RATE_3,
-			   ARIZONA_SAMPLE_RATE_3_MASK, 0x12);
 
 	for (i = 0; i < ARRAY_SIZE(florida_dai); i++)
 		arizona_init_dai(&florida->core, i);
