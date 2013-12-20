@@ -142,6 +142,8 @@ Optional properties:
 					0 = default value.
 - qcom,mdss-dsi-bl-max-level:		Specifies the max backlight level supported by the panel.
 					255 = default value.
+- qcom,mdss-brightness-max-level:	Specifies the max brightness level supported.
+					255 = default value.
 - qcom,mdss-dsi-interleave-mode:	Specifies interleave mode.
 					0 = default value.
 - qcom,mdss-dsi-panel-type:		Specifies the panel operating mode.
