@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,10 +32,12 @@ enum qmi_event_type {
 
 /**
  * struct qmi_handle - QMI Handle Data Structure
+ * @handle_hash: Hash Table Node in which this handle is present.
  * @src_port: Pointer to port used for message exchange.
  * @ctl_port: Pointer to port used for out-of-band event exchange.
  * @handle_type: Type of handle(Service/Client).
  * @next_txn_id: Transaction ID of the next outgoing request.
+ * @handle_wq: Workqueue to handle any handle-specific events.
  * @handle_lock: Lock to protect access to elements in the handle.
  * @notify_lock: Lock to protect and generate notification atomically.
  * @notify: Function to notify the handle owner of an event.
@@ -53,10 +55,12 @@ enum qmi_event_type {
  * @svc_ops_options: Service specific operations and options.
  */
 struct qmi_handle {
+	struct hlist_node handle_hash;
 	void *src_port;
 	void *ctl_port;
 	unsigned handle_type;
 	uint16_t next_txn_id;
+	struct workqueue_struct *handle_wq;
 	struct mutex handle_lock;
 	spinlock_t notify_lock;
 	void (*notify)(struct qmi_handle *handle, enum qmi_event_type event,

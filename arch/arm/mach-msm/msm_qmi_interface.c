@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,7 @@
 #include <linux/qmi_encdec.h>
 #include <linux/workqueue.h>
 #include <linux/mutex.h>
+#include <linux/hashtable.h>
 
 #include <mach/msm_qmi_interface.h>
 #include <mach/msm_ipc_router.h>
@@ -35,11 +36,23 @@
 
 #define BUILD_INSTANCE_ID(vers, ins) (((vers) & 0xFF) | (((ins) & 0xFF) << 8))
 #define LOOKUP_MASK 0xFFFFFFFF
+#define MAX_WQ_NAME_LEN 20
 
 static LIST_HEAD(svc_event_nb_list);
 static DEFINE_MUTEX(svc_event_nb_list_lock);
-static DEFINE_MUTEX(msm_qmi_init_lock);
-static struct workqueue_struct *msm_qmi_ctl_workqueue;
+
+struct qmi_notify_event_work {
+	unsigned event;
+	void *oob_data;
+	size_t oob_data_len;
+	void *priv;
+	struct work_struct work;
+};
+static void qmi_notify_event_worker(struct work_struct *work);
+
+#define HANDLE_HASH_TBL_SZ 1
+static DEFINE_HASHTABLE(handle_hash_tbl, HANDLE_HASH_TBL_SZ);
+static DEFINE_MUTEX(handle_hash_tbl_lock);
 
 struct elem_info qmi_response_type_v01_ei[] = {
 	{
@@ -306,7 +319,41 @@ static void rmv_svc_clnt_conn(struct qmi_svc_clnt_conn *conn_h)
 static void qmi_event_notify(unsigned event, void *oob_data,
 			     size_t oob_data_len, void *priv)
 {
-	struct qmi_handle *handle = (struct qmi_handle *)priv;
+	struct qmi_notify_event_work *notify_work;
+	struct qmi_handle *handle;
+	uint32_t key = 0;
+
+	notify_work = kmalloc(sizeof(struct qmi_notify_event_work),
+			      GFP_KERNEL);
+	if (!notify_work) {
+		pr_err("%s: Couldn't notify %d event to %p\n",
+			__func__, event, priv);
+		return;
+	}
+	notify_work->event = event;
+	notify_work->oob_data = oob_data;
+	notify_work->oob_data_len = oob_data_len;
+	notify_work->priv = priv;
+	INIT_WORK(&notify_work->work, qmi_notify_event_worker);
+
+	mutex_lock(&handle_hash_tbl_lock);
+	hash_for_each_possible(handle_hash_tbl, handle, handle_hash, key) {
+		if (handle == (struct qmi_handle *)priv) {
+			queue_work(handle->handle_wq,
+				   &notify_work->work);
+			mutex_unlock(&handle_hash_tbl_lock);
+			return;
+		}
+	}
+	mutex_unlock(&handle_hash_tbl_lock);
+	kfree(notify_work);
+}
+
+static void qmi_notify_event_worker(struct work_struct *work)
+{
+	struct qmi_notify_event_work *notify_work =
+		container_of(work, struct qmi_notify_event_work, work);
+	struct qmi_handle *handle = (struct qmi_handle *)notify_work->priv;
 	unsigned long flags;
 
 	if (!handle)
@@ -315,10 +362,11 @@ static void qmi_event_notify(unsigned event, void *oob_data,
 	mutex_lock(&handle->handle_lock);
 	if (handle->handle_reset) {
 		mutex_unlock(&handle->handle_lock);
+		kfree(notify_work);
 		return;
 	}
 
-	switch (event) {
+	switch (notify_work->event) {
 	case IPC_ROUTER_CTRL_CMD_DATA:
 		spin_lock_irqsave(&handle->notify_lock, flags);
 		handle->notify(handle, QMI_RECV_MSG, handle->notify_priv);
@@ -327,7 +375,7 @@ static void qmi_event_notify(unsigned event, void *oob_data,
 
 	case IPC_ROUTER_CTRL_CMD_RESUME_TX:
 		if (handle->handle_type == QMI_CLIENT_HANDLE) {
-			queue_delayed_work(msm_qmi_ctl_workqueue,
+			queue_delayed_work(handle->handle_wq,
 					   &handle->resume_tx_work,
 					   msecs_to_jiffies(0));
 		} else if (handle->handle_type == QMI_SERVICE_HANDLE) {
@@ -335,14 +383,14 @@ static void qmi_event_notify(unsigned event, void *oob_data,
 			struct qmi_svc_clnt_conn *conn_h;
 			union rr_control_msg *msg;
 
-			msg = (union rr_control_msg *)oob_data;
+			msg = (union rr_control_msg *)notify_work->oob_data;
 			rtx_addr.addrtype = MSM_IPC_ADDR_ID;
 			rtx_addr.addr.port_addr.node_id = msg->cli.node_id;
 			rtx_addr.addr.port_addr.port_id = msg->cli.port_id;
 			conn_h = find_svc_clnt_conn(handle, &rtx_addr,
 						    sizeof(rtx_addr));
 			if (conn_h)
-				queue_delayed_work(msm_qmi_ctl_workqueue,
+				queue_delayed_work(handle->handle_wq,
 						   &conn_h->resume_tx_work,
 						   msecs_to_jiffies(0));
 		}
@@ -351,39 +399,14 @@ static void qmi_event_notify(unsigned event, void *oob_data,
 	case IPC_ROUTER_CTRL_CMD_NEW_SERVER:
 	case IPC_ROUTER_CTRL_CMD_REMOVE_SERVER:
 	case IPC_ROUTER_CTRL_CMD_REMOVE_CLIENT:
-		queue_delayed_work(msm_qmi_ctl_workqueue,
+		queue_delayed_work(handle->handle_wq,
 				   &handle->ctl_work, msecs_to_jiffies(0));
 		break;
 	default:
 		break;
 	}
 	mutex_unlock(&handle->handle_lock);
-}
-
-/**
- * init_msm_qmi() - Init function for kernel space QMI
- *
- * This function is implemented to initialize the QMI resources that are common
- * across kernel space QMI users. As it is not necessary for this init function
- * to be module_init function it is called when the first handle of kernel space
- * QMI gets created.
- */
-static void init_msm_qmi(void)
-{
-	static bool msm_qmi_inited;
-
-	if (likely(msm_qmi_inited))
-		return;
-
-	mutex_lock(&msm_qmi_init_lock);
-	if (likely(msm_qmi_inited && msm_qmi_ctl_workqueue)) {
-		mutex_unlock(&msm_qmi_init_lock);
-		return;
-	}
-	msm_qmi_inited = 1;
-	msm_qmi_ctl_workqueue =
-			create_singlethread_workqueue("msm_qmi_rtx_q");
-	mutex_unlock(&msm_qmi_init_lock);
+	kfree(notify_work);
 }
 
 /**
@@ -594,37 +617,26 @@ struct qmi_handle *qmi_handle_create(
 {
 	struct qmi_handle *temp_handle;
 	struct msm_ipc_port *port_ptr, *ctl_port_ptr;
-
-	/* Initialize before any handle receives any notifications */
-	init_msm_qmi();
+	static uint32_t handle_count;
+	char wq_name[MAX_WQ_NAME_LEN];
 
 	temp_handle = kzalloc(sizeof(struct qmi_handle), GFP_KERNEL);
 	if (!temp_handle) {
 		pr_err("%s: Failure allocating client handle\n", __func__);
 		return NULL;
 	}
-
-	port_ptr = msm_ipc_router_create_port(qmi_event_notify,
-					      (void *)temp_handle);
-	if (!port_ptr) {
-		pr_err("%s: IPC router port creation failed\n", __func__);
-		kfree(temp_handle);
-		return NULL;
+	mutex_lock(&handle_hash_tbl_lock);
+	handle_count++;
+	scnprintf(wq_name, MAX_WQ_NAME_LEN, "qmi_hndl%08x", handle_count);
+	hash_add(handle_hash_tbl, &temp_handle->handle_hash, 0);
+	temp_handle->handle_wq = create_singlethread_workqueue(wq_name);
+	mutex_unlock(&handle_hash_tbl_lock);
+	if (!temp_handle->handle_wq) {
+		pr_err("%s: Couldn't create workqueue for handle\n", __func__);
+		goto handle_create_err1;
 	}
-
-	ctl_port_ptr = msm_ipc_router_create_port(qmi_event_notify,
-						  (void *)temp_handle);
-	if (!ctl_port_ptr) {
-		pr_err("%s: IPC router ctl port creation failed\n", __func__);
-		msm_ipc_router_close_port(port_ptr);
-		kfree(temp_handle);
-		return NULL;
-	}
-	msm_ipc_router_bind_control_port(ctl_port_ptr);
 
 	/* Initialize common elements */
-	temp_handle->src_port = port_ptr;
-	temp_handle->ctl_port = ctl_port_ptr;
 	temp_handle->handle_type = QMI_CLIENT_HANDLE;
 	temp_handle->next_txn_id = 1;
 	mutex_init(&temp_handle->handle_lock);
@@ -641,7 +653,36 @@ struct qmi_handle *qmi_handle_create(
 
 	/* Initialize service specific elements */
 	INIT_LIST_HEAD(&temp_handle->conn_list);
+
+	port_ptr = msm_ipc_router_create_port(qmi_event_notify,
+					      (void *)temp_handle);
+	if (!port_ptr) {
+		pr_err("%s: IPC router port creation failed\n", __func__);
+		goto handle_create_err2;
+	}
+
+	ctl_port_ptr = msm_ipc_router_create_port(qmi_event_notify,
+						  (void *)temp_handle);
+	if (!ctl_port_ptr) {
+		pr_err("%s: IPC router ctl port creation failed\n", __func__);
+		goto handle_create_err3;
+	}
+	msm_ipc_router_bind_control_port(ctl_port_ptr);
+
+	temp_handle->src_port = port_ptr;
+	temp_handle->ctl_port = ctl_port_ptr;
 	return temp_handle;
+
+handle_create_err3:
+	msm_ipc_router_close_port(port_ptr);
+handle_create_err2:
+	destroy_workqueue(temp_handle->handle_wq);
+handle_create_err1:
+	mutex_lock(&handle_hash_tbl_lock);
+	hash_del(&temp_handle->handle_hash);
+	mutex_unlock(&handle_hash_tbl_lock);
+	kfree(temp_handle);
+	return NULL;
 }
 EXPORT_SYMBOL(qmi_handle_create);
 
@@ -683,14 +724,18 @@ int qmi_handle_destroy(struct qmi_handle *handle)
 	if (!handle)
 		return -EINVAL;
 
+	mutex_lock(&handle_hash_tbl_lock);
+	hash_del(&handle->handle_hash);
+	mutex_unlock(&handle_hash_tbl_lock);
+
 	mutex_lock(&handle->handle_lock);
 	handle->handle_reset = 1;
 	clean_txn_info(handle);
 	msm_ipc_router_close_port((struct msm_ipc_port *)(handle->ctl_port));
 	msm_ipc_router_close_port((struct msm_ipc_port *)(handle->src_port));
 	mutex_unlock(&handle->handle_lock);
-	flush_delayed_work(&handle->resume_tx_work);
-	flush_delayed_work(&handle->ctl_work);
+	flush_workqueue(handle->handle_wq);
+	destroy_workqueue(handle->handle_wq);
 	rc = wait_event_interruptible(handle->reset_waitq,
 				      list_empty(&handle->txn_list));
 
