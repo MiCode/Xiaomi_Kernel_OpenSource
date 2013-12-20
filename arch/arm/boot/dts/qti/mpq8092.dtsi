@@ -809,6 +809,10 @@
 	status = "ok";
 };
 
+&gdsc_pcie {
+	status = "ok";
+};
+
 #include "msm-pma8084-rpm-regulator.dtsi"
 #include "msm-pma8084.dtsi"
 #include "mpq8092-regulator.dtsi"

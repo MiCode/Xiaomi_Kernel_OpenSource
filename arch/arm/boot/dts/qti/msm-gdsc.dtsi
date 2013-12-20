@@ -82,6 +82,13 @@
 		status = "disabled";
 	};
 
+	gdsc_pcie: qcom,gdsc@0xfc401e18 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_pcie";
+		reg = <0xfc401e18 0x4>;
+		status = "disabled";
+	};
+
 	gdsc_pcie_0: qcom,gdsc@fc401ac4 {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_pcie_0";
