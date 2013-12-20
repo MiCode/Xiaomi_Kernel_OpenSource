@@ -67,6 +67,9 @@ module_param(tsc_iommu_bypass, int, S_IRUGO | S_IWUSR | S_IWGRP);
 #define CICAM_CLK_RATE_12MHZ		12000000
 #define CICAM_CLK_RATE_9MHZ		8971962
 #define CICAM_CLK_RATE_7MHZ		7218045
+/* Rates for TSC serial and parallel clocks */
+#define TSC_SER_CLK_RATE		192000000
+#define TSC_PAR_CLK_RATE		24000000
 
 /*
  * TSC register offsets
@@ -1664,6 +1667,20 @@ static int tsc_mux_power_on_clocks(void)
 	ret = clk_set_rate(tsc_device->cicam_ts_clk, CICAM_CLK_RATE_7MHZ);
 	if (ret != 0) {
 		pr_err("%s: Can't set rate for tsc_cicam_ts_clk", __func__);
+		goto err_set_rate;
+	}
+
+	/* Setting the TSC serial clock rate */
+	ret = clk_set_rate(tsc_device->ser_clk, TSC_SER_CLK_RATE);
+	if (ret != 0) {
+		pr_err("%s: Can't set rate for tsc serial clock", __func__);
+		goto err_set_rate;
+	}
+
+	/* Setting the TSC parallel clock rate */
+	ret = clk_set_rate(tsc_device->par_clk, TSC_PAR_CLK_RATE);
+	if (ret != 0) {
+		pr_err("%s: Can't set rate for tsc parallel clock", __func__);
 		goto err_set_rate;
 	}
 
