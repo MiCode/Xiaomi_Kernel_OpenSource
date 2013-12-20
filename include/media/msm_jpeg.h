@@ -11,52 +11,52 @@
 #define MSM_JPEG_IOCTL_MAGIC 'g'
 
 #define MSM_JPEG_IOCTL_GET_HW_VERSION \
-	_IOW(MSM_JPEG_IOCTL_MAGIC, 1, struct msm_jpeg_hw_cmd *)
+	_IOW(MSM_JPEG_IOCTL_MAGIC, 1, struct msm_jpeg_hw_cmd)
 
 #define MSM_JPEG_IOCTL_RESET \
-	_IOW(MSM_JPEG_IOCTL_MAGIC, 2, struct msm_jpeg_ctrl_cmd *)
+	_IOW(MSM_JPEG_IOCTL_MAGIC, 2, struct msm_jpeg_ctrl_cmd)
 
 #define MSM_JPEG_IOCTL_STOP \
-	_IOW(MSM_JPEG_IOCTL_MAGIC, 3, struct msm_jpeg_hw_cmds *)
+	_IOW(MSM_JPEG_IOCTL_MAGIC, 3, struct msm_jpeg_hw_cmds)
 
 #define MSM_JPEG_IOCTL_START \
-	_IOW(MSM_JPEG_IOCTL_MAGIC, 4, struct msm_jpeg_hw_cmds *)
+	_IOW(MSM_JPEG_IOCTL_MAGIC, 4, struct msm_jpeg_hw_cmds)
 
 #define MSM_JPEG_IOCTL_INPUT_BUF_ENQUEUE \
-	_IOW(MSM_JPEG_IOCTL_MAGIC, 5, struct msm_jpeg_buf *)
+	_IOW(MSM_JPEG_IOCTL_MAGIC, 5, struct msm_jpeg_buf)
 
 #define MSM_JPEG_IOCTL_INPUT_GET \
-	_IOW(MSM_JPEG_IOCTL_MAGIC, 6, struct msm_jpeg_buf *)
+	_IOW(MSM_JPEG_IOCTL_MAGIC, 6, struct msm_jpeg_buf)
 
 #define MSM_JPEG_IOCTL_INPUT_GET_UNBLOCK \
 	_IOW(MSM_JPEG_IOCTL_MAGIC, 7, int)
 
 #define MSM_JPEG_IOCTL_OUTPUT_BUF_ENQUEUE \
-	_IOW(MSM_JPEG_IOCTL_MAGIC, 8, struct msm_jpeg_buf *)
+	_IOW(MSM_JPEG_IOCTL_MAGIC, 8, struct msm_jpeg_buf)
 
 #define MSM_JPEG_IOCTL_OUTPUT_GET \
-	_IOW(MSM_JPEG_IOCTL_MAGIC, 9, struct msm_jpeg_buf *)
+	_IOW(MSM_JPEG_IOCTL_MAGIC, 9, struct msm_jpeg_buf)
 
 #define MSM_JPEG_IOCTL_OUTPUT_GET_UNBLOCK \
 	_IOW(MSM_JPEG_IOCTL_MAGIC, 10, int)
 
 #define MSM_JPEG_IOCTL_EVT_GET \
-	_IOW(MSM_JPEG_IOCTL_MAGIC, 11, struct msm_jpeg_ctrl_cmd *)
+	_IOW(MSM_JPEG_IOCTL_MAGIC, 11, struct msm_jpeg_ctrl_cmd)
 
 #define MSM_JPEG_IOCTL_EVT_GET_UNBLOCK \
 	_IOW(MSM_JPEG_IOCTL_MAGIC, 12, int)
 
 #define MSM_JPEG_IOCTL_HW_CMD \
-	_IOW(MSM_JPEG_IOCTL_MAGIC, 13, struct msm_jpeg_hw_cmd *)
+	_IOW(MSM_JPEG_IOCTL_MAGIC, 13, struct msm_jpeg_hw_cmd)
 
 #define MSM_JPEG_IOCTL_HW_CMDS \
-	_IOW(MSM_JPEG_IOCTL_MAGIC, 14, struct msm_jpeg_hw_cmds *)
+	_IOW(MSM_JPEG_IOCTL_MAGIC, 14, struct msm_jpeg_hw_cmds)
 
 #define MSM_JPEG_IOCTL_TEST_DUMP_REGION \
 	_IOW(MSM_JPEG_IOCTL_MAGIC, 15, unsigned long)
 
 #define MSM_JPEG_IOCTL_SET_CLK_RATE \
-	_IOW(MSM_JPEG_IOCTL_MAGIC, 16, unsigned long)
+	_IOW(MSM_JPEG_IOCTL_MAGIC, 16, unsigned int)
 
 #define MSM_JPEG_MODE_REALTIME_ENCODE 0
 #define MSM_JPEG_MODE_OFFLINE_ENCODE 1
