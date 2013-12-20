@@ -32,7 +32,7 @@
 #include <linux/remote_spinlock.h>
 #include <linux/uaccess.h>
 #include <linux/kfifo.h>
-#include <linux/wakelock.h>
+#include <linux/pm.h>
 #include <linux/notifier.h>
 #include <linux/suspend.h>
 #include <linux/of.h>
@@ -69,7 +69,7 @@ struct smsm_shared_info {
 
 static struct smsm_shared_info smsm_info;
 static struct kfifo smsm_snapshot_fifo;
-static struct wake_lock smsm_snapshot_wakelock;
+static struct wakeup_source smsm_snapshot_ws;
 static int smsm_snapshot_count;
 static DEFINE_SPINLOCK(smsm_snapshot_count_lock);
 
@@ -201,7 +201,7 @@ static inline void smd_write_intr(unsigned int val,
 				const void __iomem *addr);
 
 static void smd_fake_irq_handler(unsigned long arg);
-static void smsm_cb_snapshot(uint32_t use_wakelock);
+static void smsm_cb_snapshot(uint32_t use_wakeup_source);
 
 static struct workqueue_struct *smsm_cb_wq;
 static void notify_smsm_cb_clients_worker(struct work_struct *work);
@@ -2325,8 +2325,7 @@ static int smsm_init(void)
 		pr_err("%s: SMSM state fifo alloc failed %d\n", __func__, i);
 		return i;
 	}
-	wake_lock_init(&smsm_snapshot_wakelock, WAKE_LOCK_SUSPEND,
-			"smsm_snapshot");
+	wakeup_source_init(&smsm_snapshot_ws, "smsm_snapshot");
 
 	if (!smsm_info.state) {
 		smsm_info.state = smem_alloc(ID_SHARED_STATE,
@@ -2371,7 +2370,7 @@ static int smsm_init(void)
 	return 0;
 }
 
-static void smsm_cb_snapshot(uint32_t use_wakelock)
+static void smsm_cb_snapshot(uint32_t use_wakeup_source)
 {
 	int n;
 	uint32_t new_state;
@@ -2399,11 +2398,11 @@ static void smsm_cb_snapshot(uint32_t use_wakelock)
 	 *
 	 *   This order ensures that 1 will always occur before abc.
 	 */
-	if (use_wakelock) {
+	if (use_wakeup_source) {
 		spin_lock_irqsave(&smsm_snapshot_count_lock, flags);
 		if (smsm_snapshot_count == 0) {
 			SMSM_POWER_INFO("SMSM snapshot wake lock\n");
-			wake_lock(&smsm_snapshot_wakelock);
+			__pm_stay_awake(&smsm_snapshot_ws);
 		}
 		++smsm_snapshot_count;
 		spin_unlock_irqrestore(&smsm_snapshot_count_lock, flags);
@@ -2429,8 +2428,8 @@ static void smsm_cb_snapshot(uint32_t use_wakelock)
 
 	/* queue wakelock usage flag */
 	ret = kfifo_in(&smsm_snapshot_fifo,
-			&use_wakelock, sizeof(use_wakelock));
-	if (ret != sizeof(use_wakelock)) {
+			&use_wakeup_source, sizeof(use_wakeup_source));
+	if (ret != sizeof(use_wakeup_source)) {
 		pr_err("%s: SMSM snapshot failure %d\n", __func__, ret);
 		goto restore_snapshot_count;
 	}
@@ -2439,13 +2438,13 @@ static void smsm_cb_snapshot(uint32_t use_wakelock)
 	return;
 
 restore_snapshot_count:
-	if (use_wakelock) {
+	if (use_wakeup_source) {
 		spin_lock_irqsave(&smsm_snapshot_count_lock, flags);
 		if (smsm_snapshot_count) {
 			--smsm_snapshot_count;
 			if (smsm_snapshot_count == 0) {
 				SMSM_POWER_INFO("SMSM snapshot wake unlock\n");
-				wake_unlock(&smsm_snapshot_wakelock);
+				__pm_relax(&smsm_snapshot_ws);
 			}
 		} else {
 			pr_err("%s: invalid snapshot count\n", __func__);
@@ -2643,7 +2642,7 @@ void notify_smsm_cb_clients_worker(struct work_struct *work)
 	int n;
 	uint32_t new_state;
 	uint32_t state_changes;
-	uint32_t use_wakelock;
+	uint32_t use_wakeup_source;
 	int ret;
 	unsigned long flags;
 	uint64_t t_snapshot;
@@ -2692,9 +2691,9 @@ void notify_smsm_cb_clients_worker(struct work_struct *work)
 		}
 
 		/* read wakelock flag */
-		ret = kfifo_out(&smsm_snapshot_fifo, &use_wakelock,
-				sizeof(use_wakelock));
-		if (ret != sizeof(use_wakelock)) {
+		ret = kfifo_out(&smsm_snapshot_fifo, &use_wakeup_source,
+				sizeof(use_wakeup_source));
+		if (ret != sizeof(use_wakeup_source)) {
 			pr_err("%s: snapshot underflow %d\n",
 				__func__, ret);
 			mutex_unlock(&smsm_lock);
@@ -2702,14 +2701,14 @@ void notify_smsm_cb_clients_worker(struct work_struct *work)
 		}
 		mutex_unlock(&smsm_lock);
 
-		if (use_wakelock) {
+		if (use_wakeup_source) {
 			spin_lock_irqsave(&smsm_snapshot_count_lock, flags);
 			if (smsm_snapshot_count) {
 				--smsm_snapshot_count;
 				if (smsm_snapshot_count == 0) {
 					SMSM_POWER_INFO("SMSM snapshot"
 						   " wake unlock\n");
-					wake_unlock(&smsm_snapshot_wakelock);
+					__pm_relax(&smsm_snapshot_ws);
 				}
 			} else {
 				pr_err("%s: invalid snapshot count\n",
