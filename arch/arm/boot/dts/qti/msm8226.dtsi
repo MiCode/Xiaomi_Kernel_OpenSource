@@ -1397,27 +1397,27 @@
 };
 
 &gdsc_venus {
-	qcom,clock-names = "core_clk";
+	clock-names = "core_clk";
 	status = "ok";
 };
 
 &gdsc_mdss {
-	qcom,clock-names = "core_clk", "lut_clk";
+	clock-names = "core_clk", "lut_clk";
 	status = "ok";
 };
 
 &gdsc_jpeg {
-	qcom,clock-names = "core_clk";
+	clock-names = "core_clk";
 	status = "ok";
 };
 
 &gdsc_vfe {
-	qcom,clock-names = "core_clk", "csi_clk", "cpp_clk";
+	clock-names = "core_clk", "csi_clk", "cpp_clk";
 	status = "ok";
 };
 
 &gdsc_oxili_cx {
-	qcom,clock-names = "core_clk";
+	clock-names = "core_clk";
 	status = "ok";
 };
 

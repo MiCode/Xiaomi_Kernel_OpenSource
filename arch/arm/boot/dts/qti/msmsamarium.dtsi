@@ -1824,12 +1824,12 @@
 };
 
 &gdsc_venus {
-	qcom,clock-names = "core_clk";
+	clock-names = "core_clk";
 	status = "ok";
 };
 
 &gdsc_mdss {
-	qcom,clock-names = "core_clk", "lut_clk";
+	clock-names = "core_clk", "lut_clk";
 	status = "ok";
 };
 
@@ -1838,7 +1838,7 @@
 };
 
 &gdsc_vfe {
-	qcom,clock-names = "core0_clk", "cpp_clk";
+	clock-names = "core0_clk", "cpp_clk";
 	status = "ok";
 };
 
@@ -1847,7 +1847,7 @@
 };
 
 &gdsc_oxili_gx {
-	qcom,clock-names = "core_clk";
+	clock-names = "core_clk";
 	parent-supply = <&pma8084_s7_corner>;
 	status = "ok";
 };

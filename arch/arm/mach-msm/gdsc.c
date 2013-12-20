@@ -267,7 +267,7 @@ static int gdsc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	sc->clock_count = of_property_count_strings(pdev->dev.of_node,
-					    "qcom,clock-names");
+					    "clock-names");
 	if (sc->clock_count == -EINVAL) {
 		sc->clock_count = 0;
 	} else if (IS_ERR_VALUE(sc->clock_count)) {
@@ -281,9 +281,8 @@ static int gdsc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	for (i = 0; i < sc->clock_count; i++) {
 		const char *clock_name;
-		of_property_read_string_index(pdev->dev.of_node,
-					      "qcom,clock-names", i,
-					      &clock_name);
+		of_property_read_string_index(pdev->dev.of_node, "clock-names",
+					      i, &clock_name);
 		sc->clocks[i] = devm_clk_get(&pdev->dev, clock_name);
 		if (IS_ERR(sc->clocks[i])) {
 			int rc = PTR_ERR(sc->clocks[i]);
