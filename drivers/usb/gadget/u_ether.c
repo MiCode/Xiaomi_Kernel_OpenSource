@@ -866,9 +866,10 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 
 	req->length = length;
 
-	/* throttle highspeed IRQ rate back slightly */
+	/* throttle high/super speed IRQ rate back slightly */
 	if (gadget_is_dualspeed(dev->gadget) &&
-			 (dev->gadget->speed == USB_SPEED_HIGH)) {
+		 (dev->gadget->speed == USB_SPEED_HIGH ||
+		  dev->gadget->speed == USB_SPEED_SUPER)) {
 		dev->tx_qlen++;
 		if (dev->tx_qlen == (qmult/2)) {
 			req->no_interrupt = 0;
