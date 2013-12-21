@@ -1775,6 +1775,11 @@ static int force_rechg_set(void *data, u64 val)
 	int rc;
 	struct smb135x_chg *chip = data;
 
+	if (!chip->chg_enabled) {
+		pr_debug("Charging Disabled force recharge not allowed\n");
+		return -EINVAL;
+	}
+
 	rc = smb135x_masked_write(chip, CFG_14_REG, EN_CHG_INHIBIT_BIT, 0);
 	if (rc)
 		dev_err(chip->dev,
@@ -2511,7 +2516,8 @@ static int smb135x_charger_probe(struct i2c_client *client,
 				"Couldn't create count debug file rc = %d\n",
 				rc);
 
-		ent = debugfs_create_file("force_recharge", S_IFREG | S_IRUGO,
+		ent = debugfs_create_file("force_recharge",
+					  S_IFREG | S_IWUSR | S_IRUGO,
 					  chip->debug_root, chip,
 					  &force_rechg_ops);
 		if (!ent)
