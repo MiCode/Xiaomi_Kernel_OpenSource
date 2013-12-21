@@ -181,6 +181,10 @@ static int boost_migration_notify(struct notifier_block *nb,
 	if (!boost_ms)
 		return NOTIFY_OK;
 
+	/* Avoid deadlock in try_to_wake_up() */
+	if (s->thread == current)
+		return NOTIFY_OK;
+
 	pr_debug("Migration: CPU%d --> CPU%d\n", (int) arg, (int) dest_cpu);
 	spin_lock_irqsave(&s->lock, flags);
 	s->pending = true;
