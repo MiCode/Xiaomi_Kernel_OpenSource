@@ -18,6 +18,8 @@
 /* max 20mhz channel count */
 #define CNSS_MAX_CH_NUM       45
 
+#define CNSS_MAX_FILE_NAME	  20
+
 struct dev_info {
 	struct device	*dev;
 	char	*dump_buffer;
@@ -25,6 +27,14 @@ struct dev_info {
 	int (*dev_shutdown)(void);
 	int (*dev_powerup)(void);
 	void (*dev_crashshutdown)(void);
+};
+
+/* FW image files */
+struct cnss_fw_files {
+	char image_file[CNSS_MAX_FILE_NAME];
+	char board_data[CNSS_MAX_FILE_NAME];
+	char otp_data[CNSS_MAX_FILE_NAME];
+	char utf_file[CNSS_MAX_FILE_NAME];
 };
 
 struct cnss_wlan_driver {
@@ -47,5 +57,6 @@ extern int cnss_get_wlan_unsafe_channel(u16 *unsafe_ch_list,
 						u16 *ch_count, u16 buf_len);
 extern int cnss_wlan_register_driver(struct cnss_wlan_driver *driver);
 extern void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver);
+extern int cnss_get_fw_files(struct cnss_fw_files *pfw_files);
 
 #endif /* _NET_CNSS_H_ */
