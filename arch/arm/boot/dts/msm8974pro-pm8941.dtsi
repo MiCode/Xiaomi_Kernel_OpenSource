@@ -60,6 +60,10 @@
 	vdd_cx-supply = <&pm8841_s2_corner>;
 };
 
+&pm8841_s2_corner {
+	qcom,init-smps-mode = <0>;	/* Allow AUTO mode for VDD_CX. */
+};
+
 &krait_regulator_pmic {
 	status = "ok";
 
