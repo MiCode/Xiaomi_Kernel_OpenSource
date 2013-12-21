@@ -29,6 +29,12 @@ static struct gpiomux_setting gpio_uart_config = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting slimbus = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_KEEPER,
+};
+
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	{
 		.gpio      = 6,		/* BLSP1 QUP2 I2C_SDA */
@@ -91,6 +97,22 @@ static struct msm_gpiomux_config msm_ehci_configs[] = {
 	},
 };
 
+static struct msm_gpiomux_config mpq8092_slimbus_config[] __initdata = {
+	{
+		.gpio	= 43,		/* slimbus clk */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &slimbus,
+		},
+	},
+	{
+		.gpio	= 44,		/* slimbus data */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &slimbus,
+		},
+	},
+};
+
+
 void __init mpq8092_init_gpiomux(void)
 {
 	int rc;
@@ -103,4 +125,6 @@ void __init mpq8092_init_gpiomux(void)
 
 	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
 	msm_gpiomux_install(msm_ehci_configs, ARRAY_SIZE(msm_ehci_configs));
+	msm_gpiomux_install(mpq8092_slimbus_config,
+			ARRAY_SIZE(mpq8092_slimbus_config));
 }
