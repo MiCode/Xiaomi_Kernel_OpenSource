@@ -58,6 +58,13 @@ Optional properties:
     data, data type, delay in ms. size 0 stand for not used.
 - cam_vdig-supply : should contain regulator to be used for the digital vdd.
 
+Optional properties -EEPROM Camera Multimodule
+- qcom,mm-data-support - Camera Multimodule data capability flag.
+- qcom,mm-data-compressed - Camera Multimodule data compresion flag.
+- qcom,mm-data-offset - Camera Multimodule data start offset.
+- qcom,mm-data-size - Camera Multimodule data size.
+
+
 Example:
 
     eeprom0: qcom,eeprom@60 {
@@ -75,6 +82,11 @@ Example:
         qcom,pageen1 = <1 0x0202 2 0x01 1 10>;
         qcom,poll1 = <0 0x0 2 0 1 1>;
         qcom,mem1 = <32 0x3000 2 0 1 0>;
+
+	qcom,mm-data-support;
+	qcom,mm-data-compressed;
+	qcom,mm-data-offset = 0;
+	qcom,mm-data-size = 0;
 
         cam_vdig-supply = <&pm8226_l5>;
         cam_vio-supply = <&pm8226_lvs1>;
