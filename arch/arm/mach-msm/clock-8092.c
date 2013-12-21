@@ -4298,7 +4298,7 @@ static struct branch_clk vpu_vdp_clk = {
 
 static struct branch_clk vpu_vdp_xin_clk = {
 	.cbcr_reg = VPU_VDP_XIN_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
 		.dbg_name = "vpu_vdp_xin_clk",
