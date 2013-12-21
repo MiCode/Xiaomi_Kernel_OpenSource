@@ -26,7 +26,6 @@
 #include <mach/socinfo.h>
 #include <mach/board.h>
 #include <mach/msm_memtypes.h>
-#include <mach/qpnp-int.h>
 #include <soc/msm/smem.h>
 #include <mach/msm_smd.h>
 #include <mach/restart.h>

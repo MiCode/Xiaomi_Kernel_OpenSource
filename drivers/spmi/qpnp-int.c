@@ -27,10 +27,9 @@
 #include <linux/slab.h>
 #include <linux/printk.h>
 #include <linux/ratelimit.h>
+#include <linux/irqchip/qpnp-int.h>
 
 #include <asm/irq.h>
-#include <asm/mach/irq.h>
-#include <mach/qpnp-int.h>
 
 /* 16 slave_ids, 256 per_ids per slave, and 8 ints per per_id */
 #define QPNPINT_NR_IRQS		(16 * 256 * 8)
