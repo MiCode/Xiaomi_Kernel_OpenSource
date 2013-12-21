@@ -786,34 +786,60 @@ int ion_heap_allow_heap_secure(enum ion_heap_type type)
 	return type == ((enum ion_heap_type) ION_HEAP_TYPE_CP);
 }
 
-static long msm_ion_custom_ioctl(struct ion_client *client,
-				unsigned int cmd,
-				unsigned long arg)
+/* fix up the cases where the ioctl direction bits are incorrect */
+static unsigned int msm_ion_ioctl_dir(unsigned int cmd)
 {
 	switch (cmd) {
 	case ION_IOC_CLEAN_CACHES:
 	case ION_IOC_INV_CACHES:
 	case ION_IOC_CLEAN_INV_CACHES:
+	case ION_IOC_PREFETCH:
+	case ION_IOC_DRAIN:
+		return _IOC_WRITE;
+	default:
+		return _IOC_DIR(cmd);
+	}
+}
+
+static long msm_ion_custom_ioctl(struct ion_client *client,
+				unsigned int cmd,
+				unsigned long arg)
+{
+	unsigned int dir;
+	union {
+		struct ion_flush_data flush_data;
+		struct ion_prefetch_data prefetch_data;
+	} data;
+
+	dir = msm_ion_ioctl_dir(cmd);
+
+	if (_IOC_SIZE(cmd) > sizeof(data))
+		return -EINVAL;
+
+	if (dir & _IOC_WRITE)
+		if (copy_from_user(&data, (void __user *)arg, _IOC_SIZE(cmd)))
+			return -EFAULT;
+
+	switch (cmd) {
+	case ION_IOC_CLEAN_CACHES:
+	case ION_IOC_INV_CACHES:
+	case ION_IOC_CLEAN_INV_CACHES:
 	{
-		struct ion_flush_data data;
 		unsigned long start, end;
 		struct ion_handle *handle = NULL;
 		int ret;
 		struct mm_struct *mm = current->active_mm;
 
-		if (copy_from_user(&data, (void __user *)arg,
-					sizeof(struct ion_flush_data)))
-			return -EFAULT;
-
-		if (data.handle > 0) {
-			handle = ion_handle_get_by_id(client, (int)data.handle);
+		if (data.flush_data.handle > 0) {
+			handle = ion_handle_get_by_id(client,
+						(int)data.flush_data.handle);
 			if (IS_ERR(handle)) {
 				pr_info("%s: Could not find handle: %d\n",
-					__func__, (int)data.handle);
+					__func__, (int)data.flush_data.handle);
 				return PTR_ERR(handle);
 			}
 		} else {
-			handle = ion_import_dma_buf(client, data.fd);
+			handle = ion_import_dma_buf(client, data.flush_data.fd);
 			if (IS_ERR(handle)) {
 				pr_info("%s: Could not import handle: %p\n",
 					__func__, handle);
@@ -823,16 +849,19 @@ static long msm_ion_custom_ioctl(struct ion_client *client,
 
 		down_read(&mm->mmap_sem);
 
-		start = (unsigned long) data.vaddr;
-		end = (unsigned long) data.vaddr + data.length;
+		start = (unsigned long) data.flush_data.vaddr;
+		end = (unsigned long) data.flush_data.vaddr
+			+ data.flush_data.length;
 
 		if (start && check_vaddr_bounds(start, end)) {
 			pr_err("%s: virtual address %p is out of bounds\n",
-				__func__, data.vaddr);
+				__func__, data.flush_data.vaddr);
 			ret = -EINVAL;
 		} else {
-			ret = ion_do_cache_op(client, handle, data.vaddr,
-					data.offset, data.length, cmd);
+			ret = ion_do_cache_op(
+				client, handle, data.flush_data.vaddr,
+				data.flush_data.offset,
+				data.flush_data.length, cmd);
 		}
 		up_read(&mm->mmap_sem);
 
@@ -844,26 +873,16 @@ static long msm_ion_custom_ioctl(struct ion_client *client,
 	}
 	case ION_IOC_PREFETCH:
 	{
-		struct ion_prefetch_data data;
-
-		if (copy_from_user(&data, (void __user *)arg,
-					sizeof(struct ion_prefetch_data)))
-			return -EFAULT;
-
-		ion_walk_heaps(client, data.heap_id, (void *)data.len,
-						ion_secure_cma_prefetch);
+		ion_walk_heaps(client, data.prefetch_data.heap_id,
+			(void *)data.prefetch_data.len,
+			ion_secure_cma_prefetch);
 		break;
 	}
 	case ION_IOC_DRAIN:
 	{
-		struct ion_prefetch_data data;
-
-		if (copy_from_user(&data, (void __user *)arg,
-					sizeof(struct ion_prefetch_data)))
-			return -EFAULT;
-
-		ion_walk_heaps(client, data.heap_id, (void *)data.len,
-						ion_secure_cma_drain_pool);
+		ion_walk_heaps(client, data.prefetch_data.heap_id,
+			(void *)data.prefetch_data.len,
+			ion_secure_cma_drain_pool);
 		break;
 	}
 
