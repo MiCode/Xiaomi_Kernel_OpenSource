@@ -20,37 +20,69 @@
 	soc: soc { };
 
 	cpus {
-		#address-cells = <2>;
+		#address-cells = <1>;
 		#size-cells = <0>;
 
 		cpu@0 {
 			device_type = "cpu";
-			compatible = "arm,armv8";
-			reg = <0x0 0x0>;
+			compatible = "arm,cortex-a53";
+			reg = <0x0>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x09008000>;
 		};
 
 		cpu@1 {
 			device_type = "cpu";
-			compatible = "arm,armv8";
-			reg = <0x0 0x1>;
+			compatible = "arm,cortex-a53";
+			reg = <0x1>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x09008000>;
 		};
 
 		cpu@2 {
 			device_type = "cpu";
-			compatible = "arm,armv8";
-			reg = <0x0 0x2>;
+			compatible = "arm,cortex-a53";
+			reg = <0x2>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x09008000>;
 		};
 
 		cpu@3 {
 			device_type = "cpu";
-			compatible = "arm,armv8";
-			reg = <0x0 0x3>;
+			compatible = "arm,cortex-a53";
+			reg = <0x3>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x09008000>;
+		};
+
+		cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a57";
+			reg = <0x100>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x09008000>;
+		};
+
+		cpu@101 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a57";
+			reg = <0x101>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x09008000>;
+		};
+
+		cpu@102 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a57";
+			reg = <0x102>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x09008000>;
+		};
+
+		cpu@103 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a57";
+			reg = <0x103>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x09008000>;
 		};
