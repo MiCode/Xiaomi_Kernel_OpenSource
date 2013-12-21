@@ -505,18 +505,6 @@ static int smb135x_get_prop_batt_present(struct smb135x_chg *chip)
 	return chip->batt_present;
 }
 
-static int smb135x_get_charging_status(struct smb135x_chg *chip)
-{
-	int rc;
-	u8 reg = 0;
-
-	rc = smb135x_read(chip, STATUS_4_REG, &reg);
-	if (rc < 0)
-		return 0;
-
-	return (reg & CHG_EN_BIT) ? 1 : 0;
-}
-
 static int smb135x_get_prop_charge_type(struct smb135x_chg *chip)
 {
 	int rc;
@@ -915,7 +903,7 @@ static int smb135x_battery_get_property(struct power_supply *psy,
 		val->intval = smb135x_get_prop_batt_present(chip);
 		break;
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-		val->intval = smb135x_get_charging_status(chip);
+		val->intval = chip->chg_enabled;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
 		val->intval = smb135x_get_prop_charge_type(chip);
