@@ -428,8 +428,8 @@ static enum power_supply_type usb_type_enum[] = {
 	POWER_SUPPLY_TYPE_USB_ACA,	/* bit 1 */
 	POWER_SUPPLY_TYPE_USB_ACA,	/* bit 2 */
 	POWER_SUPPLY_TYPE_USB_ACA,	/* bit 3 */
-	POWER_SUPPLY_TYPE_UNKNOWN,	/* bit 5 */
 	POWER_SUPPLY_TYPE_USB,		/* bit 4 */
+	POWER_SUPPLY_TYPE_UNKNOWN,	/* bit 5 */
 	POWER_SUPPLY_TYPE_USB_DCP,	/* bit 6 */
 	POWER_SUPPLY_TYPE_USB_CDP,	/* bit 7 */
 	POWER_SUPPLY_TYPE_USB,		/* bit 8 error case, report SDP */
