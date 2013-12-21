@@ -39,6 +39,7 @@
 			label = "bcast_demod";
 			qti,iommu-contexts = <&bcast_cb2_demod>;
 			qti,virtual-addr-pool = <0x00000000 0x80000000>;
+			qti,secure-domain;
 		};
 
 		bcast_domain_apz: qti,iommu-domain5 {

@@ -1223,6 +1223,7 @@
 				"global_cfg_NS_irq", "global_client_NS_irq",
 				"global_cfg_S_irq", "global_client_S_irq";
 		label = "bcast_iommu";
+		qti,iommu-secure-id = <13>;
 		status = "disabled";
 
 		qti,iommu-pmu-ngroups = <1>;
@@ -1309,6 +1310,7 @@
 						48 49 50 51 52 53 54 55
 						56 57 58 59 60 61 62>;
 			label = "bcast_cb1_cpz";
+			qti,secure-context;
 		};
 
 		bcast_cb2_demod: qti,iommu-ctx@fc73e000 {
@@ -1317,6 +1319,7 @@
 			interrupts = <0 276 0>;
 			qti,iommu-ctx-sids = <63>;
 			label = "bcast_cb2_demod";
+			qti,secure-context;
 		};
 
 		bcast_cb3_apz: qti,iommu-ctx@fc73f000 {
@@ -1325,6 +1328,7 @@
 			interrupts = <0 276 0>;
 			qti,iommu-ctx-sids = <>;
 			label = "bcast_cb3_apz";
+			qti,secure-context;
 		};
 	};
 };
