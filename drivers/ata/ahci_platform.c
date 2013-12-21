@@ -356,7 +356,6 @@ static const struct dev_pm_ops ahci_pm_ops = {
 
 static const struct of_device_id ahci_of_match[] = {
 	{ .compatible = "snps,spear-ahci", },
-	{ .compatible = "qcom,msm-ahci", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, ahci_of_match);
