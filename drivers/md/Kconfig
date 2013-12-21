@@ -235,6 +235,23 @@ config DM_CRYPT
 
 	  If unsure, say N.
 
+config DM_REQ_CRYPT
+	tristate "Crypt target support"
+	depends on BLK_DEV_DM
+	select XTS
+	select CRYPTO_XTS
+	---help---
+	  This request based device-mapper target allows you to create a device that
+	  transparently encrypts the data on it. You'll need to activate
+	  the ciphers you're going to use in the cryptoapi configuration.
+	  The DM REQ CRYPT operates on requests (bigger payloads) to utilize
+	  crypto hardware better.
+
+	  To compile this code as a module, choose M here: the module will
+	  be called dm-req-crypt.
+
+	  If unsure, say N.
+
 config DM_SNAPSHOT
        tristate "Snapshot target"
        depends on BLK_DEV_DM
