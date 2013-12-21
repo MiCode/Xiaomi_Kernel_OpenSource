@@ -2172,7 +2172,8 @@ static int cpufreq_set_policy(struct cpufreq_policy *policy,
 
 	memcpy(&new_policy->cpuinfo, &policy->cpuinfo, sizeof(policy->cpuinfo));
 
-	if (new_policy->min > policy->max || new_policy->max < policy->min)
+	if (new_policy->min > policy->user_policy.max
+	    || new_policy->max < policy->user_policy.min)
 		return -EINVAL;
 
 	/* verify the cpu speed can be set within this limit */
