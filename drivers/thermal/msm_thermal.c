@@ -1163,7 +1163,8 @@ static __ref int do_freq_mitigation(void *data)
 			cpus[cpu].limited_min_freq = min_freq_req;
 			update_cpu_freq(cpu);
 reset_threshold:
-			if (cpus[cpu].freq_thresh_clear) {
+			if (freq_mitigation_enabled &&
+				cpus[cpu].freq_thresh_clear) {
 				set_threshold(cpus[cpu].sensor_id,
 				&cpus[cpu].threshold[FREQ_THRESHOLD_HIGH]);
 
@@ -1225,8 +1226,10 @@ static void freq_mitigation_init(void)
 	uint32_t cpu = 0;
 	struct sensor_threshold *hi_thresh = NULL, *low_thresh = NULL;
 
-	if (!freq_mitigation_enabled || freq_mitigation_task)
+	if (freq_mitigation_task)
 		return;
+	if (!freq_mitigation_enabled)
+		goto init_freq_thread;
 
 	for_each_possible_cpu(cpu) {
 		if (!(msm_thermal_info.freq_mitig_control_mask & BIT(cpu)))
@@ -1245,7 +1248,7 @@ static void freq_mitigation_init(void)
 
 		set_threshold(cpus[cpu].sensor_id, hi_thresh);
 	}
-
+init_freq_thread:
 	init_completion(&freq_mitigation_complete);
 	freq_mitigation_task = kthread_run(do_freq_mitigation, NULL,
 		"msm_thermal:freq_mitig");
