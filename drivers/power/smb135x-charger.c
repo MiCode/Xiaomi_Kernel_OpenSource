@@ -1288,15 +1288,16 @@ static int handle_usb_insertion(struct smb135x_chg *chip)
 		dev_err(chip->dev, "Couldn't read status 5 rc = %d\n", rc);
 		return rc;
 	}
-	usb_type_name = get_usb_type_name(reg);
-	usb_supply_type = get_usb_supply_type(reg);
 	/*
 	 * Report the charger type as UNKNOWN if the
 	 * apsd-fail flag is set. This nofifies the USB driver
 	 * to initiate a s/w based charger type detection.
 	 */
 	if (chip->workaround_flags & WRKARND_APSD_FAIL)
-		usb_supply_type = POWER_SUPPLY_TYPE_UNKNOWN;
+		reg = 0;
+
+	usb_type_name = get_usb_type_name(reg);
+	usb_supply_type = get_usb_supply_type(reg);
 	pr_debug("inserted %s, usb psy type = %d stat_5 = 0x%02x\n",
 			usb_type_name, usb_supply_type, reg);
 	if (chip->usb_psy) {
