@@ -2179,6 +2179,32 @@ out:
 	return -ENOMEM;
 }
 
+ /**
+ * ufshcd_print_pwr_info - print power params as saved in hba
+ * power info
+ * @hba: per-adapter instance
+ */
+static void ufshcd_print_pwr_info(struct ufs_hba *hba)
+{
+	char *names[] = {
+		"INVALID MODE",
+		"FAST MODE",
+		"SLOW_MODE",
+		"INVALID MODE",
+		"FASTAUTO_MODE",
+		"SLOWAUTO_MODE",
+		"INVALID MODE",
+	};
+
+	dev_info(hba->dev, "%s:[RX, TX]: gear=[%d, %d], lane[%d, %d], pwr[%s, %s], rate = %d\n",
+		 __func__,
+		 hba->pwr_info.gear_rx, hba->pwr_info.gear_tx,
+		 hba->pwr_info.lane_rx, hba->pwr_info.lane_tx,
+		 names[hba->pwr_info.pwr_rx],
+		 names[hba->pwr_info.pwr_tx],
+		 hba->pwr_info.hs_rate);
+}
+
 /**
  * ufshcd_host_memory_configure - configure local reference block with
  *				memory offsets
@@ -2621,6 +2647,8 @@ static int ufshcd_change_power_mode(struct ufs_hba *hba,
 		memcpy(&hba->pwr_info, pwr_mode,
 			sizeof(struct ufs_pa_layer_attr));
 	}
+
+	ufshcd_print_pwr_info(hba);
 
 	return ret;
 }
@@ -3758,6 +3786,7 @@ static void ufshcd_check_errors(struct ufs_hba *hba)
 						SYSTEM_BUS_FATAL_ERROR);
 
 				ufshcd_print_host_regs(hba);
+				ufshcd_print_pwr_info(hba);
 				ufshcd_print_tmrs(hba, hba->outstanding_tasks);
 				ufshcd_print_trs(hba, hba->outstanding_reqs,
 							pr_prdt);
@@ -4036,6 +4065,7 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 	dev_err(hba->dev, "%s: Device abort task at tag %d", __func__, tag);
 	scsi_print_command(cmd);
 	ufshcd_print_host_regs(hba);
+	ufshcd_print_pwr_info(hba);
 	ufshcd_print_trs(hba, 1 << tag, true);
 
 	lrbp = &hba->lrb[tag];
@@ -4455,6 +4485,7 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 		goto out;
 
 	ufshcd_init_pwr_info(hba);
+	ufshcd_print_pwr_info(hba);
 
 	/* UniPro link is active now */
 	ufshcd_set_link_active(hba);
