@@ -444,6 +444,8 @@ struct ufs_hba {
 	struct ufs_vreg_info vreg_info;
 	struct list_head clk_list_head;
 
+	struct ufs_pa_layer_attr pwr_info;
+
 #ifdef CONFIG_DEBUG_FS
 	struct ufs_stats ufs_stats;
 	struct debugfs_files debugfs_files;

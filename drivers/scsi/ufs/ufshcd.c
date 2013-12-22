@@ -2151,6 +2151,48 @@ static int ufshcd_uic_hibern8_exit(struct ufs_hba *hba)
 	return ufshcd_uic_pwr_ctrl(hba, &uic_cmd);
 }
 
+ /**
+ * ufshcd_print_pwr_info - print power params as saved in hba
+ * power info
+ * @hba: per-adapter instance
+ */
+static void ufshcd_print_pwr_info(struct ufs_hba *hba)
+{
+	char *names[] = {
+		"INVALID MODE",
+		"FAST MODE",
+		"SLOW_MODE",
+		"INVALID MODE",
+		"FASTAUTO_MODE",
+		"SLOWAUTO_MODE",
+		"INVALID MODE",
+	};
+
+	dev_info(hba->dev, "%s:[RX, TX]: gear=[%d, %d], lane[%d, %d], pwr[%s, %s], rate = %d\n",
+		 __func__,
+		 hba->pwr_info.gear_rx, hba->pwr_info.gear_tx,
+		 hba->pwr_info.lane_rx, hba->pwr_info.lane_tx,
+		 names[hba->pwr_info.pwr_rx],
+		 names[hba->pwr_info.pwr_tx],
+		 hba->pwr_info.hs_rate);
+}
+
+ /**
+ * ufshcd_init_pwr_info - setting the POR (power on reset)
+ * values in hba power info
+ * @hba: per-adapter instance
+ */
+static void ufshcd_init_pwr_info(struct ufs_hba *hba)
+{
+	hba->pwr_info.gear_rx = UFS_PWM_G1;
+	hba->pwr_info.gear_tx = UFS_PWM_G1;
+	hba->pwr_info.lane_rx = 1;
+	hba->pwr_info.lane_tx = 1;
+	hba->pwr_info.pwr_rx = SLOWAUTO_MODE;
+	hba->pwr_info.pwr_tx = SLOWAUTO_MODE;
+	hba->pwr_info.hs_rate = 0;
+}
+
 /**
  * ufshcd_config_max_pwr_mode - Set & Change power mode with
  *	maximum capability attribute information.
@@ -2264,7 +2306,17 @@ static int ufshcd_config_max_pwr_mode(struct ufs_hba *hba)
 		if (hba->vops->pwr_change_notify)
 			hba->vops->pwr_change_notify(hba,
 				POST_CHANGE, NULL, &dev_required_params);
+
+		hba->pwr_info.gear_rx = gear[RX];
+		hba->pwr_info.gear_tx = gear[TX];
+		hba->pwr_info.lane_rx = lanes[RX];
+		hba->pwr_info.lane_tx = lanes[TX];
+		hba->pwr_info.pwr_rx = pwr[RX];
+		hba->pwr_info.pwr_tx = pwr[TX];
+		hba->pwr_info.hs_rate = hs_rate;
 	}
+
+	ufshcd_print_pwr_info(hba);
 
 	if (hba->quirks & UFSHCD_QUIRK_BROKEN_PWR_MODE_CHANGE)
 		msleep(1000);
@@ -3381,6 +3433,7 @@ static void ufshcd_check_errors(struct ufs_hba *hba)
 						SYSTEM_BUS_FATAL_ERROR);
 
 				ufshcd_print_host_regs(hba);
+				ufshcd_print_pwr_info(hba);
 				ufshcd_print_tmrs(hba, hba->outstanding_tasks);
 				ufshcd_print_trs(hba, hba->outstanding_reqs,
 							pr_prdt);
@@ -3656,6 +3709,7 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 	dev_err(hba->dev, "%s: Device abort task at tag %d", __func__, tag);
 	scsi_print_command(cmd);
 	ufshcd_print_host_regs(hba);
+	ufshcd_print_pwr_info(hba);
 	ufshcd_print_trs(hba, 1 << tag, true);
 
 	lrbp = &hba->lrb[tag];
@@ -3996,6 +4050,9 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	ret = ufshcd_link_startup(hba);
 	if (ret)
 		goto out;
+
+	ufshcd_init_pwr_info(hba);
+	ufshcd_print_pwr_info(hba);
 
 	/* UniPro link is active now */
 	ufshcd_set_link_active(hba);
