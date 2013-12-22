@@ -6911,6 +6911,8 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	/* RCGs */
 	CLK_LOOKUP("",	adc_clk_src.c,	""),
 	CLK_LOOKUP("",	atv_x5_clk_src.c,	""),
+	CLK_LOOKUP("atv_x5_clk",	atv_x5_clk.c,
+		"fc600000.msm-demod"),
 	CLK_LOOKUP("",	nidaq_out_clk_src.c,	""),
 	CLK_LOOKUP("",	atv_rxfe_resamp_clk_src.c,	""),
 	CLK_LOOKUP("",	dig_dem_core_clk_src.c,	""),
@@ -6919,7 +6921,8 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("",	adc_01_clk_src.c,	""),
 	CLK_LOOKUP("",	adc_2_clk_src.c,	""),
 	CLK_LOOKUP("",	atv_x5_clk_post_cdiv.c,	""),
-	CLK_LOOKUP("core_clk_src", dem_core_clk_src.c, "fc600000.msm-demod"),
+	CLK_LOOKUP("core_clk_src", dem_core_clk_src.c,
+		"fc600000.msm-demod"),
 	CLK_LOOKUP("",	dem_core_clk_src.c,	""),
 	CLK_LOOKUP("",	dem_core_clk_x2_src.c,	""),
 	CLK_LOOKUP("",	dem_core_div2_clk_src.c,	""),
@@ -6950,7 +6953,8 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("",  bcc_adc_clk.c,     ""),
 	CLK_LOOKUP("",  bcc_dem_test_clk_src.c,     ""),
 	CLK_LOOKUP("",  bcc_gram_clk.c,     ""),
-
+	CLK_LOOKUP("gram_clk",  bcc_gram_clk.c,
+		"fc600000.msm-demod"),
 	/* Branches */
 	CLK_LOOKUP("",	nidaq_out_clk.c,	""),
 	CLK_LOOKUP("",	nidaq_in_clk.c,	""),
@@ -6993,7 +6997,7 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("bcc_vbif_tspp2_clk", bcc_vbif_tspp2_clk.c,
 						"fc74a000.msm_tsc"),
 	CLK_LOOKUP("bcc_vbif_dem_core_clk", bcc_vbif_dem_core_clk.c,
-						"fc600000.msm-demod"),
+		"fc600000.msm-demod"),
 	CLK_LOOKUP("",	bcc_vbif_dem_core_clk.c,	""),
 	CLK_LOOKUP("iface_clk",	bcc_img_ahb_clk.c, "fc600000.msm-demod"),
 	CLK_LOOKUP("",	bcc_img_ahb_clk.c,	""),
