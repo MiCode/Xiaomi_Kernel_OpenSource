@@ -264,9 +264,7 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 				__func__, ret);
 			return;
 		}
-		if ((d->func_type == USB_FUNC_RNDIS ||
-			d->func_type == USB_FUNC_ECM) &&
-			gadget_is_dwc3(gadget)) {
+		if (gadget_is_dwc3(gadget)) {
 			u8 idx;
 			struct usb_bam_data_connect_info bam_info;
 
@@ -304,9 +302,7 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 				__func__, ret);
 			return;
 		}
-		if ((d->func_type == USB_FUNC_RNDIS ||
-			d->func_type == USB_FUNC_ECM)
-			&& gadget_is_dwc3(gadget)) {
+		if (gadget_is_dwc3(gadget)) {
 			u8 idx;
 			struct usb_bam_data_connect_info bam_info;
 
@@ -409,8 +405,7 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	d->rx_req->length = 0;
 	d->rx_req->no_interrupt = 1;
 
-	if ((d->func_type == USB_FUNC_RNDIS || d->func_type == USB_FUNC_ECM)
-		&& gadget_is_dwc3(gadget)) {
+	if (gadget_is_dwc3(gadget)) {
 		sps_params = MSM_SPS_MODE | MSM_DISABLE_WB | MSM_PRODUCER |
 			d->src_pipe_idx;
 		d->rx_req->length = 32*1024;
@@ -428,8 +423,7 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	d->tx_req->length = 0;
 	d->tx_req->no_interrupt = 1;
 
-	if ((d->func_type == USB_FUNC_RNDIS || d->func_type == USB_FUNC_ECM)
-		&& gadget_is_dwc3(gadget)) {
+	if (gadget_is_dwc3(gadget)) {
 		sps_params = MSM_SPS_MODE | MSM_DISABLE_WB | d->dst_pipe_idx;
 		d->tx_req->length = 32*1024;
 	} else
