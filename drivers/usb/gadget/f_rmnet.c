@@ -696,6 +696,8 @@ static void frmnet_resume(struct usb_function *f)
 static void frmnet_disable(struct usb_function *f)
 {
 	struct f_rmnet *dev = func_to_rmnet(f);
+	enum transport_type	dxport = rmnet_ports[dev->port_num].data_xport;
+	struct usb_composite_dev	*cdev = dev->cdev;
 
 	pr_debug("%s: port#%d\n", __func__, dev->port_num);
 
@@ -706,6 +708,11 @@ static void frmnet_disable(struct usb_function *f)
 
 	frmnet_purge_responses(dev);
 
+	if (dxport == USB_GADGET_XPORT_BAM2BAM_IPA &&
+	    gadget_is_dwc3(cdev->gadget)) {
+		msm_ep_unconfig(dev->port.out);
+		msm_ep_unconfig(dev->port.in);
+	}
 	gport_rmnet_disconnect(dev);
 }
 
