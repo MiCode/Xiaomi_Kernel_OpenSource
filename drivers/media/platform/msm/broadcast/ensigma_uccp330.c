@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,12 +35,16 @@
 #include <linux/platform_device.h>
 #include <linux/errno.h>
 #include <linux/regulator/consumer.h>
-#include <linux/clk/msm-clk.h>
 #include <mach/subsystem_restart.h>
 #include <mach/subsystem_notif.h>
 #include <mach/msm_bus_board.h>
 #include <mach/msm_bus.h>
-
+#include <linux/clk/msm-clk.h>
+#include <mach/subsystem_restart.h>
+#include <mach/subsystem_notif.h>
+#include <linux/iommu.h>
+#include <mach/iommu.h>
+#include <mach/iommu_domains.h>
 #define DRV_NAME_DEMOD "demod"
 #define DRVDBG(fmt, args...)\
 	pr_debug(DRV_NAME_DEMOD " %s():%d " fmt, __func__, __LINE__, ## args)
@@ -76,23 +80,26 @@ static int demod_release(struct inode *, struct file *);
  *
  * @name:		DT entry
  * @enable:		should this driver enable or not
- * @rate:		should this driver set rate or not
+ * @rate:		1 means set a predefined rate, 0 means don't
+ *			other value means rate to be set
  */
 struct demod_clk_desc {
 	const char *name;
 	int enable;
-	int rate;
+	unsigned int rate;
 };
 static const struct demod_clk_desc demod_clocks[] = {
 	{"core_clk_src", 0, 1},
 	{"core_clk", 1, 0},
 	{"core_x2_clk", 1, 1},
 	{"core_div2_clk", 1, 1},
-	{"iface_wrap_clk", 1, 1},
-	{"iface_clk", 1, 1},
+	{"iface_wrap_clk", 1, 0},
+	{"iface_clk", 1, 0},
 	{"bcc_vbif_dem_core_clk", 1, 0},
-	{"vbif_core_clk", 1, 1},
-	{"iface_vbif_clk", 1, 1},
+	{"vbif_core_clk", 1, 0},
+	{"iface_vbif_clk", 1, 0},
+	{"gram_clk", 0, 0},
+	{"atv_x5_clk", 1, 122880000}
 };
 
 /**
@@ -116,8 +123,7 @@ static const struct demod_clk_desc demod_clocks[] = {
  * @ref_counter	reference counter
  */
 struct demod_data {
-	struct subsys_device *subsys;
-	struct subsys_desc subsys_desc;
+	void *subsys;
 	struct regulator *gdsc;
 	struct device *dev;
 	struct clk *clks[ARRAY_SIZE(demod_clocks)];
@@ -237,13 +243,13 @@ static int demod_clock_setup(struct device *dev)
 				demod_clocks[i].name);
 			return PTR_ERR(drv->clks[i]);
 		}
-		DRVDBG("Clock %s current rate %lu setting %lu\n",
-			demod_clocks[i].name, clk_get_rate(drv->clks[i]),
-			clk_round_rate(drv->clks[i], 0));
 		/* Make sure rate-settable clocks' rates are set */
-		if (demod_clocks[i].rate && clk_get_rate(drv->clks[i]) == 0)
-				clk_set_rate(drv->clks[i],
-					 clk_round_rate(drv->clks[i], 0));
+		if (demod_clocks[i].rate == 1 &&
+			clk_get_rate(drv->clks[i]) == 0)
+			clk_set_rate(drv->clks[i],
+				 clk_round_rate(drv->clks[i], 0));
+		else if (demod_clocks[i].rate > 1)
+			clk_set_rate(drv->clks[i], demod_clocks[i].rate);
 	}
 
 	return 0;
@@ -259,9 +265,13 @@ static int demod_clock_prepare_enable(struct device *dev)
 	struct demod_data *drv = dev_get_drvdata(dev);
 	int rc;
 	int i;
-
+	/* GRAM clock should have DEM_CORE clock as a parent*/
+	rc = clk_set_parent(drv->clks[9], drv->clks[1]);
+	if (rc)
+		return rc;
 	for (i = 0; i < ARRAY_SIZE(drv->clks); i++) {
 		if (demod_clocks[i].enable) {
+			DRVDBG("Enable clock %s\n", demod_clocks[i].name);
 			rc = clk_prepare_enable(drv->clks[i]);
 			if (rc) {
 				DRVERR("failed to enable %s\n",
@@ -272,10 +282,11 @@ static int demod_clock_prepare_enable(struct device *dev)
 							drv->clks[i]);
 				return rc;
 			}
+			DRVDBG("Enable clock %s done %d\n",
+				demod_clocks[i].name, rc);
 		}
 	}
-
-	return 0;
+	return rc;
 }
 /**
  * demod_clock_disable_unprepare() - disable clocks.
@@ -288,7 +299,11 @@ static void demod_clock_disable_unprepare(struct device *dev)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(drv->clks); i++)
-		clk_disable_unprepare(drv->clks[i]);
+		if (demod_clocks[i].enable) {
+			DRVDBG("disable clock %s\n",
+				demod_clocks[i].name);
+			clk_disable_unprepare(drv->clks[i]);
+		}
 }
 
 /**
@@ -346,6 +361,12 @@ static ssize_t demod_open(struct inode *inode, struct file *filp)
 		DRVERR("clock prepare and enable failed\n");
 		goto err_clock;
 	}
+	drv->subsys = subsystem_get("bcss");
+	if (drv->subsys == NULL) {
+		DRVERR("Peripheral Loader failed on demod.\n");
+		goto err_pil;
+	}
+
 	if (mutex_lock_interruptible(&drv->mutex)) {
 		rc = -ERESTARTSYS;
 		goto err_mutex;
@@ -360,6 +381,8 @@ static ssize_t demod_open(struct inode *inode, struct file *filp)
 	mutex_unlock(&drv->mutex);
 	return 0;
 err_mutex:
+	subsystem_put(drv->subsys);
+err_pil:
 	demod_clock_disable_unprepare(drv->dev);
 err_clock:
 	regulator_disable(drv->gdsc);
@@ -377,6 +400,7 @@ int demod_release(struct inode *inode, struct file *filp)
 {
 	struct demod_data *drv;
 	drv = container_of(inode->i_cdev, struct demod_data, cdev);
+	subsystem_put(drv->subsys);
 	demod_clock_disable_unprepare(drv->dev);
 	regulator_disable(drv->gdsc);
 	mutex_lock(&drv->mutex);
@@ -501,21 +525,16 @@ static ssize_t demod_write(struct file *filp,
 	if (rc)
 		return rc;
 
-	if ((drv->write_base & TOP8) == BASE_EXT) {
-			base = (unsigned int)drv->ext_ram +
-				(drv->write_base & LOW20);
-	} else {
-		writel_relaxed((drv->write_base & TOP12)>>20,
-			drv->bcss_regs+
-			NIBLE_PTR);
-		/*
-		 * combined with nibble reg(0xd0004)
-		 * the result is 0x00000b70, which
-		 * points to gram packed view
-		 */
-		base = BCSSADDR + ACCESS_OFFS+
+	writel_relaxed((drv->write_base & TOP12)>>20,
+		drv->bcss_regs+
+		NIBLE_PTR);
+	/*
+	 * combined with nibble reg(0xd0004)
+	 * the result is 0x00000b70, which
+	 * points to gram packed view
+	 */
+	base = BCSSADDR + ACCESS_OFFS+
 		(drv->write_base & LOW20);
-	}
 	if (copy_from_user((void *)base, (void *)buf, count))
 		return -EACCES;
 	return count;
@@ -654,7 +673,8 @@ static const struct dev_pm_ops demod_dev_pm_ops = {
 /* Platform driver information */
 
 static struct of_device_id msm_demod_match_table[] = {
-	{.compatible = "qcom,msm-demod"}
+	{.compatible = "qcom,msm-demod"},
+	{}
 };
 
 static struct platform_driver msm_demod_driver = {
