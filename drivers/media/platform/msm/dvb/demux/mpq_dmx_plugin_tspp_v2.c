@@ -701,13 +701,13 @@ static int mpq_dmx_tspp2_ts_event_check(struct dvb_demux_feed *feed,
 	ret = feed->demux->buffer_ctrl.ts(&feed->feed.ts, 0, 1);
 	mutex_lock(&pipe_info->mutex);
 	if (ret) {
-		MPQ_DVB_ERR_PRINT(
+		MPQ_DVB_DBG_PRINT(
 			"%s: buffer_ctrl.ts callback failed, ret=%d!\n",
 			__func__, ret);
 		return ret;
 	}
 	if (pipe_info->session_id != session_id || !pipe_info->ref_count) {
-		MPQ_DVB_ERR_PRINT(
+		MPQ_DVB_DBG_PRINT(
 			"%s: pipe was closed / reopened: ref. count=%u, session_id=%u (expected %u)\n",
 			__func__, pipe_info->ref_count,
 			pipe_info->session_id, session_id);
@@ -743,13 +743,13 @@ static int mpq_dmx_tspp2_stream_buffer_event_check(struct dvb_demux_feed *feed,
 	ret = mpq_dmx_decoder_fullness_wait(feed, 0);
 	mutex_lock(&pipe_info->mutex);
 	if (ret) {
-		MPQ_DVB_ERR_PRINT(
+		MPQ_DVB_DBG_PRINT(
 			"%s: mpq_dmx_decoder_fullness_wait failed, ret=%d\n",
 			__func__, ret);
 		return ret;
 	}
 	if (pipe_info->session_id != session_id || !pipe_info->ref_count) {
-		MPQ_DVB_ERR_PRINT(
+		MPQ_DVB_DBG_PRINT(
 			"%s: pipe was closed / re-opened: ref. count=%u, session_id=%u (expected %u)\n",
 			__func__, pipe_info->ref_count,
 			pipe_info->session_id, session_id);
@@ -2866,7 +2866,7 @@ static int mpq_dmx_tspp2_pes_pipe_handler(struct pipe_info *pipe_info,
 		ret = mpq_dmx_tspp2_process_full_pes_desc(pipe_info, feed,
 			&iovec);
 		if (ret) {
-			MPQ_DVB_ERR_PRINT(
+			MPQ_DVB_DBG_PRINT(
 				"%s: mpq_dmx_tspp2_process_full_pes_desc failed, ret=%d\n",
 				__func__, ret);
 			return ret;
@@ -3149,7 +3149,7 @@ static int mpq_dmx_tspp2_process_video_headers(struct mpq_feed *mpq_feed,
 
 	ret = mpq_dmx_tspp2_stream_buffer_event_check(feed, header_pipe);
 	if (ret) {
-		MPQ_DVB_ERR_PRINT(
+		MPQ_DVB_DBG_PRINT(
 			"%s: mpq_dmx_tspp2_stream_buffer_event_check failed, ret=%d\n",
 			__func__, ret);
 		return ret;
@@ -3314,7 +3314,7 @@ static int mpq_dmx_tspp2_video_pipe_handler(struct pipe_info *pipe_info,
 			data_buffer, 0, pipe_info, main_pipe);
 		found_pes = (ret == 1);
 		if (ret < 0)
-			MPQ_DVB_ERR_PRINT(
+			MPQ_DVB_DBG_PRINT(
 				"%s: mpq_dmx_tspp2_process_video_pes failed, ret=%d\n",
 				__func__, ret);
 
