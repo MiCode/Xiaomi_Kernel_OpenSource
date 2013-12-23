@@ -48,6 +48,8 @@ Optional Properties:
   - qti,l1ss-supported: L1 sub-states (L1ss) is supported.
   - qti,aux-clk-sync: The AUX clock is synchronous to the Core clock to
     support L1ss.
+  - qcom,msi-gicm-addr: MSI address for GICv2m.
+  - qcom,msi-gicm-base: MSI IRQ base for GICv2m.
 
 Example:
 
@@ -107,4 +109,6 @@ Example:
 						<0>, <0>, <0>, <0>;
 		qti,l1ss-supported;
 		qti,aux-clk-sync;
+		qcom,msi-gicm-addr = <0xf9040040>;
+		qcom,msi-gicm-base = <0x160>;
 	};

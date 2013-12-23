@@ -97,7 +97,13 @@ void msm_pcie_destroy_irq(unsigned int irq)
 	int pos;
 	struct msm_pcie_dev_t *dev = irq_get_chip_data(irq);
 
-	pos = irq - irq_find_mapping(dev->irq_domain, 0);
+	if (dev->msi_gicm_addr) {
+		PCIE_DBG("destroy QGIC based irq\n");
+		pos = irq - dev->msi_gicm_base;
+	} else {
+		PCIE_DBG("destroy default MSI irq\n");
+		pos = irq - irq_find_mapping(dev->irq_domain, 0);
+	}
 
 	PCIE_DBG("\n");
 
@@ -150,8 +156,8 @@ again:
 	return irq;
 }
 
-/* hookup to linux pci msi framework */
-int arch_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
+static int arch_setup_msi_irq_default(struct pci_dev *pdev,
+		struct msi_desc *desc, int nvec)
 {
 	int irq;
 	struct msi_msg msg;
@@ -160,6 +166,9 @@ int arch_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
 	PCIE_DBG("\n");
 
 	irq = msm_pcie_create_irq(dev);
+
+	PCIE_DBG("IRQ %d is allocated.\n", irq);
+
 	if (irq < 0)
 		return irq;
 
@@ -173,11 +182,125 @@ int arch_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
 	msg.data = irq - irq_find_mapping(dev->irq_domain, 0);
 	write_msi_msg(irq, &msg);
 
-	irq_set_chip_and_handler(irq, &pcie_msi_chip, handle_simple_irq);
-	set_irq_flags(irq, IRQF_VALID);
 	return 0;
 }
 
+static int msm_pcie_create_irq_qgic(struct msm_pcie_dev_t *dev)
+{
+	int irq, pos;
+
+	PCIE_DBG("\n");
+
+again:
+	pos = find_first_zero_bit(dev->msi_irq_in_use, PCIE_MSI_NR_IRQS);
+
+	if (pos >= PCIE_MSI_NR_IRQS)
+		return -ENOSPC;
+
+	if (test_and_set_bit(pos, dev->msi_irq_in_use))
+		goto again;
+
+	irq = dev->msi_gicm_base + pos;
+	if (!irq) {
+		pr_err("PCIe: failed to create QGIC MSI IRQ.\n");
+		return -EINVAL;
+	}
+
+	return irq;
+}
+
+static int arch_setup_msi_irq_qgic(struct pci_dev *pdev,
+		struct msi_desc *desc, int nvec)
+{
+	int irq, index, firstirq = 0;
+	struct msi_msg msg;
+	struct msm_pcie_dev_t *dev = PCIE_BUS_PRIV_DATA(pdev);
+
+	PCIE_DBG("\n");
+
+	for (index = 0; index < nvec; index++) {
+		irq = msm_pcie_create_irq_qgic(dev);
+		PCIE_DBG("irq %d is allocated\n", irq);
+
+		if (irq < 0)
+			return irq;
+
+		if (index == 0)
+			firstirq = irq;
+
+		irq_set_irq_type(irq, IRQ_TYPE_EDGE_RISING);
+	}
+
+	/* write msi vector and data */
+	irq_set_msi_desc(firstirq, desc);
+	msg.address_hi = 0;
+	msg.address_lo = dev->msi_gicm_addr;
+	msg.data = firstirq;
+	write_msi_msg(firstirq, &msg);
+
+	return 0;
+}
+
+int arch_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
+{
+	struct msm_pcie_dev_t *dev = PCIE_BUS_PRIV_DATA(pdev);
+
+	PCIE_DBG("\n");
+
+	if (dev->msi_gicm_addr)
+		return arch_setup_msi_irq_qgic(pdev, desc, 1);
+	else
+		return arch_setup_msi_irq_default(pdev, desc, 1);
+}
+
+static int msm_pcie_get_msi_multiple(int nvec)
+{
+	int msi_multiple = 0;
+
+	PCIE_DBG("\n");
+
+	while (nvec) {
+		nvec = nvec >> 1;
+		msi_multiple++;
+	}
+	PCIE_DBG("log2 number of MSI multiple:%d\n",
+		msi_multiple - 1);
+
+	return msi_multiple - 1;
+}
+
+int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
+{
+	struct msi_desc *entry;
+	int ret;
+	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev);
+
+	PCIE_DBG("\n");
+
+	if (type != PCI_CAP_ID_MSI || nvec > 32)
+		return -ENOSPC;
+
+	PCIE_DBG("nvec = %d\n", nvec);
+
+	list_for_each_entry(entry, &dev->msi_list, list) {
+		entry->msi_attrib.multiple =
+				msm_pcie_get_msi_multiple(nvec);
+
+		if (pcie_dev->msi_gicm_addr)
+			ret = arch_setup_msi_irq_qgic(dev, entry, nvec);
+		else
+			ret = arch_setup_msi_irq_default(dev, entry, nvec);
+
+		PCIE_DBG("ret from msi_irq: %d\n", ret);
+
+		if (ret < 0)
+			return ret;
+		if (ret > 0)
+			return -ENOSPC;
+	}
+
+	return 0;
+}
 
 static int msm_pcie_msi_map(struct irq_domain *domain, unsigned int irq,
 	   irq_hw_number_t hwirq)

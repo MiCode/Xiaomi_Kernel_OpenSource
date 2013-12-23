@@ -1044,7 +1044,8 @@ static int msm_pcie_enable(u32 rc_idx, u32 options)
 
 	msm_pcie_config_controller(rc_idx);
 
-	msm_pcie_config_msi_controller(dev);
+	if (!dev->msi_gicm_addr)
+		msm_pcie_config_msi_controller(dev);
 
 	if (dev->l1ss_supported)
 		msm_pcie_config_l1ss(rc_idx);
@@ -1219,6 +1220,31 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				"qti,aux-clk-sync");
 	PCIE_DBG("AUX clock is %s synchronous to Core clock.\n",
 		msm_pcie_dev[rc_idx].aux_clk_sync ? "" : "not");
+
+	msm_pcie_dev[rc_idx].msi_gicm_addr = 0;
+	msm_pcie_dev[rc_idx].msi_gicm_base = 0;
+	ret = of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,msi-gicm-addr",
+				&msm_pcie_dev[rc_idx].msi_gicm_addr);
+
+	if (ret) {
+		PCIE_DBG("msi-gicm-addr does not exist.\n");
+	} else {
+		PCIE_DBG("msi-gicm-addr: 0x%x.\n",
+				msm_pcie_dev[rc_idx].msi_gicm_addr);
+
+		ret = of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,msi-gicm-base",
+				&msm_pcie_dev[rc_idx].msi_gicm_base);
+
+		if (ret) {
+			pr_err("msi-gicm-base does not exist.\n");
+			goto decrease_rc_num;
+		} else {
+			PCIE_DBG("msi-gicm-base: 0x%x.\n",
+					msm_pcie_dev[rc_idx].msi_gicm_base);
+		}
+	}
 
 	msm_pcie_dev[rc_idx].pdev = pdev;
 	msm_pcie_dev[rc_idx].vreg_n = 0;
