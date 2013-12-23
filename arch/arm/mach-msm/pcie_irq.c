@@ -39,7 +39,13 @@
 
 static irqreturn_t handle_wake_irq(int irq, void *data)
 {
-	PCIE_DBG("\n");
+	struct msm_pcie_dev_t *dev = data;
+
+	PCIE_DBG("PCIe WAKE is asserted by Endpoint\n");
+
+	__pm_stay_awake(&dev->ws);
+	__pm_relax(&dev->ws);
+
 	return IRQ_HANDLED;
 }
 
@@ -322,6 +328,9 @@ int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 	struct device *pdev = &dev->pdev->dev;
 
 	PCIE_DBG("\n");
+
+	wakeup_source_init(&dev->ws, "pcie_wakeup_source");
+
 	/* register handler for physical MSI interrupt line */
 	rc = devm_request_irq(pdev,
 		dev->irq[MSM_PCIE_INT_MSI].num, handle_msi_irq,
@@ -346,9 +355,6 @@ int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 		return rc;
 	}
 
-	/* PCIE_WAKE_N should be enabled only during system suspend */
-	disable_irq(dev->wake_n);
-
 	/* Create a virtual domain of interrupts */
 	dev->irq_domain = irq_domain_add_linear(dev->pdev->dev.of_node,
 			PCIE_MSI_NR_IRQS,
@@ -356,6 +362,7 @@ int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 			&dev);
 	if (!dev->irq_domain) {
 		pr_err("PCIe: Unable to initialize irq domain\n");
+		disable_irq(dev->wake_n);
 		return PTR_ERR(dev->irq_domain);
 	}
 
@@ -367,4 +374,7 @@ int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 void msm_pcie_irq_deinit(struct msm_pcie_dev_t *dev)
 {
 	PCIE_DBG("\n");
+
+	wakeup_source_trash(&dev->ws);
+	disable_irq(dev->wake_n);
 }
