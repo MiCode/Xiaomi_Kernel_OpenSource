@@ -507,6 +507,7 @@ static int i915_drm_freeze(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_crtc *crtc;
 	int ret;
+	u32 i;
 
 	/* ignore lid events during suspend */
 	mutex_lock(&dev_priv->modeset_restore_lock);
@@ -543,6 +544,14 @@ static int i915_drm_freeze(struct drm_device *dev)
 			valleyview_disable_display_irqs(dev_priv);
 			spin_unlock_irq(&dev_priv->irq_lock);
 		}
+
+		/* Clear any pending reset requests. They should be picked up
+		* after resume when new work is submitted */
+		for (i = 0; i < I915_NUM_RINGS; i++)
+			atomic_set(&dev_priv->ring[i].hangcheck.flags, 0);
+
+		atomic_clear_mask(I915_RESET_IN_PROGRESS_FLAG,
+			&dev_priv->gpu_error.reset_counter);
 
 		drm_irq_uninstall(dev);
 
@@ -779,6 +788,179 @@ static int i915_resume_legacy(struct drm_device *dev)
 }
 
 /**
+ * i915_handle_hung_ring - reset ring after a hang
+ * @ringid: ring id to be reset
+ *
+ * TDR - Reset Individual ring: Useful if a hang is detected on a ring.
+ * Returns zero on successful reset or otherwise an error code.
+ *
+ * Procedure is fairly simple:
+ *   - ring is first disabled
+ *   - ring specific registers are saved
+ *   - reset the ring using chipset reg
+ *   - restore saved ring specific registers
+ *   - enable the ring after reset
+ *
+ * If page flips are submitted using rings and if the ring is hung
+ * on a page flip it will be released after reset.
+ *
+ * WARNING: Hold dev->struct_mutex before entering this function
+ */
+int i915_handle_hung_ring(struct drm_device *dev, uint32_t ringid)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_engine_cs *ring = &dev_priv->ring[ringid];
+	int ret = 0;
+	int pipe = 0;
+	uint32_t head;
+	uint32_t acthd;
+	uint32_t ring_flags = 0;
+	uint32_t completed_seqno;
+	struct drm_crtc *crtc;
+	struct intel_crtc *intel_crtc;
+	struct drm_i915_gem_request *request;
+	struct intel_unpin_work *unpin_work;
+
+	acthd = intel_ring_get_active_head(ring);
+	completed_seqno = ring->get_seqno(ring, false);
+
+	BUG_ON(!mutex_is_locked(&dev->struct_mutex));
+
+	/* Take wake lock to prevent power saving mode */
+	gen6_gt_force_wake_get(dev_priv, FORCEWAKE_ALL);
+
+	/* Search the request list to see which batch buffer caused
+	* the hang. Only checks requests that haven't yet completed.*/
+	list_for_each_entry(request, &ring->request_list, list) {
+		if (request && (request->seqno > completed_seqno))
+			i915_set_reset_status(dev_priv, request->ctx, false);
+	}
+
+	/*
+	 * Check if the ring has hung on a MI_DISPLAY_FLIP command.
+	 * The pipe value will be stored in the HWS page if it has.
+	 * At the moment this should only happen for the blitter but
+	 * each ring has its own status page so this should work for
+	 * all rings
+	 */
+	pipe = intel_read_status_page(ring, I915_GEM_PGFLIP_INDEX);
+	if (pipe) {
+		/* Clear it to avoid responding to it twice */
+		intel_write_status_page(ring, I915_GEM_PGFLIP_INDEX, 0);
+	}
+
+	/* Clear any simulated hang flags */
+	if (dev_priv->gpu_error.stop_rings) {
+		DRM_DEBUG_TDR("Simulated gpu hang, rst stop_rings bits %08x\n",
+			(0x1 << ringid));
+		dev_priv->gpu_error.stop_rings &= ~(0x1 << ringid);
+	}
+
+	ret = intel_ring_disable(ring);
+	if (ret != 0) {
+		DRM_ERROR("Failed to disable ring %d\n", ringid);
+			goto handle_hung_ring_error;
+	}
+
+	/* Sample the current ring head position */
+	head = I915_READ(RING_HEAD(ring->mmio_base)) & HEAD_ADDR;
+	DRM_DEBUG_TDR("head 0x%08X, last_head 0x%08X\n",
+		head, dev_priv->ring[ringid].hangcheck.last_head);
+	if (head == dev_priv->ring[ringid].hangcheck.last_head) {
+		/*
+		 * The ring has not advanced since the last
+		 * time it hung so force it to advance to the
+		 * next QWORD. In most cases the ring head
+		 * pointer will automatically advance to the
+		 * next instruction as soon as it has read the
+		 * current instruction, without waiting for it
+		 * to complete. This seems to be the default
+		 * behaviour, however an MBOX wait inserted
+		 * directly to the VCS/BCS rings does not behave
+		 * in the same way, instead the head pointer
+		 * will still be pointing at the MBOX instruction
+		 * until it completes.
+		 */
+		ring_flags = FORCE_ADVANCE;
+		DRM_DEBUG_TDR("Force ring head to advance\n");
+	}
+	dev_priv->ring[ringid].hangcheck.last_head = head;
+
+	ret = intel_ring_save(ring, ring_flags);
+	if (ret != 0) {
+		DRM_ERROR("Failed to save ring state\n");
+		goto handle_hung_ring_error;
+	}
+
+	ret = intel_gpu_engine_reset(dev, ringid);
+	if (ret != 0) {
+		DRM_ERROR("Failed to reset ring\n");
+		goto handle_hung_ring_error;
+	}
+	DRM_DEBUG_TDR("%s reset (GPU Hang)\n", ring->name);
+
+	ret = intel_ring_invalidate_tlb(ring);
+	if (ret != 0) {
+		DRM_ERROR("Failed to invalidate tlb for %s\n", ring->name);
+		goto handle_hung_ring_error;
+	}
+
+	/* Clear last_acthd in hangcheck timer for this ring */
+	dev_priv->ring[ringid].hangcheck.last_acthd = 0;
+
+	/* Clear reset flags to allow future hangchecks */
+	atomic_set(&dev_priv->ring[ringid].hangcheck.flags, 0);
+
+	ret = intel_ring_restore(ring);
+	if (ret != 0) {
+		DRM_ERROR("Failed to restore ring state\n");
+		goto handle_hung_ring_error;
+	}
+
+	/* Correct driver state */
+	intel_ring_resample(ring);
+
+	ret = intel_ring_enable(ring);
+	if (ret != 0) {
+		DRM_ERROR("Failed to enable ring\n");
+		goto handle_hung_ring_error;
+	}
+
+	/* Wake up anything waiting on this rings queue */
+	wake_up_all(&ring->irq_queue);
+
+	/*
+	 * Note: This will not happen when MMIO based page flipping is used.
+	 * Page flipping should continue unhindered as it will
+	 * not be relying on a ring.
+	 */
+	if (pipe &&
+		((pipe - 1) < ARRAY_SIZE(dev_priv->pipe_to_crtc_mapping))) {
+		/* The pipe value in the status page if offset by 1 */
+		pipe -= 1;
+
+		/* The ring hung on a page flip command so we
+		* must manually release the pending flip queue */
+		crtc = dev_priv->pipe_to_crtc_mapping[pipe];
+		intel_crtc = to_intel_crtc(crtc);
+		unpin_work = intel_crtc->unpin_work;
+
+		if (unpin_work && unpin_work->pending_flip_obj) {
+			intel_prepare_page_flip(dev, intel_crtc->pipe);
+			intel_finish_page_flip(dev, intel_crtc->pipe);
+			DRM_DEBUG_TDR("Released stuck page flip for pipe %d\n",
+				pipe);
+		}
+	}
+
+handle_hung_ring_error:
+	/* Release power lock */
+	gen6_gt_force_wake_put(dev_priv, FORCEWAKE_ALL);
+
+	return ret;
+}
+
+/**
  * i915_reset - reset chip after a hang
  * @dev: drm device to reset
  *
@@ -804,21 +986,30 @@ int i915_reset(struct drm_device *dev)
 
 	mutex_lock(&dev->struct_mutex);
 
+	DRM_ERROR("Reset GPU (GPU Hang)\n");
+
 	i915_gem_reset(dev);
 
 	simulated = dev_priv->gpu_error.stop_rings != 0;
 
-	ret = intel_gpu_reset(dev);
+	if (!simulated && (get_seconds() - dev_priv->gpu_error.last_reset)
+		< i915.gpu_reset_min_alive_period) {
+		DRM_ERROR("GPU hanging too fast, declaring wedged!\n");
+		ret = -ENODEV;
+	} else {
+		ret = intel_gpu_reset(dev);
 
-	/* Also reset the gpu hangman. */
-	if (simulated) {
-		DRM_INFO("Simulated gpu hang, resetting stop_rings\n");
-		dev_priv->gpu_error.stop_rings = 0;
-		if (ret == -ENODEV) {
-			DRM_INFO("Reset not implemented, but ignoring "
-				 "error for simulated gpu hangs\n");
-			ret = 0;
-		}
+		/* Also reset the gpu hangman. */
+		if (simulated) {
+			DRM_INFO("Simulated gpu hang, resetting stop_rings\n");
+			dev_priv->gpu_error.stop_rings = 0;
+			if (ret == -ENODEV) {
+				DRM_INFO("Reset not implemented, but ignoring "
+					  "error for simulated gpu hangs\n");
+				ret = 0;
+			}
+		} else
+			dev_priv->gpu_error.last_reset = get_seconds();
 	}
 
 	if (ret) {
@@ -1468,7 +1659,6 @@ static int intel_runtime_suspend(struct device *device)
 		return ret;
 	}
 
-	del_timer_sync(&dev_priv->gpu_error.hangcheck_timer);
 	dev_priv->pm.suspended = true;
 
 	/*

@@ -1243,13 +1243,13 @@ static void notify_ring(struct drm_device *dev,
 	if (!intel_ring_initialized(ring))
 		return;
 
+	ring->last_irq_seqno = ring->get_seqno(ring, false);
 	trace_i915_gem_request_complete(ring);
 
 	if (drm_core_check_feature(dev, DRIVER_MODESET))
 		intel_notify_mmio_flip(ring);
 
 	wake_up_all(&ring->irq_queue);
-	i915_queue_hangcheck(dev);
 
 	i915_sync_timeline_advance(ring);
 }
@@ -1628,12 +1628,17 @@ static void snb_gt_irq_handler(struct drm_device *dev,
 	if (gt_iir & GT_BLT_USER_INTERRUPT)
 		notify_ring(dev, &dev_priv->ring[BCS]);
 
-	if (gt_iir & (GT_BLT_CS_ERROR_INTERRUPT |
-		      GT_BSD_CS_ERROR_INTERRUPT |
-		      GT_RENDER_CS_MASTER_ERROR_INTERRUPT)) {
-		i915_handle_error(dev, false, "GT error interrupt 0x%08x",
-				  gt_iir);
-	}
+	if (gt_iir & GT_RENDER_CS_MASTER_ERROR_INTERRUPT)
+		i915_handle_error(dev, &dev_priv->ring[RCS].hangcheck,
+				  "GT RCS error interrupt 0x%08x", gt_iir);
+
+	if (gt_iir & GT_BSD_CS_ERROR_INTERRUPT)
+		i915_handle_error(dev, &dev_priv->ring[VCS].hangcheck,
+				  "GT VCS error interrupt 0x%08x", gt_iir);
+
+	if (gt_iir & GT_BLT_CS_ERROR_INTERRUPT)
+		i915_handle_error(dev, &dev_priv->ring[BCS].hangcheck,
+				  "GT BCS error interrupt 0x%08x", gt_iir);
 
 	if (gt_iir & GT_PARITY_ERROR(dev))
 		ivybridge_parity_error_irq_handler(dev, gt_iir);
@@ -1962,7 +1967,9 @@ static void gen6_rps_irq_handler(struct drm_i915_private *dev_priv, u32 pm_iir)
 			notify_ring(dev_priv->dev, &dev_priv->ring[VECS]);
 
 		if (pm_iir & PM_VEBOX_CS_ERROR_INTERRUPT) {
-			i915_handle_error(dev_priv->dev, false,
+			DRM_ERROR("VEBOX CS error interrupt 0x%08x\n", pm_iir);
+			i915_handle_error(dev_priv->dev,
+					  &dev_priv->ring[VECS].hangcheck,
 					  "VEBOX CS error interrupt 0x%08x",
 					  pm_iir);
 		}
@@ -2663,8 +2670,36 @@ static void i915_error_work_func(struct work_struct *work)
 	char *reset_event[] = { I915_RESET_UEVENT "=1", NULL };
 	char *reset_done_event[] = { I915_ERROR_UEVENT "=0", NULL };
 	int ret;
+	int i;
+
+	mutex_lock(&dev->struct_mutex);
 
 	kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE, error_event);
+
+	/* Check each ring for a pending reset condition */
+	for (i = 0; i < I915_NUM_RINGS; i++) {
+		/* Skip individual ring reset requests if full_reset requested*/
+		if (i915_reset_in_progress(error))
+			break;
+
+		if (atomic_read(&dev_priv->ring[i].hangcheck.flags)
+		    & DRM_I915_HANGCHECK_RESET) {
+
+			if (i915_handle_hung_ring(dev, i) != 0) {
+				DRM_ERROR("ring %d reset failed", i);
+
+				/* Force global reset instead */
+				atomic_set_mask(
+				I915_RESET_IN_PROGRESS_FLAG,
+				&dev_priv->gpu_error.reset_counter);
+				break;
+			}
+		}
+	}
+
+	/* Release struct->mutex for the full GPU reset. It will take
+	* it itself when it needs it */
+	mutex_unlock(&dev->struct_mutex);
 
 	/*
 	 * Note that there's only one work item which does gpu resets, so we
@@ -2678,9 +2713,6 @@ static void i915_error_work_func(struct work_struct *work)
 	 */
 	if (i915_reset_in_progress(error) && !i915_terminally_wedged(error)) {
 		DRM_DEBUG_DRIVER("resetting chip\n");
-		kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE,
-				   reset_event);
-
 		/*
 		 * In most cases it's guaranteed that we get here with an RPM
 		 * reference held, for example because there is a pending GPU
@@ -2697,11 +2729,17 @@ static void i915_error_work_func(struct work_struct *work)
 		 */
 		ret = i915_reset(dev);
 
+		kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE,
+			reset_event);
 		intel_display_handle_reset(dev);
 
 		intel_runtime_pm_put(dev_priv);
 
 		if (ret == 0) {
+			for (i = 0; i < I915_NUM_RINGS; i++)
+				atomic_set(&dev_priv->ring[i].hangcheck.flags,
+					   0);
+
 			/*
 			 * After all the gem state is reset, increment the reset
 			 * counter and wake up everyone waiting for the reset to
@@ -2709,39 +2747,46 @@ static void i915_error_work_func(struct work_struct *work)
 			 *
 			 * Since unlock operations are a one-sided barrier only,
 			 * we need to insert a barrier here to order any seqno
-			 * updates before
-			 * the counter increment.
+			 * updates before the counter increment.
+			 * The increment clears the RESET_IN_PROGRESS flag.
 			 */
 			smp_mb__before_atomic();
 			atomic_inc(&dev_priv->gpu_error.reset_counter);
-
-			kobject_uevent_env(&dev->primary->kdev->kobj,
-					   KOBJ_CHANGE, reset_done_event);
 		} else {
+			/* Terminal wedge condition */
 			atomic_set_mask(I915_WEDGED, &error->reset_counter);
 		}
-
-		/*
-		 * Note: The wake_up also serves as a memory barrier so that
-		 * waiters see the update value of the reset counter atomic_t.
-		 */
-		i915_error_wake_up(dev_priv, true);
 	}
+
+	/*
+	 * Note: The wake_up also serves as a memory barrier so that
+	 * waiters see the update value of the reset counter atomic_t.
+	 */
+	i915_error_wake_up(dev_priv, true);
+
+	kobject_uevent_env(&dev->primary->kdev->kobj,
+		KOBJ_CHANGE, reset_done_event);
+
+	DRM_DEBUG_TDR("End recovery work\n");
 }
 
 static void i915_report_and_clear_eir(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	uint32_t instdone[I915_NUM_INSTDONE_REG];
-	u32 eir = I915_READ(EIR);
 	int pipe, i;
+	u32 eir;
+	uint32_t instdone[I915_NUM_INSTDONE_REG];
+	unsigned long flags;
 
+	spin_lock_irqsave(&dev_priv->gpu_error.lock, flags);
+
+	eir = I915_READ(EIR);
 	if (!eir)
-		return;
+		goto i915_report_and_clear_eir_exit;
 
 	pr_err("render error detected, EIR: 0x%08x\n", eir);
 
-	i915_get_extra_instdone(dev, instdone);
+	i915_get_extra_instdone(dev, instdone, &dev_priv->ring[RCS]);
 
 	if (IS_G4X(dev)) {
 		if (eir & (GM45_ERROR_MEM_PRIV | GM45_ERROR_CP_PRIV)) {
@@ -2819,6 +2864,8 @@ static void i915_report_and_clear_eir(struct drm_device *dev)
 		I915_WRITE(EMR, I915_READ(EMR) | eir);
 		I915_WRITE(IIR, I915_RENDER_COMMAND_PARSER_ERROR_INTERRUPT);
 	}
+i915_report_and_clear_eir_exit:
+	spin_unlock_irqrestore(&dev_priv->gpu_error.lock, flags);
 }
 
 /**
@@ -2831,9 +2878,12 @@ static void i915_report_and_clear_eir(struct drm_device *dev)
  * so userspace knows something bad happened (should trigger collection
  * of a ring dump etc.).
  */
-void i915_handle_error(struct drm_device *dev, bool wedged,
+void i915_handle_error(struct drm_device *dev, struct intel_ring_hangcheck *hc,
 		       const char *fmt, ...)
 {
+	int full_reset = 0;
+	unsigned long cur_time;
+	unsigned long last_reset;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	va_list args;
 	char error_msg[80];
@@ -2842,35 +2892,91 @@ void i915_handle_error(struct drm_device *dev, bool wedged,
 	vscnprintf(error_msg, sizeof(error_msg), fmt, args);
 	va_end(args);
 
-	i915_capture_error_state(dev, wedged, error_msg);
+	i915_capture_error_state(dev, error_msg);
 	i915_report_and_clear_eir(dev);
 
-	if (wedged) {
-		atomic_set_mask(I915_RESET_IN_PROGRESS_FLAG,
-				&dev_priv->gpu_error.reset_counter);
-
+	/*
+	 * Currently we only support individual ring reset for GEN7 onwards,
+	 * older chips will revert to a full reset.
+	 * Error interrupts trigger a full reset (hc == NULL)
+	 */
+	if ((INTEL_INFO(dev)->gen >= 7) && hc) {
 		/*
-		 * Wakeup waiting processes so that the reset work function
-		 * i915_error_work_func doesn't deadlock trying to grab various
-		 * locks. By bumping the reset counter first, the woken
-		 * processes will see a reset in progress and back off,
-		 * releasing their locks and then wait for the reset completion.
-		 * We must do this for _all_ gpu waiters that might hold locks
-		 * that the reset work needs to acquire.
-		 *
-		 * Note: The wake_up serves as the required memory barrier to
-		 * ensure that the waiters see the updated value of the reset
-		 * counter atomic_t.
+		 * Flag that the ring has hung. It is this flag that is used
+		 * later to update the stats to determine which batch caused
+		 * the hang
 		 */
-		i915_error_wake_up(dev_priv, false);
+		atomic_set_mask(DRM_I915_HANGCHECK_HUNG, &hc->flags);
+
+		/* Now determine what type of reset to use to clear the hang */
+		cur_time = get_seconds();
+		last_reset = hc->last_reset;
+		hc->last_reset = cur_time;
+
+		if ((cur_time - last_reset) <
+			i915.ring_reset_min_alive_period) {
+			/* This ring is hanging too frequently.
+			* Opt for full-reset instead */
+			DRM_DEBUG_TDR("Ring %d hanging too quickly...\r\n",
+				hc->ringid);
+			full_reset = 1;
+		} else {
+			/* Flag that we want to try and reset this ring.
+			* This can still be overridden by a global
+			* reset */
+			atomic_set_mask(DRM_I915_HANGCHECK_RESET, &hc->flags);
+			DRM_DEBUG_TDR("Reset Ring %d\n", hc->ringid);
+		}
+	} else
+		full_reset = 1;
+
+	/*
+	 * Note: We could mark a ring as 'hung' before we are able
+	 * to set the reset request flag so it may be recovered by
+	 * an existing reset request. That is OK - it just means that
+	 * there may be an extra reset
+	 */
+
+	if (!hc || full_reset) {
+		/*
+		 * Flag that we want a global reset. If there are any
+		 * individual ring resets pending then they may
+		 * still be processed before the global reset request
+		 * is noticed by the error work function.
+		 */
+		atomic_set_mask(I915_RESET_IN_PROGRESS_FLAG,
+			&dev_priv->gpu_error.reset_counter);
 	}
 
 	/*
+	 * Wakeup waiting processes so that the reset work function
+	 * i915_error_work_func doesn't deadlock trying to grab various
+	 * locks. By bumping the reset counter first, the woken
+	 * processes will see a reset in progress and back off,
+	 * releasing their locks and then wait for the reset completion.
+	 * We must do this for _all_ gpu waiters that might hold locks
+	 * that the reset work needs to acquire.
+	 *
+	 * Note: The wake_up serves as the required memory barrier to
+	 * ensure that the waiters see the updated value of the reset
+	 * counter atomic_t.
+	 */
+	i915_error_wake_up(dev_priv, false);
+
+	/*
 	 * Our reset work can grab modeset locks (since it needs to reset the
-	 * state of outstanding pagelips). Hence it must not be run on our own
+	 * state of outstanding pageflips). Hence it must not be run on our own
 	 * dev-priv->wq work queue for otherwise the flush_work in the pageflip
 	 * code will deadlock.
+	 * If error_work is already in the work queue then it will not be added
+	 * again. It hasn't yet executed so it will see the reset flags when
+	 * it is scheduled. If it isn't in the queue or it is currently
+	 * executing then this call will add it to the queue again so that
+	 * even if it misses the reset flags during the current call it is
+	 * guaranteed to see them on the next call.
 	 */
+	DRM_DEBUG_TDR("Queue error work...\n");
+
 	schedule_work(&dev_priv->gpu_error.work);
 }
 
@@ -3089,317 +3195,219 @@ ring_last_seqno(struct intel_engine_cs *ring)
 			  struct drm_i915_gem_request, list)->seqno;
 }
 
-static bool
-ring_idle(struct intel_engine_cs *ring, u32 seqno)
-{
-	return (list_empty(&ring->request_list) ||
-		i915_seqno_passed(seqno, ring_last_seqno(ring)));
-}
-
-static bool
-ipehr_is_semaphore_wait(struct drm_device *dev, u32 ipehr)
-{
-	if (INTEL_INFO(dev)->gen >= 8) {
-		/*
-		 * FIXME: gen8 semaphore support - currently we don't emit
-		 * semaphores on bdw anyway, but this needs to be addressed when
-		 * we merge that code.
-		 */
-		return false;
-	} else {
-		ipehr &= ~MI_SEMAPHORE_SYNC_MASK;
-		return ipehr == (MI_SEMAPHORE_MBOX | MI_SEMAPHORE_COMPARE |
-				 MI_SEMAPHORE_REGISTER);
-	}
-}
-
-static struct intel_engine_cs *
-semaphore_wait_to_signaller_ring(struct intel_engine_cs *ring, u32 ipehr)
-{
-	struct drm_i915_private *dev_priv = ring->dev->dev_private;
-	struct intel_engine_cs *signaller;
-	int i;
-
-	if (INTEL_INFO(dev_priv->dev)->gen >= 8) {
-		/*
-		 * FIXME: gen8 semaphore support - currently we don't emit
-		 * semaphores on bdw anyway, but this needs to be addressed when
-		 * we merge that code.
-		 */
-		return NULL;
-	} else {
-		u32 sync_bits = ipehr & MI_SEMAPHORE_SYNC_MASK;
-
-		for_each_ring(signaller, dev_priv, i) {
-			if(ring == signaller)
-				continue;
-
-			if (sync_bits == signaller->semaphore.mbox.wait[ring->id])
-				return signaller;
-		}
-	}
-
-	DRM_ERROR("No signaller ring found for ring %i, ipehr 0x%08x\n",
-		  ring->id, ipehr);
-
-	return NULL;
-}
-
-static struct intel_engine_cs *
-semaphore_waits_for(struct intel_engine_cs *ring, u32 *seqno)
-{
-	struct drm_i915_private *dev_priv = ring->dev->dev_private;
-	u32 cmd, ipehr, head;
-	int i;
-
-	ipehr = I915_READ(RING_IPEHR(ring->mmio_base));
-	if (!ipehr_is_semaphore_wait(ring->dev, ipehr))
-		return NULL;
-
-	/*
-	 * HEAD is likely pointing to the dword after the actual command,
-	 * so scan backwards until we find the MBOX. But limit it to just 3
-	 * dwords. Note that we don't care about ACTHD here since that might
-	 * point at at batch, and semaphores are always emitted into the
-	 * ringbuffer itself.
-	 */
-	head = I915_READ_HEAD(ring) & HEAD_ADDR;
-
-	for (i = 4; i; --i) {
-		/*
-		 * Be paranoid and presume the hw has gone off into the wild -
-		 * our ring is smaller than what the hardware (and hence
-		 * HEAD_ADDR) allows. Also handles wrap-around.
-		 */
-		head &= ring->buffer->size - 1;
-
-		/* This here seems to blow up */
-		cmd = ioread32(ring->buffer->virtual_start + head);
-		if (cmd == ipehr)
-			break;
-
-		head -= 4;
-	}
-
-	if (!i)
-		return NULL;
-
-	*seqno = ioread32(ring->buffer->virtual_start + head + 4) + 1;
-	return semaphore_wait_to_signaller_ring(ring, ipehr);
-}
-
-static int semaphore_passed(struct intel_engine_cs *ring)
-{
-	struct drm_i915_private *dev_priv = ring->dev->dev_private;
-	struct intel_engine_cs *signaller;
-	u32 seqno, ctl;
-
-	ring->hangcheck.deadlock++;
-
-	signaller = semaphore_waits_for(ring, &seqno);
-	if (signaller == NULL)
-		return -1;
-
-	/* Prevent pathological recursion due to driver bugs */
-	if (signaller->hangcheck.deadlock >= I915_NUM_RINGS)
-		return -1;
-
-	/* cursory check for an unkickable deadlock */
-	ctl = I915_READ_CTL(signaller);
-	if (ctl & RING_WAIT_SEMAPHORE && semaphore_passed(signaller) < 0)
-		return -1;
-
-	if (i915_seqno_passed(signaller->get_seqno(signaller, false), seqno))
-		return 1;
-
-	if (signaller->hangcheck.deadlock)
-		return -1;
-
-	return 0;
-}
-
-static void semaphore_clear_deadlocks(struct drm_i915_private *dev_priv)
-{
-	struct intel_engine_cs *ring;
-	int i;
-
-	for_each_ring(ring, dev_priv, i)
-		ring->hangcheck.deadlock = 0;
-}
-
-static enum intel_ring_hangcheck_action
-ring_stuck(struct intel_engine_cs *ring, u64 acthd)
+static bool kick_ring(struct intel_engine_cs *ring)
 {
 	struct drm_device *dev = ring->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 tmp;
+	u32 tmp = I915_READ_CTL(ring);
 
-	if (ring->hangcheck.acthd != acthd)
-		return HANGCHECK_ACTIVE;
-
-	if (IS_GEN2(dev))
-		return HANGCHECK_HUNG;
-
-	/* Is the chip hanging on a WAIT_FOR_EVENT?
-	 * If so we can simply poke the RB_WAIT bit
-	 * and break the hang. This should work on
-	 * all but the second generation chipsets.
-	 */
-	tmp = I915_READ_CTL(ring);
 	if (tmp & RING_WAIT) {
-		i915_handle_error(dev, false,
-				  "Kicking stuck wait on %s",
-				  ring->name);
+		DRM_ERROR("Kicking stuck wait on %s\n",
+			ring->name);
 		I915_WRITE_CTL(ring, tmp);
-		return HANGCHECK_KICK;
+		ring->hangcheck.action = HANGCHECK_KICK;
+		return true;
 	}
-
-	if (INTEL_INFO(dev)->gen >= 6 && tmp & RING_WAIT_SEMAPHORE) {
-		switch (semaphore_passed(ring)) {
-		default:
-			return HANGCHECK_HUNG;
-		case 1:
-			i915_handle_error(dev, false,
-					  "Kicking stuck semaphore on %s",
-					  ring->name);
-			I915_WRITE_CTL(ring, tmp);
-			return HANGCHECK_KICK;
-		case 0:
-			return HANGCHECK_WAIT;
-		}
-	}
-
-	return HANGCHECK_HUNG;
+	return false;
 }
 
 /**
- * This is called when the chip hasn't reported back with completed
- * batchbuffers in a long time. We keep track per ring seqno progress and
- * if there are no progress, hangcheck score for that ring is increased.
- * Further, acthd is inspected to see if the ring is stuck. On stuck case
- * we kick the ring. If we see no progress on three subsequent calls
- * we assume chip is wedged and try to fix it by resetting the chip.
+ * This function is called when the TDR algorithm detects that the
+ * hardware has not advanced during the last sampling period
  */
-static void i915_hangcheck_elapsed(unsigned long data)
+static bool i915_hangcheck_hung(struct intel_ring_hangcheck *hc)
 {
-	struct drm_device *dev = (struct drm_device *)data;
+	struct drm_device *dev = hc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	uint32_t mbox_wait;
+	uint32_t threshold;
 	struct intel_engine_cs *ring;
-	int i;
-	int busy_count = 0, rings_hung = 0;
-	bool stuck[I915_NUM_RINGS] = { 0 };
-#define BUSY 1
-#define KICK 5
-#define HUNG 20
 
-	if (!i915.enable_hangcheck)
-		return;
+	DRM_DEBUG_TDR("Ring [%d] hc->count = %d\n", hc->ringid, hc->count);
+	ring = &dev_priv->ring[hc->ringid];
 
-	for_each_ring(ring, dev_priv, i) {
-		u64 acthd;
-		u32 seqno;
-		bool busy = true;
+	/*
+	 * Is this ring waiting on a semaphore mbox?
+	 * If so, give it a bit longer as it may be waiting on another
+	 * ring which has actually hung. Give the other ring chance to
+	 * reset and clear the hang.
+	 */
+	mbox_wait = ((I915_READ(RING_CTL(ring->mmio_base)) >> 10) & 0x1);
+	threshold = mbox_wait ? DRM_I915_MBOX_HANGCHECK_THRESHOLD :
+				DRM_I915_HANGCHECK_THRESHOLD;
+	DRM_DEBUG_TDR("mbox_wait = %u threshold = %u", mbox_wait, threshold);
 
-		semaphore_clear_deadlocks(dev_priv);
+	if (hc->count++ > threshold) {
+		bool hung = true;
 
-		seqno = ring->get_seqno(ring, false);
-		acthd = intel_ring_get_active_head(ring);
+		/* Reset the counter */
+		hc->count = 0;
 
-		if (ring->hangcheck.seqno == seqno) {
-			if (ring_idle(ring, seqno)) {
-				ring->hangcheck.action = HANGCHECK_IDLE;
+		i915_sync_hung_ring(ring);
 
-				if (waitqueue_active(&ring->irq_queue)) {
-					/* Issue a wake-up to catch stuck h/w. */
-					if (!test_and_set_bit(ring->id, &dev_priv->gpu_error.missed_irq_rings)) {
-						if (!(dev_priv->gpu_error.test_irq_rings & intel_ring_flag(ring)))
-							DRM_ERROR("Hangcheck timer elapsed... %s idle\n",
-								  ring->name);
-						else
-							DRM_INFO("Fake missed irq on %s\n",
-								 ring->name);
-						wake_up_all(&ring->irq_queue);
-					}
-					/* Safeguard against driver failure */
-					ring->hangcheck.score += BUSY;
-				} else
-					busy = false;
-			} else {
-				/* We always increment the hangcheck score
-				 * if the ring is busy and still processing
-				 * the same request, so that no single request
-				 * can run indefinitely (such as a chain of
-				 * batches). The only time we do not increment
-				 * the hangcheck score on this ring, if this
-				 * ring is in a legitimate wait for another
-				 * ring. In that case the waiting ring is a
-				 * victim and we want to be sure we catch the
-				 * right culprit. Then every time we do kick
-				 * the ring, add a small increment to the
-				 * score so that we can catch a batch that is
-				 * being repeatedly kicked and so responsible
-				 * for stalling the machine.
-				 */
-				ring->hangcheck.action = ring_stuck(ring,
-								    acthd);
-
-				switch (ring->hangcheck.action) {
-				case HANGCHECK_IDLE:
-				case HANGCHECK_WAIT:
-					break;
-				case HANGCHECK_ACTIVE:
-					ring->hangcheck.score += BUSY;
-					break;
-				case HANGCHECK_KICK:
-					ring->hangcheck.score += KICK;
-					break;
-				case HANGCHECK_HUNG:
-					ring->hangcheck.score += HUNG;
-					stuck[i] = true;
-					break;
-				}
-			}
-		} else {
-			ring->hangcheck.action = HANGCHECK_ACTIVE;
-
-			/* Gradually reduce the count so that we catch DoS
-			 * attempts across multiple batches.
-			 */
-			if (ring->hangcheck.score > 0)
-				ring->hangcheck.score--;
+		if (!IS_GEN2(dev)) {
+			/* If the ring is hanging on a WAIT_FOR_EVENT
+			* then simply poke the RB_WAIT bit
+			* and break the hang. This should work on
+			* all but the second generation chipsets.
+			*/
+			ring = &dev_priv->ring[hc->ringid];
+			hung &= !kick_ring(ring);
+			DRM_DEBUG_TDR("hung=%d after kick ring\n", hung);
 		}
 
-		ring->hangcheck.seqno = seqno;
-		ring->hangcheck.acthd = acthd;
-		busy_count += busy;
-	}
-
-	for_each_ring(ring, dev_priv, i) {
-		if (ring->hangcheck.score >= HANGCHECK_SCORE_RING_HUNG) {
-			DRM_INFO("%s on %s\n",
-				 stuck[i] ? "stuck" : "no progress",
-				 ring->name);
-			rings_hung++;
+		if (hung) {
+			hc->tdr_count++;
+			ring->hangcheck.action = HANGCHECK_HUNG;
+			i915_handle_error(dev, hc, "%s hung", ring->name);
 		}
+		return hung;
 	}
 
-	if (rings_hung)
-		return i915_handle_error(dev, true, "Ring hung");
-
-	if (busy_count)
-		/* Reset timer case chip hangs without another request
-		 * being added */
-		i915_queue_hangcheck(dev);
+	return false;
 }
 
-void i915_queue_hangcheck(struct drm_device *dev)
+/*
+ * This is called from the hangcheck timer for each ring.
+ * It samples the current state of the hardware to make
+ * sure that it is progressing.
+ */
+void i915_hangcheck_sample(unsigned long data)
 {
+	bool idle;
+	int empty;
+	int instdone_cmp;
+	int pending_work = 1;
+	int resched_timer = 1;
+	uint32_t cur_seqno = 0;
+	uint32_t last_seqno = 0;
+	uint32_t head, tail, acthd, instdone[I915_NUM_INSTDONE_REG];
+	struct drm_device *dev;
+	struct drm_i915_private *dev_priv;
+	struct intel_engine_cs *ring;
+	struct intel_ring_hangcheck *hc = (struct intel_ring_hangcheck *)data;
+
+	if (!i915.enable_hangcheck || !hc)
+		return;
+
+	dev = hc->dev;
+	dev_priv = dev->dev_private;
+
+	/* Clear the active flag *before* assessing the ring state
+	* in case new work is added just after we sample the rings.
+	* This will allow new work to re-trigger the timer even
+	* though we may see the rings as idle on this occasion.*/
+	atomic_set(&hc->active, 0);
+
+	ring = &dev_priv->ring[hc->ringid];
+
+	/* Sample the current state */
+	head = I915_READ_HEAD(ring) & HEAD_ADDR;
+	tail = I915_READ_TAIL(ring) & TAIL_ADDR;
+	acthd = intel_ring_get_active_head(ring);
+	empty = list_empty(&ring->request_list);
+
+	i915_get_extra_instdone(dev, instdone, ring);
+	instdone_cmp = (memcmp(hc->prev_instdone,
+		instdone, sizeof(instdone)) == 0) ? 1 : 0;
+
+	if (!empty) {
+		/* Examine the seqno's to see where the HW has got to
+		* (Only call ring_last_seqno when the list is non-empty)*/
+		cur_seqno = ring->get_seqno(ring, false);
+		last_seqno = ring_last_seqno(ring);
+	}
+
+	if (empty || i915_seqno_passed(cur_seqno, last_seqno)) {
+		/* If the request list is empty or the HW has passed the
+		* last seqno of the last item in the request list then the
+		* HW is considered idle.
+		* The driver may not have cleaned up the request list yet */
+		pending_work = 0;
+	}
+
+	idle = ((head == tail) && (pending_work == 0));
+
+	DRM_DEBUG_TDR("[%d] HD: 0x%08x 0x%08x, ACTHD: 0x%08x 0x%08x IC: %d\n",
+		ring->id, head, hc->last_hd, acthd, hc->last_acthd,
+		instdone_cmp);
+	DRM_DEBUG_TDR("E:%d PW:%d TL:0x%08x Csq:0x%08x Lsq:0x%08x Idle: %d\n",
+		empty, pending_work, tail, cur_seqno, last_seqno, idle);
+
+	/* Check both head and active head.
+	* Neither is enough on its own - acthd can be pointing within the
+	* batch buffer so is more likely to be moving, but the same
+	* underlying buffer object could be submitted more than once.
+	* If it happens to pause at exactly the same place in the batch
+	* buffer and we sample it at that moment then we could see it as
+	* hung over 3 sample periods that do not belong to the same
+	* batch submission - this would result in a false positive.
+	* We know that the head pointer will have advanced for each
+	* batch buffer as the ring has to contain a new MI_BATCH_BUFFER_START
+	* for every do_exec call, so by combining head and active head we can
+	* ensure that the hang detection distinguishes between batch buffers*/
+	if ((hc->last_acthd == acthd)
+	    && (hc->last_hd == head)
+	    && instdone_cmp) {
+		/* Ring hasn't advanced in this sampling period */
+		if (idle) {
+			ring->hangcheck.action = HANGCHECK_IDLE;
+
+			/* The hardware is idle */
+			if (waitqueue_active(&ring->irq_queue)) {
+				/* We expect the wait queue to drain
+				* if the hardware has remained idle
+				* for 3 consecutive samples. Wake up
+				* the queue on each sample to try and
+				* release it, but if it persists then
+				* trigger a reset */
+				DRM_DEBUG_TDR("Possible stuck wait (0x%08x)\n",
+					ring->last_irq_seqno);
+				wake_up_all(&ring->irq_queue);
+				i915_hangcheck_hung(hc);
+			} else {
+				/* Hardware and driver both idle */
+				hc->count = 0;
+				resched_timer = 0;
+			}
+		} else {
+			/*
+			 * The hardware is busy but has not advanced
+			 * since the last sample - possible hang
+			 */
+			i915_hangcheck_hung(hc);
+		}
+	} else {
+		/* The state has changed so the hardware is active */
+		hc->count = 0;
+		ring->hangcheck.action = HANGCHECK_ACTIVE;
+	}
+
+	/* Always update last sampled state */
+	hc->last_hd = head;
+	hc->last_acthd = acthd;
+	memcpy(hc->prev_instdone, instdone, sizeof(instdone));
+
+	if (resched_timer)
+		i915_queue_hangcheck(dev, hc->ringid);
+}
+
+void i915_queue_hangcheck(struct drm_device *dev, u32 ringid)
+{
+	int resched = 0;
 	struct drm_i915_private *dev_priv = dev->dev_private;
+
 	if (!i915.enable_hangcheck)
 		return;
 
-	mod_timer(&dev_priv->gpu_error.hangcheck_timer,
-		  round_jiffies_up(jiffies + DRM_I915_HANGCHECK_JIFFIES));
+	/* Only re-schedule the timer if it is not currently active */
+	if (atomic_add_unless(&dev_priv->ring[ringid].hangcheck.active,
+			      1, 1) != 0)
+		resched = 1;
+
+	if (resched)
+		mod_timer(&dev_priv->ring[ringid].hangcheck.timer,
+			  jiffies + DRM_I915_HANGCHECK_JIFFIES);
 }
 
 static void ibx_irq_reset(struct drm_device *dev)
@@ -4165,7 +4173,7 @@ static irqreturn_t i8xx_irq_handler(int irq, void *arg)
 		 */
 		spin_lock_irqsave(&dev_priv->irq_lock, irqflags);
 		if (iir & I915_RENDER_COMMAND_PARSER_ERROR_INTERRUPT)
-			i915_handle_error(dev, false,
+			i915_handle_error(dev, NULL,
 					  "Command parser error, iir 0x%08x",
 					  iir);
 
@@ -4349,7 +4357,7 @@ static irqreturn_t i915_irq_handler(int irq, void *arg)
 		 */
 		spin_lock_irqsave(&dev_priv->irq_lock, irqflags);
 		if (iir & I915_RENDER_COMMAND_PARSER_ERROR_INTERRUPT)
-			i915_handle_error(dev, false,
+			i915_handle_error(dev, NULL,
 					  "Command parser error, iir 0x%08x",
 					  iir);
 
@@ -4581,7 +4589,7 @@ static irqreturn_t i965_irq_handler(int irq, void *arg)
 		 */
 		spin_lock_irqsave(&dev_priv->irq_lock, irqflags);
 		if (iir & I915_RENDER_COMMAND_PARSER_ERROR_INTERRUPT)
-			i915_handle_error(dev, false,
+			i915_handle_error(dev, NULL,
 					  "Command parser error, iir 0x%08x",
 					  iir);
 
@@ -4733,9 +4741,6 @@ void intel_irq_init(struct drm_device *dev)
 	/* Let's track the enabled rps events */
 	dev_priv->pm_rps_events = GEN6_PM_RPS_EVENTS;
 
-	setup_timer(&dev_priv->gpu_error.hangcheck_timer,
-		    i915_hangcheck_elapsed,
-		    (unsigned long) dev);
 	setup_timer(&dev_priv->hotplug_reenable_timer, intel_hpd_irq_reenable,
 		    (unsigned long) dev_priv);
 

@@ -34,6 +34,7 @@
 
 #define _MASKED_BIT_ENABLE(a) (((a) << 16) | (a))
 #define _MASKED_BIT_DISABLE(a) ((a) << 16)
+#define _MASKED_BIT_ENABLE_ALL(b) (0xFFFF0000 | (b))
 
 /* PCI config space */
 
@@ -115,6 +116,7 @@
 #define  GEN6_GRDOM_RENDER		(1 << 1)
 #define  GEN6_GRDOM_MEDIA		(1 << 2)
 #define  GEN6_GRDOM_BLT			(1 << 3)
+#define  GEN6_GRDOM_VECS		(1 << 4)
 
 #define GEN8_SRID_0_2_0_PCI		0xf8
 
@@ -1088,6 +1090,10 @@ enum punit_power_well {
 #define RING_HEAD(base)		((base)+0x34)
 #define RING_START(base)	((base)+0x38)
 #define RING_CTL(base)		((base)+0x3c)
+#define RING_MI_MODE(base)	((base)+0x9c)
+#define RING_MODE_STOP		(1 << 8)
+#define RING_MODE_IDLE		(1 << 9)
+#define RING_UHPTR(base) ((base)+0x134)
 #define RING_SYNC_0(base)	((base)+0x40)
 #define RING_SYNC_1(base)	((base)+0x44)
 #define RING_SYNC_2(base)	((base)+0x48)
@@ -1157,6 +1163,9 @@ enum punit_power_well {
 #define   RING_WAIT_I8XX	(1<<0) /* gen2, PRBx_HEAD */
 #define   RING_WAIT		(1<<11) /* gen3+, PRBx_CTL */
 #define   RING_WAIT_SEMAPHORE	(1<<10) /* gen6+ */
+#define RS_CHICKEN(base)	((base)+0xdc)
+#define WAIT_FOR_RC6_EXIT(base) ((base)+0xe4)
+#define FF_SLICE_CS_CHICKEN2(base) ((base)+0xcc)
 
 #define GEN7_TLB_RD_ADDR	0x4700
 
@@ -1277,6 +1286,7 @@ enum punit_power_well {
 #define GFX_MODE	0x02520
 #define GFX_MODE_GEN7	0x0229c
 #define RING_MODE_GEN7(ring)	((ring)->mmio_base+0x29c)
+#define RING_EXCC_GEN7(ring)    ((ring)->mmio_base+0x028)
 #define   GFX_RUN_LIST_ENABLE		(1<<15)
 #define   GFX_TLB_INVALIDATE_EXPLICIT	(1<<13)
 #define   GFX_SURFACE_FAULT_ENABLE	(1<<12)

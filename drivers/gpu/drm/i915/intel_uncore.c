@@ -1135,7 +1135,8 @@ static int gen6_do_reset(struct drm_device *dev)
 	__raw_i915_write32(dev_priv, GEN6_GDRST, GEN6_GRDOM_FULL);
 
 	/* Spin waiting for the device to ack the reset request */
-	ret = wait_for((__raw_i915_read32(dev_priv, GEN6_GDRST) & GEN6_GRDOM_FULL) == 0, 500);
+	ret = wait_for((__raw_i915_read32(dev_priv, GEN6_GDRST) &
+					GEN6_GRDOM_FULL) == 0, 500);
 
 	intel_uncore_forcewake_reset(dev, true);
 
@@ -1144,18 +1145,131 @@ static int gen6_do_reset(struct drm_device *dev)
 
 int intel_gpu_reset(struct drm_device *dev)
 {
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int ret = -ENODEV;
+
 	switch (INTEL_INFO(dev)->gen) {
 	case 8:
 	case 7:
-	case 6: return gen6_do_reset(dev);
-	case 5: return ironlake_do_reset(dev);
+	case 6:
+		ret = gen6_do_reset(dev);
+		break;
+	case 5:
+		ret = ironlake_do_reset(dev);
+		break;
 	case 4:
 		if (IS_G4X(dev))
-			return g4x_do_reset(dev);
+			ret = g4x_do_reset(dev);
 		else
-			return i965_do_reset(dev);
-	default: return -ENODEV;
+			ret = i965_do_reset(dev);
+		break;
+	default:
+		return ret;
 	}
+
+	dev_priv->gpu_error.total_resets++;
+	DRM_DEBUG_TDR("total_resets %ld\n", dev_priv->gpu_error.total_resets);
+
+	return ret;
+}
+
+static int gen6_do_engine_reset(struct drm_device *dev,
+				enum intel_ring_id engine)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int ret = -ENODEV;
+	unsigned long irqflags;
+	char *reset_event[2];
+	reset_event[1] = NULL;
+
+	/* Hold uncore.lock across reset to prevent any register access
+	 * with forcewake not set correctly
+	 */
+	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
+
+	/* Reset the engine.
+	 * GEN6_GDRST is not in the gt power well so no need to check
+	 * for fifo space for the write or forcewake the chip for
+	 * the read
+	 */
+	switch (engine) {
+	case RCS:
+		__raw_i915_write32(dev_priv, GEN6_GDRST, GEN6_GRDOM_RENDER);
+		dev_priv->ring[RCS].hangcheck.total++;
+
+		/* Spin waiting for the device to ack the reset request */
+		ret = wait_for_atomic_us((__raw_i915_read32(dev_priv,
+			GEN6_GDRST)
+			& GEN6_GRDOM_RENDER) == 0, 500);
+		break;
+
+	case BCS:
+		__raw_i915_write32(dev_priv, GEN6_GDRST, GEN6_GRDOM_BLT);
+		dev_priv->ring[BCS].hangcheck.total++;
+
+		/* Spin waiting for the device to ack the reset request */
+		ret = wait_for_atomic_us((__raw_i915_read32(dev_priv,
+			GEN6_GDRST)
+			& GEN6_GRDOM_BLT) == 0, 500);
+		break;
+
+	case VCS:
+		__raw_i915_write32(dev_priv, GEN6_GDRST, GEN6_GRDOM_MEDIA);
+		dev_priv->ring[VCS].hangcheck.total++;
+
+		/* Spin waiting for the device to ack the reset request */
+		ret = wait_for_atomic_us((__raw_i915_read32(dev_priv,
+			GEN6_GDRST)
+			& GEN6_GRDOM_MEDIA) == 0, 500);
+		break;
+
+	case VECS:
+		__raw_i915_write32(dev_priv, GEN6_GDRST, GEN6_GRDOM_VECS);
+		dev_priv->ring[VECS].hangcheck.total++;
+
+		/* Spin waiting for the device to ack the reset request */
+		ret = wait_for_atomic_us((__raw_i915_read32(dev_priv,
+			GEN6_GDRST)
+			& GEN6_GRDOM_VECS) == 0, 500);
+		break;
+
+	default:
+		DRM_ERROR("Unexpected Engine\n");
+		break;
+	}
+
+	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
+
+	/* Do uevent outside of spinlock as uevent can sleep */
+	reset_event[0] = kasprintf(GFP_KERNEL, "RESET RING=%d", engine);
+	kobject_uevent_env(&dev->primary->kdev->kobj,
+		KOBJ_CHANGE, reset_event);
+	kfree(reset_event[0]);
+
+	return ret;
+}
+
+int intel_gpu_engine_reset(struct drm_device *dev, enum intel_ring_id engine)
+{
+	/* Reset an individual engine */
+	int ret = -ENODEV;
+
+	if (!dev)
+		return -EINVAL;
+
+	switch (INTEL_INFO(dev)->gen) {
+	case 7:
+	case 6:
+		ret = gen6_do_engine_reset(dev, engine);
+		break;
+	default:
+		DRM_ERROR("Per Engine Reset not supported on Gen%d\n",
+			  INTEL_INFO(dev)->gen);
+		ret = -ENODEV;
+		break;
+	}
+
+	return ret;
 }
 
 void intel_uncore_check_errors(struct drm_device *dev)

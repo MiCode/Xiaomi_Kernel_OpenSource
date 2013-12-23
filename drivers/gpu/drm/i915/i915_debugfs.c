@@ -4344,8 +4344,38 @@ i915_wedged_set(void *data, u64 val)
 
 	intel_runtime_pm_get(dev_priv);
 
-	i915_handle_error(dev, val,
-			  "Manually setting wedged to %llu", val);
+	if (!i915_reset_in_progress(&dev_priv->gpu_error)) {
+		switch (val) {
+		case RCS:
+			DRM_INFO("Manual RCS reset\n");
+			i915_handle_error(dev,
+					  &dev_priv->ring[RCS].hangcheck,
+					  "Manual RCS reset");
+			break;
+		case VCS:
+			DRM_INFO("Manual VCS reset\n");
+			i915_handle_error(dev,
+					  &dev_priv->ring[VCS].hangcheck,
+					  "Manual VCS reset");
+			break;
+		case BCS:
+			DRM_INFO("Manual BCS reset\n");
+			i915_handle_error(dev,
+					  &dev_priv->ring[BCS].hangcheck,
+					  "Manual BCS reset");
+			break;
+		case VECS:
+			DRM_INFO("Manual VECS reset\n");
+			i915_handle_error(dev,
+					  &dev_priv->ring[VECS].hangcheck,
+					  "Manual VECS reset");
+			break;
+		default:
+			DRM_INFO("Manual global reset\n");
+			i915_handle_error(dev, NULL, "Manual global reset");
+			break;
+		}
+	}
 
 	intel_runtime_pm_put(dev_priv);
 
@@ -4355,6 +4385,92 @@ i915_wedged_set(void *data, u64 val)
 DEFINE_SIMPLE_ATTRIBUTE(i915_wedged_fops,
 			i915_wedged_get, i915_wedged_set,
 			"%llu\n");
+
+static const char *ringid_to_str(enum intel_ring_id ring_id)
+{
+	switch (ring_id) {
+	case RCS:
+		return "RCS";
+	case VCS:
+		return "VCS";
+	case BCS:
+		return "BCS";
+	case VECS:
+		return "VECS";
+	case VCS2:
+		return "VCS2";
+	}
+
+	return "unknown";
+}
+
+static ssize_t
+i915_ring_hangcheck_read(struct file *filp, char __user *ubuf,
+			 size_t max, loff_t *ppos)
+{
+	int i;
+	int len;
+	char buf[300];
+	struct drm_device *dev = filp->private_data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	/*
+	 * Returns the total number of times the rings
+	 * have hung and been reset since boot
+	 */
+	len = scnprintf(buf, sizeof(buf), "GPU=0x%08lX,",
+			dev_priv->gpu_error.total_resets);
+
+	for (i = 0; i < I915_NUM_RINGS; ++i)
+		len += scnprintf(buf + len, sizeof(buf) - len,
+				 "%s=0x%08lX,",
+				 ringid_to_str(i),
+				 (long unsigned)
+				 dev_priv->ring[i].hangcheck.total);
+
+	for (i = 0; i < I915_NUM_RINGS; ++i)
+		len += scnprintf(buf + len, sizeof(buf) - len,
+				 "%s_T=0x%08lX,",
+				 ringid_to_str(i),
+				 (long unsigned)
+				 dev_priv->ring[i].hangcheck.tdr_count);
+	len += scnprintf(buf + len - 1, sizeof(buf) - len, "\n");
+
+	return simple_read_from_buffer(ubuf, max, ppos, buf, len);
+}
+
+static ssize_t
+i915_ring_hangcheck_write(struct file *filp,
+			const char __user *ubuf,
+			size_t cnt, loff_t *ppos)
+{
+	int ret;
+	int i;
+	struct drm_device *dev = filp->private_data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	ret = mutex_lock_interruptible(&dev->struct_mutex);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < I915_NUM_RINGS; i++) {
+		/* Reset the hangcheck counters */
+		dev_priv->ring[i].hangcheck.total = 0;
+		dev_priv->ring[i].hangcheck.tdr_count = 0;
+	}
+	dev_priv->gpu_error.total_resets = 0;
+	mutex_unlock(&dev->struct_mutex);
+
+	return cnt;
+}
+
+static const struct file_operations i915_ring_hangcheck_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_ring_hangcheck_read,
+	.write = i915_ring_hangcheck_write,
+	.llseek = default_llseek,
+};
 
 static int
 i915_ring_stop_get(void *data, u64 *val)
@@ -5169,6 +5285,7 @@ static const struct i915_debugfs_files {
 	{"i915_ring_missed_irq", &i915_ring_missed_irq_fops},
 	{"i915_ring_test_irq", &i915_ring_test_irq_fops},
 	{"i915_gem_drop_caches", &i915_drop_caches_fops},
+	{"i915_ring_hangcheck", &i915_ring_hangcheck_fops},
 	{"i915_error_state", &i915_error_state_fops},
 	{"i915_next_seqno", &i915_next_seqno_fops},
 	{"i915_display_crc_ctl", &i915_display_crc_ctl_fops},

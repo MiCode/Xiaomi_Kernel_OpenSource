@@ -345,7 +345,6 @@ struct drm_i915_error_state {
 		bool valid;
 		/* Software tracked state */
 		bool waiting;
-		int hangcheck_score;
 		enum intel_ring_hangcheck_action hangcheck_action;
 		int num_requests;
 
@@ -362,7 +361,7 @@ struct drm_i915_error_state {
 		u32 hws;
 		u32 ipeir;
 		u32 ipehr;
-		u32 instdone;
+		u32 instdone[I915_NUM_INSTDONE_REG];
 		u32 bbstate;
 		u32 instpm;
 		u32 instps;
@@ -1236,12 +1235,11 @@ struct i915_error_state_file_priv {
 
 struct i915_gpu_error {
 	/* For hangcheck timer */
-#define DRM_I915_HANGCHECK_PERIOD 1500 /* in ms */
-#define DRM_I915_HANGCHECK_JIFFIES msecs_to_jiffies(DRM_I915_HANGCHECK_PERIOD)
+#define DRM_I915_MIN_HANGCHECK_PERIOD 100 /* 100ms */
+#define DRM_I915_MAX_HANGCHECK_PERIOD 30000 /* 30s */
+#define DRM_I915_HANGCHECK_JIFFIES msecs_to_jiffies(i915.hangcheck_period)
 	/* Hang gpu twice in this window and your context gets banned */
-#define DRM_I915_CTX_BAN_PERIOD DIV_ROUND_UP(8*DRM_I915_HANGCHECK_PERIOD, 1000)
-
-	struct timer_list hangcheck_timer;
+#define DRM_I915_CTX_BAN_PERIOD DIV_ROUND_UP(8*i915.hangcheck_period, 1000)
 
 	/* For reset and error_state handling. */
 	spinlock_t lock;
@@ -1249,11 +1247,16 @@ struct i915_gpu_error {
 	struct drm_i915_error_state *first_error;
 	struct work_struct work;
 
-
+	unsigned long last_reset;
 	unsigned long missed_irq_rings;
 
 	/**
 	 * State variable controlling the reset flow and count
+	 *
+	 * NOTE: This is for global reset only. TDR resets are handled
+	 * separately and do not modify reset_counter. This is OK
+	 * because TDR seqno's will still be signalled where as
+	 * with global reset the seqno completion will be lost.
 	 *
 	 * This is a counter which gets incremented when reset is triggered,
 	 * and again when reset has been handled. So odd values (lowest bit set)
@@ -1290,6 +1293,8 @@ struct i915_gpu_error {
 	u32 stop_rings;
 #define I915_STOP_RING_ALLOW_BAN       (1 << 31)
 #define I915_STOP_RING_ALLOW_WARN      (1 << 30)
+
+	unsigned long total_resets;
 
 	/* For missed irq/seqno simulation. */
 	unsigned int test_irq_rings;
@@ -2305,6 +2310,9 @@ struct i915_params {
 	int enable_rps_boost;
 	int invert_brightness;
 	int enable_cmd_parser;
+	unsigned int hangcheck_period;
+	unsigned int ring_reset_min_alive_period;
+	unsigned int gpu_reset_min_alive_period;
 	/* leave bools at the end to not create holes */
 	bool enable_hangcheck;
 	bool fastboot;
@@ -2338,6 +2346,9 @@ extern int i915_emit_box(struct drm_device *dev,
 			 struct drm_clip_rect *box,
 			 int DR1, int DR4);
 extern int intel_gpu_reset(struct drm_device *dev);
+extern int intel_gpu_engine_reset(struct drm_device *dev,
+				  enum intel_ring_id engine);
+extern int i915_handle_hung_ring(struct drm_device *dev, uint32_t ringid);
 extern int i915_reset(struct drm_device *dev);
 extern unsigned long i915_chipset_val(struct drm_i915_private *dev_priv);
 extern unsigned long i915_mch_val(struct drm_i915_private *dev_priv);
@@ -2348,10 +2359,11 @@ int vlv_force_gfx_clock(struct drm_i915_private *dev_priv, bool on);
 extern void intel_console_resume(struct work_struct *work);
 
 /* i915_irq.c */
-void i915_queue_hangcheck(struct drm_device *dev);
+void i915_queue_hangcheck(struct drm_device *dev, u32 ringid);
 __printf(3, 4)
-void i915_handle_error(struct drm_device *dev, bool wedged,
+void i915_handle_error(struct drm_device *dev, struct intel_ring_hangcheck *hc,
 		       const char *fmt, ...);
+void i915_hangcheck_sample(unsigned long data);
 
 void gen6_set_pm_mask(struct drm_i915_private *dev_priv, u32 pm_iir,
 							int new_delay);
@@ -2501,6 +2513,10 @@ int i915_gem_dumb_create(struct drm_file *file_priv,
 			 struct drm_mode_create_dumb *args);
 int i915_gem_mmap_gtt(struct drm_file *file_priv, struct drm_device *dev,
 		      uint32_t handle, uint64_t *offset);
+void i915_set_reset_status(struct drm_i915_private *dev_priv,
+				  struct intel_context *ctx,
+				  const bool guilty);
+
 /**
  * Returns true if seq1 is later than seq2.
  */
@@ -2524,9 +2540,10 @@ i915_gem_find_active_request(struct intel_engine_cs *ring);
 bool i915_gem_retire_requests(struct drm_device *dev);
 void i915_gem_retire_requests_ring(struct intel_engine_cs *ring);
 int __must_check i915_gem_check_wedge(struct i915_gpu_error *error,
-				      bool interruptible);
+				      bool interruptible,
+				      struct intel_engine_cs *ring);
 int __must_check i915_gem_check_olr(struct intel_engine_cs *ring, u32 seqno);
-
+int i915_gem_wedged(struct drm_device *dev, bool interruptible);
 static inline bool i915_reset_in_progress(struct i915_gpu_error *error)
 {
 	return unlikely(atomic_read(&error->reset_counter)
@@ -2784,14 +2801,14 @@ static inline void i915_error_state_buf_release(
 {
 	kfree(eb->buf);
 }
-void i915_capture_error_state(struct drm_device *dev, bool wedge,
-			      const char *error_msg);
+void i915_capture_error_state(struct drm_device *dev, const char *error_msg);
 void i915_error_state_get(struct drm_device *dev,
 			  struct i915_error_state_file_priv *error_priv);
 void i915_error_state_put(struct i915_error_state_file_priv *error_priv);
 void i915_destroy_error_state(struct drm_device *dev);
 
-void i915_get_extra_instdone(struct drm_device *dev, uint32_t *instdone);
+void i915_get_extra_instdone(struct drm_device *dev, uint32_t *instdone,
+			     struct intel_engine_cs *ring);
 const char *i915_cache_level_str(int type);
 
 /* i915_cmd_parser.c */

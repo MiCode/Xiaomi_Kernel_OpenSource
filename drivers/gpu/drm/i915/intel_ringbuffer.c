@@ -73,8 +73,18 @@ bool intel_ring_stopped(struct intel_engine_cs *ring)
 
 void __intel_ring_advance(struct intel_engine_cs *ring)
 {
+	struct drm_i915_private *dev_priv = ring->dev->dev_private;
 	struct intel_ringbuffer *ringbuf = ring->buffer;
+
 	ringbuf->tail &= ringbuf->size - 1;
+
+	/* Re-schedule the hangcheck timer each time the ring is given new work
+	* so that we can detect hangs caused by commands inserted directly
+	* to the ring as well as bad batch buffers */
+	if (!dev_priv->ums.mm_suspended &&
+	    dev_priv->ring[RCS].default_context->legacy_hw_ctx.initialized)
+		i915_queue_hangcheck(ring->dev, ring->id);
+
 	if (intel_ring_stopped(ring))
 		return;
 	ring->write_tail(ring, ringbuf->tail);
@@ -439,6 +449,420 @@ static void ring_write_tail(struct intel_engine_cs *ring,
 	I915_WRITE_TAIL(ring, value);
 }
 
+int intel_ring_disable(struct intel_engine_cs *ring)
+{
+	if (ring && ring->disable)
+		return ring->disable(ring);
+	else {
+		DRM_ERROR("ring disable not supported\n");
+		return -EINVAL;
+	}
+}
+
+static int
+gen6_ring_disable(struct intel_engine_cs *ring)
+{
+	struct drm_device *dev = ring->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	uint32_t ring_ctl;
+	uint32_t mi_mode;
+	uint32_t retries = 10000;
+
+	/* Request the ring to go idle */
+	I915_WRITE_MODE(ring, _MASKED_BIT_ENABLE(RING_MODE_STOP));
+
+	/* Wait for idle */
+	do {
+		mi_mode = I915_READ_MODE(ring);
+	} while (retries-- && !(mi_mode & RING_MODE_IDLE));
+
+	if (retries == 0) {
+		DRM_ERROR("timed out trying to disable ring %d\n", ring->id);
+		return -ETIMEDOUT;
+	}
+
+	/* Disable the ring */
+	ring_ctl = I915_READ_CTL(ring);
+	ring_ctl &= (RING_NR_PAGES | RING_REPORT_MASK);
+	I915_WRITE_CTL(ring, ring_ctl);
+	ring_ctl = I915_READ_CTL(ring); /* Barrier read */
+
+	return ((ring_ctl & RING_VALID) == 0) ? 0 : -EIO;
+}
+
+int intel_ring_enable(struct intel_engine_cs *ring)
+{
+	if (ring && ring->enable)
+		return ring->enable(ring);
+	else {
+		DRM_ERROR("ring enable not supported\n");
+		return -EINVAL;
+	}
+}
+
+static int
+gen6_ring_enable(struct intel_engine_cs *ring)
+{
+	struct drm_device *dev = ring->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	uint32_t ring_ctl;
+	uint32_t mode;
+
+	/* Clear the MI_MODE stop bit */
+	I915_WRITE_MODE(ring, _MASKED_BIT_DISABLE(RING_MODE_STOP));
+	mode = I915_READ_MODE(ring); /* Barrier read */
+
+	/* Enable the ring */
+	ring_ctl = I915_READ_CTL(ring);
+	ring_ctl &= (RING_NR_PAGES | RING_REPORT_MASK);
+	I915_WRITE_CTL(ring, ring_ctl | RING_VALID);
+	ring_ctl = I915_READ_CTL(ring); /* Barrier read */
+
+	return ((ring_ctl & RING_VALID) == 0) ? -EIO : 0;
+}
+
+int intel_ring_save(struct intel_engine_cs *ring, u32 flags)
+{
+	if (ring && ring->save)
+		return ring->save(ring, ring->saved_state,
+			I915_RING_CONTEXT_SIZE, flags);
+	else {
+		DRM_ERROR("ring save not supported\n");
+		return -EINVAL;
+	}
+}
+
+static int
+gen6_ring_save(struct intel_engine_cs *ring, uint32_t *data, uint32_t max,
+		u32 flags)
+{
+	struct drm_device *dev = ring->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_ringbuffer *ringbuf = ring->buffer;
+	uint32_t idx = 0;
+	uint32_t gen = INTEL_INFO(dev)->gen;
+	uint32_t head;
+	uint32_t tail;
+	uint32_t head_addr;
+	uint32_t tail_addr;
+	int clamp_to_tail = 0;
+
+	/* Ring save only added for gen >= 7 */
+	WARN_ON(gen < 7);
+
+	/* Save common registers */
+	if (max < COMMON_RING_CTX_SIZE)
+		return -EINVAL;
+
+	head = I915_READ_HEAD(ring);
+	tail = I915_READ_TAIL(ring);
+
+	head_addr = head & HEAD_ADDR;
+	tail_addr = tail & TAIL_ADDR;
+
+	if (flags & FORCE_ADVANCE) {
+		/* The head must always chase the tail.
+		* If the tail is beyond the head then do not allow
+		* the head to overtake it. If the tail is less than
+		* the head then the tail has already wrapped and
+		* there is no problem in advancing the head or even
+		* wrapping the head back to 0 as worst case it will
+		* become equal to tail */
+		if (head_addr <= tail_addr)
+			clamp_to_tail = 1;
+
+		/* Force head to next QWORD boundary */
+		head_addr &= ~0x7;
+		head_addr += 8;
+
+		if (clamp_to_tail && (head_addr > tail_addr)) {
+			head_addr = tail_addr;
+		} else if (head_addr >= ringbuf->size) {
+			/* Wrap head back to start if it exceeds ring size*/
+			head_addr = 0;
+		}
+
+		/* Update the register */
+		head &= ~HEAD_ADDR;
+		head |= (head_addr & HEAD_ADDR);
+
+		DRM_DEBUG_TDR("Forced head to 0x%08x\n", head);
+	} else if (head & 0x7) {
+		/* Ensure head pointer is pointing to a QWORD boundary */
+		DRM_DEBUG_TDR("Rounding up head 0x%08x\n", head);
+		head += 0x7;
+		head &= ~0x7;
+	}
+
+	/* Saved with enable = 0 */
+	data[idx++] = I915_READ_CTL(ring) & (RING_NR_PAGES | RING_REPORT_MASK);
+
+	data[idx++] = (flags & RESET_HEAD_TAIL) ? 0 : tail;
+
+	if (flags & RESET_HEAD_TAIL) {
+		/* Save head as 0 so head is reset on restore */
+		data[idx++] = 0;
+	} else {
+		/* Head will already have advanced to next instruction location
+		* even if the current instruction caused a hang, so we just
+		* save the current value as the value to restart at */
+		data[idx++] = head;
+	}
+
+	data[idx++] = I915_READ_START(ring);
+
+	/* Workaround for reading DCLV registers for gen < 8 */
+	data[idx++] = (gen < 8) ?
+		I915_READ(RING_PP_DIR_DCLV(&dev_priv->ring[VCS]))
+		: I915_READ(RING_PP_DIR_DCLV(ring));
+
+	data[idx++] = (gen < 8) ?
+		I915_READ(RING_PP_DIR_BASE(&dev_priv->ring[VCS]))
+		: I915_READ(RING_PP_DIR_BASE(ring));
+
+	switch (ring->id) {
+	case RCS:
+		if (max < (COMMON_RING_CTX_SIZE + RCS_RING_CTX_SIZE))
+			return -EINVAL;
+
+		data[idx++] = I915_READ(RENDER_HWS_PGA_GEN7);
+		data[idx++] = I915_READ(RING_UHPTR(ring->mmio_base));
+		data[idx++] = I915_READ(RING_INSTPM(ring->mmio_base));
+		data[idx++] = I915_READ(RING_IMR(ring->mmio_base));
+		data[idx++] = I915_READ(CACHE_MODE_1);
+		data[idx++] = I915_READ(RING_MI_MODE(ring->mmio_base));
+		data[idx++] = I915_READ(_3D_CHICKEN3);
+		data[idx++] = I915_READ(GAM_ECOCHK);
+		data[idx++] = I915_READ(GFX_MODE_GEN7);
+		data[idx++] = I915_READ(GEN6_RBSYNC);
+		data[idx++] = I915_READ(GEN7_FF_THREAD_MODE);
+		data[idx++] = I915_READ(RS_CHICKEN(ring->mmio_base));
+		data[idx++] = I915_READ(WAIT_FOR_RC6_EXIT(ring->mmio_base));
+		data[idx++] = I915_READ(FF_SLICE_CS_CHICKEN2(ring->mmio_base));
+		break;
+
+	case VCS:
+		if (max < (COMMON_RING_CTX_SIZE + VCS_RING_CTX_SIZE))
+			return -EINVAL;
+
+		data[idx++] = I915_READ(BSD_HWS_PGA_GEN7);
+		data[idx++] = I915_READ(RING_MI_MODE(ring->mmio_base));
+		data[idx++] = I915_READ(RING_IMR(ring->mmio_base));
+		data[idx++] = I915_READ(RING_UHPTR(ring->mmio_base));
+		data[idx++] = I915_READ(RING_INSTPM(ring->mmio_base));
+		data[idx++] = I915_READ(RING_EXCC_GEN7(ring));
+		data[idx++] = I915_READ(GAC_ECO_BITS);
+		data[idx++] = I915_READ(RING_MODE_GEN7(ring));
+		data[idx++] = I915_READ(GEN6_VRSYNC);
+		data[idx++] = I915_READ(RING_MAX_IDLE(ring->mmio_base));
+		break;
+
+	case BCS:
+		if (max < (COMMON_RING_CTX_SIZE + BCS_RING_CTX_SIZE))
+			return -EINVAL;
+
+		data[idx++] = I915_READ(BLT_HWS_PGA_GEN7);
+		data[idx++] = I915_READ(RING_MI_MODE(ring->mmio_base));
+		data[idx++] = I915_READ(RING_IMR(ring->mmio_base));
+		data[idx++] = I915_READ(RING_UHPTR(ring->mmio_base));
+		data[idx++] = I915_READ(RING_INSTPM(ring->mmio_base));
+		data[idx++] = I915_READ(RING_EXCC_GEN7(ring));
+		data[idx++] = I915_READ(GAB_CTL);
+		data[idx++] = I915_READ(RING_MODE_GEN7(ring));
+		data[idx++] = I915_READ(GEN6_BRSYNC);
+		data[idx++] = I915_READ(GEN6_BVSYNC);
+		data[idx++] = I915_READ(RING_MAX_IDLE(ring->mmio_base));
+		break;
+
+	case VECS:
+		if (max < (COMMON_RING_CTX_SIZE + VECS_RING_CTX_SIZE))
+			return -EINVAL;
+
+		data[idx++] = I915_READ(VEBOX_HWS_PGA_GEN7);
+		data[idx++] = I915_READ(RING_MI_MODE(ring->mmio_base));
+		data[idx++] = I915_READ(RING_IMR(ring->mmio_base));
+		data[idx++] = I915_READ(RING_UHPTR(ring->mmio_base));
+		data[idx++] = I915_READ(RING_INSTPM(ring->mmio_base));
+		data[idx++] = I915_READ(RING_EXCC_GEN7(ring));
+		data[idx++] = I915_READ(RING_MODE_GEN7(ring));
+		data[idx++] = I915_READ(GEN6_VEVSYNC);
+		break;
+
+	default:
+		DRM_ERROR("Invalid ring ID %d\n", ring->id);
+		break;
+	}
+
+	return 0;
+}
+
+int intel_ring_restore(struct intel_engine_cs *ring)
+{
+	if (ring && ring->restore)
+		return ring->restore(ring, ring->saved_state,
+			I915_RING_CONTEXT_SIZE);
+	else {
+		DRM_ERROR("ring restore not supported\n");
+		return -EINVAL;
+	}
+}
+
+static int
+gen6_ring_restore(struct intel_engine_cs *ring, uint32_t *data,
+			uint32_t max)
+{
+	struct drm_device *dev = ring->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	uint32_t idx = 0;
+	uint32_t x;
+
+	/* NOTE: Registers are restored in reverse order from when
+	* they were saved. */
+	switch (ring->id) {
+	case RCS:
+		if (max < (COMMON_RING_CTX_SIZE + RCS_RING_CTX_SIZE))
+			return -EINVAL;
+
+		idx = COMMON_RING_CTX_SIZE + RCS_RING_CTX_SIZE - 1;
+
+		I915_WRITE(FF_SLICE_CS_CHICKEN2(ring->mmio_base),
+			_MASKED_BIT_ENABLE_ALL(data[idx--]));
+		I915_WRITE(WAIT_FOR_RC6_EXIT(ring->mmio_base),
+			_MASKED_BIT_ENABLE_ALL(data[idx--]));
+		I915_WRITE(RS_CHICKEN(ring->mmio_base),
+			_MASKED_BIT_ENABLE_ALL(data[idx--]));
+		I915_WRITE(GEN7_FF_THREAD_MODE, data[idx--]);
+		I915_WRITE(GEN6_RBSYNC, data[idx--]);
+		I915_WRITE(RING_MODE_GEN7(ring),
+			_MASKED_BIT_ENABLE_ALL(data[idx--]));
+		I915_WRITE(GAM_ECOCHK, data[idx--]);
+		I915_WRITE(_3D_CHICKEN3,
+			_MASKED_BIT_ENABLE_ALL(data[idx--]));
+		I915_WRITE(RING_MI_MODE(ring->mmio_base),
+			_MASKED_BIT_ENABLE_ALL(data[idx--]));
+		I915_WRITE(CACHE_MODE_1,
+			_MASKED_BIT_ENABLE_ALL(data[idx--]));
+		I915_WRITE(RING_IMR(ring->mmio_base), data[idx--]);
+		I915_WRITE(RING_INSTPM(ring->mmio_base),
+			_MASKED_BIT_ENABLE_ALL(data[idx--]));
+		I915_WRITE(RING_UHPTR(ring->mmio_base), data[idx--]);
+		I915_WRITE(RENDER_HWS_PGA_GEN7, data[idx--]);
+		break;
+
+	case VCS:
+		if (max < (COMMON_RING_CTX_SIZE + VCS_RING_CTX_SIZE))
+			return -EINVAL;
+
+		idx = COMMON_RING_CTX_SIZE + VCS_RING_CTX_SIZE - 1;
+		I915_WRITE(RING_MAX_IDLE(ring->mmio_base), data[idx--]);
+		I915_WRITE(GEN6_VRSYNC, data[idx--]);
+		I915_WRITE(RING_MODE_GEN7(ring),
+			_MASKED_BIT_ENABLE_ALL(data[idx--]));
+		I915_WRITE(GAC_ECO_BITS, data[idx--]);
+		I915_WRITE(RING_EXCC_GEN7(ring),
+			_MASKED_BIT_ENABLE_ALL(data[idx--]));
+		I915_WRITE(RING_INSTPM(ring->mmio_base),
+			_MASKED_BIT_ENABLE_ALL(data[idx--]));
+		I915_WRITE(RING_UHPTR(ring->mmio_base), data[idx--]);
+		I915_WRITE(RING_IMR(ring->mmio_base), data[idx--]);
+		I915_WRITE(RING_MI_MODE(ring->mmio_base),
+			_MASKED_BIT_ENABLE_ALL(data[idx--]));
+		I915_WRITE(BSD_HWS_PGA_GEN7, data[idx--]);
+		break;
+
+	case BCS:
+		if (max < (COMMON_RING_CTX_SIZE + BCS_RING_CTX_SIZE))
+			return -EINVAL;
+
+		idx = COMMON_RING_CTX_SIZE + BCS_RING_CTX_SIZE - 1;
+
+		I915_WRITE(RING_MAX_IDLE(ring->mmio_base), data[idx--]);
+		I915_WRITE(GEN6_BVSYNC, data[idx--]);
+		I915_WRITE(GEN6_BRSYNC, data[idx--]);
+		I915_WRITE(RING_MODE_GEN7(ring),
+			_MASKED_BIT_ENABLE_ALL(data[idx--]));
+		I915_WRITE(GAB_CTL, data[idx--]);
+		I915_WRITE(RING_EXCC_GEN7(ring),
+			_MASKED_BIT_ENABLE_ALL(data[idx--]));
+		I915_WRITE(RING_INSTPM(ring->mmio_base),
+			_MASKED_BIT_ENABLE_ALL(data[idx--]));
+		I915_WRITE(RING_UHPTR(ring->mmio_base), data[idx--]);
+		I915_WRITE(RING_IMR(ring->mmio_base), data[idx--]);
+		I915_WRITE(RING_MI_MODE(ring->mmio_base),
+			_MASKED_BIT_ENABLE_ALL(data[idx--]));
+		I915_WRITE(BLT_HWS_PGA_GEN7, data[idx--]);
+		break;
+
+	case VECS:
+		if (max < (COMMON_RING_CTX_SIZE + VECS_RING_CTX_SIZE))
+			return -EINVAL;
+
+		idx = COMMON_RING_CTX_SIZE + VECS_RING_CTX_SIZE - 1;
+
+		I915_WRITE(GEN6_VEVSYNC, data[idx--]);
+		I915_WRITE(RING_MODE_GEN7(ring),
+				_MASKED_BIT_ENABLE_ALL(data[idx--]));
+		I915_WRITE(RING_EXCC_GEN7(ring),
+				_MASKED_BIT_ENABLE_ALL(data[idx--]));
+		I915_WRITE(RING_INSTPM(ring->mmio_base),
+				_MASKED_BIT_ENABLE_ALL(data[idx--]));
+		I915_WRITE(RING_UHPTR(ring->mmio_base), data[idx--]);
+		I915_WRITE(RING_IMR(ring->mmio_base), data[idx--]);
+		I915_WRITE(RING_MI_MODE(ring->mmio_base),
+				_MASKED_BIT_ENABLE_ALL(data[idx--]));
+		I915_WRITE(VEBOX_HWS_PGA_GEN7, data[idx--]);
+		break;
+
+	default:
+		DRM_ERROR("Invalid ring ID %d\n", ring->id);
+		break;
+	}
+
+	/* Restore common registers */
+	if (max < COMMON_RING_CTX_SIZE)
+		return -EINVAL;
+
+	idx = COMMON_RING_CTX_SIZE - 1;
+
+	I915_WRITE(RING_PP_DIR_BASE(ring), data[idx--]);
+	I915_WRITE(RING_PP_DIR_DCLV(ring), data[idx--]);
+
+	/* Write ring base address before head/tail as it clears head to 0 */
+	I915_WRITE_START(ring, data[idx--]);
+	x = I915_READ_START(ring);
+	I915_WRITE_HEAD(ring, data[idx--]);
+	I915_WRITE_TAIL(ring, data[idx--]);
+	I915_WRITE_CTL(ring, data[idx--]);
+
+	return 0;
+}
+
+int intel_ring_invalidate_tlb(struct intel_engine_cs *ring)
+{
+	if (ring && ring->invalidate_tlb)
+		return ring->invalidate_tlb(ring);
+	else {
+		DRM_ERROR("ring invalidate tlb not supported\n");
+		return -EINVAL;
+	}
+}
+
+void intel_ring_resample(struct intel_engine_cs *ring)
+{
+	struct drm_device *dev = ring->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_ringbuffer *ringbuf = ring->buffer;
+
+	if (!drm_core_check_feature(ring->dev, DRIVER_MODESET))
+		i915_kernel_lost_context(ring->dev);
+	else {
+		ringbuf->head = I915_READ_HEAD(ring);
+		ringbuf->tail = I915_READ_TAIL(ring) & TAIL_ADDR;
+		ringbuf->space = intel_ring_space(ringbuf);
+		ringbuf->last_retired_head = -1;
+	}
+}
+
 u64 intel_ring_get_active_head(struct intel_engine_cs *ring)
 {
 	struct drm_i915_private *dev_priv = ring->dev->dev_private;
@@ -560,7 +984,6 @@ static int init_ring_common(struct intel_engine_cs *ring)
 		ringbuf->last_retired_head = -1;
 	}
 
-	memset(&ring->hangcheck, 0, sizeof(ring->hangcheck));
 
 out:
 	gen6_gt_force_wake_put(dev_priv, FORCEWAKE_ALL);
@@ -1166,6 +1589,40 @@ i8xx_ring_put_irq(struct intel_engine_cs *ring)
 		POSTING_READ16(IMR);
 	}
 	spin_unlock_irqrestore(&dev_priv->irq_lock, flags);
+}
+
+/* gen6_ring_invalidate_tlb
+ * GFX soft resets do not invalidate TLBs, it is up to
+ * GFX driver to explicitly invalidate TLBs post reset.
+ */
+static int gen6_ring_invalidate_tlb(struct intel_engine_cs *ring)
+{
+	struct drm_device *dev = ring->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 reg;
+	int ret;
+
+	if ((INTEL_INFO(dev)->gen < 6) || (!ring->stop) || (!ring->start))
+		return -EINVAL;
+
+	/* stop the ring before sync_flush */
+	ret = ring->stop(ring);
+	if ((ret) && (ret != -EALREADY))
+		DRM_ERROR("%s: unable to stop the ring\n", ring->name);
+
+	/* Invalidate TLB */
+	reg = RING_INSTPM(ring->mmio_base);
+	I915_WRITE(reg, _MASKED_BIT_ENABLE(INSTPM_TLB_INVALIDATE |
+				INSTPM_SYNC_FLUSH));
+	if (wait_for((I915_READ(reg) & INSTPM_SYNC_FLUSH) == 0, 1000))
+		DRM_ERROR("%s: wait for SyncFlush to complete timed out\n",
+				ring->name);
+
+	/* only start if stop was sucessfull */
+	if (!ret)
+		ring->start(ring);
+
+	return 0;
 }
 
 void intel_ring_setup_status_page(struct intel_engine_cs *ring)
@@ -1821,7 +2278,7 @@ static int ring_wait_for_space(struct intel_engine_cs *ring, int n)
 		}
 
 		ret = i915_gem_check_wedge(&dev_priv->gpu_error,
-					   dev_priv->mm.interruptible);
+					   dev_priv->mm.interruptible, ring);
 		if (ret)
 			break;
 
@@ -1927,7 +2384,7 @@ int intel_ring_begin(struct intel_engine_cs *ring,
 	int ret;
 
 	ret = i915_gem_check_wedge(&dev_priv->gpu_error,
-				   dev_priv->mm.interruptible);
+				   dev_priv->mm.interruptible, ring);
 	if (ret)
 		return ret;
 
@@ -1981,7 +2438,6 @@ void intel_ring_init_seqno(struct intel_engine_cs *ring, u32 seqno)
 	}
 
 	ring->set_seqno(ring, seqno);
-	ring->hangcheck.seqno = seqno;
 }
 
 static void gen6_bsd_ring_write_tail(struct intel_engine_cs *ring,
@@ -2244,6 +2700,43 @@ gen6_ring_dispatch_execbuffer(struct intel_engine_cs *ring,
 	return ret;
 }
 
+static int
+gen6_ring_stop(struct intel_engine_cs *ring)
+{
+	struct drm_device *dev = ring->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	/* check if ring is already stopped */
+	if (I915_READ_MODE(ring) & RING_MODE_STOP)
+		return -EALREADY;
+
+	/* Request the ring to go idle */
+	I915_WRITE_MODE(ring, _MASKED_BIT_ENABLE(RING_MODE_STOP));
+
+	/* Wait for idle */
+	if (wait_for_atomic((I915_READ_MODE(ring) & RING_MODE_IDLE) != 0,
+			    1000)) {
+		DRM_ERROR("%s :timed out trying to stop ring", ring->name);
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
+static int
+gen6_ring_start(struct intel_engine_cs *ring)
+{
+	struct drm_device *dev = ring->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	uint32_t mode;
+
+	/* Clear the MI_MODE stop bit */
+	I915_WRITE_MODE(ring, _MASKED_BIT_DISABLE(RING_MODE_STOP));
+	mode = I915_READ_MODE(ring);    /* Barrier read */
+
+	return 0;
+}
+
 /* Blitter support (SandyBridge+) */
 
 static int gen6_ring_flush(struct intel_engine_cs *ring,
@@ -2333,6 +2826,13 @@ int intel_init_render_ring_buffer(struct drm_device *dev)
 		ring->semaphore.mbox.signal[BCS] = GEN6_BRSYNC;
 		ring->semaphore.mbox.signal[VECS] = GEN6_VERSYNC;
 		ring->semaphore.mbox.signal[VCS2] = GEN6_NOSYNC;
+		ring->enable = gen6_ring_enable;
+		ring->disable = gen6_ring_disable;
+		ring->save = gen6_ring_save;
+		ring->restore = gen6_ring_restore;
+		ring->start = gen6_ring_start;
+		ring->stop = gen6_ring_stop;
+		ring->invalidate_tlb = gen6_ring_invalidate_tlb;
 	} else if (IS_GEN5(dev)) {
 		ring->add_request = pc_render_add_request;
 		ring->flush = gen4_render_ring_flush;
@@ -2535,6 +3035,13 @@ int intel_init_bsd_ring_buffer(struct drm_device *dev)
 		ring->semaphore.mbox.signal[BCS] = GEN6_BVSYNC;
 		ring->semaphore.mbox.signal[VECS] = GEN6_VEVSYNC;
 		ring->semaphore.mbox.signal[VCS2] = GEN6_NOSYNC;
+		ring->enable = gen6_ring_enable;
+		ring->disable = gen6_ring_disable;
+		ring->save = gen6_ring_save;
+		ring->restore = gen6_ring_restore;
+		ring->start = gen6_ring_start;
+		ring->stop = gen6_ring_stop;
+		ring->invalidate_tlb = gen6_ring_invalidate_tlb;
 	} else {
 		ring->mmio_base = BSD_RING_BASE;
 		ring->flush = bsd_ring_flush;
@@ -2604,6 +3111,13 @@ int intel_init_bsd2_ring_buffer(struct drm_device *dev)
 	ring->semaphore.mbox.signal[BCS] = GEN6_NOSYNC;
 	ring->semaphore.mbox.signal[VECS] = GEN6_NOSYNC;
 	ring->semaphore.mbox.signal[VCS2] = GEN6_NOSYNC;
+	ring->enable = gen6_ring_enable;
+	ring->disable = gen6_ring_disable;
+	ring->save = gen6_ring_save;
+	ring->restore = gen6_ring_restore;
+	ring->start = gen6_ring_start;
+	ring->stop = gen6_ring_stop;
+	ring->invalidate_tlb = gen6_ring_invalidate_tlb;
 
 	ring->init = init_ring_common;
 
@@ -2654,6 +3168,14 @@ int intel_init_blt_ring_buffer(struct drm_device *dev)
 	ring->semaphore.mbox.signal[BCS] = GEN6_NOSYNC;
 	ring->semaphore.mbox.signal[VECS] = GEN6_VEBSYNC;
 	ring->semaphore.mbox.signal[VCS2] = GEN6_NOSYNC;
+	ring->enable = gen6_ring_enable;
+	ring->disable = gen6_ring_disable;
+	ring->save = gen6_ring_save;
+	ring->restore = gen6_ring_restore;
+	ring->start = gen6_ring_start;
+	ring->stop = gen6_ring_stop;
+	ring->invalidate_tlb = gen6_ring_invalidate_tlb;
+
 	ring->init = init_ring_common;
 
 	return intel_init_ring_buffer(dev, ring);
@@ -2698,6 +3220,18 @@ int intel_init_vebox_ring_buffer(struct drm_device *dev)
 	ring->semaphore.mbox.signal[BCS] = GEN6_BVESYNC;
 	ring->semaphore.mbox.signal[VECS] = GEN6_NOSYNC;
 	ring->semaphore.mbox.signal[VCS2] = GEN6_NOSYNC;
+	ring->irq_enable_mask = PM_VEBOX_USER_INTERRUPT;
+	ring->irq_get = hsw_vebox_get_irq;
+	ring->irq_put = hsw_vebox_put_irq;
+	ring->dispatch_execbuffer = gen6_ring_dispatch_execbuffer;
+	ring->enable = gen6_ring_enable;
+	ring->disable = gen6_ring_disable;
+	ring->start = gen6_ring_start;
+	ring->stop = gen6_ring_stop;
+	ring->save = gen6_ring_save;
+	ring->restore = gen6_ring_restore;
+	ring->invalidate_tlb = gen6_ring_invalidate_tlb;
+
 	ring->init = init_ring_common;
 
 	return intel_init_ring_buffer(dev, ring);

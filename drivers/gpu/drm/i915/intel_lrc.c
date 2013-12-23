@@ -876,8 +876,16 @@ void intel_logical_ring_advance_and_submit(struct intel_ringbuffer *ringbuf)
 {
 	struct intel_engine_cs *ring = ringbuf->ring;
 	struct intel_context *ctx = ringbuf->FIXME_lrc_ctx;
+	struct drm_i915_private *dev_priv = ring->dev->dev_private;
 
 	intel_logical_ring_advance(ringbuf);
+
+	/* Re-schedule the hangcheck timer each time the ring is given new work
+	* so that we can detect hangs caused by commands inserted directly
+	* to the ring as well as bad batch buffers */
+	if (!dev_priv->ums.mm_suspended &&
+	    dev_priv->ring[RCS].default_context->rcs_initialized)
+		i915_queue_hangcheck(ring->dev, ring->id);
 
 	if (intel_ring_stopped(ring))
 		return;
@@ -964,7 +972,7 @@ static int logical_ring_wait_for_space(struct intel_ringbuffer *ringbuf,
 		}
 
 		ret = i915_gem_check_wedge(&dev_priv->gpu_error,
-					   dev_priv->mm.interruptible);
+					   dev_priv->mm.interruptible, ring);
 		if (ret)
 			break;
 
@@ -1039,7 +1047,7 @@ int intel_logical_ring_begin(struct intel_ringbuffer *ringbuf, int num_dwords)
 	int ret;
 
 	ret = i915_gem_check_wedge(&dev_priv->gpu_error,
-				   dev_priv->mm.interruptible);
+				   dev_priv->mm.interruptible, ring);
 	if (ret)
 		return ret;
 
@@ -1069,8 +1077,6 @@ static int gen8_init_common_ring(struct intel_engine_cs *ring)
 		   _MASKED_BIT_ENABLE(GFX_RUN_LIST_ENABLE));
 	POSTING_READ(RING_MODE_GEN7(ring));
 	DRM_DEBUG_DRIVER("Execlists enabled for %s\n", ring->name);
-
-	memset(&ring->hangcheck, 0, sizeof(ring->hangcheck));
 
 	return 0;
 }

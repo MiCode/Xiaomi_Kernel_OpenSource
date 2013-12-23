@@ -242,6 +242,8 @@ static void i915_ring_error_state(struct drm_i915_error_state_buf *m,
 				  struct drm_device *dev,
 				  struct drm_i915_error_ring *ring)
 {
+	int i;
+
 	if (!ring->valid)
 		return;
 
@@ -252,7 +254,9 @@ static void i915_ring_error_state(struct drm_i915_error_state_buf *m,
 	err_printf(m, "  ACTHD: 0x%08x %08x\n", (u32)(ring->acthd>>32), (u32)ring->acthd);
 	err_printf(m, "  IPEIR: 0x%08x\n", ring->ipeir);
 	err_printf(m, "  IPEHR: 0x%08x\n", ring->ipehr);
-	err_printf(m, "  INSTDONE: 0x%08x\n", ring->instdone);
+	for (i = 0; i < ARRAY_SIZE(ring->instdone); i++)
+		err_printf(m, "  INSTDONE_%d: 0x%08x\n", i, ring->instdone[i]);
+
 	if (INTEL_INFO(dev)->gen >= 4) {
 		err_printf(m, "  BBADDR: 0x%08x %08x\n", (u32)(ring->bbaddr>>32), (u32)ring->bbaddr);
 		err_printf(m, "  BB_STATE: 0x%08x\n", ring->bbstate);
@@ -293,9 +297,8 @@ static void i915_ring_error_state(struct drm_i915_error_state_buf *m,
 	err_printf(m, "  waiting: %s\n", yesno(ring->waiting));
 	err_printf(m, "  ring->head: 0x%08x\n", ring->cpu_ring_head);
 	err_printf(m, "  ring->tail: 0x%08x\n", ring->cpu_ring_tail);
-	err_printf(m, "  hangcheck: %s [%d]\n",
-		   hangcheck_action_to_str(ring->hangcheck_action),
-		   ring->hangcheck_score);
+	err_printf(m, "  hangcheck: %s\n",
+		   hangcheck_action_to_str(ring->hangcheck_action));
 }
 
 void i915_error_printf(struct drm_i915_error_state_buf *e, const char *f, ...)
@@ -328,7 +331,6 @@ int i915_error_state_to_str(struct drm_i915_error_state_buf *m,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_i915_error_state *error = error_priv->error;
 	int i, j, offset, elt;
-	int max_hangcheck_score;
 
 	if (!error) {
 		err_printf(m, "no error state collected\n");
@@ -339,20 +341,6 @@ int i915_error_state_to_str(struct drm_i915_error_state_buf *m,
 	err_printf(m, "Time: %ld s %ld us\n", error->time.tv_sec,
 		   error->time.tv_usec);
 	err_printf(m, "Kernel: " UTS_RELEASE "\n");
-	max_hangcheck_score = 0;
-	for (i = 0; i < ARRAY_SIZE(error->ring); i++) {
-		if (error->ring[i].hangcheck_score > max_hangcheck_score)
-			max_hangcheck_score = error->ring[i].hangcheck_score;
-	}
-	for (i = 0; i < ARRAY_SIZE(error->ring); i++) {
-		if (error->ring[i].hangcheck_score == max_hangcheck_score &&
-		    error->ring[i].pid != -1) {
-			err_printf(m, "Active process (on ring %s): %s [%d]\n",
-				   ring_str(i),
-				   error->ring[i].comm,
-				   error->ring[i].pid);
-		}
-	}
 	err_printf(m, "Reset count: %u\n", error->reset_count);
 	err_printf(m, "Suspend count: %u\n", error->suspend_count);
 	err_printf(m, "PCI ID: 0x%04x\n", dev->pdev->device);
@@ -706,7 +694,8 @@ static uint32_t i915_error_generate_code(struct drm_i915_private *dev_priv,
 			if (ring_id)
 				*ring_id = i;
 
-			return error->ring[i].ipehr ^ error->ring[i].instdone;
+			return error->ring[i].ipehr ^
+				error->ring[i].instdone[0];
 		}
 	}
 
@@ -773,7 +762,6 @@ static void i915_record_ring_state(struct drm_device *dev,
 		ering->faddr = I915_READ(RING_DMA_FADD(ring->mmio_base));
 		ering->ipeir = I915_READ(RING_IPEIR(ring->mmio_base));
 		ering->ipehr = I915_READ(RING_IPEHR(ring->mmio_base));
-		ering->instdone = I915_READ(RING_INSTDONE(ring->mmio_base));
 		ering->instps = I915_READ(RING_INSTPS(ring->mmio_base));
 		ering->bbaddr = I915_READ(RING_BBADDR(ring->mmio_base));
 		if (INTEL_INFO(dev)->gen >= 8) {
@@ -785,8 +773,10 @@ static void i915_record_ring_state(struct drm_device *dev,
 		ering->faddr = I915_READ(DMA_FADD_I8XX);
 		ering->ipeir = I915_READ(IPEIR);
 		ering->ipehr = I915_READ(IPEHR);
-		ering->instdone = I915_READ(INSTDONE);
 	}
+
+	i915_get_extra_instdone(dev, ering->instdone,
+				&dev_priv->ring[ring->id]);
 
 	ering->waiting = waitqueue_active(&ring->irq_queue);
 	ering->instpm = I915_READ(RING_INSTPM(ring->mmio_base));
@@ -825,7 +815,6 @@ static void i915_record_ring_state(struct drm_device *dev,
 		ering->hws = I915_READ(mmio);
 	}
 
-	ering->hangcheck_score = ring->hangcheck.score;
 	ering->hangcheck_action = ring->hangcheck.action;
 
 	if (USES_PPGTT(dev)) {
@@ -1047,6 +1036,7 @@ static void i915_gem_capture_buffers(struct drm_i915_private *dev_priv,
 static void i915_capture_reg_state(struct drm_i915_private *dev_priv,
 				   struct drm_i915_error_state *error)
 {
+	int i;
 	struct drm_device *dev = dev_priv->dev;
 
 	/* General organization
@@ -1105,12 +1095,13 @@ static void i915_capture_reg_state(struct drm_i915_private *dev_priv,
 	error->eir = I915_READ(EIR);
 	error->pgtbl_er = I915_READ(PGTBL_ER);
 
-	i915_get_extra_instdone(dev, error->extra_instdone);
+	for (i = 0; i < I915_NUM_RINGS; ++i)
+		i915_get_extra_instdone(dev, error->ring[i].instdone,
+					&dev_priv->ring[i]);
 }
 
 static void i915_error_capture_msg(struct drm_device *dev,
 				   struct drm_i915_error_state *error,
-				   bool wedged,
 				   const char *error_msg)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -1125,14 +1116,10 @@ static void i915_error_capture_msg(struct drm_device *dev,
 	if (ring_id != -1 && error->ring[ring_id].pid != -1)
 		len += scnprintf(error->error_msg + len,
 				 sizeof(error->error_msg) - len,
-				 ", in %s [%d]",
+				 ", in %s [%d], reason %s",
 				 error->ring[ring_id].comm,
-				 error->ring[ring_id].pid);
-
-	scnprintf(error->error_msg + len, sizeof(error->error_msg) - len,
-		  ", reason: %s, action: %s",
-		  error_msg,
-		  wedged ? "reset" : "continue");
+				 error->ring[ring_id].pid,
+				 error_msg);
 }
 
 static void i915_capture_gen_state(struct drm_i915_private *dev_priv,
@@ -1151,7 +1138,7 @@ static void i915_capture_gen_state(struct drm_i915_private *dev_priv,
  * out a structure which becomes available in debugfs for user level tools
  * to pick up.
  */
-void i915_capture_error_state(struct drm_device *dev, bool wedged,
+void i915_capture_error_state(struct drm_device *dev,
 			      const char *error_msg)
 {
 	static bool warned;
@@ -1179,7 +1166,7 @@ void i915_capture_error_state(struct drm_device *dev, bool wedged,
 	error->overlay = intel_overlay_capture_error_state(dev);
 	error->display = intel_display_capture_error_state(dev);
 
-	i915_error_capture_msg(dev, error, wedged, error_msg);
+	i915_error_capture_msg(dev, error, error_msg);
 	DRM_INFO("%s\n", error->error_msg);
 
 	spin_lock_irqsave(&dev_priv->gpu_error.lock, flags);
@@ -1251,7 +1238,8 @@ const char *i915_cache_level_str(int type)
 }
 
 /* NB: please notice the memset */
-void i915_get_extra_instdone(struct drm_device *dev, uint32_t *instdone)
+void i915_get_extra_instdone(struct drm_device *dev, uint32_t *instdone,
+			     struct intel_engine_cs *ring)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	memset(instdone, 0, sizeof(*instdone) * I915_NUM_INSTDONE_REG);
@@ -1271,10 +1259,12 @@ void i915_get_extra_instdone(struct drm_device *dev, uint32_t *instdone)
 		WARN_ONCE(1, "Unsupported platform\n");
 	case 7:
 	case 8:
-		instdone[0] = I915_READ(GEN7_INSTDONE_1);
-		instdone[1] = I915_READ(GEN7_SC_INSTDONE);
-		instdone[2] = I915_READ(GEN7_SAMPLER_INSTDONE);
-		instdone[3] = I915_READ(GEN7_ROW_INSTDONE);
+		instdone[0] = I915_READ(RING_INSTDONE(ring->mmio_base));
+		if (ring->id == RCS) {
+			instdone[1] = I915_READ(GEN7_SC_INSTDONE);
+			instdone[2] = I915_READ(GEN7_SAMPLER_INSTDONE);
+			instdone[3] = I915_READ(GEN7_ROW_INSTDONE);
+		}
 		break;
 	}
 }

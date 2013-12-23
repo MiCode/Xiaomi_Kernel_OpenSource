@@ -1573,6 +1573,38 @@ static void intel_device_info_runtime_init(struct drm_device *dev)
 	}
 }
 
+static void
+i915_hangcheck_init(struct drm_device *dev)
+{
+	int i;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	for (i = 0; i < I915_NUM_RINGS; i++) {
+		dev_priv->ring[i].hangcheck.count = 0;
+		dev_priv->ring[i].hangcheck.tdr_count = 0;
+		dev_priv->ring[i].hangcheck.total = 0;
+		dev_priv->ring[i].hangcheck.last_acthd = 0;
+		dev_priv->ring[i].hangcheck.ringid = i;
+		dev_priv->ring[i].hangcheck.dev = dev;
+		atomic_set(&dev_priv->ring[i].hangcheck.active, 0);
+
+		setup_timer(&dev_priv->ring[i].hangcheck.timer,
+			i915_hangcheck_sample,
+			(unsigned long) &dev_priv->ring[i].hangcheck);
+	}
+}
+
+static void
+i915_hangcheck_cleanup(struct drm_i915_private *dev_priv)
+{
+	int i;
+
+	for (i = 0; i < I915_NUM_RINGS; i++) {
+		del_timer_sync(&dev_priv->ring[i].hangcheck.timer);
+		atomic_set(&dev_priv->ring[i].hangcheck.active, 0);
+	}
+}
+
 /**
  * i915_driver_load - setup chip and create an initial config
  * @dev: DRM device
@@ -1746,6 +1778,8 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 
 	i915_gem_load(dev);
 
+	i915_hangcheck_init(dev);
+
 	/* On the 945G/GM, the chipset reports the MSI capability on the
 	 * integrated graphics even though the support isn't actually there
 	 * according to the published specs.  It doesn't appear to function
@@ -1887,9 +1921,10 @@ int i915_driver_unload(struct drm_device *dev)
 	}
 
 	/* Free error state after interrupts are fully disabled. */
-	del_timer_sync(&dev_priv->gpu_error.hangcheck_timer);
 	cancel_work_sync(&dev_priv->gpu_error.work);
 	i915_destroy_error_state(dev);
+
+	i915_hangcheck_cleanup(dev_priv);
 
 	if (dev->pdev->msi_enabled)
 		pci_disable_msi(dev->pdev);

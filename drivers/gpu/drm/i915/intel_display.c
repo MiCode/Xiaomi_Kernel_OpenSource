@@ -2986,6 +2986,14 @@ void intel_display_handle_reset(struct drm_device *dev)
 	 * Need to make two loops over the crtcs so that we
 	 * don't try to grab a crtc mutex before the
 	 * pending_flip_queue really got woken up.
+	 *
+	 * For MMIO based page flips it is also possible that
+	 * the GPU could be reset between requesting the page
+	 * flip and before it reaches the next vblank when it
+	 * would normally send the page flip interrupt.
+	 * In that case we would be left with unpin work that
+	 * will not get cleaned up so we must cleanup any
+	 * pending page flips after a global reset
 	 */
 
 	for_each_crtc(dev, crtc) {
@@ -9840,7 +9848,7 @@ static int intel_gen7_queue_flip(struct drm_device *dev,
 		return -ENODEV;
 	}
 
-	len = 4;
+	len = 12;
 	if (ring->id == RCS) {
 		len += 6;
 		/*
@@ -9899,10 +9907,33 @@ static int intel_gen7_queue_flip(struct drm_device *dev,
 		}
 	}
 
+	/* Set a flag to indicate that a page flip interrupt is expected.
+	* The flag is used by the TDR logic to detect whether the blitter hung
+	* on a page flip command, in which case it will need to manually
+	* complete the page flip.
+	* The 'flag' is actually the pipe value associated with this page
+	* flip + 1 so that the TDR code knows which pipe failed to flip.
+	* A value of 0 indicates that a flip is not currently in progress on
+	* the HW.*/
+	intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
+	intel_ring_emit(ring, (I915_GEM_PGFLIP_INDEX <<
+			       MI_STORE_DWORD_INDEX_SHIFT));
+	intel_ring_emit(ring, intel_crtc->pipe + 1);
+	intel_ring_emit(ring, MI_NOOP);
+
 	intel_ring_emit(ring, MI_DISPLAY_FLIP_I915 | plane_bit);
 	intel_ring_emit(ring, (fb->pitches[0] | obj->tiling_mode));
 	intel_ring_emit(ring, intel_crtc->unpin_work->gtt_offset);
 	intel_ring_emit(ring, (MI_NOOP));
+
+	/* Clear the flag as soon as we pass over the page flip command.
+	* If we passed over the command without hanging then an interrupt should
+	* be received to complete the page flip.*/
+	intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
+	intel_ring_emit(ring, (I915_GEM_PGFLIP_INDEX <<
+			       MI_STORE_DWORD_INDEX_SHIFT));
+	intel_ring_emit(ring, 0);
+	intel_ring_emit(ring, MI_NOOP);
 
 	intel_mark_page_flip_active(intel_crtc);
 	__intel_ring_advance(ring);
@@ -9966,6 +9997,7 @@ static void intel_do_mmio_flip(struct intel_crtc *intel_crtc)
 
 static int intel_postpone_flip(struct drm_i915_gem_object *obj)
 {
+	struct drm_i915_private *dev_priv;
 	struct intel_engine_cs *ring;
 	int ret;
 
@@ -9975,6 +10007,12 @@ static int intel_postpone_flip(struct drm_i915_gem_object *obj)
 		return 0;
 
 	ring = obj->ring;
+
+	dev_priv = ring->dev;
+	ret = i915_gem_check_wedge(&dev_priv->gpu_error,
+				   dev_priv->mm.interruptible, obj->ring);
+	if (ret)
+		return ret;
 
 	if (i915_seqno_passed(ring->get_seqno(ring, true),
 			      obj->last_write_seqno))

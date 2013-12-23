@@ -29,6 +29,23 @@ struct  intel_hw_status_page {
 	struct		drm_i915_gem_object *obj;
 };
 
+/*
+ * These values must match the requirements of the ring save/restore functions
+ * which may need to change for different versions of the chip
+ */
+#define COMMON_RING_CTX_SIZE 6
+#define RCS_RING_CTX_SIZE 14
+#define VCS_RING_CTX_SIZE 10
+#define BCS_RING_CTX_SIZE 11
+#define VECS_RING_CTX_SIZE 8
+#define MAX_CTX(a, b) (((a) > (b)) ? (a) : (b))
+
+/* Largest of individual rings + common */
+#define I915_RING_CONTEXT_SIZE (COMMON_RING_CTX_SIZE +		    \
+				MAX_CTX(MAX_CTX(RCS_RING_CTX_SIZE,  \
+						VCS_RING_CTX_SIZE), \
+						BCS_RING_CTX_SIZE))
+
 #define I915_READ_TAIL(ring) I915_READ(RING_TAIL((ring)->mmio_base))
 #define I915_WRITE_TAIL(ring, val) I915_WRITE(RING_TAIL((ring)->mmio_base), val)
 
@@ -55,14 +72,55 @@ enum intel_ring_hangcheck_action {
 	HANGCHECK_HUNG,
 };
 
-#define HANGCHECK_SCORE_RING_HUNG 31
+#define RESET_HEAD_TAIL 0x1
+#define FORCE_ADVANCE   0x2
 
 struct intel_ring_hangcheck {
-	u64 acthd;
-	u32 seqno;
-	int score;
 	enum intel_ring_hangcheck_action action;
-	int deadlock;
+
+	/* The ring being monitored */
+	u32 ringid;
+
+	/* Parent drm_device */
+	struct drm_device *dev;
+
+	/* Timer for this ring only */
+	struct timer_list timer;
+
+	/* Count of consecutive hang detections
+	 * (reset flag set once count exceeds threshold) */
+#define DRM_I915_HANGCHECK_THRESHOLD 1
+#define DRM_I915_MBOX_HANGCHECK_THRESHOLD 4
+	u32 count;
+
+	/* Last sampled head and active head */
+	u32 last_acthd;
+	u32 last_hd;
+
+	/* Last recorded ring head index.
+	* This is only ever a ring index where as active
+	* head may be a graphics address in a ring buffer */
+	u32 last_head;
+
+	/* Last recorded instdone */
+	u32 prev_instdone[I915_NUM_INSTDONE_REG];
+
+	/* Flag to indicate if ring reset required */
+#define DRM_I915_HANGCHECK_HUNG 0x01 /* Indicates this ring has hung */
+#define DRM_I915_HANGCHECK_RESET 0x02 /* Indicates request to reset this ring */
+	atomic_t flags;
+
+	/* Keep a record of the last time the ring was reset */
+	unsigned long last_reset;
+
+	/* Number of times this ring has been
+	* reset since boot*/
+	u32 total;
+
+	/* Number of TDR hang detections of r */
+	u32 tdr_count;
+
+	atomic_t active;
 };
 
 struct intel_ringbuffer {
@@ -147,6 +205,15 @@ struct intel_engine_cs {
 #define I915_DISPATCH_SECURE 0x1
 #define I915_DISPATCH_PINNED 0x2
 	void		(*cleanup)(struct intel_engine_cs *ring);
+	int (*enable)(struct intel_engine_cs *ring);
+	int (*disable)(struct intel_engine_cs *ring);
+	int (*start)(struct intel_engine_cs *ring);
+	int (*stop)(struct intel_engine_cs *ring);
+	int (*save)(struct intel_engine_cs *ring,
+		    uint32_t *data, uint32_t max, u32 flags);
+	int (*restore)(struct intel_engine_cs *ring,
+		       uint32_t *data, uint32_t max);
+	int (*invalidate_tlb)(struct intel_engine_cs *ring);
 
 	struct {
 		u32	sync_seqno[I915_NUM_RINGS-1];
@@ -211,6 +278,12 @@ struct intel_engine_cs {
 	struct intel_context *last_context;
 
 	struct intel_ring_hangcheck hangcheck;
+	/*
+	 * Area large enough to store all the register
+	 * data associated with this ring
+	 */
+	u32 saved_state[I915_RING_CONTEXT_SIZE];
+	uint32_t last_irq_seqno;
 
 	struct {
 		struct drm_i915_gem_object *obj;
@@ -343,10 +416,17 @@ static inline void intel_ring_advance(struct intel_engine_cs *ring)
 	struct intel_ringbuffer *ringbuf = ring->buffer;
 	ringbuf->tail &= ringbuf->size - 1;
 }
+
 int __intel_ring_space(int head, int tail, int size);
 int intel_ring_space(struct intel_ringbuffer *ringbuf);
 bool intel_ring_stopped(struct intel_engine_cs *ring);
 void __intel_ring_advance(struct intel_engine_cs *ring);
+void intel_ring_resample(struct intel_engine_cs *ring);
+int intel_ring_disable(struct intel_engine_cs *ring);
+int intel_ring_enable(struct intel_engine_cs *ring);
+int intel_ring_save(struct intel_engine_cs *ring, u32 flags);
+int intel_ring_restore(struct intel_engine_cs *ring);
+int intel_ring_invalidate_tlb(struct intel_engine_cs *ring);
 
 int __must_check intel_ring_idle(struct intel_engine_cs *ring);
 void intel_ring_init_seqno(struct intel_engine_cs *ring, u32 seqno);

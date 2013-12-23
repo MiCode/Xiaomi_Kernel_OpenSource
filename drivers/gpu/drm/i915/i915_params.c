@@ -53,6 +53,9 @@ struct i915_params i915 __read_mostly = {
 	.disable_vtd_wa = 0,
 	.drrs_interval = 2000,
 	.use_mmio_flip = 0,
+	.hangcheck_period = 1000,
+	.ring_reset_min_alive_period = 0,
+	.gpu_reset_min_alive_period = 0,
 };
 module_param_named(limitbw, i915.limitbw, int, 0400);
 MODULE_PARM_DESC(limitbw,
@@ -185,3 +188,51 @@ MODULE_PARM_DESC(drrs_interval,
 module_param_named(use_mmio_flip, i915.use_mmio_flip, int, 0600);
 MODULE_PARM_DESC(use_mmio_flip,
 		 "use MMIO flips (-1=never, 0=driver discretion [default], 1=always)");
+
+int hangcheck_period_set(const char *val, const struct kernel_param *kp)
+{
+	/* Custom set function so we can validate the range */
+	unsigned long num;
+	int ret;
+
+	ret = kstrtoul(val, 0, &num);
+	if (ret)
+		return ret;
+
+	/* Enforce minimum delay in ms */
+	if ((num >= DRM_I915_MIN_HANGCHECK_PERIOD)
+	    && (num <= DRM_I915_MAX_HANGCHECK_PERIOD)) {
+		i915.hangcheck_period = num;
+		return 0;
+	}
+
+	return -EINVAL;
+}
+
+static const struct kernel_param_ops hangcheck_ops = {
+	.set = hangcheck_period_set,
+	.get = param_get_uint,
+};
+
+module_param_cb(hangcheck_period, &hangcheck_ops,
+		&i915.hangcheck_period, 0644);
+MODULE_PARM_DESC(hangcheck_period,
+		"The hangcheck timer period in milliseconds. "
+		"The actual time to detect a hang may be 3 - 4 times "
+		"this value (default = 1000ms)");
+
+module_param_named(ring_reset_min_alive_period,
+		i915.ring_reset_min_alive_period, int, 0644);
+MODULE_PARM_DESC(ring_reset_min_alive_period,
+		"Catch excessive ring resets. Each ring maintains a timestamp of "
+		"the last time it was reset. If it hangs again within this period "
+		"then switch to full GPU reset to try and clear the hang."
+		"default=0 seconds (disabled)");
+
+module_param_named(gpu_reset_min_alive_period,
+		i915.gpu_reset_min_alive_period, int, 0644);
+MODULE_PARM_DESC(gpu_reset_min_alive_period,
+		"Catch excessive GPU resets. If the GPU hangs again within this period "
+		"following the previous GPU reset then declare it wedged and "
+		"prevent further resets. "
+		"default=0 seconds (disabled)");

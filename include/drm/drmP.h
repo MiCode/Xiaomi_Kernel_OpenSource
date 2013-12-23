@@ -120,6 +120,7 @@ struct videomode;
 #define DRM_UT_DRIVER		0x02
 #define DRM_UT_KMS		0x04
 #define DRM_UT_PRIME		0x08
+#define DRM_UT_TDR		0x10
 
 extern __printf(2, 3)
 void drm_ut_debug_printk(const char *function_name,
@@ -221,10 +222,16 @@ int drm_err(const char *func, const char *format, ...);
 		if (unlikely(drm_debug & DRM_UT_PRIME))			\
 			drm_ut_debug_printk(__func__, fmt, ##args);	\
 	} while (0)
+#define DRM_DEBUG_TDR(fmt, args...)					\
+	do {								\
+		if (unlikely(drm_debug & DRM_UT_TDR))			\
+			drm_ut_debug_printk(__func__, fmt, ##args);	\
+	} while (0)
 #else
 #define DRM_DEBUG_DRIVER(fmt, args...) do { } while (0)
 #define DRM_DEBUG_KMS(fmt, args...)	do { } while (0)
 #define DRM_DEBUG_PRIME(fmt, args...)	do { } while (0)
+#define DRM_DEBUG_TDR(fmt, args...)	do { } while (0)
 #define DRM_DEBUG(fmt, arg...)		 do { } while (0)
 #endif
 
