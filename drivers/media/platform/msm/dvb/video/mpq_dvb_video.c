@@ -1356,11 +1356,18 @@ static int mpq_dvb_free_output_buffers(
 	struct v4l2_instance *v4l2_inst)
 {
 	int rc = 0;
+	int i;
 	struct v4l2_requestbuffers v4l2_buffer_req;
+	struct buffer_info *pbuf;
 	DBG("ENTER mpq_dvb_free_output_buf\n");
 	if (!v4l2_inst) {
 		ERR("[%s]Input parameter is NULL or invalid\n", __func__);
 		return -EINVAL;
+	}
+	for (i = 0; i < v4l2_inst->num_output_buffers; i++) {
+		pbuf = &v4l2_inst->buf_info[CAPTURE_PORT][i];
+		if (pbuf->handle)
+			msm_vidc_smem_free(v4l2_inst->vidc_inst, pbuf->handle);
 	}
 	rc = msm_vidc_release_buffers(
 	   v4l2_inst->vidc_inst,
