@@ -11,6 +11,8 @@
  */
 
 #include <linux/clk/msm-clk-provider.h>
+#include <linux/platform_device.h>
+#include <linux/of.h>
 
 static int dummy_clk_reset(struct clk *clk, enum clk_reset_action action)
 {
@@ -57,3 +59,42 @@ struct clk dummy_clk = {
 	.ops = &clk_ops_dummy,
 	CLK_INIT(dummy_clk),
 };
+
+static struct clk *of_dummy_get(struct of_phandle_args *clkspec,
+				  void *data)
+{
+	return &dummy_clk;
+}
+
+static struct of_device_id msm_clock_dummy_match_table[] = {
+	{ .compatible = "qcom,dummycc" },
+	{}
+};
+
+static int msm_clock_dummy_probe(struct platform_device *pdev)
+{
+	int ret;
+
+	ret = of_clk_add_provider(pdev->dev.of_node, of_dummy_get, NULL);
+	if (ret)
+		return -ENOMEM;
+
+	dev_info(&pdev->dev, "Registered DUMMY provider.\n");
+	return ret;
+}
+
+static struct platform_driver msm_clock_dummy_driver = {
+	.probe = msm_clock_dummy_probe,
+	.driver = {
+		.name = "clock-dummy",
+		.of_match_table = msm_clock_dummy_match_table,
+		.owner = THIS_MODULE,
+	},
+};
+
+int __init msm_dummy_clk_init(void)
+{
+	return platform_driver_register(&msm_clock_dummy_driver);
+}
+arch_initcall(msm_dummy_clk_init);
+
