@@ -365,6 +365,38 @@ i915_gem_object_create_stolen(struct drm_device *dev, u32 size)
 	return NULL;
 }
 
+static void i915_memset_stolen_obj(struct drm_i915_gem_object *obj)
+{
+	int ret;
+	char __iomem *base;
+	int size = obj->base.size;
+	struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
+	unsigned alignment = 0;
+
+	ret = i915_gem_obj_ggtt_pin(obj, alignment, PIN_MAPPABLE);
+	if (ret) {
+		DRM_ERROR("Mapping of User FB to GTT failed\n");
+		return;
+	}
+
+	/* Get the CPU virtual address of the frame buffer */
+	base = ioremap_wc(dev_priv->gtt.mappable_base +
+				i915_gem_obj_ggtt_offset(obj), size);
+	if (base == NULL) {
+		DRM_ERROR("Mapping of User FB to CPU failed\n");
+		i915_gem_object_ggtt_unpin(obj);
+		return;
+	}
+
+	memset_io(base, 0, size);
+
+	iounmap(base);
+	i915_gem_object_ggtt_unpin(obj);
+
+	DRM_DEBUG_DRIVER("User FB obj ptr=%p cleared using CPU virt add %p\n",
+			 obj, base);
+}
+
 void
 i915_gem_object_move_to_stolen(struct drm_i915_gem_object *obj)
 {
@@ -447,7 +479,10 @@ i915_gem_object_move_to_stolen(struct drm_i915_gem_object *obj)
 	obj->base.read_domains = I915_GEM_DOMAIN_CPU | I915_GEM_DOMAIN_GTT;
 	obj->cache_level = HAS_LLC(dev) ? I915_CACHE_LLC : I915_CACHE_NONE;
 
-	/* No zeroing-out of buffers allocated from stolen area */
+	/* Zero-out the contents of the stolen object, otherwise we observe
+	 * corruptions in the display.
+	 */
+	i915_memset_stolen_obj(obj);
 	return;
 
 cleanup:
