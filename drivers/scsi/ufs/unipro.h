@@ -92,6 +92,24 @@ enum {
 	PA_HS_MODE_B	= 2,
 };
 
+enum ufs_pwm_gear_tag {
+	UFS_PWM_DONT_CHANGE,	/* Don't change Gear */
+	UFS_PWM_G1,		/* PWM Gear 1 (default for reset) */
+	UFS_PWM_G2,		/* PWM Gear 2 */
+	UFS_PWM_G3,		/* PWM Gear 3 */
+	UFS_PWM_G4,		/* PWM Gear 4 */
+	UFS_PWM_G5,		/* PWM Gear 5 */
+	UFS_PWM_G6,		/* PWM Gear 6 */
+	UFS_PWM_G7,		/* PWM Gear 7 */
+};
+
+enum ufs_hs_gear_tag {
+	UFS_HS_DONT_CHANGE,	/* Don't change Gear */
+	UFS_HS_G1,		/* HS Gear 1 (default for reset) */
+	UFS_HS_G2,		/* HS Gear 2 */
+	UFS_HS_G3,		/* HS Gear 3 */
+};
+
 /*
  * Data Link Layer Attributes
  */
