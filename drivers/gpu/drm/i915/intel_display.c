@@ -12409,6 +12409,7 @@ static void intel_user_framebuffer_destroy(struct drm_framebuffer *fb)
 {
 	struct intel_framebuffer *intel_fb = to_intel_framebuffer(fb);
 
+	intel_fb->obj->user_fb = 0;
 	drm_framebuffer_cleanup(fb);
 	WARN_ON(!intel_fb->obj->framebuffer_references--);
 	drm_gem_object_unreference_unlocked(&intel_fb->obj->base);
@@ -12560,6 +12561,7 @@ intel_user_framebuffer_create(struct drm_device *dev,
 	if (&obj->base == NULL)
 		return ERR_PTR(-ENOENT);
 
+	obj->user_fb = 1;
 	return intel_framebuffer_create(dev, mode_cmd, obj);
 }
 

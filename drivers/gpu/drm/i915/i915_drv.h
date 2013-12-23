@@ -1800,6 +1800,11 @@ struct drm_i915_gem_object {
 	unsigned int has_global_gtt_mapping:1;
 	unsigned int has_dma_mapping:1;
 
+	/*
+	 * Is the object associated with user created FB
+	 */
+	unsigned int user_fb:1;
+
 	struct sg_table *pages;
 	int pages_pin_count;
 
