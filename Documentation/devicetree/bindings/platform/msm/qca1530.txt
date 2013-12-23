@@ -10,6 +10,7 @@ Required properties
 
 Optional properties
 - qca,pwr-supply: handle to the regulator device tree node
+- qca,pwr2-supply: handle to additional regulator device tree node
 - qca,pwr-gpio: handle the power control using GPIO interface
 - qca,reset-gpio: GPIO for reset control
 - qca,reset-supply: handle to the regulator for reset control
