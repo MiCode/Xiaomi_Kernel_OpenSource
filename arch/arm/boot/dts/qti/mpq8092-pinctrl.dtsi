@@ -69,7 +69,7 @@
 		tsc_ts_in_0_a_start {
 			qcom,pins = <&gp 99>;	/* ts_in_0_start_a */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <2>;
+			qcom,pin-func = <2>;
 			label = "tsc-ts-in-0-a-start";
 			ts_in_0_a_start_active: ts_in_0_a_start_active {
 				drive-strength = <2>;	/* 2mA */
@@ -85,7 +85,7 @@
 		tsc_ts_in_0_a_valid {
 			qcom,pins = <&gp 100>;	/* ts_in_0_valid_a */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <2>;
+			qcom,pin-func = <2>;
 			label = "tsc-ts-in-0-a-valid";
 			ts_in_0_a_valid_active: ts_in_0_a_valid_active {
 				drive-strength = <2>;	/* 2mA */
@@ -101,7 +101,7 @@
 		tsc_ts_in_0_a_err {
 			qcom,pins = <&gp 101>;	/* ts_in_0_err_a */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <2>;
+			qcom,pin-func = <2>;
 			label = "tsc-ts-in-0-a-err";
 			ts_in_0_a_err_active: ts_in_0_a_err_active {
 				drive-strength = <2>;	/* 2mA */
@@ -118,7 +118,7 @@
 			qcom,pins = <&gp 98>,	/* ts_in_0_clk_a */
 						<&gp 102>;	/* ts_in_0_data_a[0] */
 			qcom,num-grp-pins = <2>;
-			qcom,pins-func = <2>;
+			qcom,pin-func = <2>;
 			label = "tsc-ts-in-0-a-ser";
 			ts_in_0_a_ser_active: ts_in_0_a_ser_active {
 				drive-strength = <2>;	/* 2mA */
@@ -140,7 +140,7 @@
 						<&gp 108>,	/* ts_in_0_data_a[6] */
 						<&gp 109>;	/* ts_in_0_data_a[7] */
 			qcom,num-grp-pins = <7>;
-			qcom,pins-func = <2>;
+			qcom,pin-func = <2>;
 			label = "tsc-ts-in-0-a-par";
 			ts_in_0_a_par_active: ts_in_0_a_par_active {
 				drive-strength = <2>;	/* 2mA */
@@ -157,7 +157,7 @@
 		tsc_ts_in_0_b_start {
 			qcom,pins = <&gp 73>;	/* ts_in_0_start_b */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <1>;
+			qcom,pin-func = <1>;
 			label = "tsc-ts-in-0-b-start";
 			ts_in_0_b_start_active: ts_in_0_b_start_active {
 				drive-strength = <2>;	/* 2mA */
@@ -173,7 +173,7 @@
 		tsc_ts_in_0_b_valid {
 			qcom,pins = <&gp 74>;	/* ts_in_0_valid_b */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <1>;
+			qcom,pin-func = <1>;
 			label = "tsc-ts-in-0-b-valid";
 			ts_in_0_b_valid_active: ts_in_0_b_valid_active {
 				drive-strength = <2>;	/* 2mA */
@@ -189,7 +189,7 @@
 		tsc_ts_in_0_b_err {
 			qcom,pins = <&gp 76>;	/* ts_in_0_err_b */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <1>;
+			qcom,pin-func = <1>;
 			label = "tsc-ts-in-0-b-err";
 			ts_in_0_b_err_active: ts_in_0_b_err_active {
 				drive-strength = <2>;	/* 2mA */
@@ -206,7 +206,7 @@
 			qcom,pins = <&gp 72>,	/* ts_in_0_clk_b */
 						<&gp 75>;	/* ts_in_0_data_b[0] */
 			qcom,num-grp-pins = <2>;
-			qcom,pins-func = <1>;
+			qcom,pin-func = <1>;
 			label = "ts-in-0-b-ser";
 			ts_in_0_b_ser_active: ts_in_0_b_ser_active {
 				drive-strength = <2>;	/* 2mA */
@@ -224,7 +224,7 @@
 						<&gp 64>,	/* ts_in_0_data_b[2] */
 						<&gp 65>;	/* ts_in_0_data_b[3] */
 			qcom,num-grp-pins = <3>;
-			qcom,pins-func = <1>;
+			qcom,pin-func = <1>;
 			label = "ts-in-0-b-par1";
 			ts_in_0_b_par_1_active: ts_in_0_b_par_1_active {
 				drive-strength = <2>;	/* 2mA */
@@ -240,7 +240,7 @@
 			qcom,pins = <&gp 66>,	/* ts_in_0_data_b[4] */
 						<&gp 67>;	/* ts_in_0_data_b[5] */
 			qcom,num-grp-pins = <2>;
-			qcom,pins-func = <2>;
+			qcom,pin-func = <2>;
 			label = "ts-in-0-b-par2";
 			ts_in_0_b_par_2_active: ts_in_0_b_par_2_active {
 				drive-strength = <2>;	/* 2mA */
@@ -256,7 +256,7 @@
 			qcom,pins = <&gp 68>,	/* ts_in_0_data_b[6] */
 						<&gp 69>;	/* ts_in_0_data_b[7] */
 			qcom,num-grp-pins = <2>;
-			qcom,pins-func = <3>;
+			qcom,pin-func = <3>;
 			label = "ts-in-0-b-par3";
 			ts_in_0_b_par_3_active: ts_in_0_b_par_3_active {
 				drive-strength = <2>;	/* 2mA */
@@ -273,7 +273,7 @@
 		tsc_ts_in_1_a_start {
 			qcom,pins = <&gp 111>;	/* ts_in_1_start_a */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <2>;
+			qcom,pin-func = <2>;
 			label = "tsc-ts-in-1-a-start";
 			ts_in_1_a_start_active: ts_in_1_a_start_active {
 				drive-strength = <2>;	/* 2mA */
@@ -289,7 +289,7 @@
 		tsc_ts_in_1_a_valid {
 			qcom,pins = <&gp 112>;	/* ts_in_1_valid_a */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <2>;
+			qcom,pin-func = <2>;
 			label = "tsc-ts-in-1-a-valid";
 			ts_in_1_a_valid_active: ts_in_1_a_valid_active {
 				drive-strength = <2>;	/* 2mA */
@@ -305,7 +305,7 @@
 		tsc_ts_in_1_a_err {
 			qcom,pins = <&gp 113>;	/* ts_in_1_err_a */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <2>;
+			qcom,pin-func = <2>;
 			label = "tsc-ts-in-1-a-err";
 			ts_in_1_a_err_active: ts_in_1_a_err_active {
 				drive-strength = <2>;	/* 2mA */
@@ -322,7 +322,7 @@
 			qcom,pins = <&gp 110>,	/* ts_in_1_clk_a */
 						<&gp 114>;	/* ts_in_1_data0_a */
 			qcom,num-grp-pins = <2>;
-			qcom,pins-func = <2>;
+			qcom,pin-func = <2>;
 			label = "tsc-ts-in-1-a-ser";
 			ts_in_1_a_ser_active: ts_in_1_a_ser_active {
 				drive-strength = <2>;	/* 2mA */
@@ -344,7 +344,7 @@
 						<&gp 120>,	/* ts_in_1_data[6] */
 						<&gp 121>;	/* ts_in_1_data[7] */
 			qcom,num-grp-pins = <7>;
-			qcom,pins-func = <2>;
+			qcom,pin-func = <2>;
 			label = "tsc-ts-in-1-par";
 			ts_in_1_a_par_active: ts_in_1_a_par_active {
 				drive-strength = <2>;	/* 2mA */
@@ -361,7 +361,7 @@
 		tsc_ts_in_1_b_start {
 			qcom,pins = <&gp 68>;	/* ts_in_1_start_b */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <2>;
+			qcom,pin-func = <2>;
 			label = "tsc-ts-in-1-b-start";
 			ts_in_1_b_start_active: ts_in_1_b_start_active {
 				drive-strength = <2>;	/* 2mA */
@@ -377,7 +377,7 @@
 		tsc_ts_in_1_b_valid {
 			qcom,pins = <&gp 69>;	/* ts_in_1_valid_b */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <2>;
+			qcom,pin-func = <2>;
 			label = "tsc-ts-in-1-b-valid";
 			ts_in_1_b_valid_active: ts_in_1_b_valid_active {
 				drive-strength = <2>;	/* 2mA */
@@ -393,7 +393,7 @@
 		tsc_ts_in_1_b_err {
 			qcom,pins = <&gp 71>;	/* ts_in_1_err_b */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <1>;
+			qcom,pin-func = <1>;
 			label = "tsc-ts-in-1-b-err";
 			ts_in_1_b_err_active: ts_in_1_b_err_active {
 				drive-strength = <2>;	/* 2mA */
@@ -409,7 +409,7 @@
 		tsc_ts_in_1_b_1_ser {
 			qcom,pins = <&gp 67>;	/* ts_in_1_clk_b */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <1>;
+			qcom,pin-func = <1>;
 			label = "tsc-ts-in-1-b-ser1";
 			ts_in_1_b_1_ser_active: ts_in_1_b_1_ser_active {
 				drive-strength = <2>;	/* 2mA */
@@ -424,7 +424,7 @@
 		tsc_ts_in_1_b_2_ser {
 			qcom,pins = <&gp 70>;	/* ts_in_1_data0_b */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <2>;
+			qcom,pin-func = <2>;
 			label = "tsc-ts-in-1-b-ser2";
 			ts_in_1_b_2_ser_active: ts_in_1_b_2_ser_active {
 				drive-strength = <2>;	/* 2mA */
@@ -441,7 +441,7 @@
 			qcom,pins = <&gp 133>, /* pcmcia_ci_cd_n_0 No.36 in the CI spec */
 						<&gp 132>; /* pcmcia_ci_cd_n_1 No.67 in the CI spec */
 			qcom,num-grp-pins = <2>;
-			qcom,pins-func = <1>;
+			qcom,pin-func = <1>;
 			label = "tsc-cd-pins";
 			tsc_cd_pins_active: tsc_cd_pins_active {
 				drive-strength = <2>;
@@ -481,7 +481,7 @@
 						<&gp 111>, /* pcmcia_d[1] No.31 in the CI spec */
 						<&gp 110>; /* pcmcia_d[2] No.32 in the CI spec */
 			qcom,num-grp-pins = <25>;
-			qcom,pins-func = <1>;
+			qcom,pin-func = <1>;
 			label = "tsc-pcmcia-8ma_down-pc-card";
 			tsc_pcmcia_8ma_down_pc_card_active: tsc_pcmcia_8ma_down_pc_card_active {
 				drive-strength = <8>;	/* 8mA */
@@ -496,7 +496,7 @@
 		tsc_pcmcia_8ma_up_pc_card {
 			qcom,pins = <&gp 130>; /* pcmcia_oen No.9 in the CI spec */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <1>;
+			qcom,pin-func = <1>;
 			label = "tsc-pcmcia-8ma-up-pc-card";
 			tsc_pcmcia_8ma_up_pc_card_active: tsc_pcmcia_8ma_up_pc_card_active {
 				drive-strength = <8>;	/* 8mA */
@@ -512,7 +512,7 @@
 			qcom,pins = <&gp 138>; /* pcmcia_rst No.58 in the CI spec */
 			qcom,num-grp-pins = <1>;
 			label = "tsc-cam-reset-pc-card";
-			qcom,pins-func = <0>;
+			qcom,pin-func = <0>;
 			tsc_cam_reset_pc_card_active: tsc_cam_reset_pc_card_active {
 				drive-strength = <8>;	/* 8mA */
 				bias-disable;
@@ -526,7 +526,7 @@
 		tsc_pcmcia_8ma_none_pc_card {
 			qcom,pins = <&gp 136>; /* pcmcia_reg_n No.61 in the CI spec */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <1>;
+			qcom,pin-func = <1>;
 			label = "tsc-pcmcia-8ma-none-pc-card";
 			tsc_pcmcia_8ma_none_pc_card_active: tsc_pcmcia_8ma_none_pc_card_active {
 				drive-strength = <8>;	/* 8mA */
@@ -541,7 +541,7 @@
 		tsc_pcmcia_ireq_pc_card {
 			qcom,pins = <&gp 131>; /* IREQ# No.16 in the CI spec */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <1>; /* TODO: should this be gpio? */
+			qcom,pin-func = <1>; /* TODO: should this be gpio? */
 			label = "tsc-pcmcia-ireq-pc-card";
 			tsc_pcmcia_ireq_pc_card_active: tsc_pcmcia_ireq_pc_card_active {
 				drive-strength = <2>;	/* 2mA */
@@ -556,7 +556,7 @@
 			qcom,pins = <&gp 139>, /* pcmcia_wait_n No.59 in the CI spec */
 						<&gp 137>; /* pcmcia_inpack_n No.60 in the CI spec */
 			qcom,num-grp-pins = <2>;
-			qcom,pins-func = <1>;
+			qcom,pin-func = <1>;
 			label = "tsc-pcmcia-2-pc-card";
 			tsc_pcmcia_2_pc_card_active: tsc_pcmcia_2_pc_card_active {
 				drive-strength = <2>;	/* 2mA */
@@ -589,7 +589,7 @@
 						<&gp 92>, /* pcmcia_mdo[1] No.65 in the CI spec */
 						<&gp 91>; /* pcmcia_mdo[2] No.66 in the CI spec */
 			qcom,num-grp-pins = <17>;
-			qcom,pins-func = <1>;
+			qcom,pin-func = <1>;
 			label = "tsc-pcmcia-1-down-ci";
 			tsc_pcmcia_1_down_ci_active: tsc_pcmcia_1_down_ci_active {
 				drive-strength = <8>;	/* 8mA */
@@ -604,7 +604,7 @@
 		tsc_pcmcia_1_up_ci {
 			qcom,pins = <&gp 134>; /* pcmcia_iord_n No.44 in the CI spec */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <1>;
+			qcom,pin-func = <1>;
 			label = "tsc-pcmcia-1-up-ci";
 			tsc_pcmcia_1_up_ci_active: tsc_pcmcia_1_up_ci_active {
 				drive-strength = <8>;	/* 8mA */
@@ -619,7 +619,7 @@
 		tsc_pcmcia_1_none_ci {
 			qcom,pins = <&gp 135>; /* pcmcia_iowr_n No.45 in the CI spec */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <1>;
+			qcom,pin-func = <1>;
 			label = "tsc-pcmcia-1-none-ci";
 			tsc_pcmcia_1_none_ci_active: tsc_pcmcia_1_none_ci_active {
 				drive-strength = <8>;	/* 8mA */
@@ -637,7 +637,7 @@
 						<&gp 88>, /* pcmcia_mdo[5] No.39 in the CI spec */
 						<&gp 87>; /* pcmcia_mdo[6] No.40 in the CI spec */
 			qcom,num-grp-pins = <4>;
-			qcom,pins-func = <4>;
+			qcom,pin-func = <4>;
 			label = "tsc-pcmcia-4-ci";
 			tsc_pcmcia_4_ci_active: tsc_pcmcia_4_ci_active {
 				drive-strength = <8>;	/* 8mA */
