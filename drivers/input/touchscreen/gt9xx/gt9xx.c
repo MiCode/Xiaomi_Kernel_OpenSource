@@ -753,16 +753,13 @@ static s8 gtp_enter_doze(struct goodix_ts_data *ts)
 	return ret;
 }
 #else
-/*******************************************************
-Function:
-	Enter sleep mode.
-Input:
-	ts: private data.
-Output:
-	Executive outcomes.
-	>0: succeed, otherwise failed.
-*******************************************************/
-static s8 gtp_enter_sleep(struct goodix_ts_data  *ts)
+/**
+ * gtp_enter_sleep - Enter sleep mode
+ * @ts: driver private data
+ *
+ * Returns zero on success, else an error.
+ */
+static u8 gtp_enter_sleep(struct goodix_ts_data *ts)
 {
 	int ret = -1;
 	s8 retry = 0;
@@ -784,16 +781,16 @@ static s8 gtp_enter_sleep(struct goodix_ts_data  *ts)
 		ret = goodix_power_off(ts);
 		if (ret) {
 			dev_err(&ts->client->dev, "GTP power off failed.\n");
-			return 0;
+			return ret;
 		}
-		return 1;
+		return 0;
 	} else {
 		usleep(5000);
 		while (retry++ < 5) {
 			ret = gtp_i2c_write(ts->client, i2c_control_buf, 3);
 			if (ret == 1) {
 				dev_dbg(&ts->client->dev, "GTP enter sleep!");
-				return ret;
+				return 0;
 			}
 			msleep(20);
 		}
@@ -2031,7 +2028,7 @@ static int goodix_ts_suspend(struct device *dev)
 
 	ret = gtp_enter_sleep(ts);
 #endif
-	if (ret <= 0)
+	if (ret < 0)
 		dev_err(&ts->client->dev, "GTP early suspend failed.\n");
 	/* to avoid waking up while not sleeping,
 	 * delay 48 + 10ms to ensure reliability
