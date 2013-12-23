@@ -1629,19 +1629,39 @@ static void snb_gt_irq_handler(struct drm_device *dev,
 		notify_ring(dev, &dev_priv->ring[BCS]);
 
 	if (gt_iir & GT_RENDER_CS_MASTER_ERROR_INTERRUPT)
-		i915_handle_error(dev, &dev_priv->ring[RCS].hangcheck,
+		i915_handle_error(dev, &dev_priv->ring[RCS].hangcheck, 0,
 				  "GT RCS error interrupt 0x%08x", gt_iir);
 
 	if (gt_iir & GT_BSD_CS_ERROR_INTERRUPT)
-		i915_handle_error(dev, &dev_priv->ring[VCS].hangcheck,
+		i915_handle_error(dev, &dev_priv->ring[VCS].hangcheck, 0,
 				  "GT VCS error interrupt 0x%08x", gt_iir);
 
 	if (gt_iir & GT_BLT_CS_ERROR_INTERRUPT)
-		i915_handle_error(dev, &dev_priv->ring[BCS].hangcheck,
+		i915_handle_error(dev, &dev_priv->ring[BCS].hangcheck, 0,
 				  "GT BCS error interrupt 0x%08x", gt_iir);
 
 	if (gt_iir & GT_PARITY_ERROR(dev))
 		ivybridge_parity_error_irq_handler(dev, gt_iir);
+
+	if (gt_iir & GT_GEN6_RENDER_WATCHDOG_INTERRUPT) {
+		struct intel_engine_cs *ring;
+		/* Stop the counter to prevent further interrupts */
+		ring = &dev_priv->ring[RCS];
+		I915_WRITE(RING_CNTR(ring->mmio_base), RCS_WATCHDOG_DISABLE);
+		dev_priv->ring[RCS].hangcheck.watchdog_count++;
+		i915_handle_error(dev, &dev_priv->ring[RCS].hangcheck, 1,
+				  "Render ring timeout counter exceeded");
+	}
+
+	if (gt_iir & GT_GEN6_BSD_WATCHDOG_INTERRUPT) {
+		struct intel_engine_cs *ring;
+		/* Stop the counter to prevent further interrupts */
+		ring = &dev_priv->ring[VCS];
+		I915_WRITE(RING_CNTR(ring->mmio_base), VCS_WATCHDOG_DISABLE);
+		dev_priv->ring[VCS].hangcheck.watchdog_count++;
+		i915_handle_error(dev, &dev_priv->ring[VCS].hangcheck, 1,
+				  "Video ring timeout counter exceeded");
+	}
 
 	if (gt_iir & GT_RENDER_PERFMON_BUFFER_INTERRUPT) {
 		atomic_inc(&dev_priv->perfmon_buffer_interrupts);
@@ -1969,7 +1989,7 @@ static void gen6_rps_irq_handler(struct drm_i915_private *dev_priv, u32 pm_iir)
 		if (pm_iir & PM_VEBOX_CS_ERROR_INTERRUPT) {
 			DRM_ERROR("VEBOX CS error interrupt 0x%08x\n", pm_iir);
 			i915_handle_error(dev_priv->dev,
-					  &dev_priv->ring[VECS].hangcheck,
+					  &dev_priv->ring[VECS].hangcheck, 0,
 					  "VEBOX CS error interrupt 0x%08x",
 					  pm_iir);
 		}
@@ -2879,7 +2899,7 @@ i915_report_and_clear_eir_exit:
  * of a ring dump etc.).
  */
 void i915_handle_error(struct drm_device *dev, struct intel_ring_hangcheck *hc,
-		       const char *fmt, ...)
+		       bool watchdog, const char *fmt, ...)
 {
 	int full_reset = 0;
 	unsigned long cur_time;
@@ -2909,12 +2929,13 @@ void i915_handle_error(struct drm_device *dev, struct intel_ring_hangcheck *hc,
 		atomic_set_mask(DRM_I915_HANGCHECK_HUNG, &hc->flags);
 
 		/* Now determine what type of reset to use to clear the hang */
-		cur_time = get_seconds();
-		last_reset = hc->last_reset;
-		hc->last_reset = cur_time;
-
-		if ((cur_time - last_reset) <
-			i915.ring_reset_min_alive_period) {
+		if (!watchdog) {
+			cur_time = get_seconds();
+			last_reset = hc->last_reset;
+			hc->last_reset = cur_time;
+		}
+		if (!watchdog && ((cur_time - last_reset) <
+				  i915.ring_reset_min_alive_period)) {
 			/* This ring is hanging too frequently.
 			* Opt for full-reset instead */
 			DRM_DEBUG_TDR("Ring %d hanging too quickly...\r\n",
@@ -3259,7 +3280,7 @@ static bool i915_hangcheck_hung(struct intel_ring_hangcheck *hc)
 		if (hung) {
 			hc->tdr_count++;
 			ring->hangcheck.action = HANGCHECK_HUNG;
-			i915_handle_error(dev, hc, "%s hung", ring->name);
+			i915_handle_error(dev, hc, 0, "%s hung", ring->name);
 		}
 		return hung;
 	}
@@ -3627,6 +3648,13 @@ static void gen5_gt_irq_postinstall(struct drm_device *dev)
 		dev_priv->gt_irq_mask &= ~(I915_SYNC_USER_INTERRUPTS);
 
 	gt_irqs |= GT_RENDER_USER_INTERRUPT;
+
+	if (INTEL_INFO(dev)->gen >= 6) {
+		dev_priv->gt_irq_mask &= ~(GT_GEN6_BSD_WATCHDOG_INTERRUPT |
+					GT_GEN6_RENDER_WATCHDOG_INTERRUPT);
+		gt_irqs |= GT_GEN6_RENDER_WATCHDOG_INTERRUPT;
+		gt_irqs |= GT_GEN6_BSD_WATCHDOG_INTERRUPT;
+	}
 	if (IS_GEN5(dev)) {
 		gt_irqs |= GT_RENDER_PIPECTL_NOTIFY_INTERRUPT |
 			   ILK_BSD_USER_INTERRUPT;
@@ -4173,7 +4201,7 @@ static irqreturn_t i8xx_irq_handler(int irq, void *arg)
 		 */
 		spin_lock_irqsave(&dev_priv->irq_lock, irqflags);
 		if (iir & I915_RENDER_COMMAND_PARSER_ERROR_INTERRUPT)
-			i915_handle_error(dev, NULL,
+			i915_handle_error(dev, NULL, 0,
 					  "Command parser error, iir 0x%08x",
 					  iir);
 
@@ -4357,7 +4385,7 @@ static irqreturn_t i915_irq_handler(int irq, void *arg)
 		 */
 		spin_lock_irqsave(&dev_priv->irq_lock, irqflags);
 		if (iir & I915_RENDER_COMMAND_PARSER_ERROR_INTERRUPT)
-			i915_handle_error(dev, NULL,
+			i915_handle_error(dev, NULL, 0,
 					  "Command parser error, iir 0x%08x",
 					  iir);
 
@@ -4589,7 +4617,7 @@ static irqreturn_t i965_irq_handler(int irq, void *arg)
 		 */
 		spin_lock_irqsave(&dev_priv->irq_lock, irqflags);
 		if (iir & I915_RENDER_COMMAND_PARSER_ERROR_INTERRUPT)
-			i915_handle_error(dev, NULL,
+			i915_handle_error(dev, NULL, 0,
 					  "Command parser error, iir 0x%08x",
 					  iir);
 

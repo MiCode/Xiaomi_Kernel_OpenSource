@@ -2313,6 +2313,7 @@ struct i915_params {
 	unsigned int hangcheck_period;
 	unsigned int ring_reset_min_alive_period;
 	unsigned int gpu_reset_min_alive_period;
+	unsigned int enable_watchdog;
 	/* leave bools at the end to not create holes */
 	bool enable_hangcheck;
 	bool fastboot;
@@ -2360,9 +2361,9 @@ extern void intel_console_resume(struct work_struct *work);
 
 /* i915_irq.c */
 void i915_queue_hangcheck(struct drm_device *dev, u32 ringid);
-__printf(3, 4)
+__printf(4, 5)
 void i915_handle_error(struct drm_device *dev, struct intel_ring_hangcheck *hc,
-		       const char *fmt, ...);
+		       bool watchdog, const char *fmt, ...);
 void i915_hangcheck_sample(unsigned long data);
 
 void gen6_set_pm_mask(struct drm_i915_private *dev_priv, u32 pm_iir,
@@ -3040,6 +3041,19 @@ extern void i915_write_bits32(struct drm_i915_private *dev_priv,
 
 #define I915_WRITE_BITS(reg, val, mask) \
 	i915_write_bits32(dev_priv, (reg), (val), (mask), true)
+
+/* for Watchdog/Media reset */
+#define KM_MEDIA_ENGINE_TIMEOUT_VALUE_IN_MS 60
+#define KM_BSD_ENGINE_TIMEOUT_VALUE_IN_MS 60
+#define KM_TIMER_MILLISECOND 1000
+
+/* Timestamp timer resolution = 0.080 uSec, or 12500000 counts per second*/
+#define KM_TIMESTAMP_CNTS_PER_SEC_80NS 12500000
+
+/* Timestamp timer resolution = 0.640 uSec, or 1562500 counts per second*/
+#define KM_TIMESTAMP_CNTS_PER_SEC_640NS 1562500
+
+void i915_init_watchdog(struct drm_device *dev);
 
 /* "Broadcast RGB" property */
 #define INTEL_BROADCAST_RGB_AUTO 0

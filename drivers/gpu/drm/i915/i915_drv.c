@@ -1066,6 +1066,37 @@ int i915_reset(struct drm_device *dev)
 	return 0;
 }
 
+void i915_init_watchdog(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	/* Based on pre-defined time out value (60ms or 30ms) calculate
+	* timer count thresholds needed based on core frequency.
+	*
+	* For RCS.
+	* The timestamp resolution changed in Gen7 and beyond to 80ns
+	* for all pipes. Before that it was 640ns.*/
+
+	int freq;
+
+	if (INTEL_INFO(dev)->gen >= 7)
+		freq = KM_TIMESTAMP_CNTS_PER_SEC_80NS;
+	else
+		freq = KM_TIMESTAMP_CNTS_PER_SEC_640NS;
+
+	dev_priv->ring[RCS].watchdog_threshold =
+		((KM_MEDIA_ENGINE_TIMEOUT_VALUE_IN_MS) *
+		(freq / KM_TIMER_MILLISECOND));
+
+	dev_priv->ring[VCS].watchdog_threshold =
+		((KM_BSD_ENGINE_TIMEOUT_VALUE_IN_MS) *
+		(freq / KM_TIMER_MILLISECOND));
+
+	DRM_DEBUG_TDR("Watchdog Timeout Threshold, RCS: 0x%08X, VCS: 0x%08X\n",
+		      dev_priv->ring[RCS].watchdog_threshold,
+		      dev_priv->ring[VCS].watchdog_threshold);
+}
+
 static int i915_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
 	struct intel_device_info *intel_info =

@@ -56,6 +56,7 @@ struct i915_params i915 __read_mostly = {
 	.hangcheck_period = 1000,
 	.ring_reset_min_alive_period = 0,
 	.gpu_reset_min_alive_period = 0,
+	.enable_watchdog = 1,
 };
 module_param_named(limitbw, i915.limitbw, int, 0400);
 MODULE_PARM_DESC(limitbw,
@@ -121,6 +122,9 @@ MODULE_PARM_DESC(enable_hangcheck,
 	"Periodically check GPU activity for detecting hangs. "
 	"WARNING: Disabling this can cause system wide hangs. "
 	"(default: true)");
+
+module_param_named(enable_watchdog, i915.enable_watchdog, int, 0644);
+MODULE_PARM_DESC(enable_watchdog, "Enable watchdog timers (default: true)");
 
 module_param_named(enable_ppgtt, i915.enable_ppgtt, int, 0400);
 MODULE_PARM_DESC(enable_ppgtt,

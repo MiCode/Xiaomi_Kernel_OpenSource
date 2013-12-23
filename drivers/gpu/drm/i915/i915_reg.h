@@ -1094,6 +1094,8 @@ enum punit_power_well {
 #define RING_MODE_STOP		(1 << 8)
 #define RING_MODE_IDLE		(1 << 9)
 #define RING_UHPTR(base) ((base)+0x134)
+#define RING_CNTR(base)	((base)+0x178)
+#define RING_THRESH(base) ((base)+0x17C)
 #define RING_SYNC_0(base)	((base)+0x40)
 #define RING_SYNC_1(base)	((base)+0x44)
 #define RING_SYNC_2(base)	((base)+0x48)
@@ -1475,11 +1477,13 @@ enum punit_power_well {
 #define GT_BLT_FLUSHDW_NOTIFY_INTERRUPT		(1 << 26)
 #define GT_BLT_CS_ERROR_INTERRUPT		(1 << 25)
 #define GT_BLT_USER_INTERRUPT			(1 << 22)
+#define GT_GEN6_BSD_WATCHDOG_INTERRUPT		(1 << 18)
 #define GT_BSD_CS_ERROR_INTERRUPT		(1 << 15)
 #define GT_BSD_USER_INTERRUPT			(1 << 12)
 #define GT_RENDER_L3_PARITY_ERROR_INTERRUPT_S1	(1 << 11) /* hsw+; rsvd on snb, ivb, vlv */
 #define GT_RENDER_PERFMON_BUFFER_INTERRUPT      (1 <<  9) /* !snb */
 #define GT_CONTEXT_SWITCH_INTERRUPT		(1 <<  8)
+#define GT_GEN6_RENDER_WATCHDOG_INTERRUPT	(1 <<  6)
 #define GT_RENDER_L3_PARITY_ERROR_INTERRUPT	(1 <<  5) /* !snb */
 #define GT_RENDER_PIPECTL_NOTIFY_INTERRUPT	(1 <<  4)
 #define GT_RENDER_CS_MASTER_ERROR_INTERRUPT	(1 <<  3)

@@ -1582,6 +1582,7 @@ i915_hangcheck_init(struct drm_device *dev)
 	for (i = 0; i < I915_NUM_RINGS; i++) {
 		dev_priv->ring[i].hangcheck.count = 0;
 		dev_priv->ring[i].hangcheck.tdr_count = 0;
+		dev_priv->ring[i].hangcheck.watchdog_count = 0;
 		dev_priv->ring[i].hangcheck.total = 0;
 		dev_priv->ring[i].hangcheck.last_acthd = 0;
 		dev_priv->ring[i].hangcheck.ringid = i;
@@ -1830,6 +1831,8 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 		intel_opregion_init(dev);
 		acpi_video_register();
 	}
+
+	i915_init_watchdog(dev);
 
 	if (IS_GEN5(dev))
 		intel_gpu_ips_init(dev_priv);

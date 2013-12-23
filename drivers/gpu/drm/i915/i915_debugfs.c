@@ -4349,30 +4349,30 @@ i915_wedged_set(void *data, u64 val)
 		case RCS:
 			DRM_INFO("Manual RCS reset\n");
 			i915_handle_error(dev,
-					  &dev_priv->ring[RCS].hangcheck,
+					  &dev_priv->ring[RCS].hangcheck, 0,
 					  "Manual RCS reset");
 			break;
 		case VCS:
 			DRM_INFO("Manual VCS reset\n");
 			i915_handle_error(dev,
-					  &dev_priv->ring[VCS].hangcheck,
+					  &dev_priv->ring[VCS].hangcheck, 0,
 					  "Manual VCS reset");
 			break;
 		case BCS:
 			DRM_INFO("Manual BCS reset\n");
 			i915_handle_error(dev,
-					  &dev_priv->ring[BCS].hangcheck,
+					  &dev_priv->ring[BCS].hangcheck, 0,
 					  "Manual BCS reset");
 			break;
 		case VECS:
 			DRM_INFO("Manual VECS reset\n");
 			i915_handle_error(dev,
-					  &dev_priv->ring[VECS].hangcheck,
+					  &dev_priv->ring[VECS].hangcheck, 0,
 					  "Manual VECS reset");
 			break;
 		default:
 			DRM_INFO("Manual global reset\n");
-			i915_handle_error(dev, NULL, "Manual global reset");
+			i915_handle_error(dev, NULL, 0, "Manual global reset");
 			break;
 		}
 	}
@@ -4434,6 +4434,13 @@ i915_ring_hangcheck_read(struct file *filp, char __user *ubuf,
 				 ringid_to_str(i),
 				 (long unsigned)
 				 dev_priv->ring[i].hangcheck.tdr_count);
+
+	for (i = 0; i < I915_NUM_RINGS; ++i)
+		len += scnprintf(buf + len, sizeof(buf) - len,
+				 "%s_W=0x%08lX,",
+				 ringid_to_str(i),
+				 (long unsigned)
+				 dev_priv->ring[i].hangcheck.watchdog_count);
 	len += scnprintf(buf + len - 1, sizeof(buf) - len, "\n");
 
 	return simple_read_from_buffer(ubuf, max, ppos, buf, len);
@@ -4457,6 +4464,7 @@ i915_ring_hangcheck_write(struct file *filp,
 		/* Reset the hangcheck counters */
 		dev_priv->ring[i].hangcheck.total = 0;
 		dev_priv->ring[i].hangcheck.tdr_count = 0;
+		dev_priv->ring[i].hangcheck.watchdog_count = 0;
 	}
 	dev_priv->gpu_error.total_resets = 0;
 	mutex_unlock(&dev->struct_mutex);

@@ -46,6 +46,10 @@ struct  intel_hw_status_page {
 						VCS_RING_CTX_SIZE), \
 						BCS_RING_CTX_SIZE))
 
+#define WATCHDOG_ENABLE 0
+#define RCS_WATCHDOG_DISABLE 1
+#define VCS_WATCHDOG_DISABLE 0xFFFFFFFF
+
 #define I915_READ_TAIL(ring) I915_READ(RING_TAIL((ring)->mmio_base))
 #define I915_WRITE_TAIL(ring, val) I915_WRITE(RING_TAIL((ring)->mmio_base), val)
 
@@ -119,6 +123,9 @@ struct intel_ring_hangcheck {
 
 	/* Number of TDR hang detections of r */
 	u32 tdr_count;
+
+	/* Number of watchdog hang detections for this ring */
+	u32 watchdog_count;
 
 	atomic_t active;
 };
@@ -285,6 +292,12 @@ struct intel_engine_cs {
 	u32 saved_state[I915_RING_CONTEXT_SIZE];
 	uint32_t last_irq_seqno;
 
+	/*
+	 * Watchdog timer threshold values
+	 * only RCS, VCS rings have watchdog timeout support
+	 */
+	uint32_t watchdog_threshold;
+
 	struct {
 		struct drm_i915_gem_object *obj;
 		u32 gtt_offset;
@@ -427,6 +440,17 @@ int intel_ring_enable(struct intel_engine_cs *ring);
 int intel_ring_save(struct intel_engine_cs *ring, u32 flags);
 int intel_ring_restore(struct intel_engine_cs *ring);
 int intel_ring_invalidate_tlb(struct intel_engine_cs *ring);
+
+static inline int intel_ring_supports_watchdog(struct intel_engine_cs *ring)
+{
+	/* Return 1 if the ring supports watchdog reset, otherwise 0 */
+	if (ring)
+		return ring->id == RCS || ring->id == VCS;
+
+	return 0;
+}
+int intel_ring_start_watchdog(struct intel_engine_cs *ring);
+int intel_ring_stop_watchdog(struct intel_engine_cs *ring);
 
 int __must_check intel_ring_idle(struct intel_engine_cs *ring);
 void intel_ring_init_seqno(struct intel_engine_cs *ring, u32 seqno);

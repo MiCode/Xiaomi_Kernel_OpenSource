@@ -575,6 +575,71 @@ static int logical_ring_invalidate_all_caches(struct intel_ringbuffer *ringbuf)
 	return 0;
 }
 
+static int
+gen8_ring_start_watchdog(struct intel_ringbuffer *ringbuf)
+{
+	int ret;
+	struct intel_engine_cs *ring = ringbuf->ring;
+
+	ret = intel_logical_ring_begin(ringbuf, 10);
+	if (ret)
+		return ret;
+
+	/* i915_reg.h includes a warning to place a MI_NOOP
+	* before a MI_LOAD_REGISTER_IMM*/
+	intel_logical_ring_emit(ringbuf, MI_NOOP);
+	intel_logical_ring_emit(ringbuf, MI_NOOP);
+
+	/* Set counter period */
+	intel_logical_ring_emit(ringbuf, MI_LOAD_REGISTER_IMM(1));
+	intel_logical_ring_emit(ringbuf, RING_THRESH(ring->mmio_base));
+	intel_logical_ring_emit(ringbuf, ring->watchdog_threshold);
+	intel_logical_ring_emit(ringbuf, MI_NOOP);
+
+	/* Start counter */
+	intel_logical_ring_emit(ringbuf, MI_LOAD_REGISTER_IMM(1));
+	intel_logical_ring_emit(ringbuf, RING_CNTR(ring->mmio_base));
+	intel_logical_ring_emit(ringbuf, WATCHDOG_ENABLE);
+	intel_logical_ring_emit(ringbuf, MI_NOOP);
+	intel_logical_ring_advance(ringbuf);
+
+	return 0;
+}
+
+static int
+gen8_ring_stop_watchdog(struct intel_ringbuffer *ringbuf)
+{
+	int ret;
+	struct intel_engine_cs *ring = ringbuf->ring;
+
+	ret = intel_logical_ring_begin(ringbuf, 6);
+	if (ret)
+		return ret;
+
+	/* i915_reg.h includes a warning to place a MI_NOOP
+	* before a MI_LOAD_REGISTER_IMM*/
+	intel_logical_ring_emit(ringbuf, MI_NOOP);
+	intel_logical_ring_emit(ringbuf, MI_NOOP);
+
+	intel_logical_ring_emit(ringbuf, MI_LOAD_REGISTER_IMM(1));
+	intel_logical_ring_emit(ringbuf, RING_CNTR(ring->mmio_base));
+
+	switch (ring->id) {
+	default:
+	case RCS:
+		intel_logical_ring_emit(ringbuf, RCS_WATCHDOG_DISABLE);
+		break;
+	case VCS:
+		intel_logical_ring_emit(ringbuf, VCS_WATCHDOG_DISABLE);
+		break;
+	}
+
+	intel_logical_ring_emit(ringbuf, MI_NOOP);
+	intel_logical_ring_advance(ringbuf);
+
+	return 0;
+}
+
 static int logical_ring_alloc_seqno(struct intel_engine_cs *ring,
 				    struct intel_context *ctx)
 {
@@ -730,8 +795,12 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 
 	if (args->flags & I915_EXEC_GEN7_SOL_RESET) {
 		DRM_DEBUG("sol reset is gen7 only\n");
-		return ret;
+                return ret;
 	}
+
+	ret = logical_ring_alloc_seqno(ring, ringbuf->FIXME_lrc_ctx);
+	if (ret)
+		return ret;
 
 	seqno = ring->outstanding_lazy_seqno;
 
@@ -777,6 +846,15 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 	if (ret)
 		goto error;
 
+	/* Start watchdog timer */
+	if ((args->flags & I915_EXEC_ENABLE_WATCHDOG) &&
+	    i915.enable_watchdog &&
+	    intel_ring_supports_watchdog(ring)) {
+		ret = gen8_ring_start_watchdog(ringbuf);
+		if (ret)
+			goto error;
+	}
+
 	if (ring == &dev_priv->ring[RCS] &&
 	    instp_mode != dev_priv->relative_constants_mode) {
 		ret = intel_logical_ring_begin(ringbuf, 4);
@@ -809,6 +887,16 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 	ret = logical_ring_write_active_seqno(ringbuf, 0);
 	if (ret)
 		goto error;
+
+	/* Cancel watchdog timer */
+	if ((args->flags & I915_EXEC_ENABLE_WATCHDOG) &&
+		i915.enable_watchdog &&
+		intel_ring_supports_watchdog(ring)) {
+
+		ret = gen8_ring_stop_watchdog(ringbuf);
+		if (ret)
+			return ret;
+	}
 
 	i915_gem_execbuffer_move_to_active(vmas, ring);
 	i915_gem_execbuffer_retire_commands(dev, file, ring, batch_obj);

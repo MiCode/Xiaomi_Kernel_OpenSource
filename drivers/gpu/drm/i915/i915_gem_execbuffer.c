@@ -1023,14 +1023,21 @@ i915_reset_gen7_sol_offsets(struct drm_device *dev,
 		return -EINVAL;
 	}
 
-	ret = intel_ring_begin(ring, 4 * 3);
+	ret = intel_ring_begin(ring, 2 + (4 * 4));
 	if (ret)
 		return ret;
+
+	/* Comments in i915_reg.h indicate that a MI_LOAD_REGISTER_IMM
+	 * should be preceded by a MI_NOOP
+	*/
+	intel_ring_emit(ring, MI_NOOP);
+	intel_ring_emit(ring, MI_NOOP);
 
 	for (i = 0; i < 4; i++) {
 		intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
 		intel_ring_emit(ring, GEN7_SO_WRITE_OFFSET(i));
 		intel_ring_emit(ring, 0);
+		intel_ring_emit(ring, MI_NOOP);
 	}
 
 	intel_ring_advance(ring);
@@ -1115,6 +1122,16 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 			DRM_DEBUG("0 cliprects but dirt in cliprects fields\n");
 			return -EINVAL;
 		}
+	}
+
+	/* Start watchdog timer */
+	if ((args->flags & I915_EXEC_ENABLE_WATCHDOG) &&
+	    i915.enable_watchdog &&
+	    intel_ring_supports_watchdog(ring)) {
+
+		ret = intel_ring_start_watchdog(ring);
+		if (ret)
+			goto error;
 	}
 
 	ret = intel_ring_alloc_seqno(ring);
@@ -1266,6 +1283,16 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 	ret = i915_write_active_seqno(ring, 0);
 	if (ret)
 		goto error;
+
+	/* Cancel watchdog timer */
+	if ((args->flags & I915_EXEC_ENABLE_WATCHDOG) &&
+		i915.enable_watchdog &&
+		intel_ring_supports_watchdog(ring)) {
+
+		ret = intel_ring_stop_watchdog(ring);
+		if (ret)
+			goto error;
+	}
 
 	trace_i915_gem_ring_dispatch(ring, intel_ring_get_seqno(ring), flags);
 
