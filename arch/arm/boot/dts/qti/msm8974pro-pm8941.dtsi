@@ -38,22 +38,22 @@
 
 &krait0_vreg {
 		regulator-max-microvolt = <1120000>;
-		qcom,ldo-delta-voltage = <25000>;
+		qcom,ldo-delta-voltage = <12500>;
 };
 
 &krait1_vreg {
 		regulator-max-microvolt = <1120000>;
-		qcom,ldo-delta-voltage = <25000>;
+		qcom,ldo-delta-voltage = <12500>;
 };
 
 &krait2_vreg {
 		regulator-max-microvolt = <1120000>;
-		qcom,ldo-delta-voltage = <25000>;
+		qcom,ldo-delta-voltage = <12500>;
 };
 
 &krait3_vreg {
 		regulator-max-microvolt = <1120000>;
-		qcom,ldo-delta-voltage = <25000>;
+		qcom,ldo-delta-voltage = <12500>;
 };
 
 &tspp {
