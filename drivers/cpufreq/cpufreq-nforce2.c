@@ -303,9 +303,7 @@ static int nforce2_verify(struct cpufreq_policy *policy)
 	if (policy->min < (fsb_pol_max * fid * 100))
 		policy->max = (fsb_pol_max + 1) * fid * 100;
 
-	cpufreq_verify_within_limits(policy,
-				     policy->cpuinfo.min_freq,
-				     policy->cpuinfo.max_freq);
+	cpufreq_verify_within_cpu_limits(policy);
 	return 0;
 }
 
@@ -379,7 +377,6 @@ static struct cpufreq_driver nforce2_driver = {
 	.get = nforce2_get,
 	.init = nforce2_cpu_init,
 	.exit = nforce2_cpu_exit,
-	.owner = THIS_MODULE,
 };
 
 #ifdef MODULE

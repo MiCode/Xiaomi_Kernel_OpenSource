@@ -19,7 +19,6 @@ config CPU_FREQ_CBE_PMI
 config CPU_FREQ_MAPLE
 	bool "Support for Maple 970FX Evaluation Board"
 	depends on PPC_MAPLE
-	select CPU_FREQ_TABLE
 	help
 	  This adds support for frequency switching on Maple 970FX
 	  Evaluation Board and compatible boards (IBM JS2x blades).

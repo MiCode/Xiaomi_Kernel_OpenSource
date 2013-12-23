@@ -22,7 +22,7 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/io.h>
-#include <linux/opp.h>
+#include <linux/pm_opp.h>
 #include <linux/cpu.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -108,14 +108,14 @@ static int omap_target(struct cpufreq_policy *policy,
 
 	if (mpu_reg) {
 		rcu_read_lock();
-		opp = opp_find_freq_ceil(mpu_dev, &freq);
+		opp = dev_pm_opp_find_freq_ceil(mpu_dev, &freq);
 		if (IS_ERR(opp)) {
 			rcu_read_unlock();
 			dev_err(mpu_dev, "%s: unable to find MPU OPP for %d\n",
 				__func__, freqs.new);
 			return -EINVAL;
 		}
-		volt = opp_get_voltage(opp);
+		volt = dev_pm_opp_get_voltage(opp);
 		rcu_read_unlock();
 		tol = volt * OPP_TOLERANCE / 100;
 		volt_old = regulator_get_voltage(mpu_reg);
@@ -162,10 +162,10 @@ done:
 static inline void freq_table_free(void)
 {
 	if (atomic_dec_and_test(&freq_table_users))
-		opp_free_cpufreq_table(mpu_dev, &freq_table);
+		dev_pm_opp_free_cpufreq_table(mpu_dev, &freq_table);
 }
 
-static int __cpuinit omap_cpu_init(struct cpufreq_policy *policy)
+static int omap_cpu_init(struct cpufreq_policy *policy)
 {
 	int result = 0;
 
@@ -181,7 +181,7 @@ static int __cpuinit omap_cpu_init(struct cpufreq_policy *policy)
 	policy->cur = omap_getspeed(policy->cpu);
 
 	if (!freq_table)
-		result = opp_init_cpufreq_table(mpu_dev, &freq_table);
+		result = dev_pm_opp_init_cpufreq_table(mpu_dev, &freq_table);
 
 	if (result) {
 		dev_err(mpu_dev, "%s: cpu%d: failed creating freq table[%d]\n",
