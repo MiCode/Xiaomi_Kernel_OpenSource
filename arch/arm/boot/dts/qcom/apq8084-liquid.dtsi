@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +13,7 @@
 / {
 	aliases {
 		serial0 = &blsp2_uart1;
+		uart1 = &blsp2_uart4;
 	};
 
 	memory {
@@ -185,8 +186,6 @@
 };
 
 &blsp2_uart4 {
-	qcom,tx-gpio = <&msmgpio 112 0>;
-	qcom,rx-gpio = <&msmgpio 113 0>;
 	status = "ok";
 };
 
