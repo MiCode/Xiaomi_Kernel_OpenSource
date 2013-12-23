@@ -29,6 +29,7 @@
 #include <drm/drmP.h>
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
+#include <linux/shmem_fs.h>
 
 /*
  * The BIOS typically reserves some of the system's memory for the exclusive
@@ -362,6 +363,97 @@ i915_gem_object_create_stolen(struct drm_device *dev, u32 size)
 	drm_mm_remove_node(stolen);
 	kfree(stolen);
 	return NULL;
+}
+
+void
+i915_gem_object_move_to_stolen(struct drm_i915_gem_object *obj)
+{
+	struct drm_device *dev = obj->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_mm_node *stolen;
+	u32 size = obj->base.size;
+	int ret = 0;
+
+	if (!IS_VALLEYVIEW(dev))
+		return;
+
+	if (obj->stolen) {
+		BUG_ON(obj->pages == NULL);
+		return;
+	}
+
+	if (!drm_mm_initialized(&dev_priv->mm.stolen))
+		return;
+
+	if (size == 0)
+		return;
+
+	/* Check if already shmem space has been allocated for the object
+	 * or not. We cannot rely on the value of 'pages' field for this.
+	 * As even though if the 'pages' field is NULL, it does not actually
+	 * indicate that the backing physical space (shmem) is currently not
+	 * reserved for the object, as the object may not get purged/truncated
+	 * on the call to 'put_pages_gtt'.
+	 */
+	if (obj->base.filp) {
+		struct inode *inode = file_inode(obj->base.filp);
+		struct shmem_inode_info *info = SHMEM_I(inode);
+		if (!inode)
+			return;
+		spin_lock(&info->lock);
+		/* The allocted field stores how many data pages are
+		 * allocated to the file.
+		 */
+		ret = info->alloced;
+		spin_unlock(&info->lock);
+		if (ret > 0) {
+			DRM_DEBUG_DRIVER(
+				"Already shmem space allocted, %d pges\n", ret);
+			return;
+		}
+	}
+
+	stolen = kzalloc(sizeof(*stolen), GFP_KERNEL);
+	if (!stolen)
+		return;
+
+	ret = drm_mm_insert_node(&dev_priv->mm.stolen, stolen, size,
+				 4096, DRM_MM_SEARCH_DEFAULT);
+	if (ret) {
+		kfree(stolen);
+		DRM_DEBUG_DRIVER("ran out of stolen space\n");
+		return;
+	}
+
+	/* Set up the object to use the stolen memory,
+	 * backing store no longer managed by shmem layer */
+	drm_gem_object_release(&(obj->base));
+	obj->base.filp = NULL;
+	obj->ops = &i915_gem_object_stolen_ops;
+
+	obj->pages = i915_pages_create_for_stolen(dev,
+						stolen->start, stolen->size);
+	if (obj->pages == NULL)
+		goto cleanup;
+
+	i915_gem_object_pin_pages(obj);
+	list_add_tail(&obj->global_list, &dev_priv->mm.unbound_list);
+	obj->has_dma_mapping = true;
+	obj->stolen = stolen;
+
+	DRM_DEBUG_DRIVER("Obj moved to stolen, ptr = %p, size = %x\n",
+			 obj, size);
+
+	obj->base.read_domains = I915_GEM_DOMAIN_CPU | I915_GEM_DOMAIN_GTT;
+	obj->cache_level = HAS_LLC(dev) ? I915_CACHE_LLC : I915_CACHE_NONE;
+
+	/* No zeroing-out of buffers allocated from stolen area */
+	return;
+
+cleanup:
+	drm_mm_remove_node(stolen);
+	kfree(stolen);
+	return;
 }
 
 struct drm_i915_gem_object *

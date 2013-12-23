@@ -4055,6 +4055,27 @@ i915_gem_object_pin(struct drm_i915_gem_object *obj,
 	if (WARN_ON(flags & (PIN_GLOBAL | PIN_MAPPABLE) && !i915_is_ggtt(vm)))
 		return -EINVAL;
 
+	/* Try to allocate the physical space for the GEM object,
+	 * representing the User frame buffer, from the stolen area.
+	 * But if there is no sufficient free space left in stolen
+	 * area, will fallback to shmem.
+	 */
+	if (obj->user_fb == 1) {
+		if (obj->pages == NULL) {
+			if (obj->tiling_mode == I915_TILING_X) {
+				/* Tiled(X) Scanout buffers are more suitable
+				 * for allocation from stolen area, as its very
+				 * unlikely that they will be accessed directly
+				 * from the CPU side and any allocation from
+				 * stolen area is not directly CPU accessible,
+				 * but accessible only through the aperture
+				 * space.
+				 */
+				i915_gem_object_move_to_stolen(obj);
+			}
+		}
+	}
+
 	vma = i915_gem_obj_to_vma(obj, vm);
 	if (vma) {
 		if (WARN_ON(vma->pin_count == DRM_I915_GEM_OBJECT_MAX_PIN_COUNT))
