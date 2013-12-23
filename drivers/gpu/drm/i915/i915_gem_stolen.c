@@ -365,7 +365,90 @@ i915_gem_object_create_stolen(struct drm_device *dev, u32 size)
 	return NULL;
 }
 
-static void i915_memset_stolen_obj(struct drm_i915_gem_object *obj)
+static int i915_add_clear_obj_cmd(struct drm_i915_gem_object *obj)
+{
+	struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
+	struct intel_engine_cs *ring = &dev_priv->ring[BCS];
+	u32 offset = i915_gem_obj_ggtt_offset(obj);
+	int ret;
+
+	ret = intel_ring_begin(ring, 6);
+	if (ret)
+		return ret;
+
+	intel_ring_emit(ring, COLOR_BLT_CMD |
+			      XY_SRC_COPY_BLT_WRITE_ALPHA |
+			      XY_SRC_COPY_BLT_WRITE_RGB);
+	intel_ring_emit(ring, BLT_DEPTH_32 | (PAT_ROP_GXCOPY << ROP_SHIFT) |
+			PITCH_SIZE);
+	intel_ring_emit(ring,
+			(DIV_ROUND_UP(obj->base.size, PITCH_SIZE) <<
+						 HEIGHT_SHIFT) | PITCH_SIZE);
+	intel_ring_emit(ring, offset);
+	intel_ring_emit(ring, 0);
+	intel_ring_emit(ring, MI_NOOP);
+	intel_ring_advance(ring);
+
+	return 0;
+}
+
+static int i915_memset_stolen_obj_hw(struct drm_i915_gem_object *obj)
+{
+	struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
+	struct intel_engine_cs *ring = &dev_priv->ring[BCS];
+	unsigned alignment = 0;
+	u32 seqno;
+	int ret;
+
+	/* Pre-Gen6, blitter engine is not on a separate ring */
+	if (!(INTEL_INFO(obj->base.dev)->gen >= 6))
+		return 1;
+
+	ret = i915_gem_obj_ggtt_pin(obj, alignment, PIN_MAPPABLE);
+	if (ret) {
+		DRM_ERROR("Mapping of User FB to GTT failed\n");
+		return ret;
+	}
+
+	ret = intel_ring_invalidate_all_caches(ring);
+	if (ret) {
+		DRM_ERROR("Invalidate caches failed\n");
+		return ret;
+	}
+
+	/* Adding commands to the blitter ring to
+	 * clear out the contents of the buffer object
+	 */
+	ret = i915_add_clear_obj_cmd(obj);
+	if (ret) {
+		DRM_ERROR("couldn't add commands in blitter ring\n");
+		i915_gem_object_ggtt_unpin(obj);
+		return ret;
+	}
+
+	seqno = intel_ring_get_seqno(ring);
+
+	/* Object now in render domain */
+	obj->base.read_domains = I915_GEM_DOMAIN_RENDER;
+	obj->base.write_domain = I915_GEM_DOMAIN_RENDER;
+
+	i915_vma_move_to_active(i915_gem_obj_to_ggtt(obj), ring);
+
+	obj->dirty = 1;
+	obj->last_write_seqno = seqno;
+
+	/* Unconditionally force add_request to emit a full flush. */
+	ring->gpu_caches_dirty = true;
+
+	/* Add a breadcrumb for the completion of the clear request */
+	(void)i915_add_request(ring, NULL);
+
+	i915_gem_object_ggtt_unpin(obj);
+
+	return 0;
+}
+
+static void i915_memset_stolen_obj_sw(struct drm_i915_gem_object *obj)
 {
 	int ret;
 	char __iomem *base;
@@ -480,9 +563,13 @@ i915_gem_object_move_to_stolen(struct drm_i915_gem_object *obj)
 	obj->cache_level = HAS_LLC(dev) ? I915_CACHE_LLC : I915_CACHE_NONE;
 
 	/* Zero-out the contents of the stolen object, otherwise we observe
-	 * corruptions in the display.
+	 * corruptions in the display. First try using the blitter engine
+	 * to clear the buffer contents
 	 */
-	i915_memset_stolen_obj(obj);
+	ret = i915_memset_stolen_obj_hw(obj);
+	/* fallback to Sw based memset if Hw memset fails */
+	if (ret)
+		i915_memset_stolen_obj_sw(obj);
 	return;
 
 cleanup:
