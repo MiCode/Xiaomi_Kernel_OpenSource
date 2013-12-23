@@ -176,7 +176,7 @@ static int __pnp_bus_suspend(struct device *dev, pm_message_t state)
 			return error;
 	}
 
-	if (pnp_can_disable(pnp_dev)) {
+	if (pnp_can_disable(pnp_dev) && !pnp_dev->protocol->suspend) {
 		error = pnp_stop_dev(pnp_dev);
 		if (error)
 			return error;
@@ -215,9 +215,7 @@ static int pnp_bus_resume(struct device *dev)
 		error = pnp_dev->protocol->resume(pnp_dev);
 		if (error)
 			return error;
-	}
-
-	if (pnp_can_write(pnp_dev)) {
+	} else if (pnp_can_write(pnp_dev)) {
 		error = pnp_start_dev(pnp_dev);
 		if (error)
 			return error;
