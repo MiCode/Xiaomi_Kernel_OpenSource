@@ -662,6 +662,12 @@ static void ecm_qc_disable(struct usb_function *f)
 			gether_qc_disconnect_name(&ecm->port, "ecm0");
 	}
 
+	if (ecm->xport == USB_GADGET_XPORT_BAM2BAM_IPA &&
+			gadget_is_dwc3(cdev->gadget)) {
+		msm_ep_unconfig(ecm->port.out_ep);
+		msm_ep_unconfig(ecm->port.in_ep);
+	}
+
 	if (ecm->notify->driver_data) {
 		usb_ep_disable(ecm->notify);
 		ecm->notify->driver_data = NULL;

@@ -781,6 +781,7 @@ fail:
 static void rndis_qc_disable(struct usb_function *f)
 {
 	struct f_rndis_qc		*rndis = func_to_rndis_qc(f);
+	struct usb_composite_dev *cdev = f->config->cdev;
 
 	if (!rndis->notify->driver_data)
 		return;
@@ -794,6 +795,11 @@ static void rndis_qc_disable(struct usb_function *f)
 	else
 		rndis_ipa_supported = false;
 
+	if (rndis->xport == USB_GADGET_XPORT_BAM2BAM_IPA &&
+			gadget_is_dwc3(cdev->gadget)) {
+		msm_ep_unconfig(rndis->port.out_ep);
+		msm_ep_unconfig(rndis->port.in_ep);
+	}
 	usb_ep_disable(rndis->notify);
 	rndis->notify->driver_data = NULL;
 }
