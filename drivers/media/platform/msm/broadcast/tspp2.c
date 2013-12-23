@@ -798,6 +798,8 @@ struct tspp2_iommu_info {
  * @tspp2_ahb_clk:		TSPP2 AHB clock.
  * @tspp2_core_clk:		TSPP2 core clock.
  * @tspp2_vbif_clk:		TSPP2 VBIF clock.
+ * @vbif_ahb_clk:               VBIF AHB clock.
+ * @vbif_axi_clk:               VBIF AXI clock.
  * @tspp2_klm_ahb_clk:		TSPP2 KLM AHB clock.
  * @tsif_ref_clk:		TSIF reference clock.
  * @batches:			An array of filter batch objects.
@@ -844,6 +846,8 @@ struct tspp2_device {
 	struct clk *tspp2_ahb_clk;
 	struct clk *tspp2_core_clk;
 	struct clk *tspp2_vbif_clk;
+	struct clk *vbif_ahb_clk;
+	struct clk *vbif_axi_clk;
 	struct clk *tspp2_klm_ahb_clk;
 	struct clk *tsif_ref_clk;
 	struct tspp2_filter_batch batches[TSPP2_NUM_BATCHES];
@@ -1381,6 +1385,58 @@ static int tspp2_tsif_start(struct tspp2_tsif_device *tsif_device)
 	return (ctl & TSIF_STS_CTL_START) ? 0 : -EBUSY;
 }
 
+
+static int tspp2_vbif_clock_start(struct tspp2_device *device)
+{
+	int ret;
+
+	if (device->tspp2_vbif_clk) {
+		ret = clk_prepare_enable(device->tspp2_vbif_clk);
+		if (ret) {
+			pr_err("%s: Can't start tspp2_vbif_clk\n", __func__);
+			return ret;
+		}
+	}
+
+	if (device->vbif_ahb_clk) {
+		ret = clk_prepare_enable(device->vbif_ahb_clk);
+		if (ret) {
+			pr_err("%s: Can't start vbif_ahb_clk\n", __func__);
+			goto disable_vbif_tspp2;
+		}
+	}
+	if (device->vbif_axi_clk) {
+		ret = clk_prepare_enable(device->vbif_axi_clk);
+		if (ret) {
+			pr_err("%s: Can't start vbif_ahb_clk\n", __func__);
+			goto disable_vbif_ahb;
+		}
+	}
+
+	return 0;
+
+disable_vbif_ahb:
+	if (device->vbif_ahb_clk)
+		clk_disable_unprepare(device->vbif_ahb_clk);
+disable_vbif_tspp2:
+	if (device->tspp2_vbif_clk)
+		clk_disable_unprepare(device->tspp2_vbif_clk);
+
+	return ret;
+}
+
+static void tspp2_vbif_clock_stop(struct tspp2_device *device)
+{
+	if (device->tspp2_vbif_clk)
+		clk_disable_unprepare(device->tspp2_vbif_clk);
+
+	if (device->vbif_ahb_clk)
+		clk_disable_unprepare(device->vbif_ahb_clk);
+
+	if (device->vbif_axi_clk)
+		clk_disable_unprepare(device->vbif_axi_clk);
+}
+
 /**
  * tspp2_tsif_stop() - Stop TSIF device HW.
  *
@@ -1492,14 +1548,6 @@ static int tspp2_clock_start(struct tspp2_device *device)
 		tspp2_core_clk = 1;
 	}
 
-	if (device->tspp2_vbif_clk) {
-		if (clk_prepare_enable(device->tspp2_vbif_clk) != 0) {
-			pr_err("%s: Can't start tspp2_vbif_clk\n", __func__);
-			goto err_clocks;
-		}
-		tspp2_vbif_clk = 1;
-	}
-
 	if (device->tspp2_klm_ahb_clk) {
 		if (clk_prepare_enable(device->tspp2_klm_ahb_clk) != 0) {
 			pr_err("%s: Can't start tspp2_klm_ahb_clk\n", __func__);
@@ -1565,9 +1613,6 @@ static void tspp2_clock_stop(struct tspp2_device *device)
 
 	if (device->tspp2_klm_ahb_clk)
 		clk_disable_unprepare(device->tspp2_klm_ahb_clk);
-
-	if (device->tspp2_vbif_clk)
-		clk_disable_unprepare(device->tspp2_vbif_clk);
 
 	if (device->tspp2_core_clk)
 		clk_disable_unprepare(device->tspp2_core_clk);
@@ -2629,6 +2674,7 @@ static int tspp2_pipe_memory_init(struct tspp2_pipe *pipe)
 	int partition = 0;
 	int hlos_group_attached = 0;
 	int cpz_group_attached = 0;
+	int vbif_clk_started = 0;
 
 	if (pipe->cfg.is_secure) {
 		domain = pipe->device->iommu_info.cpz_domain_num;
@@ -2651,6 +2697,18 @@ static int tspp2_pipe_memory_init(struct tspp2_pipe *pipe)
 				__func__, ret);
 			return ret;
 		}
+
+		if ((pipe->device->num_secured_opened_pipes +
+			pipe->device->num_non_secured_opened_pipes) == 0) {
+			ret = tspp2_vbif_clock_start(pipe->device);
+			if (ret) {
+				pr_err(
+					"%s: tspp2_vbif_clock_start failed, ret=%d\n",
+					__func__, ret);
+				return ret;
+			}
+			vbif_clk_started = 1;
+		}
 	} else {
 		/*
 		 * We need to attach the group to enable the IOMMU and support
@@ -2665,6 +2723,14 @@ static int tspp2_pipe_memory_init(struct tspp2_pipe *pipe)
 		 */
 		if ((pipe->device->num_secured_opened_pipes +
 			pipe->device->num_non_secured_opened_pipes) == 0) {
+			ret = tspp2_vbif_clock_start(pipe->device);
+			if (ret) {
+				pr_err("%s: tspp2_vbif_clock_start failed, ret=%d\n",
+					__func__, ret);
+				goto err_out;
+			}
+			vbif_clk_started = 1;
+
 			pr_debug("%s: attaching HLOS group\n", __func__);
 			ret = iommu_attach_group(
 				pipe->device->iommu_info.hlos_domain,
@@ -2729,6 +2795,9 @@ err_out:
 				pipe->device->iommu_info.cpz_group);
 	}
 
+	if (vbif_clk_started)
+		tspp2_vbif_clock_stop(pipe->device);
+
 	return ret;
 }
 
@@ -2777,7 +2846,11 @@ static void tspp2_pipe_memory_terminate(struct tspp2_pipe *pipe)
 			iommu_detach_group(
 				pipe->device->iommu_info.hlos_domain,
 				pipe->device->iommu_info.hlos_group);
+			tspp2_vbif_clock_stop(pipe->device);
 		}
+	} else if ((pipe->device->num_secured_opened_pipes +
+		pipe->device->num_non_secured_opened_pipes) == 0) {
+		tspp2_vbif_clock_stop(pipe->device);
 	}
 
 	pipe->iova = 0;
@@ -7158,6 +7231,12 @@ static void tspp2_clocks_put(struct tspp2_device *device)
 	if (device->tspp2_vbif_clk)
 		clk_put(device->tspp2_vbif_clk);
 
+	if (device->vbif_ahb_clk)
+		clk_put(device->vbif_ahb_clk);
+
+	if (device->vbif_axi_clk)
+		clk_put(device->vbif_axi_clk);
+
 	if (device->tspp2_core_clk)
 		clk_put(device->tspp2_core_clk);
 
@@ -7167,6 +7246,8 @@ static void tspp2_clocks_put(struct tspp2_device *device)
 	device->tspp2_ahb_clk = NULL;
 	device->tspp2_core_clk = NULL;
 	device->tspp2_vbif_clk = NULL;
+	device->vbif_ahb_clk = NULL;
+	device->vbif_axi_clk = NULL;
 	device->tspp2_klm_ahb_clk = NULL;
 	device->tsif_ref_clk = NULL;
 }
@@ -7200,6 +7281,8 @@ static int msm_tspp2_clocks_setup(struct platform_device *pdev,
 	device->tspp2_ahb_clk = NULL;
 	device->tspp2_core_clk = NULL;
 	device->tspp2_vbif_clk = NULL;
+	device->vbif_ahb_clk = NULL;
+	device->vbif_axi_clk = NULL;
 	device->tspp2_klm_ahb_clk = NULL;
 	device->tsif_ref_clk = NULL;
 
@@ -7237,6 +7320,22 @@ static int msm_tspp2_clocks_setup(struct platform_device *pdev,
 			device->tspp2_vbif_clk = NULL;
 			goto err_clocks;
 		}
+	}
+
+	device->vbif_ahb_clk = clk_get(&pdev->dev, "iface_vbif_clk");
+	if (IS_ERR(device->vbif_ahb_clk)) {
+		pr_err("%s: Failed to get %s", __func__, "iface_vbif_clk");
+		ret = PTR_ERR(device->vbif_ahb_clk);
+		device->vbif_ahb_clk = NULL;
+		goto err_clocks;
+	}
+
+	device->vbif_axi_clk = clk_get(&pdev->dev, "vbif_core_clk");
+	if (IS_ERR(device->vbif_axi_clk)) {
+		pr_err("%s: Failed to get %s", __func__, "vbif_core_clk");
+		ret = PTR_ERR(device->vbif_axi_clk);
+		device->vbif_axi_clk = NULL;
+		goto err_clocks;
 	}
 
 	if (data->tspp2_klm_ahb_clk) {
