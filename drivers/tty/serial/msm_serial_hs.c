@@ -317,6 +317,7 @@ unsigned int regmap_blsp[UART_DM_LAST] = {
 		[UART_DM_TXFS] = 0x4c,
 		[UART_DM_RXFS] = 0x50,
 		[UART_DM_RX_TRANS_CTRL] = 0xcc,
+		[UART_DM_BCR] = 0xc8,
 };
 
 static struct of_device_id msm_hs_match_table[] = {
@@ -2488,6 +2489,11 @@ static int msm_hs_startup(struct uart_port *uport)
 		}
 	}
 
+	data = (UARTDM_BCR_TX_BREAK_DISABLE | UARTDM_BCR_STALE_IRQ_EMPTY |
+		UARTDM_BCR_RX_DMRX_LOW_EN | UARTDM_BCR_RX_STAL_IRQ_DMRX_EQL |
+		UARTDM_BCR_RX_DMRX_1BYTE_RES_EN);
+	msm_hs_write(uport, UART_DM_BCR, data);
+
 	/* Set auto RFR Level */
 	data = msm_hs_read(uport, UART_DM_MR1);
 	data &= ~UARTDM_MR1_AUTO_RFR_LEVEL1_BMSK;
@@ -3049,6 +3055,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 	int core_irqres, bam_irqres, wakeup_irqres;
 	struct msm_serial_hs_platform_data *pdata = pdev->dev.platform_data;
 	const struct of_device_id *match;
+	unsigned long data;
 
 	if (pdev->dev.of_node) {
 		dev_dbg(&pdev->dev, "device tree enabled\n");
@@ -3302,6 +3309,17 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 	 * configuration makes sure that issued cmd to CR register gets complete
 	 * before next issued cmd start. Hence mb() requires here.
 	 */
+	mb();
+
+	/*
+	* Set RX_BREAK_ZERO_CHAR_OFF and RX_ERROR_CHAR_OFF
+	* so any rx_break and character having parity of framing
+	* error don't enter inside UART RX FIFO.
+	*/
+	data = msm_hs_read(uport, UART_DM_MR2);
+	data |= (UARTDM_MR2_RX_BREAK_ZERO_CHAR_OFF |
+			UARTDM_MR2_RX_ERROR_CHAR_OFF);
+	msm_hs_write(uport, UART_DM_MR2, data);
 	mb();
 
 	msm_uport->clk_state = MSM_HS_CLK_PORT_OFF;
