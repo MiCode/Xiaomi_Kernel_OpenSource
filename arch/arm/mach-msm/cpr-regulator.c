@@ -539,6 +539,7 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 {
 	u32 reg_val, error_steps, reg_mask;
 	int last_volt, new_volt, corner;
+	u32 gcnt, quot;
 
 	corner = cpr_vreg->corner;
 
@@ -550,6 +551,10 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 
 	cpr_debug_irq("last_volt[corner:%d] = %d uV\n", corner, last_volt);
 
+	gcnt = cpr_read(cpr_vreg, REG_RBCPR_GCNT_TARGET
+			(cpr_vreg->cpr_fuse_ro_sel[corner]));
+	quot = gcnt & ((1 << RBCPR_GCNT_TARGET_GCNT_SHIFT) - 1);
+
 	if (dir == UP) {
 		cpr_debug_irq("Up: cpr status = 0x%08x (error_steps=%d)\n",
 			      reg_val, error_steps);
@@ -559,6 +564,9 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 				      corner, last_volt,
 				      cpr_vreg->ceiling_volt[corner]);
 			cpr_irq_clr_nack(cpr_vreg);
+
+			cpr_debug_irq("gcnt = 0x%08x (quot = %d)\n", gcnt,
+					quot);
 
 			/* Maximize the UP threshold */
 			reg_mask = RBCPR_CTL_UP_THRESHOLD_MASK <<
@@ -622,6 +630,8 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 			reg_mask = RBCPR_CTL_DN_THRESHOLD_MASK <<
 					RBCPR_CTL_DN_THRESHOLD_SHIFT;
 			reg_val = reg_mask;
+			cpr_debug_irq("gcnt = 0x%08x (quot = %d)\n", gcnt,
+					quot);
 
 			/* Enable auto nack down */
 			reg_mask |= RBCPR_CTL_SW_AUTO_CONT_NACK_DN_EN;
