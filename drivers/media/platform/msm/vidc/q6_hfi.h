@@ -13,7 +13,7 @@
 #ifndef __Q6_HFI_H__
 #define __Q6_HFI_H__
 
-#include <mach/qdsp6v2/apr.h>
+#include <linux/qdsp6v2/apr.h>
 #include "vidc_hfi.h"
 #include "vidc_hfi_helper.h"
 #include "msm_vidc_resources.h"

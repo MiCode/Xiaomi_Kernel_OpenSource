@@ -13,7 +13,7 @@
 #ifndef _Q6_AUDIO_H_
 #define _Q6_AUDIO_H_
 
-#include <mach/qdsp6v2/apr.h>
+#include <linux/qdsp6v2/apr.h>
 
 enum {
 	LEGACY_PCM_MODE = 0,

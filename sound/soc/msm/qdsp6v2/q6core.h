@@ -12,7 +12,7 @@
 
 #ifndef __Q6CORE_H__
 #define __Q6CORE_H__
-#include <mach/qdsp6v2/apr.h>
+#include <linux/qdsp6v2/apr.h>
 #include <mach/ocmem.h>
 
 

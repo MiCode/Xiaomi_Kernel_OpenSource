@@ -29,9 +29,9 @@
 #include <sound/apr_audio-v2.h>
 #include <mach/subsystem_restart.h>
 #include <mach/msm_smd.h>
-#include <mach/qdsp6v2/apr.h>
-#include <mach/qdsp6v2/apr_tal.h>
-#include <mach/qdsp6v2/dsp_debug.h>
+#include <linux/qdsp6v2/apr.h>
+#include <linux/qdsp6v2/apr_tal.h>
+#include <linux/qdsp6v2/dsp_debug.h>
 #include <mach/subsystem_notif.h>
 #include <mach/subsystem_restart.h>
 

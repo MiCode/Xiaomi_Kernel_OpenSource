@@ -19,7 +19,7 @@
 #include <linux/msm_audio_ion.h>
 
 #include <mach/socinfo.h>
-#include <mach/qdsp6v2/apr_tal.h>
+#include <linux/qdsp6v2/apr_tal.h>
 
 #include "sound/apr_audio-v2.h"
 #include "sound/q6afe-v2.h"

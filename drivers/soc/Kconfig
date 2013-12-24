@@ -1,1 +1,2 @@
 source "drivers/soc/msm/Kconfig"
+source "drivers/soc/qti/Kconfig"

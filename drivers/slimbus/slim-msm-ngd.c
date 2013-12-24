@@ -27,7 +27,7 @@
 #include <linux/timer.h>
 #include <mach/sps.h>
 #include "slim-msm.h"
-#include <mach/qdsp6v2/apr.h>
+#include <linux/qdsp6v2/apr.h>
 
 #define NGD_SLIM_NAME	"ngd_msm_ctrl"
 #define SLIM_LA_MGR	0xFF

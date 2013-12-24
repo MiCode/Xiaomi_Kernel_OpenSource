@@ -14,7 +14,7 @@
 #ifndef _APR_AUDIO_V2_H_
 #define _APR_AUDIO_V2_H_
 
-#include <mach/qdsp6v2/apr.h>
+#include <linux/qdsp6v2/apr.h>
 
 #define ADSP_ADM_VERSION    0x00070000
 

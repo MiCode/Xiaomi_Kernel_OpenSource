@@ -15,9 +15,9 @@
 #include <linux/uaccess.h>
 #include <linux/spinlock.h>
 #include <linux/kernel.h>
-#include <mach/qdsp6v2/apr.h>
-#include <mach/qdsp6v2/apr_tal.h>
-#include <mach/qdsp6v2/dsp_debug.h>
+#include <linux/qdsp6v2/apr.h>
+#include <linux/qdsp6v2/apr_tal.h>
+#include <linux/qdsp6v2/dsp_debug.h>
 
 static const char *lpass_subsys_name = "adsp";
 
