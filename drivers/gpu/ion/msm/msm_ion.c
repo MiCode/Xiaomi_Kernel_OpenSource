@@ -973,7 +973,7 @@ static long msm_ion_custom_ioctl(struct ion_client *client,
 					sizeof(struct ion_flush_data)))
 			return -EFAULT;
 
-		if (data.handle >= 0) {
+		if (data.handle > 0) {
 			handle = ion_handle_get_by_id(client, (int)data.handle);
 			if (IS_ERR(handle)) {
 				pr_info("%s: Could not find handle: %d\n",
