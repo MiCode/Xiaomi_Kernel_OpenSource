@@ -1089,7 +1089,7 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 
 		/*program pixel extn values for the SSPP*/
 		mdss_mdp_pipe_program_pixel_extn(pipe);
-	} else {
+	} else if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG) {
 		writel_relaxed(phasex_step, pipe->base +
 		   MDSS_MDP_REG_SCALE_PHASE_STEP_X);
 		writel_relaxed(phasey_step, pipe->base +
@@ -1098,6 +1098,11 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 			MDSS_MDP_REG_SCALE_INIT_PHASE_X);
 		writel_relaxed(init_phasey, pipe->base +
 			MDSS_MDP_REG_SCALE_INIT_PHASE_Y);
+	} else {
+		writel_relaxed(phasex_step, pipe->base +
+		   MDSS_MDP_REG_SCALE_PHASE_STEP_X);
+		writel_relaxed(phasey_step, pipe->base +
+		   MDSS_MDP_REG_SCALE_PHASE_STEP_Y);
 	}
 
 	writel_relaxed(scale_config, pipe->base +
