@@ -1050,7 +1050,7 @@ static int msm_dsi_cal_clk_rate(struct mdss_panel_data *pdata,
 
 static int msm_dsi_on(struct mdss_panel_data *pdata)
 {
-	int ret = 0;
+	int ret = 0, i;
 	u32 clk_rate;
 	struct mdss_panel_info *pinfo;
 	struct mipi_panel_info *mipi;
@@ -1070,13 +1070,15 @@ static int msm_dsi_on(struct mdss_panel_data *pdata)
 
 	mutex_lock(&ctrl_pdata->mutex);
 
-	ret = msm_dss_enable_vreg(
-		ctrl_pdata->power_data.vreg_config,
-		ctrl_pdata->power_data.num_vreg, 1);
-	if (ret) {
-		pr_err("%s: DSI power on failed\n", __func__);
-		mutex_unlock(&ctrl_pdata->mutex);
-		return ret;
+	for (i = 0; !ret && (i < DSI_MAX_PM); i++) {
+		ret = msm_dss_enable_vreg(
+			ctrl_pdata->power_data[i].vreg_config,
+			ctrl_pdata->power_data[i].num_vreg, 1);
+		if (ret) {
+			pr_err("%s: failed to enable vregs for %s\n",
+				__func__, __mdss_dsi_pm_name(i));
+			goto error_vreg;
+		}
 	}
 
 	msm_dsi_ahb_ctrl(1);
@@ -1165,14 +1167,22 @@ static int msm_dsi_on(struct mdss_panel_data *pdata)
 	msm_dsi_set_irq(ctrl_pdata, DSI_INTR_ERROR_MASK);
 	dsi_host_private->clk_count = 1;
 	dsi_host_private->dsi_on = 1;
-	mutex_unlock(&ctrl_pdata->mutex);
 
+error_vreg:
+	if (ret) {
+		for (; i >= 0; i--)
+			msm_dss_enable_vreg(
+				ctrl_pdata->power_data[i].vreg_config,
+				ctrl_pdata->power_data[i].num_vreg, 0);
+	}
+
+	mutex_unlock(&ctrl_pdata->mutex);
 	return ret;
 }
 
 static int msm_dsi_off(struct mdss_panel_data *pdata)
 {
-	int ret = 0;
+	int ret = 0, i;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
 	if (pdata == NULL) {
@@ -1194,11 +1204,13 @@ static int msm_dsi_off(struct mdss_panel_data *pdata)
 	msm_dsi_phy_off(dsi_host_private->dsi_base);
 	msm_dsi_ahb_ctrl(0);
 
-	ret = msm_dss_enable_vreg(
-		ctrl_pdata->power_data.vreg_config,
-		ctrl_pdata->power_data.num_vreg, 0);
-	if (ret) {
-		pr_err("%s: Panel power off failed\n", __func__);
+	for (i = DSI_MAX_PM - 1; i >= 0; i--) {
+		ret = msm_dss_enable_vreg(
+			ctrl_pdata->power_data[i].vreg_config,
+			ctrl_pdata->power_data[i].num_vreg, 0);
+		if (ret)
+			pr_err("%s: failed to disable vregs for %s\n",
+				__func__, __mdss_dsi_pm_name(i));
 	}
 	dsi_host_private->clk_count = 0;
 	dsi_host_private->dsi_on = 0;
@@ -1211,7 +1223,7 @@ static int msm_dsi_off(struct mdss_panel_data *pdata)
 static int msm_dsi_cont_on(struct mdss_panel_data *pdata)
 {
 	struct mdss_panel_info *pinfo;
-	int ret = 0;
+	int ret = 0, i;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
 	if (pdata == NULL) {
@@ -1228,13 +1240,15 @@ static int msm_dsi_cont_on(struct mdss_panel_data *pdata)
 
 	pinfo = &pdata->panel_info;
 	mutex_lock(&ctrl_pdata->mutex);
-	ret = msm_dss_enable_vreg(
-		ctrl_pdata->power_data.vreg_config,
-		ctrl_pdata->power_data.num_vreg, 1);
-	if (ret) {
-		pr_err("%s: DSI power on failed\n", __func__);
-		mutex_unlock(&ctrl_pdata->mutex);
-		return ret;
+	for (i = 0; !ret && (i < DSI_MAX_PM); i++) {
+		ret = msm_dss_enable_vreg(
+			ctrl_pdata->power_data[i].vreg_config,
+			ctrl_pdata->power_data[i].num_vreg, 1);
+		if (ret) {
+			pr_err("%s: failed to enable vregs for %s\n",
+				__func__, __mdss_dsi_pm_name(i));
+			goto error_vreg;
+		}
 	}
 	pinfo->panel_power_on = 1;
 	ret = mdss_dsi_panel_reset(pdata, 1);
@@ -1250,8 +1264,17 @@ static int msm_dsi_cont_on(struct mdss_panel_data *pdata)
 	msm_dsi_set_irq(ctrl_pdata, DSI_INTR_ERROR_MASK);
 	dsi_host_private->clk_count = 1;
 	dsi_host_private->dsi_on = 1;
+
+error_vreg:
+	if (ret) {
+		for (; i >= 0; i--)
+			msm_dss_enable_vreg(
+				ctrl_pdata->power_data[i].vreg_config,
+				ctrl_pdata->power_data[i].num_vreg, 0);
+	}
+
 	mutex_unlock(&ctrl_pdata->mutex);
-	return 0;
+	return ret;
 }
 
 static int msm_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
@@ -1483,6 +1506,7 @@ static int msm_dsi_probe(struct platform_device *pdev)
 	struct device_node *dsi_pan_node = NULL;
 	bool cmd_cfg_cont_splash = false;
 	struct resource *mdss_dsi_mres;
+	int i;
 
 	pr_debug("%s\n", __func__);
 
@@ -1572,11 +1596,13 @@ static int msm_dsi_probe(struct platform_device *pdev)
 		goto error_pan_node;
 	}
 
-	rc = msm_dsi_io_init(pdev, &(ctrl_pdata->power_data));
-	if (rc) {
-		dev_err(&pdev->dev, "%s: failed to init DSI IO, rc=%d\n",
-								__func__, rc);
-		goto error_io_init;
+	for (i = 0;  i < DSI_MAX_PM; i++) {
+		rc = msm_dsi_io_init(pdev, &(ctrl_pdata->power_data[i]));
+		if (rc) {
+			dev_err(&pdev->dev, "%s: failed to init IO for %s\n",
+				__func__, __mdss_dsi_pm_name(i));
+			goto error_io_init;
+		}
 	}
 
 	pr_debug("%s: Dsi Ctrl->0 initialized\n", __func__);
@@ -1611,7 +1637,8 @@ static int msm_dsi_probe(struct platform_device *pdev)
 	pr_debug("%s success\n", __func__);
 	return 0;
 error_device_register:
-	msm_dsi_io_deinit(pdev, &(ctrl_pdata->power_data));
+	for (i = DSI_MAX_PM - 1; i >= 0; i--)
+		msm_dsi_io_deinit(pdev, &(ctrl_pdata->power_data[i]));
 error_io_init:
 	dsi_ctrl_config_deinit(pdev, ctrl_pdata);
 error_pan_node:
@@ -1633,6 +1660,8 @@ error_no_mem:
 
 static int msm_dsi_remove(struct platform_device *pdev)
 {
+	int i;
+
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = platform_get_drvdata(pdev);
 	if (!ctrl_pdata) {
 		pr_err("%s: no driver data\n", __func__);
@@ -1640,7 +1669,8 @@ static int msm_dsi_remove(struct platform_device *pdev)
 	}
 
 	msm_dsi_clear_irq(ctrl_pdata, ctrl_pdata->dsi_irq_mask);
-	msm_dsi_io_deinit(pdev, &(ctrl_pdata->power_data));
+	for (i = DSI_MAX_PM - 1; i >= 0; i--)
+		msm_dsi_io_deinit(pdev, &(ctrl_pdata->power_data[i]));
 	dsi_ctrl_config_deinit(pdev, ctrl_pdata);
 	iounmap(dsi_host_private->dsi_base);
 	dsi_host_private->dsi_base = NULL;
