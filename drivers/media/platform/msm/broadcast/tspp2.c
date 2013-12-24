@@ -46,6 +46,13 @@
 #define TSPP2_NUM_EVENT_WORK_ELEMENTS	256
 
 /*
+ * Based on the hardware programming guide, HW requires we wait for up to 2ms
+ * before closing the pipes used by the filter.
+ * This is required to avoid unexpected pipe reset interrupts.
+ */
+#define TSPP2_HW_DELAY_USEC		2000
+
+/*
  * Default source configuration:
  * Sync byte 0x47, check sync byte,
  * Do not monitor scrambling bits,
@@ -2017,10 +2024,10 @@ static int tspp2_src_disable_internal(struct tspp2_src *src)
 	}
 
 	/*
-	 * HW requires we wait for up to 1ms here before closing the pipes
+	 * HW requires we wait for up to 2ms here before closing the pipes
 	 * attached to (and used by) this source
 	 */
-	udelay(1000);
+	udelay(TSPP2_HW_DELAY_USEC);
 
 	src->enabled = 0;
 	src->device->num_enabled_sources--;
@@ -5231,10 +5238,10 @@ int tspp2_filter_disable(u32 filter_handle)
 		TSPP2_FILTER_ENTRY0(filter->hw_index));
 
 	/*
-	 * HW requires we wait for up to 1ms here before closing the pipes
+	 * HW requires we wait for up to 2ms here before closing the pipes
 	 * used by this filter
 	 */
-	udelay(1000);
+	udelay(TSPP2_HW_DELAY_USEC);
 
 	filter->enabled = 0;
 
@@ -5961,10 +5968,10 @@ static int tspp2_filter_ops_update(struct tspp2_filter *filter,
 		TSPP2_FILTER_ENTRY0(filter->hw_index));
 
 	/*
-	 * HW requires we wait for up to 1ms here before removing the
+	 * HW requires we wait for up to 2ms here before removing the
 	 * operations used by this filter.
 	 */
-	udelay(1000);
+	udelay(TSPP2_HW_DELAY_USEC);
 
 	tspp2_filter_ops_clear(filter);
 
