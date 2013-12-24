@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@
 #include <mach/board.h>
 #include <mach/msm_memtypes.h>
 #include <mach/msm_smd.h>
+#include <mach/rpm-smd.h>
 #include <soc/qcom/smem.h>
 
 #include "board-dt.h"
@@ -58,6 +59,7 @@ static struct of_dev_auxdata msm8916_auxdata_lookup[] __initdata = {
 void __init msm8916_add_drivers(void)
 {
 	msm_smd_init();
+	msm_rpm_driver_init();
 	msm_spm_device_init();
 }
 
