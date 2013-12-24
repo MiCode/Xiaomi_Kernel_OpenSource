@@ -359,11 +359,23 @@ static void intel_write_infoframe(struct drm_encoder *encoder,
 	intel_hdmi->write_infoframe(encoder, frame->any.type, buffer, len);
 }
 
+static void intel_hdmi_compute_color_range(struct intel_hdmi *intel_hdmi,
+					struct drm_display_mode *mode)
+{
+	if (intel_hdmi->color_range_auto) {
+		/* See CEA-861-E - 5.1 Default Encoding Parameters */
+		if (intel_hdmi->has_hdmi_sink &&
+		    drm_match_cea_mode(mode) > 1)
+			intel_hdmi->color_range = HDMI_COLOR_RANGE_16_235;
+		else
+			intel_hdmi->color_range = 0;
+	}
+}
+
 static void intel_hdmi_set_avi_infoframe(struct drm_encoder *encoder,
 					 struct drm_display_mode *adjusted_mode)
 {
 	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(encoder);
-	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->crtc);
 	union hdmi_infoframe frame;
 	int ret;
 
@@ -374,8 +386,14 @@ static void intel_hdmi_set_avi_infoframe(struct drm_encoder *encoder,
 		return;
 	}
 
+	/* If the EDID mentions color range to be selectable, then
+	 * compute color_range for the incoming mode and set in AVI
+	 * infoframe accordingly.
+	*/
 	if (intel_hdmi->rgb_quant_range_selectable) {
-		if (intel_crtc->config.limited_color_range)
+		intel_hdmi_compute_color_range(intel_hdmi, adjusted_mode);
+
+		if (intel_hdmi->color_range)
 			frame.avi.quantization_range =
 				HDMI_QUANTIZATION_RANGE_LIMITED;
 		else
@@ -909,14 +927,7 @@ bool intel_hdmi_compute_config(struct intel_encoder *encoder,
 
 	pipe_config->has_hdmi_sink = intel_hdmi->has_hdmi_sink;
 
-	if (intel_hdmi->color_range_auto) {
-		/* See CEA-861-E - 5.1 Default Encoding Parameters */
-		if (pipe_config->has_hdmi_sink &&
-		    drm_match_cea_mode(adjusted_mode) > 1)
-			intel_hdmi->color_range = HDMI_COLOR_RANGE_16_235;
-		else
-			intel_hdmi->color_range = 0;
-	}
+	intel_hdmi_compute_color_range(intel_hdmi, adjusted_mode);
 
 	if (intel_hdmi->color_range)
 		pipe_config->limited_color_range = true;
