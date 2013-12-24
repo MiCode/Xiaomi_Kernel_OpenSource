@@ -220,6 +220,9 @@
 		reg = <0x78af000 0x200>;
 		interrupts = <0 107 0>;
 		status = "disabled";
+		clocks = <&clock_gcc clk_gcc_blsp1_uart1_apps_clk>,
+			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		clock-names = "core_clk", "iface_clk";
 	};
 
 	blsp1_uart2: serial@78b0000 {
@@ -227,6 +230,9 @@
 		reg = <0x78b0000 0x200>;
 		interrupts = <0 108 0>;
 		status = "disabled";
+		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
+			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		clock-names = "core_clk", "iface_clk";
 	};
 
 	usb_otg: usb@78d9000 {
@@ -253,6 +259,12 @@
 				<87 512 0 0>,
 				<87 512 60000 960000>,
 				<87 512 6000  6000>;
+		clocks = <&clock_gcc clk_gcc_usb_hs_ahb_clk>,
+			 <&clock_gcc clk_gcc_usb_hs_system_clk>,
+			 <&clock_gcc clk_gcc_usb2a_phy_sleep_clk>,
+			 <&clock_rpm clk_xo_otg_clk>;
+		clock-names = "iface_clk", "core_clk", "sleep_clk",
+				"xo";
 	};
 
 	android_usb {
@@ -302,6 +314,9 @@
 		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
 						100000000 200000000 4294967295>;
 		status = "disabled";
+		clocks = <&clock_gcc clk_gcc_sdcc1_ahb_clk>,
+			 <&clock_gcc clk_gcc_sdcc1_apps_clk>;
+		clock-names = "iface_clk", "core_clk";
 	};
 
 	sdhc_2: sdhci@07864000 {
@@ -328,6 +343,10 @@
 		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
 						100000000 200000000 4294967295>;
 		status = "disabled";
+		clocks = <&clock_gcc clk_gcc_sdcc2_ahb_clk>,
+			 <&clock_gcc clk_gcc_sdcc2_apps_clk>;
+		clock-names = "iface_clk", "core_clk";
+
 	};
 
 	qcom,ipc-spinlock@1905000 {
@@ -675,7 +694,9 @@
                 pinctrl-0 = <&spi0_default>;
 		pinctrl-1 = <&spi0_sleep>;
 		pinctrl-2 = <&spi0_cs_sleep>;
-
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			 <&clock_gcc clk_gcc_blsp1_qup1_spi_apps_clk>;
+		clock-names = "iface_clk", "core_clk";
                 qcom,infinite-mode = <0>;
 		qcom,use-bam;
 		qcom,use-pinctrl;
@@ -692,6 +713,9 @@
 		      <0x7884000 0x23000>;
 		interrupt-names = "qup_irq", "bam_irq";
 		interrupts = <0 96 0>, <0 238 0>;
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			 <&clock_gcc clk_gcc_blsp1_qup1_i2c_apps_clk>;
+		clock-names = "iface_clk", "core_clk";
 		qcom,clk-freq-out = <100000>;
 		qcom,clk-freq-in  = <19200000>;
 		pinctrl-names = "default", "sleep";
