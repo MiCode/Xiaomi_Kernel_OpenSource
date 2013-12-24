@@ -35,7 +35,7 @@
 
 struct msm_vidc_drv *vidc_driver;
 
-uint32_t msm_vidc_pwr_collapse_delay = INT_MAX;
+uint32_t msm_vidc_pwr_collapse_delay = 2000;
 
 static inline struct msm_vidc_inst *get_vidc_inst(struct file *filp, void *fh)
 {
