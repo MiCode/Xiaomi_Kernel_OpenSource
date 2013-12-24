@@ -36,7 +36,7 @@
 		interrupts = <0 15 0>;
 		regulator-name = "apc_corner";
 		regulator-min-microvolt = <1>;
-		regulator-max-microvolt = <3>;
+		regulator-max-microvolt = <12>;
 
 		qti,pvs-fuse-redun-sel = <53 25 3 2 1>;
 		qti,pvs-fuse = <23 6 5 1>;
@@ -50,8 +50,8 @@
 					1275000 1275000 1275000 1275000 1275000
 					1275000 1275000>;
 		qti,pvs-corner-ceiling-slow = <1150000 1150000 1275000>;
-		qti,pvs-corner-ceiling-nom  = <1075000 1075000 1200000>;
-		qti,pvs-corner-ceiling-fast = <1050000 1050000 1140000>;
+		qti,pvs-corner-ceiling-nom  = <1075000 1075000 1275000>;
+		qti,pvs-corner-ceiling-fast = <1050000 1050000 1275000>;
 		vdd-apc-supply = <&pm8110_s2>;
 
 		vdd-mx-supply = <&pm8110_l3_ao>;
@@ -83,6 +83,7 @@
 		qti,cpr-fuse-redun-bp-scheme = <25>;
 		qti,cpr-fuse-redun-target-quot = <32 12 0>;
 		qti,cpr-fuse-redun-ro-sel = <44 26 29>;
+		qti,cpr-corner-map = <1 1 2 2 3 3 3 3 3 3 3 3>;
 
 		qti,cpr-enable;
 	};

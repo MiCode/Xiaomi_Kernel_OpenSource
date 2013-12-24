@@ -348,22 +348,43 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 #endif
 
 	if (!mqrq_cur->bounce_buf && !mqrq_prev->bounce_buf) {
+		unsigned int max_segs = host->max_segs;
+
 		blk_queue_bounce_limit(mq->queue, limit);
 		blk_queue_max_hw_sectors(mq->queue,
 			min(host->max_blk_count, host->max_req_size / 512));
-		blk_queue_max_segments(mq->queue, host->max_segs);
 		blk_queue_max_segment_size(mq->queue, host->max_seg_size);
+retry:
+		blk_queue_max_segments(mq->queue, host->max_segs);
 
 		mqrq_cur->sg = mmc_alloc_sg(host->max_segs, &ret);
-		if (ret)
+		if (ret == -ENOMEM)
+			goto cur_sg_alloc_failed;
+		else if (ret)
 			goto cleanup_queue;
-
 
 		mqrq_prev->sg = mmc_alloc_sg(host->max_segs, &ret);
-		if (ret)
+		if (ret == -ENOMEM)
+			goto prev_sg_alloc_failed;
+		else if (ret)
 			goto cleanup_queue;
+
+		goto success;
+
+prev_sg_alloc_failed:
+		kfree(mqrq_cur->sg);
+		mqrq_cur->sg = NULL;
+cur_sg_alloc_failed:
+		host->max_segs /= 2;
+		if (host->max_segs) {
+			goto retry;
+		} else {
+			host->max_segs = max_segs;
+			goto cleanup_queue;
+		}
 	}
 
+success:
 	sema_init(&mq->thread_sem, 1);
 
 	mq->thread = kthread_run(mmc_queue_thread, mq, "mmcqd/%d%s",
