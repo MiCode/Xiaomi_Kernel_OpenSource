@@ -16,6 +16,14 @@
 
 #include <linux/clk/msm-clk-provider.h>
 
+/**
+ * struct fixed_clk - fixed rate clock
+ * @c: clk
+ */
+struct fixed_clk {
+	struct clk c;
+};
+
 /* ==================== Mux clock ==================== */
 
 struct clk_src {

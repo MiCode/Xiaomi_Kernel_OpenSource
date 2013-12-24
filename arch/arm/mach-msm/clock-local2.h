@@ -76,15 +76,6 @@ static inline struct rcg_clk *to_rcg_clk(struct clk *clk)
 extern struct clk_freq_tbl rcg_dummy_freq;
 
 /**
- * struct fixed_clk - fixed rate clock (used for crystal oscillators)
- * @rate: output rate
- * @c: clk
- */
-struct fixed_clk {
-	struct clk c;
-};
-
-/**
  * struct branch_clk - branch clock
  * @set_rate: Set the frequency of this branch clock.
  * @c: clk
