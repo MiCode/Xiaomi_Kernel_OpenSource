@@ -6974,6 +6974,8 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("",	bcc_vbif_tspp2_clk.c,	""),
 	CLK_LOOKUP("bcc_vbif_tspp2_clk",	bcc_vbif_tspp2_clk.c,
 						"fc724000.msm_tspp2"),
+	CLK_LOOKUP("vbif_core_clk", bcc_vbif_axi_clk.c, "fc724000.msm_tspp2"),
+	CLK_LOOKUP("iface_vbif_clk", bcc_vbif_ahb_clk.c, "fc724000.msm_tspp2"),
 	CLK_LOOKUP("bcc_vbif_tspp2_clk", bcc_vbif_tspp2_clk.c,
 						"fc74a000.msm_tsc"),
 	CLK_LOOKUP("bcc_vbif_dem_core_clk", bcc_vbif_dem_core_clk.c,
