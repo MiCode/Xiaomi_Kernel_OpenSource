@@ -19,7 +19,7 @@
 #include <linux/mutex.h>
 #include <linux/cpu.h>
 #include <linux/of.h>
-#include <mach/mpm.h>
+#include <linux/irqchip/msm-mpm-irq.h>
 #include "pm.h"
 #include "rpm-notifier.h"
 #include "spm.h"

@@ -18,9 +18,9 @@
 #include <linux/irqchip.h>
 #include <linux/irqchip/qpnp-int.h>
 #include <linux/irqchip/msm-gpio-irq.h>
+#include <linux/irqchip/msm-mpm-irq.h>
 #include <asm/mach/map.h>
 #include <asm/hardware/cache-l2x0.h>
-#include <mach/mpm.h>
 #include <mach/msm_iomap.h>
 #include <mach/scm.h>
 

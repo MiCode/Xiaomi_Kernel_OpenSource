@@ -34,6 +34,7 @@
 #include <linux/of_platform.h>
 #include <linux/regulator/krait-regulator.h>
 #include <linux/cpu.h>
+#include <linux/irqchip/msm-mpm-irq.h>
 #include <mach/avs.h>
 #include <mach/socinfo.h>
 #include <mach/scm.h>
@@ -42,7 +43,6 @@
 #include <mach/trace_msm_low_power.h>
 #include <mach/msm-krait-l2-accessors.h>
 #include <mach/msm_bus.h>
-#include <mach/mpm.h>
 #include <mach/jtag.h>
 #include <asm/suspend.h>
 #include <asm/cacheflush.h>

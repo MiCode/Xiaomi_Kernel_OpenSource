@@ -11,32 +11,13 @@
  *
  */
 
-#ifndef __ARCH_ARM_MACH_MSM_MPM_H
-#define __ARCH_ARM_MACH_MSM_MPM_H
+#ifndef __MSM_MPM_IRQ_H
+#define __MSM_MPM_IRQ_H
 
 #include <linux/types.h>
 #include <linux/list.h>
 
 #define MSM_MPM_NR_MPM_IRQS  64
-
-struct msm_mpm_device_data {
-	uint16_t *irqs_m2a;
-	unsigned int irqs_m2a_size;
-	uint16_t *bypassed_apps_irqs;
-	unsigned int bypassed_apps_irqs_size;
-	void __iomem *mpm_request_reg_base;
-	void __iomem *mpm_status_reg_base;
-	void __iomem *mpm_apps_ipc_reg;
-	unsigned int mpm_apps_ipc_val;
-	unsigned int mpm_ipc_irq;
-};
-
-extern struct msm_mpm_device_data msm8660_mpm_dev_data;
-extern struct msm_mpm_device_data msm8960_mpm_dev_data;
-extern struct msm_mpm_device_data msm9615_mpm_dev_data;
-extern struct msm_mpm_device_data apq8064_mpm_dev_data;
-
-void msm_mpm_irq_extn_init(struct msm_mpm_device_data *mpm_data);
 
 #if defined(CONFIG_MSM_MPM_OF)
 /**
@@ -177,7 +158,7 @@ void msm_mpm_suspend_prepare(void);
  */
 void msm_mpm_suspend_wake(void);
 #else
-static inline void msm_mpm_suspend_prepare(void){}
+static inline void msm_mpm_suspend_prepare(void) {}
 static inline void msm_mpm_suspend_wake(void) {}
 #endif
-#endif /* __ARCH_ARM_MACH_MSM_MPM_H */
+#endif /* __MSM_MPM_IRQ_H */

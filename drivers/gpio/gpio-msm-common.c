@@ -16,6 +16,7 @@
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/irqchip/chained_irq.h>
+#include <linux/irqchip/msm-mpm-irq.h>
 #include <linux/irq.h>
 #include <linux/io.h>
 #include <linux/module.h>
@@ -29,7 +30,6 @@
 
 #include <mach/msm_iomap.h>
 #include <mach/gpiomux.h>
-#include <mach/mpm.h>
 #include "gpio-msm-common.h"
 
 #ifdef CONFIG_GPIO_MSM_V3
