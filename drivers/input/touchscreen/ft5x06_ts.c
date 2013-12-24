@@ -1546,8 +1546,9 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	data->family_id = pdata->family_id;
 
 	err = request_threaded_irq(client->irq, NULL,
-				   ft5x06_ts_interrupt, pdata->irqflags,
-				   client->dev.driver->name, data);
+				ft5x06_ts_interrupt,
+				pdata->irqflags | IRQF_ONESHOT,
+				client->dev.driver->name, data);
 	if (err) {
 		dev_err(&client->dev, "request irq failed\n");
 		goto free_reset_gpio;
