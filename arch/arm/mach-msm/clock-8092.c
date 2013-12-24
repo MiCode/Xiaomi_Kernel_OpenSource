@@ -6680,6 +6680,7 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("",	gcc_mmss_a5ss_axi_clk.c,	""),
 
 	/* PCIE */
+	CLK_LOOKUP("pcie_0_ref_clk_src", rf_clk2.c, "msm_pcie"),
 	CLK_LOOKUP("pcie_0_slv_axi_clk", gcc_pcie_axi_clk.c, "msm_pcie"),
 	CLK_LOOKUP("pcie_0_mstr_axi_clk", gcc_pcie_axi_mstr_clk.c, "msm_pcie"),
 	CLK_LOOKUP("pcie_0_cfg_ahb_clk", gcc_pcie_cfg_ahb_clk.c, "msm_pcie"),
