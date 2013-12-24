@@ -1236,9 +1236,8 @@ static int msm_pm_enter(suspend_state_t state)
 			rs_limits = pm_sleep_ops.lowest_limits(false,
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE, &time_param, &power);
 
-		l2_stat_id =  *(uint32_t *)rs_limits;
-
 		if (rs_limits) {
+			l2_stat_id =  *(uint32_t *)rs_limits;
 			if (pm_sleep_ops.enter_sleep)
 				ret = pm_sleep_ops.enter_sleep(
 						msm_pm_max_sleep_time,
@@ -1251,6 +1250,7 @@ static int msm_pm_enter(suspend_state_t state)
 				}
 			}
 		} else {
+			l2_stat_id = MSM_SPM_L2_MODE_LAST;
 			pr_err("%s: cannot find the lowest power limit\n",
 				__func__);
 		}
