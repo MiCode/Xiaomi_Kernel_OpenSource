@@ -47,9 +47,37 @@
 #define SENSOR_TYPE_STEP_COUNTER		19
 #define SENSOR_TYPE_GEOMAGNETIC_ROTATION_VECTOR	20
 
+/**
+ * struct sensors_classdev - hold the sensor general parameters and APIs
+ * @dev:		The device to register.
+ * @node:		The list for the all the sensor drivers.
+ * @name:		Name of this sensor.
+ * @vendor:		The vendor of the hardware part.
+ * @handle:		The handle that identifies this sensors.
+ * @type:		The sensor type.
+ * @max_range:		The maximum range of this sensor's value in SI units.
+ * @resolution:		The smallest difference between two values reported by
+ *			this sensor.
+ * @sensor_power:	The rough estimate of this sensor's power consumption
+ *			in mA.
+ * @min_delay:		This value depends on the trigger mode:
+ *			continuous: minimum period allowed in microseconds
+ *			on-change : 0
+ *			one-shot :-1
+ *			special : 0, unless otherwise noted
+ * @fifo_reserved_event_count:	The number of events reserved for this sensor
+ *				in the batch mode FIFO.
+ * @fifo_max_event_count:	The maximum number of events of this sensor
+ *				that could be batched.
+ * @enabled:		Store the sensor driver enable status.
+ * @delay_msec:		Store the sensor driver delay value. The data unit is
+ *			millisecond.
+ * @sensors_enable:	The handle for enable and disable sensor.
+ * @sensors_poll_delay:	The handle for set the sensor polling delay time.
+ */
 struct sensors_classdev {
 	struct device		*dev;
-	struct list_head	 node;
+	struct list_head	node;
 	const char		*name;
 	const char		*vendor;
 	int			version;
@@ -61,6 +89,13 @@ struct sensors_classdev {
 	int			min_delay;
 	int			fifo_reserved_event_count;
 	int			fifo_max_event_count;
+	unsigned int		enabled;
+	unsigned int		delay_msec;
+	/* enable and disable the sensor handle*/
+	int	(*sensors_enable)(struct sensors_classdev *sensors_cdev,
+					unsigned int enabled);
+	int	(*sensors_poll_delay)(struct sensors_classdev *sensors_cdev,
+					unsigned int delay_msec);
 };
 
 extern int sensors_classdev_register(struct device *parent,
