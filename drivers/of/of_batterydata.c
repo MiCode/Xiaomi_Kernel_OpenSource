@@ -222,6 +222,14 @@ static int of_batterydata_load_battery_data(struct device_node *node,
 	if (rc)
 		return rc;
 
+	rc = of_property_read_string(node, "qcom,battery-type",
+					&batt_data->battery_type);
+	if (rc) {
+		pr_err("Error reading qcom,battery-type property rc=%d\n", rc);
+		batt_data->battery_type = NULL;
+		return rc;
+	}
+
 	OF_PROP_READ(batt_data->fcc, "fcc-mah", node, rc, false);
 	OF_PROP_READ(batt_data->default_rbatt_mohm,
 			"default-rbatt-mohm", node, rc, false);
@@ -269,6 +277,7 @@ int of_batterydata_read_data(struct device_node *batterydata_container_node,
 {
 	struct device_node *node, *best_node;
 	struct batt_ids batt_ids;
+	const char *battery_type = NULL;
 	int delta, best_delta, batt_id_kohm, rpull_up_kohm,
 		vadc_vdd_uv, best_id_kohm, i, rc = 0;
 
@@ -307,7 +316,12 @@ int of_batterydata_read_data(struct device_node *batterydata_container_node,
 		pr_err("No battery data found\n");
 		return -ENODATA;
 	}
-	pr_info("%s loaded\n", best_node->name);
+	rc = of_property_read_string(best_node, "qcom,battery-type",
+							&battery_type);
+	if (!rc)
+		pr_info("%s loaded\n", battery_type);
+	else
+		pr_info("%s loaded\n", best_node->name);
 
 	return of_batterydata_load_battery_data(best_node,
 					best_id_kohm, batt_data);

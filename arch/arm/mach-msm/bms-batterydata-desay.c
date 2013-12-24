@@ -85,4 +85,5 @@ struct bms_battery_data desay_5200_data = {
 	.default_rbatt_mohm	= 156,
 	.rbatt_capacitive_mohm	= 50,
 	.flat_ocv_threshold_uv	= 3800000,
+	.battery_type		= "desay_5200mah",
 };

@@ -26,6 +26,7 @@ Profile data node required properties:
 			used as an array which could support multiple IDs for one battery
 			module when the ID resistance of some battery modules goes across
 			several ranges.
+- qcom,battery-type : A string indicating the type of battery.
 
 Profile data node required subnodes:
 - qcom,fcc-temp-lut : An 1-dimensional lookup table node that encodes
@@ -83,6 +84,7 @@ qcom,palladium-batterydata {
 	qcom,v-cutoff-uv = <3400000>;
 	qcom,chg-term-ua = <100000>;
 	qcom,batt-id-kohm = <75>;
+	qcom,battery-type = "palladium_1500mah";
 
 	qcom,fcc-temp-lut {
 		qcom,lut-col-legend = <(-20) 0 25 40 65>;
