@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/gpio.h>
 #include <linux/kernel.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
@@ -18,6 +17,7 @@
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/irqchip.h>
 #include <linux/irqchip/qpnp-int.h>
+#include <linux/irqchip/msm-gpio-irq.h>
 #include <asm/mach/map.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <mach/mpm.h>
