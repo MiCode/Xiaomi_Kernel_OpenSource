@@ -31,6 +31,7 @@
 #include <linux/msm_iommu_domains.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_tspp2.h>
+#include <linux/clk/msm-clk.h>
 
 #define TSPP2_MODULUS_OP(val, mod)	((val) & ((mod) - 1))
 
@@ -2072,6 +2073,11 @@ int tspp2_device_open(u32 dev_id)
 	rc = regulator_enable(device->gdsc);
 	if (rc)
 		goto err_mutex_unlock;
+
+	/* Reset TSPP2 core */
+	clk_reset(device->tspp2_core_clk, CLK_RESET_ASSERT);
+	udelay(10);
+	clk_reset(device->tspp2_core_clk, CLK_RESET_DEASSERT);
 
 	/* Start HW clocks before accessing registers */
 	rc = tspp2_reg_clock_start(device);
