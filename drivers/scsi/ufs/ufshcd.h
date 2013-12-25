@@ -439,6 +439,8 @@ struct ufs_hba {
 	bool is_irq_enabled;
 
 
+	#define UFSHCD_QUIRK_BROKEN_2_TX_LANES            (1 << 8)
+
 	wait_queue_head_t tm_wq;
 	wait_queue_head_t tm_tag_wq;
 	unsigned long tm_condition;
