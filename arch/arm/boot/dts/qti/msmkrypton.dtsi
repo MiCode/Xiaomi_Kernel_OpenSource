@@ -525,11 +525,10 @@
 
 	qti,usbbam@f9304000 {
 		compatible = "qti,usb-bam-msm";
-		reg = <0xf9304000 0x8814>,
-		      <0xf9a44000 0x11000>;
-		reg-names = "ssusb", "hsusb";
-		interrupts = <0 132 0>,<0 135 0>;
-		interrupt-names = "ssusb", "hsusb";
+		reg = <0xf9304000 0x8814>;
+		reg-names = "ssusb";
+		interrupts = <0 132 0>;
+		interrupt-names = "ssusb";
 		qti,usb-bam-num-pipes = <16>;
 		qti,ignore-core-reset-ack;
 		qti,disable-clk-gating;

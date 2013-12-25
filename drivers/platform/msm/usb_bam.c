@@ -105,8 +105,31 @@ static char *bam_enable_strings[MAX_BAMS] = {
 	[HSIC_BAM]  = "hsic",
 };
 
-static enum usb_bam ipa_rm_bams[] = {HSUSB_BAM, HSIC_BAM, SSUSB_BAM};
+struct ipa_rm_bam {
+	enum usb_bam bam;
+	char *str;
+	bool initialized;
+};
 
+static struct ipa_rm_bam ipa_rm_bams[] = {
+	{
+		.bam = SSUSB_BAM,
+		.initialized = false
+	},
+	{
+		.bam = HSUSB_BAM,
+		.initialized = false
+	},
+	{
+		.bam = HSIC_BAM,
+		.initialized = false
+	}
+};
+
+/*
+ * HSUSB_BAM & SSUSB_BAM shouldn't be used simultaneously
+ * since both share the same prod & cons rm resourses
+ */
 static enum ipa_client_type ipa_rm_resource_prod[MAX_BAMS] = {
 	[HSUSB_BAM] = IPA_RM_RESOURCE_USB_PROD,
 	[HSIC_BAM]  = IPA_RM_RESOURCE_HSIC_PROD,
@@ -1286,15 +1309,20 @@ static void usb_bam_ipa_create_resources(void)
 	int ret, i;
 
 	for (i = 0; i < ARRAY_SIZE(ipa_rm_bams); i++) {
+		/* Only initialized bams should be regitsterd with RM */
+		if (!ipa_rm_bams[i].initialized)
+			continue;
+
 		/* Create USB/HSIC_PROD entity */
-		cur_bam = ipa_rm_bams[i];
+		cur_bam = ipa_rm_bams[i].bam;
 
 		memset(&usb_prod_create_params, 0,
 					sizeof(usb_prod_create_params));
 		usb_prod_create_params.name = ipa_rm_resource_prod[cur_bam];
 		usb_prod_create_params.reg_params.notify_cb =
 							usb_prod_notify_cb;
-		usb_prod_create_params.reg_params.user_data = &ipa_rm_bams[i];
+		usb_prod_create_params.reg_params.user_data =
+							&ipa_rm_bams[i].bam;
 		ret = ipa_rm_create_resource(&usb_prod_create_params);
 		if (ret) {
 			pr_err("%s: Failed to create USB_PROD resource\n",
@@ -2758,9 +2786,9 @@ err:
 	return NULL;
 }
 
-static int usb_bam_init(int bam_idx)
+static int usb_bam_init(int bam_type)
 {
-	int ret, irq;
+	int ret, irq, i;
 	void *usb_virt_addr;
 	struct msm_usb_bam_platform_data *pdata =
 		ctx.usb_bam_pdev->dev.platform_data;
@@ -2768,16 +2796,16 @@ static int usb_bam_init(int bam_idx)
 	struct sps_bam_props *props = &ctx.usb_bam_sps.usb_props;
 
 	pr_debug("%s: usb_bam_init - %s\n", __func__,
-		bam_enable_strings[bam_idx]);
+		bam_enable_strings[bam_type]);
 	res = platform_get_resource_byname(ctx.usb_bam_pdev, IORESOURCE_MEM,
-		bam_enable_strings[bam_idx]);
+		bam_enable_strings[bam_type]);
 	if (!res) {
 		dev_dbg(&ctx.usb_bam_pdev->dev, "bam not initialized\n");
 		return 0;
 	}
 
 	irq = platform_get_irq_byname(ctx.usb_bam_pdev,
-		bam_enable_strings[bam_idx]);
+		bam_enable_strings[bam_type]);
 	if (irq < 0) {
 		dev_err(&ctx.usb_bam_pdev->dev, "Unable to get IRQ resource\n");
 		return irq;
@@ -2791,9 +2819,9 @@ static int usb_bam_init(int bam_idx)
 	}
 
 	/* Check if USB3 pipe memory needs to be enabled */
-	if (bam_idx == SSUSB_BAM && bam_use_private_mem(bam_idx)) {
+	if (bam_type == SSUSB_BAM && bam_use_private_mem(bam_type)) {
 		pr_debug("%s: Enabling USB private memory for: %s\n", __func__,
-			bam_enable_strings[bam_idx]);
+			bam_enable_strings[bam_type]);
 
 		ram_resource = platform_get_resource_byname(ctx.usb_bam_pdev,
 			IORESOURCE_MEM, "qscratch_ram1_reg");
@@ -2821,25 +2849,32 @@ static int usb_bam_init(int bam_idx)
 	props->event_threshold = pdata->override_threshold;
 	props->num_pipes = pdata->usb_bam_num_pipes;
 	props->callback = usb_bam_sps_events;
-	props->user = bam_enable_strings[bam_idx];
+	props->user = bam_enable_strings[bam_type];
 	props->options = SPS_BAM_OPT_IRQ_WAKEUP;
 
 	/*
 	* HSUSB and HSIC Cores don't support RESET ACK signal to BAMs
 	* Hence, let BAM to ignore acknowledge from USB while resetting PIPE
 	*/
-	if (pdata->ignore_core_reset_ack && bam_idx != SSUSB_BAM)
+	if (pdata->ignore_core_reset_ack && bam_type != SSUSB_BAM)
 		props->options = SPS_BAM_NO_EXT_P_RST;
 
 	if (pdata->disable_clk_gating)
 		props->options |= SPS_BAM_NO_LOCAL_CLK_GATING;
 
-	ret = sps_register_bam_device(props, &(ctx.h_bam[bam_idx]));
+	ret = sps_register_bam_device(props, &(ctx.h_bam[bam_type]));
 	if (ret < 0) {
 		pr_err("%s: register bam error %d\n", __func__, ret);
 		ret = -EFAULT;
 		goto free_qscratch_reg;
 	}
+
+	/* Mark this bam as initilaized */
+	for (i = 0; i < ARRAY_SIZE(ipa_rm_bams); i++)
+		if (ipa_rm_bams[i].bam == bam_type) {
+			ipa_rm_bams[i].initialized = true;
+			break;
+		}
 
 	return 0;
 
