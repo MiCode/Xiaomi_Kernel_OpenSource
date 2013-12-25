@@ -6,7 +6,8 @@ are compatable with MIPI display serial interface specification.
 Required properties:
 - compatible:				Must be "qcom,mdss-dsi-ctrl"
 - cell-index:				Specifies the controller used among the two controllers.
-- reg:					offset and length of the register set for the device.
+- reg: 					Offset and length of the register regions(s) for the device.
+- reg-names: 				A list of strings that map in order to the list of regs.
 - vdd-supply:				Phandle for vdd regulator device node.
 - vddio-supply:				Phandle for vdd-io regulator device node.
 - vdda-supply:				Phandle for vreg regulator device node.
@@ -52,7 +53,9 @@ Example:
 		compatible = "qcom,mdss-dsi-ctrl";
 		label = "MDSS DSI CTRL->0";
 		cell-index = <0>;
-		reg = <0xfd922800 0x600>;
+		reg = 	<0xfd922800 0x600>,
+			<0xfd828000 0x108>;
+		reg-names = "dsi_phys", "mmss_misc_phys";
 		vdd-supply = <&pm8226_l15>;
 		vddio-supply = <&pm8226_l8>;
 		vdda-supply = <&pm8226_l4>;

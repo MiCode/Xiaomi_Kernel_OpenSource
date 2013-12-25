@@ -72,18 +72,19 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 			goto error;
 		}
 
-		ret = mdss_dsi_panel_reset(pdata, 1);
-		if (ret) {
-			pr_err("%s: Panel reset failed. rc=%d\n",
-					__func__, ret);
-			if (msm_dss_enable_vreg(
-			ctrl_pdata->power_data.vreg_config,
-			ctrl_pdata->power_data.num_vreg, 0))
-				pr_err("Disable vregs failed\n");
-			goto error;
+		if (!pdata->panel_info.mipi.lp11_init) {
+			ret = mdss_dsi_panel_reset(pdata, 1);
+			if (ret) {
+				pr_err("%s: Panel reset failed. rc=%d\n",
+						__func__, ret);
+				if (msm_dss_enable_vreg(
+				ctrl_pdata->power_data.vreg_config,
+				ctrl_pdata->power_data.num_vreg, 0))
+					pr_err("Disable vregs failed\n");
+				goto error;
+			}
 		}
 	} else {
-
 		ret = mdss_dsi_panel_reset(pdata, 0);
 		if (ret) {
 			pr_err("%s: Panel reset failed. rc=%d\n",
@@ -346,71 +347,21 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 	return ret;
 }
 
-int mdss_dsi_on(struct mdss_panel_data *pdata)
+static void __mdss_dsi_ctrl_setup(struct mdss_panel_data *pdata)
 {
-	int ret = 0;
-	u32 clk_rate;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_panel_info *pinfo;
 	struct mipi_panel_info *mipi;
+	u32 clk_rate;
 	u32 hbp, hfp, vbp, vfp, hspw, vspw, width, height;
 	u32 ystride, bpp, data, dst_bpp;
 	u32 dummy_xres, dummy_yres;
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	u32 hsync_period, vsync_period;
-
-	if (pdata == NULL) {
-		pr_err("%s: Invalid input data\n", __func__);
-		return -EINVAL;
-	}
-
-	if (pdata->panel_info.panel_power_on) {
-		pr_warn("%s:%d Panel already on.\n", __func__, __LINE__);
-		return 0;
-	}
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	pr_debug("%s+: ctrl=%p ndx=%d\n",
-				__func__, ctrl_pdata, ctrl_pdata->ndx);
-
 	pinfo = &pdata->panel_info;
-
-	ret = msm_dss_enable_vreg(ctrl_pdata->power_data.vreg_config,
-				ctrl_pdata->power_data.num_vreg, 1);
-	if (ret) {
-		pr_err("%s:Failed to enable vregs. rc=%d\n", __func__, ret);
-		return ret;
-	}
-
-	if (!pdata->panel_info.mipi.lp11_init) {
-		ret = mdss_dsi_panel_reset(pdata, 1);
-		if (ret) {
-			pr_err("%s: Panel reset failed. rc=%d\n",
-					__func__, ret);
-			return ret;
-		}
-	}
-	ret = mdss_dsi_bus_clk_start(ctrl_pdata);
-	if (ret) {
-		pr_err("%s: failed to enable bus clocks. rc=%d\n", __func__,
-			ret);
-		ret = mdss_dsi_panel_power_on(pdata, 0);
-		if (ret) {
-			pr_err("%s: Panel reset failed. rc=%d\n",
-					__func__, ret);
-			return ret;
-		}
-		pdata->panel_info.panel_power_on = 0;
-		return ret;
-	}
-
-	pdata->panel_info.panel_power_on = 1;
-	mdss_dsi_phy_sw_reset((ctrl_pdata->ctrl_base));
-	mdss_dsi_phy_init(pdata);
-	mdss_dsi_bus_clk_stop(ctrl_pdata);
-
-	mdss_dsi_clk_ctrl(ctrl_pdata, 1);
 
 	clk_rate = pdata->panel_info.clk_rate;
 	clk_rate = min(clk_rate, pdata->panel_info.clk_max);
@@ -441,7 +392,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	vsync_period = vspw + vbp + height + dummy_yres + vfp;
 	hsync_period = hspw + hbp + width + dummy_xres + hfp;
 
-	mipi  = &pdata->panel_info.mipi;
+	mipi = &pdata->panel_info.mipi;
 	if (pdata->panel_info.type == MIPI_VIDEO_PANEL) {
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x24,
 			((hspw + hbp + width + dummy_xres) << 16 |
@@ -479,24 +430,195 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x64, data);
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x5C, data);
 	}
+}
 
-	mdss_dsi_sw_reset(pdata);
-	mdss_dsi_host_init(mipi, pdata);
+static inline bool __mdss_dsi_ulps_feature_enabled(
+	struct mdss_panel_data *pdata)
+{
+	return pdata->panel_info.ulps_feature_enabled;
+}
 
-	/*
-	 * Issue hardware reset line after enabling the DSI clocks and data
-	 * data lanes for LP11 init
-	 */
-	if (pdata->panel_info.mipi.lp11_init) {
-		ret = mdss_dsi_panel_reset(pdata, 1);
+static int mdss_dsi_ulps_config_sub(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
+	int enable)
+{
+	int ret = 0;
+	struct mdss_panel_data *pdata = NULL;
+	u32 lane_status = 0;
+
+	if (!ctrl_pdata) {
+		pr_err("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	pdata = &ctrl_pdata->panel_data;
+
+	if (!__mdss_dsi_ulps_feature_enabled(pdata)) {
+		pr_debug("%s: ULPS feature not supported. enable=%d\n",
+			__func__, enable);
+		return -ENOTSUPP;
+	}
+
+	if (enable && !ctrl_pdata->ulps) {
+		/* No need to configure ULPS mode when entering suspend state */
+		if (!pdata->panel_info.panel_power_on) {
+			pr_err("%s: panel off. returning\n", __func__);
+			goto error;
+		}
+
+		if (__mdss_dsi_clk_enabled(ctrl_pdata)) {
+			pr_err("%s: cannot enter ulps mode if dsi clocks are on\n",
+				__func__);
+			ret = -EPERM;
+			goto error;
+		}
+
+		mdss_dsi_clk_ctrl(ctrl_pdata, 1);
+		/*
+		 * ULPS Entry Request.
+		 * Wait for a short duration to ensure that the lanes
+		 * enter ULP state.
+		 */
+		MIPI_OUTP(ctrl_pdata->ctrl_base + 0x0AC, 0x01F);
+		usleep(100);
+
+		/* Enable MMSS DSI Clamps */
+		MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14, 0x3FF);
+		MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14, 0x83FF);
+
+		wmb();
+
+		MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x108, 0x1);
+		/* disable DSI controller */
+		mdss_dsi_controller_cfg(0, pdata);
+
+		lane_status = MIPI_INP(ctrl_pdata->ctrl_base + 0xA8),
+		mdss_dsi_clk_ctrl(ctrl_pdata, 0);
+		ctrl_pdata->ulps = true;
+	} else if (ctrl_pdata->ulps) {
+		mdss_dsi_phy_init(pdata);
+
+		__mdss_dsi_ctrl_setup(pdata);
+		mdss_dsi_sw_reset(pdata);
+		mdss_dsi_host_init(pdata);
+		mdss_dsi_op_mode_config(pdata->panel_info.mipi.mode,
+			pdata);
+
+		/* Disable MMSS DSI Clamps */
+		MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14, 0x0);
+
+		/*
+		 * ULPS Exit Request
+		 * Hardware requirement is to wait for at least 1ms
+		 */
+		MIPI_OUTP(ctrl_pdata->ctrl_base + 0x0AC, 0x1F00);
+		usleep(1000);
+		MIPI_OUTP(ctrl_pdata->ctrl_base + 0x0AC, 0x0);
+
+		/*
+		 * Wait for a short duration before enabling
+		 * data transmission
+		 */
+		usleep(100);
+
+		lane_status = MIPI_INP(ctrl_pdata->ctrl_base + 0xA8),
+		ctrl_pdata->ulps = false;
+	}
+
+	pr_debug("%s: DSI lane status = 0x%08x. Ulps %s\n", __func__,
+		lane_status, enable ? "enabled" : "disabled");
+
+error:
+	return ret;
+}
+
+static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
+	int enable)
+{
+	int rc;
+	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
+
+	if (ctrl->flags & DSI_FLAG_CLOCK_MASTER)
+		sctrl = mdss_dsi_ctrl_slave(ctrl);
+
+	if (sctrl) {
+		pr_debug("%s: configuring ulps (%s) for slave ctrl\n",
+			__func__, (enable ? "on" : "off"));
+		rc = mdss_dsi_ulps_config_sub(sctrl, enable);
+		if (rc)
+			return rc;
+	}
+
+	pr_debug("%s: configuring ulps (%s) for master ctrl\n",
+		__func__, (enable ? "on" : "off"));
+	return mdss_dsi_ulps_config_sub(ctrl, enable);
+}
+
+int mdss_dsi_on(struct mdss_panel_data *pdata)
+{
+	int ret = 0;
+	struct mdss_panel_info *pinfo;
+	struct mipi_panel_info *mipi;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	if (pdata->panel_info.panel_power_on) {
+		pr_warn("%s:%d Panel already on.\n", __func__, __LINE__);
+		return 0;
+	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+	pr_debug("%s+: ctrl=%p ndx=%d\n",
+				__func__, ctrl_pdata, ctrl_pdata->ndx);
+
+	pinfo = &pdata->panel_info;
+	mipi = &pdata->panel_info.mipi;
+
+	ret = mdss_dsi_panel_power_on(pdata, 1);
+	if (ret) {
+		pr_err("%s:Panel power on failed. rc=%d\n", __func__, ret);
+		return ret;
+	}
+
+	ret = mdss_dsi_bus_clk_start(ctrl_pdata);
+	if (ret) {
+		pr_err("%s: failed to enable bus clocks. rc=%d\n", __func__,
+			ret);
+		ret = mdss_dsi_panel_power_on(pdata, 0);
 		if (ret) {
 			pr_err("%s: Panel reset failed. rc=%d\n",
 					__func__, ret);
 			return ret;
 		}
+		pdata->panel_info.panel_power_on = 0;
+		return ret;
 	}
-	if (pdata->panel_info.mipi.init_delay)
-		usleep(pdata->panel_info.mipi.init_delay);
+	pdata->panel_info.panel_power_on = 1;
+
+	mdss_dsi_phy_sw_reset((ctrl_pdata->ctrl_base));
+	mdss_dsi_phy_init(pdata);
+	mdss_dsi_bus_clk_stop(ctrl_pdata);
+
+	mdss_dsi_clk_ctrl(ctrl_pdata, 1);
+
+	__mdss_dsi_ctrl_setup(pdata);
+	mdss_dsi_sw_reset(pdata);
+	mdss_dsi_host_init(pdata);
+
+	/*
+	 * Issue hardware reset line after enabling the DSI clocks and data
+	 * data lanes for LP11 init
+	 */
+	if (mipi->lp11_init)
+		mdss_dsi_panel_reset(pdata, 1);
+
+	if (mipi->init_delay)
+		usleep(mipi->init_delay);
 
 	if (mipi->force_clk_lane_hs) {
 		u32 tmp;
@@ -570,6 +692,17 @@ static int mdss_dsi_blank(struct mdss_panel_data *pdata)
 				panel_data);
 	mipi = &pdata->panel_info.mipi;
 
+	if (__mdss_dsi_ulps_feature_enabled(pdata) &&
+		(ctrl_pdata->ulps)) {
+		/* Disable ULPS mode before blanking the panel */
+		ret = mdss_dsi_ulps_config(ctrl_pdata, 0);
+		if (ret) {
+			pr_err("%s: failed to exit ULPS mode. rc=%d\n",
+				__func__, ret);
+			return ret;
+		}
+	}
+
 	mdss_dsi_op_mode_config(DSI_CMD_MODE, pdata);
 
 	if (pdata->panel_info.type == MIPI_CMD_PANEL) {
@@ -616,7 +749,7 @@ int mdss_dsi_cont_splash_on(struct mdss_panel_data *pdata)
 		"Incorrect Ctrl state=0x%x\n", ctrl_pdata->ctrl_state);
 
 	mdss_dsi_sw_reset(pdata);
-	mdss_dsi_host_init(mipi, pdata);
+	mdss_dsi_host_init(pdata);
 	mdss_dsi_op_mode_config(mipi->mode, pdata);
 
 	if (ctrl_pdata->on_cmds.link_state == DSI_LP_MODE) {
@@ -822,6 +955,9 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		break;
 	case MDSS_EVENT_ENABLE_PARTIAL_UPDATE:
 		rc = mdss_dsi_ctl_partial_update(pdata);
+		break;
+	case MDSS_EVENT_DSI_ULPS_CTRL:
+		rc = mdss_dsi_ulps_config(ctrl_pdata, (int)arg);
 		break;
 	default:
 		pr_debug("%s: unhandled event=%d\n", __func__, event);
@@ -1053,6 +1189,7 @@ static int __devexit mdss_dsi_ctrl_remove(struct platform_device *pdev)
 		pr_err("%s: failed to de-init vregs\n", __func__);
 	mdss_dsi_put_dt_vreg_data(&pdev->dev, &ctrl_pdata->power_data);
 	mfd = platform_get_drvdata(pdev);
+	msm_dss_iounmap(&ctrl_pdata->mmss_misc_io);
 	return 0;
 }
 
@@ -1110,6 +1247,13 @@ int mdss_dsi_retrieve_ctrl_resources(struct platform_device *pdev, int mode,
 
 	pr_info("%s: dsi base=%x size=%x\n",
 		__func__, (int)ctrl->ctrl_base, ctrl->reg_size);
+
+	rc = msm_dss_ioremap_byname(pdev, &ctrl->mmss_misc_io,
+		"mmss_misc_phys");
+	if (rc) {
+		pr_err("%s:%d mmss_misc IO remap failed\n", __func__, __LINE__);
+		return rc;
+	}
 
 	return 0;
 }
