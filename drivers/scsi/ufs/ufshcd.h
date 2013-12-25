@@ -491,6 +491,8 @@ struct ufs_hba {
 
 	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
 
+	#define UFSHCD_QUIRK_BROKEN_2_TX_LANES            (1 << 8)
+
 	wait_queue_head_t tm_wq;
 	wait_queue_head_t tm_tag_wq;
 	unsigned long tm_condition;

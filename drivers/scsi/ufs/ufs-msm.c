@@ -32,7 +32,7 @@
 #define FAST 2
 
 #define UFS_MSM_LIMIT_NUM_LANES_RX	2
-#define UFS_MSM_LIMIT_NUM_LANES_TX	1
+#define UFS_MSM_LIMIT_NUM_LANES_TX	2
 #define UFS_MSM_LIMIT_HSGEAR_RX	UFS_HS_G2
 #define UFS_MSM_LIMIT_HSGEAR_TX	UFS_HS_G2
 #define UFS_MSM_LIMIT_PWMGEAR_RX	UFS_PWM_G4
@@ -1530,8 +1530,12 @@ static int msm_ufs_pwr_change_notify(struct ufs_hba *hba,
 
 	switch (status) {
 	case PRE_CHANGE:
+		if (hba->quirks & UFSHCD_QUIRK_BROKEN_2_TX_LANES)
+			ufs_msm_cap.tx_lanes = 1;
+		else
+			ufs_msm_cap.tx_lanes = UFS_MSM_LIMIT_NUM_LANES_TX;
+
 		ufs_msm_cap.rx_lanes = UFS_MSM_LIMIT_NUM_LANES_RX;
-		ufs_msm_cap.tx_lanes = UFS_MSM_LIMIT_NUM_LANES_TX;
 		ufs_msm_cap.hs_rx_gear = UFS_MSM_LIMIT_HSGEAR_RX;
 		ufs_msm_cap.hs_tx_gear = UFS_MSM_LIMIT_HSGEAR_TX;
 		ufs_msm_cap.pwm_rx_gear = UFS_MSM_LIMIT_PWMGEAR_RX;
