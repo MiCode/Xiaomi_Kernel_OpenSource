@@ -589,6 +589,9 @@ static int connect_pipe_ipa(u8 idx,
 		sps_connection->options = 0;
 	}
 
+	pipe_connect->data_mem_buf = sps_out_params.data;
+	pipe_connect->desc_mem_buf = sps_out_params.desc;
+
 	sps_connection->data = sps_out_params.data;
 	sps_connection->desc = sps_out_params.desc;
 	sps_connection->event_thresh = 16;
