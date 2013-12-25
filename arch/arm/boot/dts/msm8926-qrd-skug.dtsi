@@ -1,0 +1,101 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/include/ "msm8926.dtsi"
+/include/ "msm8226-qrd.dtsi"
+/include/ "msm8926-camera-sensor-qrd.dtsi"
+
+&qrd_batterydata {
+	qcom,rpull-up-kohm = <100>;
+	qcom,vref-batt-therm = <1800000>;
+
+	/include/ "batterydata-qrd-4v2-2000mah.dtsi"
+};
+
+&pm8226_bms {
+	qcom,battery-data = <&qrd_batterydata>;
+};
+
+&pm8226_chg {
+	qcom,battery-data = <&qrd_batterydata>;
+};
+
+&soc {
+	i2c@f9927000 { /* BLSP1 QUP5 */
+		focaltech@38 {
+			compatible = "focaltech,5x06";
+			reg = <0x38>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <17 0x2>;
+			vdd-supply = <&pm8226_l19>;
+			vcc_i2c-supply = <&pm8226_lvs1>;
+			focaltech,name = "ft5336";
+			focaltech,family-id = <0x14>;
+			focaltech,reset-gpio = <&msmgpio 16 0x00>;
+			focaltech,irq-gpio = <&msmgpio 17 0x00>;
+			focaltech,display-coords = <0 0 720 1280>;
+			focaltech,panel-coords = <0 0 720 1400>;
+			focaltech,button-map= <139 102 158>;
+			focaltech,no-force-update;
+			focaltech,i2c-pull-up;
+			focaltech,group-id = <1>;
+			focaltech,hard-reset-delay-ms = <20>;
+			focaltech,soft-reset-delay-ms = <200>;
+			focaltech,num-max-touches = <5>;
+			focaltech,fw-name = "ft_8926_qrd_fw.bin";
+			focaltech,fw-delay-aa-ms = <30>;
+			focaltech,fw-delay-55-ms = <30>;
+			focaltech,fw-upgrade-id1 = <0x11>;
+			focaltech,fw-upgrade-id2 = <0x11>;
+			focaltech,fw-delay-readid-ms = <10>;
+			focaltech,fw-delay-era-flsh-ms = <2000>;
+			focaltech,fw-auto-cal;
+			focaltech,ignore-id-check;
+		};
+	};
+
+	gen-vkeys {
+		compatible = "qcom,gen-vkeys";
+		label = "ft5x06_ts";
+		qcom,disp-maxx = <720>;
+		qcom,disp-maxy = <1280>;
+		qcom,panel-maxx = <720>;
+		qcom,panel-maxy = <1404>;
+		qcom,key-codes = <139 172 158>;
+		qcom,y-offset = <0>;
+	};
+
+	gpio-leds {
+		compatible = "gpio-leds";
+		keypad-backlight {
+			gpios = <&msmgpio 34 0>;
+			label = "button-backlight";
+			linux,default-trigger = "none";
+		};
+	};
+};
+
+&spmi_bus {
+	qcom,pm8226@0 {
+		qcom,leds@a100 {
+			status = "disable";
+			};
+		};
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_ssd2080m_720_vid>;
+};
+
+&dsi_ssd2080m_720_vid {
+	qcom,cont-splash-enabled;
+};
