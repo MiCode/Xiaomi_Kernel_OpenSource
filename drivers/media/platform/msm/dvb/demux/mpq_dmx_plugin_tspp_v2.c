@@ -5758,6 +5758,8 @@ static int mpq_dmx_tspp2_write(struct dmx_demux *demux,
 	/* Process only whole TS packets */
 	data_length = (count / dvbdemux->ts_packet_size) *
 		dvbdemux->ts_packet_size;
+	if (!data_length)
+		return 0;
 
 	if ((!demux->frontend) || (demux->frontend->source != DMX_MEMORY_FE))
 		return -EINVAL;
@@ -5882,6 +5884,9 @@ static int mpq_dmx_tspp2_write(struct dmx_demux *demux,
 		pipe_info->bam_read_offset = 0;
 		pipe_info->eos_pending = 0;
 		pipe_info->session_id++;
+		pipe_info->handler_count = 0;
+		pipe_info->hw_notif_count = 0;
+		pipe_info->hw_missed_notif = 0;
 
 		if (!source_info->enabled) {
 			MPQ_DVB_DBG_PRINT(
