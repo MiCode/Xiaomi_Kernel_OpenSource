@@ -2780,7 +2780,7 @@ static __ref int mdss_mdp_overlay_splash_parse_dt(struct msm_fb_data_type *mfd)
 	int len = 0, rc = 0;
 	u32 offsets[2];
 
-	of_find_property(pdev->dev.of_node, "qti,memblock-reserve", &len);
+	of_find_property(pdev->dev.of_node, "qcom,memblock-reserve", &len);
 
 	if (len < 1) {
 		pr_debug("mem reservation for splash screen fb not present\n");
@@ -2791,7 +2791,7 @@ static __ref int mdss_mdp_overlay_splash_parse_dt(struct msm_fb_data_type *mfd)
 	len = len/sizeof(u32);
 
 	rc = of_property_read_u32_array(pdev->dev.of_node,
-			"qti,memblock-reserve", offsets, len);
+			"qcom,memblock-reserve", offsets, len);
 	if (rc) {
 		pr_debug("Error reading mem reserve settings for fb\n");
 		goto error;
