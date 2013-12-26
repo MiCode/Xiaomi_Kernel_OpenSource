@@ -1307,7 +1307,7 @@ static int msm_smem_probe(struct platform_device *pdev)
 	smem_areas = smem_areas_tmp;
 	smem_ramdump_segments = ramdump_segments_tmp;
 
-	key = "qti,mpu-enabled";
+	key = "qcom,mpu-enabled";
 	security_enabled = of_property_read_bool(pdev->dev.of_node, key);
 	if (security_enabled) {
 		SMEM_INFO("smem security enabled\n");
@@ -1331,7 +1331,7 @@ free_smem_areas:
 }
 
 static struct of_device_id msm_smem_match_table[] = {
-	{ .compatible = "qti,smem" },
+	{ .compatible = "qcom,smem" },
 	{},
 };
 

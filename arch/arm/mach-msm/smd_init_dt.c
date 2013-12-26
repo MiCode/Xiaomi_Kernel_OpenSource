@@ -87,19 +87,19 @@ static int msm_smsm_probe(struct platform_device *pdev)
 	}
 	SMSM_DBG("%s: %s = %p", __func__, key, irq_out_base);
 
-	key = "qti,smsm-edge";
+	key = "qcom,smsm-edge";
 	ret = of_property_read_u32(node, key, &edge);
 	if (ret)
 		goto missing_key;
 	SMSM_DBG("%s: %s = %d", __func__, key, edge);
 
-	key = "qti,smsm-irq-offset";
+	key = "qcom,smsm-irq-offset";
 	ret = of_property_read_u32(node, key, &irq_offset);
 	if (ret)
 		goto missing_key;
 	SMSM_DBG("%s: %s = %x", __func__, key, irq_offset);
 
-	key = "qti,smsm-irq-bitmask";
+	key = "qcom,smsm-irq-bitmask";
 	ret = of_property_read_u32(node, key, &irq_bitmask);
 	if (ret)
 		goto missing_key;
@@ -201,19 +201,19 @@ static int msm_smd_probe(struct platform_device *pdev)
 	}
 	SMD_DBG("%s: %s = %p", __func__, key, irq_out_base);
 
-	key = "qti,smd-edge";
+	key = "qcom,smd-edge";
 	ret = of_property_read_u32(node, key, &edge);
 	if (ret)
 		goto missing_key;
 	SMD_DBG("%s: %s = %d", __func__, key, edge);
 
-	key = "qti,smd-irq-offset";
+	key = "qcom,smd-irq-offset";
 	ret = of_property_read_u32(node, key, &irq_offset);
 	if (ret)
 		goto missing_key;
 	SMD_DBG("%s: %s = %x", __func__, key, irq_offset);
 
-	key = "qti,smd-irq-bitmask";
+	key = "qcom,smd-irq-bitmask";
 	ret = of_property_read_u32(node, key, &irq_bitmask);
 	if (ret)
 		goto missing_key;
@@ -234,7 +234,7 @@ static int msm_smd_probe(struct platform_device *pdev)
 	 */
 	if (!subsys_name) {
 		pr_warn("Missing required property - label.  Using legacy parsing\n");
-		key = "qti,pil-string";
+		key = "qcom,pil-string";
 		subsys_name = of_get_property(node, key, NULL);
 		SMD_DBG("%s: %s = %s", __func__, key, subsys_name);
 		if (subsys_name)
@@ -242,12 +242,12 @@ static int msm_smd_probe(struct platform_device *pdev)
 		else
 			skip_pil = true;
 	} else {
-		key = "qti,not-loadable";
+		key = "qcom,not-loadable";
 		skip_pil = of_property_read_bool(node, key);
 		SMD_DBG("%s: %s = %d\n", __func__, key, skip_pil);
 	}
 
-	key = "qti,irq-no-suspend";
+	key = "qcom,irq-no-suspend";
 	ret = of_property_read_bool(node, key);
 	if (ret)
 		irq_flags |= IRQF_NO_SUSPEND;
@@ -293,7 +293,7 @@ missing_key:
 }
 
 static struct of_device_id msm_smd_match_table[] = {
-	{ .compatible = "qti,smd" },
+	{ .compatible = "qcom,smd" },
 	{},
 };
 
@@ -307,7 +307,7 @@ static struct platform_driver msm_smd_driver = {
 };
 
 static struct of_device_id msm_smsm_match_table[] = {
-	{ .compatible = "qti,smsm" },
+	{ .compatible = "qcom,smsm" },
 	{},
 };
 
