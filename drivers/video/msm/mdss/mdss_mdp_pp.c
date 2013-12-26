@@ -4569,13 +4569,19 @@ static int is_valid_calib_vig_addr(char __iomem *ptr)
 		pipe = mdss_res->vig_pipes + counter;
 		base = pipe->base;
 
-		if (ptr == base + MDSS_MDP_REG_SSPP_SRC_FORMAT) {
+		if (ptr == base + MDSS_MDP_REG_VIG_OP_MODE) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		} else if (ptr == base + MDSS_MDP_REG_SSPP_SRC_FORMAT) {
 			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
 			break;
 		} else if (ptr == base + MDSS_MDP_REG_SSPP_SRC_CONSTANT_COLOR) {
 			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
 			break;
 		} else if (ptr == base + MDSS_MDP_REG_SSPP_SRC_UNPACK_PATTERN) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		} else if (ptr == base + MDSS_MDP_REG_SSPP_SRC_OP_MODE) {
 			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
 			break;
 		} else if ((ptr == base + MDSS_MDP_REG_VIG_QSEED2_SHARP)) {
@@ -4625,6 +4631,9 @@ static int is_valid_calib_rgb_addr(char __iomem *ptr)
 		} else if (ptr == base + MDSS_MDP_REG_SSPP_SRC_UNPACK_PATTERN) {
 			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
 			break;
+		} else if (ptr == base + MDSS_MDP_REG_SSPP_SRC_OP_MODE) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
 		/* IGC range */
 		} else if ((ptr >= base + MDSS_MDP_REG_IGC_RGB_BASE) &&
 				(ptr <= base + MDSS_MDP_REG_IGC_RGB_BASE +
@@ -4654,6 +4663,9 @@ static int is_valid_calib_dma_addr(char __iomem *ptr)
 			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
 			break;
 		} else if (ptr == base + MDSS_MDP_REG_SSPP_SRC_UNPACK_PATTERN) {
+			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+			break;
+		} else if (ptr == base + MDSS_MDP_REG_SSPP_SRC_OP_MODE) {
 			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
 			break;
 		/* IGC range */
