@@ -1486,7 +1486,7 @@ static struct hc_driver msm_hsic_driver = {
 	 * generic hardware linkage
 	 */
 	.irq			= msm_hsic_irq,
-	.flags			= HCD_USB2 | HCD_MEMORY | HCD_OLD_ENUM,
+	.flags			= HCD_USB2 | HCD_MEMORY | HCD_RT_OLD_ENUM,
 
 	.reset			= ehci_hsic_reset,
 	.start			= ehci_run,
