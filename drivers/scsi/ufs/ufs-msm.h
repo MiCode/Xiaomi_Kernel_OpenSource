@@ -100,8 +100,6 @@ struct msm_ufs_host {
 	bool is_lane_clks_enabled;
 };
 
-static unsigned long
-msm_ufs_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs);
 static int msm_ufs_update_bus_bw_vote(struct msm_ufs_host *host);
 
 /* MSM UFS PHY control registers */
