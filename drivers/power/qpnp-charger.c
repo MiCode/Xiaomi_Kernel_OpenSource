@@ -1988,6 +1988,24 @@ get_prop_charge_type(struct qpnp_chg_chip *chip)
 	return POWER_SUPPLY_CHARGE_TYPE_NONE;
 }
 
+#define DEFAULT_CAPACITY	50
+static int
+get_batt_capacity(struct qpnp_chg_chip *chip)
+{
+	union power_supply_propval ret = {0,};
+
+	if (chip->fake_battery_soc >= 0)
+		return chip->fake_battery_soc;
+	if (chip->use_default_batt_values || !get_prop_batt_present(chip))
+		return DEFAULT_CAPACITY;
+	if (chip->bms_psy) {
+		chip->bms_psy->get_property(chip->bms_psy,
+				POWER_SUPPLY_PROP_CAPACITY, &ret);
+		return ret.intval;
+	}
+	return DEFAULT_CAPACITY;
+}
+
 static int
 get_prop_batt_status(struct qpnp_chg_chip *chip)
 {
@@ -2015,6 +2033,13 @@ get_prop_batt_status(struct qpnp_chg_chip *chip)
 		return POWER_SUPPLY_STATUS_CHARGING;
 	if (chgr_sts & FAST_CHG_ON_IRQ && bat_if_sts & BAT_FET_ON_IRQ)
 		return POWER_SUPPLY_STATUS_CHARGING;
+
+	/* report full if state of charge is 100 and a charger is connected */
+	if ((qpnp_chg_is_usb_chg_plugged_in(chip) ||
+		qpnp_chg_is_dc_chg_plugged_in(chip))
+			&& get_batt_capacity(chip) == 100) {
+		return POWER_SUPPLY_STATUS_FULL;
+	}
 
 	return POWER_SUPPLY_STATUS_DISCHARGING;
 }
@@ -2067,7 +2092,6 @@ get_prop_charge_full(struct qpnp_chg_chip *chip)
 	return 0;
 }
 
-#define DEFAULT_CAPACITY	50
 static int
 get_prop_capacity(struct qpnp_chg_chip *chip)
 {
