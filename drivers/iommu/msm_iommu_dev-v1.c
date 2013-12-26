@@ -33,11 +33,11 @@
 static struct of_device_id msm_iommu_ctx_match_table[];
 
 #ifdef CONFIG_IOMMU_LPAE
-static const char *BFB_REG_NODE_NAME = "qti,iommu-lpae-bfb-regs";
-static const char *BFB_DATA_NODE_NAME = "qti,iommu-lpae-bfb-data";
+static const char *BFB_REG_NODE_NAME = "qcom,iommu-lpae-bfb-regs";
+static const char *BFB_DATA_NODE_NAME = "qcom,iommu-lpae-bfb-data";
 #else
-static const char *BFB_REG_NODE_NAME = "qti,iommu-bfb-regs";
-static const char *BFB_DATA_NODE_NAME = "qti,iommu-bfb-data";
+static const char *BFB_REG_NODE_NAME = "qcom,iommu-bfb-regs";
+static const char *BFB_DATA_NODE_NAME = "qcom,iommu-bfb-data";
 #endif
 
 static int msm_iommu_parse_bfb_settings(struct platform_device *pdev,
@@ -141,14 +141,14 @@ static inline void get_secure_ctx(struct device_node *node,
 static void get_secure_id(struct device_node *node,
 			  struct msm_iommu_drvdata *drvdata)
 {
-	of_property_read_u32(node, "qti,iommu-secure-id", &drvdata->sec_id);
+	of_property_read_u32(node, "qcom,iommu-secure-id", &drvdata->sec_id);
 }
 
 static void get_secure_ctx(struct device_node *node,
 			   struct msm_iommu_ctx_drvdata *ctx_drvdata)
 {
 	ctx_drvdata->secure_context =
-			of_property_read_bool(node, "qti,secure-context");
+			of_property_read_bool(node, "qcom,secure-context");
 }
 #endif
 
@@ -203,7 +203,7 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 	}
 
 	drvdata->halt_enabled = of_property_read_bool(pdev->dev.of_node,
-						      "qti,iommu-enable-halt");
+						      "qcom,iommu-enable-halt");
 
 	ret = of_platform_populate(pdev->dev.of_node,
 				   msm_iommu_ctx_match_table,
@@ -232,24 +232,24 @@ static int msm_iommu_pmon_parse_dt(struct platform_device *pdev,
 		pmon_info->iommu.evt_irq = platform_get_irq(pdev, 0);
 
 		ret = of_property_read_u32(pdev->dev.of_node,
-					   "qti,iommu-pmu-ngroups",
+					   "qcom,iommu-pmu-ngroups",
 					   &pmon_info->num_groups);
 		if (ret) {
-			pr_err("Error reading qti,iommu-pmu-ngroups\n");
+			pr_err("Error reading qcom,iommu-pmu-ngroups\n");
 			goto fail;
 		}
 		ret = of_property_read_u32(pdev->dev.of_node,
-					   "qti,iommu-pmu-ncounters",
+					   "qcom,iommu-pmu-ncounters",
 					   &pmon_info->num_counters);
 		if (ret) {
-			pr_err("Error reading qti,iommu-pmu-ncounters\n");
+			pr_err("Error reading qcom,iommu-pmu-ncounters\n");
 			goto fail;
 		}
 
 		if (!of_get_property(pdev->dev.of_node,
-				     "qti,iommu-pmu-event-classes",
+				     "qcom,iommu-pmu-event-classes",
 				     &cls_prop_size)) {
-			pr_err("Error reading qti,iommu-pmu-event-classes\n");
+			pr_err("Error reading qcom,iommu-pmu-event-classes\n");
 			return -EINVAL;
 		}
 
@@ -264,11 +264,11 @@ static int msm_iommu_pmon_parse_dt(struct platform_device *pdev,
 		pmon_info->nevent_cls_supported = cls_prop_size / sizeof(u32);
 
 		ret = of_property_read_u32_array(pdev->dev.of_node,
-					"qti,iommu-pmu-event-classes",
+					"qcom,iommu-pmu-event-classes",
 					pmon_info->event_cls_supported,
 					pmon_info->nevent_cls_supported);
 		if (ret) {
-			pr_err("Error reading qti,iommu-pmu-event-classes\n");
+			pr_err("Error reading qcom,iommu-pmu-event-classes\n");
 			return ret;
 		}
 	} else {
@@ -309,7 +309,7 @@ static int msm_iommu_probe(struct platform_device *pdev)
 			return PTR_ERR(drvdata->gdsc);
 
 		drvdata->alt_gdsc = devm_regulator_get(&pdev->dev,
-							"qti,alt-vdd");
+							"qcom,alt-vdd");
 		if (IS_ERR(drvdata->alt_gdsc))
 			drvdata->alt_gdsc = NULL;
 	} else {
@@ -325,7 +325,7 @@ static int msm_iommu_probe(struct platform_device *pdev)
 		return PTR_ERR(drvdata->clk);
 
 	needs_alt_core_clk = of_property_read_bool(pdev->dev.of_node,
-						   "qti,needs-alt-core-clk");
+						   "qcom,needs-alt-core-clk");
 	if (needs_alt_core_clk) {
 		drvdata->aclk = devm_clk_get(&pdev->dev, "alt_core_clk");
 		if (IS_ERR(drvdata->aclk))
@@ -333,7 +333,7 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	}
 
 	needs_alt_iface_clk = of_property_read_bool(pdev->dev.of_node,
-						   "qti,needs-alt-iface-clk");
+						   "qcom,needs-alt-iface-clk");
 	if (needs_alt_iface_clk) {
 		drvdata->aiclk = devm_clk_get(&pdev->dev, "alt_iface_clk");
 		if (IS_ERR(drvdata->aclk))
@@ -341,7 +341,7 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	}
 
 	drvdata->no_atos_support = of_property_read_bool(pdev->dev.of_node,
-						"qti,no-atos-support");
+						"qcom,no-atos-support");
 
 	if (clk_get_rate(drvdata->clk) == 0) {
 		ret = clk_round_rate(drvdata->clk, 1000);
@@ -495,7 +495,7 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 					&ctx_drvdata->name))
 		ctx_drvdata->name = dev_name(&pdev->dev);
 
-	if (!of_get_property(pdev->dev.of_node, "qti,iommu-ctx-sids", &nsid)) {
+	if (!of_get_property(pdev->dev.of_node, "qcom,iommu-ctx-sids", &nsid)) {
 		ret = -EINVAL;
 		goto out;
 	}
@@ -504,7 +504,7 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 		goto out;
 	}
 
-	if (of_property_read_u32_array(pdev->dev.of_node, "qti,iommu-ctx-sids",
+	if (of_property_read_u32_array(pdev->dev.of_node, "qcom,iommu-ctx-sids",
 				       ctx_drvdata->sids,
 				       nsid / sizeof(*ctx_drvdata->sids))) {
 		ret = -EINVAL;
@@ -551,8 +551,8 @@ static int msm_iommu_ctx_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id msm_iommu_match_table[] = {
-	{ .compatible = "qti,msm-smmu-v1", },
-	{ .compatible = "qti,msm-smmu-v2", },
+	{ .compatible = "qcom,msm-smmu-v1", },
+	{ .compatible = "qcom,msm-smmu-v2", },
 	{}
 };
 
@@ -566,8 +566,8 @@ static struct platform_driver msm_iommu_driver = {
 };
 
 static struct of_device_id msm_iommu_ctx_match_table[] = {
-	{ .compatible = "qti,msm-smmu-v1-ctx", },
-	{ .compatible = "qti,msm-smmu-v2-ctx", },
+	{ .compatible = "qcom,msm-smmu-v1-ctx", },
+	{ .compatible = "qcom,msm-smmu-v2-ctx", },
 	{}
 };
 
