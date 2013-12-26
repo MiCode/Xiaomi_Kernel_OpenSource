@@ -14,8 +14,8 @@
 /include/ "msm8926-qrd-skug.dtsi"
 
 / {
-	model = "Qualcomm MSM 8926 QRD SKUG";
+	model = "Qti MSM 8926 QRD SKUG PVT";
 	compatible = "qcom,msm8926-qrd", "qcom,msm8926", "qcom,qrd";
-	qcom,board-id = <11 5>;
+	qcom,board-id = <0x2000b 5>;
 };
 
