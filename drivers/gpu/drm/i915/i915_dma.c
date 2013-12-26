@@ -1788,6 +1788,15 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 		goto out_mtrrfree;
 	}
 
+	/* Create separate work queue for HPD works */
+	dev_priv->hpdwq = alloc_ordered_workqueue("i915_hpd", 0);
+	if (dev_priv->hpdwq == NULL) {
+		DRM_ERROR("Failed to create hpd workqueue.\n");
+		ret = -ENOMEM;
+		destroy_workqueue(dev_priv->wq);
+		goto out_mtrrfree;
+	}
+
 	intel_irq_init(dev);
 	intel_uncore_sanitize(dev);
 
@@ -1876,6 +1885,7 @@ out_gem_unload:
 	intel_teardown_mchbar(dev);
 	pm_qos_remove_request(&dev_priv->pm_qos);
 	destroy_workqueue(dev_priv->wq);
+	destroy_workqueue(dev_priv->hpdwq);
 out_mtrrfree:
 	arch_phys_wc_del(dev_priv->gtt.mtrr);
 	io_mapping_free(dev_priv->gtt.mappable);
@@ -1958,6 +1968,7 @@ int i915_driver_unload(struct drm_device *dev)
 	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
 		/* Flush any outstanding unpin_work. */
 		flush_workqueue(dev_priv->wq);
+		flush_workqueue(dev_priv->hpdwq);
 
 		mutex_lock(&dev->struct_mutex);
 		i915_gem_cleanup_ringbuffer(dev);
@@ -1975,6 +1986,7 @@ int i915_driver_unload(struct drm_device *dev)
 	intel_teardown_mchbar(dev);
 
 	destroy_workqueue(dev_priv->wq);
+	destroy_workqueue(dev_priv->hpdwq);
 	pm_qos_remove_request(&dev_priv->pm_qos);
 
 	i915_global_gtt_cleanup(dev);

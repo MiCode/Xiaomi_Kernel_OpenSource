@@ -1850,7 +1850,7 @@ static inline void intel_hpd_irq_handler(struct drm_device *dev,
 	 * queue for otherwise the flush_work in the pageflip code will
 	 * deadlock.
 	 */
-	schedule_work(&dev_priv->hotplug_work);
+	queue_work(dev_priv->hpdwq, &dev_priv->hotplug_work);
 }
 
 static void gmbus_irq_handler(struct drm_device *dev)
