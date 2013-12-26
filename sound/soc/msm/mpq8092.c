@@ -1250,20 +1250,20 @@ static int mpq8092_asoc_machine_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, card);
 	snd_soc_card_set_drvdata(card, pdata);
 
-	ret = snd_soc_of_parse_card_name(card, "qti,model");
+	ret = snd_soc_of_parse_card_name(card, "qcom,model");
 	if (ret)
 		goto err;
 
 	ret = snd_soc_of_parse_audio_routing(card,
-			"qti,audio-routing");
+			"qcom,audio-routing");
 	if (ret)
 		goto err;
 
 	ret = of_property_read_u32(pdev->dev.of_node,
-			"qti,tabla-mclk-clk-freq", &pdata->mclk_freq);
+			"qcom,tabla-mclk-clk-freq", &pdata->mclk_freq);
 	if (ret) {
 		dev_err(&pdev->dev, "Looking up %s property in node %s failed",
-				"qti,tabla-mclk-clk-freq",
+				"qcom,tabla-mclk-clk-freq",
 				pdev->dev.of_node->full_name);
 		goto err;
 	}
@@ -1276,11 +1276,11 @@ static int mpq8092_asoc_machine_probe(struct platform_device *pdev)
 	}
 
 	pdata->mclk_gpio = of_get_named_gpio(pdev->dev.of_node,
-				"qti,cdc-mclk-gpios", 0);
+				"qcom,cdc-mclk-gpios", 0);
 	if (pdata->mclk_gpio < 0) {
 		dev_err(&pdev->dev,
 			"Looking up %s property in node %s failed %d\n",
-			"qti, cdc-mclk-gpios", pdev->dev.of_node->full_name,
+			"qcom,cdc-mclk-gpios", pdev->dev.of_node->full_name,
 			pdata->mclk_gpio);
 		ret = -ENODEV;
 		goto err;
@@ -1293,7 +1293,7 @@ static int mpq8092_asoc_machine_probe(struct platform_device *pdev)
 	memcpy(mpq8092_dai_links, mpq8092_common_dai_links,
 			sizeof(mpq8092_common_dai_links));
 	num_links = ARRAY_SIZE(mpq8092_common_dai_links);
-	if (of_property_read_bool(pdev->dev.of_node, "qti,hdmi-audio-rx")) {
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,hdmi-audio-rx")) {
 		memcpy(mpq8092_dai_links + ARRAY_SIZE(mpq8092_common_dai_links),
 			mpq8092_hdmi_dai_link, sizeof(mpq8092_hdmi_dai_link));
 		num_links += ARRAY_SIZE(mpq8092_hdmi_dai_link);
@@ -1337,7 +1337,7 @@ static int mpq8092_asoc_machine_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id mpq8092_asoc_machine_of_match[]  = {
-	{ .compatible = "qti,mpq8092-audio-tabla", },
+	{ .compatible = "qcom,mpq8092-audio-tabla", },
 	{},
 };
 

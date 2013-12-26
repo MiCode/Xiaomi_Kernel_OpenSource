@@ -4,24 +4,24 @@ Qualcomm audio devices for ALSA sound SoC
 
 Required properties:
 
- - compatible : "qti,msm-pcm-dsp"
+ - compatible : "qcom,msm-pcm-dsp"
 
- - qti,msm-pcm-dsp-id : device node id
+ - qcom,msm-pcm-dsp-id : device node id
 
 * msm-pcm-low-latency
 
 Required properties:
 
- - compatible : "qti,msm-pcm-dsp"
+ - compatible : "qcom,msm-pcm-dsp"
 
- - qti,msm-pcm-dsp-id : device node id
+ - qcom,msm-pcm-dsp-id : device node id
 
    Optional properties
 
-      - qti,msm-pcm-low-latency : Flag indicating whether
+      - qcom,msm-pcm-low-latency : Flag indicating whether
         the device node is of type low latency.
 
-      - qti,latency-level : Flag indicating whether the device node
+      - qcom,latency-level : Flag indicating whether the device node
                             is of type regular low latency or ultra
                             low latency.
                             regular : regular low latency stream
@@ -133,7 +133,7 @@ Required properties:
 
 Required properties:
 
- - compatible : "qti,msm-pcm-loopback"
+ - compatible : "qcom,msm-pcm-loopback"
 
 * msm-dai-q6
 
@@ -260,15 +260,15 @@ Required properties:
 
 Example:
 
-	qti,msm-pcm {
-		compatible = "qti,msm-pcm-dsp";
-		qti,msm-pcm-dsp-id = <0>;
+	qcom,msm-pcm {
+		compatible = "qcom,msm-pcm-dsp";
+		qcom,msm-pcm-dsp-id = <0>;
 	};
 
-	qti,msm-pcm-low-latency {
-		compatible = "qti,msm-pcm-dsp";
-		qti,msm-pcm-dsp-id = <1>;
-		qti,msm-pcm-low-latency;
+	qcom,msm-pcm-low-latency {
+		compatible = "qcom,msm-pcm-dsp";
+		qcom,msm-pcm-dsp-id = <1>;
+		qcom,msm-pcm-low-latency;
 	};
 
         qcom,msm-pcm-routing {
@@ -815,23 +815,23 @@ sound {
 * MPQ8092 ASoC Machine driver
 
 Required properties:
-- compatible : "qti,mpq8092-audio-tabla"
-- qti,model : The user-visible name of this sound card.
-- qti,audio-routing : A list of the connections between audio components.
+- compatible : "qcom,mpq8092-audio-tabla"
+- qcom,model : The user-visible name of this sound card.
+- qcom,audio-routing : A list of the connections between audio components.
   Each entry is a pair of strings, the first being the connection's sink,
   the second being the connection's source.
-- qti,cdc-mclk-gpios : GPIO on which mclk signal is comming.
-- qti,tabla-mclk-clk-freq : Tabla mclk Freq in Hz.
+- qcom,cdc-mclk-gpios : GPIO on which mclk signal is comming.
+- qcom,tabla-mclk-clk-freq : Tabla mclk Freq in Hz.
 Optional properties:
-- qti,hdmi-audio-rx: specifies if HDMI audio support is enabled or not.
+- qcom,hdmi-audio-rx: specifies if HDMI audio support is enabled or not.
 
 Example:
 
 	sound {
-		compatible = "qti,mpq8092-audio-tabla";
-		qti,model = "mpq8092-tabla-snd-card";
+		compatible = "qcom,mpq8092-audio-tabla";
+		qcom,model = "mpq8092-tabla-snd-card";
 
-		qti,audio-routing =
+		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"LDO_H", "MCLK",
 			"AMIC1", "MIC BIAS1 External",
@@ -844,7 +844,7 @@ Example:
 			"MIC BIAS1 External", "ANCLeft Headset Mic",
                         "HEADPHONE", "LDO_H";
 
-		qti,cdc-mclk-gpios = <&msmgpio 42 0>;
-		qti,tabla-mclk-clk-freq = <12288000>;
-		qti,hdmi-audio-rx;
+		qcom,cdc-mclk-gpios = <&msmgpio 42 0>;
+		qcom,tabla-mclk-clk-freq = <12288000>;
+		qcom,hdmi-audio-rx;
 	};
