@@ -883,13 +883,13 @@ static int __init msm_pil_init(void)
 {
 	struct device_node *np;
 
-	np = of_find_compatible_node(NULL, NULL, "qti,msm-imem-pil");
+	np = of_find_compatible_node(NULL, NULL, "qcom,msm-imem-pil");
 	if (np) {
 		pil_info_base = of_iomap(np, 0);
 		if (!pil_info_base)
 			pr_warn("pil: could not map imem region\n");
 	} else {
-		pr_warn("pil: failed to find qti,msm-imem-pil node\n");
+		pr_warn("pil: failed to find qcom,msm-imem-pil node\n");
 	}
 
 	ion = msm_ion_client_create(UINT_MAX, "pil");

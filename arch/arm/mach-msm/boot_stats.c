@@ -41,9 +41,9 @@ static int mpm_parse_dt(void)
 	struct device_node *np;
 	u32 freq;
 
-	np = of_find_compatible_node(NULL, NULL, "qti,msm-imem-boot_stats");
+	np = of_find_compatible_node(NULL, NULL, "qcom,msm-imem-boot_stats");
 	if (!np) {
-		pr_err("can't find qti,msm-imem node\n");
+		pr_err("can't find qcom,msm-imem node\n");
 		return -ENODEV;
 	}
 	boot_stats = of_iomap(np, 0);

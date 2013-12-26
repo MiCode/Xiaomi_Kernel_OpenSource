@@ -61,8 +61,8 @@ int pmic_reset_irq;
 static void __iomem *msm_tmr0_base;
 
 #ifdef CONFIG_MSM_DLOAD_MODE
-#define DL_MODE_PROP "qti,msm-imem-emergency_download_mode"
-#define EDL_MODE_PROP "qti,msm-imem-download_mode"
+#define DL_MODE_PROP "qcom,msm-imem-emergency_download_mode"
+#define EDL_MODE_PROP "qcom,msm-imem-download_mode"
 static int in_panic;
 static void *dload_mode_addr;
 static bool dload_mode_enabled;
@@ -297,7 +297,7 @@ static int __init msm_restart_init(void)
 	set_dload_mode(download_mode);
 #endif
 	msm_tmr0_base = msm_timer_get_timer0_base();
-	np = of_find_compatible_node(NULL, NULL, "qti,msm-imem-restart_reason");
+	np = of_find_compatible_node(NULL, NULL, "qcom,msm-imem-restart_reason");
 	if (!np) {
 		pr_err("unable to find DT imem restart reason node\n");
 		ret = -ENODEV;

@@ -48,7 +48,7 @@ static int __init init_memory_dump(void)
 	struct device_node *np;
 	static void __iomem *imem_base;
 
-	np = of_find_compatible_node(NULL, NULL, "qti,msm-imem-mem_dump_table");
+	np = of_find_compatible_node(NULL, NULL, "qcom,msm-imem-mem_dump_table");
 	if (!np) {
 		pr_err("unable to find DT imem dump table node\n");
 		return -ENODEV;
