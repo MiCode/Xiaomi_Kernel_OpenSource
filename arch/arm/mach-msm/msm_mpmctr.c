@@ -54,7 +54,7 @@ static inline void msm_mpmctr_show_count(void)
 }
 
 static struct of_device_id msm_mpmctr_of_match[] = {
-	{.compatible = "qti,mpm2-sleep-counter"},
+	{.compatible = "qcom,mpm2-sleep-counter"},
 	{}
 };
 
