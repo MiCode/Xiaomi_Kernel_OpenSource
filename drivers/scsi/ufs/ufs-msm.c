@@ -1212,6 +1212,108 @@ static int msm_ufs_hce_enable_notify(struct ufs_hba *hba, bool status)
 	return err;
 }
 
+/**
+ * Returns non-zero for success (which rate of core_clk) and 0
+ * in case of a failure
+ */
+static unsigned long
+msm_ufs_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs, u32 rate)
+{
+	struct ufs_clk_info *clki;
+	u32 core_clk_period_in_ns;
+	u32 tx_clk_cycles_per_us = 0;
+	unsigned long core_clk_rate = 0;
+
+	static u32 pwm_fr_table[][2] = {
+		{UFS_PWM_G1, 0x1},
+		{UFS_PWM_G2, 0x1},
+		{UFS_PWM_G3, 0x1},
+		{UFS_PWM_G4, 0x1},
+	};
+
+	static u32 hs_fr_table_rA[][2] = {
+		{UFS_HS_G1, 0x1F},
+		{UFS_HS_G2, 0x3e},
+	};
+
+	static u32 hs_fr_table_rB[][2] = {
+		{UFS_HS_G1, 0x24},
+		{UFS_HS_G2, 0x49},
+	};
+
+	if (gear == 0) {
+		dev_err(hba->dev, "%s: invalid gear = %d\n", __func__, gear);
+		goto out_error;
+	}
+
+	list_for_each_entry(clki, &hba->clk_list_head, list) {
+		if (!strcmp(clki->name, "core_clk"))
+			core_clk_rate = clk_get_rate(clki->clk);
+	}
+
+	/* If frequency is smaller than 1MHz, set to 1MHz */
+	if (core_clk_rate < DEFAULT_CLK_RATE_HZ)
+		core_clk_rate = DEFAULT_CLK_RATE_HZ;
+
+	core_clk_period_in_ns = NSEC_PER_SEC / core_clk_rate;
+	core_clk_period_in_ns <<= OFFSET_CLK_NS_REG;
+	core_clk_period_in_ns &= MASK_CLK_NS_REG;
+
+	switch (hs) {
+	case FASTAUTO_MODE:
+	case FAST_MODE:
+		if (rate == PA_HS_MODE_A) {
+			if (gear >= ARRAY_SIZE(hs_fr_table_rA)) {
+				dev_err(hba->dev,
+					"%s: index %d exceeds table size %zu\n",
+					__func__, gear,
+					ARRAY_SIZE(hs_fr_table_rA));
+				goto out_error;
+			}
+			tx_clk_cycles_per_us = hs_fr_table_rA[gear-1][1];
+		} else if (rate == PA_HS_MODE_B) {
+			if (gear >= ARRAY_SIZE(hs_fr_table_rB)) {
+				dev_err(hba->dev,
+					"%s: index %d exceeds table size %zu\n",
+					__func__, gear,
+					ARRAY_SIZE(hs_fr_table_rB));
+				goto out_error;
+			}
+			tx_clk_cycles_per_us = hs_fr_table_rB[gear-1][1];
+		} else {
+			dev_err(hba->dev, "%s: invalid rate = %d\n",
+				__func__, rate);
+			goto out_error;
+		}
+		break;
+	case SLOWAUTO_MODE:
+	case SLOW_MODE:
+		if (gear >= ARRAY_SIZE(pwm_fr_table)) {
+			dev_err(hba->dev,
+					"%s: index %d exceeds table size %zu\n",
+					__func__, gear,
+					ARRAY_SIZE(pwm_fr_table));
+			goto out_error;
+		}
+		tx_clk_cycles_per_us = pwm_fr_table[gear-1][1];
+		break;
+	case UNCHANGED:
+	default:
+		dev_err(hba->dev, "%s: invalid mode = %d\n", __func__, hs);
+		goto out_error;
+	}
+
+	/* this register 2 fields shall be written at once */
+	ufshcd_writel(hba, core_clk_period_in_ns | tx_clk_cycles_per_us,
+						REG_UFS_TX_SYMBOL_CLK_NS_US);
+	goto out;
+
+out_error:
+	core_clk_rate = 0;
+out:
+	return core_clk_rate;
+}
+
 static int msm_ufs_link_startup_notify(struct ufs_hba *hba, bool status)
 {
 	unsigned long core_clk_rate = 0;
@@ -1219,7 +1321,13 @@ static int msm_ufs_link_startup_notify(struct ufs_hba *hba, bool status)
 
 	switch (status) {
 	case PRE_CHANGE:
-		core_clk_rate = msm_ufs_cfg_timers(hba, 0, 0);
+		core_clk_rate = msm_ufs_cfg_timers(hba, UFS_PWM_G1,
+						   SLOWAUTO_MODE, 0);
+		if (!core_clk_rate) {
+			dev_err(hba->dev, "%s: msm_ufs_cfg_timers() failed\n",
+				__func__);
+			return -EINVAL;
+		}
 		core_clk_cycles_per_100ms =
 			(core_clk_rate / MSEC_PER_SEC) * 100;
 		ufshcd_writel(hba, core_clk_cycles_per_100ms,
@@ -1452,65 +1560,6 @@ static int get_pwr_dev_param(struct ufs_msm_dev_params *msm_param,
 	return 0;
 }
 
-static unsigned long
-msm_ufs_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs)
-{
-	struct ufs_clk_info *clki;
-	u32 core_clk_period_in_ns;
-	u32 tx_clk_cycles_per_us = 0;
-	unsigned long core_clk_rate = 0;
-
-	static u32 pwm_fr_table[][2] = {
-		{UFS_PWM_G1, 0x1},
-		{UFS_PWM_G2, 0x1},
-		{UFS_PWM_G3, 0x1},
-		{UFS_PWM_G4, 0x1},
-	};
-
-	static u32 hs_fr_table_rA[][2] = {
-		{UFS_HS_G1, 0x1F},
-		{UFS_HS_G2, 0x3e},
-	};
-
-	if (gear == 0 && hs == 0) {
-		gear = UFS_PWM_G1;
-		hs = SLOWAUTO_MODE;
-	}
-
-	list_for_each_entry(clki, &hba->clk_list_head, list) {
-		if (!strcmp(clki->name, "core_clk"))
-			core_clk_rate = clk_get_rate(clki->clk);
-	}
-
-	/* If frequency is smaller than 1MHz, set to 1MHz */
-	if (core_clk_rate < DEFAULT_CLK_RATE_HZ)
-		core_clk_rate = DEFAULT_CLK_RATE_HZ;
-
-	core_clk_period_in_ns = NSEC_PER_SEC / core_clk_rate;
-	core_clk_period_in_ns <<= OFFSET_CLK_NS_REG;
-	core_clk_period_in_ns &= MASK_CLK_NS_REG;
-
-	switch (hs) {
-	case FASTAUTO_MODE:
-	case FAST_MODE:
-		tx_clk_cycles_per_us = hs_fr_table_rA[gear-1][1];
-		break;
-	case SLOWAUTO_MODE:
-	case SLOW_MODE:
-		tx_clk_cycles_per_us = pwm_fr_table[gear-1][1];
-		break;
-	case UNCHANGED:
-	default:
-		pr_err("%s: power parameter not valid\n", __func__);
-		return core_clk_rate;
-	}
-
-	/* this register 2 fields shall be written at once */
-	ufshcd_writel(hba, core_clk_period_in_ns | tx_clk_cycles_per_us,
-						REG_UFS_TX_SYMBOL_CLK_NS_US);
-	return core_clk_rate;
-}
-
 static int msm_ufs_pwr_change_notify(struct ufs_hba *hba,
 				     bool status,
 				     struct ufs_pa_layer_attr *dev_max_params,
@@ -1558,8 +1607,18 @@ static int msm_ufs_pwr_change_notify(struct ufs_hba *hba,
 
 		break;
 	case POST_CHANGE:
-		msm_ufs_cfg_timers(hba, dev_req_params->gear_rx,
-							dev_req_params->pwr_rx);
+		if (!msm_ufs_cfg_timers(hba, dev_req_params->gear_rx,
+					dev_req_params->pwr_rx,
+					dev_req_params->hs_rate)) {
+			dev_err(hba->dev, "%s: msm_ufs_cfg_timers() failed\n",
+				__func__);
+			/*
+			 * we return error code at the end of the routine,
+			 * but continue to configure UFS_PHY_TX_LANE_ENABLE
+			 * and bus voting as usual
+			 */
+			ret = -EINVAL;
+		}
 
 		val = ~(MAX_U32 << dev_req_params->lane_tx);
 		writel_relaxed(val, phy->mmio + UFS_PHY_TX_LANE_ENABLE);
