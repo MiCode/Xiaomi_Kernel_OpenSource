@@ -103,17 +103,17 @@ static struct gpio_map {
 	const char *name;
 	int index;
 } gpio_map[] = {
-	{"qti,mdm2ap-errfatal-gpio",   MDM2AP_ERRFATAL},
-	{"qti,ap2mdm-errfatal-gpio",   AP2MDM_ERRFATAL},
-	{"qti,mdm2ap-status-gpio",     MDM2AP_STATUS},
-	{"qti,ap2mdm-status-gpio",     AP2MDM_STATUS},
-	{"qti,mdm2ap-pblrdy-gpio",     MDM2AP_PBLRDY},
-	{"qti,ap2mdm-wakeup-gpio",     AP2MDM_WAKEUP},
-	{"qti,ap2mdm-chnlrdy-gpio",     AP2MDM_CHNLRDY},
-	{"qti,mdm2ap-wakeup-gpio",     MDM2AP_WAKEUP},
-	{"qti,ap2mdm-vddmin-gpio",     AP2MDM_VDDMIN},
-	{"qti,mdm2ap-vddmin-gpio",     MDM2AP_VDDMIN},
-	{"qti,ap2mdm-pmic-pwr-en-gpio", AP2MDM_PMIC_PWR_EN},
+	{"qcom,mdm2ap-errfatal-gpio",   MDM2AP_ERRFATAL},
+	{"qcom,ap2mdm-errfatal-gpio",   AP2MDM_ERRFATAL},
+	{"qcom,mdm2ap-status-gpio",     MDM2AP_STATUS},
+	{"qcom,ap2mdm-status-gpio",     AP2MDM_STATUS},
+	{"qcom,mdm2ap-pblrdy-gpio",     MDM2AP_PBLRDY},
+	{"qcom,ap2mdm-wakeup-gpio",     AP2MDM_WAKEUP},
+	{"qcom,ap2mdm-chnlrdy-gpio",    AP2MDM_CHNLRDY},
+	{"qcom,mdm2ap-wakeup-gpio",     MDM2AP_WAKEUP},
+	{"qcom,ap2mdm-vddmin-gpio",     AP2MDM_VDDMIN},
+	{"qcom,mdm2ap-vddmin-gpio",     MDM2AP_VDDMIN},
+	{"qcom,ap2mdm-pmic-pwr-en-gpio", AP2MDM_PMIC_PWR_EN},
 };
 
 /* Required gpios */
@@ -596,7 +596,7 @@ static int mdm_dt_parse_gpios(struct mdm_ctrl *mdm)
 			MDM_GPIO(mdm, gpio_map[i].index) = val;
 	}
 	/* These two are special because they can be inverted. */
-	val = of_get_named_gpio_flags(node, "qti,ap2mdm-soft-reset-gpio",
+	val = of_get_named_gpio_flags(node, "qcom,ap2mdm-soft-reset-gpio",
 						0, &flags);
 	if (val >= 0) {
 		MDM_GPIO(mdm, AP2MDM_SOFT_RESET) = val;
@@ -621,11 +621,11 @@ static int mdm_configure_ipc(struct mdm_ctrl *mdm, struct platform_device *pdev)
 	struct device *dev = mdm->dev;
 	struct device_node *node = pdev->dev.of_node;
 
-	ret = of_property_read_u32(node, "qti,ramdump-timeout-ms",
+	ret = of_property_read_u32(node, "qcom,ramdump-timeout-ms",
 						&mdm->dump_timeout_ms);
 	if (ret)
 		mdm->dump_timeout_ms = DEF_RAMDUMP_TIMEOUT;
-	ret = of_property_read_u32(node, "qti,ramdump-delay-ms",
+	ret = of_property_read_u32(node, "qcom,ramdump-delay-ms",
 						&mdm->ramdump_delay_ms);
 	if (ret)
 		mdm->ramdump_delay_ms = DEF_RAMDUMP_DELAY;
@@ -674,7 +674,7 @@ static int mdm_configure_ipc(struct mdm_ctrl *mdm, struct platform_device *pdev)
 			goto fatal_err;
 		}
 	}
-	ret = of_property_read_u32(node, "qti,sysmon-subsys-id",
+	ret = of_property_read_u32(node, "qcom,sysmon-subsys-id",
 						&mdm->sysmon_subsys_id);
 	if (ret < 0)
 		dev_dbg(dev, "sysmon_subsys_id not set.\n");
@@ -811,7 +811,7 @@ static struct mdm_ops mdm9x25_ops = {
 };
 
 static const struct of_device_id mdm_dt_match[] = {
-	{ .compatible = "qti,ext-mdm9x25",
+	{ .compatible = "qcom,ext-mdm9x25",
 		.data = &mdm9x25_ops, },
 	{},
 };

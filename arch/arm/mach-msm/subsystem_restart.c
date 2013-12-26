@@ -1054,7 +1054,7 @@ static struct subsys_soc_restart_order *ssr_parse_restart_orders(struct
 	struct device_node *ssr_node;
 	uint32_t len;
 
-	if (!of_get_property(dev->of_node, "qti,restart-group", &len))
+	if (!of_get_property(dev->of_node, "qcom,restart-group", &len))
 		return NULL;
 
 	count = len/sizeof(uint32_t);
@@ -1077,7 +1077,7 @@ static struct subsys_soc_restart_order *ssr_parse_restart_orders(struct
 
 	for (i = 0; i < count; i++) {
 		ssr_node = of_parse_phandle(dev->of_node,
-						"qti,restart-group", i);
+						"qcom,restart-group", i);
 		if (!ssr_node)
 			return ERR_PTR(-ENXIO);
 		of_node_put(ssr_node);
@@ -1166,19 +1166,19 @@ static int subsys_parse_devicetree(struct subsys_desc *desc)
 	struct platform_device *pdev = container_of(desc->dev,
 					struct platform_device, dev);
 
-	ret = __get_irq(desc, "qti,gpio-err-fatal", &desc->err_fatal_irq);
+	ret = __get_irq(desc, "qcom,gpio-err-fatal", &desc->err_fatal_irq);
 	if (ret && ret != -ENOENT)
 		return ret;
 
-	ret = __get_irq(desc, "qti,gpio-err-ready", &desc->err_ready_irq);
+	ret = __get_irq(desc, "qcom,gpio-err-ready", &desc->err_ready_irq);
 	if (ret && ret != -ENOENT)
 		return ret;
 
-	ret = __get_irq(desc, "qti,gpio-stop-ack", &desc->stop_ack_irq);
+	ret = __get_irq(desc, "qcom,gpio-stop-ack", &desc->stop_ack_irq);
 	if (ret && ret != -ENOENT)
 		return ret;
 
-	ret = __get_gpio(desc, "qti,gpio-force-stop", &desc->force_stop_gpio);
+	ret = __get_gpio(desc, "qcom,gpio-force-stop", &desc->force_stop_gpio);
 	if (ret && ret != -ENOENT)
 		return ret;
 

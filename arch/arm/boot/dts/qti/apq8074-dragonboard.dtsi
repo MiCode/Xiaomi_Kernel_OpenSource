@@ -223,7 +223,7 @@
 		qcom,cdc-micbias2-headset-only;
 	};
 
-	qti,pronto@fb21b000 {
+	qcom,pronto@fb21b000 {
 		status = "disabled";
 	};
 
