@@ -324,7 +324,7 @@
 };
 
 &usb3 {
-	qti,charging-disabled;
+	qcom,charging-disabled;
 };
 
 &pma8084_gpios {

@@ -106,9 +106,9 @@ int qpnp_misc_irqs_available(struct device *consumer_dev)
 		return -EINVAL;
 	}
 
-	misc_node = of_parse_phandle(consumer_dev->of_node, "qti,misc-ref", 0);
+	misc_node = of_parse_phandle(consumer_dev->of_node, "qcom,misc-ref", 0);
 	if (!misc_node) {
-		pr_debug("Could not find qti,misc-ref property in %s\n",
+		pr_debug("Could not find qcom,misc-ref property in %s\n",
 			consumer_dev->of_node->full_name);
 		return 0;
 	}

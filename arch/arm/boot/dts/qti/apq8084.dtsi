@@ -1831,7 +1831,7 @@
 
 	usb_otg: usb@f9a55000 {
 		status = "disabled";
-		compatible = "qti,hsusb-otg";
+		compatible = "qcom,hsusb-otg";
 
 		reg = <0xf9a55000 0x400>;
 		interrupts = <0 134 0 0 140 0>;
@@ -1839,50 +1839,50 @@
 		HSUSB_VDDCX-supply = <&pma8084_s1>;
 		HSUSB_1p8-supply = <&pma8084_l6>;
 		HSUSB_3p3-supply = <&pma8084_l24>;
-		qti,vdd-voltage-level = <0 900000 1050000>;
+		qcom,vdd-voltage-level = <0 900000 1050000>;
 
-		qti,hsusb-otg-phy-type = <2>;
-		qti,hsusb-otg-mode = <1>;
-		qti,hsusb-otg-otg-control = <3>;
-		qti,hsusb-otg-default-mode = <1>;
-		qti,dp-manual-pullup;
+		qcom,hsusb-otg-phy-type = <2>;
+		qcom,hsusb-otg-mode = <1>;
+		qcom,hsusb-otg-otg-control = <3>;
+		qcom,hsusb-otg-default-mode = <1>;
+		qcom,dp-manual-pullup;
 
-		qti,msm-bus,name = "usb2";
-		qti,msm-bus,num-cases = <2>;
-		qti,msm-bus,num-paths = <1>;
-		qti,msm-bus,vectors-KBps =
+		qcom,msm-bus,name = "usb2";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
 				<87 512 0 0>,
 				<87 512 60000 960000>;
 	};
 
-	qti,usbbam@f9304000 {
-		compatible = "qti,usb-bam-msm";
+	qcom,usbbam@f9304000 {
+		compatible = "qcom,usb-bam-msm";
 		reg = <0xf9304000 0x5000>,
 		      <0xf92f880c 0x4>;
 		reg-names = "ssusb", "qscratch_ram1_reg";
 		interrupts = <0 132 0>;
 		interrupt-names = "ssusb";
-		qti,usb-bam-num-pipes = <16>;
-		qti,usb-bam-fifo-baseaddr = <0xf9200000>;
-		qti,ignore-core-reset-ack;
-		qti,disable-clk-gating;
+		qcom,usb-bam-num-pipes = <16>;
+		qcom,usb-bam-fifo-baseaddr = <0xf9200000>;
+		qcom,ignore-core-reset-ack;
+		qcom,disable-clk-gating;
 
-		qti,pipe0 {
+		qcom,pipe0 {
 			label = "ssusb-qdss-in-0";
-			qti,usb-bam-mem-type = <1>;
-			qti,bam-type = <0>;
-			qti,dir = <1>;
-			qti,pipe-num = <0>;
-			qti,peer-bam = <1>;
-			qti,src-bam-physical-address = <0xfc37C000>;
-			qti,src-bam-pipe-index = <0>;
-			qti,dst-bam-physical-address = <0xf9304000>;
-			qti,dst-bam-pipe-index = <2>;
-			qti,data-fifo-offset = <0xf0000>;
-			qti,data-fifo-size = <0x1800>;
-			qti,descriptor-fifo-offset = <0xf4000>;
-			qti,descriptor-fifo-size = <0x1400>;
-			qti,reset-bam-on-connect;
+			qcom,usb-bam-mem-type = <1>;
+			qcom,bam-type = <0>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <1>;
+			qcom,src-bam-physical-address = <0xfc37C000>;
+			qcom,src-bam-pipe-index = <0>;
+			qcom,dst-bam-physical-address = <0xf9304000>;
+			qcom,dst-bam-pipe-index = <2>;
+			qcom,data-fifo-offset = <0xf0000>;
+			qcom,data-fifo-size = <0x1800>;
+			qcom,descriptor-fifo-offset = <0xf4000>;
+			qcom,descriptor-fifo-size = <0x1400>;
+			qcom,reset-bam-on-connect;
 		};
 	};
 
@@ -1912,7 +1912,7 @@
 	};
 
 	usb3: ssusb@f9200000 {
-		compatible = "qti,dwc-usb3-msm";
+		compatible = "qcom,dwc-usb3-msm";
 		reg = <0xf9200000 0xfc000>,
 			 <0xfd4ab000 0x4>;
 		#address-cells = <1>;
@@ -1928,17 +1928,17 @@
 		interrupt-names = "hs_phy_irq", "pmic_id_irq";
 
 		USB3_GDSC-supply = <&gdsc_usb30>;
-		qti,dwc-usb3-msm-dbm-eps = <4>;
-		qti,dwc-usb3-msm-tx-fifo-size = <29696>;
-		qti,dwc-usb3-msm-qdss-tx-fifo-size = <8192>;
-		qti,otg-capability;
-		qti,misc-ref = <&pma8084_misc>;
-		qti,restore-sec-cfg-for-scm-dev-id = <9>;
+		qcom,dwc-usb3-msm-dbm-eps = <4>;
+		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
+		qcom,dwc-usb3-msm-qdss-tx-fifo-size = <8192>;
+		qcom,otg-capability;
+		qcom,misc-ref = <&pma8084_misc>;
+		qcom,restore-sec-cfg-for-scm-dev-id = <9>;
 
-		qti,msm-bus,name = "usb3";
-		qti,msm-bus,num-cases = <2>;
-		qti,msm-bus,num-paths = <1>;
-		qti,msm-bus,vectors-KBps =
+		qcom,msm-bus,name = "usb3";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
 				<61 512 0 0>,
 				<61 512 240000 960000>;
 
@@ -1953,7 +1953,7 @@
 		};
 
 		usb3_sec: ssusb@f9400000 {
-			compatible = "qti,dwc-usb3-msm";
+			compatible = "qcom,dwc-usb3-msm";
 			reg = <0xf9400000 0xfc000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -1962,8 +1962,8 @@
 			interrupts = <0 261 4>;
 			interrupt-names = "hs_phy_irq";
 			USB3_GDSC-supply = <&gdsc_usb30_sec>;
-			qti,restore-sec-cfg-for-scm-dev-id = <10>;
-			qti,charging-disabled;
+			qcom,restore-sec-cfg-for-scm-dev-id = <10>;
+			qcom,charging-disabled;
 			status = "disabled";
 
 			dwc3@f9400000 {
@@ -1985,47 +1985,47 @@
 	};
 
 	hsphy0: hsphy@f92f8800 {
-		compatible = "qti,usb-hsphy";
+		compatible = "qcom,usb-hsphy";
 		reg = <0xf92f8800 0x3ff>,
 			<0xfd4ab204 0x4>;
-		qti,hsphy-init = <0x00D191A4>;
+		qcom,hsphy-init = <0x00D191A4>;
 		vdd-supply = <&pma8084_s1>;
 		vdda18-supply = <&pma8084_l6>;
 		vdda33-supply = <&pma8084_l24>;
-		qti,vdd-voltage-level = <0 900000 1050000>;
-		qti,ext-vbus-id;
-		qti,vbus-valid-override;
+		qcom,vdd-voltage-level = <0 900000 1050000>;
+		qcom,ext-vbus-id;
+		qcom,vbus-valid-override;
 	};
 
 	ssphy0: ssphy@f92f8800 {
-		compatible = "qti,usb-ssphy";
+		compatible = "qcom,usb-ssphy";
 		reg = <0xf92f8800 0x3ff>;
 		vdd-supply = <&pma8084_s1>;
 		vdda18-supply = <&pma8084_l6>;
-		qti,vdd-voltage-level = <0 900000 1050000>;
-		qti,vbus-valid-override;
+		qcom,vdd-voltage-level = <0 900000 1050000>;
+		qcom,vbus-valid-override;
 	};
 
 	hsphy1: hsphy@f94f8800 {
-		compatible = "qti,usb-hsphy";
+		compatible = "qcom,usb-hsphy";
 		reg = <0xf94f8800 0x3ff>;
-		qti,hsphy-init = <0x00D191A4>;
+		qcom,hsphy-init = <0x00D191A4>;
 		vdd-supply = <&pma8084_s1>;
 		vdda18-supply = <&pma8084_l6>;
 		vdda33-supply = <&pma8084_l24>;
-		qti,vdd-voltage-level = <0 900000 1050000>;
-		qti,ext-vbus-id;
-		qti,primary-phy = <&hsphy0>;
+		qcom,vdd-voltage-level = <0 900000 1050000>;
+		qcom,ext-vbus-id;
+		qcom,primary-phy = <&hsphy0>;
 		status = "disabled";
 	};
 
 	ssphy1: ssphy@f94f8800 {
-		compatible = "qti,usb-ssphy";
+		compatible = "qcom,usb-ssphy";
 		reg = <0xf94f8800 0x3ff>;
 		vdd-supply = <&pma8084_s1>;
 		vdda18-supply = <&pma8084_l6>;
-		qti,vdd-voltage-level = <0 900000 1050000>;
-		qti,primary-phy = <&ssphy0>;
+		qcom,vdd-voltage-level = <0 900000 1050000>;
+		qcom,primary-phy = <&ssphy0>;
 		status = "disabled";
 	};
 
@@ -2057,7 +2057,7 @@
 		hsic,strobe-gpio = <&msmgpio 134 0x00>;
 		hsic,data-gpio = <&msmgpio 135 0x00>;
 		qcom,vdd-voltage-level = <1 4 7>; /* none svs turbo */
-		qti,disable-hw-clk-gating;
+		qcom,disable-hw-clk-gating;
 
 		qcom,msm-bus,name = "hsic";
 		qcom,msm-bus,num-cases = <2>;

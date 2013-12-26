@@ -172,11 +172,11 @@ static int msm_ehci_init_vddcx(struct msm_hcd *mhcd, int init)
 
 	if (mhcd->dev->of_node) {
 		of_get_property(mhcd->dev->of_node,
-				"qti,vdd-voltage-level",
+				"qcom,vdd-voltage-level",
 				&len);
 		if (len == sizeof(tmp)) {
 			of_property_read_u32_array(mhcd->dev->of_node,
-					"qti,vdd-voltage-level",
+					"qcom,vdd-voltage-level",
 					tmp, len/sizeof(*tmp));
 			hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_NONE] = tmp[0];
 			hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_P50] = tmp[1];
@@ -1315,15 +1315,15 @@ struct msm_usb_host_platform_data *ehci_msm2_dt_to_pdata(
 	}
 
 	pdata->use_sec_phy = of_property_read_bool(node,
-					"qti,usb2-enable-hsphy2");
-	of_property_read_u32(node, "qti,usb2-power-budget",
+					"qcom,usb2-enable-hsphy2");
+	of_property_read_u32(node, "qcom,usb2-power-budget",
 					&pdata->power_budget);
 	pdata->no_selective_suspend = of_property_read_bool(node,
-					"qti,no-selective-suspend");
-	pdata->resume_gpio = of_get_named_gpio(node, "qti,resume-gpio", 0);
+					"qcom,no-selective-suspend");
+	pdata->resume_gpio = of_get_named_gpio(node, "qcom,resume-gpio", 0);
 
 	pdata->ext_hub_reset_gpio = of_get_named_gpio(node,
-					"qti,ext-hub-reset-gpio", 0);
+					"qcom,ext-hub-reset-gpio", 0);
 
 	return pdata;
 }
@@ -1750,7 +1750,7 @@ static const struct dev_pm_ops ehci_msm2_dev_pm_ops = {
 #endif
 
 static const struct of_device_id ehci_msm2_dt_match[] = {
-	{ .compatible = "qti,ehci-host",
+	{ .compatible = "qcom,ehci-host",
 	},
 	{}
 };

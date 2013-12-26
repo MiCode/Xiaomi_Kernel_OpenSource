@@ -313,7 +313,7 @@
 	};
 
 	usb_otg: usb@f9a55000 {
-		compatible = "qti,hsusb-otg";
+		compatible = "qcom,hsusb-otg";
 		status = "disabled";
 
 		reg = <0xf9a55000 0x400>;
@@ -322,20 +322,20 @@
 		HSUSB_VDDCX-supply = <&pm8841_s2_corner>;
 		HSUSB_1p8-supply = <&pm8941_l6>;
 		HSUSB_3p3-supply = <&pm8941_l24>;
-		qti,vdd-voltage-level = <1 5 7>;
+		qcom,vdd-voltage-level = <1 5 7>;
 
-		qti,hsusb-otg-phy-type = <2>;
-		qti,hsusb-otg-phy-init-seq = <0x63 0x81 0xffffffff>;
-		qti,hsusb-otg-mode = <1>;
-		qti,hsusb-otg-otg-control = <1>;
-		qti,hsusb-otg-disable-reset;
-		qti,hsusb-otg-mpm-dpsehv-int = <49>;
-		qti,hsusb-otg-mpm-dmsehv-int = <58>;
+		qcom,hsusb-otg-phy-type = <2>;
+		qcom,hsusb-otg-phy-init-seq = <0x63 0x81 0xffffffff>;
+		qcom,hsusb-otg-mode = <1>;
+		qcom,hsusb-otg-otg-control = <1>;
+		qcom,hsusb-otg-disable-reset;
+		qcom,hsusb-otg-mpm-dpsehv-int = <49>;
+		qcom,hsusb-otg-mpm-dmsehv-int = <58>;
 
-		qti,msm-bus,name = "usb2";
-		qti,msm-bus,num-cases = <2>;
-		qti,msm-bus,num-paths = <1>;
-		qti,msm-bus,vectors-KBps =
+		qcom,msm-bus,name = "usb2";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
 				<87 512 0 0>,
 				<87 512 60000 960000>;
 	};
@@ -1631,7 +1631,7 @@
 	};
 
 	usb3: ssusb@f9200000 {
-		compatible = "qti,dwc-usb3-msm";
+		compatible = "qcom,dwc-usb3-msm";
 		reg = <0xf9200000 0xfc000>,
 			  <0xfd4ab000 0x4>;
 		#address-cells = <1>;
@@ -1647,16 +1647,16 @@
 		interrupt-names = "hs_phy_irq", "pmic_id_irq";
 
 		vbus_dwc3-supply = <&pm8941_mvs1>;
-		qti,dwc-usb3-msm-dbm-eps = <4>;
-		qti,misc-ref = <&pm8941_misc>;
+		qcom,dwc-usb3-msm-dbm-eps = <4>;
+		qcom,misc-ref = <&pm8941_misc>;
 		dwc_usb3-adc_tm = <&pm8941_adc_tm>;
-		qti,dwc-usb3-msm-tx-fifo-size = <29696>;
-		qti,dwc-usb3-msm-qdss-tx-fifo-size = <8192>;
+		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
+		qcom,dwc-usb3-msm-qdss-tx-fifo-size = <8192>;
 
-		qti,msm-bus,name = "usb3";
-		qti,msm-bus,num-cases = <2>;
-		qti,msm-bus,num-paths = <1>;
-		qti,msm-bus,vectors-KBps =
+		qcom,msm-bus,name = "usb3";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
 				<61 512 0 0>,
 				<61 512 240000 960000>;
 		dwc3@f9200000 {
@@ -1671,26 +1671,26 @@
 	};
 
 	hsphy: hsphy@f92f8800 {
-		compatible = "qti,usb-hsphy";
+		compatible = "qcom,usb-hsphy";
 		reg = <0xf92f8800 0x3ff>;
-		qti,hsphy-init = <0x00D191A4>;
+		qcom,hsphy-init = <0x00D191A4>;
 		vdd-supply = <&pm8841_s2_corner>;
 		vdda18-supply = <&pm8941_l6>;
 		vdda33-supply = <&pm8941_l24>;
-		qti,vdd-voltage-level = <1 5 7>;
-		qti,ext-vbus-id;
+		qcom,vdd-voltage-level = <1 5 7>;
+		qcom,ext-vbus-id;
 	};
 
 	ssphy: ssphy@f92f8800 {
-		compatible = "qti,usb-ssphy";
+		compatible = "qcom,usb-ssphy";
 		reg = <0xf92f8800 0x3ff>;
 		vdd-supply = <&pm8841_s2_corner>;
 		vdda18-supply = <&pm8941_l6>;
-		qti,vdd-voltage-level = <1 5 7>;
+		qcom,vdd-voltage-level = <1 5 7>;
 	};
 
-	ehci: qti,ehci-host@f9a55000 {
-		compatible = "qti,ehci-host";
+	ehci: qcom,ehci-host@f9a55000 {
+		compatible = "qcom,ehci-host";
 		status = "disabled";
 		reg = <0xf9a55000 0x400>;
 		interrupts = <0 134 0>, <0 140 0>;
@@ -1698,8 +1698,8 @@
 		HSUSB_VDDCX-supply = <&pm8841_s2>;
 		HSUSB_1p8-supply = <&pm8941_l6>;
 		HSUSB_3p3-supply = <&pm8941_l24>;
-		qti,usb2-enable-hsphy2;
-		qti,usb2-power-budget = <500>;
+		qcom,usb2-enable-hsphy2;
+		qcom,usb2-power-budget = <500>;
 	};
 
 	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {
@@ -2229,52 +2229,52 @@
 				<56 512 3936000 393600>;
 	};
 
-	qti,usbbam@f9304000 {
-		compatible = "qti,usb-bam-msm";
+	qcom,usbbam@f9304000 {
+		compatible = "qcom,usb-bam-msm";
 		reg = <0xf9304000 0x5000>,
 		      <0xf9a44000 0x11000>,
 		      <0xf92f880c 0x4>;
 		reg-names = "ssusb", "hsusb", "qscratch_ram1_reg";
 		interrupts = <0 132 0 0 135 0>;
 		interrupt-names = "ssusb", "hsusb";
-		qti,usb-bam-num-pipes = <16>;
-		qti,usb-bam-fifo-baseaddr = <0xf9200000>;
-		qti,ignore-core-reset-ack;
-		qti,disable-clk-gating;
+		qcom,usb-bam-num-pipes = <16>;
+		qcom,usb-bam-fifo-baseaddr = <0xf9200000>;
+		qcom,ignore-core-reset-ack;
+		qcom,disable-clk-gating;
 
-		qti,pipe0 {
+		qcom,pipe0 {
 			label = "ssusb-qdss-in-0";
-			qti,usb-bam-mem-type = <1>;
-			qti,bam-type = <0>;
-			qti,dir = <1>;
-			qti,pipe-num = <0>;
-			qti,peer-bam = <1>;
-			qti,src-bam-physical-address = <0xfc37C000>;
-			qti,src-bam-pipe-index = <0>;
-			qti,dst-bam-physical-address = <0xf9304000>;
-			qti,dst-bam-pipe-index = <2>;
-			qti,data-fifo-offset = <0xf0000>;
-			qti,data-fifo-size = <0x1800>;
-			qti,descriptor-fifo-offset = <0xf4000>;
-			qti,descriptor-fifo-size = <0x1400>;
-			qti,reset-bam-on-connect;
+			qcom,usb-bam-mem-type = <1>;
+			qcom,bam-type = <0>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <1>;
+			qcom,src-bam-physical-address = <0xfc37C000>;
+			qcom,src-bam-pipe-index = <0>;
+			qcom,dst-bam-physical-address = <0xf9304000>;
+			qcom,dst-bam-pipe-index = <2>;
+			qcom,data-fifo-offset = <0xf0000>;
+			qcom,data-fifo-size = <0x1800>;
+			qcom,descriptor-fifo-offset = <0xf4000>;
+			qcom,descriptor-fifo-size = <0x1400>;
+			qcom,reset-bam-on-connect;
 		};
 
-		qti,pipe1 {
+		qcom,pipe1 {
 			label = "hsusb-qdss-in-0";
-			qti,usb-bam-mem-type = <1>;
-			qti,bam-type = <1>;
-			qti,dir = <1>;
-			qti,pipe-num = <0>;
-			qti,peer-bam = <1>;
-			qti,src-bam-physical-address = <0xfc37c000>;
-			qti,src-bam-pipe-index = <0>;
-			qti,dst-bam-physical-address = <0xf9a44000>;
-			qti,dst-bam-pipe-index = <2>;
-			qti,data-fifo-offset = <0xf4000>;
-			qti,data-fifo-size = <0x1000>;
-			qti,descriptor-fifo-offset = <0xf5000>;
-			qti,descriptor-fifo-size = <0x400>;
+			qcom,usb-bam-mem-type = <1>;
+			qcom,bam-type = <1>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <1>;
+			qcom,src-bam-physical-address = <0xfc37c000>;
+			qcom,src-bam-pipe-index = <0>;
+			qcom,dst-bam-physical-address = <0xf9a44000>;
+			qcom,dst-bam-pipe-index = <2>;
+			qcom,data-fifo-offset = <0xf4000>;
+			qcom,data-fifo-size = <0x1000>;
+			qcom,descriptor-fifo-offset = <0xf5000>;
+			qcom,descriptor-fifo-size = <0x400>;
 		};
 	};
 

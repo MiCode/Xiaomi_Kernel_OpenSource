@@ -3,22 +3,22 @@ MSM SoC HSUSB controllers
 OTG:
 
 Required properties :
-- compatible : should be "qti,hsusb-otg"
+- compatible : should be "qcom,hsusb-otg"
 - regs : offset and length of the register set in the memory map
 - interrupts: IRQ line
 - interrupt-names: OTG interrupt name(s) referenced in interrupts above
             HSUSB OTG expects "core_irq" which is IRQ line from CORE and
             optional ones are described in next section.
-- qti,hsusb-otg-phy-type: PHY type can be one of
+- qcom,hsusb-otg-phy-type: PHY type can be one of
             1 - Chipidea 45nm PHY
 	    2 - Synopsis 28nm PHY
-- qti,hsusb-otg-mode: Operational mode. Can be one of
+- qcom,hsusb-otg-mode: Operational mode. Can be one of
             1 - Peripheral only mode
 	    2 - Host only mode
 	    3 - OTG mode
 	    Based on the mode, OTG driver registers platform devices for
 	    gadget and host.
-- qti,hsusb-otg-otg-control: OTG control (VBUS and ID notifications)
+- qcom,hsusb-otg-otg-control: OTG control (VBUS and ID notifications)
   can be one of
             1 - PHY control
 	    2 - PMIC control
@@ -34,115 +34,115 @@ Optional properties :
 - interrupt-names : Optional interrupt resource entries are:
     "async_irq" : Interrupt from HSPHY for asynchronous wakeup events in LPM.
     "pmic_id_irq" : Interrupt from PMIC for external ID pin notification.
-- qti,hsusb-otg-disable-reset: If present then core is RESET only during
+- qcom,hsusb-otg-disable-reset: If present then core is RESET only during
 	    init, otherwise core is RESET for every cable disconnect as well
-- qti,hsusb-otg-pnoc-errata-fix: If present then workaround for PNOC
+- qcom,hsusb-otg-pnoc-errata-fix: If present then workaround for PNOC
 	    performance issue is applied which requires changing the mem-type
 	    attribute via VMIDMT.
-- qti,hsusb-otg-default-mode: The default USB mode after boot-up.
+- qcom,hsusb-otg-default-mode: The default USB mode after boot-up.
   Applicable only when OTG is controlled by user. Can be one of
             0 - None. Low power mode
             1 - Peripheral
 	    2 - Host
-- qti,hsusb-otg-phy-init-seq: PHY configuration sequence. val, reg pairs
+- qcom,hsusb-otg-phy-init-seq: PHY configuration sequence. val, reg pairs
   terminate with -1
-- qti,hsusb-otg-power-budget: VBUS power budget in mA
+- qcom,hsusb-otg-power-budget: VBUS power budget in mA
   0 will be treated as 500mA
-- qti,hsusb-otg-pclk-src-name: The source of pclk
+- qcom,hsusb-otg-pclk-src-name: The source of pclk
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm-bus.txt" for
   below optional properties:
-    - qti,msm-bus,name
-    - qti,msm-bus,num_cases - There are three valid cases for this: NONE, MAX
+    - qcom,msm-bus,name
+    - qcom,msm-bus,num_cases - There are three valid cases for this: NONE, MAX
 		and MIN bandwidth votes. Minimum two cases must be defined for
 		both NONE and MAX votes. If MIN vote is different from NONE VOTE
 		then specify third case for MIN VOTE.
-    - qti,msm-bus,num_paths
-    - qti,msm-bus,vectors
-- qti,hsusb-otg-lpm-on-dev-suspend: If present then USB enter to
+    - qcom,msm-bus,num_paths
+    - qcom,msm-bus,vectors
+- qcom,hsusb-otg-lpm-on-dev-suspend: If present then USB enter to
 	    low power mode upon receiving bus suspend.
-- qti,hsusb-otg-clk-always-on-workaround: If present then USB core clocks
+- qcom,hsusb-otg-clk-always-on-workaround: If present then USB core clocks
 	    remain active upon receiving bus suspend and USB cable is connected.
 	    Used for allowing USB to respond for remote wakup.
-- qti,hsusb-otg-delay-lpm: If present then USB core will wait one second
+- qcom,hsusb-otg-delay-lpm: If present then USB core will wait one second
 	after disconnect before entering low power mode.
-- qti,hsusb-otg-delay-lpm-hndshk-on-disconnect: If present then USB core will
+- qcom,hsusb-otg-delay-lpm-hndshk-on-disconnect: If present then USB core will
 	wait for the handshake with the IPA to complete before entering low
 	power mode.
 - <supply-name>-supply: handle to the regulator device tree node.
          Optional "supply-name" is "vbus_otg" to supply vbus in host mode.
-- qti,vdd-voltage-level: This property must be a list of three integer
+- qcom,vdd-voltage-level: This property must be a list of three integer
 	values (no, min, max) where each value represents either a voltage
 	in microvolts or a value corresponding to voltage corner.
-- qti,dp-manual-pullup: If present, vbus is not routed to USB controller/phy
+- qcom,dp-manual-pullup: If present, vbus is not routed to USB controller/phy
 	and controller driver therefore enables pull-up explicitly before
 	starting controller using usbcmd run/stop bit.
-- qti,usb2-enable-hsphy2: If present then USB2 controller is connected to 2nd
+- qcom,usb2-enable-hsphy2: If present then USB2 controller is connected to 2nd
 	HSPHY.
-- qti,hsusb-log2-itc: value of 2^(log2_itc-1) will be used as the
+- qcom,hsusb-log2-itc: value of 2^(log2_itc-1) will be used as the
 	interrupt threshold (ITC), when log2_itc is between 1 to 7.
-- qti,hsusb-l1-supported: If present, the device supports l1 (Link power
+- qcom,hsusb-l1-supported: If present, the device supports l1 (Link power
 	management).
-- qti,no-selective-suspend: If present selective suspend is disabled on hub ports.
-- qti,hsusb-otg-mpm-dpsehv-int: If present, indicates mpm interrupt to be
+- qcom,no-selective-suspend: If present selective suspend is disabled on hub ports.
+- qcom,hsusb-otg-mpm-dpsehv-int: If present, indicates mpm interrupt to be
 	configured for detection of dp line transition during VDD minimization.
-- qti,hsusb-otg-mpm-dmsehv-int: If present, indicates mpm interrupt to be
+- qcom,hsusb-otg-mpm-dmsehv-int: If present, indicates mpm interrupt to be
 	configured for detection of dm line transition during VDD minimization.
-- qti,hsusb-otg-vddmin-gpio = If present, indicates a gpio that will be used
+- qcom,hsusb-otg-vddmin-gpio = If present, indicates a gpio that will be used
 	to supply voltage to the D+ line during VDD minimization and peripheral
 	bus suspend. If not exists, then VDD minimization will not be allowed
 	during peripheral bus suspend.
-- qti,hsusb-otg-rw-during-lpm-workaround: If present, indicates that remote-
+- qcom,hsusb-otg-rw-during-lpm-workaround: If present, indicates that remote-
 	wakeup during USB low-power mode SW workaround will be applied. When
 	this workaround is applied, the PHCD and the FPR bits are written
 	to the PORTSC register in the same register write operation.
-- qti,ahb-async-bridge-bypass: If present, indicates that enable AHB2AHB By Pass
+- qcom,ahb-async-bridge-bypass: If present, indicates that enable AHB2AHB By Pass
 	mode with device controller for better throughput. With this mode, USB Core
 	runs using PNOC clock and synchronous to it. Hence it is must to have proper
-	"qti,msm-bus,vectors" to have high bus frequency. User shouldn't try to
+	"qcom,msm-bus,vectors" to have high bus frequency. User shouldn't try to
 	enable this feature without proper bus voting.
-- qti,disable-retention-with-vdd-min: If present don't allow phy retention but allow
+- qcom,disable-retention-with-vdd-min: If present don't allow phy retention but allow
 	vdd min.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
-		compatible = "qti,hsusb-otg";
+		compatible = "qcom,hsusb-otg";
 		reg = <0xf9690000 0x400>;
 		interrupts = <134>;
 		interrupt-names = "core_irq";
 
-		qti,hsusb-otg-phy-type = <2>;
-		qti,hsusb-otg-mode = <1>;
-		qti,hsusb-otg-otg-control = <1>;
-		qti,hsusb-otg-disable-reset;
-		qti,hsusb-otg-pnoc-errata-fix;
-		qti,hsusb-otg-default-mode = <2>;
-		qti,hsusb-otg-phy-init-seq = <0x01 0x90 0xffffffff>;
-		qti,hsusb-otg-power-budget = <500>;
-		qti,hsusb-otg-pclk-src-name = "dfab_usb_clk";
-		qti,hsusb-otg-lpm-on-dev-suspend;
-		qti,hsusb-otg-clk-always-on-workaround;
+		qcom,hsusb-otg-phy-type = <2>;
+		qcom,hsusb-otg-mode = <1>;
+		qcom,hsusb-otg-otg-control = <1>;
+		qcom,hsusb-otg-disable-reset;
+		qcom,hsusb-otg-pnoc-errata-fix;
+		qcom,hsusb-otg-default-mode = <2>;
+		qcom,hsusb-otg-phy-init-seq = <0x01 0x90 0xffffffff>;
+		qcom,hsusb-otg-power-budget = <500>;
+		qcom,hsusb-otg-pclk-src-name = "dfab_usb_clk";
+		qcom,hsusb-otg-lpm-on-dev-suspend;
+		qcom,hsusb-otg-clk-always-on-workaround;
 		hsusb_vdd_dig-supply = <&pm8226_s1_corner>;
                 HSUSB_1p8-supply = <&pm8226_l10>;
                 HSUSB_3p3-supply = <&pm8226_l20>;
-		qti,vdd-voltage-level = <1 5 7>;
-		qti,dp-manual-pullup;
-		qti,hsusb-otg-mpm-dpsehv-int = <49>;
-		qti,hsusb-otg-mpm-dmsehv-int = <58>;
-		qti,msm-bus,name = "usb2";
-		qti,msm-bus,num_cases = <2>;
-		qti,msm-bus,num_paths = <1>;
-		qti,msm-bus,vectors =
+		qcom,vdd-voltage-level = <1 5 7>;
+		qcom,dp-manual-pullup;
+		qcom,hsusb-otg-mpm-dpsehv-int = <49>;
+		qcom,hsusb-otg-mpm-dmsehv-int = <58>;
+		qcom,msm-bus,name = "usb2";
+		qcom,msm-bus,num_cases = <2>;
+		qcom,msm-bus,num_paths = <1>;
+		qcom,msm-bus,vectors =
 				<87 512 0 0>,
 				<87 512 60000000 960000000>;
-		qti,hsusb-otg-vddmin-gpio = <&pm8019_mpps 6 0>;
-		qti,hsusb-otg-rw-during-lpm-workaround = <1>;
-		qti,disable-retention-with-vdd-min;
+		qcom,hsusb-otg-vddmin-gpio = <&pm8019_mpps 6 0>;
+		qcom,hsusb-otg-rw-during-lpm-workaround = <1>;
+		qcom,disable-retention-with-vdd-min;
 	};
 
 MSM HSUSB EHCI controller
 
 Required properties :
-- compatible : should be "qti,ehci-host"
+- compatible : should be "qcom,ehci-host"
 - reg : offset and length of the register set in the memory map
 - interrupts: IRQ lines used by this controller
 - interrupt-names : Required interrupt resource entries are:
@@ -150,17 +150,17 @@ Required properties :
 - <supply-name>-supply: handle to the regulator device tree node
   Required "supply-name" is either "hsusb_vdd_dig" or "HSUSB_VDDCX"
   "HSUSB_1p8-supply" "HSUSB_3p3-supply".
-- qti,usb2-power-budget: maximum vbus power (in mA) that can be provided.
+- qcom,usb2-power-budget: maximum vbus power (in mA) that can be provided.
 
 Optional properties :
-- qti,usb2-enable-hsphy2: If present, select second PHY for USB operation.
-- qti,resume-gpio: if present then peripheral connected to usb controller
+- qcom,usb2-enable-hsphy2: If present, select second PHY for USB operation.
+- qcom,resume-gpio: if present then peripheral connected to usb controller
   cannot wakeup from XO shutdown using in-band usb bus resume. Use resume
   gpio to wakeup peripheral.
-- qti,ext-hub-reset-gpio: If present then an external HUB is connected to
+- qcom,ext-hub-reset-gpio: If present then an external HUB is connected to
   the USB host controller and its RESET_N signal is connected to this
   ext-hub-reset-gpio GPIO. It should be driven LOW to RESET the HUB.
-- qti,vdd-voltage-level: This property must be a list of five integer
+- qcom,vdd-voltage-level: This property must be a list of five integer
   values (no, 0.5vsuspend, 0.75suspend, min, max) where each value respresents
   either a voltage in microvolts or a value corresponding to voltage corner.
   First value represents value to vote when USB is not at all active, second
@@ -171,17 +171,17 @@ Optional properties :
   to vote for USB is operational.
 
 Example MSM HSUSB EHCI controller device node :
-	ehci: qti,ehci-host@f9a55000 {
-		compatible = "qti,ehci-host";
+	ehci: qcom,ehci-host@f9a55000 {
+		compatible = "qcom,ehci-host";
 		reg = <0xf9a55000 0x400>;
 		interrupts = <0 134 0>, <0 140 0>;
 		interrupt-names = "core_irq", "async_irq";
 		hsusb_vdd_dig-supply = <&pm8841_s2_corner>;
 		HSUSB_1p8-supply = <&pm8941_l6>;
 		HSUSB_3p3-supply = <&pm8941_l24>;
-		qti,usb2-enable-hsphy2;
-		qti,usb2-power-budget = <500>;
-		qti,vdd-voltage-level = <1 2 3 5 7>;
+		qcom,usb2-enable-hsphy2;
+		qcom,usb2-power-budget = <500>;
+		qcom,vdd-voltage-level = <1 2 3 5 7>;
 	};
 
 ANDROID USB:
@@ -212,7 +212,7 @@ Example Android USB device node :
 BAM:
 
 Required properties:
-- compatible: should be "qti,usb-bam-msm"
+- compatible: should be "qcom,usb-bam-msm"
 - reg  : pairs of physical base addresses and region sizes
             of all the memory mapped BAM devices present
 - reg-names : Register region name(s), in 1-1 correspondence with the
@@ -233,10 +233,10 @@ Required properties:
             If SSUSB_BAM is used, "ssusb" should be present.
             If HSUSB_BAM is used, "hsusb" should be present.
             If HSIC_BAM is used, "hsic" should be present.
-- qti,usb-bam-num-pipes: max number of pipes that can be used
+- qcom,usb-bam-num-pipes: max number of pipes that can be used
 
 Optional properties:
-- qti,usb-bam-fifo-baseaddr: base address for bam pipe's data and descriptor
+- qcom,usb-bam-fifo-baseaddr: base address for bam pipe's data and descriptor
   fifos. This can be on chip memory (ocimem) or usb private memory. This
   property is required if sub-node's mem-type is ocimem or usb private mem.
 
@@ -249,88 +249,88 @@ Subnode Required:
 	peer options: qdss, ipa, a2
 	direction options: in (from peer to usb), out (from usb to peer)
 	pipe num options: 0..127
-- qti,usb-bam-mem-type: Type of memory used by this PIPE. Can be one of
+- qcom,usb-bam-mem-type: Type of memory used by this PIPE. Can be one of
             0 - Uses SPS's dedicated pipe memory
-            1 - USB's private memory residing @ 'qti,usb-bam-fifo-baseaddr'
+            1 - USB's private memory residing @ 'qcom,usb-bam-fifo-baseaddr'
             2 - System RAM allocated by driver
-	    3 - OCI memory residing @ 'qti,usb-bam-fifo-baseaddr'
-- qti,bam-type: BAM type can be one of
+	    3 - OCI memory residing @ 'qcom,usb-bam-fifo-baseaddr'
+- qcom,bam-type: BAM type can be one of
 	0 - SSUSB_BAM
 	1 - HSUSB_BAM
 	2 - HSIC_BAM
-- qti,dir: pipe direction
+- qcom,dir: pipe direction
 	0 - from usb (out)
 	1 - to usb (in)
-- qti,pipe-num: pipe number
-- qti,peer-bam: peer BAM can be one of
+- qcom,pipe-num: pipe number
+- qcom,peer-bam: peer BAM can be one of
 	0 - A2_P_BAM
 	1 - QDSS_P_BAM
 	2 - IPA_P_BAM
-- qti,data-fifo-size: data fifo size
-- qti,descriptor-fifo-size: descriptor fifo size
+- qcom,data-fifo-size: data fifo size
+- qcom,descriptor-fifo-size: descriptor fifo size
 
 Optional Properties for Subnode:
-- qti,reset-bam-on-connect: If present then BAM is RESET before connecting
+- qcom,reset-bam-on-connect: If present then BAM is RESET before connecting
   pipe. This may be required if BAM peripheral is also reset before connect.
-- qti,dst-bam-physical-address: destination BAM physical address
-- qti,dst-bam-pipe-index: destination BAM pipe index
-- qti,src-bam-physical-address: source BAM physical address
-- qti,src-bam-pipe-index: source BAM pipe index
-- qti,data-fifo-offset: data fifo offset address
-- qti,descriptor-fifo-offset: descriptor fifo offset address
+- qcom,dst-bam-physical-address: destination BAM physical address
+- qcom,dst-bam-pipe-index: destination BAM pipe index
+- qcom,src-bam-physical-address: source BAM physical address
+- qcom,src-bam-pipe-index: source BAM pipe index
+- qcom,data-fifo-offset: data fifo offset address
+- qcom,descriptor-fifo-offset: descriptor fifo offset address
 
 Optional properties :
-- qti,bam-mode: BAM mode can be one of.
+- qcom,bam-mode: BAM mode can be one of.
 	0 - BAM_MODE_DEVICE
 	1 - BAM_MODE_HOST
 	(If not set will be set by default to BAM_MODE_DEVICE)
-- qti,ignore-core-reset-ack: If present then BAM ignores ACK from USB core
+- qcom,ignore-core-reset-ack: If present then BAM ignores ACK from USB core
 	    while performing PIPE RESET
-- qti,disable-clk-gating: If present then disable BAM clock gating.
-- qti,usb-bam-override-threshold: If present then the default 512 byte threshold
+- qcom,disable-clk-gating: If present then disable BAM clock gating.
+- qcom,usb-bam-override-threshold: If present then the default 512 byte threshold
 		is overriden. This threshold configures the threshold value for Read/Write
 		event generation by the BAM towards another BAM.
 
 Example USB BAM controller device node:
 
-	qti,usbbam@f9a44000 {
-		compatible = "qti,usb-bam-msm";
+	qcom,usbbam@f9a44000 {
+		compatible = "qcom,usb-bam-msm";
 		reg = <0xf9a44000 0x11000>;
 		reg-names = "hsusb";
 		interrupts = <0 135 0>;
 		interrupt-names = "hsusb";
-		qti,usb-bam-num-pipes = <16>;
-		qti,ignore-core-reset-ack;
-		qti,disable-clk-gating;
+		qcom,usb-bam-num-pipes = <16>;
+		qcom,ignore-core-reset-ack;
+		qcom,disable-clk-gating;
 
-		qti,pipe0 {
+		qcom,pipe0 {
 			label = "hsusb-ipa-out-0";
-			qti,usb-bam-mem-type = <0>;
-			qti,bam-type = <1>;
-			qti,bam-mode = <0>;
-			qti,dir = <0>;
-			qti,pipe-num = <0>;
-			qti,peer-bam = <2>;
-			qti,src-bam-physical-address = <0xf9a44000>;
-			qti,src-bam-pipe-index = <1>;
-			qti,data-fifo-offset = <0x2200>;
-			qti,data-fifo-size = <0x1e00>;
-			qti,descriptor-fifo-offset = <0x2100>;
-			qti,descriptor-fifo-size = <0x100>;
+			qcom,usb-bam-mem-type = <0>;
+			qcom,bam-type = <1>;
+			qcom,bam-mode = <0>;
+			qcom,dir = <0>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <2>;
+			qcom,src-bam-physical-address = <0xf9a44000>;
+			qcom,src-bam-pipe-index = <1>;
+			qcom,data-fifo-offset = <0x2200>;
+			qcom,data-fifo-size = <0x1e00>;
+			qcom,descriptor-fifo-offset = <0x2100>;
+			qcom,descriptor-fifo-size = <0x100>;
 		};
-		qti,pipe1 {
+		qcom,pipe1 {
 			label = "hsusb-ipa-in-0";
-			qti,usb-bam-mem-type = <0>;
-			qti,bam-type = <1>;
-			qti,bam-mode = <0>;
-			qti,dir = <1>;
-			qti,pipe-num = <0>;
-			qti,peer-bam = <2>;
-			qti,dst-bam-physical-address = <0xf9a44000>;
-			qti,dst-bam-pipe-index = <0>;
-			qti,data-fifo-offset = <0x300>;
-			qti,data-fifo-size = <0x1e00>;
-			qti,descriptor-fifo-offset = <0>;
-			qti,descriptor-fifo-size = <0x300>;
+			qcom,usb-bam-mem-type = <0>;
+			qcom,bam-type = <1>;
+			qcom,bam-mode = <0>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <2>;
+			qcom,dst-bam-physical-address = <0xf9a44000>;
+			qcom,dst-bam-pipe-index = <0>;
+			qcom,data-fifo-offset = <0x300>;
+			qcom,data-fifo-size = <0x1e00>;
+			qcom,descriptor-fifo-offset = <0>;
+			qcom,descriptor-fifo-size = <0x300>;
 		};
 	};

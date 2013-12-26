@@ -209,7 +209,7 @@
 };
 
 &usb3 {
-	qti,skip-charger-detection;
+	qcom,skip-charger-detection;
 };
 
 &ufsphy1 {

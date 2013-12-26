@@ -438,7 +438,7 @@
 };
 
 &usb3 {
-	qti,otg-capability;
+	qcom,otg-capability;
 };
 
 &pm8941_bms {

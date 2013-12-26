@@ -30,5 +30,5 @@
 			 0x0 1 &spmi_bus 0x0 0x0 0x9 0x0>;
 	interrupt-names = "hs_phy_irq", "pmic_id_irq";
 
-	qti,misc-ref = <&pm8941_misc>;
+	qcom,misc-ref = <&pm8941_misc>;
 };

@@ -100,7 +100,7 @@
 
 &usb3 {
 	vbus_dwc3-supply = <&pm8941_mvs1>;
-	qti,misc-ref = <&pm8941_misc>;
+	qcom,misc-ref = <&pm8941_misc>;
 	dwc_usb3-adc_tm = <&pm8941_adc_tm>;
 	interrupt-map-mask = <0x0 0xffffffff>;
 	interrupt-map = <0x0 0 &intc 0 133 0

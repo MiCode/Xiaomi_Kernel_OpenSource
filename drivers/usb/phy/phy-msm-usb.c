@@ -4273,66 +4273,66 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 		pr_err("unable to allocate platform data\n");
 		return NULL;
 	}
-	of_get_property(node, "qti,hsusb-otg-phy-init-seq", &len);
+	of_get_property(node, "qcom,hsusb-otg-phy-init-seq", &len);
 	if (len) {
 		pdata->phy_init_seq = devm_kzalloc(&pdev->dev, len, GFP_KERNEL);
 		if (!pdata->phy_init_seq)
 			return NULL;
-		of_property_read_u32_array(node, "qti,hsusb-otg-phy-init-seq",
+		of_property_read_u32_array(node, "qcom,hsusb-otg-phy-init-seq",
 				pdata->phy_init_seq,
 				len/sizeof(*pdata->phy_init_seq));
 	}
-	of_property_read_u32(node, "qti,hsusb-otg-power-budget",
+	of_property_read_u32(node, "qcom,hsusb-otg-power-budget",
 				&pdata->power_budget);
-	of_property_read_u32(node, "qti,hsusb-otg-mode",
+	of_property_read_u32(node, "qcom,hsusb-otg-mode",
 				&pdata->mode);
-	of_property_read_u32(node, "qti,hsusb-otg-otg-control",
+	of_property_read_u32(node, "qcom,hsusb-otg-otg-control",
 				&pdata->otg_control);
-	of_property_read_u32(node, "qti,hsusb-otg-default-mode",
+	of_property_read_u32(node, "qcom,hsusb-otg-default-mode",
 				&pdata->default_mode);
-	of_property_read_u32(node, "qti,hsusb-otg-phy-type",
+	of_property_read_u32(node, "qcom,hsusb-otg-phy-type",
 				&pdata->phy_type);
 	pdata->disable_reset_on_disconnect = of_property_read_bool(node,
-				"qti,hsusb-otg-disable-reset");
+				"qcom,hsusb-otg-disable-reset");
 	pdata->pnoc_errata_fix = of_property_read_bool(node,
-				"qti,hsusb-otg-pnoc-errata-fix");
+				"qcom,hsusb-otg-pnoc-errata-fix");
 	pdata->enable_lpm_on_dev_suspend = of_property_read_bool(node,
-				"qti,hsusb-otg-lpm-on-dev-suspend");
+				"qcom,hsusb-otg-lpm-on-dev-suspend");
 	pdata->core_clk_always_on_workaround = of_property_read_bool(node,
-				"qti,hsusb-otg-clk-always-on-workaround");
+				"qcom,hsusb-otg-clk-always-on-workaround");
 	pdata->delay_lpm_on_disconnect = of_property_read_bool(node,
-				"qti,hsusb-otg-delay-lpm");
+				"qcom,hsusb-otg-delay-lpm");
 	pdata->delay_lpm_hndshk_on_disconnect = of_property_read_bool(node,
-				"qti,hsusb-otg-delay-lpm-hndshk-on-disconnect");
+				"qcom,hsusb-otg-delay-lpm-hndshk-on-disconnect");
 	pdata->dp_manual_pullup = of_property_read_bool(node,
-				"qti,dp-manual-pullup");
+				"qcom,dp-manual-pullup");
 	pdata->enable_sec_phy = of_property_read_bool(node,
-					"qti,usb2-enable-hsphy2");
-	of_property_read_u32(node, "qti,hsusb-log2-itc",
+					"qcom,usb2-enable-hsphy2");
+	of_property_read_u32(node, "qcom,hsusb-log2-itc",
 				&pdata->log2_itc);
 
-	of_property_read_u32(node, "qti,hsusb-otg-mpm-dpsehv-int",
+	of_property_read_u32(node, "qcom,hsusb-otg-mpm-dpsehv-int",
 				&pdata->mpm_dpshv_int);
-	of_property_read_u32(node, "qti,hsusb-otg-mpm-dmsehv-int",
+	of_property_read_u32(node, "qcom,hsusb-otg-mpm-dmsehv-int",
 				&pdata->mpm_dmshv_int);
 	pdata->pmic_id_irq = platform_get_irq_byname(pdev, "pmic_id_irq");
 	if (pdata->pmic_id_irq < 0)
 		pdata->pmic_id_irq = 0;
 
 	pdata->l1_supported = of_property_read_bool(node,
-				"qti,hsusb-l1-supported");
+				"qcom,hsusb-l1-supported");
 	pdata->enable_ahb2ahb_bypass = of_property_read_bool(node,
-				"qti,ahb-async-bridge-bypass");
+				"qcom,ahb-async-bridge-bypass");
 	pdata->disable_retention_with_vdd_min = of_property_read_bool(node,
-				"qti,disable-retention-with-vdd-min");
+				"qcom,disable-retention-with-vdd-min");
 
-	res_gpio = of_get_named_gpio(node, "qti,hsusb-otg-vddmin-gpio", 0);
+	res_gpio = of_get_named_gpio(node, "qcom,hsusb-otg-vddmin-gpio", 0);
 	if (res_gpio < 0)
 		res_gpio = 0;
 	pdata->vddmin_gpio = res_gpio;
 
 	pdata->rw_during_lpm_workaround = of_property_read_bool(node,
-				"qti,hsusb-otg-rw-during-lpm-workaround");
+				"qcom,hsusb-otg-rw-during-lpm-workaround");
 
 	return pdata;
 }
@@ -4594,11 +4594,11 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 	if (pdev->dev.of_node) {
 		of_get_property(pdev->dev.of_node,
-				"qti,vdd-voltage-level",
+				"qcom,vdd-voltage-level",
 				&len);
 		if (len == sizeof(tmp)) {
 			of_property_read_u32_array(pdev->dev.of_node,
-					"qti,vdd-voltage-level",
+					"qcom,vdd-voltage-level",
 					tmp, len/sizeof(*tmp));
 			vdd_val[motg->vdd_type][0] = tmp[0];
 			vdd_val[motg->vdd_type][1] = tmp[1];
@@ -5088,7 +5088,7 @@ static const struct dev_pm_ops msm_otg_dev_pm_ops = {
 #endif
 
 static struct of_device_id msm_otg_dt_match[] = {
-	{	.compatible = "qti,hsusb-otg",
+	{	.compatible = "qcom,hsusb-otg",
 	},
 	{}
 };
