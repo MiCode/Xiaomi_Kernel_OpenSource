@@ -64,8 +64,6 @@
 #define STK_POLL_PS
 #define STK_POLL_ALS		/* ALS interrupt is valid only when STK_PS_INT_MODE = 1	or 4*/
 
-#define STK_DEBUG_PRINTF
-
 /* Define Register Map */
 #define STK_STATE_REG 			0x00
 #define STK_PSCTRL_REG 			0x01
@@ -321,11 +319,11 @@ static void stk_init_code_threshold_table(struct stk3x1x_data *ps_data)
     for (i=1,j=0;i<LUX_THD_TABLE_SIZE;i++,j++)
     {
         alscode = stk_lux2alscode(ps_data, lux_threshold_table[j]);
-        printk(KERN_INFO "alscode[%d]=%d\n",i,alscode);
+		dev_dbg(&ps_data->client->dev, "alscode[%d]=%d\n", i, alscode);
         code_threshold_table[i] = (uint16_t)(alscode);
     }
     code_threshold_table[i] = 0xffff;
-    printk(KERN_INFO "alscode[%d]=%d\n",i,alscode);
+	dev_dbg(&ps_data->client->dev, "alscode[%d]=%d\n", i, alscode);
 }
 
 static uint32_t stk_get_lux_interval_index(uint16_t alscode)
@@ -458,7 +456,6 @@ static int32_t stk3x1x_check_pid(struct stk3x1x_data *ps_data)
         printk(KERN_ERR "%s: read i2c error, err=%d\n", __func__, err2);
         return -1;
     }
-	printk(KERN_INFO "%s: PID=0x%x, RID=0x%x\n", __func__, err1, err2);
 	if(err2 == 0xC0)
 		printk(KERN_INFO "%s: RID=0xC0!!!!!!!!!!!!!\n", __func__);
 
@@ -685,7 +682,9 @@ static int32_t stk3x1x_enable_ps(struct stk3x1x_data *ps_data, uint8_t enable)
 		input_sync(ps_data->ps_input_dev);
 		wake_lock_timeout(&ps_data->ps_wakelock, 3*HZ);
 		reading = stk3x1x_get_ps_reading(ps_data);
-		printk(KERN_INFO "%s: ps input event=%d, ps code = %d\n",__func__, near_far_state, reading);
+		dev_dbg(&ps_data->client->dev,
+			"%s: ps input event=%d, ps code = %d\n",
+			__func__, near_far_state, reading);
 #endif	/* #ifndef STK_POLL_PS */
 	}
 	else
@@ -935,7 +934,7 @@ static ssize_t stk_als_enable_store(struct device *dev, struct device_attribute 
 		printk(KERN_ERR "%s, invalid value %d\n", __func__, *buf);
 		return -EINVAL;
 	}
-    printk(KERN_INFO "%s: Enable ALS : %d\n", __func__, en);
+	dev_dbg(dev, "%s: Enable ALS : %d\n", __func__, en);
     mutex_lock(&ps_data->io_lock);
     stk3x1x_enable_als(ps_data, en);
     mutex_unlock(&ps_data->io_lock);
@@ -971,7 +970,7 @@ static ssize_t stk_als_lux_store(struct device *dev, struct device_attribute *at
 	input_report_abs(ps_data->als_input_dev, ABS_MISC, value);
 	input_sync(ps_data->als_input_dev);
 	mutex_unlock(&ps_data->io_lock);
-	printk(KERN_INFO "%s: als input event %ld lux\n",__func__, value);
+	dev_dbg(dev, "%s: als input event %ld lux\n", __func__, value);
 
     return size;
 }
@@ -1166,7 +1165,7 @@ static ssize_t stk_ps_enable_store(struct device *dev, struct device_attribute *
 		printk(KERN_ERR "%s, invalid value %d\n", __func__, *buf);
 		return -EINVAL;
 	}
-    printk(KERN_INFO "%s: Enable PS : %d\n", __func__, en);
+	dev_dbg(dev, "%s: Enable PS : %d\n", __func__, en);
     mutex_lock(&ps_data->io_lock);
     stk3x1x_enable_ps(ps_data, en);
     mutex_unlock(&ps_data->io_lock);
@@ -1200,7 +1199,7 @@ static ssize_t stk_ps_enable_aso_store(struct device *dev, struct device_attribu
 		printk(KERN_ERR "%s, invalid value %d\n", __func__, *buf);
 		return -EINVAL;
 	}
-    printk(KERN_INFO "%s: Enable PS ASO : %d\n", __func__, en);
+	dev_dbg(dev, "%s: Enable PS ASO : %d\n", __func__, en);
 
     ret = i2c_smbus_read_byte_data(ps_data->client, STK_STATE_REG);
     if (ret < 0)
@@ -1288,7 +1287,7 @@ static ssize_t stk_ps_distance_show(struct device *dev, struct device_attribute 
 	input_sync(ps_data->ps_input_dev);
     mutex_unlock(&ps_data->io_lock);
 	wake_lock_timeout(&ps_data->ps_wakelock, 3*HZ);
-	printk(KERN_INFO "%s: ps input event %d cm\n",__func__, dist);
+	dev_dbg(dev, "%s: ps input event %d cm\n", __func__, dist);
     return scnprintf(buf, PAGE_SIZE, "%d\n", dist);
 }
 
@@ -1311,7 +1310,7 @@ static ssize_t stk_ps_distance_store(struct device *dev, struct device_attribute
 	input_sync(ps_data->ps_input_dev);
     mutex_unlock(&ps_data->io_lock);
 	wake_lock_timeout(&ps_data->ps_wakelock, 3*HZ);
-	printk(KERN_INFO "%s: ps input event %ld cm\n",__func__, value);
+	dev_dbg(dev, "%s: ps input event %ld cm\n", __func__, value);
     return size;
 }
 
@@ -1507,7 +1506,7 @@ static ssize_t stk_all_reg_show(struct device *dev, struct device_attribute *att
 		}
 		else
 		{
-			printk(KERN_INFO "reg[0x%2X]=0x%2X\n", cnt, ps_reg[cnt]);
+			dev_dbg(dev, "reg[0x%2X]=0x%2X\n", cnt, ps_reg[cnt]);
 		}
 	}
 	ps_reg[cnt] = i2c_smbus_read_byte_data(ps_data->client, STK_PDT_ID_REG);
@@ -1517,7 +1516,7 @@ static ssize_t stk_all_reg_show(struct device *dev, struct device_attribute *att
 		printk( KERN_ERR "all_reg_show:i2c_smbus_read_byte_data fail, ret=%d", ps_reg[cnt]);
 		return -EINVAL;
 	}
-	printk( KERN_INFO "reg[0x%x]=0x%2X\n", STK_PDT_ID_REG, ps_reg[cnt]);
+	dev_dbg(dev, "reg[0x%x]=0x%2X\n", STK_PDT_ID_REG, ps_reg[cnt]);
 	cnt++;
 	ps_reg[cnt] = i2c_smbus_read_byte_data(ps_data->client, STK_RSRVD_REG);
 	if(ps_reg[cnt] < 0)
@@ -1526,7 +1525,7 @@ static ssize_t stk_all_reg_show(struct device *dev, struct device_attribute *att
 		printk( KERN_ERR "all_reg_show:i2c_smbus_read_byte_data fail, ret=%d", ps_reg[cnt]);
 		return -EINVAL;
 	}
-	printk( KERN_INFO "reg[0x%x]=0x%2X\n", STK_RSRVD_REG, ps_reg[cnt]);
+	dev_dbg(dev, "reg[0x%x]=0x%2X\n", STK_RSRVD_REG, ps_reg[cnt]);
     mutex_unlock(&ps_data->io_lock);
 
     return scnprintf(buf, PAGE_SIZE, "%2X %2X %2X %2X %2X,%2X %2X %2X %2X %2X,%2X %2X %2X %2X %2X,%2X %2X %2X %2X %2X,%2X %2X %2X %2X %2X,%2X %2X\n",
@@ -1589,8 +1588,7 @@ static ssize_t stk_send_store(struct device *dev, struct device_attribute *attr,
 			__func__, ret);
 		return ret;
 	}
-	printk(KERN_INFO "%s: write reg 0x%x=0x%x\n", __func__, addr, cmd);
-
+	dev_dbg(dev, "%s: write reg 0x%x=0x%x\n", __func__, addr, cmd);
 	addr_u8 = (u8) addr;
 	cmd_u8 = (u8) cmd;
 	//mutex_lock(&ps_data->io_lock);
@@ -1688,7 +1686,6 @@ static void stk_als_work_func(struct work_struct *work)
 	input_report_abs(ps_data->als_input_dev, ABS_MISC, ps_data->als_lux_last);
 	input_sync(ps_data->als_input_dev);
 	mutex_unlock(&ps_data->io_lock);
-	//printk(KERN_INFO "%s: als input event %d lux\n",__func__, ps_data->als_lux_last);
 }
 #endif
 
@@ -1948,7 +1945,6 @@ static void stk3x1x_early_suspend(struct early_suspend *h)
 	int err;
 #endif
 
-	printk(KERN_INFO "%s", __func__);
     mutex_lock(&ps_data->io_lock);
 	if(ps_data->als_enabled)
 	{
@@ -1976,7 +1972,6 @@ static void stk3x1x_late_resume(struct early_suspend *h)
 	int err;
 #endif
 
-	printk(KERN_INFO "%s", __func__);
     mutex_lock(&ps_data->io_lock);
 	if(ps_data->als_enabled)
 		stk3x1x_enable_als(ps_data, 1);
