@@ -833,7 +833,7 @@
 	};
 
 	demod: msm-demod@fc600000 {
-		compatible = "qti,msm-demod";
+		compatible = "qcom,msm-demod";
 		reg = <0xfc600000 0xd0008>,<0xfc747000 0x1000>;
 		reg-names = "msm-demod", "top-bcss";
 		vdd-supply = <&gdsc_bcss>;
