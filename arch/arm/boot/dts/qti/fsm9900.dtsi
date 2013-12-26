@@ -769,8 +769,8 @@
 			< 1958400000 950000 569 >;
 	};
 
-	qti,bbif@fd300000 {
-		compatible = "qti,bbif";
+	qcom,bbif@fd300000 {
+		compatible = "qcom,bbif";
 		reg = <0xfd300000 0x10000>;
 		vdd-lbbrx-supply = <&pma8084_l4>;
 		vdd-hbbrx-supply = <&pma8084_l14>;
