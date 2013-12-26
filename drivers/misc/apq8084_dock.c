@@ -80,7 +80,7 @@ static int apq8084_dock_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, dock);
 	INIT_WORK(&dock->dock_work, dock_detected_work);
 
-	dock->dock_detect = of_get_named_gpio(node, "qti,dock-detect-gpio", 0);
+	dock->dock_detect = of_get_named_gpio(node, "qcom,dock-detect-gpio", 0);
 	if (dock->dock_detect < 0) {
 		dev_err(dock->dev, "unable to get dock-detect-gpio\n");
 		return dock->dock_detect;
@@ -94,7 +94,7 @@ static int apq8084_dock_probe(struct platform_device *pdev)
 		return ret;
 
 	dock->dock_hub_reset = of_get_named_gpio(node,
-						 "qti,dock-hub-reset-gpio", 0);
+						 "qcom,dock-hub-reset-gpio", 0);
 	if (dock->dock_hub_reset < 0) {
 		dev_err(dock->dev, "unable to get dock-hub-reset-gpio\n");
 		return dock->dock_hub_reset;
@@ -106,7 +106,7 @@ static int apq8084_dock_probe(struct platform_device *pdev)
 		return ret;
 
 	dock->dock_eth_reset = of_get_named_gpio(node,
-						 "qti,dock-eth-reset-gpio", 0);
+						 "qcom,dock-eth-reset-gpio", 0);
 	if (dock->dock_eth_reset < 0) {
 		dev_err(dock->dev, "unable to get dock-eth-reset-gpio\n");
 		return dock->dock_eth_reset;
@@ -117,7 +117,7 @@ static int apq8084_dock_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	dock->dock_enable = of_get_named_gpio(node, "qti,dock-enable-gpio", 0);
+	dock->dock_enable = of_get_named_gpio(node, "qcom,dock-enable-gpio", 0);
 	if (dock->dock_enable < 0) {
 		dev_err(dock->dev, "unable to get dock-enable-gpio\n");
 		return dock->dock_enable;
@@ -145,7 +145,7 @@ static int apq8084_dock_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id of_match_table[] = {
-	{       .compatible = "qti,apq8084-dock",
+	{       .compatible = "qcom,apq8084-dock",
 	}
 };
 
