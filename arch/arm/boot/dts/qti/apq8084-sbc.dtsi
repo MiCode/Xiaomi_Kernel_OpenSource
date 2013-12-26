@@ -67,7 +67,7 @@
 		qca,pwr-supply = <&pma8084_l26>;
 	};
 
-	qti,cnss@0d400000 {
+	qcom,cnss@0d400000 {
 		vdd-wlan-supply = <&vph_pwr_vreg>;
 	};
 

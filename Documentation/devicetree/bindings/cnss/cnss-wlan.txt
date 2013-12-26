@@ -11,7 +11,7 @@ the WLAN enable GPIO, 3.3V fixed voltage regulator resources. It also
 provides the reserved RAM dump memory location and size.
 
 Required properties:
-  - compatible: "qti,cnss"
+  - compatible: "qcom,cnss"
   - reg: Memory regions defined as starting address and size
   - reg-names: Names of the memory regions defined in reg entry
   - wlan-en-gpio: WLAN_EN GPIO signal specified by QCA6174 specifications
@@ -19,8 +19,8 @@ Required properties:
 
 Example:
 
-    qti,cnss@0d400000 {
-        compatible = "qti,cnss";
+    qcom,cnss@0d400000 {
+        compatible = "qcom,cnss";
         reg = <0x0d400000 0x200000>;
         reg-names = "ramdump";
         wlan-en-gpio = <&msmgpio 82 0>;
