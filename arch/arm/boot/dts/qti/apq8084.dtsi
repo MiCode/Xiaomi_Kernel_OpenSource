@@ -451,10 +451,10 @@
 		qcom,pipe-attr-ee;
 	};
 
-	pcie0: qti,pcie@fc520000 {
-		compatible = "qti,msm_pcie";
+	pcie0: qcom,pcie@fc520000 {
+		compatible = "qcom,msm_pcie";
 		cell-index = <0>;
-		qti,ctrl-amt = <1>;
+		qcom,ctrl-amt = <1>;
 
 		reg = <0xfc520000 0x2000>,
 		      <0xfc526000 0x1000>,
@@ -500,7 +500,7 @@
 		vreg-0.9-supply = <&pma8084_l4>;
 		vreg-3.3-supply = <&wlan_vreg>;
 
-		qti,l1ss-supported;
+		qcom,l1ss-supported;
 
 		qcom,msi-gicm-addr = <0xf9040040>;
 		qcom,msi-gicm-base = <0x160>;

@@ -210,10 +210,10 @@
 		interrupts = <0 94 0>;
 	};
 
-	pcie0: qti,pcie@fc520000 {
-		compatible = "qti,msm_pcie";
+	pcie0: qcom,pcie@fc520000 {
+		compatible = "qcom,msm_pcie";
 		cell-index = <0>;
-		qti,ctrl-amt = <1>;
+		qcom,ctrl-amt = <1>;
 
 		reg = <0xfc520000 0x2000>,
 		      <0xfc526000 0x1000>,
@@ -257,8 +257,8 @@
 		vreg-1.8-supply = <&pmd9635_l8>;
 		vreg-0.9-supply = <&pmd9635_l4>;
 
-		qti,vreg-1.8-voltage-level = <1800000 1800000 1000>;
-		qti,vreg-0.9-voltage-level = <950000 950000 24000>;
+		qcom,vreg-1.8-voltage-level = <1800000 1800000 1000>;
+		qcom,vreg-0.9-voltage-level = <950000 950000 24000>;
 
 		clock-names = "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
 				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",
