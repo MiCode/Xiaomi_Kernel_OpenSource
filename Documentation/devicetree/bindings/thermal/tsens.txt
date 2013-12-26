@@ -12,11 +12,11 @@ threshold events.
 TSENS node
 
 Required properties:
-- compatible : should be "qti,msm-tsens" for 8974, 9625, 8084, Samarium TSENS driver.
-	       should be "qti,msm8x10-tsens" for 8x10 TSENS driver.
-	       should be "qti,msm8x26-tsens" for 8x26 TSENS driver.
-	       should be "qti,fsm9900-tsens" for 9900 TSENS driver.
-	       should be "qti,msmkrypton-tsens" for krypton TSENS driver.
+- compatible : should be "qcom,msm-tsens" for 8974, 9625, 8084, Samarium TSENS driver.
+	       should be "qcom,msm8x10-tsens" for 8x10 TSENS driver.
+	       should be "qcom,msm8x26-tsens" for 8x26 TSENS driver.
+	       should be "qcom,fsm9900-tsens" for 9900 TSENS driver.
+	       should be "qcom,msmkrypton-tsens" for krypton TSENS driver.
 	       The compatible property is used to identify the respective fusemap to use
 	       for the corresponding SoC.
 - reg : offset and length of the TSENS registers.
@@ -30,34 +30,34 @@ Required properties:
 	      calibration address region if TSENS calibration data is stored
 	      in the region.
 - interrupts : TSENS interrupt for cool/warm temperature threshold.
-- qti,sensors : Total number of available Temperature sensors for TSENS.
-- qti,slope : One point calibration characterized slope data for each
+- qcom,sensors : Total number of available Temperature sensors for TSENS.
+- qcom,slope : One point calibration characterized slope data for each
 	       sensor used to compute the offset. Slope is represented
 	       as ADC code/DegC and the value is multipled by a factor
 	       of 1000.
 
 Optional properties:
-- qti,calibration-less-mode : If present the pre-characterized data for offsets
+- qcom,calibration-less-mode : If present the pre-characterized data for offsets
 		are used else it defaults to use calibration data from QFPROM.
-- qti,tsens-local-init : If the flag is present the TSENS control registers are
+- qcom,tsens-local-init : If the flag is present the TSENS control registers are
 		initialized. If the boot configures the control register there is
 		no need to re-initialize them. The control registers are also
 		under a secure domain which can prevent them from being initialized
 		locally.
-- qti,sensor-id : If the flag is present map the TSENS sensors based on the
+- qcom,sensor-id : If the flag is present map the TSENS sensors based on the
 		remote sensors that are enabled in HW. Ensure the mapping is not
 		more than the number of supported sensors.
 Example:
 
 tsens@fc4a8000 {
-	compatible = "qti,msm-tsens";
+	compatible = "qcom,msm-tsens";
 	reg = <0xfc4a8000 0x2000>,
 	      <0xfc4b8000 0x1000>;
 	reg-names = "tsens_physical",
 		    "tsens_eeprom_physical";
 	interrupts = <0 184 0>;
-	qti,calibration-less-mode;
-	qti,sensors = <11>;
-	qti,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200
+	qcom,calibration-less-mode;
+	qcom,sensors = <11>;
+	qcom,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200
 			3200>;
 };
