@@ -6,16 +6,16 @@ to read and write the fuse values. The write operation can be done one time
 only.
 
 Required Properties:
-compatible: component name used for driver matching, should be "qti,qfp-fuse"
+compatible: component name used for driver matching, should be "qcom,qfp-fuse"
 reg: physical base address and length of the register set
 vdd-blow-supply: regulator used to blow fuses. For backward compatibility, the
 regulator name must contain the string vdd-blow.
 
 Optional Properties:
-- qti,blow-status-offset: offset of the blow status registers.
+- qcom,blow-status-offset: offset of the blow status registers.
   The default offset is 0x204C. Include this only if the blow status register
   is at the different offset.
-- qti,blow-timer: blow timer value.
+- qcom,blow-timer: blow timer value.
   The value specifies the blow time in number of blow timer clock cycles.
   The default setting is 0xF0. It meets the requirement for 28nm HPm fuse
   technology with blow timer clock at 19.2Mhz (12us blow time).
@@ -26,9 +26,9 @@ Optional Properties:
   - 0x1E  (12us) for 28nm LP technology with 2.5Mhz blow timer clock
 
 Example:
-	qti,qfpfuse@fc4b8000 {
-		compatible = "qti,qfp-fuse";
+	qcom,qfpfuse@fc4b8000 {
+		compatible = "qcom,qfp-fuse";
 		reg = <0xfc4b8000 0x7000>;
-		qti,blow-status-offset = 0x204c;
+		qcom,blow-status-offset = 0x204c;
 		vdd-blow-supply: <&vdd_blow>;
 	};
