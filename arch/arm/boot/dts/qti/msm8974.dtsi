@@ -2193,8 +2193,8 @@
 
 	qcom,msm-contig-mem {
 		compatible = "qcom,msm-contig-mem";
-		qti,memory-reservation-type = "EBI1";
-		qti,memory-reservation-size = <0x280000>; /* 2.5M EBI1 buffer */
+		qcom,memory-reservation-type = "EBI1";
+		qcom,memory-reservation-size = <0x280000>; /* 2.5M EBI1 buffer */
 	};
 
         qcom,qcedev@fd440000 {
@@ -2333,7 +2333,7 @@
 
         memory_hole: qcom,msm-mem-hole {
                 compatible = "qcom,msm-mem-hole";
-                qti,memblock-remove = <0x5d00000 0x7d00000
+                qcom,memblock-remove = <0x5d00000 0x7d00000
 					0xfa00000 0x500000>; /* Address and Size of Hole */
         };
 

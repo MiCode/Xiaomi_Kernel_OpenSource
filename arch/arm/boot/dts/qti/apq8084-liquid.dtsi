@@ -166,7 +166,7 @@
 };
 
 &mdss_fb0 {
-	qti,memory-reservation-size = <0x1C20000>;
+	qcom,memory-reservation-size = <0x1C20000>;
 };
 
 &mdss_dsi0 {
