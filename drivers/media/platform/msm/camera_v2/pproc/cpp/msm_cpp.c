@@ -807,7 +807,7 @@ static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 
 		/*Start firmware loading*/
 		msm_cpp_write(MSM_CPP_CMD_FW_LOAD, cpp_dev->base);
-		msm_cpp_write(MSM_CPP_END_ADDRESS, cpp_dev->base);
+		msm_cpp_write(fw->size, cpp_dev->base);
 		msm_cpp_write(MSM_CPP_START_ADDRESS, cpp_dev->base);
 
 		if (ptr_bin) {
