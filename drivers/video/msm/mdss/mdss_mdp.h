@@ -277,6 +277,8 @@ struct pp_hist_col_info {
 	u32 data[HIST_V_SIZE];
 	struct mutex hist_mutex;
 	spinlock_t hist_lock;
+	char __iomem *base;
+	u32 intr_shift;
 };
 
 struct mdss_mdp_ad {
