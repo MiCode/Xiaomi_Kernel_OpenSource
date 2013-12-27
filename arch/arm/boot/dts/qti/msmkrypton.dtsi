@@ -253,7 +253,7 @@
 		wake-gpio = <&msmgpio 65 0>;
 		clkreq-gpio = <&msmgpio 64 0>;
 
-		gdsc_vdd-supply = <&gdsc_pcie_0>;
+		gdsc-vdd-supply = <&gdsc_pcie_0>;
 		vreg-1.8-supply = <&pmd9635_l8>;
 		vreg-0.9-supply = <&pmd9635_l4>;
 

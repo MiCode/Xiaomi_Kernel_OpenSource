@@ -781,7 +781,7 @@ static int msm_pcie_get_resources(u32 rc_idx, struct platform_device *pdev)
 		}
 	}
 
-	dev->gdsc = devm_regulator_get(&pdev->dev, "gdsc_vdd");
+	dev->gdsc = devm_regulator_get(&pdev->dev, "gdsc-vdd");
 
 	if (IS_ERR(dev->gdsc)) {
 		pr_err("PCIe: Failed to get PCIe_%d GDSC:%ld\n",
