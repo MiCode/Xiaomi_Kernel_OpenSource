@@ -2639,7 +2639,6 @@ static int mpq_dmx_tspp2_section_pipe_handler(struct pipe_info *pipe_info,
 	u16 curr_pid;
 	ssize_t data_size;
 	size_t packet_offset;
-	u32 tspp_write_offset;
 	u32 tspp_last_addr = 0;
 	struct dvb_demux *dvb_demux =
 		&pipe_info->source_info->demux_src.mpq_demux->demux;
@@ -2655,6 +2654,13 @@ static int mpq_dmx_tspp2_section_pipe_handler(struct pipe_info *pipe_info,
 
 	tspp2_pipe_last_address_used_get(pipe_info->handle, &tspp_last_addr);
 	data_size = mpq_dmx_tspp2_calc_pipe_data(pipe_info, tspp_last_addr);
+	if (data_size) {
+		pipe_info->tspp_write_offset += data_size;
+		if (pipe_info->tspp_write_offset >= pipe_info->buffer.size)
+			pipe_info->tspp_write_offset -= pipe_info->buffer.size;
+	}
+	data_size = mpq_dmx_calc_fullness(pipe_info->tspp_write_offset,
+		pipe_info->tspp_read_offset, pipe_info->buffer.size);
 	if (data_size == 0)
 		return 0;
 
@@ -2668,8 +2674,8 @@ static int mpq_dmx_tspp2_section_pipe_handler(struct pipe_info *pipe_info,
 	 * will stall because there are no free descriptors.
 	 */
 	spin_lock(&dvb_demux->lock);
-	for (i = 0; i < num_packets && !should_stall; i++) {
-		packet_offset = pipe_info->tspp_write_offset +
+	for (i = 0; i < num_packets && !should_stall;) {
+		packet_offset = pipe_info->tspp_read_offset +
 			i * TSPP2_DMX_SPS_SECTION_DESC_SIZE;
 		if (packet_offset >= pipe_info->buffer.size)
 			packet_offset -= pipe_info->buffer.size;
@@ -2689,17 +2695,16 @@ static int mpq_dmx_tspp2_section_pipe_handler(struct pipe_info *pipe_info,
 				break;
 			}
 		}
+		if (!should_stall)
+			i++;
 	}
 	spin_unlock(&dvb_demux->lock);
 
 	pipe_info->tspp_last_addr = tspp_last_addr;
-	tspp_write_offset = pipe_info->tspp_write_offset;
-	pipe_info->tspp_write_offset += i * TSPP2_DMX_SPS_SECTION_DESC_SIZE;
 
 	/* Release the data for the packets that were processed */
-	data_size = mpq_dmx_calc_fullness(tspp_write_offset,
-			pipe_info->tspp_read_offset, pipe_info->buffer.size);
-	ret = mpq_dmx_release_data(pipe_info, data_size);
+	ret = mpq_dmx_release_data(pipe_info,
+		i * TSPP2_DMX_SPS_SECTION_DESC_SIZE);
 
 	if (event == PIPE_EOS_EVENT && should_stall)
 		pipe_info->eos_pending = 1;
