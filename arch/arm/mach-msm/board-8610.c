@@ -39,7 +39,7 @@
 #include <mach/board.h>
 #include <mach/msm_smd.h>
 #include <mach/rpm-smd.h>
-#include <soc/msm/smem.h>
+#include <soc/qcom/smem.h>
 #include <linux/msm_thermal.h>
 #include "board-dt.h"
 #include "clock.h"

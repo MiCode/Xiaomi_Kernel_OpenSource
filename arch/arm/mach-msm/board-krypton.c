@@ -30,7 +30,7 @@
 #include <mach/rpm-smd.h>
 #include <mach/restart.h>
 #include <mach/socinfo.h>
-#include <soc/msm/smem.h>
+#include <soc/qcom/smem.h>
 #include "board-dt.h"
 #include "clock.h"
 #include "spm.h"

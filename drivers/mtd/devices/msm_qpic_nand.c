@@ -33,7 +33,7 @@
 #include <linux/ctype.h>
 #include <mach/sps.h>
 #include <mach/msm_bus.h>
-#include <soc/msm/smem.h>
+#include <soc/qcom/smem.h>
 
 #define PAGE_SIZE_2K 2048
 #define PAGE_SIZE_4K 4096

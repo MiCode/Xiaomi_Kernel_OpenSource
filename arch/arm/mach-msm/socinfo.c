@@ -27,7 +27,7 @@
 
 #include <mach/socinfo.h>
 
-#include <soc/msm/smem.h>
+#include <soc/qcom/smem.h>
 
 #include "boot_stats.h"
 

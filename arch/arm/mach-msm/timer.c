@@ -34,7 +34,7 @@
 #include <mach/irqs.h>
 #include <mach/socinfo.h>
 
-#include <soc/msm/smem.h>
+#include <soc/qcom/smem.h>
 #if defined(CONFIG_MSM_SMD)
 #include <mach/msm_smsm.h>
 #endif

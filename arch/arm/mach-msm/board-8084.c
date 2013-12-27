@@ -31,7 +31,7 @@
 #include <mach/restart.h>
 #include <mach/socinfo.h>
 #include <mach/rpm-smd.h>
-#include <soc/msm/smem.h>
+#include <soc/qcom/smem.h>
 #include "spm.h"
 #include "board-dt.h"
 #include "clock.h"

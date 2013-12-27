@@ -10,6 +10,6 @@ config MSM_SMEM
 	  processors in the System on a Chip (SoC) which allows basic
 	  inter-processor communication.
 
-endif # ARCH_MSM
+source "drivers/soc/qcom/memshare/Kconfig"
 
-source "drivers/soc/msm/memshare/Kconfig"
+endif # ARCH_MSM

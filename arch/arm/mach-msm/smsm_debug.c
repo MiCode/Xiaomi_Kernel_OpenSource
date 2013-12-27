@@ -22,7 +22,7 @@
 
 #include <mach/msm_smsm.h>
 
-#include <soc/msm/smem.h>
+#include <soc/qcom/smem.h>
 
 #if defined(CONFIG_DEBUG_FS)
 

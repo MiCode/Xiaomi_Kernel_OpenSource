@@ -24,7 +24,7 @@
 #include <linux/slab.h>
 #include <linux/stat.h>
 
-#include <soc/msm/smem.h>
+#include <soc/qcom/smem.h>
 
 #include <mach/ramdump.h>
 #include <mach/subsystem_notif.h>

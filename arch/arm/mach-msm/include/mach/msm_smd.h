@@ -20,7 +20,7 @@
 
 #include <linux/io.h>
 
-#include <soc/msm/smem.h>
+#include <soc/qcom/smem.h>
 
 typedef struct smd_channel smd_channel_t;
 

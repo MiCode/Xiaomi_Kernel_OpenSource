@@ -44,10 +44,10 @@
 #include <mach/subsystem_restart.h>
 #include <mach/ramdump.h>
 
-#include <soc/msm/smem.h>
+#include <soc/qcom/smem.h>
 
 #include "smd_private.h"
-#include "../../../drivers/soc/msm/smem_private.h"
+#include "../../../drivers/soc/qcom/smem_private.h"
 
 #define SMSM_SNAPSHOT_CNT 64
 #define SMSM_SNAPSHOT_SIZE ((SMSM_NUM_ENTRIES + 1) * 4 + sizeof(uint64_t))
