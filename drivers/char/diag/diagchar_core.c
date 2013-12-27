@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -978,7 +978,7 @@ long diagchar_ioctl(struct file *filp,
 			clear_client_dci_cumulative_log_mask(i);
 			/* send updated log mask to peripherals */
 			result =
-			diag_send_dci_log_mask(driver->smd_cntl[MODEM_DATA].ch);
+			diag_send_dci_log_mask(&driver->smd_cntl[MODEM_DATA]);
 			if (result != DIAG_DCI_NO_ERROR) {
 				mutex_unlock(&driver->dci_mutex);
 				return result;
@@ -988,7 +988,7 @@ long diagchar_ioctl(struct file *filp,
 			/* send updated event mask to peripherals */
 			result =
 			diag_send_dci_event_mask(
-				driver->smd_cntl[MODEM_DATA].ch);
+				&driver->smd_cntl[MODEM_DATA]);
 			if (result != DIAG_DCI_NO_ERROR) {
 				mutex_unlock(&driver->dci_mutex);
 				return result;
