@@ -88,6 +88,7 @@ struct bmp18x_data {
 	struct	device *dev;
 	struct	mutex lock;
 	struct	bmp18x_calibration_data calibration;
+	struct  sensors_classdev cdev;
 	u8	oversampling_setting;
 	u8	sw_oversampling_setting;
 	u32	raw_temperature;
@@ -113,9 +114,13 @@ static struct sensors_classdev sensors_cdev = {
 	.max_range = "1100.0",
 	.resolution = "0.01",
 	.sensor_power = "0.67",
-	.min_delay = 20000,
+	.min_delay = 20000,	/* microsecond */
 	.fifo_reserved_event_count = 0,
 	.fifo_max_event_count = 0,
+	.enabled = 0,
+	.delay_msec = 200,	/* millisecond */
+	.sensors_enable = NULL,
+	.sensors_poll_delay = NULL,
 };
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -403,6 +408,19 @@ static ssize_t show_sw_oversampling(struct device *dev,
 static DEVICE_ATTR(sw_oversampling, S_IWUSR | S_IRUGO,
 				show_sw_oversampling, set_sw_oversampling);
 
+static ssize_t bmp18x_poll_delay_set(struct sensors_classdev *sensors_cdev,
+						unsigned int delay_msec)
+{
+	struct bmp18x_data *data = container_of(sensors_cdev,
+					struct bmp18x_data, cdev);
+	mutex_lock(&data->lock);
+	data->delay = delay_msec;
+	mutex_unlock(&data->lock);
+
+	return 0;
+}
+
+
 static ssize_t show_delay(struct device *dev,
 				 struct device_attribute *attr, char *buf)
 {
@@ -416,16 +434,42 @@ static ssize_t set_delay(struct device *dev,
 {
 	struct bmp18x_data *data = dev_get_drvdata(dev);
 	unsigned long delay;
-	int success = kstrtoul(buf, 10, &delay);
-	if (success == 0) {
-		mutex_lock(&data->lock);
-		data->delay = delay;
-		mutex_unlock(&data->lock);
-	}
-	return success;
+	int err = kstrtoul(buf, 10, &delay);
+	if (err < 0)
+		return err;
+
+	err = bmp18x_poll_delay_set(&data->cdev, delay);
+	if (err < 0)
+		return err;
+
+	return count;
 }
+
 static DEVICE_ATTR(delay, S_IWUSR | S_IRUGO,
 				show_delay, set_delay);
+
+static ssize_t bmp18x_enable_set(struct sensors_classdev *sensors_cdev,
+						unsigned int enabled)
+{
+	struct bmp18x_data *data = container_of(sensors_cdev,
+					struct bmp18x_data, cdev);
+	struct device *dev = data->dev;
+
+	mutex_lock(&data->lock);
+	data->enable = enabled ? 1 : 0;
+
+	if (data->enable) {
+		bmp18x_enable(dev);
+		schedule_delayed_work(&data->work,
+					msecs_to_jiffies(data->delay));
+	} else {
+		cancel_delayed_work_sync(&data->work);
+		bmp18x_disable(dev);
+	}
+	mutex_unlock(&data->lock);
+
+	return 0;
+}
 
 static ssize_t show_enable(struct device *dev,
 				 struct device_attribute *attr, char *buf)
@@ -440,24 +484,17 @@ static ssize_t set_enable(struct device *dev,
 {
 	struct bmp18x_data *data = dev_get_drvdata(dev);
 	unsigned long enable;
-	int success = kstrtoul(buf, 10, &enable);
-	if (success == 0) {
-		mutex_lock(&data->lock);
-		data->enable = enable ? 1 : 0;
+	int err = kstrtoul(buf, 10, &enable);
+	if (err < 0)
+		return err;
 
-		if (data->enable) {
-			bmp18x_enable(dev);
-			schedule_delayed_work(&data->work,
-						msecs_to_jiffies(data->delay));
-		} else {
-			cancel_delayed_work_sync(&data->work);
-			bmp18x_disable(dev);
-		}
-		mutex_unlock(&data->lock);
+	err = bmp18x_enable_set(&data->cdev, enable);
+	if (err < 0)
+		return err;
 
-	}
 	return count;
 }
+
 static DEVICE_ATTR(enable, S_IWUSR | S_IRUGO,
 				show_enable, set_enable);
 
@@ -628,7 +665,10 @@ __devinit int bmp18x_probe(struct device *dev, struct bmp18x_data_bus *data_bus)
 	if (err)
 		goto error_sysfs;
 
-	err = sensors_classdev_register(&data->input->dev, &sensors_cdev);
+	data->cdev = sensors_cdev;
+	data->cdev.sensors_enable = bmp18x_enable_set;
+	data->cdev.sensors_poll_delay = bmp18x_poll_delay_set;
+	err = sensors_classdev_register(&data->input->dev, &data->cdev);
 	if (err) {
 		pr_err("class device create failed: %d\n", err);
 		goto error_class_sysfs;
