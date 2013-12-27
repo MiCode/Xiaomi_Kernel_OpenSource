@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,10 +21,10 @@ struct diag_log_mask_t {
 	uint8_t ptr[MAX_ITEMS_PER_EQUIP_ID];
 } __packed;
 
-void diag_send_event_mask_update(smd_channel_t *, int num_bytes);
-void diag_send_msg_mask_update(smd_channel_t *, int ssid_first,
+void diag_send_event_mask_update(struct diag_smd_info *smd_info, int num_bytes);
+void diag_send_msg_mask_update(struct diag_smd_info *smd_info, int ssid_first,
 					 int ssid_last, int proc);
-void diag_send_log_mask_update(smd_channel_t *, int);
+void diag_send_log_mask_update(struct diag_smd_info *smd_info, int);
 void diag_mask_update_fn(struct work_struct *work);
 void diag_send_feature_mask_update(struct diag_smd_info *smd_info);
 int diag_process_apps_masks(unsigned char *buf, int len);
