@@ -689,18 +689,20 @@ static void gs_free_requests(struct usb_ep *ep, struct list_head *head,
 }
 
 static int gs_alloc_requests(struct usb_ep *ep, struct list_head *head,
-		int num, int size, void (*fn)(struct usb_ep *, struct usb_request *),
+		int queue_size, int req_size,
+		void (*fn)(struct usb_ep *, struct usb_request *),
 		int *allocated)
 {
 	int			i;
 	struct usb_request	*req;
+	int n = allocated ? queue_size - *allocated : queue_size;
 
 	/* Pre-allocate up to QUEUE_SIZE transfers, but if we can't
 	 * do quite that many this time, don't fail ... we just won't
 	 * be as speedy as we might otherwise be.
 	 */
-	for (i = 0; i < num; i++) {
-		req = gs_alloc_req(ep, size, GFP_ATOMIC);
+	for (i = 0; i < n; i++) {
+		req = gs_alloc_req(ep, req_size, GFP_ATOMIC);
 		if (!req)
 			return list_empty(head) ? -ENOMEM : 0;
 		req->complete = fn;
@@ -941,22 +943,6 @@ static void gs_close(struct tty_struct *tty, struct file *file)
 			port->port_num, tty, file);
 
 	wake_up_interruptible(&port->close_wait);
-
-	/*
-	 * Freeing the previously queued requests as they are
-	 * allocated again as a part of gs_open()
-	 */
-	if (port->port_usb) {
-		spin_unlock_irq(&port->port_lock);
-		usb_ep_fifo_flush(gser->out);
-		usb_ep_fifo_flush(gser->in);
-		spin_lock_irq(&port->port_lock);
-		gs_free_requests(gser->out, &port->read_queue, NULL);
-		gs_free_requests(gser->out, &port->read_pool, NULL);
-		gs_free_requests(gser->in, &port->write_pool, NULL);
-	}
-	port->read_allocated = port->read_started =
-		port->write_allocated = port->write_started = 0;
 exit:
 	spin_unlock_irq(&port->port_lock);
 }
