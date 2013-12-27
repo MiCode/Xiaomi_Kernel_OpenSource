@@ -147,38 +147,32 @@ static int32_t msm_sensor_get_dt_data(struct device_node *of_node,
 	}
 
 	/* Get sensor mount angle */
-	rc = of_property_read_u32(of_node, "qcom,mount-angle",
-		&sensordata->sensor_info->sensor_mount_angle);
-	CDBG("%s qcom,mount-angle %d, rc %d\n", __func__,
-		sensordata->sensor_info->sensor_mount_angle, rc);
-	if (rc < 0) {
+	if (0 > of_property_read_u32(of_node, "qcom,mount-angle",
+		&sensordata->sensor_info->sensor_mount_angle)) {
 		/* Invalidate mount angle flag */
-		pr_err("%s Default sensor mount angle %d\n",
-					__func__, __LINE__);
+		CDBG("%s:%d Default sensor mount angle\n",
+			__func__, __LINE__);
 		sensordata->sensor_info->is_mount_angle_valid = 0;
 		sensordata->sensor_info->sensor_mount_angle = 0;
-		rc = 0;
 	} else {
 		sensordata->sensor_info->is_mount_angle_valid = 1;
 	}
-
-	rc = of_property_read_u32(of_node, "qcom,sensor-position",
-		&sensordata->sensor_info->position);
-	CDBG("%s qcom,sensor-position %d, rc %d\n", __func__,
-		sensordata->sensor_info->position, rc);
-	if (rc < 0) {
-		pr_err("%s Default sensor position %d\n", __func__, __LINE__);
+	CDBG("%s qcom,mount-angle %d\n", __func__,
+		sensordata->sensor_info->sensor_mount_angle);
+	if (0 > of_property_read_u32(of_node, "qcom,sensor-position",
+		&sensordata->sensor_info->position)) {
+		CDBG("%s:%d Default sensor position\n", __func__, __LINE__);
 		sensordata->sensor_info->position = 0;
 	}
-
-	rc = of_property_read_u32(of_node, "qcom,sensor-mode",
-		&sensordata->sensor_info->modes_supported);
-	CDBG("%s qcom,sensor-mode %d, rc %d\n", __func__,
-		sensordata->sensor_info->modes_supported, rc);
-	if (rc < 0) {
-		pr_err("%s Default sensor mode %d\n", __func__, __LINE__);
+	CDBG("%s qcom,sensor-position %d\n", __func__,
+		sensordata->sensor_info->position);
+	if (0 > of_property_read_u32(of_node, "qcom,sensor-mode",
+		&sensordata->sensor_info->modes_supported)) {
+		CDBG("%s:%d Default sensor mode\n", __func__, __LINE__);
 		sensordata->sensor_info->modes_supported = 0;
 	}
+	CDBG("%s qcom,sensor-mode %d\n", __func__,
+		sensordata->sensor_info->modes_supported);
 
 	rc = msm_sensor_get_dt_csi_data(of_node, &sensordata->csi_lane_params);
 	if (rc < 0) {
@@ -582,6 +576,10 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			s_ctrl->sensordata->sensor_info->is_mount_angle_valid;
 		cdata->cfg.sensor_info.sensor_mount_angle =
 			s_ctrl->sensordata->sensor_info->sensor_mount_angle;
+		cdata->cfg.sensor_info.position =
+			s_ctrl->sensordata->sensor_info->position;
+		cdata->cfg.sensor_info.modes_supported =
+			s_ctrl->sensordata->sensor_info->modes_supported;
 		CDBG("%s:%d sensor name %s\n", __func__, __LINE__,
 			cdata->cfg.sensor_info.sensor_name);
 		CDBG("%s:%d session id %d\n", __func__, __LINE__,
