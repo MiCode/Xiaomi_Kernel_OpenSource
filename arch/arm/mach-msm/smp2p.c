@@ -1,6 +1,6 @@
 /* arch/arm/mach-msm/smp2p.c
  *
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1141,6 +1141,13 @@ int msm_smp2p_out_open(int remote_pid, const char *name,
 	if (remote_pid >= SMP2P_NUM_PROCS || !name || !open_notifier || !handle)
 		return -EINVAL;
 
+	if ((remote_pid != SMP2P_REMOTE_MOCK_PROC) &&
+			!smp2p_int_cfgs[remote_pid].is_configured) {
+		SMP2P_INFO("%s before msm_smp2p_init(): pid[%d] name[%s]\n",
+						__func__, remote_pid, name);
+		return -EPROBE_DEFER;
+	}
+
 	/* Allocate the smp2p object and node */
 	out_entry = kzalloc(sizeof(*out_entry), GFP_KERNEL);
 	if (!out_entry)
@@ -1211,6 +1218,13 @@ int msm_smp2p_out_close(struct msm_smp2p_out **handle)
 	out_entry = *handle;
 	*handle = NULL;
 
+	if ((out_entry->remote_pid != SMP2P_REMOTE_MOCK_PROC) &&
+			!smp2p_int_cfgs[out_entry->remote_pid].is_configured) {
+		SMP2P_INFO("%s before msm_smp2p_init(): pid[%d] name[%s]\n",
+			__func__, out_entry->remote_pid, out_entry->name);
+		return -EPROBE_DEFER;
+	}
+
 	out_item = &out_list[out_entry->remote_pid];
 	spin_lock_irqsave(&out_item->out_item_lock_lha1, flags);
 	list_del(&out_entry->out_edge_list);
@@ -1243,6 +1257,13 @@ int msm_smp2p_out_read(struct msm_smp2p_out *handle, uint32_t *data)
 	if (!handle || !data)
 		return ret;
 
+	if ((handle->remote_pid != SMP2P_REMOTE_MOCK_PROC) &&
+			!smp2p_int_cfgs[handle->remote_pid].is_configured) {
+		SMP2P_INFO("%s before msm_smp2p_init(): pid[%d] name[%s]\n",
+			__func__, handle->remote_pid, handle->name);
+		return -EPROBE_DEFER;
+	}
+
 	out_item = &out_list[handle->remote_pid];
 	spin_lock_irqsave(&out_item->out_item_lock_lha1, flags);
 	ret = out_item->ops_ptr->read_entry(handle, data);
@@ -1273,6 +1294,13 @@ int msm_smp2p_out_write(struct msm_smp2p_out *handle, uint32_t data)
 
 	if (!handle)
 		return ret;
+
+	if ((handle->remote_pid != SMP2P_REMOTE_MOCK_PROC) &&
+			!smp2p_int_cfgs[handle->remote_pid].is_configured) {
+		SMP2P_INFO("%s before msm_smp2p_init(): pid[%d] name[%s]\n",
+			__func__, handle->remote_pid, handle->name);
+		return -EPROBE_DEFER;
+	}
 
 	out_item = &out_list[handle->remote_pid];
 	spin_lock_irqsave(&out_item->out_item_lock_lha1, flags);
@@ -1311,6 +1339,13 @@ int msm_smp2p_out_modify(struct msm_smp2p_out *handle, uint32_t set_mask,
 	if (!handle)
 		return ret;
 
+	if ((handle->remote_pid != SMP2P_REMOTE_MOCK_PROC) &&
+			!smp2p_int_cfgs[handle->remote_pid].is_configured) {
+		SMP2P_INFO("%s before msm_smp2p_init(): pid[%d] name[%s]\n",
+			__func__, handle->remote_pid, handle->name);
+		return -EPROBE_DEFER;
+	}
+
 	out_item = &out_list[handle->remote_pid];
 	spin_lock_irqsave(&out_item->out_item_lock_lha1, flags);
 	ret = out_item->ops_ptr->modify_entry(handle, set_mask, clear_mask);
@@ -1336,6 +1371,13 @@ int msm_smp2p_in_read(int remote_pid, const char *name, uint32_t *data)
 
 	if (remote_pid >= SMP2P_NUM_PROCS)
 		return -EINVAL;
+
+	if ((remote_pid != SMP2P_REMOTE_MOCK_PROC) &&
+			!smp2p_int_cfgs[remote_pid].is_configured) {
+		SMP2P_INFO("%s before msm_smp2p_init(): pid[%d] name[%s]\n",
+						__func__, remote_pid, name);
+		return -EPROBE_DEFER;
+	}
 
 	out_item = &out_list[remote_pid];
 	spin_lock_irqsave(&out_item->out_item_lock_lha1, flags);
@@ -1385,6 +1427,13 @@ int msm_smp2p_in_register(int pid, const char *name,
 
 	if (pid >= SMP2P_NUM_PROCS || !name || !in_notifier)
 		return -EINVAL;
+
+	if ((pid != SMP2P_REMOTE_MOCK_PROC) &&
+			!smp2p_int_cfgs[pid].is_configured) {
+		SMP2P_INFO("%s before msm_smp2p_init(): pid[%d] name[%s]\n",
+						__func__, pid, name);
+		return -EPROBE_DEFER;
+	}
 
 	/* Pre-allocate before spinlock since we will likely needed it */
 	in = kzalloc(sizeof(*in), GFP_KERNEL);
@@ -1467,6 +1516,13 @@ int msm_smp2p_in_unregister(int remote_pid, const char *name,
 
 	if (remote_pid >= SMP2P_NUM_PROCS || !name || !in_notifier)
 		return -EINVAL;
+
+	if ((remote_pid != SMP2P_REMOTE_MOCK_PROC) &&
+			!smp2p_int_cfgs[remote_pid].is_configured) {
+		SMP2P_INFO("%s before msm_smp2p_init(): pid[%d] name[%s]\n",
+						__func__, remote_pid, name);
+		return -EPROBE_DEFER;
+	}
 
 	spin_lock_irqsave(&in_list[remote_pid].in_item_lock_lhb1, flags);
 	list_for_each_entry(pos, &in_list[remote_pid].list,
