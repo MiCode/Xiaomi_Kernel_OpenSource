@@ -613,11 +613,11 @@ static char *get_timestamp(char *tbuf)
 	return tbuf;
 }
 
-static int check_log_mask(struct dbg_data *d, int ep_addr)
+static int check_log_mask(struct dbg_data *d, int ep_addr, struct urb *urb)
 {
 	int dir, num;
 
-	dir = ep_addr & USB_DIR_IN ? USB_DIR_IN : USB_DIR_OUT;
+	dir = usb_urb_dir_in(urb) ? USB_DIR_IN : USB_DIR_OUT;
 	num = ep_addr & ~USB_DIR_IN;
 	num = 1 << num;
 
@@ -629,9 +629,9 @@ static int check_log_mask(struct dbg_data *d, int ep_addr)
 	return 0;
 }
 
-static char *get_hex_data(char *dbuf, struct urb *urb, int event, int status)
+static char *
+get_hex_data(char *dbuf, struct urb *urb, int event, int status, size_t max_len)
 {
-	int ep_addr = urb->ep->desc.bEndpointAddress;
 	char *ubuf = urb->transfer_buffer;
 	size_t len =
 		event ? urb->actual_length : urb->transfer_buffer_length;
@@ -640,11 +640,10 @@ static char *get_hex_data(char *dbuf, struct urb *urb, int event, int status)
 		status = 0;
 
 	/*Only dump ep in completions and epout submissions*/
-	if (len && !status &&
-		(((ep_addr & USB_DIR_IN) && event) ||
-		(!(ep_addr & USB_DIR_IN) && !event))) {
-		if (len >= 32)
-			len = 32;
+	if (len && !status && ((usb_urb_dir_in(urb) && event) ||
+		(usb_urb_dir_in(urb) && !event))) {
+		if (len >= max_len)
+			len = max_len;
 		hex_dump_to_buffer(ubuf, len, 32, 4, dbuf, HEX_DUMP_LEN, 0);
 	} else {
 		dbuf = "";
@@ -675,7 +674,7 @@ xhci_dbg_log_event(struct dbg_data *d, struct urb *urb, char *event,
 	}
 
 	ep_addr = urb->ep->desc.bEndpointAddress;
-	if (!check_log_mask(d, ep_addr))
+	if (!check_log_mask(d, ep_addr, urb))
 		return;
 
 	if ((ep_addr & 0x0f) == 0x0) {
@@ -684,9 +683,9 @@ xhci_dbg_log_event(struct dbg_data *d, struct urb *urb, char *event,
 			write_lock_irqsave(&d->ctrl_lck, flags);
 			scnprintf(d->ctrl_buf[d->ctrl_idx],
 				DBG_MSG_LEN, "%s: [%s : %p]:[%s] "
-				  "%02x %02x %04x %04x %04x  %u %d",
+				  "%02x %02x %04x %04x %04x  %u %d %s",
 				  get_timestamp(tbuf), event, urb,
-				  (ep_addr & USB_DIR_IN) ? "in" : "out",
+				  usb_urb_dir_in(urb) ? "in" : "out",
 				  urb->setup_packet[0], urb->setup_packet[1],
 				  (urb->setup_packet[3] << 8) |
 				  urb->setup_packet[2],
@@ -694,17 +693,21 @@ xhci_dbg_log_event(struct dbg_data *d, struct urb *urb, char *event,
 				  urb->setup_packet[4],
 				  (urb->setup_packet[7] << 8) |
 				  urb->setup_packet[6],
-				  urb->transfer_buffer_length, extra);
+				  urb->transfer_buffer_length, extra,
+				  d->log_payload ? get_hex_data(dbuf, urb,
+				  xhci_str_to_event(event), extra, 16) : "");
 
 			dbg_inc(&d->ctrl_idx);
 			write_unlock_irqrestore(&d->ctrl_lck, flags);
 		} else {
 			write_lock_irqsave(&d->ctrl_lck, flags);
 			scnprintf(d->ctrl_buf[d->ctrl_idx],
-				DBG_MSG_LEN, "%s: [%s : %p]:[%s] %u %d",
+				DBG_MSG_LEN, "%s: [%s : %p]:[%s] %u %d %s",
 				  get_timestamp(tbuf), event, urb,
-				  (ep_addr & USB_DIR_IN) ? "in" : "out",
-				  urb->actual_length, extra);
+				  usb_urb_dir_in(urb) ? "in" : "out",
+				  urb->actual_length, extra,
+				  d->log_payload ? get_hex_data(dbuf, urb,
+				xhci_str_to_event(event), extra, 16) : "");
 
 			dbg_inc(&d->ctrl_idx);
 			write_unlock_irqrestore(&d->ctrl_lck, flags);
@@ -714,11 +717,11 @@ xhci_dbg_log_event(struct dbg_data *d, struct urb *urb, char *event,
 		scnprintf(d->data_buf[d->data_idx], DBG_MSG_LEN,
 			  "%s: [%s : %p]:ep%d[%s]  %u %d %s",
 			  get_timestamp(tbuf), event, urb, ep_addr & 0x0f,
-			  (ep_addr & USB_DIR_IN) ? "in" : "out",
+			  usb_urb_dir_in(urb) ? "in" : "out",
 			  xhci_str_to_event(event) ? urb->actual_length :
 			  urb->transfer_buffer_length, extra,
 			  d->log_payload ? get_hex_data(dbuf, urb,
-				  xhci_str_to_event(event), extra) : "");
+				  xhci_str_to_event(event), extra, 32) : "");
 
 		dbg_inc(&d->data_idx);
 		write_unlock_irqrestore(&d->data_lck, flags);
