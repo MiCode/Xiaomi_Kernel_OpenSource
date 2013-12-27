@@ -247,6 +247,11 @@ static int slave_configure(struct scsi_device *sdev)
 		if (us->fflags & US_FL_WRITE_CACHE)
 			sdev->wce_default_on = 1;
 
+		if (us->sdev_autosuspend_delay >= 0) {
+			sdev->use_rpm_auto = 1;
+			sdev->autosuspend_delay = us->sdev_autosuspend_delay;
+		}
+
 	} else {
 
 		/* Non-disk-type devices don't need to blacklist any pages
