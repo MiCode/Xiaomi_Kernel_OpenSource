@@ -426,6 +426,7 @@ int msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	struct msm_camera_i2c_client *sensor_i2c_client;
 	struct msm_camera_slave_info *slave_info;
 	const char *sensor_name;
+	uint32_t retry = 0;
 
 	if (!s_ctrl) {
 		pr_err("%s:%d failed: %p\n",
@@ -446,14 +447,21 @@ int msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 		return -EINVAL;
 	}
 
-	rc = msm_camera_power_up(power_info, s_ctrl->sensor_device_type,
-		sensor_i2c_client);
-	if (rc < 0)
-		return rc;
-	rc = msm_sensor_check_id(s_ctrl);
-	if (rc < 0)
-		msm_camera_power_down(power_info, s_ctrl->sensor_device_type,
-					sensor_i2c_client);
+	for (retry = 0; retry < 3; retry++) {
+		rc = msm_camera_power_up(power_info, s_ctrl->sensor_device_type,
+			sensor_i2c_client);
+		if (rc < 0)
+			return rc;
+		rc = msm_sensor_check_id(s_ctrl);
+		if (rc < 0) {
+			msm_camera_power_down(power_info,
+				s_ctrl->sensor_device_type, sensor_i2c_client);
+			msleep(20);
+			continue;
+		} else {
+			break;
+		}
+	}
 
 	return rc;
 }
