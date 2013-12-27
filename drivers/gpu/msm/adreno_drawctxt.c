@@ -429,7 +429,8 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 
 	/* Always enable per-context timestamps */
 	drawctxt->base.flags |= KGSL_CONTEXT_PER_CONTEXT_TS;
-
+	drawctxt->type = (drawctxt->base.flags & KGSL_CONTEXT_TYPE_MASK)
+	>> KGSL_CONTEXT_TYPE_SHIFT;
 	mutex_init(&drawctxt->mutex);
 	init_waitqueue_head(&drawctxt->wq);
 	init_waitqueue_head(&drawctxt->waiting);
