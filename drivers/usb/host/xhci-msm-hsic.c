@@ -554,7 +554,9 @@ static int mxhci_hsic_bus_suspend(struct usb_hcd *hcd)
 	/* don't miss connect bus state from peripheral for USB 2.0 root hub */
 	if (usb_hcd_is_primary_hcd(hcd) &&
 			!(readl_relaxed(MSM_HSIC_PORTSC) & PORT_PE)) {
-		dev_err(mxhci->dev, "%s: port is not enabled; skip suspend\n",
+		xhci_dbg_log_event(&dbg_hsic, NULL,
+				"port is not enabled; skip suspend", 0);
+		dev_dbg(mxhci->dev, "%s: port is not enabled; skip suspend\n",
 				__func__);
 		return -EAGAIN;
 	}
