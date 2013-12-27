@@ -39,6 +39,8 @@ static struct clk_lookup msm_clocks_8916[] = {
 	CLK_DUMMY("dfab_clk",   DFAB_CLK,       "msm_sps", OFF),
 	CLK_DUMMY("core_clk",	BLSP1_SPI_CLK,	"78b7000.spi", OFF),
 	CLK_DUMMY("iface_clk",	BLSP1_SPI_CLK,	"78b7000.spi", OFF),
+	CLK_DUMMY("core_clk",	BLSP1_I2C_CLK,	"78b6000.i2c", OFF),
+	CLK_DUMMY("iface_clk",	BLSP1_I2C_CLK,  "78b6000.i2c", OFF),
 	CLK_DUMMY("",	camss_ahb_clk_src.c,	"", OFF),
 	CLK_DUMMY("",	csi0_clk_src.c,	"", OFF),
 	CLK_DUMMY("",	csi1_clk_src.c,	"", OFF),
