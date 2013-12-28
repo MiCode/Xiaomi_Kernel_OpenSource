@@ -10,19 +10,19 @@ Required properties:
 - reg: offset and length of the register set for the device.
 - reg-names: names of the bases for the above registers. "maple_csr_base".
 - vdd-supply: regulator to supply vpu.
-- qti,firmware-name: Base name of the firmware image. Ex. "vpu"
+- qcom,firmware-name: Base name of the firmware image. Ex. "vpu"
 
 Optional properties:
-- qti,restart-group: List of subsystems that will need to restart together.
+- qcom,restart-group: List of subsystems that will need to restart together.
 
 Example:
 
 	qcom,vpu@fde0b000{
-		compatible = "qti,pil-vpu";
+		compatible = "qcom,pil-vpu";
 		reg = <0xfde0b000 0x80>;
 		reg-names = "maple_csr_base";
 		vdd-supply = <&gdsc_vpu>;
 
-		qti,firmware-name = "vpu";
+		qcom,firmware-name = "vpu";
 	};
 

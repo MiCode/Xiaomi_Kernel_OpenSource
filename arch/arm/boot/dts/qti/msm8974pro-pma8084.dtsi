@@ -149,18 +149,18 @@
 		parent-supply = <&pma8084_s7_corner>;
 	};
 
-	qti,lpass@fe200000 {
+	qcom,lpass@fe200000 {
 		vdd_cx-supply = <&pma8084_s2_corner>;
 	};
 
-	qti,mss@fc880000 {
+	qcom,mss@fc880000 {
 		vdd_mss-supply = <&pma8084_s6>;
 		vdd_cx-supply = <&pma8084_s2_corner>;
 		vdd_mx-supply = <&pma8084_s1>;
 		vdd_pll-supply = <&pma8084_l12>;
 	};
 
-	qti,pronto@fb21b000 {
+	qcom,pronto@fb21b000 {
 		vdd_pronto_pll-supply = <&pma8084_l12>;
 	};
 
