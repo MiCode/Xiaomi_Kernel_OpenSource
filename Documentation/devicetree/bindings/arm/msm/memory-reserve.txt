@@ -7,16 +7,16 @@ must specify the size and type of the memory needed. Any driver wanting to
 allocate contiguous memory should indicate this via device tree bindings:
 
 Required parameters:
-- qti,memory-reservation-type: type of memory to be reserved. This is a
+- qcom,memory-reservation-type: type of memory to be reserved. This is a
 string defined in arch/arm/mach-msm/memory.c
-- qti,memory-reservation-size: size of memory to be reserved
+- qcom,memory-reservation-size: size of memory to be reserved
 
 Example:
 
 	qcom,a-driver {
 		compatible = "qcom,a-driver";
-		qti,memory-reservation-type = "EBI1" /* reserve EBI memory */
-		qti,memory-reservation-size = <0x400000>; /* size 4MB */
+		qcom,memory-reservation-type = "EBI1" /* reserve EBI memory */
+		qcom,memory-reservation-size = <0x400000>; /* size 4MB */
 	};
 
 Under some circumstances, it may be necessary to remove a chunk of memory
@@ -26,12 +26,12 @@ range is not affected. Any driver needing to remove a block of memory should
 add the appropriate binding:
 
 Required parameters:
-- qti,memblock-remove: array of the base and size of blocks to be removed
+- qcom,memblock-remove: array of the base and size of blocks to be removed
 
 	qcom,a-driver {
 		compatible = "qcom,a-driver";
 		/* Remove 4MB at 0x200000 and 2MB at 0x800000*/
-		qti,memblock-remove = <0x200000 0x400000
+		qcom,memblock-remove = <0x200000 0x400000
 					0x800000 0x200000>;
 	};
 
@@ -48,8 +48,8 @@ example:
 
 	qcom,msm-contig-mem {
 		compatible = "qcom,msm-contig-mem";
-		qti,memory-reservation-type = "EBI1";
-		qti,memory-reservation-size = <0x280000>; /* 2.5M EBI1 buffer */
+		qcom,memory-reservation-type = "EBI1";
+		qcom,memory-reservation-size = <0x280000>; /* 2.5M EBI1 buffer */
 	};
 
 
@@ -59,12 +59,12 @@ that the region has been removed by a separate memblock-remove property
 present in the device tree.
 
 Required parameters:
--qti,memory-fixed: base and size of the fixed memory region
+-qcom,memory-fixed: base and size of the fixed memory region
 
 	qcom,a-driver {
 		compatible = "qcom,a-driver";
 		/* Fixed Memory region of 4MB at 0x200000*/
-		qti,memory-fixed = <0x200000 0x400000>;
+		qcom,memory-fixed = <0x200000 0x400000>;
 	};
 
 This region is assumed to be a part of a separate hole that has been removed
@@ -78,12 +78,12 @@ from the buddy allocator at bootup but may be freed back at a later point in
 time with memblock_free and free_bootmem_late.
 
 Required parameters:
--qti,memblock-reserve: base and size of block to be reserved. Drivers should
+-qcom,memblock-reserve: base and size of block to be reserved. Drivers should
 call memblock_is_reserved before attempting to use the base address to ensure
 the memory was completely reserved.
 
 	qcom,a-driver {
 		compatible = "qcom,a-driver";
 		/* reserve a 4MB region @ 0x200000 for use later */
-		qti,memblock-reserve = <0x200000 0x400000>;
+		qcom,memblock-reserve = <0x200000 0x400000>;
 	};

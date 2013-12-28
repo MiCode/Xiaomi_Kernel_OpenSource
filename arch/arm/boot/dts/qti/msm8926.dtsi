@@ -202,7 +202,7 @@
 };
 
 &memory_hole {
-	qti,memblock-remove = <0x08000000 0x7500000
+	qcom,memblock-remove = <0x08000000 0x7500000
 				0x0fa00000 0x500000>; /* Address and size of the hole */
 };
 

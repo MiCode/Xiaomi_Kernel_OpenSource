@@ -32,8 +32,8 @@
 #include "../ion_priv.h"
 #include "ion_cp_common.h"
 
-#define ION_COMPAT_STR	"qti,msm-ion"
-#define ION_COMPAT_MEM_RESERVE_STR "qti,msm-ion-reserve"
+#define ION_COMPAT_STR	"qcom,msm-ion"
+#define ION_COMPAT_MEM_RESERVE_STR "qcom,msm-ion-reserve"
 
 static struct ion_device *idev;
 static int num_heaps;
@@ -445,7 +445,7 @@ static int msm_init_extra_data(struct device_node *node,
 		unsigned int val;
 
 		ret = of_property_read_u32(node,
-					"qti,default-prefetch-size", &val);
+					"qcom,default-prefetch-size", &val);
 
 		if (!ret) {
 			heap->extra_data = kzalloc(sizeof(struct ion_cma_pdata),
@@ -491,7 +491,7 @@ static int msm_ion_get_heap_type_from_dt_node(struct device_node *node,
 {
 	const char *name;
 	int i, ret = -EINVAL;
-	ret = of_property_read_string(node, "qti,ion-heap-type", &name);
+	ret = of_property_read_string(node, "qcom,ion-heap-type", &name);
 	if (ret)
 		goto out;
 	for (i = 0; i < ARRAY_SIZE(heap_types_info); ++i) {
@@ -545,7 +545,7 @@ static void msm_ion_get_heap_align(struct device_node *node,
 {
 	unsigned int val;
 
-	int ret = of_property_read_u32(node, "qti,heap-align", &val);
+	int ret = of_property_read_u32(node, "qcom,heap-align", &val);
 	if (!ret) {
 		switch ((int) heap->type) {
 		case ION_HEAP_TYPE_CP:
@@ -578,11 +578,11 @@ static int msm_ion_get_heap_size(struct device_node *node,
 	u32 out_values[2];
 	struct device_node *pnode;
 
-	ret = of_property_read_u32(node, "qti,memory-reservation-size", &val);
+	ret = of_property_read_u32(node, "qcom,memory-reservation-size", &val);
 	if (!ret)
 		heap->size = val;
 
-	ret = of_property_read_u32_array(node, "qti,memory-fixed",
+	ret = of_property_read_u32_array(node, "qcom,memory-fixed",
 								out_values, 2);
 	if (!ret) {
 		heap->size = out_values[1];
@@ -617,7 +617,7 @@ static void msm_ion_get_heap_base(struct device_node *node,
 	int ret = 0;
 	struct device_node *pnode;
 
-	ret = of_property_read_u32_array(node, "qti,memory-fixed",
+	ret = of_property_read_u32_array(node, "qcom,memory-fixed",
 							out_values, 2);
 	if (!ret)
 		heap->base = out_values[0];
@@ -635,7 +635,7 @@ static void msm_ion_get_heap_adjacent(struct device_node *node,
 				      struct ion_platform_heap *heap)
 {
 	unsigned int val;
-	int ret = of_property_read_u32(node, "qti,heap-adjacent", &val);
+	int ret = of_property_read_u32(node, "qcom,heap-adjacent", &val);
 	if (!ret) {
 		switch (heap->type) {
 		case ION_HEAP_TYPE_CARVEOUT:

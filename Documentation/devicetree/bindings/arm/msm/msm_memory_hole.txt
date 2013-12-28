@@ -15,6 +15,6 @@ Required properties
 
 	qcom,msm-mem-hole {
 		compatible = "qcom,msm-mem-hole";
-		qti,memblock-remove = <0x8100000 0x7e00000>; /* Address and Size of Hole */
+		qcom,memblock-remove = <0x8100000 0x7e00000>; /* Address and Size of Hole */
 	};
 

@@ -8,16 +8,16 @@ bindings (see Documentation/devicetree/bindings/arm/msm/memory-reserve.txt).
 
 Required properties for Ion
 
-- compatible: "qti,msm-ion"
+- compatible: "qcom,msm-ion"
 
 
-All child nodes of a qti,msm-ion node are interpreted as Ion heap
+All child nodes of a qcom,msm-ion node are interpreted as Ion heap
 configurations.
 
 Required properties for Ion heaps
 
 - reg: The ID of the ION heap.
-- qti,ion-heap-type: The heap type to use for this heap. Should be one of
+- qcom,ion-heap-type: The heap type to use for this heap. Should be one of
   the following:
     - "SYSTEM"
     - "SYSTEM_CONTIG"
@@ -30,44 +30,44 @@ Required properties for Ion heaps
 
 Optional properties for Ion heaps
 
-- compatible: "qti,msm-ion-reserve" This is required if memory is to be reserved
-  as specified by qti,memory-reservation-size below.
-- qti,heap-align: Alignment of start of the memory in the heap.
-- qti,heap-adjacent: ID of heap this heap needs to be adjacent to.
-- qti,memory-reservation-size: size of reserved memory for the ION heap.
-- qti,memory-reservation-type: type of memory to be reserved
+- compatible: "qcom,msm-ion-reserve" This is required if memory is to be reserved
+  as specified by qcom,memory-reservation-size below.
+- qcom,heap-align: Alignment of start of the memory in the heap.
+- qcom,heap-adjacent: ID of heap this heap needs to be adjacent to.
+- qcom,memory-reservation-size: size of reserved memory for the ION heap.
+- qcom,memory-reservation-type: type of memory to be reserved
 (see memory-reserve.txt for information about memory reservations)
-- qti,default-prefetch-size: Base value to be used for prefetching
+- qcom,default-prefetch-size: Base value to be used for prefetching
   optimizations. Ignored if the heap does not support prefetching.
   Will set to a reasonable default value (e.g. the maximum heap size)
   if this option is not set.
 
 Example:
-	qti,ion {
-                 compatible = "qti,msm-ion";
+	qcom,ion {
+                 compatible = "qcom,msm-ion";
                  #address-cells = <1>;
                  #size-cells = <0>;
 
-                 qti,ion-heap@25 {
+                 qcom,ion-heap@25 {
                          reg = <25>;
-                         qti,ion-heap-type = "SYSTEM";
+                         qcom,ion-heap-type = "SYSTEM";
                  };
 
-                 qti,ion-heap@8 { /* CP_MM HEAP */
-                         compatible = "qti,msm-ion-reserve";
+                 qcom,ion-heap@8 { /* CP_MM HEAP */
+                         compatible = "qcom,msm-ion-reserve";
                          reg = <8>;
-                         qti,heap-align = <0x1000>;
+                         qcom,heap-align = <0x1000>;
                          linux,contiguous-region = <&secure_mem>;
-                         qti,ion-heap-type = "SECURE_DMA";
+                         qcom,ion-heap-type = "SECURE_DMA";
                  };
 
-                 qti,ion-heap@29 { /* FIRMWARE HEAP */
-                         compatible = "qti,msm-ion-reserve";
+                 qcom,ion-heap@29 { /* FIRMWARE HEAP */
+                         compatible = "qcom,msm-ion-reserve";
                          reg = <29>;
-                         qti,heap-align = <0x20000>;
-                         qti,heap-adjacent = <8>;
-                         qti,memory-reservation-type = "EBI1"; /* reserve EBI memory */
-                         qti,memory-reservation-size = <0xA00000>;
-                         qti,ion-heap-type = "CARVEOUT";
+                         qcom,heap-align = <0x20000>;
+                         qcom,heap-adjacent = <8>;
+                         qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
+                         qcom,memory-reservation-size = <0xA00000>;
+                         qcom,ion-heap-type = "CARVEOUT";
                  };
 	};

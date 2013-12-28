@@ -40,7 +40,7 @@
 };
 
 &memory_hole {
-	qti,memblock-remove = <0x0a700000 0x5800000>; /* Address and size of the hole */
+	qcom,memblock-remove = <0x0a700000 0x5800000>; /* Address and size of the hole */
 };
 
 &qseecom {

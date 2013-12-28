@@ -340,14 +340,14 @@
 		qcom,l2-dump-size = <0x300000>;
 	};
 
-	qti,ion {
-		compatible = "qti,msm-ion";
+	qcom,ion {
+		compatible = "qcom,msm-ion";
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		qti,ion-heap@25 {
+		qcom,ion-heap@25 {
 			reg = <25>;
-			qti,ion-heap-type = "SYSTEM";
+			qcom,ion-heap-type = "SYSTEM";
 		};
 	};
 

@@ -11,13 +11,13 @@
  */
 
 &soc {
-	qti,ion {
-		qti,ion-heap@23 { /* OTHER PIL HEAP */
-			compatible = "qti,msm-ion-reserve";
+	qcom,ion {
+		qcom,ion-heap@23 { /* OTHER PIL HEAP */
+			compatible = "qcom,msm-ion-reserve";
 			reg = <23>;
-			qti,heap-align = <0x1000>;
-			qti,memory-fixed = <0x0dc00000 0x1e00000>;
-			qti,ion-heap-type = "CARVEOUT";
+			qcom,heap-align = <0x1000>;
+			qcom,memory-fixed = <0x0dc00000 0x1e00000>;
+			qcom,ion-heap-type = "CARVEOUT";
 		};
 	};
 };
