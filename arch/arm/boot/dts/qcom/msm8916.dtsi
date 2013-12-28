@@ -198,7 +198,7 @@
 	};
 
 	usb_otg: usb@78d9000 {
-		compatible = "qti,hsusb-otg";
+		compatible = "qcom,hsusb-otg";
 
 		reg = <0x78d9000 0x400>;
 		interrupts = <0 134 0>,<0 140 0>;
@@ -207,17 +207,17 @@
 		HSUSB_VDDCX-supply = <&pm8916_s1>;
 		HSUSB_1p8-supply = <&pm8916_l7>;
 		HSUSB_3p3-supply = <&pm8916_l13>;
-		qti,vdd-voltage-level = <0 1150000 1150000>;
+		qcom,vdd-voltage-level = <0 1150000 1150000>;
 
-		qti,hsusb-otg-phy-type = <2>;
-		qti,hsusb-otg-mode = <1>;
-		qti,hsusb-otg-otg-control = <1>;
-		qti,hsusb-otg-disable-reset;
+		qcom,hsusb-otg-phy-type = <2>;
+		qcom,hsusb-otg-mode = <1>;
+		qcom,hsusb-otg-otg-control = <1>;
+		qcom,hsusb-otg-disable-reset;
 
-		qti,msm-bus,name = "usb2";
-		qti,msm-bus,num-cases = <3>;
-		qti,msm-bus,num-paths = <1>;
-		qti,msm-bus,vectors-KBps =
+		qcom,msm-bus,name = "usb2";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
 				<87 512 0 0>,
 				<87 512 60000 960000>,
 				<87 512 6000  6000>;
@@ -318,55 +318,55 @@
 		qcom,rtb-size = <0x100000>;
 	};
 
-	qti,smem@8e380000 {
-		compatible = "qti,smem";
+	qcom,smem@8e380000 {
+		compatible = "qcom,smem";
 		reg = <0x8e380000 0x100000>,
 			<0x0b011008 0x4>,
 			<0x60000 0x8000>;
 		reg-names = "smem", "irq-reg-base", "aux-mem1";
-		qti,mpu-enabled;
+		qcom,mpu-enabled;
 
-		qti,smd-modem {
-			compatible = "qti,smd";
-			qti,smd-edge = <0>;
-			qti,smd-irq-offset = <0x0>;
-			qti,smd-irq-bitmask = <0x1000>;
-			qti,pil-string = "modem";
+		qcom,smd-modem {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <0>;
+			qcom,smd-irq-offset = <0x0>;
+			qcom,smd-irq-bitmask = <0x1000>;
+			qcom,pil-string = "modem";
 			interrupts = <0 25 1>;
 		};
 
-		qti,smsm-modem {
-			compatible = "qti,smsm";
-			qti,smsm-edge = <0>;
-			qti,smsm-irq-offset = <0x0>;
-			qti,smsm-irq-bitmask = <0x2000>;
+		qcom,smsm-modem {
+			compatible = "qcom,smsm";
+			qcom,smsm-edge = <0>;
+			qcom,smsm-irq-offset = <0x0>;
+			qcom,smsm-irq-bitmask = <0x2000>;
 			interrupts = <0 26 1>;
 		};
 
-		qti,smd-wcnss {
-			compatible = "qti,smd";
-			qti,smd-edge = <6>;
-			qti,smd-irq-offset = <0x0>;
-			qti,smd-irq-bitmask = <0x20000>;
-			qti,pil-string = "wcnss";
+		qcom,smd-wcnss {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <6>;
+			qcom,smd-irq-offset = <0x0>;
+			qcom,smd-irq-bitmask = <0x20000>;
+			qcom,pil-string = "wcnss";
 			interrupts = <0 142 1>;
 		};
 
-		qti,smsm-wcnss {
-			compatible = "qti,smsm";
-			qti,smsm-edge = <6>;
-			qti,smsm-irq-offset = <0x0>;
-			qti,smsm-irq-bitmask = <0x80000>;
+		qcom,smsm-wcnss {
+			compatible = "qcom,smsm";
+			qcom,smsm-edge = <6>;
+			qcom,smsm-irq-offset = <0x0>;
+			qcom,smsm-irq-bitmask = <0x80000>;
 			interrupts = <0 144 1>;
 		};
 
-		qti,smd-rpm {
-			compatible = "qti,smd";
-			qti,smd-edge = <15>;
-			qti,smd-irq-offset = <0x0>;
-			qti,smd-irq-bitmask = <0x1>;
+		qcom,smd-rpm {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <15>;
+			qcom,smd-irq-offset = <0x0>;
+			qcom,smd-irq-bitmask = <0x1>;
 			interrupts = <0 168 1>;
-			qti,irq-no-suspend;
+			qcom,irq-no-suspend;
 		};
 	};
 
@@ -379,7 +379,7 @@
 
 	memory_hole: qcom,msm-mem-hole {
 		compatible = "qcom,msm-mem-hole";
-		qti,memblock-remove = <0x88800000 0x06900000>;
+		qcom,memblock-remove = <0x88800000 0x06900000>;
 	};
 
 	qcom,bam_dmux@4044000 {

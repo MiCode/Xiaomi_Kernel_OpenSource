@@ -11,8 +11,8 @@
  */
 
 &soc {
-	gfx_iommu: qti,iommu@1f00000 {
-		compatible = "qti,msm-smmu-v2";
+	gfx_iommu: qcom,iommu@1f00000 {
+		compatible = "qcom,msm-smmu-v2";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -21,15 +21,15 @@
 		interrupts = <0 43 0>, <0 42 0>;
 		interrupt-names = "global_cfg_NS_irq", "global_cfg_S_irq";
 		label = "gfx_iommu";
-		qti,iommu-secure-id = <18>;
-		qti,no-atos-support;
+		qcom,iommu-secure-id = <18>;
+		qcom,no-atos-support;
 		status = "disabled";
 
-		qti,iommu-ctx@1f08000 {
-			compatible = "qti,msm-smmu-v2-ctx";
+		qcom,iommu-ctx@1f08000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1f08000 0x1000>;
 			interrupts = <0 240 0>;
-			qti,iommu-ctx-sids = <0 1>;
+			qcom,iommu-ctx-sids = <0 1>;
 			label = "gfx3d_user";
 		};
 	};
