@@ -42,19 +42,6 @@ static int get_num(const char *const str[], const char *name)
 	return -EINVAL;
 }
 
-/*
- * New client dt properties have to be added here in this array
- * and data corresponding to that DT properties must be
- * extracted as per this array order
- */
-static const char * const cl_dt_name[][2] = {
-	{"qcom,msm-bus,num-cases",	"qti,msm-bus,num-cases"},
-	{"qcom,msm-bus,active-only",	"qti,msm-bus,active-only"},
-	{"qcom,msm-bus,num-paths",	"qti,msm-bus,num-paths"},
-	{"qcom,msm-bus,vectors-KBps",	"qti,msm-bus,vectors-KBps"},
-	{NULL,				NULL},
-};
-
 static struct msm_bus_scale_pdata *get_pdata(struct platform_device *pdev,
 	struct device_node *of_node)
 {
@@ -62,7 +49,7 @@ static struct msm_bus_scale_pdata *get_pdata(struct platform_device *pdev,
 	struct msm_bus_paths *usecase = NULL;
 	int i = 0, j, ret, num_usecases = 0, num_paths, len;
 	const uint32_t *vec_arr = NULL;
-	int idx = 0, dt_sel = 0;
+	bool mem_err = false;
 
 	if (!pdev) {
 		pr_err("Error: Null Platform device\n");
@@ -73,66 +60,57 @@ static struct msm_bus_scale_pdata *get_pdata(struct platform_device *pdev,
 		GFP_KERNEL);
 	if (!pdata) {
 		pr_err("Error: Memory allocation for pdata failed\n");
-		return NULL;
+		mem_err = true;
+		goto err;
 	}
 
-	/* This DT MUST run to chose correct DT tag dynamically */
 	ret = of_property_read_string(of_node, "qcom,msm-bus,name",
 		&pdata->name);
 	if (ret) {
-		ret = of_property_read_string(of_node, "qti,msm-bus,name",
-			&pdata->name);
-		if (ret) {
-			dev_err(&pdev->dev,
-				"Missing 'qti,msm-bus,name/qcom,msm-bus,name' DT entry\n");
-			goto err;
-		}
-		/* select dynamically the correct DT tag type */
-		dt_sel = 1;
+		pr_err("Error: Client name not found\n");
+		goto err;
 	}
 
-	ret = of_property_read_u32(of_node, cl_dt_name[idx++][dt_sel],
+	ret = of_property_read_u32(of_node, "qcom,msm-bus,num-cases",
 		&num_usecases);
 	if (ret) {
-		dev_err(&pdev->dev, "Missing '%s' DT entry\n",
-				cl_dt_name[idx - 1][dt_sel]);
+		pr_err("Error: num-usecases not found\n");
 		goto err;
 	}
 
 	pdata->num_usecases = num_usecases;
 
-	if (of_property_read_bool(of_node, cl_dt_name[idx++][dt_sel]))
+	if (of_property_read_bool(of_node, "qcom,msm-bus,active-only"))
 		pdata->active_only = 1;
 	else {
-		dev_dbg(&pdev->dev, "Missing '%s' DT entry, Using dual context by default\n",
-			cl_dt_name[idx - 1][dt_sel]);
+		pr_debug("active_only flag absent.\n");
+		pr_debug("Using dual context by default\n");
 	}
 
 	usecase = devm_kzalloc(&pdev->dev, (sizeof(struct msm_bus_paths) *
 		pdata->num_usecases), GFP_KERNEL);
 	if (!usecase) {
 		pr_err("Error: Memory allocation for paths failed\n");
-		goto err1;
+		mem_err = true;
+		goto err;
 	}
 
-	ret = of_property_read_u32(of_node, cl_dt_name[idx++][dt_sel],
+	ret = of_property_read_u32(of_node, "qcom,msm-bus,num-paths",
 		&num_paths);
 	if (ret) {
-		dev_err(&pdev->dev, "Missing '%s' DT entry\n",
-				cl_dt_name[idx - 1][dt_sel]);
-		goto err1;
+		pr_err("Error: num_paths not found\n");
+		goto err;
 	}
 
-	vec_arr = of_get_property(of_node, cl_dt_name[idx++][dt_sel], &len);
+	vec_arr = of_get_property(of_node, "qcom,msm-bus,vectors-KBps", &len);
 	if (vec_arr == NULL) {
-		dev_err(&pdev->dev, "Missing '%s' DT entry\n",
-				cl_dt_name[idx - 1][dt_sel]);
-		goto err1;
+		pr_err("Error: Vector array not found\n");
+		goto err;
 	}
 
 	if (len != num_usecases * num_paths * sizeof(uint32_t) * 4) {
 		pr_err("Error: Length-error on getting vectors\n");
-		goto err1;
+		goto err;
 	}
 
 	for (i = 0; i < num_usecases; i++) {
@@ -140,8 +118,9 @@ static struct msm_bus_scale_pdata *get_pdata(struct platform_device *pdev,
 		usecase[i].vectors = devm_kzalloc(&pdev->dev, num_paths *
 			sizeof(struct msm_bus_vectors), GFP_KERNEL);
 		if (!usecase[i].vectors) {
+			mem_err = true;
 			pr_err("Error: Mem alloc failure in vectors\n");
-			goto err2;
+			goto err;
 		}
 
 		for (j = 0; j < num_paths; j++) {
@@ -158,13 +137,15 @@ static struct msm_bus_scale_pdata *get_pdata(struct platform_device *pdev,
 
 	pdata->usecase = usecase;
 	return pdata;
-err2:
-	for (; i > 0; i--)
-		devm_kfree(&pdev->dev, usecase[i-1].vectors);
-err1:
-	devm_kfree(&pdev->dev, usecase);
 err:
-	devm_kfree(&pdev->dev, pdata);
+	if (mem_err) {
+		for (; i > 0; i--)
+			kfree(usecase[i-1].vectors);
+
+		kfree(usecase);
+		kfree(pdata);
+	}
+
 	return NULL;
 }
 
@@ -290,62 +271,9 @@ err:
 	return NULL;
 }
 
-/*
- * New Fab/Node dt properties have to be added here in this array
- * and data corresponding to that DT properties must be
- * extracted as per this array order
- */
-static const char * const fab_dt_name[][2] = {
-	/* Fab DT properties */
-	{"label",			"label"},
-	{"cell-id",			"cell-id"},
-	{"qcom,ahb",			"qti,ahb"},
-	{"qcom,fabclk-dual",		"qti,fabclk-dual"},
-	{"qcom,fabclk-active",		"qti,fabclk-active"},
-	{"qcom,qos-freq",		"qti,qos-freq"},
-	{"qcom,hw-sel",			"qti,hw-sel"},
-	{"qcom,virt",			"qti,virt"},
-	{"qcom,rpm-en",			"qti,rpm-en"},
-
-	/* Node DT properties */
-	{"label",			"label"},
-	{"cell-id",			"cell-id"},
-	{"qcom,gateway",		"qti,gateway"},
-	{"qcom,mas-hw-id",		"qti,mas-hw-id"},
-	{"qcom,slv-hw-id",		"qti,slv-hw-id"},
-	{"qcom,masterp",		"qti,masterp"},
-	{"qcom,qport",			"qti,qport"},
-	{"qcom,slavep",			"qti,slavep"},
-	{"qcom,tier",			"qti,tier"},
-	{"qcom,ahb",			"qti,ahb"},
-	{"qcom,hw-sel",			"qti,hw-sel"},
-	{"qcom,buswidth",		"qti,buswidth"},
-	{"qcom,ws",			"qti,ws"},
-	{"qcom,thresh",			"qti,thresh"},
-	{"qcom,bimc,bw",		"qti,bimc,bw"},
-	{"qcom,bimc,gp",		"qti,bimc,gp"},
-	{"qcom,bimc,thmp",		"qti,bimc,thmp"},
-	{"qcom,mode",			"qti,mode"},
-	{"qcom,dual-conf",		"qti,dual-conf"},
-	{"qcom,mode-thresh",		"qti,mode-thresh"},
-	{"qcom,perm-mode",		"qti,perm-mode"},
-	{"qcom,prio-lvl",		"qti,prio-lvl"},
-	{"qcom,prio-rd",		"qti,prio-rd"},
-	{"qcom,prio-wr",		"qti,prio-wr"},
-	{"qcom,prio0",			"qti,prio0"},
-	{"qcom,prio1",			"qti,prio1"},
-	{"qcom,slaveclk-dual",		"qti,slaveclk-dual"},
-	{"qcom,slaveclk-active",	"qti,slaveclk-active"},
-	{"qcom,memclk-dual",		"qti,memclk-dual"},
-	{"qcom,memclk-active",		"qti,memclk-active"},
-	{"qcom,iface-clk-node",		"qti,iface-clk-node"},
-	{NULL,				NULL},
-};
-
 static struct msm_bus_node_info *get_nodes(struct device_node *of_node,
 	struct platform_device *pdev,
-	struct msm_bus_fabric_registration *pdata,
-	int idx, int dt_sel)
+	struct msm_bus_fabric_registration *pdata)
 {
 	struct msm_bus_node_info *info;
 	struct device_node *child_node = NULL;
@@ -369,95 +297,84 @@ static struct msm_bus_node_info *get_nodes(struct device_node *of_node,
 	child_node = NULL;
 	for_each_child_of_node(of_node, child_node) {
 		const char *sel_str;
-		int index = idx;
 
-		ret = of_property_read_string(child_node,
-			fab_dt_name[index++][dt_sel], &info[i].name);
+		ret = of_property_read_string(child_node, "label",
+			&info[i].name);
 		if (ret)
-			dev_err(&pdev->dev, "Missing device node's'%s' DT entry\n",
-					fab_dt_name[index - 1][dt_sel]);
+			pr_err("Error reading node label\n");
 
-		ret = of_property_read_u32(child_node,
-			fab_dt_name[index++][dt_sel], &info[i].id);
+		ret = of_property_read_u32(child_node, "cell-id", &info[i].id);
 		if (ret) {
-			dev_err(&pdev->dev, "Missing '%s' DT entry\n",
-					fab_dt_name[index - 1][dt_sel]);
+			pr_err("Error reading node id\n");
 			goto err;
 		}
 
-		if (of_property_read_bool(child_node,
-				fab_dt_name[index++][dt_sel]))
+		if (of_property_read_bool(child_node, "qcom,gateway"))
 			info[i].gateway = 1;
 
-		of_property_read_u32(child_node, fab_dt_name[index++][dt_sel],
+		of_property_read_u32(child_node, "qcom,mas-hw-id",
 			&info[i].mas_hw_id);
 
-		of_property_read_u32(child_node, fab_dt_name[index++][dt_sel],
+		of_property_read_u32(child_node, "qcom,slv-hw-id",
 			&info[i].slv_hw_id);
-
 		info[i].masterp = get_arr(pdev, child_node,
-			fab_dt_name[index++][dt_sel], &info[i].num_mports);
-
+					"qcom,masterp", &info[i].num_mports);
 		/* No need to store number of qports */
 		info[i].qport = get_arr(pdev, child_node,
-					fab_dt_name[index++][dt_sel], &ret);
+					"qcom,qport", &ret);
 		pdata->nmasters += info[i].num_mports;
 
+
 		info[i].slavep = get_arr(pdev, child_node,
-			fab_dt_name[index++][dt_sel], &info[i].num_sports);
+					"qcom,slavep", &info[i].num_sports);
 		pdata->nslaves += info[i].num_sports;
 
-		info[i].tier = get_arr(pdev, child_node,
-			fab_dt_name[index++][dt_sel], &info[i].num_tiers);
 
-		if (of_property_read_bool(child_node,
-				fab_dt_name[index++][dt_sel]))
+		info[i].tier = get_arr(pdev, child_node,
+					"qcom,tier", &info[i].num_tiers);
+
+		if (of_property_read_bool(child_node, "qcom,ahb"))
 			info[i].ahb = 1;
 
-		ret = of_property_read_string(child_node,
-				fab_dt_name[index++][dt_sel], &sel_str);
+		ret = of_property_read_string(child_node, "qcom,hw-sel",
+			&sel_str);
 		if (ret)
 			info[i].hw_sel = 0;
 		else {
 			ret =  get_num(hw_sel_name, sel_str);
 			if (ret < 0) {
-				dev_err(&pdev->dev, "Invalid hw-sel: %s\n",
-						sel_str);
+				pr_err("Invalid hw-sel\n");
 				goto err;
 			}
 
 			info[i].hw_sel = ret;
 		}
 
-		of_property_read_u32(child_node, fab_dt_name[index++][dt_sel],
+		of_property_read_u32(child_node, "qcom,buswidth",
 			&info[i].buswidth);
-		of_property_read_u32(child_node,
-			fab_dt_name[index++][dt_sel], &info[i].ws);
-		ret = of_property_read_u32(child_node,
-			fab_dt_name[index++][dt_sel], &temp);
+		of_property_read_u32(child_node, "qcom,ws", &info[i].ws);
+		ret = of_property_read_u32(child_node, "qcom,thresh",
+			&temp);
 		if (!ret)
 			info[i].th = (uint64_t)KBTOB(temp);
 
-		ret = of_property_read_u32(child_node,
-			fab_dt_name[index++][dt_sel], &temp);
+		ret = of_property_read_u32(child_node, "qcom,bimc,bw",
+			&temp);
 		if (!ret)
 			info[i].bimc_bw = (uint64_t)KBTOB(temp);
 
-		of_property_read_u32(child_node, fab_dt_name[index++][dt_sel],
+		of_property_read_u32(child_node, "qcom,bimc,gp",
 			&info[i].bimc_gp);
-
-		of_property_read_u32(child_node, fab_dt_name[index++][dt_sel],
+		of_property_read_u32(child_node, "qcom,bimc,thmp",
 			&info[i].bimc_thmp);
-
-		ret = of_property_read_string(child_node,
-			fab_dt_name[index++][dt_sel], &sel_str);
+		ret = of_property_read_string(child_node, "qcom,mode",
+			&sel_str);
 		if (ret)
 			info[i].mode = 0;
 		else {
 			ret = get_num(mode_sel_name, sel_str);
 			if (ret < 0) {
-				dev_err(&pdev->dev, "Unknown mode: %s\n",
-						sel_str);
+				pr_err("Unknown mode :%s\n", sel_str);
 				goto err;
 			}
 
@@ -465,18 +382,16 @@ static struct msm_bus_node_info *get_nodes(struct device_node *of_node,
 		}
 
 		info[i].dual_conf =
-			of_property_read_bool(child_node,
-					fab_dt_name[index++][dt_sel]);
+			of_property_read_bool(child_node, "qcom,dual-conf");
 
-		ret = of_property_read_string(child_node,
-			fab_dt_name[index++][dt_sel], &sel_str);
+		ret = of_property_read_string(child_node, "qcom,mode-thresh",
+			&sel_str);
 		if (ret)
 			info[i].mode_thresh = 0;
 		else {
 			ret = get_num(mode_sel_name, sel_str);
 			if (ret < 0) {
-				dev_err(&pdev->dev, "Unknown mode: %s\n",
-						sel_str);
+				pr_err("Unknown mode :%s\n", sel_str);
 				goto err;
 			}
 
@@ -485,8 +400,8 @@ static struct msm_bus_node_info *get_nodes(struct device_node *of_node,
 				info[i].mode_thresh);
 		}
 
-		ret = of_property_read_string(child_node,
-				fab_dt_name[index++][dt_sel], &sel_str);
+		ret = of_property_read_string(child_node, "qcom,perm-mode",
+			&sel_str);
 		if (ret)
 			info[i].perm_mode = 0;
 		else {
@@ -497,19 +412,15 @@ static struct msm_bus_node_info *get_nodes(struct device_node *of_node,
 			info[i].perm_mode = 1 << ret;
 		}
 
-		of_property_read_u32(child_node, fab_dt_name[index++][dt_sel],
+		of_property_read_u32(child_node, "qcom,prio-lvl",
 			&info[i].prio_lvl);
-		of_property_read_u32(child_node, fab_dt_name[index++][dt_sel],
+		of_property_read_u32(child_node, "qcom,prio-rd",
 			&info[i].prio_rd);
-		of_property_read_u32(child_node, fab_dt_name[index++][dt_sel],
+		of_property_read_u32(child_node, "qcom,prio-wr",
 			&info[i].prio_wr);
-		of_property_read_u32(child_node,
-			fab_dt_name[index++][dt_sel], &info[i].prio0);
-		of_property_read_u32(child_node,
-			fab_dt_name[index++][dt_sel], &info[i].prio1);
-
-		ret = of_property_read_string(child_node,
-				fab_dt_name[index++][dt_sel],
+		of_property_read_u32(child_node, "qcom,prio0", &info[i].prio0);
+		of_property_read_u32(child_node, "qcom,prio1", &info[i].prio1);
+		ret = of_property_read_string(child_node, "qcom,slaveclk-dual",
 			&info[i].slaveclk[DUAL_CTX]);
 		if (!ret)
 			pr_debug("Got slaveclk_dual: %s\n",
@@ -518,32 +429,28 @@ static struct msm_bus_node_info *get_nodes(struct device_node *of_node,
 			info[i].slaveclk[DUAL_CTX] = NULL;
 
 		ret = of_property_read_string(child_node,
-			fab_dt_name[index++][dt_sel],
-				&info[i].slaveclk[ACTIVE_CTX]);
+			"qcom,slaveclk-active", &info[i].slaveclk[ACTIVE_CTX]);
 		if (!ret)
 			pr_debug("Got slaveclk_active\n");
 		else
 			info[i].slaveclk[ACTIVE_CTX] = NULL;
 
-		ret = of_property_read_string(child_node,
-				fab_dt_name[index++][dt_sel],
-				&info[i].memclk[DUAL_CTX]);
+		ret = of_property_read_string(child_node, "qcom,memclk-dual",
+			&info[i].memclk[DUAL_CTX]);
 		if (!ret)
 			pr_debug("Got memclk_dual\n");
 		else
 			info[i].memclk[DUAL_CTX] = NULL;
 
-		ret = of_property_read_string(child_node,
-				fab_dt_name[index++][dt_sel],
-				&info[i].memclk[ACTIVE_CTX]);
+		ret = of_property_read_string(child_node, "qcom,memclk-active",
+			&info[i].memclk[ACTIVE_CTX]);
 		if (!ret)
 			pr_debug("Got memclk_active\n");
 		else
 			info[i].memclk[ACTIVE_CTX] = NULL;
 
-		ret = of_property_read_string(child_node,
-				fab_dt_name[index++][dt_sel],
-				&info[i].iface_clk_node);
+		ret = of_property_read_string(child_node, "qcom,iface-clk-node",
+			&info[i].iface_clk_node);
 		if (!ret)
 			pr_debug("Got iface_clk_node\n");
 		else
@@ -589,7 +496,6 @@ struct msm_bus_fabric_registration
 	bool mem_err = false;
 	int ret = 0;
 	const char *sel_str;
-	int idx = 0, dt_sel = 0;
 
 	if (!pdev) {
 		pr_err("Error: Null platform device\n");
@@ -605,73 +511,55 @@ struct msm_bus_fabric_registration
 		goto err;
 	}
 
-	ret = of_property_read_string(of_node,
-			fab_dt_name[idx++][dt_sel], &pdata->name);
+	ret = of_property_read_string(of_node, "label", &pdata->name);
 	if (ret) {
-		dev_err(&pdev->dev, "Missing fabric node's '%s' DT entry\n",
-				fab_dt_name[idx - 1][dt_sel]);
+		pr_err("Error: label not found\n");
 		goto err;
 	}
 	pr_debug("Fab_of: Read name: %s\n", pdata->name);
 
-	ret = of_property_read_u32(of_node, fab_dt_name[idx++][dt_sel],
+	ret = of_property_read_u32(of_node, "cell-id",
 		&pdata->id);
 	if (ret) {
-		dev_err(&pdev->dev, "Missing '%s' DT entry\n",
-				fab_dt_name[idx - 1][dt_sel]);
+		pr_err("Error: num-usecases not found\n");
 		goto err;
 	}
 	pr_debug("Fab_of: Read id: %u\n", pdata->id);
 
-	/* This DT tag MUST run to chose correct DT tag dynamically */
-	ret = of_property_read_u32(of_node, "qcom,ntieredslaves",
-		&pdata->ntieredslaves);
-	if (ret) {
-		ret = of_property_read_u32(of_node, "qti,ntieredslaves",
-			&pdata->ntieredslaves);
-		if (ret) {
-			dev_err(&pdev->dev,
-				"Missing 'qti,ntieredslaves/qcom,ntieredslaves'"
-				" DT entry\n");
-			goto err;
-		}
-		/* select dynamically the correct DT tag type */
-		dt_sel = 1;
-	}
-
-	if (of_property_read_bool(of_node, fab_dt_name[idx++][dt_sel]))
+	if (of_property_read_bool(of_node, "qcom,ahb"))
 		pdata->ahb = 1;
 
-	ret = of_property_read_string(of_node, fab_dt_name[idx++][dt_sel],
+	ret = of_property_read_string(of_node, "qcom,fabclk-dual",
 		&pdata->fabclk[DUAL_CTX]);
 	if (ret) {
-		dev_dbg(&pdev->dev, "Missing '%s' DT entry\n",
-				fab_dt_name[idx - 1][dt_sel]);
+		pr_debug("fabclk_dual not available\n");
 		pdata->fabclk[DUAL_CTX] = NULL;
 	} else
 		pr_debug("Fab_of: Read clk dual ctx: %s\n",
 			pdata->fabclk[DUAL_CTX]);
-	ret = of_property_read_string(of_node, fab_dt_name[idx++][dt_sel],
+	ret = of_property_read_string(of_node, "qcom,fabclk-active",
 		&pdata->fabclk[ACTIVE_CTX]);
 	if (ret) {
-		dev_dbg(&pdev->dev, "Missing '%s' DT entry\n",
-				fab_dt_name[idx - 1][dt_sel]);
+		pr_debug("Error: fabclk_active not available\n");
 		pdata->fabclk[ACTIVE_CTX] = NULL;
 	} else
 		pr_debug("Fab_of: Read clk act ctx: %s\n",
 			pdata->fabclk[ACTIVE_CTX]);
 
-	ret = of_property_read_u32(of_node, fab_dt_name[idx++][dt_sel],
-			&pdata->qos_freq);
-	if (ret)
-		dev_dbg(&pdev->dev, "Missing '%s' DT entry\n",
-				fab_dt_name[idx - 1][dt_sel]);
-
-	ret = of_property_read_string(of_node, fab_dt_name[idx++][dt_sel],
-				&sel_str);
+	ret = of_property_read_u32(of_node, "qcom,ntieredslaves",
+		&pdata->ntieredslaves);
 	if (ret) {
-		dev_err(&pdev->dev, "Missing '%s' DT entry\n",
-				fab_dt_name[idx - 1][dt_sel]);
+		pr_err("Error: ntieredslaves not found\n");
+		goto err;
+	}
+
+	ret = of_property_read_u32(of_node, "qcom,qos-freq", &pdata->qos_freq);
+	if (ret)
+		pr_debug("qos_freq not available\n");
+
+	ret = of_property_read_string(of_node, "qcom,hw-sel", &sel_str);
+	if (ret) {
+		pr_err("Error: hw_sel not found\n");
 		goto err;
 	} else {
 		ret = get_num(hw_sel_name, sel_str);
@@ -681,13 +569,13 @@ struct msm_bus_fabric_registration
 		pdata->hw_sel = ret;
 	}
 
-	if (of_property_read_bool(of_node, fab_dt_name[idx++][dt_sel]))
+	if (of_property_read_bool(of_node, "qcom,virt"))
 		pdata->virt = true;
 
-	if (of_property_read_bool(of_node, fab_dt_name[idx++][dt_sel]))
+	if (of_property_read_bool(of_node, "qcom,rpm-en"))
 		pdata->rpm_enabled = 1;
 
-	pdata->info = get_nodes(of_node, pdev, pdata, idx, dt_sel);
+	pdata->info = get_nodes(of_node, pdev, pdata);
 	return pdata;
 err:
 	return NULL;
