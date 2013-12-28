@@ -26,7 +26,7 @@ Example for rfic driver using SSBI as a parent:
 		qcom,controller-type = "geni-ssbi-arbiter";
 
 		rfic@1 {
-			compatible = "qti,rfic";
+			compatible = "qcom,rfic";
 		};
 	};
 
@@ -34,7 +34,7 @@ Example for rfic driver using SSBI as a parent:
 driver entry is independent and does not use ssbi driver.
 
 Required properties:
--compatible: should be "qti,rfic"
+-compatible: should be "qcom,rfic"
 -reg: specifies the base address of the GRFC registers.
 vdd-switch-supply: regulator used to control RF switches.
 vdd-wtr-supply: regulator used to control WTR.
@@ -43,8 +43,8 @@ vdd-ftr2-supply: regulator used to control FTR2.
 vdd-mtr-supply: regulator used to control MTR.
 
 Example:
-	qti,rfic@fd4a4090 {
-		compatible = "qti,rfic";
+	qcom,rfic@fd4a4090 {
+		compatible = "qcom,rfic";
 		reg = <0xfd4a4090 0x40>;
 		vdd-switch-supply = <&pma8084_l18>;
 		vdd-wtr-supply = <&pma8084_l19>;
@@ -53,7 +53,7 @@ Example:
 		vdd-mtr-supply = <&pma8084_l26>;
 	};
 
-	qti,pdm@f9b10000 {
-		compatible = "qti,rfic";
+	qcom,pdm@f9b10000 {
+		compatible = "qcom,rfic";
 		reg = <0xf9b10000 0x8000>;
 	};

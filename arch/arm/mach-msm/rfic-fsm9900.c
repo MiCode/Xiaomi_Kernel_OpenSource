@@ -677,7 +677,7 @@ static int ftr_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id rfic_match_table[] = {
-	{ .compatible = "qti,rfic" },
+	{ .compatible = "qcom,rfic" },
 	{}
 };
 MODULE_DEVICE_TABLE(of, rfic_match_table);
