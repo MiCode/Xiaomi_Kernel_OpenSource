@@ -4,7 +4,7 @@ targets += dtbs
 targets += $(dtb-y)
 
 #used for cleaning - not building
-subdir- := qti
+subdir- := qcom
 
 dtbs: $(addprefix $(obj)/, $(dtb-y))
 
