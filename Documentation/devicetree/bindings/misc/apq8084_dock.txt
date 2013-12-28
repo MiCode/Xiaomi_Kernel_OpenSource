@@ -6,12 +6,12 @@ consists of GPIOs used for controlling the main power supply
 and reset lines.
 
 Required properties:
- - compatible: Should be "qti,apq8084-dock"
- - qti,dock-detect-gpio: phandle to a GPIO node corresponding to the input
+ - compatible: Should be "qcom,apq8084-dock"
+ - qcom,dock-detect-gpio: phandle to a GPIO node corresponding to the input
                          signal indicating when the dock is connected
- - qti,dock-enable-gpio: phandle to a GPIO node corresponding to the output
+ - qcom,dock-enable-gpio: phandle to a GPIO node corresponding to the output
                          signal that turns on/off power to the ports
- - qti,dock-hub-reset-gpio: phandle to a GPIO node corresponding to the output
+ - qcom,dock-hub-reset-gpio: phandle to a GPIO node corresponding to the output
                             signal that resets the USB ports
- - qti,dock-eth-reset-gpio: phandle to a GPIO node corresponding to the output
+ - qcom,dock-eth-reset-gpio: phandle to a GPIO node corresponding to the output
                             signal that resets the Ethernet ports
