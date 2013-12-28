@@ -2,7 +2,7 @@ MSM Shared Memory
 
 [Root level node]
 Required properties:
--compatible : should be "qti,smem"
+-compatible : should be "qcom,smem"
 -reg : the location and size of smem, the irq register base memory, and
 	optionally any auxiliary smem areas
 -reg-names : "smem" - string to identify the shared memory region
@@ -11,104 +11,104 @@ Required properties:
 			identify any auxiliary shared memory regions
 
 Optional properties:
--qti,mpu-enabled : boolean value indicating that Memory Protection Unit based
+-qcom,mpu-enabled : boolean value indicating that Memory Protection Unit based
 	security is enabled on the "smem" shared memory region
 
 [Second level nodes]
 
-qti,smd
+qcom,smd
 Required properties:
--compatible : should be "qti,smd"
--qti,smd-edge : the smd edge
--qti,smd-irq-offset : the offset into the irq register base memory for sending
+-compatible : should be "qcom,smd"
+-qcom,smd-edge : the smd edge
+-qcom,smd-irq-offset : the offset into the irq register base memory for sending
 	interrupts
--qti,smd-irq-bitmask : the sending irq bitmask
+-qcom,smd-irq-bitmask : the sending irq bitmask
 -interrupts : the receiving interrupt line
 -label : the name of the remote subsystem for this edge
 
 Optional properties:
--qti,irq-no-suspend: configure the incoming irq line as active during suspend
--qti,not-loadable : indicates this processor cannot be loaded by PIL
+-qcom,irq-no-suspend: configure the incoming irq line as active during suspend
+-qcom,not-loadable : indicates this processor cannot be loaded by PIL
 
-qti,smsm
+qcom,smsm
 Required properties:
--compatible : should be "qti,smsm"
--qti,smsm-edge : the smsm edge
--qti,smsm-irq-offset : the offset into the irq register base memory for sending
+-compatible : should be "qcom,smsm"
+-qcom,smsm-edge : the smsm edge
+-qcom,smsm-irq-offset : the offset into the irq register base memory for sending
 	interrupts
--qti,smsm-irq-bitmask : the sending irq bitmask
+-qcom,smsm-irq-bitmask : the sending irq bitmask
 -interrupts : the receiving interrupt line
 
 
 Example:
 
-	qti,smem@fa00000 {
-		compatible = "qti,smem";
+	qcom,smem@fa00000 {
+		compatible = "qcom,smem";
 		reg = <0xfa00000 0x200000>,
 			<0xfa006000 0x1000>,
 			<0xfc428000 0x4000>;
 		reg-names = "smem", "irq-reg-base", "aux-mem1";
 
-		qti,smd-modem {
-			compatible = "qti,smd";
-			qti,smd-edge = <0>;
-			qti,smd-irq-offset = <0x8>;
-			qti,smd-irq-bitmask = <0x1000>;
+		qcom,smd-modem {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <0>;
+			qcom,smd-irq-offset = <0x8>;
+			qcom,smd-irq-bitmask = <0x1000>;
 			interrupts = <0 25 1>;
 			label = "modem";
 		};
 
-		qti,smsm-modem {
-			compatible = "qti,smsm";
-			qti,smsm-edge = <0>;
-			qti,smsm-irq-offset = <0x8>;
-			qti,smsm-irq-bitmask = <0x2000>;
+		qcom,smsm-modem {
+			compatible = "qcom,smsm";
+			qcom,smsm-edge = <0>;
+			qcom,smsm-irq-offset = <0x8>;
+			qcom,smsm-irq-bitmask = <0x2000>;
 			interrupts = <0 26 1>;
 		};
 
-		qti,smd-adsp {
-			compatible = "qti,smd";
-			qti,smd-edge = <1>;
-			qti,smd-irq-offset = <0x8>;
-			qti,smd-irq-bitmask = <0x100>;
+		qcom,smd-adsp {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <1>;
+			qcom,smd-irq-offset = <0x8>;
+			qcom,smd-irq-bitmask = <0x100>;
 			interrupts = <0 156 1>;
 			label = "adsp";
 		};
 
-		qti,smsm-adsp {
-			compatible = "qti,smsm";
-			qti,smsm-edge = <1>;
-			qti,smsm-irq-offset = <0x8>;
-			qti,smsm-irq-bitmask = <0x200>;
+		qcom,smsm-adsp {
+			compatible = "qcom,smsm";
+			qcom,smsm-edge = <1>;
+			qcom,smsm-irq-offset = <0x8>;
+			qcom,smsm-irq-bitmask = <0x200>;
 			interrupts = <0 157 1>;
 		};
 
-		qti,smd-wcnss {
-			compatible = "qti,smd";
-			qti,smd-edge = <6>;
-			qti,smd-irq-offset = <0x8>;
-			qti,smd-irq-bitmask = <0x20000>;
+		qcom,smd-wcnss {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <6>;
+			qcom,smd-irq-offset = <0x8>;
+			qcom,smd-irq-bitmask = <0x20000>;
 			interrupts = <0 142 1>;
 			label = "wcnss";
 		};
 
-		qti,smsm-wcnss {
-			compatible = "qti,smsm";
-			qti,smsm-edge = <6>;
-			qti,smsm-irq-offset = <0x8>;
-			qti,smsm-irq-bitmask = <0x80000>;
+		qcom,smsm-wcnss {
+			compatible = "qcom,smsm";
+			qcom,smsm-edge = <6>;
+			qcom,smsm-irq-offset = <0x8>;
+			qcom,smsm-irq-bitmask = <0x80000>;
 			interrupts = <0 144 1>;
 		};
 
-		qti,smd-rpm {
-			compatible = "qti,smd";
-			qti,smd-edge = <15>;
-			qti,smd-irq-offset = <0x8>;
-			qti,smd-irq-bitmask = <0x1>;
+		qcom,smd-rpm {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <15>;
+			qcom,smd-irq-offset = <0x8>;
+			qcom,smd-irq-bitmask = <0x1>;
 			interrupts = <0 168 1>;
 			label = "rpm";
-			qti,irq-no-syspend;
-			qti,not-loadable;
+			qcom,irq-no-syspend;
+			qcom,not-loadable;
 		};
 	};
 
