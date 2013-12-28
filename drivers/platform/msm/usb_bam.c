@@ -2630,14 +2630,14 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 		return NULL;
 	}
 
-	rc = of_property_read_u32(node, "qti,usb-bam-num-pipes",
+	rc = of_property_read_u32(node, "qcom,usb-bam-num-pipes",
 		&pdata->usb_bam_num_pipes);
 	if (rc) {
 		pr_err("Invalid usb bam num pipes property\n");
 		return NULL;
 	}
 
-	rc = of_property_read_u32(node, "qti,usb-bam-fifo-baseaddr",
+	rc = of_property_read_u32(node, "qcom,usb-bam-fifo-baseaddr",
 			&addr);
 	if (rc)
 		pr_debug("%s: Invalid usb base address property\n", __func__);
@@ -2645,12 +2645,12 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 		pdata->usb_bam_fifo_baseaddr = addr;
 
 	pdata->ignore_core_reset_ack = of_property_read_bool(node,
-		"qti,ignore-core-reset-ack");
+		"qcom,ignore-core-reset-ack");
 
 	pdata->disable_clk_gating = of_property_read_bool(node,
-		"qti,disable-clk-gating");
+		"qcom,disable-clk-gating");
 
-	rc = of_property_read_u32(node, "qti,usb-bam-override-threshold",
+	rc = of_property_read_u32(node, "qcom,usb-bam-override-threshold",
 			&threshold);
 	if (rc)
 		pdata->override_threshold = USB_THRESHOLD;
@@ -2681,7 +2681,7 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 		if (rc)
 			goto err;
 
-		rc = of_property_read_u32(node, "qti,usb-bam-mem-type",
+		rc = of_property_read_u32(node, "qcom,usb-bam-mem-type",
 			&usb_bam_connections[i].mem_type);
 		if (rc)
 			goto err;
@@ -2695,7 +2695,7 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 			}
 		}
 
-		rc = of_property_read_u32(node, "qti,bam-type", &bam);
+		rc = of_property_read_u32(node, "qcom,bam-type", &bam);
 		if (rc) {
 			pr_err("%s: bam type is missing in device tree\n",
 				__func__);
@@ -2708,7 +2708,7 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 		}
 		usb_bam_connections[i].bam_type = bam;
 
-		rc = of_property_read_u32(node, "qti,bam-mode",
+		rc = of_property_read_u32(node, "qcom,bam-mode",
 			&usb_bam_connections[i].bam_mode);
 		if (rc) {
 			pr_debug("%s: bam mode is missing in device tree\n",
@@ -2720,14 +2720,14 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 			usb_bam_connections[i].bam_mode = USB_BAM_DEVICE;
 		}
 
-		rc = of_property_read_u32(node, "qti,peer-bam",
+		rc = of_property_read_u32(node, "qcom,peer-bam",
 			&usb_bam_connections[i].peer_bam);
 		if (rc) {
 			pr_err("%s: peer bam is missing in device tree\n",
 				__func__);
 			goto err;
 		}
-		rc = of_property_read_u32(node, "qti,dir",
+		rc = of_property_read_u32(node, "qcom,dir",
 			&usb_bam_connections[i].dir);
 		if (rc) {
 			pr_err("%s: direction is missing in device tree\n",
@@ -2735,7 +2735,7 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 			goto err;
 		}
 
-		rc = of_property_read_u32(node, "qti,pipe-num",
+		rc = of_property_read_u32(node, "qcom,pipe-num",
 			&usb_bam_connections[i].pipe_num);
 		if (rc) {
 			pr_err("%s: pipe num is missing in device tree\n",
@@ -2744,34 +2744,34 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 		}
 
 		reset_bam = of_property_read_bool(node,
-			"qti,reset-bam-on-connect");
+			"qcom,reset-bam-on-connect");
 		if (reset_bam)
 			pdata->reset_on_connect[bam] = true;
 
-		of_property_read_u32(node, "qti,src-bam-physical-address",
+		of_property_read_u32(node, "qcom,src-bam-physical-address",
 			&usb_bam_connections[i].src_phy_addr);
 
-		of_property_read_u32(node, "qti,src-bam-pipe-index",
+		of_property_read_u32(node, "qcom,src-bam-pipe-index",
 			&usb_bam_connections[i].src_pipe_index);
 
-		of_property_read_u32(node, "qti,dst-bam-physical-address",
+		of_property_read_u32(node, "qcom,dst-bam-physical-address",
 			&usb_bam_connections[i].dst_phy_addr);
 
-		of_property_read_u32(node, "qti,dst-bam-pipe-index",
+		of_property_read_u32(node, "qcom,dst-bam-pipe-index",
 			&usb_bam_connections[i].dst_pipe_index);
 
-		of_property_read_u32(node, "qti,data-fifo-offset",
+		of_property_read_u32(node, "qcom,data-fifo-offset",
 			&usb_bam_connections[i].data_fifo_base_offset);
 
-		rc = of_property_read_u32(node, "qti,data-fifo-size",
+		rc = of_property_read_u32(node, "qcom,data-fifo-size",
 			&usb_bam_connections[i].data_fifo_size);
 		if (rc)
 			goto err;
 
-		of_property_read_u32(node, "qti,descriptor-fifo-offset",
+		of_property_read_u32(node, "qcom,descriptor-fifo-offset",
 			&usb_bam_connections[i].desc_fifo_base_offset);
 
-		rc = of_property_read_u32(node, "qti,descriptor-fifo-size",
+		rc = of_property_read_u32(node, "qcom,descriptor-fifo-size",
 			&usb_bam_connections[i].desc_fifo_size);
 		if (rc)
 			goto err;
@@ -3223,7 +3223,7 @@ static int usb_bam_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id usb_bam_dt_match[] = {
-	{ .compatible = "qti,usb-bam-msm",
+	{ .compatible = "qcom,usb-bam-msm",
 	},
 	{}
 };

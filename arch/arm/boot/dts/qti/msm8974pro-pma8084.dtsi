@@ -121,25 +121,25 @@
 
 	ssusb@f9200000 {
 		/delete-property/ vbus_dwc3-supply;
-		/delete-property/ qti,misc-ref;
+		/delete-property/ qcom,misc-ref;
 		/delete-property/ dwc_usb3-adc_tm;
 	};
 
 	ssphy@f92f8800 {
 		vdd-supply = <&pma8084_s2_corner>;
 		vdda18-supply = <&pma8084_l6>;
-		qti,vbus-valid-override;
-		qti,deemphasis-value = <26>;
+		qcom,vbus-valid-override;
+		qcom,deemphasis-value = <26>;
 	};
 
 	hsphy@f92f8800 {
 		vdd-supply = <&pma8084_s2_corner>;
 		vdda18-supply = <&pma8084_l6>;
 		vdda33-supply = <&pma8084_l24>;
-		qti,vbus-valid-override;
+		qcom,vbus-valid-override;
 	};
 
-	qti,ehci-host@f9a55000 {
+	qcom,ehci-host@f9a55000 {
 		HSUSB_VDDCX-supply = <&pma8084_s2>;
 		HSUSB_1p8-supply = <&pma8084_l6>;
 		HSUSB_3p3-supply = <&pma8084_l24>;

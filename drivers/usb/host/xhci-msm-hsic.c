@@ -953,7 +953,7 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 	reg |= CTRLREG_PLL_CTRL_SLEEP | CTRLREG_PLL_CTRL_SUSP;
 	writel_relaxed(reg, MSM_HSIC_CTRL_REG);
 
-	if (of_property_read_bool(node, "qti,disable-hw-clk-gating")) {
+	if (of_property_read_bool(node, "qcom,disable-hw-clk-gating")) {
 		reg = readl_relaxed(MSM_HSIC_GCTL);
 		writel_relaxed((reg | GCTL_DSBLCLKGTNG), MSM_HSIC_GCTL);
 	}

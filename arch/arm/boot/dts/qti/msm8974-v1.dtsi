@@ -182,7 +182,7 @@
 };
 
 &usb_otg {
-	qti,hsusb-otg-pnoc-errata-fix;
+	qcom,hsusb-otg-pnoc-errata-fix;
 };
 
 &gdsc_venus {

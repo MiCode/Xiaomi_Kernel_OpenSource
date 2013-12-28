@@ -34,6 +34,6 @@
 
 &ehci {
 	status = "ok";
-	qti,ext-hub-reset-gpio = <&msmgpio 0 0>;
+	qcom,ext-hub-reset-gpio = <&msmgpio 0 0>;
 	vbus-supply = <&hsusb2_otg>;
 };

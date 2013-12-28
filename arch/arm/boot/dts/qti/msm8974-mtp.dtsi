@@ -365,7 +365,7 @@
 };
 
 &usb_otg {
-	qti,hsusb-otg-otg-control = <2>;
+	qcom,hsusb-otg-otg-control = <2>;
 };
 
 &uart7 {
@@ -373,7 +373,7 @@
 };
 
 &usb3 {
-	qti,otg-capability;
+	qcom,otg-capability;
 };
 
 / {

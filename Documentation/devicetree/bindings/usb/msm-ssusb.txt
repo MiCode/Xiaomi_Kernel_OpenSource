@@ -1,7 +1,7 @@
 MSM SuperSpeed USB3.0 SoC controller
 
 Required properties :
-- compatible : should be "qti,dwc-usb3-msm"
+- compatible : should be "qcom,dwc-usb3-msm"
 - reg : offset and length of the register set in the memory map
 	offset and length of the TCSR register for routing USB
 	signals to either picoPHY0 or picoPHY1.
@@ -11,7 +11,7 @@ Required properties :
 	"vbus_dwc3" : vbus supply for host mode when DWC3 operating as DRD.
 	This can be left as optional if "host-only-mode" is selected in the
 	'dwc3' sub node for "DWC3-USB3 Core device".
-- qti,dwc-usb3-msm-dbm-eps: Number of endpoints avaliable for
+- qcom,dwc-usb3-msm-dbm-eps: Number of endpoints avaliable for
   the DBM (Device Bus Manager). The DBM is HW unit which is part of
   the MSM USB3.0 core (which also includes the Synopsys DesignWare
   USB3.0 controller)
@@ -19,38 +19,38 @@ Required properties :
 Optional properties :
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
   below optional properties:
-    - qti,msm_bus,name
-    - qti,msm_bus,num_cases
-    - qti,msm_bus,num_paths
-    - qti,msm_bus,vectors
+    - qcom,msm_bus,name
+    - qcom,msm_bus,num_cases
+    - qcom,msm_bus,num_paths
+    - qcom,msm_bus,vectors
 - interrupt-names : Optional interrupt resource entries are:
     "hs_phy_irq" : Interrupt from HSPHY for asynchronous events in LPM.
 	This is not used if wakeup events are received externally (e.g. PMIC)
     "pmic_id_irq" : Interrupt from PMIC for external ID pin notification.
-- qti,otg-capability: If present then depend on PMIC for VBUS notifications,
+- qcom,otg-capability: If present then depend on PMIC for VBUS notifications,
   otherwise depend on PHY.
-- qti,charging-disabled: If present then battery charging using USB
+- qcom,charging-disabled: If present then battery charging using USB
   is disabled.
-- qti,skip-charger-detection: If present then charger detection using BC1.2
+- qcom,skip-charger-detection: If present then charger detection using BC1.2
   is not supported and attached host should always be assumed as SDP.
 - USB3_GDSC-supply : phandle to the globally distributed switch controller
   regulator node to the USB controller.
-- qti,dwc_usb3-adc_tm: Corresponding ADC_TM device's phandle to set recurring
+- qcom,dwc_usb3-adc_tm: Corresponding ADC_TM device's phandle to set recurring
 		measurements on USB_ID channel when using ADC and receive
 		notifications for set thresholds.
-- qti,dwc-usb3-msm-tx-fifo-size: If present, represents RAM size available for
+- qcom,dwc-usb3-msm-tx-fifo-size: If present, represents RAM size available for
 		TX fifo allocation in bytes
-- qti,dwc-usb3-msm-qdss-tx-fifo-size: If present, represent RAM size available
+- qcom,dwc-usb3-msm-qdss-tx-fifo-size: If present, represent RAM size available
 		for TX fifo allocation in QDSS composition
-- qti,restore-sec-cfg-for-scm-dev-id: If present then device id value is
+- qcom,restore-sec-cfg-for-scm-dev-id: If present then device id value is
   passed to secure channel manager(scm) driver. scm driver uses this device
   id to restore USB controller related security configuration after coming
   out of the controller power collapse.
-- qti,ref-clk-rate: Indicates refclk frequency (in Hz) to the core. If not
+- qcom,ref-clk-rate: Indicates refclk frequency (in Hz) to the core. If not
   specified, default of 19.2MHz is assumed.
-- qti,reset_hsphy_sleep_clk_on_init: If present, the HSUSB PHY sleep clock is
+- qcom,reset_hsphy_sleep_clk_on_init: If present, the HSUSB PHY sleep clock is
   being reset in initialization.
-- qti,no-suspend-resume: If present, the device will not perform any activity
+- qcom,no-suspend-resume: If present, the device will not perform any activity
 		during suspend/resume
 
 Sub nodes:
@@ -60,22 +60,22 @@ Sub nodes:
 
 Example MSM USB3.0 controller device node :
 	usb@f9200000 {
-		compatible = "qti,dwc-usb3-msm";
+		compatible = "qcom,dwc-usb3-msm";
 		reg = <0xf9200000 0xfc000>,
 		      <0xfd4ab000 0x4>;
 		interrupts = <0 133 0>;
 		interrupt-names = "hs_phy_irq";
 		vbus_dwc3-supply = <&pm8941_mvs1>;
 		USB3_GDSC-supply = <&gdsc_usb30>;
-		qti,dwc-usb3-msm-dbm-eps = <4>
-		qti,dwc_usb3-adc_tm = <&pm8941_adc_tm>;
-		qti,dwc-usb3-msm-tx-fifo-size = <29696>;
-		qti,dwc-usb3-msm-qdss-tx-fifo-size = <16384>;
+		qcom,dwc-usb3-msm-dbm-eps = <4>
+		qcom,dwc_usb3-adc_tm = <&pm8941_adc_tm>;
+		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
+		qcom,dwc-usb3-msm-qdss-tx-fifo-size = <16384>;
 
-		qti,msm_bus,name = "usb3";
-		qti,msm_bus,num_cases = <2>;
-		qti,msm_bus,num_paths = <1>;
-		qti,msm_bus,vectors =
+		qcom,msm_bus,name = "usb3";
+		qcom,msm_bus,num_cases = <2>;
+		qcom,msm_bus,num_paths = <1>;
+		qcom,msm_bus,vectors =
 				<61 512 0 0>,
 				<61 512 240000000 960000000>;
 		dwc3@f9200000 {

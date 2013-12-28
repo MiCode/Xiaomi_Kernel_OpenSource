@@ -519,21 +519,21 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 				phy->tcsr);
 	}
 
-	if (of_get_property(dev->of_node, "qti,primary-phy", NULL)) {
+	if (of_get_property(dev->of_node, "qcom,primary-phy", NULL)) {
 		dev_dbg(dev, "secondary HSPHY\n");
 		phy->phy.flags |= ENABLE_SECONDARY_PHY;
 	}
 
-	ret = of_property_read_u32_array(dev->of_node, "qti,vdd-voltage-level",
+	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",
 					 (u32 *) phy->vdd_levels,
 					 ARRAY_SIZE(phy->vdd_levels));
 	if (ret) {
-		dev_err(dev, "error reading qti,vdd-voltage-level property\n");
+		dev_err(dev, "error reading qcom,vdd-voltage-level property\n");
 		goto err_ret;
 	}
 
 	phy->ext_vbus_id = of_property_read_bool(dev->of_node,
-						"qti,ext-vbus-id");
+						"qcom,ext-vbus-id");
 	phy->phy.dev = dev;
 
 	phy->vdd = devm_regulator_get(dev, "vdd");
@@ -575,18 +575,18 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		goto disable_hs_vdd;
 	}
 
-	if (of_property_read_u32(dev->of_node, "qti,hsphy-init",
+	if (of_property_read_u32(dev->of_node, "qcom,hsphy-init",
 					&phy->hsphy_init_seq))
 		dev_dbg(dev, "unable to read hsphy init seq\n");
 	else if (!phy->hsphy_init_seq)
 		dev_warn(dev, "hsphy init seq cannot be 0. Using POR value\n");
 
 	phy->set_pllbtune = of_property_read_bool(dev->of_node,
-						 "qti,set-pllbtune");
+						 "qcom,set-pllbtune");
 
 	platform_set_drvdata(pdev, phy);
 
-	if (of_property_read_bool(dev->of_node, "qti,vbus-valid-override"))
+	if (of_property_read_bool(dev->of_node, "qcom,vbus-valid-override"))
 		phy->phy.flags |= PHY_VBUS_VALID_OVERRIDE;
 
 	phy->phy.init			= msm_hsphy_init;
@@ -630,7 +630,7 @@ static int msm_hsphy_remove(struct platform_device *pdev)
 
 static const struct of_device_id msm_usb_id_table[] = {
 	{
-		.compatible = "qti,usb-hsphy",
+		.compatible = "qcom,usb-hsphy",
 	},
 	{ },
 };

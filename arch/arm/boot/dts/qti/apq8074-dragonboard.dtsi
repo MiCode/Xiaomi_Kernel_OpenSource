@@ -277,11 +277,11 @@
 
 &usb_otg {
 	status = "ok";
-	qti,hsusb-otg-otg-control = <2>;
-	qti,hsusb-otg-mode = <3>;
+	qcom,hsusb-otg-otg-control = <2>;
+	qcom,hsusb-otg-mode = <3>;
 	vbus_otg-supply = <&pm8941_mvs1>;
-	qti,usb2-enable-hsphy2;
-	qti,dp-manual-pullup;
+	qcom,usb2-enable-hsphy2;
+	qcom,dp-manual-pullup;
 
 	#address-cells = <0>;
 	interrupt-parent = <&usb_otg>;
@@ -296,7 +296,7 @@
 
 &usb3 {
 	interrupts = <0>;	/* remove pmic_id_irq; used by &usb_otg */
-	qti,charging-disabled;
+	qcom,charging-disabled;
 	vbus_dwc3-supply = <0>;
 	dwc3@f9200000 {
 		host-only-mode;
