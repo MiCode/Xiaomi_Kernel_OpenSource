@@ -79,9 +79,9 @@ static struct vpu_iommu_map iommus_array[VPU_MAX_IOMMU_DOMAIN] = {
 };
 
 static const char * const clk_table_dt_entries[] = {
-	[VPU_BUS_CLK] = "qti,bus-clk-load-freq-tbl",
-	[VPU_MAPLE_CLK] = "qti,maple-clk-load-freq-tbl",
-	[VPU_VDP_CLK] = "qti,vdp-clk-load-freq-tbl",
+	[VPU_BUS_CLK] = "qcom,bus-clk-load-freq-tbl",
+	[VPU_MAPLE_CLK] = "qcom,maple-clk-load-freq-tbl",
+	[VPU_VDP_CLK] = "qcom,vdp-clk-load-freq-tbl",
 };
 
 struct bus_pdata_config {
@@ -93,7 +93,7 @@ struct bus_pdata_config {
 static struct bus_pdata_config bus_pdata_config = {
 	.masters = {MSM_BUS_MASTER_VPU, MSM_BUS_MASTER_VPU},
 	.slaves = {MSM_BUS_SLAVE_EBI_CH0, MSM_BUS_SLAVE_EBI_CH0},
-	.name = "qti,bus-load-vector-tbl",
+	.name = "qcom,bus-load-vector-tbl",
 };
 
 static int __get_u32_array_num_elements(struct platform_device *pdev,
@@ -267,7 +267,7 @@ static int __vpu_load_iommu_maps(struct vpu_platform_resources *res)
 	u32 count = 0;
 
 	num_elements = of_property_count_strings(pdev->dev.of_node,
-			"qti,enabled-iommu-maps");
+			"qcom,enabled-iommu-maps");
 	if (num_elements <= 0) {
 		pr_warn("No list of IOMMUs to be enabled\n");
 		return ret;
@@ -278,7 +278,7 @@ static int __vpu_load_iommu_maps(struct vpu_platform_resources *res)
 
 	for (i = 0; i < num_elements; i++) {
 		ret = of_property_read_string_index(pdev->dev.of_node,
-				"qti,enabled-iommu-maps", i, &name);
+				"qcom,enabled-iommu-maps", i, &name);
 		if (ret)
 			return ret;
 

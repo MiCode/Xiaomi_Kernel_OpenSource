@@ -17,7 +17,7 @@ Optional properties:
 
 Example:
 
-	qti,vpu@fde0b000{
+	qcom,vpu@fde0b000{
 		compatible = "qti,pil-vpu";
 		reg = <0xfde0b000 0x80>;
 		reg-names = "maple_csr_base";

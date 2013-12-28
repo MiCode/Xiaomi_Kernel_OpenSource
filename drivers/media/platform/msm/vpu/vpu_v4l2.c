@@ -618,7 +618,7 @@ static int vpu_remove(struct platform_device *pdev)
 
 
 static const struct of_device_id vpu_dt_match[] = {
-	{.compatible = "qti,vpu"},
+	{.compatible = "qcom,vpu"},
 	{}
 };
 
