@@ -52,7 +52,7 @@ static int mpm_parse_dt(void)
 		return -ENODEV;
 	}
 
-	np = of_find_compatible_node(NULL, NULL, "qti,mpm2-sleep-counter");
+	np = of_find_compatible_node(NULL, NULL, "qcom,mpm2-sleep-counter");
 	if (!np) {
 		pr_err("mpm_counter: can't find DT node\n");
 		return -ENODEV;
