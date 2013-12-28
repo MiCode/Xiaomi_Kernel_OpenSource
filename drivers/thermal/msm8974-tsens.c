@@ -1803,19 +1803,19 @@ static int tsens_calib_sensors(void)
 }
 
 static struct of_device_id tsens_match[] = {
-	{	.compatible = "qti,msm-tsens",
+	{	.compatible = "qcom,msm-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_8974,
 	},
-	{	.compatible = "qti,msm8x26-tsens",
+	{	.compatible = "qcom,msm8x26-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_8X26,
 	},
-	{	.compatible = "qti,msm8x10-tsens",
+	{	.compatible = "qcom,msm8x10-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_8X10,
 	},
-	{	.compatible = "qti,fsm9900-tsens",
+	{	.compatible = "qcom,fsm9900-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_9900,
 	},
-	{	.compatible = "qti,msmkrypton-tsens",
+	{	.compatible = "qcom,msmkrypton-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_KRYPTON,
 	},
 	{}
@@ -1830,7 +1830,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 	const struct of_device_id *id;
 
 	rc = of_property_read_u32(of_node,
-			"qti,sensors", &tsens_num_sensors);
+			"qcom,sensors", &tsens_num_sensors);
 	if (rc) {
 		dev_err(&pdev->dev, "missing sensor number\n");
 		return -ENODEV;
@@ -1844,7 +1844,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 	}
 
 	rc = of_property_read_u32_array(of_node,
-		"qti,slope", tsens_slope_data, tsens_num_sensors);
+		"qcom,slope", tsens_slope_data, tsens_num_sensors);
 	if (rc) {
 		dev_err(&pdev->dev, "invalid or missing property: tsens-slope\n");
 		return rc;
@@ -1871,9 +1871,9 @@ static int get_device_tree_data(struct platform_device *pdev)
 	tmdev->tsens_factor = TSENS_SLOPE_FACTOR;
 	tmdev->tsens_num_sensor = tsens_num_sensors;
 	tmdev->calibration_less_mode = of_property_read_bool(of_node,
-				"qti,calibration-less-mode");
+				"qcom,calibration-less-mode");
 	tmdev->tsens_local_init = of_property_read_bool(of_node,
-				"qti,tsens-local-init");
+				"qcom,tsens-local-init");
 	tmdev->calib_mode = (u32) id->data;
 
 	sensor_id = devm_kzalloc(&pdev->dev,
@@ -1884,7 +1884,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 	}
 
 	rc = of_property_read_u32_array(of_node,
-		"qti,sensor-id", sensor_id, tsens_num_sensors);
+		"qcom,sensor-id", sensor_id, tsens_num_sensors);
 	if (rc) {
 		pr_debug("Default sensor id mapping\n");
 		for (i = 0; i < tsens_num_sensors; i++) {
@@ -1899,7 +1899,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 		}
 	}
 
-	if (!strcmp(id->compatible, "qti,msmkrypton-tsens"))
+	if (!strcmp(id->compatible, "qcom,msmkrypton-tsens"))
 		tmdev->tsens_type = TSENS_TYPE2;
 	else
 		tmdev->tsens_type = TSENS_TYPE0;
