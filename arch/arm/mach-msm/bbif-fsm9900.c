@@ -416,7 +416,7 @@ static int bbif_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id bbif_match_table[] = {
-	{ .compatible = "qti,bbif" },
+	{ .compatible = "qcom,bbif" },
 	{}
 };
 MODULE_DEVICE_TABLE(of, bbif_match_table);
