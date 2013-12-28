@@ -1078,10 +1078,10 @@
 		qcom,android-usb-swfi-latency = <1>;
 	};
 
-	pcie0: qti,pcie@fc520000 {
-		compatible = "qti,msm_pcie";
+	pcie0: qcom,pcie@fc520000 {
+		compatible = "qcom,msm_pcie";
 		cell-index = <0>;
-		qti,ctrl-amt = <1>;
+		qcom,ctrl-amt = <1>;
 
 		reg = <0xfc520000 0x2000>,
 		      <0xfc526000 0x1000>,
@@ -1126,7 +1126,7 @@
 		vreg-1.8-supply = <&pma8084_l12>;
 		vreg-0.9-supply = <&pma8084_l3>;
 		vreg-3.3-supply = <&pcie0_power_en_vreg>;
-		qti,vreg-0.9-voltage-level = <950000 950000 24000>;
+		qcom,vreg-0.9-voltage-level = <950000 950000 24000>;
 
 		clock-names = "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
 				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",
@@ -1136,11 +1136,11 @@
 						<0>, <0>, <0>, <0>;
 	};
 
-	pcie1: qti,pcie@fc528000 {
+	pcie1: qcom,pcie@fc528000 {
 		status = "disabled";
-		compatible = "qti,msm_pcie";
+		compatible = "qcom,msm_pcie";
 		cell-index = <1>;
-		qti,ctrl-amt = <1>;
+		qcom,ctrl-amt = <1>;
 
 		reg = <0xfc528000 0x2000>,
 		      <0xfc52e000 0x1000>,
@@ -1185,7 +1185,7 @@
 		vreg-1.8-supply = <&pma8084_l12>;
 		vreg-0.9-supply = <&pma8084_l3>;
 		vreg-3.3-supply = <&pcie1_power_en_vreg>;
-		qti,vreg-0.9-voltage-level = <950000 950000 24000>;
+		qcom,vreg-0.9-voltage-level = <950000 950000 24000>;
 
 		clock-names = "pcie_1_pipe_clk", "pcie_1_ref_clk_src",
 				"pcie_1_aux_clk", "pcie_1_cfg_ahb_clk",

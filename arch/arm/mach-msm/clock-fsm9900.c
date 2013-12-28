@@ -2640,28 +2640,28 @@ static struct clk_lookup fsm_clocks_9900[] = {
 	/* PCIE clocks */
 
 	CLK_LOOKUP("pcie_0_aux_clk", gcc_pcie_0_aux_clk.c,
-						"fc520000.qti,pcie"),
+						"fc520000.qcom,pcie"),
 	CLK_LOOKUP("pcie_0_cfg_ahb_clk", gcc_pcie_0_cfg_ahb_clk.c,
-						"fc520000.qti,pcie"),
+						"fc520000.qcom,pcie"),
 	CLK_LOOKUP("pcie_0_mstr_axi_clk", gcc_pcie_0_mstr_axi_clk.c,
-						"fc520000.qti,pcie"),
+						"fc520000.qcom,pcie"),
 	CLK_LOOKUP("pcie_0_pipe_clk", gcc_pcie_0_pipe_clk.c,
-						"fc520000.qti,pcie"),
+						"fc520000.qcom,pcie"),
 	CLK_LOOKUP("pcie_0_slv_axi_clk", gcc_pcie_0_slv_axi_clk.c,
-						"fc520000.qti,pcie"),
-	CLK_DUMMY("pcie_0_ref_clk_src", NULL, "fc520000.qti,pcie", OFF),
+						"fc520000.qcom,pcie"),
+	CLK_DUMMY("pcie_0_ref_clk_src", NULL, "fc520000.qcom,pcie", OFF),
 
 	CLK_LOOKUP("pcie_1_aux_clk", gcc_pcie_1_aux_clk.c,
-						"fc528000.qti,pcie"),
+						"fc528000.qcom,pcie"),
 	CLK_LOOKUP("pcie_1_cfg_ahb_clk", gcc_pcie_1_cfg_ahb_clk.c,
-						"fc528000.qti,pcie"),
+						"fc528000.qcom,pcie"),
 	CLK_LOOKUP("pcie_1_mstr_axi_clk", gcc_pcie_1_mstr_axi_clk.c,
-						"fc528000.qti,pcie"),
+						"fc528000.qcom,pcie"),
 	CLK_LOOKUP("pcie_1_pipe_clk", gcc_pcie_1_pipe_clk.c,
-						"fc528000.qti,pcie"),
+						"fc528000.qcom,pcie"),
 	CLK_LOOKUP("pcie_1_slv_axi_clk", gcc_pcie_1_slv_axi_clk.c,
-						"fc528000.qti,pcie"),
-	CLK_DUMMY("pcie_1_ref_clk_src", NULL, "fc528000.qti,pcie", OFF),
+						"fc528000.qcom,pcie"),
+	CLK_DUMMY("pcie_1_ref_clk_src", NULL, "fc528000.qcom,pcie", OFF),
 
 	CLK_LOOKUP("hfpll_src", xo_a_clk_src.c,
 					"f9016000.qcom,clock-krait"),
@@ -2673,8 +2673,8 @@ static struct clk_lookup fsm_clocks_9900[] = {
 	CLK_LOOKUP("xo", xo_clk_src.c, "fc4281d0.qcom,mpm"),
 
 	/* LDO */
-	CLK_LOOKUP("pcie_0_ldo",        pcie_0_phy_ldo.c, "fc520000.qti,pcie"),
-	CLK_LOOKUP("pcie_1_ldo",        pcie_1_phy_ldo.c, "fc528000.qti,pcie"),
+	CLK_LOOKUP("pcie_0_ldo",        pcie_0_phy_ldo.c, "fc520000.qcom,pcie"),
+	CLK_LOOKUP("pcie_1_ldo",        pcie_1_phy_ldo.c, "fc528000.qcom,pcie"),
 };
 
 static struct pll_config_regs gpll4_regs __initdata = {

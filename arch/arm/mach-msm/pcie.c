@@ -765,7 +765,7 @@ static int msm_pcie_get_resources(u32 rc_idx, struct platform_device *pdev)
 		} else {
 			dev->vreg_n++;
 			snprintf(prop_name, MAX_PROP_SIZE,
-				"qti,%s-voltage-level", vreg_info->name);
+				"qcom,%s-voltage-level", vreg_info->name);
 			prop = of_get_property((&pdev->dev)->of_node,
 						prop_name, &len);
 			if (!prop || (len != (3 * sizeof(__be32)))) {
@@ -1180,7 +1180,7 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	mutex_lock(&pcie_drv.drv_lock);
 
 	ret = of_property_read_u32((&pdev->dev)->of_node,
-				"qti,ctrl-amt", &pcie_drv.rc_expected);
+				"qcom,ctrl-amt", &pcie_drv.rc_expected);
 	if (ret) {
 		pr_err("PCIe: does not find controller amount.\n");
 		goto out;
@@ -1212,12 +1212,12 @@ static int msm_pcie_probe(struct platform_device *pdev)
 
 	msm_pcie_dev[rc_idx].l1ss_supported =
 		of_property_read_bool((&pdev->dev)->of_node,
-				"qti,l1ss-supported");
+				"qcom,l1ss-supported");
 	PCIE_DBG("L1ss is %s supported.\n",
 		msm_pcie_dev[rc_idx].l1ss_supported ? "" : "not");
 	msm_pcie_dev[rc_idx].aux_clk_sync =
 		of_property_read_bool((&pdev->dev)->of_node,
-				"qti,aux-clk-sync");
+				"qcom,aux-clk-sync");
 	PCIE_DBG("AUX clock is %s synchronous to Core clock.\n",
 		msm_pcie_dev[rc_idx].aux_clk_sync ? "" : "not");
 
@@ -1344,7 +1344,7 @@ out:
 }
 
 static struct of_device_id msm_pcie_match[] = {
-	{	.compatible = "qti,msm_pcie",
+	{	.compatible = "qcom,msm_pcie",
 	},
 	{}
 };
