@@ -683,10 +683,10 @@
 	};
 
 	sound {
-		compatible = "qti,mpq8092-audio-tabla";
-		qti,model = "mpq8092-tabla-snd-card";
+		compatible = "qcom,mpq8092-audio-tabla";
+		qcom,model = "mpq8092-tabla-snd-card";
 
-		qti,audio-routing =
+		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"LDO_H", "MCLK",
 			"AMIC1", "MIC BIAS1 External",
@@ -699,12 +699,12 @@
 			"MIC BIAS1 External", "ANCLeft Headset Mic",
                         "HEADPHONE", "LDO_H";
 
-		qti,cdc-mclk-gpios = <&msmgpio 42 0>;
-		qti,tabla-mclk-clk-freq = <12288000>;
-		qti,hdmi-audio-rx;
+		qcom,cdc-mclk-gpios = <&msmgpio 42 0>;
+		qcom,tabla-mclk-clk-freq = <12288000>;
+		qcom,hdmi-audio-rx;
 	};
 
-	qti,msm-pcm {
+	qcom,msm-pcm {
 		compatible = "qcom,msm-pcm-dsp";
 		qcom,msm-pcm-dsp-id = <0>;
 	};
