@@ -47,7 +47,7 @@ onnn	ON Semiconductor Corp.
 ovti	OmniVision Technologies, Inc.
 picochip	Picochip Ltd
 powervr	PowerVR (deprecated, use img)
-qcom	Qualcomm, Inc.
+qcom	Qualcomm Technologies, Inc
 ralink	Mediatek/Ralink Technology Corp.
 ramtron	Ramtron International
 realtek Realtek Semiconductor Corp.
