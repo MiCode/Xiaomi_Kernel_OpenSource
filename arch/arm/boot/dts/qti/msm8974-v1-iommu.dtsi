@@ -29,9 +29,9 @@
 
 &kgsl_iommu {
 	status = "ok";
-	qti,needs-alt-core-clk;
+	qcom,needs-alt-core-clk;
 	vdd-supply = <&gdsc_oxili_cx>;
-	qti,alt-vdd-supply = <&gdsc_oxili_gx>;
+	qcom,alt-vdd-supply = <&gdsc_oxili_gx>;
 };
 
 &vfe_iommu {
