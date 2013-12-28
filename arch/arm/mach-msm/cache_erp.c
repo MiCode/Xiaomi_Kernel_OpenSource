@@ -534,7 +534,7 @@ static int msm_cache_erp_probe(struct platform_device *pdev)
 	struct device_node *imem_node;
 	int ret, cpu;
 
-	imem_node = of_parse_phandle(np, "qti,msm-imem-phandle", 0);
+	imem_node = of_parse_phandle(np, "qcom,msm-imem-phandle", 0);
 	if (!imem_node) {
 		pr_err("Could not get imem handle\n");
 		ret = -ENODEV;
@@ -639,7 +639,7 @@ static int msm_cache_erp_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id cache_erp_match_table[] = {
-	{	.compatible = "qti,cache_erp",	},
+	{	.compatible = "qcom,cache_erp",	},
 	{}
 };
 

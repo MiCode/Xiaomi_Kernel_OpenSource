@@ -1,12 +1,12 @@
 * Qualcomm Krait L1 / L2 cache error reporting driver
 
 Required properties:
-- compatible: Should be "qti,cache_erp"
+- compatible: Should be "qcom,cache_erp"
 - interrupts: Should contain the L1/CPU error interrupt number and
   the L2 cache interrupt number
 - interrupt-names: Should contain the interrupt names "l1_irq" and
   "l2_irq"
-- qti,msm-imem-phandle: phandle reference to the imem cache erp node
+- qcom,msm-imem-phandle: phandle reference to the imem cache erp node
 
 Optional properties:
 - reg: A set of I/O regions to be dumped in the event of a hardware fault being
@@ -20,14 +20,14 @@ Optional properties:
   many elements as the "reg" property.
 
 Example:
-	qti,cache_erp {
-		compatible = "qti,cache_erp";
+	qcom,cache_erp {
+		compatible = "qcom,cache_erp";
 		interrupts = <1 9 0>, <0 2 0>;
 		interrupt-names = "l1_irq", "l2_irq";
 	};
 
 Example with "reg" property defined:
-	qti,cache_erp@f9012000 {
+	qcom,cache_erp@f9012000 {
 		reg = <0xf9012000 0x80>,
 		      <0xf9089000 0x80>,
 		      <0xf9099000 0x80>;
@@ -36,9 +36,9 @@ Example with "reg" property defined:
 			    "krait0_saw",
 			    "krait1_saw";
 
-		compatible = "qti,cache_erp";
+		compatible = "qcom,cache_erp";
 		interrupts = <1 9 0>, <0 2 0>;
 		interrupt-names = "l1_irq", "l2_irq";
 
-		qti,msm-imem-phandle = <&imem_cache_erp>;
+		qcom,msm-imem-phandle = <&imem_cache_erp>;
 	};
