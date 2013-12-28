@@ -2894,7 +2894,6 @@ static int pp_histogram_enable(struct pp_hist_col_info *hist_info,
 	hist_info->col_state = HIST_RESET;
 	hist_info->col_en = true;
 	spin_unlock_irqrestore(&hist_info->hist_lock, flag);
-	hist_info->is_kick_ready = true;
 	mdss_mdp_hist_intr_req(&mdata->hist_intr, 3 << shift_bit, true);
 	writel_relaxed(req->frame_cnt, ctl_base + 8);
 	/* Kick out reset start */
@@ -3015,7 +3014,6 @@ static int pp_histogram_disable(struct pp_hist_col_info *hist_info,
 	hist_info->col_en = false;
 	hist_info->col_state = HIST_UNKNOWN;
 	spin_unlock_irqrestore(&hist_info->hist_lock, flag);
-	hist_info->is_kick_ready = false;
 	mdss_mdp_hist_intr_req(&mdata->hist_intr, done_bit, false);
 	writel_relaxed(BIT(1), ctl_base);/* cancel */
 	ret = 0;
