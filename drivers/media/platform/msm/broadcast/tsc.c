@@ -2798,7 +2798,7 @@ static struct msm_tsc_platform_data *msm_tsc_dt_to_pdata
 	}
 
 	/* Reading IOMMU group label by obtaining the group's phandle */
-	iommu_pnode = of_parse_phandle(node, "qti,iommu-group", 0);
+	iommu_pnode = of_parse_phandle(node, "qcom,iommu-group", 0);
 	if (!iommu_pnode) {
 		dev_err(&pdev->dev, "%s: Couldn't find iommu-group property\n",
 				__func__);
@@ -2814,7 +2814,7 @@ static struct msm_tsc_platform_data *msm_tsc_dt_to_pdata
 	}
 
 	/* Reading IOMMU partition */
-	ret = of_property_read_u32(node, "qti,iommu-partition",
+	ret = of_property_read_u32(node, "qcom,iommu-partition",
 			&pdata->iommu_partition);
 	if (ret) {
 		dev_err(&pdev->dev, "%s: Couldn't find iommu-partition property, err=%d\n",
@@ -2824,18 +2824,18 @@ static struct msm_tsc_platform_data *msm_tsc_dt_to_pdata
 
 	/* Reading reset cam gpio */
 	tsc_device->reset_cam_gpio = of_get_named_gpio(node,
-			"qti,tsc-reset-cam-gpio", 0);
+			"qcom,tsc-reset-cam-gpio", 0);
 	if (tsc_device->reset_cam_gpio < 0) {
-		dev_err(&pdev->dev, "%s: Couldn't find qti,tsc-reset-cam-gpio property\n",
+		dev_err(&pdev->dev, "%s: Couldn't find qcom,tsc-reset-cam-gpio property\n",
 				__func__);
 		return NULL;
 	}
 
 	/* Reading the a/b configuration - if exist */
-	ret = of_property_read_u32(node, "qti,ts0-config", &pdata->ts0_config);
+	ret = of_property_read_u32(node, "qcom,ts0-config", &pdata->ts0_config);
 	if (ret)
 		pdata->ts0_config = 0;
-	ret = of_property_read_u32(node, "qti,ts1-config", &pdata->ts1_config);
+	ret = of_property_read_u32(node, "qcom,ts1-config", &pdata->ts1_config);
 	if (ret)
 		pdata->ts1_config = 0;
 
@@ -3035,7 +3035,7 @@ static int msm_tsc_remove(struct platform_device *pdev)
 
 /*********************** Platform driver information ***********************/
 static struct of_device_id msm_match_table[] = {
-		{.compatible = "qti,msm-tsc"},
+		{.compatible = "qcom,msm-tsc"},
 		{}
 };
 

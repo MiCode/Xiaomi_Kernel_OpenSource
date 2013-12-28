@@ -9,15 +9,15 @@ The device tree representation of the TSPP2 block should be:
 
 Required properties:
 
-- compatible: "qti,msm-tsc"
+- compatible: "qcom,msm-tsc"
 - reg: physical memory base addresses and sizes for the TSC.
 - reg-names: name of the memory region: "tsc-base".
 - interrupts: represents IRQ numbers for the TSC.
 - interrupt-names: TSC interrupt names: "cam-cmd" and "card-detect".
-- qti,iommu-group: phandle for the Broadcast HLOS IOMMU domain.
+- qcom,iommu-group: phandle for the Broadcast HLOS IOMMU domain.
 	The Broadcast HLOS IOMMU domain includes a context bank and virtual address
 	pools definitions, used for mapping non-secured pipe memory buffers.
-- qti,iommu-partition: partition number in the HLOS IOMMU domain.
+- qcom,iommu-partition: partition number in the HLOS IOMMU domain.
 - vdd-supply: phandle of the Broadcast GDSC as defined in msm-gdsc.dtsi.
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
 	the below optional properties:
@@ -25,7 +25,7 @@ Required properties:
 	- qcom,msm-bus,num-cases
 	- qcom,msm-bus,num-paths
 	- qcom,msm-bus,vectors-KBps
-- qti,tsc-reset-cam-gpio: gpio for HW reset to the CAM.
+- qcom,tsc-reset-cam-gpio: gpio for HW reset to the CAM.
 
 Optional properties:
 
@@ -44,22 +44,22 @@ Example for a device without PCMCIA, with TS0-in-b serial and TS1-in-a parallel,
 both TSIFs with valid and start:
 
 	tsc: msm_tsc@fc74a000 {
-		compatible = "qti,msm-tsc";
+		compatible = "qcom,msm-tsc";
 		reg = <0xfc74a000 0x1110>;
 		reg-names = "tsc-base";
 		interrupts = <0 267 0>, /* cam-cmd */
 			<0 268 0>; /* card-detect */
 		interrupt-names = "cam-cmd",
 				"card-detect";
-		qti,iommu-group = <&bcast_domain_hlos>;
-		qti,iommu-partition = <1>;
+		qcom,iommu-group = <&bcast_domain_hlos>;
+		qcom,iommu-partition = <1>;
 		vdd-supply = <&gdsc_bcss>;
-		qti,msm-bus,name = "tsc-bus";
-		qti,msm-bus,num-cases = <2>;
-		qti,msm-bus,num-paths = <1>;
-		qti,msm-bus,vectors-KBps = <96 512 0 0>, /* No vote */
+		qcom,msm-bus,name = "tsc-bus";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <96 512 0 0>, /* No vote */
 					<96 512 448 896>; /* Max. 7Mbps */
-		qti,tsc-reset-cam-gpio = <&msm_gpio 138 0>;	/* reset-pin controller */
+		qcom,tsc-reset-cam-gpio = <&msm_gpio 138 0>;	/* reset-pin controller */
 		pinctrl-states = "disable", "ts-in-0", "ts-in-1", "dual-ts";
 		pinctrl-0 = <&ts_in_0_b_start_sleep
 					&ts_in_0_b_valid_sleep
@@ -95,22 +95,22 @@ Example for a device with pcmcia, TS0-in-a serial with start and error, and
 without TS1-in:
 
 		tsc: msm_tsc@fc74a000 {
-		compatible = "qti,msm-tsc";
+		compatible = "qcom,msm-tsc";
 		reg = <0xfc74a000 0x1110>;
 		reg-names = "tsc-base";
 		interrupts = <0 267 0>, /* cam-cmd */
 			<0 268 0>; /* card-detect */
 		interrupt-names = "cam-cmd",
 				"card-detect";
-		qti,iommu-group = <&bcast_domain_hlos>;
-		qti,iommu-partition = <1>;
+		qcom,iommu-group = <&bcast_domain_hlos>;
+		qcom,iommu-partition = <1>;
 		vdd-supply = <&gdsc_bcss>;
-		qti,msm-bus,name = "tsc-bus";
-		qti,msm-bus,num-cases = <2>;
-		qti,msm-bus,num-paths = <1>;
-		qti,msm-bus,vectors-KBps = <96 512 0 0>, /* No vote */
+		qcom,msm-bus,name = "tsc-bus";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <96 512 0 0>, /* No vote */
 					<96 512 448 896>; /* Max. 7Mbps */
-		qti,tsc-reset-cam-gpio = <&msm_gpio 138 0>;	/* reset-pin controller */
+		qcom,tsc-reset-cam-gpio = <&msm_gpio 138 0>;	/* reset-pin controller */
 		pinctrl-states = "disable", "ts-in-0", "pc-card", "ci-card", "ci-plus",
 					"ts-in-0-pc-card", "ts-in-0-ci-card", "ts-in-0-ci-plus";
 		pinctrl-0 = <&ts_in_0_a_start_sleep
