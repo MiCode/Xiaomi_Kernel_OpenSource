@@ -654,7 +654,7 @@ static const struct dev_pm_ops demod_dev_pm_ops = {
 /* Platform driver information */
 
 static struct of_device_id msm_demod_match_table[] = {
-	{.compatible = "qti,msm-demod"}
+	{.compatible = "qcom,msm-demod"}
 };
 
 static struct platform_driver msm_demod_driver = {

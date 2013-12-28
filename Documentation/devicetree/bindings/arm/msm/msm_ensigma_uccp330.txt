@@ -9,7 +9,7 @@ The devicetree representation of the Ensigma UCCP330 block should be:
 
 Required properties:
 
-- compatible: "qti,msm-demod"
+- compatible: "qcom,msm-demod"
 - reg: physical memory base addresses and sizes for the following:
 	Ensigma UCCP330, TOP BCSS
 - reg-names: names of the memory regions:
@@ -20,7 +20,7 @@ Required properties:
 Example:
 
 	demod: msm-demod@fc600000 {
-		compatible = "qti,msm-demod";
+		compatible = "qcom,msm-demod";
 		reg = <0xfc600000 0xd0008>,<0xfc747000 0x1000>;
 		reg-names = "msm-demod", "top-bcss";
 		vdd-supply = <&gdsc_bcss>;
