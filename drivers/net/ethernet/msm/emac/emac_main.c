@@ -86,8 +86,8 @@ static struct emac_irq_info emac_irq[EMAC_NUM_IRQ] = {
 };
 
 static struct emac_gpio_info emac_gpio[EMAC_NUM_GPIO] = {
-	{ 0, "qti,emac-gpio-mdc" },
-	{ 0, "qti,emac-gpio-mdio" },
+	{ 0, "qcom,emac-gpio-mdc" },
+	{ 0, "qcom,emac-gpio-mdio" },
 };
 
 static struct emac_clk_info emac_clk[EMAC_NUM_CLK] = {
@@ -2310,10 +2310,10 @@ static int emac_get_resources(struct platform_device *pdev,
 		return retval;
 
 	/* get time stamp enable flag */
-	adpt->tstamp_en = of_property_read_bool(node, "qti,emac-tstamp-en");
+	adpt->tstamp_en = of_property_read_bool(node, "qcom,emac-tstamp-en");
 
 	/* get no_ephy attribute */
-	adpt->no_ephy = of_property_read_bool(node, "qti,no-external-phy");
+	adpt->no_ephy = of_property_read_bool(node, "qcom,no-external-phy");
 
 	/* get phy address on MDIO bus */
 	if (adpt->no_ephy == false) {
@@ -2610,7 +2610,7 @@ static const struct dev_pm_ops emac_pm_ops = {
 
 static struct of_device_id emac_dt_match[] = {
 	{
-		.compatible = "qti,emac",
+		.compatible = "qcom,emac",
 	},
 	{}
 };
