@@ -154,8 +154,10 @@ struct rndis_loopback_pipe {
  * @directory: debugfs directory for various debugging switches
  * @tx_filter: flag that enable/disable Tx path to continue to IPA
  * @tx_dropped: number of filtered out Tx packets
+ * @tx_dump_enable: dump all Tx packets
  * @rx_filter: flag that enable/disable Rx path to continue to IPA
  * @rx_dropped: number of filtered out Rx packets
+ * @rx_dump_enable: dump all Rx packets
  * @icmp_filter: allow all ICMP packet to pass through the filters
  * @rm_enable: flag that enable/disable Resource manager request prior to Tx
  * @loopback_enable:  flag that enable/disable USB stub loopback
@@ -180,8 +182,10 @@ struct rndis_ipa_dev {
 	struct net_device *net;
 	u32 tx_filter;
 	u32 tx_dropped;
+	u32 tx_dump_enable;
 	u32 rx_filter;
 	u32 rx_dropped;
+	u32 rx_dump_enable;
 	u32 icmp_filter;
 	u32 rm_enable;
 	bool loopback_enable;
@@ -270,6 +274,7 @@ static ssize_t rndis_ipa_debugfs_loopback_read(struct file *file,
 		char __user *ubuf, size_t count, loff_t *ppos);
 static ssize_t rndis_ipa_debugfs_atomic_read(struct file *file,
 		char __user *ubuf, size_t count, loff_t *ppos);
+static void rndis_ipa_dump_skb(struct sk_buff *skb);
 static int rndis_ipa_debugfs_init(struct rndis_ipa_dev *rndis_ipa_ctx);
 static void rndis_ipa_debugfs_destroy(struct rndis_ipa_dev *rndis_ipa_ctx);
 static int rndis_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl,
@@ -473,6 +478,8 @@ int rndis_ipa_init(struct ipa_usb_init_params *params)
 	rndis_ipa_ctx->rm_enable = true;
 	rndis_ipa_ctx->tx_dropped = 0;
 	rndis_ipa_ctx->rx_dropped = 0;
+	rndis_ipa_ctx->tx_dump_enable = false;
+	rndis_ipa_ctx->rx_dump_enable = false;
 	rndis_ipa_ctx->outstanding_high = DEFAULT_OUTSTANDING_HIGH;
 	rndis_ipa_ctx->outstanding_low = DEFAULT_OUTSTANDING_LOW;
 	atomic_set(&rndis_ipa_ctx->outstanding_pkts, 0);
@@ -747,6 +754,9 @@ static netdev_tx_t rndis_ipa_start_xmit(struct sk_buff *skb,
 		goto out;
 	}
 
+	if (unlikely(rndis_ipa_ctx->tx_dump_enable))
+		rndis_ipa_dump_skb(skb);
+
 	if (unlikely(rndis_ipa_ctx->state != RNDIS_IPA_CONNECTED_AND_UP)) {
 		RNDIS_IPA_ERROR("Missing pipe connected and/or iface up\n");
 		return -NETDEV_TX_BUSY;
@@ -819,6 +829,9 @@ static void rndis_ipa_tx_complete_notify(void *private,
 	struct rndis_ipa_dev *rndis_ipa_ctx = private;
 
 	NULL_CHECK_NO_RETVAL(private);
+
+	RNDIS_IPA_DEBUG("packet Tx-complete, len=%d, skb->protocol=%d",
+		skb->len, skb->protocol);
 
 	if (unlikely((evt != IPA_WRITE_DONE))) {
 		RNDIS_IPA_ERROR("unsupported event on TX call-back\n");
@@ -928,6 +941,9 @@ static void rndis_ipa_packet_receive_notify(void *private,
 
 	RNDIS_IPA_DEBUG("packet Rx, len=%d",
 		skb->len);
+
+	if (unlikely(rndis_ipa_ctx->rx_dump_enable))
+		rndis_ipa_dump_skb(skb);
 
 	if (unlikely(rndis_ipa_ctx->state != RNDIS_IPA_CONNECTED_AND_UP)) {
 		RNDIS_IPA_DEBUG("use connect()/up() before receive()\n");
@@ -1752,6 +1768,24 @@ static const char *rndis_ipa_state_string(enum rndis_ipa_state state)
 	}
 }
 
+static void rndis_ipa_dump_skb(struct sk_buff *skb)
+{
+	int i;
+	u32 *cur = (u32 *)skb->data;
+	u8 *byte;
+
+	RNDIS_IPA_DEBUG("packet dump start for skb->len=%d\n",
+		skb->len);
+
+	for (i = 0; i < (skb->len/4); i++) {
+		byte = (u8 *)(cur + i);
+		pr_info("%2d %08x   %02x %02x %02x %02x\n",
+			i, *(cur + i),
+			byte[0], byte[1], byte[2], byte[3]);
+	}
+	RNDIS_IPA_DEBUG("packet dump ended for skb->len=%d\n",
+		skb->len);
+}
 
 /**
  * Creates the root folder for the driver
@@ -1906,6 +1940,22 @@ static int rndis_ipa_debugfs_init(struct rndis_ipa_dev *rndis_ipa_ctx)
 			&ipa_to_usb_ep_cfg.aggr.aggr_pkt_limit);
 	if (!file) {
 		RNDIS_IPA_ERROR("could not create aggr_pkt_limit file\n");
+		goto fail_file;
+	}
+
+	file = debugfs_create_bool("tx_dump_enable", flags_read_write,
+			rndis_ipa_ctx->directory,
+			&rndis_ipa_ctx->tx_dump_enable);
+	if (!file) {
+		RNDIS_IPA_ERROR("fail to create tx_dump_enable file\n");
+		goto fail_file;
+	}
+
+	file = debugfs_create_bool("rx_dump_enable", flags_read_write,
+			rndis_ipa_ctx->directory,
+			&rndis_ipa_ctx->rx_dump_enable);
+	if (!file) {
+		RNDIS_IPA_ERROR("fail to create rx_dump_enable file\n");
 		goto fail_file;
 	}
 
