@@ -132,10 +132,8 @@ struct msm8x16_wcd_priv {
 	bool clock_active;
 	bool config_mode_active;
 	struct on_demand_supply on_demand_list[ON_DEMAND_SUPPLIES_MAX];
-	/* resmgr module */
-	/*struct wcd9xxx_resmgr resmgr;*/
 	/* mbhc module */
-	/*struct wcd9xxx_mbhc mbhc; */
+	struct wcd_mbhc mbhc;
 };
 
 static unsigned long rx_digital_gain_reg[] = {
@@ -158,6 +156,15 @@ enum {
 struct msm8x16_wcd_spmi {
 	struct spmi_device *spmi;
 	int base;
+};
+
+static const struct wcd_mbhc_intr intr_ids = {
+	.mbhc_sw_intr =  MSM8X16_WCD_IRQ_MBHC_HS_DET,
+	.mbhc_btn_press_intr = MSM8X16_WCD_IRQ_MBHC_INSREM_DET,
+	.mbhc_btn_release_intr = MSM8X16_WCD_IRQ_MBHC_PRESS,
+	.mbhc_hs_ins_rem_intr = MSM8X16_WCD_IRQ_MBHC_RELEASE,
+	.hph_left_ocp = MSM8X16_WCD_IRQ_HPHL_OCP,
+	.hph_right_ocp = MSM8X16_WCD_IRQ_HPHR_OCP,
 };
 
 static int msm8x16_wcd_dt_parse_vreg_info(struct device *dev,
@@ -1761,8 +1768,6 @@ static int msm8x16_wcd_hph_pa_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		/* Let MBHC module know PA is turning on
-		wcd9xxx_resmgr_notifier_call(&msm8x16_wcd->resmgr, e_pre_on); */
 		break;
 
 	case SND_SOC_DAPM_POST_PMU:
@@ -1797,9 +1802,6 @@ static int msm8x16_wcd_hph_pa_event(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		usleep_range(4000, 4100);
-		/* Let MBHC module know PA turned off
-		wcd9xxx_resmgr_notifier_call(&msm8x16_wcd->resmgr,
-					e_post_off); */
 
 		snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_NCP_EN, 0x11, 0x10);
@@ -2498,13 +2500,15 @@ static void msm8x16_wcd_update_reg_defaults(struct snd_soc_codec *codec)
 
 static const struct msm8x16_wcd_reg_mask_val
 	msm8x16_wcd_codec_reg_init_val[] = {
-/*
-	* Initialize current threshold to 350MA
+
+	/* Initialize current threshold to 350MA
 	 * number of wait and run cycles to 4096
-	 *
+	 */
 	{MSM8X16_WCD_A_ANALOG_RX_COM_OCP_CTL, 0xE1, 0x61},
 	{MSM8X16_WCD_A_ANALOG_RX_COM_OCP_COUNT, 0xFF, 0xFF},
-
+	{MSM8X16_WCD_A_ANALOG_RX_HPH_L_TEST, 0x40, 0x40},
+	{MSM8X16_WCD_A_ANALOG_RX_HPH_R_TEST, 0x40, 0x40},
+/*
 	* Initialize gain registers to use register gain *
 
 	*enable HPF filter for TX paths *
@@ -2556,6 +2560,7 @@ static struct regulator *wcd8x16_wcd_codec_find_regulator(
 	dev_err(msm8x16->dev, "Error: regulator not found\n");
 	return NULL;
 }
+
 static int msm8x16_wcd_device_down(struct snd_soc_codec *codec)
 {
 	dev_dbg(codec->dev, "%s: device down!\n", __func__);
@@ -2626,6 +2631,25 @@ static struct notifier_block modem_state_notifier_block = {
 	.priority = -INT_MAX,
 };
 
+int msm8x16_wcd_hs_detect(struct snd_soc_codec *codec,
+		    struct wcd_mbhc_config *mbhc_cfg)
+{
+	struct msm8x16_wcd_priv *msm8x16_wcd_priv =
+		snd_soc_codec_get_drvdata(codec);
+
+	return wcd_mbhc_start(&msm8x16_wcd_priv->mbhc, mbhc_cfg);
+}
+EXPORT_SYMBOL(msm8x16_wcd_hs_detect);
+
+void msm8x16_wcd_hs_detect_exit(struct snd_soc_codec *codec)
+{
+	struct msm8x16_wcd_priv *msm8x16_wcd_priv =
+		snd_soc_codec_get_drvdata(codec);
+
+	wcd_mbhc_stop(&msm8x16_wcd_priv->mbhc);
+}
+EXPORT_SYMBOL(msm8x16_wcd_hs_detect_exit);
+
 static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 {
 	struct msm8x16_wcd_priv *msm8x16_wcd_priv;
@@ -2665,6 +2689,8 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 				codec->control_data,
 				on_demand_supply_name[ON_DEMAND_MICBIAS]);
 	atomic_set(&msm8x16_wcd_priv->on_demand_list[ON_DEMAND_MICBIAS].ref, 0);
+
+	wcd_mbhc_init(&msm8x16_wcd_priv->mbhc, codec, &intr_ids, false);
 
 	msm8x16_wcd_priv->mclk_enabled = false;
 	msm8x16_wcd_priv->clock_active = false;

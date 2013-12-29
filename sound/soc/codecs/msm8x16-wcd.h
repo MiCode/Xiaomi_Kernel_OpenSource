@@ -15,6 +15,7 @@
 #include <sound/soc.h>
 #include <sound/jack.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
+#include "wcd-mbhc-v2.h"
 
 #define MSM8X16_WCD_NUM_REGISTERS	0x6FF
 #define MSM8X16_WCD_MAX_REGISTER	(MSM8X16_WCD_NUM_REGISTERS-1)
@@ -152,6 +153,11 @@ struct msm8x16_wcd {
 
 extern int msm8x16_wcd_mclk_enable(struct snd_soc_codec *codec, int mclk_enable,
 			     bool dapm);
+
+extern int msm8x16_wcd_hs_detect(struct snd_soc_codec *codec,
+		    struct wcd_mbhc_config *mbhc_cfg);
+
+extern void msm8x16_wcd_hs_detect_exit(struct snd_soc_codec *codec);
 
 #endif
 

@@ -44,6 +44,12 @@ static int msm_proxy_rx_ch = 2;
 static int msm8x16_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm);
 
+static struct wcd_mbhc_config mbhc_cfg = {
+	.read_fw_bin = false,
+	.calibration = NULL,
+	.detect_extn_cable = true,
+};
+
 static struct afe_clk_cfg mi2s_rx_clk = {
 	AFE_API_VERSION_I2S_CONFIG,
 	Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ,
@@ -291,6 +297,8 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 				ARRAY_SIZE(msm8x16_dapm_widgets));
 
 	snd_soc_dapm_sync(dapm);
+
+	ret = msm8x16_wcd_hs_detect(codec, &mbhc_cfg);
 
 	return ret;
 }
