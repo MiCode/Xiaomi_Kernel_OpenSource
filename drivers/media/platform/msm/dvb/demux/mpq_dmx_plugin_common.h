@@ -297,8 +297,6 @@ struct mpq_decoder_buffers_desc {
  * @ts_packets_num: TS packets counter.
  * @ts_dropped_bytes: counts the number of bytes dropped due to insufficient
  * buffer space.
- * @last_pkt_index: used to save the last streambuffer packet index reported in
- * a new elementary stream data event.
  * @prev_stc: STC attached to the previous video TS packet
  */
 struct mpq_video_feed_info {
@@ -332,7 +330,6 @@ struct mpq_video_feed_info {
 	u32 continuity_errs;
 	u32 ts_packets_num;
 	u32 ts_dropped_bytes;
-	int last_pkt_index;
 	u64 prev_stc;
 };
 

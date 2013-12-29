@@ -286,7 +286,7 @@ int mpq_streambuffer_pkt_write(
 	spin_unlock(&sbuff->packet_data.lock);
 	wake_up_all(&sbuff->packet_data.queue);
 
-	return 0;
+	return idx;
 }
 EXPORT_SYMBOL(mpq_streambuffer_pkt_write);
 
