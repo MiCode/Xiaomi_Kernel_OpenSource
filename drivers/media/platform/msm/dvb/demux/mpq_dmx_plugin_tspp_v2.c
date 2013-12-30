@@ -3039,6 +3039,12 @@ static int mpq_dmx_tspp2_process_video_headers(struct mpq_feed *mpq_feed,
 			"%s: status_flags=0x%x, sa=%u, ea=%u\n", __func__,
 			status_flags, pes_payload_sa, pes_payload_ea);
 
+	if (pes_payload_sa == ULONG_MAX || pes_payload_sa == ULONG_MAX) {
+		MPQ_DVB_DBG_PRINT("%s: Data was not written to payload pipe\n",
+			__func__);
+		return 0;
+	}
+
 	ts_header = (struct ts_packet_header *)buffer;
 
 	if (ts_header->payload_unit_start_indicator) {
@@ -3095,8 +3101,7 @@ static int mpq_dmx_tspp2_process_video_headers(struct mpq_feed *mpq_feed,
 	 * Verify we have received at least the mandatory
 	 * fields within the PES header.
 	 */
-	if (unlikely(feed_data->pes_header_offset <
-		PES_MANDATORY_FIELDS_LEN)) {
+	if (unlikely(feed_data->pes_header_offset < PES_MANDATORY_FIELDS_LEN)) {
 		MPQ_DVB_ERR_PRINT(
 			"%s: Invalid header size %d\n",
 			__func__, feed_data->pes_header_offset);
@@ -3126,7 +3131,7 @@ static int mpq_dmx_tspp2_process_video_headers(struct mpq_feed *mpq_feed,
 		return ret;
 	}
 
-	packet.raw_data_offset = payload_pipe->tspp_write_offset;
+	packet.raw_data_offset = pes_payload_sa - payload_pipe->buffer.iova;
 
 	if (partial_header) {
 		tspp2_pipe_last_address_used_get(payload_pipe->handle,
@@ -3139,9 +3144,8 @@ static int mpq_dmx_tspp2_process_video_headers(struct mpq_feed *mpq_feed,
 	packet.raw_data_len++;
 	packet.user_data_len = sizeof(meta_data);
 
-	payload_pipe->tspp_write_offset += packet.raw_data_len;
-	if (payload_pipe->tspp_write_offset >= payload_pipe->buffer.size)
-		payload_pipe->tspp_write_offset -= payload_pipe->buffer.size;
+	payload_pipe->tspp_write_offset =
+		mpq_dmx_tspp2_addr_to_offset(payload_pipe, pes_payload_ea);
 
 	ret = mpq_streambuffer_data_write_deposit(stream_buffer,
 		packet.raw_data_len);
