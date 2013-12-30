@@ -104,6 +104,9 @@
 /* default value of auto suspend is 3 seconds */
 #define UFSHCD_AUTO_SUSPEND_DELAY_MS 3000 /* millisecs */
 
+/* IOCTL opcode for command - ufs set device read only */
+#define UFS_IOCTL_BLKROSET      BLKROSET
+
 #define ufshcd_toggle_vreg(_dev, _vreg, _on)				\
 	({                                                              \
 		int _ret;                                               \
@@ -4810,6 +4813,9 @@ static int ufshcd_ioctl(struct scsi_device *dev, int cmd, void __user *buffer)
 		err = ufshcd_query_ioctl(hba, ufshcd_scsi_to_upiu_lun(dev->lun),
 				buffer);
 		pm_runtime_put_sync(hba->dev);
+		break;
+	case UFS_IOCTL_BLKROSET:
+		err = -ENOIOCTLCMD;
 		break;
 	default:
 		err = -EINVAL;
