@@ -1,0 +1,1 @@
+obj-$(CONFIG_MSM_QMI_INTERFACE) := heap_mem_ext_v01.o msm_memshare.o
