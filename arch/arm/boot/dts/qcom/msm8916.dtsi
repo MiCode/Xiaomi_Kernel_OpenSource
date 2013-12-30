@@ -1062,6 +1062,10 @@
 		qcom,freq-mitigation-value = <960000>;
 		qcom,freq-mitigation-control-mask = <0x01>;
 	};
+
+	qcom,bcl {
+		compatible = "qcom,bcl";
+	};
 };
 
 &gdsc_venus {
