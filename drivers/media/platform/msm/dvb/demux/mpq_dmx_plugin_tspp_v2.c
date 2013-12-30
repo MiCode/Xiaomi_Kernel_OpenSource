@@ -3162,13 +3162,12 @@ static int mpq_dmx_tspp2_process_video_headers(struct mpq_feed *mpq_feed,
 
 	ret = mpq_streambuffer_pkt_write(stream_buffer, &packet,
 		(u8 *)&meta_data);
-	if (ret) {
+	if (ret < 0) {
 		MPQ_DVB_ERR_PRINT(
 			"%s: mpq_streambuffer_pkt_write failed, ret=%d\n",
 			__func__, ret);
 	} else {
 		struct dmx_data_ready data;
-		size_t len = 0;
 
 		mpq_dmx_update_decoder_stat(mpq_feed);
 
@@ -3179,35 +3178,24 @@ static int mpq_dmx_tspp2_process_video_headers(struct mpq_feed *mpq_feed,
 		 * The following has to succeed when called here,
 		 * after packet was written
 		 */
-		data.buf.cookie = mpq_streambuffer_pkt_next(stream_buffer,
-					feed_data->last_pkt_index, &len);
-		if (data.buf.cookie < 0) {
-			MPQ_DVB_ERR_PRINT(
-				"%s: received invalid packet index %d\n",
-				__func__, data.buf.cookie);
-		} else {
-			data.buf.offset = packet.raw_data_offset;
-			data.buf.len = packet.raw_data_len;
-			data.buf.pts_exists = pts_dts_info->pts_exist;
-			data.buf.pts = pts_dts_info->pts;
-			data.buf.dts_exists = pts_dts_info->dts_exist;
-			data.buf.dts = pts_dts_info->dts;
-			data.buf.tei_counter = 0;
-			data.buf.cont_err_counter = 0;
-			data.buf.ts_packets_num = 0;
-			data.buf.ts_dropped_bytes = 0;
-			data.status = DMX_OK_DECODER_BUF;
+		data.buf.cookie = ret;
+		data.buf.offset = packet.raw_data_offset;
+		data.buf.len = packet.raw_data_len;
+		data.buf.pts_exists = pts_dts_info->pts_exist;
+		data.buf.pts = pts_dts_info->pts;
+		data.buf.dts_exists = pts_dts_info->dts_exist;
+		data.buf.dts = pts_dts_info->dts;
+		data.buf.tei_counter = 0;
+		data.buf.cont_err_counter = 0;
+		data.buf.ts_packets_num = 0;
+		data.buf.ts_dropped_bytes = 0;
+		data.status = DMX_OK_DECODER_BUF;
 
-			/* save for next time: */
-			feed_data->last_pkt_index = data.buf.cookie;
+		MPQ_DVB_DBG_PRINT("%s: cookie=%d\n", __func__, data.buf.cookie);
 
-			MPQ_DVB_DBG_PRINT("%s: cookie=%d\n",
-				__func__, data.buf.cookie);
-
-			ret = mpq_dmx_tspp2_ts_event_check(feed, header_pipe);
-			if (!ret)
-				feed->data_ready_cb.ts(&feed->feed.ts, &data);
-		}
+		ret = mpq_dmx_tspp2_ts_event_check(feed, header_pipe);
+		if (!ret)
+			feed->data_ready_cb.ts(&feed->feed.ts, &data);
 	}
 
 	return ret ? ret : 1;
