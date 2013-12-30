@@ -23,7 +23,7 @@
 #include <mach/ocmem.h>
 #include <mach/scm.h>
 #include <mach/subsystem_restart.h>
-#include <soc/msm/smem.h>
+#include <soc/qcom/smem.h>
 #include <asm/memory.h>
 #include <linux/iopoll.h>
 #include "hfi_packetization.h"

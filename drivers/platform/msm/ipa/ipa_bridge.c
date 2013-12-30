@@ -12,7 +12,7 @@
 
 #include <linux/delay.h>
 #include <linux/ratelimit.h>
-#include <soc/msm/smem.h>
+#include <soc/qcom/smem.h>
 #include "ipa_i.h"
 
 /*

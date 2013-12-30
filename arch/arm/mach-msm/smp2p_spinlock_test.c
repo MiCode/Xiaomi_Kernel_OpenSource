@@ -17,8 +17,8 @@
 #include <linux/delay.h>
 #include <linux/completion.h>
 #include <linux/remote_spinlock.h>
-#include <soc/msm/smem.h>
-#include "../../../drivers/soc/msm/smem_private.h"
+#include <soc/qcom/smem.h>
+#include "../../../drivers/soc/qcom/smem_private.h"
 #include "smp2p_private.h"
 #include "smp2p_test_common.h"
 

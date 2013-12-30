@@ -32,7 +32,7 @@
 #include <mach/msm_bus_board.h>
 #include <mach/sysmon.h>
 
-#include <soc/msm/smem.h>
+#include <soc/qcom/smem.h>
 
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"

@@ -13,7 +13,7 @@
 #ifndef _ARCH_ARM_MACH_MSM_SMSM_H_
 #define _ARCH_ARM_MACH_MSM_SMSM_H_
 
-#include <soc/msm/smem.h>
+#include <soc/qcom/smem.h>
 
 enum {
 	SMSM_APPS_STATE,

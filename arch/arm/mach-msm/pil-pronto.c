@@ -32,7 +32,7 @@
 #include <mach/ramdump.h>
 #include <mach/msm_bus_board.h>
 
-#include <soc/msm/smem.h>
+#include <soc/qcom/smem.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
