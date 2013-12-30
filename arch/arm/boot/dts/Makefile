@@ -219,7 +219,7 @@ targets += dtbs
 targets += $(DTB_LIST)
 
 #used for cleaning - not building
-subdir- := qti
+subdir- := qcom
 endif
 
 # *.dtb used to be generated in the directory above. Clean out the
