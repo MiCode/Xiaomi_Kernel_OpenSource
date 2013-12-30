@@ -445,7 +445,7 @@ static ssize_t set_delay(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(delay, S_IWUSR | S_IRUGO,
+static DEVICE_ATTR(poll_delay, S_IWUSR | S_IRUGO,
 				show_delay, set_delay);
 
 static ssize_t bmp18x_enable_set(struct sensors_classdev *sensors_cdev,
@@ -536,7 +536,7 @@ static struct attribute *bmp18x_attributes[] = {
 	&dev_attr_pressure0_input.attr,
 	&dev_attr_oversampling.attr,
 	&dev_attr_sw_oversampling.attr,
-	&dev_attr_delay.attr,
+	&dev_attr_poll_delay.attr,
 	&dev_attr_enable.attr,
 	NULL
 };
