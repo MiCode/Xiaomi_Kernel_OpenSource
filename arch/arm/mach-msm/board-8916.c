@@ -17,6 +17,7 @@
 #include <linux/of_fdt.h>
 #include <linux/of_irq.h>
 #include <linux/msm_tsens.h>
+#include <linux/msm_thermal.h>
 #include <asm/mach/arch.h>
 #include <soc/qcom/socinfo.h>
 #include <mach/board.h>
@@ -62,6 +63,7 @@ void __init msm8916_add_drivers(void)
 	msm_rpm_driver_init();
 	msm_spm_device_init();
 	tsens_tm_init_driver();
+	msm_thermal_device_init();
 }
 
 static void __init msm8916_init(void)
