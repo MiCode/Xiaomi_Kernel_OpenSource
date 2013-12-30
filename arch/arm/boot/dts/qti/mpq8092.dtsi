@@ -443,10 +443,10 @@
 		qcom,pipe-attr-ee;
 	};
 
-	pcie0: qti,pcie@fc520000 {
-		compatible = "qti,msm_pcie";
+	pcie0: qcom,pcie@fc520000 {
+		compatible = "qcom,msm_pcie";
 		cell-index = <0>;
-		qti,ctrl-amt = <1>;
+		qcom,ctrl-amt = <1>;
 
 		reg = <0xfc520000 0x2000>,
 		      <0xfc526000 0x1000>,
@@ -491,7 +491,7 @@
 		vreg-1.8-supply = <&pma8084_l22>;
 		vreg-0.9-supply = <&pma8084_l19>;
 
-		qti,vreg-0.9-voltage-level = <950000 950000 24000>;
+		qcom,vreg-0.9-voltage-level = <950000 950000 24000>;
 	};
 
 	qcom,wdt@f9017000 {
