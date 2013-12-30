@@ -807,7 +807,7 @@ void mpq_dmx_plugin_exit(void)
 						&mpq_demux->demux.dmx,
 						&mpq_demux->fe_memory);
 
-			if (mpq_sdmx_is_loaded())
+			if (mpq_dmx_info.secure_demux_app_loaded)
 				mpq_sdmx_close_session(mpq_demux);
 			mutex_destroy(&mpq_demux->mutex);
 			dvb_dmxdev_release(&mpq_demux->dmxdev);
