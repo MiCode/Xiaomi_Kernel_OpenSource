@@ -193,7 +193,8 @@ static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
 	if (!c->fmax)
 		return -ENOMEM;
 
-	array = devm_kzalloc(&pdev->dev, prop_len * sizeof(u32), GFP_KERNEL);
+	array = devm_kzalloc(&pdev->dev,
+			prop_len * sizeof(u32) * 2, GFP_KERNEL);
 	if (!array)
 		return -ENOMEM;
 
