@@ -2184,8 +2184,10 @@ static long tsc_mux_ioctl(struct file *filp,
 	switch (cmd) {
 	case TSC_CONFIG_ROUTE:
 		if (!arg || copy_from_user(&tsc_route, (void *)arg,
-				sizeof(struct tsc_route)))
-			return -EFAULT;
+				sizeof(struct tsc_route))) {
+			ret = -EFAULT;
+			goto err;
+		}
 		ret = tsc_route_mux(tsc_mux, tsc_route.source, tsc_route.dest);
 		break;
 	case TSC_ENABLE_INPUT:
@@ -2196,8 +2198,10 @@ static long tsc_mux_ioctl(struct file *filp,
 		break;
 	case TSC_SET_TSIF_CONFIG:
 		if (!arg || copy_from_user(&tsif_params, (void *)arg,
-				sizeof(struct tsc_tsif_params)))
-			return -EFAULT;
+				sizeof(struct tsc_tsif_params))) {
+			ret = -EFAULT;
+			goto err;
+		}
 		ret = tsc_config_tsif(tsc_mux, &tsif_params);
 		break;
 	case TSC_CLEAR_RATE_MISMATCH_IRQ:
@@ -2211,6 +2215,7 @@ static long tsc_mux_ioctl(struct file *filp,
 		pr_err("%s: Unknown ioctl %i", __func__, cmd);
 	}
 
+err:
 	mutex_unlock(&tsc_mux->mutex);
 	return ret;
 }
