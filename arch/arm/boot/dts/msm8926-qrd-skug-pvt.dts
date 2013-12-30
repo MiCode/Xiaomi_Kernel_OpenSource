@@ -19,3 +19,9 @@
 	qcom,board-id = <0x2000b 5>;
 };
 
+&pm8226_vadc {
+	chan@30 {
+		label = "batt_therm";
+		qcom,scale-function = <9>;
+	};
+};
