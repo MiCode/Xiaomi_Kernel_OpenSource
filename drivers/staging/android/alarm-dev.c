@@ -94,7 +94,7 @@ static void devalarm_cancel(struct devalarm *alrm)
 		hrtimer_cancel(&alrm->u.hrt);
 }
 
-static void alarm_clear(enum android_alarm_type alarm_type)
+static void alarm_clear(enum android_alarm_type alarm_type, struct timespec *ts)
 {
 	uint32_t alarm_type_mask = 1U << alarm_type;
 	unsigned long flags;
@@ -111,7 +111,7 @@ static void alarm_clear(enum android_alarm_type alarm_type)
 	spin_unlock_irqrestore(&alarm_slock, flags);
 
 	if (alarm_type == ANDROID_ALARM_RTC_POWEROFF_WAKEUP)
-		set_power_on_alarm(0);
+		set_power_on_alarm(ts->tv_sec, 0);
 }
 
 static void alarm_set(enum android_alarm_type alarm_type,
@@ -128,7 +128,7 @@ static void alarm_set(enum android_alarm_type alarm_type,
 	spin_unlock_irqrestore(&alarm_slock, flags);
 
 	if (alarm_type == ANDROID_ALARM_RTC_POWEROFF_WAKEUP)
-		set_power_on_alarm(ts->tv_sec);
+		set_power_on_alarm(ts->tv_sec, 1);
 }
 
 static int alarm_wait(void)
@@ -232,7 +232,7 @@ static long alarm_do_ioctl(struct file *file, unsigned int cmd,
 
 	switch (ANDROID_ALARM_BASE_CMD(cmd)) {
 	case ANDROID_ALARM_CLEAR(0):
-		alarm_clear(alarm_type);
+		alarm_clear(alarm_type, ts);
 		break;
 	case ANDROID_ALARM_SET(0):
 		alarm_set(alarm_type, ts);
@@ -266,6 +266,7 @@ static long alarm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case ANDROID_ALARM_SET_AND_WAIT(0):
 	case ANDROID_ALARM_SET(0):
 	case ANDROID_ALARM_SET_RTC:
+	case ANDROID_ALARM_CLEAR(0):
 		if (copy_from_user(&ts, (void __user *)arg, sizeof(ts)))
 			return -EFAULT;
 		break;
