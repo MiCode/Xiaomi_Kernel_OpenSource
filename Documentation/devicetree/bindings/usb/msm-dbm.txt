@@ -1,0 +1,11 @@
+MSM DBM (Device Bus Manager)
+
+Required properties :
+- compatible : should be "qcom,usb-dbm-<dbm version number>"
+- reg : offset and length of the register set in the memory map.
+
+Example MSM DBM (Device Bus Manager) device node :
+	dbm_1p4: dbm@f92f8000 {
+		compatible = "qcom,usb-dbm-1p4";
+		reg = <0xf92f8000 0x1000>;
+	};

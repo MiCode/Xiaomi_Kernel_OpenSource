@@ -301,9 +301,9 @@
 
 		vbus_dwc3-supply = <&usb3_otg>;
 		qcom,charging-disabled;
-		qcom,dwc-usb3-msm-dbm-eps = <4>;
 		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
 		qcom,dwc-usb3-msm-qdss-tx-fifo-size = <8192>;
+		qcom,usb-dbm = <&dbm0_1p4>;
 
 		qcom,msm-bus,name = "usb3";
 		qcom,msm-bus,num-cases = <2>;
@@ -341,6 +341,11 @@
 		vdda18-supply = <&pma8084_l22>;
 		vdda33-supply = <&pma8084_l24>;
 		qcom,vdd-voltage-level = <1 5 7>;
+	};
+
+	dbm0_1p4: dbm@f92f8000 {
+		compatible = "qcom,usb-dbm-1p4";
+		reg = <0xf92f8000 0x1000>;
 	};
 
 	spmi_bus: qcom,spmi@fc4c0000 {
