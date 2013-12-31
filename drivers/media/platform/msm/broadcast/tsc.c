@@ -71,6 +71,9 @@ module_param(tsc_iommu_bypass, int, S_IRUGO | S_IWUSR | S_IWGRP);
 #define TSC_SER_CLK_RATE		192000000
 #define TSC_PAR_CLK_RATE		24000000
 
+/* CICAM address space according to CI specification */
+#define CICAM_MAX_ADDRESS		3
+
 /*
  * TSC register offsets
  */
@@ -1366,6 +1369,12 @@ static int tsc_data_transaction(struct tsc_ci_chdev *tsc_ci, uint io_mem,
 			goto err_copy_arg;
 		}
 		addr_size = arg_byte.address;
+		if (addr_size > CICAM_MAX_ADDRESS) {
+			pr_err("%s: wrong address parameter: %d\n", __func__,
+					addr_size);
+			ret = -EFAULT;
+			goto err_copy_arg;
+		}
 		wr_data = arg_byte.data;
 		timeout = arg_byte.timeout;
 	} else {
@@ -1375,6 +1384,11 @@ static int tsc_data_transaction(struct tsc_ci_chdev *tsc_ci, uint io_mem,
 			goto err_copy_arg;
 		}
 		addr_size = arg_buff.buffer_size;
+		if (!addr_size) {
+			pr_err("%s: size parameter is 0\n", __func__);
+			ret =  -EFAULT;
+			goto err_copy_arg;
+		}
 		wr_data = 0;
 		timeout = arg_buff.timeout;
 
