@@ -1298,8 +1298,8 @@ static int mpq_dmx_tspp2_terminate_filter(struct dvb_demux_feed *feed,
 	mpq_tspp2_feed->op_count = 0;
 
 	/* Remove PES analysis operation */
-	if ((feed->ts_type & (TS_PAYLOAD_ONLY | TS_DECODER)) ||
-		feed->idx_params.enable)
+	if ((feed->ts_type & (TS_PAYLOAD_ONLY | TS_DECODER) &&
+		!dvb_dmx_is_pcr_feed(feed)) || feed->idx_params.enable)
 		mpq_dmx_tspp2_del_pes_analysis_op(mpq_tspp2_feed->filter);
 
 	/* Remove indexing operation */
