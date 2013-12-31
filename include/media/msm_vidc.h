@@ -7,8 +7,8 @@
 #include <linux/videodev2.h>
 
 enum core_id {
-	MSM_VIDC_CORE_0 = 0,
-	MSM_VIDC_CORE_1,      /* for Q6 core */
+	MSM_VIDC_CORE_VENUS = 0,
+	MSM_VIDC_CORE_Q6,
 	MSM_VIDC_CORES_MAX,
 };
 

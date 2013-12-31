@@ -377,7 +377,8 @@ static long venc_open(struct v4l2_subdev *sd, void *arg)
 		goto vidc_wq_create_fail;
 	}
 
-	inst->vidc_context = msm_vidc_open(MSM_VIDC_CORE_0, MSM_VIDC_ENCODER);
+	inst->vidc_context = msm_vidc_open(MSM_VIDC_CORE_VENUS,
+				MSM_VIDC_ENCODER);
 	if (!inst->vidc_context) {
 		WFD_MSG_ERR("Failed to create vidc context\n");
 		rc = -ENXIO;
