@@ -312,7 +312,7 @@ const struct file_operations rndis_ipa_aggr_ops = {
 static struct ipa_ep_cfg ipa_to_usb_ep_cfg = {
 	.mode = {
 		.mode = IPA_BASIC,
-		.dst  = IPA_CLIENT_A5_LAN_WAN_CONS,
+		.dst  = IPA_CLIENT_APPS_LAN_CONS,
 	},
 	.hdr = {
 		.hdr_len = ETH_ALEN + sizeof(struct rndis_pkt_hdr),
@@ -357,7 +357,7 @@ static struct ipa_ep_cfg ipa_to_usb_ep_cfg = {
 static struct ipa_ep_cfg usb_to_ipa_ep_cfg = {
 	.mode = {
 		.mode = IPA_BASIC,
-		.dst  = IPA_CLIENT_A5_LAN_WAN_CONS,
+		.dst  = IPA_CLIENT_APPS_LAN_CONS,
 	},
 	.hdr = {
 		.hdr_len = ETH_ALEN,
