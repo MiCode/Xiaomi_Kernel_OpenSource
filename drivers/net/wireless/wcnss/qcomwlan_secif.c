@@ -12,9 +12,9 @@
 
 #include <linux/export.h>
 #include <linux/qcomwlan_secif.h>
+#include <crypto/aes.h>
 
-/*
- * APIs for calling crypto routines from kernel
+/* APIs for calling crypto routines from kernel
  */
 struct crypto_ahash *wcnss_wlan_crypto_alloc_ahash(const char *alg_name,
 							 u32 type, u32 mask)
@@ -73,3 +73,107 @@ wcnss_wlan_crypto_alloc_cipher(const char *alg_name, u32 type, u32 mask)
 	return crypto_alloc_cipher(alg_name, type, mask);
 }
 EXPORT_SYMBOL(wcnss_wlan_crypto_alloc_cipher);
+
+static inline void xor_128(const u8 *a, const u8 *b, u8 *out)
+{
+	u8 i;
+
+	for (i = 0; i < AES_BLOCK_SIZE; i++)
+		out[i] = a[i] ^ b[i];
+}
+
+static inline void leftshift_onebit(const u8 *input, u8 *output)
+{
+	int i, overflow = 0;
+
+	for (i = (AES_BLOCK_SIZE - 1); i >= 0; i--) {
+		output[i] = input[i] << 1;
+		output[i] |= overflow;
+		overflow = (input[i] & 0x80) ? 1 : 0;
+	}
+	return;
+}
+
+static void generate_subkey(struct crypto_cipher *tfm, u8 *k1, u8 *k2)
+{
+	u8 l[AES_BLOCK_SIZE], tmp[AES_BLOCK_SIZE];
+	u8 const_rb[AES_BLOCK_SIZE] = {
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x87};
+	u8 const_zero[AES_BLOCK_SIZE] = {
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+	crypto_cipher_encrypt_one(tfm, l, const_zero);
+
+	if ((l[0] & 0x80) == 0) { /* If MSB(l) = 0, then k1 = l << 1 */
+		leftshift_onebit(l, k1);
+	} else {    /* Else k1 = ( l << 1 ) (+) Rb */
+		leftshift_onebit(l, tmp);
+		xor_128(tmp, const_rb, k1);
+	}
+
+	if ((k1[0] & 0x80) == 0) {
+		leftshift_onebit(k1, k2);
+	} else {
+		leftshift_onebit(k1, tmp);
+		xor_128(tmp, const_rb, k2);
+	}
+}
+
+static inline void padding(u8 *lastb, u8 *pad, u16 length)
+{
+	u8 j;
+
+	/* original last block */
+	for (j = 0; j < AES_BLOCK_SIZE; j++)  {
+		if (j < length)
+			pad[j] = lastb[j];
+		else if (j == length)
+			pad[j] = 0x80;
+		else
+			pad[j] = 0x00;
+	}
+}
+
+
+void wcnss_wlan_cmac_calc_mic(struct crypto_cipher *tfm, u8 *m,
+				u16 length, u8 *mac)
+{
+	u8 x[AES_BLOCK_SIZE], y[AES_BLOCK_SIZE];
+	u8 m_last[AES_BLOCK_SIZE], padded[AES_BLOCK_SIZE];
+	u8 k1[AES_KEYSIZE_128], k2[AES_KEYSIZE_128];
+	int cmpBlk;
+	int i, nBlocks = (length + 15)/AES_BLOCK_SIZE;
+
+	generate_subkey(tfm, k1, k2);
+
+	if (nBlocks == 0) {
+		nBlocks = 1;
+		cmpBlk = 0;
+	} else {
+		cmpBlk = ((length % AES_BLOCK_SIZE) == 0) ? 1 : 0;
+	}
+
+	if (cmpBlk) { /* Last block is complete block */
+		xor_128(&m[AES_BLOCK_SIZE * (nBlocks - 1)], k1, m_last);
+	} else { /* Last block is not complete block */
+		padding(&m[AES_BLOCK_SIZE * (nBlocks - 1)], padded,
+			length % AES_BLOCK_SIZE);
+		xor_128(padded, k2, m_last);
+	}
+
+	for (i = 0; i < AES_BLOCK_SIZE; i++)
+		x[i] = 0;
+
+	for (i = 0; i < (nBlocks - 1); i++) {
+		xor_128(x, &m[AES_BLOCK_SIZE * i], y); /* y = Mi (+) x */
+		crypto_cipher_encrypt_one(tfm, x, y); /* x = AES-128(KEY, y) */
+	}
+
+	xor_128(x, m_last, y);
+	crypto_cipher_encrypt_one(tfm, x, y);
+
+	memcpy(mac, x, CMAC_TLEN);
+}
+EXPORT_SYMBOL(wcnss_wlan_cmac_calc_mic);
