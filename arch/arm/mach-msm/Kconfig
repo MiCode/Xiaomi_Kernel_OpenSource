@@ -126,6 +126,11 @@ config ARCH_MSM8916
 	select DONT_MAP_HOLE_AFTER_MEMBANK0
 	select QMI_ENCDEC
 	select MSM_IRQ
+	select MSM_CORTEX_A53
+	select CPU_FREQ_MSM
+	select CPU_FREQ
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_CPUBW
 
 config ARCH_FSM9900
 	bool "FSM9900"
@@ -310,6 +315,9 @@ config  ARCH_MSM_KRAIT
 	select DEVFREQ_GOV_MSM_CPUBW_HWMON
 
 config  MSM_CORTEX_A7
+	bool
+
+config  MSM_CORTEX_A53
 	bool
 
 config  MSM_SMP
