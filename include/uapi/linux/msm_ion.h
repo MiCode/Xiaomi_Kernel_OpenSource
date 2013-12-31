@@ -1,7 +1,7 @@
 /*
  * include/linux/ion.h
  *
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -148,7 +148,7 @@ enum cp_mem_usage {
  * the cache operations performed
  */
 struct ion_flush_data {
-	struct ion_handle *handle;
+	ion_user_handle_t handle;
 	int fd;
 	void *vaddr;
 	unsigned int offset;
