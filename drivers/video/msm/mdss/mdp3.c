@@ -1849,7 +1849,8 @@ static int mdp3_is_display_on(struct mdss_panel_data *pdata)
 static int mdp3_continuous_splash_on(struct mdss_panel_data *pdata)
 {
 	struct mdss_panel_info *panel_info = &pdata->panel_info;
-	int ab, ib, rc;
+	u64 ab, ib;
+	int rc;
 
 	pr_debug("mdp3__continuous_splash_on\n");
 
