@@ -1828,19 +1828,46 @@ static int msm_nand_read(struct mtd_info *mtd, loff_t from, size_t len,
 	struct mtd_oob_ops ops;
 
 	ops.mode = MTD_OPS_AUTO_OOB;
-	ops.len = len;
 	ops.retlen = 0;
 	ops.ooblen = 0;
-	ops.datbuf = buf;
 	ops.oobbuf = NULL;
 
-	if (!(from & (mtd->writesize - 1)) && !(len % mtd->writesize))
-		/* read pages on page boundary */
-		ret = msm_nand_read_oob(mtd, from, &ops);
-	else
-		ret = msm_nand_read_partial_page(mtd, from, &ops);
+	if (!(from & (mtd->writesize - 1)) && !(len % mtd->writesize)) {
+		/*
+		 * Handle reading of large size read buffer in vmalloc
+		 * address space that does not fit in an MMU page.
+		 */
+		if (!virt_addr_valid(buf) &&
+		   ((unsigned long) buf & ~PAGE_MASK) + len > PAGE_SIZE) {
+			ops.len = mtd->writesize;
 
-	*retlen = ops.retlen;
+			for (;;) {
+				ops.datbuf = buf;
+				ret = msm_nand_read_oob(mtd, from, &ops);
+				if (ret < 0)
+					break;
+
+				len -= mtd->writesize;
+				*retlen += mtd->writesize;
+				if (len == 0)
+					break;
+
+				buf += mtd->writesize;
+				from += mtd->writesize;
+			}
+		} else {
+			ops.len = len;
+			ops.datbuf = buf;
+			ret =  msm_nand_read_oob(mtd, from, &ops);
+			*retlen = ops.retlen;
+		}
+	} else {
+		ops.len = len;
+		ops.datbuf = buf;
+		ret = msm_nand_read_partial_page(mtd, from, &ops);
+		*retlen = ops.retlen;
+	}
+
 	return ret;
 }
 
