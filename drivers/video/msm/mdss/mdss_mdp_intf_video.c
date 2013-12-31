@@ -62,6 +62,7 @@ struct mdss_mdp_video_ctx {
 
 	atomic_t vsync_ref;
 	spinlock_t vsync_lock;
+	struct mutex vsync_mtx;
 	struct list_head vsync_handlers;
 };
 
@@ -216,19 +217,23 @@ static inline void video_vsync_irq_enable(struct mdss_mdp_ctl *ctl, bool clear)
 {
 	struct mdss_mdp_video_ctx *ctx = ctl->priv_data;
 
+	mutex_lock(&ctx->vsync_mtx);
 	if (atomic_inc_return(&ctx->vsync_ref) == 1)
 		mdss_mdp_irq_enable(MDSS_MDP_IRQ_INTF_VSYNC, ctl->intf_num);
 	else if (clear)
 		mdss_mdp_irq_clear(ctl->mdata, MDSS_MDP_IRQ_INTF_VSYNC,
 				ctl->intf_num);
+	mutex_unlock(&ctx->vsync_mtx);
 }
 
 static inline void video_vsync_irq_disable(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_video_ctx *ctx = ctl->priv_data;
 
+	mutex_lock(&ctx->vsync_mtx);
 	if (atomic_dec_return(&ctx->vsync_ref) == 0)
 		mdss_mdp_irq_disable(MDSS_MDP_IRQ_INTF_VSYNC, ctl->intf_num);
+	mutex_unlock(&ctx->vsync_mtx);
 }
 
 static int mdss_mdp_video_add_vsync_handler(struct mdss_mdp_ctl *ctl,
@@ -684,6 +689,7 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 	ctx->intf_type = ctl->intf_type;
 	init_completion(&ctx->vsync_comp);
 	spin_lock_init(&ctx->vsync_lock);
+	mutex_init(&ctx->vsync_mtx);
 	atomic_set(&ctx->vsync_ref, 0);
 
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_INTF_VSYNC, ctl->intf_num,
