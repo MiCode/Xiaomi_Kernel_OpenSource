@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -6517,7 +6517,7 @@ static int mpq_dmx_tsppv2_init(struct dvb_adapter *mpq_adapter,
 
 	/* Set dvb-demux "virtual" function pointers */
 	mpq_demux->demux.priv = (void *)mpq_demux;
-	mpq_demux->demux.filternum = TSPP2_DMX_MAX_SECTION_FILTER_NUM;
+	mpq_demux->demux.filternum = TSPP2_DMX_MAX_PID_FILTER_NUM;
 	mpq_demux->demux.feednum = MPQ_MAX_DMX_FILES;
 	mpq_demux->demux.start_feed = mpq_dmx_tspp2_start_filtering;
 	mpq_demux->demux.stop_feed = mpq_dmx_tspp2_stop_filtering;
