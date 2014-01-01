@@ -4,7 +4,7 @@
  * Copyright (C) 2000 Ralph Metzler & Marcus Metzler
  *		      for convergence integrated media GmbH
  *
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -3725,6 +3725,7 @@ static int dvb_dmxdev_add_pid(struct dmxdev *dmxdev,
 			      struct dmxdev_filter *filter, u16 pid)
 {
 	struct dmxdev_feed *feed;
+	int ret = 0;
 
 	if ((filter->type != DMXDEV_TYPE_PES) ||
 	    (filter->state < DMXDEV_STATE_SET))
@@ -3742,12 +3743,16 @@ static int dvb_dmxdev_add_pid(struct dmxdev *dmxdev,
 	feed->pid = pid;
 	feed->cipher_ops.operations_count = 0;
 	feed->idx_params.enable = 0;
-	list_add(&feed->next, &filter->feed.ts);
 
 	if (filter->state >= DMXDEV_STATE_GO)
-		return dvb_dmxdev_start_feed(dmxdev, filter, feed);
+		ret = dvb_dmxdev_start_feed(dmxdev, filter, feed);
 
-	return 0;
+	if (!ret)
+		list_add(&feed->next, &filter->feed.ts);
+	else
+		kfree(feed);
+
+	return ret;
 }
 
 static int dvb_dmxdev_remove_pid(struct dmxdev *dmxdev,
