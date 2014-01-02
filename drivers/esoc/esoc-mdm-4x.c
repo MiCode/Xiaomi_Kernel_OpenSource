@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -331,18 +331,16 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 				msleep(100);
 			}
 			if (status_down) {
-				dev_err(dev, "forcing shutdown\n");
-				gpio_set_value(MDM_GPIO(mdm, AP2MDM_STATUS), 0);
-				mdm_update_gpio_configs(mdm,
-						GPIO_UPDATE_BOOTING_CONFIG);
 				dev_dbg(dev, "shutdown successful\n");
-				return 0;
+				goto shutdown_cleanup;
 			} else
 				dev_err(mdm->dev, "graceful poff ipc fail\n");
 		}
 		mdm_power_down(mdm);
+shutdown_cleanup:
 		mdm_update_gpio_configs(mdm, GPIO_UPDATE_BOOTING_CONFIG);
 		gpio_set_value(MDM_GPIO(mdm, AP2MDM_STATUS), 0);
+		esoc_clink_queue_request(ESOC_REQ_SHUTDOWN, esoc);
 		break;
 	case ESOC_RESET:
 		mdm_toggle_soft_reset(mdm);
