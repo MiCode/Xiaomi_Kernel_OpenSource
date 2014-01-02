@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _MSM_IPC_ROUTER_H
-#define _MSM_IPC_ROUTER_H
+#ifndef _IPC_ROUTER_H
+#define _IPC_ROUTER_H
 
 #include <linux/types.h>
 #include <linux/socket.h>
@@ -129,7 +129,7 @@ struct msm_ipc_port {
 	void *priv;
 };
 
-#ifdef CONFIG_MSM_IPC_ROUTER
+#ifdef CONFIG_IPC_ROUTER
 /**
  * msm_ipc_router_create_port() - Create a IPC Router port/endpoint
  * @notify: Callback function to notify any event on the port.

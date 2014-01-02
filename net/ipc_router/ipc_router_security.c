@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,12 +23,11 @@
 #include <linux/kernel.h>
 #include <linux/msm_ipc.h>
 #include <linux/rwsem.h>
-
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 
 #include <net/sock.h>
-#include "ipc_router.h"
-#include "msm_ipc_router_security.h"
+#include "ipc_router_private.h"
+#include "ipc_router_security.h"
 
 #define IRSC_COMPLETION_TIMEOUT_MS 30000
 #define SEC_RULES_HASH_SZ 32

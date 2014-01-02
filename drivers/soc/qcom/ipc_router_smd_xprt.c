@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,12 +19,14 @@
 #include <linux/platform_device.h>
 #include <linux/types.h>
 #include <linux/of.h>
+#include <linux/ipc_router_xprt.h>
+#include <linux/skbuff.h>
+#include <linux/delay.h>
+#include <linux/sched.h>
 
 #include <mach/msm_smd.h>
 #include <mach/subsystem_restart.h>
 #include <mach/msm_smsm.h>
-
-#include "ipc_router.h"
 
 static int msm_ipc_router_smd_xprt_debug_mask;
 module_param_named(debug_mask, msm_ipc_router_smd_xprt_debug_mask,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,65 +10,22 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _ARCH_ARM_MACH_MSM_IPC_ROUTER_H
-#define _ARCH_ARM_MACH_MSM_IPC_ROUTER_H
+#ifndef _IPC_ROUTER_XPRT_H
+#define _IPC_ROUTER_XPRT_H
 
 #include <linux/types.h>
-#include <linux/socket.h>
 #include <linux/errno.h>
 #include <linux/mm.h>
 #include <linux/list.h>
 #include <linux/platform_device.h>
 #include <linux/msm_ipc.h>
-
-#include <net/sock.h>
-
-#include <mach/msm_ipc_router.h>
-
-/* definitions for the R2R wire protcol */
-#define IPC_ROUTER_V1		1
-/*
- * Ambiguous definition but will enable multiplexing IPC_ROUTER_V2 packets
- * with an existing alternate transport in user-space, if needed.
- */
-#define IPC_ROUTER_V2		3
-
-#define IPC_ROUTER_ADDRESS			0x0000FFFF
-
-#define IPC_ROUTER_NID_LOCAL			1
-#define MAX_IPC_PKT_SIZE 66000
-
-#define IPC_ROUTER_DEFAULT_RX_QUOTA	5
+#include <linux/ipc_router.h>
 
 #define IPC_ROUTER_XPRT_EVENT_DATA  1
 #define IPC_ROUTER_XPRT_EVENT_OPEN  2
 #define IPC_ROUTER_XPRT_EVENT_CLOSE 3
 
-#define IPC_ROUTER_INFINITY -1
-#define DEFAULT_RCV_TIMEO 0
-
-#define ALIGN_SIZE(x) ((4 - ((x) & 3)) & 3)
-
-#define ALL_SERVICE 0xFFFFFFFF
-#define ALL_INSTANCE 0xFFFFFFFF
-
-#define CONTROL_FLAG_CONFIRM_RX 0x1
-#define CONTROL_FLAG_OPT_HDR 0x2
-
 #define FRAG_PKT_WRITE_ENABLE 0x1
-
-enum {
-	CLIENT_PORT,
-	SERVER_PORT,
-	CONTROL_PORT,
-	IRSC_PORT,
-};
-
-enum {
-	NULL_MODE,
-	SINGLE_LINK_MODE,
-	MULTI_LINK_MODE,
-};
 
 /**
  * rr_header_v1 - IPC Router header version 1
@@ -135,12 +92,6 @@ struct rr_packet {
 	uint32_t length;
 };
 
-struct msm_ipc_sock {
-	struct sock sk;
-	struct msm_ipc_port *port;
-	void *default_pil;
-};
-
 /**
  * msm_ipc_router_xprt - Structure to hold XPRT specific information
  * @name: Name of the XPRT.
@@ -181,49 +132,6 @@ void msm_ipc_router_xprt_notify(struct msm_ipc_router_xprt *xprt,
 struct rr_packet *clone_pkt(struct rr_packet *pkt);
 void release_pkt(struct rr_packet *pkt);
 
-/**
- * msm_ipc_router_create_raw_port() - Create an IPC Router port
- * @endpoint: User-space space socket information to be cached.
- * @notify: Function to notify incoming events on the port.
- *   @event: Event ID to be handled.
- *   @oob_data: Any out-of-band data associated with the event.
- *   @oob_data_len: Size of the out-of-band data, if valid.
- *   @priv: Private data registered during the port creation.
- * @priv: Private Data to be passed during the event notification.
- *
- * @return: Valid pointer to port on success, NULL on failure.
- *
- * This function is used to create an IPC Router port. The port is used for
- * communication locally or outside the subsystem.
- */
-struct msm_ipc_port *msm_ipc_router_create_raw_port(void *endpoint,
-	void (*notify)(unsigned event, void *oob_data,
-		       size_t oob_data_len, void *priv),
-	void *priv);
-int msm_ipc_router_send_to(struct msm_ipc_port *src,
-			   struct sk_buff_head *data,
-			   struct msm_ipc_addr *dest);
-int msm_ipc_router_read(struct msm_ipc_port *port_ptr,
-			struct rr_packet **pkt,
-			size_t buf_len);
-
-int msm_ipc_router_recv_from(struct msm_ipc_port *port_ptr,
-		      struct rr_packet **pkt,
-		      struct msm_ipc_addr *src_addr,
-		      long timeout);
-int msm_ipc_router_register_server(struct msm_ipc_port *server_port,
-			    struct msm_ipc_addr *name);
-int msm_ipc_router_unregister_server(struct msm_ipc_port *server_port);
-
-int msm_ipc_router_init_sockets(void);
-void msm_ipc_router_exit_sockets(void);
-
-void msm_ipc_sync_sec_rule(uint32_t service, uint32_t instance, void *rule);
-
-void msm_ipc_sync_default_sec_rule(void *rule);
-
-int msm_ipc_router_rx_data_wait(struct msm_ipc_port *port_ptr, long timeout);
-
 #if defined CONFIG_MSM_IPC_ROUTER_SMD_XPRT
 extern void *msm_ipc_load_default_node(void);
 
@@ -235,5 +143,4 @@ static inline void *msm_ipc_load_default_node(void)
 static inline void msm_ipc_unload_default_node(void *pil) { }
 #endif
 
-void msm_ipc_router_free_skb(struct sk_buff_head *skb_head);
 #endif

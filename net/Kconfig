@@ -351,6 +351,7 @@ source "net/9p/Kconfig"
 source "net/caif/Kconfig"
 source "net/ceph/Kconfig"
 source "net/nfc/Kconfig"
+source "net/ipc_router/Kconfig"
 
 
 endif   # if NET
