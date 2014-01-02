@@ -8,7 +8,7 @@ Required properties:
 - reg: NCI i2c slave address.
 - qcom,dis-gpio: specific gpio for hardware reset.
 - qcom,irq-gpio: specific gpio for read interrupt.
-- qcom,clk-src: nfc clock source ("BBCLK2", "RFCLK3", "GPCLK", ...)
+- qcom,clk-src: nfc clock source ("BBCLK2", "RFCLK3", "GPCLK","GPCLK2" ...)
 - qcom,clk-en-gpio: msm gpio clock,used ony if clock source is msm gpio
 - vlogic-supply: LDO for power supply
 - interrupt-parent: Should be phandle for the interrupt controller

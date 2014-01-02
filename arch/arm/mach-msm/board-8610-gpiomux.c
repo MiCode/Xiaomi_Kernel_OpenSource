@@ -252,6 +252,30 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting gpio_i2c_nfc_pvt_config = {
+		.func = GPIOMUX_FUNC_5, /*active 1*/ /* 0 */
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_NONE,
+	};
+
+static struct msm_gpiomux_config msm_nfc_configs[] __initdata = {
+	{
+		.gpio   = 8,            /* BLSP1 QUP2 I2C_SDA */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &gpio_i2c_nfc_pvt_config,
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_nfc_pvt_config,
+		},
+	},
+	{
+		.gpio   = 9,            /* BLSP1 QUP2 I2C_SCL */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &gpio_i2c_nfc_pvt_config,
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_nfc_pvt_config,
+		},
+	},
+};
+
+
 static struct msm_gpiomux_config msm_atmel_configs[] __initdata = {
 	{
 		.gpio      = 0,		/* TOUCH RESET */
@@ -424,6 +448,16 @@ static struct gpiomux_setting cam_settings[] = {
 		.func = GPIOMUX_FUNC_GPIO, /*suspend 0*/ /* 4 */
 		.drv = GPIOMUX_DRV_2MA,
 		.pull = GPIOMUX_PULL_DOWN,
+	},
+};
+
+static struct msm_gpiomux_config msm_non_qrd_configs[] __initdata = {
+	{
+		.gpio = 8, /* CAM1_STANDBY_N */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &cam_settings[3],
+			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[1],
+		},
 	},
 };
 
@@ -625,7 +659,13 @@ void __init msm8610_init_gpiomux(void)
 	msm_gpiomux_install(msm_sensor_configs, ARRAY_SIZE(msm_sensor_configs));
 	msm_gpiomux_install(msm_gpio_int_configs,
 			ARRAY_SIZE(msm_gpio_int_configs));
-	if (of_board_is_qrd())
+	if (of_board_is_qrd()) {
 		msm_gpiomux_install(msm_interrupt_configs,
 			ARRAY_SIZE(msm_interrupt_configs));
+		msm_gpiomux_install(msm_nfc_configs,
+			ARRAY_SIZE(msm_nfc_configs));
+	} else {
+		msm_gpiomux_install(msm_non_qrd_configs,
+			ARRAY_SIZE(msm_non_qrd_configs));
+	}
 }
