@@ -217,7 +217,7 @@
 			<0xff 18>,  /* APCx_qgicQTmrSecPhysIrptReq */
 			<0xff 19>,  /* APCx_qgicQTmrSecPhysIrptReq */
 			<0xff 25>,  /* APCx_qgicExtFaultIrptReq */
-			<0xff 33>, /*l2_perf_mon*/
+			<0xff 33>,  /* APCC_qgicL2PerfMonIrptReq */
 			<0xff 34>,  /* APCC_qgicL2ErrorIrptReq */
 			<0xff 35>,  /* WDT_barkInt */
 			<0xff 40>,  /* qtimer_phy_irq */
