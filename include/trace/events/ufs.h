@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,34 @@ TRACE_EVENT(ufshcd_clk_gating,
 
 	TP_printk("%s: gating state changed to %s",
 		__get_str(dev_name), __get_str(state))
+);
+
+TRACE_EVENT(ufshcd_clk_scaling,
+
+	TP_PROTO(const char *dev_name, const char *state, const char *clk,
+		u32 prev_state, u32 curr_state),
+
+	TP_ARGS(dev_name, state, clk, prev_state, curr_state),
+
+	TP_STRUCT__entry(
+		__string(dev_name, dev_name)
+		__string(state, state)
+		__string(clk, clk)
+		__field(u32, prev_state)
+		__field(u32, curr_state)
+	),
+
+	TP_fast_assign(
+		__assign_str(dev_name, dev_name);
+		__assign_str(state, state);
+		__assign_str(clk, clk);
+		__entry->prev_state = prev_state;
+		__entry->curr_state = curr_state;
+	),
+
+	TP_printk("%s: %s %s from %u to %u Hz",
+		__get_str(dev_name), __get_str(state), __get_str(clk),
+		__entry->prev_state, __entry->curr_state)
 );
 
 DECLARE_EVENT_CLASS(ufshcd_template,
