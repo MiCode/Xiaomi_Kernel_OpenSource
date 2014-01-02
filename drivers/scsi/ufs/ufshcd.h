@@ -228,6 +228,7 @@ struct debugfs_files {
  * @clk: clock node
  * @name: clock name
  * @max_freq: maximum frequency supported by the clock
+ * @min_freq: min frequency that can be used for clock scaling
  * @enabled: variable to check against multiple enable/disable
  */
 struct ufs_clk_info {
@@ -235,6 +236,7 @@ struct ufs_clk_info {
 	struct clk *clk;
 	const char *name;
 	u32 max_freq;
+	u32 min_freq;
 	bool enabled;
 };
 

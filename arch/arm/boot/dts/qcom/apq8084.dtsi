@@ -2889,7 +2889,8 @@
 
 		clock-names = "core_clk_src", "core_clk", "bus_clk", "iface_clk",
 				"ref_clk";
-		max-clock-frequency-hz = <200000000>, <0>, <0>, <0>, <0>;
+		freq-table-hz = <100000000 200000000>, <0 0>, <0 0>,
+						<0 0>, <0 0>;
 
 		qcom,msm-bus,name = "ufs1";
 		qcom,msm-bus,num-cases = <22>;
