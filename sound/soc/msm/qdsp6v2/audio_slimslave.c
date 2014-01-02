@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -111,7 +111,7 @@ static int audio_slimslave_resume(struct slim_device *audio_slim)
 
 	mutex_lock(&suspend_lock);
 	suspend = false;
-	mutex_lock(&suspend_lock);
+	mutex_unlock(&suspend_lock);
 	return 0;
 }
 
@@ -122,7 +122,7 @@ static int audio_slimslave_suspend(struct slim_device *audio_slim,
 
 	mutex_lock(&suspend_lock);
 	suspend = true;
-	mutex_lock(&suspend_lock);
+	mutex_unlock(&suspend_lock);
 	return 0;
 }
 
