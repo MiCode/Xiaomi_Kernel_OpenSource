@@ -4182,6 +4182,10 @@ static void valleyview_setup_pctx(struct drm_device *dev)
 	u32 pcbr;
 	int pctx_size = 24*1024;
 
+	/* If PC Context is already there, then bail out*/
+	if (dev_priv->vlv_pctx)
+		return;
+
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
 	pcbr = I915_READ(VLV_PCBR);

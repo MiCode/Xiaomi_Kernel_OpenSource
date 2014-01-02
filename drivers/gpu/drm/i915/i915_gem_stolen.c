@@ -206,6 +206,13 @@ void i915_gem_cleanup_stolen(struct drm_device *dev)
 	if (!drm_mm_initialized(&dev_priv->mm.stolen))
 		return;
 
+	if (dev_priv->vlv_pctx) {
+		mutex_lock(&dev->struct_mutex);
+		drm_gem_object_unreference(&dev_priv->vlv_pctx->base);
+		mutex_unlock(&dev->struct_mutex);
+		dev_priv->vlv_pctx = NULL;
+	}
+
 	i915_gem_stolen_cleanup_compression(dev);
 	drm_mm_takedown(&dev_priv->mm.stolen);
 }
