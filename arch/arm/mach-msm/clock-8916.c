@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,7 +50,6 @@ static struct clk_lookup msm_clocks_8916[] = {
 	CLK_DUMMY("",	vfe0_clk_src.c,	"", OFF),
 	CLK_DUMMY("",	mdp_clk_src.c,	"", OFF),
 	CLK_DUMMY("",	gfx3d_clk_src.c,	"", OFF),
-	CLK_DUMMY("",	crypto_clk_src.c,	"", OFF),
 	CLK_DUMMY("",	codec_digcodec_clk_src.c,	"", OFF),
 	CLK_DUMMY("",	blsp1_qup1_i2c_apps_clk_src.c,	"", OFF),
 	CLK_DUMMY("",	blsp1_qup1_spi_apps_clk_src.c,	"", OFF),
@@ -97,9 +96,6 @@ static struct clk_lookup msm_clocks_8916[] = {
 	CLK_DUMMY("",	gcc_blsp1_ahb_clk.c,	"", OFF),
 	CLK_DUMMY("",	gcc_prng_ahb_clk.c,	"", OFF),
 	CLK_DUMMY("",	gcc_boot_rom_ahb_clk.c,	"", OFF),
-	CLK_DUMMY("",	gcc_crypto_ahb_clk.c,	"", OFF),
-	CLK_DUMMY("",	gcc_crypto_axi_clk.c,	"", OFF),
-	CLK_DUMMY("",	gcc_crypto_clk.c,	"", OFF),
 	CLK_DUMMY("",	gcc_gfx_tbu_clk.c,	"", OFF),
 	CLK_DUMMY("",	gcc_gtcu_ahb_clk.c,	"", OFF),
 	CLK_DUMMY("",	gcc_jpeg_tbu_clk.c,	"", OFF),
@@ -220,6 +216,18 @@ static struct clk_lookup msm_clocks_8916[] = {
 	CLK_DUMMY("iface_clk", NULL, "78d9000.usb", OFF),
 	CLK_DUMMY("core_clk", NULL, "78d9000.usb", OFF),
 	CLK_DUMMY("sleep_clk", NULL, "78d9000.usb", OFF),
+
+	/* Add QCRYPTO clocks */
+	CLK_DUMMY("core_clk_src", crypto_clk_src.c, "fd400000.qcrypto", OFF),
+	CLK_DUMMY("core_clk", gcc_crypto_clk.c, "fd400000.qcrypto", OFF),
+	CLK_DUMMY("iface_clk", gcc_crypto_ahb_clk.c, "fd400000.qcrypto", OFF),
+	CLK_DUMMY("bus_clk", gcc_crypto_axi_clk.c, "fd400000.qcrypto", OFF),
+
+	/* Add QCEDEV clocks */
+	CLK_DUMMY("core_clk_src", crypto_clk_src.c, "fd400000.qcedev", OFF),
+	CLK_DUMMY("core_clk", gcc_crypto_clk.c,	"fd400000.qcedev", OFF),
+	CLK_DUMMY("iface_clk", gcc_crypto_ahb_clk.c, "fd400000.qcedev", OFF),
+	CLK_DUMMY("bus_clk", gcc_crypto_axi_clk.c, "fd400000.qcedev", OFF),
 
 	/* CoreSight clocks */
 	CLK_DUMMY("core_clk", qdss_clk.c, "826000.tmc", OFF),
