@@ -38,10 +38,10 @@
 #define MMA8652_ID			0x4A
 #define MMA8653_ID			0x5A
 
-
+/* Polling delay in msecs */
 #define POLL_INTERVAL_MIN	1
-#define POLL_INTERVAL_MAX	500
-#define POLL_INTERVAL		100 /* msecs */
+#define POLL_INTERVAL_MAX	10000
+#define POLL_INTERVAL		100
 
 /* if sensor is standby ,set POLL_STOP_TIME to slow down the poll */
 #define POLL_STOP_TIME		10000
@@ -168,6 +168,7 @@ struct mma8x5x_data {
 	int mode;
 	int int_pin;
 	u32 int_flags;
+	int poll_delay;
 };
 /* Addresses scanned */
 static const unsigned short normal_i2c[] = {0x1c, 0x1d, I2C_CLIENT_END};
@@ -371,7 +372,7 @@ static void mma8x5x_report_data(struct mma8x5x_data *pdata)
 		goto out;
 	} else {
 		if (poll_dev->poll_interval == POLL_STOP_TIME)
-			poll_dev->poll_interval = POLL_INTERVAL;
+			poll_dev->poll_interval = pdata->poll_delay;
 	}
 	if (mma8x5x_read_data(pdata->client, &data) != 0)
 		goto out;
@@ -516,14 +517,47 @@ static ssize_t mma8x5x_position_store(struct device *dev,
 	return count;
 }
 
+static ssize_t mma8x5x_poll_delay_show(struct device *dev,
+				   struct device_attribute *attr, char *buf)
+{
+	struct input_polled_dev *poll_dev = dev_get_drvdata(dev);
+	struct mma8x5x_data *pdata = (struct mma8x5x_data *)(poll_dev->private);
+	return snprintf(buf, PAGE_SIZE, "%d\n", pdata->poll_delay);
+}
+
+static ssize_t mma8x5x_poll_delay_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	struct input_polled_dev *poll_dev = dev_get_drvdata(dev);
+	struct mma8x5x_data *pdata = (struct mma8x5x_data *)(poll_dev->private);
+	int interval;
+	int ret;
+	ret = kstrtoint(buf, 10, &interval);
+	if (ret)
+		return ret;
+	if (interval <= POLL_INTERVAL_MIN)
+		interval = POLL_INTERVAL_MIN;
+	if (interval > POLL_INTERVAL_MAX)
+		interval = POLL_INTERVAL_MAX;
+	mutex_lock(&pdata->data_lock);
+	pdata->poll_delay = interval;
+	poll_dev->poll_interval = pdata->poll_delay;
+	mutex_unlock(&pdata->data_lock);
+	return count;
+}
+
 static DEVICE_ATTR(enable, S_IWUSR | S_IRUGO,
 		   mma8x5x_enable_show, mma8x5x_enable_store);
 static DEVICE_ATTR(position, S_IWUSR | S_IRUGO,
 		   mma8x5x_position_show, mma8x5x_position_store);
+static DEVICE_ATTR(poll_delay, S_IWUSR | S_IRUGO,
+		   mma8x5x_poll_delay_show, mma8x5x_poll_delay_store);
 
 static struct attribute *mma8x5x_attributes[] = {
 	&dev_attr_enable.attr,
 	&dev_attr_position.attr,
+	&dev_attr_poll_delay.attr,
 	NULL
 };
 
@@ -622,6 +656,7 @@ static int __devinit mma8x5x_probe(struct i2c_client *client,
 	pdata->client = client;
 	pdata->chip_id = chip_id;
 	pdata->mode = MODE_2G;
+	pdata->poll_delay = POLL_INTERVAL;
 
 	mutex_init(&pdata->data_lock);
 	i2c_set_clientdata(client, pdata);
