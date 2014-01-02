@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -480,7 +480,7 @@ static int msm_ipc_router_hsic_driver_register(
 	int ret;
 	struct msm_ipc_router_hsic_xprt *hsic_xprtp_item;
 
-	hsic_xprtp_item = find_hsic_xprt_list(pdev->name);
+	hsic_xprtp_item = find_hsic_xprt_list(hsic_xprtp->ch_name);
 
 	mutex_lock(&hsic_remote_xprt_list_lock_lha1);
 	list_add(&hsic_xprtp->list, &hsic_remote_xprt_list);
