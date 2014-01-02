@@ -223,7 +223,9 @@ static int pmic_arb_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid)
 	if (opc < SPMI_CMD_RESET || opc > SPMI_CMD_WAKEUP)
 		return -EINVAL;
 
-	cmd = ((opc | 0x40) << 27) | ((sid & 0xf) << 20);
+	opc -= SPMI_CMD_RESET - PMIC_ARB_OP_RESET;
+
+	cmd = (opc << 27) | ((sid & 0xf) << 20);
 
 	spin_lock_irqsave(&pmic_arb->lock, flags);
 	pmic_arb_write(pmic_arb, PMIC_ARB_CMD(pmic_arb->channel), cmd);
