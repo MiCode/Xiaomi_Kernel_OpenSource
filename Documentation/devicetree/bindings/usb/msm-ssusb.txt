@@ -11,10 +11,6 @@ Required properties :
 	"vbus_dwc3" : vbus supply for host mode when DWC3 operating as DRD.
 	This can be left as optional if "host-only-mode" is selected in the
 	'dwc3' sub node for "DWC3-USB3 Core device".
-- qcom,dwc-usb3-msm-dbm-eps: Number of endpoints avaliable for
-  the DBM (Device Bus Manager). The DBM is HW unit which is part of
-  the MSM USB3.0 core (which also includes the Synopsys DesignWare
-  USB3.0 controller)
 
 Optional properties :
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
@@ -52,6 +48,7 @@ Optional properties :
   being reset in initialization.
 - qcom,no-suspend-resume: If present, the device will not perform any activity
 		during suspend/resume
+- qcom,usb-dbm : phandle for the DBM device
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
@@ -71,6 +68,7 @@ Example MSM USB3.0 controller device node :
 		qcom,dwc_usb3-adc_tm = <&pm8941_adc_tm>;
 		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
 		qcom,dwc-usb3-msm-qdss-tx-fifo-size = <16384>;
+		qcom,usb-dbm = <&dbm_1p4>;
 
 		qcom,msm_bus,name = "usb3";
 		qcom,msm_bus,num_cases = <2>;
