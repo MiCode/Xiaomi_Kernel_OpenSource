@@ -1322,6 +1322,18 @@ start_window:
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND)
+static struct devfreq_simple_ondemand_data ufshcd_ondemand_data = {
+	.upthreshold = 35,
+	.downdifferential = 5,
+	.simple_scaling = 1,
+};
+
+static void *gov_data = &ufshcd_ondemand_data;
+#else
+static void *gov_data;
+#endif
+
 static struct devfreq_dev_profile ufs_devfreq_profile = {
 	.polling_ms	= 100,
 	.target		= ufshcd_devfreq_target,
@@ -6552,7 +6564,7 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 				hba->devfreq = devm_devfreq_add_device(hba->dev,
 							&ufs_devfreq_profile,
 							"simple_ondemand",
-							NULL);
+							gov_data);
 				if (IS_ERR(hba->devfreq)) {
 					ret = PTR_ERR(hba->devfreq);
 					dev_err(hba->dev, "Unable to register with devfreq %d\n",
