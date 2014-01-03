@@ -33,6 +33,8 @@
 #define WAIT_DISP_OP_TIMEOUT ((WAIT_FENCE_FIRST_TIMEOUT + \
 		WAIT_FENCE_FINAL_TIMEOUT) * MDP_MAX_FENCE_FD)
 
+#define SPLASH_THREAD_WAIT_TIMEOUT 3
+
 #ifndef MAX
 #define  MAX(x, y) (((x) > (y)) ? (x) : (y))
 #endif
@@ -65,6 +67,11 @@ enum mdp_notify_event {
 	MDP_NOTIFY_FRAME_FLUSHED,
 	MDP_NOTIFY_FRAME_DONE,
 	MDP_NOTIFY_FRAME_TIMEOUT,
+};
+
+enum mdp_splash_event {
+	MDP_CREATE_SPLASH_OV = 0,
+	MDP_REMOVE_SPLASH_OV,
 };
 
 struct disp_info_type_suspend {
@@ -110,7 +117,8 @@ struct msm_mdp_interface {
 	int (*kickoff_fnc)(struct msm_fb_data_type *mfd,
 					struct mdp_display_commit *data);
 	int (*ioctl_handler)(struct msm_fb_data_type *mfd, u32 cmd, void *arg);
-	void (*dma_fnc)(struct msm_fb_data_type *mfd);
+	void (*dma_fnc)(struct msm_fb_data_type *mfd, struct mdp_overlay *req,
+				int image_len, int *pipe_ndx);
 	int (*cursor_update)(struct msm_fb_data_type *mfd,
 				struct fb_cursor *cursor);
 	int (*lut_update)(struct msm_fb_data_type *mfd, struct fb_cmap *cmap);
@@ -119,6 +127,7 @@ struct msm_mdp_interface {
 	int (*update_ad_input)(struct msm_fb_data_type *mfd);
 	int (*panel_register_done)(struct mdss_panel_data *pdata);
 	u32 (*fb_stride)(u32 fb_index, u32 xres, int bpp);
+	int (*splash_fnc) (struct msm_fb_data_type *mfd, int *index, int req);
 	struct msm_sync_pt_data *(*get_sync_fnc)(struct msm_fb_data_type *mfd,
 				const struct mdp_buf_sync *buf_sync);
 	void *private1;
@@ -200,6 +209,8 @@ struct msm_fb_data_type {
 	wait_queue_head_t commit_wait_q;
 	wait_queue_head_t idle_wait_q;
 	bool shutdown_pending;
+
+	struct task_struct *splash_thread;
 
 	struct msm_fb_backup_type msm_fb_backup;
 	struct completion power_set_comp;
