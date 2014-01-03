@@ -404,8 +404,9 @@
 
 	fuse: fuse@5e01c {
 		compatible = "arm,coresight-fuse";
-		reg = <0x5e01c 0x8>;
-		reg-names = "fuse-base";
+		reg = <0x5e01c 0x8>,
+			  <0x58040 0x4>;
+		reg-names = "fuse-base", "nidnt-fuse-base";
 
 		coresight-id = <27>;
 		coresight-name = "coresight-fuse";
