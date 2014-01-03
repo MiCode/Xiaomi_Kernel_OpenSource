@@ -996,6 +996,15 @@ int arizona_dev_init(struct arizona *arizona)
 		goto err_enable;
 	}
 
+	switch (arizona->type) {
+	case WM5110:
+	case WM8280:
+		msleep(5);
+		break;
+	default:
+		break;
+	}
+
 	if (arizona->pdata.reset) {
 		gpio_set_value_cansleep(arizona->pdata.reset, 1);
 		msleep(1);
