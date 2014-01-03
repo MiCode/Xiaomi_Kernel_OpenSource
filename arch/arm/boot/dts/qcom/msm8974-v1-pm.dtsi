@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -186,11 +186,6 @@
 			qcom,energy-overhead = <1250300>;
 			qcom,time-overhead = <3500>;
 		};
-	};
-
-	qcom,pm-boot {
-		compatible = "qcom,pm-boot";
-		qcom,mode = "tz";
 	};
 
 	qcom,mpm@fc4281d0 {
