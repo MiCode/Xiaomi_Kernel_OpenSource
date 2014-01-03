@@ -1451,9 +1451,6 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev, u32 rc_idx,
 
 	msm_pcie_disable(rc_idx, PM_PIPE_CLK | PM_CLK | PM_VREG);
 
-	PCIE_DBG("enabling wake_n\n");
-	enable_irq(msm_pcie_dev[rc_idx].wake_n);
-
 	return ret;
 }
 
@@ -1477,9 +1474,6 @@ static int msm_pcie_pm_resume(struct pci_dev *dev, u32 rc_idx,
 			void *user, void *data, u32 options)
 {
 	int ret;
-
-	PCIE_DBG("disabling wake_n\n");
-	disable_irq(msm_pcie_dev[rc_idx].wake_n);
 
 	spin_lock_irqsave(&msm_pcie_dev[rc_idx].cfg_lock,
 				msm_pcie_dev[rc_idx].irqsave_flags);

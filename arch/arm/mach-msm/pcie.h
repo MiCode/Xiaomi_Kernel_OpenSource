@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/types.h>
+#include <linux/pm_wakeup.h>
 #include <mach/msm_pcie.h>
 
 #define MSM_PCIE_MAX_VREG 3
@@ -168,6 +169,8 @@ struct msm_pcie_dev_t {
 	enum msm_pcie_link_status    link_status;
 	bool                         user_suspend;
 	struct pci_saved_state	     *saved_state;
+
+	struct wakeup_source	     ws;
 
 	bool                         l1ss_supported;
 	bool                         aux_clk_sync;
