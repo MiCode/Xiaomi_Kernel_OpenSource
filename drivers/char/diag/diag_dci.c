@@ -216,7 +216,11 @@ void extract_dci_pkt_rsp(struct diag_smd_info *smd_info, unsigned char *buf)
 	if (recv_pkt_cmd_code != DCI_PKT_RSP_CODE)
 		cmd_code_len = 4; /* delayed response */
 	write_len = (int)(*(uint16_t *)(buf+2)) - cmd_code_len;
-
+	if (write_len <= 0) {
+		pr_err("diag: Invalid length in %s, write_len: %d",
+					__func__, write_len);
+		return;
+	}
 	pr_debug("diag: len = %d\n", write_len);
 	tag = (int *)(buf + (4 + cmd_code_len)); /* Retrieve the Tag field */
 	req_entry = diag_dci_get_request_entry(*tag);
