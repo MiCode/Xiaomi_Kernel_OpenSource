@@ -37,14 +37,41 @@
 
 #define PCIE20_MSI_CTRL_MAX 8
 
+static void handle_wake_func(struct work_struct *work)
+{
+	int ret;
+	struct msm_pcie_dev_t *dev = container_of(work, struct msm_pcie_dev_t,
+					handle_wake_work);
+
+	PCIE_DBG("Wake work for RC %d\n", dev->rc_idx);
+
+	if (!dev->enumerated) {
+		ret = msm_pcie_enumerate(dev->rc_idx);
+		if (ret) {
+			pr_err(
+				"PCIe: failed to enable RC %d upon wake request from the device.\n",
+				dev->rc_idx);
+			return;
+		}
+	} else {
+		pr_err("PCIe: %s: RC %d has already been enumerated.\n",
+			__func__, dev->rc_idx);
+	}
+}
+
 static irqreturn_t handle_wake_irq(int irq, void *data)
 {
 	struct msm_pcie_dev_t *dev = data;
 
-	PCIE_DBG("PCIe WAKE is asserted by Endpoint\n");
+	PCIE_DBG("PCIe WAKE is asserted by Endpoint of RC %d\n", dev->rc_idx);
 
-	__pm_stay_awake(&dev->ws);
-	__pm_relax(&dev->ws);
+	if (!dev->enumerated) {
+		PCIE_DBG("Start enumeating RC %d\n", dev->rc_idx);
+		schedule_work(&dev->handle_wake_work);
+	} else {
+		__pm_stay_awake(&dev->ws);
+		__pm_relax(&dev->ws);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -348,6 +375,8 @@ int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 		pr_err("PCIe: Unable to request wake interrupt\n");
 		return rc;
 	}
+
+	INIT_WORK(&dev->handle_wake_work, handle_wake_func);
 
 	rc = enable_irq_wake(dev->wake_n);
 	if (rc) {
