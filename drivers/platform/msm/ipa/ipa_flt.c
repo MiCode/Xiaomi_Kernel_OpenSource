@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -948,10 +948,15 @@ static int __ipa_add_flt_rule(struct ipa_flt_tbl *tbl, enum ipa_ip_type ip,
 	if (!rule->eq_attrib_type)
 		entry->rt_tbl = (struct ipa_rt_tbl *)rule->rt_tbl_hdl;
 	entry->tbl = tbl;
-	if (add_rear)
-		list_add_tail(&entry->link, &tbl->head_flt_rule_list);
-	else
+	if (add_rear) {
+		if (tbl->sticky_rear)
+			list_add_tail(&entry->link,
+					tbl->head_flt_rule_list.prev);
+		else
+			list_add_tail(&entry->link, &tbl->head_flt_rule_list);
+	} else {
 		list_add(&entry->link, &tbl->head_flt_rule_list);
+	}
 	tbl->rule_cnt++;
 	if (entry->rt_tbl)
 		entry->rt_tbl->ref_cnt++;
@@ -1261,3 +1266,46 @@ int ipa_reset_flt(enum ipa_ip_type ip)
 	return 0;
 }
 EXPORT_SYMBOL(ipa_reset_flt);
+
+void ipa_install_dflt_flt_rules(u32 ipa_ep_idx)
+{
+	struct ipa_flt_tbl *tbl;
+	struct ipa_ep_context *ep = &ipa_ctx->ep[ipa_ep_idx];
+	struct ipa_flt_rule rule;
+
+	memset(&rule, 0, sizeof(rule));
+
+	mutex_lock(&ipa_ctx->lock);
+	tbl = &ipa_ctx->flt_tbl[ipa_ep_idx][IPA_IP_v4];
+	tbl->sticky_rear = true;
+	rule.action = IPA_PASS_TO_EXCEPTION;
+	__ipa_add_flt_rule(tbl, IPA_IP_v4, &rule, false,
+			&ep->dflt_flt4_rule_hdl);
+	ipa_ctx->ctrl->ipa_commit_flt(IPA_IP_v4);
+
+	tbl = &ipa_ctx->flt_tbl[ipa_ep_idx][IPA_IP_v6];
+	tbl->sticky_rear = true;
+	rule.action = IPA_PASS_TO_EXCEPTION;
+	__ipa_add_flt_rule(tbl, IPA_IP_v6, &rule, false,
+			&ep->dflt_flt6_rule_hdl);
+	ipa_ctx->ctrl->ipa_commit_flt(IPA_IP_v6);
+	mutex_unlock(&ipa_ctx->lock);
+}
+
+void ipa_delete_dflt_flt_rules(u32 ipa_ep_idx)
+{
+	struct ipa_ep_context *ep = &ipa_ctx->ep[ipa_ep_idx];
+
+	mutex_lock(&ipa_ctx->lock);
+	if (ep->dflt_flt4_rule_hdl) {
+		__ipa_del_flt_rule(ep->dflt_flt4_rule_hdl);
+		ipa_ctx->ctrl->ipa_commit_flt(IPA_IP_v4);
+		ep->dflt_flt4_rule_hdl = 0;
+	}
+	if (ep->dflt_flt6_rule_hdl) {
+		__ipa_del_flt_rule(ep->dflt_flt6_rule_hdl);
+		ipa_ctx->ctrl->ipa_commit_flt(IPA_IP_v6);
+		ep->dflt_flt6_rule_hdl = 0;
+	}
+	mutex_unlock(&ipa_ctx->lock);
+}
