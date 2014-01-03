@@ -1202,6 +1202,13 @@
 			<0xfe0c9010 0x4>;
 		reg-names = "avtimer_lsb_addr", "avtimer_msb_addr";
 	};
+
+	qcom,cnss@0d400000 {
+		compatible = "qcom,cnss";
+		reg = <0x0d400000 0x200000>;
+		reg-name = "ramdump";
+		vdd-wlan-supply = <&wlan_vreg>;
+	};
 };
 
 &gdsc_venus {
