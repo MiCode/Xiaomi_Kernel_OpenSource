@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +21,6 @@
 #include <linux/of_coresight.h>
 #include <linux/input.h>
 
-#include <mach/socinfo.h>
 #include <mach/msm_bus_board.h>
 #include <mach/msm_bus.h>
 
