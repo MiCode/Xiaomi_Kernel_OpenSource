@@ -1665,6 +1665,10 @@ static void msm_ufs_advertise_quirks(struct ufs_hba *hba)
 			      | UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
 			      | UFSHCD_QUIRK_BROKEN_2_TX_LANES
 			      | UFSHCD_QUIRK_BROKEN_SUSPEND);
+	else if ((major == 0x1) && (minor == 0x001) && (step == 0x0001))
+		hba->quirks |= (UFSHCD_QUIRK_BROKEN_HIBERN8
+			      | UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
+			      | UFSHCD_QUIRK_BROKEN_SUSPEND);
 }
 
 static int msm_ufs_get_bus_vote(struct msm_ufs_host *host,
