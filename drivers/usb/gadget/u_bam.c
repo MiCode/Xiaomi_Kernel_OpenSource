@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -150,7 +150,6 @@ struct  u_bam_data_connect_info {
 	u32 usb_bam_pipe_idx;
 	u32 peer_pipe_idx;
 	u32 usb_bam_handle;
-	struct sps_mem_buffer data_fifo;
 };
 
 struct gbam_port *bam2bam_ports[BAM2BAM_N_PORTS];
@@ -807,6 +806,28 @@ static void gbam_connect_work(struct work_struct *w)
 	pr_debug("%s: done\n", __func__);
 }
 
+/*
+ * This function configured data fifo based on index passed to get bam2bam
+ * configuration.
+ */
+static void configure_data_fifo(u8 idx, struct usb_ep *ep)
+{
+	struct u_bam_data_connect_info bam_info;
+	struct sps_mem_buffer data_fifo = {0};
+
+	get_bam2bam_connection_info(idx,
+				&bam_info.usb_bam_handle,
+				&bam_info.usb_bam_pipe_idx,
+				&bam_info.peer_pipe_idx,
+				NULL, &data_fifo);
+
+	msm_data_fifo_config(ep,
+				data_fifo.phys_base,
+				data_fifo.size,
+				bam_info.usb_bam_pipe_idx);
+
+}
+
 static void gbam2bam_connect_work(struct work_struct *w)
 {
 	struct gbam_port *port = container_of(w, struct gbam_port, connect_w);
@@ -860,8 +881,6 @@ static void gbam2bam_connect_work(struct work_struct *w)
 
 		if (gadget && gadget_is_dwc3(gadget)) {
 			u8 idx;
-			struct u_bam_data_connect_info bam_info;
-
 			idx = usb_bam_get_connection_idx(gadget->name,
 				IPA_P_BAM, USB_TO_PEER_PERIPHERAL,
 				USB_BAM_DEVICE, 0);
@@ -871,15 +890,7 @@ static void gbam2bam_connect_work(struct work_struct *w)
 				return;
 			}
 
-			get_bam2bam_connection_info(idx,
-						    &bam_info.usb_bam_handle,
-						    &bam_info.usb_bam_pipe_idx,
-						    &bam_info.peer_pipe_idx,
-						    NULL, &bam_info.data_fifo);
-			msm_data_fifo_config(port->port_usb->out,
-					     bam_info.data_fifo.phys_base,
-					     bam_info.data_fifo.size,
-					     bam_info.usb_bam_pipe_idx);
+			configure_data_fifo(idx, port->port_usb->out);
 		}
 
 
@@ -893,7 +904,6 @@ static void gbam2bam_connect_work(struct work_struct *w)
 
 		if (gadget && gadget_is_dwc3(gadget)) {
 			u8 idx;
-			struct u_bam_data_connect_info bam_info;
 
 			idx = usb_bam_get_connection_idx(gadget->name,
 				IPA_P_BAM, PEER_PERIPHERAL_TO_USB,
@@ -904,15 +914,7 @@ static void gbam2bam_connect_work(struct work_struct *w)
 				return;
 			}
 
-			get_bam2bam_connection_info(idx,
-						    &bam_info.usb_bam_handle,
-						    &bam_info.usb_bam_pipe_idx,
-						    &bam_info.peer_pipe_idx,
-						    NULL, &bam_info.data_fifo);
-			msm_data_fifo_config(port->port_usb->in,
-					     bam_info.data_fifo.phys_base,
-					     bam_info.data_fifo.size,
-					     bam_info.usb_bam_pipe_idx);
+			configure_data_fifo(idx, port->port_usb->in);
 		}
 
 		gqti_ctrl_update_ipa_pipes(port->port_usb, port->port_num,
