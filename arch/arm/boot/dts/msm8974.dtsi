@@ -745,7 +745,7 @@
 			qcom,cdc-micbias-ldoh-v = <0x3>;
 			qcom,cdc-micbias-cfilt1-mv = <1800>;
 			qcom,cdc-micbias-cfilt2-mv = <2700>;
-			qcom,cdc-micbias-cfilt3-mv = <1800>;
+			qcom,cdc-micbias-cfilt3-mv = <2700>;
 			qcom,cdc-micbias1-cfilt-sel = <0x0>;
 			qcom,cdc-micbias2-cfilt-sel = <0x1>;
 			qcom,cdc-micbias3-cfilt-sel = <0x2>;
