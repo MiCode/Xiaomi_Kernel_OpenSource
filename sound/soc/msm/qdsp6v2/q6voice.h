@@ -1574,7 +1574,7 @@ int voc_register_vocproc_vol_table(void);
 int voc_deregister_vocproc_vol_table(void);
 int voc_send_cvp_map_vocpcm_memory(uint32_t session_id,
 				   struct mem_map_table *tp_mem_table,
-				   uint32_t paddr, uint32_t bufsize);
+				   phys_addr_t paddr, uint32_t bufsize);
 int voc_send_cvp_unmap_vocpcm_memory(uint32_t session_id);
 int voc_send_cvp_start_vocpcm(uint32_t session_id,
 			      struct vss_ivpcm_tap_point *vpcm_tp,

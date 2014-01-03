@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -102,7 +102,7 @@ static int msm_lsm_ioctl(struct snd_pcm_substream *substream,
 		if (copy_from_user(&snd_model, (void *)arg,
 				   sizeof(struct snd_lsm_sound_model))) {
 			rc = -EFAULT;
-			pr_err("%s: copy from user failed, size %d\n", __func__,
+			pr_err("%s: copy user failed, size %zd\n", __func__,
 			       sizeof(struct snd_lsm_sound_model));
 			break;
 		}

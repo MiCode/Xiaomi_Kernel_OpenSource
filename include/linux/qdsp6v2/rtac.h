@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011, 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,9 +34,9 @@ struct rtac_cal_mem_map_data {
 };
 
 struct rtac_cal_data {
-	uint32_t		size;
-	uint32_t		kvaddr;
-	uint32_t		paddr;
+	size_t			size;
+	void			*kvaddr;
+	phys_addr_t		paddr;
 };
 
 struct rtac_cal_block_data {

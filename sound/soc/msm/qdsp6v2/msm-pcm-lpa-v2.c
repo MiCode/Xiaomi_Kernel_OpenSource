@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -105,6 +105,7 @@ static void event_handler(uint32_t opcode,
 	switch (opcode) {
 	case ASM_DATA_EVENT_WRITE_DONE_V2: {
 		uint32_t *ptrmem = (uint32_t *)&param;
+		dma_addr_t temp;
 		pr_debug("ASM_DATA_EVENT_WRITE_DONE_V2\n");
 		pr_debug("Buffer Consumed = 0x%08x\n", *ptrmem);
 		prtd->pcm_irq_pos += prtd->pcm_count;
@@ -130,10 +131,9 @@ static void event_handler(uint32_t opcode,
 		}
 		pr_debug("%s:writing %d bytes of buffer[%d] to dsp 2\n",
 				__func__, prtd->pcm_count, prtd->out_head);
-		pr_debug("%s:writing buffer[%d] from 0x%08x\n",
-				__func__, prtd->out_head,
-				((unsigned int)buf[0].phys +
-				(prtd->out_head * prtd->pcm_count)));
+		temp = buf[0].phys + (prtd->out_head * prtd->pcm_count);
+		pr_debug("%s:writing buffer[%d] from 0x%pa\n",
+				__func__, prtd->out_head, &temp);
 		if (prtd->meta_data_mode) {
 			memcpy(&output_meta_data, (char *)(buf->data +
 			prtd->out_head * prtd->pcm_count),
@@ -145,15 +145,12 @@ static void event_handler(uint32_t opcode,
 		pr_debug("meta_data_length: %d, frame_length: %d\n",
 			output_meta_data.meta_data_length,
 			output_meta_data.frame_size);
-		param.paddr = (unsigned long)buf[0].phys +
-			(prtd->out_head * prtd->pcm_count) +
+		param.paddr = temp +
 			output_meta_data.meta_data_length;
 		param.msw_ts = output_meta_data.timestamp_msw;
 		param.lsw_ts = output_meta_data.timestamp_lsw;
 		param.flags = NO_TIMESTAMP;
-		param.uid =  ((unsigned long)buf[0].phys
-				+ (prtd->out_head * prtd->pcm_count)
-				+ output_meta_data.meta_data_length);
+		param.uid = prtd->session_id;
 		for (i = 0; i < sizeof(struct audio_aio_write_param)/4;
 					i++, ++ptrmem)
 			pr_debug("cmd[%d]=0x%08x\n", i, *ptrmem);
@@ -192,13 +189,12 @@ static void event_handler(uint32_t opcode,
 			} else {
 				param.len = prtd->pcm_count;
 			}
-			param.paddr = (unsigned long)buf[prtd->out_head].phys +
+			param.paddr = buf[prtd->out_head].phys +
 				output_meta_data.meta_data_length;
 			param.msw_ts = output_meta_data.timestamp_msw;
 			param.lsw_ts = output_meta_data.timestamp_lsw;
 			param.flags = NO_TIMESTAMP;
-			param.uid =  (unsigned long)buf[prtd->out_head].phys +
-					output_meta_data.meta_data_length;
+			param.uid = prtd->session_id;
 			if (q6asm_async_write(prtd->audio_client,
 						&param) < 0)
 				pr_err("%s:q6asm_async_write failed\n",
@@ -313,15 +309,13 @@ static int msm_pcm_restart(struct snd_pcm_substream *substream)
 		pr_debug("timestamp_msw: %d, timestamp_lsw: %d\n",
 				output_meta_data.timestamp_msw,
 			output_meta_data.timestamp_lsw);
-		param.paddr = ((unsigned long)buf[0].phys +
+		param.paddr = (buf[0].phys +
 				(prtd->out_head * prtd->pcm_count) +
 				output_meta_data.meta_data_length);
 		param.msw_ts = output_meta_data.timestamp_msw;
 		param.lsw_ts = output_meta_data.timestamp_lsw;
 		param.flags = NO_TIMESTAMP;
-		param.uid = ((unsigned long)buf[0].phys +
-				(prtd->out_head * prtd->pcm_count) +
-				output_meta_data.meta_data_length);
+		param.uid = prtd->session_id;
 		if (q6asm_async_write(prtd->audio_client, &param) < 0)
 			pr_err("%s:q6asm_async_write failed\n",
 							__func__);

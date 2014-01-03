@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -395,7 +395,7 @@ ssize_t audio_in_read(struct file *file,
 		(sizeof(struct meta_out_dsp)*(audio->buf_cfg.frames_per_buf)));
 
 	memset(&meta, 0, sizeof(meta));
-	pr_debug("%s:session id %d: read - %d\n", __func__, audio->ac->session,
+	pr_debug("%s:session id %d: read - %zd\n", __func__, audio->ac->session,
 			count);
 	if (!audio->enabled)
 		return -EFAULT;
@@ -486,7 +486,7 @@ ssize_t audio_in_read(struct file *file,
 			count -= bytes_to_copy;
 			buf += bytes_to_copy;
 		} else {
-			pr_err("%s:session id %d: short read data[%p] bytesavail[%d]bytesrequest[%d]\n",
+			pr_err("%s:session id %d: short read data[%p] bytesavail[%d]bytesrequest[%zd]\n",
 				__func__,
 				audio->ac->session,
 				data, size, count);
@@ -497,7 +497,7 @@ ssize_t audio_in_read(struct file *file,
 	}
 	mutex_unlock(&audio->read_lock);
 
-	pr_debug("%s:session id %d: read: %d bytes\n", __func__,
+	pr_debug("%s:session id %d: read: %zd bytes\n", __func__,
 			audio->ac->session, (buf-start));
 	if (buf > start)
 		return buf - start;
@@ -532,7 +532,7 @@ ssize_t audio_in_write(struct file *file,
 	uint32_t mfield_size = (audio->buf_cfg.meta_info_enable == 0) ? 0 :
 			sizeof(struct meta_in);
 
-	pr_debug("%s:session id %d: to write[%d]\n", __func__,
+	pr_debug("%s:session id %d: to write[%zd]\n", __func__,
 			audio->ac->session, count);
 	if (!audio->enabled)
 		return -EFAULT;
@@ -622,15 +622,15 @@ ssize_t audio_in_write(struct file *file,
 		buf += xfer;
 	}
 	mutex_unlock(&audio->write_lock);
-	pr_debug("%s:session id %d: eos_condition 0x%8x buf[0x%x] start[0x%x]\n",
+	pr_debug("%s:session id %d: eos_condition 0x%x buf[0x%p] start[0x%p]\n",
 				__func__, audio->ac->session,
-				nflags,	(int) buf, (int) start);
+				nflags, buf, start);
 	if (nflags & AUD_EOS_SET) {
 		rc = q6asm_cmd(audio->ac, CMD_EOS);
 		pr_info("%s:session id %d: eos %d at input\n", __func__,
 				audio->ac->session, audio->eos_rsp);
 	}
-	pr_debug("%s:session id %d: Written %d Avail Buf[%d]", __func__,
+	pr_debug("%s:session id %d: Written %zd Avail Buf[%d]", __func__,
 			audio->ac->session, (buf - start - mfield_size),
 			atomic_read(&audio->in_count));
 	if (!rc) {

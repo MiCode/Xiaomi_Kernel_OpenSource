@@ -131,7 +131,7 @@ struct audio_buffer {
 };
 
 struct audio_aio_write_param {
-	unsigned long paddr;
+	phys_addr_t   paddr;
 	uint32_t      len;
 	uint32_t      uid;
 	uint32_t      lsw_ts;
@@ -142,7 +142,7 @@ struct audio_aio_write_param {
 };
 
 struct audio_aio_read_param {
-	unsigned long paddr;
+	phys_addr_t   paddr;
 	uint32_t      len;
 	uint32_t      uid;
 };
@@ -239,10 +239,10 @@ int q6asm_async_read(struct audio_client *ac,
 int q6asm_read(struct audio_client *ac);
 int q6asm_read_nolock(struct audio_client *ac);
 
-int q6asm_memory_map(struct audio_client *ac, uint32_t buf_add,
+int q6asm_memory_map(struct audio_client *ac, phys_addr_t buf_add,
 			int dir, uint32_t bufsz, uint32_t bufcnt);
 
-int q6asm_memory_unmap(struct audio_client *ac, uint32_t buf_add,
+int q6asm_memory_unmap(struct audio_client *ac, phys_addr_t buf_add,
 							int dir);
 
 int q6asm_unmap_cal_blocks(void);

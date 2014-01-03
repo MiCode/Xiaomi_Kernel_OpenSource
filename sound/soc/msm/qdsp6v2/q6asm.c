@@ -42,7 +42,6 @@
 
 #include "audio_acdb.h"
 
-
 #define TRUE        0x01
 #define FALSE       0x00
 
@@ -59,7 +58,7 @@ static struct audio_client *session[SESSION_MAX+1];
 
 struct asm_buffer_node {
 	struct list_head list;
-	uint32_t  buf_addr_lsw;
+	phys_addr_t buf_phys_addr;
 	uint32_t  mmap_hdl;
 };
 static int32_t q6asm_srvc_callback(struct apr_client_data *data, void *priv);
@@ -376,8 +375,8 @@ void send_asm_custom_topology(struct audio_client *ac)
 	int				size = 4096;
 	get_asm_custom_topology(&cal_block);
 	if (cal_block.cal_size == 0) {
-		pr_debug("%s: no cal to send addr= 0x%x\n",
-				__func__, cal_block.cal_paddr);
+		pr_debug("%s: no cal to send addr= 0x%pa\n",
+				__func__, &cal_block.cal_paddr);
 		goto done;
 	}
 
@@ -406,8 +405,8 @@ void send_asm_custom_topology(struct audio_client *ac)
 		result = q6asm_memory_map_regions(&common_client,
 							IN, size, 1, 1);
 		if (result < 0) {
-			pr_err("%s: mmap did not work! addr = 0x%x, size = %d\n",
-				__func__, cal_block.cal_paddr,
+			pr_err("%s: mmap did not work! addr = 0x%pa, size = %zd\n",
+				__func__, &cal_block.cal_paddr,
 				cal_block.cal_size);
 			goto done;
 		}
@@ -416,7 +415,7 @@ void send_asm_custom_topology(struct audio_client *ac)
 				&common_client.port[IN].mem_map_handle) {
 			buf_node = list_entry(ptr, struct asm_buffer_node,
 						list);
-			if (buf_node->buf_addr_lsw == cal_block.cal_paddr) {
+			if (buf_node->buf_phys_addr == cal_block.cal_paddr) {
 				topology_map_handle =  buf_node->mmap_hdl;
 				break;
 			}
@@ -436,8 +435,8 @@ void send_asm_custom_topology(struct audio_client *ac)
 					sizeof(asm_top)), TRUE);
 
 	asm_top.hdr.opcode = ASM_CMD_ADD_TOPOLOGIES;
-	asm_top.payload_addr_lsw = cal_block.cal_paddr;
-	asm_top.payload_addr_msw = 0;
+	asm_top.payload_addr_lsw = lower_32_bits(cal_block.cal_paddr);
+	asm_top.payload_addr_msw = upper_32_bits(cal_block.cal_paddr);
 	asm_top.mem_map_handle = topology_map_handle;
 	asm_top.payload_size = cal_block.cal_size;
 
@@ -447,16 +446,16 @@ void send_asm_custom_topology(struct audio_client *ac)
 
 	result = apr_send_pkt(ac->apr, (uint32_t *) &asm_top);
 	if (result < 0) {
-		pr_err("%s: Set topologies failed payload = 0x%x\n",
-			__func__, cal_block.cal_paddr);
+		pr_err("%s: Set topologies failed payload = 0x%pa\n",
+			__func__, &cal_block.cal_paddr);
 		goto done;
 	}
 
 	result = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
 	if (!result) {
-		pr_err("%s: Set topologies failed after timedout payload = 0x%x\n",
-			__func__, cal_block.cal_paddr);
+		pr_err("%s: Set topologies failed payload = 0x%pa\n",
+			__func__, &cal_block.cal_paddr);
 		goto done;
 	}
 
@@ -515,8 +514,8 @@ int q6asm_map_rtac_block(struct rtac_cal_block_data *cal_block)
 	result = q6asm_memory_map_regions(&common_client,
 			OUT, cal_block->map_data.map_size, 1, 1);
 	if (result < 0) {
-		pr_err("%s: mmap did not work! addr = 0x%x, size = %d\n",
-			__func__, cal_block->cal_data.paddr,
+		pr_err("%s: mmap did not work! addr = 0x%pa, size = %d\n",
+			__func__, &cal_block->cal_data.paddr,
 			cal_block->map_data.map_size);
 		goto done;
 	}
@@ -525,7 +524,7 @@ int q6asm_map_rtac_block(struct rtac_cal_block_data *cal_block)
 		&common_client.port[OUT].mem_map_handle) {
 		buf_node = list_entry(ptr, struct asm_buffer_node,
 					list);
-		if (buf_node->buf_addr_lsw == cal_block->cal_data.paddr) {
+		if (buf_node->buf_phys_addr == cal_block->cal_data.paddr) {
 			cal_block->map_data.map_handle =  buf_node->mmap_hdl;
 			break;
 		}
@@ -1108,7 +1107,7 @@ static int32_t q6asm_srvc_callback(struct apr_client_data *data, void *priv)
 				buf_node = list_entry(ptr,
 						struct asm_buffer_node,
 						list);
-				if (buf_node->buf_addr_lsw ==
+				if (buf_node->buf_phys_addr ==
 				common_client.port[i].buf->phys) {
 					list_del(&buf_node->list);
 					kfree(buf_node);
@@ -1351,11 +1350,14 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 				return -EINVAL;
 			}
 			spin_lock_irqsave(&port->dsp_lock, dsp_flags);
-			if (port->buf[data->token].phys !=
-				payload[0]) {
-				pr_err("Buf expected[%pa]rxed[%p]\n",
-				   &port->buf[data->token].phys,
-				   (void *)payload[0]);
+			if (lower_32_bits(port->buf[data->token].phys) !=
+			payload[0] ||
+			upper_32_bits(port->buf[data->token].phys) !=
+			payload[1]) {
+				pr_debug("%s: Expected addr %pa\n",
+				__func__, &port->buf[data->token].phys);
+				pr_err("%s: rxedl[%x] rxedu [%x]\n",
+					__func__, payload[0], payload[1]);
 				spin_unlock_irqrestore(&port->dsp_lock,
 								dsp_flags);
 				return -EINVAL;
@@ -1408,11 +1410,15 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 			spin_lock_irqsave(&port->dsp_lock, dsp_flags);
 			token = data->token;
 			port->buf[token].used = 0;
-			if (port->buf[token].phys !=
-				payload[READDONE_IDX_BUFADD_LSW]) {
-				pr_err("Buf expected[%pa]rxed[%p]\n",
-				   &port->buf[token].phys,
-				   (void *)payload[READDONE_IDX_BUFADD_LSW]);
+			if (lower_32_bits(port->buf[token].phys) !=
+			payload[READDONE_IDX_BUFADD_LSW] ||
+			upper_32_bits(port->buf[token].phys) !=
+			payload[READDONE_IDX_BUFADD_MSW]) {
+				pr_debug("%s: Expected addr %pa\n",
+					__func__, &port->buf[token].phys);
+				pr_err("%s: rxedl[%x] rxedu[%x]\n", __func__,
+				payload[READDONE_IDX_BUFADD_LSW],
+				payload[READDONE_IDX_BUFADD_MSW]);
 				spin_unlock_irqrestore(&port->dsp_lock,
 							dsp_flags);
 				break;
@@ -3041,7 +3047,7 @@ fail_cmd:
 	return rc;
 }
 
-int q6asm_memory_map(struct audio_client *ac, uint32_t buf_add, int dir,
+int q6asm_memory_map(struct audio_client *ac, phys_addr_t buf_add, int dir,
 				uint32_t bufsz, uint32_t bufcnt)
 {
 	struct avs_cmd_shared_mem_map_regions *mmap_regions = NULL;
@@ -3086,10 +3092,10 @@ int q6asm_memory_map(struct audio_client *ac, uint32_t buf_add, int dir,
 
 	ac->port[dir].tmp_hdl = 0;
 	port = &ac->port[dir];
-	pr_debug("%s, buf_add 0x%x, bufsz: %d\n", __func__, buf_add, bufsz);
-	mregions->shm_addr_lsw = buf_add;
-	/* Using only 32 bit address */
-	mregions->shm_addr_msw = 0;
+	pr_debug("%s, buf_add 0x%pa, bufsz: %d\n", __func__,
+		&buf_add, bufsz);
+	mregions->shm_addr_lsw = lower_32_bits(buf_add);
+	mregions->shm_addr_msw = upper_32_bits(buf_add);
 	mregions->mem_size_bytes = bufsz;
 	++mregions;
 
@@ -3111,7 +3117,7 @@ int q6asm_memory_map(struct audio_client *ac, uint32_t buf_add, int dir,
 		kfree(buffer_node);
 		goto fail_cmd;
 	}
-	buffer_node->buf_addr_lsw = buf_add;
+	buffer_node->buf_phys_addr = buf_add;
 	buffer_node->mmap_hdl = ac->port[dir].tmp_hdl;
 	list_add_tail(&buffer_node->list, &ac->port[dir].mem_map_handle);
 	ac->port[dir].tmp_hdl = 0;
@@ -3122,7 +3128,7 @@ fail_cmd:
 	return rc;
 }
 
-int q6asm_memory_unmap(struct audio_client *ac, uint32_t buf_add, int dir)
+int q6asm_memory_unmap(struct audio_client *ac, phys_addr_t buf_add, int dir)
 {
 	struct avs_cmd_shared_mem_unmap_regions mem_unmap;
 	struct asm_buffer_node *buf_node = NULL;
@@ -3144,7 +3150,7 @@ int q6asm_memory_unmap(struct audio_client *ac, uint32_t buf_add, int dir)
 	list_for_each_safe(ptr, next, &ac->port[dir].mem_map_handle) {
 		buf_node = list_entry(ptr, struct asm_buffer_node,
 						list);
-		if (buf_node->buf_addr_lsw == buf_add) {
+		if (buf_node->buf_phys_addr == buf_add) {
 			pr_debug("%s: Found the element\n", __func__);
 			mem_unmap.mem_map_handle = buf_node->mmap_hdl;
 			break;
@@ -3173,7 +3179,7 @@ fail_cmd:
 	list_for_each_safe(ptr, next, &ac->port[dir].mem_map_handle) {
 		buf_node = list_entry(ptr, struct asm_buffer_node,
 						list);
-		if (buf_node->buf_addr_lsw == buf_add) {
+		if (buf_node->buf_phys_addr == buf_add) {
 			list_del(&buf_node->list);
 			kfree(buf_node);
 			break;
@@ -3253,9 +3259,8 @@ static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
 	port = &ac->port[dir];
 	for (i = 0; i < bufcnt_t; i++) {
 		ab = &port->buf[i];
-		mregions->shm_addr_lsw = ab->phys;
-	/* Using only 32 bit address */
-		mregions->shm_addr_msw = 0;
+		mregions->shm_addr_lsw = lower_32_bits(ab->phys);
+		mregions->shm_addr_msw = upper_32_bits(ab->phys);
 		mregions->mem_size_bytes = bufsz_t;
 		++mregions;
 	}
@@ -3282,12 +3287,12 @@ static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
 
 	for (i = 0; i < bufcnt; i++) {
 		ab = &port->buf[i];
-		buffer_node[i].buf_addr_lsw = ab->phys;
+		buffer_node[i].buf_phys_addr = ab->phys;
 		buffer_node[i].mmap_hdl = ac->port[dir].tmp_hdl;
 		list_add_tail(&buffer_node[i].list,
 			&ac->port[dir].mem_map_handle);
-		pr_debug("%s: i=%d, bufadd[i] = 0x%x, maphdl[i] = 0x%x\n",
-			__func__, i, buffer_node[i].buf_addr_lsw,
+		pr_debug("%s: i=%d, bufadd[i] = 0x%pa, maphdl[i] = 0x%x\n",
+			__func__, i, &buffer_node[i].buf_phys_addr,
 			buffer_node[i].mmap_hdl);
 	}
 	ac->port[dir].tmp_hdl = 0;
@@ -3324,7 +3329,7 @@ static int q6asm_memory_unmap_regions(struct audio_client *ac, int dir)
 	list_for_each_safe(ptr, next, &ac->port[dir].mem_map_handle) {
 		buf_node = list_entry(ptr, struct asm_buffer_node,
 						list);
-		if (buf_node->buf_addr_lsw == buf_add) {
+		if (buf_node->buf_phys_addr == buf_add) {
 			pr_debug("%s: Found the element\n", __func__);
 			mem_unmap.mem_map_handle = buf_node->mmap_hdl;
 			break;
@@ -3352,7 +3357,7 @@ fail_cmd:
 	list_for_each_safe(ptr, next, &ac->port[dir].mem_map_handle) {
 		buf_node = list_entry(ptr, struct asm_buffer_node,
 						list);
-		if (buf_node->buf_addr_lsw == buf_add) {
+		if (buf_node->buf_phys_addr == buf_add) {
 			list_del(&buf_node->list);
 			kfree(buf_node);
 			break;
@@ -3717,13 +3722,13 @@ int q6asm_read(struct audio_client *ac)
 					&port->buf[port->cpu_buf].phys);
 
 		read.hdr.opcode = ASM_DATA_CMD_READ_V2;
-		read.buf_addr_lsw = ab->phys;
-		read.buf_addr_msw = 0;
+		read.buf_addr_lsw = lower_32_bits(ab->phys);
+		read.buf_addr_msw = upper_32_bits(ab->phys);
 
 		list_for_each_safe(ptr, next, &ac->port[OUT].mem_map_handle) {
 			buf_node = list_entry(ptr, struct asm_buffer_node,
 						list);
-			if (buf_node->buf_addr_lsw == (uint32_t) ab->phys)
+			if (buf_node->buf_phys_addr == ab->phys)
 				read.mem_map_handle = buf_node->mmap_hdl;
 		}
 		pr_debug("memory_map handle in q6asm_read: [%0x]:",
@@ -3779,8 +3784,8 @@ int q6asm_read_nolock(struct audio_client *ac)
 					&port->buf[port->cpu_buf].phys);
 
 		read.hdr.opcode = ASM_DATA_CMD_READ_V2;
-		read.buf_addr_lsw = ab->phys;
-		read.buf_addr_msw = 0;
+		read.buf_addr_lsw = lower_32_bits(ab->phys);
+		read.buf_addr_msw = upper_32_bits(ab->phys);
 		read.buf_size = ab->size;
 		read.seq_id = port->dsp_buf;
 		read.hdr.token = port->dsp_buf;
@@ -3788,7 +3793,7 @@ int q6asm_read_nolock(struct audio_client *ac)
 		list_for_each_safe(ptr, next, &ac->port[OUT].mem_map_handle) {
 			buf_node = list_entry(ptr, struct asm_buffer_node,
 						list);
-			if (buf_node->buf_addr_lsw == (uint32_t)ab->phys) {
+			if (buf_node->buf_phys_addr == ab->phys) {
 				read.mem_map_handle = buf_node->mmap_hdl;
 				break;
 			}
@@ -3819,7 +3824,7 @@ int q6asm_async_write(struct audio_client *ac,
 	struct list_head *ptr, *next;
 	struct audio_buffer        *ab;
 	struct audio_port_data     *port;
-	u32 lbuf_addr_lsw;
+	phys_addr_t lbuf_phys_addr;
 	u32 liomode;
 	u32 io_compressed;
 	u32 io_compressed_stream;
@@ -3838,8 +3843,8 @@ int q6asm_async_write(struct audio_client *ac,
 	/* Pass physical address as token for AIO scheme */
 	write.hdr.token = param->uid;
 	write.hdr.opcode = ASM_DATA_CMD_WRITE_V2;
-	write.buf_addr_lsw = param->paddr;
-	write.buf_addr_msw = 0x00;
+	write.buf_addr_lsw = lower_32_bits(param->paddr);
+	write.buf_addr_msw = upper_32_bits(param->paddr);
 	write.buf_size = param->len;
 	write.timestamp_msw = param->msw_ts;
 	write.timestamp_lsw = param->lsw_ts;
@@ -3848,18 +3853,18 @@ int q6asm_async_write(struct audio_client *ac,
 	io_compressed_stream = (ASYNC_IO_MODE | COMPRESSED_STREAM_IO);
 
 	if (ac->io_mode == liomode)
-		lbuf_addr_lsw = (write.buf_addr_lsw - 32);
+		lbuf_phys_addr = (param->paddr - 32);
 	else if (ac->io_mode == io_compressed ||
 		ac->io_mode == io_compressed_stream)
-		lbuf_addr_lsw = (write.buf_addr_lsw - param->metadata_len);
+		lbuf_phys_addr = (param->paddr - param->metadata_len);
 	else
-		lbuf_addr_lsw = write.buf_addr_lsw;
+		lbuf_phys_addr = param->paddr;
 
-	pr_debug("%s: token[0x%x], buf_addr_lsw[0x%x], buf_size[0x%x], ts_msw[0x%x], ts_lsw[0x%x], lbuf_addr_lsw: 0x[%x]\n",
+	pr_debug("%s: token[0x%x], buf_addr_lsw[0x%x], buf_size[0x%x], ts_msw[0x%x], ts_lsw[0x%x], lbuf_phys_addr: 0x[%pa]\n",
 		__func__,
 		write.hdr.token, write.buf_addr_lsw,
 		write.buf_size, write.timestamp_msw,
-		write.timestamp_lsw, lbuf_addr_lsw);
+		write.timestamp_lsw, &lbuf_phys_addr);
 
 	/* Use 0xFF00 for disabling timestamps */
 	if (param->flags == 0xFF00)
@@ -3871,7 +3876,7 @@ int q6asm_async_write(struct audio_client *ac,
 	list_for_each_safe(ptr, next, &ac->port[IN].mem_map_handle) {
 		buf_node = list_entry(ptr, struct asm_buffer_node,
 						list);
-		if (buf_node->buf_addr_lsw == lbuf_addr_lsw) {
+		if (buf_node->buf_phys_addr == lbuf_phys_addr) {
 			write.mem_map_handle = buf_node->mmap_hdl;
 			break;
 		}
@@ -3895,7 +3900,7 @@ int q6asm_async_read(struct audio_client *ac,
 	struct asm_data_cmd_read_v2 read;
 	struct asm_buffer_node *buf_node = NULL;
 	struct list_head *ptr, *next;
-	u32 lbuf_addr_lsw;
+	phys_addr_t lbuf_phys_addr;
 	u32 liomode;
 	u32 io_compressed;
 	int dir = 0;
@@ -3910,28 +3915,28 @@ int q6asm_async_read(struct audio_client *ac,
 	/* Pass physical address as token for AIO scheme */
 	read.hdr.token = param->paddr;
 	read.hdr.opcode = ASM_DATA_CMD_READ_V2;
-	read.buf_addr_lsw = param->paddr;
-	read.buf_addr_msw = 0;
+	read.buf_addr_lsw = lower_32_bits(param->paddr);
+	read.buf_addr_msw = upper_32_bits(param->paddr);
 	read.buf_size = param->len;
 	read.seq_id = param->uid;
 	liomode = (NT_MODE | ASYNC_IO_MODE);
 	io_compressed = (ASYNC_IO_MODE | COMPRESSED_IO);
 	if (ac->io_mode == liomode) {
-		lbuf_addr_lsw = (read.buf_addr_lsw - 32);
+		lbuf_phys_addr = (param->paddr - 32);
 		/*legacy wma driver case*/
 		dir = IN;
 	} else if (ac->io_mode == io_compressed) {
-		lbuf_addr_lsw = (read.buf_addr_lsw - 64);
+		lbuf_phys_addr = (param->paddr - 64);
 		dir = OUT;
 	} else {
-		lbuf_addr_lsw = read.buf_addr_lsw;
+		lbuf_phys_addr = param->paddr;
 		dir = OUT;
 	}
 
 	list_for_each_safe(ptr, next, &ac->port[dir].mem_map_handle) {
 		buf_node = list_entry(ptr, struct asm_buffer_node,
 			list);
-			if (buf_node->buf_addr_lsw == lbuf_addr_lsw) {
+			if (buf_node->buf_phys_addr == lbuf_phys_addr) {
 				read.mem_map_handle = buf_node->mmap_hdl;
 				break;
 		}
@@ -3975,8 +3980,8 @@ int q6asm_write(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
 
 		write.hdr.token = port->dsp_buf;
 		write.hdr.opcode = ASM_DATA_CMD_WRITE_V2;
-		write.buf_addr_lsw = ab->phys;
-		write.buf_addr_msw = 0;
+		write.buf_addr_lsw = lower_32_bits(ab->phys);
+		write.buf_addr_msw = upper_32_bits(ab->phys);
 		write.buf_size = len;
 		write.seq_id = port->dsp_buf;
 		write.timestamp_lsw = lsw_ts;
@@ -4042,8 +4047,8 @@ int q6asm_write_nolock(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
 
 		write.hdr.token = port->dsp_buf;
 		write.hdr.opcode = ASM_DATA_CMD_WRITE_V2;
-		write.buf_addr_lsw = ab->phys;
-		write.buf_addr_msw = 0;
+		write.buf_addr_lsw = lower_32_bits(ab->phys);
+		write.buf_addr_msw = upper_32_bits(ab->phys);
 		write.buf_size = len;
 		write.seq_id = port->dsp_buf;
 		write.timestamp_lsw = lsw_ts;

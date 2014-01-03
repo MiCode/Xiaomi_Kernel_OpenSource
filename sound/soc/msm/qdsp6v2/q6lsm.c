@@ -438,15 +438,15 @@ int q6lsm_register_sound_model(struct lsm_client *client,
 
 	q6lsm_add_hdr(client, &cmd.hdr, sizeof(cmd), true);
 	cmd.hdr.opcode = LSM_SESSION_CMD_REGISTER_SOUND_MODEL;
-	cmd.model_addr_lsw = client->sound_model.phys;
-	cmd.model_addr_msw = 0;
+	cmd.model_addr_lsw = lower_32_bits(client->sound_model.phys);
+	cmd.model_addr_msw = upper_32_bits(client->sound_model.phys);
 	cmd.model_size = client->sound_model.size;
 	/* read updated mem_map_handle by q6lsm_mmapcallback */
 	rmb();
 	cmd.mem_map_handle = client->sound_model.mem_map_handle;
 
-	pr_debug("%s: lsw %x, size %d, handle %x\n", __func__,
-		 cmd.model_addr_lsw, cmd.model_size, cmd.mem_map_handle);
+	pr_debug("%s: addr %pa, size %d, handle %x\n", __func__,
+		&client->sound_model.phys, cmd.model_size, cmd.mem_map_handle);
 	rc = q6lsm_apr_send_pkt(client, client->apr, &cmd, true, NULL);
 	if (rc)
 		pr_err("%s: Failed cmd op[0x%x]rc[%d]\n", __func__,
@@ -501,7 +501,7 @@ static void q6lsm_add_mmaphdr(struct lsm_client *client, struct apr_hdr *hdr,
 }
 
 static int q6lsm_memory_map_regions(struct lsm_client *client,
-				    uint32_t dma_addr_p, uint32_t dma_buf_sz,
+				    dma_addr_t dma_addr_p, uint32_t dma_buf_sz,
 				    uint32_t *mmap_p)
 {
 	struct avs_cmd_shared_mem_map_regions *mmap_regions = NULL;
@@ -511,8 +511,9 @@ static int q6lsm_memory_map_regions(struct lsm_client *client,
 	int rc;
 	int cmd_size = 0;
 
-	pr_debug("%s: dma_addr_p 0x%x, dma_buf_sz %d, mmap_p 0x%p, session %d\n",
-		 __func__, dma_addr_p, dma_buf_sz, mmap_p, client->session);
+	pr_debug("%s: dma_addr_p 0x%pa, dma_buf_sz %d, mmap_p 0x%p, session %d\n",
+		__func__, &dma_addr_p, dma_buf_sz, mmap_p,
+		client->session);
 
 	cmd_size = sizeof(struct avs_cmd_shared_mem_map_regions) +
 		   sizeof(struct avs_shared_map_region_payload);
@@ -533,8 +534,8 @@ static int q6lsm_memory_map_regions(struct lsm_client *client,
 		   sizeof(struct avs_cmd_shared_mem_map_regions));
 	mregions = (struct avs_shared_map_region_payload *)payload;
 
-	mregions->shm_addr_lsw = dma_addr_p;
-	mregions->shm_addr_msw = 0;
+	mregions->shm_addr_lsw = lower_32_bits(dma_addr_p);
+	mregions->shm_addr_msw = upper_32_bits(dma_addr_p);
 	mregions->mem_size_bytes = dma_buf_sz;
 
 	rc = q6lsm_apr_send_pkt(client, client->mmap_apr, mmap_region_cmd,
@@ -782,10 +783,10 @@ static int q6lsm_mmapcallback(struct apr_client_data *data, void *priv)
 	return 0;
 }
 
-int q6lsm_snd_model_buf_alloc(struct lsm_client *client, uint32_t len)
+int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len)
 {
 	int rc = -EINVAL;
-	int size;
+	size_t size;
 
 	if (!client)
 		return rc;
@@ -796,8 +797,8 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, uint32_t len)
 				&client->sound_model.client,
 				&client->sound_model.handle,
 				len,
-				(ion_phys_addr_t *)&client->sound_model.phys,
-				(size_t *)&size,
+				&client->sound_model.phys,
+				&size,
 				&client->sound_model.data);
 		if (rc) {
 			pr_err("%s: Audio ION alloc is failed, rc = %d\n",

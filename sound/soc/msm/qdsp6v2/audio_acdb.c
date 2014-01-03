@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,8 +67,8 @@ struct acdb_data {
 	struct acdb_cal_block		vocvol_cal;
 
 	/* Voice Column data */
-	struct acdb_cal_block		vocproc_col_cal[MAX_VOCPROC_TYPES];
-	uint32_t			*col_data[MAX_VOCPROC_TYPES];
+	struct acdb_cal_block	vocproc_col_cal[MAX_VOCPROC_TYPES];
+	void *col_data[MAX_VOCPROC_TYPES];
 
 	/* VocProc dev cfg cal*/
 	struct acdb_cal_block		vocproc_dev_cal;
@@ -89,8 +89,8 @@ struct acdb_data {
 	struct ion_client		*ion_client;
 	struct ion_handle		*ion_handle;
 	uint32_t			map_handle;
-	uint64_t			paddr;
-	uint64_t			kvaddr;
+	phys_addr_t			paddr;
+	void				*kvaddr;
 	uint64_t			mem_len;
 
 	/* Speaker protection */
@@ -205,7 +205,7 @@ static int store_adm_custom_topology(struct cal_block *cal_block)
 	acdb_data.adm_custom_topology.cal_paddr =
 		cal_block->cal_offset + acdb_data.paddr;
 	acdb_data.adm_custom_topology.cal_kvaddr =
-		cal_block->cal_offset + acdb_data.kvaddr;
+		cal_block->cal_offset + (u8 *)acdb_data.kvaddr;
 done:
 	return result;
 }
@@ -254,7 +254,7 @@ static int store_asm_custom_topology(struct cal_block *cal_block)
 	acdb_data.asm_custom_topology.cal_paddr =
 		cal_block->cal_offset + acdb_data.paddr;
 	acdb_data.asm_custom_topology.cal_kvaddr =
-		cal_block->cal_offset + acdb_data.kvaddr;
+		cal_block->cal_offset + (u8 *)acdb_data.kvaddr;
 done:
 	return result;
 }
@@ -311,7 +311,7 @@ static int store_aanc_cal(struct cal_block *cal_block)
 	acdb_data.aanc_cal.cal_paddr =
 		cal_block->cal_offset + acdb_data.paddr;
 	acdb_data.aanc_cal.cal_kvaddr =
-		cal_block->cal_offset + acdb_data.kvaddr;
+		cal_block->cal_offset + (u8 *)acdb_data.kvaddr;
 done:
 	return result;
 }
@@ -350,7 +350,7 @@ static int store_lsm_cal(struct cal_block *cal_block)
 	acdb_data.lsm_cal.cal_paddr =
 		cal_block->cal_offset + acdb_data.paddr;
 	acdb_data.lsm_cal.cal_kvaddr =
-		cal_block->cal_offset + acdb_data.kvaddr;
+		cal_block->cal_offset + (u8 *)acdb_data.kvaddr;
 done:
 	return result;
 }
@@ -503,7 +503,7 @@ static int store_anc_cal(struct cal_block *cal_block)
 	acdb_data.anc_cal.cal_paddr =
 		cal_block->cal_offset + acdb_data.paddr;
 	acdb_data.anc_cal.cal_kvaddr =
-		cal_block->cal_offset + acdb_data.kvaddr;
+		cal_block->cal_offset + (u8 *)acdb_data.kvaddr;
 done:
 	return result;
 }
@@ -530,7 +530,7 @@ static int store_afe_cal(int32_t path, struct cal_block *cal_block)
 	acdb_data.afe_cal[path].cal_paddr =
 		cal_block->cal_offset + acdb_data.paddr;
 	acdb_data.afe_cal[path].cal_kvaddr =
-		cal_block->cal_offset + acdb_data.kvaddr;
+		cal_block->cal_offset + (u8 *)acdb_data.kvaddr;
 done:
 	return result;
 }
@@ -581,7 +581,7 @@ static int store_audproc_cal(int32_t path, struct cal_block *cal_block)
 	acdb_data.audproc_cal[path].cal_paddr =
 		cal_block->cal_offset + acdb_data.paddr;
 	acdb_data.audproc_cal[path].cal_kvaddr =
-		cal_block->cal_offset + acdb_data.kvaddr;
+		cal_block->cal_offset + (u8 *)acdb_data.kvaddr;
 done:
 	return result;
 }
@@ -632,7 +632,7 @@ static int store_audstrm_cal(int32_t path, struct cal_block *cal_block)
 	acdb_data.audstrm_cal[path].cal_paddr =
 		cal_block->cal_offset + acdb_data.paddr;
 	acdb_data.audstrm_cal[path].cal_kvaddr =
-		cal_block->cal_offset + acdb_data.kvaddr;
+		cal_block->cal_offset + (u8 *)acdb_data.kvaddr;
 done:
 	return result;
 }
@@ -683,7 +683,7 @@ static int store_audvol_cal(int32_t path, struct cal_block *cal_block)
 	acdb_data.audvol_cal[path].cal_paddr =
 		cal_block->cal_offset + acdb_data.paddr;
 	acdb_data.audvol_cal[path].cal_kvaddr =
-		cal_block->cal_offset + acdb_data.kvaddr;
+		cal_block->cal_offset + (u8 *)acdb_data.kvaddr;
 done:
 	return result;
 }
@@ -793,7 +793,7 @@ static int store_vocproc_dev_cfg_cal(struct cal_block *cal_block)
 	acdb_data.vocproc_dev_cal.cal_paddr =
 		cal_block->cal_offset + acdb_data.paddr;
 	acdb_data.vocproc_dev_cal.cal_kvaddr =
-		cal_block->cal_offset + acdb_data.kvaddr;
+		cal_block->cal_offset + (u8 *)acdb_data.kvaddr;
 done:
 	return result;
 }
@@ -836,7 +836,7 @@ static int store_vocproc_cal(struct cal_block *cal_block)
 	acdb_data.vocproc_cal.cal_paddr =
 		cal_block->cal_offset + acdb_data.paddr;
 	acdb_data.vocproc_cal.cal_kvaddr =
-		cal_block->cal_offset + acdb_data.kvaddr;
+		cal_block->cal_offset + (u8 *)acdb_data.kvaddr;
 done:
 	return result;
 }
@@ -877,7 +877,7 @@ static int store_vocstrm_cal(struct cal_block *cal_block)
 	acdb_data.vocstrm_cal.cal_paddr =
 		cal_block->cal_offset + acdb_data.paddr;
 	acdb_data.vocstrm_cal.cal_kvaddr =
-		cal_block->cal_offset + acdb_data.kvaddr;
+		cal_block->cal_offset + (u8 *)acdb_data.kvaddr;
 done:
 	return result;
 }
@@ -917,7 +917,7 @@ static int store_vocvol_cal(struct cal_block *cal_block)
 	acdb_data.vocvol_cal.cal_paddr =
 		cal_block->cal_offset + acdb_data.paddr;
 	acdb_data.vocvol_cal.cal_kvaddr =
-		cal_block->cal_offset + acdb_data.kvaddr;
+		cal_block->cal_offset + (u8 *)acdb_data.kvaddr;
 done:
 	return result;
 }
@@ -1125,7 +1125,7 @@ static int allocate_col_data(void)
 			goto done;
 		}
 		acdb_data.vocproc_col_cal[i].cal_kvaddr =
-			(uint32_t)acdb_data.col_data[i];
+			acdb_data.col_data[i];
 	}
 
 done:
@@ -1208,7 +1208,7 @@ static int register_memory(void)
 	ion_phys_addr_t		paddr;
 	void                    *kvptr;
 	unsigned long		kvaddr;
-	unsigned long		mem_len;
+	size_t			mem_len;
 	pr_debug("%s\n", __func__);
 
 	result = allocate_col_data();
@@ -1230,7 +1230,7 @@ static int register_memory(void)
 				&acdb_data.ion_handle,
 				acdb_data.map_handle,
 				NULL, 0,
-				&paddr, (size_t *)&mem_len, &kvptr);
+				&paddr, &mem_len, &kvptr);
 	if (result) {
 		pr_err("%s: audio ION alloc failed, rc = %d\n",
 			__func__, result);
@@ -1239,11 +1239,11 @@ static int register_memory(void)
 
 	kvaddr = (unsigned long)kvptr;
 	acdb_data.paddr = paddr;
-	acdb_data.kvaddr = kvaddr;
+	acdb_data.kvaddr = (void *)kvaddr;
 	acdb_data.mem_len = mem_len;
 
-	pr_debug("%s done! paddr = 0x%llx, kvaddr = 0x%llx, len = 0x%llx\n",
-		 __func__, acdb_data.paddr, acdb_data.kvaddr,
+	pr_debug("%s done! paddr = 0x%pa, kvaddr = 0x%p, len = 0x%llx\n",
+		 __func__, &acdb_data.paddr, acdb_data.kvaddr,
 		 acdb_data.mem_len);
 
 	return result;

@@ -48,8 +48,8 @@ int adm_map_rtac_block(struct rtac_cal_block_data *cal_block);
 
 int adm_unmap_rtac_block(uint32_t *mem_map_handle);
 
-int adm_memory_map_regions(int port_id, uint32_t *buf_add, uint32_t mempool_id,
-				uint32_t *bufsz, uint32_t bufcnt);
+int adm_memory_map_regions(int port_id, phys_addr_t *buf_add,
+	uint32_t mempool_id, uint32_t *bufsz, uint32_t bufcnt);
 
 int adm_memory_unmap_regions(int port_id);
 

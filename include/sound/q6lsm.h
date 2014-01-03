@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,7 @@ typedef void (*lsm_app_cb)(uint32_t opcode, uint32_t token,
 struct lsm_sound_model {
 	dma_addr_t      phys;
 	void		*data;
-	uint32_t	size; /* size of buffer */
+	size_t		size; /* size of buffer */
 	uint32_t	actual_size; /* actual number of bytes read by DSP */
 	struct ion_handle *handle;
 	struct ion_client *client;
@@ -123,7 +123,7 @@ void q6lsm_client_free(struct lsm_client *client);
 int q6lsm_open(struct lsm_client *client);
 int q6lsm_start(struct lsm_client *client, bool wait);
 int q6lsm_stop(struct lsm_client *client, bool wait);
-int q6lsm_snd_model_buf_alloc(struct lsm_client *client, uint32_t len);
+int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len);
 int q6lsm_snd_model_buf_free(struct lsm_client *client);
 int q6lsm_close(struct lsm_client *client);
 int q6lsm_unmap_cal_blocks(void);
