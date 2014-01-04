@@ -973,6 +973,7 @@ static void ngd_laddr_lookup(struct work_struct *work)
 	struct slim_controller *ctrl = &dev->ctrl;
 	struct slim_device *sbdev;
 	int i;
+	slim_framer_booted(ctrl);
 	mutex_lock(&ctrl->m_ctrl);
 	list_for_each_entry(sbdev, &ctrl->devs, dev_list) {
 		int ret = 0;
