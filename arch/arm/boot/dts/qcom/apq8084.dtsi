@@ -454,7 +454,7 @@
 	pcie0: qcom,pcie@fc520000 {
 		compatible = "qcom,msm_pcie";
 		cell-index = <0>;
-		qcom,ctrl-amt = <1>;
+		qcom,ctrl-amt = <2>;
 
 		reg = <0xfc520000 0x2000>,
 		      <0xfc526000 0x1000>,
@@ -504,6 +504,59 @@
 
 		qcom,msi-gicm-addr = <0xf9040040>;
 		qcom,msi-gicm-base = <0x160>;
+	};
+
+	pcie1: qcom,pcie@fc528000 {
+		compatible = "qcom,msm_pcie";
+		cell-index = <1>;
+		qcom,ctrl-amt = <2>;
+
+		reg = <0xfc528000 0x2000>,
+		    <0xfc52e000  0x1000>,
+		    <0xfb000000 0x1000>,
+		    <0xfb001000 0x1000>,
+		    <0xfb100000 0x1000>,
+		    <0xfb200000 0x100000>,
+		    <0xfb300000 0xd00000>;
+
+		reg-names = "parf", "phy", "dm_core", "elbi",
+				"conf", "io", "bars";
+
+		#address-cells = <0>;
+		interrupt-parent = <&pcie1>;
+		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11 12>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 271 0
+				1 &intc 0 272 0
+				2 &intc 0 273 0
+				3 &intc 0 274 0
+				4 &intc 0 275 0
+				5 &intc 0 276 0
+				6 &intc 0 277 0
+				7 &intc 0 278 0
+				8 &intc 0 279 0
+				9 &intc 0 280 0
+				10 &intc 0 281 0
+				11 &intc 0 282 0
+				12 &msmgpio 139 0x2>;
+
+		interrupt-names = "int_msi", "int_a", "int_b", "int_c", "int_d",
+				"int_pls_pme", "int_pme_legacy", "int_pls_err",
+				"int_aer_legacy", "int_pls_link_up",
+				"int_pls_link_down", "int_bridge_flush_n",
+				"int_wake";
+
+		perst-gpio = <&msmgpio 140 0>;
+		wake-gpio = <&msmgpio 139 0>;
+		clkreq-gpio = <&msmgpio 141 0>;
+
+		gdsc-vdd-supply = <&gdsc_pcie_1>;
+		vreg-1.8-supply = <&pma8084_l12>;
+		vreg-0.9-supply = <&pma8084_l4>;
+
+		qcom,msi-gicm-addr = <0xF9041040>;
+		qcom,msi-gicm-base = <0x180>;
 	};
 
 	spmi_bus: qcom,spmi@fc4c0000 {
