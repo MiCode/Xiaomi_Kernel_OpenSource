@@ -57,6 +57,7 @@
 #define MAX_NUM_CODECS 32
 #define MAX_NUM_CODEC_DESCRIPTORS 32
 #define MAX_NUM_BITRATES 32
+#define MAX_NUM_SAMPLE_RATES 32
 
 /* compressed TX */
 #define MAX_NUM_FRAMES_PER_BUFFER 1
@@ -383,7 +384,7 @@ union snd_codec_options {
 
 struct snd_codec_desc {
 	__u32 max_ch;
-	__u32 sample_rates;
+	__u32 sample_rates[MAX_NUM_SAMPLE_RATES];
 	__u32 bit_rate[MAX_NUM_BITRATES];
 	__u32 num_bitrates;
 	__u32 rate_control;
