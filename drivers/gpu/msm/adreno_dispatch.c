@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1519,8 +1519,8 @@ void adreno_dispatcher_start(struct kgsl_device *device)
 
 	complete_all(&device->cmdbatch_gate);
 
-	/* a305c GPU is slower than a330 and needs a larger timer */
-	if (adreno_is_a305c(adreno_dev))
+	/* a305b & a305c GPUs are slower than a330 and needs a larger timer */
+	if (adreno_is_a305b(adreno_dev) || adreno_is_a305c(adreno_dev))
 		_fault_timer_interval = 200;
 
 	/* Schedule the work loop to get things going */
