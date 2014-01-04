@@ -764,9 +764,9 @@ static ssize_t ffs_epfile_io(struct file *file,
 	char *data = NULL;
 	ssize_t ret;
 	int halt;
-	int buffer_len = !read ? len : round_up(len, 1024);
+	int buffer_len = 0;
 
-	pr_debug("%s: len %d, buffer_len %d, read %d\n", __func__, len, buffer_len, read);
+	pr_debug("%s: len %d, read %d\n", __func__, len, read);
 
 	goto first_try;
 	do {
@@ -794,6 +794,9 @@ first_try:
 				goto error;
 			}
 		}
+
+		buffer_len = !read ? len : round_up(len,
+						ep->ep->desc->wMaxPacketSize);
 
 		/* Do we halt? */
 		halt = !read == !epfile->in;
