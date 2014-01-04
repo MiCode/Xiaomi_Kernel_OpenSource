@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -257,8 +257,7 @@
 
 		qcom,hsusb-otg-phy-type = <2>;
 		qcom,hsusb-otg-mode = <1>;
-		qcom,hsusb-otg-otg-control = <3>;
-		qcom,hsusb-otg-default-mode = <1>;
+		qcom,hsusb-otg-otg-control = <2>;
 		qcom,hsusb-otg-disable-reset;
 		qcom,dp-manual-pullup;
 		qcom,usb2-enable-hsphy2;
