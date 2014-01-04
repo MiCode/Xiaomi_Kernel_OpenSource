@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,7 @@
 		therm-bias-supply = <&pma8084_lvs2>;
 		qcom,dc-psy-type = "Wireless";
 		qcom,dc-psy-ma = <1000>;
+		qcom,thermal-mitigation = <1500 700 600 0>;
 	};
 };
 
