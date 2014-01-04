@@ -530,6 +530,7 @@ struct intel_uncore {
 	func(is_preliminary) sep \
 	func(has_fbc) sep \
 	func(has_pipe_cxsr) sep \
+	func(has_dpst) sep \
 	func(has_hotplug) sep \
 	func(cursor_needs_physical) sep \
 	func(has_overlay) sep \
@@ -831,6 +832,8 @@ struct i915_suspend_saved_registers {
 	u32 savePIPEB_LINK_N1;
 	u32 saveMCHBAR_RENDER_STANDBY;
 	u32 savePCH_PORT_HOTPLUG;
+	u32 saveBLM_HIST_GUARD;
+	u32 saveBLM_HIST_CTL;
 };
 
 struct vlv_s0ix_state {
@@ -1454,6 +1457,15 @@ struct drm_i915_private {
 		struct pid *pid;
 	} curd;
 
+	/* DPST information */
+	struct {
+		struct task_struct *task;
+		u32 signal;
+		u32 blc_adjustment;
+		bool enabled;
+		struct mutex ioctl_lock;
+	} dpst;
+
 	/* PCH chipset type */
 	enum intel_pch pch_type;
 	unsigned short pch_id;
@@ -1997,6 +2009,7 @@ struct drm_i915_cmd_table {
 #define HAS_FW_BLC(dev) (INTEL_INFO(dev)->gen > 2)
 #define HAS_PIPE_CXSR(dev) (INTEL_INFO(dev)->has_pipe_cxsr)
 #define HAS_FBC(dev) (INTEL_INFO(dev)->has_fbc)
+#define I915_HAS_DPST(dev) (INTEL_INFO(dev)->has_dpst)
 
 #define HAS_IPS(dev)		(IS_ULT(dev) || IS_BROADWELL(dev))
 
@@ -2591,6 +2604,14 @@ intel_opregion_notify_adapter(struct drm_device *dev, pci_power_t state)
 	return 0;
 }
 #endif
+
+/* i915_dpst.c */
+int i915_dpst_context(struct drm_device *dev, void *data,
+			struct drm_file *file_priv);
+u32 i915_dpst_get_brightness(struct drm_device *dev);
+void i915_dpst_set_brightness(struct drm_device *dev, u32 brightness_val);
+void i915_dpst_irq_handler(struct drm_device *dev);
+void intel_panel_actually_set_backlight(struct intel_connector *conn, u32 level);
 
 /* intel_acpi.c */
 #ifdef CONFIG_ACPI

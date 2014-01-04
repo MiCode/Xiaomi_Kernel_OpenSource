@@ -4509,6 +4509,7 @@ enum punit_power_well {
 #define DE_PCH_EVENT_IVB		(1<<28)
 #define DE_DP_A_HOTPLUG_IVB		(1<<27)
 #define DE_AUX_CHANNEL_A_IVB		(1<<26)
+#define DE_DPST_HISTOGRAM_IVB       (1<<25)
 #define DE_SPRITEC_FLIP_DONE_IVB	(1<<14)
 #define DE_PLANEC_FLIP_DONE_IVB		(1<<13)
 #define DE_PIPEC_VBLANK_IVB		(1<<10)
@@ -5788,6 +5789,22 @@ enum punit_power_well {
 #define  TRANS_DDI_EDP_INPUT_B_ONOFF	(5<<12)
 #define  TRANS_DDI_EDP_INPUT_C_ONOFF	(6<<12)
 #define  TRANS_DDI_BFI_ENABLE		(1<<4)
+
+/* DPST related registers */
+#define BLM_HIST_CTL				0x48260
+#define  IE_HISTOGRAM_ENABLE		(1<<31)
+#define  IE_MOD_TABLE_ENABLE		(1<<27)
+#define  HSV_INTENSITY_MODE			(1<<24)
+#define  ENHANCEMENT_MODE_MULT		(2<<13)
+#define  BIN_REG_FUNCTION_SELECT_IE	(1<<11)
+#define  BIN_REGISTER_INDEX_MASK	0x7F
+#define BLM_HIST_BIN				0x48264
+#define  BUSY_BIT					(1<<31)
+#define  BIN_COUNT_MASK				0x3FFFFF
+#define BLM_HIST_GUARD				0x48268
+#define  HISTOGRAM_INTERRUPT_ENABLE	(1<<31)
+#define  HISTOGRAM_EVENT_STATUS		(1<<30)
+#define HIST_BIN_COUNT				32
 
 /* DisplayPort Transport Control */
 #define DP_TP_CTL_A			0x64040

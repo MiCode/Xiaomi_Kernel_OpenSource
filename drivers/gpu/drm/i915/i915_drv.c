@@ -297,6 +297,7 @@ static const struct intel_device_info intel_haswell_m_info = {
 	.is_mobile = 1,
 	.has_ddi = 1,
 	.has_fpga_dbg = 1,
+	.has_dpst = 1,
 	.ring_mask = RENDER_RING | BSD_RING | BLT_RING | VEBOX_RING,
 	GEN_DEFAULT_PIPEOFFSETS,
 	IVB_CURSOR_OFFSETS,

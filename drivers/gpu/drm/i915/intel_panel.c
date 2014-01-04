@@ -480,7 +480,16 @@ static u32 intel_panel_get_backlight(struct intel_connector *connector)
 	spin_lock_irqsave(&dev_priv->backlight_lock, flags);
 
 	val = dev_priv->display.get_backlight(connector);
-	val = intel_panel_compute_brightness(connector, val);
+
+	/* When DPST is enabled, reading the backlight register will
+	 * give the DPST adjusted backlight value. Since DPST works
+	 * without user knowing a perceived difference in the backlight,
+	 * the programmed backlight isn't the correct value to return.
+	 * So, get the user perceived backlight level from DPST. */
+	if (dev_priv->dpst.enabled)
+		val = i915_dpst_get_brightness(dev);
+	else
+		val = intel_panel_compute_brightness(connector, val);
 
 	spin_unlock_irqrestore(&dev_priv->backlight_lock, flags);
 
@@ -545,7 +554,7 @@ static void vlv_set_backlight(struct intel_connector *connector, u32 level)
 	I915_WRITE(VLV_BLC_PWM_CTL(pipe), tmp | level);
 }
 
-static void
+void
 intel_panel_actually_set_backlight(struct intel_connector *connector, u32 level)
 {
 	struct drm_device *dev = connector->base.dev;
@@ -586,8 +595,12 @@ void intel_panel_set_backlight(struct intel_connector *connector, u32 level,
 	if (panel->backlight.device)
 		panel->backlight.device->props.brightness = level;
 
-	if (panel->backlight.enabled)
-		intel_panel_actually_set_backlight(connector, level);
+	if (panel->backlight.enabled) {
+		if (dev_priv->dpst.enabled)
+			i915_dpst_set_brightness(dev, level);
+		else
+			intel_panel_actually_set_backlight(connector, level);
+	}
 
 	spin_unlock_irqrestore(&dev_priv->backlight_lock, flags);
 }

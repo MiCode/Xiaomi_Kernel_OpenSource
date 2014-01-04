@@ -189,6 +189,22 @@ static void i915_restore_vga(struct drm_device *dev)
 	I915_WRITE8(VGA_DACMASK, dev_priv->regfile.saveDACMASK);
 }
 
+void i915_save_dpst_regs(struct drm_i915_private *dev_priv)
+{
+	dev_priv->regfile.saveBLM_HIST_GUARD = I915_READ(BLM_HIST_GUARD);
+	dev_priv->regfile.saveBLM_HIST_CTL = I915_READ(BLM_HIST_CTL);
+
+	/* Disable image enhancement table so we do not apply invalid
+	 * data when we resume */
+	dev_priv->regfile.saveBLM_HIST_CTL &= ~IE_MOD_TABLE_ENABLE;
+}
+
+void i915_restore_dpst_regs(struct drm_i915_private *dev_priv)
+{
+	I915_WRITE(BLM_HIST_GUARD, dev_priv->regfile.saveBLM_HIST_GUARD);
+	I915_WRITE(BLM_HIST_CTL, dev_priv->regfile.saveBLM_HIST_CTL);
+}
+
 static void i915_save_display(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -239,6 +255,9 @@ static void i915_save_display(struct drm_device *dev)
 	/* save FBC interval */
 	if (HAS_FBC(dev) && INTEL_INFO(dev)->gen <= 4 && !IS_G4X(dev))
 		dev_priv->regfile.saveFBC_CONTROL = I915_READ(FBC_CONTROL);
+
+	if (I915_HAS_DPST(dev))
+		i915_save_dpst_regs(dev_priv);
 
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		i915_save_vga(dev);
@@ -298,6 +317,9 @@ static void i915_restore_display(struct drm_device *dev)
 	/* restore FBC interval */
 	if (HAS_FBC(dev) && INTEL_INFO(dev)->gen <= 4 && !IS_G4X(dev))
 		I915_WRITE(FBC_CONTROL, dev_priv->regfile.saveFBC_CONTROL);
+
+	if (I915_HAS_DPST(dev))
+			i915_restore_dpst_regs(dev_priv);
 
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		i915_restore_vga(dev);
