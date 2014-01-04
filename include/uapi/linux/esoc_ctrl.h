@@ -41,6 +41,7 @@ enum esoc_notify {
 enum esoc_req {
 	ESOC_REQ_IMG = 1,
 	ESOC_REQ_DEBUG,
+	ESOC_REQ_SHUTDOWN,
 };
 
 #ifdef __KERNEL__
