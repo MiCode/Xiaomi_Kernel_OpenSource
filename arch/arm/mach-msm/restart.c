@@ -61,8 +61,9 @@ int pmic_reset_irq;
 static void __iomem *msm_tmr0_base;
 
 #ifdef CONFIG_MSM_DLOAD_MODE
-#define DL_MODE_PROP "qcom,msm-imem-emergency_download_mode"
-#define EDL_MODE_PROP "qcom,msm-imem-download_mode"
+#define EDL_MODE_PROP "qcom,msm-imem-emergency_download_mode"
+#define DL_MODE_PROP "qcom,msm-imem-download_mode"
+
 static int in_panic;
 static void *dload_mode_addr;
 static bool dload_mode_enabled;
