@@ -193,14 +193,6 @@ static int msm_vfe44_init_hardware(struct vfe_device *vfe_dev)
 		goto vbif_remap_failed;
 	}
 
-	vfe_dev->tcsr_base = ioremap(vfe_dev->tcsr_mem->start,
-		resource_size(vfe_dev->tcsr_mem));
-	if (!vfe_dev->tcsr_base) {
-		rc = -ENOMEM;
-		pr_err("%s: tcsr ioremap failed\n", __func__);
-		goto tcsr_remap_failed;
-	}
-
 	rc = request_irq(vfe_dev->vfe_irq->start, msm_isp_process_irq,
 		IRQF_TRIGGER_RISING, "vfe", vfe_dev);
 	if (rc < 0) {
@@ -209,8 +201,6 @@ static int msm_vfe44_init_hardware(struct vfe_device *vfe_dev)
 	}
 	return rc;
 irq_req_failed:
-	iounmap(vfe_dev->tcsr_base);
-tcsr_remap_failed:
 	iounmap(vfe_dev->vfe_vbif_base);
 vbif_remap_failed:
 	iounmap(vfe_dev->vfe_base);
@@ -229,7 +219,6 @@ static void msm_vfe44_release_hardware(struct vfe_device *vfe_dev)
 {
 	free_irq(vfe_dev->vfe_irq->start, vfe_dev);
 	tasklet_kill(&vfe_dev->vfe_tasklet);
-	iounmap(vfe_dev->tcsr_base);
 	iounmap(vfe_dev->vfe_vbif_base);
 	iounmap(vfe_dev->vfe_base);
 	msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe44_clk_info,
@@ -1238,14 +1227,6 @@ static int msm_vfe44_get_platform_data(struct vfe_device *vfe_dev)
 		vfe_dev->pdev,
 		IORESOURCE_MEM, "vfe_vbif");
 	if (!vfe_dev->vfe_vbif_mem) {
-		pr_err("%s: no mem resource?\n", __func__);
-		rc = -ENODEV;
-		goto vfe_no_resource;
-	}
-
-	vfe_dev->tcsr_mem = platform_get_resource_byname(vfe_dev->pdev,
-		IORESOURCE_MEM, "tcsr");
-	if (!vfe_dev->tcsr_mem) {
 		pr_err("%s: no mem resource?\n", __func__);
 		rc = -ENODEV;
 		goto vfe_no_resource;
