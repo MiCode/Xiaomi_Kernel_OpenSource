@@ -40,6 +40,8 @@
 #define QCA6174_REV_ID_OFFSET	(0x08)
 #define QCA6174_FW_1_1	(0x11)
 #define QCA6174_FW_1_3	(0x13)
+#define QCA6174_FW_2_0	(0x20)
+#define QCA6174_FW_3_0	(0x30)
 
 #define WLAN_VREG_NAME		"vdd-wlan"
 #define WLAN_EN_GPIO_NAME	"wlan-en-gpio"
@@ -251,6 +253,28 @@ void cnss_setup_fw_files(u16 revision)
 		strlcpy(penv->fw_files.otp_data, "otp13.bin",
 			CNSS_MAX_FILE_NAME);
 		strlcpy(penv->fw_files.utf_file, "utf13.bin",
+			CNSS_MAX_FILE_NAME);
+		break;
+
+	case QCA6174_FW_2_0:
+		strlcpy(penv->fw_files.image_file, "athwlan20.bin",
+			CNSS_MAX_FILE_NAME);
+		strlcpy(penv->fw_files.board_data, "bdatawlan20.bin",
+			CNSS_MAX_FILE_NAME);
+		strlcpy(penv->fw_files.otp_data, "otp20.bin",
+			CNSS_MAX_FILE_NAME);
+		strlcpy(penv->fw_files.utf_file, "utf20.bin",
+			CNSS_MAX_FILE_NAME);
+		break;
+
+	case QCA6174_FW_3_0:
+		strlcpy(penv->fw_files.image_file, "athwlan30.bin",
+			CNSS_MAX_FILE_NAME);
+		strlcpy(penv->fw_files.board_data, "bdatawlan30.bin",
+			CNSS_MAX_FILE_NAME);
+		strlcpy(penv->fw_files.otp_data, "otp30.bin",
+			CNSS_MAX_FILE_NAME);
+		strlcpy(penv->fw_files.utf_file, "utf30.bin",
 			CNSS_MAX_FILE_NAME);
 		break;
 
