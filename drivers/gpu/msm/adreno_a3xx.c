@@ -724,7 +724,6 @@ int a3xx_rb_init(struct adreno_device *adreno_dev,
 void a3xx_a4xx_err_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
-	const char *err = "";
 
 	switch (bit) {
 	case A3XX_INT_RBBM_AHB_ERROR: {
@@ -751,25 +750,29 @@ void a3xx_a4xx_err_callback(struct adreno_device *adreno_dev, int bit)
 			adreno_writereg(adreno_dev, ADRENO_REG_RBBM_AHB_CMD,
 					(1 << 3));
 
-		goto done;
+		break;
 	}
 	case A3XX_INT_RBBM_REG_TIMEOUT:
-		err = "RBBM: AHB register timeout";
+		KGSL_DRV_CRIT_RATELIMIT(device, "RBBM: AHB register timeout\n");
 		break;
 	case A3XX_INT_RBBM_ME_MS_TIMEOUT:
-		err = "RBBM: ME master split timeout";
+		KGSL_DRV_CRIT_RATELIMIT(device,
+			"RBBM: ME master split timeout\n");
 		break;
 	case A3XX_INT_RBBM_PFP_MS_TIMEOUT:
-		err = "RBBM: PFP master split timeout";
+		KGSL_DRV_CRIT_RATELIMIT(device,
+			"RBBM: PFP master split timeout\n");
 		break;
 	case A3XX_INT_UCHE_OOB_ACCESS:
-		err = "UCHE:  Out of bounds access";
+		KGSL_DRV_CRIT_RATELIMIT(device,
+			"UCHE:  Out of bounds access\n");
 		break;
 	case A3XX_INT_CP_RESERVED_BIT_ERROR:
-		err = "ringbuffer reserved bit error interrupt";
+		KGSL_DRV_CRIT_RATELIMIT(device,
+				"ringbuffer reserved bit error interrupt\n");
 		break;
 	case A3XX_INT_CP_HW_FAULT:
-		err = "ringbuffer hardware fault";
+		KGSL_DRV_CRIT(device, "ringbuffer hardware fault\n");
 		break;
 	case A3XX_INT_CP_REG_PROTECT_FAULT: {
 		unsigned int reg;
@@ -779,17 +782,15 @@ void a3xx_a4xx_err_callback(struct adreno_device *adreno_dev, int bit)
 			"CP | Protected mode error| %s | addr=%x\n",
 			reg & (1 << 24) ? "WRITE" : "READ",
 			(reg & 0x1FFFF) >> 2);
-		goto done;
+		break;
 	}
 	case A3XX_INT_CP_AHB_ERROR_HALT:
-		err = "ringbuffer AHB error interrupt";
+		KGSL_DRV_CRIT(device, "ringbuffer AHB error interrupt\n");
 		break;
 	case A3XX_INT_MISC_HANG_DETECT:
-		err = "MISC: GPU hang detected";
+		KGSL_DRV_CRIT(device, "MISC: GPU hang detected\n");
 		break;
 	}
-done:
-	KGSL_DRV_CRIT(device, "%s\n", err);
 }
 
 static void a3xx_err_callback(struct adreno_device *adreno_dev, int bit)

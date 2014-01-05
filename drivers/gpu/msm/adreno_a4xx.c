@@ -500,40 +500,39 @@ uint64_t a4xx_perfcounter_read_vbif_pwr(struct kgsl_device *device,
 static void a4xx_err_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
-	const char *err = "";
 
 	switch (bit) {
 	case A4XX_INT_RBBM_ETS_MS_TIMEOUT:
-		err = "RBBM: ME master split timeout";
+		KGSL_DRV_CRIT_RATELIMIT(device,
+				"RBBM: ME master split timeout\n");
 		break;
 	case A4XX_INT_RBBM_ASYNC_OVERFLOW:
-		err = "RBBM: ASYNC overflow";
+		KGSL_DRV_CRIT_RATELIMIT(device, "RBBM: ASYNC overflow\n");
 		break;
 	case A4XX_INT_RBBM_GPC_ERR:
-		err = "RBBM: GPC error";
+		KGSL_DRV_CRIT_RATELIMIT(device, "RBBM: GPC error\n");
 		break;
 	case A4XX_INT_CP_OPCODE_ERR:
-		err = "ringbuffer opcode error interrupt";
-		break;
+		KGSL_DRV_CRIT(device, "ringbuffer opcode error interrupt\n");
+		return;
 	case A4XX_INT_RBBM_ATB_BUS_OVERFLOW:
-		err = "RBBM: ATB bus overflow";
+		KGSL_DRV_CRIT_RATELIMIT(device, "RBBM: ATB bus overflow\n");
 		break;
 	case A4XX_INT_RBBM_DPM_CALC_ERR:
-		err = "RBBM: dpm calc error";
+		KGSL_DRV_CRIT_RATELIMIT(device, "RBBM: dpm calc error\n");
 		break;
 	case A4XX_INT_RBBM_DPM_EPOCH_ERR:
-		err = "RBBM: dpm epoch error";
+		KGSL_DRV_CRIT_RATELIMIT(device, "RBBM: dpm epoch error\n");
 		break;
 	case A4XX_INT_RBBM_DPM_THERMAL_YELLOW_ERR:
-		err = "RBBM: dpm thermal yellow";
+		KGSL_DRV_CRIT_RATELIMIT(device, "RBBM: dpm thermal yellow\n");
 		break;
 	case A4XX_INT_RBBM_DPM_THERMAL_RED_ERR:
-		err = "RBBM: dpm thermal red";
+		KGSL_DRV_CRIT_RATELIMIT(device, "RBBM: dpm thermal red\n");
 		break;
 	default:
 		return;
 	}
-	KGSL_DRV_CRIT(device, "%s\n", err);
 }
 
 /* Register offset defines for A4XX, in order of enum adreno_regs */
