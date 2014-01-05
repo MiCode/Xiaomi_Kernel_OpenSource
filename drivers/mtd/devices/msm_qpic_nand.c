@@ -1919,7 +1919,7 @@ static int msm_nand_block_isbad(struct mtd_info *mtd, loff_t ofs)
 	buf = (uint8_t *)dma_buffer + sizeof(*dma_buffer);
 
 	cmd = dma_buffer->cmd;
-	memset(&data, 0, sizeof(struct msm_nand_erase_reg_data));
+	memset(&data, 0, sizeof(struct msm_nand_blk_isbad_data));
 	data.cfg.cmd = MSM_NAND_CMD_PAGE_READ_ALL;
 	data.cfg.cfg0 = chip->cfg0_raw & ~(7U << CW_PER_PAGE);
 	data.cfg.cfg1 = chip->cfg1_raw;
