@@ -1395,7 +1395,8 @@ static int tsc_data_transaction(struct tsc_ci_chdev *tsc_ci, uint io_mem,
 			goto err_copy_arg;
 		}
 		addr_size = arg_byte.address;
-		if (addr_size > CICAM_MAX_ADDRESS) {
+		if (IO_TRANSACTION == io_mem &&
+				addr_size > CICAM_MAX_ADDRESS) {
 			pr_err("%s: wrong address parameter: %d\n", __func__,
 					addr_size);
 			ret = -EFAULT;
@@ -1520,7 +1521,7 @@ static int tsc_data_transaction(struct tsc_ci_chdev *tsc_ci, uint io_mem,
 	 * to the arg data field
 	 */
 	if (buff_mode == SINGLE_BYTE_MODE && read_write == READ_TRANSACTION)
-		return put_user(readl_relaxed(tsc_device->base +
+		ret = put_user(readl_relaxed(tsc_device->base +
 				TSC_CAM_RD_DATA),
 				&((struct tsc_single_byte_mode *)arg)->data);
 
