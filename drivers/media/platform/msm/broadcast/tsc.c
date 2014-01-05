@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -428,7 +428,7 @@ struct debugfs_entry {
 	int offset;
 };
 
-static const struct debugfs_entry tsc_regs[] = {
+static const struct debugfs_entry tsc_regs_32[] = {
 		{"tsc_hw_version", S_IRUGO, TSC_HW_VERSION},
 		{"tsc_mux", TSC_S_RW, TSC_MUX_CFG},
 		{"tsif_external_demods", TSC_S_RW, TSC_IN_IFC_EXT},
@@ -436,22 +436,28 @@ static const struct debugfs_entry tsc_regs[] = {
 		{"tsc_fsm_state", S_IRUGO, TSC_FSM_STATE},
 		{"tsc_fsm_state_mask", TSC_S_RW, TSC_FSM_STATE_MASK},
 		{"tsc_cam_cmd", TSC_S_RW, TSC_CAM_CMD},
+		{"tsc_rd_buff_addr", TSC_S_RW, TSC_RD_BUFF_ADDR},
+		{"tsc_wr_buff_addr", TSC_S_RW, TSC_WR_BUFF_ADDR},
+};
+
+static const struct debugfs_entry tsc_regs_16[] = {
+		{"tsc_false_cd_counter", S_IRUGO, TSC_FALSE_CD},
+		{"tsc_cicam_tsif", TSC_S_RW, TSC_CICAM_TSIF},
+};
+
+static const struct debugfs_entry tsc_regs_8[] = {
 		{"tsc_cam_rd_data", S_IRUGO, TSC_CAM_RD_DATA},
 		{"tsc_irq_stat", S_IRUGO, TSC_STAT},
 		{"tsc_irq_ena", TSC_S_RW, TSC_IRQ_ENA},
 		{"tsc_irq_clr", TSC_S_RW, TSC_IRQ_CLR},
 		{"tsc_ena_hw_poll", TSC_S_RW, TSC_CIP_CFG},
 		{"tsc_card_stat", TSC_S_RW, TSC_CD_STAT},
-		{"tsc_rd_buff_addr", TSC_S_RW, TSC_RD_BUFF_ADDR},
-		{"tsc_wr_buff_addr", TSC_S_RW, TSC_WR_BUFF_ADDR},
-		{"tsc_false_cd_counter", S_IRUGO, TSC_FALSE_CD},
 		{"tsc_false_cd_counter_clr", TSC_S_RW, TSC_FALSE_CD_CLR},
 		{"tsc_last_error_resp", S_IRUGO, TSC_RESP_ERR},
-		{"tsc_cicam_tsif", TSC_S_RW, TSC_CICAM_TSIF},
 };
 
 /* debugfs settings */
-static int debugfs_iomem_x32_set(void *data, u64 val)
+static int debugfs_iomem_set(void *data, u64 val)
 {
 	if (mutex_lock_interruptible(&tsc_device->mutex))
 		return -ERESTARTSYS;
@@ -469,7 +475,7 @@ static int debugfs_iomem_x32_set(void *data, u64 val)
 	return 0;
 }
 
-static int debugfs_iomem_x32_get(void *data, u64 *val)
+static int debugfs_iomem_get(void *data, u64 *val)
 {
 	if (mutex_lock_interruptible(&tsc_device->mutex))
 		return -ERESTARTSYS;
@@ -486,8 +492,12 @@ static int debugfs_iomem_x32_get(void *data, u64 *val)
 	return 0;
 }
 
-DEFINE_SIMPLE_ATTRIBUTE(fops_iomem_x32, debugfs_iomem_x32_get,
-			debugfs_iomem_x32_set, "0x%08llX");
+DEFINE_SIMPLE_ATTRIBUTE(fops_iomem_x32, debugfs_iomem_get,
+			debugfs_iomem_set, "0x%08llX");
+DEFINE_SIMPLE_ATTRIBUTE(fops_iomem_x16, debugfs_iomem_get,
+			debugfs_iomem_set, "0x%04llX");
+DEFINE_SIMPLE_ATTRIBUTE(fops_iomem_x8, debugfs_iomem_get,
+			debugfs_iomem_set, "0x%02llX");
 
 /**
  * tsc_debugfs_init() - TSC device debugfs initialization.
@@ -503,13 +513,29 @@ static void tsc_debugfs_init(void)
 			return;
 	dentry = debugfs_create_dir("regs", tsc_device->debugfs_entry);
 	if (dentry) {
-		for (i = 0; i < ARRAY_SIZE(tsc_regs); i++) {
+		for (i = 0; i < ARRAY_SIZE(tsc_regs_32); i++) {
 			debugfs_create_file(
-					tsc_regs[i].name,
-					tsc_regs[i].mode,
+					tsc_regs_32[i].name,
+					tsc_regs_32[i].mode,
 					dentry,
-					base + tsc_regs[i].offset,
+					base + tsc_regs_32[i].offset,
 					&fops_iomem_x32);
+		}
+		for (i = 0; i < ARRAY_SIZE(tsc_regs_16); i++) {
+			debugfs_create_file(
+					tsc_regs_16[i].name,
+					tsc_regs_16[i].mode,
+					dentry,
+					base + tsc_regs_16[i].offset,
+					&fops_iomem_x16);
+		}
+		for (i = 0; i < ARRAY_SIZE(tsc_regs_8); i++) {
+			debugfs_create_file(
+					tsc_regs_8[i].name,
+					tsc_regs_8[i].mode,
+					dentry,
+					base + tsc_regs_8[i].offset,
+					&fops_iomem_x8);
 		}
 	}
 }
