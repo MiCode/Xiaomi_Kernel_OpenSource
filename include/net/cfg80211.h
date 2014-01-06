@@ -2629,6 +2629,7 @@ struct cfg80211_ops {
  *	TSPEC sessions (TID aka TSID 0-7) with the NL80211_CMD_ADD_TX_TS
  *	command. Standard IEEE 802.11 TSPEC setup is not yet supported, it
  *	needs to be able to handle Block-Ack agreements and other things.
+ * @WIPHY_FLAG_DFS_OFFLOAD: The driver handles all the DFS related operations.
  */
 enum wiphy_flags {
 	WIPHY_FLAG_SUPPORTS_WMM_ADMISSION	= BIT(0),
@@ -2654,6 +2655,7 @@ enum wiphy_flags {
 	WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL	= BIT(21),
 	WIPHY_FLAG_SUPPORTS_5_10_MHZ		= BIT(22),
 	WIPHY_FLAG_HAS_CHANNEL_SWITCH		= BIT(23),
+	WIPHY_FLAG_DFS_OFFLOAD                  = BIT(24)
 };
 
 /**
