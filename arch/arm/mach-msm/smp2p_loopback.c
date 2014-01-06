@@ -1,6 +1,6 @@
 /* arch/arm/mach-msm/smp2p_loopback.c
  *
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -414,6 +414,7 @@ static void smp2p_remote_mock_tx_interrupt(void)
 static int __init smp2p_remote_mock_init(void)
 {
 	int i;
+	struct smp2p_interrupt_config *int_cfg;
 
 	smp2p_init_header(&remote_mock.remote_item.header,
 			SMP2P_REMOTE_MOCK_PROC, SMP2P_APPS_PROC,
@@ -430,6 +431,14 @@ static int __init smp2p_remote_mock_init(void)
 				smp2p_rmt_lpb_worker);
 		if (i == SMP2P_REMOTE_MOCK_PROC)
 			/* do not register loopback for remote mock proc */
+			continue;
+
+		int_cfg = smp2p_get_interrupt_config();
+		if (!int_cfg) {
+			SMP2P_ERR("Remote processor config unavailable\n");
+			return 0;
+		}
+		if (!int_cfg[i].is_configured)
 			continue;
 
 		msm_smp2p_init_rmt_lpb(&remote_loopback[i],

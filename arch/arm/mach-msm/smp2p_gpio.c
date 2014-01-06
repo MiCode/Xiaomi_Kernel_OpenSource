@@ -1,6 +1,6 @@
 /* arch/arm/mach-msm/smp2p_gpio.c
  *
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -608,7 +608,7 @@ static int smp2p_gpio_probe(struct platform_device *pdev)
 					   &chip->out_notifier,
 					   &chip->out_handle);
 			if (ret < 0)
-				goto fail;
+				goto error;
 		}
 	} else {
 		chip->in_notifier.notifier_call = smp2p_gpio_in_notify;
@@ -617,7 +617,7 @@ static int smp2p_gpio_probe(struct platform_device *pdev)
 					chip->name,
 					&chip->in_notifier);
 			if (ret < 0)
-				goto fail;
+				goto error;
 		}
 	}
 
@@ -642,6 +642,10 @@ static int smp2p_gpio_probe(struct platform_device *pdev)
 			chip->gpio.base, chip->irq_base);
 
 	return 0;
+error:
+	if (gpiochip_remove(&chip->gpio))
+		SMP2P_ERR("%s: unable to Remove GPIO '%s'\n",
+				__func__, chip->name);
 
 fail:
 	kfree(chip);
