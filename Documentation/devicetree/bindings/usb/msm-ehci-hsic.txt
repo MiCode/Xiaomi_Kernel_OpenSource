@@ -85,6 +85,8 @@ Optional properties :
 - hsic,vdd-voltage-level: This property must be a list of three integer
   values (no, min, max) where each value represents either a voltage in
   microvolts or a value corresponding to voltage corner
+- qcom,disable-internal-clk-gating: If present then internal clock gating in
+  controller is disabled. Internal clock gating is enabled by default in hw.
 
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
   below optional properties:
