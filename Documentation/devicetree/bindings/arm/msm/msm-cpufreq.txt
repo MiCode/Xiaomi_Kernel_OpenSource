@@ -9,23 +9,15 @@ Required properties:
 - compatible:		Must be "qcom,msm-cpufreq"
 - qcom,cpufreq-table:	A list of tuples where each tuple consists of a
 			usable CPU frequency (KHz), an optional cache
-			frequency (KHz) and an optional memory bandwidth
+			frequency (KHz) and a mandatory memory bandwidth
 			value (MBPS) listed in that order.  The cache
 			frequencies shall not be listed if the device cannot
-			run the cache asynchronous to one or more CPUs. The
-			memory bandwidth values shall not be listed if the
-			optional cpu-mem-ports property is not supplied.
-
-Optional properties:
-- qcom,cpu-mem-ports:	A list of tuples where each tuple consists of a bus
-			master (CPU) port number and a bus slave (memory)
-			port number.
+			run the cache asynchronous to one or more CPUs.
 
 Example:
 	qcom,msm-cpufreq@0 {
 		regs = <0 4>
 		compatible = "qcom,msm-cpufreq";
-		qcom,cpu-mem-ports = <1 512>, <2 513>;
 		qcom,cpufreq-table =
 			<  300000  300000  600 >,
 			<  422400  422400 1200 >,
