@@ -320,10 +320,10 @@ static struct ipa_ep_cfg ipa_to_usb_ep_cfg = {
 		.dst  = IPA_CLIENT_APPS_LAN_CONS,
 	},
 	.hdr = {
-		.hdr_len = ETH_ALEN + sizeof(struct rndis_pkt_hdr),
+		.hdr_len = ETH_HLEN + sizeof(struct rndis_pkt_hdr),
 		.hdr_ofst_metadata_valid = false,
 		.hdr_ofst_metadata = 0,
-		.hdr_additional_const_len = ETH_ALEN,
+		.hdr_additional_const_len = ETH_HLEN,
 		.hdr_ofst_pkt_size_valid = true,
 		.hdr_ofst_pkt_size = 3*sizeof(u32),
 		.hdr_a5_mux = false,
@@ -365,7 +365,7 @@ static struct ipa_ep_cfg usb_to_ipa_ep_cfg = {
 		.dst  = IPA_CLIENT_APPS_LAN_CONS,
 	},
 	.hdr = {
-		.hdr_len = ETH_ALEN,
+		.hdr_len = ETH_HLEN,
 		.hdr_ofst_metadata_valid = false,
 		.hdr_ofst_metadata = 0,
 		.hdr_additional_const_len = 0,
