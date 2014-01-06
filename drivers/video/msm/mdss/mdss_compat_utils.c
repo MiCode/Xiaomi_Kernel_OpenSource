@@ -179,6 +179,191 @@ static int __from_user_pp_params32(struct mdp_overlay_pp_params *ppp,
 	return 0;
 }
 
+static int __from_user_pcc_coeff(
+			struct mdp_pcc_coeff32 __user *pcc_coeff32,
+			struct mdp_pcc_coeff __user *pcc_coeff)
+{
+	if (copy_in_user(&pcc_coeff->c,
+			&pcc_coeff32->c,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff->r,
+			&pcc_coeff32->r,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff->g,
+			&pcc_coeff32->g,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff->b,
+			&pcc_coeff32->b,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff->rr,
+			&pcc_coeff32->rr,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff->gg,
+			&pcc_coeff32->gg,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff->bb,
+			&pcc_coeff32->bb,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff->rg,
+			&pcc_coeff32->rg,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff->gb,
+			&pcc_coeff32->gb,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff->rb,
+			&pcc_coeff32->rb,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff->rgb_0,
+			&pcc_coeff32->rgb_0,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff->rgb_1,
+			&pcc_coeff32->rgb_1,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __to_user_pcc_coeff(
+			struct mdp_pcc_coeff32 __user *pcc_coeff32,
+			struct mdp_pcc_coeff __user *pcc_coeff)
+{
+	if (copy_in_user(&pcc_coeff32->c,
+			&pcc_coeff->c,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff32->r,
+			&pcc_coeff->r,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff32->g,
+			&pcc_coeff->g,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff32->b,
+			&pcc_coeff->b,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff32->rr,
+			&pcc_coeff->rr,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff32->gg,
+			&pcc_coeff->gg,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff32->bb,
+			&pcc_coeff->bb,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff32->rg,
+			&pcc_coeff->rg,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff32->gb,
+			&pcc_coeff->gb,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff32->rb,
+			&pcc_coeff->rb,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff32->rgb_0,
+			&pcc_coeff->rgb_0,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_coeff32->rgb_1,
+			&pcc_coeff->rgb_1,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __from_user_pcc_cfg_data(
+			struct mdp_pcc_cfg_data32 __user *pcc_cfg32,
+			struct mdp_pcc_cfg_data __user *pcc_cfg)
+{
+	if (copy_in_user(&pcc_cfg->block,
+			&pcc_cfg32->block,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_cfg->ops,
+			&pcc_cfg32->ops,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (__from_user_pcc_coeff(
+			compat_ptr((uintptr_t)&pcc_cfg32->r),
+			&pcc_cfg->r) ||
+	    __from_user_pcc_coeff(
+			compat_ptr((uintptr_t)&pcc_cfg32->g),
+			&pcc_cfg->g) ||
+	    __from_user_pcc_coeff(
+			compat_ptr((uintptr_t)&pcc_cfg32->b),
+			&pcc_cfg->b))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __to_user_pcc_cfg_data(
+			struct mdp_pcc_cfg_data32 __user *pcc_cfg32,
+			struct mdp_pcc_cfg_data __user *pcc_cfg)
+{
+	if (copy_in_user(&pcc_cfg32->block,
+			&pcc_cfg->block,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_cfg32->ops,
+			&pcc_cfg->ops,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (__to_user_pcc_coeff(
+			compat_ptr((uintptr_t)&pcc_cfg32->r),
+			&pcc_cfg->r) ||
+	    __to_user_pcc_coeff(
+			compat_ptr((uintptr_t)&pcc_cfg32->g),
+			&pcc_cfg->g) ||
+	    __to_user_pcc_coeff(
+			compat_ptr((uintptr_t)&pcc_cfg32->b),
+			&pcc_cfg->b))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int mdss_compat_pp_ioctl(struct fb_info *info, unsigned int cmd,
+			unsigned long arg)
+{
+	uint32_t op;
+	int ret = 0;
+	struct msmfb_mdp_pp32 __user *pp32;
+	struct msmfb_mdp_pp __user *pp;
+
+	pp32 = compat_ptr(arg);
+	pp = compat_alloc_user_space(sizeof(struct msmfb_mdp_pp));
+	if (NULL == pp)
+		return -ENOMEM;
+
+	memset(pp, 0, sizeof(struct msmfb_mdp_pp));
+
+	if (copy_from_user(&op, &pp32->op, sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (copy_in_user(&pp->op, &pp32->op, sizeof(uint32_t)))
+		return -EFAULT;
+
+	switch (op) {
+	case mdp_op_pcc_cfg:
+		ret = __from_user_pcc_cfg_data(
+			compat_ptr((uintptr_t)&pp32->data.pcc_cfg_data),
+			&pp->data.pcc_cfg_data);
+		if (ret)
+			goto pp_compat_exit;
+		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) pp);
+		if (ret)
+			goto pp_compat_exit;
+		ret = __to_user_pcc_cfg_data(
+			compat_ptr((uintptr_t)&pp32->data.pcc_cfg_data),
+			&pp->data.pcc_cfg_data);
+		break;
+	default:
+		break;
+	}
+
+pp_compat_exit:
+	return ret;
+}
+
 static int __to_user_mdp_overlay(struct mdp_overlay32 __user *ov32,
 				 struct mdp_overlay __user *ov)
 {
@@ -284,10 +469,13 @@ int mdss_compat_overlay_ioctl(struct fb_info *info, unsigned int cmd,
 	if (!info || !info->par)
 		return -EINVAL;
 
-	ov = compat_alloc_user_space(sizeof(*ov));
 
 	switch (cmd) {
+	case MSMFB_MDP_PP:
+		ret = mdss_compat_pp_ioctl(info, cmd, arg);
+		break;
 	case MSMFB_OVERLAY_GET:
+		ov = compat_alloc_user_space(sizeof(*ov));
 		ov32 = compat_ptr(arg);
 		ret = __from_user_mdp_overlay(ov, ov32);
 		if (ret)
@@ -297,6 +485,7 @@ int mdss_compat_overlay_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = __to_user_mdp_overlay(ov32, ov);
 		break;
 	case MSMFB_OVERLAY_SET:
+		ov = compat_alloc_user_space(sizeof(*ov));
 		ov32 = compat_ptr(arg);
 		ret = __from_user_mdp_overlay(ov, ov32);
 		if (ret) {
@@ -353,6 +542,7 @@ int mdss_fb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 	case MSMFB_BUFFER_SYNC:
 		ret = mdss_fb_compat_buf_sync(info, cmd, arg);
 		break;
+	case MSMFB_MDP_PP:
 	case MSMFB_OVERLAY_GET:
 	case MSMFB_OVERLAY_SET:
 	case MSMFB_OVERLAY_UNSET:
