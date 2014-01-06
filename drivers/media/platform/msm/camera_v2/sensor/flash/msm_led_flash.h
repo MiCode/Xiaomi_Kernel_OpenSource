@@ -15,6 +15,7 @@
 
 #include <linux/leds.h>
 #include <linux/platform_device.h>
+#include <linux/ratelimit.h>
 #include <media/v4l2-subdev.h>
 #include <media/msm_cam_sensor.h>
 #include <mach/camera2.h>
