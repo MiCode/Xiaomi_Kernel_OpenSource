@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -471,8 +471,8 @@
 		interrupt-names = "hs_phy_irq", "pmic_id_irq";
 
 		USB3_GDSC-supply = <&gdsc_usb30>;
-		qcom,dwc-usb3-msm-dbm-eps = <8>;
 		qcom,otg-capability;
+		qcom,usb-dbm = <&dbm_1p5>;
 
 		qcom,msm-bus,name = "usb3";
 		qcom,msm-bus,num-cases = <2>;
@@ -521,6 +521,11 @@
 		vdda18-supply = <&pmd9635_l8>;
 		qcom,vdd-voltage-level = <0 900000 1050000>;
 		qcom,vbus-valid-override;
+	};
+
+	dbm_1p5: dbm@f92f8000 {
+		compatible = "qcom,usb-dbm-1p5";
+		reg = <0xf92f8000 0x1000>;
 	};
 
 	qcom,usbbam@f9304000 {
