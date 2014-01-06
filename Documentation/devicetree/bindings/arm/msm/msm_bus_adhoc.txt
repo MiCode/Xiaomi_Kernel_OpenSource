@@ -1,0 +1,178 @@
+MSM Bus Devices for adhoc bus topologies
+
+Buses are the interconnects between various devices. The devices are
+connected in different topologies. The bus scaling driver accepts
+bandwidth requests from clients and ensures that the bandwidth requests
+can be met between the source and destination for that client.
+In order to accept and honor bandwidth requests the bus scaling driver
+needs to know about the bus topology.
+This device tree binding represents the bus devices in the SOC, their
+connections to other bus devices and the resources associated with each
+node. The bus scaling driver uses this device tree to setup the bus
+topology in order to apply client bandwidth requests.
+
+The mandatory properties for bus driver are:
+
+compatible:		"qcom,msm-bus-device"
+
+The register space associated with the bus devices are represented with
+the following optional properties:
+reg:			Register space for a bus device.
+reg-name:		Name of the register space for the bus device.
+
+The child nodes represent the devices on the bus.
+
+The following properties are mandatory for a child node
+
+cell-id:		The unique device id of the child node.
+			For a master the ID is between 0 - 512
+			For a slave the ID is between 512 - 1024
+			For internal nodes the range is > 10000
+			The range of ids for the different types of child
+			devices are chosen for convenience, the only
+			requirement is that the id's be unique among the
+			child devices.
+label:			Unique name of the device.
+
+The following are optional properties for child nodes:
+
+
+qcom,fab-dev:		Optional boolean parameter that states if the device
+			is a fabric device or not.
+			Typically these optional properties are used for
+			devices that represent fabric devices.
+qcom,bypass-qos-prg:	Optional debug parameter to avoid programming the QoS
+			HW registers for a given fabric device.
+			Typically these optional properties are used for
+			devices that represent fabric devices.
+qcom,base-name:		Parameter that specifies the physical base address for
+			accessing registers associated with the child device.
+			Typically these optional properties are used for
+			devices that represent fabric devices.
+qcom,base-offset:	Parameter that gives the offset from the base address to access
+			the QoS registers.
+			Typically these optional properties are used for
+			devices that represent fabric devices.
+qcom,qos-off:		Parameter that represents the delta between QoS register address
+			space for different devices.
+			Typically these optional properties are used for
+			devices that represent fabric devices.
+qcom,bus-type:		Parameter that represents the bus type such as BIMC or NOC.
+			Typically these optional properties are used for
+			devices that represent fabric devices.
+clock-names:		Optional property that represents the clock name associated
+			with the device "bus_clk", "bus_a_clk";
+clocks:			Property pair that represents the clock controller and the clock
+			id. This in combimination with the clock-name is used to obtain
+			the handle for the clock associated with this device.
+qcom,virt-dev:		Parameter used for devices that represent virtual devices. Virtual
+			devices aren't real devices on the SOC but are used to aggregate
+			resources in some special cases.
+qcom,qport:		The offset index into the masters QoS register space.
+qcom,num-ports:		The number of ports that the device has.
+qcom,ap-owned:		Property that states if the device is "owned" by the Apps processor.
+			If true then the AP will program the QoS registers for the device
+			else it is done by RPM.
+qcom,connections:	An array of phandles that represent the devices this device is connected to.;
+qcom,bus-dev:		Phandle that represents the fabric device that this child node belongs to.
+qcom,qos-mode:		QoS mode to be programmed for this device, only applicable for AP owned resource.
+qcom,prio-rd:		Read priority for a BIMC bus master (Can be 0/1/2)
+qcom,prio-wr:		Write priority for a BIMC bus master (Can be 0/1/2)
+qcom,prio0:		Priority low signal for a NoC bus master
+			(Can be 0/1/2).
+qcom,prio1:		Priority high signal for a NoC bus master
+qcom,buswidth:		The buswidth at the device, default is 8 bytes.
+qcom,mas-rpm-id:	For non-AP owned device this is the RPM id for devices that are bus masters.
+			This is the id that is used when sending a message to RPM for this device.
+qcom,slv-rpm-id:	For non-AP owned device this is the RPM id for devices that are bus slaves.
+			This is the id that is used when sending a message to RPM for this device.
+
+
+The following properties are optional as collecting data via coresight might
+and are present on child nodes that represent NOC devices. The documentation
+for coresight properties can be found in:
+Documentation/devicetree/bindings/coresight/coresight.txt
+
+coreisght-id		Unique integer identifier for the bus.
+coresight-name		Unique descriptive name of the bus.
+coresight-nr-inports	Number of input ports on the bus.
+coresight-outports	List of output port numbers on the bus.
+coresight-child-list	List of phandles pointing to the children of this
+			component.
+coresight-child-ports	List of input port numbers of the children.
+
+
+Example:
+
+&ad_hoc_bus {
+        compatible = "msm-bus-device";
+        reg = <0x580000 0x62000>;
+        reg-names = "snoc-base";
+
+        fab_snoc: fab-snoc {
+                cell-id = <1024>;
+                label = "fab-snoc";
+                qcom,fab-dev;
+                qcom,bypass-qos-prg;
+                qcom,base-name = "snoc-base";
+                qcom,base-offset = <0x7000>;
+                qcom,qos-off = <0x1000>;
+                qcom,bus-type = <1>;
+                clock-names = "bus_clk", "bus_a_clk";
+                clocks = <&clock_rpm  clk_snoc_msmbus_clk>,
+                      <&clock_rpm  clk_snoc_msmbus_a_clk>;
+        };
+
+        mm_int_bimc: mm-int-bimc {
+                cell-id = <10003>;
+                label = "mm-int-bimc";
+                qcom,ap-owned;
+                qcom,connections = <&snoc_bimc_1_mas>;
+                qcom,bus-dev = <&fab_snoc>;
+                qcom,buswidth = <16>;
+        };
+
+        snoc_int_0: snoc-int-0 {
+                cell-id = <10004>;
+                label = "snoc-int-0";
+                qcom,connections = <&slv_qdss_stm &slv_imem &snoc_pnoc_mas>;
+                qcom,bus-dev = <&fab_snoc>;
+                qcom,mas-rpm-id = <99>;
+                qcom,slv-rpm-id = <130>;
+                qcom,buswidth = <8>;
+        };
+};
+
+
+The bus scaling driver also provides the ability to configure
+bus performance parameters across the entire chip-set.
+Various clients use MSM scaling APIs to request bandwidth
+between multiple master-slave pairs. The bus driver then finds
+the optimal path between the master and the slave, and aggregates
+the bandwidth and clock requests for all master-slave pairs on
+that path, and programs hardware accordingly.
+
+The device-tree data required for bus-scaling can be embedded within
+the clients' device nodes. The clients can register with the bus driver
+using the following properties:
+
+- qcom,msm-bus,name:		String representing the client-name
+- qcom,msm-bus,num-cases:	Total number of usecases
+- qcom,msm-bus,active-only:	Boolean context flag for requests in active or
+				dual (active & sleep) contex
+- qcom,msm-bus,num-paths:	Total number of master-slave pairs
+- qcom,msm-bus,vectors-KBps:	Arrays of unsigned integers representing:
+				master-id, slave-id, arbitrated bandwidth
+				in KBps, instantaneous bandwidth in KBps
+
+Example:
+
+	qcom,msm-bus,name = "client-name";
+	qcom,msm-bus,num-cases = <3>;
+	qcom,msm-bus,active-only;
+	qcom,msm-bus,num-paths = <2>;
+	qcom,msm-bus,vectors =
+			<22 512 0 0>, <26 512 0 0>,
+			<22 512 320000 3200000>, <26 512 3200000 3200000>,
+			<22 512 160000 1600000>, <26 512 1600000 1600000>;
+
