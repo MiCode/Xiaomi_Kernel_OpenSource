@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,9 +35,6 @@
 #define TSPP2_DMX_MAX_FEED_OPS			4
 
 #define TSPP2_DMX_PIPE_WORK_POOL_SIZE		500
-
-/* Max number of section filters */
-#define TSPP2_DMX_MAX_SECTION_FILTER_NUM	64
 
 /* Polling timer interval in milliseconds  */
 #define TSPP2_DMX_POLL_TIMER_INTERVAL_MSEC	50
