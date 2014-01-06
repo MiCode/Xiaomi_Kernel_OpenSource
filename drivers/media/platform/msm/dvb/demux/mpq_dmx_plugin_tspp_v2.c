@@ -1796,7 +1796,8 @@ static int mpq_dmx_terminate_out_pipe(struct pipe_info *pipe_info)
  *
  * Return 0 on success, error code otherwise
  */
-static int mpq_dmx_tspp2_source_setup(struct source_info *source_info)
+static int mpq_dmx_tspp2_source_setup(struct mpq_demux *mpq_demux,
+	struct source_info *source_info)
 {
 	struct tspp2_src_scrambling_config scramble_cfg;
 	enum tspp2_packet_format tsp_format;
@@ -1806,10 +1807,10 @@ static int mpq_dmx_tspp2_source_setup(struct source_info *source_info)
 	int ret;
 
 	/* From demod we always get 188 TS packets */
-	if (source_info->demux_src.mpq_demux->source < DMX_SOURCE_DVR0) {
+	if (mpq_demux->source < DMX_SOURCE_DVR0) {
 		tsp_format = TSPP2_PACKET_FORMAT_188_RAW;
 	} else {
-		switch (source_info->demux_src.mpq_demux->demux.tsp_format) {
+		switch (mpq_demux->demux.tsp_format) {
 		case DMX_TSP_FORMAT_188:
 			tsp_format = TSPP2_PACKET_FORMAT_188_RAW;
 			break;
@@ -1824,8 +1825,7 @@ static int mpq_dmx_tspp2_source_setup(struct source_info *source_info)
 			MPQ_DVB_ERR_PRINT(
 				"%s: unsupported TS packet format %d\n",
 				__func__,
-				source_info->demux_src.mpq_demux->
-				 demux.tsp_format);
+				mpq_demux->demux.tsp_format);
 			return -EINVAL;
 		}
 	}
@@ -1977,7 +1977,8 @@ static int mpq_dmx_tspp2_init_source(struct mpq_demux *mpq_demux,
 		src_cfg.params.tsif_params.enable_inverse = enable_inverse;
 	}
 
-	source_info->demux_src.mpq_demux = mpq_demux;
+	if (source_info->type == DEMUXING_SOURCE)
+		source_info->demux_src.mpq_demux = mpq_demux;
 	source_info->ref_count = 0;
 	ret = tspp2_src_open(TSPP2_DEVICE_ID, &src_cfg,
 		&source_info->handle);
@@ -1991,7 +1992,7 @@ static int mpq_dmx_tspp2_init_source(struct mpq_demux *mpq_demux,
 		"%s: tspp2_src_open success, source handle=0x%0x\n",
 		__func__, source_info->handle);
 
-	ret = mpq_dmx_tspp2_source_setup(source_info);
+	ret = mpq_dmx_tspp2_source_setup(mpq_demux, source_info);
 	if (ret) {
 		MPQ_DVB_ERR_PRINT(
 			"%s: mpq_dmx_tspp2_source_setup failed, ret=%d\n",
@@ -5105,6 +5106,7 @@ static int mpq_dmx_tspp2_release_ts_insert_pipe(
 
 	if (ref_count == 0) {
 		tspp2_src_pipe_detach(source_info->handle, pipe_info->handle);
+		source_info->ref_count--;
 		tspp2_pipe_close(pipe_info->handle);
 		pipe_info->handle = TSPP2_INVALID_HANDLE;
 
@@ -5894,6 +5896,7 @@ static int mpq_dmx_tspp2_write(struct dmx_demux *demux,
 			mutex_unlock(&mpq_dmx_tspp2_info.mutex);
 			return ret;
 		}
+		pipe_info->source_info = source_info;
 		source_info->ref_count++;
 		MPQ_DVB_DBG_PRINT(
 			"%s: tspp2_src_pipe_attach(src=0x%0x, pipe=0x%0x) success, new source ref. count=%u\n",
