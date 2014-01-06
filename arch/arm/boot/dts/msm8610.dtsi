@@ -240,7 +240,6 @@
 		qcom,hsusb-otg-otg-control = <2>;
 		qcom,hsusb-otg-disable-reset;
 		qcom,dp-manual-pullup;
-		qcom,ahb-async-bridge-bypass;
 		qcom,disable-retention-with-vdd-min;
 
 		qcom,msm-bus,name = "usb2";
