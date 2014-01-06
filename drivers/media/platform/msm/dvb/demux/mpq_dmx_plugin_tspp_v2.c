@@ -4556,6 +4556,25 @@ static int mpq_dmx_release_rec_pipe(struct dvb_demux_feed *feed)
 		mpq_dmx_terminate_out_pipe(pipe_info);
 		pipe_info->parent = NULL;
 		pipe_info->pipe_handler = NULL;
+	} else {
+		/*
+		 * Recording pipe may have multiple feeds associated with it.
+		 * If the pipe's parent feed was released we must assign another
+		 * valid feed for the pipe handler to work with.
+		 */
+		if (pipe_info->parent == tspp2_feed) {
+			struct dvb_demux_feed *feed_tmp;
+			struct mpq_feed *mpq_feed_tmp;
+
+			feed_tmp = mpq_dmx_peer_rec_feed(feed);
+			if (feed_tmp) {
+				MPQ_DVB_DBG_PRINT(
+					"%s: Switching pipe parent from feed(pid=%u) to feed(pid=%u)\n",
+					__func__, feed->pid, feed_tmp->pid);
+				mpq_feed_tmp = feed_tmp->priv;
+				pipe_info->parent = mpq_feed_tmp->plugin_priv;
+			}
+		}
 	}
 
 	mutex_unlock(&pipe_info->mutex);
