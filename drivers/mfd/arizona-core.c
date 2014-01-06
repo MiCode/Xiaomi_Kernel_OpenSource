@@ -838,6 +838,8 @@ static int arizona_of_get_core_pdata(struct arizona *arizona)
 	arizona_of_read_u32_array(arizona, "wlf,inmode", false,
 				  pdata->inmode, ARRAY_SIZE(pdata->inmode));
 
+	arizona_of_read_u32(arizona, "wlf,wm5102t-output-pwr", false,
+				&pdata->wm5102t_output_pwr);
 	return 0;
 }
 

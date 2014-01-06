@@ -105,6 +105,8 @@ Optional properties:
   - wlf,gpsw : Settings for the general purpose switch, set as per the
     SW1_MODE bits in the GP Switch 1 register
 
+    wlf,wm5102t-output-pwr : Output power setting (WM5102T only)
+
 Example:
 
 codec: wm5102@1a {
