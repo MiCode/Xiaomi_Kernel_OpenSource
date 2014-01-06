@@ -2876,6 +2876,9 @@ static int mpq_dmx_tspp2_pes_pipe_handler(struct pipe_info *pipe_info,
 				__func__, ret);
 			return ret;
 		}
+
+		if (iovec.flags & SPS_IOVEC_FLAG_EOT)
+			break;
 	}
 
 	if (event == PIPE_EOS_EVENT) {
@@ -3057,7 +3060,7 @@ static int mpq_dmx_tspp2_process_video_headers(struct mpq_feed *mpq_feed,
 		 * packet, so save the STC of the TS packet with
 		 * the PUSI flag set.
 		 */
-		meta_data.info.pes.stc = stc;
+		feed->prev_stc = stc;
 	}
 
 	if (ts_header->adaptation_field_control == 0 ||
@@ -3112,7 +3115,7 @@ static int mpq_dmx_tspp2_process_video_headers(struct mpq_feed *mpq_feed,
 	pts_dts_info = &meta_data.info.pes.pts_dts_info;
 	mpq_dmx_save_pts_dts(feed_data);
 	mpq_dmx_write_pts_dts(feed_data, pts_dts_info);
-	meta_data.info.pes.stc = stc;
+	meta_data.info.pes.stc = feed->prev_stc;
 
 	stream_buffer = feed_data->video_buffer;
 	if (stream_buffer == NULL) {
@@ -3218,7 +3221,6 @@ static int mpq_dmx_tspp2_video_pipe_handler(struct pipe_info *pipe_info,
 	enum mpq_dmx_tspp2_pipe_event event)
 {
 	int ret;
-	int found_pes;
 	u32 tspp_write_offset = 0;
 	u32 tspp_last_addr = 0;
 	u32 pes_leftover = 0;
@@ -3263,74 +3265,6 @@ static int mpq_dmx_tspp2_video_pipe_handler(struct pipe_info *pipe_info,
 	feed = mpq_feed->dvb_demux_feed;
 	feed_data = &mpq_feed->video_info;
 
-	/*
-	 * Read all pending header descriptors. Typically only one descriptor
-	 * will be read for each call of the pipe handler, but producer
-	 * notifications might be missed so need to pick up the lost
-	 * descriptors.
-	 */
-	while (1) {
-		found_pes = 0;
-		feed->peslen = 0;
-		feed_data->pes_header_offset = 0;
-		feed_data->pes_header_left_bytes = PES_MANDATORY_FIELDS_LEN;
-
-		ret = tspp2_pipe_descriptor_get(pipe_info->handle, &iovec);
-		if (ret) {
-			/* should NEVER happen! */
-			MPQ_DVB_ERR_PRINT(
-				"%s: tspp2_pipe_descriptor_get failed, no EOT\n",
-				__func__);
-			return -EINVAL;
-		}
-
-		/* No more descriptors */
-		if (iovec.size == 0)
-			break;
-
-		data_buffer = mpq_dmx_get_kernel_addr(pipe_info, iovec.addr);
-		if (unlikely(!data_buffer || iovec.size !=
-			TSPP2_DMX_SPS_VPES_HEADER_DESC_SIZE)) {
-			/* should NEVER happen! */
-			if (!data_buffer) {
-				MPQ_DVB_ERR_PRINT(
-					"%s: mpq_dmx_get_kernel_addr failed\n",
-					__func__);
-				ret = -EFAULT;
-			} else {
-				MPQ_DVB_ERR_PRINT(
-					"%s: invalid VPES header desc size %d, expected %d\n",
-					__func__, iovec.size,
-					TSPP2_DMX_SPS_VPES_HEADER_DESC_SIZE);
-				ret = -EINVAL;
-			}
-			return ret;
-		}
-
-		ret = mpq_dmx_tspp2_process_video_headers(mpq_feed,
-			data_buffer, 0, pipe_info, main_pipe);
-		found_pes = (ret == 1);
-		if (ret < 0)
-			MPQ_DVB_DBG_PRINT(
-				"%s: mpq_dmx_tspp2_process_video_pes failed, ret=%d\n",
-				__func__, ret);
-
-		/* re-queue buffer holding TS packet of PES header */
-		ret = tspp2_pipe_descriptor_put(pipe_info->handle,
-				iovec.addr, iovec.size, 0);
-		if (unlikely(ret))
-			MPQ_DVB_ERR_PRINT(
-				"%s: tspp2_pipe_descriptor_put failed %d\n",
-				__func__, ret);
-
-		pipe_info->tspp_write_offset += iovec.size;
-		if (pipe_info->tspp_write_offset >= pipe_info->buffer.size)
-			pipe_info->tspp_write_offset -= pipe_info->buffer.size;
-
-		pipe_info->tspp_read_offset = pipe_info->tspp_write_offset;
-		pipe_info->bam_read_offset = pipe_info->tspp_write_offset;
-	}
-
 	if (event == PIPE_EOS_EVENT) {
 		tspp2_pipe_last_address_used_get(pipe_info->handle,
 			&tspp_last_addr);
@@ -3354,13 +3288,18 @@ static int mpq_dmx_tspp2_video_pipe_handler(struct pipe_info *pipe_info,
 				mpq_feed, data_buffer,
 				1, /* partial header */
 				pipe_info, main_pipe);
-			if (ret < 0)
+			if (ret < 0) {
+				if (ret == -ENODEV) {
+					MPQ_DVB_DBG_PRINT(
+						"%s: header pipe was closed\n",
+						__func__);
+					return ret;
+				}
 				MPQ_DVB_ERR_PRINT(
 					"%s: mpq_dmx_tspp2_process_video_pes failed, ret=%d\n",
 					__func__, ret);
-
-			pipe_info->tspp_write_offset =
-				tspp_write_offset;
+			}
+			pipe_info->tspp_write_offset = tspp_write_offset;
 			pipe_info->tspp_read_offset = tspp_write_offset;
 			pipe_info->bam_read_offset = tspp_write_offset;
 		}
@@ -3376,9 +3315,94 @@ static int mpq_dmx_tspp2_video_pipe_handler(struct pipe_info *pipe_info,
 		eos_event.data_length = 0;
 		eos_event.status = DMX_OK_EOS;
 		feed->data_ready_cb.ts(&feed->feed.ts, &eos_event);
+
+		return 0;
 	}
 
+	/*
+	 * PIPE_DATA_EVENT case:
+	 * Read exactly one EOT descriptor containing 1 or 2 s-pes headers.
+	 */
+	ret = tspp2_pipe_descriptor_get(pipe_info->handle, &iovec);
+	if (ret) {
+		/* should NEVER happen! */
+		MPQ_DVB_ERR_PRINT(
+			"%s: tspp2_pipe_descriptor_get failed, ret=%d\n",
+			__func__, ret);
+		return -EINVAL;
+	}
+
+	if (!(iovec.flags & SPS_IOVEC_FLAG_EOT)) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: not EOT descriptor (flags=0x%x)\n",
+			__func__, iovec.flags);
+		ret = -EINVAL;
+		goto put_desc;
+	}
+
+	/* Descriptor must contain either 1 or 2 s-pes headers */
+	if (iovec.size != VPES_HEADER_DATA_SIZE &&
+		iovec.size != 2*VPES_HEADER_DATA_SIZE) {
+		MPQ_DVB_DBG_PRINT("%s: invalid descriptor size %d\n",
+			__func__, iovec.size);
+		ret = -EINVAL;
+		goto put_desc;
+	}
+
+	data_buffer = mpq_dmx_get_kernel_addr(pipe_info, iovec.addr);
+	if (unlikely(!data_buffer)) {
+		/* should NEVER happen! */
+		MPQ_DVB_ERR_PRINT(
+			"%s: mpq_dmx_get_kernel_addr failed (addr=0x%x)\n",
+			__func__, iovec.addr);
+		/* Do not put back a descriptor with invalid address */
+		return -EFAULT;
+	}
+
+	ret = mpq_dmx_tspp2_process_video_headers(mpq_feed,
+		data_buffer, 0, pipe_info, main_pipe);
+	if (ret == 0 && iovec.size > VPES_HEADER_DATA_SIZE) {
+		/*
+		 * PES header spreads across more than 1 TS packet so
+		 * it has two headers that need to be parsed.
+		 */
+		ret = mpq_dmx_tspp2_process_video_headers(mpq_feed,
+			&data_buffer[VPES_HEADER_DATA_SIZE], 0,
+			pipe_info, main_pipe);
+	}
+
+	if (ret < 0) {
+		MPQ_DVB_DBG_PRINT(
+			"%s: mpq_dmx_tspp2_process_video_pes failed, ret=%d\n",
+			__func__, ret);
+		/* Exit handler if filter was stopped */
+		if (ret == -ENODEV)
+			return ret;
+	}
+
+	/* re-queue buffer holding TS packet of PES header */
+	ret = tspp2_pipe_descriptor_put(pipe_info->handle, iovec.addr,
+		TSPP2_DMX_SPS_VPES_HEADER_DESC_SIZE, 0);
+	if (unlikely(ret))
+		MPQ_DVB_ERR_PRINT(
+			"%s: tspp2_pipe_descriptor_put failed %d\n",
+			__func__, ret);
+
+	pipe_info->tspp_write_offset += TSPP2_DMX_SPS_VPES_HEADER_DESC_SIZE;
+	if (pipe_info->tspp_write_offset >= pipe_info->buffer.size)
+		pipe_info->tspp_write_offset -= pipe_info->buffer.size;
+
+	pipe_info->tspp_read_offset = pipe_info->tspp_write_offset;
+	pipe_info->bam_read_offset = pipe_info->tspp_write_offset;
+
 	return 0;
+
+put_desc:
+	if (tspp2_pipe_descriptor_put(pipe_info->handle, iovec.addr,
+		TSPP2_DMX_SPS_VPES_HEADER_DESC_SIZE, 0))
+		MPQ_DVB_ERR_PRINT(
+			"%s: tspp2_pipe_descriptor_put failed\n", __func__);
+	return ret;
 }
 
 /**
@@ -5959,15 +5983,37 @@ static bool mpq_dmx_tspp2_pipe_do_work(struct source_info *source_info)
 	return false;
 }
 
+static void mpq_dmx_tspp2_call_pipe_handler(struct pipe_work *pipe_work,
+	struct pipe_info *pipe_info)
+{
+	int i;
+
+	for (i = 0; i < pipe_work->event_count; i++) {
+		if (mutex_lock_interruptible(&pipe_info->mutex))
+			break;
+
+		/* Check pipe was not closed / reopened */
+		if (!pipe_info->pipe_handler || !pipe_info->ref_count ||
+			pipe_work->session_id != pipe_info->session_id) {
+			mutex_unlock(&pipe_info->mutex);
+			break;
+		}
+
+		/* Call pipe handler while pipe mutex is locked */
+		pipe_info->pipe_handler(pipe_info, pipe_work->event);
+		pipe_info->handler_count++;
+
+		mutex_unlock(&pipe_info->mutex);
+	}
+}
+
 static int mpq_dmx_tspp2_thread(void *arg)
 {
 	struct source_info *source_info = arg;
 	struct pipe_work *pipe_work;
 	struct pipe_info *pipe_info;
 	int ret;
-	unsigned long flags;
 	int i;
-	int j;
 
 	while (1) {
 		ret = wait_event_interruptible(
@@ -6014,23 +6060,9 @@ static int mpq_dmx_tspp2_thread(void *arg)
 				continue;
 			}
 
-			spin_lock_irqsave(&pipe_info->lock, flags);
-			if (pipe_info->ref_count && pipe_info->pipe_handler &&
-				pipe_work->session_id ==
-					pipe_info->session_id) {
-				spin_unlock_irqrestore(&pipe_info->lock, flags);
-				MPQ_DVB_DBG_PRINT(
-					"%s: calling pipe %d handler %d times\n",
-					__func__, i, pipe_work->event_count);
-				for (j = 0; j < pipe_work->event_count; j++)
-					pipe_info->pipe_handler(pipe_info,
-						pipe_work->event);
-				pipe_info->handler_count += j;
-			} else {
-				spin_unlock_irqrestore(&pipe_info->lock, flags);
-			}
-
 			mutex_unlock(&pipe_info->mutex);
+
+			mpq_dmx_tspp2_call_pipe_handler(pipe_work, pipe_info);
 
 			pipe_work_queue_release(&pipe_info->work_queue,
 				pipe_work);

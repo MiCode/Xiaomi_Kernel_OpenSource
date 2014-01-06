@@ -42,11 +42,13 @@
 /* Polling timer interval in milliseconds  */
 #define TSPP2_DMX_POLL_TIMER_INTERVAL_MSEC	50
 
+#define VPES_HEADER_DATA_SIZE			204
+
 /* Sizes of BAM descriptor */
 #define TSPP2_DMX_SPS_SECTION_DESC_SIZE		188	/* size of TS packet */
 #define TSPP2_DMX_SPS_PCR_DESC_SIZE		195	/* size of PCR packet */
 #define TSPP2_DMX_SPS_INDEXING_DESC_SIZE	28	/* index entry size */
-#define TSPP2_DMX_SPS_VPES_HEADER_DESC_SIZE	204	/* Video PES header */
+#define TSPP2_DMX_SPS_VPES_HEADER_DESC_SIZE	(1 + 2*VPES_HEADER_DATA_SIZE)
 #define TSPP2_DMX_SPS_VPES_PAYLOAD_DESC_SIZE	2048	/* Video PES payload */
 #define TSPP2_DMX_SPS_NON_VID_PES_DESC_SIZE	256	/* Non-Video PES */
 
