@@ -239,10 +239,10 @@ static int __flush_iotlb_va(struct iommu_domain *domain, unsigned int va)
 		if (ret)
 			goto fail;
 
-		SET_TLBIVA(iommu_drvdata->base, ctx_drvdata->num,
+		SET_TLBIVA(iommu_drvdata->cb_base, ctx_drvdata->num,
 			   ctx_drvdata->asid | (va & CB_TLBIVA_VA));
 		mb();
-		__sync_tlb(iommu_drvdata->base, ctx_drvdata->num);
+		__sync_tlb(iommu_drvdata->cb_base, ctx_drvdata->num);
 		__disable_clocks(iommu_drvdata);
 	}
 fail:
@@ -266,10 +266,10 @@ static int __flush_iotlb(struct iommu_domain *domain)
 		if (ret)
 			goto fail;
 
-		SET_TLBIASID(iommu_drvdata->base, ctx_drvdata->num,
+		SET_TLBIASID(iommu_drvdata->cb_base, ctx_drvdata->num,
 			     ctx_drvdata->asid);
 		mb();
-		__sync_tlb(iommu_drvdata->base, ctx_drvdata->num);
+		__sync_tlb(iommu_drvdata->cb_base, ctx_drvdata->num);
 		__disable_clocks(iommu_drvdata);
 	}
 
@@ -410,7 +410,7 @@ static void msm_iommu_assign_ASID(const struct msm_iommu_drvdata *iommu_drvdata,
 				  struct msm_iommu_priv *priv)
 {
 	unsigned int found = 0;
-	void __iomem *base = iommu_drvdata->base;
+	void __iomem *cb_base = iommu_drvdata->cb_base;
 	unsigned int i;
 	unsigned int ncb = iommu_drvdata->ncb;
 	struct msm_iommu_ctx_drvdata *tmp_drvdata;
@@ -438,7 +438,7 @@ static void msm_iommu_assign_ASID(const struct msm_iommu_drvdata *iommu_drvdata,
 		BUG_ON(!found);
 	}
 
-	msm_iommu_set_ASID(base, curr_ctx->num, curr_ctx->asid);
+	msm_iommu_set_ASID(cb_base, curr_ctx->num, curr_ctx->asid);
 }
 
 #ifdef CONFIG_IOMMU_LPAE
@@ -542,30 +542,31 @@ static void __program_context(struct msm_iommu_drvdata *iommu_drvdata,
 {
 	phys_addr_t pn;
 	void __iomem *base = iommu_drvdata->base;
+	void __iomem *cb_base = iommu_drvdata->cb_base;
 	unsigned int ctx = ctx_drvdata->num;
 	phys_addr_t pgtable = __pa(priv->pt.fl_table);
 
-	__reset_context(base, ctx);
-	msm_iommu_setup_ctx(base, ctx);
+	__reset_context(cb_base, ctx);
+	msm_iommu_setup_ctx(cb_base, ctx);
 
 	if (priv->pt.redirect)
-		msm_iommu_setup_pg_l2_redirect(base, ctx);
+		msm_iommu_setup_pg_l2_redirect(cb_base, ctx);
 
-	msm_iommu_setup_memory_remap(base, ctx);
+	msm_iommu_setup_memory_remap(cb_base, ctx);
 
 	pn = pgtable >> CB_TTBR0_ADDR_SHIFT;
-	SET_CB_TTBR0_ADDR(base, ctx, pn);
+	SET_CB_TTBR0_ADDR(cb_base, ctx, pn);
 
 	/* Enable context fault interrupt */
-	SET_CB_SCTLR_CFIE(base, ctx, 1);
+	SET_CB_SCTLR_CFIE(cb_base, ctx, 1);
 
 	/* Redirect all cacheable requests to L2 slave port. */
-	SET_CB_ACTLR_BPRCISH(base, ctx, 1);
-	SET_CB_ACTLR_BPRCOSH(base, ctx, 1);
-	SET_CB_ACTLR_BPRCNSH(base, ctx, 1);
+	SET_CB_ACTLR_BPRCISH(cb_base, ctx, 1);
+	SET_CB_ACTLR_BPRCOSH(cb_base, ctx, 1);
+	SET_CB_ACTLR_BPRCNSH(cb_base, ctx, 1);
 
 	/* Enable private ASID namespace */
-	SET_CB_SCTLR_ASIDPNE(base, ctx, 1);
+	SET_CB_SCTLR_ASIDPNE(cb_base, ctx, 1);
 
 	if (!is_secure) {
 		if (program_m2v)
@@ -593,7 +594,7 @@ static void __program_context(struct msm_iommu_drvdata *iommu_drvdata,
 	msm_iommu_assign_ASID(iommu_drvdata, ctx_drvdata, priv);
 
 	/* Enable the MMU */
-	SET_CB_SCTLR_M(base, ctx, 1);
+	SET_CB_SCTLR_M(cb_base, ctx, 1);
 	mb();
 }
 
@@ -768,7 +769,8 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 
 	is_secure = iommu_drvdata->sec_id != -1;
 
-	SET_TLBIASID(iommu_drvdata->base, ctx_drvdata->num, ctx_drvdata->asid);
+	SET_TLBIASID(iommu_drvdata->cb_base, ctx_drvdata->num,
+					ctx_drvdata->asid);
 
 	BUG_ON(iommu_drvdata->asid[ctx_drvdata->asid - 1] == 0);
 	iommu_drvdata->asid[ctx_drvdata->asid - 1]--;
@@ -776,7 +778,7 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 
 	iommu_halt(iommu_drvdata);
 
-	__reset_context(iommu_drvdata->base, ctx_drvdata->num);
+	__reset_context(iommu_drvdata->cb_base, ctx_drvdata->num);
 
 	/*
 	 * Only reset the M2V tables on the very last detach */
@@ -940,7 +942,7 @@ static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 		return ret;
 	}
 
-	base = iommu_drvdata->base;
+	base = iommu_drvdata->cb_base;
 	ctx = ctx_drvdata->num;
 
 	ret = __enable_clocks(iommu_drvdata);
@@ -1180,7 +1182,7 @@ irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)
 		goto fail;
 	}
 
-	fsr = GET_FSR(drvdata->base, ctx_drvdata->num);
+	fsr = GET_FSR(drvdata->cb_base, ctx_drvdata->num);
 	if (fsr) {
 		if (!ctx_drvdata->attached_domain) {
 			pr_err("Bad domain in interrupt handler\n");
@@ -1188,7 +1190,7 @@ irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)
 		} else
 			ret = report_iommu_fault(ctx_drvdata->attached_domain,
 				&ctx_drvdata->pdev->dev,
-				GET_FAR(drvdata->base, ctx_drvdata->num), 0);
+				GET_FAR(drvdata->cb_base, ctx_drvdata->num), 0);
 
 		if (ret == -ENOSYS) {
 			pr_err("Unexpected IOMMU page fault!\n");
@@ -1196,11 +1198,12 @@ irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)
 			pr_err("context = %s (%d)\n", ctx_drvdata->name,
 							ctx_drvdata->num);
 			pr_err("Interesting registers:\n");
-			__print_ctx_regs(drvdata->base, ctx_drvdata->num, fsr);
+			__print_ctx_regs(drvdata->cb_base,
+					ctx_drvdata->num, fsr);
 		}
 
 		if (ret != -EBUSY)
-			SET_FSR(drvdata->base, ctx_drvdata->num, fsr);
+			SET_FSR(drvdata->cb_base, ctx_drvdata->num, fsr);
 		ret = IRQ_HANDLED;
 	} else
 		ret = IRQ_NONE;

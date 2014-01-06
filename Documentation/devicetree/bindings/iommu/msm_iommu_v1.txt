@@ -30,6 +30,7 @@ Optional properties:
 - qcom,iommu-pmu-event-classes: List of event classes supported.
 - Bus scaling properties: See msm_bus.txt
 - qcom,no-atos-support: boolean indicating that IOMMU doesn't have ATS support
+- qcom,cb-base-offset: context bank 0's base address from global base address
 
 - List of sub nodes, one for each of the translation context banks supported.
   Each sub node has the following required properties:

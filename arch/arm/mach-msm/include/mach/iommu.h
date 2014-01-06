@@ -111,6 +111,7 @@ struct msm_iommu_bfb_settings {
 struct msm_iommu_drvdata {
 	void __iomem *base;
 	void __iomem *glb_base;
+	void __iomem *cb_base;
 	int ncb;
 	int ttbr_split;
 	struct clk *clk;

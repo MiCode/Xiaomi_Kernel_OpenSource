@@ -287,6 +287,7 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	struct resource *r;
 	int ret, needs_alt_core_clk, needs_alt_iface_clk;
 	int global_cfg_irq, global_client_irq;
+	u32 temp;
 
 	drvdata = devm_kzalloc(&pdev->dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
@@ -342,6 +343,13 @@ static int msm_iommu_probe(struct platform_device *pdev)
 
 	drvdata->no_atos_support = of_property_read_bool(pdev->dev.of_node,
 						"qcom,no-atos-support");
+
+	if (!of_property_read_u32(pdev->dev.of_node,
+				"qcom,cb-base-offset",
+				&temp))
+		drvdata->cb_base = drvdata->base + temp;
+	else
+		drvdata->cb_base = drvdata->base + 0x8000;
 
 	if (clk_get_rate(drvdata->clk) == 0) {
 		ret = clk_round_rate(drvdata->clk, 1000);
@@ -442,7 +450,9 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 {
 	struct resource *r, rp;
 	int irq = 0, ret = 0;
+	struct msm_iommu_drvdata *drvdata;
 	u32 nsid;
+	unsigned long cb_offset;
 
 	get_secure_ctx(pdev->dev.of_node, ctx_drvdata);
 
@@ -484,12 +494,15 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 	if (ret)
 		goto out;
 
-	/* Calculate the context bank number using the base addresses. The
-	 * first 8 pages belong to the global address space which is followed
-	 * by the context banks, hence subtract by 8 to get the context bank
-	 * number.
+	/* Calculate the context bank number using the base addresses.
+	 * Typically CB0 base address is 0x8000 pages away if the number
+	 * of CBs are <=8. So, assume the offset 0x8000 until mentioned
+	 * explicitely.
 	 */
-	ctx_drvdata->num = ((r->start - rp.start) >> CTX_SHIFT) - 8;
+	drvdata = dev_get_drvdata(pdev->dev.parent);
+	cb_offset = drvdata->cb_base - drvdata->base;
+	ctx_drvdata->num = ((r->start - rp.start - cb_offset)
+					>> CTX_SHIFT);
 
 	if (of_property_read_string(pdev->dev.of_node, "label",
 					&ctx_drvdata->name))
