@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +18,7 @@
 		compatible = "qcom,smb1357-charger";
 		reg = <0x1c>;
 		interrupt-parent = <&msmgpio>;
-		interrupts = <24 0x3>;	/* MDM GPIO 24 */
+		interrupts = <24 0x3>;	/* MDM GPIO 24 connected to the SMB STAT pin */
 		qcom,float-voltage-mv = <4200>;
 		qcom,charging-timeout = <1536>;
 		qcom,recharge-thresh-mv = <200>;
@@ -26,6 +26,10 @@
 		qcom,charging-disabled;
 		regulator-name = "smb1357_otg_supply";
 	};
+};
+
+&usb3 {
+	vbus_dwc3-supply = <&smb1357_otg_supply>; /* Host 5V VBUS from SMB1357 regulator */
 };
 
 &spi_2 {
