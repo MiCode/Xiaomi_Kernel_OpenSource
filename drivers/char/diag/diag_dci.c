@@ -681,7 +681,7 @@ void extract_dci_events(unsigned char *buf, int len, int data_source)
 {
 	uint16_t event_id, event_id_packet, length, temp_len;
 	uint8_t payload_len, payload_len_field;
-	uint8_t timestamp[8], timestamp_len;
+	uint8_t timestamp[8] = {0}, timestamp_len;
 	unsigned char event_data[MAX_EVENT_SIZE];
 	unsigned int total_event_len;
 	struct list_head *start, *temp;
