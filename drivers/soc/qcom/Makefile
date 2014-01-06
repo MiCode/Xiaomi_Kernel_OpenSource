@@ -3,4 +3,4 @@
 obj-y		+= qdsp6v2/
 
 obj-$(CONFIG_MSM_SMEM) += smem.o smem_debug.o
-obj-$(CONFIG_MSM_QMI_INTERFACE)		+= memshare/
+obj-$(CONFIG_MEM_SHARE_QMI_SERVICE)		+= memshare/
