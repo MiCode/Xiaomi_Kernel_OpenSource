@@ -81,6 +81,7 @@ struct mdm_ctrl {
 	int status_irq;
 	int pblrdy_irq;
 	int debug;
+	int init;
 	bool debug_fail;
 	unsigned int dump_timeout_ms;
 	unsigned int ramdump_delay_ms;
@@ -307,6 +308,7 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 	case ESOC_PWR_ON:
 		gpio_set_value(MDM_GPIO(mdm, AP2MDM_ERRFATAL), 0);
 		mdm_enable_irqs(mdm);
+		mdm->init = 1;
 		mdm_do_first_power_on(mdm);
 		break;
 	case ESOC_PWR_OFF:
@@ -350,18 +352,16 @@ shutdown_cleanup:
 		 * disable all irqs except request irq (pblrdy)
 		 * force a reset of the mdm by signaling
 		 * an APQ crash, wait till mdm is ready for ramdumps.
-		 * if mdm has not reset till then, force a reset
 		 */
-		mdm->debug = 1;
 		mdm->ready = false;
 		cancel_delayed_work(&mdm->mdm2ap_status_check_work);
 		gpio_set_value(MDM_GPIO(mdm, AP2MDM_ERRFATAL), 1);
 		dev_dbg(mdm->dev, "set ap2mdm errfatal to force reset\n");
 		msleep(mdm->ramdump_delay_ms);
-		if (gpio_get_value(MDM_GPIO(mdm, MDM2AP_STATUS)) != 0)
-			mdm_toggle_soft_reset(mdm);
 		break;
 	case ESOC_EXE_DEBUG:
+		mdm->debug = 1;
+		mdm_toggle_soft_reset(mdm);
 		/*
 		 * wait for ramdumps to be collected
 		 * then power down the mdm and switch gpios to booting
@@ -370,13 +370,16 @@ shutdown_cleanup:
 		if (!wait_for_completion_timeout(&mdm->debug_done,
 				msecs_to_jiffies(mdm->dump_timeout_ms))) {
 			dev_err(mdm->dev, "ramdump collection timedout\n");
+			mdm->debug = 0;
 			return -ETIMEDOUT;
 		}
 		if (mdm->debug_fail) {
 			dev_err(mdm->dev, "unable to collect ramdumps\n");
+			mdm->debug = 0;
 			return -EIO;
 		}
 		dev_dbg(mdm->dev, "ramdump collection done\n");
+		mdm->debug = 0;
 		init_completion(&mdm->debug_done);
 		break;
 	case ESOC_EXIT_DEBUG:
@@ -384,7 +387,6 @@ shutdown_cleanup:
 		 * Deassert APQ to mdm err fatal
 		 * Power on the mdm
 		 */
-		mdm->debug = 0;
 		gpio_set_value(MDM_GPIO(mdm, AP2MDM_ERRFATAL), 0);
 		dev_dbg(mdm->dev, "exiting debug state after power on\n");
 		mdm->get_restart_reason = true;
@@ -457,6 +459,7 @@ static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
 				msecs_to_jiffies(MDM2AP_STATUS_TIMEOUT_MS));
 		break;
 	case ESOC_IMG_XFER_RETRY:
+		mdm->init = 1;
 		mdm_toggle_soft_reset(mdm);
 		break;
 	case ESOC_IMG_XFER_FAIL:
@@ -559,11 +562,13 @@ static irqreturn_t mdm_pblrdy_change(int irq, void *dev_id)
 	dev = mdm->dev;
 	dev_dbg(dev, "pbl ready %d:\n",
 			gpio_get_value(MDM_GPIO(mdm, MDM2AP_PBLRDY)));
-	if (mdm->debug) {
-		esoc_clink_queue_request(ESOC_REQ_DEBUG, esoc);
+	if (mdm->init) {
+		mdm->init = 0;
+		esoc_clink_queue_request(ESOC_REQ_IMG, esoc);
 		return IRQ_HANDLED;
 	}
-	esoc_clink_queue_request(ESOC_REQ_IMG, esoc);
+	if (mdm->debug)
+		esoc_clink_queue_request(ESOC_REQ_DEBUG, esoc);
 	return IRQ_HANDLED;
 }
 
@@ -794,6 +799,7 @@ static int mdm9x25_setup_hw(struct mdm_ctrl *mdm,
 	mdm->get_restart_reason = false;
 	mdm->debug_fail = false;
 	mdm->esoc = esoc;
+	mdm->init = 0;
 	return 0;
 }
 
