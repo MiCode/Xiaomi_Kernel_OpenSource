@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,8 +63,13 @@ int rmnet_set_logical_endpoint_config(struct net_device *dev,
 				      int config_id,
 				      uint8_t rmnet_mode,
 				      struct net_device *egress_dev);
+int _rmnet_unset_logical_endpoint_config(struct net_device *dev,
+					 int config_id);
+int rmnet_unset_logical_endpoint_config(struct net_device *dev,
+					int config_id);
 void rmnet_config_netlink_msg_handler (struct sk_buff *skb);
 int rmnet_create_vnd(int id);
 int rmnet_create_vnd_prefix(int id, const char *name);
+int rmnet_free_vnd(int id);
 
 #endif /* _RMNET_DATA_CONFIG_H_ */

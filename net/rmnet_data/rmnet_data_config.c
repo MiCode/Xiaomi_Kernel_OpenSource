@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -125,6 +125,40 @@ static inline struct rmnet_phys_ep_conf_s *_rmnet_get_phys_ep_config
 		return 0;
 }
 
+/**
+ * _rmnet_get_logical_ep() - Gets the logical end point configuration
+ * structure for a network device
+ * @dev:             Device to get endpoint configuration from
+ * @config_id:       Logical endpoint id on device
+ * Retrieves the logical_endpoint_config structure.
+ *
+ * Return:
+ *      - End point configuration structure
+ *      - NULL in case of an error
+ */
+struct rmnet_logical_ep_conf_s *_rmnet_get_logical_ep(struct net_device *dev,
+						      int config_id)
+{
+	struct rmnet_phys_ep_conf_s *config;
+	struct rmnet_logical_ep_conf_s *epconfig_l;
+
+	if (rmnet_vnd_is_vnd(dev))
+		epconfig_l = rmnet_vnd_get_le_config(dev);
+	else {
+		config = _rmnet_get_phys_ep_config(dev);
+
+		if (!config)
+			return NULL;
+
+		if (config_id == RMNET_LOCAL_LOGICAL_ENDPOINT)
+			epconfig_l = &config->local_ep;
+		else
+			epconfig_l = &config->muxed_ep[config_id];
+	}
+
+	return epconfig_l;
+}
+
 /* ***************** Netlink Handler **************************************** */
 #define _RMNET_NETLINK_NULL_CHECKS() do { if (!rmnet_header || !resp_rmnet) \
 			BUG(); \
@@ -151,6 +185,7 @@ static void _rmnet_netlink_set_link_egress_data_format
 					     rmnet_header->data_format.agg_size,
 					     rmnet_header->data_format.agg_count
 					     );
+	dev_put(dev);
 }
 
 static void _rmnet_netlink_set_link_ingress_data_format
@@ -171,6 +206,7 @@ static void _rmnet_netlink_set_link_ingress_data_format
 	resp_rmnet->return_code =
 		rmnet_set_ingress_data_format(dev,
 					      rmnet_header->data_format.flags);
+	dev_put(dev);
 }
 
 static void _rmnet_netlink_set_logical_ep_config
@@ -203,6 +239,39 @@ static void _rmnet_netlink_set_logical_ep_config
 				dev2);
 	else
 		resp_rmnet->return_code = RMNET_CONFIG_NO_SUCH_DEVICE;
+
+	if (dev != 0)
+		dev_put(dev);
+	if (dev2 != 0)
+		dev_put(dev2);
+}
+
+static void _rmnet_netlink_unset_logical_ep_config
+					(struct rmnet_nl_msg_s *rmnet_header,
+					 struct rmnet_nl_msg_s *resp_rmnet)
+{
+	struct net_device *dev;
+	_RMNET_NETLINK_NULL_CHECKS();
+
+	resp_rmnet->crd = RMNET_NETLINK_MSG_RETURNCODE;
+	if (rmnet_header->local_ep_config.ep_id < -1
+	    || rmnet_header->local_ep_config.ep_id > 254) {
+		resp_rmnet->return_code = RMNET_CONFIG_BAD_ARGUMENTS;
+		return;
+	}
+
+	dev = dev_get_by_name(&init_net,
+				rmnet_header->local_ep_config.dev);
+
+	if (dev != 0) {
+		resp_rmnet->return_code =
+			rmnet_unset_logical_endpoint_config(
+				dev,
+				rmnet_header->local_ep_config.ep_id);
+		dev_put(dev);
+	} else {
+		resp_rmnet->return_code = RMNET_CONFIG_NO_SUCH_DEVICE;
+	}
 }
 
 static void _rmnet_netlink_associate_network_device
@@ -220,6 +289,7 @@ static void _rmnet_netlink_associate_network_device
 	}
 
 	resp_rmnet->return_code = rmnet_associate_network_device(dev);
+	dev_put(dev);
 }
 
 static void _rmnet_netlink_unassociate_network_device
@@ -237,6 +307,7 @@ static void _rmnet_netlink_unassociate_network_device
 	}
 
 	resp_rmnet->return_code = rmnet_unassociate_network_device(dev);
+	dev_put(dev);
 }
 
 static void _rmnet_netlink_get_link_egress_data_format
@@ -258,6 +329,7 @@ static void _rmnet_netlink_get_link_egress_data_format
 	config = _rmnet_get_phys_ep_config(dev);
 	if (!config) {
 		resp_rmnet->return_code = RMNET_CONFIG_INVALID_REQUEST;
+		dev_put(dev);
 		return;
 	}
 
@@ -267,6 +339,7 @@ static void _rmnet_netlink_get_link_egress_data_format
 	resp_rmnet->data_format.flags = config->egress_data_format;
 	resp_rmnet->data_format.agg_count = config->egress_agg_count;
 	resp_rmnet->data_format.agg_size  = config->egress_agg_size;
+	dev_put(dev);
 }
 
 static void _rmnet_netlink_get_link_ingress_data_format
@@ -288,6 +361,7 @@ static void _rmnet_netlink_get_link_ingress_data_format
 	config = _rmnet_get_phys_ep_config(dev);
 	if (!config) {
 		resp_rmnet->return_code = RMNET_CONFIG_INVALID_REQUEST;
+		dev_put(dev);
 		return;
 	}
 
@@ -295,6 +369,7 @@ static void _rmnet_netlink_get_link_ingress_data_format
 	resp_rmnet->crd = RMNET_NETLINK_MSG_RETURNDATA;
 	resp_rmnet->arg_length = RMNET_NL_MSG_SIZE(data_format);
 	resp_rmnet->data_format.flags = config->ingress_data_format;
+	dev_put(dev);
 }
 
 static void _rmnet_netlink_get_vnd_name
@@ -438,6 +513,11 @@ void rmnet_config_netlink_msg_handler(struct sk_buff *skb)
 		_rmnet_netlink_set_logical_ep_config(rmnet_header, resp_rmnet);
 		break;
 
+	case RMNET_NETLINK_UNSET_LOGICAL_EP_CONFIG:
+		_rmnet_netlink_unset_logical_ep_config(rmnet_header,
+						       resp_rmnet);
+		break;
+
 	case RMNET_NETLINK_NEW_VND:
 		resp_rmnet->crd = RMNET_NETLINK_MSG_RETURNCODE;
 		resp_rmnet->return_code =
@@ -449,6 +529,16 @@ void rmnet_config_netlink_msg_handler(struct sk_buff *skb)
 		resp_rmnet->return_code = rmnet_create_vnd_prefix(
 						rmnet_header->vnd.id,
 						rmnet_header->vnd.vnd_name);
+		break;
+
+	case RMNET_NETLINK_FREE_VND:
+		resp_rmnet->crd = RMNET_NETLINK_MSG_RETURNCODE;
+		/* Please check rmnet_vnd_free_dev documentation regarding
+		   the below locking sequence
+		*/
+		rtnl_unlock();
+		resp_rmnet->return_code = rmnet_free_vnd(rmnet_header->vnd.id);
+		rtnl_lock();
 		break;
 
 	case RMNET_NETLINK_GET_VND_NAME:
@@ -486,11 +576,14 @@ void rmnet_config_netlink_msg_handler(struct sk_buff *skb)
  *      - RMNET_CONFIG_OK if successful
  *      - RMNET_CONFIG_NO_SUCH_DEVICE dev is null
  *      - RMNET_CONFIG_INVALID_REQUEST if device is not already associated
+ *      - RMNET_CONFIG_DEVICE_IN_USE if device has logical ep that wasn't unset
  *      - RMNET_CONFIG_UNKNOWN_ERROR net_device private section is null
  */
 int rmnet_unassociate_network_device(struct net_device *dev)
 {
 	struct rmnet_phys_ep_conf_s *config;
+	int config_id = RMNET_LOCAL_LOGICAL_ENDPOINT;
+	struct rmnet_logical_ep_conf_s *epconfig_l;
 	ASSERT_RTNL();
 
 	LOGL("%s(%s);", __func__, dev->name);
@@ -500,6 +593,12 @@ int rmnet_unassociate_network_device(struct net_device *dev)
 
 	if (!_rmnet_is_physical_endpoint_associated(dev))
 		return RMNET_CONFIG_INVALID_REQUEST;
+
+	for (; config_id < RMNET_DATA_MAX_LOGICAL_EP; config_id++) {
+		epconfig_l = _rmnet_get_logical_ep(dev, config_id);
+		if (epconfig_l && epconfig_l->refcount)
+			return RMNET_CONFIG_DEVICE_IN_USE;
+	}
 
 	config = (struct rmnet_phys_ep_conf_s *)
 		rcu_dereference(dev->rx_handler_data);
@@ -511,6 +610,8 @@ int rmnet_unassociate_network_device(struct net_device *dev)
 
 	netdev_rx_handler_unregister(dev);
 
+	/* Explicitly release the reference from the device */
+	dev_put(dev);
 	return RMNET_CONFIG_OK;
 }
 
@@ -596,6 +697,7 @@ int rmnet_set_egress_data_format(struct net_device *dev,
  * Return:
  *      - RMNET_CONFIG_OK if successful
  *      - RMNET_CONFIG_NO_SUCH_DEVICE dev is null
+ *      - RMNET_CONFIG_INVALID_REQUEST if the device to be associated is a vnd
  *      - RMNET_CONFIG_DEVICE_IN_USE if dev rx_handler is already filled
  *      - RMNET_CONFIG_DEVICE_IN_USE if netdev_rx_handler_register() fails
  */
@@ -613,6 +715,11 @@ int rmnet_associate_network_device(struct net_device *dev)
 	if (_rmnet_is_physical_endpoint_associated(dev)) {
 		LOGM("%s(): %s is already regestered\n", __func__, dev->name);
 		return RMNET_CONFIG_DEVICE_IN_USE;
+	}
+
+	if (rmnet_vnd_is_vnd(dev)) {
+		LOGM("%s(): %s is a vnd\n", __func__, dev->name);
+		return RMNET_CONFIG_INVALID_REQUEST;
 	}
 
 	config = (struct rmnet_phys_ep_conf_s *)
@@ -634,6 +741,8 @@ int rmnet_associate_network_device(struct net_device *dev)
 		return RMNET_CONFIG_DEVICE_IN_USE;
 	}
 
+	/* Explicitly hold a reference to the device */
+	dev_hold(dev);
 	return RMNET_CONFIG_OK;
 }
 
@@ -647,13 +756,13 @@ int rmnet_associate_network_device(struct net_device *dev)
  *      - RMNET_CONFIG_OK if successful
  *      - RMNET_CONFIG_UNKNOWN_ERROR net_device private section is null
  *      - RMNET_CONFIG_NO_SUCH_DEVICE if device to set config on is null
+ *      - RMNET_CONFIG_DEVICE_IN_USE if device already has a logical ep
  *      - RMNET_CONFIG_BAD_ARGUMENTS if logical endpoint id is out of range
  */
 int _rmnet_set_logical_endpoint_config(struct net_device *dev,
 				       int config_id,
 				       struct rmnet_logical_ep_conf_s *epconfig)
 {
-	struct rmnet_phys_ep_conf_s *config;
 	struct rmnet_logical_ep_conf_s *epconfig_l;
 
 	ASSERT_RTNL();
@@ -665,25 +774,59 @@ int _rmnet_set_logical_endpoint_config(struct net_device *dev,
 		|| config_id >= RMNET_DATA_MAX_LOGICAL_EP)
 		return RMNET_CONFIG_BAD_ARGUMENTS;
 
-	if (rmnet_vnd_is_vnd(dev))
-		epconfig_l = rmnet_vnd_get_le_config(dev);
-	else {
-		config = _rmnet_get_phys_ep_config(dev);
+	epconfig_l = _rmnet_get_logical_ep(dev, config_id);
 
-		if (!config)
+	if (!epconfig_l)
 			return RMNET_CONFIG_UNKNOWN_ERROR;
 
-		if (config_id == RMNET_LOCAL_LOGICAL_ENDPOINT)
-			epconfig_l = &config->local_ep;
-		else
-			epconfig_l = &config->muxed_ep[config_id];
-	}
+	if (epconfig_l->refcount)
+		return RMNET_CONFIG_DEVICE_IN_USE;
 
 	memcpy(epconfig_l, epconfig, sizeof(struct rmnet_logical_ep_conf_s));
 	if (config_id == RMNET_LOCAL_LOGICAL_ENDPOINT)
 		epconfig_l->mux_id = 0;
 	else
 		epconfig_l->mux_id = config_id;
+
+	/* Explicitly hold a reference to the egress device */
+	dev_hold(epconfig_l->egress_dev);
+	return RMNET_CONFIG_OK;
+}
+
+/**
+ * _rmnet_unset_logical_endpoint_config() - Un-set the logical endpoing config
+ * on device
+ * @dev:         Device to set endpoint configuration on
+ * @config_id:   logical endpoint id on device
+ *
+ * Return:
+ *      - RMNET_CONFIG_OK if successful
+ *      - RMNET_CONFIG_UNKNOWN_ERROR net_device private section is null
+ *      - RMNET_CONFIG_NO_SUCH_DEVICE if device to set config on is null
+ *      - RMNET_CONFIG_BAD_ARGUMENTS if logical endpoint id is out of range
+ */
+int _rmnet_unset_logical_endpoint_config(struct net_device *dev,
+				       int config_id)
+{
+	struct rmnet_logical_ep_conf_s *epconfig_l = 0;
+
+	ASSERT_RTNL();
+
+	if (!dev)
+		return RMNET_CONFIG_NO_SUCH_DEVICE;
+
+	if (config_id < RMNET_LOCAL_LOGICAL_ENDPOINT
+		|| config_id >= RMNET_DATA_MAX_LOGICAL_EP)
+		return RMNET_CONFIG_BAD_ARGUMENTS;
+
+	epconfig_l = _rmnet_get_logical_ep(dev, config_id);
+
+	if (!epconfig_l || !epconfig_l->refcount)
+		return RMNET_CONFIG_NO_SUCH_DEVICE;
+
+	/* Explicitly release the reference from the egress device */
+	dev_put(epconfig_l->egress_dev);
+	memset(epconfig_l, 0, sizeof(struct rmnet_logical_ep_conf_s));
 
 	return RMNET_CONFIG_OK;
 }
@@ -735,6 +878,36 @@ int rmnet_set_logical_endpoint_config(struct net_device *dev,
 }
 
 /**
+ * rmnet_unset_logical_endpoint_config() - Un-set logical endpoing configuration
+ * on a device
+ * @dev:            Device to set endpoint configuration on
+ * @config_id:      logical endpoint id on device
+ *
+ * Retrieves the logical_endpoint_config structure and frees the egress device.
+ * Network device must already have association with RmNet Data driver
+ *
+ * Return:
+ *      - RMNET_CONFIG_OK if successful
+ *      - RMNET_CONFIG_UNKNOWN_ERROR net_device private section is null
+ *      - RMNET_CONFIG_NO_SUCH_DEVICE device is not associated
+ *      - RMNET_CONFIG_BAD_ARGUMENTS if logical endpoint id is out of range
+ */
+int rmnet_unset_logical_endpoint_config(struct net_device *dev,
+					int config_id)
+{
+	LOGL("%s(%s, %d);",
+	      __func__, dev->name, config_id);
+
+	if (!dev
+	    || ((!_rmnet_is_physical_endpoint_associated(dev))
+	    && (!rmnet_vnd_is_vnd(dev)))) {
+		return RMNET_CONFIG_NO_SUCH_DEVICE;
+	}
+
+	return _rmnet_unset_logical_endpoint_config(dev, config_id);
+}
+
+/**
  * rmnet_create_vnd() - Create virtual network device node
  * @id:       RmNet virtual device node id
  *
@@ -763,4 +936,17 @@ int rmnet_create_vnd_prefix(int id, const char *prefix)
 	ASSERT_RTNL();
 	LOGL("%s(%d, \"%s\");", __func__, id, prefix);
 	return rmnet_vnd_create_dev(id, &dev, prefix);
+}
+
+/**
+ * rmnet_free_vnd() - Free virtual network device node
+ * @id:       RmNet virtual device node id
+ *
+ * Return:
+ *      - result of rmnet_vnd_free_dev()
+ */
+int rmnet_free_vnd(int id)
+{
+	LOGL("%s(%d);", __func__, id);
+	return rmnet_vnd_free_dev(id);
 }

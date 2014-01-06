@@ -1,5 +1,5 @@
  /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -150,6 +150,16 @@ enum rmnet_netlink_message_types_e {
 	 * Returns: status code
 	 */
 	RMNET_NETLINK_SET_LOGICAL_EP_CONFIG,
+
+	/*
+	 * RMNET_NETLINK_UNSET_LOGICAL_EP_CONFIG - Un-sets the logical endpoint
+	 *                                       configuration for a particular
+	 *                                       link.
+	 * Args: char[] dev_name: Null terminated ASCII string, max length: 15
+	 *       int32_t logical_ep_id, valid values are -1 through 31
+	 * Returns: status code
+	 */
+	RMNET_NETLINK_UNSET_LOGICAL_EP_CONFIG,
 
 	/*
 	 * RMNET_NETLINK_GET_LOGICAL_EP_CONFIG - Gets the logical endpoint
