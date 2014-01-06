@@ -2264,7 +2264,8 @@ static int mpq_dvb_open_v4l2(
 		rc = -ENOMEM;
 		goto fail_create_v4l2;
 	}
-	v4l2_inst->vidc_inst = msm_vidc_open(MSM_VIDC_CORE_0, MSM_VIDC_DECODER);
+	v4l2_inst->vidc_inst = msm_vidc_open(MSM_VIDC_CORE_VENUS,
+					MSM_VIDC_DECODER);
 	if (!v4l2_inst->vidc_inst) {
 		ERR("Failed to open VIDC driver\n");
 		rc = -EFAULT;
