@@ -348,11 +348,11 @@ static int arizona_sleep_patch(struct arizona* arizona)
 {
 	int ret;
 
-	ret = regmap_write(arizona->regmap, 0x377A, 0xC100);
+	ret = regmap_write(arizona->regmap, 0x337A, 0xC100);
 	if (ret != 0)
 		return ret;
 
-	ret = regmap_write(arizona->regmap, 0x377B, 0x0041);
+	ret = regmap_write(arizona->regmap, 0x337B, 0x0041);
 	if (ret != 0)
 		return ret;
 
