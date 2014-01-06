@@ -862,6 +862,24 @@
 		reg = <0xfe805720 0x1000>;
 	};
 
+	qseecom: qcom,qseecom@cb00000 {
+		compatible = "qcom,qseecom";
+		reg = <0xcb00000 0x500000>;
+		reg-names = "secapp-region";
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,hlos-ce-hw-instance = <1>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,msm-bus,name = "qseecom-noc";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,support-bus-scaling;
+		qcom,msm-bus,vectors-KBps =
+				<55 512 0 0>,
+				<55 512 0 0>,
+				<55 512 120000 1200000>,
+				<55 512 393600 3936000>;
+	};
+
 	rpm_bus: qcom,rpm-smd {
 			compatible = "qcom,rpm-smd";
 			rpm-channel-name = "rpm_requests";
