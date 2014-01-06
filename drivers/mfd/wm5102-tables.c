@@ -74,9 +74,67 @@ static const struct reg_default wm5102_revb_patch[] = {
 	{ 0x35E, 0x000C },
 	{ 0x2D4, 0x0000 },
 	{ 0x80, 0x0000 },
+};
+
+static const struct reg_default wm5102t_pwr_1[] = {
 	{ 0x46C, 0xC01 },
 	{ 0x46E, 0xC01 },
 	{ 0x470, 0xC01 },
+};
+
+static const struct reg_default wm5102t_pwr_2[] = {
+	{ 0x462, 0xC00 },
+	{ 0x464, 0xC00 },
+	{ 0x466, 0xC00 },
+	{ 0x468, 0xC00 },
+	{ 0x46a, 0xC00 },
+	{ 0x46c, 0xC00 },
+	{ 0x46e, 0xC00 },
+	{ 0x470, 0xC00 },
+	{ 0x476, 0x806 },
+};
+
+static const struct reg_default wm5102t_pwr_3[] = {
+	{ 0x462, 0xC00 },
+	{ 0x464, 0xC00 },
+	{ 0x466, 0xC00 },
+	{ 0x468, 0xC00 },
+	{ 0x46a, 0xC00 },
+	{ 0x46c, 0xC00 },
+	{ 0x46e, 0xC00 },
+	{ 0x470, 0xC00 },
+	{ 0x472, 0xC00 },
+	{ 0x47c, 0x806 },
+	{ 0x47e, 0x80e },
+};
+
+static const struct reg_default wm5102t_pwr_4[] = {
+	{ 0x462, 0xC00 },
+	{ 0x464, 0xC00 },
+	{ 0x466, 0xC00 },
+	{ 0x468, 0xC00 },
+	{ 0x46a, 0xC00 },
+	{ 0x46c, 0xC00 },
+	{ 0x46e, 0xC00 },
+	{ 0x470, 0xC00 },
+	{ 0x472, 0xC00 },
+	{ 0x474, 0xC00 },
+	{ 0x476, 0xC00 },
+	{ 0x478, 0xC00 },
+	{ 0x47a, 0xC00 },
+	{ 0x47c, 0xC00 },
+	{ 0x47e, 0xC00 },
+};
+
+static const struct {
+	const struct reg_default *patch;
+	int size;
+} wm5102t_pwr[] = {
+	{ NULL, 0 },
+	{ wm5102t_pwr_1, ARRAY_SIZE(wm5102t_pwr_1) },
+	{ wm5102t_pwr_2, ARRAY_SIZE(wm5102t_pwr_2) },
+	{ wm5102t_pwr_3, ARRAY_SIZE(wm5102t_pwr_3) },
+	{ wm5102t_pwr_4, ARRAY_SIZE(wm5102t_pwr_4) },
 };
 
 int wm5102_apply_patch(struct arizona *arizona,
@@ -105,6 +163,7 @@ int wm5102_patch(struct arizona *arizona)
 	const struct reg_default *wm5102_patch;
 	int ret = 0;
 	int patch_size;
+	int pwr_index = arizona->pdata.wm5102t_output_pwr;
 
 	switch (arizona->rev) {
 	case 0:
@@ -120,6 +179,16 @@ int wm5102_patch(struct arizona *arizona)
 	regcache_cache_bypass(arizona->regmap, true);
 
 	ret = wm5102_apply_patch(arizona, wm5102_patch, patch_size);
+	if (ret != 0)
+		goto out;
+
+	if (pwr_index < ARRAY_SIZE(wm5102t_pwr))
+		ret = wm5102_apply_patch(arizona,
+					 wm5102t_pwr[pwr_index].patch,
+					 wm5102t_pwr[pwr_index].size);
+	else
+		dev_err(arizona->dev, "Invalid wm5102t output power\n");
+
 out:
 	regcache_cache_bypass(arizona->regmap, false);
 	return ret;

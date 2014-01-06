@@ -575,6 +575,9 @@ static const struct reg_default wm5102_sysclk_revb_patch[] = {
 	{ 0x3083, 0x00ED },
 	{ 0x30C1, 0x08FE },
 	{ 0x30C3, 0x00ED },
+};
+
+static const struct reg_default wm5102t_sysclk_pwr[] = {
 	{ 0x3125, 0x0A03 },
 	{ 0x3127, 0x0A03 },
 	{ 0x3129, 0x0A03 },
@@ -603,6 +606,11 @@ static int wm5102_sysclk_ev(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMU:
 		if (patch)
 			wm5102_apply_patch(arizona, patch, patch_size);
+
+		if (arizona->pdata.wm5102t_output_pwr)
+			wm5102_apply_patch(arizona,
+					   wm5102t_sysclk_pwr,
+					   ARRAY_SIZE(wm5102t_sysclk_pwr));
 		break;
 
 	default:
