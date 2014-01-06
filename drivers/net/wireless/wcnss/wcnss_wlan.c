@@ -740,7 +740,9 @@ void wcnss_log_debug_regs_on_bite(void)
 	wcnss_debug_mux = clk_get(&pdev->dev, "wcnss_debug");
 
 	if (!IS_ERR(measure) && !IS_ERR(wcnss_debug_mux)) {
-		clk_set_parent(measure, wcnss_debug_mux);
+		if (clk_set_parent(measure, wcnss_debug_mux))
+			return;
+
 		clk_rate = clk_get_rate(measure);
 		pr_debug("wcnss: clock frequency is: %luHz\n", clk_rate);
 
