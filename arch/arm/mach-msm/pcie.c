@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -985,6 +985,8 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	if (val & XMLH_LINK_UP) {
 		pr_info("PCIe link initialized\n");
 	} else {
+		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
+			dev->gpio[MSM_PCIE_GPIO_PERST].on);
 		pr_err("PCIe link initialization failed\n");
 		ret = -1;
 		goto link_fail;
