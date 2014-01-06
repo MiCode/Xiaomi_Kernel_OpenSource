@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -400,6 +400,13 @@ rx_handler_result_t rmnet_ingress_handler(struct sk_buff *skb)
 	config = (struct rmnet_phys_ep_conf_s *)
 		rcu_dereference(skb->dev->rx_handler_data);
 
+	if (!config) {
+		LOGD("%s(): %s is not associated with rmnet_data",
+		      __func__, skb->dev->name);
+		kfree_skb(skb);
+		return RX_HANDLER_CONSUMED;
+	}
+
 	/* Sometimes devices operate in ethernet mode even thouth there is no
 	 * ethernet header. This causes the skb->protocol to contain a bogus
 	 * value and the skb->data pointer to be off by 14 bytes. Fix it if
@@ -485,6 +492,13 @@ void rmnet_egress_handler(struct sk_buff *skb,
 
 	config = (struct rmnet_phys_ep_conf_s *)
 		rcu_dereference(skb->dev->rx_handler_data);
+
+	if (!config) {
+		LOGD("%s(): %s is not associated with rmnet_data",
+		      __func__, skb->dev->name);
+		kfree_skb(skb);
+		return;
+	}
 
 	LOGD("%s(): Packet going out on %s with egress format 0x%08X\n",
 	      __func__, skb->dev->name, config->egress_data_format);

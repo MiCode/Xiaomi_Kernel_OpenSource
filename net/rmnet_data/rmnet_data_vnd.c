@@ -27,6 +27,7 @@
 #include "rmnet_data_handlers.h"
 #include "rmnet_data_private.h"
 #include "rmnet_map.h"
+#include "rmnet_data_vnd.h"
 
 RMNET_LOG_MODULE(RMNET_DATA_LOGMASK_VND);
 
@@ -581,6 +582,43 @@ int rmnet_vnd_create_dev(int id, struct net_device **new_device,
 
 	LOGM("%s(): Registered device %s\n", __func__, dev->name);
 	return rc;
+}
+
+/**
+ * rmnet_vnd_free_dev() - free a virtual network device node.
+ * @id:         Virtual device node id
+ *
+ * Unregisters the virtual network device node and frees it.
+ * unregister_netdev locks the rtnl mutex, so the mutex must not be locked
+ * by the caller of the function. unregister_netdev enqueues the request to
+ * unregister the device into a TODO queue. The requests in the TODO queue
+ * are only done after rtnl mutex is unlocked, therefore free_netdev has to
+ * called after unlocking rtnl mutex.
+ *
+ * Return:
+ *      - 0 if successful
+ *      - RMNET_CONFIG_NO_SUCH_DEVICE if id is invalid or not in range
+ *      - RMNET_CONFIG_DEVICE_IN_USE if device has logical ep that wasn't unset
+ */
+int rmnet_vnd_free_dev(int id)
+{
+	struct rmnet_logical_ep_conf_s *epconfig_l;
+
+	if ((id < 0) || (id >= RMNET_DATA_MAX_VND) || !rmnet_devices[id]) {
+		LOGM("%s(): Invalid id [%d]\n", __func__, id);
+		return RMNET_CONFIG_NO_SUCH_DEVICE;
+	}
+
+	epconfig_l = rmnet_vnd_get_le_config(rmnet_devices[id]);
+		if (epconfig_l && epconfig_l->refcount)
+			return RMNET_CONFIG_DEVICE_IN_USE;
+
+	unregister_netdev(rmnet_devices[id]);
+	free_netdev(rmnet_devices[id]);
+	rtnl_lock();
+	rmnet_devices[id] = 0;
+	rtnl_unlock();
+	return 0;
 }
 
 /**
