@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -6066,6 +6066,14 @@ static int mpq_dmx_tspp2_map_buffer(struct dmx_demux *demux,
 	if (priv_handle == &demux->dvr_input.priv_handle) {
 		if (mutex_lock_interruptible(&mpq_dmx_tspp2_info.mutex))
 			return -ERESTARTSYS;
+
+		if (!source_info || !source_info->input_pipe) {
+			mutex_unlock(&mpq_dmx_tspp2_info.mutex);
+			MPQ_DVB_ERR_PRINT(
+				"%s: invalid source is set\n",
+				__func__);
+			return -EINVAL;
+		}
 
 		pipe_info = source_info->input_pipe;
 		if (pipe_info->handle != TSPP2_INVALID_HANDLE) {
