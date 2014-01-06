@@ -7,7 +7,7 @@
  * Copyright (c) 2000 Nokia Research Center
  *                    Tampere, FINLAND
  *
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -37,6 +37,8 @@
 /*--------------------------------------------------------------------------*/
 /* Common definitions */
 /*--------------------------------------------------------------------------*/
+
+#define DMX_EVENT_QUEUE_SIZE	500 /* number of events */
 
 /*
  * DMX_MAX_FILTER_SIZE: Maximum length (in bytes) of a section/PES filter.
