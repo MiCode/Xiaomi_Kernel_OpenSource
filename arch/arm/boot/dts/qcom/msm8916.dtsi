@@ -993,6 +993,19 @@
 		cell-index = <0>;
 		qcom,not-wakeup; /* Needed until MPM is fully configured. */
 	};
+
+	qcom,msm-imem@8600000 {
+		compatible = "qcom,msm-imem";
+		reg = <0x08600000 0x1000>; /* Address and size of IMEM */
+		ranges = <0x0 0x08600000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pil@94c {
+			compatible = "qcom,msm-imem-pil";
+			reg = <0x94c 200>;
+		};
+	};
 };
 
 &gdsc_venus {
