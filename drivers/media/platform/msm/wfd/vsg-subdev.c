@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,8 @@
 #define DEFAULT_MAX_FRAME_INTERVAL (1*NSEC_PER_SEC)
 #define DEFAULT_MODE ((enum vsg_modes)VSG_MODE_CFR)
 #define MAX_BUFS_BUSY_WITH_ENC 5
+#define TICKS_PER_TIMEOUT 2
+
 
 static void vsg_reset_timer(struct hrtimer *timer, ktime_t time)
 {
@@ -120,9 +122,10 @@ static void vsg_work_func(struct work_struct *task)
 	INIT_LIST_HEAD(&buf_info->node);
 
 	ktime_get_ts(&buf_info->time);
-	vsg_reset_timer(&context->threshold_timer, ns_to_ktime(
-				context->max_frame_interval));
-
+	if (work->work_delayed) {
+		buf_info->time = timespec_sub(buf_info->time,
+					context->delayed_frame_interval);
+	}
 	temp = NULL;
 	list_for_each_entry(temp, &context->busy_queue.node, node) {
 		if (mdp_buf_info_equals(&temp->mdp_buf_info,
@@ -233,6 +236,7 @@ static void vsg_timer_helper_func(struct work_struct *task)
 
 		INIT_WORK(&new_work->work, vsg_work_func);
 		new_work->context = context;
+		new_work->work_delayed = work->work_delayed;
 		queue_work(context->work_queue, &new_work->work);
 	}
 
@@ -245,25 +249,43 @@ static enum hrtimer_restart vsg_threshold_timeout_func(struct hrtimer *timer)
 {
 	struct vsg_context *context = NULL;
 	struct vsg_work *task = NULL;
-
-	task = kzalloc(sizeof(*task), GFP_ATOMIC);
+	int64_t max_frame_interval = 0;
 	context = container_of(timer, struct vsg_context,
 			threshold_timer);
+
+	if (!context) {
+		WFD_MSG_ERR("Context not proper in %s", __func__);
+		goto threshold_err_no_context;
+	}
+	max_frame_interval = context->max_frame_interval;
+	if (list_empty(&context->free_queue.node) && !context->vsync_wait) {
+		context->vsync_wait = true;
+		max_frame_interval = context->max_frame_interval /
+					TICKS_PER_TIMEOUT;
+		goto restart_timer;
+	} else if (context->vsync_wait) {
+			max_frame_interval = context->max_frame_interval /
+						TICKS_PER_TIMEOUT;
+		context->vsync_wait = false;
+	}
+
+	task = kzalloc(sizeof(*task), GFP_ATOMIC);
 	if (!task) {
 		WFD_MSG_ERR("Out of memory in %s", __func__);
 		goto threshold_err_bad_param;
-	} else if (!context) {
-		WFD_MSG_ERR("Context not proper in %s", __func__);
-		goto threshold_err_no_context;
 	}
 
 	INIT_WORK(&task->work, vsg_timer_helper_func);
 	task->context = context;
+	task->work_delayed = false;
+	if (max_frame_interval < context->max_frame_interval)
+		task->work_delayed = true;
 
 	queue_work(context->work_queue, &task->work);
+restart_timer:
 threshold_err_bad_param:
 	hrtimer_forward_now(&context->threshold_timer, ns_to_ktime(
-				context->max_frame_interval));
+				max_frame_interval));
 	return HRTIMER_RESTART;
 threshold_err_no_context:
 	return HRTIMER_NORESTART;
@@ -298,6 +320,7 @@ static int vsg_open(struct v4l2_subdev *sd, void *arg)
 	context->last_buffer = NULL;
 	context->mode = DEFAULT_MODE;
 	context->state = VSG_STATE_NONE;
+	context->vsync_wait = false;
 	mutex_init(&context->mutex);
 
 	sd->dev_priv = context;
@@ -568,7 +591,8 @@ static long vsg_set_frame_interval(struct v4l2_subdev *sd, void *arg)
 				context->max_frame_interval, interval);
 		context->max_frame_interval = interval;
 	}
-
+	context->delayed_frame_interval =
+		ns_to_timespec(context->frame_interval / TICKS_PER_TIMEOUT);
 	mutex_unlock(&context->mutex);
 	return 0;
 }
