@@ -605,6 +605,7 @@ struct rq {
 #endif
 
 	int cur_freq, max_freq, min_freq;
+	u64 cumulative_runnable_avg;
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
 	u64 prev_irq_time;
@@ -1155,8 +1156,12 @@ struct sched_class {
 #endif
 };
 
+extern void
+update_task_ravg(struct task_struct *p, struct rq *rq, int update_sum);
+
 static inline void put_prev_task(struct rq *rq, struct task_struct *prev)
 {
+	update_task_ravg(prev, rq, 1);
 	prev->sched_class->put_prev_task(rq, prev);
 }
 
