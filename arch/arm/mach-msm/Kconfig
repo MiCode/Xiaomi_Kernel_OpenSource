@@ -589,6 +589,7 @@ config  ARCH_MSM_SCORPION
 config  ARCH_MSM_KRAIT
 	bool
 	select ARM_L1_CACHE_SHIFT_6
+	select DEVFREQ_GOV_MSM_CPUBW_HWMON
 
 config  MSM_CORTEX_A7
 	bool
