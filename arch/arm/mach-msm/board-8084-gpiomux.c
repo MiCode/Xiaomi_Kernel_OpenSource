@@ -310,6 +310,106 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	}
 };
 
+static struct msm_gpiomux_config msm_sbc_blsp_configs[] __initdata = {
+	{
+		.gpio      = 2,		/* BLSP1 QUP0 I2C_SDA */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 3,		/* BLSP1 QUP0 I2C_SCL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 4,		/* BLSP1 QUP1 SPI_DATA_MOSI */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+	{
+		.gpio      = 5,		/* BLSP1 QUP1 SPI_DATA_MISO */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+	{
+		.gpio      = 6,		/* BLSP1 QUP1 SPI_CS_N */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+	{
+		.gpio      = 7,		/* BLSP1 QUP1 SPI_CLK */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+	{
+		.gpio      = 10,		/* BLSP1 QUP2 I2C_SDA */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 11,		/* BLSP1 QUP2 I2C_SCL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 49,		/* BLSP2 QUP5 I2C_SDA */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 50,		/* BLSP2 QUP5 I2C_SCL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 51,		/* BLSP2 UART1 TX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
+		},
+	},
+	{
+		.gpio      = 52,		/* BLSP2 UART1 RX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
+		},
+	},
+	{
+		.gpio      = 53,		/* BLSP2 QUP1 I2C_SDA */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 54,		/* BLSP2 QUP1 I2C_SCL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 61,		/* BLSP2 QUP3 I2C_SDA */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+
+	{
+		.gpio      = 62,		/* BLSP2 QUP3 I2C_SCL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	}
+};
+
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 static struct gpiomux_setting gpio_eth_config = {
 	.pull = GPIOMUX_PULL_UP,
@@ -391,6 +491,30 @@ static struct msm_gpiomux_config msm_blsp2_uart1_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting general_led_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
+static struct gpiomux_setting general_led_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+/*General led configuration for SBC 8084 platform*/
+static struct msm_gpiomux_config apq8084_general_led_configs[] = {
+	{
+		.gpio = 83,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &general_led_cfg,
+			[GPIOMUX_SUSPENDED] = &general_led_sus_cfg,
+		},
+	},
+};
+
 static struct gpiomux_setting hdmi_suspend_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
@@ -428,6 +552,37 @@ static struct gpiomux_setting hdmi_active_mux_sel_cfg = {
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_DOWN,
 	.dir = GPIOMUX_OUT_LOW,
+};
+
+static struct msm_gpiomux_config msm_hdmi_nomux_configs[] __initdata = {
+	{
+		.gpio = 31,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hdmi_active_1_cfg,
+			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 32,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hdmi_active_1_cfg,
+			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 33,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hdmi_active_1_cfg,
+			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 34,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hdmi_active_2_cfg,
+			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
+		},
+	},
 };
 
 static struct msm_gpiomux_config msm_hdmi_configs[] __initdata = {
@@ -866,7 +1021,13 @@ static struct gpiomux_setting gpio_pcie_clkreq_config = {
 
 static struct msm_gpiomux_config msm_pcie_configs[] __initdata = {
 	{
-		.gpio = 68,    /* qca1530 reset */
+		.gpio = 68,    /* PCIE0_CLKREQ_N */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_pcie_clkreq_config,
+		},
+	},
+	{
+		.gpio = 141,    /* PCIE1_CLKREQ_N */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_pcie_clkreq_config,
 		},
@@ -916,13 +1077,19 @@ void __init apq8084_init_gpiomux(void)
 		return;
 	}
 
-	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
+	if (of_board_is_sbc()) {
+		msm_gpiomux_install(msm_sbc_blsp_configs,
+				ARRAY_SIZE(msm_sbc_blsp_configs));
+	} else {
+		msm_gpiomux_install(msm_blsp_configs,
+				ARRAY_SIZE(msm_blsp_configs));
+	}
 	msm_gpiomux_install(msm_blsp1_uart6_configs,
 					ARRAY_SIZE(msm_blsp1_uart6_configs));
 	msm_gpiomux_install(msm_synaptics_configs,
 					ARRAY_SIZE(msm_synaptics_configs));
 
-	if (of_board_is_liquid()) {
+	if (of_board_is_liquid() || of_board_is_sbc()) {
 		msm_gpiomux_install(msm_blsp2_uart5_configs,
 				ARRAY_SIZE(msm_blsp2_uart5_configs));
 		msm_gpiomux_install(msm_qca1530_liquid_configs,
@@ -935,18 +1102,28 @@ void __init apq8084_init_gpiomux(void)
 			msm_gpiomux_install(msm_qca1530_cdp_configs,
 					ARRAY_SIZE(msm_qca1530_cdp_configs));
 	}
-	msm_gpiomux_install(apq8084_hsic_configs,
-			ARRAY_SIZE(apq8084_hsic_configs));
 	msm_gpiomux_install_nowrite(msm_lcd_configs,
 			ARRAY_SIZE(msm_lcd_configs));
 	msm_gpiomux_install(apq8084_pri_ter_auxpcm_configs,
 			ARRAY_SIZE(apq8084_pri_ter_auxpcm_configs));
-	msm_gpiomux_install(msm_hdmi_configs, ARRAY_SIZE(msm_hdmi_configs));
+
+	if (of_board_is_sbc()) {
+		msm_gpiomux_install(msm_hdmi_nomux_configs,
+			ARRAY_SIZE(msm_hdmi_nomux_configs));
+		msm_gpiomux_install(apq8084_general_led_configs,
+			ARRAY_SIZE(apq8084_general_led_configs));
+	} else {
+		msm_gpiomux_install(apq8084_hsic_configs,
+			ARRAY_SIZE(apq8084_hsic_configs));
+		msm_gpiomux_install(msm_hdmi_configs,
+			ARRAY_SIZE(msm_hdmi_configs));
+		msm_gpiomux_install(hap_lvl_shft_config,
+			ARRAY_SIZE(hap_lvl_shft_config));
+	}
+
 	msm_gpiomux_install(msm_wlan_configs, ARRAY_SIZE(msm_wlan_configs));
-	msm_gpiomux_install(hap_lvl_shft_config,
-					ARRAY_SIZE(hap_lvl_shft_config));
 	msm_gpiomux_install(sd_card_det, ARRAY_SIZE(sd_card_det));
-	if (of_board_is_cdp())
+	if (of_board_is_cdp() || of_board_is_sbc())
 		msm_gpiomux_install(eth_pwr, ARRAY_SIZE(eth_pwr));
 	msm_gpiomux_install(msm_sensor_configs, ARRAY_SIZE(msm_sensor_configs));
 	msm_gpiomux_install(msm_pcie_configs, ARRAY_SIZE(msm_pcie_configs));
