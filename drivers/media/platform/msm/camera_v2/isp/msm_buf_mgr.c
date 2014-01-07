@@ -374,11 +374,14 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 		if (bufq->buf_type == ISP_SHARE_BUF) {
 			temp_buf_info = kzalloc(
 			   sizeof(struct msm_isp_buffer), GFP_ATOMIC);
-			temp_buf_info->buf_reuse_flag = 1;
-			temp_buf_info->buf_used[id] = 1;
-			temp_buf_info->buf_get_count = 1;
-			list_add_tail(&temp_buf_info->share_list,
-						  &bufq->share_head);
+			if (temp_buf_info) {
+				temp_buf_info->buf_reuse_flag = 1;
+				temp_buf_info->buf_used[id] = 1;
+				temp_buf_info->buf_get_count = 1;
+				list_add_tail(&temp_buf_info->share_list,
+							  &bufq->share_head);
+			} else
+				rc = -ENOMEM;
 		}
 	} else {
 		(*buf_info)->state = MSM_ISP_BUFFER_STATE_DEQUEUED;
