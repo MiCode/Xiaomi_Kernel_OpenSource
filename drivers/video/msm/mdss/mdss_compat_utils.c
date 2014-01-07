@@ -162,19 +162,97 @@ static int mdss_fb_compat_set_lut(struct fb_info *info, unsigned long arg)
 	return ret;
 }
 
-static int __to_user_pp_params(struct mdp_overlay_pp_params32 *ppp32,
-				   struct mdp_overlay_pp_params *ppp)
+static int __from_user_sharp_cfg(
+			struct mdp_sharp_cfg32 __user *sharp_cfg32,
+			struct mdp_sharp_cfg __user *sharp_cfg)
 {
+	if (copy_in_user(&sharp_cfg->flags,
+			&sharp_cfg32->flags,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&sharp_cfg->strength,
+			&sharp_cfg32->strength,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&sharp_cfg->edge_thr,
+			&sharp_cfg32->edge_thr,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&sharp_cfg->smooth_thr,
+			&sharp_cfg32->smooth_thr,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&sharp_cfg->noise_thr,
+			&sharp_cfg32->noise_thr,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
 	return 0;
 }
 
-static int __from_user_pp_params32(struct mdp_overlay_pp_params *ppp,
-				   struct mdp_overlay_pp_params32 *ppp32)
+static int __to_user_sharp_cfg(
+			struct mdp_sharp_cfg32 __user *sharp_cfg32,
+			struct mdp_sharp_cfg __user *sharp_cfg)
 {
-	__u32 data;
+	if (copy_in_user(&sharp_cfg32->flags,
+			&sharp_cfg->flags,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&sharp_cfg32->strength,
+			&sharp_cfg->strength,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&sharp_cfg32->edge_thr,
+			&sharp_cfg->edge_thr,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&sharp_cfg32->smooth_thr,
+			&sharp_cfg->smooth_thr,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&sharp_cfg32->noise_thr,
+			&sharp_cfg->noise_thr,
+			sizeof(uint32_t)))
+		return -EFAULT;
 
-	if (get_user(data, &ppp32->config_ops) ||
-	    put_user(data, &ppp->config_ops))
+	return 0;
+}
+
+static int __from_user_histogram_cfg(
+			struct mdp_histogram_cfg32 __user *hist_cfg32,
+			struct mdp_histogram_cfg __user *hist_cfg)
+{
+	if (copy_in_user(&hist_cfg->ops,
+			&hist_cfg32->ops,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&hist_cfg->block,
+			&hist_cfg32->block,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&hist_cfg->frame_cnt,
+			&hist_cfg32->frame_cnt,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&hist_cfg->bit_mask,
+			&hist_cfg32->bit_mask,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&hist_cfg->num_bins,
+			&hist_cfg32->num_bins,
+			sizeof(uint16_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __to_user_histogram_cfg(
+			struct mdp_histogram_cfg32 __user *hist_cfg32,
+			struct mdp_histogram_cfg __user *hist_cfg)
+{
+	if (copy_in_user(&hist_cfg32->ops,
+			&hist_cfg->ops,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&hist_cfg32->block,
+			&hist_cfg->block,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&hist_cfg32->frame_cnt,
+			&hist_cfg->frame_cnt,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&hist_cfg32->bit_mask,
+			&hist_cfg->bit_mask,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&hist_cfg32->num_bins,
+			&hist_cfg->num_bins,
+			sizeof(uint16_t)))
 		return -EFAULT;
 
 	return 0;
@@ -1893,6 +1971,120 @@ pp_compat_exit:
 	return ret;
 }
 
+static int __from_user_pp_params(struct mdp_overlay_pp_params32 *ppp32,
+				struct mdp_overlay_pp_params *ppp)
+{
+	int ret = 0;
+
+	if (copy_in_user(&ppp->config_ops,
+			&ppp32->config_ops,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	ret = __from_user_csc_cfg(
+			compat_ptr((uintptr_t)&ppp32->csc_cfg),
+			&ppp->csc_cfg);
+	if (ret)
+		return ret;
+	ret = __from_user_qseed_cfg(
+			compat_ptr((uintptr_t)&ppp32->qseed_cfg[0]),
+			&ppp->qseed_cfg[0]);
+	if (ret)
+		return ret;
+	ret = __from_user_qseed_cfg(
+			compat_ptr((uintptr_t)&ppp32->qseed_cfg[1]),
+			&ppp->qseed_cfg[1]);
+	if (ret)
+		return ret;
+	ret = __from_user_pa_cfg(
+			compat_ptr((uintptr_t)&ppp32->pa_cfg),
+			&ppp->pa_cfg);
+	if (ret)
+		return ret;
+	ret = __from_user_igc_lut_data(
+			compat_ptr((uintptr_t)&ppp32->igc_cfg),
+			&ppp->igc_cfg);
+	if (ret)
+		return ret;
+	ret = __from_user_sharp_cfg(
+			compat_ptr((uintptr_t)&ppp32->sharp_cfg),
+			&ppp->sharp_cfg);
+	if (ret)
+		return ret;
+	ret = __from_user_histogram_cfg(
+			compat_ptr((uintptr_t)&ppp32->hist_cfg),
+			&ppp->hist_cfg);
+	if (ret)
+		return ret;
+	ret = __from_user_hist_lut_data(
+			compat_ptr((uintptr_t)&ppp32->hist_lut_cfg),
+			&ppp->hist_lut_cfg);
+	if (ret)
+		return ret;
+	ret = __from_user_pa_v2_data(
+			compat_ptr((uintptr_t)&ppp32->pa_v2_cfg),
+			&ppp->pa_v2_cfg);
+
+	return ret;
+}
+
+static int __to_user_pp_params(struct mdp_overlay_pp_params *ppp,
+				struct mdp_overlay_pp_params32 *ppp32)
+{
+	int ret = 0;
+
+	if (copy_in_user(&ppp32->config_ops,
+			&ppp->config_ops,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	ret = __to_user_csc_cfg(
+			compat_ptr((uintptr_t)&ppp32->csc_cfg),
+			&ppp->csc_cfg);
+	if (ret)
+		return ret;
+	ret = __to_user_qseed_cfg(
+			compat_ptr((uintptr_t)&ppp32->qseed_cfg[0]),
+			&ppp->qseed_cfg[0]);
+	if (ret)
+		return ret;
+	ret = __to_user_qseed_cfg(
+			compat_ptr((uintptr_t)&ppp32->qseed_cfg[1]),
+			&ppp->qseed_cfg[1]);
+	if (ret)
+		return ret;
+	ret = __to_user_pa_cfg(
+			compat_ptr((uintptr_t)&ppp32->pa_cfg),
+			&ppp->pa_cfg);
+	if (ret)
+		return ret;
+	ret = __to_user_igc_lut_data(
+			compat_ptr((uintptr_t)&ppp32->igc_cfg),
+			&ppp->igc_cfg);
+	if (ret)
+		return ret;
+	ret = __to_user_sharp_cfg(
+			compat_ptr((uintptr_t)&ppp32->sharp_cfg),
+			&ppp->sharp_cfg);
+	if (ret)
+		return ret;
+	ret = __to_user_histogram_cfg(
+			compat_ptr((uintptr_t)&ppp32->hist_cfg),
+			&ppp->hist_cfg);
+	if (ret)
+		return ret;
+	ret = __to_user_hist_lut_data(
+			compat_ptr((uintptr_t)&ppp32->hist_lut_cfg),
+			&ppp->hist_lut_cfg);
+	if (ret)
+		return ret;
+	ret = __to_user_pa_v2_data(
+			compat_ptr((uintptr_t)&ppp32->pa_v2_cfg),
+			&ppp->pa_v2_cfg);
+
+	return ret;
+}
+
 static int __to_user_mdp_overlay(struct mdp_overlay32 __user *ov32,
 				 struct mdp_overlay __user *ov)
 {
@@ -1926,7 +2118,9 @@ static int __to_user_mdp_overlay(struct mdp_overlay32 __user *ov32,
 	if (ret)
 		return -EFAULT;
 
-	ret = __to_user_pp_params(&ov32->overlay_pp_cfg, &ov->overlay_pp_cfg);
+	ret = __to_user_pp_params(
+			&ov->overlay_pp_cfg,
+			compat_ptr((uintptr_t) &ov32->overlay_pp_cfg));
 	if (ret)
 		return -EFAULT;
 
@@ -1977,8 +2171,9 @@ static int __from_user_mdp_overlay(struct mdp_overlay *ov,
 	    put_user(data, &ov->vert_deci))
 		return -EFAULT;
 
-	if (__from_user_pp_params32(&ov->overlay_pp_cfg,
-				    &ov32->overlay_pp_cfg))
+	if (__from_user_pp_params(
+			compat_ptr((uintptr_t) &ov32->overlay_pp_cfg),
+			&ov->overlay_pp_cfg))
 		return -EFAULT;
 
 	if (copy_in_user(&ov->scale, &ov32->scale,
