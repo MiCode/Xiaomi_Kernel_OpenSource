@@ -678,6 +678,17 @@ struct ipa_tx_data_desc {
 	u16  pyld_len;
 };
 
+/**
+ * struct  ipa_rx_data - information needed
+ * to send to wlan driver on receiving data from ipa hw
+ * @skb: skb
+ * @dma_addr: DMA address of this Rx packet
+ */
+struct ipa_rx_data {
+	struct sk_buff *skb;
+	dma_addr_t dma_addr;
+};
+
 #ifdef CONFIG_IPA
 
 /*
@@ -833,7 +844,7 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 int ipa_tx_dp_mul(enum ipa_client_type dst,
 			struct ipa_tx_data_desc *data_desc);
 
-void ipa_free_skb(struct sk_buff *);
+void ipa_free_skb(struct ipa_rx_data *);
 
 /*
  * System pipes
@@ -1285,7 +1296,7 @@ static inline int ipa_tx_dp_mul(
 	return -EPERM;
 }
 
-static inline void ipa_free_skb(struct sk_buff *skb)
+static inline void ipa_free_skb(struct ipa_rx_data *rx_in)
 {
 	return;
 }

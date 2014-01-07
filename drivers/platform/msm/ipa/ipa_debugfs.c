@@ -121,6 +121,7 @@ static struct dentry *dfile_ip6_rt;
 static struct dentry *dfile_ip4_flt;
 static struct dentry *dfile_ip6_flt;
 static struct dentry *dfile_stats;
+static struct dentry *dfile_wstats;
 static struct dentry *dfile_dbg_cnt;
 static struct dentry *dfile_msg;
 static struct dentry *dfile_ip4_nat;
@@ -748,10 +749,7 @@ static ssize_t ipa_read_stats(struct file *file, char __user *ubuf,
 			"a2_power_off_reqs_in=%u\n"
 			"a2_power_off_reqs_out=%u\n"
 			"a2_power_modem_acks=%u\n"
-			"a2_power_apps_acks=%u\n"
-			"wlan_rx_pkts=%u\n"
-			"wlan_rx_comp=%u\n"
-			"wlan_tx_pkts=%u\n",
+			"a2_power_apps_acks=%u\n",
 			ipa_ctx->stats.tx_sw_pkts,
 			ipa_ctx->stats.tx_hw_pkts,
 			ipa_ctx->stats.rx_pkts,
@@ -766,10 +764,7 @@ static ssize_t ipa_read_stats(struct file *file, char __user *ubuf,
 			ipa_ctx->stats.a2_power_off_reqs_in,
 			ipa_ctx->stats.a2_power_off_reqs_out,
 			ipa_ctx->stats.a2_power_modem_acks,
-			ipa_ctx->stats.a2_power_apps_acks,
-			ipa_ctx->stats.wlan_rx_pkts,
-			ipa_ctx->stats.wlan_rx_comp,
-		  ipa_ctx->stats.wlan_tx_pkts);
+			ipa_ctx->stats.a2_power_apps_acks);
 	cnt += nbytes;
 
 	for (i = 0; i < MAX_NUM_EXCP; i++) {
@@ -796,6 +791,67 @@ static ssize_t ipa_read_stats(struct file *file, char __user *ubuf,
 				ipa_ctx->stats.imm_cmds[i]);
 		cnt += nbytes;
 	}
+
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+}
+
+static ssize_t ipa_read_wstats(struct file *file, char __user *ubuf,
+		size_t count, loff_t *ppos)
+{
+
+#define FRMT_STR "%25s %10u\n"
+#define FRMT_STR1 "%25s %10u\n\n"
+
+	int cnt = 0;
+	int nbytes;
+
+	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
+		"Rx Pkts Rcvd:", ipa_ctx->wstats.rx_pkts_rcvd);
+	cnt += nbytes;
+
+	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
+		"Rx Pkts Status Rcvd:", ipa_ctx->wstats.rx_pkts_status_rcvd);
+	cnt += nbytes;
+
+	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
+		"Rx DH Rcvd:", ipa_ctx->wstats.rx_hd_rcvd);
+	cnt += nbytes;
+
+	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
+		"Rx DH Processed:", ipa_ctx->wstats.rx_hd_processed);
+	cnt += nbytes;
+
+	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
+		"Rx DH Sent Back:", ipa_ctx->wstats.rx_hd_reply);
+	cnt += nbytes;
+
+	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR1,
+	 "Rx Pkt Leak:", ipa_ctx->wstats.rx_pkt_leak);
+	cnt += nbytes;
+
+	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
+		"Rx DP Fail:", ipa_ctx->wstats.rx_dp_fail);
+	cnt += nbytes;
+
+	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
+		"Tx Buf Total:", ipa_ctx->wlan_comm_cnt);
+	cnt += nbytes;
+
+	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
+		"Tx Buf Cnt:", ipa_ctx->wstats.tx_buf_cnt);
+	cnt += nbytes;
+
+	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
+		"Tx Pkts Sent:", ipa_ctx->wstats.tx_pkts_rcvd);
+	cnt += nbytes;
+
+	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
+		"Tx Pkts Freed:", ipa_ctx->wstats.tx_pkts_freed);
+	cnt += nbytes;
+
+	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
+		"Avail Fifo Desc:", ipa_ctx->ep[19].avail_fifo_desc);
+	cnt += nbytes;
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
@@ -1021,12 +1077,6 @@ static ssize_t ipa_read_nat4(struct file *file,
 					tmp++;
 
 					value = *tmp;
-					nbytes = scnprintf(dbg_buff + cnt,
-						IPA_MAX_MSG_LEN,
-						"IP-CKSM-delta:0x%x  ",
-						(value & 0x0000FFFF));
-					cnt += nbytes;
-
 					flag = ((value & 0xFFFF0000) >> 16);
 					if (flag & NAT_ENTRY_RST_FIN_BIT) {
 						nbytes =
@@ -1174,6 +1224,10 @@ const struct file_operations ipa_stats_ops = {
 	.read = ipa_read_stats,
 };
 
+const struct file_operations ipa_wstats_ops = {
+	.read = ipa_read_wstats,
+};
+
 const struct file_operations ipa_msg_ops = {
 	.read = ipa_read_msg,
 };
@@ -1273,6 +1327,13 @@ void ipa_debugfs_init(void)
 			&ipa_stats_ops);
 	if (!dfile_stats || IS_ERR(dfile_stats)) {
 		IPAERR("fail to create file for debug_fs stats\n");
+		goto fail;
+	}
+
+	dfile_wstats = debugfs_create_file("wstats", read_only_mode,
+			dent, 0, &ipa_wstats_ops);
+	if (!dfile_wstats || IS_ERR(dfile_wstats)) {
+		IPAERR("fail to create file for debug_fs wstats\n");
 		goto fail;
 	}
 
