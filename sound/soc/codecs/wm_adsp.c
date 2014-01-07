@@ -2032,6 +2032,45 @@ int wm_adsp2_early_event(struct snd_soc_dapm_widget *w,
 }
 EXPORT_SYMBOL_GPL(wm_adsp2_early_event);
 
+static void wm_adsp_edac_shutdown(struct wm_adsp *dsp)
+{
+	int i, ret;
+	unsigned int val = 1;
+	const struct wm_adsp_region *mem;
+
+	mem = wm_adsp_find_region(dsp, WMFW_ADSP2_YM);
+	if (!mem) {
+		adsp_err(dsp, "Failed to locate YM\n");
+		return;
+	}
+
+	ret = regmap_write(dsp->regmap, mem->base + 0x1, val);
+	if (ret != 0) {
+		adsp_err(dsp,
+			 "Failed to inform eDAC to shutdown: %d\n",
+			 ret);
+		return;
+	}
+
+	for (i = 0; i < 5; ++i) {
+		ret = regmap_read(dsp->regmap, mem->base + 0x1, &val);
+		if (ret != 0) {
+			adsp_err(dsp,
+				 "Failed to check for eDAC shutdown: %d\n",
+				 ret);
+			return;
+		}
+
+		if (!val)
+			break;
+
+		msleep(1);
+	}
+
+	if (val)
+		adsp_err(dsp, "Failed to shutdown eDAC firmware\n");
+}
+
 int wm_adsp2_event(struct snd_soc_dapm_widget *w,
 		   struct snd_kcontrol *kcontrol, int event)
 {
@@ -2062,6 +2101,10 @@ int wm_adsp2_event(struct snd_soc_dapm_widget *w,
 		break;
 
 	case SND_SOC_DAPM_PRE_PMD:
+		if (dsp->fw_id == 0x40019) {
+			wm_adsp_edac_shutdown(dsp);
+		}
+
 		dsp->running = false;
 
 		regmap_update_bits(dsp->regmap, dsp->base + ADSP2_CONTROL,
