@@ -39,11 +39,10 @@
 #include <linux/mutex.h>
 #include <linux/atomic.h>
 #include <linux/pm_runtime.h>
-#include <mach/msm_spi.h>
-#include <mach/sps.h>
-#include <mach/dma.h>
-#include <mach/msm_bus.h>
-#include <mach/msm_bus_board.h>
+#include <linux/qcom-spi.h>
+#include <linux/msm-sps.h>
+#include <linux/msm-bus.h>
+#include <linux/msm-bus-board.h>
 #include "spi_qsd.h"
 
 static int msm_spi_pm_resume_runtime(struct device *device);
@@ -588,7 +587,7 @@ static inline bool msm_spi_is_valid_state(struct msm_spi *dd)
 	return spi_op & SPI_OP_STATE_VALID;
 }
 
-static inline void msm_spi_udelay(unsigned long delay_usecs)
+static inline void msm_spi_udelay(unsigned int delay_usecs)
 {
 	/*
 	 * For smaller values of delay, context switch time
@@ -602,7 +601,7 @@ static inline void msm_spi_udelay(unsigned long delay_usecs)
 
 static inline int msm_spi_wait_valid(struct msm_spi *dd)
 {
-	unsigned long delay = 0;
+	unsigned int delay = 0;
 	unsigned long timeout = 0;
 
 	if (dd->clock_speed == 0)
@@ -2142,7 +2141,7 @@ static void msm_spi_bam_teardown(struct msm_spi *dd)
 static int msm_spi_bam_init(struct msm_spi *dd)
 {
 	struct sps_bam_props bam_props = {0};
-	u32 bam_handle;
+	uintptr_t bam_handle;
 	int rc = 0;
 
 	rc = sps_phy2h(dd->bam.phys_addr, &bam_handle);
@@ -2215,7 +2214,7 @@ static int __init msm_spi_dt_to_pdata_populate(struct platform_device *pdev,
 	int  ret, err = 0;
 	struct device_node *node = pdev->dev.of_node;
 
-	for (; itr->dt_name ; ++itr) {
+	for (; itr->dt_name; ++itr) {
 		switch (itr->type) {
 		case DT_GPIO:
 			ret = of_get_named_gpio(node, itr->dt_name, 0);
@@ -2648,7 +2647,6 @@ err_probe_exit:
 	return rc;
 }
 
-#ifdef CONFIG_PM
 static int msm_spi_pm_suspend_runtime(struct device *device)
 {
 	struct platform_device *pdev = to_platform_device(device);
@@ -2738,6 +2736,7 @@ resume_exit:
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
 static int msm_spi_suspend(struct device *device)
 {
 	if (!pm_runtime_enabled(device) || !pm_runtime_suspended(device)) {
@@ -2777,7 +2776,8 @@ static int msm_spi_resume(struct device *device)
 #else
 #define msm_spi_suspend NULL
 #define msm_spi_resume NULL
-#endif /* CONFIG_PM */
+#endif
+
 
 static int msm_spi_remove(struct platform_device *pdev)
 {
