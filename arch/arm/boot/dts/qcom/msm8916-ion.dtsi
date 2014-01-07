@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,14 @@
                         reg = <28>;
                         linux,contiguous-region = <&audio_mem>;
                         qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@23 { /* OTHER PIL HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <23>;
+			qcom,heap-align = <0x1000>;
+			qcom,memory-fixed = <0x8eb00000 0x0b00000>;
+			qcom,ion-heap-type = "CARVEOUT";
 		};
 	};
 };
