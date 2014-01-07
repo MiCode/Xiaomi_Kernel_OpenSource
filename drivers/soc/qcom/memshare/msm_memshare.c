@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,15 +70,16 @@ static int handle_alloc_req(void *req_h, void *req)
 	pr_debug("%s: req->num_bytes = %d\n", __func__, alloc_req->num_bytes);
 	alloc_resp.resp = QMI_RESULT_FAILURE_V01;
 	mutex_lock(&mem_share);
-	memset(&alloc_resp, 0, sizeof(struct mem_alloc_resp_msg_v01));
-	rc = memshare_alloc(alloc_req->num_bytes,
-				alloc_req->block_alignment,
-				&memblock);
-	if (rc) {
-		mutex_unlock(&mem_share);
-		return -ENOMEM;
+	if (!size) {
+		memset(&alloc_resp, 0, sizeof(struct mem_alloc_resp_msg_v01));
+		rc = memshare_alloc(alloc_req->num_bytes,
+					alloc_req->block_alignment,
+					&memblock);
+		if (rc) {
+			mutex_unlock(&mem_share);
+			return -ENOMEM;
+		}
 	}
-
 	alloc_resp.num_bytes_valid = 1;
 	alloc_resp.num_bytes =  alloc_req->num_bytes;
 	size = alloc_req->num_bytes;
@@ -86,6 +87,7 @@ static int handle_alloc_req(void *req_h, void *req)
 	alloc_resp.handle = memblock.phy_addr;
 	alloc_resp.resp = QMI_RESULT_SUCCESS_V01;
 	mutex_unlock(&mem_share);
+
 	pr_debug("alloc_resp.num_bytes :%d, alloc_resp.handle :%lx, alloc_resp.mem_req_result :%lx\n",
 			  alloc_resp.num_bytes,
 			  (unsigned long int)alloc_resp.handle,
@@ -113,9 +115,9 @@ static int handle_free_req(void *req_h, void *req)
 			(unsigned long int)free_req->handle, size);
 	dma_free_coherent(NULL, size,
 		memblock.virtual_addr, free_req->handle);
+	size = 0;
 	mutex_unlock(&mem_free);
 	free_resp.resp = QMI_RESULT_SUCCESS_V01;
-
 	rc = qmi_send_resp_from_cb(mem_share_svc_handle, curr_conn, req_h,
 			&mem_share_svc_free_resp_desc, &free_resp,
 			sizeof(free_resp));
