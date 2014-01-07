@@ -19,5 +19,7 @@ obj-$(CONFIG_SND_SOC_INTEL_HASWELL) += snd-soc-sst-haswell-pcm.o
 
 # Machine support
 snd-soc-sst-haswell-objs := haswell.o
+snd-soc-sst-broadwell-objs := broadwell.o
 
 obj-$(CONFIG_SND_SOC_INTEL_HASWELL_MACH) += snd-soc-sst-haswell.o
+obj-$(CONFIG_SND_SOC_INTEL_BROADWELL_MACH) += snd-soc-sst-broadwell.o
