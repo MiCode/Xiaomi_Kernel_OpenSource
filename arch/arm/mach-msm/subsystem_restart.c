@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -505,8 +505,11 @@ static int subsys_start(struct subsys_device *subsys)
 
 	init_completion(&subsys->err_ready);
 	ret = subsys->desc->powerup(subsys->desc);
-	if (ret)
+	if (ret) {
+		notify_each_subsys_device(&subsys, 1, SUBSYS_POWERUP_FAILURE,
+									NULL);
 		return ret;
+	}
 	enable_all_irqs(subsys);
 
 	if (subsys->desc->is_not_loadable) {
@@ -519,6 +522,8 @@ static int subsys_start(struct subsys_device *subsys)
 		/* pil-boot succeeded but we need to shutdown
 		 * the device because error ready timed out.
 		 */
+		notify_each_subsys_device(&subsys, 1, SUBSYS_POWERUP_FAILURE,
+									NULL);
 		subsys->desc->shutdown(subsys->desc, false);
 		disable_all_irqs(subsys);
 		return ret;
