@@ -848,6 +848,7 @@ static inline int venus_hfi_clk_enable(struct venus_hfi_device *device)
 fail_clk_enable:
 	for (i--; i >= 0; i--) {
 		cl = &device->resources.clock[i];
+		usleep(100);
 		clk_disable(cl->clk);
 	}
 	return rc;
@@ -870,6 +871,7 @@ static inline void venus_hfi_clk_disable(struct venus_hfi_device *device)
 
 	for (i = 0; i <= device->clk_gating_level; i++) {
 		cl = &device->resources.clock[i];
+		usleep(100);
 		clk_disable(cl->clk);
 	}
 	device->clocks_enabled = 0;
@@ -2784,12 +2786,14 @@ static inline void venus_hfi_disable_clks(struct venus_hfi_device *device)
 	if (device->clocks_enabled) {
 		for (i = VCODEC_CLK; i < VCODEC_MAX_CLKS; i++) {
 			cl = &device->resources.clock[i];
+			usleep(100);
 			clk_disable(cl->clk);
 		}
 	} else {
 		for (i = device->clk_gating_level + 1;
 			i < VCODEC_MAX_CLKS; i++) {
 			cl = &device->resources.clock[i];
+			usleep(100);
 			clk_disable(cl->clk);
 		}
 	}
@@ -2832,6 +2836,7 @@ static inline int venus_hfi_enable_clks(struct venus_hfi_device *device)
 fail_clk_enable:
 	for (; i >= 0; i--) {
 		cl = &device->resources.clock[i];
+		usleep(100);
 		clk_disable_unprepare(cl->clk);
 	}
 	mutex_unlock(&device->clk_pwr_lock);
