@@ -26,11 +26,11 @@
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/debugfs.h>
+#include <linux/uaccess.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/cpr-regulator.h>
 #include <soc/qcom/scm.h>
-#include <asm/uaccess.h>
 
 /* Register Offsets for RB-CPR and Bit Definitions */
 
