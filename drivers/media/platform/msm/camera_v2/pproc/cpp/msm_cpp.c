@@ -1208,7 +1208,7 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 	uint32_t *cpp_frame_msg;
 	unsigned long in_phyaddr, out_phyaddr0, out_phyaddr1;
 	uint16_t num_stripes = 0;
-	struct msm_buf_mngr_info buff_mgr_info;
+	struct msm_buf_mngr_info buff_mgr_info, dup_buff_mgr_info;
 	struct msm_cpp_frame_info_t *u_frame_info =
 		(struct msm_cpp_frame_info_t *)ioctl_ptr->ioctl_ptr;
 	int32_t status = 0;
@@ -1295,19 +1295,20 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 			new_frame->duplicate_identity);
 		memset(&new_frame->output_buffer_info[1], 0,
 			sizeof(struct msm_cpp_buffer_info_t));
-		memset(&buff_mgr_info, 0, sizeof(struct msm_buf_mngr_info));
-		buff_mgr_info.session_id =
+		memset(&dup_buff_mgr_info, 0, sizeof(struct msm_buf_mngr_info));
+		dup_buff_mgr_info.session_id =
 			((new_frame->duplicate_identity >> 16) & 0xFFFF);
-		buff_mgr_info.stream_id =
+		dup_buff_mgr_info.stream_id =
 			(new_frame->duplicate_identity & 0xFFFF);
 		rc = msm_cpp_buffer_ops(cpp_dev, VIDIOC_MSM_BUF_MNGR_GET_BUF,
-			&buff_mgr_info);
+			&dup_buff_mgr_info);
 		if (rc < 0) {
 			rc = -EAGAIN;
 			pr_debug("error getting buffer rc:%d\n", rc);
-			goto ERROR2;
+			goto ERROR3;
 		}
-		new_frame->output_buffer_info[1].index = buff_mgr_info.index;
+		new_frame->output_buffer_info[1].index =
+			dup_buff_mgr_info.index;
 		out_phyaddr1 = msm_cpp_fetch_buffer_info(cpp_dev,
 			&new_frame->output_buffer_info[1],
 			((new_frame->duplicate_identity >> 16) & 0xFFFF),
@@ -1316,6 +1317,8 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 		if (!out_phyaddr1) {
 			pr_err("error gettting output physical address\n");
 			rc = -EINVAL;
+			msm_cpp_buffer_ops(cpp_dev, VIDIOC_MSM_BUF_MNGR_PUT_BUF,
+				&dup_buff_mgr_info);
 			goto ERROR3;
 		}
 		/* set duplicate enable bit */
