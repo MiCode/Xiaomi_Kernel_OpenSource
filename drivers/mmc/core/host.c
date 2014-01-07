@@ -4,7 +4,7 @@
  *  Copyright (C) 2003 Russell King, All Rights Reserved.
  *  Copyright (C) 2007-2008 Pierre Ossman
  *  Copyright (C) 2010 Linus Walleij
- *  Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -627,6 +627,10 @@ static ssize_t store_enable(struct device *dev,
 	if (!host)
 		goto out;
 
+	/* Not safe against removal of the card */
+	if (host->card)
+		mmc_rpm_hold(host, &host->card->dev);
+
 	mmc_claim_host(host);
 	if (!host->card || kstrtoul(buf, 0, &value))
 		goto err;
@@ -644,7 +648,8 @@ static ssize_t store_enable(struct device *dev,
 		mmc_disable_clk_scaling(host);
 
 		/* Set to max. frequency, since we are disabling */
-		if (host->bus_ops && host->bus_ops->change_bus_speed) {
+		if (host->bus_ops && host->bus_ops->change_bus_speed &&
+				host->clk_scaling.state == MMC_LOAD_LOW) {
 			freq = mmc_get_max_frequency(host);
 			if (host->bus_ops->change_bus_speed(host, &freq))
 				goto err;
@@ -658,6 +663,10 @@ static ssize_t store_enable(struct device *dev,
 	retval = count;
 err:
 	mmc_release_host(host);
+
+	/* Not safe against removal of the card */
+	if (host->card)
+		mmc_rpm_release(host, &host->card->dev);
 out:
 	return retval;
 }
