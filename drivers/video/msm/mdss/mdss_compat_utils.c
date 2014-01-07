@@ -642,6 +642,54 @@ static int __to_user_pgc_lut_data(
 	return 0;
 }
 
+static int __from_user_hist_lut_data(
+			struct mdp_hist_lut_data32 __user *hist_lut32,
+			struct mdp_hist_lut_data __user *hist_lut)
+{
+	uint32_t data;
+
+	if (copy_in_user(&hist_lut->block,
+			&hist_lut32->block,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&hist_lut->ops,
+			&hist_lut32->ops,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&hist_lut->len,
+			&hist_lut32->len,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (get_user(data, &hist_lut32->data) ||
+	    put_user(compat_ptr(data), &hist_lut->data))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __to_user_hist_lut_data(
+			struct mdp_hist_lut_data32 __user *hist_lut32,
+			struct mdp_hist_lut_data __user *hist_lut)
+{
+	unsigned long data;
+
+	if (copy_in_user(&hist_lut32->block,
+			&hist_lut->block,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&hist_lut32->ops,
+			&hist_lut->ops,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&hist_lut32->len,
+			&hist_lut->len,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (get_user(data, &hist_lut->data) ||
+	    put_user((compat_caddr_t) data, &hist_lut32->data))
+		return -EFAULT;
+
+	return 0;
+}
+
 static int __from_user_lut_cfg_data(
 			struct mdp_lut_cfg_data32 __user *lut_cfg32,
 			struct mdp_lut_cfg_data __user *lut_cfg)
@@ -668,6 +716,11 @@ static int __from_user_lut_cfg_data(
 		ret = __from_user_pgc_lut_data(
 			compat_ptr((uintptr_t)&lut_cfg32->data.pgc_lut_data),
 			&lut_cfg->data.pgc_lut_data);
+		break;
+	case mdp_lut_hist:
+		ret = __from_user_hist_lut_data(
+			compat_ptr((uintptr_t)&lut_cfg32->data.hist_lut_data),
+			&lut_cfg->data.hist_lut_data);
 		break;
 	default:
 		break;
@@ -702,6 +755,11 @@ static int __to_user_lut_cfg_data(
 		ret = __to_user_pgc_lut_data(
 			compat_ptr((uintptr_t)&lut_cfg32->data.pgc_lut_data),
 			&lut_cfg->data.pgc_lut_data);
+		break;
+	case mdp_lut_hist:
+		ret = __to_user_hist_lut_data(
+			compat_ptr((uintptr_t)&lut_cfg32->data.hist_lut_data),
+			&lut_cfg->data.hist_lut_data);
 		break;
 	default:
 		break;
