@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,6 +73,12 @@ extern void emac_hw_stop_mac(struct emac_hw *hw);
 extern void emac_hw_set_mac_addr(struct emac_hw *hw, u8 *addr);
 
 #define IMR_NORMAL_MASK         (\
+		ISR_ERROR       |\
+		ISR_GPHY_LINK   |\
+		ISR_TX_PKT      |\
+		GPHY_WAKEUP_INT)
+
+#define IMR_EXTENDED_MASK       (\
 		SW_MAN_INT      |\
 		ISR_OVER        |\
 		ISR_ERROR       |\
