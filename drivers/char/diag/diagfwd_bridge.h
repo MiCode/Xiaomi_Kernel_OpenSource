@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,16 +15,26 @@
 
 #include "diagfwd.h"
 
-#define MAX_BRIDGES	5
-#define HSIC	0
-#define HSIC_2	1
-#define SMUX	4
+#define MAX_BRIDGES_DATA	3
+#define MAX_BRIDGES_DCI		2
+#define HSIC_DATA_CH		0
+#define HSIC_DATA_CH_2		1
+#define HSIC_DCI_CH		0
+#define HSIC_DCI_CH_2		1
+#define SMUX			2
+
+#define DIAG_DATA_BRIDGE_IDX	0
+#define DIAG_DCI_BRIDGE_IDX	1
+#define DIAG_DATA_BRIDGE_IDX_2	2
+#define DIAG_DCI_BRIDGE_IDX_2	3
 
 int diagfwd_connect_bridge(int);
 void connect_bridge(int, uint8_t);
 int diagfwd_disconnect_bridge(int);
 void diagfwd_bridge_init(int index);
+int diagfwd_bridge_dci_init(int index);
 void diagfwd_bridge_exit(void);
+void diagfwd_bridge_dci_exit(void);
 int diagfwd_read_complete_bridge(struct diag_request *diag_read_ptr);
 
 /* Diag-Bridge structure, n bridges can be used at same time
@@ -44,6 +54,17 @@ struct diag_bridge_dev {
 	struct work_struct diag_read_work;
 	struct diag_request *usb_read_ptr;
 	struct work_struct usb_read_complete_work;
+};
+
+struct diag_bridge_dci_dev {
+	int id;
+	char name[20];
+	int enabled;
+	struct mutex bridge_mutex;
+	int read_len;
+	int write_len;
+	struct workqueue_struct *wq;
+	struct work_struct read_complete_work;
 };
 
 #endif
