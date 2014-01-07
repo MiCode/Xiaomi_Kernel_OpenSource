@@ -44,6 +44,7 @@ static int remote_spinlock_init_address(int id, _remote_spinlock_t *lock);
 /* ldrex implementation ----------------------------------------------------- */
 static char *ldrex_compatible_string = "qcom,ipc-spinlock-ldrex";
 
+#ifdef CONFIG_ARM
 static void __raw_remote_ex_spin_lock(raw_remote_spinlock_t *lock)
 {
 	unsigned long tmp;
@@ -97,6 +98,20 @@ static void __raw_remote_ex_spin_unlock(raw_remote_spinlock_t *lock)
 	: "r" (&lock->lock), "r" (0)
 	: "cc");
 }
+#else
+static void __raw_remote_ex_spin_lock(raw_remote_spinlock_t *lock)
+{
+}
+
+static int __raw_remote_ex_spin_trylock(raw_remote_spinlock_t *lock)
+{
+	return 0;
+}
+
+static void __raw_remote_ex_spin_unlock(raw_remote_spinlock_t *lock)
+{
+}
+#endif /* CONFIG_ARM */
 /* end ldrex implementation ------------------------------------------------- */
 
 /* sfpb implementation ------------------------------------------------------ */
