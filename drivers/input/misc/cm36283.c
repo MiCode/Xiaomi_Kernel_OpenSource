@@ -3,7 +3,7 @@
  * Copyright (C) 2012 Capella Microsystems Inc.
  * Author: Frank Hsieh <pengyueh@gmail.com>
  *
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -75,6 +75,10 @@ static struct sensors_classdev sensors_light_cdev = {
 	.min_delay = 0,
 	.fifo_reserved_event_count = 0,
 	.fifo_max_event_count = 0,
+	.enabled = 0,
+	.delay_msec = CM36283_LS_DEFAULT_POLL_DELAY,
+	.sensors_enable = NULL,
+	.sensors_poll_delay = NULL,
 };
 
 static struct sensors_classdev sensors_proximity_cdev = {
@@ -89,6 +93,10 @@ static struct sensors_classdev sensors_proximity_cdev = {
 	.min_delay = 0,
 	.fifo_reserved_event_count = 0,
 	.fifo_max_event_count = 0,
+	.enabled = 0,
+	.delay_msec = CM36283_PS_DEFAULT_POLL_DELAY,
+	.sensors_enable = NULL,
+	.sensors_poll_delay = NULL,
 };
 
 
@@ -159,6 +167,8 @@ struct cm36283_info {
 	struct regulator *vio;
 	struct delayed_work ldwork;
 	struct delayed_work pdwork;
+	struct sensors_classdev als_cdev;
+	struct sensors_classdev ps_cdev;
 };
 struct cm36283_info *lp_info;
 int fLevel=-1;
@@ -806,6 +816,21 @@ static ssize_t ps_adc_show(struct device *dev,
 	return ret;
 }
 
+static int ps_enable_set(struct sensors_classdev *sensors_cdev,
+		unsigned int enable)
+{
+	struct cm36283_info *lpi = container_of(sensors_cdev,
+			struct cm36283_info, ps_cdev);
+	int ret;
+
+	if (enable)
+		ret = psensor_enable(lpi);
+	else
+		ret = psensor_disable(lpi);
+
+	return ret;
+}
+
 static ssize_t ps_enable_store(struct device *dev,
 				struct device_attribute *attr,
 				const char *buf, size_t count)
@@ -962,6 +987,27 @@ static ssize_t ls_adc_show(struct device *dev,
 	return ret;
 }
 
+static int ls_enable_set(struct sensors_classdev *sensors_cdev,
+		unsigned int enable)
+{
+	struct cm36283_info *lpi = container_of(sensors_cdev,
+			struct cm36283_info, als_cdev);
+	int ret;
+
+	if (enable)
+		ret = lightsensor_enable(lpi);
+	else
+		ret = lightsensor_disable(lpi);
+
+	if (ret < 0) {
+		dev_err(&lpi->i2c_client->dev, "%s: set auto light sensor fail\n",
+				__func__);
+		return -EIO;
+	}
+
+	return 0;
+}
+
 static ssize_t ls_enable_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
@@ -1003,9 +1049,11 @@ static ssize_t ls_enable_store(struct device *dev,
 			lpi->ls_calibrate);
 	dev_dbg(&lpi->i2c_client->dev, "ls_auto:0x%x\n", ls_auto);
 
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(&lpi->i2c_client->dev, "%s: set auto light sensor fail\n",
 		__func__);
+		return ret;
+	}
 
 	return count;
 }
@@ -1188,6 +1236,21 @@ static ssize_t ls_poll_delay_store(struct device *dev,
 	return count;
 }
 
+static int ls_poll_delay_set(struct sensors_classdev *sensors_cdev,
+		unsigned int delay_msec)
+{
+	struct cm36283_info *lpi = container_of(sensors_cdev,
+			struct cm36283_info, als_cdev);
+
+	if ((delay_msec < CM36283_LS_MIN_POLL_DELAY) ||
+			(delay_msec > CM36283_LS_MAX_POLL_DELAY))
+		return -EINVAL;
+
+	atomic_set(&lpi->ls_poll_delay, delay_msec);
+
+	return 0;
+}
+
 static ssize_t ps_poll_delay_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -1211,6 +1274,20 @@ static ssize_t ps_poll_delay_store(struct device *dev,
 
 	atomic_set(&lpi->ps_poll_delay, (unsigned int) interval_ms);
 	return count;
+}
+
+static int ps_poll_delay_set(struct sensors_classdev *sensors_cdev,
+		unsigned int delay_msec)
+{
+	struct cm36283_info *lpi = container_of(sensors_cdev,
+			struct cm36283_info, als_cdev);
+
+	if ((delay_msec < CM36283_PS_MIN_POLL_DELAY) ||
+			(delay_msec > CM36283_PS_MAX_POLL_DELAY))
+		return -EINVAL;
+
+	atomic_set(&lpi->ps_poll_delay, delay_msec);
+	return 0;
 }
 
 static ssize_t ls_fLevel_show(struct device *dev,
@@ -1645,12 +1722,21 @@ static int cm36283_probe(struct i2c_client *client,
 		goto err_light_sysfs_cleanup;
 	}
 
+	lpi->als_cdev = sensors_light_cdev;
+	lpi->als_cdev.sensors_enable = ls_enable_set;
+	lpi->als_cdev.sensors_poll_delay = ls_poll_delay_set;
+	lpi->als_cdev.min_delay = CM36283_LS_MIN_POLL_DELAY * 1000;
 
-	ret = sensors_classdev_register(&client->dev, &sensors_light_cdev);
+	lpi->ps_cdev = sensors_proximity_cdev;
+	lpi->ps_cdev.sensors_enable = ps_enable_set;
+	lpi->ps_cdev.sensors_poll_delay = ps_poll_delay_set;
+	lpi->ps_cdev.min_delay = CM36283_PS_MIN_POLL_DELAY * 1000;
+
+	ret = sensors_classdev_register(&client->dev, &lpi->als_cdev);
 	if (ret)
 		goto err_proximity_sysfs_cleanup;
 
-	ret = sensors_classdev_register(&client->dev, &sensors_proximity_cdev);
+	ret = sensors_classdev_register(&client->dev, &lpi->ps_cdev);
 	if (ret)
 		goto err_create_class_sysfs;
 
@@ -1661,7 +1747,7 @@ static int cm36283_probe(struct i2c_client *client,
 
 	return ret;
 err_create_class_sysfs:
-	sensors_classdev_unregister(&sensors_light_cdev);
+	sensors_classdev_unregister(&lpi->als_cdev);
 err_proximity_sysfs_cleanup:
 	remove_sysfs_interfaces(&lpi->ps_input_dev->dev, proximity_attr,
 			ARRAY_SIZE(proximity_attr));
