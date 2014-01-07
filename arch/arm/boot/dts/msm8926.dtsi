@@ -163,8 +163,9 @@
 	qcom,pvs-corner-ceiling-fast = <1050000 1050000 1100000>;
 	qcom,cpr-step-quotient = <30>;
 	qcom,cpr-up-threshold = <0>;
-	qcom,cpr-down-threshold = <5>;
+	qcom,cpr-down-threshold = <1>;
 	qcom,cpr-apc-volt-step = <10000>;
+	qcom,cpr-quotient-adjustment = <96>;
 };
 
 &tsens {
