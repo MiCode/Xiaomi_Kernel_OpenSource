@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -492,19 +492,6 @@ static int msm_spi_calculate_size(int *fifo_size,
 	return 0;
 }
 
-static void get_next_transfer(struct msm_spi *dd)
-{
-	struct spi_transfer *t = dd->cur_transfer;
-
-	if (t->transfer_list.next != &dd->cur_msg->transfers) {
-		dd->cur_transfer = list_entry(t->transfer_list.next,
-					      struct spi_transfer,
-					      transfer_list);
-		dd->write_buf          = dd->cur_transfer->tx_buf;
-		dd->read_buf           = dd->cur_transfer->rx_buf;
-	}
-}
-
 static void __init msm_spi_calculate_fifo_size(struct msm_spi *dd)
 {
 	u32 spi_iom;
@@ -685,8 +672,7 @@ msm_spi_set_bpw_and_no_io_flags(struct msm_spi *dd, u32 *config, int n)
 	if (n != (*config & SPI_CFG_N))
 		*config = (*config & ~SPI_CFG_N) | n;
 
-	if (((dd->mode == SPI_DMOV_MODE) && (!dd->read_len))
-					|| (dd->mode == SPI_BAM_MODE)) {
+	if (dd->mode == SPI_BAM_MODE) {
 		if (dd->read_buf == NULL)
 			*config |= SPI_NO_INPUT;
 		if (dd->write_buf == NULL)
@@ -1045,213 +1031,9 @@ msm_spi_bam_next_transfer(struct msm_spi *dd)
 	return 0;
 }
 
-static void msm_spi_setup_dm_transfer(struct msm_spi *dd)
-{
-	dmov_box *box;
-	int bytes_to_send, bytes_sent;
-	int tx_num_rows, rx_num_rows;
-	u32 num_transfers;
-
-	atomic_set(&dd->rx_irq_called, 0);
-	atomic_set(&dd->tx_irq_called, 0);
-	if (dd->write_len && !dd->read_len) {
-		/* WR-WR transfer */
-		bytes_sent = dd->cur_msg_len - dd->tx_bytes_remaining;
-		dd->write_buf = dd->temp_buf;
-	} else {
-		bytes_sent = dd->cur_transfer->len - dd->tx_bytes_remaining;
-		/* For WR-RD transfer, bytes_sent can be negative */
-		if (bytes_sent < 0)
-			bytes_sent = 0;
-	}
-	/* We'll send in chunks of SPI_MAX_LEN if larger than
-	 * 4K bytes for targets that have only 12 bits in
-	 * QUP_MAX_OUTPUT_CNT register. If the target supports
-	 * more than 12bits then we send the data in chunks of
-	 * the infinite_mode value that is defined in the
-	 * corresponding board file.
-	 */
-	if (!dd->pdata->infinite_mode)
-		dd->max_trfr_len = SPI_MAX_LEN;
-	else
-		dd->max_trfr_len = (dd->pdata->infinite_mode) *
-			   (dd->bytes_per_word);
-
-	bytes_to_send = min_t(u32, dd->tx_bytes_remaining,
-			      dd->max_trfr_len);
-
-	num_transfers = DIV_ROUND_UP(bytes_to_send, dd->bytes_per_word);
-	dd->tx_unaligned_len = bytes_to_send % dd->output_burst_size;
-	dd->rx_unaligned_len = bytes_to_send % dd->input_burst_size;
-	tx_num_rows = bytes_to_send / dd->output_burst_size;
-	rx_num_rows = bytes_to_send / dd->input_burst_size;
-
-	dd->mode = SPI_DMOV_MODE;
-
-	if (tx_num_rows) {
-		/* src in 16 MSB, dst in 16 LSB */
-		box = &dd->tx_dmov_cmd->box;
-		box->src_row_addr = dd->cur_transfer->tx_dma + bytes_sent;
-		box->src_dst_len
-			= (dd->output_burst_size << 16) | dd->output_burst_size;
-		box->num_rows = (tx_num_rows << 16) | tx_num_rows;
-		box->row_offset = (dd->output_burst_size << 16) | 0;
-
-		dd->tx_dmov_cmd->cmd_ptr = CMD_PTR_LP |
-				   DMOV_CMD_ADDR(dd->tx_dmov_cmd_dma +
-				   offsetof(struct spi_dmov_cmd, box));
-	} else {
-		dd->tx_dmov_cmd->cmd_ptr = CMD_PTR_LP |
-				   DMOV_CMD_ADDR(dd->tx_dmov_cmd_dma +
-				   offsetof(struct spi_dmov_cmd, single_pad));
-	}
-
-	if (rx_num_rows) {
-		/* src in 16 MSB, dst in 16 LSB */
-		box = &dd->rx_dmov_cmd->box;
-		box->dst_row_addr = dd->cur_transfer->rx_dma + bytes_sent;
-		box->src_dst_len
-			= (dd->input_burst_size << 16) | dd->input_burst_size;
-		box->num_rows = (rx_num_rows << 16) | rx_num_rows;
-		box->row_offset = (0 << 16) | dd->input_burst_size;
-
-		dd->rx_dmov_cmd->cmd_ptr = CMD_PTR_LP |
-				   DMOV_CMD_ADDR(dd->rx_dmov_cmd_dma +
-				   offsetof(struct spi_dmov_cmd, box));
-	} else {
-		dd->rx_dmov_cmd->cmd_ptr = CMD_PTR_LP |
-				   DMOV_CMD_ADDR(dd->rx_dmov_cmd_dma +
-				   offsetof(struct spi_dmov_cmd, single_pad));
-	}
-
-	if (!dd->tx_unaligned_len) {
-		dd->tx_dmov_cmd->box.cmd |= CMD_LC;
-	} else {
-		dmov_s *tx_cmd = &(dd->tx_dmov_cmd->single_pad);
-		u32 tx_offset = dd->cur_transfer->len - dd->tx_unaligned_len;
-
-		if ((dd->multi_xfr) && (dd->read_len <= 0))
-			tx_offset = dd->cur_msg_len - dd->tx_unaligned_len;
-
-		dd->tx_dmov_cmd->box.cmd &= ~CMD_LC;
-
-		memset(dd->tx_padding, 0, dd->output_burst_size);
-		if (dd->write_buf)
-			memcpy(dd->tx_padding, dd->write_buf + tx_offset,
-			       dd->tx_unaligned_len);
-
-		tx_cmd->src = dd->tx_padding_dma;
-		tx_cmd->len = dd->output_burst_size;
-	}
-
-	if (!dd->rx_unaligned_len) {
-		dd->rx_dmov_cmd->box.cmd |= CMD_LC;
-	} else {
-		dmov_s *rx_cmd = &(dd->rx_dmov_cmd->single_pad);
-		dd->rx_dmov_cmd->box.cmd &= ~CMD_LC;
-
-		memset(dd->rx_padding, 0, dd->input_burst_size);
-		rx_cmd->dst = dd->rx_padding_dma;
-		rx_cmd->len = dd->input_burst_size;
-	}
-
-	/* This also takes care of the padding dummy buf
-	   Since this is set to the correct length, the
-	   dummy bytes won't be actually sent */
-	if (dd->multi_xfr) {
-		u32 write_transfers = 0;
-		u32 read_transfers = 0;
-
-		if (dd->write_len > 0) {
-			write_transfers = DIV_ROUND_UP(dd->write_len,
-						       dd->bytes_per_word);
-			writel_relaxed(write_transfers,
-				       dd->base + SPI_MX_OUTPUT_COUNT);
-		}
-		if (dd->read_len > 0) {
-			/*
-			 *  The read following a write transfer must take
-			 *  into account, that the bytes pertaining to
-			 *  the write transfer needs to be discarded,
-			 *  before the actual read begins.
-			 */
-			read_transfers = DIV_ROUND_UP(dd->read_len +
-						      dd->write_len,
-						      dd->bytes_per_word);
-			writel_relaxed(read_transfers,
-				       dd->base + SPI_MX_INPUT_COUNT);
-		}
-	} else {
-		if (dd->write_buf)
-			writel_relaxed(num_transfers,
-				       dd->base + SPI_MX_OUTPUT_COUNT);
-		if (dd->read_buf)
-			writel_relaxed(num_transfers,
-				       dd->base + SPI_MX_INPUT_COUNT);
-	}
-}
-
-static void msm_spi_enqueue_dm_commands(struct msm_spi *dd)
-{
-	dma_coherent_pre_ops();
-	if (dd->write_buf)
-		msm_dmov_enqueue_cmd(dd->tx_dma_chan, &dd->tx_hdr);
-	if (dd->read_buf)
-		msm_dmov_enqueue_cmd(dd->rx_dma_chan, &dd->rx_hdr);
-}
-
-/* SPI core on targets that does not support infinite mode can send
-   maximum of 4K transfers or 64K transfers depending up on size of
-   MAX_OUTPUT_COUNT register, Therefore, we are sending in several
-   chunks. Upon completion we send the next chunk, or complete the
-   transfer if everything is finished. On targets that support
-   infinite mode, we send all the bytes in as single chunk.
-*/
-static int msm_spi_dm_send_next(struct msm_spi *dd)
-{
-	/* By now we should have sent all the bytes in FIFO mode,
-	 * However to make things right, we'll check anyway.
-	 */
-	if (dd->mode != SPI_DMOV_MODE)
-		return 0;
-
-	/* On targets which does not support infinite mode,
-	   We need to send more chunks, if we sent max last time  */
-	if (dd->tx_bytes_remaining > dd->max_trfr_len) {
-		dd->tx_bytes_remaining -= dd->max_trfr_len;
-		if (msm_spi_set_state(dd, SPI_OP_STATE_RESET))
-			return 0;
-		dd->read_len = dd->write_len = 0;
-		msm_spi_setup_dm_transfer(dd);
-		msm_spi_enqueue_dm_commands(dd);
-		if (msm_spi_set_state(dd, SPI_OP_STATE_RUN))
-			return 0;
-		return 1;
-	} else if (dd->read_len && dd->write_len) {
-		dd->tx_bytes_remaining -= dd->cur_transfer->len;
-		if (list_is_last(&dd->cur_transfer->transfer_list,
-					    &dd->cur_msg->transfers))
-			return 0;
-		get_next_transfer(dd);
-		if (msm_spi_set_state(dd, SPI_OP_STATE_PAUSE))
-			return 0;
-		dd->tx_bytes_remaining = dd->read_len + dd->write_len;
-		dd->read_buf = dd->temp_buf;
-		dd->read_len = dd->write_len = -1;
-		msm_spi_setup_dm_transfer(dd);
-		msm_spi_enqueue_dm_commands(dd);
-		if (msm_spi_set_state(dd, SPI_OP_STATE_RUN))
-			return 0;
-		return 1;
-	}
-	return 0;
-}
-
 static int msm_spi_dma_send_next(struct msm_spi *dd)
 {
 	int ret = 0;
-	if (dd->mode == SPI_DMOV_MODE)
-		ret = msm_spi_dm_send_next(dd);
 	if (dd->mode == SPI_BAM_MODE)
 		ret = msm_spi_bam_next_transfer(dd);
 	return ret;
@@ -1320,19 +1102,6 @@ static irqreturn_t msm_spi_input_irq(int irq, void *dev_id)
 
 	if (dd->mode == SPI_MODE_NONE)
 		return IRQ_HANDLED;
-
-	if (dd->mode == SPI_DMOV_MODE) {
-		u32 op = readl_relaxed(dd->base + SPI_OPERATIONAL);
-		if ((!dd->read_buf || op & SPI_OP_MAX_INPUT_DONE_FLAG) &&
-		    (!dd->write_buf || op & SPI_OP_MAX_OUTPUT_DONE_FLAG)) {
-			msm_spi_ack_transfer(dd);
-				if (atomic_inc_return(&dd->rx_irq_called) == 1)
-					return IRQ_HANDLED;
-			msm_spi_complete(dd);
-			return IRQ_HANDLED;
-		}
-		return IRQ_NONE;
-	}
 
 	if (dd->mode == SPI_FIFO_MODE) {
 		while ((readl_relaxed(dd->base + SPI_OPERATIONAL) &
@@ -1408,21 +1177,6 @@ static irqreturn_t msm_spi_output_irq(int irq, void *dev_id)
 	if (dd->mode == SPI_MODE_NONE)
 		return IRQ_HANDLED;
 
-	if (dd->mode == SPI_DMOV_MODE) {
-		/* TX_ONLY transaction is handled here
-		   This is the only place we send complete at tx and not rx */
-		if (dd->read_buf == NULL &&
-		    readl_relaxed(dd->base + SPI_OPERATIONAL) &
-		    SPI_OP_MAX_OUTPUT_DONE_FLAG) {
-			msm_spi_ack_transfer(dd);
-			if (atomic_inc_return(&dd->tx_irq_called) == 1)
-				return IRQ_HANDLED;
-			msm_spi_complete(dd);
-			return IRQ_HANDLED;
-		}
-		return IRQ_NONE;
-	}
-
 	/* Output FIFO is empty. Transmit any outstanding write data. */
 	if (dd->mode == SPI_FIFO_MODE)
 		msm_spi_write_rmn_to_fifo(dd);
@@ -1453,94 +1207,6 @@ static irqreturn_t msm_spi_error_irq(int irq, void *dev_id)
 	/* Ensure clearing of QUP_ERROR_FLAGS was completed */
 	mb();
 	return IRQ_HANDLED;
-}
-
-/**
- * msm_spi_dmov_map_buffers: prepares buffer for DMA transfer
- * @return zero on success or negative error code
- *
- * calls dma_map_single() on the read/write buffers, effectively invalidating
- * their cash entries. for For WR-WR and WR-RD transfers, allocates temporary
- * buffer and copy the data to/from the client buffers
- */
-static int msm_spi_dmov_map_buffers(struct msm_spi *dd)
-{
-	struct device *dev;
-	struct spi_transfer *first_xfr;
-	struct spi_transfer *nxt_xfr = NULL;
-	void *tx_buf, *rx_buf;
-	unsigned tx_len, rx_len;
-	int ret = -EINVAL;
-
-	dev = &dd->cur_msg->spi->dev;
-	first_xfr = dd->cur_transfer;
-	tx_buf = (void *)first_xfr->tx_buf;
-	rx_buf = first_xfr->rx_buf;
-	tx_len = rx_len = first_xfr->len;
-
-	/*
-	 * For WR-WR and WR-RD transfers, we allocate our own temporary
-	 * buffer and copy the data to/from the client buffers.
-	 */
-	if (!dd->qup_ver && dd->multi_xfr) {
-		dd->temp_buf = kzalloc(dd->cur_msg_len,
-				       GFP_KERNEL | __GFP_DMA);
-		if (!dd->temp_buf)
-			return -ENOMEM;
-		nxt_xfr = list_entry(first_xfr->transfer_list.next,
-				     struct spi_transfer, transfer_list);
-
-		if (dd->write_len && !dd->read_len) {
-			if (!first_xfr->tx_buf || !nxt_xfr->tx_buf)
-				goto error;
-
-			memcpy(dd->temp_buf, first_xfr->tx_buf, first_xfr->len);
-			memcpy(dd->temp_buf + first_xfr->len, nxt_xfr->tx_buf,
-			       nxt_xfr->len);
-			tx_buf = dd->temp_buf;
-			tx_len = dd->cur_msg_len;
-		} else {
-			if (!first_xfr->tx_buf || !nxt_xfr->rx_buf)
-				goto error;
-
-			rx_buf = dd->temp_buf;
-			rx_len = dd->cur_msg_len;
-		}
-	}
-	if (tx_buf != NULL) {
-		first_xfr->tx_dma = dma_map_single(dev, tx_buf,
-						   tx_len, DMA_TO_DEVICE);
-		if (dma_mapping_error(NULL, first_xfr->tx_dma)) {
-			dev_err(dev, "dma %cX %d bytes error\n",
-				'T', tx_len);
-			ret = -ENOMEM;
-			goto error;
-		}
-	}
-	if (rx_buf != NULL) {
-		dma_addr_t dma_handle;
-		dma_handle = dma_map_single(dev, rx_buf,
-					    rx_len, DMA_FROM_DEVICE);
-		if (dma_mapping_error(NULL, dma_handle)) {
-			dev_err(dev, "dma %cX %d bytes error\n",
-				'R', rx_len);
-			if (tx_buf != NULL)
-				dma_unmap_single(NULL, first_xfr->tx_dma,
-						 tx_len, DMA_TO_DEVICE);
-			ret = -ENOMEM;
-			goto error;
-		}
-		if (dd->multi_xfr)
-			nxt_xfr->rx_dma = dma_handle;
-		else
-			first_xfr->rx_dma = dma_handle;
-	}
-	return 0;
-
-error:
-	kfree(dd->temp_buf);
-	dd->temp_buf = NULL;
-	return ret;
 }
 
 static int msm_spi_bam_map_buffers(struct msm_spi *dd)
@@ -1600,79 +1266,9 @@ error:
 static int msm_spi_dma_map_buffers(struct msm_spi *dd)
 {
 	int ret = 0;
-	if (dd->mode == SPI_DMOV_MODE)
-		ret = msm_spi_dmov_map_buffers(dd);
-	else if (dd->mode == SPI_BAM_MODE)
+	if (dd->mode == SPI_BAM_MODE)
 		ret = msm_spi_bam_map_buffers(dd);
 	return ret;
-}
-
-static void msm_spi_dmov_unmap_buffers(struct msm_spi *dd)
-{
-	struct device *dev;
-	u32 offset;
-
-	dev = &dd->cur_msg->spi->dev;
-	if (dd->cur_msg->is_dma_mapped)
-		goto unmap_end;
-
-	if (dd->multi_xfr) {
-		if (dd->write_len && !dd->read_len) {
-			dma_unmap_single(dev,
-					 dd->cur_transfer->tx_dma,
-					 dd->cur_msg_len,
-					 DMA_TO_DEVICE);
-		} else {
-			struct spi_transfer *prev_xfr;
-			prev_xfr = list_entry(
-				   dd->cur_transfer->transfer_list.prev,
-				   struct spi_transfer,
-				   transfer_list);
-			if (dd->cur_transfer->rx_buf) {
-				dma_unmap_single(dev,
-						 dd->cur_transfer->rx_dma,
-						 dd->cur_msg_len,
-						 DMA_FROM_DEVICE);
-			}
-			if (prev_xfr->tx_buf) {
-				dma_unmap_single(dev,
-						 prev_xfr->tx_dma,
-						 prev_xfr->len,
-						 DMA_TO_DEVICE);
-			}
-			if (dd->rx_unaligned_len && dd->read_buf) {
-				offset = dd->cur_msg_len - dd->rx_unaligned_len;
-				dma_coherent_post_ops();
-				memcpy(dd->read_buf + offset, dd->rx_padding,
-				       dd->rx_unaligned_len);
-				if (dd->cur_transfer->rx_buf)
-					memcpy(dd->cur_transfer->rx_buf,
-					       dd->read_buf + prev_xfr->len,
-					       dd->cur_transfer->len);
-			}
-		}
-		kfree(dd->temp_buf);
-		dd->temp_buf = NULL;
-		return;
-	} else {
-		if (dd->cur_transfer->rx_buf)
-			dma_unmap_single(dev, dd->cur_transfer->rx_dma,
-					 dd->cur_transfer->len,
-					 DMA_FROM_DEVICE);
-		if (dd->cur_transfer->tx_buf)
-			dma_unmap_single(dev, dd->cur_transfer->tx_dma,
-					 dd->cur_transfer->len,
-					 DMA_TO_DEVICE);
-	}
-
-unmap_end:
-	/* If we padded the transfer, we copy it from the padding buf */
-	if (dd->rx_unaligned_len && dd->read_buf) {
-		offset = dd->cur_transfer->len - dd->rx_unaligned_len;
-		dma_coherent_post_ops();
-		memcpy(dd->read_buf + offset, dd->rx_padding,
-		       dd->rx_unaligned_len);
-	}
 }
 
 static void msm_spi_bam_unmap_buffers(struct msm_spi *dd)
@@ -1715,9 +1311,7 @@ static void msm_spi_bam_unmap_buffers(struct msm_spi *dd)
 
 static inline void msm_spi_dma_unmap_buffers(struct msm_spi *dd)
 {
-	if (dd->mode == SPI_DMOV_MODE)
-		msm_spi_dmov_unmap_buffers(dd);
-	else if (dd->mode == SPI_BAM_MODE)
+	if (dd->mode == SPI_BAM_MODE)
 		msm_spi_bam_unmap_buffers(dd);
 }
 
@@ -1779,15 +1373,7 @@ static void
 msm_spi_set_transfer_mode(struct msm_spi *dd, u8 bpw, u32 read_count)
 {
 	if (msm_spi_use_dma(dd, dd->cur_transfer, bpw)) {
-		if (dd->qup_ver) {
-			dd->mode = SPI_BAM_MODE;
-		} else {
-			dd->mode = SPI_DMOV_MODE;
-			if (dd->write_len && dd->read_len) {
-				dd->tx_bytes_remaining = dd->write_len;
-				dd->rx_bytes_remaining = dd->read_len;
-			}
-		}
+		dd->mode = SPI_BAM_MODE;
 	} else {
 		dd->mode = SPI_FIFO_MODE;
 		if (dd->multi_xfr) {
@@ -1810,7 +1396,7 @@ static void msm_spi_set_qup_io_modes(struct msm_spi *dd)
 	spi_iom = (spi_iom | (dd->mode << OUTPUT_MODE_SHIFT));
 	spi_iom = (spi_iom | (dd->mode << INPUT_MODE_SHIFT));
 	/* Turn on packing for data mover */
-	if ((dd->mode == SPI_DMOV_MODE) || (dd->mode == SPI_BAM_MODE))
+	if (dd->mode == SPI_BAM_MODE)
 		spi_iom |= SPI_IO_M_PACK_EN | SPI_IO_M_UNPACK_EN;
 	else
 		spi_iom &= ~(SPI_IO_M_PACK_EN | SPI_IO_M_UNPACK_EN);
@@ -1930,15 +1516,10 @@ static void msm_spi_process_transfer(struct msm_spi *dd)
 
 	msm_spi_set_transfer_mode(dd, bpw, read_count);
 	msm_spi_set_mx_counts(dd, read_count);
-	if (dd->mode == SPI_DMOV_MODE) {
+	if (dd->mode == SPI_BAM_MODE) {
 		if (msm_spi_dma_map_buffers(dd) < 0) {
 			pr_err("Mapping DMA buffers\n");
 			return;
-			}
-	} else if (dd->mode == SPI_BAM_MODE) {
-			if (msm_spi_dma_map_buffers(dd) < 0) {
-				pr_err("Mapping DMA buffers\n");
-				return;
 		}
 	}
 	msm_spi_set_qup_io_modes(dd);
@@ -1947,15 +1528,11 @@ static void msm_spi_process_transfer(struct msm_spi *dd)
 	spi_ioc = msm_spi_set_spi_io_control(dd);
 	msm_spi_set_qup_op_mask(dd);
 
-	if (dd->mode == SPI_DMOV_MODE) {
-		msm_spi_setup_dm_transfer(dd);
-		msm_spi_enqueue_dm_commands(dd);
-	}
 	/* The output fifo interrupt handler will handle all writes after
 	   the first. Restricting this to one write avoids contention
 	   issues and race conditions between this thread and the int handler
 	*/
-	else if (dd->mode == SPI_FIFO_MODE) {
+	if (dd->mode == SPI_FIFO_MODE) {
 		if (msm_spi_prepare_for_write(dd))
 			goto transfer_end;
 		msm_spi_start_write(dd, read_count);
@@ -1989,10 +1566,6 @@ static void msm_spi_process_transfer(struct msm_spi *dd)
 					"%s: SPI transaction timeout\n",
 					__func__);
 				dd->cur_msg->status = -EIO;
-				if (dd->mode == SPI_DMOV_MODE) {
-					msm_dmov_flush(dd->tx_dma_chan, 1);
-					msm_dmov_flush(dd->rx_dma_chan, 1);
-				}
 				if (dd->mode == SPI_BAM_MODE)
 					msm_spi_bam_flush(dd);
 				break;
@@ -2426,7 +1999,6 @@ static ssize_t show_stats(struct device *dev, struct device_attribute *attr,
 			"--statistics--\n"
 			"Rx isrs  = %d\n"
 			"Tx isrs  = %d\n"
-			"DMA error  = %d\n"
 			"--debug--\n"
 			"NA yet\n",
 			dev_name(dev),
@@ -2441,9 +2013,8 @@ static ssize_t show_stats(struct device *dev, struct device_attribute *attr,
 			dd->rx_dma_chan,
 			dd->tx_dma_crci,
 			dd->rx_dma_crci,
-			dd->stat_rx + dd->stat_dmov_rx,
-			dd->stat_tx + dd->stat_dmov_tx,
-			dd->stat_dmov_tx_err + dd->stat_dmov_rx_err
+			dd->stat_rx,
+			dd->stat_tx
 			);
 }
 
@@ -2454,10 +2025,6 @@ static ssize_t set_stats(struct device *dev, struct device_attribute *attr,
 	struct msm_spi *dd = dev_get_drvdata(dev);
 	dd->stat_rx = 0;
 	dd->stat_tx = 0;
-	dd->stat_dmov_rx = 0;
-	dd->stat_dmov_tx = 0;
-	dd->stat_dmov_rx_err = 0;
-	dd->stat_dmov_tx_err = 0;
 	return count;
 }
 
@@ -2472,130 +2039,6 @@ static struct attribute_group dev_attr_grp = {
 	.attrs = dev_attrs,
 };
 /* ===Device attributes end=== */
-
-/**
- * spi_dmov_tx_complete_func - DataMover tx completion callback
- *
- * Executed in IRQ context (Data Mover's IRQ) DataMover's
- * spinlock @msm_dmov_lock held.
- */
-static void spi_dmov_tx_complete_func(struct msm_dmov_cmd *cmd,
-				      unsigned int result,
-				      struct msm_dmov_errdata *err)
-{
-	struct msm_spi *dd;
-
-	if (!(result & DMOV_RSLT_VALID)) {
-		pr_err("Invalid DMOV result: rc=0x%08x, cmd = %p", result, cmd);
-		return;
-	}
-	/* restore original context */
-	dd = container_of(cmd, struct msm_spi, tx_hdr);
-	if (result & DMOV_RSLT_DONE) {
-		dd->stat_dmov_tx++;
-		if ((atomic_inc_return(&dd->tx_irq_called) == 1))
-			return;
-		complete(&dd->transfer_complete);
-	} else {
-		/* Error or flush */
-		if (result & DMOV_RSLT_ERROR) {
-			dev_err(dd->dev, "DMA error (0x%08x)\n", result);
-			dd->stat_dmov_tx_err++;
-		}
-		if (result & DMOV_RSLT_FLUSH) {
-			/*
-			 * Flushing normally happens in process of
-			 * removing, when we are waiting for outstanding
-			 * DMA commands to be flushed.
-			 */
-			dev_info(dd->dev,
-				 "DMA channel flushed (0x%08x)\n", result);
-		}
-		if (err)
-			dev_err(dd->dev,
-				"Flush data(%08x %08x %08x %08x %08x %08x)\n",
-				err->flush[0], err->flush[1], err->flush[2],
-				err->flush[3], err->flush[4], err->flush[5]);
-		dd->cur_msg->status = -EIO;
-		complete(&dd->transfer_complete);
-	}
-}
-
-/**
- * spi_dmov_rx_complete_func - DataMover rx completion callback
- *
- * Executed in IRQ context (Data Mover's IRQ)
- * DataMover's spinlock @msm_dmov_lock held.
- */
-static void spi_dmov_rx_complete_func(struct msm_dmov_cmd *cmd,
-				      unsigned int result,
-				      struct msm_dmov_errdata *err)
-{
-	struct msm_spi *dd;
-
-	if (!(result & DMOV_RSLT_VALID)) {
-		pr_err("Invalid DMOV result(rc = 0x%08x, cmd = %p)",
-		       result, cmd);
-		return;
-	}
-	/* restore original context */
-	dd = container_of(cmd, struct msm_spi, rx_hdr);
-	if (result & DMOV_RSLT_DONE) {
-		dd->stat_dmov_rx++;
-		if (atomic_inc_return(&dd->rx_irq_called) == 1)
-			return;
-		complete(&dd->transfer_complete);
-	} else {
-		/** Error or flush  */
-		if (result & DMOV_RSLT_ERROR) {
-			dev_err(dd->dev, "DMA error(0x%08x)\n", result);
-			dd->stat_dmov_rx_err++;
-		}
-		if (result & DMOV_RSLT_FLUSH) {
-			dev_info(dd->dev,
-				"DMA channel flushed(0x%08x)\n", result);
-		}
-		if (err)
-			dev_err(dd->dev,
-				"Flush data(%08x %08x %08x %08x %08x %08x)\n",
-				err->flush[0], err->flush[1], err->flush[2],
-				err->flush[3], err->flush[4], err->flush[5]);
-		dd->cur_msg->status = -EIO;
-		complete(&dd->transfer_complete);
-	}
-}
-
-static inline u32 get_chunk_size(struct msm_spi *dd, int input_burst_size,
-			int output_burst_size)
-{
-	u32 cache_line = dma_get_cache_alignment();
-	int burst_size = (input_burst_size > output_burst_size) ?
-		input_burst_size : output_burst_size;
-
-	return (roundup(sizeof(struct spi_dmov_cmd), DM_BYTE_ALIGN) +
-			  roundup(burst_size, cache_line))*2;
-}
-
-static void msm_spi_dmov_teardown(struct msm_spi *dd)
-{
-	int limit = 0;
-
-	if (!dd->use_dma)
-		return;
-
-	while (dd->mode == SPI_DMOV_MODE && limit++ < 50) {
-		msm_dmov_flush(dd->tx_dma_chan, 1);
-		msm_dmov_flush(dd->rx_dma_chan, 1);
-		msleep(10);
-	}
-
-	dma_free_coherent(NULL,
-		get_chunk_size(dd, dd->input_burst_size, dd->output_burst_size),
-		dd->tx_dmov_cmd,
-		dd->tx_dmov_cmd_dma);
-	dd->tx_dmov_cmd = dd->rx_dmov_cmd = NULL;
-	dd->tx_padding = dd->rx_padding = NULL;
-}
 
 static void msm_spi_bam_pipe_teardown(struct msm_spi *dd,
 					enum msm_spi_pipe_direction pipe_dir)
@@ -2743,71 +2186,6 @@ static int msm_spi_bam_init(struct msm_spi *dd)
 bam_init_error:
 	msm_spi_bam_teardown(dd);
 	return rc;
-}
-
-static __init int msm_spi_dmov_init(struct msm_spi *dd)
-{
-	dmov_box *box;
-	u32 cache_line = dma_get_cache_alignment();
-
-	/* Allocate all as one chunk, since all is smaller than page size */
-
-	/* We send NULL device, since it requires coherent_dma_mask id
-	   device definition, we're okay with using system pool */
-	dd->tx_dmov_cmd
-		= dma_alloc_coherent(NULL,
-			get_chunk_size(dd, dd->input_burst_size,
-				dd->output_burst_size),
-			&dd->tx_dmov_cmd_dma, GFP_KERNEL);
-	if (dd->tx_dmov_cmd == NULL)
-		return -ENOMEM;
-
-	/* DMA addresses should be 64 bit aligned aligned */
-	dd->rx_dmov_cmd = (struct spi_dmov_cmd *)
-			  ALIGN((size_t)&dd->tx_dmov_cmd[1], DM_BYTE_ALIGN);
-	dd->rx_dmov_cmd_dma = ALIGN(dd->tx_dmov_cmd_dma +
-			      sizeof(struct spi_dmov_cmd), DM_BYTE_ALIGN);
-
-	/* Buffers should be aligned to cache line */
-	dd->tx_padding = (u8 *)ALIGN((size_t)&dd->rx_dmov_cmd[1], cache_line);
-	dd->tx_padding_dma = ALIGN(dd->rx_dmov_cmd_dma +
-			      sizeof(struct spi_dmov_cmd), cache_line);
-	dd->rx_padding = (u8 *)ALIGN((size_t)(dd->tx_padding +
-		dd->output_burst_size), cache_line);
-	dd->rx_padding_dma = ALIGN(dd->tx_padding_dma + dd->output_burst_size,
-				      cache_line);
-
-	/* Setup DM commands */
-	box = &(dd->rx_dmov_cmd->box);
-	box->cmd = CMD_MODE_BOX | CMD_SRC_CRCI(dd->rx_dma_crci);
-	box->src_row_addr = (uint32_t)dd->mem_phys_addr + SPI_INPUT_FIFO;
-	dd->rx_hdr.cmdptr = DMOV_CMD_PTR_LIST |
-				   DMOV_CMD_ADDR(dd->rx_dmov_cmd_dma +
-				   offsetof(struct spi_dmov_cmd, cmd_ptr));
-	dd->rx_hdr.complete_func = spi_dmov_rx_complete_func;
-
-	box = &(dd->tx_dmov_cmd->box);
-	box->cmd = CMD_MODE_BOX | CMD_DST_CRCI(dd->tx_dma_crci);
-	box->dst_row_addr = (uint32_t)dd->mem_phys_addr + SPI_OUTPUT_FIFO;
-	dd->tx_hdr.cmdptr = DMOV_CMD_PTR_LIST |
-			    DMOV_CMD_ADDR(dd->tx_dmov_cmd_dma +
-			    offsetof(struct spi_dmov_cmd, cmd_ptr));
-	dd->tx_hdr.complete_func = spi_dmov_tx_complete_func;
-
-	dd->tx_dmov_cmd->single_pad.cmd = CMD_MODE_SINGLE | CMD_LC |
-					  CMD_DST_CRCI(dd->tx_dma_crci);
-	dd->tx_dmov_cmd->single_pad.dst = (uint32_t)dd->mem_phys_addr +
-					   SPI_OUTPUT_FIFO;
-	dd->rx_dmov_cmd->single_pad.cmd = CMD_MODE_SINGLE | CMD_LC |
-					  CMD_SRC_CRCI(dd->rx_dma_crci);
-	dd->rx_dmov_cmd->single_pad.src = (uint32_t)dd->mem_phys_addr +
-					  SPI_INPUT_FIFO;
-
-	/* Clear remaining activities on channel */
-	msm_dmov_flush(dd->tx_dma_chan, 1);
-	msm_dmov_flush(dd->rx_dma_chan, 1);
-
-	return 0;
 }
 
 enum msm_spi_dt_entry_status {
@@ -3095,40 +2473,17 @@ static int __init msm_spi_probe(struct platform_device *pdev)
 				goto skip_dma_resources;
 			}
 		}
-		if (dd->qup_ver == SPI_QUP_VERSION_NONE) {
-			resource = platform_get_resource(pdev,
-							IORESOURCE_DMA, 0);
-			if (resource) {
-				dd->rx_dma_chan = resource->start;
-				dd->tx_dma_chan = resource->end;
-				resource = platform_get_resource(pdev,
-							IORESOURCE_DMA, 1);
-				if (!resource) {
-					rc = -ENXIO;
-					goto err_probe_res;
-				}
+		if (!dd->pdata->use_bam)
+			goto skip_dma_resources;
 
-				dd->rx_dma_crci = resource->start;
-				dd->tx_dma_crci = resource->end;
-				dd->use_dma = 1;
-				master->dma_alignment =
-						dma_get_cache_alignment();
-				dd->dma_init = msm_spi_dmov_init ;
-				dd->dma_teardown = msm_spi_dmov_teardown;
-			}
-		} else {
-			if (!dd->pdata->use_bam)
-				goto skip_dma_resources;
-
-			rc = msm_spi_bam_get_resources(dd, pdev, master);
-			if (rc) {
-				dev_warn(dd->dev,
+		rc = msm_spi_bam_get_resources(dd, pdev, master);
+		if (rc) {
+			dev_warn(dd->dev,
 					"%s: Faild to get BAM resources",
 					__func__);
-				goto skip_dma_resources;
-			}
-			dd->use_dma = 1;
+			goto skip_dma_resources;
 		}
+		dd->use_dma = 1;
 	}
 
 skip_dma_resources:
