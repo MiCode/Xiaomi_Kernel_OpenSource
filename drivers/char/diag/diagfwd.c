@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,9 +42,6 @@
 #include "diag_dci.h"
 #include "diag_masks.h"
 #include "diagfwd_bridge.h"
-
-#define MODE_CMD		41
-#define RESET_ID		2
 
 #define STM_CMD_VERSION_OFFSET	4
 #define STM_CMD_MASK_OFFSET	5
@@ -1060,17 +1057,46 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
     return err;
 }
 
-static void diag_update_pkt_buffer(unsigned char *buf)
+void diag_update_pkt_buffer(unsigned char *buf, int type)
 {
-	unsigned char *ptr = driver->pkt_buf;
+	unsigned char *ptr = NULL;
 	unsigned char *temp = buf;
+	unsigned int length;
+	int *in_busy = NULL;
 
+	if (!buf) {
+		pr_err("diag: Invalid buffer in %s\n", __func__);
+		return;
+	}
+
+	switch (type) {
+	case PKT_TYPE:
+		ptr = driver->pkt_buf;
+		length = driver->pkt_length;
+		in_busy = &driver->in_busy_pktdata;
+		break;
+	case DCI_PKT_TYPE:
+		ptr = driver->dci_pkt_buf;
+		length = driver->dci_pkt_length;
+		in_busy = &driver->in_busy_dcipktdata;
+		break;
+	default:
+		pr_err("diag: Invalid type %d in %s\n", type, __func__);
+		return;
+	}
+
+	if (!ptr || length == 0) {
+		pr_err("diag: Invalid ptr %p and length %d in %s",
+						ptr, length, __func__);
+		return;
+	}
 	mutex_lock(&driver->diagchar_mutex);
-	if (CHK_OVERFLOW(ptr, ptr, ptr + PKT_SIZE, driver->pkt_length)) {
-		memcpy(ptr, temp , driver->pkt_length);
-		driver->in_busy_pktdata = 1;
-	} else
+	if (CHK_OVERFLOW(ptr, ptr, ptr + PKT_SIZE, length)) {
+		memcpy(ptr, temp , length);
+		*in_busy = 1;
+	} else {
 		printk(KERN_CRIT " Not enough buffer space for PKT_RESP\n");
+	}
 	mutex_unlock(&driver->diagchar_mutex);
 }
 
@@ -1119,7 +1145,7 @@ int diag_send_data(struct diag_master_table entry, unsigned char *buf,
 	if (entry.process_id != NON_APPS_PROC) {
 		/* If the message is to be sent to the apps process */
 		if (type != MODEM_DATA) {
-			diag_update_pkt_buffer(buf);
+			diag_update_pkt_buffer(buf, PKT_TYPE);
 			diag_update_sleeping_process(entry.process_id,
 							PKT_TYPE);
 		}
@@ -1195,15 +1221,23 @@ void diag_process_stm_mask(uint8_t cmd, uint8_t data_mask, int data_type,
 	}
 }
 
-int diag_process_stm_cmd(unsigned char *buf)
+int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf)
 {
-	uint8_t version = *(buf+STM_CMD_VERSION_OFFSET);
-	uint8_t mask = *(buf+STM_CMD_MASK_OFFSET);
-	uint8_t cmd = *(buf+STM_CMD_DATA_OFFSET);
+	uint8_t version, mask, cmd;
 	uint8_t rsp_supported = 0;
 	uint8_t rsp_smd_comply = 0;
 	int valid_command = 1;
 	int i;
+
+	if (!buf || !dest_buf) {
+		pr_err("diag: Invalid pointers buf: %p, dest_buf %p in %s\n",
+		       buf, dest_buf, __func__);
+		return -EIO;
+	}
+
+	version = *(buf + STM_CMD_VERSION_OFFSET);
+	mask = *(buf + STM_CMD_MASK_OFFSET);
+	cmd = *(buf + STM_CMD_DATA_OFFSET);
 
 	/* Check if command is valid */
 	if ((version != 1) || (mask == 0) || (0 != (mask >> 4)) ||
@@ -1228,15 +1262,13 @@ int diag_process_stm_cmd(unsigned char *buf)
 	}
 
 	for (i = 0; i < STM_CMD_NUM_BYTES; i++)
-		driver->apps_rsp_buf[i] = *(buf+i);
+		dest_buf[i] = *(buf + i);
 
-	driver->apps_rsp_buf[STM_RSP_VALID_INDEX] = valid_command;
-	driver->apps_rsp_buf[STM_RSP_SUPPORTED_INDEX] = rsp_supported;
-	driver->apps_rsp_buf[STM_RSP_SMD_COMPLY_INDEX] = rsp_smd_comply;
+	dest_buf[STM_RSP_VALID_INDEX] = valid_command;
+	dest_buf[STM_RSP_SUPPORTED_INDEX] = rsp_supported;
+	dest_buf[STM_RSP_SMD_COMPLY_INDEX] = rsp_smd_comply;
 
-	encode_rsp_and_send(STM_RSP_NUM_BYTES-1);
-
-	return 0;
+	return STM_RSP_NUM_BYTES;
 }
 
 int diag_apps_responds()
@@ -1333,7 +1365,12 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 		return 0;
 	} else if ((*buf == 0x4b) && (*(buf+1) == 0x12) &&
 		(*(uint16_t *)(buf+2) == 0x020E)) {
-		return diag_process_stm_cmd(buf);
+		len = diag_process_stm_cmd(buf, driver->apps_rsp_buf);
+		if (len > 0) {
+			encode_rsp_and_send(len - 1);
+			return 0;
+		}
+		return len;
 	}
 	/* Check for Apps Only & get event mask request */
 	else if (diag_apps_responds() && *buf == 0x81) {
@@ -2641,6 +2678,12 @@ void diagfwd_init(void)
 			 GFP_KERNEL)) == NULL)
 		goto err;
 	kmemleak_not_leak(driver->pkt_buf);
+	if (driver->dci_pkt_buf == NULL) {
+		driver->dci_pkt_buf = kzalloc(PKT_SIZE, GFP_KERNEL);
+		if (!driver->dci_pkt_buf)
+			goto err;
+	}
+	kmemleak_not_leak(driver->dci_pkt_buf);
 	if (driver->apps_rsp_buf == NULL) {
 		driver->apps_rsp_buf = kzalloc(APPS_BUF_SIZE, GFP_KERNEL);
 		if (driver->apps_rsp_buf == NULL)
@@ -2691,6 +2734,7 @@ err:
 	kfree(driver->data_ready);
 	kfree(driver->table);
 	kfree(driver->pkt_buf);
+	kfree(driver->dci_pkt_buf);
 	kfree(driver->usb_read_ptr);
 	kfree(driver->apps_rsp_buf);
 	kfree(driver->user_space_data_buf);
@@ -2731,6 +2775,7 @@ void diagfwd_exit(void)
 	kfree(driver->data_ready);
 	kfree(driver->table);
 	kfree(driver->pkt_buf);
+	kfree(driver->dci_pkt_buf);
 	kfree(driver->usb_read_ptr);
 	kfree(driver->apps_rsp_buf);
 	kfree(driver->user_space_data_buf);

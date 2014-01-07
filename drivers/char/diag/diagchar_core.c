@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1367,6 +1367,17 @@ drop:
 		goto exit;
 	}
 
+	if (driver->data_ready[index] & DCI_PKT_TYPE) {
+		/* Copy the type of data being passed */
+		data_type = driver->data_ready[index] & DCI_PKT_TYPE;
+		COPY_USER_SPACE_OR_EXIT(buf, data_type, 4);
+		COPY_USER_SPACE_OR_EXIT(buf+4, *(driver->dci_pkt_buf),
+					driver->dci_pkt_length);
+		driver->data_ready[index] ^= DCI_PKT_TYPE;
+		driver->in_busy_dcipktdata = 0;
+		goto exit;
+	}
+
 	if (driver->data_ready[index] & DCI_EVENT_MASKS_TYPE) {
 		/*Copy the type of data being passed*/
 		data_type = driver->data_ready[index] & DCI_EVENT_MASKS_TYPE;
@@ -1436,7 +1447,7 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 				size_t count, loff_t *ppos)
 {
 	int err, ret = 0, pkt_type, token_offset = 0;
-	int remote_proc = 0;
+	int remote_proc = 0, data_type;
 	uint8_t index;
 #ifdef DIAG_DEBUG
 	int length = 0, i;
@@ -1750,16 +1761,20 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 		return -EFAULT;
 	}
 
-	if (pkt_type & (DATA_TYPE_DCI_LOG | DATA_TYPE_DCI_EVENT)) {
-		int data_type = pkt_type &
-				(DATA_TYPE_DCI_LOG | DATA_TYPE_DCI_EVENT);
+	data_type = pkt_type &
+		    (DATA_TYPE_DCI_LOG | DATA_TYPE_DCI_EVENT | DCI_PKT_TYPE);
+	if (data_type) {
 		diag_process_apps_dci_read_data(data_type, buf_copy,
-								payload_size);
-
+						payload_size);
 		if (pkt_type & DATA_TYPE_DCI_LOG)
 			pkt_type ^= DATA_TYPE_DCI_LOG;
-		else
+		else if (pkt_type & DATA_TYPE_DCI_EVENT) {
 			pkt_type ^= DATA_TYPE_DCI_EVENT;
+		} else {
+			pkt_type ^= DCI_PKT_TYPE;
+			diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
+			return 0;
+		}
 
 		/*
 		 * If the data is not headed for normal processing or the usb
@@ -2123,6 +2138,7 @@ static int __init diagchar_init(void)
 		driver->callback_process = NULL;
 		driver->mask_check = 0;
 		driver->in_busy_pktdata = 0;
+		driver->in_busy_dcipktdata = 0;
 		mutex_init(&driver->diagchar_mutex);
 		init_waitqueue_head(&driver->wait_q);
 		init_waitqueue_head(&driver->smd_wait_q);

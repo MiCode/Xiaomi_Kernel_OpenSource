@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,6 +54,8 @@ void diag_cmp_logging_modes_diagfwd_bridge(int old_mode, int new_mode);
 int diag_process_apps_pkt(unsigned char *buf, int len);
 void diag_reset_smd_data(int queue);
 int diag_apps_responds(void);
+void diag_update_pkt_buffer(unsigned char *buf, int type);
+int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf);
 /* State for diag forwarding */
 #ifdef CONFIG_DIAG_OVER_USB
 int diagfwd_connect(void);
