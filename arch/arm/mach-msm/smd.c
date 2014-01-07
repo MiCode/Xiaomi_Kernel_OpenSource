@@ -2285,7 +2285,7 @@ int smd_mask_receive_interrupt(smd_channel_t *ch, bool mask,
 				edge_to_pids[ch->type].subsys_name);
 		irq_chip->irq_mask(irq_data);
 		if (cpumask)
-			irq_chip->irq_set_affinity(irq_data, cpumask, true);
+			irq_set_affinity(int_cfg->irq_id, cpumask);
 	} else {
 		SMD_POWER_INFO("SMD Unmasking interrupts from %s\n",
 				edge_to_pids[ch->type].subsys_name);
