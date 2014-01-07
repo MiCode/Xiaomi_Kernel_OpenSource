@@ -575,5 +575,14 @@ config REGULATOR_SPM
 	  driver can be used on QTI SoCs where the APSS processor cores are
 	  supplied by their own PMIC regulator.
 
+config REGULATOR_CPR
+	bool "RBCPR regulator driver for APC"
+	depends on OF
+	help
+	  Compile in RBCPR (RapidBridge Core Power Reduction) driver to support
+	  corner vote for APC power rail. The driver takes PTE process voltage
+	  suggestions in efuse as initial settings. It converts corner vote
+	  to voltage value before writing to a voltage regulator API, such as
+	  that provided by spm-regulator driver.
 endif
 

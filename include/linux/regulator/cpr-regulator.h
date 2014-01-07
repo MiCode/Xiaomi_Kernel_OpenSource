@@ -53,7 +53,7 @@ enum vdd_mx_vmin_method {
 	VDD_MX_VMIN_APC_CORNER_MAP,
 };
 
-#ifdef CONFIG_MSM_CPR_REGULATOR
+#ifdef CONFIG_REGULATOR_CPR
 
 int __init cpr_regulator_init(void);
 
@@ -64,6 +64,6 @@ static inline int __init cpr_regulator_init(void)
 	return -ENODEV;
 }
 
-#endif /* CONFIG_MSM_CPR_REGULATOR */
+#endif /* CONFIG_REGULATOR_CPR */
 
 #endif /* __REGULATOR_CPR_REGULATOR_H__ */
