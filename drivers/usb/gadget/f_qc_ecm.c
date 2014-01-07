@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2003-2005,2008 David Brownell
  * Copyright (C) 2008 Nokia Corporation
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,6 +76,9 @@ struct f_ecm_qc {
 	u8				notify_state;
 	bool				is_open;
 	struct data_port		bam_port;
+
+	const struct usb_endpoint_descriptor *in_ep_desc_backup;
+	const struct usb_endpoint_descriptor *out_ep_desc_backup;
 };
 
 static struct ecm_ipa_params ipa_params;
@@ -407,9 +410,10 @@ static int ecm_qc_bam_connect(struct f_ecm_qc *dev)
 	if (ret) {
 		pr_err("bam_data_connect failed: err:%d\n", ret);
 		return ret;
-	} else {
-		pr_debug("ecm bam connected\n");
 	}
+
+
+	pr_debug("ecm bam connected\n");
 
 	dev->is_open = true;
 	ecm_qc_notify(dev);
@@ -419,8 +423,7 @@ static int ecm_qc_bam_connect(struct f_ecm_qc *dev)
 
 static int ecm_qc_bam_disconnect(struct f_ecm_qc *dev)
 {
-	pr_debug("dev:%p. Disconnect BAM.\n", dev);
-
+	pr_debug("%s: dev:%p. Disconnect BAM.\n", __func__, dev);
 	bam_data_disconnect(&dev->bam_port, 0);
 
 	return 0;
@@ -677,16 +680,40 @@ static void ecm_qc_disable(struct usb_function *f)
 
 static void ecm_qc_suspend(struct usb_function *f)
 {
-	pr_debug("ecm suspended\n");
+	struct f_ecm_qc	*ecm = func_to_ecm_qc(f);
 
-	bam_data_suspend(ECM_QC_ACTIVE_PORT);
+	if (f->config->cdev->gadget->remote_wakeup) {
+		bam_data_suspend(ECM_QC_ACTIVE_PORT);
+	} else {
+		/*
+		 * When remote wakeup is disabled, IPA BAM is disconnected
+		 * because it cannot send new data until the USB bus is resumed.
+		 * Endpoint descriptors info is saved before it gets reset by
+		 * the BAM disconnect API. This lets us restore this info when
+		 * the USB bus is resumed.
+		 */
+		ecm->in_ep_desc_backup  = ecm->bam_port.in->desc;
+		ecm->out_ep_desc_backup = ecm->bam_port.out->desc;
+		ecm_qc_bam_disconnect(ecm);
+	}
+
+	pr_debug("ecm suspended\n");
 }
 
 static void ecm_qc_resume(struct usb_function *f)
 {
-	pr_debug("ecm resumed\n");
+	struct f_ecm_qc	*ecm = func_to_ecm_qc(f);
 
-	bam_data_resume(ECM_QC_ACTIVE_PORT);
+	if (f->config->cdev->gadget->remote_wakeup) {
+		bam_data_resume(ECM_QC_ACTIVE_PORT);
+	} else {
+		/* Restore endpoint descriptors info. */
+		ecm->bam_port.in->desc  = ecm->in_ep_desc_backup;
+		ecm->bam_port.out->desc = ecm->out_ep_desc_backup;
+		ecm_qc_bam_connect(ecm);
+	}
+
+	pr_debug("ecm resumed\n");
 }
 
 /*-------------------------------------------------------------------------*/

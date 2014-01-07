@@ -167,8 +167,6 @@ struct ci13xxx {
 	u32                        ep0_dir;    /* ep0 direction */
 #define ep0out ci13xxx_ep[0]
 #define ep0in  ci13xxx_ep[hw_ep_max / 2]
-	u8                         remote_wakeup; /* Is remote wakeup feature
-							enabled by the host? */
 	u8                         suspended;  /* suspended by the host */
 	u8                         configured;  /* is device configured */
 	u8                         test_mode;  /* the selected test mode */

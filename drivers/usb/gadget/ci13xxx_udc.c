@@ -1633,7 +1633,7 @@ static int ci13xxx_wakeup(struct usb_gadget *_gadget)
 	trace();
 
 	spin_lock_irqsave(udc->lock, flags);
-	if (!udc->remote_wakeup) {
+	if (!udc->gadget.remote_wakeup) {
 		ret = -EOPNOTSUPP;
 		dbg_trace("remote wakeup feature is not enabled\n");
 		goto out;
@@ -1684,7 +1684,7 @@ static void usb_do_remote_wakeup(struct work_struct *w)
 	 * if wakeup conditions are still met.
 	 */
 	spin_lock_irqsave(udc->lock, flags);
-	do_wake = udc->suspended && udc->remote_wakeup;
+	do_wake = udc->suspended && udc->gadget.remote_wakeup;
 	spin_unlock_irqrestore(udc->lock, flags);
 
 	if (do_wake)
@@ -2026,8 +2026,7 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 
 	/* Remote Wakeup */
 	if (udc->suspended) {
-		if (!udc->remote_wakeup) {
-
+		if (!udc->gadget.remote_wakeup) {
 			mReq->req.status = -EAGAIN;
 
 			dev_dbg(mEp->device,
@@ -2404,7 +2403,7 @@ static int _gadget_stop_activity(struct usb_gadget *gadget)
 
 	spin_lock_irqsave(udc->lock, flags);
 	udc->gadget.speed = USB_SPEED_UNKNOWN;
-	udc->remote_wakeup = 0;
+	udc->gadget.remote_wakeup = 0;
 	udc->suspended = 0;
 	udc->configured = 0;
 	spin_unlock_irqrestore(udc->lock, flags);
@@ -2587,7 +2586,7 @@ __acquires(mEp->lock)
 			req->length = 1;
 		} else {
 			/* Assume that device is bus powered for now. */
-			*((u16 *)req->buf) = _udc->remote_wakeup << 1;
+			*((u16 *)req->buf) = _udc->gadget.remote_wakeup << 1;
 		}
 		/* TODO: D1 - Remote Wakeup; D0 - Self Powered */
 		retval = 0;
@@ -2857,7 +2856,7 @@ __acquires(udc->lock)
 					USB_DEVICE_REMOTE_WAKEUP) {
 				if (req.wLength != 0)
 					break;
-				udc->remote_wakeup = 0;
+				udc->gadget.remote_wakeup = 0;
 				err = isr_setup_status_phase(udc);
 			} else {
 				goto delegate;
@@ -2909,7 +2908,7 @@ __acquires(udc->lock)
 					break;
 				switch (le16_to_cpu(req.wValue)) {
 				case USB_DEVICE_REMOTE_WAKEUP:
-					udc->remote_wakeup = 1;
+					udc->gadget.remote_wakeup = 1;
 					err = isr_setup_status_phase(udc);
 					break;
 				case USB_DEVICE_B_HNP_ENABLE:
@@ -3310,7 +3309,7 @@ static int ep_queue(struct usb_ep *ep, struct usb_request *req,
 
 	if (udc->suspended) {
 		/* Remote Wakeup */
-		if (!udc->remote_wakeup) {
+		if (!udc->gadget.remote_wakeup) {
 
 			dev_dbg(mEp->device,
 					"%s: queue failed (suspend)."
