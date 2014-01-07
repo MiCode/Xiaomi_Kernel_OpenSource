@@ -40,6 +40,7 @@
 
 #include <mach/msm_iomap.h>
 #include <mach/ramdump.h>
+#include <mach/subsystem_restart.h>
 
 #include "peripheral-loader.h"
 
@@ -195,6 +196,7 @@ static void __pil_proxy_unvote(struct pil_priv *priv)
 	struct pil_desc *desc = priv->desc;
 
 	desc->ops->proxy_unvote(desc);
+	notify_proxy_unvote(desc->dev);
 	wake_unlock(&priv->wlock);
 	module_put(desc->owner);
 
@@ -221,6 +223,7 @@ static int pil_proxy_vote(struct pil_desc *desc)
 
 	if (desc->proxy_unvote_irq)
 		enable_irq(desc->proxy_unvote_irq);
+	notify_proxy_vote(desc->dev);
 
 	return ret;
 }

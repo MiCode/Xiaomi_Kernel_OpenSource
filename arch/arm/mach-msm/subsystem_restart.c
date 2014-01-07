@@ -849,6 +849,35 @@ bool subsys_get_crash_status(struct subsys_device *dev)
 {
 	return dev->crashed;
 }
+
+static struct subsys_device *desc_to_subsys(struct device *d)
+{
+	struct subsys_device *device, *subsys_dev = 0;
+
+	mutex_lock(&subsys_list_lock);
+	list_for_each_entry(device, &subsys_list, list)
+		if (device->desc->dev == d)
+			subsys_dev = device;
+	mutex_unlock(&subsys_list_lock);
+	return subsys_dev;
+}
+
+void notify_proxy_vote(struct device *device)
+{
+	struct subsys_device *dev = desc_to_subsys(device);
+
+	if (dev)
+		notify_each_subsys_device(&dev, 1, SUBSYS_PROXY_VOTE, NULL);
+}
+
+void notify_proxy_unvote(struct device *device)
+{
+	struct subsys_device *dev = desc_to_subsys(device);
+
+	if (dev)
+		notify_each_subsys_device(&dev, 1, SUBSYS_PROXY_UNVOTE, NULL);
+}
+
 #ifdef CONFIG_DEBUG_FS
 static ssize_t subsys_debugfs_read(struct file *filp, char __user *ubuf,
 		size_t cnt, loff_t *ppos)
