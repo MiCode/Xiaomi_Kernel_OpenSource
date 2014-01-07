@@ -54,28 +54,31 @@ static const char *bam_ch_names[] = { "bam_dmux_ch_8" };
 
 #define DL_INTR_THRESHOLD			20
 
-unsigned int bam_mux_tx_pkt_drop_thld = BAM_MUX_TX_PKT_DROP_THRESHOLD;
+static unsigned int bam_pending_limit = BAM_PENDING_LIMIT;
+module_param(bam_pending_limit, uint, S_IRUGO | S_IWUSR);
+
+static unsigned int bam_mux_tx_pkt_drop_thld = BAM_MUX_TX_PKT_DROP_THRESHOLD;
 module_param(bam_mux_tx_pkt_drop_thld, uint, S_IRUGO | S_IWUSR);
 
-unsigned int bam_mux_rx_fctrl_en_thld = BAM_MUX_RX_PKT_FCTRL_EN_TSHOLD;
+static unsigned int bam_mux_rx_fctrl_en_thld = BAM_MUX_RX_PKT_FCTRL_EN_TSHOLD;
 module_param(bam_mux_rx_fctrl_en_thld, uint, S_IRUGO | S_IWUSR);
 
-unsigned int bam_mux_rx_fctrl_support = BAM_MUX_RX_PKT_FLOW_CTRL_SUPPORT;
+static unsigned int bam_mux_rx_fctrl_support = BAM_MUX_RX_PKT_FLOW_CTRL_SUPPORT;
 module_param(bam_mux_rx_fctrl_support, uint, S_IRUGO | S_IWUSR);
 
-unsigned int bam_mux_rx_fctrl_dis_thld = BAM_MUX_RX_PKT_FCTRL_DIS_TSHOLD;
+static unsigned int bam_mux_rx_fctrl_dis_thld = BAM_MUX_RX_PKT_FCTRL_DIS_TSHOLD;
 module_param(bam_mux_rx_fctrl_dis_thld, uint, S_IRUGO | S_IWUSR);
 
-unsigned int bam_mux_tx_q_size = BAM_MUX_TX_Q_SIZE;
+static unsigned int bam_mux_tx_q_size = BAM_MUX_TX_Q_SIZE;
 module_param(bam_mux_tx_q_size, uint, S_IRUGO | S_IWUSR);
 
-unsigned int bam_mux_rx_q_size = BAM_MUX_RX_Q_SIZE;
+static unsigned int bam_mux_rx_q_size = BAM_MUX_RX_Q_SIZE;
 module_param(bam_mux_rx_q_size, uint, S_IRUGO | S_IWUSR);
 
-unsigned int bam_mux_rx_req_size = BAM_MUX_RX_REQ_SIZE;
+static unsigned int bam_mux_rx_req_size = BAM_MUX_RX_REQ_SIZE;
 module_param(bam_mux_rx_req_size, uint, S_IRUGO | S_IWUSR);
 
-unsigned int dl_intr_threshold = DL_INTR_THRESHOLD;
+static unsigned int dl_intr_threshold = DL_INTR_THRESHOLD;
 module_param(dl_intr_threshold, uint, S_IRUGO | S_IWUSR);
 
 #define BAM_CH_OPENED	BIT(0)
@@ -113,6 +116,10 @@ struct bam_ch_info {
 	unsigned int		rx_len;
 	unsigned long		to_modem;
 	unsigned long		to_host;
+	unsigned int		rx_flow_control_disable;
+	unsigned int		rx_flow_control_enable;
+	unsigned int		rx_flow_control_triggered;
+	unsigned int		max_num_pkts_pending_with_bam;
 };
 
 struct gbam_port {
@@ -324,7 +331,7 @@ static void gbam_data_write_tobam(struct work_struct *w)
 		return;
 	}
 
-	while (d->pending_with_bam < BAM_PENDING_LIMIT) {
+	while (d->pending_with_bam < bam_pending_limit) {
 		skb =  __skb_dequeue(&d->rx_skb_q);
 		if (!skb)
 			break;
@@ -347,14 +354,21 @@ static void gbam_data_write_tobam(struct work_struct *w)
 			dev_kfree_skb_any(skb);
 			break;
 		}
+		if (d->pending_with_bam > d->max_num_pkts_pending_with_bam)
+			d->max_num_pkts_pending_with_bam = d->pending_with_bam;
 	}
 
 	qlen = d->rx_skb_q.qlen;
 
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 
-	if (qlen < BAM_MUX_RX_PKT_FCTRL_DIS_TSHOLD)
+	if (qlen < bam_mux_rx_fctrl_dis_thld) {
+		if (d->rx_flow_control_triggered) {
+			d->rx_flow_control_disable++;
+			d->rx_flow_control_triggered = 0;
+		}
 		gbam_start_rx(port);
+	}
 }
 /*-------------------------------------------------------------*/
 
@@ -435,7 +449,10 @@ gbam_epout_complete(struct usb_ep *ep, struct usb_request *req)
 	 */
 	if (bam_mux_rx_fctrl_support &&
 		d->rx_skb_q.qlen >= bam_mux_rx_fctrl_en_thld) {
-
+		if (!d->rx_flow_control_triggered) {
+			d->rx_flow_control_triggered = 1;
+			d->rx_flow_control_enable++;
+		}
 		list_add_tail(&req->list, &d->rx_idle);
 		spin_unlock(&port->port_lock_ul);
 		return;
@@ -1223,6 +1240,10 @@ static ssize_t gbam_read_stats(struct file *file, char __user *ubuf,
 				"dpkts_pwith_bam: %u\n"
 				"to_usbhost_dcnt:  %u\n"
 				"tomodem__dcnt:  %u\n"
+				"rx_flow_control_disable_count: %u\n"
+				"rx_flow_control_enable_count: %u\n"
+				"rx_flow_control_triggered: %u\n"
+				"max_num_pkts_pending_with_bam: %u\n"
 				"tx_buf_len:	 %u\n"
 				"rx_buf_len:	 %u\n"
 				"data_ch_open:   %d\n"
@@ -1231,6 +1252,10 @@ static ssize_t gbam_read_stats(struct file *file, char __user *ubuf,
 				d->to_host, d->to_modem,
 				d->pending_with_bam,
 				d->tohost_drp_cnt, d->tomodem_drp_cnt,
+				d->rx_flow_control_disable,
+				d->rx_flow_control_enable,
+				d->rx_flow_control_triggered,
+				d->max_num_pkts_pending_with_bam,
 				d->tx_skb_q.qlen, d->rx_skb_q.qlen,
 				test_bit(BAM_CH_OPENED, &d->flags),
 				test_bit(BAM_CH_READY, &d->flags));
@@ -1269,6 +1294,10 @@ static ssize_t gbam_reset_stats(struct file *file, const char __user *buf,
 		d->pending_with_bam = 0;
 		d->tohost_drp_cnt = 0;
 		d->tomodem_drp_cnt = 0;
+		d->rx_flow_control_disable = 0;
+		d->rx_flow_control_enable = 0;
+		d->rx_flow_control_triggered = 0;
+		d->max_num_pkts_pending_with_bam = 0;
 
 		spin_unlock(&port->port_lock_dl);
 		spin_unlock_irqrestore(&port->port_lock_ul, flags);
@@ -1434,6 +1463,10 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 		d->pending_with_bam = 0;
 		d->tohost_drp_cnt = 0;
 		d->tomodem_drp_cnt = 0;
+		d->rx_flow_control_disable = 0;
+		d->rx_flow_control_enable = 0;
+		d->rx_flow_control_triggered = 0;
+		d->max_num_pkts_pending_with_bam = 0;
 	}
 
 	spin_unlock(&port->port_lock_dl);
