@@ -414,7 +414,7 @@ static struct clk *cpu_clk[] = {
 };
 
 static void get_krait_bin_format_b(struct platform_device *pdev,
-					int *speed, int *pvs, int *ver)
+					int *speed, int *pvs, int *pvs_ver)
 {
 	u32 pte_efuse, redundant_sel;
 	struct resource *res;
@@ -422,7 +422,7 @@ static void get_krait_bin_format_b(struct platform_device *pdev,
 
 	*speed = 0;
 	*pvs = 0;
-	*ver = 0;
+	*pvs_ver = 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse");
 	if (!res) {
@@ -443,7 +443,7 @@ static void get_krait_bin_format_b(struct platform_device *pdev,
 	*speed = pte_efuse & 0x7;
 	/* 4 bits of PVS are in efuse register bits 31, 8-6. */
 	*pvs = ((pte_efuse >> 28) & 0x8) | ((pte_efuse >> 6) & 0x7);
-	*ver = (pte_efuse >> 4) & 0x3;
+	*pvs_ver = (pte_efuse >> 4) & 0x3;
 
 	switch (redundant_sel) {
 	case 1:
@@ -471,7 +471,7 @@ static void get_krait_bin_format_b(struct platform_device *pdev,
 		*pvs = 0;
 	}
 
-	dev_info(&pdev->dev, "PVS version: %d\n", *ver);
+	dev_info(&pdev->dev, "PVS version: %d\n", *pvs_ver);
 
 	devm_iounmap(&pdev->dev, base);
 }
@@ -585,12 +585,16 @@ static void krait_update_uv(int *uv, int num, int boost_uv)
 	}
 }
 
+static char table_name[] = "qcom,speedXX-pvsXX-bin-vXX";
+module_param_string(table_name, table_name, sizeof(table_name), S_IRUGO);
+static unsigned int pvs_config_ver;
+module_param(pvs_config_ver, uint, S_IRUGO);
+
 static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct clk *c;
-	int speed, pvs, ver, rows, cpu;
-	char prop_name[] = "qcom,speedXX-pvsXX-bin-vXX";
+	int speed, pvs, pvs_ver, config_ver, rows, cpu;
 	unsigned long *freq, cur_rate, aux_rate;
 	int *uv, *ua;
 	u32 *dscr, vco_mask, config_val;
@@ -673,15 +677,22 @@ static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 	if (!ret)
 		hdata.user_vco_mask = vco_mask;
 
-	get_krait_bin_format_b(pdev, &speed, &pvs, &ver);
-	snprintf(prop_name, ARRAY_SIZE(prop_name),
-			"qcom,speed%d-pvs%d-bin-v%d", speed, pvs, ver);
+	ret = of_property_read_u32(dev->of_node, "qcom,pvs-config-ver",
+			&config_ver);
+	if (!ret) {
+		pvs_config_ver = config_ver;
+		dev_info(&pdev->dev, "PVS config version: %d\n", config_ver);
+	}
 
-	rows = parse_tbl(dev, prop_name, 3,
+	get_krait_bin_format_b(pdev, &speed, &pvs, &pvs_ver);
+	snprintf(table_name, ARRAY_SIZE(table_name),
+			"qcom,speed%d-pvs%d-bin-v%d", speed, pvs, pvs_ver);
+
+	rows = parse_tbl(dev, table_name, 3,
 			(u32 **) &freq, (u32 **) &uv, (u32 **) &ua);
 	if (rows < 0) {
 		/* Fall back to most conservative PVS table */
-		dev_err(dev, "Unable to load voltage plan %s!\n", prop_name);
+		dev_err(dev, "Unable to load voltage plan %s!\n", table_name);
 		ret = parse_tbl(dev, "qcom,speed0-pvs0-bin-v0", 3,
 				(u32 **) &freq, (u32 **) &uv, (u32 **) &ua);
 		if (ret < 0) {
