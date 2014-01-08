@@ -494,18 +494,19 @@ static void goodix_ts_work_func(struct work_struct *work)
 		memcpy(&point_data[12], &buf[2], 8 * (touch_num - 1));
 	}
 
-#if GTP_HAVE_TOUCH_KEY
+
 	key_value = point_data[3 + 8 * touch_num];
 
 	if (key_value || pre_key) {
-		for (i = 0; i < GTP_MAX_KEY_NUM; i++) {
+		for (i = 0; i < ts->pdata->num_button; i++) {
 			input_report_key(ts->input_dev,
-				touch_key_array[i], key_value & (0x01<<i));
+				ts->pdata->button_map[i],
+				key_value & (0x01<<i));
 		}
 		touch_num = 0;
 		pre_touch = 0;
 	}
-#endif
+
 	pre_key = key_value;
 
 #if GTP_WITH_PEN
@@ -1253,12 +1254,12 @@ static int gtp_request_input_dev(struct goodix_ts_data *ts)
 	__set_bit(INPUT_PROP_DIRECT, ts->input_dev->propbit);
 	input_mt_init_slots(ts->input_dev, 10);/* in case of "out of memory" */
 
-#if GTP_HAVE_TOUCH_KEY
-	for (index = 0; index < GTP_MAX_KEY_NUM; index++) {
+
+	for (index = 0; index < ts->pdata->num_button; index++) {
 		input_set_capability(ts->input_dev,
-				EV_KEY, touch_key_array[index]);
+				EV_KEY, ts->pdata->button_map[index]);
 	}
-#endif
+
 
 #if GTP_SLIDE_WAKEUP
 	input_set_capability(ts->input_dev, EV_KEY, KEY_POWER);
@@ -1670,6 +1671,9 @@ static int goodix_parse_dt(struct device *dev,
 			dev_err(dev, "Unable to read key codes\n");
 			return rc;
 		}
+		pdata->num_button = num_buttons;
+		memcpy(pdata->button_map, button_map,
+			pdata->num_button * sizeof(u32));
 	}
 
 	read_cfg_num = 0;
