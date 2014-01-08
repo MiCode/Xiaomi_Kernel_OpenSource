@@ -152,7 +152,6 @@
 	qcom,ap2mdm-wakeup-gpio = <&msmgpio 108 0x00>;
 	qcom,ap2mdm-vddmin-gpio = <&msmgpio 114 0x00>;
 	qcom,mdm2ap-vddmin-gpio = <&msmgpio 115 0x00>;
-	qcom,ap2mdm-chnlrdy-gpio = <&msmgpio 106 0x00>;
 	status = "ok";
 };
 

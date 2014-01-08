@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,6 +103,7 @@ struct mxhci_hsic_hcd {
 	bool			wakeup_irq_enabled;
 	int			strobe;
 	int			data;
+	int			host_ready;
 	int			wakeup_irq;
 	int			pwr_event_irq;
 	unsigned int		vdd_no_vol_level;
@@ -368,6 +369,17 @@ static int mxhci_hsic_config_gpios(struct mxhci_hsic_hcd *mxhci)
 	if (rc < 0) {
 		dev_err(mxhci->dev, "gpio request failed for HSIC DATA\n");
 		goto out;
+	}
+
+	if (mxhci->host_ready) {
+		rc = devm_gpio_request(mxhci->dev,
+				mxhci->host_ready, "host_ready");
+		if (rc < 0) {
+			dev_err(mxhci->dev,
+				"gpio request failed host ready gpio\n");
+			mxhci->host_ready = 0;
+			rc = 0;
+		}
 	}
 
 out:
@@ -822,6 +834,57 @@ static ssize_t config_imod_show(struct device *pdev,
 static DEVICE_ATTR(config_imod, S_IRUGO | S_IWUSR,
 		config_imod_show, config_imod_store);
 
+static ssize_t host_ready_store(struct device *pdev,
+			struct device_attribute *attr,
+			const char *buff, size_t size)
+{
+	int assert;
+	struct usb_hcd *hcd = dev_get_drvdata(pdev);
+	struct mxhci_hsic_hcd *mxhci;
+
+	sscanf(buff, "%d", &assert);
+	assert = !!assert;
+
+	if (!hcd) {
+		pr_err("%s: hsic: null hcd\n", __func__);
+		return -ENODEV;
+	}
+
+	dev_dbg(pdev, "assert: %d\n", assert);
+
+	mxhci = hcd_to_hsic(hcd);
+	if (mxhci->host_ready)
+		gpio_direction_output(mxhci->host_ready, assert);
+	else
+		return -ENODEV;
+
+	return size;
+}
+
+static ssize_t host_ready_show(struct device *pdev,
+			struct device_attribute *attr, char *buff)
+{
+	struct usb_hcd *hcd = dev_get_drvdata(pdev);
+	struct mxhci_hsic_hcd *mxhci;
+	int val = -ENODEV;
+
+	if (!hcd) {
+		pr_err("%s: hsic: null hcd\n", __func__);
+		return -ENODEV;
+	}
+
+	mxhci = hcd_to_hsic(hcd);
+
+	if (mxhci->host_ready)
+		val = gpio_get_value(mxhci->host_ready);
+
+	return snprintf(buff, PAGE_SIZE, "%d\n", val);
+
+}
+
+static DEVICE_ATTR(host_ready, S_IRUGO | S_IWUSR,
+		host_ready_show, host_ready_store);
+
 static int mxhci_hsic_probe(struct platform_device *pdev)
 {
 	struct hc_driver *driver;
@@ -891,6 +954,11 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto put_hcd;
 	}
+
+	mxhci->host_ready = of_get_named_gpio(node,
+					"qcom,host-ready-gpio", 0);
+	if (mxhci->host_ready < 0)
+		mxhci->host_ready = 0;
 
 	ret = of_property_read_u32_array(node, "qcom,vdd-voltage-level",
 							tmp, ARRAY_SIZE(tmp));
@@ -1068,6 +1136,12 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 
+	ret = device_create_file(&pdev->dev, &dev_attr_host_ready);
+	if (ret)
+		pr_err("err creating sysfs node\n");
+
+	dev_dbg(&pdev->dev, "%s: Probe complete\n", __func__);
+
 	return 0;
 
 delete_wq:
@@ -1106,6 +1180,7 @@ static int mxhci_hsic_remove(struct platform_device *pdev)
 	mb();
 
 	device_remove_file(&pdev->dev, &dev_attr_config_imod);
+	device_remove_file(&pdev->dev, &dev_attr_host_ready);
 
 	/* If the device was removed no need to call pm_runtime_disable */
 	if (pdev->dev.power.power_state.event != PM_EVENT_INVALID)
