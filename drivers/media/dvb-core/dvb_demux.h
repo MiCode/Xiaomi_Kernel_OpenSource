@@ -4,7 +4,7 @@
  * Copyright (C) 2000-2001 Marcus Metzler & Ralph Metzler
  *                         for convergence integrated media GmbH
  *
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -75,7 +75,8 @@ struct dmx_index_entry {
 	struct list_head next;
 };
 
-#define DMX_IDX_EVENT_QUEUE_SIZE	100
+#define DMX_IDX_EVENT_QUEUE_SIZE	DMX_EVENT_QUEUE_SIZE
+
 struct dvb_demux_rec_info {
 	/* Reference counter for number of feeds using this information */
 	int ref_count;

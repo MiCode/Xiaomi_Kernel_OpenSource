@@ -4,7 +4,7 @@
  * Copyright (C) 2000 Ralph Metzler & Marcus Metzler
  *                    for convergence integrated media GmbH
  *
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -70,11 +70,10 @@ struct dmxdev_sec_feed {
 	struct dmx_cipher_operations cipher_ops;
 };
 
-#define DMX_EVENT_QUEUE_SIZE	500 /* number of events */
 struct dmxdev_events_queue {
 	/*
 	 * indices used to manage events queue.
-	 * read_index advanced when relevent data is read
+	 * read_index advanced when relevant data is read
 	 * from the buffer.
 	 * notified_index is the index from which next events
 	 * are returned.
