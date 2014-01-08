@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -658,7 +658,7 @@ TRACE_EVENT(kgsl_context_create,
 			{ KGSL_CONTEXT_TRASH_STATE, "TRASH_STATE" },
 			{ KGSL_CONTEXT_PER_CONTEXT_TS, "PER_CONTEXT_TS" })
 			: "None",
-		(__entry->flags & KGSL_CONTEXT_PRIORITY_MASK) >
+		(__entry->flags & KGSL_CONTEXT_PRIORITY_MASK) >>
 			KGSL_CONTEXT_PRIORITY_SHIFT
 
 	)
