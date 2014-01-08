@@ -95,6 +95,8 @@
 	};
 };
 
+#include "msm-gdsc.dtsi"
+
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
@@ -263,6 +265,71 @@
 				qcom,bus-width = <4>;
 				status = "disabled";
 			};
+};
+
+&gdsc_usb30 {
+	reg = <0xfc4003c4 0x4>;
+	status = "ok";
+};
+
+&gdsc_pcie_0 {
+	status = "ok";
+};
+
+&gdsc_pcie_1 {
+	status = "ok";
+};
+
+&gdsc_ufs {
+	status = "ok";
+};
+
+&gdsc_venus {
+	status = "ok";
+};
+
+&gdsc_venus_core0 {
+	qcom,support-hw-trigger;
+	status = "ok";
+};
+
+&gdsc_venus_core1 {
+	qcom,support-hw-trigger;
+	status = "ok";
+};
+
+&gdsc_venus_core2 {
+	qcom,support-hw-trigger;
+	status = "ok";
+};
+
+&gdsc_mdss {
+	status = "ok";
+};
+
+&gdsc_jpeg {
+	status = "ok";
+};
+
+&gdsc_vfe {
+	status = "ok";
+};
+
+&gdsc_cpp {
+	status = "ok";
+};
+
+&gdsc_fd {
+	status = "ok";
+};
+
+&gdsc_oxili_cx {
+	status = "ok";
+	parent-supply = <&pmplutonium_s2_corner>;
+};
+
+&gdsc_oxili_gx {
+	status = "ok";
 };
 
 /include/ "msmplutonium-regulator.dtsi"

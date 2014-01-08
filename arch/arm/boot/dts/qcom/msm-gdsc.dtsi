@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,10 +33,24 @@
 		status = "disabled";
 	};
 
+	gdsc_venus_core2: qcom,gdsc@fd8c1050 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_venus_core2";
+		reg = <0xfd8c1050 0x4>;
+		status = "disabled";
+	};
+
 	gdsc_vpu: qcom,gdsc@fd8c1404 {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_vpu";
 		reg = <0xfd8c1404 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_camss_top: qcom,gdsc@fd8c34a0 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_camss_top";
+		reg = <0xfd8c34a0 0x4>;
 		status = "disabled";
 	};
 
@@ -58,6 +72,13 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_vfe";
 		reg = <0xfd8c36a4 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_cpp: qcom,gdsc@fd8c36d4 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_cpp";
+		reg = <0xfd8c36d4 0x4>;
 		status = "disabled";
 	};
 
@@ -128,6 +149,20 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_bcss";
 		reg = <0xfc744128 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_ufs: qcom,gdsc@fc401d44 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_ufs";
+		reg = <0xfc401d44 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_fd: qcom,gdsc@fd8c3b64 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_fd";
+		reg = <0xfd8c3b64 0x4>;
 		status = "disabled";
 	};
 };
