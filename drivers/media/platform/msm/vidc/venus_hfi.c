@@ -2575,9 +2575,17 @@ static void venus_hfi_process_msg_event_notify(
 		HFI_EVENT_SYS_ERROR) {
 		vsfr = (struct hfi_sfr_struct *)
 				device->sfr.align_virtual_addr;
-		if (vsfr)
+		if (vsfr) {
+			void *p = memchr(vsfr->rg_data, '\0',
+							vsfr->bufSize);
+			/* SFR isn't guaranteed to be NULL terminated
+			since SYS_ERROR indicates that Venus is in the
+			process of crashing.*/
+			if (p == NULL)
+				vsfr->rg_data[vsfr->bufSize - 1] = '\0';
 			dprintk(VIDC_ERR, "SFR Message from FW : %s\n",
 				vsfr->rg_data);
+		}
 	}
 }
 static void venus_hfi_response_handler(struct venus_hfi_device *device)
