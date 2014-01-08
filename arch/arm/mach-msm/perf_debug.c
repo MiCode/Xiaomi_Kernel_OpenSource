@@ -40,6 +40,7 @@ static char *descriptions =
 	"15 Perf: bring CPU online if needed when disabling irq\n"
 	"16 Perf: Support sw events across hotplug\n"
 	"17 msm: perf: initialise krait perf L2 counter enables\n"
+	"18 msm: perf: clean up duplicate constraint events\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
