@@ -6107,8 +6107,7 @@ static int mpq_dmx_tspp2_map_buffer(struct dmx_demux *demux,
 {
 	struct dvb_demux *dvb_demux = demux->priv;
 	struct mpq_demux *mpq_demux = dvb_demux->priv;
-	struct mpq_tspp2_demux *mpq_tspp2_demux = mpq_demux->plugin_priv;
-	struct source_info *source_info = mpq_tspp2_demux->source_info;
+	struct source_info *source_info;
 	struct pipe_info *pipe_info;
 
 	/*
@@ -6118,13 +6117,16 @@ static int mpq_dmx_tspp2_map_buffer(struct dmx_demux *demux,
 	 * be initialized again in the next DVR write operation.
 	 */
 	if (priv_handle == &demux->dvr_input.priv_handle) {
+		source_info = mpq_dmx_get_source(DMX_SOURCE_DVR0 +
+						mpq_demux->idx);
+
 		if (mutex_lock_interruptible(&mpq_dmx_tspp2_info.mutex))
 			return -ERESTARTSYS;
 
-		if (!source_info || !source_info->input_pipe) {
+		if (!source_info->input_pipe) {
 			mutex_unlock(&mpq_dmx_tspp2_info.mutex);
 			MPQ_DVB_ERR_PRINT(
-				"%s: invalid source is set\n",
+				"%s: invalid input pipe\n",
 				__func__);
 			return -EINVAL;
 		}
