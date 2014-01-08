@@ -22,15 +22,18 @@
 #define C1 0x2
 #define C2 0x4
 #define C3 0x8
-#define C_ALL (CC | C1 | C1 | C2 | C3)
-#define RESET_ALL 6
-
+#define C_ALL (CC | C0 | C1 | C2 | C3)
+#define NUM_L1_CTRS 4
+#define NUM_L2_PERCPU 2
 
 #include <linux/sched.h>
 #include <linux/cpumask.h>
 #include <linux/tracepoint.h>
 #include <mach/msm-krait-l2-accessors.h>
 
+DECLARE_PER_CPU(u32, previous_ccnt);
+DECLARE_PER_CPU(u32[NUM_L1_CTRS], previous_l1_cnts);
+DECLARE_PER_CPU(u32[NUM_L2_PERCPU], previous_l2_cnts);
 TRACE_EVENT(sched_switch_with_ctrs,
 
 		TP_PROTO(pid_t prev, pid_t next),
@@ -52,94 +55,96 @@ TRACE_EVENT(sched_switch_with_ctrs,
 		TP_fast_assign(
 			u32 cpu = smp_processor_id();
 			u32 idx;
+			u32 i;
 			u32 counter_reg;
 			u32 val;
+			u32 cnten_val;
 			u32 num_l2ctrs;
 			u32 num_cores = nr_cpu_ids;
+			u32 total_ccnt = 0;
+			u32 total_cnt = 0;
+			u32 delta_l1_cnts[NUM_L1_CTRS];
+			u32 delta_l2_cnts[NUM_L2_PERCPU];
 			__entry->old_pid	= prev;
 			__entry->new_pid	= next;
-			__entry->lctr0 = 0;
-			__entry->lctr1 = 0;
 
 			val = get_l2_indirect_reg(L2PMCR);
 			num_l2ctrs = ((val >> 11) & 0x1f) + 1;
-			/* Disable All*/
+
+			/* Read PMCNTENSET */
+			asm volatile("mrc p15, 0, %0, c9, c12, 1"
+						: "=r"(cnten_val));
+			/* Disable all the counters that were enabled */
 			asm volatile("mcr p15, 0, %0, c9, c12, 2"
-					: : "r"(C_ALL));
+					: : "r"(cnten_val));
+			if (cnten_val & CC) {
+				/* Read value */
+				asm volatile("mrc p15, 0, %0, c9, c13, 0"
+					: "=r"(total_ccnt));
+				__entry->cctr = total_ccnt -
+					per_cpu(previous_ccnt, cpu);
+				per_cpu(previous_ccnt, cpu) = total_ccnt;
+			}
+			for (i = 0; i < NUM_L1_CTRS; i++) {
+				if (cnten_val & (1 << i)) {
+					/* Select */
+					asm volatile(
+						"mcr p15, 0, %0, c9, c12, 5"
+						: : "r"(i));
+					/* Read value */
+					asm volatile(
+						"mrc p15, 0, %0, c9, c13, 2"
+						: "=r"(total_cnt));
 
-			/* cycle counter */
-			/* Read value */
-			asm volatile("mrc p15, 0, %0, c9, c13, 0"
-				: "=r"(__entry->cctr));
-
-			/* ctr 0 */
-			/* Select */
-			asm volatile("mcr p15, 0, %0, c9, c12, 5" : : "r"(0));
-			/* Read value */
-			asm volatile("mrc p15, 0, %0, c9, c13, 2"
-					: "=r"(__entry->ctr0));
-
-			/* ctr 1 */
-			/* Select */
-			asm volatile("mcr p15, 0, %0, c9, c12, 5" : : "r"(1));
-			/* Read value */
-			asm volatile("mrc p15, 0, %0, c9, c13, 2"
-					: "=r"(__entry->ctr1));
-
-			/* ctr 2 */
-			/* Select */
-			asm volatile("mcr p15, 0, %0, c9, c12, 5" : : "r"(2));
-			/* Read value */
-			asm volatile("mrc p15, 0, %0, c9, c13, 2"
-					: "=r"(__entry->ctr2));
-
-			/* ctr 3 */
-			/* Select */
-			asm volatile("mcr p15, 0, %0, c9, c12, 5" : : "r"(3));
-			/* Read value */
-			asm volatile("mrc p15, 0, %0, c9, c13, 2"
-					: "=r"(__entry->ctr3));
-
-			/* Read PMCR */
-			asm volatile("mrc p15, 0, %0, c9, c12, 0"
-					: "=r"(val));
-			/* Reset all */
-			asm volatile("mcr p15, 0, %0, c9, c12, 0"
-					: : "r"(val | RESET_ALL));
-			/* Enable All*/
+					delta_l1_cnts[i] = total_cnt -
+					  per_cpu(previous_l1_cnts[i], cpu);
+					per_cpu(previous_l1_cnts[i], cpu) =
+						total_cnt;
+				} else
+					delta_l1_cnts[i] = 0;
+			}
+			/* Enable all the counters that were disabled */
 			asm volatile("mcr p15, 0, %0, c9, c12, 1"
-					: : "r"(C_ALL));
+					: : "r"(cnten_val));
 
 			/* L2 counters */
 			/* Assign L2 counters to cores sequentially starting
-			from zero. A core could have multiple L2 counters
-			allocated if # L2 counters is more than the # cores */
-
-			idx = cpu;
-			/* Disable */
-			set_l2_indirect_reg(L2PMCNTENCLR, 1 << idx);
-			/* L2PMEVCNTR values go from 0x421, 0x431..
-			So we multiply idx by 16 to get the counter reg
-			value */
-			counter_reg = (idx * 16) + IA_L2PMXEVCNTR_BASE;
-			val = get_l2_indirect_reg(counter_reg);
-			__entry->lctr0 = val;
-			set_l2_indirect_reg(counter_reg, 0);
-			/* Enable */
-			set_l2_indirect_reg(L2PMCNTENSET, 1 << idx);
-
-			idx = num_cores + cpu;
-			if (idx < num_l2ctrs) {
-				/* Disable */
-				set_l2_indirect_reg(L2PMCNTENCLR, 1 << idx);
-				counter_reg = (idx * 16) + IA_L2PMXEVCNTR_BASE;
-				val = get_l2_indirect_reg(counter_reg);
-				__entry->lctr1 = val;
-				set_l2_indirect_reg(counter_reg, 0);
-				/* Enable */
-				set_l2_indirect_reg(L2PMCNTENSET, 1 << idx);
+			 * from zero. A core could have multiple L2 counters
+			 * allocated if # L2 counters is more than the # cores
+			 */
+			cnten_val = get_l2_indirect_reg(L2PMCNTENSET);
+			for (i = 0; i < NUM_L2_PERCPU; i++) {
+				idx = cpu + (num_cores * i);
+				if (idx < num_l2ctrs &&
+						(cnten_val & (1 << idx))) {
+					/* Disable */
+					set_l2_indirect_reg(L2PMCNTENCLR,
+						(1 << idx));
+					/* L2PMEVCNTR values go from 0x421,
+					 * 0x431..
+					 * So we multiply idx by 16 to get the
+					 * counter reg value
+					 */
+					counter_reg = (idx * 16) +
+						IA_L2PMXEVCNTR_BASE;
+					total_cnt =
+					  get_l2_indirect_reg(counter_reg);
+					/* Enable */
+					set_l2_indirect_reg(L2PMCNTENSET,
+						(1 << idx));
+					delta_l2_cnts[i] = total_cnt -
+					  per_cpu(previous_l2_cnts[i], cpu);
+					per_cpu(previous_l2_cnts[i], cpu) =
+						total_cnt;
+				} else
+					delta_l2_cnts[i] = 0;
 			}
-
+			__entry->ctr0 = delta_l1_cnts[0];
+			__entry->ctr1 = delta_l1_cnts[1];
+			__entry->ctr2 = delta_l1_cnts[2];
+			__entry->ctr3 = delta_l1_cnts[3];
+			__entry->lctr0 = delta_l2_cnts[0];
+			__entry->lctr1 = delta_l2_cnts[1];
 		),
 
 		TP_printk("prev_pid=%d, next_pid=%d, CCNTR: %u, CTR0: %u," \
