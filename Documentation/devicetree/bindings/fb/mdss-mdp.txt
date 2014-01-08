@@ -275,6 +275,12 @@ Optional properties:
 				   sw_reset register bitmap. Number of offsets
 				   defined should match the number of offsets
 				   defined in property: qcom,mdss-pipe-dma-off
+- qcom,mdss-rotator-ot-limit:	This integer value indicates maximum number of pending
+				writes that can be allowed from rotator client. Default
+				value is 16 which is the maximum. This value can be
+				used to reduce the pending writes limit dynamically
+				and can be tuned to match performance requirements
+				depending upon system state.
 
 Fudge Factors:			Fudge factors are used to boost demand for
 				resources like bus bandswidth, clk rate etc. to
@@ -399,6 +405,7 @@ Example:
 						<2 6 7>;
 		qcom,mdss-smp-data = <22 4096>;
 		qcom,mdss-rot-block-size = <64>;
+		qcom,mdss-rotator-ot-limit = <2>;
 		qcom,mdss-smp-mb-per-pipe = <2>;
 		qcom,mdss-pref-prim-intf = "dsi";
 		qcom,mdss-has-bwc;
