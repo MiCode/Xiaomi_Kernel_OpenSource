@@ -24,6 +24,7 @@
 #include <linux/i2c.h>
 #include <linux/err.h>
 #include <linux/regulator/consumer.h>
+#include <linux/delay.h>
 #include "bmp18x.h"
 
 struct sensor_regulator {
@@ -102,15 +103,56 @@ error_vdd:
 
 static int bmp18x_init_hw(struct bmp18x_data_bus *data_bus)
 {
-	if (data_bus->client)
-		return bmp18x_config_regulator(data_bus->client, 1);
-	return 0;
+	int ret = 0;
+	if (data_bus->client) {
+		ret = bmp18x_config_regulator(data_bus->client, 1);
+		/* The minimum start up time of bmp18x is 10ms */
+		usleep_range(15000, 20000);
+	}
+	return ret;
 }
 
 static void bmp18x_deinit_hw(struct bmp18x_data_bus *data_bus)
 {
 	if (data_bus->client)
 		bmp18x_config_regulator(data_bus->client, 0);
+}
+
+static int bmp18x_set_power(struct bmp18x_data *data, int on)
+{
+	int rc = 0;
+	int num_vreg = ARRAY_SIZE(bmp_vreg);
+	int i;
+
+	if (!on && data->power_enabled) {
+		for (i = 0; i < num_vreg; i++) {
+			rc = regulator_disable(bmp_vreg[i].vreg);
+			if (rc) {
+				dev_err(data->dev, "Regulator vdd disable failed rc=%d\n",
+						rc);
+				return rc;
+			}
+		}
+		data->power_enabled = false;
+	} else if (on && !data->power_enabled) {
+		for (i = 0; i < num_vreg; i++) {
+			rc = regulator_enable(bmp_vreg[i].vreg);
+			if (rc) {
+				dev_err(data->dev, "Regulator vdd enable failed rc=%d\n",
+						rc);
+				return rc;
+			}
+		}
+		/* The minimum start up time of bmp18x is 10ms */
+		usleep_range(15000, 20000);
+		data->power_enabled = true;
+	} else {
+		dev_warn(data->dev,
+				"Power on=%d. enabled=%d\n",
+				on, data->power_enabled);
+	}
+
+	return rc;
 }
 
 #ifdef CONFIG_OF
@@ -198,6 +240,7 @@ static int __devinit bmp18x_i2c_probe(struct i2c_client *client,
 		}
 		pdata->init_hw = bmp18x_init_hw;
 		pdata->deinit_hw = bmp18x_deinit_hw;
+		pdata->set_power = bmp18x_set_power;
 		client->dev.platform_data = pdata;
 	}
 	return bmp18x_probe(&client->dev, &data_bus);
@@ -216,12 +259,24 @@ static int bmp18x_i2c_remove(struct i2c_client *client)
 #ifdef CONFIG_PM
 static int bmp18x_i2c_suspend(struct device *dev)
 {
-	return bmp18x_disable(dev);
+	int ret = 0;
+	struct bmp18x_data *data = dev_get_drvdata(dev);
+
+	if (data->enable)
+		ret = bmp18x_disable(dev);
+
+	return ret;
 }
 
 static int bmp18x_i2c_resume(struct device *dev)
 {
-	return bmp18x_enable(dev);
+	int ret = 0;
+	struct bmp18x_data *data = dev_get_drvdata(dev);
+
+	if (data->enable)
+		ret = bmp18x_enable(dev);
+
+	return ret;
 }
 
 static const struct dev_pm_ops bmp18x_i2c_pm_ops = {

@@ -75,36 +75,6 @@
 #define ABS_MAX_PRESSURE	120000
 #define BMP_DELAY_DEFAULT   200
 
-struct bmp18x_calibration_data {
-	s16 AC1, AC2, AC3;
-	u16 AC4, AC5, AC6;
-	s16 B1, B2;
-	s16 MB, MC, MD;
-};
-
-/* Each client has this additional data */
-struct bmp18x_data {
-	struct	bmp18x_data_bus data_bus;
-	struct	device *dev;
-	struct	mutex lock;
-	struct	bmp18x_calibration_data calibration;
-	struct  sensors_classdev cdev;
-	u8	oversampling_setting;
-	u8	sw_oversampling_setting;
-	u32	raw_temperature;
-	u32	raw_pressure;
-	u32	temp_measurement_period;
-	u32	last_temp_measurement;
-	s32	b6; /* calculated temperature correction coefficient */
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	struct early_suspend early_suspend;
-#endif
-	struct input_dev	*input;
-	struct delayed_work work;
-	u32					delay;
-	u32					enable;
-};
-
 static struct sensors_classdev sensors_cdev = {
 	.name = "bmp18x-pressure",
 	.vendor = "Bosch",
@@ -455,8 +425,15 @@ static ssize_t bmp18x_enable_set(struct sensors_classdev *sensors_cdev,
 					struct bmp18x_data, cdev);
 	struct device *dev = data->dev;
 
+	enabled = enabled ? 1 : 0;
 	mutex_lock(&data->lock);
-	data->enable = enabled ? 1 : 0;
+
+	if (data->enable == enabled) {
+		dev_warn(dev, "already %s\n", enabled ? "enabled" : "disabled");
+		goto out;
+	}
+
+	data->enable = enabled;
 
 	if (data->enable) {
 		bmp18x_enable(dev);
@@ -466,8 +443,9 @@ static ssize_t bmp18x_enable_set(struct sensors_classdev *sensors_cdev,
 		cancel_delayed_work_sync(&data->work);
 		bmp18x_disable(dev);
 	}
-	mutex_unlock(&data->lock);
 
+out:
+	mutex_unlock(&data->lock);
 	return 0;
 }
 
@@ -686,6 +664,8 @@ __devinit int bmp18x_probe(struct device *dev, struct bmp18x_data_bus *data_bus)
 	register_early_suspend(&data->early_suspend);
 #endif
 
+	pdata->set_power(data, 0);
+	data->power_enabled = 0;
 	dev_info(dev, "Succesfully initialized bmp18x!\n");
 	return 0;
 
@@ -720,10 +700,12 @@ int bmp18x_disable(struct device *dev)
 {
 	struct bmp18x_platform_data *pdata = dev->platform_data;
 	struct bmp18x_data *data = dev_get_drvdata(dev);
-	if (pdata && pdata->deinit_hw)
-		pdata->deinit_hw(&data->data_bus);
+	int ret = 0;
 
-	return 0;
+	if (pdata && pdata->set_power)
+		ret = pdata->set_power(data, 0);
+
+	return ret;
 }
 EXPORT_SYMBOL(bmp18x_disable);
 
@@ -731,10 +713,12 @@ int bmp18x_enable(struct device *dev)
 {
 	struct bmp18x_platform_data *pdata = dev->platform_data;
 	struct bmp18x_data *data = dev_get_drvdata(dev);
-	if (pdata && pdata->init_hw)
-		return pdata->init_hw(&data->data_bus);
+	int ret = 0;
 
-	return 0;
+	if (pdata && pdata->set_power)
+		ret = pdata->set_power(data, 1);
+
+	return ret;
 }
 EXPORT_SYMBOL(bmp18x_enable);
 #endif
