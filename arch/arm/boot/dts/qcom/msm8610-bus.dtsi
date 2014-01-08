@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,8 +41,8 @@
 			qcom,qport = <0>;
 			qcom,ws = <10000>;
 			qcom,mas-hw-id = <8>;
-			qcom,prio1 = <2>;
-			qcom,prio0 = <2>;
+			qcom,prio1 = <3>;
+			qcom,prio0 = <3>;
 		};
 
 		mas-vfe {
