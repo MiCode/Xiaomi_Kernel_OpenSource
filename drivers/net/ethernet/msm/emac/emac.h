@@ -289,6 +289,12 @@ struct emac_hw {
 #define EMAC_MAX_RX_QUEUES      4
 #define EMAC_DEF_RX_QUEUES      4
 
+#define EMAC_MIN_TX_DESCS       128
+#define EMAC_MIN_RX_DESCS       128
+
+#define EMAC_MAX_TX_DESCS       16383
+#define EMAC_MAX_RX_DESCS       2047
+
 #define EMAC_DEF_TX_DESCS       512
 #define EMAC_DEF_RX_DESCS       256
 
@@ -519,21 +525,21 @@ struct emac_rfd_ring {
 	struct emac_buffer      *rfbuff;
 	u32 __iomem             *rfdesc;  /* virtual address */
 	dma_addr_t               rfdma;   /* physical address */
-	u16 size;          /* length in bytes */
-	u16 count;         /* number of descriptors in the ring */
-	u16 produce_idx;
-	u16 process_idx;
-	u16 consume_idx;   /* unused */
+	u64 size;          /* length in bytes */
+	u32 count;         /* number of descriptors in the ring */
+	u32 produce_idx;
+	u32 process_idx;
+	u32 consume_idx;   /* unused */
 };
 
 /* receive return desciptor (rrd) ring */
 struct emac_rrd_ring {
 	u32 __iomem         *rrdesc;    /* virtual address */
 	dma_addr_t           rrdma;     /* physical address */
-	u16 size;          /* length in bytes */
-	u16 count;         /* number of descriptors in the ring */
-	u16 produce_idx;   /* unused */
-	u16 consume_idx;
+	u64 size;          /* length in bytes */
+	u32 count;         /* number of descriptors in the ring */
+	u32 produce_idx;   /* unused */
+	u32 consume_idx;
 };
 
 /* rx queue */
@@ -569,11 +575,11 @@ struct emac_tpd_ring {
 	u32 __iomem        *tpdesc;   /* virtual address */
 	dma_addr_t          tpdma;    /* physical address */
 
-	u16 size;    /* length in bytes */
-	u16 count;   /* number of descriptors in the ring */
-	u16 produce_idx;
-	u16 consume_idx;
-	u16 last_produce_idx;
+	u64 size;    /* length in bytes */
+	u32 count;   /* number of descriptors in the ring */
+	u32 produce_idx;
+	u32 consume_idx;
+	u32 last_produce_idx;
 };
 
 /* tx queue */
@@ -613,8 +619,8 @@ struct emac_adapter {
 	u16 num_txques;
 	u16 num_rxques;
 
-	u16 num_txdescs;
-	u16 num_rxdescs;
+	u32 num_txdescs;
+	u32 num_rxdescs;
 	u8 rrdesc_size; /* in quad words */
 	u8 rfdesc_size; /* in quad words */
 	u8 tpdesc_size; /* in quad words */
@@ -669,5 +675,6 @@ extern const char emac_drv_version[];
 extern void emac_set_ethtool_ops(struct net_device *netdev);
 extern void emac_reinit_locked(struct emac_adapter *adpt);
 extern void emac_update_hw_stats(struct emac_adapter *adpt);
+extern int emac_resize_rings(struct net_device *netdev);
 
 #endif /* _MSM_EMAC_H_ */
