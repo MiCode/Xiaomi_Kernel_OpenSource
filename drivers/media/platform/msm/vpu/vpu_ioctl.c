@@ -548,10 +548,6 @@ int vpu_set_fmt(struct vpu_client *client, struct v4l2_format *f)
 				translate_v4l2_scan_mode(pix_mp->field);
 
 	ret = commit_port_config(session, port, 1);
-	if (ret) {
-		pr_err("commit_port_config failed (err %d)\n", ret);
-		return -EINVAL;
-	}
 
 	mutex_unlock(&session->lock);
 	return ret;
@@ -675,6 +671,8 @@ int vpu_set_input(struct vpu_client *client, unsigned int i)
 		ret = call_port_op(session, INPUT_PORT, attach);
 	}
 
+	ret = commit_port_config(session, INPUT_PORT, 1);
+
 exit_s_input:
 	mutex_unlock(&session->lock);
 	return ret;
@@ -715,6 +713,8 @@ int vpu_set_output(struct vpu_client *client, unsigned int i)
 			goto exit_s_output;
 		ret = call_port_op(session, OUTPUT_PORT, attach);
 	}
+
+	ret = commit_port_config(session, OUTPUT_PORT, 1);
 
 exit_s_output:
 	mutex_unlock(&session->lock);

@@ -893,126 +893,121 @@ int __calculate_session_load(struct vpu_dev_session *session)
 	return load_bits_per_sec;
 }
 
-int commit_initial_config(struct vpu_dev_session *session)
+static int __configure_input_port(struct vpu_dev_session *session)
 {
 	struct vpu_prop_session_input in_param;
-	struct vpu_prop_session_output out_param;
 	struct vpu_ctrl_auto_manual *nr;
 	int ret = 0;
-
-	if (session->commit_state == COMMITED)
-		return 0;
 
 	nr = get_control(session->controller, VPU_CTRL_NOISE_REDUCTION);
 	ret = configure_nr_buffers(session, nr);
 	if (ret) {
 		pr_err("Failed to configure nr\n");
-		goto exit_commit;
+		return ret;
 	}
 
 	translate_input_format_to_hfi(&session->port_info[INPUT_PORT],
 			&in_param);
 	ret = vpu_hw_session_s_input_params(session->id, &in_param);
 	if (ret) {
-		pr_err("Failed to set port 0 config\n");
-		goto exit_commit;
+		pr_err("Failed to set input port config\n");
+		return ret;
 	}
+
+	return 0;
+}
+
+static int __configure_output_port(struct vpu_dev_session *session)
+{
+	struct vpu_prop_session_output out_param;
+	int ret = 0;
 
 	translate_output_format_to_hfi(&session->port_info[OUTPUT_PORT],
 			&out_param);
 	ret = vpu_hw_session_s_output_params(session->id, &out_param);
 	if (ret) {
-		pr_err("Failed to set port 1 config\n");
-		goto exit_commit;
+		pr_err("Failed to set output port config\n");
+		return ret;
 	}
 
-	/* calculate and store the newly computed session load */
-	session->load = __calculate_session_load(session);
+	return 0;
+}
 
-	ret = vpu_hw_session_commit(session->id, CH_COMMIT_AT_ONCE,
+static int __do_commit(struct vpu_dev_session *session,
+		enum commit_type commit_type, int new_load)
+{
+	int ret;
+
+	if (new_load)
+		session->load = __calculate_session_load(session);
+
+	ret = vpu_hw_session_commit(session->id, commit_type,
 			__get_vpu_load(session->core));
-	if (ret) {
-		pr_err("Commit Failed (err %d)\n", ret);
-		notify_vpu_event_session(session, VPU_EVENT_INVALID_CONFIG,
-				NULL, 0);
-		goto exit_commit;
-	}
+	if (ret)
+		pr_err("Commit Failed\n");
+	else
+		pr_debug("Commit successful\n");
+
+	return ret;
+}
+
+int commit_initial_config(struct vpu_dev_session *session)
+{
+	int ret = 0;
+
+	if (session->commit_state == COMMITED)
+		return 0;
+
+	ret = __configure_input_port(session);
+	if (ret)
+		return ret;
+
+	ret = __configure_output_port(session);
+	if (ret)
+		return ret;
+
+	ret = __do_commit(session, CH_COMMIT_AT_ONCE, 1);
+	if (ret)
+		return ret;
 
 	session->commit_state = COMMITED;
-	pr_debug("Initial configuration committed successfully\n");
-
-exit_commit:
-	return ret;
+	return 0;
 }
 
 int commit_port_config(struct vpu_dev_session *session,	int port, int new_load)
 {
-	struct vpu_prop_session_input in_param;
-	struct vpu_prop_session_output out_param;
 	int ret = 0;
 
-	if (session->commit_state != COMMITED)
-		return 0; /* wait for initial configuration */
+	/* defer to initial session commit if not streaming */
+	if (session->streaming_state != ALL_STREAMING) {
+		session->commit_state = 0;
+		return 0;
+	}
 
 	if (port == INPUT_PORT) {
-		struct vpu_ctrl_auto_manual *nr = get_control(
-			session->controller, VPU_CTRL_NOISE_REDUCTION);
-		ret = configure_nr_buffers(session, nr);
-		if (ret) {
-			pr_err("Failed to configure nr\n");
+		ret = __configure_input_port(session);
+		if (ret)
 			return ret;
-		}
 
-		translate_input_format_to_hfi(&session->port_info[INPUT_PORT],
-				&in_param);
-		ret = vpu_hw_session_s_input_params(session->id, &in_param);
 	} else if (port == OUTPUT_PORT) {
-		translate_output_format_to_hfi(&session->port_info[OUTPUT_PORT],
-				&out_param);
-		ret = vpu_hw_session_s_output_params(session->id, &out_param);
-	} else
+		ret = __configure_output_port(session);
+		if (ret)
+			return ret;
+
+	} else {
 		return -EINVAL;
-
-	if (ret) {
-		pr_err("Failed to set port config\n");
-		goto exit_commit;
 	}
 
-	if (new_load)
-		session->load = __calculate_session_load(session);
-
-	ret = vpu_hw_session_commit(session->id, CH_COMMIT_IN_ORDER,
-			__get_vpu_load(session->core));
-	if (ret) {
-		pr_err("Commit Failed\n");
-		if (ret == -EIO)
-			ret = -EAGAIN; /* special runtime commit fail retval */
-		goto exit_commit;
-	}
-
-exit_commit:
-	return ret;
+	return __do_commit(session, CH_COMMIT_IN_ORDER, new_load);
 }
 
 int commit_control(struct vpu_dev_session *session, int new_load)
 {
-	int ret = 0;
-
-	if (session->commit_state != COMMITED)
-		return 0; /* wait for initial configuration */
-
-	if (new_load)
-		session->load = __calculate_session_load(session);
-
-	ret = vpu_hw_session_commit(session->id, CH_COMMIT_AT_ONCE,
-			__get_vpu_load(session->core));
-	if (ret) {
-		pr_err("Commit Failed\n");
-		if (ret == -EIO)
-			ret = -EAGAIN; /* special runtime commit fail retval */
-		goto exit_commit;
+	/* defer to initial session commit if not streaming */
+	if (session->streaming_state != ALL_STREAMING) {
+		session->commit_state = 0;
+		return 0;
 	}
 
-exit_commit:
-	return ret;
+	return __do_commit(session, CH_COMMIT_AT_ONCE, new_load);
 }
