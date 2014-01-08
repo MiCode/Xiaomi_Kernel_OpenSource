@@ -1056,8 +1056,11 @@ static int32_t q6asm_srvc_callback(struct apr_client_data *data, void *priv)
 {
 	uint32_t sid = 0;
 	uint32_t dir = 0;
+	uint32_t i = IN;
 	uint32_t *payload;
 	unsigned long dsp_flags;
+	struct asm_buffer_node *buf_node = NULL;
+	struct list_head *ptr, *next;
 
 	struct audio_client *ac = NULL;
 	struct audio_port_data *port;
@@ -1076,6 +1079,20 @@ static int32_t q6asm_srvc_callback(struct apr_client_data *data, void *priv)
 				data->reset_proc,
 				this_mmap.apr);
 		apr_reset(this_mmap.apr);
+		for (; i <= OUT; i++) {
+			list_for_each_safe(ptr, next,
+				&common_client.port[i].mem_map_handle) {
+				buf_node = list_entry(ptr,
+						struct asm_buffer_node,
+						list);
+				if (buf_node->buf_addr_lsw ==
+				common_client.port[i].buf->phys) {
+					list_del(&buf_node->list);
+					kfree(buf_node);
+				}
+			}
+			pr_debug("%s:Clearing custom topology\n", __func__);
+		}
 		this_mmap.apr = NULL;
 		reset_custom_topology_flags();
 		set_custom_topology = 1;
@@ -3073,6 +3090,9 @@ int q6asm_memory_unmap(struct audio_client *ac, uint32_t buf_add, int dir)
 		rc = -EINVAL;
 		goto fail_cmd;
 	}
+
+	rc = 0;
+fail_cmd:
 	list_for_each_safe(ptr, next, &ac->port[dir].mem_map_handle) {
 		buf_node = list_entry(ptr, struct asm_buffer_node,
 						list);
@@ -3082,9 +3102,6 @@ int q6asm_memory_unmap(struct audio_client *ac, uint32_t buf_add, int dir)
 			break;
 		}
 	}
-
-	rc = 0;
-fail_cmd:
 	return rc;
 }
 
@@ -3252,6 +3269,9 @@ static int q6asm_memory_unmap_regions(struct audio_client *ac, int dir)
 		pr_err("timeout. waited for memory_unmap\n");
 		goto fail_cmd;
 	}
+	rc = 0;
+
+fail_cmd:
 	list_for_each_safe(ptr, next, &ac->port[dir].mem_map_handle) {
 		buf_node = list_entry(ptr, struct asm_buffer_node,
 						list);
@@ -3261,9 +3281,6 @@ static int q6asm_memory_unmap_regions(struct audio_client *ac, int dir)
 			break;
 		}
 	}
-	rc = 0;
-
-fail_cmd:
 	return rc;
 }
 
