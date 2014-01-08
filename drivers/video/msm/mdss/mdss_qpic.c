@@ -368,7 +368,7 @@ int qpic_flush_buffer_bam(u32 cmd, u32 len, u32 *param, u32 is_cmd)
 		phys_addr += block_len;
 		len -= block_len;
 	}
-	ret = wait_for_completion_interruptible_timeout(
+	ret = wait_for_completion_timeout(
 		&qpic_res->qpic_endpt.completion,
 		msecs_to_jiffies(100 * 4));
 	if (ret <= 0)

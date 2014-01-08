@@ -283,7 +283,7 @@ int mdp3_ppp_pipe_wait(void)
 	spin_unlock_irqrestore(&ppp_stat->ppp_lock, flag);
 
 	if (wait) {
-		ret = wait_for_completion_interruptible_timeout(
+		ret = wait_for_completion_timeout(
 		   &ppp_stat->ppp_comp, 5 * HZ);
 		if (!ret)
 			pr_err("%s: Timed out waiting for the MDP.\n",
@@ -1099,7 +1099,7 @@ int mdp3_ppp_parse_req(void __user *p,
 	while (req_q->count >= MDP3_PPP_MAX_LIST_REQ) {
 		ppp_stat->wait_for_pop = true;
 		mutex_unlock(&ppp_stat->req_mutex);
-		rc = wait_for_completion_interruptible_timeout(
+		rc = wait_for_completion_timeout(
 		   &ppp_stat->pop_q_comp, 5 * HZ);
 		if (rc == 0) {
 			/* This will only occur if there is serious problem */

@@ -366,7 +366,7 @@ static int hdmi_cec_msg_send(struct hdmi_cec_ctrl *cec_ctrl,
 	DSS_REG_W(io, HDMI_CEC_CTRL, BIT(0) | BIT(1) |
 		((msg->frame_size & 0x1F) << 4) | BIT(9));
 
-	if (!wait_for_completion_interruptible_timeout(
+	if (!wait_for_completion_timeout(
 		&cec_ctrl->cec_msg_wr_done, HZ)) {
 		DEV_ERR("%s: timedout", __func__);
 		hdmi_cec_dump_msg(cec_ctrl, msg);
