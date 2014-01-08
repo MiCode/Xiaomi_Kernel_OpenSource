@@ -174,7 +174,7 @@ config NR_CPUS
 	int "Maximum number of CPUs (2-32)"
 	range 2 32
 	depends on SMP
-	default "4"
+	default "8"
 
 source kernel/Kconfig.preempt
 
