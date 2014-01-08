@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -8303,9 +8303,8 @@ static int msm_tspp2_probe(struct platform_device *pdev)
 		if (!device->bus_client)
 			pr_err("%s: Unable to register bus client\n", __func__);
 	} else {
-		pr_err("%s: Platform bus client data not available\n",
+		pr_err("%s: Platform bus client data not available. Continue anyway...\n",
 			__func__);
-		return -EINVAL;
 	}
 
 	rc = msm_tspp2_iommu_info_get(pdev, device);
