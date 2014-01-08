@@ -50,6 +50,8 @@
 #define BITS_PER_REG		8
 #define MSM8X10_WCD_TX_PORT_NUMBER	4
 
+#define DAPM_MICBIAS_EXTERNAL_STANDALONE "MIC BIAS External Standalone"
+
 #define MSM8X10_WCD_I2S_MASTER_MODE_MASK	0x08
 #define MSM8X10_DINO_CODEC_BASE_ADDR		0xFE043000
 #define MSM8X10_DINO_CODEC_REG_SIZE		0x200
@@ -1635,6 +1637,8 @@ static int msm8x10_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 
 		/* Always pull up TxFe for TX2 to Micbias */
 		snd_soc_update_bits(codec, micb_int_reg, 0x04, 0x04);
+		snd_soc_update_bits(codec, MSM8X10_WCD_A_MICB_1_CTL,
+					0x80, 0x80);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		usleep_range(20000, 20100);
@@ -1642,6 +1646,8 @@ static int msm8x10_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		wcd9xxx_resmgr_notifier_call(&msm8x10_wcd->resmgr, e_post_on);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		snd_soc_update_bits(codec, MSM8X10_WCD_A_MICB_1_CTL,
+					0x80, 0x00);
 		/* Let MBHC module know so micbias switch to be off */
 		wcd9xxx_resmgr_notifier_call(&msm8x10_wcd->resmgr, e_post_off);
 
@@ -2458,6 +2464,11 @@ static const struct snd_soc_dapm_widget msm8x10_wcd_dapm_widgets[] = {
 		MSM8X10_WCD_A_MICB_1_CTL, 7, 0,
 		msm8x10_wcd_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E(DAPM_MICBIAS_EXTERNAL_STANDALONE,
+		MSM8X10_WCD_A_MICB_1_CTL,
+		7, 0, msm8x10_wcd_codec_enable_micbias,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_ADC_E("ADC1", NULL, MSM8X10_WCD_A_TX_1_EN, 7, 0,
 		msm8x10_wcd_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
@@ -2707,6 +2718,30 @@ static int msm8x10_wcd_enable_ext_mb_source(struct snd_soc_codec *codec,
 			 __func__, turn_on ? "Enabled" : "Disabled");
 
 	return ret;
+}
+
+static int msm8x10_wcd_enable_mbhc_micbias(struct snd_soc_codec *codec,
+	 bool enable)
+{
+	int rc;
+
+	if (enable)
+		rc = snd_soc_dapm_force_enable_pin(&codec->dapm,
+			DAPM_MICBIAS_EXTERNAL_STANDALONE);
+	else
+		rc = snd_soc_dapm_disable_pin(&codec->dapm,
+			DAPM_MICBIAS_EXTERNAL_STANDALONE);
+	snd_soc_dapm_sync(&codec->dapm);
+
+	snd_soc_update_bits(codec, WCD9XXX_A_MICB_1_CTL,
+		0x80, enable ? 0x80 : 0x00);
+	if (rc)
+		pr_debug("%s: Failed to force %s micbias", __func__,
+			enable ? "enable" : "disable");
+	else
+		pr_debug("%s: Trying force %s micbias", __func__,
+			enable ? "enable" : "disable");
+	return rc;
 }
 
 static void msm8x10_wcd_micb_internal(struct snd_soc_codec *codec, bool on)
@@ -3191,7 +3226,8 @@ static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 
 	ret = wcd9xxx_mbhc_init(&msm8x10_wcd_priv->mbhc,
 				&msm8x10_wcd_priv->resmgr,
-				codec, NULL, &mbhc_cb, &cdc_intr_ids,
+				codec, msm8x10_wcd_enable_mbhc_micbias,
+				&mbhc_cb, &cdc_intr_ids,
 				HELICON_MCLK_CLK_9P6MHZ, true);
 	if (ret) {
 		dev_err(msm8x10_wcd->dev, "%s: Failed to initialize mbhc\n",

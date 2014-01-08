@@ -4269,6 +4269,14 @@ static int wcd9xxx_event_notify(struct notifier_block *self, unsigned long val,
 			if (!mbhc->polling_active)
 				wcd9xxx_enable_mbhc_txfe(mbhc, false);
 		}
+		if (mbhc->micbias_enable && mbhc->polling_active &&
+		    !(snd_soc_read(mbhc->codec, mbhc->mbhc_bias_regs.ctl_reg)
+	            & 0x80)) {
+			pr_debug("%s:Micbias turned off by recording, set up again",
+				 __func__);
+			snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.ctl_reg,
+					    0x80, 0x80);
+		}
 		break;
 	/* PA usage change */
 	case WCD9XXX_EVENT_PRE_HPHL_PA_ON:
