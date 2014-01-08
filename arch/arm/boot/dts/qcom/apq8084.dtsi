@@ -336,6 +336,18 @@
 		vdd-supply = <&gdsc_vpu>;
 	};
 
+	qcom,dsp_sharedmem@fd80000 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x0fd80000 0x00020000>;
+		reg-names = "rfsa_dsp";
+	};
+
+	qcom,mdm_sharedmem@fda0000 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x0fda0000 0x00020000>;
+		reg-names = "rfsa_mdm";
+	};
+
 	sdcc1: qcom,sdcc@f9824000 {
 		cell-index = <1>; /* SDC1 eMMC slot */
 		compatible = "qcom,msm-sdcc";
