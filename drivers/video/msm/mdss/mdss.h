@@ -119,6 +119,7 @@ struct mdss_data_type {
 	u8 has_wfd_blk;
 	u8 has_wb_ad;
 
+	u32 rotator_ot_limit;
 	u32 mdp_irq_mask;
 	u32 mdp_hist_irq_mask;
 
