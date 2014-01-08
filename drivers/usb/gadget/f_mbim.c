@@ -1324,6 +1324,16 @@ static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 				pr_info("Set mbim port out_desc = 0x%p",
 					mbim->bam_port.out->desc);
 
+				if (mbim->xport == USB_GADGET_XPORT_BAM2BAM_IPA
+					&& gadget_is_dwc3(cdev->gadget)) {
+					if (msm_ep_config(mbim->bam_port.in) ||
+					   msm_ep_config(mbim->bam_port.out)) {
+						pr_err("%s: ep_config failed\n",
+							__func__);
+						goto fail;
+					}
+				}
+
 				pr_debug("Activate mbim\n");
 				mbim_bam_connect(mbim);
 
@@ -1370,6 +1380,7 @@ static int mbim_get_alt(struct usb_function *f, unsigned intf)
 static void mbim_disable(struct usb_function *f)
 {
 	struct f_mbim	*mbim = func_to_mbim(f);
+	struct usb_composite_dev *cdev = mbim->cdev;
 
 	pr_info("SET DEVICE OFFLINE");
 	atomic_set(&mbim->online, 0);
@@ -1378,6 +1389,12 @@ static void mbim_disable(struct usb_function *f)
 
 	mbim_clear_queues(mbim);
 	mbim_reset_function_queue(mbim);
+
+	if (mbim->xport == USB_GADGET_XPORT_BAM2BAM_IPA &&
+			gadget_is_dwc3(cdev->gadget)) {
+		msm_ep_unconfig(mbim->bam_port.out);
+		msm_ep_unconfig(mbim->bam_port.in);
+	}
 
 	mbim_bam_disconnect(mbim);
 
