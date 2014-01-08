@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3230,13 +3230,13 @@ enum hal_extradata_id msm_comm_get_hal_extradata_index(
 	case V4L2_MPEG_VIDC_EXTRADATA_METADATA_FILLER:
 		ret = HAL_EXTRADATA_METADATA_FILLER;
 		break;
-	case V4L2_MPEG_VIDC_INDEX_EXTRADATA_ASPECT_RATIO:
+	case V4L2_MPEG_VIDC_EXTRADATA_ASPECT_RATIO:
 		ret = HAL_EXTRADATA_ASPECT_RATIO;
 		break;
-	case V4L2_MPEG_VIDC_INDEX_EXTRADATA_INPUT_CROP:
+	case V4L2_MPEG_VIDC_EXTRADATA_INPUT_CROP:
 		ret = HAL_EXTRADATA_INPUT_CROP;
 		break;
-	case V4L2_MPEG_VIDC_INDEX_EXTRADATA_DIGITAL_ZOOM:
+	case V4L2_MPEG_VIDC_EXTRADATA_DIGITAL_ZOOM:
 		ret = HAL_EXTRADATA_DIGITAL_ZOOM;
 		break;
 	case V4L2_MPEG_VIDC_EXTRADATA_MPEG2_SEQDISP:
