@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,6 +50,29 @@
 
 /*
  * End of IPA 1.0 Registers
+ */
+
+
+/*
+ * IPA HW 2.0 Registers
+ */
+#define IPA_REG_BASE 0x0
+
+#define IPA_IRQ_STTS_EE_n_ADDR(n) (IPA_REG_BASE + 0x00001008 + 0x1000 * (n))
+#define IPA_IRQ_STTS_EE_n_MAXn 3
+
+#define IPA_IRQ_EN_EE_n_ADDR(n) (IPA_REG_BASE + 0x0000100c + 0x1000 * (n))
+#define IPA_IRQ_EN_EE_n_MAXn 3
+
+
+#define IPA_IRQ_CLR_EE_n_ADDR(n) (IPA_REG_BASE + 0x00001010 + 0x1000 * (n))
+#define IPA_IRQ_CLR_EE_n_MAXn 3
+
+#define IPA_IRQ_SUSPEND_INFO_EE_n_ADDR(n) \
+				(IPA_REG_BASE + 0x00001098 + 0x1000 * (n))
+#define IPA_IRQ_SUSPEND_INFO_EE_n_MAXn 3
+/*
+ * End of IPA 2.0 Registers
  */
 
 
@@ -205,6 +228,8 @@ Common Registers
 #define IPA_ENDP_INIT_CTRL_N_MAX 19
 #define IPA_ENDP_INIT_CTRL_N_ENDP_SUSPEND_BMSK 0x1
 #define IPA_ENDP_INIT_CTRL_N_ENDP_SUSPEND_SHFT 0x0
+#define IPA_ENDP_INIT_CTRL_N_ENDP_DELAY_BMSK 0x2
+#define IPA_ENDP_INIT_CTRL_N_ENDP_DELAY_SHFT 0x1
 
 #define IPA_ENDP_INIT_HOL_BLOCK_EN_N_OFST_v1_1(n) (0x00000270 + 0x4 * (n))
 #define IPA_ENDP_INIT_HOL_BLOCK_EN_N_OFST_v2_0(n) (0x000003c0 + 0x4 * (n))

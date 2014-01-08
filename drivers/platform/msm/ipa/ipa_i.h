@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -901,6 +901,7 @@ void ipa_enable_clks(void);
 void ipa_disable_clks(void);
 void ipa_inc_client_enable_clks(void);
 void ipa_dec_client_disable_clks(void);
+int ipa_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev);
 int __ipa_del_rt_rule(u32 rule_hdl);
 int __ipa_del_hdr(u32 hdr_hdl);
 int __ipa_release_hdr(u32 hdr_hdl);

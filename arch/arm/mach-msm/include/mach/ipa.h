@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -354,13 +354,17 @@ struct ipa_ep_cfg_metadata {
 
 /**
  * struct ipa_ep_cfg - configuration of IPA end-point
- * @nat:	NAT parmeters
- * @hdr:	Header parameters
- * @mode:	Mode parameters
- * @aggr:	Aggregation parameters
- * @deaggr:	Deaggregation params
- * @route:	Routing parameters
- * @status:	Status parameters
+ * @nat:		NAT parmeters
+ * @hdr:		Header parameters
+ * @hdr_ext:		Extended header parameters
+ * @mode:		Mode parameters
+ * @aggr:		Aggregation parameters
+ * @deaggr:		Deaggregation params
+ * @route:		Routing parameters
+ * @status:		Status parameters
+ * @cfg:		Configuration register data
+ * @metadata_mask:	Hdr metadata mask
+ * @meta:		Meta Data
  */
 struct ipa_ep_cfg {
 	struct ipa_ep_cfg_nat nat;
@@ -374,6 +378,19 @@ struct ipa_ep_cfg {
 	struct ipa_ep_cfg_cfg cfg;
 	struct ipa_ep_cfg_metadata_mask metadata_mask;
 	struct ipa_ep_cfg_metadata meta;
+};
+
+/**
+ * struct ipa_ep_cfg_ctrl - Control configuration in IPA end-point
+ * @ipa_ep_suspend: 0 - ENDP is enabled, 1 - ENDP is suspended (disabled).
+ *			Valid for PROD Endpoints
+ * @ipa_ep_delay:   0 - ENDP is free-running, 1 - ENDP is delayed.
+ *			SW controls the data flow of an endpoint usind this bit.
+ *			Valid for CONS Endpoints
+ */
+struct ipa_ep_cfg_ctrl {
+	bool ipa_ep_suspend;
+	bool ipa_ep_delay;
 };
 
 /**
@@ -689,6 +706,44 @@ struct ipa_rx_data {
 	dma_addr_t dma_addr;
 };
 
+enum ipa_irq_type {
+	IPA_BAD_SNOC_ACCESS_IRQ = 0,
+	IPA_EOT_COAL_IRQ,
+	IPA_UC_IRQ_0,
+	IPA_UC_IRQ_1,
+	IPA_UC_IRQ_2,
+	IPA_UC_IRQ_3,
+	IPA_UC_IN_Q_NOT_EMPTY_IRQ,
+	IPA_UC_RX_CMD_Q_NOT_FULL_IRQ,
+	IPA_UC_TX_CMD_Q_NOT_FULL_IRQ,
+	IPA_UC_TO_PROC_ACK_Q_NOT_FULL_IRQ,
+	IPA_PROC_TO_UC_ACK_Q_NOT_EMPTY_IRQ,
+	IPA_RX_ERR_IRQ,
+	IPA_DEAGGR_ERR_IRQ,
+	IPA_TX_ERR_IRQ,
+	IPA_STEP_MODE_IRQ,
+	IPA_PROC_ERR_IRQ,
+	IPA_TX_SUSPEND_IRQ = 16,
+	IPA_TX_HOLB_DROP_IRQ = 17,
+
+	IPA_IRQ_MAX
+};
+
+
+/**
+ * typedef ipa_irq_handler_t - irq handler/callback type
+ * @param ipa_irq_type - [in] interrupt type
+ * @param private_data - [in, out] the client private data
+ * @param interrupt_data - [out] interrupt information data
+ *
+ * callback registered by ipa_add_interrupt_handler function to
+ * handle a specific interrupt type
+ *
+ * No return value
+ */
+typedef void (*ipa_irq_handler_t)(enum ipa_irq_type interrupt,
+				void *private_data,
+				void *interrupt_data);
 #ifdef CONFIG_IPA
 
 /*
@@ -737,6 +792,8 @@ int ipa_cfg_ep_metadata_mask(u32 clnt_hdl, const struct ipa_ep_cfg_metadata_mask
 
 int ipa_cfg_ep_holb_by_client(enum ipa_client_type client,
 				const struct ipa_ep_cfg_holb *ipa_ep_cfg);
+
+int ipa_cfg_ep_ctrl(u32 clnt_hdl, const struct ipa_ep_cfg_ctrl *ep_ctrl);
 
 /*
  * Header removal / addition
@@ -930,6 +987,14 @@ bool ipa_emb_ul_pipes_empty(void);
 /* mux id*/
 int ipa_write_qmap_id(struct ipa_ioc_write_qmapid *param_in);
 
+/*interrupts*/
+int ipa_add_interrupt_handler(enum ipa_irq_type interrupt,
+		ipa_irq_handler_t handler,
+		bool deferred_flag,
+		void *private_data);
+int ipa_remove_interrupt_handler(enum ipa_irq_type interrupt);
+
+
 #else /* CONFIG_IPA */
 
 static inline int a2_mux_open_channel(enum a2_mux_logical_channel_id lcid,
@@ -1069,6 +1134,12 @@ static inline int ipa_cfg_ep_cfg(u32 clnt_hdl,
 
 static inline int ipa_cfg_ep_metadata_mask(u32 clnt_hdl,
 		const struct ipa_ep_cfg_metadata_mask *ipa_ep_cfg)
+{
+	return -EPERM;
+}
+
+static inline int ipa_cfg_ep_ctrl(u32 clnt_hdl,
+			const struct ipa_ep_cfg_ctrl *ep_ctrl)
 {
 	return -EPERM;
 }
@@ -1444,6 +1515,19 @@ static inline int ipa_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
 	return -EPERM;
 }
 
+/* interrupts */
+static inline int ipa_add_interrupt_handler(enum ipa_irq_type interrupt,
+		ipa_irq_handler_t handler,
+		bool deferred_flag,
+		void *private_data)
+{
+	return -EPERM;
+}
+
+static inline int ipa_remove_interrupt_handler(enum ipa_irq_type interrupt)
+{
+	return -EPERM;
+}
 #endif /* CONFIG_IPA*/
 
 #endif /* _IPA_H_ */
