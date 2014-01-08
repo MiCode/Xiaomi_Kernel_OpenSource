@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -963,6 +963,13 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 
 	spin_lock_init(&ep->sys->spinlock);
 
+	result = ipa_enable_data_path(ipa_ep_idx);
+	if (result) {
+		IPAERR("enable data path failed res=%d clnt=%d.\n", result,
+				ipa_ep_idx);
+		goto fail_gen2;
+	}
+
 	if (ipa_cfg_ep(ipa_ep_idx, &sys_in->ipa_ep_cfg)) {
 		IPAERR("fail to configure EP.\n");
 		goto fail_gen2;
@@ -1088,6 +1095,7 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 	if (IPA_CLIENT_IS_CONS(ep->client))
 		ipa_cleanup_rx(ep->sys);
 
+	ipa_disable_data_path(clnt_hdl);
 	sps_disconnect(ep->ep_hdl);
 	dma_free_coherent(NULL, ep->connect.desc.size,
 			  ep->connect.desc.base,
