@@ -5,7 +5,7 @@
  *                  & Ralph  Metzler <ralph@convergence.de>
  *                    for convergence integrated media GmbH
  *
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -183,10 +183,7 @@ struct dmx_buffer_status {
 	/* fullness of buffer in bytes */
 	unsigned int fullness;
 
-	/*
-	 * How many bytes are free
-	 * It's the same as: size-fullness-1
-	 */
+	/* How many bytes are free */
 	unsigned int free_bytes;
 
 	/* read pointer offset in bytes */
