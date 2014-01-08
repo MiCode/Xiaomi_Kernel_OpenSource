@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -184,12 +184,11 @@ static const char *fsm9900_dt_match[] __initconst = {
 };
 
 DT_MACHINE_START(FSM9900_DT, "Qualcomm FSM 9900 (Flattened Device Tree)")
-	.map_io = fsm9900_map_io,
-	.init_irq = msm_dt_init_irq,
-	.init_machine = fsm9900_init,
-	.dt_compat = fsm9900_dt_match,
-	.reserve = fsm9900_reserve,
-	.init_very_early = fsm9900_init_very_early,
-	.restart = msm_restart,
-	.smp = &msm8974_smp_ops,
+	.map_io			= fsm9900_map_io,
+	.init_machine		= fsm9900_init,
+	.dt_compat		= fsm9900_dt_match,
+	.reserve		= fsm9900_reserve,
+	.init_very_early	= fsm9900_init_very_early,
+	.restart		= msm_restart,
+	.smp			= &msm8974_smp_ops,
 MACHINE_END

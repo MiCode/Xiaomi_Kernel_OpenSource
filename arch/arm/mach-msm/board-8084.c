@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -120,12 +120,11 @@ static const char *apq8084_dt_match[] __initconst = {
 };
 
 DT_MACHINE_START(APQ8084_DT, "Qualcomm APQ 8084 (Flattened Device Tree)")
-	.map_io = apq8084_map_io,
-	.init_irq = msm_dt_init_irq,
-	.init_machine = apq8084_init,
-	.dt_compat = apq8084_dt_match,
-	.reserve = apq8084_reserve,
-	.init_very_early = apq8084_init_very_early,
-	.restart = msm_restart,
-	.smp = &msm8974_smp_ops,
+	.map_io			= apq8084_map_io,
+	.init_machine		= apq8084_init,
+	.dt_compat		= apq8084_dt_match,
+	.reserve		= apq8084_reserve,
+	.init_very_early	= apq8084_init_very_early,
+	.restart		= msm_restart,
+	.smp			= &msm8974_smp_ops,
 MACHINE_END
