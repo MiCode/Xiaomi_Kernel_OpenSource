@@ -709,7 +709,7 @@ static int __devinit mpu3050_probe(struct i2c_client *client,
 	}
 
 	sensor->cdev = sensors_cdev;
-	sensor->cdev.min_delay = MPU3050_MIN_POLL_INTERVAL;
+	sensor->cdev.min_delay = MPU3050_MIN_POLL_INTERVAL * 1000;
 	sensor->cdev.delay_msec = sensor->poll_interval;
 	sensor->cdev.sensors_enable = mpu3050_enable_set;
 	sensor->cdev.sensors_poll_delay = mpu3050_poll_delay_set;
