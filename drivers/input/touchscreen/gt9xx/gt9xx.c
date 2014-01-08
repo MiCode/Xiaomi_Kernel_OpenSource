@@ -47,7 +47,8 @@
 #include "gt9xx.h"
 
 #include <linux/of_gpio.h>
-
+#include <linux/irq.h>
+#include <linux/module.h>
 #include <linux/input/mt.h>
 
 #define GOODIX_DEV_NAME	"Goodix-CTP"
@@ -55,9 +56,6 @@
 #define GOODIX_COORDS_ARR_SIZE	4
 #define MAX_BUTTONS		4
 
-/* HIGH: 0x28/0x29, LOW: 0xBA/0xBB */
-#define GTP_I2C_ADDRESS_HIGH	0x14
-#define GTP_I2C_ADDRESS_LOW	0x5D
 #define CFG_GROUP_LEN(p_cfg_grp)  (sizeof(p_cfg_grp) / sizeof(p_cfg_grp[0]))
 
 #define GOODIX_VTG_MIN_UV	2600000
@@ -84,7 +82,6 @@ static const u16 touch_key_array[] = {KEY_MENU, KEY_HOMEPAGE, KEY_BACK};
 
 #endif
 
-static void gtp_reset_guitar(struct goodix_ts_data *ts, int ms);
 static void gtp_int_sync(struct goodix_ts_data *ts, int ms);
 static int gtp_i2c_test(struct i2c_client *client);
 static int goodix_power_off(struct goodix_ts_data *ts);
@@ -103,7 +100,6 @@ static struct delayed_work gtp_esd_check_work;
 static struct workqueue_struct *gtp_esd_check_workqueue;
 static void gtp_esd_check_func(struct work_struct *work);
 static int gtp_init_ext_watchdog(struct i2c_client *client);
-struct i2c_client  *i2c_connect_client;
 #endif
 
 #if GTP_SLIDE_WAKEUP
@@ -118,6 +114,7 @@ static s8 gtp_enter_doze(struct goodix_ts_data *ts);
 bool init_done;
 static u8 chip_gt9xxs;  /* true if ic is gt9xxs, like gt915s */
 u8 grp_cfg_version;
+struct i2c_client  *i2c_connect_client;
 
 /*******************************************************
 Function:
@@ -271,7 +268,7 @@ Output:
 	result of i2c write operation.
 	> 0: succeed, otherwise: failed
 *********************************************************/
-static int gtp_send_cfg(struct goodix_ts_data *ts)
+int gtp_send_cfg(struct goodix_ts_data *ts)
 {
 	int ret;
 #if GTP_DRIVER_SEND_CFG
@@ -663,7 +660,7 @@ Input:
 Output:
 	None.
 *******************************************************/
-static void gtp_reset_guitar(struct goodix_ts_data *ts, int ms)
+void gtp_reset_guitar(struct goodix_ts_data *ts, int ms)
 {
 	/* This reset sequence will selcet I2C slave address */
 	gpio_direction_output(ts->pdata->reset_gpio, 0);
@@ -1803,7 +1800,7 @@ static int goodix_ts_probe(struct i2c_client *client,
 		strlcpy(ts->fw_name, pdata->fw_name,
 						strlen(pdata->fw_name) + 1);
 
-#if GTP_AUTO_UPDATE
+#ifdef CONFIG_GT9XX_TOUCHPANEL_UPDATE
 	ret = gup_init_update_proc(ts);
 	if (ret < 0) {
 		dev_err(&client->dev,
@@ -1863,7 +1860,7 @@ static int goodix_ts_probe(struct i2c_client *client,
 	if (ts->use_irq)
 		gtp_irq_enable(ts);
 
-#if GTP_CREATE_WR_NODE
+#ifdef CONFIG_GT9XX_TOUCHPANEL_DEBUG
 	init_wr_node(client);
 #endif
 
@@ -1939,7 +1936,7 @@ static int goodix_ts_remove(struct i2c_client *client)
 #endif
 	mutex_destroy(&ts->lock);
 
-#if GTP_CREATE_WR_NODE
+#ifdef CONFIG_GT9XX_TOUCHPANEL_DEBUG
 	uninit_wr_node();
 #endif
 
