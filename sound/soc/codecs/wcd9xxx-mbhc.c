@@ -2044,7 +2044,8 @@ static void wcd9xxx_find_plug_and_report(struct wcd9xxx_mbhc *mbhc,
 
 		/* if PA is already on, switch micbias source to VDDIO */
 		if (mbhc->event_state &
-		    (1 << MBHC_EVENT_PA_HPHL | 1 << MBHC_EVENT_PA_HPHR))
+		    (1 << MBHC_EVENT_PA_HPHL | 1 << MBHC_EVENT_PA_HPHR |
+		     1 << MBHC_EVENT_PRE_TX_1_3_ON))
 			__wcd9xxx_switch_micbias(mbhc, 1, false, false);
 		wcd9xxx_start_hs_polling(mbhc);
 	} else if (plug_type == PLUG_TYPE_HIGH_HPH) {
@@ -4303,7 +4304,7 @@ static int wcd9xxx_event_notify(struct notifier_block *self, unsigned long val,
 			hphlocp_off_report(mbhc, SND_JACK_OC_HPHL);
 		if (!(mbhc->event_state &
 		      (1 << MBHC_EVENT_PA_HPHL | 1 << MBHC_EVENT_PA_HPHR |
-		       1 << MBHC_EVENT_PRE_TX_3_ON)))
+		       1 << MBHC_EVENT_PRE_TX_1_3_ON)))
 			wcd9xxx_switch_micbias(mbhc, 0);
 		break;
 	case WCD9XXX_EVENT_POST_HPHR_PA_OFF:
@@ -4315,7 +4316,7 @@ static int wcd9xxx_event_notify(struct notifier_block *self, unsigned long val,
 			hphrocp_off_report(mbhc, SND_JACK_OC_HPHL);
 		if (!(mbhc->event_state &
 		      (1 << MBHC_EVENT_PA_HPHL | 1 << MBHC_EVENT_PA_HPHR |
-		       1 << MBHC_EVENT_PRE_TX_3_ON)))
+		       1 << MBHC_EVENT_PRE_TX_1_3_ON)))
 			wcd9xxx_switch_micbias(mbhc, 0);
 		break;
 	/* Clock usage change */
@@ -4397,23 +4398,23 @@ static int wcd9xxx_event_notify(struct notifier_block *self, unsigned long val,
 	case WCD9XXX_EVENT_POST_BG_MBHC_ON:
 		/* Not used for now */
 		break;
-	case WCD9XXX_EVENT_PRE_TX_3_ON:
+	case WCD9XXX_EVENT_PRE_TX_1_3_ON:
 		/*
 		 * if polling is ON, mbhc micbias not enabled
 		 *  switch micbias source to VDDIO
 		 */
-		set_bit(MBHC_EVENT_PRE_TX_3_ON, &mbhc->event_state);
+		set_bit(MBHC_EVENT_PRE_TX_1_3_ON, &mbhc->event_state);
 		if (!(snd_soc_read(codec, mbhc->mbhc_bias_regs.ctl_reg)
 		      & 0x80) &&
 		    mbhc->polling_active && !mbhc->mbhc_micbias_switched)
 			wcd9xxx_switch_micbias(mbhc, 1);
 		break;
-	case WCD9XXX_EVENT_POST_TX_3_OFF:
+	case WCD9XXX_EVENT_POST_TX_1_3_OFF:
 		/*
 		 * Switch back to micbias if HPH PA or TX3 path
 		 * is disabled
 		 */
-		clear_bit(MBHC_EVENT_PRE_TX_3_ON, &mbhc->event_state);
+		clear_bit(MBHC_EVENT_PRE_TX_1_3_ON, &mbhc->event_state);
 		if (mbhc->polling_active && mbhc->mbhc_micbias_switched &&
 		    !(mbhc->event_state & (1 << MBHC_EVENT_PA_HPHL |
 		      1 << MBHC_EVENT_PA_HPHR)))
