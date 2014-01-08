@@ -345,7 +345,6 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 		}
 
 		if (d->func_type == USB_FUNC_MBIM) {
-			mbim_configure_params();
 			connect_params.ipa_usb_pipe_hdl =
 				d->ipa_params.prod_clnt_hdl;
 			connect_params.usb_ipa_pipe_hdl =
