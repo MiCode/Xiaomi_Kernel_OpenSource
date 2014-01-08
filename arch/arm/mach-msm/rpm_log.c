@@ -1,4 +1,5 @@
-/* Copyright (c) 2010-2011, 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2011, 2013-2014, The Linux Foundation.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -269,7 +270,7 @@ static int msm_rpm_log_file_open(struct inode *inode, struct file *file)
 	file->private_data =
 		   kmalloc(sizeof(struct msm_rpm_log_buffer), GFP_KERNEL);
 	if (!file->private_data) {
-		pr_err("%s: ERROR kmalloc failed to allocate %d bytes\n",
+		pr_err("%s: ERROR kmalloc failed to allocate %zu bytes\n",
 			__func__, sizeof(struct msm_rpm_log_buffer));
 		return -ENOMEM;
 	}

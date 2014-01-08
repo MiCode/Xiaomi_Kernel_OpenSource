@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1550,7 +1550,7 @@ static int msm_pc_debug_counters_copy(
 	return data->len;
 }
 
-static int msm_pc_debug_counters_file_read(struct file *file,
+static ssize_t msm_pc_debug_counters_file_read(struct file *file,
 		char __user *bufu, size_t count, loff_t *ppos)
 {
 	struct msm_pc_debug_counters_buffer *data;
@@ -1588,7 +1588,7 @@ static int msm_pc_debug_counters_file_open(struct inode *inode,
 		sizeof(struct msm_pc_debug_counters_buffer), GFP_KERNEL);
 
 	if (!file->private_data) {
-		pr_err("%s: ERROR kmalloc failed to allocate %d bytes\n",
+		pr_err("%s: ERROR kmalloc failed to allocate %zu bytes\n",
 		__func__, sizeof(struct msm_pc_debug_counters_buffer));
 
 		return -ENOMEM;

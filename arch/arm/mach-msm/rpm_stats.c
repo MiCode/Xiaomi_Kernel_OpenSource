@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -227,7 +227,7 @@ static int msm_rpmstats_copy_stats(struct msm_rpmstats_private_data *pdata)
 			usec);
 }
 
-static int msm_rpmstats_file_read(struct file *file, char __user *bufu,
+static ssize_t msm_rpmstats_file_read(struct file *file, char __user *bufu,
 				  size_t count, loff_t *ppos)
 {
 	struct msm_rpmstats_private_data *prvdata;

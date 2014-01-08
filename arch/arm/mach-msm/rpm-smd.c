@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -818,7 +818,8 @@ static inline int msm_rpm_get_error_from_ack(uint8_t *buf)
 
 	tmp += 2 * sizeof(uint32_t);
 
-	if (!(memcmp(tmp, INV_RSC, min(req_len, sizeof(INV_RSC))-1))) {
+	if (!(memcmp(tmp, INV_RSC, min_t(uint32_t, req_len,
+						sizeof(INV_RSC))-1))) {
 		pr_err("%s(): RPM NACK Unsupported resource\n", __func__);
 		rc = -EINVAL;
 	} else {
@@ -932,7 +933,7 @@ static void msm_rpm_log_request(struct msm_rpm_request *cdata)
 			for (j = 0; j < cdata->kvp[i].nbytes; j += 4) {
 				value = 0;
 				memcpy(&value, &cdata->kvp[i].value[j],
-					min(sizeof(uint32_t),
+					min_t(uint32_t, sizeof(uint32_t),
 						cdata->kvp[i].nbytes - j));
 				pos += scnprintf(buf + pos, buflen - pos, "%u",
 						value);
@@ -964,7 +965,7 @@ static void msm_rpm_log_request(struct msm_rpm_request *cdata)
 			for (j = 0; j < cdata->kvp[i].nbytes; j += 4) {
 				value = 0;
 				memcpy(&value, &cdata->kvp[i].value[j],
-					min(sizeof(uint32_t),
+					min_t(uint32_t, sizeof(uint32_t),
 						cdata->kvp[i].nbytes - j));
 				pos += scnprintf(buf + pos, buflen - pos, "%u",
 						value);
