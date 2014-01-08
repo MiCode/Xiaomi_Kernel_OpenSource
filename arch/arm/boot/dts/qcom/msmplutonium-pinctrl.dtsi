@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,6 +42,24 @@
 				bias-disable;
 			};
 		};
+
+		spi_0 {
+			qcom,pins = <&gp 0>, <&gp 1>, <&gp 3>;
+			qcom,num-grp-pins = <3>;
+			qcom,pin-func = <0>;
+			label = "spi_0";
+
+			spi_0_active: spi_0_active {
+					       drive-strength = <6>;
+					       bias-disable;
+		        };
+
+			spi_0_sleep: spi_0_sleep {
+					       drive-strength = <6>;
+					       bias-disable;
+		        };
+		};
+
 	};
 };
 
