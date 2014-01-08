@@ -1773,7 +1773,7 @@ static int goodix_ts_probe(struct i2c_client *client,
 		return -ENODEV;
 	}
 
-	ts = kzalloc(sizeof(*ts), GFP_KERNEL);
+	ts = devm_kzalloc(&client->dev, sizeof(*ts), GFP_KERNEL);
 	if (!ts) {
 		dev_err(&client->dev, "GTP not enough memory for ts\n");
 		return -ENOMEM;
@@ -1930,7 +1930,6 @@ exit_free_io_port:
 		gpio_free(pdata->irq_gpio);
 exit_free_client_data:
 	i2c_set_clientdata(client, NULL);
-	kfree(ts);
 	return ret;
 }
 
@@ -1982,7 +1981,6 @@ static int goodix_ts_remove(struct i2c_client *client)
 			input_free_device(ts->input_dev);
 			ts->input_dev = NULL;
 		}
-		kfree(ts->config_data);
 
 		if (gpio_is_valid(ts->pdata->reset_gpio))
 			gpio_free(ts->pdata->reset_gpio);
@@ -1992,7 +1990,6 @@ static int goodix_ts_remove(struct i2c_client *client)
 		goodix_power_off(ts);
 		goodix_power_deinit(ts);
 		i2c_set_clientdata(client, NULL);
-		kfree(ts);
 	}
 
 	return 0;
