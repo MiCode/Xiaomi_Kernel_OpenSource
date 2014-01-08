@@ -1951,6 +1951,7 @@ static void tsc_device_power_off(void)
 			tsc_device->pinctrl_info.disable);
 	if (tsc_device->bus_client)
 		msm_bus_scale_client_update_request(tsc_device->bus_client, 0);
+
 	tsc_power_off_clocks();
 	regulator_disable(tsc_device->gdsc);
 
@@ -2598,17 +2599,19 @@ static int tsc_get_regulator_bus(struct platform_device *pdev)
 	/* Reading the bus platform data */
 	tsc_bus_pdata = msm_bus_cl_get_pdata(pdev);
 	if (tsc_bus_pdata == NULL) {
-		dev_err(&pdev->dev, "%s: Could not find the bus property\n",
+		dev_err(&pdev->dev, "%s: Could not find the bus property. Continue anyway...\n",
 				__func__);
-		goto err;
 	}
 
 	/* Register the bus client */
-	tsc_device->bus_client = msm_bus_scale_register_client(tsc_bus_pdata);
-	if (!tsc_device->bus_client) {
-		dev_err(&pdev->dev, "%s: Unable to register bus client\n",
-				__func__);
-		goto err;
+	if (tsc_bus_pdata) {
+		tsc_device->bus_client =
+				msm_bus_scale_register_client(tsc_bus_pdata);
+		if (!tsc_device->bus_client) {
+			dev_err(&pdev->dev, "%s: Unable to register bus client\n",
+					__func__);
+			goto err;
+		}
 	}
 
 	return 0;
@@ -3089,7 +3092,9 @@ err_chdev_mux:
 	class_destroy(tsc_class);
 err_class:
 err_pinctrl:
-	msm_bus_scale_unregister_client(tsc_device->bus_client);
+	if (tsc_device->bus_client)
+		msm_bus_scale_unregister_client(tsc_device->bus_client);
+
 	devm_regulator_put(tsc_device->gdsc);
 err_get_regulator_bus:
 	tsc_free_irqs();
@@ -3131,7 +3136,9 @@ static int msm_tsc_remove(struct platform_device *pdev)
 	class_destroy(tsc_class);
 
 	/* Unregister the bus client and the regulator */
-	msm_bus_scale_unregister_client(tsc_device->bus_client);
+	if (tsc_device->bus_client)
+		msm_bus_scale_unregister_client(tsc_device->bus_client);
+
 	devm_regulator_put(tsc_device->gdsc);
 
 	/* Free the IRQs */
