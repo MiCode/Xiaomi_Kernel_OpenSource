@@ -3,12 +3,20 @@ MSM Shared Memory
 [Root level node]
 Required properties:
 -compatible : should be "qcom,smem"
--reg : the location and size of smem, the irq register base memory, and
-	optionally any auxiliary smem areas
--reg-names : "smem" - string to identify the shared memory region
+-reg : the location and size of smem (optional)
+	the irq register base address (required)
+	the location and size of auxiliary smem areas (optional)
+	the smem target info either from IMEM or register (optional)
+-reg-names : "smem" - optional string to identify the shared memory region
 	     "irq-reg-base" - string to identify the irq register region
 	     "aux-mem1", "aux-mem2", "aux-mem3", ... - optional strings to
 			identify any auxiliary shared memory regions
+	     "smem_targ_info_imem" - optional string to identify
+				the smem target info from IMEM memory
+	     "smem_targ_info_reg" - optional string to identify
+				the smem target info from registers
+	     one of the optional register names smem_targ_info_imem,
+				smem_targ_info_reg, or smem is required.
 
 Optional properties:
 -qcom,mpu-enabled : boolean value indicating that Memory Protection Unit based
