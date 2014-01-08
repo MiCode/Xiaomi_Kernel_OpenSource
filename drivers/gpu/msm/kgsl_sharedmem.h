@@ -201,11 +201,7 @@ kgsl_memdesc_protflags(const struct kgsl_memdesc *memdesc)
 	unsigned int protflags = 0;
 	enum kgsl_mmutype mmutype = kgsl_mmu_get_mmutype();
 
-	if (mmutype == KGSL_MMU_TYPE_GPU) {
-		protflags = GSL_PT_PAGE_RV;
-		if (!(memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY))
-			protflags |= GSL_PT_PAGE_WV;
-	} else if (mmutype == KGSL_MMU_TYPE_IOMMU) {
+	if (mmutype == KGSL_MMU_TYPE_IOMMU) {
 		protflags = IOMMU_READ;
 		if (!(memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY))
 			protflags |= IOMMU_WRITE;

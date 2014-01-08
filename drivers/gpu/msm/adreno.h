@@ -157,7 +157,6 @@ struct adreno_device {
 	size_t pm4_fw_size;
 	unsigned int pm4_fw_version;
 	struct adreno_ringbuffer ringbuffer;
-	unsigned int mharb;
 	struct adreno_gpudev *gpudev;
 	unsigned int wait_timeout;
 	unsigned int pm4_jt_idx;
@@ -733,18 +732,6 @@ static inline int __adreno_add_idle_indirect_cmds(unsigned int *cmds,
 	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
 	*cmds++ = 0x00000000;
 	return 5;
-}
-
-static inline int adreno_add_change_mh_phys_limit_cmds(unsigned int *cmds,
-						unsigned int new_phys_limit,
-						unsigned int nop_gpuaddr)
-{
-	unsigned int *start = cmds;
-
-	*cmds++ = cp_type0_packet(MH_MMU_MPU_END, 1);
-	*cmds++ = new_phys_limit;
-	cmds += __adreno_add_idle_indirect_cmds(cmds, nop_gpuaddr);
-	return cmds - start;
 }
 
 static inline int adreno_add_bank_change_cmds(unsigned int *cmds,

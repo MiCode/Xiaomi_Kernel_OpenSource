@@ -45,38 +45,6 @@
 /* Number of times to try hard reset */
 #define NUM_TIMES_RESET_RETRY 5
 
-/* Adreno MH arbiter config*/
-#define ADRENO_CFG_MHARB \
-	(0x10 \
-		| (0 << MH_ARBITER_CONFIG__SAME_PAGE_GRANULARITY__SHIFT) \
-		| (1 << MH_ARBITER_CONFIG__L1_ARB_ENABLE__SHIFT) \
-		| (1 << MH_ARBITER_CONFIG__L1_ARB_HOLD_ENABLE__SHIFT) \
-		| (0 << MH_ARBITER_CONFIG__L2_ARB_CONTROL__SHIFT) \
-		| (1 << MH_ARBITER_CONFIG__PAGE_SIZE__SHIFT) \
-		| (1 << MH_ARBITER_CONFIG__TC_REORDER_ENABLE__SHIFT) \
-		| (1 << MH_ARBITER_CONFIG__TC_ARB_HOLD_ENABLE__SHIFT) \
-		| (0 << MH_ARBITER_CONFIG__IN_FLIGHT_LIMIT_ENABLE__SHIFT) \
-		| (0x8 << MH_ARBITER_CONFIG__IN_FLIGHT_LIMIT__SHIFT) \
-		| (1 << MH_ARBITER_CONFIG__CP_CLNT_ENABLE__SHIFT) \
-		| (1 << MH_ARBITER_CONFIG__VGT_CLNT_ENABLE__SHIFT) \
-		| (1 << MH_ARBITER_CONFIG__TC_CLNT_ENABLE__SHIFT) \
-		| (1 << MH_ARBITER_CONFIG__RB_CLNT_ENABLE__SHIFT) \
-		| (1 << MH_ARBITER_CONFIG__PA_CLNT_ENABLE__SHIFT))
-
-#define ADRENO_MMU_CONFIG						\
-	(0x01								\
-	 | (MMU_CONFIG << MH_MMU_CONFIG__RB_W_CLNT_BEHAVIOR__SHIFT)	\
-	 | (MMU_CONFIG << MH_MMU_CONFIG__CP_W_CLNT_BEHAVIOR__SHIFT)	\
-	 | (MMU_CONFIG << MH_MMU_CONFIG__CP_R0_CLNT_BEHAVIOR__SHIFT)	\
-	 | (MMU_CONFIG << MH_MMU_CONFIG__CP_R1_CLNT_BEHAVIOR__SHIFT)	\
-	 | (MMU_CONFIG << MH_MMU_CONFIG__CP_R2_CLNT_BEHAVIOR__SHIFT)	\
-	 | (MMU_CONFIG << MH_MMU_CONFIG__CP_R3_CLNT_BEHAVIOR__SHIFT)	\
-	 | (MMU_CONFIG << MH_MMU_CONFIG__CP_R4_CLNT_BEHAVIOR__SHIFT)	\
-	 | (MMU_CONFIG << MH_MMU_CONFIG__VGT_R0_CLNT_BEHAVIOR__SHIFT)	\
-	 | (MMU_CONFIG << MH_MMU_CONFIG__VGT_R1_CLNT_BEHAVIOR__SHIFT)	\
-	 | (MMU_CONFIG << MH_MMU_CONFIG__TC_R_CLNT_BEHAVIOR__SHIFT)	\
-	 | (MMU_CONFIG << MH_MMU_CONFIG__PA_W_CLNT_BEHAVIOR__SHIFT))
-
 #define KGSL_LOG_LEVEL_DEFAULT 3
 
 static void adreno_start_work(struct work_struct *work);
@@ -113,9 +81,6 @@ static struct adreno_device device_3d0 = {
 					ARRAY_SIZE(adreno_governors)),
 		.name = DEVICE_3D0_NAME,
 		.id = KGSL_DEVICE_3D0,
-		.mmu = {
-			.config = ADRENO_MMU_CONFIG,
-		},
 		.pwrctrl = {
 			.irq_name = KGSL_3D0_IRQ,
 		},
@@ -868,14 +833,6 @@ static int adreno_setup_pt(struct kgsl_device *device,
 		return result;
 	}
 
-	/*
-	 * Set the mpu end to the last "normal" global memory we use.
-	 * For the IOMMU, this will be used to restrict access to the
-	 * mapped registers.
-	 */
-	device->mh.mpu_range = adreno_dev->profile.shared_buffer.gpuaddr +
-				adreno_dev->profile.shared_buffer.size;
-
 	return 0;
 }
 
@@ -889,15 +846,10 @@ static unsigned int _adreno_iommu_setstate_v0(struct kgsl_device *device,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int i;
 
-	if (cpu_is_msm8960())
-		cmds += adreno_add_change_mh_phys_limit_cmds(cmds, 0xFFFFF000,
-					device->mmu.setstate_memory.gpuaddr +
-					KGSL_IOMMU_SETSTATE_NOP_OFFSET);
-	else
-		cmds += adreno_add_bank_change_cmds(cmds,
-					KGSL_IOMMU_CONTEXT_USER,
-					device->mmu.setstate_memory.gpuaddr +
-					KGSL_IOMMU_SETSTATE_NOP_OFFSET);
+	cmds += adreno_add_bank_change_cmds(cmds,
+				KGSL_IOMMU_CONTEXT_USER,
+				device->mmu.setstate_memory.gpuaddr +
+				KGSL_IOMMU_SETSTATE_NOP_OFFSET);
 
 	cmds += adreno_add_idle_cmds(adreno_dev, cmds);
 
@@ -971,17 +923,10 @@ static unsigned int _adreno_iommu_setstate_v0(struct kgsl_device *device,
 	/* Release GPU-CPU sync Lock here */
 	cmds += kgsl_mmu_sync_unlock(&device->mmu, cmds);
 
-	if (cpu_is_msm8960())
-		cmds += adreno_add_change_mh_phys_limit_cmds(cmds,
-			kgsl_mmu_get_reg_gpuaddr(&device->mmu, 0,
-						0, KGSL_IOMMU_GLOBAL_BASE),
-			device->mmu.setstate_memory.gpuaddr +
-			KGSL_IOMMU_SETSTATE_NOP_OFFSET);
-	else
-		cmds += adreno_add_bank_change_cmds(cmds,
-			KGSL_IOMMU_CONTEXT_PRIV,
-			device->mmu.setstate_memory.gpuaddr +
-			KGSL_IOMMU_SETSTATE_NOP_OFFSET);
+	cmds += adreno_add_bank_change_cmds(cmds,
+		KGSL_IOMMU_CONTEXT_PRIV,
+		device->mmu.setstate_memory.gpuaddr +
+		KGSL_IOMMU_SETSTATE_NOP_OFFSET);
 
 	cmds += adreno_add_idle_cmds(adreno_dev, cmds);
 

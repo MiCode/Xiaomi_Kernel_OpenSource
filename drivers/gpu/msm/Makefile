@@ -7,7 +7,6 @@ msm_kgsl_core-y = \
 	kgsl_pwrctrl.o \
 	kgsl_pwrscale.o \
 	kgsl_mmu.o \
-	kgsl_gpummu.o \
 	kgsl_iommu.o \
 	kgsl_snapshot.o \
 	kgsl_events.o

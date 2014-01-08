@@ -1425,15 +1425,6 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 				KGSL_IOMMU_SETSTATE_NOP_OFFSET,
 				cp_nop_packet(1));
 
-	if (cpu_is_msm8960()) {
-		/*
-		 * 8960 doesn't have a second context bank, so the IOMMU
-		 * registers must be mapped into every pagetable.
-		 */
-		iommu_ops.mmu_setup_pt = kgsl_iommu_setup_regs;
-		iommu_ops.mmu_cleanup_pt = kgsl_iommu_cleanup_regs;
-	}
-
 	if (kgsl_guard_page == NULL) {
 		kgsl_guard_page = alloc_page(GFP_KERNEL | __GFP_ZERO |
 				__GFP_HIGHMEM);
@@ -1530,15 +1521,10 @@ static void kgsl_iommu_lock_rb_in_tlb(struct kgsl_mmu *mmu)
 		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
 		for (j = 0; j < iommu_unit->dev_count; j++) {
 			tlblkcr = 0;
-			if (cpu_is_msm8960())
-				tlblkcr |= ((num_tlb_entries &
-					KGSL_IOMMU_TLBLKCR_FLOOR_MASK) <<
-					KGSL_IOMMU_TLBLKCR_FLOOR_SHIFT);
-			else
-				tlblkcr |= (((num_tlb_entries *
-					iommu_unit->dev_count) &
-					KGSL_IOMMU_TLBLKCR_FLOOR_MASK) <<
-					KGSL_IOMMU_TLBLKCR_FLOOR_SHIFT);
+			tlblkcr |= (((num_tlb_entries *
+				iommu_unit->dev_count) &
+				KGSL_IOMMU_TLBLKCR_FLOOR_MASK) <<
+				KGSL_IOMMU_TLBLKCR_FLOOR_SHIFT);
 			/* Do not invalidate locked entries on tlbiall flush */
 			tlblkcr	|= ((1 & KGSL_IOMMU_TLBLKCR_TLBIALLCFG_MASK)
 				<< KGSL_IOMMU_TLBLKCR_TLBIALLCFG_SHIFT);
@@ -1554,9 +1540,6 @@ static void kgsl_iommu_lock_rb_in_tlb(struct kgsl_mmu *mmu)
 					TLBLKCR, tlblkcr);
 		}
 		for (j = 0; j < iommu_unit->dev_count; j++) {
-			/* skip locking entries for private bank on 8960 */
-			if (cpu_is_msm8960() &&  KGSL_IOMMU_CONTEXT_PRIV == j)
-				continue;
 			/* Lock the ringbuffer virtual address into tlb */
 			vaddr = rb->buffer_desc.gpuaddr;
 			for (k = 0; k < num_tlb_entries; k++) {
@@ -1625,18 +1608,6 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	status = kgsl_iommu_start_sync_lock(mmu);
 	if (status)
 		return status;
-
-	/* We use the GPU MMU to control access to IOMMU registers on 8960 with
-	 * a225, hence we still keep the MMU active on 8960 */
-	if (cpu_is_msm8960() && KGSL_DEVICE_3D0 == mmu->device->id) {
-		struct kgsl_mh *mh = &(mmu->device->mh);
-		BUG_ON(iommu->iommu_units[0].reg_map.gpuaddr != 0 &&
-			mh->mpu_base > iommu->iommu_units[0].reg_map.gpuaddr);
-		kgsl_regwrite(mmu->device, MH_MMU_CONFIG, 0x00000001);
-
-		kgsl_regwrite(mmu->device, MH_MMU_MPU_END,
-			mh->mpu_base + mh->mpu_range);
-	}
 
 	mmu->hwpagetable = mmu->defaultpagetable;
 
