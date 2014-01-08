@@ -1000,6 +1000,7 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	if (dev->l1ss_supported)
 		msm_pcie_config_l1ss(dev);
 
+	dev->link_status = MSM_PCIE_LINK_ENABLED;
 	goto out;
 
 link_fail:
@@ -1008,7 +1009,6 @@ clk_fail:
 	msm_pcie_vreg_deinit(dev);
 	msm_pcie_pipe_clk_deinit(dev);
 out:
-	dev->link_status = MSM_PCIE_LINK_ENABLED;
 	mutex_unlock(&setup_lock);
 
 	return ret;
