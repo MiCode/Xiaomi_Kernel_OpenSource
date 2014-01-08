@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,11 +12,11 @@
 
 /dts-v1/;
 
-#include "msmkrypton.dtsi"
-#include "msmkrypton-mtp.dtsi"
+#include "mdm9630.dtsi"
+#include "mdm9630-cdp.dtsi"
 
 / {
-	model = "Qualcomm MSM KRYPTON MTP";
-	compatible = "qcom,msmkrypton-mtp", "qcom,msmkrypton", "qcom,mtp";
-	qcom,board-id = <7 0>;
+	model = "Qualcomm MDM 9630 CDP";
+	compatible = "qcom,mdm9630-cdp", "qcom,mdm9630", "qcom,cdp";
+	qcom,board-id = <1 0>;
 };

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2738,7 +2738,7 @@ int teth_bridge_set_mbim_aggr_params(struct teth_aggr_params *aggr_params,
 	enum ipa_client_type client)
 {
 	if (ipa_ctx->ipa_hw_type != IPA_HW_v1_1)
-		TETH_ERR("This API should not be called on Krypton !\n");
+		TETH_ERR("This API should not be called on 9630 !\n");
 
 	teth_ctx->tethering_mode = TETH_TETHERING_MODE_MBIM;
 	return teth_bridge_set_aggr_params(aggr_params, client);
@@ -2757,7 +2757,7 @@ static long teth_bridge_ioctl(struct file *filp,
 	u16 i = 0;
 
 	if (teth_ctx->ipa_hw_type != IPA_HW_v1_1) {
-		IPAERR("No ioctls are supported for krypton !\n");
+		IPAERR("No ioctls are supported for 9630 !\n");
 		return -ENOIOCTLCMD;
 	}
 

@@ -3,7 +3,7 @@
  * MSM7K, QSD io support
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -91,17 +91,17 @@ void __init msm_map_fsm9900_io(void)
 }
 #endif /* CONFIG_ARCH_FSM9900 */
 
-#ifdef CONFIG_ARCH_MSMKRYPTON
-static struct map_desc msmkrypton_io_desc[] __initdata = {
-	MSM_CHIP_DEVICE(TLMM, MSMKRYPTON),
-	MSM_CHIP_DEVICE(MPM2_PSHOLD, MSMKRYPTON),
+#ifdef CONFIG_ARCH_MDM9630
+static struct map_desc mdm9630_io_desc[] __initdata = {
+	MSM_CHIP_DEVICE(TLMM, MDM9630),
+	MSM_CHIP_DEVICE(MPM2_PSHOLD, MDM9630),
 };
 
-void __init msm_map_msmkrypton_io(void)
+void __init msm_map_mdm9630_io(void)
 {
-	iotable_init(msmkrypton_io_desc, ARRAY_SIZE(msmkrypton_io_desc));
+	iotable_init(mdm9630_io_desc, ARRAY_SIZE(mdm9630_io_desc));
 }
-#endif /* CONFIG_ARCH_MSMKRYPTON */
+#endif /* CONFIG_ARCH_MDM9630 */
 
 #ifdef CONFIG_ARCH_MPQ8092
 static struct map_desc mpq8092_io_desc[] __initdata = {

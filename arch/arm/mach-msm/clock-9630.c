@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1929,7 +1929,7 @@ static struct measure_clk measure_clk = {
 	.multiplier = 1,
 };
 
-static struct clk_lookup msm_clocks_krypton[] = {
+static struct clk_lookup msm_clocks_9630[] = {
 	CLK_LOOKUP("xo",	xo.c,	""),
 	CLK_LOOKUP("measure",	measure_clk.c,	"debug"),
 
@@ -2207,7 +2207,7 @@ static void __init reg_init(void)
 	writel_relaxed(regval, GCC_REG_BASE(APCS_CLOCK_BRANCH_ENA_VOTE));
 }
 
-static void __init msmkrypton_clock_post_init(void)
+static void __init mdm9630_clock_post_init(void)
 {
 	/*
 	 * Hold an active set vote for CXO; this is because CXO is expected
@@ -2237,11 +2237,11 @@ static void __init msmkrypton_clock_post_init(void)
 #define APCS_ACC_PHYS		0xF9008018
 #define APCS_ACC_SIZE		0x28
 
-static void __init msmkrypton_clock_pre_init(void)
+static void __init mdm9630_clock_pre_init(void)
 {
 	virt_bases[GCC_BASE] = ioremap(GCC_CC_PHYS, GCC_CC_SIZE);
 	if (!virt_bases[GCC_BASE])
-		panic("clock-krypton: Unable to ioremap GCC memory!");
+		panic("clock-9630: Unable to ioremap GCC memory!");
 
 	virt_bases[LPASS_BASE] = ioremap(LPASS_CC_PHYS, LPASS_CC_SIZE);
 	if (!virt_bases[LPASS_BASE])
@@ -2249,32 +2249,32 @@ static void __init msmkrypton_clock_pre_init(void)
 
 	virt_bases[APCS_GLB_BASE] = ioremap(APCS_GLB_PHYS, APCS_GLB_SIZE);
 	if (!virt_bases[APCS_GLB_BASE])
-		panic("clock-krypton: Unable to ioremap APCS_GLB memory!");
+		panic("clock-9630: Unable to ioremap APCS_GLB memory!");
 
 	virt_bases[APCS_GCC_BASE] = ioremap(APCS_GCC_PHYS, APCS_GCC_SIZE);
 	if (!virt_bases[APCS_GCC_BASE])
-		panic("clock-krypton: Unable to ioremap APCS_GCC memory!");
+		panic("clock-9630: Unable to ioremap APCS_GCC memory!");
 
 	virt_bases[APCS_ACC_BASE] = ioremap(APCS_ACC_PHYS, APCS_ACC_SIZE);
 	if (!virt_bases[APCS_ACC_BASE])
-		panic("clock-krypton: Unable to ioremap APCS_PLL memory!");
+		panic("clock-9630: Unable to ioremap APCS_PLL memory!");
 
 	vdd_dig.regulator[0] = regulator_get(NULL, "vdd_dig");
 	if (IS_ERR(vdd_dig.regulator[0]))
-		panic("clock-krypton: Unable to get the vdd_dig regulator!");
+		panic("clock-9630: Unable to get the vdd_dig regulator!");
 
 	vdd_dig_ao.regulator[0] = regulator_get(NULL, "vdd_dig_ao");
 	if (IS_ERR(vdd_dig_ao.regulator[0]))
-		panic("clock-krypton: Unable to get the vdd_dig_ao regulator!");
+		panic("clock-9630: Unable to get the vdd_dig_ao regulator!");
 
 	enable_rpm_scaling();
 
 	reg_init();
 }
 
-struct clock_init_data msmkrypton_clock_init_data __initdata = {
-	.table = msm_clocks_krypton,
-	.size = ARRAY_SIZE(msm_clocks_krypton),
-	.pre_init = msmkrypton_clock_pre_init,
-	.post_init = msmkrypton_clock_post_init,
+struct clock_init_data mdm9630_clock_init_data __initdata = {
+	.table = msm_clocks_9630,
+	.size = ARRAY_SIZE(msm_clocks_9630),
+	.pre_init = mdm9630_clock_pre_init,
+	.post_init = mdm9630_clock_post_init,
 };

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,7 +13,7 @@
 #ifndef __ARCH_ARM_MACH_MSM_PCIE_PHY_H
 #define __ARCH_ARM_MACH_MSM_PCIE_PHY_H
 
-#ifdef CONFIG_ARCH_MSMKRYPTON
+#ifdef CONFIG_ARCH_MDM9630
 #define QSERDES_COM_SYS_CLK_CTRL	0x000
 #define QSERDES_COM_PLL_VCOTAIL_EN	0x004
 #define QSERDES_COM_CMN_MODE	0x008

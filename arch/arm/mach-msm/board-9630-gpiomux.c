@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -163,7 +163,7 @@ static struct msm_gpiomux_config msm_wlan_configs[] __initdata = {
 	},
 };
 
-void __init msmkrypton_init_gpiomux(void)
+void __init mdm9630_init_gpiomux(void)
 {
 	int rc;
 

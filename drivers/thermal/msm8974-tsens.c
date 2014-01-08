@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -303,7 +303,7 @@ enum tsens_calib_fuse_map_type {
 	TSENS_CALIB_FUSE_MAP_8X26,
 	TSENS_CALIB_FUSE_MAP_8X10,
 	TSENS_CALIB_FUSE_MAP_9900,
-	TSENS_CALIB_FUSE_MAP_KRYPTON,
+	TSENS_CALIB_FUSE_MAP_9630,
 	TSENS_CALIB_FUSE_MAP_NUM,
 };
 
@@ -822,7 +822,7 @@ static void tsens_hw_init(void)
 		TSENS_UPPER_LOWER_INTERRUPT_CTRL(tmdev->tsens_addr));
 }
 
-static int tsens_calib_krypton_sensors(void)
+static int tsens_calib_9630_sensors(void)
 {
 	int i, tsens_base0_data = 0, tsens0_point = 0, tsens1_point = 0;
 	int tsens2_point = 0, tsens3_point = 0, tsens4_point = 0;
@@ -1794,8 +1794,8 @@ static int tsens_calib_sensors(void)
 		rc = tsens_calib_8x10_sensors();
 	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_9900)
 		rc = tsens_calib_9900_sensors();
-	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_KRYPTON)
-		rc = tsens_calib_krypton_sensors();
+	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_9630)
+		rc = tsens_calib_9630_sensors();
 	else
 		rc = -ENODEV;
 
@@ -1815,8 +1815,8 @@ static struct of_device_id tsens_match[] = {
 	{	.compatible = "qcom,fsm9900-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_9900,
 	},
-	{	.compatible = "qcom,msmkrypton-tsens",
-		.data = (void *)TSENS_CALIB_FUSE_MAP_KRYPTON,
+	{	.compatible = "qcom,mdm9630-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_9630,
 	},
 	{}
 };
@@ -1899,7 +1899,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 		}
 	}
 
-	if (!strcmp(id->compatible, "qcom,msmkrypton-tsens"))
+	if (!strcmp(id->compatible, "qcom,mdm9630-tsens"))
 		tmdev->tsens_type = TSENS_TYPE2;
 	else
 		tmdev->tsens_type = TSENS_TYPE0;

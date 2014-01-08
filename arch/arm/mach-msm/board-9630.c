@@ -35,7 +35,7 @@
 #include "clock.h"
 #include "spm.h"
 
-static struct of_dev_auxdata msmkrypton_auxdata_lookup[] __initdata = {
+static struct of_dev_auxdata mdm9630_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,sdhci-msm", 0xF98A4900, "msm_sdcc.2", NULL),
 	OF_DEV_AUXDATA("qcom,msm_pcie", 0xFC520000, "msm_pcie", NULL),
 	{}
@@ -47,58 +47,58 @@ static struct of_dev_auxdata msmkrypton_auxdata_lookup[] __initdata = {
  * into this category, and thus the driver should not be added here. The
  * EPROBE_DEFER can satisfy most dependency problems.
  */
-void __init msmkrypton_add_drivers(void)
+void __init mdm9630_add_drivers(void)
 {
 	msm_smd_init();
 	msm_rpm_driver_init();
 	rpm_smd_regulator_driver_init();
 	msm_spm_device_init();
-	msm_clock_init(&msmkrypton_clock_init_data);
+	msm_clock_init(&mdm9630_clock_init_data);
 	tsens_tm_init_driver();
 	msm_thermal_device_init();
 }
 
-void __init msmkrypton_reserve(void)
+void __init mdm9630_reserve(void)
 {
 	of_scan_flat_dt(dt_scan_for_memory_reserve, NULL);
 }
-static void __init msmkrypton_early_memory(void)
+static void __init mdm9630_early_memory(void)
 {
 	of_scan_flat_dt(dt_scan_for_memory_hole, NULL);
 }
-static void __init msmkrypton_map_io(void)
+static void __init mdm9630_map_io(void)
 {
-	msm_map_msmkrypton_io();
+	msm_map_mdm9630_io();
 }
 
-void __init msmkrypton_init(void)
+void __init mdm9630_init(void)
 {
 	/*
 	 * populate devices from DT first so smem probe will get called as part
 	 * of msm_smem_init.  socinfo_init needs smem support so call
 	 * msm_smem_init before it.
 	 */
-	board_dt_populate(msmkrypton_auxdata_lookup);
+	board_dt_populate(mdm9630_auxdata_lookup);
 
 	msm_smem_init();
 
 	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
-	msmkrypton_init_gpiomux();
-	msmkrypton_add_drivers();
+	mdm9630_init_gpiomux();
+	mdm9630_add_drivers();
 }
 
-static const char *msmkrypton_dt_match[] __initconst = {
-	"qcom,msmkrypton",
+static const char *mdm9630_dt_match[] __initconst = {
+	"qcom,mdm9630",
 	NULL
 };
 
-DT_MACHINE_START(MSMKRYPTON_DT, "Qualcomm MSM Krypton (Flattened Device Tree)")
-	.map_io			= msmkrypton_map_io,
-	.init_machine		= msmkrypton_init,
-	.dt_compat		= msmkrypton_dt_match,
-	.reserve		= msmkrypton_reserve,
-	.init_very_early	= msmkrypton_early_memory,
+DT_MACHINE_START(MDM9630_DT, "Qualcomm MDM 9630 (Flattened Device Tree)")
+	.map_io			= mdm9630_map_io,
+	.init_machine		= mdm9630_init,
+	.dt_compat		= mdm9630_dt_match,
+	.reserve		= mdm9630_reserve,
+	.init_very_early	= mdm9630_early_memory,
 	.restart		= msm_restart,
 MACHINE_END
