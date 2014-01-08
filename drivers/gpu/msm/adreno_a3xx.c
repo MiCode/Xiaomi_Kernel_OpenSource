@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1508,7 +1508,7 @@ void a3xx_busy_cycles(struct adreno_device *adreno_dev,
 					adreno_dev->ram_cycles_lo,
 					&busy->vbif_ram_cycles);
 		data->vbif_starved_ram = counter_delta(adreno_dev,
-					A3XX_VBIF_PERF_PWR_CNT0_LO,
+					adreno_dev->starved_ram_lo,
 					&busy->vbif_starved_ram);
 	}
 }
@@ -1965,7 +1965,8 @@ int a3xx_perfcounter_init(struct adreno_device *adreno_dev)
 		/* VBIF waiting for RAM */
 		ret |= adreno_perfcounter_get(adreno_dev,
 				KGSL_PERFCOUNTER_GROUP_VBIF_PWR, 0,
-				NULL, NULL, PERFCOUNTER_FLAG_KERNEL);
+				&adreno_dev->starved_ram_lo, NULL,
+				PERFCOUNTER_FLAG_KERNEL);
 
 		/* VBIF DDR cycles */
 		ret |= adreno_perfcounter_get(adreno_dev,
