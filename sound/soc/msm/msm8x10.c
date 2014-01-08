@@ -99,7 +99,8 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.insert_detect = true,
 	.swap_gnd_mic = NULL,
 	.use_int_rbias = false,
-	.micbias_enable_flags = 1 << MBHC_MICBIAS_ENABLE_THRESHOLD_HEADSET,
+	.micbias_enable_flags = 1 << MBHC_MICBIAS_ENABLE_THRESHOLD_HEADSET |
+				1 << MBHC_MICBIAS_ENABLE_REGULAR_HEADSET,
 	.cs_enable_flags = (1 << MBHC_CS_ENABLE_POLLING |
 			    1 << MBHC_CS_ENABLE_INSERTION |
 			    1 << MBHC_CS_ENABLE_REMOVAL),
