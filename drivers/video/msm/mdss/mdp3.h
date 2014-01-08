@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This program is free software; you can redistribute it and/or modify
@@ -26,6 +26,7 @@
 #include "mdss_fb.h"
 
 #define MDP_VSYNC_CLK_RATE	19200000
+#define MDP_CORE_CLK_RATE	100000000
 #define KOFF_TIMEOUT msecs_to_jiffies(84)
 
 enum  {
