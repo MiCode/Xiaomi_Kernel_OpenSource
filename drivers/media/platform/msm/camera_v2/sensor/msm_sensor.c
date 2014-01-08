@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1135,6 +1135,7 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev,
 		(struct msm_sensor_ctrl_t *)data;
 	struct msm_camera_cci_client *cci_client = NULL;
 	uint32_t session_id;
+	unsigned long mount_pos = 0;
 	s_ctrl->pdev = pdev;
 	CDBG("%s called data %p\n", __func__, data);
 	CDBG("%s pdev name %s\n", __func__, pdev->id_entry->name);
@@ -1203,6 +1204,11 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev,
 	s_ctrl->msm_sd.sd.entity.name =
 		s_ctrl->msm_sd.sd.name;
 
+	mount_pos = s_ctrl->sensordata->sensor_info->position << 16;
+	mount_pos = mount_pos | ((s_ctrl->sensordata->sensor_info->
+					sensor_mount_angle / 90) << 8);
+	s_ctrl->msm_sd.sd.entity.flags = mount_pos | MEDIA_ENT_FL_DEFAULT;
+
 	rc = camera_init_v4l2(&s_ctrl->pdev->dev, &session_id);
 	CDBG("%s rc %d session_id %d\n", __func__, rc, session_id);
 	s_ctrl->sensordata->sensor_info->session_id = session_id;
@@ -1220,6 +1226,7 @@ int msm_sensor_i2c_probe(struct i2c_client *client,
 {
 	int rc = 0;
 	uint32_t session_id;
+	unsigned long mount_pos = 0;
 	CDBG("%s %s_i2c_probe called\n", __func__, client->name);
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		pr_err("%s %s i2c_check_functionality failed\n",
@@ -1317,6 +1324,10 @@ int msm_sensor_i2c_probe(struct i2c_client *client,
 	s_ctrl->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_SENSOR;
 	s_ctrl->msm_sd.sd.entity.name =
 		s_ctrl->msm_sd.sd.name;
+	mount_pos = s_ctrl->sensordata->sensor_info->position << 16;
+	mount_pos = mount_pos | ((s_ctrl->sensordata->sensor_info->
+					sensor_mount_angle / 90) << 8);
+	s_ctrl->msm_sd.sd.entity.flags = mount_pos | MEDIA_ENT_FL_DEFAULT;
 
 	rc = camera_init_v4l2(&s_ctrl->sensor_i2c_client->client->dev,
 		&session_id);
