@@ -98,7 +98,7 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			reg = <0 0x614000>;
-			lable = "audio_mem";
+			label = "audio_mem";
 		};
 	};
 
