@@ -148,6 +148,9 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define MSM_PRONTO_TXP_PHY_ABORT        0xfb080488
 #define MSM_PRONTO_BRDG_ERR_SRC         0xfb080fb0
 
+#define MSM_PRONTO_ALARMS_TXCTL         0xfb0120a8
+#define MSM_PRONTO_ALARMS_TACTL         0xfb012448
+
 #define WCNSS_DEF_WLAN_RX_BUFF_COUNT		1024
 #define WCNSS_VBATT_THRESHOLD		3500000
 #define WCNSS_VBATT_GUARD		200
@@ -358,6 +361,8 @@ static struct {
 	void __iomem *wlan_tx_status;
 	void __iomem *wlan_tx_phy_aborts;
 	void __iomem *wlan_brdg_err_source;
+	void __iomem *alarms_txctl;
+	void __iomem *alarms_tactl;
 	void __iomem *fiq_reg;
 	int	nv_downloaded;
 	unsigned char *fw_cal_data;
@@ -686,6 +691,12 @@ void wcnss_pronto_log_debug_regs(void)
 
 	reg = readl_relaxed(penv->wlan_tx_status);
 	pr_info_ratelimited("%s: WLAN_TX_STATUS %08x\n", __func__, reg);
+
+	reg = readl_relaxed(penv->alarms_txctl);
+	pr_err("ALARMS_TXCTL %08x\n", reg);
+
+	reg = readl_relaxed(penv->alarms_tactl);
+	pr_err("ALARMS_TACTL %08x\n", reg);
 }
 EXPORT_SYMBOL(wcnss_pronto_log_debug_regs);
 
@@ -2118,6 +2129,18 @@ wcnss_trigger_config(struct platform_device *pdev)
 			pr_err("%s: ioremap wlan TX STATUS failed\n", __func__);
 			goto fail_ioremap9;
 		}
+		penv->alarms_txctl = ioremap(MSM_PRONTO_ALARMS_TXCTL, SZ_8);
+		if (!penv->alarms_txctl) {
+			ret = -ENOMEM;
+			pr_err("%s: ioremap alarms TXCTL failed\n", __func__);
+			goto fail_ioremap10;
+		}
+		penv->alarms_tactl = ioremap(MSM_PRONTO_ALARMS_TACTL, SZ_8);
+		if (!penv->alarms_tactl) {
+			ret = -ENOMEM;
+			pr_err("%s: ioremap alarms TACTL failed\n", __func__);
+			goto fail_ioremap11;
+		}
 	}
 	penv->adc_tm_dev = qpnp_get_adc_tm(&penv->pdev->dev, "wcnss");
 	if (IS_ERR(penv->adc_tm_dev)) {
@@ -2143,6 +2166,12 @@ wcnss_trigger_config(struct platform_device *pdev)
 fail_pil:
 	if (penv->riva_ccu_base)
 		iounmap(penv->riva_ccu_base);
+	if (penv->alarms_tactl)
+		iounmap(penv->alarms_tactl);
+fail_ioremap11:
+	if (penv->alarms_txctl)
+		iounmap(penv->alarms_txctl);
+fail_ioremap10:
 	if (penv->wlan_tx_status)
 		iounmap(penv->wlan_tx_status);
 fail_ioremap9:
