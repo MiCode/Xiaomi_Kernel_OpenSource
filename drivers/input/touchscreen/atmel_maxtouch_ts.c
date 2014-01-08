@@ -2231,24 +2231,30 @@ err_free_irq:
 	return rc;
 }
 
-static void mxt_regulator_enable(struct mxt_data *data)
+static int mxt_regulator_enable(struct mxt_data *data)
 {
 	int rc;
 	gpio_set_value(data->pdata->gpio_reset, 0);
 
 	rc = regulator_enable(data->reg_vdd);
-	if (rc)
+	if (rc) {
 		dev_err(&data->client->dev,
 			"Regulator vdd enable failed, rc=%d\n", rc);
+		return rc;
+	}
 	rc = regulator_enable(data->reg_avdd);
-	if (rc)
+	if (rc) {
 		dev_err(&data->client->dev,
 			"Regulator avdd enable failed, rc=%d\n", rc);
+		return rc;
+	}
 	msleep(MXT_REGULATOR_DELAY);
 
 	INIT_COMPLETION(data->bl_completion);
 	gpio_set_value(data->pdata->gpio_reset, 1);
 	mxt_wait_for_completion(data, &data->bl_completion, MXT_POWERON_DELAY);
+
+	return 0;
 }
 
 static void mxt_regulator_disable(struct mxt_data *data)
@@ -2257,7 +2263,7 @@ static void mxt_regulator_disable(struct mxt_data *data)
 	regulator_disable(data->reg_avdd);
 }
 
-static void mxt_probe_regulators(struct mxt_data *data)
+static int mxt_probe_regulators(struct mxt_data *data)
 {
 	struct device *dev = &data->client->dev;
 	int error;
@@ -2285,17 +2291,24 @@ static void mxt_probe_regulators(struct mxt_data *data)
 	}
 
 	data->use_regulator = true;
-	mxt_regulator_enable(data);
+	error = mxt_regulator_enable(data);
+	if (error) {
+		dev_err(dev, "Error %d enabling regulators\n", error);
+		goto fail_release_all;
+	}
 
 	dev_dbg(dev, "Initialised regulators\n");
-	return;
+	return 0;
 
+fail_release_all:
+	regulator_put(data->reg_avdd);
 fail_release:
 	regulator_put(data->reg_vdd);
 fail:
 	data->reg_vdd = NULL;
 	data->reg_avdd = NULL;
 	data->use_regulator = false;
+	return error;
 }
 
 static int mxt_read_t100_config(struct mxt_data *data)
@@ -3356,11 +3369,15 @@ static int mxt_probe(struct i2c_client *client,
 	data->irq = data->client->irq =
 				gpio_to_irq(data->pdata->gpio_irq);
 
-	mxt_probe_regulators(data);
+	error = mxt_probe_regulators(data);
+	if (error) {
+		dev_err(&client->dev, "Failed to probe regulators\n");
+		goto err_free_gpios;
+	}
 
 	error = mxt_initialize(data);
 	if (error)
-		goto err_free_gpios;
+		goto err_free_regs;
 
 	error = sysfs_create_group(&client->dev.kobj, &mxt_attr_group);
 	if (error) {
@@ -3397,6 +3414,8 @@ err_remove_sysfs_group:
 	sysfs_remove_group(&client->dev.kobj, &mxt_attr_group);
 err_free_object:
 	mxt_free_object_table(data);
+err_free_regs:
+	mxt_regulator_disable(data);
 err_free_gpios:
 	mxt_gpio_enable(data, false);
 err_destroy_mutex:
@@ -3414,6 +3433,7 @@ static int mxt_remove(struct i2c_client *client)
 
 	sysfs_remove_group(&client->dev.kobj, &mxt_attr_group);
 	free_irq(data->irq, data);
+	mxt_regulator_disable(data);
 	regulator_put(data->reg_avdd);
 	regulator_put(data->reg_vdd);
 	mxt_free_object_table(data);
