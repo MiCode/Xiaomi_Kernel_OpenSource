@@ -32,32 +32,6 @@ extern void l2x0_cache_sync(void);
 #endif
 
 #define MAX_HOLE_ADDRESS    (PHYS_OFFSET + 0x10000000)
-extern phys_addr_t memory_hole_offset;
-extern phys_addr_t memory_hole_start;
-extern phys_addr_t memory_hole_end;
-extern unsigned long memory_hole_align;
-extern unsigned long virtual_hole_start;
-extern unsigned long virtual_hole_end;
-#ifdef CONFIG_DONT_MAP_HOLE_AFTER_MEMBANK0
-void find_memory_hole(void);
-
-#define MEM_HOLE_END_PHYS_OFFSET (memory_hole_end)
-#define MEM_HOLE_PAGE_OFFSET (PAGE_OFFSET + memory_hole_offset + \
-				memory_hole_align)
-
-#define __phys_to_virt(phys)				\
-	(unsigned long)\
-	((MEM_HOLE_END_PHYS_OFFSET && ((phys) >= MEM_HOLE_END_PHYS_OFFSET)) ? \
-	(phys) - MEM_HOLE_END_PHYS_OFFSET + MEM_HOLE_PAGE_OFFSET :	\
-	(phys) - PHYS_OFFSET + PAGE_OFFSET)
-
-#define __virt_to_phys(virt)				\
-	(unsigned long)\
-	((MEM_HOLE_END_PHYS_OFFSET && ((virt) >= MEM_HOLE_PAGE_OFFSET)) ? \
-	(virt) - MEM_HOLE_PAGE_OFFSET + MEM_HOLE_END_PHYS_OFFSET :	\
-	(virt) - PAGE_OFFSET + PHYS_OFFSET)
-#endif
-
 /*
  * Need a temporary unique variable that no one will ever see to
  * hold the compat string. Line number gives this easily.
