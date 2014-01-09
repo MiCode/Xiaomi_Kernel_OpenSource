@@ -168,7 +168,7 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	u32 num_blks = 0, reserved = 0;
 	struct mdss_mdp_plane_sizes ps;
 	int i;
-	int rc = 0, rot_mode = 0;
+	int rc = 0, rot_mode = 0, wb_mixer = 0;
 	u32 nlines, format, seg_w;
 	u16 width;
 
@@ -252,9 +252,12 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	else
 		nlines = pipe->bwc_mode ? 1 : 2;
 
+	if (pipe->mixer->type == MDSS_MDP_MIXER_TYPE_WRITEBACK)
+		wb_mixer = 1;
+
 	mutex_lock(&mdss_mdp_smp_lock);
 	for (i = 0; i < ps.num_planes; i++) {
-		if (rot_mode) {
+		if (rot_mode || wb_mixer) {
 			num_blks = 1;
 		} else {
 			num_blks = DIV_ROUND_UP(ps.ystride[i] * nlines,
