@@ -1205,9 +1205,11 @@ static int adreno_iommu_setstate(struct kgsl_device *device,
 	 * after the command has been retired
 	 */
 	if (result)
-		kgsl_mmu_disable_clk_on_ts(&device->mmu, 0, false);
+		kgsl_mmu_disable_clk(&device->mmu,
+						KGSL_IOMMU_CONTEXT_USER);
 	else
-		kgsl_mmu_disable_clk_on_ts(&device->mmu, rb->global_ts, true);
+		kgsl_mmu_disable_clk_on_ts(&device->mmu, rb->global_ts,
+						KGSL_IOMMU_CONTEXT_USER);
 
 done:
 	kgsl_context_put(context);
