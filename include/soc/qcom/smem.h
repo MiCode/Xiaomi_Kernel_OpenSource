@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -155,7 +155,7 @@ enum {
 	SMEM_NUM_ITEMS,
 };
 
-#ifdef CONFIG_MSM_SMD
+#ifdef CONFIG_MSM_SMEM
 void *smem_alloc(unsigned id, unsigned size_in, unsigned to_proc,
 								unsigned flags);
 void *smem_find(unsigned id, unsigned size_in, unsigned to_proc,
@@ -226,5 +226,5 @@ static inline int __init msm_smem_init(void)
 {
 	return 0;
 }
-#endif /* CONFIG_MSM_SMD  */
+#endif /* CONFIG_MSM_SMEM  */
 #endif /* _ARCH_ARM_MACH_MSM_SMEM_H_ */
