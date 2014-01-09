@@ -757,3 +757,11 @@
 &dsi_tosh_720_vid {
        qcom,cont-splash-enabled;
 };
+
+&dsi_generic_720p_cmd {
+       qcom,cont-splash-enabled;
+};
+
+&dsi_jdi_1080_vid {
+       qcom,cont-splash-enabled;
+};
