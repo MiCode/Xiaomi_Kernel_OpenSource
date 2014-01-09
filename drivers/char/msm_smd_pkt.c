@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -415,7 +415,7 @@ static long smd_pkt_ioctl(struct file *file, unsigned int cmd,
 		break;
 	default:
 		pr_err("%s: Unrecognized ioctl command %d\n", __func__, cmd);
-		ret = -1;
+		ret = -ENOIOCTLCMD;
 	}
 	mutex_unlock(&smd_pkt_devp->ch_lock);
 
