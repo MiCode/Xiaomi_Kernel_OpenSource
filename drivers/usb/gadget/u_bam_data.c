@@ -299,7 +299,6 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 		}
 
 		d_port->ipa_consumer_ep = d->ipa_params.ipa_cons_ep_idx;
-		d_port->ipa_producer_ep = d->ipa_params.ipa_prod_ep_idx;
 
 		if (gadget_is_dwc3(gadget)) {
 			u8 idx;
@@ -331,6 +330,12 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 				__func__, ret);
 			return;
 		}
+
+		d_port->ipa_producer_ep = d->ipa_params.ipa_prod_ep_idx;
+		pr_debug("%s(): ipa_producer_ep:%d ipa_consumer_ep:%d\n",
+				__func__, d_port->ipa_producer_ep,
+				d_port->ipa_consumer_ep);
+
 		if (gadget_is_dwc3(gadget)) {
 			u8 idx;
 
