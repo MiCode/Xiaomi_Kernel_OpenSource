@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,7 +15,6 @@
 #include <linux/interrupt.h>
 #include <asm/page.h>
 #include <linux/pm_runtime.h>
-#include <mach/msm_iomap.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
 #include <linux/ktime.h>
