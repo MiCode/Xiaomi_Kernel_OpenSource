@@ -967,4 +967,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 void ipa_skb_recycle(struct sk_buff *skb);
 
+int ipa_enable_data_path(u32 clnt_hdl);
+int ipa_disable_data_path(u32 clnt_hdl);
+
 #endif /* _IPA_I_H_ */
