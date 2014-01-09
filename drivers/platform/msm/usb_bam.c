@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -481,7 +481,59 @@ free_sps_endpoint:
 	return ret;
 }
 
-static int connect_pipe_ipa(u8 idx,
+static int connect_pipe_sys2bam_ipa(u8 idx,
+			struct usb_bam_connect_ipa_params *ipa_params)
+{
+	int ret;
+	enum usb_bam_pipe_dir dir = ipa_params->dir;
+	struct usb_bam_pipe_connect *pipe_connect = &usb_bam_connections[idx];
+	struct ipa_sys_connect_params sys_in_params;
+	u32 usb_handle, usb_phy_addr;
+	u32 clnt_hdl = 0;
+
+	memset(&sys_in_params, 0, sizeof(sys_in_params));
+
+	if (dir == USB_TO_PEER_PERIPHERAL) {
+		usb_phy_addr = pipe_connect->src_phy_addr;
+		sys_in_params.client = ipa_params->src_client;
+	} else {
+		usb_phy_addr = pipe_connect->dst_phy_addr;
+		sys_in_params.client = ipa_params->dst_client;
+	}
+	/* Get HSUSB / HSIC bam handle */
+	ret = sps_phy2h(usb_phy_addr, &usb_handle);
+	if (ret) {
+		pr_err("%s: sps_phy2h failed (HSUSB/HSIC BAM) %d\n",
+			__func__, ret);
+		return ret;
+	}
+
+	pipe_connect->activity_notify = ipa_params->activity_notify;
+	pipe_connect->inactivity_notify = ipa_params->inactivity_notify;
+	pipe_connect->priv = ipa_params->priv;
+
+	/* IPA sys connection params */
+	sys_in_params.desc_fifo_sz = pipe_connect->desc_fifo_size;
+	sys_in_params.priv = ipa_params->priv;
+	sys_in_params.notify = ipa_params->notify;
+	memcpy(&sys_in_params.ipa_ep_cfg, &ipa_params->ipa_ep_cfg,
+		   sizeof(struct ipa_ep_cfg));
+
+	ret = ipa_setup_sys_pipe(&sys_in_params, &clnt_hdl);
+	if (ret) {
+		pr_err("%s: ipa_connect failed\n", __func__);
+		return ret;
+	}
+	pipe_connect->ipa_clnt_hdl = clnt_hdl;
+	if (dir == USB_TO_PEER_PERIPHERAL)
+		ipa_params->cons_clnt_hdl = clnt_hdl;
+	else
+		ipa_params->prod_clnt_hdl = clnt_hdl;
+
+	return 0;
+}
+
+static int connect_pipe_bam2bam_ipa(u8 idx,
 			struct usb_bam_connect_ipa_params *ipa_params)
 {
 	int ret;
@@ -807,6 +859,135 @@ static bool usb_bam_resume_core(enum usb_bam bam_type,
 		pr_err("%s: Invalid BAM type %d\n", __func__, bam_type);
 		return false;
 	}
+}
+
+static int usb_bam_disconnect_ipa_prod(
+		struct usb_bam_connect_ipa_params *ipa_params,
+		enum usb_bam cur_bam, enum usb_bam_mode bam_mode)
+{
+	int ret;
+	u8 idx = 0;
+	struct usb_bam_pipe_connect *pipe_connect;
+	struct sps_connect *sps_connection;
+
+	idx = ipa_params->dst_idx;
+	pipe_connect = &usb_bam_connections[idx];
+
+	pipe_connect->activity_notify = NULL;
+	pipe_connect->inactivity_notify = NULL;
+	pipe_connect->priv = NULL;
+
+	/* Do the release handshake with the IPA via RM */
+	spin_lock(&usb_bam_ipa_handshake_info_lock);
+	if (bam_mode == USB_BAM_DEVICE) {
+		info[cur_bam].connect_complete = 0;
+		info[cur_bam].lpm_wait_pipes = 1;
+		info[cur_bam].disconnected = 1;
+	}
+	spin_unlock(&usb_bam_ipa_handshake_info_lock);
+
+	/* Start release handshake on the last producer pipe */
+	if (info[cur_bam].prod_pipes_enabled_per_bam == 1)
+		wait_for_prod_release(cur_bam);
+	if (pipe_connect->bam_mode == USB_BAM_DEVICE)
+		usb_bam_resume_core(cur_bam, pipe_connect->bam_mode);
+
+	/* close USB -> IPA pipe */
+	if (pipe_connect->pipe_type == USB_BAM_PIPE_BAM2BAM) {
+		ret = ipa_disconnect(ipa_params->prod_clnt_hdl);
+		if (ret) {
+			pr_err("%s: dst pipe disconnection failure\n",
+					__func__);
+			return ret;
+		}
+
+		sps_connection = &ctx.usb_bam_sps.sps_connections[idx];
+		sps_connection->data.phys_base = 0;
+		sps_connection->desc.phys_base = 0;
+
+		ret = usb_bam_disconnect_pipe(idx);
+		if (ret) {
+			pr_err("%s: failure to disconnect pipe %d\n",
+				   __func__, idx);
+			return ret;
+		}
+	} else {
+		ret = ipa_teardown_sys_pipe(ipa_params->prod_clnt_hdl);
+		if (ret) {
+			pr_err("%s: dst pipe disconnection failure\n",
+				  __func__);
+			return ret;
+		}
+	}
+	info[cur_bam].prod_pipes_enabled_per_bam -= 1;
+
+	return 0;
+}
+
+static int usb_bam_disconnect_ipa_cons(
+		struct usb_bam_connect_ipa_params *ipa_params,
+		enum usb_bam cur_bam)
+{
+	int ret;
+	u8 idx = 0;
+	struct usb_bam_pipe_connect *pipe_connect;
+	struct sps_connect *sps_connection;
+
+	idx = ipa_params->src_idx;
+	pipe_connect = &usb_bam_connections[idx];
+
+	pipe_connect->activity_notify = NULL;
+	pipe_connect->inactivity_notify = NULL;
+	pipe_connect->priv = NULL;
+
+	/* close IPA -> USB pipe */
+	if (pipe_connect->pipe_type == USB_BAM_PIPE_BAM2BAM) {
+		ret = ipa_disconnect(ipa_params->cons_clnt_hdl);
+		if (ret) {
+			pr_err("%s: src pipe disconnection failure\n",
+					__func__);
+			return ret;
+		}
+
+		sps_connection = &ctx.usb_bam_sps.sps_connections[idx];
+		sps_connection->data.phys_base = 0;
+		sps_connection->desc.phys_base = 0;
+
+		ret = usb_bam_disconnect_pipe(idx);
+		if (ret) {
+			pr_err("%s: failure to disconnect pipe %d\n",
+				__func__, idx);
+			return ret;
+		}
+	} else {
+		ret = ipa_teardown_sys_pipe(ipa_params->prod_clnt_hdl);
+		if (ret) {
+			pr_err("%s: src pipe disconnection failure\n",
+					__func__);
+			return ret;
+		}
+	}
+
+	pipe_connect->ipa_clnt_hdl = -1;
+
+	/* Notify CONS release on the last cons pipe released */
+	if (ctx.pipes_enabled_per_bam[cur_bam] == 0) {
+		if (info[cur_bam].cur_cons_state ==
+				IPA_RM_RESOURCE_RELEASED) {
+			pr_debug("%s: Notify CONS_RELEASED\n",
+				 __func__);
+			ipa_rm_notify_completion(
+				IPA_RM_RESOURCE_RELEASED,
+				ipa_rm_resource_cons[cur_bam]);
+		}
+		if (pipe_connect->bam_mode == USB_BAM_DEVICE) {
+			pr_debug("%s Ended disconnect sequence\n", __func__);
+			usb_bam_suspend_core(cur_bam,
+				USB_BAM_DEVICE, 1);
+		}
+	}
+
+	return 0;
 }
 
 int usb_bam_connect(int idx, u32 *bam_pipe_idx)
@@ -1819,6 +2000,7 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	int ret;
 	struct msm_usb_bam_platform_data *pdata =
 					ctx.usb_bam_pdev->dev.platform_data;
+	bool bam2bam;
 
 	pr_debug("%s: start\n", __func__);
 
@@ -1841,6 +2023,8 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	pipe_connect = &usb_bam_connections[idx];
 	cur_bam = pipe_connect->bam_type;
 	cur_mode = pipe_connect->bam_mode;
+	bam2bam = (pdata->connections[idx].pipe_type ==
+			USB_BAM_PIPE_BAM2BAM);
 
 	/* Set the BAM mode (host/device) according to connected pipe */
 	info[cur_bam].cur_bam_mode = pipe_connect->bam_mode;
@@ -1880,7 +2064,7 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	 /* Check if BAM requires RESET before connect and reset first pipe */
 	 spin_lock(&usb_bam_lock);
 	 if ((pdata->reset_on_connect[cur_bam] == true) &&
-	     (ctx.pipes_enabled_per_bam[cur_bam] == 0)) {
+	     (ctx.pipes_enabled_per_bam[cur_bam] == 0) && bam2bam) {
 		spin_unlock(&usb_bam_lock);
 
 		if (cur_bam != HSIC_BAM)
@@ -1906,7 +2090,10 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 		info[cur_bam].prod_pipes_enabled_per_bam += 1;
 	}
 
-	ret = connect_pipe_ipa(idx, ipa_params);
+	if (bam2bam)
+		ret = connect_pipe_bam2bam_ipa(idx, ipa_params);
+	else
+		ret = connect_pipe_sys2bam_ipa(idx, ipa_params);
 	if (ret) {
 		pr_err("%s: pipe connection failure\n", __func__);
 		if (cur_mode == USB_BAM_DEVICE)
@@ -1921,7 +2108,7 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	/* Set global inactivity timer upon first pipe connection */
 	if (ctx.pipes_enabled_per_bam[pipe_connect->bam_type] == 0 &&
 		ctx.inactivity_timer_ms[pipe_connect->bam_type] &&
-		pipe_connect->inactivity_notify)
+		pipe_connect->inactivity_notify && bam2bam)
 		usb_bam_set_inactivity_timer(pipe_connect->bam_type);
 
 	ctx.pipes_enabled_per_bam[cur_bam] += 1;
@@ -1940,6 +2127,26 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	return 0;
 }
 EXPORT_SYMBOL(usb_bam_connect_ipa);
+
+int usb_bam_get_pipe_type(u8 idx, enum usb_bam_pipe_type *type)
+{
+	struct msm_usb_bam_platform_data *pdata =
+			ctx.usb_bam_pdev->dev.platform_data;
+
+	if (idx >= ctx.max_connections) {
+		pr_err("%s: Invalid connection index\n",
+			__func__);
+		return -EINVAL;
+	}
+	if (!type) {
+		pr_err("%s: null pointer provided for type\n", __func__);
+		return -EINVAL;
+	} else
+		*type = pdata->connections[idx].pipe_type;
+
+	return 0;
+}
+EXPORT_SYMBOL(usb_bam_get_pipe_type);
 
 int usb_bam_client_ready(bool ready)
 {
@@ -2357,7 +2564,6 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	int ret;
 	u8 idx = 0;
 	struct usb_bam_pipe_connect *pipe_connect;
-	struct sps_connect *sps_connection;
 	enum usb_bam cur_bam;
 	enum usb_bam_mode bam_mode;
 
@@ -2379,102 +2585,19 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	mutex_lock(&info[cur_bam].suspend_resume_mutex);
 	/* Delay USB core to go into lpm before we finish our handshake */
 	if (ipa_params->prod_clnt_hdl) {
-		idx = ipa_params->dst_idx;
-		pipe_connect = &usb_bam_connections[idx];
-
-		pipe_connect->activity_notify = NULL;
-		pipe_connect->inactivity_notify = NULL;
-		pipe_connect->priv = NULL;
-
-		/* Do the release handshake with the A2 via RM */
-		spin_lock(&usb_bam_ipa_handshake_info_lock);
-		if (bam_mode == USB_BAM_DEVICE) {
-			info[cur_bam].connect_complete = 0;
-			info[cur_bam].lpm_wait_pipes = 1;
-			info[cur_bam].disconnected = 1;
-		}
-		spin_unlock(&usb_bam_ipa_handshake_info_lock);
-
-		/* Start release handshake on the last producer pipe */
-		if (info[cur_bam].prod_pipes_enabled_per_bam == 1)
-			wait_for_prod_release(cur_bam);
-		if (pipe_connect->bam_mode == USB_BAM_DEVICE)
-			usb_bam_resume_core(cur_bam, pipe_connect->bam_mode);
-		/* close USB -> IPA pipe */
-		ret = ipa_disconnect(ipa_params->prod_clnt_hdl);
+		ret = usb_bam_disconnect_ipa_prod(ipa_params,
+				cur_bam, bam_mode);
 		if (ret) {
-			pr_err("%s: dst pipe disconnection failure\n",
-			      __func__);
 			mutex_unlock(&info[cur_bam].suspend_resume_mutex);
 			return ret;
 		}
-		sps_connection = &ctx.usb_bam_sps.sps_connections[idx];
-		sps_connection->data.phys_base = 0;
-		sps_connection->desc.phys_base = 0;
-
-		ret = usb_bam_disconnect_pipe(idx);
-		if (ret) {
-			pr_err("%s: failure to disconnect pipe %d\n",
-			       __func__, idx);
-			mutex_unlock(&info[cur_bam].suspend_resume_mutex);
-			return ret;
-		}
-		info[cur_bam].prod_pipes_enabled_per_bam -= 1;
-
 	}
 
 	if (ipa_params->cons_clnt_hdl) {
-		idx = ipa_params->src_idx;
-		pipe_connect = &usb_bam_connections[idx];
-
-		pipe_connect->activity_notify = NULL;
-		pipe_connect->inactivity_notify = NULL;
-		pipe_connect->priv = NULL;
-
-		cur_bam = pipe_connect->bam_type;
-		/* close IPA -> USB pipe */
-		ret = ipa_disconnect(ipa_params->cons_clnt_hdl);
+		ret = usb_bam_disconnect_ipa_cons(ipa_params, cur_bam);
 		if (ret) {
-			pr_err("%s: src pipe disconnection failure\n",
-				__func__);
 			mutex_unlock(&info[cur_bam].suspend_resume_mutex);
 			return ret;
-		}
-
-		sps_connection = &ctx.usb_bam_sps.sps_connections[idx];
-		sps_connection->data.phys_base = 0;
-		sps_connection->desc.phys_base = 0;
-
-		ret = usb_bam_disconnect_pipe(idx);
-		if (ret) {
-			pr_err("%s: failure to disconnect pipe %d\n",
-				__func__, idx);
-			mutex_unlock(&info[cur_bam].suspend_resume_mutex);
-			return ret;
-		}
-
-		pipe_connect->ipa_clnt_hdl = -1;
-
-		/* Notify CONS release on the last cons pipe released */
-		if (ctx.pipes_enabled_per_bam[cur_bam] == 0) {
-			if (info[cur_bam].cur_cons_state ==
-					IPA_RM_RESOURCE_RELEASED) {
-				pr_debug("%s: Notify CONS_RELEASED\n",
-					 __func__);
-				ipa_rm_notify_completion(
-					IPA_RM_RESOURCE_RELEASED,
-					ipa_rm_resource_cons[cur_bam]);
-			}
-			/* TODO: Make also for SSUSB_BAM, when correct suspend
-			* in place
-			*/
-			if (cur_bam == HSUSB_BAM &&
-				pipe_connect->bam_mode == USB_BAM_DEVICE) {
-				pr_debug("%s Ended disconnect sequence\n",
-					 __func__);
-				usb_bam_suspend_core(cur_bam,
-					USB_BAM_DEVICE, 1);
-			}
 		}
 	}
 
@@ -2742,6 +2865,12 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 				__func__);
 			goto err;
 		}
+
+		rc = of_property_read_u32(node, "qcom,pipe-connection-type",
+			&usb_bam_connections[i].pipe_type);
+		if (rc)
+			pr_debug("%s: pipe type is defaulting to bam2bam\n",
+					__func__);
 
 		reset_bam = of_property_read_bool(node,
 			"qcom,reset-bam-on-connect");
