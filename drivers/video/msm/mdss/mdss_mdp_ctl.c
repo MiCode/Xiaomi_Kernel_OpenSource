@@ -90,6 +90,7 @@ struct mdss_mdp_prefill_params {
 	bool is_yuv;
 	bool is_caf;
 	bool is_fbc;
+	bool is_bwc;
 };
 
 static inline bool mdss_mdp_perf_is_caf(struct mdss_mdp_pipe *pipe)
@@ -106,22 +107,12 @@ static inline bool mdss_mdp_perf_is_caf(struct mdss_mdp_pipe *pipe)
 			pipe->dst.h));
 }
 
-static u32 mdss_mdp_perf_calc_pipe_prefill_bytes(struct mdss_mdp_prefill_params
-	*params)
+static inline u32 mdss_mdp_calc_y_scaler_bytes(struct mdss_mdp_prefill_params
+	*params, struct mdss_prefill_data *prefill)
 {
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	struct mdss_prefill_data *prefill = &mdata->prefill_data;
-	u32 prefill_bytes;
-	u32 y_buf_bytes;
-	u32 y_scaler_lines = 0, y_scaler_bytes = 0;
-	u32 pp_bytes = 0, pp_lines = 0;
-	u32 post_scaler_bytes;
-	u32 fbc_bytes = 0;
-
-	prefill_bytes = prefill->ot_bytes + params->smp_bytes;
+	u32 y_scaler_bytes = 0, y_scaler_lines = 0;
 
 	if (params->is_yuv) {
-		y_buf_bytes = prefill->y_buf_bytes;
 		if (params->src_h != params->dst_h) {
 			y_scaler_lines = (params->is_caf) ?
 				prefill->y_scaler_lines_caf :
@@ -134,7 +125,6 @@ static u32 mdss_mdp_perf_calc_pipe_prefill_bytes(struct mdss_mdp_prefill_params
 			y_scaler_bytes = y_scaler_lines * params->src_w * 2;
 		}
 	} else {
-		y_buf_bytes = 0; /* alway 0 for single plane sources */
 		if (params->src_h != params->dst_h) {
 			y_scaler_lines = prefill->y_scaler_lines_bilinear;
 			y_scaler_bytes = y_scaler_lines * params->src_w *
@@ -142,15 +132,44 @@ static u32 mdss_mdp_perf_calc_pipe_prefill_bytes(struct mdss_mdp_prefill_params
 		}
 	}
 
+	return y_scaler_bytes;
+}
+
+static inline u32 mdss_mdp_calc_scaling_w_h(u32 val, u32 src_h, u32 dst_h,
+	u32 src_w, u32 dst_w)
+{
+	if (dst_h)
+		val = mult_frac(val, src_h, dst_h);
+	if (dst_w)
+		val = mult_frac(val, src_w, dst_w);
+
+	return val;
+}
+
+static u32 mdss_mdp_perf_calc_pipe_prefill_video(struct mdss_mdp_prefill_params
+	*params)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_prefill_data *prefill = &mdata->prefill_data;
+	u32 prefill_bytes;
+	u32 y_buf_bytes = 0;
+	u32 y_scaler_bytes;
+	u32 pp_bytes = 0, pp_lines = 0;
+	u32 post_scaler_bytes;
+	u32 fbc_bytes = 0;
+
+	prefill_bytes = prefill->ot_bytes + params->smp_bytes;
+
+	if (params->is_yuv)
+		y_buf_bytes = prefill->y_buf_bytes;
+
+	y_scaler_bytes = mdss_mdp_calc_y_scaler_bytes(params, prefill);
+
 	prefill_bytes += y_buf_bytes + y_scaler_bytes;
 
 	post_scaler_bytes = prefill->post_scaler_pixels * params->bpp;
-	if (params->dst_h)
-		post_scaler_bytes = mult_frac(post_scaler_bytes, params->src_h,
-			params->dst_h);
-	if (params->dst_w)
-		post_scaler_bytes = mult_frac(post_scaler_bytes, params->src_w,
-			params->dst_w);
+	post_scaler_bytes = mdss_mdp_calc_scaling_w_h(post_scaler_bytes,
+		params->src_h, params->dst_h, params->src_w, params->dst_w);
 	prefill_bytes += post_scaler_bytes;
 
 	if (params->xres)
@@ -162,19 +181,71 @@ static u32 mdss_mdp_perf_calc_pipe_prefill_bytes(struct mdss_mdp_prefill_params
 
 	if (params->is_fbc) {
 		fbc_bytes = prefill->fbc_lines * params->bpp;
-		if (params->dst_h)
-			fbc_bytes = mult_frac(fbc_bytes, params->src_h,
-				params->dst_h);
-		if (params->dst_w)
-			fbc_bytes = mult_frac(fbc_bytes, params->src_w,
-				params->dst_w);
+		fbc_bytes = mdss_mdp_calc_scaling_w_h(fbc_bytes, params->src_h,
+			params->dst_h, params->src_w, params->dst_w);
 	}
 	prefill_bytes += fbc_bytes;
 
-	pr_debug("ot=%d smp=%d y_buf=%d y_sc_l=%d y_sc=%d pp_lines=%d pp=%d\n",
-		prefill->ot_bytes, params->smp_bytes, y_buf_bytes,
-		y_scaler_lines,	y_scaler_bytes, pp_lines, pp_bytes);
+	pr_debug("ot=%d smp=%d y_buf=%d pp_lines=%d pp=%d\n", prefill->ot_bytes,
+		params->smp_bytes, y_buf_bytes, pp_lines, pp_bytes);
 	pr_debug("post_sc=%d fbc_bytes=%d\n", post_scaler_bytes, fbc_bytes);
+
+	return prefill_bytes;
+}
+
+static u32 mdss_mdp_perf_calc_pipe_prefill_cmd(struct mdss_mdp_prefill_params
+	*params)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_prefill_data *prefill = &mdata->prefill_data;
+	u32 prefill_bytes;
+	u32 ot_bytes = 0;
+	u32 latency_lines = 0, latency_buf_bytes;
+	u32 y_buf_bytes = 0;
+	u32 y_scaler_bytes;
+	u32 fbc_cmd_lines = 0, fbc_cmd_bytes = 0;
+	u32 post_scaler_bytes = 0;
+
+	/* y_scaler_bytes are same for the first or non first line */
+	y_scaler_bytes = mdss_mdp_calc_y_scaler_bytes(params, prefill);
+	prefill_bytes = y_scaler_bytes;
+
+	/* 1st line if fbc is not enabled and 2nd line if fbc is enabled */
+	if (((params->dst_y == 0) && !params->is_fbc) ||
+		((params->dst_y <= 1) && params->is_fbc)) {
+		if (params->is_bwc) /* no tile condition for now */
+			latency_lines = 4;
+		latency_buf_bytes = params->src_w * params->bpp * latency_lines;
+		prefill_bytes += latency_buf_bytes;
+
+		fbc_cmd_lines++;
+		if (params->is_fbc)
+			fbc_cmd_lines++;
+		fbc_cmd_bytes = params->bpp * params->dst_w * fbc_cmd_lines;
+		fbc_cmd_bytes = mdss_mdp_calc_scaling_w_h(fbc_cmd_bytes,
+			params->src_h, params->dst_h, params->src_w,
+			params->dst_w);
+		prefill_bytes += fbc_cmd_bytes;
+	} else {
+		ot_bytes = prefill->ot_bytes;
+		prefill_bytes += ot_bytes;
+
+		latency_buf_bytes = params->smp_bytes;
+		prefill_bytes += latency_buf_bytes;
+
+		if (params->is_yuv)
+			y_buf_bytes = prefill->y_buf_bytes;
+		prefill_bytes += y_buf_bytes;
+
+		post_scaler_bytes = prefill->post_scaler_pixels * params->bpp;
+		post_scaler_bytes = mdss_mdp_calc_scaling_w_h(post_scaler_bytes,
+			params->src_h, params->dst_h, params->src_w,
+			params->dst_w);
+		prefill_bytes += post_scaler_bytes;
+	}
+
+	pr_debug("ot=%d bwc=%d smp=%d y_buf=%d fbc=%d\n", ot_bytes,
+		params->is_bwc, latency_buf_bytes, y_buf_bytes, fbc_cmd_bytes);
 
 	return prefill_bytes;
 }
@@ -270,18 +341,21 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	prefill_params.smp_bytes = mdss_mdp_smp_get_size(pipe);
 	prefill_params.xres = xres;
 	prefill_params.src_w = src.w;
-	prefill_params.dst_w = dst.w;
 	prefill_params.src_h = src_h;
+	prefill_params.dst_w = dst.w;
 	prefill_params.dst_h = dst.h;
 	prefill_params.dst_y = dst.y;
 	prefill_params.bpp = pipe->src_fmt->bpp;
 	prefill_params.is_yuv = pipe->src_fmt->is_yuv;
 	prefill_params.is_caf = mdss_mdp_perf_is_caf(pipe);
 	prefill_params.is_fbc = is_fbc;
+	prefill_params.is_bwc = pipe->bwc_mode;
 
-	if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF)
-		perf->prefill_bytes =
-			mdss_mdp_perf_calc_pipe_prefill_bytes(&prefill_params);
+	if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
+		perf->prefill_bytes = (mixer->ctl->is_video_mode) ?
+			mdss_mdp_perf_calc_pipe_prefill_video(&prefill_params) :
+			mdss_mdp_perf_calc_pipe_prefill_cmd(&prefill_params);
+	}
 	else
 		perf->prefill_bytes = 0;
 
