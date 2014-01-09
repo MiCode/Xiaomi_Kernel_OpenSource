@@ -605,26 +605,6 @@ exit_work_func:
 
 /*******************************************************
 Function:
-	Timer interrupt service routine for polling mode.
-Input:
-	timer: timer struct pointer
-Output:
-	Timer work mode.
-	HRTIMER_NORESTART: no restart mode
-*********************************************************/
-static enum hrtimer_restart goodix_ts_timer_handler(struct hrtimer *timer)
-{
-	struct goodix_ts_data
-		*ts = container_of(timer, struct goodix_ts_data, timer);
-
-	queue_work(ts->goodix_wq, &ts->work);
-	hrtimer_start(&ts->timer, ktime_set(0, (GTP_POLL_TIME + 6) * 1000000),
-			HRTIMER_MODE_REL);
-	return HRTIMER_NORESTART;
-}
-
-/*******************************************************
-Function:
 	External interrupt service routine for interrupt mode.
 Input:
 	irq:  interrupt number.
@@ -1201,7 +1181,7 @@ Output:
 *******************************************************/
 static int gtp_request_irq(struct goodix_ts_data *ts)
 {
-	int ret;
+	int ret = 0;
 	const u8 irq_table[] = GTP_IRQ_TAB;
 
 	ret = request_threaded_irq(ts->client->irq, NULL,
@@ -1209,21 +1189,12 @@ static int gtp_request_irq(struct goodix_ts_data *ts)
 			irq_table[ts->int_trigger_type],
 			ts->client->name, ts);
 	if (ret) {
-		dev_err(&ts->client->dev, "Request IRQ failed!ERRNO:%d.\n",
-				ret);
-		gpio_direction_input(ts->pdata->irq_gpio);
-
-		hrtimer_init(&ts->timer, CLOCK_MONOTONIC,
-				HRTIMER_MODE_REL);
-		ts->timer.function = goodix_ts_timer_handler;
-		hrtimer_start(&ts->timer, ktime_set(1, 0),
-				HRTIMER_MODE_REL);
 		ts->use_irq = false;
 		return ret;
 	} else {
 		gtp_irq_disable(ts);
 		ts->use_irq = true;
-		return 0;
+		return ret;
 	}
 }
 
@@ -1899,8 +1870,8 @@ static int goodix_ts_probe(struct i2c_client *client,
 	INIT_WORK(&ts->work, goodix_ts_work_func);
 
 	ret = gtp_request_irq(ts);
-	if (ret < 0)
-		dev_info(&client->dev, "GTP works in polling mode.\n");
+	if (ret)
+		dev_info(&client->dev, "GTP request irq failed %d.\n", ret);
 	else
 		dev_info(&client->dev, "GTP works in interrupt mode.\n");
 
