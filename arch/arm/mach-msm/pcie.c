@@ -1127,10 +1127,34 @@ int msm_pcie_enumerate(u32 rc_idx)
 
 		/* kick start ARM PCI configuration framework */
 		if (!ret) {
+			struct pci_dev *pcidev = NULL;
+			bool found = false;
+
 			msm_pci[rc_idx].private_data = (void **)&dev;
 			pci_common_init(&msm_pci[rc_idx]);
 			/* This has to happen only once */
 			dev->enumerated = true;
+
+			do {
+				pcidev = pci_get_device(PCIE_VENDOR_ID_RCP,
+					PCIE_DEVICE_ID_RCP, pcidev);
+				if (pcidev && (&msm_pcie_dev[rc_idx] ==
+					(struct msm_pcie_dev_t *)
+					PCIE_BUS_PRIV_DATA(pcidev))) {
+					msm_pcie_dev[rc_idx].dev = pcidev;
+					found = true;
+					PCIE_DBG(
+						"PCI device is found for RC %d\n",
+						rc_idx);
+				}
+			} while (!found && pcidev);
+
+			if (!pcidev) {
+				pr_err(
+					"PCIe: %s: Did not find PCI device for RC %d.\n",
+					__func__, dev->rc_idx);
+				return -ENODEV;
+			}
 		} else {
 			pr_err("PCIe: %s: failed to enable RC %d.\n",
 				__func__, dev->rc_idx);
@@ -1269,9 +1293,6 @@ static int msm_pcie_probe(struct platform_device *pdev)
 			rc_idx);
 	else
 		PCIE_DBG("RC %d is enabled in bootup\n", rc_idx);
-
-	msm_pcie_dev[rc_idx].dev = pci_get_device(PCIE_VENDOR_ID_RCP,
-					PCIE_DEVICE_ID_RCP, NULL);
 
 	PCIE_DBG("PCIE probed %s\n", dev_name(&(pdev->dev)));
 	mutex_unlock(&pcie_drv.drv_lock);
