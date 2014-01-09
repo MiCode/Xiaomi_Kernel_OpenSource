@@ -49,7 +49,6 @@ obj-$(CONFIG_MSM_PIL_BCSS) += pil-bcss.o
 obj-$(CONFIG_MSM_BAM_DMUX) += bam_dmux.o
 obj-$(CONFIG_MSM_SMD_LOGGING) += smem_log.o
 obj-y += socinfo.o
-obj-$(CONFIG_MSM_QMI_INTERFACE) += msm_qmi_interface.o
 obj-$(CONFIG_MSM_TEST_QMI_CLIENT) += kernel_test_service_v01.o test_qmi_client.o
 obj-$(CONFIG_DEBUG_FS) += smd_rpc_sym.o
 obj-y += qdsp6v2/

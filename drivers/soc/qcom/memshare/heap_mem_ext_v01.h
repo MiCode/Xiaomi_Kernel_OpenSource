@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,7 @@
 #ifndef HEAP_MEM_EXT_SERVICE_01_H
 #define HEAP_MEM_EXT_SERVICE_01_H
 
-#include <mach/msm_qmi_interface.h>
+#include <soc/qcom/msm_qmi_interface.h>
 
 #define MEM_ALLOC_REQ_MAX_MSG_LEN_V01 255
 #define MEM_FREE_REQ_MAX_MSG_LEN_V01 255

@@ -30,9 +30,9 @@
 #include <linux/hashtable.h>
 #include <linux/ipc_router.h>
 
-#include <mach/msm_qmi_interface.h>
+#include <soc/qcom/msm_qmi_interface.h>
 
-#include "msm_qmi_interface_priv.h"
+#include "qmi_interface_priv.h"
 
 #define BUILD_INSTANCE_ID(vers, ins) (((vers) & 0xFF) | (((ins) & 0xFF) << 8))
 #define LOOKUP_MASK 0xFFFFFFFF

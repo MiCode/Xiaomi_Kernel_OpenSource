@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,7 +13,7 @@
 #ifndef MSM_QMI_TEST_SERVICE_V01_H
 #define MSM_QMI_TEST_SERVICE_V01_H
 
-#include <mach/msm_qmi_interface.h>
+#include <soc/qcom/msm_qmi_interface.h>
 
 #define TEST_MED_DATA_SIZE_V01 8192
 #define TEST_MAX_NAME_SIZE_V01 255
