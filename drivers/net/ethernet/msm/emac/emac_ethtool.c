@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -412,6 +412,7 @@ static int emac_set_ringparam(struct net_device *netdev,
 			      struct ethtool_ringparam *ring)
 {
 	struct emac_adapter *adpt = netdev_priv(netdev);
+	int retval = 0;
 
 	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
 		return -EINVAL;
@@ -422,7 +423,10 @@ static int emac_set_ringparam(struct net_device *netdev,
 	adpt->num_rxdescs = clamp_t(u32, ring->rx_pending,
 				    EMAC_MIN_RX_DESCS, EMAC_MAX_RX_DESCS);
 
-	return emac_resize_rings(netdev);
+	if (netif_running(netdev))
+		retval = emac_resize_rings(netdev);
+
+	return retval;
 }
 
 static int emac_nway_reset(struct net_device *netdev)
