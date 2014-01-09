@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -149,6 +149,38 @@ static int auto_manual_bounds_check(const struct vpu_ctrl_desc *desc,
 		return 0; /* ctrl not enabled, no need to check value */
 
 	return __check_bounds(bounds, arg->value);
+}
+
+int configure_colorspace(struct vpu_dev_session *session, int port)
+{
+	struct vpu_prop_session_color_space cs_param_1;
+	struct vpu_prop_session_color_space cs_param_2;
+	int ret;
+	int colorspace;
+
+	colorspace = session->port_info[port].format.colorspace;
+	if (!colorspace)
+		return 0;
+
+	translate_colorspace_to_hfi(colorspace, &cs_param_1, &cs_param_2);
+	ret = vpu_hw_session_s_property(session->id,
+			VPU_PROP_SESSION_COLOR_SPACE,
+			&cs_param_1, sizeof(cs_param_1));
+	if (ret) {
+		pr_err("Failed to set port colorspace\n");
+		return ret;
+	}
+
+	if (cs_param_1.cs_config != CONFIG_RGB_RANGE) {
+		ret = vpu_hw_session_s_property(session->id,
+				VPU_PROP_SESSION_COLOR_SPACE,
+				&cs_param_2, sizeof(cs_param_2));
+		if (ret) {
+			pr_err("Failed to set port colorspace\n");
+			return ret;
+		}
+	}
+	return ret;
 }
 
 int configure_nr_buffers(struct vpu_dev_session *session,
@@ -995,6 +1027,10 @@ int is_format_valid(struct v4l2_format *fmt)
 		return 0;
 	if ((height & 1) || (width & 1)) /* must be even */
 		return 0;
+
+	if (fmt->fmt.pix_mp.colorspace <= VPU_CS_MIN
+		|| fmt->fmt.pix_mp.colorspace >= VPU_CS_MAX)
+		fmt->fmt.pix_mp.colorspace = 0;
 
 	return 1;
 }

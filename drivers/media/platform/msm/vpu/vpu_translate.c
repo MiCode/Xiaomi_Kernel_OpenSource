@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -129,6 +129,61 @@ u32 translate_pixelformat_to_hfi(u32 api_pix_fmt)
 
 	pr_debug("received pixel format = %d\n", hfi_pix_fmt);
 	return hfi_pix_fmt;
+}
+
+void translate_colorspace_to_hfi(u32 api_colorspace,
+		struct vpu_prop_session_color_space *cs_1,
+		struct vpu_prop_session_color_space *cs_2)
+{
+	switch (api_colorspace) {
+	case VPU_CS_RGB_FULL:
+		cs_1->cs_config = CONFIG_RGB_RANGE;
+		cs_1->value = RGB_RANGE_FULL;
+	break;
+	case VPU_CS_RGB_LIMITED:
+		cs_1->cs_config = CONFIG_RGB_RANGE;
+		cs_1->value = RGB_RANGE_LIMITED;
+	break;
+	case VPU_CS_REC601_FULL:
+		cs_1->cs_config = CONFIG_NOMINAL_RANGE;
+		cs_1->value = NOMINAL_RANGE_FULL;
+		cs_2->cs_config = CONFIG_YCBCR_MATRIX;
+		cs_2->value = YCbCr_MATRIX_BT601;
+	break;
+	case VPU_CS_REC601_LIMITED:
+		cs_1->cs_config = CONFIG_NOMINAL_RANGE;
+		cs_1->value = NOMINAL_RANGE_LIMITED;
+		cs_2->cs_config = CONFIG_YCBCR_MATRIX;
+		cs_2->value = YCbCr_MATRIX_BT601;
+	break;
+	case VPU_CS_REC709_FULL:
+		cs_1->cs_config = CONFIG_NOMINAL_RANGE;
+		cs_1->value = NOMINAL_RANGE_FULL;
+		cs_2->cs_config = CONFIG_YCBCR_MATRIX;
+		cs_2->value = YCbCr_MATRIX_BT709;
+	break;
+	case VPU_CS_REC709_LIMITED:
+		cs_1->cs_config = CONFIG_NOMINAL_RANGE;
+		cs_1->value = NOMINAL_RANGE_LIMITED;
+		cs_2->cs_config = CONFIG_YCBCR_MATRIX;
+		cs_2->value = YCbCr_MATRIX_BT709;
+	break;
+	case VPU_CS_SMPTE240_FULL:
+		cs_1->cs_config = CONFIG_NOMINAL_RANGE;
+		cs_1->value = NOMINAL_RANGE_FULL;
+		cs_2->cs_config = CONFIG_YCBCR_MATRIX;
+		cs_2->value = YCbCr_MATRIX_BT240;
+	break;
+	case VPU_CS_SMPTE240_LIMITED:
+		cs_1->cs_config = CONFIG_NOMINAL_RANGE;
+		cs_1->value = NOMINAL_RANGE_LIMITED;
+		cs_2->cs_config = CONFIG_YCBCR_MATRIX;
+		cs_2->value = YCbCr_MATRIX_BT240;
+	break;
+	default:
+		pr_warn("Unsupported api colorspace %d\n", api_colorspace);
+	break;
+	}
 }
 
 u32 translate_input_source(u32 in)
