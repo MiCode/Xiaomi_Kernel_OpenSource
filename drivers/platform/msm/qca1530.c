@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,6 +60,10 @@
 #define QCA1530_CLK_FLG		0x04
 #define QCA1530_RESET_FLG	0x08
 
+#define GPIO_OPTIONAL_FLG	0x01
+#define GPIO_EXPORT_FLG		0x02
+#define GPIO_OUTDIR_FLG		0x04
+
 #define SYSFS_NODE_NAME			"qca1530"
 
 /**
@@ -107,6 +111,7 @@ static struct qca1530_static qca1530_data = {
  * qca1530_deinit_gpio() - release GPIO resource
  * @pdev: platform device data
  * @pgpio: pointer to GPIO handle
+ * @flags: flags showing how gpio was initialized
  *
  * Function releases GPIO handle allocated by the driver. By default the
  * GPIO pin is removed from user space, switched to input direction and
@@ -114,17 +119,84 @@ static struct qca1530_static qca1530_data = {
  *
  * GPIO handle is set to -1.
  */
-static void qca1530_deinit_gpio(struct platform_device *pdev, int *pgpio)
+static void qca1530_deinit_gpio(struct platform_device *pdev, int *pgpio,
+	int flags)
 {
-	int gpio = *pgpio;
-
-	if (gpio >= 0) {
-		pr_debug("Releasing GPIO: %d", gpio);
-		gpio_unexport(gpio);
-		gpio_direction_input(gpio);
-		devm_gpio_free(&pdev->dev, gpio);
+	if (*pgpio >= 0) {
+		pr_debug("Releasing GPIO: %d, %d", *pgpio, flags);
+		if (flags & GPIO_EXPORT_FLG)
+			gpio_unexport(*pgpio);
+		gpio_direction_input(*pgpio);
+		devm_gpio_free(&pdev->dev, *pgpio);
 		*pgpio = -1;
 	}
+}
+
+/**
+ * qca1530_init_gpio() - initialize GPIO resource
+ * @pdev: platform device data
+ * @pgpio: pointer to GPIO handle
+ * @pgio_name: name of gpio in device tree
+ * @flags: flags to control export, direction, etc
+ *
+ * Function initializes gpio and returns 0 on sucess.
+ *
+ */
+static int qca1530_init_gpio(struct platform_device *pdev, int *pgpio,
+	const char *gpio_name, int flags)
+{
+	int ret;
+
+	pr_debug("Initializing gpio %s, flags %d", gpio_name, flags);
+
+	ret = of_get_named_gpio(pdev->dev.of_node, gpio_name, 0);
+
+	if (ret == -ENOENT && (flags & GPIO_OPTIONAL_FLG)) {
+		*pgpio = -1;
+		pr_debug("Optional GPIO is not defined");
+		return 0;
+	} else if (ret < 0) {
+		pr_err("Error getting GPIO from config: %d", ret);
+		goto err_gpio_init;
+	}
+	*pgpio = ret;
+
+	ret = devm_gpio_request(&pdev->dev, *pgpio, gpio_name);
+	if (ret < 0) {
+		pr_err("failed to request gpio %d, %d", *pgpio, ret);
+		goto err_gpio_init;
+	}
+
+	if (flags & GPIO_OUTDIR_FLG) {
+		ret = gpio_direction_output(*pgpio, 0);
+		if (ret < 0) {
+			pr_err("failed to change direction for gpio %d, %d",
+				*pgpio, ret);
+			goto err_gpio_set_dir;
+		}
+	}
+
+	if (flags & GPIO_EXPORT_FLG) {
+		ret = gpio_export(*pgpio, false);
+		if (ret < 0) {
+			pr_err("failed to export gpio %d for user, %d",
+				*pgpio, ret);
+			goto err_gpio_export;
+		}
+	}
+
+	pr_debug("Initialized gpio %s: %d", gpio_name, *pgpio);
+	return 0;
+
+err_gpio_export:
+	gpio_direction_input(*pgpio);
+
+err_gpio_set_dir:
+	devm_gpio_free(&pdev->dev, *pgpio);
+
+err_gpio_init:
+	*pgpio = -1;
+	return ret;
 }
 
 /**
@@ -237,39 +309,12 @@ static void qca1530_clk_release_clock(
  */
 static void qca1530_clk_release_clocks(struct platform_device *pdev)
 {
+	qca1530_deinit_gpio(pdev, &qca1530_data.rtc_clk_gpio,
+		GPIO_OPTIONAL_FLG | GPIO_OUTDIR_FLG);
 	qca1530_clk_release_clock(pdev, QCA1530_TCXO_CLK_ID,
 		&qca1530_data.tcxo_clk);
 	qca1530_clk_release_clock(pdev, QCA1530_RTC_CLK_ID,
 		&qca1530_data.rtc_clk);
-}
-
-/**
- * qca1530_clk_init_gpio() - initialize optional GPIO control for RTC
- * @pdev: platform device data
- *
- * Function initializes optional GPIO pin for RTC control using DTS bindings.
- *
- * Return: 0 on success, error code on failure.
- */
-static int qca1530_clk_init_gpio(struct platform_device *pdev)
-{
-	int ret;
-
-	ret = of_get_named_gpio(pdev->dev.of_node, QCA1530_OF_CLK_GPIO_NAME, 0);
-	if (ret == -ENOENT) {
-		qca1530_data.rtc_clk_gpio = ret;
-		pr_debug("%s GPIO is not defined", QCA1530_OF_CLK_GPIO_NAME);
-		ret = 0;
-	} else if (ret < 0) {
-		pr_err("Error getting GPIO %s: %d", QCA1530_OF_CLK_GPIO_NAME,
-			ret);
-	} else {
-		qca1530_data.rtc_clk_gpio = ret;
-		pr_debug("GPIO %s registered: gpio=%d",
-			QCA1530_OF_CLK_GPIO_NAME, ret);
-		ret = 0;
-	}
-	return ret;
 }
 
 /**
@@ -320,14 +365,15 @@ static int qca1530_clk_init(struct platform_device *pdev)
 		pr_debug("Ref to clock %s obtained: %p",
 				QCA1530_TCXO_CLK_ID, qca1530_data.tcxo_clk);
 
-	ret = qca1530_clk_init_gpio(pdev);
+	ret = qca1530_init_gpio(pdev, &qca1530_data.rtc_clk_gpio,
+		QCA1530_OF_CLK_GPIO_NAME, GPIO_OPTIONAL_FLG | GPIO_OUTDIR_FLG);
 	if (ret)
 		goto err_1;
 
 	ret = qca1530_clk_set(1);
 	if (ret < 0) {
 		pr_err("Clock set error: ret=%d", ret);
-		goto err_2;
+		goto err_1;
 	}
 
 	pr_debug("Clock init done: GPIO=%s RTC=%s TCXO=%s",
@@ -336,8 +382,7 @@ static int qca1530_clk_init(struct platform_device *pdev)
 		qca1530_data.tcxo_clk ? "ok" : "unused");
 
 	return 0;
-err_2:
-	qca1530_deinit_gpio(pdev, &qca1530_data.rtc_clk_gpio);
+
 err_1:
 	qca1530_clk_release_clocks(pdev);
 err_0:
@@ -355,7 +400,8 @@ err_0:
 static void qca1530_clk_deinit(struct platform_device *pdev)
 {
 	qca1530_clk_set(0);
-	qca1530_deinit_gpio(pdev, &qca1530_data.rtc_clk_gpio);
+	qca1530_deinit_gpio(pdev, &qca1530_data.rtc_clk_gpio,
+		GPIO_OPTIONAL_FLG | GPIO_OUTDIR_FLG);
 	qca1530_clk_release_clocks(pdev);
 }
 
@@ -411,33 +457,6 @@ static int qca1530_pwr_set_regulator(struct regulator *reg, int mode)
 	pr_debug("Regulator set result: regulator=%p mode=%d ret=%d", reg, mode,
 		ret);
 
-	return ret;
-}
-
-/**
- * qca1530_pwr_init_gpio() - initialize power-related GPIO
- * @pdev: platform device data
- *
- * Return: 0 on success, error code otherwise
- */
-static int qca1530_pwr_init_gpio(struct platform_device *pdev)
-{
-	int ret;
-
-	ret = of_get_named_gpio(pdev->dev.of_node,
-		QCA1530_OF_PWR_GPIO_NAME, 0);
-	if (ret == -ENOENT) {
-		qca1530_data.pwr_gpio = ret;
-		ret = 0;
-		pr_debug("Power control GPIO is not defined");
-	} else if (ret < 0) {
-		pr_err("Power control GPIO error: %d", ret);
-	} else {
-		pr_debug("Ref to gpio %s obtained: %d",
-				QCA1530_OF_PWR_GPIO_NAME, ret);
-		qca1530_data.pwr_gpio = ret;
-		ret = 0;
-	}
 	return ret;
 }
 
@@ -505,6 +524,21 @@ static int qca1530_pwr_set(int mode)
 }
 
 /**
+ * qca1530_pwr_deinit() - release main SoC power control
+ * @pdev: platform device data
+ *
+ * Function releases power regulator and power GPIO pin.
+ */
+static void qca1530_pwr_deinit(struct platform_device *pdev)
+{
+	qca1530_pwr_set(0);
+	qca1530_deinit_gpio(pdev, &qca1530_data.pwr_gpio,
+		GPIO_OPTIONAL_FLG | GPIO_OUTDIR_FLG);
+	qca1530_deinit_regulator(&qca1530_data.pwr_opt_reg);
+	qca1530_deinit_regulator(&qca1530_data.pwr_reg);
+}
+
+/**
  * qca1530_pwr_init() - allocate SoC power control
  * @pdev: platform device data
  *
@@ -526,11 +560,12 @@ static int qca1530_pwr_init(struct platform_device *pdev)
 	ret = qca1530_pwr_init_regulator(
 		pdev, QCA1530_OF_PWR_OPT_REG_NAME, &qca1530_data.pwr_opt_reg);
 	if (ret)
-		goto err_1;
+		goto err_0;
 
-	ret = qca1530_pwr_init_gpio(pdev);
+	ret = qca1530_init_gpio(pdev, &qca1530_data.pwr_gpio,
+		QCA1530_OF_PWR_GPIO_NAME, GPIO_OPTIONAL_FLG | GPIO_OUTDIR_FLG);
 	if (ret)
-		goto err_2;
+		goto err_0;
 
 	if (qca1530_data.pwr_reg ||
 		qca1530_data.pwr_gpio >= 0 ||
@@ -538,7 +573,7 @@ static int qca1530_pwr_init(struct platform_device *pdev)
 		ret = qca1530_pwr_set(1);
 		if (ret) {
 			pr_err("Failed to enable power, rc=%d", ret);
-			goto err_3;
+			goto err_0;
 		}
 		pr_debug("Configured: reg=%p gpio=%d",
 			qca1530_data.pwr_reg,
@@ -548,28 +583,28 @@ static int qca1530_pwr_init(struct platform_device *pdev)
 	}
 
 	return ret;
-err_3:
-	qca1530_deinit_gpio(pdev, &qca1530_data.pwr_gpio);
-err_2:
-	qca1530_deinit_regulator(&qca1530_data.pwr_opt_reg);
-err_1:
-	qca1530_deinit_regulator(&qca1530_data.pwr_reg);
+
 err_0:
+	qca1530_pwr_deinit(pdev);
 	return ret;
 }
 
 /**
- * qca1530_pwr_deinit() - release main SoC power control
+ * qca1530_reset_deinit() - release reset control resources
  * @pdev: platform device data
  *
- * Function releases power regulator and power GPIO pin.
+ * Function releases reset line GPIO and switches off and releases power
+ * regulator.
  */
-static void qca1530_pwr_deinit(struct platform_device *pdev)
+static void qca1530_reset_deinit(struct platform_device *pdev)
 {
-	qca1530_pwr_set(0);
-	qca1530_deinit_gpio(pdev, &qca1530_data.pwr_gpio);
-	qca1530_deinit_regulator(&qca1530_data.pwr_opt_reg);
-	qca1530_deinit_regulator(&qca1530_data.pwr_reg);
+	pr_debug("Releasing reset control");
+	qca1530_deinit_gpio(pdev, &qca1530_data.reset_gpio,
+		GPIO_OUTDIR_FLG | GPIO_EXPORT_FLG);
+	if (qca1530_data.reset_reg) {
+		qca1530_pwr_set_regulator(qca1530_data.reset_reg, 0);
+		qca1530_deinit_regulator(&qca1530_data.reset_reg);
+	}
 }
 
 /**
@@ -587,102 +622,30 @@ static int qca1530_reset_init(struct platform_device *pdev)
 
 	pr_debug("Initializing reset control");
 
-	ret = of_get_named_gpio(pdev->dev.of_node, QCA1530_OF_RESET_GPIO_NAME,
-				0);
-	if (ret < 0) {
-		pr_err("failed to get gpio from config: %d", ret);
-		goto err_gpio_get;
-	}
-	pr_debug("Ref to gpio %s obtained: %d", QCA1530_OF_RESET_GPIO_NAME,
-		ret);
+	ret = qca1530_init_gpio(pdev, &qca1530_data.reset_gpio,
+		QCA1530_OF_RESET_GPIO_NAME, GPIO_OUTDIR_FLG | GPIO_EXPORT_FLG);
 
-	qca1530_data.reset_gpio = ret;
-	ret = devm_gpio_request(&pdev->dev, qca1530_data.reset_gpio,
-				"qca1530-reset");
 	if (ret < 0) {
-		pr_err("failed to request gpio-%d", qca1530_data.reset_gpio);
-		goto err_gpio_get;
-	}
-
-	ret = gpio_direction_output(qca1530_data.reset_gpio, 0);
-	if (ret < 0) {
-		pr_err("failed to change direction for gpio-%d",
-			qca1530_data.reset_gpio);
-		goto err_gpio_configure;
-	}
-
-	ret = gpio_export(qca1530_data.reset_gpio, false);
-	if (ret < 0) {
-		pr_err("failed to export gpio-%d for user",
-			qca1530_data.reset_gpio);
-		goto err_gpio_configure;
+		goto err_0;
 	}
 
 	ret = qca1530_pwr_init_regulator(
 		pdev, QCA1530_OF_RESET_REG_NAME, &qca1530_data.reset_reg);
 	if (ret)
-		goto err_gpio_configure;
+		goto err_0;
 
 	if (qca1530_data.reset_reg) {
 		ret = qca1530_pwr_set_regulator(qca1530_data.reset_reg, 1);
 		if (ret) {
 			pr_err("failed to turn on reset regulator");
-			goto err_supply_configure;
+			goto err_0;
 		}
 	}
 
 	return 0;
-err_supply_configure:
-	qca1530_deinit_regulator(&qca1530_data.reset_reg);
-err_gpio_configure:
-	qca1530_deinit_gpio(pdev, &qca1530_data.reset_gpio);
-err_gpio_get:
-	return ret;
-}
 
-/**
- * qca1530_reset_deinit() - release reset control resources
- * @pdev: platform device data
- *
- * Function releases reset line GPIO and switches off and releases power
- * regulator.
- */
-static void qca1530_reset_deinit(struct platform_device *pdev)
-{
-	pr_debug("Releasing reset control");
-	qca1530_deinit_gpio(pdev, &qca1530_data.reset_gpio);
-	if (qca1530_data.reset_reg) {
-		qca1530_pwr_set_regulator(qca1530_data.reset_reg, 0);
-		qca1530_deinit_regulator(&qca1530_data.reset_reg);
-	}
-}
-
-/**
- * qca1530_xlna_init_gpio() - initialize xLNA GPIO if configured
- * @pdev: platform device data
- *
- * The function allocates xLNA control GPIO if specified in DTS.
- *
- * Return: 0 on success, error code on error
- */
-static int qca1530_xlna_init_gpio(struct platform_device *pdev)
-{
-	int ret;
-
-	ret = of_get_named_gpio(pdev->dev.of_node, QCA1530_OF_XLNA_GPIO_NAME,
-				0);
-	if (ret == -ENOENT) {
-		qca1530_data.xlna_gpio = -1;
-		ret = 0;
-		pr_debug("xLNA control: GPIO is not defined");
-	} else if (ret < 0) {
-		pr_err("xLNA control: GPIO error: %d", ret);
-	} else {
-		pr_debug("Ref to gpio %s obtained: %d",
-			QCA1530_OF_XLNA_GPIO_NAME, ret);
-		qca1530_data.xlna_gpio = ret;
-		ret = 0;
-	}
+err_0:
+	qca1530_reset_deinit(pdev);
 	return ret;
 }
 
@@ -754,6 +717,20 @@ static int qca1530_read_u32_arr_property(struct platform_device *pdev,
 }
 
 /**
+ * qca1530_xlna_deinit() - release all xLNA resources
+ * @pdev: platform device data
+ *
+ * Function switches off xLNA and releases all allocated resources.
+ */
+static void qca1530_xlna_deinit(struct platform_device *pdev)
+{
+	qca1530_xlna_set(0);
+	qca1530_deinit_gpio(pdev, &qca1530_data.xlna_gpio,
+		GPIO_OPTIONAL_FLG | GPIO_OUTDIR_FLG);
+	qca1530_deinit_regulator(&qca1530_data.xlna_reg);
+}
+
+/**
  * qca1530_xlna_init() - allocates xLNA resources
  * @pdev: platform device data
  *
@@ -805,15 +782,16 @@ static int qca1530_xlna_init(struct platform_device *pdev)
 		}
 	}
 
-	ret = qca1530_xlna_init_gpio(pdev);
+	ret = qca1530_init_gpio(pdev, &qca1530_data.xlna_gpio,
+		QCA1530_OF_XLNA_GPIO_NAME, GPIO_OPTIONAL_FLG | GPIO_OUTDIR_FLG);
 	if (ret)
-		goto err_1;
+		goto err_0;
 
 	if (qca1530_data.xlna_reg || qca1530_data.xlna_gpio >= 0) {
 		ret = qca1530_xlna_set(1);
 		if (ret) {
 			pr_err("Failed to enable xLNA, rc=%d", ret);
-			goto err_2;
+			goto err_0;
 		}
 		pr_debug("Configured: reg=%p gpio=%d",
 			qca1530_data.xlna_reg,
@@ -823,25 +801,10 @@ static int qca1530_xlna_init(struct platform_device *pdev)
 	}
 
 	return ret;
-err_2:
-	qca1530_deinit_gpio(pdev, &qca1530_data.xlna_gpio);
-err_1:
-	qca1530_deinit_regulator(&qca1530_data.xlna_reg);
-err_0:
-	return ret;
-}
 
-/**
- * qca1530_xlna_deinit() - release all xLNA resources
- * @pdev: platform device data
- *
- * Function switches off xLNA and releases all allocated resources.
- */
-static void qca1530_xlna_deinit(struct platform_device *pdev)
-{
-	qca1530_xlna_set(0);
-	qca1530_deinit_gpio(pdev, &qca1530_data.xlna_gpio);
-	qca1530_deinit_regulator(&qca1530_data.xlna_reg);
+err_0:
+	qca1530_xlna_deinit(pdev);
+	return ret;
 }
 
 /**
