@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,6 +43,7 @@
 #define IOMMU_SECURE_CFG	2
 #define IOMMU_SECURE_PTBL_SIZE  3
 #define IOMMU_SECURE_PTBL_INIT  4
+#define IOMMU_SET_CP_POOL_SIZE	5
 #define IOMMU_SECURE_MAP	6
 #define IOMMU_SECURE_UNMAP      7
 #define IOMMU_SECURE_MAP2 0x0B
@@ -51,6 +52,12 @@
 
 /* commands for SCM_SVC_UTIL */
 #define IOMMU_DUMP_SMMU_FAULT_REGS 0X0C
+#define MAXIMUM_VIRT_SIZE	(300*SZ_1M)
+
+
+#define MAKE_CP_VERSION(major, minor, patch) \
+	(((major & 0x3FF) << 22) | ((minor & 0x3FF) << 12) | (patch & 0xFFF))
+
 
 static struct iommu_access_ops *iommu_access_ops;
 
@@ -76,6 +83,11 @@ struct msm_scm_map2_req {
 struct msm_scm_unmap2_req {
 	struct msm_scm_mapping_info info;
 	unsigned int flags;
+};
+
+struct msm_cp_pool_size {
+	uint32_t size;
+	uint32_t spare;
 };
 
 #define NUM_DUMP_REGS 14
@@ -282,6 +294,7 @@ static int msm_iommu_sec_ptbl_init(void)
 	int psize[2] = {0, 0};
 	unsigned int spare;
 	int ret, ptbl_ret = 0;
+	int version;
 
 	for_each_compatible_node(np, NULL, "qcom,msm-smmu-v1")
 		if (of_find_property(np, "qcom,iommu-secure-id", NULL))
@@ -291,6 +304,26 @@ static int msm_iommu_sec_ptbl_init(void)
 		return 0;
 
 	of_node_put(np);
+
+	version = scm_get_feat_version(SCM_SVC_MP);
+
+	if (version >= MAKE_CP_VERSION(1, 1, 1)) {
+		struct msm_cp_pool_size psize;
+		int retval;
+
+		psize.size = MAXIMUM_VIRT_SIZE;
+		psize.spare = 0;
+
+		ret = scm_call(SCM_SVC_MP, IOMMU_SET_CP_POOL_SIZE, &psize,
+				sizeof(psize), &retval, sizeof(retval));
+
+		if (ret) {
+			pr_err("scm call IOMMU_SET_CP_POOL_SIZE failed\n");
+			goto fail;
+		}
+
+	}
+
 	ret = scm_call(SCM_SVC_MP, IOMMU_SECURE_PTBL_SIZE, &spare,
 			sizeof(spare), psize, sizeof(psize));
 	if (ret) {
