@@ -569,5 +569,7 @@ enum mdss_mdp_pingpong_index {
 /* following offsets are with respect to MDP VBIF base */
 #define MMSS_VBIF_XIN_HALT_CTRL0	0x200
 #define MMSS_VBIF_XIN_HALT_CTRL1	0x204
+#define MMSS_VBIF_AXI_HALT_CTRL0	0x208
+#define MMSS_VBIF_AXI_HALT_CTRL1	0x20C
 
 #endif
