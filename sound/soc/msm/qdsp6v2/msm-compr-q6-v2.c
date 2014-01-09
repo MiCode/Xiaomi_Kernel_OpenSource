@@ -961,7 +961,7 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static int msm_compr_ioctl(struct snd_pcm_substream *substream,
+static int msm_compr_ioctl_shared(struct snd_pcm_substream *substream,
 		unsigned int cmd, void *arg)
 {
 	int rc = 0;
@@ -973,10 +973,10 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 
 	switch (cmd) {
 	case SNDRV_COMPRESS_TSTAMP: {
-		struct snd_compr_tstamp tstamp;
+		struct snd_compr_tstamp *tstamp;
 		pr_debug("SNDRV_COMPRESS_TSTAMP\n");
-
-		memset(&tstamp, 0x0, sizeof(struct snd_compr_tstamp));
+		tstamp = arg;
+		memset(tstamp, 0x0, sizeof(*tstamp));
 		rc = q6asm_get_session_time(prtd->audio_client, &timestamp);
 		if (rc < 0) {
 			pr_err("%s: Get Session Time return value =%lld\n",
@@ -986,33 +986,25 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 		temp = (timestamp * 2 * runtime->channels);
 		temp = temp * (runtime->rate/1000);
 		temp = div_u64(temp, 1000);
-		tstamp.sampling_rate = runtime->rate;
-		tstamp.timestamp = timestamp;
+		tstamp->sampling_rate = runtime->rate;
+		tstamp->timestamp = timestamp;
 		pr_debug("%s: bytes_consumed:,timestamp = %lld,\n",
 						__func__,
-			tstamp.timestamp);
-		if (copy_to_user((void *) arg, &tstamp,
-			sizeof(struct snd_compr_tstamp)))
-				return -EFAULT;
+			tstamp->timestamp);
 		return 0;
 	}
-	case SNDRV_COMPRESS_GET_CAPS:
+	case SNDRV_COMPRESS_GET_CAPS: {
+		struct snd_compr_caps *caps;
+		caps = arg;
+		memset(caps, 0, sizeof(*caps));
 		pr_debug("SNDRV_COMPRESS_GET_CAPS\n");
-		if (copy_to_user((void *) arg, &compr->info.compr_cap,
-			sizeof(struct snd_compr_caps))) {
-			rc = -EFAULT;
-			pr_err("%s: ERROR: copy to user\n", __func__);
-			return rc;
-		}
+		memcpy(caps, &compr->info.compr_cap, sizeof(*caps));
 		return 0;
+	}
 	case SNDRV_COMPRESS_SET_PARAMS:
 		pr_debug("SNDRV_COMPRESS_SET_PARAMS:\n");
-		if (copy_from_user(&compr->info.codec_param, (void *) arg,
-			sizeof(struct snd_compr_params))) {
-			rc = -EFAULT;
-			pr_err("%s: ERROR: copy from user\n", __func__);
-			return rc;
-		}
+		memcpy(&compr->info.codec_param, (void *) arg,
+			sizeof(struct snd_compr_params));
 		switch (compr->info.codec_param.codec.id) {
 		case SND_AUDIOCODEC_MP3:
 			/* For MP3 we dont need any other parameter */
@@ -1161,6 +1153,74 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 		break;
 	}
 	return snd_pcm_lib_ioctl(substream, cmd, arg);
+}
+
+static int msm_compr_ioctl(struct snd_pcm_substream *substream,
+		unsigned int cmd, void *arg)
+{
+	int err = 0;
+	if (!substream) {
+		pr_err("%s: Invalid params\n", __func__);
+		return -EINVAL;
+	}
+	pr_debug("%s called with cmd = %d\n", __func__, cmd);
+	switch (cmd) {
+	case SNDRV_COMPRESS_TSTAMP: {
+		struct snd_compr_tstamp tstamp;
+		if (!arg) {
+			pr_err("%s: Invalid params Tstamp\n", __func__);
+			return -EINVAL;
+		}
+		err = msm_compr_ioctl_shared(substream, cmd, &tstamp);
+		if (err)
+			pr_err("%s: COMPRESS_TSTAMP failed rc %d\n",
+			__func__, err);
+		if (!err && copy_to_user(arg, &tstamp, sizeof(tstamp))) {
+			pr_err("%s: copytouser failed COMPRESS_TSTAMP\n",
+			__func__);
+			err = -EFAULT;
+		}
+		break;
+	}
+	case SNDRV_COMPRESS_GET_CAPS: {
+		struct snd_compr_caps cap;
+		if (!arg) {
+			pr_err("%s: Invalid params getcaps\n", __func__);
+			return -EINVAL;
+		}
+		pr_debug("SNDRV_COMPRESS_GET_CAPS\n");
+		err = msm_compr_ioctl_shared(substream, cmd, &cap);
+		if (err)
+			pr_err("%s: GET_CAPS failed rc %d\n",
+			__func__, err);
+		if (!err && copy_to_user(arg, &cap, sizeof(cap))) {
+			pr_err("%s: copytouser failed GET_CAPS\n",
+			__func__);
+			err = -EFAULT;
+		}
+		break;
+	}
+	case SNDRV_COMPRESS_SET_PARAMS: {
+		struct snd_compr_params params;
+		if (!arg) {
+			pr_err("%s: Invalid params setparam\n", __func__);
+			return -EINVAL;
+		}
+		if (copy_from_user(&params, arg,
+			sizeof(struct snd_compr_params))) {
+			pr_err("%s: SET_PARAMS\n", __func__);
+			return -EFAULT;
+		}
+		err = msm_compr_ioctl_shared(substream, cmd, &params);
+		if (err)
+			pr_err("%s: SET_PARAMS failed rc %d\n",
+			__func__, err);
+		break;
+	}
+	default:
+		err = msm_compr_ioctl_shared(substream, cmd, arg);
+	}
+	return err;
 }
 
 static int msm_compr_restart(struct snd_pcm_substream *substream)
