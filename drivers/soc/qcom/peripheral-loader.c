@@ -40,8 +40,6 @@
 #include <asm/setup.h>
 #include <asm-generic/io-64-nonatomic-lo-hi.h>
 
-#include <mach/msm_iomap.h>
-
 #include "peripheral-loader.h"
 
 #define pil_err(desc, fmt, ...)						\
