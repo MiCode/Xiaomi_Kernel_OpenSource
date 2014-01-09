@@ -308,7 +308,7 @@ struct mdss_pp_res_type {
 	u32 hist_data[MDSS_BLOCK_DISP_NUM][HIST_V_SIZE];
 	struct pp_sts_type pp_disp_sts[MDSS_BLOCK_DISP_NUM];
 	/* physical info */
-	struct pp_hist_col_info dspp_hist[MDSS_MDP_MAX_DSPP];
+	struct pp_hist_col_info *dspp_hist;
 };
 
 static DEFINE_MUTEX(mdss_pp_mutex);
@@ -1203,15 +1203,16 @@ static int pp_mixer_setup(u32 disp_num,
 	struct pp_sts_type *pp_sts;
 	struct mdss_mdp_ctl *ctl;
 	char __iomem *addr;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
-	if (!mixer || !mixer->ctl)
+	if (!mixer || !mixer->ctl || !mdata)
 		return -EINVAL;
 	dspp_num = mixer->num;
 	ctl = mixer->ctl;
 
 	/* no corresponding dspp */
 	if ((mixer->type != MDSS_MDP_MIXER_TYPE_INTF) ||
-		(dspp_num >= MDSS_MDP_MAX_DSPP))
+		(dspp_num >= mdata->nmixers_intf))
 		return 0;
 	if (disp_num < MDSS_BLOCK_DISP_NUM)
 		flags = mdss_pp_res->pp_disp_flags[disp_num];
@@ -1287,8 +1288,12 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
 	struct pp_hist_col_info *hist_info;
 	unsigned long flag;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	bool is_hist_v1 = !(mdata->mdp_rev >= MDSS_MDP_HW_REV_103);
+	bool is_hist_v1;
 
+	if (!mdata)
+		return -EPERM;
+
+	is_hist_v1 = !(mdata->mdp_rev >= MDSS_MDP_HW_REV_103);
 	if (mix && (PP_LOCAT(block) == MDSS_PP_DSPP_CFG)) {
 		/* HIST_EN & AUTO_CLEAR */
 		op_flags = BIT(16);
@@ -1443,7 +1448,7 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 	dspp_num = mixer->num;
 	/* no corresponding dspp */
 	if ((mixer->type != MDSS_MDP_MIXER_TYPE_INTF) ||
-		(dspp_num >= MDSS_MDP_MAX_DSPP))
+		(dspp_num >= mdata->nmixers_intf))
 		return -EINVAL;
 	base = mdss_mdp_get_dspp_addr_off(dspp_num);
 
@@ -1587,7 +1592,7 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 	u32 disp_num;
 	int i;
 	bool valid_mixers = true;
-	if ((!ctl->mfd) || (!mdss_pp_res))
+	if ((!ctl->mfd) || (!mdss_pp_res) || (!mdata))
 		return -EINVAL;
 
 	/* treat fb_num the same as block logical id*/
@@ -1643,7 +1648,11 @@ int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 dspp_num)
 	struct pp_sts_type pp_sts;
 	struct mdss_ad_info *ad;
 	struct mdss_data_type *mdata = ctl->mdata;
-	if (dspp_num >= MDSS_MDP_MAX_DSPP) {
+
+	if (!mdata)
+		return -EPERM;
+
+	if (dspp_num >= mdata->nmixers_intf) {
 		pr_warn("invalid dspp_num");
 		return -EINVAL;
 	}
@@ -1747,6 +1756,10 @@ int mdss_mdp_pp_init(struct device *dev)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_mdp_pipe *vig;
 	struct msm_bus_scale_pdata *pp_bus_pdata;
+	struct pp_hist_col_info *hist;
+
+	if (!mdata)
+		return -EPERM;
 
 	mutex_lock(&mdss_pp_mutex);
 	if (!mdss_pp_res) {
@@ -1756,11 +1769,20 @@ int mdss_mdp_pp_init(struct device *dev)
 			pr_err("%s mdss_pp_res allocation failed!", __func__);
 			ret = -ENOMEM;
 		} else {
-			for (i = 0; i < MDSS_MDP_MAX_DSPP; i++) {
-				mutex_init(
-					&mdss_pp_res->dspp_hist[i].hist_mutex);
-				spin_lock_init(
-					&mdss_pp_res->dspp_hist[i].hist_lock);
+			hist = devm_kzalloc(dev,
+					sizeof(struct pp_hist_col_info) *
+					mdata->nmixers_intf,
+					GFP_KERNEL);
+			if (hist == NULL) {
+				pr_err("dspp histogram allocation failed!\n");
+				ret = -ENOMEM;
+				devm_kfree(dev, mdss_pp_res);
+			} else {
+				for (i = 0; i < mdata->nmixers_intf; i++) {
+					mutex_init(&hist[i].hist_mutex);
+					spin_lock_init(&hist[i].hist_lock);
+				}
+				mdss_pp_res->dspp_hist = hist;
 			}
 		}
 	}
@@ -1795,12 +1817,17 @@ int mdss_mdp_pp_init(struct device *dev)
 void mdss_mdp_pp_term(struct device *dev)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (!mdata)
+		return;
+
 	if (mdata->pp_bus_hdl) {
 		msm_bus_scale_unregister_client(mdata->pp_bus_hdl);
 		mdata->pp_bus_hdl = 0;
 	}
-	if (!mdss_pp_res) {
+	if (mdss_pp_res) {
 		mutex_lock(&mdss_pp_mutex);
+		devm_kfree(dev, mdss_pp_res->dspp_hist);
 		devm_kfree(dev, mdss_pp_res);
 		mdss_pp_res = NULL;
 		mutex_unlock(&mdss_pp_mutex);
@@ -1811,14 +1838,15 @@ static int pp_get_dspp_num(u32 disp_num, u32 *dspp_num)
 	int i;
 	u32 mixer_cnt;
 	u32 mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
 
-	if (!mixer_cnt)
+	if (!mixer_cnt || !mdata)
 		return -EPERM;
 
 	/* only read the first mixer */
 	for (i = 0; i < mixer_cnt; i++) {
-		if (mixer_id[i] < MDSS_MDP_MAX_DSPP)
+		if (mixer_id[i] < mdata->nmixers_intf)
 			break;
 	}
 	if (i >= mixer_cnt)
@@ -2961,7 +2989,7 @@ int mdss_mdp_hist_start(struct mdp_histogram_start_req *req)
 		ret = -EPERM;
 		goto hist_exit;
 	}
-	if (mixer_cnt >= MDSS_MDP_MAX_DSPP) {
+	if (mixer_cnt > mdata->nmixers_intf) {
 		pr_err("%s, Too many dspp connects to disp %d",
 			__func__, mixer_cnt);
 		ret = -EPERM;
@@ -3075,6 +3103,9 @@ int mdss_mdp_hist_stop(u32 block)
 		(PP_BLOCK(block) >= MDP_BLOCK_MAX))
 		return -EINVAL;
 
+	if (!mdata)
+		return -EPERM;
+
 	disp_num = PP_BLOCK(block) - MDP_LOGICAL_BLOCK_DISP_0;
 	mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
 
@@ -3084,7 +3115,7 @@ int mdss_mdp_hist_stop(u32 block)
 		ret = -EPERM;
 		goto hist_stop_exit;
 	}
-	if (mixer_cnt >= MDSS_MDP_MAX_DSPP) {
+	if (mixer_cnt > mdata->nmixers_intf) {
 		pr_err("%s, Too many dspp connects to disp %d",
 			__func__, mixer_cnt);
 		ret = -EPERM;
@@ -3287,6 +3318,9 @@ static int pp_hist_collect(struct mdp_histogram_data *hist,
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	bool is_hist_v2 = mdata->mdp_rev >= MDSS_MDP_HW_REV_103;
 
+	if (!mdata)
+		return -EPERM;
+
 	mutex_lock(&hist_info->hist_mutex);
 	if ((hist_info->col_en == 0) ||
 			(hist_info->col_state == HIST_UNKNOWN)) {
@@ -3395,7 +3429,7 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 		ret = -EPERM;
 		goto hist_collect_exit;
 	}
-	if (hist_cnt >= MDSS_MDP_MAX_DSPP) {
+	if (hist_cnt > mdata->nmixers_intf) {
 		pr_err("%s, Too many dspp connects to disp %d",
 			__func__, hist_cnt);
 		ret = -EPERM;
