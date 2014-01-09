@@ -25,9 +25,9 @@
 #include <mach/board.h>
 #include <mach/gpiomux.h>
 #include <mach/msm_iomap.h>
-#include <mach/msm_smd.h>
 #include <mach/restart.h>
 #include <soc/qcom/socinfo.h>
+#include <soc/qcom/smd.h>
 #include "board-dt.h"
 #include "clock.h"
 #include "platsmp.h"

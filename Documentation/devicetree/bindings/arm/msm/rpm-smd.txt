@@ -18,7 +18,7 @@ Required properties
 - rpm-channel-name: The string corresponding to the channel name of the
 			peripheral subsystem
 - rpm-channel-type: The interal SMD edge for this subsystem found in
-			<mach/msm_smd.h>
+			<soc/qcom/smd.h>
 
 Optional properties
 - rpm-standalone: Allow RPM driver to run in standalone mode irrespective of RPM

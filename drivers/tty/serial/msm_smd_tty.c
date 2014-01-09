@@ -27,14 +27,14 @@
 #include <linux/slab.h>
 #include <linux/ipc_logging.h>
 #include <linux/of.h>
-#include <soc/qcom/subsystem_restart.h>
 
 #include <linux/tty.h>
 #include <linux/tty_driver.h>
 #include <linux/tty_flip.h>
 
-#include <mach/msm_smd.h>
-#include <mach/msm_smsm.h>
+#include <soc/qcom/smd.h>
+#include <soc/qcom/smsm.h>
+#include <soc/qcom/subsystem_restart.h>
 
 #define MODULE_NAME "msm_smdtty"
 #define MAX_SMD_TTYS 37

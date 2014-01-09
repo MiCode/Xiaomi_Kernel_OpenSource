@@ -23,10 +23,10 @@
 #include <linux/skbuff.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
-#include <soc/qcom/subsystem_restart.h>
 
-#include <mach/msm_smd.h>
-#include <mach/msm_smsm.h>
+#include <soc/qcom/smd.h>
+#include <soc/qcom/smsm.h>
+#include <soc/qcom/subsystem_restart.h>
 
 static int msm_ipc_router_smd_xprt_debug_mask;
 module_param_named(debug_mask, msm_ipc_router_smd_xprt_debug_mask,

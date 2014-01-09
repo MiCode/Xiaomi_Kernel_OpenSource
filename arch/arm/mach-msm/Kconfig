@@ -656,16 +656,6 @@ config MSM_SERIAL_DEBUGGER_CONSOLE
 	  Enables a console so that printk messages are displayed on
 	  the debugger serial port as the occur.
 
-config MSM_SMD
-	depends on MSM_SMEM
-	bool "MSM Shared Memory Driver (SMD)"
-	help
-	  Support for the shared memory interface between the apps
-	  processor and the baseband processor.  Provides access to
-	  the "shared heap", as well as virtual serial channels
-	  used to communicate with various services on the baseband
-	  processor.
-
 config MSM_PCIE
 	bool "MSM PCIe Controller driver"
 	depends on PCI && PCI_MSI
@@ -673,14 +663,6 @@ config MSM_PCIE
 	help
 	  Enables the PCIe functionality by configures PCIe core on
 	  MSM chipset and by enabling the ARM PCI framework extension.
-
-config MSM_SMD_DEBUG
-	depends on MSM_SMD
-	default y
-	bool "MSM SMD debug support"
-	help
-	  Support for debugging the SMD for communication
-	  between the ARM9 and ARM11
 
 config MSM_SMP2P
 	bool "SMSM Point-to-Point (SMP2P)"

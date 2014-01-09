@@ -38,7 +38,8 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
 
-#include <mach/msm_smd.h>
+#include <soc/qcom/smd.h>
+
 #include <mach/msm_iomap.h>
 
 #ifdef CONFIG_WCNSS_MEM_PRE_ALLOC

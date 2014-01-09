@@ -1,4 +1,4 @@
-/* linux/include/asm-arm/arch-msm/msm_smd.h
+/* include/soc/qcom/smd.h
  *
  * Copyright (C) 2007 Google, Inc.
  * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.

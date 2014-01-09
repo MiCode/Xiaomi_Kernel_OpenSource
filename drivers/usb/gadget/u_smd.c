@@ -1,7 +1,7 @@
 /*
  * u_smd.c - utilities for USB gadget serial over smd
  *
- * Copyright (c) 2011, 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This code also borrows from drivers/usb/gadget/u_serial.c, which is
  * Copyright (C) 2000 - 2003 Al Borchers (alborchers@steinerpoint.com)
@@ -25,7 +25,7 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/termios.h>
-#include <mach/msm_smd.h>
+#include <soc/qcom/smd.h>
 #include <linux/debugfs.h>
 
 #include "u_serial.h"

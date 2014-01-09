@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,7 +17,7 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/termios.h>
-#include <mach/msm_smd.h>
+#include <soc/qcom/smd.h>
 #include <linux/debugfs.h>
 #include <linux/bitops.h>
 #include <linux/termios.h>
