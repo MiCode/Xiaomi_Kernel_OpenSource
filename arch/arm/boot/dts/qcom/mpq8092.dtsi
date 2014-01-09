@@ -1100,6 +1100,7 @@
 };
 
 &gdsc_mdss {
+	clock-names = "core_clk", "lut_clk";
 	status = "ok";
 };
 
@@ -1108,10 +1109,14 @@
 };
 
 &gdsc_vpu {
+	clock-names = "core_clk", "maple_clk", "bus_clk", "frc_xin_clk",
+			   "hdmc_frcf_clk", "sdmc_frcs_clk", "sdme_frcf_clk",
+			   "vproc_clk", "vdp_xin_clk";
 	status = "ok";
 };
 
 &gdsc_oxili_gx {
+	clock-names = "core_clk";
 	status = "ok";
 };
 
@@ -1124,6 +1129,7 @@
 };
 
 &gdsc_vcap {
+	clock-names = "bus_clk", "vp_clk";
 	status = "ok";
 };
 
