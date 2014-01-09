@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1256,7 +1256,7 @@ msm_ufs_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs, u32 rate)
 	case FASTAUTO_MODE:
 	case FAST_MODE:
 		if (rate == PA_HS_MODE_A) {
-			if (gear >= ARRAY_SIZE(hs_fr_table_rA)) {
+			if (gear > ARRAY_SIZE(hs_fr_table_rA)) {
 				dev_err(hba->dev,
 					"%s: index %d exceeds table size %d\n",
 					__func__, gear,
@@ -1265,7 +1265,7 @@ msm_ufs_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs, u32 rate)
 			}
 			tx_clk_cycles_per_us = hs_fr_table_rA[gear-1][1];
 		} else if (rate == PA_HS_MODE_B) {
-			if (gear >= ARRAY_SIZE(hs_fr_table_rB)) {
+			if (gear > ARRAY_SIZE(hs_fr_table_rB)) {
 				dev_err(hba->dev,
 					"%s: index %d exceeds table size %d\n",
 					__func__, gear,
@@ -1281,7 +1281,7 @@ msm_ufs_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs, u32 rate)
 		break;
 	case SLOWAUTO_MODE:
 	case SLOW_MODE:
-		if (gear >= ARRAY_SIZE(pwm_fr_table)) {
+		if (gear > ARRAY_SIZE(pwm_fr_table)) {
 			dev_err(hba->dev,
 					"%s: index %d exceeds table size %d\n",
 					__func__, gear,
