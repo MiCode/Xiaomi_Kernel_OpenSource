@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -334,7 +334,7 @@ void diag_mask_update_fn(struct work_struct *work)
 
 	if (smd_info->notify_context == SMD_EVENT_OPEN)
 		diag_send_diag_mode_update_by_smd(smd_info,
-						driver->real_time_mode);
+				driver->real_time_mode[DIAG_LOCAL_PROC]);
 
 	smd_info->notify_context = 0;
 }

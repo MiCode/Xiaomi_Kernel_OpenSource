@@ -290,12 +290,14 @@ static int diagchar_close(struct inode *inode, struct file *file)
 	if (driver->socket_process &&
 		(driver->socket_process->tgid == current->tgid)) {
 		driver->socket_process = NULL;
-		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN);
+		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN,
+				      ALL_PROC);
 	}
 	if (driver->callback_process &&
 		(driver->callback_process->tgid == current->tgid)) {
 		driver->callback_process = NULL;
-		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN);
+		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN,
+				      ALL_PROC);
 	}
 	mutex_unlock(&driver->diagchar_mutex);
 
@@ -303,7 +305,8 @@ static int diagchar_close(struct inode *inode, struct file *file)
 	/* If the SD logging process exits, change logging to USB mode */
 	if (driver->logging_process_id == current->tgid) {
 		driver->logging_mode = USB_MODE;
-		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN);
+		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN,
+				      ALL_PROC);
 		diagfwd_connect();
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 		diag_clear_hsic_tbl();
@@ -628,7 +631,7 @@ drop:
 
 	if (total_data_len > 0) {
 		/* Copy the total data length */
-		COPY_USER_SPACE_OR_EXIT(buf+4, total_data_len, 4);
+		COPY_USER_SPACE_OR_EXIT(buf+8, total_data_len, 4);
 		ret -= 4;
 	} else {
 		pr_debug("diag: In %s, Trying to copy ZERO bytes, total_data_len: %d\n",
@@ -876,10 +879,10 @@ int diag_switch_logging(unsigned long ioarg)
 		return 0;
 	}
 
-	diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_UP);
+	diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_UP, ALL_PROC);
 	if (requested_mode != MEMORY_DEVICE_MODE)
 		diag_update_real_time_vote(DIAG_PROC_MEMORY_DEVICE,
-								MODE_REALTIME);
+					   MODE_REALTIME, ALL_PROC);
 
 	if (!(requested_mode == MEMORY_DEVICE_MODE &&
 					driver->logging_mode == USB_MODE))
@@ -969,13 +972,15 @@ long diagchar_ioctl(struct file *filp,
 {
 	int i, result = -EINVAL, interim_size = 0, client_id = 0, real_time = 0;
 	int retry_count = 0, timer = 0;
-	uint16_t support_list = 0, interim_rsp_id, remote_dev;
+	uint16_t interim_rsp_id, remote_dev;
 	struct diag_dci_reg_tbl_t *dci_reg_params;
 	struct diag_dci_health_stats_proc stats;
 	struct diag_log_event_stats le_stats;
 	struct diagpkt_delay_params delay_params;
-	struct real_time_vote_t rt_vote;
+	struct real_time_vote_t vote;
 	struct diag_dci_client_tbl *dci_client = NULL;
+	struct diag_dci_peripherals_t dci_support;
+	struct real_time_query_t rt_query;
 
 	switch (iocmd) {
 	case DIAG_IOCTL_COMMAND_REG:
@@ -1025,16 +1030,16 @@ long diagchar_ioctl(struct file *filp,
 		result = diag_dci_deinit_client(dci_client);
 		break;
 	case DIAG_IOCTL_DCI_SUPPORT:
-		support_list |= DIAG_CON_APSS;
-		for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
-			if (driver->smd_dci[i].ch)
-				support_list |=
-				driver->smd_dci[i].peripheral_mask;
-		}
-		if (copy_to_user((void *)ioarg, &support_list,
-							 sizeof(uint16_t)))
+		if (copy_from_user(&dci_support, (void *)ioarg,
+					sizeof(struct diag_dci_peripherals_t)))
 			return -EFAULT;
-		result = DIAG_DCI_NO_ERROR;
+		result = diag_dci_get_support_list(&dci_support);
+		if (result != DIAG_DCI_NO_ERROR)
+			break;
+		if (copy_to_user((void *)ioarg, &dci_support,
+					sizeof(struct diag_dci_peripherals_t)))
+			return -EFAULT;
+
 		break;
 	case DIAG_IOCTL_DCI_HEALTH_STATS:
 		if (copy_from_user(&stats, (void *)ioarg,
@@ -1111,24 +1116,34 @@ long diagchar_ioctl(struct file *filp,
 			result = 1;
 		break;
 	case DIAG_IOCTL_VOTE_REAL_TIME:
-		if (copy_from_user(&rt_vote, (void *)ioarg, sizeof(struct
+		if (copy_from_user(&vote, (void *)ioarg, sizeof(struct
 							real_time_vote_t)))
 			return -EFAULT;
 		driver->real_time_update_busy++;
-		if (rt_vote.proc == DIAG_PROC_DCI) {
-			diag_dci_set_real_time(rt_vote.client_id,
-					       rt_vote.real_time_vote);
-			real_time = diag_dci_get_cumulative_real_time();
+		if (vote.proc == DIAG_PROC_DCI) {
+			dci_client = diag_dci_get_client_entry(vote.client_id);
+			if (!dci_client) {
+				driver->real_time_update_busy--;
+				result = DIAG_DCI_NOT_SUPPORTED;
+				break;
+			}
+			diag_dci_set_real_time(dci_client, vote.real_time_vote);
+			real_time = diag_dci_get_cumulative_real_time(
+						dci_client->client_info.token);
+			diag_update_real_time_vote(vote.proc, real_time,
+						dci_client->client_info.token);
 		} else {
-			real_time = rt_vote.real_time_vote;
+			real_time = vote.real_time_vote;
+			diag_update_real_time_vote(vote.proc, real_time,
+						   ALL_PROC);
 		}
-		diag_update_real_time_vote(rt_vote.proc, real_time);
 		queue_work(driver->diag_real_time_wq,
-				 &driver->diag_real_time_work);
+			   &driver->diag_real_time_work);
 		result = 0;
 		break;
 	case DIAG_IOCTL_GET_REAL_TIME:
-		if (copy_from_user(&real_time, (void *)ioarg, sizeof(int)))
+		if (copy_from_user(&rt_query, (void *)ioarg, sizeof(struct
+							real_time_query_t)))
 			return -EFAULT;
 		while (retry_count < 3) {
 			if (driver->real_time_update_busy > 0) {
@@ -1139,9 +1154,16 @@ long diagchar_ioctl(struct file *filp,
 				for (timer = 0; timer < 5; timer++)
 					usleep_range(10000, 10100);
 			} else {
-				real_time = driver->real_time_mode;
-				if (copy_to_user((void *)ioarg, &real_time,
-								sizeof(int)))
+				if (rt_query.proc < 0 ||
+						rt_query.proc > DIAG_NUM_PROC) {
+					pr_err("diag: Invalid proc %d in %s\n",
+					       rt_query.proc, __func__);
+					return -EINVAL;
+				}
+				real_time =
+					driver->real_time_mode[rt_query.proc];
+				if (copy_to_user((void *)ioarg, &rt_query,
+					sizeof(struct real_time_query_t)))
 					return -EFAULT;
 				result = 0;
 				break;
@@ -1156,6 +1178,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 			  loff_t *ppos)
 {
 	struct diag_dci_client_tbl *entry;
+	struct list_head *start, *temp;
 	int index = -1, i = 0, ret = 0;
 	int num_data = 0, data_type;
 	int remote_token;
@@ -1400,8 +1423,8 @@ drop:
 		data_type = driver->data_ready[index] & DCI_EVENT_MASKS_TYPE;
 		COPY_USER_SPACE_OR_EXIT(buf, data_type, 4);
 		COPY_USER_SPACE_OR_EXIT(buf+4, driver->num_dci_client, 4);
-		COPY_USER_SPACE_OR_EXIT(buf+8, *(dci_cumulative_event_mask),
-							DCI_EVENT_MASK_SIZE);
+		COPY_USER_SPACE_OR_EXIT(buf + 8, (dci_ops_tbl[DCI_LOCAL_PROC].
+				event_mask_composite), DCI_EVENT_MASK_SIZE);
 		driver->data_ready[index] ^= DCI_EVENT_MASKS_TYPE;
 		goto exit;
 	}
@@ -1411,8 +1434,8 @@ drop:
 		data_type = driver->data_ready[index] & DCI_LOG_MASKS_TYPE;
 		COPY_USER_SPACE_OR_EXIT(buf, data_type, 4);
 		COPY_USER_SPACE_OR_EXIT(buf+4, driver->num_dci_client, 4);
-		COPY_USER_SPACE_OR_EXIT(buf+8, *(dci_cumulative_log_mask),
-							DCI_LOG_MASK_SIZE);
+		COPY_USER_SPACE_OR_EXIT(buf+8, (dci_ops_tbl[DCI_LOCAL_PROC].
+				log_mask_composite), DCI_LOG_MASK_SIZE);
 		driver->data_ready[index] ^= DCI_LOG_MASKS_TYPE;
 		goto exit;
 	}
@@ -1421,12 +1444,17 @@ drop:
 		/* Copy the type of data being passed */
 		data_type = driver->data_ready[index] & DCI_DATA_TYPE;
 		driver->data_ready[index] ^= DCI_DATA_TYPE;
-		/* check the current client and copy its data */
-		entry = dci_lookup_client_entry_pid(current->tgid);
-		if (entry) {
+		list_for_each_safe(start, temp, &driver->dci_client_list) {
+			entry = list_entry(start, struct diag_dci_client_tbl,
+									track);
+			if (entry->client->tgid != current->tgid)
+				continue;
 			if (!entry->in_service)
-				goto exit;
-			COPY_USER_SPACE_OR_EXIT(buf, data_type, 4);
+				continue;
+			COPY_USER_SPACE_OR_EXIT(buf + ret, data_type,
+								sizeof(int));
+			COPY_USER_SPACE_OR_EXIT(buf + ret,
+					entry->client_info.token, sizeof(int));
 			exit_stat = diag_copy_dci(buf, count, entry, &ret);
 			if (exit_stat == 1)
 				goto exit;
@@ -1951,13 +1979,16 @@ fail_free_copy:
 
 static void diag_real_time_info_init(void)
 {
+	int i;
 	if (!driver)
 		return;
-	driver->real_time_mode = 1;
+	for (i = 0; i < DIAG_NUM_PROC; i++) {
+		driver->real_time_mode[i] = 1;
+		driver->proc_rt_vote_mask[i] |= DIAG_PROC_DCI;
+		driver->proc_rt_vote_mask[i] |= DIAG_PROC_MEMORY_DEVICE;
+	}
 	driver->real_time_update_busy = 0;
 	driver->proc_active_mask = 0;
-	driver->proc_rt_vote_mask |= DIAG_PROC_DCI;
-	driver->proc_rt_vote_mask |= DIAG_PROC_MEMORY_DEVICE;
 	driver->diag_real_time_wq = create_singlethread_workqueue(
 							"diag_real_time_wq");
 	INIT_WORK(&(driver->diag_real_time_work), diag_real_time_work_fn);

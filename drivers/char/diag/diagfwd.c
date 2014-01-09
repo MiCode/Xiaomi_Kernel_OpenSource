@@ -2180,7 +2180,8 @@ void diag_smd_notify(void *ctxt, unsigned event)
 		} else if (smd_info->type == SMD_DCI_TYPE) {
 			/* Notify the clients of the close */
 			diag_dci_notify_client(smd_info->peripheral_mask,
-							DIAG_STATUS_CLOSED);
+					       DIAG_STATUS_CLOSED,
+					       DCI_LOCAL_PROC);
 		} else if (smd_info->type == SMD_CNTL_TYPE) {
 			diag_cntl_stm_notify(smd_info,
 						CLEAR_PERIPHERAL_STM_STATE);
@@ -2200,7 +2201,7 @@ void diag_smd_notify(void *ctxt, unsigned event)
 				&(smd_info->diag_notify_update_smd_work));
 			/* Notify the clients of the open */
 			diag_dci_notify_client(smd_info->peripheral_mask,
-							DIAG_STATUS_OPEN);
+					      DIAG_STATUS_OPEN, DCI_LOCAL_PROC);
 		}
 	} else if (event == SMD_EVENT_DATA && !driver->real_time_mode &&
 					smd_info->type == SMD_DATA_TYPE) {
@@ -2588,7 +2589,8 @@ void diagfwd_init(void)
 	diag_debug_buf_idx = 0;
 	driver->read_len_legacy = 0;
 	driver->use_device_tree = has_device_tree();
-	driver->real_time_mode = 1;
+	for (i = 0; i < DIAG_NUM_PROC; i++)
+		driver->real_time_mode[i] = 1;
 	/*
 	 * The number of entries in table of buffers
 	 * should not be any smaller than hdlc poolsize.

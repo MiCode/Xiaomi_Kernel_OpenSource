@@ -156,7 +156,10 @@
  * processor. This doesn't mean that a peripheral has the
  * feature.
  */
-#define NUM_DCI_PROC	(NUM_SMD_DATA_CHANNELS + 1)
+#define NUM_DCI_PERIPHERALS	(NUM_SMD_DATA_CHANNELS + 1)
+
+/* Indicates the number of processors that support DCI */
+#define NUM_DCI_PROC		2
 
 #define SMD_DATA_TYPE 0
 #define SMD_CNTL_TYPE 1
@@ -174,10 +177,18 @@
 
 #define DIAG_TS_SIZE	50
 
-
 #define MAX_HSIC_DATA_CH	2
 #define MAX_HSIC_DCI_CH		2
 #define MAX_HSIC_CH		(MAX_HSIC_DATA_CH + MAX_HSIC_DCI_CH)
+
+#define DIAG_LOCAL_PROC	0
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+/* Local Processor + HSIC channels */
+#define DIAG_NUM_PROC	(1 + MAX_HSIC_DATA_CH)
+#else
+/* Local Processor only */
+#define DIAG_NUM_PROC	1
+#endif
 
 /* Maximum number of pkt reg supported at initialization*/
 extern int diag_max_reg;
@@ -254,6 +265,11 @@ struct real_time_vote_t {
 	int client_id;
 	uint16_t proc;
 	uint8_t real_time_vote;
+} __packed;
+
+struct real_time_query_t {
+	int real_time;
+	int proc;
 } __packed;
 
 /* This structure is defined in USB header file */
@@ -410,10 +426,10 @@ struct diagchar_dev {
 	unsigned hdlc_escape;
 	int in_busy_pktdata;
 	/* Variables for non real time mode */
-	int real_time_mode;
+	int real_time_mode[DIAG_NUM_PROC];
 	int real_time_update_busy;
 	uint16_t proc_active_mask;
-	uint16_t proc_rt_vote_mask;
+	uint16_t proc_rt_vote_mask[DIAG_NUM_PROC];
 	struct mutex real_time_mutex;
 	struct work_struct diag_real_time_work;
 	struct workqueue_struct *diag_real_time_wq;
