@@ -1106,7 +1106,7 @@ void adreno_profile_preib_processing(struct kgsl_device *device,
 	if (SIZE_SHARED_ENTRY(count) >= shared_buf_available(profile))
 		goto done;
 
-	if (entry_head + SIZE_SHARED_ENTRY(count) > profile->shared_size) {
+	if (entry_head + SIZE_SHARED_ENTRY(count) >= profile->shared_size) {
 		/* entry_head would wrap, start entry_head at 0 in buffer */
 		entry_head = 0;
 		profile->shared_size = profile->shared_head;
