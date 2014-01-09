@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,6 +61,7 @@ const char *ipa_client_name[] = {
 	__stringify(IPA_CLIENT_APPS_WAN_CONS),
 	__stringify(IPA_CLIENT_Q6_LAN_CONS),
 	__stringify(IPA_CLIENT_Q6_WAN_CONS),
+	__stringify(IPA_CLIENT_Q6_DUN_CONS),
 };
 
 const char *ipa_ic_name[] = {
