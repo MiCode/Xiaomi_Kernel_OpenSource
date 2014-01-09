@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/pm.h
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
  * Author: San Mehat <san@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -78,18 +78,34 @@ struct msm_pm_sleep_status_data {
 	uint32_t mask;
 };
 
-struct msm_pm_platform_data {
-	u8 idle_supported;   /* Allow device to enter mode during idle */
-	u8 suspend_supported; /* Allow device to enter mode during suspend */
-	u8 suspend_enabled;  /* enabled for suspend */
-	u8 idle_enabled;     /* enabled for idle low power */
-	u32 latency;         /* interrupt latency in microseconds when entering
-				and exiting the low power mode */
-	u32 residency;       /* time threshold in microseconds beyond which
-				staying in the low power mode saves power */
-};
+int msm_pm_mode_sysfs_add(const char *);
 
-extern struct msm_pm_platform_data msm_pm_sleep_modes[];
+/**
+ * msm_pm_sleep_mode_allow() - API to determine if sleep mode is allowed.
+ * @cpu:	CPU on which to check for the sleep mode.
+ * @mode:	Sleep Mode to check for.
+ * @idle:	Idle or Suspend Sleep Mode.
+ *
+ * Helper function to determine if a Idle or Suspend
+ * Sleep mode is allowed for a specific CPU.
+ *
+ * Return: 1 for allowed; 0 if not allowed.
+ */
+int msm_pm_sleep_mode_allow(unsigned int, unsigned int, bool);
+
+/**
+ * msm_pm_sleep_mode_supported() - API to determine if sleep mode is
+ * supported.
+ * @cpu:	CPU on which to check for the sleep mode.
+ * @mode:	Sleep Mode to check for.
+ * @idle:	Idle or Suspend Sleep Mode.
+ *
+ * Helper function to determine if a Idle or Suspend
+ * Sleep mode is allowed and enabled for a specific CPU.
+ *
+ * Return: 1 for supported; 0 if not supported.
+ */
+int msm_pm_sleep_mode_supported(unsigned int, unsigned int, bool);
 
 struct msm_pm_sleep_ops {
 	void *(*lowest_limits)(bool from_idle,
@@ -133,7 +149,6 @@ struct msm_pm_cpr_ops {
 
 struct msm_cpuidle_state;
 
-void msm_pm_set_platform_data(struct msm_pm_platform_data *data, int count);
 enum msm_pm_sleep_mode msm_pm_idle_enter(struct cpuidle_device *dev,
 			struct cpuidle_driver *drv, int index,
 			const struct msm_cpuidle_state *states);
