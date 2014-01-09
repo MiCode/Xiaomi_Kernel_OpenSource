@@ -295,6 +295,10 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 				__func__, ret);
 			return;
 		}
+
+		d_port->ipa_consumer_ep = d->ipa_params.ipa_cons_ep_idx;
+		d_port->ipa_producer_ep = d->ipa_params.ipa_prod_ep_idx;
+
 		if (gadget_is_dwc3(gadget)) {
 			u8 idx;
 
@@ -554,19 +558,24 @@ void bam_data_disconnect(struct data_port *gr, u8 port_num)
 		return;
 	}
 
-	if (port->port_usb && port->port_usb->in &&
-	  port->port_usb->in->driver_data) {
-		/* disable endpoints */
-		usb_ep_disable(port->port_usb->out);
-		usb_ep_disable(port->port_usb->in);
+	d = &port->data_ch;
+	if (port->port_usb) {
+		if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+			port->port_usb->ipa_consumer_ep = -1;
+			port->port_usb->ipa_producer_ep = -1;
+		}
+		if (port->port_usb->in && port->port_usb->in->driver_data) {
+			/* disable endpoints */
+			usb_ep_disable(port->port_usb->out);
+			usb_ep_disable(port->port_usb->in);
 
-		port->port_usb->in->driver_data = NULL;
-		port->port_usb->out->driver_data = NULL;
+			port->port_usb->in->driver_data = NULL;
+			port->port_usb->out->driver_data = NULL;
 
-		port->port_usb = 0;
+			port->port_usb = NULL;
+		}
 	}
 
-	d = &port->data_ch;
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		queue_work(bam_data_wq, &port->disconnect_w);
 	} else {

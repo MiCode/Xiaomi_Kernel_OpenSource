@@ -34,9 +34,36 @@
 
 #define MBIM_BULK_BUFFER_SIZE		4096
 
-#define MBIM_IOCTL_MAGIC		'o'
-#define MBIM_GET_NTB_SIZE		_IOR(MBIM_IOCTL_MAGIC, 2, u32)
-#define MBIM_GET_DATAGRAM_COUNT		_IOR(MBIM_IOCTL_MAGIC, 3, u16)
+
+enum mbim_peripheral_ep_type {
+	MBIM_DATA_EP_TYPE_RESERVED   = 0x0,
+	MBIM_DATA_EP_TYPE_HSIC       = 0x1,
+	MBIM_DATA_EP_TYPE_HSUSB      = 0x2,
+	MBIM_DATA_EP_TYPE_PCIE       = 0x3,
+	MBIM_DATA_EP_TYPE_EMBEDDED   = 0x4,
+};
+
+struct mbim_peripheral_ep_info {
+	enum peripheral_ep_type	ep_type;
+	u32  peripheral_iface_id;
+};
+
+struct mbim_ipa_ep_pair {
+	u32 cons_pipe_num;
+	u32 prod_pipe_num;
+};
+
+struct mbim_ipa_ep_info {
+	struct mbim_peripheral_ep_info ph_ep_info;
+	struct mbim_ipa_ep_pair        ipa_ep_pair;
+};
+
+#define MBIM_IOCTL_MAGIC	 'o'
+#define MBIM_GET_NTB_SIZE	 _IOR(MBIM_IOCTL_MAGIC, 2, u32)
+#define MBIM_GET_DATAGRAM_COUNT	 _IOR(MBIM_IOCTL_MAGIC, 3, u16)
+
+#define MBIM_EP_LOOKUP	_IOR(MBIM_IOCTL_MAGIC, 4, struct mbim_ipa_ep_info)
+
 
 #define NR_MBIM_PORTS			1
 
@@ -1885,9 +1912,16 @@ static int mbim_release(struct inode *ip, struct file *fp)
 static long mbim_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 {
 	struct f_mbim *mbim = fp->private_data;
+	struct data_port *port;
+	struct mbim_ipa_ep_info info;
 	int ret = 0;
 
 	pr_debug("Received command %d", cmd);
+
+	if (!mbim) {
+		pr_err("Bad parameter");
+		return -EINVAL;
+	}
 
 	if (mbim_lock(&mbim->ioctl_excl))
 		return -EBUSY;
@@ -1913,6 +1947,34 @@ static long mbim_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 		pr_info("Sent NTB datagrams count %d",
 			mbim->ntb_max_datagrams);
 		break;
+
+	case MBIM_EP_LOOKUP:
+		if (!atomic_read(&mbim->online)) {
+			pr_warn("usb cable is not connected\n");
+			return -ENOTCONN;
+		}
+
+		port = &mbim->bam_port;
+		if ((port->ipa_producer_ep == -1) ||
+			(port->ipa_consumer_ep == -1)) {
+			pr_err("EP_LOOKUP failed - IPA pipes were not updated");
+			ret = -EAGAIN;
+			break;
+		}
+
+		info.ph_ep_info.ep_type = MBIM_DATA_EP_TYPE_HSUSB;
+		info.ph_ep_info.peripheral_iface_id = mbim->data_id;
+		info.ipa_ep_pair.cons_pipe_num = port->ipa_consumer_ep;
+		info.ipa_ep_pair.prod_pipe_num = port->ipa_producer_ep;
+
+		ret = copy_to_user((void __user *)arg, &info,
+			sizeof(info));
+		if (ret) {
+			pr_err("copying to user space failed");
+			ret = -EFAULT;
+		}
+		break;
+
 	default:
 		pr_err("wrong parameter");
 		ret = -EINVAL;
@@ -1961,6 +2023,9 @@ static int mbim_init(int instances)
 		}
 
 		dev->port_num = i;
+		dev->bam_port.ipa_consumer_ep = -1;
+		dev->bam_port.ipa_producer_ep = -1;
+
 		spin_lock_init(&dev->lock);
 		INIT_LIST_HEAD(&dev->cpkt_req_q);
 		INIT_LIST_HEAD(&dev->cpkt_resp_q);
