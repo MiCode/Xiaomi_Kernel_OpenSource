@@ -361,6 +361,8 @@ DEFINE_EXT_CLK(mmss_debug_clk, NULL);
 DEFINE_EXT_CLK(kpss_debug_clk, NULL);
 DEFINE_EXT_CLK(rpm_debug_clk, NULL);
 
+DEFINE_CLK_DUMMY(wcnss_m_clk, 0);
+
 static unsigned int soft_vote_gpll0;
 
 static struct pll_vote_clk gpll0_ao_clk_src = {
@@ -2350,6 +2352,7 @@ static struct mux_clk gcc_debug_mux = {
 		{&gcc_ce1_clk.c,		 0x0138},
 		{&gcc_lpass_q6_axi_clk.c,	 0x0160},
 		{&gcc_mss_q6_bimc_axi_clk.c,	 0x0031},
+		{&wcnss_m_clk.c,		 0x0198},
 	),
 	.c = {
 		.dbg_name = "gcc_debug_mux",
@@ -2509,6 +2512,9 @@ static struct clk_lookup msm_clocks_gcc_8974[] = {
 	CLK_LOOKUP_OF("iface_clk", gcc_blsp1_ahb_clk, "f9928000.i2c"),
 	CLK_LOOKUP_OF("core_clk",
 			gcc_blsp1_qup6_i2c_apps_clk, "f9928000.i2c"),
+
+	CLK_LOOKUP_OF("wcnss_debug", wcnss_m_clk, "fb000000.qcom,wcnss-wlan"),
+
 };
 
 static struct clk_lookup msm_clocks_gcc_8974_only[] = {
@@ -2698,6 +2704,7 @@ arch_initcall(msm_gcc_8974_init);
 
 static struct clk_lookup msm_clocks_measure_8974[] = {
 	CLK_LOOKUP_OF("measure", gcc_debug_mux, "debug"),
+	CLK_LOOKUP_OF("measure", gcc_debug_mux, "fb000000.qcom,wcnss-wlan"),
 };
 
 static struct of_device_id msm_clock_debug_match_table[] = {

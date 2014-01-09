@@ -283,5 +283,6 @@
 #define clk_venus0_vcodec0_clk 0xaf0dbde4
 #define clk_vfe0_clk_src 0xa0c2bd8f
 #define clk_vfe1_clk_src 0x4e357366
+#define clk_wcnss_m_clk 0x709f430b
 
 #endif
