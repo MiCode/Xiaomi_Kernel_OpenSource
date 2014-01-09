@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2075,6 +2075,15 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		goto fail_ipa_rm_init;
 	}
 	IPADBG("IPA resource manager initialized");
+
+	/*register IPA IRQ handler*/
+	result = ipa_interrupts_init(resource_p->ipa_irq, resource_p->ee,
+			ipa_dev);
+	if (result) {
+		IPAERR("ipa interrupts initialization failed\n");
+		result = -ENODEV;
+		goto fail_ipa_rm_init;
+	}
 
 	if (ipa_ctx->use_a2_service) {
 		result = a2_mux_init();

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,19 +23,24 @@
 
 static void ipa_enable_data_path(u32 clnt_hdl)
 {
+	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
+
 	IPADBG("Enabling data path\n");
 
 	/* IPA_HW_MODE_VIRTUAL lacks support for TAG IC & EP suspend */
 	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_VIRTUAL)
 		return;
 
-	ipa_write_reg(ipa_ctx->mmio,
-				IPA_ENDP_INIT_CTRL_N_OFST(clnt_hdl), 0);
+	memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
+	ep_cfg_ctrl.ipa_ep_suspend = false;
+
+	ipa_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 }
 
 static int ipa_disable_data_path(u32 clnt_hdl)
 {
 	struct ipa_ep_context *ep = &ipa_ctx->ep[clnt_hdl];
+	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 
 	IPADBG("Disabling data path\n");
 
@@ -43,8 +48,11 @@ static int ipa_disable_data_path(u32 clnt_hdl)
 	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_VIRTUAL)
 		return 0;
 
-	ipa_write_reg(ipa_ctx->mmio,
-			IPA_ENDP_INIT_CTRL_N_OFST(clnt_hdl), 1);
+	memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
+	ep_cfg_ctrl.ipa_ep_suspend = true;
+
+	ipa_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
+
 	udelay(IPA_PKT_FLUSH_TO_US);
 	if (IPA_CLIENT_IS_CONS(ep->client) &&
 			ep->cfg.aggr.aggr_en == IPA_ENABLE_AGGR &&
