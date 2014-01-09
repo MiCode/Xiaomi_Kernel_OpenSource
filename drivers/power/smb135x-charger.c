@@ -249,6 +249,7 @@ struct smb135x_regulator {
 struct smb135x_chg {
 	struct i2c_client		*client;
 	struct device			*dev;
+	struct mutex			read_write_lock;
 
 	bool				chg_enabled;
 
@@ -308,15 +309,10 @@ struct smb135x_chg {
 	struct mutex			current_change_lock;
 };
 
-static int smb135x_read(struct smb135x_chg *chip, int reg,
+static int __smb135x_read(struct smb135x_chg *chip, int reg,
 				u8 *val)
 {
 	s32 ret;
-
-	if (chip->skip_reads) {
-		*val = 0;
-		return 0;
-	}
 
 	ret = i2c_smbus_read_byte_data(chip->client, reg);
 	if (ret < 0) {
@@ -330,13 +326,10 @@ static int smb135x_read(struct smb135x_chg *chip, int reg,
 	return 0;
 }
 
-static int smb135x_write(struct smb135x_chg *chip, int reg,
+static int __smb135x_write(struct smb135x_chg *chip, int reg,
 						u8 val)
 {
 	s32 ret;
-
-	if (chip->skip_writes)
-		return 0;
 
 	ret = i2c_smbus_write_byte_data(chip->client, reg, val);
 	if (ret < 0) {
@@ -349,26 +342,62 @@ static int smb135x_write(struct smb135x_chg *chip, int reg,
 	return 0;
 }
 
+static int smb135x_read(struct smb135x_chg *chip, int reg,
+				u8 *val)
+{
+	int rc;
+
+	if (chip->skip_reads) {
+		*val = 0;
+		return 0;
+	}
+	mutex_lock(&chip->read_write_lock);
+	rc = __smb135x_read(chip, reg, val);
+	mutex_unlock(&chip->read_write_lock);
+
+	return rc;
+}
+
+static int smb135x_write(struct smb135x_chg *chip, int reg,
+						u8 val)
+{
+	int rc;
+
+	if (chip->skip_writes)
+		return 0;
+
+	mutex_lock(&chip->read_write_lock);
+	rc = __smb135x_write(chip, reg, val);
+	mutex_unlock(&chip->read_write_lock);
+
+	return rc;
+}
+
 static int smb135x_masked_write(struct smb135x_chg *chip, int reg,
 						u8 mask, u8 val)
 {
 	s32 rc;
 	u8 temp;
 
-	rc = smb135x_read(chip, reg, &temp);
+	if (chip->skip_writes || chip->skip_reads)
+		return 0;
+
+	mutex_lock(&chip->read_write_lock);
+	rc = __smb135x_read(chip, reg, &temp);
 	if (rc < 0) {
 		dev_err(chip->dev, "read failed: reg=%03X, rc=%d\n", reg, rc);
-		return rc;
+		goto out;
 	}
 	temp &= ~mask;
 	temp |= val & mask;
-	rc = smb135x_write(chip, reg, temp);
+	rc = __smb135x_write(chip, reg, temp);
 	if (rc < 0) {
 		dev_err(chip->dev,
 			"write failed: reg=%03X, rc=%d\n", reg, rc);
-		return rc;
 	}
-	return 0;
+out:
+	mutex_unlock(&chip->read_write_lock);
+	return rc;
 }
 
 static int read_version(struct smb135x_chg *chip, u8 *version)
@@ -2653,6 +2682,7 @@ static int smb135x_charger_probe(struct i2c_client *client,
 
 	mutex_init(&chip->path_suspend_lock);
 	mutex_init(&chip->current_change_lock);
+	mutex_init(&chip->read_write_lock);
 	/* probe the device to check if its actually connected */
 	rc = smb135x_read(chip, CFG_4_REG, &reg);
 	if (rc) {
