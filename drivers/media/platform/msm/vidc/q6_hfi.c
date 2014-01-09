@@ -210,8 +210,9 @@ static int q6_hfi_register_iommu_domains(struct q6_hfi_device *device)
 		iommu_map = &iommu_group_set->iommu_maps[i];
 		iommu_map->group = iommu_group_find(iommu_map->name);
 		if (!iommu_map->group) {
-			dprintk(VIDC_ERR, "Failed to find group :%s\n",
+			dprintk(VIDC_DBG, "Failed to find group :%s\n",
 					iommu_map->name);
+			rc = -EPROBE_DEFER;
 			goto fail_group;
 		}
 		domain = iommu_group_get_iommudata(iommu_map->group);
@@ -219,6 +220,7 @@ static int q6_hfi_register_iommu_domains(struct q6_hfi_device *device)
 			dprintk(VIDC_ERR,
 					"Failed to get domain data for group %p",
 					iommu_map->group);
+			rc = -EINVAL;
 			goto fail_group;
 		}
 		iommu_map->domain = msm_find_domain_no(domain);
@@ -226,6 +228,7 @@ static int q6_hfi_register_iommu_domains(struct q6_hfi_device *device)
 			dprintk(VIDC_ERR,
 					"Failed to get domain index for domain %p",
 					domain);
+			rc = -EINVAL;
 			goto fail_group;
 		}
 	}
@@ -239,7 +242,7 @@ fail_group:
 		iommu_map->group = NULL;
 		iommu_map->domain = -1;
 	}
-	return -EINVAL;
+	return rc;
 }
 
 static void q6_hfi_deregister_iommu_domains(struct q6_hfi_device *device)
