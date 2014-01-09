@@ -3451,7 +3451,6 @@ static struct clk_freq_tbl ftbl_mmss_axi_clk[] = {
 	F_MM(150000000,  gpll0,     4,   0,   0),
 	F_MM(333430000, mmpll1,   3.5,   0,   0),
 	F_MM(400000000, mmpll0,     2,   0,   0),
-	F_MM(466800000, mmpll1,   2.5,   0,   0),
 	F_END
 };
 
@@ -3465,7 +3464,7 @@ static struct rcg_clk axi_clk_src = {
 		.dbg_name = "axi_clk_src",
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP3(LOW, 150000000, NOMINAL, 333430000,
-				  HIGH, 466800000),
+				  HIGH, 400000000),
 		CLK_INIT(axi_clk_src.c),
 	},
 };
