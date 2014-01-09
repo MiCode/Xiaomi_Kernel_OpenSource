@@ -23,6 +23,10 @@ Required properties
 				previous property, the amount of fetch ids
 				defined should match the number of offsets
 				defined in property: qcom,mdss-pipe-vig-off
+- qcom,mdss-pipe-vig-xin-id:	Array of VBIF clients ids (xins) corresponding
+				to the respective VIG pipes. Number of xin ids
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-vig-off
 - qcom,mdss-pipe-rgb-off:	Array of offsets for MDP source surface pipes of
 				type RGB, the offsets are calculated from
 				register "mdp_phys" defined in reg property.
@@ -34,6 +38,10 @@ Required properties
 				previous property, the amount of fetch ids
 				defined should match the number of offsets
 				defined in property: qcom,mdss-pipe-rgb-off
+- qcom,mdss-pipe-rgb-xin-id:	Array of VBIF clients ids (xins) corresponding
+				to the respective RGB pipes. Number of xin ids
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-rgb-off
 - qcom,mdss-pipe-dma-off:	Array of offsets for MDP source surface pipes of
 				type DMA, the offsets are calculated from
 				register "mdp_phys" defined in reg property.
@@ -43,6 +51,10 @@ Required properties
 - qcom,mdss-pipe-dma-fetch-id:	Array of shared memory pool fetch ids
 				corresponding to the DMA pipe offsets defined in
 				previous property, the amount of fetch ids
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-dma-off
+- qcom,mdss-pipe-dma-xin-id:	Array of VBIF clients ids (xins) corresponding
+				to the respective DMA pipes. Number of xin ids
 				defined should match the number of offsets
 				defined in property: qcom,mdss-pipe-dma-off
 - qcom,mdss-smp-data:		Array of shared memory pool data. There should
@@ -331,6 +343,10 @@ Example:
 		qcom,mdss-has-bwc;
 		qcom,mdss-has-decimation;
 		qcom,mdss-has-wfd-blk;
+
+		qcom,mdss-pipe-vig-xin-id = <0 4 8>;
+		qcom,mdss-pipe-rgb-xin-id = <1 5 9>;
+		qcom,mdss-pipe-dma-xin-id = <2 10>;
 
 		qcom,mdss-ctl-off = <0x00000600 0x00000700 0x00000800
 				     0x00000900 0x0000A00>;
