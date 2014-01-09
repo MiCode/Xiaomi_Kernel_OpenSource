@@ -28,6 +28,11 @@
 		qcom,mdss-pipe-vig-fetch-id = <1>;
 		qcom,mdss-pipe-rgb-fetch-id = <7>;
 		qcom,mdss-pipe-dma-fetch-id = <4>;
+
+		qcom,mdss-pipe-vig-xin-id = <0>;
+		qcom,mdss-pipe-rgb-xin-id = <1>;
+		qcom,mdss-pipe-dma-xin-id = <2>;
+
 		qcom,mdss-smp-data = <7 4096>;
 
 		qcom,mdss-ctl-off = <0x00000600 0x00000700>;

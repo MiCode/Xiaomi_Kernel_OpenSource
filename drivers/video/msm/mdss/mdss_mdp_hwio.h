@@ -580,4 +580,8 @@ enum mdss_mdp_pingpong_index {
 #define MDSS_MDP_LP_MISR_SEL_LMIX4_BLEND	0x10
 #define MDSS_MDP_LP_MISR_SEL_LMIX4_GC		0x11
 
+/* following offsets are with respect to MDP VBIF base */
+#define MMSS_VBIF_XIN_HALT_CTRL0	0x200
+#define MMSS_VBIF_XIN_HALT_CTRL1	0x204
+
 #endif
