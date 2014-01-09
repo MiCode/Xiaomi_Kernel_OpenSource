@@ -552,6 +552,8 @@ static void __iomem *virt_bases[N_BASES];
 #define OCMEMCX_BCR                     0x4050
 #define OCMEMCX_OCMEMNOC_CBCR           0x4058
 #define OCMEMCX_AHB_CBCR                0x405C
+#define RBBMTIMER_CMD_RCGR		0x4090
+#define OXILI_RBBMTIMER_CBCR		0x40B0
 #define MMPLL2_PLL_MODE                 0x4100
 #define MMPLL2_PLL_L_VAL                0x4104
 #define MMPLL2_PLL_M_VAL                0x4108
@@ -5230,6 +5232,37 @@ static struct branch_clk avsync_extpclk_clk = {
 	},
 };
 
+static struct clk_freq_tbl ftbl_rbbmtimer_clk[] = {
+	F_MM( 19200000,         xo,    1, 0, 0),
+	F_END
+};
+
+static struct rcg_clk rbbmtimer_clk_src = {
+	.cmd_rcgr_reg = RBBMTIMER_CMD_RCGR,
+	.set_rate = set_rate_hid,
+	.freq_tbl = ftbl_rbbmtimer_clk,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.dbg_name = "rbbmtimer_clk_src",
+		.ops = &clk_ops_rcg,
+		VDD_DIG_FMAX_MAP1(LOW, 19200000),
+		CLK_INIT(rbbmtimer_clk_src.c),
+	},
+};
+
+static struct branch_clk oxili_rbbmtimer_clk = {
+	.cbcr_reg = OXILI_RBBMTIMER_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[MMSS_BASE],
+	.c = {
+		.parent = &rbbmtimer_clk_src.c,
+		.dbg_name = "oxili_rbbmtimer_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(oxili_rbbmtimer_clk.c),
+	},
+};
+
 static struct gate_clk pcie_0_phy_ldo = {
 	.en_reg = PCIE_0_PHY_LDO_EN,
 	.en_mask = BIT(0),
@@ -5484,6 +5517,7 @@ static struct measure_mux_entry measure_mux[] = {
 	{&camss_ispif_ahb_clk.c,		MMSS_BASE, 0x0055},
 	{&avsync_extpclk_clk.c,			MMSS_BASE, 0x0062},
 	{&avsync_ahb_clk.c,			MMSS_BASE, 0x0065},
+	{&oxili_rbbmtimer_clk.c,		MMSS_BASE, 0x006e},
 	{&vpu_vdp_clk.c,			MMSS_BASE, 0x006f},
 	{&vpu_maple_clk.c,			MMSS_BASE, 0x0070},
 	{&vpu_bus_clk.c,			MMSS_BASE, 0x0071},
@@ -6484,6 +6518,7 @@ static struct clk_lookup apq_clocks_8084[] = {
 						"fdd00000.qcom,ocmem"),
 	CLK_LOOKUP("core_clk",	oxili_gfx3d_clk.c, "fdb00000.qcom,kgsl-3d0"),
 	CLK_LOOKUP("iface_clk",	oxilicx_ahb_clk.c, "fdb00000.qcom,kgsl-3d0"),
+	CLK_LOOKUP("",	oxili_rbbmtimer_clk.c, ""),
 
 	CLK_LOOKUP("",	venus0_ahb_clk.c,	""),
 	CLK_LOOKUP("",	venus0_axi_clk.c,	""),
