@@ -253,6 +253,87 @@ static struct hdmi_edid_video_mode_property_type
 	 31500, 60000, 108108, 60000, true},
 };
 
+static ssize_t hdmi_edid_sysfs_rda_audio_data_block(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	int adb_size, adb_count;
+	ssize_t ret;
+	char *data = buf;
+
+	struct hdmi_edid_ctrl *edid_ctrl =
+		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_EDID);
+
+	if (!edid_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	adb_count = 1;
+	adb_size  = edid_ctrl->adb_size;
+	ret       = sizeof(adb_count) + sizeof(adb_size) + adb_size;
+
+	if (ret > PAGE_SIZE) {
+		DEV_DBG("%s: Insufficient buffer size\n", __func__);
+		return 0;
+	}
+
+	/* Currently only extracting one audio data block */
+	memcpy(data, &adb_count, sizeof(adb_count));
+	data += sizeof(adb_count);
+	memcpy(data, &adb_size, sizeof(adb_size));
+	data += sizeof(adb_size);
+	memcpy(data, edid_ctrl->audio_data_block,
+			edid_ctrl->adb_size);
+
+	print_hex_dump(KERN_DEBUG, "AUDIO DATA BLOCK: ", DUMP_PREFIX_NONE,
+			32, 8, buf, ret, false);
+
+	return ret;
+}
+static DEVICE_ATTR(audio_data_block, S_IRUGO,
+	hdmi_edid_sysfs_rda_audio_data_block,
+	NULL);
+
+static ssize_t hdmi_edid_sysfs_rda_spkr_alloc_data_block(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	int sadb_size, sadb_count;
+	ssize_t ret;
+	char *data = buf;
+
+	struct hdmi_edid_ctrl *edid_ctrl =
+		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_EDID);
+
+	if (!edid_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	sadb_count = 1;
+	sadb_size  = edid_ctrl->sadb_size;
+	ret        = sizeof(sadb_count) + sizeof(sadb_size) + sadb_size;
+
+	if (ret > PAGE_SIZE) {
+		DEV_DBG("%s: Insufficient buffer size\n", __func__);
+		return 0;
+	}
+
+	/* Currently only extracting one speaker allocation data block */
+	memcpy(data, &sadb_count, sizeof(sadb_count));
+	data += sizeof(sadb_count);
+	memcpy(data, &sadb_size, sizeof(sadb_size));
+	data += sizeof(sadb_size);
+	memcpy(data, edid_ctrl->spkr_alloc_data_block,
+			edid_ctrl->sadb_size);
+
+	print_hex_dump(KERN_DEBUG, "SPKR ALLOC DATA BLOCK: ", DUMP_PREFIX_NONE,
+			32, 8, buf, ret, false);
+
+	return ret;
+}
+static DEVICE_ATTR(spkr_alloc_data_block, S_IRUGO,
+	hdmi_edid_sysfs_rda_spkr_alloc_data_block, NULL);
+
 static ssize_t hdmi_edid_sysfs_rda_modes(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -400,6 +481,8 @@ static struct attribute *hdmi_edid_fs_attrs[] = {
 	&dev_attr_scan_info.attr,
 	&dev_attr_edid_3d_modes.attr,
 	&dev_attr_edid_raw_data.attr,
+	&dev_attr_audio_data_block.attr,
+	&dev_attr_spkr_alloc_data_block.attr,
 	NULL,
 };
 
