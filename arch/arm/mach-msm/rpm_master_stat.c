@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -219,8 +219,8 @@ static int msm_rpm_master_copy_stats(
 	return RPM_MASTERS_BUF_LEN - count;
 }
 
-static int msm_rpm_master_stats_file_read(struct file *file, char __user *bufu,
-				  size_t count, loff_t *ppos)
+static ssize_t msm_rpm_master_stats_file_read(struct file *file,
+				char __user *bufu, size_t count, loff_t *ppos)
 {
 	struct msm_rpm_master_stats_private_data *prvdata;
 	struct msm_rpm_master_stats_platform_data *pdata;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,9 +73,9 @@ struct event_timer_info *add_event_timer(void (*function)(void *), void *data)
 	event_info->data = data;
 	/* Init rb node and hr timer */
 	timerqueue_init(&event_info->node);
-	pr_debug("%s: New Event Added. Event 0x%x.",
+	pr_debug("%s: New Event Added. Event %p.",
 	__func__,
-	(unsigned int)event_info);
+	event_info);
 
 	return event_info;
 }
@@ -169,8 +169,8 @@ static enum hrtimer_restart event_hrtimer_cb(struct hrtimer *hrtimer)
 			goto hrtimer_cb_exit;
 
 		if (msm_event_debug_mask && MSM_EVENT_TIMER_DEBUG)
-			pr_info("%s: Deleting event 0x%x @ %lu", __func__,
-			(unsigned int)event,
+			pr_info("%s: Deleting event %p @ %lu", __func__,
+			event,
 			(unsigned long)ktime_to_ns(next->expires));
 
 		timerqueue_del(&timer_head, &event->node);
@@ -205,8 +205,8 @@ static void create_timer_smp(void *data)
 	next = timerqueue_getnext(&timer_head);
 	timerqueue_add(&timer_head, &event->node);
 	if (msm_event_debug_mask && MSM_EVENT_TIMER_DEBUG)
-		pr_info("%s: Adding Event 0x%x for %lu", __func__,
-		(unsigned int)event,
+		pr_info("%s: Adding Event %p for %lu", __func__,
+		event,
 		(unsigned long)ktime_to_ns(event->node.expires));
 
 	if (!next ||
