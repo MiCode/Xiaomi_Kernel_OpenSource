@@ -309,7 +309,7 @@ int32_t msm_sensor_driver_probe(void *setting)
 		pr_err("failed: invalid camera id %d max %d",
 			slave_info->camera_id, MAX_CAMERAS);
 		rc = -EINVAL;
-		goto FREE_POWER_SETTING;
+		goto FREE_SLAVE_INFO;
 	}
 
 	/* Extract s_ctrl from camera id */
@@ -318,7 +318,7 @@ int32_t msm_sensor_driver_probe(void *setting)
 		pr_err("failed: s_ctrl %p for camera_id %d", s_ctrl,
 			slave_info->camera_id);
 		rc = -EINVAL;
-		goto FREE_POWER_SETTING;
+		goto FREE_SLAVE_INFO;
 	}
 
 	CDBG("s_ctrl[%d] %p", slave_info->camera_id, s_ctrl);
@@ -330,8 +330,8 @@ int32_t msm_sensor_driver_probe(void *setting)
 		 * probe
 		 */
 		pr_err("slot %d has some other sensor", slave_info->camera_id);
-		kfree(slave_info);
-		return 0;
+		rc = 0;
+		goto FREE_SLAVE_INFO;
 	}
 
 	size = slave_info->power_setting_array.size;
