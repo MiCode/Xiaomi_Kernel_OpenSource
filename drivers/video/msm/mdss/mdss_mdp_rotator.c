@@ -48,6 +48,8 @@ static struct mdss_mdp_rotator_session *mdss_mdp_rotator_session_alloc(void)
 			rot->ref_cnt++;
 			rot->session_id = i | MDSS_MDP_ROT_SESSION_MASK;
 			mutex_init(&rot->lock);
+			INIT_LIST_HEAD(&rot->head);
+			INIT_LIST_HEAD(&rot->list);
 			break;
 		}
 	}
@@ -391,14 +393,14 @@ int mdss_mdp_rotator_setup(struct msm_fb_data_type *mfd,
 
 	if (req->id == MSMFB_NEW_REQUEST) {
 		rot = mdss_mdp_rotator_session_alloc();
-		rot->pid = current->tgid;
-		list_add(&rot->list, &mdp5_data->rot_proc_list);
-
 		if (!rot) {
 			pr_err("unable to allocate rotator session\n");
 			ret = -ENOMEM;
 			goto rot_err;
 		}
+
+		rot->pid = current->tgid;
+		list_add(&rot->list, &mdp5_data->rot_proc_list);
 	} else if (req->id & MDSS_MDP_ROT_SESSION_MASK) {
 		rot = mdss_mdp_rotator_session_get(req->id);
 
@@ -529,12 +531,12 @@ int mdss_mdp_rotator_setup(struct msm_fb_data_type *mfd,
 	req->id = rot->session_id;
 
  rot_err:
-	mutex_unlock(&rotator_lock);
 	if (ret) {
 		pr_err("Unable to setup rotator session\n");
-		if (rot)
-			mdss_mdp_rotator_release(rot);
+		if (rot && (req->id == MSMFB_NEW_REQUEST))
+			mdss_mdp_rotator_finish(rot);
 	}
+	mutex_unlock(&rotator_lock);
 	return ret;
 }
 
@@ -559,6 +561,9 @@ static int mdss_mdp_rotator_finish(struct mdss_mdp_rotator_session *rot)
 		mdss_mdp_rotator_busy_wait(rot);
 		list_del(&rot->head);
 	}
+
+	if (!list_empty(&rot->list))
+		list_del(&rot->list);
 
 	rot_sync_pt_data = rot->rot_sync_pt_data;
 	commit_work = rot->commit_work;
@@ -675,8 +680,6 @@ int mdss_mdp_rotator_unset(int ndx)
 		mdss_mdp_overlay_free_buf(&rot->dst_buf);
 
 		rot->pid = 0;
-		if (!list_empty(&rot->list))
-			list_del_init(&rot->list);
 		ret = mdss_mdp_rotator_finish(rot);
 	}
 	mutex_unlock(&rotator_lock);
