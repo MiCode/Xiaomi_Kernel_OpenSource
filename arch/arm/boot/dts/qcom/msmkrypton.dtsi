@@ -680,6 +680,12 @@
 
 	};
 
+	qcom,mpm2-sleep-counter@fc4a3000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0xfc4a3000 0x1000>;
+		clock-frequency = <32768>;
+	};
+
 	tsens: tsens@fc4a8000 {
 		compatible = "qcom,msmkrypton-tsens";
 		reg = <0xfc4a8000 0x2000>,
