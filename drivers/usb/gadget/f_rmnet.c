@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,7 +40,6 @@ struct f_rmnet {
 	atomic_t			online;
 	atomic_t			ctrl_online;
 	struct usb_composite_dev	*cdev;
-	struct eth_dev			*dev;
 
 	spinlock_t			lock;
 
@@ -1231,12 +1230,13 @@ static int frmnet_bind_config(struct usb_configuration *c, unsigned portno)
 	dev = rmnet_ports[portno].port;
 
 	if (rmnet_ports[portno].data_xport == USB_GADGET_XPORT_ETHER) {
-		dev->dev = gether_setup_name(c->cdev->gadget, NULL,
-					     "usb_rmnet");
-		if (IS_ERR(dev->dev)) {
+		struct eth_dev *edev = gether_setup_name(c->cdev->gadget, NULL,
+							 "usb_rmnet");
+		if (IS_ERR(edev)) {
 			pr_err("%s: gether_setup failed\n", __func__);
-			return PTR_ERR(dev->dev);
+			return PTR_ERR(edev);
 		}
+		dev->gether_port.ioport = edev;
 	}
 
 	if (rmnet_string_defs[0].id == 0) {
@@ -1290,8 +1290,10 @@ static void frmnet_unbind_config(void)
 	int i;
 
 	for (i = 0; i < nr_rmnet_ports; i++)
-		if (rmnet_ports[i].data_xport == USB_GADGET_XPORT_ETHER)
-			gether_cleanup(rmnet_ports[i].port->dev);
+		if (rmnet_ports[i].data_xport == USB_GADGET_XPORT_ETHER) {
+			gether_cleanup(rmnet_ports[i].port->gether_port.ioport);
+			rmnet_ports[i].port->gether_port.ioport = NULL;
+		}
 }
 
 static void frmnet_cleanup(void)
