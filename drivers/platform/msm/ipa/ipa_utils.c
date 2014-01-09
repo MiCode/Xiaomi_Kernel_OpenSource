@@ -103,7 +103,7 @@ static const int ep_mapping[2][IPA_CLIENT_MAX] = {
 	[IPA_2_0][IPA_CLIENT_USB4_CONS]          = 18,
 	[IPA_2_0][IPA_CLIENT_WLAN4_CONS]         = 18,
 	[IPA_2_0][IPA_CLIENT_HSIC5_CONS]         = -1,
-	[IPA_2_0][IPA_CLIENT_USB_CONS]           = 10,
+	[IPA_2_0][IPA_CLIENT_USB_CONS]           = 15,
 	[IPA_2_0][IPA_CLIENT_A2_EMBEDDED_CONS]   = -1,
 	[IPA_2_0][IPA_CLIENT_A2_TETHERED_CONS]   = -1,
 	[IPA_2_0][IPA_CLIENT_A5_LAN_WAN_CONS]    = -1,
@@ -111,6 +111,7 @@ static const int ep_mapping[2][IPA_CLIENT_MAX] = {
 	[IPA_2_0][IPA_CLIENT_APPS_WAN_CONS]      =  5,
 	[IPA_2_0][IPA_CLIENT_Q6_LAN_CONS]        =  8,
 	[IPA_2_0][IPA_CLIENT_Q6_WAN_CONS]        =  9,
+	[IPA_2_0][IPA_CLIENT_Q6_DUN_CONS]        = 10,
 };
 
 static struct msm_bus_vectors ipa_init_vectors_v1_1[]  = {
