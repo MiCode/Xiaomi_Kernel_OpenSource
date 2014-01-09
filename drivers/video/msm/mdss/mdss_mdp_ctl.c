@@ -493,6 +493,29 @@ static u32 mdss_mdp_get_vbp_factor(struct mdss_mdp_ctl *ctl)
 	return vbp_fac;
 }
 
+static u32 mdss_mdp_get_vbp_factor_max(struct mdss_mdp_ctl *ctl)
+{
+	u32 vbp_max = 0;
+	int i;
+	struct mdss_data_type *mdata;
+
+	if (!ctl || !ctl->mdata)
+		return 0;
+
+	mdata = ctl->mdata;
+	for (i = 0; i < mdata->nctl; i++) {
+		struct mdss_mdp_ctl *ctl = mdata->ctl_off + i;
+		u32 vbp_fac;
+
+		if (ctl->power_on) {
+			vbp_fac = mdss_mdp_get_vbp_factor(ctl);
+			vbp_max = max(vbp_max, vbp_fac);
+		}
+	}
+
+	return vbp_max;
+}
+
 static void mdss_mdp_perf_calc_ctl(struct mdss_mdp_ctl *ctl,
 		struct mdss_mdp_perf_params *perf)
 {
@@ -528,7 +551,8 @@ static void mdss_mdp_perf_calc_ctl(struct mdss_mdp_ctl *ctl,
 		perf->bw_overlap = SZ_16M;
 
 	if (ctl->intf_type != MDSS_MDP_NO_INTF) {
-		u32 vbp_fac = mdss_mdp_get_vbp_factor(ctl);
+		u32 vbp_fac = mdss_mdp_get_vbp_factor_max(ctl);
+
 		perf->bw_prefill = perf->prefill_bytes;
 		/*
 		 * Prefill bandwidth equals the amount of data (number
