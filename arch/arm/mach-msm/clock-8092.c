@@ -1394,6 +1394,7 @@ static struct rcg_clk gmac_core_clk_src = {
 
 static struct clk_freq_tbl ftbl_gcc_gmac_sys_25m_clk[] = {
 	F_EXT(   19200000,	      xo,   1,	  0,	0),
+	F_EXT(   25000000, gmac_125m_clk,   5,    0,    0),
 	F_EXT(	125000000, gmac_125m_clk,   1,	  0,	0),
 	F_END
 };
@@ -6669,12 +6670,13 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("",	gcc_geni_ser_clk.c,	""),
 
 	/* GMAC */
-	CLK_LOOKUP("",	gcc_gmac_125m_clk.c,	""),
-	CLK_LOOKUP("",	gcc_gmac_axi_clk.c,	""),
-	CLK_LOOKUP("",	gcc_gmac_cfg_ahb_clk.c,	""),
-	CLK_LOOKUP("",	gcc_gmac_core_clk.c,	""),
-	CLK_LOOKUP("",	gcc_gmac_rx_clk.c,	""),
-	CLK_LOOKUP("",	gcc_gmac_sys_25m_clk.c,	""),
+	CLK_LOOKUP("125m_clk",  gcc_gmac_125m_clk.c,    "fc540000.qcom,emac"),
+	CLK_LOOKUP("axi_clk",   gcc_gmac_axi_clk.c,     "fc540000.qcom,emac"),
+	CLK_LOOKUP("cfg_ahb_clk", gcc_gmac_cfg_ahb_clk.c, "fc540000.qcom,emac"),
+	CLK_LOOKUP("tx_clk",    gcc_gmac_core_clk.c,    "fc540000.qcom,emac"),
+	CLK_LOOKUP("rx_clk",    gcc_gmac_rx_clk.c,      "fc540000.qcom,emac"),
+	CLK_LOOKUP("25m_clk",   gcc_gmac_sys_25m_clk.c, "fc540000.qcom,emac"),
+	CLK_LOOKUP("sys_clk",   gcc_gmac_sys_clk.c,     "fc540000.qcom,emac"),
 
 	/* GP */
 	CLK_LOOKUP("",	gcc_gp1_clk.c,	""),
