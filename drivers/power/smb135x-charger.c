@@ -23,6 +23,7 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/bitops.h>
+#include <linux/mutex.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/machine.h>
@@ -222,6 +223,17 @@ enum {
 	REV_1_2,	/* Rev v1.2 */
 };
 
+enum {
+	USER = BIT(0),
+	THERMAL = BIT(1),
+	CURRENT = BIT(2),
+};
+
+enum path_type {
+	USB,
+	DC,
+};
+
 static int chg_time[] = {
 	192,
 	384,
@@ -275,8 +287,9 @@ struct smb135x_chg {
 	struct completion		resumed;
 	bool				resume_completed;
 	bool				irq_waiting;
-	bool				usb_suspended;
-	bool				dc_suspended;
+	u32				usb_suspended;
+	u32				dc_suspended;
+	struct mutex			path_suspend_lock;
 
 	u32				peek_poke_address;
 	struct smb135x_regulator	otg_vreg;
@@ -632,17 +645,6 @@ static int __smb135x_usb_suspend(struct smb135x_chg *chip, bool suspend)
 	return rc;
 }
 
-static int smb135x_usb_suspend(struct smb135x_chg *chip, bool suspend)
-{
-	int rc = 0;
-
-	chip->usb_suspended = suspend;
-	if (chip->chg_enabled)
-		rc = __smb135x_usb_suspend(chip, suspend);
-
-	return rc;
-}
-
 static int __smb135x_dc_suspend(struct smb135x_chg *chip, bool suspend)
 {
 	int rc = 0;
@@ -654,14 +656,43 @@ static int __smb135x_dc_suspend(struct smb135x_chg *chip, bool suspend)
 	return rc;
 }
 
-static int smb135x_dc_suspend(struct smb135x_chg *chip, bool suspend)
+static int smb135x_path_suspend(struct smb135x_chg *chip, enum path_type path,
+						int reason, bool suspend)
 {
 	int rc = 0;
+	int suspended;
+	int *path_suspended;
+	int (*func)(struct smb135x_chg *chip, bool suspend);
 
-	chip->dc_suspended = suspend;
-	if (chip->chg_enabled)
-		rc = __smb135x_dc_suspend(chip, suspend);
+	mutex_lock(&chip->path_suspend_lock);
+	if (path == USB) {
+		suspended = chip->usb_suspended;
+		path_suspended = &chip->usb_suspended;
+		func = __smb135x_usb_suspend;
+	} else {
+		suspended = chip->dc_suspended;
+		path_suspended = &chip->dc_suspended;
+		func = __smb135x_dc_suspend;
+	}
 
+	if (suspend == false)
+		suspended &= ~reason;
+	else
+		suspended |= reason;
+
+	if (*path_suspended && !suspended)
+		rc = func(chip, 0);
+	if (!(*path_suspended) && suspended)
+		rc = func(chip, 1);
+
+	if (rc)
+		dev_err(chip->dev, "Couldn't set/unset suspend for %s path rc = %d\n",
+					path == USB ? "usb" : "dc",
+					rc);
+	else
+		*path_suspended = suspended;
+
+	mutex_unlock(&chip->path_suspend_lock);
 	return rc;
 }
 
@@ -728,7 +759,7 @@ static int smb135x_set_usb_chg_current(struct smb135x_chg *chip,
 
 	if (current_ma <= SUSPEND_CURRENT_MA) {
 		/* force suspend bit */
-		rc = smb135x_usb_suspend(chip, true);
+		rc = smb135x_path_suspend(chip, USB, CURRENT, true);
 		goto out;
 	}
 	if (current_ma < CURRENT_150_MA) {
@@ -736,7 +767,7 @@ static int smb135x_set_usb_chg_current(struct smb135x_chg *chip,
 		rc = smb135x_masked_write(chip, CFG_5_REG, USB_2_3_BIT, 0);
 		rc |= smb135x_masked_write(chip, CMD_INPUT_LIMIT,
 				USB_100_500_AC_MASK, USB_100_VAL);
-		rc |= smb135x_usb_suspend(chip, false);
+		rc |= smb135x_path_suspend(chip, USB, CURRENT, false);
 		goto out;
 	}
 	/* specific current values */
@@ -745,14 +776,14 @@ static int smb135x_set_usb_chg_current(struct smb135x_chg *chip,
 						USB_2_3_BIT, USB_2_3_BIT);
 		rc |= smb135x_masked_write(chip, CMD_INPUT_LIMIT,
 				USB_100_500_AC_MASK, USB_100_VAL);
-		rc |= smb135x_usb_suspend(chip, false);
+		rc |= smb135x_path_suspend(chip, USB, CURRENT, false);
 		goto out;
 	}
 	if (current_ma == CURRENT_500_MA) {
 		rc = smb135x_masked_write(chip, CFG_5_REG, USB_2_3_BIT, 0);
 		rc |= smb135x_masked_write(chip, CMD_INPUT_LIMIT,
 				USB_100_500_AC_MASK, USB_500_VAL);
-		rc |= smb135x_usb_suspend(chip, false);
+		rc |= smb135x_path_suspend(chip, USB, CURRENT, false);
 		goto out;
 	}
 	if (current_ma == CURRENT_900_MA) {
@@ -760,12 +791,12 @@ static int smb135x_set_usb_chg_current(struct smb135x_chg *chip,
 						USB_2_3_BIT, USB_2_3_BIT);
 		rc |= smb135x_masked_write(chip, CMD_INPUT_LIMIT,
 				USB_100_500_AC_MASK, USB_500_VAL);
-		rc |= smb135x_usb_suspend(chip, false);
+		rc |= smb135x_path_suspend(chip, USB, CURRENT, false);
 		goto out;
 	}
 
 	rc = smb135x_set_high_usb_chg_current(chip, current_ma);
-	rc |= smb135x_usb_suspend(chip, false);
+	rc |= smb135x_path_suspend(chip, USB, CURRENT, false);
 out:
 	if (rc < 0)
 		dev_err(chip->dev,
@@ -789,37 +820,20 @@ static int smb135x_charging(struct smb135x_chg *chip, int enable)
 	}
 	chip->chg_enabled = enable;
 
-	/* manage the shutdown bits */
-	if (enable) {
-		/* restore the suspended status */
-		rc = smb135x_dc_suspend(chip, chip->dc_suspended);
-		if (rc < 0) {
-			dev_err(chip->dev,
-				"Couldn't set dc suspend to %d rc = %d\n",
-				chip->dc_suspended, rc);
-			return rc;
-		}
-		rc = smb135x_usb_suspend(chip, chip->usb_suspended);
-		if (rc < 0) {
-			dev_err(chip->dev,
-				"Couldn't set usb suspend to %d rc = %d\n",
-				chip->usb_suspended, rc);
-			return rc;
-		}
-	} else {
-		/* force the shutdown bits */
-		rc = __smb135x_dc_suspend(chip, true);
-		if (rc < 0) {
-			dev_err(chip->dev,
-				"Couldn't set dc suspend rc = %d\n", rc);
-			return rc;
-		}
-		rc = __smb135x_usb_suspend(chip, true);
-		if (rc < 0) {
-			dev_err(chip->dev,
-				"Couldn't set usb suspend rc = %d\n", rc);
-			return rc;
-		}
+	/* set the suspended status */
+	rc = smb135x_path_suspend(chip, DC, USER, !enable);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Couldn't set dc suspend to %d rc = %d\n",
+			enable, rc);
+		return rc;
+	}
+	rc = smb135x_path_suspend(chip, USB, USER, !enable);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Couldn't set usb suspend to %d rc = %d\n",
+			enable, rc);
+		return rc;
 	}
 
 	pr_debug("charging %s\n",
@@ -1193,7 +1207,7 @@ static void wireless_insertion_work(struct work_struct *work)
 				wireless_insertion_work.work);
 
 	/* unsuspend dc */
-	smb135x_dc_suspend(chip, false);
+	smb135x_path_suspend(chip, DC, CURRENT, false);
 }
 
 static int hot_hard_handler(struct smb135x_chg *chip, u8 rt_stat)
@@ -1276,7 +1290,7 @@ static int handle_dc_removal(struct smb135x_chg *chip)
 {
 	if (chip->dc_psy_type == POWER_SUPPLY_TYPE_WIRELESS) {
 		cancel_delayed_work_sync(&chip->wireless_insertion_work);
-		smb135x_dc_suspend(chip, true);
+		smb135x_path_suspend(chip, DC, CURRENT, true);
 	}
 
 	if (chip->dc_psy_type != -EINVAL)
@@ -2034,9 +2048,9 @@ static int determine_initial_status(struct smb135x_chg *chip)
 			 * by wireless charger
 			 */
 			if (chip->dc_present)
-				smb135x_dc_suspend(chip, false);
+				smb135x_path_suspend(chip, DC, CURRENT, false);
 			else
-				smb135x_dc_suspend(chip, true);
+				smb135x_path_suspend(chip, DC, CURRENT, true);
 		}
 	}
 	return 0;
@@ -2477,6 +2491,9 @@ static int smb135x_charger_probe(struct i2c_client *client,
 
 	INIT_DELAYED_WORK(&chip->wireless_insertion_work,
 					wireless_insertion_work);
+
+	mutex_init(&chip->path_suspend_lock);
+
 	/* probe the device to check if its actually connected */
 	rc = smb135x_read(chip, CFG_4_REG, &reg);
 	if (rc) {
@@ -2654,7 +2671,25 @@ static int smb135x_charger_probe(struct i2c_client *client,
 			dev_err(chip->dev,
 				"Couldn't create recharge debug file rc = %d\n",
 				rc);
-	}
+
+		ent = debugfs_create_x32("usb_suspend_votes",
+					  S_IFREG | S_IWUSR | S_IRUGO,
+					  chip->debug_root,
+					  &(chip->usb_suspended));
+		if (!ent)
+			dev_err(chip->dev,
+				"Couldn't create usb vote file rc = %d\n",
+				rc);
+
+		ent = debugfs_create_x32("dc_suspend_votes",
+					  S_IFREG | S_IWUSR | S_IRUGO,
+					  chip->debug_root,
+					  &(chip->dc_suspended));
+		if (!ent)
+			dev_err(chip->dev,
+				"Couldn't create dc vote file rc = %d\n",
+				rc);
+		}
 
 	version = 0;
 	rc = read_version(chip, &version);
