@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1335,7 +1335,7 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 			&buff_mgr_info);
 		if (rc < 0) {
 			rc = -EAGAIN;
-			pr_err("error getting buffer rc:%d\n", rc);
+			pr_debug("error getting buffer rc:%d\n", rc);
 			goto ERROR2;
 		}
 		new_frame->output_buffer_info[0].index = buff_mgr_info.index;
