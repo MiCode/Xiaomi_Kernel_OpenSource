@@ -268,6 +268,7 @@ struct ipa_flt_tbl {
 	u32 sz;
 	struct ipa_mem_buffer curr_mem;
 	struct ipa_mem_buffer prev_mem;
+	bool sticky_rear;
 };
 
 /**
@@ -350,6 +351,8 @@ struct ipa_ep_context {
 	bool suspended;
 	struct ipa_sys_context *sys;
 	u32 avail_fifo_desc;
+	u32 dflt_flt4_rule_hdl;
+	u32 dflt_flt6_rule_hdl;
 };
 
 enum ipa_sys_pipe_policy {
@@ -964,8 +967,9 @@ int __ipa_commit_hdr_v2(void);
 int ipa_generate_flt_eq(enum ipa_ip_type ip,
 		const struct ipa_rule_attrib *attrib,
 		struct ipa_ipfltri_rule_eq *eq_attrib);
-
 void ipa_skb_recycle(struct sk_buff *skb);
+void ipa_install_dflt_flt_rules(u32 ipa_ep_idx);
+void ipa_delete_dflt_flt_rules(u32 ipa_ep_idx);
 
 int ipa_enable_data_path(u32 clnt_hdl);
 int ipa_disable_data_path(u32 clnt_hdl);

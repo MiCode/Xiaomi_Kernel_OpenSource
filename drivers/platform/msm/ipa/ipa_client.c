@@ -325,6 +325,11 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 
 	ipa_program_holb(ep, ipa_ep_idx);
 
+	if (in->client == IPA_CLIENT_USB_PROD &&
+		((enum ipa_config_this_ep)ep->priv !=
+		 IPA_DO_NOT_CONFIGURE_THIS_EP))
+		ipa_install_dflt_flt_rules(ipa_ep_idx);
+
 	IPADBG("client %d (ep: %d) connected\n", in->client, ipa_ep_idx);
 
 	return 0;
@@ -430,6 +435,8 @@ int ipa_disconnect(u32 clnt_hdl)
 		IPAERR("SPS de-alloc EP failed.\n");
 		return -EPERM;
 	}
+
+	ipa_delete_dflt_flt_rules(clnt_hdl);
 
 	memset(&ipa_ctx->ep[clnt_hdl], 0, sizeof(struct ipa_ep_context));
 

@@ -1052,6 +1052,9 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		ipa_allocate_wlan_rx_common_cache(IPA_WLAN_COMM_RX_POOL_LOW);
 	}
 
+	if (sys_in->client == IPA_CLIENT_WLAN1_PROD)
+		ipa_install_dflt_flt_rules(ipa_ep_idx);
+
 	IPADBG("client %d (ep: %d) connected sys=%p\n", sys_in->client,
 			ipa_ep_idx, ep->sys);
 
@@ -1103,6 +1106,7 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 	sps_free_endpoint(ep->ep_hdl);
 	destroy_workqueue(ep->sys->wq);
 	kfree(ep->sys);
+	ipa_delete_dflt_flt_rules(clnt_hdl);
 	memset(ep, 0, sizeof(struct ipa_ep_context));
 
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
