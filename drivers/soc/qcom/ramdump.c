@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -94,7 +94,7 @@ static unsigned long offset_translate(loff_t user_offset,
 
 #define MAX_IOREMAP_SIZE SZ_1M
 
-static int ramdump_read(struct file *filep, char __user *buf, size_t count,
+static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 			loff_t *pos)
 {
 	struct ramdump_device *rd_dev = container_of(filep->private_data,
@@ -145,7 +145,7 @@ static int ramdump_read(struct file *filep, char __user *buf, size_t count,
 	device_mem = ioremap_nocache(addr, copy_size);
 
 	if (device_mem == NULL) {
-		pr_err("Ramdump(%s): Unable to ioremap: addr %lx, size %x\n",
+		pr_err("Ramdump(%s): Unable to ioremap: addr %lx, size %zd\n",
 			rd_dev->name, addr, copy_size);
 		rd_dev->ramdump_status = -1;
 		ret = -ENOMEM;
@@ -164,7 +164,7 @@ static int ramdump_read(struct file *filep, char __user *buf, size_t count,
 	iounmap(device_mem);
 	*pos += copy_size;
 
-	pr_debug("Ramdump(%s): Read %d bytes from address %lx.",
+	pr_debug("Ramdump(%s): Read %zd bytes from address %lx.",
 			rd_dev->name, copy_size, addr);
 
 	return *pos - orig_pos;
