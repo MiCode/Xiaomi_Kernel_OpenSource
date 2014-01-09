@@ -3525,7 +3525,7 @@ static void *venus_hfi_add_device(u32 device_id,
 	struct venus_hfi_device *hdevice = NULL;
 	int rc = 0;
 
-	if (device_id || !res || !callback) {
+	if (!res || !callback) {
 		dprintk(VIDC_ERR, "Invalid Paramters");
 		return NULL;
 	}
@@ -3694,6 +3694,7 @@ int venus_hfi_initialize(struct hfi_device *hdev, u32 device_id,
 
 	if (IS_ERR_OR_NULL(hdev->hfi_device_data)) {
 		rc = PTR_ERR(hdev->hfi_device_data);
+		rc = !rc ? -EINVAL : rc;
 		goto err_venus_hfi_init;
 	}
 
