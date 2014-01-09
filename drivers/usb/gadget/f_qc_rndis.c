@@ -6,7 +6,7 @@
  * Copyright (C) 2008 Nokia Corporation
  * Copyright (C) 2009 Samsung Electronics
  *			Author: Michal Nazarewicz (mina86@mina86.com)
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -792,8 +792,6 @@ static void rndis_qc_disable(struct usb_function *f)
 	rndis_qc_bam_disconnect(rndis);
 	if (rndis->xport != USB_GADGET_XPORT_BAM2BAM_IPA)
 		gether_qc_disconnect_name(&rndis->port, "rndis0");
-	else
-		rndis_ipa_supported = false;
 
 	if (rndis->xport == USB_GADGET_XPORT_BAM2BAM_IPA &&
 			gadget_is_dwc3(cdev->gadget)) {
