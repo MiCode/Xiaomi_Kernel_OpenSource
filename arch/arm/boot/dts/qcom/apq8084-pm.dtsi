@@ -202,6 +202,7 @@
 			<50 172>, /* usb1_hs_async_wakeup_irq */
 			<53 104>, /* mdss_irq */
 			<62 222>, /* ee0_krait_hlos_spmi_periph_irq */
+			<0xff 33>, /* APCC_qgicL2PerfMonIrptReq */
 			<0xff 78>, /* mdss_mmu_cirpt[0] */
 			<0xff 79>, /* mdss_mmu_cirpt[1] */
 			<0xff 80>, /* mdss_mmu_cirpt[2] */
