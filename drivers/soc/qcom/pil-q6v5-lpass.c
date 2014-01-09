@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,7 @@
 
 #define QDSP6SS_RST_EVB			0x010
 #define PROXY_TIMEOUT_MS		10000
+#define MAX_SSR_REASON_LEN		81U
 
 static struct kobject *lpass_status;
 static char status[32];
@@ -238,7 +239,7 @@ static struct notifier_block mnb = {
 static void adsp_log_failure_reason(void)
 {
 	char *reason;
-	char buffer[81];
+	char buffer[MAX_SSR_REASON_LEN];
 	unsigned size;
 
 	reason = smem_get_entry(SMEM_SSR_REASON_LPASS0, &size, 0,
@@ -254,7 +255,7 @@ static void adsp_log_failure_reason(void)
 		return;
 	}
 
-	size = min(size, sizeof(buffer) - 1);
+	size = min(size, MAX_SSR_REASON_LEN - 1);
 	memcpy(buffer, reason, size);
 	buffer[size] = '\0';
 	pr_err("ADSP subsystem failure reason: %s", buffer);
