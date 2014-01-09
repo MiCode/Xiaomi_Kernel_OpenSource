@@ -2374,7 +2374,7 @@ static void pp_update_gc_one_lut(char __iomem *addr,
 {
 	int i, start_idx, idx;
 
-	start_idx = (readl_relaxed(addr) >> 16) & 0xF;
+	start_idx = ((readl_relaxed(addr) >> 16) & 0xF) + 1;
 	for (i = start_idx; i < GC_LUT_SEGMENTS; i++) {
 		idx = min((uint8_t)i, (uint8_t)(num_stages-1));
 		writel_relaxed(lut_data[idx].x_start, addr);
@@ -2384,7 +2384,7 @@ static void pp_update_gc_one_lut(char __iomem *addr,
 		writel_relaxed(lut_data[idx].x_start, addr);
 	}
 	addr += 4;
-	start_idx = (readl_relaxed(addr) >> 16) & 0xF;
+	start_idx = ((readl_relaxed(addr) >> 16) & 0xF) + 1;
 	for (i = start_idx; i < GC_LUT_SEGMENTS; i++) {
 		idx = min((uint8_t)i, (uint8_t)(num_stages-1));
 		writel_relaxed(lut_data[idx].slope, addr);
@@ -2394,7 +2394,7 @@ static void pp_update_gc_one_lut(char __iomem *addr,
 		writel_relaxed(lut_data[idx].slope, addr);
 	}
 	addr += 4;
-	start_idx = (readl_relaxed(addr) >> 16) & 0xF;
+	start_idx = ((readl_relaxed(addr) >> 16) & 0xF) + 1;
 	for (i = start_idx; i < GC_LUT_SEGMENTS; i++) {
 		idx = min((uint8_t)i, (uint8_t)(num_stages-1));
 		writel_relaxed(lut_data[idx].offset, addr);
@@ -2508,15 +2508,17 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config,
 		argc_addr = mdss_mdp_get_mixer_addr_off(dspp_num) +
 			MDSS_MDP_REG_LM_GC_LUT_BASE;
 		pgc_ptr = &mdss_pp_res->argc_disp_cfg[disp_num];
-		mdss_pp_res->pp_disp_flags[disp_num] |=
-			PP_FLAGS_DIRTY_ARGC;
+		if (config->flags & MDP_PP_OPS_WRITE)
+			mdss_pp_res->pp_disp_flags[disp_num] |=
+				PP_FLAGS_DIRTY_ARGC;
 		break;
 	case MDSS_PP_DSPP_CFG:
 		argc_addr = mdss_mdp_get_dspp_addr_off(dspp_num) +
 					MDSS_MDP_REG_DSPP_GC_BASE;
 		pgc_ptr = &mdss_pp_res->pgc_disp_cfg[disp_num];
-		mdss_pp_res->pp_disp_flags[disp_num] |=
-			PP_FLAGS_DIRTY_PGC;
+		if (config->flags & MDP_PP_OPS_WRITE)
+			mdss_pp_res->pp_disp_flags[disp_num] |=
+				PP_FLAGS_DIRTY_PGC;
 		break;
 	default:
 		goto argc_config_exit;
