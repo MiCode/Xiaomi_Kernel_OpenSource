@@ -379,21 +379,8 @@ int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
 	return 0;
 }
 
-static inline struct diag_dci_client_tbl *__diag_dci_get_client_entry(
-								int client_id)
-{
-	struct list_head *start, *temp;
-	struct diag_dci_client_tbl *entry = NULL;
-	list_for_each_safe(start, temp, &driver->dci_client_list) {
-		entry = list_entry(start, struct diag_dci_client_tbl, track);
-		if (entry->client->tgid == client_id)
-			return entry;
-	}
-	return NULL;
-}
-
-static inline int __diag_dci_query_log_mask(struct diag_dci_client_tbl *entry,
-							uint16_t log_code)
+int diag_dci_query_log_mask(struct diag_dci_client_tbl *entry,
+			    uint16_t log_code)
 {
 	uint16_t item_num;
 	uint8_t equip_id, *log_mask_ptr, byte_mask;
@@ -422,8 +409,8 @@ static inline int __diag_dci_query_log_mask(struct diag_dci_client_tbl *entry,
 
 }
 
-static inline int __diag_dci_query_event_mask(struct diag_dci_client_tbl *entry,
-							uint16_t event_id)
+int diag_dci_query_event_mask(struct diag_dci_client_tbl *entry,
+			      uint16_t event_id)
 {
 	uint8_t *event_mask_ptr, byte_mask;
 	int byte_index, bit_index;
@@ -476,7 +463,8 @@ static int diag_dci_filter_commands(struct diag_pkt_header_t *header)
 	return 0;
 }
 
-static struct dci_pkt_req_entry_t *diag_register_dci_transaction(int uid)
+static struct dci_pkt_req_entry_t *diag_register_dci_transaction(int uid,
+								 int client_id)
 {
 	struct dci_pkt_req_entry_t *entry = NULL;
 	entry = kzalloc(sizeof(struct dci_pkt_req_entry_t), GFP_KERNEL);
@@ -485,9 +473,11 @@ static struct dci_pkt_req_entry_t *diag_register_dci_transaction(int uid)
 
 	mutex_lock(&driver->dci_mutex);
 	driver->dci_tag++;
-	entry->pid = current->tgid;
+	entry->client_id = client_id;
 	entry->uid = uid;
 	entry->tag = driver->dci_tag;
+	pr_debug("diag: Registering DCI cmd req, client_id: %d, uid: %d, tag:%d\n",
+				entry->client_id, entry->uid, entry->tag);
 	list_add_tail(&entry->track, &driver->dci_req_list);
 	mutex_unlock(&driver->dci_mutex);
 
@@ -559,7 +549,7 @@ static int diag_dci_remove_req_entry(unsigned char *buf, int len,
 void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
 			 struct diag_smd_info *smd_info)
 {
-	int tag, curr_client_pid = 0;
+	int tag;
 	struct diag_dci_client_tbl *entry = NULL;
 	void *temp_buf = NULL;
 	uint8_t dci_cmd_code, cmd_code_len, delete_flag = 0;
@@ -604,21 +594,21 @@ void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
 
 	req_entry = diag_dci_get_request_entry(tag);
 	if (!req_entry) {
-		pr_err("diag: No matching PID for DCI data\n");
+		pr_err("diag: No matching client for DCI data\n");
 		return;
 	}
-	curr_client_pid = req_entry->pid;
+
+	entry = diag_dci_get_client_entry(req_entry->client_id);
+	if (!entry) {
+		pr_err("diag: In %s, couldn't find client entry, id:%d\n",
+						__func__, req_entry->client_id);
+		return;
+	}
 
 	/* Remove the headers and send only the response to this function */
 	delete_flag = diag_dci_remove_req_entry(temp, rsp_len, req_entry);
 	if (delete_flag < 0)
 		return;
-
-	entry = __diag_dci_get_client_entry(curr_client_pid);
-	if (!entry) {
-		pr_err("diag: In %s, couldn't find entry\n", __func__);
-		return;
-	}
 
 	rsp_buf = entry->buffers[data_source].buf_cmd;
 
@@ -797,7 +787,7 @@ void extract_dci_events(unsigned char *buf, int len, int data_source)
 		list_for_each_safe(start, temp, &driver->dci_client_list) {
 			entry = list_entry(start, struct diag_dci_client_tbl,
 									track);
-			if (__diag_dci_query_event_mask(entry, event_id)) {
+			if (diag_dci_query_event_mask(entry, event_id)) {
 				/* copy to client buffer */
 				copy_dci_event(event_data, total_event_len,
 					       entry, data_source);
@@ -896,7 +886,7 @@ void extract_dci_log(unsigned char *buf, int len, int data_source)
 	/* parse through log mask table of each client and check mask */
 	list_for_each_safe(start, temp, &driver->dci_client_list) {
 		entry = list_entry(start, struct diag_dci_client_tbl, track);
-		if (__diag_dci_query_log_mask(entry, log_code)) {
+		if (diag_dci_query_log_mask(entry, log_code)) {
 			pr_debug("\t log code %x needed by client %d",
 				 log_code, entry->client->tgid);
 			/* copy to client buffer */
@@ -991,9 +981,8 @@ static int diag_send_dci_pkt(struct diag_master_table entry,
 	int i, status = DIAG_DCI_NO_ERROR;
 	unsigned int read_len = 0;
 
-	/* The first 4 bytes is the uid tag and the next four bytes is
-	   the minmum packet length of a request packet */
-	if (len < DCI_PKT_REQ_MIN_LEN) {
+	/* Check if the request is atleast 1 byte */
+	if (len < 1) {
 		pr_err("diag: dci: Invalid pkt len %d in %s\n", len, __func__);
 		return -EIO;
 	}
@@ -1001,10 +990,6 @@ static int diag_send_dci_pkt(struct diag_master_table entry,
 		pr_err("diag: dci: Invalid payload length in %s\n", __func__);
 		return -EIO;
 	}
-	/* remove UID from user space pkt before sending to peripheral*/
-	buf = buf + sizeof(int);
-	read_len += sizeof(int);
-	len = len - sizeof(int);
 	mutex_lock(&driver->dci_mutex);
 	/* prepare DCI packet */
 	driver->apps_dci_buf[0] = CONTROL_CHAR; /* start */
@@ -1188,12 +1173,12 @@ fill_buffer:
 
 static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 {
-	int req_uid, ret = DIAG_DCI_TABLE_ERR, i;
+	int req_uid, ret = DIAG_DCI_TABLE_ERR, i, client_id;
 	struct diag_pkt_header_t *header = NULL;
 	unsigned char *temp = buf;
 	unsigned char *req_buf = NULL;
 	uint8_t retry_count = 0, max_retries = 3, found = 0;
-	uint32_t read_len = 0;
+	uint32_t read_len = 0, req_len = len;
 	struct diag_master_table entry;
 	struct dci_pkt_req_entry_t *req_entry = NULL;
 
@@ -1207,10 +1192,16 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 
 	req_uid = *(int *)temp; /* UID of the request */
 	temp += sizeof(int);
+	read_len += sizeof(int);
+	req_len -= sizeof(int);
+	client_id = *(int *)temp;
+	temp += sizeof(int);
+	read_len += sizeof(int);
+	req_len -= sizeof(int);
 	req_buf = temp; /* Start of the Request */
 	header = (struct diag_pkt_header_t *)temp;
 	temp += sizeof(struct diag_pkt_header_t);
-	read_len = sizeof(int) + sizeof(struct diag_pkt_header_t);
+	read_len += sizeof(struct diag_pkt_header_t);
 	if (read_len >= USER_SPACE_DATA) {
 		pr_err("diag: dci: Invalid length in %s\n", __func__);
 		return -EIO;
@@ -1243,7 +1234,7 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 	}
 
 	/* Register this new DCI packet */
-	req_entry = diag_register_dci_transaction(req_uid);
+	req_entry = diag_register_dci_transaction(req_uid, client_id);
 	if (!req_entry) {
 		pr_alert("diag: registering new DCI transaction failed\n");
 		return DIAG_DCI_NO_REG;
@@ -1263,14 +1254,14 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 			    entry.subsys_id == header->subsys_id &&
 			    entry.cmd_code_lo <= header->subsys_cmd_code &&
 			    entry.cmd_code_hi >= header->subsys_cmd_code) {
-			ret = diag_send_dci_pkt(entry, buf, len,
+			ret = diag_send_dci_pkt(entry, req_buf, req_len,
 						req_entry->tag);
 			found = 1;
 		} else if (entry.cmd_code == 255 && header->cmd_code == 75) {
 			if (entry.subsys_id == header->subsys_id &&
 			    entry.cmd_code_lo <= header->subsys_cmd_code &&
 			    entry.cmd_code_hi >= header->subsys_cmd_code) {
-				ret = diag_send_dci_pkt(entry, buf, len,
+				ret = diag_send_dci_pkt(entry, req_buf, req_len,
 							req_entry->tag);
 				found = 1;
 			}
@@ -1285,7 +1276,8 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 				    entry.cmd_code_hi == MODE_CMD)
 					if (entry.client_id != APPS_DATA)
 						continue;
-					ret = diag_send_dci_pkt(entry, buf, len,
+					ret = diag_send_dci_pkt(entry, req_buf,
+								req_len,
 								req_entry->tag);
 					found = 1;
 			}
@@ -1299,7 +1291,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 {
 	unsigned char *temp = buf;
 	uint16_t log_code, item_num;
-	int ret = -1, found = 0;
+	int ret = -1, found = 0, client_id = 0;
 	int count, set_mask, num_codes, bit_index, event_id, offset = 0;
 	unsigned int byte_index, read_len = 0;
 	uint8_t equip_id, *log_mask_ptr, *head_log_mask_ptr, byte_mask;
@@ -1321,14 +1313,11 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			pr_err("diag: dci: Invalid length in %s\n", __func__);
 			return -EIO;
 		}
-		/* find client table entry */
-		dci_entry = diag_dci_get_client_entry();
-		if (!dci_entry) {
-			pr_err("diag: In %s, invalid client\n", __func__);
-			return ret;
-		}
 
 		/* Extract each log code and put in client table */
+		temp += sizeof(int);
+		read_len += sizeof(int);
+		client_id = *(int *)temp;
 		temp += sizeof(int);
 		read_len += sizeof(int);
 		set_mask = *(int *)temp;
@@ -1337,6 +1326,13 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 		num_codes = *(int *)temp;
 		temp += sizeof(int);
 		read_len += sizeof(int);
+
+		/* find client table entry */
+		dci_entry = diag_dci_get_client_entry(client_id);
+		if (!dci_entry) {
+			pr_err("diag: In %s, invalid client\n", __func__);
+			return ret;
+		}
 
 		if (num_codes == 0 || (num_codes >= (USER_SPACE_DATA - 8)/2)) {
 			pr_err("diag: dci: Invalid number of log codes %d\n",
@@ -1417,13 +1413,11 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			pr_err("diag: dci: Invalid length in %s\n", __func__);
 			return -EIO;
 		}
-		/* find client table entry */
-		dci_entry = diag_dci_get_client_entry();
-		if (!dci_entry) {
-			pr_err("diag: In %s, invalid client\n", __func__);
-			return ret;
-		}
+
 		/* Extract each log code and put in client table */
+		temp += sizeof(int);
+		read_len += sizeof(int);
+		client_id = *(int *)temp;
 		temp += sizeof(int);
 		read_len += sizeof(int);
 		set_mask = *(int *)temp;
@@ -1432,6 +1426,13 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 		num_codes = *(int *)temp;
 		temp += sizeof(int);
 		read_len += sizeof(int);
+
+		/* find client table entry */
+		dci_entry = diag_dci_get_client_entry(client_id);
+		if (!dci_entry) {
+			pr_err("diag: In %s, invalid client\n", __func__);
+			return ret;
+		}
 
 		/* Check for positive number of event ids. Also, the number of
 		   event ids should fit in the buffer along with set_mask and
@@ -1490,9 +1491,28 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 }
 
 
-struct diag_dci_client_tbl *diag_dci_get_client_entry()
+struct diag_dci_client_tbl *diag_dci_get_client_entry(int client_id)
 {
-	return __diag_dci_get_client_entry(current->tgid);
+	struct list_head *start, *temp;
+	struct diag_dci_client_tbl *entry = NULL;
+	list_for_each_safe(start, temp, &driver->dci_client_list) {
+		entry = list_entry(start, struct diag_dci_client_tbl, track);
+		if (entry->client_info.client_id == client_id)
+			return entry;
+	}
+	return NULL;
+}
+
+struct diag_dci_client_tbl *dci_lookup_client_entry_pid(int pid)
+{
+	struct list_head *start, *temp;
+	struct diag_dci_client_tbl *entry = NULL;
+	list_for_each_safe(start, temp, &driver->dci_client_list) {
+		entry = list_entry(start, struct diag_dci_client_tbl, track);
+		if (entry->client->tgid == pid)
+			return entry;
+	}
+	return NULL;
 }
 
 void update_dci_cumulative_event_mask(int offset, uint8_t byte_mask)
@@ -1894,14 +1914,14 @@ void diag_dci_exit(void)
 	destroy_workqueue(driver->diag_dci_wq);
 }
 
-int diag_dci_clear_log_mask()
+int diag_dci_clear_log_mask(int client_id)
 {
 	int j, k, err = DIAG_DCI_NO_ERROR;
 	uint8_t *log_mask_ptr, *update_ptr;
 	struct list_head *start, *temp;
 	struct diag_dci_client_tbl *entry = NULL;
 
-	entry = diag_dci_get_client_entry();
+	entry = diag_dci_get_client_entry(client_id);
 	if (!entry) {
 		pr_err("diag: In %s, invalid client entry\n", __func__);
 		return DIAG_DCI_TABLE_ERR;
@@ -1934,14 +1954,14 @@ int diag_dci_clear_log_mask()
 	return err;
 }
 
-int diag_dci_clear_event_mask()
+int diag_dci_clear_event_mask(int client_id)
 {
 	int j, err = DIAG_DCI_NO_ERROR;
 	uint8_t *event_mask_ptr, *update_ptr;
 	struct list_head *start, *temp;
 	struct diag_dci_client_tbl *entry = NULL;
 
-	entry = diag_dci_get_client_entry();
+	entry = diag_dci_get_client_entry(client_id);
 	if (!entry) {
 		pr_err("diag: In %s, invalid client entry\n", __func__);
 		return DIAG_DCI_TABLE_ERR;
@@ -1966,18 +1986,6 @@ int diag_dci_clear_event_mask()
 	return err;
 }
 
-int diag_dci_query_log_mask(uint16_t log_code)
-{
-	return __diag_dci_query_log_mask(diag_dci_get_client_entry(),
-					 log_code);
-}
-
-int diag_dci_query_event_mask(uint16_t event_id)
-{
-	return __diag_dci_query_event_mask(diag_dci_get_client_entry(),
-					   event_id);
-}
-
 uint8_t diag_dci_get_cumulative_real_time()
 {
 	uint8_t real_time = MODE_NONREALTIME;
@@ -1994,10 +2002,10 @@ uint8_t diag_dci_get_cumulative_real_time()
 	return real_time;
 }
 
-int diag_dci_set_real_time(uint8_t real_time)
+int diag_dci_set_real_time(int client_id, uint8_t real_time)
 {
 	struct diag_dci_client_tbl *entry = NULL;
-	entry = diag_dci_get_client_entry();
+	entry = diag_dci_get_client_entry(client_id);
 	if (!entry) {
 		pr_err("diag: In %s, invalid client entry\n", __func__);
 		return 0;
@@ -2140,11 +2148,10 @@ fail_alloc:
 	return DIAG_DCI_NO_REG;
 }
 
-int diag_dci_deinit_client()
+int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 {
 	int ret = DIAG_DCI_NO_ERROR, real_time = MODE_REALTIME, i, peripheral;
 	struct diag_dci_buf_peripheral_t *proc_buf = NULL;
-	struct diag_dci_client_tbl *entry = diag_dci_get_client_entry();
 	struct diag_dci_buffer_t *buf_entry, *temp;
 	struct list_head *start, *req_temp;
 	struct dci_pkt_req_entry_t *req_entry = NULL;
@@ -2184,7 +2191,7 @@ int diag_dci_deinit_client()
 	list_for_each_safe(start, req_temp, &driver->dci_req_list) {
 		req_entry = list_entry(start, struct dci_pkt_req_entry_t,
 				       track);
-		if (req_entry->pid == current->tgid) {
+		if (req_entry->client_id == entry->client_info.client_id) {
 			list_del(&req_entry->track);
 			kfree(req_entry);
 		}
@@ -2320,19 +2327,22 @@ int diag_dci_write_proc(int peripheral, int pkt_type, char *buf, int len)
 	return err;
 }
 
-int diag_dci_copy_health_stats(struct diag_dci_health_stats *stats, int proc)
+int diag_dci_copy_health_stats(struct diag_dci_health_stats_proc *stats_proc)
 {
 	struct diag_dci_client_tbl *entry = NULL;
 	struct diag_dci_health_t *health = NULL;
-	int i;
+	struct diag_dci_health_stats *stats = NULL;
+	int i, proc;
 
-	if (!stats)
+	if (!stats_proc)
 		return -EINVAL;
 
+	stats = &stats_proc->health;
+	proc = stats_proc->proc;
 	if (proc < ALL_PROC || proc > APPS_DATA)
 		return -EINVAL;
 
-	entry = diag_dci_get_client_entry();
+	entry = diag_dci_get_client_entry(stats_proc->client_id);
 	if (!entry)
 		return DIAG_DCI_NOT_SUPPORTED;
 
@@ -2357,7 +2367,6 @@ int diag_dci_copy_health_stats(struct diag_dci_health_stats *stats, int proc)
 		}
 		return DIAG_DCI_NO_ERROR;
 	}
-
 
 	for (i = 0; i < NUM_DCI_PROC; i++) {
 		health = &entry->buffers[i].health;

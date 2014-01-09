@@ -244,9 +244,10 @@ struct diag_nrt_wake_lock {
 };
 
 struct real_time_vote_t {
+	int client_id;
 	uint16_t proc;
 	uint8_t real_time_vote;
-};
+} __packed;
 
 /* This structure is defined in USB header file */
 #ifndef CONFIG_DIAG_OVER_USB
