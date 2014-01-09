@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -303,8 +303,10 @@ static int ufsdbg_host_regs_show(struct seq_file *file, void *data)
 	struct ufs_hba *hba = (struct ufs_hba *)file->private;
 
 	ufshcd_hold(hba, false);
+	pm_runtime_get_sync(hba->dev);
 	ufsdbg_pr_buf_to_std(file, hba->mmio_base, UFSHCI_REG_SPACE_SIZE,
-			"host regs");
+				"host regs");
+	pm_runtime_put_sync(hba->dev);
 	ufshcd_release(hba);
 	return 0;
 }
