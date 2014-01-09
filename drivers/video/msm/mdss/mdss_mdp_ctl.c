@@ -92,6 +92,7 @@ struct mdss_mdp_prefill_params {
 	bool is_fbc;
 	bool is_bwc;
 	bool is_tile;
+	bool is_hflip;
 };
 
 static inline bool mdss_mdp_perf_is_caf(struct mdss_mdp_pipe *pipe)
@@ -136,6 +137,41 @@ static inline u32 mdss_mdp_calc_y_scaler_bytes(struct mdss_mdp_prefill_params
 	return y_scaler_bytes;
 }
 
+static inline u32 mdss_mdp_calc_latency_buf_bytes(struct mdss_mdp_prefill_params
+	*params, struct mdss_prefill_data *prefill)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 latency_lines, latency_buf_bytes;
+
+	if (params->is_yuv) {
+		if (params->is_bwc) {
+			latency_lines = 4;
+			latency_buf_bytes = params->src_w * params->bpp *
+				latency_lines;
+		} else {
+			latency_lines = 2;
+			latency_buf_bytes = ALIGN(params->src_w * params->bpp *
+				latency_lines, mdata->smp_mb_size) * 2;
+		}
+	} else {
+		if (params->is_tile) {
+			latency_lines = 8;
+			latency_buf_bytes = params->src_w * params->bpp *
+				latency_lines;
+		} else if (params->is_bwc) {
+			latency_lines = 4;
+			latency_buf_bytes = params->src_w * params->bpp *
+				latency_lines;
+		} else {
+			latency_lines = 2;
+			latency_buf_bytes = ALIGN(params->src_w * params->bpp *
+				latency_lines, mdata->smp_mb_size);
+		}
+	}
+
+	return latency_buf_bytes;
+}
+
 static inline u32 mdss_mdp_calc_scaling_w_h(u32 val, u32 src_h, u32 dst_h,
 	u32 src_w, u32 dst_w)
 {
@@ -153,13 +189,19 @@ static u32 mdss_mdp_perf_calc_pipe_prefill_video(struct mdss_mdp_prefill_params
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_prefill_data *prefill = &mdata->prefill_data;
 	u32 prefill_bytes;
+	u32 latency_buf_bytes;
 	u32 y_buf_bytes = 0;
 	u32 y_scaler_bytes;
 	u32 pp_bytes = 0, pp_lines = 0;
 	u32 post_scaler_bytes;
 	u32 fbc_bytes = 0;
 
-	prefill_bytes = prefill->ot_bytes + params->smp_bytes;
+	prefill_bytes = prefill->ot_bytes;
+
+	latency_buf_bytes = mdss_mdp_calc_latency_buf_bytes(params, prefill);
+	prefill_bytes += latency_buf_bytes;
+	pr_debug("latency_buf_bytes bw_calc=%d actual=%d\n", latency_buf_bytes,
+		params->smp_bytes);
 
 	if (params->is_yuv)
 		y_buf_bytes = prefill->y_buf_bytes;
@@ -187,9 +229,9 @@ static u32 mdss_mdp_perf_calc_pipe_prefill_video(struct mdss_mdp_prefill_params
 	}
 	prefill_bytes += fbc_bytes;
 
-	pr_debug("ot=%d smp=%d y_buf=%d pp_lines=%d pp=%d\n", prefill->ot_bytes,
-		params->smp_bytes, y_buf_bytes, pp_lines, pp_bytes);
-	pr_debug("post_sc=%d fbc_bytes=%d\n", post_scaler_bytes, fbc_bytes);
+	pr_debug("ot=%d y_buf=%d pp_lines=%d pp=%d post_sc=%d fbc_bytes=%d\n",
+		prefill->ot_bytes, y_buf_bytes, pp_lines, pp_bytes,
+		post_scaler_bytes, fbc_bytes);
 
 	return prefill_bytes;
 }
@@ -201,7 +243,7 @@ static u32 mdss_mdp_perf_calc_pipe_prefill_cmd(struct mdss_mdp_prefill_params
 	struct mdss_prefill_data *prefill = &mdata->prefill_data;
 	u32 prefill_bytes;
 	u32 ot_bytes = 0;
-	u32 latency_lines = 0, latency_buf_bytes;
+	u32 latency_lines, latency_buf_bytes;
 	u32 y_buf_bytes = 0;
 	u32 y_scaler_bytes;
 	u32 fbc_cmd_lines = 0, fbc_cmd_bytes = 0;
@@ -216,6 +258,10 @@ static u32 mdss_mdp_perf_calc_pipe_prefill_cmd(struct mdss_mdp_prefill_params
 		((params->dst_y <= 1) && params->is_fbc)) {
 		if (params->is_bwc || params->is_tile)
 			latency_lines = 4;
+		else if (!params->is_caf && params->is_hflip)
+			latency_lines = 1;
+		else
+			latency_lines = 0;
 		latency_buf_bytes = params->src_w * params->bpp * latency_lines;
 		prefill_bytes += latency_buf_bytes;
 
@@ -231,7 +277,8 @@ static u32 mdss_mdp_perf_calc_pipe_prefill_cmd(struct mdss_mdp_prefill_params
 		ot_bytes = prefill->ot_bytes;
 		prefill_bytes += ot_bytes;
 
-		latency_buf_bytes = params->smp_bytes;
+		latency_buf_bytes = mdss_mdp_calc_latency_buf_bytes(params,
+			prefill);
 		prefill_bytes += latency_buf_bytes;
 
 		if (params->is_yuv)
@@ -352,6 +399,7 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	prefill_params.is_fbc = is_fbc;
 	prefill_params.is_bwc = pipe->bwc_mode;
 	prefill_params.is_tile = pipe->src_fmt->tile;
+	prefill_params.is_hflip = pipe->flags & MDP_FLIP_LR;
 
 	if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
 		perf->prefill_bytes = (mixer->ctl->is_video_mode) ?
