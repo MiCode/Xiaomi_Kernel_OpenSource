@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,6 +51,14 @@ enum usb_bam_event_type {
 	USB_BAM_EVENT_WAKEUP_PIPE = 0,	/* Wake a pipe */
 	USB_BAM_EVENT_WAKEUP,		/* Wake a bam (first pipe waked) */
 	USB_BAM_EVENT_INACTIVITY,	/* Inactivity on all pipes */
+};
+
+enum usb_bam_pipe_type {
+	USB_BAM_PIPE_BAM2BAM = 0,	/* Connection is BAM2BAM (default) */
+	USB_BAM_PIPE_SYS2BAM,		/* Connection is SYS2BAM or BAM2SYS
+					 * depending on usb_bam_pipe_dir
+					 */
+	USB_BAM_MAX_PIPE_TYPES,
 };
 
 struct usb_bam_connect_ipa_params {
@@ -130,6 +138,7 @@ struct usb_bam_pipe_connect {
 	enum usb_bam bam_type;
 	enum usb_bam_mode bam_mode;
 	enum peer_bam peer_bam;
+	enum usb_bam_pipe_type pipe_type;
 	u32 src_phy_addr;
 	u32 src_pipe_index;
 	u32 dst_phy_addr;
@@ -368,6 +377,16 @@ void usb_bam_set_qdss_core(const char *qdss_core);
 int usb_bam_get_connection_idx(const char *name, enum peer_bam client,
 	enum usb_bam_pipe_dir dir, enum usb_bam_mode bam_mode, u32 num);
 
+/**
+* Indicates the type of connection the USB side of the connection is.
+*
+* @idx - Pipe number.
+*
+* @type - Type of connection
+*
+* @return 0 on success, negative value on error
+*/
+int usb_bam_get_pipe_type(u8 idx, enum usb_bam_pipe_type *type);
 #else
 static inline int usb_bam_connect(u8 idx, u32 *bam_pipe_idx)
 {
@@ -459,6 +478,11 @@ static inline void usb_bam_set_qdss_core(const char *qdss_core)
 static inline int usb_bam_get_connection_idx(const char *name,
 		enum peer_bam client, enum usb_bam_pipe_dir dir,
 		enum usb_bam_mode bam_mode, u32 num)
+{
+	return -ENODEV;
+}
+
+static inline int usb_bam_get_pipe_type(u8 idx, enum usb_bam_pipe_type *type)
 {
 	return -ENODEV;
 }

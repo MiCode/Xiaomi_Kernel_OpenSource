@@ -278,6 +278,9 @@ Optional Properties for Subnode:
 - qcom,src-bam-pipe-index: source BAM pipe index
 - qcom,data-fifo-offset: data fifo offset address
 - qcom,descriptor-fifo-offset: descriptor fifo offset address
+- qcom,pipe-connection-type: type of pipe connection. Can be one of
+	0 - BAM2BAM (default if not specified)
+	1 - SYS2BAM (only supported on UL)
 
 Optional properties :
 - qcom,bam-mode: BAM mode can be one of.
