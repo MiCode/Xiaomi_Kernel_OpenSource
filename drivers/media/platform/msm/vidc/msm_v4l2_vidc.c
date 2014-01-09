@@ -400,7 +400,11 @@ static int __devinit msm_vidc_probe(struct platform_device *pdev)
 	if (core->hfi_type == VIDC_HFI_Q6) {
 		dprintk(VIDC_ERR, "Q6 hfi device probe called\n");
 		nr += MSM_VIDC_MAX_DEVICES;
+		core->id = MSM_VIDC_CORE_Q6;
+	} else {
+		core->id = MSM_VIDC_CORE_VENUS;
 	}
+
 	rc = v4l2_device_register(&pdev->dev, &core->v4l2_dev);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to register v4l2 device\n");
@@ -453,7 +457,7 @@ static int __devinit msm_vidc_probe(struct platform_device *pdev)
 				vidc_driver->num_cores);
 		goto err_cores_exceeded;
 	}
-	core->id = vidc_driver->num_cores++;
+	vidc_driver->num_cores++;
 	mutex_unlock(&vidc_driver->lock);
 
 	core->device = vidc_hfi_initialize(core->hfi_type, core->id,
