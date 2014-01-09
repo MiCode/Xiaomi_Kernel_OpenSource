@@ -13,6 +13,7 @@
 / {
 	aliases {
 		serial0 = &blsp2_uart1;
+		uart1 = &blsp2_uart4;
 	};
 
 	memory {
@@ -185,8 +186,6 @@
 };
 
 &blsp2_uart4 {
-	qcom,tx-gpio = <&msmgpio 112 0>;
-	qcom,rx-gpio = <&msmgpio 113 0>;
 	status = "ok";
 };
 

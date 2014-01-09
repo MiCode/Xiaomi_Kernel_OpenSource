@@ -16,6 +16,7 @@
 / {
 	aliases {
 		serial0 = &blsp2_uart1;
+		uart1 = &blsp2_uart0;
 	};
 
 	bt_qca6174 {
@@ -129,8 +130,6 @@
 };
 
 &blsp2_uart0 {
-	qcom,tx-gpio = <&msmgpio 130 0>;
-	qcom,rx-gpio = <&msmgpio 131 0>;
 	status = "ok";
 };
 

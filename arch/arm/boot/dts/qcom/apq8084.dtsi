@@ -179,11 +179,30 @@
 	};
 
 	blsp2_uart0: uart@f995d000 {
-		compatible = "qcom,msm-lsuart-v14";
-		reg = <0xf995d000 0x1000>;
-		interrupts = <0 113 0>;
+		compatible = "qcom,msm-hsuart-v14";
+		reg = <0xf995d000 0x1000>,
+			<0xf9944000 0x19000>;
+		reg-names = "core_mem", "bam_mem";
 		status = "disabled";
 
+		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&blsp2_uart0>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 113 0
+						1 &intc 0 239 0
+						2 &msmgpio 131 0>;
+
+		qcom,tx-gpio = <&msmgpio 130 0>;
+		qcom,rx-gpio = <&msmgpio 131 0>;
+		qcom,inject-rx-on-wakeup = <1>;
+		qcom,rx-char-to-inject = <0x18>;
+
+		qcom,wakeup_irq = <2>;
+		qcom,bam-tx-ep-pipe-index = <0>;
+		qcom,bam-rx-ep-pipe-index = <1>;
 		qcom,msm-bus,name = "blsp2_uart0";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
@@ -225,17 +244,37 @@
 	};
 
 	blsp2_uart4: uart@f9961000 { /* BLSP2 UART4 */
-		compatible = "qcom,msm-lsuart-v14";
-		reg = <0xf9961000 0x1000>;
-		interrupts = <0 117 0>;
-		status = "disabled";
+		compatible = "qcom,msm-hsuart-v14";
+		reg = <0xf9961000 0x1000>,
+				<0xf9944000 0x19000>;
+		reg-names = "core_mem", "bam_mem";
 
+		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&blsp2_uart4>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 117 0
+						1 &intc 0 239 0
+						2 &msmgpio 113 0>;
+
+		qcom,tx-gpio = <&msmgpio 112 0>;
+		qcom,rx-gpio = <&msmgpio 113 0>;
+		qcom,inject-rx-on-wakeup = <1>;
+		qcom,rx-char-to-inject = <0x18>;
+
+		qcom,wakeup_irq = <2>;
+		qcom,bam-tx-ep-pipe-index = <8>;
+		qcom,bam-rx-ep-pipe-index = <9>;
 		qcom,msm-bus,name = "blsp2_uart4";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<84 512 0 0>,
 				<84 512 500 800>;
+
+		status = "disabled";
 	};
 
 	qcom,cache_erp {
