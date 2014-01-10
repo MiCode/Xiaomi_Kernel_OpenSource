@@ -1140,16 +1140,6 @@ config MSM_GSBI9_UART
 	help
 	  This enables GSBI9 configured into UART.
 
-config MSM_SHOW_RESUME_IRQ
-	bool "Enable logging of interrupts that could have caused resume"
-	depends on (ARM_GIC || PMIC8058)
-	default y if PMIC8058
-	default n
-	help
-		This option logs wake up interrupts that have triggered just before
-		the resume loop unrolls. Say Y if you want to debug why the system
-		resumed.
-
 config MSM_ULTRASOUND_B
 	bool "QDSP6V2 HW Ultrasound support"
 	help
