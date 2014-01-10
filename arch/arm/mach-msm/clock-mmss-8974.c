@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -988,20 +988,22 @@ static struct rcg_clk esc1_clk_src = {
 	},
 };
 
-static struct clk_freq_tbl ftbl_mdss_extpclk_clk[] = {
-	F_MM(148500000, hdmipll, 1, 0, 0),
+static struct clk_freq_tbl exptclk_freq_tbl[] = {
+	{
+		.src_clk = &hdmipll_clk_src.c,
+		.div_src_val = BVAL(10, 8, hdmipll_mm_source_val),
+	},
 	F_END
 };
 
 static struct rcg_clk extpclk_clk_src = {
 	.cmd_rcgr_reg = EXTPCLK_CMD_RCGR,
-	.freq_tbl = ftbl_mdss_extpclk_clk,
-	.current_freq = ftbl_mdss_extpclk_clk,
+	.current_freq = exptclk_freq_tbl,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
 		.dbg_name = "extpclk_clk_src",
 		.parent = &hdmipll_clk_src.c,
-		.ops = &clk_ops_rcg_hdmi,
+		.ops = &clk_ops_byte,
 		VDD_DIG_FMAX_MAP2(LOW, 148500000, NOMINAL, 297000000),
 		CLK_INIT(extpclk_clk_src.c),
 	},
