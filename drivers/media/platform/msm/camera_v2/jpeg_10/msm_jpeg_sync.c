@@ -721,6 +721,9 @@ int msm_jpeg_ioctl_hw_cmds(struct msm_jpeg_device *pgmn_dev,
 			kfree(hw_cmds_p);
 			return -EFAULT;
 		}
+	} else {
+		kfree(hw_cmds_p);
+		return is_copy_to_user;
 	}
 	kfree(hw_cmds_p);
 	return 0;
