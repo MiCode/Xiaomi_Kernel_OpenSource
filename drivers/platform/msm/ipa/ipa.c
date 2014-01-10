@@ -205,6 +205,8 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
+		/* null terminate the string */
+		nat_mem.dev_name[IPA_RESOURCE_NAME_MAX - 1] = '\0';
 
 		if (allocate_nat_device(&nat_mem)) {
 			retval = -EFAULT;
