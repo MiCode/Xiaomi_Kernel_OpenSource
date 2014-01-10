@@ -1,6 +1,6 @@
 /* Qualcomm Crypto Engine driver.
  *
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -279,7 +279,7 @@ static int _ce_setup_hash(struct qce_device *pce_dev,
 	struct sps_command_element *pce = NULL;
 	bool use_hw_key = false;
 	bool use_pipe_key = false;
-	uint32_t authk_size_in_word = SHA_HMAC_KEY_SIZE/sizeof(uint32_t);
+	uint32_t authk_size_in_word = sreq->authklen/sizeof(uint32_t);
 	uint32_t auth_cfg;
 
 	if ((sreq->alg == QCE_HASH_SHA1_HMAC) ||
@@ -1049,8 +1049,7 @@ static int _ce_setup_hash_direct(struct qce_device *pce_dev,
 	int i;
 	uint32_t mackey32[SHA_HMAC_KEY_SIZE/sizeof(uint32_t)] = {
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-	uint32_t authk_size_in_word =
-			SHA_HMAC_KEY_SIZE/sizeof(uint32_t);
+	uint32_t authk_size_in_word = sreq->authklen/sizeof(uint32_t);
 	bool sha1 = false;
 	uint32_t auth_cfg = 0;
 
