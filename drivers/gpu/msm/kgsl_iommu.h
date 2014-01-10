@@ -47,7 +47,7 @@
 #define KGSL_IOMMU_V1_FSYNR0_WNR_SHIFT		4
 
 /* TTBR0 register fields */
-#ifdef CONFIG_ARM_LPAE
+#ifdef CONFIG_IOMMU_LPAE
 #define KGSL_IOMMU_CTX_TTBR0_ADDR_MASK_LPAE	0x000000FFFFFFFFE0ULL
 #define KGSL_IOMMU_CTX_TTBR0_ADDR_MASK KGSL_IOMMU_CTX_TTBR0_ADDR_MASK_LPAE
 #else
@@ -124,6 +124,18 @@ struct kgsl_iommu_register_list {
 		iommu->iommu_reg_list[KGSL_IOMMU_CTX_##REG].reg_offset +\
 		(ctx << KGSL_IOMMU_CTX_SHIFT) +				\
 		iommu->ctx_offset)
+
+#ifdef CONFIG_IOMMU_LPAE
+#define KGSL_IOMMU_GET_CTX_REG_TTBR0(iommu, iommu_unit, ctx)		\
+		KGSL_IOMMU_GET_CTX_REG_Q(iommu, iommu_unit, ctx, TTBR0)
+#define KGSL_IOMMU_SET_CTX_REG_TTBR0(iommu, iommu_unit, ctx, val)	\
+		KGSL_IOMMU_SET_CTX_REG_Q(iommu, iommu_unit, ctx, TTBR0, val)
+#else
+#define KGSL_IOMMU_GET_CTX_REG_TTBR0(iommu, iommu_unit, ctx)		\
+		KGSL_IOMMU_GET_CTX_REG(iommu, iommu_unit, ctx, TTBR0)
+#define KGSL_IOMMU_SET_CTX_REG_TTBR0(iommu, iommu_unit, ctx, val)	\
+		KGSL_IOMMU_SET_CTX_REG(iommu, iommu_unit, ctx, TTBR0, val)
+#endif
 
 /* Gets the lsb value of pagetable */
 #define KGSL_IOMMMU_PT_LSB(iommu, pt_val)				\
