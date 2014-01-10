@@ -140,6 +140,15 @@ config REGULATOR_MC13892
 	  Say y here to support the regulators found on the Freescale MC13892
 	  PMIC.
 
+config REGULATOR_MEM_ACC
+	tristate "QTI Memory accelerator regulator driver"
+	help
+	 Say y here to enable the memory accelerator driver for Qualcomm
+	 Technologies (QTI) chips. The accelerator controls delays applied
+	 for memory accesses.
+	 This driver configures the power-mode (corner) for the memory
+	 accelerator.
+
 config REGULATOR_ISL6271A
 	tristate "Intersil ISL6271A Power regulator"
 	depends on I2C
