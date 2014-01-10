@@ -666,6 +666,8 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 	if (rc)
 		return rc;
 
+	init_completion(&d->stop_ack);
+
 	d->subsys_desc.name = d->desc.name;
 	d->subsys_desc.owner = THIS_MODULE;
 	d->subsys_desc.dev = &pdev->dev;
@@ -690,9 +692,6 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 		goto err_subsys;
 	}
 
-	if (d->subsys_desc.stop_ack_irq)
-		init_completion(&d->stop_ack);
-
 	return 0;
 err_subsys:
 	destroy_ramdump_device(d->ramdump_dev);
@@ -707,9 +706,7 @@ static int pil_tz_driver_exit(struct platform_device *pdev)
 	struct pil_tz_data *d = platform_get_drvdata(pdev);
 
 	subsys_unregister(d->subsys);
-
 	destroy_ramdump_device(d->ramdump_dev);
-
 	pil_desc_release(&d->desc);
 
 	return 0;
