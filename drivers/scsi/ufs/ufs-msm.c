@@ -1754,6 +1754,13 @@ static int msm_ufs_phy_power_on(struct msm_ufs_phy *phy)
 	if (err)
 		goto out;
 
+	writel_relaxed(0x1, phy->mmio + UFS_PHY_POWER_DOWN_CONTROL);
+	/*
+	 * Before any transactions involving PHY, ensure PHY knows that it's
+	 * analog rail is powered ON.
+	 */
+	mb();
+
 	/* vdda_pll also enables ref clock LDOs so enable it first */
 	err = msm_ufs_phy_enable_vreg(phy, &phy->vdda_pll);
 	if (err)
@@ -2013,6 +2020,12 @@ static int msm_ufs_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	 */
 	if (!ufshcd_is_link_active(hba)) {
 		msm_ufs_disable_phy_ref_clk(phy);
+		writel_relaxed(0x0, phy->mmio + UFS_PHY_POWER_DOWN_CONTROL);
+		/*
+		 * Ensure PHY knows that PHY analog rail is going to be powered
+		 * down.
+		 */
+		mb();
 		msm_ufs_phy_disable_vreg(phy, &phy->vdda_phy);
 		msm_ufs_phy_disable_vreg(phy, &phy->vdda_pll);
 	}
