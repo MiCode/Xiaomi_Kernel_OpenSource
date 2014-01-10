@@ -451,7 +451,7 @@ ssize_t smd_pkt_read(struct file *file,
 		E_SMD_PKT_SSR(smd_pkt_devp);
 		return notify_reset(smd_pkt_devp);
 	}
-	D_READ("Begin %s on smd_pkt_dev id:%d buffer_size %d\n",
+	D_READ("Begin %s on smd_pkt_dev id:%d buffer_size %zu\n",
 		__func__, smd_pkt_devp->i, count);
 
 wait_for_packet:
@@ -503,7 +503,7 @@ wait_for_packet:
 	}
 
 	if ((uint32_t)pkt_size > count) {
-		pr_err("%s: failure on smd_pkt_dev id: %d - packet size %d > buffer size %d,",
+		pr_err("%s: failure on smd_pkt_dev id: %d - packet size %d > buffer size %zu,",
 			__func__, smd_pkt_devp->i,
 			pkt_size, count);
 		mutex_unlock(&smd_pkt_devp->rx_lock);
@@ -587,7 +587,7 @@ ssize_t smd_pkt_write(struct file *file,
 		/* notify client that a reset occurred */
 		return notify_reset(smd_pkt_devp);
 	}
-	D_WRITE("Begin %s on smd_pkt_dev id:%d data_size %d\n",
+	D_WRITE("Begin %s on smd_pkt_dev id:%d data_size %zu\n",
 		__func__, smd_pkt_devp->i, count);
 
 	mutex_lock(&smd_pkt_devp->tx_lock);
@@ -645,7 +645,7 @@ ssize_t smd_pkt_write(struct file *file,
 	mutex_unlock(&smd_pkt_devp->tx_lock);
 	D_WRITE_DUMP_BUFFER("Write: ",
 			    (bytes_written > 16 ? 16 : bytes_written), buf);
-	D_WRITE("Finished %s on smd_pkt_dev id:%d %d bytes\n",
+	D_WRITE("Finished %s on smd_pkt_dev id:%d %zu bytes\n",
 		__func__, smd_pkt_devp->i, count);
 
 	return count;
