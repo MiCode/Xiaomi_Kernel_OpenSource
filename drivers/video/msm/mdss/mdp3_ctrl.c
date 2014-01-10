@@ -890,11 +890,7 @@ static int mdp3_overlay_set(struct msm_fb_data_type *mfd,
 	mdp3_session->overlay = *req;
 	if (req->id == MSMFB_NEW_REQUEST) {
 		if (dma->source_config.stride != stride ||
-				dma->source_config.width != req->src.width ||
-				dma->source_config.height != req->src.height ||
 				dma->source_config.format != format) {
-			dma->source_config.width = req->src.width;
-			dma->source_config.height = req->src.height,
 			dma->source_config.format = format;
 			dma->source_config.stride = stride;
 			mdp3_clk_enable(1, 0);
@@ -916,7 +912,6 @@ static int mdp3_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
 	struct mdp3_session_data *mdp3_session = mfd->mdp.private1;
 	struct fb_info *fbi = mfd->fbi;
 	struct fb_fix_screeninfo *fix;
-	struct mdss_panel_info *panel_info = mfd->panel_info;
 	int format;
 
 	fix = &fbi->fix;
@@ -925,8 +920,6 @@ static int mdp3_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
 
 	if (mdp3_session->overlay.id == ndx && ndx == 1) {
 		struct mdp3_dma *dma = mdp3_session->dma;
-		dma->source_config.width = panel_info->xres,
-		dma->source_config.height = panel_info->yres,
 		dma->source_config.format = format;
 		dma->source_config.stride = fix->line_length;
 		mdp3_clk_enable(1, 0);
