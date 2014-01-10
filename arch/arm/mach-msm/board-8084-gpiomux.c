@@ -52,12 +52,6 @@ static struct gpiomux_setting ap2mdm_soft_reset_cfg = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
-static struct gpiomux_setting ap2mdm_chnlrdy = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_DOWN,
-};
-
 static struct gpiomux_setting ap2mdm_wakeup = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_8MA,
@@ -127,13 +121,6 @@ static struct msm_gpiomux_config mdm_configs[] __initdata = {
 		.gpio = 128,
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &ap2mdm_soft_reset_cfg,
-		}
-	},
-	/* AP2MDM_CHNLRDY */
-	{
-		.gpio = 106,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &ap2mdm_chnlrdy,
 		}
 	},
 	/* AP2MDM_WAKEUP */
@@ -664,6 +651,20 @@ static struct gpiomux_setting hsic_wakeup_sus_cfg = {
 	.dir = GPIOMUX_IN,
 };
 
+static struct gpiomux_setting hsic_ap2mdm_chlrdy_act_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
+static struct gpiomux_setting hsic_ap2mdm_chlrdy_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
 static struct msm_gpiomux_config apq8084_hsic_configs[] = {
 	{
 		.gpio = 134,               /*HSIC_STROBE */
@@ -685,6 +686,13 @@ static struct msm_gpiomux_config apq8084_hsic_configs[] = {
 			[GPIOMUX_ACTIVE] = &hsic_wakeup_act_cfg,
 			[GPIOMUX_SUSPENDED] = &hsic_wakeup_sus_cfg,
 		},
+	},
+	{
+		.gpio = 106,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &hsic_ap2mdm_chlrdy_act_cfg,
+			[GPIOMUX_SUSPENDED] = &hsic_ap2mdm_chlrdy_sus_cfg,
+		}
 	},
 };
 
