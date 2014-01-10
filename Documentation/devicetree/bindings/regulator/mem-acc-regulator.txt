@@ -1,0 +1,52 @@
+Qualcomm Technologies Memory Accelerator
+
+Memory accelerator configures the power-mode (corner) for the
+accelerator.
+
+Required properties:
+- compatible:			Must be "qcom,mem-acc-regulator"
+- regulator-name:		A string used to describe the regulator
+- regulator-min-microvolt:	Minimum corner value as min constraint, which
+				should be 1 for SVS corner
+- regulator-max-microvolt:	Maximum corner value as max constraint, which
+				should be 4 for SUPER_TURBO or 3 for TURBO
+- qcom,corner-acc-map		Array which maps the APC (application processor)
+				corner value to the accelerator corner.
+				[0] maps APC SVS corner (1) to accelerator SVS corner
+				[1] maps APC NOMINAL corner (2) to accelerator NOMINAL corner
+				[2] maps APC TURBO corner (3) to accelerator TURBO corner
+
+Optional properties:
+- reg:				Register addresses for acc-en and acc-sel-l1 acc-sel-l2 control.
+- reg-names:			Register names. Must be "acc-sel-l1", "acc-sel-l2", "acc-en".
+				A given mem-acc-regulator driver must have "acc-sel-l1" or
+				"acc-sel-l2" reg-names property and related register address
+				property.
+- qcom,acc-en-bit-pos		Array which specifies bit positions in the
+				'acc-en' register. Setting these bits forces the
+				the acclerator to use the corner value specified
+				in the 'acc-sel-l1' and 'acc-sel-l2' register.
+- qcom,acc-sel-l1-bit-pos	Array which specifies bit positions in the
+				'acc-sel-l1' register. Each element in this array
+				is the LSB of a 2-bit value. This 2-bit value
+				specifies the corner value used by the
+				accelerator for L1 cache.
+- qcom,acc-sel-l2-bit-pos	Array which specifies bit positions in the
+				'acc-sel-l2' register. Each element in this array
+				is the LSB of a 2-bit value. This 2-bit value
+				specifies the corner value used by the
+				accelerator for L2 cache.
+
+mem_acc_vreg_corner: regulator@fd4aa044 {
+	compatible = "qcom,mem-acc-regulator";
+	reg = <0xfd4aa048 0x1>, <0xfd4aa044 0x1>, <0xfd4af000 0x1>;
+	reg-names = "acc-en", "acc-sel-l1" , "acc-sel-l2";
+	regulator-name = "mem_acc_corner";
+	regulator-min-microvolt = <1>;
+	regulator-max-microvolt = <3>;
+
+	qcom,acc-en-bit-pos = <0>;
+	qcom,acc-sel-l1-bit-pos = <0>;
+	qcom,acc-sel-l2-bit-pos = <0>;
+	qcom,corner-acc-map = <0 1 3>;
+};
