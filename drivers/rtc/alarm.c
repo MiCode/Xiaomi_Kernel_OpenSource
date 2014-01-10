@@ -71,9 +71,11 @@ struct alarm_queue alarms[ANDROID_ALARM_TYPE_COUNT];
 static bool suspended;
 static long power_on_alarm;
 
+static void alarm_shutdown(struct platform_device *dev);
 void set_power_on_alarm(long secs)
 {
 	power_on_alarm = secs;
+	alarm_shutdown(NULL);
 }
 
 
