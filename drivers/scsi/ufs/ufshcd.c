@@ -2943,7 +2943,7 @@ static int ufshcd_link_startup(struct ufs_hba *hba)
 	if (ret) {
 		/* failed to get the link up... retire */
 		goto out;
-	} else {
+	} else if (hba->quirks & UFSHCD_BROKEN_LCC) {
 		int hc_tx_lanes;
 		int i;
 
