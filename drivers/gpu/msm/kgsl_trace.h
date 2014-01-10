@@ -69,23 +69,15 @@ TRACE_EVENT(kgsl_issueibcmds,
 
 	TP_printk(
 		"d_name=%s ctx=%u ib=0x0 numibs=%u ts=%u "
-		"flags=0x%x(%s) result=%d type=%s",
+		"flags=%s result=%d type=%s",
 		__get_str(device_name),
 		__entry->drawctxt_id,
 		__entry->numibs,
 		__entry->timestamp,
-		__entry->flags,
 		__entry->flags ? __print_flags(__entry->flags, "|",
-			{ KGSL_CMDBATCH_SUBMIT_IB_LIST, "IB_LIST" },
-			{ KGSL_CMDBATCH_CTX_SWITCH, "CTX_SWITCH" },
-			{ KGSL_CMDBATCH_SYNC, "SYNC" },
-			{ KGSL_CMDBATCH_END_OF_FRAME, "EOF" },
-			{ KGSL_CMDBATCH_PWR_CONSTRAINT, "PWR_CONSTRAINT" },
-			{ KGSL_CMDBATCH_MEMLIST, "MEMLIST" })
-			: "None",
+						KGSL_CMDBATCH_FLAGS) : "None",
 		__entry->result,
-		__print_symbolic(__entry->drawctxt_type,
-			ADRENO_DRAWCTXT_TYPES)
+		__print_symbolic(__entry->drawctxt_type, KGSL_CONTEXT_TYPES)
 	)
 );
 
@@ -678,29 +670,30 @@ TRACE_EVENT(kgsl_context_create,
 		__string(device_name, device->name)
 		__field(unsigned int, id)
 		__field(unsigned int, flags)
+		__field(unsigned int, priority)
+		__field(unsigned int, type)
 	),
 
 	TP_fast_assign(
 		__assign_str(device_name, device->name);
 		__entry->id = context->id;
-		__entry->flags = flags;
+		__entry->flags = flags & ~(KGSL_CONTEXT_PRIORITY_MASK |
+						KGSL_CONTEXT_TYPE_MASK);
+		__entry->priority =
+			(flags & KGSL_CONTEXT_PRIORITY_MASK)
+				>> KGSL_CONTEXT_PRIORITY_SHIFT;
+		__entry->type =
+			(flags & KGSL_CONTEXT_TYPE_MASK)
+				>> KGSL_CONTEXT_TYPE_SHIFT;
 	),
 
 	TP_printk(
-		"d_name=%s ctx=%u flags=0x%x %s priority=%u",
-		__get_str(device_name), __entry->id, __entry->flags,
+		"d_name=%s ctx=%u flags=%s priority=%u type=%s",
+		__get_str(device_name), __entry->id,
 		__entry->flags ? __print_flags(__entry->flags, "|",
-			{ KGSL_CONTEXT_NO_GMEM_ALLOC , "NO_GMEM_ALLOC" },
-			{ KGSL_CONTEXT_CTX_SWITCH, "CTX_SWITCH" },
-			{ KGSL_CONTEXT_PREAMBLE, "PREAMBLE" },
-			{ KGSL_CONTEXT_PER_CONTEXT_TS, "PER_CONTEXT_TS" },
-			{ KGSL_CONTEXT_USER_GENERATED_TS, "USER_GENERATED_TS" },
-			{ KGSL_CONTEXT_NO_FAULT_TOLERANCE, "NO_GFT" },
-			{ KGSL_CONTEXT_PWR_CONSTRAINT, "PWR_CONSTRAINT" })
-			: "None",
-		(__entry->flags & KGSL_CONTEXT_PRIORITY_MASK) >>
-			KGSL_CONTEXT_PRIORITY_SHIFT
-
+						KGSL_CONTEXT_FLAGS) : "None",
+		__entry->priority,
+		__print_symbolic(__entry->type, KGSL_CONTEXT_TYPES)
 	)
 );
 

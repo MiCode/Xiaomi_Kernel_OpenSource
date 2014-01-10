@@ -381,7 +381,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 			eoptimestamp));
 
 		/* save pagefault timestamp for GFT */
-		set_bit(KGSL_CONTEXT_PAGEFAULT, &context->priv);
+		set_bit(KGSL_CONTEXT_PRIV_PAGEFAULT, &context->priv);
 		context->pagefault_ts = curr_global_ts;
 
 		kgsl_context_put(context);

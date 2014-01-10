@@ -85,6 +85,31 @@ enum kgsl_event_results {
 	{ KGSL_EVENT_RETIRED, "retired" }, \
 	{ KGSL_EVENT_CANCELLED, "cancelled" }
 
+#define KGSL_CONTEXT_FLAGS \
+	{ KGSL_CONTEXT_NO_GMEM_ALLOC , "NO_GMEM_ALLOC" }, \
+	{ KGSL_CONTEXT_PREAMBLE, "PREAMBLE" }, \
+	{ KGSL_CONTEXT_TRASH_STATE, "TRASH_STATE" }, \
+	{ KGSL_CONTEXT_CTX_SWITCH, "CTX_SWITCH" }, \
+	{ KGSL_CONTEXT_PER_CONTEXT_TS, "PER_CONTEXT_TS" }, \
+	{ KGSL_CONTEXT_USER_GENERATED_TS, "USER_TS" }, \
+	{ KGSL_CONTEXT_NO_FAULT_TOLERANCE, "NO_FT" }, \
+	{ KGSL_CONTEXT_PWR_CONSTRAINT, "PWR" }, \
+	{ KGSL_CONTEXT_SAVE_GMEM, "SAVE_GMEM" }
+
+#define KGSL_CMDBATCH_FLAGS \
+	{ KGSL_CMDBATCH_CTX_SWITCH, "CTX_SWITCH" }, \
+	{ KGSL_CMDBATCH_SYNC, "SYNC" }, \
+	{ KGSL_CMDBATCH_END_OF_FRAME, "EOF" }, \
+	{ KGSL_CMDBATCH_PWR_CONSTRAINT, "PWR_CONSTRAINT" }, \
+	{ KGSL_CMDBATCH_SUBMIT_IB_LIST, "IB_LIST" }
+
+#define KGSL_CONTEXT_TYPES \
+	{ KGSL_CONTEXT_TYPE_ANY, "ANY" }, \
+	{ KGSL_CONTEXT_TYPE_GL, "GL" }, \
+	{ KGSL_CONTEXT_TYPE_CL, "CL" }, \
+	{ KGSL_CONTEXT_TYPE_C2D, "C2D" }, \
+	{ KGSL_CONTEXT_TYPE_RS, "RS" }
+
 #define KGSL_CONTEXT_ID(_context) \
 	((_context != NULL) ? (_context)->id : KGSL_MEMSTORE_GLOBAL)
 
@@ -403,11 +428,22 @@ struct kgsl_device {
 	.ver_minor = DRIVER_VERSION_MINOR
 
 
-/* bits for struct kgsl_context.priv */
-/* the context has been destroyed by userspace and is no longer using the gpu */
-#define KGSL_CONTEXT_DETACHED 0
-/* the context has caused a pagefault */
-#define KGSL_CONTEXT_PAGEFAULT 1
+/**
+ * enum bits for struct kgsl_context.priv
+ * @KGSL_CONTEXT_PRIV_DETACHED  - The context has been destroyed by userspace
+ *	and is no longer using the gpu.
+ * @KGSL_CONTEXT_PRIV_INVALID - The context has been destroyed by the kernel
+ *	because it caused a GPU fault.
+ * @KGSL_CONTEXT_PRIV_PAGEFAULT - The context has caused a page fault.
+ * @KGSL_CONTEXT_PRIV_DEVICE_SPECIFIC - this value and higher values are
+ *	reserved for devices specific use.
+ */
+enum kgsl_context_priv {
+	KGSL_CONTEXT_PRIV_DETACHED = 0,
+	KGSL_CONTEXT_PRIV_INVALID,
+	KGSL_CONTEXT_PRIV_PAGEFAULT,
+	KGSL_CONTEXT_PRIV_DEVICE_SPECIFIC = 16,
+};
 
 struct kgsl_process_private;
 /**
@@ -687,7 +723,20 @@ kgsl_context_put(struct kgsl_context *context)
  */
 static inline bool kgsl_context_detached(struct kgsl_context *context)
 {
-	return (context == NULL || test_bit(KGSL_CONTEXT_DETACHED,
+	return (context == NULL || test_bit(KGSL_CONTEXT_PRIV_DETACHED,
+						&context->priv));
+}
+
+/**
+ * kgsl_context_invalid() - check if a context is invalid
+ * @context: the context
+ *
+ * Check if a context has been invalidated by the kernel and may no
+ * longer use the GPU.
+ */
+static inline bool kgsl_context_invalid(struct kgsl_context *context)
+{
+	return (context == NULL || test_bit(KGSL_CONTEXT_PRIV_INVALID,
 						&context->priv));
 }
 
