@@ -1963,8 +1963,6 @@ static int msm_ufs_init(struct ufs_hba *hba)
 		hba->spm_lvl = UFS_PM_LVL_3;
 	}
 
-	hba->caps |= UFSHCD_CAP_CLK_GATING |
-			UFSHCD_CAP_HIBERN8_WITH_CLK_GATING;
 	msm_ufs_setup_clocks(hba, true);
 	goto out;
 
