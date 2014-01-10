@@ -351,6 +351,9 @@
 		reg-names = "vpu_csr", "vpu_smem";
 		interrupts = <0 24 0>, <0 26 0>;
 		interrupt-names = "vpu_wdog", "vpu_hfi";
+		qcom,clock-names = "vdp_bus_clk", "core_clk", "vdp_clk",
+			"iface_clk", "bus_clk", "sleep_clk", "cxo_clk",
+			"maple_bus_clk", "prng_clk";
 		qcom,maple-clk-load-freq-tbl = <100000 50000000>,
 			<200000 100000000>,
 			<300000 200000000>,
