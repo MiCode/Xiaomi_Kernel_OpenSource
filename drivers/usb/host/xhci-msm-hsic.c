@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,7 +72,7 @@
 /* PWR_EVENT_IRQ_MASK reg */
 #define LPM_IN_L2_IRQ_MASK	BIT(4)
 
-#define PHY_LPM_WAIT_TIMEOUT_MS	500
+#define PHY_LPM_WAIT_TIMEOUT_MS	5000
 #define ULPI_IO_TIMEOUT_USECS	(10 * 1000)
 
 static u64 dma_mask = DMA_BIT_MASK(64);
@@ -535,6 +535,9 @@ static irqreturn_t mxhci_hsic_pwr_event_irq(int irq, void *data)
 	if (stat & LPM_IN_L2_IRQ_STAT) {
 		xhci_dbg_log_event(&dbg_hsic, NULL, "LPM_IN_L2_IRQ", 0);
 		writel_relaxed(stat, MSM_HSIC_PWR_EVENT_IRQ_STAT);
+
+		/* Ensure irq is acked before turning off clks for lpm */
+		mb();
 		complete(&mxhci->phy_in_lpm);
 	} else {
 		xhci_dbg_log_event(&dbg_hsic, NULL, "spurious pwr evt irq", 0);
@@ -588,18 +591,22 @@ static int mxhci_hsic_suspend(struct mxhci_hsic_hcd *mxhci)
 		return -EBUSY;
 	}
 
+	init_completion(&mxhci->phy_in_lpm);
+	enable_irq(mxhci->pwr_event_irq);
+
 	/* make sure HSIC phy is in LPM */
 	ret = wait_for_completion_timeout(
 			&mxhci->phy_in_lpm,
 			msecs_to_jiffies(PHY_LPM_WAIT_TIMEOUT_MS));
 	if (!ret) {
 		dev_err(mxhci->dev, "HSIC phy failed to enter lpm\n");
-		init_completion(&mxhci->phy_in_lpm);
+		xhci_dbg_log_event(&dbg_hsic, NULL, "Phy suspend failure", 0);
 		enable_irq(hcd->irq);
+		disable_irq(mxhci->pwr_event_irq);
 		return -EBUSY;
 	}
 
-	init_completion(&mxhci->phy_in_lpm);
+	disable_irq(mxhci->pwr_event_irq);
 
 	/* Don't poll the roothubs after bus suspend. */
 	clear_bit(HCD_FLAG_POLL_RH, &hcd->flags);
@@ -1016,6 +1023,8 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 		goto remove_usb3_hcd;
 	}
 
+	/* enable irq only when entering lpm */
+	irq_set_status_flags(mxhci->pwr_event_irq, IRQ_NOAUTOEN);
 	ret = devm_request_irq(&pdev->dev, mxhci->pwr_event_irq,
 				mxhci_hsic_pwr_event_irq,
 				0, "mxhci_hsic_pwr_evt", mxhci);
@@ -1023,8 +1032,6 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "request irq failed (pwr event irq)\n");
 		goto remove_usb3_hcd;
 	}
-
-	init_completion(&mxhci->phy_in_lpm);
 
 	mxhci->wq = create_singlethread_workqueue("mxhci_wq");
 	if (!mxhci->wq) {
