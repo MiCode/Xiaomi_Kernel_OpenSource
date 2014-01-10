@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -56,7 +56,7 @@ struct vsg_msg_ops {
 };
 
 struct vsg_context {
-	struct vsg_buf_info	free_queue, busy_queue;
+	struct vsg_buf_info free_queue, busy_queue;
 	struct vsg_msg_ops vmops;
 	/* All time related values below in nanosecs */
 	int64_t frame_interval, max_frame_interval, frame_interval_variance;
@@ -66,11 +66,14 @@ struct vsg_context {
 	struct vsg_buf_info *last_buffer;
 	int mode;
 	int state;
+	bool vsync_wait;
+	struct timespec delayed_frame_interval;
 };
 
 struct vsg_work {
 	struct vsg_context *context;
 	struct work_struct work;
+	bool work_delayed;
 };
 
 struct vsg_encode_work {
