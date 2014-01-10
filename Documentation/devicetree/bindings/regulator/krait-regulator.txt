@@ -69,6 +69,20 @@ Optional properties:
 Any property defined as part of the core regulator
 binding, defined in regulator.txt, can also be used.
 
+[Third Level Nodes]
+This Third level node represents a regulator which when enabled reduces
+coeff1 component of the load by a defined percentage amount. This Third Level
+Node is optional.
+Required properties:
+- regulator-name:		A string used as a descriptive name for the regulator
+Optional properties:
+- qcom,coeff1-reduction:	percentage to reduce the coeff1 component
+				of the load by. If this is not specified
+				a default of 75 percent is assumed.
+
+Any property defined as part of the core regulator
+binding, defined in regulator.txt, can also be used.
+
 Example:
 	krait_pdn: krait-pdn@f9011000 {
 		reg = <0xf9011000 0x1000>,
@@ -99,5 +113,9 @@ Example:
 			qcom,ldo-threshold-voltage = <850000>;
 			qcom,ldo-delta-voltage = <50000>;
 			qcom,cpu-num = <0>;
+			krait0_adj_reg: regulator@0 {
+				regulator-name = "krait-adjustment0";
+				qcom,coeff1-reduction = <75>;
+			};
 		};
 	};
