@@ -18,6 +18,7 @@
 */
 #ifndef _BMP18X_H
 #define _BMP18X_H
+#include <linux/sensors.h>
 
 #define BMP18X_NAME "bmp18x"
 
@@ -46,13 +47,47 @@ struct bmp18x_data_bus {
 	void	*client;
 };
 
+struct bmp18x_calibration_data {
+	s16 AC1, AC2, AC3;
+	u16 AC4, AC5, AC6;
+	s16 B1, B2;
+	s16 MB, MC, MD;
+};
+
+/* Each client has this additional data */
+struct bmp18x_data {
+	struct	bmp18x_data_bus data_bus;
+	struct	device *dev;
+	struct	mutex lock;
+	struct	bmp18x_calibration_data calibration;
+	struct	sensors_classdev cdev;
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	struct	early_suspend early_suspend;
+#endif
+	struct	input_dev	*input;
+	struct	delayed_work work;
+
+	u8	oversampling_setting;
+	u8	sw_oversampling_setting;
+	u32	raw_temperature;
+	u32	raw_pressure;
+	u32	temp_measurement_period;
+	u32	last_temp_measurement;
+	s32	b6; /* calculated temperature correction coefficient */
+	u32	delay;
+	u32	enable;
+	u32	power_enabled;
+};
+
 struct bmp18x_platform_data {
 	u8	chip_id;
 	u8	default_oversampling;
 	u8	default_sw_oversampling;
 	u32	temp_measurement_period;
+	u32	power_enabled;
 	int	(*init_hw)(struct bmp18x_data_bus *);
 	void	(*deinit_hw)(struct bmp18x_data_bus *);
+	int	(*set_power)(struct bmp18x_data*, int);
 };
 
 int bmp18x_probe(struct device *dev, struct bmp18x_data_bus *data_bus);
