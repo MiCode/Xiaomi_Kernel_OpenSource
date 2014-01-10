@@ -483,22 +483,14 @@ void translate_ctrl_auto_manual_to_api(const void *hfi_data, void *api_data)
 			api->enable, api->auto_mode, api->value);
 }
 
-void translate_ctrl_two_value_to_hfi(const void *api_data, void *hfi_data)
+void translate_range_mapping_to_hfi(const void *api_data, void *hfi_data)
 {
-	const struct vpu_ctrl_two_value *api = api_data;
-	struct vpu_ctrl_two_value *hfi = hfi_data;
+	const struct vpu_ctrl_range_mapping *api = api_data;
+	struct vpu_prop_session_range_mapping *hfi = hfi_data;
 
-	hfi->enable = api->enable ? PROP_TRUE : PROP_FALSE;
-	hfi->value1 = api->value1;
-	hfi->value1 = api->value2;
-}
-
-void translate_ctrl_two_value_to_api(const void *hfi_data, void *api_data)
-{
-	const struct vpu_ctrl_two_value *hfi = hfi_data;
-	struct vpu_ctrl_two_value *api = api_data;
-
-	memcpy(api, hfi, sizeof(*api));
+	hfi->enabled = api->enable ? PROP_TRUE : PROP_FALSE;
+	hfi->y_map_range = api->y_range;
+	hfi->uv_map_range = api->uv_range;
 }
 
 void translate_active_region_param_to_hfi(const void *api_data, void *hfi_data)
@@ -521,11 +513,42 @@ void translate_active_region_param_to_hfi(const void *api_data, void *hfi_data)
 				(hfi_rect++));
 }
 
-
 void translate_active_region_result_to_api(const void *hfi_data, void *api_data)
 {
 	const struct rect *hfi = hfi_data;
 
 	struct v4l2_rect *api = api_data;
 	translate_roi_rect_to_api((struct rect *) hfi, api);
+}
+
+void translate_hqv_to_hfi(const void *api_data, void *hfi_data)
+{
+	const struct vpu_ctrl_hqv *api = api_data;
+	struct vpu_prop_session_auto_hqv *hfi = hfi_data;
+
+	hfi->enabled = api->enable ? PROP_TRUE : PROP_FALSE;
+	hfi->sharpen_strength = api->sharpen_strength;
+	hfi->auto_nr_strength = api->auto_nr_strength;
+}
+
+void translate_timestamp_to_hfi(const void *api_data, void *hfi_data)
+{
+	const struct vpu_info_frame_timestamp *api = api_data;
+	struct vpu_prop_session_timestamp *hfi = hfi_data;
+
+	hfi->presentation.low = api->pts_low;
+	hfi->presentation.high = api->pts_high;
+	hfi->qtimer.low = api->qtime_low;
+	hfi->qtimer.high = api->qtime_high;
+}
+
+void translate_timestamp_to_api(const void *hfi_data, void *api_data)
+{
+	const struct vpu_prop_session_timestamp *hfi = hfi_data;
+	struct vpu_info_frame_timestamp *api = api_data;
+
+	api->pts_low = hfi->presentation.low;
+	api->pts_high = hfi->presentation.high;
+	api->qtime_low = hfi->qtimer.low;
+	api->qtime_high = hfi->qtimer.high;
 }

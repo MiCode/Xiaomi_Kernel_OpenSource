@@ -34,7 +34,7 @@ enum vpu_ctrl_type {
 	CTRL_TYPE_VALUE,
 	CTRL_TYPE_STANDARD,
 	CTRL_TYPE_AUTO_MANUAL,
-	CTRL_TYPE_TWO_VALUE,
+	CTRL_TYPE_RESERVED,
 };
 
 struct vpu_ctrl_desc; /* forward declaration */
@@ -65,7 +65,7 @@ struct ctrl_bounds {
  *		and translate_to_api are automatically set accordingly.
  * @hfi_id: [Required] Identifies corresponding HFI property ID.
  *		If value is zero, then control is not sent to HFI.
- * @size: [Required] Size of API struct used with this control.
+ * @api_size: [Required] Size of API struct used with this control.
  * @hfi_size: [Required] Size of data sent to HFI. Auto set if type is valid.
  * @cached: Set to 1 if control cannot be read from HFI and needs to be
  *		returned from cache instead.
@@ -86,7 +86,7 @@ struct vpu_ctrl_desc {
 	const char *name;
 	enum vpu_ctrl_type type;
 	u32 hfi_id;
-	u32 size;
+	u32 api_size;
 	u32 hfi_size;
 	u32 cached;
 	u32 cache_offset;
@@ -119,7 +119,7 @@ static int __check_bounds(const struct ctrl_bounds *bounds, s32 val)
 static int value_bounds_check(const struct vpu_ctrl_desc *desc,
 		const void *api_arg)
 {
-	const __s32 *value = api_arg;
+	const s32 *value = api_arg;
 
 	return __check_bounds(&desc->bounds, *value);
 }
@@ -149,17 +149,6 @@ static int auto_manual_bounds_check(const struct vpu_ctrl_desc *desc,
 		return 0; /* ctrl not enabled, no need to check value */
 
 	return __check_bounds(bounds, arg->value);
-}
-
-static int two_value_bounds_check(const struct vpu_ctrl_desc *desc,
-		const void *api_arg)
-{
-	const struct vpu_ctrl_two_value *arg = api_arg;
-	int ret;
-
-	ret = __check_bounds(&desc->bounds, arg->value1);
-	ret |= __check_bounds(&desc->bounds2, arg->value2);
-	return ret;
 }
 
 int configure_nr_buffers(struct vpu_dev_session *session,
@@ -213,6 +202,27 @@ exit_nr_bufs:
 	return ret;
 }
 
+static int range_mapping_bounds_check(const struct vpu_ctrl_desc *desc,
+		const void *api_arg)
+{
+	int ret;
+	const struct vpu_ctrl_range_mapping *arg = api_arg;
+
+	ret = __check_bounds(&desc->bounds, arg->y_range);
+	if (ret) {
+		pr_err("range mapping set for y out of range %d\n",
+				arg->y_range);
+		return ret;
+	}
+
+	ret = __check_bounds(&desc->bounds2, arg->uv_range);
+	if (ret) {
+		pr_err("range mapping set for uv out of range %d\n",
+				arg->uv_range);
+	}
+	return ret;
+}
+
 static int __active_region_param_get_size(const void *api_arg)
 {
 	const struct vpu_ctrl_active_region_param *arg = api_arg;
@@ -232,6 +242,48 @@ static int __active_region_param_bounds_check(const struct vpu_ctrl_desc *desc,
 
 	return (arg->num_exclusions > VPU_ACTIVE_REGION_N_EXCLUSIONS) ?
 			-EINVAL : 0;
+}
+
+static int deinterlacing_mode_bounds_check(const struct vpu_ctrl_desc *desc,
+		const void *api_arg)
+{
+	int ret;
+	const struct vpu_ctrl_deinterlacing_mode *arg = api_arg;
+
+	ret = __check_bounds(&desc->bounds, arg->field_polarity);
+	if (ret) {
+		pr_err("field polarity out of range %d\n",
+				arg->field_polarity);
+		return ret;
+	}
+
+	ret = __check_bounds(&desc->bounds2, arg->mvp_mode);
+	if (ret) {
+		pr_err("mvp mode is out of range %d\n",
+				arg->mvp_mode);
+	}
+	return ret;
+}
+
+static int hqv_bounds_check(const struct vpu_ctrl_desc *desc,
+		const void *api_arg)
+{
+	int ret;
+	const struct vpu_ctrl_hqv *arg = api_arg;
+
+	ret = __check_bounds(&desc->bounds, arg->sharpen_strength);
+	if (ret) {
+		pr_err("sharpen strength is out of range %d\n",
+				arg->sharpen_strength);
+		return ret;
+	}
+
+	ret = __check_bounds(&desc->bounds2, arg->auto_nr_strength);
+	if (ret) {
+		pr_err("auto nr strength is out of range %d\n",
+				arg->auto_nr_strength);
+	}
+	return ret;
 }
 
 static int vpu_set_content_protection(struct vpu_dev_session *session,
@@ -272,14 +324,14 @@ static struct vpu_ctrl_desc ctrl_descriptors[VPU_CTRL_ID_MAX] = {
 		.type = CTRL_TYPE_AUTO_MANUAL,
 		.hfi_id = VPU_PROP_SESSION_NOISE_REDUCTION,
 		.bounds = {
-				.min = VPU_AUTO_NR_LEVEL_MIN,
-				.max = VPU_AUTO_NR_LEVEL_MAX,
-				.step = VPU_AUTO_NR_LEVEL_STEP,
+			.min = VPU_AUTO_NR_LEVEL_MIN,
+			.max = VPU_AUTO_NR_LEVEL_MAX,
+			.step = VPU_AUTO_NR_LEVEL_STEP,
 		},
 		.bounds2 = {
-				.min = VPU_NOISE_REDUCTION_LEVEL_MIN,
-				.max = VPU_NOISE_REDUCTION_LEVEL_MAX,
-				.step = VPU_NOISE_REDUCTION_STEP,
+			.min = VPU_NOISE_REDUCTION_LEVEL_MIN,
+			.max = VPU_NOISE_REDUCTION_LEVEL_MAX,
+			.step = VPU_NOISE_REDUCTION_STEP,
 		},
 		.set_function = (custom_set_function) configure_nr_buffers,
 	},
@@ -288,14 +340,14 @@ static struct vpu_ctrl_desc ctrl_descriptors[VPU_CTRL_ID_MAX] = {
 		.type = CTRL_TYPE_AUTO_MANUAL,
 		.hfi_id = VPU_PROP_SESSION_IMAGE_ENHANCEMENT,
 		.bounds = {
-				.min = VPU_AUTO_IE_LEVEL_MIN,
-				.max = VPU_AUTO_IE_LEVEL_MAX,
+			.min = VPU_AUTO_IE_LEVEL_MIN,
+			.max = VPU_AUTO_IE_LEVEL_MAX,
 				.step = VPU_AUTO_IE_LEVEL_STEP,
 		},
 		.bounds2 = {
-				.min = VPU_IMAGE_ENHANCEMENT_LEVEL_MIN,
-				.max = VPU_IMAGE_ENHANCEMENT_LEVEL_MAX,
-				.step = VPU_IMAGE_ENHANCEMENT_STEP,
+			.min = VPU_IMAGE_ENHANCEMENT_LEVEL_MIN,
+			.max = VPU_IMAGE_ENHANCEMENT_LEVEL_MAX,
+			.step = VPU_IMAGE_ENHANCEMENT_STEP,
 		},
 	},
 	[VPU_CTRL_ANAMORPHIC_SCALING] = {
@@ -303,10 +355,10 @@ static struct vpu_ctrl_desc ctrl_descriptors[VPU_CTRL_ID_MAX] = {
 		.type = CTRL_TYPE_STANDARD,
 		.hfi_id = VPU_PROP_SESSION_ANAMORPHIC_SCALING,
 		.bounds = {
-				.min = VPU_ANAMORPHIC_SCALE_VALUE_MIN,
-				.max = VPU_ANAMORPHIC_SCALE_VALUE_MAX,
-				.step = VPU_ANAMORPHIC_SCALE_VALUE_STEP,
-				.def = VPU_ANAMORPHIC_SCALE_VALUE_DEF,
+			.min = VPU_ANAMORPHIC_SCALE_VALUE_MIN,
+			.max = VPU_ANAMORPHIC_SCALE_VALUE_MAX,
+			.step = VPU_ANAMORPHIC_SCALE_VALUE_STEP,
+			.def = VPU_ANAMORPHIC_SCALE_VALUE_DEF,
 		},
 	},
 	[VPU_CTRL_DIRECTIONAL_INTERPOLATION] = {
@@ -314,35 +366,55 @@ static struct vpu_ctrl_desc ctrl_descriptors[VPU_CTRL_ID_MAX] = {
 		.type = CTRL_TYPE_STANDARD,
 		.hfi_id = VPU_PROP_SESSION_DI,
 		.bounds = {
-				.min = VPU_DI_VALUE_MIN,
-				.max = VPU_DI_VALUE_MAX,
-				.step = 1,
+			.min = VPU_DI_VALUE_MIN,
+			.max = VPU_DI_VALUE_MAX,
+			.step = 1,
 		},
+	},
+	[VPU_CTRL_BACKGROUND_COLOR] = {
+		.name = "Background Color",
+		.type = CTRL_TYPE_VALUE,
+		.hfi_id = VPU_PROP_SESSION_BACKGROUND_COLOR,
 	},
 	[VPU_CTRL_RANGE_MAPPING] = {
 		.name = "Y/UV Range Mapping",
-		.type = CTRL_TYPE_TWO_VALUE,
 		.hfi_id = VPU_PROP_SESSION_RANGE_MAPPING,
+		.api_size = sizeof(struct vpu_ctrl_range_mapping),
+		.hfi_size = sizeof(struct vpu_prop_session_range_mapping),
 		.bounds = {
-				.min = VPU_RANGE_MAPPING_MIN,
-				.max = VPU_RANGE_MAPPING_MAX,
-				.step = VPU_RANGE_MAPPING_STEP,
+			.min = VPU_RANGE_MAPPING_MIN,
+			.max = VPU_RANGE_MAPPING_MAX,
+			.step = VPU_RANGE_MAPPING_STEP,
 		},
 		.bounds2 = {
-				.min = VPU_RANGE_MAPPING_MIN,
-				.max = VPU_RANGE_MAPPING_MAX,
-				.step = VPU_RANGE_MAPPING_STEP,
+			.min = VPU_RANGE_MAPPING_MIN,
+			.max = VPU_RANGE_MAPPING_MAX,
+			.step = VPU_RANGE_MAPPING_STEP,
 		},
+		.bounds_check = range_mapping_bounds_check,
+		.translate_to_hfi = translate_range_mapping_to_hfi,
 	},
-	[VPU_CTRL_DEINTERLACING] = {
+	[VPU_CTRL_DEINTERLACING_MODE] = {
 		.name = "Deinterlacing Mode",
-		.type = CTRL_TYPE_TWO_VALUE,
 		.hfi_id = VPU_PROP_SESSION_DEINTERLACING,
+		.api_size = sizeof(struct vpu_ctrl_deinterlacing_mode),
+		.hfi_size = sizeof(struct vpu_prop_session_deinterlacing),
+		.bounds = {
+			.min = FIELD_POLARITY_AUTO,
+			.max = FIELD_POLARITY_ODD,
+			.step = 1,
+		},
+		.bounds2 = {
+			.min = MVP_MODE_AUTO,
+			.max = MVP_MODE_VIDEO,
+			.step = 1,
+		},
+		.bounds_check = deinterlacing_mode_bounds_check,
 	},
 	[VPU_CTRL_ACTIVE_REGION_PARAM] = {
 		.name = "Active Region Detection Parameters",
 		.hfi_id = VPU_PROP_SESSION_ACTIVE_REGION_DETECT,
-		.size = sizeof(struct vpu_ctrl_active_region_param),
+		.api_size = sizeof(struct vpu_ctrl_active_region_param),
 		.custom_size = __active_region_param_get_size,
 		.cached = 1,
 		.bounds_check = __active_region_param_bounds_check,
@@ -350,7 +422,7 @@ static struct vpu_ctrl_desc ctrl_descriptors[VPU_CTRL_ID_MAX] = {
 	},
 	[VPU_CTRL_ACTIVE_REGION_RESULT] = {
 		.name = "Active Region Detection Result",
-		.size = sizeof(struct v4l2_rect),
+		.api_size = sizeof(struct v4l2_rect),
 		.hfi_size = sizeof(struct rect),
 		.cached = 1,
 		.translate_to_api = translate_active_region_result_to_api,
@@ -366,6 +438,140 @@ static struct vpu_ctrl_desc ctrl_descriptors[VPU_CTRL_ID_MAX] = {
 			(custom_set_function) vpu_set_content_protection,
 		.get_function =
 			(custom_get_function) vpu_get_content_protection,
+	},
+	[VPU_CTRL_DISPLAY_REFRESH_RATE] = {
+		.name = "Display Refresh Rate",
+		.type = CTRL_TYPE_VALUE,
+		.hfi_id = VPU_PROP_SESSION_DISPLAY_FPS,
+	},
+	[VPU_CTRL_HQV] = {
+		.name = "HQV",
+		.hfi_id = VPU_PROP_SESSION_AUTO_HQV,
+		.api_size = sizeof(struct vpu_ctrl_hqv),
+		.hfi_size = sizeof(struct vpu_prop_session_auto_hqv),
+		.bounds = {
+			.min = VPU_SHARPEN_STRENGTH_MIN,
+			.max = VPU_SHARPEN_STRENGTH_MAX,
+			.step = 1,
+			.def = VPU_SHARPEN_STRENGTH_MIN,
+		},
+		.bounds2 = {
+			.min = VPU_AUTO_NR_LEVEL_MIN,
+			.max = VPU_AUTO_NR_LEVEL_MAX,
+			.step = VPU_AUTO_NR_LEVEL_STEP,
+			.def = VPU_AUTO_NR_LEVEL_MIN,
+		},
+		.bounds_check = hqv_bounds_check,
+		.translate_to_hfi = translate_hqv_to_hfi,
+	},
+	[VPU_CTRL_HQV_SHARPEN] = {
+		.name = "HQV Sharpen",
+		.type = CTRL_TYPE_VALUE,
+		.hfi_id = VPU_PROP_SESSION_AUTO_HQV_SHARPEN_STRENGTH,
+		.bounds = {
+			.min = VPU_SHARPEN_STRENGTH_MIN,
+			.max = VPU_SHARPEN_STRENGTH_MAX,
+			.step = 1,
+			.def = VPU_SHARPEN_STRENGTH_MIN,
+		},
+	},
+	[VPU_CTRL_HQV_AUTONR] = {
+		.name = "HQV AutoNR",
+		.type = CTRL_TYPE_VALUE,
+		.hfi_id = VPU_PROP_SESSION_AUTO_HQV_AUTONR_STRENGTH,
+		.bounds = {
+			.min = VPU_AUTONR_STRENGTH_MIN,
+			.max = VPU_AUTONR_STRENGTH_MAX,
+			.step = 1,
+			.def = VPU_AUTONR_STRENGTH_MIN,
+		},
+	},
+	[VPU_CTRL_ACE] = {
+		.name = "ACE",
+		.type = CTRL_TYPE_STANDARD,
+		.hfi_id = VPU_PROP_SESSION_ACE,
+	},
+	[VPU_CTRL_ACE_BRIGHTNESS] = {
+		.name = "ACE Brightness",
+		.type = CTRL_TYPE_VALUE,
+		.hfi_id = VPU_PROP_SESSION_ACE_BRIGHTNESS,
+		.bounds = {
+			.min = VPU_ACE_BRIGHTNESS_MIN,
+			.max = VPU_ACE_BRIGHTNESS_MAX,
+			.step = VPU_ACE_BRIGHTNESS_STEP,
+			.def = VPU_ACE_BRIGHTNESS_MIN,
+		},
+	},
+	[VPU_CTRL_ACE_CONTRAST] = {
+		.name = "ACE Contrast",
+		.type = CTRL_TYPE_VALUE,
+		.hfi_id = VPU_PROP_SESSION_ACE_CONTRAST,
+		.bounds = {
+			.min = VPU_ACE_CONTRAST_MIN,
+			.max = VPU_ACE_CONTRAST_MAX,
+			.step = VPU_ACE_CONTRAST_STEP,
+			.def = VPU_ACE_CONTRAST_MIN,
+		},
+	},
+	[VPU_CTRL_2D3D] = {
+		.name = "2D3D",
+		.type = CTRL_TYPE_STANDARD,
+		.hfi_id = VPU_PROP_SESSION_2D3D,
+	},
+	[VPU_CTRL_2D3D_DEPTH] = {
+		.name = "2D3D Depth",
+		.type = CTRL_TYPE_VALUE,
+		.hfi_id = VPU_PROP_SESSION_2D3D_DEPTH,
+		.bounds = {
+			.min = VPU_2D3D_DEPTH_MIN,
+			.max = VPU_2D3D_DEPTH_MAX,
+			.step = VPU_2D3D_DEPTH_STEP,
+			.def = VPU_2D3D_DEPTH_MIN,
+		},
+	},
+	[VPU_INFO_TIMESTAMP] = {
+		.name = "Info Timestamp",
+		.hfi_id = VPU_PROP_SESSION_TIMESTAMP,
+		.api_size = sizeof(struct vpu_info_frame_timestamp),
+		.hfi_size = sizeof(struct vpu_prop_session_timestamp),
+		.translate_to_hfi = translate_timestamp_to_hfi,
+		.translate_to_api = translate_timestamp_to_api,
+	},
+	[VPU_CTRL_TIMESTAMP_INFO_MODE] = {
+		.name = "Timestamp Info Mode",
+		.type = CTRL_TYPE_VALUE,
+		.hfi_id = VPU_PROP_SESSION_TIMESTAMP_AUTO_MODE,
+	},
+	[VPU_CTRL_FRC] = {
+		.name = "FRC",
+		.type = CTRL_TYPE_STANDARD,
+		.hfi_id = VPU_PROP_SESSION_FRC,
+	},
+	[VPU_CTRL_FRC_MOTION_SMOOTHNESS] = {
+		.name = "FRC Motion Smoothness",
+		.type = CTRL_TYPE_VALUE,
+		.hfi_id = VPU_PROP_SESSION_FRC_MOTION_SMOOTHNESS,
+	},
+	[VPU_CTRL_FRC_MOTION_CLEAR] = {
+		.name = "FRC Motion Clear",
+		.type = CTRL_TYPE_VALUE,
+		.hfi_id = VPU_PROP_SESSION_FRC_MOTION_CLEAR,
+		.bounds = {
+			.min = VPU_FRC_MOTION_CLEAR_MIN,
+			.max = VPU_FRC_MOTION_CLEAR_MAX,
+			.step = VPU_FRC_MOTION_CLEAR_STEP,
+			.def = VPU_FRC_MOTION_CLEAR_DEFAULT,
+		},
+	},
+	[VPU_CTRL_LATENCY] = {
+		.name = "Latency",
+		.type = CTRL_TYPE_VALUE,
+		.hfi_id = VPU_PROP_SESSION_LATENCY_REQUIREMENTS,
+	},
+	[VPU_INFO_STATISTICS] = {
+		.name = "STATS",
+		.type = CTRL_TYPE_RESERVED,
+		.hfi_id = VPU_PROP_SESSION_STATS,
 	},
 };
 
@@ -391,21 +597,21 @@ void setup_vpu_controls(void)
 
 		switch (desc->type) {
 		case CTRL_TYPE_VALUE:
-			desc->size = sizeof(__s32);
+			desc->api_size = sizeof(s32);
 			desc->hfi_size = sizeof(struct vpu_s_data_value);
 			desc->bounds_check = value_bounds_check;
 			desc->translate_to_api = translate_ctrl_value_to_api;
 			desc->translate_to_hfi = translate_ctrl_value_to_hfi;
 			break;
 		case CTRL_TYPE_STANDARD:
-			desc->size = sizeof(struct vpu_ctrl_standard);
+			desc->api_size = sizeof(struct vpu_ctrl_standard);
 			desc->hfi_size = sizeof(struct vpu_s_data_value);
 			desc->bounds_check = standard_bounds_check;
 			desc->translate_to_api = translate_ctrl_standard_to_api;
 			desc->translate_to_hfi = translate_ctrl_standard_to_hfi;
 			break;
 		case CTRL_TYPE_AUTO_MANUAL:
-			desc->size = sizeof(struct vpu_ctrl_auto_manual);
+			desc->api_size = sizeof(struct vpu_ctrl_auto_manual);
 			desc->hfi_size = sizeof(struct vpu_s_data_value);
 			desc->bounds_check = auto_manual_bounds_check;
 			desc->translate_to_api =
@@ -413,21 +619,16 @@ void setup_vpu_controls(void)
 			desc->translate_to_hfi =
 					translate_ctrl_auto_manual_to_hfi;
 			break;
-		case CTRL_TYPE_TWO_VALUE:
-			desc->size = sizeof(struct vpu_ctrl_two_value);
-			desc->hfi_size = sizeof(struct vpu_ctrl_two_value);
-			desc->bounds_check = two_value_bounds_check;
-			desc->translate_to_api =
-					translate_ctrl_two_value_to_api;
-			desc->translate_to_hfi =
-					translate_ctrl_two_value_to_hfi;
-			break;
+		case CTRL_TYPE_RESERVED:
+			desc->api_size = sizeof(union control_data);
+			desc->hfi_size = sizeof(union control_data);
 		default:
 			break;
 		}
 
-		controller_cache_size += desc->size;
-		desc->cache_offset = prev_desc->cache_offset + prev_desc->size;
+		controller_cache_size += desc->api_size;
+		desc->cache_offset = prev_desc->cache_offset +
+				prev_desc->api_size;
 	}
 }
 
@@ -490,8 +691,8 @@ void *get_control(struct vpu_controller *controller, u32 id)
 
 	desc = &ctrl_descriptors[id];
 
-	if (!desc->size || desc->cache_offset > controller->cache_size ||
-	    (desc->cache_offset + desc->size) > controller->cache_size)
+	if (!desc->api_size || desc->cache_offset > controller->cache_size ||
+	    (desc->cache_offset + desc->api_size) > controller->cache_size)
 		return NULL;
 	else
 		return controller->cache + desc->cache_offset;
@@ -518,7 +719,7 @@ int apply_vpu_control(struct vpu_dev_session *session, int set,
 	}
 
 	desc = &ctrl_descriptors[control->control_id];
-	if (!desc->hfi_id && !desc->size &&
+	if (!desc->hfi_id && !desc->api_size &&
 			!desc->set_function && !desc->get_function) {
 		pr_err("control id %d is not supported\n", control->control_id);
 		return -EINVAL;
@@ -545,8 +746,8 @@ int apply_vpu_control(struct vpu_dev_session *session, int set,
 			call_op(desc, translate_to_hfi,
 					&control->data, hfi_data);
 		} else {
-			hfi_size = desc->size;
-			memcpy(hfi_data, &control->data, desc->size);
+			hfi_size = desc->api_size;
+			memcpy(hfi_data, &control->data, desc->api_size);
 		}
 
 		mutex_lock(&session->lock);
@@ -577,13 +778,13 @@ int apply_vpu_control(struct vpu_dev_session *session, int set,
 		}
 
 		/* update controls cache */
-		memcpy(cache, &control->data, desc->size);
+		memcpy(cache, &control->data, desc->api_size);
 
 		mutex_unlock(&session->lock);
 	} else {
 		/* If cached is set, copy control data from cache */
 		if (desc->cached) {
-			memcpy(&control->data, cache, desc->size);
+			memcpy(&control->data, cache, desc->api_size);
 			return 0;
 		}
 
@@ -602,7 +803,8 @@ int apply_vpu_control(struct vpu_dev_session *session, int set,
 				call_op(desc, translate_to_api,
 						hfi_data, &control->data);
 			else
-				memcpy(&control->data, hfi_data, desc->size);
+				memcpy(&control->data, hfi_data,
+						desc->api_size);
 		}
 	}
 
@@ -993,7 +1195,6 @@ int commit_port_config(struct vpu_dev_session *session,	int port, int new_load)
 		ret = __configure_output_port(session);
 		if (ret)
 			return ret;
-
 	} else {
 		return -EINVAL;
 	}

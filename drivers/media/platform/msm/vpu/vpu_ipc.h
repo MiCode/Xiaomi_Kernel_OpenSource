@@ -251,11 +251,6 @@ struct vpu_ipc_msg_header_packet {
 	u32	reserved;
 };
 
-struct vpu_timestamp_info {
-	u32 high;
-	u32 low;
-};
-
 /*
  * VPU_IPC_CMD_SYS_SET_PROPERTY command packet definition
  * prop_id	: property identifier
@@ -594,7 +589,7 @@ struct vpu_ipc_msg_event_notify_packet {
 };
 
 /* VPU_IPC_MSG_SESSION_TIMESTAMP
- * Message is used to return the timestamp information in manual (polling) mode.
+ * Message is used to return the timestamp information in auto mode.
  * presentation: timestamp of last buffer output to MDSS
  * qtimer: timestamp of last buffer output to MDSS
  */
