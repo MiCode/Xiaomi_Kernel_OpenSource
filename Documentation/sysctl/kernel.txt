@@ -23,10 +23,10 @@ show up in /proc/sys/kernel:
 - auto_msgmni
 - bootloader_type	     [ X86 only ]
 - bootloader_version	     [ X86 only ]
-- boot_reason		     [ ARM only ]
+- boot_reason		     [ ARM and ARM64 only ]
 - callhome		     [ S390 only ]
 - cap_last_cap
-- cold_boot		     [ ARM only ]
+- cold_boot		     [ ARM and ARM64 only ]
 - core_pattern
 - core_pipe_limit
 - core_uses_pid
@@ -172,7 +172,7 @@ Documentation/x86/boot.txt for additional information.
 
 boot_reason:
 
-ARM -- reason for device boot
+ARM and ARM64 -- reason for device boot
 
 A single bit will be set in the unsigned integer value to identify the
 reason the device was booted / powered on. The value will be zero if this
@@ -208,7 +208,7 @@ CAP_LAST_CAP from the kernel.
 
 cold_boot
 
-ARM -- indicator for system cold boot
+ARM and ARM64 -- indicator for system cold boot
 
 A single bit will be set in the unsigned integer value to identify
 whether the device was booted from a cold or warm state. Zero
