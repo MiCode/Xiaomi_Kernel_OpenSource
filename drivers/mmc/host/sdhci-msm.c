@@ -2,7 +2,7 @@
  * drivers/mmc/host/sdhci-msm.c - Qualcomm MSM SDHCI Platform
  * driver source file
  *
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2355,6 +2355,12 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 	bool curr_pwrsave;
 
 	if (!clock) {
+		/*
+		 * disable pwrsave to ensure clock is not auto-gated until
+		 * the rate is >400KHz (initialization complete).
+		 */
+		writel_relaxed(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC) &
+			~CORE_CLK_PWRSAVE, host->ioaddr + CORE_VENDOR_SPEC);
 		sdhci_msm_prepare_clocks(host, false);
 		host->clock = clock;
 		return;
