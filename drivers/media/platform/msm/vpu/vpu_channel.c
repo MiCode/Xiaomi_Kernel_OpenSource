@@ -418,10 +418,6 @@ static void on_buffer_done(struct vpu_channel_hal *phal,
 				 */
 				if ((i < packet->num_out_buf) &&
 						(phdr->status == 0)) {
-					/* IPC timestamp is in nano seconds */
-					s64 time_count = pinfo->timestamp_hi;
-					time_count = (time_count << 32) |
-							pinfo->timestamp_lo;
 
 					/* store EOS info if present */
 					if (pinfo->flag & BUFFER_PKT_FLAG_EOS) {
@@ -431,8 +427,11 @@ static void on_buffer_done(struct vpu_channel_hal *phal,
 							V4L2_QCOM_BUF_FLAG_EOS;
 					}
 
-					vb->vb.v4l2_buf.timestamp =
-						ns_to_timeval(time_count);
+					vb->vb.v4l2_buf.timestamp.tv_sec =
+							pinfo->timestamp_hi;
+					vb->vb.v4l2_buf.timestamp.tv_usec =
+							pinfo->timestamp_lo;
+
 					vb->vb.v4l2_buf.field =
 						translate_field_to_api(
 							packet->buf_pkt_flag);
@@ -1263,12 +1262,9 @@ static void vpu_buf_to_ipc_buf_info(struct vpu_buffer *vb, bool input,
 		 * an input buffer, assign timestamp, VPU address,
 		 * VCAP address if present
 		 */
-		const struct timeval *tv =
-			(const struct timeval *)&vb->vb.v4l2_buf.timestamp;
-		s64 time_nsec = timeval_to_ns(tv);
 
-		bie->buf_info.timestamp_hi = (u32)(time_nsec >> 32);
-		bie->buf_info.timestamp_lo = (u32)time_nsec;
+		bie->buf_info.timestamp_hi = vb->vb.v4l2_buf.timestamp.tv_sec;
+		bie->buf_info.timestamp_lo = vb->vb.v4l2_buf.timestamp.tv_usec;
 
 		if (vb->valid_addresses_mask & ADDR_VALID_VCAP) {
 			/* put each plane's VCAP address as src address */
