@@ -47,6 +47,9 @@
 #define ARCH_LOW_ADDRESS_LIMIT	PHYS_MASK
 #endif /* __KERNEL__ */
 
+extern unsigned int boot_reason;
+extern unsigned int cold_boot;
+
 struct debug_info {
 	/* Have we suspended stepping by a debugger? */
 	int			suspended_step;
