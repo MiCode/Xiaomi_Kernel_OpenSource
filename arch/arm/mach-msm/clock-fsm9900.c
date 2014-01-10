@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2108,6 +2108,50 @@ static struct gate_clk pcie_1_phy_ldo = {
 	},
 };
 
+static struct branch_clk gcc_emac0_axi_clk = {
+	.cbcr_reg = EMAC_0_AXI_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_emac0_axi_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_emac0_axi_clk.c),
+	},
+};
+
+static struct branch_clk gcc_emac1_axi_clk = {
+	.cbcr_reg = EMAC_1_AXI_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_emac1_axi_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_emac1_axi_clk.c),
+	},
+};
+
+static struct branch_clk gcc_emac0_ahb_clk = {
+	.cbcr_reg = EMAC_0_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_emac0_ahb_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_emac0_ahb_clk.c),
+	},
+};
+
+static struct branch_clk gcc_emac1_ahb_clk = {
+	.cbcr_reg = EMAC_1_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_emac1_ahb_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_emac1_ahb_clk.c),
+	},
+};
+
 static struct clk_freq_tbl ftbl_gcc_emac0_1_125m_clk[] = {
 	F(     19200000,              xo,    1, 0, 0),
 	F_EXT( 125000000,      emac0_125m,   1, 0, 0),
@@ -2276,6 +2320,50 @@ static struct branch_clk gcc_emac1_tx_clk = {
 	},
 };
 
+static struct branch_clk gcc_emac0_rx_clk = {
+	.cbcr_reg = EMAC_0_RX_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_emac0_rx_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_emac0_rx_clk.c),
+	},
+};
+
+static struct branch_clk gcc_emac1_rx_clk = {
+	.cbcr_reg = EMAC_1_RX_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_emac1_rx_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_emac1_rx_clk.c),
+	},
+};
+
+static struct branch_clk gcc_emac0_sys_clk = {
+	.cbcr_reg = EMAC_0_SYS_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_emac0_sys_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_emac0_sys_clk.c),
+	},
+};
+
+static struct branch_clk gcc_emac1_sys_clk = {
+	.cbcr_reg = EMAC_1_SYS_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_emac1_sys_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_emac1_sys_clk.c),
+	},
+};
+
 static DEFINE_CLK_MEASURE(l2_m_clk);
 static DEFINE_CLK_MEASURE(krait0_m_clk);
 static DEFINE_CLK_MEASURE(krait1_m_clk);
@@ -2368,12 +2456,20 @@ struct measure_mux_entry measure_mux[] = {
 	{&gcc_ce3_clk.c,			GCC_BASE, 0x0228},
 	{&gcc_ce3_axi_clk.c,			GCC_BASE, 0x0229},
 	{&gcc_ce3_ahb_clk.c,			GCC_BASE, 0x022a},
+	{&gcc_emac0_axi_clk.c,			GCC_BASE, 0x01a8},
+	{&gcc_emac0_ahb_clk.c,			GCC_BASE, 0x01a9},
 	{&gcc_emac0_sys_25m_clk.c,		GCC_BASE, 0x01aa},
 	{&gcc_emac0_tx_clk.c,			GCC_BASE, 0x01ab},
 	{&gcc_emac0_125m_clk.c,			GCC_BASE, 0x01ac},
+	{&gcc_emac0_rx_clk.c,			GCC_BASE, 0x01ad},
+	{&gcc_emac0_sys_clk.c,			GCC_BASE, 0x01ae},
+	{&gcc_emac1_axi_clk.c,			GCC_BASE, 0x01b0},
+	{&gcc_emac1_ahb_clk.c,			GCC_BASE, 0x01b1},
 	{&gcc_emac1_sys_25m_clk.c,		GCC_BASE, 0x01b2},
 	{&gcc_emac1_tx_clk.c,			GCC_BASE, 0x01b3},
 	{&gcc_emac1_125m_clk.c,			GCC_BASE, 0x01b4},
+	{&gcc_emac1_rx_clk.c,			GCC_BASE, 0x01b5},
+	{&gcc_emac1_sys_clk.c,			GCC_BASE, 0x01b6},
 
 	{&krait0_clk.c,				APCS_BASE, M_ACPU0},
 	{&krait1_clk.c,				APCS_BASE, M_ACPU1},
@@ -2630,12 +2726,20 @@ static struct clk_lookup fsm_clocks_9900[] = {
 	CLK_LOOKUP("xo",	xo_usb_hs_host_clk.c,      "msm_ehci_host"),
 
 	/* EMAC clocks */
+	CLK_LOOKUP("axi_clk",	gcc_emac0_axi_clk.c,	 "feb20000.qcom,emac"),
+	CLK_LOOKUP("cfg_ahb_clk", gcc_emac0_ahb_clk.c,	 "feb20000.qcom,emac"),
 	CLK_LOOKUP("25m_clk",	emac0_sys_25m_clk_src.c, "feb20000.qcom,emac"),
 	CLK_LOOKUP("125m_clk",	emac0_125m_clk_src.c,	 "feb20000.qcom,emac"),
 	CLK_LOOKUP("tx_clk",	emac0_tx_clk_src.c,	 "feb20000.qcom,emac"),
+	CLK_LOOKUP("rx_clk",	gcc_emac0_rx_clk.c,	 "feb20000.qcom,emac"),
+	CLK_LOOKUP("sys_clk",	gcc_emac0_sys_clk.c,	 "feb20000.qcom,emac"),
+	CLK_LOOKUP("axi_clk",	gcc_emac1_axi_clk.c,	 "feb00000.qcom,emac"),
+	CLK_LOOKUP("cfg_ahb_clk", gcc_emac1_ahb_clk.c,	 "feb00000.qcom,emac"),
 	CLK_LOOKUP("25m_clk",	emac1_sys_25m_clk_src.c, "feb00000.qcom,emac"),
 	CLK_LOOKUP("125m_clk",	emac1_125m_clk_src.c,	 "feb00000.qcom,emac"),
 	CLK_LOOKUP("tx_clk",	emac1_tx_clk_src.c,	 "feb00000.qcom,emac"),
+	CLK_LOOKUP("rx_clk",	gcc_emac1_rx_clk.c,	 "feb00000.qcom,emac"),
+	CLK_LOOKUP("sys_clk",	gcc_emac1_sys_clk.c,	 "feb00000.qcom,emac"),
 
 	/* PCIE clocks */
 
