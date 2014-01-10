@@ -81,7 +81,7 @@ static void lsm_event_handler(uint32_t opcode, uint32_t token,
 	}
 }
 
-static int msm_lsm_ioctl(struct snd_pcm_substream *substream,
+static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			 unsigned int cmd, void *arg)
 {
 	unsigned long flags;
@@ -89,8 +89,7 @@ static int msm_lsm_ioctl(struct snd_pcm_substream *substream,
 	struct snd_lsm_sound_model snd_model;
 	int rc = 0;
 	int xchg = 0;
-	int size = 0;
-	struct snd_lsm_event_status *event_status = NULL;
+	u32 size = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct lsm_priv *prtd = runtime->private_data;
 	struct snd_lsm_event_status *user = arg;
@@ -99,14 +98,7 @@ static int msm_lsm_ioctl(struct snd_pcm_substream *substream,
 	switch (cmd) {
 	case SNDRV_LSM_REG_SND_MODEL:
 		pr_debug("%s: Registering sound model\n", __func__);
-		if (copy_from_user(&snd_model, (void *)arg,
-				   sizeof(struct snd_lsm_sound_model))) {
-			rc = -EFAULT;
-			pr_err("%s: copy from user failed, size %d\n", __func__,
-			       sizeof(struct snd_lsm_sound_model));
-			break;
-		}
-
+		memcpy(&snd_model, arg, sizeof(struct snd_lsm_sound_model));
 		rc = q6lsm_snd_model_buf_alloc(prtd->lsm_client,
 					       snd_model.data_size);
 		if (rc) {
@@ -154,43 +146,18 @@ static int msm_lsm_ioctl(struct snd_pcm_substream *substream,
 			pr_debug("%s: New event available %ld\n", __func__,
 				 prtd->event_avail);
 			spin_lock_irqsave(&prtd->event_lock, flags);
-			if (prtd->event_status) {
-				size = sizeof(*event_status) +
-				       prtd->event_status->payload_size;
-				event_status = kmemdup(prtd->event_status, size,
-						       GFP_ATOMIC);
-			}
+			if (prtd->event_status)
+				size = sizeof(*(prtd->event_status)) +
+				prtd->event_status->payload_size;
 			spin_unlock_irqrestore(&prtd->event_lock, flags);
-			if (!event_status) {
-				pr_err("%s: Couldn't allocate %d bytes\n",
-				       __func__, size);
-				/*
-				 * Don't use -ENOMEM as userspace will check
-				 * it for increasing buffer
-				 */
-				rc = -EFAULT;
-			} else {
-				if (!access_ok(VERIFY_READ, user,
-					sizeof(struct snd_lsm_event_status)))
-					rc = -EFAULT;
-				if (user->payload_size <
-				    event_status->payload_size) {
-					pr_debug("%s: provided %dbytes isn't enough, needs %dbytes\n",
-						 __func__, user->payload_size,
-						 size);
-					rc = -ENOMEM;
-				} else if (!access_ok(VERIFY_WRITE, arg,
-						      size)) {
-					rc = -EFAULT;
-				} else {
-					rc = copy_to_user(arg, event_status,
-							  size);
-					if (rc)
-						pr_err("%s: copy to user failed %d\n",
-						       __func__, rc);
-				}
-				kfree(event_status);
-			}
+			if (user->payload_size <
+			    prtd->event_status->payload_size) {
+				pr_debug("%s: provided %dbytes isn't enough, needs %dbytes\n",
+					 __func__, user->payload_size,
+					 prtd->event_status->payload_size);
+				rc = -ENOMEM;
+			} else
+				memcpy(user, prtd->event_status, size);
 		} else if (xchg) {
 			pr_debug("%s: Wait aborted\n", __func__);
 			rc = 0;
@@ -239,6 +206,81 @@ static int msm_lsm_ioctl(struct snd_pcm_substream *substream,
 		pr_err("%s: cmd 0x%x failed %d\n", __func__, cmd, rc);
 
 	return rc;
+}
+
+static int msm_lsm_ioctl(struct snd_pcm_substream *substream,
+			 unsigned int cmd, void *arg)
+{
+	int err = 0;
+	u32 size = 0;
+
+	if (!substream) {
+		pr_err("%s: Invalid params\n", __func__);
+		return -EINVAL;
+	}
+	switch (cmd) {
+	case SNDRV_LSM_REG_SND_MODEL: {
+		struct snd_lsm_sound_model snd_model;
+		if (!arg) {
+			pr_err("%s: Invalid params snd_model\n", __func__);
+			return -EINVAL;
+		}
+		if (copy_from_user(&snd_model, arg, sizeof(snd_model))) {
+			err = -EFAULT;
+			pr_err("%s: copy from user failed, size %zd\n",
+			__func__, sizeof(struct snd_lsm_sound_model));
+		}
+		if (!err)
+			err = msm_lsm_ioctl_shared(substream, cmd, &snd_model);
+		if (err)
+			pr_err("%s REG_SND_MODEL failed err %d\n",
+			__func__, err);
+		return err;
+	}
+	case SNDRV_LSM_EVENT_STATUS: {
+		struct snd_lsm_event_status *user = NULL, userarg;
+		if (!arg) {
+			pr_err("%s: Invalid params event status\n", __func__);
+			return -EINVAL;
+		}
+		if (copy_from_user(&userarg, arg, sizeof(userarg))) {
+			pr_err("%s: err copyuser event_status\n",
+			__func__);
+			return -EFAULT;
+		}
+		size = sizeof(struct snd_lsm_event_status) +
+		userarg.payload_size;
+		user = kmalloc(size, GFP_KERNEL);
+		if (!user) {
+			pr_err("%s: Allocation failed event status size %d\n",
+			__func__, size);
+			err = -EFAULT;
+		} else {
+			user->payload_size = userarg.payload_size;
+			err = msm_lsm_ioctl_shared(substream, cmd, user);
+		}
+		/* Update size with actual payload size */
+		size = sizeof(*user) + user->payload_size;
+		if (!err && !access_ok(VERIFY_WRITE, arg, size)) {
+			pr_err("%s: write verify failed size %d\n",
+			__func__, size);
+			err = -EFAULT;
+		}
+		if (!err && (copy_to_user(arg, user, size))) {
+			pr_err("%s: failed to copy payload %d",
+			__func__, size);
+			err = -EFAULT;
+		}
+		kfree(user);
+		if (err)
+			pr_err("%s: lsmevent failed %d", __func__, err);
+		return err;
+	}
+	default:
+		err = msm_lsm_ioctl_shared(substream, cmd, arg);
+	break;
+	}
+	return err;
 }
 
 static int msm_lsm_open(struct snd_pcm_substream *substream)
