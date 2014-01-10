@@ -543,6 +543,14 @@ int adreno_drawctxt_detach(struct kgsl_context *context)
 	ret = adreno_drawctxt_wait_global(adreno_dev, context,
 		drawctxt->internal_timestamp, 10 * 1000);
 
+	/*
+	 * If the wait for global fails then nothing after this point is likely
+	 * to work very well - BUG_ON() so we can take advantage of the debug
+	 * tools to figure out what the h - e - double hockey sticks happened
+	 */
+
+	BUG_ON(ret);
+
 	kgsl_sharedmem_writel(device, &device->memstore,
 			KGSL_MEMSTORE_OFFSET(context->id, soptimestamp),
 			drawctxt->timestamp);
