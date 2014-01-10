@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -194,6 +194,7 @@ static void switch_mode(struct mhl_tx_ctrl *mhl_ctrl,
 static void mhl_init_reg_settings(struct mhl_tx_ctrl *mhl_ctrl,
 				  bool mhl_disc_en);
 static int mhl_gpio_config(struct mhl_tx_ctrl *mhl_ctrl, int on);
+static int mhl_vreg_config(struct mhl_tx_ctrl *mhl_ctrl, uint8_t on);
 
 int mhl_i2c_reg_read(struct i2c_client *client,
 			    uint8_t slave_addr_index, uint8_t reg_offset)
@@ -385,15 +386,69 @@ static int mhl_sii_wait_for_rgnd(struct mhl_tx_ctrl *mhl_ctrl)
 	return 0;
 }
 
+static int mhl_sii_config(struct mhl_tx_ctrl *mhl_ctrl, bool on)
+{
+	int rc = 0;
+	struct i2c_client *client = NULL;
+
+	if (!mhl_ctrl) {
+		pr_err("%s: ctrl is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	client = mhl_ctrl->i2c_handle;
+
+	if (on) {
+		rc = mhl_vreg_config(mhl_ctrl, 1);
+		if (rc) {
+			pr_err("%s: vreg init failed [%d]\n",
+				__func__, rc);
+			return -ENODEV;
+		}
+
+		rc = mhl_gpio_config(mhl_ctrl, 1);
+		if (rc) {
+			pr_err("%s: gpio init failed [%d]\n",
+				__func__, rc);
+			return -ENODEV;
+		}
+
+		rc = request_threaded_irq(mhl_ctrl->i2c_handle->irq, NULL,
+			&mhl_tx_isr, IRQF_TRIGGER_LOW | IRQF_ONESHOT,
+			client->dev.driver->name, mhl_ctrl);
+		if (rc) {
+			pr_err("%s: request_threaded_irq failed, status: %d\n",
+			       __func__, rc);
+			return -ENODEV;
+		} else {
+			mhl_ctrl->irq_req_done = true;
+		}
+	} else {
+		free_irq(mhl_ctrl->i2c_handle->irq, mhl_ctrl);
+		mhl_gpio_config(mhl_ctrl, 0);
+		mhl_vreg_config(mhl_ctrl, 0);
+		mhl_ctrl->irq_req_done = false;
+	}
+
+	return rc;
+}
+
+static void mhl_sii_disc_intr_work(struct work_struct *work)
+{
+	struct mhl_tx_ctrl *mhl_ctrl = NULL;
+
+	mhl_ctrl = container_of(work, struct mhl_tx_ctrl, mhl_intr_work);
+
+	mhl_sii_config(mhl_ctrl, false);
+}
+
 /*  USB_HANDSHAKING FUNCTIONS */
 static int mhl_sii_device_discovery(void *data, int id,
 			     void (*usb_notify_cb)(void *, int), void *ctx)
 {
 	int rc;
 	struct mhl_tx_ctrl *mhl_ctrl = data;
-	struct i2c_client *client = mhl_ctrl->i2c_handle;
 	unsigned long flags;
-	int discovery_retry = 5;
 
 	if (id) {
 		/* When MHL cable is disconnected we get a sii8334
@@ -413,18 +468,14 @@ static int mhl_sii_device_discovery(void *data, int id,
 		mhl_ctrl->notify_usb_online = usb_notify_cb;
 		mhl_ctrl->notify_ctx = ctx;
 	}
-again:
+
+	flush_work(&mhl_ctrl->mhl_intr_work);
+
 	if (!mhl_ctrl->irq_req_done) {
-		rc = request_threaded_irq(mhl_ctrl->i2c_handle->irq, NULL,
-			&mhl_tx_isr, IRQF_TRIGGER_LOW | IRQF_ONESHOT,
-			client->dev.driver->name, mhl_ctrl);
+		rc = mhl_sii_config(mhl_ctrl, true);
 		if (rc) {
-			pr_debug("request_threaded_irq failed, status: %d\n",
-			       rc);
-			return -EINVAL;
-		} else {
-			pr_debug("request_threaded_irq succeeded\n");
-			mhl_ctrl->irq_req_done = true;
+			pr_err("%s: Failed to config vreg/gpio\n", __func__);
+			return rc;
 		}
 
 		/* wait for i2c interrupt line to be activated */
@@ -448,23 +499,9 @@ again:
 		if (mhl_sii_wait_for_rgnd(mhl_ctrl)) {
 			pr_err("%s: discovery timeout\n", __func__);
 
-			free_irq(mhl_ctrl->i2c_handle->irq, mhl_ctrl);
-			mhl_gpio_config(mhl_ctrl, 0);
-			mhl_ctrl->irq_req_done = false;
+			mhl_sii_config(mhl_ctrl, false);
 
-			msleep(100);
-
-			mhl_gpio_config(mhl_ctrl, 1);
-			if (discovery_retry--) {
-				pr_debug("%s: retrying discovery\n", __func__);
-				goto again;
-			} else {
-				pr_err("%s: discovery failed, ret to USB\n",
-					__func__);
-				if (mhl_ctrl->notify_usb_online)
-					mhl_ctrl->notify_usb_online(
-						mhl_ctrl->notify_ctx, 0);
-			}
+			return -EAGAIN;
 		}
 	} else {
 		if (mhl_ctrl->cur_state == POWER_STATE_D3) {
@@ -1059,13 +1096,8 @@ static int dev_detect_isr(struct mhl_tx_ctrl *mhl_ctrl)
 		mhl_msm_connection(mhl_ctrl);
 	} else if (status & BIT3) {
 		pr_debug("%s: uUSB-a type dev detct\n", __func__);
-
-		/* Short RGND */
-		MHL_SII_REG_NAME_MOD(REG_DISC_STAT2, BIT0 | BIT1, 0x00);
-		mhl_msm_disconnection(mhl_ctrl);
 		power_supply_changed(&mhl_ctrl->mhl_psy);
-		if (mhl_ctrl->notify_usb_online)
-			mhl_ctrl->notify_usb_online(mhl_ctrl->notify_ctx, 0);
+		mhl_drive_hpd(mhl_ctrl, HPD_DOWN);
 		return 0;
 	}
 
@@ -1081,6 +1113,9 @@ static int dev_detect_isr(struct mhl_tx_ctrl *mhl_ctrl)
 		power_supply_changed(&mhl_ctrl->mhl_psy);
 		if (mhl_ctrl->notify_usb_online)
 			mhl_ctrl->notify_usb_online(mhl_ctrl->notify_ctx, 0);
+
+		queue_work(mhl_ctrl->mhl_workq, &mhl_ctrl->mhl_intr_work);
+
 		return 0;
 	}
 
@@ -1495,6 +1530,27 @@ static int mhl_sii_reg_config(struct i2c_client *client, bool enable)
 	int rc = -EINVAL;
 
 	pr_debug("%s\n", __func__);
+
+	if (!enable) {
+		regulator_disable(reg_8941_vdda);
+		regulator_put(reg_8941_vdda);
+		reg_8941_vdda = NULL;
+
+		regulator_disable(reg_8941_smps3a);
+		regulator_put(reg_8941_smps3a);
+		reg_8941_smps3a = NULL;
+
+		regulator_disable(reg_8941_l02);
+		regulator_put(reg_8941_l02);
+		reg_8941_l02 = NULL;
+
+		regulator_disable(reg_8941_l24);
+		regulator_put(reg_8941_l24);
+		reg_8941_l24 = NULL;
+
+		return 0;
+	}
+
 	if (!reg_8941_l24) {
 		reg_8941_l24 = regulator_get(&client->dev,
 			"avcc_18");
@@ -1736,26 +1792,6 @@ static int mhl_i2c_probe(struct i2c_client *client,
 	}
 
 	/*
-	 * Regulator init
-	 */
-	rc = mhl_vreg_config(mhl_ctrl, 1);
-	if (rc) {
-		pr_err("%s: vreg init failed [%d]\n",
-			__func__, rc);
-		goto failed_probe;
-	}
-
-	/*
-	 * GPIO init
-	 */
-	rc = mhl_gpio_config(mhl_ctrl, 1);
-	if (rc) {
-		pr_err("%s: gpio init failed [%d]\n",
-			__func__, rc);
-		goto failed_probe;
-	}
-
-	/*
 	 * Other initializations
 	 * such tx specific
 	 */
@@ -1767,6 +1803,9 @@ static int mhl_i2c_probe(struct i2c_client *client,
 	spin_lock_init(&mhl_ctrl->lock);
 	mhl_ctrl->msc_send_workqueue = create_singlethread_workqueue
 		("mhl_msc_cmd_queue");
+	mhl_ctrl->mhl_workq = create_singlethread_workqueue("mhl_workq");
+
+	INIT_WORK(&mhl_ctrl->mhl_intr_work, mhl_sii_disc_intr_work);
 
 	mhl_ctrl->input = input_allocate_device();
 	if (mhl_ctrl->input) {
@@ -1894,9 +1933,7 @@ static int mhl_i2c_probe(struct i2c_client *client,
 failed_probe_pwr:
 	power_supply_unregister(&mhl_ctrl->mhl_psy);
 failed_probe:
-	free_irq(mhl_ctrl->i2c_handle->irq, mhl_ctrl);
-	mhl_gpio_config(mhl_ctrl, 0);
-	mhl_vreg_config(mhl_ctrl, 0);
+	mhl_sii_config(mhl_ctrl, false);
 	/* do not deep-free */
 	if (mhl_info)
 		devm_kfree(&client->dev, mhl_info);
@@ -1923,9 +1960,10 @@ static int mhl_i2c_remove(struct i2c_client *client)
 		return -EINVAL;
 	}
 
-	free_irq(mhl_ctrl->i2c_handle->irq, mhl_ctrl);
-	mhl_gpio_config(mhl_ctrl, 0);
-	mhl_vreg_config(mhl_ctrl, 0);
+	mhl_sii_config(mhl_ctrl, false);
+
+	destroy_workqueue(mhl_ctrl->mhl_workq);
+
 	if (mhl_ctrl->mhl_info)
 		devm_kfree(&client->dev, mhl_ctrl->mhl_info);
 	if (mhl_ctrl->pdata)
@@ -1949,17 +1987,19 @@ static int mhl_i2c_suspend_sub(struct i2c_client *client)
 
 	pr_debug("%s\n", __func__);
 
-	if (!mhl_ctrl)
+	if (!mhl_ctrl) {
+		pr_err("%s: invalid ctrl data\n", __func__);
 		return 0;
-
-	free_irq(mhl_ctrl->i2c_handle->irq, mhl_ctrl);
-	mhl_ctrl->irq_req_done = false;
+	}
 
 	if (mhl_ctrl->mhl_mode)	{
 		mhl_ctrl->mhl_mode = 0;
+
 		power_supply_changed(&mhl_ctrl->mhl_psy);
 		if (mhl_ctrl->notify_usb_online)
 			mhl_ctrl->notify_usb_online(mhl_ctrl->notify_ctx, 0);
+
+		mhl_sii_config(mhl_ctrl, false);
 	}
 
 	return 0;
