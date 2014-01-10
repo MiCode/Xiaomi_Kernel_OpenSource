@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,16 +30,32 @@
 		qcom,clk-map = <0x00000006>; //KGSL_CLK_CORE | KGSL_CLK_IFACE
 
 		/* Bus Scale Settings */
+		qcom,bus-control;
 		qcom,msm-bus,name = "grp3d";
-		qcom,msm-bus,num-cases = <6>;
+		qcom,msm-bus,num-cases = <16>;
 		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-KBps =
 				<26 512 0 0>, <89 662 0 0>,
-				<26 512 0 6297600>, <89 662 0 3200000>,
-				<26 512 0 8448000>, <89 662 0 4800000>,
-				<26 512 0 10598400>, <89 662 0 6224000>,
-				<26 512 0 12748800>, <89 662 0 8000000>,
-				<26 512 0 17056000>, <89 662 0 9600000>;
+				<26 512 0 3200000>,  <89 662 0 3200000>,     // 200
+
+				<26 512 0 4147200>,  <89 662 0 3200000>,     // gpu=240 bus=259.2
+				<26 512 0 4915200>,  <89 662 0 3200000>,     // gpu=240 bus=307.2
+				<26 512 0 6297600>,  <89 662 0 3200000>,     // gpu=240 bus=393.6
+
+				<26 512 0 4915200>,  <89 662 0 4800000>,     // gpu=300 bus=307.2
+				<26 512 0 6297600>,  <89 662 0 4800000>,     // gpu=300 bus=393.6
+				<26 512 0 8448000>,  <89 662 0 4800000>,     // gpu=300 bus=528
+
+				<26 512 0 6297600>,  <89 662 0 5600000>,     // gpu=389 bus=393.6
+				<26 512 0 8448000>,  <89 662 0 5600000>,     // gpu=389 bus=528
+				<26 512 0 10598400>, <89 662 0 5600000>,     // gpu=389 bus=662.4
+
+				<26 512 0 8448000>,  <89 662 0 8000000>,     // gpu=500 bus=528
+				<26 512 0 10598400>, <89 662 0 8000000>,     // gpu=500 bus=662.4
+				<26 512 0 12748800>, <89 662 0 8000000>,     // gpu=500 bus=796.8
+
+				<26 512 0 10598400>, <89 662 0 9600000>,     // gpu=600 bus=662.4
+				<26 512 0 12748800>, <89 662 0 9600000>;     // gpu=600 bus=796.8
 
 		/* GDSC oxili regulators */
 		vddcx-supply = <&gdsc_oxili_cx>;
@@ -66,35 +82,35 @@
 			qcom,gpu-pwrlevel@0 {
 				reg = <0>;
 				qcom,gpu-freq = <600000000>;
-				qcom,bus-freq = <5>;
+				qcom,bus-freq = <15>;
 				qcom,io-fraction = <33>;
 			};
 
 			qcom,gpu-pwrlevel@1 {
 				reg = <1>;
 				qcom,gpu-freq = <500000000>;
-				qcom,bus-freq = <4>;
+				qcom,bus-freq = <12>;
 				qcom,io-fraction = <66>;
 			};
 
 			qcom,gpu-pwrlevel@2 {
 				reg = <2>;
 				qcom,gpu-freq = <389000000>;
-				qcom,bus-freq = <3>;
+				qcom,bus-freq = <9>;
 				qcom,io-fraction = <66>;
 			};
 
 			qcom,gpu-pwrlevel@3 {
 				reg = <3>;
 				qcom,gpu-freq = <300000000>;
-				qcom,bus-freq = <2>;
+				qcom,bus-freq = <6>;
 				qcom,io-fraction = <100>;
 			};
 
 			qcom,gpu-pwrlevel@4 {
 				reg = <4>;
 				qcom,gpu-freq = <240000000>;
-				qcom,bus-freq = <1>;
+				qcom,bus-freq = <3>;
 				qcom,io-fraction = <100>;
 			};
 

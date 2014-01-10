@@ -61,7 +61,7 @@ static struct devfreq_simple_ondemand_data adreno_ondemand_data = {
 
 static struct devfreq_msm_adreno_tz_data adreno_tz_data = {
 	.bus = {
-		.max = 450,
+		.max = 350,
 	},
 	.device_id = KGSL_DEVICE_3D0,
 };
