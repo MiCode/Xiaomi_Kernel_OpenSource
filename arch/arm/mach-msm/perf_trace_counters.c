@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,7 +48,7 @@ static int tracectr_notifier(struct notifier_block *self, unsigned long cmd,
 {
 	struct thread_info *thread = v;
 	int current_pid;
-	u32 cpu = smp_processor_id();
+	u32 cpu = thread->cpu;
 
 	if (cmd != THREAD_NOTIFY_SWITCH)
 		return -EFAULT;
