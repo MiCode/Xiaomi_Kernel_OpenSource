@@ -634,6 +634,13 @@ struct ufs_hba {
 	/* UFSHC advertises 64-bit not supported even though it supports */
 	#define UFSHCD_QUIRK_BROKEN_CAP_64_BIT_0		UFS_BIT(10)
 
+	/*
+	 * If LCC (Line Control Command) are having issue on the host
+	 * controller then enable this quirk. Note that connected UFS device
+	 * should also have workaround to not expect LCC commands from host.
+	 */
+	#define UFSHCD_BROKEN_LCC				UFS_BIT(11)
+
 	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
 
 	/* Device deviations from standard UFS device spec. */

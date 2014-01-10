@@ -4256,7 +4256,7 @@ link_startup:
 	if (ret) {
 		/* failed to get the link up... retire */
 		goto out;
-	} else {
+	} else if (hba->quirks & UFSHCD_BROKEN_LCC) {
 		ufshcd_dme_set(hba, UIC_ARG_MIB(TX_LCC_ENABLE), 0);
 		ufshcd_dme_set(hba, UIC_ARG_MIB(TX_LCC_ENABLE), 1);
 		ufshcd_dme_get(hba,
