@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,7 @@
 			qcom,heap-align = <0x1000>;
 			linux,contiguous-region = <&secure_mem>;
 			qcom,ion-heap-type = "SECURE_DMA";
+			qcom,default-prefetch-size = <0x6c00000>;
 		};
 
 		qcom,ion-heap@23 { /* OTHER PIL HEAP */
