@@ -242,10 +242,6 @@ static inline void ion_unmap_iommu(struct ion_client *client,
 	return;
 }
 
-static inline void ion_mark_dangling_buffers_locked(struct ion_device *dev)
-{
-}
-
 static inline int msm_ion_do_cache_op(struct ion_client *client,
 			struct ion_handle *handle, void *vaddr,
 			unsigned long len, unsigned int cmd)
