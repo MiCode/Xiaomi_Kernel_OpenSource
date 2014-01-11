@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1919,10 +1919,12 @@ static void msm_bus_bimc_update_bw(struct msm_bus_inode_info *hop,
 			qbw.thh = div_s64((110 * bw), 100);
 			/* Check if info is a shared master.
 			 * If it is, mark it dirty
-			 * If it isn't, then set QOS Bandwidth
+			 * If it isn't, then set QOS Bandwidth.
+			 * Also if dual-conf is set, don't program bw regs.
 			 **/
-			msm_bus_bimc_set_qos_bw(binfo,
-				info->node_info->qport[i], &qbw);
+			if (!info->node_info->dual_conf)
+				msm_bus_bimc_set_qos_bw(binfo,
+					info->node_info->qport[i], &qbw);
 		}
 	}
 
