@@ -2605,6 +2605,8 @@ int ipa_cfg_ep_metadata(u32 clnt_hdl, const struct ipa_ep_cfg_metadata *ep_md)
 	ipa_inc_client_enable_clks();
 
 	ipa_ctx->ctrl->ipa_cfg_ep_metadata(clnt_hdl, ep_md);
+	ipa_ctx->ep[clnt_hdl].cfg.hdr.hdr_metadata_reg_valid = 1;
+	ipa_ctx->ctrl->ipa_cfg_ep_hdr(clnt_hdl, &ipa_ctx->ep[clnt_hdl].cfg.hdr);
 
 	ipa_dec_client_disable_clks();
 
