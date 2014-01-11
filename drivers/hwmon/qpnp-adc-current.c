@@ -1011,6 +1011,11 @@ int32_t qpnp_iadc_read(struct qpnp_iadc_chip *iadc,
 	if (qpnp_iadc_is_valid(iadc) < 0)
 		return -EPROBE_DEFER;
 
+	if ((iadc->adc->calib.gain_raw - iadc->adc->calib.offset_raw) == 0) {
+		pr_err("raw offset errors! run iadc calibration again\n");
+		return -EINVAL;
+	}
+
 	rc = qpnp_check_pmic_temp(iadc);
 	if (rc) {
 		pr_err("Error checking pmic therm temp\n");
