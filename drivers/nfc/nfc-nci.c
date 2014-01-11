@@ -95,6 +95,7 @@ struct qca199x_dev {
 };
 
 static int nfc_i2c_write(struct i2c_client *client, u8 *buf, int len);
+static int nfcc_hw_check(struct i2c_client *client, unsigned short curr_addr);
 static int nfcc_initialise(struct i2c_client *client, unsigned short curr_addr);
 static int qca199x_clock_select(struct qca199x_dev *qca199x_dev);
 static int qca199x_clock_deselect(struct qca199x_dev *qca199x_dev);
@@ -873,6 +874,33 @@ static int nfc_i2c_write(struct i2c_client *client, u8 *buf, int len)
 	return r;
 }
 
+/* Check for availability of qca199x_ NFC controller hardware */
+static int nfcc_hw_check(struct i2c_client *client, unsigned short curr_addr)
+{
+	int r = 0;
+	unsigned char buf = 0;
+
+	client->addr = curr_addr;
+	/* Set-up Addr 0. No data written */
+	r = i2c_master_send(client, &buf, 1);
+	if (r < 0)
+		goto err_presence_check;
+	buf = 0;
+	/* Read back from Addr 0 */
+	r = i2c_master_recv(client, &buf, 1);
+	if (r < 0)
+		goto err_presence_check;
+
+	r = 0;
+	return r;
+
+err_presence_check:
+	r = -ENXIO;
+	dev_err(&client->dev,
+		"nfc-nci nfcc_presence check - no NFCC available\n");
+	return r;
+}
+/* Initialise qca199x_ NFC controller hardware */
 static int nfcc_initialise(struct i2c_client *client, unsigned short curr_addr)
 {
 	int r = 0;
@@ -1188,12 +1216,51 @@ static int qca199x_probe(struct i2c_client *client,
 		return -ENOMEM;
 	}
 	qca199x_dev->client = client;
+
+	/*
+	 * To be efficient we need to test whether nfcc hardware is physically
+	 * present before attempting further hardware initialisation.
+	 * For this we need to be sure the device is in ULPM state by
+	 * setting disable line low early on.
+	 *
+	 */
+
+
+	if (gpio_is_valid(platform_data->dis_gpio)) {
+		r = gpio_request(platform_data->dis_gpio, "nfc_reset_gpio");
+		if (r) {
+			dev_err(&client->dev,
+			"NFC: unable to request gpio [%d]\n",
+				platform_data->dis_gpio);
+			goto err_free_dev;
+		}
+		r = gpio_direction_output(platform_data->dis_gpio, 1);
+		if (r) {
+			dev_err(&client->dev,
+				"NFC: unable to set direction for gpio [%d]\n",
+					platform_data->dis_gpio);
+			goto err_dis_gpio;
+		}
+	} else {
+		dev_err(&client->dev, "dis gpio not provided\n");
+		goto err_free_dev;
+	}
+
+	/* Put device in ULPM */
+	gpio_set_value(platform_data->dis_gpio, 0);
+	r = nfcc_hw_check(client, platform_data->reg);
+	if (r) {
+		/* We don't think there is hardware but just in case HPD */
+		gpio_set_value(platform_data->dis_gpio, 1);
+		goto err_dis_gpio;
+	}
+
 	if (gpio_is_valid(platform_data->irq_gpio)) {
 		r = gpio_request(platform_data->irq_gpio, "nfc_irq_gpio");
 		if (r) {
 			dev_err(&client->dev, "unable to request gpio [%d]\n",
 				platform_data->irq_gpio);
-			goto err_free_dev;
+			goto err_dis_gpio;
 		}
 		r = gpio_direction_input(platform_data->irq_gpio);
 		if (r) {
@@ -1212,7 +1279,7 @@ static int qca199x_probe(struct i2c_client *client,
 
 	} else {
 		dev_err(&client->dev, "irq gpio not provided\n");
-		goto err_free_dev;
+		goto err_dis_gpio;
 	}
 	/* Interrupt from NFCC CLK_REQ to handle REF_CLK
 		o/p gating/selection */
@@ -1246,25 +1313,6 @@ static int qca199x_probe(struct i2c_client *client,
 			goto err_irq;
 		}
 	}
-	if (gpio_is_valid(platform_data->dis_gpio)) {
-		r = gpio_request(platform_data->dis_gpio, "nfc_reset_gpio");
-		if (r) {
-			dev_err(&client->dev,
-			"NFC: unable to request gpio [%d]\n",
-				platform_data->dis_gpio);
-			goto err_irq_clk;
-		}
-		r = gpio_direction_output(platform_data->dis_gpio, 1);
-		if (r) {
-			dev_err(&client->dev,
-				"NFC: unable to set direction for gpio [%d]\n",
-					platform_data->dis_gpio);
-			goto err_dis_gpio;
-		}
-	} else {
-		dev_err(&client->dev, "dis gpio not provided\n");
-		goto err_irq_clk;
-	}
 	/* Get the clock source name and gpio from from Device Tree */
 	qca199x_dev->clk_src_name = platform_data->clk_src_name;
 	qca199x_dev->clk_src_gpio = platform_data->clk_src_gpio;
@@ -1274,7 +1322,7 @@ static int qca199x_probe(struct i2c_client *client,
 		if (r == -1)
 			goto err_clk;
 		else
-			goto err_dis_gpio;
+			goto err_irq_clk;
 	}
 
 	if (strcmp(platform_data->clk_src_name, "GPCLK2")) {
@@ -1328,6 +1376,27 @@ static int qca199x_probe(struct i2c_client *client,
 		goto err_misc_register;
 	}
 
+
+	/*
+	 * Reboot the NFCC now that all resources are ready
+	 *
+	 * The NFCC takes time to transition between power states.
+	 * We wait 20uS for the NFCC to shutdown. (HPD)
+	 * We wait 100uS for the NFCC to boot into ULPM.
+	 */
+	gpio_set_value(platform_data->dis_gpio, 1);/* HPD */
+	msleep(20);
+	gpio_set_value(platform_data->dis_gpio, 0);/* ULPM */
+	msleep(100);
+
+
+	/* Here we perform a second presence check. */
+	r = nfcc_hw_check(client, platform_data->reg);
+	if (r) {
+		/* We don't think there is hardware but just in case HPD */
+		gpio_set_value(platform_data->dis_gpio, 1);
+		goto err_nfcc_not_present;
+	}
 	regulators.regulator = regulator_get(&client->dev, regulators.name);
 	if (IS_ERR(regulators.regulator)) {
 		r = PTR_ERR(regulators.regulator);
@@ -1392,6 +1461,7 @@ err_create_workq:
 	"nfc-nci probe: %s, work_queue creation failure\n",
 		 __func__);
 	free_irq(client->irq, qca199x_dev);
+err_nfcc_not_present:
 err_request_irq_failed:
 	misc_deregister(&qca199x_dev->qca199x_device);
 err_misc_register:
@@ -1401,18 +1471,6 @@ err_clkreq_gpio:
 		gpio_free(platform_data->clkreq_gpio);
 err_clk:
 		qca199x_clock_deselect(qca199x_dev);
-err_dis_gpio:
-	r = gpio_direction_input(platform_data->dis_gpio);
-	if (r)
-		dev_err(&client->dev, "nfc-nci probe: Unable to set direction\n");
-	if ((!strcmp(platform_data->clk_src_name, "GPCLK")) ||
-		(!strcmp(platform_data->clk_src_name, "GPCLK2"))) {
-		r = gpio_direction_input(platform_data->clk_src_gpio);
-		if (r)
-			dev_err(&client->dev, "nfc-nci probe: Unable to set direction\n");
-		gpio_free(platform_data->clk_src_gpio);
-	}
-	gpio_free(platform_data->dis_gpio);
 err_irq_clk:
 	if ((!strcmp(platform_data->clk_src_name, "GPCLK")) ||
 		(!strcmp(platform_data->clk_src_name, "GPCLK2"))) {
@@ -1423,6 +1481,8 @@ err_irq_clk:
 	}
 err_irq:
 	gpio_free(platform_data->irq_gpio);
+err_dis_gpio:
+	gpio_free(platform_data->dis_gpio);
 err_free_dev:
 	kfree(qca199x_dev);
 	return r;
