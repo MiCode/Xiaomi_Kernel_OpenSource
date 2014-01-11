@@ -123,30 +123,6 @@ struct ion_client *msm_ion_client_create(unsigned int heap_mask,
 }
 EXPORT_SYMBOL(msm_ion_client_create);
 
-int msm_ion_secure_heap(int heap_id)
-{
-	return ion_secure_heap(idev, heap_id, ION_CP_V1, NULL);
-}
-EXPORT_SYMBOL(msm_ion_secure_heap);
-
-int msm_ion_unsecure_heap(int heap_id)
-{
-	return ion_unsecure_heap(idev, heap_id, ION_CP_V1, NULL);
-}
-EXPORT_SYMBOL(msm_ion_unsecure_heap);
-
-int msm_ion_secure_heap_2_0(int heap_id, enum cp_mem_usage usage)
-{
-	return ion_secure_heap(idev, heap_id, ION_CP_V2, (void *)usage);
-}
-EXPORT_SYMBOL(msm_ion_secure_heap_2_0);
-
-int msm_ion_unsecure_heap_2_0(int heap_id, enum cp_mem_usage usage)
-{
-	return ion_unsecure_heap(idev, heap_id, ION_CP_V2, (void *)usage);
-}
-EXPORT_SYMBOL(msm_ion_unsecure_heap_2_0);
-
 int msm_ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 			void *vaddr, unsigned long len, unsigned int cmd)
 {
