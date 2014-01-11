@@ -420,18 +420,6 @@ static int msm_init_extra_data(struct device_node *node,
 	int ret = 0;
 
 	switch ((int) heap->type) {
-	case ION_HEAP_TYPE_CP:
-	{
-		heap->extra_data = kzalloc(sizeof(struct ion_cp_heap_pdata),
-					   GFP_KERNEL);
-		if (!heap->extra_data) {
-			ret = -ENOMEM;
-		} else {
-			struct ion_cp_heap_pdata *extra = heap->extra_data;
-			extra->permission_type = heap_desc->permission_type;
-		}
-		break;
-	}
 	case ION_HEAP_TYPE_CARVEOUT:
 	{
 		heap->extra_data = kzalloc(sizeof(struct ion_co_heap_pdata),
@@ -481,7 +469,6 @@ static struct heap_types_info {
 	MAKE_HEAP_TYPE_MAPPING(CARVEOUT),
 	MAKE_HEAP_TYPE_MAPPING(CHUNK),
 	MAKE_HEAP_TYPE_MAPPING(DMA),
-	MAKE_HEAP_TYPE_MAPPING(CP),
 	MAKE_HEAP_TYPE_MAPPING(SECURE_DMA),
 	MAKE_HEAP_TYPE_MAPPING(REMOVED),
 };
@@ -548,13 +535,6 @@ static void msm_ion_get_heap_align(struct device_node *node,
 	int ret = of_property_read_u32(node, "qcom,heap-align", &val);
 	if (!ret) {
 		switch ((int) heap->type) {
-		case ION_HEAP_TYPE_CP:
-		{
-			struct ion_cp_heap_pdata *extra =
-						heap->extra_data;
-			extra->align = val;
-			break;
-		}
 		case ION_HEAP_TYPE_CARVEOUT:
 		{
 			struct ion_co_heap_pdata *extra =
@@ -771,19 +751,17 @@ out:
 
 int ion_heap_allow_secure_allocation(enum ion_heap_type type)
 {
-	return type == ((enum ion_heap_type) ION_HEAP_TYPE_CP) ||
-		type == ((enum ion_heap_type) ION_HEAP_TYPE_SECURE_DMA);
+	return type == ((enum ion_heap_type) ION_HEAP_TYPE_SECURE_DMA);
 }
 
 int ion_heap_allow_handle_secure(enum ion_heap_type type)
 {
-	return type == ((enum ion_heap_type) ION_HEAP_TYPE_CP) ||
-		type == ((enum ion_heap_type) ION_HEAP_TYPE_SECURE_DMA);
+	return type == ((enum ion_heap_type) ION_HEAP_TYPE_SECURE_DMA);
 }
 
 int ion_heap_allow_heap_secure(enum ion_heap_type type)
 {
-	return type == ((enum ion_heap_type) ION_HEAP_TYPE_CP);
+	return false;
 }
 
 /* fix up the cases where the ioctl direction bits are incorrect */
@@ -897,9 +875,6 @@ static struct ion_heap *msm_ion_heap_create(struct ion_platform_heap *heap_data)
 	struct ion_heap *heap = NULL;
 
 	switch ((int)heap_data->type) {
-	case ION_HEAP_TYPE_CP:
-		heap = ion_cp_heap_create(heap_data);
-		break;
 #ifdef CONFIG_CMA
 	case ION_HEAP_TYPE_DMA:
 		heap = ion_cma_heap_create(heap_data);
@@ -936,9 +911,6 @@ static void msm_ion_heap_destroy(struct ion_heap *heap)
 		return;
 
 	switch ((int)heap->type) {
-	case ION_HEAP_TYPE_CP:
-		ion_cp_heap_destroy(heap);
-		break;
 #ifdef CONFIG_CMA
 	case ION_HEAP_TYPE_DMA:
 		ion_cma_heap_destroy(heap);
