@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -492,6 +492,10 @@
 			qcom,ldo-threshold-voltage = <850000>;
 			qcom,ldo-delta-voltage = <50000>;
 			qcom,cpu-num = <0>;
+			krait0_adj_reg: regulator@0 {
+				regulator-name = "krait-adjustment0";
+				qcom,coeff1-reduction = <75>;
+			};
 		};
 
 		krait1_vreg: regulator@f9098000 {
@@ -508,6 +512,10 @@
 			qcom,ldo-threshold-voltage = <850000>;
 			qcom,ldo-delta-voltage = <50000>;
 			qcom,cpu-num = <1>;
+			krait1_adj_reg: regulator@0 {
+				regulator-name = "krait-adjustment1";
+				qcom,coeff1-reduction = <75>;
+			};
 		};
 
 		krait2_vreg: regulator@f90a8000 {
@@ -524,6 +532,10 @@
 			qcom,ldo-threshold-voltage = <850000>;
 			qcom,ldo-delta-voltage = <50000>;
 			qcom,cpu-num = <2>;
+			krait2_adj_reg: regulator@0 {
+				regulator-name = "krait-adjustment2";
+				qcom,coeff1-reduction = <75>;
+			};
 		};
 
 		krait3_vreg: regulator@f90b8000 {
@@ -540,6 +552,10 @@
 			qcom,ldo-threshold-voltage = <850000>;
 			qcom,ldo-delta-voltage = <50000>;
 			qcom,cpu-num = <3>;
+			krait3_adj_reg: regulator@0 {
+				regulator-name = "krait-adjustment3";
+				qcom,coeff1-reduction = <75>;
+			};
 		};
 	};
 
