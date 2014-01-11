@@ -1518,9 +1518,14 @@ static void dwc3_resume_work(struct work_struct *w)
 		mdwc->resume_pending = true;
 	} else {
 		pm_runtime_get_sync(mdwc->dev);
-		if (mdwc->otg_xceiv)
+		if (mdwc->otg_xceiv) {
 			mdwc->ext_xceiv.notify_ext_events(mdwc->otg_xceiv->otg,
 							DWC3_EVENT_PHY_RESUME);
+		} else if (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM) {
+			struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+			pm_runtime_resume(&dwc->xhci->dev);
+		}
+
 		pm_runtime_put_noidle(mdwc->dev);
 		if (mdwc->otg_xceiv && (mdwc->ext_xceiv.otg_capability)) {
 			dwc3_wait_for_ext_chg_done(mdwc);
