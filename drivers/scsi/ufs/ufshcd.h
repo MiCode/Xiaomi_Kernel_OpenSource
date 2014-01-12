@@ -433,6 +433,17 @@ struct debugfs_files {
 	struct fault_attr fail_attr;
 #endif
 };
+
+/* tag stats statistics types */
+enum ts_types {
+	TS_NOT_SUPPORTED	= -1,
+	TS_TAG			= 0,
+	TS_READ			= 1,
+	TS_WRITE		= 2,
+	TS_URGENT		= 3,
+	TS_FLUSH		= 4,
+	TS_NUM_STATS		= 5,
+};
 #endif
 
 /**
@@ -449,8 +460,9 @@ struct debugfs_files {
  */
 struct ufs_stats {
 #ifdef CONFIG_DEBUG_FS
-	u64 *tag_stats;
 	bool enabled;
+	u64 **tag_stats;
+	int q_depth;
 #endif
 	u32 hibern8_exit_cnt;
 	ktime_t last_hibern8_exit_tstamp;
