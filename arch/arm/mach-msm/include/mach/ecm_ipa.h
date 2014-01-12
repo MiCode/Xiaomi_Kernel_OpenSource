@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,8 @@ typedef void (*ecm_ipa_callback)(void *priv,
  * with ecm_ipa APIs
  * @host_ethaddr: host Ethernet address in network order
  * @device_ethaddr: device Ethernet address in network order
+ * @skip_ep_cfg: boolean field that determines if Apps-processor
+ *  should or should not configure this end-point.
  */
 struct ecm_ipa_params {
 	ecm_ipa_callback ecm_ipa_rx_dp_notify;
@@ -47,6 +49,7 @@ struct ecm_ipa_params {
 	u8 host_ethaddr[ETH_ALEN];
 	u8 device_ethaddr[ETH_ALEN];
 	void *private;
+	bool skip_ep_cfg;
 };
 
 
