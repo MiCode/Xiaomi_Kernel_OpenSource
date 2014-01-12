@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -577,7 +577,9 @@ static int wwan_register_to_ipa(int index)
 		return -ENOMEM;
 	}
 
-		ext_properties.prop = ext_ioc_properties;
+	ext_properties.prop = ext_ioc_properties;
+	ext_properties.excp_pipe_valid = true;
+	ext_properties.excp_pipe = IPA_CLIENT_APPS_WAN_CONS;
 	ext_properties.num_props = num_q6_rule;
 	for (i = 0; i < num_q6_rule; i++) {
 		memcpy(&(ext_properties.prop[i]),
