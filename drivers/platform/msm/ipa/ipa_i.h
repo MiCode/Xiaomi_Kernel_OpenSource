@@ -50,7 +50,6 @@
 #define WLAN4_CONS_RX_EP  18
 
 #define MAX_NUM_EXCP     8
-#define MAX_NUM_IMM_CMD 20
 
 #define IPA_STATS
 
@@ -66,17 +65,8 @@
 			for (i = 0; i < MAX_NUM_EXCP; i++)	\
 				if (flags & BIT(i))		\
 					++base[i];		\
-			} while (0)
-#define IPA_STATS_INC_TX_CNT(ep, sw, hw) do {		\
-			if (ep == WLAN_AMPDU_TX_EP)	\
-				++hw;			\
-			else				\
-				++sw;			\
-			} while (0)
-#define IPA_STATS_INC_IC_CNT(num, base, stat_base) do {			\
-			int i;						\
-			for (i = 0; i < num; i++)			\
-				++stat_base[base[i].opcode];		\
+			if (flags == 0)				\
+				++base[MAX_NUM_EXCP - 1];	\
 			} while (0)
 #define IPA_STATS_INC_BRIDGE_CNT(type, dir, base) do {		\
 			++base[type][dir];			\
@@ -85,14 +75,12 @@
 #define IPA_STATS_INC_CNT(x) do { } while (0)
 #define IPA_STATS_INC_CNT_SAFE(x) do { } while (0)
 #define IPA_STATS_EXCP_CNT(flags, base) do { } while (0)
-#define IPA_STATS_INC_TX_CNT(ep, sw, hw) do { } while (0)
-#define IPA_STATS_INC_IC_CNT(num, base, stat_base) do { } while (0)
 #define IPA_STATS_INC_BRIDGE_CNT(type, dir, base) do { } while (0)
 #endif
 
 
 #define IPA_TOS_EQ			BIT(0)
-#define IPA_PROTOCOL_EQ		BIT(1)
+#define IPA_PROTOCOL_EQ			BIT(1)
 #define IPA_OFFSET_MEQ32_0		BIT(2)
 #define IPA_OFFSET_MEQ32_1		BIT(3)
 #define IPA_IHL_OFFSET_RANGE16_0	BIT(4)
@@ -554,15 +542,12 @@ enum ipa_config_this_ep {
 };
 
 struct ipa_stats {
-	u32 imm_cmds[MAX_NUM_IMM_CMD];
 	u32 tx_sw_pkts;
 	u32 tx_hw_pkts;
 	u32 rx_pkts;
 	u32 rx_excp_pkts[MAX_NUM_EXCP];
-	u32 bridged_pkts[IPA_BRIDGE_TYPE_MAX][IPA_BRIDGE_DIR_MAX];
 	u32 rx_repl_repost;
-	u32 x_intr_repost;
-	u32 x_intr_repost_tx;
+	u32 tx_pkts_compl;
 	u32 rx_q_len;
 	u32 msg_w[IPA_EVENT_MAX];
 	u32 msg_r[IPA_EVENT_MAX];

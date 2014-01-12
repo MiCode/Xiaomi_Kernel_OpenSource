@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,20 +34,6 @@
 #define IPA_IP_PACKET_TAG     (15)
 #define IPA_IP_PACKET_INIT    (16)
 #define IPA_DMA_SHARED_MEM    (19)
-
-#define IPA_INTERFACE_ID_EXCEPTION         (0)
-#define IPA_INTERFACE_ID_A2_WWAN        (0x10)
-#define IPA_INTERFACE_ID_HSUSB_RMNET1   (0x21)
-#define IPA_INTERFACE_ID_HSUSB_RMNET2   (0x22)
-#define IPA_INTERFACE_ID_HSUSB_RMNET3   (0x23)
-#define IPA_INTERFACE_ID_HSIC_WLAN_WAN  (0x31)
-#define IPA_INTERFACE_ID_HSIC_WLAN_LAN1 (0x32)
-#define IPA_INTERFACE_ID_HSIC_WLAN_LAN2 (0x33)
-#define IPA_INTERFACE_ID_HSIC_RMNET1    (0x41)
-#define IPA_INTERFACE_ID_HSIC_RMNET2    (0x42)
-#define IPA_INTERFACE_ID_HSIC_RMNET3    (0x43)
-#define IPA_INTERFACE_ID_HSIC_RMNET4    (0x44)
-#define IPA_INTERFACE_ID_HSIC_RMNET5    (0x45)
 
 /**
  * struct ipa_flt_rule_hw_hdr - HW header of IPA filter rule
