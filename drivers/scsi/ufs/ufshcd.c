@@ -3,7 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd.c
  * Copyright (C) 2011-2013 Samsung India Software Operations
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -50,19 +50,47 @@
 #ifdef CONFIG_DEBUG_FS
 #define UFSHCD_UPDATE_TAG_STATS(hba, tag)			\
 	do {							\
-		if (hba->ufs_stats.enabled) {			\
-			hba->ufs_stats.tag_stats[tag]++;	\
-		}						\
-	} while (0);
+		struct request *rq = hba->lrb[task_tag].cmd ?	\
+			hba->lrb[task_tag].cmd->request : NULL;	\
+		u64 **tag_stats = hba->ufs_stats.tag_stats;	\
+		int rq_type = -1;				\
+		if (!hba->ufs_stats.enabled)			\
+			break;					\
+		tag_stats[tag][TS_TAG]++;			\
+		if (!rq)					\
+			break;					\
+		WARN_ON(hba->ufs_stats.q_depth > hba->nutrs);	\
+		if (rq_data_dir(rq) == READ)			\
+			rq_type = (rq->cmd_flags & REQ_URGENT) ?\
+				TS_URGENT : TS_READ;		\
+		else if (rq_data_dir(rq) == WRITE)		\
+			rq_type = TS_WRITE;			\
+		else if (rq->cmd_flags & REQ_FLUSH)		\
+			rq_type = TS_FLUSH;			\
+		else						\
+			break;					\
+		tag_stats[hba->ufs_stats.q_depth++][rq_type]++;	\
+	} while (0)
+
+#define UFSHCD_UPDATE_TAG_STATS_COMPLETION(hba, cmd)		\
+	do {							\
+		struct request *rq = cmd ? cmd->request : NULL;	\
+		if (cmd->request &&				\
+				((rq_data_dir(rq) == READ) ||	\
+				(rq_data_dir(rq) == WRITE) ||	\
+				(rq->cmd_flags & REQ_FLUSH)))	\
+			hba->ufs_stats.q_depth--;		\
+	} while (0)
 
 #define UFSDBG_ADD_DEBUGFS(hba)		ufsdbg_add_debugfs(hba);
 
 #define UFSDBG_REMOVE_DEBUGFS(hba)	ufsdbg_remove_debugfs(hba);
 
 #else
-#define UFSHCD_UPDATE_TAG_STATS(hba, tag)	do {} while (0);
-#define UFSDBG_ADD_DEBUGFS(hba)		do {} while (0);
-#define UFSDBG_REMOVE_DEBUGFS(hba)		do {} while (0);
+#define UFSHCD_UPDATE_TAG_STATS(hba, tag)
+#define UFSHCD_UPDATE_TAG_STATS_COMPLETION(hba, cmd)
+#define UFSDBG_ADD_DEBUGFS(hba)
+#define UFSDBG_REMOVE_DEBUGFS(hba)
 
 #endif
 
@@ -632,7 +660,7 @@ void ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 {
 	__set_bit(task_tag, &hba->outstanding_reqs);
 	ufshcd_writel(hba, 1 << task_tag, REG_UTP_TRANSFER_REQ_DOOR_BELL);
-	UFSHCD_UPDATE_TAG_STATS(hba, task_tag)
+	UFSHCD_UPDATE_TAG_STATS(hba, task_tag);
 }
 
 /**
@@ -3008,6 +3036,7 @@ static void ufshcd_transfer_req_compl(struct ufs_hba *hba)
 		lrbp = &hba->lrb[index];
 		cmd = lrbp->cmd;
 		if (cmd) {
+			UFSHCD_UPDATE_TAG_STATS_COMPLETION(hba, cmd);
 			result = ufshcd_transfer_rsp_status(hba, lrbp);
 			scsi_dma_unmap(cmd);
 			cmd->result = result;
