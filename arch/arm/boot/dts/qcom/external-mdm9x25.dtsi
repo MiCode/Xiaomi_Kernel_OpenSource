@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,7 +12,7 @@
 
 &soc {
 	mdm0: qcom,mdm0 {
-                compatible = "qcom,mdm2-modem";
+                compatible = "qcom,ext-mdm9x25";
 		cell-index = <0>;
 		#address-cells = <0>;
                 interrupt-parent = <&mdm0>;
