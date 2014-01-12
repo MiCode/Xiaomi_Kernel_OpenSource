@@ -37,7 +37,7 @@
 #define TSPP2_DMX_PIPE_WORK_POOL_SIZE		500
 
 /* Polling timer interval in milliseconds  */
-#define TSPP2_DMX_POLL_TIMER_INTERVAL_MSEC	50
+#define TSPP2_DMX_POLL_TIMER_INTERVAL_MSEC	10
 
 #define VPES_HEADER_DATA_SIZE			204
 
@@ -70,6 +70,8 @@
 #define TSPP2_DMX_SECTION_MAX_BUFF_SIZE		\
 	(TSPP2_DMX_SPS_MAX_NUM_OF_DESCRIPTORS *	\
 	TSPP2_DMX_SPS_SECTION_DESC_SIZE)
+#define TSPP2_DMX_SECTION_BUFFER_THRESHOLD	\
+	(((TSPP2_DMX_SECTION_MAX_BUFF_SIZE) * 9) / 10) /* buffer 90% full */
 
 #define TSPP2_DMX_PCR_MAX_BUFF_SIZE		\
 	(TSPP2_DMX_SPS_MAX_NUM_OF_DESCRIPTORS *	\
@@ -330,6 +332,7 @@ struct mpq_dmx_tspp2_pipe_buffer {
  * @eos_pending:	Flag specifying whether the pipe handler has an
  *			end of stream notification that should be handled.
  * @work_queue:		pipe_work queue of work pending for this pipe
+ * @overflow:		overflow condition for output pipes
  * @hw_notif_count:	Total number of HW notifications
  * @hw_notif_rate_hz:	Rate of HW notifications in unit of Hz
  * @hw_notif_last_time:	Time at which previous HW notification was received
@@ -353,6 +356,7 @@ struct pipe_info {
 	struct mutex mutex;
 	int eos_pending;
 	struct pipe_work_queue work_queue;
+	int overflow;
 
 	/* debug-fs */
 	u32 hw_notif_count;
