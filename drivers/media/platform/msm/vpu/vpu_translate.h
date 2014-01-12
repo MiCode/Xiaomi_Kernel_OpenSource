@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,10 @@ u32 translate_output_destination(u32 out);
 
 u32 translate_pixelformat_to_hfi(u32 api_pix_fmt);
 u32 translate_pixelformat_to_api(u32 hfi_pix_fmt);
+
+void translate_colorspace_to_hfi(u32 api_colorspace,
+		struct vpu_prop_session_color_space *cs_1,
+		struct vpu_prop_session_color_space *cs_2);
 
 void translate_input_format_to_hfi(const struct vpu_port_info *port_info,
 		struct vpu_prop_session_input *in);

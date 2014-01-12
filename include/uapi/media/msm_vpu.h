@@ -37,6 +37,7 @@
  *    reserved[]:  VPU format extension. struct v4l2_format_vpu_extension
  */
 enum vpu_colorspace {
+	VPU_CS_MIN = 0,
 	/* RGB with full range*/
 	VPU_CS_RGB_FULL = 1,
 	/* RGB with limited range*/
@@ -53,6 +54,7 @@ enum vpu_colorspace {
 	VPU_CS_SMPTE240_FULL = 7,
 	/* SMPTE 240 with limited range */
 	VPU_CS_SMPTE240_LIMITED = 8,
+	VPU_CS_MAX = 9,
 };
 
 

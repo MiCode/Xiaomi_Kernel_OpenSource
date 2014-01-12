@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -471,9 +471,14 @@ int vpu_get_fmt(struct vpu_client *client, struct v4l2_format *f)
 	if (port == INPUT_PORT) {
 		ret = vpu_hw_session_g_input_params(session->id, &in_param);
 		translate_input_format_to_api(&in_param, f);
+		f->fmt.pix_mp.colorspace =
+			session->port_info[INPUT_PORT].format.colorspace;
+
 	} else {
 		ret = vpu_hw_session_g_output_params(session->id, &out_param);
 		translate_output_format_to_api(&out_param, f);
+		f->fmt.pix_mp.colorspace =
+			session->port_info[OUTPUT_PORT].format.colorspace;
 	}
 
 	return ret;
@@ -547,8 +552,12 @@ int vpu_set_fmt(struct vpu_client *client, struct v4l2_format *f)
 		session->port_info[INPUT_PORT].scan_mode =
 				translate_v4l2_scan_mode(pix_mp->field);
 
-	ret = commit_port_config(session, port, 1);
+	ret = configure_colorspace(session, port);
+	if (ret)
+		goto exit;
 
+	ret = commit_port_config(session, port, 1);
+exit:
 	mutex_unlock(&session->lock);
 	return ret;
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,8 @@ int apply_vpu_control_extended(struct vpu_client *client, int cmd,
 		struct vpu_control_extended *control);
 
 void *get_control(struct vpu_controller *controller, u32 id);
+
+int configure_colorspace(struct vpu_dev_session *session, int port);
 
 int configure_nr_buffers(struct vpu_dev_session *session,
 		const struct vpu_ctrl_auto_manual *nr);
