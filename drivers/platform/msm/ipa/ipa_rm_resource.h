@@ -51,12 +51,18 @@ struct ipa_rm_notification_info {
 /**
  * struct ipa_rm_resource - IPA RM resource
  * @name: name identifying resource
+ * @type: type of resource (PRODUCER or CONSUMER)
+ * @floor_voltage: minimum voltage level for operation
+ * @max_bw: maximum bandwidth required for resource in Mbps
  * @state: state of the resource
  * @peers_list: list of the peers of the resource
  */
 struct ipa_rm_resource {
 	enum ipa_rm_resource_name	name;
 	enum ipa_rm_resource_type	type;
+	enum ipa_voltage_level		floor_voltage;
+	u32				max_bw;
+	u32				needed_bw;
 	enum ipa_rm_resource_state	state;
 	struct ipa_rm_peers_list	*peers_list;
 };
@@ -115,6 +121,9 @@ int ipa_rm_resource_delete_dependency(struct ipa_rm_resource *resource,
 int ipa_rm_resource_producer_request(struct ipa_rm_resource_prod *producer);
 
 int ipa_rm_resource_producer_release(struct ipa_rm_resource_prod *producer);
+
+int ipa_rm_resource_set_perf_profile(struct ipa_rm_resource *resource,
+				     struct ipa_rm_perf_profile *profile);
 
 void ipa_rm_resource_consumer_handle_cb(struct ipa_rm_resource_cons *consumer,
 				enum ipa_rm_event event);

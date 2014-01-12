@@ -37,12 +37,27 @@ static const char *resource_name_to_str[IPA_RM_RESOURCE_MAX] = {
 	__stringify(IPA_RM_RESOURCE_HSIC_CONS),
 };
 
+struct ipa_rm_profile_vote_type {
+	enum ipa_voltage_level volt[IPA_RM_RESOURCE_MAX];
+	enum ipa_voltage_level curr_volt;
+	u32 bw_prods[IPA_RM_RESOURCE_PROD_MAX];
+	u32 bw_cons[IPA_RM_RESOURCE_CONS_MAX];
+	u32 curr_bw;
+};
+
 struct ipa_rm_context_type {
 	struct ipa_rm_dep_graph *dep_graph;
 	struct workqueue_struct *ipa_rm_wq;
 	spinlock_t ipa_rm_lock;
+	struct ipa_rm_profile_vote_type prof_vote;
 };
 static struct ipa_rm_context_type *ipa_rm_ctx;
+
+struct ipa_rm_notify_ipa_work_type {
+	struct work_struct		work;
+	enum ipa_voltage_level		volt;
+	u32				bandwidth_mbps;
+};
 
 /**
  * ipa_rm_create_resource() - create resource
@@ -66,6 +81,13 @@ int ipa_rm_create_resource(struct ipa_rm_create_params *create_params)
 		return -EINVAL;
 	}
 	IPA_RM_DBG("%s\n", ipa_rm_resource_str(create_params->name));
+
+	if (create_params->floor_voltage < 0 ||
+		create_params->floor_voltage >= IPA_VOLTAGE_MAX) {
+		IPA_RM_ERR("invalid voltage %d\n",
+			create_params->floor_voltage);
+		return -EINVAL;
+	}
 
 	spin_lock(&ipa_rm_ctx->ipa_rm_lock);
 	if (ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
@@ -354,6 +376,48 @@ bail:
 EXPORT_SYMBOL(ipa_rm_deregister);
 
 /**
+ * ipa_rm_set_perf_profile() - set performance profile
+ * @resource_name: resource name
+ * @profile: [in] profile information.
+ *
+ * Returns: 0 on success, negative on failure
+ *
+ * Set resource performance profile.
+ * Updates IPA driver if performance level changed.
+ */
+int ipa_rm_set_perf_profile(enum ipa_rm_resource_name resource_name,
+			struct ipa_rm_perf_profile *profile)
+{
+	int result;
+	struct ipa_rm_resource *resource;
+
+	IPA_RM_DBG("%s\n", ipa_rm_resource_str(resource_name));
+
+	spin_lock(&ipa_rm_ctx->ipa_rm_lock);
+	if (ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
+				resource_name,
+				&resource) != 0) {
+		IPA_RM_ERR("resource does not exists\n");
+		result = -EPERM;
+		goto bail;
+	}
+	result = ipa_rm_resource_set_perf_profile(resource, profile);
+	if (result) {
+		IPA_RM_ERR("ipa_rm_resource_set_perf_profile failed %d\n",
+			result);
+		goto bail;
+	}
+
+	result = 0;
+bail:
+	spin_unlock(&ipa_rm_ctx->ipa_rm_lock);
+	IPA_RM_DBG("EXIT with %d\n", result);
+
+	return result;
+}
+EXPORT_SYMBOL(ipa_rm_set_perf_profile);
+
+/**
  * ipa_rm_notify_completion() -
  *	consumer driver notification for
  *	request_resource / release_resource operations
@@ -552,15 +616,148 @@ bail:
 }
 
 /**
-* ipa_rm_resource_str() - returns string that represent the resource
-* @resource_name: [in] resource name
-*/
+ * ipa_rm_resource_str() - returns string that represent the resource
+ * @resource_name: [in] resource name
+ */
 const char *ipa_rm_resource_str(enum ipa_rm_resource_name resource_name)
 {
 	if (resource_name < 0 || resource_name >= IPA_RM_RESOURCE_MAX)
 		return "INVALID RESOURCE";
 
 	return resource_name_to_str[resource_name];
+};
+
+static void ipa_rm_perf_profile_notify_to_ipa_work(struct work_struct *work)
+{
+	struct ipa_rm_notify_ipa_work_type *notify_work = container_of(work,
+				struct ipa_rm_notify_ipa_work_type,
+				work);
+	int res;
+
+	IPA_RM_DBG("calling to IPA driver. voltage %d bandwidth %d\n",
+		notify_work->volt, notify_work->bandwidth_mbps);
+
+	res = ipa_set_required_perf_profile(notify_work->volt,
+		notify_work->bandwidth_mbps);
+	if (res) {
+		IPA_RM_ERR("ipa_set_required_perf_profile failed %d\n", res);
+		goto bail;
+	}
+
+	IPA_RM_DBG("IPA driver notified\n");
+bail:
+	kfree(notify_work);
+}
+
+static void ipa_rm_perf_profile_notify_to_ipa(enum ipa_voltage_level volt,
+					      u32 bandwidth)
+{
+	struct ipa_rm_notify_ipa_work_type *work;
+
+	work = kzalloc(sizeof(*work), GFP_ATOMIC);
+	if (!work) {
+		IPA_RM_ERR("no mem\n");
+		return;
+	}
+
+	INIT_WORK(&work->work, ipa_rm_perf_profile_notify_to_ipa_work);
+	work->volt = volt;
+	work->bandwidth_mbps = bandwidth;
+	queue_work(ipa_rm_ctx->ipa_rm_wq, &work->work);
+}
+
+/**
+ * ipa_rm_perf_profile_change() - change performance profile vote for resource
+ * @resource_name: [in] resource name
+ *
+ * change bandwidth and voltage vote based on resource state.
+ */
+void ipa_rm_perf_profile_change(enum ipa_rm_resource_name resource_name)
+{
+	enum ipa_voltage_level old_volt;
+	u32 *bw_ptr;
+	u32 old_bw;
+	struct ipa_rm_resource *resource;
+	int i;
+	u32 sum_bw_prod = 0;
+	u32 sum_bw_cons = 0;
+
+	IPA_RM_DBG("%s\n", ipa_rm_resource_str(resource_name));
+
+	if (ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
+					  resource_name,
+					  &resource) != 0) {
+			IPA_RM_ERR("resource does not exists\n");
+			WARN_ON(1);
+			return;
+	}
+
+	old_volt = ipa_rm_ctx->prof_vote.curr_volt;
+	old_bw = ipa_rm_ctx->prof_vote.curr_bw;
+
+	if (IPA_RM_RESORCE_IS_PROD(resource_name))
+		bw_ptr = &ipa_rm_ctx->prof_vote.bw_prods[resource_name];
+	else
+		bw_ptr = &ipa_rm_ctx->prof_vote.bw_cons[
+				resource_name - IPA_RM_RESOURCE_PROD_MAX];
+
+	switch (resource->state) {
+	case IPA_RM_GRANTED:
+	case IPA_RM_REQUEST_IN_PROGRESS:
+		IPA_RM_DBG("max_bw = %d, needed_bw = %d\n",
+			resource->max_bw, resource->needed_bw);
+		*bw_ptr = min(resource->max_bw, resource->needed_bw);
+		ipa_rm_ctx->prof_vote.volt[resource_name] =
+						resource->floor_voltage;
+		break;
+
+	case IPA_RM_RELEASE_IN_PROGRESS:
+	case IPA_RM_RELEASED:
+		*bw_ptr = 0;
+		ipa_rm_ctx->prof_vote.volt[resource_name] = 0;
+		break;
+
+	default:
+		IPA_RM_ERR("unknown state %d\n", resource->state);
+		WARN_ON(1);
+		return;
+	}
+	IPA_RM_DBG("resource bandwidth: %d voltage: %d\n", *bw_ptr,
+					resource->floor_voltage);
+
+	ipa_rm_ctx->prof_vote.curr_volt = IPA_VOLTAGE_UNSPECIFIED;
+	for (i = 0; i < IPA_RM_RESOURCE_MAX; i++) {
+		if (ipa_rm_ctx->prof_vote.volt[i] >
+				ipa_rm_ctx->prof_vote.curr_volt) {
+			ipa_rm_ctx->prof_vote.curr_volt =
+				ipa_rm_ctx->prof_vote.volt[i];
+		}
+	}
+
+	for (i = 0; i < IPA_RM_RESOURCE_PROD_MAX; i++)
+		sum_bw_prod += ipa_rm_ctx->prof_vote.bw_prods[i];
+
+	for (i = 0; i < IPA_RM_RESOURCE_CONS_MAX; i++)
+		sum_bw_cons += ipa_rm_ctx->prof_vote.bw_cons[i];
+
+	IPA_RM_DBG("all prod bandwidth: %d all cons bandwidth: %d\n",
+		sum_bw_prod, sum_bw_cons);
+	ipa_rm_ctx->prof_vote.curr_bw = min(sum_bw_prod, sum_bw_cons);
+
+	if (ipa_rm_ctx->prof_vote.curr_volt == old_volt &&
+		ipa_rm_ctx->prof_vote.curr_bw == old_bw) {
+		IPA_RM_DBG("same voting\n");
+		return;
+	}
+
+	IPA_RM_DBG("new voting: voltage %d bandwidth %d\n",
+		ipa_rm_ctx->prof_vote.curr_volt,
+		ipa_rm_ctx->prof_vote.curr_bw);
+
+	ipa_rm_perf_profile_notify_to_ipa(ipa_rm_ctx->prof_vote.curr_volt,
+			ipa_rm_ctx->prof_vote.curr_bw);
+
+	return;
 };
 
 /**

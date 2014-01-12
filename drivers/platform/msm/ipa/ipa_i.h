@@ -907,6 +907,9 @@ int ipa_id_alloc(void *ptr);
 void *ipa_id_find(u32 id);
 void ipa_id_remove(u32 id);
 
+int ipa_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
+				  u32 bandwidth_mbps);
+
 int ipa_cfg_ep_status(u32 clnt_hdl, const struct ipa_ep_cfg_status *ipa_ep_cfg);
 
 

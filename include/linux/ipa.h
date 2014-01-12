@@ -533,6 +533,16 @@ typedef void (*ipa_msg_free_fn)(void *buff, u32 len, u32 type);
 typedef int (*ipa_msg_pull_fn)(void *buff, u32 len, u32 type);
 
 /**
+ * enum ipa_voltage_level - IPA Voltage levels
+ */
+enum ipa_voltage_level {
+	IPA_VOLTAGE_UNSPECIFIED,
+	IPA_VOLTAGE_SVS = IPA_VOLTAGE_UNSPECIFIED,
+	IPA_VOLTAGE_NOMINAL,
+	IPA_VOLTAGE_MAX,
+};
+
+/**
  * enum ipa_rm_event - IPA RM events
  *
  * Indicate the resource state change
@@ -567,6 +577,8 @@ struct ipa_rm_register_params {
  * struct ipa_rm_create_params - information needed to initialize
  *				the resource
  * @name: resource name
+ * @floor_voltage: floor voltage needed for client to operate in maximum
+ *		bandwidth.
  * @reg_params: register parameters, contains are ignored
  *		for consumer resource NULL should be provided
  *		for consumer resource
@@ -581,9 +593,20 @@ struct ipa_rm_register_params {
  */
 struct ipa_rm_create_params {
 	enum ipa_rm_resource_name name;
+	enum ipa_voltage_level floor_voltage;
 	struct ipa_rm_register_params reg_params;
 	int (*request_resource)(void);
 	int (*release_resource)(void);
+};
+
+/**
+ * struct ipa_rm_perf_profile - information regarding IPA RM client performance
+ * profile
+ *
+ * @max_bandwidth_mbps: maximum bandwidth need of the client in Mbps
+ */
+struct ipa_rm_perf_profile {
+	u32 max_supported_bandwidth_mbps;
 };
 
 #define A2_MUX_HDR_NAME_V4_PREF "dmux_hdr_v4_"
@@ -867,6 +890,9 @@ int ipa_rm_register(enum ipa_rm_resource_name resource_name,
 
 int ipa_rm_deregister(enum ipa_rm_resource_name resource_name,
 			struct ipa_rm_register_params *reg_params);
+
+int ipa_rm_set_perf_profile(enum ipa_rm_resource_name resource_name,
+			struct ipa_rm_perf_profile *profile);
 
 int ipa_rm_add_dependency(enum ipa_rm_resource_name resource_name,
 			enum ipa_rm_resource_name depends_on_name);
@@ -1265,6 +1291,13 @@ static inline int ipa_rm_delete_resource(
 
 static inline int ipa_rm_register(enum ipa_rm_resource_name resource_name,
 			struct ipa_rm_register_params *reg_params)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_set_perf_profile(
+		enum ipa_rm_resource_name resource_name,
+		struct ipa_rm_perf_profile *profile)
 {
 	return -EPERM;
 }
