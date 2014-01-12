@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,6 +55,10 @@ const char emac_drv_version[] = DRV_VERSION;
 static int msm_emac_msglvl = -1;
 module_param_named(msglvl, msm_emac_msglvl, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
+static int msm_emac_intr_ext;
+module_param_named(intr_ext, msm_emac_intr_ext, int,
+		   S_IRUGO | S_IWUSR | S_IWGRP);
+
 static int emac_up(struct emac_adapter *adpt);
 static void emac_down(struct emac_adapter *adpt, u32 ctrl);
 static irqreturn_t emac_interrupt(int irq, void *data);
@@ -72,7 +76,7 @@ static irqreturn_t emac_wol_interrupt(int irq, void *data);
 */
 static struct emac_irq_info emac_irq[EMAC_NUM_IRQ] = {
 	{ 0, "emac_core0_irq", emac_interrupt, EMAC_INT_STATUS,
-	  EMAC_INT_MASK, IMR_NORMAL_MASK | RX_PKT_INT0, NULL, NULL },
+	  EMAC_INT_MASK, RX_PKT_INT0, NULL, NULL },
 	{ 0, "emac_core3_irq", emac_interrupt, EMAC_INT3_STATUS,
 	  EMAC_INT3_MASK, 0, NULL, NULL },
 	{ 0, "emac_core1_irq", emac_interrupt, EMAC_INT1_STATUS,
@@ -919,10 +923,9 @@ static irqreturn_t emac_interrupt(int irq, void *data)
 				emac_handle_tx(adpt, &adpt->tx_queue[3]);
 		}
 
-		if (status & ISR_OVER) {
-			emac_err(adpt, "TX/RX overflow status 0x%x\n",
-				 status & ISR_OVER);
-		}
+		if (status & ISR_OVER)
+			emac_warn(adpt, intr, "TX/RX overflow status 0x%x\n",
+				  status & ISR_OVER);
 
 		/* link event */
 		if (status & (ISR_GPHY_LINK | SW_MAN_INT)) {
@@ -2490,6 +2493,8 @@ static int emac_probe(struct platform_device *pdev)
 	}
 	adpt->irq_info[EMAC_WOL_IRQ].adpt = adpt;
 	adpt->irq_info[EMAC_SGMII_PHY_IRQ].adpt = adpt;
+	adpt->irq_info[0].mask |= (msm_emac_intr_ext ? IMR_EXTENDED_MASK :
+				   IMR_NORMAL_MASK);
 
 	retval = emac_get_resources(pdev, adpt);
 	if (retval)
