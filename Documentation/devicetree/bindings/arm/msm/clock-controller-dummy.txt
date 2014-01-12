@@ -1,0 +1,17 @@
+Qualcomm MSM Dummy Clock controller
+
+Qualcomm MSM Dummy Clock controller devices provide a dummy clock for driver
+development during pre-silicon stage. The driver will always return a dummy
+clock that has no effect on hardware.
+
+Required properties:
+- compatible:		Must be "qcom,dummycc"
+- #clock_cells:		Must be <1>. This will allow the common clock device
+			tree framework to recognize _this_ device node as a
+			clock provider.
+
+Example:
+	clock_rpm: qcom,rpmcc {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
