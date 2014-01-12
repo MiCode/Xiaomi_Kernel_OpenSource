@@ -420,6 +420,8 @@ typedef void (*ipa_notify_cb)(void *priv, enum ipa_dp_evt_type evt,
  *			to sys mem if pipe mem alloc fails
  * @desc:	desc FIFO meta-data when client has allocated it
  * @data:	data FIFO meta-data when client has allocated it
+ * @skip_ep_cfg: boolean field that determines if EP should be configured
+ *  by IPA driver
  */
 struct ipa_connect_params {
 	struct ipa_ep_cfg ipa_ep_cfg;
@@ -433,6 +435,7 @@ struct ipa_connect_params {
 	bool pipe_mem_preferred;
 	struct sps_mem_buffer desc;
 	struct sps_mem_buffer data;
+	bool skip_ep_cfg;
 };
 
 /**
@@ -496,6 +499,8 @@ struct ipa_ext_intf {
  *		evt - type of event
  *		data - data relevant to event.  May not be valid. See event_type
  *		enum for valid cases.
+ * @skip_ep_cfg: boolean field that determines if EP should be configured
+ *  by IPA driver
  */
 struct ipa_sys_connect_params {
 	struct ipa_ep_cfg ipa_ep_cfg;
@@ -503,6 +508,7 @@ struct ipa_sys_connect_params {
 	u32 desc_fifo_sz;
 	void *priv;
 	ipa_notify_cb notify;
+	bool skip_ep_cfg;
 };
 
 /**

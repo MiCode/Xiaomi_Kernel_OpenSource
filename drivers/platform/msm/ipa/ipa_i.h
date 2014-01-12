@@ -317,6 +317,8 @@ struct ipa_tree_node {
  * @desc_fifo_client_allocated: if descriptors FIFO was allocated by a client
  * @data_fifo_client_allocated: if data FIFO was allocated by a client
  * @suspended: valid for B2B pipes, whether IPA EP is suspended
+ * @skip_ep_cfg: boolean field that determines if EP should be configured
+ *  by IPA driver
  */
 struct ipa_ep_context {
 	int valid;
@@ -341,6 +343,7 @@ struct ipa_ep_context {
 	u32 avail_fifo_desc;
 	u32 dflt_flt4_rule_hdl;
 	u32 dflt_flt6_rule_hdl;
+	bool skip_ep_cfg;
 };
 
 enum ipa_sys_pipe_policy {

@@ -239,6 +239,7 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	memset(&ipa_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa_ep_context));
 	ipa_inc_client_enable_clks();
 
+	ep->skip_ep_cfg = in->skip_ep_cfg;
 	ep->valid = 1;
 	ep->client = in->client;
 	ep->client_notify = in->notify;
@@ -251,12 +252,12 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 		goto ipa_cfg_ep_fail;
 	}
 
-	if (ipa_ctx->ipa_hw_type != IPA_HW_v2_0 || ep->priv == NULL ||
-	    (enum ipa_config_this_ep)ep->priv != IPA_DO_NOT_CONFIGURE_THIS_EP) {
+	if (!ep->skip_ep_cfg) {
 		if (ipa_cfg_ep(ipa_ep_idx, &in->ipa_ep_cfg)) {
 			IPAERR("fail to configure EP.\n");
 			goto ipa_cfg_ep_fail;
 		}
+		IPADBG("ep configuration successful\n");
 	} else {
 		IPADBG("Skipping endpoint configuration.\n");
 	}
@@ -325,9 +326,7 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 
 	ipa_program_holb(ep, ipa_ep_idx);
 
-	if (in->client == IPA_CLIENT_USB_PROD &&
-		((enum ipa_config_this_ep)ep->priv !=
-		 IPA_DO_NOT_CONFIGURE_THIS_EP))
+	if (!ep->skip_ep_cfg && IPA_CLIENT_IS_PROD(in->client))
 		ipa_install_dflt_flt_rules(ipa_ep_idx);
 
 	IPADBG("client %d (ep: %d) connected\n", in->client, ipa_ep_idx);
