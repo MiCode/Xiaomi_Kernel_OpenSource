@@ -534,6 +534,9 @@ typedef struct dmx_caps {
 /* Indicates whether playback from secured input is supported */
 #define DMX_CAP_SECURED_INPUT_PLAYBACK	0x40
 
+/* Indicates whether automatic buffer flush upon overflow is allowed */
+#define DMX_CAP_AUTO_BUFFER_FLUSH	0x80
+
 	/* Number of decoders demux can output data to */
 	int num_decoders;
 
@@ -873,6 +876,7 @@ struct dmx_scrambling_bits {
 #define DMX_ABORT_TS_INSERTION _IOW('o', 71, struct dmx_abort_ts_insertion)
 #define DMX_GET_SCRAMBLING_BITS _IOWR('o', 72, struct dmx_scrambling_bits)
 #define DMX_SET_CIPHER _IOW('o', 73, struct dmx_cipher_operations)
+#define DMX_FLUSH_BUFFER _IO('o', 74)
 
 
 #endif /* _UAPI_DVBDMX_H_ */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1623,7 +1623,8 @@ static int mpq_tspp_dmx_get_caps(struct dmx_demux *demux,
 	}
 
 	caps->caps = DMX_CAP_PULL_MODE | DMX_CAP_VIDEO_DECODER_DATA |
-		DMX_CAP_TS_INSERTION | DMX_CAP_VIDEO_INDEXING;
+		DMX_CAP_TS_INSERTION | DMX_CAP_VIDEO_INDEXING |
+		DMX_CAP_AUTO_BUFFER_FLUSH;
 	caps->recording_max_video_pids_indexed = 0;
 	caps->num_decoders = MPQ_ADAPTER_MAX_NUM_OF_INTERFACES;
 	caps->num_demux_devices = CONFIG_DVB_MPQ_NUM_DMX_DEVICES;
@@ -1769,6 +1770,7 @@ static int mpq_tspp_dmx_init(
 	mpq_demux->demux.set_cipher_op = mpq_dmx_set_cipher_ops;
 	mpq_demux->demux.oob_command = mpq_dmx_oob_command;
 	mpq_demux->demux.convert_ts = mpq_dmx_convert_tts;
+	mpq_demux->demux.flush_decoder_buffer = NULL;
 
 	/* Initialize dvb_demux object */
 	result = dvb_dmx_init(&mpq_demux->demux);

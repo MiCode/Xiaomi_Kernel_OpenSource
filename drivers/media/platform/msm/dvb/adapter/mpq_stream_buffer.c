@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -246,6 +246,14 @@ int mpq_streambuffer_pkt_write(
 		return -ENODEV;
 	}
 
+	/* Make sure we can go to the next linear buffer */
+	if (sbuff->mode == MPQ_STREAMBUFFER_BUFFER_MODE_LINEAR &&
+		sbuff->pending_buffers_count == sbuff->buffers_num &&
+		packet->raw_data_len) {
+		spin_unlock(&sbuff->packet_data.lock);
+		return -ENOSPC;
+	}
+
 	len = sizeof(struct mpq_streambuffer_packet_header) +
 		packet->user_data_len;
 
@@ -272,12 +280,8 @@ int mpq_streambuffer_pkt_write(
 	dvb_ringbuffer_pkt_close(&sbuff->packet_data, idx);
 
 	/* Move write pointer to next linear buffer for subsequent writes */
-	if ((MPQ_STREAMBUFFER_BUFFER_MODE_LINEAR == sbuff->mode) &&
-		(packet->raw_data_len > 0)) {
-		if (sbuff->pending_buffers_count == sbuff->buffers_num) {
-			spin_unlock(&sbuff->packet_data.lock);
-			return -ENOSPC;
-		}
+	if (MPQ_STREAMBUFFER_BUFFER_MODE_LINEAR == sbuff->mode &&
+		packet->raw_data_len) {
 		DVB_RINGBUFFER_PUSH(&sbuff->raw_data,
 				sizeof(struct mpq_streambuffer_buffer_desc));
 		sbuff->pending_buffers_count++;
@@ -340,7 +344,7 @@ ssize_t mpq_streambuffer_data_write(
 
 		if ((sbuff->pending_buffers_count == sbuff->buffers_num) ||
 			((desc->size - desc->write_ptr) < len)) {
-			MPQ_DVB_ERR_PRINT(
+			MPQ_DVB_DBG_PRINT(
 				"%s: No space available! %d pending buffers out of %d total buffers. write_ptr=%d, size=%d\n",
 				__func__,
 				sbuff->pending_buffers_count,
@@ -770,4 +774,54 @@ ssize_t mpq_streambuffer_metadata_free(struct mpq_streambuffer *sbuff)
 	return free;
 }
 EXPORT_SYMBOL(mpq_streambuffer_metadata_free);
+
+int mpq_streambuffer_flush(struct mpq_streambuffer *sbuff)
+{
+	struct mpq_streambuffer_buffer_desc *desc;
+	size_t len;
+	int idx;
+	int ret = 0;
+
+	if (NULL == sbuff)
+		return -EINVAL;
+
+	spin_lock(&sbuff->packet_data.lock);
+	spin_lock(&sbuff->raw_data.lock);
+
+	/* Check if buffer was released */
+	if (sbuff->packet_data.error == -ENODEV ||
+		sbuff->raw_data.error == -ENODEV) {
+		ret = -ENODEV;
+		goto end;
+	}
+
+	if (sbuff->mode == MPQ_STREAMBUFFER_BUFFER_MODE_LINEAR)
+		while (sbuff->pending_buffers_count) {
+			desc = (struct mpq_streambuffer_buffer_desc *)
+				&sbuff->raw_data.data[sbuff->raw_data.pread];
+			desc->write_ptr = 0;
+			desc->read_ptr = 0;
+			DVB_RINGBUFFER_SKIP(&sbuff->raw_data,
+				sizeof(struct mpq_streambuffer_buffer_desc));
+			sbuff->pending_buffers_count--;
+		}
+	else
+		dvb_ringbuffer_flush(&sbuff->raw_data);
+
+	/*
+	 * Dispose all packets (simply flushing is not enough since we want
+	 * the packets' status to move to disposed).
+	 */
+	do {
+		idx = dvb_ringbuffer_pkt_next(&sbuff->packet_data, -1, &len);
+		if (idx >= 0)
+			dvb_ringbuffer_pkt_dispose(&sbuff->packet_data, idx);
+	} while (idx >= 0);
+
+end:
+	spin_unlock(&sbuff->raw_data.lock);
+	spin_unlock(&sbuff->packet_data.lock);
+	return ret;
+}
+EXPORT_SYMBOL(mpq_streambuffer_flush);
 

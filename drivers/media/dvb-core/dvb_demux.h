@@ -250,6 +250,7 @@ struct dvb_demux {
 			 const u8 timestamp[TIMESTAMP_LEN],
 			 u64 *timestampIn27Mhz);
 	int (*set_indexing)(struct dvb_demux_feed *feed);
+	int (*flush_decoder_buffer)(struct dvb_demux_feed *feed, size_t length);
 
 	int users;
 #define MAX_DVB_DEMUX_USERS 10
@@ -335,6 +336,7 @@ void dvb_dmx_process_idx_pattern(struct dvb_demux_feed *feed,
 void dvb_dmx_notify_idx_events(struct dvb_demux_feed *feed, int should_lock);
 int dvb_dmx_notify_section_event(struct dvb_demux_feed *feed,
 	struct dmx_data_ready *event, int should_lock);
+void dvbdmx_ts_reset_pes_state(struct dvb_demux_feed *feed);
 
 /**
  * dvb_dmx_is_video_feed - Returns whether the PES feed

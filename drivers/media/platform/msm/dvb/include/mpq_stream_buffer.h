@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -449,6 +449,15 @@ int mpq_streambuffer_get_data_rw_offset(
  * @sbuff: the stream buffer object
  */
 ssize_t mpq_streambuffer_metadata_free(struct mpq_streambuffer *sbuff);
+
+/**
+ * mpq_streambuffer_flush - flush both pending packets and data in buffer
+ *
+ * @sbuff: the stream buffer object
+ *
+ * Returns error status
+ */
+int mpq_streambuffer_flush(struct mpq_streambuffer *sbuff);
 
 #endif /* _MPQ_STREAM_BUFFER_H */
 

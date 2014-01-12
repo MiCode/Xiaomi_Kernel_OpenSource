@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -929,6 +929,16 @@ int mpq_dmx_parse_remaining_pes_header(
 				const u8 *buf,
 				u32 *ts_payload_offset,
 				int *bytes_avail);
+
+/**
+ * mpq_dmx_flush_stream_buffer() - Flush video stream buffer object of the
+ * specific video feed, both meta-data packets and data.
+ *
+ * @feed:	dvb demux video feed object
+ *
+ * Return error code
+ */
+int mpq_dmx_flush_stream_buffer(struct dvb_demux_feed *feed);
 
 /**
  * mpq_dmx_save_pts_dts() - Save the current PTS/DTS data
