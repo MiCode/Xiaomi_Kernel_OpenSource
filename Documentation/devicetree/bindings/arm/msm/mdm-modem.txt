@@ -6,7 +6,7 @@ to be reset.
 
 Required Properties:
 - compatible:	The bus devices need to be compatible with
-		"qcom,mdm2-modem", "qcom,ext-mdm9x25".
+		"qcom,mdm2-modem", "qcom,ext-mdm9x25", "qcom,ext-mdm9x35".
 
 Required named gpio properties:
 - qcom,mdm2ap-errfatal-gpio: gpio for the external modem to indicate to the apps processor
@@ -51,6 +51,8 @@ Optional named gpio properties:
 		the pmic on the external modem.
 - qcom,use-usb-port-gpio: some modems use this gpio to switch a port connection from uart to usb.
 		This is used during firmware upgrade of some modems.
+- qcom,mdm-link-detect-gpio: some modems may support two interfaces. This gpio
+		indicates whether only one or both links can be used.
 
 Optional driver parameters:
 - qcom,ramdump-delay-ms: time in milliseconds to wait before starting to collect ramdumps.
@@ -101,6 +103,8 @@ Optional driver parameters:
 		gpio mux function. The only currently supported modes string is "normal" and
 		corresponds to the value 0x03 that is passed to RPM.
 - qcom,restart-group: List of subsystems that will need to restart together.
+- qcom,mdm-dual-link: Boolean indicates wheter both links can used for
+		communication.
 
 Example:
 	mdm0: qcom,mdm0 {

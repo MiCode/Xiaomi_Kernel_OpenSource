@@ -27,6 +27,10 @@
 #define MDM_GPIO(mdm, i)		(mdm->gpios[i])
 #define MDM9x25_LABEL			"MDM9x25"
 #define MDM9x25_HSIC			"HSIC"
+#define MDM9x35_LABEL			"MDM9x35"
+#define MDM9x35_PCIE			"PCIe"
+#define MDM9x35_DUAL_LINK		"HSIC+PCIe"
+#define MDM9x35_HSIC			"HSIC"
 #define MDM2AP_STATUS_TIMEOUT_MS	120000L
 #define MDM_MODEM_TIMEOUT		6000
 #define MDM_MODEM_DELTA			100
@@ -50,6 +54,7 @@ enum mdm_gpio {
 	MDM2AP_PBLRDY,
 	MDM2AP_STATUS,
 	MDM2AP_VDDMIN,
+	MDM_LINK_DETECT,
 	NUM_GPIOS,
 };
 
@@ -90,6 +95,7 @@ struct mdm_ctrl {
 	bool get_restart_reason;
 	unsigned long irq_mask;
 	bool ready;
+	bool dual_interface;
 	u32 status;
 };
 
@@ -115,6 +121,7 @@ static struct gpio_map {
 	{"qcom,ap2mdm-vddmin-gpio",     AP2MDM_VDDMIN},
 	{"qcom,mdm2ap-vddmin-gpio",     MDM2AP_VDDMIN},
 	{"qcom,ap2mdm-pmic-pwr-en-gpio", AP2MDM_PMIC_PWR_EN},
+	{"qcom,mdm-link-detect-gpio", MDM_LINK_DETECT},
 };
 
 /* Required gpios */
@@ -803,6 +810,77 @@ static int mdm9x25_setup_hw(struct mdm_ctrl *mdm,
 	return 0;
 }
 
+static int mdm9x35_setup_hw(struct mdm_ctrl *mdm,
+					struct esoc_clink_ops const *ops,
+					struct platform_device *pdev)
+{
+	int ret;
+	struct device_node *node;
+	struct esoc_clink *esoc;
+
+	mdm->dev = &pdev->dev;
+	node = pdev->dev.of_node;
+	esoc = devm_kzalloc(mdm->dev, sizeof(*esoc), GFP_KERNEL);
+	if (IS_ERR(esoc)) {
+		dev_err(mdm->dev, "cannot allocate esoc device\n");
+		return PTR_ERR(esoc);
+	}
+	mdm->mdm_queue = alloc_workqueue("mdm_queue", 0, 0);
+	if (!mdm->mdm_queue) {
+		dev_err(mdm->dev, "could not create mdm_queue\n");
+		return -ENOMEM;
+	}
+	mdm->irq_mask = 0;
+	mdm->ready = false;
+	ret = mdm_dt_parse_gpios(mdm);
+	if (ret)
+		return ret;
+	dev_dbg(mdm->dev, "parsing gpio done\n");
+	ret = mdm_configure_ipc(mdm, pdev);
+	if (ret)
+		return ret;
+	dev_dbg(mdm->dev, "ipc configure done\n");
+	esoc->name = MDM9x35_LABEL;
+	mdm->dual_interface = of_property_read_bool(node,
+						"qcom,mdm-dual-link");
+	/* Check if link gpio is available */
+	if (gpio_is_valid(MDM_GPIO(mdm, MDM_LINK_DETECT))) {
+		if (mdm->dual_interface) {
+			if (gpio_get_value(MDM_GPIO(mdm, MDM_LINK_DETECT)))
+				esoc->link_name = MDM9x35_DUAL_LINK;
+			else
+				esoc->link_name = MDM9x35_PCIE;
+		} else {
+			if (gpio_get_value(MDM_GPIO(mdm, MDM_LINK_DETECT)))
+				esoc->link_name = MDM9x35_HSIC;
+			else
+				esoc->link_name = MDM9x35_PCIE;
+		}
+	} else if (mdm->dual_interface)
+		esoc->link_name = MDM9x35_DUAL_LINK;
+	else
+		esoc->link_name = MDM9x35_HSIC;
+	esoc->clink_ops = ops;
+	esoc->parent = mdm->dev;
+	esoc->owner = THIS_MODULE;
+	set_esoc_clink_data(esoc, mdm);
+	ret = esoc_clink_register(esoc);
+	if (ret) {
+		dev_err(mdm->dev, "esoc registration failed\n");
+		return ret;
+	}
+	dev_dbg(mdm->dev, "esoc registration done\n");
+	init_completion(&mdm->debug_done);
+	INIT_WORK(&mdm->mdm_status_work, mdm_status_fn);
+	INIT_WORK(&mdm->restart_reason_work, mdm_get_restart_reason);
+	INIT_DELAYED_WORK(&mdm->mdm2ap_status_check_work, mdm2ap_status_check);
+	mdm->get_restart_reason = false;
+	mdm->debug_fail = false;
+	mdm->esoc = esoc;
+	mdm->init = 0;
+	return 0;
+}
+
 static struct esoc_clink_ops mdm_cops = {
 	.cmd_exe = mdm_cmd_exe,
 	.get_status = mdm_get_status,
@@ -814,9 +892,16 @@ static struct mdm_ops mdm9x25_ops = {
 	.config_hw = mdm9x25_setup_hw,
 };
 
+static struct mdm_ops mdm9x35_ops = {
+	.clink_ops = &mdm_cops,
+	.config_hw = mdm9x35_setup_hw,
+};
+
 static const struct of_device_id mdm_dt_match[] = {
 	{ .compatible = "qcom,ext-mdm9x25",
 		.data = &mdm9x25_ops, },
+	{ .compatible = "qcom,ext-mdm9x35",
+		.data = &mdm9x35_ops, },
 	{},
 };
 MODULE_DEVICE_TABLE(of, mdm_dt_match);
