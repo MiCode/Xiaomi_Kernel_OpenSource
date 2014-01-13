@@ -19,6 +19,9 @@
 #define clk_gpll1_clk_src			0x916f8847
 #define clk_gpll2_clk_src			0x7c34503b
 
+/* SR2PLL */
+#define clk_a53sspll				0xf761da94
+
 /* SRCs */
 #define clk_apss_ahb_clk_src			0x36f8495f
 #define clk_blsp1_qup1_i2c_apps_clk_src		0x17f78f5e

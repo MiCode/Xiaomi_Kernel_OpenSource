@@ -34,6 +34,7 @@
 
 enum {
 	GCC_BASE,
+	APCS_PLL_BASE,
 	N_BASES,
 };
 
@@ -221,6 +222,14 @@ static void __iomem *virt_bases[N_BASES];
 #define BIMC_GFX_CBCR					0x31024
 #define BIMC_GPU_CBCR					0x31040
 
+#define APCS_SH_PLL_MODE				0x00000
+#define APCS_SH_PLL_L_VAL				0x00004
+#define APCS_SH_PLL_M_VAL				0x00008
+#define APCS_SH_PLL_N_VAL				0x0000C
+#define APCS_SH_PLL_USER_CTL				0x00010
+#define APCS_SH_PLL_CONFIG_CTL				0x00014
+#define APCS_SH_PLL_STATUS				0x0001C
+
 /* Mux source select values */
 #define xo_source_val			0
 #define gpll0_source_val		1
@@ -248,6 +257,17 @@ static void __iomem *virt_bases[N_BASES];
 		.d_val = ~(n),\
 		.div_src_val = BVAL(4, 0, (int)(2*(div) - 1)) \
 			| BVAL(10, 8, s##_mm_source_val), \
+	}
+
+#define F_APCS_PLL(f, l, m, n, pre_div, post_div, vco) \
+	{ \
+		.freq_hz = (f), \
+		.l_val = (l), \
+		.m_val = (m), \
+		.n_val = (n), \
+		.pre_div_val = BVAL(12, 12, (pre_div)), \
+		.post_div_val = BVAL(9, 8, (post_div)), \
+		.vco_val = BVAL(29, 28, (vco)), \
 	}
 
 #define VDD_DIG_FMAX_MAP1(l1, f1) \
@@ -297,6 +317,62 @@ DEFINE_EXT_CLK(rpm_debug_clk, NULL);
 DEFINE_EXT_CLK(apss_debug_clk, NULL);
 
 DEFINE_CLK_DUMMY(wcnss_m_clk, 0);
+
+enum vdd_sr2_pll_levels {
+	VDD_SR2_PLL_OFF,
+	VDD_SR2_PLL_SVS,
+	VDD_SR2_PLL_NOM,
+	VDD_SR2_PLL_TUR,
+	VDD_SR2_PLL_NUM,
+};
+
+static int vdd_sr2_levels[] = {
+	0,	 RPM_REGULATOR_CORNER_NONE,		/* VDD_SR2_PLL_OFF */
+	1800000, RPM_REGULATOR_CORNER_SVS_SOC,		/* VDD_SR2_PLL_SVS */
+	1800000, RPM_REGULATOR_CORNER_NORMAL,		/* VDD_SR2_PLL_NOM */
+	1800000, RPM_REGULATOR_CORNER_SUPER_TURBO,	/* VDD_SR2_PLL_TUR */
+};
+
+static DEFINE_VDD_REGULATORS(vdd_sr2_pll, VDD_SR2_PLL_NUM, 2,
+				vdd_sr2_levels, NULL);
+
+static struct pll_freq_tbl apcs_pll_freq[] = {
+	F_APCS_PLL( 998400000, 52, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1094400000, 57, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1190400000, 62, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1248000000, 65, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1401600000, 73, 0x0, 0x1, 0x0, 0x0, 0x0),
+};
+
+static struct pll_clk a53sspll = {
+	.mode_reg = (void __iomem *)APCS_SH_PLL_MODE,
+	.l_reg = (void __iomem *)APCS_SH_PLL_L_VAL,
+	.m_reg = (void __iomem *)APCS_SH_PLL_M_VAL,
+	.n_reg = (void __iomem *)APCS_SH_PLL_N_VAL,
+	.config_reg = (void __iomem *)APCS_SH_PLL_USER_CTL,
+	.status_reg = (void __iomem *)APCS_SH_PLL_STATUS,
+	.freq_tbl = apcs_pll_freq,
+	.masks = {
+		.vco_mask = BM(29, 28),
+		.pre_div_mask = BIT(12),
+		.post_div_mask = BM(9, 8),
+		.mn_en_mask = BIT(24),
+		.main_output_mask = BIT(0),
+	},
+	.base = &virt_bases[APCS_PLL_BASE],
+	.c = {
+		.parent = &xo_clk_src.c,
+		.dbg_name = "a53sspll",
+		.ops = &clk_ops_sr2_pll,
+		.vdd_class = &vdd_sr2_pll,
+		.fmax = (unsigned long [VDD_SR2_PLL_NUM]) {
+			[VDD_SR2_PLL_SVS] = 1000000000,
+			[VDD_SR2_PLL_NOM] = 1900000000,
+		},
+		.num_fmax = VDD_SR2_PLL_NUM,
+		CLK_INIT(a53sspll.c),
+	},
+};
 
 static unsigned int soft_vote_gpll0;
 
@@ -2389,6 +2465,7 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	/* PLLs */
 	CLK_LIST(gpll0_clk_src),
 	CLK_LIST(gpll0_ao_clk_src),
+	CLK_LIST(a53sspll),
 	CLK_LIST(gpll1_clk_src),
 	CLK_LIST(gpll2_clk_src),
 
@@ -2552,12 +2629,43 @@ static int msm_gcc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apcs_base");
+	if (!res) {
+		dev_err(&pdev->dev, "APCS PLL Register base not defined\n");
+		return -ENOMEM;
+	}
+
+	virt_bases[APCS_PLL_BASE] = devm_ioremap(&pdev->dev, res->start,
+							resource_size(res));
+	if (!virt_bases[APCS_PLL_BASE]) {
+		dev_err(&pdev->dev, "Failed to ioremap APCS PLL registers\n");
+		return -ENOMEM;
+	}
+
 	vdd_dig.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_dig");
 	if (IS_ERR(vdd_dig.regulator[0])) {
 		if (!(PTR_ERR(vdd_dig.regulator[0]) == -EPROBE_DEFER))
 			dev_err(&pdev->dev,
 				"Unable to get vdd_dig regulator!!!\n");
 		return PTR_ERR(vdd_dig.regulator[0]);
+	}
+
+	vdd_sr2_pll.regulator[0] = devm_regulator_get(&pdev->dev,
+							"vdd_sr2_pll");
+	if (IS_ERR(vdd_sr2_pll.regulator[0])) {
+		if (!(PTR_ERR(vdd_sr2_pll.regulator[0]) == -EPROBE_DEFER))
+			dev_err(&pdev->dev,
+				"Unable to get vdd_sr2_pll regulator!!!\n");
+		return PTR_ERR(vdd_sr2_pll.regulator[0]);
+	}
+
+	vdd_sr2_pll.regulator[1] = devm_regulator_get(&pdev->dev,
+							"vdd_sr2_dig");
+	if (IS_ERR(vdd_sr2_pll.regulator[1])) {
+		if (!(PTR_ERR(vdd_sr2_pll.regulator[1]) == -EPROBE_DEFER))
+			dev_err(&pdev->dev,
+				"Unable to get vdd_sr2_dig regulator!!!\n");
+		return PTR_ERR(vdd_sr2_pll.regulator[1]);
 	}
 
 	xo_gcc = xo_clk_src.c.parent = devm_clk_get(&pdev->dev, "xo");
