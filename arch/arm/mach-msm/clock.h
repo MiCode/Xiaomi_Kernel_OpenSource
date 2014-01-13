@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -56,7 +56,7 @@ extern struct clock_init_data apq8084_clock_init_data;
 extern struct clock_init_data apq8084_rumi_clock_init_data;
 extern struct clock_init_data mpq8092_clock_init_data;
 extern struct clock_init_data mpq8092_rumi_clock_init_data;
-extern struct clock_init_data msmkrypton_clock_init_data;
+extern struct clock_init_data mdm9630_clock_init_data;
 extern struct clock_init_data msmsamarium_clock_init_data;
 extern struct clock_init_data msmsamarium_rumi_clock_init_data;
 extern struct clock_init_data fsm9900_clock_init_data;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -370,7 +370,7 @@ static int clock_a7_probe(struct platform_device *pdev)
 
 static struct of_device_id clock_a7_match_table[] = {
 	{.compatible = "qcom,clock-a7-8226"},
-	{.compatible = "qcom,clock-a7-krypton"},
+	{.compatible = "qcom,clock-a7-9630"},
 	{}
 };
 

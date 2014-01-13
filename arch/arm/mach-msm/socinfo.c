@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -421,13 +421,13 @@ static enum msm_cpu cpu_of_id[] = {
 	/* 8084 IDs */
 	[178] = MSM_CPU_8084,
 
-	/* krypton IDs */
-	[187] = MSM_CPU_KRYPTON,
-	[227] = MSM_CPU_KRYPTON,
-	[228] = MSM_CPU_KRYPTON,
-	[229] = MSM_CPU_KRYPTON,
-	[230] = MSM_CPU_KRYPTON,
-	[231] = MSM_CPU_KRYPTON,
+	/* 9630 IDs */
+	[187] = MSM_CPU_9630,
+	[227] = MSM_CPU_9630,
+	[228] = MSM_CPU_9630,
+	[229] = MSM_CPU_9630,
+	[230] = MSM_CPU_9630,
+	[231] = MSM_CPU_9630,
 
 	/* FSM9900 ID */
 	[188] = FSM_CPU_9900,
@@ -880,9 +880,9 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 178;
 		strlcpy(dummy_socinfo.build_id, "apq8084 - ",
 			sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_msmkrypton()) {
+	} else if (early_machine_is_mdm9630()) {
 		dummy_socinfo.id = 187;
-		strlcpy(dummy_socinfo.build_id, "msmkrypton - ",
+		strlcpy(dummy_socinfo.build_id, "mdm9630 - ",
 			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_msmsamarium()) {
 		dummy_socinfo.id = 195;

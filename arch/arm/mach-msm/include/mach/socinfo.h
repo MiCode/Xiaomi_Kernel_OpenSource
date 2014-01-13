@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,8 +58,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mpq8092")
 #define early_machine_is_apq8084()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,apq8084")
-#define early_machine_is_msmkrypton()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmkrypton")
+#define early_machine_is_mdm9630()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mdm9630")
 #define early_machine_is_fsm9900()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,fsm9900")
 #define early_machine_is_msmsamarium()	\
@@ -87,7 +87,7 @@
 #define early_machine_is_msm8610()	0
 #define early_machine_is_mpq8092()	0
 #define early_machine_is_apq8084()	0
-#define early_machine_is_msmkrypton()	0
+#define early_machine_is_mdm9630()	0
 #define early_machine_is_fsm9900()	0
 #define early_machine_is_msmsamarium()	0
 #endif
@@ -133,7 +133,7 @@ enum msm_cpu {
 	MSM_CPU_8610,
 	MSM_CPU_8625Q,
 	MSM_CPU_8084,
-	MSM_CPU_KRYPTON,
+	MSM_CPU_9630,
 	FSM_CPU_9900,
 	MSM_CPU_SAMARIUM,
 };

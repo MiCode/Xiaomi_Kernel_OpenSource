@@ -126,8 +126,8 @@ config ARCH_FSM9900
 	select MIGHT_HAVE_PCI
 	select MSM_IRQ
 
-config ARCH_MSMKRYPTON
-	bool "MSMKRYPTON"
+config ARCH_MDM9630
+	bool "MDM9630"
 	select ARM_GIC
 	select MSM_SCM
 	select CPU_V7
@@ -367,7 +367,7 @@ config PHYS_OFFSET
 	default "0x00000000" if ARCH_MSM8610
 	default "0x00000000" if ARCH_MSMSAMARIUM
 	default "0x40000000" if ARCH_FSM9900
-	default "0x00000000" if ARCH_MSMKRYPTON
+	default "0x00000000" if ARCH_MDM9630
 	default "0x00200000" if !MSM_STACKED_MEMORY
 	default "0x10000000"
 

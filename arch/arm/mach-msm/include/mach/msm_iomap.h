@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -93,7 +93,7 @@
 #include "msm_iomap-8092.h"
 #include "msm_iomap-8226.h"
 #include "msm_iomap-8610.h"
-#include "msm_iomap-krypton.h"
+#include "msm_iomap-9630.h"
 #include "msm_iomap-fsm9900.h"
 #include "msm_iomap-samarium.h"
 

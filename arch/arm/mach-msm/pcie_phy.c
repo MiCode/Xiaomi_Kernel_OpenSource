@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,7 @@ static inline void write_phy(void *base, u32 offset, u32 value)
 	wmb();
 }
 
-#ifdef CONFIG_ARCH_MSMKRYPTON
+#ifdef CONFIG_ARCH_MDM9630
 void pcie_phy_init(struct msm_pcie_dev_t *dev)
 {
 

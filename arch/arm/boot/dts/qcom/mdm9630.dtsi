@@ -13,8 +13,8 @@
 #include "skeleton.dtsi"
 
 / {
-	model = "Qualcomm MSM KRYPTON";
-	compatible = "qcom,msmkrypton";
+	model = "Qualcomm MDM 9630";
+	compatible = "qcom,mdm9630";
 	qcom,msm-id = <187 0x10000>, <227 0x10000>, <228 0x10000>,
 		      <229 0x10000>, <230 0x10000>, <231 0x10000>;
 	interrupt-parent = <&intc>;
@@ -36,12 +36,12 @@
 	soc: soc { };
 };
 
-#include "msmkrypton-smp2p.dtsi"
-#include "msmkrypton-coresight.dtsi"
+#include "mdm9630-smp2p.dtsi"
+#include "mdm9630-coresight.dtsi"
 #include "msm-gdsc.dtsi"
-#include "msmkrypton-pm.dtsi"
-#include "msmkrypton-bus.dtsi"
-#include "msmkrypton-ion.dtsi"
+#include "mdm9630-pm.dtsi"
+#include "mdm9630-bus.dtsi"
+#include "mdm9630-ion.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -691,7 +691,7 @@
 	};
 
 	tsens: tsens@fc4a8000 {
-		compatible = "qcom,msmkrypton-tsens";
+		compatible = "qcom,mdm9630-tsens";
 		reg = <0xfc4a8000 0x2000>,
 		      <0xfc4bc000 0x1000>;
 		reg-names = "tsens_physical", "tsens_eeprom_physical";
@@ -701,7 +701,7 @@
 	};
 
 	qcom,clock-a7@f9010008 {
-		compatible = "qcom,clock-a7-krypton";
+		compatible = "qcom,clock-a7-9630";
 		reg = <0xf9010008 0x8>;
 		reg-names = "rcg-base";
 
@@ -796,7 +796,7 @@
 
 #include "msm-pmd9635-rpm-regulator.dtsi"
 #include "msm-pmd9635.dtsi"
-#include "msmkrypton-regulator.dtsi"
+#include "mdm9630-regulator.dtsi"
 
 &pmd9635_vadc {
 	chan@31 {
