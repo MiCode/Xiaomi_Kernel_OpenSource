@@ -1438,9 +1438,9 @@ static const struct snd_soc_dapm_route florida_dapm_routes[] = {
 	ARIZONA_DSP_ROUTES("DSP3"),
 	ARIZONA_DSP_ROUTES("DSP4"),
 
-	{ "DSP2",  NULL, "DSP2 Virtual Input" },
+	{ "DSP2 Preloader",  NULL, "DSP2 Virtual Input" },
 	{ "DSP2 Virtual Input", "Shared Memory", "DSP3" },
-	{ "DSP3", NULL, "DSP3 Virtual Input" },
+	{ "DSP3 Preloader", NULL, "DSP3 Virtual Input" },
 	{ "DSP3 Virtual Input", "Shared Memory", "DSP2" },
 
 	{ "DSP Virtual Output", NULL, "DSP Virtual Output Mux" },
