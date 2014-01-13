@@ -967,6 +967,7 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	struct msm_sensor_power_setting_array *power_setting_array = NULL;
 	struct msm_sensor_power_setting *power_setting = NULL;
 	struct msm_camera_sensor_board_info *data = s_ctrl->sensordata;
+	uint32_t retry = 0;
 	s_ctrl->stop_setting_valid = 0;
 
 	CDBG("%s:%d\n", __func__, __LINE__);
@@ -1068,13 +1069,22 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 		}
 	}
 
-	if (s_ctrl->func_tbl->sensor_match_id)
-		rc = s_ctrl->func_tbl->sensor_match_id(s_ctrl);
-	else
-		rc = msm_sensor_match_id(s_ctrl);
-	if (rc < 0) {
-		pr_err("%s:%d match id failed rc %d\n", __func__, __LINE__, rc);
-		goto power_up_failed;
+	for (retry = 0; retry < 3; retry++)
+	{
+		if (s_ctrl->func_tbl->sensor_match_id)
+			rc = s_ctrl->func_tbl->sensor_match_id(s_ctrl);
+		else
+			rc = msm_sensor_match_id(s_ctrl);
+		if (rc < 0) {
+			if (retry < 2) {
+				continue;
+			} else {
+				pr_err("%s:%d match id failed rc %d\n", __func__, __LINE__, rc);
+				goto power_up_failed;
+			}
+		} else {
+			break;
+		}
 	}
 
 	CDBG("%s exit\n", __func__);
