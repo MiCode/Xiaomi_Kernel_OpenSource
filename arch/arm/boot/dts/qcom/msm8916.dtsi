@@ -199,6 +199,16 @@
 		};
 	};
 
+	clock_rpm: qcom,rpmcc@1800000 {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
+	clock_gcc: qcom,gcc@1800000 {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
 	qcom,sps {
 		compatible = "qcom,msm_sps";
 		qcom,device-type = <3>;
