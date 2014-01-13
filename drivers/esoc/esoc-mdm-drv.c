@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -234,11 +234,23 @@ ssr_err:
 	return ret;
 }
 
+static struct esoc_compat compat_table[] = {
+	{	.name = "MDM9x25",
+		.data = NULL,
+	},
+	{
+		.name = "MDM9x35",
+		.data = NULL,
+	},
+};
+
 static struct esoc_drv esoc_ssr_drv = {
 	.owner = THIS_MODULE,
 	.probe = esoc_ssr_probe,
+	.compat_table = compat_table,
+	.compat_entries = ARRAY_SIZE(compat_table),
 	.driver = {
-		.name = "MDM9x25",
+		.name = "mdm-4x",
 	},
 };
 
