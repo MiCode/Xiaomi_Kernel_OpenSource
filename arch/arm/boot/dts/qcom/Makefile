@@ -90,10 +90,13 @@ dtb-$(CONFIG_ARCH_APQ8084) += apq8084-sim.dtb \
 	apq8084-liquid.dtb \
 	apq8084-smb1357-cdp.dtb \
 	apq8084-smb1357-mtp.dtb \
-	apq8084-smb1359-mtp.dtb \
+	apq8084-smb1359-mdm9x35-alt-mtp.dtb \
 	apq8084-smb349-cdp.dtb \
 	apq8084-smb349-mtp.dtb \
 	apq8084-nocharger-cdp.dtb \
+	apq8084-smb1357-mdm9x35-mtp.dtb \
+	apq8084-smb1357-mdm9x35-cdp.dtb \
+	apq8084-smb1357-mdm9x35-alt-cdp.dtb \
 	apq8084-sbc.dtb
 
 DTB_NAMES := $(subst $\",,$(CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES))
