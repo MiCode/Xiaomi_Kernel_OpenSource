@@ -1470,7 +1470,13 @@ struct drm_i915_private {
 		struct task_struct *task;
 		u32 signal;
 		u32 blc_adjustment;
-		bool enabled;
+		bool user_enable;	/* user client wishes to enable */
+		bool kernel_disable;	/* kernel override wishes to disable */
+		bool enabled;		/* actual functional state */
+		struct {
+			bool is_valid;
+			u32 blc_adjustment;
+		} saved;
 		struct mutex ioctl_lock;
 	} dpst;
 
@@ -2623,6 +2629,7 @@ int i915_dpst_context(struct drm_device *dev, void *data,
 u32 i915_dpst_get_brightness(struct drm_device *dev);
 void i915_dpst_set_brightness(struct drm_device *dev, u32 brightness_val);
 void i915_dpst_irq_handler(struct drm_device *dev);
+int i915_dpst_set_kernel_disable(struct drm_device *dev, bool km_disable);
 void intel_panel_actually_set_backlight(struct intel_connector *conn, u32 level);
 
 /* intel_acpi.c */

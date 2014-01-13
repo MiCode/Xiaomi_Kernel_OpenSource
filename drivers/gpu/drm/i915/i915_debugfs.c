@@ -1686,6 +1686,81 @@ DEFINE_SIMPLE_ATTRIBUTE(i915_sr_disable_fops,
 			i915_sr_disable_get, i915_sr_disable_set,
 			"%llu\n");
 
+static int i915_dpst_status(struct seq_file *m, void *unused)
+{
+	struct drm_info_node *node = (struct drm_info_node *) m->private;
+	struct drm_device *dev = node->minor->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int i;
+	const int columns = 4;
+	u32 blm_hist_ctl, blm_hist_guard;
+
+	if (!I915_HAS_DPST(dev)) {
+		seq_puts(m, "not supported\n");
+		return 0;
+	}
+
+	mutex_lock(&dev_priv->dpst.ioctl_lock);
+
+	blm_hist_ctl = I915_READ(BLM_HIST_CTL);
+	blm_hist_guard = I915_READ(BLM_HIST_GUARD);
+
+	seq_printf(m, "histogram logic: %s\n",
+		   blm_hist_ctl & IE_HISTOGRAM_ENABLE ?
+		   "enabled" : "disabled");
+
+	seq_printf(m, "histogram interrupts: %s\n",
+		   blm_hist_guard & HISTOGRAM_INTERRUPT_ENABLE ?
+		   "enabled" : "disabled");
+
+	seq_printf(m, "backlight adjustment: %u%%\n",
+		   dev_priv->dpst.blc_adjustment * 100 / DPST_MAX_FACTOR);
+
+	seq_printf(m, "IE modification table: %s\n",
+		   blm_hist_ctl & IE_MOD_TABLE_ENABLE ?
+		   "enabled" : "disabled");
+
+	blm_hist_ctl |= BIN_REG_FUNCTION_SELECT_IE;
+	blm_hist_ctl &= ~BIN_REGISTER_INDEX_MASK;
+	I915_WRITE(BLM_HIST_CTL, blm_hist_ctl);
+
+	seq_puts(m, "IE modification table values...");
+	for (i = 0; i < DPST_DIET_ENTRY_COUNT; i++) {
+		if (i % columns == 0)
+			seq_printf(m, "\nbins %02d-%02d:", i, i + columns - 1);
+		seq_printf(m, "%10x", I915_READ(BLM_HIST_BIN));
+	}
+	seq_puts(m, "\n");
+
+	mutex_unlock(&dev_priv->dpst.ioctl_lock);
+
+	return 0;
+}
+
+static int i915_dpst_disable_get(void *data, u64 *val)
+{
+	struct drm_device *dev = data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	*val = dev_priv->dpst.kernel_disable;
+
+	return 0;
+}
+
+static int i915_dpst_disable_set(void *data, u64 val)
+{
+	struct drm_device *dev = data;
+
+	DRM_DEBUG_DRIVER("Setting DPST disable %s\n",
+			 val ? "true" : "false");
+
+	return i915_dpst_set_kernel_disable(dev, val);
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(i915_dpst_disable_fops,
+			i915_dpst_disable_get, i915_dpst_disable_set,
+			"%llu\n");
+
 static int i915_emon_status(struct seq_file *m, void *unused)
 {
 	struct drm_info_node *node = m->private;
@@ -4104,6 +4179,7 @@ static const struct drm_info_list i915_debugfs_list[] = {
 	{"i915_fbc_status", i915_fbc_status, 0},
 	{"i915_ips_status", i915_ips_status, 0},
 	{"i915_sr_status", i915_sr_status, 0},
+	{"i915_dpst_status", i915_dpst_status, 0},
 	{"i915_opregion", i915_opregion, 0},
 	{"i915_gem_framebuffer", i915_gem_framebuffer_info, 0},
 	{"i915_context_status", i915_context_status, 0},
@@ -4133,6 +4209,7 @@ static const struct i915_debugfs_files {
 	{"i915_ips_disable", &i915_ips_disable_fops},
 	{"i915_fbc_disable", &i915_fbc_disable_fops},
 	{"i915_sr_disable", &i915_sr_disable_fops},
+	{"i915_dpst_disable", &i915_dpst_disable_fops},
 	{"i915_cache_sharing", &i915_cache_sharing_fops},
 	{"i915_ring_stop", &i915_ring_stop_fops},
 	{"i915_ring_missed_irq", &i915_ring_missed_irq_fops},

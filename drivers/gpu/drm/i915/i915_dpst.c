@@ -152,6 +152,27 @@ i915_dpst_disable_hist_interrupt(struct drm_device *dev)
 }
 
 static int
+i915_dpst_set_user_enable(struct drm_device *dev, bool enable)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	dev_priv->dpst.user_enable = enable;
+
+	if (enable) {
+		if (!dev_priv->dpst.kernel_disable && !dev_priv->dpst.enabled)
+			return i915_dpst_enable_hist_interrupt(dev);
+	} else {
+		/* User disabling invalidates any saved settings */
+		dev_priv->dpst.saved.is_valid = false;
+
+		if (dev_priv->dpst.enabled)
+			return i915_dpst_disable_hist_interrupt(dev);
+	}
+
+	return 0;
+}
+
+static int
 i915_dpst_apply_luma(struct drm_device *dev,
 		struct dpst_initialize_context *ioctl_data)
 {
@@ -167,16 +188,16 @@ i915_dpst_apply_luma(struct drm_device *dev,
 		return -EINVAL;
 	panel = &i_connector->panel;
 
-	if (!dev_priv->dpst.enabled)
+	/* This is an invalid call if we are disabled by the user */
+	if (!dev_priv->dpst.user_enable)
 		return -EINVAL;
 
-	/* Backlight settings */
-	dev_priv->dpst.blc_adjustment =
-	ioctl_data->ie_container.dpst_blc_factor;
-
-	spin_lock_irqsave(&dev_priv->backlight_lock, spin_lock_flags);
-	i915_dpst_set_brightness(dev, panel->backlight.level);
-	spin_unlock_irqrestore(&dev_priv->backlight_lock, spin_lock_flags);
+	/* This is not an invalid call if we are disabled by the kernel,
+	 * because kernel disabling is transparent to the user and can easily
+	 * occur before user has completed in-progress adjustments. If in fact
+	 * we are disabled by the kernel, we must store the incoming values for
+	 * later restore. Image enhancement values are stored on the hardware,
+	 * because they will be safely ignored if the table is not enabled. */
 
 	/* Setup register to access image enhancement value from
 	 * index 0.*/
@@ -192,12 +213,74 @@ i915_dpst_apply_luma(struct drm_device *dev,
 		I915_WRITE(BLM_HIST_BIN, diet_factor);
 	}
 
+	if (dev_priv->dpst.kernel_disable) {
+		dev_priv->dpst.saved.is_valid = true;
+		dev_priv->dpst.saved.blc_adjustment =
+			ioctl_data->ie_container.dpst_blc_factor;
+		return 0;
+	}
+
+	/* Backlight settings */
+	dev_priv->dpst.blc_adjustment =
+	ioctl_data->ie_container.dpst_blc_factor;
+
+	spin_lock_irqsave(&dev_priv->backlight_lock, spin_lock_flags);
+	i915_dpst_set_brightness(dev, panel->backlight.level);
+	spin_unlock_irqrestore(&dev_priv->backlight_lock, spin_lock_flags);
+
 	/* Enable Image Enhancement Table */
 	blm_hist_ctl = I915_READ(BLM_HIST_CTL);
 	blm_hist_ctl |= IE_MOD_TABLE_ENABLE | ENHANCEMENT_MODE_MULT;
 	I915_WRITE(BLM_HIST_CTL, blm_hist_ctl);
 
 	return 0;
+}
+
+static void
+i915_dpst_save_luma(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	/* Only save if user mode has indeed applied valid settings which
+	 * we determine by checking that the IE mod table was enabled */
+	if (!(I915_READ(BLM_HIST_CTL) & IE_MOD_TABLE_ENABLE))
+		return;
+
+	/* IE mod table entries are saved in the hardware even if the table
+	 * is disabled, so we only need to save the backlight adjustment */
+	dev_priv->dpst.saved.is_valid = true;
+	dev_priv->dpst.saved.blc_adjustment = dev_priv->dpst.blc_adjustment;
+}
+
+static void
+i915_dpst_restore_luma(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_panel *panel;
+	struct intel_connector *i_connector;
+	u32 blm_hist_ctl;
+	unsigned long spin_lock_flags;
+
+	i_connector = get_intel_connector_on_edp(dev);
+	if (NULL == i_connector)
+		return;
+	panel = &i_connector->panel;
+
+	/* Only restore if valid settings were previously saved */
+	if (!dev_priv->dpst.saved.is_valid)
+		return;
+
+	dev_priv->dpst.blc_adjustment = dev_priv->dpst.saved.blc_adjustment;
+
+	spin_lock_irqsave(&dev_priv->backlight_lock, spin_lock_flags);
+	i915_dpst_set_brightness(dev, panel->backlight.level);
+	spin_unlock_irqrestore(&dev_priv->backlight_lock, spin_lock_flags);
+
+	/* IE mod table entries are saved in the hardware even if the table
+	 * is disabled, so we only need to re-enable the table */
+	blm_hist_ctl = I915_READ(BLM_HIST_CTL);
+	blm_hist_ctl |= IE_MOD_TABLE_ENABLE | ENHANCEMENT_MODE_MULT;
+	I915_WRITE(BLM_HIST_CTL, blm_hist_ctl);
 }
 
 static int
@@ -208,7 +291,12 @@ i915_dpst_get_bin_data(struct drm_device *dev,
 	u32 blm_hist_ctl, blm_hist_bin;
 	int index;
 
-	if (!dev_priv->dpst.enabled)
+	/* We may be disabled by request from kernel or user. Kernel mode
+	 * disablement is without user mode knowledge. Kernel mode disablement
+	 * can occur between the signal to user and user's follow-up call to
+	 * retrieve the data, so return the data as usual. User mode
+	 * disablement makes this an invalid call, so return error. */
+	if (!dev_priv->dpst.enabled && !dev_priv->dpst.user_enable)
 		return -EINVAL;
 
 	/* Setup register to access bin data from index 0 */
@@ -270,10 +358,8 @@ i915_dpst_init(struct drm_device *dev,
 			| ioctl_data->init_data.threshold_gb;
 	I915_WRITE(BLM_HIST_GUARD, blm_hist_guard);
 
-	/* Enable histogram interrupts */
-	i915_dpst_enable_hist_interrupt(dev);
-
-	return 0;
+	/* Init is complete so request enablement */
+	return i915_dpst_set_user_enable(dev, true);
 }
 
 
@@ -349,11 +435,11 @@ i915_dpst_context(struct drm_device *dev, void *data,
 	ioctl_data = (struct dpst_initialize_context *) data;
 	switch (ioctl_data->dpst_ioctl_type) {
 	case DPST_ENABLE:
-		ret = i915_dpst_enable_hist_interrupt(dev);
+		ret = i915_dpst_set_user_enable(dev, true);
 	break;
 
 	case DPST_DISABLE:
-		ret = i915_dpst_disable_hist_interrupt(dev);
+		ret = i915_dpst_set_user_enable(dev, false);
 	break;
 
 	case DPST_INIT_DATA:
@@ -378,5 +464,32 @@ i915_dpst_context(struct drm_device *dev, void *data,
 	}
 
 	mutex_unlock(&dev_priv->dpst.ioctl_lock);
+	return ret;
+}
+
+int
+i915_dpst_set_kernel_disable(struct drm_device *dev, bool disable)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int ret = 0;
+
+	if (!I915_HAS_DPST(dev))
+		return -EINVAL;
+
+	mutex_lock(&dev_priv->dpst.ioctl_lock);
+
+	dev_priv->dpst.kernel_disable = disable;
+
+	if (disable && dev_priv->dpst.enabled) {
+		i915_dpst_save_luma(dev);
+		ret = i915_dpst_disable_hist_interrupt(dev);
+	} else if (!disable && dev_priv->dpst.user_enable) {
+		ret = i915_dpst_enable_hist_interrupt(dev);
+		if (!ret)
+			i915_dpst_restore_luma(dev);
+	}
+
+	mutex_unlock(&dev_priv->dpst.ioctl_lock);
+
 	return ret;
 }
