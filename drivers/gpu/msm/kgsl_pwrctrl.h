@@ -157,5 +157,6 @@ void kgsl_active_count_put(struct kgsl_device *device);
 int kgsl_active_count_wait(struct kgsl_device *device, int count);
 void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 				int requested_state);
+int kgsl_pwrctrl_slumber(struct kgsl_device *device);
 
 #endif /* __KGSL_PWRCTRL_H */
