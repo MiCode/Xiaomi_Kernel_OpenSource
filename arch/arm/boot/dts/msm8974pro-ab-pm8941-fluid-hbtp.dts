@@ -1,0 +1,37 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+/include/ "msm8974pro-ab-pm8941.dtsi"
+/include/ "msm8974-fluid.dtsi"
+
+/ {
+	model = "Qualcomm MSM 8974Pro-AA/AB FLUID";
+	compatible = "qcom,msm8974-fluid", "qcom,msm8974", "qcom,fluid";
+	qcom,board-id = <3 1>;
+};
+
+&soc {
+	spi@f9966000 { /* BLSP2 QUP4 */
+		/* Leave the SPI bus for QDSP to use */
+		status = "disabled";
+	};
+};
+
+&i2c_0 {
+	/* mhl-sii8334 is on i2c_0 and uses gpio 12 as mhl-pwr-gpio.
+	 * Display panel needs gpio 12 as TE gpio in command mode.
+	 * Disabling the bus to make sure that display gets the gpio.
+	 */
+	status = "disabled";
+};
