@@ -47,19 +47,22 @@ module_param(sip_direct_signalling, int, 0600);
 MODULE_PARM_DESC(sip_direct_signalling, "expect incoming calls from registrar "
 					"only (default 1)");
 
-static int sip_direct_media __read_mostly = 1;
-module_param(sip_direct_media, int, 0600);
-MODULE_PARM_DESC(sip_direct_media, "Expect Media streams between signalling "
-				   "endpoints only (default 1)");
-
 static struct ctl_table_header *sip_sysctl_header;
 static unsigned nf_ct_disable_sip_alg;
+static int sip_direct_media = 1;
 
 static ctl_table sip_sysctl_tbl[] = {
 	{
 		.procname     = "nf_conntrack_disable_sip_alg",
 		.data         = &nf_ct_disable_sip_alg,
 		.maxlen       = sizeof(unsigned int),
+		.mode         = 0644,
+		.proc_handler = proc_dointvec,
+	},
+	{
+		.procname     = "nf_conntrack_sip_direct_media",
+		.data         = &sip_direct_media,
+		.maxlen       = sizeof(int),
 		.mode         = 0644,
 		.proc_handler = proc_dointvec,
 	},
