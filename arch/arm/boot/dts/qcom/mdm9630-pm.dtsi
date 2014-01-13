@@ -77,6 +77,7 @@
 			<47 172>, /* usb1_hs_async_wakeup_irq */
 			<41 180>,   /* usb2_hsic_async_wakeup_irq */
 			<62 222>,   /* ee0_krait_hlos_spmi_periph_irq */
+			<0xff 56>,  /* q6ss_wdog_exp_irq */
 			<0xff 57>,  /* mss_to_apps_irq(0) */
 			<0xff 58>,  /* mss_to_apps_irq(1) */
 			<0xff 59>,  /* mss_to_apps_irq(2) */
