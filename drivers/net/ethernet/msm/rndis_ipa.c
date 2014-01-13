@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -549,6 +549,7 @@ int rndis_ipa_init(struct ipa_usb_init_params *params)
 	params->ipa_rx_notify = rndis_ipa_packet_receive_notify;
 	params->ipa_tx_notify = rndis_ipa_tx_complete_notify;
 	params->private = rndis_ipa_ctx;
+	params->skip_ep_cfg = false;
 	rndis_ipa_ctx->state = RNDIS_IPA_INITIALIZED;
 	RNDIS_IPA_STATE_DEBUG(rndis_ipa_ctx);
 	pr_info("RNDIS_IPA NetDev was initialized");
