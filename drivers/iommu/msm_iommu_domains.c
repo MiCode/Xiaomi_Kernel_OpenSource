@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,7 @@
 #include <mach/iommu.h>
 #include <linux/msm_iommu_domains.h>
 #include <mach/msm_iommu_priv.h>
-#include <mach/socinfo.h>
+#include <soc/qcom/socinfo.h>
 
 struct msm_iova_data {
 	struct rb_node node;

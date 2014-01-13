@@ -23,7 +23,7 @@
 #include <linux/clk/msm-clk-provider.h>
 #include <linux/regulator/rpm-smd-regulator.h>
 #include <asm/mach/arch.h>
-#include <mach/socinfo.h>
+#include <soc/qcom/socinfo.h>
 #include <mach/board.h>
 #include <mach/msm_memtypes.h>
 #include <soc/qcom/smem.h>

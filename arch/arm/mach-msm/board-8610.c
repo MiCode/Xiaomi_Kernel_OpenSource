@@ -35,7 +35,7 @@
 #include <linux/regulator/qpnp-regulator.h>
 #include <linux/regulator/rpm-smd-regulator.h>
 #include <mach/msm_memtypes.h>
-#include <mach/socinfo.h>
+#include <soc/qcom/socinfo.h>
 #include <mach/board.h>
 #include <mach/msm_smd.h>
 #include <mach/rpm-smd.h>

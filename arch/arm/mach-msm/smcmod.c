@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,8 +28,9 @@
 #include <linux/printk.h>
 #include <linux/msm_ion.h>
 #include <soc/qcom/scm.h>
+#include <soc/qcom/socinfo.h>
+
 #include <asm/smcmod.h>
-#include <mach/socinfo.h>
 
 static DEFINE_MUTEX(ioctl_lock);
 

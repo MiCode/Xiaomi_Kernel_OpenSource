@@ -32,7 +32,7 @@
 #include <crypto/hash.h>
 #include <crypto/sha.h>
 #include <mach/dma.h>
-#include <mach/socinfo.h>
+#include <soc/qcom/socinfo.h>
 #include <mach/qcrypto.h>
 
 #include "qce.h"
