@@ -179,7 +179,8 @@ static u32 igc_limited[IGC_LUT_ENTRIES] = {
 #define MDSS_MDP_GC_SIZE		0x28
 #define MDSS_MDP_PCC_SIZE		0xB8
 #define MDSS_MDP_GAMUT_SIZE		0x5C
-#define MDSS_MDP_IGC_DSPP_COLORS	0x3
+#define MDSS_MDP_IGC_DSPP_SIZE		0x28
+#define MDSS_MDP_IGC_SSPP_SIZE		0x88
 #define TOTAL_BLEND_STAGES		0x4
 
 #define PP_FLAGS_DIRTY_PA	0x1
@@ -4642,12 +4643,6 @@ static int is_valid_calib_vig_addr(char __iomem *ptr)
 						MDSS_MDP_MEM_COL_SIZE)) {
 			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
 			break;
-		/* IGC range */
-		} else if ((ptr >= base + MDSS_MDP_REG_IGC_VIG_BASE) &&
-				(ptr <= base + MDSS_MDP_REG_IGC_VIG_BASE +
-						MDSS_MDP_GC_SIZE)) {
-			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
-			break;
 		}
 	}
 
@@ -4676,12 +4671,6 @@ static int is_valid_calib_rgb_addr(char __iomem *ptr)
 		} else if (ptr == base + MDSS_MDP_REG_SSPP_SRC_OP_MODE) {
 			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
 			break;
-		/* IGC range */
-		} else if ((ptr >= base + MDSS_MDP_REG_IGC_RGB_BASE) &&
-				(ptr <= base + MDSS_MDP_REG_IGC_RGB_BASE +
-						MDSS_MDP_GC_SIZE)) {
-			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
-			break;
 		}
 	}
 
@@ -4708,12 +4697,6 @@ static int is_valid_calib_dma_addr(char __iomem *ptr)
 			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
 			break;
 		} else if (ptr == base + MDSS_MDP_REG_SSPP_SRC_OP_MODE) {
-			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
-			break;
-		/* IGC range */
-		} else if ((ptr >= base + MDSS_MDP_REG_IGC_DMA_BASE) &&
-				(ptr <= base + MDSS_MDP_REG_IGC_DMA_BASE +
-						MDSS_MDP_GC_SIZE)) {
 			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
 			break;
 		}
@@ -4782,9 +4765,15 @@ static int is_valid_calib_addr(void *addr, u32 operation)
 	} else if (ptr == (mdss_res->mdp_base + MDSS_MDP_REG_HW_VERSION) ||
 	    ptr == (mdss_res->mdp_base + MDSS_MDP_REG_DISP_INTF_SEL)) {
 		ret = MDP_PP_OPS_READ;
+	/* IGC DSPP range */
 	} else if (ptr >= (mdss_res->mdp_base + MDSS_MDP_REG_IGC_DSPP_BASE) &&
-		    ptr < (mdss_res->mdp_base + MDSS_MDP_REG_IGC_DSPP_BASE +
-						MDSS_MDP_IGC_DSPP_COLORS)) {
+		    ptr <= (mdss_res->mdp_base + MDSS_MDP_REG_IGC_DSPP_BASE +
+						MDSS_MDP_IGC_DSPP_SIZE)) {
+		ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
+	/* IGC SSPP range */
+	} else if (ptr >= (mdss_res->mdp_base + MDSS_MDP_REG_IGC_VIG_BASE) &&
+		    ptr <= (mdss_res->mdp_base + MDSS_MDP_REG_IGC_VIG_BASE +
+						MDSS_MDP_IGC_SSPP_SIZE)) {
 		ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
 	} else if (ptr >= dspp_base && ptr < (dspp_base +
 		(mdss_res->nmixers_intf * MDSS_MDP_DSPP_ADDRESS_OFFSET))) {
