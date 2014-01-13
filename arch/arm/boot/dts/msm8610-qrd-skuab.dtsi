@@ -65,7 +65,7 @@
 			vcc-i2c-supply = <&pm8110_l14>;
 			goodix,panel-coords = <0 0 540 980>;
 			goodix,display-coords = <0 0 540 960>;
-			goodix,button-map= <139 102 158>;
+			goodix,button-map= <139 172 158>;
 			goodix,product-id = "915";
 			goodix,enable-power-off;
 			goodix,cfg-data0 = [
