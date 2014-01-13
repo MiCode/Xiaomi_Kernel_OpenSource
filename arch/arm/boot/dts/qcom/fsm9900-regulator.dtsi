@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,15 +16,15 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "8084_s1";
 		qcom,set = <1>;
-		regulator-min-microvolt = <950000>;
-		regulator-max-microvolt = <950000>;
+		regulator-min-microvolt = <1050000>;
+		regulator-max-microvolt = <1050000>;
 	};
 	pma8084_s2: regulator-s2 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "8084_s2";
 		qcom,set = <1>;
-		regulator-min-microvolt = <915000>;
-		regulator-max-microvolt = <915000>;
+		regulator-min-microvolt = <1050000>;
+		regulator-max-microvolt = <1050000>;
 	};
 	pma8084_l12_ao: regulator-l12-ao {
 		compatible = "qcom,stub-regulator";
