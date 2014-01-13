@@ -23,8 +23,6 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/krait-regulator.h>
 #include <linux/regulator/rpm-smd-regulator.h>
-#include <linux/msm_tsens.h>
-#include <linux/msm_thermal.h>
 #include <asm/mach/map.h>
 #include <asm/mach/map.h>
 #include <asm/mach/arch.h>
@@ -67,8 +65,6 @@ void __init msm8974_add_drivers(void)
 	rpm_smd_regulator_driver_init();
 	msm_spm_device_init();
 	krait_power_init();
-	tsens_tm_init_driver();
-	msm_thermal_device_init();
 }
 
 static struct of_dev_auxdata msm_hsic_host_adata[] = {

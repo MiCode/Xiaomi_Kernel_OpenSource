@@ -2528,7 +2528,17 @@ int msm_thermal_pre_init(void)
 {
 	int ret = 0;
 
-	tsens_get_max_sensor_num(&max_tsens_num);
+	if (tsens_is_ready() <= 0) {
+		pr_err("Tsens driver is not ready yet\n");
+		return -EPROBE_DEFER;
+	}
+
+	ret = tsens_get_max_sensor_num(&max_tsens_num);
+	if (ret < 0) {
+		pr_err("failed to get max sensor number, err:%d\n", ret);
+		return ret;
+	}
+
 	if (create_sensor_id_map()) {
 		ret = -EINVAL;
 		goto pre_init_exit;
@@ -3603,6 +3613,7 @@ int __init msm_thermal_device_init(void)
 {
 	return platform_driver_register(&msm_thermal_device_driver);
 }
+arch_initcall(msm_thermal_device_init);
 
 int __init msm_thermal_late_init(void)
 {

@@ -26,8 +26,6 @@
 #include <linux/err.h>
 #include <linux/of.h>
 
-#include <mach/msm_iomap.h>
-
 #define TSENS_DRIVER_NAME		"msm-tsens"
 /* TSENS register info */
 #define TSENS_UPPER_LOWER_INTERRUPT_CTRL(n)		((n) + 0x1000)
@@ -366,6 +364,7 @@ struct tsens_tm_device_sensor {
 struct tsens_tm_device {
 	struct platform_device		*pdev;
 	struct workqueue_struct		*tsens_wq;
+	bool				is_ready;
 	bool				prev_reading_avail;
 	bool				calibration_less_mode;
 	bool				tsens_local_init;
@@ -386,10 +385,25 @@ struct tsens_tm_device {
 
 struct tsens_tm_device *tmdev;
 
+
+int tsens_is_ready()
+{
+	if (!tmdev)
+		return -EPROBE_DEFER;
+	else
+		return tmdev->is_ready;
+}
+EXPORT_SYMBOL(tsens_is_ready);
+
 int tsens_get_sw_id_mapping(int sensor_hw_num, int *sensor_sw_idx)
 {
 	int i = 0;
 	bool id_found = false;
+
+	if (tsens_is_ready() <= 0) {
+		pr_debug("TSENS early init not done\n");
+		return -EPROBE_DEFER;
+	}
 
 	while (i < tmdev->tsens_num_sensor && !id_found) {
 		if (sensor_hw_num == tmdev->sensor[i].sensor_hw_num) {
@@ -410,6 +424,11 @@ int tsens_get_hw_id_mapping(int sensor_sw_id, int *sensor_hw_num)
 {
 	int i = 0;
 	bool id_found = false;
+
+	if (tsens_is_ready() <= 0) {
+		pr_debug("TSENS early init not done\n");
+		return -EPROBE_DEFER;
+	}
 
 	while (i < tmdev->tsens_num_sensor && !id_found) {
 		if (sensor_sw_id == tmdev->sensor[i].sensor_sw_id) {
@@ -464,33 +483,32 @@ static int tsens_tz_degc_to_code(int degc, int idx)
 
 static void msm_tsens_get_temp(int sensor_hw_num, unsigned long *temp)
 {
-	unsigned int code, sensor_addr, trdy_addr;
+	unsigned int code;
+	unsigned long sensor_addr, trdy_addr;
 	int sensor_sw_id = -EINVAL, rc = 0;
 
 	if (tmdev->tsens_type == TSENS_TYPE2) {
-		trdy_addr =
-			(unsigned int)TSENS2_TRDY_ADDR(
+		trdy_addr = (unsigned long)(uintptr_t)TSENS2_TRDY_ADDR(
 							tmdev->tsens_addr);
-		sensor_addr =
-			(unsigned int)TSENS2_SN_STATUS_ADDR(
+		sensor_addr = (unsigned long)(uintptr_t)TSENS2_SN_STATUS_ADDR(
 							tmdev->tsens_addr);
 	} else {
-		trdy_addr =
-			(unsigned int)TSENS_TRDY_ADDR(tmdev->tsens_addr);
-		sensor_addr =
-			(unsigned int)TSENS_S0_STATUS_ADDR(
+		trdy_addr = (unsigned long)(uintptr_t)TSENS_TRDY_ADDR(
+							tmdev->tsens_addr);
+		sensor_addr = (unsigned long)(uintptr_t)TSENS_S0_STATUS_ADDR(
 							tmdev->tsens_addr);
 	}
 
 	if (!tmdev->prev_reading_avail) {
-		while (!((readl_relaxed(trdy_addr)) & TSENS_TRDY_MASK))
+		while (!((readl_relaxed((uintptr_t)trdy_addr)) &
+					TSENS_TRDY_MASK))
 			usleep_range(TSENS_TRDY_RDY_MIN_TIME,
 				TSENS_TRDY_RDY_MAX_TIME);
 		tmdev->prev_reading_avail = true;
 	}
 
-	code = readl_relaxed(sensor_addr +
-			(sensor_hw_num << TSENS_STATUS_ADDR_OFFSET));
+	code = readl_relaxed((uintptr_t)(sensor_addr +
+			(sensor_hw_num << TSENS_STATUS_ADDR_OFFSET)));
 	/* Obtain SW index to map the corresponding thermal zone's
 	 * offset and slope for code to degc conversion. */
 	rc = tsens_get_sw_id_mapping(sensor_hw_num, &sensor_sw_id);
@@ -518,8 +536,10 @@ static int tsens_tz_get_temp(struct thermal_zone_device *thermal,
 
 int tsens_get_temp(struct tsens_device *device, unsigned long *temp)
 {
-	if (!tmdev)
-		return -ENODEV;
+	if (tsens_is_ready() <= 0) {
+		pr_debug("TSENS early init not done\n");
+		return -EPROBE_DEFER;
+	}
 
 	msm_tsens_get_temp(device->sensor_num, temp);
 
@@ -529,8 +549,10 @@ EXPORT_SYMBOL(tsens_get_temp);
 
 int tsens_get_max_sensor_num(uint32_t *tsens_num_sensors)
 {
-	if (!tmdev)
-		return -ENODEV;
+	if (tsens_is_ready() <= 0) {
+		pr_debug("TSENS early init not done\n");
+		return -EPROBE_DEFER;
+	}
 
 	*tsens_num_sensors = tmdev->tsens_num_sensor;
 
@@ -749,29 +771,30 @@ static void tsens_scheduler_fn(struct work_struct *work)
 	struct tsens_tm_device *tm = container_of(work, struct tsens_tm_device,
 						tsens_work);
 	unsigned int i, status, threshold;
-	unsigned int sensor_status_addr, sensor_status_ctrl_addr;
+	unsigned long sensor_status_addr, sensor_status_ctrl_addr;
 	int sensor_sw_id = -EINVAL, rc = 0;
 
 	if (tmdev->tsens_type == TSENS_TYPE2)
 		sensor_status_addr =
-			(unsigned int)TSENS2_SN_STATUS_ADDR(
+			(unsigned long)(uintptr_t)TSENS2_SN_STATUS_ADDR(
 							tmdev->tsens_addr);
 	else
-		sensor_status_addr =
-			(unsigned int)TSENS_S0_STATUS_ADDR(tmdev->tsens_addr);
+		sensor_status_addr = (unsigned long)(uintptr_t)
+					TSENS_S0_STATUS_ADDR(tmdev->tsens_addr);
 
 	sensor_status_ctrl_addr =
-		(unsigned int)TSENS_S0_UPPER_LOWER_STATUS_CTRL_ADDR
-		(tmdev->tsens_addr);
+		(unsigned long)(uintptr_t)TSENS_S0_UPPER_LOWER_STATUS_CTRL_ADDR
+							(tmdev->tsens_addr);
 	for (i = 0; i < tm->tsens_num_sensor; i++) {
 		bool upper_thr = false, lower_thr = false;
 		uint32_t addr_offset;
 
 		addr_offset = tm->sensor[i].sensor_hw_num *
 						TSENS_SN_ADDR_OFFSET;
-		status = readl_relaxed(sensor_status_addr + addr_offset);
-		threshold = readl_relaxed(sensor_status_ctrl_addr +
-								addr_offset);
+		status = readl_relaxed((uintptr_t)
+					(sensor_status_addr + addr_offset));
+		threshold = readl_relaxed((uintptr_t)(sensor_status_ctrl_addr +
+								addr_offset));
 		if (status & TSENS_SN_STATUS_UPPER_STATUS) {
 			writel_relaxed(threshold | TSENS_UPPER_STATUS_CLR,
 				TSENS_S0_UPPER_LOWER_STATUS_CTRL_ADDR(
@@ -937,7 +960,7 @@ static int tsens_calib_8916_sensors(void)
 	}
 
 	if (tsens_calibration_mode == TSENS_TWO_POINT_CALIB) {
-		pr_info("two point calibration calculation\n");
+		pr_debug("two point calibration calculation\n");
 		calib_tsens_point2_data[0] =
 			((tsens_base1_data + tsens0_point2) << 3);
 		calib_tsens_point2_data[1] =
@@ -2037,7 +2060,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 				"qcom,calibration-less-mode");
 	tmdev->tsens_local_init = of_property_read_bool(of_node,
 				"qcom,tsens-local-init");
-	tmdev->calib_mode = (u32) id->data;
+	tmdev->calib_mode = (u32)(uintptr_t) id->data;
 
 	sensor_id = devm_kzalloc(&pdev->dev,
 		tsens_num_sensors * sizeof(u32), GFP_KERNEL);
@@ -2182,6 +2205,8 @@ static int tsens_tm_probe(struct platform_device *pdev)
 
 	tmdev->prev_reading_avail = true;
 
+	tmdev->is_ready = true;
+
 	platform_set_drvdata(pdev, tmdev);
 
 	return 0;
@@ -2208,7 +2233,7 @@ static int _tsens_register_thermal(void)
 	struct platform_device *pdev;
 	int rc, i;
 
-	if (!tmdev) {
+	if (tsens_is_ready() <= 0) {
 		pr_err("%s: TSENS early init not done\n", __func__);
 		return -ENODEV;
 	}
@@ -2301,6 +2326,7 @@ int __init tsens_tm_init_driver(void)
 {
 	return platform_driver_register(&tsens_tm_driver);
 }
+arch_initcall(tsens_tm_init_driver);
 
 static int __init tsens_thermal_register(void)
 {

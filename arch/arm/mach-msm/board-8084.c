@@ -18,8 +18,6 @@
 #include <linux/memory.h>
 #include <linux/regulator/krait-regulator.h>
 #include <linux/regulator/rpm-smd-regulator.h>
-#include <linux/msm_tsens.h>
-#include <linux/msm_thermal.h>
 #include <linux/clk/msm-clk-provider.h>
 #include <asm/mach/map.h>
 #include <asm/mach/arch.h>
@@ -79,8 +77,6 @@ void __init apq8084_add_drivers(void)
 		msm_clock_init(&apq8084_rumi_clock_init_data);
 	else
 		msm_clock_init(&apq8084_clock_init_data);
-	tsens_tm_init_driver();
-	msm_thermal_device_init();
 }
 
 static void __init apq8084_map_io(void)
