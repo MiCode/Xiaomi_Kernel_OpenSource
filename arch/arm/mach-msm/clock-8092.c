@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -7014,8 +7014,10 @@ static struct clk_lookup mpq_clocks_8092[] = {
 					"fc724000.msm_tspp2"),
 	CLK_LOOKUP("iface_vbif_clk", bcc_vbif_ahb_clk.c, "fc600000.msm-demod"),
 	CLK_LOOKUP("",	bcc_vbif_ahb_clk.c,	""),
+	CLK_LOOKUP("iface_vbif_clk", bcc_vbif_ahb_clk.c, "fc74a000.msm_tsc"),
 	CLK_LOOKUP("vbif_core_clk", bcc_vbif_axi_clk.c, "fc600000.msm-demod"),
 	CLK_LOOKUP("",	bcc_vbif_axi_clk.c,	""),
+	CLK_LOOKUP("vbif_core_clk", bcc_vbif_axi_clk.c, "fc74a000.msm_tsc"),
 	CLK_LOOKUP("",	bcc_lnb_ser_clk.c,	""),
 	CLK_LOOKUP("",	bcc_xo_clk.c,	""),
 

@@ -372,8 +372,8 @@ struct tsc_ci_chdev {
  * @cicam_ts_clk:	The clock for pushing TS data into the cicam.
  * @tspp2_core_clk:	The clock for enabling the TSPP2.
  * @vbif_tspp2_clk:	The clock for accessing the VBIF.
- * @tspp2_core_clk_src:	The clock for setting the rate of the TSPP2 and the VBIF
- *			clocks.
+ * @vbif_ahb_clk:	The clock for VBIF AHB.
+ * @vbif_axi_clk:	The clock for VBIF AXI.
  * @gdsc:               The Broadcast GDSC.
  * @bus_client:         The TSC bus client.
  * @pinctrl_info:	TSC pinctrl parameters.
@@ -404,6 +404,8 @@ struct tsc_device {
 	struct clk *cicam_ts_clk;
 	struct clk *tspp2_core_clk;
 	struct clk *vbif_tspp2_clk;
+	struct clk *vbif_ahb_clk;
+	struct clk *vbif_axi_clk;
 	struct regulator *gdsc;
 	uint32_t bus_client;
 	struct pinctrl_info pinctrl_info;
@@ -1276,23 +1278,36 @@ static int tsc_power_on_buff_mode_clocks(void)
 {
 	int ret = 0;
 
-	/* Enabling the clocks */
 	ret = clk_prepare_enable(tsc_device->tspp2_core_clk);
 	if (ret != 0) {
 		pr_err("%s: Can't start tspp2_core_clk", __func__);
-		goto err_tspp2_clk;
+		goto err_tspp2;
 	}
 	ret = clk_prepare_enable(tsc_device->vbif_tspp2_clk);
 	if (ret != 0) {
 		pr_err("%s: Can't start vbif_tspp2_clk", __func__);
-		goto err_vbif_clk;
+		goto err_vbif_tspp2;
+	}
+	ret = clk_prepare_enable(tsc_device->vbif_ahb_clk);
+	if (ret != 0) {
+		pr_err("%s: Can't start vbif_ahb_clk", __func__);
+		goto err_vbif_ahb;
+	}
+	ret = clk_prepare_enable(tsc_device->vbif_axi_clk);
+	if (ret != 0) {
+		pr_err("%s: Can't start vbif_axi_clk", __func__);
+		goto err_vbif_axi;
 	}
 
 	return ret;
 
-err_vbif_clk:
+err_vbif_axi:
+	clk_disable_unprepare(tsc_device->vbif_ahb_clk);
+err_vbif_ahb:
+	clk_disable_unprepare(tsc_device->vbif_tspp2_clk);
+err_vbif_tspp2:
 	clk_disable_unprepare(tsc_device->tspp2_core_clk);
-err_tspp2_clk:
+err_tspp2:
 	return ret;
 }
 
@@ -1303,6 +1318,8 @@ err_tspp2_clk:
  */
 static void tsc_power_off_buff_mode_clocks(void)
 {
+	clk_disable_unprepare(tsc_device->vbif_axi_clk);
+	clk_disable_unprepare(tsc_device->vbif_ahb_clk);
 	clk_disable_unprepare(tsc_device->tspp2_core_clk);
 	clk_disable_unprepare(tsc_device->vbif_tspp2_clk);
 }
@@ -1452,11 +1469,6 @@ static int tsc_data_transaction(struct tsc_ci_chdev *tsc_ci, uint io_mem,
 		else   /* write transaction */
 			writel_relaxed(iova,
 					tsc_device->base + TSC_WR_BUFF_ADDR);
-
-		/* powering-up the tspp2 and VBIF clocks */
-		ret = tsc_power_on_buff_mode_clocks();
-		if (!ret)
-			goto err_buff_clocks;
 	}
 
 	/* configuring the cam command register */
@@ -1526,9 +1538,6 @@ static int tsc_data_transaction(struct tsc_ci_chdev *tsc_ci, uint io_mem,
 				&((struct tsc_single_byte_mode *)arg)->data);
 
 finish:
-	if (buff_mode == BUFFER_MODE)
-		tsc_power_off_buff_mode_clocks();
-err_buff_clocks:
 	if (iova != 0)
 		ion_unmap_iommu(tsc_device->iommu_info.ion_client, ion_handle,
 			tsc_device->iommu_info.domain_num,
@@ -2070,6 +2079,11 @@ static int tsc_ci_open(struct inode *inode, struct file *filp)
 	if (ret != 0)
 		goto err_first_device;
 
+	/* powering-up the tspp2 and VBIF clocks */
+	ret = tsc_power_on_buff_mode_clocks();
+	if (ret != 0)
+		goto err_buff_clocks;
+
 	/* Request reset CAM GPIO */
 	ret = gpio_request(tsc_device->reset_cam_gpio, "tsc_ci_reset");
 	if (ret != 0) {
@@ -2123,6 +2137,8 @@ err_assert:
 err_iommu_attach:
 	gpio_free(tsc_device->reset_cam_gpio);
 err_gpio_req:
+	tsc_power_off_buff_mode_clocks();
+err_buff_clocks:
 	/* De-init all resources if it's the only device (checked inside) */
 	tsc_device_power_off();
 err_first_device:
@@ -2214,6 +2230,7 @@ static int tsc_ci_release(struct inode *inode, struct file *filp)
 	CLEAR_BIT(CAM_IRQ_ERR_OFFS, ena_reg);
 	writel_relaxed(ena_reg, tsc_device->base + TSC_IRQ_ENA);
 
+	tsc_power_off_buff_mode_clocks();
 	tsc_device_power_off();
 
 	tsc_device->num_ci_opened--;
@@ -2739,12 +2756,24 @@ static void tsc_clocks_put(void)
 		clk_put(tsc_device->par_clk);
 	if (tsc_device->cicam_ts_clk)
 		clk_put(tsc_device->cicam_ts_clk);
+	if (tsc_device->tspp2_core_clk)
+		clk_put(tsc_device->tspp2_core_clk);
+	if (tsc_device->vbif_tspp2_clk)
+		clk_put(tsc_device->vbif_tspp2_clk);
+	if (tsc_device->vbif_ahb_clk)
+		clk_put(tsc_device->vbif_ahb_clk);
+	if (tsc_device->vbif_axi_clk)
+		clk_put(tsc_device->vbif_axi_clk);
 
 	tsc_device->ahb_clk = NULL;
 	tsc_device->ci_clk = NULL;
 	tsc_device->ser_clk = NULL;
 	tsc_device->par_clk = NULL;
 	tsc_device->cicam_ts_clk = NULL;
+	tsc_device->tspp2_core_clk = NULL;
+	tsc_device->vbif_tspp2_clk = NULL;
+	tsc_device->vbif_ahb_clk = NULL;
+	tsc_device->vbif_axi_clk = NULL;
 }
 
 /**
@@ -2804,12 +2833,32 @@ static int tsc_clocks_get(struct platform_device *pdev)
 	if (IS_ERR(tsc_device->vbif_tspp2_clk)) {
 		pr_err("%s: Failed to get bcc_vbif_tspp2_clk", __func__);
 		ret = PTR_ERR(tsc_device->vbif_tspp2_clk);
-		goto vbif_err;
+		goto vbif_tspp2_err;
+	}
+
+	tsc_device->vbif_ahb_clk = clk_get(&pdev->dev, "iface_vbif_clk");
+	if (IS_ERR(tsc_device->vbif_ahb_clk)) {
+		pr_err("%s: Failed to get bcc_vbif_ahb_clk", __func__);
+		ret = PTR_ERR(tsc_device->vbif_ahb_clk);
+		goto vbif_ahb_err;
+	}
+
+	tsc_device->vbif_axi_clk = clk_get(&pdev->dev, "vbif_core_clk");
+	if (IS_ERR(tsc_device->vbif_axi_clk)) {
+		pr_err("%s: Failed to get bcc_vbif_axi_clk", __func__);
+		ret = PTR_ERR(tsc_device->vbif_axi_clk);
+		goto vbif_axi_err;
 	}
 
 	return ret;
 
-vbif_err:
+vbif_axi_err:
+	tsc_device->vbif_axi_clk = NULL;
+	clk_put(tsc_device->vbif_ahb_clk);
+vbif_ahb_err:
+	tsc_device->vbif_ahb_clk = NULL;
+	clk_put(tsc_device->vbif_tspp2_clk);
+vbif_tspp2_err:
 	tsc_device->vbif_tspp2_clk = NULL;
 	clk_put(tsc_device->tspp2_core_clk);
 tspp2_err:
