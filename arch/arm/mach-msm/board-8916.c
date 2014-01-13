@@ -25,7 +25,6 @@
 #include <soc/qcom/smem.h>
 
 #include "board-dt.h"
-#include "clock.h"
 #include "platsmp.h"
 #include "spm.h"
 
@@ -78,7 +77,6 @@ static void __init msm8916_init(void)
 	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
-	msm_clock_init(&msm8916_clock_init_data);
 	msm8916_add_drivers();
 }
 

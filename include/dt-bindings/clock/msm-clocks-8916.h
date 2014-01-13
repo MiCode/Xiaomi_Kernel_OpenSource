@@ -71,11 +71,11 @@
 #define clk_gcc_crypto_axi_clk			0xd4415c9b
 #define clk_gcc_crypto_clk			0x00d390d2
 #define clk_gcc_prng_ahb_clk			0x397e7eaa
+#define clk_gcc_apss_tcu_clk			0xaf56a329
 #define clk_gcc_gfx_tbu_clk			0x18bb9a90
 #define clk_gcc_gtcu_ahb_clk			0xb432168e
 #define clk_gcc_jpeg_tbu_clk			0xcf8fd944
 #define clk_gcc_mdp_tbu_clk			0x82287f76
-#define clk_gcc_pronto_tbu_clk			0x08d235ce
 #define clk_gcc_smmu_cfg_clk			0x75eaefa5
 #define clk_gcc_venus_tbu_clk			0x7e0b97ce
 #define clk_gcc_vfe_tbu_clk			0x061f2f95
@@ -151,8 +151,6 @@
 #define clk_gcc_venus0_ahb_clk			0x08d778c6
 #define clk_gcc_venus0_axi_clk			0xcdf4c8f6
 #define clk_gcc_venus0_vcodec0_clk		0xf76a02bb
-#define clk_gcc_apss_tcu_async_clk		0x8fbc51da
-#define clk_gcc_apss_tcu_clk			0xaf56a329
 #define clk_gcc_gfx_tcu_clk			0x59505e55
 #define clk_gcc_gtcu_ahb_bridge_clk		0x19d2c5fe
 #define clk_gcc_bimc_gpu_clk			0x19922503
@@ -188,6 +186,15 @@
 #define clk_xo_pil_mss_clk			0xe97a8354
 #define clk_xo_pil_pronto_clk			0x89dae6d0
 #define clk_xo_wlan_clk				0x0116b76f
+
+#define clk_bb_clk1				0xf5304268
+#define clk_bb_clk1_pin				0x6dd0a779
+#define clk_bb_clk2				0xfe15cb87
+#define clk_bb_clk2_pin				0x498938e5
+#define clk_rf_clk1				0xaabeea5a
+#define clk_rf_clk1_pin				0x8f463562
+#define clk_rf_clk2				0x24a30992
+#define clk_rf_clk2_pin				0xa7c5602a
 
 /* DEBUG */
 #define clk_gcc_debug_mux			0x8121ac15
