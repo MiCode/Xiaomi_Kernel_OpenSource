@@ -347,7 +347,7 @@ enum vpu_pixel_format {
 	/* YUV422 - UYVY Interleaved (AYUV: 0 8 8 8) */
 	PIXEL_FORMAT_UYVY = 0x0b,
 	/* YUV422 - 10 Bit Packed Loose (AYUV: 0 10 10 10) */
-	PIXEL_FORMAT_YUYV_LOOSE = 0x0c,
+	PIXEL_FORMAT_YUYV10_LOOSE = 0x0c,
 	/* YUV444 - YUV 8 Bit Interleaved Packed Dense (AYUV:0 8 8 8) */
 	PIXEL_FORMAT_YUV_8BIT_INTERLEAVED_DENSE = 0x0d, /* not supported */
 	/* YUV444 - YUV 10 Interleaved Bit Packed Loose (AYUV:0 10 10 10) */
