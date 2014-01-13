@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1096,6 +1096,15 @@ static const struct usb_device_id bridge_ids[] = {
 	},
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x908E, 7),
 	.driver_info = (unsigned long)rmnet_hsic_bridge_names,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909C, 3),
+	.driver_info = (unsigned long)serial_hsic_bridge_names,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909D, 3),
+	.driver_info = (unsigned long)serial_hsic_bridge_names,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909E, 5),
+	.driver_info = (unsigned long)serial_hsic_bridge_names,
 	},
 
 	{ } /* Terminating entry */

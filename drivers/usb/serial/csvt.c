@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,6 +51,10 @@ static const struct usb_device_id id_table[] = {
 	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6 , 0x9075, 4)},
 	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6 , 0x908A, 4)},
 	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6 , 0x908E, 6)},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6 , 0x909C, 4)},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6 , 0x909D, 4)},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6 , 0x909E, 6)},
+
 	{}, /* terminating entry */
 };
 MODULE_DEVICE_TABLE(usb, id_table);
