@@ -4867,13 +4867,13 @@ static int is_valid_calib_addr(void *addr, u32 operation)
 					* mdss_res->size_ctl))) {
 		ret = is_valid_calib_ctrl_addr(ptr);
 	} else if (ptr >= vig_base && ptr < (vig_base + (mdss_res->nvig_pipes
-					* mdss_res->size_sspp))) {
+					* mdss_res->size_sspp_vig))) {
 		ret = is_valid_calib_vig_addr(ptr);
 	} else if (ptr >= rgb_base && ptr < (rgb_base + (mdss_res->nrgb_pipes
-					* mdss_res->size_sspp))) {
+					* mdss_res->size_sspp_rgb))) {
 		ret = is_valid_calib_rgb_addr(ptr);
 	} else if (ptr >= dma_base && ptr < (dma_base + (mdss_res->ndma_pipes
-					* mdss_res->size_sspp))) {
+					* mdss_res->size_sspp_dma))) {
 		ret = is_valid_calib_dma_addr(ptr);
 	} else if (ptr >= mixer_base && ptr < (mixer_base +
 		(mdss_res->nmixers_intf * mdss_res->size_mixer_intf))) {
