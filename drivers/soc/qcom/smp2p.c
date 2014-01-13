@@ -1,4 +1,4 @@
-/* arch/arm/mach-msm/smp2p.c
+/* drivers/soc/qcom/smp2p.c
  *
  * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *

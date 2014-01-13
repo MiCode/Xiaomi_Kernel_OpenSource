@@ -1,6 +1,6 @@
-/* arch/arm/mach-msm/smp2p_private_api.h
+/* drivers/soc/qcom/smp2p_private_api.h
  *
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and

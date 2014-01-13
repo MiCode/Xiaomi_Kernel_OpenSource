@@ -1,4 +1,4 @@
-/* arch/arm/mach-msm/smp2p_test_common.h
+/* drivers/soc/qcom/smp2p_test_common.h
  *
  * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
@@ -11,8 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifndef _ARCH_ARM_MACH_MSM_SMP2P_TEST_COMMON_H_
-#define _ARCH_ARM_MACH_MSM_SMP2P_TEST_COMMON_H_
+#ifndef _SMP2P_TEST_COMMON_H_
+#define _SMP2P_TEST_COMMON_H_
 
 #include <linux/debugfs.h>
 
@@ -210,4 +210,4 @@ static inline int smp2p_test_notify(struct notifier_block *self,
 	spin_unlock_irqrestore(&cb_data_ptr->lock, flags);
 	return 0;
 }
-#endif /* _ARCH_ARM_MACH_MSM_SMP2P_TEST_COMMON_H_ */
+#endif /* _SMP2P_TEST_COMMON_H_ */
