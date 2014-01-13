@@ -101,6 +101,7 @@ struct ppp_status {
 	struct timer_list free_bw_timer;
 	struct work_struct free_bw_work;
 	bool bw_on;
+	bool bw_optimal;
 };
 
 static struct ppp_status *ppp_stat;
@@ -355,21 +356,54 @@ void mdp3_ppp_kickoff(void)
 	mdp3_ppp_pipe_wait();
 }
 
+int mdp3_ppp_vote_update(struct msm_fb_data_type *mfd)
+{
+	struct mdss_panel_info *panel_info = mfd->panel_info;
+	uint64_t req_bw = 0, ab = 0, ib = 0;
+	int rate = 0;
+	int rc = 0;
+	if (!ppp_stat->bw_on)
+		pr_err("%s: PPP vote update in wrong state\n", __func__);
+
+	rate = MDP_BLIT_CLK_RATE;
+	req_bw = panel_info->xres * panel_info->yres *
+		panel_info->mipi.frame_rate *
+		MDP_PPP_MAX_BPP *
+		MDP_PPP_DYNAMIC_FACTOR *
+		MDP_PPP_MAX_READ_WRITE;
+	ib = (req_bw * 3) / 2;
+
+	if (ppp_stat->bw_optimal)
+		ab = ib / 2;
+	else
+		ab = req_bw;
+	rc = mdp3_bus_scale_set_quota(MDP3_CLIENT_PPP, ab, ib);
+	if (rc < 0) {
+		pr_err("%s: scale_set_quota failed\n", __func__);
+		return rc;
+	}
+	return rc;
+}
+
 int mdp3_ppp_turnon(struct msm_fb_data_type *mfd, int on_off)
 {
 	struct mdss_panel_info *panel_info = mfd->panel_info;
-	uint64_t ab = 0, ib = 0;
+	uint64_t req_bw = 0, ab = 0, ib = 0;
 	int rate = 0;
 	int rc;
 
 	if (on_off) {
 		rate = MDP_BLIT_CLK_RATE;
-		ab = panel_info->xres * panel_info->yres *
+		req_bw = panel_info->xres * panel_info->yres *
 			panel_info->mipi.frame_rate *
 			MDP_PPP_MAX_BPP *
 			MDP_PPP_DYNAMIC_FACTOR *
 			MDP_PPP_MAX_READ_WRITE;
-		ib = (ab * 3) / 2;
+		ib = (req_bw * 3) / 2;
+		if (ppp_stat->bw_optimal)
+			ab = ib / 2;
+		else
+			ab = req_bw;
 	}
 	mdp3_clk_set_rate(MDP3_CLK_CORE, rate, MDP3_CLIENT_PPP);
 	rc = mdp3_clk_enable(on_off, 0);
@@ -385,6 +419,13 @@ int mdp3_ppp_turnon(struct msm_fb_data_type *mfd, int on_off)
 	}
 	ppp_stat->bw_on = on_off;
 	return 0;
+}
+
+bool mdp3_optimal_bw(int req_cnt)
+{
+	if (req_cnt == 1 && ppp_stat->req_q.count == 1)
+		return true;
+	return false;
 }
 
 void mdp3_start_ppp(struct ppp_blit_op *blit_op)
@@ -1046,6 +1087,7 @@ static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
 			pr_err("%s: mdp3_iommu_enable failed\n", __func__);
 			return;
 		}
+		ppp_stat->bw_optimal = mdp3_optimal_bw(req->count);
 		mdp3_ppp_turnon(mfd, 1);
 		if (rc < 0) {
 			mdp3_iommu_disable(MDP3_CLIENT_PPP);
@@ -1079,6 +1121,10 @@ static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
 		if (ppp_stat->wait_for_pop)
 			complete(&ppp_stat->pop_q_comp);
 		mutex_unlock(&ppp_stat->req_mutex);
+		if (req && (ppp_stat->bw_optimal != mdp3_optimal_bw(req->count))) {
+			ppp_stat->bw_optimal = !ppp_stat->bw_optimal;
+			mdp3_ppp_vote_update(mfd);
+		}
 	}
 	mod_timer(&ppp_stat->free_bw_timer, jiffies +
 		msecs_to_jiffies(MDP_RELEASE_BW_TIMEOUT));
