@@ -855,6 +855,11 @@
 		adc-supply = <&pma8084_l27>;
 	};
 
+	forza_sharedmem {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0xfc6d1000 0x10000>;
+		reg-names = "forza";
+	};
 
         qcom,msm-rng@f9bff000 {
 		compatible = "qcom,msm-rng";
