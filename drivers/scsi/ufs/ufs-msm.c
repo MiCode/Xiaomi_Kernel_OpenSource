@@ -1216,6 +1216,7 @@ msm_ufs_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs, u32 rate)
 	u32 core_clk_period_in_ns;
 	u32 tx_clk_cycles_per_us = 0;
 	unsigned long core_clk_rate = 0;
+	u32 core_clk_cycles_per_us = 0;
 
 	static u32 pwm_fr_table[][2] = {
 		{UFS_PWM_G1, 0x1},
@@ -1247,6 +1248,9 @@ msm_ufs_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs, u32 rate)
 	/* If frequency is smaller than 1MHz, set to 1MHz */
 	if (core_clk_rate < DEFAULT_CLK_RATE_HZ)
 		core_clk_rate = DEFAULT_CLK_RATE_HZ;
+
+	core_clk_cycles_per_us = core_clk_rate / USEC_PER_SEC;
+	ufshcd_writel(hba, core_clk_cycles_per_us, REG_UFS_SYS1CLK_1US);
 
 	core_clk_period_in_ns = NSEC_PER_SEC / core_clk_rate;
 	core_clk_period_in_ns <<= OFFSET_CLK_NS_REG;
@@ -2119,6 +2123,19 @@ static int msm_ufs_phy_remove(struct platform_device *pdev)
 	return 0;
 }
 
+void msm_ufs_clk_scale_notify(struct ufs_hba *hba)
+{
+	struct msm_ufs_host *host = hba->priv;
+	struct ufs_pa_layer_attr *dev_req_params = &host->dev_req_params;
+
+	if (!dev_req_params)
+		return;
+
+	msm_ufs_cfg_timers(hba, dev_req_params->gear_rx,
+				dev_req_params->pwr_rx,
+				dev_req_params->hs_rate);
+	msm_ufs_update_bus_bw_vote(host);
+}
 /**
  * struct ufs_hba_msm_vops - UFS MSM specific variant operations
  *
@@ -2129,6 +2146,7 @@ const struct ufs_hba_variant_ops ufs_hba_msm_vops = {
 	.name                   = "msm",
 	.init                   = msm_ufs_init,
 	.exit                   = msm_ufs_exit,
+	.clk_scale_notify	= msm_ufs_clk_scale_notify,
 	.setup_clocks           = msm_ufs_setup_clocks,
 	.hce_enable_notify      = msm_ufs_hce_enable_notify,
 	.link_startup_notify    = msm_ufs_link_startup_notify,
