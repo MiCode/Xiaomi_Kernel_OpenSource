@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -266,7 +266,7 @@ static int msm_hsic_hub_init_gpio(struct hsic_hub *hub, int init)
 		}
 
 		/* Enable LDO if required for external pull-up */
-		smsc_hub->int_pad_reg = devm_regulator_get(hub->dev, "hub_int");
+		smsc_hub->int_pad_reg = devm_regulator_get(hub->dev, "hub-int");
 		if (IS_ERR(smsc_hub->int_pad_reg)) {
 			dev_dbg(hub->dev, "unable to get ext hub_int reg\n");
 		} else {
@@ -298,6 +298,9 @@ static int msm_hsic_hub_init_vdd(struct hsic_hub *hub, int init)
 {
 	int ret;
 
+	if (!of_get_property(hub->dev->of_node, "ext-hub-vddio-supply", NULL))
+		return 0;
+
 	if (!init) {
 		if (!IS_ERR(smsc_hub->hsic_hub_reg)) {
 			regulator_disable(smsc_hub->hsic_hub_reg);
@@ -308,7 +311,7 @@ static int msm_hsic_hub_init_vdd(struct hsic_hub *hub, int init)
 		return 0;
 	}
 
-	smsc_hub->hsic_hub_reg = devm_regulator_get(hub->dev, "EXT_HUB_VDDIO");
+	smsc_hub->hsic_hub_reg = devm_regulator_get(hub->dev, "ext-hub-vddio");
 	if (IS_ERR(smsc_hub->hsic_hub_reg)) {
 		dev_dbg(hub->dev, "unable to get ext hub vddcx\n");
 	} else {
@@ -416,11 +419,14 @@ static int __devinit smsc_hub_probe(struct platform_device *pdev)
 	smsc_hub->dev = &pdev->dev;
 	smsc_hub->pdata = pdata;
 
-	smsc_hub->hub_vbus_reg = devm_regulator_get(&pdev->dev, "hub_vbus");
-	ret = PTR_ERR(smsc_hub->hub_vbus_reg);
-	if (ret == -EPROBE_DEFER) {
-		dev_dbg(&pdev->dev, "failed to get hub_vbus\n");
-		return ret;
+	if (of_get_property(pdev->dev.of_node, "hub-vbus-supply", NULL)) {
+		smsc_hub->hub_vbus_reg = devm_regulator_get(&pdev->dev,
+				"hub-vbus");
+		ret = PTR_ERR(smsc_hub->hub_vbus_reg);
+		if (ret == -EPROBE_DEFER) {
+			dev_dbg(&pdev->dev, "failed to get hub_vbus\n");
+			return ret;
+		}
 	}
 
 	ret = msm_hsic_hub_init_vdd(smsc_hub, 1);
@@ -447,7 +453,7 @@ static int __devinit smsc_hub_probe(struct platform_device *pdev)
 	udelay(5);
 	gpio_direction_output(pdata->hub_reset, 1);
 
-	if (!IS_ERR(smsc_hub->hub_vbus_reg)) {
+	if (!IS_ERR_OR_NULL(smsc_hub->hub_vbus_reg)) {
 		ret = regulator_enable(smsc_hub->hub_vbus_reg);
 		if (ret) {
 			dev_err(&pdev->dev, "unable to enable hub_vbus\n");
@@ -532,7 +538,7 @@ static int smsc_hub_remove(struct platform_device *pdev)
 	}
 	pm_runtime_disable(&pdev->dev);
 
-	if (!IS_ERR(smsc_hub->hub_vbus_reg))
+	if (!IS_ERR_OR_NULL(smsc_hub->hub_vbus_reg))
 		regulator_disable(smsc_hub->hub_vbus_reg);
 	msm_hsic_hub_init_gpio(smsc_hub, 0);
 	msm_hsic_hub_init_clock(smsc_hub, 0);
