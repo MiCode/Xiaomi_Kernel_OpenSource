@@ -81,6 +81,7 @@ struct hdmi_tx_ctrl {
 	struct work_struct power_off_work;
 
 	bool hdcp_feature_on;
+	bool hpd_disabled;
 	u32 present_hdcp;
 
 	u8 spd_vendor_name[9];
