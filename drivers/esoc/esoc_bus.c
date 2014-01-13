@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,10 +41,17 @@ static struct device_attribute esoc_clink_attrs[] = {
 
 static int esoc_bus_match(struct device *dev, struct device_driver *drv)
 {
+	int i = 0, match = 1;
 	struct esoc_clink *esoc_clink = to_esoc_clink(dev);
+	struct esoc_drv *esoc_drv = to_esoc_drv(drv);
+	int entries = esoc_drv->compat_entries;
+	struct esoc_compat *table = esoc_drv->compat_table;
 
-	return !memcmp(esoc_clink->name, drv->name,
-					strlen(drv->name));
+	for (i = 0; i < entries; i++) {
+		if (strcasecmp(esoc_clink->name, table[i].name) == 0)
+			return match;
+	}
+	return 0;
 }
 
 static int esoc_bus_probe(struct device *dev)
