@@ -148,6 +148,9 @@ struct mdss_data_type {
 	u32 nrgb_pipes;
 	u32 ndma_pipes;
 	u32 size_sspp;
+	u32 size_sspp_vig;
+	u32 size_sspp_rgb;
+	u32 size_sspp_dma;
 
 	DECLARE_BITMAP(mmb_alloc_map, MAX_DRV_SUP_MMB_BLKS);
 
