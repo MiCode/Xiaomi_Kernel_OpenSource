@@ -142,7 +142,7 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 		buslevel = max_t(int, buslevel, 1);
 	}
 	msm_bus_scale_client_update_request(pwr->pcl, buslevel);
-	trace_kgsl_pwrlevel(device, pwr->active_pwrlevel, buslevel);
+	trace_kgsl_buslevel(device, pwr->active_pwrlevel, buslevel);
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_buslevel_update);
 

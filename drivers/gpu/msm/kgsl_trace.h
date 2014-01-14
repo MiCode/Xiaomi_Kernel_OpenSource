@@ -234,10 +234,11 @@ DEFINE_EVENT(kgsl_pwr_template, kgsl_rail,
 	TP_ARGS(device, on)
 );
 
+
 TRACE_EVENT(kgsl_pwrlevel,
 
 	TP_PROTO(struct kgsl_device *device, unsigned int pwrlevel,
-		 unsigned int freq),
+		unsigned int freq),
 
 	TP_ARGS(device, pwrlevel, freq),
 
@@ -258,6 +259,33 @@ TRACE_EVENT(kgsl_pwrlevel,
 		__get_str(device_name),
 		__entry->pwrlevel,
 		__entry->freq
+	)
+);
+
+TRACE_EVENT(kgsl_buslevel,
+
+	TP_PROTO(struct kgsl_device *device, unsigned int pwrlevel,
+		 unsigned int bus),
+
+	TP_ARGS(device, pwrlevel, bus),
+
+	TP_STRUCT__entry(
+		__string(device_name, device->name)
+		__field(unsigned int, pwrlevel)
+		__field(unsigned int, bus)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, device->name);
+		__entry->pwrlevel = pwrlevel;
+		__entry->bus = bus;
+	),
+
+	TP_printk(
+		"d_name=%s pwrlevel=%d bus=%d",
+		__get_str(device_name),
+		__entry->pwrlevel,
+		__entry->bus
 	)
 );
 
