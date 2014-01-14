@@ -392,8 +392,8 @@ static void cpufreq_interactive_timer(unsigned long data)
 		if (max_load_other_cpu < picpu->prev_load)
 			max_load_other_cpu = picpu->prev_load;
 
-		if (picpu->policy->cur > max_freq_other_cpu)
-			max_freq_other_cpu = picpu->policy->cur;
+		if (picpu->target_freq > max_freq_other_cpu)
+			max_freq_other_cpu = picpu->target_freq;
 	}
 
 	if (cpu_load >= go_hispeed_load || boosted) {
@@ -1221,6 +1221,7 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			pcpu = &per_cpu(cpuinfo, j);
 			down_write(&pcpu->enable_sem);
 			pcpu->governor_enabled = 0;
+			pcpu->target_freq = 0;
 			del_timer_sync(&pcpu->cpu_timer);
 			del_timer_sync(&pcpu->cpu_slack_timer);
 			up_write(&pcpu->enable_sem);
