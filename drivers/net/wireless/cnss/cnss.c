@@ -66,7 +66,6 @@ struct cnss_wlan_vreg_info {
  * The function pointer callbacks are expected to be non null as well.
  */
 static struct cnss_data {
-	struct dev_info *device_info;
 	struct platform_device *pldev;
 	struct subsys_device *subsys;
 	struct subsys_desc    subsysdesc;
@@ -517,32 +516,6 @@ cut_power:
 }
 EXPORT_SYMBOL(cnss_wlan_unregister_driver);
 
-int cnss_config(struct dev_info *device_info)
-{
-	if (!penv)
-		return -ENODEV;
-
-	penv->device_info = device_info;
-	return 0;
-}
-EXPORT_SYMBOL(cnss_config);
-
-void cnss_deinit(void)
-{
-	if (penv && penv->device_info)
-		penv->device_info = NULL;
-}
-EXPORT_SYMBOL(cnss_deinit);
-
-void cnss_device_crashed(void)
-{
-	if (penv && penv->subsys) {
-		subsys_set_crash_status(penv->subsys, true);
-		subsystem_restart_dev(penv->subsys);
-	}
-}
-EXPORT_SYMBOL(cnss_device_crashed);
-
 int cnss_set_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 ch_count)
 {
 	if (!penv)
@@ -599,6 +572,15 @@ int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size)
 	return 0;
 }
 EXPORT_SYMBOL(cnss_get_ramdump_mem);
+
+void cnss_device_crashed(void)
+{
+	if (penv && penv->subsys) {
+		subsys_set_crash_status(penv->subsys, true);
+		subsystem_restart_dev(penv->subsys);
+	}
+}
+EXPORT_SYMBOL(cnss_device_crashed);
 
 static int cnss_shutdown(const struct subsys_desc *subsys, bool force_stop)
 {
@@ -744,9 +726,7 @@ static int cnss_ramdump(int enable, const struct subsys_desc *subsys)
 
 static void cnss_crash_shutdown(const struct subsys_desc *subsys)
 {
-	if (penv && penv->device_info &&
-			penv->device_info->dev_crashshutdown)
-		penv->device_info->dev_crashshutdown();
+
 }
 
 static int cnss_probe(struct platform_device *pdev)

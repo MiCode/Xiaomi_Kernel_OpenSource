@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,15 +20,6 @@
 
 #define CNSS_MAX_FILE_NAME	  20
 
-struct dev_info {
-	struct device	*dev;
-	char	*dump_buffer;
-	unsigned long dump_size;
-	int (*dev_shutdown)(void);
-	int (*dev_powerup)(void);
-	void (*dev_crashshutdown)(void);
-};
-
 /* FW image files */
 struct cnss_fw_files {
 	char image_file[CNSS_MAX_FILE_NAME];
@@ -48,8 +39,6 @@ struct cnss_wlan_driver {
 	const struct pci_device_id *id_table;
 };
 
-extern int cnss_config(struct dev_info *device_info);
-extern void cnss_deinit(void);
 extern void cnss_device_crashed(void);
 extern int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size);
 extern int cnss_set_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 ch_count);
