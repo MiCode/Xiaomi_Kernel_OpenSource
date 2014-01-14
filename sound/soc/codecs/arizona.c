@@ -109,6 +109,15 @@ static int arizona_spk_ev(struct snd_soc_dapm_widget *w,
 					 ARIZONA_OUTPUT_ENABLES_1,
 					 1 << w->shift, 1 << w->shift);
 
+		switch (arizona->type) {
+		case WM8280:
+		case WM5110:
+			msleep(10);
+			break;
+		default:
+			break;
+		};
+
 		if (priv->spk_ena_pending) {
 			msleep(75);
 			regmap_write_async(arizona->regmap, 0x4f5, 0xda);
