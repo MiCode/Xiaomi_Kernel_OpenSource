@@ -495,3 +495,24 @@
 &pcie0 {
 	vreg-3.3-supply = <&vph_pwr_vreg>;
 };
+
+&spmi_bus {
+	qcom,pma8084@0 {
+		qcom,leds@c900 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xc900 0x100>;
+			status = "okay";
+			qcom,led_gpio_10 {
+				label = "mpp";
+				linux,name = "led:notification";
+				linux,default-trigger = "notification";
+				qcom,default-state = "on";
+				qcom,max-current = <40>;
+				qcom,id = <6>;
+				qcom,source-sel = <1>;
+				qcom,mode-ctrl = <0x60>;
+				qcom,mode = "manual";
+			};
+		};
+	};
+};
