@@ -43,18 +43,50 @@
 #define DAP_DEVICEEN_DISABLE	BIT(8)
 #define QPDI_SPMI_DISABLE	BIT(2)
 
+#define NIDNT_DISABLE	BIT(27)
+
+struct fuse_nidnt {
+	void __iomem        *base;
+};
+
 struct fuse_qpdi {
 	void __iomem		*base;
 };
 
 struct fuse_drvdata {
 	void __iomem		*base;
+	struct fuse_nidnt	*fuse_nidnt;
 	struct fuse_qpdi	*qpdi;
 	struct device		*dev;
 	struct coresight_device	*csdev;
 };
 
 static struct fuse_drvdata *fusedrvdata;
+
+bool coresight_fuse_nidnt_access_disabled(void)
+{
+	struct fuse_drvdata *drvdata = fusedrvdata;
+	uint32_t nidnt_fuse;
+	bool ret;
+
+	if (!drvdata->fuse_nidnt)
+		return false;
+
+	nidnt_fuse = fuse_readl(drvdata->fuse_nidnt, 0);
+
+	dev_dbg(drvdata->dev, "nidnt_fuse: %lx\n", (unsigned long)nidnt_fuse);
+
+	if (nidnt_fuse & NIDNT_DISABLE)
+		ret = true;
+	else
+		ret = false;
+
+	if (ret)
+		dev_dbg(drvdata->dev, "coresight nidnt fuse disabled\n");
+
+	return ret;
+}
+EXPORT_SYMBOL(coresight_fuse_nidnt_access_disabled);
 
 bool coresight_fuse_access_disabled(void)
 {
@@ -190,6 +222,22 @@ static int fuse_probe(struct platform_device *pdev)
 			return -ENOMEM;
 	} else {
 		dev_info(dev, "QPDI fuse not specified\n");
+	}
+
+	res = platform_get_resource_byname(pdev,
+					   IORESOURCE_MEM,
+					   "nidnt-fuse-base");
+	if (res) {
+		drvdata->fuse_nidnt = devm_kzalloc(dev,
+						   sizeof(*drvdata->fuse_nidnt),
+						   GFP_KERNEL);
+		if (!drvdata)
+			return -ENOMEM;
+
+		drvdata->fuse_nidnt->base = devm_ioremap(dev, res->start,
+							 resource_size(res));
+		if (!drvdata->fuse_nidnt->base)
+			return -ENOMEM;
 	}
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
