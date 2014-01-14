@@ -304,6 +304,9 @@ config CNSS
 	depends on PCI
 	depends on PCI_MSI
 	depends on MSM_PCIE
+	select CRYPTO
+	select CRYPTO_HASH
+	select CRYPTO_BLKCIPHER
 	---help---
 	  This module adds support for the CNSS connectivity subsystem used
 	  for wifi devices based on the QCA AR6320 chipset running over PCIe.
