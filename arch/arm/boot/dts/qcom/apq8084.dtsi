@@ -3036,6 +3036,22 @@
 		compatible = "qcom,bcl";
 	};
 
+	qcom,msm-mct {
+		compatible = "qcom,max-current-throttling";
+		qcom,mct-wr-weight = <0x14221120>;
+		qcom,mct-vxwr-weight = <0xf8436430>;
+		qcom,mct-vlswr-weight = <0xa5846330>;
+		qcom,mct-vaw-energy = <0x1>;
+		qcom,mct-ulim = <0x007f>;
+		qcom,mct-dcnt = <0x0c>;
+		krait0-mct-supply = <&krait0_adj_reg>;
+		krait1-mct-supply = <&krait1_adj_reg>;
+		krait2-mct-supply = <&krait2_adj_reg>;
+		krait3-mct-supply = <&krait3_adj_reg>;
+		qcom,mct-regulators = "krait0-mct", "krait1-mct",
+					"krait2-mct", "krait3-mct";
+	};
+
 	qcom,msm-thermal {
 		compatible = "qcom,msm-thermal";
 		qcom,sensor-id = <5>;
