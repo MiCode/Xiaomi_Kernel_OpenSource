@@ -37,15 +37,6 @@
 	(__height >> 4) * (__width >> 4) * __fps; \
 })
 
-#define VIDC_BUS_LOAD(__height, __width, __fps, __br) ({\
-	__height * __width * __fps; \
-})
-
-#define GET_NUM_MBS(__h, __w) ({\
-	u32 __mbs = (__h >> 4) * (__w >> 4);\
-	__mbs;\
-})
-
 struct getprop_buf {
 	struct list_head list;
 	void *data;
