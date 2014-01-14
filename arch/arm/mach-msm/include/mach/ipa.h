@@ -1000,6 +1000,7 @@ int ipa_add_interrupt_handler(enum ipa_irq_type interrupt,
 		void *private_data);
 int ipa_remove_interrupt_handler(enum ipa_irq_type interrupt);
 
+int ipa_get_ep_mapping(enum ipa_client_type client);
 
 #else /* CONFIG_IPA */
 
@@ -1531,6 +1532,11 @@ static inline int ipa_add_interrupt_handler(enum ipa_irq_type interrupt,
 }
 
 static inline int ipa_remove_interrupt_handler(enum ipa_irq_type interrupt)
+{
+	return -EPERM;
+}
+
+static inline int ipa_get_ep_mapping(enum ipa_client_type client)
 {
 	return -EPERM;
 }
