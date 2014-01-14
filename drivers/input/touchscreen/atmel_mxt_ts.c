@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2010 Samsung Electronics Co.Ltd
  * Author: Joonyoung Shim <jy0922.shim@samsung.com>
- * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
@@ -882,7 +882,7 @@ static void mxt_input_report(struct mxt_data *data, int single_id)
 		status = MXT_RELEASE;
 	}
 
-	if (status != MXT_RELEASE) {
+	if ((status != MXT_RELEASE) && status) {
 		input_report_abs(input_dev, ABS_X, finger[single_id].x);
 		input_report_abs(input_dev, ABS_Y, finger[single_id].y);
 		input_report_abs(input_dev,
