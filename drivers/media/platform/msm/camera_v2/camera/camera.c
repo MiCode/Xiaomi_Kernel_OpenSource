@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -645,14 +645,14 @@ static int camera_v4l2_close(struct file *filep)
 	struct v4l2_event event;
 	struct msm_video_device *pvdev = video_drvdata(filep);
 	struct camera_v4l2_private *sp = fh_to_private(filep->private_data);
-	unsigned int opn_idx, idx;
+	unsigned int opn_idx, mask;
 	BUG_ON(!pvdev);
 
 	opn_idx = atomic_read(&pvdev->opened);
-	idx = opn_idx;
 	pr_debug("%s: close stream_id=%d\n", __func__, sp->stream_id);
-	idx = (1 << sp->stream_id);
-	atomic_clear_mask(idx, (unsigned long *)&pvdev->opened.counter);
+	mask = (1 << sp->stream_id);
+	opn_idx &= ~mask;
+	atomic_set(&pvdev->opened, opn_idx);
 
 	if (atomic_read(&pvdev->opened) == 0) {
 
