@@ -3530,7 +3530,7 @@ static int synaptics_rmi4_suspend(struct device *dev)
 		retval = synaptics_rmi4_regulator_lpm(rmi4_data, true);
 		if (retval < 0) {
 			dev_err(dev, "failed to enter low power mode\n");
-			return retval;
+			goto err_lpm_regulator;
 		}
 	} else {
 		dev_err(dev,
@@ -3542,12 +3542,24 @@ static int synaptics_rmi4_suspend(struct device *dev)
 		retval = synaptics_rmi4_gpio_configure(rmi4_data, false);
 		if (retval < 0) {
 			dev_err(dev, "failed to put gpios in suspend state\n");
-			return retval;
+			goto err_gpio_configure;
 		}
 	}
 	rmi4_data->suspended = true;
 
 	return 0;
+
+err_gpio_configure:
+	synaptics_rmi4_regulator_lpm(rmi4_data, false);
+
+err_lpm_regulator:
+	if (rmi4_data->sensor_sleep) {
+		synaptics_rmi4_sensor_wake(rmi4_data);
+		synaptics_rmi4_irq_enable(rmi4_data, true);
+		rmi4_data->touch_stopped = false;
+	}
+
+	return retval;
 }
 
  /**
@@ -3583,7 +3595,7 @@ static int synaptics_rmi4_resume(struct device *dev)
 		retval = synaptics_rmi4_gpio_configure(rmi4_data, true);
 		if (retval < 0) {
 			dev_err(dev, "Failed to put gpios in active state\n");
-			return retval;
+			goto err_gpio_configure;
 		}
 	}
 
@@ -3594,11 +3606,24 @@ static int synaptics_rmi4_resume(struct device *dev)
 	retval = synaptics_rmi4_check_configuration(rmi4_data);
 	if (retval < 0) {
 		dev_err(dev, "Failed to check configuration\n");
-		return retval;
+		goto err_check_configuration;
 	}
 	rmi4_data->suspended = false;
 
 	return 0;
+
+err_check_configuration:
+	synaptics_rmi4_irq_enable(rmi4_data, false);
+	rmi4_data->touch_stopped = true;
+	synaptics_rmi4_sensor_sleep(rmi4_data);
+
+	if (rmi4_data->board->disable_gpios)
+		synaptics_rmi4_gpio_configure(rmi4_data, false);
+err_gpio_configure:
+	synaptics_rmi4_regulator_lpm(rmi4_data, true);
+	wake_up(&rmi4_data->wait);
+
+	return retval;
 }
 
 #if (!defined(CONFIG_FB) && !defined(CONFIG_HAS_EARLYSUSPEND))
