@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1348,7 +1348,7 @@ static int rndis_ipa_register_properties(char *netdev_name)
 	rx_ipv6_property->src_pipe = IPA_CLIENT_USB_PROD;
 	rx_properties.num_props = 2;
 
-	result = ipa_register_intf(netdev_name, &tx_properties, &rx_properties);
+	result = ipa_register_intf("rndis0", &tx_properties, &rx_properties);
 	if (result)
 		RNDIS_IPA_ERROR("fail on Tx/Rx properties registration\n");
 	else
