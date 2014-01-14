@@ -274,7 +274,7 @@ struct smb135x_chg {
 	struct power_supply		batt_psy;
 	struct power_supply		dc_psy;
 	struct power_supply		*bms_psy;
-	enum power_supply_type		dc_psy_type;
+	int				dc_psy_type;
 	int				dc_psy_ma;
 	const char			*bms_psy_name;
 
