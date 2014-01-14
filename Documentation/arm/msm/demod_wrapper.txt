@@ -1,0 +1,142 @@
+Introduction
+============
+
+Demod wrapper is used for TV signals receptions and include several
+hardware components as can be seen in the following scheme:
+
+
+                                      +-------+               ++------------->
+ Satellite                            |       |         TSIF  |   +-------+
+ Tuner    +--------+       +----+     |UCCP330|+--------------+-->|TS-BRG |+->
+ Signal-->| ADC0   ++----->|RXFE|+--->|Demod  |   +-------+       +-------+
+          +--------+   ++->|IMG |     |       |+->|Resamp.|+--+
+                       |   +----+     |       |   +-------+   +
+                       |              +-------+               |
+ ATV&DTV  +--------+   +                                      |
+ Tuner -->| ADC1   |+--+                                      +  SIF+CVBS
+ Signal   +--------+   +                                      +-------------->
+                       |              +-------+               +  To Albacore
+                       |              |       |               |
+                       |   +----+     |FORZA  |               |
+ External +--------+   ++->|RXFE|+--->|Demod  |   +-------+   +
+ ATV   -->| ADC2   |+----->|ATV |+-+  |       |+->|Resamp.|+--+
+ Receiver +--------+       +----+  +  |       |   +-------+   |
+ Signal                            |  +-------+               +
+                                   +--------------------------+
+
+The driver controls and navigates Analog TV (atv) or Digital TV (dtv) signal
+throughout the demod wrapper hardware components (Forza and UCCP330 are
+not under the demod wrapper driver scope).
+
+Demod wrapper driver configures the units under its responsibility.
+The functionality of configuring the units should belong to a single driver
+because this driver encapsulates all the knowledge and management needed for
+such a complicated configuration.
+
+Other drivers interacts with this driver in the following way:
+* UCCP330 demod and Forza demod drivers use the demod wrapper driver as
+  part of the demodulate operation.
+* External receivers use the demod wrapper driver to filter their output
+  signals.
+* Topology driver uses the demod wrapper driver to configure the ts-bridge.
+
+Hardware description
+====================
+The demod wrapper consists from the following hardware components:
+- ADC - analog to digital convertor.
+- RXFE components - filters signal.
+- Resamplers for analog signals.
+- TS bridge - navigates TSIF output.
+- UCCP330 Demod - has a separate driver.
+- Forza Demod - has a separate driver.
+
+The demod wrapper driver sets all the clocks needed to activate the
+components under its responsibility.
+
+The dependency drivers will use deferred probing to ensure the correct
+initialization order.
+
+Software description
+====================
+
+The driver encapsulates the activation and configuration of the components
+in the demod wrapper.
+The paths of the signal that enters the demod wrapper are divided to
+functional paths:
+- Forza path - signal is navigated from ADC1 -> RXFE_ATV -> FORZA Demod ->
+  Resample -> SIF+CVBS output
+- UCCP330 Satellite path - signal is navigated from ADC0 -> RXFE_IMG ->
+  TSIF output (may or may not pass the TS-BRIDGE)
+- UCCP330 Terrestrial/Cable path - signal is navigated from ADC1 ->
+  RXFE_IMG -> TSIF output (may or may not pass the TS-BRIDGE)
+- external atv path - signal is navigated from ADC2 -> RXFE_ATV ->
+  SIF+CVBS output
+
+The user of the demod wrapper driver can activate the desired path.
+The driver knows for each chosen functional path to configure its units
+to allow the expected signal flow.
+
+The only paths that can operate in parallel are:
+* external atv path with UCCP330 Satellite path.
+* external atv path with UCCP330 Terrestrial/Cable path.
+All the other options are mutually exclusive: if one of those paths is
+active, a set path request for the other will
+override the previous path.
+
+The driver is protected from concurrent requests by using a mutex.
+
+Design
+======
+The demod wrapper driver is a regular Linux platform driver designed to support
+the needed functionality of the HW components in demod wrapper block available
+on specific SoCs.
+
+Subsystem Restart (SSR)
+=======================
+The hardware IP does not have any firmware and therefore SSR support is not requried.
+
+Interface
+=========
+The driver exposes an api to user space.
+The driver creates device at /dev/demod_wrapper.
+The api is:
+- open
+- close
+- ioctl
+	DEMOD_WRAPPER_SET_PATH - configures a signal path (used for all paths
+	types except UCCP330 Satellite path)
+	DEMOD_WRAPPER_SET_PATH_UCCP330_SAT - configures a signal path os type
+	UCCP330 Satellite path
+	DEMOD_WRAPPER_RELEASE_PATH - releases a specific path
+	DEMOD_WRAPPER_TS_BRIDGE_INIT - initializes ts bridge
+	DEMOD_WRAPPER_TS_BRIDGE_ENABLE - enables ts bridge
+	DEMOD_WRAPPER_TS_BRIDGE_DISABLE - disables ts bridge
+
+The ioctl functions use different structures, as described below:
+demod_wrapper_path_type:
+ - demod_wrapper_forza_atv
+ - demod_wrapper_uccp330_dtv_s
+ - demod_wrapper_uccp330_dtv_t_c
+ - demod_wrapper_ext_atv
+demod_wrapper_baud_rate:
+ - demod_wrapper_narrow
+ - demod_wrapper_medium
+ - demod_wrapper_wide
+demod_wrapper_ts_bridge:
+ - demod_wrapper_ts_serial
+ - demod_wrapper_ts_parallel
+
+The driver exposes all the registers of the components in demod wrapper
+via debugfs. You can find the registers in debugfs under demod_wrapper
+directory.
+
+Configuration Sequences
+------------------------
+Paths related call sequence :
+1. set_path
+2. release_path (optional)
+
+Ts-bridge related call sequence:
+1. bridge_init
+2. bridge_enable
+3. bridge_disable

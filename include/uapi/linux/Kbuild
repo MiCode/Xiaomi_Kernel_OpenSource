@@ -224,6 +224,7 @@ header-y += kexec.h
 header-y += keyboard.h
 header-y += keyctl.h
 header-y += ensigma_uccp330.h
+header-y += demod_wrapper.h
 
 ifneq ($(wildcard $(srctree)/arch/$(SRCARCH)/include/uapi/asm/kvm.h \
 		  $(srctree)/arch/$(SRCARCH)/include/asm/kvm.h),)

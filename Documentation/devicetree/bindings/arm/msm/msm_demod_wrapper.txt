@@ -1,0 +1,29 @@
+Demod Wrapper - HW block in broadcast subsystem
+
+The Demod wrapper block contains HW units that
+are responsible for navigating and filtering an analog TV or
+digital TV signal to integrated demodulators.
+The driver supports the operation of those units and provides
+a way to set and configure a desired signal path.
+documentation: Documentation/arm/msm/demod_wrapper.txt.
+
+The devicetree representation of the MSM_DEMOD_WRAPPER block should be:
+
+Required properties:
+
+- compatible: "qcom,msm-demod-wrapper"
+- reg: physical memory base addresses and sizes for demod_wrapper.
+- vdd-supply: power regulator (GDSC) supplying power to the broadcast subsystem.
+- adc-supply: power regulator supplying power to adcs in the demod wrapper block.
+
+Example :
+
+	dw: msm-demod-wrapper@fc600000 {
+		compatible = "qcom,msm-demod-wrapper";
+		reg = <0xfc600000 0xdd000>;
+		vdd-supply = <&gdsc_bcss>;
+		adc-supply = <&pma8084_l27>;
+	};
+
+
+
