@@ -634,6 +634,10 @@ static struct platform_driver msm_spm_device_driver = {
  */
 int __init msm_spm_device_init(void)
 {
+	static bool registered;
+	if (registered)
+		return 0;
+	registered = true;
 	return platform_driver_register(&msm_spm_device_driver);
 }
 arch_initcall(msm_spm_device_init);
