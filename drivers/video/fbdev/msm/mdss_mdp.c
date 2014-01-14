@@ -1590,6 +1590,34 @@ static int mdss_mdp_parse_dt(struct platform_device *pdev)
 	return 0;
 }
 
+static void mdss_mdp_parse_dt_pipe_sw_reset(struct platform_device *pdev,
+	u32 reg_off, char *prop_name, struct mdss_mdp_pipe *pipe_list,
+	u32 npipes)
+{
+	size_t len;
+	const u32 *arr;
+
+	arr = of_get_property(pdev->dev.of_node, prop_name, &len);
+	if (arr) {
+		int i;
+
+		len /= sizeof(u32);
+		if (len != npipes) {
+			pr_err("%s: invalid sw_reset entries req:%d found:%d\n",
+				prop_name, len, npipes);
+			return;
+		}
+
+		for (i = 0; i < len; i++) {
+			pipe_list[i].sw_reset.reg_off = reg_off;
+			pipe_list[i].sw_reset.bit_off = be32_to_cpu(arr[i]);
+
+			pr_debug("%s[%d]: sw_reset: reg_off:0x%x bit_off:%d\n",
+				prop_name, i, reg_off, be32_to_cpu(arr[i]));
+		}
+	}
+}
+
 static int  mdss_mdp_parse_dt_pipe_clk_ctrl(struct platform_device *pdev,
 	char *prop_name, struct mdss_mdp_pipe *pipe_list, u32 npipes)
 {
@@ -1652,6 +1680,7 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 	int rc = 0;
 	u32 nfids = 0, setup_cnt = 0, len, nxids = 0;
 	u32 *offsets = NULL, *ftch_id = NULL, *xin_id = NULL;
+	u32 sw_reset_offset = 0;
 
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 
@@ -1854,6 +1883,20 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 	if (rc)
 		goto parse_fail;
 
+
+	mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-sw-reset-off",
+		&sw_reset_offset, 1);
+	if (sw_reset_offset) {
+		mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
+			"qcom,mdss-pipe-vig-sw-reset-map", mdata->vig_pipes,
+			mdata->nvig_pipes);
+		mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
+			"qcom,mdss-pipe-rgb-sw-reset-map", mdata->rgb_pipes,
+			mdata->nrgb_pipes);
+		mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
+			"qcom,mdss-pipe-dma-sw-reset-map", mdata->dma_pipes,
+			mdata->ndma_pipes);
+	}
 
 	goto parse_done;
 

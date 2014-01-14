@@ -345,6 +345,7 @@ struct mdss_mdp_pipe {
 	u32 xin_id;
 	struct mdss_mdp_shared_reg_ctrl clk_ctrl;
 	struct mdss_mdp_shared_reg_ctrl clk_status;
+	struct mdss_mdp_shared_reg_ctrl sw_reset;
 
 	atomic_t ref_cnt;
 	u32 play_cnt;
@@ -498,6 +499,18 @@ static inline void mdss_mdp_pingpong_write(struct mdss_mdp_mixer *mixer,
 static inline u32 mdss_mdp_pingpong_read(struct mdss_mdp_mixer *mixer, u32 reg)
 {
 	return readl_relaxed(mixer->pingpong_base + reg);
+}
+
+static inline int mdss_mdp_pipe_is_sw_reset_available(
+	struct mdss_data_type *mdata)
+{
+	switch (mdata->mdp_rev) {
+	case MDSS_MDP_HW_REV_101_2:
+	case MDSS_MDP_HW_REV_103_1:
+		return true;
+	default:
+		return false;
+	}
 }
 
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
