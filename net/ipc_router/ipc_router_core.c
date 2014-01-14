@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,16 +29,17 @@
 #include <linux/debugfs.h>
 #include <linux/rwsem.h>
 #include <linux/ipc_logging.h>
+#include <linux/uaccess.h>
+#include <linux/ipc_router.h>
+#include <linux/ipc_router_xprt.h>
 
-#include <asm/uaccess.h>
 #include <asm/byteorder.h>
 
 #include <mach/smem_log.h>
 #include <mach/subsystem_notif.h>
-#include <mach/msm_ipc_router.h>
 
-#include "ipc_router.h"
-#include "msm_ipc_router_security.h"
+#include "ipc_router_private.h"
+#include "ipc_router_security.h"
 
 enum {
 	SMEM_LOG = 1U << 0,
@@ -106,8 +107,7 @@ static DECLARE_RWSEM(control_ports_lock_lha5);
 static struct list_head local_ports[LP_HASH_SIZE];
 static DECLARE_RWSEM(local_ports_lock_lha2);
 
-/*
- * Server info is organized as a hash table. The server's service ID is
+/* Server info is organized as a hash table. The server's service ID is
  * used to index into the hash table. The instance ID of most of the servers
  * are 1 or 2. The service IDs are well distributed compared to the instance
  * IDs and hence choosing service ID to index into this hash table optimizes
@@ -967,9 +967,8 @@ static struct msm_ipc_port *msm_ipc_router_lookup_local_port(uint32_t port_id)
 	struct msm_ipc_port *port_ptr;
 
 	list_for_each_entry(port_ptr, &local_ports[key], list) {
-		if (port_ptr->this_port.port_id == port_id) {
+		if (port_ptr->this_port.port_id == port_id)
 			return port_ptr;
-		}
 	}
 	return NULL;
 }
@@ -1780,8 +1779,7 @@ void msm_ipc_sync_sec_rule(uint32_t service, uint32_t instance, void *rule)
 		    instance != ALL_INSTANCE)
 			continue;
 
-		/*
-		 * If the rule applies to all instances and if the specific
+		/* If the rule applies to all instances and if the specific
 		 * instance of a service has a rule synchronized already,
 		 * do not apply the rule for that specific instance.
 		 */
@@ -1868,8 +1866,7 @@ static int process_hello_msg(struct msm_ipc_router_xprt_info *xprt_info,
 	}
 	xprt_info->initialized = 1;
 
-	/*
-	 * Send list of servers from the local node and from nodes
+	/* Send list of servers from the local node and from nodes
 	 * outside the mesh network in which this XPRT is part of.
 	 */
 	down_read(&server_list_lock_lha2);
@@ -1962,8 +1959,7 @@ static int process_new_server_msg(struct msm_ipc_router_xprt_info *xprt_info,
 	}
 	up_write(&routing_table_lock_lha3);
 
-	/*
-	 * If the service does not exist already in the database, create and
+	/* If the service does not exist already in the database, create and
 	 * store the service info. Create a remote port structure in which
 	 * the service is hosted and cache the security rule for the service
 	 * in that remote port structure.
@@ -2000,8 +1996,7 @@ static int process_new_server_msg(struct msm_ipc_router_xprt_info *xprt_info,
 	}
 	up_write(&server_list_lock_lha2);
 
-	/*
-	 * Relay the new server message to other subsystems that do not belong
+	/* Relay the new server message to other subsystems that do not belong
 	 * to the cluster from which this message is received. Notify the
 	 * local clients waiting for this service.
 	 */
@@ -2442,9 +2437,8 @@ static int msm_ipc_router_write_pkt(struct msm_ipc_port *src,
 	}
 	update_comm_mode_info(&src->mode_info, xprt_info);
 
-	RAW_HDR("[w rr_h] "
-		"ver=%i,type=%s,src_nid=%08x,src_port_id=%08x,"
-		"control_flag=%i,size=%3i,dst_pid=%08x,dst_cid=%08x\n",
+	RAW_HDR(
+		"[w rr_h] ver=%i,type=%s,src_nid=%08x,src_port_id=%08x,control_flag=%i,size=%3i,dst_pid=%08x,dst_cid=%08x\n",
 		hdr->version, type_to_str(hdr->type),
 		hdr->src_node_id, hdr->src_port_id,
 		hdr->control_flag, hdr->size,
@@ -2836,8 +2830,7 @@ int msm_ipc_router_close_port(struct msm_ipc_port *port_ptr)
 			broadcast_ctl_msg_locally(&msg);
 		}
 
-		/*
-		 * Server port could have been a client port earlier.
+		/* Server port could have been a client port earlier.
 		 * Send REMOVE_CLIENT message in either case.
 		 */
 		RR("x REMOVE_CLIENT id=%d:%08x\n",
@@ -3047,10 +3040,12 @@ static int dump_servers(char *buf, int max)
 			list_for_each_entry(server_port,
 					    &server->server_port_list,
 					    list) {
-				i += scnprintf(buf + i, max - i, "Service: "
-					"0x%08x\n", server->name.service);
-				i += scnprintf(buf + i, max - i, "Instance: "
-					"0x%08x\n", server->name.instance);
+				i += scnprintf(buf + i, max - i,
+					"Service: 0x%08x\n",
+					server->name.service);
+				i += scnprintf(buf + i, max - i,
+					"Instance: 0x%08x\n",
+					server->name.instance);
 				i += scnprintf(buf + i, max - i,
 					"Node_id: 0x%08x\n",
 					server_port->server_addr.node_id);

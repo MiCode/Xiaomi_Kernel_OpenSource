@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,16 +26,14 @@
 #include <linux/slab.h>
 #include <linux/kmemleak.h>
 #include <linux/ipc_logging.h>
-
-#include <asm/string.h>
-#include <asm/atomic.h>
+#include <linux/string.h>
+#include <linux/atomic.h>
+#include <linux/ipc_router.h>
 
 #include <net/sock.h>
 
-#include <mach/msm_ipc_router.h>
-
-#include "ipc_router.h"
-#include "msm_ipc_router_security.h"
+#include "ipc_router_private.h"
+#include "ipc_router_security.h"
 
 #define msm_ipc_sk(sk) ((struct msm_ipc_sock *)(sk))
 #define msm_ipc_sk_port(sk) ((struct msm_ipc_port *)(msm_ipc_sk(sk)->port))
@@ -84,8 +82,7 @@ static void msm_ipc_router_ipc_log(uint8_t tran,
 {
 	struct qmi_header *hdr = (struct qmi_header *)ipc_buf->data;
 
-	/*
-	 * IPC Logging format is as below:-
+	/* IPC Logging format is as below:-
 	 * <Name>(Name of the User Space Process):
 	 * <PID> (PID of the user space process) :
 	 * <TID> (TID of the user space thread)  :

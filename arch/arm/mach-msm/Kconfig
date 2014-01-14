@@ -678,44 +678,8 @@ config MSM_SMD_LOGGING
 
 	  If in doubt, say yes.
 
-config MSM_IPC_ROUTER
-	depends on NET
-	default n
-	bool "MSM IPC Router support"
-	help
-	  Support for the MSM IPC Router for communication between
-	  the APPs and the MODEM
-
-config MSM_IPC_ROUTER_SMD_XPRT
-	depends on MSM_SMD
-	depends on MSM_IPC_ROUTER
-	default n
-	bool "MSM SMD XPRT Layer"
-	help
-	  SMD Transport Layer for IPC Router
-
-config MSM_IPC_ROUTER_HSIC_XPRT
-	depends on USB_QCOM_IPC_BRIDGE
-	depends on MSM_IPC_ROUTER
-	bool "MSM HSIC XPRT Layer"
-	help
-	  HSIC Transport Layer that enables off-chip communication of
-	  IPC Router. When the HSIC endpoint becomes available, this layer
-	  registers the transport with IPC Router and enable message
-	  exchange.
-
-config MSM_IPC_ROUTER_SECURITY
-	depends on MSM_IPC_ROUTER
-	bool "MSM IPC Router Security support"
-	help
-	  This feature of IPC Router will enforce security rules
-	  configured by a security script from the user-space. IPC Router
-	  once configured with the security rules will ensure that the
-	  sender of the message to a service belongs to the relevant
-	  Linux group as configured by the security script.
-
 config MSM_QMI_INTERFACE
-	depends on MSM_IPC_ROUTER
+	depends on IPC_ROUTER
 	depends on QMI_ENCDEC
 	default n
 	bool "MSM QMI Interface Library"

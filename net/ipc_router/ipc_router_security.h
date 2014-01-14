@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,14 +10,14 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _MSM_IPC_ROUTER_SECURITY_H
-#define _MSM_IPC_ROUTER_SECURITY_H
+#ifndef _IPC_ROUTER_SECURITY_H
+#define _IPC_ROUTER_SECURITY_H
 
 #include <linux/types.h>
 #include <linux/socket.h>
 #include <linux/errno.h>
 
-#ifdef CONFIG_MSM_IPC_ROUTER_SECURITY
+#ifdef CONFIG_IPC_ROUTER_SECURITY
 #include <linux/android_aid.h>
 
 /**

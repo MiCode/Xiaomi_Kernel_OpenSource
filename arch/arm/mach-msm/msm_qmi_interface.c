@@ -28,9 +28,9 @@
 #include <linux/workqueue.h>
 #include <linux/mutex.h>
 #include <linux/hashtable.h>
+#include <linux/ipc_router.h>
 
 #include <mach/msm_qmi_interface.h>
-#include <mach/msm_ipc_router.h>
 
 #include "msm_qmi_interface_priv.h"
 
