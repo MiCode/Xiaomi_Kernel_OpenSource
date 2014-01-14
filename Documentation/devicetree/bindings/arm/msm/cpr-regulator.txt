@@ -203,21 +203,6 @@ Optional properties:
 - qcom,cpr-uplift-speed-bin:	The speed bin value corresponding to one type of processor which needs to apply the
 				pvs voltage uplift workaround.
 				This is required if cpr-fuse-uplift-disable-sel is present.
-- qcom,cpr-quot-adjust-table:	Array of triples in which each triple indicates the speed bin of the CPU, the virtual
-				corner to use and the quotient adjustment.
-				The 3 elements in one triple are:
-				[0]: => the speed bin of the CPU.
-				[1]: => the virtual voltage corner to use.
-				[2]: => the quotient adjustment for the corresponding virtual corner.
-				If the speed bin in a triple is equal to the speed bin of the CPU, the adjustment would
-				be subtracted from the quotient value of the voltage corner when the CPU is running at
-				that virtual corner. Each virtual corner value must be in the range 1 to the number of
-				elements in qcom,cpr-corner-map.
-- qcom,cpr-corner-map:		Array of elements of fuse corner value for each virtual corner.
-				The location or 1-based index of an element in the list corresponds to
-				the virtual corner value. For example, the first element in the list is the fuse corner
-				value that virtual corner 1 maps to.
-				This is required if qcom,cpr-quot-adjust-table is present.
 - qcom,cpr-quotient-adjustment:	Array of three elements of CPR quotient adjustments for each corner.
 				The 3 quotient adjustments with index[0..2] are:
 				[0] => amount to add to the SVS quotient
@@ -230,6 +215,42 @@ Optional properties:
 				Not Present: No such regulator.
 - vdd-apc-optional-sec-supply:	Present: Regulator of second highest priority to supply VDD APC power.
 				Not Present: No such regulator.
+- qcom,cpr-speed-bin-max-corners: Array of quintuples in which each quintuple maps a CPU speed bin and PVS version to
+				the maximum virtual voltage corner corresponding to the SVS, NORMAL and TURBO corners.
+				The 5 elements in one quintuple are:
+				[0]: => the speed bin of the CPU.
+				[1]: => the PVS version of the CPU.
+				[2]: => the max virtual voltage corner value corresponding to SVS corner for this speed bin.
+				[3]: => the max virtual voltage corner value corresponding to NORMAL corner for this speed bin.
+				[4]: => the max virtual voltage corner value corresponding to TURBO corner for this speed bin.
+				No CPR target quotient scaling is applied on chips which have a speed bin + PVS version
+				pair that does not appear in one of the quintuples in this property. If the property is
+				specified, then quotient scaling is enabled for the TURBO corner. If this property is
+				not specified, then no quotient scaling can take place.
+- qcom,cpr-corner-map:		Array of elements of fuse corner value for each virtual corner.
+				The location or 1-based index of an element in the list corresponds to
+				the virtual corner value. For example, the first element in the list is the fuse corner
+				value that virtual corner 1 maps to.
+				This property is required if qcom,cpr-speed-bin-max-corners is present.
+- qcom,cpr-corner-frequency-map: Array of tuples in which a tuple describes a corner to application processor frequency
+				mapping.
+				The 2 elements in one tuple are:
+				[0]: => a virtual voltage corner.
+				[1]: => the application processor frequency in Hz corresponding to the virtual corner.
+				This property is required if qcom,cpr-speed-bin-max-corners is present.
+- qcom,pvs-version-fuse-sel:	Array of 4 elements to indicate where to read the pvs version of the processor,
+				and the fuse reading method.
+				The 4 elements with index[0..3] are:
+				[0]: => the fuse row number of the selector;
+				[1]: => LSB bit position of the bits;
+				[2]: => the number of bits;
+				[3]: => fuse reading method, 0 for direct reading or 1 for SCM reading.
+				This property is required if qcom,cpr-speed-bin-max-corners is present.
+- qcom,cpr-quot-adjust-scaling-factor-max: The maximum allowed CPR target quotient scaling factor to use when
+				calculating the quotient adjustment for a given virtual voltage corner. It
+				corresponds to 'scaling' in this equation:
+				quot_adjust = (freq_turbo - freq_corner) * scaling / 1000.
+				This property is required if qcom,cpr-speed-bin-max-corners is present.
 
 Example:
 	apc_vreg_corner: regulator@f9018000 {
@@ -319,9 +340,25 @@ Example:
 		qcom,cpr-uplift-speed-bin = <1>;
 		qcom,speed-bin-fuse-sel = <22 0 3 0>;
 		qcom,cpr-corner-map = <1 1 2 2 3 3 3 3 3 3 3 3>;
-		qcom,cpr-quot-adjust-table = <1 1 0>, <1 2 0>, <1 3 0>,
-						<1 4 0>, <1 5 450>, <1 6 375>,
-						<1 7 300>, <1 8 225>, <1 9 187>,
-						<1 10 150>, <1 11 75>, <1 12 0>;
+		qcom,cpr-corner-frequency-map =
+				<1 300000000>,
+				<2 384000000>,
+				<3 600000000>,
+				<4 787200000>,
+				<5 998400000>,
+				<6 1094400000>,
+				<7 1190400000>,
+				<8 1305600000>,
+				<9 1344000000>,
+				<10 1401600000>,
+				<11 1497600000>,
+				<12 1593600000>;
+		qcom,pvs-version-fuse-sel = <22 4 2 0>;
+		qcom,cpr-speed-bin-max-corners =
+				<0 1 2 4 7>,
+				<1 1 2 4 12>,
+				<2 1 2 4 10>,
+				<5 1 2 4 14>;
+		qcom,cpr-quot-adjust-scaling-factor-max = <650>;
 	};
 
