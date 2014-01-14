@@ -26,7 +26,7 @@ static void wait_callback(struct kgsl_device *device, void *priv, u32 id,
 		u32 timestamp, u32 type)
 {
 	struct adreno_context *drawctxt = priv;
-	wake_up_interruptible_all(&drawctxt->waiting);
+	wake_up_all(&drawctxt->waiting);
 }
 
 #define adreno_wait_event_interruptible_timeout(wq, condition, timeout, io)   \
@@ -154,7 +154,7 @@ static void global_wait_callback(struct kgsl_device *device, void *priv, u32 id,
 {
 	struct adreno_context *drawctxt = priv;
 
-	wake_up_interruptible_all(&drawctxt->waiting);
+	wake_up_all(&drawctxt->waiting);
 	kgsl_context_put(&drawctxt->base);
 }
 
@@ -198,7 +198,7 @@ static int adreno_drawctxt_wait_global(struct adreno_device *adreno_dev,
 	mutex_unlock(&device->mutex);
 
 	if (timeout) {
-		ret = (int) wait_event_interruptible_timeout(drawctxt->waiting,
+		ret = (int) wait_event_timeout(drawctxt->waiting,
 			_check_global_timestamp(device, timestamp),
 			msecs_to_jiffies(timeout));
 
@@ -207,7 +207,7 @@ static int adreno_drawctxt_wait_global(struct adreno_device *adreno_dev,
 		else if (ret > 0)
 			ret = 0;
 	} else {
-		ret = (int) wait_event_interruptible(drawctxt->waiting,
+		wait_event(drawctxt->waiting,
 			_check_global_timestamp(device, timestamp));
 	}
 
@@ -274,8 +274,8 @@ void adreno_drawctxt_invalidate(struct kgsl_device *device,
 	mutex_unlock(&drawctxt->mutex);
 
 	/* Give the bad news to everybody waiting around */
-	wake_up_interruptible_all(&drawctxt->waiting);
-	wake_up_interruptible_all(&drawctxt->wq);
+	wake_up_all(&drawctxt->waiting);
+	wake_up_all(&drawctxt->wq);
 }
 
 /*
@@ -459,8 +459,8 @@ int adreno_drawctxt_detach(struct kgsl_context *context)
 	adreno_profile_process_results(device);
 
 	/* wake threads waiting to submit commands from this context */
-	wake_up_interruptible_all(&drawctxt->waiting);
-	wake_up_interruptible_all(&drawctxt->wq);
+	wake_up_all(&drawctxt->waiting);
+	wake_up_all(&drawctxt->wq);
 
 	return ret;
 }
