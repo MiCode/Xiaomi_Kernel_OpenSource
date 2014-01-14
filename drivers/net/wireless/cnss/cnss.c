@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -235,9 +235,9 @@ void cnss_setup_fw_files(u16 revision)
 	switch (revision) {
 
 	case QCA6174_FW_1_1:
-		strlcpy(penv->fw_files.image_file, "athwlan11.bin",
+		strlcpy(penv->fw_files.image_file, "qwlan11.bin",
 			CNSS_MAX_FILE_NAME);
-		strlcpy(penv->fw_files.board_data, "bdatawlan11.bin",
+		strlcpy(penv->fw_files.board_data, "bdwlan11.bin",
 			CNSS_MAX_FILE_NAME);
 		strlcpy(penv->fw_files.otp_data, "otp11.bin",
 			CNSS_MAX_FILE_NAME);
@@ -246,9 +246,9 @@ void cnss_setup_fw_files(u16 revision)
 		break;
 
 	case QCA6174_FW_1_3:
-		strlcpy(penv->fw_files.image_file, "athwlan13.bin",
+		strlcpy(penv->fw_files.image_file, "qwlan13.bin",
 			CNSS_MAX_FILE_NAME);
-		strlcpy(penv->fw_files.board_data, "bdatawlan13.bin",
+		strlcpy(penv->fw_files.board_data, "bdwlan13.bin",
 			CNSS_MAX_FILE_NAME);
 		strlcpy(penv->fw_files.otp_data, "otp13.bin",
 			CNSS_MAX_FILE_NAME);
@@ -257,9 +257,9 @@ void cnss_setup_fw_files(u16 revision)
 		break;
 
 	case QCA6174_FW_2_0:
-		strlcpy(penv->fw_files.image_file, "athwlan20.bin",
+		strlcpy(penv->fw_files.image_file, "qwlan20.bin",
 			CNSS_MAX_FILE_NAME);
-		strlcpy(penv->fw_files.board_data, "bdatawlan20.bin",
+		strlcpy(penv->fw_files.board_data, "bdwlan20.bin",
 			CNSS_MAX_FILE_NAME);
 		strlcpy(penv->fw_files.otp_data, "otp20.bin",
 			CNSS_MAX_FILE_NAME);
@@ -268,9 +268,9 @@ void cnss_setup_fw_files(u16 revision)
 		break;
 
 	case QCA6174_FW_3_0:
-		strlcpy(penv->fw_files.image_file, "athwlan30.bin",
+		strlcpy(penv->fw_files.image_file, "qwlan30.bin",
 			CNSS_MAX_FILE_NAME);
-		strlcpy(penv->fw_files.board_data, "bdatawlan30.bin",
+		strlcpy(penv->fw_files.board_data, "bdwlan30.bin",
 			CNSS_MAX_FILE_NAME);
 		strlcpy(penv->fw_files.otp_data, "otp30.bin",
 			CNSS_MAX_FILE_NAME);
@@ -279,9 +279,9 @@ void cnss_setup_fw_files(u16 revision)
 		break;
 
 	default:
-		strlcpy(penv->fw_files.image_file, "athwlan.bin",
+		strlcpy(penv->fw_files.image_file, "qwlan.bin",
 			CNSS_MAX_FILE_NAME);
-		strlcpy(penv->fw_files.board_data, "bdatawlan.bin",
+		strlcpy(penv->fw_files.board_data, "bdwlan.bin",
 			CNSS_MAX_FILE_NAME);
 		strlcpy(penv->fw_files.otp_data, "otp.bin",
 			CNSS_MAX_FILE_NAME);
