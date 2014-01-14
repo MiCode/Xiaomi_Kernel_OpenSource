@@ -288,6 +288,12 @@ Subnode properties:
 			 Example: Width = 1920, Height = 1080, BytesPerPixel = 4,
 			 Number of frame-buffers reserved = 2.
 			 Size = 1920*1080*4*2 = ROUND_1MB(15.8MB) = 16MB.
+- qcom,mdss-fb-splash-logo-enabled:    The boolean entry enables the framebuffer
+					driver to display the splash logo image.
+					It is independent of continuous splash
+					screen feature and has no relation with
+					qcom,cont-splash-enabled entry present in
+					panel configuration.
 
 Example:
 	mdss_mdp: qcom,mdss_mdp@fd900000 {
@@ -369,6 +375,7 @@ Example:
 			qcom,mdss-mixer-swap;
 			qcom,mdss-fb-split = <480 240>
 			linux,contiguous-region = <&fb_mem>;
+			qcom,mdss-fb-splash-logo-enabled:
 		};
 	};
 
