@@ -48,6 +48,10 @@
 		qcom,mdss-pipe-rgb-xin-id = <1>;
 		qcom,mdss-pipe-dma-xin-id = <2>;
 
+		qcom,mdss-pipe-vig-clk-ctrl-offsets = <0x3AC 0 0>;
+		qcom,mdss-pipe-rgb-clk-ctrl-offsets = <0x3AC 4 8>;
+		qcom,mdss-pipe-dma-clk-ctrl-offsets = <0x3AC 8 12>;
+
 		qcom,mdss-smp-data = <7 4096>;
 
 		qcom,mdss-no-lut-read;
