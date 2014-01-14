@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -187,6 +187,7 @@ struct adreno_device {
 	struct work_struct input_work;
 	struct adreno_busy_data busy_data;
 	unsigned int ram_cycles_lo;
+	unsigned int starved_ram_lo;
 };
 
 /**
