@@ -943,17 +943,18 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		goto fail_wq;
 	}
 
+	ep->sys->ep = ep;
 	if (ipa_assign_policy(sys_in, ep->sys)) {
 		IPAERR("failed to sys ctx for client %d\n", sys_in->client);
 		result = -ENOMEM;
 		goto fail_gen2;
 	}
 
+	ep->skip_ep_cfg = sys_in->skip_ep_cfg;
 	ep->valid = 1;
 	ep->client = sys_in->client;
 	ep->client_notify = sys_in->notify;
 	ep->priv = sys_in->priv;
-	ep->sys->ep = ep;
 	ep->avail_fifo_desc =
 		((sys_in->desc_fifo_sz/sizeof(struct sps_iovec))-1);
 	INIT_LIST_HEAD(&ep->sys->head_desc_list);
@@ -967,11 +968,15 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		goto fail_gen2;
 	}
 
-	if (ipa_cfg_ep(ipa_ep_idx, &sys_in->ipa_ep_cfg)) {
-		IPAERR("fail to configure EP.\n");
-		goto fail_gen2;
+	if (!ep->skip_ep_cfg) {
+		if (ipa_cfg_ep(ipa_ep_idx, &sys_in->ipa_ep_cfg)) {
+			IPAERR("fail to configure EP.\n");
+			goto fail_gen2;
+		}
+		IPADBG("ep configuration successful\n");
+	} else {
+		IPADBG("skipping ep configuration\n");
 	}
-	IPADBG("ep configuration successful\n");
 
 	/* Default Config */
 	ep->ep_hdl = sps_alloc_endpoint();
@@ -1049,7 +1054,7 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		ipa_allocate_wlan_rx_common_cache(IPA_WLAN_COMM_RX_POOL_LOW);
 	}
 
-	if (sys_in->client == IPA_CLIENT_WLAN1_PROD)
+	if (!ep->skip_ep_cfg && IPA_CLIENT_IS_PROD(sys_in->client))
 		ipa_install_dflt_flt_rules(ipa_ep_idx);
 
 	IPADBG("client %d (ep: %d) connected sys=%p\n", sys_in->client,
@@ -2085,11 +2090,20 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 	} else if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0) {
 		in->ipa_ep_cfg.status.status_en = true;
 		if (IPA_CLIENT_IS_PROD(in->client)) {
-			sys->policy = IPA_POLICY_NOINTR_MODE;
-			sys->sps_option = SPS_O_AUTO_ENABLE;
-			sys->sps_callback = NULL;
-			in->ipa_ep_cfg.status.status_ep =
-				ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
+			if (!sys->ep->skip_ep_cfg) {
+				sys->policy = IPA_POLICY_NOINTR_MODE;
+				sys->sps_option = SPS_O_AUTO_ENABLE;
+				sys->sps_callback = NULL;
+				in->ipa_ep_cfg.status.status_ep =
+					ipa_get_ep_mapping(
+						IPA_CLIENT_APPS_LAN_CONS);
+			} else {
+				sys->policy = IPA_POLICY_INTR_MODE;
+				sys->sps_option = (SPS_O_AUTO_ENABLE |
+						SPS_O_EOT);
+				sys->sps_callback =
+					ipa_sps_irq_tx_no_aggr_notify;
+			}
 		} else {
 			sys->policy = IPA_POLICY_INTR_MODE;
 			sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT);
