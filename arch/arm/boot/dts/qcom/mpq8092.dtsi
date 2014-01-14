@@ -847,6 +847,15 @@
 		qcom,iommu-cpz-partition = <0>;
 	};
 
+	dw: msm-demod-wrapper@fc600000 {
+		compatible = "qcom,msm-demod-wrapper";
+		reg = <0xfc600000 0xdd000>;
+		reg-names = "demod-wrapper-base";
+		vdd-supply = <&gdsc_bcss>;
+		adc-supply = <&pma8084_l27>;
+	};
+
+
         qcom,msm-rng@f9bff000 {
 		compatible = "qcom,msm-rng";
 		reg = <0xf9bff000 0x200>;
