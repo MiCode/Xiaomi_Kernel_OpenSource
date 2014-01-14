@@ -106,7 +106,7 @@ struct msm_compr_audio {
 
 	uint32_t codec;
 	void    *buffer; /* virtual address */
-	uint32_t buffer_paddr; /* physical address */
+	phys_addr_t buffer_paddr; /* physical address */
 	uint32_t app_pointer;
 	uint32_t buffer_size;
 	uint32_t byte_offset;
