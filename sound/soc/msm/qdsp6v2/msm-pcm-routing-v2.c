@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2191,6 +2191,9 @@ static const struct snd_kcontrol_new mmul8_mixer_controls[] = {
 	SOC_SINGLE_EXT("VOC_REC_UL", MSM_BACKEND_DAI_INCALL_RECORD_TX,
 	MSM_FRONTEND_DAI_MULTIMEDIA8, 1, 0, msm_routing_get_audio_mixer,
 	msm_routing_put_audio_mixer),
+	SOC_SINGLE_EXT("SLIM_6_TX", MSM_BACKEND_DAI_SLIMBUS_6_TX,
+	MSM_FRONTEND_DAI_MULTIMEDIA8, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
 };
 
 static const struct snd_kcontrol_new pri_rx_voice_mixer_controls[] = {
@@ -3700,6 +3703,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"MultiMedia8 Mixer", "VOC_REC_DL", "INCALL_RECORD_RX"},
 	{"MultiMedia1 Mixer", "SLIM_4_TX", "SLIMBUS_4_TX"},
 	{"MultiMedia1 Mixer", "SLIM_6_TX", "SLIMBUS_6_TX"},
+	{"MultiMedia8 Mixer", "SLIM_6_TX", "SLIMBUS_6_TX"},
 	{"MultiMedia4 Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
 	{"MultiMedia8 Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
 	{"MultiMedia4 Mixer", "PRI_MI2S_TX", "PRI_MI2S_TX"},
