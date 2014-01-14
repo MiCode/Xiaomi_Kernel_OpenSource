@@ -260,6 +260,21 @@ Optional properties:
 				total numbers of MMBs per pipe while values, if
 				any, following first one denotes indexes of MMBs
 				to that RGB pipe.
+- qcom,mdss-pipe-sw-reset-off: Property to indicate offset to the register which
+			       holds sw_reset bitmap for different MDSS
+			       components.
+- qcom,mdss-pipe-vig-sw-reset-map: Array of bit offsets for vig pipes within
+				   sw_reset register bitmap. Number of offsets
+				   defined should match the number of offsets
+				   defined in property: qcom,mdss-pipe-vig-off
+- qcom,mdss-pipe-rgb-sw-reset-map: Array of bit offsets for rgb pipes within
+				   sw_reset register bitmap. Number of offsets
+				   defined should match the number of offsets
+				   defined in property: qcom,mdss-pipe-rgb-off
+- qcom,mdss-pipe-dma-sw-reset-map: Array of bit offsets for dma pipes within
+				   sw_reset register bitmap. Number of offsets
+				   defined should match the number of offsets
+				   defined in property: qcom,mdss-pipe-dma-off
 
 Fudge Factors:			Fudge factors are used to boost demand for
 				resources like bus bandswidth, clk rate etc. to
@@ -406,6 +421,11 @@ Example:
 
 		qcom,mdss-pipe-dma-clk-ctrl-offsets = <0x3AC 8 12>,
 						      <0x3B4 8 12>;
+
+		qcom,mdss-pipe-sw-reset-off = <0x0128>;
+		qcom,mdss-pipe-vig-sw-reset-map = <5 6 7 8>;
+		qcom,mdss-pipe-rgb-sw-reset-map = <9 10 11 12>;
+		qcom,mdss-pipe-dma-sw-reset-map = <13 14>;
 
 		qcom,mdss-ctl-off = <0x00000600 0x00000700 0x00000800
 				     0x00000900 0x0000A00>;
