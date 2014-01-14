@@ -906,7 +906,8 @@ static int mdss_debug_dump_stats(void *data, char *buf, int len)
 	int i, total = 0;
 
 	for (i = 0; i < mdata->nctl; i++)
-		total += mdss_debug_stat_ctl_dump(mdata->ctl_off + i, buf, len);
+		total += mdss_debug_stat_ctl_dump(mdata->ctl_off + i,
+			buf + total, len - total);
 
 	total += scnprintf(buf + total, len - total, "\n");
 
