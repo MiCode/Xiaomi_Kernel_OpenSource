@@ -37,6 +37,12 @@ static struct netlink_kernel_cfg rmnet_netlink_cfg = {
 };
 #endif
 
+static struct notifier_block rmnet_dev_notifier = {
+	.notifier_call = rmnet_config_notify_cb,
+	.next = 0,
+	.priority = 0
+};
+
 #define RMNET_NL_MSG_SIZE(Y) (sizeof(((struct rmnet_nl_msg_s *)0)->Y))
 
 /* ***************** Init and Cleanup *************************************** */
@@ -68,11 +74,20 @@ static struct sock *_rmnet_config_start_netlink(void)
  */
 int rmnet_config_init(void)
 {
+	int rc;
 	nl_socket_handle = _rmnet_config_start_netlink();
 	if (!nl_socket_handle) {
-		LOGE("%s(): Failed to init netlink socket", __func__);
+		LOGE("%s(): Failed to init netlink socket\n", __func__);
 		return RMNET_INIT_ERROR;
 	}
+
+	rc = register_netdevice_notifier(&rmnet_dev_notifier);
+	if (rc != 0) {
+		LOGE("%s(): Failed to register device notifier\n", __func__);
+		/* TODO: Cleanup the nl socket */
+		return RMNET_INIT_ERROR;
+	}
+
 	return 0;
 }
 
@@ -707,7 +722,7 @@ int rmnet_associate_network_device(struct net_device *dev)
 	int rc;
 	ASSERT_RTNL();
 
-	LOGL("%s(%s);", __func__, dev->name);
+	LOGL("%s(%s);\n", __func__, dev->name);
 
 	if (!dev)
 		return RMNET_CONFIG_NO_SUCH_DEVICE;
@@ -860,7 +875,7 @@ int rmnet_set_logical_endpoint_config(struct net_device *dev,
 {
 	struct rmnet_logical_ep_conf_s epconfig;
 
-	LOGL("%s(%s, %d, %d, %s);",
+	LOGL("%s(%s, %d, %d, %s);\n",
 	      __func__, dev->name, config_id, rmnet_mode, egress_dev->name);
 
 	if (!egress_dev
@@ -895,7 +910,7 @@ int rmnet_set_logical_endpoint_config(struct net_device *dev,
 int rmnet_unset_logical_endpoint_config(struct net_device *dev,
 					int config_id)
 {
-	LOGL("%s(%s, %d);",
+	LOGL("%s(%s, %d);\n",
 	      __func__, dev->name, config_id);
 
 	if (!dev
@@ -918,7 +933,7 @@ int rmnet_create_vnd(int id)
 {
 	struct net_device *dev;
 	ASSERT_RTNL();
-	LOGL("%s(%d);", __func__, id);
+	LOGL("%s(%d);\n", __func__, id);
 	return rmnet_vnd_create_dev(id, &dev, NULL);
 }
 
@@ -934,7 +949,7 @@ int rmnet_create_vnd_prefix(int id, const char *prefix)
 {
 	struct net_device *dev;
 	ASSERT_RTNL();
-	LOGL("%s(%d, \"%s\");", __func__, id, prefix);
+	LOGL("%s(%d, \"%s\");\n", __func__, id, prefix);
 	return rmnet_vnd_create_dev(id, &dev, prefix);
 }
 
@@ -947,6 +962,69 @@ int rmnet_create_vnd_prefix(int id, const char *prefix)
  */
 int rmnet_free_vnd(int id)
 {
-	LOGL("%s(%d);", __func__, id);
+	LOGL("%s(%d);\n", __func__, id);
 	return rmnet_vnd_free_dev(id);
+}
+
+/**
+ * rmnet_force_unassociate_device() - Force a device to unassociate
+ * @dev:       Device to unassociate
+ *
+ * Return:
+ *      - void
+ */
+static void rmnet_force_unassociate_device(struct net_device *dev)
+{
+	int i;
+
+	if (!dev)
+		BUG();
+
+	if (!_rmnet_is_physical_endpoint_associated(dev)) {
+		LOGM("%s(): Called on unassociated device, skipping\n",
+		     __func__);
+		return;
+	}
+
+	rmnet_unset_logical_endpoint_config(dev, RMNET_LOCAL_LOGICAL_ENDPOINT);
+	for (i = 0; i < RMNET_DATA_MAX_LOGICAL_EP; i++)
+		rmnet_unset_logical_endpoint_config(dev, i);
+	rmnet_unassociate_network_device(dev);
+}
+
+/**
+ * rmnet_config_notify_cb() - Callback for netdevice notifier chain
+ * @nb:       Notifier block data
+ * @event:    Netdevice notifier event ID
+ * @data:     Contains a net device for which we are getting notified
+ *
+ * Return:
+ *      - result of NOTIFY_DONE()
+ */
+int rmnet_config_notify_cb(struct notifier_block *nb,
+				  unsigned long event, void *data)
+{
+	struct net_device *dev = data;
+
+	if (!dev)
+		BUG();
+
+	LOGL("%s(..., %lu, %s)\n", __func__, event, dev->name);
+
+	switch (event) {
+	case NETDEV_UNREGISTER_FINAL:
+	case NETDEV_UNREGISTER:
+		if (_rmnet_is_physical_endpoint_associated(dev)) {
+			LOGH("%s(): Kernel is trying to unregister %s\n",
+			     __func__, dev->name);
+			rmnet_force_unassociate_device(dev);
+		}
+		break;
+
+	default:
+		LOGD("%s(): Unhandeled event\n", __func__);
+		break;
+	}
+
+	return NOTIFY_DONE;
 }
