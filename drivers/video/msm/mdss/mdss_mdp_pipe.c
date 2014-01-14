@@ -513,7 +513,7 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 	struct mdss_mdp_pipe *pipe_pool = NULL;
 	u32 npipes;
 	bool pipe_share = false;
-	u32 i;
+	u32 i, reg_val, force_off_mask;
 
 	if (!mixer || !mixer->ctl || !mixer->ctl->mdata)
 		return NULL;
@@ -559,6 +559,18 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 			pipe->num);
 		atomic_dec(&pipe->ref_cnt);
 		return NULL;
+	}
+
+	if (mdss_mdp_pipe_is_sw_reset_available(mdata)) {
+		force_off_mask =
+			BIT(pipe->clk_ctrl.bit_off + CLK_FORCE_OFF_OFFSET);
+		reg_val = readl_relaxed(mdata->mdp_base +
+			pipe->clk_ctrl.reg_off);
+		if (reg_val & force_off_mask) {
+			reg_val &= ~force_off_mask;
+			writel_relaxed(reg_val,
+				mdata->mdp_base + pipe->clk_ctrl.reg_off);
+		}
 	}
 
 	if (pipe) {
@@ -770,6 +782,9 @@ static int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
 	int rc = 0;
 	u32 reg_val, idle_mask, status;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	bool sw_reset_avail = mdss_mdp_pipe_is_sw_reset_available(mdata);
+	u32 sw_reset_off = pipe->sw_reset.reg_off;
+	u32 clk_ctrl_off = pipe->clk_ctrl.reg_off;
 
 	is_idle = mdss_mdp_is_pipe_idle(pipe, true);
 	if (!is_idle) {
@@ -784,6 +799,16 @@ static int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
 			MMSS_VBIF_XIN_HALT_CTRL0);
 		writel_relaxed(reg_val | BIT(pipe->xin_id),
 			mdata->vbif_base + MMSS_VBIF_XIN_HALT_CTRL0);
+
+		if (sw_reset_avail) {
+			reg_val = readl_relaxed(mdata->mdp_base + sw_reset_off);
+			writel_relaxed(reg_val | BIT(pipe->sw_reset.bit_off),
+				mdata->mdp_base + sw_reset_off);
+			wmb();
+			writel_relaxed(reg_val & ~BIT(pipe->sw_reset.bit_off),
+				mdata->mdp_base + sw_reset_off);
+			wmb();
+		}
 		mutex_unlock(&mdata->reg_lock);
 
 		rc = readl_poll_timeout(mdata->vbif_base +
@@ -800,6 +825,14 @@ static int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
 			MMSS_VBIF_XIN_HALT_CTRL0);
 		writel_relaxed(reg_val & ~BIT(pipe->xin_id),
 			mdata->vbif_base + MMSS_VBIF_XIN_HALT_CTRL0);
+
+		if (sw_reset_avail) {
+			reg_val = readl_relaxed(mdata->mdp_base + clk_ctrl_off);
+			reg_val |= BIT(pipe->clk_ctrl.bit_off +
+				CLK_FORCE_OFF_OFFSET);
+			writel_relaxed(reg_val,
+				mdata->mdp_base + clk_ctrl_off);
+		}
 
 		mutex_unlock(&mdata->reg_lock);
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);

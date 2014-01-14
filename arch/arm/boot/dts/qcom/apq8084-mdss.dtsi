@@ -68,6 +68,11 @@
 		qcom,mdss-pipe-dma-clk-ctrl-offsets = <0x3AC 8 12>,
 						      <0x3B4 8 12>;
 
+		qcom,mdss-pipe-sw-reset-off = <0x0128>;
+		qcom,mdss-pipe-vig-sw-reset-map = <5 6 7 8>;
+		qcom,mdss-pipe-rgb-sw-reset-map = <9 10 11 12>;
+		qcom,mdss-pipe-dma-sw-reset-map = <13 14>;
+
 		qcom,mdss-smp-data = <44 8192>;
 
 		qcom,mdss-ctl-off = <0x00000600 0x00000700 0x00000800
