@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,8 @@ typedef void (*ipa_callback)(void *priv,
  * @private: The network driver will set this pointer (out parameter).
  * This pointer will hold the network device for later interaction
  * with between USB driver and the network driver.
+ * @skip_ep_cfg: boolean field that determines if Apps-processor
+ *  should or should not configure this end-point.
  */
 struct ipa_usb_init_params {
 	ipa_callback ipa_rx_notify;
@@ -47,6 +49,7 @@ struct ipa_usb_init_params {
 	u8 host_ethaddr[ETH_ALEN];
 	u8 device_ethaddr[ETH_ALEN];
 	void *private;
+	bool skip_ep_cfg;
 };
 
 #ifdef CONFIG_RNDIS_IPA
