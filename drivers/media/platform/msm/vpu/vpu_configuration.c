@@ -1004,26 +1004,25 @@ u32 get_bytesperline(u32 width, u32 bitsperpixel, u32 input_bytesperline)
 	u32 padding_factor = CEIL(bytesperline, PADDING);
 	u32 min_bytesperline = PADDING * padding_factor;
 
-	if (input_bytesperline < min_bytesperline) /* input too small */
+	if (!input_bytesperline) {
 		return min_bytesperline;
-	else if (input_bytesperline % PADDING) /* must be multiple of padding */
-		return min_bytesperline;
-	else if (input_bytesperline > SZ_32K) /* not too big */
-		return min_bytesperline;
-	else
-		return input_bytesperline; /* input bytesperline was fine */
+	} else if (input_bytesperline < min_bytesperline ||
+			input_bytesperline % PADDING ||
+			input_bytesperline > SZ_16K) {
+		pr_err("Invalid input bytesperline %d\n", input_bytesperline);
+		return 0;
+	} else {
+		return input_bytesperline;
+	}
 }
 
 int is_format_valid(struct v4l2_format *fmt)
 {
-#define VPU_HEIGHT_MINIMUM 72
-#define VPU_HEIGHT_MULTIPLE 8
+#define VPU_DIM_MINIMUM 72
 	u32 height = fmt->fmt.pix_mp.height;
 	u32 width = fmt->fmt.pix_mp.width;
 
-	if (height < VPU_HEIGHT_MINIMUM)
-		return 0;
-	if ((height / VPU_HEIGHT_MULTIPLE) * VPU_HEIGHT_MULTIPLE != height)
+	if (width < VPU_DIM_MINIMUM || height < VPU_DIM_MINIMUM)
 		return 0;
 	if ((height & 1) || (width & 1)) /* must be even */
 		return 0;
