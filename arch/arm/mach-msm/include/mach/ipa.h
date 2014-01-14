@@ -674,6 +674,22 @@ enum teth_tethering_mode {
 };
 
 /**
+ * teth_bridge_init_params - Parameters used for in/out USB API
+ * @usb_notify_cb:	Callback function which should be used by the caller.
+ * Output parameter.
+ * @private_data:	Data for the callback function. Should be used by the
+ * caller. Output parameter.
+ * @skip_ep_cfg: boolean field that determines if Apps-processor
+ *  should or should not confiugre this end-point.
+ */
+struct teth_bridge_init_params {
+	ipa_notify_cb usb_notify_cb;
+	void *private_data;
+	enum ipa_client_type client;
+	bool skip_ep_cfg;
+};
+
+/**
  * struct teth_bridge_connect_params - Parameters used in teth_bridge_connect()
  * @ipa_usb_pipe_hdl:	IPA to USB pipe handle, returned from ipa_connect()
  * @usb_ipa_pipe_hdl:	USB to IPA pipe handle, returned from ipa_connect()
@@ -977,8 +993,7 @@ int a2_mux_get_client_handles(enum a2_mux_logical_channel_id lcid,
 /*
  * Tethering bridge (Rmnet / MBIM)
  */
-int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr, void **private_data_ptr,
-		enum ipa_client_type client);
+int teth_bridge_init(struct teth_bridge_init_params *params);
 
 int teth_bridge_disconnect(enum ipa_client_type client);
 
@@ -1480,9 +1495,7 @@ static inline int ipa_rm_inactivity_timer_release_resource(
 /*
  * Tethering bridge (Rmnetm / MBIM)
  */
-static inline int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr,
-				   void **private_data_ptr,
-				   enum ipa_client_type client)
+static inline int teth_bridge_init(struct teth_bridge_init_params *params)
 {
 	return -EPERM;
 }

@@ -188,7 +188,6 @@ static int gbam_alloc_requests(struct usb_ep *ep, struct list_head *head,
 {
 	int i;
 	struct usb_request *req;
-
 	pr_debug("%s: ep:%p head:%p num:%d cb:%p", __func__,
 			ep, head, num, cb);
 
@@ -209,18 +208,23 @@ static int gbam_alloc_requests(struct usb_ep *ep, struct list_head *head,
 static void gbam_ipa_sys2bam_notify_cb(void *priv, enum ipa_dp_evt_type event,
 		unsigned long data)
 {
-	struct sys2ipa_sw *ul = (struct sys2ipa_sw *)priv;
+	struct sys2ipa_sw	*ul = (struct sys2ipa_sw *)priv;
+	struct gbam_port	*port;
+	struct bam_ch_info	*d;
 
 	switch (event) {
 	case IPA_WRITE_DONE:
+		d = container_of(ul, struct bam_ch_info, ul_params);
+		port = container_of(d, struct gbam_port, data_ch);
 		/* call into bam_demux functionality that'll recycle the data */
-		gbam_notify(ul->teth_priv, BAM_DMUX_WRITE_DONE, data);
+		gbam_notify(port, BAM_DMUX_WRITE_DONE, data);
 		break;
 	case IPA_RECEIVE:
 		/* call the callback given by tethering driver init function
 		 * (and was given to ipa_connect)
 		 */
-		ul->teth_cb(ul->teth_priv, event, data);
+		if (ul->teth_cb)
+			ul->teth_cb(ul->teth_priv, event, data);
 		break;
 	default:
 		/* unexpected event */
@@ -901,10 +905,9 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	struct f_rmnet *dev = NULL;
 	struct usb_gadget *gadget = NULL;
 	struct teth_bridge_connect_params connect_params;
+	struct teth_bridge_init_params teth_bridge_params;
 	struct bam_ch_info *d = &port->data_ch;
 	u32 sps_params;
-	ipa_notify_cb usb_notify_cb;
-	void *priv;
 	int ret;
 	unsigned long flags;
 
@@ -942,8 +945,8 @@ static void gbam2bam_connect_work(struct work_struct *w)
 			return;
 		}
 
-		ret = teth_bridge_init(&usb_notify_cb, &priv,
-				d->ipa_params.src_client);
+		teth_bridge_params.client = d->ipa_params.src_client;
+		ret = teth_bridge_init(&teth_bridge_params);
 		if (ret) {
 			pr_err("%s:teth_bridge_init() failed\n", __func__);
 			return;
@@ -951,16 +954,21 @@ static void gbam2bam_connect_work(struct work_struct *w)
 
 		/* Support for UL using system-to-IPA */
 		if (d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
-			d->ul_params.teth_priv = priv;
-			d->ul_params.teth_cb = usb_notify_cb;
+			d->ul_params.teth_priv =
+				teth_bridge_params.private_data;
+			d->ul_params.teth_cb =
+				teth_bridge_params.usb_notify_cb;
 			d->ipa_params.notify = gbam_ipa_sys2bam_notify_cb;
 			d->ipa_params.priv = &d->ul_params;
 
 		} else {
-			d->ipa_params.notify = usb_notify_cb;
-			d->ipa_params.priv = priv;
+			d->ipa_params.notify =
+				teth_bridge_params.usb_notify_cb;
+			d->ipa_params.priv =
+				teth_bridge_params.private_data;
 		}
 		d->ipa_params.ipa_ep_cfg.mode.mode = IPA_BASIC;
+		d->ipa_params.skip_ep_cfg = teth_bridge_params.skip_ep_cfg;
 		d->ipa_params.dir = USB_TO_PEER_PERIPHERAL;
 		ret = usb_bam_connect_ipa(&d->ipa_params);
 		if (ret) {
@@ -990,7 +998,6 @@ static void gbam2bam_connect_work(struct work_struct *w)
 			d->ipa_params.notify = d->ul_params.teth_cb;
 			d->ipa_params.priv = d->ul_params.teth_priv;
 		}
-		d->ipa_params.notify = usb_notify_cb;
 		d->ipa_params.dir = PEER_PERIPHERAL_TO_USB;
 		ret = usb_bam_connect_ipa(&d->ipa_params);
 		if (ret) {

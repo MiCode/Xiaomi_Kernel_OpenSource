@@ -82,6 +82,7 @@ struct usb_bam_connect_ipa_params {
 			unsigned long data);
 	int (*activity_notify)(void *priv);
 	int (*inactivity_notify)(void *priv);
+	bool skip_ep_cfg;
 };
 
 /**

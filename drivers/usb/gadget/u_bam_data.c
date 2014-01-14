@@ -158,17 +158,22 @@ static void bam_data_ipa_sys2bam_notify_cb(void *priv,
 		enum ipa_dp_evt_type event, unsigned long data)
 {
 	struct sys2ipa_sw_data *ul = (struct sys2ipa_sw_data *)priv;
+	struct bam_data_port	*port;
+	struct bam_data_ch_info	*d;
 
 	switch (event) {
 	case IPA_WRITE_DONE:
+		d = container_of(ul, struct bam_data_ch_info, ul_params);
+		port = container_of(d, struct bam_data_port, data_ch);
 		/* call into bam_demux functionality that'll recycle the data */
-		bam_data_write_done(ul->teth_priv, (struct sk_buff *)(data));
+		bam_data_write_done(port, (struct sk_buff *)(data));
 		break;
 	case IPA_RECEIVE:
 		/* call the callback given by tethering driver init function
 		 * (and was given to ipa_connect)
 		 */
-		ul->teth_cb(ul->teth_priv, event, data);
+		if (ul->teth_cb)
+			ul->teth_cb(ul->teth_priv, event, data);
 		break;
 	default:
 		/* unexpected event */
@@ -504,11 +509,10 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	struct bam_data_port *port = container_of(w, struct bam_data_port,
 						  connect_w);
 	struct teth_bridge_connect_params connect_params;
+	struct teth_bridge_init_params teth_bridge_params;
 	struct bam_data_ch_info *d = &port->data_ch;
 	struct data_port *d_port = port->port_usb;
 	struct usb_gadget *gadget = d_port->cdev->gadget;
-	ipa_notify_cb usb_notify_cb;
-	void *priv;
 	u32 sps_params;
 	int ret;
 
@@ -535,26 +539,33 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 		}
 
 		if (d->func_type == USB_FUNC_MBIM) {
-			ret = teth_bridge_init(&usb_notify_cb, &priv,
-					d->ipa_params.src_client);
+			teth_bridge_params.client = d->ipa_params.src_client;
+			ret = teth_bridge_init(&teth_bridge_params);
 			if (ret) {
 				pr_err("%s:teth_bridge_init() failed\n",
 				      __func__);
 				return;
 			}
-			d->ipa_params.notify = usb_notify_cb;
-			d->ipa_params.priv = priv;
+			d->ipa_params.notify =
+				teth_bridge_params.usb_notify_cb;
+			d->ipa_params.priv =
+				teth_bridge_params.private_data;
 			d->ipa_params.ipa_ep_cfg.mode.mode = IPA_BASIC;
+			d->ipa_params.skip_ep_cfg =
+				teth_bridge_params.skip_ep_cfg;
 		}
 		d->ipa_params.dir = USB_TO_PEER_PERIPHERAL;
 		if (d->func_type == USB_FUNC_ECM) {
 			d->ipa_params.notify = ecm_qc_get_ipa_rx_cb();
 			d->ipa_params.priv = ecm_qc_get_ipa_priv();
+			d->ipa_params.skip_ep_cfg = ecm_qc_get_skip_ep_config();
 		}
 
 		if (d->func_type == USB_FUNC_RNDIS) {
 			d->ipa_params.notify = rndis_qc_get_ipa_rx_cb();
 			d->ipa_params.priv = rndis_qc_get_ipa_priv();
+			d->ipa_params.skip_ep_cfg =
+				rndis_qc_get_skip_ep_config();
 		}
 
 		/* Support for UL using system-to-IPA */
@@ -602,10 +613,13 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 		if (d->func_type == USB_FUNC_ECM) {
 			d->ipa_params.notify = ecm_qc_get_ipa_tx_cb();
 			d->ipa_params.priv = ecm_qc_get_ipa_priv();
+			d->ipa_params.skip_ep_cfg = ecm_qc_get_skip_ep_config();
 		}
 		if (d->func_type == USB_FUNC_RNDIS) {
 			d->ipa_params.notify = rndis_qc_get_ipa_tx_cb();
 			d->ipa_params.priv = rndis_qc_get_ipa_priv();
+			d->ipa_params.skip_ep_cfg =
+				rndis_qc_get_skip_ep_config();
 		}
 		ret = usb_bam_connect_ipa(&d->ipa_params);
 		if (ret) {
