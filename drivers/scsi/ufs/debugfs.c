@@ -169,15 +169,17 @@ static void ufsdbg_setup_fault_injection(struct ufs_hba *hba)
 #endif /* CONFIG_UFS_FAULT_INJECTION */
 
 #define BUFF_LINE_CAPACITY 16
+#define TAB_CHARS 8
 
 static int ufsdbg_tag_stats_show(struct seq_file *file, void *data)
 {
 	struct ufs_hba *hba = (struct ufs_hba *)file->private;
 	struct ufs_stats *ufs_stats;
-	int i;
+	int i, j;
 	int max_depth;
 	bool is_tag_empty = true;
 	unsigned long flags;
+	char *sep = " | * | ";
 
 	if (!hba)
 		goto exit;
@@ -186,27 +188,44 @@ static int ufsdbg_tag_stats_show(struct seq_file *file, void *data)
 
 	if (!ufs_stats->enabled) {
 		pr_debug("%s: ufs statistics are disabled\n", __func__);
+		seq_puts(file, "ufs statistics are disabled");
 		goto exit;
 	}
 
 	max_depth = hba->nutrs;
 
-	pr_debug("%s: UFS tag statistics:\n", __func__);
-	pr_debug("%s: Max tagged command queue depth is %d",
-		__func__, max_depth);
-
 	spin_lock_irqsave(hba->host->host_lock, flags);
+	/* Header */
+	seq_printf(file, " Tag Stat\t\t%s Queue Fullness\n", sep);
+	for (i = 0; i < TAB_CHARS * (TS_NUM_STATS + 4); i++) {
+		seq_puts(file, "-");
+		if (i == (TAB_CHARS * 3 - 1))
+			seq_puts(file, sep);
+	}
+	seq_printf(file,
+		"\n #\tnum uses\t%s\t #\tAll\t Read\t Write\t Urgent\t Flush\n",
+		sep);
 
-	for (i = 0 ; i < max_depth ; ++i) {
-		if (hba->ufs_stats.tag_stats[i] != 0) {
-			is_tag_empty = false;
-			seq_printf(file,
-				 "%s: Dispatched tag %d - %llu times\n",
-				__func__, i, ufs_stats->tag_stats[i]);
+	/* values */
+	for (i = 0; i < max_depth; i++) {
+		if (ufs_stats->tag_stats[i][0] <= 0 &&
+				ufs_stats->tag_stats[i][1] <= 0 &&
+				ufs_stats->tag_stats[i][2] <= 0 &&
+				ufs_stats->tag_stats[i][3] <= 0 &&
+				ufs_stats->tag_stats[i][4] <= 0)
+			continue;
 
-			pr_debug("%s: Dispatched tag %d - %llu times\n",
-				__func__, i, ufs_stats->tag_stats[i]);
+		is_tag_empty = false;
+		seq_printf(file, " %d\t ", i);
+		for (j = 0; j < TS_NUM_STATS; j++) {
+			seq_printf(file, "%llu\t ", ufs_stats->tag_stats[i][j]);
+			if (j == 0)
+				seq_printf(file, "\t%s\t %d\t%llu\t ", sep, i,
+						ufs_stats->tag_stats[i][j+1] +
+						ufs_stats->tag_stats[i][j+2] +
+						ufs_stats->tag_stats[i][j+3]);
 		}
+		seq_puts(file, "\n");
 	}
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
@@ -229,7 +248,7 @@ static ssize_t ufsdbg_tag_stats_write(struct file *filp,
 	struct ufs_hba *hba = filp->f_mapping->host->i_private;
 	struct ufs_stats *ufs_stats;
 	int val = 0;
-	int ret;
+	int ret, bit = 0;
 	unsigned long flags;
 
 	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
@@ -248,8 +267,15 @@ static ssize_t ufsdbg_tag_stats_write(struct file *filp,
 		ufs_stats->enabled = true;
 		pr_debug("%s: Enabling & Resetting UFS tag statistics",
 			 __func__);
-		memset(ufs_stats->tag_stats, 0,
-		       sizeof(*ufs_stats->tag_stats) * hba->nutrs);
+		memset(hba->ufs_stats.tag_stats[0], 0,
+			sizeof(**hba->ufs_stats.tag_stats) *
+			TS_NUM_STATS * hba->nutrs);
+
+		/* initialize current queue depth */
+		ufs_stats->q_depth = 0;
+		for_each_set_bit_from(bit, &hba->outstanding_reqs, hba->nutrs)
+			ufs_stats->q_depth++;
+		pr_debug("%s: Enabled UFS tag statistics", __func__);
 	}
 
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
@@ -264,19 +290,29 @@ static const struct file_operations ufsdbg_tag_stats_fops = {
 
 static int ufshcd_init_tag_statistics(struct ufs_hba *hba)
 {
+	struct ufs_stats *stats = &hba->ufs_stats;
 	int ret = 0;
+	int i;
 
-	hba->ufs_stats.tag_stats = kzalloc(hba->nutrs * sizeof(u64),
-					   GFP_KERNEL);
-	if (!hba->ufs_stats.tag_stats) {
-		dev_err(hba->dev,
-			"%s: Unable to allocate UFS tag_stats", __func__);
-		ret = -ENOMEM;
-		goto exit;
-	}
+	stats->enabled = false;
+	stats->tag_stats = kzalloc(sizeof(*stats->tag_stats) * hba->nutrs,
+			GFP_KERNEL);
+	if (!hba->ufs_stats.tag_stats)
+		goto no_mem;
 
-	hba->ufs_stats.enabled = false;
+	stats->tag_stats[0] = kzalloc(sizeof(**stats->tag_stats) *
+			TS_NUM_STATS * hba->nutrs, GFP_KERNEL);
+	if (!stats->tag_stats[0])
+		goto no_mem;
 
+	for (i = 1; i < hba->nutrs; i++)
+		stats->tag_stats[i] = &stats->tag_stats[0][i * TS_NUM_STATS];
+
+	goto exit;
+
+no_mem:
+	dev_err(hba->dev, "%s: Unable to allocate UFS tag_stats", __func__);
+	ret = -ENOMEM;
 exit:
 	return ret;
 }
