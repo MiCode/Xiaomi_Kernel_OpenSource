@@ -83,9 +83,7 @@ struct blit_req_queue {
 };
 
 struct ppp_status {
-	int busy;
 	bool wait_for_pop;
-	spinlock_t ppp_lock;
 	struct completion ppp_comp;
 	struct completion pop_q_comp;
 	struct mutex req_mutex; /* Protect request queue */
@@ -271,24 +269,16 @@ int mdp3_ppp_verify_req(struct mdp_blit_req *req)
 int mdp3_ppp_pipe_wait(void)
 {
 	int ret = 1;
-	int wait;
-	unsigned long flag;
 
 	/*
-	 * wait 5 secs for operation to complete before declaring
+	 * wait 40 ms for ppp operation to complete before declaring
 	 * the MDP hung
 	 */
-	spin_lock_irqsave(&ppp_stat->ppp_lock, flag);
-	wait = ppp_stat->busy;
-	spin_unlock_irqrestore(&ppp_stat->ppp_lock, flag);
-
-	if (wait) {
-		ret = wait_for_completion_timeout(
-		   &ppp_stat->ppp_comp, 5 * HZ);
-		if (!ret)
-			pr_err("%s: Timed out waiting for the MDP.\n",
-				__func__);
-	}
+	ret = wait_for_completion_timeout(
+	  &ppp_stat->ppp_comp, msecs_to_jiffies(40));
+	if (!ret)
+		pr_err("%s: Timed out waiting for the MDP.\n",
+			__func__);
 
 	return ret;
 }
@@ -321,11 +311,7 @@ uint32_t mdp3_calc_tpval(struct ppp_img_desc *img, uint32_t old_tp)
 
 static void mdp3_ppp_intr_handler(int type, void *arg)
 {
-	spin_lock(&ppp_stat->ppp_lock);
-	ppp_stat->busy = false;
-	spin_unlock(&ppp_stat->ppp_lock);
 	complete(&ppp_stat->ppp_comp);
-	mdp3_irq_disable_nosync(type);
 }
 
 static int mdp3_ppp_callback_setup(void)
@@ -342,17 +328,11 @@ static int mdp3_ppp_callback_setup(void)
 
 void mdp3_ppp_kickoff(void)
 {
-	unsigned long flag;
-	mdp3_irq_enable(MDP3_PPP_DONE);
-
 	init_completion(&ppp_stat->ppp_comp);
-
-	spin_lock_irqsave(&ppp_stat->ppp_lock, flag);
-	ppp_stat->busy = true;
-	spin_unlock_irqrestore(&ppp_stat->ppp_lock, flag);
+	mdp3_irq_enable(MDP3_PPP_DONE);
 	ppp_enable();
-
 	mdp3_ppp_pipe_wait();
+	mdp3_irq_disable(MDP3_PPP_DONE);
 }
 
 int mdp3_ppp_turnon(struct msm_fb_data_type *mfd, int on_off)
@@ -390,7 +370,11 @@ int mdp3_ppp_turnon(struct msm_fb_data_type *mfd, int on_off)
 void mdp3_start_ppp(struct ppp_blit_op *blit_op)
 {
 	/* Wait for the pipe to clear */
-	do { } while (mdp3_ppp_pipe_wait() <= 0);
+	if (MDP3_REG_READ(MDP3_REG_DISPLAY_STATUS) &
+			MDP3_PPP_ACTIVE) {
+		pr_err("ppp core is hung up on previous request\n");
+		return;
+	}
 	config_ppp_op_mode(blit_op);
 	if (blit_op->solid_fill) {
 		MDP3_REG_WRITE(0x10138, 0x10000000);
@@ -1211,13 +1195,11 @@ int mdp3_ppp_res_init(struct msm_fb_data_type *mfd)
 	INIT_WORK(&ppp_stat->blit_work, mdp3_ppp_blit_wq_handler);
 	INIT_WORK(&ppp_stat->free_bw_work, mdp3_free_bw_wq_handler);
 	init_completion(&ppp_stat->pop_q_comp);
-	spin_lock_init(&ppp_stat->ppp_lock);
 	mutex_init(&ppp_stat->req_mutex);
 	mutex_init(&ppp_stat->config_ppp_mutex);
 	init_timer(&ppp_stat->free_bw_timer);
 	ppp_stat->free_bw_timer.function = mdp3_free_fw_timer_func;
 	ppp_stat->free_bw_timer.data = 0;
-	ppp_stat->busy = false;
 	ppp_stat->mfd = mfd;
 	mdp3_ppp_callback_setup();
 	return 0;
