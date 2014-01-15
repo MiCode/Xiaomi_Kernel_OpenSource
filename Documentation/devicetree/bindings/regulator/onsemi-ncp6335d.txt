@@ -39,6 +39,13 @@ Optional Properties:
 				pins are low.
 				Not Present: Low quiescent current mode when EN and VSEL
 				pins are low.
+- onnn,tlmm-config:		Array of 2 elements to indicate the mask value and the value
+				to write in the masked bits.
+				This property is used to allow the VSEL GPIO to toggle on certain
+				Qualcomm processors. If it is not specified, then no register write is required.
+				The 2 elements with index[0..1] are:
+				[0] => the mask value;
+				[1] => the value to write into the masked bits.
 
 
 Example:
