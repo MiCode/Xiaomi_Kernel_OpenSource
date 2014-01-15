@@ -72,7 +72,7 @@ struct rmnet_map_header_s *rmnet_map_add_map_header(struct sk_buff *skb,
 		return 0;
 
 	padbytes = (uint8_t *) skb_put(skb, padding);
-	LOGD("pad: %d\n", padding);
+	LOGD("pad: %d", padding);
 	memset(padbytes, 0, padding);
 
 	map_header->pkt_len = htons(map_datalen + padding);
@@ -110,7 +110,7 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 	packet_len = ntohs(maph->pkt_len) + sizeof(struct rmnet_map_header_s);
 
 	if ((((int)skb->len) - ((int)packet_len)) < 0) {
-		LOGM("%s(): Got malformed packet. Dropping\n", __func__);
+		LOGM("%s", "Got malformed packet. Dropping");
 		return 0;
 	}
 
@@ -118,7 +118,7 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 	if (!skbn)
 		return 0;
 
-	LOGD("Trimming to %d bytes\n", packet_len);
+	LOGD("Trimming to %d bytes", packet_len);
 	LOGD("before skbn->len = %d", skbn->len);
 	skb_trim(skbn, packet_len);
 	skb_pull(skb, packet_len);
@@ -127,7 +127,7 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 	/* Sanity check */
 	ip_byte = (skbn->data[4]) & 0xF0;
 	if (ip_byte != 0x40 && ip_byte != 0x60) {
-		LOGM("%s() Unknown IP type: 0x%02X\n", __func__, ip_byte);
+		LOGM("Unknown IP type: 0x%02X", ip_byte);
 		kfree_skb(skbn);
 		return 0;
 	}
@@ -154,21 +154,21 @@ static void rmnet_map_flush_packet_queue(struct work_struct *work)
 	skb = 0;
 	real_work = (struct agg_work *)work;
 	config = real_work->config;
-	LOGD("Entering flush thread\n");
+	LOGD("%s", "Entering flush thread");
 	spin_lock_irqsave(&config->agg_lock, flags);
 	if (likely(config->agg_state == RMNET_MAP_TXFER_SCHEDULED)) {
 		if (likely(config->agg_skb)) {
 			/* Buffer may have already been shipped out */
 			if (config->agg_count > 1)
-				LOGL("Agg count: %d\n", config->agg_count);
+				LOGL("Agg count: %d", config->agg_count);
 			skb = config->agg_skb;
 			config->agg_skb = 0;
 		}
 		config->agg_state = RMNET_MAP_AGG_IDLE;
 	} else {
 		/* How did we get here? */
-		LOGE("%s(): Ran queued command when state %s\n",
-			"is idle. State machine likely broken", __func__);
+		LOGE("Ran queued command when state %s",
+			"is idle. State machine likely broken");
 	}
 
 	spin_unlock_irqrestore(&config->agg_lock, flags);
@@ -200,7 +200,7 @@ void rmnet_map_aggregate(struct sk_buff *skb,
 	size = config->egress_agg_size-skb->len;
 
 	if (size < 2000) {
-		LOGL("Invalid length %d\n", size);
+		LOGL("Invalid length %d", size);
 		return;
 	}
 
@@ -222,7 +222,7 @@ new_packet:
 
 	if (skb->len > (config->egress_agg_size - config->agg_skb->len)) {
 		if (config->agg_count > 1)
-			LOGL("Agg count: %d\n", config->agg_count);
+			LOGL("Agg count: %d", config->agg_count);
 		agg_skb = config->agg_skb;
 		config->agg_skb = 0;
 		config->agg_count = 0;
@@ -241,8 +241,8 @@ schedule:
 		work = (struct agg_work *)
 			kmalloc(sizeof(struct agg_work), GFP_ATOMIC);
 		if (!work) {
-			LOGE("%s(): Failed to allocate work item for packet %s",
-			     "transfer. DATA PATH LIKELY BROKEN!\n", __func__);
+			LOGE("Failed to allocate work item for packet %s",
+			     "transfer. DATA PATH LIKELY BROKEN!");
 			config->agg_state = RMNET_MAP_AGG_IDLE;
 			spin_unlock_irqrestore(&config->agg_lock, flags);
 			return;

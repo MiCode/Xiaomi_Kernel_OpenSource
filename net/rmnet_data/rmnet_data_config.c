@@ -77,13 +77,13 @@ int rmnet_config_init(void)
 	int rc;
 	nl_socket_handle = _rmnet_config_start_netlink();
 	if (!nl_socket_handle) {
-		LOGE("%s(): Failed to init netlink socket\n", __func__);
+		LOGE("%s", "Failed to init netlink socket");
 		return RMNET_INIT_ERROR;
 	}
 
 	rc = register_netdevice_notifier(&rmnet_dev_notifier);
 	if (rc != 0) {
-		LOGE("%s(): Failed to register device notifier\n", __func__);
+		LOGE("Failed to register device notifier; rc=%d", rc);
 		/* TODO: Cleanup the nl socket */
 		return RMNET_INIT_ERROR;
 	}
@@ -438,8 +438,7 @@ static void _rmnet_netlink_add_del_vnd_tc_flow
 								tc_flow_id);
 		break;
 	default:
-		LOGM("%s(): called with unhandled command %d\n",
-		     __func__, command);
+		LOGM("Called with unhandled command %d", command);
 		resp_rmnet->return_code = RMNET_CONFIG_INVALID_REQUEST;
 		break;
 	}
@@ -463,8 +462,7 @@ void rmnet_config_netlink_msg_handler(struct sk_buff *skb)
 	nlmsg_header = (struct nlmsghdr *) skb->data;
 	rmnet_header = (struct rmnet_nl_msg_s *) nlmsg_data(nlmsg_header);
 
-	LOGL("%s(): Netlink message pid=%d, seq=%d, length=%d, rmnet_type=%d\n",
-		__func__,
+	LOGL("Netlink message pid=%d, seq=%d, length=%d, rmnet_type=%d",
 		nlmsg_header->nlmsg_pid,
 		nlmsg_header->nlmsg_seq,
 		nlmsg_header->nlmsg_len,
@@ -477,7 +475,7 @@ void rmnet_config_netlink_msg_handler(struct sk_buff *skb)
 				 GFP_KERNEL);
 
 	if (!skb_response) {
-		LOGH("%s(): Failed to allocate response buffer\n", __func__);
+		LOGH("%s", "Failed to allocate response buffer");
 		return;
 	}
 
@@ -576,7 +574,7 @@ void rmnet_config_netlink_msg_handler(struct sk_buff *skb)
 	}
 	rtnl_unlock();
 	nlmsg_unicast(nl_socket_handle, skb_response, return_pid);
-	LOGD("%s(): Done processing command\n", __func__);
+	LOGD("%s", "Done processing command");
 
 }
 
@@ -603,7 +601,7 @@ int rmnet_unassociate_network_device(struct net_device *dev)
 	struct rmnet_logical_ep_conf_s *epconfig_l;
 	ASSERT_RTNL();
 
-	LOGL("%s(%s);", __func__, dev->name);
+	LOGL("(%s);", dev->name);
 
 	if (!dev)
 		return RMNET_CONFIG_NO_SUCH_DEVICE;
@@ -651,7 +649,7 @@ int rmnet_set_ingress_data_format(struct net_device *dev,
 	struct rmnet_phys_ep_conf_s *config;
 	ASSERT_RTNL();
 
-	LOGL("%s(%s,0x%08X);", __func__, dev->name, ingress_data_format);
+	LOGL("(%s,0x%08X);", dev->name, ingress_data_format);
 
 	if (!dev)
 		return RMNET_CONFIG_NO_SUCH_DEVICE;
@@ -688,8 +686,8 @@ int rmnet_set_egress_data_format(struct net_device *dev,
 	struct rmnet_phys_ep_conf_s *config;
 	ASSERT_RTNL();
 
-	LOGL("%s(%s,0x%08X, %d, %d);",
-	     __func__, dev->name, egress_data_format, agg_size, agg_count);
+	LOGL("(%s,0x%08X, %d, %d);",
+	     dev->name, egress_data_format, agg_size, agg_count);
 
 	if (!dev)
 		return RMNET_CONFIG_NO_SUCH_DEVICE;
@@ -726,18 +724,18 @@ int rmnet_associate_network_device(struct net_device *dev)
 	int rc;
 	ASSERT_RTNL();
 
-	LOGL("%s(%s);\n", __func__, dev->name);
+	LOGL("(%s);\n", dev->name);
 
 	if (!dev)
 		return RMNET_CONFIG_NO_SUCH_DEVICE;
 
 	if (_rmnet_is_physical_endpoint_associated(dev)) {
-		LOGM("%s(): %s is already regestered\n", __func__, dev->name);
+		LOGM("%s is already regestered", dev->name);
 		return RMNET_CONFIG_DEVICE_IN_USE;
 	}
 
 	if (rmnet_vnd_is_vnd(dev)) {
-		LOGM("%s(): %s is a vnd\n", __func__, dev->name);
+		LOGM("%s is a vnd", dev->name);
 		return RMNET_CONFIG_INVALID_REQUEST;
 	}
 
@@ -754,8 +752,7 @@ int rmnet_associate_network_device(struct net_device *dev)
 	rc = netdev_rx_handler_register(dev, rmnet_rx_handler, config);
 
 	if (rc) {
-		LOGM("%s(): netdev_rx_handler_register returns %d\n",
-		     __func__, rc);
+		LOGM("netdev_rx_handler_register returns %d", rc);
 		kfree(config);
 		return RMNET_CONFIG_DEVICE_IN_USE;
 	}
@@ -851,7 +848,7 @@ int _rmnet_unset_logical_endpoint_config(struct net_device *dev,
 }
 
 /**
- * rmnet_set_logical_endpoint_config() - Set logical endpoing configuration on a device
+ * rmnet_set_logical_endpoint_config() - Set logical endpoint config on a device
  * @dev:            Device to set endpoint configuration on
  * @config_id:      logical endpoint id on device
  * @rmnet_mode:     endpoint mode. Values from: rmnet_config_endpoint_modes_e
@@ -879,8 +876,8 @@ int rmnet_set_logical_endpoint_config(struct net_device *dev,
 {
 	struct rmnet_logical_ep_conf_s epconfig;
 
-	LOGL("%s(%s, %d, %d, %s);\n",
-	      __func__, dev->name, config_id, rmnet_mode, egress_dev->name);
+	LOGL("(%s, %d, %d, %s);",
+		dev->name, config_id, rmnet_mode, egress_dev->name);
 
 	if (!egress_dev
 	    || ((!_rmnet_is_physical_endpoint_associated(egress_dev))
@@ -914,8 +911,7 @@ int rmnet_set_logical_endpoint_config(struct net_device *dev,
 int rmnet_unset_logical_endpoint_config(struct net_device *dev,
 					int config_id)
 {
-	LOGL("%s(%s, %d);\n",
-	      __func__, dev->name, config_id);
+	LOGL("(%s, %d);", dev->name, config_id);
 
 	if (!dev
 	    || ((!_rmnet_is_physical_endpoint_associated(dev))
@@ -937,7 +933,7 @@ int rmnet_create_vnd(int id)
 {
 	struct net_device *dev;
 	ASSERT_RTNL();
-	LOGL("%s(%d);\n", __func__, id);
+	LOGL("(%d);", id);
 	return rmnet_vnd_create_dev(id, &dev, NULL);
 }
 
@@ -953,7 +949,7 @@ int rmnet_create_vnd_prefix(int id, const char *prefix)
 {
 	struct net_device *dev;
 	ASSERT_RTNL();
-	LOGL("%s(%d, \"%s\");\n", __func__, id, prefix);
+	LOGL("(%d, \"%s\");", id, prefix);
 	return rmnet_vnd_create_dev(id, &dev, prefix);
 }
 
@@ -966,7 +962,7 @@ int rmnet_create_vnd_prefix(int id, const char *prefix)
  */
 int rmnet_free_vnd(int id)
 {
-	LOGL("%s(%d);\n", __func__, id);
+	LOGL("(%d);", id);
 	return rmnet_vnd_free_dev(id);
 }
 
@@ -985,8 +981,7 @@ static void rmnet_force_unassociate_device(struct net_device *dev)
 		BUG();
 
 	if (!_rmnet_is_physical_endpoint_associated(dev)) {
-		LOGM("%s(): Called on unassociated device, skipping\n",
-		     __func__);
+		LOGM("%s", "Called on unassociated device, skipping");
 		return;
 	}
 
@@ -1013,20 +1008,19 @@ int rmnet_config_notify_cb(struct notifier_block *nb,
 	if (!dev)
 		BUG();
 
-	LOGL("%s(..., %lu, %s)\n", __func__, event, dev->name);
+	LOGL("(..., %lu, %s)", event, dev->name);
 
 	switch (event) {
 	case NETDEV_UNREGISTER_FINAL:
 	case NETDEV_UNREGISTER:
 		if (_rmnet_is_physical_endpoint_associated(dev)) {
-			LOGH("%s(): Kernel is trying to unregister %s\n",
-			     __func__, dev->name);
+			LOGH("Kernel is trying to unregister %s", dev->name);
 			rmnet_force_unassociate_device(dev);
 		}
 		break;
 
 	default:
-		LOGD("%s(): Unhandeled event\n", __func__);
+		LOGD("Unhandeled event [%lu]", event);
 		break;
 	}
 
