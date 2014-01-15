@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -533,6 +533,7 @@ static int __devexit msm_vidc_remove(struct platform_device *pdev)
 }
 static const struct of_device_id msm_vidc_dt_match[] = {
 	{.compatible = "qcom,msm-vidc"},
+	{}
 };
 
 MODULE_DEVICE_TABLE(of, msm_vidc_dt_match);
