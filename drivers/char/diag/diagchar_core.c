@@ -852,10 +852,9 @@ void diag_cmp_logging_modes_sdio_pipe(int old_mode, int new_mode)
 }
 #endif
 
-int diag_switch_logging(unsigned long ioarg)
+int diag_switch_logging(int requested_mode)
 {
 	int temp = 0, success = -EINVAL, status = 0;
-	int requested_mode = (int)ioarg;
 
 	switch (requested_mode) {
 	case USB_MODE:
@@ -971,7 +970,7 @@ long diagchar_ioctl(struct file *filp,
 			   unsigned int iocmd, unsigned long ioarg)
 {
 	int i, result = -EINVAL, interim_size = 0, client_id = 0, real_time = 0;
-	int retry_count = 0, timer = 0;
+	int retry_count = 0, timer = 0, req_logging_mode = 0;
 	uint16_t interim_rsp_id, remote_dev;
 	struct diag_dci_reg_tbl_t *dci_reg_params;
 	struct diag_dci_health_stats_proc stats;
@@ -1106,7 +1105,10 @@ long diagchar_ioctl(struct file *filp,
 		result = 1;
 		break;
 	case DIAG_IOCTL_SWITCH_LOGGING:
-		result = diag_switch_logging(ioarg);
+		if (copy_from_user((void *)&req_logging_mode, (void *)ioarg,
+			sizeof(int)))
+			return -EFAULT;
+		result = diag_switch_logging(req_logging_mode);
 		break;
 	case DIAG_IOCTL_REMOTE_DEV:
 		remote_dev = diag_get_remote_device_mask();
