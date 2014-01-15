@@ -185,6 +185,7 @@ enum hal_property {
 	HAL_CONFIG_VENC_MARKLTRFRAME,
 	HAL_CONFIG_VENC_USELTRFRAME,
 	HAL_CONFIG_VENC_LTRPERIOD,
+	HAL_PARAM_VENC_HIER_P_NUM_FRAMES,
 };
 
 enum hal_domain {
@@ -1062,6 +1063,7 @@ struct vidc_hal_session_init_done {
 	struct hal_capability_supported scale_y;
 	struct hal_capability_supported bitrate;
 	struct hal_capability_supported ltr_count;
+	struct hal_capability_supported hier_p;
 	struct hal_uncompressed_format_supported uncomp_format;
 	struct hal_interlace_format_supported HAL_format;
 	struct hal_nal_stream_format_supported nal_stream_format;

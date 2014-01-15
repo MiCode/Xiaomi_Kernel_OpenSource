@@ -465,6 +465,7 @@ static void handle_session_init_done(enum command_response cmd, void *data)
 			inst->capability.scale_y = session_init_done->scale_y;
 			inst->capability.ltr_count =
 				session_init_done->ltr_count;
+			inst->capability.hier_p = session_init_done->hier_p;
 			inst->capability.pixelprocess_capabilities =
 				call_hfi_op(hdev, get_core_capabilities);
 			inst->capability.capability_set = true;
