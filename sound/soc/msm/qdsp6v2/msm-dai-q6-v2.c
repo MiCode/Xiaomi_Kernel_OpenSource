@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2503,10 +2503,10 @@ register_afe_playback:
 			__func__, stream_name);
 		break;
 	case RT_PROXY_DAI_001_TX:
-		strlcpy(stream_name, "AFE Capture", 80);
+		strlcpy(stream_name, "AFE-PROXY TX", 80);
 		goto register_afe_capture;
 	case RT_PROXY_DAI_002_TX:
-		strlcpy(stream_name, "AFE-PROXY TX", 80);
+		strlcpy(stream_name, "AFE Capture", 80);
 register_afe_capture:
 		rc = -ENODEV;
 		len = strnlen(stream_name , 80);
