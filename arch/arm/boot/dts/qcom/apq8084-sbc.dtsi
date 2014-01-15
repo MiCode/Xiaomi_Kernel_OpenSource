@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,9 +40,9 @@
 			"AMIC2", "MIC BIAS2 External",
 			"MIC BIAS2 External", "Headset Mic",
 			"AMIC5", "MIC BIAS1 External",
-			"MIC BIAS1 External", "Analog Mic5",
+			"MIC BIAS1 External", "Analog Mic6",
 			"AMIC6", "MIC BIAS3 External",
-			"MIC BIAS3 External", "Analog Mic6",
+			"MIC BIAS3 External", "Analog Mic7",
 			"DMIC1", "MIC BIAS4 External",
 			"MIC BIAS4 External", "Digital Mic1",
 			"DMIC2", "MIC BIAS4 External",
