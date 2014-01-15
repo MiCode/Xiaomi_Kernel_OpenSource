@@ -444,6 +444,10 @@ void *ecm_qc_get_ipa_priv(void)
 	return ipa_params.private;
 }
 
+bool ecm_qc_get_skip_ep_config(void)
+{
+	return ipa_params.skip_ep_cfg;
+}
 /*-------------------------------------------------------------------------*/
 
 

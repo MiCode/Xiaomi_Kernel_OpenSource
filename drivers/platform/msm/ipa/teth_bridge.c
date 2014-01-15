@@ -2015,10 +2015,8 @@ static void a2_prod_notify_cb(void *notify_cb_data,
 
 /**
 * teth_bridge_init() - Initialize the Tethering bridge driver
-* @usb_notify_cb_ptr:	Callback function which should be used by the caller.
-* Output parameter.
-* @private_data_ptr:	Data for the callback function. Should be used by the
-* caller. Output parameter.
+* @params - in/out params for USB initialization API (please look at struct
+*  definition for more info)
 *
 * USB driver gets a pointer to a callback function (usb_notify_cb) and an
 * associated data. USB driver installs this callback function in the call to
@@ -2030,8 +2028,7 @@ static void a2_prod_notify_cb(void *notify_cb_data,
 *		-EINVAL - Bad parameter
 *		Other negative value - Failure
 */
-int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr, void **private_data_ptr,
-		enum ipa_client_type client)
+int teth_bridge_init(struct teth_bridge_init_params *params)
 {
 	int res = 0;
 	u32 lcid;
@@ -2039,7 +2036,7 @@ int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr, void **private_data_ptr,
 
 	TETH_DBG_FUNC_ENTRY();
 
-	if (usb_notify_cb_ptr == NULL || private_data_ptr == NULL) {
+	if (!params) {
 		TETH_ERR("Bad parameter\n");
 		TETH_DBG_FUNC_EXIT();
 		return -EINVAL;
@@ -2047,16 +2044,17 @@ int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr, void **private_data_ptr,
 
 	switch (teth_ctx->ipa_hw_type) {
 	case IPA_HW_v1_1:
-		*usb_notify_cb_ptr = usb_notify_cb;
-		lcid = get_channel_id_from_client_prod(client);
-		*private_data_ptr = (void *)lcid;
+		params->usb_notify_cb = usb_notify_cb;
+		lcid = get_channel_id_from_client_prod(params->client);
+		params->private_data = (void *)lcid;
 		idx = get_ch_info_idx(lcid);
 		TETH_DBG("init private data with lcid=%d\n", lcid);
 		break;
 
 	case IPA_HW_v2_0:
-		*usb_notify_cb_ptr = NULL;
-		*private_data_ptr = (void *)IPA_DO_NOT_CONFIGURE_THIS_EP;
+		params->usb_notify_cb = NULL;
+		params->private_data = NULL;
+		params->skip_ep_cfg = true;
 		break;
 
 	default:

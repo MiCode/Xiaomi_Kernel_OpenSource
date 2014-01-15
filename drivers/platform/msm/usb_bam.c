@@ -516,6 +516,7 @@ static int connect_pipe_sys2bam_ipa(u8 idx,
 	sys_in_params.desc_fifo_sz = pipe_connect->desc_fifo_size;
 	sys_in_params.priv = ipa_params->priv;
 	sys_in_params.notify = ipa_params->notify;
+	sys_in_params.skip_ep_cfg = ipa_params->skip_ep_cfg;
 	memcpy(&sys_in_params.ipa_ep_cfg, &ipa_params->ipa_ep_cfg,
 		   sizeof(struct ipa_ep_cfg));
 
@@ -578,6 +579,7 @@ static int connect_pipe_bam2bam_ipa(u8 idx,
 	ipa_in_params.data_fifo_sz = pipe_connect->data_fifo_size;
 	ipa_in_params.notify = ipa_params->notify;
 	ipa_in_params.priv = ipa_params->priv;
+	ipa_in_params.skip_ep_cfg = ipa_params->skip_ep_cfg;
 
 	/* If BAM is using dedicated SPS pipe memory, get it */
 
@@ -960,7 +962,7 @@ static int usb_bam_disconnect_ipa_cons(
 			return ret;
 		}
 	} else {
-		ret = ipa_teardown_sys_pipe(ipa_params->prod_clnt_hdl);
+		ret = ipa_teardown_sys_pipe(ipa_params->cons_clnt_hdl);
 		if (ret) {
 			pr_err("%s: src pipe disconnection failure\n",
 					__func__);

@@ -1315,3 +1315,8 @@ void *rndis_qc_get_ipa_priv(void)
 {
 	return rndis_ipa_params.private;
 }
+
+bool rndis_qc_get_skip_ep_config(void)
+{
+	return rndis_ipa_params.skip_ep_cfg;
+}
