@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -218,6 +218,7 @@ int ipa_rm_dep_graph_delete_dependency(struct ipa_rm_dep_graph *graph,
 		result = -EINVAL;
 		goto bail;
 	}
+
 	if (ipa_rm_dep_graph_get_resource(graph,
 					  resource_name,
 					  &dependant)) {
@@ -226,6 +227,7 @@ int ipa_rm_dep_graph_delete_dependency(struct ipa_rm_dep_graph *graph,
 		result = -EINVAL;
 		goto bail;
 	}
+
 	if (ipa_rm_dep_graph_get_resource(graph,
 					  depends_on_name,
 					  &dependency)) {
@@ -234,6 +236,7 @@ int ipa_rm_dep_graph_delete_dependency(struct ipa_rm_dep_graph *graph,
 		result = -EINVAL;
 		goto bail;
 	}
+
 	result = ipa_rm_resource_delete_dependency(dependant, dependency);
 bail:
 	IPA_RM_DBG("EXIT with %d\n", result);
