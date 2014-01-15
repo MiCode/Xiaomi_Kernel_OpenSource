@@ -183,6 +183,56 @@ static int mdss_debugfs_dump_show(struct seq_file *s, void *v)
 }
 DEFINE_MDSS_DEBUGFS_SEQ_FOPS(mdss_debugfs_dump);
 
+static void __stats_ctl_dump(struct mdss_mdp_ctl *ctl, struct seq_file *s)
+{
+	if (!ctl->ref_cnt)
+		return;
+
+	if (ctl->intf_num) {
+		seq_printf(s, "intf%d: play: %08u \t",
+				ctl->intf_num, ctl->play_cnt);
+		seq_printf(s, "vsync: %08u \tunderrun: %08u\n",
+				ctl->vsync_cnt, ctl->underrun_cnt);
+	} else {
+		seq_printf(s, "wb: \tmode=%x \tplay: %08u\n",
+				ctl->opmode, ctl->play_cnt);
+	}
+}
+
+static int mdss_debugfs_stats_show(struct seq_file *s, void *v)
+{
+	struct mdss_data_type *mdata = (struct mdss_data_type *)s->private;
+	struct mdss_mdp_pipe *pipe;
+	int i;
+
+	seq_puts(s, "\nmdp:\n");
+
+	for (i = 0; i < mdata->nctl; i++)
+		__stats_ctl_dump(mdata->ctl_off + i, s);
+	seq_puts(s, "\n");
+
+	for (i = 0; i < mdata->nvig_pipes; i++) {
+		pipe = mdata->vig_pipes + i;
+		seq_printf(s, "VIG%d :   %08u\t", i, pipe->play_cnt);
+	}
+	seq_puts(s, "\n");
+
+	for (i = 0; i < mdata->nrgb_pipes; i++) {
+		pipe = mdata->rgb_pipes + i;
+		seq_printf(s, "RGB%d :   %08u\t", i, pipe->play_cnt);
+	}
+	seq_puts(s, "\n");
+
+	for (i = 0; i < mdata->ndma_pipes; i++) {
+		pipe = mdata->dma_pipes + i;
+		seq_printf(s, "DMA%d :   %08u\t", i, pipe->play_cnt);
+	}
+	seq_puts(s, "\n");
+
+	return 0;
+}
+DEFINE_MDSS_DEBUGFS_SEQ_FOPS(mdss_debugfs_stats);
+
 int mdss_mdp_debugfs_init(struct mdss_data_type *mdata)
 {
 	struct mdss_debug_data *mdd;
@@ -196,6 +246,8 @@ int mdss_mdp_debugfs_init(struct mdss_data_type *mdata)
 
 	debugfs_create_file("dump", 0644, mdd->root, mdata,
 			&mdss_debugfs_dump_fops);
+	debugfs_create_file("stat", 0644, mdd->root, mdata,
+			&mdss_debugfs_stats_fops);
 
 	return 0;
 }

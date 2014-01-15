@@ -2003,13 +2003,15 @@ static int mdp3_panel_register_done(struct mdss_panel_data *pdata)
 	return rc;
 }
 
-static int mdp3_debug_dump_stats(void *data, char *buf, int len)
+static int mdp3_debug_dump_stats_show(struct seq_file *s, void *v)
 {
-	int total = 0;
-	total = scnprintf(buf, len, "underrun: %08u\n",
-			mdp3_res->underrun_cnt);
-	return total;
+	struct mdp3_hw_resource *res = (struct mdp3_hw_resource *)s->private;
+
+	seq_printf(s, "underrun: %08u\n", res->underrun_cnt);
+
+	return 0;
 }
+DEFINE_MDSS_DEBUGFS_SEQ_FOPS(mdp3_debug_dump_stats);
 
 static void mdp3_debug_enable_clock(int on)
 {
@@ -2024,6 +2026,7 @@ static int mdp3_debug_init(struct platform_device *pdev)
 {
 	int rc;
 	struct mdss_data_type *mdata;
+	struct mdss_debug_data *mdd;
 
 	mdata = devm_kzalloc(&pdev->dev, sizeof(*mdata), GFP_KERNEL);
 	if (!mdata)
@@ -2031,12 +2034,18 @@ static int mdp3_debug_init(struct platform_device *pdev)
 
 	mdss_res = mdata;
 
-	mdata->debug_inf.debug_dump_stats = mdp3_debug_dump_stats;
 	mdata->debug_inf.debug_enable_clock = mdp3_debug_enable_clock;
 
 	rc = mdss_debugfs_init(mdata);
 	if (rc)
 		return rc;
+
+	mdd = mdata->debug_inf.debug_data;
+	if (!mdd)
+		return -EINVAL;
+
+	debugfs_create_file("stat", 0644, mdd->root, mdp3_res,
+				&mdp3_debug_dump_stats_fops);
 
 	rc = mdss_debug_register_base(NULL, mdp3_res->mdp_base ,
 					mdp3_res->mdp_reg_size);
