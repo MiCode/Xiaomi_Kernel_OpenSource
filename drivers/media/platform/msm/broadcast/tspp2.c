@@ -246,9 +246,6 @@ enum tspp2_operation_opcode {
 /* Bits for TSPP2_GLOBAL_IRQ_CLEAR register */
 #define GLOBAL_IRQ_CLEAR_RESERVED_OFFS		4
 
-/* Bits for TSPP2_GLOBAL_IRQ_ENABLE register */
-#define GLOBAL_IRQ_ENABLE_READ_FAIL_OFFS	16
-
 /* Bits for TSPP2_VERSION register */
 #define VERSION_MAJOR_OFFS			28
 #define VERSION_MINOR_OFFS			16
@@ -7274,10 +7271,10 @@ int tspp2_src_event_notification_register(u32 src_handle,
 	reg = readl_relaxed(src->device->base + TSPP2_GLOBAL_IRQ_ENABLE);
 	if (callback && (src_event_bitmask & TSPP2_SRC_EVENT_FLOW_CTRL_STALL)) {
 		reg |= ((0x1 << src->hw_index) <<
-			GLOBAL_IRQ_ENABLE_READ_FAIL_OFFS);
+			GLOBAL_IRQ_FC_STALL_OFFS);
 	} else {
 		reg &= ~((0x1 << src->hw_index) <<
-			GLOBAL_IRQ_ENABLE_READ_FAIL_OFFS);
+			GLOBAL_IRQ_FC_STALL_OFFS);
 	}
 	writel_relaxed(reg, src->device->base + TSPP2_GLOBAL_IRQ_ENABLE);
 
@@ -7491,43 +7488,6 @@ msm_tspp2_dt_to_pdata(struct platform_device *pdev)
 		return NULL;
 	}
 
-	/* Get clocks information */
-	rc = of_property_read_string(node, "qcom,tspp2-ahb-clk",
-					&data->tspp2_ahb_clk);
-	if (rc) {
-		pr_err("%s: Could not find tspp2-ahb-clk property, err = %d\n",
-			__func__, rc);
-		return NULL;
-	}
-	rc = of_property_read_string(node, "qcom,tspp2-core-clk",
-					&data->tspp2_core_clk);
-	if (rc) {
-		pr_err("%s: Could not find tspp2-core-clk property, err = %d\n",
-			__func__, rc);
-		return NULL;
-	}
-	rc = of_property_read_string(node, "qcom,tspp2-vbif-clk",
-					&data->tspp2_vbif_clk);
-	if (rc) {
-		pr_err("%s: Could not find tspp2-vbif-clk property, err = %d\n",
-			__func__, rc);
-		return NULL;
-	}
-	rc = of_property_read_string(node, "qcom,tspp2-klm-ahb-clk",
-					&data->tspp2_klm_ahb_clk);
-	if (rc) {
-		pr_err("%s: Could not find tspp2-klm-ahb-clk property, err = %d\n",
-			__func__, rc);
-		return NULL;
-	}
-	rc = of_property_read_string(node, "qcom,tsif-ref-clk",
-			&data->tsif_ref_clk);
-	if (rc) {
-		pr_err("%s: Could not find tsif-ref-clk property, err = %d\n",
-			__func__, rc);
-		return NULL;
-	}
-
 	/* Get IOMMU information */
 	rc = of_property_read_string(node, "qcom,iommu-hlos-group",
 					&data->hlos_group);
@@ -7705,8 +7665,6 @@ static int msm_tspp2_clocks_setup(struct platform_device *pdev,
 	unsigned long rate_in_hz = 0;
 	struct clk *tspp2_core_clk_src = NULL;
 
-	struct msm_tspp2_platform_data *data = pdev->dev.platform_data;
-
 	/* Get power regulator (GDSC) */
 	device->gdsc = devm_regulator_get(&pdev->dev, "vdd");
 	if (IS_ERR(device->gdsc)) {
@@ -7724,40 +7682,28 @@ static int msm_tspp2_clocks_setup(struct platform_device *pdev,
 	device->tspp2_klm_ahb_clk = NULL;
 	device->tsif_ref_clk = NULL;
 
-	if (data->tspp2_ahb_clk) {
-		device->tspp2_ahb_clk =
-			clk_get(&pdev->dev, data->tspp2_ahb_clk);
-		if (IS_ERR(device->tspp2_ahb_clk)) {
-			pr_err("%s: Failed to get %s",
-				__func__, data->tspp2_ahb_clk);
-			ret = PTR_ERR(device->tspp2_ahb_clk);
-			device->tspp2_ahb_clk = NULL;
-			goto err_clocks;
-		}
+	device->tspp2_ahb_clk = clk_get(&pdev->dev, "bcc_tspp2_ahb_clk");
+	if (IS_ERR(device->tspp2_ahb_clk)) {
+		pr_err("%s: Failed to get %s", __func__, "bcc_tspp2_ahb_clk");
+		ret = PTR_ERR(device->tspp2_ahb_clk);
+		device->tspp2_ahb_clk = NULL;
+		goto err_clocks;
 	}
 
-	if (data->tspp2_core_clk) {
-		device->tspp2_core_clk =
-			clk_get(&pdev->dev, data->tspp2_core_clk);
-		if (IS_ERR(device->tspp2_core_clk)) {
-			pr_err("%s: Failed to get %s",
-				__func__, data->tspp2_core_clk);
-			ret = PTR_ERR(device->tspp2_core_clk);
-			device->tspp2_core_clk = NULL;
-			goto err_clocks;
-		}
+	device->tspp2_core_clk = clk_get(&pdev->dev, "bcc_tspp2_core_clk");
+	if (IS_ERR(device->tspp2_core_clk)) {
+		pr_err("%s: Failed to get %s", __func__, "bcc_tspp2_core_clk");
+		ret = PTR_ERR(device->tspp2_core_clk);
+		device->tspp2_core_clk = NULL;
+		goto err_clocks;
 	}
 
-	if (data->tspp2_vbif_clk) {
-		device->tspp2_vbif_clk =
-			clk_get(&pdev->dev, data->tspp2_vbif_clk);
-		if (IS_ERR(device->tspp2_vbif_clk)) {
-			pr_err("%s: Failed to get %s",
-				__func__, data->tspp2_vbif_clk);
-			ret = PTR_ERR(device->tspp2_vbif_clk);
-			device->tspp2_vbif_clk = NULL;
-			goto err_clocks;
-		}
+	device->tspp2_vbif_clk = clk_get(&pdev->dev, "bcc_vbif_tspp2_clk");
+	if (IS_ERR(device->tspp2_vbif_clk)) {
+		pr_err("%s: Failed to get %s", __func__, "bcc_vbif_tspp2_clk");
+		ret = PTR_ERR(device->tspp2_vbif_clk);
+		device->tspp2_vbif_clk = NULL;
+		goto err_clocks;
 	}
 
 	device->vbif_ahb_clk = clk_get(&pdev->dev, "iface_vbif_clk");
@@ -7776,34 +7722,27 @@ static int msm_tspp2_clocks_setup(struct platform_device *pdev,
 		goto err_clocks;
 	}
 
-	if (data->tspp2_klm_ahb_clk) {
-		device->tspp2_klm_ahb_clk =
-			clk_get(&pdev->dev, data->tspp2_klm_ahb_clk);
-		if (IS_ERR(device->tspp2_klm_ahb_clk)) {
-			pr_err("%s: Failed to get %s",
-				__func__, data->tspp2_klm_ahb_clk);
-			ret = PTR_ERR(device->tspp2_klm_ahb_clk);
-			device->tspp2_klm_ahb_clk = NULL;
-			goto err_clocks;
-		}
+	device->tspp2_klm_ahb_clk = clk_get(&pdev->dev, "bcc_klm_ahb_clk");
+	if (IS_ERR(device->tspp2_klm_ahb_clk)) {
+		pr_err("%s: Failed to get %s", __func__, "bcc_klm_ahb_clk");
+		ret = PTR_ERR(device->tspp2_klm_ahb_clk);
+		device->tspp2_klm_ahb_clk = NULL;
+		goto err_clocks;
 	}
 
-	if (data->tsif_ref_clk) {
-		device->tsif_ref_clk = clk_get(&pdev->dev, data->tsif_ref_clk);
-		if (IS_ERR(device->tsif_ref_clk)) {
-			pr_err("%s: Failed to get %s",
-				__func__, data->tsif_ref_clk);
-			ret = PTR_ERR(device->tsif_ref_clk);
-			device->tsif_ref_clk = NULL;
-			goto err_clocks;
-		}
+	device->tsif_ref_clk = clk_get(&pdev->dev, "gcc_tsif_ref_clk");
+	if (IS_ERR(device->tsif_ref_clk)) {
+		pr_err("%s: Failed to get %s", __func__, "gcc_tsif_ref_clk");
+		ret = PTR_ERR(device->tsif_ref_clk);
+		device->tsif_ref_clk = NULL;
+		goto err_clocks;
 	}
 
 	/* Set relevant clock rates */
 	rate_in_hz = clk_round_rate(device->tsif_ref_clk, 1);
 	if (clk_set_rate(device->tsif_ref_clk, rate_in_hz)) {
 		pr_err("%s: Failed to set rate %lu to %s\n", __func__,
-			rate_in_hz, data->tsif_ref_clk);
+			rate_in_hz, "gcc_tsif_ref_clk");
 		goto err_clocks;
 	}
 
