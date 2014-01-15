@@ -1058,61 +1058,6 @@ int mdss_iommu_init(struct mdss_data_type *mdata)
 	return 0;
 }
 
-static int mdss_debug_stat_ctl_dump(struct mdss_mdp_ctl *ctl,
-		char *bp, int len)
-{
-	int total = 0;
-
-	if (!ctl->ref_cnt)
-		return 0;
-
-	if (ctl->intf_num) {
-		total = scnprintf(bp, len,
-			"intf%d: play: %08u \tvsync: %08u \tunderrun: %08u\n",
-				ctl->intf_num, ctl->play_cnt,
-				ctl->vsync_cnt, ctl->underrun_cnt);
-	} else {
-		total = scnprintf(bp, len, "wb: \tmode=%x \tplay: %08u\n",
-				ctl->opmode, ctl->play_cnt);
-	}
-
-	return total;
-}
-
-static int mdss_debug_dump_stats(void *data, char *buf, int len)
-{
-	struct mdss_data_type *mdata = data;
-	struct mdss_mdp_pipe *pipe;
-	int i, total = 0;
-
-	for (i = 0; i < mdata->nctl; i++)
-		total += mdss_debug_stat_ctl_dump(mdata->ctl_off + i,
-			buf + total, len - total);
-
-	total += scnprintf(buf + total, len - total, "\n");
-
-	for (i = 0; i < mdata->nvig_pipes; i++) {
-		pipe = mdata->vig_pipes + i;
-		total += scnprintf(buf + total, len - total,
-			"VIG%d :   %08u\t", i, pipe->play_cnt);
-	}
-	total += scnprintf(buf + total, len - total, "\n");
-
-	for (i = 0; i < mdata->nrgb_pipes; i++) {
-		pipe = mdata->rgb_pipes + i;
-		total += scnprintf(buf + total, len - total,
-			"RGB%d :   %08u\t", i, pipe->play_cnt);
-	}
-	total += scnprintf(buf + total, len - total, "\n");
-
-	for (i = 0; i < mdata->ndma_pipes; i++) {
-		pipe = mdata->dma_pipes + i;
-		total += scnprintf(buf + total, len - total,
-			"DMA%d :   %08u\t", i, pipe->play_cnt);
-	}
-	return total;
-}
-
 static void mdss_debug_enable_clock(int on)
 {
 	if (on)
@@ -1125,7 +1070,6 @@ static int mdss_mdp_debug_init(struct mdss_data_type *mdata)
 {
 	int rc;
 
-	mdata->debug_inf.debug_dump_stats = mdss_debug_dump_stats;
 	mdata->debug_inf.debug_enable_clock = mdss_debug_enable_clock;
 
 	rc = mdss_debugfs_init(mdata);
