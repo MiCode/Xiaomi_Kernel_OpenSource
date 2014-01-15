@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,7 +42,7 @@ static const char *resource_name_to_str[IPA_RM_RESOURCE_MAX] = {
 struct ipa_rm_context_type {
 	struct ipa_rm_dep_graph *dep_graph;
 	struct workqueue_struct *ipa_rm_wq;
-	rwlock_t lock;
+	spinlock_t ipa_rm_lock;
 };
 static struct ipa_rm_context_type *ipa_rm_ctx;
 
@@ -54,8 +54,8 @@ static struct ipa_rm_context_type *ipa_rm_ctx;
  * Returns: 0 on success, negative on failure
  *
  * This function is called by IPA RM client to initialize client's resources.
- * This API should be called before any other IPA RM API
- * on given resource name.
+ * This API should be called before any other IPA RM API on a given resource
+ * name.
  *
  */
 int ipa_rm_create_resource(struct ipa_rm_create_params *create_params)
@@ -69,7 +69,7 @@ int ipa_rm_create_resource(struct ipa_rm_create_params *create_params)
 	}
 	IPA_RM_DBG("%s\n", ipa_rm_resource_str(create_params->name));
 
-	write_lock(&ipa_rm_ctx->lock);
+	spin_lock(&ipa_rm_ctx->ipa_rm_lock);
 	if (ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
 					  create_params->name,
 					  &resource) == 0) {
@@ -90,7 +90,7 @@ int ipa_rm_create_resource(struct ipa_rm_create_params *create_params)
 		goto bail;
 	}
 bail:
-	write_unlock(&ipa_rm_ctx->lock);
+	spin_unlock(&ipa_rm_ctx->ipa_rm_lock);
 	IPA_RM_DBG("EXIT with %d\n", result);
 
 	return result;
@@ -112,7 +112,7 @@ int ipa_rm_delete_resource(enum ipa_rm_resource_name resource_name)
 	int result;
 
 	IPA_RM_DBG("%s\n", ipa_rm_resource_str(resource_name));
-	write_lock(&ipa_rm_ctx->lock);
+	spin_lock(&ipa_rm_ctx->ipa_rm_lock);
 	if (ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
 					resource_name,
 						&resource) != 0) {
@@ -132,7 +132,7 @@ int ipa_rm_delete_resource(enum ipa_rm_resource_name resource_name)
 		goto bail;
 	}
 bail:
-	write_unlock(&ipa_rm_ctx->lock);
+	spin_unlock(&ipa_rm_ctx->ipa_rm_lock);
 	IPA_RM_DBG("EXIT with %d\n", result);
 
 	return result;
@@ -157,12 +157,12 @@ int ipa_rm_add_dependency(enum ipa_rm_resource_name resource_name,
 
 	IPA_RM_DBG("%s -> %s\n", ipa_rm_resource_str(resource_name),
 				 ipa_rm_resource_str(depends_on_name));
-	write_lock(&ipa_rm_ctx->lock);
+	spin_lock(&ipa_rm_ctx->ipa_rm_lock);
 	result = ipa_rm_dep_graph_add_dependency(
 						ipa_rm_ctx->dep_graph,
 						resource_name,
 						depends_on_name);
-	write_unlock(&ipa_rm_ctx->lock);
+	spin_unlock(&ipa_rm_ctx->ipa_rm_lock);
 	IPA_RM_DBG("EXIT with %d\n", result);
 
 	return result;
@@ -188,12 +188,12 @@ int ipa_rm_delete_dependency(enum ipa_rm_resource_name resource_name,
 
 	IPA_RM_DBG("%s -> %s\n", ipa_rm_resource_str(resource_name),
 				 ipa_rm_resource_str(depends_on_name));
-	write_lock(&ipa_rm_ctx->lock);
+	spin_lock(&ipa_rm_ctx->ipa_rm_lock);
 	result = ipa_rm_dep_graph_delete_dependency(
 			  ipa_rm_ctx->dep_graph,
 			  resource_name,
 			  depends_on_name);
-	write_unlock(&ipa_rm_ctx->lock);
+	spin_unlock(&ipa_rm_ctx->ipa_rm_lock);
 	IPA_RM_DBG("EXIT with %d\n", result);
 
 	return result;
@@ -218,7 +218,7 @@ int ipa_rm_request_resource(enum ipa_rm_resource_name resource_name)
 		IPA_RM_ERR("can be called on PROD only\n");
 		return -EINVAL;
 	}
-	read_lock(&ipa_rm_ctx->lock);
+	spin_lock(&ipa_rm_ctx->ipa_rm_lock);
 	if (ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
 			resource_name,
 			&resource) != 0) {
@@ -230,7 +230,7 @@ int ipa_rm_request_resource(enum ipa_rm_resource_name resource_name)
 			(struct ipa_rm_resource_prod *)resource);
 
 bail:
-	read_unlock(&ipa_rm_ctx->lock);
+	spin_unlock(&ipa_rm_ctx->ipa_rm_lock);
 
 	return result;
 }
@@ -254,7 +254,7 @@ int ipa_rm_release_resource(enum ipa_rm_resource_name resource_name)
 		IPA_RM_ERR("can be called on PROD only\n");
 		return -EINVAL;
 	}
-	read_lock(&ipa_rm_ctx->lock);
+	spin_lock(&ipa_rm_ctx->ipa_rm_lock);
 	if (ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
 					  resource_name,
 					  &resource) != 0) {
@@ -266,7 +266,7 @@ int ipa_rm_release_resource(enum ipa_rm_resource_name resource_name)
 		    (struct ipa_rm_resource_prod *)resource);
 
 bail:
-	read_unlock(&ipa_rm_ctx->lock);
+	spin_unlock(&ipa_rm_ctx->ipa_rm_lock);
 
 	return result;
 }
@@ -294,7 +294,7 @@ int ipa_rm_register(enum ipa_rm_resource_name resource_name,
 		IPA_RM_ERR("can be called on PROD only\n");
 		return -EINVAL;
 	}
-	read_lock(&ipa_rm_ctx->lock);
+	spin_lock(&ipa_rm_ctx->ipa_rm_lock);
 	if (ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
 				resource_name,
 				&resource) != 0) {
@@ -307,7 +307,7 @@ int ipa_rm_register(enum ipa_rm_resource_name resource_name,
 			reg_params,
 			true);
 bail:
-	read_unlock(&ipa_rm_ctx->lock);
+	spin_unlock(&ipa_rm_ctx->ipa_rm_lock);
 	IPA_RM_DBG("EXIT with %d\n", result);
 
 	return result;
@@ -336,7 +336,7 @@ int ipa_rm_deregister(enum ipa_rm_resource_name resource_name,
 		IPA_RM_ERR("can be called on PROD only\n");
 		return -EINVAL;
 	}
-	read_lock(&ipa_rm_ctx->lock);
+	spin_lock(&ipa_rm_ctx->ipa_rm_lock);
 	if (ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
 			resource_name,
 			&resource) != 0) {
@@ -348,7 +348,7 @@ int ipa_rm_deregister(enum ipa_rm_resource_name resource_name,
 			(struct ipa_rm_resource_prod *)resource,
 			reg_params);
 bail:
-	read_unlock(&ipa_rm_ctx->lock);
+	spin_unlock(&ipa_rm_ctx->ipa_rm_lock);
 	IPA_RM_DBG("EXIT with %d\n", result);
 
 	return result;
@@ -407,35 +407,35 @@ static void ipa_rm_wq_handler(struct work_struct *work)
 			IPA_RM_ERR("resource is not PROD\n");
 			return;
 		}
-		read_lock(&ipa_rm_ctx->lock);
+		spin_lock(&ipa_rm_ctx->ipa_rm_lock);
 		if (ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
 						ipa_rm_work->resource_name,
 						&resource) != 0){
 			IPA_RM_ERR("resource does not exists\n");
-			read_unlock(&ipa_rm_ctx->lock);
+			spin_unlock(&ipa_rm_ctx->ipa_rm_lock);
 			return;
 		}
 		ipa_rm_resource_producer_notify_clients(
 				(struct ipa_rm_resource_prod *)resource,
 				ipa_rm_work->event,
 				ipa_rm_work->notify_registered_only);
-		read_unlock(&ipa_rm_ctx->lock);
+		spin_unlock(&ipa_rm_ctx->ipa_rm_lock);
 		break;
 	case IPA_RM_WQ_NOTIFY_CONS:
 		break;
 	case IPA_RM_WQ_RESOURCE_CB:
-		read_lock(&ipa_rm_ctx->lock);
+		spin_lock(&ipa_rm_ctx->ipa_rm_lock);
 		if (ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
 						ipa_rm_work->resource_name,
 						&resource) != 0){
 			IPA_RM_ERR("resource does not exists\n");
-			read_unlock(&ipa_rm_ctx->lock);
+			spin_unlock(&ipa_rm_ctx->ipa_rm_lock);
 			return;
 		}
 		ipa_rm_resource_consumer_handle_cb(
 				(struct ipa_rm_resource_cons *)resource,
 				ipa_rm_work->event);
-		read_unlock(&ipa_rm_ctx->lock);
+		spin_unlock(&ipa_rm_ctx->ipa_rm_lock);
 		break;
 	default:
 		break;
@@ -501,7 +501,7 @@ int ipa_rm_initialize(void)
 		IPA_RM_ERR("create dependency graph failed\n");
 		goto graph_alloc_fail;
 	}
-	rwlock_init(&ipa_rm_ctx->lock);
+	spin_lock_init(&ipa_rm_ctx->ipa_rm_lock);
 	IPA_RM_DBG("SUCCESS\n");
 
 	return 0;
@@ -531,7 +531,7 @@ int ipa_rm_stat(char *buf, int size)
 	if (!buf || size < 0)
 		goto bail;
 
-	read_lock(&ipa_rm_ctx->lock);
+	spin_lock(&ipa_rm_ctx->ipa_rm_lock);
 	for (i = 0; i < IPA_RM_RESOURCE_PROD_MAX; ++i) {
 		result = ipa_rm_dep_graph_get_resource(
 				ipa_rm_ctx->dep_graph,
@@ -548,7 +548,7 @@ int ipa_rm_stat(char *buf, int size)
 	}
 	result = cnt;
 bail:
-	read_unlock(&ipa_rm_ctx->lock);
+	spin_unlock(&ipa_rm_ctx->ipa_rm_lock);
 
 	return result;
 }

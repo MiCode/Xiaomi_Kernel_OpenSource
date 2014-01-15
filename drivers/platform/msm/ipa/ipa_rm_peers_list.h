@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,13 +21,11 @@
  *          in case of producer or list of dependencies in case of consumer
  * @max_peers: maximum number of peers for this resource
  * @peers_count: actual number of peers for this resource
- * @peers_lock: RW lock for peers container
  */
 struct ipa_rm_peers_list {
 	struct ipa_rm_resource		**peers;
 	int				max_peers;
 	int				peers_count;
-	rwlock_t			peers_lock;
 };
 
 int ipa_rm_peers_list_create(int max_peers,

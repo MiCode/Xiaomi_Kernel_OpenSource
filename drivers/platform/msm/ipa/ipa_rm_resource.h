@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,14 +52,12 @@ struct ipa_rm_notification_info {
  * struct ipa_rm_resource - IPA RM resource
  * @name: name identifying resource
  * @state: state of the resource
- * @state_lock: lock for all resource state related variables
  * @peers_list: list of the peers of the resource
  */
 struct ipa_rm_resource {
 	enum ipa_rm_resource_name	name;
 	enum ipa_rm_resource_type	type;
 	enum ipa_rm_resource_state	state;
-	spinlock_t			state_lock;
 	struct ipa_rm_peers_list	*peers_list;
 };
 
@@ -86,13 +84,11 @@ struct ipa_rm_resource_cons {
  * @resource: resource
  * @event_listeners: clients registered with this producer
  *		for notifications in resource state
- * @event_listeners_lock: RW lock protecting the event listeners list
- * Add new fields after @resource only.
+ * list Add new fields after @resource only.
  */
 struct ipa_rm_resource_prod {
 	struct ipa_rm_resource	resource;
 	struct list_head	event_listeners;
-	rwlock_t		event_listeners_lock;
 	int			pending_request;
 	int			pending_release;
 };
