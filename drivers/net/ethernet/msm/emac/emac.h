@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -193,6 +193,7 @@ struct emac_hw {
 	/* PHY parameter */
 	u32             phy_addr;
 	u16             phy_id[2];
+	bool            autoneg;
 	u32             autoneg_advertised;
 	u32             link_speed;
 	bool            link_up;
@@ -676,5 +677,7 @@ extern void emac_set_ethtool_ops(struct net_device *netdev);
 extern void emac_reinit_locked(struct emac_adapter *adpt);
 extern void emac_update_hw_stats(struct emac_adapter *adpt);
 extern int emac_resize_rings(struct net_device *netdev);
+extern int emac_up(struct emac_adapter *adpt);
+extern void emac_down(struct emac_adapter *adpt, u32 ctrl);
 
 #endif /* _MSM_EMAC_H_ */

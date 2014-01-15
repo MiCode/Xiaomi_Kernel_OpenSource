@@ -89,13 +89,17 @@ static int emac_get_settings(struct net_device *netdev,
 			   SUPPORTED_TP);
 
 	ecmd->advertising = ADVERTISED_TP;
-	ecmd->advertising |= ADVERTISED_Autoneg;
-	ecmd->advertising |= hw->autoneg_advertised;
+	if (hw->autoneg) {
+		ecmd->advertising |= ADVERTISED_Autoneg;
+		ecmd->advertising |= hw->autoneg_advertised;
+		ecmd->autoneg = AUTONEG_ENABLE;
+	} else {
+		ecmd->autoneg = AUTONEG_DISABLE;
+	}
 
 	ecmd->port = PORT_TP;
 	ecmd->phy_address = hw->phy_addr;
 	ecmd->transceiver = XCVR_INTERNAL;
-	ecmd->autoneg = AUTONEG_ENABLE;
 
 	if (hw->link_up) {
 		switch (hw->link_speed) {
@@ -176,18 +180,28 @@ static int emac_set_settings(struct net_device *netdev,
 		}
 	}
 
-	if (hw->autoneg_advertised == advertised) {
-		CLI_ADPT_FLAG(STATE_RESETTING);
-		return retval;
-	}
+	if ((hw->autoneg == autoneg) && (hw->autoneg_advertised == advertised))
+		goto done;
 
 	retval = emac_setup_phy_link_speed(hw, advertised, autoneg,
 					   !hw->disable_fc_autoneg);
 	if (retval) {
-		retval = emac_setup_phy_link_speed(hw, old, autoneg,
-						   !hw->disable_fc_autoneg);
+		emac_setup_phy_link_speed(hw, old, autoneg,
+					  !hw->disable_fc_autoneg);
 	}
 
+	if (netif_running(adpt->netdev)) {
+		/* If there is no EPHY, the EMAC internal PHY may get reset in
+		 * emac_setup_phy_link_speed. Reset the MAC to avoid the memory
+		 * corruption.
+		 */
+		if (adpt->no_ephy) {
+			emac_down(adpt, EMAC_HW_CTRL_RESET_MAC);
+			emac_up(adpt);
+		}
+	}
+
+done:
 	CLI_ADPT_FLAG(STATE_RESETTING);
 	return retval;
 }

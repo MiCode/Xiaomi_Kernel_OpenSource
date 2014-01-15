@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +33,9 @@
 #define SGMII_25M_CLK_RATE	25000000
 #define SGMII_TX_CLK_RATE	125000000
 #define SGMII_CXO_CLK_RATE	19200000
+
+static int emac_hw_sgmii_setup_link(struct emac_hw *hw, u32 speed,
+				    bool autoneg, bool fc);
 
 /* REG */
 u32 emac_reg_r32(struct emac_hw *hw, u8 base, u32 reg)
@@ -280,6 +283,8 @@ int emac_hw_init_sgmii(struct emac_hw *hw)
 {
 	int i;
 
+	emac_hw_sgmii_setup_link(hw, hw->autoneg_advertised,
+				 hw->autoneg, !hw->disable_fc_autoneg);
 	/* PCS programming */
 	emac_reg_w32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_CDR_CTRL0,
 		     SGMII_CDR_MAX_CNT);
@@ -434,6 +439,7 @@ int emac_hw_init_phy(struct emac_hw *hw)
 		emac_disable_mdio_autopoll(hw);
 	}
 
+	hw->autoneg = true;
 	hw->autoneg_advertised = EMAC_LINK_SPEED_DEFAULT;
 
 	if (hw->adpt->phy_mode == PHY_INTERFACE_MODE_SGMII)
@@ -453,6 +459,7 @@ static int emac_hw_sgmii_setup_link(struct emac_hw *hw, u32 speed,
 				    bool autoneg, bool fc)
 {
 	u32 val;
+	u32 speed_cfg = 0;
 
 	val = emac_reg_r32(hw, EMAC_SGMII_PHY, EMAC_SGMII_PHY_AUTONEG_CFG2);
 
@@ -463,9 +470,31 @@ static int emac_hw_sgmii_setup_link(struct emac_hw *hw, u32 speed,
 			     EMAC_SGMII_PHY_AUTONEG_CFG2, val);
 		wmb();
 	} else {
-		emac_warn(hw->adpt, hw,
-			  "No support to turn off SGMII-autoneg\n");
-		return -ENOTSUPP;
+		switch (speed) {
+		case EMAC_LINK_SPEED_10_HALF:
+			speed_cfg = SPDMODE_10;
+			break;
+		case EMAC_LINK_SPEED_10_FULL:
+			speed_cfg = SPDMODE_10 | DUPLEX_MODE;
+			break;
+		case EMAC_LINK_SPEED_100_HALF:
+			speed_cfg = SPDMODE_100;
+			break;
+		case EMAC_LINK_SPEED_100_FULL:
+			speed_cfg = SPDMODE_100 | DUPLEX_MODE;
+			break;
+		case EMAC_LINK_SPEED_1GB_FULL:
+			speed_cfg = SPDMODE_1000 | DUPLEX_MODE;
+			break;
+		default:
+			return -EINVAL;
+		}
+		val &= ~AN_ENABLE;
+		emac_reg_w32(hw, EMAC_SGMII_PHY,
+			     EMAC_SGMII_PHY_SPEED_CFG1, speed_cfg);
+		emac_reg_w32(hw, EMAC_SGMII_PHY,
+			     EMAC_SGMII_PHY_AUTONEG_CFG2, val);
+		wmb();
 	}
 
 	return 0;
@@ -535,7 +564,12 @@ int emac_setup_phy_link(struct emac_hw *hw, u32 speed, bool autoneg, bool fc)
 
 	if (hw->adpt->no_ephy == true) {
 		if (hw->adpt->phy_mode == PHY_INTERFACE_MODE_SGMII) {
-			return emac_hw_sgmii_setup_link(hw, speed, autoneg, fc);
+			hw->autoneg = autoneg;
+			hw->autoneg_advertised = speed;
+			/* The AN_ENABLE and SPEED_CFG can't change on fly.
+			   The SGMII_PHY has to be re-initialized.
+			 */
+			return emac_hw_reset_sgmii(hw);
 		} else {
 			emac_err(hw->adpt,
 				 "can't setup phy link without ephy\n");
@@ -546,6 +580,8 @@ int emac_setup_phy_link(struct emac_hw *hw, u32 speed, bool autoneg, bool fc)
 	if (emac_hw_setup_phy_link(hw, speed, autoneg, fc)) {
 		emac_err(hw->adpt, "error when init phy speed and fc\n");
 		retval = -EINVAL;
+	} else {
+		hw->autoneg = autoneg;
 	}
 
 	return retval;
@@ -554,7 +590,7 @@ int emac_setup_phy_link(struct emac_hw *hw, u32 speed, bool autoneg, bool fc)
 int emac_setup_phy_link_speed(struct emac_hw *hw, u32 speed,
 			      bool autoneg, bool fc)
 {
-	/* update autoneg_advertised based on input link speed */
+	/* update speed based on input link speed */
 	hw->autoneg_advertised = speed & EMAC_LINK_SPEED_DEFAULT;
 	return emac_setup_phy_link(hw, hw->autoneg_advertised, autoneg, fc);
 }

@@ -59,8 +59,6 @@ static int msm_emac_intr_ext;
 module_param_named(intr_ext, msm_emac_intr_ext, int,
 		   S_IRUGO | S_IWUSR | S_IWGRP);
 
-static int emac_up(struct emac_adapter *adpt);
-static void emac_down(struct emac_adapter *adpt, u32 ctrl);
 static irqreturn_t emac_interrupt(int irq, void *data);
 static irqreturn_t emac_sgmii_interrupt(int irq, void *data);
 static irqreturn_t emac_wol_interrupt(int irq, void *data);
@@ -1451,7 +1449,7 @@ static int emac_change_mtu(struct net_device *netdev, int new_mtu)
 }
 
 /* Bringup the interface/HW */
-static int emac_up(struct emac_adapter *adpt)
+int emac_up(struct emac_adapter *adpt)
 {
 	struct emac_hw *hw = &adpt->hw;
 	struct net_device *netdev = adpt->netdev;
@@ -1520,7 +1518,7 @@ err_request_gpio:
 }
 
 /* Bring down the interface/HW */
-static void emac_down(struct emac_adapter *adpt, u32 ctrl)
+void emac_down(struct emac_adapter *adpt, u32 ctrl)
 {
 	struct net_device *netdev = adpt->netdev;
 	struct emac_hw *hw = &adpt->hw;
