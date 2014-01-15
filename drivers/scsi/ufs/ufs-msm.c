@@ -44,7 +44,7 @@
 #define UFS_MSM_LIMIT_HS_RATE		PA_HS_MODE_B
 #define UFS_MSM_LIMIT_DESIRED_MODE	FAST
 
-static struct msm_ufs_phy_calibration phy_cal_table_rate_A[] = {
+static struct msm_ufs_phy_calibration phy_cal_table_ctrl_1_1_0_rate_A[] = {
 	{
 		.cfg_value = 0x01,
 		.reg_offset = UFS_PHY_POWER_DOWN_CONTROL,
@@ -651,6 +651,621 @@ static struct msm_ufs_phy_calibration phy_cal_table_rate_A[] = {
 	},
 };
 
+static struct msm_ufs_phy_calibration phy_cal_table_ctrl_1_1_1_rate_A[] = {
+	{
+		.cfg_value = 0x01,
+		.reg_offset = UFS_PHY_POWER_DOWN_CONTROL,
+	},
+	{
+		.cfg_value = 0x43,
+		.reg_offset = QSERDES_COM_PLL_CRCTRL,
+	},
+	{
+		.cfg_value = 0x24,
+		.reg_offset = QSERDES_COM_PLL_CNTRL,
+	},
+	{
+		.cfg_value = 0x08,
+		.reg_offset = QSERDES_COM_SYSCLK_EN_SEL,
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_COM_SYS_CLK_CTRL,
+	},
+	{
+		.cfg_value = 0x03,
+		.reg_offset = QSERDES_COM_PLL_CLKEPDIV,
+	},
+	{
+		.cfg_value = 0x82,
+		.reg_offset = QSERDES_COM_DEC_START1,
+	},
+	{
+		.cfg_value = 0x03,
+		.reg_offset = QSERDES_COM_DEC_START2,
+	},
+	{
+		.cfg_value = 0x80,
+		.reg_offset = QSERDES_COM_DIV_FRAC_START1,
+	},
+	{
+		.cfg_value = 0x80,
+		.reg_offset = QSERDES_COM_DIV_FRAC_START2,
+	},
+	{
+		.cfg_value = 0x10,
+		.reg_offset = QSERDES_COM_DIV_FRAC_START3,
+	},
+	{
+		.cfg_value = 0xff,
+		.reg_offset = QSERDES_COM_PLLLOCK_CMP1,
+	},
+	{
+		.cfg_value = 0x19,
+		.reg_offset = QSERDES_COM_PLLLOCK_CMP2,
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_COM_PLLLOCK_CMP3,
+	},
+	{
+		.cfg_value = 0x03,
+		.reg_offset = QSERDES_COM_PLLLOCK_CMP_EN,
+	},
+	{
+		.cfg_value = 0x10,
+		.reg_offset = QSERDES_COM_RESETSM_CNTRL,
+	},
+	{
+		.cfg_value = 0x10,
+		.reg_offset = QSERDES_COM_PLL_RXTXEPCLK_EN,
+	},
+	{
+		.cfg_value = 0x43,
+		.reg_offset = QSERDES_RX_PWM_CNTRL1(0),
+	},
+	{
+		.cfg_value = 0x43,
+		.reg_offset = QSERDES_RX_PWM_CNTRL1(1),
+	},
+	{
+		.cfg_value = 0x40,
+		.reg_offset = QSERDES_RX_CDR_CONTROL(0),
+	},
+	{
+		.cfg_value = 0x0c,
+		.reg_offset = QSERDES_RX_CDR_CONTROL_HALF(0),
+	},
+	{
+		.cfg_value = 0x12,
+		.reg_offset = QSERDES_RX_CDR_CONTROL_QUARTER(0),
+	},
+	{
+		.cfg_value = 0x40,
+		.reg_offset = QSERDES_RX_CDR_CONTROL(1),
+	},
+	{
+		.cfg_value = 0x0c,
+		.reg_offset = QSERDES_RX_CDR_CONTROL_HALF(1),
+	},
+	{
+		.cfg_value = 0x12,
+		.reg_offset = QSERDES_RX_CDR_CONTROL_QUARTER(1),
+	},
+	{
+		.cfg_value = 0xC0,
+		.reg_offset = QSERDES_RX_SIGDET_CNTRL(0),
+	},
+	{
+		.cfg_value = 0xC0,
+		.reg_offset = QSERDES_RX_SIGDET_CNTRL(1),
+	},
+	{
+		.cfg_value = 0x07,
+		.reg_offset = QSERDES_RX_SIGDET_CNTRL2(0),
+	},
+	{
+		.cfg_value = 0x07,
+		.reg_offset = QSERDES_RX_SIGDET_CNTRL2(1),
+	},
+	{
+		.cfg_value = 0x30,
+		.reg_offset = UFS_PHY_PWM_G1_CLK_DIVIDER,
+	},
+	{
+		.cfg_value = 0x18,
+		.reg_offset = UFS_PHY_PWM_G2_CLK_DIVIDER,
+	},
+	{
+		.cfg_value = 0x0c,
+		.reg_offset = UFS_PHY_PWM_G3_CLK_DIVIDER,
+	},
+	{
+		.cfg_value = 0x06,
+		.reg_offset = UFS_PHY_PWM_G4_CLK_DIVIDER,
+	},
+	{
+		.cfg_value = 0xa8,
+		.reg_offset = UFS_PHY_CORECLK_PWM_G1_CLK_DIVIDER,
+	},
+	{
+		.cfg_value = 0x54,
+		.reg_offset = UFS_PHY_CORECLK_PWM_G2_CLK_DIVIDER,
+	},
+	{
+		.cfg_value = 0x2a,
+		.reg_offset = UFS_PHY_CORECLK_PWM_G3_CLK_DIVIDER,
+	},
+	{
+		.cfg_value = 0x15,
+		.reg_offset = UFS_PHY_CORECLK_PWM_G4_CLK_DIVIDER,
+	},
+	{
+		.cfg_value = 0xff,
+		.reg_offset = UFS_PHY_OMC_STATUS_RDVAL,
+	},
+	{
+		.cfg_value = 0x1f,
+		.reg_offset = UFS_PHY_LINE_RESET_TIME,
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = UFS_PHY_LINE_RESET_GRANULARITY,
+	},
+	{
+		.cfg_value = 0x03,
+		.reg_offset = UFS_PHY_TSYNC_RSYNC_CNTL,
+	},
+	{
+		.cfg_value = 0x01,
+		.reg_offset = UFS_PHY_PLL_CNTL,
+	},
+	{
+		.cfg_value = 0x0f,
+		.reg_offset = UFS_PHY_TX_LARGE_AMP_DRV_LVL,
+	},
+	{
+		.cfg_value = 0x1a,
+		.reg_offset = UFS_PHY_TX_SMALL_AMP_DRV_LVL,
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = UFS_PHY_TX_LARGE_AMP_POST_EMP_LVL,
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = UFS_PHY_TX_SMALL_AMP_POST_EMP_LVL,
+	},
+	{
+		.cfg_value = 0x09,
+		.reg_offset = UFS_PHY_CFG_CHANGE_CNT_VAL,
+	},
+	{
+		.cfg_value = 0x30,
+		.reg_offset = UFS_PHY_RX_SYNC_WAIT_TIME,
+	},
+	{
+		.cfg_value = 0x01,
+		.reg_offset = UFS_PHY_TX_MIN_SLEEP_NOCONFIG_TIME_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x08,
+		.reg_offset = UFS_PHY_RX_MIN_SLEEP_NOCONFIG_TIME_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x01,
+		.reg_offset = UFS_PHY_TX_MIN_STALL_NOCONFIG_TIME_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x0f,
+		.reg_offset = UFS_PHY_RX_MIN_STALL_NOCONFIG_TIME_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x04,
+		.reg_offset = UFS_PHY_TX_MIN_SAVE_CONFIG_TIME_CAPABILITY,
+	},
+	{
+		.cfg_value = 0xc8,
+		.reg_offset = UFS_PHY_RX_MIN_SAVE_CONFIG_TIME_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x10,
+		.reg_offset = UFS_PHY_RX_PWM_BURST_CLOSURE_LENGTH_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x01,
+		.reg_offset = UFS_PHY_RX_MIN_ACTIVATETIME_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x1f,
+		.reg_offset = QSERDES_RX_RX_EQ_GAIN1(0),
+	},
+	{
+		.cfg_value = 0x17,
+		.reg_offset = QSERDES_RX_RX_EQ_GAIN2(0),
+	},
+	{
+		.cfg_value = 0x1f,
+		.reg_offset = QSERDES_RX_RX_EQ_GAIN1(1),
+	},
+	{
+		.cfg_value = 0x17,
+		.reg_offset = QSERDES_RX_RX_EQ_GAIN2(1),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_RX_CDR_CONTROL3(0),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_RX_CDR_CONTROL3(1),
+	},
+	{
+		.cfg_value = 0x07,
+		.reg_offset = QSERDES_COM_PLL_IP_SETI,
+	},
+	{
+		.cfg_value = 0x0f,
+		.reg_offset = QSERDES_COM_PLL_CP_SETI,
+	},
+	{
+		.cfg_value = 0x07,
+		.reg_offset = QSERDES_COM_PLL_IP_SETP,
+	},
+	{
+		.cfg_value = 0x01,
+		.reg_offset = QSERDES_COM_PLL_CP_SETP,
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_COM_RES_TRIM_OFFSET,
+	},
+	{
+		.cfg_value = 0x0f,
+		.reg_offset = QSERDES_COM_BGTC,
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_COM_PLL_AMP_OS,
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_TX_TX_DRV_LVL(0),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_TX_TX_DRV_LVL(1),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_TX_BIST_MODE_LANENO(0),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_TX_BIST_MODE_LANENO(1),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_TX_TX_EMP_POST1_LVL(0),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_TX_TX_EMP_POST1_LVL(1),
+	},
+	{
+		.cfg_value = 0x05,
+		.reg_offset = QSERDES_TX_HIGHZ_TRANSCEIVEREN_BIAS_EN(0),
+	},
+	{
+		.cfg_value = 0x05,
+		.reg_offset = QSERDES_TX_HIGHZ_TRANSCEIVEREN_BIAS_EN(1),
+	},
+	{
+		.cfg_value = 0x07,
+		.reg_offset = UFS_PHY_TIMER_100US_SYSCLK_STEPS_MSB,
+	},
+	{
+		.cfg_value = 0x80,
+		.reg_offset = UFS_PHY_TIMER_100US_SYSCLK_STEPS_LSB,
+	},
+	{
+		.cfg_value = 0x27,
+		.reg_offset = UFS_PHY_TIMER_20US_CORECLK_STEPS_MSB,
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = UFS_PHY_TIMER_20US_CORECLK_STEPS_LSB,
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = UFS_PHY_CONTROLSYM_ONE_HOT_DISABLE,
+	},
+	{
+		.cfg_value = 0x01,
+		.reg_offset = UFS_PHY_RETIME_BUFFER_EN,
+	},
+	{
+		.cfg_value = 0x03,
+		.reg_offset = UFS_PHY_TX_HSGEAR_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x04,
+		.reg_offset = UFS_PHY_TX_PWMGEAR_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x03,
+		.reg_offset = UFS_PHY_TX_AMPLITUDE_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x01,
+		.reg_offset = UFS_PHY_TX_EXTERNALSYNC_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x01,
+		.reg_offset = UFS_PHY_TX_HS_UNTERMINATED_LINE_DRIVE_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x01,
+		.reg_offset = UFS_PHY_TX_LS_TERMINATED_LINE_DRIVE_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x01,
+		.reg_offset = UFS_PHY_TX_REF_CLOCK_SHARED_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x01,
+		.reg_offset = UFS_PHY_TX_HIBERN8TIME_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x03,
+		.reg_offset = UFS_PHY_RX_HSGEAR_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x04,
+		.reg_offset = UFS_PHY_RX_PWMGEAR_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x01,
+		.reg_offset = UFS_PHY_RX_HS_UNTERMINATED_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x01,
+		.reg_offset = UFS_PHY_RX_LS_TERMINATED_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x01,
+		.reg_offset = UFS_PHY_RX_REF_CLOCK_SHARED_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x48,
+		.reg_offset = UFS_PHY_RX_HS_G1_SYNC_LENGTH_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x0f,
+		.reg_offset = UFS_PHY_RX_HS_G1_PREPARE_LENGTH_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x0a,
+		.reg_offset = UFS_PHY_RX_LS_PREPARE_LENGTH_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x01,
+		.reg_offset = UFS_PHY_RX_HIBERN8TIME_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x48,
+		.reg_offset = UFS_PHY_RX_HS_G2_SYNC_LENGTH_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x48,
+		.reg_offset = UFS_PHY_RX_HS_G3_SYNC_LENGTH_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x0f,
+		.reg_offset = UFS_PHY_RX_HS_G2_PREPARE_LENGTH_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x0f,
+		.reg_offset = UFS_PHY_RX_HS_G3_PREPARE_LENGTH_CAPABILITY,
+	},
+	{
+		.cfg_value = 0x09,
+		.reg_offset = QSERDES_TX_CLKBUF_ENABLE(0),
+	},
+	{
+		.cfg_value = 0x01,
+		.reg_offset = QSERDES_TX_RESET_TSYNC_EN(0),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_TX_RES_CODE(0),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_TX_SERDES_BYP_EN_OUT(0),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_TX_REC_DETECT_LVL(0),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_TX_PARRATE_REC_DETECT_IDLE_EN(0),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_TX_TRAN_DRVR_EMP_EN(0),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_RX_AUX_CONTROL(0),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_RX_AUX_DATA_TCODE(0),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_RX_RCLK_AUXDATA_SEL(0),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_RX_EQ_CONTROL(0),
+	},
+	{
+		.cfg_value = 0x51,
+		.reg_offset = QSERDES_RX_RX_IQ_RXDET_EN(0),
+	},
+	{
+		.cfg_value = 0x05,
+		.reg_offset = QSERDES_RX_RX_TERM_HIGHZ_CM_AC_COUPLE(0),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_RX_CDR_FREEZE_UP_DN(0),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_RX_UFS_CNTRL(0),
+	},
+	{
+		.cfg_value = 0x22,
+		.reg_offset = QSERDES_RX_CDR_CONTROL_EIGHTH(0),
+	},
+	{
+		.cfg_value = 0x0a,
+		.reg_offset = QSERDES_RX_UCDR_FO_GAIN(0),
+	},
+	{
+		.cfg_value = 0x06,
+		.reg_offset = QSERDES_RX_UCDR_SO_GAIN(0),
+	},
+	{
+		.cfg_value = 0x35,
+		.reg_offset = QSERDES_RX_UCDR_SO_SATURATION_AND_ENABLE(0),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_RX_UCDR_FO_TO_SO_DELAY(0),
+	},
+	{
+		.cfg_value = 0x09,
+		.reg_offset = QSERDES_TX_CLKBUF_ENABLE(1),
+	},
+	{
+		.cfg_value = 0x01,
+		.reg_offset = QSERDES_TX_RESET_TSYNC_EN(1),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_TX_RES_CODE(1),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_TX_SERDES_BYP_EN_OUT(1),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_TX_REC_DETECT_LVL(1),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_TX_PARRATE_REC_DETECT_IDLE_EN(1),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_TX_TRAN_DRVR_EMP_EN(1),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_RX_AUX_CONTROL(1),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_RX_AUX_DATA_TCODE(1),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_RX_RCLK_AUXDATA_SEL(1),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_RX_EQ_CONTROL(1),
+	},
+	{
+		.cfg_value = 0x51,
+		.reg_offset = QSERDES_RX_RX_IQ_RXDET_EN(1),
+	},
+	{
+		.cfg_value = 0x05,
+		.reg_offset = QSERDES_RX_RX_TERM_HIGHZ_CM_AC_COUPLE(1),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_RX_CDR_FREEZE_UP_DN(1),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_RX_UFS_CNTRL(1),
+	},
+	{
+		.cfg_value = 0x22,
+		.reg_offset = QSERDES_RX_CDR_CONTROL_EIGHTH(1),
+	},
+	{
+		.cfg_value = 0x0a,
+		.reg_offset = QSERDES_RX_UCDR_FO_GAIN(1),
+	},
+	{
+		.cfg_value = 0x06,
+		.reg_offset = QSERDES_RX_UCDR_SO_GAIN(1),
+	},
+	{
+		.cfg_value = 0x35,
+		.reg_offset = QSERDES_RX_UCDR_SO_SATURATION_AND_ENABLE(1),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_RX_UCDR_FO_TO_SO_DELAY(1),
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_COM_CMN_MODE,
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_COM_IE_TRIM,
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_COM_IP_TRIM,
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_COM_CORE_CLK_IN_SYNC_SEL,
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_COM_BIAS_EN_CLKBUFLR_EN,
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_COM_PLL_TEST_UPDN_RESTRIMSTEP,
+	},
+	{
+		.cfg_value = 0x00,
+		.reg_offset = QSERDES_COM_FAUX_EN,
+	},
+	{
+		.cfg_value = 0x08,
+		.reg_offset = QSERDES_TX_LANE_MODE(0),
+	},
+	{
+		.cfg_value = 0x08,
+		.reg_offset = QSERDES_TX_LANE_MODE(1),
+	},
+};
+
 static struct msm_ufs_phy_calibration phy_cal_table_rate_B[] = {
 	{
 		.cfg_value = 0x03,
@@ -897,11 +1512,43 @@ out:
 	return ret;
 }
 
-static void msm_ufs_phy_calibrate(struct msm_ufs_phy *phy)
+#define UFS_HW_VER_MAJOR_SHFT	(28)
+#define UFS_HW_VER_MAJOR_MASK	(0x000F << UFS_HW_VER_MAJOR_SHFT)
+#define UFS_HW_VER_MINOR_SHFT	(16)
+#define UFS_HW_VER_MINOR_MASK	(0x0FFF << UFS_HW_VER_MINOR_SHFT)
+#define UFS_HW_VER_STEP_SHFT	(0)
+#define UFS_HW_VER_STEP_MASK	(0xFFFF << UFS_HW_VER_STEP_SHFT)
+
+static inline void
+msm_ufs_get_controller_revision(struct ufs_hba *hba,
+				 u8 *major, u16 *minor, u16 *step)
 {
-	struct msm_ufs_phy_calibration *tbl = phy_cal_table_rate_A;
-	int tbl_size = ARRAY_SIZE(phy_cal_table_rate_A);
+	u32 ver = ufshcd_readl(hba, REG_UFS_HW_VERSION);
+
+	*major = (ver & UFS_HW_VER_MAJOR_MASK) >> UFS_HW_VER_MAJOR_SHFT;
+	*minor = (ver & UFS_HW_VER_MINOR_MASK) >> UFS_HW_VER_MINOR_SHFT;
+	*step = (ver & UFS_HW_VER_STEP_MASK) >> UFS_HW_VER_STEP_SHFT;
+}
+
+static void msm_ufs_phy_calibrate(struct ufs_hba *hba)
+{
+	struct msm_ufs_host *host = hba->priv;
+	struct msm_ufs_phy *phy = host->phy;
+	struct msm_ufs_phy_calibration *tbl;
+	int tbl_size;
 	int i;
+	u8 major;
+	u16 minor, step;
+
+	msm_ufs_get_controller_revision(hba, &major, &minor, &step);
+
+	if ((major == 0x1) && (minor == 0x001) && (step == 0x0000)) {
+		tbl_size = ARRAY_SIZE(phy_cal_table_ctrl_1_1_0_rate_A);
+		tbl = phy_cal_table_ctrl_1_1_0_rate_A;
+	} else if ((major == 0x1) && (minor == 0x001) && (step == 0x0001)) {
+		tbl_size = ARRAY_SIZE(phy_cal_table_ctrl_1_1_1_rate_A);
+		tbl = phy_cal_table_ctrl_1_1_1_rate_A;
+	}
 
 	for (i = 0; i < tbl_size; i++)
 		writel_relaxed(tbl[i].cfg_value, phy->mmio + tbl[i].reg_offset);
@@ -1168,7 +1815,7 @@ static int msm_ufs_hce_enable_notify(struct ufs_hba *hba, bool status)
 		/* provide 1ms delay to let the reset pulse propagate */
 		usleep_range(1000, 1100);
 
-		msm_ufs_phy_calibrate(phy);
+		msm_ufs_phy_calibrate(hba);
 
 		/* De-assert PHY reset and start serdes */
 		msm_ufs_deassert_reset(hba);
@@ -1631,13 +2278,6 @@ out:
 	return ret;
 }
 
-#define UFS_HW_VER_MAJOR_SHFT	(28)
-#define UFS_HW_VER_MAJOR_MASK	(0x000F << UFS_HW_VER_MAJOR_SHFT)
-#define UFS_HW_VER_MINOR_SHFT	(16)
-#define UFS_HW_VER_MINOR_MASK	(0x0FFF << UFS_HW_VER_MINOR_SHFT)
-#define UFS_HW_VER_STEP_SHFT	(0)
-#define UFS_HW_VER_STEP_MASK	(0xFFFF << UFS_HW_VER_STEP_SHFT)
-
 /**
  * msm_ufs_advertise_quirks - advertise the known MSM UFS controller quirks
  * @hba: host controller instance
@@ -1649,13 +2289,10 @@ out:
  */
 static void msm_ufs_advertise_quirks(struct ufs_hba *hba)
 {
-	u32 ver = ufshcd_readl(hba, REG_UFS_HW_VERSION);
 	u8 major;
 	u16 minor, step;
 
-	major = (ver & UFS_HW_VER_MAJOR_MASK) >> UFS_HW_VER_MAJOR_SHFT;
-	minor = (ver & UFS_HW_VER_MINOR_MASK) >> UFS_HW_VER_MINOR_SHFT;
-	step = (ver & UFS_HW_VER_STEP_MASK) >> UFS_HW_VER_STEP_SHFT;
+	msm_ufs_get_controller_revision(hba, &major, &minor, &step);
 
 	/*
 	 * Interrupt aggregation and HIBERN8 on UFS HW controller revision 1.1.0
