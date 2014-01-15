@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,7 +43,7 @@ static int __init rmnet_init(void)
 	rmnet_config_init();
 	rmnet_vnd_init();
 
-	LOGL("%s", "RMNET Data driver loaded successfully\n");
+	LOGL("%s", "RMNET Data driver loaded successfully");
 	return 0;
 }
 

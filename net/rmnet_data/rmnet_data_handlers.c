@@ -147,8 +147,8 @@ static rx_handler_result_t rmnet_bridge_handler(struct sk_buff *skb,
 					struct rmnet_logical_ep_conf_s *ep)
 {
 	if (!ep->egress_dev) {
-		LOGD("%s(): Missing egress device for packet arriving on %s",
-		      __func__, skb->dev->name);
+		LOGD("Missing egress device for packet arriving on %s",
+		     skb->dev->name);
 		kfree_skb(skb);
 	} else {
 		rmnet_egress_handler(skb, ep);
@@ -192,8 +192,7 @@ static rx_handler_result_t __rmnet_deliver_skb(struct sk_buff *skb,
 		return RX_HANDLER_PASS;
 
 	default:
-		LOGD("%s() unkown ep mode %d", __func__,
-			ep->rmnet_mode);
+		LOGD("Unkown ep mode %d", ep->rmnet_mode);
 		kfree_skb(skb);
 		return RX_HANDLER_CONSUMED;
 	}
@@ -212,16 +211,15 @@ static rx_handler_result_t __rmnet_deliver_skb(struct sk_buff *skb,
 static rx_handler_result_t rmnet_ingress_deliver_packet(struct sk_buff *skb,
 					    struct rmnet_phys_ep_conf_s *config)
 {
-	if (0 == config) {
-		LOGD("%s(): NULL physical EP provided\n",
-			__func__);
+	if (!config) {
+		LOGD("%s", "NULL physical EP provided");
 		kfree_skb(skb);
 		return RX_HANDLER_CONSUMED;
 	}
 
 	if (!(config->local_ep.refcount)) {
-		LOGD("%s(): Packet on %s has no local endpoint configuration\n",
-			__func__, skb->dev->name);
+		LOGD("Packet on %s has no local endpoint configuration",
+			skb->dev->name);
 		kfree_skb(skb);
 		return RX_HANDLER_CONSUMED;
 	}
@@ -258,8 +256,8 @@ static rx_handler_result_t _rmnet_map_ingress_handler(struct sk_buff *skb,
 			- config->tail_spacing;
 
 	if (mux_id >= RMNET_DATA_MAX_LOGICAL_EP) {
-		LOGD("%s(): Got packet on %s with bad mux id %d\n",
-		     __func__, skb->dev->name, mux_id);
+		LOGD("Got packet on %s with bad mux id %d",
+			skb->dev->name, mux_id);
 		kfree_skb(skb);
 			return RX_HANDLER_CONSUMED;
 	}
@@ -267,8 +265,8 @@ static rx_handler_result_t _rmnet_map_ingress_handler(struct sk_buff *skb,
 	ep = &(config->muxed_ep[mux_id]);
 
 	if (!ep->refcount) {
-		LOGD("%s(): Packet on %s:%d; has no logical endpoint config\n",
-		     __func__, skb->dev->name, mux_id);
+		LOGD("Packet on %s:%d; has no logical endpoint config",
+		     skb->dev->name, mux_id);
 
 		kfree_skb(skb);
 			return RX_HANDLER_CONSUMED;
@@ -307,7 +305,7 @@ static rx_handler_result_t rmnet_map_ingress_handler(struct sk_buff *skb,
 
 	if (config->ingress_data_format & RMNET_INGRESS_FORMAT_DEAGGREGATION) {
 		while ((skbn = rmnet_map_deaggregate(skb, config)) != 0) {
-			LOGD("co=%d\n", co);
+			LOGD("co=%d", co);
 			_rmnet_map_ingress_handler(skbn, config);
 			co++;
 		}
@@ -346,12 +344,12 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 
 	required_headroom = sizeof(struct rmnet_map_header_s);
 
-	LOGD("%s(): headroom of %d bytes\n", __func__, required_headroom);
+	LOGD("headroom of %d bytes", required_headroom);
 
 	if (skb_headroom(skb) < required_headroom) {
 		if (pskb_expand_head(skb, required_headroom, 0, GFP_KERNEL)) {
-			LOGD("%s(): Failed to add headroom of %d bytes\n",
-			     __func__, required_headroom);
+			LOGD("Failed to add headroom of %d bytes",
+			     required_headroom);
 			return 1;
 		}
 	}
@@ -359,8 +357,7 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 	map_header = rmnet_map_add_map_header(skb, additional_header_length);
 
 	if (!map_header) {
-		LOGD("%s(): Failed to add MAP header to egress packet",
-		     __func__);
+		LOGD("%s", "Failed to add MAP header to egress packet");
 		return 1;
 	}
 
@@ -411,8 +408,7 @@ rx_handler_result_t rmnet_ingress_handler(struct sk_buff *skb)
 		rcu_dereference(skb->dev->rx_handler_data);
 
 	if (!config) {
-		LOGD("%s(): %s is not associated with rmnet_data",
-		      __func__, skb->dev->name);
+		LOGD("%s is not associated with rmnet_data", skb->dev->name);
 		kfree_skb(skb);
 		return RX_HANDLER_CONSUMED;
 	}
@@ -433,8 +429,7 @@ rx_handler_result_t rmnet_ingress_handler(struct sk_buff *skb)
 			    & RMNET_INGRESS_FORMAT_MAP_COMMANDS) {
 				rc = rmnet_map_command(skb, config);
 			} else {
-				LOGM("%s(): MAP command packet on %s; %s\n",
-				     __func__, dev->name,
+				LOGM("MAP command packet on %s; %s", dev->name,
 				     "Not configured for MAP commands");
 				kfree_skb(skb);
 				return RX_HANDLER_CONSUMED;
@@ -449,8 +444,8 @@ rx_handler_result_t rmnet_ingress_handler(struct sk_buff *skb)
 				RMNET_EPMODE_BRIDGE) {
 				rc = rmnet_ingress_deliver_packet(skb, config);
 			} else {
-				LOGD("%s(): MAP packet on %s; MAP not set\n",
-				     __func__, dev->name);
+				LOGD("MAP packet on %s; MAP not set",
+					dev->name);
 				kfree_skb(skb);
 				rc = RX_HANDLER_CONSUMED;
 			}
@@ -463,8 +458,8 @@ rx_handler_result_t rmnet_ingress_handler(struct sk_buff *skb)
 			break;
 
 		default:
-			LOGD("%s(): Unknown skb->proto 0x%04X\n",
-				__func__, ntohs(skb->protocol) & 0xFFFF);
+			LOGD("Unknown skb->proto 0x%04X\n",
+				ntohs(skb->protocol) & 0xFFFF);
 			rc = RX_HANDLER_PASS;
 		}
 	}
@@ -509,27 +504,26 @@ void rmnet_egress_handler(struct sk_buff *skb,
 		rcu_dereference(skb->dev->rx_handler_data);
 
 	if (!config) {
-		LOGD("%s(): %s is not associated with rmnet_data",
-		      __func__, skb->dev->name);
+		LOGD("%s is not associated with rmnet_data", skb->dev->name);
 		kfree_skb(skb);
 		return;
 	}
 
-	LOGD("%s(): Packet going out on %s with egress format 0x%08X\n",
-	      __func__, skb->dev->name, config->egress_data_format);
+	LOGD("Packet going out on %s with egress format 0x%08X",
+	     skb->dev->name, config->egress_data_format);
 
 	if (config->egress_data_format & RMNET_EGRESS_FORMAT_MAP) {
 		switch (rmnet_map_egress_handler(skb, config, ep)) {
 		case RMNET_MAP_CONSUMED:
-			LOGD("%s(): MAP process consumed packet\n", __func__);
+			LOGD("%s", "MAP process consumed packet");
 			return;
 
 		case RMNET_MAP_SUCCESS:
 			break;
 
 		default:
-			LOGD("%s(): MAP egress failed on packet on %s",
-			      __func__, skb->dev->name);
+			LOGD("MAP egress failed on packet on %s",
+			     skb->dev->name);
 			kfree_skb(skb);
 			return;
 		}
@@ -540,7 +534,7 @@ void rmnet_egress_handler(struct sk_buff *skb,
 
 	rmnet_print_packet(skb, skb->dev->name, 't');
 	if (dev_queue_xmit(skb) != 0) {
-		LOGD("%s(): Failed to queue packet for transmission on [%s]\n",
-		      __func__, skb->dev->name);
+		LOGD("Failed to queue packet for transmission on [%s]",
+		      skb->dev->name);
 	}
 }
