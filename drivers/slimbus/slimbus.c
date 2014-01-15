@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -313,14 +313,12 @@ static void slim_report(struct work_struct *work)
 			sbdrv->device_down(sbdev);
 		return;
 	}
-	if (sbdev->notified)
+	if (sbdev->notified || !sbdrv)
 		return;
 	ret = slim_get_logical_addr(sbdev, sbdev->e_addr, 6, &laddr);
 	if (!ret) {
-		if (sbdrv)
-			sbdev->notified = true;
-		if (sbdrv->device_up)
-			sbdrv->device_up(sbdev);
+		sbdev->notified = true;
+		sbdrv->device_up(sbdev);
 	}
 }
 
