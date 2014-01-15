@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,6 @@
 #include "mdp3.h"
 #include "mdp3_ppp.h"
 
-#define MDP_CORE_CLK_RATE	100000000
 #define VSYNC_EXPIRE_TICK	4
 
 static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd);
@@ -1598,7 +1597,8 @@ static int mdp3_ctrl_ioctl_handler(struct msm_fb_data_type *mfd,
 
 	req = &mdp3_session->req_overlay;
 
-	if (!mdp3_session->status && cmd != MSMFB_METADATA_GET) {
+	if (!mdp3_session->status && cmd != MSMFB_METADATA_GET &&
+		cmd != MSMFB_HISTOGRAM_STOP) {
 		pr_err("mdp3_ctrl_ioctl_handler, display off!\n");
 		return -EPERM;
 	}
