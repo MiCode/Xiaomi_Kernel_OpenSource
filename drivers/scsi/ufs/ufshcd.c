@@ -2872,14 +2872,40 @@ static int ufshcd_link_startup(struct ufs_hba *hba)
 		goto out;
 	} else if (hba->quirks & UFSHCD_BROKEN_LCC) {
 		int hc_tx_lanes;
+		int device_tx_lanes;
 		int i;
+		int err;
 
+		/*
+		 * Disabling the TX_LCC_ENABLE in the Host and in the Device.
+		 * As disabling operation is done for each lane, the number of
+		 * TX Connected Lanes should be read seperately from host and
+		 * from Device and then, apply the disable command on every
+		 * lane, on both, Host and Device
+		 */
 		ufshcd_dme_get(hba,
 			UIC_ARG_MIB(PA_CONNECTEDTXDATALANES), &hc_tx_lanes);
 
-		for (i = 0; i < hc_tx_lanes; ++i)
-			ufshcd_dme_set(hba,
+		ufshcd_dme_peer_get(hba,
+				    UIC_ARG_MIB(PA_CONNECTEDTXDATALANES),
+				    &device_tx_lanes);
+
+		for (i = 0; i < hc_tx_lanes; ++i) {
+			err = ufshcd_dme_set(hba,
 				UIC_ARG_MIB_SEL(TX_LCC_ENABLE, i), 0);
+			if (err)
+				dev_err(hba->dev, "%s: Disable TX_LCC_ENABLE (Host) failed, lane = %d, err = %d",
+					__func__, i, err);
+		}
+
+		for (i = 0; i < device_tx_lanes; ++i) {
+			err = ufshcd_dme_peer_set(hba,
+				UIC_ARG_MIB_SEL(TX_LCC_ENABLE, i), 0);
+			if (err)
+				dev_err(hba->dev, "%s: Disable TX_LCC_ENABLE (Device) failed, lane = %d, err = %d",
+					__func__, i, err);
+		}
+
 	}
 
 	/* Include any host controller configuration via UIC commands */
