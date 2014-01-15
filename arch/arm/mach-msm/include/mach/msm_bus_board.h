@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,7 @@ struct msm_bus_fabric_registration {
 	int hw_sel;
 	void *hw_data;
 	uint32_t qos_freq;
+	uint32_t qos_baseoffset;
 	bool virt;
 };
 
