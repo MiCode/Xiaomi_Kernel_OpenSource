@@ -47,6 +47,7 @@
 			(ETH_FRAME_LEN + sizeof(struct rndis_pkt_hdr)))
 #define BAM_DMA_DESC_FIFO_SIZE \
 		(BAM_DMA_MAX_PKT_NUMBER*(sizeof(struct sps_iovec)))
+#define TX_TIMEOUT (5 * HZ)
 
 #define RNDIS_IPA_ERROR(fmt, args...) \
 		pr_err(DRV_NAME "@%s@%d@ctx:%s: "\
@@ -226,6 +227,7 @@ static void rndis_ipa_packet_receive_notify(void *private,
 		enum ipa_dp_evt_type evt, unsigned long data);
 static void rndis_ipa_tx_complete_notify(void *private,
 		enum ipa_dp_evt_type evt, unsigned long data);
+static void rndis_ipa_tx_timeout(struct net_device *net);
 static int rndis_ipa_stop(struct net_device *net);
 static void rndis_encapsulate_skb(struct sk_buff *skb);
 static void rndis_ipa_prepare_header_insertion(int eth_type,
@@ -234,6 +236,7 @@ static void rndis_ipa_prepare_header_insertion(int eth_type,
 static int rndis_ipa_hdrs_cfg(struct rndis_ipa_dev *rndis_ipa_ctx,
 		const void *dst_mac, const void *src_mac);
 static int rndis_ipa_hdrs_destroy(struct rndis_ipa_dev *rndis_ipa_ctx);
+static struct net_device_stats *rndis_ipa_get_stats(struct net_device *net);
 static int rndis_ipa_register_properties(char *netdev_name);
 static int rndis_ipa_deregister_properties(char *netdev_name);
 static void rndis_ipa_rm_notify(void *user_data, enum ipa_rm_event event,
@@ -295,6 +298,8 @@ static const struct net_device_ops rndis_ipa_netdev_ops = {
 	.ndo_open		= rndis_ipa_open,
 	.ndo_stop		= rndis_ipa_stop,
 	.ndo_start_xmit = rndis_ipa_start_xmit,
+	.ndo_tx_timeout = rndis_ipa_tx_timeout,
+	.ndo_get_stats = rndis_ipa_get_stats,
 	.ndo_set_mac_address = eth_mac_addr,
 };
 
@@ -494,6 +499,8 @@ int rndis_ipa_init(struct ipa_usb_init_params *params)
 		net->name);
 
 	net->netdev_ops = &rndis_ipa_netdev_ops;
+	net->watchdog_timeo = TX_TIMEOUT;
+
 	net->needed_headroom = sizeof(rndis_template_hdr);
 	RNDIS_IPA_DEBUG("Needed headroom for RNDIS header set to %d",
 		net->needed_headroom);
@@ -747,6 +754,8 @@ static netdev_tx_t rndis_ipa_start_xmit(struct sk_buff *skb,
 	netdev_tx_t status = NETDEV_TX_BUSY;
 	struct rndis_ipa_dev *rndis_ipa_ctx = netdev_priv(net);
 
+	net->trans_start = jiffies;
+
 	RNDIS_IPA_DEBUG("packet Tx, len=%d, skb->protocol=%d",
 		skb->len, skb->protocol);
 
@@ -796,8 +805,7 @@ static netdev_tx_t rndis_ipa_start_xmit(struct sk_buff *skb,
 	}
 
 	atomic_inc(&rndis_ipa_ctx->outstanding_pkts);
-	net->stats.tx_packets++;
-	net->stats.tx_bytes += skb->len;
+
 	status = NETDEV_TX_OK;
 	goto out;
 
@@ -839,6 +847,9 @@ static void rndis_ipa_tx_complete_notify(void *private,
 		return;
 	}
 
+	rndis_ipa_ctx->net->stats.tx_packets++;
+	rndis_ipa_ctx->net->stats.tx_bytes += skb->len;
+
 	atomic_dec(&rndis_ipa_ctx->outstanding_pkts);
 	if (netif_queue_stopped(rndis_ipa_ctx->net) &&
 		atomic_read(&rndis_ipa_ctx->outstanding_pkts) <
@@ -852,6 +863,18 @@ static void rndis_ipa_tx_complete_notify(void *private,
 	dev_kfree_skb_any(skb);
 
 	return;
+}
+
+static void rndis_ipa_tx_timeout(struct net_device *net)
+{
+	struct rndis_ipa_dev *rndis_ipa_ctx = netdev_priv(net);
+	int outstanding = atomic_read(&rndis_ipa_ctx->outstanding_pkts);
+
+	RNDIS_IPA_ERROR("possible IPA stall was detected, %d outstanding",
+		outstanding);
+
+	net->stats.tx_errors++;
+	ipa_bam_reg_dump();
 }
 
 /**
@@ -1288,6 +1311,12 @@ static int rndis_ipa_hdrs_destroy(struct rndis_ipa_dev *rndis_ipa_ctx)
 
 	return result;
 }
+
+static struct net_device_stats *rndis_ipa_get_stats(struct net_device *net)
+{
+	return &net->stats;
+}
+
 
 /**
  * rndis_ipa_register_properties() - set Tx/Rx properties needed
