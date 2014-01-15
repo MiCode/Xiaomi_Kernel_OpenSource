@@ -4555,12 +4555,14 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	if (ret)
 		goto out;
 
-	ret = ufshcd_get_device_ref_clk(hba);
-	if (ret) {
-		dev_err(hba->dev,
-			"%s: Failed reading bRefClkFreq attribute\n",
-			__func__);
-		ret = 0;
+	if (!hba->is_init_prefetch) {
+		ret = ufshcd_get_device_ref_clk(hba);
+		if (ret) {
+			dev_err(hba->dev,
+				"%s: Failed reading bRefClkFreq attribute\n",
+				__func__);
+			ret = 0;
+		}
 	}
 
 	/* UFS device is also active now */
