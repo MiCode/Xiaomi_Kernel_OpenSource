@@ -165,6 +165,8 @@ struct mdss_data_type {
 	int current_bus_idx;
 	bool mixer_switched;
 	struct mdss_panel_cfg pan_cfg;
+
+	int handoff_pending;
 };
 extern struct mdss_data_type *mdss_res;
 

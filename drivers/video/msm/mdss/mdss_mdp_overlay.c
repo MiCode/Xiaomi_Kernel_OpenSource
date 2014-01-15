@@ -2550,8 +2550,8 @@ int mdss_panel_register_done(struct mdss_panel_data *pdata)
 	 * increasing ref_cnt to help balance clocks once done.
 	 */
 	if (pdata->panel_info.cont_splash_enabled) {
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 		mdss_mdp_footswitch_ctrl_splash(1);
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 	}
 	return 0;
 }
