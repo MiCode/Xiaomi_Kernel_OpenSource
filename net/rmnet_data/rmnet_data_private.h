@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,20 +43,24 @@ extern unsigned int rmnet_data_log_module_mask;
 #define RMNET_DATA_LOGMASK_MAPC    (1<<4)
 
 #define LOGE(fmt, ...) do { if (rmnet_data_log_level & RMNET_LOG_LVL_ERR) \
-			pr_err(fmt, ##__VA_ARGS__); \
+			pr_err("[RMNET:ERR] %s(): " fmt "\n", __func__, \
+				##__VA_ARGS__); \
 			} while (0)
 
 #define LOGH(fmt, ...) do { if (rmnet_data_log_level & RMNET_LOG_LVL_HI) \
-			pr_err(fmt, ##__VA_ARGS__); \
+			pr_err("[RMNET:HI] %s(): " fmt "\n" , __func__, \
+				##__VA_ARGS__); \
 			} while (0)
 
 #define LOGM(fmt, ...) do { if (rmnet_data_log_level & RMNET_LOG_LVL_MED) \
-			pr_warn(fmt, ##__VA_ARGS__); \
+			pr_warn("[RMNET:MED] %s(): " fmt "\n", __func__, \
+				##__VA_ARGS__); \
 			} while (0)
 
 #define LOGL(fmt, ...) do { if (unlikely \
 			(rmnet_data_log_level & RMNET_LOG_LVL_LOW)) \
-			pr_notice(fmt, ##__VA_ARGS__); \
+			pr_notice("[RMNET:LOW] %s(): " fmt "\n", __func__, \
+				##__VA_ARGS__); \
 			} while (0)
 
 /* Don't use pr_debug as it is compiled out of the kernel. We can be sure of
@@ -65,7 +69,8 @@ extern unsigned int rmnet_data_log_module_mask;
 #define LOGD(fmt, ...) do { if (unlikely( \
 			    (rmnet_data_log_level & RMNET_LOG_LVL_DBG) \
 			    && (rmnet_data_log_module_mask & rmnet_mod_mask))) \
-			pr_notice(fmt, ##__VA_ARGS__); \
+			pr_notice("[RMNET:DBG] %s(): " fmt "\n", __func__, \
+				  ##__VA_ARGS__); \
 			} while (0)
 
 #endif /* _RMNET_DATA_PRIVATE_H_ */
