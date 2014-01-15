@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -294,6 +294,7 @@ int ecm_ipa_init(struct ecm_ipa_params *params)
 	params->ecm_ipa_rx_dp_notify = ecm_ipa_packet_receive_notify;
 	params->ecm_ipa_tx_dp_notify = ecm_ipa_tx_complete_notify;
 	params->private = (void *)ecm_ipa_ctx;
+	params->skip_ep_cfg = false;
 	ecm_ipa_ctx->state = ECM_IPA_INITIALIZED;
 	ECM_IPA_STATE_DEBUG(ecm_ipa_ctx);
 
