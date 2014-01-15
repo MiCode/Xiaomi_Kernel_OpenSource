@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -318,7 +318,7 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 				return -EREMOTEIO;
 			timeout = wait_for_completion_timeout(&dev->ctrl_up,
 							HZ);
-			if (!timeout)
+			if (!timeout && dev->state == MSM_CTRL_DOWN)
 				return -ETIMEDOUT;
 		}
 		ret = msm_slim_get_ctrl(dev);
@@ -1046,11 +1046,13 @@ static void ngd_laddr_lookup(struct work_struct *work)
 		container_of(work, struct msm_slim_ctrl, slave_notify);
 	struct slim_controller *ctrl = &dev->ctrl;
 	struct slim_device *sbdev;
+	struct list_head *pos, *next;
 	int i;
 	slim_framer_booted(ctrl);
 	mutex_lock(&ctrl->m_ctrl);
-	list_for_each_entry(sbdev, &ctrl->devs, dev_list) {
+	list_for_each_safe(pos, next, &ctrl->devs) {
 		int ret = 0;
+		sbdev = list_entry(pos, struct slim_device, dev_list);
 		mutex_unlock(&ctrl->m_ctrl);
 		for (i = 0; i < LADDR_RETRY; i++) {
 			ret = slim_get_logical_addr(sbdev, sbdev->e_addr,
