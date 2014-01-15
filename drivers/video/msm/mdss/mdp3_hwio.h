@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -271,6 +271,8 @@
 #define MDP3_PPP_BLEND_PARAM		0x1014C
 
 #define MDP3_PPP_BLEND_BG_ALPHA_SEL	0x70010
+
+#define MDP3_PPP_ACTIVE BIT(0)
 
 /*interrupt mask*/
 
