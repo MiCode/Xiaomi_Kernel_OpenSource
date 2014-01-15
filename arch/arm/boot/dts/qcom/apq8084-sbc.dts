@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 
 #include "apq8084.dtsi"
 #include "apq8084-sbc.dtsi"
+#include "apq8084-camera-sensor-sbc.dtsi"
 
 / {
 	model = "QTI APQ 8084 SBC";
