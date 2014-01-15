@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,13 +24,9 @@
 #define MAX_NUM_OUTPUT_BUFFERS 6
 #define DEFAULT_VIDEO_CONCEAL_COLOR_BLACK 0x8080
 
-#define TZ_INFO_GET_FEATURE_VERSION_ID 0x3
 #define TZ_DYNAMIC_BUFFER_FEATURE_ID 12
 #define TZ_FEATURE_VERSION(major, minor, patch) \
 	(((major & 0x3FF) << 22) | ((minor & 0x3FF) << 12) | (patch & 0xFFF))
-struct tz_get_feature_version {
-	u32 feature_id;
-};
 
 enum msm_vdec_ctrl_cluster {
 	MSM_VDEC_CTRL_CLUSTER_MAX = 1 << 0,
@@ -1535,17 +1531,16 @@ static inline enum buffer_mode_type get_buf_type(int val)
 static int check_tz_dynamic_buffer_support(void)
 {
 	int rc = 0;
-	struct tz_get_feature_version tz_feature_id;
-	unsigned int resp = 0;
+	int version = scm_get_feat_version(TZ_DYNAMIC_BUFFER_FEATURE_ID);
 
-	tz_feature_id.feature_id = TZ_DYNAMIC_BUFFER_FEATURE_ID;
-	rc = scm_call(SCM_SVC_INFO,
-		  TZ_INFO_GET_FEATURE_VERSION_ID, &tz_feature_id,
-		  sizeof(tz_feature_id), &resp, sizeof(resp));
-	if ((rc) || (resp != TZ_FEATURE_VERSION(1, 1, 0))) {
+	/*
+	 * if the version is < 1.1.0 then dynamic buffer allocation is
+	 * not supported
+	 */
+	if (version < TZ_FEATURE_VERSION(1, 1, 0)) {
 		dprintk(VIDC_DBG,
-			"Dyamic buffer mode not supported, failed to get tz feature version id : %u, rc : %d, response : %u\n",
-			tz_feature_id.feature_id, rc, resp);
+			"Dynamic buffer mode not supported, tz version is : %u vs required : %u\n",
+			version, TZ_FEATURE_VERSION(1, 1, 0));
 		rc = -ENOTSUPP;
 	}
 	return rc;
