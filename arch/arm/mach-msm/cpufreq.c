@@ -3,7 +3,7 @@
  * MSM architecture cpufreq driver
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2014, The Linux Foundation. All rights reserved.
  * Author: Mike A. Chan <mikechan@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -315,12 +315,18 @@ static int msm_cpufreq_cpu_callback(struct notifier_block *nfb,
 	case CPU_DEAD:
 	case CPU_UP_CANCELED:
 		clk_disable_unprepare(cpu_clk[cpu]);
+		clk_disable_unprepare(l2_clk);
 		update_l2_bw(NULL);
 		break;
 	case CPU_UP_PREPARE:
-		rc = clk_prepare_enable(cpu_clk[cpu]);
+		rc = clk_prepare_enable(l2_clk);
 		if (rc < 0)
 			return NOTIFY_BAD;
+		rc = clk_prepare_enable(cpu_clk[cpu]);
+		if (rc < 0) {
+			clk_disable_unprepare(l2_clk);
+			return NOTIFY_BAD;
+		}
 		update_l2_bw(&cpu);
 		break;
 	default:
