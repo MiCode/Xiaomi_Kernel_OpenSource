@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -469,11 +469,11 @@ static struct clk_lookup kpss_clocks_8974[] = {
 	CLK_LOOKUP("cpu1_clk",	krait1_clk.c, "0.qcom,msm-cpufreq"),
 	CLK_LOOKUP("cpu2_clk",	krait2_clk.c, "0.qcom,msm-cpufreq"),
 	CLK_LOOKUP("cpu3_clk",	krait3_clk.c, "0.qcom,msm-cpufreq"),
-	CLK_LOOKUP("l2_clk",	l2_clk.c,     "fe805664.qcom,pm-8x60"),
-	CLK_LOOKUP("cpu0_clk",	krait0_clk.c, "fe805664.qcom,pm-8x60"),
-	CLK_LOOKUP("cpu1_clk",	krait1_clk.c, "fe805664.qcom,pm-8x60"),
-	CLK_LOOKUP("cpu2_clk",	krait2_clk.c, "fe805664.qcom,pm-8x60"),
-	CLK_LOOKUP("cpu3_clk",	krait3_clk.c, "fe805664.qcom,pm-8x60"),
+	CLK_LOOKUP("l2_clk",	l2_clk.c,     "fe805664.qcom,pm"),
+	CLK_LOOKUP("cpu0_clk",	krait0_clk.c, "fe805664.qcom,pm"),
+	CLK_LOOKUP("cpu1_clk",	krait1_clk.c, "fe805664.qcom,pm"),
+	CLK_LOOKUP("cpu2_clk",	krait2_clk.c, "fe805664.qcom,pm"),
+	CLK_LOOKUP("cpu3_clk",	krait3_clk.c, "fe805664.qcom,pm"),
 
 	CLK_LOOKUP("kpss_debug_mux", kpss_debug_pri_mux.c,
 		   "fc401880.qcom,cc-debug"),

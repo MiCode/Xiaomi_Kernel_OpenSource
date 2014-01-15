@@ -157,7 +157,7 @@ void msm_pm_cpu_enter_lowpower(unsigned int cpu);
 void __init msm_pm_set_tz_retention_flag(unsigned int flag);
 void msm_pm_enable_retention(bool enable);
 
-#ifdef CONFIG_MSM_PM8X60
+#ifdef CONFIG_MSM_PM
 void msm_pm_set_rpm_wakeup_irq(unsigned int irq);
 void msm_pm_set_sleep_ops(struct msm_pm_sleep_ops *ops);
 int msm_pm_wait_cpu_shutdown(unsigned int cpu);

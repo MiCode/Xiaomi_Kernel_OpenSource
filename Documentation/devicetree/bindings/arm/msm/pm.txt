@@ -1,6 +1,6 @@
-* MSM PM-8x60
+* MSM PM
 
-PM-8x60 is the low power management device for MSM (Snapdragon class) chipsets.
+PM is the low power management device for MSM (Snapdragon class) chipsets.
 This device sets up different components to do low power modes and registers with
 the kernel to be notified of idle and suspend states and when called, follows
 through the set of instructions in putting the application cores to the lowest
@@ -9,9 +9,9 @@ The PC debug counter reserves 16 registers in the IMEM memory space which mainta
 a count on the state of power collapse on each core. This count will be useful to
 debug the power collapse state on each core.
 
-The required properties for PM-8x60 are:
+The required properties for PM are:
 
-- compatible: "qcom,pm-8x60"
+- compatible: "qcom,pm"
 
 The optional properties are:
 
@@ -31,8 +31,8 @@ The optional properties are:
 
 Example:
 
-qcom,pm-8x60@fe800664 {
-		compatible = "qcom,pm-8x60";
+qcom,pm@fe800664 {
+		compatible = "qcom,pm";
 		reg = <0xfe800664 0x40>;
 		qcom,pc-mode = "tz_l2_int";
 		qcom,use-sync-timer;
