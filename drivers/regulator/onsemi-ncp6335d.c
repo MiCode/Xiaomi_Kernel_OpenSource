@@ -24,6 +24,7 @@
 #include <linux/of_gpio.h>
 #include <linux/regmap.h>
 #include <linux/regulator/onsemi-ncp6335d.h>
+#include <mach/gpiomux.h>
 
 /* registers */
 #define REG_NCP6335D_PID		0x03
@@ -310,6 +311,31 @@ static int ncp6335d_parse_gpio(struct device_node *node,
 
 	return ret;
 }
+
+static int ncp6335d_parse_tlmm(struct device_node *node,
+				struct ncp6335d_info *dd)
+{
+	int val, ret = 0;
+	u32 tmp[2];
+
+	if (!of_find_property(node, "onnn,tlmm-config", NULL))
+		return ret;
+
+	ret = of_property_read_u32_array(node, "onnn,tlmm-config", tmp, 2);
+	if (ret) {
+		dev_err(dd->dev, "onnn,tlmm-config is misconfigured, ret = %d",
+			ret);
+		return ret;
+	}
+
+	val = msm_tlmm_misc_reg_read(TLMM_SPARE_REG);
+	val &= ~tmp[0];
+	val |= tmp[1] & tmp[0];
+	msm_tlmm_misc_reg_write(TLMM_SPARE_REG, val);
+
+	return ret;
+}
+
 static int __devinit ncp6335d_init(struct i2c_client *client,
 			struct ncp6335d_info *dd,
 			const struct ncp6335d_platform_data *pdata)
@@ -340,6 +366,10 @@ static int __devinit ncp6335d_init(struct i2c_client *client,
 	}
 
 	rc = ncp6335d_parse_gpio(client->dev.of_node, dd);
+	if (rc)
+		return rc;
+
+	rc = ncp6335d_parse_tlmm(client->dev.of_node, dd);
 	if (rc)
 		return rc;
 
