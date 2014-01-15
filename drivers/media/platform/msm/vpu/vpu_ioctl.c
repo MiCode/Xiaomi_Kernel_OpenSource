@@ -486,9 +486,9 @@ int vpu_get_fmt(struct vpu_client *client, struct v4l2_format *f)
 
 int vpu_try_fmt(struct vpu_client *client, struct v4l2_format *f)
 {
-	int i;
-	u32 hfi_pixelformat;
 	const struct vpu_format_desc *vpu_format;
+	u32 hfi_pixelformat, bytesperline;
+	int i;
 
 	hfi_pixelformat =
 		translate_pixelformat_to_hfi(f->fmt.pix_mp.pixelformat);
@@ -496,18 +496,25 @@ int vpu_try_fmt(struct vpu_client *client, struct v4l2_format *f)
 	if (!vpu_format)
 		return -EINVAL;
 
+	pr_debug("width = %d, height = %d\n",
+			f->fmt.pix_mp.width, f->fmt.pix_mp.height);
 	if (!is_format_valid(f))
 		return -EINVAL;
 
 	f->fmt.pix_mp.num_planes = vpu_format->num_planes;
+
 	for (i = 0; i < vpu_format->num_planes; i++) {
-		f->fmt.pix_mp.plane_fmt[i].bytesperline =
-			get_bytesperline(f->fmt.pix_mp.width,
+		bytesperline = get_bytesperline(f->fmt.pix_mp.width,
 				vpu_format->plane[i].bitsperpixel,
 				f->fmt.pix_mp.plane_fmt[i].bytesperline);
+		if (!bytesperline) {
+			pr_err("Invalid plane %d bytesperline\n", i);
+			return -EINVAL;
+		}
+		f->fmt.pix_mp.plane_fmt[i].bytesperline = bytesperline;
+
 		f->fmt.pix_mp.plane_fmt[i].sizeimage =
-			get_sizeimage(f->fmt.pix_mp.plane_fmt[i].bytesperline,
-				f->fmt.pix_mp.height,
+			get_sizeimage(bytesperline, f->fmt.pix_mp.height,
 				vpu_format->plane[i].heightfactor);
 	}
 

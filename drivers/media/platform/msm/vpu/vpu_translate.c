@@ -122,8 +122,7 @@ u32 translate_pixelformat_to_hfi(u32 api_pix_fmt)
 		break;
 	default:
 		hfi_pix_fmt = PIXEL_FORMAT_MAX;
-		pr_warn("Unsupported api pixel format: %d (%4c)\n",
-				api_pix_fmt, (char)api_pix_fmt);
+		pr_warn("Unsupported api pixel format: %d\n", api_pix_fmt);
 		break;
 	}
 
