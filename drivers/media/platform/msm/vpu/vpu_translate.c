@@ -213,6 +213,8 @@ u32 translate_output_destination(u32 out)
 			hfi_destination = OUTPUT_DEST_MDSS1;
 		else if (out & VPU_PIPE_DISPLAY2)
 			hfi_destination = OUTPUT_DEST_MDSS2;
+		else if (out & VPU_PIPE_DISPLAY3)
+			hfi_destination = OUTPUT_DEST_MDSS3;
 		else
 			pr_warn("Unsupported output pipe: %d\n", out);
 	} else {

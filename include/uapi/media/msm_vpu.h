@@ -122,6 +122,7 @@ struct v4l2_format_vpu_extension {
 #define VPU_PIPE_DISPLAY0		(1 << 18)
 #define VPU_PIPE_DISPLAY1		(1 << 19)
 #define VPU_PIPE_DISPLAY2		(1 << 20)
+#define VPU_PIPE_DISPLAY3		(1 << 21)
 
 /*
  * V P U   E V E N T S :   I D s   A N D   D A T A   P A Y L O A D S
