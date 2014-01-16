@@ -1681,11 +1681,6 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 		goto dma_alloc_fail;
 	}
 
-	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-sspp-len",
-		&mdata->size_sspp, 1);
-	if (rc)
-		goto parse_fail;
-
 	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-vig-fetch-id",
 		ftch_id, mdata->nvig_pipes);
 	if (rc)
@@ -1758,6 +1753,39 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 		goto parse_fail;
 
 	setup_cnt += len;
+
+	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-sspp-len",
+	     &mdata->size_sspp, 1);
+	if (rc) {
+		if (mdata->nvig_pipes == 1 || mdata->nrgb_pipes == 1 ||
+				mdata->ndma_pipes == 1) {
+			pr_err("Cannot calculate length w/ only one offset\n");
+			goto parse_fail;
+		}
+
+		if (mdata->nvig_pipes >= 2) {
+			u32 *vigOff = offsets;
+			mdata->size_sspp_vig = vigOff[1] - vigOff[0];
+		} else
+			mdata->size_sspp_vig = 0;
+
+		if (mdata->nrgb_pipes >= 2) {
+			u32 *rgbOff = offsets + mdata->nvig_pipes;
+			mdata->size_sspp_rgb = rgbOff[1] - rgbOff[0];
+		} else
+			mdata->size_sspp_rgb = 0;
+
+		if (mdata->ndma_pipes >= 2) {
+			u32 *dmaOff = offsets + mdata->nvig_pipes +
+				mdata->nrgb_pipes;
+			mdata->size_sspp_dma = dmaOff[1] - dmaOff[0];
+		} else
+			mdata->size_sspp_dma = 0;
+	} else {
+		mdata->size_sspp_vig = mdata->size_sspp;
+		mdata->size_sspp_rgb = mdata->size_sspp;
+		mdata->size_sspp_dma = mdata->size_sspp;
+	}
 
 	if (mdata->nvig_pipes > DEFAULT_TOTAL_VIG_PIPES) {
 		rc = mdss_mdp_pipe_addr_setup(mdata,
@@ -1861,8 +1889,13 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 
 	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-mixer-intf-len",
 		&mdata->size_mixer_intf, 1);
-	if (rc)
-		goto parse_done;
+	if (rc) {
+		if (mdata->nmixers_intf >= 2)
+			mdata->size_mixer_intf = mixer_offsets[1] -
+				mixer_offsets[0];
+		else
+			goto parse_done;
+	}
 
 	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-mixer-wb-off",
 		mixer_offsets + mdata->nmixers_intf, mdata->nmixers_wb);
@@ -1876,8 +1909,12 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 
 	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-dspp-len",
 		&mdata->size_dspp, 1);
-	if (rc)
-		goto parse_done;
+	if (rc) {
+		if (ndspp >= 2)
+			mdata->size_dspp = dspp_offsets[1] - dspp_offsets[0];
+		else
+			goto parse_done;
+	}
 
 	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pingpong-off",
 		pingpong_offsets, npingpong);
@@ -1945,8 +1982,12 @@ static int mdss_mdp_parse_dt_ctl(struct platform_device *pdev)
 
 	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-ctl-len",
 		&mdata->size_ctl, 1);
-	if (rc)
-		goto parse_done;
+	if (rc) {
+		if (mdata->nctl >= 2)
+			mdata->size_ctl = ctl_offsets[1] - ctl_offsets[0];
+		else
+			goto parse_done;
+	}
 
 	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-wb-off",
 		wb_offsets, nwb);
