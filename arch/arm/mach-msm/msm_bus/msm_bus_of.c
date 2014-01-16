@@ -173,7 +173,7 @@ struct msm_bus_scale_pdata *msm_bus_cl_get_pdata(struct platform_device *pdev)
 	of_node = pdev->dev.of_node;
 	pdata = get_pdata(pdev, of_node);
 	if (!pdata) {
-		pr_err("Error getting bus pdata!\n");
+		pr_err("client has to provide missing entry for successful registration\n");
 		return NULL;
 	}
 
@@ -214,7 +214,7 @@ struct msm_bus_scale_pdata *msm_bus_pdata_from_node(
 
 	pdata = get_pdata(pdev, of_node);
 	if (!pdata) {
-		pr_err("Error getting bus pdata!\n");
+		pr_err("client has to provide missing entry for successful registration\n");
 		return NULL;
 	}
 
