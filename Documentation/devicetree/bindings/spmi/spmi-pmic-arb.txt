@@ -14,19 +14,22 @@ Required properties:
 Optional properties:
 - qcom,not-wakeup : boolean property which indicates that SPMI PMIC interrupts
 	should not be treated as wakeup sources
+- reg-names  : may have "chnls", "obsrvr"
+- reg : offset and length of the PMIC Arbiter Core Channels register map.
+- reg : offset and length of the PMIC Arbiter Core Observer Channels reg map.
 
 Example:
 
 	qcom,spmi@fc4c0000 {
 		cell-index = <0>;
 		compatible = "qcom,spmi-pmic-arb";
-		reg-names = "core", "intr", "cnfg";
-		reg = <0xfc4cf000 0x1000>,
-		      <0Xfc4cb000 0x1000>,
-		      <0Xfc4ca000 0x1000>;
-		interrupts = <0>;
+		reg-names = "core", "chnls", "obsrvr", "intr", "cnfg";
+		reg = <0x200f000 0x1000>,
+			<0x2400000 0x400000>,
+			<0x2c00000 0x400000>,
+			<0x3800000 0x200000>,
+			<0x200a000 0x2100>;
+		interrupts = <0 190 0>;
 		qcom,pmic-arb-ee = <0>;
 		qcom,pmic-arb-channel = <0>;
 	};
-
-
