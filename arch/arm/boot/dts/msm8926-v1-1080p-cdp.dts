@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,14 +12,14 @@
 
 
 /dts-v1/;
-/include/ "msm8926.dtsi"
-/include/ "msm8226-720p-cdp.dtsi"
+/include/ "msm8926-v1.dtsi"
+/include/ "msm8226-1080p-cdp.dtsi"
 /include/ "msm8226-camera-sensor-cdp.dtsi"
 
 / {
 	model = "Qualcomm MSM 8926 CDP";
 	compatible = "qcom,msm8926-cdp", "qcom,msm8926", "qcom,cdp";
-	qcom,board-id = <1 0>;
+	qcom,board-id = <1 2>;
 };
 
 &pm8226_chg {
