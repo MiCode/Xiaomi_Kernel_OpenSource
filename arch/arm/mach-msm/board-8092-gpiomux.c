@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +33,18 @@ static struct gpiomux_setting slimbus = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_KEEPER,
+};
+
+static struct gpiomux_setting spkr_mi2s_mclk_act_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting spkr_mi2s_mclk_sus_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
 };
 
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
@@ -112,6 +124,15 @@ static struct msm_gpiomux_config mpq8092_slimbus_config[] __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config mpq8092_spkr_mi2s_mclk_configs[] __initdata = {
+	{
+		.gpio = 42,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &spkr_mi2s_mclk_sus_cfg,
+			[GPIOMUX_ACTIVE] = &spkr_mi2s_mclk_act_cfg,
+		},
+	},
+};
 
 void __init mpq8092_init_gpiomux(void)
 {
@@ -127,4 +148,6 @@ void __init mpq8092_init_gpiomux(void)
 	msm_gpiomux_install(msm_ehci_configs, ARRAY_SIZE(msm_ehci_configs));
 	msm_gpiomux_install(mpq8092_slimbus_config,
 			ARRAY_SIZE(mpq8092_slimbus_config));
+	msm_gpiomux_install(mpq8092_spkr_mi2s_mclk_configs,
+			ARRAY_SIZE(mpq8092_spkr_mi2s_mclk_configs));
 }
