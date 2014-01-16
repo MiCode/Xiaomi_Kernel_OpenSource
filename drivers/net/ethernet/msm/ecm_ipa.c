@@ -243,7 +243,7 @@ int ecm_ipa_init(struct ecm_ipa_params *params)
 	ecm_ipa_ctx->net = net;
 	ecm_ipa_ctx->tx_enable = true;
 	ecm_ipa_ctx->rx_enable = true;
-	ecm_ipa_ctx->rm_enable = false;
+	ecm_ipa_ctx->rm_enable = true;
 	ecm_ipa_ctx->outstanding_high = DEFAULT_OUTSTANDING_HIGH;
 	ecm_ipa_ctx->outstanding_low = DEFAULT_OUTSTANDING_LOW;
 	atomic_set(&ecm_ipa_ctx->outstanding_pkts, 0);
