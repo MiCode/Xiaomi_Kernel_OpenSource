@@ -175,6 +175,7 @@ config SND_SOC_MPQ8092
 	select SND_SOC_MSM_STUB
 	select SND_SOC_MSM_HOSTLESS_PCM
 	select SND_SOC_WCD9310
+	select SND_SOC_MSM_HDMI_CODEC_RX
 	select SND_DYNAMIC_MINORS
 	help
 	 To add support for SoC audio on MPQ8092.
