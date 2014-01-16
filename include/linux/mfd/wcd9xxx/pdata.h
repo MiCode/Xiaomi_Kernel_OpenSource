@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -129,6 +129,11 @@ struct wcd9xxx_micbias_setting {
 	bool bias2_is_headset_only;
 };
 
+enum codec_variant {
+	WCD9XXX,
+	WCD9330,
+};
+
 struct wcd9xxx_ocp_setting {
 	unsigned int	use_pdata:1; /* 0 - use sys default as recommended */
 	unsigned int	num_attempts:4; /* up to 15 attempts */
@@ -175,6 +180,7 @@ struct wcd9xxx_pdata {
 	struct wcd9xxx_regulator regulator[WCD9XXX_MAX_REGULATOR];
 	u32 mclk_rate;
 	u32 dmic_sample_rate;
+	enum codec_variant cdc_variant;
 };
 
 #endif

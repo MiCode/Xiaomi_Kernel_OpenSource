@@ -309,4 +309,8 @@
 #define WCD9XXX_A_CDC_PA_RAMP_B4_CTL			(0x364)
 #define WCD9XXX_A_CDC_PA_RAMP_B4_CTL__POR			(0x00)
 
+#define WCD9330_A_LEAKAGE_CTL				(0x03C)
+#define WCD9330_A_LEAKAGE_CTL__POR				(0x04)
+#define WCD9330_A_CDC_CTL				(0x034)
+#define WCD9330_A_CDC_CTL__POR					(0x00)
 #endif
