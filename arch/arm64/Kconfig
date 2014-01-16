@@ -139,6 +139,11 @@ config ARCH_MSMPLUTONIUM
 	  This enables support for the MSMPLUTONIUM chipset. If you dont
 	  know what do here, say N
 
+config ARCH_XGENE
+	bool "AppliedMicro X-Gene SOC Family"
+	help
+	  This enables support for AppliedMicro X-Gene SOC Family
+
 endmenu
 
 menu "Bus support"
