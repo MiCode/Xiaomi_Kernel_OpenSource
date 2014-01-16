@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -466,8 +466,8 @@ static int slim_register_controller(struct slim_controller *ctrl)
 	if (ret)
 		goto out_list;
 
-	dev_dbg(&ctrl->dev, "Bus [%s] registered:dev:%x\n", ctrl->name,
-							(u32)&ctrl->dev);
+	dev_dbg(&ctrl->dev, "Bus [%s] registered:dev:%p\n", ctrl->name,
+							&ctrl->dev);
 
 	if (ctrl->nports) {
 		ctrl->ports = kzalloc(ctrl->nports * sizeof(struct slim_port),
