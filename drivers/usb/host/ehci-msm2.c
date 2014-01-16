@@ -1,6 +1,6 @@
 /* ehci-msm2.c - HSUSB Host Controller Driver Implementation
  *
- * Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
  *
  * Partly derived from ehci-fsl.c and ehci-hcd.c
  * Copyright (c) 2000-2004 by David Brownell
@@ -1212,40 +1212,27 @@ static int msm_ehci_init_clocks(struct msm_hcd *mhcd, u32 init)
 	if (!init)
 		goto put_clocks;
 
-	/* 60MHz alt_core_clk is for LINK to be used during PHY RESET  */
-	mhcd->alt_core_clk = clk_get(mhcd->dev, "alt_core_clk");
-	if (IS_ERR(mhcd->alt_core_clk)) {
-		ret = PTR_ERR(mhcd->alt_core_clk);
-		mhcd->alt_core_clk = NULL;
-		if (ret != -EPROBE_DEFER)
-			dev_dbg(mhcd->dev, "failed to get alt_core_clk\n");
-		else
-			goto clk_exit;
-	} else {
-		clk_set_rate(mhcd->alt_core_clk, 60000000);
-	}
-
 	/* iface_clk is required for data transfers */
-	mhcd->iface_clk = clk_get(mhcd->dev, "iface_clk");
+	mhcd->iface_clk = devm_clk_get(mhcd->dev, "iface_clk");
 	if (IS_ERR(mhcd->iface_clk)) {
 		ret = PTR_ERR(mhcd->iface_clk);
 		mhcd->iface_clk = NULL;
 		if (ret != -EPROBE_DEFER)
 			dev_err(mhcd->dev, "failed to get iface_clk\n");
-		goto put_alt_core_clk;
+		return ret;
 	}
 
 	/* Link's protocol engine is based on pclk which must
 	 * be running >55Mhz and frequency should also not change.
 	 * Hence, vote for maximum clk frequency on its source
 	 */
-	mhcd->core_clk = clk_get(mhcd->dev, "core_clk");
+	mhcd->core_clk = devm_clk_get(mhcd->dev, "core_clk");
 	if (IS_ERR(mhcd->core_clk)) {
 		ret = PTR_ERR(mhcd->core_clk);
 		mhcd->core_clk = NULL;
 		if (ret != -EPROBE_DEFER)
 			dev_err(mhcd->dev, "failed to get core_clk\n");
-		goto put_iface_clk;
+		return ret;
 	}
 
 	/*
@@ -1254,30 +1241,36 @@ static int msm_ehci_init_clocks(struct msm_hcd *mhcd, u32 init)
 	 */
 	mhcd->core_clk_rate = clk_round_rate(mhcd->core_clk, LONG_MAX);
 	if (IS_ERR_VALUE(mhcd->core_clk_rate)) {
+		ret = mhcd->core_clk_rate;
 		dev_err(mhcd->dev, "fail to get core clk max freq\n");
-		goto put_core_clk;
-	} else {
-		ret = clk_set_rate(mhcd->core_clk, mhcd->core_clk_rate);
-		if (ret) {
-			dev_err(mhcd->dev, "fail to set core_clk: %d\n", ret);
-			goto put_core_clk;
-		}
+		return ret;
 	}
 
-	mhcd->phy_sleep_clk = clk_get(mhcd->dev, "sleep_clk");
-	if (IS_ERR(mhcd->phy_sleep_clk)) {
-		ret = PTR_ERR(mhcd->phy_sleep_clk);
-		mhcd->phy_sleep_clk = NULL;
-		if (ret != -EPROBE_DEFER)
-			dev_dbg(mhcd->dev, "failed to get sleep_clk\n");
-		else
-			goto put_core_clk;
-	} else {
-		clk_prepare_enable(mhcd->phy_sleep_clk);
+	ret = clk_set_rate(mhcd->core_clk, mhcd->core_clk_rate);
+	if (ret) {
+		dev_err(mhcd->dev, "fail to set core_clk: %d\n", ret);
+		return ret;
 	}
 
 	clk_prepare_enable(mhcd->core_clk);
 	clk_prepare_enable(mhcd->iface_clk);
+
+	mhcd->phy_sleep_clk = devm_clk_get(mhcd->dev, "sleep_clk");
+	if (IS_ERR(mhcd->phy_sleep_clk)) {
+		mhcd->phy_sleep_clk = NULL;
+		dev_dbg(mhcd->dev, "failed to get sleep_clk\n");
+	} else {
+		clk_prepare_enable(mhcd->phy_sleep_clk);
+	}
+
+	/* 60MHz alt_core_clk is for LINK to be used during PHY RESET  */
+	mhcd->alt_core_clk = devm_clk_get(mhcd->dev, "alt_core_clk");
+	if (IS_ERR(mhcd->alt_core_clk)) {
+		mhcd->alt_core_clk = NULL;
+		dev_dbg(mhcd->dev, "failed to get alt_core_clk\n");
+	} else {
+		clk_set_rate(mhcd->alt_core_clk, 60000000);
+	}
 
 	return 0;
 
@@ -1286,20 +1279,10 @@ put_clocks:
 		clk_disable_unprepare(mhcd->iface_clk);
 		clk_disable_unprepare(mhcd->core_clk);
 	}
-	clk_put(mhcd->core_clk);
-	if (mhcd->phy_sleep_clk) {
+	if (mhcd->phy_sleep_clk)
 		clk_disable_unprepare(mhcd->phy_sleep_clk);
-		clk_put(mhcd->phy_sleep_clk);
-	}
-put_core_clk:
-	clk_put(mhcd->core_clk);
-put_iface_clk:
-	clk_put(mhcd->iface_clk);
-put_alt_core_clk:
-	if (mhcd->alt_core_clk)
-		clk_put(mhcd->alt_core_clk);
-clk_exit:
-	return ret;
+
+	return 0;
 }
 
 struct msm_usb_host_platform_data *ehci_msm2_dt_to_pdata(
