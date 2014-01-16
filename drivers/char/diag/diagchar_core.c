@@ -43,6 +43,9 @@
 
 #include <linux/coresight-stm.h>
 #include <linux/kernel.h>
+#ifdef CONFIG_COMPAT
+#include <linux/compat.h>
+#endif
 
 MODULE_DESCRIPTION("Diag Char Driver");
 MODULE_LICENSE("GPL v2");
@@ -66,7 +69,8 @@ static unsigned int poolsize_hdlc = 10;  /*Number of items in the mempool */
 static unsigned int itemsize_user = 8192; /*Size of item in the mempool */
 static unsigned int poolsize_user = 8;  /*Number of items in the mempool */
 /* for write structure buffer */
-static unsigned int itemsize_write_struct = 20; /*Size of item in the mempool */
+/*Size of item in the mempool */
+static unsigned int itemsize_write_struct = sizeof(struct diag_request);
 static unsigned int poolsize_write_struct = 10;/* Num of items in the mempool */
 /* For the dci memory pool */
 static unsigned int itemsize_dci = IN_BUF_SIZE; /*Size of item in the mempool */
@@ -390,10 +394,12 @@ void diag_clear_reg(int peripheral)
 	mutex_unlock(&driver->diagchar_mutex);
 }
 
-void diag_add_reg(int j, struct bindpkt_params *params,
-				  int *success, unsigned int *count_entries)
+int diag_add_reg(int j, struct bindpkt_params *params,
+				  unsigned int *count_entries)
 {
-	*success = 1;
+	if (j < 0 || j >= diag_max_reg || !params || !count_entries)
+		return -EINVAL;
+
 	driver->table[j].cmd_code = params->cmd_code;
 	driver->table[j].subsys_id = params->subsys_id;
 	driver->table[j].cmd_code_lo = params->cmd_code_lo;
@@ -411,6 +417,8 @@ void diag_add_reg(int j, struct bindpkt_params *params,
 		driver->table[j].client_id = params->client_id;
 	}
 	(*count_entries)++;
+
+	return 1;
 }
 
 void diag_get_timestamp(char *time_str)
@@ -650,62 +658,62 @@ exit:
 	return exit_stat;
 }
 
-int diag_command_reg(unsigned long ioarg)
+static int diag_command_reg(struct bindpkt_params_per_process *pkt_params)
 {
-	int i = 0, success = -EINVAL, j;
+	int retval = -EINVAL;
+	int i = 0, j;
 	void *temp_buf;
 	unsigned int count_entries = 0, interim_count = 0;
-	struct bindpkt_params_per_process pkt_params;
 	struct bindpkt_params *params;
 	struct bindpkt_params *head_params;
-	if (copy_from_user(&pkt_params, (void *)ioarg,
-		   sizeof(struct bindpkt_params_per_process))) {
-		return -EFAULT;
-	}
+
+	if (!pkt_params)
+		return -EINVAL;
+
 	if ((UINT_MAX/sizeof(struct bindpkt_params)) <
-						 pkt_params.count) {
+						pkt_params->count) {
 		pr_warn("diag: integer overflow while multiply\n");
 		return -EFAULT;
 	}
-	head_params = kzalloc(pkt_params.count*sizeof(
-		struct bindpkt_params), GFP_KERNEL);
+
+	head_params = kzalloc(pkt_params->count*sizeof(struct bindpkt_params),
+								GFP_KERNEL);
 	if (ZERO_OR_NULL_PTR(head_params)) {
 		pr_err("diag: unable to alloc memory\n");
 		return -ENOMEM;
-	} else
+	} else {
 		params = head_params;
-	if (copy_from_user(params, pkt_params.params,
-		   pkt_params.count*sizeof(struct bindpkt_params))) {
+	}
+
+	if (copy_from_user(params, pkt_params->params,
+			pkt_params->count*sizeof(struct bindpkt_params))) {
 		kfree(head_params);
 		return -EFAULT;
 	}
 	mutex_lock(&driver->diagchar_mutex);
 	for (i = 0; i < diag_max_reg; i++) {
 		if (driver->table[i].process_id == 0) {
-			diag_add_reg(i, params, &success,
-						 &count_entries);
-			if (pkt_params.count > count_entries) {
+			retval = diag_add_reg(i, params, &count_entries);
+			if (retval == 1 && pkt_params->count > count_entries) {
 				params++;
 			} else {
 				kfree(head_params);
 				mutex_unlock(&driver->diagchar_mutex);
-				return success;
+				return retval;
 			}
 		}
 	}
 	if (i < diag_threshold_reg) {
 		/* Increase table size by amount required */
-		if (pkt_params.count >= count_entries) {
-			interim_count = pkt_params.count -
-						 count_entries;
+		if (pkt_params->count >= count_entries) {
+			interim_count = pkt_params->count - count_entries;
 		} else {
 			pr_warn("diag: error in params count\n");
 			kfree(head_params);
 			mutex_unlock(&driver->diagchar_mutex);
 			return -EFAULT;
 		}
-		if (UINT_MAX - diag_max_reg >=
-						interim_count) {
+		if (UINT_MAX - diag_max_reg >= interim_count) {
 			diag_max_reg += interim_count;
 		} else {
 			pr_warn("diag: Integer overflow\n");
@@ -718,22 +726,21 @@ int diag_command_reg(unsigned long ioarg)
 			diag_max_reg = diag_threshold_reg;
 			pr_err("diag: best case memory allocation\n");
 		}
-		if (UINT_MAX/sizeof(struct diag_master_table) <
-							 diag_max_reg) {
+		if (UINT_MAX/sizeof(struct diag_master_table) < diag_max_reg) {
 			pr_warn("diag: integer overflow\n");
 			kfree(head_params);
 			mutex_unlock(&driver->diagchar_mutex);
 			return -EFAULT;
 		}
 		temp_buf = krealloc(driver->table,
-				 diag_max_reg*sizeof(struct
-				 diag_master_table), GFP_KERNEL);
+				diag_max_reg*sizeof(struct
+				diag_master_table), GFP_KERNEL);
 		if (!temp_buf) {
 			pr_err("diag: Insufficient memory for reg.\n");
 
-			if (pkt_params.count >= count_entries) {
-				interim_count = pkt_params.count -
-							 count_entries;
+			if (pkt_params->count >= count_entries) {
+				interim_count = pkt_params->count -
+					count_entries;
 			} else {
 				pr_warn("diag: params count error\n");
 				kfree(head_params);
@@ -755,14 +762,13 @@ int diag_command_reg(unsigned long ioarg)
 			driver->table = temp_buf;
 		}
 		for (j = i; j < diag_max_reg; j++) {
-			diag_add_reg(j, params, &success,
-						 &count_entries);
-			if (pkt_params.count > count_entries) {
+			retval = diag_add_reg(j, params, &count_entries);
+			if (retval == 1 && pkt_params->count > count_entries) {
 				params++;
 			} else {
 				kfree(head_params);
 				mutex_unlock(&driver->diagchar_mutex);
-				return success;
+				return retval;
 			}
 		}
 		kfree(head_params);
@@ -773,8 +779,8 @@ int diag_command_reg(unsigned long ioarg)
 		pr_err("Max size reached, Pkt Registration failed for Process %d",
 					current->tgid);
 	}
-	success = 0;
-	return success;
+	retval = 0;
+	return retval;
 }
 
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
@@ -819,9 +825,40 @@ void diag_cmp_logging_modes_diagfwd_bridge(int old_mode, int new_mode)
 }
 #endif
 
-int diag_switch_logging(int requested_mode)
+static int diag_ioctl_get_delay_rsp_id(
+				struct diagpkt_delay_params *delay_params)
 {
-	int temp = 0, success = -EINVAL, status = 0;
+	int result = -EINVAL;
+	int interim_size = 0;
+	uint16_t interim_rsp_id;
+
+	if ((delay_params->rsp_ptr) &&
+		(delay_params->size == sizeof(delayed_rsp_id)) &&
+		(delay_params->num_bytes_ptr)) {
+
+			interim_rsp_id = diagpkt_next_delayed_rsp_id(
+								delayed_rsp_id);
+
+			if (copy_to_user((void __user *)delay_params->rsp_ptr,
+				&interim_rsp_id, sizeof(uint16_t)))
+				return -EFAULT;
+
+			interim_size = sizeof(delayed_rsp_id);
+			if (copy_to_user(
+				(void __user *)delay_params->num_bytes_ptr,
+				&interim_size, sizeof(int)))
+				return -EFAULT;
+
+			result = 0;
+	}
+
+	return result;
+}
+
+static int diag_switch_logging(int requested_mode)
+{
+	int success = -EINVAL;
+	int temp = 0, status = 0;
 
 	switch (requested_mode) {
 	case USB_MODE:
@@ -929,62 +966,244 @@ int diag_switch_logging(int requested_mode)
 	return success;
 }
 
-long diagchar_ioctl(struct file *filp,
-			   unsigned int iocmd, unsigned long ioarg)
+static int diag_ioctl_dci_reg(unsigned long ioarg)
 {
-	int i, result = -EINVAL, interim_size = 0, client_id = 0, real_time = 0;
-	int retry_count = 0, timer = 0, req_logging_mode = 0;
-	uint16_t interim_rsp_id, remote_dev;
-	struct diag_dci_reg_tbl_t *dci_reg_params;
+	int result = -EINVAL;
+	struct diag_dci_reg_tbl_t dci_reg_params;
+
+	if (copy_from_user(&dci_reg_params, (void __user *)ioarg,
+				sizeof(struct diag_dci_reg_tbl_t)))
+		return -EFAULT;
+
+	result = diag_dci_register_client(&dci_reg_params);
+
+	return result;
+}
+
+static int diag_ioctl_dci_health_stats(unsigned long ioarg)
+{
+	int result = -EINVAL;
 	struct diag_dci_health_stats_proc stats;
+
+	if (copy_from_user(&stats, (void __user *)ioarg,
+				sizeof(struct diag_dci_health_stats_proc)))
+		return -EFAULT;
+
+	result = diag_dci_copy_health_stats(&stats);
+	if (result == DIAG_DCI_NO_ERROR) {
+		if (copy_to_user((void __user *)ioarg, &stats,
+			sizeof(struct diag_dci_health_stats_proc)))
+			return -EFAULT;
+	}
+
+	return result;
+}
+
+static int diag_ioctl_dci_log_status(unsigned long ioarg)
+{
 	struct diag_log_event_stats le_stats;
-	struct diagpkt_delay_params delay_params;
+	struct diag_dci_client_tbl *dci_client = NULL;
+
+	if (copy_from_user(&le_stats, (void __user *)ioarg,
+				sizeof(struct diag_log_event_stats)))
+		return -EFAULT;
+
+	dci_client = diag_dci_get_client_entry(le_stats.client_id);
+	if (!dci_client)
+		return DIAG_DCI_NOT_SUPPORTED;
+	le_stats.is_set = diag_dci_query_log_mask(dci_client, le_stats.code);
+	if (copy_to_user((void __user *)ioarg, &le_stats,
+				sizeof(struct diag_log_event_stats)))
+		return -EFAULT;
+
+	return DIAG_DCI_NO_ERROR;
+}
+
+static int diag_ioctl_dci_event_status(unsigned long ioarg)
+{
+	struct diag_log_event_stats le_stats;
+	struct diag_dci_client_tbl *dci_client = NULL;
+
+	if (copy_from_user(&le_stats, (void __user *)ioarg,
+				sizeof(struct diag_log_event_stats)))
+		return -EFAULT;
+
+	dci_client = diag_dci_get_client_entry(le_stats.client_id);
+	if (!dci_client)
+		return DIAG_DCI_NOT_SUPPORTED;
+
+	le_stats.is_set = diag_dci_query_event_mask(dci_client, le_stats.code);
+	if (copy_to_user((void __user *)ioarg, &le_stats,
+				sizeof(struct diag_log_event_stats)))
+		return -EFAULT;
+
+	return DIAG_DCI_NO_ERROR;
+}
+
+static int diag_ioctl_lsm_deinit(void)
+{
+	int i;
+
+	for (i = 0; i < driver->num_clients; i++)
+		if (driver->client_map[i].pid == current->tgid)
+			break;
+
+	if (i == driver->num_clients)
+		return -EINVAL;
+
+	driver->data_ready[i] |= DEINIT_TYPE;
+	wake_up_interruptible(&driver->wait_q);
+
+	return 1;
+}
+
+static int diag_ioctl_vote_real_time(unsigned long ioarg)
+{
+	int real_time = 0;
 	struct real_time_vote_t vote;
 	struct diag_dci_client_tbl *dci_client = NULL;
-	struct diag_dci_peripherals_t dci_support;
+
+	if (copy_from_user(&vote, (void __user *)ioarg,
+			sizeof(struct real_time_vote_t)))
+		return -EFAULT;
+
+	driver->real_time_update_busy++;
+	if (vote.proc == DIAG_PROC_DCI) {
+		dci_client = diag_dci_get_client_entry(vote.client_id);
+		if (!dci_client) {
+			driver->real_time_update_busy--;
+			return DIAG_DCI_NOT_SUPPORTED;
+		}
+		diag_dci_set_real_time(dci_client, vote.real_time_vote);
+		real_time = diag_dci_get_cumulative_real_time(
+					dci_client->client_info.token);
+		diag_update_real_time_vote(vote.proc, real_time,
+					dci_client->client_info.token);
+	} else {
+		real_time = vote.real_time_vote;
+		diag_update_real_time_vote(vote.proc, real_time,
+						ALL_PROC);
+	}
+	queue_work(driver->diag_real_time_wq, &driver->diag_real_time_work);
+	return 0;
+}
+
+static int diag_ioctl_get_real_time(unsigned long ioarg)
+{
+	int result = -EINVAL;
+	int real_time = 0;
+	int retry_count = 0;
+	int timer = 0;
 	struct real_time_query_t rt_query;
+
+	if (copy_from_user(&rt_query, (void __user *)ioarg,
+					sizeof(struct real_time_query_t)))
+		return -EFAULT;
+	while (retry_count < 3) {
+		if (driver->real_time_update_busy > 0) {
+			retry_count++;
+			/*
+			 * The value 10000 was chosen empirically as an
+			 * optimum value in order to give the work in
+			 * diag_real_time_wq to complete processing.
+			 */
+			for (timer = 0; timer < 5; timer++)
+				usleep_range(10000, 10100);
+		} else {
+			if (rt_query.proc < 0 ||
+					rt_query.proc > DIAG_NUM_PROC) {
+				pr_err("diag: Invalid proc %d in %s\n",
+				       rt_query.proc, __func__);
+				return -EINVAL;
+			}
+			real_time = driver->real_time_mode[rt_query.proc];
+			if (copy_to_user((void __user *)ioarg, &rt_query,
+				sizeof(struct real_time_query_t)))
+				return -EFAULT;
+			result = 0;
+			break;
+		}
+	}
+	return result;
+}
+
+static int diag_ioctl_dci_support(unsigned long ioarg)
+{
+	struct diag_dci_peripherals_t dci_support;
+	int result = -EINVAL;
+
+	if (copy_from_user(&dci_support, (void __user *)ioarg,
+				sizeof(struct diag_dci_peripherals_t)))
+		return -EFAULT;
+
+	result = diag_dci_get_support_list(&dci_support);
+	if (result == DIAG_DCI_NO_ERROR)
+		if (copy_to_user((void __user *)ioarg, &dci_support,
+				sizeof(struct diag_dci_peripherals_t)))
+			return -EFAULT;
+
+	return result;
+}
+
+#ifdef CONFIG_COMPAT
+
+struct diagpkt_delay_params_compat {
+	compat_uptr_t rsp_ptr;
+	int size;
+	compat_uptr_t num_bytes_ptr;
+};
+
+struct bindpkt_params_per_process_compat {
+	/* Name of the synchronization object associated with this proc */
+	char sync_obj_name[MAX_SYNC_OBJ_NAME_SIZE];
+	uint32_t count;	/* Number of entries in this bind */
+	compat_uptr_t params; /* first bind params */
+};
+
+long diagchar_compat_ioctl(struct file *filp,
+			   unsigned int iocmd, unsigned long ioarg)
+{
+	int result = -EINVAL;
+	int req_logging_mode = 0;
+	int client_id = 0;
+	uint16_t remote_dev;
+	struct bindpkt_params_per_process pkt_params;
+	struct bindpkt_params_per_process_compat pkt_params_compat;
+	struct diagpkt_delay_params_compat delay_params_compat;
+	struct diagpkt_delay_params delay_params;
+	struct diag_dci_client_tbl *dci_client = NULL;
 
 	switch (iocmd) {
 	case DIAG_IOCTL_COMMAND_REG:
-		result = diag_command_reg(ioarg);
+		if (copy_from_user(&pkt_params_compat, (void __user *)ioarg,
+			sizeof(struct bindpkt_params_per_process_compat))) {
+				return -EFAULT;
+		}
+		strlcpy(pkt_params.sync_obj_name,
+			pkt_params_compat.sync_obj_name,
+			MAX_SYNC_OBJ_NAME_SIZE);
+		pkt_params.count = pkt_params_compat.count;
+		pkt_params.params = (struct bindpkt_params *)(uintptr_t)
+						pkt_params_compat.params;
+		result = diag_command_reg(&pkt_params);
 		break;
 	case DIAG_IOCTL_GET_DELAYED_RSP_ID:
-		if (copy_from_user(&delay_params, (void *)ioarg,
-					sizeof(struct diagpkt_delay_params)))
+		if (copy_from_user(&delay_params_compat, (void __user *)ioarg,
+			sizeof(struct diagpkt_delay_params_compat)))
 			return -EFAULT;
-		if ((delay_params.rsp_ptr) &&
-		 (delay_params.size == sizeof(delayed_rsp_id)) &&
-				 (delay_params.num_bytes_ptr)) {
-			interim_rsp_id = diagpkt_next_delayed_rsp_id(
-							delayed_rsp_id);
-			if (copy_to_user((void *)delay_params.rsp_ptr,
-					 &interim_rsp_id, sizeof(uint16_t)))
-				return -EFAULT;
-			interim_size = sizeof(delayed_rsp_id);
-			if (copy_to_user((void *)delay_params.num_bytes_ptr,
-						 &interim_size, sizeof(int)))
-				return -EFAULT;
-			result = 0;
-		}
+		delay_params.rsp_ptr =
+			(void *)(uintptr_t)delay_params_compat.rsp_ptr;
+		delay_params.size = delay_params_compat.size;
+		delay_params.num_bytes_ptr =
+			(int *)(uintptr_t)delay_params_compat.num_bytes_ptr;
+		result = diag_ioctl_get_delay_rsp_id(&delay_params);
 		break;
 	case DIAG_IOCTL_DCI_REG:
-		dci_reg_params = kzalloc(sizeof(struct diag_dci_reg_tbl_t),
-								 GFP_KERNEL);
-		if (dci_reg_params == NULL) {
-			pr_err("diag: unable to alloc memory\n");
-			return -ENOMEM;
-		}
-		if (copy_from_user(dci_reg_params, (void *)ioarg,
-				 sizeof(struct diag_dci_reg_tbl_t))) {
-			kfree(dci_reg_params);
-			return -EFAULT;
-		}
-		result = diag_dci_register_client(dci_reg_params);
-		kfree(dci_reg_params);
+		result = diag_ioctl_dci_reg(ioarg);
 		break;
 	case DIAG_IOCTL_DCI_DEINIT:
-		if (copy_from_user((void *)&client_id, (void *)ioarg,
-				sizeof(int)))
+		if (copy_from_user((void *)&client_id, (void __user *)ioarg,
+			sizeof(int)))
 			return -EFAULT;
 		dci_client = diag_dci_get_client_entry(client_id);
 		if (!dci_client)
@@ -992,148 +1211,140 @@ long diagchar_ioctl(struct file *filp,
 		result = diag_dci_deinit_client(dci_client);
 		break;
 	case DIAG_IOCTL_DCI_SUPPORT:
-		if (copy_from_user(&dci_support, (void *)ioarg,
-					sizeof(struct diag_dci_peripherals_t)))
-			return -EFAULT;
-		result = diag_dci_get_support_list(&dci_support);
-		if (result != DIAG_DCI_NO_ERROR)
-			break;
-		if (copy_to_user((void *)ioarg, &dci_support,
-					sizeof(struct diag_dci_peripherals_t)))
-			return -EFAULT;
-
+		result = diag_ioctl_dci_support(ioarg);
 		break;
 	case DIAG_IOCTL_DCI_HEALTH_STATS:
-		if (copy_from_user(&stats, (void *)ioarg,
-				 sizeof(struct diag_dci_health_stats_proc)))
-			return -EFAULT;
-
-		result = diag_dci_copy_health_stats(&stats);
-		if (result != DIAG_DCI_NO_ERROR)
-			break;
-
-		if (copy_to_user((void *)ioarg, &stats,
-				   sizeof(struct diag_dci_health_stats_proc)))
-			return -EFAULT;
-		result = DIAG_DCI_NO_ERROR;
+		result = diag_ioctl_dci_health_stats(ioarg);
 		break;
 	case DIAG_IOCTL_DCI_LOG_STATUS:
-		if (copy_from_user(&le_stats, (void *)ioarg,
-				sizeof(struct diag_log_event_stats)))
-			return -EFAULT;
-		dci_client = diag_dci_get_client_entry(le_stats.client_id);
-		if (!dci_client)
-			return DIAG_DCI_NOT_SUPPORTED;
-		le_stats.is_set = diag_dci_query_log_mask(dci_client,
-							  le_stats.code);
-		if (copy_to_user((void *)ioarg, &le_stats,
-				sizeof(struct diag_log_event_stats)))
-			return -EFAULT;
-		result = DIAG_DCI_NO_ERROR;
+		result = diag_ioctl_dci_log_status(ioarg);
 		break;
 	case DIAG_IOCTL_DCI_EVENT_STATUS:
-		if (copy_from_user(&le_stats, (void *)ioarg,
-					sizeof(struct diag_log_event_stats)))
-			return -EFAULT;
-		dci_client = diag_dci_get_client_entry(le_stats.client_id);
-		if (!dci_client)
-			return DIAG_DCI_NOT_SUPPORTED;
-		le_stats.is_set = diag_dci_query_event_mask(dci_client,
-							    le_stats.code);
-		if (copy_to_user((void *)ioarg, &le_stats,
-				sizeof(struct diag_log_event_stats)))
-			return -EFAULT;
-		result = DIAG_DCI_NO_ERROR;
+		result = diag_ioctl_dci_event_status(ioarg);
 		break;
 	case DIAG_IOCTL_DCI_CLEAR_LOGS:
-		if (copy_from_user((void *)&client_id, (void *)ioarg,
-				sizeof(int)))
+		if (copy_from_user((void *)&client_id, (void __user *)ioarg,
+			sizeof(int)))
 			return -EFAULT;
 		result = diag_dci_clear_log_mask(client_id);
 		break;
 	case DIAG_IOCTL_DCI_CLEAR_EVENTS:
-		if (copy_from_user(&client_id, (void *)ioarg,
-				sizeof(int)))
+		if (copy_from_user(&client_id, (void __user *)ioarg,
+			sizeof(int)))
 			return -EFAULT;
 		result = diag_dci_clear_event_mask(client_id);
 		break;
 	case DIAG_IOCTL_LSM_DEINIT:
-		for (i = 0; i < driver->num_clients; i++)
-			if (driver->client_map[i].pid == current->tgid)
-				break;
-		if (i == driver->num_clients)
-			return -EINVAL;
-		driver->data_ready[i] |= DEINIT_TYPE;
-		wake_up_interruptible(&driver->wait_q);
-		result = 1;
+		result = diag_ioctl_lsm_deinit();
 		break;
 	case DIAG_IOCTL_SWITCH_LOGGING:
-		if (copy_from_user((void *)&req_logging_mode, (void *)ioarg,
-			sizeof(int)))
+		if (copy_from_user((void *)&req_logging_mode,
+					(void __user *)ioarg, sizeof(int)))
 			return -EFAULT;
 		result = diag_switch_logging(req_logging_mode);
 		break;
 	case DIAG_IOCTL_REMOTE_DEV:
 		remote_dev = diag_get_remote_device_mask();
-		if (copy_to_user((void *)ioarg, &remote_dev, sizeof(uint16_t)))
+		if (copy_to_user((void __user *)ioarg, &remote_dev,
+			sizeof(uint16_t)))
 			result = -EFAULT;
 		else
 			result = 1;
 		break;
 	case DIAG_IOCTL_VOTE_REAL_TIME:
-		if (copy_from_user(&vote, (void *)ioarg, sizeof(struct
-							real_time_vote_t)))
-			return -EFAULT;
-		driver->real_time_update_busy++;
-		if (vote.proc == DIAG_PROC_DCI) {
-			dci_client = diag_dci_get_client_entry(vote.client_id);
-			if (!dci_client) {
-				driver->real_time_update_busy--;
-				result = DIAG_DCI_NOT_SUPPORTED;
-				break;
-			}
-			diag_dci_set_real_time(dci_client, vote.real_time_vote);
-			real_time = diag_dci_get_cumulative_real_time(
-						dci_client->client_info.token);
-			diag_update_real_time_vote(vote.proc, real_time,
-						dci_client->client_info.token);
-		} else {
-			real_time = vote.real_time_vote;
-			diag_update_real_time_vote(vote.proc, real_time,
-						   ALL_PROC);
-		}
-		queue_work(driver->diag_real_time_wq,
-			   &driver->diag_real_time_work);
-		result = 0;
+		result = diag_ioctl_vote_real_time(ioarg);
 		break;
 	case DIAG_IOCTL_GET_REAL_TIME:
-		if (copy_from_user(&rt_query, (void *)ioarg, sizeof(struct
-							real_time_query_t)))
-			return -EFAULT;
-		while (retry_count < 3) {
-			if (driver->real_time_update_busy > 0) {
-				retry_count++;
-				/* The value 10000 was chosen empirically as an
-				   optimum value in order to give the work in
-				   diag_real_time_wq to complete processing.*/
-				for (timer = 0; timer < 5; timer++)
-					usleep_range(10000, 10100);
-			} else {
-				if (rt_query.proc < 0 ||
-						rt_query.proc > DIAG_NUM_PROC) {
-					pr_err("diag: Invalid proc %d in %s\n",
-					       rt_query.proc, __func__);
-					return -EINVAL;
-				}
-				real_time =
-					driver->real_time_mode[rt_query.proc];
-				if (copy_to_user((void *)ioarg, &rt_query,
-					sizeof(struct real_time_query_t)))
-					return -EFAULT;
-				result = 0;
-				break;
-			}
+		result = diag_ioctl_get_real_time(ioarg);
+		break;
+	}
+	return result;
+}
+#endif
+
+long diagchar_ioctl(struct file *filp,
+			   unsigned int iocmd, unsigned long ioarg)
+{
+	int result = -EINVAL;
+	int req_logging_mode = 0;
+	int client_id = 0;
+	uint16_t remote_dev;
+	struct bindpkt_params_per_process pkt_params;
+	struct diagpkt_delay_params delay_params;
+	struct diag_dci_client_tbl *dci_client = NULL;
+
+	switch (iocmd) {
+	case DIAG_IOCTL_COMMAND_REG:
+		if (copy_from_user(&pkt_params, (void __user *)ioarg,
+			sizeof(struct bindpkt_params_per_process))) {
+				return -EFAULT;
 		}
+		result = diag_command_reg(&pkt_params);
+		break;
+	case DIAG_IOCTL_GET_DELAYED_RSP_ID:
+		if (copy_from_user(&delay_params, (void __user *)ioarg,
+			sizeof(struct diagpkt_delay_params)))
+			return -EFAULT;
+		result = diag_ioctl_get_delay_rsp_id(&delay_params);
+		break;
+	case DIAG_IOCTL_DCI_REG:
+		result = diag_ioctl_dci_reg(ioarg);
+		break;
+	case DIAG_IOCTL_DCI_DEINIT:
+		if (copy_from_user((void *)&client_id, (void __user *)ioarg,
+			sizeof(int)))
+			return -EFAULT;
+		dci_client = diag_dci_get_client_entry(client_id);
+		if (!dci_client)
+			return DIAG_DCI_NOT_SUPPORTED;
+		result = diag_dci_deinit_client(dci_client);
+		break;
+	case DIAG_IOCTL_DCI_SUPPORT:
+		result = diag_ioctl_dci_support(ioarg);
+		break;
+	case DIAG_IOCTL_DCI_HEALTH_STATS:
+		result = diag_ioctl_dci_health_stats(ioarg);
+		break;
+	case DIAG_IOCTL_DCI_LOG_STATUS:
+		result = diag_ioctl_dci_log_status(ioarg);
+		break;
+	case DIAG_IOCTL_DCI_EVENT_STATUS:
+		result = diag_ioctl_dci_event_status(ioarg);
+		break;
+	case DIAG_IOCTL_DCI_CLEAR_LOGS:
+		if (copy_from_user((void *)&client_id, (void __user *)ioarg,
+			sizeof(int)))
+			return -EFAULT;
+		result = diag_dci_clear_log_mask(client_id);
+		break;
+	case DIAG_IOCTL_DCI_CLEAR_EVENTS:
+		if (copy_from_user(&client_id, (void __user *)ioarg,
+			sizeof(int)))
+			return -EFAULT;
+		result = diag_dci_clear_event_mask(client_id);
+		break;
+	case DIAG_IOCTL_LSM_DEINIT:
+		result = diag_ioctl_lsm_deinit();
+		break;
+	case DIAG_IOCTL_SWITCH_LOGGING:
+		if (copy_from_user((void *)&req_logging_mode,
+					(void __user *)ioarg, sizeof(int)))
+			return -EFAULT;
+		result = diag_switch_logging(req_logging_mode);
+		break;
+	case DIAG_IOCTL_REMOTE_DEV:
+		remote_dev = diag_get_remote_device_mask();
+		if (copy_to_user((void __user *)ioarg, &remote_dev,
+			sizeof(uint16_t)))
+			result = -EFAULT;
+		else
+			result = 1;
+		break;
+	case DIAG_IOCTL_VOTE_REAL_TIME:
+		result = diag_ioctl_vote_real_time(ioarg);
+		break;
+	case DIAG_IOCTL_GET_REAL_TIME:
+		result = diag_ioctl_get_real_time(ioarg);
 		break;
 	}
 	return result;
@@ -1984,6 +2195,9 @@ static const struct file_operations diagcharfops = {
 	.owner = THIS_MODULE,
 	.read = diagchar_read,
 	.write = diagchar_write,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = diagchar_compat_ioctl,
+#endif
 	.unlocked_ioctl = diagchar_ioctl,
 	.open = diagchar_open,
 	.release = diagchar_close
