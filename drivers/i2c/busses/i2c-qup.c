@@ -961,6 +961,38 @@ recovery_end:
 	enable_irq(dev->err_irq);
 }
 
+static void i2c_qup_dump_gpio_conf(struct qup_i2c_dev *dev, int gpio_num,
+		const char *gpio_name, enum msm_gpiomux_setting setting,
+		const char *setting_name)
+{
+	struct gpiomux_setting cur_conf;
+	if (msm_gpiomux_write(gpio_num, setting, NULL, &cur_conf)) {
+		dev_err(dev->dev, "error reading %s-gpio:#%d %s setting\n",
+					gpio_name, gpio_num, setting_name);
+		return;
+	}
+	dev_info(dev->dev,
+		"dump %s-gpio:#%d state:%s func:%d drv:%d pull:%d dir:%d\n",
+		gpio_name, gpio_num, setting_name, cur_conf.func, cur_conf.drv,
+		cur_conf.pull, cur_conf.dir);
+
+	if (msm_gpiomux_write(gpio_num, setting, &cur_conf, NULL))
+		dev_err(dev->dev, "error restoring %s-gpio:#%d %s setting\n",
+					gpio_name, gpio_num, setting_name);
+}
+
+static void i2c_qup_dump_gpios(struct qup_i2c_dev *dev)
+{
+	i2c_qup_dump_gpio_conf(dev, dev->i2c_gpios[0], i2c_rsrcs[0],
+						GPIOMUX_ACTIVE, "active");
+	i2c_qup_dump_gpio_conf(dev, dev->i2c_gpios[0], i2c_rsrcs[0],
+						GPIOMUX_SUSPENDED, "suspended");
+	i2c_qup_dump_gpio_conf(dev, dev->i2c_gpios[1], i2c_rsrcs[1],
+						GPIOMUX_ACTIVE, "active");
+	i2c_qup_dump_gpio_conf(dev, dev->i2c_gpios[1], i2c_rsrcs[1],
+						GPIOMUX_SUSPENDED, "suspended");
+}
+
 static int
 qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 {
@@ -1198,6 +1230,7 @@ qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 				dev_err(dev->dev,
 					"Transaction timed out, SL-AD = 0x%x\n",
 					dev->msg->addr);
+				i2c_qup_dump_gpios(dev);
 
 				dev_err(dev->dev, "I2C Status: %x\n", istatus);
 				dev_err(dev->dev, "QUP Status: %x\n", qstatus);
@@ -1221,9 +1254,11 @@ timeout_err:
 				} else if (dev->err < 0) {
 					dev_err(dev->dev,
 					"QUP data xfer error %d\n", dev->err);
+					i2c_qup_dump_gpios(dev);
 					ret = dev->err;
 					goto out_err;
 				} else if (dev->err > 0) {
+					i2c_qup_dump_gpios(dev);
 					/*
 					 * ISR returns +ve error if error code
 					 * is I2C related, e.g. unexpected start
