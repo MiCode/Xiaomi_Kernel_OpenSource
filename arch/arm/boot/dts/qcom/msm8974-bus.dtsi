@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1168,12 +1168,18 @@
 			qcom,masterp = <0>;
 			qcom,tier = <2>;
 			qcom,hw-sel = "BIMC";
-			qcom,mode = "Fixed";
+			qcom,mode = "Limiter";
 			qcom,qport = <0>;
 			qcom,ws = <10000>;
 			qcom,mas-hw-id = <0>;
 			qcom,prio-rd = <0>;
 			qcom,prio-wr = <0>;
+			qcom,mode-thresh = "Fixed";
+			qcom,thresh = <2000000>;
+			qcom,dual-conf;
+			qcom,bimc,bw = <300000>;
+			qcom,bimc,gp = <5000>;
+			qcom,bimc,thmp = <50>;
 		};
 
 		mas-ampss-m1 {
@@ -1182,12 +1188,18 @@
 			qcom,masterp = <1>;
 			qcom,tier = <2>;
 			qcom,hw-sel = "BIMC";
-			qcom,mode = "Fixed";
+			qcom,mode = "Limiter";
 			qcom,qport = <1>;
 			qcom,ws = <10000>;
 			qcom,mas-hw-id = <0>;
 			qcom,prio-rd = <0>;
 			qcom,prio-wr = <0>;
+			qcom,mode-thresh = "Fixed";
+			qcom,thresh = <2000000>;
+			qcom,dual-conf;
+			qcom,bimc,bw = <300000>;
+			qcom,bimc,gp = <5000>;
+			qcom,bimc,thmp = <50>;
 		};
 
 		mas-mss-proc {
