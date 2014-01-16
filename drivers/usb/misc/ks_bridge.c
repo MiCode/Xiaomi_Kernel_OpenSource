@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,6 +103,9 @@ struct ks_bridge {
 	struct usb_anchor	submitted;
 
 	unsigned long		flags;
+
+	/* to handle INT IN ep */
+	unsigned int		period;
 
 #define DBG_MSG_LEN   40
 #define DBG_MAX_MSG   500
@@ -440,6 +443,8 @@ static const struct usb_device_id ksb_usb_ids[] = {
 	.driver_info = (unsigned long)&ksb_efs_hsic_dev, },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x908E, 3),
 	.driver_info = (unsigned long)&ksb_efs_hsic_dev, },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90A0, 2),
+	.driver_info = (unsigned long)&ksb_efs_hsic_dev, },
 
 	{} /* terminating entry */
 };
@@ -459,9 +464,15 @@ submit_one_urb(struct ks_bridge *ksb, gfp_t flags, struct data_pkt *pkt)
 		return;
 	}
 
-	usb_fill_bulk_urb(urb, ksb->udev, ksb->in_pipe,
-			pkt->buf, pkt->len,
-			ksb_rx_cb, pkt);
+	if (ksb->period)
+		usb_fill_int_urb(urb, ksb->udev, ksb->in_pipe,
+				 pkt->buf, pkt->len,
+				 ksb_rx_cb, pkt, ksb->period);
+	else
+		usb_fill_bulk_urb(urb, ksb->udev, ksb->in_pipe,
+				pkt->buf, pkt->len,
+				ksb_rx_cb, pkt);
+
 	usb_anchor_urb(urb, &ksb->submitted);
 
 	if (!test_bit(USB_DEV_CONNECTED, &ksb->flags)) {
@@ -573,9 +584,15 @@ static void ksb_start_rx_work(struct work_struct *w)
 			break;
 		}
 
-		usb_fill_bulk_urb(urb, ksb->udev, ksb->in_pipe,
-				pkt->buf, pkt->len,
-				ksb_rx_cb, pkt);
+		if (ksb->period)
+			usb_fill_int_urb(urb, ksb->udev, ksb->in_pipe,
+					pkt->buf, pkt->len,
+					ksb_rx_cb, pkt, ksb->period);
+		else
+			usb_fill_bulk_urb(urb, ksb->udev, ksb->in_pipe,
+					pkt->buf, pkt->len,
+					ksb_rx_cb, pkt);
+
 		usb_anchor_urb(urb, &ksb->submitted);
 
 		dbg_log_event(ksb, "S RX_URB", pkt->len, 0);
@@ -635,6 +652,7 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	case 0x9075:
 	case 0x908A:
 	case 0x908E:
+	case 0x90A0:
 		ksb = __ksb[EFS_HSIC_BRIDGE_INDEX];
 		break;
 	case 0x9079:
@@ -659,8 +677,15 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	for (i = 0; i < ifc_desc->desc.bNumEndpoints; i++) {
 		ep_desc = &ifc_desc->endpoint[i].desc;
 
-		if (!ksb->in_epAddr && usb_endpoint_is_bulk_in(ep_desc))
+		if (!ksb->in_epAddr && (usb_endpoint_is_bulk_in(ep_desc))) {
 			ksb->in_epAddr = ep_desc->bEndpointAddress;
+			ksb->period = 0;
+		}
+
+		if (!ksb->in_epAddr && (usb_endpoint_is_int_in(ep_desc))) {
+			ksb->in_epAddr = ep_desc->bEndpointAddress;
+			ksb->period = ep_desc->bInterval;
+		}
 
 		if (!ksb->out_epAddr && usb_endpoint_is_bulk_out(ep_desc))
 			ksb->out_epAddr = ep_desc->bEndpointAddress;
@@ -674,7 +699,10 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 		return -ENODEV;
 	}
 
-	ksb->in_pipe = usb_rcvbulkpipe(ksb->udev, ksb->in_epAddr);
+	ksb->in_pipe = ksb->period ?
+		usb_rcvintpipe(ksb->udev, ksb->in_epAddr) :
+		usb_rcvbulkpipe(ksb->udev, ksb->in_epAddr);
+
 	ksb->out_pipe = usb_sndbulkpipe(ksb->udev, ksb->out_epAddr);
 
 	usb_set_intfdata(ifc, ksb);
