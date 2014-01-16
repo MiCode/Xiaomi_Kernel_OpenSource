@@ -271,6 +271,7 @@
 		startup-delay-us = <4000>;
 		enable-active-high;
 		gpio = <&pma8084_gpios 16 0>;
+		regulator-boot-on;
 	};
 	pcie1_power_en_vreg: pcie1_power_en_vreg {
 		compatible = "regulator-fixed";
@@ -278,5 +279,6 @@
 		startup-delay-us = <4000>;
 		enable-active-high;
 		gpio = <&pma8084_gpios 22 0>;
+		regulator-boot-on;
 	};
 };
