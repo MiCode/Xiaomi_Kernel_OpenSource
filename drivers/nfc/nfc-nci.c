@@ -718,7 +718,7 @@ int nfc_ioctl_nfcc_version(struct file *filp, unsigned int cmd,
 	int r = 0;
 	unsigned short	slave_addr	=	0xE;
 	unsigned short	curr_addr;
-
+	unsigned char	raw_nci_wake[]			= {0x10, 0x0F};
 	unsigned char raw_chip_version_addr		= 0x00;
 	unsigned char raw_chip_rev_id_addr		= 0x9C;
 	unsigned char raw_chip_version			= 0xFF;
@@ -728,9 +728,22 @@ int nfc_ioctl_nfcc_version(struct file *filp, unsigned int cmd,
 
 	platform_data = qca199x_dev->client->dev.platform_data;
 
+	/*
+	 * Always wake up chip when reading 0x9C, otherwise this
+	 * register is not updated
+	 */
+	curr_addr = qca199x_dev->client->addr;
+	qca199x_dev->client->addr = slave_addr;
+	r = nfc_i2c_write(qca199x_dev->client, &raw_nci_wake[0],
+						sizeof(raw_nci_wake));
+	r = sizeof(raw_nci_wake);
+	if (r != sizeof(raw_nci_wake))
+		goto invalid_wake_up;
+	qca199x_dev->state = NFCC_STATE_NORMAL_WAKE;
+
+	/* sleep to ensure the NFCC has time to wake up */
+	usleep(100);
 	if (arg == 0) {
-		curr_addr = qca199x_dev->client->addr;
-		qca199x_dev->client->addr = slave_addr;
 		r = nfc_i2c_write(qca199x_dev->client,
 				&raw_chip_version_addr, 1);
 		if (r < 0)
@@ -739,10 +752,7 @@ int nfc_ioctl_nfcc_version(struct file *filp, unsigned int cmd,
 		r = i2c_master_recv(qca199x_dev->client, &raw_chip_version, 1);
 		/* Restore original NFCC slave I2C address */
 		qca199x_dev->client->addr = curr_addr;
-	}
-	if (arg == 1) {
-		curr_addr = qca199x_dev->client->addr;
-		qca199x_dev->client->addr = slave_addr;
+	} else if (arg == 1) {
 		r = nfc_i2c_write(qca199x_dev->client,
 				&raw_chip_rev_id_addr, 1);
 		if (r < 0)
@@ -752,8 +762,9 @@ int nfc_ioctl_nfcc_version(struct file *filp, unsigned int cmd,
 		/* Restore original NFCC slave I2C address */
 		qca199x_dev->client->addr = curr_addr;
 	}
-
 	return raw_chip_version;
+invalid_wake_up:
+	raw_chip_version = 0xFE;
 invalid_wr:
 	raw_chip_version = 0xFF;
 	dev_err(&qca199x_dev->client->dev,
