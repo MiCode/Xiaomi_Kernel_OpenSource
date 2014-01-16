@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -145,6 +145,8 @@ int interpolate_pc(struct pc_temp_ocv_lut *pc_temp_ocv,
 				int batt_temp_degc, int ocv);
 int interpolate_ocv(struct pc_temp_ocv_lut *pc_temp_ocv,
 				int batt_temp_degc, int pc);
+int interpolate_slope(struct pc_temp_ocv_lut *pc_temp_ocv,
+					int batt_temp, int pc);
 int linear_interpolate(int y0, int x0, int y1, int x1, int x);
 int is_between(int left, int right, int value);
 #else
@@ -170,6 +172,11 @@ static inline int interpolate_pc(struct pc_temp_ocv_lut *pc_temp_ocv,
 }
 static inline int interpolate_ocv(struct pc_temp_ocv_lut *pc_temp_ocv,
 			int batt_temp_degc, int pc)
+{
+	return -EINVAL;
+}
+static inline int interpolate_slope(struct pc_temp_ocv_lut *pc_temp_ocv,
+					int batt_temp, int pc)
 {
 	return -EINVAL;
 }

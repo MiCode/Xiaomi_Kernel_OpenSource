@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -336,4 +336,77 @@ int interpolate_pc(struct pc_temp_ocv_lut *pc_temp_ocv,
 	pr_debug("%d ocv wasn't found for temp %d in the LUT returning 100%%\n",
 							ocv, batt_temp);
 	return 100;
+}
+
+int interpolate_slope(struct pc_temp_ocv_lut *pc_temp_ocv,
+					int batt_temp, int pc)
+{
+	int i, ocvrow1, ocvrow2, rows, cols;
+	int row1 = 0;
+	int row2 = 0;
+	int slope;
+
+	rows = pc_temp_ocv->rows;
+	cols = pc_temp_ocv->cols;
+	if (pc >= pc_temp_ocv->percent[0]) {
+		pr_debug("pc %d >= max pc range - use the slope at pc=%d\n",
+						pc, pc_temp_ocv->percent[0]);
+		row1 = 0;
+		row2 = 1;
+	} else if (pc <= pc_temp_ocv->percent[rows - 1]) {
+		pr_debug("pc %d is <= min pc range - use the slope at pc=%d\n",
+					pc,  pc_temp_ocv->percent[rows - 1]);
+		row1 = rows - 2;
+		row2 = rows - 1;
+	} else {
+		for (i = 0; i < rows; i++) {
+			if (pc == pc_temp_ocv->percent[i]) {
+				row1 = i - 1;
+				row2 = i;
+				break;
+			}
+			if (pc > pc_temp_ocv->percent[i]) {
+				row1 = i - 1;
+				row2 = i;
+				break;
+			}
+		}
+	}
+
+	if (batt_temp < pc_temp_ocv->temp[0] * DEGC_SCALE)
+		batt_temp = pc_temp_ocv->temp[0] * DEGC_SCALE;
+	if (batt_temp > pc_temp_ocv->temp[cols - 1] * DEGC_SCALE)
+		batt_temp = pc_temp_ocv->temp[cols - 1] * DEGC_SCALE;
+
+	for (i = 0; i < cols; i++)
+		if (batt_temp <= pc_temp_ocv->temp[i] * DEGC_SCALE)
+			break;
+
+	if (batt_temp == pc_temp_ocv->temp[i] * DEGC_SCALE) {
+		slope = (pc_temp_ocv->ocv[row1][i] -
+				pc_temp_ocv->ocv[row2][i]);
+		slope *= 1000;
+		slope /= (pc_temp_ocv->percent[row1] -
+			pc_temp_ocv->percent[row2]);
+		return slope;
+	}
+	ocvrow1 = linear_interpolate(
+			pc_temp_ocv->ocv[row1][i - 1],
+			pc_temp_ocv->temp[i - 1] * DEGC_SCALE,
+			pc_temp_ocv->ocv[row1][i],
+			pc_temp_ocv->temp[i] * DEGC_SCALE,
+			batt_temp);
+
+	ocvrow2 = linear_interpolate(
+			pc_temp_ocv->ocv[row2][i - 1],
+				pc_temp_ocv->temp[i - 1] * DEGC_SCALE,
+				pc_temp_ocv->ocv[row2][i],
+				pc_temp_ocv->temp[i] * DEGC_SCALE,
+				batt_temp);
+
+	slope = (ocvrow1 - ocvrow2);
+	slope *= 1000;
+	slope /= (pc_temp_ocv->percent[row1] - pc_temp_ocv->percent[row2]);
+
+	return slope;
 }
