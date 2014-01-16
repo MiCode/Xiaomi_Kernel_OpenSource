@@ -86,6 +86,7 @@ struct msm_compr_audio {
 	struct audio_client *audio_client;
 
 	uint32_t codec;
+	uint32_t compr_passthr;
 	void    *buffer; /* virtual address */
 	uint32_t buffer_paddr; /* physical address */
 	uint32_t app_pointer;
@@ -130,6 +131,8 @@ struct msm_compr_audio_effects {
 	struct reverb_params reverb;
 	struct eq_params equalizer;
 };
+
+u32 compr_codecs[] = {SND_AUDIOCODEC_AC3};
 
 static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 				uint32_t volume_l, uint32_t volume_r)
@@ -460,24 +463,47 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 
 	prtd->gapless_state.stream_opened[ac->stream_id] = 1;
 	pr_debug("%s be_id %d\n", __func__, soc_prtd->dai_link->be_id);
-	msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
+
+	if (prtd->compr_passthr == true) {
+		ret = q6asm_open_write_compressed(ac, prtd->codec);
+		if (ret < 0) {
+			pr_err("%s: Session out open failed\n", __func__);
+			return -ENOMEM;
+		}
+		msm_pcm_routing_reg_phy_compr_stream(
+				soc_prtd->dai_link->be_id,
+				ac->perf_mode,
+				prtd->session_id,
+				SNDRV_PCM_STREAM_PLAYBACK,
+				prtd->compr_passthr);
+	} else {
+		ret = q6asm_stream_open_write_v2(ac,
+				prtd->codec, bits_per_sample,
+				ac->stream_id, true/*gapless*/);
+		if (ret < 0) {
+			pr_err("%s: Session out open failed\n", __func__);
+			return -ENOMEM;
+		}
+
+		msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
 				ac->perf_mode,
 				prtd->session_id,
 				SNDRV_PCM_STREAM_PLAYBACK);
 
-	ret = msm_compr_set_volume(cstream, 0, 0);
-	if (ret < 0)
-		pr_err("%s : Set Volume failed : %d", __func__, ret);
+		ret = msm_compr_set_volume(cstream, 0, 0);
+		if (ret < 0)
+			pr_err("%s : Set Volume failed : %d", __func__, ret);
 
-	ret = q6asm_set_softpause(ac, &softpause);
-	if (ret < 0)
-		pr_err("%s: Send SoftPause Param failed ret=%d\n",
-			__func__, ret);
+		ret = q6asm_set_softpause(ac, &softpause);
+		if (ret < 0)
+			pr_err("%s: Send SoftPause Param failed ret=%d\n",
+					__func__, ret);
 
-	ret = q6asm_set_softvolume(ac, &softvol);
-	if (ret < 0)
-		pr_err("%s: Send SoftVolume Param failed ret=%d\n",
-			__func__, ret);
+		ret = q6asm_set_softvolume(ac, &softvol);
+		if (ret < 0)
+			pr_err("%s: Send SoftVolume Param failed ret=%d\n",
+					__func__, ret);
+	}
 
 	ret = q6asm_set_io_mode(ac, (COMPRESSED_IO | ASYNC_IO_MODE));
 	if (ret < 0) {
@@ -668,6 +694,15 @@ static int msm_compr_free(struct snd_compr_stream *cstream)
 	return 0;
 }
 
+int validate_codec_compr(__u32 codec_id)
+{
+	int i;
+	for (i = 0; i < ARRAY_SIZE(compr_codecs); i++)
+		if (compr_codecs[i] == codec_id)
+			return 0;
+	return -EINVAL;
+}
+
 /* compress stream operations */
 static int msm_compr_set_params(struct snd_compr_stream *cstream,
 				struct snd_compr_params *params)
@@ -682,6 +717,8 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 
 	/* ToDo: remove duplicates */
 	prtd->num_channels = prtd->codec_param.codec.ch_in;
+
+	prtd->compr_passthr = params->compr_passthr;
 
 	switch (prtd->codec_param.codec.sample_rate) {
 	case SNDRV_PCM_RATE_8000:
@@ -707,8 +744,11 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 		prtd->sample_rate = 48000;
 		break;
 	}
-
-	pr_debug("%s: sample_rate %d\n", __func__, prtd->sample_rate);
+	if (prtd->compr_passthr && validate_codec_compr(params->codec.id)) {
+		pr_err("%s codec not supported in passthrough, id =%d\n",
+				__func__, params->codec.id);
+		return -EINVAL;
+	}
 
 	switch (params->codec.id) {
 	case SND_AUDIOCODEC_MP3: {

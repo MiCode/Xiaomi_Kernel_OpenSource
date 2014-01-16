@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,7 @@
 #define ADM_PATH_PLAYBACK 0x1
 #define ADM_PATH_LIVE_REC 0x2
 #define ADM_PATH_NONLIVE_REC 0x3
+#define ADM_PATH_COMPRESSED_RX 0x5
 #include <linux/qdsp6v2/rtac.h>
 #include <sound/q6afe-v2.h>
 #include <sound/q6audio-v2.h>
