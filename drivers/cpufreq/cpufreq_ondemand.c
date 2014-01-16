@@ -255,6 +255,7 @@ static void update_sampling_rate(struct dbs_data *dbs_data,
 	od_tuners->sampling_rate = new_rate = max(new_rate,
 			dbs_data->min_sampling_rate);
 
+	get_online_cpus();
 	for_each_online_cpu(cpu) {
 		struct cpufreq_policy *policy;
 		struct od_cpu_dbs_info_s *dbs_info;
@@ -292,6 +293,7 @@ static void update_sampling_rate(struct dbs_data *dbs_data,
 		}
 		mutex_unlock(&dbs_info->cdbs.timer_mutex);
 	}
+	put_online_cpus();
 }
 
 static ssize_t store_sampling_rate(struct dbs_data *dbs_data, const char *buf,
