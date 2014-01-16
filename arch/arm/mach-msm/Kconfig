@@ -147,6 +147,8 @@ config ARCH_MDM9630
 	select MSM_CORTEX_A7
 	select PM_DEVFREQ
 	select MSM_DEVFREQ_CPUBW
+	select PINCTRL
+	select PINCTRL_MSM_TLMM_V3
 	select MSM_IRQ
 	select MSM_QDSP6_APRV2
 	select MSM_QDSP6V2_CODECS
