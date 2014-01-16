@@ -394,6 +394,22 @@ int vpu_hw_sys_print_log(char __user *user_buf, char *fmt_buf,
 		int buf_size);
 
 /**
+ * vpu_hw_sys_set_log_level() - set firmware logging level
+ * @log_level: the log level to be set to firmware
+ * (refer to VPU_LOGGING_ defines for range of values)
+ *
+ * Return: 0 on success, -ve on failure
+ */
+int vpu_hw_sys_set_log_level(int log_level);
+
+/**
+ * vpu_hw_sys_get_log_level() - get fw logging level
+ *
+ * Return: Cached value for fw log level.
+ */
+int vpu_hw_sys_get_log_level(void);
+
+/**
  * vpu_hw_sys_set_power_mode() - set the VPU power mode. *
  * @mode:	vpu power mode, defined in vpu_bus_clock.h
  *		0 SVS mode

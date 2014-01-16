@@ -1075,10 +1075,11 @@ int vpu_hfi_read_log_data(u32 cid, char *buf, int buf_size)
 	if (unlikely(cid != VPU_LOGGING_CHANNEL_ID)) {
 		pr_err("must only access the logging queue!\n");
 		res = -EACCES;
-		goto vpu_hfi_read_log_data_exit;
+		goto exit;
 	}
 
 	mutex_lock(&rxq->lock);
+
 	do {
 		struct hfi_queue_header *qhdr =
 				(struct hfi_queue_header *) rxq->q_hdr;
@@ -1101,18 +1102,15 @@ int vpu_hfi_read_log_data(u32 cid, char *buf, int buf_size)
 		wr_buf += rc;
 		max_size -= rc;
 
-		if (max_size <= 0) {
-			pr_warn("max size reached!\n");
+		if (!max_size)
 			break;
-		}
 
 	} while (more_data);
 
 	mutex_unlock(&rxq->lock);
 
-vpu_hfi_read_log_data_exit:
+exit:
 	pr_debug("return %d\n", res);
-
 	return res;
 }
 

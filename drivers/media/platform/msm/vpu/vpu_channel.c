@@ -141,6 +141,8 @@ struct vpu_channel_hal {
 	void *clk_handle;
 	struct regulator *vdd;
 	bool vdd_enabled; /* if VDD is enabled */
+	/* internally cached value for current fw logging level */
+	int fw_log_level;
 };
 
 static struct vpu_channel_hal g_vpu_ch_hal;
@@ -826,6 +828,9 @@ static int ipc_cmd_sync_wait(struct vpu_sync_transact *ptrans, u32 timeout_ms,
 
 		pr_err("Timeout for transact 0x%08x\n",
 			ptrans->seq << TRANS_SEQ_SHIFT | ptrans->id);
+
+		/* service log queue on timeout */
+		vpu_wakeup_fw_logging_wq();
 
 		strlcpy(dbg_buf, "", dbg_buf_size);
 		/* cid represents Tx & Rx queues index) */
@@ -1831,6 +1836,9 @@ int vpu_hw_sys_init(struct vpu_platform_resources *res)
 	/* powered off initially */
 	ch_hal->mode = VPU_OFF;
 
+	/* fw logging off initially */
+	ch_hal->fw_log_level = VPU_LOGGING_ERROR;
+
 	/* init each channel (system, sessions, logging) */
 	for (i = 0; i < MAX_CHANNELS; i++)
 		raw_init_channel(&ch_hal->channels[i], i);
@@ -2062,6 +2070,12 @@ static void vpu_boot_work_handler(struct work_struct *work)
 	}
 
 	ch_hal->mode = VPU_ON;
+
+	/* configure firmware logging level on boot up
+	 * in order to avoid missing any logs while starting up.
+	 */
+	vpu_hw_sys_set_log_level(ch_hal->fw_log_level);
+
 	mutex_unlock(&ch_hal->pw_lock);
 	return;
 
@@ -2516,6 +2530,36 @@ int vpu_hw_sys_print_log(char __user *user_buf, char *fmt_buf,
 			&& total_size < buf_size);
 
 	return total_size;
+}
+
+int vpu_hw_sys_set_log_level(int log_level)
+{
+	int ret = 0;
+	struct vpu_prop_sys_log_ctrl log_ctrl;
+	struct vpu_channel_hal *ch_hal = &g_vpu_ch_hal;
+
+	if (VPU_IS_UP(ch_hal->mode)) {
+		log_ctrl.component = LOG_COMPONENT_FW;
+		log_ctrl.log_level = log_level;
+		ret = vpu_hw_sys_s_property(VPU_PROP_SYS_LOG_CTRL, &log_ctrl,
+				sizeof(log_ctrl));
+		if (ret) {
+			pr_err("Error setting fw log level (err=%d)\n", ret);
+			return ret;
+		}
+	}
+	/* If firmware not up yet,
+	 * cached value for log level will be sent on boot up.
+	 */
+	ch_hal->fw_log_level = log_level;
+	return ret;
+}
+
+int vpu_hw_sys_get_log_level(void)
+{
+	struct vpu_channel_hal *ch_hal = &g_vpu_ch_hal;
+
+	return ch_hal->fw_log_level;
 }
 
 void vpu_hw_sys_set_power_mode(u32 mode)
