@@ -234,9 +234,6 @@ Fudge Factors:			Fudge factors are used to boost demand for
 				FUDGE(x, a, b) = ((x * a) / b)
 - qcom,mdss-ib-factor:		This fudge factor is applied to calculated ib
 				values in default conditions.
-- qcom,mdss-high-ib-factor:	This fudge factor is applied to calculated ib
-				values. Use of this factor is determined by the
-				driver and open new use-cases.
 - qcom,mdss-clk-factor:		This fudge factor is applied to calculated mdp
 				clk rate in default conditions.
 
