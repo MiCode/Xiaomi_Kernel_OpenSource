@@ -49,6 +49,7 @@
 			gpio@c000 {
 				reg = <0xc000 0x100>;
 				qcom,pin-num = <1>;
+				status = "disabled";
 			};
 
 			gpio@c100 {
@@ -109,6 +110,7 @@
 			mpp@a400 {
 				reg = <0xa400 0x100>;
 				qcom,pin-num = <5>;
+				status = "disabled";
 			};
 
 			mpp@a500 {
