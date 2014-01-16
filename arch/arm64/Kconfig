@@ -184,6 +184,7 @@ config NR_CPUS
 	int "Maximum number of CPUs (2-32)"
 	range 2 32
 	depends on SMP
+	# These have to remain sorted largest to smallest
 	default "8"
 
 config HOTPLUG_CPU
