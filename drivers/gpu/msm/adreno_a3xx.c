@@ -1633,11 +1633,26 @@ static const struct adreno_vbif_data a330v2_vbif[] = {
 	{0, 0},
 };
 
+/*
+ * Most of the VBIF registers on a330v2.1 have the correct values at power on,
+ * so we won't modify those if we don't need to
+ */
+static const struct adreno_vbif_data a330v21_vbif[] = {
+	/* Enable WR-REQ */
+	{ A3XX_VBIF_GATE_OFF_WRREQ_EN, 0x1 },
+	/* Set up VBIF_ROUND_ROBIN_QOS_ARB */
+	{ A3XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x0003 },
+	{ A3XX_VBIF_IN_RD_LIM_CONF0, 0x18180c0c },
+	{0, 0},
+};
+
 static const struct adreno_vbif_platform a3xx_vbif_platforms[] = {
 	{ adreno_is_a305, a305_vbif },
 	{ adreno_is_a305c, a305c_vbif },
 	{ adreno_is_a310, a310_vbif },
 	{ adreno_is_a320, a320_vbif },
+	/* A330v2.1 needs to be ahead of A330v2 so the right device matches */
+	{ adreno_is_a330v21, a330v21_vbif},
 	/* A330v2 needs to be ahead of A330 so the right device matches */
 	{ adreno_is_a330v2, a330v2_vbif },
 	{ adreno_is_a330, a330_vbif },
