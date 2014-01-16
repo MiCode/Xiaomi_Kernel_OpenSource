@@ -36,7 +36,7 @@
 		interrupts = <0 15 0>;
 		regulator-name = "apc_corner";
 		regulator-min-microvolt = <1>;
-		regulator-max-microvolt = <12>;
+		regulator-max-microvolt = <3>;
 
 		qcom,pvs-fuse-redun-sel = <53 25 3 2 1>;
 		qcom,pvs-fuse = <23 6 5 1>;
@@ -83,7 +83,6 @@
 		qcom,cpr-fuse-redun-bp-scheme = <25>;
 		qcom,cpr-fuse-redun-target-quot = <32 12 0>;
 		qcom,cpr-fuse-redun-ro-sel = <44 26 29>;
-		qcom,cpr-corner-map = <1 1 2 2 3 3 3 3 3 3 3 3>;
 
 		qcom,cpr-enable;
 	};
