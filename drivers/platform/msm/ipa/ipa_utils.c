@@ -436,6 +436,7 @@ int ipa_get_ep_mapping(enum ipa_client_type client)
 
 	return ep_mapping[hw_type_index][client];
 }
+EXPORT_SYMBOL(ipa_get_ep_mapping);
 
 /**
  * ipa_get_client_mapping() - provide client mapping

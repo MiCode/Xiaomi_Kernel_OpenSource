@@ -944,13 +944,13 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	}
 
 	ep->sys->ep = ep;
+	ep->skip_ep_cfg = sys_in->skip_ep_cfg;
 	if (ipa_assign_policy(sys_in, ep->sys)) {
 		IPAERR("failed to sys ctx for client %d\n", sys_in->client);
 		result = -ENOMEM;
 		goto fail_gen2;
 	}
 
-	ep->skip_ep_cfg = sys_in->skip_ep_cfg;
 	ep->valid = 1;
 	ep->client = sys_in->client;
 	ep->client_notify = sys_in->notify;
