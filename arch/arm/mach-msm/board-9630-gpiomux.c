@@ -163,6 +163,72 @@ static struct msm_gpiomux_config msm_wlan_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting  mi2s_active_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting  mi2s_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting codec_reset = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
+static struct msm_gpiomux_config mdm9630_mi2s_configs[] __initdata = {
+	{
+		.gpio   = 12,		/* mi2s ws */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mi2s_suspend_cfg,
+			[GPIOMUX_ACTIVE] = &mi2s_active_cfg,
+		},
+	},
+	{
+		.gpio   = 15,		/* mi2s sclk */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mi2s_suspend_cfg,
+			[GPIOMUX_ACTIVE] = &mi2s_active_cfg,
+		},
+	},
+	{
+		.gpio   = 14,		/* mi2s dout */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mi2s_suspend_cfg,
+			[GPIOMUX_ACTIVE] = &mi2s_active_cfg,
+		},
+	},
+	{
+		.gpio   = 13,		/* mi2s din */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mi2s_suspend_cfg,
+			[GPIOMUX_ACTIVE] = &mi2s_active_cfg,
+		},
+	},
+	{
+		.gpio   = 71,		/* mi2s mclk */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mi2s_suspend_cfg,
+			[GPIOMUX_ACTIVE] = &mi2s_active_cfg,
+		},
+	},
+};
+
+static struct msm_gpiomux_config mdm9630_cdc_reset_config[] __initdata = {
+	{
+		.gpio   = 67,		/* SYS_RST_N */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &codec_reset,
+		},
+	}
+};
+
 void __init mdm9630_init_gpiomux(void)
 {
 	int rc;
@@ -176,6 +242,10 @@ void __init mdm9630_init_gpiomux(void)
 	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
 	msm_gpiomux_install(msm_sd_card_configs,
 			ARRAY_SIZE(msm_sd_card_configs));
+	msm_gpiomux_install(mdm9630_mi2s_configs,
+			ARRAY_SIZE(mdm9630_mi2s_configs));
+	msm_gpiomux_install(mdm9630_cdc_reset_config,
+			ARRAY_SIZE(mdm9630_cdc_reset_config));
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 	msm_gpiomux_install(msm_eth_config, ARRAY_SIZE(msm_eth_config));
 #endif
