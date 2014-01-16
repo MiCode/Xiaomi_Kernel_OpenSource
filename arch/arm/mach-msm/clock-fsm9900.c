@@ -89,6 +89,8 @@ static void __iomem *virt_bases[N_BASES];
 #define SDCC2_INACTIVITY_TIMERS_CBCR     0x050C
 #define BLSP1_BCR                        0x05C0
 #define BLSP1_AHB_CBCR                   0x05C4
+#define BLSP_UART_SIM_CMD_RCGR           0x0600
+#define BLSP_UART_SIM_CFG_RCGR           0x0604
 #define BLSP1_QUP1_BCR                   0x0640
 #define BLSP1_QUP1_SPI_APPS_CBCR         0x0644
 #define BLSP1_QUP1_I2C_APPS_CBCR         0x0648
@@ -655,6 +657,7 @@ static struct rcg_clk blsp1_qup6_spi_apps_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_blsp1_2_uart1_6_apps_clk[] = {
+	F(   660645,         xo,    5, 16, 93),
 	F(  3686400,      gpll0,    1, 96, 15625),
 	F(  7372800,      gpll0,    1, 192, 15625),
 	F( 14745600,      gpll0,    1, 384, 15625),
@@ -982,6 +985,24 @@ static struct rcg_clk blsp2_uart6_apps_clk_src = {
 		.dbg_name = "blsp2_uart6_apps_clk_src",
 		.ops = &clk_ops_rcg_mnd,
 		CLK_INIT(blsp2_uart6_apps_clk_src.c),
+	},
+};
+
+static struct clk_freq_tbl ftbl_gcc_blsp_sim_clk[] = {
+	F(  3840000,         xo,    5, 0, 0),
+	F_END
+};
+
+static struct rcg_clk blsp_sim_clk_src = {
+	.cmd_rcgr_reg = BLSP_UART_SIM_CMD_RCGR,
+	.set_rate = set_rate_hid,
+	.freq_tbl = ftbl_gcc_blsp_sim_clk,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "blsp_sim_clk_src",
+		.ops = &clk_ops_rcg,
+		CLK_INIT(blsp_sim_clk_src.c),
 	},
 };
 
@@ -2697,10 +2718,15 @@ static struct clk_lookup fsm_clocks_9900[] = {
 	CLK_LOOKUP("core_clk",	gcc_blsp1_qup2_i2c_apps_clk.c, "f9924000.i2c"),
 
 	/* BLSP2  clocks. Only the valid configs are present in the table */
+	CLK_LOOKUP("iface_clk", gcc_blsp2_ahb_clk.c, "f995d000.uim"),
 	CLK_LOOKUP("iface_clk", gcc_blsp2_ahb_clk.c, "f9960000.serial"),
 	CLK_LOOKUP("iface_clk",	gcc_blsp2_ahb_clk.c, "f9966000.i2c"),
 	CLK_LOOKUP("core_clk",	gcc_blsp2_qup4_i2c_apps_clk.c, "f9966000.i2c"),
+	CLK_LOOKUP("core_clk",	gcc_blsp2_uart1_apps_clk.c, "f995d000.uim"),
 	CLK_LOOKUP("core_clk",	gcc_blsp2_uart4_apps_clk.c, "f9960000.serial"),
+
+	/* BLSP SIM clock */
+	CLK_LOOKUP("sim_clk", blsp_sim_clk_src.c, "f995d000.uim"),
 
 	CLK_LOOKUP("iface_clk", gcc_prng_ahb_clk.c, "f9bff000.qcom,msm-rng"),
 
