@@ -42,6 +42,7 @@
 #include "mdm9630-pm.dtsi"
 #include "mdm9630-bus.dtsi"
 #include "mdm9630-ion.dtsi"
+#include "mdm9630-pinctrl.dtsi"
 
 &soc {
 	#address-cells = <1>;
