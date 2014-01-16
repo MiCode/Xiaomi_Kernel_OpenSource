@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -85,14 +85,11 @@ struct pronto_data {
 	bool restart_inprogress;
 	bool crash;
 	struct ramdump_device *ramdump_dev;
-	int xo_mode;
 };
 
 static int pil_pronto_make_proxy_vote(struct pil_desc *pil)
 {
 	struct pronto_data *drv = dev_get_drvdata(pil->dev);
-	struct platform_device *pdev = wcnss_get_platform_device();
-	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
 	int ret;
 
 	ret = regulator_enable(drv->vreg);
@@ -105,13 +102,6 @@ static int pil_pronto_make_proxy_vote(struct pil_desc *pil)
 		dev_err(pil->dev, "failed to enable cxo\n");
 		goto err_clk;
 	}
-	if (pdev && pwlanconfig) {
-		ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
-					WCNSS_WLAN_SWITCH_ON, &drv->xo_mode);
-		wcnss_set_iris_xo_mode(drv->xo_mode);
-		if (ret)
-			pr_err("Failed to execute wcnss_wlan_power\n");
-	}
 	return 0;
 err_clk:
 	regulator_disable(drv->vreg);
@@ -122,18 +112,9 @@ err:
 static void pil_pronto_remove_proxy_vote(struct pil_desc *pil)
 {
 	struct pronto_data *drv = dev_get_drvdata(pil->dev);
-	struct platform_device *pdev = wcnss_get_platform_device();
-	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
 
 	regulator_disable(drv->vreg);
 	clk_disable_unprepare(drv->cxo);
-	if (pdev && pwlanconfig) {
-		/* Temporary workaround as pronto sends interrupt that
-		 * it is capable of voting for it's resources too early. */
-		msleep(20);
-		wcnss_wlan_power(&pdev->dev, pwlanconfig,
-					WCNSS_WLAN_SWITCH_OFF, NULL);
-	}
 }
 
 static int pil_pronto_reset(struct pil_desc *pil)
