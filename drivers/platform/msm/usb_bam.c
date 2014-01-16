@@ -496,10 +496,19 @@ static int connect_pipe_sys2bam_ipa(u8 idx,
 	if (dir == USB_TO_PEER_PERIPHERAL) {
 		usb_phy_addr = pipe_connect->src_phy_addr;
 		sys_in_params.client = ipa_params->src_client;
+		ipa_params->ipa_cons_ep_idx =
+			ipa_get_ep_mapping(sys_in_params.client);
 	} else {
 		usb_phy_addr = pipe_connect->dst_phy_addr;
 		sys_in_params.client = ipa_params->dst_client;
+		ipa_params->ipa_prod_ep_idx =
+			ipa_get_ep_mapping(sys_in_params.client);
 	}
+
+	pr_debug("%s(): ipa_prod_ep_idx:%d ipa_cons_ep_idx:%d\n",
+			__func__, ipa_params->ipa_prod_ep_idx,
+			ipa_params->ipa_cons_ep_idx);
+
 	/* Get HSUSB / HSIC bam handle */
 	ret = sps_phy2h(usb_phy_addr, &usb_handle);
 	if (ret) {
