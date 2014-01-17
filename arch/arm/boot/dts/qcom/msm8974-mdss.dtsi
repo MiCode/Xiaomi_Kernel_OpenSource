@@ -50,7 +50,6 @@
 		qcom,mdss-pipe-dma-xin-id = <2 10>;
 
 		qcom,mdss-smp-data = <22 4096>;
-		qcom,mdss-sspp-len = <0x00000400>;
 
 		qcom,mdss-ctl-off = <0x00000600 0x00000700 0x00000800
 				     0x00000900 0x0000A00>;
@@ -62,9 +61,6 @@
 				    0x00017100 0x00019100>;
 		qcom,mdss-intf-off = <0x00021100 0x00021300
 					   0x00021500 0x00021700>;
-		qcom,mdss-ctl-len = <0x00000100>;
-		qcom,mdss-mixer-intf-len = <0x00000400>;
-		qcom,mdss-dspp-len = <0x00000400>;
 
 		qcom,mdss-has-wfd-blk;
 		qcom,vbif-settings = <0x0004 0x00000001>,

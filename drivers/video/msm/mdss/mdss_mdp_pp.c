@@ -4851,26 +4851,37 @@ static int is_valid_calib_addr(void *addr, u32 operation)
 		    ptr <= (mdss_res->mdp_base + MDSS_MDP_REG_IGC_VIG_BASE +
 						MDSS_MDP_IGC_SSPP_SIZE)) {
 		ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
-	} else if (ptr >= dspp_base && ptr < (dspp_base +
-		(mdss_res->nmixers_intf * mdss_res->size_dspp))) {
-		ret = is_valid_calib_dspp_addr(ptr);
-	} else if (ptr >= ctl_base && ptr < (ctl_base + (mdss_res->nctl
-					* mdss_res->size_ctl))) {
-		ret = is_valid_calib_ctrl_addr(ptr);
-	} else if (ptr >= vig_base && ptr < (vig_base + (mdss_res->nvig_pipes
-					* mdss_res->size_sspp_vig))) {
-		ret = is_valid_calib_vig_addr(ptr);
-	} else if (ptr >= rgb_base && ptr < (rgb_base + (mdss_res->nrgb_pipes
-					* mdss_res->size_sspp_rgb))) {
-		ret = is_valid_calib_rgb_addr(ptr);
-	} else if (ptr >= dma_base && ptr < (dma_base + (mdss_res->ndma_pipes
-					* mdss_res->size_sspp_dma))) {
-		ret = is_valid_calib_dma_addr(ptr);
-	} else if (ptr >= mixer_base && ptr < (mixer_base +
-		(mdss_res->nmixers_intf * mdss_res->size_mixer_intf))) {
-		ret = is_valid_calib_mixer_addr(ptr);
+	} else {
+		if (ptr >= dspp_base) {
+			ret = is_valid_calib_dspp_addr(ptr);
+			if (ret)
+				goto valid_addr;
+		}
+		if (ptr >= ctl_base) {
+			ret = is_valid_calib_ctrl_addr(ptr);
+			if (ret)
+				goto valid_addr;
+		}
+		if (ptr >= vig_base) {
+			ret = is_valid_calib_vig_addr(ptr);
+			if (ret)
+				goto valid_addr;
+		}
+		if (ptr >= rgb_base) {
+			ret = is_valid_calib_rgb_addr(ptr);
+			if (ret)
+				goto valid_addr;
+		}
+		if (ptr >= dma_base) {
+			ret = is_valid_calib_dma_addr(ptr);
+			if (ret)
+				goto valid_addr;
+		}
+		if (ptr >= mixer_base)
+			ret = is_valid_calib_mixer_addr(ptr);
 	}
 
+valid_addr:
 	return ret & operation;
 }
 
