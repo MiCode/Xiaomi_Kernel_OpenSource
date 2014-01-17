@@ -157,14 +157,27 @@ static inline void msm_arch_idle(void)
 
 static bool msm_pm_is_L1_writeback(void)
 {
-	u32 sel = 0, cache_id;
+	u32 cache_id;
 
+#if defined(CONFIG_CPU_V7)
+	u32 sel = 0;
 	asm volatile ("mcr p15, 2, %[ccselr], c0, c0, 0\n\t"
 		      "isb\n\t"
 		      "mrc p15, 1, %[ccsidr], c0, c0, 0\n\t"
 		      :[ccsidr]"=r" (cache_id)
 		      :[ccselr]"r" (sel)
 		     );
+#elif defined(CONFIG_ARM64)
+	u32 sel = 0;
+	asm volatile("msr csselr_el1, %[ccselr]\n\t"
+		     "isb\n\t"
+		     "mrs %[ccsidr],ccsidr_el1\n\t"
+		     :[ccsidr]"=r" (cache_id)
+		     :[ccselr]"r" (sel)
+		    );
+#else
+#error No valid CPU arch selected
+#endif
 	return cache_id & BIT(31);
 }
 
