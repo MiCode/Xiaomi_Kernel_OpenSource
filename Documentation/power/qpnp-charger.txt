@@ -1,0 +1,171 @@
+Introduction
+============
+
+The (Qualcomm Plug and Play) QPNP charger driver implements input and external
+peripheral power management for 8974, 8x26 and 8x10 chipsets. The input can
+be supplied to the device via either a DC or USB path. Output paths are
+the VPH_PWR rail via the buck and a reverse boost feature on VCHG.
+
+Hardware description
+====================
+
+Reverse Boost Feature
+---------------------
+
+The reverse boost feature is used for multiple purposes:
+
+ * USB OTG
+ * Voltage collapse protection (VCP)
+ * A regulator output for device peripherals such as LED
+
+To handle each of these individual use cases two regulators are implemented
+in the qpnp-charger driver. A boost and an OTG regulator. These regulators
+represent the boost and USB OVP FET respectively. Using devicetree
+configuration the corresponding hierarchy is defined on a per PMIC chip basis.
+
+Consumers can then vote for each regulator to be enabled if necessary and
+the charger handles the request appropriately.
+
+Software description
+====================
+
+Design
+======
+
+Design Goals:
+
+The qpnp-charger driver interacts as a consumer and producer for various
+input and output power information, as well as relaying information to userspace.
+
+Given the abundance of configurations for different board designs
+it is important to distinguish between configurations which are required versus
+those available to be configured at compile and at run time. The target
+of this design is to achieve this as follows:
+
+  1. Compile time options are defined in the devicetree documentation.
+
+  Documentation/devicetree/bindings/power/qpnp-charger.txt
+
+  2. Runtime configuration is implemented via the power supply framework.
+
+  3. Chipset dependent features and workarounds are configured via
+  runtime subtype detection and are typically not changed.
+
+
+Power Supply Property Implementations
+-------------------------------------
+
+While the power supply framework implementation supplies basic definitions
+of each property this documentation will define the ones used in more detail.
+
+The notification model in the power supply framework is used to notify other
+consumers of information conveyed by the charger driver as outlined below.
+Each notification is handled via the supply supplicant relationship.
+Whenever a supply is changed and the power_supply_changed API is called the
+external_power_supply_changed callback will be invoked at the supplicant.
+One can picture the notification as one directional.
+
+ power_supply_changed()
++----------------------+                                      +------------+
+|                      |  external_power_supply_changed()     |            |
+|        supply        |------------------------------------->| supplicant |
+|                      |                                      |            |
++----------------------+                                      +------------+
+
+Registered supplies in qpnp-charger:
+  * battery
+  * dc
+
+Other supplies in other drivers:
+  * bms: registered in the Battery Management (BMS) qpnp-bms.c driver.
+  * usb: registered in the corresponding dwc3 or msm_otg driver.
+
+Battery:
+  * supplicants: bms
+  * supplies: bms, usb, dc
+  * writable properties:
+    - POWER_SUPPLY_PROP_CHARGING_ENABLED
+         This bit allows to disable current from entering the battery
+         as well as disabling any current being drawn from external inputs.
+    -  POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL
+         The temperature level is used by the thermal daemon to configure
+         the maximum battery current input limit to reduce heat produced
+         from the battery when charging.
+    -  POWER_SUPPLY_PROP_INPUT_CURRENT_MAX
+         The maximum input current limit drawn from USB. This property
+         is used by the charger_monitor userspace service.
+    -  POWER_SUPPLY_PROP_INPUT_CURRENT_TRIM
+         The input current trim is used to further adjust the USB input
+         current limit. This is also utilized by the charger_monitor userspace
+         service.
+    -  POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED
+         An indicator bit indicating that the charger_monitor has calibrated the input
+         current limit.
+    -  POWER_SUPPLY_PROP_VOLTAGE_MIN
+         The minimum input voltage for a given input to the charger.
+    -  POWER_SUPPLY_PROP_COOL_TEMP
+         Allows to configure a cool threshold notification which is configured via the
+         ADC battery temperature monitoring API.
+    -  POWER_SUPPLY_PROP_WARM_TEMP
+         Allows to configure a warm threshold notification which is configured via the
+         ADC battery temperature monitoring API.
+    -  POWER_SUPPLY_PROP_CAPACITY
+         This property is set by the BMS supply whenever the capacity of the battery is
+         changed. If there is no BMS supply present a default value is returned. This
+         property can also be manually overridden from userspace to set a fake capacity.
+         This feature allows for test environments to prevent certain userspaces from
+         shutting down the device.
+  * other notable properties:
+    - POWER_SUPPLY_PROP_ONLINE:
+        This property describes the state of the BATFET, if online is zero
+        the battery is effectively not supplying power to the system.
+    - POWER_SUPPLY_PROP_PRESENT:
+        Indicates whether valid voltage has been detected on either BATT_THERM or BATT_ID.
+
+Note that the Battery Management (BMS) supply is a special case as there is
+a circular notification requirement of the STATUS (battery) and the CAPACITY (bms)
+properties.
+
+The battery power supply is also a supplicant to BMS because of userspace
+not being aware of the BMS power supply type. Thus the CAPACITY property needs
+to be relayed through the appropriate battery supply type.
+
+DC:
+  * supplicants: battery
+  * writable properties:
+      - POWER_SUPPLY_PROP_INPUT_CURRENT_MAX
+          The maximum input current limit drawn from USB. This property
+          is used by the charger_monitor userspace service.
+  * other notable properties:
+      - POWER_SUPPLY_PROP_PRESENT
+          The present property indicates that a valid voltage is present at
+          the DC in path.
+      - POWER_SUPPLY_PROP_ONLINE
+          Online indicates that there there is a valid voltage source actively
+          supplying current to the system or the battery.
+
+Config options
+==============
+
+CONFIG_QPNP_CHARGER - Enables QPNP charger support.
+
+User space utilities
+====================
+
+The power supply framework sends uevents whenever power_supply_changed is invoked.
+Said event contains the name of the supply changed as well as all implemented power
+supply properties.
+
+The qpnp-charger driver takes advantage of the framework to notify userspace. There
+are a few userspace applications which take advantage of this information to track
+things like battery capacity, presence and health.
+
+It is fairly straightforward to implement one's own userspace application to track
+this information.
+
+To do
+=====
+
+One possible improvement to the power supply framework is to pass the pointer of
+the power supply and property changed into the external_power_supply_changed() API.
+This way the supplicant would not have to figure out the origin of the changed property.
