@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,12 +22,14 @@
 #define __CLZ(x) ((8 * sizeof(uint32_t)) - 1 - __fls(x))
 #define SAT_SCALE 16	/* 16 bytes minimum for saturation */
 #define BW_SCALE  256	/* 1/256 byte per cycle unit */
+#define QOS_DEFAULT_BASEOFFSET		0x00003000
 #define MAX_BW_FIELD (NOC_QOS_BWn_BW_BMSK >> NOC_QOS_BWn_BW_SHFT)
 #define MAX_SAT_FIELD (NOC_QOS_SATn_SAT_BMSK >> NOC_QOS_SATn_SAT_SHFT)
 
-#define NOC_QOS_REG_BASE(b)		((b) + 0x00003000)
+#define NOC_QOS_REG_BASE(b, o)		((b) + (o))
 
-#define NOC_QOS_ID_COREIDn_ADDR(b, n)	(NOC_QOS_REG_BASE(b) + 0x80 * (n))
+#define NOC_QOS_ID_COREIDn_ADDR(b, o, n) \
+	(NOC_QOS_REG_BASE(b, o) + 0x80 * (n))
 enum noc_qos_id_coreidn {
 	NOC_QOS_ID_COREIDn_RMSK			= 0xffffffff,
 	NOC_QOS_ID_COREIDn_MAXn			= 32,
@@ -37,8 +39,8 @@ enum noc_qos_id_coreidn {
 	NOC_QOS_ID_COREIDn_CORETYPEID_SHFT	= 0x0,
 };
 
-#define NOC_QOS_ID_REVISIONIDn_ADDR(b, n) \
-	(NOC_QOS_REG_BASE(b) + 0x4 + 0x80 * (n))
+#define NOC_QOS_ID_REVISIONIDn_ADDR(b, o, n) \
+	(NOC_QOS_REG_BASE(b, o) + 0x4 + 0x80 * (n))
 enum noc_qos_id_revisionidn {
 	NOC_QOS_ID_REVISIONIDn_RMSK		= 0xffffffff,
 	NOC_QOS_ID_REVISIONIDn_MAXn		= 32,
@@ -48,8 +50,8 @@ enum noc_qos_id_revisionidn {
 	NOC_QOS_ID_REVISIONIDn_USERID_SHFT	= 0x0,
 };
 
-#define NOC_QOS_PRIORITYn_ADDR(b, n)	\
-	(NOC_QOS_REG_BASE(b) + 0x8 + 0x80 * (n))
+#define NOC_QOS_PRIORITYn_ADDR(b, o, n)	\
+	(NOC_QOS_REG_BASE(b, o) + 0x8 + 0x80 * (n))
 enum noc_qos_id_priorityn {
 	NOC_QOS_PRIORITYn_RMSK		= 0x0000000f,
 	NOC_QOS_PRIORITYn_MAXn		= 32,
@@ -59,8 +61,8 @@ enum noc_qos_id_priorityn {
 	NOC_QOS_PRIORITYn_P0_SHFT	= 0x0,
 };
 
-#define NOC_QOS_MODEn_ADDR(b, n) \
-	(NOC_QOS_REG_BASE(b) + 0xC + 0x80 * (n))
+#define NOC_QOS_MODEn_ADDR(b, o, n) \
+	(NOC_QOS_REG_BASE(b, o) + 0xC + 0x80 * (n))
 enum noc_qos_id_moden_rmsk {
 	NOC_QOS_MODEn_RMSK		= 0x00000003,
 	NOC_QOS_MODEn_MAXn		= 32,
@@ -68,8 +70,8 @@ enum noc_qos_id_moden_rmsk {
 	NOC_QOS_MODEn_MODE_SHFT		= 0x0,
 };
 
-#define NOC_QOS_BWn_ADDR(b, n) \
-	(NOC_QOS_REG_BASE(b) + 0x10 + 0x80 * (n))
+#define NOC_QOS_BWn_ADDR(b, o, n) \
+	(NOC_QOS_REG_BASE(b, o) + 0x10 + 0x80 * (n))
 enum noc_qos_id_bwn {
 	NOC_QOS_BWn_RMSK		= 0x0000ffff,
 	NOC_QOS_BWn_MAXn		= 32,
@@ -78,8 +80,8 @@ enum noc_qos_id_bwn {
 };
 
 /* QOS Saturation registers */
-#define NOC_QOS_SATn_ADDR(b, n) \
-	(NOC_QOS_REG_BASE(b) + 0x14 + 0x80 * (n))
+#define NOC_QOS_SATn_ADDR(b, o, n) \
+	(NOC_QOS_REG_BASE(b, o) + 0x14 + 0x80 * (n))
 enum noc_qos_id_saturationn {
 	NOC_QOS_SATn_RMSK		= 0x000003ff,
 	NOC_QOS_SATn_MAXn		= 32,
@@ -196,10 +198,11 @@ static void noc_set_qos_mode(struct msm_bus_noc_info *ninfo, uint32_t mport,
 		uint32_t reg_val;
 
 		reg_val = readl_relaxed(NOC_QOS_MODEn_ADDR(ninfo->base,
-			mport)) & NOC_QOS_MODEn_RMSK;
+			ninfo->qos_baseoffset, mport)) & NOC_QOS_MODEn_RMSK;
 		writel_relaxed(((reg_val & (~(NOC_QOS_MODEn_MODE_BMSK))) |
 			(mode & NOC_QOS_MODEn_MODE_BMSK)),
-			NOC_QOS_MODEn_ADDR(ninfo->base, mport));
+			NOC_QOS_MODEn_ADDR(ninfo->base, ninfo->qos_baseoffset,
+						mport));
 	}
 	/* Ensure qos mode is set before exiting */
 	wmb();
@@ -210,18 +213,23 @@ static void noc_set_qos_priority(struct msm_bus_noc_info *ninfo, uint32_t mport,
 {
 	uint32_t reg_val, val;
 
-	reg_val = readl_relaxed(NOC_QOS_PRIORITYn_ADDR(ninfo->base, mport))
-		& NOC_QOS_PRIORITYn_RMSK;
+	reg_val = readl_relaxed(NOC_QOS_PRIORITYn_ADDR(ninfo->base,
+						ninfo->qos_baseoffset, mport))
+				& NOC_QOS_PRIORITYn_RMSK;
 	val = priority->p1 << NOC_QOS_PRIORITYn_P1_SHFT;
 	writel_relaxed(((reg_val & (~(NOC_QOS_PRIORITYn_P1_BMSK))) |
 		(val & NOC_QOS_PRIORITYn_P1_BMSK)),
-		NOC_QOS_PRIORITYn_ADDR(ninfo->base, mport));
+		NOC_QOS_PRIORITYn_ADDR(ninfo->base, ninfo->qos_baseoffset,
+								mport));
 
-	reg_val = readl_relaxed(NOC_QOS_PRIORITYn_ADDR(ninfo->base, mport))
-		& NOC_QOS_PRIORITYn_RMSK;
+	reg_val = readl_relaxed(NOC_QOS_PRIORITYn_ADDR(ninfo->base,
+							ninfo->qos_baseoffset,
+							mport))
+				& NOC_QOS_PRIORITYn_RMSK;
 	writel_relaxed(((reg_val & (~(NOC_QOS_PRIORITYn_P0_BMSK))) |
 		(priority->p0 & NOC_QOS_PRIORITYn_P0_BMSK)),
-		NOC_QOS_PRIORITYn_ADDR(ninfo->base, mport));
+		NOC_QOS_PRIORITYn_ADDR(ninfo->base, ninfo->qos_baseoffset,
+						mport));
 	/* Ensure qos priority is set before exiting */
 	wmb();
 }
@@ -251,33 +259,38 @@ static void msm_bus_noc_set_qos_bw(struct msm_bus_noc_info *ninfo,
 		 * Clear QoS accumulator
 		 **/
 		mode = readl_relaxed(NOC_QOS_MODEn_ADDR(ninfo->base,
-			mport)) & NOC_QOS_MODEn_MODE_BMSK;
+			ninfo->qos_baseoffset, mport))
+					& NOC_QOS_MODEn_MODE_BMSK;
 		if (mode == NOC_QOS_MODE_REGULATOR || mode ==
 			NOC_QOS_MODE_LIMITER) {
 			reg_val = readl_relaxed(NOC_QOS_MODEn_ADDR(ninfo->
-				base, mport));
+				base, ninfo->qos_baseoffset, mport));
 			val = NOC_QOS_MODE_FIXED;
 			writel_relaxed((reg_val & (~(NOC_QOS_MODEn_MODE_BMSK)))
 				| (val & NOC_QOS_MODEn_MODE_BMSK),
-				NOC_QOS_MODEn_ADDR(ninfo->base, mport));
+				NOC_QOS_MODEn_ADDR(ninfo->base,
+						ninfo->qos_baseoffset, mport));
 		}
 
-		reg_val = readl_relaxed(NOC_QOS_BWn_ADDR(ninfo->base, mport));
+		reg_val = readl_relaxed(NOC_QOS_BWn_ADDR(ninfo->base,
+						ninfo->qos_baseoffset, mport));
 		val = bw_val << NOC_QOS_BWn_BW_SHFT;
 		writel_relaxed(((reg_val & (~(NOC_QOS_BWn_BW_BMSK))) |
 			(val & NOC_QOS_BWn_BW_BMSK)),
-			NOC_QOS_BWn_ADDR(ninfo->base, mport));
+			NOC_QOS_BWn_ADDR(ninfo->base, ninfo->qos_baseoffset,
+								mport));
 
 		MSM_BUS_DBG("NOC: BW: Wrote value: 0x%x\n", ((reg_val &
 			(~NOC_QOS_BWn_BW_BMSK)) | (val &
 			NOC_QOS_BWn_BW_BMSK)));
 
 		reg_val = readl_relaxed(NOC_QOS_SATn_ADDR(ninfo->base,
-			mport));
+			ninfo->qos_baseoffset, mport));
 		val = sat_val << NOC_QOS_SATn_SAT_SHFT;
 		writel_relaxed(((reg_val & (~(NOC_QOS_SATn_SAT_BMSK))) |
 			(val & NOC_QOS_SATn_SAT_BMSK)),
-			NOC_QOS_SATn_ADDR(ninfo->base, mport));
+			NOC_QOS_SATn_ADDR(ninfo->base, ninfo->qos_baseoffset,
+									mport));
 
 		MSM_BUS_DBG("NOC: SAT: Wrote value: 0x%x\n", ((reg_val &
 			(~NOC_QOS_SATn_SAT_BMSK)) | (val &
@@ -285,10 +298,11 @@ static void msm_bus_noc_set_qos_bw(struct msm_bus_noc_info *ninfo,
 
 		/* Set mode back to what it was initially */
 		reg_val = readl_relaxed(NOC_QOS_MODEn_ADDR(ninfo->base,
-			mport));
+				ninfo->qos_baseoffset, mport));
 		writel_relaxed((reg_val & (~(NOC_QOS_MODEn_MODE_BMSK)))
 			| (mode & NOC_QOS_MODEn_MODE_BMSK),
-			NOC_QOS_MODEn_ADDR(ninfo->base, mport));
+			NOC_QOS_MODEn_ADDR(ninfo->base, ninfo->qos_baseoffset,
+							mport));
 		/* Ensure that all writes for bandwidth registers have
 		 * completed before returning
 		 */
@@ -301,7 +315,8 @@ uint8_t msm_bus_noc_get_qos_mode(struct msm_bus_noc_info *ninfo,
 {
 	if (NOC_QOS_MODES_ALL_PERM == perm_mode)
 		return readl_relaxed(NOC_QOS_MODEn_ADDR(ninfo->base,
-			mport)) & NOC_QOS_MODEn_MODE_BMSK;
+			ninfo->qos_baseoffset, mport)) &
+						NOC_QOS_MODEn_MODE_BMSK;
 	else
 		return 31 - __CLZ(mode &
 			NOC_QOS_MODES_ALL_PERM);
@@ -311,11 +326,11 @@ void msm_bus_noc_get_qos_priority(struct msm_bus_noc_info *ninfo,
 	uint32_t mport, struct msm_bus_noc_qos_priority *priority)
 {
 	priority->p1 = (readl_relaxed(NOC_QOS_PRIORITYn_ADDR(ninfo->base,
-		mport)) & NOC_QOS_PRIORITYn_P1_BMSK) >>
+		ninfo->qos_baseoffset, mport)) & NOC_QOS_PRIORITYn_P1_BMSK) >>
 		NOC_QOS_PRIORITYn_P1_SHFT;
 
 	priority->p0 = (readl_relaxed(NOC_QOS_PRIORITYn_ADDR(ninfo->base,
-		mport)) & NOC_QOS_PRIORITYn_P0_BMSK) >>
+		ninfo->qos_baseoffset, mport)) & NOC_QOS_PRIORITYn_P0_BMSK) >>
 		NOC_QOS_PRIORITYn_P0_SHFT;
 }
 
@@ -325,9 +340,11 @@ void msm_bus_noc_get_qos_bw(struct msm_bus_noc_info *ninfo,
 	if (perm_mode & (NOC_QOS_PERM_MODE_LIMITER |
 		NOC_QOS_PERM_MODE_REGULATOR)) {
 		uint32_t bw_val = readl_relaxed(NOC_QOS_BWn_ADDR(ninfo->
-			base, mport)) & NOC_QOS_BWn_BW_BMSK;
+			base, ninfo->qos_baseoffset, mport)) &
+							NOC_QOS_BWn_BW_BMSK;
 		uint32_t sat = readl_relaxed(NOC_QOS_SATn_ADDR(ninfo->
-			base, mport)) & NOC_QOS_SATn_SAT_BMSK;
+			base, ninfo->qos_baseoffset, mport)) &
+						NOC_QOS_SATn_SAT_BMSK;
 
 		qbw->bw = noc_bw(bw_val, ninfo->qos_freq);
 		qbw->ws = noc_ws(qbw->bw, sat, ninfo->qos_freq);
@@ -431,6 +448,12 @@ static void *msm_bus_noc_allocate_noc_data(struct platform_device *pdev,
 	ninfo->nqos_masters = fab_pdata->nmasters;
 	ninfo->nslaves = fab_pdata->nslaves;
 	ninfo->qos_freq = fab_pdata->qos_freq;
+
+	if (!fab_pdata->qos_baseoffset)
+		ninfo->qos_baseoffset = QOS_DEFAULT_BASEOFFSET;
+	else
+		ninfo->qos_baseoffset = fab_pdata->qos_baseoffset;
+
 	ninfo->mas_modes = kzalloc(sizeof(uint32_t) * fab_pdata->nmasters,
 		GFP_KERNEL);
 	if (!ninfo->mas_modes) {

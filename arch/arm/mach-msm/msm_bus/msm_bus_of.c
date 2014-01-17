@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -551,6 +551,11 @@ struct msm_bus_fabric_registration
 
 	if (of_property_read_bool(of_node, "qcom,virt"))
 		pdata->virt = true;
+
+	ret = of_property_read_u32(of_node, "qcom,qos-baseoffset",
+						&pdata->qos_baseoffset);
+	if (ret)
+		pr_debug("%s:qos_baseoffset not available\n", __func__);
 
 	if (of_property_read_bool(of_node, "qcom,rpm-en"))
 		pdata->rpm_enabled = 1;
