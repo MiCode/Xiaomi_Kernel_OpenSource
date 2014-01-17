@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -811,6 +811,7 @@ static void msm_vfe44_axi_clear_wm_reg(
 {
 	uint32_t val = 0;
 	uint32_t wm_base = VFE44_WM_BASE(stream_info->wm[plane_idx]);
+
 	/*WR_ADDR_CFG*/
 	msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0xC);
 	/*WR_IMAGE_SIZE*/
@@ -1084,6 +1085,11 @@ static void msm_vfe44_stats_cfg_wm_reg(
 	int stats_idx = STATS_IDX(stream_info->stream_handle);
 	uint32_t stats_base = VFE44_STATS_BASE(stats_idx);
 
+	/* BF_SCALE does not have its own WR_ADDR_CFG,
+	 * IRQ_FRAMEDROP_PATTERN and IRQ_SUBSAMPLE_PATTERN;
+	 * it's using the same from BF */
+	if (stats_idx == STATS_IDX_BF_SCALE)
+		return;
 	/*WR_ADDR_CFG*/
 	msm_camera_io_w(stream_info->framedrop_period << 2,
 		vfe_dev->vfe_base + stats_base + 0x8);
@@ -1102,6 +1108,11 @@ static void msm_vfe44_stats_clear_wm_reg(
 	uint32_t val = 0;
 	int stats_idx = STATS_IDX(stream_info->stream_handle);
 	uint32_t stats_base = VFE44_STATS_BASE(stats_idx);
+	/* BF_SCALE does not have its own WR_ADDR_CFG,
+	 * IRQ_FRAMEDROP_PATTERN and IRQ_SUBSAMPLE_PATTERN;
+	 * it's using the same from BF */
+	if (stats_idx == STATS_IDX_BF_SCALE)
+		return;
 
 	/*WR_ADDR_CFG*/
 	msm_camera_io_w(val, vfe_dev->vfe_base + stats_base + 0x8);
