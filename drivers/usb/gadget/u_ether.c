@@ -501,8 +501,11 @@ static __be16 ether_ip_type_trans(struct sk_buff *skb,
 		protocol = htons(ETH_P_IPV6);
 		break;
 	default:
-		pr_debug_ratelimited("[%s] L3 protocol decode error: 0x%02x",
-		       dev->name, skb->data[0] & 0xf0);
+		if ((skb->data[0] & 0x40) == 0x00)
+			protocol = htons(ETH_P_MAP);
+		else
+			pr_debug_ratelimited("[%s] L3 protocol decode error: 0x%02x",
+					dev->name, skb->data[0] & 0xf0);
 	}
 
 	return protocol;
