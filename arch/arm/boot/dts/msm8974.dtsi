@@ -1540,7 +1540,9 @@
 		compatible = "qcom,cpubw";
 		qcom,cpu-mem-ports = <1 512>, <2 512>;
 		qcom,bw-tbl =
+			<  381 /*  50 MHz */ >,
 			<  572 /*  75 MHz */ >,
+			<  762 /* 100 MHz */ >,
 			< 1144 /* 150 MHz */ >,
 			< 1525 /* 200 MHz */ >,
 			< 2342 /* 307 MHz */ >,
