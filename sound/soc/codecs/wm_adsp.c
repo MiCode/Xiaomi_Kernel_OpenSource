@@ -301,7 +301,8 @@ static struct wm_adsp_fw_caps ez2control_caps[] = {
 		.id = SND_AUDIOCODEC_PCM,
 		.desc = {
 			.max_ch = 1,
-			.sample_rates = SNDRV_PCM_RATE_16000,
+			.sample_rates = { 16000 },
+			.num_sample_rates = 1,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,
 		},
 		.num_host_regions = ARRAY_SIZE(ez2control_regions),
@@ -332,7 +333,12 @@ static struct wm_adsp_fw_caps trace_caps[] = {
 		.id = SND_AUDIOCODEC_PCM,
 		.desc = {
 			.max_ch = 8,
-			.sample_rates = SNDRV_PCM_RATE_8000_192000,
+			.sample_rates = {
+				4000,8000,11025,12000,16000,22050,
+				24000,32000,44100,48000,64000,88200,
+				96000,176400,192000
+			},
+			.num_sample_rates = 15,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,
 		},
 		.num_host_regions = ARRAY_SIZE(trace_regions),
@@ -2182,7 +2188,7 @@ static int wm_adsp_of_parse_caps(struct wm_adsp *adsp,
 
 		fw->caps->id = of_caps[0];
 		fw->caps->desc.max_ch = of_caps[1];
-		fw->caps->desc.sample_rates = of_caps[2];
+		fw->caps->desc.sample_rates[0] = of_caps[2];
 		fw->caps->desc.formats = of_caps[3];
 		fw->compr_direction = of_caps[4];
 	}
@@ -2363,7 +2369,7 @@ bool wm_adsp_format_supported(const struct wm_adsp *adsp,
 			      const struct snd_compr_params *params)
 {
 	const struct wm_adsp_fw_caps *caps;
-	int i;
+	int i, j;
 
 	for (i = 0; i < adsp->firmwares[adsp->fw].num_caps; i++) {
 		caps = &adsp->firmwares[adsp->fw].caps[i];
@@ -2379,9 +2385,13 @@ bool wm_adsp_format_supported(const struct wm_adsp *adsp,
 				continue;
 		}
 
-		if ((caps->desc.sample_rates & params->codec.sample_rate) &&
-		    (caps->desc.formats & (1 << params->codec.format)))
-			return true;
+		if (!(caps->desc.formats & (1 << params->codec.format)))
+			continue;
+
+		for (j = 0; j < caps->desc.num_sample_rates; ++j)
+			if (caps->desc.sample_rates[j] ==
+			    params->codec.sample_rate)
+				return true;
 	}
 
 	return false;
