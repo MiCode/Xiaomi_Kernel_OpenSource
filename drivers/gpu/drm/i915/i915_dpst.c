@@ -333,6 +333,7 @@ i915_dpst_init(struct drm_device *dev,
 	struct drm_crtc *crtc;
 	struct drm_display_mode *mode = NULL;
 	u32 blm_hist_guard, gb_val;
+	struct pid *cur_pid;
 
 	/* Get information about current display mode */
 	crtc = intel_get_crtc_for_pipe(dev, PIPE_A);
@@ -349,8 +350,11 @@ i915_dpst_init(struct drm_device *dev,
 	}
 
 	/* Store info needed to talk to user mode */
-	dev_priv->dpst.task = current;
+	cur_pid = get_task_pid(current, PIDTYPE_PID);
+	put_pid(dev_priv->dpst.pid);
+	dev_priv->dpst.pid = cur_pid;
 	dev_priv->dpst.signal = ioctl_data->init_data.sig_num;
+
 
 	/* Setup guardband delays and threshold */
 	blm_hist_guard = I915_READ(BLM_HIST_GUARD);
@@ -409,9 +413,13 @@ i915_dpst_irq_handler(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	/* Notify user mode of the interrupt */
-	if (dev_priv->dpst.task != NULL)
-		send_sig_info(dev_priv->dpst.signal, SEND_SIG_FORCED,
-							dev_priv->dpst.task);
+	if (dev_priv->dpst.pid != NULL) {
+		if (kill_pid_info(dev_priv->dpst.signal, SEND_SIG_FORCED,
+							dev_priv->dpst.pid)) {
+			put_pid(dev_priv->dpst.pid);
+			dev_priv->dpst.pid = NULL;
+		}
+	}
 }
 
 int

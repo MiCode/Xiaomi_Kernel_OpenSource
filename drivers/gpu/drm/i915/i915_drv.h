@@ -1467,7 +1467,7 @@ struct drm_i915_private {
 
 	/* DPST information */
 	struct {
-		struct task_struct *task;
+		struct pid *pid;
 		u32 signal;
 		u32 blc_adjustment;
 		bool user_enable;	/* user client wishes to enable */
