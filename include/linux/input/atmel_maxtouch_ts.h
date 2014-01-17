@@ -24,13 +24,12 @@
 struct mxt_platform_data {
 	unsigned long irqflags;
 	unsigned long resetflags;
-	int reset_gpio;
-	int irq_gpio;
+	int gpio_reset;
+	int gpio_irq;
 	u8 t19_num_keys;
 	const unsigned int *t19_keymap;
 	int t15_num_keys;
 	const unsigned int *t15_keymap;
-	unsigned long gpio_reset;
 	const char *cfg_name;
 
 	const struct mxt_config_info *config_array;

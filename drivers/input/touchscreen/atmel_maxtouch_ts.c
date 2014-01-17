@@ -2157,6 +2157,80 @@ static int mxt_read_t9_resolution(struct mxt_data *data)
 	return 0;
 }
 
+static int mxt_gpio_enable(struct mxt_data *data, bool enable)
+{
+	int rc;
+
+	if (enable) {
+		if (gpio_is_valid(data->pdata->gpio_irq)) {
+			rc = gpio_request(data->pdata->gpio_irq,
+				"maxtouch_gpio_irq");
+			if (rc) {
+				dev_err(&data->client->dev,
+					"unable to request gpio [%d]\n",
+					data->pdata->gpio_irq);
+				return rc;
+			}
+			rc = gpio_direction_input(data->pdata->gpio_irq);
+			if (rc) {
+				dev_err(&data->client->dev,
+					"unable to set dir for gpio [%d]\n",
+					data->pdata->gpio_irq);
+				goto err_free_irq;
+			}
+
+		} else {
+			dev_err(&data->client->dev, "irq gpio not provided\n");
+			return -EINVAL;
+		}
+
+		if (gpio_is_valid(data->pdata->gpio_reset)) {
+			rc = gpio_request(data->pdata->gpio_reset,
+				"maxtouch_gpio_reset");
+			if (rc) {
+				dev_err(&data->client->dev,
+					"unable to request gpio [%d]\n",
+					data->pdata->gpio_reset);
+				goto err_free_irq;
+			}
+			rc = gpio_direction_output(data->pdata->gpio_reset, 0);
+			if (rc) {
+				dev_err(&data->client->dev,
+					"unable to set dir for gpio [%d]\n",
+					data->pdata->gpio_reset);
+				goto err_free_reset;
+			}
+			msleep(MXT_REGULATOR_DELAY);
+			rc = gpio_direction_output(data->pdata->gpio_reset, 1);
+			if (rc) {
+				dev_err(&data->client->dev,
+					"unable to set dir for gpio [%d]\n",
+					data->pdata->gpio_reset);
+				goto err_free_reset;
+			}
+		} else {
+			dev_err(&data->client->dev,
+				"reset gpio not provided\n");
+			goto err_free_irq;
+		}
+	} else {
+		if (gpio_is_valid(data->pdata->gpio_irq))
+			gpio_free(data->pdata->gpio_irq);
+		if (gpio_is_valid(data->pdata->gpio_reset))
+			gpio_free(data->pdata->gpio_reset);
+	}
+
+	return 0;
+
+err_free_reset:
+	if (gpio_is_valid(data->pdata->gpio_reset))
+		gpio_free(data->pdata->gpio_reset);
+err_free_irq:
+	if (gpio_is_valid(data->pdata->gpio_irq))
+		gpio_free(data->pdata->gpio_irq);
+	return rc;
+}
+
 static void mxt_regulator_enable(struct mxt_data *data)
 {
 	int rc;
@@ -2204,8 +2278,8 @@ static void mxt_probe_regulators(struct mxt_data *data)
 	}
 
 	data->reg_avdd = regulator_get(dev, "avdd");
-	if (IS_ERR(data->reg_vdd)) {
-		error = PTR_ERR(data->reg_vdd);
+	if (IS_ERR(data->reg_avdd)) {
+		error = PTR_ERR(data->reg_avdd);
 		dev_err(dev, "Error %d getting avdd regulator\n", error);
 		goto fail_release;
 	}
@@ -3184,10 +3258,10 @@ static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
 		return rc;
 
 	/* reset, irq gpio info */
-	pdata->reset_gpio = of_get_named_gpio_flags(np, "atmel,reset-gpio",
+	pdata->gpio_reset = of_get_named_gpio_flags(np, "atmel,reset-gpio",
 				0, &temp_val);
 	pdata->resetflags = temp_val;
-	pdata->irq_gpio = of_get_named_gpio_flags(np, "atmel,irq-gpio",
+	pdata->gpio_irq = of_get_named_gpio_flags(np, "atmel,irq-gpio",
 				0, &temp_val);
 	pdata->irqflags = temp_val;
 
@@ -3274,11 +3348,19 @@ static int mxt_probe(struct i2c_client *client,
 	init_completion(&data->crc_completion);
 	mutex_init(&data->debug_msg_lock);
 
+	error = mxt_gpio_enable(data, true);
+	if (error) {
+		dev_err(&client->dev, "Failed to configure gpios\n");
+		goto err_destroy_mutex;
+	}
+	data->irq = data->client->irq =
+				gpio_to_irq(data->pdata->gpio_irq);
+
 	mxt_probe_regulators(data);
 
 	error = mxt_initialize(data);
 	if (error)
-		goto err_initialize;
+		goto err_free_gpios;
 
 	error = sysfs_create_group(&client->dev.kobj, &mxt_attr_group);
 	if (error) {
@@ -3315,7 +3397,9 @@ err_remove_sysfs_group:
 	sysfs_remove_group(&client->dev.kobj, &mxt_attr_group);
 err_free_object:
 	mxt_free_object_table(data);
-err_initialize:
+err_free_gpios:
+	mxt_gpio_enable(data, false);
+err_destroy_mutex:
 	mutex_destroy(&data->debug_msg_lock);
 	return error;
 }
