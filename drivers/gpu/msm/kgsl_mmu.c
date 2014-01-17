@@ -381,7 +381,8 @@ int kgsl_mmu_init(struct kgsl_device *device)
 	struct kgsl_mmu *mmu = &device->mmu;
 
 	mmu->device = device;
-	status = kgsl_allocate_contiguous(&mmu->setstate_memory, PAGE_SIZE);
+	status = kgsl_allocate_contiguous(device, &mmu->setstate_memory,
+					PAGE_SIZE);
 	if (status)
 		return status;
 	kgsl_sharedmem_set(device, &mmu->setstate_memory, 0, 0,

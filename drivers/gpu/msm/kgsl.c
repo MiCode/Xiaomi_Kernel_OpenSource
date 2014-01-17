@@ -4145,7 +4145,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 		goto error_dest_work_q;
 	}
 
-	status = kgsl_allocate_contiguous(&device->memstore,
+	status = kgsl_allocate_contiguous(device, &device->memstore,
 		KGSL_MEMSTORE_SIZE);
 
 	if (status != 0) {

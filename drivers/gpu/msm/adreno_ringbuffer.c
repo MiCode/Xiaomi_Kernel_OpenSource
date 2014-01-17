@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -565,7 +565,7 @@ int adreno_ringbuffer_init(struct kgsl_device *device)
 
 	rb->buffer_desc.flags = KGSL_MEMFLAGS_GPUREADONLY;
 	/* allocate memory for ringbuffer */
-	status = kgsl_allocate_contiguous(&rb->buffer_desc,
+	status = kgsl_allocate_contiguous(device, &rb->buffer_desc,
 		(rb->sizedwords << 2));
 
 	if (status != 0) {
