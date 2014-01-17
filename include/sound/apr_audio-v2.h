@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -787,6 +787,7 @@ struct adm_cmd_connect_afe_port_v5 {
 #define AFE_PORT_ID_SECONDARY_PCM_RX        0x100C
 #define AFE_PORT_ID_SECONDARY_PCM_TX        0x100D
 #define AFE_PORT_ID_MULTICHAN_HDMI_RX       0x100E
+#define AFE_PORT_ID_SPDIF_RX                0x5000
 #define  AFE_PORT_ID_RT_PROXY_PORT_001_RX   0x2000
 #define  AFE_PORT_ID_RT_PROXY_PORT_001_TX   0x2001
 #define AFE_PORT_ID_INTERNAL_BT_SCO_RX      0x3000
@@ -1409,6 +1410,123 @@ struct afe_param_id_i2s_cfg {
 /*
  * This param id is used to configure PCM interface
  */
+
+#define AFE_API_VERSION_SPDIF_CONFIG 0x1
+#define AFE_API_VERSION_SPDIF_CH_STATUS_CONFIG 0x1
+#define AFE_API_VERSION_SPDIF_CLK_CONFIG 0x1
+#define AFE_CH_STATUS_A 1
+#define AFE_CH_STATUS_B 2
+
+#define AFE_PARAM_ID_SPDIF_CONFIG 0x00010244
+#define AFE_PARAM_ID_CH_STATUS_CONFIG 0x00010245
+#define AFE_PARAM_ID_SPDIF_CLK_CONFIG 0x00010246
+
+#define AFE_PORT_CLK_ROOT_LPAPLL 0x3
+#define AFE_PORT_CLK_ROOT_LPAQ6PLL   0x4
+
+struct afe_param_id_spdif_cfg {
+/* Minor version used for tracking the version of the SPDIF
+ * configuration interface.
+ * Supported values: #AFE_API_VERSION_SPDIF_CONFIG
+ */
+	u32	spdif_cfg_minor_version;
+
+/* Sampling rate of the port.
+ * Supported values:
+ * - #AFE_PORT_SAMPLE_RATE_22_05K
+ * - #AFE_PORT_SAMPLE_RATE_32K
+ * - #AFE_PORT_SAMPLE_RATE_44_1K
+ * - #AFE_PORT_SAMPLE_RATE_48K
+ * - #AFE_PORT_SAMPLE_RATE_96K
+ * - #AFE_PORT_SAMPLE_RATE_176_4K
+ * - #AFE_PORT_SAMPLE_RATE_192K
+ */
+	u32	sample_rate;
+
+/* data format
+ * Supported values:
+ * - #AFE_LINEAR_PCM_DATA
+ * - #AFE_NON_LINEAR_DATA
+ */
+	u16	data_format;
+/* Number of channels supported by the port
+ * - PCM - 1, Compressed Case - 2
+ */
+	u16	num_channels;
+/* Bit width of the sample.
+ * Supported values: 16, 24
+ */
+	u16	bit_width;
+/* This field must be set to zero. */
+	u16	reserved;
+} __packed;
+
+struct afe_param_id_spdif_ch_status_cfg {
+	u32 ch_status_cfg_minor_version;
+/* Minor version used for tracking the version of channel
+ * status configuration. Current supported version is 1
+ */
+
+	u32 status_type;
+/* Indicate if the channel status is for channel A or B
+ * Supported values:
+ * - #AFE_CH_STATUS_A
+ * - #AFE_CH_STATUS_B
+ */
+
+	u8 status_bits[24];
+/* Channel status - 192 bits for channel
+ * Byte ordering as defined by IEC60958-3
+ */
+
+	u8 status_mask[24];
+/* Channel status with mask bits 1 will be applied.
+ * Byte ordering as defined by IEC60958-3
+ */
+} __packed;
+
+struct afe_param_id_spdif_clk_cfg {
+	u32 clk_cfg_minor_version;
+/* Minor version used for tracking the version of SPDIF
+ * interface clock configuration. Current supported version
+ * is 1
+ */
+
+	u32 clk_value;
+/* Specifies the clock frequency in Hz to set
+ * Supported values:
+ * 0 - Disable the clock
+ * 2 (byphase) * 32 (60958 subframe size) * sampling rate * 2
+ * (channels A and B)
+ */
+
+	u32 clk_root;
+/* Specifies SPDIF root clk source
+ * Supported Values:
+ * - #AFE_PORT_CLK_ROOT_LPAPLL
+ * - #AFE_PORT_CLK_ROOT_LPAQ6PLL
+ */
+} __packed;
+
+struct afe_spdif_clk_config_command {
+	struct apr_hdr                    hdr;
+	struct afe_port_cmd_set_param_v2  param;
+	struct afe_port_param_data_v2     pdata;
+	struct afe_param_id_spdif_clk_cfg clk_cfg;
+} __packed;
+
+struct afe_spdif_chstatus_config_command {
+	struct apr_hdr                    hdr;
+	struct afe_port_cmd_set_param_v2  param;
+	struct afe_port_param_data_v2     pdata;
+	struct afe_param_id_spdif_ch_status_cfg ch_status;
+} __packed;
+
+struct afe_spdif_port_config {
+	struct afe_param_id_spdif_cfg            cfg;
+	struct afe_param_id_spdif_ch_status_cfg  ch_status;
+} __packed;
+
 #define AFE_PARAM_ID_PCM_CONFIG        0x0001020E
 #define AFE_API_VERSION_PCM_CONFIG	0x1
 /* Enumeration for the auxiliary PCM synchronization signal
@@ -2015,6 +2133,7 @@ union afe_port_config {
 	struct afe_param_id_internal_bt_fm_cfg    int_bt_fm;
 	struct afe_param_id_pseudo_port_cfg       pseudo_port;
 	struct afe_param_id_device_hw_delay_cfg   hw_delay;
+	struct afe_param_id_spdif_cfg             spdif;
 } __packed;
 
 struct afe_audioif_config_command_no_payload {

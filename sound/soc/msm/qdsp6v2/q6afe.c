@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -234,6 +234,7 @@ int afe_get_port_type(u16 port_id)
 	case SECONDARY_I2S_RX:
 	case MI2S_RX:
 	case HDMI_RX:
+	case AFE_PORT_ID_SPDIF_RX:
 	case SLIMBUS_0_RX:
 	case SLIMBUS_1_RX:
 	case SLIMBUS_2_RX:
@@ -1214,6 +1215,148 @@ bool afe_has_config(enum afe_config_type config)
 	return !!test_bit(config, &afe_configured_cmd);
 }
 
+int afe_send_spdif_clk_cfg(struct afe_param_id_spdif_clk_cfg *cfg,
+		u16 port_id)
+{
+	struct afe_spdif_clk_config_command clk_cfg;
+	int ret = 0;
+	int index = 0;
+
+	if (!cfg) {
+		pr_err("%s: Error, no configuration data\n", __func__);
+		ret = -EINVAL;
+		return ret;
+	}
+	index = q6audio_get_port_index(port_id);
+	if (q6audio_validate_port(port_id) < 0) {
+		pr_err("%s: port id: %#x\n", __func__, port_id);
+		return -EINVAL;
+	}
+
+	ret = afe_q6_interface_prepare();
+	if (IS_ERR_VALUE(ret))
+		return ret;
+	clk_cfg.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	clk_cfg.hdr.pkt_size = sizeof(clk_cfg);
+	clk_cfg.hdr.src_port = 0;
+	clk_cfg.hdr.dest_port = 0;
+	clk_cfg.hdr.token = index;
+
+	clk_cfg.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
+	clk_cfg.param.port_id = q6audio_get_port_id(port_id);
+	clk_cfg.param.payload_address_lsw = 0x00;
+	clk_cfg.param.payload_address_msw = 0x00;
+	clk_cfg.param.mem_map_handle = 0x00;
+	clk_cfg.pdata.module_id = AFE_MODULE_AUDIO_DEV_INTERFACE;
+	clk_cfg.pdata.param_id = AFE_PARAM_ID_SPDIF_CLK_CONFIG;
+	clk_cfg.pdata.param_size =  sizeof(clk_cfg.clk_cfg);
+	clk_cfg.param.payload_size = sizeof(clk_cfg) - sizeof(struct apr_hdr)
+		- sizeof(clk_cfg.param);
+	clk_cfg.clk_cfg = *cfg;
+
+	pr_debug("%s: Minor version =%x clk val = %d\n"
+			"clk root = %x\n port id = %x\n",
+			__func__, cfg->clk_cfg_minor_version,
+			cfg->clk_value, cfg->clk_root,
+			q6audio_get_port_id(port_id));
+
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &clk_cfg);
+	if (ret < 0) {
+		pr_err("%s: AFE send clock config for port %#x failed ret = %d\n",
+				__func__, port_id, ret);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	ret = wait_event_timeout(this_afe.wait[index],
+			(atomic_read(&this_afe.state) == 0),
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout ret = %d\n",
+				__func__, ret);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: config cmd failed\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+fail_cmd:
+	return ret;
+}
+
+int afe_send_spdif_ch_status_cfg(struct afe_param_id_spdif_ch_status_cfg
+		*ch_status_cfg,	u16 port_id)
+{
+	struct afe_spdif_chstatus_config_command ch_status;
+	int ret = 0;
+	int index = 0;
+
+	if (!ch_status_cfg) {
+		pr_err("%s: Error, no configuration data\n", __func__);
+		ret = -EINVAL;
+		return ret;
+	}
+	index = q6audio_get_port_index(port_id);
+	if (q6audio_validate_port(port_id) < 0) {
+		pr_err("%s: port id: %#x\n", __func__, port_id);
+		return -EINVAL;
+	}
+
+	ret = afe_q6_interface_prepare();
+	if (IS_ERR_VALUE(ret))
+		return ret;
+	ch_status.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	ch_status.hdr.pkt_size = sizeof(ch_status_cfg);
+	ch_status.hdr.src_port = 0;
+	ch_status.hdr.dest_port = 0;
+	ch_status.hdr.token = index;
+
+	ch_status.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
+	ch_status.param.port_id = q6audio_get_port_id(port_id);
+	ch_status.param.payload_address_lsw = 0x00;
+	ch_status.param.payload_address_msw = 0x00;
+	ch_status.param.mem_map_handle = 0x00;
+	ch_status.pdata.module_id = AFE_MODULE_AUDIO_DEV_INTERFACE;
+	ch_status.pdata.param_id = AFE_PARAM_ID_SPDIF_CLK_CONFIG;
+	ch_status.pdata.param_size =  sizeof(ch_status.ch_status);
+	ch_status.param.payload_size = sizeof(ch_status)
+		- sizeof(struct apr_hdr) - sizeof(ch_status.param);
+	ch_status.ch_status = *ch_status_cfg;
+
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &ch_status);
+	if (ret < 0) {
+		pr_err("%s: AFE send channel status for port %#x failed ret = %d\n",
+				__func__, port_id, ret);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	ret = wait_event_timeout(this_afe.wait[index],
+			(atomic_read(&this_afe.state) == 0),
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout ret = %d\n",
+				__func__, ret);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: config cmd failed\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+fail_cmd:
+	return ret;
+}
+
+
+
 static int afe_send_cmd_port_start(u16 port_id)
 {
 	struct afe_port_cmd_device_start start;
@@ -1265,6 +1408,77 @@ static int afe_aanc_start(uint16_t tx_port_id, uint16_t rx_port_id)
 		goto fail_cmd;
 	}
 	afe_send_cal_block(AFE_AANC_TX_CAL, tx_port_id);
+
+fail_cmd:
+	return ret;
+}
+
+int afe_spdif_port_start(u16 port_id, struct afe_spdif_port_config *spdif_port,
+		u32 rate)
+{
+	struct afe_audioif_config_command config;
+	int ret = 0;
+	int index = 0;
+	uint16_t port_index;
+
+	if (!spdif_port) {
+		pr_err("%s: Error, no configuration data\n", __func__);
+		ret = -EINVAL;
+		return ret;
+	}
+
+	pr_debug("%s: port id: %#x\n", __func__, port_id);
+
+	index = q6audio_get_port_index(port_id);
+	if (q6audio_validate_port(port_id) < 0) {
+		pr_err("%s: port id: %#x\n", __func__, port_id);
+		return -EINVAL;
+	}
+
+	afe_send_cal(port_id);
+	afe_send_hw_delay(port_id, rate);
+
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	config.hdr.pkt_size = sizeof(config);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = index;
+	config.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
+	config.param.port_id = q6audio_get_port_id(port_id);
+	config.param.payload_size = sizeof(config) - sizeof(struct apr_hdr) -
+		sizeof(config.param);
+	config.param.payload_address_lsw = 0x00;
+	config.param.payload_address_msw = 0x00;
+	config.param.mem_map_handle = 0x00;
+	config.pdata.module_id = AFE_MODULE_AUDIO_DEV_INTERFACE;
+	config.pdata.param_id = AFE_PARAM_ID_SPDIF_CONFIG;
+	config.pdata.param_size = sizeof(config.port);
+	config.port.spdif = spdif_port->cfg;
+	ret = afe_apr_send_pkt(&config, &this_afe.wait[index]);
+	if (ret) {
+		pr_err("%s: AFE enable for port %#x failed ret = %d\n",
+				__func__, port_id, ret);
+		goto fail_cmd;
+	} else if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: config cmd failed\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	port_index = afe_get_port_index(port_id);
+	if ((port_index >= 0) && (port_index < AFE_MAX_PORTS)) {
+		this_afe.afe_sample_rates[port_index] = rate;
+	} else {
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	ret = afe_send_spdif_ch_status_cfg(&spdif_port->ch_status, port_id);
+	if (ret < 0)
+		goto fail_cmd;
+
+	return afe_send_cmd_port_start(port_id);
 
 fail_cmd:
 	return ret;
@@ -1480,6 +1694,7 @@ int afe_get_port_index(u16 port_id)
 	case MI2S_RX: return IDX_MI2S_RX;
 	case MI2S_TX: return IDX_MI2S_TX;
 	case HDMI_RX: return IDX_HDMI_RX;
+	case AFE_PORT_ID_SPDIF_RX: return IDX_SPDIF_RX;
 	case RSVD_2: return IDX_RSVD_2;
 	case RSVD_3: return IDX_RSVD_3;
 	case DIGI_MIC_TX: return IDX_DIGI_MIC_TX;
@@ -2794,6 +3009,7 @@ int afe_validate_port(u16 port_id)
 	case MI2S_RX:
 	case MI2S_TX:
 	case HDMI_RX:
+	case AFE_PORT_ID_SPDIF_RX:
 	case RSVD_2:
 	case RSVD_3:
 	case DIGI_MIC_TX:

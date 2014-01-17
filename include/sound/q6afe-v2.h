@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -86,6 +86,7 @@ enum {
 	IDX_VOICE2_PLAYBACK_TX = 44,
 	IDX_SLIMBUS_6_RX = 45,
 	IDX_SLIMBUS_6_TX = 46,
+	IDX_SPDIF_RX = 47,
 	IDX_GLOBAL_CFG,
 	IDX_AUDIO_PORT_ID_I2S_RX,
 	AFE_MAX_PORTS
@@ -196,6 +197,14 @@ int afe_set_lpass_clock(u16 port_id, struct afe_clk_cfg *cfg);
 int afe_set_lpass_internal_digital_codec_clock(u16 port_id,
 				struct afe_digital_clk_cfg *cfg);
 int q6afe_check_osr_clk_freq(u32 freq);
+
+int afe_send_spdif_clk_cfg(struct afe_param_id_spdif_clk_cfg *cfg,
+		u16 port_id);
+int afe_send_spdif_ch_status_cfg(struct afe_param_id_spdif_ch_status_cfg
+		*ch_status_cfg,	u16 port_id);
+
+int afe_spdif_port_start(u16 port_id, struct afe_spdif_port_config *spdif_port,
+		u32 rate);
 
 int afe_turn_onoff_hw_mad(u16 mad_type, u16 mad_enable);
 int afe_port_set_mad_type(u16 port_id, enum afe_mad_type mad_type);

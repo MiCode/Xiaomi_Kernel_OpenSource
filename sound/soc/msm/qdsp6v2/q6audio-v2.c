@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,7 @@ int q6audio_get_port_index(u16 port_id)
 	case MI2S_RX: return IDX_MI2S_RX;
 	case MI2S_TX: return IDX_MI2S_TX;
 	case HDMI_RX: return IDX_HDMI_RX;
+	case AFE_PORT_ID_SPDIF_RX: return IDX_SPDIF_RX;
 	case RSVD_2: return IDX_RSVD_2;
 	case RSVD_3: return IDX_RSVD_3;
 	case DIGI_MIC_TX: return IDX_DIGI_MIC_TX;
@@ -103,6 +104,7 @@ int q6audio_get_port_id(u16 port_id)
 	case MI2S_RX: return AFE_PORT_ID_PRIMARY_MI2S_RX;
 	case MI2S_TX: return AFE_PORT_ID_PRIMARY_MI2S_TX;
 	case HDMI_RX: return AFE_PORT_ID_MULTICHAN_HDMI_RX;
+	case AFE_PORT_ID_SPDIF_RX: return AFE_PORT_ID_SPDIF_RX;
 	case RSVD_2: return IDX_RSVD_2;
 	case RSVD_3: return IDX_RSVD_3;
 	case DIGI_MIC_TX: return AFE_PORT_ID_DIGITAL_MIC_TX;
@@ -253,6 +255,7 @@ int q6audio_validate_port(u16 port_id)
 	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
 	case AFE_PORT_ID_SECONDARY_MI2S_RX:
 	case AFE_PORT_ID_SECONDARY_MI2S_TX:
+	case AFE_PORT_ID_SPDIF_RX:
 	{
 		ret = 0;
 		break;
