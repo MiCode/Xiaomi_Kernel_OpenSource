@@ -118,7 +118,7 @@ int msm_ipc_config_sec_rules(void *arg)
 		return -EINVAL;
 
 	if (sec_rules_arg.num_group_info > (SIZE_MAX / sizeof(gid_t))) {
-		pr_err("%s: Integer Overflow %d * %d\n", __func__,
+		pr_err("%s: Integer Overflow %zu * %d\n", __func__,
 			sizeof(gid_t), sec_rules_arg.num_group_info);
 		return -EINVAL;
 	}
