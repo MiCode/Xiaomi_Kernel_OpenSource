@@ -599,6 +599,15 @@ err:
 	return ret;
 }
 
+u32
+get_pipe_control_scratch_addr(struct intel_engine_cs *ring)
+{
+	if (ring->scratch.obj == NULL)
+		return 0;
+
+	return ring->scratch.gtt_offset;
+}
+
 static int init_render_ring(struct intel_engine_cs *ring)
 {
 	struct drm_device *dev = ring->dev;

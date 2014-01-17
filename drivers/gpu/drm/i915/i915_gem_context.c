@@ -540,6 +540,58 @@ i915_gem_context_get(struct drm_i915_file_private *file_priv, u32 id)
 	return ctx;
 }
 
+static inline void
+mi_set_context_dummy3d_prim_wa(struct intel_engine_cs *ring)
+{
+	u32 scratch_addr;
+	u32 flags = 0;
+
+	/*
+	 * Check if we have the scratch page allocated needed
+	 * for the Pipe Control command, otherwise don't apply
+	 * the dummmy 3d primitive workaround & add NOOPs instead
+	 */
+	if (get_pipe_control_scratch_addr(ring)) {
+		/* Actual scratch location is at 128 bytes offset */
+		scratch_addr = get_pipe_control_scratch_addr(ring) + 128;
+
+		/*
+		 * WaSendDummy3dPrimitveAfterSetContext:vlv
+		 * Software must send a pipe_control with a CS stall
+		 * and a post sync operation and then a dummy DRAW after
+		 * every MI_SET_CONTEXT and after any PIPELINE_SELECT that
+		 * is enabling 3D mode. A dummy draw is a 3DPRIMITIVE command
+		 * with Indirect Parameter Enable set to 0, UAV Coherency
+		 * Required set to 0, Predicate Enable set to 0,
+		 * End Offset Enable set to 0, and Vertex Count Per Instance
+		 * set to 0, All other parameters are a don't care.
+		 */
+
+		/*
+		 * Add a pipe control with CS Stall and postsync op
+		 * before dummy 3D_PRIMITIVE
+		 */
+		flags |= PIPE_CONTROL_QW_WRITE | PIPE_CONTROL_CS_STALL;
+		intel_ring_emit(ring, GFX_OP_PIPE_CONTROL(4));
+		intel_ring_emit(ring, flags);
+		intel_ring_emit(ring, scratch_addr | PIPE_CONTROL_GLOBAL_GTT);
+		intel_ring_emit(ring, 0);
+
+		/* Add a dummy 3D_PRIMITVE */
+		intel_ring_emit(ring, GFX_OP_3DPRIMITIVE());
+		intel_ring_emit(ring, 4); /* PrimTopoType*/
+		intel_ring_emit(ring, 0); /* VertexCountPerInstance */
+		intel_ring_emit(ring, 0); /* StartVertexLocation */
+		intel_ring_emit(ring, 0); /* InstanceCount */
+		intel_ring_emit(ring, 0); /* StartInstanceLocation */
+		intel_ring_emit(ring, 0); /* BaseVertexLocation  */
+	} else {
+		int i;
+		for (i = 0; i < 11; i++)
+			intel_ring_emit(ring, MI_NOOP);
+	}
+}
+
 static inline int
 mi_set_context(struct intel_engine_cs *ring,
 	       struct intel_context *new_context,
@@ -558,13 +610,22 @@ mi_set_context(struct intel_engine_cs *ring,
 			return ret;
 	}
 
-	ret = intel_ring_begin(ring, 6);
+	if (IS_VALLEYVIEW(ring->dev) && IS_GEN7(ring->dev))
+		ret = intel_ring_begin(ring, 6+4+8);
+	else
+		ret = intel_ring_begin(ring, 6);
 	if (ret)
 		return ret;
 
 	/* WaProgramMiArbOnOffAroundMiSetContext:ivb,vlv,hsw,bdw,chv */
 	if (INTEL_INFO(ring->dev)->gen >= 7)
-		intel_ring_emit(ring, MI_ARB_ON_OFF | MI_ARB_DISABLE);
+		if (IS_VALLEYVIEW(ring->dev) && IS_GEN7(ring->dev)) {
+			/* FIXME, should also apply to ivb */
+			mi_set_context_dummy3d_prim_wa(ring);
+			intel_ring_emit(ring, MI_ARB_ON_OFF | MI_ARB_ENABLE);
+			intel_ring_emit(ring, MI_NOOP);
+		} else
+			intel_ring_emit(ring, MI_ARB_ON_OFF | MI_ARB_ENABLE);
 	else
 		intel_ring_emit(ring, MI_NOOP);
 
