@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,9 +48,9 @@ static const mode_t DFS_MODE = S_IRUSR | S_IWUSR;
 
 /* Log buffer */
 struct spmi_log_buffer {
-	u32  rpos;	/* Current 'read' position in buffer */
-	u32  wpos;	/* Current 'write' position in buffer */
-	u32  len;	/* Length of the buffer */
+	size_t rpos;	/* Current 'read' position in buffer */
+	size_t wpos;	/* Current 'write' position in buffer */
+	size_t len;	/* Length of the buffer */
 	char data[0];	/* Log buffer */
 };
 
@@ -583,10 +583,10 @@ static struct dentry *spmi_dfs_create_fs(void)
 
 	pr_debug("Creating SPMI debugfs file-system\n");
 	root = debugfs_create_dir(DFS_ROOT_NAME, NULL);
-	if (IS_ERR(root)) {
+	if (IS_ERR_OR_NULL(root)) {
 		pr_err("Error creating top level directory err:%ld",
 			(long)root);
-		if ((int)root == -ENODEV)
+		if (PTR_ERR(root) == -ENODEV)
 			pr_err("debugfs is not enabled in the kernel");
 		return NULL;
 	}
