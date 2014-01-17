@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -83,27 +83,7 @@
 			< 384000000 2>,
 			< 787200000 4>,
 			<1190400000 7>;
-		qcom,speed6-bin-v2 =
-			<         0 0>,
-			< 384000000 2>,
-			< 787200000 4>,
-			<1190400000 7>;
 		qcom,speed2-bin-v2 =
-			<         0 0>,
-			< 384000000 2>,
-			< 787200000 4>,
-			<1401600000 10>;
-		qcom,speed5-bin-v2 =
-			<         0 0>,
-			< 384000000 2>,
-			< 787200000 4>,
-			<1401600000 10>;
-		qcom,speed4-bin-v2 =
-			<         0 0>,
-			< 384000000 2>,
-			< 787200000 4>,
-			<1401600000 10>;
-		qcom,speed7-bin-v2 =
 			<         0 0>,
 			< 384000000 2>,
 			< 787200000 4>,
