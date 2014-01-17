@@ -198,7 +198,8 @@ struct mdss_mdp_ctl {
 					struct mdss_mdp_vsync_handler *);
 	int (*remove_vsync_handler) (struct mdss_mdp_ctl *,
 					struct mdss_mdp_vsync_handler *);
-	int (*config_fps_fnc) (struct mdss_mdp_ctl *ctl, int new_fps);
+	int (*config_fps_fnc) (struct mdss_mdp_ctl *ctl,
+				struct mdss_mdp_ctl *sctl, int new_fps);
 
 	struct blocking_notifier_head notifier_head;
 

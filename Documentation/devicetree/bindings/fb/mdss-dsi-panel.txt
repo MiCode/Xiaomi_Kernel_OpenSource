@@ -126,6 +126,9 @@ Optional properties:
 						implemented during suspend/resume.
 					"dfps_immediate_clk_mode" = FPS change request is
 						implemented immediately using DSI clocks.
+					"dfps_immediate_porch_mode" = FPS change request is
+						implemented immediately by changing panel porch
+						values.
 - qcom,mdss-dsi-bl-pmic-control-type:	A string that specifies the implementation of backlight
 					control for this panel.
 					"bl_ctrl_pwm" = Backlight controlled by PWM gpio.
