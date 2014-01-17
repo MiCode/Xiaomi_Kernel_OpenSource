@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -184,7 +184,8 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 	}
 
 	mdata = mdss_mdp_get_mdata();
-	if (mdata && mdata->mdp_rev >= MDSS_MDP_HW_REV_102) {
+	if (mdata && mdata->mdp_rev >= MDSS_MDP_HW_REV_102 &&
+			mdata->mdp_rev < MDSS_MDP_HW_REV_200) {
 		pattern = (fmt->element[3] << 24) |
 			  (fmt->element[2] << 16) |
 			  (fmt->element[1] << 8)  |
