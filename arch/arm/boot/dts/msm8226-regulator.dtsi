@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,7 +36,7 @@
 		interrupts = <0 15 0>;
 		regulator-name = "apc_corner";
 		regulator-min-microvolt = <1>;
-		regulator-max-microvolt = <12>;
+		regulator-max-microvolt = <14>;
 
 		qcom,pvs-fuse-redun-sel = <22 24 3 2 0>;
 		qcom,pvs-fuse = <22 6 5 0>;
@@ -91,7 +91,7 @@
 		qcom,cpr-uplift-max-volt = <1350000>;
 		qcom,cpr-uplift-speed-bin = <1>;
 		qcom,speed-bin-fuse-sel = <22 0 3 0>;
-		qcom,cpr-corner-map = <1 1 2 2 3 3 3 3 3 3 3 3>;
+		qcom,cpr-corner-map = <1 1 2 2 3 3 3 3 3 3 3 3 3 3>;
 		qcom,cpr-quot-adjust-table =
 					<1 5 450>,
 					<1 6 375>,
