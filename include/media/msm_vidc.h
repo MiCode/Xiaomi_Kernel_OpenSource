@@ -54,8 +54,8 @@ struct msm_smem {
 	int mem_type;
 	size_t size;
 	void *kvaddr;
-	unsigned long device_addr;
-	u32 flags;
+	ion_phys_addr_t device_addr;
+	unsigned long flags;
 	void *smem_priv;
 	enum hal_buffer buffer_type;
 };

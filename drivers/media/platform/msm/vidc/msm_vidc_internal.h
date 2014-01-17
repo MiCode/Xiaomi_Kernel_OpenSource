@@ -215,10 +215,10 @@ struct msm_vidc_inst {
 	struct list_head list;
 	struct mutex sync_lock, lock;
 	struct msm_vidc_core *core;
-	int session_type;
+	enum session_type session_type;
 	void *session;
 	struct session_prop prop;
-	int state;
+	enum instance_state state;
 	struct msm_vidc_format *fmts[MAX_PORT_NUM];
 	struct buf_queue bufq[MAX_PORT_NUM];
 	struct list_head pendingq;
@@ -287,8 +287,8 @@ struct buffer_info {
 	int fd[VIDEO_MAX_PLANES];
 	int buff_off[VIDEO_MAX_PLANES];
 	int size[VIDEO_MAX_PLANES];
-	u32 uvaddr[VIDEO_MAX_PLANES];
-	u32 device_addr[VIDEO_MAX_PLANES];
+	unsigned long uvaddr[VIDEO_MAX_PLANES];
+	ion_phys_addr_t device_addr[VIDEO_MAX_PLANES];
 	struct msm_smem *handle[VIDEO_MAX_PLANES];
 	enum v4l2_memory memory;
 	u32 v4l2_index;
@@ -302,7 +302,7 @@ struct buffer_info {
 };
 
 struct buffer_info *device_to_uvaddr(struct msm_vidc_inst *inst,
-			struct list_head *list, u32 device_addr);
+			struct list_head *list, ion_phys_addr_t device_addr);
 int buf_ref_get(struct msm_vidc_inst *inst, struct buffer_info *binfo);
 int buf_ref_put(struct msm_vidc_inst *inst, struct buffer_info *binfo);
 int output_buffer_cache_invalidate(struct msm_vidc_inst *inst,

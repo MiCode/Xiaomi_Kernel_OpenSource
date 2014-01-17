@@ -656,7 +656,7 @@ struct hfi_operations {
 
 struct hfi_resource_ocmem {
 	u32 size;
-	u8 *mem;
+	u32 mem;
 };
 
 struct hfi_resource_ocmem_requirement {
@@ -878,7 +878,7 @@ struct hfi_cmd_session_get_sequence_header_packet {
 	u32 packet_type;
 	u32 session_id;
 	u32 buffer_len;
-	u8 *packet_buffer;
+	u32 packet_buffer;
 };
 
 struct hfi_msg_event_notify_packet {
@@ -892,8 +892,8 @@ struct hfi_msg_event_notify_packet {
 };
 
 struct hfi_msg_release_buffer_ref_event_packet {
-	u8 *packet_buffer;
-	u8 *exra_data_buffer;
+	u32 packet_buffer;
+	u32 extra_data_buffer;
 	u32 output_tag;
 };
 
@@ -940,7 +940,7 @@ struct hfi_msg_session_get_sequence_header_done_packet {
 	u32 session_id;
 	u32 error_type;
 	u32 header_len;
-	u8 *sequence_header;
+	u32 sequence_header;
 };
 
 struct hfi_msg_sys_debug_packet {

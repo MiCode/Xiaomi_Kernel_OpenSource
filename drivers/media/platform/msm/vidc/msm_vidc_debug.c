@@ -233,7 +233,7 @@ static int publish_unreleased_reference(struct msm_vidc_inst *inst)
 			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
 			!temp->inactive && atomic_read(&temp->ref_count)) {
 				write_str(&dbg_buf,
-				"\tpending buffer: 0x%x fd[0] = %d ref_count = %d held by: %s\n",
+				"\tpending buffer: 0x%lx fd[0] = %d ref_count = %d held by: %s\n",
 				temp->device_addr[0],
 				temp->fd[0],
 				atomic_read(&temp->ref_count),

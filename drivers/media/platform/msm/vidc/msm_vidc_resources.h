@@ -99,8 +99,8 @@ struct bus_set {
 };
 
 struct msm_vidc_platform_resources {
-	uint32_t fw_base_addr;
-	uint32_t register_base;
+	phys_addr_t firmware_base;
+	phys_addr_t register_base;
 	uint32_t register_size;
 	uint32_t irq;
 	struct load_freq_table *load_freq_tbl;

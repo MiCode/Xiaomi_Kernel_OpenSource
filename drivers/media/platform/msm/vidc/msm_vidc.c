@@ -246,7 +246,7 @@ struct buffer_info *get_registered_buf(struct msm_vidc_inst *inst,
 	int fd = b->m.planes[idx].reserved[0];
 	u32 buff_off = b->m.planes[idx].reserved[1];
 	u32 size = b->m.planes[idx].length;
-	u32 device_addr = b->m.planes[idx].m.userptr;
+	ion_phys_addr_t device_addr = b->m.planes[idx].m.userptr;
 
 	if (!list || fd < 0 || !plane) {
 		dprintk(VIDC_ERR, "Invalid input\n");
@@ -318,7 +318,7 @@ err_invalid_input:
 }
 
 struct buffer_info *device_to_uvaddr(struct msm_vidc_inst *inst,
-				struct list_head *list, u32 device_addr)
+			struct list_head *list, ion_phys_addr_t device_addr)
 {
 	struct buffer_info *temp = NULL;
 	struct buffer_info *dummy = NULL;
@@ -326,8 +326,8 @@ struct buffer_info *device_to_uvaddr(struct msm_vidc_inst *inst,
 	int i;
 	if (!list || !device_addr || !inst) {
 		dprintk(VIDC_ERR,
-			"Invalid input- list: %p device_addr: %u inst: %p\n",
-			list, device_addr, inst);
+			"Invalid input- list: %p device_addr: 0x%pa inst: %p\n",
+			list, &device_addr, inst);
 		goto err_invalid_input;
 	}
 	mutex_lock(&inst->lock);
@@ -383,9 +383,9 @@ static inline void repopulate_v4l2_buffer(struct v4l2_buffer *b,
 		b->m.planes[i].reserved[1] = binfo->buff_off[i];
 		b->m.planes[i].length = binfo->size[i];
 		b->m.planes[i].m.userptr = binfo->device_addr[i];
-		dprintk(VIDC_DBG, "%s %d %d %d %u\n", __func__, binfo->fd[i],
+		dprintk(VIDC_DBG, "%s %d %d %d 0x%pa\n", __func__, binfo->fd[i],
 				binfo->buff_off[i], binfo->size[i],
-				binfo->device_addr[i]);
+				&binfo->device_addr[i]);
 	}
 }
 
@@ -556,9 +556,9 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 				goto exit;
 		}
 		dprintk(VIDC_DBG,
-			"%s: [MAP] binfo = %p, handle[%d] = %p, device_addr = 0x%x, fd = %d, offset = %d, mapped = %d\n",
+			"%s: [MAP] binfo = %p, handle[%d] = %p, device_addr = 0x%pa, fd = %d, offset = %d, mapped = %d\n",
 			__func__, binfo, i, binfo->handle[i],
-			binfo->device_addr[i], binfo->fd[i],
+			&binfo->device_addr[i], binfo->fd[i],
 			binfo->buff_off[i], binfo->mapped[i]);
 	}
 	mutex_lock(&inst->lock);
@@ -608,9 +608,9 @@ int unmap_and_deregister_buf(struct msm_vidc_inst *inst,
 
 	for (i = 0; i < temp->num_planes; i++) {
 		dprintk(VIDC_DBG,
-			"%s: [UNMAP] binfo = %p, handle[%d] = %p, device_addr = 0x%x, fd = %d, offset = %d, mapped = %d\n",
+			"%s: [UNMAP] binfo = %p, handle[%d] = %p, device_addr = 0x%pa, fd = %d, offset = %d, mapped = %d\n",
 			__func__, temp, i, temp->handle[i],
-			temp->device_addr[i], temp->fd[i],
+			&temp->device_addr[i], temp->fd[i],
 			temp->buff_off[i], temp->mapped[i]);
 		/*
 		* Unmap the handle only if the buffer has been mapped and no
@@ -822,9 +822,9 @@ free_and_unmap:
 			for (i = 0; i < bi->num_planes; i++) {
 				if (bi->handle[i] && bi->mapped[i]) {
 					dprintk(VIDC_DBG,
-						"%s: [UNMAP] binfo = %p, handle[%d] = %p, device_addr = 0x%x, fd = %d, offset = %d, mapped = %d\n",
+						"%s: [UNMAP] binfo = 0x%p, handle[%d] = %p, device_addr = 0x%pa, fd = %d, offset = %d, mapped = %d\n",
 						__func__, bi, i, bi->handle[i],
-						bi->device_addr[i], bi->fd[i],
+						&bi->device_addr[i], bi->fd[i],
 						bi->buff_off[i], bi->mapped[i]);
 					msm_comm_smem_free(inst,
 							bi->handle[i]);
@@ -912,8 +912,8 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 			goto err_invalid_buff;
 		}
 		b->m.planes[i].m.userptr = binfo->device_addr[i];
-		dprintk(VIDC_DBG, "Queueing device address = 0x%x\n",
-				binfo->device_addr[i]);
+		dprintk(VIDC_DBG, "Queueing device address = 0x%pa\n",
+				&binfo->device_addr[i]);
 
 		if ((inst->fmts[OUTPUT_PORT]->fourcc ==
 			V4L2_PIX_FMT_HEVC_HYBRID) &&  binfo->handle[i] &&

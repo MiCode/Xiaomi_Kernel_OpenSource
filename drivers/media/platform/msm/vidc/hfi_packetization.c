@@ -282,8 +282,8 @@ int create_pkt_set_cmd_sys_resource(
 
 		pkt->resource_type = HFI_RESOURCE_OCMEM;
 		pkt->size += sizeof(struct hfi_resource_ocmem) - sizeof(u32);
-		hfioc_mem->size = (u32) ocmem->len;
-		hfioc_mem->mem = (u8 *) ocmem->addr;
+		hfioc_mem->size = (u32)ocmem->len;
+		hfioc_mem->mem = (u32)ocmem->addr;
 		break;
 	}
 	default:
@@ -577,15 +577,19 @@ int create_pkt_cmd_session_set_buffers(
 				sizeof(struct hfi_buffer_info));
 		buff = (struct hfi_buffer_info *) pkt->rg_buffer_info;
 		for (i = 0; i < pkt->num_buffers; i++) {
-			buff->buffer_addr = buffer_info->align_device_addr;
-			buff->extra_data_addr = buffer_info->extradata_addr;
+			buff->buffer_addr =
+				(u32)buffer_info->align_device_addr;
+			buff->extra_data_addr =
+				(u32)buffer_info->extradata_addr;
 		}
 	} else {
 		pkt->extra_data_size = 0;
 		pkt->size = sizeof(struct hfi_cmd_session_set_buffers_packet) +
 			((buffer_info->num_buffers - 1) * sizeof(u32));
-		for (i = 0; i < pkt->num_buffers; i++)
-			pkt->rg_buffer_info[i] = buffer_info->align_device_addr;
+		for (i = 0; i < pkt->num_buffers; i++) {
+			pkt->rg_buffer_info[i] =
+				(u32)buffer_info->align_device_addr;
+		}
 	}
 
 	pkt->buffer_type = get_hfi_buffer(buffer_info->buffer_type);
@@ -614,15 +618,19 @@ int create_pkt_cmd_session_release_buffers(
 		struct hfi_buffer_info *buff;
 		buff = (struct hfi_buffer_info *) pkt->rg_buffer_info;
 		for (i = 0; i < pkt->num_buffers; i++) {
-			buff->buffer_addr = buffer_info->align_device_addr;
-			buff->extra_data_addr = buffer_info->extradata_addr;
+			buff->buffer_addr =
+				(u32)buffer_info->align_device_addr;
+			buff->extra_data_addr =
+				(u32)buffer_info->extradata_addr;
 		}
 		pkt->size = sizeof(struct hfi_cmd_session_set_buffers_packet) -
 				sizeof(u32) + (buffer_info->num_buffers *
 				sizeof(struct hfi_buffer_info));
 	} else {
-		for (i = 0; i < pkt->num_buffers; i++)
-			pkt->rg_buffer_info[i] = buffer_info->align_device_addr;
+		for (i = 0; i < pkt->num_buffers; i++) {
+			pkt->rg_buffer_info[i] =
+				(u32)buffer_info->align_device_addr;
+		}
 		pkt->extra_data_size = 0;
 		pkt->size = sizeof(struct hfi_cmd_session_set_buffers_packet) +
 			((buffer_info->num_buffers - 1) * sizeof(u32));
@@ -655,10 +663,9 @@ int create_pkt_cmd_session_etb_decoder(
 	pkt->alloc_len = input_frame->alloc_len;
 	pkt->filled_len = input_frame->filled_len;
 	pkt->input_tag = input_frame->clnt_data;
-	pkt->packet_buffer = (u8 *) input_frame->device_addr;
-
+	pkt->packet_buffer = (u32)input_frame->device_addr;
 	if (!pkt->packet_buffer)
-		return -EINVAL;
+		rc = -EINVAL;
 	return rc;
 }
 
@@ -684,11 +691,10 @@ int create_pkt_cmd_session_etb_encoder(
 	pkt->alloc_len = input_frame->alloc_len;
 	pkt->filled_len = input_frame->filled_len;
 	pkt->input_tag = input_frame->clnt_data;
-	pkt->packet_buffer = (u8 *) input_frame->device_addr;
-	pkt->extra_data_buffer = (u8 *) input_frame->extradata_addr;
-
+	pkt->packet_buffer = (u32)input_frame->device_addr;
+	pkt->extra_data_buffer = (u32)input_frame->extradata_addr;
 	if (!pkt->packet_buffer)
-		return -EINVAL;
+		rc = -EINVAL;
 	return rc;
 }
 
@@ -711,9 +717,8 @@ int create_pkt_cmd_session_ftb(struct hfi_cmd_session_fill_buffer_packet *pkt,
 	if (!output_frame->device_addr)
 		return -EINVAL;
 
-	pkt->packet_buffer = (u8 *) output_frame->device_addr;
-	pkt->extra_data_buffer = (u8 *) output_frame->extradata_addr;
-
+	pkt->packet_buffer = (u32)output_frame->device_addr;
+	pkt->extra_data_buffer = (u32)output_frame->extradata_addr;
 	pkt->alloc_len = output_frame->alloc_len;
 	pkt->filled_len = output_frame->filled_len;
 	pkt->offset = output_frame->offset;
@@ -738,8 +743,7 @@ int create_pkt_cmd_session_parse_seq_header(
 	pkt->header_len = seq_hdr->seq_hdr_len;
 	if (!seq_hdr->seq_hdr)
 		return -EINVAL;
-	pkt->packet_buffer = seq_hdr->seq_hdr;
-
+	pkt->packet_buffer = (u32)seq_hdr->seq_hdr;
 	return rc;
 }
 
@@ -758,8 +762,7 @@ int create_pkt_cmd_session_get_seq_hdr(
 	pkt->buffer_len = seq_hdr->seq_hdr_len;
 	if (!seq_hdr->seq_hdr)
 		return -EINVAL;
-	pkt->packet_buffer = seq_hdr->seq_hdr;
-
+	pkt->packet_buffer = (u32)seq_hdr->seq_hdr;
 	return rc;
 }
 
@@ -1160,7 +1163,7 @@ int create_pkt_cmd_session_set_property(
 			HFI_PROPERTY_PARAM_PROFILE_LEVEL_CURRENT;
 		hfi = (struct hfi_profile_level *)
 			&pkt->rg_property_data[1];
-		hfi->level = (u32)prop->level;
+		hfi->level = prop->level;
 		hfi->profile = hal_to_hfi_type(HAL_PARAM_PROFILE_LEVEL_CURRENT,
 				prop->profile);
 		if (hfi->profile <= 0) {
@@ -1224,8 +1227,8 @@ int create_pkt_cmd_session_set_property(
 			break;
 		default:
 			dprintk(VIDC_ERR,
-					"Invalid Rate control setting: 0x%x\n",
-					(int)pdata);
+					"Invalid Rate control setting: 0x%p\n",
+					pdata);
 			break;
 		}
 		pkt->size += sizeof(u32) * 2;
@@ -1251,7 +1254,7 @@ int create_pkt_cmd_session_set_property(
 			HFI_PROPERTY_PARAM_VENC_MPEG4_HEADER_EXTENSION;
 		hfi = (struct hfi_mpeg4_header_extension *)
 			&pkt->rg_property_data[1];
-		hfi->header_extension = (u32) pdata;
+		hfi->header_extension = (u32)(unsigned long) pdata;
 		pkt->size += sizeof(u32) * 2;
 		break;
 	}

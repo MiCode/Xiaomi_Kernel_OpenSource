@@ -759,11 +759,12 @@ int msm_vdec_prepare_buf(struct msm_vidc_inst *inst,
 				b->m.planes[extra_idx].m.userptr) {
 				buffer_info.extradata_addr =
 					b->m.planes[extra_idx].m.userptr;
-				dprintk(VIDC_DBG,
-				"extradata: 0x%lx\n",
-				b->m.planes[extra_idx].m.userptr);
 				buffer_info.extradata_size =
 					b->m.planes[extra_idx].length;
+				dprintk(VIDC_DBG,
+					"extradata: 0x%pa, length = %d\n",
+					&buffer_info.extradata_addr,
+					buffer_info.extradata_size);
 			} else {
 				buffer_info.extradata_addr = 0;
 				buffer_info.extradata_size = 0;

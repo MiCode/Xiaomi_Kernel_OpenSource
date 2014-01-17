@@ -619,7 +619,8 @@ static int q6_hal_send_session_cmd(void *sess,
 
 	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
-	rc = create_pkt_cmd_session_cmd(&apr.pkt, pkt_type, (u32)session);
+	rc = create_pkt_cmd_session_cmd(&apr.pkt, pkt_type,
+					(u32)(unsigned long)session);
 	if (rc) {
 		dprintk(VIDC_ERR, "send session cmd: create pkt failed\n");
 		goto err_create_pkt;
@@ -689,7 +690,7 @@ static int q6_hfi_session_set_buffers(void *sess,
 	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_LARGE_PKT_SIZE);
 
 	rc = create_pkt_cmd_session_set_buffers(&apr->pkt,
-			(u32)session, buffer_info);
+			(u32)(unsigned long)session, buffer_info);
 	if (rc) {
 		dprintk(VIDC_ERR, "set buffers: failed to create packet\n");
 		goto err_create_pkt;
@@ -731,7 +732,7 @@ static int q6_hfi_session_release_buffers(void *sess,
 	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_LARGE_PKT_SIZE);
 
 	rc = create_pkt_cmd_session_release_buffers(&apr->pkt,
-					(u32)session, buffer_info);
+				(u32)(unsigned long)session, buffer_info);
 	if (rc) {
 		dprintk(VIDC_ERR, "release buffers: failed to create packet\n");
 		goto err_create_pkt;
@@ -805,15 +806,15 @@ static int q6_hfi_session_etb(void *sess,
 		q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
 		rc = create_pkt_cmd_session_etb_decoder(&apr.pkt,
-					(u32)session, input_frame);
+				(u32)(unsigned long)session, input_frame);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"Session etb decoder: failed to create pkt\n");
 			goto err_create_pkt;
 		}
 		dprintk(VIDC_DBG, "Q DECODER INPUT BUFFER\n");
-		dprintk(VIDC_DBG, "addr = 0x%x ts = %lld\n",
-			input_frame->device_addr, input_frame->timestamp);
+		dprintk(VIDC_DBG, "addr = 0x%pa ts = %lld\n",
+			&input_frame->device_addr, input_frame->timestamp);
 		rc = apr_send_pkt(dev->apr, (uint32_t *)&apr);
 		if (rc != apr.hdr.pkt_size) {
 			dprintk(VIDC_ERR, "%s: apr_send_pkt failed rc: %d\n",
@@ -827,7 +828,7 @@ static int q6_hfi_session_etb(void *sess,
 		q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
 		rc =  create_pkt_cmd_session_etb_encoder(&apr.pkt,
-					(u32)session, input_frame);
+				(u32)(unsigned long)session, input_frame);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"Session etb encoder: failed to create pkt\n");
@@ -862,7 +863,8 @@ static int q6_hfi_session_ftb(void *sess,
 
 	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
-	rc = create_pkt_cmd_session_ftb(&apr.pkt, (u32)session, output_frame);
+	rc = create_pkt_cmd_session_ftb(&apr.pkt,
+			(u32)(unsigned long)session, output_frame);
 	if (rc) {
 		dprintk(VIDC_ERR, "Session ftb: failed to create pkt\n");
 		goto err_create_pkt;
@@ -900,7 +902,7 @@ static int q6_hfi_session_parse_seq_hdr(void *sess,
 	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_SMALL_PKT_SIZE);
 
 	rc = create_pkt_cmd_session_parse_seq_header(&apr->pkt,
-					(u32)session, seq_hdr);
+				(u32)(unsigned long)session, seq_hdr);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Session parse seq hdr: failed to create pkt\n");
@@ -937,8 +939,8 @@ static int q6_hfi_session_get_seq_hdr(void *sess,
 
 	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_SMALL_PKT_SIZE);
 
-	rc = create_pkt_cmd_session_get_seq_hdr(&apr->pkt, (u32)session,
-						seq_hdr);
+	rc = create_pkt_cmd_session_get_seq_hdr(&apr->pkt,
+			(u32)(unsigned long)session, seq_hdr);
 	if (rc) {
 		dprintk(VIDC_ERR, "Session get seqhdr: failed to create pkt\n");
 		goto err_create_pkt;
@@ -971,7 +973,8 @@ static int q6_hfi_session_get_buf_req(void *sess)
 
 	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
-	rc = create_pkt_cmd_session_get_buf_req(&apr.pkt, (u32)session);
+	rc = create_pkt_cmd_session_get_buf_req(&apr.pkt,
+					(u32)(unsigned long)session);
 	if (rc) {
 		dprintk(VIDC_ERR, "Session get bufreq: failed to create pkt\n");
 		goto err_create_pkt;
@@ -1003,7 +1006,8 @@ static int q6_hfi_session_flush(void *sess, enum hal_flush flush_mode)
 
 	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
-	rc = create_pkt_cmd_session_flush(&apr.pkt, (u32)session, flush_mode);
+	rc = create_pkt_cmd_session_flush(&apr.pkt,
+			(u32)(unsigned long)session, flush_mode);
 	if (rc) {
 		dprintk(VIDC_ERR, "Session flush: failed to create pkt\n");
 		goto err_create_pkt;
@@ -1041,7 +1045,7 @@ static int q6_hfi_session_set_property(void *sess,
 	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_LARGE_PKT_SIZE);
 
 	rc = create_pkt_cmd_session_set_property(&apr->pkt,
-				(u32)session, ptype, pdata);
+				(u32)(unsigned long)session, ptype, pdata);
 	if (rc) {
 		dprintk(VIDC_ERR, "set property: failed to create packet\n");
 		goto err_create_pkt;
