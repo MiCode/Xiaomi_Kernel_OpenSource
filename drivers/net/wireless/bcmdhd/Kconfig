@@ -1,21 +1,23 @@
 config BCMDHD
-	tristate "Broadcom 43xx wireless cards support"
-	depends on MMC && CFG80211
+	tristate "Broadcom FullMAC wireless cards support"
 	---help---
 	  This module adds support for wireless adapters based on
-	  Broadcom 43xx chipset.
-
-	  This driver uses the kernel's cfg80211 subsystem.
+	  Broadcom FullMAC chipset.
 
 	  If you choose to build a module, it'll be called dhd. Say M if
 	  unsure.
 
-config BCM4350
-	bool "Broadcom 4350 wireless cards support"
+config BCMDHD_SDIO
+	bool "SDIO bus interface support"
+	depends on BCMDHD && MMC
+
+config BCMDHD_PCIE
+	bool "PCIe bus interface support"
+	depends on BCMDHD && PCI && !BCMDHD_SDIO
+
+config BCM4354
+	tristate "BCM4354 support"
 	depends on BCMDHD
-	---help---
-	  This module adds support for wireless adapters based on
-	  Broadcom 4350 chipset.
 
 config BCMDHD_FW_PATH
 	depends on BCMDHD
@@ -30,6 +32,14 @@ config BCMDHD_NVRAM_PATH
 	default "/system/etc/wifi/bcmdhd.cal"
 	---help---
 	  Path to the calibration file.
+
+config BCMDHD_WEXT
+	bool "Enable WEXT support"
+	depends on BCMDHD && CFG80211 = n
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	help
+	  Enables WEXT support
 
 config DHD_USE_STATIC_BUF
 	bool "Enable memory preallocation"

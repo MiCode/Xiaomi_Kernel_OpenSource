@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 1999-2014, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +21,7 @@
  *
  * Fundamental constants relating to 802.3
  *
- * $Id: 802.3.h 417942 2013-08-13 07:53:57Z $
+ * $Id: 802.3.h 417943 2013-08-13 07:54:04Z $
  */
 
 #ifndef _802_3_h_

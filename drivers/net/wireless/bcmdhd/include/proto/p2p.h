@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 1999-2014, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +21,7 @@
  *
  * Fundamental types and constants relating to WFA P2P (aka WiFi Direct)
  *
- * $Id: p2p.h 384536 2013-02-12 04:13:09Z $
+ * $Id: p2p.h 444066 2013-12-18 12:49:24Z $
  */
 
 #ifndef _P2P_H_
@@ -85,7 +85,7 @@ typedef struct wifi_p2p_ie wifi_p2p_ie_t;
 #define P2P_SEID_INVITE_FLAGS		18	/* Invitation Flags */
 #define P2P_SEID_VNDR			221	/* Vendor-specific subelement */
 
-#define P2P_SE_VS_ID_SERVICES	0x1b /* BRCM proprietary subel: L2 Services */
+#define P2P_SE_VS_ID_SERVICES	0x1b
 
 
 /* WiFi P2P IE subelement: P2P Capability (capabilities info) */
@@ -262,6 +262,33 @@ BWL_PRE_PACKED_STRUCT struct wifi_p2p_pri_devtype_s {
 	uint16	sub_cat_id;	/* Sub Category ID */
 } BWL_POST_PACKED_STRUCT;
 typedef struct wifi_p2p_pri_devtype_s wifi_p2p_pri_devtype_t;
+
+/* WiFi P2P Device Info Sub Element Primary Device Type Sub Category
+ * maximum values for each category
+ */
+#define P2P_DISE_SUBCATEGORY_MINVAL		1
+#define P2P_DISE_CATEGORY_COMPUTER		1
+#define P2P_DISE_SUBCATEGORY_COMPUTER_MAXVAL		8
+#define P2P_DISE_CATEGORY_INPUT_DEVICE		2
+#define P2P_DISE_SUBCATEGORY_INPUT_DEVICE_MAXVAL	9
+#define P2P_DISE_CATEGORY_PRINTER		3
+#define P2P_DISE_SUBCATEGORY_PRINTER_MAXVAL		5
+#define P2P_DISE_CATEGORY_CAMERA		4
+#define P2P_DISE_SUBCATEGORY_CAMERA_MAXVAL		4
+#define P2P_DISE_CATEGORY_STORAGE		5
+#define P2P_DISE_SUBCATEGORY_STORAGE_MAXVAL		1
+#define P2P_DISE_CATEGORY_NETWORK_INFRA		6
+#define P2P_DISE_SUBCATEGORY_NETWORK_INFRA_MAXVAL	4
+#define P2P_DISE_CATEGORY_DISPLAY		7
+#define P2P_DISE_SUBCATEGORY_DISPLAY_MAXVAL		4
+#define P2P_DISE_CATEGORY_MULTIMEDIA		8
+#define P2P_DISE_SUBCATEGORY_MULTIMEDIA_MAXVAL		6
+#define P2P_DISE_CATEGORY_GAMING		9
+#define P2P_DISE_SUBCATEGORY_GAMING_MAXVAL		5
+#define P2P_DISE_CATEGORY_TELEPHONE		10
+#define P2P_DISE_SUBCATEGORY_TELEPHONE_MAXVAL		5
+#define P2P_DISE_CATEGORY_AUDIO			11
+#define P2P_DISE_SUBCATEGORY_AUDIO_MAXVAL		6
 
 /* WiFi P2P IE's Device Info subelement */
 BWL_PRE_PACKED_STRUCT struct wifi_p2p_devinfo_se_s {

@@ -1,7 +1,7 @@
 /*
  * Misc system wide definitions
  *
- * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 1999-2014, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmdefs.h 416231 2013-08-02 07:38:34Z $
+ * $Id: bcmdefs.h 433011 2013-10-30 09:19:54Z $
  */
 
 #ifndef	_bcmdefs_h_
@@ -37,14 +37,21 @@
  */
 #define BCM_REFERENCE(data)	((void)(data))
 
+/* Allow for suppressing unused variable warnings. */
+#ifdef __GNUC__
+#define UNUSED_VAR     __attribute__ ((unused))
+#else
+#define UNUSED_VAR
+#endif
+
 /* Compile-time assert can be used in place of ASSERT if the expression evaluates
  * to a constant at compile time.
  */
 #define STATIC_ASSERT(expr) { \
 	/* Make sure the expression is constant. */ \
-	typedef enum { _STATIC_ASSERT_NOT_CONSTANT = (expr) } _static_assert_e; \
+	typedef enum { _STATIC_ASSERT_NOT_CONSTANT = (expr) } _static_assert_e UNUSED_VAR; \
 	/* Make sure the expression is true. */ \
-	typedef char STATIC_ASSERT_FAIL[(expr) ? 1 : -1]; \
+	typedef char STATIC_ASSERT_FAIL[(expr) ? 1 : -1] UNUSED_VAR; \
 }
 
 /* Reclaiming text and data :
@@ -66,13 +73,8 @@
 #define	BCMNMIATTACHDATA(_data)	_data
 #define CONST	const
 
-/* Do not put BCM47XX and __ARM_ARCH_7A__ to the same line.
- * DHD build has problem because the BCM47XX will be excluded in DHD release.
- */
 #undef BCM47XX_CA9
-#ifdef __ARM_ARCH_7A__
-#define BCM47XX_CA9
-#endif /* __ARM_ARCH_7A__ */
+
 #ifndef BCMFASTPATH
 #if defined(BCM47XX_CA9)
 #define BCMFASTPATH		__attribute__ ((__section__ (".text.fastpath")))
@@ -82,6 +84,15 @@
 #define BCMFASTPATH_HOST
 #endif
 #endif /* BCMFASTPATH */
+
+
+/* Use the BCMRAMFN() macro to tag functions in source that must be included in RAM (excluded from
+ * ROM). This should eliminate the need to manually specify these functions in the ROM config file.
+ * It should only be used in special cases where the function must be in RAM for *all* ROM-based
+ * chips.
+ */
+	#define BCMRAMFN(_fn)	_fn
+
 
 
 /* Put some library data/code into ROM to reduce RAM requirements */
@@ -152,23 +163,28 @@
 #define	DMADDRWIDTH_63  63 /* 64-bit addressing capability */
 #define	DMADDRWIDTH_64  64 /* 64-bit addressing capability */
 
-#ifdef BCMDMA64OSL
 typedef struct {
 	uint32 loaddr;
 	uint32 hiaddr;
 } dma64addr_t;
 
-typedef dma64addr_t dmaaddr_t;
-#define PHYSADDRHI(_pa) ((_pa).hiaddr)
-#define PHYSADDRHISET(_pa, _val) \
+#define PHYSADDR64HI(_pa) ((_pa).hiaddr)
+#define PHYSADDR64HISET(_pa, _val) \
 	do { \
 		(_pa).hiaddr = (_val);		\
 	} while (0)
-#define PHYSADDRLO(_pa) ((_pa).loaddr)
-#define PHYSADDRLOSET(_pa, _val) \
+#define PHYSADDR64LO(_pa) ((_pa).loaddr)
+#define PHYSADDR64LOSET(_pa, _val) \
 	do { \
 		(_pa).loaddr = (_val);		\
 	} while (0)
+
+#ifdef BCMDMA64OSL
+typedef dma64addr_t dmaaddr_t;
+#define PHYSADDRHI(_pa) PHYSADDR64HI(_pa)
+#define PHYSADDRHISET(_pa, _val) PHYSADDR64HISET(_pa, _val)
+#define PHYSADDRLO(_pa)  PHYSADDR64LO(_pa)
+#define PHYSADDRLOSET(_pa, _val) PHYSADDR64LOSET(_pa, _val)
 
 #else
 typedef unsigned long dmaaddr_t;
@@ -187,7 +203,7 @@ typedef struct  {
 	uint32	  length;
 } hnddma_seg_t;
 
-#define MAX_DMA_SEGS 4
+#define MAX_DMA_SEGS 8
 
 
 typedef struct {
@@ -270,9 +286,53 @@ typedef struct {
 #endif
 
 /* Max. nvram variable table size */
+#ifndef MAXSZ_NVRAM_VARS
 #define	MAXSZ_NVRAM_VARS	4096
+#endif
 
 
+
+/* WL_ENAB_RUNTIME_CHECK may be set based upon the #define below (for ROM builds). It may also
+ * be defined via makefiles (e.g. ROM auto abandon unoptimized compiles).
+ */
+
+
+#ifdef BCMLFRAG /* BCMLFRAG support enab macros  */
+	extern bool _bcmlfrag;
+	#if defined(WL_ENAB_RUNTIME_CHECK) || !defined(DONGLEBUILD)
+		#define BCMLFRAG_ENAB() (_bcmlfrag)
+	#elif defined(BCMLFRAG_DISABLED)
+		#define BCMLFRAG_ENAB()	(0)
+	#else
+		#define BCMLFRAG_ENAB()	(1)
+	#endif
+#else
+	#define BCMLFRAG_ENAB()		(0)
+#endif /* BCMLFRAG_ENAB */
+#ifdef BCMSPLITRX /* BCMLFRAG support enab macros  */
+	extern bool _bcmsplitrx;
+	#if defined(WL_ENAB_RUNTIME_CHECK) || !defined(DONGLEBUILD)
+		#define BCMSPLITRX_ENAB() (_bcmsplitrx)
+	#elif defined(BCMSPLITRX_DISABLED)
+		#define BCMSPLITRX_ENAB()	(0)
+	#else
+		#define BCMSPLITRX_ENAB()	(1)
+	#endif
+#else
+	#define BCMSPLITRX_ENAB()		(0)
+#endif /* BCMSPLITRX */
+#ifdef BCM_SPLITBUF
+	extern bool _bcmsplitbuf;
+	#if defined(WL_ENAB_RUNTIME_CHECK) || !defined(DONGLEBUILD)
+		#define BCM_SPLITBUF_ENAB() (_bcmsplitbuf)
+	#elif defined(BCM_SPLITBUF_DISABLED)
+		#define BCM_SPLITBUF_ENAB()	(0)
+	#else
+		#define BCM_SPLITBUF_ENAB()	(1)
+	#endif
+#else
+	#define BCM_SPLITBUF_ENAB()		(0)
+#endif	/* BCM_SPLITBUF */
 /* Max size for reclaimable NVRAM array */
 #ifdef DL_NVRAM
 #define NVRAM_ARRAY_MAXSIZE	DL_NVRAM
@@ -283,5 +343,6 @@ typedef struct {
 #ifdef BCMUSBDEV_ENABLED
 extern uint32 gFWID;
 #endif
+
 
 #endif /* _bcmdefs_h_ */

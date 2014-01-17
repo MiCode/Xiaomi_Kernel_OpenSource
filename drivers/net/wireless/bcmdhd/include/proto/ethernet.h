@@ -1,7 +1,7 @@
 /*
  * From FreeBSD 2.2.7: Fundamental constants relating to ethernet.
  *
- * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 1999-2014, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,10 +21,10 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: ethernet.h 384540 2013-02-12 04:28:58Z $
+ * $Id: ethernet.h 403353 2013-05-20 14:05:33Z $
  */
 
-#ifndef _NET_ETHERNET_H_	    /* use native BSD ethernet.h when available */
+#ifndef _NET_ETHERNET_H_	/* use native BSD ethernet.h when available */
 #define _NET_ETHERNET_H_
 
 #ifndef _TYPEDEFS_H_
@@ -94,6 +94,8 @@
 
 #define ETHER_TYPE_PPP_SES	0x8864		/* PPPoE Session */
 
+#define ETHER_TYPE_IAPP_L2_UPDATE	0x6	/* IAPP L2 update frame */
+
 /* Broadcom subtype follows ethertype;  First 2 bytes are reserved; Next 2 are subtype; */
 #define	ETHER_BRCM_SUBTYPE_LEN	4	/* Broadcom 4 byte subtype */
 
@@ -117,7 +119,7 @@
 		((uint8 *)ea)[5] = ((mgrp_ip) >>  0) & 0xff;	\
 }
 
-#ifndef __INCif_etherh     /* Quick and ugly hack for VxWorks */
+#ifndef __INCif_etherh /* Quick and ugly hack for VxWorks */
 /*
  * Structure of a 10Mb/s Ethernet header.
  */

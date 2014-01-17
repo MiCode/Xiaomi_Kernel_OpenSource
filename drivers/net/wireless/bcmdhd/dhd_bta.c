@@ -1,7 +1,7 @@
 /*
  * BT-AMP support routines
  *
- * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 1999-2014, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_bta.c 379512 2013-01-17 22:49:08Z $
+ * $Id: dhd_bta.c 434656 2013-11-07 01:11:33Z $
  */
 #error "WLBTAMP is not defined"
 
@@ -99,7 +99,6 @@ dhd_bta_flush_hcidata(dhd_pub_t *pub, uint16 llh)
 			void *pkt = pktq_pdeq(q, prec);
 			int ifidx;
 
-			PKTPULL(pub->osh, pkt, dhd_bus_hdrlen(pub->bus));
 			dhd_prot_hdrpull(pub, &ifidx, pkt, NULL, NULL);
 
 			if (PKTLEN(pub->osh, pkt) >= RFC1042_HDR_LEN) {
@@ -127,7 +126,6 @@ dhd_bta_flush_hcidata(dhd_pub_t *pub, uint16 llh)
 			}
 
 			dhd_prot_hdrpush(pub, ifidx, pkt);
-			PKTPUSH(pub->osh, pkt, dhd_bus_hdrlen(pub->bus));
 
 			if (head_pkt == NULL)
 				head_pkt = pkt;

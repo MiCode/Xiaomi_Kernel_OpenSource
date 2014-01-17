@@ -1,7 +1,7 @@
 /*
  * Linux Wireless Extensions support
  *
- * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 1999-2014, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_iw.c 396420 2013-04-12 06:55:45Z $
+ * $Id: wl_iw.c 425990 2013-09-26 07:28:16Z $
  */
 
 #if defined(USE_IW)
@@ -87,12 +87,12 @@ uint wl_msg_level = WL_ERROR_VAL;
 #define MAX_WLIW_IOCTL_LEN 1024
 
 /* IOCTL swapping mode for Big Endian host with Little Endian dongle.  Default to off */
-#define htod32(i) i
-#define htod16(i) i
-#define dtoh32(i) i
-#define dtoh16(i) i
-#define htodchanspec(i) i
-#define dtohchanspec(i) i
+#define htod32(i) (i)
+#define htod16(i) (i)
+#define dtoh32(i) (i)
+#define dtoh16(i) (i)
+#define htodchanspec(i) (i)
+#define dtohchanspec(i) (i)
 
 extern struct iw_statistics *dhd_get_wireless_stats(struct net_device *dev);
 extern int dhd_wait_pend8021x(struct net_device *dev);
@@ -104,7 +104,10 @@ extern int dhd_wait_pend8021x(struct net_device *dev);
 
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
-#define DAEMONIZE(a)
+#define DAEMONIZE(a)	do { \
+		allow_signal(SIGKILL);	\
+		allow_signal(SIGTERM);	\
+	} while (0)
 #elif ((LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)) && \
 	(LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)))
 #define DAEMONIZE(a) daemonize(a); \
@@ -139,6 +142,9 @@ typedef struct iscan_info {
 	iscan_buf_t * list_cur;
 
 	/* Thread to work on iscan */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0))
+	struct task_struct *kthread;
+#endif
 	long sysioc_pid;
 	struct semaphore sysioc_sem;
 	struct completion sysioc_exited;
@@ -212,13 +218,6 @@ dev_wlc_ioctl(
 
 	strcpy(ifr.ifr_name, dev->name);
 	ifr.ifr_data = (caddr_t) &ioc;
-
-#ifndef LINUX_HYBRID
-	/* Causes an extraneous 'up'.  If specific ioctls are failing due
-	   to device down, then we can investigate those ioctls.
-	*/
-	dev_open(dev);
-#endif
 
 	fs = get_fs();
 	set_fs(get_ds());
@@ -3638,6 +3637,9 @@ wl_iw_attach(struct net_device *dev, void * dhdp)
 	if (!iscan)
 		return -ENOMEM;
 	memset(iscan, 0, sizeof(iscan_info_t));
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0))
+	iscan->kthread = NULL;
+#endif
 	iscan->sysioc_pid = -1;
 	/* we only care about main interface so save a global here */
 	g_iscan = iscan;
@@ -3653,7 +3655,12 @@ wl_iw_attach(struct net_device *dev, void * dhdp)
 
 	sema_init(&iscan->sysioc_sem, 0);
 	init_completion(&iscan->sysioc_exited);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0))
+	iscan->kthread = kthread_run(_iscan_sysioc_thread, iscan, "iscan_sysioc");
+	iscan->sysioc_pid = iscan->kthread->pid;
+#else
 	iscan->sysioc_pid = kernel_thread(_iscan_sysioc_thread, iscan, 0);
+#endif
 	if (iscan->sysioc_pid < 0)
 		return -ENOMEM;
 	return 0;

@@ -3,7 +3,7 @@
  *
  * Provides type definitions and function prototypes used to parse ip packet.
  *
- * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 1999-2014, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -23,11 +23,17 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id$
+ * $Id: dhd_ip.h 434656 2013-11-07 01:11:33Z $
  */
 
 #ifndef _dhd_ip_h_
 #define _dhd_ip_h_
+
+#ifdef DHDTCPACK_SUPPRESS
+#include <dngl_stats.h>
+#include <bcmutils.h>
+#include <dhd.h>
+#endif /* DHDTCPACK_SUPPRESS */
 
 typedef enum pkt_frag
 {
@@ -38,5 +44,16 @@ typedef enum pkt_frag
 } pkt_frag_t;
 
 extern pkt_frag_t pkt_frag_info(osl_t *osh, void *p);
+
+#ifdef DHDTCPACK_SUPPRESS
+#define	TCPACKSZMIN	(ETHER_HDR_LEN + IPV4_MIN_HEADER_LEN + TCP_MIN_HEADER_LEN)
+/* Size of MAX possible TCP ACK packet. Extra bytes for IP/TCP option fields */
+#define	TCPACKSZMAX	(TCPACKSZMIN + 100)
+
+extern void dhd_tcpack_suppress_set(dhd_pub_t *dhdp, bool on);
+extern void dhd_tcpack_info_tbl_clean(dhd_pub_t *dhdp);
+extern int dhd_tcpack_check_xmit(dhd_pub_t *dhdp, void *pkt);
+extern bool dhd_tcpack_suppress(dhd_pub_t *dhdp, void *pkt);
+#endif /* DHDTCPACK_SUPPRESS */
 
 #endif /* _dhd_ip_h_ */

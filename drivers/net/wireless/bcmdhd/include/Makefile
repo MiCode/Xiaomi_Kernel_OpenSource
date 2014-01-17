@@ -10,7 +10,7 @@
 #
 # Copyright 2005, Broadcom, Inc.
 #
-# $Id: Makefile 347587 2012-07-27 09:13:31Z prakashd $
+# $Id: Makefile 347587 2012-07-27 09:13:31Z $
 #
 
 export SRCBASE:=..
@@ -51,4 +51,3 @@ clean:
 clean_all: clean clean_compvers
 
 .PHONY: all release clean epivers compvers clean_compvers
-

@@ -1,7 +1,7 @@
 /*
  * Driver O/S-independent utility routines
  *
- * Copyright (C) 1999-2013, Broadcom Corporation
+ * Copyright (C) 1999-2014, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -20,7 +20,7 @@
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
- * $Id: bcmutils.c 412804 2013-07-16 16:26:39Z $
+ * $Id: bcmutils.c 446873 2014-01-07 11:26:18Z $
  */
 
 #include <bcm_cfg.h>
@@ -31,6 +31,10 @@
 
 #include <osl.h>
 #include <bcmutils.h>
+#if defined(BCMNVRAM)
+#include <siutils.h>
+#include <bcmnvram.h>
+#endif
 
 #else /* !BCMDRIVER */
 
@@ -42,6 +46,9 @@
 #include <bcm_osl.h>
 #endif
 
+#ifndef ASSERT
+#define ASSERT(exp)
+#endif
 
 #endif /* !BCMDRIVER */
 
@@ -52,7 +59,10 @@
 #include <proto/bcmip.h>
 #include <proto/802.1d.h>
 #include <proto/802.11.h>
+
+
 void *_bcmutils_dummy_fn = NULL;
+
 
 
 #ifdef BCMDRIVER
@@ -97,6 +107,7 @@ pktfrombuf(osl_t *osh, void *p, uint offset, int len, uchar *buf)
 {
 	uint n, ret = 0;
 
+
 	/* skip 'offset' bytes */
 	for (; p && offset; p = PKTNEXT(osh, p)) {
 		if (offset < (uint)PKTLEN(osh, p))
@@ -133,6 +144,13 @@ pkttotlen(osl_t *osh, void *p)
 	for (; p; p = PKTNEXT(osh, p)) {
 		len = PKTLEN(osh, p);
 		total += len;
+#ifdef BCMLFRAG
+		if (BCMLFRAG_ENAB()) {
+			if (PKTISFRAG(osh, p)) {
+				total += PKTFRAGTOTLEN(osh, p);
+			}
+		}
+#endif
 	}
 
 	return (total);
@@ -154,8 +172,16 @@ pktsegcnt(osl_t *osh, void *p)
 {
 	uint cnt;
 
-	for (cnt = 0; p; p = PKTNEXT(osh, p))
+	for (cnt = 0; p; p = PKTNEXT(osh, p)) {
 		cnt++;
+#ifdef BCMLFRAG
+		if (BCMLFRAG_ENAB()) {
+			if (PKTISFRAG(osh, p)) {
+				cnt += PKTFRAGTOTNUM(osh, p);
+			}
+		}
+#endif
+	}
 
 	return cnt;
 }
@@ -365,10 +391,14 @@ pktq_pdeq_with_fn(struct pktq *pq, int prec, ifpkt_cb_t fn, int arg)
 		return NULL;
 
 	if (prev == NULL) {
-		if ((q->head = PKTLINK(p)) == NULL)
+		if ((q->head = PKTLINK(p)) == NULL) {
 			q->tail = NULL;
+		}
 	} else {
 		PKTSETLINK(prev, PKTLINK(p));
+		if (q->tail == p) {
+			q->tail = prev;
+		}
 	}
 
 	q->len--;
@@ -1025,6 +1055,21 @@ bcm_ether_atoe(const char *p, struct ether_addr *ea)
 
 	return (i == 6);
 }
+
+int
+bcm_atoipv4(const char *p, struct ipv4_addr *ip)
+{
+
+	int i = 0;
+	char *c;
+	for (;;) {
+		ip->addr[i++] = (uint8)bcm_strtoul(p, &c, 0);
+		if (*c++ != '.' || i == IPV4_ADDR_LEN)
+			break;
+		p = c;
+	}
+	return (i == IPV4_ADDR_LEN);
+}
 #endif	/* !BCMROMOFFLOAD_EXCLUDE_BCMUTILS_FUNCS */
 
 
@@ -1088,6 +1133,57 @@ bcm_ip_ntoa(struct ipv4_addr *ia, char *buf)
 	return (buf);
 }
 
+char *
+bcm_ipv6_ntoa(void *ipv6, char *buf)
+{
+	/* Implementing RFC 5952 Sections 4 + 5 */
+	/* Not thoroughly tested */
+	uint16 tmp[8];
+	uint16 *a = &tmp[0];
+	char *p = buf;
+	int i, i_max = -1, cnt = 0, cnt_max = 1;
+	uint8 *a4 = NULL;
+	memcpy((uint8 *)&tmp[0], (uint8 *)ipv6, IPV6_ADDR_LEN);
+
+	for (i = 0; i < IPV6_ADDR_LEN/2; i++) {
+		if (a[i]) {
+			if (cnt > cnt_max) {
+				cnt_max = cnt;
+				i_max = i - cnt;
+			}
+			cnt = 0;
+		} else
+			cnt++;
+	}
+	if (cnt > cnt_max) {
+		cnt_max = cnt;
+		i_max = i - cnt;
+	}
+	if (i_max == 0 &&
+		/* IPv4-translated: ::ffff:0:a.b.c.d */
+		((cnt_max == 4 && a[4] == 0xffff && a[5] == 0) ||
+		/* IPv4-mapped: ::ffff:a.b.c.d */
+		(cnt_max == 5 && a[5] == 0xffff)))
+		a4 = (uint8*) (a + 6);
+
+	for (i = 0; i < IPV6_ADDR_LEN/2; i++) {
+		if ((uint8*) (a + i) == a4) {
+			snprintf(p, 16, ":%u.%u.%u.%u", a4[0], a4[1], a4[2], a4[3]);
+			break;
+		} else if (i == i_max) {
+			*p++ = ':';
+			i += cnt_max - 1;
+			p[0] = ':';
+			p[1] = '\0';
+		} else {
+			if (i)
+				*p++ = ':';
+			p += snprintf(p, 8, "%x", ntoh16(a[i]));
+		}
+	}
+
+	return buf;
+}
 #ifdef BCMDRIVER
 
 void
@@ -1132,7 +1228,7 @@ pktsetprio(void *pkt, bool update_vtag)
 	int priority = 0;
 	int rc = 0;
 
-	pktdata = (uint8 *)PKTDATA(NULL, pkt);
+	pktdata = (uint8 *)PKTDATA(OSH_NULL, pkt);
 	ASSERT(ISALIGNED((uintptr)pktdata, sizeof(uint16)));
 
 	eh = (struct ether_header *) pktdata;
@@ -1302,6 +1398,108 @@ bcm_iovar_lencheck(const bcm_iovar_t *vi, void *arg, int len, bool set)
 }
 
 #endif	/* BCMDRIVER */
+
+
+uint8 *
+bcm_write_tlv(int type, const void *data, int datalen, uint8 *dst)
+{
+	uint8 *new_dst = dst;
+	bcm_tlv_t *dst_tlv = (bcm_tlv_t *)dst;
+
+	/* dst buffer should always be valid */
+	ASSERT(dst);
+
+	/* data len must be within valid range */
+	ASSERT((datalen >= 0) && (datalen <= BCM_TLV_MAX_DATA_SIZE));
+
+	/* source data buffer pointer should be valid, unless datalen is 0
+	 * meaning no data with this TLV
+	 */
+	ASSERT((data != NULL) || (datalen == 0));
+
+	/* only do work if the inputs are valid
+	 * - must have a dst to write to AND
+	 * - datalen must be within range AND
+	 * - the source data pointer must be non-NULL if datalen is non-zero
+	 * (this last condition detects datalen > 0 with a NULL data pointer)
+	 */
+	if ((dst != NULL) &&
+	    ((datalen >= 0) && (datalen <= BCM_TLV_MAX_DATA_SIZE)) &&
+	    ((data != NULL) || (datalen == 0))) {
+
+	        /* write type, len fields */
+		dst_tlv->id = (uint8)type;
+	        dst_tlv->len = (uint8)datalen;
+
+		/* if data is present, copy to the output buffer and update
+		 * pointer to output buffer
+		 */
+		if (datalen > 0) {
+
+			memcpy(dst_tlv->data, data, datalen);
+		}
+
+		/* update the output destination poitner to point past
+		 * the TLV written
+		 */
+		new_dst = dst + BCM_TLV_HDR_SIZE + datalen;
+	}
+
+	return (new_dst);
+}
+
+uint8 *
+bcm_write_tlv_safe(int type, const void *data, int datalen, uint8 *dst, int dst_maxlen)
+{
+	uint8 *new_dst = dst;
+
+	if ((datalen >= 0) && (datalen <= BCM_TLV_MAX_DATA_SIZE)) {
+
+		/* if len + tlv hdr len is more than destlen, don't do anything
+		 * just return the buffer untouched
+		 */
+		if ((int)(datalen + BCM_TLV_HDR_SIZE) <= dst_maxlen) {
+
+			new_dst = bcm_write_tlv(type, data, datalen, dst);
+		}
+	}
+
+	return (new_dst);
+}
+
+uint8 *
+bcm_copy_tlv(const void *src, uint8 *dst)
+{
+	uint8 *new_dst = dst;
+	const bcm_tlv_t *src_tlv = (const bcm_tlv_t *)src;
+	uint totlen;
+
+	ASSERT(dst && src);
+	if (dst && src) {
+
+		totlen = BCM_TLV_HDR_SIZE + src_tlv->len;
+		memcpy(dst, src_tlv, totlen);
+		new_dst = dst + totlen;
+	}
+
+	return (new_dst);
+}
+
+
+uint8 *bcm_copy_tlv_safe(const void *src, uint8 *dst, int dst_maxlen)
+{
+	uint8 *new_dst = dst;
+	const bcm_tlv_t *src_tlv = (const bcm_tlv_t *)src;
+
+	ASSERT(src);
+	if (src) {
+		if (bcm_valid_tlv(src_tlv, dst_maxlen)) {
+			new_dst = bcm_copy_tlv(src, dst);
+		}
+	}
+
+	return (new_dst);
+}
 
 
 #if !defined(BCMROMOFFLOAD_EXCLUDE_BCMUTILS_FUNCS)
@@ -1582,8 +1780,9 @@ bcm_next_tlv(bcm_tlv_t *elt, int *buflen)
 	int len;
 
 	/* validate current elt */
-	if (!bcm_valid_tlv(elt, *buflen))
+	if (!bcm_valid_tlv(elt, *buflen)) {
 		return NULL;
+	}
 
 	/* advance to next elt */
 	len = elt->len;
@@ -1591,8 +1790,9 @@ bcm_next_tlv(bcm_tlv_t *elt, int *buflen)
 	*buflen -= (TLV_HDR_LEN + len);
 
 	/* validate next elt */
-	if (!bcm_valid_tlv(elt, *buflen))
+	if (!bcm_valid_tlv(elt, *buflen)) {
 		return NULL;
+	}
 
 	return elt;
 }
@@ -1616,9 +1816,10 @@ bcm_parse_tlvs(void *buf, int buflen, uint key)
 		int len = elt->len;
 
 		/* validate remaining totlen */
-		if ((elt->id == key) &&
-		    (totlen >= (len + TLV_HDR_LEN)))
+		if ((elt->id == key) && (totlen >= (int)(len + TLV_HDR_LEN))) {
+
 			return (elt);
+		}
 
 		elt = (bcm_tlv_t*)((uint8*)elt + (len + TLV_HDR_LEN));
 		totlen -= (len + TLV_HDR_LEN);
@@ -1648,13 +1849,14 @@ bcm_parse_ordered_tlvs(void *buf, int buflen, uint key)
 		int len = elt->len;
 
 		/* Punt if we start seeing IDs > than target key */
-		if (id > key)
+		if (id > key) {
 			return (NULL);
+		}
 
 		/* validate remaining totlen */
-		if ((id == key) &&
-		    (totlen >= (len + TLV_HDR_LEN)))
+		if ((id == key) && (totlen >= (int)(len + TLV_HDR_LEN))) {
 			return (elt);
+		}
 
 		elt = (bcm_tlv_t*)((uint8*)elt + (len + TLV_HDR_LEN));
 		totlen -= (len + TLV_HDR_LEN);
@@ -1803,10 +2005,19 @@ static const char *crypto_algo_names[] = {
 	"AES_CCM",
 	"AES_OCB_MSDU",
 	"AES_OCB_MPDU",
-	"NALG"
+	"NALG",
 	"UNDEF",
 	"UNDEF",
 	"UNDEF",
+	"WAPI",
+	"PMK",
+	"BIP",
+	"AES_GCM",
+	"AES_CCM256",
+	"AES_GCM256",
+	"BIP_CMAC256",
+	"BIP_GMAC",
+	"BIP_GMAC256",
 	"UNDEF"
 };
 
@@ -2112,7 +2323,7 @@ bcm_print_bytes(const char *name, const uchar *data, int len)
 
 /* Look for vendor-specific IE with specified OUI and optional type */
 bcm_tlv_t *
-find_vendor_ie(void *tlvs, int tlvs_len, const char *voui, uint8 *type, int type_len)
+bcm_find_vendor_ie(void *tlvs, int tlvs_len, const char *voui, uint8 *type, int type_len)
 {
 	bcm_tlv_t *ie;
 	uint8 ie_len;
@@ -2120,9 +2331,9 @@ find_vendor_ie(void *tlvs, int tlvs_len, const char *voui, uint8 *type, int type
 	ie = (bcm_tlv_t*)tlvs;
 
 	/* make sure we are looking at a valid IE */
-	if (ie == NULL ||
-	    !bcm_valid_tlv(ie, tlvs_len))
+	if (ie == NULL || !bcm_valid_tlv(ie, tlvs_len)) {
 		return NULL;
+	}
 
 	/* Walk through the IEs looking for an OUI match */
 	do {
@@ -2288,7 +2499,7 @@ bcm_uint64_divide(uint32* r, uint32 a_high, uint32 a_low, uint32 b)
 	*r = r0;
 }
 
-#ifndef setbit     /* As in the header file */
+#ifndef setbit /* As in the header file */
 #ifdef BCMUTILS_BIT_MACROS_USE_FUNCS
 /* Set bit in byte array. */
 void
@@ -2319,3 +2530,523 @@ isclr(const void *array, uint bit)
 }
 #endif /* BCMUTILS_BIT_MACROS_USE_FUNCS */
 #endif /* setbit */
+
+void
+bcm_bitprint32(const uint32 u32)
+{
+	int i;
+	for (i = NBITS(uint32) - 1; i >= 0; i--) {
+		isbitset(u32, i) ? printf("1") : printf("0");
+		if ((i % NBBY) == 0) printf(" ");
+	}
+	printf("\n");
+}
+
+#ifdef BCMDRIVER
+/*
+ * Hierarchical Multiword bitmap based small id allocator.
+ *
+ * Multilevel hierarchy bitmap. (maximum 2 levels)
+ * First hierarchy uses a multiword bitmap to identify 32bit words in the
+ * second hierarchy that have at least a single bit set. Each bit in a word of
+ * the second hierarchy represents a unique ID that may be allocated.
+ *
+ * BCM_MWBMAP_ITEMS_MAX: Maximum number of IDs managed.
+ * BCM_MWBMAP_BITS_WORD: Number of bits in a bitmap word word
+ * BCM_MWBMAP_WORDS_MAX: Maximum number of bitmap words needed for free IDs.
+ * BCM_MWBMAP_WDMAP_MAX: Maximum number of bitmap wordss identifying first non
+ *                       non-zero bitmap word carrying at least one free ID.
+ * BCM_MWBMAP_SHIFT_OP:  Used in MOD, DIV and MUL operations.
+ * BCM_MWBMAP_INVALID_IDX: Value ~0U is treated as an invalid ID
+ *
+ * Design Notes:
+ * BCM_MWBMAP_USE_CNTSETBITS trades CPU for memory. A runtime count of how many
+ * bits are computed each time on allocation and deallocation, requiring 4
+ * array indexed access and 3 arithmetic operations. When not defined, a runtime
+ * count of set bits state is maintained. Upto 32 Bytes per 1024 IDs is needed.
+ * In a 4K max ID allocator, up to 128Bytes are hence used per instantiation.
+ * In a memory limited system e.g. dongle builds, a CPU for memory tradeoff may
+ * be used by defining BCM_MWBMAP_USE_CNTSETBITS.
+ *
+ * Note: wd_bitmap[] is statically declared and is not ROM friendly ... array
+ * size is fixed. No intention to support larger than 4K indice allocation. ID
+ * allocators for ranges smaller than 4K will have a wastage of only 12Bytes
+ * with savings in not having to use an indirect access, had it been dynamically
+ * allocated.
+ */
+#define BCM_MWBMAP_ITEMS_MAX    (4 * 1024)  /* May increase to 16K */
+
+#define BCM_MWBMAP_BITS_WORD    (NBITS(uint32))
+#define BCM_MWBMAP_WORDS_MAX    (BCM_MWBMAP_ITEMS_MAX / BCM_MWBMAP_BITS_WORD)
+#define BCM_MWBMAP_WDMAP_MAX    (BCM_MWBMAP_WORDS_MAX / BCM_MWBMAP_BITS_WORD)
+#define BCM_MWBMAP_SHIFT_OP     (5)
+#define BCM_MWBMAP_MODOP(ix)    ((ix) & (BCM_MWBMAP_BITS_WORD - 1))
+#define BCM_MWBMAP_DIVOP(ix)    ((ix) >> BCM_MWBMAP_SHIFT_OP)
+#define BCM_MWBMAP_MULOP(ix)    ((ix) << BCM_MWBMAP_SHIFT_OP)
+
+/* Redefine PTR() and/or HDL() conversion to invoke audit for debugging */
+#define BCM_MWBMAP_PTR(hdl)		((struct bcm_mwbmap *)(hdl))
+#define BCM_MWBMAP_HDL(ptr)		((void *)(ptr))
+
+#if defined(BCM_MWBMAP_DEBUG)
+#define BCM_MWBMAP_AUDIT(mwb) \
+	do { \
+		ASSERT((mwb != NULL) && \
+		       (((struct bcm_mwbmap *)(mwb))->magic == (void *)(mwb))); \
+		bcm_mwbmap_audit(mwb); \
+	} while (0)
+#define MWBMAP_ASSERT(exp)		ASSERT(exp)
+#define MWBMAP_DBG(x)           printf x
+#else   /* !BCM_MWBMAP_DEBUG */
+#define BCM_MWBMAP_AUDIT(mwb)   do {} while (0)
+#define MWBMAP_ASSERT(exp)		do {} while (0)
+#define MWBMAP_DBG(x)
+#endif  /* !BCM_MWBMAP_DEBUG */
+
+
+typedef struct bcm_mwbmap {     /* Hierarchical multiword bitmap allocator    */
+	uint16 wmaps;               /* Total number of words in free wd bitmap    */
+	uint16 imaps;               /* Total number of words in free id bitmap    */
+	int16  ifree;               /* Count of free indices. Used only in audits */
+	uint16 total;               /* Total indices managed by multiword bitmap  */
+
+	void * magic;               /* Audit handle parameter from user           */
+
+	uint32 wd_bitmap[BCM_MWBMAP_WDMAP_MAX]; /* 1st level bitmap of            */
+#if !defined(BCM_MWBMAP_USE_CNTSETBITS)
+	int8   wd_count[BCM_MWBMAP_WORDS_MAX];  /* free id running count, 1st lvl */
+#endif /*  ! BCM_MWBMAP_USE_CNTSETBITS */
+
+	uint32 id_bitmap[0];        /* Second level bitmap                        */
+} bcm_mwbmap_t;
+
+/* Incarnate a hierarchical multiword bitmap based small index allocator. */
+struct bcm_mwbmap *
+bcm_mwbmap_init(osl_t *osh, uint32 items_max)
+{
+	struct bcm_mwbmap * mwbmap_p;
+	uint32 wordix, size, words, extra;
+
+	/* Implementation Constraint: Uses 32bit word bitmap */
+	MWBMAP_ASSERT(BCM_MWBMAP_BITS_WORD == 32U);
+	MWBMAP_ASSERT(BCM_MWBMAP_SHIFT_OP == 5U);
+	MWBMAP_ASSERT(ISPOWEROF2(BCM_MWBMAP_ITEMS_MAX));
+	MWBMAP_ASSERT((BCM_MWBMAP_ITEMS_MAX % BCM_MWBMAP_BITS_WORD) == 0U);
+
+	ASSERT(items_max <= BCM_MWBMAP_ITEMS_MAX);
+
+	/* Determine the number of words needed in the multiword bitmap */
+	extra = BCM_MWBMAP_MODOP(items_max);
+	words = BCM_MWBMAP_DIVOP(items_max) + ((extra != 0U) ? 1U : 0U);
+
+	/* Allocate runtime state of multiword bitmap */
+	/* Note: wd_count[] or wd_bitmap[] are not dynamically allocated */
+	size = sizeof(bcm_mwbmap_t) + (sizeof(uint32) * words);
+	mwbmap_p = (bcm_mwbmap_t *)MALLOC(osh, size);
+	if (mwbmap_p == (bcm_mwbmap_t *)NULL) {
+		ASSERT(0);
+		goto error1;
+	}
+	memset(mwbmap_p, 0, size);
+
+	/* Initialize runtime multiword bitmap state */
+	mwbmap_p->imaps = (uint16)words;
+	mwbmap_p->ifree = (int16)items_max;
+	mwbmap_p->total = (uint16)items_max;
+
+	/* Setup magic, for use in audit of handle */
+	mwbmap_p->magic = BCM_MWBMAP_HDL(mwbmap_p);
+
+	/* Setup the second level bitmap of free indices */
+	/* Mark all indices as available */
+	for (wordix = 0U; wordix < mwbmap_p->imaps; wordix++) {
+		mwbmap_p->id_bitmap[wordix] = (uint32)(~0U);
+#if !defined(BCM_MWBMAP_USE_CNTSETBITS)
+		mwbmap_p->wd_count[wordix] = BCM_MWBMAP_BITS_WORD;
+#endif /*  ! BCM_MWBMAP_USE_CNTSETBITS */
+	}
+
+	/* Ensure that extra indices are tagged as un-available */
+	if (extra) { /* fixup the free ids in last bitmap and wd_count */
+		uint32 * bmap_p = &mwbmap_p->id_bitmap[mwbmap_p->imaps - 1];
+		*bmap_p ^= (uint32)(~0U << extra); /* fixup bitmap */
+#if !defined(BCM_MWBMAP_USE_CNTSETBITS)
+		mwbmap_p->wd_count[mwbmap_p->imaps - 1] = (int8)extra; /* fixup count */
+#endif /*  ! BCM_MWBMAP_USE_CNTSETBITS */
+	}
+
+	/* Setup the first level bitmap hierarchy */
+	extra = BCM_MWBMAP_MODOP(mwbmap_p->imaps);
+	words = BCM_MWBMAP_DIVOP(mwbmap_p->imaps) + ((extra != 0U) ? 1U : 0U);
+
+	mwbmap_p->wmaps = (uint16)words;
+
+	for (wordix = 0U; wordix < mwbmap_p->wmaps; wordix++)
+		mwbmap_p->wd_bitmap[wordix] = (uint32)(~0U);
+	if (extra) {
+		uint32 * bmap_p = &mwbmap_p->wd_bitmap[mwbmap_p->wmaps - 1];
+		*bmap_p ^= (uint32)(~0U << extra); /* fixup bitmap */
+	}
+
+	return mwbmap_p;
+
+error1:
+	return BCM_MWBMAP_INVALID_HDL;
+}
+
+/* Release resources used by multiword bitmap based small index allocator. */
+void
+bcm_mwbmap_fini(osl_t * osh, struct bcm_mwbmap * mwbmap_hdl)
+{
+	bcm_mwbmap_t * mwbmap_p;
+
+	BCM_MWBMAP_AUDIT(mwbmap_hdl);
+	mwbmap_p = BCM_MWBMAP_PTR(mwbmap_hdl);
+
+	MFREE(osh, mwbmap_p, sizeof(struct bcm_mwbmap)
+	                     + (sizeof(uint32) * mwbmap_p->imaps));
+	return;
+}
+
+/* Allocate a unique small index using a multiword bitmap index allocator.    */
+uint32
+bcm_mwbmap_alloc(struct bcm_mwbmap * mwbmap_hdl)
+{
+	bcm_mwbmap_t * mwbmap_p;
+	uint32 wordix, bitmap;
+
+	BCM_MWBMAP_AUDIT(mwbmap_hdl);
+	mwbmap_p = BCM_MWBMAP_PTR(mwbmap_hdl);
+
+	/* Start with the first hierarchy */
+	for (wordix = 0; wordix < mwbmap_p->wmaps; ++wordix) {
+
+		bitmap = mwbmap_p->wd_bitmap[wordix]; /* get the word bitmap */
+
+		if (bitmap != 0U) {
+
+			uint32 count, bitix, *bitmap_p;
+
+			bitmap_p = &mwbmap_p->wd_bitmap[wordix];
+
+			/* clear all except trailing 1 */
+			bitmap   = (uint32)(((int)(bitmap)) & (-((int)(bitmap))));
+			MWBMAP_ASSERT(C_bcm_count_leading_zeros(bitmap) ==
+			              bcm_count_leading_zeros(bitmap));
+			bitix    = (BCM_MWBMAP_BITS_WORD - 1)
+			         - bcm_count_leading_zeros(bitmap); /* use asm clz */
+			wordix   = BCM_MWBMAP_MULOP(wordix) + bitix;
+
+			/* Clear bit if wd count is 0, without conditional branch */
+#if defined(BCM_MWBMAP_USE_CNTSETBITS)
+			count = bcm_cntsetbits(mwbmap_p->id_bitmap[wordix]) - 1;
+#else  /* ! BCM_MWBMAP_USE_CNTSETBITS */
+			mwbmap_p->wd_count[wordix]--;
+			count = mwbmap_p->wd_count[wordix];
+			MWBMAP_ASSERT(count ==
+			              (bcm_cntsetbits(mwbmap_p->id_bitmap[wordix]) - 1));
+#endif /* ! BCM_MWBMAP_USE_CNTSETBITS */
+			MWBMAP_ASSERT(count >= 0);
+
+			/* clear wd_bitmap bit if id_map count is 0 */
+			bitmap = (count == 0) << bitix;
+
+			MWBMAP_DBG((
+			    "Lvl1: bitix<%02u> wordix<%02u>: %08x ^ %08x = %08x wfree %d",
+			    bitix, wordix, *bitmap_p, bitmap, (*bitmap_p) ^ bitmap, count));
+
+			*bitmap_p ^= bitmap;
+
+			/* Use bitix in the second hierarchy */
+			bitmap_p = &mwbmap_p->id_bitmap[wordix];
+
+			bitmap = mwbmap_p->id_bitmap[wordix]; /* get the id bitmap */
+			MWBMAP_ASSERT(bitmap != 0U);
+
+			/* clear all except trailing 1 */
+			bitmap   = (uint32)(((int)(bitmap)) & (-((int)(bitmap))));
+			MWBMAP_ASSERT(C_bcm_count_leading_zeros(bitmap) ==
+			              bcm_count_leading_zeros(bitmap));
+			bitix    = BCM_MWBMAP_MULOP(wordix)
+			         + (BCM_MWBMAP_BITS_WORD - 1)
+			         - bcm_count_leading_zeros(bitmap); /* use asm clz */
+
+			mwbmap_p->ifree--; /* decrement system wide free count */
+			MWBMAP_ASSERT(mwbmap_p->ifree >= 0);
+
+			MWBMAP_DBG((
+			    "Lvl2: bitix<%02u> wordix<%02u>: %08x ^ %08x = %08x ifree %d",
+			    bitix, wordix, *bitmap_p, bitmap, (*bitmap_p) ^ bitmap,
+			    mwbmap_p->ifree));
+
+			*bitmap_p ^= bitmap; /* mark as allocated = 1b0 */
+
+			return bitix;
+		}
+	}
+
+	ASSERT(mwbmap_p->ifree == 0);
+
+	return BCM_MWBMAP_INVALID_IDX;
+}
+
+/* Force an index at a specified position to be in use */
+void
+bcm_mwbmap_force(struct bcm_mwbmap * mwbmap_hdl, uint32 bitix)
+{
+	bcm_mwbmap_t * mwbmap_p;
+	uint32 count, wordix, bitmap, *bitmap_p;
+
+	BCM_MWBMAP_AUDIT(mwbmap_hdl);
+	mwbmap_p = BCM_MWBMAP_PTR(mwbmap_hdl);
+
+	ASSERT(bitix < mwbmap_p->total);
+
+	/* Start with second hierarchy */
+	wordix   = BCM_MWBMAP_DIVOP(bitix);
+	bitmap   = (uint32)(1U << BCM_MWBMAP_MODOP(bitix));
+	bitmap_p = &mwbmap_p->id_bitmap[wordix];
+
+	ASSERT((*bitmap_p & bitmap) == bitmap);
+
+	mwbmap_p->ifree--; /* update free count */
+	ASSERT(mwbmap_p->ifree >= 0);
+
+	MWBMAP_DBG(("Lvl2: bitix<%u> wordix<%u>: %08x ^ %08x = %08x ifree %d",
+	           bitix, wordix, *bitmap_p, bitmap, (*bitmap_p) ^ bitmap,
+	           mwbmap_p->ifree));
+
+	*bitmap_p ^= bitmap; /* mark as in use */
+
+	/* Update first hierarchy */
+	bitix    = wordix;
+
+	wordix   = BCM_MWBMAP_DIVOP(bitix);
+	bitmap_p = &mwbmap_p->wd_bitmap[wordix];
+
+#if defined(BCM_MWBMAP_USE_CNTSETBITS)
+	count = bcm_cntsetbits(mwbmap_p->id_bitmap[bitix]);
+#else  /* ! BCM_MWBMAP_USE_CNTSETBITS */
+	mwbmap_p->wd_count[bitix]--;
+	count = mwbmap_p->wd_count[bitix];
+	MWBMAP_ASSERT(count == bcm_cntsetbits(mwbmap_p->id_bitmap[bitix]));
+#endif /* ! BCM_MWBMAP_USE_CNTSETBITS */
+	MWBMAP_ASSERT(count >= 0);
+
+	bitmap   = (count == 0) << BCM_MWBMAP_MODOP(bitix);
+
+	MWBMAP_DBG(("Lvl1: bitix<%02lu> wordix<%02u>: %08x ^ %08x = %08x wfree %d",
+	           BCM_MWBMAP_MODOP(bitix), wordix, *bitmap_p, bitmap,
+	           (*bitmap_p) ^ bitmap, count));
+
+	*bitmap_p ^= bitmap; /* mark as in use */
+
+	return;
+}
+
+/* Free a previously allocated index back into the multiword bitmap allocator */
+void
+bcm_mwbmap_free(struct bcm_mwbmap * mwbmap_hdl, uint32 bitix)
+{
+	bcm_mwbmap_t * mwbmap_p;
+	uint32 wordix, bitmap, *bitmap_p;
+
+	BCM_MWBMAP_AUDIT(mwbmap_hdl);
+	mwbmap_p = BCM_MWBMAP_PTR(mwbmap_hdl);
+
+	ASSERT(bitix < mwbmap_p->total);
+
+	/* Start with second level hierarchy */
+	wordix   = BCM_MWBMAP_DIVOP(bitix);
+	bitmap   = (1U << BCM_MWBMAP_MODOP(bitix));
+	bitmap_p = &mwbmap_p->id_bitmap[wordix];
+
+	ASSERT((*bitmap_p & bitmap) == 0U);	/* ASSERT not a double free */
+
+	mwbmap_p->ifree++; /* update free count */
+	ASSERT(mwbmap_p->ifree <= mwbmap_p->total);
+
+	MWBMAP_DBG(("Lvl2: bitix<%02u> wordix<%02u>: %08x | %08x = %08x ifree %d",
+	           bitix, wordix, *bitmap_p, bitmap, (*bitmap_p) | bitmap,
+	           mwbmap_p->ifree));
+
+	*bitmap_p |= bitmap; /* mark as available */
+
+	/* Now update first level hierarchy */
+
+	bitix    = wordix;
+
+	wordix   = BCM_MWBMAP_DIVOP(bitix); /* first level's word index */
+	bitmap   = (1U << BCM_MWBMAP_MODOP(bitix));
+	bitmap_p = &mwbmap_p->wd_bitmap[wordix];
+
+#if !defined(BCM_MWBMAP_USE_CNTSETBITS)
+	mwbmap_p->wd_count[bitix]++;
+#endif
+
+#if defined(BCM_MWBMAP_DEBUG)
+	{
+		uint32 count;
+#if defined(BCM_MWBMAP_USE_CNTSETBITS)
+		count = bcm_cntsetbits(mwbmap_p->id_bitmap[bitix]);
+#else  /*  ! BCM_MWBMAP_USE_CNTSETBITS */
+		count = mwbmap_p->wd_count[bitix];
+		MWBMAP_ASSERT(count == bcm_cntsetbits(mwbmap_p->id_bitmap[bitix]));
+#endif /*  ! BCM_MWBMAP_USE_CNTSETBITS */
+
+		MWBMAP_ASSERT(count <= BCM_MWBMAP_BITS_WORD);
+
+		MWBMAP_DBG(("Lvl1: bitix<%02u> wordix<%02u>: %08x | %08x = %08x wfree %d",
+		            bitix, wordix, *bitmap_p, bitmap, (*bitmap_p) | bitmap, count));
+	}
+#endif /* BCM_MWBMAP_DEBUG */
+
+	*bitmap_p |= bitmap;
+
+	return;
+}
+
+/* Fetch the toal number of free indices in the multiword bitmap allocator */
+uint32
+bcm_mwbmap_free_cnt(struct bcm_mwbmap * mwbmap_hdl)
+{
+	bcm_mwbmap_t * mwbmap_p;
+
+	BCM_MWBMAP_AUDIT(mwbmap_hdl);
+	mwbmap_p = BCM_MWBMAP_PTR(mwbmap_hdl);
+
+	ASSERT(mwbmap_p->ifree >= 0);
+
+	return mwbmap_p->ifree;
+}
+
+/* Determine whether an index is inuse or free */
+bool
+bcm_mwbmap_isfree(struct bcm_mwbmap * mwbmap_hdl, uint32 bitix)
+{
+	bcm_mwbmap_t * mwbmap_p;
+	uint32 wordix, bitmap;
+
+	BCM_MWBMAP_AUDIT(mwbmap_hdl);
+	mwbmap_p = BCM_MWBMAP_PTR(mwbmap_hdl);
+
+	ASSERT(bitix < mwbmap_p->total);
+
+	wordix   = BCM_MWBMAP_DIVOP(bitix);
+	bitmap   = (1U << BCM_MWBMAP_MODOP(bitix));
+
+	return ((mwbmap_p->id_bitmap[wordix] & bitmap) != 0U);
+}
+
+/* Debug dump a multiword bitmap allocator */
+void
+bcm_mwbmap_show(struct bcm_mwbmap * mwbmap_hdl)
+{
+	uint32 ix, count;
+	bcm_mwbmap_t * mwbmap_p;
+
+	BCM_MWBMAP_AUDIT(mwbmap_hdl);
+	mwbmap_p = BCM_MWBMAP_PTR(mwbmap_hdl);
+
+	printf("mwbmap_p %p wmaps %u imaps %u ifree %d total %u\n", mwbmap_p,
+	       mwbmap_p->wmaps, mwbmap_p->imaps, mwbmap_p->ifree, mwbmap_p->total);
+	for (ix = 0U; ix < mwbmap_p->wmaps; ix++) {
+		printf("\tWDMAP:%2u. 0x%08x\t", ix, mwbmap_p->wd_bitmap[ix]);
+		bcm_bitprint32(mwbmap_p->wd_bitmap[ix]);
+		printf("\n");
+	}
+	for (ix = 0U; ix < mwbmap_p->imaps; ix++) {
+#if defined(BCM_MWBMAP_USE_CNTSETBITS)
+		count = bcm_cntsetbits(mwbmap_p->id_bitmap[ix]);
+#else  /* ! BCM_MWBMAP_USE_CNTSETBITS */
+		count = mwbmap_p->wd_count[ix];
+		MWBMAP_ASSERT(count == bcm_cntsetbits(mwbmap_p->id_bitmap[ix]));
+#endif /* ! BCM_MWBMAP_USE_CNTSETBITS */
+		printf("\tIDMAP:%2u. 0x%08x %02u\t", ix, mwbmap_p->id_bitmap[ix], count);
+		bcm_bitprint32(mwbmap_p->id_bitmap[ix]);
+		printf("\n");
+	}
+
+	return;
+}
+
+/* Audit a hierarchical multiword bitmap */
+void
+bcm_mwbmap_audit(struct bcm_mwbmap * mwbmap_hdl)
+{
+	bcm_mwbmap_t * mwbmap_p;
+	uint32 count, free_cnt = 0U, wordix, idmap_ix, bitix, *bitmap_p;
+
+	mwbmap_p = BCM_MWBMAP_PTR(mwbmap_hdl);
+
+	for (wordix = 0U; wordix < mwbmap_p->wmaps; ++wordix) {
+
+		bitmap_p = &mwbmap_p->wd_bitmap[wordix];
+
+		for (bitix = 0U; bitix < BCM_MWBMAP_BITS_WORD; bitix++) {
+			if ((*bitmap_p) & (1 << bitix)) {
+				idmap_ix = BCM_MWBMAP_MULOP(wordix) + bitix;
+#if defined(BCM_MWBMAP_USE_CNTSETBITS)
+				count = bcm_cntsetbits(mwbmap_p->id_bitmap[idmap_ix]);
+#else  /* ! BCM_MWBMAP_USE_CNTSETBITS */
+				count = mwbmap_p->wd_count[idmap_ix];
+				ASSERT(count == bcm_cntsetbits(mwbmap_p->id_bitmap[idmap_ix]));
+#endif /* ! BCM_MWBMAP_USE_CNTSETBITS */
+				ASSERT(count != 0U);
+				free_cnt += count;
+			}
+		}
+	}
+
+	ASSERT(free_cnt == mwbmap_p->ifree);
+}
+/* END : Multiword bitmap based 64bit to Unique 32bit Id allocator. */
+
+#endif /* BCMDRIVER */
+
+/* calculate a >> b; and returns only lower 32 bits */
+void
+bcm_uint64_right_shift(uint32* r, uint32 a_high, uint32 a_low, uint32 b)
+{
+	uint32 a1 = a_high, a0 = a_low, r0 = 0;
+
+	if (b == 0) {
+		r0 = a_low;
+		*r = r0;
+		return;
+	}
+
+	if (b < 32) {
+		a0 = a0 >> b;
+		a1 = a1 & ((1 << b) - 1);
+		a1 = a1 << (32 - b);
+		r0 = a0 | a1;
+		*r = r0;
+		return;
+	} else {
+		r0 = a1 >> (b - 32);
+		*r = r0;
+		return;
+	}
+
+}
+
+/* calculate a + b where a is a 64 bit number and b is a 32 bit number */
+void
+bcm_add_64(uint32* r_hi, uint32* r_lo, uint32 offset)
+{
+	uint32 r1_lo = *r_lo;
+	(*r_lo) += offset;
+	if (*r_lo < r1_lo)
+		(*r_hi) ++;
+}
+
+/* calculate a - b where a is a 64 bit number and b is a 32 bit number */
+void
+bcm_sub_64(uint32* r_hi, uint32* r_lo, uint32 offset)
+{
+	uint32 r1_lo = *r_lo;
+	(*r_lo) -= offset;
+	if (*r_lo > r1_lo)
+		(*r_hi) --;
+}
