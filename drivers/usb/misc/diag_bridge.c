@@ -47,11 +47,16 @@ struct diag_bridge {
 	unsigned		default_autosusp_delay;
 	int			id;
 
+	/* Support INT IN instead of BULK IN */
+	bool			use_int_in_pipe;
+	unsigned int		period;
+
 	/* debugging counters */
 	unsigned long		bytes_to_host;
 	unsigned long		bytes_to_mdm;
 	unsigned		pending_reads;
 	unsigned		pending_writes;
+	unsigned		drop_count;
 };
 struct diag_bridge *__dev[MAX_DIAG_BRIDGE_DEVS];
 
@@ -188,7 +193,8 @@ int diag_bridge_read(int id, char *data, int size)
 	}
 
 	if (!size) {
-		dev_err(&dev->ifc->dev, "invalid size:%d\n", size);
+		dev_dbg(&dev->ifc->dev, "invalid size:%d\n", size);
+		dev->drop_count++;
 		ret = -EINVAL;
 		goto error;
 	}
@@ -203,7 +209,7 @@ int diag_bridge_read(int id, char *data, int size)
 
 	urb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!urb) {
-		dev_err(&dev->ifc->dev, "unable to allocate urb\n");
+		dev_dbg(&dev->ifc->dev, "unable to allocate urb\n");
 		ret = -ENOMEM;
 		goto put_error;
 	}
@@ -214,9 +220,16 @@ int diag_bridge_read(int id, char *data, int size)
 		goto free_error;
 	}
 
-	pipe = usb_rcvbulkpipe(dev->udev, dev->in_epAddr);
-	usb_fill_bulk_urb(urb, dev->udev, pipe, data, size,
+	if (dev->use_int_in_pipe) {
+		pipe = usb_rcvintpipe(dev->udev, dev->in_epAddr);
+		usb_fill_int_urb(urb, dev->udev, pipe, data, size,
+		diag_bridge_read_cb, dev, dev->period);
+	} else {
+		pipe = usb_rcvbulkpipe(dev->udev, dev->in_epAddr);
+		usb_fill_bulk_urb(urb, dev->udev, pipe, data, size,
 				diag_bridge_read_cb, dev);
+	}
+
 	usb_anchor_urb(urb, &dev->submitted);
 	dev->pending_reads++;
 
@@ -372,10 +385,12 @@ static ssize_t diag_read_stats(struct file *file, char __user *ubuf,
 				"bytes to mdm: %lu\n"
 				"pending reads: %u\n"
 				"pending writes: %u\n"
+				"drop count:%u\n"
 				"last error: %d\n",
 				dev->in_epAddr, dev->out_epAddr,
 				dev->bytes_to_host, dev->bytes_to_mdm,
 				dev->pending_reads, dev->pending_writes,
+				dev->drop_count,
 				dev->err);
 	}
 
@@ -394,6 +409,7 @@ static ssize_t diag_reset_stats(struct file *file, const char __user *buf,
 		if (dev) {
 			dev->bytes_to_host = dev->bytes_to_mdm = 0;
 			dev->pending_reads = dev->pending_writes = 0;
+			dev->drop_count = 0;
 		}
 	}
 
@@ -470,10 +486,14 @@ diag_bridge_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	ifc_desc = ifc->cur_altsetting;
 	for (i = 0; i < ifc_desc->desc.bNumEndpoints; i++) {
 		ep_desc = &ifc_desc->endpoint[i].desc;
-
-		if (!dev->in_epAddr && usb_endpoint_is_bulk_in(ep_desc))
+		if (!dev->in_epAddr && (usb_endpoint_is_bulk_in(ep_desc) ||
+			usb_endpoint_is_int_in(ep_desc))) {
 			dev->in_epAddr = ep_desc->bEndpointAddress;
-
+			if (usb_endpoint_is_int_in(ep_desc)) {
+				dev->use_int_in_pipe = 1;
+				dev->period = ep_desc->bInterval;
+			}
+		}
 		if (!dev->out_epAddr && usb_endpoint_is_bulk_out(ep_desc))
 			dev->out_epAddr = ep_desc->bEndpointAddress;
 	}
@@ -583,6 +603,8 @@ static const struct usb_device_id diag_bridge_ids[] = {
 	/* 909E, ifc#1 refers to diag client interface */
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909E, 1),
 	.driver_info =  DEV_ID(1), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90A0, 0),
+	.driver_info =  DEV_ID(0), },
 
 	{} /* terminating entry */
 };
