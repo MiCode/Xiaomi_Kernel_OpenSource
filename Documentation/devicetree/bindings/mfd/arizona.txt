@@ -65,6 +65,8 @@ Optional properties:
     bits in the MIC_DETECT_1 register
     The third cell represents the value of the micd-pol-gpio pin, a non-zero
     value indicates this should be on
+  - wlf,init-mic-delay : Adds a delay in milliseconds between jack detection
+    and beginning ramp of MICBIAS.
 
   - wlf,micbias1 : Configuration for the micbias regulator, should include 5
     cells.
@@ -139,6 +141,7 @@ codec: wm5102@1a {
 	>;
 
 	wlf,micbias2 = <2600 0 1 1 0>;
+	wlf,init-mic-delay = <10>;
 
 	wlf,dmic-ref = <0 0 1 0>;
 	wlf,inmode = <0 0 2 0>;

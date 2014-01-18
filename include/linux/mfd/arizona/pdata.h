@@ -163,6 +163,9 @@ struct arizona_pdata {
 	/** Force MICBIAS on for mic detect */
 	bool micd_force_micbias;
 
+	/** Delay between jack detection and MICBIAS ramp */
+	int init_mic_delay;
+
 	/** Mic detect level parameters */
 	const struct arizona_micd_range *micd_ranges;
 	int num_micd_ranges;
