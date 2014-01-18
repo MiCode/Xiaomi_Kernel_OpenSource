@@ -221,6 +221,8 @@ struct msm_sensor_power_setting {
 struct msm_sensor_power_setting_array {
 	struct msm_sensor_power_setting *power_setting;
 	uint16_t size;
+	struct msm_sensor_power_setting *power_down_setting;
+	uint16_t size_down;
 };
 
 struct msm_sensor_id_info_t {

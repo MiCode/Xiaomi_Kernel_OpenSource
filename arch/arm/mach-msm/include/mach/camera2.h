@@ -66,6 +66,8 @@ struct msm_camera_power_ctrl_t {
 	struct device *dev;
 	struct msm_sensor_power_setting *power_setting;
 	uint16_t power_setting_size;
+	struct msm_sensor_power_setting *power_down_setting;
+	uint16_t power_down_setting_size;
 	struct msm_camera_gpio_conf *gpio_conf;
 	struct camera_vreg_t *cam_vreg;
 	int num_vreg;

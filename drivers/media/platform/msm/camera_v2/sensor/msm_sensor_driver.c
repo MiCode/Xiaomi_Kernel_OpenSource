@@ -277,7 +277,7 @@ int32_t msm_sensor_driver_probe(void *setting)
 	cci_client->retries = 3;
 	cci_client->id_map = 0;
 
-	/* Parse and fill vreg params */
+	/* Parse and fill vreg params for powerup settings */
 	rc = msm_camera_fill_vreg_params(
 		power_info->cam_vreg,
 		power_info->num_vreg,
@@ -289,7 +289,20 @@ int32_t msm_sensor_driver_probe(void *setting)
 		goto FREE_POWER_SETTING;
 	}
 
-	/* Update sensor name in sensor control structure */
+	/* Parse and fill vreg params for powerdown settings*/
+	rc = msm_camera_fill_vreg_params(
+		power_info->cam_vreg,
+		power_info->num_vreg,
+		power_info->power_down_setting,
+		power_info->power_down_setting_size);
+	if (rc < 0) {
+		pr_err("failed: msm_camera_fill_vreg_params for PDOWN rc %d",
+			rc);
+		goto FREE_POWER_SETTING;
+	}
+
+	/* Update sensor, actuator and eeprom name in
+	*  sensor control structure */
 	s_ctrl->sensordata->sensor_name = slave_info->sensor_name;
 
 	/* Power up and probe sensor */
