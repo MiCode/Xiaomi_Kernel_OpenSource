@@ -907,8 +907,10 @@ fail_clk_enable:
 		if (i < 0)
 			break;
 
-		if (cl->has_sw_power_collapse)
+		if (cl->has_sw_power_collapse) {
+			usleep(100);
 			clk_disable(cl->clk);
+		}
 
 		--i;
 	});
@@ -931,6 +933,7 @@ static inline void venus_hfi_clk_disable(struct venus_hfi_device *device)
 
 	venus_hfi_for_each_clock(device, cl, {
 		if (cl->has_sw_power_collapse) {
+			usleep(100);
 			clk_disable(cl->clk);
 			dprintk(VIDC_DBG, "Clock: %s disabled\n", cl->name);
 		}
@@ -2813,6 +2816,7 @@ static inline void venus_hfi_disable_clks(struct venus_hfi_device *device)
 				cl->name, __func__);
 			clk_unprepare(cl->clk);
 		} else {
+			usleep(100);
 			clk_disable_unprepare(cl->clk);
 		}
 	});
@@ -2851,7 +2855,7 @@ fail_clk_enable:
 	venus_hfi_for_each_clock(device, cl, {
 		if (cl_fail == cl)
 			break;
-
+		usleep(100);
 		clk_disable_unprepare(cl->clk);
 	});
 	mutex_unlock(&device->clk_pwr_lock);
