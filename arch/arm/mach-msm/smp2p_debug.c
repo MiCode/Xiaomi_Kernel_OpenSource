@@ -1,6 +1,6 @@
 /* arch/arm/mach-msm/smp2p_debug.c
  *
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,16 +32,15 @@ static void smp2p_int_stats(struct seq_file *s)
 	if (!int_cfg)
 		return;
 
-	seq_printf(s, "| Processor | Incoming Id | Incoming # |");
-	seq_printf(s, " Outgoing # | Base Ptr |   Mask   |\n");
+	seq_puts(s, "| Processor | Incoming Id | Incoming # |");
+	seq_puts(s, " Outgoing # | Base Ptr |   Mask   |\n");
 
 	for (pid = 0; pid < SMP2P_NUM_PROCS; ++pid) {
 		if (!int_cfg[pid].is_configured &&
 				pid != SMP2P_REMOTE_MOCK_PROC)
 			continue;
 
-		seq_printf(s,
-			"| %5s (%d) | %11u | %10u | %10u | %p | %08x |\n",
+		seq_printf(s, "| %5s (%d) | %11u | %10u | %10u | %p | %08x |\n",
 			int_cfg[pid].name,
 			pid, int_cfg[pid].in_int_id,
 			int_cfg[pid].in_interrupt_count,

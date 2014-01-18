@@ -1,6 +1,6 @@
 /* arch/arm/mach-msm/smp2p_gpio_test.c
  *
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -204,12 +204,12 @@ static void smp2p_ut_local_gpio_out(struct seq_file *s)
 		if (failed)
 			break;
 
-		seq_printf(s, "\tOK\n");
+		seq_puts(s, "\tOK\n");
 	} while (0);
 
 	if (failed) {
 		pr_err("%s: Failed\n", __func__);
-		seq_printf(s, "\tFailed\n");
+		seq_puts(s, "\tFailed\n");
 	}
 
 	smp2p_gpio_open_test_entry("smp2p",
@@ -389,12 +389,12 @@ static void smp2p_ut_local_gpio_in(struct seq_file *s)
 		if (failed)
 			break;
 
-		seq_printf(s, "\tOK\n");
+		seq_puts(s, "\tOK\n");
 	} while (0);
 
 	if (failed) {
 		pr_err("%s: Failed\n", __func__);
-		seq_printf(s, "\tFailed\n");
+		seq_puts(s, "\tFailed\n");
 	}
 
 	/* unregister for interrupts */
@@ -478,18 +478,18 @@ static void smp2p_ut_local_gpio_in_update_open(struct seq_file *s)
 			if (0x1 & (0xDEADDEAD >> id)) {
 				/* rising edge should have been triggered */
 				if (!test_bit(id, cb_info->triggered_irqs)) {
-					seq_printf(s,
-						"%s:%d bit %d clear, expected set\n",
+					seq_printf(s, "%s:%d bit %d clear, ",
 						__func__, __LINE__, id);
+					seq_puts(s, "expected set\n");
 					failed = 1;
 					break;
 				}
 			} else {
 				/* edge should not have been triggered */
 				if (test_bit(id, cb_info->triggered_irqs)) {
-					seq_printf(s,
-						"%s:%d bit %d set, expected clear\n",
+					seq_printf(s, "%s:%d bit %d set, ",
 						__func__, __LINE__, id);
+					seq_puts(s, "expected clear\n");
 					failed = 1;
 					break;
 				}
@@ -498,12 +498,12 @@ static void smp2p_ut_local_gpio_in_update_open(struct seq_file *s)
 		if (failed)
 			break;
 
-		seq_printf(s, "\tOK\n");
+		seq_puts(s, "\tOK\n");
 	} while (0);
 
 	if (failed) {
 		pr_err("%s: Failed\n", __func__);
-		seq_printf(s, "\tFailed\n");
+		seq_puts(s, "\tFailed\n");
 	}
 
 	/* unregister for interrupts */
@@ -664,12 +664,12 @@ static void smp2p_ut_remote_inout_core(struct seq_file *s, int remote_pid,
 		UT_ASSERT_HEX(request, ==, response);
 		UT_ASSERT_INT(24, ==, cb_in->cb_count);
 
-		seq_printf(s, "\tOK\n");
+		seq_puts(s, "\tOK\n");
 	} while (0);
 
 	if (failed) {
 		pr_err("%s: Failed\n", name);
-		seq_printf(s, "\tFailed\n");
+		seq_puts(s, "\tFailed\n");
 	}
 
 	/* unregister for interrupts */
@@ -697,7 +697,7 @@ static void smp2p_ut_remote_inout(struct seq_file *s)
 
 	int_cfg = smp2p_get_interrupt_config();
 	if (!int_cfg) {
-		seq_printf(s, "Remote processor config unavailable\n");
+		seq_puts(s, "Remote processor config unavailable\n");
 		return;
 	}
 
