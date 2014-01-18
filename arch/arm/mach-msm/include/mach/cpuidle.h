@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2011, 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,7 +24,7 @@ struct msm_cpuidle_state {
 	enum msm_pm_sleep_mode mode_nr;
 };
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_MSM_PM
 s32 msm_cpuidle_get_deep_idle_latency(void);
 #else
 static inline s32 msm_cpuidle_get_deep_idle_latency(void) { return 0; }
