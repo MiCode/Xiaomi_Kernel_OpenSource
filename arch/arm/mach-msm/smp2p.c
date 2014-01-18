@@ -940,7 +940,7 @@ static struct smp2p_smem __iomem *smp2p_in_validate_size_v0(int remote_pid,
 
 	if (size < sizeof(struct smp2p_smem)) {
 		SMP2P_ERR(
-			"%s pid %d item size too small; expected: %d actual: %d\n",
+			"%s pid %d item size too small; expected: %zu actual: %d\n",
 			__func__, remote_pid,
 			sizeof(struct smp2p_smem), size);
 		smem_item = NULL;
