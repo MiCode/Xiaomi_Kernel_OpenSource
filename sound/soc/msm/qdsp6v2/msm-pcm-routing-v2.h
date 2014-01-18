@@ -158,6 +158,9 @@ struct msm_pcm_routing_evt {
 	void *priv_data;
 };
 
+void msm_pcm_routing_reg_phy_compr_stream(int fedai_id, bool perf_mode,
+				    int dspst_id, int stream_type,
+				    bool compr_passthr);
 void msm_pcm_routing_reg_phy_stream_v2(int fedai_id, bool perf_mode,
 				       int dspst_id, int stream_type,
 				       struct msm_pcm_routing_evt event_info);
