@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -79,7 +79,7 @@
 #define clear_bit_pos(x, y)  (atomic_set(&x, (atomic_read(&x) & (~(1 << y)))))
 #define test_bit_pos(x, y) ((atomic_read(&x)) & (1 << y))
 
-static int enable_ocmem_audio_voice = 1;
+static int enable_ocmem_audio_voice;
 module_param(enable_ocmem_audio_voice, int,
 			S_IRUGO | S_IWUSR | S_IWGRP);
 MODULE_PARM_DESC(enable_ocmem_audio_voice, "control OCMEM usage for audio/voice");
