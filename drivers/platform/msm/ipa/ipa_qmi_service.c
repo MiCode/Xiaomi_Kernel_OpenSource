@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,7 @@ static struct workqueue_struct *ipa_clnt_req_workqueue;
 static struct workqueue_struct *ipa_clnt_resp_workqueue;
 static void *curr_conn;
 static bool qmi_modem_init_fin, qmi_indication_fin;
+static struct work_struct ipa_qmi_service_init_work;
 
 
 /* QMI A5 service */
@@ -566,7 +567,7 @@ static struct notifier_block ipa_q6_clnt_nb = {
 	.notifier_call = ipa_q6_clnt_svc_event_notify,
 };
 
-int ipa_qmi_service_init(void)
+static void ipa_qmi_service_init_worker(struct work_struct *work)
 {
 	int rc;
 
@@ -577,13 +578,13 @@ int ipa_qmi_service_init(void)
 
 	ipa_svc_workqueue = create_singlethread_workqueue("ipa_A7_svc");
 	if (!ipa_svc_workqueue)
-		return -EFAULT;
+		return;
 
 	ipa_svc_handle = qmi_handle_create(qmi_ipa_a5_svc_ntfy, NULL);
 	if (!ipa_svc_handle) {
 		IPAWANERR("Creating ipa_A7_svc qmi handle failed\n");
 		destroy_workqueue(ipa_svc_workqueue);
-		return -EFAULT;
+		return;
 	}
 
 	rc = qmi_svc_register(ipa_svc_handle, &ipa_a5_svc_ops_options);
@@ -592,18 +593,18 @@ int ipa_qmi_service_init(void)
 				rc);
 		qmi_handle_destroy(ipa_svc_handle);
 		destroy_workqueue(ipa_svc_workqueue);
-		return rc;
+		return;
 	}
 
 	/* Initialize QMI-client */
 
 	ipa_clnt_req_workqueue = create_singlethread_workqueue("clnt_req");
 	if (!ipa_clnt_req_workqueue)
-		return -EFAULT;
+		return;
 
 	ipa_clnt_resp_workqueue = create_singlethread_workqueue("clnt_resp");
 	if (!ipa_clnt_resp_workqueue)
-		return -EFAULT;
+		return;
 
 	rc = qmi_svc_event_notifier_register(IPA_Q6_SERVICE_SVC_ID,
 				IPA_Q6_SVC_VERS,
@@ -612,11 +613,18 @@ int ipa_qmi_service_init(void)
 		IPAWANERR("notifier register failed\n");
 		destroy_workqueue(ipa_clnt_req_workqueue);
 		destroy_workqueue(ipa_clnt_resp_workqueue);
-		return rc;
+		return;
 	}
 
 	/* get Q6 service and start send modem-initial to Q6 */
 	IPAWANDBG("wait service available\n");
+	return;
+}
+
+int ipa_qmi_service_init(void)
+{
+	INIT_WORK(&ipa_qmi_service_init_work, ipa_qmi_service_init_worker);
+	schedule_work(&ipa_qmi_service_init_work);
 	return 0;
 }
 
