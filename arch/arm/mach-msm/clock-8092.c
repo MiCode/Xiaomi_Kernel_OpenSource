@@ -1373,12 +1373,14 @@ static struct rcg_clk gmac_125m_clk_src = {
 static struct clk_freq_tbl ftbl_gcc_gmac_core_clk[] = {
 	F_EXT(   19200000,	      xo,   1,	  0,	0),
 	F_EXT(	125000000, gmac_125m_clk,   1,	  0,	0),
+	F_EXT(  25000000, gmac_125m_clk,    5,    0,    0),
+	F_EXT(  2500000, gmac_125m_clk,     1,    1,    0xFFFF0032),
 	F_END
 };
 
 static struct rcg_clk gmac_core_clk_src = {
 	.cmd_rcgr_reg = GMAC_CORE_CMD_RCGR,
-	.set_rate = set_rate_hid,
+	.set_rate = set_rate_mnd,
 	.freq_tbl = ftbl_gcc_gmac_core_clk,
 	.current_freq = &rcg_dummy_freq,
 	.base = &virt_bases[GCC_BASE],
