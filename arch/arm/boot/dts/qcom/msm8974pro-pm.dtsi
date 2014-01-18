@@ -129,6 +129,7 @@
 	qcom,lpm-levels {
 		compatible = "qcom,lpm-levels";
 		qcom,default-l2-state = "l2_cache_retention";
+		qcom,allow-synced-levels;
 		#address-cells = <1>;
 		#size-cells = <1>;
 
