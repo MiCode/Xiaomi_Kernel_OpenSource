@@ -392,6 +392,7 @@ void mdss_edp_lane_power_ctrl(struct mdss_edp_drv_pdata *ep, int up)
 void mdss_edp_clock_synchrous(struct mdss_edp_drv_pdata *ep, int sync)
 {
 	u32 data;
+	u32 color;
 
 	/* EDP_MISC1_MISC0 */
 	data = edp_read(ep->base + 0x02c);
@@ -401,6 +402,20 @@ void mdss_edp_clock_synchrous(struct mdss_edp_drv_pdata *ep, int sync)
 	else
 		data &= ~0x01;
 
+	/* only legacy rgb mode supported */
+	color = 0; /* 6 bits */
+	if (ep->edid.color_depth == 8)
+		color = 0x01;
+	else if (ep->edid.color_depth == 10)
+		color = 0x02;
+	else if (ep->edid.color_depth == 12)
+		color = 0x03;
+	else if (ep->edid.color_depth == 16)
+		color = 0x04;
+
+	color <<= 5;    /* bit 5 to bit 7 */
+
+	data |= color;
 	/* EDP_MISC1_MISC0 */
 	edp_write(ep->base + 0x2c, data);
 }
