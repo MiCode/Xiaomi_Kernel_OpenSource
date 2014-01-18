@@ -36,7 +36,6 @@
 #include <asm/byteorder.h>
 
 #include <mach/smem_log.h>
-#include <mach/subsystem_notif.h>
 
 #include "ipc_router_private.h"
 #include "ipc_router_security.h"
