@@ -558,6 +558,8 @@ int mdss_mdp_wb_kickoff(struct msm_fb_data_type *mfd)
 	if (!ctl->power_on)
 		return 0;
 
+	memset(&wb_args, 0, sizeof(wb_args));
+
 	mutex_lock(&mdss_mdp_wb_buf_lock);
 	if (wb) {
 		mutex_lock(&wb->lock);
