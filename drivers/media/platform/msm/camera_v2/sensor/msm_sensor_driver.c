@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -456,7 +456,7 @@ int32_t msm_sensor_driver_probe(void *setting)
 	cci_client->retries = 3;
 	cci_client->id_map = 0;
 
-	/* Parse and fill vreg params */
+	/* Parse and fill vreg params for powerup settings */
 	rc = msm_camera_fill_vreg_params(
 		power_info->cam_vreg,
 		power_info->num_vreg,
@@ -464,6 +464,18 @@ int32_t msm_sensor_driver_probe(void *setting)
 		power_info->power_setting_size);
 	if (rc < 0) {
 		pr_err("failed: msm_camera_get_dt_power_setting_data rc %d",
+			rc);
+		goto FREE_CAMERA_INFO;
+	}
+
+	/* Parse and fill vreg params for powerdown settings*/
+	rc = msm_camera_fill_vreg_params(
+		power_info->cam_vreg,
+		power_info->num_vreg,
+		power_info->power_down_setting,
+		power_info->power_down_setting_size);
+	if (rc < 0) {
+		pr_err("failed: msm_camera_fill_vreg_params for PDOWN rc %d",
 			rc);
 		goto FREE_CAMERA_INFO;
 	}
