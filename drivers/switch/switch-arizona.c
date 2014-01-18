@@ -28,6 +28,7 @@
 #include <linux/switch.h>
 #include <linux/of.h>
 #include <linux/device.h>
+#include <linux/delay.h>
 
 #include <sound/soc.h>
 
@@ -1046,6 +1047,9 @@ static irqreturn_t arizona_jackdet(int irq, void *data)
 			info->mic = false;
 			info->jack_flips = 0;
 
+			if (arizona->pdata.init_mic_delay)
+				msleep(arizona->pdata.init_mic_delay);
+
 			arizona_start_mic(info);
 		} else {
 			schedule_delayed_work(&info->hpdet_work,
@@ -1160,6 +1164,9 @@ static int arizona_extcon_get_pdata(struct arizona *arizona)
 						       "wlf,jd-gpio-nopull");
 
 	arizona_of_read_u32(arizona, "wlf,gpsw", false, &pdata->gpsw);
+
+	arizona_of_read_u32(arizona, "wlf,init-mic-delay", false,
+			    &pdata->init_mic_delay);
 
 	return 0;
 }
