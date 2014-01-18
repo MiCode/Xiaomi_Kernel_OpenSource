@@ -504,12 +504,10 @@
 		compatible = "imagis,isa1200";
 		label = "vibrator";
 		imagis,chip-en;
-		imagis,need-pwm-clk;
-		imagis,ext-clk-en;
 		imagis,hap-en-gpio = <&msmgpio 48 0x00>;
 		imagis,max-timeout = <15000>;
-		imagis,pwm-div = <256>;
-		imagis,mode-ctrl = <2>;
+		imagis,mode-ctrl = <0>;
+		imagis,is-erm;
 		imagis,regulator {
 			regulator-name = "vcc_i2c";
 			regulator-min-microvolt = <1800000>;
