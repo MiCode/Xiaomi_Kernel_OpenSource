@@ -1902,15 +1902,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		result = -ENOMEM;
 		goto fail_rx_pkt_wrapper_cache;
 	}
-	ipa_ctx->tree_node_cache =
-	   kmem_cache_create("IPA TREE", sizeof(struct ipa_tree_node), 0, 0,
-			   NULL);
-	if (!ipa_ctx->tree_node_cache) {
-		IPAERR(":ipa tree node cache create failed\n");
-		result = -ENOMEM;
-		goto fail_tree_node_cache;
-	}
-
 	/*
 	 * setup DMA pool 4 byte aligned, don't cross 1k boundaries, nominal
 	 * size 512 bytes
@@ -1969,10 +1960,8 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	mutex_init(&ipa_ctx->lock);
 	mutex_init(&ipa_ctx->nat_mem.lock);
 
-	ipa_ctx->hdr_hdl_tree = RB_ROOT;
-	ipa_ctx->rt_rule_hdl_tree = RB_ROOT;
-	ipa_ctx->rt_tbl_hdl_tree = RB_ROOT;
-	ipa_ctx->flt_rule_hdl_tree = RB_ROOT;
+	idr_init(&ipa_ctx->ipa_idr);
+	spin_lock_init(&ipa_ctx->idr_lock);
 
 	mutex_init(&ipa_ctx->ipa_active_clients_lock);
 	ipa_ctx->ipa_active_clients = 0;
@@ -2134,14 +2123,13 @@ fail_empty_rt_tbl:
 			  ipa_ctx->empty_rt_tbl_mem.base,
 			  ipa_ctx->empty_rt_tbl_mem.phys_base);
 fail_apps_pipes:
+	idr_destroy(&ipa_ctx->ipa_idr);
 	/*
 	 * DMA pool need to be released only for IPA HW v1.0 only.
 	 */
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0)
 		dma_pool_destroy(ipa_ctx->dma_pool);
 fail_dma_pool:
-	kmem_cache_destroy(ipa_ctx->tree_node_cache);
-fail_tree_node_cache:
 	kmem_cache_destroy(ipa_ctx->rx_pkt_wrapper_cache);
 fail_rx_pkt_wrapper_cache:
 	kmem_cache_destroy(ipa_ctx->tx_pkt_wrapper_cache);

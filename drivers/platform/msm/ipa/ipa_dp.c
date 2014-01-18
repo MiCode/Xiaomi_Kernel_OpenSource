@@ -545,7 +545,7 @@ failure_coherent:
  * Complete the immediate commands completion object, this will release the
  * thread which waits on this completion object (ipa_send_cmd())
  */
-static void ipa_sps_irq_cmd_ack(void *user1, void *user2)
+static void ipa_sps_irq_cmd_ack(void *user1, int user2)
 {
 	struct ipa_desc *desc = (struct ipa_desc *)user1;
 
@@ -1128,10 +1128,10 @@ EXPORT_SYMBOL(ipa_teardown_sys_pipe);
  * This notified callback is for the destination client.
  * This function is supplied in ipa_connect.
  */
-static void ipa_tx_comp_usr_notify_release(void *user1, void *user2)
+static void ipa_tx_comp_usr_notify_release(void *user1, int user2)
 {
 	struct sk_buff *skb = (struct sk_buff *)user1;
-	u32 ep_idx = (u32)user2;
+	int ep_idx = user2;
 
 	IPADBG("skb=%p ep=%d\n", skb, ep_idx);
 
@@ -1144,7 +1144,7 @@ static void ipa_tx_comp_usr_notify_release(void *user1, void *user2)
 		dev_kfree_skb_any(skb);
 }
 
-static void ipa_tx_cmd_comp(void *user1, void *user2)
+static void ipa_tx_cmd_comp(void *user1, int user2)
 {
 	kfree(user1);
 }
@@ -1231,8 +1231,8 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		desc[1].user1 = skb;
 		desc[1].user2 = (meta && meta->pkt_init_dst_ep_valid &&
 				meta->pkt_init_dst_ep_remote) ?
-				(void *)src_ep_idx :
-				(void *)dst_ep_idx;
+				src_ep_idx :
+				dst_ep_idx;
 
 		if (ipa_send(sys, 2, desc, true)) {
 			IPAERR("fail to send immediate command\n");
@@ -1246,7 +1246,7 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		desc[0].type = IPA_DATA_DESC_SKB;
 		desc[0].callback = ipa_tx_comp_usr_notify_release;
 		desc[0].user1 = skb;
-		desc[0].user2 = (void *)src_ep_idx;
+		desc[0].user2 = src_ep_idx;
 
 		if (ipa_send_one(sys, &desc[0], true)) {
 			IPAERR("fail to send skb\n");
@@ -1965,13 +1965,12 @@ static void ipa_wq_rx_common(struct ipa_sys_context *sys, u32 size)
 	rx_skb = rx_pkt_expected->data.skb;
 	dma_unmap_single(ipa_ctx->pdev, rx_pkt_expected->data.dma_addr,
 			sys->rx_buff_sz, DMA_FROM_DEVICE);
-	rx_skb->tail = rx_skb->data + rx_pkt_expected->len;
+	skb_set_tail_pointer(rx_skb, rx_pkt_expected->len);
 	rx_skb->len = rx_pkt_expected->len;
 	rx_skb->truesize = rx_pkt_expected->len + sizeof(struct sk_buff);
 	sys->pyld_hdlr(rx_skb, sys);
-
-		ipa_replenish_rx_cache(sys);
-		kmem_cache_free(ipa_ctx->rx_pkt_wrapper_cache, rx_pkt_expected);
+	ipa_replenish_rx_cache(sys);
+	kmem_cache_free(ipa_ctx->rx_pkt_wrapper_cache, rx_pkt_expected);
 
 }
 
@@ -1994,7 +1993,7 @@ static void ipa_wlan_wq_rx_common(struct ipa_sys_context *sys, u32 size)
 		rx_pkt_expected->len = size;
 
 	rx_skb = rx_pkt_expected->data.skb;
-	rx_skb->tail = rx_skb->data + rx_pkt_expected->len;
+	skb_set_tail_pointer(rx_skb, rx_pkt_expected->len);
 	rx_skb->len = rx_pkt_expected->len;
 	rx_skb->truesize = rx_pkt_expected->len + sizeof(struct sk_buff);
 	ipa_ctx->wstats.tx_pkts_rcvd++;
@@ -2003,7 +2002,6 @@ static void ipa_wlan_wq_rx_common(struct ipa_sys_context *sys, u32 size)
 		(unsigned long)(&rx_pkt_expected->data));
 	ipa_replenish_wlan_rx_cache(sys);
 }
-
 
 static void ipa_wq_rx_avail(struct work_struct *work)
 {
@@ -2183,10 +2181,10 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
  * This notified callback is for the destination client
  * This function is supplied in ipa_tx_dp_mul
  */
-static void ipa_tx_client_rx_notify_release(void *user1, void *user2)
+static void ipa_tx_client_rx_notify_release(void *user1, int user2)
 {
 	struct ipa_tx_data_desc *dd = (struct ipa_tx_data_desc *)user1;
-	u32 ep_idx = (u32)user2;
+	int ep_idx = user2;
 
 	IPADBG("Received data desc anchor:%p\n", dd);
 
@@ -2216,9 +2214,9 @@ static void ipa_tx_client_rx_notify_release(void *user1, void *user2)
  * This notified callback is for the destination client
  * This function is supplied in ipa_tx_dp_mul
  */
-static void ipa_tx_client_rx_pkt_status(void *user1, void *user2)
+static void ipa_tx_client_rx_pkt_status(void *user1, int user2)
 {
-	u32 ep_idx = (u32)user2;
+	int ep_idx = user2;
 
 
 	ipa_ctx->ep[ep_idx].avail_fifo_desc++;
@@ -2297,7 +2295,7 @@ int ipa_tx_dp_mul(enum ipa_client_type src,
 		desc.len = entry->pyld_len;
 		desc.type = IPA_DATA_DESC_SKB;
 		desc.user1 = data_desc;
-		desc.user2 = (void *)ep_idx;
+		desc.user2 = ep_idx;
 		IPADBG("priv:%p pyld_buf:0x%p pyld_len:%d\n",
 			entry->priv, desc.pyld, desc.len);
 

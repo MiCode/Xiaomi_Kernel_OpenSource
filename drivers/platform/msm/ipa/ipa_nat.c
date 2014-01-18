@@ -64,7 +64,7 @@ static int ipa_nat_mmap(struct file *filp, struct vm_area_struct *vma)
 			result = -EINVAL;
 			goto bail;
 		}
-		IPADBG("map sz=0x%x\n", nat_ctx->size);
+		IPADBG("map sz=0x%zx\n", nat_ctx->size);
 		result =
 			dma_mmap_coherent(
 				 ipa_ctx->pdev, vma,
@@ -127,7 +127,7 @@ int allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
 	int gfp_flags = GFP_KERNEL | __GFP_ZERO;
 	int result;
 
-	IPADBG("passed memory size %d\n", mem->size);
+	IPADBG("passed memory size %zu\n", mem->size);
 
 	mutex_lock(&nat_ctx->lock);
 	if (mem->size <= 0 || !strlen(mem->dev_name)
@@ -259,8 +259,8 @@ int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 			(init->index_offset > offset) ||
 			(init->index_expn_offset > offset)) {
 			IPAERR("Failed due to integer overflow\n");
-			IPAERR("nat.mem.dma_handle: 0x%x\n",
-				ipa_ctx->nat_mem.dma_handle);
+			IPAERR("nat.mem.dma_handle: 0x%pa\n",
+				&ipa_ctx->nat_mem.dma_handle);
 			IPAERR("ipv4_rules_offset: 0x%x\n",
 				init->ipv4_rules_offset);
 			IPAERR("expn_rules_offset: 0x%x\n",
@@ -318,7 +318,7 @@ int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 	desc.type = IPA_IMM_CMD_DESC;
 	desc.callback = NULL;
 	desc.user1 = NULL;
-	desc.user2 = NULL;
+	desc.user2 = 0;
 	desc.pyld = (void *)cmd;
 	desc.len = size;
 	IPADBG("posting v4 init command\n");
@@ -410,7 +410,7 @@ int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 		desc[cnt].callback = NULL;
 		desc[cnt].user1 = NULL;
 
-		desc[cnt].user2 = NULL;
+		desc[cnt].user2 = 0;
 
 		desc[cnt].len = sizeof(struct ipa_nat_dma);
 		desc[cnt].pyld = (void *)&cmd[cnt];
@@ -505,7 +505,7 @@ int ipa_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
 	desc.type = IPA_IMM_CMD_DESC;
 	desc.callback = NULL;
 	desc.user1 = NULL;
-	desc.user2 = NULL;
+	desc.user2 = 0;
 	desc.pyld = (void *)cmd;
 	desc.len = size;
 	if (ipa_send_cmd(1, &desc)) {

@@ -216,25 +216,19 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 {
 	struct ipa_hdr_entry *entry;
 	struct ipa_hdr_offset_entry *offset;
-	struct ipa_tree_node *node;
 	u32 bin;
 	struct ipa_hdr_tbl *htbl = &ipa_ctx->hdr_tbl;
+	int id;
 
 	if (hdr->hdr_len == 0) {
 		IPAERR("bad parm\n");
 		goto error;
 	}
 
-	node = kmem_cache_zalloc(ipa_ctx->tree_node_cache, GFP_KERNEL);
-	if (!node) {
-		IPAERR("failed to alloc tree node object\n");
-		goto error;
-	}
-
 	entry = kmem_cache_zalloc(ipa_ctx->hdr_cache, GFP_KERNEL);
 	if (!entry) {
 		IPAERR("failed to alloc hdr object\n");
-		goto hdr_alloc_fail;
+		goto error;
 	}
 
 	INIT_LIST_HEAD(&entry->link);
@@ -291,13 +285,13 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 	IPADBG("add hdr of sz=%d hdr_cnt=%d ofst=%d\n", hdr->hdr_len,
 			htbl->hdr_cnt, offset->offset);
 
-	hdr->hdr_hdl = (u32) entry;
-	node->hdl = hdr->hdr_hdl;
-	if (ipa_insert(&ipa_ctx->hdr_hdl_tree, node)) {
-		IPAERR("failed to add to tree\n");
+	id = ipa_id_alloc(entry);
+	if (id < 0) {
+		IPAERR("failed to alloc id\n");
 		WARN_ON(1);
 	}
-
+	entry->id = id;
+	hdr->hdr_hdl = id;
 	entry->ref_cnt++;
 
 	return 0;
@@ -307,20 +301,17 @@ ofst_alloc_fail:
 bad_hdr_len:
 	entry->cookie = 0;
 	kmem_cache_free(ipa_ctx->hdr_cache, entry);
-hdr_alloc_fail:
-	kmem_cache_free(ipa_ctx->tree_node_cache, node);
 error:
 	return -EPERM;
 }
 
 int __ipa_del_hdr(u32 hdr_hdl)
 {
-	struct ipa_hdr_entry *entry = (struct ipa_hdr_entry *)hdr_hdl;
-	struct ipa_tree_node *node;
+	struct ipa_hdr_entry *entry;
 	struct ipa_hdr_tbl *htbl = &ipa_ctx->hdr_tbl;
 
-	node = ipa_search(&ipa_ctx->hdr_hdl_tree, hdr_hdl);
-	if (node == NULL) {
+	entry = ipa_id_find(hdr_hdl);
+	if (entry == NULL) {
 		IPAERR("lookup failed\n");
 		return -EINVAL;
 	}
@@ -347,8 +338,7 @@ int __ipa_del_hdr(u32 hdr_hdl)
 	kmem_cache_free(ipa_ctx->hdr_cache, entry);
 
 	/* remove the handle from the database */
-	rb_erase(&node->node, &ipa_ctx->hdr_hdl_tree);
-	kmem_cache_free(ipa_ctx->tree_node_cache, node);
+	ipa_id_remove(hdr_hdl);
 
 	return 0;
 }
@@ -486,7 +476,6 @@ int ipa_reset_hdr(void)
 	struct ipa_hdr_entry *next;
 	struct ipa_hdr_offset_entry *off_entry;
 	struct ipa_hdr_offset_entry *off_next;
-	struct ipa_tree_node *node;
 	int i;
 
 	/*
@@ -508,8 +497,7 @@ int ipa_reset_hdr(void)
 					IPA_RESOURCE_NAME_MAX))
 			continue;
 
-		node = ipa_search(&ipa_ctx->hdr_hdl_tree, (u32) entry);
-		if (node == NULL) {
+		if (ipa_id_find(entry->id) == NULL) {
 			WARN_ON(1);
 			mutex_unlock(&ipa_ctx->lock);
 			return -EFAULT;
@@ -519,8 +507,7 @@ int ipa_reset_hdr(void)
 		kmem_cache_free(ipa_ctx->hdr_cache, entry);
 
 		/* remove the handle from the database */
-		rb_erase(&node->node, &ipa_ctx->hdr_hdl_tree);
-		kmem_cache_free(ipa_ctx->tree_node_cache, node);
+		ipa_id_remove(entry->id);
 
 	}
 	for (i = 0; i < IPA_HDR_BIN_MAX; i++) {
@@ -590,7 +577,7 @@ int ipa_get_hdr(struct ipa_ioc_get_hdr *lookup)
 	mutex_lock(&ipa_ctx->lock);
 	entry = __ipa_find_hdr(lookup->name);
 	if (entry) {
-		lookup->hdl = (uint32_t) entry;
+		lookup->hdl = entry->id;
 		result = 0;
 	}
 	mutex_unlock(&ipa_ctx->lock);
@@ -637,13 +624,13 @@ bail:
  */
 int ipa_put_hdr(u32 hdr_hdl)
 {
-	struct ipa_hdr_entry *entry = (struct ipa_hdr_entry *)hdr_hdl;
-	struct ipa_tree_node *node;
+	struct ipa_hdr_entry *entry;
 	int result = -EFAULT;
 
 	mutex_lock(&ipa_ctx->lock);
-	node = ipa_search(&ipa_ctx->hdr_hdl_tree, hdr_hdl);
-	if (node == NULL) {
+
+	entry = ipa_id_find(hdr_hdl);
+	if (entry == NULL) {
 		IPAERR("lookup failed\n");
 		result = -EINVAL;
 		goto bail;

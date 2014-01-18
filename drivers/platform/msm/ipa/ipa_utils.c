@@ -517,7 +517,7 @@ u8 *ipa_write_8(u8 b, u8 *dest)
  */
 u8 *ipa_pad_to_32(u8 *dest)
 {
-	int i = (u32)dest & 0x3;
+	int i = (long)dest & 0x3;
 	int j;
 
 	if (i)
@@ -2662,72 +2662,13 @@ void ipa_dump_buff_internal(void *base, dma_addr_t phy_base, u32 size)
 	int i;
 	u32 *cur = (u32 *)base;
 	u8 *byt;
-	IPADBG("system phys addr=0x%x len=%u\n", phy_base, size);
+	IPADBG("system phys addr=%pa len=%u\n", &phy_base, size);
 	for (i = 0; i < size / 4; i++) {
 		byt = (u8 *)(cur + i);
 		IPADBG("%2d %08x   %02x %02x %02x %02x\n", i, *(cur + i),
 				byt[0], byt[1], byt[2], byt[3]);
 	}
 	IPADBG("END\n");
-}
-
-/**
- * ipa_search() - search for handle in RB tree
- * @root: tree root
- * @hdl: handle
- *
- * Return value: tree node corresponding to the handle
- */
-struct ipa_tree_node *ipa_search(struct rb_root *root, u32 hdl)
-{
-	struct rb_node *node = root->rb_node;
-
-	while (node) {
-		struct ipa_tree_node *data = container_of(node,
-				struct ipa_tree_node, node);
-
-		if (hdl < data->hdl)
-			node = node->rb_left;
-		else if (hdl > data->hdl)
-			node = node->rb_right;
-		else
-			return data;
-	}
-	return NULL;
-}
-
-/**
- * ipa_insert() - insert new node to RB tree
- * @root: tree root
- * @data: new data to insert
- *
- * Return value:
- * 0: success
- * -EPERM: tree already contains the node with provided handle
- */
-int ipa_insert(struct rb_root *root, struct ipa_tree_node *data)
-{
-	struct rb_node **new = &(root->rb_node), *parent = NULL;
-
-	/* Figure out where to put new node */
-	while (*new) {
-		struct ipa_tree_node *this = container_of(*new,
-				struct ipa_tree_node, node);
-
-		parent = *new;
-		if (data->hdl < this->hdl)
-			new = &((*new)->rb_left);
-		else if (data->hdl > this->hdl)
-			new = &((*new)->rb_right);
-		else
-			return -EPERM;
-	}
-
-	/* Add new node and rebalance tree. */
-	rb_link_node(&data->node, parent, new);
-	rb_insert_color(&data->node, root);
-
-	return 0;
 }
 
 /**
@@ -3107,4 +3048,35 @@ void ipa_skb_recycle(struct sk_buff *skb)
 	memset(skb, 0, offsetof(struct sk_buff, tail));
 	skb->data = skb->head + NET_SKB_PAD;
 	skb_reset_tail_pointer(skb);
+}
+
+int ipa_id_alloc(void *ptr)
+{
+	int id;
+
+	idr_preload(GFP_KERNEL);
+	spin_lock(&ipa_ctx->idr_lock);
+	id = idr_alloc(&ipa_ctx->ipa_idr, ptr, 0, 0, GFP_NOWAIT);
+	spin_unlock(&ipa_ctx->idr_lock);
+	idr_preload_end();
+
+	return id;
+}
+
+void *ipa_id_find(u32 id)
+{
+	void *ptr;
+
+	spin_lock(&ipa_ctx->idr_lock);
+	ptr = idr_find(&ipa_ctx->ipa_idr, id);
+	spin_unlock(&ipa_ctx->idr_lock);
+
+	return ptr;
+}
+
+void ipa_id_remove(u32 id)
+{
+	spin_lock(&ipa_ctx->idr_lock);
+	idr_remove(&ipa_ctx->ipa_idr, id);
+	spin_unlock(&ipa_ctx->idr_lock);
 }

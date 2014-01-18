@@ -16,6 +16,7 @@
 #include <linux/bitops.h>
 #include <linux/cdev.h>
 #include <linux/export.h>
+#include <linux/idr.h>
 #include <linux/list.h>
 #include <linux/mutex.h>
 #include <linux/skbuff.h>
@@ -157,6 +158,7 @@ struct ipa_flt_entry {
 	struct ipa_flt_tbl *tbl;
 	struct ipa_rt_tbl *rt_tbl;
 	u32 hw_len;
+	int id;
 };
 
 /**
@@ -187,6 +189,7 @@ struct ipa_rt_tbl {
 	u32 sz;
 	struct ipa_mem_buffer curr_mem;
 	struct ipa_mem_buffer prev_mem;
+	int id;
 };
 
 /**
@@ -209,6 +212,7 @@ struct ipa_hdr_entry {
 	struct ipa_hdr_offset_entry *offset_entry;
 	u32 cookie;
 	u32 ref_cnt;
+	int id;
 };
 
 /**
@@ -275,6 +279,7 @@ struct ipa_rt_entry {
 	struct ipa_rt_tbl *tbl;
 	struct ipa_hdr_entry *hdr;
 	u32 hw_len;
+	int id;
 };
 
 /**
@@ -285,16 +290,6 @@ struct ipa_rt_entry {
 struct ipa_rt_tbl_set {
 	struct list_head head_rt_tbl_list;
 	u32 tbl_cnt;
-};
-
-/**
- * struct ipa_tree_node - handle database entry
- * @node: RB node
- * @hdl: handle
- */
-struct ipa_tree_node {
-	struct rb_node node;
-	u32 hdl;
 };
 
 /**
@@ -422,9 +417,9 @@ struct ipa_tx_pkt_wrapper {
 	struct ipa_mem_buffer mem;
 	struct work_struct work;
 	struct list_head link;
-	void (*callback)(void *user1, void *user2);
+	void (*callback)(void *user1, int user2);
 	void *user1;
-	void *user2;
+	int user2;
 	struct ipa_sys_context *sys;
 	struct ipa_mem_buffer mult;
 	u32 cnt;
@@ -448,9 +443,9 @@ struct ipa_desc {
 	void *pyld;
 	u16 len;
 	u16 opcode;
-	void (*callback)(void *user1, void *user2);
+	void (*callback)(void *user1, int user2);
 	void *user1;
-	void *user2;
+	int user2;
 	struct completion xfer_done;
 };
 
@@ -601,16 +596,11 @@ struct ipa_controller;
  * @rt_tbl_cache: routing table cache
  * @tx_pkt_wrapper_cache: Tx packets cache
  * @rx_pkt_wrapper_cache: Rx packets cache
- * @tree_node_cache: tree nodes cache
  * @rt_idx_bitmap: routing table index bitmap
  * @lock: this does NOT protect the linked lists within ipa_sys_context
  * @smem_sz: shared memory size available for SW use starting
  *  from non-restricted bytes
  * @smem_restricted_bytes: the bytes that SW should not use in the shared mem
- * @hdr_hdl_tree: header handles tree
- * @rt_rule_hdl_tree: routing rule handles tree
- * @rt_tbl_hdl_tree: routing table handles tree
- * @flt_rule_hdl_tree: filtering rule handles tree
  * @nat_mem: NAT memory
  * @excp_hdr_hdl: exception header handle
  * @dflt_v4_rt_rule_hdl: default v4 routing rule handle
@@ -660,16 +650,11 @@ struct ipa_context {
 	struct kmem_cache *rt_tbl_cache;
 	struct kmem_cache *tx_pkt_wrapper_cache;
 	struct kmem_cache *rx_pkt_wrapper_cache;
-	struct kmem_cache *tree_node_cache;
 	unsigned long rt_idx_bitmap[IPA_IP_MAX];
 	struct mutex lock;
 	u16 smem_sz;
 	u16 smem_restricted_bytes;
 	u16 smem_reqd_sz;
-	struct rb_root hdr_hdl_tree;
-	struct rb_root rt_rule_hdl_tree;
-	struct rb_root rt_tbl_hdl_tree;
-	struct rb_root flt_rule_hdl_tree;
 	struct ipa_nat_mem nat_mem;
 	u32 excp_hdr_hdl;
 	u32 dflt_v4_rt_rule_hdl;
@@ -707,7 +692,9 @@ struct ipa_context {
 	void *smem_pipe_mem;
 	u32 ipa_bus_hdl;
 	struct ipa_controller *ctrl;
+	struct idr ipa_idr;
 	struct device *pdev;
+	spinlock_t idr_lock;
 
 	/* wlan related member */
 	spinlock_t wlan_spinlock;
@@ -870,8 +857,6 @@ int ipa_set_hw_timer_fix_for_mbim_aggr(bool);
 void ipa_debugfs_init(void);
 void ipa_debugfs_remove(void);
 
-int ipa_insert(struct rb_root *root, struct ipa_tree_node *data);
-struct ipa_tree_node *ipa_search(struct rb_root *root, u32 hdl);
 void ipa_dump_buff_internal(void *base, dma_addr_t phy_base, u32 size);
 #ifdef IPA_DEBUG
 #define IPA_DUMP_BUFF(base, phy_base, size) \
@@ -962,5 +947,8 @@ void ipa_delete_dflt_flt_rules(u32 ipa_ep_idx);
 
 int ipa_enable_data_path(u32 clnt_hdl);
 int ipa_disable_data_path(u32 clnt_hdl);
+int ipa_id_alloc(void *ptr);
+void *ipa_id_find(u32 id);
+void ipa_id_remove(u32 id);
 
 #endif /* _IPA_I_H_ */

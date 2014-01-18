@@ -730,7 +730,7 @@ static ssize_t ipa_read_flt(struct file *file, char __user *ubuf, size_t count,
 			bitmap = entry->rule.eq_attrib.rule_eq_bitmap;
 			eq = true;
 		} else {
-			rt_tbl = (struct ipa_rt_tbl *)entry->rule.rt_tbl_hdl;
+			rt_tbl = ipa_id_find(entry->rule.rt_tbl_hdl);
 			if (rt_tbl)
 				rt_tbl_idx = rt_tbl->idx;
 			else
@@ -759,12 +759,12 @@ static ssize_t ipa_read_flt(struct file *file, char __user *ubuf, size_t count,
 		tbl = &ipa_ctx->flt_tbl[j][ip];
 		i = 0;
 		list_for_each_entry(entry, &tbl->head_flt_rule_list, link) {
-			rt_tbl = (struct ipa_rt_tbl *)entry->rule.rt_tbl_hdl;
 			if (entry->rule.eq_attrib_type) {
 				rt_tbl_idx = entry->rule.rt_tbl_idx;
 				bitmap = entry->rule.eq_attrib.rule_eq_bitmap;
 				eq = true;
 			} else {
+				rt_tbl = ipa_id_find(entry->rule.rt_tbl_hdl);
 				if (rt_tbl)
 					rt_tbl_idx = rt_tbl->idx;
 				else
