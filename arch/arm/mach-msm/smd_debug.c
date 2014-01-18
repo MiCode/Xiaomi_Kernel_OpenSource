@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/smd_debug.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -60,15 +60,13 @@ static void debug_int_stats(struct seq_file *s)
 	for (subsys = 0; subsys < NUM_SMD_SUBSYSTEMS; ++subsys) {
 		subsys_name = smd_pid_to_subsystem(subsys);
 		if (subsys_name) {
-			seq_printf(s,
-				"%-10s %4s |    %9d | %9u | %9u |\n",
+			seq_printf(s, "%-10s %4s |    %9d | %9u | %9u |\n",
 				smd_pid_to_subsystem(subsys), "smd",
 				stats->smd_interrupt_id,
 				stats->smd_in_count,
 				stats->smd_out_count);
 
-			seq_printf(s,
-				"%-10s %4s |    %9d | %9u | %9u |\n",
+			seq_printf(s, "%-10s %4s |    %9d | %9u | %9u |\n",
 				smd_pid_to_subsystem(subsys), "smsm",
 				stats->smsm_interrupt_id,
 				stats->smsm_in_count,
