@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/smd_tty.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -26,6 +26,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/ipc_logging.h>
+#include <linux/of.h>
 
 #include <linux/tty.h>
 #include <linux/tty_driver.h>
@@ -34,7 +35,6 @@
 #include <mach/msm_smd.h>
 #include <mach/msm_smsm.h>
 #include <mach/subsystem_restart.h>
-#include <mach/socinfo.h>
 
 #define MODULE_NAME "msm_smdtty"
 #define MAX_SMD_TTYS 37
