@@ -1,7 +1,7 @@
 /* linux/include/asm-arm/arch-msm/msm_smd.h
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -23,6 +23,7 @@
 #include <soc/qcom/smem.h>
 
 typedef struct smd_channel smd_channel_t;
+struct cpumask;
 
 #define SMD_MAX_CH_NAME_LEN 20 /* includes null char at end */
 
@@ -139,13 +140,15 @@ void smd_disable_read_intr(smd_channel_t *ch);
  * particular channel.
  * @ch:      open channel handle to use for the edge
  * @mask:    1 = mask interrupts; 0 = unmask interrupts
+ * @cpumask  cpumask for the next cpu scheduled to be woken up
  * @returns: 0 for success; < 0 for failure
  *
  * Note that this enables/disables all interrupts from the remote subsystem for
  * all channels.  As such, it should be used with care and only for specific
  * use cases such as power-collapse sequencing.
  */
-int smd_mask_receive_interrupt(smd_channel_t *ch, bool mask);
+int smd_mask_receive_interrupt(smd_channel_t *ch, bool mask,
+		const struct cpumask *cpumask);
 
 /* Starts a packet transaction.  The size of the packet may exceed the total
  * size of the smd ring buffer.
@@ -337,7 +340,8 @@ static inline void smd_disable_read_intr(smd_channel_t *ch)
 {
 }
 
-static inline int smd_mask_receive_interrupt(smd_channel_t *ch, bool mask)
+static inline int smd_mask_receive_interrupt(smd_channel_t *ch, bool mask
+		const struct cpumask *cpumask)
 {
 	return -ENODEV;
 }
