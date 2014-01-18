@@ -51,7 +51,8 @@ enum mdss_mdp_wb_node_state {
 	REGISTERED,
 	IN_FREE_QUEUE,
 	IN_BUSY_QUEUE,
-	WITH_CLIENT
+	WITH_CLIENT,
+	WB_BUFFER_READY,
 };
 
 struct mdss_mdp_wb_data {
@@ -457,13 +458,37 @@ static int mdss_mdp_wb_queue(struct msm_fb_data_type *mfd,
 	if (node == NULL)
 		node = get_user_node(mfd, data);
 
-	if (!node || node->state == IN_BUSY_QUEUE ||
-	    node->state == IN_FREE_QUEUE) {
-		pr_err("memory not registered or Buffer already with us\n");
-		ret = -EINVAL;
+	if (!node) {
+		pr_err("memory not registered\n");
+		ret = -ENOENT;
 	} else {
-		list_add_tail(&node->active_entry, &wb->free_queue);
-		node->state = IN_FREE_QUEUE;
+		struct mdss_mdp_img_data *buf = &node->buf_data.p[0];
+
+		switch (node->state) {
+		case IN_FREE_QUEUE:
+			pr_err("node 0x%pa was already queueued before\n",
+					&buf->addr);
+			ret = -EINVAL;
+			break;
+		case IN_BUSY_QUEUE:
+			pr_err("node 0x%pa still in busy state\n", &buf->addr);
+			ret = -EBUSY;
+			break;
+		case WB_BUFFER_READY:
+			pr_debug("node 0x%pa re-queueded without dequeue\n",
+				&buf->addr);
+			list_del(&node->active_entry);
+		case WITH_CLIENT:
+		case REGISTERED:
+			list_add_tail(&node->active_entry, &wb->free_queue);
+			node->state = IN_FREE_QUEUE;
+			break;
+		default:
+			pr_err("Invalid node 0x%pa state %d\n",
+				&buf->addr, node->state);
+			ret = -EINVAL;
+			break;
+		}
 	}
 	mutex_unlock(&wb->lock);
 
@@ -573,6 +598,7 @@ int mdss_mdp_wb_kickoff(struct msm_fb_data_type *mfd)
 	if (wb && node) {
 		mutex_lock(&wb->lock);
 		list_add_tail(&node->active_entry, &wb->busy_queue);
+		node->state = WB_BUFFER_READY;
 		mutex_unlock(&wb->lock);
 		wake_up(&wb->wait_q);
 	}
