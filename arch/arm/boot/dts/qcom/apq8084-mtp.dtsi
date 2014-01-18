@@ -124,6 +124,10 @@
 	qcom,mdss-pref-prim-intf = "dsi";
 };
 
+&mdss_fb0 {
+	qcom,mdss-fb-splash-logo-enabled;
+};
+
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_jdi_1080_vid>;
 	qcom,platform-reset-gpio = <&msmgpio 96 0>;
