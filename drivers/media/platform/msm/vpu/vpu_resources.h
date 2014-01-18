@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,13 +27,51 @@ enum vpu_clocks {
 	VPU_BUS_CLK,
 	VPU_MAPLE_CLK,
 	VPU_VDP_CLK,
+	VPU_VDP_XIN,
 	VPU_AHB_CLK,
 	VPU_AXI_CLK,
 	VPU_SLEEP_CLK,
 	VPU_CXO_CLK,
 	VPU_MAPLE_AXI_CLK,
 	VPU_PRNG_CLK,
+
+	VPU_FRC_GPROC,
+	VPU_FRC_KPROC,
+	VPU_FRC_SDMC_FRCS,
+	VPU_FRC_SDME_FRCF,
+	VPU_FRC_SDME_FRCS,
+	VPU_FRC_SDME_VPRO,
+	VPU_FRC_HDMC_FRCF,
+	VPU_FRC_PREPROC,
+	VPU_FRC_FRC_XIN,
+	VPU_FRC_MAPLE_AXI,
+
+	VPU_QDSS_AT,
+	VPU_QDSS_TSCTR_DIV8,
+
 	VPU_MAX_CLKS
+};
+
+enum vpu_clock_flag {
+
+	/* Group section */
+	CLOCK_CORE =		1 << 1,
+	CLOCK_FRC =		1 << 2,
+	CLOCK_QDSS =		1 << 3,
+	CLOCK_ALL_GROUPS =	(1 << 12) - 1,
+
+	/* Property section */
+	CLOCK_PRESENT =		1 << 12,
+	CLOCK_SCALABLE =	1 << 13,
+	CLOCK_BOOT =		1 << 14,
+};
+
+enum vpu_power_mode {
+	VPU_POWER_SVS,
+	VPU_POWER_NOMINAL,
+	VPU_POWER_TURBO,
+	VPU_POWER_DYNAMIC,
+	VPU_POWER_MAX = VPU_POWER_DYNAMIC
 };
 
 struct load_freq_pair {
@@ -44,6 +82,16 @@ struct load_freq_pair {
 struct load_freq_table {
 	struct load_freq_pair *entry;
 	int count;
+};
+
+struct vpu_clock {
+	struct clk *clk;
+	u32 status;
+	u32 current_freq;
+	struct load_freq_table load_freq_tbl;
+	const char *name;
+	const u32 *pwr_frequencies;
+	u32 flag;
 };
 
 struct bus_load_tbl {
@@ -85,12 +133,13 @@ struct vpu_platform_resources {
 	u32 irq; /* Firmware to APPS IPC irq */
 	u32 irq_wd; /* Firmware's watchdog irq */
 
-	struct load_freq_table clock_tables[VPU_MAX_CLKS];
 	struct bus_load_tbl bus_table;
 	struct msm_bus_scale_pdata bus_pdata;
 	struct iommu_set iommu_set;
 
 	struct platform_device *pdev;
+
+	struct vpu_clock clock[VPU_MAX_CLKS];
 
 	/* VPU memory client */
 	void *mem_client;

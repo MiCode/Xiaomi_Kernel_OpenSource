@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1947,7 +1947,7 @@ static int vpu_hw_power_on(struct vpu_channel_hal *hal)
 	}
 
 	/* enable the VPU clocks */
-	rc = vpu_clock_enable(hal->clk_handle);
+	rc = vpu_clock_enable(hal->clk_handle, CLOCK_BOOT);
 	if (unlikely(rc)) {
 		pr_err("failed to enable clock\n");
 		goto err_clock;
@@ -1970,7 +1970,7 @@ err_power:
  */
 static void vpu_hw_power_off(struct vpu_channel_hal *hal)
 {
-	vpu_clock_disable(hal->clk_handle);
+	vpu_clock_disable(hal->clk_handle, CLOCK_ALL_GROUPS);
 	vpu_bus_unvote();
 	if (hal->vdd_enabled) {
 		regulator_disable(hal->vdd);
@@ -1993,7 +1993,7 @@ int vpu_hw_sys_suspend(void)
 	/* TODO: Send suspend IPC command once it is defined	*/
 
 	/* make sure clock are on */
-	rc = vpu_clock_enable(ch_hal->clk_handle);
+	rc = vpu_clock_enable(ch_hal->clk_handle, CLOCK_BOOT);
 	if (rc) {
 		pr_err("clock off when trying to suspend\n");
 		goto suspend_exit;

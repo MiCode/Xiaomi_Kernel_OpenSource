@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -156,33 +156,15 @@ int vpu_bus_scale(u32 load)
  * vpu_vdp_clk between 200MHz and 400MHz during runtime to optimize for
  * power consumption
  */
-#define	VPU_CLK_GATE_LEVEL VPU_VDP_CLK
 
-static const char *clock_names[VPU_MAX_CLKS] = {
-	[VPU_BUS_CLK] = "vdp_bus_clk",
-	[VPU_MAPLE_CLK] = "core_clk",
-	[VPU_VDP_CLK] = "vdp_clk",
-	[VPU_AHB_CLK] = "iface_clk",
-	[VPU_AXI_CLK] = "bus_clk",
-	[VPU_SLEEP_CLK] = "sleep_clk",
-	[VPU_CXO_CLK] = "cxo_clk",
-	[VPU_MAPLE_AXI_CLK] = "maple_bus_clk",
-	[VPU_PRNG_CLK] = "prng_clk",
-};
+#define NOT_USED(clk_ctrl, i) (!( \
+			((clk_ctrl)->clock[i]->flag & CLOCK_PRESENT) && \
+			((clk_ctrl)->clock[i]->flag & (clk_ctrl)->mask)))
+#define NOT_IN_GROUP(clk_ctrl, i, clk_group) (!( \
+			((clk_ctrl)->clock[i]->flag & (clk_group))))
 
-struct vpu_core_clock {
-	struct clk *clk;
-	u32 status;
-	u32 current_freq;
-	struct load_freq_table *load_freq_tbl;
-	const char *name;
-};
-
-static const u32 clock_freqs[VPU_MAX_CLKS][VPU_POWER_MAX] = {
-	[VPU_BUS_CLK]	= { 40000000,  80000000,  80000000},
-	[VPU_MAPLE_CLK]	= {200000000, 400000000, 400000000},
-	[VPU_VDP_CLK]	= {200000000, 200000000, 400000000},
-};
+#define CLOCK_IS_SCALABLE(clk_ctrl, i) \
+			((clk_ctrl)->clock[i]->flag & CLOCK_SCALABLE)
 
 /*
  * Note: there is no lock in this block
@@ -194,14 +176,15 @@ struct vpu_clk_control {
 	/* svs, nominal, turbo, dynamic(default) */
 	u32 mode;
 
-	struct vpu_core_clock clock[VPU_MAX_CLKS];
+	struct vpu_clock *clock[VPU_MAX_CLKS];
+
+	u32 mask;
 };
 
 void *vpu_clock_init(struct vpu_platform_resources *res)
 {
 	int i;
-	int rc = -1;
-	struct vpu_core_clock *cl;
+	struct vpu_clock *cl;
 	struct vpu_clk_control *clk_ctrl;
 
 	if (!res)
@@ -214,14 +197,21 @@ void *vpu_clock_init(struct vpu_platform_resources *res)
 		return NULL;
 	}
 
+	for (i = 0; i < VPU_MAX_CLKS; i++)
+		clk_ctrl->clock[i] = &res->clock[i];
+
+	/* mask allowing to only enable clocks from certain groups of clocks */
+	clk_ctrl->mask = CLOCK_CORE;
+
 	/* setup the clock handles */
 	for (i = 0; i < VPU_MAX_CLKS; i++) {
-		cl = &clk_ctrl->clock[i];
+		if (NOT_USED(clk_ctrl, i))
+			continue;
 
-		cl->load_freq_tbl = &res->clock_tables[i];
-		cl->name = clock_names[i];
+		cl = clk_ctrl->clock[i];
 
-		if (i <= VPU_CLK_GATE_LEVEL && cl->load_freq_tbl->count == 0) {
+		if (CLOCK_IS_SCALABLE(clk_ctrl, i) &&
+				!cl->load_freq_tbl.count) {
 			pr_err("%s freq table size is 0\n", cl->name);
 			goto fail_init_clocks;
 		}
@@ -229,27 +219,16 @@ void *vpu_clock_init(struct vpu_platform_resources *res)
 		cl->clk = devm_clk_get(&res->pdev->dev, cl->name);
 		if (IS_ERR_OR_NULL(cl->clk)) {
 			pr_err("Failed to get clock: %s\n", cl->name);
-			rc = PTR_ERR(cl->clk);
-			break;
+			cl->clk = NULL;
+			goto fail_init_clocks;
 		}
 		cl->status = 0;
-	}
-
-	/* free the clock if not all successful */
-	if (i < VPU_MAX_CLKS) {
-		for (i = 0; i < VPU_MAX_CLKS; i++) {
-			cl = &clk_ctrl->clock[i];
-			if (cl->clk) {
-				clk_put(cl->clk);
-				cl->clk = NULL;
-			}
-		}
-		goto fail_init_clocks;
 	}
 
 	return clk_ctrl;
 
 fail_init_clocks:
+	vpu_clock_deinit((void *)clk_ctrl);
 	kfree(clk_ctrl);
 	return NULL;
 }
@@ -257,7 +236,7 @@ fail_init_clocks:
 void vpu_clock_deinit(void *clkh)
 {
 	int i;
-	struct vpu_core_clock *cl;
+	struct vpu_clock *cl;
 	struct vpu_clk_control *clk_ctr = (struct vpu_clk_control *)clkh;
 
 	if (!clk_ctr) {
@@ -266,21 +245,32 @@ void vpu_clock_deinit(void *clkh)
 	}
 
 	for (i = 0; i < VPU_MAX_CLKS; i++) {
-		cl = &clk_ctr->clock[i];
+		if (NOT_USED(clk_ctr, i))
+			continue;
+		cl = clk_ctr->clock[i];
 		if (cl->status) {
 			clk_disable_unprepare(cl->clk);
 			cl->status = 0;
 		}
-		clk_put(cl->clk);
-		cl->clk = NULL;
+		if (cl->clk) {
+			clk_put(cl->clk);
+			cl->clk = NULL;
+		}
 	}
 
 	kfree(clk_ctr);
 }
 
-int vpu_clock_enable(void *clkh)
+/*
+ * vpu_clock_enable() - enable a group of clocks
+ *
+ * @clkh:		clock handler
+ * @clk_group:	see vpu_clock_flag (group section)
+ *
+ */
+int vpu_clock_enable(void *clkh, u32 clk_group)
 {
-	struct vpu_core_clock *cl;
+	struct vpu_clock *cl;
 	struct vpu_clk_control *clk_ctr = (struct vpu_clk_control *)clkh;
 	int i = 0;
 	int rc = 0;
@@ -293,14 +283,18 @@ int vpu_clock_enable(void *clkh)
 	clk_ctr->mode = VPU_POWER_DYNAMIC;
 
 	for (i = 0; i < VPU_MAX_CLKS; i++) {
-		cl = &clk_ctr->clock[i];
+		if (NOT_USED(clk_ctr, i) ||
+				NOT_IN_GROUP(clk_ctr, i, clk_group))
+			continue;
+
+		cl = clk_ctr->clock[i];
 
 		if (cl->status == 0) {
 			/* set rate if it's a gated clock */
-			if (i <= VPU_CLK_GATE_LEVEL &&
-				cl->load_freq_tbl->entry) {
+			if (CLOCK_IS_SCALABLE(clk_ctr, i) &&
+				cl->load_freq_tbl.entry) {
 				cl->current_freq =
-					cl->load_freq_tbl->entry[0].freq;
+					cl->load_freq_tbl.entry[0].freq;
 
 				rc = clk_set_rate(cl->clk, cl->current_freq);
 				if (rc) {
@@ -325,21 +319,21 @@ int vpu_clock_enable(void *clkh)
 	return rc;
 
 fail_clk_enable:
-	for (i = 0; i < VPU_MAX_CLKS; i++) {
-		cl = &clk_ctr->clock[i];
-		if (cl->status) {
-			clk_disable_unprepare(cl->clk);
-			cl->status = 0;
-		}
-	}
-
+	vpu_clock_disable(clkh, clk_group);
 	return rc;
 }
 
-void vpu_clock_disable(void *clkh)
+/*
+ * vpu_clock_disable() - disable a group of clocks
+ *
+ * @clkh:		clock handler
+ * @clk_group:	see vpu_clock_flag (group section)
+ *
+ */
+void vpu_clock_disable(void *clkh, u32 clk_group)
 {
 	int i;
-	struct vpu_core_clock *cl;
+	struct vpu_clock *cl;
 	struct vpu_clk_control *clk_ctr = (struct vpu_clk_control *)clkh;
 
 	if (!clk_ctr) {
@@ -348,7 +342,10 @@ void vpu_clock_disable(void *clkh)
 	}
 
 	for (i = 0; i < VPU_MAX_CLKS; i++) {
-		cl = &clk_ctr->clock[i];
+		if (NOT_USED(clk_ctr, i) ||
+				NOT_IN_GROUP(clk_ctr, i, clk_group))
+			continue;
+		cl = clk_ctr->clock[i];
 		if (cl->status) {
 			clk_disable_unprepare(cl->clk);
 			cl->status = 0;
@@ -356,10 +353,10 @@ void vpu_clock_disable(void *clkh)
 	}
 }
 
-static unsigned long __clock_get_rate(struct vpu_core_clock *clock,
+static unsigned long __clock_get_rate(struct vpu_clock *clock,
 	u32 num_bits_per_sec)
 {
-	struct load_freq_table *table = clock->load_freq_tbl;
+	struct load_freq_table *table = &clock->load_freq_tbl;
 	unsigned long ret = 0;
 	int i;
 
@@ -385,9 +382,12 @@ int vpu_clock_scale(void *clkh, u32 load)
 
 	clk_ctr->load = load;
 
-	for (i = 0; i <= VPU_CLK_GATE_LEVEL; i++) {
-		struct vpu_core_clock *cl = &clk_ctr->clock[i];
+	for (i = 0; i < VPU_MAX_CLKS; i++) {
+		struct vpu_clock *cl = clk_ctr->clock[i];
 		unsigned long freq;
+
+		if (NOT_USED(clk_ctr, i) || !CLOCK_IS_SCALABLE(clk_ctr, i))
+			continue;
 
 		freq = __clock_get_rate(cl, load);
 		if (clk_ctr->mode == VPU_POWER_DYNAMIC) {
@@ -407,7 +407,7 @@ int vpu_clock_scale(void *clkh, u32 load)
 int vpu_clock_gating_off(void *clkh)
 {
 	int i;
-	struct vpu_core_clock *cl;
+	struct vpu_clock *cl;
 	struct vpu_clk_control *clk_ctr = (struct vpu_clk_control *)clkh;
 	int rc = 0;
 
@@ -420,8 +420,11 @@ int vpu_clock_gating_off(void *clkh)
 	if (clk_ctr->mode != VPU_POWER_DYNAMIC)
 		return 0;
 
-	for (i = 0; i <= VPU_CLK_GATE_LEVEL; i++) {
-		cl = &clk_ctr->clock[i];
+	for (i = 0; i < VPU_MAX_CLKS; i++) {
+		if (NOT_USED(clk_ctr, i) || !CLOCK_IS_SCALABLE(clk_ctr, i))
+			continue;
+
+		cl = clk_ctr->clock[i];
 		if (cl->status == 0) {
 			rc = clk_enable(cl->clk);
 			if (rc) {
@@ -440,7 +443,7 @@ int vpu_clock_gating_off(void *clkh)
 void vpu_clock_gating_on(void *clkh)
 {
 	int i;
-	struct vpu_core_clock *cl;
+	struct vpu_clock *cl;
 	struct vpu_clk_control *clk_ctr = (struct vpu_clk_control *)clkh;
 
 	if (!clk_ctr) {
@@ -452,8 +455,11 @@ void vpu_clock_gating_on(void *clkh)
 	if (clk_ctr->mode != VPU_POWER_DYNAMIC)
 		return;
 
-	for (i = 0; i <= VPU_CLK_GATE_LEVEL; i++) {
-		cl = &clk_ctr->clock[i];
+	for (i = 0; i < VPU_MAX_CLKS; i++) {
+		if (NOT_USED(clk_ctr, i) || !CLOCK_IS_SCALABLE(clk_ctr, i))
+			continue;
+
+		cl = clk_ctr->clock[i];
 		if (cl->status) {
 			clk_disable(cl->clk);
 			cl->status = 0;
@@ -477,12 +483,16 @@ void vpu_clock_mode_set(void *clkh, enum vpu_power_mode mode)
 
 	if (mode <= VPU_POWER_DYNAMIC) {
 		clk_ctr->mode = mode;
-		for (i = 0; i <= VPU_CLK_GATE_LEVEL; i++) {
-			struct vpu_core_clock *cl = &clk_ctr->clock[i];
+		for (i = 0; i < VPU_MAX_CLKS; i++) {
+			struct vpu_clock *cl = clk_ctr->clock[i];
 			unsigned long freq;
 
+			if (NOT_USED(clk_ctr, i) ||
+					!CLOCK_IS_SCALABLE(clk_ctr, i))
+				continue;
+
 			if (mode < VPU_POWER_DYNAMIC)
-				freq = clock_freqs[i][mode];
+				freq = cl->pwr_frequencies[mode];
 			else
 				freq = cl->current_freq;
 
