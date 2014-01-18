@@ -315,6 +315,7 @@ struct mdss_edp_drv_pdata {
 	struct completion idle_comp;
 	struct completion video_comp;
 	struct mutex aux_mutex;
+	struct mutex train_mutex;
 	u32 aux_cmd_busy;
 	u32 aux_cmd_i2c;
 	int aux_trans_num;
