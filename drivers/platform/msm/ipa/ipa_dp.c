@@ -71,7 +71,7 @@ static void ipa_wq_write_done_common(struct ipa_sys_context *sys, u32 cnt)
 						   link);
 		list_del(&tx_pkt_expected->link);
 		sys->len--;
-		dma_unmap_single(NULL, tx_pkt_expected->mem.phys_base,
+		dma_unmap_single(ipa_ctx->pdev, tx_pkt_expected->mem.phys_base,
 				tx_pkt_expected->mem.size,
 				DMA_TO_DEVICE);
 		if (tx_pkt_expected->callback)
@@ -291,8 +291,8 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 			memcpy(tx_pkt->bounce, desc->pyld, desc->len);
 		}
 	} else {
-		dma_address = dma_map_single(NULL, desc->pyld, desc->len,
-				DMA_TO_DEVICE);
+		dma_address = dma_map_single(ipa_ctx->pdev, desc->pyld,
+				desc->len, DMA_TO_DEVICE);
 	}
 	if (!dma_address) {
 		IPAERR("failed to DMA wrap\n");
@@ -347,7 +347,8 @@ fail_sps_send:
 		dma_pool_free(ipa_ctx->dma_pool, tx_pkt->bounce,
 				dma_address);
 	else
-		dma_unmap_single(NULL, dma_address, desc->len, DMA_TO_DEVICE);
+		dma_unmap_single(ipa_ctx->pdev, dma_address, desc->len,
+				DMA_TO_DEVICE);
 fail_dma_map:
 	kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
 fail_mem_alloc:
@@ -456,7 +457,7 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 			}
 		} else {
 			tx_pkt->mem.phys_base =
-			   dma_map_single(NULL, tx_pkt->mem.base,
+			   dma_map_single(ipa_ctx->pdev, tx_pkt->mem.base,
 					   tx_pkt->mem.size,
 					   DMA_TO_DEVICE);
 		}
@@ -517,7 +518,7 @@ failure:
 					tx_pkt->bounce,
 					tx_pkt->mem.phys_base);
 		else
-			dma_unmap_single(NULL, tx_pkt->mem.phys_base,
+			dma_unmap_single(ipa_ctx->pdev, tx_pkt->mem.phys_base,
 					tx_pkt->mem.size,
 					DMA_TO_DEVICE);
 		kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
@@ -1015,8 +1016,8 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 
 	ep->connect.options = ep->sys->sps_option;
 	ep->connect.desc.size = sys_in->desc_fifo_sz;
-	ep->connect.desc.base = dma_alloc_coherent(NULL, ep->connect.desc.size,
-			&dma_addr, 0);
+	ep->connect.desc.base = dma_alloc_coherent(ipa_ctx->pdev,
+			ep->connect.desc.size, &dma_addr, 0);
 	ep->connect.desc.phys_base = dma_addr;
 	if (ep->connect.desc.base == NULL) {
 		IPAERR("fail to get DMA desc memory.\n");
@@ -1065,7 +1066,7 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 fail_register_event:
 	sps_disconnect(ep->ep_hdl);
 fail_sps_connect:
-	dma_free_coherent(NULL, ep->connect.desc.size,
+	dma_free_coherent(ipa_ctx->pdev, ep->connect.desc.size,
 			  ep->connect.desc.base,
 			  ep->connect.desc.phys_base);
 fail_sps_cfg:
@@ -1102,7 +1103,7 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 
 	ipa_disable_data_path(clnt_hdl);
 	sps_disconnect(ep->ep_hdl);
-	dma_free_coherent(NULL, ep->connect.desc.size,
+	dma_free_coherent(ipa_ctx->pdev, ep->connect.desc.size,
 			  ep->connect.desc.base,
 			  ep->connect.desc.phys_base);
 	sps_free_endpoint(ep->ep_hdl);
@@ -1425,7 +1426,7 @@ static void ipa_replenish_rx_cache(struct ipa_sys_context *sys)
 			goto fail_skb_alloc;
 		}
 		ptr = skb_put(rx_pkt->data.skb, sys->rx_buff_sz);
-		rx_pkt->data.dma_addr = dma_map_single(NULL, ptr,
+		rx_pkt->data.dma_addr = dma_map_single(ipa_ctx->pdev, ptr,
 						     sys->rx_buff_sz,
 						     DMA_FROM_DEVICE);
 		if (rx_pkt->data.dma_addr == 0 ||
@@ -1452,7 +1453,7 @@ static void ipa_replenish_rx_cache(struct ipa_sys_context *sys)
 fail_sps_transfer:
 	list_del(&rx_pkt->link);
 	rx_len_cached = --sys->len;
-	dma_unmap_single(NULL, rx_pkt->data.dma_addr,
+	dma_unmap_single(ipa_ctx->pdev, rx_pkt->data.dma_addr,
 			sys->rx_buff_sz, DMA_FROM_DEVICE);
 fail_dma_mapping:
 	sys->free_skb(rx_pkt->data.skb);
@@ -1485,7 +1486,7 @@ static void ipa_cleanup_rx(struct ipa_sys_context *sys)
 	list_for_each_entry_safe(rx_pkt, r,
 				 &sys->head_desc_list, link) {
 		list_del(&rx_pkt->link);
-		dma_unmap_single(NULL, rx_pkt->data.dma_addr,
+		dma_unmap_single(ipa_ctx->pdev, rx_pkt->data.dma_addr,
 			sys->rx_buff_sz, DMA_FROM_DEVICE);
 		sys->free_skb(rx_pkt->data.skb);
 		kmem_cache_free(ipa_ctx->rx_pkt_wrapper_cache, rx_pkt);
@@ -1962,7 +1963,7 @@ static void ipa_wq_rx_common(struct ipa_sys_context *sys, u32 size)
 	if (size)
 		rx_pkt_expected->len = size;
 	rx_skb = rx_pkt_expected->data.skb;
-	dma_unmap_single(NULL, rx_pkt_expected->data.dma_addr,
+	dma_unmap_single(ipa_ctx->pdev, rx_pkt_expected->data.dma_addr,
 			sys->rx_buff_sz, DMA_FROM_DEVICE);
 	rx_skb->tail = rx_skb->data + rx_pkt_expected->len;
 	rx_skb->len = rx_pkt_expected->len;

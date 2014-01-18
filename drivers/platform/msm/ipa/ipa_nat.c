@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,7 +67,7 @@ static int ipa_nat_mmap(struct file *filp, struct vm_area_struct *vma)
 		IPADBG("map sz=0x%x\n", nat_ctx->size);
 		result =
 			dma_mmap_coherent(
-				 NULL, vma,
+				 ipa_ctx->pdev, vma,
 				 nat_ctx->vaddr, nat_ctx->dma_handle,
 				 nat_ctx->size);
 
@@ -141,8 +141,8 @@ int allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
 		IPADBG("Allocating system memory\n");
 		nat_ctx->is_sys_mem = true;
 		nat_ctx->vaddr =
-		   dma_alloc_coherent(NULL, mem->size, &nat_ctx->dma_handle,
-				       gfp_flags);
+		   dma_alloc_coherent(ipa_ctx->pdev, mem->size,
+				   &nat_ctx->dma_handle, gfp_flags);
 		if (nat_ctx->vaddr == NULL) {
 			IPAERR("memory alloc failed\n");
 			result = -ENOMEM;
@@ -204,7 +204,7 @@ vaddr_alloc_fail:
 	if (nat_ctx->vaddr) {
 		IPADBG("Releasing system memory\n");
 		dma_free_coherent(
-			 NULL, nat_ctx->size,
+			 ipa_ctx->pdev, nat_ctx->size,
 			 nat_ctx->vaddr, nat_ctx->dma_handle);
 		nat_ctx->vaddr = NULL;
 		nat_ctx->dma_handle = 0;
@@ -441,7 +441,7 @@ void ipa_nat_free_mem_and_device(struct ipa_nat_mem *nat_ctx)
 	if (nat_ctx->is_sys_mem) {
 		IPADBG("freeing the dma memory\n");
 		dma_free_coherent(
-			 NULL, nat_ctx->size,
+			 ipa_ctx->pdev, nat_ctx->size,
 			 nat_ctx->vaddr, nat_ctx->dma_handle);
 		nat_ctx->size = 0;
 		nat_ctx->vaddr = NULL;

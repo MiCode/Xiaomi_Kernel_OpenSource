@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,8 +32,8 @@ static int ipa_generate_hdr_hw_tbl(struct ipa_mem_buffer *mem)
 	}
 	IPADBG("tbl_sz=%d\n", ipa_ctx->hdr_tbl.end);
 
-	mem->base = dma_alloc_coherent(NULL, mem->size, &mem->phys_base,
-			GFP_KERNEL);
+	mem->base = dma_alloc_coherent(ipa_ctx->pdev, mem->size,
+			&mem->phys_base, GFP_KERNEL);
 	if (!mem->base) {
 		IPAERR("fail to alloc DMA buff of size %d\n", mem->size);
 		return -ENOMEM;
@@ -119,10 +119,11 @@ int __ipa_commit_hdr_v1(void)
 	}
 
 	if (ipa_ctx->hdr_tbl_lcl) {
-		dma_free_coherent(NULL, mem->size, mem->base, mem->phys_base);
+		dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base,
+				mem->phys_base);
 	} else {
 		if (ipa_ctx->hdr_mem.phys_base) {
-			dma_free_coherent(NULL, ipa_ctx->hdr_mem.size,
+			dma_free_coherent(ipa_ctx->pdev, ipa_ctx->hdr_mem.size,
 					  ipa_ctx->hdr_mem.base,
 					  ipa_ctx->hdr_mem.phys_base);
 		}
@@ -135,7 +136,8 @@ int __ipa_commit_hdr_v1(void)
 
 fail_send_cmd:
 	if (mem->base)
-		dma_free_coherent(NULL, mem->size, mem->base, mem->phys_base);
+		dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base,
+				mem->phys_base);
 fail_hw_tbl_gen:
 	kfree(cmd);
 fail_alloc_cmd:
@@ -195,10 +197,11 @@ int __ipa_commit_hdr_v2(void)
 		rc = 0;
 
 	if (ipa_ctx->hdr_tbl_lcl) {
-		dma_free_coherent(NULL, mem.size, mem.base, mem.phys_base);
+		dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base,
+				mem.phys_base);
 	} else {
 		if (!rc && ipa_ctx->hdr_mem.phys_base) {
-			dma_free_coherent(NULL, ipa_ctx->hdr_mem.size,
+			dma_free_coherent(ipa_ctx->pdev, ipa_ctx->hdr_mem.size,
 					  ipa_ctx->hdr_mem.base,
 					  ipa_ctx->hdr_mem.phys_base);
 			ipa_ctx->hdr_mem = mem;

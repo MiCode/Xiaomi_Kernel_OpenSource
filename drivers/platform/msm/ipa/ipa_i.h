@@ -707,6 +707,7 @@ struct ipa_context {
 	void *smem_pipe_mem;
 	u32 ipa_bus_hdl;
 	struct ipa_controller *ctrl;
+	struct device *pdev;
 
 	/* wlan related member */
 	spinlock_t wlan_spinlock;
