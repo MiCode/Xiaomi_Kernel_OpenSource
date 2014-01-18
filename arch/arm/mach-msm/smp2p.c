@@ -1656,7 +1656,7 @@ static void smp2p_in_edge_notify(int pid)
 static irqreturn_t smp2p_interrupt_handler(int irq, void *data)
 {
 	unsigned long flags;
-	uint32_t remote_pid = (uint32_t)data;
+	uint32_t remote_pid = (uint32_t)(uintptr_t)data;
 
 	if (remote_pid >= SMP2P_NUM_PROCS) {
 		SMP2P_ERR("%s: invalid interrupt pid %d\n",
@@ -1769,7 +1769,7 @@ fail:
  */
 void msm_smp2p_interrupt_handler(int remote_pid)
 {
-	smp2p_interrupt_handler(0, (void *)remote_pid);
+	smp2p_interrupt_handler(0, (void *)(uintptr_t)remote_pid);
 }
 
 /**
@@ -1822,7 +1822,7 @@ static int msm_smp2p_probe(struct platform_device *pdev)
 		goto missing_key;
 
 	ret = request_irq(irq_line, smp2p_interrupt_handler,
-			IRQF_TRIGGER_RISING, "smp2p", (void *)edge);
+			IRQF_TRIGGER_RISING, "smp2p", (void *)(uintptr_t)edge);
 	if (ret < 0) {
 		SMP2P_ERR("%s: request_irq() failed on %d (edge %d)\n",
 				__func__, irq_line, edge);
