@@ -29,11 +29,6 @@
 
 #define RXD_TH              0x100
 
-#define SGMII_125M_CLK_RATE	125000000
-#define SGMII_25M_CLK_RATE	25000000
-#define SGMII_TX_CLK_RATE	125000000
-#define SGMII_CXO_CLK_RATE	19200000
-
 static int emac_hw_sgmii_setup_link(struct emac_hw *hw, u32 speed,
 				    bool autoneg, bool fc);
 
@@ -256,29 +251,6 @@ int emac_hw_ack_phy_intr(struct emac_hw *hw)
 	return 0;
 }
 
-static int emac_hw_sgmii_setclk(struct emac_hw *hw, bool cxo)
-{
-	struct clk *clk;
-	int retval;
-
-	clk = hw->adpt->clk_info[EMAC_SGMII_125M_CLK].clk;
-	retval = clk_set_rate(clk,
-			      (cxo) ? SGMII_CXO_CLK_RATE : SGMII_125M_CLK_RATE);
-	if (retval)
-		return retval;
-
-	clk = hw->adpt->clk_info[EMAC_SGMII_SYS_25M_CLK].clk;
-	retval = clk_set_rate(clk,
-			      (cxo) ? SGMII_CXO_CLK_RATE : SGMII_25M_CLK_RATE);
-	if (retval)
-		return retval;
-
-	clk = hw->adpt->clk_info[EMAC_SGMII_TX_CLK].clk;
-	retval = clk_set_rate(clk,
-			      (cxo) ? SGMII_CXO_CLK_RATE : SGMII_TX_CLK_RATE);
-	return retval;
-}
-
 int emac_hw_init_sgmii(struct emac_hw *hw)
 {
 	int i;
@@ -393,17 +365,11 @@ int emac_hw_init_sgmii(struct emac_hw *hw)
 
 	emac_hw_clear_sgmii_intr_status(hw, SGMII_PHY_INTERRUPT_ERR);
 
-	return emac_hw_sgmii_setclk(hw, false);
+	return 0;
 }
 
 int emac_hw_reset_sgmii(struct emac_hw *hw)
 {
-	int retval;
-
-	retval = emac_hw_sgmii_setclk(hw, true);
-	if (retval)
-		return retval;
-
 	/* It may take about 100ms to reset the SGMII PHY*/
 	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR2,
 			  PHY_RESET, PHY_RESET);

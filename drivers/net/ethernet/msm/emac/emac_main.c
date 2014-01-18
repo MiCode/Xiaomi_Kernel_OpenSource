@@ -93,10 +93,40 @@ static struct emac_gpio_info emac_gpio[EMAC_NUM_GPIO] = {
 };
 
 static struct emac_clk_info emac_clk[EMAC_NUM_CLK] = {
-	{ 0, "125m_clk" },
-	{ 0, "25m_clk" },
-	{ 0, "tx_clk" },
+	{ NULL, "axi_clk", 0, NULL },
+	{ NULL, "cfg_ahb_clk", 0, NULL },
+	{ NULL, "125m_clk", 0, NULL },
+	{ NULL, "25m_clk", 0, NULL },
+	{ NULL, "tx_clk", 0, NULL },
+	{ NULL, "rx_clk", 0, NULL },
+	{ NULL, "sys_clk", 0, NULL },
 };
+
+static int emac_clk_prepare_enable(struct emac_clk_info *clk_info)
+{
+	int retval;
+
+	retval = clk_prepare_enable(clk_info->clk);
+	if (retval)
+		emac_err(clk_info->adpt, "can't enable clk %s\n",
+			 clk_info->name);
+	else
+		clk_info->enabled = true;
+
+	return retval;
+}
+
+static int emac_clk_set_rate(struct emac_clk_info *clk_info, unsigned long rate)
+{
+	int retval;
+
+	retval = clk_set_rate(clk_info->clk, rate);
+	if (retval)
+		emac_err(clk_info->adpt, "can't set rate for clk %s\n",
+			 clk_info->name);
+
+	return retval;
+}
 
 /* reinitialize */
 void emac_reinit_locked(struct emac_adapter *adpt)
@@ -112,8 +142,11 @@ void emac_reinit_locked(struct emac_adapter *adpt)
 	}
 
 	emac_down(adpt, EMAC_HW_CTRL_RESET_MAC);
-	if (adpt->phy_mode == PHY_INTERFACE_MODE_SGMII)
+	if (adpt->phy_mode == PHY_INTERFACE_MODE_SGMII) {
+		emac_clk_set_rate(&adpt->clk_info[EMAC_125M_CLK], 19200000);
 		emac_hw_reset_sgmii(&adpt->hw);
+		emac_clk_set_rate(&adpt->clk_info[EMAC_125M_CLK], 125000000);
+	}
 	emac_up(adpt);
 
 	CLI_ADPT_FLAG(STATE_RESETTING);
@@ -2127,9 +2160,6 @@ static void emac_init_adapter(struct emac_adapter *adpt)
 	/* others */
 	hw->preamble = EMAC_PREAMBLE_DEF;
 	adpt->wol = EMAC_WOL_MAGIC | EMAC_WOL_PHY;
-
-	/* phy */
-	emac_hw_init_phy(hw);
 }
 
 #ifdef CONFIG_PM_RUNTIME
@@ -2266,10 +2296,6 @@ static int emac_get_clk(struct platform_device *pdev,
 	int retval = 0;
 	u8 i;
 
-	/* currently all clocks are sgmii clocks */
-	if (adpt->phy_mode != PHY_INTERFACE_MODE_SGMII)
-		return 0;
-
 	for (i = 0; i < EMAC_NUM_CLK; i++) {
 		clk_info = &adpt->clk_info[i];
 		clk = clk_get(&pdev->dev, clk_info->name);
@@ -2288,15 +2314,74 @@ static int emac_get_clk(struct platform_device *pdev,
 	return retval;
 }
 
-static void emac_prepare_enable_clk(struct emac_adapter *adpt)
+/* Initialize clocks */
+static int emac_init_clks(struct emac_adapter *adpt)
+{
+	int retval;
+
+	retval = emac_clk_prepare_enable(&adpt->clk_info[EMAC_AXI_CLK]);
+	if (retval)
+		return retval;
+
+	retval = emac_clk_prepare_enable(&adpt->clk_info[EMAC_CFG_AHB_CLK]);
+	if (retval)
+		return retval;
+
+	retval = emac_clk_set_rate(&adpt->clk_info[EMAC_125M_CLK], 19200000);
+	if (retval)
+		return retval;
+
+	retval = emac_clk_prepare_enable(&adpt->clk_info[EMAC_125M_CLK]);
+
+	return retval;
+}
+
+/* Enable clocks; needs emac_init_clks to be called before */
+static int emac_enable_clks(struct emac_adapter *adpt)
+{
+	int retval;
+
+	retval = emac_clk_set_rate(&adpt->clk_info[EMAC_TX_CLK], 125000000);
+	if (retval)
+		return retval;
+
+	retval = emac_clk_prepare_enable(&adpt->clk_info[EMAC_TX_CLK]);
+	if (retval)
+		return retval;
+
+	retval = emac_clk_set_rate(&adpt->clk_info[EMAC_125M_CLK], 125000000);
+	if (retval)
+		return retval;
+
+	retval = emac_clk_set_rate(&adpt->clk_info[EMAC_SYS_25M_CLK], 25000000);
+	if (retval)
+		return retval;
+
+	retval = emac_clk_prepare_enable(&adpt->clk_info[EMAC_SYS_25M_CLK]);
+	if (retval)
+		return retval;
+
+	retval = emac_clk_prepare_enable(&adpt->clk_info[EMAC_RX_CLK]);
+	if (retval)
+		return retval;
+
+	retval = emac_clk_prepare_enable(&adpt->clk_info[EMAC_SYS_CLK]);
+
+	return retval;
+}
+
+/* Disable clocks */
+static void emac_disable_clks(struct emac_adapter *adpt)
 {
 	struct emac_clk_info *clk_info;
 	u8 i;
 
 	for (i = 0; i < EMAC_NUM_CLK; i++) {
 		clk_info = &adpt->clk_info[i];
-		if (clk_info->clk)
-			clk_prepare_enable(clk_info->clk);
+		if (clk_info->enabled) {
+			clk_disable_unprepare(clk_info->clk);
+			clk_info->enabled = false;
+		}
 	}
 }
 
@@ -2482,7 +2567,10 @@ static int emac_probe(struct platform_device *pdev)
 	dma_set_max_seg_size(&pdev->dev, 65536);
 	dma_set_seg_boundary(&pdev->dev, 0xffffffff);
 
-	memcpy(&adpt->clk_info, emac_clk, sizeof(emac_clk));
+	memcpy(adpt->clk_info, emac_clk, sizeof(emac_clk));
+	for (i = 0; i < EMAC_NUM_CLK; i++)
+		adpt->clk_info[i].adpt = adpt;
+
 	memcpy(adpt->gpio_info, emac_gpio, sizeof(adpt->gpio_info));
 	memcpy(adpt->irq_info, emac_irq, sizeof(adpt->irq_info));
 	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++) {
@@ -2498,7 +2586,10 @@ static int emac_probe(struct platform_device *pdev)
 	if (retval)
 		goto err_res;
 
-	emac_prepare_enable_clk(adpt);
+	/* initialize clocks */
+	retval = emac_init_clks(adpt);
+	if (retval)
+		goto err_clk_init;
 
 	hw_ver = emac_reg_r32(hw, EMAC, EMAC_CORE_HW_VERSION);
 
@@ -2525,6 +2616,14 @@ static int emac_probe(struct platform_device *pdev)
 
 	/* init adapter */
 	emac_init_adapter(adpt);
+
+	/* init phy */
+	emac_hw_init_phy(hw);
+
+	/* enable clocks */
+	retval = emac_enable_clks(adpt);
+	if (retval)
+		goto err_clk_en;
 
 	/* reset phy */
 	emac_hw_reset_phy(hw);
@@ -2586,6 +2685,9 @@ static int emac_probe(struct platform_device *pdev)
 
 err_register_netdev:
 err_phy_link:
+err_clk_en:
+err_clk_init:
+	emac_disable_clks(adpt);
 	emac_release_resources(adpt);
 err_res:
 	free_netdev(netdev);
@@ -2605,6 +2707,7 @@ static int emac_remove(struct platform_device *pdev)
 	if (CHK_HW_FLAG(PTP_CAP))
 		emac_ptp_remove(netdev);
 
+	emac_disable_clks(adpt);
 	emac_release_resources(adpt);
 	free_netdev(netdev);
 	dev_set_drvdata(&pdev->dev, NULL);
