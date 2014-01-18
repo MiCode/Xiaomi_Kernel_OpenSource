@@ -929,6 +929,8 @@ static int usb_bam_disconnect_ipa_prod(
 				  __func__);
 			return ret;
 		}
+
+		pipe_connect->enabled = false;
 	}
 	info[cur_bam].prod_pipes_enabled_per_bam -= 1;
 
@@ -977,6 +979,8 @@ static int usb_bam_disconnect_ipa_cons(
 					__func__);
 			return ret;
 		}
+
+		pipe_connect->enabled = false;
 	}
 
 	pipe_connect->ipa_clnt_hdl = -1;
