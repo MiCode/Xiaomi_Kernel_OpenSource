@@ -375,6 +375,35 @@
 		qcom,pmic-arb-channel = <0>;
 	};
 
+	qcom,vpu@fde0b000 {
+		compatible = "qcom,vpu";
+		reg = <0xfde0b000 0x1000>,
+			<0x0f800000 0x200000>;
+		reg-names = "vpu_csr", "vpu_smem";
+		interrupts = <0 299 0>, <0 298 0>;
+		interrupt-names = "vpu_wdog", "vpu_hfi";
+		qcom,clock-names = "vdp_bus_clk", "core_clk", "vdp_clk",
+			"iface_clk", "bus_clk", "sleep_clk", "cxo_clk",
+			"maple_bus_clk", "prng_clk", "vdp_xin_clk";
+		qcom,maple-clk-load-freq-tbl = <100000 50000000>,
+			<500000 533000000>;
+		qcom,vdp-clk-load-freq-tbl = <100000 50000000>,
+			<500000 425000000>;
+		qcom,vdp-xin-clk-load-freq-tbl = <500000 467000000>;
+		qcom,bus-clk-load-freq-tbl = <100000 40000000>,
+			<200000 80000000>;
+		qcom,bus-load-vector-tbl = <0 0 0>,
+			<36000  208000  303000>,
+			<110400 536000  303000>,
+			<244800 1012000 303000>,
+			<489000 2024000 606000>,
+			<783360 3240000 970000>,
+			<979200 4048000 1212000>,
+			<9792000 4264000 12790000>;
+		qcom,enabled-iommu-maps = "vpu_nonsecure", "vpu_secure";
+		vdd-supply = <&gdsc_vpu>;
+	};
+
 	sdcc1: qcom,sdcc@f9824000 {
 		cell-index = <1>; /* SDC1 eMMC slot */
 		compatible = "qcom,msm-sdcc";
