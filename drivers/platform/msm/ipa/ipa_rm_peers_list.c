@@ -29,6 +29,7 @@ static int ipa_rm_peers_list_get_resource_index(
 		enum ipa_rm_resource_name resource_name)
 {
 	int resource_index = IPA_RM_INDEX_INVALID;
+
 	if (IPA_RM_RESORCE_IS_PROD(resource_name))
 		resource_index = ipa_rm_prod_index(resource_name);
 	else if (IPA_RM_RESORCE_IS_CONS(resource_name)) {
@@ -59,6 +60,7 @@ int ipa_rm_peers_list_create(int max_peers,
 		struct ipa_rm_peers_list **peers_list)
 {
 	int result;
+
 	*peers_list = kzalloc(sizeof(**peers_list), GFP_KERNEL);
 	if (!*peers_list) {
 		IPA_RM_ERR("no mem\n");
@@ -74,6 +76,7 @@ int ipa_rm_peers_list_create(int max_peers,
 		result = -ENOMEM;
 		goto list_alloc_fail;
 	}
+
 	return 0;
 
 list_alloc_fail:
@@ -146,6 +149,7 @@ void ipa_rm_peers_list_add_peer(
 bool ipa_rm_peers_list_is_empty(struct ipa_rm_peers_list *peers_list)
 {
 	bool result = true;
+
 	if (!peers_list)
 		goto bail;
 
@@ -167,6 +171,7 @@ bool ipa_rm_peers_list_has_last_peer(
 		struct ipa_rm_peers_list *peers_list)
 {
 	bool result = false;
+
 	if (!peers_list)
 		goto bail;
 
@@ -194,6 +199,7 @@ bool ipa_rm_peers_list_check_dependency(
 		enum ipa_rm_resource_name depends_on_name)
 {
 	bool result = false;
+
 	if (!resource_peers || !depends_on_peers)
 		return result;
 
@@ -220,6 +226,7 @@ struct ipa_rm_resource *ipa_rm_peers_list_get_resource(int resource_index,
 		struct ipa_rm_peers_list *resource_peers)
 {
 	struct ipa_rm_resource *result = NULL;
+
 	if (!ipa_rm_peers_list_check_index(resource_index, resource_peers))
 		goto bail;
 
