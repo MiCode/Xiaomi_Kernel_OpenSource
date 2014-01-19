@@ -445,28 +445,47 @@ static void msm_summary_irq_handler(struct smp2p_chip_dev *chip,
 static void smp2p_add_irq_domain(struct smp2p_chip_dev *chip,
 	struct device_node *node)
 {
-	int i;
+	int ret;
+	int irq_base;
 
 	/* map GPIO pins to interrupts */
-	chip->irq_domain = irq_domain_add_nomap(node, 0,
+	chip->irq_domain = irq_domain_add_linear(node, 0,
 			&smp2p_irq_domain_ops, chip);
 	if (!chip->irq_domain) {
 		SMP2P_ERR("%s: unable to create interrupt domain '%s':%d\n",
 				__func__, chip->name, chip->remote_pid);
-		return;
+		goto domain_fail;
 	}
 
-	for (i = 0; i < SMP2P_BITS_PER_ENTRY; ++i) {
-		unsigned int virt_irq;
-
-		virt_irq = irq_create_direct_mapping(chip->irq_domain);
-		if (virt_irq == NO_IRQ) {
-			SMP2P_ERR("%s: gpio->virt IRQ mapping failed '%s':%d\n",
-					__func__, chip->name, chip->remote_pid);
-		} else if (!chip->irq_base) {
-			chip->irq_base = virt_irq;
-		}
+	/* alloc a contiguous set of virt irqs from anywhere in the irq space */
+	irq_base = irq_alloc_descs_from(0, SMP2P_BITS_PER_ENTRY,
+				of_node_to_nid(chip->irq_domain->of_node));
+	if (irq_base < 0) {
+		SMP2P_ERR("alloc virt irqs failed:%d name:%s pid%d\n", irq_base,
+						chip->name, chip->remote_pid);
+		goto irq_alloc_fail;
 	}
+
+	/* map the allocated irqs to gpios */
+	ret = irq_domain_associate_many(chip->irq_domain, irq_base, 0,
+							SMP2P_BITS_PER_ENTRY);
+	if (ret < 0) {
+		SMP2P_ERR("map virt irqs failed:%d name:%s pid:%d\n", ret,
+						chip->name, chip->remote_pid);
+		goto irq_map_fail;
+	}
+
+	chip->irq_base = irq_base;
+	SMP2P_DBG("create mapping:%d naem:%s pid:%d\n", chip->irq_base,
+						chip->name, chip->remote_pid);
+	return;
+
+irq_map_fail:
+	irq_free_descs(irq_base, SMP2P_BITS_PER_ENTRY);
+irq_alloc_fail:
+	irq_domain_remove(chip->irq_domain);
+domain_fail:
+	return;
 }
 
 /**
