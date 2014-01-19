@@ -24,6 +24,7 @@
 
 #define KGSL_CONTEXT_NO_FAULT_TOLERANCE 0x00000200
 #define KGSL_CONTEXT_SYNC               0x00000400
+#define KGSL_CONTEXT_PWR_CONSTRAINT     0x00000800
 /* bits [12:15] are reserved for future use */
 #define KGSL_CONTEXT_PRIORITY_MASK      0x0000F000
 #define KGSL_CONTEXT_PRIORITY_SHIFT     12
@@ -201,6 +202,7 @@ enum kgsl_property_type {
 	KGSL_PROP_VERSION         = 0x00000008,
 	KGSL_PROP_GPU_RESET_STAT  = 0x00000009,
 	KGSL_PROP_PWRCTRL         = 0x0000000E,
+	KGSL_PROP_PWR_CONSTRAINT  = 0x00000012,
 };
 
 struct kgsl_shadowprop {
@@ -899,4 +901,31 @@ struct kgsl_submit_commands {
 #define IOCTL_KGSL_SUBMIT_COMMANDS \
 	_IOWR(KGSL_IOC_TYPE, 0x3D, struct kgsl_submit_commands)
 
+/**
+ * struct kgsl_device_constraint - device constraint argument
+ * @context_id: KGSL context ID
+ * @type: type of constraint i.e pwrlevel/none
+ * @data: constraint data
+ * @size: size of the constraint data
+ */
+struct kgsl_device_constraint {
+	unsigned int type;
+	unsigned int context_id;
+	void __user *data;
+	size_t size;
+};
+
+/* Constraint Type*/
+#define KGSL_CONSTRAINT_NONE 0
+#define KGSL_CONSTRAINT_PWRLEVEL 1
+
+/* PWRLEVEL constraint level*/
+/* set to min frequency */
+#define KGSL_CONSTRAINT_PWR_MIN    0
+/* set to max frequency */
+#define KGSL_CONSTRAINT_PWR_MAX    1
+
+struct kgsl_device_constraint_pwrlevel {
+	unsigned int level;
+};
 #endif /* _UAPI_MSM_KGSL_H */
