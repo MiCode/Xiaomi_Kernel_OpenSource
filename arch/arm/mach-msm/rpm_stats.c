@@ -26,7 +26,6 @@
 #include <linux/of.h>
 #include <asm/uaccess.h>
 #include <asm/arch_timer.h>
-#include <mach/msm_iomap.h>
 #include "rpm_stats.h"
 
 

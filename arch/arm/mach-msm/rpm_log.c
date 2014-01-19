@@ -26,8 +26,6 @@
 
 #include <asm/uaccess.h>
 
-#include <mach/msm_iomap.h>
-
 #include "rpm_log.h"
 
 /* registers in MSM_RPM_LOG_PAGE_INDICES */
