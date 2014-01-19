@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -132,13 +132,6 @@ struct us_xx_info_type {
 	uint8_t *params_data;
 };
 
-/* Input events sources */
-enum us_input_event_src_type {
-	US_INPUT_SRC_PEN,
-	US_INPUT_SRC_FINGER,
-	US_INPUT_SRC_UNDEF
-};
-
 struct us_input_info_type {
 	/* Touch screen dimensions: min & max;for input module */
 	int tsc_x_dim[MIN_MAX_DIM];
@@ -149,12 +142,10 @@ struct us_input_info_type {
 	int tsc_y_tilt[MIN_MAX_DIM];
 	/* Touch screen pressure limits: min & max; for input module */
 	int tsc_pressure[MIN_MAX_DIM];
-	/* The requested side buttons bitmap */
-	uint16_t req_side_buttons_bitmap;
+	/* The requested buttons bitmap */
+	uint16_t req_buttons_bitmap;
 	/* Bitmap of types of events (USF_X_EVENT), produced by calculator */
 	uint16_t event_types;
-	/* Input event source */
-	enum us_input_event_src_type event_src;
 	/* Bitmap of types of events from devs, conflicting with USF */
 	uint16_t conflicting_event_types;
 };
@@ -179,8 +170,8 @@ struct point_event_type {
 	int inclinations[TILTS_DIM];
 /* [0-1023] (10bits); 0 - pen up */
 	uint32_t pressure;
-/* Bitmap for side button state. 1 - down, 0 - up */
-	uint16_t side_buttons_state_bitmap;
+/* Bitmap for button state. 1 - down, 0 - up */
+	uint16_t buttons_state_bitmap;
 };
 
 /* Mouse buttons, supported by USF */
