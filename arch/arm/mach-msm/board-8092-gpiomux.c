@@ -47,6 +47,16 @@ static struct gpiomux_setting spkr_mi2s_mclk_sus_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
+static struct gpiomux_setting spdif_opt_act_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting spdif_opt_sus_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	{
 		.gpio      = 6,		/* BLSP1 QUP2 I2C_SDA */
@@ -130,6 +140,22 @@ static struct msm_gpiomux_config mpq8092_spkr_mi2s_mclk_configs[] __initdata = {
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &spkr_mi2s_mclk_sus_cfg,
 			[GPIOMUX_ACTIVE] = &spkr_mi2s_mclk_act_cfg,
+		}
+	}
+};
+static struct msm_gpiomux_config mpq8092_spdif_config[] __initdata = {
+	{
+		.gpio = 41,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &spdif_opt_sus_cfg,
+			[GPIOMUX_ACTIVE] = &spdif_opt_act_cfg,
+		},
+	},
+	{
+		.gpio = 46,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &spdif_opt_sus_cfg,
+			[GPIOMUX_ACTIVE] = &spdif_opt_act_cfg,
 		},
 	},
 };
@@ -150,4 +176,6 @@ void __init mpq8092_init_gpiomux(void)
 			ARRAY_SIZE(mpq8092_slimbus_config));
 	msm_gpiomux_install(mpq8092_spkr_mi2s_mclk_configs,
 			ARRAY_SIZE(mpq8092_spkr_mi2s_mclk_configs));
+	msm_gpiomux_install(mpq8092_spdif_config,
+			ARRAY_SIZE(mpq8092_spdif_config));
 }
