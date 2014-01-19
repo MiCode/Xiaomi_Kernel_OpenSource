@@ -766,6 +766,10 @@
 		compatible = "qcom,msm-compr-dsp";
 	};
 
+	qcom,msm-compress-dsp {
+		compatible = "qcom,msm-compress-dsp";
+	};
+
 	qcom,msm-pcm-afe {
 		compatible = "qcom,msm-pcm-afe";
 	};
