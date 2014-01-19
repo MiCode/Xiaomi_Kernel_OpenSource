@@ -22,6 +22,7 @@ Optional properties:
  - interrupt-parent	: parent of interrupt.
  - interrupts		: sensor signal interrupt to indicate new data ready or
 				 a motion is detected.
+ - fsl,use-interrupt	: to enable interrupt mode.
  - fsl,irq-gpio	: First irq gpio which is to provide interrupts to host, same
 				 as "interrupts" node. It will also contain active low or active
 				 high information.
@@ -36,4 +37,5 @@ Example:
 		vio-supply = <&pm8110_l14>;
 		fsl,sensors-position = <5>;
 		fsl,irq-gpio = <&msmgpio 0x81 0x02>;
+		fsl,use-interrupt;
 	};
