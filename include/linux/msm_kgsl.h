@@ -79,6 +79,7 @@ struct kgsl_pwrlevel {
  * @csdev:		Pointer to the coresight device for this device
  * @coresight_pdata:	Coresight configuration for specific device
  * @chipid:		Chip ID for the device's GPU
+ * @pm_qos_latency:		latency value for cpu
  */
 struct kgsl_device_platform_data {
 	struct kgsl_pwrlevel pwrlevel[KGSL_MAX_PWRLEVELS];
@@ -95,6 +96,7 @@ struct kgsl_device_platform_data {
 	struct coresight_device *csdev;
 	struct coresight_platform_data *coresight_pdata;
 	unsigned int chipid;
+	unsigned int pm_qos_latency;
 };
 
 #ifdef CONFIG_MSM_KGSL_DRM
