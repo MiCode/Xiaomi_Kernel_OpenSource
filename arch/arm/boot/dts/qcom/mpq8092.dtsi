@@ -748,7 +748,10 @@
 
 		qcom,cdc-mclk-gpios = <&msmgpio 42 0>;
 		qcom,tabla-mclk-clk-freq = <12288000>;
+		qcom,spdif-opt-gpio = <&msmgpio 46 0>;
+		qcom,spdif-elec-gpio = <&msmgpio 41 0>;
 		qcom,hdmi-audio-rx;
+		qcom,spdif-audio-rx;
 	};
 
 	qcom,msm-pcm-low-latency {
@@ -789,6 +792,10 @@
 	qcom,msm-dai-q6-hdmi {
 		compatible = "qcom,msm-dai-q6-hdmi";
 		qcom,msm-dai-q6-dev-id = <8>;
+	};
+
+	qcom,msm-dai-q6-spdif {
+		compatible = "qcom,msm-dai-q6-spdif";
 	};
 
 	qcom,msm-dai-q6 {
