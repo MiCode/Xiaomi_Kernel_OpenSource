@@ -47,12 +47,14 @@
 #define VFE40_PING_PONG_BASE(wm, ping_pong) \
 	(VFE40_WM_BASE(wm) + 0x4 * (1 + (~(ping_pong >> wm) & 0x1)))
 
+static uint8_t stats_pingpong_offset_map[] = {
+	8, 9, 10, 11, 12, 13, 14, 15};
+
 #define VFE40_NUM_STATS_TYPE 8
-#define VFE40_STATS_PING_PONG_OFFSET 8
 #define VFE40_STATS_BASE(idx) (0x168 + 0x18 * idx)
 #define VFE40_STATS_PING_PONG_BASE(idx, ping_pong) \
 	(VFE40_STATS_BASE(idx) + 0x4 * \
-	(~(ping_pong >> (idx + VFE40_STATS_PING_PONG_OFFSET)) & 0x1))
+	(~(ping_pong >> (stats_pingpong_offset_map[idx])) & 0x1))
 
 #define VFE40_VBIF_CLKON                    0x4
 #define VFE40_VBIF_IN_RD_LIM_CONF0          0xB0
@@ -1397,7 +1399,7 @@ static struct msm_vfe_stats_hardware_info msm_vfe40_stats_hw_info = {
 		1 << MSM_ISP_STATS_BG | 1 << MSM_ISP_STATS_BHIST |
 		1 << MSM_ISP_STATS_AWB | 1 << MSM_ISP_STATS_IHIST |
 		1 << MSM_ISP_STATS_RS | 1 << MSM_ISP_STATS_CS,
-	.stats_ping_pong_offset = VFE40_STATS_PING_PONG_OFFSET,
+	.stats_ping_pong_offset = stats_pingpong_offset_map,
 	.num_stats_type = VFE40_NUM_STATS_TYPE,
 	.num_stats_comp_mask = 2,
 };

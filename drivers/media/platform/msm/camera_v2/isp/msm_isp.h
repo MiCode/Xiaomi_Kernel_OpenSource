@@ -340,7 +340,7 @@ struct msm_vfe_axi_shared_data {
 
 struct msm_vfe_stats_hardware_info {
 	uint32_t stats_capability_mask;
-	uint32_t stats_ping_pong_offset;
+	uint8_t *stats_ping_pong_offset;
 	uint8_t num_stats_type;
 	uint8_t num_stats_comp_mask;
 };
