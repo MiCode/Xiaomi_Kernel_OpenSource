@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,8 +52,7 @@ struct rmnet_map_flow_mapping_s {
 };
 
 struct rmnet_vnd_private_s {
-	uint8_t qos_mode:1;
-	uint8_t reserved:7;
+	uint32_t qos_version;
 	struct rmnet_logical_ep_conf_s local_ep;
 
 	rwlock_t flow_map_lock;
@@ -75,15 +74,28 @@ struct rmnet_vnd_private_s {
  * headroom.
  */
 static void rmnet_vnd_add_qos_header(struct sk_buff *skb,
-				     struct net_device *dev)
+				     struct net_device *dev,
+				     uint32_t qos_version)
 {
 	struct QMI_QOS_HDR_S *qmih;
+	struct qmi_qos_hdr8_s *qmi8h;
 
-	qmih = (struct QMI_QOS_HDR_S *)
-		skb_push(skb, sizeof(struct QMI_QOS_HDR_S));
-	qmih->version = 1;
-	qmih->flags = 0;
-	qmih->flow_id = skb->mark;
+	if (qos_version & RMNET_IOCTL_QOS_MODE_6) {
+		qmih = (struct QMI_QOS_HDR_S *)
+			skb_push(skb, sizeof(struct QMI_QOS_HDR_S));
+		qmih->version = 1;
+		qmih->flags = 0;
+		qmih->flow_id = skb->mark;
+	} else if (qos_version & RMNET_IOCTL_QOS_MODE_8) {
+		qmi8h = (struct qmi_qos_hdr8_s *)
+			skb_push(skb, sizeof(struct qmi_qos_hdr8_s));
+		/* Flags are 0 always */
+		qmi8h->version_flags =  0;
+		memset(qmi8h->reserved, 0, sizeof(qmi8h->reserved));
+		qmi8h->flow_id = skb->mark;
+	} else {
+		LOGD("%s(): Bad QoS version configured\n", __func__);
+	}
 }
 
 /* ***************** RX/TX Fixup ******************************************** */
@@ -157,8 +169,10 @@ static netdev_tx_t rmnet_vnd_start_xmit(struct sk_buff *skb,
 	dev_conf = (struct rmnet_vnd_private_s *) netdev_priv(dev);
 	if (dev_conf->local_ep.egress_dev) {
 		/* QoS header should come after MAP header */
-		if (dev_conf->qos_mode)
-			rmnet_vnd_add_qos_header(skb, dev);
+		if (dev_conf->qos_version)
+			rmnet_vnd_add_qos_header(skb,
+						 dev,
+						 dev_conf->qos_version);
 		rmnet_egress_handler(skb, &dev_conf->local_ep);
 	} else {
 		dev->stats.tx_dropped++;
@@ -204,13 +218,21 @@ static int _rmnet_vnd_do_qos_ioctl(struct net_device *dev,
 	case RMNET_IOCTL_SET_QOS_ENABLE:
 		LOGM("%s(): RMNET_IOCTL_SET_QOS_ENABLE on %s\n",
 		     __func__, dev->name);
-		dev_conf->qos_mode = 1;
+		if (!dev_conf->qos_version)
+			dev_conf->qos_version = RMNET_IOCTL_QOS_MODE_6;
 		break;
 
 	case RMNET_IOCTL_SET_QOS_DISABLE:
 		LOGM("%s(): RMNET_IOCTL_SET_QOS_DISABLE on %s\n",
 		     __func__, dev->name);
-		dev_conf->qos_mode = 0;
+		dev_conf->qos_version = 0;
+		break;
+
+	case RMNET_IOCTL_GET_QOS:           /* Get QoS header state    */
+		LOGM("%s(): RMNET_IOCTL_GET_QOS on %s\n",
+		     __func__, dev->name);
+		ifr->ifr_ifru.ifru_data =
+		      (void *)(dev_conf->qos_version == RMNET_IOCTL_QOS_MODE_6);
 		break;
 
 	case RMNET_IOCTL_FLOW_ENABLE:
@@ -225,12 +247,7 @@ static int _rmnet_vnd_do_qos_ioctl(struct net_device *dev,
 		tc_qdisc_flow_control(dev, (u32)ifr->ifr_data, 0);
 		break;
 
-	case RMNET_IOCTL_GET_QOS:           /* Get QoS header state    */
-		LOGM("%s(): RMNET_IOCTL_GET_QOS on %s\n",
-		     __func__, dev->name);
-		ifr->ifr_ifru.ifru_data =
-			(void *)(dev_conf->qos_mode == 1);
-		break;
+
 
 	default:
 		rc = -EINVAL;
@@ -298,6 +315,66 @@ static inline int _rmnet_vnd_do_flow_control(struct net_device *dev,
 }
 #endif /* CONFIG_RMNET_DATA_FC */
 
+static int rmnet_vnd_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
+{
+	struct rmnet_vnd_private_s *dev_conf;
+	struct rmnet_ioctl_extended_s ext_cmd;
+	int rc = 0;
+	dev_conf = (struct rmnet_vnd_private_s *) netdev_priv(dev);
+
+	rc = copy_from_user(&ext_cmd, ifr->ifr_ifru.ifru_data,
+			    sizeof(struct rmnet_ioctl_extended_s));
+	if (rc) {
+		LOGM("%s(): copy_from_user() failed\n", __func__);
+		return rc;
+	}
+
+	switch (ext_cmd.extended_ioctl) {
+	case RMNET_IOCTL_GET_SUPPORTED_FEATURES:
+		ext_cmd.u.data = 0;
+		break;
+
+	case RMNET_IOCTL_GET_DRIVER_NAME:
+		strlcpy(ext_cmd.u.if_name, "rmnet_data",
+			sizeof(ext_cmd.u.if_name));
+		break;
+
+	case RMNET_IOCTL_GET_SUPPORTED_QOS_MODES:
+		ext_cmd.u.data = RMNET_IOCTL_QOS_MODE_6
+				 | RMNET_IOCTL_QOS_MODE_8;
+		break;
+
+	case RMNET_IOCTL_GET_QOS_VERSION:
+		ext_cmd.u.data = dev_conf->qos_version;
+		break;
+
+	case RMNET_IOCTL_SET_QOS_VERSION:
+		if (ext_cmd.u.data == RMNET_IOCTL_QOS_MODE_6
+		    || ext_cmd.u.data == RMNET_IOCTL_QOS_MODE_8
+		    ||  ext_cmd.u.data == 0) {
+			dev_conf->qos_version = ext_cmd.u.data;
+		} else {
+			rc = -EINVAL;
+			goto done;
+		}
+		break;
+
+	default:
+		rc = -EINVAL;
+		goto done;
+		break;
+	}
+
+	rc = copy_to_user(ifr->ifr_ifru.ifru_data, &ext_cmd,
+			  sizeof(struct rmnet_ioctl_extended_s));
+	if (rc)
+		LOGM("%s(): copy_to_user() failed\n", __func__);
+
+done:
+	return rc;
+}
+
+
 /**
  * rmnet_vnd_ioctl() - IOCTL NDO callback
  * @dev:         Virtual network device
@@ -350,6 +427,10 @@ static int rmnet_vnd_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		LOGM("%s(): RMNET_IOCTL_GET_LLP on %s\n",
 		     __func__, dev->name);
 		ifr->ifr_ifru.ifru_data = (void *)(RMNET_MODE_LLP_IP);
+		break;
+
+	case RMNET_IOCTL_EXTENDED:
+		rc = rmnet_vnd_ioctl_extended(dev, ifr);
 		break;
 
 	default:
@@ -461,7 +542,7 @@ int rmnet_vnd_create_dev(int id, struct net_device **new_device,
 	char dev_prefix[IFNAMSIZ];
 	int p, rc = 0;
 
-	if (id < 0 || id > RMNET_DATA_MAX_VND || rmnet_devices[id] != 0) {
+	if (id < 0 || id >= RMNET_DATA_MAX_VND || rmnet_devices[id] != 0) {
 		*new_device = 0;
 		return -EINVAL;
 	}
