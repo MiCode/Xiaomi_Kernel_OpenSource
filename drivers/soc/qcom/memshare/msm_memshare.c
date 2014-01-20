@@ -33,6 +33,7 @@ static struct mem_blocks memblock;
 struct mutex mem_share;
 struct mutex mem_free;
 static uint32_t size;
+static struct work_struct memshare_init_work;
 
 static struct msg_desc mem_share_svc_alloc_req_desc = {
 	.max_msg_len = MEM_ALLOC_REQ_MAX_MSG_LEN_V01,
@@ -267,21 +268,21 @@ int memshare_alloc(unsigned int block_size,
 	return 0;
 }
 
-static int __init memshare_init(void)
+static void memshare_init_worker(struct work_struct *work)
 {
 	int rc;
 
 	mem_share_svc_workqueue =
 		create_singlethread_workqueue("mem_share_svc");
 	if (!mem_share_svc_workqueue)
-		return -ENOMEM;
+		return;
 
 	mem_share_svc_handle = qmi_handle_create(qmi_mem_share_svc_ntfy, NULL);
 	if (!mem_share_svc_handle) {
 		pr_err("%s: Creating mem_share_svc qmi handle failed\n",
 			__func__);
 		destroy_workqueue(mem_share_svc_workqueue);
-		return -ENOMEM;
+		return;
 	}
 	rc = qmi_svc_register(mem_share_svc_handle, &mem_share_svc_ops_options);
 	if (rc < 0) {
@@ -289,13 +290,18 @@ static int __init memshare_init(void)
 			__func__, rc);
 		qmi_handle_destroy(mem_share_svc_handle);
 		destroy_workqueue(mem_share_svc_workqueue);
-		return rc;
+		return;
 	}
 	mutex_init(&connection);
 	mutex_init(&mem_share);
 	mutex_init(&mem_free);
 	pr_info("memshare: memshare_init successful\n");
+}
 
+static int __init memshare_init(void)
+{
+	INIT_WORK(&memshare_init_work, memshare_init_worker);
+	schedule_work(&memshare_init_work);
 	return 0;
 }
 
