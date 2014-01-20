@@ -38,6 +38,7 @@
 #define COMPATIBLE_NAME "qcom,hdmi-tx"
 
 #define DEFAULT_VIDEO_RESOLUTION HDMI_VFRMT_640x480p60_4_3
+#define DEFAULT_HDMI_PRIMARY_RESOLUTION HDMI_VFRMT_1920x1080p60_16_9
 
 /* HDMI PHY/PLL bit field macros */
 #define SW_RESET BIT(2)
@@ -3182,7 +3183,12 @@ static int hdmi_tx_register_panel(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	hdmi_ctrl->panel_data.event_handler = hdmi_tx_panel_event_handler;
 
-	hdmi_ctrl->video_resolution = DEFAULT_VIDEO_RESOLUTION;
+	/* Default 1080p resolution for hdmi primary display */
+	if (hdmi_ctrl->pdata.primary)
+		hdmi_ctrl->video_resolution = DEFAULT_HDMI_PRIMARY_RESOLUTION;
+	else
+		hdmi_ctrl->video_resolution = DEFAULT_VIDEO_RESOLUTION;
+
 	rc = hdmi_tx_init_panel_info(hdmi_ctrl->video_resolution,
 		&hdmi_ctrl->panel_data.panel_info);
 	if (rc) {
