@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1104,9 +1104,10 @@ static void msm_vfe40_cfg_axi_ub(struct vfe_device *vfe_dev)
 
 static void msm_vfe40_update_ping_pong_addr(
 	struct vfe_device *vfe_dev,
-	uint8_t wm_idx, uint32_t pingpong_status, unsigned long paddr)
+	uint8_t wm_idx, uint32_t pingpong_status, dma_addr_t paddr)
 {
-	msm_camera_io_w(paddr, vfe_dev->vfe_base +
+	uint32_t paddr32 = (paddr & 0xFFFFFFFF);
+	msm_camera_io_w(paddr32, vfe_dev->vfe_base +
 		VFE40_PING_PONG_BASE(wm_idx, pingpong_status));
 }
 
@@ -1300,10 +1301,11 @@ static void msm_vfe40_stats_enable_module(struct vfe_device *vfe_dev,
 
 static void msm_vfe40_stats_update_ping_pong_addr(
 	struct vfe_device *vfe_dev, struct msm_vfe_stats_stream *stream_info,
-	uint32_t pingpong_status, unsigned long paddr)
+	uint32_t pingpong_status, dma_addr_t paddr)
 {
+	uint32_t paddr32 = (paddr & 0xFFFFFFFF);
 	int stats_idx = STATS_IDX(stream_info->stream_handle);
-	msm_camera_io_w(paddr, vfe_dev->vfe_base +
+	msm_camera_io_w(paddr32, vfe_dev->vfe_base +
 		VFE40_STATS_PING_PONG_BASE(stats_idx, pingpong_status));
 }
 

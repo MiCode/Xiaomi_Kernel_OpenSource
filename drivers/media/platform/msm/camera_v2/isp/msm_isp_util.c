@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -680,7 +680,7 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 		int rc = 0;
 
 		if (cmd_len < sizeof(unsigned long)) {
-			pr_err("%s:%d failed: invalid cmd len %d exp %d\n",
+			pr_err("%s:%d failed: invalid cmd len %u exp %zu\n",
 				__func__, __LINE__, cmd_len,
 				sizeof(unsigned long));
 			return -EINVAL;
@@ -779,7 +779,7 @@ int msm_isp_proc_cmd_list(struct vfe_device *vfe_dev, void *arg)
 
 	while (cmd.next) {
 		if (cmd.next_size != sizeof(struct msm_vfe_cfg_cmd_list)) {
-			pr_err("%s:%d failed: next size %d != expected %d\n",
+			pr_err("%s:%d failed: next size %u != expected %zu\n",
 				__func__, __LINE__, cmd.next_size,
 				sizeof(struct msm_vfe_cfg_cmd_list));
 			break;

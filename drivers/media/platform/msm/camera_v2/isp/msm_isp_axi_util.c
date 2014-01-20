@@ -435,7 +435,7 @@ void msm_isp_sof_notify(struct vfe_device *vfe_dev,
 	struct msm_isp_event_data sof_event;
 	switch (frame_src) {
 	case VFE_PIX_0:
-		ISP_DBG("%s: PIX0 frame id: %lu\n", __func__,
+		ISP_DBG("%s: PIX0 frame id: %u\n", __func__,
 			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id++;
 		if (vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id == 0)
@@ -444,7 +444,7 @@ void msm_isp_sof_notify(struct vfe_device *vfe_dev,
 	case VFE_RAW_0:
 	case VFE_RAW_1:
 	case VFE_RAW_2:
-		ISP_DBG("%s: RDI%d frame id: %lu\n",
+		ISP_DBG("%s: RDI%d frame id: %u\n",
 			__func__, frame_src - VFE_RAW_0,
 			vfe_dev->axi_data.src_info[frame_src].frame_id);
 		vfe_dev->axi_data.src_info[frame_src].frame_id++;
