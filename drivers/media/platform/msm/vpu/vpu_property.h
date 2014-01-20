@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -299,6 +299,7 @@ struct vpu_frame_info {
 #define	OUTPUT_DEST_MDSS0	2
 #define	OUTPUT_DEST_MDSS1	3
 #define	OUTPUT_DEST_MDSS2	4
+#define	OUTPUT_DEST_MDSS3	5
 
 enum vpu_video_format {
 	/* outcoming video stream is in 2D format */
