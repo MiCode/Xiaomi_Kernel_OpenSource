@@ -678,6 +678,9 @@ static int __i915_drm_thaw(struct drm_device *dev, bool restore_gtt_mappings)
 	mutex_unlock(&dev_priv->modeset_restore_lock);
 
 	intel_runtime_pm_put(dev_priv);
+
+	sysfs_notify(&dev->primary->kdev->kobj, NULL, "thaw");
+
 	return 0;
 }
 

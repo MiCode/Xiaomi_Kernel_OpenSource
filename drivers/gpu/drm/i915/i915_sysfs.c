@@ -548,6 +548,13 @@ static ssize_t gt_rp_mhz_show(struct device *kdev, struct device_attribute *attr
 	return snprintf(buf, PAGE_SIZE, "%d\n", val);
 }
 
+static ssize_t thaw_show(struct device *kdev, struct device_attribute *attr,
+			 char *buf)
+{
+	return 0;
+}
+static DEVICE_ATTR(thaw, S_IRUGO, thaw_show, NULL);
+
 static const struct attribute *gen6_attrs[] = {
 	&dev_attr_gt_cur_freq_mhz.attr,
 	&dev_attr_gt_max_freq_mhz.attr,
@@ -555,6 +562,7 @@ static const struct attribute *gen6_attrs[] = {
 	&dev_attr_gt_RP0_freq_mhz.attr,
 	&dev_attr_gt_RP1_freq_mhz.attr,
 	&dev_attr_gt_RPn_freq_mhz.attr,
+	&dev_attr_thaw.attr,
 	NULL,
 };
 
