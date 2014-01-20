@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2011-2013 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2014 The Linux Foundation. All rights reserved.
  *
  * This file is based on include/net/bluetooth/hci_core.h
  *
@@ -38,7 +38,7 @@ const unsigned char MAX_TX_TONE_VAL = 0x07;
 const unsigned char MIN_HARD_MUTE_VAL = 0x00;
 const unsigned char MAX_HARD_MUTE_VAL = 0x03;
 const unsigned char MIN_SRCH_MODE = 0x00;
-const unsigned char MAX_SRCH_MODE = 0x01;
+const unsigned char MAX_SRCH_MODE = 0x09;
 const unsigned char MIN_SCAN_DWELL = 0x00;
 const unsigned char MAX_SCAN_DWELL = 0x0F;
 const unsigned char MIN_SIG_TH = 0x00;
