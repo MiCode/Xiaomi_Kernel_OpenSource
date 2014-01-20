@@ -46,6 +46,9 @@
 		/* IOMMU Data */
 		iommu = <&gfx_iommu>;
 
+		/* CPU latency parameter */
+		qcom,pm-qos-latency = <701>;
+
 		/* Power levels */
 		qcom,gpu-pwrlevels {
 			#address-cells = <1>;
