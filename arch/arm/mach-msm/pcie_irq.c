@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -388,7 +388,7 @@ int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 	dev->irq_domain = irq_domain_add_linear(dev->pdev->dev.of_node,
 			PCIE_MSI_NR_IRQS,
 			&msm_pcie_msi_ops,
-			&dev);
+			dev);
 	if (!dev->irq_domain) {
 		pr_err("PCIe: Unable to initialize irq domain\n");
 		disable_irq(dev->wake_n);
