@@ -1234,7 +1234,7 @@
 		wake-gpio = <&msmgpio 35 0>;
 		clkreq-gpio = <&msmgpio 32 0>;
 
-		gdsc_vdd-supply = <&gdsc_pcie_0>;
+		gdsc-vdd-supply = <&gdsc_pcie_0>;
 		vreg-1.8-supply = <&pma8084_l12>;
 		vreg-0.9-supply = <&pma8084_l3>;
 		vreg-3.3-supply = <&pcie0_power_en_vreg>;
@@ -1249,7 +1249,6 @@
 	};
 
 	pcie1: qcom,pcie@fc528000 {
-		status = "disabled";
 		compatible = "qcom,msm_pcie";
 		cell-index = <1>;
 		qcom,ctrl-amt = <1>;
@@ -1293,7 +1292,7 @@
 		wake-gpio = <&msmgpio 141 0>;
 		clkreq-gpio = <&msmgpio 28 0>;
 
-		gdsc_vdd-supply = <&gdsc_pcie_1>;
+		gdsc-vdd-supply = <&gdsc_pcie_1>;
 		vreg-1.8-supply = <&pma8084_l12>;
 		vreg-0.9-supply = <&pma8084_l3>;
 		vreg-3.3-supply = <&pcie1_power_en_vreg>;
@@ -1309,11 +1308,11 @@
 };
 
 &gdsc_pcie_0{
-	status = "ok";
+	status = "disabled";
 };
 
 &gdsc_pcie_1{
-	status = "ok";
+	status = "disabled";
 };
 
 #include "msm-pma8084.dtsi"
