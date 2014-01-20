@@ -2678,6 +2678,15 @@ static const struct dev_pm_ops mxt_pm_ops = {
 	.resume		= mxt_resume,
 #endif
 };
+#else
+static int mxt_suspend(struct device *dev)
+{
+	return 0;
+};
+static int mxt_resume(struct device *dev)
+{
+	return 0;
+};
 #endif
 
 static int mxt_debug_suspend_set(void *_data, u64 val)
