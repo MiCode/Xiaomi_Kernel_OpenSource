@@ -322,6 +322,7 @@ static const struct intel_device_info intel_broadwell_m_info = {
 	.has_llc = 1,
 	.has_ddi = 1,
 	.has_fbc = 1,
+	.has_dpst = 1,
 	GEN_DEFAULT_PIPEOFFSETS,
 	IVB_CURSOR_OFFSETS,
 };

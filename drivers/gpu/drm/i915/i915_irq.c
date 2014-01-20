@@ -1809,7 +1809,7 @@ static void valleyview_pipestat_irq_handler(struct drm_device *dev, u32 iir)
 			i9xx_pipe_crc_irq_handler(dev, pipe);
 
 		if (pipe_stats[pipe] & PIPE_DPST_EVENT_STATUS)
-			i915_dpst_irq_handler(dev);
+			i915_dpst_irq_handler(dev, pipe);
 
 		if (pipe_stats[pipe] & PIPE_FIFO_UNDERRUN_STATUS &&
 		    intel_set_cpu_fifo_underrun_reporting(dev, pipe, false))
@@ -2127,7 +2127,7 @@ static void ivb_display_irq_handler(struct drm_device *dev, u32 de_iir)
 		intel_opregion_asle_intr(dev);
 
 	if (de_iir & DE_DPST_HISTOGRAM_IVB)
-		i915_dpst_irq_handler(dev);
+		i915_dpst_irq_handler(dev, PIPE_A);
 
 	for_each_pipe(pipe) {
 		if (de_iir & (DE_PIPE_VBLANK_IVB(pipe)))
@@ -2275,6 +2275,9 @@ static irqreturn_t gen8_irq_handler(int irq, void *arg)
 		pipe_iir = I915_READ(GEN8_DE_PIPE_IIR(pipe));
 		if (pipe_iir & GEN8_PIPE_VBLANK)
 			intel_pipe_handle_vblank(dev, pipe);
+
+		if (pipe_iir & GEN8_PIPE_DPST_INTERRUPT)
+			i915_dpst_irq_handler(dev, pipe);
 
 		if (pipe_iir & GEN8_PIPE_PRIMARY_FLIP_DONE) {
 			intel_prepare_page_flip(dev, pipe);
@@ -3513,9 +3516,15 @@ static void gen8_de_irq_postinstall(struct drm_i915_private *dev_priv)
 	uint32_t de_pipe_masked = GEN8_PIPE_PRIMARY_FLIP_DONE |
 		GEN8_PIPE_CDCLK_CRC_DONE |
 		GEN8_DE_PIPE_IRQ_FAULT_ERRORS;
-	uint32_t de_pipe_enables = de_pipe_masked | GEN8_PIPE_VBLANK |
-		GEN8_PIPE_FIFO_UNDERRUN;
+	uint32_t de_pipe_enables;
 	int pipe;
+
+	if (I915_HAS_DPST(dev))
+		de_pipe_masked |= GEN8_PIPE_DPST_INTERRUPT;
+
+	de_pipe_enables = de_pipe_masked | GEN8_PIPE_VBLANK |
+					GEN8_PIPE_FIFO_UNDERRUN;
+
 	dev_priv->de_irq_mask[PIPE_A] = ~de_pipe_masked;
 	dev_priv->de_irq_mask[PIPE_B] = ~de_pipe_masked;
 	dev_priv->de_irq_mask[PIPE_C] = ~de_pipe_masked;

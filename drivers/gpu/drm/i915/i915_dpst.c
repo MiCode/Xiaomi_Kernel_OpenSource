@@ -93,7 +93,7 @@ i915_dpst_enable_hist_interrupt(struct drm_device *dev)
 
 	/* Wait for VBLANK since the histogram enabling logic takes affect
 	 * at the next vblank */
-	intel_wait_for_vblank(dev, PIPE_A);
+	intel_wait_for_vblank(dev, dev_priv->dpst.pipe);
 
 	/* Clear pending interrupt bit. Clearing the pending interrupt bit
 	 * must be not be done at the same time as enabling the
@@ -177,20 +177,21 @@ i915_dpst_apply_luma(struct drm_device *dev,
 		struct dpst_initialize_context *ioctl_data)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_connector *i_connector = get_intel_connector_on_edp(dev);
+	struct intel_connector *i_connector;
 	struct intel_panel *panel;
 
 	u32 diet_factor, i;
 	u32 blm_hist_ctl;
 	unsigned long spin_lock_flags;
 
+	/* This is an invalid call if we are disabled by the user */
+	if (!dev_priv->dpst.user_enable)
+			return -EINVAL;
+
+	i_connector = get_intel_connector_on_edp(dev);
 	if (NULL == i_connector)
 		return -EINVAL;
 	panel = &i_connector->panel;
-
-	/* This is an invalid call if we are disabled by the user */
-	if (!dev_priv->dpst.user_enable)
-		return -EINVAL;
 
 	/* This is not an invalid call if we are disabled by the kernel,
 	 * because kernel disabling is transparent to the user and can easily
@@ -310,8 +311,9 @@ i915_dpst_get_bin_data(struct drm_device *dev,
 		blm_hist_bin = I915_READ(dev_priv->dpst.reg.blm_hist_bin);
 
 		if (!(blm_hist_bin & BUSY_BIT)) {
-			ioctl_data->hist_status.histogram_bins.
-				status[index] = blm_hist_bin & BIN_COUNT_MASK;
+			ioctl_data->hist_status.histogram_bins.status[index]
+				= blm_hist_bin
+					& dev_priv->dpst.reg.blm_hist_bin_count_mask;
 		} else {
 			/* Engine is busy. Reset index to 0 to grab
 			 * fresh histogram data */
@@ -333,14 +335,26 @@ static int i915_dpst_update_registers(struct drm_device *dev)
 		dev_priv->dpst.reg.blm_hist_ctl = BLM_HIST_CTL;
 		dev_priv->dpst.reg.blm_hist_guard = BLM_HIST_GUARD;
 		dev_priv->dpst.reg.blm_hist_bin = BLM_HIST_BIN;
+		dev_priv->dpst.reg.blm_hist_bin_count_mask = BIN_COUNT_MASK_4M;
 	} else if (IS_VALLEYVIEW(dev)) {
 		dev_priv->dpst.reg.blm_hist_ctl = VLV_BLC_HIST_CTL(PIPE_A);
 		dev_priv->dpst.reg.blm_hist_guard = VLV_BLC_HIST_GUARD(PIPE_A);
 		dev_priv->dpst.reg.blm_hist_bin = VLV_BLC_HIST_BIN(PIPE_A);
+		dev_priv->dpst.reg.blm_hist_bin_count_mask = BIN_COUNT_MASK_4M;
+	} else if (IS_BROADWELL(dev)) {
+		dev_priv->dpst.reg.blm_hist_ctl =
+				BDW_DPST_CTL_PIPE(dev_priv->dpst.pipe);
+		dev_priv->dpst.reg.blm_hist_guard =
+				BDW_DPST_GUARD_PIPE(dev_priv->dpst.pipe);
+		dev_priv->dpst.reg.blm_hist_bin =
+				BDW_DPST_BIN_PIPE(dev_priv->dpst.pipe);
+		dev_priv->dpst.reg.blm_hist_bin_count_mask =
+				BIN_COUNT_MASK_16M;
 	} else {
 		DRM_ERROR("DPST not supported on this platform\n");
 		return -EINVAL;
 	}
+
 	return 0;
 };
 
@@ -353,16 +367,32 @@ i915_dpst_init(struct drm_device *dev,
 	struct drm_display_mode *mode = NULL;
 	u32 blm_hist_guard, gb_val;
 	struct pid *cur_pid;
+	struct intel_connector *i_connector = get_intel_connector_on_edp(dev);
+
+	if (NULL == i_connector)
+		return -EINVAL;
+
+	dev_priv->dpst.pipe =
+		to_intel_crtc(i_connector->encoder->base.crtc)->pipe;
+
+	if (0 != i915_dpst_update_registers(dev))
+		return -EINVAL;
 
 	/* Get information about current display mode */
-	crtc = intel_get_crtc_for_pipe(dev, PIPE_A);
+	crtc = intel_get_crtc_for_pipe(dev, dev_priv->dpst.pipe);
 	if (crtc) {
 		mode = intel_crtc_mode_get(dev, crtc);
 		if (mode) {
 			gb_val = (DEFAULT_GUARDBAND_VAL *
 					mode->hdisplay * mode->vdisplay)/1000;
 
-			ioctl_data->init_data.threshold_gb = gb_val;
+			/* BDW+, threshold will * 4 by hardware automatically*/
+			if (BIN_COUNT_MASK_16M ==
+					dev_priv->dpst.reg.blm_hist_bin_count_mask)
+				ioctl_data->init_data.threshold_gb = gb_val / 4;
+			else
+				ioctl_data->init_data.threshold_gb = gb_val;
+
 			ioctl_data->init_data.image_res =
 					mode->hdisplay*mode->vdisplay;
 		}
@@ -393,14 +423,16 @@ u32
 i915_dpst_get_brightness(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_connector *i_connector;
 	struct intel_panel *panel;
-	struct intel_connector *i_connector = get_intel_connector_on_edp(dev);
-	if (NULL == i_connector)
-		return -EINVAL;
-	panel = &i_connector->panel;
 
 	if (!dev_priv->dpst.enabled)
 		return 0;
+
+	i_connector = get_intel_connector_on_edp(dev);
+	if (NULL == i_connector)
+		return -EINVAL;
+	panel = &i_connector->panel;
 
 	/* return the last (non-dpst) set backlight level */
 	return panel->backlight.level;
@@ -411,13 +443,14 @@ void
 i915_dpst_set_brightness(struct drm_device *dev, u32 brightness_val)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_connector *i_connector = get_intel_connector_on_edp(dev);
 	u32 backlight_level = brightness_val;
-
-	if (NULL == i_connector)
-		return;
+	struct intel_connector *i_connector;
 
 	if (!dev_priv->dpst.enabled)
+		return;
+
+	i_connector = get_intel_connector_on_edp(dev);
+	if (NULL == i_connector)
 		return;
 
 	/* Calculate the backlight after it has been reduced by "dpst
@@ -430,9 +463,13 @@ i915_dpst_set_brightness(struct drm_device *dev, u32 brightness_val)
 }
 
 void
-i915_dpst_irq_handler(struct drm_device *dev)
+i915_dpst_irq_handler(struct drm_device *dev, enum pipe pipe)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	/* Check if user-mode need to be aware of this interrupt */
+	if (pipe != dev_priv->dpst.pipe)
+		return;
 
 	/* Notify user mode of the interrupt */
 	if (dev_priv->dpst.pid != NULL) {

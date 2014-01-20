@@ -4581,6 +4581,7 @@ enum punit_power_well {
 #define  GEN8_PIPE_FIFO_UNDERRUN	(1 << 31)
 #define  GEN8_PIPE_CDCLK_CRC_ERROR	(1 << 29)
 #define  GEN8_PIPE_CDCLK_CRC_DONE	(1 << 28)
+#define  GEN8_PIPE_DPST_INTERRUPT	(1 << 12)
 #define  GEN8_PIPE_CURSOR_FAULT		(1 << 10)
 #define  GEN8_PIPE_SPRITE_FAULT		(1 << 9)
 #define  GEN8_PIPE_PRIMARY_FAULT	(1 << 8)
@@ -5811,11 +5812,23 @@ enum punit_power_well {
 #define  BIN_REGISTER_INDEX_MASK	0x7F
 #define BLM_HIST_BIN				0x48264
 #define  BUSY_BIT					(1<<31)
-#define  BIN_COUNT_MASK				0x3FFFFF
+#define  BIN_COUNT_MASK_4M			0x3FFFFF
+#define  BIN_COUNT_MASK_16M			0xFFFFFF
 #define BLM_HIST_GUARD				0x48268
 #define  HISTOGRAM_INTERRUPT_ENABLE	(1<<31)
 #define  HISTOGRAM_EVENT_STATUS		(1<<30)
 #define HIST_BIN_COUNT				32
+
+#define BDW_DPST_BIN_PIPE_A			0x490C4
+#define BDW_DPST_CTL_PIPE_A			0x490C0
+#define BDW_DPST_GUARD_PIPE_A		0x490C8
+
+#define BDW_DPST_BIN_PIPE(pipe) \
+	(BDW_DPST_BIN_PIPE_A + (0x100 * (pipe)))
+#define BDW_DPST_CTL_PIPE(pipe) \
+	(BDW_DPST_CTL_PIPE_A + (0x100 * (pipe)))
+#define BDW_DPST_GUARD_PIPE(pipe) \
+	(BDW_DPST_GUARD_PIPE_A + (0x100 * (pipe)))
 
 /* DisplayPort Transport Control */
 #define DP_TP_CTL_A			0x64040

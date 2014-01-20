@@ -1361,6 +1361,7 @@ struct i915_dpst_registers {
 	uint32_t blm_hist_guard;
 	uint32_t blm_hist_ctl;
 	uint32_t blm_hist_bin;
+	uint32_t blm_hist_bin_count_mask;
 };
 
 struct drm_i915_private {
@@ -1474,6 +1475,7 @@ struct drm_i915_private {
 	/* DPST information */
 	struct {
 		struct pid *pid;
+		enum pipe pipe;
 		u32 signal;
 		u32 blc_adjustment;
 		bool user_enable;	/* user client wishes to enable */
@@ -2639,8 +2641,8 @@ int i915_dpst_context(struct drm_device *dev, void *data,
 			struct drm_file *file_priv);
 u32 i915_dpst_get_brightness(struct drm_device *dev);
 void i915_dpst_set_brightness(struct drm_device *dev, u32 brightness_val);
-void i915_dpst_irq_handler(struct drm_device *dev);
 int i915_dpst_set_kernel_disable(struct drm_device *dev, bool km_disable);
+void i915_dpst_irq_handler(struct drm_device *dev, enum pipe);
 void intel_panel_actually_set_backlight(struct intel_connector *conn, u32 level);
 
 /* intel_acpi.c */
