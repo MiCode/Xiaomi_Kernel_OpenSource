@@ -14,6 +14,7 @@
 #ifndef _SPI_QSD_H
 #define _SPI_QSD_H
 
+#include <linux/pinctrl/consumer.h>
 #define SPI_DRV_NAME                  "spi_qsd"
 
 #if defined(CONFIG_SPI_QSD) || defined(CONFIG_SPI_QSD_MODULE)
@@ -388,6 +389,9 @@ struct msm_spi {
 	int			 max_trfr_len;
 	int			 num_xfrs_grped;
 	u16			 xfrs_delay_usec;
+	struct pinctrl		*pinctrl;
+	struct pinctrl_state	*pins_active;
+	struct pinctrl_state	*pins_sleep;
 };
 
 /* Forward declaration */

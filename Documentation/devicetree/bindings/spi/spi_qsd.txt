@@ -42,6 +42,8 @@ Optional properties which are required for support of BAM-mode:
   version support latest features (e.g. BAM) and then enable them. Should be
   removed for legacy HW.
 - qcom,use-bam : Boolean. When present, enables BAM-mode.
+- qcom,use-pinctrl : Boolean. When present, enables pinctrl frame work to configure GPIO's
+  instead of existing gpio mux hence gpio entries are no more required if present.
 - qcom,bam-consumer-pipe-index : BAM consumer-pipe index.
 - qcom,bam-producer-pipe-index : BAM producer-pipe index.
 - reg-names : register region names referenced in reg.
@@ -91,6 +93,7 @@ Example:
 
 		qcom,infinite-mode = <0>;
 		qcom,use-bam;
+		qcom,use-pinctrl;
 		qcom,bam-consumer-pipe-index = <12>;
 		qcom,bam-producer-pipe-index = <13>;
 		qcom,ver-reg-exists;
