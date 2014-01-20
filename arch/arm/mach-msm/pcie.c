@@ -1129,6 +1129,12 @@ int msm_pcie_enumerate(u32 rc_idx)
 		if (!ret) {
 			struct pci_dev *pcidev = NULL;
 			bool found = false;
+			u32 ids = readl_relaxed(msm_pcie_dev[rc_idx].dm_core);
+			u32 vendor_id = ids & 0xffff;
+			u32 device_id = (ids & 0xffff0000) >> 16;
+
+			PCIE_DBG("vendor-id:0x%x device_id:0x%x\n",
+					vendor_id, device_id);
 
 			msm_pci[rc_idx].private_data = (void **)&dev;
 			pci_common_init(&msm_pci[rc_idx]);
@@ -1136,8 +1142,8 @@ int msm_pcie_enumerate(u32 rc_idx)
 			dev->enumerated = true;
 
 			do {
-				pcidev = pci_get_device(PCIE_VENDOR_ID_RCP,
-					PCIE_DEVICE_ID_RCP, pcidev);
+				pcidev = pci_get_device(vendor_id,
+					device_id, pcidev);
 				if (pcidev && (&msm_pcie_dev[rc_idx] ==
 					(struct msm_pcie_dev_t *)
 					PCIE_BUS_PRIV_DATA(pcidev))) {
