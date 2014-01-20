@@ -43,6 +43,8 @@
 #define VPU_PROP_SESSION_BACKGROUND_COLOR           0x00001018
 #define VPU_PROP_SESSION_RANGE_MAPPING              0x00001019
 #define VPU_PROP_SESSION_COLOR_SPACE                0x0000101a
+#define VPU_PROP_SESSION_SOURCE_CONFIG              0x0000101b
+#define VPU_PROP_SESSION_SINK_CONFIG                0x0000101c
 
 #define VPU_PROP_SESSION_DEINTERLACING              0x00001030
 #define VPU_PROP_SESSION_NOISE_REDUCTION            0x00001031
@@ -290,16 +292,12 @@ struct vpu_frame_info {
 
 /* the input source */
 #define INPUT_SOURCE_HOST	0
-#define	INPUT_SOURCE_VCAP0	1
-#define	INPUT_SOURCE_VCAP1	2
+#define INPUT_SOURCE_VCAP	1
 
 /* the output destination */
 #define OUTPUT_DEST_NULL	0
 #define OUTPUT_DEST_HOST	1
-#define	OUTPUT_DEST_MDSS0	2
-#define	OUTPUT_DEST_MDSS1	3
-#define	OUTPUT_DEST_MDSS2	4
-#define	OUTPUT_DEST_MDSS3	5
+#define OUTPUT_DEST_MDSS	2
 
 enum vpu_video_format {
 	/* outcoming video stream is in 2D format */
@@ -525,6 +523,22 @@ struct vpu_prop_session_color_space {
 	  */
 	u32	value;
 };
+
+/* values defined for VPU_PROP_SESSION_SOURCE_CONFIG */
+#define VPU_SOURCE_VCAP_CH_0	1
+#define VPU_SOURCE_VCAP_CH_1	2
+
+/* values defined for VPU_PROP_SESSION_SINK_CONFIG */
+#define VPU_DEST_MDSS_CH_0	1
+#define VPU_DEST_MDSS_CH_1	2
+#define VPU_DEST_MDSS_CH_2	4
+#define VPU_DEST_MDSS_CH_3	8
+
+/* associated structure for VPU_PROP_SESSION_SOURCE_CONFIG
+ * struct vpu_data_value:
+ *       value: uint32 (refer to defines). Bitmask specifying 1 or more channels
+ *       flags: uint32 (reserved)
+ */
 
 /* values defined for VPU_PROP_SESSION_DEINTERLACING */
 

@@ -11,3 +11,6 @@ obj-$(CONFIG_MSM_VPU) := 	\
 		vpu_hfi.o \
 		vpu_bus_clock.o \
 		vpu_debug.o \
+
+obj-$(CONFIG_MSM_VPU_IN_VCAP) += vpu_in_vcap.o
+obj-$(CONFIG_MSM_VPU_OUT_MDSS) += vpu_out_mdss.o

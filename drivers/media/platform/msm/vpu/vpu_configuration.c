@@ -201,7 +201,8 @@ int configure_nr_buffers(struct vpu_dev_session *session,
 			return 0; /* input resolution not configured yet */
 
 		buf_size = get_bytesperline(in_fmt->width,
-				vpu_format->plane[0].bitsperpixel, 0);
+				vpu_format->plane[0].bitsperpixel, 0,
+				in_fmt->pixelformat);
 		buf_size *= in_fmt->height;
 
 		for (i = 0; i < NUM_NR_BUFFERS; i++) {
@@ -992,17 +993,24 @@ static const struct vpu_format_desc vpu_port_formats[] = {
 		.description = "YUYV422 Compressed",
 		.fourcc = V4L2_PIX_FMT_YUYV10BWC,
 		.num_planes = 1,
-		.plane[0] = { .bitsperpixel = 10, .heightfactor = 1},
+		.plane[0] = { .bitsperpixel = 21, .heightfactor = 1},
 	},
 };
 
 #define PADDING 128
 #define CEIL(x, y) (((x) + ((y)-1)) / (y))
-u32 get_bytesperline(u32 width, u32 bitsperpixel, u32 input_bytesperline)
+u32 get_bytesperline(u32 width, u32 bitsperpixel, u32 input_bytesperline,
+		u32 pixelformat)
 {
-	u32 bytesperline = CEIL(width * bitsperpixel, 8);
-	u32 padding_factor = CEIL(bytesperline, PADDING);
-	u32 min_bytesperline = PADDING * padding_factor;
+	u32 bytesperline, padding_factor, min_bytesperline;
+
+	if (pixelformat == V4L2_PIX_FMT_YUYV10BWC)
+		bytesperline = CEIL(width * 64, 24);
+	else
+		bytesperline = CEIL(width * bitsperpixel, 8);
+
+	padding_factor = CEIL(bytesperline, PADDING);
+	min_bytesperline = PADDING * padding_factor;
 
 	if (!input_bytesperline) {
 		return min_bytesperline;
@@ -1151,6 +1159,21 @@ static int __configure_input_port(struct vpu_dev_session *session)
 		return ret;
 	}
 
+	if (session->port_info[INPUT_PORT].source
+					!= VPU_INPUT_TYPE_HOST) {
+		struct vpu_data_value in_source_ch;
+		memset(&in_source_ch, 0, sizeof(in_source_ch));
+		in_source_ch.value = translate_input_source_ch(
+				session->port_info[INPUT_PORT].source);
+		ret = vpu_hw_session_s_property(session->id,
+				VPU_PROP_SESSION_SOURCE_CONFIG,
+				&in_source_ch, sizeof(in_source_ch));
+		if (ret) {
+			pr_err("Failed to set port 0 source ch\n");
+			return ret;
+		}
+	}
+
 	return 0;
 }
 
@@ -1165,6 +1188,22 @@ static int __configure_output_port(struct vpu_dev_session *session)
 	if (ret) {
 		pr_err("Failed to set output port config\n");
 		return ret;
+	}
+
+	if (session->port_info[OUTPUT_PORT].destination
+					!= VPU_OUTPUT_TYPE_HOST) {
+		struct vpu_data_pkt out_dest_ch;
+		memset(&out_dest_ch, 0, sizeof(out_dest_ch));
+		out_dest_ch.payload[0] = translate_output_destination_ch(
+				session->port_info[OUTPUT_PORT].destination);
+		out_dest_ch.size = sizeof(out_dest_ch);
+		ret = vpu_hw_session_s_property(session->id,
+				VPU_PROP_SESSION_SINK_CONFIG,
+				&out_dest_ch, sizeof(out_dest_ch));
+		if (ret) {
+			pr_err("Failed to set port 1 dest ch\n");
+			return ret;
+		}
 	}
 
 	return 0;

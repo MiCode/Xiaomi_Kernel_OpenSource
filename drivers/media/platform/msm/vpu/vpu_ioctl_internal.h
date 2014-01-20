@@ -78,6 +78,7 @@ int vpu_flush_bufs(struct vpu_client *client, enum v4l2_buf_type i);
 int vpu_streamon(struct vpu_client *client, enum v4l2_buf_type i);
 int vpu_streamoff(struct vpu_client *client, enum v4l2_buf_type i);
 
+int vpu_trigger_stream(struct vpu_dev_session *session);
 
 /*
  * Notify client with event of ID type.
