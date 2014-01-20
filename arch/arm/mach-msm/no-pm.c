@@ -14,7 +14,6 @@
 
 #include <linux/module.h>
 #include <asm/proc-fns.h>
-#include <mach/cpuidle.h>
 #include <soc/qcom/pm.h>
 
 void arch_idle(void)

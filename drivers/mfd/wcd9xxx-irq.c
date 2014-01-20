@@ -25,7 +25,7 @@
 #include <linux/of_irq.h>
 #include <linux/slab.h>
 #include <linux/ratelimit.h>
-#include <mach/cpuidle.h>
+#include <soc/qcom/pm.h>
 
 #define BYTE_BIT_MASK(nr)		(1UL << ((nr) % BITS_PER_BYTE))
 #define BIT_BYTE(nr)			((nr) / BITS_PER_BYTE)
