@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -376,10 +376,17 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 				msm_hsusb_ldo_enable(phy, 1);
 		}
 
-		if (phy->core_ver >= MSM_CORE_VER_120)
-			msm_usb_write_readback(phy->base,
+		if (phy->core_ver >= MSM_CORE_VER_120) {
+			if (phy->set_pllbtune) {
+				msm_usb_write_readback(phy->base,
+						HS_PHY_CTRL_COMMON_REG,
+						FSEL_MASK, 0);
+			} else {
+				msm_usb_write_readback(phy->base,
 						HS_PHY_CTRL_COMMON_REG,
 						FSEL_MASK, FSEL_DEFAULT);
+			}
+		}
 
 		if (!phy->ext_vbus_id)
 			/* Disable HV interrupts */
