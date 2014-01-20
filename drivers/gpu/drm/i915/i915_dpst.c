@@ -72,8 +72,8 @@ i915_dpst_clear_hist_interrupt(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	I915_WRITE(BLM_HIST_GUARD,
-			I915_READ(BLM_HIST_GUARD) | HISTOGRAM_EVENT_STATUS);
+	I915_WRITE(dev_priv->dpst.reg.blm_hist_guard,
+			I915_READ(dev_priv->dpst.reg.blm_hist_guard) | HISTOGRAM_EVENT_STATUS);
 	return 0;
 }
 
@@ -87,9 +87,9 @@ i915_dpst_enable_hist_interrupt(struct drm_device *dev)
 	dev_priv->dpst.blc_adjustment = DPST_MAX_FACTOR ;
 
 	/* Enable histogram logic to collect data */
-	blm_hist_ctl = I915_READ(BLM_HIST_CTL);
+	blm_hist_ctl = I915_READ(dev_priv->dpst.reg.blm_hist_ctl);
 	blm_hist_ctl |= IE_HISTOGRAM_ENABLE | HSV_INTENSITY_MODE;
-	I915_WRITE(BLM_HIST_CTL, blm_hist_ctl);
+	I915_WRITE(dev_priv->dpst.reg.blm_hist_ctl, blm_hist_ctl);
 
 	/* Wait for VBLANK since the histogram enabling logic takes affect
 	 * at the next vblank */
@@ -98,12 +98,12 @@ i915_dpst_enable_hist_interrupt(struct drm_device *dev)
 	/* Clear pending interrupt bit. Clearing the pending interrupt bit
 	 * must be not be done at the same time as enabling the
 	 * interrupt. */
-	I915_WRITE(BLM_HIST_GUARD,
-			I915_READ(BLM_HIST_GUARD) | HISTOGRAM_EVENT_STATUS);
+	I915_WRITE(dev_priv->dpst.reg.blm_hist_guard,
+			I915_READ(dev_priv->dpst.reg.blm_hist_guard) | HISTOGRAM_EVENT_STATUS);
 
 	/* Enable histogram interrupts */
-	I915_WRITE(BLM_HIST_GUARD,
-			I915_READ(BLM_HIST_GUARD) | HISTOGRAM_INTERRUPT_ENABLE);
+	I915_WRITE(dev_priv->dpst.reg.blm_hist_guard,
+			I915_READ(dev_priv->dpst.reg.blm_hist_guard) | HISTOGRAM_INTERRUPT_ENABLE);
 
 	/* DPST interrupt in DE_IER is enabled in irq_postinstall */
 
@@ -129,16 +129,16 @@ i915_dpst_disable_hist_interrupt(struct drm_device *dev)
 
 	/* Disable histogram interrupts. It is OK to clear pending interrupts
 	 * and disable interrupts at the same time. */
-	blm_hist_guard = I915_READ(BLM_HIST_GUARD);
+	blm_hist_guard = I915_READ(dev_priv->dpst.reg.blm_hist_guard);
 	blm_hist_guard |= HISTOGRAM_EVENT_STATUS; /* clear pending interrupts */
 	blm_hist_guard &= ~HISTOGRAM_INTERRUPT_ENABLE;
-	I915_WRITE(BLM_HIST_GUARD, blm_hist_guard);
+	I915_WRITE(dev_priv->dpst.reg.blm_hist_guard, blm_hist_guard);
 
 	/* Disable histogram logic */
-	blm_hist_ctl = I915_READ(BLM_HIST_CTL);
+	blm_hist_ctl = I915_READ(dev_priv->dpst.reg.blm_hist_ctl);
 	blm_hist_ctl &= ~IE_HISTOGRAM_ENABLE;
 	blm_hist_ctl &= ~IE_MOD_TABLE_ENABLE;
-	I915_WRITE(BLM_HIST_CTL, blm_hist_ctl);
+	I915_WRITE(dev_priv->dpst.reg.blm_hist_ctl, blm_hist_ctl);
 
 	/* DPST interrupt in DE_IER register is disabled in irq_uninstall */
 
@@ -201,16 +201,16 @@ i915_dpst_apply_luma(struct drm_device *dev,
 
 	/* Setup register to access image enhancement value from
 	 * index 0.*/
-	blm_hist_ctl = I915_READ(BLM_HIST_CTL);
+	blm_hist_ctl = I915_READ(dev_priv->dpst.reg.blm_hist_ctl);
 	blm_hist_ctl |= BIN_REG_FUNCTION_SELECT_IE;
 	blm_hist_ctl &= ~BIN_REGISTER_INDEX_MASK;
-	I915_WRITE(BLM_HIST_CTL, blm_hist_ctl);
+	I915_WRITE(dev_priv->dpst.reg.blm_hist_ctl, blm_hist_ctl);
 
 	/* Program the image enhancement data passed from user mode. */
 	for (i = 0; i < DPST_DIET_ENTRY_COUNT; i++) {
 		diet_factor = ioctl_data->ie_container.
 			dpst_ie_st.factor_present[i] * 0x200 / 10000;
-		I915_WRITE(BLM_HIST_BIN, diet_factor);
+		I915_WRITE(dev_priv->dpst.reg.blm_hist_bin, diet_factor);
 	}
 
 	if (dev_priv->dpst.kernel_disable) {
@@ -229,9 +229,9 @@ i915_dpst_apply_luma(struct drm_device *dev,
 	spin_unlock_irqrestore(&dev_priv->backlight_lock, spin_lock_flags);
 
 	/* Enable Image Enhancement Table */
-	blm_hist_ctl = I915_READ(BLM_HIST_CTL);
+	blm_hist_ctl = I915_READ(dev_priv->dpst.reg.blm_hist_ctl);
 	blm_hist_ctl |= IE_MOD_TABLE_ENABLE | ENHANCEMENT_MODE_MULT;
-	I915_WRITE(BLM_HIST_CTL, blm_hist_ctl);
+	I915_WRITE(dev_priv->dpst.reg.blm_hist_ctl, blm_hist_ctl);
 
 	return 0;
 }
@@ -243,7 +243,7 @@ i915_dpst_save_luma(struct drm_device *dev)
 
 	/* Only save if user mode has indeed applied valid settings which
 	 * we determine by checking that the IE mod table was enabled */
-	if (!(I915_READ(BLM_HIST_CTL) & IE_MOD_TABLE_ENABLE))
+	if (!(I915_READ(dev_priv->dpst.reg.blm_hist_ctl) & IE_MOD_TABLE_ENABLE))
 		return;
 
 	/* IE mod table entries are saved in the hardware even if the table
@@ -278,9 +278,9 @@ i915_dpst_restore_luma(struct drm_device *dev)
 
 	/* IE mod table entries are saved in the hardware even if the table
 	 * is disabled, so we only need to re-enable the table */
-	blm_hist_ctl = I915_READ(BLM_HIST_CTL);
+	blm_hist_ctl = I915_READ(dev_priv->dpst.reg.blm_hist_ctl);
 	blm_hist_ctl |= IE_MOD_TABLE_ENABLE | ENHANCEMENT_MODE_MULT;
-	I915_WRITE(BLM_HIST_CTL, blm_hist_ctl);
+	I915_WRITE(dev_priv->dpst.reg.blm_hist_ctl, blm_hist_ctl);
 }
 
 static int
@@ -300,14 +300,14 @@ i915_dpst_get_bin_data(struct drm_device *dev,
 		return -EINVAL;
 
 	/* Setup register to access bin data from index 0 */
-	blm_hist_ctl = I915_READ(BLM_HIST_CTL);
+	blm_hist_ctl = I915_READ(dev_priv->dpst.reg.blm_hist_ctl);
 	blm_hist_ctl = blm_hist_ctl & ~(BIN_REGISTER_INDEX_MASK |
 						BIN_REG_FUNCTION_SELECT_IE);
-	I915_WRITE(BLM_HIST_CTL, blm_hist_ctl);
+	I915_WRITE(dev_priv->dpst.reg.blm_hist_ctl, blm_hist_ctl);
 
 	/* Read all bin data */
 	for (index = 0; index < HIST_BIN_COUNT; index++) {
-		blm_hist_bin = I915_READ(BLM_HIST_BIN);
+		blm_hist_bin = I915_READ(dev_priv->dpst.reg.blm_hist_bin);
 
 		if (!(blm_hist_bin & BUSY_BIT)) {
 			ioctl_data->hist_status.histogram_bins.
@@ -316,14 +316,33 @@ i915_dpst_get_bin_data(struct drm_device *dev,
 			/* Engine is busy. Reset index to 0 to grab
 			 * fresh histogram data */
 			index = -1;
-			blm_hist_ctl = I915_READ(BLM_HIST_CTL);
+			blm_hist_ctl = I915_READ(dev_priv->dpst.reg.blm_hist_ctl);
 			blm_hist_ctl = blm_hist_ctl & ~BIN_REGISTER_INDEX_MASK;
-			I915_WRITE(BLM_HIST_CTL, blm_hist_ctl);
+			I915_WRITE(dev_priv->dpst.reg.blm_hist_ctl, blm_hist_ctl);
 		}
 	}
 
 	return 0;
 }
+
+static int i915_dpst_update_registers(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if (IS_HASWELL(dev)) {
+		dev_priv->dpst.reg.blm_hist_ctl = BLM_HIST_CTL;
+		dev_priv->dpst.reg.blm_hist_guard = BLM_HIST_GUARD;
+		dev_priv->dpst.reg.blm_hist_bin = BLM_HIST_BIN;
+	} else if (IS_VALLEYVIEW(dev)) {
+		dev_priv->dpst.reg.blm_hist_ctl = VLV_BLC_HIST_CTL(PIPE_A);
+		dev_priv->dpst.reg.blm_hist_guard = VLV_BLC_HIST_GUARD(PIPE_A);
+		dev_priv->dpst.reg.blm_hist_bin = VLV_BLC_HIST_BIN(PIPE_A);
+	} else {
+		DRM_ERROR("DPST not supported on this platform\n");
+		return -EINVAL;
+	}
+	return 0;
+};
 
 static int
 i915_dpst_init(struct drm_device *dev,
@@ -349,6 +368,9 @@ i915_dpst_init(struct drm_device *dev,
 		}
 	}
 
+	if (0 != i915_dpst_update_registers(dev))
+		return -EINVAL;
+
 	/* Store info needed to talk to user mode */
 	cur_pid = get_task_pid(current, PIDTYPE_PID);
 	put_pid(dev_priv->dpst.pid);
@@ -357,10 +379,10 @@ i915_dpst_init(struct drm_device *dev,
 
 
 	/* Setup guardband delays and threshold */
-	blm_hist_guard = I915_READ(BLM_HIST_GUARD);
+	blm_hist_guard = I915_READ(dev_priv->dpst.reg.blm_hist_guard);
 	blm_hist_guard |= (ioctl_data->init_data.gb_delay << 22)
 			| ioctl_data->init_data.threshold_gb;
-	I915_WRITE(BLM_HIST_GUARD, blm_hist_guard);
+	I915_WRITE(dev_priv->dpst.reg.blm_hist_guard, blm_hist_guard);
 
 	/* Init is complete so request enablement */
 	return i915_dpst_set_user_enable(dev, true);

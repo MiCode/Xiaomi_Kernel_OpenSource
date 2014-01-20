@@ -1808,6 +1808,9 @@ static void valleyview_pipestat_irq_handler(struct drm_device *dev, u32 iir)
 		if (pipe_stats[pipe] & PIPE_CRC_DONE_INTERRUPT_STATUS)
 			i9xx_pipe_crc_irq_handler(dev, pipe);
 
+		if (pipe_stats[pipe] & PIPE_DPST_EVENT_STATUS)
+			i915_dpst_irq_handler(dev);
+
 		if (pipe_stats[pipe] & PIPE_FIFO_UNDERRUN_STATUS &&
 		    intel_set_cpu_fifo_underrun_reporting(dev, pipe, false))
 			DRM_ERROR("pipe %c underrun\n", pipe_name(pipe));

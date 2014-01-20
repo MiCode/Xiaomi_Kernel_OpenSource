@@ -1357,6 +1357,12 @@ struct intel_pipe_crc {
 	wait_queue_head_t wq;
 };
 
+struct i915_dpst_registers {
+	uint32_t blm_hist_guard;
+	uint32_t blm_hist_ctl;
+	uint32_t blm_hist_bin;
+};
+
 struct drm_i915_private {
 	struct drm_device *dev;
 	struct kmem_cache *slab;
@@ -1478,6 +1484,7 @@ struct drm_i915_private {
 			u32 blc_adjustment;
 		} saved;
 		struct mutex ioctl_lock;
+		struct i915_dpst_registers reg;
 	} dpst;
 
 	/* PCH chipset type */

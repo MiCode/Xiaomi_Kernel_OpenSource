@@ -2854,6 +2854,16 @@ enum punit_power_well {
 #define VLV_BLC_HIST_CTL(pipe) _PIPE(pipe, _VLV_BLC_HIST_CTL_A, \
 				     _VLV_BLC_HIST_CTL_B)
 
+#define _VLV_BLC_HIST_BIN_A (dev_priv->info.display_mmio_offset + 0x61264)
+#define _VLV_BLC_HIST_BIN_B (dev_priv->info.display_mmio_offset + 0x61364)
+#define VLV_BLC_HIST_BIN(pipe) _PIPE(pipe, _VLV_BLC_HIST_BIN_A, \
+				     _VLV_BLC_HIST_BIN_B)
+
+#define _VLV_BLC_HIST_GUARD_A (dev_priv->info.display_mmio_offset + 0x61268)
+#define _VLV_BLC_HIST_GUARD_B (dev_priv->info.display_mmio_offset + 0x61368)
+#define VLV_BLC_HIST_GUARD(pipe) _PIPE(pipe, _VLV_BLC_HIST_GUARD_A, \
+				     _VLV_BLC_HIST_GUARD_B)
+
 /* Backlight control */
 #define BLC_PWM_CTL2	(dev_priv->info.display_mmio_offset + 0x61250) /* 965+ only */
 #define   BLM_PWM_ENABLE		(1 << 31)

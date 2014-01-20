@@ -191,8 +191,8 @@ static void i915_restore_vga(struct drm_device *dev)
 
 void i915_save_dpst_regs(struct drm_i915_private *dev_priv)
 {
-	dev_priv->regfile.saveBLM_HIST_GUARD = I915_READ(BLM_HIST_GUARD);
-	dev_priv->regfile.saveBLM_HIST_CTL = I915_READ(BLM_HIST_CTL);
+	dev_priv->regfile.saveBLM_HIST_GUARD = I915_READ(dev_priv->dpst.reg.blm_hist_guard);
+	dev_priv->regfile.saveBLM_HIST_CTL = I915_READ(dev_priv->dpst.reg.blm_hist_ctl);
 
 	/* Disable image enhancement table so we do not apply invalid
 	 * data when we resume */
@@ -201,8 +201,8 @@ void i915_save_dpst_regs(struct drm_i915_private *dev_priv)
 
 void i915_restore_dpst_regs(struct drm_i915_private *dev_priv)
 {
-	I915_WRITE(BLM_HIST_GUARD, dev_priv->regfile.saveBLM_HIST_GUARD);
-	I915_WRITE(BLM_HIST_CTL, dev_priv->regfile.saveBLM_HIST_CTL);
+	I915_WRITE(dev_priv->dpst.reg.blm_hist_guard, dev_priv->regfile.saveBLM_HIST_GUARD);
+	I915_WRITE(dev_priv->dpst.reg.blm_hist_ctl, dev_priv->regfile.saveBLM_HIST_CTL);
 }
 
 static void i915_save_display(struct drm_device *dev)
