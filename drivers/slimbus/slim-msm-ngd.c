@@ -276,12 +276,15 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 			 * Returning 0 on the disconnections and
 			 * removals will ensure consistent state of channels,
 			 * ports with the HW
+			 * Remote requests to remove channel/port will be
+			 * returned from the path where they wait on
+			 * acknowledgement from ADSP
 			 */
 			if ((txn->mt == SLIM_MSG_MT_DEST_REFERRED_USER) &&
 				((mc == SLIM_USR_MC_CHAN_CTRL ||
 				mc == SLIM_USR_MC_DISCONNECT_PORT ||
 				mc == SLIM_USR_MC_RECONFIG_NOW)))
-				return 0;
+				return -EREMOTEIO;
 			if ((txn->mt == SLIM_MSG_MT_CORE) &&
 				((mc == SLIM_MSG_MC_DISCONNECT_PORT ||
 				mc == SLIM_MSG_MC_NEXT_REMOVE_CHANNEL ||
@@ -504,7 +507,13 @@ static int ngd_xferandwait_ack(struct slim_controller *ctrl,
 			ret = -ETIMEDOUT;
 		else
 			ret = txn->ec;
+	} else if (ret == -EREMOTEIO &&
+			(txn->mc == SLIM_USR_MC_CHAN_CTRL ||
+			 txn->mc == SLIM_USR_MC_DISCONNECT_PORT)) {
+		/* HW restarting, channel/port removal should succeed */
+		return 0;
 	}
+
 	if (ret) {
 		pr_err("master msg:0x%x,tid:%d ret:%d", txn->mc,
 				txn->tid, ret);
