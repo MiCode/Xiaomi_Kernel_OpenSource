@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/smsm_debug.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -112,7 +112,7 @@ static void debug_test_smsm(struct seq_file *s)
 		UT_EQ_INT(smsm_cb_data.cb_count, 1);
 		UT_EQ_INT(smsm_cb_data.old_state & SMSM_SMDINIT, SMSM_SMDINIT);
 		UT_EQ_INT(smsm_cb_data.new_state & SMSM_SMDINIT, 0x0);
-		UT_EQ_INT((int)smsm_cb_data.data, 0x1234);
+		UT_EQ_INT((int)(uintptr_t)smsm_cb_data.data, 0x1234);
 
 		/* re-assert SMSM_SMD_INIT to trigger state update */
 		INIT_COMPLETION(smsm_cb_completion);
@@ -230,14 +230,14 @@ static void debug_test_smsm(struct seq_file *s)
 		UT_GT_INT((int)wait_for_completion_timeout(&smsm_cb_completion,
 					msecs_to_jiffies(20)), 0);
 		UT_EQ_INT(smsm_cb_data.cb_count, 1);
-		UT_EQ_INT((int)smsm_cb_data.data, 0x1234);
+		UT_EQ_INT((int)(uintptr_t)smsm_cb_data.data, 0x1234);
 
 		INIT_COMPLETION(smsm_cb_completion);
 		smsm_change_state(SMSM_APPS_STATE, SMSM_INIT, 0x0);
 		UT_GT_INT((int)wait_for_completion_timeout(&smsm_cb_completion,
 					msecs_to_jiffies(20)), 0);
 		UT_EQ_INT(smsm_cb_data.cb_count, 2);
-		UT_EQ_INT((int)smsm_cb_data.data, 0x3456);
+		UT_EQ_INT((int)(uintptr_t)smsm_cb_data.data, 0x3456);
 
 		/* cleanup and unregister
 		 * degregister in reverse to verify data field is
