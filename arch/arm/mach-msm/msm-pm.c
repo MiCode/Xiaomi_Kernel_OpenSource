@@ -29,6 +29,7 @@
 #include <soc/qcom/spm.h>
 #include <soc/qcom/pm.h>
 #include <soc/qcom/scm.h>
+#include <soc/qcom/scm-boot.h>
 #include <asm/suspend.h>
 #include <asm/cacheflush.h>
 #include <asm/outercache.h>
@@ -38,7 +39,6 @@
 #include <mach/msm_bus.h>
 #include <mach/jtag.h>
 #include "idle.h"
-#include "scm-boot.h"
 #include "clock.h"
 #include "pm-boot.h"
 

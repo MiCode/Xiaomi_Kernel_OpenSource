@@ -13,7 +13,7 @@
 
 #include <linux/module.h>
 #include <linux/init.h>
-#include "scm-boot.h"
+#include <soc/qcom/scm-boot.h>
 #include "idle.h"
 #include "pm-boot.h"
 
