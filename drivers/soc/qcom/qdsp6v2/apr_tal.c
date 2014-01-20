@@ -1,4 +1,5 @@
-/* Copyright (c) 2010-2011, 2013 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2011, 2013-2014 The Linux Foundation.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -190,6 +191,9 @@ struct apr_svc_ch_dev *apr_tal_open(uint32_t svc, uint32_t dest,
 		apr_tal_close(&apr_svc_ch[dl][dest][svc]);
 		return NULL;
 	}
+
+	smd_disable_read_intr(apr_svc_ch[dl][dest][svc].ch);
+
 	if (!apr_svc_ch[dl][dest][svc].dest_state) {
 		apr_svc_ch[dl][dest][svc].dest_state = 1;
 		pr_debug("apr_tal:Waiting for apr svc init\n");
