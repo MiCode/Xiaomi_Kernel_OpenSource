@@ -56,6 +56,8 @@ struct hdmi_tx_ctrl {
 
 	struct mutex mutex;
 	struct mutex lut_lock;
+	struct mutex cable_notify_mutex;
+	struct list_head cable_notify_handlers;
 	struct kobject *kobj;
 	struct switch_dev sdev;
 	struct switch_dev audio_sdev;
@@ -79,6 +81,7 @@ struct hdmi_tx_ctrl {
 	struct work_struct hpd_int_work;
 
 	struct work_struct power_off_work;
+	struct work_struct cable_notify_work;
 
 	bool hdcp_feature_on;
 	bool hpd_disabled;
