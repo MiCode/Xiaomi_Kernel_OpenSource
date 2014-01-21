@@ -584,8 +584,8 @@ static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 			"in_busy_hsic_write: %d\n"
 			"count_hsic_pool: %d\n"
 			"count_hsic_write_pool: %d\n"
-			"diag_hsic_pool: %x\n"
-			"diag_hsic_write_pool: %x\n"
+			"diag_hsic_pool: %p\n"
+			"diag_hsic_write_pool: %p\n"
 			"HSIC write_len: %d\n"
 			"num_hsic_buf_tbl_entries: %d\n"
 			"HSIC usb_connected: %d\n"
@@ -602,8 +602,8 @@ static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 			diag_hsic[i].in_busy_hsic_write,
 			diag_hsic[i].count_hsic_pool,
 			diag_hsic[i].count_hsic_write_pool,
-			(unsigned int)diag_hsic[i].diag_hsic_pool,
-			(unsigned int)diag_hsic[i].diag_hsic_write_pool,
+			diag_hsic[i].diag_hsic_pool,
+			diag_hsic[i].diag_hsic_write_pool,
 			diag_bridge[i].write_len,
 			diag_hsic[i].num_hsic_buf_tbl_entries,
 			diag_bridge[i].usb_connected,
