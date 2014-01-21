@@ -1,4 +1,4 @@
-/*  Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/*  Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1493,6 +1493,77 @@ done:
 	return ret;
 }
 
+static int voice_config_cvs_vocoder_amr_rate(struct voice_data *v)
+{
+	int ret = 0;
+	void *apr_cvs;
+	u16 cvs_handle;
+	struct cvs_set_amr_enc_rate_cmd cvs_set_amr_rate;
+
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+
+		ret = -EINVAL;
+		goto done;
+	}
+	apr_cvs = common.apr_q6_cvs;
+
+	if (!apr_cvs) {
+		pr_err("%s: apr_cvs is NULL.\n", __func__);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	cvs_handle = voice_get_cvs_handle(v);
+
+	pr_debug("%s: Setting AMR rate. Media Type: %d\n", __func__,
+		 common.mvs_info.media_type);
+
+	cvs_set_amr_rate.hdr.hdr_field =
+			APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+			APR_HDR_LEN(APR_HDR_SIZE),
+			APR_PKT_VER);
+	cvs_set_amr_rate.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+			       sizeof(cvs_set_amr_rate) - APR_HDR_SIZE);
+	cvs_set_amr_rate.hdr.src_port =
+			voice_get_idx_for_session(v->session_id);
+	cvs_set_amr_rate.hdr.dest_port = cvs_handle;
+	cvs_set_amr_rate.hdr.token = 0;
+
+	if (common.mvs_info.media_type == VSS_MEDIA_ID_AMR_NB_MODEM)
+		cvs_set_amr_rate.hdr.opcode =
+				VSS_ISTREAM_CMD_VOC_AMR_SET_ENC_RATE;
+	else if (common.mvs_info.media_type == VSS_MEDIA_ID_AMR_WB_MODEM)
+		cvs_set_amr_rate.hdr.opcode =
+				VSS_ISTREAM_CMD_VOC_AMRWB_SET_ENC_RATE;
+
+	cvs_set_amr_rate.amr_rate.mode = common.mvs_info.rate;
+
+	v->cvs_state = CMD_STATUS_FAIL;
+
+	ret = apr_send_pkt(apr_cvs, (uint32_t *) &cvs_set_amr_rate);
+	if (ret < 0) {
+		pr_err("%s: Error %d sending SET_AMR_RATE\n",
+		       __func__, ret);
+
+		goto done;
+	}
+	ret = wait_event_timeout(v->cvs_wait,
+				 (v->cvs_state == CMD_STATUS_SUCCESS),
+				 msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	return 0;
+done:
+	return ret;
+}
+
 static int voice_config_cvs_vocoder(struct voice_data *v)
 {
 	int ret = 0;
@@ -1597,80 +1668,13 @@ static int voice_config_cvs_vocoder(struct voice_data *v)
 
 		break;
 	}
-	case VSS_MEDIA_ID_AMR_NB_MODEM: {
-		struct cvs_set_amr_enc_rate_cmd cvs_set_amr_rate;
-
-		pr_debug("Setting AMR rate\n");
-
-		cvs_set_amr_rate.hdr.hdr_field =
-				APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
-				APR_HDR_LEN(APR_HDR_SIZE),
-				APR_PKT_VER);
-		cvs_set_amr_rate.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
-				       sizeof(cvs_set_amr_rate) - APR_HDR_SIZE);
-		cvs_set_amr_rate.hdr.src_port =
-				voice_get_idx_for_session(v->session_id);
-		cvs_set_amr_rate.hdr.dest_port = cvs_handle;
-		cvs_set_amr_rate.hdr.token = 0;
-		cvs_set_amr_rate.hdr.opcode =
-					VSS_ISTREAM_CMD_VOC_AMR_SET_ENC_RATE;
-		cvs_set_amr_rate.amr_rate.mode = common.mvs_info.rate;
-
-		v->cvs_state = CMD_STATUS_FAIL;
-
-		ret = apr_send_pkt(apr_cvs, (uint32_t *) &cvs_set_amr_rate);
-		if (ret < 0) {
-			pr_err("%s: Error %d sending SET_AMR_RATE\n",
-			       __func__, ret);
-			goto fail;
-		}
-		ret = wait_event_timeout(v->cvs_wait,
-					 (v->cvs_state == CMD_STATUS_SUCCESS),
-					 msecs_to_jiffies(TIMEOUT_MS));
-		if (!ret) {
-			pr_err("%s: wait_event timeout\n", __func__);
-			goto fail;
-		}
-
-		ret = voice_set_dtx(v);
-		if (ret < 0)
-			goto fail;
-
-		break;
-	}
+	case VSS_MEDIA_ID_AMR_NB_MODEM:
 	case VSS_MEDIA_ID_AMR_WB_MODEM: {
-		struct cvs_set_amrwb_enc_rate_cmd cvs_set_amrwb_rate;
-
-		pr_debug("Setting AMR WB rate\n");
-
-		cvs_set_amrwb_rate.hdr.hdr_field =
-				APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
-				APR_HDR_LEN(APR_HDR_SIZE),
-				APR_PKT_VER);
-		cvs_set_amrwb_rate.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
-						sizeof(cvs_set_amrwb_rate) -
-						APR_HDR_SIZE);
-		cvs_set_amrwb_rate.hdr.src_port =
-				voice_get_idx_for_session(v->session_id);
-		cvs_set_amrwb_rate.hdr.dest_port = cvs_handle;
-		cvs_set_amrwb_rate.hdr.token = 0;
-		cvs_set_amrwb_rate.hdr.opcode =
-					VSS_ISTREAM_CMD_VOC_AMRWB_SET_ENC_RATE;
-		cvs_set_amrwb_rate.amrwb_rate.mode = common.mvs_info.rate;
-
-		v->cvs_state = CMD_STATUS_FAIL;
-
-		ret = apr_send_pkt(apr_cvs, (uint32_t *) &cvs_set_amrwb_rate);
-		if (ret < 0) {
-			pr_err("%s: Error %d sending SET_AMRWB_RATE\n",
+		ret = voice_config_cvs_vocoder_amr_rate(v);
+		if (ret) {
+			pr_err("%s: Failed to update vocoder rate. %d\n",
 			       __func__, ret);
-			goto fail;
-		}
-		ret = wait_event_timeout(v->cvs_wait,
-					 (v->cvs_state == CMD_STATUS_SUCCESS),
-					 msecs_to_jiffies(TIMEOUT_MS));
-		if (!ret) {
-			pr_err("%s: wait_event timeout\n", __func__);
+
 			goto fail;
 		}
 
@@ -1695,6 +1699,31 @@ static int voice_config_cvs_vocoder(struct voice_data *v)
 
 fail:
 	return -EINVAL;
+}
+
+int voc_update_amr_vocoder_rate(uint32_t session_id)
+{
+	int ret = 0;
+	struct voice_data *v;
+
+	pr_debug("%s: session_id:%d", __func__, session_id);
+
+	v = voice_get_session(session_id);
+
+	if (v == NULL) {
+		pr_err("%s: v is NULL, session_id:%d\n", __func__,
+		       session_id);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	mutex_lock(&v->lock);
+	ret = voice_config_cvs_vocoder_amr_rate(v);
+	mutex_unlock(&v->lock);
+
+done:
+	return ret;
 }
 
 static int voice_send_start_voice_cmd(struct voice_data *v)
