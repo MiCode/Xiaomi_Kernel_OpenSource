@@ -40,6 +40,15 @@ config MSM_SMEM
 	  processors in the System on a Chip (SoC) which allows basic
 	  inter-processor communication.
 
+config MSM_SMEM_LOGGING
+	depends on MSM_SMEM
+	bool "MSM Shared Memory Logger"
+	help
+	  Enable the shared memory logging to log the events between
+	  the various processors in the system. This option exposes
+	  the shared memory logger at /dev/smem_log and a debugfs node
+	  named smem_log.
+
 config MSM_QDSP6_APRV2
 	bool "Audio QDSP6 APRv2 support"
 	depends on MSM_SMD

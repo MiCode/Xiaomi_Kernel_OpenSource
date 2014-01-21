@@ -56,7 +56,7 @@
 #define SMEM_LOG_EVENT_TASK             (SMEM_LOG_SMEM_EVENT_BASE + 16)
 #define SMEM_LOG_EVENT_RS               (SMEM_LOG_SMEM_EVENT_BASE + 17)
 
-#ifdef CONFIG_MSM_SMD_LOGGING
+#ifdef CONFIG_MSM_SMEM_LOGGING
 void smem_log_event(uint32_t id, uint32_t data1, uint32_t data2,
 		    uint32_t data3);
 void smem_log_event6(uint32_t id, uint32_t data1, uint32_t data2,
