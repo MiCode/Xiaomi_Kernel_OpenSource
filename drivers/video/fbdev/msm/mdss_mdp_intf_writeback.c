@@ -13,6 +13,7 @@
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
+#include "mdss.h"
 #include "mdss_mdp.h"
 #include "mdss_mdp_rotator.h"
 #include "mdss_panel.h"
@@ -610,12 +611,10 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 		reg_off = (ctx->xin_id / 4) * 4;
 		bit_off = (ctx->xin_id % 4) * 8;
 
-		val = readl_relaxed(ctl->mdata->vbif_base + VBIF_WR_LIM_CONF +
-			reg_off);
+		val = MDSS_VBIF_READ(ctl->mdata, VBIF_WR_LIM_CONF + reg_off);
 		val &= ~(0xFF << bit_off);
 		val |= (ctx->wr_lim) << bit_off;
-		writel_relaxed(val, ctl->mdata->vbif_base + VBIF_WR_LIM_CONF +
-			reg_off);
+		MDSS_VBIF_WRITE(ctl->mdata, VBIF_WR_LIM_CONF + reg_off, val);
 	}
 
 	wb_args = (struct mdss_mdp_writeback_arg *) arg;

@@ -20,7 +20,7 @@
 #include <linux/types.h>
 #include <linux/workqueue.h>
 #include <linux/irqreturn.h>
-
+#include <linux/mdss_io_util.h>
 #include <linux/msm_iommu_domains.h>
 
 #include "mdss_panel.h"
@@ -118,9 +118,8 @@ struct mdss_data_type {
 	u32 max_mdp_clk_rate;
 
 	struct platform_device *pdev;
-	char __iomem *mdss_base;
-	size_t mdp_reg_size;
-	char __iomem *vbif_base;
+	struct dss_io_data mdss_io;
+	struct dss_io_data vbif_io;
 	char __iomem *mdp_base;
 
 	struct mutex reg_lock;
@@ -281,4 +280,14 @@ static inline int mdss_get_sd_client_cnt(void)
 	else
 		return atomic_read(&mdss_res->sd_client_count);
 }
+
+#define MDSS_VBIF_WRITE(mdata, offset, value) \
+		dss_reg_w(&mdata->vbif_io, offset, value, 0)
+#define MDSS_VBIF_READ(mdata, offset) \
+		dss_reg_r(&mdata->vbif_io, offset, 0)
+#define MDSS_REG_WRITE(mdata, offset, value) \
+		dss_reg_w(&mdata->mdss_io, offset, value, 0)
+#define MDSS_REG_READ(mdata, offset) \
+		dss_reg_r(&mdata->mdss_io, offset, 0)
+
 #endif /* MDSS_H */

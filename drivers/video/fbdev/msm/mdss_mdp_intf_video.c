@@ -104,7 +104,7 @@ int mdss_mdp_video_addr_setup(struct mdss_data_type *mdata,
 		return -ENOMEM;
 
 	for (i = 0; i < count; i++) {
-		head[i].base = mdata->mdss_base + offsets[i];
+		head[i].base = mdata->mdss_io.base + offsets[i];
 		pr_debug("adding Video Intf #%d offset=0x%x virt=%p\n", i,
 				offsets[i], head[i].base);
 		head[i].ref_cnt = 0;
