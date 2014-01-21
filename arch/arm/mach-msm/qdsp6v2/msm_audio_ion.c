@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -391,7 +391,9 @@ err:
 int msm_audio_ion_free_legacy(struct ion_client *client,
 			      struct ion_handle *handle)
 {
-	/* To add condition for SMMU enabled */
+	if (msm_audio_ion_data.smmu_enabled)
+		ion_unmap_iommu(client, handle,
+		msm_audio_ion_data.domain_id, 0);
 	ion_unmap_kernel(client, handle);
 
 	ion_free(client, handle);
