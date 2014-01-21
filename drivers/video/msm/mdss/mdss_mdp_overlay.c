@@ -27,7 +27,7 @@
 #include <soc/qcom/scm.h>
 
 #include <linux/msm_iommu_domains.h>
-#include <mach/event_timer.h>
+#include <soc/qcom/event_timer.h>
 #include <mach/msm_bus.h>
 #include "mdss.h"
 #include "mdss_debug.h"
