@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,9 +15,9 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <soc/qcom/scm.h>
+#include <soc/qcom/rpm-smd.h>
 
 #include <mach/ocmem_priv.h>
-#include <mach/rpm-smd.h>
 
 static unsigned num_regions;
 static unsigned num_macros;

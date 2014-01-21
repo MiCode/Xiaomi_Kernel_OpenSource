@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -223,7 +223,7 @@ static inline uint32_t msm_rpm_add_kvp_data_noirq(
 
 static inline void msm_rpm_free_request(struct msm_rpm_request *handle)
 {
-	return ;
+	return;
 }
 
 static inline int msm_rpm_send_request(struct msm_rpm_request *handle)

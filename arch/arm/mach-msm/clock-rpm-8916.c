@@ -23,9 +23,9 @@
 #include <soc/qcom/clock-local2.h>
 #include <soc/qcom/clock-rpm.h>
 #include <soc/qcom/clock-voter.h>
+#include <soc/qcom/rpm-smd.h>
 
 #include <linux/clk/msm-clock-generic.h>
-#include <mach/rpm-smd.h>
 
 #include <dt-bindings/clock/msm-clocks-8916.h>
 

@@ -23,7 +23,7 @@
 #include <mach/board.h>
 #include <mach/msm_memtypes.h>
 #include <mach/msm_smd.h>
-#include <mach/rpm-smd.h>
+#include <soc/qcom/rpm-smd.h>
 #include <soc/qcom/smem.h>
 #include <soc/qcom/spm.h>
 #include <soc/qcom/pm.h>

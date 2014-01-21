@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,7 +15,7 @@
 #define __ARCH_ARM_MACH_MSM_CLOCK_RPM_H
 
 #include <linux/clk/msm-clk-provider.h>
-#include <mach/rpm-smd.h>
+#include <soc/qcom/rpm-smd.h>
 
 #define RPM_SMD_KEY_RATE	0x007A484B
 #define RPM_SMD_KEY_ENABLE	0x62616E45
