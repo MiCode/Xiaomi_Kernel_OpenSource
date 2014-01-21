@@ -44,11 +44,6 @@
 #define FORMAT_MULTI_CHANNEL_LINEAR_PCM 0x0012
 #define FORMAT_AC3          0x0013
 #define FORMAT_EAC3         0x0014
-#define FORMAT_DTS	0x0016
-#define FORMAT_ATRAC	0x0017
-#define FORMAT_MAT	0x0018
-#define FORMAT_AAC	0x0019
-#define FORMAT_DTS_LBR	0x001a
 #define FORMAT_MP2          0x0015
 
 #define ENCDEC_SBCBITRATE   0x0001
@@ -221,8 +216,6 @@ int q6asm_open_write_v2(struct audio_client *ac, uint32_t format,
 int q6asm_stream_open_write_v2(struct audio_client *ac, uint32_t format,
 				uint16_t bits_per_sample, int32_t stream_id,
 				bool is_gapless_mode);
-
-int q6asm_open_write_compressed(struct audio_client *ac, uint32_t format);
 
 int q6asm_open_read_write(struct audio_client *ac,
 			uint32_t rd_format,
