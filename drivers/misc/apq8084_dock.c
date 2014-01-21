@@ -86,6 +86,10 @@ static int apq8084_dock_probe(struct platform_device *pdev)
 		return dock->dock_detect;
 	}
 
+	ret = devm_gpio_request(dock->dev, dock->dock_detect, "dock_detect");
+	if (ret)
+		return ret;
+
 	ret = devm_request_irq(&pdev->dev, gpio_to_irq(dock->dock_detect),
 				dock_detected, IRQF_TRIGGER_RISING |
 				IRQF_TRIGGER_FALLING | IRQF_SHARED,
