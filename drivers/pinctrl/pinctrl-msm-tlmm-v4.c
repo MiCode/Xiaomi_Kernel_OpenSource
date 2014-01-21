@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -683,6 +683,34 @@ static struct syscore_ops msm_tlmm_v4_irq_syscore_ops = {
 	.suspend = msm_tlmm_v4_gp_irq_suspend,
 	.resume = msm_tlmm_v4_gp_irq_resume,
 };
+
+#ifdef CONFIG_USE_PINCTRL_IRQ
+int msm_tlmm_v4_of_irq_init(struct device_node *controller,
+						struct irq_chip *chip_extn)
+{
+	int ret, num_irqs, apps_id;
+	struct msm_tlmm_irq_chip *ic = &msm_tlmm_v4_gp_irq;
+
+	ret = of_property_read_u32(controller, "num_irqs", &num_irqs);
+	if (ret) {
+		WARN(1, "Cannot get numirqs from device tree\n");
+		return ret;
+	}
+	ret = of_property_read_u32(controller, "apps_id", &apps_id);
+	if (!ret) {
+		pr_info("processor id specified, in device tree %d\n", apps_id);
+		ic->apps_id = apps_id;
+	}
+	ic->num_irqs = num_irqs;
+	ic->domain = irq_domain_add_linear(controller, ic->num_irqs,
+						ic->domain_ops,
+						ic);
+	if (IS_ERR(ic->domain))
+			return -ENOMEM;
+	ic->irq_chip_extn = chip_extn;
+	return 0;
+}
+#endif
 
 static int msm_tlmm_v4_gp_irq_init(int irq, struct msm_pintype_info *pinfo,
 						struct device *tlmm_dev)

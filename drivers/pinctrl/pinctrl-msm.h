@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -160,5 +160,24 @@ struct msm_tlmm_desc {
 /* Common probe for all TLMM */
 int msm_pinctrl_probe(struct platform_device *pdev,
 					struct msm_tlmm_desc *tlmm_info);
+#ifdef CONFIG_USE_PINCTRL_IRQ
+#ifdef CONFIG_PINCTRL_MSM_TLMM_V3
+extern int msm_tlmm_v3_of_irq_init(struct device_node *np, struct irq_chip *ic);
+#else
+static inline int msm_tlmm_v3_of_irq_init(struct device_node *np,
+							struct irq_chip *ic)
+{
+	return -EIO;
+}
 #endif
-
+#ifdef CONFIG_PINCTRL_MSM_TLMM_V4
+extern int msm_tlmm_v4_of_irq_init(struct device_node *np, struct irq_chip *ic);
+#else
+static inline int msm_tlmm_v4_of_irq_init(struct device_node *np,
+							struct irq_chip *ic)
+{
+	return -EIO;
+}
+#endif
+#endif
+#endif
