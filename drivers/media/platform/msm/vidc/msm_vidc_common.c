@@ -1254,35 +1254,6 @@ static void handle_fbd(enum command_response cmd, void *data)
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 		mutex_unlock(&inst->bufq[CAPTURE_PORT].lock);
 		wake_up(&inst->kernel_event_queue);
-	} else {
-		/*
-		 * FIXME:
-		 * Special handling for EOS case: if we sent a 0 length input
-		 * buf with EOS set, Venus doesn't return a valid output buffer.
-		 * So pick up a random buffer that's with us, and send it to
-		 * v4l2 client with EOS flag set.
-		 *
-		 * This would normally be OK unless client decides to send
-		 * frames even after EOS.
-		 *
-		 * This should be fixed in upcoming versions of firmware
-		 */
-		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_EOS
-			&& fill_buf_done->filled_len1 == 0) {
-			struct buf_queue *q = &inst->bufq[CAPTURE_PORT];
-
-			if (!list_empty(&q->vb2_bufq.queued_list)) {
-				vb = list_first_entry(&q->vb2_bufq.queued_list,
-					struct vb2_buffer, queued_entry);
-				vb->v4l2_planes[0].bytesused = 0;
-				vb->v4l2_planes[0].data_offset = 0;
-				vb->v4l2_buf.flags |= V4L2_QCOM_BUF_FLAG_EOS;
-				mutex_lock(&q->lock);
-				vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
-				mutex_unlock(&q->lock);
-			}
-
-		}
 	}
 }
 
