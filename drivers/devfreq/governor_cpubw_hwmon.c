@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -77,13 +77,15 @@ static DEVICE_ATTR(__attr, 0644, show_##__attr, store_##__attr)
 
 static int l2pm_irq;
 static unsigned int bytes_per_beat;
-static unsigned int sample_ms = 50;
 static unsigned int tolerance_percent = 10;
 static unsigned int guard_band_mbps = 100;
 static unsigned int decay_rate = 90;
-static unsigned int io_percent = 15;
-static unsigned int bw_step = 200;
+static unsigned int io_percent = 16;
+static unsigned int bw_step = 190;
 
+#define MIN_MS	10U
+#define MAX_MS	500U
+static unsigned int sample_ms = 50;
 static u32 prev_r_start_val;
 static u32 prev_w_start_val;
 static unsigned long prev_ab;
@@ -245,7 +247,7 @@ static void compute_bw(int mbps, unsigned long *freq, unsigned long *ab)
 	}
 
 	*ab = roundup(mbps, bw_step);
-	*freq = roundup((mbps * 100) / io_percent, bw_step);
+	*freq = (mbps * 100) / io_percent;
 }
 
 #define TOO_SOON_US	(1 * USEC_PER_MSEC)
@@ -343,7 +345,6 @@ static int devfreq_cpubw_hwmon_get_freq(struct devfreq *df,
 	return 0;
 }
 
-gov_attr(sample_ms, 10U, 500U);
 gov_attr(tolerance_percent, 0U, 30U);
 gov_attr(guard_band_mbps, 0U, 2000U);
 gov_attr(decay_rate, 0U, 100U);
@@ -351,7 +352,6 @@ gov_attr(io_percent, 1U, 100U);
 gov_attr(bw_step, 50U, 1000U);
 
 static struct attribute *dev_attr[] = {
-	&dev_attr_sample_ms.attr,
 	&dev_attr_tolerance_percent.attr,
 	&dev_attr_guard_band_mbps.attr,
 	&dev_attr_decay_rate.attr,
@@ -378,7 +378,13 @@ static int devfreq_cpubw_hwmon_ev_handler(struct devfreq *df,
 		ret = sysfs_create_group(&df->dev.kobj, &dev_attr_group);
 		if (ret)
 			return ret;
+
+		sample_ms = df->profile->polling_ms;
+		sample_ms = max(MIN_MS, sample_ms);
+		sample_ms = min(MAX_MS, sample_ms);
+		df->profile->polling_ms = sample_ms;
 		devfreq_monitor_start(df);
+
 		pr_debug("Enabled CPU BW HW monitor governor\n");
 		break;
 
@@ -391,7 +397,10 @@ static int devfreq_cpubw_hwmon_ev_handler(struct devfreq *df,
 		break;
 
 	case DEVFREQ_GOV_INTERVAL:
-		devfreq_interval_update(df, (unsigned int *)data);
+		sample_ms = *(unsigned int *)data;
+		sample_ms = max(MIN_MS, sample_ms);
+		sample_ms = min(MAX_MS, sample_ms);
+		devfreq_interval_update(df, &sample_ms);
 		break;
 	}
 
