@@ -87,6 +87,17 @@ config MSM_SMD_DEBUG
 	  what channels caused interrupt activity, and when internal state
 	  change events occur.
 
+config MSM_MPM_OF
+	bool "Modem Power Manager"
+	depends on OF
+	help
+	  MPM is a dedicated hardware resource responsible for entering and
+	  waking up from a system wide low power mode. The MPM driver tracks
+	  the wakeup interrupts and configures the MPM to monitor the wakeup
+	  interrupts when going to a system wide sleep mode. This config option
+	  enables the MPM driver that supports initialization from a device
+	  tree
+
 config MSM_RPM_SMD
 	select MSM_MPM_OF
 	bool "RPM driver using SMD protocol"

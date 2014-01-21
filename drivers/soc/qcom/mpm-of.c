@@ -696,7 +696,7 @@ static int msm_mpm_dev_probe(struct platform_device *pdev)
 	if (of_property_read_u32(pdev->dev.of_node,
 				"qcom,ipc-bit-offset", &offset)) {
 		pr_info("%s(): Cannot read ipc bit offset\n", __func__);
-		return -EINVAL ;
+		return -EINVAL;
 	}
 
 	dev->mpm_apps_ipc_val = (1 << offset);
