@@ -876,7 +876,8 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 	}
 	img_size = (height << 16) | width;
 
-	if (mdata->mdp_rev == MDSS_MDP_HW_REV_103 && pipe->bwc_mode) {
+	if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_103) &&
+		pipe->bwc_mode) {
 		/* check source dimensions change */
 		tmp_src_size = mdss_mdp_pipe_read(pipe,
 						 MDSS_MDP_REG_SSPP_SRC_SIZE);
