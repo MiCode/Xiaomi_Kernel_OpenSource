@@ -56,6 +56,9 @@ enum qseecom_qceos_cmd_id {
 	QSEOS_MAX_KEY_COUNT,
 	QSEOS_SET_KEY,
 	QSEOS_UPDATE_KEY_USERINFO,
+	QSEOS_TEE_OPEN_SESSION,
+	QSEOS_TEE_INVOKE_COMMAND,
+	QSEOS_TEE_CLOSE_SESSION,
 	QSEOS_CMD_MAX     = 0xEFFFFFFF
 };
 
@@ -207,5 +210,13 @@ __packed struct qseecom_key_max_count_query_irsp {
 	uint32_t max_key_count;
 };
 
+__packed struct qseecom_qteec_ireq {
+	uint32_t    qsee_cmd_id;
+	uint32_t    app_id;
+	void	*req_ptr;
+	uint32_t    req_len;
+	void    *resp_ptr;
+	uint32_t    resp_len;
+};
 
 #endif /* __QSEECOMI_H_ */

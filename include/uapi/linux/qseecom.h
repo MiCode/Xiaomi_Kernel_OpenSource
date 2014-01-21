@@ -184,6 +184,21 @@ struct qseecom_send_modfd_listener_resp {
 	struct qseecom_ion_fd_info ifd_data[MAX_ION_FD]; /* in */
 };
 
+struct qseecom_qteec_req {
+	void    *req_ptr;
+	uint32_t    req_len;
+	void    *resp_ptr;
+	uint32_t    resp_len;
+};
+
+struct qseecom_qteec_modfd_req {
+	void    *req_ptr;
+	uint32_t    req_len;
+	void    *resp_ptr;
+	uint32_t    resp_len;
+	struct qseecom_ion_fd_info ifd_data[MAX_ION_FD];
+};
+
 
 #define QSEECOM_IOC_MAGIC    0x97
 
@@ -257,5 +272,13 @@ struct qseecom_send_modfd_listener_resp {
 #define QSEECOM_IOCTL_UPDATE_KEY_USER_INFO_REQ \
 	_IOWR(QSEECOM_IOC_MAGIC, 24, struct qseecom_update_key_userinfo_req)
 
+#define QSEECOM_QTEEC_IOCTL_OPEN_SESSION_REQ \
+	_IOWR(QSEECOM_IOC_MAGIC, 30, struct qseecom_qteec_req)
+
+#define QSEECOM_QTEEC_IOCTL_CLOSE_SESSION_REQ \
+	_IOWR(QSEECOM_IOC_MAGIC, 31, struct qseecom_qteec_req)
+
+#define QSEECOM_QTEEC_IOCTL_INVOKE_MODFD_CMD_REQ \
+	_IOWR(QSEECOM_IOC_MAGIC, 32, struct qseecom_qteec_req)
 
 #endif /* _UAPI_QSEECOM_H_ */
