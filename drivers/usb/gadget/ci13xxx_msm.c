@@ -11,6 +11,7 @@
 #include <linux/usb/msm_hsusb_hw.h>
 #include <linux/usb/ulpi.h>
 #include <linux/gpio.h>
+#include <linux/pinctrl/consumer.h>
 
 #include "ci13xxx_udc.c"
 
@@ -24,6 +25,7 @@ struct ci13xxx_udc_context {
 	int wake_gpio;
 	int wake_irq;
 	bool wake_irq_state;
+	struct pinctrl *ci13xxx_pinctrl;
 };
 
 static struct ci13xxx_udc_context _udc_ctxt;
@@ -243,10 +245,20 @@ static int ci13xxx_msm_install_wake_gpio(struct platform_device *pdev,
 {
 	int wake_irq;
 	int ret;
+	struct pinctrl_state *set_state;
 
 	dev_dbg(&pdev->dev, "ci13xxx_msm_install_wake_gpio\n");
 
 	_udc_ctxt.wake_gpio = res->start;
+	if (_udc_ctxt.ci13xxx_pinctrl) {
+		set_state = pinctrl_lookup_state(_udc_ctxt.ci13xxx_pinctrl,
+				"ci13xxx_active");
+		if (IS_ERR(set_state)) {
+			pr_err("cannot get ci13xxx pinctrl active state\n");
+			return PTR_ERR(set_state);
+		}
+		pinctrl_select_state(_udc_ctxt.ci13xxx_pinctrl, set_state);
+	}
 	gpio_request(_udc_ctxt.wake_gpio, "USB_RESUME");
 	gpio_direction_input(_udc_ctxt.wake_gpio);
 	wake_irq = gpio_to_irq(_udc_ctxt.wake_gpio);
@@ -270,16 +282,36 @@ static int ci13xxx_msm_install_wake_gpio(struct platform_device *pdev,
 
 gpio_free:
 	gpio_free(_udc_ctxt.wake_gpio);
+	if (_udc_ctxt.ci13xxx_pinctrl) {
+		set_state = pinctrl_lookup_state(_udc_ctxt.ci13xxx_pinctrl,
+				"ci13xxx_sleep");
+		if (IS_ERR(set_state))
+			pr_err("cannot get ci13xxx pinctrl sleep state\n");
+		else
+			pinctrl_select_state(_udc_ctxt.ci13xxx_pinctrl,
+					set_state);
+	}
 	_udc_ctxt.wake_gpio = 0;
 	return ret;
 }
 
 static void ci13xxx_msm_uninstall_wake_gpio(struct platform_device *pdev)
 {
+	struct pinctrl_state *set_state;
 	dev_dbg(&pdev->dev, "ci13xxx_msm_uninstall_wake_gpio\n");
 
 	if (_udc_ctxt.wake_gpio) {
 		gpio_free(_udc_ctxt.wake_gpio);
+		if (_udc_ctxt.ci13xxx_pinctrl) {
+			set_state =
+				pinctrl_lookup_state(_udc_ctxt.ci13xxx_pinctrl,
+						"ci13xxx_sleep");
+			if (IS_ERR(set_state))
+				pr_err("cannot get ci13xxx pinctrl sleep state\n");
+			else
+				pinctrl_select_state(_udc_ctxt.ci13xxx_pinctrl,
+						set_state);
+		}
 		_udc_ctxt.wake_gpio = 0;
 	}
 }
@@ -337,6 +369,17 @@ static int ci13xxx_msm_probe(struct platform_device *pdev)
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_IO, "USB_RESUME");
+	/* Get pinctrl if target uses pinctrl */
+	_udc_ctxt.ci13xxx_pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR(_udc_ctxt.ci13xxx_pinctrl)) {
+		if (of_property_read_bool(pdev->dev.of_node, "pinctrl-names")) {
+			dev_err(&pdev->dev, "Error encountered while getting pinctrl");
+			ret = PTR_ERR(_udc_ctxt.ci13xxx_pinctrl);
+			goto udc_remove;
+		}
+		dev_dbg(&pdev->dev, "Target does not use pinctrl\n");
+		_udc_ctxt.ci13xxx_pinctrl = NULL;
+	}
 	if (res) {
 		ret = ci13xxx_msm_install_wake_gpio(pdev, res);
 		if (ret < 0) {
