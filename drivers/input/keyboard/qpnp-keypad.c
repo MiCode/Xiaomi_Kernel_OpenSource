@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -725,8 +725,9 @@ static int qpnp_kp_probe(struct spmi_device *spmi)
 	kp->input->open		= qpnp_kp_open;
 	kp->input->close	= qpnp_kp_close;
 
-	matrix_keypad_build_keymap(kp->keymap_data, QPNP_ROW_SHIFT,
-					kp->keycodes, kp->input->keybit);
+	matrix_keypad_build_keymap(kp->keymap_data, NULL,
+					kp->num_rows, kp->num_cols,
+					kp->keycodes, kp->input);
 
 	input_set_capability(kp->input, EV_MSC, MSC_SCAN);
 	input_set_drvdata(kp->input, kp);
