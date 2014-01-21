@@ -973,6 +973,10 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 			IPAERR("fail to configure EP.\n");
 			goto fail_gen2;
 		}
+		if (ipa_cfg_ep_status(ipa_ep_idx, &ep->status)) {
+			IPAERR("fail to configure status of EP.\n");
+			goto fail_gen2;
+		}
 		IPADBG("ep configuration successful\n");
 	} else {
 		IPADBG("skipping ep configuration\n");
@@ -2088,14 +2092,13 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 			return -EINVAL;
 		}
 	} else if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0) {
-		in->ipa_ep_cfg.status.status_en = true;
+		sys->ep->status.status_en = true;
 		if (IPA_CLIENT_IS_PROD(in->client)) {
 			if (!sys->ep->skip_ep_cfg) {
 				sys->policy = IPA_POLICY_NOINTR_MODE;
 				sys->sps_option = SPS_O_AUTO_ENABLE;
 				sys->sps_callback = NULL;
-				in->ipa_ep_cfg.status.status_ep =
-					ipa_get_ep_mapping(
+				sys->ep->status.status_ep = ipa_get_ep_mapping(
 						IPA_CLIENT_APPS_LAN_CONS);
 			} else {
 				sys->policy = IPA_POLICY_INTR_MODE;
@@ -2137,7 +2140,7 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 				IPADBG("assigning policy to client:%d",
 					in->client);
 
-				in->ipa_ep_cfg.status.status_en = false;
+				sys->ep->status.status_en = false;
 				sys->policy = IPA_POLICY_INTR_POLL_MODE;
 				sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT
 				| SPS_O_ACK_TRANSFERS | SPS_O_NO_DISABLE);

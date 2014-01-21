@@ -1443,10 +1443,6 @@ int ipa_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg)
 	if (result)
 		return result;
 
-	result = ipa_cfg_ep_status(clnt_hdl, &ipa_ep_cfg->status);
-	if (result)
-		return result;
-
 	result = ipa_cfg_ep_cfg(clnt_hdl, &ipa_ep_cfg->cfg);
 	if (result)
 		return result;
@@ -1624,7 +1620,7 @@ int ipa_cfg_ep_status(u32 clnt_hdl, const struct ipa_ep_cfg_status *ep_status)
 			ep_status->status_ep);
 
 	/* copy over EP cfg */
-	ipa_ctx->ep[clnt_hdl].cfg.status = *ep_status;
+	ipa_ctx->ep[clnt_hdl].status = *ep_status;
 
 	ipa_inc_client_enable_clks();
 
@@ -1634,7 +1630,6 @@ int ipa_cfg_ep_status(u32 clnt_hdl, const struct ipa_ep_cfg_status *ep_status)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_cfg_ep_status);
 
 static void _ipa_cfg_ep_cfg_v1_1(u32 clnt_hdl,
 				const struct ipa_ep_cfg_cfg *cfg)

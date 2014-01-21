@@ -298,6 +298,23 @@ struct ipa_tree_node {
 };
 
 /**
+ * struct ipa_ep_cfg_status - status configuration in IPA end-point
+ * @status_en: Determines if end point supports Status Indications. SW should
+ *	set this bit in order to enable Statuses. Output Pipe - send
+ *	Status indications only if bit is set. Input Pipe - forward Status
+ *	indication to STATUS_ENDP only if bit is set. Valid for Input
+ *	and Output Pipes (IPA Consumer and Producer)
+ * @status_ep: Statuses generated for this endpoint will be forwarded to the
+ *	specifed Status End Point. Status endpoint needs to be
+ *	configured with STATUS_EN=1 Valid only for Input Pipes (IPA
+ *	Consumer)
+ */
+struct ipa_ep_cfg_status {
+	bool status_en;
+	u8 status_ep;
+};
+
+/**
  * struct ipa_ep_context - IPA end point context
  * @valid: flag indicating id EP context is valid
  * @client: EP client type
@@ -326,6 +343,7 @@ struct ipa_ep_context {
 	struct sps_pipe *ep_hdl;
 	struct ipa_ep_cfg cfg;
 	struct ipa_ep_cfg_holb holb;
+	struct ipa_ep_cfg_status status;
 	u32 dst_pipe_index;
 	u32 rt_tbl_idx;
 	struct sps_connect connect;
@@ -961,5 +979,9 @@ void ipa_delete_dflt_flt_rules(u32 ipa_ep_idx);
 
 int ipa_enable_data_path(u32 clnt_hdl);
 int ipa_disable_data_path(u32 clnt_hdl);
+
+int ipa_cfg_ep_status(u32 clnt_hdl, const struct ipa_ep_cfg_status *ipa_ep_cfg);
+
+
 
 #endif /* _IPA_I_H_ */
