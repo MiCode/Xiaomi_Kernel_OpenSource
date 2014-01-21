@@ -1440,6 +1440,11 @@ static void snb_gt_irq_handler(struct drm_device *dev,
 
 	if (gt_iir & GT_PARITY_ERROR(dev))
 		ivybridge_parity_error_irq_handler(dev, gt_iir);
+
+	if (gt_iir & GT_RENDER_PERFMON_BUFFER_INTERRUPT) {
+		atomic_inc(&dev_priv->perfmon_buffer_interrupts);
+		wake_up_all(&dev_priv->perfmon_buffer_queue);
+	}
 }
 
 static void gen8_rps_irq_handler(struct drm_i915_private *dev_priv, u32 pm_iir)
@@ -3275,6 +3280,9 @@ static void gen5_gt_irq_postinstall(struct drm_device *dev)
 		dev_priv->gt_irq_mask = ~GT_PARITY_ERROR(dev);
 		gt_irqs |= GT_PARITY_ERROR(dev);
 	}
+
+	if (IS_GEN7(dev))
+		gt_irqs |= GT_RENDER_PERFMON_BUFFER_INTERRUPT;
 
 	gt_irqs |= GT_RENDER_USER_INTERRUPT;
 	if (IS_GEN5(dev)) {

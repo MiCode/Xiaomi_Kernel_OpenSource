@@ -1326,6 +1326,7 @@ enum punit_power_well {
 #define GT_BSD_CS_ERROR_INTERRUPT		(1 << 15)
 #define GT_BSD_USER_INTERRUPT			(1 << 12)
 #define GT_RENDER_L3_PARITY_ERROR_INTERRUPT_S1	(1 << 11) /* hsw+; rsvd on snb, ivb, vlv */
+#define GT_RENDER_PERFMON_BUFFER_INTERRUPT      (1 <<  9) /* !snb */
 #define GT_RENDER_L3_PARITY_ERROR_INTERRUPT	(1 <<  5) /* !snb */
 #define GT_RENDER_PIPECTL_NOTIFY_INTERRUPT	(1 <<  4)
 #define GT_RENDER_CS_MASTER_ERROR_INTERRUPT	(1 <<  3)

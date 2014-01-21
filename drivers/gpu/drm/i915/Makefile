@@ -30,6 +30,7 @@ i915-y += i915_cmd_parser.o \
 	  i915_gem_userptr.o \
 	  i915_gpu_error.o \
 	  i915_irq.o \
+	  i915_perfmon.o \
 	  i915_trace_points.o \
 	  intel_ringbuffer.o \
 	  intel_uncore.o

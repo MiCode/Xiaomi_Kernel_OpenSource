@@ -28,6 +28,7 @@
 #define _UAPI_I915_DRM_H_
 
 #include <drm/drm.h>
+#include <drm/i915_perfmon.h>
 
 /* Please note that modifications to all structs defined here are
  * subject to backwards-compatibility constraints.
@@ -280,6 +281,7 @@ struct csc_coeff {
 #define DRM_I915_DPST_CONTEXT   0x3b
 #define DRM_I915_GEM_ACCESS_USERDATA	0x3c
 #define DRM_I915_SET_PLANE_ALPHA	0x3d
+#define DRM_I915_PERFMON		0x3e
 
 #define DRM_IOCTL_I915_INIT		DRM_IOW( DRM_COMMAND_BASE + DRM_I915_INIT, drm_i915_init_t)
 #define DRM_IOCTL_I915_FLUSH		DRM_IO ( DRM_COMMAND_BASE + DRM_I915_FLUSH)
@@ -348,6 +350,8 @@ struct csc_coeff {
 #define DRM_IOCTL_I915_GEM_ACCESS_USERDATA	\
 		DRM_IOWR(DRM_COMMAND_BASE + DRM_I915_GEM_ACCESS_USERDATA, \
 		struct drm_i915_gem_access_userdata)
+#define DRM_IOCTL_I915_PERFMON DRM_IOWR(DRM_COMMAND_BASE + DRM_I915_PERFMON, \
+					struct drm_i915_perfmon)
 #define DRM_IOCTL_I915_SET_CSC DRM_IOWR(DRM_COMMAND_BASE + DRM_I915_SET_CSC, \
 		struct csc_coeff)
 
