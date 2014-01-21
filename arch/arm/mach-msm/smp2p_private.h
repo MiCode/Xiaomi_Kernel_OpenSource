@@ -1,6 +1,6 @@
 /* arch/arm/mach-msm/smp2p_private.h
  *
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,10 +44,10 @@
 #define SMP2P_GET_BITS(hdr_val, mask, bit) \
 	(((hdr_val) & (mask)) >> (bit))
 #define SMP2P_SET_BITS(hdr_val, mask, bit, new_value) \
-	do {\
+	{\
 		hdr_val = (hdr_val & ~(mask)) \
 		| (((new_value) << (bit)) & (mask)); \
-	} while (0)
+	}
 
 #define SMP2P_GET_LOCAL_PID(hdr) \
 	SMP2P_GET_BITS(hdr, SMP2P_LOCAL_PID_MASK, SMP2P_LOCAL_PID_BIT)
