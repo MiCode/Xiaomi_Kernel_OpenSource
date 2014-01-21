@@ -1825,13 +1825,15 @@ static void venus_hfi_core_clear_interrupt(struct venus_hfi_device *device)
 		(intr_status &
 			VIDC_CPU_CS_SCIACMDARG0_HFI_CTRL_INIT_IDLE_MSG_BMSK)) {
 		device->intr_status |= intr_status;
+		device->reg_count++;
 		dprintk(VIDC_DBG,
 				"INTERRUPT for device: 0x%x: times: %d interrupt_status: %d\n",
-				(u32)device, ++device->reg_count, intr_status);
+				(u32)device, device->reg_count, intr_status);
 	} else {
+		device->spur_count++;
 		dprintk(VIDC_INFO,
 				"SPURIOUS_INTR for device: 0x%x: times: %d interrupt_status: %d\n",
-				(u32)device, ++device->spur_count, intr_status);
+				(u32)device, device->spur_count, intr_status);
 	}
 
 	venus_hfi_write_register(device,
