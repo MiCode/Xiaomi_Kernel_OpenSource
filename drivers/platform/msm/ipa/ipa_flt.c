@@ -376,7 +376,7 @@ static int ipa_generate_flt_hw_tbl_common(enum ipa_ip_type ip, u8 *base,
 			/* allocate memory for the flt tbl */
 			flt_tbl_mem.size = tbl->sz;
 			flt_tbl_mem.base =
-			   dma_alloc_coherent(NULL, flt_tbl_mem.size,
+			   dma_alloc_coherent(ipa_ctx->pdev, flt_tbl_mem.size,
 					   &flt_tbl_mem.phys_base, GFP_KERNEL);
 			if (!flt_tbl_mem.base) {
 				IPAERR("fail to alloc DMA buff of size %d\n",
@@ -462,7 +462,8 @@ static int ipa_generate_flt_hw_tbl_common(enum ipa_ip_type ip, u8 *base,
 				/* allocate memory for the flt tbl */
 				flt_tbl_mem.size = tbl->sz;
 				flt_tbl_mem.base =
-				   dma_alloc_coherent(NULL, flt_tbl_mem.size,
+				   dma_alloc_coherent(ipa_ctx->pdev,
+						   flt_tbl_mem.size,
 						   &flt_tbl_mem.phys_base,
 						   GFP_KERNEL);
 				if (!flt_tbl_mem.base) {
@@ -539,8 +540,8 @@ static int ipa_generate_flt_hw_tbl_v1(enum ipa_ip_type ip,
 		IPAERR("flt tbl empty ip=%d\n", ip);
 		goto error;
 	}
-	mem->base = dma_alloc_coherent(NULL, mem->size, &mem->phys_base,
-			GFP_KERNEL);
+	mem->base = dma_alloc_coherent(ipa_ctx->pdev, mem->size,
+			&mem->phys_base, GFP_KERNEL);
 	if (!mem->base) {
 		IPAERR("fail to alloc DMA buff of size %d\n", mem->size);
 		goto error;
@@ -569,7 +570,7 @@ static int ipa_generate_flt_hw_tbl_v1(enum ipa_ip_type ip,
 	return 0;
 
 proc_err:
-	dma_free_coherent(NULL, mem->size, mem->base, mem->phys_base);
+	dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base, mem->phys_base);
 error:
 	return -EPERM;
 }
@@ -582,15 +583,15 @@ static void __ipa_reap_sys_flt_tbls(enum ipa_ip_type ip)
 	tbl = &ipa_ctx->glob_flt_tbl[ip];
 	if (tbl->prev_mem.phys_base) {
 		IPADBG("reaping glob flt tbl (prev) ip=%d\n", ip);
-		dma_free_coherent(NULL, tbl->prev_mem.size, tbl->prev_mem.base,
-				tbl->prev_mem.phys_base);
+		dma_free_coherent(ipa_ctx->pdev, tbl->prev_mem.size,
+				tbl->prev_mem.base, tbl->prev_mem.phys_base);
 		memset(&tbl->prev_mem, 0, sizeof(tbl->prev_mem));
 	}
 
 	if (list_empty(&tbl->head_flt_rule_list)) {
 		if (tbl->curr_mem.phys_base) {
 			IPADBG("reaping glob flt tbl (curr) ip=%d\n", ip);
-			dma_free_coherent(NULL, tbl->curr_mem.size,
+			dma_free_coherent(ipa_ctx->pdev, tbl->curr_mem.size,
 					tbl->curr_mem.base,
 					tbl->curr_mem.phys_base);
 			memset(&tbl->curr_mem, 0, sizeof(tbl->curr_mem));
@@ -601,7 +602,7 @@ static void __ipa_reap_sys_flt_tbls(enum ipa_ip_type ip)
 		tbl = &ipa_ctx->flt_tbl[i][ip];
 		if (tbl->prev_mem.phys_base) {
 			IPADBG("reaping flt tbl (prev) pipe=%d ip=%d\n", i, ip);
-			dma_free_coherent(NULL, tbl->prev_mem.size,
+			dma_free_coherent(ipa_ctx->pdev, tbl->prev_mem.size,
 					tbl->prev_mem.base,
 					tbl->prev_mem.phys_base);
 			memset(&tbl->prev_mem, 0, sizeof(tbl->prev_mem));
@@ -611,7 +612,8 @@ static void __ipa_reap_sys_flt_tbls(enum ipa_ip_type ip)
 			if (tbl->curr_mem.phys_base) {
 				IPADBG("reaping flt tbl (curr) pipe=%d ip=%d\n",
 						i, ip);
-				dma_free_coherent(NULL, tbl->curr_mem.size,
+				dma_free_coherent(ipa_ctx->pdev,
+						tbl->curr_mem.size,
 						tbl->curr_mem.base,
 						tbl->curr_mem.phys_base);
 				memset(&tbl->curr_mem, 0,
@@ -687,7 +689,7 @@ int __ipa_commit_flt_v1(enum ipa_ip_type ip)
 	}
 
 	__ipa_reap_sys_flt_tbls(ip);
-	dma_free_coherent(NULL, mem->size, mem->base, mem->phys_base);
+	dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base, mem->phys_base);
 	kfree(cmd);
 	kfree(mem);
 
@@ -695,7 +697,8 @@ int __ipa_commit_flt_v1(enum ipa_ip_type ip)
 
 fail_send_cmd:
 	if (mem->phys_base)
-		dma_free_coherent(NULL, mem->size, mem->base, mem->phys_base);
+		dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base,
+				mem->phys_base);
 fail_hw_tbl_gen:
 	kfree(cmd);
 fail_alloc_cmd:
@@ -725,8 +728,8 @@ static int ipa_generate_flt_hw_tbl_v2(enum ipa_ip_type ip,
 
 	num_words = 7;
 	head1->size = num_words * 4;
-	head1->base = dma_alloc_coherent(NULL, head1->size, &head1->phys_base,
-			GFP_KERNEL);
+	head1->base = dma_alloc_coherent(ipa_ctx->pdev, head1->size,
+			&head1->phys_base, GFP_KERNEL);
 	if (!head1->base) {
 		IPAERR("fail to alloc DMA buff of size %d\n", head1->size);
 		goto err;
@@ -739,8 +742,8 @@ static int ipa_generate_flt_hw_tbl_v2(enum ipa_ip_type ip,
 
 	num_words = 10;
 	head2->size = num_words * 4;
-	head2->base = dma_alloc_coherent(NULL, head2->size, &head2->phys_base,
-			GFP_KERNEL);
+	head2->base = dma_alloc_coherent(ipa_ctx->pdev, head2->size,
+			&head2->phys_base, GFP_KERNEL);
 	if (!head2->base) {
 		IPAERR("fail to alloc DMA buff of size %d\n", head2->size);
 		goto head_err;
@@ -756,8 +759,8 @@ static int ipa_generate_flt_hw_tbl_v2(enum ipa_ip_type ip,
 	mem->size = IPA_HW_TABLE_ALIGNMENT(mem->size);
 
 	if (mem->size) {
-		mem->base = dma_alloc_coherent(NULL, mem->size, &mem->phys_base,
-			GFP_KERNEL);
+		mem->base = dma_alloc_coherent(ipa_ctx->pdev, mem->size,
+				&mem->phys_base, GFP_KERNEL);
 		if (!mem->base) {
 			IPAERR("fail to alloc DMA buff of size %d\n",
 					mem->size);
@@ -785,11 +788,14 @@ static int ipa_generate_flt_hw_tbl_v2(enum ipa_ip_type ip,
 
 proc_err:
 	if (mem->size)
-		dma_free_coherent(NULL, mem->size, mem->base, mem->phys_base);
+		dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base,
+				mem->phys_base);
 body_err:
-	dma_free_coherent(NULL, head2->size, head2->base, head2->phys_base);
+	dma_free_coherent(ipa_ctx->pdev, head2->size, head2->base,
+			head2->phys_base);
 head_err:
-	dma_free_coherent(NULL, head1->size, head1->base, head1->phys_base);
+	dma_free_coherent(ipa_ctx->pdev, head1->size, head1->base,
+			head1->phys_base);
 err:
 	return -EPERM;
 }
@@ -889,9 +895,12 @@ int __ipa_commit_flt_v2(enum ipa_ip_type ip)
 	__ipa_reap_sys_flt_tbls(ip);
 fail_send_cmd:
 	if (body.size)
-		dma_free_coherent(NULL, body.size, body.base, body.phys_base);
-	dma_free_coherent(NULL, head1.size, head1.base, head1.phys_base);
-	dma_free_coherent(NULL, head2.size, head2.base, head2.phys_base);
+		dma_free_coherent(ipa_ctx->pdev, body.size, body.base,
+				body.phys_base);
+	dma_free_coherent(ipa_ctx->pdev, head1.size, head1.base,
+			head1.phys_base);
+	dma_free_coherent(ipa_ctx->pdev, head2.size, head2.base,
+			head2.phys_base);
 fail_gen:
 	return rc;
 }

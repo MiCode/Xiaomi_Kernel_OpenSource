@@ -144,7 +144,7 @@ static int ipa_connect_allocate_fifo(const struct ipa_connect_params *in,
 			IPAERR("FIFO pipe mem alloc fail ep %u\n",
 				ipa_ep_idx);
 			mem_buff_ptr->base =
-				dma_alloc_coherent(NULL,
+				dma_alloc_coherent(ipa_ctx->pdev,
 				mem_buff_ptr->size,
 				&dma_addr, GFP_KERNEL);
 		} else {
@@ -158,7 +158,7 @@ static int ipa_connect_allocate_fifo(const struct ipa_connect_params *in,
 		}
 	} else {
 		mem_buff_ptr->base =
-			dma_alloc_coherent(NULL, mem_buff_ptr->size,
+			dma_alloc_coherent(ipa_ctx->pdev, mem_buff_ptr->size,
 			&dma_addr, GFP_KERNEL);
 	}
 	mem_buff_ptr->phys_base = dma_addr;
@@ -335,7 +335,7 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 
 sps_connect_fail:
 	if (!ep->data_fifo_in_pipe_mem)
-		dma_free_coherent(NULL,
+		dma_free_coherent(ipa_ctx->pdev,
 				  ep->connect.data.size,
 				  ep->connect.data.base,
 				  ep->connect.data.phys_base);
@@ -345,7 +345,7 @@ sps_connect_fail:
 
 data_mem_alloc_fail:
 	if (!ep->desc_fifo_in_pipe_mem)
-		dma_free_coherent(NULL,
+		dma_free_coherent(ipa_ctx->pdev,
 				  ep->connect.desc.size,
 				  ep->connect.desc.base,
 				  ep->connect.desc.phys_base);
@@ -408,7 +408,7 @@ int ipa_disconnect(u32 clnt_hdl)
 	if (!ep->desc_fifo_client_allocated &&
 	     ep->connect.desc.base) {
 		if (!ep->desc_fifo_in_pipe_mem)
-			dma_free_coherent(NULL,
+			dma_free_coherent(ipa_ctx->pdev,
 					  ep->connect.desc.size,
 					  ep->connect.desc.base,
 					  ep->connect.desc.phys_base);
@@ -420,7 +420,7 @@ int ipa_disconnect(u32 clnt_hdl)
 	if (!ep->data_fifo_client_allocated &&
 	     ep->connect.data.base) {
 		if (!ep->data_fifo_in_pipe_mem)
-			dma_free_coherent(NULL,
+			dma_free_coherent(ipa_ctx->pdev,
 					  ep->connect.data.size,
 					  ep->connect.data.base,
 					  ep->connect.data.phys_base);

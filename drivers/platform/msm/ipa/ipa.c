@@ -825,7 +825,7 @@ static int ipa_init_sram(void)
 	iounmap(ipa_sram_mmio);
 
 	mem.size = IPA_STATUS_CLEAR_SIZE;
-	mem.base = dma_alloc_coherent(NULL, mem.size, &mem.phys_base,
+	mem.base = dma_alloc_coherent(ipa_ctx->pdev, mem.size, &mem.phys_base,
 			GFP_KERNEL);
 	if (!mem.base) {
 		IPAERR("fail to alloc DMA buff of size %d\n", mem.size);
@@ -846,7 +846,7 @@ static int ipa_init_sram(void)
 		rc = -EFAULT;
 	}
 
-	dma_free_coherent(NULL, mem.size, mem.base, mem.phys_base);
+	dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base, mem.phys_base);
 	return rc;
 }
 
@@ -858,7 +858,7 @@ static int ipa_init_hdr(void)
 	int rc = 0;
 
 	mem.size = IPA_v2_RAM_MODEM_HDR_SIZE + IPA_v2_RAM_APPS_HDR_SIZE;
-	mem.base = dma_alloc_coherent(NULL, mem.size, &mem.phys_base,
+	mem.base = dma_alloc_coherent(ipa_ctx->pdev, mem.size, &mem.phys_base,
 			GFP_KERNEL);
 	if (!mem.base) {
 		IPAERR("fail to alloc DMA buff of size %d\n", mem.size);
@@ -882,7 +882,7 @@ static int ipa_init_hdr(void)
 		rc = -EFAULT;
 	}
 
-	dma_free_coherent(NULL, mem.size, mem.base, mem.phys_base);
+	dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base, mem.phys_base);
 	return rc;
 }
 
@@ -901,7 +901,7 @@ static int ipa_init_rt4(void)
 	IPADBG("v4 rt bitmap 0x%lx\n", ipa_ctx->rt_idx_bitmap[IPA_IP_v4]);
 
 	mem.size = IPA_v2_RAM_V4_RT_SIZE;
-	mem.base = dma_alloc_coherent(NULL, mem.size, &mem.phys_base,
+	mem.base = dma_alloc_coherent(ipa_ctx->pdev, mem.size, &mem.phys_base,
 			GFP_KERNEL);
 	if (!mem.base) {
 		IPAERR("fail to alloc DMA buff of size %d\n", mem.size);
@@ -932,7 +932,7 @@ static int ipa_init_rt4(void)
 		rc = -EFAULT;
 	}
 
-	dma_free_coherent(NULL, mem.size, mem.base, mem.phys_base);
+	dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base, mem.phys_base);
 	return rc;
 }
 
@@ -951,7 +951,7 @@ static int ipa_init_rt6(void)
 	IPADBG("v6 rt bitmap 0x%lx\n", ipa_ctx->rt_idx_bitmap[IPA_IP_v6]);
 
 	mem.size = IPA_v2_RAM_V6_RT_SIZE;
-	mem.base = dma_alloc_coherent(NULL, mem.size, &mem.phys_base,
+	mem.base = dma_alloc_coherent(ipa_ctx->pdev, mem.size, &mem.phys_base,
 			GFP_KERNEL);
 	if (!mem.base) {
 		IPAERR("fail to alloc DMA buff of size %d\n", mem.size);
@@ -982,7 +982,7 @@ static int ipa_init_rt6(void)
 		rc = -EFAULT;
 	}
 
-	dma_free_coherent(NULL, mem.size, mem.base, mem.phys_base);
+	dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base, mem.phys_base);
 	return rc;
 }
 
@@ -996,7 +996,7 @@ static int ipa_init_flt4(void)
 	int rc = 0;
 
 	mem.size = IPA_v2_RAM_V4_FLT_SIZE;
-	mem.base = dma_alloc_coherent(NULL, mem.size, &mem.phys_base,
+	mem.base = dma_alloc_coherent(ipa_ctx->pdev, mem.size, &mem.phys_base,
 			GFP_KERNEL);
 	if (!mem.base) {
 		IPAERR("fail to alloc DMA buff of size %d\n", mem.size);
@@ -1031,7 +1031,7 @@ static int ipa_init_flt4(void)
 		rc = -EFAULT;
 	}
 
-	dma_free_coherent(NULL, mem.size, mem.base, mem.phys_base);
+	dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base, mem.phys_base);
 	return rc;
 }
 
@@ -1045,7 +1045,7 @@ static int ipa_init_flt6(void)
 	int rc = 0;
 
 	mem.size = IPA_v2_RAM_V6_FLT_SIZE;
-	mem.base = dma_alloc_coherent(NULL, mem.size, &mem.phys_base,
+	mem.base = dma_alloc_coherent(ipa_ctx->pdev, mem.size, &mem.phys_base,
 			GFP_KERNEL);
 	if (!mem.base) {
 		IPAERR("fail to alloc DMA buff of size %d\n", mem.size);
@@ -1080,7 +1080,7 @@ static int ipa_init_flt6(void)
 		rc = -EFAULT;
 	}
 
-	dma_free_coherent(NULL, mem.size, mem.base, mem.phys_base);
+	dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base, mem.phys_base);
 	return rc;
 }
 
@@ -1742,6 +1742,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		goto fail_mem_ctx;
 	}
 
+	ipa_ctx->pdev = ipa_dev;
 	ipa_ctx->ipa_wrapper_base = resource_p->ipa_mem_base;
 	ipa_ctx->ipa_hw_type = resource_p->ipa_hw_type;
 	ipa_ctx->ipa_hw_mode = resource_p->ipa_hw_mode;
@@ -1917,11 +1918,11 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	 */
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
 		ipa_ctx->dma_pool = dma_pool_create("ipa_1k",
-				NULL,
+				ipa_ctx->pdev,
 				IPA_DMA_POOL_SIZE, IPA_DMA_POOL_ALIGNMENT,
 				IPA_DMA_POOL_BOUNDARY);
 	} else {
-		ipa_ctx->dma_pool = dma_pool_create("ipa_tx", NULL,
+		ipa_ctx->dma_pool = dma_pool_create("ipa_tx", ipa_ctx->pdev,
 			IPA_NUM_DESC_PER_SW_TX * sizeof(struct sps_iovec),
 			0, 0);
 	}
@@ -2003,7 +2004,8 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_ctx->empty_rt_tbl_mem.size = IPA_ROUTING_RULE_BYTE_SIZE;
 
 	ipa_ctx->empty_rt_tbl_mem.base =
-		dma_alloc_coherent(NULL, ipa_ctx->empty_rt_tbl_mem.size,
+		dma_alloc_coherent(ipa_ctx->pdev,
+				ipa_ctx->empty_rt_tbl_mem.size,
 				    &ipa_ctx->empty_rt_tbl_mem.phys_base,
 				    GFP_KERNEL);
 	if (!ipa_ctx->empty_rt_tbl_mem.base) {
@@ -2127,7 +2129,7 @@ fail_alloc_chrdev_region:
 		gen_pool_destroy(ipa_ctx->pipe_mem_pool);
 fail_empty_rt_tbl:
 	ipa_teardown_apps_pipes();
-	dma_free_coherent(NULL,
+	dma_free_coherent(ipa_ctx->pdev,
 			  ipa_ctx->empty_rt_tbl_mem.size,
 			  ipa_ctx->empty_rt_tbl_mem.base,
 			  ipa_ctx->empty_rt_tbl_mem.phys_base);

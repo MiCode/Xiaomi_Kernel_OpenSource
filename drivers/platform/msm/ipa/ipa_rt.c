@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -226,7 +226,7 @@ static int ipa_generate_rt_hw_tbl_common(enum ipa_ip_type ip, u8 *base, u8 *hdr,
 			/* allocate memory for the RT tbl */
 			rt_tbl_mem.size = tbl->sz;
 			rt_tbl_mem.base =
-			   dma_alloc_coherent(NULL, rt_tbl_mem.size,
+			   dma_alloc_coherent(ipa_ctx->pdev, rt_tbl_mem.size,
 					   &rt_tbl_mem.phys_base, GFP_KERNEL);
 			if (!rt_tbl_mem.base) {
 				IPAERR("fail to alloc DMA buff of size %d\n",
@@ -269,7 +269,7 @@ static int ipa_generate_rt_hw_tbl_common(enum ipa_ip_type ip, u8 *base, u8 *hdr,
 	return 0;
 
 rt_table_mem_alloc_failed:
-	dma_free_coherent(NULL, rt_tbl_mem.size,
+	dma_free_coherent(ipa_ctx->pdev, rt_tbl_mem.size,
 			  rt_tbl_mem.base, rt_tbl_mem.phys_base);
 proc_err:
 	return -EPERM;
@@ -301,8 +301,8 @@ static int ipa_generate_rt_hw_tbl_v1(enum ipa_ip_type ip,
 		IPAERR("rt tbl empty ip=%d\n", ip);
 		goto error;
 	}
-	mem->base = dma_alloc_coherent(NULL, mem->size, &mem->phys_base,
-			GFP_KERNEL);
+	mem->base = dma_alloc_coherent(ipa_ctx->pdev, mem->size,
+			&mem->phys_base, GFP_KERNEL);
 	if (!mem->base) {
 		IPAERR("fail to alloc DMA buff of size %d\n", mem->size);
 		goto error;
@@ -327,7 +327,7 @@ static int ipa_generate_rt_hw_tbl_v1(enum ipa_ip_type ip,
 	return 0;
 
 proc_err:
-	dma_free_coherent(NULL, mem->size, mem->base, mem->phys_base);
+	dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base, mem->phys_base);
 	mem->base = NULL;
 error:
 	return -EPERM;
@@ -343,7 +343,7 @@ static void __ipa_reap_sys_rt_tbls(enum ipa_ip_type ip)
 	list_for_each_entry(tbl, &set->head_rt_tbl_list, link) {
 		if (tbl->prev_mem.phys_base) {
 			IPADBG("reaping rt tbl name=%s ip=%d\n", tbl->name, ip);
-			dma_free_coherent(NULL, tbl->prev_mem.size,
+			dma_free_coherent(ipa_ctx->pdev, tbl->prev_mem.size,
 					tbl->prev_mem.base,
 					tbl->prev_mem.phys_base);
 			memset(&tbl->prev_mem, 0, sizeof(tbl->prev_mem));
@@ -357,7 +357,7 @@ static void __ipa_reap_sys_rt_tbls(enum ipa_ip_type ip)
 		if (tbl->curr_mem.phys_base) {
 			IPADBG("reaping sys rt tbl name=%s ip=%d\n", tbl->name,
 					ip);
-			dma_free_coherent(NULL, tbl->curr_mem.size,
+			dma_free_coherent(ipa_ctx->pdev, tbl->curr_mem.size,
 					tbl->curr_mem.base,
 					tbl->curr_mem.phys_base);
 			kmem_cache_free(ipa_ctx->rt_tbl_cache, tbl);
@@ -435,7 +435,7 @@ int __ipa_commit_rt_v1(enum ipa_ip_type ip)
 	}
 
 	__ipa_reap_sys_rt_tbls(ip);
-	dma_free_coherent(NULL, mem->size, mem->base, mem->phys_base);
+	dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base, mem->phys_base);
 	kfree(cmd);
 	kfree(mem);
 
@@ -443,7 +443,8 @@ int __ipa_commit_rt_v1(enum ipa_ip_type ip)
 
 fail_send_cmd:
 	if (mem->base)
-		dma_free_coherent(NULL, mem->size, mem->base, mem->phys_base);
+		dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base,
+				mem->phys_base);
 fail_hw_tbl_gen:
 	kfree(cmd);
 fail_alloc_cmd:
@@ -481,8 +482,8 @@ static int ipa_generate_rt_hw_tbl_v2(enum ipa_ip_type ip,
 	}
 
 	head->size = num_index * 4;
-	head->base = dma_alloc_coherent(NULL, head->size, &head->phys_base,
-			GFP_KERNEL);
+	head->base = dma_alloc_coherent(ipa_ctx->pdev, head->size,
+			&head->phys_base, GFP_KERNEL);
 	if (!head->base) {
 		IPAERR("fail to alloc DMA buff of size %d\n", head->size);
 		goto err;
@@ -500,8 +501,8 @@ static int ipa_generate_rt_hw_tbl_v2(enum ipa_ip_type ip,
 				~IPA_RT_TABLE_MEMORY_ALLIGNMENT;
 
 	if (mem->size > 0) {
-		mem->base = dma_alloc_coherent(NULL, mem->size, &mem->phys_base,
-			GFP_KERNEL);
+		mem->base = dma_alloc_coherent(ipa_ctx->pdev, mem->size,
+				&mem->phys_base, GFP_KERNEL);
 		if (!mem->base) {
 			IPAERR("fail to alloc DMA buff of size %d\n",
 					mem->size);
@@ -522,9 +523,10 @@ static int ipa_generate_rt_hw_tbl_v2(enum ipa_ip_type ip,
 	return 0;
 
 proc_err:
-	dma_free_coherent(NULL, mem->size, mem->base, mem->phys_base);
+	dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base, mem->phys_base);
 base_err:
-	dma_free_coherent(NULL, head->size, head->base, head->phys_base);
+	dma_free_coherent(ipa_ctx->pdev, head->size, head->base,
+			head->phys_base);
 err:
 	return -EPERM;
 }
@@ -618,9 +620,10 @@ int __ipa_commit_rt_v2(enum ipa_ip_type ip)
 	}
 	__ipa_reap_sys_rt_tbls(ip);
 fail_send_cmd:
-	dma_free_coherent(NULL, head.size, head.base, head.phys_base);
+	dma_free_coherent(ipa_ctx->pdev, head.size, head.base, head.phys_base);
 	if (body.size)
-		dma_free_coherent(NULL, body.size, body.base, body.phys_base);
+		dma_free_coherent(ipa_ctx->pdev, body.size, body.base,
+				body.phys_base);
 fail_gen:
 	return rc;
 }
