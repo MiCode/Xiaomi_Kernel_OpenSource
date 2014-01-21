@@ -751,6 +751,7 @@ static int __vpu_mem_map_handle(struct vpu_mem_handle *handle, u32 device_id,
 		domain_number = handle->domain_num[device_id];
 
 		if (handle->flags & MEM_SECURE) { /* handle secure buffers */
+			pr_debug("Securing ION buffer\n");
 			align = SZ_1M;
 			ret = msm_ion_secure_buffer(ion_client, ion_handle,
 					VIDEO_PIXEL, 0);
@@ -858,11 +859,13 @@ int vpu_mem_alloc(void *mem_handle, u32 size, bool secure)
 		align = SZ_4K;
 		heap_mask = ION_HEAP(ION_SYSTEM_CONTIG_HEAP_ID);
 	} else {
-		heap_mask = ION_HEAP(ION_IOMMU_HEAP_ID);
-		if (flags & MEM_SECURE)
+		if (flags & MEM_SECURE) {
+			heap_mask = ION_HEAP(ION_CP_MM_HEAP_ID);
 			align = SZ_1M;
-		else
+		} else {
+			heap_mask = ION_HEAP(ION_IOMMU_HEAP_ID);
 			align = SZ_4K;
+		}
 	}
 
 	ion_handle = ion_alloc(ion_client, ALIGN(size, align), align,
