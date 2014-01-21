@@ -1062,6 +1062,62 @@ static const struct net_device_ops eth_netdev_ops_ip = {
 	.ndo_validate_addr	= 0,
 };
 
+static int rmnet_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
+{
+	struct rmnet_ioctl_extended_s ext_cmd;
+	struct eth_dev *eth_dev = netdev_priv(dev);
+	int rc = 0;
+
+	rc = copy_from_user(&ext_cmd, ifr->ifr_ifru.ifru_data,
+			    sizeof(struct rmnet_ioctl_extended_s));
+
+	if (rc) {
+		DBG("%s(): copy_from_user() failed\n", __func__);
+		return rc;
+	}
+
+	switch (ext_cmd.extended_ioctl) {
+	case RMNET_IOCTL_GET_SUPPORTED_FEATURES:
+		ext_cmd.u.data = 0;
+		break;
+
+	case RMNET_IOCTL_SET_MRU:
+		if (netif_running(dev))
+			return -EBUSY;
+
+		/* 16K max */
+		if ((size_t)ext_cmd.u.data > 0x4000)
+			return -EINVAL;
+
+		eth_dev->port_usb->is_fixed = true;
+		eth_dev->port_usb->fixed_out_len = (size_t) ext_cmd.u.data;
+		DBG("[%s] rmnet_ioctl(): SET MRU to %u\n", dev->name,
+				eth_dev->mru);
+		break;
+
+	case RMNET_IOCTL_GET_MRU:
+		ext_cmd.u.data = eth_dev->port_usb->is_fixed ?
+					eth_dev->port_usb->fixed_out_len :
+					dev->mtu;
+		break;
+
+	case RMNET_IOCTL_GET_DRIVER_NAME:
+		strlcpy(ext_cmd.u.if_name, dev->name,
+			sizeof(ext_cmd.u.if_name));
+		break;
+
+	default:
+		break;
+	}
+
+	rc = copy_to_user(ifr->ifr_ifru.ifru_data, &ext_cmd,
+			  sizeof(struct rmnet_ioctl_extended_s));
+
+	if (rc)
+		DBG("%s(): copy_to_user() failed\n", __func__);
+	return rc;
+}
+
 static int ether_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
 	struct eth_dev	*eth_dev = netdev_priv(dev);
@@ -1123,6 +1179,10 @@ static int ether_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		DBG(eth_dev, "[%s] ioctl(): set RX HEADROOM: %x\n",
 				dev->name, eth_dev->rx_needed_headroom);
 		rc = 0;
+		break;
+
+	case RMNET_IOCTL_EXTENDED:
+		rc = rmnet_ioctl_extended(dev, ifr);
 		break;
 
 	default:
