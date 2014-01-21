@@ -947,6 +947,7 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 	int ret, i, count = 0;
 	int fault, first = 0;
 	bool pagefault = false;
+	char *state = "failed";
 
 	fault = atomic_xchg(&dispatcher->fault, 0);
 	if (fault == 0)
@@ -1054,11 +1055,14 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 
 	if (test_bit(KGSL_FT_DISABLE, &cmdbatch->fault_policy) ||
 		test_bit(KGSL_FT_TEMP_DISABLE, &cmdbatch->fault_policy)) {
-		pr_fault(device, cmdbatch, "gpu skipped ctx %d ts %d\n",
-			cmdbatch->context->id, cmdbatch->timestamp);
+		state = "skipped";
+		bitmap_zero(&cmdbatch->fault_policy, BITS_PER_LONG);
+	}
 
-		mark_guilty_context(device, cmdbatch->context->id);
-		adreno_drawctxt_invalidate(device, cmdbatch->context);
+	/* If the context is detached do not run FT on context */
+	if (kgsl_context_detached(cmdbatch->context)) {
+		state = "detached";
+		bitmap_zero(&cmdbatch->fault_policy, BITS_PER_LONG);
 	}
 
 	/*
@@ -1150,8 +1154,8 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 
 	/* If we get here then all the policies failed */
 
-	pr_fault(device, cmdbatch, "gpu failed ctx %d ts %d\n",
-		cmdbatch->context->id, cmdbatch->timestamp);
+	pr_fault(device, cmdbatch, "gpu %s ctx %d ts %d\n",
+		state, cmdbatch->context->id, cmdbatch->timestamp);
 
 	/* Mark the context as failed */
 	mark_guilty_context(device, cmdbatch->context->id);
