@@ -191,15 +191,15 @@ int mdss_mdp_vbif_axi_halt(struct mdss_data_type *mdata)
 		idle_mask |= BIT(5);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-	reg_val = readl_relaxed(mdata->vbif_base + MMSS_VBIF_AXI_HALT_CTRL1);
+	reg_val = MDSS_VBIF_READ(mdata, MMSS_VBIF_AXI_HALT_CTRL1);
 
 	is_idle = (reg_val & idle_mask) ? true : false;
 	if (!is_idle) {
 		pr_err("axi is not idle. halt_ctrl1=%d\n", reg_val);
 
-		writel_relaxed(1, mdata->vbif_base + MMSS_VBIF_AXI_HALT_CTRL0);
+		MDSS_VBIF_WRITE(mdata, MMSS_VBIF_AXI_HALT_CTRL0, 1);
 
-		rc = readl_poll_timeout(mdata->vbif_base +
+		rc = readl_poll_timeout(mdata->vbif_io.base +
 			MMSS_VBIF_AXI_HALT_CTRL1, status, (status & idle_mask),
 			1000, AXI_HALT_TIMEOUT_US);
 		if (rc == -ETIMEDOUT)
@@ -207,7 +207,7 @@ int mdss_mdp_vbif_axi_halt(struct mdss_data_type *mdata)
 		else
 			pr_debug("VBIF axi is halted\n");
 
-		writel_relaxed(0, mdata->vbif_base + MMSS_VBIF_AXI_HALT_CTRL0);
+		MDSS_VBIF_WRITE(mdata, MMSS_VBIF_AXI_HALT_CTRL0, 0);
 	}
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
@@ -245,7 +245,7 @@ static inline int mdss_irq_dispatch(u32 hw_ndx, int irq, void *ptr)
 static irqreturn_t mdss_irq_handler(int irq, void *ptr)
 {
 	struct mdss_data_type *mdata = ptr;
-	u32 intr = readl_relaxed(mdata->mdss_base + MDSS_REG_HW_INTR_STATUS);
+	u32 intr = MDSS_REG_READ(mdata, MDSS_REG_HW_INTR_STATUS);
 
 	if (!mdata)
 		return IRQ_NONE;
@@ -1131,7 +1131,8 @@ static int mdss_mdp_debug_init(struct mdss_data_type *mdata)
 	if (rc)
 		return rc;
 
-	mdss_debug_register_base("mdp", mdata->mdss_base, mdata->mdp_reg_size);
+	mdss_debug_register_io("mdp", &mdata->mdss_io);
+	mdss_debug_register_io("vbif", &mdata->vbif_io);
 
 	return 0;
 }
@@ -1150,8 +1151,9 @@ static void mdss_hw_rev_init(struct mdss_data_type *mdata)
 {
 	if (mdata->mdp_rev)
 		return;
+
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-	mdata->mdp_rev = readl_relaxed(mdata->mdss_base + MDSS_REG_HW_VERSION);
+	mdata->mdp_rev = MDSS_REG_READ(mdata, MDSS_REG_HW_VERSION);
 	pr_info_once("MDP Rev=%x\n", mdata->mdp_rev);
 	mdss_mdp_max_zorder_init(mdata);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
@@ -1497,42 +1499,23 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	mutex_init(&mdata->reg_lock);
 	atomic_set(&mdata->sd_client_count, 0);
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mdp_phys");
-	if (!res) {
-		pr_err("unable to get MDP base address\n");
-		rc = -ENOMEM;
-		goto probe_done;
-	}
-
-	mdata->mdp_reg_size = resource_size(res);
-	mdata->mdss_base = devm_ioremap(&pdev->dev, res->start,
-				       mdata->mdp_reg_size);
-	if (unlikely(!mdata->mdss_base)) {
+	rc = msm_dss_ioremap_byname(pdev, &mdata->mdss_io, "mdp_phys");
+	if (rc) {
 		pr_err("unable to map MDP base\n");
-		rc = -ENOMEM;
 		goto probe_done;
 	}
-	pr_info("MDSS HW Base phy_Address=0x%x virt=0x%x\n",
-		(int) (unsigned long) res->start,
-		(int) (unsigned long) mdata->mdss_base);
+	pr_debug("MDSS HW Base addr=0x%x len=0x%x\n",
+		(int) (unsigned long) mdata->mdss_io.base,
+		mdata->mdss_io.len);
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vbif_phys");
-	if (!res) {
-		pr_err("unable to get MDSS VBIF base address\n");
-		rc = -ENOMEM;
-		goto probe_done;
-	}
-
-	mdata->vbif_base = devm_ioremap(&pdev->dev, res->start,
-					resource_size(res));
-	if (unlikely(!mdata->vbif_base)) {
+	rc = msm_dss_ioremap_byname(pdev, &mdata->vbif_io, "vbif_phys");
+	if (rc) {
 		pr_err("unable to map MDSS VBIF base\n");
-		rc = -ENOMEM;
 		goto probe_done;
 	}
-	pr_info("MDSS VBIF HW Base phy_Address=0x%x virt=0x%x\n",
-		(int) (unsigned long) res->start,
-		(int) (unsigned long) mdata->vbif_base);
+	pr_debug("MDSS VBIF HW Base addr=0x%x len=0x%x\n",
+		(int) (unsigned long) mdata->vbif_io.base,
+		mdata->vbif_io.len);
 
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (!res) {
@@ -1606,7 +1589,7 @@ probe_done:
 	return rc;
 }
 
-static void mdss_mdp_parse_dt_regs_array(const u32 *arr, char __iomem *hw_base,
+static void mdss_mdp_parse_dt_regs_array(const u32 *arr, struct dss_io_data *io,
 	struct mdss_hw_settings *hws, int count)
 {
 	u32 len, reg;
@@ -1617,7 +1600,10 @@ static void mdss_mdp_parse_dt_regs_array(const u32 *arr, char __iomem *hw_base,
 
 	for (i = 0, len = count * 2; i < len; i += 2) {
 		reg = be32_to_cpu(arr[i]);
-		hws->reg = hw_base + reg;
+		if (reg >= io->len)
+			continue;
+
+		hws->reg = io->base + reg;
 		hws->val = be32_to_cpu(arr[i + 1]);
 		pr_debug("reg: 0x%04x=0x%08x\n", reg, hws->val);
 		hws++;
@@ -1655,8 +1641,9 @@ int mdss_mdp_parse_dt_hw_settings(struct platform_device *pdev)
 	if (!hws)
 		return -ENOMEM;
 
-	mdss_mdp_parse_dt_regs_array(vbif_arr, mdata->vbif_base, hws, vbif_len);
-	mdss_mdp_parse_dt_regs_array(mdp_arr, mdata->mdss_base,
+	mdss_mdp_parse_dt_regs_array(vbif_arr, &mdata->vbif_io,
+			hws, vbif_len);
+	mdss_mdp_parse_dt_regs_array(mdp_arr, &mdata->mdss_io,
 		hws + vbif_len, mdp_len);
 
 	mdata->hw_settings = hws;
@@ -1736,7 +1723,7 @@ static int mdss_mdp_parse_dt(struct platform_device *pdev)
 		pr_err("Error in device tree : mdp reg base\n");
 		return rc;
 	}
-	mdata->mdp_base = mdata->mdss_base + data;
+	mdata->mdp_base = mdata->mdss_io.base + data;
 	return 0;
 }
 

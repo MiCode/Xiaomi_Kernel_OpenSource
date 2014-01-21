@@ -15,6 +15,8 @@
 #define MDSS_DEBUG_H
 
 #include <stdarg.h>
+#include <linux/mdss_io_util.h>
+
 #include "mdss.h"
 #include "mdss_mdp_trace.h"
 
@@ -106,4 +108,11 @@ static inline void mdss_dump_reg(char __iomem *base, int len) { }
 static inline void mdss_dsi_debug_check_te(struct mdss_panel_data *pdata) { }
 static inline void mdss_xlog_tout_handler(const char *name, ...) { }
 #endif
+
+static inline int mdss_debug_register_io(const char *name,
+		struct dss_io_data *io_data)
+{
+	return mdss_debug_register_base(name, io_data->base, io_data->len);
+}
+
 #endif /* MDSS_DEBUG_H */
