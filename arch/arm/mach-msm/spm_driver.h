@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,7 +12,7 @@
 #ifndef __ARCH_ARM_MACH_MSM_SPM_DEVICES_H
 #define __ARCH_ARM_MACH_MSM_SPM_DEVICES_H
 
-#include "spm.h"
+#include <soc/qcom/spm.h>
 
 enum msm_spm_pmic_port {
 	MSM_SPM_PMIC_VCTL_PORT,

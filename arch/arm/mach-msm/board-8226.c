@@ -47,10 +47,10 @@
 #include <mach/rpm-smd.h>
 #include <soc/qcom/smem.h>
 #include <linux/msm_thermal.h>
+#include <soc/qcom/spm.h>
 #include "board-dt.h"
 #include "clock.h"
 #include "platsmp.h"
-#include "spm.h"
 #include "pm.h"
 #include "spm-regulator.h"
 

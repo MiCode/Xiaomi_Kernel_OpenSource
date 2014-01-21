@@ -32,7 +32,7 @@
 #include <soc/qcom/socinfo.h>
 #include <mach/rpm-smd.h>
 #include <soc/qcom/smem.h>
-#include "spm.h"
+#include <soc/qcom/spm.h>
 #include "board-dt.h"
 #include "clock.h"
 #include "platsmp.h"
