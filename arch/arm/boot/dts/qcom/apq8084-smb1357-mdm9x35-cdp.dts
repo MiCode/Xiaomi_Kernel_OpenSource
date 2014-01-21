@@ -16,26 +16,32 @@
 #include "apq8084-cdp.dtsi"
 
 / {
-	model = "Qualcomm APQ 8084, SMB349 CDP";
+	model = "Qualcomm APQ 8084, SMB1357 MDM9x35 CDP";
 	compatible = "qcom,apq8084-cdp", "qcom,apq8084", "qcom,cdp";
-	qcom,board-id = <1 0>,
-			<1 1>,
-			<21 0>,
-			<21 1>;
+	qcom,board-id = <1 3>,
+			<1 6>,
+			<21 3>,
+			<21 6>;
 };
 
 &i2c_0 {
-	smb349_otg_vreg: smb349-charger@1b {
-		compatible = "qcom,smb349-charger";
-		reg = <0x1b>;
+	smb1357_otg_vreg: smb1357-charger@1c {
+		compatible = "qcom,smb1357-charger";
+		reg = <0x1c>;
 		interrupt-parent = <&spmi_bus>;
-		interrupts = <0x00 0xcd 0x0>; /* PMA8084 GPIO 14 */
-		qcom,charging-disabled;
-		regulator-name = "smb349_otg_vreg";
+		interrupts = <0x0 0xcd 0x0>;	/* PMA8084 GPIO 14 */
+		qcom,float-voltage-mv = <4200>;
+		qcom,charging-timeout = <1536>;
+		qcom,recharge-thresh-mv = <200>;
+		qcom,iterm-ma = <100>;
+		regulator-name = "smb1357_otg_vreg";
+		qcom,soft-vfloat-comp-disabled;
+		therm-bias-supply = <&pma8084_lvs2>;
+		qcom,thermal-mitigation = <1500 700 600 0>;
 	};
 };
 
-&mdm0 {
+&mdm1 {
 	interrupt-map = <0 &msmgpio 111 0x3
 			1 &msmgpio 109 0x3
 			2 &msmgpio 113 0x3
@@ -49,9 +55,10 @@
 	qcom,ap2mdm-wakeup-gpio = <&msmgpio 108 0x00>;
 	qcom,ap2mdm-vddmin-gpio = <&msmgpio 114 0x00>;
 	qcom,mdm2ap-vddmin-gpio = <&msmgpio 115 0x00>;
+	qcom,mdm-dual-link;
 	status = "ok";
 };
 
 &usb3 {
-	vbus_dwc3-supply = <&smb349_otg_vreg>;
+	vbus_dwc3-supply = <&smb1357_otg_vreg>;
 };

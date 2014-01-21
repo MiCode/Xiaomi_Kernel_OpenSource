@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,23 @@
 		qcom,iterm-ma = <100>;
 		qcom,recharge-mv = <50>;
 	};
+};
+
+&mdm0 {
+	interrupt-map = <0 &msmgpio 111 0x3
+			1 &msmgpio 109 0x3
+			2 &msmgpio 113 0x3
+			3 &msmgpio 115 0x3>;
+	qcom,mdm2ap-errfatal-gpio = <&msmgpio 111 0x00>;
+	qcom,ap2mdm-errfatal-gpio = <&msmgpio 112 0x00>;
+	qcom,mdm2ap-status-gpio   = <&msmgpio 109 0x00>;
+	qcom,ap2mdm-status-gpio   = <&msmgpio 110 0x00>;
+	qcom,ap2mdm-soft-reset-gpio = <&msmgpio 128 0x00>;
+	qcom,mdm2ap-pblrdy-gpio = <&msmgpio 113 0x00>;
+	qcom,ap2mdm-wakeup-gpio = <&msmgpio 108 0x00>;
+	qcom,ap2mdm-vddmin-gpio = <&msmgpio 114 0x00>;
+	qcom,mdm2ap-vddmin-gpio = <&msmgpio 115 0x00>;
+	status = "ok";
 };
 
 &usb3 {

@@ -34,5 +34,29 @@
 		qcom,support-shutdown;
 		status = "disabled";
 	};
+
+	mdm1: qcom,mdm1 {
+                compatible = "qcom,ext-mdm9x35";
+		cell-index = <0>;
+		#address-cells = <0>;
+                interrupt-parent = <&mdm1>;
+                interrupts = <0 1 2 3>;
+                #interrupt-cells = <1>;
+                interrupt-map-mask = <0xffffffff>;
+                interrupt-names =
+			"err_fatal_irq",
+			"status_irq",
+			"plbrdy_irq",
+			"mdm2ap_vddmin_irq";
+		/* modem attributes */
+                qcom,ramdump-delay-ms = <2000>;
+                qcom,ramdump-timeout-ms = <120000>;
+                qcom,vddmin-modes  = "normal";
+                qcom,vddmin-drive-strength = <8>;
+		qcom,sfr-query;
+		qcom,sysmon-subsys-id = <20>;
+		qcom,support-shutdown;
+		status = "disabled";
+	};
 };
 

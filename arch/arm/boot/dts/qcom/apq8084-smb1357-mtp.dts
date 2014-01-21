@@ -18,8 +18,7 @@
 / {
 	model = "Qualcomm APQ 8084, SMB1357 MTP";
 	compatible = "qcom,apq8084-mtp", "qcom,apq8084", "qcom,mtp";
-	qcom,board-id = <8 2>,
-			<8 3>;
+	qcom,board-id = <8 2>;
 };
 
 &i2c_0 {
@@ -39,6 +38,23 @@
 		qcom,dc-psy-ma = <1000>;
 		qcom,thermal-mitigation = <1500 700 600 0>;
 	};
+};
+
+&mdm0 {
+	interrupt-map = <0 &msmgpio 111 0x3
+			1 &msmgpio 109 0x3
+			2 &msmgpio 113 0x3
+			3 &msmgpio 115 0x3>;
+	qcom,mdm2ap-errfatal-gpio = <&msmgpio 111 0x00>;
+	qcom,ap2mdm-errfatal-gpio = <&msmgpio 112 0x00>;
+	qcom,mdm2ap-status-gpio   = <&msmgpio 109 0x00>;
+	qcom,ap2mdm-status-gpio   = <&msmgpio 110 0x00>;
+	qcom,ap2mdm-soft-reset-gpio = <&msmgpio 128 0x00>;
+	qcom,mdm2ap-pblrdy-gpio = <&msmgpio 113 0x00>;
+	qcom,ap2mdm-wakeup-gpio = <&msmgpio 108 0x00>;
+	qcom,ap2mdm-vddmin-gpio = <&msmgpio 114 0x00>;
+	qcom,mdm2ap-vddmin-gpio = <&msmgpio 115 0x00>;
+	status = "ok";
 };
 
 &usb3 {
