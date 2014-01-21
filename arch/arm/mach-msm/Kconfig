@@ -863,10 +863,6 @@ config MSM_GPIOMUX
 config MSM_NATIVE_RESTART
 	bool
 
-config MSM_NOPM
-	default y if !PM
-	bool
-
 config MSM_BUS_SCALING
 	bool "Bus scaling driver"
 	default n
