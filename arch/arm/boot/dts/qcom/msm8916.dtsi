@@ -127,7 +127,7 @@
 		#interrupt-cells = <2>;
 		reg = <0x1000000 0x300000>;
 		ngpio = <122>;
-		interrupts = <0 208 0>;
+
 		qcom,direct-connect-irqs = <29>;
 	};
 

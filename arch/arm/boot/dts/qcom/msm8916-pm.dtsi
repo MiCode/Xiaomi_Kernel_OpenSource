@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -206,7 +206,7 @@
 			<0xff 207>, /* rpm_ipc(27) */
 			<0xff 240>; /* summary_irq_kpss */
 
-		qcom,gpio-parent = <&msmgpio>;
+		qcom,gpio-parent = <&msm_gpio>;
 		qcom,gpio-map = <3  1 >,
 			<5  5 >,
 			<6  9 >,
