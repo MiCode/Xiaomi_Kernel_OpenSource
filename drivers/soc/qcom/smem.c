@@ -92,6 +92,7 @@ static DEFINE_SPINLOCK(smem_init_check_lock);
 static int smem_module_inited;
 static RAW_NOTIFIER_HEAD(smem_module_init_notifier_list);
 static DEFINE_MUTEX(smem_module_init_notifier_lock);
+static bool probe_done;
 
 /* smem security feature components */
 #define SMEM_TOC_IDENTIFIER 0x434f5424 /* "$TOC" */
@@ -181,6 +182,19 @@ static struct restart_notifier_block restart_notifiers[] = {
 static int init_smem_remote_spinlock(void);
 
 /**
+ * is_probe_done() - Did the probe function successfully complete
+ *
+ * @return - true if probe successfully completed, false if otherwise
+ *
+ * Helper function for EPROBE_DEFER support.  If this function returns false,
+ * the calling function should immediately return -EPROBE_DEFER.
+ */
+static bool is_probe_done(void)
+{
+	return probe_done;
+}
+
+/**
  * smem_phys_to_virt() - Convert a physical base and offset to virtual address
  *
  * @base: physical base address to check
@@ -255,7 +269,10 @@ static void *smem_phys_to_virt(phys_addr_t base, unsigned offset)
  * @returns: Physical address (or NULL if there is a failure)
  *
  * This function should only be used if an SMEM item needs to be handed
- * off to a DMA engine.
+ * off to a DMA engine.  This function will not return a version of EPROBE_DEFER
+ * if the driver is not ready since the caller should obtain @smem_address from
+ * one of the other public APIs and get EPROBE_DEFER at that time, if
+ * applicable.
  */
 phys_addr_t smem_virt_to_phys(void *smem_address)
 {
@@ -485,7 +502,8 @@ static void *__smem_find(unsigned id, unsigned size_in, bool skip_init_check)
  * @size_in:  Size of the SMEM item
  * @to_proc:  SMEM host that shares the item with apps
  * @flags:    Item attribute flags
- * @returns:  Pointer to SMEM item or NULL if it doesn't exist
+ * @returns:  Pointer to SMEM item, NULL if it doesn't exist, or -EPROBE_DEFER
+ *	if the driver is not ready
  */
 void *smem_find(unsigned id, unsigned size_in, unsigned to_proc, unsigned flags)
 {
@@ -494,6 +512,9 @@ void *smem_find(unsigned id, unsigned size_in, unsigned to_proc, unsigned flags)
 
 	SMEM_DBG("%s(%u, %u, %u, %u)\n", __func__, id, size_in, to_proc,
 									flags);
+
+	if (!is_probe_done())
+		return ERR_PTR(-EPROBE_DEFER);
 
 	ptr = smem_get_entry(id, &size, to_proc, flags);
 	if (!ptr)
@@ -668,7 +689,8 @@ static void *alloc_item_secure(unsigned id, unsigned size_in, unsigned to_proc,
  * @size_in:  Size of the SMEM item
  * @to_proc:  SMEM host that shares the item with apps
  * @flags:    Item attribute flags
- * @returns:  Pointer to SMEM item or NULL if it couldn't be found/allocated
+ * @returns:  Pointer to SMEM item, NULL if it couldn't be found/allocated,
+ *	or -EPROBE_DEFER if the driver is not ready
  */
 void *smem_alloc(unsigned id, unsigned size_in, unsigned to_proc,
 								unsigned flags)
@@ -681,6 +703,9 @@ void *smem_alloc(unsigned id, unsigned size_in, unsigned to_proc,
 
 	SMEM_DBG("%s(%u, %u, %u, %u)\n", __func__, id, size_in, to_proc,
 									flags);
+
+	if (!is_probe_done())
+		return ERR_PTR(-EPROBE_DEFER);
 
 	if (!smem_initialized_check())
 		return NULL;
@@ -748,12 +773,16 @@ EXPORT_SYMBOL(smem_alloc);
  * @size:     Pointer to size variable for storing the result
  * @to_proc:  SMEM host that shares the item with apps
  * @flags:    Item attribute flags
- * @returns:  Pointer to SMEM item or NULL if it doesn't exist
+ * @returns:  Pointer to SMEM item, NULL if it doesn't exist, or -EPROBE_DEFER
+ *	if the driver isn't ready
  */
 void *smem_get_entry(unsigned id, unsigned *size, unsigned to_proc,
 								unsigned flags)
 {
 	SMEM_DBG("%s(%u, %u, %u, %u)\n", __func__, id, *size, to_proc, flags);
+
+	if (!is_probe_done())
+		return ERR_PTR(-EPROBE_DEFER);
 
 	return __smem_get_entry_secure(id, size, to_proc, flags, false, true);
 }
@@ -766,7 +795,8 @@ EXPORT_SYMBOL(smem_get_entry);
  * @size_out: Pointer to size variable for storing the result
  * @to_proc:  SMEM host that shares the item with apps
  * @flags:    Item attribute flags
- * @returns:  Pointer to SMEM item or NULL if it doesn't exist
+ * @returns:  Pointer to SMEM item, NULL if it doesn't exist, or -EPROBE_DEFER
+ *	if the driver isn't ready
  *
  * This function does not lock the remote spinlock and should only be used in
  * failure-recover cases such as retrieving the subsystem failure reason during
@@ -775,6 +805,9 @@ EXPORT_SYMBOL(smem_get_entry);
 void *smem_get_entry_no_rlock(unsigned id, unsigned *size_out, unsigned to_proc,
 								unsigned flags)
 {
+	if (!is_probe_done())
+		return ERR_PTR(-EPROBE_DEFER);
+
 	return __smem_get_entry_secure(id, size_out, to_proc, flags, false,
 									false);
 }
@@ -1383,6 +1416,8 @@ smem_targ_info_done:
 		SMEM_INFO("smem security enabled\n");
 		smem_init_security();
 	}
+
+	probe_done = true;
 
 	ret = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
 	if (ret)
