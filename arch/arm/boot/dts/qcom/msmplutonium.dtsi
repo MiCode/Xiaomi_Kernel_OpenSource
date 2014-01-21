@@ -120,6 +120,14 @@
 			reg = <0 0 0 0x614000>;
 			label = "audio_mem";
 		};
+
+		removed_regions: removed_regions@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0 0x6c00000 0 0x9000000>;
+			label = "memory_hole";
+		};
 	};
 };
 
