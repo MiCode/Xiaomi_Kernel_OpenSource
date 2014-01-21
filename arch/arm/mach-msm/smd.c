@@ -169,7 +169,7 @@ void *smsm_log_ctx;
 			IPC_LOG_SMSM(KERN_DEBUG, x);		\
 	} while (0)
 
-#define SMD_INFO(x...) do {			 	\
+#define SMD_INFO(x...) do {				\
 		if (msm_smd_debug_mask & MSM_SMD_INFO)	\
 			IPC_LOG_SMD(KERN_INFO, x);	\
 	} while (0)
@@ -1081,9 +1081,7 @@ static int ch_read(struct smd_channel *ch, void *_data, int len, int user_buf)
 				}
 				r = copy_to_user(data, ptr, n);
 				if (r > 0) {
-					pr_err("%s: "
-						"copy_to_user could not copy "
-						"%i bytes.\n",
+					pr_err("%s: copy_to_user could not copy %i bytes.\n",
 						__func__,
 						r);
 				}
@@ -1453,9 +1451,7 @@ static int smd_stream_write(smd_channel_t *ch, const void *_data, int len,
 			}
 			r = copy_from_user(ptr, buf, xfer);
 			if (r > 0) {
-				pr_err("%s: "
-					"copy_from_user could not copy %i "
-					"bytes.\n",
+				pr_err("%s: copy_from_user could not copy %i bytes.\n",
 					__func__,
 					r);
 			}
@@ -1497,16 +1493,16 @@ static int smd_packet_write(smd_channel_t *ch, const void *_data, int len,
 
 	ret = smd_stream_write(ch, hdr, sizeof(hdr), 0);
 	if (ret < 0 || ret != sizeof(hdr)) {
-		SMD_DBG("%s failed to write pkt header: "
-			"%d returned\n", __func__, ret);
+		SMD_DBG("%s failed to write pkt header: %d returned\n",
+								__func__, ret);
 		return -1;
 	}
 
 
 	ret = smd_stream_write(ch, _data, len, user_buf);
 	if (ret < 0 || ret != len) {
-		SMD_DBG("%s failed to write pkt data: "
-			"%d returned\n", __func__, ret);
+		SMD_DBG("%s failed to write pkt data: %d returned\n",
+								__func__, ret);
 		return ret;
 	}
 
@@ -1671,7 +1667,7 @@ static int smd_alloc(struct smd_channel *ch, int table_id,
  * @table_id: the id of the table this channel resides in. 1 = first table, 2 =
  *		seconds table, etc
  * @r_info: pointer to the info structure of the remote proc for this channel
- * @returns: -1 for failure; 0 for success
+ * @returns: error code for failure; 0 for success
  */
 static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm, int table_id,
 				struct remote_proc_info *r_info)
@@ -1681,14 +1677,14 @@ static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm, int table_id,
 	ch = kzalloc(sizeof(struct smd_channel), GFP_KERNEL);
 	if (ch == 0) {
 		pr_err("smd_alloc_channel() out of memory\n");
-		return -1;
+		return -ENOMEM;
 	}
 	ch->n = alloc_elm->cid;
 	ch->type = SMD_CHANNEL_TYPE(alloc_elm->type);
 
 	if (smd_alloc(ch, table_id, r_info)) {
 		kfree(ch);
-		return -1;
+		return -ENODEV;
 	}
 
 	ch->fifo_mask = ch->fifo_size - 1;
@@ -1871,7 +1867,7 @@ int smd_close(smd_channel_t *ch)
 	unsigned long flags;
 
 	if (ch == 0)
-		return -1;
+		return -EINVAL;
 
 	SMD_INFO("smd_close(%s)\n", ch->name);
 
@@ -1958,8 +1954,8 @@ int smd_write_segment(smd_channel_t *ch, void *data, int len, int user_buf)
 		return -ENOEXEC;
 	}
 	if (ch->pending_pkt_sz - len < 0) {
-		pr_err("%s: segment of size: %d will make packet go over "
-			"length\n", __func__, len);
+		pr_err("%s: segment of size: %d will make packet go over length\n",
+								__func__, len);
 		return -EINVAL;
 	}
 
@@ -2626,11 +2622,10 @@ uint32_t smsm_get_state(uint32_t smsm_entry)
 		return 0;
 	}
 
-	if (!smsm_info.state) {
+	if (!smsm_info.state)
 		pr_err("smsm_get_state <SM NO STATE>\n");
-	} else {
+	else
 		rv = __raw_readl(SMSM_STATE_ADDR(smsm_entry));
-	}
 
 	return rv;
 }
@@ -2710,8 +2705,8 @@ void notify_smsm_cb_clients_worker(struct work_struct *work)
 			if (smsm_snapshot_count) {
 				--smsm_snapshot_count;
 				if (smsm_snapshot_count == 0) {
-					SMSM_POWER_INFO("SMSM snapshot"
-						   " wake unlock\n");
+					SMSM_POWER_INFO(
+						"SMSM snapshot wake unlock\n");
 					__pm_relax(&smsm_snapshot_ws);
 				}
 			} else {
