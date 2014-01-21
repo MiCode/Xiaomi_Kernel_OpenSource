@@ -1,6 +1,6 @@
 /* arch/arm/mach-msm/smp2p_test.c
  *
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -106,12 +106,12 @@ static void smp2p_ut_local_basic(struct seq_file *s)
 		UT_ASSERT_INT(ret, ==, 0);
 		UT_ASSERT_PTR(smp2p_obj, ==, 0);
 
-		seq_printf(s, "\tOK\n");
+		seq_puts(s, "\tOK\n");
 	} while (0);
 
 	if (failed) {
 		pr_err("%s: Failed\n", __func__);
-		seq_printf(s, "\tFailed\n");
+		seq_puts(s, "\tFailed\n");
 		(void)msm_smp2p_out_close(&smp2p_obj);
 	}
 }
@@ -195,12 +195,12 @@ static void smp2p_ut_local_late_open(struct seq_file *s)
 		UT_ASSERT_INT(ret, ==, 0);
 		UT_ASSERT_PTR(smp2p_obj, ==, 0);
 
-		seq_printf(s, "\tOK\n");
+		seq_puts(s, "\tOK\n");
 	} while (0);
 
 	if (failed) {
 		pr_err("%s: Failed\n", __func__);
-		seq_printf(s, "\tFailed\n");
+		seq_puts(s, "\tFailed\n");
 		(void)msm_smp2p_out_close(&smp2p_obj);
 	}
 }
@@ -316,12 +316,12 @@ static void smp2p_ut_local_early_open(struct seq_file *s)
 		UT_ASSERT_INT(ret, ==, 0);
 		UT_ASSERT_PTR(smp2p_obj, ==, 0);
 
-		seq_printf(s, "\tOK\n");
+		seq_puts(s, "\tOK\n");
 	} while (0);
 
 	if (failed) {
 		pr_err("%s: Failed\n", __func__);
-		seq_printf(s, "\tFailed\n");
+		seq_puts(s, "\tFailed\n");
 		(void)msm_smp2p_out_close(&smp2p_obj);
 	}
 }
@@ -455,12 +455,12 @@ static void smp2p_ut_mock_loopback(struct seq_file *s)
 
 		ret = msm_smp2p_deinit_rmt_lpb_proc(SMP2P_REMOTE_MOCK_PROC);
 		UT_ASSERT_INT(ret, ==, 0);
-		seq_printf(s, "\tOK\n");
+		seq_puts(s, "\tOK\n");
 	} while (0);
 
 	if (failed) {
 		pr_err("%s: Failed\n", __func__);
-		seq_printf(s, "\tFailed\n");
+		seq_puts(s, "\tFailed\n");
 		msm_smp2p_deinit_rmt_lpb_proc(SMP2P_REMOTE_MOCK_PROC);
 	}
 }
@@ -613,7 +613,7 @@ static void smp2p_ut_remote_inout_core(struct seq_file *s, int remote_pid)
 		ret = msm_smp2p_in_unregister(remote_pid, "smp2p", &cb_in.nb);
 		UT_ASSERT_INT(ret, ==, 0);
 
-		seq_printf(s, "\tOK\n");
+		seq_puts(s, "\tOK\n");
 	} while (0);
 
 	if (failed) {
@@ -622,7 +622,7 @@ static void smp2p_ut_remote_inout_core(struct seq_file *s, int remote_pid)
 		(void)msm_smp2p_in_unregister(remote_pid, "smp2p", &cb_in.nb);
 
 		pr_err("%s: Failed\n", __func__);
-		seq_printf(s, "\tFailed\n");
+		seq_puts(s, "\tFailed\n");
 	}
 }
 
@@ -641,8 +641,7 @@ static void smp2p_ut_remote_inout(struct seq_file *s)
 
 	int_cfg = smp2p_get_interrupt_config();
 	if (!int_cfg) {
-		seq_printf(s,
-			"Remote processor config unavailable\n");
+		seq_puts(s, "Remote processor config unavailable\n");
 		return;
 	}
 
@@ -704,12 +703,12 @@ static void smp2p_ut_remote_out_max_entries_core(struct seq_file *s,
 		UT_ASSERT_INT(num_created, <=, SMP2P_MAX_ENTRY);
 		UT_ASSERT_INT(num_created, >, 0);
 
-		seq_printf(s, "\tOK\n");
+		seq_puts(s, "\tOK\n");
 	} while (0);
 
 	if (failed) {
 		pr_err("%s: Failed\n", __func__);
-		seq_printf(s, "\tFailed\n");
+		seq_puts(s, "\tFailed\n");
 	}
 
 	/* cleanup */
@@ -732,8 +731,7 @@ static void smp2p_ut_remote_out_max_entries(struct seq_file *s)
 
 	int_cfg = smp2p_get_interrupt_config();
 	if (!int_cfg) {
-		seq_printf(s,
-			"Remote processor config unavailable\n");
+		seq_puts(s, "Remote processor config unavailable\n");
 		return;
 	}
 
@@ -830,12 +828,12 @@ static void smp2p_ut_local_in_max_entries(struct seq_file *s)
 		}
 		UT_ASSERT_INT(j, ==, SMP2P_MAX_ENTRY);
 
-		seq_printf(s, "\tOK\n");
+		seq_puts(s, "\tOK\n");
 	} while (0);
 
 	if (failed) {
 		pr_err("%s: Failed\n", __func__);
-		seq_printf(s, "\tFailed\n");
+		seq_puts(s, "\tFailed\n");
 
 		for (j = 0; j < SMP2P_MAX_ENTRY; j++)
 			ret = msm_smp2p_in_unregister(SMP2P_REMOTE_MOCK_PROC,
@@ -937,12 +935,12 @@ static void smp2p_ut_local_in_multiple(struct seq_file *s)
 				&(cb_in_2.nb));
 		UT_ASSERT_INT(ret, ==, 0);
 
-		seq_printf(s, "\tOK\n");
+		seq_puts(s, "\tOK\n");
 	} while (0);
 
 	if (failed) {
 		pr_err("%s: Failed\n", __func__);
-		seq_printf(s, "\tFailed\n");
+		seq_puts(s, "\tFailed\n");
 
 		ret = msm_smp2p_in_unregister(SMP2P_REMOTE_MOCK_PROC,
 				rmp->remote_item.entries[0].name,

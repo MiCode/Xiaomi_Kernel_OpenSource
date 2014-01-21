@@ -1,6 +1,6 @@
 /* arch/arm/mach-msm/smp2p_test_common.h
  *
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,8 +36,7 @@
 	int a_tmp = (a); \
 	int b_tmp = (b); \
 	if (!((a_tmp)cmp(b_tmp))) { \
-		seq_printf(s, \
-			"%s:%d Fail: " #a "(%d) " #cmp " " #b "(%d)\n", \
+		seq_printf(s, "%s:%d Fail: " #a "(%d) " #cmp " " #b "(%d)\n", \
 				__func__, __LINE__, \
 				a_tmp, b_tmp); \
 		failed = 1; \
@@ -50,8 +49,7 @@
 	void *a_tmp = (a); \
 	void *b_tmp = (b); \
 	if (!((a_tmp)cmp(b_tmp))) { \
-		seq_printf(s, \
-			"%s:%d Fail: " #a "(%p) " #cmp " " #b "(%p)\n", \
+		seq_printf(s, "%s:%d Fail: " #a "(%p) " #cmp " " #b "(%p)\n", \
 				__func__, __LINE__, \
 				a_tmp, b_tmp); \
 		failed = 1; \
@@ -64,8 +62,7 @@
 	unsigned a_tmp = (a); \
 	unsigned b_tmp = (b); \
 	if (!((a_tmp)cmp(b_tmp))) { \
-		seq_printf(s, \
-			"%s:%d Fail: " #a "(%u) " #cmp " " #b "(%u)\n", \
+		seq_printf(s, "%s:%d Fail: " #a "(%u) " #cmp " " #b "(%u)\n", \
 				__func__, __LINE__, \
 				a_tmp, b_tmp); \
 		failed = 1; \
@@ -78,8 +75,7 @@
 	unsigned a_tmp = (a); \
 	unsigned b_tmp = (b); \
 	if (!((a_tmp)cmp(b_tmp))) { \
-		seq_printf(s, \
-			"%s:%d Fail: " #a "(%x) " #cmp " " #b "(%x)\n", \
+		seq_printf(s, "%s:%d Fail: " #a "(%x) " #cmp " " #b "(%x)\n", \
 				__func__, __LINE__, \
 				a_tmp, b_tmp); \
 		failed = 1; \
@@ -109,8 +105,7 @@
 	int minv_tmp = (minv); \
 	int maxv_tmp = (maxv); \
 	if (((a_tmp) < (minv_tmp)) || ((a_tmp) > (maxv_tmp))) { \
-		seq_printf(s, \
-			"%s:%d Fail: " #a "(%d) < " #minv "(%d) or " \
+		seq_printf(s, "%s:%d Fail: " #a "(%d) < " #minv "(%d) or " \
 				 #a "(%d) > " #maxv "(%d)\n", \
 				__func__, __LINE__, \
 				a_tmp, minv_tmp, a_tmp, maxv_tmp); \
