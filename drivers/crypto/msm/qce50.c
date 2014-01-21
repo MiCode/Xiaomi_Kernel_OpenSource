@@ -101,6 +101,13 @@ struct qce_device {
 	dma_addr_t phy_ota_src;
 	dma_addr_t phy_ota_dst;
 	unsigned int ota_size;
+
+	bool use_sw_aes_cbc_ecb_ctr_algo;
+	bool use_sw_aead_algo;
+	bool use_sw_aes_xts_algo;
+	bool use_sw_ahash_algo;
+	bool use_sw_hmac_algo;
+	bool use_sw_aes_ccm_algo;
 };
 
 /* Standard initialization vector for SHA-1, source: FIPS 180-2 */
@@ -5078,6 +5085,26 @@ static int __qce_get_device_tree_data(struct platform_device *pdev,
 				"qcom,ce-hw-shared");
 	pce_dev->support_hw_key = of_property_read_bool((&pdev->dev)->of_node,
 				"qcom,ce-hw-key");
+
+	pce_dev->use_sw_aes_cbc_ecb_ctr_algo =
+				of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,use-sw-aes-cbc-ecb-ctr-algo");
+	pce_dev->use_sw_aead_algo =
+				of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,use-sw-aead-algo");
+	pce_dev->use_sw_aes_xts_algo =
+				of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,use-sw-aes-xts-algo");
+	pce_dev->use_sw_ahash_algo =
+				of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,use-sw-ahash-algo");
+	pce_dev->use_sw_hmac_algo =
+				of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,use-sw-hmac-algo");
+	pce_dev->use_sw_aes_ccm_algo =
+				of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,use-sw-aes-ccm-algo");
+
 	if (of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,bam-pipe-pair",
 				&pce_dev->ce_sps.pipe_pair_index)) {
@@ -5409,6 +5436,19 @@ int qce_hw_support(void *handle, struct ce_hw_support *ce_support)
 		ce_support->aligned_only = false;
 	else
 		ce_support->aligned_only = true;
+
+	ce_support->use_sw_aes_cbc_ecb_ctr_algo =
+				pce_dev->use_sw_aes_cbc_ecb_ctr_algo;
+	ce_support->use_sw_aead_algo =
+				pce_dev->use_sw_aead_algo;
+	ce_support->use_sw_aes_xts_algo =
+				pce_dev->use_sw_aes_xts_algo;
+	ce_support->use_sw_ahash_algo =
+				pce_dev->use_sw_ahash_algo;
+	ce_support->use_sw_hmac_algo =
+				pce_dev->use_sw_hmac_algo;
+	ce_support->use_sw_aes_ccm_algo =
+				pce_dev->use_sw_aes_ccm_algo;
 	return 0;
 }
 EXPORT_SYMBOL(qce_hw_support);

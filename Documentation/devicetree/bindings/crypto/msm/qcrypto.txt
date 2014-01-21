@@ -16,6 +16,12 @@ Required properties:
 Optional properties:
   - qcom,ce-hw-shared : optional, indicates if the hardware is shared between EE.
   - qcom,ce-hw-key : optional, indicates if the hardware supports use of HW KEY.
+  - qcom,use-sw-aes-cbc-ecb-ctr-algo : optional, indicates if use SW aes-cbc/ecb/ctr algorithm.
+  - qcom,use-sw-aes-xts-algo : optional, indicates if use SW aes-xts algorithm.
+  - qcom,use-sw-aead-algo : optional, indicates if use SW aead algorithm.
+  - qcom,use-sw-ahash-algo : optional, indicates if use SW hash algorithm.
+  - qcom,use-sw-hmac-algo : optional, indicates if use SW hmac algorithm.
+  - qcom,use-sw-aes-ccm-algo : optional, indicates if use SW aes-ccm algorithm.
 
 Example:
 
