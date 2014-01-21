@@ -39,9 +39,9 @@
 #endif
 #include <mach/msm_bus.h>
 #include <soc/qcom/jtag.h>
-#include "idle.h"
-#include "clock.h"
-#include "pm-boot.h"
+#include "../../../arch/arm/mach-msm/idle.h"
+#include "../../../arch/arm/mach-msm/clock.h"
+#include "../../../arch/arm/mach-msm/pm-boot.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/trace_msm_low_power.h>

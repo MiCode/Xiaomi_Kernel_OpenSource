@@ -948,10 +948,6 @@ config MSM_GPIOMUX
 config MSM_NATIVE_RESTART
 	bool
 
-config MSM_PM
-	depends on PM
-	bool
-
 config MSM_EVENT_TIMER
 	bool "Event timer"
 	help
