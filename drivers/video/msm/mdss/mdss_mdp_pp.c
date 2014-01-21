@@ -789,8 +789,18 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	unsigned long flags = 0;
 	char __iomem *offset;
 	struct mdss_data_type *mdata;
+	struct msm_fb_data_type *mfd = NULL;
+	u32 current_opmode;
+	u32 csc_reset;
 
 	pr_debug("pnum=%x\n", pipe->num);
+
+	if (!pipe->mixer || !pipe->mixer->ctl || !pipe->mixer->ctl->mfd) {
+		pr_err("Invalid input params for vig pipe setup\n");
+		return -EINVAL;
+	}
+
+	mfd = pipe->mixer->ctl->mfd;
 
 	mdata = mdss_mdp_get_mdata();
 	if ((pipe->flags & MDP_OVERLAY_PP_CFG_EN) &&
@@ -824,6 +834,16 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	}
 
 	pp_histogram_setup(&opmode, MDSS_PP_SSPP_CFG | pipe->num, pipe->mixer);
+
+	/* Update CSC state only if tuning mode is enable */
+	if (mfd->dcm_state == DTM_ENTER) {
+		/* Reset bit 16 to 19 for CSC_STATE in VIG_OP_MODE */
+		csc_reset = 0xFFF0FFFF;
+		current_opmode = readl_relaxed(pipe->base +
+						MDSS_MDP_REG_VIG_OP_MODE);
+		*op |= ((current_opmode & csc_reset) | opmode);
+		return 0;
+	}
 
 	if (pipe->flags & MDP_OVERLAY_PP_CFG_EN) {
 		if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_PA_CFG) &&
@@ -1155,9 +1175,26 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	char __iomem *pipe_base;
 	u32 pipe_num;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct msm_fb_data_type *mfd = NULL;
+	u32 current_opmode;
 
 	if (pipe == NULL)
 		return -EINVAL;
+
+	if (!pipe->mixer || !pipe->mixer->ctl || !pipe->mixer->ctl->mfd) {
+		pr_err("Invalid input params for sspp pipe setup\n");
+		return -EINVAL;
+	}
+
+	mfd = pipe->mixer->ctl->mfd;
+
+	/* Read IGC state and update the same if tuning mode is enable */
+	if (mfd->dcm_state == DTM_ENTER) {
+		current_opmode = readl_relaxed(pipe->base +
+						MDSS_MDP_REG_SSPP_SRC_OP_MODE);
+		*op |= (current_opmode & BIT(16));
+		return ret;
+	}
 
 	/*
 	 * TODO: should this function be responsible for masking multiple
