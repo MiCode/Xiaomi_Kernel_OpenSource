@@ -103,6 +103,7 @@ extern void pci_v3_postinit(void);
 
 #ifdef CONFIG_MSM_PCIE
 #define arch_setup_msi_irqs arch_setup_msi_irqs
+#define arch_teardown_msi_irqs arch_teardown_msi_irqs
 #endif
 
 #endif /* __ASM_MACH_PCI_H */
