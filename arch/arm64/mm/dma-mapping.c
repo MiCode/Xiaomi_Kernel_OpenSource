@@ -43,15 +43,14 @@ static void *arm64_swiotlb_alloc_coherent(struct device *dev, size_t size,
 	    dev->coherent_dma_mask <= DMA_BIT_MASK(32))
 		flags |= GFP_DMA32;
 	if (IS_ENABLED(CONFIG_CMA)) {
-		struct page *page;
-
-		page = dma_alloc_from_contiguous(dev, size >> PAGE_SHIFT,
+		unsigned long pfn;
+		pfn = dma_alloc_from_contiguous(dev, size >> PAGE_SHIFT,
 							get_order(size));
-		if (!page)
+		if (!pfn)
 			return NULL;
 
-		*dma_handle = phys_to_dma(dev, page_to_phys(page));
-		return page_address(page);
+		*dma_handle = phys_to_dma(dev, __pfn_to_phys(pfn));
+		return page_address(pfn_to_page(pfn));
 	} else {
 		return swiotlb_alloc_coherent(dev, size, dma_handle, flags);
 	}
@@ -70,7 +69,7 @@ static void arm64_swiotlb_free_coherent(struct device *dev, size_t size,
 		phys_addr_t paddr = dma_to_phys(dev, dma_handle);
 
 		dma_release_from_contiguous(dev,
-					phys_to_page(paddr),
+					__phys_to_pfn(paddr),
 					size >> PAGE_SHIFT);
 	} else {
 		swiotlb_free_coherent(dev, size, vaddr, dma_handle);
