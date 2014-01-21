@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -324,7 +324,7 @@ int msm_sensor_get_dt_csi_data(struct device_node *of_node,
 	*csi_lane_params = clp;
 
 	rc = of_property_read_u32(of_node, "qcom,csi-lane-assign", &val);
-	CDBG("%s qcom,csi-lane-assign %x, rc %d\n", __func__, val, rc);
+	CDBG("%s qcom,csi-lane-assign 0x%x, rc %d\n", __func__, val, rc);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		goto ERROR;
@@ -332,7 +332,7 @@ int msm_sensor_get_dt_csi_data(struct device_node *of_node,
 	clp->csi_lane_assign = val;
 
 	rc = of_property_read_u32(of_node, "qcom,csi-lane-mask", &val);
-	CDBG("%s qcom,csi-lane-mask %x, rc %d\n", __func__, val, rc);
+	CDBG("%s qcom,csi-lane-mask 0x%x, rc %d\n", __func__, val, rc);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		goto ERROR;

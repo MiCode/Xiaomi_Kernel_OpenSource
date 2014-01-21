@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -474,13 +474,13 @@ int32_t gc0339_config(struct msm_sensor_ctrl_t *s_ctrl,
 			rc = -EFAULT;
 			break;
 		}
-		CDBG("%s sensor id %x\n", __func__,
+		CDBG("%s sensor id 0x%x\n", __func__,
 			sensor_slave_info.slave_addr);
 		CDBG("%s sensor addr type %d\n", __func__,
 			sensor_slave_info.addr_type);
-		CDBG("%s sensor reg %x\n", __func__,
+		CDBG("%s sensor reg 0x%x\n", __func__,
 			sensor_slave_info.sensor_id_info.sensor_id_reg_addr);
-		CDBG("%s sensor id %x\n", __func__,
+		CDBG("%s sensor id 0x%x\n", __func__,
 			sensor_slave_info.sensor_id_info.sensor_id);
 		for (slave_index = 0; slave_index <
 			power_setting_array->size; slave_index++) {

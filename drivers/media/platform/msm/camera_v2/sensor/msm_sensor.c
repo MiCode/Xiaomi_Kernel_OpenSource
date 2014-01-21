@@ -283,7 +283,8 @@ static int32_t msm_sensor_get_dt_data(struct device_node *of_node,
 	sensordata->slave_info->sensor_slave_addr = id_info[0];
 	sensordata->slave_info->sensor_id_reg_addr = id_info[1];
 	sensordata->slave_info->sensor_id = id_info[2];
-	CDBG("%s:%d slave addr %x sensor reg %x id %x\n", __func__, __LINE__,
+	CDBG("%s:%d slave addr 0x%x sensor reg 0x%x id 0x%x\n",
+		__func__, __LINE__,
 		sensordata->slave_info->sensor_slave_addr,
 		sensordata->slave_info->sensor_id_reg_addr,
 		sensordata->slave_info->sensor_id);
@@ -498,7 +499,7 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 		return rc;
 	}
 
-	CDBG("%s: read id: %x expected id %x:\n", __func__, chipid,
+	CDBG("%s: read id: 0x%x expected id 0x%x:\n", __func__, chipid,
 		slave_info->sensor_id);
 	if (chipid != slave_info->sensor_id) {
 		pr_err("msm_sensor_match_id chip id doesnot match\n");
@@ -655,13 +656,13 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			rc = -EFAULT;
 			break;
 		}
-		CDBG("%s sensor id %x\n", __func__,
+		CDBG("%s sensor id 0x%x\n", __func__,
 			sensor_slave_info.slave_addr);
 		CDBG("%s sensor addr type %d\n", __func__,
 			sensor_slave_info.addr_type);
-		CDBG("%s sensor reg %x\n", __func__,
+		CDBG("%s sensor reg 0x%x\n", __func__,
 			sensor_slave_info.sensor_id_info.sensor_id_reg_addr);
-		CDBG("%s sensor id %x\n", __func__,
+		CDBG("%s sensor id 0x%x\n", __func__,
 			sensor_slave_info.sensor_id_info.sensor_id);
 		for (s_index = 0; s_index <
 			p_ctrl->power_setting_size; s_index++) {
