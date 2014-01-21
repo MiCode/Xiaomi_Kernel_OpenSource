@@ -21,6 +21,8 @@
 #include <linux/regulator/consumer.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
+#include <linux/pm.h>
+#include <linux/pm_wakeup.h>
 #include <mach/gpiomux.h>
 #include <mach/msm_pcie.h>
 #include <mach/subsystem_restart.h>
@@ -553,6 +555,36 @@ int cnss_get_wlan_unsafe_channel(u16 *unsafe_ch_list,
 	return 0;
 }
 EXPORT_SYMBOL(cnss_get_wlan_unsafe_channel);
+
+void cnss_pm_wake_lock_init(struct wakeup_source *ws, const char *name)
+{
+	wakeup_source_init(ws, name);
+}
+EXPORT_SYMBOL(cnss_pm_wake_lock_init);
+
+void cnss_pm_wake_lock(struct wakeup_source *ws)
+{
+	__pm_stay_awake(ws);
+}
+EXPORT_SYMBOL(cnss_pm_wake_lock);
+
+void cnss_pm_wake_lock_timeout(struct wakeup_source *ws, ulong msec)
+{
+	__pm_wakeup_event(ws, jiffies_to_msecs(msec));
+}
+EXPORT_SYMBOL(cnss_pm_wake_lock_timeout);
+
+void cnss_pm_wake_lock_release(struct wakeup_source *ws)
+{
+	__pm_relax(ws);
+}
+EXPORT_SYMBOL(cnss_pm_wake_lock_release);
+
+void cnss_pm_wake_lock_destroy(struct wakeup_source *ws)
+{
+	wakeup_source_trash(ws);
+}
+EXPORT_SYMBOL(cnss_pm_wake_lock_destroy);
 
 int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size)
 {
