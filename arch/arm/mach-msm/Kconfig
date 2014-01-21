@@ -91,7 +91,6 @@ config ARCH_MPQ8092
 	select MSM_GPIOMUX
 	select MSM_QDSP6V2_CODECS
 	select MSM_QDSP6_APRV2 if SND_SOC
-	select MSM_NOPM
 	select MEMORY_HOLE_CARVEOUT
 	select QMI_ENCDEC
 	select MIGHT_HAVE_PCI
@@ -104,6 +103,12 @@ config ARCH_MPQ8092
 	select MSM_MULTIMEDIA_USE_ION
 	select USB_ARCH_HAS_XHCI
 	select MSM_IRQ
+	select MSM_SPM_V2
+	select MSM_L2_SPM
+	select MSM_PM if PM
+	select MSM_RPM_SMD
+	select MSM_RPM_STATS_LOG
+	select MSM_RPM_LOG
 
 config ARCH_FSM9900
 	bool "FSM9900"
