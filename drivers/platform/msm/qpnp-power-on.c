@@ -191,7 +191,8 @@ qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
 							addr, &reg, 1);
 	if (rc) {
 		dev_err(&pon->spmi->dev,
-			"Unable to read from addr=%x, rc(%d)\n", addr, rc);
+			"Unable to read from addr=%hx, rc(%d)\n",
+			addr, rc);
 		return rc;
 	}
 
@@ -201,7 +202,7 @@ qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
 							addr, &reg, 1);
 	if (rc)
 		dev_err(&pon->spmi->dev,
-			"Unable to write to addr=%x, rc(%d)\n", addr, rc);
+			"Unable to write to addr=%hx, rc(%d)\n", addr, rc);
 	return rc;
 }
 
@@ -248,13 +249,13 @@ static ssize_t qpnp_pon_dbc_store(struct device *dev,
 				const char *buf, size_t size)
 {
 	struct qpnp_pon *pon = dev_get_drvdata(dev);
-	unsigned long value;
+	u32 value;
 	int rc;
 
 	if (size > QPNP_PON_BUFFER_SIZE)
 		return -EINVAL;
 
-	rc = kstrtoul(buf, 10, &value);
+	rc = kstrtou32(buf, 10, &value);
 	if (rc)
 		return rc;
 
@@ -303,7 +304,8 @@ int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 	rc = qpnp_pon_masked_write(pon, rst_en_reg, QPNP_PON_RESET_EN, 0);
 	if (rc)
 		dev_err(&pon->spmi->dev,
-			"Unable to write to addr=%x, rc(%d)\n", rst_en_reg, rc);
+			"Unable to write to addr=%hx, rc(%d)\n",
+			rst_en_reg, rc);
 
 	/*
 	 * We need 10 sleep clock cycles here. But since the clock is
@@ -323,7 +325,8 @@ int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 						    QPNP_PON_RESET_EN);
 	if (rc)
 		dev_err(&pon->spmi->dev,
-			"Unable to write to addr=%x, rc(%d)\n", rst_en_reg, rc);
+			"Unable to write to addr=%hx, rc(%d)\n",
+			rst_en_reg, rc);
 
 	dev_dbg(&pon->spmi->dev, "power off type = 0x%02X\n", type);
 
@@ -488,7 +491,7 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 		return -EINVAL;
 	}
 
-	pr_debug("PMIC input: code=%d, sts=0x%x\n",
+	pr_debug("PMIC input: code=%d, sts=0x%hhx\n",
 					cfg->key_code, pon_rt_sts);
 	key_status = pon_rt_sts & pon_rt_bit;
 
@@ -564,9 +567,9 @@ static void print_pon_reg(struct qpnp_pon *pon, u16 offset)
 			addr, &reg, 1);
 	if (rc)
 		dev_emerg(&pon->spmi->dev,
-				"Unable to read reg at 0x%04x\n", addr);
+				"Unable to read reg at 0x%04hx\n", addr);
 	else
-		dev_emerg(&pon->spmi->dev, "reg@0x%04x: %02x\n", addr, reg);
+		dev_emerg(&pon->spmi->dev, "reg@0x%04hx: %02hhx\n", addr, reg);
 }
 
 #define PON_PBL_STATUS			0x7
