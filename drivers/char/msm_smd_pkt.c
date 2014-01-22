@@ -1079,7 +1079,7 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 		}
 
 		peripheral = smd_edge_to_pil_str(smd_pkt_devp->edge);
-		if (peripheral) {
+		if (!IS_ERR_OR_NULL(peripheral)) {
 			smd_pkt_devp->pil = subsystem_get(peripheral);
 			if (IS_ERR(smd_pkt_devp->pil)) {
 				r = PTR_ERR(smd_pkt_devp->pil);

@@ -549,7 +549,7 @@ static int smd_tty_port_activate(struct tty_port *tport,
 	}
 
 	peripheral = smd_edge_to_pil_str(smd_tty[n].edge);
-	if (peripheral) {
+	if (!IS_ERR_OR_NULL(peripheral)) {
 		info->pil = subsystem_get(peripheral);
 		if (IS_ERR(info->pil)) {
 			SMD_TTY_INFO(

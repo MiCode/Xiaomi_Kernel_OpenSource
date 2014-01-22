@@ -59,7 +59,7 @@ static void debug_int_stats(struct seq_file *s)
 
 	for (subsys = 0; subsys < NUM_SMD_SUBSYSTEMS; ++subsys) {
 		subsys_name = smd_pid_to_subsystem(subsys);
-		if (subsys_name) {
+		if (!IS_ERR_OR_NULL(subsys_name)) {
 			seq_printf(s, "%-10s %4s |    %9d | %9u | %9u |\n",
 				smd_pid_to_subsystem(subsys), "smd",
 				stats->smd_interrupt_id,
