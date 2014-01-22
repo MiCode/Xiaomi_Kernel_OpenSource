@@ -340,7 +340,7 @@ static inline void smd_disable_read_intr(smd_channel_t *ch)
 {
 }
 
-static inline int smd_mask_receive_interrupt(smd_channel_t *ch, bool mask
+static inline int smd_mask_receive_interrupt(smd_channel_t *ch, bool mask,
 		const struct cpumask *cpumask)
 {
 	return -ENODEV;
