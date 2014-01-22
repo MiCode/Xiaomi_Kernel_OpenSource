@@ -40,6 +40,8 @@
 #define MAX_RAILS 5
 #define MAX_THRESHOLD 2
 #define MONITOR_ALL_TSENS -1
+#define TSENS_NAME_MAX 20
+#define TSENS_NAME_FORMAT "tsens_tz_sensor%d"
 
 static struct msm_thermal_data msm_thermal_info;
 static struct delayed_work check_temp_work;
@@ -98,9 +100,16 @@ enum thermal_threshold {
 	THRESHOLD_MAX_NR,
 };
 
+enum sensor_id_type {
+	THERM_ZONE_ID,
+	THERM_TSENS_ID,
+	THERM_ID_MAX_NR,
+};
+
 struct cpu_info {
 	uint32_t cpu;
 	const char *sensor_type;
+	enum sensor_id_type id_type;
 	uint32_t sensor_id;
 	bool offline;
 	bool user_offline;
@@ -117,6 +126,7 @@ struct cpu_info {
 struct threshold_info;
 struct therm_threshold {
 	int32_t sensor_id;
+	enum sensor_id_type id_type;
 	struct sensor_threshold threshold[MAX_THRESHOLD];
 	int32_t trip_triggered;
 	void (*notify)(struct therm_threshold *);
@@ -858,31 +868,63 @@ set_done:
 	return ret;
 }
 
-static int set_threshold(uint32_t sensor_id,
+static int therm_get_temp(uint32_t id, enum sensor_id_type type, long *temp)
+{
+	int ret = 0;
+	struct tsens_device tsens_dev;
+
+	if (!temp) {
+		pr_err("Invalid value\n");
+		ret = -EINVAL;
+		goto get_temp_exit;
+	}
+
+	switch (type) {
+	case THERM_ZONE_ID:
+		tsens_dev.sensor_num = tsens_id_map[id];
+		break;
+	case THERM_TSENS_ID:
+		tsens_dev.sensor_num = id;
+		break;
+	default:
+		pr_err("Invalid type\n");
+		ret = -EINVAL;
+		goto get_temp_exit;
+		break;
+	}
+
+	ret = tsens_get_temp(&tsens_dev, temp);
+	if (ret) {
+		pr_err("Unable to read TSENS sensor %d\n",
+			tsens_dev.sensor_num);
+		goto get_temp_exit;
+	}
+
+get_temp_exit:
+	return ret;
+}
+
+static int set_threshold(uint32_t zone_id,
 	struct sensor_threshold *threshold)
 {
-	struct tsens_device tsens_dev;
 	int i = 0, ret = 0;
 	long temp;
 
-	if ((!threshold) || check_sensor_id(sensor_id)) {
+	if ((!threshold) || (zone_id >= max_tsens_num)) {
 		pr_err("%s: Invalid input\n", KBUILD_MODNAME);
 		ret = -EINVAL;
 		goto set_threshold_exit;
 	}
 
-	tsens_dev.sensor_num = sensor_id;
-	ret = tsens_get_temp(&tsens_dev, &temp);
-	if (ret) {
-		pr_err("%s: Unable to read TSENS sensor %d\n",
-			KBUILD_MODNAME, tsens_dev.sensor_num);
+	ret = therm_get_temp(zone_id, THERM_ZONE_ID, &temp);
+	if (ret)
 		goto set_threshold_exit;
-	}
+
 	while (i < MAX_THRESHOLD) {
 		switch (threshold[i].trip) {
 		case THERMAL_TRIP_CONFIGURABLE_HI:
 			if (threshold[i].temp >= temp) {
-				ret = set_and_activate_threshold(sensor_id,
+				ret = set_and_activate_threshold(zone_id,
 					&threshold[i]);
 				if (ret)
 					goto set_threshold_exit;
@@ -890,7 +932,7 @@ static int set_threshold(uint32_t sensor_id,
 			break;
 		case THERMAL_TRIP_CONFIGURABLE_LOW:
 			if (threshold[i].temp <= temp) {
-				ret = set_and_activate_threshold(sensor_id,
+				ret = set_and_activate_threshold(zone_id,
 					&threshold[i]);
 				if (ret)
 					goto set_threshold_exit;
@@ -1026,7 +1068,6 @@ static __ref int do_hotplug(void *data)
 
 static int do_gfx_phase_cond(void)
 {
-	struct tsens_device tsens_dev;
 	long temp = 0;
 	int ret = 0;
 	uint32_t new_req_band = curr_gfx_band;
@@ -1035,12 +1076,14 @@ static int do_gfx_phase_cond(void)
 		return ret;
 
 	mutex_lock(&gfx_mutex);
-	tsens_dev.sensor_num =
-		thresh[MSM_GFX_PHASE_CTRL_WARM].thresh_list->sensor_id;
-	ret = tsens_get_temp(&tsens_dev, &temp);
+	ret = therm_get_temp(
+		thresh[MSM_GFX_PHASE_CTRL_WARM].thresh_list->sensor_id,
+		thresh[MSM_GFX_PHASE_CTRL_WARM].thresh_list->id_type,
+		&temp);
 	if (ret) {
 		pr_err("%s: Unable to read TSENS sensor %d\n",
-				KBUILD_MODNAME, tsens_dev.sensor_num);
+			KBUILD_MODNAME,
+			thresh[MSM_GFX_PHASE_CTRL_WARM].thresh_list->sensor_id);
 		goto gfx_phase_cond_exit;
 	}
 
@@ -1084,7 +1127,6 @@ gfx_phase_cond_exit:
 
 static int do_cx_phase_cond(void)
 {
-	struct tsens_device tsens_dev;
 	long temp = 0;
 	int i, ret = 0, dis_cnt = 0;
 
@@ -1092,12 +1134,14 @@ static int do_cx_phase_cond(void)
 		return ret;
 
 	mutex_lock(&cx_mutex);
-	for (i = 0; i < max_tsens_num; i++) {
-		tsens_dev.sensor_num = tsens_id_map[i];
-		ret = tsens_get_temp(&tsens_dev, &temp);
+	for (i = 0; i < thresh[MSM_CX_PHASE_CTRL_HOT].thresh_ct; i++) {
+		ret = therm_get_temp(
+			thresh[MSM_CX_PHASE_CTRL_HOT].thresh_list[i].sensor_id,
+			thresh[MSM_CX_PHASE_CTRL_HOT].thresh_list[i].id_type,
+			&temp);
 		if (ret) {
-			pr_err("%s: Unable to read TSENS sensor %d\n",
-					KBUILD_MODNAME, tsens_dev.sensor_num);
+			pr_err("Unable to read TSENS sensor %d\n",
+			thresh[MSM_CX_PHASE_CTRL_HOT].thresh_list[i].sensor_id);
 			dis_cnt++;
 			continue;
 		}
@@ -1126,7 +1170,6 @@ cx_phase_cond_exit:
 
 static int do_vdd_restriction(void)
 {
-	struct tsens_device tsens_dev;
 	long temp = 0;
 	int ret = 0;
 	int i = 0;
@@ -1141,12 +1184,14 @@ static int do_vdd_restriction(void)
 	}
 
 	mutex_lock(&vdd_rstr_mutex);
-	for (i = 0; i < max_tsens_num; i++) {
-		tsens_dev.sensor_num = tsens_id_map[i];
-		ret = tsens_get_temp(&tsens_dev, &temp);
+	for (i = 0; i < thresh[MSM_VDD_RESTRICTION].thresh_ct; i++) {
+		ret = therm_get_temp(
+			thresh[MSM_VDD_RESTRICTION].thresh_list[i].sensor_id,
+			thresh[MSM_VDD_RESTRICTION].thresh_list[i].id_type,
+			&temp);
 		if (ret) {
-			pr_debug("%s: Unable to read TSENS sensor %d\n",
-					__func__, tsens_dev.sensor_num);
+			pr_debug("Unable to read TSENS sensor %d\n",
+			thresh[MSM_VDD_RESTRICTION].thresh_list[i].sensor_id);
 			dis_cnt++;
 			continue;
 		}
@@ -1175,7 +1220,6 @@ exit:
 
 static int do_psm(void)
 {
-	struct tsens_device tsens_dev;
 	long temp = 0;
 	int ret = 0;
 	int i = 0;
@@ -1183,11 +1227,10 @@ static int do_psm(void)
 
 	mutex_lock(&psm_mutex);
 	for (i = 0; i < max_tsens_num; i++) {
-		tsens_dev.sensor_num = tsens_id_map[i];
-		ret = tsens_get_temp(&tsens_dev, &temp);
+		ret = therm_get_temp(tsens_id_map[i], THERM_TSENS_ID, &temp);
 		if (ret) {
 			pr_debug("%s: Unable to read TSENS sensor %d\n",
-					__func__, tsens_dev.sensor_num);
+					__func__, tsens_id_map[i]);
 			auto_cnt++;
 			continue;
 		}
@@ -1264,15 +1307,13 @@ static void do_freq_control(long temp)
 static void check_temp(struct work_struct *work)
 {
 	static int limit_init;
-	struct tsens_device tsens_dev;
 	long temp = 0;
 	int ret = 0;
 
-	tsens_dev.sensor_num = msm_thermal_info.sensor_id;
-	ret = tsens_get_temp(&tsens_dev, &temp);
+	ret = therm_get_temp(msm_thermal_info.sensor_id, THERM_TSENS_ID, &temp);
 	if (ret) {
-		pr_debug("%s: Unable to read TSENS sensor %d\n",
-				KBUILD_MODNAME, tsens_dev.sensor_num);
+		pr_debug("Unable to read TSENS sensor %d\n",
+				msm_thermal_info.sensor_id);
 		goto reschedule;
 	}
 	do_core_control(temp);
@@ -1351,7 +1392,6 @@ static int hotplug_notify(enum thermal_trip_type type, int temp, void *data)
 /* Adjust cpus offlined bit based on temperature reading. */
 static int hotplug_init_cpu_offlined(void)
 {
-	struct tsens_device tsens_dev;
 	long temp = 0;
 	uint32_t cpu = 0;
 
@@ -1362,10 +1402,10 @@ static int hotplug_init_cpu_offlined(void)
 	for_each_possible_cpu(cpu) {
 		if (!(msm_thermal_info.core_control_mask & BIT(cpus[cpu].cpu)))
 			continue;
-		tsens_dev.sensor_num = cpus[cpu].sensor_id;
-		if (tsens_get_temp(&tsens_dev, &temp)) {
+		if (therm_get_temp(cpus[cpu].sensor_id, cpus[cpu].id_type,
+					&temp)) {
 			pr_err("%s: Unable to read TSENS sensor %d\n",
-				KBUILD_MODNAME, tsens_dev.sensor_num);
+				KBUILD_MODNAME, cpus[cpu].sensor_id);
 			mutex_unlock(&core_control_mutex);
 			return -EINVAL;
 		}
@@ -1402,6 +1442,7 @@ static void hotplug_init(void)
 	for_each_possible_cpu(cpu) {
 		cpus[cpu].sensor_id =
 			sensor_get_id((char *)cpus[cpu].sensor_type);
+		cpus[cpu].id_type = THERM_ZONE_ID;
 		if (!(msm_thermal_info.core_control_mask & BIT(cpus[cpu].cpu)))
 			continue;
 
@@ -1810,6 +1851,40 @@ static __ref int do_thermal_monitor(void *data)
 	return ret;
 }
 
+static int convert_to_zone_id(struct threshold_info *thresh_inp)
+{
+	int ret = 0, i, zone_id;
+	struct therm_threshold *thresh_array;
+
+	if (!thresh_inp) {
+		pr_err("Invalid input\n");
+		ret = -EINVAL;
+		goto convert_to_exit;
+	}
+	thresh_array = thresh_inp->thresh_list;
+
+	for (i = 0; i < thresh_inp->thresh_ct; i++) {
+		char tsens_name[TSENS_NAME_MAX] = "";
+
+		if (thresh_array[i].id_type == THERM_ZONE_ID)
+			continue;
+		snprintf(tsens_name, TSENS_NAME_MAX, TSENS_NAME_FORMAT,
+			thresh_array[i].sensor_id);
+		zone_id = sensor_get_id(tsens_name);
+		if (zone_id < 0) {
+			pr_err("Error getting zone id for %s. err:%d\n",
+				tsens_name, ret);
+			ret = zone_id;
+			goto convert_to_exit;
+		}
+		thresh_array[i].sensor_id = zone_id;
+		thresh_array[i].id_type = THERM_ZONE_ID;
+	}
+
+convert_to_exit:
+	return ret;
+}
+
 static void thermal_monitor_init(void)
 {
 	if (thermal_monitor_task)
@@ -1824,11 +1899,17 @@ static void thermal_monitor_init(void)
 		goto init_exit;
 	}
 
-	if (cx_phase_ctrl_enabled)
+	if ((cx_phase_ctrl_enabled) &&
+		!(convert_to_zone_id(&thresh[MSM_CX_PHASE_CTRL_HOT])))
 		therm_set_threshold(&thresh[MSM_CX_PHASE_CTRL_HOT]);
-	if (vdd_rstr_enabled)
+
+	if ((vdd_rstr_enabled) &&
+		!(convert_to_zone_id(&thresh[MSM_VDD_RESTRICTION])))
 		therm_set_threshold(&thresh[MSM_VDD_RESTRICTION]);
-	if (gfx_phase_ctrl_enabled) {
+
+	if ((gfx_phase_ctrl_enabled) &&
+		!(convert_to_zone_id(&thresh[MSM_GFX_PHASE_CTRL_WARM])) &&
+		!(convert_to_zone_id(&thresh[MSM_GFX_PHASE_CTRL_HOT]))) {
 		therm_set_threshold(&thresh[MSM_GFX_PHASE_CTRL_WARM]);
 		therm_set_threshold(&thresh[MSM_GFX_PHASE_CTRL_HOT]);
 	}
@@ -1888,6 +1969,7 @@ static int init_threshold(enum msm_thresh_list index,
 	if (sensor_id == MONITOR_ALL_TSENS) {
 		for (i = 0; i < max_tsens_num; i++) {
 			thresh_ptr[i].sensor_id = tsens_id_map[i];
+			thresh_ptr[i].id_type = THERM_TSENS_ID;
 			thresh_ptr[i].notify = callback;
 			thresh_ptr[i].trip_triggered = -1;
 			thresh_ptr[i].parent = &thresh[index];
@@ -1905,6 +1987,7 @@ static int init_threshold(enum msm_thresh_list index,
 		}
 	} else {
 		thresh_ptr->sensor_id = sensor_id;
+		thresh_ptr->id_type = THERM_TSENS_ID;
 		thresh_ptr->notify = callback;
 		thresh_ptr->trip_triggered = -1;
 		thresh_ptr->parent = &thresh[index];
