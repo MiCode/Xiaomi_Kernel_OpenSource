@@ -119,10 +119,10 @@ the appropriate macros. */
 /* This needs to be modified manually now, when we add
  a new RANGE of SSIDs to the msg_mask_tbl */
 #define MSG_MASK_TBL_CNT		24
-#define EVENT_LAST_ID			0x09CB
+#define EVENT_LAST_ID			0x09D8
 
 #define MSG_SSID_0			0
-#define MSG_SSID_0_LAST			97
+#define MSG_SSID_0_LAST			100
 #define MSG_SSID_1			500
 #define MSG_SSID_1_LAST			506
 #define MSG_SSID_2			1000
@@ -154,7 +154,7 @@ the appropriate macros. */
 #define MSG_SSID_15			8000
 #define MSG_SSID_15_LAST		8000
 #define MSG_SSID_16			8500
-#define MSG_SSID_16_LAST		8523
+#define MSG_SSID_16_LAST		8524
 #define MSG_SSID_17			9000
 #define MSG_SSID_17_LAST		9008
 #define MSG_SSID_18			9500
@@ -181,6 +181,7 @@ static const uint32_t msg_bld_masks_0[] = {
 	MSG_LVL_MED,
 	MSG_LVL_LOW,
 	MSG_LVL_ERROR,
+	MSG_LVL_LOW,
 	MSG_LVL_LOW,
 	MSG_LVL_MED,
 	MSG_LVL_MED,
@@ -280,18 +281,21 @@ static const uint32_t msg_bld_masks_0[] = {
 	MSG_LVL_LOW,
 	MSG_LVL_LOW,
 	MSG_LVL_LOW|MSG_LVL_MED|MSG_LVL_HIGH|MSG_LVL_ERROR|MSG_LVL_FATAL,
-	MSG_LVL_MED,
-	MSG_LVL_LOW|MSG_LVL_MED|MSG_LVL_HIGH|MSG_LVL_ERROR|MSG_LVL_FATAL,
-	MSG_LVL_LOW,
-	MSG_LVL_MED,
-	MSG_LVL_LOW,
-	MSG_LVL_LOW,
-	MSG_LVL_LOW,
-	MSG_LVL_LOW,
-	MSG_LVL_LOW,
 	MSG_LVL_LOW,
 	MSG_LVL_LOW|MSG_LVL_MED|MSG_LVL_HIGH|MSG_LVL_ERROR|MSG_LVL_FATAL,
+	MSG_LVL_LOW,
 	MSG_LVL_MED,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW|MSG_LVL_MED|MSG_LVL_HIGH|MSG_LVL_ERROR|MSG_LVL_FATAL,
+	MSG_LVL_MED,
+	MSG_LVL_HIGH,
+	MSG_LVL_LOW,
+	MSG_LVL_HIGH,
 };
 
 static const uint32_t msg_bld_masks_1[] = {
@@ -608,6 +612,7 @@ static const uint32_t msg_bld_masks_15[] = {
 };
 
 static const uint32_t msg_bld_masks_16[] = {
+	MSG_LVL_LOW,
 	MSG_LVL_LOW,
 	MSG_LVL_LOW,
 	MSG_LVL_LOW,
