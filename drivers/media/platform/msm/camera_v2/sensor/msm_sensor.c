@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1874,11 +1874,11 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 	s_ctrl->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_SENSOR;
 	s_ctrl->msm_sd.sd.entity.name =
 		s_ctrl->msm_sd.sd.name;
-	mount_pos = s_ctrl->sensordata->sensor_init_params->position;
-	mount_pos = mount_pos << 8;
-	mount_pos = mount_pos |
-	(s_ctrl->sensordata->sensor_init_params->sensor_mount_angle / 90);
-	s_ctrl->msm_sd.sd.entity.flags = mount_pos;
+
+	mount_pos = s_ctrl->sensordata->sensor_init_params->position << 16;
+	mount_pos = mount_pos | ((s_ctrl->sensordata->sensor_init_params->
+					sensor_mount_angle / 90) << 8);
+	s_ctrl->msm_sd.sd.entity.flags = mount_pos | MEDIA_ENT_FL_DEFAULT;
 
 	rc = camera_init_v4l2(&s_ctrl->pdev->dev, &session_id);
 	CDBG("%s rc %d session_id %d\n", __func__, rc, session_id);
@@ -1995,11 +1995,10 @@ int32_t msm_sensor_i2c_probe(struct i2c_client *client,
 	s_ctrl->msm_sd.sd.entity.name =
 		s_ctrl->msm_sd.sd.name;
 
-	mount_pos = s_ctrl->sensordata->sensor_init_params->position;
-	mount_pos = mount_pos << 8;
-	mount_pos = mount_pos |
-	(s_ctrl->sensordata->sensor_init_params->sensor_mount_angle / 90);
-	s_ctrl->msm_sd.sd.entity.flags = mount_pos;
+	mount_pos = s_ctrl->sensordata->sensor_init_params->position << 16;
+	mount_pos = mount_pos | ((s_ctrl->sensordata->sensor_init_params->
+					sensor_mount_angle / 90) << 8);
+	s_ctrl->msm_sd.sd.entity.flags = mount_pos | MEDIA_ENT_FL_DEFAULT;
 
 	rc = camera_init_v4l2(&s_ctrl->sensor_i2c_client->client->dev,
 		&session_id);
