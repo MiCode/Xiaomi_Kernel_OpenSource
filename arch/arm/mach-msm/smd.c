@@ -3169,7 +3169,7 @@ int __init msm_smd_init(void)
 	return 0;
 }
 
-module_init(msm_smd_init);
+arch_initcall(msm_smd_init);
 
 MODULE_DESCRIPTION("MSM Shared Memory Core");
 MODULE_AUTHOR("Brian Swetland <swetland@google.com>");
