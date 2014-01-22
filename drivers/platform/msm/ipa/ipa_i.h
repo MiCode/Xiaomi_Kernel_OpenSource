@@ -57,9 +57,7 @@
 #define IPA_STATS_INC_CNT(val) do {			\
 				++val;			\
 			} while (0)
-#define IPA_STATS_INC_CNT_SAFE(val) do {		\
-				atomic_inc(&val);	\
-			} while (0)
+#define IPA_STATS_DEC_CNT(val) (--val)
 #define IPA_STATS_EXCP_CNT(flags, base) do {			\
 			int i;					\
 			for (i = 0; i < MAX_NUM_EXCP; i++)	\
@@ -68,14 +66,10 @@
 			if (flags == 0)				\
 				++base[MAX_NUM_EXCP - 1];	\
 			} while (0)
-#define IPA_STATS_INC_BRIDGE_CNT(type, dir, base) do {		\
-			++base[type][dir];			\
-			} while (0)
 #else
 #define IPA_STATS_INC_CNT(x) do { } while (0)
-#define IPA_STATS_INC_CNT_SAFE(x) do { } while (0)
+#define IPA_STATS_DEC_CNT(x)
 #define IPA_STATS_EXCP_CNT(flags, base) do { } while (0)
-#define IPA_STATS_INC_BRIDGE_CNT(type, dir, base) do { } while (0)
 #endif
 
 
@@ -578,6 +572,9 @@ struct ipa_stats {
 	u32 a2_power_off_reqs_out;
 	u32 a2_power_modem_acks;
 	u32 a2_power_apps_acks;
+	u32 stat_compl;
+	u32 aggr_close;
+	u32 wan_aggr_close;
 };
 
 struct ipa_wlan_stats {

@@ -1602,6 +1602,9 @@ begin:
 		if (status->pkt_len == 0) {
 			IPADBG("Skip aggr close status\n");
 			skb_pull(skb, IPA_PKT_STATUS_SIZE);
+			IPA_STATS_INC_CNT(ipa_ctx->stats.aggr_close);
+			IPA_STATS_DEC_CNT(
+				ipa_ctx->stats.rx_excp_pkts[MAX_NUM_EXCP - 1]);
 			continue;
 		}
 		if (status->endp_dest_idx == (sys->ep - ipa_ctx->ep)) {
@@ -1672,6 +1675,9 @@ begin:
 			ipa_wq_write_done_status(status->endp_src_idx);
 			IPADBG("tx comp exp for %d\n", status->endp_src_idx);
 			skb_pull(skb, IPA_PKT_STATUS_SIZE);
+			IPA_STATS_INC_CNT(ipa_ctx->stats.stat_compl);
+			IPA_STATS_DEC_CNT(
+				ipa_ctx->stats.rx_excp_pkts[MAX_NUM_EXCP - 1]);
 		}
 	};
 
@@ -1782,6 +1788,8 @@ static int ipa_wan_rx_pyld_hdlr(struct sk_buff *skb,
 		if (status->pkt_len == 0) {
 			IPADBG("Skip aggr close status\n");
 			skb_pull(skb, IPA_PKT_STATUS_SIZE);
+			IPA_STATS_DEC_CNT(ipa_ctx->stats.rx_pkts);
+			IPA_STATS_INC_CNT(ipa_ctx->stats.wan_aggr_close);
 			continue;
 		}
 		ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
