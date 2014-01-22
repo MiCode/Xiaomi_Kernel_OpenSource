@@ -23,6 +23,7 @@
 #include <linux/of_gpio.h>
 #include <linux/pm.h>
 #include <linux/pm_wakeup.h>
+#include <linux/sched.h>
 #include <mach/gpiomux.h>
 #include <mach/msm_pcie.h>
 #include <mach/subsystem_restart.h>
@@ -639,6 +640,12 @@ void cnss_device_crashed(void)
 	}
 }
 EXPORT_SYMBOL(cnss_device_crashed);
+
+int cnss_set_cpus_allowed_ptr(struct task_struct *task, ulong cpu)
+{
+	return set_cpus_allowed_ptr(task, cpumask_of(cpu));
+}
+EXPORT_SYMBOL(cnss_set_cpus_allowed_ptr);
 
 static int cnss_shutdown(const struct subsys_desc *subsys, bool force_stop)
 {
