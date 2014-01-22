@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundataion. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,13 +32,13 @@
 
 void msm_camera_io_w(u32 data, void __iomem *addr)
 {
-	CDBG("%s: %08x %08x\n", __func__, (int) (addr), (data));
+	CDBG("%s: 0x%p %08x\n", __func__,  (addr), (data));
 	writel_relaxed((data), (addr));
 }
 
 void msm_camera_io_w_mb(u32 data, void __iomem *addr)
 {
-	CDBG("%s: %08x %08x\n", __func__, (int) (addr), (data));
+	CDBG("%s: 0x%p %08x\n", __func__,  (addr), (data));
 	wmb();
 	writel_relaxed((data), (addr));
 	wmb();
@@ -47,7 +47,7 @@ void msm_camera_io_w_mb(u32 data, void __iomem *addr)
 u32 msm_camera_io_r(void __iomem *addr)
 {
 	uint32_t data = readl_relaxed(addr);
-	CDBG("%s: %08x %08x\n", __func__, (int) (addr), (data));
+	CDBG("%s: 0x%p %08x\n", __func__,  (addr), (data));
 	return data;
 }
 
@@ -57,7 +57,7 @@ u32 msm_camera_io_r_mb(void __iomem *addr)
 	rmb();
 	data = readl_relaxed(addr);
 	rmb();
-	CDBG("%s: %08x %08x\n", __func__, (int) (addr), (data));
+	CDBG("%s: 0x%p %08x\n", __func__,  (addr), (data));
 	return data;
 }
 
@@ -83,11 +83,11 @@ void msm_camera_io_dump(void __iomem *addr, int size)
 	p_str = line_str;
 	for (i = 0; i < size/4; i++) {
 		if (i % 4 == 0) {
-			snprintf(p_str, 12, "%08x: ", (u32) p);
+			snprintf(p_str, 12, "0x%p: ",  p);
 			p_str += 10;
 		}
 		data = readl_relaxed(p++);
-		snprintf(p_str, 12, "%08x ", data);
+		snprintf(p_str, 12, "%d ", data);
 		p_str += 9;
 		if ((i + 1) % 4 == 0) {
 			CDBG("%s\n", line_str);
