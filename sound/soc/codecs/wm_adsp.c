@@ -2160,38 +2160,52 @@ static int wm_adsp_of_parse_caps(struct wm_adsp *adsp,
 				 struct device_node *np,
 				 struct wm_adsp_fw_defs *fw)
 {
-	int ret;
-	u32 of_caps[5];
+	const char *prop = "wlf,compr-caps";
+	int ret, i;
+	int len_prop;
+	u32 of_cap;
 
-	ret = of_property_read_u32_array(np, "wlf,compr-caps",
-					 of_caps, ARRAY_SIZE(of_caps));
+	if (!of_get_property(np, prop, &len_prop))
+		return -EINVAL;
 
-	if (ret >= 0) {
-		fw->num_caps = 1;
-		fw->caps = devm_kzalloc(adsp->dev,
-					sizeof(struct wm_adsp_fw_caps),
-					GFP_KERNEL);
-		if (!fw->caps)
-			return -ENOMEM;
+	len_prop /= sizeof(u32);
 
-		fw->caps->num_host_regions = ARRAY_SIZE(ez2control_regions);
-		fw->caps->host_region_defs =
-			devm_kzalloc(adsp->dev,
-				     sizeof(ez2control_regions),
-				     GFP_KERNEL);
-		if (!fw->caps->host_region_defs)
-			return -ENOMEM;
+	if (len_prop < 5 || len_prop > 5 + MAX_NUM_SAMPLE_RATES)
+		return -EOVERFLOW;
 
-		memcpy(fw->caps->host_region_defs,
-		       ez2control_regions,
-		       sizeof(ez2control_regions));
+	fw->num_caps = 1;
+	fw->caps = devm_kzalloc(adsp->dev,
+				sizeof(struct wm_adsp_fw_caps),
+				GFP_KERNEL);
+	if (!fw->caps)
+		return -ENOMEM;
 
-		fw->caps->id = of_caps[0];
-		fw->caps->desc.max_ch = of_caps[1];
-		fw->caps->desc.sample_rates[0] = of_caps[2];
-		fw->caps->desc.formats = of_caps[3];
-		fw->compr_direction = of_caps[4];
+	fw->caps->num_host_regions = ARRAY_SIZE(ez2control_regions);
+	fw->caps->host_region_defs =
+		devm_kzalloc(adsp->dev,
+			     sizeof(ez2control_regions),
+			     GFP_KERNEL);
+	if (!fw->caps->host_region_defs)
+		return -ENOMEM;
+
+	memcpy(fw->caps->host_region_defs,
+	       ez2control_regions,
+	       sizeof(ez2control_regions));
+
+	of_property_read_u32_index(np, prop, 0, &of_cap);
+	fw->caps->id = of_cap;
+	of_property_read_u32_index(np, prop, 1, &of_cap);
+	fw->caps->desc.max_ch = of_cap;
+	of_property_read_u32_index(np, prop, 2, &of_cap);
+	fw->caps->desc.formats = of_cap;
+	of_property_read_u32_index(np, prop, 3, &of_cap);
+	fw->compr_direction = of_cap;
+
+	for (i = 4; i < len_prop; ++i) {
+		of_property_read_u32_index(np, prop, i, &of_cap);
+		fw->caps->desc.sample_rates[i - 4] = of_cap;
 	}
+	fw->caps->desc.num_sample_rates = i - 4;
 
 	return ret;
 }
