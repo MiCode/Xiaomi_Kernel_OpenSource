@@ -113,16 +113,15 @@ static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data);
 
 static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data);
 
-static void synaptics_rmi4_sensor_sleep(struct synaptics_rmi4_data *rmi4_data);
 
 static int synaptics_rmi4_check_configuration(struct synaptics_rmi4_data
 		*rmi4_data);
 
-#ifdef CONFIG_PM
 static int synaptics_rmi4_suspend(struct device *dev);
 
 static int synaptics_rmi4_resume(struct device *dev);
 
+#ifdef CONFIG_PM
 static ssize_t synaptics_rmi4_full_pm_cycle_show(struct device *dev,
 		struct device_attribute *attr, char *buf);
 
@@ -425,31 +424,6 @@ static struct device_attribute attrs[] = {
 static bool exp_fn_inited;
 static struct mutex exp_fn_list_mutex;
 static struct list_head exp_fn_list;
-#ifdef CONFIG_PM
-static ssize_t synaptics_rmi4_full_pm_cycle_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
-
-	return snprintf(buf, PAGE_SIZE, "%u\n",
-			rmi4_data->full_pm_cycle);
-}
-
-static ssize_t synaptics_rmi4_full_pm_cycle_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	int ret;
-	unsigned int input;
-	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
-
-	ret = kstrtouint(buf, 10, &input);
-	if (ret)
-		return ret;
-
-	rmi4_data->full_pm_cycle = input > 0 ? 1 : 0;
-
-	return count;
-}
 
 static int synaptics_rmi4_debug_suspend_set(void *_data, u64 val)
 {
@@ -463,7 +437,7 @@ static int synaptics_rmi4_debug_suspend_set(void *_data, u64 val)
 	return 0;
 }
 
-static ssize_t synaptics_rmi4_debug_suspend_get(void *_data, u64 *val)
+static int synaptics_rmi4_debug_suspend_get(void *_data, u64 *val)
 {
 	struct synaptics_rmi4_data *rmi4_data = _data;
 
@@ -474,6 +448,31 @@ static ssize_t synaptics_rmi4_debug_suspend_get(void *_data, u64 *val)
 
 DEFINE_SIMPLE_ATTRIBUTE(debug_suspend_fops, synaptics_rmi4_debug_suspend_get,
 			synaptics_rmi4_debug_suspend_set, "%lld\n");
+
+#ifdef CONFIG_PM
+static ssize_t synaptics_rmi4_full_pm_cycle_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%u\n",
+			rmi4_data->full_pm_cycle);
+}
+
+static ssize_t synaptics_rmi4_full_pm_cycle_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int input, retval;
+	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+
+	retval = kstrtouint(buf, 10, &input);
+	if (retval)
+		return retval;
+
+	rmi4_data->full_pm_cycle = input > 0 ? 1 : 0;
+
+	return count;
+}
 
 #ifdef CONFIG_FB
 static void configure_sleep(struct synaptics_rmi4_data *rmi4_data)
@@ -500,6 +499,10 @@ static void configure_sleep(struct synaptics_rmi4_data *rmi4_data)
 {
 }
 #endif
+#else
+static void configure_sleep(struct synaptics_rmi4_data *rmi4_data)
+{
+}
 #endif
 
 static ssize_t synaptics_rmi4_f01_reset_store(struct device *dev,
@@ -3639,18 +3642,28 @@ static const struct dev_pm_ops synaptics_rmi4_dev_pm_ops = {
 static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data)
 {
 	return;
-};
+}
 
 static void synaptics_rmi4_sensor_sleep(struct synaptics_rmi4_data *rmi4_data)
 {
 	return;
-};
+}
 
 static int synaptics_rmi4_check_configuration(struct synaptics_rmi4_data
 						*rmi4_data)
 {
 	return 0;
-};
+}
+
+static int synaptics_rmi4_suspend(struct device *dev);
+{
+	return 0;
+}
+
+static int synaptics_rmi4_resume(struct device *dev);
+{
+	return 0;
+}
 #endif
 
 static const struct i2c_device_id synaptics_rmi4_id_table[] = {
