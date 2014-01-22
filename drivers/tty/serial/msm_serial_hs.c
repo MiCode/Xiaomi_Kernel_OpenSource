@@ -444,11 +444,12 @@ static void msm_hs_clock_unvote(struct msm_hs_port *msm_uport)
 	}
 
 	if (0 == rc) {
-		msm_hs_bus_voting(msm_uport, BUS_RESET);
 		/* Turn off the core clk and iface clk*/
 		clk_disable_unprepare(msm_uport->clk);
 		if (msm_uport->pclk)
 			clk_disable_unprepare(msm_uport->pclk);
+		/* Unvote the PNOC clock */
+		msm_hs_bus_voting(msm_uport, BUS_RESET);
 		msm_uport->clk_state = MSM_HS_CLK_OFF;
 	}
 }
@@ -2077,8 +2078,6 @@ static int msm_hs_check_clock_off(struct uart_port *uport)
 
 	spin_unlock_irqrestore(&uport->lock, flags);
 
-	/* Reset PNOC Bus Scaling */
-	msm_hs_bus_voting(msm_uport, BUS_RESET);
 	mutex_unlock(&msm_uport->clk_mutex);
 
 	return 1;
