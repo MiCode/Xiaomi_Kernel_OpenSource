@@ -36,6 +36,10 @@ Optional property:
 		      callbacks.
  - qcom,master-id    : Master endpoint number used for voting on clocks using
 		      bus-scaling driver.
+ - qcom,clk-ctl-xfer : When present, the clocks's state (prepare_enable/
+		      unprepare_disable) is controlled by i2c-transaction's
+		      begining and ending. When missing, the clock's state
+		      is controlled by runtime-pm events.
 
 Example:
 	i2c_3: i2c@f9966000 {
@@ -47,6 +51,7 @@ Example:
 		interrupt-names = "qup_err_intr";
 		qcom,i2c-bus-freq = <100000>;
 		qcom,i2c-src-freq = <24000000>;
+		qcom,clk-ctl-xfer;
 		qcom,scl-gpio = <&msmgpio 7 0>;
 		qcom,sda-gpio = <&msmgpio 6 0>;
 	};

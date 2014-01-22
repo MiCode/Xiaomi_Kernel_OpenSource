@@ -513,6 +513,10 @@ struct msm_mhl_platform_data {
 /**
  * msm_i2c_platform_data: i2c-qup driver configuration data
  *
+ * @clk_ctl_xfer : When true, the clocks's state (prepare_enable/
+ *       unprepare_disable) is controlled by i2c-transaction's begining and
+ *       ending. When false, the clock's state is controlled by runtime-pm
+ *       events.
  * @active_only when set, votes when system active and removes the vote when
  *       system goes idle (optimises for performance). When unset, voting using
  *       runtime pm (optimizes for power).
@@ -521,6 +525,7 @@ struct msm_mhl_platform_data {
  */
 struct msm_i2c_platform_data {
 	int clk_freq;
+	bool clk_ctl_xfer;
 	uint32_t rmutex;
 	const char *rsl_id;
 	uint32_t pm_lat;
