@@ -162,6 +162,24 @@ void arch_teardown_msi_irq(unsigned int irq)
 	msm_pcie_destroy_irq(irq, NULL);
 }
 
+void arch_teardown_msi_irqs(struct pci_dev *dev)
+{
+	struct msi_desc *entry;
+	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev);
+
+	PCIE_DBG("RC:%d EP: vendor_id:0x%x device_id:0x%x\n",
+		pcie_dev->rc_idx, dev->vendor, dev->device);
+
+	list_for_each_entry(entry, &dev->msi_list, list) {
+		int i, nvec;
+		if (entry->irq == 0)
+			continue;
+		nvec = 1 << entry->msi_attrib.multiple;
+		for (i = 0; i < nvec; i++)
+			msm_pcie_destroy_irq(entry->irq + i, pcie_dev);
+	}
+}
+
 static void msm_pcie_msi_nop(struct irq_data *d)
 {
 	PCIE_DBG("\n");
