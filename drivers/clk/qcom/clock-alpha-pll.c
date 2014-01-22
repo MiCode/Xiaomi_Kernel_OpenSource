@@ -216,10 +216,12 @@ static int alpha_pll_set_rate(struct clk *c, unsigned long rate)
 	writel_relaxed(a_lower, A_REG(pll));
 	writel_relaxed(a_upper, A_REG(pll) + 0x4);
 
-	regval = readl_relaxed(VCO_REG(pll));
-	regval &= ~(masks->vco_mask << masks->vco_shift);
-	regval |= vco_val << masks->vco_shift;
-	writel_relaxed(regval, VCO_REG(pll));
+	if (masks->vco_mask) {
+		regval = readl_relaxed(VCO_REG(pll));
+		regval &= ~(masks->vco_mask << masks->vco_shift);
+		regval |= vco_val << masks->vco_shift;
+		writel_relaxed(regval, VCO_REG(pll));
+	}
 
 	regval = readl_relaxed(ALPHA_EN_REG(pll));
 	regval |= masks->alpha_en_mask;
@@ -312,4 +314,9 @@ struct clk_ops clk_ops_alpha_pll = {
 	.handoff = alpha_pll_handoff,
 };
 
+struct clk_ops clk_ops_fixed_alpha_pll = {
+	.enable = alpha_pll_enable,
+	.disable = alpha_pll_disable,
+	.handoff = alpha_pll_handoff,
+};
 
