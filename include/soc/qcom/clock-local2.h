@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,7 +41,7 @@ struct clk_freq_tbl {
 	const unsigned	sys_vdd;
 };
 
-#define FREQ_END	(UINT_MAX-1)
+#define FREQ_END	(ULONG_MAX-1)
 #define F_END { .freq_hz = FREQ_END }
 
 /*
