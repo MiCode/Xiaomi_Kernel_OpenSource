@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,9 +17,9 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <soc/qcom/clock-pll.h>
 
 #include "clock.h"
-#include "clock-pll.h"
 
 #define PLL_OUTCTRL BIT(0)
 #define PLL_BYPASSNL BIT(1)

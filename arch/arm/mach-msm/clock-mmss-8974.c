@@ -24,13 +24,13 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/clk/msm-clock-generic.h>
+#include <soc/qcom/clock-local2.h>
+#include <soc/qcom/clock-pll.h>
+#include <soc/qcom/clock-rpm.h>
+#include <soc/qcom/clock-voter.h>
 
 #include <dt-bindings/clock/msm-clocks-8974.h>
 
-#include "clock-local2.h"
-#include "clock-pll.h"
-#include "clock-rpm.h"
-#include "clock-voter.h"
 #include "clock-mdss-8974.h"
 #include "clock.h"
 

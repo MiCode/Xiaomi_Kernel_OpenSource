@@ -25,11 +25,11 @@
 #include <linux/clk/msm-clk-provider.h>
 #include <linux/clk/msm-clk.h>
 #include <linux/clk/msm-clock-generic.h>
+#include <soc/qcom/clock-local2.h>
 
 #include <asm/cputype.h>
 
 #include "clock-krait.h"
-#include "clock-local2.h"
 #include "clock.h"
 
 /* Clock inputs coming into Krait subsystem */
