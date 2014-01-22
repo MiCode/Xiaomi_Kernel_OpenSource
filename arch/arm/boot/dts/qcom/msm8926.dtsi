@@ -22,10 +22,6 @@
 / {
 	model = "Qualcomm MSM 8926";
 	compatible = "qcom,msm8926";
-	qcom,msm-id = <200 0>,
-		      <224 0>,
-		      <200 0x10001>,
-		      <224 0x10001>;
 };
 
 &i2c_0 {
