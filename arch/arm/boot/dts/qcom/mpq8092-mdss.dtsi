@@ -33,6 +33,7 @@
 		qcom,mdss-ib-factor = <6 5>;		/* 1.2 times  */
 		qcom,mdss-clk-factor = <105 100>;	/* 1.05 times */
 
+		qcom,mdss-mdp-reg-offset = <0x00000100>;
 		qcom,max-clk-rate = <340000000>;
 		qcom,mdss-pipe-vig-off = <0x00001200 0x00001e00
 					       0x00002A00 0x00003600>;
