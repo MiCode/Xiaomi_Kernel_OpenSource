@@ -299,12 +299,16 @@ static int getpath(int src, int dest)
 
 static uint64_t get_node_maxib(struct msm_bus_inode_info *info)
 {
-	int i;
+	int i, ctx;
 	uint64_t maxib = 0;
 
-	for (i = 0; i <= info->num_pnodes; i++)
-		maxib = max(*info->pnode[i].sel_clk, maxib);
+	for (i = 0; i <= info->num_pnodes; i++) {
+		for (ctx = 0; ctx < NUM_CTX; ctx++)
+			maxib = max(info->pnode[i].clk[ctx], maxib);
+	}
 
+	MSM_BUS_DBG("%s: Node %d numpnodes %d maxib %llu", __func__,
+		info->num_pnodes, info->node_info->id, maxib);
 	return maxib;
 }
 
