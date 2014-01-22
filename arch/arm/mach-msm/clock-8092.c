@@ -6555,6 +6555,7 @@ static struct clk_lookup mpq_clocks_8092_rumi[] = {
 
 static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("xo",	cxo_pil_lpass_clk.c,	"fe200000.qcom,lpass"),
+	CLK_LOOKUP("xo", cxo_lpm_clk.c, "fc4281d0.qcom,mpm"),
 	/* RPM clocks */
 	CLK_LOOKUP("bus_clk", snoc_clk.c, ""),
 	CLK_LOOKUP("bus_clk", pnoc_clk.c, ""),
