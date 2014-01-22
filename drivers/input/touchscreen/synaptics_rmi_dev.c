@@ -461,7 +461,7 @@ static void rmidev_device_cleanup(struct rmidev_data *dev_data)
 	return;
 }
 
-static char *rmi_char_devnode(struct device *dev, mode_t *mode)
+static char *rmi_char_devnode(struct device *dev, umode_t *mode)
 {
 	if (!mode)
 		return NULL;
