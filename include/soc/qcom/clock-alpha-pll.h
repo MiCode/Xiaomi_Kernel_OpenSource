@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,7 @@ struct alpha_pll_vco_tbl {
 struct alpha_pll_clk {
 	struct alpha_pll_masks *masks;
 	void *const __iomem *base;
+	const u32 offset;
 
 	struct alpha_pll_vco_tbl *vco_tbl;
 	u32 num_vco;

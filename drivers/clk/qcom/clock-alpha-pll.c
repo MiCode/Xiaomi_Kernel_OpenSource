@@ -23,13 +23,13 @@
 
 #define WAIT_MAX_LOOPS 100
 
-#define MODE_REG(pll) (*pll->base + 0x0)
-#define LOCK_REG(pll) (*pll->base + 0x0)
-#define UPDATE_REG(pll) (*pll->base + 0x0)
-#define L_REG(pll) (*pll->base + 0x4)
-#define A_REG(pll) (*pll->base + 0x8)
-#define VCO_REG(pll) (*pll->base + 0x10)
-#define ALPHA_EN_REG(pll) (*pll->base + 0x10)
+#define MODE_REG(pll) (*pll->base + pll->offset + 0x0)
+#define LOCK_REG(pll) (*pll->base + pll->offset + 0x0)
+#define UPDATE_REG(pll) (*pll->base + pll->offset + 0x0)
+#define L_REG(pll) (*pll->base + pll->offset + 0x4)
+#define A_REG(pll) (*pll->base + pll->offset + 0x8)
+#define VCO_REG(pll) (*pll->base + pll->offset + 0x10)
+#define ALPHA_EN_REG(pll) (*pll->base + pll->offset + 0x10)
 
 #define PLL_BYPASSNL 0x2
 #define PLL_RESET_N  0x4
