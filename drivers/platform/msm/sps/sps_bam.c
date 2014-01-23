@@ -587,6 +587,7 @@ static void pipe_clear(struct sps_pipe *pipe)
 	pipe->num_descs = 0;
 	pipe->desc_size = 0;
 	pipe->disconnecting = false;
+	pipe->late_eot = false;
 	memset(&pipe->sys, 0, sizeof(pipe->sys));
 	INIT_LIST_HEAD(&pipe->sys.events_q);
 }
@@ -1048,6 +1049,7 @@ int sps_bam_pipe_set_params(struct sps_bam *dev, u32 pipe_index, u32 options)
 	ack_xfers = ((options & SPS_O_ACK_TRANSFERS));
 
 	pipe->hybrid = options & SPS_O_HYBRID;
+	pipe->late_eot = options & SPS_O_LATE_EOT;
 
 	/* Create interrupt source mask */
 	mask = 0;
@@ -1568,6 +1570,24 @@ static void pipe_handler_eot(struct sps_bam *dev, struct sps_pipe *pipe)
 
 	/* Get offset of last descriptor completed by the pipe */
 	end_offset = bam_pipe_get_desc_read_offset(dev->base, pipe_index);
+
+	if (producer && pipe->late_eot) {
+		struct sps_iovec *desc_end;
+		if (end_offset == 0)
+			desc_end = (struct sps_iovec *)(pipe->sys.desc_buf
+				+ pipe->desc_size - sizeof(struct sps_iovec));
+		else
+			desc_end = (struct sps_iovec *)	(pipe->sys.desc_buf
+				+ end_offset - sizeof(struct sps_iovec));
+
+		if (!(desc_end->flags & SPS_IOVEC_FLAG_EOT)) {
+			if (end_offset == 0)
+				end_offset = pipe->desc_size
+					- sizeof(struct sps_iovec);
+			else
+				end_offset -= sizeof(struct sps_iovec);
+		}
+	}
 
 	/* If no queue, then do not generate any events */
 	if (pipe->sys.no_queue) {
