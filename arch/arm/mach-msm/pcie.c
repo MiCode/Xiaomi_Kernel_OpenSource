@@ -1415,15 +1415,6 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 		return ret;
 	}
 
-	if (user) {
-		ret = pci_save_state((struct pci_dev *) user);
-		if (ret) {
-			pr_err("PCIe: fail to save state of EP 0x%p:%d.\n",
-					user, ret);
-			return ret;
-		}
-	}
-
 	spin_lock_irqsave(&pcie_dev->cfg_lock,
 				pcie_dev->irqsave_flags);
 	pcie_dev->cfg_access = false;
@@ -1492,9 +1483,6 @@ static int msm_pcie_pm_resume(struct pci_dev *dev,
 		pci_load_and_free_saved_state(dev, &pcie_dev->saved_state);
 
 		pci_restore_state(dev);
-
-		if (user)
-			pci_restore_state((struct pci_dev *) user);
 	}
 
 	return ret;
