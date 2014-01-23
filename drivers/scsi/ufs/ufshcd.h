@@ -481,6 +481,13 @@ struct ufs_hba {
 
 	#define UFSHCD_QUIRK_BROKEN_2_TX_LANES            (1 << 8)
 
+	/*
+	 * If LCC (Line Control Command) are having issue on the host
+	 * controller then enable this quirk. Note that connected UFS device
+	 * should also have workaround to not expect LCC commands from host.
+	 */
+	#define UFSHCD_BROKEN_LCC			  (1 << 9)
+
 	wait_queue_head_t tm_wq;
 	wait_queue_head_t tm_tag_wq;
 	unsigned long tm_condition;
