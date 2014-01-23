@@ -48,4 +48,10 @@ extern int cnss_wlan_register_driver(struct cnss_wlan_driver *driver);
 extern void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver);
 extern int cnss_get_fw_files(struct cnss_fw_files *pfw_files);
 
+extern void cnss_pm_wake_lock_init(struct wakeup_source *ws, const char *name);
+extern void cnss_pm_wake_lock(struct wakeup_source *ws);
+extern void cnss_pm_wake_lock_timeout(struct wakeup_source *ws, ulong msec);
+extern void cnss_pm_wake_lock_release(struct wakeup_source *ws);
+extern void cnss_pm_wake_lock_destroy(struct wakeup_source *ws);
+
 #endif /* _NET_CNSS_H_ */
