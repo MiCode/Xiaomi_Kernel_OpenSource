@@ -29,22 +29,7 @@
 #include <linux/of.h>
 #include <linux/devfreq.h>
 #include "governor.h"
-
-#include <mach/msm-krait-l2-accessors.h>
-
-#define L2PMRESR2		0x412
-#define L2PMCR			0x400
-#define L2PMCNTENCLR		0x402
-#define L2PMCNTENSET		0x403
-#define L2PMINTENCLR		0x404
-#define L2PMINTENSET		0x405
-#define L2PMOVSR		0x406
-#define L2PMOVSSET		0x407
-#define L2PMnEVCNTCR(n)		(0x420 + n * 0x10)
-#define L2PMnEVCNTR(n)		(0x421 + n * 0x10)
-#define L2PMnEVCNTSR(n)		(0x422 + n * 0x10)
-#define L2PMnEVFILTER(n)	(0x423 + n * 0x10)
-#define L2PMnEVTYPER(n)		(0x424 + n * 0x10)
+#include "governor_cpubw_hwmon.h"
 
 #define show_attr(name) \
 static ssize_t show_##name(struct device *dev,				\
@@ -75,8 +60,7 @@ store_attr(__attr, min, max)		\
 static DEVICE_ATTR(__attr, 0644, show_##__attr, store_##__attr)
 
 
-static int l2pm_irq;
-static unsigned int bytes_per_beat;
+static struct cpubw_hwmon *hw;
 static unsigned int tolerance_percent = 10;
 static unsigned int guard_band_mbps = 100;
 static unsigned int decay_rate = 90;
@@ -86,115 +70,14 @@ static unsigned int bw_step = 190;
 #define MIN_MS	10U
 #define MAX_MS	500U
 static unsigned int sample_ms = 50;
-static u32 prev_r_start_val;
-static u32 prev_w_start_val;
 static unsigned long prev_ab;
 static ktime_t prev_ts;
 
-#define RD_MON	0
-#define WR_MON	1
-static void mon_init(void)
+static unsigned long measure_bw_and_set_irq(struct devfreq *df)
 {
-	/* Set up counters 0/1 to count write/read beats */
-	set_l2_indirect_reg(L2PMRESR2, 0x8B0B0000);
-	set_l2_indirect_reg(L2PMnEVCNTCR(RD_MON), 0x0);
-	set_l2_indirect_reg(L2PMnEVCNTCR(WR_MON), 0x0);
-	set_l2_indirect_reg(L2PMnEVCNTR(RD_MON), 0xFFFFFFFF);
-	set_l2_indirect_reg(L2PMnEVCNTR(WR_MON), 0xFFFFFFFF);
-	set_l2_indirect_reg(L2PMnEVFILTER(RD_MON), 0xF003F);
-	set_l2_indirect_reg(L2PMnEVFILTER(WR_MON), 0xF003F);
-	set_l2_indirect_reg(L2PMnEVTYPER(RD_MON), 0xA);
-	set_l2_indirect_reg(L2PMnEVTYPER(WR_MON), 0xB);
-}
-
-static void global_mon_enable(bool en)
-{
-	u32 regval;
-
-	/* Global counter enable */
-	regval = get_l2_indirect_reg(L2PMCR);
-	if (en)
-		regval |= BIT(0);
-	else
-		regval &= ~BIT(0);
-	set_l2_indirect_reg(L2PMCR, regval);
-}
-
-static void mon_enable(int n)
-{
-	/* Clear previous overflow state for event counter n */
-	set_l2_indirect_reg(L2PMOVSR, BIT(n));
-
-	/* Enable event counter n */
-	set_l2_indirect_reg(L2PMCNTENSET, BIT(n));
-}
-
-static void mon_disable(int n)
-{
-	/* Disable event counter n */
-	set_l2_indirect_reg(L2PMCNTENCLR, BIT(n));
-}
-
-static void mon_irq_enable(int n, bool en)
-{
-	if (en)
-		set_l2_indirect_reg(L2PMINTENSET, BIT(n));
-	else
-		set_l2_indirect_reg(L2PMINTENCLR, BIT(n));
-}
-
-/* Returns start counter value to be used with mon_get_mbps() */
-static u32 mon_set_limit_mbyte(int n, unsigned int mbytes)
-{
-	u32 regval, beats;
-
-	beats = mult_frac(mbytes, SZ_1M, bytes_per_beat);
-	regval = 0xFFFFFFFF - beats;
-	set_l2_indirect_reg(L2PMnEVCNTR(n), regval);
-	pr_debug("EV%d MB: %d, start val: %x\n", n, mbytes, regval);
-
-	return regval;
-}
-
-static long mon_get_count(int n, u32 start_val)
-{
-	u32 overflow, count;
-
-	count = get_l2_indirect_reg(L2PMnEVCNTR(n));
-	overflow = get_l2_indirect_reg(L2PMOVSR);
-
-	pr_debug("EV%d ov: %x, cnt: %x\n", n, overflow, count);
-
-	if (overflow & BIT(n))
-		return 0xFFFFFFFF - start_val + count;
-	else
-		return count - start_val;
-}
-
-/* Returns MBps of read/writes for the sampling window. */
-static unsigned int beats_to_mbps(long long beats, unsigned int us)
-{
-	beats *= USEC_PER_SEC;
-	beats *= bytes_per_beat;
-	do_div(beats, us);
-	beats = DIV_ROUND_UP_ULL(beats, SZ_1M);
-
-	return beats;
-}
-
-static int to_limit(int mbps)
-{
-	mbps *= (100 + tolerance_percent) * sample_ms;
-	mbps /= 100;
-	mbps = DIV_ROUND_UP(mbps, MSEC_PER_SEC);
-	return mbps;
-}
-
-static unsigned long measure_bw_and_set_irq(void)
-{
-	long r_mbps, w_mbps, mbps;
 	ktime_t ts;
 	unsigned int us;
+	unsigned long mbps;
 
 	/*
 	 * Since we are stopping the counters, we don't want this short work
@@ -210,25 +93,12 @@ static unsigned long measure_bw_and_set_irq(void)
 	if (!us)
 		us = 1;
 
-	mon_disable(RD_MON);
-	mon_disable(WR_MON);
-
-	r_mbps = mon_get_count(RD_MON, prev_r_start_val);
-	r_mbps = beats_to_mbps(r_mbps, us);
-	w_mbps = mon_get_count(WR_MON, prev_w_start_val);
-	w_mbps = beats_to_mbps(w_mbps, us);
-
-	prev_r_start_val = mon_set_limit_mbyte(RD_MON, to_limit(r_mbps));
-	prev_w_start_val = mon_set_limit_mbyte(WR_MON, to_limit(w_mbps));
+	mbps = hw->meas_bw_and_set_irq(df, tolerance_percent, us);
 	prev_ts = ts;
-
-	mon_enable(RD_MON);
-	mon_enable(WR_MON);
 
 	preempt_enable();
 
-	mbps = r_mbps + w_mbps;
-	pr_debug("R/W/BW/us = %ld/%ld/%ld/%d\n", r_mbps, w_mbps, mbps, us);
+	pr_debug("BW MBps = %6lu, period = %u\n", mbps, us);
 
 	return mbps;
 }
@@ -257,12 +127,12 @@ static irqreturn_t mon_intr_handler(int irq, void *dev)
 	struct devfreq *df = dev;
 	ktime_t ts;
 	unsigned int us;
-	u32 regval;
 	int ret;
 
-	regval = get_l2_indirect_reg(L2PMOVSR);
-	pr_debug("Got interrupt: %x\n", regval);
+	if (!hw->is_valid_irq(df))
+		return IRQ_NONE;
 
+	pr_debug("Got interrupt\n");
 	devfreq_monitor_stop(df);
 
 	/*
@@ -292,45 +162,37 @@ static irqreturn_t mon_intr_handler(int irq, void *dev)
 
 static int start_monitoring(struct devfreq *df)
 {
-	int ret, mbyte;
+	int ret;
+	unsigned long mbps;
 
-	ret = request_threaded_irq(l2pm_irq, NULL, mon_intr_handler,
+	ret = request_threaded_irq(hw->irq, NULL, mon_intr_handler,
 			  IRQF_ONESHOT | IRQF_SHARED,
 			  "cpubw_hwmon", df);
 	if (ret) {
-		pr_err("Unable to register interrupt handler\n");
+		pr_err("Unable to register interrupt handler!\n");
 		return ret;
 	}
 
-	mon_init();
-	mon_disable(RD_MON);
-	mon_disable(WR_MON);
-
-	mbyte = (df->previous_freq * io_percent) / (2 * 100);
-	prev_r_start_val = mon_set_limit_mbyte(RD_MON, mbyte);
-	prev_w_start_val = mon_set_limit_mbyte(WR_MON, mbyte);
 	prev_ts = ktime_get();
 	prev_ab = 0;
 
-	mon_irq_enable(RD_MON, true);
-	mon_irq_enable(WR_MON, true);
-	mon_enable(RD_MON);
-	mon_enable(WR_MON);
-	global_mon_enable(true);
+	mbps = (df->previous_freq * io_percent) / 100;
+
+	ret = hw->start_hwmon(df, mbps);
+	if (ret) {
+		pr_err("Unable to start HW monitor!\n");
+		free_irq(hw->irq, df);
+		return ret;
+	}
 
 	return 0;
 }
 
 static void stop_monitoring(struct devfreq *df)
 {
-	global_mon_enable(false);
-	mon_disable(RD_MON);
-	mon_disable(WR_MON);
-	mon_irq_enable(RD_MON, false);
-	mon_irq_enable(WR_MON, false);
-
-	disable_irq(l2pm_irq);
-	free_irq(l2pm_irq, df);
+	hw->stop_hwmon(df);
+	disable_irq(hw->irq);
+	free_irq(hw->irq, df);
 }
 
 static int devfreq_cpubw_hwmon_get_freq(struct devfreq *df,
@@ -339,7 +201,7 @@ static int devfreq_cpubw_hwmon_get_freq(struct devfreq *df,
 {
 	unsigned long mbps;
 
-	mbps = measure_bw_and_set_irq();
+	mbps = measure_bw_and_set_irq(df);
 	compute_bw(mbps, freq, df->data);
 
 	return 0;
@@ -413,23 +275,16 @@ static struct devfreq_governor devfreq_cpubw_hwmon = {
 	.event_handler = devfreq_cpubw_hwmon_ev_handler,
 };
 
-static int cpubw_hwmon_driver_probe(struct platform_device *pdev)
+int register_cpubw_hwmon(struct cpubw_hwmon *hwmon)
 {
-	struct device *dev = &pdev->dev;
 	int ret;
 
-	l2pm_irq = platform_get_irq(pdev, 0);
-	if (l2pm_irq < 0) {
-		pr_err("Unable to get IRQ number\n");
-		return l2pm_irq;
+	if (hw != NULL) {
+		pr_err("cpubw hwmon already registered\n");
+		return -EBUSY;
 	}
 
-	ret = of_property_read_u32(dev->of_node, "qcom,bytes-per-beat",
-			     &bytes_per_beat);
-	if (ret) {
-		pr_err("Unable to read bytes per beat\n");
-		return ret;
-	}
+	hw = hwmon;
 
 	ret = devfreq_add_governor(&devfreq_cpubw_hwmon);
 	if (ret) {
@@ -439,32 +294,6 @@ static int cpubw_hwmon_driver_probe(struct platform_device *pdev)
 
 	return 0;
 }
-
-static struct of_device_id match_table[] = {
-	{ .compatible = "qcom,kraitbw-l2pm" },
-	{}
-};
-
-static struct platform_driver cpubw_hwmon_driver = {
-	.probe = cpubw_hwmon_driver_probe,
-	.driver = {
-		.name = "kraitbw-l2pm",
-		.of_match_table = match_table,
-		.owner = THIS_MODULE,
-	},
-};
-
-static int __init cpubw_hwmon_init(void)
-{
-	return platform_driver_register(&cpubw_hwmon_driver);
-}
-module_init(cpubw_hwmon_init);
-
-static void __exit cpubw_hwmon_exit(void)
-{
-	platform_driver_unregister(&cpubw_hwmon_driver);
-}
-module_exit(cpubw_hwmon_exit);
 
 MODULE_DESCRIPTION("HW monitor based CPU DDR bandwidth voting driver");
 MODULE_LICENSE("GPL v2");
