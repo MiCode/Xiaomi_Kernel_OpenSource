@@ -110,6 +110,8 @@ static int smp2p_gpio_test_probe(struct platform_device *pdev)
 		 * of the device tree nodes as well.
 		 */
 		id = of_get_gpio(node, 0);
+		if (id == -EPROBE_DEFER)
+			return id;
 		gpio_info_ptr->gpio_base_id = id;
 		gpio_info_ptr->irq_base_id = gpio_to_irq(id);
 	}
