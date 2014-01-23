@@ -1537,12 +1537,25 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 {
 	int ret = 0;
 	struct pci_dev *dev;
-	u32 rc_idx;
+	u32 rc_idx = 0;
 
 	switch (busnr) {
 	case 1:
-		if (!options)
-			rc_idx = 0;
+		if (user) {
+			struct msm_pcie_dev_t *pcie_dev
+				= PCIE_BUS_PRIV_DATA(((struct pci_dev *)user));
+
+			if (pcie_dev) {
+				rc_idx = pcie_dev->rc_idx;
+				PCIE_DBG("RC %d\n", pcie_dev->rc_idx);
+			} else {
+				pr_err(
+					"PCIe: did not find RC for pci endpoint device 0x%x.\n",
+					(u32)user);
+				ret = -ENODEV;
+				goto out;
+			}
+		}
 		break;
 	default:
 		pr_err("PCIe: unsupported bus number.\n");
