@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -929,7 +929,18 @@ static int qca199x_clock_select(struct qca199x_dev *qca199x_dev)
 	} else if (!strcmp(qca199x_dev->clk_src_name, "GPCLK")) {
 		if (gpio_is_valid(qca199x_dev->clk_src_gpio)) {
 			qca199x_dev->s_clk  =
-				clk_get(&qca199x_dev->client->dev, "core_clk");
+				clk_get(&qca199x_dev->client->dev,
+				  "core_clk");
+			if (qca199x_dev->s_clk == NULL)
+				goto err_invalid_dis_gpio;
+		} else {
+			goto err_invalid_dis_gpio;
+		}
+	} else if (!strcmp(qca199x_dev->clk_src_name, "GPCLK2")) {
+		if (gpio_is_valid(qca199x_dev->clk_src_gpio)) {
+			qca199x_dev->s_clk  =
+				clk_get(&qca199x_dev->client->dev,
+				  "core_clk_pvt");
 			if (qca199x_dev->s_clk == NULL)
 				goto err_invalid_dis_gpio;
 		} else {
@@ -995,7 +1006,8 @@ static int nfc_parse_dt(struct device *dev, struct qca199x_platform_data *pdata)
 
 	r = of_property_read_string(np, "qcom,clk-src", &pdata->clk_src_name);
 
-	if (!strcmp(pdata->clk_src_name, "GPCLK"))
+	if ((!strcmp(pdata->clk_src_name, "GPCLK")) ||
+	    (!strcmp(pdata->clk_src_name, "GPCLK2")))
 		pdata->clk_src_gpio = of_get_named_gpio(np,
 				"qcom,clk-en-gpio", 0);
 
@@ -1189,7 +1201,8 @@ err_dis_gpio:
 	r = gpio_direction_input(platform_data->dis_gpio);
 	if (r)
 		dev_err(&client->dev, "nfc-nci probe: Unable to set direction\n");
-	if (!strcmp(platform_data->clk_src_name, "GPCLK")) {
+	if ((!strcmp(platform_data->clk_src_name, "GPCLK")) ||
+	    (!strcmp(platform_data->clk_src_name, "GPCLK2"))) {
 		r = gpio_direction_input(platform_data->clk_src_gpio);
 		if (r)
 			dev_err(&client->dev, "nfc-nci probe: Unable to set direction\n");
