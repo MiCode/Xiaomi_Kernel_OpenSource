@@ -1773,6 +1773,12 @@ int ufshcd_init(struct device *dev, struct ufs_hba **hba_handle,
 
 	*hba_handle = hba;
 
+	/*
+	 * The device-initialize-sequence hasn't been invoked yet.
+	 * Set the device to power-off state
+	 */
+	ufshcd_set_ufs_dev_poweroff(hba);
+
 	async_schedule(ufshcd_async_scan, hba);
 
 	return 0;
