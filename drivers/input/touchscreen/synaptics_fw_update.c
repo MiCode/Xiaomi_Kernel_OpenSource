@@ -1559,7 +1559,7 @@ static int fwu_start_reflash(void)
 		}
 
 		dev_dbg(&fwu->rmi4_data->i2c_client->dev,
-				"%s: Firmware image size = %d\n",
+				"%s: Firmware image size = %zu\n",
 				__func__, fw_entry->size);
 
 		fwu->data_buffer = fw_entry->data;
@@ -1670,7 +1670,7 @@ static ssize_t fwu_sysfs_show_image(struct file *data_file,
 
 	if (count < fwu->config_size) {
 		dev_err(&rmi4_data->i2c_client->dev,
-				"%s: Not enough space (%d bytes) in buffer\n",
+				"%s: Not enough space (%zu bytes) in buffer\n",
 				__func__, count);
 		return -EINVAL;
 	}
