@@ -1167,7 +1167,12 @@ static int kgsl_set_register_map(struct kgsl_mmu *mmu)
 
 		if (!msm_soc_version_supports_iommu_v0())
 			iommu_unit->iommu_halt_enable = 1;
-		iommu_unit->ahb_base = data.physstart - mmu->device->reg_phys;
+
+		if (kgsl_msm_supports_iommu_v2())
+			iommu_unit->ahb_base = KGSL_IOMMU_V2_AHB_BASE;
+		else
+			iommu_unit->ahb_base =
+				data.physstart - mmu->device->reg_phys;
 	}
 	iommu->unit_count = pdata_dev->iommu_count;
 	return ret;
@@ -1335,7 +1340,8 @@ static unsigned int kgsl_iommu_get_reg_ahbaddr(struct kgsl_mmu *mmu,
 	if (iommu->iommu_reg_list[reg].ctx_reg)
 		return iommu->iommu_units[iommu_unit].ahb_base +
 			iommu->iommu_reg_list[reg].reg_offset +
-			(ctx_id << KGSL_IOMMU_CTX_SHIFT) + iommu->ctx_offset;
+			(ctx_id << KGSL_IOMMU_CTX_SHIFT) +
+			iommu->ctx_ahb_offset;
 	else
 		return iommu->iommu_units[iommu_unit].ahb_base +
 			iommu->iommu_reg_list[reg].reg_offset;
@@ -1412,15 +1418,18 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	if (status)
 		goto done;
 
-	iommu->iommu_reg_list = kgsl_iommuv0_reg;
-	iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V0;
-
-	if (msm_soc_version_supports_iommu_v0()) {
+	if (kgsl_msm_supports_iommu_v2()) {
+		iommu->iommu_reg_list = kgsl_iommuv1_reg;
+		iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V2;
+		iommu->ctx_ahb_offset = KGSL_IOMMU_CTX_AHB_OFFSET_V2;
+	} else if (msm_soc_version_supports_iommu_v0()) {
 		iommu->iommu_reg_list = kgsl_iommuv0_reg;
 		iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V0;
+		iommu->ctx_ahb_offset = KGSL_IOMMU_CTX_OFFSET_V0;
 	} else {
 		iommu->iommu_reg_list = kgsl_iommuv1_reg;
 		iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V1;
+		iommu->ctx_ahb_offset = KGSL_IOMMU_CTX_OFFSET_V1;
 	}
 
 	/* A nop is required in an indirect buffer when switching
