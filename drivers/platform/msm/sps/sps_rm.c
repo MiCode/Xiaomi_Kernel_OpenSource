@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -556,11 +556,8 @@ static int sps_rm_free(struct sps_pipe *pipe)
 {
 	struct sps_connection *map = (void *)pipe->map;
 	struct sps_connect *cfg = &pipe->connect;
-	struct sps_bam *bam = pipe->bam;
-	unsigned long flags;
 
 	mutex_lock(&sps_rm->lock);
-	spin_lock_irqsave(&bam->isr_lock, flags);
 
 	/* Free this connection */
 	if (cfg->mode == SPS_MODE_SRC)
@@ -574,7 +571,6 @@ static int sps_rm_free(struct sps_pipe *pipe)
 
 	sps_rm_remove_ref(map);
 
-	spin_unlock_irqrestore(&bam->isr_lock, flags);
 	mutex_unlock(&sps_rm->lock);
 
 	return 0;
@@ -800,8 +796,9 @@ int sps_rm_state_change(struct sps_pipe *pipe, u32 state)
 			synchronize_irq(bam->props.irq);
 
 		spin_lock_irqsave(&bam->isr_lock, flags);
-		result = sps_bam_pipe_disconnect(pipe->bam, pipe_index);
+		pipe->disconnecting = true;
 		spin_unlock_irqrestore(&bam->isr_lock, flags);
+		result = sps_bam_pipe_disconnect(pipe->bam, pipe_index);
 		if (result) {
 			SPS_ERR("sps:Failed to disconnect BAM 0x%x pipe %d",
 				pipe->bam->props.phys_addr,
