@@ -26,7 +26,7 @@
 #include <linux/cpu.h>
 #include <linux/platform_device.h>
 #include <soc/qcom/scm.h>
-#include <mach/msm_memory_dump.h>
+#include <soc/qcom/memory_dump.h>
 
 #define MODULE_NAME "msm_watchdog"
 #define WDT0_ACCSCSSNBARK_INT 0

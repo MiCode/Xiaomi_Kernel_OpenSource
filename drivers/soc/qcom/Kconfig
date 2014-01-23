@@ -86,6 +86,14 @@ config MSM_ADSP_LOADER
 	  for the platforms that use APRv2.
 	  Say M if you want to enable this module.
 
+config MSM_MEMORY_DUMP
+	bool "MSM Memory Dump Support"
+	help
+	  This enables memory dump feature. It allows various client
+	  subsystems to register respective dump regions. At the time
+	  of deadlocks or cpu hangs these dump regions are captured to
+	  give a snapshot of the system at the time of the crash.
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM
