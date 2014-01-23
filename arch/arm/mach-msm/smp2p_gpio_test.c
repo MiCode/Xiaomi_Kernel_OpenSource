@@ -313,7 +313,7 @@ static void smp2p_ut_local_gpio_in(struct seq_file *s)
 		UT_ASSERT_INT(0, <, cb_info->irq_base_id);
 		for (id = 0; id < SMP2P_BITS_PER_ENTRY && !failed; ++id) {
 			virq = cb_info->irq_base_id + id;
-			UT_ASSERT_INT(0, >, (unsigned int)irq_to_desc(virq));
+			UT_ASSERT_PTR(NULL, !=, irq_to_desc(virq));
 			ret = request_irq(virq,
 					smp2p_gpio_irq,	IRQF_TRIGGER_RISING,
 					"smp2p_test", cb_info);
@@ -458,7 +458,7 @@ static void smp2p_ut_local_gpio_in_update_open(struct seq_file *s)
 		UT_ASSERT_INT(0, <, cb_info->irq_base_id);
 		for (id = 0; id < SMP2P_BITS_PER_ENTRY && !failed; ++id) {
 			virq = cb_info->irq_base_id + id;
-			UT_ASSERT_INT(0, >, (unsigned int)irq_to_desc(virq));
+			UT_ASSERT_PTR(NULL, !=, irq_to_desc(virq));
 			ret = request_irq(virq,
 					smp2p_gpio_irq,	IRQ_TYPE_EDGE_BOTH,
 					"smp2p_test", cb_info);
@@ -602,7 +602,7 @@ static void smp2p_ut_remote_inout_core(struct seq_file *s, int remote_pid,
 		UT_ASSERT_INT(0, <, cb_in->irq_base_id);
 		for (id = 0; id < SMP2P_BITS_PER_ENTRY && !failed; ++id) {
 			int virq = cb_in->irq_base_id + id;
-			UT_ASSERT_INT(0, >, (unsigned int)irq_to_desc(virq));
+			UT_ASSERT_PTR(NULL, !=, irq_to_desc(virq));
 			ret = request_irq(virq,
 				smp2p_gpio_irq,
 				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
