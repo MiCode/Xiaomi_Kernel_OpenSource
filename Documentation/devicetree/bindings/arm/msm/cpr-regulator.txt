@@ -217,6 +217,10 @@ Optional properties:
 				adjustment equals to the quotient adjustment
 				in millivolts multiply the KV value.
 				Not Present: CPR will not adjust quotient value.
+- vdd-apc-optional-prim-supply:	Present: Regulator of highest priority to supply VDD APC power
+				Not Present: No such regulator.
+- vdd-apc-optional-sec-supply:	Present: Regulator of second highest priority to supply VDD APC power.
+				Not Present: No such regulator.
 
 Example:
 	apc_vreg_corner: regulator@f9018000 {
@@ -245,6 +249,8 @@ Example:
 		qcom,pvs-corner-ceiling-nom  =  <975000 1075000 1200000>;
 		qcom,pvs-corner-ceiling-fast =  <900000 1000000 1140000>;
 		vdd-apc-supply = <&pm8226_s2>;
+		vdd-apc-optional-prim-supply = <&ncp6335d>;
+		vdd-apc-optional-sec-supply = <&fan53555>;
 		vdd-mx-supply = <&pm8226_l3_ao>;
 		qcom,vdd-mx-vmax = <1350000>;
 		qcom,vdd-mx-vmin-method = <1>;
