@@ -113,6 +113,12 @@ Required properties:
    This enables stub CPU dai in Audio. The stub dai is used when
    there is no real backend in Audio.
 
+* msm-dai-q6-spdif
+
+Optional properties:
+
+ - compatible : "msm-dai-q6-spdif"
+
 * msm-dai-q6-hdmi
 
 Required properties:
@@ -309,6 +315,10 @@ Example:
 
 	qcom,msm-dai-stub {
 		compatible = "qcom,msm-dai-stub";
+	};
+
+	qcom,msm-dai-q6-spdif {
+		compatible = "qcom,msm-dai-q6-spdif";
 	};
 
 	qcom,msm-dai-q6-hdmi {
@@ -824,6 +834,11 @@ Required properties:
 - qcom,tabla-mclk-clk-freq : Tabla mclk Freq in Hz.
 Optional properties:
 - qcom,hdmi-audio-rx: specifies if HDMI audio support is enabled or not.
+- qcom,spdif-audio-rx: specifies if SPDIF audio support is enabled or not.
+- qcom,spdif-opt-gpio: GPIO on which SPDIF optical output signal is coming.
+  If qcom,spdif-audio-rx property is present then this property must be present.
+- qcom,spdif-elec-gpio: GPIO on which SPDIF electrical output signal is coming.
+  If qcom,spdif-audio-rx property is present then this property must be present.
 
 Example:
 
@@ -846,7 +861,10 @@ Example:
 
 		qcom,cdc-mclk-gpios = <&msmgpio 42 0>;
 		qcom,tabla-mclk-clk-freq = <12288000>;
+		qcom,spdif-opt-gpio = <&msmgpio 46 0>;
+		qcom,spdif-elec-gpio = <&msmgpio 41 0>;
 		qcom,hdmi-audio-rx;
+		qcom,spdif-audio-rx;
 	};
 
 * MDM9630 ASoC Machine driver
