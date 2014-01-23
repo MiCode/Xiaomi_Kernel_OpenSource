@@ -216,10 +216,10 @@ static int ipa_generate_rt_hw_tbl_common(enum ipa_ip_type ip, u8 *base, u8 *hdr,
 
 			/* write the rule-set terminator */
 			body = ipa_write_32(0, body);
-			if ((u32)body & IPA_RT_ENTRY_MEMORY_ALLIGNMENT)
+			if ((long)body & IPA_RT_ENTRY_MEMORY_ALLIGNMENT)
 				/* advance body to next word boundary */
 				body = body + (IPA_RT_TABLE_WORD_SIZE -
-					      ((u32)body &
+					      ((long)body &
 					      IPA_RT_ENTRY_MEMORY_ALLIGNMENT));
 		} else {
 			WARN_ON(tbl->sz == 0);
@@ -682,14 +682,8 @@ static struct ipa_rt_tbl *__ipa_add_rt_tbl(enum ipa_ip_type ip,
 {
 	struct ipa_rt_tbl *entry;
 	struct ipa_rt_tbl_set *set;
-	struct ipa_tree_node *node;
 	int i;
-
-	node = kmem_cache_zalloc(ipa_ctx->tree_node_cache, GFP_KERNEL);
-	if (!node) {
-		IPAERR("failed to alloc tree node object\n");
-		goto node_alloc_fail;
-	}
+	int id;
 
 	if (ip >= IPA_IP_MAX || name == NULL) {
 		IPAERR("bad parm\n");
@@ -731,13 +725,12 @@ static struct ipa_rt_tbl *__ipa_add_rt_tbl(enum ipa_ip_type ip,
 		IPADBG("add rt tbl idx=%d tbl_cnt=%d ip=%d\n", entry->idx,
 				set->tbl_cnt, ip);
 
-		node->hdl = (u32)entry;
-		if (ipa_insert(&ipa_ctx->rt_tbl_hdl_tree, node)) {
+		id = ipa_id_alloc(entry);
+		if (id < 0) {
 			IPAERR("failed to add to tree\n");
 			WARN_ON(1);
 		}
-	} else {
-		kmem_cache_free(ipa_ctx->tree_node_cache, node);
+		entry->id = id;
 	}
 
 	return entry;
@@ -746,22 +739,20 @@ fail_rt_idx_alloc:
 	entry->cookie = 0;
 	kmem_cache_free(ipa_ctx->rt_tbl_cache, entry);
 error:
-	kmem_cache_free(ipa_ctx->tree_node_cache, node);
-node_alloc_fail:
 	return NULL;
 }
 
 static int __ipa_del_rt_tbl(struct ipa_rt_tbl *entry)
 {
-	struct ipa_tree_node *node;
 	enum ipa_ip_type ip = IPA_IP_MAX;
+	u32 id;
 
 	if (entry == NULL || (entry->cookie != IPA_COOKIE)) {
 		IPAERR("bad parms\n");
 		return -EINVAL;
 	}
-	node = ipa_search(&ipa_ctx->rt_tbl_hdl_tree, (u32)entry);
-	if (node == NULL) {
+	id = entry->id;
+	if (ipa_id_find(id)) {
 		IPAERR("lookup failed\n");
 		return -EPERM;
 	}
@@ -790,9 +781,7 @@ static int __ipa_del_rt_tbl(struct ipa_rt_tbl *entry)
 	}
 
 	/* remove the handle from the database */
-	rb_erase(&node->node, &ipa_ctx->rt_tbl_hdl_tree);
-	kmem_cache_free(ipa_ctx->tree_node_cache, node);
-
+	ipa_id_remove(id);
 	return 0;
 }
 
@@ -801,25 +790,21 @@ static int __ipa_add_rt_rule(enum ipa_ip_type ip, const char *name,
 {
 	struct ipa_rt_tbl *tbl;
 	struct ipa_rt_entry *entry;
-	struct ipa_tree_node *node;
+	struct ipa_hdr_entry *hdr = NULL;
+	int id;
 
-	if (rule->hdr_hdl &&
-	    ((ipa_search(&ipa_ctx->hdr_hdl_tree, rule->hdr_hdl) == NULL) ||
-	     ((struct ipa_hdr_entry *)rule->hdr_hdl)->cookie != IPA_COOKIE)) {
-		IPAERR("rt rule does not point to valid hdr\n");
-		goto error;
-	}
-
-	node = kmem_cache_zalloc(ipa_ctx->tree_node_cache, GFP_KERNEL);
-	if (!node) {
-		IPAERR("failed to alloc tree node object\n");
-		goto error;
+	if (rule->hdr_hdl) {
+		hdr = ipa_id_find(rule->hdr_hdl);
+		if ((hdr == NULL) || (hdr->cookie != IPA_COOKIE)) {
+			IPAERR("rt rule does not point to valid hdr\n");
+			goto error;
+		}
 	}
 
 	tbl = __ipa_add_rt_tbl(ip, name);
 	if (tbl == NULL || (tbl->cookie != IPA_COOKIE)) {
 		IPAERR("bad params\n");
-		goto fail_rt_tbl_sanity;
+		goto error;
 	}
 	/*
 	 * do not allow any rules to be added at end of the "default" routing
@@ -829,19 +814,19 @@ static int __ipa_add_rt_rule(enum ipa_ip_type ip, const char *name,
 	    (tbl->rule_cnt > 0) && (at_rear != 0)) {
 		IPAERR("cannot add rule at end of tbl rule_cnt=%d at_rear=%d\n",
 		       tbl->rule_cnt, at_rear);
-		goto fail_rt_tbl_sanity;
+		goto error;
 	}
 
 	entry = kmem_cache_zalloc(ipa_ctx->rt_rule_cache, GFP_KERNEL);
 	if (!entry) {
 		IPAERR("failed to alloc RT rule object\n");
-		goto fail_rt_tbl_sanity;
+		goto error;
 	}
 	INIT_LIST_HEAD(&entry->link);
 	entry->cookie = IPA_COOKIE;
 	entry->rule = *rule;
 	entry->tbl = tbl;
-	entry->hdr = (struct ipa_hdr_entry *)rule->hdr_hdl;
+	entry->hdr = hdr;
 	if (at_rear)
 		list_add_tail(&entry->link, &tbl->head_rt_rule_list);
 	else
@@ -849,23 +834,21 @@ static int __ipa_add_rt_rule(enum ipa_ip_type ip, const char *name,
 	tbl->rule_cnt++;
 	if (entry->hdr)
 		entry->hdr->ref_cnt++;
-	IPADBG("add rt rule tbl_idx=%d rule_cnt=%d\n", tbl->idx, tbl->rule_cnt);
-	*rule_hdl = (u32)entry;
-
-	node->hdl = *rule_hdl;
-	if (ipa_insert(&ipa_ctx->rt_rule_hdl_tree, node)) {
+	id = ipa_id_alloc(entry);
+	if (id < 0) {
 		IPAERR("failed to add to tree\n");
 		WARN_ON(1);
 		goto ipa_insert_failed;
 	}
+	IPADBG("add rt rule tbl_idx=%d rule_cnt=%d\n", tbl->idx, tbl->rule_cnt);
+	*rule_hdl = id;
+	entry->id = id;
 
 	return 0;
 
 ipa_insert_failed:
 	list_del(&entry->link);
 	kmem_cache_free(ipa_ctx->rt_rule_cache, entry);
-fail_rt_tbl_sanity:
-	kmem_cache_free(ipa_ctx->tree_node_cache, node);
 error:
 	return -EPERM;
 }
@@ -917,22 +900,23 @@ EXPORT_SYMBOL(ipa_add_rt_rule);
 
 int __ipa_del_rt_rule(u32 rule_hdl)
 {
-	struct ipa_rt_entry *entry = (struct ipa_rt_entry *)rule_hdl;
-	struct ipa_tree_node *node;
+	struct ipa_rt_entry *entry;
+	int id;
 
-	node = ipa_search(&ipa_ctx->rt_rule_hdl_tree, rule_hdl);
-	if (node == NULL) {
+	entry = ipa_id_find(rule_hdl);
+
+	if (entry == NULL) {
 		IPAERR("lookup failed\n");
 		return -EINVAL;
 	}
 
-	if (entry == NULL || (entry->cookie != IPA_COOKIE)) {
+	if (entry->cookie != IPA_COOKIE) {
 		IPAERR("bad params\n");
 		return -EINVAL;
 	}
 
 	if (entry->hdr)
-		__ipa_release_hdr((u32)entry->hdr);
+		__ipa_release_hdr(entry->hdr->id);
 	list_del(&entry->link);
 	entry->tbl->rule_cnt--;
 	IPADBG("del rt rule tbl_idx=%d rule_cnt=%d\n", entry->tbl->idx,
@@ -942,11 +926,11 @@ int __ipa_del_rt_rule(u32 rule_hdl)
 			IPAERR("fail to del RT tbl\n");
 	}
 	entry->cookie = 0;
+	id = entry->id;
 	kmem_cache_free(ipa_ctx->rt_rule_cache, entry);
 
 	/* remove the handle from the database */
-	rb_erase(&node->node, &ipa_ctx->rt_rule_hdl_tree);
-	kmem_cache_free(ipa_ctx->tree_node_cache, node);
+	ipa_id_remove(id);
 
 	return 0;
 }
@@ -1047,9 +1031,9 @@ int ipa_reset_rt(enum ipa_ip_type ip)
 	struct ipa_rt_tbl_set *set;
 	struct ipa_rt_entry *rule;
 	struct ipa_rt_entry *rule_next;
-	struct ipa_tree_node *node;
 	struct ipa_rt_tbl_set *rset;
 	u32 apps_start_idx;
+	int id;
 
 	if (ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
@@ -1079,9 +1063,7 @@ int ipa_reset_rt(enum ipa_ip_type ip)
 	list_for_each_entry_safe(tbl, tbl_next, &set->head_rt_tbl_list, link) {
 		list_for_each_entry_safe(rule, rule_next,
 					 &tbl->head_rt_rule_list, link) {
-			node = ipa_search(&ipa_ctx->rt_rule_hdl_tree,
-					  (u32)rule);
-			if (node == NULL) {
+			if (ipa_id_find(rule->id) == NULL) {
 				WARN_ON(1);
 				mutex_unlock(&ipa_ctx->lock);
 				return -EFAULT;
@@ -1097,21 +1079,21 @@ int ipa_reset_rt(enum ipa_ip_type ip)
 			list_del(&rule->link);
 			tbl->rule_cnt--;
 			if (rule->hdr)
-				__ipa_release_hdr((u32)rule->hdr);
+				__ipa_release_hdr(rule->hdr->id);
 			rule->cookie = 0;
+			id = rule->id;
 			kmem_cache_free(ipa_ctx->rt_rule_cache, rule);
 
 			/* remove the handle from the database */
-			rb_erase(&node->node, &ipa_ctx->rt_rule_hdl_tree);
-			kmem_cache_free(ipa_ctx->tree_node_cache, node);
+			ipa_id_remove(id);
 		}
 
-		node = ipa_search(&ipa_ctx->rt_tbl_hdl_tree, (u32)tbl);
-		if (node  == NULL) {
+		if (ipa_id_find(tbl->id) == NULL) {
 			WARN_ON(1);
 			mutex_unlock(&ipa_ctx->lock);
 			return -EFAULT;
 		}
+		id = tbl->id;
 
 		/* do not remove the "default" routing tbl which has index 0 */
 		if (tbl->idx != apps_start_idx) {
@@ -1132,8 +1114,7 @@ int ipa_reset_rt(enum ipa_ip_type ip)
 						tbl->idx, set->tbl_cnt);
 			}
 			/* remove the handle from the database */
-			rb_erase(&node->node, &ipa_ctx->rt_tbl_hdl_tree);
-			kmem_cache_free(ipa_ctx->tree_node_cache, node);
+			ipa_id_remove(id);
 		}
 	}
 	mutex_unlock(&ipa_ctx->lock);
@@ -1165,7 +1146,7 @@ int ipa_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup)
 	entry = __ipa_add_rt_tbl(lookup->ip, lookup->name);
 	if (entry && entry->cookie == IPA_COOKIE) {
 		entry->ref_cnt++;
-		lookup->hdl = (uint32_t)entry;
+		lookup->hdl = entry->id;
 
 		/* commit for get */
 		if (ipa_ctx->ctrl->ipa_commit_rt(lookup->ip))
@@ -1189,21 +1170,19 @@ EXPORT_SYMBOL(ipa_get_rt_tbl);
  */
 int ipa_put_rt_tbl(u32 rt_tbl_hdl)
 {
-	struct ipa_rt_tbl *entry = (struct ipa_rt_tbl *)rt_tbl_hdl;
-	struct ipa_tree_node *node;
+	struct ipa_rt_tbl *entry;
 	enum ipa_ip_type ip = IPA_IP_MAX;
 	int result;
 
 	mutex_lock(&ipa_ctx->lock);
-	node = ipa_search(&ipa_ctx->rt_tbl_hdl_tree, rt_tbl_hdl);
-	if (node == NULL) {
+	entry = ipa_id_find(rt_tbl_hdl);
+	if (entry == NULL) {
 		IPAERR("lookup failed\n");
 		result = -EINVAL;
 		goto ret;
 	}
 
-	if (entry == NULL || (entry->cookie != IPA_COOKIE) ||
-			entry->ref_cnt == 0) {
+	if ((entry->cookie != IPA_COOKIE) || entry->ref_cnt == 0) {
 		IPAERR("bad parms\n");
 		result = -EINVAL;
 		goto ret;

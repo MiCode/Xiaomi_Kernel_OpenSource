@@ -282,7 +282,7 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 		ep->connect.desc = in->desc;
 		ep->desc_fifo_client_allocated = 1;
 	}
-	IPADBG("Descriptor FIFO pa=0x%x, size=%d\n", ep->connect.desc.phys_base,
+	IPADBG("Descriptor FIFO pa=%pa, size=%d\n", &ep->connect.desc.phys_base,
 	       ep->connect.desc.size);
 
 	if (in->data.base == NULL) {
@@ -299,7 +299,7 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 		ep->connect.data = in->data;
 		ep->data_fifo_client_allocated = 1;
 	}
-	IPADBG("Data FIFO pa=0x%x, size=%d\n", ep->connect.data.phys_base,
+	IPADBG("Data FIFO pa=%pa, size=%d\n", &ep->connect.data.phys_base,
 	       ep->connect.data.size);
 
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 &&

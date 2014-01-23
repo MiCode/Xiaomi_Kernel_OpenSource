@@ -366,10 +366,10 @@ static int ipa_generate_flt_hw_tbl_common(enum ipa_ip_type ip, u8 *base,
 
 			/* write the rule-set terminator */
 			body = ipa_write_32(0, body);
-			if ((u32)body & IPA_FLT_ENTRY_MEMORY_ALLIGNMENT)
+			if ((long)body & IPA_FLT_ENTRY_MEMORY_ALLIGNMENT)
 				/* advance body to next word boundary */
 				body = body + (IPA_FLT_TABLE_WORD_SIZE -
-					((u32)body &
+					((long)body &
 					IPA_FLT_ENTRY_MEMORY_ALLIGNMENT));
 		} else {
 			WARN_ON(tbl->sz == 0);
@@ -452,10 +452,11 @@ static int ipa_generate_flt_hw_tbl_common(enum ipa_ip_type ip, u8 *base,
 
 				/* write the rule-set terminator */
 				body = ipa_write_32(0, body);
-				if ((u32)body & IPA_FLT_ENTRY_MEMORY_ALLIGNMENT)
+				if ((long)body &
+					IPA_FLT_ENTRY_MEMORY_ALLIGNMENT)
 					/* advance body to next word boundary */
 					body = body + (IPA_FLT_TABLE_WORD_SIZE -
-						((u32)body &
+						((long)body &
 					IPA_FLT_ENTRY_MEMORY_ALLIGNMENT));
 			} else {
 				WARN_ON(tbl->sz == 0);
@@ -910,7 +911,8 @@ static int __ipa_add_flt_rule(struct ipa_flt_tbl *tbl, enum ipa_ip_type ip,
 			      u32 *rule_hdl)
 {
 	struct ipa_flt_entry *entry;
-	struct ipa_tree_node *node;
+	struct ipa_rt_tbl *rt_tbl = NULL;
+	int id;
 
 	if (rule->action != IPA_PASS_TO_EXCEPTION) {
 		if (!rule->eq_attrib_type) {
@@ -919,14 +921,13 @@ static int __ipa_add_flt_rule(struct ipa_flt_tbl *tbl, enum ipa_ip_type ip,
 				goto error;
 			}
 
-			if (ipa_search(&ipa_ctx->rt_tbl_hdl_tree,
-						rule->rt_tbl_hdl) == NULL) {
+			rt_tbl = ipa_id_find(rule->rt_tbl_hdl);
+			if (rt_tbl == NULL) {
 				IPAERR("RT tbl not found\n");
 				goto error;
 			}
 
-			if (((struct ipa_rt_tbl *)rule->rt_tbl_hdl)->cookie !=
-					IPA_COOKIE) {
+			if (rt_tbl->cookie != IPA_COOKIE) {
 				IPAERR("RT table cookie is invalid\n");
 				goto error;
 			}
@@ -940,22 +941,15 @@ static int __ipa_add_flt_rule(struct ipa_flt_tbl *tbl, enum ipa_ip_type ip,
 		}
 	}
 
-	node = kmem_cache_zalloc(ipa_ctx->tree_node_cache, GFP_KERNEL);
-	if (!node) {
-		IPAERR("failed to alloc tree node object\n");
-		goto error;
-	}
-
 	entry = kmem_cache_zalloc(ipa_ctx->flt_rule_cache, GFP_KERNEL);
 	if (!entry) {
 		IPAERR("failed to alloc FLT rule object\n");
-		goto mem_alloc_fail;
+		goto error;
 	}
 	INIT_LIST_HEAD(&entry->link);
 	entry->rule = *rule;
 	entry->cookie = IPA_COOKIE;
-	if (!rule->eq_attrib_type)
-		entry->rt_tbl = (struct ipa_rt_tbl *)rule->rt_tbl_hdl;
+	entry->rt_tbl = rt_tbl;
 	entry->tbl = tbl;
 	if (add_rear) {
 		if (tbl->sticky_rear)
@@ -969,41 +963,37 @@ static int __ipa_add_flt_rule(struct ipa_flt_tbl *tbl, enum ipa_ip_type ip,
 	tbl->rule_cnt++;
 	if (entry->rt_tbl)
 		entry->rt_tbl->ref_cnt++;
-	*rule_hdl = (u32)entry;
-	IPADBG("add flt rule rule_cnt=%d\n", tbl->rule_cnt);
-
-	node->hdl = *rule_hdl;
-	if (ipa_insert(&ipa_ctx->flt_rule_hdl_tree, node)) {
+	id = ipa_id_alloc(entry);
+	if (id < 0) {
 		IPAERR("failed to add to tree\n");
 		WARN_ON(1);
 	}
+	*rule_hdl = id;
+	entry->id = id;
+	IPADBG("add flt rule rule_cnt=%d\n", tbl->rule_cnt);
 
 	return 0;
 
-mem_alloc_fail:
-	kmem_cache_free(ipa_ctx->tree_node_cache, node);
 error:
-
 	return -EPERM;
 }
 
 static int __ipa_del_flt_rule(u32 rule_hdl)
 {
-	struct ipa_flt_entry *entry = (struct ipa_flt_entry *)rule_hdl;
-	struct ipa_tree_node *node;
+	struct ipa_flt_entry *entry;
+	int id;
 
-	node = ipa_search(&ipa_ctx->flt_rule_hdl_tree, rule_hdl);
-	if (node == NULL) {
+	entry = ipa_id_find(rule_hdl);
+	if (entry == NULL) {
 		IPAERR("lookup failed\n");
-
 		return -EINVAL;
 	}
 
-	if (entry == NULL || (entry->cookie != IPA_COOKIE)) {
+	if (entry->cookie != IPA_COOKIE) {
 		IPAERR("bad params\n");
-
 		return -EINVAL;
 	}
+	id = entry->id;
 
 	list_del(&entry->link);
 	entry->tbl->rule_cnt--;
@@ -1014,8 +1004,7 @@ static int __ipa_del_flt_rule(u32 rule_hdl)
 	kmem_cache_free(ipa_ctx->flt_rule_cache, entry);
 
 	/* remove the handle from the database */
-	rb_erase(&node->node, &ipa_ctx->flt_rule_hdl_tree);
-	kmem_cache_free(ipa_ctx->tree_node_cache, node);
+	ipa_id_remove(id);
 
 	return 0;
 }
@@ -1206,8 +1195,8 @@ int ipa_reset_flt(enum ipa_ip_type ip)
 	struct ipa_flt_tbl *tbl;
 	struct ipa_flt_entry *entry;
 	struct ipa_flt_entry *next;
-	struct ipa_tree_node *node;
 	int i;
+	int id;
 
 	if (ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
@@ -1218,8 +1207,7 @@ int ipa_reset_flt(enum ipa_ip_type ip)
 	mutex_lock(&ipa_ctx->lock);
 	IPADBG("reset flt ip=%d\n", ip);
 	list_for_each_entry_safe(entry, next, &tbl->head_flt_rule_list, link) {
-		node = ipa_search(&ipa_ctx->flt_rule_hdl_tree, (u32)entry);
-		if (node == NULL) {
+		if (ipa_id_find(entry->id) == NULL) {
 			WARN_ON(1);
 			mutex_unlock(&ipa_ctx->lock);
 			return -EFAULT;
@@ -1240,20 +1228,18 @@ int ipa_reset_flt(enum ipa_ip_type ip)
 		if (entry->rt_tbl)
 			entry->rt_tbl->ref_cnt--;
 		entry->cookie = 0;
+		id = entry->id;
 		kmem_cache_free(ipa_ctx->flt_rule_cache, entry);
 
 		/* remove the handle from the database */
-		rb_erase(&node->node, &ipa_ctx->flt_rule_hdl_tree);
-		kmem_cache_free(ipa_ctx->tree_node_cache, node);
+		ipa_id_remove(id);
 	}
 
 	for (i = 0; i < IPA_NUM_PIPES; i++) {
 		tbl = &ipa_ctx->flt_tbl[i][ip];
 		list_for_each_entry_safe(entry, next, &tbl->head_flt_rule_list,
 				link) {
-			node = ipa_search(&ipa_ctx->flt_rule_hdl_tree,
-					(u32)entry);
-			if (node == NULL) {
+			if (ipa_id_find(entry->id) == NULL) {
 				WARN_ON(1);
 				mutex_unlock(&ipa_ctx->lock);
 				return -EFAULT;
@@ -1263,11 +1249,11 @@ int ipa_reset_flt(enum ipa_ip_type ip)
 			if (entry->rt_tbl)
 				entry->rt_tbl->ref_cnt--;
 			entry->cookie = 0;
+			id = entry->id;
 			kmem_cache_free(ipa_ctx->flt_rule_cache, entry);
 
 			/* remove the handle from the database */
-			rb_erase(&node->node, &ipa_ctx->flt_rule_hdl_tree);
-			kmem_cache_free(ipa_ctx->tree_node_cache, node);
+			ipa_id_remove(id);
 		}
 	}
 	mutex_unlock(&ipa_ctx->lock);
