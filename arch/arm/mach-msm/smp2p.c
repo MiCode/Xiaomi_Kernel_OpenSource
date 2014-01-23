@@ -1047,7 +1047,7 @@ static int smp2p_do_negotiation(int remote_pid,
 	}
 
 	/* find maximum supported version and feature set */
-	l_version = min(r_version, ARRAY_SIZE(version_if) - 1);
+	l_version = min(r_version, (uint32_t)ARRAY_SIZE(version_if) - 1);
 	for (; l_version > 0; --l_version) {
 		if (!version_if[l_version].is_supported)
 			continue;
