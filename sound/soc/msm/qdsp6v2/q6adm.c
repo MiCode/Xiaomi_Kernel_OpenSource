@@ -618,7 +618,6 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 			case ADM_CMD_DEVICE_CLOSE_V5:
 			case ADM_CMD_SHARED_MEM_UNMAP_REGIONS:
 			case ADM_CMD_MATRIX_MAP_ROUTINGS_V5:
-			case ADM_CMD_STREAM_DEVICE_MAP_ROUTINGS_V5:
 			case ADM_CMD_ADD_TOPOLOGIES:
 				pr_debug("%s: Basic callback received, wake up.\n",
 					__func__);
@@ -1208,76 +1207,6 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		(atomic_read(&this_adm.copp_cnt[index]) == 0)) ||
 		(perf_mode != LEGACY_PCM_MODE &&
 		(atomic_read(&this_adm.copp_low_latency_cnt[index]) == 0))) {
-		memset(open.dev_channel_mapping, 0, 8);
-		if (path == ADM_PATH_COMPRESSED_RX) {
-			open.flags = 0;
-			open.topology_id =
-				COMPRESSED_PASSTHROUGH_DEFAULT_TOPOLOGY;
-			open.bit_width = 16;
-		} else if (path == ADM_PATH_PLAYBACK) {
-			if (perf_mode == ULTRA_LOW_LATENCY_PCM_MODE)
-				open.flags =
-					ADM_ULTRA_LOW_LATENCY_DEVICE_SESSION;
-			else if (perf_mode == LOW_LATENCY_PCM_MODE)
-				open.flags = ADM_LOW_LATENCY_DEVICE_SESSION;
-			else
-				open.flags = ADM_LEGACY_DEVICE_SESSION;
-
-			if (channel_mode == 1)	{
-				open.dev_channel_mapping[0] = PCM_CHANNEL_FC;
-			} else if (channel_mode == 2) {
-				open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
-				open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
-			} else if (channel_mode == 3)	{
-				open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
-				open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
-				open.dev_channel_mapping[2] = PCM_CHANNEL_FC;
-			} else if (channel_mode == 4) {
-				open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
-				open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
-				open.dev_channel_mapping[2] = PCM_CHANNEL_RB;
-				open.dev_channel_mapping[3] = PCM_CHANNEL_LB;
-			} else if (channel_mode == 5) {
-				open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
-				open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
-				open.dev_channel_mapping[2] = PCM_CHANNEL_FC;
-				open.dev_channel_mapping[3] = PCM_CHANNEL_LB;
-				open.dev_channel_mapping[4] = PCM_CHANNEL_RB;
-			} else if (channel_mode == 6) {
-				open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
-				open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
-				open.dev_channel_mapping[2] = PCM_CHANNEL_LFE;
-				open.dev_channel_mapping[3] = PCM_CHANNEL_FC;
-				open.dev_channel_mapping[4] = PCM_CHANNEL_LS;
-				open.dev_channel_mapping[5] = PCM_CHANNEL_RS;
-			} else if (channel_mode == 8) {
-				open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
-				open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
-				open.dev_channel_mapping[2] = PCM_CHANNEL_LFE;
-				open.dev_channel_mapping[3] = PCM_CHANNEL_FC;
-				open.dev_channel_mapping[4] = PCM_CHANNEL_LB;
-				open.dev_channel_mapping[5] = PCM_CHANNEL_RB;
-				open.dev_channel_mapping[6] = PCM_CHANNEL_FLC;
-				open.dev_channel_mapping[7] = PCM_CHANNEL_FRC;
-			} else {
-				pr_err("%s invalid num_chan %d\n", __func__,
-						channel_mode);
-				return -EINVAL;
-			}
-			topology = DEFAULT_COPP_TOPOLOGY;
-			open.topology_id = topology;
-			if ((open.topology_id ==
-					VPM_TX_SM_ECNS_COPP_TOPOLOGY) ||
-					(open.topology_id ==
-					VPM_TX_DM_FLUENCE_COPP_TOPOLOGY))
-				rate = 16000;
-
-			if (perf_mode == ULTRA_LOW_LATENCY_PCM_MODE) {
-				open.topology_id = NULL_COPP_TOPOLOGY;
-				rate = ULL_SUPPORTED_SAMPLE_RATE;
-			}
-		}
-
 		pr_debug("%s:opening ADM: perf_mode: %d\n", __func__,
 			perf_mode);
 		open.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -1291,6 +1220,12 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		open.hdr.dest_port = tmp_port;
 		open.hdr.token = port_id;
 		open.hdr.opcode = ADM_CMD_DEVICE_OPEN_V5;
+		if (perf_mode == ULTRA_LOW_LATENCY_PCM_MODE)
+			open.flags = ADM_ULTRA_LOW_LATENCY_DEVICE_SESSION;
+		else if (perf_mode == LOW_LATENCY_PCM_MODE)
+			open.flags = ADM_LOW_LATENCY_DEVICE_SESSION;
+		else
+			open.flags = ADM_LEGACY_DEVICE_SESSION;
 
 		open.mode_of_operation = path;
 		open.endpoint_id_1 = tmp_port;
@@ -1317,7 +1252,49 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		WARN_ON(perf_mode == ULTRA_LOW_LATENCY_PCM_MODE &&
 							(rate != 48000));
 		open.sample_rate  = rate;
+		memset(open.dev_channel_mapping, 0, 8);
 
+		if (channel_mode == 1)	{
+			open.dev_channel_mapping[0] = PCM_CHANNEL_FC;
+		} else if (channel_mode == 2) {
+			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
+			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+		} else if (channel_mode == 3)	{
+			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
+			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+			open.dev_channel_mapping[2] = PCM_CHANNEL_FC;
+		} else if (channel_mode == 4) {
+			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
+			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+			open.dev_channel_mapping[2] = PCM_CHANNEL_RB;
+			open.dev_channel_mapping[3] = PCM_CHANNEL_LB;
+		} else if (channel_mode == 5) {
+			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
+			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+			open.dev_channel_mapping[2] = PCM_CHANNEL_FC;
+			open.dev_channel_mapping[3] = PCM_CHANNEL_LB;
+			open.dev_channel_mapping[4] = PCM_CHANNEL_RB;
+		} else if (channel_mode == 6) {
+			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
+			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+			open.dev_channel_mapping[2] = PCM_CHANNEL_LFE;
+			open.dev_channel_mapping[3] = PCM_CHANNEL_FC;
+			open.dev_channel_mapping[4] = PCM_CHANNEL_LS;
+			open.dev_channel_mapping[5] = PCM_CHANNEL_RS;
+		} else if (channel_mode == 8) {
+			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
+			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
+			open.dev_channel_mapping[2] = PCM_CHANNEL_LFE;
+			open.dev_channel_mapping[3] = PCM_CHANNEL_FC;
+			open.dev_channel_mapping[4] = PCM_CHANNEL_LB;
+			open.dev_channel_mapping[5] = PCM_CHANNEL_RB;
+			open.dev_channel_mapping[6] = PCM_CHANNEL_FLC;
+			open.dev_channel_mapping[7] = PCM_CHANNEL_FRC;
+		} else {
+			pr_err("%s invalid num_chan %d\n", __func__,
+					channel_mode);
+			return -EINVAL;
+		}
 		if ((open.dev_num_channel > 2) &&
 			multi_ch_map.set_channel_map)
 			memcpy(open.dev_channel_mapping,
@@ -1424,22 +1401,16 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 		route->hdr.dest_port = atomic_read(&this_adm.copp_id[index]);
 	}
 	route->hdr.token = copp_id;
-	if (path == ADM_PATH_COMPRESSED_RX)
-		route->hdr.opcode = ADM_CMD_STREAM_DEVICE_MAP_ROUTINGS_V5;
-	else
-		route->hdr.opcode = ADM_CMD_MATRIX_MAP_ROUTINGS_V5;
+	route->hdr.opcode = ADM_CMD_MATRIX_MAP_ROUTINGS_V5;
 	route->num_sessions = 1;
 
 	switch (path) {
-	case ADM_PATH_PLAYBACK:
+	case 0x1:
 		route->matrix_id = ADM_MATRIX_ID_AUDIO_RX;
 		break;
-	case ADM_PATH_LIVE_REC:
-	case ADM_PATH_NONLIVE_REC:
+	case 0x2:
+	case 0x3:
 		route->matrix_id = ADM_MATRIX_ID_AUDIO_TX;
-		break;
-	case ADM_PATH_COMPRESSED_RX:
-		route->matrix_id = ADM_COMPRESSED_AUDIO_OUT;
 		break;
 	default:
 		pr_err("%s: Wrong path set[%d]\n", __func__, path);

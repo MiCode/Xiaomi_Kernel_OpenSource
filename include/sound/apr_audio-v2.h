@@ -22,7 +22,6 @@
 #define ADM_CMDRSP_SHARED_MEM_MAP_REGIONS 0x00010323
 #define ADM_CMD_SHARED_MEM_UNMAP_REGIONS 0x00010324
 
-#define ADM_CMD_STREAM_DEVICE_MAP_ROUTINGS_V5	0x0001033D
 #define ADM_CMD_MATRIX_MAP_ROUTINGS_V5 0x00010325
 
 /* Enumeration for an audio Rx matrix ID.*/
@@ -30,7 +29,6 @@
 
 #define ADM_MATRIX_ID_AUDIO_TX              1
 
-#define ADM_COMPRESSED_AUDIO_OUT        2
 /* Enumeration for an audio Tx matrix ID.*/
 #define ADM_MATRIX_ID_AUDIOX              1
 
@@ -2402,7 +2400,6 @@ struct afe_port_cmdrsp_get_param_v2 {
 
 #define NULL_COPP_TOPOLOGY				0x00010312
 #define DEFAULT_COPP_TOPOLOGY				0x00010be3
-#define COMPRESSED_PASSTHROUGH_DEFAULT_TOPOLOGY		0x0001076B
 #define DEFAULT_POPP_TOPOLOGY				0x00010be4
 #define VPM_TX_SM_ECNS_COPP_TOPOLOGY			0x00010F71
 #define VPM_TX_DM_FLUENCE_COPP_TOPOLOGY			0x00010F72
@@ -2817,17 +2814,6 @@ struct asm_multi_channel_pcm_enc_cfg_v2 {
 #define ASM_MEDIA_FMT_AAC_AOT_SBR            5
 #define ASM_MEDIA_FMT_AAC_AOT_PS             29
 #define ASM_MEDIA_FMT_AAC_AOT_BSAC           22
-
-#define AC3_DECODER	0x00010BF6
-#define EAC3_DECODER	0x00010C3C
-#define MP3		0x00010BE9
-#define DTS		0x00010D88
-#define DTS_LBR		0x00010DBB
-#define MPEG4_AAC	0x00010BEA
-#define ATRAC		0x00010D89
-#define WMA_V10PRO	0x00010BF3
-#define MAT		0x00010D8A
-#define MP2		0x00010DBE
 
 struct asm_aac_fmt_blk_v2 {
 	struct apr_hdr hdr;
@@ -3843,7 +3829,6 @@ struct asm_session_cmd_run_v2 {
 #define ASM_SESSION_CMD_SUSPEND 0x00010DEC
 #define ASM_SESSION_CMD_GET_SESSIONTIME_V3 0x00010D9D
 #define ASM_SESSION_CMD_REGISTER_FOR_RX_UNDERFLOW_EVENTS 0x00010BD5
-#define ADM_MULTI_CH_COPP_OPEN_PERF_MODE_BIT	(1<<13)
 
 struct asm_session_cmd_rgstr_rx_underflow {
 	struct apr_hdr hdr;
