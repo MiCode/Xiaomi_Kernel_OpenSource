@@ -18,7 +18,7 @@
 #include <linux/gpio.h>
 #include <linux/debugfs.h>
 #include <linux/completion.h>
-#include <linux/irq.h>
+#include <linux/interrupt.h>
 #include <linux/bitmap.h>
 #include "smp2p_private.h"
 #include "smp2p_test_common.h"
