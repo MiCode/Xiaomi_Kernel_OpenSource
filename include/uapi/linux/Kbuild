@@ -64,6 +64,7 @@ header-y += auxvec.h
 header-y += avtimer.h
 header-y += ax25.h
 header-y += b1lli.h
+header-y += batterydata-interface.h
 header-y += baycom.h
 header-y += bfs_fs.h
 header-y += binfmts.h
