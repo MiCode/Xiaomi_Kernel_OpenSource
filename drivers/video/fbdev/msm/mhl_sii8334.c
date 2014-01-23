@@ -22,13 +22,13 @@
 #include <linux/input.h>
 #include <linux/usb/msm_hsusb.h>
 #include <linux/mhl_8334.h>
+#include <linux/mdss_io_util.h>
 
 #include "mdss_fb.h"
 #include "mdss_hdmi_tx.h"
 #include "mdss_hdmi_edid.h"
 #include "mdss.h"
 #include "mdss_panel.h"
-#include "mdss_io_util.h"
 #include "mhl_msc.h"
 #include "mdss_hdmi_mhl.h"
 
