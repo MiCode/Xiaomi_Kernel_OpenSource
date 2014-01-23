@@ -52,9 +52,28 @@ static int mmc_host_runtime_suspend(struct device *dev)
 		return 0;
 
 	ret = mmc_suspend_host(host);
-	if (ret < 0)
+	if (ret < 0 && ret != -ENOMEDIUM)
 		pr_err("%s: %s: suspend host failed: %d\n", mmc_hostname(host),
 		       __func__, ret);
+
+	/*
+	 * During card detection within mmc_rescan(), mmc_rpm_hold() will
+	 * be called on host->class_dev before initializing the card and
+	 * shall be released after card detection.
+	 *
+	 * During card detection, once the card device is added, MMC block
+	 * driver probe gets called and in case that probe fails due to some
+	 * block read/write cmd error, then the block driver marks that card
+	 * as removed. Later when mmc_rpm_release() is called within
+	 * mmc_rescan(), the runtime suspend of host->class_dev will be invoked
+	 * immediately. The commands that are sent during runtime would fail
+	 * with -ENOMEDIUM and if we propagate the same to rpm framework, the
+	 * runtime suspend/resume for this device will never be invoked even
+	 * if the card is detected fine later on when it is removed and
+	 * inserted again. Hence, do not report this error to upper layers.
+	 */
+	if (ret == -ENOMEDIUM)
+		ret = 0;
 
 	return ret;
 }
