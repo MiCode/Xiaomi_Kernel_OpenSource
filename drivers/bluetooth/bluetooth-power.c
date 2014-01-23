@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, 2013 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2010, 2013-2014 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -177,11 +177,6 @@ static int bt_configure_gpios(int on)
 		msleep(100);
 	} else {
 		gpio_set_value(bt_reset_gpio, 0);
-
-		rc = gpio_direction_input(bt_reset_gpio);
-		if (rc)
-			BT_PWR_ERR("Unable to set direction\n");
-
 		msleep(100);
 	}
 	return rc;
