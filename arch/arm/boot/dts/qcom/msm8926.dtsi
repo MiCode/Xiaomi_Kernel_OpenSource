@@ -223,6 +223,8 @@
 				<1 10 150>,
 				<1 11 75>;
 	qcom,cpr-quotient-adjustment = <96>;
+	vdd-apc-optional-prim-supply = <&ncp6335d>;
+	vdd-apc-optional-sec-supply = <&fan53555>;
 };
 
 &tsens {
