@@ -109,7 +109,7 @@ u32 translate_pixelformat_to_hfi(u32 api_pix_fmt)
 		hfi_pix_fmt = PIXEL_FORMAT_UYVY;
 		break;
 	case V4L2_PIX_FMT_YUYV10:
-		hfi_pix_fmt = PIXEL_FORMAT_YUYV_LOOSE;
+		hfi_pix_fmt = PIXEL_FORMAT_YUYV10_LOOSE;
 		break;
 	case V4L2_PIX_FMT_YUV8:
 		hfi_pix_fmt = PIXEL_FORMAT_YUV_8BIT_INTERLEAVED_DENSE;
@@ -284,7 +284,7 @@ u32 translate_pixelformat_to_api(u32 hfi_pix_fmt)
 	case PIXEL_FORMAT_UYVY:
 		api_pix_fmt = V4L2_PIX_FMT_UYVY;
 		break;
-	case PIXEL_FORMAT_YUYV_LOOSE:
+	case PIXEL_FORMAT_YUYV10_LOOSE:
 		api_pix_fmt = V4L2_PIX_FMT_YUYV10;
 		break;
 	case PIXEL_FORMAT_YUV_8BIT_INTERLEAVED_DENSE:

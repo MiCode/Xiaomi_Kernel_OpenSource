@@ -193,8 +193,8 @@ int configure_nr_buffers(struct vpu_dev_session *session,
 	int ret = 0, i, new_bufs = 0;
 
 	if (nr->enable) {
-		/* Get NR buffer size. NR buffers are YUV422 format */
-		vpu_format = query_supported_formats(PIXEL_FORMAT_YUYV);
+		/* Get NR buffer size. NR buffers are YUV422 10bit format */
+		vpu_format = query_supported_formats(PIXEL_FORMAT_YUYV10_LOOSE);
 		in_fmt = &session->port_info[INPUT_PORT].format;
 
 		if (!in_fmt->width || !in_fmt->height)
@@ -971,7 +971,7 @@ static const struct vpu_format_desc vpu_port_formats[] = {
 		.num_planes = 1,
 		.plane[0] = { .bitsperpixel = 16, .heightfactor = 1},
 	},
-	[PIXEL_FORMAT_YUYV_LOOSE] = {
+	[PIXEL_FORMAT_YUYV10_LOOSE] = {
 		.description = "YUYV 4:2:2 10bit intlvd loose",
 		.fourcc = V4L2_PIX_FMT_YUYV10,
 		.num_planes = 1,
