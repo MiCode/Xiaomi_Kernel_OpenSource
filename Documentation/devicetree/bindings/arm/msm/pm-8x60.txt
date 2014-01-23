@@ -12,6 +12,7 @@ debug the power collapse state on each core.
 The required properties for PM-8x60 are:
 
 - compatible: "qcom,pm-8x60"
+- qcom,lpm-levels: phandle for associated lpm_levels device.
 
 The optional properties are:
 
@@ -39,4 +40,5 @@ qcom,pm-8x60@fe800664 {
 		reg = <0xfe800664 0x40>;
 		qcom,pc-mode = "tz_l2_int";
 		qcom,use-sync-timer;
+		qcom,lpm-levels = <&lpm_levels>;
 	};
