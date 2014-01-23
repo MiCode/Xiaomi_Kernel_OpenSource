@@ -27,6 +27,7 @@ struct wcd_mbhc_config {
 	bool read_fw_bin;
 	void *calibration;
 	bool detect_extn_cable;
+	bool mono_stero_detection;
 };
 
 struct wcd_mbhc_intr {
@@ -49,10 +50,13 @@ struct wcd_mbhc {
 	wait_queue_head_t wait_btn_press;
 	bool is_btn_press;
 	u8 current_plug;
-
 	bool in_swch_irq_handler;
 
 	struct snd_soc_codec *codec;
+
+	/* impedance of hphl and hphr */
+	uint32_t zl, zr;
+	bool impedance_detect;
 
 	struct snd_soc_jack headset_jack;
 	struct snd_soc_jack button_jack;

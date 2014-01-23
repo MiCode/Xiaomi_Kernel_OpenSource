@@ -106,6 +106,146 @@ static void hphlocp_off_report(struct wcd_mbhc *mbhc, u32 jack_status)
 			    mbhc->intr_ids->hph_left_ocp);
 }
 
+static void wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
+	uint32_t *zr)
+{
+	struct snd_soc_codec *codec = mbhc->codec;
+	u16 impedance_l, impedance_r;
+	u16 impedance_l_fixed;
+
+	pr_debug("%s: enter\n", __func__);
+	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
+	/* Enable ZDET_L_MEAS_EN */
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
+			0x08, 0x08);
+	usleep_range(2000, 2100);
+	/* Read Left impedance value from Result1 */
+	impedance_l = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MBHC_BTN_RESULT);
+	/* Enable ZDET_R_MEAS_EN */
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
+			0x0C, 0x04);
+	usleep_range(2000, 2100);
+	/* Read Right impedance value from Result1 */
+	impedance_r = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MBHC_BTN_RESULT);
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
+			0x04, 0x00);
+
+	if (impedance_l)
+		goto exit;
+
+	/*
+	 * As the result is 0 impedance is < 200 use
+	 * RAMP to measure impedance further.
+	 */
+
+	/* Enable RAMP_L , RAMP_R & ZDET_CHG*/
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_BTN0_ZDETL_CTL,
+			0x03, 0x03);
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
+			0x02, 0x02);
+	usleep_range(50000, 50100);
+	/* Enable ZDET_DISCHG_CAP_CTL  to add extra capacitance */
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
+			0x01, 0x01);
+	usleep_range(5000, 5100);
+
+	/* Enable ZDET_L_MEAS_EN */
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
+			0x08, 0x08);
+	usleep_range(2000, 2100);
+	/* Read Left impedance value from Result1 */
+	impedance_l = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MBHC_BTN_RESULT);
+	/* Enable ZDET_R_MEAS_EN */
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
+			0x0C, 0x04);
+	usleep_range(2000, 2100);
+	/* Read Right impedance value from Result1 */
+	impedance_r = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MBHC_BTN_RESULT);
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
+			0x04, 0x00);
+
+	if (!mbhc->mbhc_cfg->mono_stero_detection) {
+		/* Set ZDET_CHG to 0  to discharge ramp */
+		snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
+				0x02, 0x00);
+		snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_MBHC_BTN0_ZDETL_CTL,
+				0x03, 0x00);
+		usleep_range(40000, 40100);
+		goto exit;
+	}
+
+	/* Disable Set ZDET_CONN_RAMP_L and enable ZDET_CONN_FIXED_L */
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_BTN0_ZDETL_CTL,
+			0x02, 0x00);
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_BTN1_ZDETM_CTL,
+			0x02, 0x02);
+	/* Set ZDET_CHG to 0  */
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
+			0x02, 0x00);
+	usleep_range(40000, 40100);
+
+	/* Set ZDET_CONN_RAMP_R to 0  */
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_BTN0_ZDETL_CTL,
+			0x01, 0x00);
+	/* Enable ZDET_L_MEAS_EN */
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
+			0x08, 0x08);
+	usleep_range(2000, 2100);
+	/* Read Left impedance value from Result1 */
+	impedance_l_fixed = snd_soc_read(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_BTN_RESULT);
+	/* Disable ZDET_L_MEAS_EN */
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
+			0x08, 0x00);
+	/*
+	 * impedance_l is equal to impedance_l_fixed then headset is stereo
+	 * otherwise headset is mono
+	 */
+
+	/* Enable ZDET_CHG  */
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
+			0x02, 0x02);
+	usleep_range(10000, 10100);
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_BTN0_ZDETL_CTL,
+			0x02, 0x02);
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_BTN1_ZDETM_CTL,
+			0x02, 0x00);
+	/* Set ZDET_CHG to 0  to discharge HPHL */
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
+			0x02, 0x00);
+	usleep_range(40000, 40100);
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_BTN0_ZDETL_CTL,
+			0x02, 0x00);
+
+exit:
+	*zl = impedance_l;
+	*zr = impedance_r;
+	pr_debug("%s: RL %d milliohm, RR %d milliohm\n", __func__, *zl, *zr);
+	pr_debug("%s: Impedance detection completed\n", __func__);
+}
+
 static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 				enum snd_jack_types jack_type)
 {
@@ -125,6 +265,7 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 				~WCD_MBHC_JACK_BUTTON_MASK;
 		}
 
+		mbhc->zl = mbhc->zr = 0;
 		pr_debug("%s: Reporting removal %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
@@ -141,6 +282,7 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		if (mbhc->mbhc_cfg->detect_extn_cable &&
 		    (mbhc->hph_status && mbhc->hph_status != jack_type)) {
 
+			mbhc->zl = mbhc->zr = 0;
 			pr_debug("%s: Reporting removal (%x)\n",
 				 __func__, mbhc->hph_status);
 			wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
@@ -159,6 +301,10 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			mbhc->current_plug = PLUG_TYPE_HEADSET;
 		else if (jack_type == SND_JACK_LINEOUT)
 			mbhc->current_plug = PLUG_TYPE_HIGH_HPH;
+
+		if (mbhc->impedance_detect)
+			wcd_mbhc_calc_impedance(mbhc,
+					&mbhc->zl, &mbhc->zr);
 
 		pr_debug("%s: Reporting insertion %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
@@ -606,6 +752,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 	mbhc->is_btn_press = false;
 	mbhc->codec = codec;
 	mbhc->intr_ids = mbhc_cdc_intr_ids;
+	mbhc->impedance_detect = impedance_det_en;
 
 	if (mbhc->intr_ids == NULL) {
 		pr_err("%s: Interrupt mapping not provided\n", __func__);

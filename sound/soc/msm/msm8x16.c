@@ -48,6 +48,7 @@ static struct wcd_mbhc_config mbhc_cfg = {
 	.read_fw_bin = false,
 	.calibration = NULL,
 	.detect_extn_cable = true,
+	.mono_stero_detection = false,
 };
 
 static struct afe_clk_cfg mi2s_rx_clk = {
