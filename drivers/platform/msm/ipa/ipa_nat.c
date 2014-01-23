@@ -166,7 +166,7 @@ int allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
 
 	nat_ctx->dev =
 	   device_create(nat_ctx->class, NULL, nat_ctx->dev_num, nat_ctx,
-			 mem->dev_name);
+			"%s", mem->dev_name);
 
 	if (IS_ERR(nat_ctx->dev)) {
 		IPAERR("device_create err:%ld\n", PTR_ERR(nat_ctx->dev));
