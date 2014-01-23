@@ -52,6 +52,8 @@
 
 #define MAX_AF_ITERATIONS 3
 
+#define MAX_LED_TRIGGERS 3
+
 enum flash_type {
 	LED_FLASH = 1,
 	STROBE_FLASH,
@@ -612,7 +614,8 @@ enum msm_camera_led_config_t {
 
 struct msm_camera_led_cfg_t {
 	enum msm_camera_led_config_t cfgtype;
-	uint32_t led_current;
+	uint32_t torch_current;
+	uint32_t flash_current[MAX_LED_TRIGGERS];
 };
 
 /* sensor init structures and enums */
