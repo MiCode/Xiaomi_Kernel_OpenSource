@@ -1944,7 +1944,8 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 			sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 
 			/* Re-enable SD Clock */
-			flags = sdhci_update_clock(host, flags);
+			if (ios->clock)
+				flags = sdhci_update_clock(host, flags);
 		}
 
 		/* Reset SD Clock Enable */
@@ -1990,7 +1991,8 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		}
 
 		/* Re-enable SD Clock */
-		flags = sdhci_update_clock(host, flags);
+		if (ios->clock)
+			flags = sdhci_update_clock(host, flags);
 	} else
 		sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 
