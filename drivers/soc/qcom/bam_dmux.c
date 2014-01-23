@@ -34,8 +34,9 @@
 #include <soc/qcom/socinfo.h>
 
 #include <mach/sps.h>
-#include <mach/bam_dmux.h>
 #include <mach/msm_smsm.h>
+
+#include <soc/qcom/bam_dmux.h>
 
 #include "bam_dmux_private.h"
 
