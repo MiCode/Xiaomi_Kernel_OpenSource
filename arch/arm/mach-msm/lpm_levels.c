@@ -720,8 +720,6 @@ static void lpm_enter_low_power(struct lpm_system_state *system_state,
 	int idx;
 	struct lpm_cpu_level *cpu_level = &system_state->cpu_level[cpu_index];
 
-	cpu_level = &system_state->cpu_level[cpu_index];
-
 	lpm_cpu_prepare(system_state, cpu_index, from_idle);
 
 	idx = lpm_system_select(system_state, cpu_index, from_idle);
