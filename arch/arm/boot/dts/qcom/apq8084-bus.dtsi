@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1318,6 +1318,8 @@
 		qcom,rpm-en;
 		qcom,nfab = <6>;
 		qcom,virt;
+		qcom,fabclk-dual = "bus_clk";
+		qcom,fabclk-active = "bus_a_clk";
 
 		mas-v-ocmem-gfx3d {
 			cell-id = <89>;
@@ -1352,8 +1354,6 @@
 			qcom,tier = <2>;
 			qcom,buswidth = <16>;
 			qcom,slv-hw-id = <18>;
-			qcom,slaveclk-dual = "ocmemgx_clk";
-			qcom,slaveclk-active = "ocmemgx_a_clk";
 		};
 
 		fab-snoc {

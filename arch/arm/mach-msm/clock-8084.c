@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -5849,8 +5849,8 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("mem_clk",	bimc_msmbus_clk.c,	"msm_bimc"),
 	CLK_LOOKUP("mem_a_clk",	bimc_msmbus_a_clk.c,	"msm_bimc"),
 	CLK_LOOKUP("mem_clk",	bimc_acpu_a_clk.c,	""),
-	CLK_LOOKUP("ocmemgx_clk",	ocmemgx_msmbus_clk.c,	  "msm_bus"),
-	CLK_LOOKUP("ocmemgx_a_clk", ocmemgx_msmbus_a_clk.c, "msm_bus"),
+	CLK_LOOKUP("bus_clk",	ocmemgx_msmbus_clk.c,	  "msm-ocmem-vnoc"),
+	CLK_LOOKUP("bus_a_clk", ocmemgx_msmbus_a_clk.c, "msm-ocmem-vnoc"),
 	CLK_LOOKUP("ocmemvs_clk",	ocmemnoc_clk_src.c,	  "msm_bus"),
 	CLK_LOOKUP("ocmemvs_a_clk",	ocmemnoc_clk_src.c,	  "msm_bus"),
 	CLK_LOOKUP("bus_clk",	mmss_s0_axi_clk.c,	"msm_mmss_noc"),
