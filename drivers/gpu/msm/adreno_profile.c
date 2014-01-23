@@ -982,7 +982,7 @@ void adreno_profile_init(struct kgsl_device *device)
 
 	/* allocate shared_buffer, which includes pre_ib and post_ib */
 	profile->shared_size = ADRENO_PROFILE_SHARED_BUF_SIZE_DWORDS;
-	ret = kgsl_allocate_contiguous(&profile->shared_buffer,
+	ret = kgsl_allocate_contiguous(device, &profile->shared_buffer,
 			profile->shared_size * sizeof(unsigned int));
 	if (ret) {
 		profile->shared_buffer.hostptr = NULL;

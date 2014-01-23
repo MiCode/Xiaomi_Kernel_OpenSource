@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,7 +37,8 @@ int kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 				struct kgsl_pagetable *pagetable,
 				size_t size);
 
-int kgsl_sharedmem_alloc_coherent(struct kgsl_memdesc *memdesc, size_t size);
+int kgsl_sharedmem_alloc_coherent(struct kgsl_device *device,
+			struct kgsl_memdesc *memdesc, size_t size);
 
 int kgsl_cma_alloc_coherent(struct kgsl_device *device,
 			struct kgsl_memdesc *memdesc,
@@ -287,9 +288,10 @@ kgsl_allocate_user(struct kgsl_device *device,
 }
 
 static inline int
-kgsl_allocate_contiguous(struct kgsl_memdesc *memdesc, size_t size)
+kgsl_allocate_contiguous(struct kgsl_device *device,
+			struct kgsl_memdesc *memdesc, size_t size)
 {
-	int ret  = kgsl_sharedmem_alloc_coherent(memdesc, size);
+	int ret  = kgsl_sharedmem_alloc_coherent(device, memdesc, size);
 	if (!ret && (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE))
 		memdesc->gpuaddr = memdesc->physaddr;
 

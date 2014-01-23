@@ -565,7 +565,7 @@ int adreno_ringbuffer_init(struct kgsl_device *device)
 
 	rb->buffer_desc.flags = KGSL_MEMFLAGS_GPUREADONLY;
 	/* allocate memory for ringbuffer */
-	status = kgsl_allocate_contiguous(&rb->buffer_desc,
+	status = kgsl_allocate_contiguous(device, &rb->buffer_desc,
 		(rb->sizedwords << 2));
 
 	if (status != 0) {
