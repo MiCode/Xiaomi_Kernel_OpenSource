@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -316,10 +316,12 @@ static irqreturn_t wcd9xxx_irq_thread(int irq, void *data)
 		}
 
 		memset(status, 0xff, num_irq_regs);
-		wcd9xxx_bulk_write(wcd9xxx_res, WCD9XXX_A_INTR_CLEAR0,
-				   num_irq_regs, status);
+
+		ret = wcd9xxx_res->codec_bulk_write(wcd9xxx_res,
+				WCD9XXX_A_INTR_CLEAR0,
+				num_irq_regs, status);
 		if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
-			wcd9xxx_reg_write(wcd9xxx_res,
+			wcd9xxx_res->codec_reg_write(wcd9xxx_res,
 					WCD9XXX_A_INTR_MODE, 0x02);
 	}
 	wcd9xxx_unlock_sleep(wcd9xxx_res);

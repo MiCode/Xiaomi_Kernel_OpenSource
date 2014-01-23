@@ -397,6 +397,32 @@ static int __msm8x10_wcd_reg_read(struct msm8x10_wcd *msm8x10_wcd,
 	return temp;
 }
 
+static int __msm8x10_wcd_bulk_write(struct msm8x10_wcd *msm8x10_wcd,
+		unsigned short reg, int count, u8 *buf)
+{
+	int ret = -EINVAL;
+	mutex_lock(&msm8x10_wcd->io_lock);
+	if (MSM8X10_WCD_IS_HELICON_REG(reg))
+		ret = msm8x10_wcd_i2c_write(reg, count, buf);
+	else if (MSM8X10_WCD_IS_DINO_REG(reg))
+		ret = msm8x10_wcd_abh_write_device(msm8x10_wcd, reg,
+						buf, count);
+	if (ret < 0)
+		dev_err(msm8x10_wcd->dev,
+				"%s: codec bulk write failed\n", __func__);
+	mutex_unlock(&msm8x10_wcd->io_lock);
+	return ret;
+}
+
+int msm8x10_wcd_bulk_write(struct wcd9xxx_core_resource *core_res,
+			unsigned short reg, int count, u8 *buf)
+{
+	struct msm8x10_wcd *msm8x10_wcd =
+				(struct msm8x10_wcd *) core_res->parent;
+	return __msm8x10_wcd_bulk_write(msm8x10_wcd, reg, count, buf);
+}
+EXPORT_SYMBOL(msm8x10_wcd_bulk_write);
+
 int msm8x10_wcd_reg_read(struct wcd9xxx_core_resource *core_res,
 				unsigned short reg)
 {
@@ -3618,7 +3644,8 @@ static int __devinit msm8x10_wcd_i2c_probe(struct i2c_client *client,
 					MSM8X10_WCD_NUM_IRQ_REGS,
 					msm8x10_wcd_reg_read,
 					msm8x10_wcd_reg_write,
-					msm8x10_wcd_bulk_read);
+					msm8x10_wcd_bulk_read,
+					msm8x10_wcd_bulk_write);
 	if (wcd9xxx_core_irq_init(core_res)) {
 		dev_err(msm8x10->dev,
 				"%s: irq initialization failed\n", __func__);

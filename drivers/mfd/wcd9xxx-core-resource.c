@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,6 +55,8 @@ int wcd9xxx_core_res_init(
 	int (*codec_read)(struct wcd9xxx_core_resource*, unsigned short),
 	int (*codec_write)(struct wcd9xxx_core_resource*, unsigned short, u8),
 	int (*codec_bulk_read) (struct wcd9xxx_core_resource*, unsigned short,
+							int, u8*),
+	int (*codec_bulk_write) (struct wcd9xxx_core_resource*, unsigned short,
 							int, u8*))
 {
 	mutex_init(&wcd9xxx_core_res->pm_lock);
@@ -68,6 +70,7 @@ int wcd9xxx_core_res_init(
 	wcd9xxx_core_res->codec_reg_read = codec_read;
 	wcd9xxx_core_res->codec_reg_write = codec_write;
 	wcd9xxx_core_res->codec_bulk_read = codec_bulk_read;
+	wcd9xxx_core_res->codec_bulk_write = codec_bulk_write;
 	wcd9xxx_core_res->num_irqs = num_irqs;
 	wcd9xxx_core_res->num_irq_regs = num_irq_regs;
 
