@@ -1469,8 +1469,10 @@ void mem_text_address_writeable(unsigned long addr)
 	mem_unprotect.pmd_to_flush = mem_unprotect.pmd;
 	mem_unprotect.addr = addr & PAGE_MASK;
 
+#ifndef CONFIG_ARM_LPAE
 	if (addr & SECTION_SIZE)
-			mem_unprotect.pmd++;
+		mem_unprotect.pmd++;
+#endif
 
 	mem_unprotect.saved_pmd = *mem_unprotect.pmd;
 	if ((mem_unprotect.saved_pmd & PMD_TYPE_MASK) != PMD_TYPE_SECT)
