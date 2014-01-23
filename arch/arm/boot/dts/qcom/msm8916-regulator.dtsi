@@ -18,7 +18,6 @@
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <7>;
-		qcom,consumer-supplies = "vdd_dig", "";
 	};
 
 	apc_vreg_corner: regulator-apc-corner {
@@ -26,6 +25,22 @@
 		regulator-name = "apc_corner";
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <3>;
+	};
+
+	pm8916_s1_corner_ao: regulator-s1-corner_ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "8916_s1_corner_ao";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
+	};
+
+	pm8916_l7_ao: regulator-l7_ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "8916_l7_ao";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
 	};
 };
 
