@@ -109,7 +109,7 @@
 /* Query request retries */
 #define QUERY_REQ_RETRIES 10
 /* Query request timeout */
-#define QUERY_REQ_TIMEOUT 30 /* msec */
+#define QUERY_REQ_TIMEOUT 100 /* msec */
 
 /* Task management command timeout */
 #define TM_CMD_TIMEOUT	100 /* msecs */
