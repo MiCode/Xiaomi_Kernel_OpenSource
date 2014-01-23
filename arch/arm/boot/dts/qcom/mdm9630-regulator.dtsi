@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -256,5 +256,12 @@
 		compatible = "regulator-fixed";
 		regulator-name = "ethernet_phy";
 		regulator-always-on;
+	};
+
+	wlan_vreg: wlan_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan_vreg";
+		regulator-always-on;
+		status = "ok";
 	};
 };
