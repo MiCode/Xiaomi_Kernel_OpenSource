@@ -25,6 +25,8 @@
 #include <linux/platform_device.h>
 #include <linux/of_platform.h>
 #include <linux/cpu_pm.h>
+#include <linux/remote_spinlock.h>
+#include <linux/msm_remote_spinlock.h>
 #include <soc/qcom/avs.h>
 #include <soc/qcom/spm.h>
 #include <soc/qcom/pm.h>
@@ -82,6 +84,11 @@ static bool msm_no_ramp_down_pc;
 static struct msm_pm_sleep_status_data *msm_pm_slp_sts;
 DEFINE_PER_CPU(struct clk *, cpu_clks);
 static struct clk *l2_clk;
+
+static int cpu_count;
+static DEFINE_SPINLOCK(cpu_cnt_lock);
+#define SCM_HANDOFF_LOCK_ID "S:7"
+static remote_spinlock_t scm_handoff_lock;
 
 static void (*msm_pm_disable_l2_fn)(void);
 static void (*msm_pm_enable_l2_fn)(void);
@@ -235,8 +242,29 @@ static bool msm_pm_pc_hotplug(void)
 static int msm_pm_collapse(unsigned long unused)
 {
 	uint32_t cpu = smp_processor_id();
+	enum msm_pm_l2_scm_flag flag = MSM_SCM_L2_ON;
 
-	if (msm_pm_get_l2_flush_flag() == MSM_SCM_L2_OFF) {
+	spin_lock(&cpu_cnt_lock);
+	cpu_count++;
+	if (cpu_count == num_online_cpus())
+		flag = msm_pm_get_l2_flush_flag();
+
+	pr_debug("cpu:%d cores_in_pc:%d L2 flag: %d\n",
+			cpu, cpu_count, flag);
+
+	/*
+	 * The scm_handoff_lock will be release by the secure monitor.
+	 * It is used to serialize power-collapses from this point on,
+	 * so that both Linux and the secure context have a consistent
+	 * view regarding the number of running cpus (cpu_count).
+	 *
+	 * It must be acquired before releasing cpu_cnt_lock.
+	 */
+	remote_spin_lock_rlock_id(&scm_handoff_lock,
+				  REMOTE_SPINLOCK_TID_START + cpu);
+	spin_unlock(&cpu_cnt_lock);
+
+	if (flag == MSM_SCM_L2_OFF) {
 		flush_cache_all();
 		if (msm_pm_flush_l2_fn)
 			msm_pm_flush_l2_fn();
@@ -248,8 +276,7 @@ static int msm_pm_collapse(unsigned long unused)
 
 	msm_pc_inc_debug_count(cpu, MSM_PC_ENTRY_COUNTER);
 
-	scm_call_atomic1(SCM_SVC_BOOT, SCM_CMD_TERMINATE_PC,
-				msm_pm_get_l2_flush_flag());
+	scm_call_atomic1(SCM_SVC_BOOT, SCM_CMD_TERMINATE_PC, flag);
 
 	msm_pc_inc_debug_count(cpu, MSM_PC_FALLTHRU_COUNTER);
 
@@ -291,6 +318,12 @@ static bool __ref msm_pm_spm_power_collapse(
 	collapsed = save_cpu_regs ?
 		!cpu_suspend(0, msm_pm_collapse) : msm_pm_pc_hotplug();
 
+	if (save_cpu_regs) {
+		spin_lock(&cpu_cnt_lock);
+		cpu_count--;
+		BUG_ON(cpu_count > num_online_cpus());
+		spin_unlock(&cpu_cnt_lock);
+	}
 	msm_jtag_restore_state();
 
 	if (collapsed) {
@@ -915,6 +948,13 @@ static int msm_cpu_pm_probe(struct platform_device *pdev)
 	} else {
 		msm_pc_debug_counters = 0;
 		msm_pc_debug_counters_phys = 0;
+	}
+
+	ret = remote_spin_lock_init(&scm_handoff_lock, SCM_HANDOFF_LOCK_ID);
+	if (ret) {
+		pr_err("%s: Failed initializing scm_handoff_lock (%d)\n",
+			__func__, ret);
+		return ret;
 	}
 
 	if (pdev->dev.of_node) {
