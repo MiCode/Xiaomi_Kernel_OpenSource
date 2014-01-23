@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,7 +27,6 @@
 #include <linux/mutex.h>
 #include <linux/sort.h>
 #include <asm/uaccess.h>
-#include <mach/msm_iomap.h>
 
 #define RBCPR_BUF_LEN 8000
 #define RBCPR_STATS_MAX_SIZE SZ_2K
