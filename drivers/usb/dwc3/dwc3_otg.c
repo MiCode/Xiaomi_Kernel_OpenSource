@@ -1,7 +1,7 @@
 /**
  * dwc3_otg.c - DesignWare USB3 DRD Controller OTG
  *
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -231,6 +231,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 			return ret;
 		}
 
+		pm_runtime_get(dwc->dev);
 		dwc3_otg_notify_host_mode(otg, on);
 		dwc3_otg_set_host(otg, NULL);
 		platform_device_del(dwc->xhci);
@@ -251,6 +252,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 		dwc3_post_host_reset_core_init(dwc);
 		if (ext_xceiv && !ext_xceiv->otg_capability)
 			dwc3_otg_reset(dotg);
+		pm_runtime_put(dwc->dev);
 	}
 
 	return 0;
@@ -870,8 +872,9 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			dotg->vbus_retry_count = 0;
 			work = 1;
 		} else {
-			dev_dbg(phy->dev, "a_host state entered. Allow runtime suspend.\n");
-			pm_runtime_put_sync(phy->dev);
+			dev_dbg(phy->dev, "still in a_host state. Resuming root hub.\n");
+			pm_runtime_resume(&dotg->dwc->xhci->dev);
+			pm_runtime_put(phy->dev);
 		}
 		break;
 
