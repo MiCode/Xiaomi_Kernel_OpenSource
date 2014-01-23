@@ -120,6 +120,7 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 static inline void hdmi_tx_set_audio_switch_node(struct hdmi_tx_ctrl *hdmi_ctrl,
 	int val, bool force);
 static int hdmi_tx_audio_setup(struct hdmi_tx_ctrl *hdmi_ctrl);
+static void hdmi_tx_en_encryption(struct hdmi_tx_ctrl *hdmi_ctrl, u32 on);
 
 struct mdss_hw hdmi_tx_hw = {
 	.hw_ndx = MDSS_HW_HDMI,
@@ -916,11 +917,11 @@ void hdmi_tx_hdcp_cb(void *ptr, enum hdmi_hdcp_state status)
 	switch (status) {
 	case HDCP_STATE_AUTHENTICATED:
 		if (hdmi_ctrl->hpd_state) {
-			/* Clear AV Mute */
-			rc = hdmi_tx_config_avmute(hdmi_ctrl, 0);
-			if (rc)
-				DEV_ERR("%s: Failed to clear av mute. rc=%d\n",
-					__func__, rc);
+			if (hdmi_ctrl->pdata.primary)
+				hdmi_tx_en_encryption(hdmi_ctrl, true);
+			else
+				/* Clear AV Mute */
+				rc = hdmi_tx_config_avmute(hdmi_ctrl, 0);
 			hdmi_tx_set_audio_switch_node(hdmi_ctrl, 1, false);
 		}
 		break;
@@ -928,11 +929,11 @@ void hdmi_tx_hdcp_cb(void *ptr, enum hdmi_hdcp_state status)
 		hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0, false);
 
 		if (hdmi_ctrl->hpd_state) {
-			/* Set AV Mute */
-			rc = hdmi_tx_config_avmute(hdmi_ctrl, 1);
-			if (rc)
-				DEV_ERR("%s: Failed to set av mute. rc=%d\n",
-					__func__, rc);
+			if (hdmi_ctrl->pdata.primary)
+				hdmi_tx_en_encryption(hdmi_ctrl, false);
+			else
+				/* Set AV Mute */
+				rc = hdmi_tx_config_avmute(hdmi_ctrl, 1);
 
 			DEV_DBG("%s: Reauthenticating\n", __func__);
 			rc = hdmi_hdcp_reauthenticate(
@@ -1646,6 +1647,28 @@ static void hdmi_tx_set_spd_infoframe(struct hdmi_tx_ctrl *hdmi_ctrl)
 	DSS_REG_W(io, HDMI_GEN_PKT_CTRL, packet_control);
 } /* hdmi_tx_set_spd_infoframe */
 
+static void hdmi_tx_en_encryption(struct hdmi_tx_ctrl *hdmi_ctrl, u32 on)
+{
+	u32 reg_val;
+	struct dss_io_data *io = NULL;
+
+	if (!hdmi_ctrl->hdcp_feature_on || !hdmi_ctrl->present_hdcp)
+		return;
+
+	io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
+
+	mutex_lock(&hdmi_ctrl->mutex);
+	reg_val = DSS_REG_R_ND(io, HDMI_CTRL);
+
+	if (on)
+		reg_val |= BIT(2);
+	else
+		reg_val &= ~BIT(2);
+	DSS_REG_W(io, HDMI_CTRL, reg_val);
+
+	mutex_unlock(&hdmi_ctrl->mutex);
+} /* hdmi_tx_en_encryption */
+
 static void hdmi_tx_set_mode(struct hdmi_tx_ctrl *hdmi_ctrl, u32 power_on)
 {
 	struct dss_io_data *io = NULL;
@@ -1662,12 +1685,14 @@ static void hdmi_tx_set_mode(struct hdmi_tx_ctrl *hdmi_ctrl, u32 power_on)
 		return;
 	}
 
+	mutex_lock(&hdmi_ctrl->mutex);
 	if (power_on) {
 		/* Enable the block */
 		reg_val |= BIT(0);
 
 		/* HDMI Encryption, if HDCP is enabled */
-		if (hdmi_ctrl->hdcp_feature_on && hdmi_ctrl->present_hdcp)
+		if (hdmi_ctrl->hdcp_feature_on &&
+			hdmi_ctrl->present_hdcp && !hdmi_ctrl->pdata.primary)
 			reg_val |= BIT(2);
 
 		/* Set transmission mode to DVI based in EDID info */
@@ -1677,6 +1702,7 @@ static void hdmi_tx_set_mode(struct hdmi_tx_ctrl *hdmi_ctrl, u32 power_on)
 	}
 
 	DSS_REG_W(io, HDMI_CTRL, reg_val);
+	mutex_unlock(&hdmi_ctrl->mutex);
 
 	DEV_DBG("HDMI Core: %s, HDMI_CTRL=0x%08x\n",
 		power_on ? "Enable" : "Disable", reg_val);
@@ -3109,10 +3135,10 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 	case MDSS_EVENT_PANEL_ON:
 		if (hdmi_ctrl->hdcp_feature_on && hdmi_ctrl->present_hdcp) {
 			/* Set AV Mute before starting authentication */
-			rc = hdmi_tx_config_avmute(hdmi_ctrl, 1);
-			if (rc)
-				DEV_ERR("%s: Failed to set av mute. rc=%d\n",
-					__func__, rc);
+			if (hdmi_ctrl->pdata.primary)
+				hdmi_tx_en_encryption(hdmi_ctrl, false);
+			else
+				rc = hdmi_tx_config_avmute(hdmi_ctrl, 1);
 
 			DEV_DBG("%s: Starting HDCP authentication\n", __func__);
 			rc = hdmi_hdcp_authenticate(
