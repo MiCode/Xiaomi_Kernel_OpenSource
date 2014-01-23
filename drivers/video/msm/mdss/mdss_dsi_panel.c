@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -829,7 +829,7 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-virtual-channel-id", &tmp);
 	pinfo->mipi.vc = (!rc ? tmp : 0);
 	pinfo->mipi.rgb_swap = DSI_RGB_SWAP_RGB;
-	data = of_get_property(np, "mdss-dsi-color-order", NULL);
+	data = of_get_property(np, "qcom,mdss-dsi-color-order", NULL);
 	if (data) {
 		if (!strcmp(data, "rgb_swap_rbg"))
 			pinfo->mipi.rgb_swap = DSI_RGB_SWAP_RBG;
