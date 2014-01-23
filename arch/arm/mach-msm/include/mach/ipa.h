@@ -277,23 +277,6 @@ struct ipa_ep_cfg_deaggr {
 };
 
 /**
- * struct ipa_ep_cfg_status - status configuration in IPA end-point
- * @status_en: Determines if end point supports Status Indications. SW should
- *	set this bit in order to enable Statuses. Output Pipe - send
- *	Status indications only if bit is set. Input Pipe - forward Status
- *	indication to STATUS_ENDP only if bit is set. Valid for Input
- *	and Output Pipes (IPA Consumer and Producer)
- * @status_ep: Statuses generated for this endpoint will be forwarded to the
- *	specifed Status End Point. Status endpoint needs to be
- *	configured with STATUS_EN=1 Valid only for Input Pipes (IPA
- *	Consumer)
- */
-struct ipa_ep_cfg_status {
-	bool status_en;
-	u8 status_ep;
-};
-
-/**
  * enum ipa_cs_offload - checksum offload setting
  */
 enum ipa_cs_offload {
@@ -361,7 +344,6 @@ struct ipa_ep_cfg_metadata {
  * @aggr:		Aggregation parameters
  * @deaggr:		Deaggregation params
  * @route:		Routing parameters
- * @status:		Status parameters
  * @cfg:		Configuration register data
  * @metadata_mask:	Hdr metadata mask
  * @meta:		Meta Data
@@ -374,7 +356,6 @@ struct ipa_ep_cfg {
 	struct ipa_ep_cfg_aggr aggr;
 	struct ipa_ep_cfg_deaggr deaggr;
 	struct ipa_ep_cfg_route route;
-	struct ipa_ep_cfg_status status;
 	struct ipa_ep_cfg_cfg cfg;
 	struct ipa_ep_cfg_metadata_mask metadata_mask;
 	struct ipa_ep_cfg_metadata meta;
@@ -805,8 +786,6 @@ int ipa_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ipa_ep_cfg);
 
 int ipa_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ipa_ep_cfg);
 
-int ipa_cfg_ep_status(u32 clnt_hdl, const struct ipa_ep_cfg_status *ipa_ep_cfg);
-
 int ipa_cfg_ep_cfg(u32 clnt_hdl, const struct ipa_ep_cfg_cfg *ipa_ep_cfg);
 
 int ipa_cfg_ep_metadata_mask(u32 clnt_hdl, const struct ipa_ep_cfg_metadata_mask
@@ -1138,12 +1117,6 @@ static inline int ipa_cfg_ep_route(u32 clnt_hdl,
 
 static inline int ipa_cfg_ep_holb(u32 clnt_hdl,
 		const struct ipa_ep_cfg_holb *ipa_ep_cfg)
-{
-	return -EPERM;
-}
-
-static inline int ipa_cfg_ep_status(u32 clnt_hdl,
-		const struct ipa_ep_cfg_status *ipa_ep_cfg)
 {
 	return -EPERM;
 }
