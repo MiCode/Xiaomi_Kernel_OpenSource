@@ -745,7 +745,11 @@ static void pch_enable_backlight(struct intel_connector *connector)
 	I915_WRITE(BLC_PWM_CPU_CTL2, cpu_ctl2 | BLM_PWM_ENABLE);
 
 	/* This won't stick until the above enable. */
-	intel_panel_actually_set_backlight(connector, panel->backlight.level);
+	if (dev_priv->dpst.enabled)
+		i915_dpst_set_brightness(dev, panel->backlight.level);
+	else
+		intel_panel_actually_set_backlight(connector,
+						   panel->backlight.level);
 
 	pch_ctl2 = panel->backlight.max << 16;
 	I915_WRITE(BLC_PWM_PCH_CTL2, pch_ctl2);
