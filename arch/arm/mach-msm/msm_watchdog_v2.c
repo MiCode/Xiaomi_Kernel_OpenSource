@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -476,6 +476,8 @@ static int msm_wdog_dt_to_pdata(struct platform_device *pdev,
 	int ret;
 
 	wdog_resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!wdog_resource)
+		return -ENODEV;
 	pdata->size = resource_size(wdog_resource);
 	pdata->phys_base = wdog_resource->start;
 	if (unlikely(!(devm_request_region(&pdev->dev, pdata->phys_base,
