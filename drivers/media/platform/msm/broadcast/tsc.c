@@ -1449,13 +1449,14 @@ static int tsc_data_transaction(struct tsc_ci_chdev *tsc_ci, uint io_mem,
 		 * mapping the ion handle to the VBIF and get the virtual
 		 * address
 		 */
-		if (!ion_map_iommu(tsc_device->iommu_info.ion_client,
+		ret = ion_map_iommu(tsc_device->iommu_info.ion_client,
 				ion_handle, tsc_device->iommu_info.domain_num,
-				addr_size, tsc_device->iommu_info.partition_num,
-				0, &iova, &buffer_size, 0, 0)) {
+				tsc_device->iommu_info.partition_num, SZ_4K,
+				0, &iova, &buffer_size, 0, 0);
+
+		if (ret != 0) {
 			pr_err("%s: get_ION_kernel physical addr fail\n",
 					__func__);
-			ret = -EIO;
 			goto err_ion_map;
 		}
 
