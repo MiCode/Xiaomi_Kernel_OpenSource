@@ -814,11 +814,17 @@ static ssize_t ipa_read_stats(struct file *file, char __user *ubuf,
 			"hw_tx=%u\n"
 			"tx_compl=%u\n"
 			"wan_rx=%u\n"
+			"stat_compl=%u\n"
+			"lan_aggr_close=%u\n"
+			"wan_aggr_close=%u\n"
 			"con_clnt_bmap=0x%x\n",
 			ipa_ctx->stats.tx_sw_pkts,
 			ipa_ctx->stats.tx_hw_pkts,
 			ipa_ctx->stats.tx_pkts_compl,
 			ipa_ctx->stats.rx_pkts,
+			ipa_ctx->stats.stat_compl,
+			ipa_ctx->stats.aggr_close,
+			ipa_ctx->stats.wan_aggr_close,
 			connect);
 		cnt += nbytes;
 
@@ -1179,7 +1185,7 @@ static ssize_t ipa_read_nat4(struct file *file,
 						IPA_MAX_MSG_LEN,
 						"Time_stamp:0x%x Proto:%d ",
 						(value & 0x00FFFFFF),
-						((value & 0xFF000000) >> 27));
+						((value & 0xFF000000) >> 24));
 					cnt += nbytes;
 					tmp++;
 
