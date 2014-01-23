@@ -57,6 +57,28 @@ static struct gpiomux_setting spdif_opt_sus_cfg = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting ioexp_suspend_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_16MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting ioexp_active_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_16MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct msm_gpiomux_config ioexpander_configs[] __initdata = {
+	{
+		.gpio      = 37,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ioexp_suspend_config,
+			[GPIOMUX_ACTIVE] = &ioexp_active_config,
+		},
+	},
+};
+
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	{
 		.gpio      = 6,		/* BLSP1 QUP2 I2C_SDA */
@@ -71,25 +93,73 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 		},
 	},
 	{
-		.gpio      = 28,	       /* BLSP1 UART5 TX */
+		.gpio      = 28,	/* BLSP1 UART5 TX */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
 		},
 	},
 	{
-		.gpio      = 29,	       /* BLSP1 UART5 RX */
+		.gpio      = 29,	/* BLSP1 UART5 RX */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
 		},
 	},
 	{
-		.gpio      = 81,		/* BLSP2 QUP5 I2C_SDA */
+		.gpio      = 12,	/* BLSP2 UART0 TX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
+		},
+	},
+	{
+		.gpio      = 13,	/* BLSP2 UART0 RX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
+		},
+	},
+	{
+		.gpio      = 59,	/* BLSP2 UART3 TX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
+		},
+	},
+	{
+		.gpio      = 60,	/* BLSP2 UART3 RX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
+		},
+	},
+	{
+		.gpio	   = 14,	/* BLSP2 QUP1 I2C_SDA */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
 		},
 	},
 	{
-		.gpio      = 82,		/* BLSP2 QUP5 I2C_SCL */
+		.gpio	   = 15,	/* BLSP2 QUP1 I2C_SCL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 61,	/* BLSP2 QUP4 I2C_SDA */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 62,	/* BLSP2 QUP4 I2C_SCL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 81,	/* BLSP2 QUP5 I2C_SDA */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 82,	/* BLSP2 QUP5 I2C_SCL */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
 		},
@@ -172,6 +242,7 @@ void __init mpq8092_init_gpiomux(void)
 
 	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
 	msm_gpiomux_install(msm_ehci_configs, ARRAY_SIZE(msm_ehci_configs));
+	msm_gpiomux_install(ioexpander_configs, ARRAY_SIZE(ioexpander_configs));
 	msm_gpiomux_install(mpq8092_slimbus_config,
 			ARRAY_SIZE(mpq8092_slimbus_config));
 	msm_gpiomux_install(mpq8092_spkr_mi2s_mclk_configs,
