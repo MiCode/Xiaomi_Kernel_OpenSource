@@ -521,7 +521,6 @@ static void msm_spi_read_word_from_fifo(struct msm_spi *dd)
 static inline bool msm_spi_is_valid_state(struct msm_spi *dd)
 {
 	u32 spi_op = readl_relaxed(dd->base + SPI_STATE);
-
 	return spi_op & SPI_OP_STATE_VALID;
 }
 
@@ -1980,14 +1979,17 @@ static void msm_spi_workq(struct work_struct *work)
 	if (dd->use_rlock)
 		remote_mutex_lock(&dd->r_lock);
 
-	if (!msm_spi_is_valid_state(dd)) {
+	spin_lock_irqsave(&dd->queue_lock, flags);
+	dd->transfer_pending = 1;
+	spin_unlock_irqrestore(&dd->queue_lock, flags);
+
+	if (dd->suspended || !msm_spi_is_valid_state(dd)) {
 		dev_err(dd->dev, "%s: SPI operational state not valid\n",
 			__func__);
 		status_error = 1;
 	}
 
 	spin_lock_irqsave(&dd->queue_lock, flags);
-	dd->transfer_pending = 1;
 	while (!list_empty(&dd->queue)) {
 		dd->cur_msg = list_entry(dd->queue.next,
 					 struct spi_message, queue);
