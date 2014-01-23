@@ -492,15 +492,14 @@ static long demod_ioctl(struct file *filp,
 		break;
 	case DEMOD_IOCTL_RESET:
 		/* Reset DEMOD core. Block VBIF access at Top BCSS */
-		clk_reset(drv->clks[0], CLK_RESET_ASSERT);
 		writel_relaxed(1, drv->top_bcss + BCSS_VBIF);
+		clk_reset(drv->clks[1], CLK_RESET_ASSERT);
 		udelay(10);
-		clk_reset(drv->clks[0], CLK_RESET_DEASSERT);
+		clk_reset(drv->clks[1], CLK_RESET_DEASSERT);
 		writel_relaxed(0, drv->top_bcss + BCSS_VBIF);
 		break;
 	default:
 		return 0;
-
 	}
 	return 0;
 }
