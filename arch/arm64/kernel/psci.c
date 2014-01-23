@@ -282,7 +282,7 @@ static void cpu_psci_cpu_die(unsigned int cpu)
 }
 #endif
 
-const struct cpu_operations cpu_psci_ops = {
+static const struct cpu_operations cpu_psci_ops = {
 	.name		= "psci",
 	.cpu_init	= cpu_psci_cpu_init,
 	.cpu_prepare	= cpu_psci_cpu_prepare,
@@ -293,4 +293,5 @@ const struct cpu_operations cpu_psci_ops = {
 #endif
 };
 
+CPU_METHOD_OF_DECLARE(psci, &cpu_psci_ops);
 #endif
