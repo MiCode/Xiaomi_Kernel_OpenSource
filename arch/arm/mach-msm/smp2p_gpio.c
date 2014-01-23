@@ -133,7 +133,7 @@ static void smp2p_set_value(struct gpio_chip *cp, unsigned offset, int value)
 		return;
 
 	if (chip->is_inbound) {
-		SMP2P_ERR("%s: '%s':%d virq %d invalid operation\n",
+		SMP2P_INFO("%s: '%s':%d virq %d invalid operation\n",
 			__func__, chip->name, chip->remote_pid,
 			chip->irq_base + offset);
 		return;
