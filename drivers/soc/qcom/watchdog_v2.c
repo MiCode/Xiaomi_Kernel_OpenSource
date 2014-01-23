@@ -464,7 +464,7 @@ static void dump_pdata(struct msm_watchdog_data *pdata)
 	dev_dbg(pdata->dev, "wdog bark_time %d", pdata->bark_time);
 	dev_dbg(pdata->dev, "wdog pet_time %d", pdata->pet_time);
 	dev_dbg(pdata->dev, "wdog perform ipi ping %d", pdata->do_ipi_ping);
-	dev_dbg(pdata->dev, "wdog base address is 0x%x\n", (unsigned int)
+	dev_dbg(pdata->dev, "wdog base address is 0x%lx\n", (unsigned long)
 								pdata->base);
 }
 
