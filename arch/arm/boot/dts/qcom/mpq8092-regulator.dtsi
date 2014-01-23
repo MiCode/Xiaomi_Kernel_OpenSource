@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -501,5 +501,12 @@
 			qcom,ldo-delta-voltage = <12500>;
 			qcom,cpu-num = <3>;
 		};
+	};
+
+	wlan_vreg: wlan_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan_vreg";
+		regulator-always-on;
+		status = "ok";
 	};
 };
