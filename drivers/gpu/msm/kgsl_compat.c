@@ -388,19 +388,22 @@ int kgsl_cmdbatch_create_compat(struct kgsl_device *device, unsigned int flags,
 			unsigned int numcmds, void __user *synclist,
 			unsigned int numsyncs)
 {
-	int ret = 0;
-	struct kgsl_ibdesc_compat *cmdbatch_ibdesc;
+	int ret = 0, i;
 
 	if (!(flags & KGSL_CONTEXT_SYNC)) {
-		if (copy_from_user(cmdbatch_ibdesc, cmdlist,
-			sizeof(struct kgsl_ibdesc_compat) * numcmds))
-			return -EFAULT;
+		for (i = 0; i < numcmds; i++) {
+			struct kgsl_ibdesc_compat cmdbatch_ibdesc;
+			if (copy_from_user(&cmdbatch_ibdesc,
+				cmdlist + (sizeof(struct kgsl_ibdesc_compat)*i),
+				sizeof(struct kgsl_ibdesc_compat)))
+				return -EFAULT;
 
-		cmdbatch->ibdesc->gpuaddr = (unsigned long)
-						cmdbatch_ibdesc->gpuaddr;
-		cmdbatch->ibdesc->sizedwords = (size_t)
-						cmdbatch_ibdesc->sizedwords;
-		cmdbatch->ibdesc->ctrl = cmdbatch_ibdesc->ctrl;
+			cmdbatch->ibdesc[i].gpuaddr = (unsigned long)
+						cmdbatch_ibdesc.gpuaddr;
+			cmdbatch->ibdesc[i].sizedwords = (size_t)
+						cmdbatch_ibdesc.sizedwords;
+			cmdbatch->ibdesc[i].ctrl = cmdbatch_ibdesc.ctrl;
+		}
 	}
 	if (synclist && numsyncs) {
 
