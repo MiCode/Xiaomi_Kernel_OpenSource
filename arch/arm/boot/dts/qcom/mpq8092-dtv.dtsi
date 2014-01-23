@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,14 +74,35 @@
 	status = "ok";
 };
 
+&smb211_vreg {
+	status = "ok";
+};
+
+&smb210_vreg {
+	status = "ok";
+};
+
+&hsusb1_otg {
+	status = "ok";
+};
+
+&usb3_otg {
+	status = "ok";
+};
+
+
 &pma8084_gpios {
 	gpio@c000 { /* GPIO 1 */
+		/* SMB210 DBU4 5.0 V regulator enable - no software control */
+		status = "disabled";
 	};
 
 	gpio@c100 { /* GPIO 2 */
 	};
 
 	gpio@c200 { /* GPIO 3 */
+		/* SMB211 DBU2 3.3 V regulator enable - no software control */
+		status = "disabled";
 	};
 
 	gpio@c300 { /* GPIO 4 */
@@ -96,10 +117,22 @@
 	gpio@c600 { /* GPIO 7 */
 	};
 
-	gpio@c700 { /* GPIO 8 */
+	gpio@c700 { /* GPIO 8 - USB OTG 3.0 */
+		qcom,mode = <1>;	/* Digital output */
+		qcom,vin-sel = <2>;	/* PMA8084 S4 = 1.8V */
+		qcom,src_sel = <0>;	/* Constant Function */
+		qcom,out-strength = <1>;/* Low */
+		qcom,invert = <0>;	/* Output low initially */
+		qcom,master-en = <1>;	/* Enable GPIO */
 	};
 
-	gpio@c800 { /* GPIO 9 */
+	gpio@c800 { /* GPIO 9 -  USB OTG 2.0 (Port-1) */
+		qcom,mode = <1>;	/* Digital output */
+		qcom,vin-sel = <2>;	/* PMA8084 S4 = 1.8V */
+		qcom,src_sel = <0>;	/* Constant Function */
+		qcom,out-strength = <1>;/* Low */
+		qcom,invert = <0>;	/* Output low initially */
+		qcom,master-en = <1>;	/* Enable GPIO */
 	};
 
 	gpio@c900 { /* GPIO 10 */
