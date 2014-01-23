@@ -536,7 +536,7 @@ static int __maybe_unused cpu_psci_cpu_suspend(unsigned long index)
 	return ret;
 }
 
-const struct cpu_operations cpu_psci_ops = {
+static const struct cpu_operations cpu_psci_ops = {
 	.name		= "psci",
 #ifdef CONFIG_CPU_IDLE
 	.cpu_init_idle	= cpu_psci_cpu_init_idle,
@@ -553,4 +553,4 @@ const struct cpu_operations cpu_psci_ops = {
 #endif
 #endif
 };
-
+CPU_METHOD_OF_DECLARE(psci, &cpu_psci_ops);
