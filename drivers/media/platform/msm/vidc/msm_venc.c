@@ -35,6 +35,7 @@
 #define B_FRAME_QP 30
 #define MAX_INTRA_REFRESH_MBS 300
 #define MAX_NUM_B_FRAMES 4
+#define MAX_LTR_FRAME_COUNT 10
 
 #define L_MODE V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED_AT_SLICE_BOUNDARY
 #define CODING V4L2_MPEG_VIDEO_MPEG4_PROFILE_ADVANCED_CODING_EFFICIENCY
@@ -819,9 +820,10 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "H264 Use LTR",
 		.type = V4L2_CTRL_TYPE_BUTTON,
 		.minimum = 0,
-		.maximum = 1,
+		.maximum = (MAX_LTR_FRAME_COUNT - 1),
 		.default_value = 0,
 		.step = 1,
+		.qmenu = NULL,
 		.cluster = 0,
 	},
 	{
@@ -829,7 +831,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "Ltr Count",
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 0,
-		.maximum = 1,
+		.maximum = MAX_LTR_FRAME_COUNT,
 		.default_value = 0,
 		.step = 1,
 		.qmenu = NULL,
@@ -851,9 +853,10 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "H264 Mark LTR",
 		.type = V4L2_CTRL_TYPE_BUTTON,
 		.minimum = 0,
-		.maximum = 0,
+		.maximum = (MAX_LTR_FRAME_COUNT - 1),
 		.default_value = 0,
-		.step = 0,
+		.step = 1,
+		.qmenu = NULL,
 		.cluster = 0,
 	},
 	{
@@ -2177,14 +2180,14 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_USELTRFRAME:
 		property_id = HAL_CONFIG_VENC_USELTRFRAME;
-		useltr.refltr = 0x1;
+		useltr.refltr = ctrl->val;
 		useltr.useconstrnt = false;
 		useltr.frames = 0;
 		pdata = &useltr;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_MARKLTRFRAME:
 		property_id = HAL_CONFIG_VENC_MARKLTRFRAME;
-		markltr.markframe = 0x1;
+		markltr.markframe = ctrl->val;
 		pdata = &markltr;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_HIER_P_NUM_LAYERS:
@@ -2237,6 +2240,7 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 	struct v4l2_ctrl *cluster;
 	u32 property_id = 0;
 	void *pdata = NULL;
+	struct msm_vidc_core_capability *cap = NULL;
 
 	if (!inst || !inst->core || !inst->core->device || !ctrl) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -2252,30 +2256,43 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 	}
 
 	hdev = inst->core->device;
+	cap = &inst->capability;
 
-	if (ctrl->count) {
-		control = ctrl->controls;
-		for (i = 0; i < ctrl->count; i++) {
-			switch (control[i].id) {
-			case V4L2_CID_MPEG_VIDC_VIDEO_LTRMODE:
-				ltrmode.ltrmode = control[i].value;
-				ltrmode.trustmode = 1;
-				property_id = HAL_PARAM_VENC_LTRMODE;
-				pdata = &ltrmode;
-				break;
-			case V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT:
-				ltrmode.ltrcount =  control[i].value;
-				ltrmode.trustmode = 1;
-				property_id = HAL_PARAM_VENC_LTRMODE;
-				pdata = &ltrmode;
-				break;
-			default:
-				dprintk(VIDC_ERR, "Invalid id set: %d\n",
-					control[i].id);
-				rc = -ENOTSUPP;
-				break;
+	control = ctrl->controls;
+	for (i = 0; i < ctrl->count; i++) {
+		switch (control[i].id) {
+		case V4L2_CID_MPEG_VIDC_VIDEO_LTRMODE:
+			ltrmode.ltrmode = control[i].value;
+			ltrmode.trustmode = 1;
+			property_id = HAL_PARAM_VENC_LTRMODE;
+			pdata = &ltrmode;
+			break;
+		case V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT:
+			ltrmode.ltrcount =  control[i].value;
+			if (ltrmode.ltrcount > cap->ltr_count.max) {
+				dprintk(VIDC_ERR,
+						"Invalid LTR count %d. Supported max: %d\n",
+						ltrmode.ltrcount,
+						cap->ltr_count.max);
+				/*
+				 * FIXME: Return an error (-EINVALID)
+				 * here once VP8 supports LTR count
+				 * capability
+				 */
+				ltrmode.ltrcount = 1;
 			}
+			ltrmode.trustmode = 1;
+			property_id = HAL_PARAM_VENC_LTRMODE;
+			pdata = &ltrmode;
+			break;
+		default:
+			dprintk(VIDC_ERR, "Invalid id set: %d\n",
+					control[i].id);
+			rc = -ENOTSUPP;
+			break;
 		}
+		if (rc)
+			break;
 	}
 
 	if (!rc && property_id) {
