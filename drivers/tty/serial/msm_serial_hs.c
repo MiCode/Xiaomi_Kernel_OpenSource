@@ -2529,6 +2529,8 @@ static int msm_hs_startup(struct uart_port *uport)
 	/* Initialize the tx */
 	tx->tx_ready_int_en = 0;
 	tx->dma_in_flight = 0;
+	msm_uport->tty_flush_receive = false;
+	MSM_HS_DBG("%s: Setting tty_flush_receive to false\n", __func__);
 
 	if (!is_blsp_uart(msm_uport)) {
 		tx->xfer.complete_func = msm_hs_dmov_tx_callback;
