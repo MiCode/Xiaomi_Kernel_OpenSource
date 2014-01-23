@@ -246,38 +246,38 @@ err_invalid_input:
 	return ret;
 }
 
-struct buffer_info *get_same_fd_buffer(struct msm_vidc_inst *inst,
-			struct list_head *list, int fd, int *plane)
+struct msm_smem *get_same_fd_buffer(struct msm_vidc_inst *inst,
+			struct list_head *list, int fd)
 {
 	struct buffer_info *temp;
-	struct buffer_info *ret = NULL;
+	struct msm_smem *same_fd_handle = NULL;
+
 	int i;
 	if (fd == 0)
 		return NULL;
-	if (!list || fd < 0 || !plane) {
+	if (!list || fd < 0) {
 		dprintk(VIDC_ERR, "Invalid input\n");
 		goto err_invalid_input;
 	}
-	*plane = 0;
 	mutex_lock(&inst->lock);
 	list_for_each_entry(temp, list, list) {
 		for (i = 0; (i < temp->num_planes)
 			&& (i < VIDEO_MAX_PLANES); i++) {
-			if (temp && temp->fd[i] == fd)  {
+			if (temp && (temp->fd[i] == fd) &&
+				temp->handle[i] && temp->mapped[i])  {
 				temp->same_fd_ref[i]++;
 				dprintk(VIDC_INFO,
 				"Found same fd buffer\n");
-				ret = temp;
-				*plane = i;
+				same_fd_handle = temp->handle[i];
 				break;
 			}
 		}
-		if (ret)
+		if (same_fd_handle)
 			break;
 	}
 	mutex_unlock(&inst->lock);
 err_invalid_input:
-	return ret;
+	return same_fd_handle;
 }
 
 struct buffer_info *device_to_uvaddr(struct msm_vidc_inst *inst,
@@ -423,6 +423,7 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 	struct buffer_info *temp = NULL;
 	int plane = 0;
 	int i = 0, rc = 0;
+	struct msm_smem *same_fd_handle = NULL;
 
 	if (!b || !inst) {
 		dprintk(VIDC_ERR, "%s: invalid input\n", __func__);
@@ -480,16 +481,17 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 		if (rc < 0)
 			goto exit;
 
-		temp = get_same_fd_buffer(inst, &inst->registered_bufs,
-					b->m.planes[i].reserved[0], &plane);
+		same_fd_handle = get_same_fd_buffer(inst,
+					&inst->registered_bufs,
+					b->m.planes[i].reserved[0]);
 
 		populate_buf_info(binfo, b, i);
-		if (temp) {
+		if (same_fd_handle) {
 			binfo->device_addr[i] =
-			temp->handle[plane]->device_addr + binfo->buff_off[i];
+			same_fd_handle->device_addr + binfo->buff_off[i];
 			b->m.planes[i].m.userptr = binfo->device_addr[i];
 			binfo->mapped[i] = false;
-			binfo->handle[i] = temp->handle[i];
+			binfo->handle[i] = same_fd_handle;
 		} else {
 			if (inst->map_output_buffer) {
 				binfo->handle[i] =
