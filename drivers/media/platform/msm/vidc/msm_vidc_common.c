@@ -289,6 +289,10 @@ static void handle_sys_init_done(enum command_response cmd, void *data)
 	}
 	core->enc_codec_supported = sys_init_msg->enc_codec_supported;
 	core->dec_codec_supported = sys_init_msg->dec_codec_supported;
+	if (core->id == MSM_VIDC_CORE_VENUS &&
+		(core->dec_codec_supported & HAL_VIDEO_CODEC_H264))
+			core->dec_codec_supported |=
+				HAL_VIDEO_CODEC_MVC;
 	dprintk(VIDC_DBG, "supported_codecs: enc = 0x%x, dec = 0x%x\n",
 		core->enc_codec_supported, core->dec_codec_supported);
 	dprintk(VIDC_DBG, "ptr[%d] = %p\n", index, &(core->completions[index]));
