@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,7 @@
 extern struct clk_ops clk_ops_dsi_byte_pll;
 extern struct clk_ops clk_ops_dsi_pixel_pll;
 
+void mdss_clk_update_hdmi_addr(u32 phy_addr, u32 phy_pll_addr);
 void mdss_clk_ctrl_pre_init(struct clk *ahb_clk);
 void mdss_clk_ctrl_post_init(void);
 
