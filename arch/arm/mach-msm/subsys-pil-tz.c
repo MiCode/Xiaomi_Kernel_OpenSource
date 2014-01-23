@@ -713,6 +713,7 @@ static int pil_tz_driver_exit(struct platform_device *pdev)
 }
 
 static struct of_device_id pil_tz_match_table[] = {
+	{.compatible = "qcom,pil-tz-generic"},
 	{}
 };
 
