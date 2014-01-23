@@ -707,7 +707,7 @@ static int pmic_arb_pic_disable(struct spmi_controller *ctrl,
 	unsigned long flags;
 	u32 status;
 
-	dev_err(pmic_arb->dev, "PIC disable, apid:0x%x, sid:0x%x, pid:0x%x\n",
+	dev_dbg(pmic_arb->dev, "PIC disable, apid:0x%x, sid:0x%x, pid:0x%x\n",
 				apid, spec->slave, spec->per);
 
 	if (data < pmic_arb->min_apid || data > pmic_arb->max_apid) {
