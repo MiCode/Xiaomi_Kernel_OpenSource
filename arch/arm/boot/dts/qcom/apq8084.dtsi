@@ -64,6 +64,7 @@
 #include "apq8084-iommu-domains.dtsi"
 #include "apq8084-pinctrl.dtsi"
 #include "apq8084-camera.dtsi"
+#include "apq8084-ipcrouter.dtsi"
 
 &soc {
 	#address-cells = <1>;
