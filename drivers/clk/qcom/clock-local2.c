@@ -223,7 +223,7 @@ static long rcg_clk_list_rate(struct clk *c, unsigned n)
 static struct clk *_rcg_clk_get_parent(struct rcg_clk *rcg, int has_mnd)
 {
 	u32 n_regval = 0, m_regval = 0, d_regval = 0;
-	u32 cfg_regval;
+	u32 cfg_regval, div, div_regval;
 	struct clk_freq_tbl *freq;
 	u32 cmd_rcgr_regval;
 
@@ -265,8 +265,16 @@ static struct clk *_rcg_clk_get_parent(struct rcg_clk *rcg, int has_mnd)
 
 	/* Figure out what rate the rcg is running at */
 	for (freq = rcg->freq_tbl; freq->freq_hz != FREQ_END; freq++) {
-		if (freq->div_src_val != cfg_regval)
+		/* source select does not match */
+		if ((freq->div_src_val & CFG_RCGR_SRC_SEL_MASK)
+		    != (cfg_regval & CFG_RCGR_SRC_SEL_MASK))
 			continue;
+		/* divider does not match */
+		div = freq->div_src_val & CFG_RCGR_DIV_MASK;
+		div_regval = cfg_regval & CFG_RCGR_DIV_MASK;
+		if (div != div_regval && (div > 1 || div_regval > 1))
+			continue;
+
 		if (has_mnd) {
 			if (freq->m_val != m_regval)
 				continue;
@@ -274,6 +282,8 @@ static struct clk *_rcg_clk_get_parent(struct rcg_clk *rcg, int has_mnd)
 				continue;
 			if (freq->d_val != d_regval)
 				continue;
+		} else if (freq->n_val) {
+			continue;
 		}
 		break;
 	}
