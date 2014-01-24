@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#include <mach/camera2.h>
+#include <soc/qcom/camera2.h>
 #include "msm_camera_i2c.h"
 
 #undef CDBG

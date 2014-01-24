@@ -16,7 +16,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/io.h>
 #include <linux/err.h>
-#include <mach/camera2.h>
+#include <soc/qcom/camera2.h>
 #include <mach/gpiomux.h>
 #include <mach/msm_bus.h>
 #include "msm_camera_io_util.h"
