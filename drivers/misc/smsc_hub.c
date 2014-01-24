@@ -368,6 +368,8 @@ struct smsc_hub_platform_data *msm_hub_dt_to_pdata(
 		return ERR_PTR(rc);
 	} else {
 		pdata->model_id = temp_val;
+		if (pdata->model_id == 0)
+			return pdata;
 	}
 
 	pdata->hub_reset = of_get_named_gpio(node, "smsc,reset-gpio", 0);
@@ -407,6 +409,12 @@ static int __devinit smsc_hub_probe(struct platform_device *pdev)
 	if (!pdata) {
 		dev_err(&pdev->dev, "No platform data\n");
 		return -ENODEV;
+	}
+
+	if (pdata->model_id == 0) {
+		dev_dbg(&pdev->dev, "standalone HSIC config enabled\n");
+		return of_platform_populate(node, NULL,
+				hsic_host_auxdata, &pdev->dev);
 	}
 
 	if (!pdata->hub_reset)
@@ -530,6 +538,9 @@ static int smsc_hub_remove(struct platform_device *pdev)
 {
 	const struct smsc_hub_platform_data *pdata;
 
+	if (!smsc_hub)
+		return 0;
+
 	pdata = smsc_hub->pdata;
 	if (smsc_hub->client) {
 		i2c_unregister_device(smsc_hub->client);
@@ -559,6 +570,9 @@ static int smsc_hub_lpm_enter(struct device *dev)
 {
 	int ret = 0;
 
+	if (!smsc_hub)
+		return 0;
+
 	if (smsc_hub->xo_handle) {
 		ret = msm_xo_mode_vote(smsc_hub->xo_handle, MSM_XO_MODE_OFF);
 		if (ret) {
@@ -572,6 +586,9 @@ static int smsc_hub_lpm_enter(struct device *dev)
 static int smsc_hub_lpm_exit(struct device *dev)
 {
 	int ret = 0;
+
+	if (!smsc_hub)
+		return 0;
 
 	if (smsc_hub->xo_handle) {
 		ret = msm_xo_mode_vote(smsc_hub->xo_handle, MSM_XO_MODE_ON);
