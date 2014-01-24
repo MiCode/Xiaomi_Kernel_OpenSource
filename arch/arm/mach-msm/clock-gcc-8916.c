@@ -2245,7 +2245,7 @@ static struct branch_clk gcc_venus0_vcodec0_clk = {
 static struct mux_clk gcc_debug_mux;
 static struct clk_ops clk_ops_debug_mux;
 
-struct measure_clk_data debug_mux_priv = {
+static struct measure_clk_data debug_mux_priv = {
 	.cxo = &xo_clk_src.c,
 	.plltest_reg = GCC_PLLTEST_PAD_CFG,
 	.plltest_val = 0x51A00,
