@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,18 +38,13 @@ static int v4l2_vpu_close(struct file *file)
 	return vpu_close_client(client);
 }
 
-static unsigned int __poll_vb2_queue(struct vpu_client *client, int port,
-		struct file *file, poll_table *wait)
+static unsigned int __poll_vb2_queue(struct vpu_client *client, int port)
 {
 	struct vpu_dev_session *session = client->session;
 	struct vb2_queue *q = &session->vbqueue[port];
 	struct vb2_buffer *vb = NULL;
 	unsigned int res = 0;
 	unsigned long flags;
-
-	/* error if client not performing buffer I/O or not streaming */
-	if (client != session->io_client[port] || !vb2_is_streaming(q))
-		return POLLERR;
 
 	spin_lock_irqsave(&q->done_lock, flags);
 	if (!list_empty(&q->done_list))
@@ -94,13 +89,13 @@ static unsigned int v4l2_vpu_poll(struct file *file,
 	/* poll input queue */
 	if (req_events & (POLLOUT | POLLWRNORM)) {
 		poll_wait(file, &session->vbqueue[INPUT_PORT].done_wq, wait);
-		mask |= __poll_vb2_queue(client, INPUT_PORT, file, wait);
+		mask |= __poll_vb2_queue(client, INPUT_PORT);
 	}
 
 	/* poll output queue */
 	if (req_events & (POLLIN | POLLRDNORM)) {
 		poll_wait(file, &session->vbqueue[OUTPUT_PORT].done_wq, wait);
-		mask |= __poll_vb2_queue(client, OUTPUT_PORT, file, wait);
+		mask |= __poll_vb2_queue(client, OUTPUT_PORT);
 	}
 
 	return mask;
@@ -181,6 +176,7 @@ static long v4l2_vpu_private_ioctls(struct file *file, void *fh,
 		break;
 
 	default:
+		pr_warn("Received unknown ioctl (%d)\n", cmd);
 		return -ENOTTY;
 		break;
 	}
