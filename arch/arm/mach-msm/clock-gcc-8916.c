@@ -296,6 +296,8 @@ DEFINE_EXT_CLK(xo_a_clk_src, NULL);
 DEFINE_EXT_CLK(rpm_debug_clk, NULL);
 DEFINE_EXT_CLK(apss_debug_clk, NULL);
 
+DEFINE_CLK_DUMMY(wcnss_m_clk, 0);
+
 static unsigned int soft_vote_gpll0;
 
 static struct pll_vote_clk gpll0_clk_src = {
@@ -359,7 +361,7 @@ static struct pll_vote_clk gpll1_clk_src = {
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.parent = &xo_clk_src.c,
-		.rate = 903168000,
+		.rate = 884736000,
 		.dbg_name = "gpll1_clk_src",
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(gpll1_clk_src.c),
@@ -496,7 +498,7 @@ static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_clk[] = {
 	F( 177780000,  gpll0_aux, 4.5,	  0,	0),
 	F( 200000000,  gpll0_aux,   4,	  0,	0),
 	F( 266670000,  gpll0_aux,   3,	  0,	0),
-	F( 301056000,	   gpll1,   3,	  0,	0),
+	F( 294912000,	   gpll1,   3,	  0,	0),
 	F( 310000000,	   gpll2,   3,	  0,	0),
 	F( 400000000,  gpll0_aux,   2,	  0,	0),
 	F_END
@@ -2372,6 +2374,7 @@ static struct mux_clk gcc_debug_mux = {
 		{&gcc_mdss_byte0_clk.c,			0x01fc},
 		{&gcc_mdss_esc0_clk.c,			0x01fd},
 		{&gcc_bimc_gpu_clk.c,			0x015c},
+		{&wcnss_m_clk.c,			0x0198},
 	),
 	.c = {
 		.dbg_name = "gcc_debug_mux",
@@ -2526,6 +2529,7 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(gcc_venus0_vcodec0_clk),
 	CLK_LIST(gcc_bimc_gfx_clk),
 	CLK_LIST(gcc_bimc_gpu_clk),
+	CLK_LIST(wcnss_m_clk),
 };
 
 static int msm_gcc_probe(struct platform_device *pdev)
@@ -2562,8 +2566,6 @@ static int msm_gcc_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Unable to get XO clock!!!\n");
 		return PTR_ERR(xo_gcc);
 	}
-
-	/* TODO: Pronto PLL configured by Apps, owner Pronto */
 
 	/* Vote for GPLL0 to turn on. Needed by acpuclock. */
 	regval = readl_relaxed(GCC_REG_BASE(APCS_GPLL_ENA_VOTE));

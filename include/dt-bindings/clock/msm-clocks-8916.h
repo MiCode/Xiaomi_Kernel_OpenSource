@@ -199,5 +199,6 @@
 /* DEBUG */
 #define clk_gcc_debug_mux			0x8121ac15
 #define clk_rpm_debug_mux			0x25cd1f3a
+#define clk_wcnss_m_clk				0x709f430b
 
 #endif
