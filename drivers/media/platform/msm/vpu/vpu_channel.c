@@ -810,6 +810,7 @@ static int ipc_cmd_sync_wait(struct vpu_sync_transact *ptrans, u32 timeout_ms,
 		} else {
 			/* local error */
 			rc = ptrans->status;
+			pr_err("Local IPC err %d\n", rc);
 		}
 	} else if (rc == 0) {
 		/* timeout */
@@ -2051,6 +2052,12 @@ static void vpu_boot_work_handler(struct work_struct *work)
 		goto powerup_fail;
 	}
 
+	rc = attach_vpu_iommus(ch_hal->res_orig);
+	if (rc) {
+		pr_err("could not attach VPU IOMMUs\n");
+		goto err_iommu_attach;
+	}
+
 	/* boot up VPU and set callback */
 	rc = vpu_hfi_start(chan_handle_msg, chan_handle_event);
 	if (unlikely(rc)) {
@@ -2063,8 +2070,9 @@ static void vpu_boot_work_handler(struct work_struct *work)
 	return;
 
 err_hfi_start:
+	detach_vpu_iommus(ch_hal->res_orig);
+err_iommu_attach:
 	vpu_hw_power_off(ch_hal);
-
 powerup_fail:
 	mutex_unlock(&ch_hal->pw_lock);
 
@@ -2142,6 +2150,7 @@ static void vpu_shutdown_work_handler(struct work_struct *work)
 	mutex_lock(&ch_hal->pw_lock);
 
 	vpu_hfi_stop();
+	detach_vpu_iommus(ch_hal->res_orig);
 	vpu_hw_power_off(ch_hal);
 
 	/* disable HFI system and logging channels */

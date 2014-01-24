@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,7 @@
 #define VPU_STS_EINVALIDCLIENTID                     21
 #define VPU_STS_EINSUFFICIENTMEMAVAILABLE            22
 #define VPU_STS_EBADSTATE                            23
+#define VPU_STS_EFRAMEUNPROCESSED                    24
 
 /* Bit fields */
 #define VPU_IPC_BUFFER_RETURN_TO_HOST_BIT	0x0
