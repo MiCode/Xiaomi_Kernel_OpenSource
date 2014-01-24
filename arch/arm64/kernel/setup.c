@@ -44,6 +44,7 @@
 #include <linux/of_platform.h>
 #include <linux/efi.h>
 #include <linux/personality.h>
+#include <linux/dma-mapping.h>
 
 #include <asm/fixmap.h>
 #include <asm/cpu.h>
@@ -563,3 +564,9 @@ const struct seq_operations cpuinfo_op = {
 	.stop	= c_stop,
 	.show	= c_show
 };
+
+void arch_setup_pdev_archdata(struct platform_device *pdev)
+{
+	pdev->archdata.dma_mask = DMA_BIT_MASK(32);
+	pdev->dev.dma_mask = &pdev->archdata.dma_mask;
+}
