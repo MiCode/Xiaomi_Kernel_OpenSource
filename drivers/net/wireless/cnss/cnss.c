@@ -57,6 +57,7 @@ struct cnss_wlan_gpio_info {
 	u32 num;
 	bool state;
 	bool init;
+	bool prop;
 };
 
 struct cnss_wlan_vreg_info {
@@ -140,6 +141,9 @@ err_gpio_req:
 
 static void cnss_wlan_gpio_set(struct cnss_wlan_gpio_info *info, bool state)
 {
+	if (!info->prop)
+		return;
+
 	if (info->state == state) {
 		pr_debug("Already %s gpio is %s\n",
 			 info->name, state ? "high" : "low");
@@ -178,6 +182,12 @@ static int cnss_wlan_get_resources(struct platform_device *pdev)
 	}
 	vreg_info->state = VREG_ON;
 
+	if (!of_find_property((&pdev->dev)->of_node, gpio_info->name, NULL)) {
+		gpio_info->prop = false;
+		goto end;
+	}
+
+	gpio_info->prop = true;
 	ret = of_get_named_gpio((&pdev->dev)->of_node,
 				gpio_info->name, 0);
 
@@ -200,6 +210,7 @@ static int cnss_wlan_get_resources(struct platform_device *pdev)
 		goto err_gpio_init;
 	}
 
+end:
 	return ret;
 
 err_gpio_init:
@@ -223,6 +234,7 @@ static void cnss_wlan_release_resources(void)
 	gpio_free(gpio_info->num);
 	regulator_put(vreg_info->wlan_reg);
 	gpio_info->state = WLAN_EN_LOW;
+	gpio_info->prop = false;
 	vreg_info->state = VREG_OFF;
 }
 
@@ -800,6 +812,7 @@ static int cnss_probe(struct platform_device *pdev)
 	penv->gpio_info.num = 0;
 	penv->gpio_info.state = WLAN_EN_LOW;
 	penv->gpio_info.init = WLAN_EN_HIGH;
+	penv->gpio_info.prop = false;
 	penv->vreg_info.wlan_reg = NULL;
 	penv->vreg_info.state = VREG_OFF;
 
