@@ -598,6 +598,20 @@ void cnss_pm_wake_lock_destroy(struct wakeup_source *ws)
 }
 EXPORT_SYMBOL(cnss_pm_wake_lock_destroy);
 
+void cnss_flush_work(void *work)
+{
+	struct work_struct *cnss_work = work;
+	cancel_work_sync(cnss_work);
+}
+EXPORT_SYMBOL(cnss_flush_work);
+
+void cnss_flush_delayed_work(void *dwork)
+{
+	struct delayed_work *cnss_dwork = dwork;
+	cancel_delayed_work_sync(cnss_dwork);
+}
+EXPORT_SYMBOL(cnss_flush_delayed_work);
+
 int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size)
 {
 	struct resource *res;
