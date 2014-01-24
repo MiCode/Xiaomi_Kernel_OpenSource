@@ -1022,8 +1022,8 @@ int mdss_hw_init(struct mdss_data_type *mdata)
 	struct mdss_mdp_pipe *vig;
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-	mdata->mdp_rev = readl_relaxed(mdata->mdp_base +
-		MDSS_MDP_REG_HW_VERSION);
+	mdata->mdp_rev = readl_relaxed(mdata->mdss_base + MDSS_REG_HW_VERSION);
+
 	pr_info_once("MDP Rev=%x\n", mdata->mdp_rev);
 
 	/* disable hw underrun recovery */
