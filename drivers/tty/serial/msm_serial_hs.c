@@ -551,6 +551,25 @@ static inline void msm_hs_write(struct uart_port *uport, unsigned int index,
 	writel_relaxed(value, uport->membase + offset);
 }
 
+static int sps_rx_disconnect(struct sps_pipe *sps_pipe_handler)
+{
+	struct sps_connect config;
+	int ret;
+
+	ret = sps_get_config(sps_pipe_handler, &config);
+	if (ret) {
+		pr_err("%s: sps_get_config() failed ret %d\n", __func__, ret);
+		return ret;
+	}
+	config.options |= SPS_O_POLL;
+	ret = sps_set_config(sps_pipe_handler, &config);
+	if (ret) {
+		pr_err("%s: sps_set_config() failed ret %d\n", __func__, ret);
+		return ret;
+	}
+	return sps_disconnect(sps_pipe_handler);
+}
+
 static void hex_dump_ipc(char *prefix, char *string, int size)
 {
 	char linebuf[512];
@@ -1191,7 +1210,7 @@ static void msm_hs_set_termios(struct uart_port *uport,
 				ret = wait_event_timeout(msm_uport->rx.wait,
 					msm_uport->rx_bam_inprogress == false,
 					RX_FLUSH_COMPLETE_TIMEOUT);
-			ret = sps_disconnect(sps_pipe_handle);
+			ret = sps_rx_disconnect(sps_pipe_handle);
 			if (ret)
 				MSM_HS_ERR("%s(): sps_disconnect failed\n",
 							__func__);
@@ -1275,7 +1294,7 @@ static void hsuart_disconnect_rx_endpoint_work(struct work_struct *w)
 	struct sps_pipe *sps_pipe_handle = rx->prod.pipe_handle;
 	int ret = 0;
 
-	ret = sps_disconnect(sps_pipe_handle);
+	ret = sps_rx_disconnect(sps_pipe_handle);
 	if (ret)
 		MSM_HS_ERR("%s(): sps_disconnect failed\n", __func__);
 
