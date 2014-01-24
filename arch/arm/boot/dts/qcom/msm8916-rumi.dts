@@ -39,6 +39,10 @@
 	};
 };
 
+&clock_debug {
+	status = "disabled";
+};
+
 &blsp1_uart2 {
 	status = "ok";
 	pinctrl-names = "default";
