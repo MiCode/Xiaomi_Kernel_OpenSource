@@ -869,6 +869,17 @@ static int smb135x_set_appropriate_current(struct smb135x_chg *chip,
 	int (*func)(struct smb135x_chg *chip, int current_ma);
 	int rc = 0;
 
+	/*
+	 * If battery is absent do not modify the current at all, these
+	 * would be some appropriate values set by the bootloader or default
+	 * configuration and since it is the only source of power we should
+	 * not change it
+	 */
+	if (!chip->batt_present) {
+		pr_debug("ignoring current request since battery is absent\n");
+		return 0;
+	}
+
 	if (path == USB) {
 		path_current = chip->usb_psy_ma;
 		func = smb135x_set_usb_chg_current;
