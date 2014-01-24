@@ -212,6 +212,8 @@
 
 		qcom,gic-parent = <&intc>;
 		qcom,gic-map = <2 216>, /* tsens_upper_lower_int */
+			<48 165>, /* usb30_hs_phy_irq */
+			<49 165>, /* usb30_hs_phy_irq */
 			<50 172>, /* usb1_hs_async_wakeup_irq */
 			<53 104>, /* mdss_irq */
 			<62 222>, /* ee0_krait_hlos_spmi_periph_irq */
@@ -222,7 +224,6 @@
 			<0xff 105>, /* mdss_mmu_pmirpt */
 			<0xff 116>, /* mdss_vbif_irpt */
 			<0xff 64>, /* usb30_hsic_ee1_irq */
-			<0xff 165>, /* usb30_hs_phy_irq */
 
 			<0xff 57>, /* o_vpu_vpu_apps_irq_out */
 			<0xff 58>, /* o_vpu_maple_apps_irq_out */
