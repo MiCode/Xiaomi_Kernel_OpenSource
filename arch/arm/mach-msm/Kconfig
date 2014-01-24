@@ -689,17 +689,6 @@ config MSM_SMD_LOGGING
 
 	  If in doubt, say yes.
 
-config MSM_QMI_INTERFACE
-	depends on IPC_ROUTER
-	depends on QMI_ENCDEC
-	default n
-	bool "MSM QMI Interface Library"
-	help
-	  Library to send and receive QMI messages over IPC Router.
-	  This library provides interface functions to the kernel drivers
-	  to perform QMI message marshaling and transport them over IPC
-	  Router.
-
 config MSM_TEST_QMI_CLIENT
 	depends on MSM_QMI_INTERFACE
 	bool "MSM TEST QMI CLIENT"

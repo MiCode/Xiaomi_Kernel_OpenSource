@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +20,7 @@
 
 #include <asm/uaccess.h>
 
-#include <mach/msm_qmi_interface.h>
+#include <soc/qcom/msm_qmi_interface.h>
 
 #include "kernel_test_service_v01.h"
 

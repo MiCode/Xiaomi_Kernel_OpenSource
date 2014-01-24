@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _MSM_QMI_INTERFACE_PRIV_H_
-#define _MSM_QMI_INTERFACE_PRIV_H_
+#ifndef _QMI_INTERFACE_PRIV_H_
+#define _QMI_INTERFACE_PRIV_H_
 
 #include <linux/types.h>
 #include <linux/errno.h>
@@ -22,7 +22,7 @@
 #include <linux/platform_device.h>
 #include <linux/qmi_encdec.h>
 
-#include <mach/msm_qmi_interface.h>
+#include <soc/qcom/msm_qmi_interface.h>
 
 enum txn_type {
 	QMI_SYNC_TXN = 1,
