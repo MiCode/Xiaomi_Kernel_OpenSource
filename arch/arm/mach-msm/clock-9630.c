@@ -22,15 +22,15 @@
 #include <linux/regulator/rpm-smd-regulator.h>
 #include <linux/iopoll.h>
 #include <linux/clk/msm-clk.h>
+#include <soc/qcom/clock-alpha-pll.h>
+#include <soc/qcom/clock-local2.h>
+#include <soc/qcom/clock-pll.h>
+#include <soc/qcom/clock-rpm.h>
+#include <soc/qcom/clock-voter.h>
 
 #include <mach/socinfo.h>
 
-#include "clock-local2.h"
-#include "clock-pll.h"
-#include "clock-rpm.h"
-#include "clock-voter.h"
 #include "clock.h"
-#include "clock-alpha-pll.h"
 
 enum {
 	GCC_BASE,

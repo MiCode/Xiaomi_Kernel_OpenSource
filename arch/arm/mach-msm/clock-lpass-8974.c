@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,10 +23,10 @@
 #include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/clk/msm-clock-generic.h>
+#include <soc/qcom/clock-local2.h>
 
 #include <dt-bindings/clock/msm-clocks-8974.h>
 
-#include "clock-local2.h"
 #include "clock.h"
 
 enum {

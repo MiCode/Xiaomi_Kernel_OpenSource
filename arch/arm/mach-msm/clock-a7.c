@@ -24,8 +24,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/of.h>
 #include <linux/clk/msm-clock-generic.h>
-
-#include "clock-local2.h"
+#include <soc/qcom/clock-local2.h>
 
 #define UPDATE_CHECK_MAX_LOOPS 200
 
