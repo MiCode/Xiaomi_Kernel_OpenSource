@@ -793,7 +793,11 @@ static int smb135x_set_usb_chg_current(struct smb135x_chg *chip,
 		current_ma = CURRENT_500_MA;
 	}
 
-	if (current_ma <= SUSPEND_CURRENT_MA) {
+	if (current_ma == 0)
+		/* choose the lowest available value of 100mA */
+		current_ma = CURRENT_100_MA;
+
+	if (current_ma == SUSPEND_CURRENT_MA) {
 		/* force suspend bit */
 		rc = smb135x_path_suspend(chip, USB, CURRENT, true);
 		goto out;
@@ -911,7 +915,7 @@ static int smb135x_set_appropriate_current(struct smb135x_chg *chip,
 	return rc;
 }
 
-static int smb135x_charging(struct smb135x_chg *chip, int enable)
+static int __smb135x_charging(struct smb135x_chg *chip, int enable)
 {
 	int rc = 0;
 
@@ -943,6 +947,27 @@ static int smb135x_charging(struct smb135x_chg *chip, int enable)
 		return rc;
 	}
 
+	pr_debug("charging %s\n",
+			enable ?  "enabled" : "disabled running from batt");
+	return rc;
+}
+
+static int smb135x_charging(struct smb135x_chg *chip, int enable)
+{
+	int rc = 0;
+
+	pr_debug("charging enable = %d\n", enable);
+
+	__smb135x_charging(chip, enable);
+
+	if (chip->usb_psy) {
+		pr_debug("usb psy changed\n");
+		power_supply_changed(chip->usb_psy);
+	}
+	if (chip->dc_psy_type != -EINVAL) {
+		pr_debug("dc psy changed\n");
+		power_supply_changed(&chip->dc_psy);
+	}
 	pr_debug("charging %s\n",
 			enable ?  "enabled" : "disabled running from batt");
 	return rc;
@@ -1105,6 +1130,7 @@ static int smb135x_battery_get_property(struct power_supply *psy,
 }
 
 static enum power_supply_property smb135x_dc_properties[] = {
+	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_HEALTH,
 };
@@ -1117,8 +1143,11 @@ static int smb135x_dc_get_property(struct power_supply *psy,
 				struct smb135x_chg, dc_psy);
 
 	switch (prop) {
-	case POWER_SUPPLY_PROP_ONLINE:
+	case POWER_SUPPLY_PROP_PRESENT:
 		val->intval = chip->dc_present;
+		break;
+	case POWER_SUPPLY_PROP_ONLINE:
+		val->intval = chip->chg_enabled ? chip->dc_present : 0;
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
 		val->intval = chip->dc_present;
@@ -1134,19 +1163,11 @@ static void smb135x_external_power_changed(struct power_supply *psy)
 	struct smb135x_chg *chip = container_of(psy,
 				struct smb135x_chg, batt_psy);
 	union power_supply_propval prop = {0,};
-	int rc, current_limit = 0, online = 0;
+	int rc, current_limit = 0;
 
 	if (chip->bms_psy_name)
 		chip->bms_psy =
 			power_supply_get_by_name((char *)chip->bms_psy_name);
-
-	rc = chip->usb_psy->get_property(chip->usb_psy,
-				POWER_SUPPLY_PROP_ONLINE, &prop);
-	if (rc < 0)
-		dev_err(chip->dev,
-			"could not read USB online property, rc=%d\n", rc);
-	else
-		online = prop.intval;
 
 	rc = chip->usb_psy->get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_CURRENT_MAX, &prop);
@@ -1156,17 +1177,35 @@ static void smb135x_external_power_changed(struct power_supply *psy)
 	else
 		current_limit = prop.intval / 1000;
 
-	pr_debug("online = %d, current_limit = %d\n", online, current_limit);
+	pr_debug("current_limit = %d\n", current_limit);
 
-	if (!online)
-		current_limit = CURRENT_100_MA;
+	if (chip->usb_psy_ma != current_limit) {
+		mutex_lock(&chip->current_change_lock);
+		chip->usb_psy_ma = current_limit;
+		rc = smb135x_set_appropriate_current(chip, USB);
+		mutex_unlock(&chip->current_change_lock);
+		if (rc < 0)
+			dev_err(chip->dev, "Couldn't set usb current rc = %d\n",
+					rc);
+	}
 
-	mutex_lock(&chip->current_change_lock);
-	chip->usb_psy_ma = current_limit;
-	rc = smb135x_set_appropriate_current(chip, USB);
-	mutex_unlock(&chip->current_change_lock);
+	rc = chip->usb_psy->get_property(chip->usb_psy,
+			POWER_SUPPLY_PROP_ONLINE, &prop);
 	if (rc < 0)
-		dev_err(chip->dev, "Couldn't set usb current rc = %d\n", rc);
+		dev_err(chip->dev,
+			"could not read USB ONLINE property, rc=%d\n", rc);
+
+	/* update online property */
+	rc = 0;
+	if (chip->usb_present && chip->chg_enabled && chip->usb_psy_ma != 0) {
+		if (prop.intval == 0)
+			rc = power_supply_set_online(chip->usb_psy, true);
+	} else {
+		if (prop.intval == 1)
+			rc = power_supply_set_online(chip->usb_psy, false);
+	}
+	if (rc < 0)
+		dev_err(chip->dev, "could not set usb online, rc=%d\n", rc);
 }
 
 #define MIN_FLOAT_MV	3600
@@ -2426,7 +2465,7 @@ static int smb135x_hw_init(struct smb135x_chg *chip)
 		return rc;
 	}
 
-	smb135x_charging(chip, chip->chg_enabled);
+	__smb135x_charging(chip, chip->chg_enabled);
 
 	/* interrupt enabling - active low */
 	if (chip->client->irq) {
