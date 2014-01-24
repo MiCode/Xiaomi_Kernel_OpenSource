@@ -31,20 +31,20 @@
 
 	memory {
 		audio_mem: audio_region@0 {
-			linux,contiguous-region;
+			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			reg = <0 0x614000>;
 			label = "audio_mem";
 		};
 
 		qseecom_mem: qseecom_region@0 {
-			linux,contiguous-region;
+			linux,reserve-contiguous-region;
 			reg = <0 0x1100000>;
 			label = "qseecom_mem";
                 };
 
 		secure_mem: secure_region@0 {
-			linux,contiguous-region;
+			linux,reserve-contiguous-region;
 			reg = <0 0xfc00000>;
 			label = "secure_mem";
 		};
