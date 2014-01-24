@@ -255,6 +255,61 @@ static struct msm_gpiomux_config mpq_hdmi_mux_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting hdmi_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting hdmi_active_cec_cfg = {
+	.func = GPIOMUX_FUNC_4,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting hdmi_active_ddc_cfg = {
+	.func = GPIOMUX_FUNC_5,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting hdmi_active_hpd_cfg = {
+	.func = GPIOMUX_FUNC_5,
+	.drv = GPIOMUX_DRV_16MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct msm_gpiomux_config msm_hdmi_configs[] __initdata = {
+	{
+		.gpio = 26, /* cec */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hdmi_active_cec_cfg,
+			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 24, /* ddc clk */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hdmi_active_ddc_cfg,
+			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 27, /* ddc data */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hdmi_active_ddc_cfg,
+			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 25, /* hpd */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &hdmi_active_hpd_cfg,
+			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
+		},
+	},
+};
+
 void __init mpq8092_init_gpiomux(void)
 {
 	int rc;
@@ -276,4 +331,5 @@ void __init mpq8092_init_gpiomux(void)
 			ARRAY_SIZE(mpq8092_spdif_config));
 	msm_gpiomux_install(mpq_hdmi_mux_configs,
 			ARRAY_SIZE(mpq_hdmi_mux_configs));
+	msm_gpiomux_install(msm_hdmi_configs, ARRAY_SIZE(msm_hdmi_configs));
 }
