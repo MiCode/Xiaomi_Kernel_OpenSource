@@ -489,7 +489,7 @@ static int msm_ipc_router_ioctl(struct socket *sock,
 		if (server_arg.num_entries_in_array) {
 			if (server_arg.num_entries_in_array >
 				(SIZE_MAX / sizeof(*srv_info))) {
-				pr_err("%s: Integer Overflow %d * %d\n",
+				pr_err("%s: Integer Overflow %zu * %d\n",
 					__func__, sizeof(*srv_info),
 					server_arg.num_entries_in_array);
 				ret = -EINVAL;
