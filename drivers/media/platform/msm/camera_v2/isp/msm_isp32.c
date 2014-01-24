@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,8 @@
 	(~(ping_pong >> (idx + VFE32_STATS_PING_PONG_OFFSET)) & 0x1))
 
 #define VFE32_CLK_IDX 0
+#define MSM_ISP32_TOTAL_WM_UB 792
+
 static struct msm_cam_clk_info msm_vfe32_1_clk_info[] = {
 	/*vfe32 clock info for B-family: 8610 */
 	{"vfe_clk_src", 266670000},
@@ -787,7 +789,43 @@ static void msm_vfe32_axi_clear_wm_xbar_reg(
 	msm_camera_io_w(xbar_reg_cfg, vfe_dev->vfe_base + VFE32_XBAR_BASE(wm));
 }
 
-static void msm_vfe32_cfg_axi_ub(struct vfe_device *vfe_dev)
+static void msm_vfe32_cfg_axi_ub_equal_default(struct vfe_device *vfe_dev)
+{
+	int i;
+	uint32_t ub_offset = 0;
+	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+	uint32_t total_image_size = 0;
+	uint32_t num_used_wms = 0;
+	uint32_t prop_size = 0;
+	uint32_t wm_ub_size;
+	uint64_t delta;
+	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
+		if (axi_data->free_wm[i] > 0) {
+			num_used_wms++;
+			total_image_size += axi_data->wm_image_size[i];
+		}
+	}
+	prop_size = MSM_ISP32_TOTAL_WM_UB -
+		axi_data->hw_info->min_wm_ub * num_used_wms;
+	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
+		if (axi_data->free_wm[i]) {
+			delta =
+				(uint64_t)(axi_data->wm_image_size[i] *
+					prop_size);
+			do_div(delta, total_image_size);
+			wm_ub_size = axi_data->hw_info->min_wm_ub +
+				(uint32_t)delta;
+			msm_camera_io_w(ub_offset << 16 |
+				(wm_ub_size - 1), vfe_dev->vfe_base +
+					VFE32_WM_BASE(i) + 0xC);
+			ub_offset += wm_ub_size;
+		} else
+			msm_camera_io_w(0,
+				vfe_dev->vfe_base + VFE32_WM_BASE(i) + 0xC);
+	}
+}
+
+static void msm_vfe32_cfg_axi_ub_equal_slicing(struct vfe_device *vfe_dev)
 {
 	int i;
 	uint32_t ub_offset = 0;
@@ -807,6 +845,16 @@ static void msm_vfe32_cfg_axi_ub(struct vfe_device *vfe_dev)
 			ub_offset += VFE32_EQUAL_SLICE_UB;
 		}
 	}
+}
+
+static void msm_vfe32_cfg_axi_ub(struct vfe_device *vfe_dev)
+{
+	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+	axi_data->wm_ub_cfg_policy = MSM_WM_UB_EQUAL_SLICING;
+	if (axi_data->wm_ub_cfg_policy == MSM_WM_UB_EQUAL_SLICING)
+		msm_vfe32_cfg_axi_ub_equal_slicing(vfe_dev);
+	else
+		msm_vfe32_cfg_axi_ub_equal_default(vfe_dev);
 }
 
 static void msm_vfe32_update_ping_pong_addr(struct vfe_device *vfe_dev,
@@ -1069,6 +1117,7 @@ struct msm_vfe_axi_hardware_info msm_vfe32_axi_hw_info = {
 	.num_comp_mask = 3,
 	.num_rdi = 3,
 	.num_rdi_master = 3,
+	.min_wm_ub = 64,
 };
 
 static struct msm_vfe_stats_hardware_info msm_vfe32_stats_hw_info = {
