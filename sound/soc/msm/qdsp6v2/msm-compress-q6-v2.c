@@ -525,7 +525,7 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 			prtd->sample_rate;
 		wma_pro_cfg.avg_bytes_per_sec =
 			prtd->codec_param.codec.bit_rate/8;
-		wma_cfg.block_align =
+		wma_pro_cfg.block_align =
 			prtd->codec_param.codec.options.wma.super_block_align;
 		wma_pro_cfg.valid_bits_per_sample =
 			prtd->codec_param.codec.options.wma.bits_per_sample;
