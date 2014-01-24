@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -110,6 +110,35 @@ void *diagmem_alloc(struct diagchar_dev *driver, int size, int pool_type)
 					GFP_ATOMIC);
 			}
 		}
+	} else if (pool_type == POOL_TYPE_HSIC_DCI ||
+				pool_type == POOL_TYPE_HSIC_DCI_2) {
+		index = pool_type - POOL_TYPE_HSIC_DCI;
+		if (diag_hsic_dci[index].diag_hsic_pool) {
+			if ((diag_hsic_dci[index].count_hsic_pool <
+			     diag_hsic_dci[index].poolsize_hsic) &&
+			     (size <= diag_hsic_dci[index].itemsize_hsic)) {
+				atomic_add(1, (atomic_t *)
+					&diag_hsic_dci[index].count_hsic_pool);
+				buf = mempool_alloc(
+					diag_hsic_dci[index].diag_hsic_pool,
+					GFP_ATOMIC);
+			}
+		}
+	} else if (pool_type == POOL_TYPE_HSIC_DCI_WRITE ||
+				pool_type == POOL_TYPE_HSIC_DCI_2_WRITE) {
+		index = pool_type - POOL_TYPE_HSIC_DCI_WRITE;
+		if (diag_hsic_dci[index].diag_hsic_write_pool) {
+			if (diag_hsic_dci[index].count_hsic_write_pool <
+			   diag_hsic_dci[index].poolsize_hsic_write &&
+			   (size <= diag_hsic_dci[index].itemsize_hsic_write)) {
+				atomic_add(1, (atomic_t *)
+					&diag_hsic_dci[index].
+					count_hsic_write_pool);
+				buf = mempool_alloc(
+				      diag_hsic_dci[index].diag_hsic_write_pool,
+				      GFP_ATOMIC);
+			}
+		}
 #endif
 	}
 	spin_unlock_irqrestore(&driver->diag_mem_lock, flags);
@@ -176,7 +205,7 @@ void diagmem_exit(struct diagchar_dev *driver, int pool_type)
 		}
 	}
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-	for (index = 0; index < MAX_HSIC_CH; index++) {
+	for (index = 0; index < MAX_HSIC_DATA_CH; index++) {
 		if (diag_hsic[index].diag_hsic_pool &&
 				(diag_hsic[index].hsic_inited == 0)) {
 			if (diag_hsic[index].count_hsic_pool == 0) {
@@ -202,6 +231,36 @@ void diagmem_exit(struct diagchar_dev *driver, int pool_type)
 			} else if (pool_type == POOL_TYPE_ALL)
 				pr_err("Unable to destroy HSIC USB struct mempool for ch %d"
 								, index);
+		}
+	}
+
+	for (index = 0; index < MAX_HSIC_DCI_CH; index++) {
+		if (diag_hsic_dci[index].diag_hsic_pool &&
+			(diag_hsic_dci[index].hsic_inited == 0)) {
+			if (diag_hsic_dci[index].count_hsic_pool == 0) {
+				mempool_destroy(
+					diag_hsic_dci[index].diag_hsic_pool);
+				diag_hsic_dci[index].diag_hsic_pool = NULL;
+			} else if (pool_type == POOL_TYPE_ALL)
+				pr_err("Unable to destroy HDLC mempool for ch %d",
+					index);
+		}
+
+		if (diag_hsic_dci[index].diag_hsic_write_pool &&
+			(diag_hsic_dci[index].hsic_inited == 0)) {
+			/*
+			 * Free up struct pool ONLY if there are no outstanding
+			 * buffers that are held up in processing DCI data
+			 */
+			if (diag_hsic_dci[index].count_hsic_write_pool == 0 &&
+				diag_hsic_dci[index].count_hsic_pool == 0) {
+				mempool_destroy(diag_hsic_dci[index].
+							diag_hsic_write_pool);
+				diag_hsic_dci[index].diag_hsic_write_pool =
+									NULL;
+			} else if (pool_type == POOL_TYPE_ALL)
+				pr_err("Unable to destroy HSIC DCI struct mempool for ch %d",
+					index);
 		}
 	}
 #endif
@@ -284,6 +343,30 @@ void diagmem_free(struct diagchar_dev *driver, void *buf, int pool_type)
 		} else
 			pr_err("diag: Attempt to free up DIAG driver HSIC USB structure mempool which is already free %d, ch = %d",
 				driver->count_write_struct_pool, index);
+	} else if (pool_type == POOL_TYPE_HSIC_DCI ||
+				pool_type == POOL_TYPE_HSIC_DCI_2) {
+		index = pool_type - POOL_TYPE_HSIC_DCI;
+		if (diag_hsic_dci[index].diag_hsic_pool != NULL &&
+			diag_hsic_dci[index].count_hsic_pool > 0) {
+			mempool_free(buf, diag_hsic_dci[index].diag_hsic_pool);
+			atomic_add(-1, (atomic_t *)
+				   &diag_hsic_dci[index].count_hsic_pool);
+		} else
+			pr_err("diag: Attempt to free up DIAG driver HSIC mempool which is already free %d, ch = %d",
+				diag_hsic_dci[index].count_hsic_pool, index);
+	} else if (pool_type == POOL_TYPE_HSIC_DCI_WRITE ||
+				pool_type == POOL_TYPE_HSIC_DCI_2_WRITE) {
+		index = pool_type - POOL_TYPE_HSIC_DCI_WRITE;
+		if (diag_hsic_dci[index].diag_hsic_write_pool != NULL &&
+			diag_hsic_dci[index].count_hsic_write_pool > 0) {
+			mempool_free(buf,
+				     diag_hsic_dci[index].diag_hsic_write_pool);
+			atomic_add(-1, (atomic_t *)
+				&diag_hsic_dci[index].count_hsic_write_pool);
+		} else
+			pr_err("diag: Attempt to free up DIAG driver HSIC USB structure mempool which is already free %d, ch = %d",
+				diag_hsic_dci[index].count_hsic_write_pool,
+				index);
 #endif
 	} else {
 		pr_err("diag: In %s, unknown pool type: %d\n",
@@ -349,7 +432,7 @@ void diagmem_init(struct diagchar_dev *driver)
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 void diagmem_hsic_init(int index)
 {
-	if (index < 0 || index >= MAX_HSIC_CH) {
+	if (index < 0 || index >= MAX_HSIC_DATA_CH) {
 		pr_err("diag: Invalid hsic index in %s\n", __func__);
 		return;
 	}
@@ -377,6 +460,40 @@ void diagmem_hsic_init(int index)
 	if (!diag_hsic[index].diag_hsic_write_pool)
 		pr_err("Cannot allocate diag HSIC struct mempool for ch %d\n",
 									index);
+
+}
+
+void diagmem_hsic_dci_init(int index)
+{
+	if (index < 0 || index >= MAX_HSIC_DCI_CH) {
+		pr_err("diag: Invalid hsic index in %s\n", __func__);
+		return;
+	}
+
+	if (diag_hsic_dci[index].count_hsic_pool == 0) {
+		diag_hsic_dci[index].diag_hsic_pool =
+			mempool_create_kmalloc_pool(
+					diag_hsic_dci[index].poolsize_hsic,
+					diag_hsic_dci[index].itemsize_hsic);
+		diag_pools_array[POOL_HSIC_DCI_IDX + index] =
+			diag_hsic_dci[index].diag_hsic_pool;
+	}
+
+	if (diag_hsic_dci[index].count_hsic_write_pool == 0) {
+		diag_hsic_dci[index].diag_hsic_write_pool =
+			mempool_create_kmalloc_pool(
+			diag_hsic_dci[index].poolsize_hsic_write,
+			diag_hsic_dci[index].itemsize_hsic_write);
+		diag_pools_array[POOL_HSIC_DCI_WRITE_IDX + index] =
+			diag_hsic_dci[index].diag_hsic_write_pool;
+	}
+
+	if (!diag_hsic_dci[index].diag_hsic_pool)
+		pr_err("Cannot allocate diag HSIC mempool for ch %d\n", index);
+
+	if (!diag_hsic_dci[index].diag_hsic_write_pool)
+		pr_err("Cannot allocate diag HSIC struct mempool for ch %d\n",
+		index);
 
 }
 #endif

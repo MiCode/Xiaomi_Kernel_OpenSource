@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,7 @@
 #include "diagfwd_bridge.h"
 
 struct diag_bridge_dev *diag_bridge;
+struct diag_bridge_dci_dev *diag_bridge_dci;
 
 /* diagfwd_connect_bridge is called when the USB mdm channel is connected */
 int diagfwd_connect_bridge(int process_cable)
@@ -39,7 +40,7 @@ int diagfwd_connect_bridge(int process_cable)
 
 	pr_debug("diag: in %s\n", __func__);
 
-	for (i = 0; i < MAX_BRIDGES; i++)
+	for (i = 0; i < MAX_BRIDGES_DATA; i++)
 		if (diag_bridge[i].enabled)
 			connect_bridge(process_cable, i);
 	return 0;
@@ -67,7 +68,7 @@ void connect_bridge(int process_cable, uint8_t index)
 			diagfwd_connect_smux();
 		}
 	} else {
-		if (index >= MAX_HSIC_CH) {
+		if (index >= MAX_HSIC_DATA_CH) {
 			pr_err("diag: Invalid hsic channel index %d in %s\n",
 							index, __func__);
 			mutex_unlock(&diag_bridge[index].bridge_mutex);
@@ -83,8 +84,9 @@ void connect_bridge(int process_cable, uint8_t index)
 			if (!diag_hsic[index].hsic_device_opened) {
 				hsic_diag_bridge_ops[index].ctxt =
 							(void *)(int)(index);
-				err = diag_bridge_open(index,
-						 &hsic_diag_bridge_ops[index]);
+				err = diag_bridge_open(
+						hsic_data_bridge_map[index],
+						&hsic_diag_bridge_ops[index]);
 				if (err) {
 					pr_err("diag: HSIC channel open error: %d\n",
 						   err);
@@ -127,7 +129,7 @@ int diagfwd_disconnect_bridge(int process_cable)
 	int i;
 	pr_debug("diag: In %s, process_cable: %d\n", __func__, process_cable);
 
-	for (i = 0; i < MAX_BRIDGES; i++) {
+	for (i = 0; i < MAX_BRIDGES_DATA; i++) {
 		if (diag_bridge[i].enabled) {
 			mutex_lock(&diag_bridge[i].bridge_mutex);
 			/* If the usb cable is being disconnected */
@@ -271,10 +273,8 @@ void diagfwd_bridge_init(int index)
 	int ret;
 	unsigned char name[20];
 
-	if (index == HSIC) {
+	if (index == HSIC_DATA_CH) {
 		strlcpy(name, "hsic", sizeof(name));
-	} else if (index == HSIC_2) {
-		strlcpy(name, "hsic_2", sizeof(name));
 	} else if (index == SMUX) {
 		strlcpy(name, "smux", sizeof(name));
 	} else {
@@ -306,17 +306,14 @@ void diagfwd_bridge_init(int index)
 		goto err;
 	mutex_init(&diag_bridge[index].bridge_mutex);
 
-	if (index == HSIC || index == HSIC_2) {
+	if (index == HSIC_DATA_CH) {
 		INIT_WORK(&(diag_bridge[index].usb_read_complete_work),
 				 diag_usb_read_complete_hsic_fn);
 #ifdef CONFIG_DIAG_OVER_USB
 		INIT_WORK(&(diag_bridge[index].diag_read_work),
 		      diag_read_usb_hsic_work_fn);
-		if (index == HSIC)
+		if (index == HSIC_DATA_CH)
 			diag_bridge[index].ch = usb_diag_open(DIAG_MDM,
-				 (void *)index, diagfwd_bridge_notifier);
-		else if (index == HSIC_2)
-			diag_bridge[index].ch = usb_diag_open(DIAG_MDM2,
 				 (void *)index, diagfwd_bridge_notifier);
 		if (IS_ERR(diag_bridge[index].ch)) {
 			pr_err("diag: Unable to open USB MDM ch = %d\n", index);
@@ -360,7 +357,7 @@ void diagfwd_bridge_exit(void)
 	int i;
 	pr_debug("diag: in %s\n", __func__);
 
-	for (i = 0; i < MAX_HSIC_CH; i++) {
+	for (i = 0; i < MAX_HSIC_DATA_CH; i++) {
 		if (diag_hsic[i].hsic_device_enabled) {
 			diag_hsic_close(i);
 			diag_hsic[i].hsic_device_enabled = 0;
@@ -379,7 +376,7 @@ void diagfwd_bridge_exit(void)
 	platform_driver_unregister(&msm_hsic_ch_driver);
 	platform_driver_unregister(&msm_diagfwd_smux_driver);
 	/* destroy USB MDM specific variables */
-	for (i = 0; i < MAX_BRIDGES; i++) {
+	for (i = 0; i < MAX_BRIDGES_DATA; i++) {
 		if (diag_bridge[i].enabled) {
 #ifdef CONFIG_DIAG_OVER_USB
 			usb_diag_close(diag_bridge[i].ch);
@@ -391,4 +388,61 @@ void diagfwd_bridge_exit(void)
 		}
 	}
 	kfree(driver->write_ptr_mdm);
+}
+
+int diagfwd_bridge_dci_init(int index)
+{
+	unsigned char name[20];
+
+	if (!diag_bridge_dci)
+		return -EIO;
+
+	/*
+	 * Don't return an error code if the channel is not supported. The rest
+	 * of the driver initialization should proceed.
+	 * diag_bridge_dci[index].enabled is used to check if a particular
+	 * bridge instance is initialized.
+	 */
+	if (index == HSIC_DCI_CH)
+		strlcpy(name, "hsic_dci", sizeof(name));
+	else
+		return 0;
+
+	strlcpy(diag_bridge_dci[index].name, name,
+		sizeof(diag_bridge_dci[index].name));
+	strlcat(name, "_diag_wq", sizeof(diag_bridge_dci[index].name));
+	diag_bridge_dci[index].id = index;
+	diag_bridge_dci[index].wq = create_singlethread_workqueue(name);
+	if (!diag_bridge_dci[index].wq)
+		return -ENOMEM;
+	diag_bridge_dci[index].read_len = 0;
+	diag_bridge_dci[index].write_len = 0;
+	diag_bridge_dci[index].enabled = 1;
+	mutex_init(&diag_bridge_dci[index].bridge_mutex);
+
+	return 0;
+}
+
+void diagfwd_bridge_dci_exit(void)
+{
+	int i;
+	pr_debug("diag: in %s\n", __func__);
+
+	for (i = 0; i < MAX_HSIC_DCI_CH; i++) {
+		if (diag_hsic_dci[i].hsic_device_enabled) {
+			diag_hsic_dci_close(i);
+			diag_hsic_dci[i].hsic_device_enabled = 0;
+			diag_bridge_dci[i].enabled = 0;
+		}
+		diag_hsic_dci[i].hsic_inited = 0;
+	}
+
+	diagmem_exit(driver, POOL_TYPE_ALL);
+
+	for (i = 0; i < MAX_BRIDGES_DCI; i++) {
+		if (diag_bridge_dci[i].enabled) {
+			destroy_workqueue(diag_bridge_dci[i].wq);
+			diag_bridge_dci[i].enabled = 0;
+		}
+	}
 }

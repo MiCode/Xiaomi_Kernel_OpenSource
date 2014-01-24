@@ -41,8 +41,12 @@
 #define POOL_TYPE_WRITE_STRUCT	4
 #define POOL_TYPE_HSIC		5
 #define POOL_TYPE_HSIC_2	6
+#define POOL_TYPE_HSIC_DCI	7
+#define POOL_TYPE_HSIC_DCI_2	8
 #define POOL_TYPE_HSIC_WRITE	11
 #define POOL_TYPE_HSIC_2_WRITE	12
+#define POOL_TYPE_HSIC_DCI_WRITE	13
+#define POOL_TYPE_HSIC_DCI_2_WRITE	14
 #define POOL_TYPE_ALL		10
 #define POOL_TYPE_DCI		20
 
@@ -53,11 +57,11 @@
 #define POOL_DCI_IDX		4
 #define POOL_BRIDGE_BASE	POOL_DCI_IDX
 #define POOL_HSIC_IDX		(POOL_BRIDGE_BASE + 1)
-#define POOL_HSIC_2_IDX		(POOL_BRIDGE_BASE + 2)
+#define POOL_HSIC_DCI_IDX	(POOL_BRIDGE_BASE + 2)
 #define POOL_HSIC_3_IDX		(POOL_BRIDGE_BASE + 3)
 #define POOL_HSIC_4_IDX		(POOL_BRIDGE_BASE + 4)
 #define POOL_HSIC_WRITE_IDX	(POOL_BRIDGE_BASE + 5)
-#define POOL_HSIC_2_WRITE_IDX	(POOL_BRIDGE_BASE + 6)
+#define POOL_HSIC_DCI_WRITE_IDX	(POOL_BRIDGE_BASE + 6)
 #define POOL_HSIC_3_WRITE_IDX	(POOL_BRIDGE_BASE + 7)
 #define POOL_HSIC_4_WRITE_IDX	(POOL_BRIDGE_BASE + 8)
 
@@ -170,6 +174,11 @@
 
 #define DIAG_TS_SIZE	50
 
+
+#define MAX_HSIC_DATA_CH	2
+#define MAX_HSIC_DCI_CH		2
+#define MAX_HSIC_CH		(MAX_HSIC_DATA_CH + MAX_HSIC_DCI_CH)
+
 /* Maximum number of pkt reg supported at initialization*/
 extern int diag_max_reg;
 extern int diag_threshold_reg;
@@ -185,8 +194,6 @@ do {							\
 enum remote_procs {
 	MDM = 1,
 	MDM2 = 2,
-	MDM3 = 3,
-	MDM4 = 4,
 	QSC = 5,
 };
 
@@ -471,7 +478,9 @@ struct diagchar_dev {
 };
 
 extern struct diag_bridge_dev *diag_bridge;
+extern struct diag_bridge_dci_dev *diag_bridge_dci;
 extern struct diag_hsic_dev *diag_hsic;
+extern struct diag_hsic_dci_dev *diag_hsic_dci;
 extern struct diagchar_dev *driver;
 
 extern int wrap_enabled;

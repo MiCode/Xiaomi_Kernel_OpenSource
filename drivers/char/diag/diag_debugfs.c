@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -451,7 +451,7 @@ static ssize_t diag_dbgfs_read_mempool(struct file *file, char __user *ubuf,
 		diag_pools_array[POOL_DCI_IDX],
 		driver->count_dci_pool);
 
-	for (i = 0; i < MAX_HSIC_CH; i++) {
+	for (i = 0; i < MAX_HSIC_DATA_CH; i++) {
 		if (!diag_hsic[i].hsic_inited)
 			continue;
 		ret += scnprintf(buf+ret, DEBUG_BUF_SIZE-ret,
@@ -462,7 +462,7 @@ static ssize_t diag_dbgfs_read_mempool(struct file *file, char __user *ubuf,
 				diag_hsic[i].count_hsic_pool);
 	}
 
-	for (i = 0; i < MAX_HSIC_CH; i++) {
+	for (i = 0; i < MAX_HSIC_DATA_CH; i++) {
 		if (!diag_hsic[i].hsic_inited)
 			continue;
 		ret += scnprintf(buf+ret, DEBUG_BUF_SIZE-ret,
@@ -569,7 +569,7 @@ static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 	bytes_in_buffer += bytes_written;
 	bytes_remaining = buf_size - bytes_in_buffer;
 
-	for (i = 0; i < MAX_HSIC_CH; i++) {
+	for (i = 0; i < MAX_HSIC_DATA_CH; i++) {
 		if (diag_hsic[i].hsic_inited) {
 			/* Check if there is room to add another HSIC entry */
 			if (bytes_remaining < bytes_hsic_inited)
