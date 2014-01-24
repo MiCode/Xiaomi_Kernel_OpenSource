@@ -6891,6 +6891,8 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("vdp_bus_clk", vpu_bus_clk.c, "fde0b000.qcom,pil-vpu"),
 	CLK_LOOKUP("core_clk", vpu_maple_clk.c, "fde0b000.qcom,pil-vpu"),
 	CLK_LOOKUP("sleep_clk", vpu_sleep_clk.c, "fde0b000.qcom,pil-vpu"),
+	CLK_LOOKUP("maple_bus_clk", gcc_mmss_a5ss_axi_clk.c,
+						"fde0b000.qcom,pil-vpu"),
 
 	CLK_LOOKUP("iface_clk", vpu_ahb_clk.c, "fde0b000.qcom,vpu"),
 	CLK_LOOKUP("bus_clk", vpu_axi_clk.c, "fde0b000.qcom,vpu"),
