@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2230,7 +2230,7 @@ static struct branch_clk gcc_mss_q6_bimc_axi_clk = {
 static struct mux_clk gcc_debug_mux;
 static struct clk_ops clk_ops_debug_mux;
 
-struct measure_clk_data debug_mux_priv = {
+static struct measure_clk_data debug_mux_priv = {
 	.cxo = &cxo_clk_src.c,
 	.plltest_reg = GCC_PLLTEST_PAD_CFG_REG,
 	.plltest_val = 0x51A00,
