@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -326,6 +326,7 @@ void *a4xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 		goto skip_regs;
 	}
 	if (kgsl_mmu_enable_clk(&device->mmu, KGSL_IOMMU_CONTEXT_PRIV)) {
+		kgsl_mmu_disable_clk(&device->mmu, KGSL_IOMMU_CONTEXT_USER);
 		KGSL_CORE_ERR("Failed to turn on iommu priv context clocks\n");
 		goto skip_regs;
 	}
@@ -333,6 +334,9 @@ void *a4xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 	snapshot = kgsl_snapshot_add_section(device,
 		KGSL_SNAPSHOT_SECTION_REGS, snapshot, remain,
 		kgsl_snapshot_dump_regs, &list);
+
+	kgsl_mmu_disable_clk(&device->mmu, KGSL_IOMMU_CONTEXT_USER);
+	kgsl_mmu_disable_clk(&device->mmu, KGSL_IOMMU_CONTEXT_PRIV);
 skip_regs:
 	snapshot = kgsl_snapshot_indexed_registers(device, snapshot,
 		remain,
@@ -399,7 +403,5 @@ skip_regs:
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2,
 			clock_ctl2);
 
-	/* This will only disable the clock if no one else turned on */
-	kgsl_mmu_disable_clk_on_ts(&device->mmu, 0, 0);
 	return snapshot;
 }
