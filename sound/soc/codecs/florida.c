@@ -1717,7 +1717,8 @@ static irqreturn_t adsp2_irq(int irq, void *data)
 
 	if (florida->core.arizona->pdata.ez2ctrl_trigger &&
 	    !florida->compr_info.trig &&
-	    florida->compr_info.adsp->fw_id == 0x4000d) {
+	    florida->core.adsp[2].fw_id == 0x4000d &&
+	    florida->core.adsp[2].running) {
 		florida->core.arizona->pdata.ez2ctrl_trigger();
 		florida->compr_info.trig = true;
 	}
