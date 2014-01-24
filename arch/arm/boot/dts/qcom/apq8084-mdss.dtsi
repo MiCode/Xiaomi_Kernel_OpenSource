@@ -58,7 +58,6 @@
 						<2 6 7>;
 
 		qcom,mdss-smp-data = <44 8192>;
-		qcom,mdss-sspp-len = <0x00000400>;
 
 		qcom,mdss-ctl-off = <0x00000600 0x00000700 0x00000800
 				     0x00000900 0x0000A00>;
@@ -75,9 +74,6 @@
 					  0x00013200>;
 		qcom,mdss-ad-off = <0x0013500 0x00013700 0x00013900>;
 		qcom,mdss-highest-bank-bit = <0x3>;
-		qcom,mdss-ctl-len = <0x00000100>;
-		qcom,mdss-mixer-intf-len = <0x00000400>;
-		qcom,mdss-dspp-len = <0x00000400>;
 
 		qcom,mdss-has-bwc;
 		qcom,mdss-has-decimation;

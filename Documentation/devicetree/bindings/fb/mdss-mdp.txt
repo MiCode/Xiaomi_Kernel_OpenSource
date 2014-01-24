@@ -62,14 +62,6 @@ Required properties
 				value corresponds to the number of smp blocks
 				and the second is the size of each block
 				present in the mdss hardware.
-- qcom,mdss-sspp-len:		Address offset for SSPP pipes from one to the
-				next. These are calculated using the difference between
-				successive VIG pipes or RGB pipes or DMA pipes. The offset
-				is same for any of these three types of pipes hence there
-				is only one variable. For targets with single VIG pipe or
-				single RGB pipe or single DMA pipe this value has been taken
-				from targets with similar architecture but having multiple
-				SSPP pipes.
 - qcom,mdss-ctl-off:		Array of offset addresses for the available ctl
 				hw blocks within MDP, these offsets are
 				calculated from register "mdp_phys" defined in
@@ -115,21 +107,6 @@ Required properties
 				defined in reg property. The number of offsets
 				defiend should reflect the number of progammable
 				interface blocks available in hardware.
-- qcom,mdss-ctl-len:		Address offset from one CTL to the next. These
-				offsets are calculated using difference of successive CTL
-				offsets. The offset is constant for successive CTL.
-- qcom,mdss-mixer-intf-len:	Address offset from one layer mixer to the next.
-				These are calculated using difference of successive layer
-				mixer offsets. The offset is constant for successive layer
-				mixers. For targets with single layer mixer this value has
-				been taken from targets with multiple layer mixers with
-				similar architecture.
-- qcom,mdss-dspp-len:		Address offset from one DSPP to the next. These
-				offsets are calculated using difference of successive DSPP
-				base addresses. The offset is constant for successive DSPP
-				pipes. For targets with single DSPP this value has been taken
-				from targets with multiple DSPP pipes with similar
-				architecture.
 - qcom,mdss-pref-prim-intf:	A string which indicates the configured hardware
 				interface between MDP and the primary panel.
 				Individual panel controller drivers initialize
@@ -378,7 +355,6 @@ Example:
 						<2 4 5>,
 						<2 6 7>;
 		qcom,mdss-smp-data = <22 4096>;
-		qcom,mdss-sspp-len = <0x00000400>;
 		qcom,mdss-rot-block-size = <64>;
 		qcom,mdss-smp-mb-per-pipe = <2>;
 		qcom,mdss-pref-prim-intf = "dsi";
@@ -401,9 +377,6 @@ Example:
 				    0x00017100 0x00019100>;
 		qcom,mdss-intf-off = <0x00021100 0x00021300
 					   0x00021500 0x00021700>;
-		qcom,mdss-ctl-len = <0x00000100>;
-		qcom,mdss-mixer-intf-len = <0x00000400>;
-		qcom,mdss-dspp-len = <0x00000400>;
 
 		/* buffer parameters to calculate prefill bandwidth */
 		qcom,mdss-prefill-outstanding-buffer-bytes = <1024>;

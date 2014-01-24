@@ -154,10 +154,6 @@ struct mdss_data_type {
 	u32 nvig_pipes;
 	u32 nrgb_pipes;
 	u32 ndma_pipes;
-	u32 size_sspp;
-	u32 size_sspp_vig;
-	u32 size_sspp_rgb;
-	u32 size_sspp_dma;
 
 	DECLARE_BITMAP(mmb_alloc_map, MAX_DRV_SUP_MMB_BLKS);
 
@@ -165,12 +161,9 @@ struct mdss_data_type {
 	struct mdss_mdp_mixer *mixer_wb;
 	u32 nmixers_intf;
 	u32 nmixers_wb;
-	u32 size_mixer_intf;
-	u32 size_dspp;
 
 	struct mdss_mdp_ctl *ctl_off;
 	u32 nctl;
-	u32 size_ctl;
 
 	struct mdss_mdp_dp_intf *dp_off;
 	u32 ndp;
