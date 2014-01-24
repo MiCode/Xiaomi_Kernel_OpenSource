@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -146,11 +146,11 @@
 #define FLASH_WATCHDOG_MASK		0x1F
 #define FLASH_RAMP_STEP_27US		0xBF
 
-#define FLASH_STROBE_SW			0xC0
-#define FLASH_STROBE_HW			0x04
+#define FLASH_HW_SW_STROBE_SEL_MASK	0x04
 #define FLASH_STROBE_MASK		0xC7
 #define FLASH_LED_0_OUTPUT		0x80
 #define FLASH_LED_1_OUTPUT		0x40
+#define FLASH_TORCH_OUTPUT		0xC0
 
 #define FLASH_CURRENT_PRGM_MIN		1
 #define FLASH_CURRENT_PRGM_SHIFT	1
@@ -1172,6 +1172,13 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 				goto error_reg_write;
 			}
 
+			if (!led->flash_cfg->strobe_type)
+				led->flash_cfg->trigger_flash &=
+						~FLASH_HW_SW_STROBE_SEL_MASK;
+			else
+				led->flash_cfg->trigger_flash |=
+						FLASH_HW_SW_STROBE_SEL_MASK;
+
 			rc = qpnp_led_masked_write(led,
 				FLASH_LED_STROBE_CTRL(led->base),
 				led->flash_cfg->trigger_flash,
@@ -1262,30 +1269,22 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 			 */
 			usleep(FLASH_RAMP_UP_DELAY_US);
 
-			if (!led->flash_cfg->strobe_type) {
-				rc = qpnp_led_masked_write(led,
-					FLASH_LED_STROBE_CTRL(led->base),
-					led->flash_cfg->trigger_flash,
-					led->flash_cfg->trigger_flash);
-				if (rc) {
-					dev_err(&led->spmi_dev->dev,
-					"LED %d strobe reg write failed(%d)\n",
-					led->id, rc);
-					goto error_flash_set;
-				}
-			} else {
-				rc = qpnp_led_masked_write(led,
-					FLASH_LED_STROBE_CTRL(led->base),
-					(led->flash_cfg->trigger_flash |
-					FLASH_STROBE_HW),
-					(led->flash_cfg->trigger_flash |
-					FLASH_STROBE_HW));
-				if (rc) {
-					dev_err(&led->spmi_dev->dev,
-					"LED %d strobe reg write failed(%d)\n",
-					led->id, rc);
-					goto error_flash_set;
-				}
+			if (!led->flash_cfg->strobe_type)
+				led->flash_cfg->trigger_flash &=
+						~FLASH_HW_SW_STROBE_SEL_MASK;
+			else
+				led->flash_cfg->trigger_flash |=
+						FLASH_HW_SW_STROBE_SEL_MASK;
+
+			rc = qpnp_led_masked_write(led,
+				FLASH_LED_STROBE_CTRL(led->base),
+				led->flash_cfg->trigger_flash,
+				led->flash_cfg->trigger_flash);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+				"LED %d strobe reg write failed(%d)\n",
+				led->id, rc);
+				goto error_flash_set;
 			}
 		}
 	} else {
@@ -2916,7 +2915,7 @@ static int qpnp_get_config_flash(struct qpnp_led_data *led,
 			led->flash_cfg->enable_module = FLASH_ENABLE_MODULE;
 		} else
 			led->flash_cfg->enable_module = FLASH_ENABLE_ALL;
-		led->flash_cfg->trigger_flash = FLASH_STROBE_SW;
+		led->flash_cfg->trigger_flash = FLASH_TORCH_OUTPUT;
 
 		rc = of_property_read_u32(node, "qcom,duration", &val);
 		if (!rc)
