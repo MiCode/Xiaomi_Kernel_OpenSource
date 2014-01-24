@@ -101,7 +101,7 @@ void rmnet_print_packet(const struct sk_buff *skb, const char *dev, char dir)
 	if (!printlen)
 		return;
 
-	pr_err("[%s][%c] - PKT skb->len=%d skb->head=%p skb->data=%p skb->tail=%p skb->end=%p",
+	pr_err("[%s][%c] - PKT skb->len=%d skb->head=%p skb->data=%p skb->tail=%p skb->end=%p\n",
 		dev, dir, skb->len, skb->head, skb->data, skb->tail, skb->end);
 
 	if (skb->len > 0)
@@ -109,13 +109,13 @@ void rmnet_print_packet(const struct sk_buff *skb, const char *dev, char dir)
 	else
 		len = ((unsigned int)skb->end) - ((unsigned int)skb->data);
 
-	pr_err("[%s][%c] - PKT len: %d, printing first %d bytes",
+	pr_err("[%s][%c] - PKT len: %d, printing first %d bytes\n",
 		dev, dir, len, printlen);
 
 	memset(buffer, 0, sizeof(buffer));
 	for (i = 0; (i < printlen) && (i < len); i++) {
 		if ((i%16) == 0) {
-			pr_err("[%s][%c] - PKT%s", dev, dir, buffer);
+			pr_err("[%s][%c] - PKT%s\n", dev, dir, buffer);
 			memset(buffer, 0, sizeof(buffer));
 			buffloc = 0;
 			buffloc += snprintf(&buffer[buffloc],
@@ -127,7 +127,7 @@ void rmnet_print_packet(const struct sk_buff *skb, const char *dev, char dir)
 					" %02x", skb->data[i]);
 
 	}
-	pr_err("[%s][%c] - PKT%s", dev, dir, buffer);
+	pr_err("[%s][%c] - PKT%s\n", dev, dir, buffer);
 }
 #else
 void rmnet_print_packet(const struct sk_buff *skb, const char *dev, char dir)
