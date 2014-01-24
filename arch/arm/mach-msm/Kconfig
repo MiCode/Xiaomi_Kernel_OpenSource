@@ -10,7 +10,6 @@ config ARCH_MSM8974
 	select CPU_V7
 	select MSM_SCM
 	select MSM_GPIOMUX
-	select MSM_MULTIMEDIA_USE_ION
 	select PM_DEVFREQ
 	select MSM_DEVFREQ_CPUBW
 	select MSM_PIL
@@ -71,7 +70,6 @@ config ARCH_APQ8084
 	select MSM_PIL
 	select ENABLE_VMALLOC_SAVINGS
 	select MSM_ULTRASOUND_B
-	select MSM_MULTIMEDIA_USE_ION
 	select MSM_IRQ
 	select PINCTRL
 	select PINCTRL_MSM_TLMM_V3
@@ -100,7 +98,6 @@ config ARCH_MPQ8092
 	select REGULATOR_RPM_SMD
 	select PINCTRL
 	select PINCTRL_MSM_TLMM_V3
-	select MSM_MULTIMEDIA_USE_ION
 	select USB_ARCH_HAS_XHCI
 	select MSM_IRQ
 	select MSM_SPM_V2
@@ -200,7 +197,6 @@ config ARCH_MSM8610
 	select MSM_RPM_STATS_LOG
 	select PINCTRL
 	select PINCTRL_MSM_TLMM_V3
-	select MSM_MULTIMEDIA_USE_ION
 	select MSM_IRQ
 
 config ARCH_MSM8226
@@ -243,7 +239,6 @@ config ARCH_MSM8226
 	select PINCTRL
 	select PINCTRL_MSM_TLMM_V3
 	select ENABLE_VMALLOC_SAVINGS
-	select MSM_MULTIMEDIA_USE_ION
 	select MSM_IRQ
 
 config ARCH_MSMSAMARIUM
@@ -274,7 +269,6 @@ config ARCH_MSMSAMARIUM
 	select QMI_ENCDEC
 	select PINCTRL
 	select PINCTRL_MSM_TLMM_V3
-	select MSM_MULTIMEDIA_USE_ION
 	select MSM_IRQ
 endmenu
 
@@ -1211,14 +1205,6 @@ config MSM_L2_SPM
 	  control of L2 cache low power mode with a Subsystem Power manager.
 	  Enabling this driver allows configuring L2 SPM for low power modes
 	  on supported chipsets.
-
-config MSM_MULTIMEDIA_USE_ION
-	bool "Multimedia suport using Ion"
-	depends on ION_MSM
-	help
-	  Enable support for multimedia drivers using Ion for buffer management
-	  instead of pmem. Selecting this may also involve userspace
-	  dependencies as well.
 
 config MSM_OCMEM
 	bool "MSM On-Chip memory driver (OCMEM)"

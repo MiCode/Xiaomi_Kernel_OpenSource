@@ -1,7 +1,7 @@
 /* drivers/video/msm/src/drv/mdp/mdp_ppp.c
  *
  * Copyright (C) 2007 Google Incorporated
- * Copyright (c) 2008-2009, 2012-2013 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2009, 2012-2014 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1246,9 +1246,7 @@ int get_img(struct mdp_img *img, struct mdp_blit_req *req,
 {
 	int put_needed, fb_num, ret = 0;
 	struct file *file;
-#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
-#endif
 
 	if (req->flags & MDP_MEMORY_ID_TYPE_FB) {
 		file = fget_light(img->memory_id, &put_needed);
@@ -1270,26 +1268,23 @@ int get_img(struct mdp_img *img, struct mdp_blit_req *req,
 			fput_light(file, put_needed);
 		}
 	}
-#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-		*srcp_ihdl = ion_import_dma_buf(mfd->iclient, img->memory_id);
-		if (IS_ERR_OR_NULL(*srcp_ihdl))
-			return PTR_ERR(*srcp_ihdl);
 
-		if (!ion_phys(mfd->iclient, *srcp_ihdl,
-		    (ion_phys_addr_t *)start, (size_t *) len))
-			return ret;
-		 else
-			return -EINVAL;
-#endif
+	*srcp_ihdl = ion_import_dma_buf(mfd->iclient, img->memory_id);
+	if (IS_ERR_OR_NULL(*srcp_ihdl))
+		return PTR_ERR(*srcp_ihdl);
+
+	if (!ion_phys(mfd->iclient, *srcp_ihdl,
+	    (ion_phys_addr_t *)start, (size_t *) len))
+		return ret;
+	 else
+		return -EINVAL;
 
 }
 
 void put_img(struct file *p_src_file, struct ion_handle *p_ihdl)
 {
-#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	if (!IS_ERR_OR_NULL(p_ihdl))
 		ion_free(ppp_display_iclient, p_ihdl);
-#endif
 }
 
 
