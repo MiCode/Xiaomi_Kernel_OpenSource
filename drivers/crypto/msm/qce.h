@@ -1,6 +1,6 @@
 /* Qualcomm Crypto Engine driver API
  *
- * Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -116,6 +116,12 @@ struct ce_hw_support {
 	bool bam;
 	bool is_shared;
 	bool hw_key;
+	bool use_sw_aes_cbc_ecb_ctr_algo;
+	bool use_sw_aead_algo;
+	bool use_sw_aes_xts_algo;
+	bool use_sw_ahash_algo;
+	bool use_sw_hmac_algo;
+	bool use_sw_aes_ccm_algo;
 };
 
 /* Sha operation parameters */
