@@ -27,7 +27,7 @@
 #include <linux/platform_device.h>
 #include <linux/msm_ion.h>
 #include <linux/platform_data/qcom_ssm.h>
-#include <mach/scm.h>
+#include <soc/qcom/scm.h>
 #include <mach/msm_smd.h>
 
 #include "qseecom_kernel.h"

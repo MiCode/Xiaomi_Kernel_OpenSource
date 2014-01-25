@@ -20,7 +20,7 @@
 #define MC_SMC_FASTCALL
 
 /*--------------- Implementation -------------- */
-#include <mach/scm.h>
+#include <soc/qcom/scm.h>
 /* from following file */
 #define SCM_SVC_MOBICORE		250
 #define SCM_CMD_MOBICORE		1

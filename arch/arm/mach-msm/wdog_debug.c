@@ -12,7 +12,7 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <mach/scm.h>
+#include <soc/qcom/scm.h>
 
 #define SCM_WDOG_DEBUG_BOOT_PART	0x9
 #define BOOT_PART_EN_VAL		0x5D1

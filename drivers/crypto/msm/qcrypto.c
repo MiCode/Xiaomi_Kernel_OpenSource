@@ -28,6 +28,7 @@
 #include <linux/sched.h>
 #include <linux/init.h>
 #include <linux/cache.h>
+#include <soc/qcom/scm.h>
 
 #include <crypto/ctr.h>
 #include <crypto/des.h>
@@ -40,7 +41,6 @@
 #include <crypto/scatterwalk.h>
 #include <crypto/internal/hash.h>
 
-#include <mach/scm.h>
 #include <linux/platform_data/qcom_crypto_device.h>
 #include <mach/msm_bus.h>
 #include <mach/qcrypto.h>

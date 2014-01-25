@@ -31,6 +31,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/clk/msm-clk.h>
 #include <linux/irqchip/msm-mpm-irq.h>
+#include <soc/qcom/scm.h>
 
 #include <linux/usb.h>
 #include <linux/usb/otg.h>
@@ -46,7 +47,6 @@
 #include <linux/mfd/pm8xxx/misc.h>
 #include <linux/mhl_8334.h>
 
-#include <mach/scm.h>
 #include <mach/msm_xo.h>
 #include <mach/msm_bus.h>
 #include <mach/rpm-regulator.h>

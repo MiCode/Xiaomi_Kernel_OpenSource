@@ -25,7 +25,7 @@
 #include <linux/of.h>
 #include <linux/cpu.h>
 #include <linux/platform_device.h>
-#include <mach/scm.h>
+#include <soc/qcom/scm.h>
 #include <mach/msm_memory_dump.h>
 
 #define MODULE_NAME "msm_watchdog"

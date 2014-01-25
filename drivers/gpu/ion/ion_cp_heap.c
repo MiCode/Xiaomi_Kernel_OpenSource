@@ -27,9 +27,9 @@
 #include <linux/seq_file.h>
 #include <linux/iommu.h>
 #include <linux/dma-mapping.h>
+#include <soc/qcom/scm.h>
 #include <trace/events/kmem.h>
 
-#include <mach/scm.h>
 
 #include "ion_priv.h"
 

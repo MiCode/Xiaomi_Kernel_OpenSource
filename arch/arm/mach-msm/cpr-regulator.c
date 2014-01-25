@@ -29,8 +29,8 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/cpr-regulator.h>
+#include <soc/qcom/scm.h>
 #include <asm/uaccess.h>
-#include <mach/scm.h>
 
 /* Register Offsets for RB-CPR and Bit Definitions */
 

@@ -22,7 +22,7 @@
 #include <linux/string.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
-#include <mach/scm.h>
+#include <soc/qcom/scm.h>
 #include <mach/qseecomi.h>
 
 #define DEBUG_MAX_RW_BUF 4096

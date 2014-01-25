@@ -20,8 +20,8 @@
 #include <linux/printk.h>
 #include <linux/ratelimit.h>
 #include <linux/coresight.h>
+#include <soc/qcom/scm.h>
 #include <asm/hardware/cp14.h>
-#include <mach/scm.h>
 #include <mach/jtag.h>
 
 /* DBGv7 with baseline CP14 registers implemented */

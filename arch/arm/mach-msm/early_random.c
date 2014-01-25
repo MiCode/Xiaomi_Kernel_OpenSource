@@ -12,8 +12,8 @@
  */
 
 #include <linux/kernel.h>
+#include <soc/qcom/scm.h>
 
-#include <mach/scm.h>
 
 #include <asm/io.h>
 #include <asm/cacheflush.h>
