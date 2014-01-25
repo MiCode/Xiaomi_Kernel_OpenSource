@@ -379,7 +379,7 @@ config SIGNATURE
 	  Implementation is done using GnuPG MPI library
 
 config QMI_ENCDEC
-	bool
+	bool "QMI Encode/Decode Library"
 	help
 	  Library to encode & decode QMI messages from within
 	  the kernel. The kernel drivers encode the C structure into
@@ -388,7 +388,7 @@ config QMI_ENCDEC
 	  and then decode it into a C structure.
 
 config QMI_ENCDEC_DEBUG
-	bool
+	bool "QMI Encode/Decode Library Debug"
 	help
 	  Kernel config option to enable debugging QMI Encode/Decode
 	  library. This will log the information regarding the element
