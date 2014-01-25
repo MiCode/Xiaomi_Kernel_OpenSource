@@ -406,7 +406,7 @@ static void handle_session_release_buf_done(enum command_response cmd,
 		return;
 	}
 
-	inst = (struct msm_vidc_inst *)(unsigned long)response->session_id;
+	inst = (struct msm_vidc_inst *)response->session_id;
 	buffer = (struct hal_buffer_info *) response->data;
 	address = buffer->buffer_addr;
 
@@ -566,8 +566,7 @@ static void handle_session_init_done(enum command_response cmd, void *data)
 		struct vidc_hal_session_init_done *session_init_done =
 			(struct vidc_hal_session_init_done *)
 			response->data;
-		inst = (struct msm_vidc_inst *)
-			(unsigned long)response->session_id;
+		inst = (struct msm_vidc_inst *)response->session_id;
 		if (!inst || !inst->core || !inst->core->device) {
 			dprintk(VIDC_ERR, "%s: invalid parameters (0x%p)\n",
 				__func__, inst);
@@ -616,8 +615,7 @@ static void handle_event_change(enum command_response cmd, void *data)
 	int event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
 	int rc = 0;
 	if (response) {
-		inst = (struct msm_vidc_inst *)
-			(unsigned long)response->session_id;
+		inst = (struct msm_vidc_inst *)response->session_id;
 		event_notify = (struct msm_vidc_cb_event *) response->data;
 		switch (event_notify->hal_event_type) {
 		case HAL_EVENT_SEQ_CHANGED_SUFFICIENT_RESOURCES:
@@ -735,7 +733,7 @@ static void handle_session_prop_info(enum command_response cmd, void *data)
 			"Failed to get valid response for prop info\n");
 		return;
 	}
-	inst = (struct msm_vidc_inst *)(unsigned long)response->session_id;
+	inst = (struct msm_vidc_inst *)response->session_id;
 	mutex_lock(&inst->lock);
 	getprop = kzalloc(sizeof(*getprop), GFP_KERNEL);
 	if (!getprop) {
@@ -762,8 +760,7 @@ static void handle_load_resource_done(enum command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
 	if (response) {
-		inst = (struct msm_vidc_inst *)
-			(unsigned long)response->session_id;
+		inst = (struct msm_vidc_inst *)response->session_id;
 		if (response->status) {
 			dprintk(VIDC_ERR,
 				"Load resource response from FW : 0x%x\n",
@@ -781,8 +778,7 @@ static void handle_start_done(enum command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
 	if (response) {
-		inst = (struct msm_vidc_inst *)
-			(unsigned long)response->session_id;
+		inst = (struct msm_vidc_inst *)response->session_id;
 		signal_session_msg_receipt(cmd, inst);
 	} else {
 		dprintk(VIDC_ERR,
@@ -795,8 +791,7 @@ static void handle_stop_done(enum command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
 	if (response) {
-		inst = (struct msm_vidc_inst *)
-			(unsigned long)response->session_id;
+		inst = (struct msm_vidc_inst *)response->session_id;
 		signal_session_msg_receipt(cmd, inst);
 	} else {
 		dprintk(VIDC_ERR,
@@ -809,8 +804,7 @@ static void handle_release_res_done(enum command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
 	if (response) {
-		inst = (struct msm_vidc_inst *)
-			(unsigned long)response->session_id;
+		inst = (struct msm_vidc_inst *)response->session_id;
 		signal_session_msg_receipt(cmd, inst);
 	} else {
 		dprintk(VIDC_ERR,
@@ -855,8 +849,7 @@ static void handle_session_flush(enum command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
 	if (response) {
-		inst = (struct msm_vidc_inst *)
-			(unsigned long)response->session_id;
+		inst = (struct msm_vidc_inst *)response->session_id;
 		if (msm_comm_get_stream_output_mode(inst) ==
 			HAL_VIDEO_DECODER_SECONDARY) {
 			mutex_lock(&inst->lock);
@@ -874,8 +867,7 @@ static void handle_session_error(enum command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst = NULL;
 	if (response) {
-		inst = (struct msm_vidc_inst *)
-			(unsigned long)response->session_id;
+		inst = (struct msm_vidc_inst *)response->session_id;
 		if (inst) {
 			dprintk(VIDC_WARN,
 				"Session error receivd for session %p\n", inst);
@@ -988,8 +980,7 @@ static void handle_session_close(enum command_response cmd, void *data)
 	struct hfi_device *hdev = NULL;
 
 	if (response) {
-		inst = (struct msm_vidc_inst *)
-			(unsigned long)response->session_id;
+		inst = (struct msm_vidc_inst *)response->session_id;
 		if (!inst || !inst->core || !inst->core->device) {
 			dprintk(VIDC_ERR, "%s invalid params\n", __func__);
 			return;
@@ -1053,7 +1044,7 @@ static void handle_ebd(enum command_response cmd, void *data)
 		return;
 	}
 
-	inst = (struct msm_vidc_inst *)(unsigned long)response->session_id;
+	inst = (struct msm_vidc_inst *)response->session_id;
 	if (!inst) {
 		dprintk(VIDC_ERR, "%s Invalid response from vidc_hal\n",
 			__func__);
@@ -1265,7 +1256,7 @@ static void handle_fbd(enum command_response cmd, void *data)
 		dprintk(VIDC_ERR, "Invalid response from vidc_hal\n");
 		return;
 	}
-	inst = (struct msm_vidc_inst *)(unsigned long)response->session_id;
+	inst = (struct msm_vidc_inst *)response->session_id;
 	fill_buf_done = (struct vidc_hal_fbd *)&response->output_done;
 	buffer_type = msm_comm_get_hal_output_buffer(inst);
 	if (fill_buf_done->buffer_type == buffer_type)
@@ -1399,7 +1390,7 @@ static void handle_seq_hdr_done(enum command_response cmd, void *data)
 		dprintk(VIDC_ERR, "Invalid response from vidc_hal\n");
 		return;
 	}
-	inst = (struct msm_vidc_inst *)(unsigned long)response->session_id;
+	inst = (struct msm_vidc_inst *)response->session_id;
 	fill_buf_done = (struct vidc_hal_fbd *)&response->output_done;
 	vb = get_vb_from_device_addr(&inst->bufq[CAPTURE_PORT],
 				fill_buf_done->packet_buffer1);
@@ -1750,8 +1741,7 @@ static int msm_comm_session_init(int flipped_state,
 		&inst->completions[SESSION_MSG_INDEX(SESSION_INIT_DONE)]);
 	mutex_lock(&inst->lock);
 	inst->session = call_hfi_op(hdev, session_init, hdev->hfi_device_data,
-			(u32)(unsigned long)inst,
-			get_hal_domain(inst->session_type),
+			inst, get_hal_domain(inst->session_type),
 			get_hal_codec_type(fourcc));
 	mutex_unlock(&inst->lock);
 	if (!inst->session) {

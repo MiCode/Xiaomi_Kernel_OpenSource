@@ -100,13 +100,14 @@ static void venus_hfi_dump_packet(u8 *packet)
 	}
 }
 
-static void venus_hfi_sim_modify_cmd_packet(u8 *packet)
+static void venus_hfi_sim_modify_cmd_packet(u8 *packet,
+				struct venus_hfi_device *device)
 {
 	struct hfi_cmd_sys_session_init_packet *sys_init;
-	struct hal_session *sess;
+	struct hal_session *session = NULL;
 	u8 i;
 
-	if (!packet) {
+	if (!device || !packet) {
 		dprintk(VIDC_ERR, "Invalid Param\n");
 		return;
 	} else if (HFI_SIM_FW_BIAS == 0) {
@@ -114,10 +115,20 @@ static void venus_hfi_sim_modify_cmd_packet(u8 *packet)
 	}
 
 	sys_init = (struct hfi_cmd_sys_session_init_packet *)packet;
-	sess = (struct hal_session *) (unsigned long)sys_init->session_id;
+	if (&device->session_lock) {
+		mutex_lock(&device->session_lock);
+		session = hfi_process_get_session(
+				&device->sess_head, sys_init->session_id);
+		mutex_unlock(&device->session_lock);
+	}
+	if (!session) {
+		dprintk(VIDC_DBG, "%s :Invalid session id : %x\n",
+				__func__, sys_init->session_id);
+		return;
+	}
 	switch (sys_init->packet_type) {
 	case HFI_CMD_SESSION_EMPTY_BUFFER:
-		if (sess->is_decoder) {
+		if (session->is_decoder) {
 			struct hfi_cmd_session_empty_buffer_compressed_packet
 			*pkt = (struct
 			hfi_cmd_session_empty_buffer_compressed_packet
@@ -248,8 +259,6 @@ static int venus_hfi_write_queue(void *info, u8 *packet, u32 *rx_req_is_set)
 		return -ENOENT;
 	}
 
-	venus_hfi_sim_modify_cmd_packet(packet);
-
 	if (msm_vidc_debug & VIDC_PKT) {
 		dprintk(VIDC_PKT, "%s: %p\n", __func__, qinfo);
 		venus_hfi_dump_packet(packet);
@@ -303,12 +312,13 @@ static int venus_hfi_write_queue(void *info, u8 *packet, u32 *rx_req_is_set)
 	return 0;
 }
 
-static void venus_hfi_hal_sim_modify_msg_packet(u8 *packet)
+static void venus_hfi_hal_sim_modify_msg_packet(u8 *packet,
+					struct venus_hfi_device *device)
 {
 	struct hfi_msg_sys_session_init_done_packet *sys_idle;
-	struct hal_session *sess;
+	struct hal_session *session = NULL;
 
-	if (!packet) {
+	if (!device || !packet) {
 		dprintk(VIDC_ERR, "Invalid Param\n");
 		return;
 	} else if (HFI_SIM_FW_BIAS == 0) {
@@ -316,11 +326,20 @@ static void venus_hfi_hal_sim_modify_msg_packet(u8 *packet)
 	}
 
 	sys_idle = (struct hfi_msg_sys_session_init_done_packet *)packet;
-	sess = (struct hal_session *) (unsigned long)sys_idle->session_id;
-
+	if (&device->session_lock) {
+		mutex_lock(&device->session_lock);
+		session = hfi_process_get_session(
+				&device->sess_head, sys_idle->session_id);
+		mutex_unlock(&device->session_lock);
+	}
+	if (!session) {
+		dprintk(VIDC_DBG, "%s: Invalid session id : %x\n",
+				__func__, sys_idle->session_id);
+		return;
+	}
 	switch (sys_idle->packet_type) {
 	case HFI_MSG_SESSION_FILL_BUFFER_DONE:
-		if (sess->is_decoder) {
+		if (session->is_decoder) {
 			struct
 			hfi_msg_session_fbd_uncompressed_plane0_packet
 			*pkt_uc = (struct
@@ -434,7 +453,6 @@ static int venus_hfi_read_queue(void *info, u8 *packet, u32 *pb_tx_req_is_set)
 		queue->qhdr_rx_req = 1;
 
 	*pb_tx_req_is_set = (1 == queue->qhdr_tx_req) ? 1 : 0;
-	venus_hfi_hal_sim_modify_msg_packet(packet);
 	if (msm_vidc_debug & VIDC_PKT) {
 		dprintk(VIDC_PKT, "%s: %p\n", __func__, qinfo);
 		venus_hfi_dump_packet(packet);
@@ -1254,6 +1272,7 @@ static int venus_hfi_iface_cmdq_write(struct venus_hfi_device *device,
 		dprintk(VIDC_ERR, "cannot write to shared Q's\n");
 		goto err_q_null;
 	}
+	venus_hfi_sim_modify_cmd_packet((u8 *)pkt, device);
 	if (!venus_hfi_write_queue(q_info, (u8 *)pkt, &rx_req_is_set)) {
 		mutex_lock(&device->clk_pwr_lock);
 		result = venus_hfi_clk_gating_off(device);
@@ -1304,6 +1323,7 @@ static int venus_hfi_iface_msgq_read(struct venus_hfi_device *device, void *pkt)
 	}
 	q_info = &device->iface_queues[VIDC_IFACEQ_MSGQ_IDX];
 	if (!venus_hfi_read_queue(q_info, (u8 *)pkt, &tx_req_is_set)) {
+		venus_hfi_hal_sim_modify_msg_packet((u8 *)pkt, device);
 		mutex_lock(&device->clk_pwr_lock);
 		rc = venus_hfi_clk_gating_off(device);
 		if (rc) {
@@ -2081,8 +2101,7 @@ static int venus_hfi_session_set_property(void *sess,
 
 	dprintk(VIDC_INFO, "in set_prop,with prop id: 0x%x\n", ptype);
 
-	if (create_pkt_cmd_session_set_property(pkt,
-				(u32)(unsigned long)session, ptype, pdata)) {
+	if (create_pkt_cmd_session_set_property(pkt, session, ptype, pdata)) {
 		dprintk(VIDC_ERR, "set property: failed to create packet\n");
 		return -EINVAL;
 	}
@@ -2107,8 +2126,7 @@ static int venus_hfi_session_get_property(void *sess,
 	}
 	dprintk(VIDC_INFO, "%s: property id: %d\n", __func__, ptype);
 
-	rc = create_pkt_cmd_session_get_property(
-				&pkt, (u32)(unsigned long)session, ptype);
+	rc = create_pkt_cmd_session_get_property(&pkt, session, ptype);
 	if (rc) {
 		dprintk(VIDC_ERR, "get property profile: pkt failed\n");
 		goto err_create_pkt;
@@ -2132,7 +2150,7 @@ static void venus_hfi_set_default_sys_properties(
 		dprintk(VIDC_WARN, "Setting h/w power collapse ON failed\n");
 }
 
-static void *venus_hfi_session_init(void *device, u32 session_id,
+static void *venus_hfi_session_init(void *device, void *session_id,
 		enum hal_domain session_type, enum hal_video_codec codec_type)
 {
 	struct hfi_cmd_sys_session_init_packet pkt;
@@ -2165,8 +2183,8 @@ static void *venus_hfi_session_init(void *device, u32 session_id,
 
 	venus_hfi_set_default_sys_properties(device);
 
-	if (create_pkt_cmd_sys_session_init(&pkt,
-		(u32)(unsigned long)new_session, session_type, codec_type)) {
+	if (create_pkt_cmd_sys_session_init(&pkt, new_session,
+				session_type, codec_type)) {
 		dprintk(VIDC_ERR, "session_init: failed to create packet\n");
 		goto err_session_init_fail;
 	}
@@ -2194,8 +2212,7 @@ static int venus_hfi_send_session_cmd(void *session_id,
 		return -ENODEV;
 	}
 
-	rc = create_pkt_cmd_session_cmd(&pkt, pkt_type,
-						(u32)(unsigned long)session);
+	rc = create_pkt_cmd_session_cmd(&pkt, pkt_type, session);
 	if (rc) {
 		dprintk(VIDC_ERR, "send session cmd: create pkt failed\n");
 		goto err_create_pkt;
@@ -2271,7 +2288,7 @@ static int venus_hfi_session_set_buffers(void *sess,
 	pkt = (struct hfi_cmd_session_set_buffers_packet *)packet;
 
 	rc = create_pkt_cmd_session_set_buffers(pkt,
-			(u32)(unsigned long)session, buffer_info);
+			session, buffer_info);
 	if (rc) {
 		dprintk(VIDC_ERR, "set buffers: failed to create packet\n");
 		goto err_create_pkt;
@@ -2290,13 +2307,11 @@ static int venus_hfi_session_release_buffers(void *sess,
 	struct hfi_cmd_session_release_buffer_packet *pkt;
 	u8 packet[VIDC_IFACEQ_VAR_LARGE_PKT_SIZE];
 	int rc = 0;
-	struct hal_session *session;
+	struct hal_session *session = sess;
 
-	if (!sess || !buffer_info) {
+	if (!session || !buffer_info) {
 		dprintk(VIDC_ERR, "Invalid Params\n");
 		return -EINVAL;
-	} else {
-		session = sess;
 	}
 
 	if (buffer_info->buffer_type == HAL_BUFFER_INPUT)
@@ -2304,8 +2319,7 @@ static int venus_hfi_session_release_buffers(void *sess,
 
 	pkt = (struct hfi_cmd_session_release_buffer_packet *) packet;
 
-	rc = create_pkt_cmd_session_release_buffers(pkt,
-				(u32)(unsigned long)session, buffer_info);
+	rc = create_pkt_cmd_session_release_buffers(pkt, session, buffer_info);
 	if (rc) {
 		dprintk(VIDC_ERR, "release buffers: failed to create packet\n");
 		goto err_create_pkt;
@@ -2371,7 +2385,7 @@ static int venus_hfi_session_etb(void *sess,
 		struct hfi_cmd_session_empty_buffer_compressed_packet pkt;
 
 		rc = create_pkt_cmd_session_etb_decoder(&pkt,
-				(u32)(unsigned long)session, input_frame);
+						session, input_frame);
 		if (rc) {
 			dprintk(VIDC_ERR,
 			"Session etb decoder: failed to create pkt\n");
@@ -2385,7 +2399,7 @@ static int venus_hfi_session_etb(void *sess,
 			pkt;
 
 		rc =  create_pkt_cmd_session_etb_encoder(&pkt,
-				(u32)(unsigned long)session, input_frame);
+						session, input_frame);
 		if (rc) {
 			dprintk(VIDC_ERR,
 			"Session etb encoder: failed to create pkt\n");
@@ -2413,8 +2427,7 @@ static int venus_hfi_session_ftb(void *sess,
 		session = sess;
 	}
 
-	rc = create_pkt_cmd_session_ftb(&pkt,
-				(u32)(unsigned long)session, output_frame);
+	rc = create_pkt_cmd_session_ftb(&pkt, session, output_frame);
 	if (rc) {
 		dprintk(VIDC_ERR, "Session ftb: failed to create pkt\n");
 		goto err_create_pkt;
@@ -2443,8 +2456,7 @@ static int venus_hfi_session_parse_seq_hdr(void *sess,
 
 	pkt = (struct hfi_cmd_session_parse_sequence_header_packet *) packet;
 
-	rc = create_pkt_cmd_session_parse_seq_header(pkt,
-				(u32)(unsigned long)session, seq_hdr);
+	rc = create_pkt_cmd_session_parse_seq_header(pkt, session, seq_hdr);
 	if (rc) {
 		dprintk(VIDC_ERR,
 		"Session parse seq hdr: failed to create pkt\n");
@@ -2473,8 +2485,7 @@ static int venus_hfi_session_get_seq_hdr(void *sess,
 	}
 
 	pkt = (struct hfi_cmd_session_get_sequence_header_packet *) packet;
-	rc = create_pkt_cmd_session_get_seq_hdr(pkt,
-					(u32)(unsigned long)session, seq_hdr);
+	rc = create_pkt_cmd_session_get_seq_hdr(pkt, session, seq_hdr);
 	if (rc) {
 		dprintk(VIDC_ERR,
 				"Session get seq hdr: failed to create pkt\n");
@@ -2500,8 +2511,7 @@ static int venus_hfi_session_get_buf_req(void *sess)
 		return -ENODEV;
 	}
 
-	rc = create_pkt_cmd_session_get_buf_req(&pkt,
-					(u32)(unsigned long)session);
+	rc = create_pkt_cmd_session_get_buf_req(&pkt, session);
 	if (rc) {
 		dprintk(VIDC_ERR,
 				"Session get buf req: failed to create pkt\n");
@@ -2527,8 +2537,7 @@ static int venus_hfi_session_flush(void *sess, enum hal_flush flush_mode)
 		return -ENODEV;
 	}
 
-	rc = create_pkt_cmd_session_flush(&pkt,
-				(u32)(unsigned long)session, flush_mode);
+	rc = create_pkt_cmd_session_flush(&pkt, session, flush_mode);
 	if (rc) {
 		dprintk(VIDC_ERR, "Session flush: failed to create pkt\n");
 		goto err_create_pkt;

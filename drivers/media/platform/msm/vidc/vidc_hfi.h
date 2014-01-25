@@ -841,7 +841,7 @@ struct hfi_extradata_recovery_point_sei_payload {
 
 struct hal_session {
 	struct list_head list;
-	u32 session_id;
+	void *session_id;
 	u32 is_decoder;
 	void *device;
 };
@@ -858,5 +858,8 @@ struct msm_vidc_fw {
 u32 hfi_process_msg_packet(msm_vidc_callback callback,
 		u32 device_id, struct vidc_hal_msg_pkt_hdr *msg_hdr,
 		struct list_head *sessions, struct mutex *session_lock);
+
+struct hal_session *hfi_process_get_session(
+		struct list_head *sessions, u32 session_id);
 #endif
 

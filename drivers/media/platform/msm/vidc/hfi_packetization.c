@@ -10,11 +10,12 @@
  * GNU General Public License for more details.
  *
  */
-#include "hfi_packetization.h"
-#include "msm_vidc_debug.h"
 #include <linux/errno.h>
 #include <linux/log2.h>
+#include <linux/hash.h>
 #include <soc/qcom/ocmem.h>
+#include "hfi_packetization.h"
+#include "msm_vidc_debug.h"
 
 /* Set up look-up tables to convert HAL_* to HFI_*.
  *
@@ -325,7 +326,8 @@ int create_pkt_cmd_sys_ping(struct hfi_cmd_sys_ping_packet *pkt)
 
 inline int create_pkt_cmd_sys_session_init(
 		struct hfi_cmd_sys_session_init_packet *pkt,
-		u32 session_id, u32 session_domain, u32 session_codec)
+		struct hal_session *session,
+		u32 session_domain, u32 session_codec)
 {
 	int rc = 0;
 	if (!pkt)
@@ -333,7 +335,7 @@ inline int create_pkt_cmd_sys_session_init(
 
 	pkt->size = sizeof(struct hfi_cmd_sys_session_init_packet);
 	pkt->packet_type = HFI_CMD_SYS_SESSION_INIT;
-	pkt->session_id = session_id;
+	pkt->session_id = hash32_ptr(session);
 	pkt->session_domain = session_domain;
 	pkt->session_codec = get_hfi_codec(session_codec);
 	if (!pkt->session_codec)
@@ -343,7 +345,7 @@ inline int create_pkt_cmd_sys_session_init(
 }
 
 int create_pkt_cmd_session_cmd(struct vidc_hal_session_cmd_pkt *pkt,
-			int pkt_type, u32 session_id)
+			int pkt_type, struct hal_session *session)
 {
 	int rc = 0;
 	if (!pkt)
@@ -351,7 +353,7 @@ int create_pkt_cmd_session_cmd(struct vidc_hal_session_cmd_pkt *pkt,
 
 	pkt->size = sizeof(struct vidc_hal_session_cmd_pkt);
 	pkt->packet_type = pkt_type;
-	pkt->session_id = session_id;
+	pkt->session_id = hash32_ptr(session);
 
 	return rc;
 }
@@ -554,16 +556,16 @@ static u32 get_hfi_ltr_mode(enum ltr_mode ltr_mode_type)
 
 int create_pkt_cmd_session_set_buffers(
 		struct hfi_cmd_session_set_buffers_packet *pkt,
-		u32 session_id,
+		struct hal_session *session,
 		struct vidc_buffer_addr_info *buffer_info)
 {
 	int rc = 0;
 	int i = 0;
-	if (!pkt || !session_id)
+	if (!pkt || !session)
 		return -EINVAL;
 
 	pkt->packet_type = HFI_CMD_SESSION_SET_BUFFERS;
-	pkt->session_id = session_id;
+	pkt->session_id = hash32_ptr(session);
 	pkt->buffer_size = buffer_info->buffer_size;
 	pkt->min_buffer_size = buffer_info->buffer_size;
 	pkt->num_buffers = buffer_info->num_buffers;
@@ -601,15 +603,16 @@ int create_pkt_cmd_session_set_buffers(
 
 int create_pkt_cmd_session_release_buffers(
 		struct hfi_cmd_session_release_buffer_packet *pkt,
-		u32 session_id, struct vidc_buffer_addr_info *buffer_info)
+		struct hal_session *session,
+		struct vidc_buffer_addr_info *buffer_info)
 {
 	int rc = 0;
 	int i = 0;
-	if (!pkt || !session_id)
+	if (!pkt || !session)
 		return -EINVAL;
 
 	pkt->packet_type = HFI_CMD_SESSION_RELEASE_BUFFERS;
-	pkt->session_id = session_id;
+	pkt->session_id = hash32_ptr(session);
 	pkt->buffer_size = buffer_info->buffer_size;
 	pkt->num_buffers = buffer_info->num_buffers;
 
@@ -644,16 +647,16 @@ int create_pkt_cmd_session_release_buffers(
 
 int create_pkt_cmd_session_etb_decoder(
 	struct hfi_cmd_session_empty_buffer_compressed_packet *pkt,
-	u32 session_id, struct vidc_frame_data *input_frame)
+	struct hal_session *session, struct vidc_frame_data *input_frame)
 {
 	int rc = 0;
-	if (!pkt || !session_id)
+	if (!pkt || !session)
 		return -EINVAL;
 
 	pkt->size =
 		sizeof(struct hfi_cmd_session_empty_buffer_compressed_packet);
 	pkt->packet_type = HFI_CMD_SESSION_EMPTY_BUFFER;
-	pkt->session_id = session_id;
+	pkt->session_id = hash32_ptr(session);
 	pkt->time_stamp_hi = (int) (((u64)input_frame->timestamp) >> 32);
 	pkt->time_stamp_lo = (int) input_frame->timestamp;
 	pkt->flags = input_frame->flags;
@@ -671,16 +674,16 @@ int create_pkt_cmd_session_etb_decoder(
 
 int create_pkt_cmd_session_etb_encoder(
 	struct hfi_cmd_session_empty_buffer_uncompressed_plane0_packet *pkt,
-	u32 session_id, struct vidc_frame_data *input_frame)
+	struct hal_session *session, struct vidc_frame_data *input_frame)
 {
 	int rc = 0;
-	if (!pkt || !session_id)
+	if (!pkt || !session)
 		return -EINVAL;
 
 	pkt->size = sizeof(struct
 		hfi_cmd_session_empty_buffer_uncompressed_plane0_packet);
 	pkt->packet_type = HFI_CMD_SESSION_EMPTY_BUFFER;
-	pkt->session_id = session_id;
+	pkt->session_id = hash32_ptr(session);
 	pkt->view_id = 0;
 	pkt->time_stamp_hi = (u32)(((u64)input_frame->timestamp) >> 32);
 	pkt->time_stamp_lo = (u32)input_frame->timestamp;
@@ -699,15 +702,16 @@ int create_pkt_cmd_session_etb_encoder(
 }
 
 int create_pkt_cmd_session_ftb(struct hfi_cmd_session_fill_buffer_packet *pkt,
-		u32 session_id, struct vidc_frame_data *output_frame)
+		struct hal_session *session,
+		struct vidc_frame_data *output_frame)
 {
 	int rc = 0;
-	if (!pkt || !session_id || !output_frame)
+	if (!pkt || !session || !output_frame)
 		return -EINVAL;
 
 	pkt->size = sizeof(struct hfi_cmd_session_fill_buffer_packet);
 	pkt->packet_type = HFI_CMD_SESSION_FILL_BUFFER;
-	pkt->session_id = session_id;
+	pkt->session_id = hash32_ptr(session);
 
 	if (output_frame->buffer_type == HAL_BUFFER_OUTPUT)
 		pkt->stream_id = 0;
@@ -731,15 +735,15 @@ int create_pkt_cmd_session_ftb(struct hfi_cmd_session_fill_buffer_packet *pkt,
 
 int create_pkt_cmd_session_parse_seq_header(
 		struct hfi_cmd_session_parse_sequence_header_packet *pkt,
-		u32 session_id, struct vidc_seq_hdr *seq_hdr)
+		struct hal_session *session, struct vidc_seq_hdr *seq_hdr)
 {
 	int rc = 0;
-	if (!pkt || !session_id || !seq_hdr)
+	if (!pkt || !session || !seq_hdr)
 		return -EINVAL;
 
 	pkt->size = sizeof(struct hfi_cmd_session_parse_sequence_header_packet);
 	pkt->packet_type = HFI_CMD_SESSION_PARSE_SEQUENCE_HEADER;
-	pkt->session_id = session_id;
+	pkt->session_id = hash32_ptr(session);
 	pkt->header_len = seq_hdr->seq_hdr_len;
 	if (!seq_hdr->seq_hdr)
 		return -EINVAL;
@@ -749,16 +753,16 @@ int create_pkt_cmd_session_parse_seq_header(
 
 int create_pkt_cmd_session_get_seq_hdr(
 		struct hfi_cmd_session_get_sequence_header_packet *pkt,
-		u32 session_id, struct vidc_seq_hdr *seq_hdr)
+		struct hal_session *session, struct vidc_seq_hdr *seq_hdr)
 {
 	int rc = 0;
 
-	if (!pkt || !session_id || !seq_hdr)
+	if (!pkt || !session || !seq_hdr)
 		return -EINVAL;
 
 	pkt->size = sizeof(struct hfi_cmd_session_get_sequence_header_packet);
 	pkt->packet_type = HFI_CMD_SESSION_GET_SEQUENCE_HEADER;
-	pkt->session_id = session_id;
+	pkt->session_id = hash32_ptr(session);
 	pkt->buffer_len = seq_hdr->seq_hdr_len;
 	if (!seq_hdr->seq_hdr)
 		return -EINVAL;
@@ -768,16 +772,16 @@ int create_pkt_cmd_session_get_seq_hdr(
 
 int create_pkt_cmd_session_get_buf_req(
 		struct hfi_cmd_session_get_property_packet *pkt,
-		u32 session_id)
+		struct hal_session *session)
 {
 	int rc = 0;
 
-	if (!pkt || !session_id)
+	if (!pkt || !session)
 		return -EINVAL;
 
 	pkt->size = sizeof(struct hfi_cmd_session_get_property_packet);
 	pkt->packet_type = HFI_CMD_SESSION_GET_PROPERTY;
-	pkt->session_id = session_id;
+	pkt->session_id = hash32_ptr(session);
 	pkt->num_properties = 1;
 	pkt->rg_property_data[0] = HFI_PROPERTY_CONFIG_BUFFER_REQUIREMENTS;
 
@@ -785,15 +789,15 @@ int create_pkt_cmd_session_get_buf_req(
 }
 
 int create_pkt_cmd_session_flush(struct hfi_cmd_session_flush_packet *pkt,
-			u32 session_id, enum hal_flush flush_mode)
+			struct hal_session *session, enum hal_flush flush_mode)
 {
 	int rc = 0;
-	if (!pkt || !session_id)
+	if (!pkt || !session)
 		return -EINVAL;
 
 	pkt->size = sizeof(struct hfi_cmd_session_flush_packet);
 	pkt->packet_type = HFI_CMD_SESSION_FLUSH;
-	pkt->session_id = session_id;
+	pkt->session_id = hash32_ptr(session);
 	switch (flush_mode) {
 	case HAL_FLUSH_INPUT:
 		pkt->flush_type = HFI_FLUSH_INPUT;
@@ -816,16 +820,16 @@ int create_pkt_cmd_session_flush(struct hfi_cmd_session_flush_packet *pkt,
 
 int create_pkt_cmd_session_get_property(
 		struct hfi_cmd_session_get_property_packet *pkt,
-		u32 session_id, enum hal_property ptype)
+		struct hal_session *session, enum hal_property ptype)
 {
 	int rc = 0;
-	if (!pkt || !session_id) {
+	if (!pkt || !session) {
 		dprintk(VIDC_ERR, "%s Invalid parameters\n", __func__);
 		return -EINVAL;
 	}
 	pkt->size = sizeof(struct hfi_cmd_session_get_property_packet);
 	pkt->packet_type = HFI_CMD_SESSION_GET_PROPERTY;
-	pkt->session_id = session_id;
+	pkt->session_id = hash32_ptr(session);
 	pkt->num_properties = 1;
 	switch (ptype) {
 	case HAL_PARAM_PROFILE_LEVEL_CURRENT:
@@ -843,15 +847,16 @@ int create_pkt_cmd_session_get_property(
 
 int create_pkt_cmd_session_set_property(
 		struct hfi_cmd_session_set_property_packet *pkt,
-		u32 session_id, enum hal_property ptype, void *pdata)
+		struct hal_session *session,
+		enum hal_property ptype, void *pdata)
 {
 	int rc = 0;
-	if (!pkt || !session_id)
+	if (!pkt || !session)
 		return -EINVAL;
 
 	pkt->size = sizeof(struct hfi_cmd_session_set_property_packet);
 	pkt->packet_type = HFI_CMD_SESSION_SET_PROPERTY;
-	pkt->session_id = session_id;
+	pkt->session_id = hash32_ptr(session);
 	pkt->num_properties = 1;
 
 	switch (ptype) {

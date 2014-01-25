@@ -1058,7 +1058,7 @@ enum command_response {
 
 struct msm_vidc_cb_cmd_done {
 	u32 device_id;
-	u32 session_id;
+	void *session_id;
 	enum vidc_status status;
 	u32 size;
 	void *data;
@@ -1129,7 +1129,7 @@ struct vidc_hal_fbd {
 
 struct msm_vidc_cb_data_done {
 	u32 device_id;
-	u32 session_id;
+	void *session_id;
 	enum vidc_status status;
 	u32 size;
 	u32 clnt_data;
@@ -1218,7 +1218,7 @@ struct hfi_device {
 	int (*core_pc_prep)(void *device);
 	int (*core_ping)(void *device);
 	int (*core_trigger_ssr)(void *device, enum hal_ssr_trigger_type);
-	void *(*session_init)(void *device, u32 session_id,
+	void *(*session_init)(void *device, void *session_id,
 		enum hal_domain session_type, enum hal_video_codec codec_type);
 	int (*session_end)(void *session);
 	int (*session_abort)(void *session);
