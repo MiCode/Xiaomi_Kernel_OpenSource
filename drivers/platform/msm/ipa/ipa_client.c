@@ -309,9 +309,6 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 		ep->connect.event_thresh = IPA_EVENT_THRESHOLD;
 	ep->connect.options = SPS_O_AUTO_ENABLE;    /* BAM-to-BAM */
 
-	if (IPA_CLIENT_IS_CONS(in->client))
-		ep->connect.options |= SPS_O_NO_DISABLE;
-
 	result = sps_connect(ep->ep_hdl, &ep->connect);
 	if (result) {
 		IPAERR("sps_connect fails.\n");

@@ -2076,7 +2076,7 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 		} else if (in->client == IPA_CLIENT_APPS_LAN_CONS) {
 			sys->policy = IPA_POLICY_INTR_POLL_MODE;
 			sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT |
-					SPS_O_ACK_TRANSFERS | SPS_O_NO_DISABLE);
+					SPS_O_ACK_TRANSFERS);
 			sys->sps_callback = ipa_sps_irq_rx_notify;
 			INIT_WORK(&sys->work, ipa_wq_handle_rx);
 			INIT_DELAYED_WORK(&sys->switch_to_intr_work,
@@ -2150,7 +2150,7 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 				sys->ep->status.status_en = false;
 				sys->policy = IPA_POLICY_INTR_POLL_MODE;
 				sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT
-				| SPS_O_ACK_TRANSFERS | SPS_O_NO_DISABLE);
+						| SPS_O_ACK_TRANSFERS);
 				sys->sps_callback = ipa_sps_irq_rx_notify;
 				INIT_WORK(&sys->work, ipa_wq_handle_rx);
 				INIT_DELAYED_WORK(&sys->switch_to_intr_work,
