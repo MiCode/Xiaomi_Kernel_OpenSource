@@ -433,6 +433,15 @@ enum mdss_screen_state {
 	MDSS_SCREEN_FORCE_BLANK,
 };
 
+static inline struct mdss_mdp_ctl *mdss_mdp_get_split_ctl(
+	struct mdss_mdp_ctl *ctl)
+{
+	if (ctl && ctl->mixer_right && (ctl->mixer_right->ctl != ctl))
+		return ctl->mixer_right->ctl;
+
+	return NULL;
+}
+
 static inline bool mdss_mdp_pipe_is_yuv(struct mdss_mdp_pipe *pipe)
 {
 	return pipe && (pipe->type == MDSS_MDP_PIPE_TYPE_VIG);
