@@ -1497,6 +1497,8 @@ enum nl80211_commands {
  * @NL80211_ATTR_VENDOR_SUBCMD: vendor sub-command
  * @NL80211_ATTR_VENDOR_DATA: data for the vendor command, if any; this
  *	attribute is also used for vendor command feature advertisement
+ * @NL80211_ATTR_VENDOR_EVENTS: used for event list advertising in the wiphy
+ *	info, containing a nested array of possible events
  *
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
@@ -1823,6 +1825,8 @@ enum nl80211_attrs {
 	NL80211_ATTR_VENDOR_ID,
 	NL80211_ATTR_VENDOR_SUBCMD,
 	NL80211_ATTR_VENDOR_DATA,
+
+	NL80211_ATTR_VENDOR_EVENTS,
 
 	__NL80211_ATTR_AFTER_LAST,
 	NL80211_ATTR_MAX = __NL80211_ATTR_AFTER_LAST - 1
