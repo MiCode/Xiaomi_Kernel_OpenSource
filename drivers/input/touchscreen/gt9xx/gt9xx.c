@@ -1,6 +1,6 @@
 /* drivers/input/touchscreen/gt9xx.c
  *
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * Linux Foundation chooses to take subject only to the GPLv2 license
  * terms, and distributes only under these terms.
@@ -121,6 +121,8 @@ struct i2c_client  *i2c_connect_client;
 
 #define GTP_DEBUGFS_DIR			"ts_debug"
 #define GTP_DEBUGFS_FILE_SUSPEND	"suspend"
+#define GTP_DEBUGFS_FILE_DATA		"data"
+#define GTP_DEBUGFS_FILE_ADDR		"addr"
 
 /*******************************************************
 Function:
@@ -1541,6 +1543,84 @@ static const struct attribute_group gtp_attr_grp = {
 	.attrs = gtp_attrs,
 };
 
+static int gtp_debug_addr_is_valid(u16 addr)
+{
+	if (addr < GTP_VALID_ADDR_START || addr > GTP_VALID_ADDR_END) {
+		pr_err("GTP reg address is invalid: 0x%x\n", addr);
+		return false;
+	}
+
+	return true;
+}
+
+static int gtp_debug_data_set(void *_data, u64 val)
+{
+	struct goodix_ts_data *ts = _data;
+
+	mutex_lock(&ts->input_dev->mutex);
+	if (gtp_debug_addr_is_valid(ts->addr))
+		dev_err(&ts->client->dev,
+			"Writing to GTP registers not supported.\n");
+	mutex_unlock(&ts->input_dev->mutex);
+
+	return 0;
+}
+
+static int gtp_debug_data_get(void *_data, u64 *val)
+{
+	struct goodix_ts_data *ts = _data;
+	int ret;
+	u8 buf[3] = {0};
+
+	mutex_lock(&ts->input_dev->mutex);
+	buf[0] = ts->addr >> 8;
+	buf[1] = ts->addr & 0x00ff;
+
+	if (gtp_debug_addr_is_valid(ts->addr)) {
+		ret = gtp_i2c_read(ts->client, buf, 3);
+		if (ret < 0)
+			dev_err(&ts->client->dev,
+				"GTP read register 0x%x failed (%d)\n",
+				ts->addr, ret);
+		else
+			*val = buf[2];
+	}
+	mutex_unlock(&ts->input_dev->mutex);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(debug_data_fops, gtp_debug_data_get,
+				gtp_debug_data_set, "%llx\n");
+
+static int gtp_debug_addr_set(void *_data, u64 val)
+{
+	struct goodix_ts_data *ts = _data;
+
+	if (gtp_debug_addr_is_valid(val)) {
+		mutex_lock(&ts->input_dev->mutex);
+			ts->addr = val;
+		mutex_unlock(&ts->input_dev->mutex);
+	}
+
+	return 0;
+}
+
+static int gtp_debug_addr_get(void *_data, u64 *val)
+{
+	struct goodix_ts_data *ts = _data;
+
+	mutex_lock(&ts->input_dev->mutex);
+	if (gtp_debug_addr_is_valid(ts->addr))
+		*val = ts->addr;
+	mutex_unlock(&ts->input_dev->mutex);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(debug_addr_fops, gtp_debug_addr_get,
+				gtp_debug_addr_set, "%llx\n");
+
 static int gtp_debug_suspend_set(void *_data, u64 val)
 {
 	struct goodix_ts_data *ts = _data;
@@ -1574,7 +1654,7 @@ static int gtp_debugfs_init(struct goodix_ts_data *data)
 	data->debug_base = debugfs_create_dir(GTP_DEBUGFS_DIR, NULL);
 
 	if (IS_ERR_OR_NULL(data->debug_base)) {
-		pr_err("Failed to create debugfs dir.\n");
+		dev_err(&data->client->dev, "Failed to create debugfs dir.\n");
 			return -EINVAL;
 	}
 
@@ -1583,7 +1663,27 @@ static int gtp_debugfs_init(struct goodix_ts_data *data)
 					data->debug_base,
 					data,
 					&debug_suspend_fops)))) {
-		pr_err("Failed to create suspend file.\n");
+		dev_err(&data->client->dev, "Failed to create suspend file.\n");
+		debugfs_remove_recursive(data->debug_base);
+		return -EINVAL;
+	}
+
+	if ((IS_ERR_OR_NULL(debugfs_create_file(GTP_DEBUGFS_FILE_DATA,
+					S_IWUSR | S_IWGRP | S_IRUSR | S_IRGRP,
+					data->debug_base,
+					data,
+					&debug_data_fops)))) {
+		dev_err(&data->client->dev, "Failed to create data file.\n");
+		debugfs_remove_recursive(data->debug_base);
+		return -EINVAL;
+	}
+
+	if ((IS_ERR_OR_NULL(debugfs_create_file(GTP_DEBUGFS_FILE_ADDR,
+					S_IWUSR | S_IWGRP | S_IRUSR | S_IRGRP,
+					data->debug_base,
+					data,
+					&debug_addr_fops)))) {
+		dev_err(&data->client->dev, "Failed to create addr file.\n");
 		debugfs_remove_recursive(data->debug_base);
 		return -EINVAL;
 	}
