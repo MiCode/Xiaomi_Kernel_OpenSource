@@ -10,3 +10,12 @@ menuconfig POWER_AVS
 	  AVS is also called SmartReflex on OMAP devices.
 
 	  Say Y here to enable Adaptive Voltage Scaling class support.
+
+config POWER_AVS_MSM
+	bool "Enable Adaptive Voltage Scaling (AVS) for QCOM chipsets"
+	default n
+	help
+	  Enable AVS hardware to fine tune voltage at each frequency. The
+	  AVS hardware blocks associated with each Qualcomm ARMv7 cores can
+	  fine tune the voltages based on the feedback from the ring
+	  oscillators.
