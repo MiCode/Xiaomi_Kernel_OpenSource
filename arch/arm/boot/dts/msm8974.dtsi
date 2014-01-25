@@ -215,7 +215,7 @@
 		vdd-supply = <&gdsc_venus>;
 		qcom,hfi = "venus";
 		qcom,has-ocmem;
-		qcom,max-hw-load = <1224450>; /* 4k @ 30 + 1080p @ 30*/
+		qcom,max-hw-load = <1216800>; /* 3840 x 2160 @ 30 + 1080p @ 30*/
 	};
 
 	qcom,vidc {
