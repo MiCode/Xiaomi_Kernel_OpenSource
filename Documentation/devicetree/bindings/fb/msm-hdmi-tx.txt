@@ -28,6 +28,7 @@ Optional properties:
 - qcom,hdmi-tx-mux-sel: gpio required to toggle HDMI output between
   docking station, type A, and liquid device, type D, ports. Required
   property for liquid devices.
+- qcom,hdmi-tx-ddc-mux-sel: gpio for ddc mux select.
 - qcom,hdmi-tx-mux-en: gpio required to enable mux for HDMI output
   on liquid devices. Required property for liquid devices.
 
@@ -57,6 +58,7 @@ Example:
 		qcom,hdmi-tx-max-voltage-level = <0 0 1800000 1800000>;
 		qcom,hdmi-tx-peak-current = <0 0 1800000 0>;
 
+		qcom,hdmi-tx-ddc-mux-sel = <&pma8084_gpios 6 0>;
 		qcom,hdmi-tx-cec = <&msmgpio 31 0>;
 		qcom,hdmi-tx-ddc-clk = <&msmgpio 32 0>;
 		qcom,hdmi-tx-ddc-data = <&msmgpio 33 0>;
