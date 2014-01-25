@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -139,6 +139,12 @@
 	};
 
 	gpio@c500 { /* GPIO 6 */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,pull = <1>;		/* QPNP_PIN_GPIO_PULL_UP_1P5 */
+		qcom,vin-sel = <2>;		/* VIN2 */
+		qcom,src_sel = <0>;		/* GPIO */
+		qcom,out-strength = <1>;	/* Low */
+		qcom,master-en = <1>;		/* Enable GPIO */
 	};
 
 	gpio@c600 { /* GPIO 7 */
