@@ -505,7 +505,7 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 		 * shared as long as its attached to a writeback mixer
 		 */
 		pipe = mdata->dma_pipes + mixer->num;
-		mdss_mdp_pipe_map(pipe);
+		atomic_inc(&pipe->ref_cnt);
 		pr_debug("pipe sharing for pipe=%d\n", pipe->num);
 	} else {
 		pr_err("no %d type pipes available\n", type);
