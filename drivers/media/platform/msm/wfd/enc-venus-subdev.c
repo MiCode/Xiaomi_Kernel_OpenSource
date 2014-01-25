@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 #include <linux/bitmap.h>
 #include <linux/completion.h>
 #include <linux/ion.h>
+#include <linux/jiffies.h>
 #include <linux/kthread.h>
 #include <linux/list.h>
 #include <linux/mutex.h>
@@ -28,6 +29,7 @@
 
 #define BUF_TYPE_OUTPUT V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE
 #define BUF_TYPE_INPUT V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE
+#define TIMEOUT msecs_to_jiffies(100)
 
 static struct ion_client *venc_ion_client;
 static long venc_secure(struct v4l2_subdev *sd);
@@ -1027,10 +1029,18 @@ static long fill_outbuf(struct venc_inst *inst, struct mem_region *mregion)
 		index = next_free_index(&inst->free_output_indices);
 		mutex_unlock(&inst->lock);
 
-		if (index < 0)
-			wait_for_completion(&inst->dq_complete);
-		else
+		if (index < 0) {
+			rc = wait_for_completion_timeout(&inst->dq_complete,
+					TIMEOUT);
+			if (!rc) {
+				WFD_MSG_ERR(
+					"Timed out waiting for an output buffer\n");
+				rc = -ETIMEDOUT;
+				goto err_fill_buf;
+			}
+		} else {
 			break;
+		}
 	}
 
 	buffer = (struct v4l2_buffer) {
@@ -1050,6 +1060,7 @@ static long fill_outbuf(struct venc_inst *inst, struct mem_region *mregion)
 		mutex_unlock(&inst->lock);
 	}
 
+err_fill_buf:
 	return rc;
 }
 
@@ -1153,10 +1164,18 @@ static long venc_encode_frame(struct v4l2_subdev *sd, void *arg)
 		index = next_free_index(&inst->free_input_indices);
 		mutex_unlock(&inst->lock);
 
-		if (index < 0)
-			wait_for_completion(&inst->dq_complete);
-		else
+		if (index < 0) {
+			rc = wait_for_completion_timeout(&inst->dq_complete,
+					TIMEOUT);
+			if (!rc) {
+				WFD_MSG_ERR(
+					"Timed out waiting for an input buffer\n");
+				rc = -ETIMEDOUT;
+				goto err_encode_frame;
+			}
+		} else {
 			break;
+		}
 	}
 
 	buffer = (struct v4l2_buffer) {
@@ -1176,6 +1195,7 @@ static long venc_encode_frame(struct v4l2_subdev *sd, void *arg)
 		mark_index_busy(&inst->free_input_indices, index);
 		mutex_unlock(&inst->lock);
 	}
+err_encode_frame:
 	return rc;
 }
 
