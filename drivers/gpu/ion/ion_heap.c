@@ -290,11 +290,11 @@ static size_t _ion_heap_freelist_drain(struct ion_heap *heap, size_t size,
 		if (total_drained >= size)
 			break;
 		list_del(&buffer->list);
-		ion_buffer_destroy(buffer);
 		heap->free_list_size -= buffer->size;
 		if (skip_pools)
 			buffer->flags |= ION_FLAG_FREED_FROM_SHRINKER;
 		total_drained += buffer->size;
+		ion_buffer_destroy(buffer);
 	}
 	rt_mutex_unlock(&heap->lock);
 
