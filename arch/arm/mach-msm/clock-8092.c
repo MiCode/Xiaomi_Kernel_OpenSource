@@ -5758,6 +5758,8 @@ static struct gate_clk vby1_gpio_ldo = {
 	},
 };
 
+static DEFINE_CLK_VOTER(scm_ce1_clk_src, &ce1_clk_src.c, 100000000);
+
 static DEFINE_CLK_MEASURE(l2_m_clk);
 static DEFINE_CLK_MEASURE(krait0_m_clk);
 static DEFINE_CLK_MEASURE(krait1_m_clk);
@@ -6710,9 +6712,11 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("",	gcc_boot_rom_ahb_clk.c,	""),
 
 	/* CE */
-	CLK_LOOKUP("",	gcc_ce1_ahb_clk.c,	""),
-	CLK_LOOKUP("",	gcc_ce1_axi_clk.c,	""),
-	CLK_LOOKUP("",	gcc_ce1_clk.c,	""),
+	CLK_LOOKUP("core_clk",     gcc_ce1_clk.c,         "scm"),
+	CLK_LOOKUP("iface_clk",    gcc_ce1_ahb_clk.c,     "scm"),
+	CLK_LOOKUP("bus_clk",      gcc_ce1_axi_clk.c,     "scm"),
+	CLK_LOOKUP("core_clk_src", scm_ce1_clk_src.c,     "scm"),
+
 	CLK_LOOKUP("",	gcc_ce2_ahb_clk.c,	""),
 	CLK_LOOKUP("",	gcc_ce2_axi_clk.c,	""),
 	CLK_LOOKUP("",	gcc_ce2_clk.c,	""),
