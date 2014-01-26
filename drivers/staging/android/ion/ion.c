@@ -1787,33 +1787,6 @@ void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 	up_write(&dev->lock);
 }
 
-int ion_secure_heap(struct ion_device *dev, int heap_id, int version,
-			void *data)
-{
-	int ret_val = 0;
-	struct ion_heap *heap;
-
-	/*
-	 * traverse the list of heaps available in this system
-	 * and find the heap that is specified.
-	 */
-	down_write(&dev->lock);
-	plist_for_each_entry(heap, &dev->heaps, node) {
-		if (!ion_heap_allow_heap_secure(heap->type))
-			continue;
-		if (ION_HEAP(heap->id) != heap_id)
-			continue;
-		if (heap->ops->secure_heap)
-			ret_val = heap->ops->secure_heap(heap, version, data);
-		else
-			ret_val = -EINVAL;
-		break;
-	}
-	up_write(&dev->lock);
-	return ret_val;
-}
-EXPORT_SYMBOL(ion_secure_heap);
-
 int ion_walk_heaps(struct ion_client *client, int heap_id, void *data,
 			int (*f)(struct ion_heap *heap, void *data))
 {
@@ -1835,33 +1808,6 @@ int ion_walk_heaps(struct ion_client *client, int heap_id, void *data,
 	return ret_val;
 }
 EXPORT_SYMBOL(ion_walk_heaps);
-
-int ion_unsecure_heap(struct ion_device *dev, int heap_id, int version,
-			void *data)
-{
-	int ret_val = 0;
-	struct ion_heap *heap;
-
-	/*
-	 * traverse the list of heaps available in this system
-	 * and find the heap that is specified.
-	 */
-	down_write(&dev->lock);
-	plist_for_each_entry(heap, &dev->heaps, node) {
-		if (!ion_heap_allow_heap_secure(heap->type))
-			continue;
-		if (ION_HEAP(heap->id) != heap_id)
-			continue;
-		if (heap->ops->secure_heap)
-			ret_val = heap->ops->unsecure_heap(heap, version, data);
-		else
-			ret_val = -EINVAL;
-		break;
-	}
-	up_write(&dev->lock);
-	return ret_val;
-}
-EXPORT_SYMBOL(ion_unsecure_heap);
 
 struct ion_device *ion_device_create(long (*custom_ioctl)
 				     (struct ion_client *client,

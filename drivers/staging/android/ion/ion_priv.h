@@ -125,8 +125,6 @@ struct ion_heap_ops {
 	void (*unmap_user) (struct ion_heap *mapper, struct ion_buffer *buffer);
 	int (*print_debug)(struct ion_heap *heap, struct seq_file *s,
 			   const struct list_head *mem_map);
-	int (*secure_heap)(struct ion_heap *heap, int version, void *data);
-	int (*unsecure_heap)(struct ion_heap *heap, int version, void *data);
 };
 
 /**
