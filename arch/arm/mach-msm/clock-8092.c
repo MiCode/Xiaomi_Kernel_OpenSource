@@ -6627,7 +6627,7 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("mem_clk", bimc_a_clk.c, ""),
 	CLK_LOOKUP("mem_clk", ocmemgx_a_clk.c, ""),
 	CLK_LOOKUP("xo_clk", xo_clk_src.c, ""),
-	CLK_LOOKUP("xo_clk", xo_a_clk_src.c, ""),
+	CLK_LOOKUP("hfpll_src", xo_a_clk_src.c, "f9016000.qcom,clock-krait"),
 	CLK_LOOKUP("bus_clk", mmssnoc_ahb_clk.c, ""),
 	CLK_LOOKUP("core_clk", gfx3d_clk_src.c, ""),
 	CLK_LOOKUP("core_clk", gfx3d_a_clk_src.c, ""),
@@ -6635,7 +6635,7 @@ static struct clk_lookup mpq_clocks_8092[] = {
 
 	/* PLL */
 	CLK_LOOKUP("gpll0", gpll0_clk_src.c, ""),
-	CLK_LOOKUP("gpll0_ao", gpll0_ao_clk_src.c, ""),
+	CLK_LOOKUP("aux_clk", gpll0_ao_clk_src.c, "f9016000.qcom,clock-krait"),
 
 	/* Voter clocks */
 	CLK_LOOKUP("bus_clk",	cnoc_msmbus_clk.c,	"msm_config_noc"),
