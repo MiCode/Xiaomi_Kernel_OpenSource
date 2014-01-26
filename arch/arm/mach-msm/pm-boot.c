@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <soc/qcom/scm-boot.h>
+#include <asm/cacheflush.h>
 #include "idle.h"
 #include "pm-boot.h"
 
@@ -39,9 +40,10 @@ static int msm_pm_tz_boot_init(void)
 static void msm_pm_write_boot_vector(unsigned int cpu, unsigned long address)
 {
 	msm_pm_boot_vector[cpu] = address;
-	clean_caches((unsigned long)&msm_pm_boot_vector[cpu],
-		     sizeof(msm_pm_boot_vector[cpu]),
-		     virt_to_phys(&msm_pm_boot_vector[cpu]));
+
+	dmac_clean_range((void *)&msm_pm_boot_vector[cpu],
+			(void *)(&msm_pm_boot_vector[cpu] +
+				sizeof(msm_pm_boot_vector[cpu])));
 }
 
 static void msm_pm_config_tz_before_pc(unsigned int cpu,
