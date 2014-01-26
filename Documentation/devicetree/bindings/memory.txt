@@ -38,6 +38,7 @@ wit the following convention:
 	(linux,default-contiguous-region);
 	(linux,reserve-region);
 	(linux,memory-limit);
+	(linux,remove-completely);
         label = (unique_name);
 };
 
@@ -58,6 +59,10 @@ linux,memory-limit: property specifying an upper bound on the physical address
 		is specificed, the region may be placed anywhere in the physical
 		address space. 0 may be used to specify lowmem (i.e. the region
 		will be placed in the direct mapped lowmem region)
+linux,remove-completely: property indicating the memory will be removed from the
+		linux page allocator completely. This means that page structures
+		associated with the memory will not be valid. This binding is
+		expected to be used in conjunction with linux,reserve-region.
 label:		an internal name used for automatically associating the
 		cma region with a given device. The label is optional;
 		if the label is not given the client is responsible for
