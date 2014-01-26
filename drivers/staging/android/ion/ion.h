@@ -19,7 +19,7 @@
 #define _LINUX_ION_H
 
 #include <linux/err.h>
-#include <uapi/linux/ion.h>
+#include "../uapi/linux/ion.h"
 
 struct ion_handle;
 struct ion_device;
