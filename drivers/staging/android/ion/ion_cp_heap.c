@@ -523,8 +523,8 @@ void *ion_cp_heap_map_kernel(struct ion_heap *heap, struct ion_buffer *buffer)
 				pgprot = pgprot_writecombine(PAGE_KERNEL);
 
 			for (i = 0; i < npages; i++) {
-				pages[i] = phys_to_page(buf->buffer +
-						i * PAGE_SIZE);
+				pages[i] = pfn_to_page(PFN_DOWN(buf->buffer +
+						i * PAGE_SIZE));
 			}
 			ret_value = vmap(pages, npages, VM_IOREMAP, pgprot);
 			vfree(pages);
@@ -598,7 +598,7 @@ int ion_cp_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 							vma->vm_page_prot);
 
 		ret_value =  remap_pfn_range(vma, vma->vm_start,
-			__phys_to_pfn(buf->buffer) + vma->vm_pgoff,
+			PFN_DOWN(buf->buffer) + vma->vm_pgoff,
 			vma->vm_end - vma->vm_start,
 			vma->vm_page_prot);
 

@@ -100,7 +100,7 @@ static void ion_secure_pool_pages(struct work_struct *work);
 int ion_secure_cma_get_sgtable(struct device *dev, struct sg_table *sgt,
 			dma_addr_t handle, size_t size)
 {
-	struct page *page = phys_to_page(handle);
+	struct page *page = pfn_to_page(PFN_DOWN(handle));
 	int ret;
 
 	ret = sg_alloc_table(sgt, 1, GFP_KERNEL);

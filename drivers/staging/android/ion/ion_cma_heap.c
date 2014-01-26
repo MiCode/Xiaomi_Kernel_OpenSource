@@ -45,7 +45,7 @@ static int cma_heap_has_outer_cache;
 int ion_cma_get_sgtable(struct device *dev, struct sg_table *sgt,
 			void *cpu_addr, dma_addr_t handle, size_t size)
 {
-	struct page *page = phys_to_page(handle);
+	struct page *page = pfn_to_page(PFN_DOWN(handle));
 	int ret;
 
 	ret = sg_alloc_table(sgt, 1, GFP_KERNEL);
