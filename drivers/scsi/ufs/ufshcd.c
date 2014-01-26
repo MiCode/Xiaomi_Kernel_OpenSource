@@ -3804,6 +3804,8 @@ static void ufshcd_check_errors(struct ufs_hba *hba)
 				bool pr_prdt = !!(hba->saved_err &
 						SYSTEM_BUS_FATAL_ERROR);
 
+				dev_err(hba->dev, "%s: saved_err 0x%x saved_uic_err 0x%x",
+					__func__, hba->errors, hba->uic_error);
 				ufshcd_print_host_regs(hba);
 				ufshcd_print_pwr_info(hba);
 				ufshcd_print_tmrs(hba, hba->outstanding_tasks);
