@@ -480,8 +480,9 @@ static int msm_wdog_dt_to_pdata(struct platform_device *pdev,
 		return -ENODEV;
 	pdata->size = resource_size(wdog_resource);
 	pdata->phys_base = wdog_resource->start;
-	if (unlikely(!(devm_request_region(&pdev->dev, pdata->phys_base,
-					pdata->size, "msm-watchdog")))) {
+	if (unlikely(!(devm_request_mem_region(&pdev->dev, pdata->phys_base,
+					       pdata->size, "msm-watchdog")))) {
+
 		dev_err(&pdev->dev, "%s cannot reserve watchdog region\n",
 								__func__);
 		return -ENXIO;
