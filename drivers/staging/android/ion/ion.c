@@ -1652,9 +1652,9 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 		total_size += buffer->size;
 		if (!buffer->handle_count) {
 			seq_printf(s, "%16.s %16u %16zu %d %d\n",
-				buffer->task_comm, buffer->pid, buffer->size,
-				buffer->kmap_cnt,
-				atomic_read(&buffer->ref.refcount));
+				   buffer->task_comm, buffer->pid,
+				   buffer->size, buffer->kmap_cnt,
+				   atomic_read(&buffer->ref.refcount));
 			total_orphaned_size += buffer->size;
 		}
 	}
@@ -1664,7 +1664,7 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 		   total_orphaned_size);
 	seq_printf(s, "%16.s %16zu\n", "total ", total_size);
 	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
-		seq_printf(s, "%16.s %16u\n", "deferred free",
+		seq_printf(s, "%16.s %16zu\n", "deferred free",
 				heap->free_list_size);
 	seq_printf(s, "----------------------------------------------------\n");
 
