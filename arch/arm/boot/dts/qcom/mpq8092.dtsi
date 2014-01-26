@@ -1183,6 +1183,9 @@
 		};
 	};
 
+	qcom,wfd {
+		compatible = "qcom,msm-wfd";
+	};
 
 	tsens: tsens@fc4a8000 {
 		compatible = "qcom,msm-tsens";
