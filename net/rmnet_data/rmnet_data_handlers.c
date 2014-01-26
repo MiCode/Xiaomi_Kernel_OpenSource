@@ -253,7 +253,9 @@ static rx_handler_result_t _rmnet_map_ingress_handler(struct sk_buff *skb,
 	uint16_t len;
 
 	mux_id = RMNET_MAP_GET_MUX_ID(skb);
-	len = RMNET_MAP_GET_LENGTH(skb) - RMNET_MAP_GET_PAD(skb);
+	len = RMNET_MAP_GET_LENGTH(skb)
+			- RMNET_MAP_GET_PAD(skb)
+			- config->tail_spacing;
 
 	if (mux_id >= RMNET_DATA_MAX_LOGICAL_EP) {
 		LOGD("%s(): Got packet on %s with bad mux id %d\n",
