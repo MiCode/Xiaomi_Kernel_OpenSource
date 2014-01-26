@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,10 +51,11 @@ static int msm_csid_cid_lut(
 		return -EINVAL;
 	}
 	for (i = 0; i < csid_lut_params->num_cid && i < 16; i++) {
-		CDBG("%s lut params num_cid = %d, cid = %d, dt = %x, df = %d\n",
+		CDBG("%s lut params num_cid = %d, cid = %d\n",
 			__func__,
 			csid_lut_params->num_cid,
-			csid_lut_params->vc_cfg[i]->cid,
+			csid_lut_params->vc_cfg[i]->cid);
+		CDBG("%s lut params dt = 0x%x, df = %d\n", __func__,
 			csid_lut_params->vc_cfg[i]->dt,
 			csid_lut_params->vc_cfg[i]->decode_format);
 		if (csid_lut_params->vc_cfg[i]->dt < 0x12 ||
@@ -113,10 +114,11 @@ static int msm_csid_config(struct csid_device *csid_dev,
 		return -EINVAL;
 	}
 
-	CDBG("%s csid_params, lane_cnt = %d, lane_assign = %x, phy sel = %d\n",
+	CDBG("%s csid_params, lane_cnt = %d, lane_assign = 0x%x\n",
 		__func__,
 		csid_params->lane_cnt,
-		csid_params->lane_assign,
+		csid_params->lane_assign);
+	CDBG("%s csid_params phy_sel = %d\n", __func__,
 		csid_params->phy_sel);
 
 	msm_csid_reset(csid_dev);
@@ -240,7 +242,7 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 	CDBG("%s:%d called\n", __func__, __LINE__);
 		csid_dev->hw_version =
 	msm_camera_io_r(csid_dev->base + CSID_HW_VERSION_ADDR);
-	CDBG("%s:%d called csid_dev->hw_version %x\n", __func__, __LINE__,
+	CDBG("%s:%d called csid_dev->hw_version 0x%x\n", __func__, __LINE__,
 		csid_dev->hw_version);
 	*csid_version = csid_dev->hw_version;
 
@@ -276,7 +278,7 @@ static int msm_csid_release(struct csid_device *csid_dev)
 		return -EINVAL;
 	}
 
-	CDBG("%s:%d, hw_version = %x\n", __func__, __LINE__,
+	CDBG("%s:%d, hw_version = 0x%x\n", __func__, __LINE__,
 		csid_dev->hw_version);
 
 	irq = msm_camera_io_r(csid_dev->base + CSID_IRQ_STATUS_ADDR);
@@ -316,7 +318,7 @@ static long msm_csid_cmd(struct csid_device *csid_dev, void *arg)
 	switch (cdata->cfgtype) {
 	case CSID_INIT:
 		rc = msm_csid_init(csid_dev, &cdata->cfg.csid_version);
-		CDBG("%s csid version %x\n", __func__,
+		CDBG("%s csid version 0x%x\n", __func__,
 			cdata->cfg.csid_version);
 		break;
 	case CSID_CFG: {

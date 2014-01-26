@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -292,7 +292,7 @@ static int32_t msm_cci_write_i2c_queue(struct cci_device *cci_dev,
 		pr_err("%s: failed %d", __func__, __LINE__);
 		return rc;
 	}
-	CDBG("%s CCI_I2C_M0_Q0_LOAD_DATA_ADDR:val %x:%x\n",
+	CDBG("%s CCI_I2C_M0_Q0_LOAD_DATA_ADDR:val 0x%x:0x%x\n",
 		__func__, CCI_I2C_M0_Q0_LOAD_DATA_ADDR +
 		reg_offset, val);
 	msm_camera_io_w(val, cci_dev->base + CCI_I2C_M0_Q0_LOAD_DATA_ADDR +
@@ -398,7 +398,7 @@ static int32_t msm_cci_i2c_read(struct v4l2_subdev *sd,
 
 	val = msm_camera_io_r(cci_dev->base + CCI_I2C_M0_Q0_CUR_WORD_CNT_ADDR +
 		master * 0x200 + queue * 0x100);
-	CDBG("%s cur word cnt %x\n", __func__, val);
+	CDBG("%s cur word cnt 0x%x\n", __func__, val);
 	msm_camera_io_w(val, cci_dev->base + CCI_I2C_M0_Q0_EXEC_WORD_CNT_ADDR +
 		master * 0x200 + queue * 0x100);
 
@@ -438,16 +438,16 @@ static int32_t msm_cci_i2c_read(struct v4l2_subdev *sd,
 	do {
 		val = msm_camera_io_r(cci_dev->base +
 			CCI_I2C_M0_READ_DATA_ADDR + master * 0x100);
-		CDBG("%s read val %x\n", __func__, val);
+		CDBG("%s read val 0x%x\n", __func__, val);
 		for (i = 0; (i < 4) && (index < read_cfg->num_byte); i++) {
 			CDBG("%s i %d index %d\n", __func__, i, index);
 			if (!first_byte) {
-				CDBG("%s sid %x\n", __func__, val & 0xFF);
+				CDBG("%s sid 0x%x\n", __func__, val & 0xFF);
 				first_byte++;
 			} else {
 				read_cfg->data[index] =
 					(val  >> (i * 8)) & 0xFF;
-				CDBG("%s data[%d] %x\n", __func__, index,
+				CDBG("%s data[%d] 0x%x\n", __func__, index,
 					read_cfg->data[index]);
 				index++;
 			}
@@ -847,13 +847,13 @@ static irqreturn_t msm_cci_irq(int irq_num, void *data)
 			cci_dev->base + CCI_RESET_CMD_ADDR);
 	}
 	if (irq & CCI_IRQ_STATUS_0_I2C_M0_ERROR_BMSK) {
-		pr_err("%s:%d MASTER_0 error %x\n", __func__, __LINE__, irq);
+		pr_err("%s:%d MASTER_0 error 0x%x\n", __func__, __LINE__, irq);
 		cci_dev->cci_master_info[MASTER_0].status = -EINVAL;
 		msm_camera_io_w(CCI_M0_HALT_REQ_RMSK,
 			cci_dev->base + CCI_HALT_REQ_ADDR);
 	}
 	if (irq & CCI_IRQ_STATUS_0_I2C_M1_ERROR_BMSK) {
-		pr_err("%s:%d MASTER_1 error %x\n", __func__, __LINE__, irq);
+		pr_err("%s:%d MASTER_1 error 0x%x\n", __func__, __LINE__, irq);
 		cci_dev->cci_master_info[MASTER_1].status = -EINVAL;
 		msm_camera_io_w(CCI_M1_HALT_REQ_RMSK,
 			cci_dev->base + CCI_HALT_REQ_ADDR);

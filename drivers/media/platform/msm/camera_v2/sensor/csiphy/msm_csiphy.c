@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,11 +60,12 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 		return rc;
 	}
 
-	CDBG("%s csiphy_params, mask = %x cnt = %d settle cnt = %x csid %d\n",
+	CDBG("%s csiphy_params, mask = 0x%x cnt = %d\n",
 		__func__,
 		csiphy_params->lane_mask,
-		csiphy_params->lane_cnt,
-		csiphy_params->settle_cnt,
+		csiphy_params->lane_cnt);
+	CDBG("%s csiphy_params, settle cnt = 0x%x csid %d\n",
+		__func__, csiphy_params->settle_cnt,
 		csiphy_params->csid_core);
 
 	if (csiphy_dev->hw_version >= CSIPHY_VERSION_V30) {
@@ -263,7 +264,7 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 	else
 		csiphy_dev->hw_version = CSIPHY_VERSION;
 
-	CDBG("%s:%d called csiphy_dev->hw_version %x\n", __func__, __LINE__,
+	CDBG("%s:%d called csiphy_dev->hw_version 0x%x\n", __func__, __LINE__,
 		csiphy_dev->hw_version);
 	csiphy_dev->csiphy_state = CSIPHY_POWER_UP;
 	return 0;
@@ -359,7 +360,7 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 	else
 		csiphy_dev->hw_version = CSIPHY_VERSION;
 
-	CDBG("%s:%d called csiphy_dev->hw_version %x\n", __func__, __LINE__,
+	CDBG("%s:%d called csiphy_dev->hw_version 0x%x\n", __func__, __LINE__,
 		csiphy_dev->hw_version);
 	csiphy_dev->csiphy_state = CSIPHY_POWER_UP;
 	return 0;
@@ -398,7 +399,7 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 		}
 		csi_lane_mask = (csi_lane_params->csi_lane_mask & 0x1F);
 
-		CDBG("%s csiphy_params, lane assign %x mask = %x\n",
+		CDBG("%s csiphy_params, lane assign 0x%x mask = 0x%x\n",
 			__func__,
 			csi_lane_params->csi_lane_assign,
 			csi_lane_params->csi_lane_mask);
@@ -481,7 +482,7 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 		}
 		csi_lane_mask = (csi_lane_params->csi_lane_mask & 0x1F);
 
-		CDBG("%s csiphy_params, lane assign %x mask = %x\n",
+		CDBG("%s csiphy_params, lane assign 0x%x mask = 0x%x\n",
 			__func__,
 			csi_lane_params->csi_lane_assign,
 			csi_lane_params->csi_lane_mask);

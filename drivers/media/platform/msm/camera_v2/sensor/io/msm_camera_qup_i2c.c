@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011, 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -248,7 +248,7 @@ int32_t msm_camera_qup_i2c_write_table(struct msm_camera_i2c_client *client,
 	client->addr_type = write_setting->addr_type;
 
 	for (i = 0; i < write_setting->size; i++) {
-		CDBG("%s addr %x data %x\n", __func__,
+		CDBG("%s addr 0x%x data 0x%x\n", __func__,
 			reg_setting->reg_addr, reg_setting->reg_data);
 
 		rc = msm_camera_qup_i2c_write(client, reg_setting->reg_addr,

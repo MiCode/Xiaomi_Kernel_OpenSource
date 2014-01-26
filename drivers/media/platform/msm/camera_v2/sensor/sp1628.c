@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -938,7 +938,7 @@ int32_t sp1628_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 		return rc;
 	}
 
-	CDBG("%s: read id: %x expected id 0x16:\n", __func__, chipid);
+	CDBG("%s: read id: 0x%x expected id 0x16:\n", __func__, chipid);
 	if (chipid != 0x16) {
 		pr_err("msm_sensor_match_id chip id doesnot match\n");
 		return -ENODEV;
@@ -955,7 +955,7 @@ int32_t sp1628_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 		return rc;
 	}
 
-	CDBG("%s: read id: %x expected id 0x28:\n", __func__, chipid);
+	CDBG("%s: read id: 0x%x expected id 0x28:\n", __func__, chipid);
 	if (chipid != 0x28) {
 		pr_err("msm_sensor_match_id chip id doesnot match\n");
 		return -ENODEV;
