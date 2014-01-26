@@ -63,6 +63,12 @@ static struct gpiomux_setting ioexp_suspend_config = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting gpio_spi_config = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
 static struct gpiomux_setting ioexp_active_config = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_16MA,
@@ -162,6 +168,30 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 		.gpio      = 82,	/* BLSP2 QUP5 I2C_SCL */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 87,		/* BLSP2 QUP6 SPI_DATA_MOSI */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+	{
+		.gpio      = 88,		/* BLSP2 QUP6 SPI_DATA_MISO */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+	{
+		.gpio      = 90,		/* BLSP2 QUP6 SPI_CLK */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+		},
+	},
+	{
+		.gpio      = 89,		/* BLSP2 QUP6 SPI_CS */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
 		},
 	},
 };

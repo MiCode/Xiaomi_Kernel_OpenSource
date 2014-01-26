@@ -27,6 +27,7 @@
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 		serial1 = &blsp2_uart0;
 		serial2 = &blsp2_uart3;
+		spi12 = &spi_12;
 	};
 
 	memory {
@@ -1250,6 +1251,29 @@
 		reg = <0x0d400000 0x200000>;
 		reg-name = "ramdump";
 		vdd-wlan-supply = <&wlan_vreg>;
+	};
+
+	spi_12: spi@f9968000 { /* BLSP2 QUP6 */
+		compatible = "qcom,spi-qup-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "spi_physical", "spi_bam_physical";
+		reg = <0xf9968000 0x1000>,
+		      <0xf9944000 0x19000>;
+		interrupt-names = "spi_irq", "spi_bam_irq";
+		interrupts = <0 106 0>, <0 239 0>;
+		spi-max-frequency = <19200000>;
+		qcom,gpio-mosi = <&msmgpio 87 0>;
+		qcom,gpio-miso = <&msmgpio 88 0>;
+		qcom,gpio-clk  = <&msmgpio 90 0>;
+		qcom,gpio-cs0  = <&msmgpio 89 0>;
+
+		qcom,infinite-mode = <0>;
+		qcom,use-bam;
+		qcom,ver-reg-exists;
+		qcom,bam-consumer-pipe-index = <22>;
+		qcom,bam-producer-pipe-index = <23>;
+		qcom,master-id = <84>;
 	};
 };
 
