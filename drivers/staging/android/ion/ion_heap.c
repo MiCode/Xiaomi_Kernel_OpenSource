@@ -17,7 +17,6 @@
 
 #include <linux/err.h>
 #include <linux/freezer.h>
-#include <linux/ion.h>
 #include <linux/kthread.h>
 #include <linux/mm.h>
 #include <linux/rtmutex.h>
@@ -26,6 +25,7 @@
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
 #include <linux/highmem.h>
+#include "ion.h"
 #include "ion_priv.h"
 
 void *ion_heap_map_kernel(struct ion_heap *heap,

@@ -1,5 +1,5 @@
 /*
- * include/linux/ion.h
+ * drivers/staging/android/ion/ion.h
  *
  * Copyright (C) 2011 Google, Inc.
  * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
