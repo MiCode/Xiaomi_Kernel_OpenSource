@@ -2426,8 +2426,8 @@ static int probe_cc(struct device_node *node, struct msm_thermal_data *data,
 
 	key = "qcom,cpu-sensors";
 	cpu_cnt = of_property_count_strings(node, key);
-	if (cpu_cnt != num_possible_cpus()) {
-		pr_err("%s: Wrong number of cpu\n", KBUILD_MODNAME);
+	if (cpu_cnt < num_possible_cpus()) {
+		pr_err("%s: Wrong number of cpu sensors\n", KBUILD_MODNAME);
 		ret = -EINVAL;
 		goto hotplug_node_fail;
 	}
