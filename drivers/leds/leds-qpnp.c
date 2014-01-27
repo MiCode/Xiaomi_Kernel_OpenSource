@@ -1613,6 +1613,15 @@ static int __devinit qpnp_wled_init(struct qpnp_led_data *led)
 
 	}
 
+	/* Reset WLED enable register */
+	rc = qpnp_led_masked_write(led, WLED_MOD_CTRL_REG(led->base),
+		WLED_8_BIT_MASK, WLED_BOOST_OFF);
+	if (rc) {
+		dev_err(&led->spmi_dev->dev,
+			"WLED write ctrl reg failed(%d)\n", rc);
+		return rc;
+	}
+
 	/* dump wled registers */
 	qpnp_dump_regs(led, wled_debug_regs, ARRAY_SIZE(wled_debug_regs));
 
