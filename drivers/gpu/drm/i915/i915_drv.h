@@ -946,6 +946,9 @@ struct intel_gen6_power_mgmt {
 
 	bool use_RC0_residency_for_turbo;
 
+	bool rp_up_masked;
+	bool rp_down_masked;
+
 	int last_adj;
 	enum { LOW_POWER, BETWEEN, HIGH_POWER } power;
 

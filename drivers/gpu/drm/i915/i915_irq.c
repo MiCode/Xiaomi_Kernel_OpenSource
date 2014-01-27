@@ -1339,6 +1339,43 @@ static u32 vlv_calc_delay_from_C0_counters(struct drm_i915_private *dev_priv)
 	return new_delay;
 }
 
+void gen6_set_pm_mask(struct drm_i915_private *dev_priv,
+			     u32 pm_iir, int new_delay)
+{
+	if (pm_iir & GEN6_PM_RP_UP_THRESHOLD) {
+		if (new_delay >= dev_priv->rps.max_freq_softlimit) {
+			/* Mask UP THRESHOLD Interrupts */
+			I915_WRITE(GEN6_PMINTRMSK,
+				   I915_READ(GEN6_PMINTRMSK) |
+				   GEN6_PM_RP_UP_THRESHOLD);
+			dev_priv->rps.rp_up_masked = true;
+		}
+		if (dev_priv->rps.rp_down_masked) {
+			/* UnMask DOWN THRESHOLD Interrupts */
+			I915_WRITE(GEN6_PMINTRMSK,
+				   I915_READ(GEN6_PMINTRMSK) &
+				   ~GEN6_PM_RP_DOWN_THRESHOLD);
+			dev_priv->rps.rp_down_masked = false;
+		}
+	} else if (pm_iir & GEN6_PM_RP_DOWN_THRESHOLD) {
+		if (new_delay <= dev_priv->rps.min_freq_softlimit) {
+			/* Mask DOWN THRESHOLD Interrupts */
+			I915_WRITE(GEN6_PMINTRMSK,
+				   I915_READ(GEN6_PMINTRMSK) |
+				   GEN6_PM_RP_DOWN_THRESHOLD);
+			dev_priv->rps.rp_down_masked = true;
+		}
+
+		if (dev_priv->rps.rp_up_masked) {
+			/* UnMask UP THRESHOLD Interrupts */
+			I915_WRITE(GEN6_PMINTRMSK,
+				   I915_READ(GEN6_PMINTRMSK) &
+				   ~GEN6_PM_RP_UP_THRESHOLD);
+			dev_priv->rps.rp_up_masked = false;
+		}
+	}
+}
+
 static void gen6_pm_rps_work(struct work_struct *work)
 {
 	struct drm_i915_private *dev_priv =
@@ -1413,6 +1450,7 @@ static void gen6_pm_rps_work(struct work_struct *work)
 			    dev_priv->rps.min_freq_softlimit,
 			    dev_priv->rps.max_freq_softlimit);
 
+	gen6_set_pm_mask(dev_priv, pm_iir, new_delay);
 	dev_priv->rps.last_adj = new_delay - dev_priv->rps.cur_freq;
 
 	if (IS_VALLEYVIEW(dev_priv->dev))
