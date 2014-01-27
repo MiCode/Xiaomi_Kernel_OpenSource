@@ -93,9 +93,9 @@ extern void __dma_flush_range(const void *, const void *);
 extern void __dma_inv_range(const void *, const void *);
 extern void __dma_clean_range(const void *, const void *);
 
-#define dma_flush_range __dma_flush_range
-#define dma_inv_range __dma_inv_range
-#define dma_clean_range __dma_clean_range
+#define dmac_flush_range __dma_flush_range
+#define dmac_inv_range __dma_inv_range
+#define dmac_clean_range __dma_clean_range
 
 /*
  * Copy user data from/to a page which is mapped into a different
