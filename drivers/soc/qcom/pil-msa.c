@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -310,7 +310,6 @@ err_power:
 int pil_mss_reset_load_mba(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
-	char fw_name[30] = "mba.b00";
 	const struct firmware *fw;
 	void *mba_virt;
 	dma_addr_t mba_phys;
@@ -318,11 +317,13 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	const u8 *data;
 
 	/* Load and authenticate mba image */
-	ret = request_firmware(&fw, fw_name, pil->dev);
+	ret = request_firmware(&fw, "mba.mbn", pil->dev);
 	if (ret) {
-		dev_err(pil->dev, "Failed to locate blob %s\n",
-						fw_name);
-		goto err_request_firmware;
+		ret = request_firmware(&fw, "mba.b00", pil->dev);
+		if (ret) {
+			dev_err(pil->dev, "Failed to locate mba.b00/.mbn\n");
+			goto err_request_firmware;
+		}
 	}
 
 	mba_virt = dma_alloc_coherent(pil->dev, MBA_SIZE, &mba_phys,
