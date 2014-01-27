@@ -1905,11 +1905,19 @@ static ssize_t fwu_sysfs_config_area_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	int retval;
-	unsigned long config_area;
+	unsigned short config_area;
+	struct synaptics_rmi4_data *rmi4_data = fwu->rmi4_data;
 
-	retval = kstrtoul(buf, 10, &config_area);
+	retval = kstrtou16(buf, 10, &config_area);
 	if (retval)
 		return retval;
+
+	if (config_area < 0x00 || config_area > 0x03) {
+		dev_err(&rmi4_data->i2c_client->dev,
+			"%s: Incorrect value of config_area\n",
+			 __func__);
+		return -EINVAL;
+	}
 
 	fwu->config_area = config_area;
 
