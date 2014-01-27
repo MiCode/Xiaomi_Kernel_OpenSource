@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -451,12 +451,25 @@ static struct gpiomux_setting cam_settings[] = {
 	},
 };
 
+static struct gpiomux_setting accel_interrupt_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
 static struct msm_gpiomux_config msm_non_qrd_configs[] __initdata = {
 	{
 		.gpio = 8, /* CAM1_STANDBY_N */
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &cam_settings[3],
 			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[1],
+		},
+	},
+	{
+		.gpio = 81,	/*ACCEL_INT1 */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &accel_interrupt_config,
+			[GPIOMUX_SUSPENDED] = &accel_interrupt_config,
 		},
 	},
 };
