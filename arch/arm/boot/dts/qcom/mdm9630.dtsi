@@ -511,6 +511,7 @@
 	dbm_1p5: dbm@f92f8000 {
 		compatible = "qcom,usb-dbm-1p5";
 		reg = <0xf92f8000 0x1000>;
+		qcom,reset-ep-after-lpm-resume;
 	};
 
 	qcom,usbbam@f9304000 {
