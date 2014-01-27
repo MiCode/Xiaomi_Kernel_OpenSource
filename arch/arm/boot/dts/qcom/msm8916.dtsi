@@ -109,6 +109,7 @@
 #include "msm8916-iommu.dtsi"
 #include "msm8916-gpu.dtsi"
 #include "msm8916-mdss.dtsi"
+#include "msm8916-iommu-domains.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -1107,6 +1108,66 @@
 	qcom,bcl {
 		compatible = "qcom,bcl";
 	};
+
+	qcom,vidc@1d00000 {
+		compatible = "qcom,msm-vidc";
+		reg = <0x01d00000 0xff000>;
+		interrupts = <0 44 0>;
+		venus-supply = <&gdsc_venus>;
+		clocks = <&clock_gcc clk_gcc_venus0_vcodec0_clk>,
+			 <&clock_gcc clk_gcc_venus0_ahb_clk>,
+			 <&clock_gcc clk_gcc_venus0_axi_clk>;
+		clock-names = "core_clk", "iface_clk", "bus_clk";
+		qcom,clock-names = "core_clk", "iface_clk", "bus_clk";
+		qcom,clock-configs = <0x3 0x0 0x0>;
+		qcom,load-freq-tbl = <352800 228570000>,
+			<244800 160000000>,
+			<108000 100000000>;
+		qcom,hfi = "venus";
+		qcom,bus-ports = <1>;
+		qcom,reg-presets = <0xE0020 0x05555556>,
+			<0xE0024 0x00000000>,
+			<0x80124 0x00000003>,
+			<0x800B0 0x10101001>,
+			<0x800B4 0x00101010>,
+			<0x800C0 0x1010100f>,
+			<0x800C4 0x00101010>,
+			<0x800D0 0x00000010>,
+			<0x800D4 0x00000010>,
+			<0x800D8 0x00000707>;
+		qcom,enc-ddr-ab-ib = <0 0>,
+			<129000 142000>,
+			<384000 422000>,
+			<866000 953000>;
+		qcom,dec-ddr-ab-ib = <0 0>,
+			<103000 134000>,
+			<268000 348000>,
+			<505000 657000>;
+		qcom,buffer-type-tz-usage-table = <0x1 0x1>,
+			<0x6 0x2>,
+			<0x7C0 0x3>;
+		qcom,max-hw-load = <352800>; /* 720p @ 30 + 1080p @ 30 */
+		qcom,vidc-iommu-domains {
+			qcom,domain-ns {
+				qcom,vidc-domain-phandle = <&venus_domain_ns>;
+				qcom,vidc-partition-buffer-types = <0x7ff>,
+							<0x800>;
+			};
+			qcom,domain-sec-bs {
+				qcom,vidc-domain-phandle = <&venus_domain_sec_bitstream>;
+				qcom,vidc-partition-buffer-types = <0x241>;
+			};
+			qcom,domain-sec-px {
+				qcom,vidc-domain-phandle = <&venus_domain_sec_pixel>;
+				qcom,vidc-partition-buffer-types = <0x106>;
+			};
+			qcom,domain-sec-np {
+				qcom,vidc-domain-phandle = <&venus_domain_sec_non_pixel>;
+				qcom,vidc-partition-buffer-types = <0x480>;
+			};
+		};
+	};
+
 };
 
 &gdsc_venus {
