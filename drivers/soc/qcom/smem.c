@@ -1477,4 +1477,4 @@ int __init msm_smem_init(void)
 	return 0;
 }
 
-module_init(msm_smem_init);
+arch_initcall(msm_smem_init);
