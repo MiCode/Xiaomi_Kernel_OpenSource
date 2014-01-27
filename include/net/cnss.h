@@ -56,4 +56,6 @@ extern void cnss_pm_wake_lock_timeout(struct wakeup_source *ws, ulong msec);
 extern void cnss_pm_wake_lock_release(struct wakeup_source *ws);
 extern void cnss_pm_wake_lock_destroy(struct wakeup_source *ws);
 
+extern int cnss_set_cpus_allowed_ptr(struct task_struct *task, ulong cpu);
+
 #endif /* _NET_CNSS_H_ */
