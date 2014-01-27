@@ -1074,9 +1074,6 @@ int adreno_profile_process_results(struct kgsl_device *device)
 	 */
 	transfer_results(device, shared_buf_tail);
 
-	/* check for any cleanup */
-	check_close_profile(profile);
-
 	return 1;
 }
 
