@@ -46,7 +46,10 @@ Optional Properties:
 				The 2 elements with index[0..1] are:
 				[0] => the mask value;
 				[1] => the value to write into the masked bits.
-
+- onnn,mode:			A string which specifies the initial mode to use for the regulator.
+				Supported values are "pwm" and "auto". PWM mode is more
+				robust, but draws more current than auto mode. If this propery
+				is not specified, then the regulator will be in the hardware default mode.
 
 Example:
 	i2c_0 {

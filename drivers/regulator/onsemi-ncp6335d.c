@@ -24,6 +24,7 @@
 #include <linux/of_gpio.h>
 #include <linux/regmap.h>
 #include <linux/regulator/onsemi-ncp6335d.h>
+#include <linux/string.h>
 #include <mach/gpiomux.h>
 
 /* registers */
@@ -469,6 +470,7 @@ static struct ncp6335d_platform_data *
 {
 	struct ncp6335d_platform_data *pdata = NULL;
 	struct regulator_init_data *init_data;
+	const char *mode_name;
 	int rc;
 
 	init_data = of_get_regulator_init_data(&client->dev,
@@ -517,7 +519,23 @@ static struct ncp6335d_platform_data *
 	init_data->constraints.valid_modes_mask =
 				REGULATOR_MODE_NORMAL |
 				REGULATOR_MODE_FAST;
-	init_data->constraints.initial_mode = REGULATOR_MODE_NORMAL;
+
+	rc = of_property_read_string(client->dev.of_node, "onnn,mode",
+					&mode_name);
+	if (!rc) {
+		if (strcmp("pwm", mode_name) == 0) {
+			init_data->constraints.initial_mode =
+							REGULATOR_MODE_FAST;
+		} else if (strcmp("auto", mode_name) == 0) {
+			init_data->constraints.initial_mode =
+							REGULATOR_MODE_NORMAL;
+		} else {
+			dev_err(&client->dev, "onnn,mode, unknown regulator mode: %s\n",
+				mode_name);
+			return NULL;
+		}
+	}
+
 	return pdata;
 }
 
