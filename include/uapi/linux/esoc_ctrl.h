@@ -30,6 +30,7 @@ enum esoc_cmd {
 
 enum esoc_notify {
 	ESOC_IMG_XFER_DONE = 1,
+	ESOC_BOOT_DONE,
 	ESOC_IMG_XFER_RETRY,
 	ESOC_IMG_XFER_FAIL,
 	ESOC_UPGRADE_AVAILABLE,

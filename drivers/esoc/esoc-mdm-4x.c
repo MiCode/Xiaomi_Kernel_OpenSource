@@ -465,6 +465,9 @@ static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
 			schedule_delayed_work(&mdm->mdm2ap_status_check_work,
 				msecs_to_jiffies(MDM2AP_STATUS_TIMEOUT_MS));
 		break;
+	case ESOC_BOOT_DONE:
+		esoc_clink_evt_notify(ESOC_RUN_STATE, esoc);
+		break;
 	case ESOC_IMG_XFER_RETRY:
 		mdm->init = 1;
 		mdm_toggle_soft_reset(mdm);
@@ -547,7 +550,6 @@ static irqreturn_t mdm_status_change(int irq, void *dev_id)
 	} else if (value == 1) {
 		cancel_delayed_work(&mdm->mdm2ap_status_check_work);
 		dev_dbg(dev, "status = 1: mdm is now ready\n");
-		esoc_clink_evt_notify(ESOC_RUN_STATE, esoc);
 		mdm->ready = true;
 		queue_work(mdm->mdm_queue, &mdm->mdm_status_work);
 		if (mdm->get_restart_reason)
