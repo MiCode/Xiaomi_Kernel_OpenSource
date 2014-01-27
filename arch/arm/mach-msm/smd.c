@@ -1495,7 +1495,7 @@ static int smd_packet_write(smd_channel_t *ch, const void *_data, int len,
 	if (ret < 0 || ret != sizeof(hdr)) {
 		SMD_DBG("%s failed to write pkt header: %d returned\n",
 								__func__, ret);
-		return -1;
+		return -EFAULT;
 	}
 
 
