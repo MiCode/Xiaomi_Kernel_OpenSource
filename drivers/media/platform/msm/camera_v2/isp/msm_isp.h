@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -397,6 +397,11 @@ struct msm_vfe_error_info {
 	uint32_t error_count;
 };
 
+struct msm_vfe_frame_ts {
+	struct timeval buf_time;
+	uint32_t frame_id;
+};
+
 struct vfe_device {
 	struct platform_device *pdev;
 	struct msm_sd_subdev subdev;
@@ -439,6 +444,7 @@ struct vfe_device {
 	struct msm_vfe_axi_shared_data axi_data;
 	struct msm_vfe_stats_shared_data stats_data;
 	struct msm_vfe_error_info error_info;
+	struct msm_vfe_frame_ts frame_ts;
 	struct msm_isp_buf_mgr *buf_mgr;
 	int dump_reg;
 	int vfe_clk_idx;
