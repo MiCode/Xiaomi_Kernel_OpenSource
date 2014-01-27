@@ -1,4 +1,4 @@
-/*  Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/*  Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,7 +28,7 @@
 #include "q6voice.h"
 
 
-#define TIMEOUT_MS 200
+#define TIMEOUT_MS 300
 
 
 #define CMD_STATUS_SUCCESS 0
