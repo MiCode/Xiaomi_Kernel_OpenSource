@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,22 +30,12 @@
 /**
  * struct msm_tspp2_platform_data - TSPP2 platform data
  *
- * @tspp2_ahb_clk:		TSPP2 device AHB clock name.
- * @tspp2_core_clk:		TSPP2 device core clock name.
- * @tspp2_vbif_clk:		TSPP2 VBIF clock name.
- * @tspp2_klm_ahb_clk:		TSPP2 key ladder AHB clock name.
- * @tsif_ref_clk:		TSIF device reference clock name.
  * @hlos_group:			IOMMU HLOS group name.
  * @cpz_group:			IOMMU CPZ group name.
  * @hlos_partition:		IOMMU HLOS partition number.
  * @cpz_partition:		IOMMU CPZ partition number.
  */
 struct msm_tspp2_platform_data {
-	const char *tspp2_ahb_clk;
-	const char *tspp2_core_clk;
-	const char *tspp2_vbif_clk;
-	const char *tspp2_klm_ahb_clk;
-	const char *tsif_ref_clk;
 	const char *hlos_group;
 	const char *cpz_group;
 	int hlos_partition;

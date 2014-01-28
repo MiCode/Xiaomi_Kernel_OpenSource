@@ -1420,11 +1420,6 @@
 			"TSIF1",
 			"TSPP2_BAM";
 		vdd-supply = <&gdsc_bcss>;
-		qcom,tspp2-ahb-clk = "bcc_tspp2_ahb_clk";
-		qcom,tspp2-core-clk = "bcc_tspp2_core_clk";
-		qcom,tspp2-vbif-clk = "bcc_vbif_tspp2_clk";
-		qcom,tspp2-klm-ahb-clk = "bcc_klm_ahb_clk";
-		qcom,tsif-ref-clk = "gcc_tsif_ref_clk";
 		qcom,msm-bus,name = "tspp2";
 		qcom,msm-bus,num-cases = <3>;
 		qcom,msm-bus,num-paths = <1>;
