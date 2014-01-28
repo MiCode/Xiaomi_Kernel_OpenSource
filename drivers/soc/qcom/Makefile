@@ -7,6 +7,8 @@ obj-$(CONFIG_MSM_BAM_DMUX) += bam_dmux.o
 obj-$(CONFIG_MSM_IPC_ROUTER_HSIC_XPRT) += ipc_router_hsic_xprt.o
 obj-$(CONFIG_MSM_IPC_ROUTER_SMD_XPRT) += ipc_router_smd_xprt.o
 obj-$(CONFIG_MSM_MEMORY_DUMP) += memory_dump.o
+obj-$(CONFIG_MSM_JTAG) += jtag-fuse.o jtag.o
+obj-$(CONFIG_MSM_JTAG_MM) +=  jtag-fuse.o jtag-mm.o
 obj-$(CONFIG_MSM_QMI_INTERFACE) += qmi_interface.o
 
 obj-$(CONFIG_MSM_SCM) += scm.o

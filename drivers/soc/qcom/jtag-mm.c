@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,7 +27,7 @@
 #include <linux/platform_device.h>
 #include <linux/bitops.h>
 #include <soc/qcom/scm.h>
-#include <mach/jtag.h>
+#include <soc/qcom/jtag.h>
 
 /* Coresight management registers */
 #define CORESIGHT_ITCTRL	(0xF00)

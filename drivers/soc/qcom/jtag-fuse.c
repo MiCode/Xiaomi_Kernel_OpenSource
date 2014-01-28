@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,7 @@
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/slab.h>
-#include <mach/jtag.h>
+#include <soc/qcom/jtag.h>
 
 #define fuse_writel(drvdata, val, off)	__raw_writel((val), drvdata->base + off)
 #define fuse_readl(drvdata, off)	__raw_readl(drvdata->base + off)
