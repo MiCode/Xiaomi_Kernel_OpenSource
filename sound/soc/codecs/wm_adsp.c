@@ -2161,7 +2161,7 @@ static int wm_adsp_of_parse_caps(struct wm_adsp *adsp,
 				 struct wm_adsp_fw_defs *fw)
 {
 	const char *prop = "wlf,compr-caps";
-	int ret, i;
+	int i;
 	int len_prop;
 	u32 of_cap;
 
@@ -2207,7 +2207,7 @@ static int wm_adsp_of_parse_caps(struct wm_adsp *adsp,
 	}
 	fw->caps->desc.num_sample_rates = i - 4;
 
-	return ret;
+	return 0;
 }
 
 static int wm_adsp_of_parse_firmware(struct wm_adsp *adsp,
