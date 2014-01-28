@@ -312,12 +312,15 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 			 * Returning 0 on the disconnections and
 			 * removals will ensure consistent state of channels,
 			 * ports with the HW
+			 * Remote requests to remove channel/port will be
+			 * returned from the path where they wait on
+			 * acknowledgement from ADSP
 			 */
 			if ((txn->mt == SLIM_MSG_MT_DEST_REFERRED_USER) &&
 				((mc == SLIM_USR_MC_CHAN_CTRL ||
 				mc == SLIM_USR_MC_DISCONNECT_PORT ||
 				mc == SLIM_USR_MC_RECONFIG_NOW)))
-				return 0;
+				return -EREMOTEIO;
 			if ((txn->mt == SLIM_MSG_MT_CORE) &&
 				((mc == SLIM_MSG_MC_DISCONNECT_PORT ||
 				mc == SLIM_MSG_MC_NEXT_REMOVE_CHANNEL ||
@@ -554,8 +557,10 @@ static int ngd_xferandwait_ack(struct slim_controller *ctrl,
 		else
 			ret = txn->ec;
 	}
+
 	if (ret) {
-		pr_err("master msg:0x%x,tid:%d ret:%d", txn->mc,
+		if (ret != -EREMOTEIO || txn->mc != SLIM_USR_MC_CHAN_CTRL)
+			pr_err("master msg:0x%x,tid:%d ret:%d", txn->mc,
 				txn->tid, ret);
 		mutex_lock(&ctrl->m_ctrl);
 		ctrl->txnt[txn->tid] = NULL;
@@ -681,7 +686,10 @@ static int ngd_allocbw(struct slim_device *sb, int *subfrmc, int *clkgear)
 		txn.mc = SLIM_USR_MC_CHAN_CTRL;
 		txn.rl = txn.len + 4;
 		ret = ngd_xferandwait_ack(ctrl, &txn);
-		if (ret)
+		/* HW restarting, channel removal should succeed */
+		if (ret == -EREMOTEIO)
+			return 0;
+		else if (ret)
 			return ret;
 
 		txn.mc = SLIM_USR_MC_RECONFIG_NOW;
