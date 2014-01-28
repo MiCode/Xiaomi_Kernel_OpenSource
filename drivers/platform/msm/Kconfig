@@ -159,4 +159,10 @@ config QCA1530
 	  To compile this driver as a module, choose M here: the module
 	  will be called qca1530.
 
+config MSM_SPSS
+	tristate "MSM SPSS driver"
+	default n
+	help
+	  Support for Standby Processing Sub-System (SPSS) module.
+
 endmenu
