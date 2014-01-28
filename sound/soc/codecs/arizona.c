@@ -1170,6 +1170,21 @@ static int arizona_hw_params_rate(struct snd_pcm_substream *substream,
 	}
 	sr_val = i;
 
+	switch (priv->arizona->type) {
+	case WM5102:
+		if (priv->arizona->pdata.ultrasonic_response) {
+			snd_soc_write(codec, 0x80, 0x3);
+			if (params_rate(params) >= 176400)
+				snd_soc_write(codec, 0x4dd, 0x1);
+			else
+				snd_soc_write(codec, 0x4dd, 0x0);
+			snd_soc_write(codec, 0x80, 0x0);
+		}
+		break;
+	default:
+		break;
+	}
+
 	switch (dai_priv->clk) {
 	case ARIZONA_CLK_SYSCLK:
 		snd_soc_update_bits(codec, ARIZONA_SAMPLE_RATE_1,
