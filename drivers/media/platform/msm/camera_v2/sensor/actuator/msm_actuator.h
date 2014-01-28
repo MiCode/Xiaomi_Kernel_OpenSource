@@ -43,8 +43,6 @@ struct msm_actuator_func_tbl {
 			struct damping_params_t *,
 			int8_t,
 			int16_t);
-	int32_t (*actuator_set_position)(struct msm_actuator_ctrl_t *,
-		struct msm_actuator_set_position_t *);
 };
 
 struct msm_actuator {
