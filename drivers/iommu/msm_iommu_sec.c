@@ -56,7 +56,7 @@
 #define MAXIMUM_VIRT_SIZE	(300*SZ_1M)
 
 
-#define MAKE_CP_VERSION(major, minor, patch) \
+#define MAKE_VERSION(major, minor, patch) \
 	(((major & 0x3FF) << 22) | ((minor & 0x3FF) << 12) | (patch & 0xFFF))
 
 
@@ -349,7 +349,7 @@ static int msm_iommu_sec_ptbl_init(void)
 
 	version = scm_get_feat_version(SCM_SVC_MP);
 
-	if (version >= MAKE_CP_VERSION(1, 1, 1)) {
+	if (version >= MAKE_VERSION(1, 1, 1)) {
 		struct msm_cp_pool_size psize;
 		int retval;
 
@@ -410,7 +410,7 @@ fail:
 	return ret;
 }
 
-int msm_iommu_sec_program_iommu(int sec_id)
+int msm_iommu_sec_program_iommu(int sec_id, u32 cb_num)
 {
 	struct msm_scm_sec_cfg {
 		unsigned int id;
@@ -419,6 +419,7 @@ int msm_iommu_sec_program_iommu(int sec_id)
 	int ret, scm_ret = 0;
 
 	cfg.id = sec_id;
+	cfg.spare = cb_num;
 
 	ret = scm_call(SCM_SVC_MP, IOMMU_SECURE_CFG, &cfg, sizeof(cfg),
 			&scm_ret, sizeof(scm_ret));
@@ -638,7 +639,8 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 			goto fail;
 		}
 
-		ret = msm_iommu_sec_program_iommu(iommu_drvdata->sec_id);
+		ret = msm_iommu_sec_program_iommu(iommu_drvdata->sec_id,
+						ctx_drvdata->num);
 
 		/* bfb settings are always programmed by HLOS */
 		program_iommu_bfb_settings(iommu_drvdata->base,
@@ -829,6 +831,22 @@ int msm_iommu_get_scm_call_avail(void)
 {
 	return is_secure;
 }
+
+/*
+ * VFE SMMU is changing from being non-secure to being secure.
+ * For backwards compatibility we need to check whether the secure environment
+ * has support for this.
+ */
+static s32 secure_camera_enabled = -1;
+int is_vfe_secure(void)
+{
+	if (secure_camera_enabled == -1) {
+		u32 ver = scm_get_feat_version(SCM_SVC_SEC_CAMERA);
+		secure_camera_enabled = ver >= MAKE_VERSION(1, 0, 0);
+	}
+	return secure_camera_enabled;
+}
+
 
 static struct iommu_ops msm_iommu_ops = {
 	.domain_init = msm_iommu_domain_init,

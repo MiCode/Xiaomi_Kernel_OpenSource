@@ -138,25 +138,43 @@ static inline void get_secure_id(struct device_node *node,
 }
 
 static inline void get_secure_ctx(struct device_node *node,
+				  struct msm_iommu_drvdata *iommu_drvdata,
 				  struct msm_iommu_ctx_drvdata *ctx_drvdata)
 {
 	ctx_drvdata->secure_context = 0;
 }
 #else
+
+static inline int is_vfe_smmu(char const *iommu_name)
+{
+	return (strcmp(iommu_name, "vfe_iommu") == 0);
+}
+
 static void get_secure_id(struct device_node *node,
 			  struct msm_iommu_drvdata *drvdata)
 {
-	if (msm_iommu_get_scm_call_avail())
-		of_property_read_u32(node, "qcom,iommu-secure-id",
-				     &drvdata->sec_id);
+	if (msm_iommu_get_scm_call_avail()) {
+		if (!is_vfe_smmu(drvdata->name) || is_vfe_secure())
+			of_property_read_u32(node, "qcom,iommu-secure-id",
+					     &drvdata->sec_id);
+		else
+			pr_info("vfe_iommu: Keeping vfe non-secure\n");
+	}
 }
 
 static void get_secure_ctx(struct device_node *node,
+			   struct msm_iommu_drvdata *iommu_drvdata,
 			   struct msm_iommu_ctx_drvdata *ctx_drvdata)
 {
-	if (msm_iommu_get_scm_call_avail())
-		ctx_drvdata->secure_context =
+	u32 secure_ctx = 0;
+
+	if (msm_iommu_get_scm_call_avail()) {
+		if (!is_vfe_smmu(iommu_drvdata->name) || is_vfe_secure()) {
+			secure_ctx =
 			of_property_read_bool(node, "qcom,secure-context");
+		}
+	}
+	ctx_drvdata->secure_context = secure_ctx;
 }
 #endif
 
@@ -473,7 +491,9 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 	u32 nsid;
 	unsigned long cb_offset;
 
-	get_secure_ctx(pdev->dev.of_node, ctx_drvdata);
+	drvdata = dev_get_drvdata(pdev->dev.parent);
+
+	get_secure_ctx(pdev->dev.of_node, drvdata, ctx_drvdata);
 
 	if (ctx_drvdata->secure_context) {
 		irq = platform_get_irq(pdev, 1);
@@ -518,7 +538,6 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 	 * of CBs are <=8. So, assume the offset 0x8000 until mentioned
 	 * explicitely.
 	 */
-	drvdata = dev_get_drvdata(pdev->dev.parent);
 	cb_offset = drvdata->cb_base - drvdata->base;
 	ctx_drvdata->num = ((r->start - rp.start - cb_offset)
 					>> CTX_SHIFT);

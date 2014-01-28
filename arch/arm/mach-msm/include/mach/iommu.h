@@ -332,7 +332,8 @@ static inline struct device *msm_iommu_get_ctx(const char *ctx_name)
  * of global registers is not possible
  */
 void msm_iommu_sec_set_access_ops(struct iommu_access_ops *access_ops);
-int msm_iommu_sec_program_iommu(int sec_id);
+int msm_iommu_sec_program_iommu(int sec_id, u32 cb_num);
+int is_vfe_secure(void);
 
 #ifdef CONFIG_MSM_IOMMU_V0
 static inline int msm_soc_version_supports_iommu_v0(void)

@@ -30,6 +30,9 @@
 #define SCM_FUSE_READ			0x7
 #define SCM_CMD_HDCP			0x01
 
+/* SCM Features */
+#define SCM_SVC_SEC_CAMERA		0xD
+
 #define DEFINE_SCM_BUFFER(__n) \
 static char __n[PAGE_SIZE] __aligned(PAGE_SIZE);
 
