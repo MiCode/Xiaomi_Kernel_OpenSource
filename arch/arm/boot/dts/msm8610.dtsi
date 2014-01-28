@@ -593,6 +593,7 @@
                 qcom,i2c-src-freq = <19200000>;
                 qcom,sda-gpio = <&msmgpio 10 0>;
                 qcom,scl-gpio = <&msmgpio 11 0>;
+		qcom,clk-ctl-xfer;
                 qcom,master-id = <86>;
 	};
 
