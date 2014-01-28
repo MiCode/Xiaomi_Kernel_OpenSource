@@ -36,11 +36,8 @@
 #define clk_bb_clk2_pin_ao 0x52513787
 #define clk_bimc_msmbus_clk 0xd212feea
 #define clk_bimc_msmbus_a_clk 0x71d1a499
-#define clk_ce1_clk 0x42229c55
 #define clk_ce1_a_clk 0x44a833fe
-#define clk_ce2_clk 0x7b80e25b
 #define clk_ce2_a_clk 0x6a30b14b
-#define clk_ce3_clk 0xb7c009b6
 #define clk_ce3_a_clk 0xa67fa700
 #define clk_cnoc_msmbus_clk 0x62228b5d
 #define clk_cnoc_msmbus_a_clk 0x67442955
@@ -85,11 +82,22 @@
 #define clk_rf_clk2_pin_ao 0x2d75eb4d
 #define clk_snoc_msmbus_clk 0xe6900bb6
 #define clk_snoc_msmbus_a_clk 0x5d4683bd
+#define clk_ce1_clk 0x42229c55
+#define clk_gcc_ce1_ahb_m_clk 0x2eb28c01
+#define clk_gcc_ce1_axi_m_clk 0xc174dfba
+#define clk_ce2_clk 0x7b80e25b
+#define clk_gcc_ce2_ahb_m_clk 0xe57ce2b1
+#define clk_gcc_ce2_axi_m_clk 0x4feb55e3
+#define clk_ce3_clk 0xb7c009b6
+#define clk_gcc_ce3_ahb_m_clk 0x527880ff
+#define clk_gcc_ce3_axi_m_clk 0xc8e9a915
+#define clk_rpm_debug_mux 0x25cd1f3a
 
 /* clock_gcc controlled clocks */
 #define clk_gcc_xo 0x7503042f
 #define clk_gcc_xo_a_clk 0x344f46f4
 #define clk_debug_mmss_clk 0x977c99b6
+#define clk_debug_rpm_clk 0x8e2b07ca
 #define clk_gpll0 0x1ebe3bc4
 #define clk_gpll0_out_main 0xe9374de7
 #define clk_gpll0_ao 0xa1368304
@@ -251,7 +259,6 @@
 #define clk_mmpll1_out_main 0xa0d3a7da
 #define clk_mmpll3 0x18c76899
 #define clk_mmpll3_out_main 0x6eb6328f
-#define clk_camss_ahb_clk 0xc4ff91d4
 #define clk_axi_clk_src 0x6617efab
 #define clk_mmpll5 0xa41e1936
 #define clk_mmpll5_out_main 0xcc1897bf
@@ -284,6 +291,7 @@
 #define clk_esc1_clk_src 0x3b0afa42
 #define clk_hdmi_clk_src 0xb40aeea9
 #define clk_vsync_clk_src 0xecb43940
+#define clk_camss_ahb_clk 0xc4ff91d4
 #define clk_camss_cci_cci_ahb_clk 0x12aec62d
 #define clk_camss_cci_cci_clk 0xc9a1bf11
 #define clk_camss_vfe_cpp_ahb_clk 0xea097d83
