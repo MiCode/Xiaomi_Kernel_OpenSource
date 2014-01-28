@@ -40,8 +40,8 @@
 #include <linux/irqchip/msm-mpm-irq.h>
 #include <linux/iopoll.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/msm-bus.h>
 #include <mach/gpio.h>
-#include <mach/msm_bus.h>
 
 #include "sdhci-pltfm.h"
 
