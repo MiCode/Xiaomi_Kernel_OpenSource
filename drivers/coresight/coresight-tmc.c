@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1777,7 +1777,6 @@ static struct of_device_id tmc_match[] = {
 	{.compatible = "arm,coresight-tmc"},
 	{}
 };
-EXPORT_COMPAT("arm,coresight-tmc");
 
 static struct platform_driver tmc_driver = {
 	.probe          = tmc_probe,
