@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -298,7 +298,7 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 
 	if (!pdata->panel_info.panel_power_on) {
 		pr_warn("%s:%d Panel already off.\n", __func__, __LINE__);
-		return -EPERM;
+		return 0;
 	}
 
 	pdata->panel_info.panel_power_on = 0;
