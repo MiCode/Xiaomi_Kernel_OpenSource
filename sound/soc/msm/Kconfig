@@ -85,13 +85,32 @@ config AUDIO_OCMEM
 
 config DOLBY_DAP
 	bool "Enable Dolby DAP"
-	depends on SND_SOC_MSM8974
+	depends on SND_SOC_MSM_QDSP6V2_INTF
 	help
 	 To add support for dolby DAP post processing.
 	 This support is to configure the post processing parameters
 	 to DSP. The configuration includes sending the end point
 	 device, end point dependent post processing parameters and
 	 the various posrt processing parameters
+
+config DTS_SRS_TM
+	bool "Enable DTS SRS"
+	depends on SND_SOC_MSM_QDSP6V2_INTF
+	help
+	 To add support for DTS SRS post processing.
+	 This support is to configure the post processing
+	 parameters to DSP. The configuration includes sending
+	 tuning parameters of various modules.
+
+config QTI_PP
+	bool "Enable QTI PP"
+	depends on SND_SOC_MSM_QDSP6V2_INTF
+	help
+	 To add support for default QTI post processing.
+	 This support is to configure the post processing
+	 parameters to DSP. The configuration includes sending
+	 tuning parameters of various modules such as equalizer,
+	 customized mixing.
 
 config SND_SOC_MSM8974
 	tristate "SoC Machine driver for MSM8974 boards"
@@ -103,6 +122,8 @@ config SND_SOC_MSM8974
 	select SND_DYNAMIC_MINORS
 	select AUDIO_OCMEM
 	select DOLBY_DAP
+	select DTS_SRS_TM
+	select QTI_PP
 	help
 	 To add support for SoC audio on MSM8974.
 	 This will enable sound soc drivers which
@@ -120,6 +141,8 @@ config SND_SOC_APQ8074
 	select SND_SOC_MSM_HDMI_CODEC_RX
 	select SND_DYNAMIC_MINORS
 	select AUDIO_OCMEM
+	select DTS_SRS_TM
+	select QTI_PP
 	help
 	 To add support for SoC audio on APQ8074.
 	 This will enable sound soc drivers which
@@ -136,6 +159,8 @@ config SND_SOC_MSM8226
 	select SND_SOC_WCD9306
 	select SND_DYNAMIC_MINORS
 	select DOLBY_DAP
+	select DTS_SRS_TM
+	select QTI_PP
 	help
 	 To add support for SoC audio on MSM8226.
 	 This will enable sound soc drivers which
@@ -194,6 +219,8 @@ config SND_SOC_APQ8084
 	select SND_DYNAMIC_MINORS
 	select AUDIO_OCMEM
 	select DOLBY_DAP
+	select DTS_SRS_TM
+	select QTI_PP
 	help
 	 To add support for SoC audio on APQ8084.
 	 This will enable sound soc drivers which

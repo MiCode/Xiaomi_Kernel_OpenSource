@@ -13,3 +13,4 @@ header-y += tlv.h
 header-y += lsm_params.h
 header-y += audio_slimslave.h
 header-y += voice_params.h
+header-y += audio_effects.h
