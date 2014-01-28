@@ -41,6 +41,8 @@ struct clk_mux_ops {
 	bool (*is_enabled)(struct mux_clk *clk);
 	int (*enable)(struct mux_clk *clk);
 	void (*disable)(struct mux_clk *clk);
+	void __iomem *(*list_registers)(struct mux_clk *clk, int n,
+				struct clk_register_data **regs, u32 *size);
 };
 
 #define MUX_SRC_LIST(...) \
@@ -89,6 +91,8 @@ struct clk_div_ops {
 	bool (*is_enabled)(struct div_clk *clk);
 	int (*enable)(struct div_clk *clk);
 	void (*disable)(struct div_clk *clk);
+	void __iomem *(*list_registers)(struct div_clk *clk, int n,
+				struct clk_register_data **regs, u32 *size);
 };
 
 struct div_data {
@@ -189,6 +193,8 @@ struct mux_div_ops {
 	int (*enable)(struct mux_div_clk *);
 	void (*disable)(struct mux_div_clk *);
 	bool (*is_enabled)(struct mux_div_clk *);
+	void __iomem *(*list_registers)(struct mux_div_clk *md, int n,
+				struct clk_register_data **regs, u32 *size);
 };
 
 /*
