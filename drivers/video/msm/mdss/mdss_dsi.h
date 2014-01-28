@@ -15,10 +15,10 @@
 #define MDSS_DSI_H
 
 #include <linux/list.h>
+#include <linux/mdss_io_util.h>
 #include <mach/scm-io.h>
 
 #include "mdss_panel.h"
-#include "mdss_io_util.h"
 #include "mdss_dsi_cmd.h"
 
 #define MMSS_SERDES_BASE_PHY 0x04f01000 /* mmss (De)Serializer CFG */

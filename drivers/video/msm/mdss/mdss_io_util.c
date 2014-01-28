@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,7 @@
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/delay.h>
-#include "mdss_io_util.h"
+#include <linux/mdss_io_util.h>
 
 #define MAX_I2C_CMDS  16
 void dss_reg_w(struct dss_io_data *io, u32 offset, u32 value, u32 debug)
@@ -40,6 +40,7 @@ void dss_reg_w(struct dss_io_data *io, u32 offset, u32 value, u32 debug)
 			value, in_val);
 	}
 } /* dss_reg_w */
+EXPORT_SYMBOL(dss_reg_w);
 
 u32 dss_reg_r(struct dss_io_data *io, u32 offset, u32 debug)
 {
@@ -62,6 +63,7 @@ u32 dss_reg_r(struct dss_io_data *io, u32 offset, u32 debug)
 
 	return value;
 } /* dss_reg_r */
+EXPORT_SYMBOL(dss_reg_r);
 
 void dss_reg_dump(void __iomem *base, u32 length, const char *prefix,
 	u32 debug)
@@ -70,6 +72,7 @@ void dss_reg_dump(void __iomem *base, u32 length, const char *prefix,
 		print_hex_dump(KERN_INFO, prefix, DUMP_PREFIX_OFFSET, 32, 4,
 			(void *)base, length, false);
 } /* dss_reg_dump */
+EXPORT_SYMBOL(dss_reg_dump);
 
 static struct resource *msm_dss_get_res_byname(struct platform_device *pdev,
 	unsigned int type, const char *name)
@@ -82,6 +85,7 @@ static struct resource *msm_dss_get_res_byname(struct platform_device *pdev,
 
 	return res;
 } /* msm_dss_get_res_byname */
+EXPORT_SYMBOL(msm_dss_get_res_byname);
 
 int msm_dss_ioremap_byname(struct platform_device *pdev,
 	struct dss_io_data *io_data, const char *name)
@@ -111,6 +115,7 @@ int msm_dss_ioremap_byname(struct platform_device *pdev,
 
 	return 0;
 } /* msm_dss_ioremap_byname */
+EXPORT_SYMBOL(msm_dss_ioremap_byname);
 
 void msm_dss_iounmap(struct dss_io_data *io_data)
 {
@@ -126,6 +131,7 @@ void msm_dss_iounmap(struct dss_io_data *io_data)
 	}
 	io_data->len = 0;
 } /* msm_dss_iounmap */
+EXPORT_SYMBOL(msm_dss_iounmap);
 
 int msm_dss_config_vreg(struct device *dev, struct dss_vreg *in_vreg,
 	int num_vreg, int config)
@@ -198,6 +204,7 @@ vreg_get_fail:
 	}
 	return rc;
 } /* msm_dss_config_vreg */
+EXPORT_SYMBOL(msm_dss_config_vreg);
 
 int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 {
@@ -261,6 +268,7 @@ vreg_set_opt_mode_fail:
 
 	return rc;
 } /* msm_dss_enable_vreg */
+EXPORT_SYMBOL(msm_dss_enable_vreg);
 
 int msm_dss_enable_gpio(struct dss_gpio *in_gpio, int num_gpio, int enable)
 {
@@ -299,6 +307,7 @@ disable_gpio:
 
 	return rc;
 } /* msm_dss_enable_gpio */
+EXPORT_SYMBOL(msm_dss_enable_gpio);
 
 void msm_dss_put_clk(struct dss_clk *clk_arry, int num_clk)
 {
@@ -310,6 +319,7 @@ void msm_dss_put_clk(struct dss_clk *clk_arry, int num_clk)
 		clk_arry[i].clk = NULL;
 	}
 } /* msm_dss_put_clk */
+EXPORT_SYMBOL(msm_dss_put_clk);
 
 int msm_dss_get_clk(struct device *dev, struct dss_clk *clk_arry, int num_clk)
 {
@@ -333,6 +343,7 @@ error:
 
 	return rc;
 } /* msm_dss_get_clk */
+EXPORT_SYMBOL(msm_dss_get_clk);
 
 int msm_dss_clk_set_rate(struct dss_clk *clk_arry, int num_clk)
 {
@@ -366,6 +377,7 @@ int msm_dss_clk_set_rate(struct dss_clk *clk_arry, int num_clk)
 
 	return rc;
 } /* msm_dss_clk_set_rate */
+EXPORT_SYMBOL(msm_dss_clk_set_rate);
 
 int msm_dss_enable_clk(struct dss_clk *clk_arry, int num_clk, int enable)
 {
@@ -413,6 +425,7 @@ int msm_dss_enable_clk(struct dss_clk *clk_arry, int num_clk, int enable)
 
 	return rc;
 } /* msm_dss_enable_clk */
+EXPORT_SYMBOL(msm_dss_enable_clk);
 
 
 int mdss_i2c_byte_read(struct i2c_client *client, uint8_t slave_addr,
@@ -442,6 +455,7 @@ int mdss_i2c_byte_read(struct i2c_client *client, uint8_t slave_addr,
 	pr_debug("%s: i2c buf is [%x]\n", __func__, *read_buf);
 	return 0;
 }
+EXPORT_SYMBOL(mdss_i2c_byte_read);
 
 int mdss_i2c_byte_write(struct i2c_client *client, uint8_t slave_addr,
 			uint8_t reg_offset, uint8_t *value)
@@ -469,3 +483,4 @@ int mdss_i2c_byte_write(struct i2c_client *client, uint8_t slave_addr,
 	pr_debug("%s: I2C write status=%x\n", __func__, status);
 	return status;
 }
+EXPORT_SYMBOL(mdss_i2c_byte_write);
