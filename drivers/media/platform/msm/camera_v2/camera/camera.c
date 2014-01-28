@@ -673,12 +673,22 @@ static int camera_v4l2_close(struct file *filep)
 	return rc;
 }
 
+#ifdef CONFIG_COMPAT
+long camera_v4l2_compat_ioctl(struct file *file, unsigned int cmd,
+	unsigned long arg)
+{
+	return -ENOIOCTLCMD;
+}
+#endif
 static struct v4l2_file_operations camera_v4l2_fops = {
 	.owner   = THIS_MODULE,
 	.open	= camera_v4l2_open,
 	.poll	= camera_v4l2_poll,
 	.release = camera_v4l2_close,
 	.ioctl   = video_ioctl2,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl32 = camera_v4l2_compat_ioctl,
+#endif
 };
 
 int camera_init_v4l2(struct device *dev, unsigned int *session)
