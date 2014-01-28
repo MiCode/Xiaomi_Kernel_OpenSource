@@ -217,6 +217,9 @@ struct	qcedev_sha_op_req {
 	enum qcedev_sha_alg_enum	alg;
 };
 
+struct file;
+extern long qcedev_ioctl(struct file *file,
+			unsigned cmd, unsigned long arg);
 
 #define QCEDEV_IOC_MAGIC	0x87
 
