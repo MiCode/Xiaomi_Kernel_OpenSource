@@ -600,7 +600,7 @@ static void qca1530_reset_deinit(struct platform_device *pdev)
 {
 	pr_debug("Releasing reset control");
 	qca1530_deinit_gpio(pdev, &qca1530_data.reset_gpio,
-		GPIO_OUTDIR_FLG | GPIO_EXPORT_FLG);
+		GPIO_OUTDIR_FLG);
 	if (qca1530_data.reset_reg) {
 		qca1530_pwr_set_regulator(qca1530_data.reset_reg, 0);
 		qca1530_deinit_regulator(&qca1530_data.reset_reg);
@@ -623,7 +623,7 @@ static int qca1530_reset_init(struct platform_device *pdev)
 	pr_debug("Initializing reset control");
 
 	ret = qca1530_init_gpio(pdev, &qca1530_data.reset_gpio,
-		QCA1530_OF_RESET_GPIO_NAME, GPIO_OUTDIR_FLG | GPIO_EXPORT_FLG);
+		QCA1530_OF_RESET_GPIO_NAME, GPIO_OUTDIR_FLG);
 
 	if (ret < 0) {
 		goto err_0;
@@ -915,22 +915,27 @@ switching_off:
 	return ret;
 }
 
-
-static ssize_t chip_state_show(struct kobject *kobj,
+/**
+ * qca1530_attr_chip_state_show() - provides current chip state through sysfs
+ */
+static ssize_t qca1530_attr_chip_state_show(struct kobject *kobj,
 	struct kobj_attribute *attr,
 	char *buf)
 {
 	return snprintf(buf, 16, "%d\n", qca1530_data.chip_state);
 }
 
-static ssize_t chip_state_store(struct kobject *kobj,
+/**
+ * qca1530_attr_chip_state_store() - sets new chip state
+ */
+static ssize_t qca1530_attr_chip_state_store(struct kobject *kobj,
 	struct kobj_attribute *attr,
 	const char *buf, size_t count)
 {
 	int retval;
 	int new_state;
 
-	sscanf(buf, "%du", &new_state);
+	sscanf(buf, "%d", &new_state);
 	pr_debug("new_state=%d", new_state);
 	if (count &&
 		((new_state <= QCA1530_ALL_FLG) && (new_state >= 0))) {
@@ -943,20 +948,73 @@ static ssize_t chip_state_store(struct kobject *kobj,
 	return count;
 }
 
-static struct kobj_attribute chip_state_attribute =
-	__ATTR(chip_state, 0600, chip_state_show, chip_state_store);
+/**
+ * qca1530_attr_reset_show() - provides current reset state through sysfs
+ */
+static ssize_t qca1530_attr_reset_show(struct kobject *kobj,
+	struct kobj_attribute *attr,
+	char *buf)
+{
+	int v = -1;
 
-static struct attribute *attrs[] = {
-	&chip_state_attribute.attr,
+	if (qca1530_data.chip_state & QCA1530_RESET_FLG)
+		v = gpio_get_value(qca1530_data.reset_gpio);
+
+	return snprintf(buf, 16, "%d\n", v);
+}
+
+/**
+ * qca1530_attr_reset_store() - sets new reset state
+ */
+static ssize_t qca1530_attr_reset_store(struct kobject *kobj,
+	struct kobj_attribute *attr,
+	const char *buf, size_t count)
+{
+	int v;
+
+	if (sscanf(buf, "%d", &v) == 1
+		&& (qca1530_data.chip_state & QCA1530_RESET_FLG))
+		gpio_set_value(qca1530_data.reset_gpio, v ? 1 : 0);
+
+	return count;
+}
+
+/*
+ * qca1530_attributes - sysfs attribute definition array
+ */
+static struct kobj_attribute qca1530_attributes[] = {
+	__ATTR(chip_state,
+		S_IRUSR | S_IWUSR,
+		qca1530_attr_chip_state_show, qca1530_attr_chip_state_store),
+	__ATTR(reset,
+		S_IRUSR | S_IWUSR,
+		qca1530_attr_reset_show, qca1530_attr_reset_store),
+};
+
+/*
+ * qca1530_attrs - sysfs attributes for attribute group
+ */
+static struct attribute *qca1530_attrs[] = {
+	&qca1530_attributes[0].attr,
+	&qca1530_attributes[1].attr,
 	NULL,
 };
 
-static struct attribute_group attr_group = {
-	.attrs = attrs,
+/*
+ * qca1530_attr_group - driver sysfs attribute group
+ */
+static struct attribute_group qca1530_attr_group = {
+	.attrs = qca1530_attrs,
 };
 
 static struct kobject *qca1530_kobject;
 
+/**
+ * qca1530_create_sysfs_node() - creates sysfs nodes for control
+ *
+ * Function exports two control nodes: for controlling chip control signals
+ * and for reset control.
+ */
 static int qca1530_create_sysfs_node(void)
 {
 	int retval;
@@ -968,7 +1026,7 @@ static int qca1530_create_sysfs_node(void)
 	if (!qca1530_kobject)
 		return -ENOMEM;
 
-	retval = sysfs_create_group(qca1530_kobject, &attr_group);
+	retval = sysfs_create_group(qca1530_kobject, &qca1530_attr_group);
 	pr_debug("sysfs_create_group() returned %d", retval);
 	if (retval)
 		kobject_put(qca1530_kobject);
@@ -976,11 +1034,14 @@ static int qca1530_create_sysfs_node(void)
 	return retval;
 }
 
+/**
+ * qca1530_remove_sysfs_node() - removes sysfs nodes
+ */
 static void qca1530_remove_sysfs_node(void)
 {
 	pr_debug("Removing sysfs node");
 	if (qca1530_kobject) {
-		sysfs_remove_group(qca1530_kobject, &attr_group);
+		sysfs_remove_group(qca1530_kobject, &qca1530_attr_group);
 		kobject_put(qca1530_kobject);
 		qca1530_kobject = NULL;
 	}
