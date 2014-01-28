@@ -268,6 +268,7 @@
 	clock_debug: qcom,cc-debug@1874000 {
 		compatible = "qcom,cc-debug-8916";
 		reg = <0x1874000 0x4>;
+		reg-names = "cc_base";
 		clocks = <&clock_rpm clk_rpm_debug_mux>;
 		clock-names = "rpm_debug_mux";
 		#clock-cells = <1>;

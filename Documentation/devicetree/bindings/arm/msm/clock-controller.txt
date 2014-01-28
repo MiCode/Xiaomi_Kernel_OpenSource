@@ -10,13 +10,14 @@ the compatible string to indicate the revision.
 
 Required properties:
 - compatible:		Must be one of "qcom,gcc-<target>",
-			"qcom,mmsscc-<target>", "qcom,debugcc-<target>" or
+			"qcom,mmsscc-<target>", "qcom,cc-debug-<target>" or
 			"qcom,lpasscc-<target>" or qcom,gcc-mdss-<target>.
 			<target> is the name of the Qualcomm SoC.
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.
 - reg-names:		Names of the bases for the above registers. Currently,
-			there is one expected base: "cc_base"
+			there is one expected base: "cc_base". Optional
+			reg-names are "apcs_base" and "meas".
 
 Optional properties:
 - vdd_dig-supply:	The digital logic rail supply.

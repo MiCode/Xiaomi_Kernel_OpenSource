@@ -206,5 +206,14 @@
 #define clk_gcc_debug_mux			0x8121ac15
 #define clk_rpm_debug_mux			0x25cd1f3a
 #define clk_wcnss_m_clk				0x709f430b
+#define clk_apss_debug_pri_mux			0xc691ff55
+#define clk_apss_debug_sec_mux			0xc0b680f9
+#define clk_apss_debug_ter_mux			0x32041c48
+#define clk_apc0_m_clk				0xce1e9473
+#define clk_apc1_m_clk				0x990fbaf7
+#define clk_apc2_m_clk				0x252cd4ae
+#define clk_apc3_m_clk				0x78c64486
+#define clk_l2_m_clk				0x4bedf4d0
+
 
 #endif
