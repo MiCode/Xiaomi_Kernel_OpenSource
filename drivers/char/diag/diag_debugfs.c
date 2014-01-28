@@ -180,7 +180,7 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		driver->rcvd_feature_mask[LPASS_DATA],
 		driver->rcvd_feature_mask[WCNSS_DATA],
 		driver->logging_mode,
-		driver->real_time_mode);
+		driver->real_time_mode[DIAG_LOCAL_PROC]);
 
 #ifdef CONFIG_DIAG_OVER_USB
 	ret += scnprintf(buf+ret, buf_size-ret,
@@ -199,7 +199,7 @@ static ssize_t diag_dbgfs_read_dcistats(struct file *file,
 	char *buf = NULL;
 	unsigned int bytes_remaining, bytes_written = 0;
 	unsigned int bytes_in_buf = 0, i = 0;
-	struct diag_dci_data_info *temp_data = dci_data_smd;
+	struct diag_dci_data_info *temp_data = dci_traffic;
 	unsigned int buf_size;
 	buf_size = (DEBUG_BUF_SIZE < count) ? DEBUG_BUF_SIZE : count;
 
@@ -225,7 +225,8 @@ static ssize_t diag_dbgfs_read_dcistats(struct file *file,
 			"dci real time vote: %d\n",
 			driver->num_dci_client,
 			(driver->proc_active_mask & DIAG_PROC_DCI) ? 1 : 0,
-			(driver->proc_rt_vote_mask & DIAG_PROC_DCI) ? 1 : 0);
+			(driver->proc_rt_vote_mask[DIAG_LOCAL_PROC] &
+							DIAG_PROC_DCI) ? 1 : 0);
 		bytes_in_buf += bytes_written;
 		bytes_remaining -= bytes_written;
 #ifdef CONFIG_DIAG_OVER_USB
@@ -254,11 +255,13 @@ static ssize_t diag_dbgfs_read_dcistats(struct file *file,
 				"i %-5ld\t"
 				"s %-5d\t"
 				"p %-5d\t"
+				"r %-5d\t"
 				"c %-5d\t"
 				"t %-15s\n",
 				temp_data->iteration,
 				temp_data->data_size,
 				temp_data->peripheral,
+				temp_data->proc,
 				temp_data->ch_type,
 				temp_data->time_stamp);
 			bytes_in_buf += bytes_written;
@@ -708,9 +711,9 @@ void diag_debugfs_init(void)
 	diag_dbgfs_dci_finished = 0;
 
 	/* DCI related structures */
-	dci_data_smd = kzalloc(sizeof(struct diag_dci_data_info) *
+	dci_traffic = kzalloc(sizeof(struct diag_dci_data_info) *
 				DIAG_DCI_DEBUG_CNT, GFP_KERNEL);
-	if (ZERO_OR_NULL_PTR(dci_data_smd))
+	if (ZERO_OR_NULL_PTR(dci_traffic))
 		pr_warn("diag: could not allocate memory for dci debug info\n");
 
 	mutex_init(&dci_stat_mutex);
@@ -723,7 +726,7 @@ void diag_debugfs_cleanup(void)
 		diag_dbgfs_dent = NULL;
 	}
 
-	kfree(dci_data_smd);
+	kfree(dci_traffic);
 	mutex_destroy(&dci_stat_mutex);
 }
 #else

@@ -51,6 +51,7 @@ struct diag_hsic_bridge_map {
 };
 
 extern int hsic_data_bridge_map[MAX_HSIC_DATA_CH];
+extern int hsic_dci_bridge_map[MAX_HSIC_DCI_CH];
 
 /*
  * Diag-HSIC structure, n HSIC bridges can be used at same time

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,9 @@
 #include "diagchar.h"
 #include "diagfwd.h"
 #include "diagfwd_cntl.h"
+#include "diagfwd_hsic.h"
+#include "diag_dci.h"
+#include "diagmem.h"
 /* tracks which peripheral is undergoing SSR */
 static uint16_t reg_dirty;
 #define HDR_SIZ 8
@@ -247,94 +250,232 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 	return flag;
 }
 
-void diag_update_proc_vote(uint16_t proc, uint8_t vote)
+static int diag_compute_real_time(int idx)
 {
+	int real_time = MODE_REALTIME;
+	if (driver->proc_active_mask == 0) {
+		/*
+		 * There are no DCI or Memory Device processes. Diag should
+		 * be in Real Time mode irrespective of USB connection
+		 */
+		real_time = MODE_REALTIME;
+	} else if (driver->proc_rt_vote_mask[idx] & driver->proc_active_mask) {
+		/*
+		 * Atleast one process is alive and is voting for Real Time
+		 * data - Diag should be in real time mode irrespective of USB
+		 * connection.
+		 */
+		real_time = MODE_REALTIME;
+	} else if (driver->usb_connected) {
+		/*
+		 * If USB is connected, check individual process. If Memory
+		 * Device Mode is active, set the mode requested by Memory
+		 * Device process. Set to realtime mode otherwise.
+		 */
+		if ((driver->proc_rt_vote_mask[idx] &
+						DIAG_PROC_MEMORY_DEVICE) == 0)
+			real_time = MODE_NONREALTIME;
+		else
+			real_time = MODE_REALTIME;
+	} else {
+		/*
+		 * We come here if USB is not connected and the active
+		 * processes are voting for Non realtime mode.
+		 */
+		real_time = MODE_NONREALTIME;
+	}
+	return real_time;
+}
+
+static void diag_create_diag_mode_ctrl_pkt(unsigned char *dest_buf,
+					   int real_time)
+{
+	struct diag_ctrl_msg_diagmode diagmode;
+	int msg_size = sizeof(struct diag_ctrl_msg_diagmode);
+
+	if (!dest_buf)
+		return;
+
+	diagmode.ctrl_pkt_id = DIAG_CTRL_MSG_DIAGMODE;
+	diagmode.ctrl_pkt_data_len = DIAG_MODE_PKT_LEN;
+	diagmode.version = 1;
+	diagmode.sleep_vote = real_time ? 1 : 0;
+	/*
+	 * 0 - Disables real-time logging (to prevent
+	 *     frequent APPS wake-ups, etc.).
+	 * 1 - Enable real-time logging
+	 */
+	diagmode.real_time = real_time;
+	diagmode.use_nrt_values = 0;
+	diagmode.commit_threshold = 0;
+	diagmode.sleep_threshold = 0;
+	diagmode.sleep_time = 0;
+	diagmode.drain_timer_val = 0;
+	diagmode.event_stale_timer_val = 0;
+
+	memcpy(dest_buf, &diagmode, msg_size);
+}
+
+void diag_update_proc_vote(uint16_t proc, uint8_t vote, int index)
+{
+	int i;
+
 	mutex_lock(&driver->real_time_mutex);
 	if (vote)
 		driver->proc_active_mask |= proc;
 	else {
 		driver->proc_active_mask &= ~proc;
-		driver->proc_rt_vote_mask |= proc;
+		if (index == ALL_PROC) {
+			for (i = 0; i < DIAG_NUM_PROC; i++)
+				driver->proc_rt_vote_mask[i] |= proc;
+		} else {
+			driver->proc_rt_vote_mask[index] |= proc;
+		}
 	}
 	mutex_unlock(&driver->real_time_mutex);
 }
 
-void diag_update_real_time_vote(uint16_t proc, uint8_t real_time)
+void diag_update_real_time_vote(uint16_t proc, uint8_t real_time, int index)
 {
+	int i;
+
 	mutex_lock(&driver->real_time_mutex);
-	if (real_time)
-		driver->proc_rt_vote_mask |= proc;
-	else
-		driver->proc_rt_vote_mask &= ~proc;
+	if (index == ALL_PROC) {
+		for (i = 0; i < DIAG_NUM_PROC; i++) {
+			if (real_time)
+				driver->proc_rt_vote_mask[i] |= proc;
+			else
+				driver->proc_rt_vote_mask[i] &= ~proc;
+		}
+	} else {
+		if (real_time)
+			driver->proc_rt_vote_mask[index] |= proc;
+		else
+			driver->proc_rt_vote_mask[index] &= ~proc;
+	}
 	mutex_unlock(&driver->real_time_mutex);
 }
+
+
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+static void diag_send_diag_mode_update_by_hsic(int index, int real_time)
+{
+	unsigned char *buf = NULL;
+	int err = 0;
+	struct diag_dci_header_t dci_header;
+	int dci_header_size = sizeof(struct diag_dci_header_t);
+	int msg_size = sizeof(struct diag_ctrl_msg_diagmode);
+	uint32_t write_len = 0;
+
+	if (index < 0 || index > MAX_HSIC_DCI_CH) {
+		pr_err("diag: Invalid HSIC channel in %s, index: %d\n",
+							__func__, index);
+		return;
+	}
+
+	if (real_time != MODE_REALTIME && real_time != MODE_NONREALTIME) {
+		pr_err("diag: Invalid real time value in %s, type: %d\n",
+							__func__, real_time);
+		return;
+	}
+
+	if (!diag_hsic_dci[index].hsic_ch) {
+		pr_debug("diag: In %s, hsic dci channel %d is not enabled.\n",
+							__func__, index);
+		return;
+	}
+
+	buf = dci_get_buffer_from_bridge(index);
+	if (!buf) {
+		pr_err("diag: In %s, unable to get dci buffers to write data\n",
+			__func__);
+		return;
+	}
+	/* Frame the DCI header */
+	dci_header.start = CONTROL_CHAR;
+	dci_header.version = 1;
+	dci_header.length = msg_size + 1;
+	dci_header.cmd_code = DCI_CONTROL_PKT_CODE;
+
+	memcpy(buf + write_len, &dci_header, dci_header_size);
+	write_len += dci_header_size;
+	diag_create_diag_mode_ctrl_pkt(buf + write_len, real_time);
+	write_len += msg_size;
+	*(buf + write_len) = CONTROL_CHAR; /* End Terminator */
+	write_len += sizeof(uint8_t);
+	err = diag_dci_write_bridge(index, buf, write_len);
+	if (err != write_len) {
+		pr_err("diag: cannot send nrt mode ctrl pkt, err: %d\n", err);
+		diagmem_free(driver, buf, POOL_TYPE_HSIC_DCI_WRITE + index);
+	} else {
+		driver->real_time_mode[index + 1] = real_time;
+	}
+}
+#else
+static inline void diag_send_diag_mode_update_by_hsic(int index, int real_time)
+{
+}
+#endif
 
 #ifdef CONFIG_DIAG_OVER_USB
 void diag_real_time_work_fn(struct work_struct *work)
 {
-	int temp_real_time = MODE_REALTIME, i;
+	int temp_real_time = MODE_REALTIME, i, j;
 
-	if (driver->proc_active_mask == 0) {
-		/* There are no DCI or Memory Device processes. Diag should
-		 * be in Real Time mode irrespective of USB connection
-		 */
-		temp_real_time = MODE_REALTIME;
-	} else if (driver->proc_rt_vote_mask & driver->proc_active_mask) {
-		/* Atleast one process is alive and is voting for Real Time
-		 * data - Diag should be in real time mode irrespective of USB
-		 * connection.
-		 */
-		temp_real_time = MODE_REALTIME;
-	} else if (driver->usb_connected) {
-		/* If USB is connected, check individual process. If Memory
-		 * Device Mode is active, set the mode requested by Memory
-		 * Device process. Set to realtime mode otherwise.
-		 */
-		if ((driver->proc_rt_vote_mask & DIAG_PROC_MEMORY_DEVICE) == 0)
-			temp_real_time = MODE_NONREALTIME;
-		else
-			temp_real_time = MODE_REALTIME;
-	} else {
-		/* We come here if USB is not connected and the active
-		 * processes are voting for Non realtime mode.
-		 */
-		temp_real_time = MODE_NONREALTIME;
+	for (i = 0; i < DIAG_NUM_PROC; i++) {
+		temp_real_time = diag_compute_real_time(i);
+		if (temp_real_time == driver->real_time_mode[i]) {
+			pr_debug("diag: did not update real time mode on proc %d, already in the req mode %d",
+				i, temp_real_time);
+			continue;
+		}
+
+		if (i == DIAG_LOCAL_PROC) {
+			for (j = 0; j < NUM_SMD_CONTROL_CHANNELS; j++)
+				diag_send_diag_mode_update_by_smd(
+					&driver->smd_cntl[j], temp_real_time);
+		} else {
+			diag_send_diag_mode_update_by_hsic(i - 1,
+							   temp_real_time);
+		}
 	}
 
-	if (temp_real_time != driver->real_time_mode) {
-		for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
-			diag_send_diag_mode_update_by_smd(&driver->smd_cntl[i],
-							temp_real_time);
-	} else {
-		pr_debug("diag: did not update real time mode, already in the req mode %d",
-					temp_real_time);
-	}
 	if (driver->real_time_update_busy > 0)
 		driver->real_time_update_busy--;
 }
 #else
 void diag_real_time_work_fn(struct work_struct *work)
 {
-	int temp_real_time = MODE_REALTIME, i;
+	int temp_real_time = MODE_REALTIME, i, j;
 
-	if (driver->proc_active_mask == 0) {
-		/* There are no DCI or Memory Device processes. Diag should
-		 * be in Real Time mode.
-		 */
-		temp_real_time = MODE_REALTIME;
-	} else if (!(driver->proc_rt_vote_mask & driver->proc_active_mask)) {
-		/* No active process is voting for real time mode */
-		temp_real_time = MODE_NONREALTIME;
+	for (i = 0; i < DIAG_NUM_PROC; i++) {
+		if (driver->proc_active_mask == 0) {
+			/*
+			 * There are no DCI or Memory Device processes.
+			 * Diag should be in Real Time mode.
+			 */
+			temp_real_time = MODE_REALTIME;
+		} else if (!(driver->proc_rt_vote_mask[i] &
+						driver->proc_active_mask)) {
+			/* No active process is voting for real time mode */
+			temp_real_time = MODE_NONREALTIME;
+		}
+		if (temp_real_time == driver->real_time_mode[i]) {
+			pr_debug("diag: did not update real time mode on proc %d, already in the req mode %d",
+				i, temp_real_time);
+			continue;
+		}
+
+		if (i == DIAG_LOCAL_PROC) {
+			for (j = 0; j < NUM_SMD_CONTROL_CHANNELS; j++)
+				diag_send_diag_mode_update_by_smd(
+					&driver->smd_cntl[j], temp_real_time);
+		} else {
+			diag_send_diag_mode_update_by_hsic(i - 1,
+								temp_real_time);
+		}
 	}
 
-	if (temp_real_time != driver->real_time_mode) {
-		for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
-			diag_send_diag_mode_update_by_smd(&driver->smd_cntl[i],
-							temp_real_time);
-	} else {
-		pr_warn("diag: did not update real time mode, already in the req mode %d",
-					temp_real_time);
-	}
 	if (driver->real_time_update_busy > 0)
 		driver->real_time_update_busy--;
 }
@@ -343,7 +484,6 @@ void diag_real_time_work_fn(struct work_struct *work)
 void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 							int real_time)
 {
-	struct diag_ctrl_msg_diagmode diagmode;
 	char buf[sizeof(struct diag_ctrl_msg_diagmode)];
 	int msg_size = sizeof(struct diag_ctrl_msg_diagmode);
 	int wr_size = -ENOMEM, retry_count = 0, timer;
@@ -367,26 +507,9 @@ void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 	if (!data)
 		return;
 
+	diag_create_diag_mode_ctrl_pkt(buf, real_time);
+
 	mutex_lock(&driver->diag_cntl_mutex);
-	diagmode.ctrl_pkt_id = DIAG_CTRL_MSG_DIAGMODE;
-	diagmode.ctrl_pkt_data_len = 36;
-	diagmode.version = 1;
-	diagmode.sleep_vote = real_time ? 1 : 0;
-	/*
-	 * 0 - Disables real-time logging (to prevent
-	 *     frequent APPS wake-ups, etc.).
-	 * 1 - Enable real-time logging
-	 */
-	diagmode.real_time = real_time;
-	diagmode.use_nrt_values = 0;
-	diagmode.commit_threshold = 0;
-	diagmode.sleep_threshold = 0;
-	diagmode.sleep_time = 0;
-	diagmode.drain_timer_val = 0;
-	diagmode.event_stale_timer_val = 0;
-
-	memcpy(buf, &diagmode, msg_size);
-
 	if (smd_info->ch) {
 		while (retry_count < 3) {
 			wr_size = smd_write(smd_info->ch, buf, msg_size);
@@ -404,7 +527,8 @@ void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 			} else {
 				data =
 				&driver->smd_data[smd_info->peripheral];
-				driver->real_time_mode = real_time;
+				driver->real_time_mode[DIAG_LOCAL_PROC] =
+								real_time;
 				break;
 			}
 		}

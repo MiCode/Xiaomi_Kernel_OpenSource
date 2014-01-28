@@ -35,21 +35,29 @@
 #include "diagfwd.h"
 #include "diagfwd_cntl.h"
 #include "diag_dci.h"
+#include "diagfwd_hsic.h"
 
 static struct timer_list dci_drain_timer;
 static int dci_timer_in_progress;
 static struct work_struct dci_data_drain_work;
 
+struct dci_ops_tbl_t *dci_ops_tbl;
+struct diag_dci_partial_pkt_t partial_pkt;
+
 unsigned int dci_max_reg = 100;
 unsigned int dci_max_clients = 10;
-unsigned char dci_cumulative_log_mask[DCI_LOG_MASK_SIZE];
-unsigned char dci_cumulative_event_mask[DCI_EVENT_MASK_SIZE];
 struct mutex dci_log_mask_mutex;
 struct mutex dci_event_mask_mutex;
-struct mutex dci_health_mutex;
 
 spinlock_t ws_lock;
 unsigned long ws_lock_flags;
+
+#define VALID_DCI_TOKEN(x)	((x >= 0 && x < NUM_DCI_PROC) ? 1 : 0)
+
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+#define VALID_DCI_BRIDGE(x)	((x < 0 || x > NUM_DCI_PROC - 1) ? 0 : 1)
+static int dci_remote_proc_token[NUM_DCI_PROC] = { -1, 0 };
+#endif
 
 /* Number of milliseconds anticipated to process the DCI data */
 #define DCI_WAKEUP_TIMEOUT 1
@@ -58,34 +66,58 @@ unsigned long ws_lock_flags;
 	(buf && buf->data && !buf->in_busy && buf->data_len > 0)	\
 
 #ifdef CONFIG_DEBUG_FS
-struct diag_dci_data_info *dci_data_smd;
+struct diag_dci_data_info *dci_traffic;
 struct mutex dci_stat_mutex;
-
-void diag_dci_smd_record_info(int read_bytes, uint8_t ch_type,
-			      uint8_t peripheral)
+void diag_dci_record_traffic(int read_bytes, uint8_t ch_type,
+			     uint8_t peripheral, uint8_t proc)
 {
-	static int curr_dci_data_smd;
+	static int curr_dci_data;
 	static unsigned long iteration;
-	struct diag_dci_data_info *temp_data = dci_data_smd;
+	struct diag_dci_data_info *temp_data = dci_traffic;
 	if (!temp_data)
 		return;
 	mutex_lock(&dci_stat_mutex);
-	if (curr_dci_data_smd == DIAG_DCI_DEBUG_CNT)
-		curr_dci_data_smd = 0;
-	temp_data += curr_dci_data_smd;
+	if (curr_dci_data == DIAG_DCI_DEBUG_CNT)
+		curr_dci_data = 0;
+	temp_data += curr_dci_data;
 	temp_data->iteration = iteration + 1;
 	temp_data->data_size = read_bytes;
 	temp_data->peripheral = peripheral;
 	temp_data->ch_type = ch_type;
+	temp_data->proc = proc;
 	diag_get_timestamp(temp_data->time_stamp);
-	curr_dci_data_smd++;
+	curr_dci_data++;
 	iteration++;
 	mutex_unlock(&dci_stat_mutex);
 }
 #else
-void diag_dci_smd_record_info(int read_bytes, uint8_t ch_type,
-			      uint8_t peripheral) { }
+void diag_dci_record_traffic(int read_bytes, uint8_t ch_type,
+			     uint8_t peripheral, uint8_t proc) { }
 #endif
+static void create_dci_log_mask_tbl(unsigned char *mask, uint8_t dirty)
+{
+	unsigned char *temp = mask;
+	uint8_t i;
+
+	if (!mask)
+		return;
+
+	/* create hard coded table for log mask with 16 categories */
+	for (i = 0; i < DCI_MAX_LOG_CODES; i++) {
+		*temp = i;
+		temp++;
+		*temp = dirty ? 1 : 0;
+		temp++;
+		memset(temp, 0, DCI_MAX_ITEMS_PER_LOG_CODE);
+		temp += DCI_MAX_ITEMS_PER_LOG_CODE;
+	}
+}
+
+static void create_dci_event_mask_tbl(unsigned char *tbl_buf)
+{
+	if (tbl_buf)
+		memset(tbl_buf, 0, DCI_EVENT_MASK_SIZE);
+}
 
 static void dci_drain_data(unsigned long data)
 {
@@ -244,7 +276,7 @@ void dci_data_drain_work_fn(struct work_struct *work)
 
 	list_for_each_safe(start, temp, &driver->dci_client_list) {
 		entry = list_entry(start, struct diag_dci_client_tbl, track);
-		for (i = 0; i < NUM_DCI_PROC; i++) {
+		for (i = 0; i < entry->num_buffers; i++) {
 			proc_buf = &entry->buffers[i];
 
 			buf_temp = proc_buf->buf_primary;
@@ -274,10 +306,46 @@ void dci_data_drain_work_fn(struct work_struct *work)
 	dci_timer_in_progress = 0;
 }
 
+static int diag_process_single_dci_pkt(unsigned char *buf, int len,
+				       int data_source, int token)
+{
+	uint8_t cmd_code = 0;
+
+	if (!buf || len < 0) {
+		pr_err("diag: Invalid input in %s, buf: %p, len: %d\n",
+			__func__, buf, len);
+		return -EIO;
+	}
+
+	cmd_code = *(uint8_t *)buf;
+
+	switch (cmd_code) {
+	case LOG_CMD_CODE:
+		extract_dci_log(buf, len, data_source, token);
+		break;
+	case EVENT_CMD_CODE:
+		extract_dci_events(buf, len, data_source, token);
+		break;
+	case DCI_PKT_RSP_CODE:
+	case DCI_DELAYED_RSP_CODE:
+		extract_dci_pkt_rsp(buf, len, data_source, token);
+		break;
+	case DCI_CONTROL_PKT_CODE:
+		extract_dci_ctrl_pkt(buf, len, token);
+		break;
+	default:
+		pr_err("diag: Unable to process single DCI packet, cmd_code: %d, data_source: %d",
+			cmd_code, data_source);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /* Process the data read from apps userspace client */
 void diag_process_apps_dci_read_data(int data_type, void *buf, int recd_bytes)
 {
-	uint8_t cmd_code;
+	int err = 0;
 
 	if (!buf) {
 		pr_err_ratelimited("diag: In %s, Null buf pointer\n", __func__);
@@ -291,37 +359,132 @@ void diag_process_apps_dci_read_data(int data_type, void *buf, int recd_bytes)
 		return;
 	}
 
-	cmd_code = *(uint8_t *)buf;
-
-	switch (cmd_code) {
-	case LOG_CMD_CODE:
-		extract_dci_log(buf, recd_bytes, APPS_DATA);
-		break;
-	case EVENT_CMD_CODE:
-		extract_dci_events(buf, recd_bytes, APPS_DATA);
-		break;
-	case DCI_PKT_RSP_CODE:
-	case DCI_DELAYED_RSP_CODE:
-		extract_dci_pkt_rsp(buf, recd_bytes, APPS_DATA, NULL);
-		break;
-	default:
-		pr_err("diag: In %s, unsupported command code: 0x%x, not log or event\n",
-		       __func__, cmd_code);
+	err = diag_process_single_dci_pkt(buf, recd_bytes, APPS_DATA,
+					  DCI_LOCAL_PROC);
+	if (err)
 		return;
-
-	}
 
 	/* wake up all sleeping DCI clients which have some data */
 	diag_dci_wakeup_clients();
 	dci_check_drain_timer();
 }
 
+int diag_process_hsic_dci_read_data(int index, void *buf, int recd_bytes)
+{
+	int read_bytes = 0, err = 0;
+	uint16_t dci_pkt_len;
+	struct diag_dci_header_t *header = NULL;
+	int header_len = sizeof(struct diag_dci_header_t);
+
+	if (!buf)
+		return -EIO;
+
+	diag_dci_record_traffic(recd_bytes, 0, 0, DCI_MDM_PROC + index);
+
+	if (!partial_pkt.processing)
+		goto start;
+
+	if (partial_pkt.remaining > recd_bytes) {
+		if ((partial_pkt.read_len + recd_bytes) >
+							(MAX_DCI_PACKET_SZ)) {
+			pr_err("diag: Invalid length %d, %d received in %s\n",
+			       partial_pkt.read_len, recd_bytes, __func__);
+			goto end;
+		}
+		memcpy(partial_pkt.data + partial_pkt.read_len, buf,
+								recd_bytes);
+		read_bytes += recd_bytes;
+		buf += read_bytes;
+		partial_pkt.read_len += recd_bytes;
+		partial_pkt.remaining -= recd_bytes;
+	} else {
+		if ((partial_pkt.read_len + partial_pkt.remaining) >
+							(MAX_DCI_PACKET_SZ)) {
+			pr_err("diag: Invalid length during partial read %d, %d received in %s\n",
+			       partial_pkt.read_len,
+			       partial_pkt.remaining, __func__);
+			goto end;
+		}
+		memcpy(partial_pkt.data + partial_pkt.read_len, buf,
+						partial_pkt.remaining);
+		read_bytes += partial_pkt.remaining;
+		buf += read_bytes;
+		partial_pkt.read_len += partial_pkt.remaining;
+		partial_pkt.remaining = 0;
+	}
+
+	if (partial_pkt.remaining == 0) {
+		/*
+		 * Retrieve from the DCI control packet after the header = start
+		 * (1 byte) + version (1 byte) + length (2 bytes)
+		 */
+		diag_process_single_dci_pkt(partial_pkt.data + 4,
+				partial_pkt.read_len - header_len,
+				DCI_REMOTE_DATA, DCI_MDM_PROC + index);
+		partial_pkt.read_len = 0;
+		partial_pkt.total_len = 0;
+		partial_pkt.processing = 0;
+		goto start;
+	}
+	goto end;
+
+start:
+	while (read_bytes < recd_bytes) {
+		header = (struct diag_dci_header_t *)buf;
+		dci_pkt_len = header->length;
+
+		if (header->cmd_code != DCI_CONTROL_PKT_CODE &&
+			driver->num_dci_client == 0) {
+			read_bytes += header_len + dci_pkt_len;
+			buf += header_len + dci_pkt_len;
+			continue;
+		}
+
+		if (dci_pkt_len + header_len > MAX_DCI_PACKET_SZ) {
+			pr_err("diag: Invalid length in the dci packet field %d\n",
+								dci_pkt_len);
+			break;
+		}
+
+		if ((dci_pkt_len + header_len) > (recd_bytes - read_bytes)) {
+			partial_pkt.read_len = recd_bytes - read_bytes;
+			partial_pkt.total_len = dci_pkt_len + header_len;
+			partial_pkt.remaining = partial_pkt.total_len -
+						partial_pkt.read_len;
+			partial_pkt.processing = 1;
+			memcpy(partial_pkt.data, buf, partial_pkt.read_len);
+			break;
+		}
+		/*
+		 * Retrieve from the DCI control packet after the header = start
+		 * (1 byte) + version (1 byte) + length (2 bytes)
+		 */
+		err = diag_process_single_dci_pkt(buf + 4, dci_pkt_len,
+						 DCI_REMOTE_DATA, DCI_MDM_PROC);
+		if (err)
+			break;
+		read_bytes += header_len + dci_pkt_len;
+		buf += header_len + dci_pkt_len; /* advance to next DCI pkt */
+	}
+end:
+	/* wake up all sleeping DCI clients which have some data */
+	diag_dci_wakeup_clients();
+	dci_check_drain_timer();
+	diag_dci_try_deactivate_wakeup_source();
+	return 0;
+}
+
 /* Process the data read from the smd dci channel */
 int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
 								int recd_bytes)
 {
-	int read_bytes, dci_pkt_len;
+	int read_bytes = 0, err = 0;
+	uint16_t dci_pkt_len;
+	struct diag_dci_pkt_header_t *header = NULL;
 	uint8_t recv_pkt_cmd_code;
+
+	if (!buf)
+		return -EIO;
 
 	/*
 	 * Release wakeup source when there are no more clients to
@@ -332,42 +495,33 @@ int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
 		return 0;
 	}
 
-	diag_dci_smd_record_info(recd_bytes, (uint8_t)smd_info->type,
-				 (uint8_t)smd_info->peripheral);
-	/* Each SMD read can have multiple DCI packets */
-	read_bytes = 0;
+	diag_dci_record_traffic(recd_bytes, (uint8_t)smd_info->type,
+				(uint8_t)smd_info->peripheral, DCI_LOCAL_PROC);
 	while (read_bytes < recd_bytes) {
-		/* read actual length of dci pkt */
-		dci_pkt_len = *(uint16_t *)(buf+2);
+		header = (struct diag_dci_pkt_header_t *)buf;
+		recv_pkt_cmd_code = header->pkt_code;
+		dci_pkt_len = header->len;
 
-		/* Check if the length of the current packet is lesser than the
+		/*
+		 * Check if the length of the current packet is lesser than the
 		 * remaining bytes in the received buffer. This includes space
 		 * for the Start byte (1), Version byte (1), length bytes (2)
 		 * and End byte (1)
 		 */
-		if ((dci_pkt_len+5) > (recd_bytes-read_bytes)) {
+		if ((dci_pkt_len + 5) > (recd_bytes - read_bytes)) {
 			pr_err("diag: Invalid length in %s, len: %d, dci_pkt_len: %d",
-					__func__, recd_bytes, dci_pkt_len);
+				__func__, recd_bytes, dci_pkt_len);
 			diag_dci_try_deactivate_wakeup_source();
 			return 0;
 		}
-		/* process one dci packet */
-		pr_debug("diag: dci: peripheral = %d bytes read = %d, single dci pkt len = %d\n",
-			 smd_info->peripheral, read_bytes, dci_pkt_len);
-		/* print_hex_dump(KERN_DEBUG, "Single DCI packet :",
-		 DUMP_PREFIX_ADDRESS, 16, 1, buf, 5 + dci_pkt_len, 1); */
-		recv_pkt_cmd_code = *(uint8_t *)(buf+4);
-		if (recv_pkt_cmd_code == LOG_CMD_CODE) {
-			/* Don't include the 4 bytes for command code */
-			extract_dci_log(buf + 4, recd_bytes - 4,
-					smd_info->peripheral);
-		} else if (recv_pkt_cmd_code == EVENT_CMD_CODE) {
-			/* Don't include the 4 bytes for command code */
-			extract_dci_events(buf + 4, recd_bytes - 4,
-					   smd_info->peripheral);
-		} else
-			extract_dci_pkt_rsp(buf + 4, dci_pkt_len,
-					    smd_info->peripheral, smd_info);
+		/*
+		 * Retrieve from the DCI control packet after the header = start
+		 * (1 byte) + version (1 byte) + length (2 bytes)
+		 */
+		err = diag_process_single_dci_pkt(buf + 4, dci_pkt_len,
+					smd_info->peripheral, DCI_LOCAL_PROC);
+		if (err)
+			break;
 		read_bytes += 5 + dci_pkt_len;
 		buf += 5 + dci_pkt_len; /* advance to next DCI pkt */
 	}
@@ -546,8 +700,68 @@ static int diag_dci_remove_req_entry(unsigned char *buf, int len,
 	return 0;
 }
 
+void extract_dci_ctrl_pkt(unsigned char *buf, int len, int token)
+{
+
+	struct diag_ctrl_dci_status *header = NULL;
+	unsigned char *temp = buf;
+	uint32_t ctrl_pkt_id = 0, read_len = 0;
+	uint8_t i;
+	int peripheral_mask, status;
+
+	if (!buf) {
+		pr_err("diag: Invalid buffer in %s\n", __func__);
+		return;
+	}
+
+	/* Skip the Control packet command code */
+	temp += sizeof(uint8_t);
+	ctrl_pkt_id = *(uint32_t *)temp;
+	if (ctrl_pkt_id != DIAG_CTRL_MSG_DCI_CONNECTION_STATUS) {
+		pr_alert("diag: Unknown control packet through DCI channel : %d\n",
+								ctrl_pkt_id);
+		return;
+	}
+
+	header = (struct diag_ctrl_dci_status *)temp;
+	temp += sizeof(struct diag_ctrl_dci_status);
+	read_len += sizeof(struct diag_ctrl_dci_status);
+
+	for (i = 0; i < header->count; i++) {
+		if (read_len > len) {
+			pr_err("diag: Invalid length len: %d in %s\n", len,
+								__func__);
+			return;
+		}
+
+		switch (*(uint8_t *)temp) {
+		case MODEM_DATA:
+			peripheral_mask = DIAG_CON_MPSS;
+			break;
+		case LPASS_DATA:
+			peripheral_mask = DIAG_CON_LPASS;
+			break;
+		case WCNSS_DATA:
+			peripheral_mask = DIAG_CON_WCNSS;
+			break;
+		default:
+			pr_err("diag: In %s, unknown peripheral, peripheral: %d\n",
+				__func__, *(uint8_t *)temp);
+			return;
+		}
+		temp += sizeof(uint8_t);
+		read_len += sizeof(uint8_t);
+
+		status = (*(uint8_t *)temp) ? DIAG_STATUS_OPEN :
+							DIAG_STATUS_CLOSED;
+		temp += sizeof(uint8_t);
+		read_len += sizeof(uint8_t);
+		diag_dci_notify_client(peripheral_mask, status, token);
+	}
+}
+
 void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
-			 struct diag_smd_info *smd_info)
+			 int token)
 {
 	int tag;
 	struct diag_dci_client_tbl *entry = NULL;
@@ -581,11 +795,6 @@ void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
 	 * code, the tag (int)
 	 */
 	rsp_len = len - (cmd_code_len + sizeof(int));
-	/*
-	 * Check if the length embedded in the packet is correct.
-	 * Include the start (1), version (1), length (2) and the end
-	 * (1) bytes while checking. Total = 5 bytes
-	 */
 	if ((rsp_len == 0) || (rsp_len > (len - 5))) {
 		pr_err("diag: Invalid length in %s, len: %d, rsp_len: %d",
 						__func__, len, rsp_len);
@@ -643,8 +852,15 @@ void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
 	memcpy(rsp_buf->data + rsp_buf->data_len, temp, rsp_len);
 	rsp_buf->data_len += rsp_len;
 	rsp_buf->data_source = data_source;
-	if (smd_info)
-		smd_info->in_busy_1 = 1;
+
+	if (token == DCI_LOCAL_PROC && data_source < NUM_SMD_DCI_CHANNELS) {
+		if (driver->separate_cmdrsp[data_source] &&
+					data_source < NUM_SMD_DCI_CMD_CHANNELS)
+			driver->smd_dci_cmd[data_source].in_busy_1 = 1;
+		else
+			driver->smd_dci[data_source].in_busy_1 = 1;
+	}
+
 	mutex_unlock(&rsp_buf->data_mutex);
 
 	/*
@@ -699,7 +915,7 @@ static void copy_dci_event(unsigned char *buf, int len,
 
 }
 
-void extract_dci_events(unsigned char *buf, int len, int data_source)
+void extract_dci_events(unsigned char *buf, int len, int data_source, int token)
 {
 	uint16_t event_id, event_id_packet, length, temp_len;
 	uint8_t payload_len, payload_len_field;
@@ -787,6 +1003,8 @@ void extract_dci_events(unsigned char *buf, int len, int data_source)
 		list_for_each_safe(start, temp, &driver->dci_client_list) {
 			entry = list_entry(start, struct diag_dci_client_tbl,
 									track);
+			if (entry->client_info.token != token)
+				continue;
 			if (diag_dci_query_event_mask(entry, event_id)) {
 				/* copy to client buffer */
 				copy_dci_event(event_data, total_event_len,
@@ -860,7 +1078,7 @@ static void copy_dci_log(unsigned char *buf, int len,
 	mutex_unlock(&data_buffer->data_mutex);
 }
 
-void extract_dci_log(unsigned char *buf, int len, int data_source)
+void extract_dci_log(unsigned char *buf, int len, int data_source, int token)
 {
 	uint16_t log_code, read_bytes = 0;
 	struct list_head *start, *temp;
@@ -886,6 +1104,8 @@ void extract_dci_log(unsigned char *buf, int len, int data_source)
 	/* parse through log mask table of each client and check mask */
 	list_for_each_safe(start, temp, &driver->dci_client_list) {
 		entry = list_entry(start, struct diag_dci_client_tbl, track);
+		if (entry->client_info.token != token)
+			continue;
 		if (diag_dci_query_log_mask(entry, log_code)) {
 			pr_debug("\t log code %x needed by client %d",
 				 log_code, entry->client->tgid);
@@ -918,6 +1138,8 @@ void diag_update_smd_dci_work_fn(struct work_struct *work)
 	 */
 	list_for_each_safe(start, temp, &driver->dci_client_list) {
 		entry = list_entry(start, struct diag_dci_client_tbl, track);
+		if (entry->client_info.token != DCI_LOCAL_PROC)
+			continue;
 		client_log_mask_ptr = entry->dci_log_mask;
 		for (j = 0; j < 16; j++) {
 			if (*(client_log_mask_ptr+1))
@@ -928,7 +1150,7 @@ void diag_update_smd_dci_work_fn(struct work_struct *work)
 
 	mutex_lock(&dci_log_mask_mutex);
 	/* Update the appropriate dirty bits in the cumulative mask */
-	log_mask_ptr = dci_cumulative_log_mask;
+	log_mask_ptr = dci_ops_tbl[DCI_LOCAL_PROC].log_mask_composite;
 	for (i = 0; i < 16; i++) {
 		if (dirty_bits[i])
 			*(log_mask_ptr+1) = dirty_bits[i];
@@ -940,17 +1162,17 @@ void diag_update_smd_dci_work_fn(struct work_struct *work)
 	/* Send updated mask to userspace clients */
 	diag_update_userspace_clients(DCI_LOG_MASKS_TYPE);
 	/* Send updated log mask to peripherals */
-	ret = diag_send_dci_log_mask();
+	ret = dci_ops_tbl[DCI_LOCAL_PROC].send_log_mask(DCI_LOCAL_PROC);
 
 	/* Send updated event mask to userspace clients */
 	diag_update_userspace_clients(DCI_EVENT_MASKS_TYPE);
 	/* Send updated event mask to peripheral */
-	ret = diag_send_dci_event_mask();
+	ret = dci_ops_tbl[DCI_LOCAL_PROC].send_event_mask(DCI_LOCAL_PROC);
 
 	smd_info->notify_context = 0;
 }
 
-void diag_dci_notify_client(int peripheral_mask, int data)
+void diag_dci_notify_client(int peripheral_mask, int data, int proc)
 {
 	int stat;
 	struct siginfo info;
@@ -960,10 +1182,16 @@ void diag_dci_notify_client(int peripheral_mask, int data)
 	memset(&info, 0, sizeof(struct siginfo));
 	info.si_code = SI_QUEUE;
 	info.si_int = (peripheral_mask | data);
+	if (data == DIAG_STATUS_OPEN)
+		dci_ops_tbl[proc].peripheral_status |= peripheral_mask;
+	else
+		dci_ops_tbl[proc].peripheral_status &= !peripheral_mask;
 
 	/* Notify the DCI process that the peripheral DCI Channel is up */
 	list_for_each_safe(start, temp, &driver->dci_client_list) {
 		entry = list_entry(start, struct diag_dci_client_tbl, track);
+		if (entry->client_info.token != proc)
+			continue;
 		if (entry->client_info.notification_list & peripheral_mask) {
 			info.si_signo = entry->client_info.signal_type;
 			stat = send_sig_info(entry->client_info.signal_type,
@@ -1035,6 +1263,114 @@ static int diag_send_dci_pkt(struct diag_master_table entry,
 	mutex_unlock(&driver->dci_mutex);
 	return status;
 }
+
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+unsigned char *dci_get_buffer_from_bridge(int index)
+{
+	uint8_t retries = 0, max_retries = 3;
+	unsigned char *buf = NULL;
+
+	do {
+		buf = diagmem_alloc(driver, WRITE_HSIC_BUF_SIZE_DCI,
+			POOL_TYPE_HSIC_DCI_WRITE + index);
+		if (!buf) {
+			usleep_range(5000, 5100);
+			retries++;
+		} else
+			break;
+	} while (retries < max_retries);
+
+	return buf;
+}
+
+int diag_dci_write_bridge(int index, unsigned char *buf, int len)
+{
+	int err = -EAGAIN;
+	uint8_t retries = 0, max_retries = 3;
+
+	do {
+		if (diag_hsic_dci[index].in_busy_hsic_write) {
+			usleep_range(5000, 5100);
+			retries++;
+		} else {
+			diag_hsic_dci[index].in_busy_hsic_write = 1;
+			err = diag_bridge_write(hsic_dci_bridge_map[index],
+						buf, len);
+			if (err)
+				diag_hsic_dci[index].in_busy_hsic_write = 0;
+			else
+				err = len;
+			break;
+		}
+	} while (retries < max_retries);
+
+	return err;
+}
+#endif
+
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+static int diag_send_dci_pkt_remote(unsigned char *data, int len, int tag,
+				    int token)
+{
+	unsigned char *buf = NULL;
+	struct diag_dci_header_t dci_header;
+	int dci_header_size = sizeof(struct diag_dci_header_t);
+	int ret = DIAG_DCI_NO_ERROR;
+	uint32_t write_len = 0;
+	int b_index = dci_remote_proc_token[token];
+
+	if (!data)
+		return -EIO;
+
+	if (!VALID_DCI_BRIDGE(b_index)) {
+		pr_err("diag: Invalid bridge index %d in %s\n", b_index,
+								__func__);
+		return -EIO;
+	}
+
+	buf = dci_get_buffer_from_bridge(b_index);
+	if (!buf) {
+		pr_err("diag: In %s, unable to get dci buffers to write data\n",
+			__func__);
+		return -EAGAIN;
+	}
+
+	dci_header.start = CONTROL_CHAR;
+	dci_header.version = 1;
+	/*
+	 * The Length of the DCI packet = length of the command + tag (int) +
+	 * the command code size (uint8_t)
+	 */
+	dci_header.length = len + sizeof(int) + sizeof(uint8_t);
+	dci_header.cmd_code = DCI_PKT_RSP_CODE;
+
+	memcpy(buf + write_len, &dci_header, dci_header_size);
+	write_len += dci_header_size;
+	*(int *)(buf + write_len) = tag;
+	write_len += sizeof(int);
+	memcpy(buf + write_len, data, len);
+	write_len += len;
+	*(buf + write_len) = CONTROL_CHAR; /* End Terminator */
+	write_len += sizeof(uint8_t);
+
+	ret = diag_dci_write_bridge(b_index, buf, write_len);
+	if (ret != write_len) {
+		pr_err("diag: In %s, unable to write to DCI HSIC channel, err: %d\n",
+			__func__, ret);
+		diagmem_free(driver, buf, POOL_TYPE_HSIC_DCI_WRITE + b_index);
+	} else {
+		ret = DIAG_DCI_NO_ERROR;
+	}
+
+	return ret;
+}
+#else
+static int diag_send_dci_pkt_remote(unsigned char *data, int len, int tag,
+				    int token)
+{
+	return DIAG_DCI_NO_ERROR;
+}
+#endif
 
 static int diag_dci_process_apps_pkt(struct diag_pkt_header_t *pkt_header,
 				     unsigned char *req_buf, int tag)
@@ -1181,6 +1517,7 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 	uint32_t read_len = 0, req_len = len;
 	struct diag_master_table entry;
 	struct dci_pkt_req_entry_t *req_entry = NULL;
+	struct diag_dci_client_tbl *dci_entry = NULL;
 
 	if (!buf)
 		return -EIO;
@@ -1205,6 +1542,12 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 	if (read_len >= USER_SPACE_DATA) {
 		pr_err("diag: dci: Invalid length in %s\n", __func__);
 		return -EIO;
+	}
+
+	dci_entry = diag_dci_get_client_entry(client_id);
+	if (!dci_entry) {
+		pr_err("diag: Invalid client %d in %s\n", client_id, __func__);
+		return DIAG_DCI_NO_REG;
 	}
 
 	/* Check if the command is allowed on DCI */
@@ -1238,6 +1581,16 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 	if (!req_entry) {
 		pr_alert("diag: registering new DCI transaction failed\n");
 		return DIAG_DCI_NO_REG;
+	}
+
+	/*
+	 * If the client has registered for remote data, route the packet to the
+	 * remote processor
+	 */
+	if (dci_entry->client_info.token > 0) {
+		ret = diag_send_dci_pkt_remote(req_buf, req_len, req_entry->tag,
+					       dci_entry->client_info.token);
+		return ret;
 	}
 
 	/* Check if it is a dedicated Apps command */
@@ -1291,7 +1644,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 {
 	unsigned char *temp = buf;
 	uint16_t log_code, item_num;
-	int ret = -1, found = 0, client_id = 0;
+	int ret = -1, found = 0, client_id = 0, client_token = 0;
 	int count, set_mask, num_codes, bit_index, event_id, offset = 0;
 	unsigned int byte_index, read_len = 0;
 	uint8_t equip_id, *log_mask_ptr, *head_log_mask_ptr, byte_mask;
@@ -1333,6 +1686,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			pr_err("diag: In %s, invalid client\n", __func__);
 			return ret;
 		}
+		client_token = dci_entry->client_info.token;
 
 		if (num_codes == 0 || (num_codes >= (USER_SPACE_DATA - 8)/2)) {
 			pr_err("diag: dci: Invalid number of log codes %d\n",
@@ -1348,6 +1702,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 		}
 		pr_debug("diag: head of dci log mask %p\n", head_log_mask_ptr);
 		count = 0; /* iterator for extracting log codes */
+
 		while (count < num_codes) {
 			if (read_len >= USER_SPACE_DATA) {
 				pr_err("diag: dci: Invalid length for log type in %s",
@@ -1396,16 +1751,17 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			/* add to cumulative mask */
 			update_dci_cumulative_log_mask(
 				offset, byte_index,
-				byte_mask);
+				byte_mask, client_token);
 			temp += 2;
 			read_len += 2;
 			count++;
 			ret = DIAG_DCI_NO_ERROR;
 		}
 		/* send updated mask to userspace clients */
-		diag_update_userspace_clients(DCI_LOG_MASKS_TYPE);
+		if (client_token == DCI_LOCAL_PROC)
+			diag_update_userspace_clients(DCI_LOG_MASKS_TYPE);
 		/* send updated mask to peripherals */
-		ret = diag_send_dci_log_mask();
+		ret = dci_ops_tbl[client_token].send_log_mask(client_token);
 	} else if (*(int *)temp == DCI_EVENT_TYPE) {
 		/* Minimum length of a event mask config is 12 + 4 bytes for
 		  atleast one event id to be set or reset. */
@@ -1414,7 +1770,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			return -EIO;
 		}
 
-		/* Extract each log code and put in client table */
+		/* Extract each event id and put in client table */
 		temp += sizeof(int);
 		read_len += sizeof(int);
 		client_id = *(int *)temp;
@@ -1433,6 +1789,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			pr_err("diag: In %s, invalid client\n", __func__);
 			return ret;
 		}
+		client_token = dci_entry->client_info.token;
 
 		/* Check for positive number of event ids. Also, the number of
 		   event ids should fit in the buffer along with set_mask and
@@ -1474,16 +1831,18 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			else
 				*(event_mask_ptr + byte_index) &= ~byte_mask;
 			/* add to cumulative mask */
-			update_dci_cumulative_event_mask(byte_index, byte_mask);
+			update_dci_cumulative_event_mask(byte_index, byte_mask,
+							 client_token);
 			temp += sizeof(int);
 			read_len += sizeof(int);
 			count++;
 			ret = DIAG_DCI_NO_ERROR;
 		}
 		/* send updated mask to userspace clients */
-		diag_update_userspace_clients(DCI_EVENT_MASKS_TYPE);
+		if (dci_entry->client_info.token == DCI_LOCAL_PROC)
+			diag_update_userspace_clients(DCI_EVENT_MASKS_TYPE);
 		/* send updated mask to peripherals */
-		ret = diag_send_dci_event_mask();
+		ret = dci_ops_tbl[client_token].send_event_mask(client_token);
 	} else {
 		pr_alert("diag: Incorrect DCI transaction\n");
 	}
@@ -1515,10 +1874,10 @@ struct diag_dci_client_tbl *dci_lookup_client_entry_pid(int pid)
 	return NULL;
 }
 
-void update_dci_cumulative_event_mask(int offset, uint8_t byte_mask)
+void update_dci_cumulative_event_mask(int offset, uint8_t byte_mask, int token)
 {
 	uint8_t *event_mask_ptr;
-	uint8_t *update_ptr = dci_cumulative_event_mask;
+	uint8_t *update_ptr = dci_ops_tbl[token].event_mask_composite;
 	struct list_head *start, *temp;
 	struct diag_dci_client_tbl *entry = NULL;
 	bool is_set = false;
@@ -1527,6 +1886,8 @@ void update_dci_cumulative_event_mask(int offset, uint8_t byte_mask)
 	update_ptr += offset;
 	list_for_each_safe(start, temp, &driver->dci_client_list) {
 		entry = list_entry(start, struct diag_dci_client_tbl, track);
+		if (entry->client_info.token != token)
+			continue;
 		event_mask_ptr = entry->dci_event_mask;
 		event_mask_ptr += offset;
 		if ((*event_mask_ptr & byte_mask) == byte_mask) {
@@ -1542,17 +1903,23 @@ void update_dci_cumulative_event_mask(int offset, uint8_t byte_mask)
 	mutex_unlock(&dci_event_mask_mutex);
 }
 
-void diag_dci_invalidate_cumulative_event_mask()
+void diag_dci_invalidate_cumulative_event_mask(int token)
 {
 	int i = 0;
 	struct list_head *start, *temp;
 	struct diag_dci_client_tbl *entry = NULL;
 	uint8_t *update_ptr, *event_mask_ptr;
-	update_ptr = dci_cumulative_event_mask;
+	update_ptr = dci_ops_tbl[token].event_mask_composite;
+
+	if (!update_ptr)
+		return;
 
 	mutex_lock(&dci_event_mask_mutex);
+	create_dci_event_mask_tbl(update_ptr);
 	list_for_each_safe(start, temp, &driver->dci_client_list) {
 		entry = list_entry(start, struct diag_dci_client_tbl, track);
+		if (entry->client_info.token != token)
+			continue;
 		event_mask_ptr = entry->dci_event_mask;
 		for (i = 0; i < DCI_EVENT_MASK_SIZE; i++)
 			*(update_ptr+i) |= *(event_mask_ptr+i);
@@ -1560,11 +1927,79 @@ void diag_dci_invalidate_cumulative_event_mask()
 	mutex_unlock(&dci_event_mask_mutex);
 }
 
-int diag_send_dci_event_mask()
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+int diag_send_dci_event_mask_remote(int token)
+{
+	unsigned char *buf = NULL;
+	struct diag_dci_header_t dci_header;
+	struct diag_ctrl_event_mask event_mask;
+	int dci_header_size = sizeof(struct diag_dci_header_t);
+	int event_header_size = sizeof(struct diag_ctrl_event_mask);
+	int i, ret = DIAG_DCI_NO_ERROR, err = DIAG_DCI_NO_ERROR;
+	unsigned char *event_mask_ptr = dci_ops_tbl[token].
+							event_mask_composite;
+	uint32_t write_len = 0;
+	int b_index = dci_remote_proc_token[token];
+
+	if (!VALID_DCI_BRIDGE(b_index)) {
+		pr_err("diag: Invalid bridge index %d in %s\n", b_index,
+								__func__);
+		return -EIO;
+	}
+
+	buf = dci_get_buffer_from_bridge(b_index);
+	if (!buf) {
+		pr_err("diag: In %s, unable to get dci buffers to write data\n",
+			__func__);
+		return -EAGAIN;
+	}
+
+	/* Frame the DCI header */
+	dci_header.start = CONTROL_CHAR;
+	dci_header.version = 1;
+	dci_header.length = event_header_size + DCI_EVENT_MASK_SIZE + 1;
+	dci_header.cmd_code = DCI_CONTROL_PKT_CODE;
+
+	event_mask.cmd_type = DIAG_CTRL_MSG_EVENT_MASK;
+	event_mask.data_len = 7 + DCI_EVENT_MASK_SIZE;
+	event_mask.stream_id = DCI_MASK_STREAM;
+	event_mask.status = 3; /* status for valid mask */
+	event_mask.event_config = 0; /* event config */
+	event_mask.event_mask_size = DCI_EVENT_MASK_SIZE;
+	for (i = 0; i < DCI_EVENT_MASK_SIZE; i++) {
+		if (event_mask_ptr[i] != 0) {
+			event_mask.event_config = 1;
+			break;
+		}
+	}
+	memcpy(buf + write_len, &dci_header, dci_header_size);
+	write_len += dci_header_size;
+	memcpy(buf + write_len, &event_mask, event_header_size);
+	write_len += event_header_size;
+	memcpy(buf + write_len, event_mask_ptr, DCI_EVENT_MASK_SIZE);
+	write_len += DCI_EVENT_MASK_SIZE;
+	*(buf + write_len) = CONTROL_CHAR; /* End Terminator */
+	write_len += sizeof(uint8_t);
+	err = diag_dci_write_bridge(b_index, buf, write_len);
+	if (err != write_len) {
+		pr_err("diag: error writing to hsic channel, err: %d\n", err);
+		diagmem_free(driver, buf, POOL_TYPE_HSIC_DCI_WRITE + b_index);
+		ret = err;
+	} else {
+		ret = DIAG_DCI_NO_ERROR;
+	}
+
+	return ret;
+}
+#endif
+
+int diag_send_dci_event_mask(int token)
 {
 	void *buf = driver->buf_event_mask_update;
 	int header_size = sizeof(struct diag_ctrl_event_mask);
 	int ret = DIAG_DCI_NO_ERROR, err = DIAG_DCI_NO_ERROR, i;
+	unsigned char *event_mask_ptr = dci_ops_tbl[DCI_LOCAL_PROC].
+							event_mask_composite;
 
 	mutex_lock(&driver->diag_cntl_mutex);
 	/* send event mask update */
@@ -1575,13 +2010,13 @@ int diag_send_dci_event_mask()
 	driver->event_mask->event_config = 0; /* event config */
 	driver->event_mask->event_mask_size = DCI_EVENT_MASK_SIZE;
 	for (i = 0; i < DCI_EVENT_MASK_SIZE; i++) {
-		if (dci_cumulative_event_mask[i] != 0) {
+		if (event_mask_ptr[i] != 0) {
 			driver->event_mask->event_config = 1;
 			break;
 		}
 	}
 	memcpy(buf, driver->event_mask, header_size);
-	memcpy(buf+header_size, dci_cumulative_event_mask, DCI_EVENT_MASK_SIZE);
+	memcpy(buf+header_size, event_mask_ptr, DCI_EVENT_MASK_SIZE);
 	for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
 		/*
 		 * Don't send to peripheral if its regular channel
@@ -1601,27 +2036,23 @@ int diag_send_dci_event_mask()
 }
 
 void update_dci_cumulative_log_mask(int offset, unsigned int byte_index,
-						uint8_t byte_mask)
+						uint8_t byte_mask, int token)
 {
-	int i;
-	uint8_t *update_ptr = dci_cumulative_log_mask;
+	uint8_t *update_ptr = dci_ops_tbl[token].log_mask_composite;
 	uint8_t *log_mask_ptr;
 	bool is_set = false;
 	struct list_head *start, *temp;
 	struct diag_dci_client_tbl *entry = NULL;
 
 	mutex_lock(&dci_log_mask_mutex);
-	*update_ptr = 0;
-	/* set the equipment IDs */
-	for (i = 0; i < 16; i++)
-		*(update_ptr + (i*514)) = i;
-
 	update_ptr += offset;
 	/* update the dirty bit */
 	*(update_ptr+1) = 1;
 	update_ptr = update_ptr + byte_index;
 	list_for_each_safe(start, temp, &driver->dci_client_list) {
 		entry = list_entry(start, struct diag_dci_client_tbl, track);
+		if (entry->client_info.token != token)
+			continue;
 		log_mask_ptr = entry->dci_log_mask;
 		log_mask_ptr = log_mask_ptr + offset + byte_index;
 		if ((*log_mask_ptr & byte_mask) == byte_mask) {
@@ -1638,17 +2069,21 @@ void update_dci_cumulative_log_mask(int offset, unsigned int byte_index,
 	mutex_unlock(&dci_log_mask_mutex);
 }
 
-void diag_dci_invalidate_cumulative_log_mask()
+void diag_dci_invalidate_cumulative_log_mask(int token)
 {
 	int i = 0;
 	struct list_head *start, *temp;
 	struct diag_dci_client_tbl *entry = NULL;
 	uint8_t *update_ptr, *log_mask_ptr;
-	update_ptr = dci_cumulative_log_mask;
+	update_ptr = dci_ops_tbl[token].log_mask_composite;
 
+	/* Clear the composite mask and redo all the masks */
 	mutex_lock(&dci_log_mask_mutex);
+	create_dci_log_mask_tbl(update_ptr, DCI_LOG_MASK_DIRTY);
 	list_for_each_safe(start, temp, &driver->dci_client_list) {
 		entry = list_entry(start, struct diag_dci_client_tbl, track);
+		if (entry->client_info.token != token)
+			continue;
 		log_mask_ptr = entry->dci_log_mask;
 		for (i = 0; i < DCI_LOG_MASK_SIZE; i++)
 			*(update_ptr+i) |= *(log_mask_ptr+i);
@@ -1656,28 +2091,105 @@ void diag_dci_invalidate_cumulative_log_mask()
 	mutex_unlock(&dci_log_mask_mutex);
 }
 
-int diag_send_dci_log_mask()
+static int dci_fill_log_mask(unsigned char *dest_ptr, unsigned char *src_ptr)
+{
+	struct diag_ctrl_log_mask header;
+	int header_len = sizeof(struct diag_ctrl_log_mask);
+
+	header.cmd_type = DIAG_CTRL_MSG_LOG_MASK;
+	header.num_items = DCI_MAX_ITEMS_PER_LOG_CODE;
+	header.data_len = 11 + DCI_MAX_ITEMS_PER_LOG_CODE;
+	header.stream_id = DCI_MASK_STREAM;
+	header.status = 3;
+	header.equip_id = *src_ptr;
+	header.log_mask_size = DCI_MAX_ITEMS_PER_LOG_CODE;
+	memcpy(dest_ptr, &header, header_len);
+	memcpy(dest_ptr + header_len, src_ptr + 2, DCI_MAX_ITEMS_PER_LOG_CODE);
+
+	return header_len + DCI_MAX_ITEMS_PER_LOG_CODE;
+}
+
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+int diag_send_dci_log_mask_remote(int token)
+{
+
+	unsigned char *buf = NULL;
+	struct diag_dci_header_t dci_header;
+	int dci_header_size = sizeof(struct diag_dci_header_t);
+	int log_header_size = sizeof(struct diag_ctrl_log_mask);
+	uint8_t *log_mask_ptr = dci_ops_tbl[token].log_mask_composite;
+	int i, ret = DIAG_DCI_NO_ERROR, err = DIAG_DCI_NO_ERROR;
+	int updated;
+	uint32_t write_len = 0;
+	int b_index = dci_remote_proc_token[token];
+
+	if (!VALID_DCI_BRIDGE(b_index)) {
+		pr_err("diag: Invalid bridge index %d in %s\n", b_index,
+								__func__);
+		return -EIO;
+	}
+
+	/* DCI header is common to all equipment IDs */
+	dci_header.start = CONTROL_CHAR;
+	dci_header.version = 1;
+	dci_header.length = log_header_size + DCI_MAX_ITEMS_PER_LOG_CODE + 1;
+	dci_header.cmd_code = DCI_CONTROL_PKT_CODE;
+
+	for (i = 0; i < DCI_MAX_LOG_CODES; i++) {
+		updated = 1;
+		write_len = 0;
+		if (!*(log_mask_ptr + 1)) {
+			log_mask_ptr += 514;
+			continue;
+		}
+
+		buf = dci_get_buffer_from_bridge(b_index);
+		if (!buf) {
+			pr_err("diag: In %s, unable to get dci buffers to write data\n",
+				__func__);
+			return -EAGAIN;
+		}
+
+		memcpy(buf + write_len, &dci_header, dci_header_size);
+		write_len += dci_header_size;
+		write_len += dci_fill_log_mask(buf + write_len, log_mask_ptr);
+		*(buf + write_len) = CONTROL_CHAR; /* End Terminator */
+		write_len += sizeof(uint8_t);
+		err = diag_dci_write_bridge(b_index, buf, write_len);
+		if (err != write_len) {
+			pr_err("diag: error writing log mask to MDM hsic channel, equip_id: %d, err: %d\n",
+									i, err);
+			diagmem_free(driver, buf,
+				     POOL_TYPE_HSIC_DCI_WRITE + b_index);
+			updated = 0;
+		}
+		if (updated)
+			*(log_mask_ptr + 1) = 0; /* clear dirty byte */
+		log_mask_ptr += 514;
+	}
+
+	return ret;
+}
+#endif
+
+int diag_send_dci_log_mask(int token)
 {
 	void *buf = driver->buf_log_mask_update;
-	int header_size = sizeof(struct diag_ctrl_log_mask);
-	uint8_t *log_mask_ptr = dci_cumulative_log_mask;
+	int write_len = 0;
+	uint8_t *log_mask_ptr = dci_ops_tbl[DCI_LOCAL_PROC].log_mask_composite;
 	int i, j, ret = DIAG_DCI_NO_ERROR, err = DIAG_DCI_NO_ERROR;
 	int updated;
 
 	mutex_lock(&driver->diag_cntl_mutex);
 	for (i = 0; i < 16; i++) {
 		updated = 1;
-		driver->log_mask->cmd_type = DIAG_CTRL_MSG_LOG_MASK;
-		driver->log_mask->num_items = 512;
-		driver->log_mask->data_len  = 11 + 512;
-		driver->log_mask->stream_id = DCI_MASK_STREAM;
-		driver->log_mask->status = 3; /* status for valid mask */
-		driver->log_mask->equip_id = *log_mask_ptr;
-		driver->log_mask->log_mask_size = 512;
-		memcpy(buf, driver->log_mask, header_size);
-		memcpy(buf+header_size, log_mask_ptr+2, 512);
-		/* if dirty byte is set and channel is valid */
-		for (j = 0; j < NUM_SMD_DCI_CHANNELS; j++) {
+		/* Dirty bit is set don't update the mask for this equip id */
+		if (!(*(log_mask_ptr + 1))) {
+			log_mask_ptr += 514;
+			continue;
+		}
+		write_len = dci_fill_log_mask(buf, log_mask_ptr);
+		for (j = 0; j < NUM_SMD_DCI_CHANNELS && write_len; j++) {
 			/*
 			 * Don't send to peripheral if its regular channel
 			 * is down. It may also mean that the peripheral
@@ -1685,11 +2197,8 @@ int diag_send_dci_log_mask()
 			 */
 			if (!driver->smd_dci[j].ch)
 				continue;
-
-			if (!(*(log_mask_ptr+1)))
-				continue;
 			err = diag_dci_write_proc(j, DIAG_CNTL_TYPE, buf,
-				header_size + DCI_MAX_ITEMS_PER_LOG_CODE);
+						  write_len);
 			if (err != DIAG_DCI_NO_ERROR) {
 				updated = 0;
 				ret = DIAG_DCI_SEND_DATA_FAIL;
@@ -1702,28 +2211,6 @@ int diag_send_dci_log_mask()
 	mutex_unlock(&driver->diag_cntl_mutex);
 
 	return ret;
-}
-
-void create_dci_log_mask_tbl(unsigned char *tbl_buf)
-{
-	uint8_t i; int count = 0;
-
-	if (!tbl_buf)
-		return;
-
-	/* create hard coded table for log mask with 16 categories */
-	for (i = 0; i < 16; i++) {
-		*(uint8_t *)tbl_buf = i;
-		pr_debug("diag: put value %x at %p\n", i, tbl_buf);
-		memset(tbl_buf+1, 0, 513); /* set dirty bit as 0 */
-		tbl_buf += 514;
-		count += 514;
-	}
-}
-
-void create_dci_event_mask_tbl(unsigned char *tbl_buf)
-{
-	memset(tbl_buf, 0, 512);
 }
 
 static int diag_dci_probe(struct platform_device *pdev)
@@ -1818,6 +2305,78 @@ struct platform_driver msm_diag_dci_cmd_driver = {
 	},
 };
 
+static int diag_dci_init_local(void)
+{
+	struct dci_ops_tbl_t *temp = &dci_ops_tbl[DCI_LOCAL_PROC];
+
+	create_dci_log_mask_tbl(temp->log_mask_composite, DCI_LOG_MASK_CLEAN);
+	create_dci_event_mask_tbl(temp->event_mask_composite);
+	temp->peripheral_status = 0;
+	temp->peripheral_status |= DIAG_CON_APSS;
+	temp->send_log_mask = diag_send_dci_log_mask;
+	temp->send_event_mask = diag_send_dci_event_mask;
+
+	return 0;
+}
+
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+static int diag_dci_init_remote(void)
+{
+	int i;
+	struct dci_ops_tbl_t *temp = NULL;
+
+	for (i = 1; i < MAX_HSIC_DCI_CH; i++) {
+		temp = &dci_ops_tbl[i];
+		create_dci_log_mask_tbl(temp->log_mask_composite,
+					DCI_LOG_MASK_CLEAN);
+		create_dci_event_mask_tbl(temp->event_mask_composite);
+		temp->peripheral_status = 0;
+		temp->send_log_mask = diag_send_dci_log_mask_remote;
+		temp->send_event_mask = diag_send_dci_event_mask_remote;
+	}
+
+	partial_pkt.data = kzalloc(MAX_DCI_PACKET_SZ, GFP_KERNEL);
+	if (!partial_pkt.data) {
+		pr_err("diag: Unable to create partial pkt data\n");
+		return -ENOMEM;
+	}
+
+	partial_pkt.total_len = 0;
+	partial_pkt.read_len = 0;
+	partial_pkt.remaining = 0;
+	partial_pkt.processing = 0;
+	return 0;
+}
+#else
+static int diag_dci_init_remote(void)
+{
+	return 0;
+}
+#endif
+
+static int diag_dci_init_ops_tbl(void)
+{
+	int err = 0;
+
+	dci_ops_tbl = kzalloc(sizeof(struct dci_ops_tbl_t) * NUM_DCI_PROC,
+			      GFP_KERNEL);
+	if (!dci_ops_tbl)
+		return -ENOMEM;
+
+	err = diag_dci_init_local();
+	if (err)
+		goto err;
+	err = diag_dci_init_remote();
+	if (err)
+		goto err;
+
+	return 0;
+
+err:
+	kfree(dci_ops_tbl);
+	return -ENOMEM;
+}
+
 int diag_dci_init(void)
 {
 	int success = 0;
@@ -1829,8 +2388,11 @@ int diag_dci_init(void)
 	mutex_init(&driver->dci_mutex);
 	mutex_init(&dci_log_mask_mutex);
 	mutex_init(&dci_event_mask_mutex);
-	mutex_init(&dci_health_mutex);
 	spin_lock_init(&ws_lock);
+
+	success = diag_dci_init_ops_tbl();
+	if (success)
+		goto err;
 
 	for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
 		success = diag_smd_constructor(&driver->smd_dci[i], i,
@@ -1884,10 +2446,11 @@ err:
 
 	if (driver->diag_dci_wq)
 		destroy_workqueue(driver->diag_dci_wq);
+	kfree(dci_ops_tbl);
+	kfree(partial_pkt.data);
 	mutex_destroy(&driver->dci_mutex);
 	mutex_destroy(&dci_log_mask_mutex);
 	mutex_destroy(&dci_event_mask_mutex);
-	mutex_destroy(&dci_health_mutex);
 	return DIAG_DCI_NO_REG;
 }
 
@@ -1906,19 +2469,19 @@ void diag_dci_exit(void)
 
 		platform_driver_unregister(&msm_diag_dci_cmd_driver);
 	}
+	kfree(dci_ops_tbl);
+	kfree(partial_pkt.data);
 	kfree(driver->apps_dci_buf);
 	mutex_destroy(&driver->dci_mutex);
 	mutex_destroy(&dci_log_mask_mutex);
 	mutex_destroy(&dci_event_mask_mutex);
-	mutex_destroy(&dci_health_mutex);
 	destroy_workqueue(driver->diag_dci_wq);
 }
 
 int diag_dci_clear_log_mask(int client_id)
 {
-	int j, k, err = DIAG_DCI_NO_ERROR;
-	uint8_t *log_mask_ptr, *update_ptr;
-	struct list_head *start, *temp;
+	int err = DIAG_DCI_NO_ERROR, token = DCI_LOCAL_PROC;
+	uint8_t *update_ptr;
 	struct diag_dci_client_tbl *entry = NULL;
 
 	entry = diag_dci_get_client_entry(client_id);
@@ -1926,39 +2489,27 @@ int diag_dci_clear_log_mask(int client_id)
 		pr_err("diag: In %s, invalid client entry\n", __func__);
 		return DIAG_DCI_TABLE_ERR;
 	}
+	token = entry->client_info.token;
+	update_ptr = dci_ops_tbl[token].log_mask_composite;
 
-	mutex_lock(&dci_log_mask_mutex);
-	create_dci_log_mask_tbl(entry->dci_log_mask);
-	memset(dci_cumulative_log_mask, 0x0, DCI_LOG_MASK_SIZE);
-	list_for_each_safe(start, temp, &driver->dci_client_list) {
-		entry = list_entry(start, struct diag_dci_client_tbl, track);
-		update_ptr = dci_cumulative_log_mask;
-		log_mask_ptr = entry->dci_log_mask;
-		for (j = 0; j < 16; j++) {
-			*update_ptr = j;
-			*(update_ptr + 1) = 1;
-			update_ptr += 2;
-			log_mask_ptr += 2;
-			for (k = 0; k < 513; k++) {
-				*update_ptr |= *log_mask_ptr;
-				update_ptr++;
-				log_mask_ptr++;
-			}
-		}
-	}
-	mutex_unlock(&dci_log_mask_mutex);
-	/* send updated mask to userspace clients */
-	diag_update_userspace_clients(DCI_LOG_MASKS_TYPE);
+	create_dci_log_mask_tbl(entry->dci_log_mask, DCI_LOG_MASK_CLEAN);
+	diag_dci_invalidate_cumulative_log_mask(token);
+
+	/*
+	 * Send updated mask to userspace clients only if the client
+	 * is registered on the local processor
+	 */
+	if (token == DCI_LOCAL_PROC)
+		diag_update_userspace_clients(DCI_LOG_MASKS_TYPE);
 	/* Send updated mask to peripherals */
-	err = diag_send_dci_log_mask();
+	err = dci_ops_tbl[token].send_log_mask(token);
 	return err;
 }
 
 int diag_dci_clear_event_mask(int client_id)
 {
-	int j, err = DIAG_DCI_NO_ERROR;
-	uint8_t *event_mask_ptr, *update_ptr;
-	struct list_head *start, *temp;
+	int err = DIAG_DCI_NO_ERROR, token = DCI_LOCAL_PROC;
+	uint8_t *update_ptr;
 	struct diag_dci_client_tbl *entry = NULL;
 
 	entry = diag_dci_get_client_entry(client_id);
@@ -1966,27 +2517,24 @@ int diag_dci_clear_event_mask(int client_id)
 		pr_err("diag: In %s, invalid client entry\n", __func__);
 		return DIAG_DCI_TABLE_ERR;
 	}
+	token = entry->client_info.token;
+	update_ptr = dci_ops_tbl[token].event_mask_composite;
 
-	mutex_lock(&dci_event_mask_mutex);
-	memset(entry->dci_event_mask, 0x0, DCI_EVENT_MASK_SIZE);
-	memset(dci_cumulative_event_mask, 0x0, DCI_EVENT_MASK_SIZE);
-	update_ptr = dci_cumulative_event_mask;
+	create_dci_event_mask_tbl(entry->dci_event_mask);
+	diag_dci_invalidate_cumulative_event_mask(token);
 
-	list_for_each_safe(start, temp, &driver->dci_client_list) {
-		entry = list_entry(start, struct diag_dci_client_tbl, track);
-		event_mask_ptr = entry->dci_event_mask;
-		for (j = 0; j < DCI_EVENT_MASK_SIZE; j++)
-			*(update_ptr + j) |= *(event_mask_ptr + j);
-	}
-	mutex_unlock(&dci_event_mask_mutex);
-	/* send updated mask to userspace clients */
-	diag_update_userspace_clients(DCI_EVENT_MASKS_TYPE);
+	/*
+	 * Send updated mask to userspace clients only if the client is
+	 * registerted on the local processor
+	 */
+	if (token == DCI_LOCAL_PROC)
+		diag_update_userspace_clients(DCI_EVENT_MASKS_TYPE);
 	/* Send updated mask to peripherals */
-	err = diag_send_dci_event_mask();
+	err = dci_ops_tbl[token].send_event_mask(token);
 	return err;
 }
 
-uint8_t diag_dci_get_cumulative_real_time()
+uint8_t diag_dci_get_cumulative_real_time(int token)
 {
 	uint8_t real_time = MODE_NONREALTIME;
 	struct list_head *start, *temp;
@@ -1994,7 +2542,8 @@ uint8_t diag_dci_get_cumulative_real_time()
 
 	list_for_each_safe(start, temp, &driver->dci_client_list) {
 		entry = list_entry(start, struct diag_dci_client_tbl, track);
-		if (entry->real_time == MODE_REALTIME) {
+		if (entry->real_time == MODE_REALTIME &&
+					entry->client_info.token == token) {
 			real_time = 1;
 			break;
 		}
@@ -2002,10 +2551,8 @@ uint8_t diag_dci_get_cumulative_real_time()
 	return real_time;
 }
 
-int diag_dci_set_real_time(int client_id, uint8_t real_time)
+int diag_dci_set_real_time(struct diag_dci_client_tbl *entry, uint8_t real_time)
 {
-	struct diag_dci_client_tbl *entry = NULL;
-	entry = diag_dci_get_client_entry(client_id);
 	if (!entry) {
 		pr_err("diag: In %s, invalid client entry\n", __func__);
 		return 0;
@@ -2037,6 +2584,11 @@ int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry)
 
 	if (!reg_entry)
 		return DIAG_DCI_NO_REG;
+	if (!VALID_DCI_TOKEN(reg_entry->token)) {
+		pr_alert("diag: Invalid DCI client token, %d\n",
+						reg_entry->token);
+		return DIAG_DCI_NO_REG;
+	}
 
 	if (driver->dci_state == DIAG_DCI_NO_REG)
 		return DIAG_DCI_NO_REG;
@@ -2064,6 +2616,15 @@ int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry)
 				reg_entry->notification_list;
 	new_entry->client_info.signal_type =
 				reg_entry->signal_type;
+	new_entry->client_info.token = reg_entry->token;
+	switch (reg_entry->token) {
+	case DCI_LOCAL_PROC:
+		new_entry->num_buffers = NUM_DCI_PERIPHERALS;
+		break;
+	case DCI_MDM_PROC:
+		new_entry->num_buffers = 1;
+		break;
+	}
 	new_entry->real_time = MODE_REALTIME;
 	new_entry->in_service = 0;
 	INIT_LIST_HEAD(&new_entry->list_write_buf);
@@ -2074,7 +2635,7 @@ int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry)
 							driver->dci_client_id);
 		goto fail_alloc;
 	}
-	create_dci_log_mask_tbl(new_entry->dci_log_mask);
+	create_dci_log_mask_tbl(new_entry->dci_log_mask, DCI_LOG_MASK_CLEAN);
 
 	new_entry->dci_event_mask =  kzalloc(DCI_EVENT_MASK_SIZE, GFP_KERNEL);
 	if (!new_entry->dci_event_mask) {
@@ -2084,7 +2645,16 @@ int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry)
 	}
 	create_dci_event_mask_tbl(new_entry->dci_event_mask);
 
-	for (i = 0; i < NUM_DCI_PROC; i++) {
+	new_entry->buffers = kzalloc(new_entry->num_buffers *
+				     sizeof(struct diag_dci_buf_peripheral_t),
+				     GFP_KERNEL);
+	if (!new_entry->buffers) {
+		pr_err("diag: Unable to allocate buffers for peripherals in %s\n",
+								__func__);
+		goto fail_alloc;
+	}
+
+	for (i = 0; i < new_entry->num_buffers; i++) {
 		proc_buf = &new_entry->buffers[i];
 		if (!proc_buf)
 			goto fail_alloc;
@@ -2120,7 +2690,7 @@ int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry)
 	reg_entry->client_id = driver->dci_client_id;
 	driver->num_dci_client++;
 	if (driver->num_dci_client == 1)
-		diag_update_proc_vote(DIAG_PROC_DCI, VOTE_UP);
+		diag_update_proc_vote(DIAG_PROC_DCI, VOTE_UP, reg_entry->token);
 	queue_work(driver->diag_real_time_wq, &driver->diag_real_time_work);
 	mutex_unlock(&driver->dci_mutex);
 
@@ -2128,7 +2698,7 @@ int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry)
 
 fail_alloc:
 	if (new_entry) {
-		for (i = 0; i < NUM_DCI_PROC; i++) {
+		for (i = 0; i < new_entry->num_buffers; i++) {
 			proc_buf = &new_entry->buffers[i];
 			mutex_destroy(&proc_buf->health_mutex);
 			mutex_destroy(&proc_buf->buf_primary->data_mutex);
@@ -2156,9 +2726,12 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 	struct list_head *start, *req_temp;
 	struct dci_pkt_req_entry_t *req_entry = NULL;
 	struct diag_smd_info *smd_info = NULL;
+	int token = DCI_LOCAL_PROC;
 
 	if (!entry)
 		return DIAG_DCI_NOT_SUPPORTED;
+
+	token = entry->client_info.token;
 
 	mutex_lock(&driver->dci_mutex);
 	/*
@@ -2172,17 +2745,19 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 	 * masks and send the masks to peripherals
 	 */
 	kfree(entry->dci_log_mask);
-	diag_update_userspace_clients(DCI_LOG_MASKS_TYPE);
-	diag_dci_invalidate_cumulative_log_mask();
-	ret = diag_send_dci_event_mask();
+	diag_dci_invalidate_cumulative_log_mask(token);
+	if (token == DCI_LOCAL_PROC)
+		diag_update_userspace_clients(DCI_LOG_MASKS_TYPE);
+	ret = dci_ops_tbl[token].send_log_mask(token);
 	if (ret != DIAG_DCI_NO_ERROR) {
 		mutex_unlock(&driver->dci_mutex);
 		return ret;
 	}
 	kfree(entry->dci_event_mask);
-	diag_update_userspace_clients(DCI_EVENT_MASKS_TYPE);
-	diag_dci_invalidate_cumulative_event_mask();
-	ret = diag_send_dci_log_mask();
+	diag_dci_invalidate_cumulative_event_mask(token);
+	if (token == DCI_LOCAL_PROC)
+		diag_update_userspace_clients(DCI_EVENT_MASKS_TYPE);
+	ret = dci_ops_tbl[token].send_event_mask(token);
 	if (ret != DIAG_DCI_NO_ERROR) {
 		mutex_unlock(&driver->dci_mutex);
 		return ret;
@@ -2223,7 +2798,7 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 	}
 	mutex_unlock(&entry->write_buf_mutex);
 
-	for (i = 0; i < NUM_DCI_PROC; i++) {
+	for (i = 0; i < entry->num_buffers; i++) {
 		proc_buf = &entry->buffers[i];
 		buf_entry = proc_buf->buf_curr;
 		mutex_lock(&proc_buf->buf_mutex);
@@ -2258,10 +2833,10 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 	kfree(entry);
 
 	if (driver->num_dci_client == 0) {
-		diag_update_proc_vote(DIAG_PROC_DCI, VOTE_DOWN);
+		diag_update_proc_vote(DIAG_PROC_DCI, VOTE_DOWN, token);
 	} else {
-		real_time = diag_dci_get_cumulative_real_time();
-		diag_update_real_time_vote(DIAG_PROC_DCI, real_time);
+		real_time = diag_dci_get_cumulative_real_time(token);
+		diag_update_real_time_vote(DIAG_PROC_DCI, real_time, token);
 	}
 	queue_work(driver->diag_real_time_wq, &driver->diag_real_time_work);
 
@@ -2346,6 +2921,13 @@ int diag_dci_copy_health_stats(struct diag_dci_health_stats_proc *stats_proc)
 	if (!entry)
 		return DIAG_DCI_NOT_SUPPORTED;
 
+	/*
+	 * If the client has registered for remote processor, the
+	 * proc field doesn't have any effect as they have only one buffer.
+	 */
+	if (entry->client_info.token)
+		proc = 0;
+
 	stats->stats.dropped_logs = 0;
 	stats->stats.dropped_events = 0;
 	stats->stats.received_logs = 0;
@@ -2368,7 +2950,7 @@ int diag_dci_copy_health_stats(struct diag_dci_health_stats_proc *stats_proc)
 		return DIAG_DCI_NO_ERROR;
 	}
 
-	for (i = 0; i < NUM_DCI_PROC; i++) {
+	for (i = 0; i < entry->num_buffers; i++) {
 		health = &entry->buffers[i].health;
 		stats->stats.dropped_logs += health->dropped_logs;
 		stats->stats.dropped_events += health->dropped_events;
@@ -2383,5 +2965,17 @@ int diag_dci_copy_health_stats(struct diag_dci_health_stats_proc *stats_proc)
 			mutex_unlock(&entry->buffers[i].health_mutex);
 		}
 	}
+	return DIAG_DCI_NO_ERROR;
+}
+
+int diag_dci_get_support_list(struct diag_dci_peripherals_t *support_list)
+{
+	if (!support_list)
+		return -ENOMEM;
+
+	if (!VALID_DCI_TOKEN(support_list->proc))
+		return -EIO;
+
+	support_list->list = dci_ops_tbl[support_list->proc].peripheral_status;
 	return DIAG_DCI_NO_ERROR;
 }

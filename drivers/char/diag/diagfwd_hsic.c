@@ -32,6 +32,7 @@
 #include "diagfwd_hsic.h"
 #include "diagfwd_smux.h"
 #include "diagfwd_bridge.h"
+#include "diag_dci.h"
 
 #define READ_HSIC_BUF_SIZE	2048
 #define READ_HSIC_BUF_SIZE_DCI	4096
@@ -59,7 +60,7 @@ int hsic_data_bridge_map[MAX_HSIC_DATA_CH] = {
  * This array is the inverse of hsic_map indexed by the Bridge index
  * for HSIC DCI channels
  */
-static int hsic_dci_bridge_map[MAX_HSIC_DCI_CH] = {
+int hsic_dci_bridge_map[MAX_HSIC_DCI_CH] = {
 	DIAG_DCI_BRIDGE_IDX,
 	DIAG_DCI_BRIDGE_IDX_2
 };
@@ -176,7 +177,8 @@ static void diag_process_hsic_work_fn(struct work_struct *work)
 			     POOL_TYPE_HSIC_DCI + index);
 		return;
 	}
-
+	diag_process_hsic_dci_read_data(index, diag_hsic_dci[index].data,
+					diag_hsic_dci[index].data_len);
 	diagmem_free(driver, diag_hsic_dci[index].data_buf,
 		     POOL_TYPE_HSIC_DCI + index);
 	queue_work(diag_bridge_dci[index].wq,
@@ -340,12 +342,12 @@ static void diag_hsic_dci_read_complete_callback(void *ctxt, char *buf,
 		if (!buf) {
 			pr_err("diag: Out of diagmem for HSIC\n");
 		} else {
+			diag_dci_try_activate_wakeup_source();
 			diag_hsic_dci[index].data_len = actual_size;
 			diag_hsic_dci[index].data_buf = buf;
 			memcpy(diag_hsic_dci[index].data, buf, actual_size);
 			queue_work(diag_bridge_dci[index].wq,
-				&diag_hsic_dci[index].diag_process_hsic_work);
-			diagmem_free(driver, buf, POOL_TYPE_HSIC_DCI + index);
+				  &diag_hsic_dci[index].diag_process_hsic_work);
 		}
 	} else {
 		/*
@@ -527,6 +529,10 @@ void diag_hsic_dci_close(int ch_id)
 		if (diag_hsic_dci[ch_id].hsic_device_opened) {
 			diag_hsic_dci[ch_id].hsic_device_opened = 0;
 			diag_bridge_close(hsic_dci_bridge_map[ch_id]);
+			dci_ops_tbl[DCI_MDM_PROC].peripheral_status = 0;
+			diag_dci_notify_client(DIAG_CON_APSS,
+					       DIAG_STATUS_CLOSED,
+					       DCI_MDM_PROC);
 			pr_debug("diag: %s: closed successfully ch %d\n",
 				__func__, ch_id);
 		} else {
@@ -656,6 +662,7 @@ void diag_read_usb_hsic_work_fn(struct work_struct *work)
 		queue_work(diag_bridge[index].wq,
 			 &(diag_bridge[index].diag_read_work));
 }
+
 static int diag_hsic_probe_data(int pdev_id)
 {
 	int err = 0;
@@ -783,11 +790,15 @@ static int diag_hsic_probe_dci(int pdev_id)
 			diag_hsic_dci[index].hsic_ch = 1;
 			queue_work(diag_bridge_dci[index].wq,
 				   &diag_hsic_dci[index].diag_read_hsic_work);
+			diag_send_dci_log_mask_remote(index + 1);
+			diag_send_dci_event_mask_remote(index + 1);
 		}
 	} else {
 		pr_debug("diag: HSIC DCI channel already open\n");
 		queue_work(diag_bridge_dci[index].wq,
 			   &diag_hsic_dci[index].diag_read_hsic_work);
+		diag_send_dci_log_mask_remote(index + 1);
+		diag_send_dci_event_mask_remote(index + 1);
 	}
 	diag_hsic_dci[index].hsic_device_enabled = 1;
 	mutex_unlock(&diag_bridge_dci[index].bridge_mutex);
