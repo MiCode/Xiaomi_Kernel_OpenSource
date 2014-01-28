@@ -1243,6 +1243,122 @@ static bool mux_reg_is_enabled(struct mux_clk *clk)
 	return !!(regval & clk->en_mask);
 }
 
+/* =================Half-integer RCG without MN counter================= */
+#define RCGR_CMD_REG(x) ((x)->base + (x)->div_offset)
+#define RCGR_DIV_REG(x) ((x)->base + (x)->div_offset + 4)
+#define RCGR_SRC_REG(x) ((x)->base + (x)->div_offset + 4)
+
+static int rcg_mux_div_update_config(struct mux_div_clk *md)
+{
+	u32 regval, count;
+
+	regval = readl_relaxed(RCGR_CMD_REG(md));
+	regval |= CMD_RCGR_CONFIG_UPDATE_BIT;
+	writel_relaxed(regval, RCGR_CMD_REG(md));
+
+	/* Wait for update to take effect */
+	for (count = UPDATE_CHECK_MAX_LOOPS; count > 0; count--) {
+		if (!(readl_relaxed(RCGR_CMD_REG(md)) &
+			    CMD_RCGR_CONFIG_UPDATE_BIT))
+			return 0;
+		udelay(1);
+	}
+
+	CLK_WARN(&md->c, true, "didn't update its configuration.");
+
+	return -EBUSY;
+}
+
+static void rcg_get_src_div(struct mux_div_clk *md, u32 *src_sel, u32 *div)
+{
+	u32 regval;
+	unsigned long flags;
+
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	/* Is there a pending configuration? */
+	regval = readl_relaxed(RCGR_CMD_REG(md));
+	if (regval & CMD_RCGR_CONFIG_DIRTY_MASK) {
+		CLK_WARN(&md->c, true, "it's a pending configuration.");
+		spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+		return;
+	}
+
+	regval = readl_relaxed(RCGR_DIV_REG(md));
+	regval &= (md->div_mask << md->div_shift);
+	*div = regval >> md->div_shift;
+
+	/* bypass */
+	if (*div == 0)
+		*div = 1;
+	/* the div is doubled here*/
+	*div += 1;
+
+	regval = readl_relaxed(RCGR_SRC_REG(md));
+	regval &= (md->src_mask << md->src_shift);
+	*src_sel = regval >> md->src_shift;
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+}
+
+static int rcg_set_src_div(struct mux_div_clk *md, u32 src_sel, u32 div)
+{
+	u32 regval;
+	unsigned long flags;
+	int ret;
+
+	/* for half-integer divider, div here is doubled */
+	if (div)
+		div -= 1;
+
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	regval = readl_relaxed(RCGR_DIV_REG(md));
+	regval &= ~(md->div_mask << md->div_shift);
+	regval |= div << md->div_shift;
+	writel_relaxed(regval, RCGR_DIV_REG(md));
+
+	regval = readl_relaxed(RCGR_SRC_REG(md));
+	regval &= ~(md->src_mask << md->src_shift);
+	regval |= src_sel << md->src_shift;
+	writel_relaxed(regval, RCGR_SRC_REG(md));
+
+	ret = rcg_mux_div_update_config(md);
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+	return ret;
+}
+
+static int rcg_enable(struct mux_div_clk *md)
+{
+	u32 src_sel = parent_to_src_sel(md->parents, md->num_parents,
+						md->c.parent);
+	return rcg_set_src_div(md, src_sel, md->data.div);
+}
+
+static bool rcg_is_enabled(struct mux_div_clk *md)
+{
+	u32 regval;
+
+	regval = readl_relaxed(RCGR_CMD_REG(md));
+	if (regval & CMD_RCGR_ROOT_STATUS_BIT)
+		return false;
+	else
+		return true;
+}
+
+static void __iomem *rcg_list_registers(struct mux_div_clk *md, int n,
+			struct clk_register_data **regs, u32 *size)
+{
+	static struct clk_register_data data[] = {
+		{"CMD_RCGR", 0x0},
+		{"CFG_RCGR", 0x4},
+	};
+
+	if (n)
+		return ERR_PTR(-EINVAL);
+
+	*regs = data;
+	*size = ARRAY_SIZE(data);
+	return RCGR_CMD_REG(md);
+}
+
 struct clk_ops clk_ops_empty;
 
 struct clk_ops clk_ops_rst = {
@@ -1350,4 +1466,12 @@ struct clk_mux_ops mux_reg_ops = {
 	.set_mux_sel = mux_reg_set_mux_sel,
 	.get_mux_sel = mux_reg_get_mux_sel,
 	.is_enabled = mux_reg_is_enabled,
+};
+
+struct mux_div_ops rcg_mux_div_ops = {
+	.enable = rcg_enable,
+	.set_src_div = rcg_set_src_div,
+	.get_src_div = rcg_get_src_div,
+	.is_enabled = rcg_is_enabled,
+	.list_registers = rcg_list_registers,
 };
