@@ -2553,7 +2553,8 @@ static void venus_hfi_pm_hndlr(struct work_struct *work)
 	rc = wait_for_completion_timeout(&pc_prep_done,
 			msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
 	if (!rc) {
-		dprintk(VIDC_ERR, "Wait interrupted or timeout: %d\n", rc);
+		dprintk(VIDC_ERR, "%s: Wait interrupted or timeout: %d\n",
+			__func__, rc);
 		return;
 	}
 
