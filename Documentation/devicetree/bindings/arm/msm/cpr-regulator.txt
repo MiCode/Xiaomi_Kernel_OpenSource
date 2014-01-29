@@ -213,10 +213,14 @@ Optional properties:
 				the virtual corner value. For example, the first element in the list is the fuse corner
 				value that virtual corner 1 maps to.
 				This is required if qcom,cpr-quot-adjust-table is present.
-- qcom,cpr-quotient-adjustment:	Present: CPR adjusts quotient value. The
-				adjustment equals to the quotient adjustment
-				in millivolts multiply the KV value.
-				Not Present: CPR will not adjust quotient value.
+- qcom,cpr-quotient-adjustment:	Array of three elements of CPR quotient adjustments for each corner.
+				The 3 quotient adjustments with index[0..2] are:
+				[0] => amount to add to the SVS quotient
+				[1] => amount to add to the NORM quotient
+				[2] => amount to add to the TURBO quotient
+				If this property is specified, then the quotient adjustment values are added to the target
+				quotient values read from fuses before writing them into the CPR GCNT target control registers.
+				This property can be used to add static margin to the voltage rail managed by the CPR controller.
 - vdd-apc-optional-prim-supply:	Present: Regulator of highest priority to supply VDD APC power
 				Not Present: No such regulator.
 - vdd-apc-optional-sec-supply:	Present: Regulator of second highest priority to supply VDD APC power.

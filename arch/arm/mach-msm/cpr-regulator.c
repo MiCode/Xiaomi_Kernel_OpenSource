@@ -223,7 +223,6 @@ struct cpr_regulator {
 	int		*corner_map;
 	u32		num_corners;
 	int		*quot_adjust;
-	u32		quotient_adjustment;
 };
 
 #define CPR_DEBUG_MASK_IRQ	BIT(0)
@@ -1095,7 +1094,7 @@ static int __devinit cpr_pvs_init(struct platform_device *pdev,
 	u64 efuse_bits;
 	int rc, process;
 	u32 pvs_fuse[4], pvs_fuse_redun_sel[5];
-	u32 init_v, quot_adjust;
+	u32 init_v;
 	bool redundant;
 	size_t pvs_bins;
 
@@ -1171,11 +1170,6 @@ static int __devinit cpr_pvs_init(struct platform_device *pdev,
 		init_v, cpr_vreg->pvs_corner_v[process][CPR_FUSE_CORNER_TURBO]);
 
 	cpr_vreg->process = process;
-
-	rc = of_property_read_u32(of_node,
-			"qcom,cpr-quotient-adjustment", &quot_adjust);
-	if (!rc)
-		cpr_vreg->quotient_adjustment = quot_adjust;
 
 	return 0;
 }
@@ -1391,6 +1385,7 @@ static int __devinit cpr_init_cpr_efuse(struct platform_device *pdev,
 	int bp_ro_sel[CPR_FUSE_CORNER_MAX];
 	u32 ro_sel, val;
 	u64 fuse_bits, fuse_bits_2;
+	u32 quot_adjust[CPR_FUSE_CORNER_MAX];
 
 	rc = of_property_read_u32_array(of_node, "qcom,cpr-fuse-redun-sel",
 					cpr_fuse_redun_sel, 5);
@@ -1492,11 +1487,20 @@ static int __devinit cpr_init_cpr_efuse(struct platform_device *pdev,
 				& CPR_FUSE_RO_SEL_BITS_MASK;
 		val = (fuse_bits >> bp_target_quot[i])
 				& CPR_FUSE_TARGET_QUOT_BITS_MASK;
-		val += cpr_vreg->quotient_adjustment;
 		cpr_vreg->cpr_fuse_target_quot[i] = val;
 		cpr_vreg->cpr_fuse_ro_sel[i] = ro_sel;
 		pr_info("Corner[%d]: ro_sel = %d, target quot = %d\n",
 			i, ro_sel, val);
+	}
+
+	rc = of_property_read_u32_array(of_node, "qcom,cpr-quotient-adjustment",
+				&quot_adjust[1], CPR_FUSE_CORNER_MAX - 1);
+	if (!rc) {
+		for (i = CPR_FUSE_CORNER_SVS; i < CPR_FUSE_CORNER_MAX; i++) {
+			cpr_vreg->cpr_fuse_target_quot[i] += quot_adjust[i];
+			pr_info("Corner[%d]: adjusted target quot = %d\n",
+				i, cpr_vreg->cpr_fuse_target_quot[i]);
+		}
 	}
 
 	if (cpr_vreg->flags & FLAGS_UPLIFT_QUOT_VOLT) {
