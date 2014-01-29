@@ -84,6 +84,9 @@ struct msm_vidc_stream_userdata_payload {
 struct msm_vidc_frame_qp_payoad {
 	unsigned int frame_qp;
 };
+struct msm_vidc_frame_qp_payload {
+	unsigned int frame_qp;
+};
 struct msm_vidc_frame_bits_info_payload {
 	unsigned int frame_bits;
 	unsigned int header_bits;
