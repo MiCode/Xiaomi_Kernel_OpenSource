@@ -245,9 +245,14 @@ Optional properties:
 				AD offset).
 - qcom,mdss-has-wb-ad: Boolean property to indicate assertive display feature
 				support on write back framebuffer.
-- qcom,mdss-has-wfd-blk: Boolean property to indicate the presence of dedicated
-			writeback wfd block in MDSS as opposed to writeback
-			block that is shared between rotator and wfd.
+- qcom,mdss-mdp-wfd-mode:	A string that specifies what is the mode of
+				   writeback wfd block.
+				"intf" = Writeback wfd block is
+				   connected to the interface mixer.
+				"shared" = Writeback block shared
+				   between wfd and rotator.
+				"dedicated" = Dedicated writeback
+				   block for wfd using writeback mixer.
 - qcom,mdss-smp-mb-per-pipe:	Maximum number of shared memory pool blocks
 				restricted for a source surface pipe. If this
 				property is not specified, no such restriction
@@ -410,7 +415,7 @@ Example:
 		qcom,mdss-pref-prim-intf = "dsi";
 		qcom,mdss-has-bwc;
 		qcom,mdss-has-decimation;
-		qcom,mdss-has-wfd-blk;
+		qcom,mdss-wfd-mode = "intf";
 
 		qcom,mdss-pipe-vig-xin-id = <0 4 8>;
 		qcom,mdss-pipe-rgb-xin-id = <1 5 9>;
