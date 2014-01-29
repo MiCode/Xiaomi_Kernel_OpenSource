@@ -205,6 +205,13 @@ enum i2c_msm_ctrl_ver_num {
 	I2C_MSM_CTRL_VER_B_MAX   = 0X30000000,
 };
 
+/* Controller's power state */
+enum msm_i2c_power_state {
+	MSM_I2C_PM_ACTIVE,
+	MSM_I2C_PM_SUSPENDED,
+	MSM_I2C_PM_SYS_SUSPENDED
+};
+
 /*
  * The max buffer size required for tags is for holding the following sequence:
  * [start | hs-addr] + [start | slv-addr] + [ rd/wr | len]
@@ -517,6 +524,7 @@ struct i2c_msm_resources {
 	bool                         disable_dma;
 	u32                          bam_pipe_idx_cons;
 	u32                          bam_pipe_idx_prod;
+	bool                         clk_ctl_xfer;
 	struct pinctrl              *pinctrl;
 	struct pinctrl_state        *gpio_state_active;
 	struct pinctrl_state        *gpio_state_suspend;
@@ -642,6 +650,8 @@ struct i2c_msm_ctrl {
 	int                        noise_rjct_scl;
 	int                        noise_rjct_sda;
 	struct i2c_msm_v2_platform_data *pdata;
+	enum msm_i2c_power_state    pwr_state;
+	struct mutex                 mlock;
 };
 
 #endif  /* _I2C_MSM_V2_H */
