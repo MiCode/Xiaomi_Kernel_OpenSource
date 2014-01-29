@@ -26,8 +26,8 @@
 #include <linux/stringify.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
+#include <soc/qcom/subsystem_notif.h>
 
-#include <mach/subsystem_notif.h>
 
 struct subsys_notif_info {
 	char name[50];

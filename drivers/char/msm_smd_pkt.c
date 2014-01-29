@@ -30,13 +30,13 @@
 #include <linux/completion.h>
 #include <linux/msm_smd_pkt.h>
 #include <linux/poll.h>
+#include <soc/qcom/subsystem_restart.h>
 #include <asm/ioctls.h>
 #include <linux/pm.h>
 #include <linux/of.h>
 #include <linux/ipc_logging.h>
 
 #include <mach/msm_smd.h>
-#include <mach/subsystem_restart.h>
 #include <mach/msm_smsm.h>
 
 #ifdef CONFIG_ARCH_FSM9XXX

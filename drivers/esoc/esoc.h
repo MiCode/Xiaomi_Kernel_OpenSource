@@ -20,8 +20,8 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
-#include <mach/subsystem_notif.h>
-#include <mach/subsystem_restart.h>
+#include <soc/qcom/subsystem_restart.h>
+#include <soc/qcom/subsystem_notif.h>
 
 #define ESOC_DEV_MAX		4
 #define ESOC_NAME_LEN		20

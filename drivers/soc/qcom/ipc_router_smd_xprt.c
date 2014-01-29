@@ -23,9 +23,9 @@
 #include <linux/skbuff.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
+#include <soc/qcom/subsystem_restart.h>
 
 #include <mach/msm_smd.h>
-#include <mach/subsystem_restart.h>
 #include <mach/msm_smsm.h>
 
 static int msm_ipc_router_smd_xprt_debug_mask;

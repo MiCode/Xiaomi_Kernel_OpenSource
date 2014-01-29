@@ -33,14 +33,14 @@
 #include <linux/of_gpio.h>
 #include <linux/of_address.h>
 #include <linux/io.h>
+#include <soc/qcom/ramdump.h>
+#include <soc/qcom/subsystem_restart.h>
 
 #include <asm/uaccess.h>
 #include <asm/setup.h>
 #include <asm-generic/io-64-nonatomic-lo-hi.h>
 
 #include <mach/msm_iomap.h>
-#include <mach/ramdump.h>
-#include <mach/subsystem_restart.h>
 
 #include "peripheral-loader.h"
 

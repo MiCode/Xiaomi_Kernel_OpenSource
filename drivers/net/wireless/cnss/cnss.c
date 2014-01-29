@@ -25,10 +25,10 @@
 #include <linux/pm_wakeup.h>
 #include <linux/sched.h>
 #include <linux/pm_qos.h>
+#include <soc/qcom/subsystem_restart.h>
+#include <soc/qcom/ramdump.h>
 #include <mach/gpiomux.h>
 #include <mach/msm_pcie.h>
-#include <mach/subsystem_restart.h>
-#include <mach/ramdump.h>
 #include <net/cnss.h>
 #define subsys_to_drv(d) container_of(d, struct cnss_data, subsys_desc)
 

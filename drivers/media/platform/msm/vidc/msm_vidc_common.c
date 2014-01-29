@@ -15,8 +15,8 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/kernel.h>
+#include <soc/qcom/subsystem_restart.h>
 #include <asm/div64.h>
-#include <mach/subsystem_restart.h>
 #include "msm_vidc_common.h"
 #include "vidc_hfi_api.h"
 #include "msm_vidc_debug.h"

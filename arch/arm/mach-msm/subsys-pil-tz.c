@@ -24,8 +24,8 @@
 
 #include <mach/msm_bus_board.h>
 #include <mach/msm_bus.h>
-#include <mach/subsystem_restart.h>
-#include <mach/ramdump.h>
+#include <soc/qcom/subsystem_restart.h>
+#include <soc/qcom/ramdump.h>
 
 #include <soc/qcom/smem.h>
 

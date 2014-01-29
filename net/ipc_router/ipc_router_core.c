@@ -32,6 +32,7 @@
 #include <linux/uaccess.h>
 #include <linux/ipc_router.h>
 #include <linux/ipc_router_xprt.h>
+#include <soc/qcom/subsystem_notif.h>
 
 #include <asm/byteorder.h>
 

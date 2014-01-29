@@ -23,13 +23,13 @@
 #include <linux/io.h>
 #include <linux/of_device.h>
 #include <linux/dma-mapping.h>
+#include <soc/qcom/subsystem_restart.h>
+#include <soc/qcom/subsystem_notif.h>
+#include <soc/qcom/ramdump.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
 #include <mach/ocmem.h>
-#include <mach/subsystem_notif.h>
-#include <mach/subsystem_restart.h>
 #include <mach/msm_memtypes.h>
-#include <mach/ramdump.h>
 #include "q6core.h"
 #include "audio_ocmem.h"
 

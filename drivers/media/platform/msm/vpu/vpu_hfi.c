@@ -22,8 +22,8 @@
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
 #include <linux/compiler.h>
+#include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/scm.h>
-#include <mach/subsystem_restart.h>
 
 #include "vpu_hfi.h"
 #include "vpu_hfi_intf.h"

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,7 @@
 #define __MSM_SYSMON_H
 
 #include <mach/msm_smd.h>
-#include <mach/subsystem_notif.h>
+#include <soc/qcom/subsystem_notif.h>
 
 /**
  * enum subsys_id - Destination subsystems for events.

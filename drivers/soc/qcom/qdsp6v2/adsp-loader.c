@@ -17,10 +17,10 @@
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
-#include <mach/subsystem_restart.h>
 #include <linux/qdsp6v2/apr.h>
 #include <linux/of_device.h>
 #include <linux/sysfs.h>
+#include <soc/qcom/subsystem_restart.h>
 
 #define Q6_PIL_GET_DELAY_MS 100
 #define BOOT_CMD 1

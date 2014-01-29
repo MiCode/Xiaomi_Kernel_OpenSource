@@ -23,7 +23,7 @@
 #include <linux/uaccess.h>
 #include <linux/usb.h>
 #include <linux/debugfs.h>
-#include <mach/sysmon.h>
+#include <soc/qcom/sysmon.h>
 
 #include "hsic_sysmon.h"
 

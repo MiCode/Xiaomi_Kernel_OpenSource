@@ -26,10 +26,10 @@
 #include <linux/workqueue.h>
 #include <linux/wcnss_wlan.h>
 #include <linux/of_gpio.h>
+#include <soc/qcom/subsystem_restart.h>
+#include <soc/qcom/ramdump.h>
 
-#include <mach/subsystem_restart.h>
 #include <mach/msm_smsm.h>
-#include <mach/ramdump.h>
 #include <mach/msm_bus_board.h>
 
 #include <soc/qcom/smem.h>
