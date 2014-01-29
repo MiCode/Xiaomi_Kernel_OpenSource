@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -311,7 +311,7 @@ struct test_request *test_iosched_create_test_req(int is_err_expcted,
 		return NULL;
 	}
 
-	buf_size = sizeof(unsigned int) * BIO_U32_SIZE * num_bios;
+	buf_size = TEST_BIO_SIZE * num_bios;
 	test_rq->bios_buffer = kzalloc(buf_size, GFP_KERNEL);
 	if (!test_rq->bios_buffer) {
 		pr_err("%s: Failed to allocate the data buf", __func__);

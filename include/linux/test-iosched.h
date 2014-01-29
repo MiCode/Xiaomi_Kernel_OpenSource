@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@
 #define TEST_PATTERN_FF		0xFFFFFFFF
 #define TEST_NO_PATTERN		0xDEADBEEF
 #define BIO_U32_SIZE 1024
+#define TEST_BIO_SIZE		PAGE_SIZE	/* use one page bios */
 
 struct test_data;
 
