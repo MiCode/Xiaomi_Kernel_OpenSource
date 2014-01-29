@@ -151,10 +151,11 @@
 			reg = <0x0e>;
 			qcom,irq-gpio = <&msmgpio 77 0x00>;
 			qcom,dis-gpio = <&msmgpio 93 0x00>;
-			qcom,clk-en-gpio = <&msmgpio 78 0x00>;
+			qcom,clk-req-gpio = <&msmgpio 75 0x00>;
+			qcom,clk-src-gpio = <&msmgpio 78 0x00>;
 			qcom,clk-src = "GPCLK";
 			interrupt-parent = <&msmgpio>;
-			interrupts = <77 0>;
+			interrupts = <77 75 0>;
 			qcom,clk-gpio = <&pm8110_gpios 1 0>;
 		};
 	};

@@ -615,6 +615,13 @@ static struct gpiomux_setting interrupt_gpio_suspend_pulldown = {
 
 static struct msm_gpiomux_config msm_interrupt_configs[] __initdata = {
 	{
+		.gpio = 75,	/* NFC_CLK_REQ_IRQ*/
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &interrupt_gpio_active,
+			[GPIOMUX_SUSPENDED] = &interrupt_gpio_suspend_pullup,
+		},
+	},
+	{
 		.gpio = 77,	/* NFC_IRQ */
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &interrupt_gpio_active,
