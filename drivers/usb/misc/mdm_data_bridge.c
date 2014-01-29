@@ -43,6 +43,10 @@ static const char * const rmnet_hsic_bridge_names[] = {
 	"rmnet_hsic_ctrl",
 };
 
+static const char * const qdss_hsic_bridge_names[] = {
+	"qdss_hsic_data",
+};
+
 /*for xport : HSUSB*/
 static const char * const serial_hsusb_bridge_names[] = {
 	"serial_hsusb_data",
@@ -712,7 +716,8 @@ static int data_bridge_probe(struct usb_interface *iface,
 			bulk_in->desc.bEndpointAddress &
 			USB_ENDPOINT_NUMBER_MASK);
 
-	dev->bulk_out = usb_sndbulkpipe(dev->udev,
+	if (bulk_out)
+		dev->bulk_out = usb_sndbulkpipe(dev->udev,
 		bulk_out->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
 
 	usb_set_intfdata(iface, dev);
@@ -1002,8 +1007,9 @@ bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 				int_in = endpoint;
 		}
 	}
-
-	if ((!bulk_in && !data_int_in) || !bulk_out || !int_in) {
+	if (((numends == 3)
+	&& ((!bulk_in && !data_int_in) || !bulk_out || !int_in))
+	|| ((numends == 1) && !bulk_in)) {
 		dev_err(&iface->dev, "%s: invalid endpoints\n", __func__);
 		status = -EINVAL;
 		goto out;
@@ -1028,13 +1034,15 @@ bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 		goto out;
 	}
 
-	status = ctrl_bridge_probe(iface, int_in, bname[BRIDGE_CTRL_IDX],
-			ch_id);
+	status = ctrl_bridge_probe(iface,
+				int_in,
+				bname[BRIDGE_CTRL_IDX],
+				ch_id);
 	if (status < 0) {
-		dev_err(&iface->dev, "ctrl_bridge_probe failed %d\n", status);
+		dev_err(&iface->dev, "ctrl_bridge_probe failed %d\n",
+			status);
 		goto error;
 	}
-
 	return 0;
 
 error:
@@ -1116,6 +1124,10 @@ static const struct usb_device_id bridge_ids[] = {
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x908A, 5),
 	.driver_info = (unsigned long)rmnet_hsic_bridge_names,
 	},
+	/* this PID supports QDSS-MDM trace*/
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x908E, 4),
+	.driver_info = (unsigned long)qdss_hsic_bridge_names,
+	},
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x908E, 5),
 	.driver_info = (unsigned long)serial_hsic_bridge_names,
 	},
@@ -1130,6 +1142,10 @@ static const struct usb_device_id bridge_ids[] = {
 	},
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909E, 5),
 	.driver_info = (unsigned long)serial_hsic_bridge_names,
+	},
+	/* this PID supports QDSS-MDM trace*/
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909E, 4),
+	.driver_info = (unsigned long)qdss_hsic_bridge_names,
 	},
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90A0, 3),
 	.driver_info = (unsigned long)serial_hsic_bridge_names,
