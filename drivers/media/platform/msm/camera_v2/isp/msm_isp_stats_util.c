@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,8 +32,9 @@ static int msm_isp_stats_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 		return -EINVAL;
 	}
 
-	stats_pingpong_offset = STATS_IDX(stream_info->stream_handle) +
-		vfe_dev->hw_info->stats_hw_info->stats_ping_pong_offset;
+	stats_pingpong_offset =
+		vfe_dev->hw_info->stats_hw_info->stats_ping_pong_offset[
+		STATS_IDX(stream_info->stream_handle)];
 
 	pingpong_bit = (~(pingpong_status >> stats_pingpong_offset) & 0x1);
 	rc = vfe_dev->buf_mgr->ops->get_buf(vfe_dev->buf_mgr,
