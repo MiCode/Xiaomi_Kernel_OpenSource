@@ -1017,6 +1017,16 @@ static int mdss_mdp_debug_init(struct mdss_data_type *mdata)
 	return 0;
 }
 
+static void mdss_hw_rev_init(struct mdss_data_type *mdata)
+{
+	if (mdata->mdp_rev)
+		return;
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	mdata->mdp_rev = readl_relaxed(mdata->mdss_base + MDSS_REG_HW_VERSION);
+	pr_info_once("MDP Rev=%x\n", mdata->mdp_rev);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+}
+
 int mdss_hw_init(struct mdss_data_type *mdata)
 {
 	int i, j;
@@ -1024,9 +1034,7 @@ int mdss_hw_init(struct mdss_data_type *mdata)
 	struct mdss_mdp_pipe *vig;
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-	mdata->mdp_rev = readl_relaxed(mdata->mdss_base + MDSS_REG_HW_VERSION);
-
-	pr_info_once("MDP Rev=%x\n", mdata->mdp_rev);
+	mdss_hw_rev_init(mdata);
 
 	/* disable hw underrun recovery */
 	writel_relaxed(0x0, mdata->mdp_base +
@@ -1264,6 +1272,8 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 
 #define SPRINT(fmt, ...) \
 		(cnt += scnprintf(buf + cnt, len - cnt, fmt, ##__VA_ARGS__))
+
+	mdss_hw_rev_init(mdata);
 
 	SPRINT("mdp_version=5\n");
 	SPRINT("hw_rev=%d\n", mdata->mdp_rev);
