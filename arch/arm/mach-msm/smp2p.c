@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/ipc_logging.h>
+#include <linux/err.h>
 #include <soc/qcom/smem.h>
 #include "smp2p_private_api.h"
 #include "smp2p_private.h"
@@ -1788,6 +1789,8 @@ static int msm_smp2p_probe(struct platform_device *pdev)
 	struct device_node *node;
 	uint32_t irq_bitmask;
 	uint32_t irq_line;
+	void *temp_p;
+	unsigned temp_sz;
 
 	node = pdev->dev.of_node;
 
@@ -1823,6 +1826,23 @@ static int msm_smp2p_probe(struct platform_device *pdev)
 	irq_line = platform_get_irq(pdev, 0);
 	if (irq_line == -ENXIO)
 		goto missing_key;
+
+	/*
+	 * We depend on the SMEM driver, so do a test access to see if SMEM is
+	 * ready.  We don't want any side effects at this time (so no alloc)
+	 * and the return doesn't matter, so long as it is not -EPROBE_DEFER.
+	 */
+	temp_p = smem_get_entry(
+		smp2p_get_smem_item_id(SMP2P_APPS_PROC, SMP2P_MODEM_PROC),
+		&temp_sz,
+		0,
+		SMEM_ANY_HOST_FLAG);
+	if (PTR_ERR(temp_p) == -EPROBE_DEFER) {
+		SMP2P_INFO("%s: edge:%d probe before smem ready\n", __func__,
+									edge);
+		ret = -EPROBE_DEFER;
+		goto fail;
+	}
 
 	ret = request_irq(irq_line, smp2p_interrupt_handler,
 			IRQF_TRIGGER_RISING, "smp2p", (void *)(uintptr_t)edge);
