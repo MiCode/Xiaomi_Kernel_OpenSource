@@ -35,7 +35,7 @@
 
 #include <asm/byteorder.h>
 
-#include <mach/smem_log.h>
+#include <soc/qcom/smem_log.h>
 
 #include "ipc_router_private.h"
 #include "ipc_router_security.h"
@@ -2134,8 +2134,7 @@ static void do_read_data(struct work_struct *work)
 			release_pkt(pkt);
 			continue;
 		}
-#if defined(CONFIG_MSM_SMD_LOGGING)
-#if defined(DEBUG)
+
 		if (msm_ipc_router_debug_mask & SMEM_LOG) {
 			smem_log_event((SMEM_LOG_PROC_ID_APPS |
 				SMEM_LOG_IPC_ROUTER_EVENT_BASE |
@@ -2147,8 +2146,6 @@ static void do_read_data(struct work_struct *work)
 				(hdr->type << 24) | (hdr->control_flag << 16) |
 				(hdr->size & 0xffff));
 		}
-#endif
-#endif
 
 		down_read(&local_ports_lock_lha2);
 		port_ptr = msm_ipc_router_lookup_local_port(hdr->dst_port_id);
@@ -2443,8 +2440,6 @@ static int msm_ipc_router_write_pkt(struct msm_ipc_port *src,
 		hdr->control_flag, hdr->size,
 		hdr->dst_node_id, hdr->dst_port_id);
 
-#if defined(CONFIG_MSM_SMD_LOGGING)
-#if defined(DEBUG)
 	if (msm_ipc_router_debug_mask & SMEM_LOG) {
 		smem_log_event((SMEM_LOG_PROC_ID_APPS |
 			SMEM_LOG_IPC_ROUTER_EVENT_BASE |
@@ -2456,8 +2451,6 @@ static int msm_ipc_router_write_pkt(struct msm_ipc_port *src,
 			(hdr->type << 24) | (hdr->control_flag << 16) |
 			(hdr->size & 0xffff));
 	}
-#endif
-#endif
 
 	return hdr->size;
 }

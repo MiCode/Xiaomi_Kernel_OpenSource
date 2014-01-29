@@ -30,13 +30,12 @@
 #include <linux/wait.h>
 #include <linux/delay.h>
 
-#include <mach/smem_log.h>
-
 #include <soc/qcom/smem.h>
+#include <soc/qcom/smem_log.h>
 
 #include <asm/arch_timer.h>
 
-#include "../../../drivers/soc/qcom/smem_private.h"
+#include "smem_private.h"
 
 #define DEBUG
 #undef DEBUG

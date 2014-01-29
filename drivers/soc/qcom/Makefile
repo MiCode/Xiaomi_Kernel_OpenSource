@@ -10,4 +10,5 @@ obj-$(CONFIG_MSM_QMI_INTERFACE) += qmi_interface.o
 obj-$(CONFIG_MSM_SCM) += scm.o
 
 obj-$(CONFIG_MSM_SMEM) += smem.o smem_debug.o
+obj-$(CONFIG_MSM_SMEM_LOGGING) += smem_log.o
 obj-$(CONFIG_MEM_SHARE_QMI_SERVICE)		+= memshare/
