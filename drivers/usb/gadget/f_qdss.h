@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,17 +18,26 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 
-/* struct f_qdss - USB qdss function driver private structure */
-struct f_qdss {
+#define NR_QDSS_PORTS 4
+
+struct gqdss {
 	struct usb_function function;
-	struct usb_composite_dev *cdev;
-	u8 ctrl_iface_id;
-	u8 data_iface_id;
-	int usb_connected;
-	struct usb_request *endless_req;
 	struct usb_ep *ctrl_out;
 	struct usb_ep *ctrl_in;
 	struct usb_ep *data;
+};
+
+/* struct f_qdss - USB qdss function driver private structure */
+struct f_qdss {
+
+	struct gqdss port;
+	struct usb_composite_dev *cdev;
+	u8 port_num;
+	u8 ctrl_iface_id;
+	u8 data_iface_id;
+	int usb_connected;
+	bool debug_inface_enabled;
+	struct usb_request *endless_req;
 	struct usb_qdss_ch ch;
 	struct list_head ctrl_read_pool;
 	struct list_head ctrl_write_pool;
@@ -42,4 +51,3 @@ struct f_qdss {
 };
 
 #endif
-
