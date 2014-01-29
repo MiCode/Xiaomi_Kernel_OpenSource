@@ -340,6 +340,36 @@ static struct msm_gpiomux_config msm_hdmi_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting geni_ir_tx_config = {
+	.func = GPIOMUX_FUNC_4,
+	.drv = GPIOMUX_DRV_16MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
+static struct gpiomux_setting geni_ir_rx_config = {
+	.func = GPIOMUX_FUNC_4,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct msm_gpiomux_config msm_geni_ir_configs[] __initdata = {
+	{
+		.gpio      = 8,       /* GENI_IR_TX */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &geni_ir_tx_config,
+			[GPIOMUX_SUSPENDED] = &geni_ir_tx_config,
+		},
+	},
+	{
+		.gpio      = 9,       /* GENI_IR_RX */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &geni_ir_rx_config,
+			[GPIOMUX_SUSPENDED] = &geni_ir_rx_config,
+		},
+	},
+};
+
 void __init mpq8092_init_gpiomux(void)
 {
 	int rc;
@@ -362,4 +392,6 @@ void __init mpq8092_init_gpiomux(void)
 	msm_gpiomux_install(mpq_hdmi_mux_configs,
 			ARRAY_SIZE(mpq_hdmi_mux_configs));
 	msm_gpiomux_install(msm_hdmi_configs, ARRAY_SIZE(msm_hdmi_configs));
+	msm_gpiomux_install(msm_geni_ir_configs,
+			    ARRAY_SIZE(msm_geni_ir_configs));
 }
