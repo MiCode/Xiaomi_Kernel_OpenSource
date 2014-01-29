@@ -203,6 +203,13 @@
 	};
 
 	gpio@ce00 { /* GPIO 15 */
+		qcom,mode = <1>;                /* Digital output */
+		qcom,output-type = <0>;         /* CMOS logic */
+		qcom,pull = <5>;                /* No pull */
+		qcom,vin-sel = <2>;             /* VIN 2 */
+		qcom,src-sel = <2>;             /* Function 1 */
+		qcom,out-strength = <2>;        /* Medium */
+		qcom,master-en = <1>;           /* Enable GPIO */
 	};
 
 	gpio@cf00 { /* GPIO 16 */
