@@ -21,8 +21,8 @@
 #include <linux/of_coresight.h>
 #include <linux/input.h>
 
-#include <mach/msm_bus_board.h>
-#include <mach/msm_bus.h>
+#include <linux/msm-bus-board.h>
+#include <linux/msm-bus.h>
 
 #include "kgsl.h"
 #include "kgsl_pwrscale.h"
