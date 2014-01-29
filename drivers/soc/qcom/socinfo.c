@@ -669,7 +669,7 @@ msm_get_image_version(struct device *dev,
 	char *string_address;
 
 	string_address = socinfo_get_image_version_base_address();
-	if (string_address == NULL) {
+	if (IS_ERR_OR_NULL(string_address)) {
 		pr_err("%s : Failed to get image version base address",
 				__func__);
 		return snprintf(buf, SMEM_IMAGE_VERSION_NAME_SIZE, "Unknown");
@@ -690,7 +690,7 @@ msm_set_image_version(struct device *dev,
 	if (current_image != SMEM_IMAGE_VERSION_PARTITION_APPS)
 		return count;
 	store_address = socinfo_get_image_version_base_address();
-	if (store_address == NULL) {
+	if (IS_ERR_OR_NULL(store_address)) {
 		pr_err("%s : Failed to get image version base address",
 				__func__);
 		return count;
@@ -708,7 +708,7 @@ msm_get_image_variant(struct device *dev,
 	char *string_address;
 
 	string_address = socinfo_get_image_version_base_address();
-	if (string_address == NULL) {
+	if (IS_ERR_OR_NULL(string_address)) {
 		pr_err("%s : Failed to get image version base address",
 				__func__);
 		return snprintf(buf, SMEM_IMAGE_VERSION_VARIANT_SIZE,
@@ -731,7 +731,7 @@ msm_set_image_variant(struct device *dev,
 	if (current_image != SMEM_IMAGE_VERSION_PARTITION_APPS)
 		return count;
 	store_address = socinfo_get_image_version_base_address();
-	if (store_address == NULL) {
+	if (IS_ERR_OR_NULL(store_address)) {
 		pr_err("%s : Failed to get image version base address",
 				__func__);
 		return count;
@@ -750,7 +750,7 @@ msm_get_image_crm_version(struct device *dev,
 	char *string_address;
 
 	string_address = socinfo_get_image_version_base_address();
-	if (string_address == NULL) {
+	if (IS_ERR_OR_NULL(string_address)) {
 		pr_err("%s : Failed to get image version base address",
 				__func__);
 		return snprintf(buf, SMEM_IMAGE_VERSION_OEM_SIZE, "Unknown");
@@ -772,7 +772,7 @@ msm_set_image_crm_version(struct device *dev,
 	if (current_image != SMEM_IMAGE_VERSION_PARTITION_APPS)
 		return count;
 	store_address = socinfo_get_image_version_base_address();
-	if (store_address == NULL) {
+	if (IS_ERR_OR_NULL(store_address)) {
 		pr_err("%s : Failed to get image version base address",
 				__func__);
 		return count;
@@ -1078,49 +1078,49 @@ int __init socinfo_init(void)
 				0,
 				SMEM_ANY_HOST_FLAG);
 
-	if (!socinfo)
+	if (IS_ERR_OR_NULL(socinfo))
 		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
 				sizeof(struct socinfo_v7),
 				0,
 				SMEM_ANY_HOST_FLAG);
 
-	if (!socinfo)
+	if (IS_ERR_OR_NULL(socinfo))
 		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
 				sizeof(struct socinfo_v6),
 				0,
 				SMEM_ANY_HOST_FLAG);
 
-	if (!socinfo)
+	if (IS_ERR_OR_NULL(socinfo))
 		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
 				sizeof(struct socinfo_v5),
 				0,
 				SMEM_ANY_HOST_FLAG);
 
-	if (!socinfo)
+	if (IS_ERR_OR_NULL(socinfo))
 		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
 				sizeof(struct socinfo_v4),
 				0,
 				SMEM_ANY_HOST_FLAG);
 
-	if (!socinfo)
+	if (IS_ERR_OR_NULL(socinfo))
 		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
 				sizeof(struct socinfo_v3),
 				0,
 				SMEM_ANY_HOST_FLAG);
 
-	if (!socinfo)
+	if (IS_ERR_OR_NULL(socinfo))
 		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
 				sizeof(struct socinfo_v2),
 				0,
 				SMEM_ANY_HOST_FLAG);
 
-	if (!socinfo)
+	if (IS_ERR_OR_NULL(socinfo))
 		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
 				sizeof(struct socinfo_v1),
 				0,
 				SMEM_ANY_HOST_FLAG);
 
-	if (!socinfo) {
+	if (IS_ERR_OR_NULL(socinfo)) {
 		pr_warn("%s: Can't find SMEM_HW_SW_BUILD_ID; falling back on dummy values.\n",
 				__func__);
 		socinfo = setup_dummy_socinfo();
