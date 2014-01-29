@@ -4148,6 +4148,9 @@ static void a3xx_protect_init(struct kgsl_device *device)
 
 	/* VBIF registers */
 	adreno_set_protected_registers(device, &index, 0x3000, 6);
+
+	/* SMMU registers */
+	adreno_set_protected_registers(device, &index, 0x4000, 14);
 }
 
 static void a3xx_start(struct adreno_device *adreno_dev)
