@@ -39,6 +39,7 @@
 #define MAX_PARALLEL_QUERIES 33
 #define RANDOM_REQUEST_THREADS 4
 #define LUN_DEPTH_TEST_SIZE 9
+#define SECTOR_SIZE	512
 
 /* the amount of requests that will be inserted */
 #define LONG_SEQ_TEST_NUM_REQS  256
@@ -941,11 +942,7 @@ static int run_long_test(struct test_data *td)
 		direction = WRITE;
 	}
 
-	/* NUM_OF_BLOCK * (BLOCK_SIZE / SECTOR_SIZE) */
-	seq_sector_delta = num_bios_per_request * (PAGE_SIZE /
-			td->req_q->limits.logical_block_size);
-	/* just for the first iteration */
-	sector -= seq_sector_delta;
+	seq_sector_delta = num_bios_per_request * (TEST_BIO_SIZE / SECTOR_SIZE);
 
 	seed = utd->random_test_seed ? utd->random_test_seed : MAGIC_SEED;
 
@@ -969,7 +966,9 @@ static int run_long_test(struct test_data *td)
 		case UFS_TEST_LONG_SEQUENTIAL_READ:
 		case UFS_TEST_LONG_SEQUENTIAL_WRITE:
 		case UFS_TEST_LONG_SEQUENTIAL_MIXED:
-			sector += seq_sector_delta;
+			/* don't need to increment on the first iteration */
+			if (inserted_requests)
+				sector += seq_sector_delta;
 			break;
 		case  UFS_TEST_LONG_RANDOM_READ:
 		case  UFS_TEST_LONG_RANDOM_WRITE:
