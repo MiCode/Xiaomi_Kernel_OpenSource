@@ -27,13 +27,11 @@
 #include <linux/memblock.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-contiguous.h>
-#include <mach/msm_memtypes.h>
 #include <asm/cacheflush.h>
 #include "../ion_priv.h"
 #include "ion_cp_common.h"
 
 #define ION_COMPAT_STR	"qcom,msm-ion"
-#define ION_COMPAT_MEM_RESERVE_STR "qcom,msm-ion-reserve"
 
 static struct ion_device *idev;
 static int num_heaps;
@@ -951,7 +949,6 @@ static struct of_device_id msm_ion_match_table[] = {
 	{.compatible = ION_COMPAT_STR},
 	{},
 };
-EXPORT_COMPAT(ION_COMPAT_MEM_RESERVE_STR);
 
 static struct platform_driver msm_ion_driver = {
 	.probe = msm_ion_probe,
