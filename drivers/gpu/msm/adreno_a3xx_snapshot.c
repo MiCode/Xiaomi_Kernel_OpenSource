@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -492,6 +492,22 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 	/* Reading these will hang the GPU if it isn't already hung */
 
 	if (hang) {
+		unsigned int reg;
+
+		/*
+		 * Reading the microcode while the CP will is running will
+		 * basically basically move the CP instruction pointer to
+		 * whatever address we read. Big badaboom ensues. Stop the CP
+		 * (if it isn't already stopped) to ensure that we are safe.
+		 * We do this here and not earlier to avoid corrupting the RBBM
+		 * status and CP registers - by the time we get here we don't
+		 * care about the contents of the CP anymore.
+		 */
+
+		adreno_readreg(adreno_dev, ADRENO_REG_CP_ME_CNTL, &reg);
+		reg |= (1 << 27) | (1 << 28);
+		adreno_writereg(adreno_dev, ADRENO_REG_CP_ME_CNTL, reg);
+
 		snapshot = kgsl_snapshot_add_section(device,
 			KGSL_SNAPSHOT_SECTION_DEBUG, snapshot, remain,
 			a3xx_snapshot_cp_pfp_ram, NULL);
