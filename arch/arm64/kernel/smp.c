@@ -163,7 +163,6 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	complete(&cpu_running);
 
 	local_irq_enable();
-	local_fiq_enable();
 	local_async_enable();
 
 	/*
@@ -513,7 +512,6 @@ static void ipi_cpu_stop(unsigned int cpu)
 	set_cpu_online(cpu, false);
 
 	flush_cache_all();
-	local_fiq_disable();
 	local_irq_disable();
 
 	while (1)
