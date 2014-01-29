@@ -534,7 +534,7 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 	case MDSS_MDP_PIPE_TYPE_DMA:
 		pipe_pool = mdata->dma_pipes;
 		npipes = mdata->ndma_pipes;
-		if (!mdata->has_wfd_blk &&
+		if ((mdata->wfd_mode == MDSS_MDP_WFD_SHARED) &&
 		   (mixer->type == MDSS_MDP_MIXER_TYPE_WRITEBACK))
 			pipe_share = true;
 		break;
