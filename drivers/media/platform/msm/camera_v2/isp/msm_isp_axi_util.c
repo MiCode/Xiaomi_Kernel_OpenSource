@@ -987,6 +987,7 @@ static void msm_isp_update_camif_output_count(
 			continue;
 		if (stream_info->stream_src == PIX_ENCODER ||
 			stream_info->stream_src == PIX_VIEWFINDER ||
+			stream_info->stream_src == PIX_VIDEO ||
 			stream_info->stream_src == IDEAL_RAW) {
 			if (stream_cfg_cmd->cmd == START_STREAM)
 				vfe_dev->axi_data.src_info[VFE_PIX_0].
