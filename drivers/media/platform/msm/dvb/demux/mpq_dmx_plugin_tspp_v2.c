@@ -652,12 +652,12 @@ static inline size_t mpq_dmx_tspp2_calc_pipe_data(struct pipe_info *pipe_info,
 	}
 
 	if (prev_last_addr == 0)
-		prev_last_addr = pipe_info->buffer.iova;
+		data_size = last_addr - pipe_info->buffer.iova + 1;
+	else
+		data_size = last_addr > prev_last_addr ?
+			last_addr - prev_last_addr :
+			pipe_info->buffer.size + last_addr - prev_last_addr;
 
-	data_size = last_addr > prev_last_addr ?
-		last_addr - prev_last_addr :
-		pipe_info->buffer.size + last_addr - prev_last_addr;
-	data_size += 1;
 	MPQ_DVB_DBG_PRINT(
 		"%s: buf_size=%u, last_addr=0x%x, prev_last_addr=0x%x -> data size=%u\n",
 		__func__, pipe_info->buffer.size, last_addr,
@@ -2685,7 +2685,9 @@ static int mpq_dmx_tspp2_section_pipe_handler(struct pipe_info *pipe_info,
 		curr_pid = ts_pid(curr_pkt);
 
 		list_for_each_entry(feed, &dvb_demux->feed_list, list_head) {
-			if (feed->pid != curr_pid)
+			if (feed->pid != curr_pid ||
+				feed->type != DMX_TYPE_SEC ||
+				feed->state != DMX_STATE_GO)
 				continue;
 
 			ret = mpq_dmx_tspp2_process_clear_section_packet(feed,
