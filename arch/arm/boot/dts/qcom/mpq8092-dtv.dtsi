@@ -45,6 +45,16 @@
 					&ts_in_1_a_ser_active>;	/* dual-ts */
 	};
 
+	spi@f9968000 {
+	   ci-bridge-spi@0 {
+			compatible = "smartv,cimax";
+			reg = <0>;
+			spi-max-frequency = <15000000>;
+			smartv,cimax-int-gpio = <&msmgpio 71 0>;
+			smartv,cimax-rst-gpio = <&msmgpio 138 0>;
+	   };
+	};
+
 	i2c@f9967000 {
 		status = "ok";
 	};
