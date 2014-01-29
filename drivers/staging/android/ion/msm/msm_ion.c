@@ -136,7 +136,6 @@ static int ion_no_pages_cache_ops(struct ion_client *client,
 			unsigned int offset, unsigned int length,
 			unsigned int cmd)
 {
-	void (*outer_cache_op)(phys_addr_t, phys_addr_t) = NULL;
 	unsigned int size_to_vmap, total_size;
 	int i, j, ret;
 	void *ptr = NULL;
@@ -167,20 +166,14 @@ static int ion_no_pages_cache_ops(struct ion_client *client,
 					case ION_IOC_CLEAN_CACHES:
 						dmac_clean_range(ptr,
 							ptr + size_to_vmap);
-						outer_cache_op =
-							outer_clean_range;
 						break;
 					case ION_IOC_INV_CACHES:
 						dmac_inv_range(ptr,
 							ptr + size_to_vmap);
-						outer_cache_op =
-							outer_inv_range;
 						break;
 					case ION_IOC_CLEAN_INV_CACHES:
 						dmac_flush_range(ptr,
 							ptr + size_to_vmap);
-						outer_cache_op =
-							outer_flush_range;
 						break;
 					default:
 						return -EINVAL;
@@ -201,65 +194,26 @@ static int ion_no_pages_cache_ops(struct ion_client *client,
 		switch (cmd) {
 		case ION_IOC_CLEAN_CACHES:
 			dmac_clean_range(vaddr, vaddr + length);
-			outer_cache_op = outer_clean_range;
 			break;
 		case ION_IOC_INV_CACHES:
 			dmac_inv_range(vaddr, vaddr + length);
-			outer_cache_op = outer_inv_range;
 			break;
 		case ION_IOC_CLEAN_INV_CACHES:
 			dmac_flush_range(vaddr, vaddr + length);
-			outer_cache_op = outer_flush_range;
 			break;
 		default:
 			return -EINVAL;
 		}
 	}
 
-	if (!outer_cache_op)
-		return -EINVAL;
-
-	outer_cache_op(buff_phys_start + offset,
-		       buff_phys_start + offset + length);
-
 	return 0;
 }
-
-#ifdef CONFIG_OUTER_CACHE
-static void ion_pages_outer_cache_op(void (*op)(phys_addr_t, phys_addr_t),
-				struct sg_table *table)
-{
-	unsigned long pstart;
-	struct scatterlist *sg;
-	int i;
-	for_each_sg(table->sgl, sg, table->nents, i) {
-		struct page *page = sg_page(sg);
-		pstart = page_to_phys(page);
-		/*
-		 * If page -> phys is returning NULL, something
-		 * has really gone wrong...
-		 */
-		if (!pstart) {
-			WARN(1, "Could not translate virtual address to physical address\n");
-			return;
-		}
-		op(pstart, pstart + PAGE_SIZE);
-	}
-}
-#else
-static void ion_pages_outer_cache_op(void (*op)(phys_addr_t, phys_addr_t),
-					struct sg_table *table)
-{
-
-}
-#endif
 
 static int ion_pages_cache_ops(struct ion_client *client,
 			struct ion_handle *handle,
 			void *vaddr, unsigned int offset, unsigned int length,
 			unsigned int cmd)
 {
-	void (*outer_cache_op)(phys_addr_t, phys_addr_t);
 	struct sg_table *table = NULL;
 
 	table = ion_sg_table(client, handle);
@@ -273,7 +227,6 @@ static int ion_pages_cache_ops(struct ion_client *client,
 				table->nents, DMA_TO_DEVICE);
 		else
 			dmac_clean_range(vaddr, vaddr + length);
-		outer_cache_op = outer_clean_range;
 		break;
 	case ION_IOC_INV_CACHES:
 		if (!vaddr)
@@ -281,7 +234,6 @@ static int ion_pages_cache_ops(struct ion_client *client,
 				table->nents, DMA_FROM_DEVICE);
 		else
 			dmac_inv_range(vaddr, vaddr + length);
-		outer_cache_op = outer_inv_range;
 		break;
 	case ION_IOC_CLEAN_INV_CACHES:
 		if (!vaddr) {
@@ -292,13 +244,10 @@ static int ion_pages_cache_ops(struct ion_client *client,
 		} else {
 			dmac_flush_range(vaddr, vaddr + length);
 		}
-		outer_cache_op = outer_flush_range;
 		break;
 	default:
 		return -EINVAL;
 	}
-
-	ion_pages_outer_cache_op(outer_cache_op, table);
 
 	return 0;
 }
