@@ -63,6 +63,12 @@ static u64 last_input_time;
  * The CPUFREQ_ADJUST notifier is used to override the current policy min to
  * make sure policy min >= boost_min. The cpufreq framework then does the job
  * of enforcing the new policy.
+ *
+ * The sync kthread needs to run on the CPU in question to avoid deadlocks in
+ * the wake up code. Achieve this by binding the thread to the respective
+ * CPU. But a CPU going offline unbinds threads from that CPU. So, set it up
+ * again each time the CPU comes back up. We can use CPUFREQ_START to figure
+ * out a CPU is coming online instead of registering for hotplug notifiers.
  */
 static int boost_adjust_notify(struct notifier_block *nb, unsigned long val,
 				void *data)
@@ -74,22 +80,27 @@ static int boost_adjust_notify(struct notifier_block *nb, unsigned long val,
 	unsigned int ib_min = s->input_boost_min;
 	unsigned int min;
 
-	if (val != CPUFREQ_ADJUST)
-		return NOTIFY_OK;
+	switch (val) {
+	case CPUFREQ_ADJUST:
+		if (!b_min && !ib_min)
+			break;
 
-	if (!b_min && !ib_min)
-		return NOTIFY_OK;
+		min = max(b_min, ib_min);
 
-	min = max(b_min, ib_min);
+		pr_debug("CPU%u policy min before boost: %u kHz\n",
+			 cpu, policy->min);
+		pr_debug("CPU%u boost min: %u kHz\n", cpu, min);
 
-	pr_debug("CPU%u policy min before boost: %u kHz\n",
-		 cpu, policy->min);
-	pr_debug("CPU%u boost min: %u kHz\n", cpu, min);
+		cpufreq_verify_within_limits(policy, min, UINT_MAX);
 
-	cpufreq_verify_within_limits(policy, min, UINT_MAX);
+		pr_debug("CPU%u policy min after boost: %u kHz\n",
+			 cpu, policy->min);
+		break;
 
-	pr_debug("CPU%u policy min after boost: %u kHz\n",
-		 cpu, policy->min);
+	case CPUFREQ_START:
+		set_cpus_allowed(s->thread, *cpumask_of(cpu));
+		break;
+	}
 
 	return NOTIFY_OK;
 }
@@ -344,6 +355,7 @@ static int cpu_boost_init(void)
 		INIT_DELAYED_WORK(&s->input_boost_rem, do_input_boost_rem);
 		s->thread = kthread_run(boost_mig_sync_thread, (void *)cpu,
 					"boost_sync/%d", cpu);
+		set_cpus_allowed(s->thread, *cpumask_of(cpu));
 	}
 	atomic_notifier_chain_register(&migration_notifier_head,
 					&boost_migration_nb);
