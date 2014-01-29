@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -209,6 +209,7 @@ static int mdp_mmap(struct v4l2_subdev *sd, void *arg)
 		return -EINVAL;
 	}
 
+	msm_fb_writeback_iommu_ref(inst->mdp, true);
 	if (inst->secure) {
 		rc = msm_ion_secure_buffer(mmap->ion_client,
 			mregion->ion_handle, VIDEO_PIXEL, 0);
@@ -232,12 +233,15 @@ static int mdp_mmap(struct v4l2_subdev *sd, void *arg)
 		goto iommu_fail;
 	}
 	mregion->paddr = dma_addr_to_void_ptr(paddr);
+	msm_fb_writeback_iommu_ref(inst->mdp, false);
 
 	return 0;
 iommu_fail:
 	if (inst->secure)
 		msm_ion_unsecure_buffer(mmap->ion_client, mregion->ion_handle);
 secure_fail:
+	msm_fb_writeback_iommu_ref(inst->mdp, false);
+
 	return rc;
 }
 
@@ -252,10 +256,10 @@ static int mdp_munmap(struct v4l2_subdev *sd, void *arg)
 		WFD_MSG_ERR("Invalid argument\n");
 		return -EINVAL;
 	}
-
 	inst = mmap->cookie;
 	mregion = mmap->mregion;
 
+	msm_fb_writeback_iommu_ref(inst->mdp, true);
 	domain = msm_fb_get_iommu_domain(inst->mdp,
 			inst->secure ? MDP_IOMMU_DOMAIN_CP :
 					MDP_IOMMU_DOMAIN_NS);
@@ -265,6 +269,7 @@ static int mdp_munmap(struct v4l2_subdev *sd, void *arg)
 
 	if (inst->secure)
 		msm_ion_unsecure_buffer(mmap->ion_client, mregion->ion_handle);
+	msm_fb_writeback_iommu_ref(inst->mdp, false);
 
 	return 0;
 }
