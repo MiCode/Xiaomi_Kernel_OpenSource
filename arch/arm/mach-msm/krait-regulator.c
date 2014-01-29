@@ -192,6 +192,7 @@ struct pmic_gang_vreg {
 	void __iomem		*apcs_gcc_base;
 	bool			manage_phases;
 	int			pfm_threshold;
+	bool			force_auto_mode;
 	int			efuse_phase_scaling_factor;
 	int			cores_per_phase;
 	int			*phase_coeff_threshold;
@@ -474,6 +475,7 @@ static bool enable_phase_management(struct pmic_gang_vreg *pvreg)
 
 #define PMIC_FTS_MODE_PFM	0x00
 #define PMIC_FTS_MODE_PWM	0x80
+#define PMIC_FTS_MODE_AUTO	0x40
 #define ONE_PHASE_COEFF		1000000
 #define TWO_PHASE_COEFF		2000000
 
@@ -498,34 +500,36 @@ static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 			return 0;
 	}
 
-	/* First check if the coeff is low for PFM mode */
-	if (load_total <= pvreg->pfm_threshold
-			&& n_online == 1
-			&& krait_pmic_is_ready()) {
-		if (!pvreg->pfm_mode) {
-			rc = msm_spm_enable_fts_lpm(PMIC_FTS_MODE_PFM);
-			if (rc) {
-				pr_err("%s PFM en failed load_t %d rc = %d\n",
-					from->name, load_total, rc);
-				return rc;
+	if (!pvreg->force_auto_mode) {
+		/* First check if the coeff is low for PFM mode */
+		if (load_total <= pvreg->pfm_threshold
+				&& n_online == 1
+				&& krait_pmic_is_ready()) {
+			if (!pvreg->pfm_mode) {
+				rc = msm_spm_enable_fts_lpm(PMIC_FTS_MODE_PFM);
+				if (rc) {
+					pr_err("%s PFM en failed load_t %d rc = %d\n",
+						from->name, load_total, rc);
+					return rc;
+				}
+				krait_pmic_post_pfm_entry();
+				pvreg->pfm_mode = true;
 			}
-			krait_pmic_post_pfm_entry();
-			pvreg->pfm_mode = true;
-		}
-		return rc;
-	}
-
-	/* coeff is high switch to PWM mode before changing phases */
-	if (pvreg->pfm_mode) {
-		rc = msm_spm_enable_fts_lpm(PMIC_FTS_MODE_PWM);
-		if (rc) {
-			pr_err("%s PFM exit failed load %d rc = %d\n",
-				from->name, coeff_total, rc);
 			return rc;
 		}
-		pvreg->pfm_mode = false;
-		krait_pmic_post_pwm_entry();
-		udelay(PWM_SETTLING_TIME_US);
+
+		/* coeff is high switch to PWM mode before changing phases */
+		if (pvreg->pfm_mode) {
+			rc = msm_spm_enable_fts_lpm(PMIC_FTS_MODE_PWM);
+			if (rc) {
+				pr_err("%s PFM exit failed load %d rc = %d\n",
+					from->name, coeff_total, rc);
+				return rc;
+			}
+			pvreg->pfm_mode = false;
+			krait_pmic_post_pwm_entry();
+			udelay(PWM_SETTLING_TIME_US);
+		}
 	}
 
 	phase_count = pvreg->valid_phases[pvreg->num_phase_entries - 1];
@@ -544,6 +548,18 @@ static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 		phase_count = DIV_ROUND_UP(n_online, pvreg->cores_per_phase);
 
 	if (phase_count != pvreg->pmic_phase_count) {
+		if (pvreg->force_auto_mode && phase_count > 1) {
+			/* Disable Auto Mode prior to setting phase count > 1 */
+			rc = msm_spm_enable_fts_lpm(PMIC_FTS_MODE_PWM);
+			if (rc) {
+				dev_err(&from->rdev->dev,
+					"failed to force PWM, rc=%d\n", rc);
+				return rc;
+			}
+			/* complete the writes before switching phases */
+			mb();
+		}
+
 		rc = set_pmic_gang_phases(pvreg, phase_count);
 		if (rc < 0) {
 			pr_err("%s failed set phase %d rc = %d\n",
@@ -561,6 +577,17 @@ static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 		if (phase_count > pvreg->pmic_phase_count)
 			udelay(PHASE_SETTLING_TIME_US);
 
+		if (pvreg->force_auto_mode && phase_count == 1) {
+			/* Enable Auto Mode after setting phase count = 1 */
+			rc = msm_spm_enable_fts_lpm(PMIC_FTS_MODE_AUTO);
+			if (rc) {
+				dev_err(&from->rdev->dev,
+					"failed to force AUTO, rc=%d\n", rc);
+				return rc;
+			}
+			/* complete the writes before any other access */
+			mb();
+		}
 		pvreg->pmic_phase_count = phase_count;
 	}
 
@@ -1678,6 +1705,7 @@ static int krait_pdn_probe(struct platform_device *pdev)
 	int *phase_coeff_threshold;
 	int num_phase_entries;
 	int valid_phase_len, phase_coeff_threshold_entries;
+	bool force_auto_mode;
 	int i;
 
 	if (!dev->of_node) {
@@ -1688,10 +1716,16 @@ static int krait_pdn_probe(struct platform_device *pdev)
 	use_phase_switching = of_property_read_bool(node,
 						"qcom,use-phase-switching");
 
-	rc = of_property_read_u32(node, "qcom,pfm-threshold", &pfm_threshold);
-	if (rc < 0) {
-		dev_err(dev, "pfm-threshold missing rc=%d, pfm disabled\n", rc);
-		return -EINVAL;
+	force_auto_mode = of_property_read_bool(pdev->dev.of_node,
+				"qcom,force-auto-mode");
+
+	if (!force_auto_mode) {
+		rc = of_property_read_u32(node, "qcom,pfm-threshold",
+						&pfm_threshold);
+		if (rc < 0) {
+			dev_err(dev, "pfm-threshold missing rc=%d\n", rc);
+			return -EINVAL;
+		}
 	}
 
 	rc = of_property_read_u32(node, "qcom,cores-per-phase",
@@ -1795,6 +1829,7 @@ static int krait_pdn_probe(struct platform_device *pdev)
 	pvreg->valid_phases = valid_phases;
 	pvreg->phase_coeff_threshold = phase_coeff_threshold;
 	pvreg->num_phase_entries = num_phase_entries;
+	pvreg->force_auto_mode = force_auto_mode;
 
 	mutex_init(&pvreg->krait_power_vregs_lock);
 	INIT_LIST_HEAD(&pvreg->krait_power_vregs);
@@ -1804,6 +1839,14 @@ static int krait_pdn_probe(struct platform_device *pdev)
 
 	/* global initializtion */
 	glb_init(pvreg->apcs_gcc_base);
+	/* auto mode initialization */
+	if (pvreg->force_auto_mode) {
+		rc = msm_spm_enable_fts_lpm(PMIC_FTS_MODE_AUTO);
+		if (rc) {
+			dev_err(dev, "failed to force AUTO, rc=%d\n", rc);
+			return rc;
+		}
+	}
 
 	rc = of_platform_populate(node, NULL, NULL, dev);
 	if (rc) {

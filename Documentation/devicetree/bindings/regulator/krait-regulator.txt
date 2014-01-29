@@ -20,8 +20,6 @@ Required properties:
 				where the APCS GCC registers reside.
 				"phase-scaling-efuse" should be used to identify
 				the phase scaling factor eFuse address.
-- qcom,pfm-threshold		The power coeff threshold in abstract power units below which
-				pmic will be made to operate in PFM mode.
 - qcom,cores-per-phase		Value that indicates the number of cores running at max frequency
 				a phase can support.
 - qcom,valid-phases		An array containing the phase count the platform supports. The phase count
@@ -44,6 +42,11 @@ Optional properties:
 				the phase scaling eFuse should be used or not.
 				If this property is not specified, then worst
 				case scaling will be assumed.
+- qcom,force-auto-mode		indicates whether auto mode should be used i.e. disable pfm/pwm
+				mode switching for the pmic ganged regulator. If this is not specified
+				qcom,pfm-threshold must be specified.
+- qcom,pfm-threshold		The power coeff threshold in abstract power units below which
+				pmic will be made to operate in PFM mode.
 
 [Second Level Nodes]
 Required properties:
