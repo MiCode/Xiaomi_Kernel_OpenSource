@@ -6785,18 +6785,21 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	snd_soc_card_change_online_state(codec->card, 1);
 
 	mutex_lock(&codec->mutex);
-	if (codec->reg_def_copy) {
-		pr_debug("%s: Update ASOC cache", __func__);
-		kfree(codec->reg_cache);
-		codec->reg_cache = kmemdup(codec->reg_def_copy,
-						codec->reg_size, GFP_KERNEL);
-	}
+
+	taiko_update_reg_defaults(codec);
+	if (wcd9xxx->mclk_rate == TAIKO_MCLK_CLK_12P288MHZ)
+		snd_soc_update_bits(codec, TAIKO_A_CHIP_CTL, 0x06, 0x0);
+	else if (wcd9xxx->mclk_rate == TAIKO_MCLK_CLK_9P6MHZ)
+		snd_soc_update_bits(codec, TAIKO_A_CHIP_CTL, 0x06, 0x2);
+	taiko_codec_init_reg(codec);
 
 	if (spkr_drv_wrnd == 1)
 		snd_soc_update_bits(codec, TAIKO_A_SPKR_DRV_EN, 0x80, 0x80);
 
-	taiko_update_reg_defaults(codec);
-	taiko_codec_init_reg(codec);
+	codec->cache_sync = true;
+	snd_soc_cache_sync(codec);
+	codec->cache_sync = false;
+
 	ret = taiko_handle_pdata(taiko);
 	if (IS_ERR_VALUE(ret))
 		pr_err("%s: bad pdata\n", __func__);
