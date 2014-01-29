@@ -302,7 +302,7 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 				return -EREMOTEIO;
 			timeout = wait_for_completion_timeout(&dev->ctrl_up,
 							HZ);
-			if (!timeout)
+			if (!timeout && dev->state == MSM_CTRL_DOWN)
 				return -ETIMEDOUT;
 		}
 		msm_slim_get_ctrl(dev);
@@ -517,6 +517,7 @@ static int ngd_xferandwait_ack(struct slim_controller *ctrl,
 	if (ret) {
 		pr_err("master msg:0x%x,tid:%d ret:%d", txn->mc,
 				txn->tid, ret);
+		WARN(1, "timeout during xfer and wait");
 		mutex_lock(&ctrl->m_ctrl);
 		ctrl->txnt[txn->tid] = NULL;
 		mutex_unlock(&ctrl->m_ctrl);
