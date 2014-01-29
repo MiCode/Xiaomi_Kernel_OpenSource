@@ -15,6 +15,12 @@
 		serial0 = &blsp2_uart1;
 	};
 
+	memory {
+		fb_mem: fb_region@0 {
+			reg = <0 0 0 0x4400000>;
+		};
+	};
+
 	bt_qca6174 {
 		compatible = "qca,qca6174";
 		qca,bt-reset-gpio = <&pma8084_gpios 4 0>; /* BT_EN */
@@ -85,6 +91,7 @@
 };
 
 &mdss_hdmi_tx {
+	qcom,primary_panel = <1>;
 	qcom,mdss-fb-map = <&mdss_fb0>;
 	hpd-5v-en-supply = <&vph_pwr_vreg>;
 	qcom,supply-names = "hpd-gdsc", "hpd-5v", "core-vdda", "core-vcc";
@@ -92,6 +99,7 @@
 	qcom,max-voltage-level = <0 0 1800000 1800000>;
 	qcom,enable-load = <0 0 300000 0>;
 	qcom,disable-load = <0 0 0 0>;
+	status = "ok";
 };
 
 &uart6 {
