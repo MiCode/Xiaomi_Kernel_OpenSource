@@ -114,7 +114,7 @@ struct mdss_data_type {
 	u32 irq_buzy;
 	u32 has_bwc;
 	u32 has_decimation;
-	u8 has_wfd_blk;
+	u32 wfd_mode;
 	u8 has_wb_ad;
 
 	u32 rotator_ot_limit;

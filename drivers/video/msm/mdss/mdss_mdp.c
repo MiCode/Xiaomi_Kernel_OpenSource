@@ -2261,6 +2261,7 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 {
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 	u32 data;
+	const char *wfd_data;
 	int rc;
 	struct property *prop = NULL;
 
@@ -2276,8 +2277,25 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 					       "qcom,mdss-has-bwc");
 	mdata->has_decimation = of_property_read_bool(pdev->dev.of_node,
 		"qcom,mdss-has-decimation");
-	mdata->has_wfd_blk = of_property_read_bool(pdev->dev.of_node,
-		"qcom,mdss-has-wfd-blk");
+	wfd_data = of_get_property(pdev->dev.of_node,
+					"qcom,mdss-wfd-mode", NULL);
+	if (wfd_data) {
+		pr_debug("wfd mode: %s\n", wfd_data);
+		if (!strcmp(wfd_data, "intf")) {
+			mdata->wfd_mode = MDSS_MDP_WFD_INTERFACE;
+		} else if (!strcmp(wfd_data, "shared")) {
+			mdata->wfd_mode = MDSS_MDP_WFD_SHARED;
+		} else if (!strcmp(wfd_data, "dedicated")) {
+			mdata->wfd_mode = MDSS_MDP_WFD_DEDICATED;
+		} else {
+			pr_debug("wfd default mode: Shared\n");
+			mdata->wfd_mode = MDSS_MDP_WFD_SHARED;
+		}
+	} else {
+		pr_warn("wfd mode not configured. Set to default: Shared\n");
+		mdata->wfd_mode = MDSS_MDP_WFD_SHARED;
+	}
+
 	prop = of_find_property(pdev->dev.of_node, "batfet-supply", NULL);
 	mdata->batfet_required = prop ? true : false;
 	rc = of_property_read_u32(pdev->dev.of_node,

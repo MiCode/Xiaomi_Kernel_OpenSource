@@ -608,7 +608,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		goto exit_fail;
 
 	if ((mixer->type == MDSS_MDP_MIXER_TYPE_WRITEBACK) &&
-		!mdp5_data->mdata->has_wfd_blk)
+		(mdp5_data->mdata->wfd_mode == MDSS_MDP_WFD_SHARED))
 		mdss_mdp_smp_release(pipe);
 
 	ret = mdss_mdp_smp_reserve(pipe);
@@ -1011,7 +1011,8 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		 * block mode configuration.
 		 */
 		if ((pipe->type == MDSS_MDP_PIPE_TYPE_DMA) &&
-		    (ctl->shared_lock && !ctl->mdata->has_wfd_blk)) {
+		    (ctl->shared_lock &&
+		    (ctl->mdata->wfd_mode == MDSS_MDP_WFD_SHARED))) {
 			if (ctl->mdata->mixer_switched) {
 				ret = mdss_mdp_overlay_pipe_setup(mfd,
 						&pipe->req_data, &pipe);
