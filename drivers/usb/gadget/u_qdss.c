@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,7 +13,8 @@
 #include <linux/kernel.h>
 #include <linux/device.h>
 #include <linux/usb/msm_hsusb.h>
-#include <mach/usb_bam.h>
+#include <linux/usb_bam.h>
+
 #include "gadget_chips.h"
 
 struct  usb_qdss_bam_connect_info {

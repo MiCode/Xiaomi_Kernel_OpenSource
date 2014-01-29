@@ -19,8 +19,9 @@
 #include <linux/debugfs.h>
 #include <linux/bitops.h>
 #include <linux/termios.h>
-#include <mach/usb_bridge.h>
-#include <mach/usb_gadget_xport.h>
+#include <linux/usb/usb_bridge.h>
+
+#include "usb_gadget_xport.h"
 
 /* from cdc-acm.h */
 #define ACM_CTRL_RTS		(1 << 1)	/* unused with full duplex */

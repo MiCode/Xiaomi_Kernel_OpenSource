@@ -25,7 +25,7 @@
 #include <linux/of.h>
 #include <linux/kmemleak.h>
 #ifdef CONFIG_DIAG_OVER_USB
-#include <mach/usbdiag.h>
+#include <linux/usb/usbdiag.h>
 #endif
 #include <soc/qcom/socinfo.h>
 #include <soc/qcom/smd.h>

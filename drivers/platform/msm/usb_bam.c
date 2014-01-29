@@ -21,9 +21,9 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/usb/msm_hsusb.h>
-#include <mach/usb_bam.h>
 #include <linux/msm-sps.h>
 #include <linux/ipa.h>
+#include <linux/usb_bam.h>
 #include <linux/workqueue.h>
 #include <linux/dma-mapping.h>
 #include <soc/qcom/smsm.h>

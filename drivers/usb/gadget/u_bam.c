@@ -24,11 +24,11 @@
 
 #include <soc/qcom/bam_dmux.h>
 
-#include <mach/usb_gadget_xport.h>
 #include <linux/usb/msm_hsusb.h>
 #include <linux/usb/rmnet_ctrl_qti.h>
-#include <mach/usb_bam.h>
+#include <linux/usb_bam.h>
 
+#include "usb_gadget_xport.h"
 #include "u_rmnet.h"
 
 #define BAM_N_PORTS	1

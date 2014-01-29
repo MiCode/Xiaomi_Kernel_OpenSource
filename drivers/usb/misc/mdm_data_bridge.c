@@ -19,7 +19,7 @@
 #include <linux/platform_device.h>
 #include <linux/uaccess.h>
 #include <linux/ratelimit.h>
-#include <mach/usb_bridge.h>
+#include <linux/usb/usb_bridge.h>
 
 #define MAX_RX_URBS			100
 #define RMNET_RX_BUFSIZE		2048

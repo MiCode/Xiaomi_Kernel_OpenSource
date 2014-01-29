@@ -21,7 +21,7 @@
 #include "gadget_chips.h"
 #include "f_qdss.h"
 #include "u_qdss.c"
-#include <mach/usb_gadget_xport.h>
+#include "usb_gadget_xport.h"
 
 static unsigned int nr_qdss_ports;
 static unsigned int no_data_bam_ports;

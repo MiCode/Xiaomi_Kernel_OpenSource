@@ -20,9 +20,10 @@
 #include <linux/debugfs.h>
 #include <linux/bitops.h>
 #include <linux/termios.h>
-#include <mach/usb_bridge.h>
-#include <mach/usb_gadget_xport.h>
+#include <linux/usb/usb_bridge.h>
+
 #include "f_qdss.h"
+#include "usb_gadget_xport.h"
 
 static unsigned int no_data_ports;
 

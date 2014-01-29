@@ -24,7 +24,7 @@
 #include <linux/usb/cdc.h>
 #include <linux/termios.h>
 #include <asm/unaligned.h>
-#include <mach/usb_bridge.h>
+#include <linux/usb/usb_bridge.h>
 
 #define ACM_CTRL_DTR		(1 << 0)
 #define DEFAULT_READ_URB_LENGTH	4096

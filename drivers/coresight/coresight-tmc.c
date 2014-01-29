@@ -36,7 +36,7 @@
 #include <linux/usb/usb_qdss.h>
 #include <linux/dma-mapping.h>
 #include <linux/msm-sps.h>
-#include <mach/usb_bam.h>
+#include <linux/usb_bam.h>
 #include <soc/qcom/memory_dump.h>
 
 #include "coresight-priv.h"

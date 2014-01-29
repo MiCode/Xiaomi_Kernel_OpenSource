@@ -32,7 +32,7 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/android.h>
 
-#include <mach/diag_dload.h>
+#include <linux/qcom/diag_dload.h>
 
 #include "gadget_chips.h"
 

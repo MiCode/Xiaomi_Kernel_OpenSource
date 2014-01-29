@@ -48,7 +48,7 @@
 #include <linux/mhl_8334.h>
 #include <linux/qpnp/qpnp-adc.h>
 
-#include <mach/msm_bus.h>
+#include <linux/msm-bus.h>
 
 #define MSM_USB_BASE	(motg->regs)
 #define DRIVER_NAME	"msm_otg"

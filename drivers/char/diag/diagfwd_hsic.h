@@ -13,7 +13,7 @@
 #ifndef DIAGFWD_HSIC_H
 #define DIAGFWD_HSIC_H
 
-#include <mach/diag_bridge.h>
+#include <linux/usb/diag_bridge.h>
 
 #define N_MDM_WRITE	8
 #define N_MDM_READ	1

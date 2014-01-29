@@ -15,10 +15,9 @@
 #include <linux/kernel.h>
 #include <linux/device.h>
 #include <linux/spinlock.h>
+#include <linux/usb_bam.h>
 
-#include <mach/usb_gadget_xport.h>
-#include <mach/usb_bam.h>
-
+#include "usb_gadget_xport.h"
 #include "u_ether.h"
 #include "u_rmnet.h"
 #include "gadget_chips.h"
