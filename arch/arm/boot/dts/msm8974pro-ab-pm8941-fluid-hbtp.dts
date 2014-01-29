@@ -14,6 +14,7 @@
 
 /include/ "msm8974pro-ab-pm8941.dtsi"
 /include/ "msm8974-fluid.dtsi"
+/include/ "dsi-panel-jdi-720p-cmd.dtsi"
 
 / {
 	model = "Qualcomm MSM 8974Pro-AA/AB FLUID";
@@ -22,6 +23,10 @@
 };
 
 &soc {
+	qcom,mdss_dsi@fd922800{
+		qcom,dsi-pref-prim-pan = <&dsi_jdi_720p_cmd>;
+	};
+
 	spi@f9966000 { /* BLSP2 QUP4 */
 		/* Leave the SPI bus for QDSP to use */
 		status = "disabled";
