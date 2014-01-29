@@ -38,10 +38,6 @@ module_param_array(rmnet_dev_names, charp, NULL, S_IRUGO | S_IWUSR);
 #define ACM_CTRL_RI		BIT(2)
 #define ACM_CTRL_CD		BIT(3)
 
-/* polling interval for Interrupt ep */
-#define HS_INTERVAL		7
-#define FS_LS_INTERVAL		3
-
 /*echo modem_wait > /sys/class/hsicctl/hsicctlx/modem_wait*/
 static ssize_t modem_wait_store(struct device *d, struct device_attribute *attr,
 		const char *buf, size_t n)
@@ -881,9 +877,7 @@ int rmnet_usb_ctrl_probe(struct usb_interface *intf,
 		cudev->intf->cur_altsetting->desc.bInterfaceNumber;
 	cudev->in_ctlreq->wLength = cpu_to_le16(DEFAULT_READ_URB_LENGTH);
 
-	interval = max((int)int_in->desc.bInterval,
-			(udev->speed == USB_SPEED_HIGH) ? HS_INTERVAL
-							: FS_LS_INTERVAL);
+	interval = int_in->desc.bInterval;
 
 	usb_fill_int_urb(cudev->inturb, udev,
 			 cudev->int_pipe,
