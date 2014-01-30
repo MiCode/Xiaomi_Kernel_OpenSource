@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -285,12 +285,33 @@
 #define ENABLE_RRD_TIMESTAMP                                        0x8
 
 /* EMAC_EMAC_WRAPPER_CSR2 */
+#define HDRIVE_BMSK                                              0x3000
+#define HDRIVE_SHFT                                                  12
+#define SLB_EN                                                    0x200
+#define PLB_EN                                                    0x100
 #define WOL_EN                                                     0x80
-#define PHY_RESET                                                  0x01
+#define CKEDGE_SEL                                                 0x40
+#define TX_ID_EN_L                                                 0x20
+#define RX_ID_EN_L                                                 0x10
+#define RGMII_PHY_MODE_BMSK                                         0x6
+#define RGMII_PHY_MODE_SHFT                                           1
+#define PHY_RESET                                                   0x1
+
+/* EMAC_EMAC_WRAPPER_CSR3 */
+#define PLL_RESET                                             0x1000000
+#define PLL_L_VAL_5_0_BMSK                                     0xfc0000
+#define PLL_L_VAL_5_0_SHFT                                           18
+#define BYPASSNL                                                0x10000
+
+/* EMAC_EMAC_WRAPPER_CSR5 */
+#define RMII_125_CLK_EN                                            0x20
 
 /* EMAC_EMAC_WRAPPER_CSR10 */
 #define RD_CLR_1588                                                 0x2
 #define DIS_1588                                                    0x1
+
+/* EMAC_EMAC_WRAPPER_STATUS */
+#define PLL_LOCK_DET                                                0x1
 
 /* EMAC_EMAC_WRAPPER_TX_TS_INX */
 #define EMAC_WRAPPER_TX_TS_EMPTY                             0x80000000

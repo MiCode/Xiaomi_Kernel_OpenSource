@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -113,7 +113,11 @@
 /* EMAC_CSR register offsets */
 #define EMAC_EMAC_WRAPPER_CSR1                   0x000000
 #define EMAC_EMAC_WRAPPER_CSR2                   0x000004
+#define EMAC_EMAC_WRAPPER_CSR3                   0x000008
+#define EMAC_EMAC_WRAPPER_CSR5                   0x000010
 #define EMAC_EMAC_WRAPPER_CSR10                  0x000024
+#define EMAC_EMAC_WRAPPER_CSR18                  0x000044
+#define EMAC_EMAC_WRAPPER_STATUS                 0x000100
 #define EMAC_EMAC_WRAPPER_TX_TS_LO               0x000104
 #define EMAC_EMAC_WRAPPER_TX_TS_HI               0x000108
 #define EMAC_EMAC_WRAPPER_TX_TS_INX              0x00010c

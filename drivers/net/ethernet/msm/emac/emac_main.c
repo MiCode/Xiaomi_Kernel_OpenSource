@@ -1495,7 +1495,7 @@ int emac_up(struct emac_adapter *adpt)
 	emac_hw_config_mac(hw);
 	emac_config_rss(adpt);
 
-	for (i = 0; adpt->no_ephy == false && i < EMAC_NUM_GPIO; i++) {
+	for (i = 0; (!adpt->no_mdio_gpio) && i < EMAC_NUM_GPIO; i++) {
 		struct emac_gpio_info *gpio_info = &adpt->gpio_info[i];
 		retval = gpio_request(gpio_info->gpio, gpio_info->name);
 		if (retval) {
@@ -1544,7 +1544,7 @@ int emac_up(struct emac_adapter *adpt)
 	return retval;
 
 err_request_irq:
-	for (i = 0; adpt->no_ephy == false && i < EMAC_NUM_GPIO; i++)
+	for (i = 0; (!adpt->no_mdio_gpio) && i < EMAC_NUM_GPIO; i++)
 		gpio_free(adpt->gpio_info[i].gpio);
 err_request_gpio:
 	return retval;
@@ -1569,7 +1569,7 @@ void emac_down(struct emac_adapter *adpt, u32 ctrl)
 		if (adpt->irq_info[i].irq)
 			free_irq(adpt->irq_info[i].irq, &adpt->irq_info[i]);
 
-	for (i = 0; adpt->no_ephy == false && i < EMAC_NUM_GPIO; i++)
+	for (i = 0; (!adpt->no_mdio_gpio) && i < EMAC_NUM_GPIO; i++)
 		gpio_free(adpt->gpio_info[i].gpio);
 
 	CLI_ADPT_FLAG(TASK_LSC_REQ);
@@ -1885,6 +1885,26 @@ static void emac_link_task_routine(struct emac_adapter *adpt)
 
 		pm_runtime_get_sync(netdev->dev.parent);
 		emac_info(adpt, timer, "NIC Link is Up %s\n", link_desc);
+
+		/* for rgmii phy, set tx clk rate based on link speed */
+		if (adpt->phy_mode == PHY_INTERFACE_MODE_RGMII) {
+			switch (hw->link_speed) {
+			case EMAC_LINK_SPEED_1GB_FULL:
+				clk_set_rate(adpt->clk_info[EMAC_TX_CLK].clk,
+					     125000000);
+				break;
+			case EMAC_LINK_SPEED_100_FULL:
+			case EMAC_LINK_SPEED_100_HALF:
+				clk_set_rate(adpt->clk_info[EMAC_TX_CLK].clk,
+					     25000000);
+				break;
+			case EMAC_LINK_SPEED_10_FULL:
+			case EMAC_LINK_SPEED_10_HALF:
+				clk_set_rate(adpt->clk_info[EMAC_TX_CLK].clk,
+					     2500000);
+				break;
+			}
+		}
 
 		emac_hw_start_mac(hw);
 		netif_carrier_on(netdev);
@@ -2268,7 +2288,6 @@ static int emac_resume(struct device *device)
 	struct emac_hw *hw = &adpt->hw;
 	u32 retval;
 
-	emac_hw_reset_phy(hw);
 	emac_hw_reset_mac(hw);
 	retval = emac_setup_phy_link(hw, hw->autoneg_advertised, true,
 				     !hw->disable_fc_autoneg);
@@ -2429,8 +2448,12 @@ static int emac_get_resources(struct platform_device *pdev,
 
 	adpt->phy_mode = retval;
 
+	/* For rgmii phy, the mdio lines are dedicated pins */
+	if (adpt->no_ephy || (adpt->phy_mode == PHY_INTERFACE_MODE_RGMII))
+		adpt->no_mdio_gpio = true;
+
 	/* get gpios */
-	for (i = 0; adpt->no_ephy == false && i < EMAC_NUM_GPIO; i++) {
+	for (i = 0; (!adpt->no_mdio_gpio) && i < EMAC_NUM_GPIO; i++) {
 		gpio_info = &adpt->gpio_info[i];
 		retval = of_get_named_gpio(node, gpio_info->name, 0);
 		if (retval < 0)
@@ -2618,15 +2641,19 @@ static int emac_probe(struct platform_device *pdev)
 	emac_init_adapter(adpt);
 
 	/* init phy */
-	emac_hw_init_phy(hw);
+	retval = emac_hw_init_phy(hw);
+	if (retval)
+		goto err_init_phy;
 
 	/* enable clocks */
 	retval = emac_enable_clks(adpt);
 	if (retval)
 		goto err_clk_en;
 
-	/* reset phy */
-	emac_hw_reset_phy(hw);
+	/* init external phy */
+	retval = emac_hw_init_ephy(hw);
+	if (retval)
+		goto err_init_ephy;
 
 	/* reset mac */
 	emac_hw_reset_mac(hw);
@@ -2685,7 +2712,9 @@ static int emac_probe(struct platform_device *pdev)
 
 err_register_netdev:
 err_phy_link:
+err_init_ephy:
 err_clk_en:
+err_init_phy:
 err_clk_init:
 	emac_disable_clks(adpt);
 	emac_release_resources(adpt);

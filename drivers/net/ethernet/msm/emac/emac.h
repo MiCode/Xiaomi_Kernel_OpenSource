@@ -644,6 +644,7 @@ struct emac_adapter {
 	bool            tstamp_en;
 	int             phy_mode;
 	bool            no_ephy;
+	bool            no_mdio_gpio;
 	u32             wol;
 	u16             msg_enable;
 	unsigned long   flags;
