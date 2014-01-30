@@ -224,6 +224,9 @@ static int xhci_plat_runtime_suspend(struct device *dev)
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
 
+	if (!xhci)
+		return 0;
+
 	dev_dbg(dev, "xhci-plat runtime suspend\n");
 
 	return xhci_suspend(xhci);
@@ -233,6 +236,9 @@ static int xhci_plat_runtime_resume(struct device *dev)
 {
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+
+	if (!xhci)
+		return 0;
 
 	dev_dbg(dev, "xhci-plat runtime resume\n");
 
