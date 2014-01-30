@@ -20,11 +20,11 @@
 #include <linux/string.h>
 #include <linux/completion.h>
 #include <linux/platform_device.h>
+#include <soc/qcom/hsic_sysmon.h>
 #include <soc/qcom/sysmon.h>
 #include <soc/qcom/subsystem_notif.h>
 
 #include <mach/msm_smd.h>
-#include "hsic_sysmon.h"
 
 #define TX_BUF_SIZE	50
 #define RX_BUF_SIZE	500

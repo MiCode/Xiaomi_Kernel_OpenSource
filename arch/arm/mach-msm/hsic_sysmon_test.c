@@ -19,9 +19,9 @@
 #include <linux/device.h>
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
+#include <soc/qcom/hsic_sysmon.h>
 #include <soc/qcom/sysmon.h>
 
-#include "hsic_sysmon.h"
 
 #define DRIVER_DESC	"HSIC System monitor driver test"
 
