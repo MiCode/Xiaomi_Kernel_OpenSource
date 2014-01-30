@@ -11,6 +11,7 @@
  */
 
 #include "skeleton64.dtsi"
+#include <dt-bindings/clock/msm-clocks-8916.h>
 
 / {
 	model = "Qualcomm MSM8936";
@@ -359,4 +360,15 @@
 		qcom,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200>;
 		qcom,sensor-id = <0 1 2 3 5 6 7 8 9>;
 	};
+
+	clock_gcc: qcom,gcc {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
+	clock_rpm: qcom,rpmcc {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
 };
