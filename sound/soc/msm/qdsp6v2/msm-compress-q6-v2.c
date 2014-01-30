@@ -49,7 +49,12 @@
 #define PARTIAL_DRAIN_ACK_EARLY_BY_MSEC	150
 #define MP3_OUTPUT_FRAME_SZ		1152
 #define AAC_OUTPUT_FRAME_SZ		1024
+#define AC3_OUTPUT_FRAME_SZ		1536
+#define EAC3_OUTPUT_FRAME_SZ		1536
 #define DSP_NUM_OUTPUT_FRAME_BUFFERED	2
+
+/* decoder parameter length */
+#define DDP_DEC_MAX_NUM_PARAM		18
 
 /* Default values used if user space does not set */
 #define COMPR_PLAYBACK_MIN_FRAGMENT_SIZE (8 * 1024)
@@ -76,6 +81,7 @@ struct msm_compr_pdata {
 	uint32_t volume[MSM_FRONTEND_DAI_MAX][2]; /* For both L & R */
 	struct msm_compr_audio_effects *audio_effects[MSM_FRONTEND_DAI_MAX];
 	bool use_dsp_gapless_mode;
+	struct msm_compr_dec_params *dec_params[MSM_FRONTEND_DAI_MAX];
 };
 
 struct msm_compr_audio {
@@ -131,6 +137,10 @@ struct msm_compr_audio_effects {
 	struct eq_params equalizer;
 };
 
+struct msm_compr_dec_params {
+	struct snd_dec_ddp ddp_params;
+};
+
 static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 				uint32_t volume_l, uint32_t volume_r)
 {
@@ -156,6 +166,23 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 	}
 
 	return rc;
+}
+
+static int msm_compr_send_ddp_cfg(struct audio_client *ac,
+				  struct snd_dec_ddp *ddp)
+{
+	int i, rc;
+	pr_debug("%s\n", __func__);
+	for (i = 0; i < ddp->params_length; i++) {
+		rc = q6asm_ds1_set_endp_params(ac, ddp->params_id[i],
+						ddp->params_value[i]);
+		if (rc) {
+			pr_err("sending params_id: %d failed\n",
+				ddp->params_id[i]);
+			return rc;
+		}
+	}
+	return 0;
 }
 
 static int msm_compr_send_buffer(struct msm_compr_audio *prtd)
@@ -541,11 +568,20 @@ static int msm_compr_open(struct snd_compr_stream *cstream)
 		kfree(prtd);
 		return -ENOMEM;
 	}
+	pdata->dec_params[rtd->dai_link->be_id] =
+		 kzalloc(sizeof(struct msm_compr_dec_params), GFP_KERNEL);
+	if (!pdata->dec_params[rtd->dai_link->be_id]) {
+		pr_err("%s: Could not allocate memory for dec params\n",
+			__func__);
+		kfree(prtd);
+		return -ENOMEM;
+	}
 	prtd->audio_client = q6asm_audio_client_alloc(
 				(app_cb)compr_event_handler, prtd);
 	if (!prtd->audio_client) {
 		pr_err("%s: Could not allocate memory for client\n", __func__);
 		kfree(pdata->audio_effects[rtd->dai_link->be_id]);
+		kfree(pdata->dec_params[rtd->dai_link->be_id]);
 		kfree(prtd);
 		return -ENOMEM;
 	}
@@ -666,6 +702,7 @@ static int msm_compr_free(struct snd_compr_stream *cstream)
 	q6asm_audio_client_free(ac);
 
 	kfree(pdata->audio_effects[soc_prtd->dai_link->be_id]);
+	kfree(pdata->dec_params[soc_prtd->dai_link->be_id]);
 	kfree(prtd);
 
 	return 0;
@@ -730,11 +767,13 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 
 	case SND_AUDIOCODEC_AC3: {
 		prtd->codec = FORMAT_AC3;
+		frame_sz = AC3_OUTPUT_FRAME_SZ;
 		break;
 	}
 
 	case SND_AUDIOCODEC_EAC3: {
 		prtd->codec = FORMAT_EAC3;
+		frame_sz = EAC3_OUTPUT_FRAME_SZ;
 		break;
 	}
 
@@ -1474,6 +1513,74 @@ static int msm_compr_audio_effects_config_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm_compr_dec_params_put(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	unsigned long fe_id = kcontrol->private_value;
+	struct msm_compr_pdata *pdata = (struct msm_compr_pdata *)
+			snd_soc_platform_get_drvdata(platform);
+	struct msm_compr_dec_params *dec_params = NULL;
+	struct snd_compr_stream *cstream = NULL;
+	struct msm_compr_audio *prtd = NULL;
+	long *values = &(ucontrol->value.integer.value[0]);
+
+	pr_debug("%s\n", __func__);
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s Received out of bounds fe_id %lu\n",
+			__func__, fe_id);
+		return -EINVAL;
+	}
+
+	cstream = pdata->cstream[fe_id];
+	dec_params = pdata->dec_params[fe_id];
+
+	if (!cstream || !dec_params) {
+		pr_err("%s: stream or dec_params inactive\n", __func__);
+		return -EINVAL;
+	}
+	prtd = cstream->runtime->private_data;
+	if (!prtd) {
+		pr_err("%s: cannot set dec_params\n", __func__);
+		return -EINVAL;
+	}
+	switch (prtd->codec) {
+	case FORMAT_MP3:
+	case FORMAT_MPEG4_AAC:
+		pr_debug("%s: no runtime parameters for codec: %d\n", __func__,
+			 prtd->codec);
+		break;
+	case FORMAT_AC3:
+	case FORMAT_EAC3: {
+		struct snd_dec_ddp *ddp = &dec_params->ddp_params;
+		int cnt;
+		ddp->params_length = (*values++);
+		if (ddp->params_length > DDP_DEC_MAX_NUM_PARAM) {
+			pr_err("%s: invalid num of params:: %d\n", __func__,
+				ddp->params_length);
+			return -EINVAL;
+		}
+		for (cnt = 0; cnt < ddp->params_length; cnt++) {
+			ddp->params_id[cnt] = *values++;
+			ddp->params_value[cnt] = *values++;
+		}
+		if (msm_compr_send_ddp_cfg(prtd->audio_client, ddp) < 0)
+			pr_err("%s: DDP CMD CFG failed\n", __func__);
+		break;
+	}
+	default:
+		break;
+	}
+	return 0;
+}
+
+static int msm_compr_dec_params_get(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	/* dummy function */
+	return 0;
+}
+
 static int msm_compr_probe(struct snd_soc_platform *platform)
 {
 	struct msm_compr_pdata *pdata;
@@ -1493,6 +1600,7 @@ static int msm_compr_probe(struct snd_soc_platform *platform)
 		pdata->volume[i][0] = COMPRESSED_LR_VOL_MAX_STEPS;
 		pdata->volume[i][1] = COMPRESSED_LR_VOL_MAX_STEPS;
 		pdata->audio_effects[i] = NULL;
+		pdata->dec_params[i] = NULL;
 		pdata->cstream[i] = NULL;
 	}
 
@@ -1518,6 +1626,16 @@ static int msm_compr_volume_info(struct snd_kcontrol *kcontrol,
 
 static int msm_compr_audio_effects_config_info(struct snd_kcontrol *kcontrol,
 					       struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 128;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = 0xFFFFFFFF;
+	return 0;
+}
+
+static int msm_compr_dec_params_info(struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = 128;
@@ -1652,6 +1770,57 @@ static const struct snd_kcontrol_new msm_compr_gapless_controls[] = {
 			msm_compr_gapless_put),
 };
 
+static int msm_compr_add_dec_runtime_params_control(
+						struct snd_soc_pcm_runtime *rtd)
+{
+	const char *mixer_ctl_name	= "Audio Stream";
+	const char *deviceNo		= "NN";
+	const char *suffix		= "Dec Params";
+	char *mixer_str = NULL;
+	int ctl_len;
+	struct snd_kcontrol_new fe_dec_params_control[1] = {
+		{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "?",
+		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.info = msm_compr_dec_params_info,
+		.get = msm_compr_dec_params_get,
+		.put = msm_compr_dec_params_put,
+		.private_value = 0,
+		}
+	};
+
+	if (!rtd) {
+		pr_err("%s NULL rtd\n", __func__);
+		return 0;
+	}
+
+	pr_debug("%s: added new compr FE with name %s, id %d, cpu dai %s, device no %d\n",
+		 __func__, rtd->dai_link->name, rtd->dai_link->be_id,
+		 rtd->dai_link->cpu_dai_name, rtd->pcm->device);
+
+	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1 +
+		  strlen(suffix) + 1;
+	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
+
+	if (!mixer_str) {
+		pr_err("failed to allocate mixer ctrl str of len %d", ctl_len);
+		return 0;
+	}
+
+	snprintf(mixer_str, ctl_len, "%s %d %s", mixer_ctl_name,
+		 rtd->pcm->device, suffix);
+
+	fe_dec_params_control[0].name = mixer_str;
+	fe_dec_params_control[0].private_value = rtd->dai_link->be_id;
+	pr_debug("Registering new mixer ctl %s", mixer_str);
+	snd_soc_add_platform_controls(rtd->platform,
+				      fe_dec_params_control,
+				      ARRAY_SIZE(fe_dec_params_control));
+	kfree(mixer_str);
+	return 0;
+}
+
 static int msm_compr_new(struct snd_soc_pcm_runtime *rtd)
 {
 	int rc;
@@ -1662,6 +1831,10 @@ static int msm_compr_new(struct snd_soc_pcm_runtime *rtd)
 	rc = msm_compr_add_audio_effects_control(rtd);
 	if (rc)
 		pr_err("%s: Could not add Compr Audio Effects Control\n",
+			__func__);
+	rc = msm_compr_add_dec_runtime_params_control(rtd);
+	if (rc)
+		pr_err("%s: Could not add Compr Dec runtime params Control\n",
 			__func__);
 	return 0;
 }
