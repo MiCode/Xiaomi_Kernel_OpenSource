@@ -59,11 +59,11 @@
 
 /* QSERDES RX registers */
 #define QSERDES_RX_CDR_CONTROL		0x200
-#define QSERDES_RX_SIGDET_CNTRL		0x234
+#define QSERDES_RX_CDR_CONTROL2		0x210
+#define QSERDES_RX_RX_EQ_GAIN12		0x230
 #define QSERDES_RX_PWM_CNTRL1		0x280
 #define QSERDES_RX_PWM_CNTRL2		0x284
 #define QSERDES_RX_CDR_CONTROL_QUARTER	0x29c
-#define QSERDES_RX_RX_SIGDET_PWMDECSTATUS 0x2D8
 
 /* SATA PHY registers */
 #define SATA_PHY_SERDES_START		0x300
@@ -72,6 +72,7 @@
 #define SATA_PHY_TX_PWR_CTRL		0x30c
 #define SATA_PHY_LANE_CTRL1		0x318
 #define SATA_PHY_CDR_CTRL0		0x358
+#define SATA_PHY_CDR_CTRL1		0x35c
 #define SATA_PHY_TX_DRV_WAKEUP		0x360
 #define SATA_PHY_CLK_BUF_SETTLING	0x364
 #define SATA_PHY_SPDNEG_CFG0		0x370
@@ -418,12 +419,26 @@ static int msm_sata_phy_power_up(struct msm_sata_phy *phy)
 
 	/* PI configurations- First Order threshold and Second order gain */
 	writel_relaxed(0xeb, phy->mmio + QSERDES_RX_CDR_CONTROL);
-	writel_relaxed(0x1a, phy->mmio + QSERDES_RX_CDR_CONTROL_QUARTER);
+	writel_relaxed(0x5a, phy->mmio + QSERDES_RX_CDR_CONTROL2);
+	/* Config required only on reference boards with shared PHY */
+	if (phy->phy_sel)
+		writel_relaxed(0x1a, phy->mmio +
+					QSERDES_RX_CDR_CONTROL_QUARTER);
 
 	/* TX configurations */
-	writel_relaxed(0x1f, phy->mmio + QSERDES_TX_TX_DRV_LVL);
+	/* TX config differences between shared & dedicated PHY */
+	if (phy->phy_sel)
+		writel_relaxed(0x1f, phy->mmio + QSERDES_TX_TX_DRV_LVL);
+	else
+		writel_relaxed(0x16, phy->mmio + QSERDES_TX_TX_DRV_LVL);
 	writel_relaxed(0x00, phy->mmio + QSERDES_TX_BIST_MODE_LANENO);
 	writel_relaxed(0x30, phy->mmio + QSERDES_TX_TX_EMP_POST1_LVL);
+
+	/* RX config differences between shared & dedicated PHY */
+	if (!phy->phy_sel) {
+		writel_relaxed(0x44, phy->mmio + QSERDES_RX_RX_EQ_GAIN12);
+		writel_relaxed(0x01, phy->mmio + SATA_PHY_CDR_CTRL1);
+	}
 
 	/* SSC Configurations and Serdes start */
 	writel_relaxed(0x00, phy->mmio + QSERDES_COM_SSC_EN_CENTER);
@@ -608,6 +623,7 @@ static int msm_sata_phy_probe(struct platform_device *pdev)
 	if (IS_ERR(phy->phy_sel)) {
 		err = PTR_ERR(phy->phy_sel);
 		/* phy_sel resource is optional */
+		phy->phy_sel = 0;
 		dev_dbg(dev, "%s: phy select resource get failed %d\n",
 				__func__, err);
 	}
