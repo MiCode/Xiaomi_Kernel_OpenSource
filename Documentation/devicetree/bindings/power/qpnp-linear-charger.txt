@@ -7,8 +7,79 @@ There are four different peripherals in the charger module.
 Each of these peripherals are implemented as subnodes.
 
 - qcom,chgr:		Supports charging control and status reporting
+- qcom,bat-if:		Battery status reporting such as presence and
+			temperature reporting.
 - qcom,usb-chgpth:	USB charge path detection and input current
 			limiting configuration.
+- qcom,chg-misc:	Miscellaneous features such as comparator override
+			features etc.
+
+Parent node required properties:
+- qcom,vddmax-mv:			Target voltage of battery in mV.
+- qcom,vddsafe-mv:			Maximum Vdd voltage in mV.
+- qcom,vinmin-mv:			Minimum input voltage in mV.
+- qcom,ibatsafe-ma:			Safety battery current setting
+
+Parent node optional properties:
+- qcom,vbatweak-mv:			Weak battery voltage threshold in mV,
+					above which fast charging can start.
+					The supported voltage range is from
+					2370mV to 3610mV with a step size of
+					40mV.
+- qcom,charging-disabled:		Set this property to disable charging
+					by default.
+- qcom,use-default-batt-values:		Set this flag to force reporting of
+					fake battery.
+- qcom,warm-bat-decidegc:		Warm battery temperature in decidegC.
+- qcom,cool-bat-decidegc:		Cool battery temperature in decidegC.
+					Note that if both warm and cool
+					battery temperatures are set, the
+					corresponding ibatmax and bat-mv
+					properties are required to be set.
+- qcom,ibatmax-cool-ma:			Maximum cool battery charge current.
+- qcom,ibatmax-warm-ma:			Maximum warm battery charge current.
+- qcom,warm-bat-mv:			Warm temperature battery target
+					voltage.
+- qcom,cool-bat-mv:			Cool temperature battery target
+					voltage.
+- qcom,thermal-mitigation:		Array of ibatmax values for different
+					system thermal mitigation level.
+- qcom,tchg-mins:			Maximum total software initialized
+					charge time.
+- qcom,bpd-detection:			Select a battery presence detection
+					scheme by specifying either "bpd_thm"
+					"bpd_id" or "bpd_thm_id". "bpd_thm"
+					selects the temperature pin, "bpd_id"
+					uses the id pin for battery presence
+					detection, "bpd_thm_id" selects both.
+					If the property is not set, the
+					temperatue pin will be used.
+- qcom,btc-disabled:			If flag is set battery hot and cold
+					monitoring is disabled in hardware.
+					This monitoring is turned on by
+					default.
+- qcom,batt-hot-percentage:		Specify a supported hot threshold
+					percentage.
+					Supported thresholds: 25% and 35%. If
+					none is specified hardware defaults
+					will be used.
+- qcom,batt-cold-percentage:		Specify a supported cold threshold
+					percentage. Supported thresholds: 70%
+					and 80%. If none is specified
+					hardwaredefaults will be used.
+- qcom,chg-adc_tm                       Corresponding ADC TM device's phandle
+					to set recurring measurements and
+					receive notification for batt_therm.
+-qcom,float-charge			If specified enable float charging.
+- qcom,resume-soc			Capacity in percent at which charging
+					should resume when a fully charged
+					battery drops below this level.
+- qcom,chg-vadc				Corresponding VADC device's phandle.
+- qcom,charger-detect-eoc		If specified charger hardware will
+					detect end-of-charge.
+					If not specified charger driver
+					depends on BMSfor end-of-charge
+					detection.
 
 Sub node required structure:
 - A qcom,charger node must be a child of an SPMI node that has specified
@@ -20,14 +91,16 @@ Sub node required structure:
 
 Sub node required properties:
 - compatible:		Must be "qcom,qpnp-linear-charger".
-- reg:			Specifies the SPMI address and size for this peripheral.
-- interrupts:		Specifies the interrupt associated with the peripheral.
-- interrupt-names:	Specifies the interrupt names for the peripheral. Every
-			available interrupt needs to have an associated name
-			with it to indentify its purpose.
+- reg:			Specifies the SPMI address and size for this
+			peripheral.
+- interrupts:		Specifies the interrupt associated with the
+			peripheral.
+- interrupt-names:	Specifies the interrupt names for the peripheral.
+			Every available interrupt needs to have an associated
+			name with it to indentify its purpose.
 
-			The following lists each subnode and their corresponding
-			required interrupt names:
+			The following lists each subnode and their
+			corresponding required interrupt names:
 
 			qcom,usb-chgpth:
 			 - usbin-valid
@@ -35,11 +108,14 @@ Sub node required properties:
 			The following interrupts are available:
 
 			qcom,usb-chgpth:
-			 - usbin-valid:		Indicates valid USB connection.
-			 - coarse-det-usb:	Coarse detect interrupt triggers
-						at low voltage on USB_IN.
+			 - usbin-valid:		Indicates valid USB
+						connection.
+			 - coarse-det-usb:	Coarse detect interrupt
+						triggers at low voltage on
+						USB_IN.
 			 - chg-gone:		Triggers on VCHG line.
-			 - overtemp:		Triggers on over temperature condition
+			 - overtemp:		Triggers on over temperature
+						condition
 
 			 qcom,chgr:
 			 - chg-done:		Triggers on charge completion.
@@ -55,12 +131,57 @@ Example:
 		#address-cells = <1>;
 		#size-cells = <1>;
 
+		qcom,vddmax-mv = <4200>;
+		qcom,vddsafe-mv = <4200>;
+		qcom,vinmin-mv = <4200>;
+		qcom,ibatsafe-ma = <1440>;
+		qcom,vbatweak-mv = <3200>;
+		qcom,thermal-mitigation = <1500 700 600 325>;
+		qcom,cool-bat-decidegc = <100>;
+		qcom,warm-bat-decidegc = <450>;
+		qcom,cool-bat-mv = <4100>;
+		qcom,ibatmax-warm-ma = <360>;
+		qcom,ibatmax-cool-ma = <360>;
+		qcom,warm-bat-mv = <4100>;
+		qcom,batt-hot-percentage = <25>;
+		qcom,batt-cold-percentage = <85>;
+		qcom,tchg-mins = <152>;
+		qcom,resume-soc = <99>;
+		qcom,btc-disabled = <0>;
+		qcom,chg-vadc = <&pm8916_vadc>;
+
 		qcom,chgr@1000 {
 			reg = <0x1000 0x100>;
+			interrupts =	<0x0 0x10 0x7>,
+					<0x0 0x10 0x6>,
+					<0x0 0x10 0x5>,
+					<0x0 0x10 0x0>;
+
+			interrupt-names =	"chg-done",
+						"chg-failed",
+						"fast-chg-on",
+						"vbat-det-lo";
 		};
+
+		qcom,bat-if@1200 {
+			reg = <0x1200 0x100>;
+			interrupts =	<0x0 0x12 0x1>,
+					<0x0 0x12 0x0>;
+
+			interrupt-names =	"bat-temp-ok",
+						"batt-pres";
+		};
+
 		qcom,usb-chgpth@1300 {
 			reg = <0x1300 0x100>;
-			interrupts = <0 0x13 0x1>,
-			interrupt-names = "usbin-valid",
+			interrupts =	<0 0x13 0x2>,
+					<0 0x13 0x1>;
+
+			interrupt-names =	"chg-gone",
+						"usbin-valid";
+		};
+
+		qcom,chg-misc@1600 {
+			reg = <0x1600 0x100>;
 		};
 	};
