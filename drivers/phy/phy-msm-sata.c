@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -80,7 +80,7 @@
 #define SATA_PHY_ALIGNP			0x3a4
 
 #define MAX_PROP_NAME              32
-#define VDDA_PHY_MIN_UV            1000000
+#define VDDA_PHY_MIN_UV            950000
 #define VDDA_PHY_MAX_UV            1000000
 #define VDDA_PLL_MIN_UV            1800000
 #define VDDA_PLL_MAX_UV            1800000
