@@ -229,7 +229,7 @@ int msm_ion_secure_buffer(struct ion_client *client, struct ion_handle *handle,
 out:
 	return ret;
 }
-
+EXPORT_SYMBOL(msm_ion_secure_buffer);
 
 static void msm_secure_buffer_release(struct kref *kref)
 {
@@ -282,6 +282,7 @@ int msm_ion_unsecure_buffer(struct ion_client *client,
 out:
 	return ret;
 }
+EXPORT_SYMBOL(msm_ion_unsecure_buffer);
 
 #define MAKE_CP_VERSION(major, minor, patch) \
 	(((major & 0x3FF) << 22) | ((minor & 0x3FF) << 12) | (patch & 0xFFF))
