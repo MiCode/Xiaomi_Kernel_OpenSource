@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -339,6 +339,8 @@ static void mdp3_dmap_config_source(struct mdp3_dma *dma)
 	dma_p_cfg_reg = MDP3_REG_READ(MDP3_REG_DMA_P_CONFIG);
 	dma_p_cfg_reg &= ~MDP3_DMA_IBUF_FORMAT_MASK;
 	dma_p_cfg_reg |= source_config->format << 25;
+	dma_p_cfg_reg &= ~MDP3_DMA_PACK_PATTERN_MASK;
+	dma_p_cfg_reg |= dma->output_config.pack_pattern << 8;
 
 	dma_p_size = source_config->width | (source_config->height << 16);
 

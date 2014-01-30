@@ -426,10 +426,10 @@ static int mdp3_ctrl_get_source_format(u32 imgType)
 	return format;
 }
 
-static int mdp3_ctrl_get_pack_pattern(struct msm_fb_data_type *mfd)
+static int mdp3_ctrl_get_pack_pattern(u32 imgType)
 {
 	int packPattern = MDP3_DMA_OUTPUT_PACK_PATTERN_RGB;
-	if (mfd->fb_imgType == MDP_RGBA_8888)
+	if (imgType == MDP_RGBA_8888)
 		packPattern = MDP3_DMA_OUTPUT_PACK_PATTERN_BGR;
 	return packPattern;
 }
@@ -530,7 +530,7 @@ static int mdp3_ctrl_dma_init(struct msm_fb_data_type *mfd,
 	outputConfig.out_sel = mdp3_ctrl_get_intf_type(mfd);
 	outputConfig.bit_mask_polarity = 0;
 	outputConfig.color_components_flip = 0;
-	outputConfig.pack_pattern = mdp3_ctrl_get_pack_pattern(mfd);
+	outputConfig.pack_pattern = mdp3_ctrl_get_pack_pattern(mfd->fb_imgType);
 	outputConfig.pack_align = MDP3_DMA_OUTPUT_PACK_ALIGN_LSB;
 	outputConfig.color_comp_out_bits = (MDP3_DMA_OUTPUT_COMP_BITS_8 << 4) |
 					(MDP3_DMA_OUTPUT_COMP_BITS_8 << 2)|
@@ -895,6 +895,8 @@ static int mdp3_overlay_set(struct msm_fb_data_type *mfd,
 				dma->source_config.format != format) {
 			dma->source_config.format = format;
 			dma->source_config.stride = stride;
+			dma->output_config.pack_pattern =
+				mdp3_ctrl_get_pack_pattern(req->src.format);
 			mdp3_clk_enable(1, 0);
 			mdp3_session->dma->dma_config_source(dma);
 			mdp3_clk_enable(0, 0);
@@ -924,6 +926,8 @@ static int mdp3_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
 		struct mdp3_dma *dma = mdp3_session->dma;
 		dma->source_config.format = format;
 		dma->source_config.stride = fix->line_length;
+		dma->output_config.pack_pattern =
+			mdp3_ctrl_get_pack_pattern(mfd->fb_imgType);
 		mdp3_clk_enable(1, 0);
 		mdp3_session->dma->dma_config_source(dma);
 		mdp3_clk_enable(0, 0);
