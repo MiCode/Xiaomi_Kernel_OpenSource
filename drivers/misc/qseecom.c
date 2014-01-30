@@ -1086,13 +1086,80 @@ int __qseecom_process_rpmb_svc_cmd(struct qseecom_dev_handle *data_ptr,
 	return ret;
 }
 
+int __qseecom_process_fsm_key_svc_cmd(struct qseecom_dev_handle *data_ptr,
+		struct qseecom_send_svc_cmd_req *req_ptr,
+		struct qseecom_client_send_fsm_key_req *send_svc_ireq_ptr)
+{
+	int ret = 0;
+	uint32_t reqd_len_sb_in = 0;
+
+	if ((req_ptr == NULL) || (send_svc_ireq_ptr == NULL)) {
+		pr_err("Error with pointer: req_ptr = %p, send_svc_ptr = %p\n",
+			req_ptr, send_svc_ireq_ptr);
+		return -EINVAL;
+	}
+
+	if (((uint32_t)req_ptr->cmd_req_buf <
+			data_ptr->client.user_virt_sb_base)
+			|| ((uint32_t)req_ptr->cmd_req_buf >=
+			(data_ptr->client.user_virt_sb_base +
+			data_ptr->client.sb_length))) {
+		pr_err("cmd buffer address not within shared bufffer\n");
+		return -EINVAL;
+	}
+
+	if (((uint32_t)req_ptr->resp_buf < data_ptr->client.user_virt_sb_base)
+			|| ((uint32_t)req_ptr->resp_buf >=
+			(data_ptr->client.user_virt_sb_base +
+			data_ptr->client.sb_length))){
+		pr_err("response buffer address not within shared bufffer\n");
+		return -EINVAL;
+	}
+
+	if ((req_ptr->cmd_req_len == 0) || (req_ptr->resp_len == 0) ||
+		req_ptr->cmd_req_len > data_ptr->client.sb_length ||
+		req_ptr->resp_len > data_ptr->client.sb_length) {
+		pr_err("cmd buffer length or response buffer length not valid\n");
+		return -EINVAL;
+	}
+
+	if (req_ptr->cmd_req_len > UINT_MAX - req_ptr->resp_len) {
+		pr_err("Integer overflow detected in req_len & rsp_len, exiting now\n");
+		return -EINVAL;
+	}
+
+	reqd_len_sb_in = req_ptr->cmd_req_len + req_ptr->resp_len;
+	if (reqd_len_sb_in > data_ptr->client.sb_length) {
+		pr_debug("Not enough memory to fit cmd_buf and resp_buf. ");
+		pr_debug("Required: %u, Available: %u\n",
+				reqd_len_sb_in, data_ptr->client.sb_length);
+		return -ENOMEM;
+	}
+
+	send_svc_ireq_ptr->qsee_cmd_id = req_ptr->cmd_id;
+	send_svc_ireq_ptr->req_len = req_ptr->cmd_req_len;
+	send_svc_ireq_ptr->rsp_ptr = (void *)(__qseecom_uvirt_to_kphys(data_ptr,
+					(uint32_t)req_ptr->resp_buf));
+	send_svc_ireq_ptr->rsp_len = req_ptr->resp_len;
+
+	send_svc_ireq_ptr->req_ptr = (void *)(__qseecom_uvirt_to_kphys(data_ptr,
+					(uint32_t)req_ptr->cmd_req_buf));
+
+
+	return ret;
+}
+
 static int qseecom_send_service_cmd(struct qseecom_dev_handle *data,
 				void __user *argp)
 {
 	int ret = 0;
 	struct qseecom_client_send_service_ireq send_svc_ireq;
+	struct qseecom_client_send_fsm_key_req send_fsm_key_svc_ireq;
 	struct qseecom_command_scm_resp resp;
 	struct qseecom_send_svc_cmd_req req;
+	void   *send_req_ptr;
+	size_t req_buf_size;
+
 	/*struct qseecom_command_scm_resp resp;*/
 
 	if (copy_from_user(&req,
@@ -1102,7 +1169,7 @@ static int qseecom_send_service_cmd(struct qseecom_dev_handle *data,
 		return -EFAULT;
 	}
 
-	if (req.resp_buf == NULL) {
+	if ((req.resp_buf == NULL) || (req.cmd_req_buf == NULL)) {
 		pr_err("cmd buffer or response buffer is null\n");
 		return -EINVAL;
 	}
@@ -1112,8 +1179,27 @@ static int qseecom_send_service_cmd(struct qseecom_dev_handle *data,
 	switch (req.cmd_id) {
 	case QSEOS_RPMB_PROVISION_KEY_COMMAND:
 	case QSEOS_RPMB_ERASE_COMMAND:
+		send_req_ptr = &send_svc_ireq;
+		req_buf_size = sizeof(send_svc_ireq);
 		if (__qseecom_process_rpmb_svc_cmd(data, &req,
-				&send_svc_ireq))
+				send_req_ptr))
+			return -EINVAL;
+		break;
+	case QSEOS_FSM_LTE_INIT_DB:
+	case QSEOS_FSM_LTE_STORE_KENB:
+	case QSEOS_FSM_LTE_GEN_KEYS:
+	case QSEOS_FSM_LTE_GET_KEY_OFFSETS:
+	case QSEOS_FSM_LTE_GEN_KENB_STAR:
+	case QSEOS_FSM_LTE_GET_KENB_STAR:
+	case QSEOS_FSM_LTE_STORE_NH:
+	case QSEOS_FSM_LTE_DELETE_NH:
+	case QSEOS_FSM_LTE_DELETE_KEYS:
+	case QSEOS_FSM_IKE_CMD_SIGN:
+	case QSEOS_FSM_IKE_CMD_PROV_KEY:
+		send_req_ptr = &send_fsm_key_svc_ireq;
+		req_buf_size = sizeof(send_fsm_key_svc_ireq);
+		if (__qseecom_process_fsm_key_svc_cmd(data, &req,
+				send_req_ptr))
 			return -EINVAL;
 		break;
 	default:
@@ -1145,8 +1231,8 @@ static int qseecom_send_service_cmd(struct qseecom_dev_handle *data,
 	msm_ion_do_cache_op(qseecom.ion_clnt, data->client.ihandle,
 				data->client.sb_virt, data->client.sb_length,
 				ION_IOC_CLEAN_INV_CACHES);
-	ret = scm_call(SCM_SVC_TZSCHEDULER, 1, (const void *) &send_svc_ireq,
-					sizeof(send_svc_ireq),
+	ret = scm_call(SCM_SVC_TZSCHEDULER, 1, (const void *) send_req_ptr,
+					req_buf_size,
 					&resp, sizeof(resp));
 	msm_ion_do_cache_op(qseecom.ion_clnt, data->client.ihandle,
 				data->client.sb_virt, data->client.sb_length,
