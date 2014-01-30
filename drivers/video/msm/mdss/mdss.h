@@ -120,6 +120,7 @@ struct mdss_data_type {
 
 	u32 res_init;
 
+	u32 highest_bank_bit;
 	u32 smp_mb_cnt;
 	u32 smp_mb_size;
 	u32 smp_mb_per_pipe;

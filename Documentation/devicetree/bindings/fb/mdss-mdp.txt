@@ -223,6 +223,9 @@ Fudge Factors:			Fudge factors are used to boost demand for
 				driver and open new use-cases.
 - qcom,mdss-clk-factor:		This fudge factor is applied to calculated mdp
 				clk rate in default conditions.
+- qcom,mdss-highest-bank-bit: Property to indicate tile format as opposed to usual
+				linear format. The value tells the GPU highest memory
+				 bank bit used.
 
 Optional subnodes:
 Child nodes representing the frame buffer virtual devices.
