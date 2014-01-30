@@ -83,6 +83,7 @@ struct zram_stats {
 };
 
 struct zram_meta {
+	rwlock_t tb_lock;	/* protect table */
 	void *compress_workmem;
 	void *compress_buffer;
 	struct table *table;
