@@ -2779,6 +2779,18 @@ static struct clk_lookup fsm_clocks_9900[] = {
 	/* LDO */
 	CLK_LOOKUP("pcie_0_ldo",        pcie_0_phy_ldo.c, "fc520000.qcom,pcie"),
 	CLK_LOOKUP("pcie_1_ldo",        pcie_1_phy_ldo.c, "fc528000.qcom,pcie"),
+
+	/* QSEECOM clocks */
+	CLK_LOOKUP("core_clk",     gcc_ce1_clk.c,         "qseecom"),
+	CLK_LOOKUP("iface_clk",    gcc_ce1_ahb_clk.c,     "qseecom"),
+	CLK_LOOKUP("bus_clk",      gcc_ce1_axi_clk.c,     "qseecom"),
+	CLK_LOOKUP("core_clk_src", ce1_clk_src.c,         "qseecom"),
+
+	CLK_LOOKUP("ce_drv_core_clk",     gcc_ce2_clk.c,         "qseecom"),
+	CLK_LOOKUP("ce_drv_iface_clk",    gcc_ce2_ahb_clk.c,     "qseecom"),
+	CLK_LOOKUP("ce_drv_bus_clk",      gcc_ce2_axi_clk.c,     "qseecom"),
+	CLK_LOOKUP("ce_drv_core_clk_src", ce2_clk_src.c,         "qseecom"),
+
 };
 
 static struct pll_config_regs gpll4_regs __initdata = {
