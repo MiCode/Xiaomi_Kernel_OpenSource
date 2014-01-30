@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -83,8 +83,8 @@ static int gdsc_enable(struct regulator_dev *rdev)
 		ret = readl_tight_poll_timeout(sc->gdscr, regval,
 					regval & PWR_ON_MASK, TIMEOUT_US);
 		if (ret) {
-			dev_err(&rdev->dev, "%s enable timed out\n",
-				sc->rdesc.name);
+			dev_err(&rdev->dev, "%s enable timed out: 0x%x\n",
+				sc->rdesc.name, regval);
 			return ret;
 		}
 	} else {
@@ -139,8 +139,8 @@ static int gdsc_disable(struct regulator_dev *rdev)
 					       !(regval & PWR_ON_MASK),
 						TIMEOUT_US);
 		if (ret)
-			dev_err(&rdev->dev, "%s disable timed out\n",
-				sc->rdesc.name);
+			dev_err(&rdev->dev, "%s disable timed out: 0x%x\n",
+				sc->rdesc.name, regval);
 	} else {
 		for (i = sc->clock_count-1; i >= 0; i--)
 			clk_reset(sc->clocks[i], CLK_RESET_ASSERT);
@@ -212,8 +212,8 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		ret = readl_tight_poll_timeout(sc->gdscr, regval,
 					regval & PWR_ON_MASK, TIMEOUT_US);
 		if (ret) {
-			dev_err(&rdev->dev, "%s set_mode timed out\n",
-				sc->rdesc.name);
+			dev_err(&rdev->dev, "%s set_mode timed out: 0x%x\n",
+				sc->rdesc.name, regval);
 			return ret;
 		}
 		break;
@@ -334,8 +334,8 @@ static int gdsc_probe(struct platform_device *pdev)
 		ret = readl_tight_poll_timeout(sc->gdscr, regval,
 					regval & PWR_ON_MASK, TIMEOUT_US);
 		if (ret) {
-			dev_err(&pdev->dev, "%s enable timed out\n",
-				sc->rdesc.name);
+			dev_err(&pdev->dev, "%s enable timed out: 0x%x\n",
+				sc->rdesc.name, regval);
 			return ret;
 		}
 	}
