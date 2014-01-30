@@ -17,6 +17,7 @@
 #include <mach/msm_bus_board.h>
 #include "msm_bus_core.h"
 #include "msm_bus_bimc.h"
+#include "msm_bus_adhoc.h"
 
 enum msm_bus_bimc_slave_block {
 	SLAVE_BLOCK_RESERVED = 0,
@@ -29,341 +30,6 @@ enum msm_bus_bimc_slave_block {
 enum bke_sw {
 	BKE_OFF = 0,
 	BKE_ON = 1,
-};
-
-/* Misc module */
-
-#define MISC_REG_BASE(b)		((b) + 0x00000000)
-
-#define MISC_HW_VERSION_ADDR(b)	(MISC_REG_BASE(b) + 0x0000000)
-enum bimc_misc_hw_version {
-	MISC_HW_VERSION_RMSK		= 0xffffff,
-	MISC_HW_VERSION_MAJOR_BMSK	= 0xff0000,
-	MISC_HW_VERSION_MAJOR_SHFT	= 0x10,
-	MISC_HW_VERSION_MINOR_BMSK	= 0xff00,
-	MISC_HW_VERSION_MINOR_SHFT	= 0x8,
-	MISC_HW_VERSION_STEP_BMSK	= 0xff,
-	MISC_HW_VERSION_STEP_SHFT	= 0x0,
-};
-
-#define MISC_CORE_INFO_ADDR(b)	(MISC_REG_BASE(b) + 0x00000004)
-enum bimc_misc_core_info {
-	MISC_CORE_INFO_RMSK		= 0xffffffff,
-	MISC_CORE_INFO_CORE_INFO_BMSK	= 0xffffffff,
-	MISC_CORE_INFO_CORE_INFO_SHFT	= 0x0,
-};
-
-#define MISC_HW_INFO_ADDR(b)	(MISC_REG_BASE(b) + 0x00000008)
-enum bimc_misc_hw_info {
-	MISC_HW_INFO_RMSK		= 0xffffffff,
-	MISC_HW_INFO_HW_MAJOR_BMSK	= 0xff000000,
-	MISC_HW_INFO_HW_MAJOR_SHFT	= 0x18,
-	MISC_HW_INFO_HW_BRANCH_BMSK	= 0xff0000,
-	MISC_HW_INFO_HW_BRANCH_SHFT	= 0x10,
-	MISC_HW_INFO_HW_MINOR_BMSK	= 0xff00,
-	MISC_HW_INFO_HW_MINOR_SHFT	= 0x8,
-	MISC_HW_INFO_HW_ECO_BMSK	= 0xff,
-	MISC_HW_INFO_HW_ECO_SHFT	= 0x0,
-};
-
-#define MISC_CORE_CLK_SEL_ADDR(b) \
-	(MISC_REG_BASE(b) + 0x00000020)
-enum bimc_misc_core_clk_sel {
-	MISC_CORE_CLK_SEL_RMSK				= 0x3,
-	MISC_CORE_CLK_SEL_CLK_2X_MODE_BMSK		= 0x2,
-	MISC_CORE_CLK_SEL_CLK_2X_MODE_SHFT		= 0x1,
-	MISC_CORE_CLK_SEL_CLK_2X_MODE_CTRL_EN_BMSK	= 0x1,
-	MISC_CORE_CLK_SEL_CLK_2X_MODE_CTRL_EN_SHFT	= 0x0,
-};
-
-#define MISC_CLK_PERIOD_ADDR(b) \
-	(MISC_REG_BASE(b) + 0x00000024)
-enum bimc_misc_bimc_clk_preiod {
-	MISC_CLK_PERIOD_RMSK			= 0xff,
-	MISC_CLK_PERIOD_CORE_CLK_PERIOD_BMSK	= 0xff,
-	MISC_CLK_PERIOD_CORE_CLK_PERIOD_SHFT	= 0x0,
-};
-
-#define MISC_SCMOn_LOCAL_CGC_THRESH_ADDR(b, n) \
-		(MISC_REG_BASE(b) + 0x00000100 + 0x4 * (n))
-enum bimc_misc_scm0n_local_cgc_thresh {
-	MISC_SCMOn_LOCAL_CGC_THRESH_RMSK		= 0x800000ff,
-	MISC_SCMOn_LOCAL_CGC_THRESH_MAXn		= 1,
-	MISC_SCMOn_LOCAL_CGC_THRESH_EN_BMSK		= 0x80000000,
-	MISC_SCMOn_LOCAL_CGC_THRESH_EN_SHFT		= 0x1f,
-	MISC_SCMOn_LOCAL_CGC_THRESH_THRESH_VAL_BMSK	= 0xff,
-	MISC_SCMOn_LOCAL_CGC_THRESH_THRESH_VAL_SHFT	= 0x0,
-};
-
-#define MISC_DPEn_LOCAL_CGC_THRESH_ADDR(b, n) \
-		(MISC_REG_BASE(b) + 0x00000140 + 0x4 * (n))
-enum bimc_misc_dpen_local_cgc_thresh {
-	MISC_DPEn_LOCAL_CGC_THRESH_RMSK			= 0x800000ff,
-	MISC_DPEn_LOCAL_CGC_THRESH_MAXn			= 1,
-	MISC_DPEn_LOCAL_CGC_THRESH_EN_BMSK		= 0x80000000,
-	MISC_DPEn_LOCAL_CGC_THRESH_EN_SHFT		= 0x1f,
-	MISC_DPEn_LOCAL_CGC_THRESH_THRESH_VAL_BMSK	= 0xff,
-	MISC_DPEn_LOCAL_CGC_THRESH_THRESH_VAL_SHFT	= 0x0,
-};
-
-#define MISC_MPORT_LOCAL_CGC_THRESH_ADDR(b) \
-	(MISC_REG_BASE(b) + 0x00000180)
-enum bimc_misc_mport_local_cgc_thresh {
-	MISC_MPORT_LOCAL_CGC_THRESH_RMSK		= 0x800000ff,
-	MISC_MPORT_LOCAL_CGC_THRESH_EN_BMSK		= 0x80000000,
-	MISC_MPORT_LOCAL_CGC_THRESH_EN_SHFT		= 0x1f,
-	MISC_MPORT_LOCAL_CGC_THRESH_THRESH_VAL_BMSK	= 0xff,
-	MISC_MPORT_LOCAL_CGC_THRESH_THRESH_VAL_SHFT	= 0x0,
-};
-
-#define MISC_SWAY_LOCAL_CGC_THRESH_ADDR(b) \
-	(MISC_REG_BASE(b) + 0x000001c0)
-enum bimc_misc_sway_local_cgc_thresh {
-	MISC_SWAY_LOCAL_CGC_THRESH_RMSK			= 0x800000ff,
-	MISC_SWAY_LOCAL_CGC_THRESH_EN_BMSK		= 0x80000000,
-	MISC_SWAY_LOCAL_CGC_THRESH_EN_SHFT		= 0x1f,
-	MISC_SWAY_LOCAL_CGC_THRESH_THRESH_VAL_BMSK	= 0xff,
-	MISC_SWAY_LOCAL_CGC_THRESH_THRESH_VAL_SHFT	= 0x0,
-};
-
-#define MISC_SCMOn_CGC_THRESH_ADDR(b, n) \
-	(MISC_REG_BASE(b) + 0x00000200 + 0x4 * (n))
-enum bimc_misc_scmon_cgc_thresh {
-	MISC_SCMOn_CGC_THRESH_RMSK		= 0x800000ff,
-	MISC_SCMOn_CGC_THRESH_MAXn		= 1,
-	MISC_SCMOn_CGC_THRESH_EN_BMSK		= 0x80000000,
-	MISC_SCMOn_CGC_THRESH_EN_SHFT		= 0x1f,
-	MISC_SCMOn_CGC_THRESH_THRESH_VAL_BMSK	= 0xff,
-	MISC_SCMOn_CGC_THRESH_THRESH_VAL_SHFT	= 0x0,
-};
-
-#define MISC_SCMOn_DYN_CLK_CTRL_ADDR(b, n) \
-	 (MISC_REG_BASE(b) + 0x00000240 + 0x4 * (n))
-enum bimc_misc_scmon_dyn_clk_ctrl {
-	MISC_SCMOn_DYN_CLK_CTRL_RMSK		= 0x3,
-	MISC_SCMOn_DYN_CLK_CTRL_MAXn		= 1,
-	MISC_SCMOn_DYN_CLK_CTRL_CGC_EN_BMSK	= 0x2,
-	MISC_SCMOn_DYN_CLK_CTRL_CGC_EN_SHFT	= 0x1,
-	MISC_SCMOn_DYN_CLK_CTRL_CLK_EN_BMSK	= 0x1,
-	MISC_SCMOn_DYN_CLK_CTRL_CLK_EN_SHFT	= 0x0,
-};
-
-#define MISC_DPEn_CGC_THRESH_ADDR(b, n) \
-	(MISC_REG_BASE(b) + 0x00000280 + 0x4 * (n))
-enum bimc_misc_dpen_cgc_thresh {
-	MISC_DPEn_CGC_THRESH_RMSK		= 0x800000ff,
-	MISC_DPEn_CGC_THRESH_MAXn		= 1,
-	MISC_DPEn_CGC_THRESH_EN_BMSK		= 0x80000000,
-	MISC_DPEn_CGC_THRESH_EN_SHFT		= 0x1f,
-	MISC_DPEn_CGC_THRESH_THRESH_VAL_BMSK	= 0xff,
-	MISC_DPEn_CGC_THRESH_THRESH_VAL_SHFT	= 0x0,
-};
-
-#define MISC_DPEn_DYN_CLK_CTRL_ADDR(b, n) \
-	(MISC_REG_BASE(b) + 0x000002c0 + 0x4 * (n))
-enum bimc_misc_dpen_dyn_clk_ctrl {
-	MISC_DPEn_DYN_CLK_CTRL_RMSK		= 0x3,
-	MISC_DPEn_DYN_CLK_CTRL_MAXn		= 1,
-	MISC_DPEn_DYN_CLK_CTRL_CGC_EN_BMSK	= 0x2,
-	MISC_DPEn_DYN_CLK_CTRL_CGC_EN_SHFT	= 0x1,
-	MISC_DPEn_DYN_CLK_CTRL_CLK_EN_BMSK	= 0x1,
-	MISC_DPEn_DYN_CLK_CTRL_CLK_EN_SHFT	= 0x0,
-};
-
-/* BIMC Global registers */
-
-#define GLOBAL_1_REG_BASE(b)		((b) + 0x00001000)
-
-#define GLOBAL_1_COMPONENT_INFO_ADDR(b) \
-		(GLOBAL1_REG_BASE(b) + 0x00000000)
-enum bimc_global_1_component_info {
-	GLOBAL_1_COMPONENT_INFO_RMSK		= 0xffff,
-	GLOBAL_1_COMPONENT_INFO_SUB_TYPE_BMSK	= 0xff00,
-	GLOBAL_1_COMPONENT_INFO_SUB_TYPE_SHFT	= 0x8,
-	GLOBAL_1_COMPONENT_INFO_TYPE_BMSK	= 0xff,
-	GLOBAL_1_COMPONENT_INFO_TYPE_SHFT	= 0x0,
-};
-
-#define VERSION_INFO_ADDR(b) \
-	(GLOBAL1_REG_BASE(b) + 0x00000010)
-enum bimc_version_info {
-	VERSION_INFO_RMSK		= 0xffff,
-	VERSION_INFO_MAJOR_BMSK		= 0xf0000000,
-	VERSION_INFO_MAJOR_SHFT		= 0x1c,
-	VERSION_INFO_BRANCH_BMSK	= 0xfff0000,
-	VERSION_INFO_BRANCH_SHFT	= 0x10,
-	VERSION_INFO_MINOR_BMSK		= 0xff00,
-	VERSION_INFO_MINOR_SHFT		= 0x8,
-	VERSION_INFO_ECO_BMSK		= 0xff,
-	VERSION_INFO_ECO_SHFT		= 0x0,
-};
-
-#define HW_VERSION_ADDR(b) \
-	(GLOBAL1_REG_BASE(b) + 0x00000014)
-enum bimc_hw_version {
-	HW_VERSION_RMSK			= 0xffffffff,
-	HW_VERSION_MAJOR_BMSK		= 0xf0000000,
-	HW_VERSION_MAJOR_SHFT		= 0x1c,
-	HW_VERSION_MINOR_BMSK		= 0xfff0000,
-	HW_VERSION_MINOR_SHFT		= 0x10,
-	HW_VERSION_STEP_BMSK		= 0xffff,
-	HW_VERSION_STEP_SHFT		= 0x0,
-};
-
-#define BRIC_CONFIG_INFO_0_ADDR(b) \
-		(GLOBAL1_REG_BASE(b) + 0x00000020)
-enum bimc_bric_config_info_0 {
-	BRIC_CONFIG_INFO_0_RMSK			= 0xffffffff,
-	BRIC_CONFIG_INFO_0_ADDR_WIDTH_BMSK	= 0xff000000,
-	BRIC_CONFIG_INFO_0_ADDR_WIDTH_SHFT	= 0x18,
-	BRIC_CONFIG_INFO_0_BUSID_BMSK		= 0xff0000,
-	BRIC_CONFIG_INFO_0_BUSID_SHFT		= 0x10,
-	BRIC_CONFIG_INFO_0_NUM_SWAYS_BMSK	= 0xff00,
-	BRIC_CONFIG_INFO_0_NUM_SWAYS_SHFT	= 0x8,
-	BRIC_CONFIG_INFO_0_NUM_MPORTS_BMSK	= 0xff,
-	BRIC_CONFIG_INFO_0_NUM_MPORTS_SHFT	= 0x0,
-};
-
-#define BRIC_CONFIG_INFO_1_ADDR(b) \
-		(GLOBAL1_REG_BASE(b) + 0x00000030)
-enum bimc_bric_config_info_1 {
-	BRIC_CONFIG_INFO_1_RMSK			= 0xffffffff,
-	BRIC_CONFIG_INFO_1_DATA_WIDTH_BMSK	= 0xffff0000,
-	BRIC_CONFIG_INFO_1_DATA_WIDTH_SHFT	= 0x10,
-	BRIC_CONFIG_INFO_1_TID_WIDTH_BMSK	= 0xff00,
-	BRIC_CONFIG_INFO_1_TID_WIDTH_SHFT	= 0x8,
-	BRIC_CONFIG_INFO_1_MID_WIDTH_BMSK	= 0xff,
-	BRIC_CONFIG_INFO_1_MID_WIDTH_SHFT	= 0x0,
-};
-
-#define MP_INT_STATUS_ADDR(b) \
-		(GLOBAL1_REG_BASE(b) + 0x00000100)
-enum bimc_mp_int_status {
-	MP_INT_STATUS_RMSK		= 0x7f,
-	MP_INT_STATUS_MASTERPORT_BMSK	= 0x7f,
-	MP_INT_STATUS_MASTERPORT_SHFT	= 0x0,
-};
-
-#define MP_INT_CLR_ADDR(b) \
-	(GLOBAL1_REG_BASE(b) + 0x00000108)
-enum bimc_mp_int_clr {
-	MP_INT_CLR_RMSK			= 0x7f,
-	MP_INT_CLR_MASTERPORT_BMSK	= 0x7f,
-	MP_INT_CLR_MASTERPORT_SHFT	= 0x0,
-};
-
-#define MP_INT_EN_ADDR(b) \
-		(GLOBAL1_REG_BASE(b) + 0x0000010c)
-enum bimc_mp_int_en {
-	MP_INT_EN_RMSK			= 0x7f,
-	MP_INT_EN_MASTERPORT_BMSK	= 0x7f,
-	MP_INT_EN_MASTERPORT_SHFT	= 0x0,
-};
-
-#define SW_INT_STATUS_ADDR(b) \
-		(GLOBAL1_REG_BASE(b) + 0x00000110)
-enum bimc_sw_int_status {
-	SW_INT_STATUS_RMSK		= 0x1f,
-	SW_INT_STATUS_MASTERPORT_BMSK	= 0x1f,
-	SW_INT_STATUS_MASTERPORT_SHFT	= 0x0,
-};
-
-#define SW_INT_CLR_ADDR(b) \
-	(GLOBAL1_REG_BASE(b) + 0x00000118)
-enum bimc_sw_int_clr {
-	SW_INT_CLR_RMSK			= 0x1f,
-	SW_INT_CLR_MASTERPORT_BMSK	= 0x1f,
-	SW_INT_CLR_MASTERPORT_SHFT	= 0x0,
-};
-
-#define SW_INT_EN_ADDR(b) \
-		(GLOBAL1_REG_BASE(b) + 0x0000011c)
-enum bimc_sw_int_en {
-	SW_INT_EN_RMSK			= 0x1f,
-	SW_INT_EN_MASTERPORT_BMSK	= 0x1f,
-	SW_INT_EN_MASTERPORT_SHFT	= 0x0,
-};
-
-#define REF_TIMER_CONFIG_ADDR(b) \
-		(GLOBAL1_REG_BASE(b) + 0x00000200)
-enum bimc_ref_timer_config {
-	REF_TIMER_CONFIG_RMSK		= 0xffff,
-	REF_TIMER_CONFIG_MASTERPORT_BMSK	= 0xffff,
-	REF_TIMER_CONFIG_MASTERPORT_SHFT	= 0x0,
-};
-
-#define DEBUG_SEL_ADDR(b) \
-		(GLOBAL1_REG_BASE(b) + 0x00000210)
-enum bimc_debug_sel {
-	DEBUG_SEL_RMSK			= 0xffffffff,
-	DEBUG_SEL_COMPONENT_BMSK	= 0xff000000,
-	DEBUG_SEL_COMPONENT_SHFT	= 0x18,
-	DEBUG_SEL_INSTANCE_BMSK		= 0xff0000,
-	DEBUG_SEL_INSTANCE_SHFT		= 0x10,
-	DEBUG_SEL_SEL_BMSK		= 0xffff,
-	DEBUG_SEL_SEL_SHFT		= 0x0,
-};
-
-/* BIMC Global 2 */
-
-#define GLOBAL2_REG_BASE(b)		((b) + 0x00002000)
-
-#define GLOBAL2_COMPONENT_INFO_ADDR(b) \
-		(GLOBAL2_REG_BASE(b) + 0x00000000)
-enum bimc_global2_component_info {
-	GLOBAL2_COMPONENT_INFO_RMSK		= 0xffff,
-	GLOBAL2_COMPONENT_INFO_SUB_TYPE_BMSK	= 0xff00,
-	GLOBAL2_COMPONENT_INFO_SUB_TYPE_SHFT	= 0x8,
-	GLOBAL2_COMPONENT_INFO_TYPE_BMSK	= 0xff,
-	GLOBAL2_COMPONENT_INFO_TYPE_SHFT	= 0x0,
-};
-
-#define DEFAULT_SEGMENT_CONFIG_ADDR(b) \
-		(GLOBAL1_REG_BASE(b) + 0x000001f0)
-enum bimc_default_segment_config {
-	DEFAULT_SEGMENT_CONFIG_RMSK		= 0xf00f,
-	DEFAULT_SEGMENT_CONFIG_REDIRECT_BMSK	= 0xf0000,
-	DEFAULT_SEGMENT_CONFIG_REDIRECT_SHFT	= 0x10,
-	DEFAULT_SEGMENT_CONFIG_DEFAULT_BMSK	= 0xf,
-	DEFAULT_SEGMENT_CONFIG_DEFAULT_SHFT	= 0x0,
-};
-
-#define SEGMENTn_ADDR_BASEm_LOWER_ADDR(b, n, m) \
-	(GLOBAL2_REG_BASE(b) + 0x00000200 + 0x80 * (n) + 0x10 * (m))
-enum bimc_segmentn_addr_basem_lower {
-	SEGMENTn_ADDR_BASEm_LOWER_RMSK		= 0xfff0040f,
-	SEGMENTn_ADDR_BASEm_LOWER_MAXn		= 4,
-	SEGMENTn_ADDR_BASEm_LOWER_BASE_31_20_BMSK	= 0xfff00000,
-	SEGMENTn_ADDR_BASEm_LOWER_BASE_31_20_SHFT	= 0x14,
-	SEGMENTn_ADDR_BASEm_LOWER_BASE_10_BMSK	= 0x400,
-	SEGMENTn_ADDR_BASEm_LOWER_BASE_10_SHFT	= 0xa,
-	SEGMENTn_ADDR_BASEm_LOWER_EN_BMSK	= 0x1,
-	SEGMENTn_ADDR_BASEm_LOWER_EN_SHFT	= 0x0,
-};
-
-#define SEGMENTn_ADDR_BASEm_UPPER_ADDR(b, n, m) \
-	(GLOBAL2_REG_BASE(b) + 0x00000204 + 0x80 * (n) + 0x10 * (m))
-enum bimc_segmentn_addr_basem_upper {
-	SEGMENTn_ADDR_BASEm_UPPER_RMSK		= 0xf,
-	SEGMENTn_ADDR_BASEm_UPPER_MAXn		= 4,
-};
-
-#define SEGMENTn_ADDR_MASKm_LOWER_ADDR(b, n, m) \
-	(GLOBAL2_REG_BASE(b) + 0x00000208 + 0x80 * (n) + 0x10 * (m))
-enum bimc_segmentn_addr_maskm_lower {
-	SEGMENTn_ADDR_MASKm_LOWER_RMSK		= 0xfff00400,
-	SEGMENTn_ADDR_MASKm_LOWER_MAXn		= 4,
-	SEGMENTn_ADDR_MASKm_LOWER_MASK_31_20_BMSK	= 0xfff00000,
-	SEGMENTn_ADDR_MASKm_LOWER_MASK_31_20_SHFT	= 0x14,
-	SEGMENTn_ADDR_MASKm_LOWER_MASK_10_BMSK	= 0x400,
-	SEGMENTn_ADDR_MASKm_LOWER_MASK_10_SHFT	= 0xa,
-};
-
-#define SEGMENTn_ADDR_MASKm_UPPER_ADDR(b, n, m) \
-	(GLOBAL2_REG_BASE(b) + 0x0000020c + 0x80 * (n) + 0x10 * (m))
-enum bimc_segmentn_addr_maskm_upper {
-	SEGMENTn_ADDR_MASKm_UPPER_RMSK		= 0xf,
-	SEGMENTn_ADDR_MASKm_UPPER_MAXn		= 4,
 };
 
 /* M_Generic */
@@ -2113,6 +1779,93 @@ static int msm_bus_bimc_port_unhalt(uint32_t haltid, uint8_t mport)
 	return 0;
 }
 
+static int msm_bus_bimc_qos_init(struct msm_bus_node_device_type *info,
+				void __iomem *qos_base,
+				uint32_t qos_off, uint32_t qos_delta,
+				uint32_t qos_freq)
+{
+	int i;
+	struct msm_bus_bimc_qos_mode qmode;
+
+	switch (info->node_info->mode) {
+	case BIMC_QOS_MODE_FIXED:
+		qmode.fixed.prio_level = info->node_info->prio_lvl;
+		qmode.fixed.areq_prio_rd = info->node_info->prio_rd;
+		qmode.fixed.areq_prio_wr = info->node_info->prio_wr;
+		break;
+	default:
+		break;
+	}
+
+	if (!info->node_info->qport) {
+		MSM_BUS_DBG("No QoS Ports to init\n");
+		return 0;
+	}
+
+	for (i = 0; i < info->node_info->num_ports; i++) {
+		/* If not in bypass mode, update priority */
+		if (info->node_info->mode != BIMC_QOS_MODE_BYPASS) {
+			msm_bus_bimc_set_qos_prio(qos_base, info->node_info->
+				qport[i], info->node_info->mode, &qmode);
+
+			/* If not in fixed mode, update bandwidth */
+			if (info->node_info->mode != BIMC_QOS_MODE_FIXED) {
+				struct msm_bus_bimc_qos_bw qbw;
+				qbw.ws = info->node_info->ws;
+				msm_bus_bimc_set_qos_bw(qos_base, qos_freq,
+					info->node_info->qport[i], &qbw);
+			}
+		}
+
+		/* set mode */
+	       msm_bus_bimc_set_qos_mode(qos_base, info->node_info->qport[i],
+			info->node_info->mode);
+	}
+
+	return 0;
+}
+
+static int msm_bus_bimc_set_bw(struct msm_bus_node_device_type *dev,
+				void __iomem *qos_base, uint32_t qos_off,
+				uint32_t qos_delta, uint32_t qos_freq)
+{
+	struct msm_bus_bimc_qos_bw qbw;
+	int i;
+	int64_t bw = 0;
+	int ret = 0;
+	struct msm_bus_node_info_type *info = dev->node_info;
+
+	if (info && info->num_ports) {
+		bw = msm_bus_div64(info->num_ports,
+				dev->node_ab.ab[DUAL_CTX]);
+
+		for (i = 0; i < info->num_ports; i++) {
+			MSM_BUS_DBG("BIMC: Update mas_bw for ID: %d -> %llu\n",
+				info->id, bw);
+
+			if (!info->qport) {
+				MSM_BUS_DBG("No qos ports to update!\n");
+				break;
+			}
+
+			qbw.bw = bw;
+			qbw.ws = info->ws;
+			/* Threshold low = 90% of bw */
+			qbw.thl = div_s64((90 * bw), 100);
+			/* Threshold medium = bw */
+			qbw.thm = bw;
+			/* Threshold high = 10% more than bw */
+			qbw.thh = div_s64((110 * bw), 100);
+			msm_bus_bimc_set_qos_bw(qos_base, qos_freq,
+					info->qport[i], &qbw);
+		}
+	} else {
+		ret = -ENODEV;
+		MSM_BUS_ERR("%s: Cannot program BW regs", __func__);
+	}
+	return ret;
+}
+
 int msm_bus_bimc_hw_init(struct msm_bus_fabric_registration *pdata,
 	struct msm_bus_hw_algorithm *hw_algo)
 {
@@ -2133,3 +1886,15 @@ int msm_bus_bimc_hw_init(struct msm_bus_fabric_registration *pdata,
 		pdata->rpm_enabled = 1;
 	return 0;
 }
+
+int msm_bus_bimc_set_ops(struct msm_bus_node_device_type *bus_dev)
+{
+	if (!bus_dev)
+		return -ENODEV;
+	else {
+		bus_dev->fabdev->noc_ops.qos_init = msm_bus_bimc_qos_init;
+		bus_dev->fabdev->noc_ops.set_bw = msm_bus_bimc_set_bw;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(msm_bus_bimc_set_ops);

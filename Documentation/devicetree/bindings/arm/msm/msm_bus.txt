@@ -27,6 +27,7 @@ qcom,hw-sel:		A string which decides whether QoS data
 			It can be set to "RPM", "NoC" or "BIMC".
 qcom,qos-baseoffset:	Base address offset of QoS registers from the bus device
 			base address.
+qcom,qos-delta:	 	Address delta between QoS registers of different masters.
 qcom,rpm-en:		A boolean flag indicating whether RPM transactions are
 			supported for nodes of the bus.
 qcom,ahb:		A boolean flag indicating whether the bus is ahb type.

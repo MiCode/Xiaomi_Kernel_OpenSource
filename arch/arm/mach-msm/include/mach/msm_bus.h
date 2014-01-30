@@ -74,7 +74,7 @@ struct msm_bus_scale_pdata {
  * The function returns 0 if bus driver is unable to register a client
  */
 
-#ifdef CONFIG_MSM_BUS_SCALING
+#if (defined(CONFIG_MSM_BUS_SCALING) || defined(CONFIG_BUS_TOPOLOGY_ADHOC))
 int __init msm_bus_fabric_init_driver(void);
 uint32_t msm_bus_scale_register_client(struct msm_bus_scale_pdata *pdata);
 int msm_bus_scale_client_update_request(uint32_t cl, unsigned int index);

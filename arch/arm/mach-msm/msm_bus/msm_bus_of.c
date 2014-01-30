@@ -577,6 +577,11 @@ struct msm_bus_fabric_registration
 	if (ret)
 		pr_debug("%s:qos_baseoffset not available\n", __func__);
 
+	ret = of_property_read_u32(of_node, "qcom,qos-delta",
+						&pdata->qos_delta);
+	if (ret)
+		pr_debug("%s:qos_delta not available\n", __func__);
+
 	if (of_property_read_bool(of_node, "qcom,rpm-en"))
 		pdata->rpm_enabled = 1;
 
