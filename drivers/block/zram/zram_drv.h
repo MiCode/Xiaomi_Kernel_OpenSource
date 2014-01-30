@@ -88,6 +88,7 @@ struct zram_meta {
 	void *compress_buffer;
 	struct table *table;
 	struct zs_pool *mem_pool;
+	struct mutex buffer_lock; /* protect compress buffers */
 };
 
 struct zram_slot_free {
