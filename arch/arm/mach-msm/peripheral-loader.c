@@ -599,7 +599,7 @@ static int pil_load_seg(struct pil_desc *desc, struct pil_seg *seg)
 	return ret;
 }
 
-static void pil_parse_devicetree(struct pil_desc *desc)
+static int pil_parse_devicetree(struct pil_desc *desc)
 {
 	int clk_ready = 0;
 
@@ -614,7 +614,7 @@ static void pil_parse_devicetree(struct pil_desc *desc)
 			dev_err(desc->dev,
 				"[%s]: Error getting proxy unvoting gpio\n",
 				desc->name);
-			return;
+			return clk_ready;
 		}
 
 		clk_ready = gpio_to_irq(clk_ready);
@@ -622,10 +622,11 @@ static void pil_parse_devicetree(struct pil_desc *desc)
 			dev_err(desc->dev,
 				"[%s]: Error getting proxy unvote IRQ\n",
 				desc->name);
-			return;
+			return clk_ready;
 		}
 	}
 	desc->proxy_unvote_irq = clk_ready;
+	return 0;
 }
 
 /* Synchronize request_firmware() with suspend */
@@ -805,7 +806,9 @@ int pil_desc_init(struct pil_desc *desc)
 		__iowrite32_copy(priv->info->name, buf, sizeof(buf) / 4);
 	}
 
-	pil_parse_devicetree(desc);
+	ret = pil_parse_devicetree(desc);
+	if (ret)
+		goto err_parse_dt;
 
 	/* Ignore users who don't make any sense */
 	WARN(desc->ops->proxy_unvote && desc->proxy_unvote_irq == 0
@@ -841,6 +844,8 @@ int pil_desc_init(struct pil_desc *desc)
 		desc->unmap_fw_mem = unmap_fw_mem;
 
 	return 0;
+err_parse_dt:
+	ida_simple_remove(&pil_ida, priv->id);
 err:
 	kfree(priv);
 	return ret;
