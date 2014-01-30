@@ -2,6 +2,7 @@
 # Makefile for CoreSight drivers.
 #
 obj-$(CONFIG_CORESIGHT) += coresight.o
+obj-$(CONFIG_CORESIGHT_EVENT) += coresight-event.o
 obj-$(CONFIG_CORESIGHT_FUSE) += coresight-fuse.o
 obj-$(CONFIG_CORESIGHT_CTI) += coresight-cti.o
 obj-$(CONFIG_CORESIGHT_CSR) += coresight-csr.o
@@ -16,4 +17,3 @@ obj-$(CONFIG_CORESIGHT_AUDIO_ETM) += coresight-audio-etm.o
 obj-$(CONFIG_CORESIGHT_MODEM_ETM) += coresight-modem-etm.o
 obj-$(CONFIG_CORESIGHT_WCN_ETM) += coresight-wcn-etm.o
 obj-$(CONFIG_CORESIGHT_RPM_ETM) += coresight-rpm-etm.o
-obj-$(CONFIG_CORESIGHT_EVENT) += coresight-event.o

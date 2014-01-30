@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,11 @@ static int event_abort_enable;
 static int event_abort_set(const char *val, struct kernel_param *kp);
 module_param_call(event_abort_enable, event_abort_set, param_get_int,
 		  &event_abort_enable, 0644);
+
+static int event_abort_on_panic = 1;
+static int event_abort_on_panic_set(const char *val, struct kernel_param *kp);
+module_param_call(event_abort_on_panic, event_abort_on_panic_set, param_get_int,
+		  &event_abort_on_panic, 0644);
 
 static void event_abort_user_fault(void *ignore,
 				   struct task_struct *task,
@@ -54,6 +59,11 @@ static void event_abort_unhandled_abort(void *ignore,
 		coresight_abort();
 		pr_debug("coresight_event: addr: %lu, fsr:%u", addr, fsr);
 	}
+}
+
+static void event_abort_kernel_panic(void *ignore, long state)
+{
+	coresight_abort();
 }
 
 static int event_abort_register(void)
@@ -105,14 +115,43 @@ static int event_abort_set(const char *val, struct kernel_param *kp)
 	return ret;
 }
 
+static int event_abort_on_panic_set(const char *val, struct kernel_param *kp)
+{
+	int ret;
+
+	ret = param_set_int(val, kp);
+	if (ret) {
+		pr_err("coresight_event: error setting val on panic %d\n", ret);
+		return ret;
+	}
+
+	if (event_abort_on_panic)
+		ret = register_trace_kernel_panic(event_abort_kernel_panic,
+						  NULL);
+	else
+		unregister_trace_kernel_panic(event_abort_kernel_panic, NULL);
+
+	return ret;
+}
+
 static int __init event_init(void)
 {
+	int ret;
+
+	ret = register_trace_kernel_panic(event_abort_kernel_panic, NULL);
+	if (ret) {
+		/* We do not want to fail module init. This module can still
+		 * be used to register other abort events.
+		 */
+		pr_err("coresight_event: error registering on panic %d\n", ret);
+	}
 	return 0;
 }
 module_init(event_init);
 
 static void __exit event_exit(void)
 {
+	unregister_trace_kernel_panic(event_abort_kernel_panic, NULL);
 }
 module_exit(event_exit);
 
