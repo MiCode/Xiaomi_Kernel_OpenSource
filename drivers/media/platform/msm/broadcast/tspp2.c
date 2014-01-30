@@ -35,13 +35,15 @@
 
 #define TSPP2_MODULUS_OP(val, mod)	((val) & ((mod) - 1))
 
-/* General definitions */
+/* General definitions. Note we're reserving one batch. */
 #define TSPP2_NUM_ALL_INPUTS	(TSPP2_NUM_TSIF_INPUTS + TSPP2_NUM_MEM_INPUTS)
-#define TSPP2_NUM_CONTEXTS	128
-#define TSPP2_NUM_HW_FILTERS	128
-#define TSPP2_NUM_BATCHES	16
-#define TSPP2_FILTERS_PER_BATCH	(TSPP2_NUM_HW_FILTERS / TSPP2_NUM_BATCHES)
-#define TSPP2_NUM_KEYTABLES	32
+#define TSPP2_NUM_CONTEXTS		128
+#define TSPP2_NUM_AVAIL_CONTEXTS	127
+#define TSPP2_NUM_HW_FILTERS		128
+#define TSPP2_NUM_BATCHES		15
+#define TSPP2_FILTERS_PER_BATCH		8
+#define TSPP2_NUM_AVAIL_FILTERS	(TSPP2_NUM_HW_FILTERS - TSPP2_FILTERS_PER_BATCH)
+#define TSPP2_NUM_KEYTABLES		32
 #define TSPP2_TSIF_DEF_TIME_LIMIT   15000 /* Number of tsif-ref-clock ticks */
 
 #define TSPP2_NUM_EVENT_WORK_ELEMENTS	256
@@ -63,6 +65,13 @@
  * Check continuity of TS packets.
  */
 #define TSPP2_DEFAULT_SRC_CONFIG	0x47801E49
+
+/*
+ * Default memory source configuration:
+ * Use 16 batches,
+ * Attach last batch to each memory source.
+ */
+#define TSPP2_DEFAULT_MEM_SRC_CONFIG	0x80000010
 
 /* Bypass VBIF/IOMMU for debug and bring-up purposes */
 static int tspp2_iommu_bypass;
@@ -868,11 +877,11 @@ struct tspp2_device {
 	struct clk *tspp2_klm_ahb_clk;
 	struct clk *tsif_ref_clk;
 	struct tspp2_filter_batch batches[TSPP2_NUM_BATCHES];
-	int contexts[TSPP2_NUM_CONTEXTS];
+	int contexts[TSPP2_NUM_AVAIL_CONTEXTS];
 	struct tspp2_indexing_table indexing_tables[TSPP2_NUM_INDEXING_TABLES];
 	struct tspp2_src tsif_sources[TSPP2_NUM_TSIF_INPUTS];
 	struct tspp2_src mem_sources[TSPP2_NUM_MEM_INPUTS];
-	struct tspp2_filter filters[TSPP2_NUM_HW_FILTERS];
+	struct tspp2_filter filters[TSPP2_NUM_AVAIL_FILTERS];
 	struct tspp2_pipe pipes[TSPP2_NUM_PIPES];
 	u8 num_secured_opened_pipes;
 	u8 num_non_secured_opened_pipes;
@@ -1086,7 +1095,7 @@ static int tspp2_device_debugfs_print(struct seq_file *s, void *p)
 
 	seq_printf(s, "dev_id: %d\n", device->dev_id);
 	seq_puts(s, "Enabled filters:");
-	for (count = 0; count < TSPP2_NUM_HW_FILTERS; count++)
+	for (count = 0; count < TSPP2_NUM_AVAIL_FILTERS; count++)
 		if (device->filters[count].enabled) {
 			seq_printf(s, "\n\tfilter%3d", count);
 			exist_flag = 1;
@@ -1098,7 +1107,7 @@ static int tspp2_device_debugfs_print(struct seq_file *s, void *p)
 
 	exist_flag = 0;
 	seq_puts(s, "Opened filters:");
-	for (count = 0; count < TSPP2_NUM_HW_FILTERS; count++)
+	for (count = 0; count < TSPP2_NUM_AVAIL_FILTERS; count++)
 		if (device->filters[count].opened) {
 			seq_printf(s, "\n\tfilter%3d", count);
 			exist_flag = 1;
@@ -1652,7 +1661,7 @@ static void tspp2_debugfs_init(struct tspp2_device *device)
 
 	dentry = debugfs_create_dir("filters", dir);
 	if (dentry) {
-		for (i = 0; i < TSPP2_NUM_HW_FILTERS; i++) {
+		for (i = 0; i < TSPP2_NUM_AVAIL_FILTERS; i++) {
 			snprintf(name, 20, "filter%03i", i);
 			debugfs_create_file(name, S_IRUGO, dentry,
 				&(device->filters[i]), &dbgfs_filter_fops);
@@ -2086,11 +2095,6 @@ static int tspp2_global_hw_reset(struct tspp2_device *device,
 			device->base + TSPP2_INDEX_TABLE_PARAMS(i));
 	}
 
-	/* Disable memory inputs. Set mode of operation to 16 batches */
-	for (i = 0; i < TSPP2_NUM_MEM_INPUTS; i++)
-		writel_relaxed((0x1 << MEM_INPUT_SRC_CONFIG_16_BATCHES_OFFS),
-			device->base + TSPP2_MEM_INPUT_SRC_CONFIG(i));
-
 	/* Disable TSIF inputs. Set mode of operation to 16 batches */
 	for (i = 0; i < TSPP2_NUM_TSIF_INPUTS; i++)
 		writel_relaxed((0x1 << TSIF_INPUT_SRC_CONFIG_16_BATCHES_OFFS),
@@ -2135,6 +2139,21 @@ static int tspp2_global_hw_reset(struct tspp2_device *device,
 		/* Reset filter context-based counters */
 		tspp2_filter_counters_reset(device, i);
 	}
+
+	/*
+	 * Disable memory inputs. Set mode of operation to 16 batches.
+	 * Configure last batch to be associated with all memory input sources,
+	 * and add a filter to match all PIDs and drop the TS packets in the
+	 * last HW filter entry. Use the last context for this filter.
+	 */
+	for (i = 0; i < TSPP2_NUM_MEM_INPUTS; i++)
+		writel_relaxed(TSPP2_DEFAULT_MEM_SRC_CONFIG,
+			device->base + TSPP2_MEM_INPUT_SRC_CONFIG(i));
+
+	writel_relaxed(((TSPP2_NUM_CONTEXTS - 1) << FILTER_ENTRY1_CONTEXT_OFFS),
+		device->base + TSPP2_FILTER_ENTRY1((TSPP2_NUM_HW_FILTERS - 1)));
+	writel_relaxed((0x1 << FILTER_ENTRY0_EN_OFFS),
+		device->base + TSPP2_FILTER_ENTRY0((TSPP2_NUM_HW_FILTERS - 1)));
 
 	/* Reset pipe registers */
 	for (i = 0; i < TSPP2_NUM_PIPES; i++)
@@ -2337,7 +2356,7 @@ static int tspp2_device_initialize(struct tspp2_device *device)
 	for (i = 0; i < TSPP2_NUM_MEM_INPUTS; i++)
 		device->mem_sources[i].device = device;
 
-	for (i = 0; i < TSPP2_NUM_HW_FILTERS; i++)
+	for (i = 0; i < TSPP2_NUM_AVAIL_FILTERS; i++)
 		device->filters[i].device = device;
 
 	for (i = 0; i < TSPP2_NUM_PIPES; i++)
@@ -3842,7 +3861,11 @@ int tspp2_src_open(u32 dev_id,
 			device->base +
 			TSPP2_TSIF_INPUT_SRC_CONFIG(src->input));
 	} else {
-		writel_relaxed((0x1 << MEM_INPUT_SRC_CONFIG_16_BATCHES_OFFS),
+		/*
+		 * Disable memory inputs. Set mode of operation to 16 batches.
+		 * Configure last batch to be associated with this source.
+		 */
+		writel_relaxed(TSPP2_DEFAULT_MEM_SRC_CONFIG,
 			device->base +
 			TSPP2_MEM_INPUT_SRC_CONFIG(src->hw_index));
 	}
@@ -5235,10 +5258,10 @@ int tspp2_filter_open(u32 src_handle, u16 pid, u16 mask, u32 *filter_handle)
 	}
 
 	/* Find an available filter object in the device's filters database */
-	for (i = 0; i < TSPP2_NUM_HW_FILTERS; i++)
+	for (i = 0; i < TSPP2_NUM_AVAIL_FILTERS; i++)
 		if (!src->device->filters[i].opened)
 			break;
-	if (i == TSPP2_NUM_HW_FILTERS) {
+	if (i == TSPP2_NUM_AVAIL_FILTERS) {
 		pr_err("%s: No available filters\n", __func__);
 		mutex_unlock(&src->device->mutex);
 		pm_runtime_mark_last_busy(src->device->dev);
@@ -5248,10 +5271,10 @@ int tspp2_filter_open(u32 src_handle, u16 pid, u16 mask, u32 *filter_handle)
 	filter = &src->device->filters[i];
 
 	/* Find an available context. Each new filter needs a unique context */
-	for (i = 0; i < TSPP2_NUM_CONTEXTS; i++)
+	for (i = 0; i < TSPP2_NUM_AVAIL_CONTEXTS; i++)
 		if (!src->device->contexts[i])
 			break;
-	if (i == TSPP2_NUM_CONTEXTS) {
+	if (i == TSPP2_NUM_AVAIL_CONTEXTS) {
 		pr_err("%s: No available filters\n", __func__);
 		mutex_unlock(&src->device->mutex);
 		pm_runtime_mark_last_busy(src->device->dev);
@@ -6335,10 +6358,10 @@ static int tspp2_filter_ops_update(struct tspp2_filter *filter,
 	 * Find an available temporary filter object in the device's
 	 * filters database.
 	 */
-	for (i = 0; i < TSPP2_NUM_HW_FILTERS; i++)
+	for (i = 0; i < TSPP2_NUM_AVAIL_FILTERS; i++)
 		if (!src->device->filters[i].opened)
 			break;
-	if (i == TSPP2_NUM_HW_FILTERS) {
+	if (i == TSPP2_NUM_AVAIL_FILTERS) {
 		/* Should never happen */
 		pr_err("%s: No available filters\n", __func__);
 		return -ENOMEM;
@@ -8108,7 +8131,7 @@ static irqreturn_t tspp2_isr(int irq, void *dev)
 	}
 
 	/* Invoke user callbacks on filter events */
-	for (i = 0; i < TSPP2_NUM_HW_FILTERS; i++) {
+	for (i = 0; i < TSPP2_NUM_AVAIL_FILTERS; i++) {
 		f = &device->filters[i];
 		if (f->event_callback &&
 			(f->event_bitmask & filter_bitmask[f->context]))
