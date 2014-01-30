@@ -44,6 +44,8 @@ static void *arm64_swiotlb_alloc_coherent(struct device *dev, size_t size,
 		flags |= GFP_DMA32;
 	if (IS_ENABLED(CONFIG_CMA)) {
 		unsigned long pfn;
+
+		size = PAGE_ALIGN(size);
 		pfn = dma_alloc_from_contiguous(dev, size >> PAGE_SHIFT,
 							get_order(size));
 		if (!pfn)
