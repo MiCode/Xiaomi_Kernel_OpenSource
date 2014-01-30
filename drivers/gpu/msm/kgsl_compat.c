@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,6 +67,27 @@ kgsl_ioctl_submit_commands_compat(struct kgsl_device_private *dev_priv,
 	param.timestamp = param32->timestamp;
 
 	result = kgsl_ioctl_submit_commands(dev_priv, cmd, &param);
+
+	param32->timestamp = param.timestamp;
+
+	return result;
+}
+
+static long
+kgsl_ioctl_rb_issueibcmds_compat(struct kgsl_device_private *dev_priv,
+				      unsigned int cmd, void *data)
+{
+	int result;
+	struct kgsl_ringbuffer_issueibcmds_compat *param32 = data;
+	struct kgsl_ringbuffer_issueibcmds param;
+
+	param.drawctxt_id = param32->drawctxt_id;
+	param.flags = param32->flags;
+	param.ibdesc_addr = (unsigned long)param32->ibdesc_addr;
+	param.numibs = param32->numibs;
+	param.timestamp = param32->timestamp;
+
+	result = kgsl_ioctl_rb_issueibcmds(dev_priv, cmd, &param);
 
 	param32->timestamp = param.timestamp;
 
@@ -287,6 +308,8 @@ static const struct kgsl_ioctl kgsl_compat_ioctl_funcs[] = {
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_DEVICE_WAITTIMESTAMP_CTXTID,
 			kgsl_ioctl_device_waittimestamp_ctxtid,
 			KGSL_IOCTL_LOCK),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_RINGBUFFER_ISSUEIBCMDS_COMPAT,
+			kgsl_ioctl_rb_issueibcmds_compat, 0),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_SUBMIT_COMMANDS_COMPAT,
 			kgsl_ioctl_submit_commands_compat, 0),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_CMDSTREAM_READTIMESTAMP,

@@ -2080,7 +2080,7 @@ done:
 	return cmdbatch;
 }
 
-static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
+long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 				      unsigned int cmd, void *data)
 {
 	struct kgsl_ringbuffer_issueibcmds *param = data;

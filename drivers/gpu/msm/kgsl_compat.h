@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,6 +73,17 @@ struct kgsl_submit_commands_compat {
 
 #define IOCTL_KGSL_SUBMIT_COMMANDS_COMPAT \
 	_IOWR(KGSL_IOC_TYPE, 0x3D, struct kgsl_submit_commands_compat)
+
+struct kgsl_ringbuffer_issueibcmds_compat {
+	unsigned int drawctxt_id;
+	compat_ulong_t ibdesc_addr;
+	unsigned int numibs;
+	unsigned int timestamp; /* output param */
+	unsigned int flags;
+};
+
+#define IOCTL_KGSL_RINGBUFFER_ISSUEIBCMDS_COMPAT \
+	_IOWR(KGSL_IOC_TYPE, 0x10, struct kgsl_ringbuffer_issueibcmds_compat)
 
 struct kgsl_cmdstream_freememontimestamp_compat {
 	compat_ulong_t gpuaddr;
