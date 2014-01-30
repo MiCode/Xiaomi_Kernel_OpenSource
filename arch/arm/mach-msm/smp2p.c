@@ -1781,7 +1781,7 @@ void msm_smp2p_interrupt_handler(int remote_pid)
 static int msm_smp2p_probe(struct platform_device *pdev)
 {
 	struct resource *r;
-	void *irq_out_ptr;
+	void *irq_out_ptr = NULL;
 	char *key;
 	uint32_t edge;
 	int ret;
@@ -1795,6 +1795,7 @@ static int msm_smp2p_probe(struct platform_device *pdev)
 	ret = of_property_read_u32(node, key, &edge);
 	if (ret) {
 		SMP2P_ERR("%s: missing edge '%s'\n", __func__, key);
+		ret = -ENODEV;
 		goto fail;
 	}
 
@@ -1802,13 +1803,15 @@ static int msm_smp2p_probe(struct platform_device *pdev)
 	if (!r) {
 		SMP2P_ERR("%s: failed gathering irq-reg resource for edge %d\n"
 				, __func__, edge);
+		ret = -ENODEV;
 		goto fail;
 	}
 	irq_out_ptr = ioremap_nocache(r->start, resource_size(r));
 	if (!irq_out_ptr) {
 		SMP2P_ERR("%s: failed remap from phys to virt for edge %d\n",
 				__func__, edge);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto fail;
 	}
 
 	key = "qcom,irq-bitmask";
@@ -1826,6 +1829,7 @@ static int msm_smp2p_probe(struct platform_device *pdev)
 	if (ret < 0) {
 		SMP2P_ERR("%s: request_irq() failed on %d (edge %d)\n",
 				__func__, irq_line, edge);
+		ret = -ENODEV;
 		goto fail;
 	}
 
@@ -1846,8 +1850,11 @@ static int msm_smp2p_probe(struct platform_device *pdev)
 
 missing_key:
 	SMP2P_ERR("%s: missing '%s' for edge %d\n", __func__, key, edge);
+	ret = -ENODEV;
 fail:
-	return -ENODEV;
+	if (irq_out_ptr)
+		iounmap(irq_out_ptr);
+	return ret;
 }
 
 static struct of_device_id msm_smp2p_match_table[] = {
