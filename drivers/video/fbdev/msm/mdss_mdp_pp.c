@@ -16,6 +16,7 @@
 
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
+#include "mdss_mdp_pp.h"
 #include <linux/uaccess.h>
 #include <linux/spinlock.h>
 #include <linux/delay.h>
