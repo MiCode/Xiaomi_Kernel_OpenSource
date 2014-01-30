@@ -1306,6 +1306,8 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 		SPRINT(" decimation");
 	if (mdata->highest_bank_bit)
 		SPRINT(" tile_format");
+	if (mdata->has_non_scalar_rgb)
+		SPRINT(" non_scalar_rgb");
 	SPRINT("\n");
 
 	return cnt;
@@ -2274,6 +2276,8 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 		"qcom,mdss-rotator-ot-limit", &data);
 	mdata->rotator_ot_limit = (!rc ? data : 0);
 
+	mdata->has_non_scalar_rgb = of_property_read_bool(pdev->dev.of_node,
+		"qcom,mdss-has-non-scalar-rgb");
 	mdata->has_bwc = of_property_read_bool(pdev->dev.of_node,
 					       "qcom,mdss-has-bwc");
 	mdata->has_decimation = of_property_read_bool(pdev->dev.of_node,
