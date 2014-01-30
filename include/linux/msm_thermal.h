@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 #define __MSM_THERMAL_H
 
 struct msm_thermal_data {
+	struct platform_device *pdev;
 	uint32_t sensor_id;
 	uint32_t poll_ms;
 	int32_t limit_temp_degC;
@@ -34,6 +35,9 @@ struct msm_thermal_data {
 	int32_t vdd_rstr_temp_hyst_degC;
 	int32_t psm_temp_degC;
 	int32_t psm_temp_hyst_degC;
+	int32_t ocr_temp_degC;
+	int32_t ocr_temp_hyst_degC;
+	uint32_t ocr_sensor_id;
 	int32_t phase_rpm_resource_type;
 	int32_t phase_rpm_resource_id;
 	int32_t gfx_phase_warm_temp_degC;

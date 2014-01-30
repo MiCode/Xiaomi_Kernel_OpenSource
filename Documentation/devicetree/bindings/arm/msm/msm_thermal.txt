@@ -90,6 +90,27 @@ Optional properties
 			phandle_of_regulator is defined by reuglator device tree.
 
 Optional child nodes
+- qcom,pmic-opt-curr-temp: Threshold temperature for requesting optimum current (request
+			dual phase) for rails with PMIC, in degC. If this property exists,
+			then the properties, qcom,pmic-opt-curr-temp-hysteresis and
+			qcom,pmic-opt-curr-regs should also be defined to enable this
+			feature.
+- qcom,pmic-opt-curr-temp-hysteresis: Degree below the threshold to disable the optimum
+			current request for a rail, in degC. If this property exists,
+			then the properties, qcom,pmic-opt-curr-temp and
+			qcom,pmic-opt-curr-regs should also be defined to enable
+			this feature.
+- qcom,pmic-opt-curr-regs: Name of the rails for which the optimum current should be
+			requested. If this property exists, then the properties,
+			qcom,pmic-opt-curr-temp and qcom,pmic-opt-curr-temp-hysteresis
+			should also be defined to enable this feature.
+- qcom,pmic-opt-curr-sensor-id: Sensor, which needs to be monitored for requesting OCR
+			when qcom,pmic-opt-curr-temp threshold is reached.
+			It is an optional property, if it is configured, msm_thermal will
+			monitor only this sensor, otherwise it will monitor all TSENS for
+			this feature. If this property exists, then the properties,
+			qcom,pmic-opt-curr-temp, qcom,pmic-opt-curr-temp-hysteresis and
+			qcom,pmic-opt-curr-regs should also be defined to enable this feature.
 - qcom,<vdd restriction child node name>: Define the name of the child node.
 			If this property exisits, qcom,vdd-rstr-reg, qcom,levels
 			need to exist. qcom,min-level is optional if qcom,freq-req
