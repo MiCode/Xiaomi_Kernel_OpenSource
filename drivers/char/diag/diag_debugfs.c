@@ -195,7 +195,8 @@ static ssize_t diag_dbgfs_read_dcistats(struct file *file,
 				char __user *ubuf, size_t count, loff_t *ppos)
 {
 	char *buf = NULL;
-	int bytes_remaining, bytes_written = 0, bytes_in_buf = 0, i = 0;
+	unsigned int bytes_remaining, bytes_written = 0;
+	unsigned int bytes_in_buf = 0, i = 0;
 	struct diag_dci_data_info *temp_data = dci_data_smd;
 	int buf_size = (DEBUG_BUF_SIZE < count) ? DEBUG_BUF_SIZE : count;
 
@@ -359,9 +360,9 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 	char *buf;
 	int ret = 0;
 	int i;
-	int bytes_remaining;
-	int bytes_in_buffer = 0;
-	int bytes_written;
+	unsigned int bytes_remaining;
+	unsigned int bytes_in_buffer = 0;
+	unsigned int bytes_written;
 	int buf_size = (DEBUG_BUF_SIZE < count) ? DEBUG_BUF_SIZE : count;
 
 	if (diag_dbgfs_table_index >= diag_max_reg) {
@@ -524,9 +525,9 @@ static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 	char *buf;
 	int ret;
 	int i;
-	int bytes_remaining;
-	int bytes_in_buffer = 0;
-	int bytes_written;
+	unsigned int bytes_remaining;
+	unsigned int bytes_in_buffer = 0;
+	unsigned int bytes_written;
 	int buf_size = (DEBUG_BUF_SIZE < count) ? DEBUG_BUF_SIZE : count;
 	int bytes_hsic_inited = 45;
 	int bytes_hsic_not_inited = 410;
