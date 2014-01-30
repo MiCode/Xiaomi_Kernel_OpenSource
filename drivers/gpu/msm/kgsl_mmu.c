@@ -890,14 +890,13 @@ EXPORT_SYMBOL(kgsl_mmu_set_mmutype);
 int kgsl_mmu_gpuaddr_in_range(struct kgsl_pagetable *pt, unsigned int gpuaddr)
 {
 	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type)
-		return 1;
+		return (gpuaddr != 0);
 	if (gpuaddr >= kgsl_mmu_get_base_addr(pt->mmu) &&
 		gpuaddr < kgsl_mmu_get_base_addr(pt->mmu) +
 		kgsl_mmu_get_ptsize(pt->mmu))
 		return 1;
-	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_IOMMU
-		&& kgsl_mmu_is_perprocess(pt->mmu))
-		return (gpuaddr > 0 && gpuaddr < TASK_SIZE);
+	if (kgsl_mmu_use_cpu_map(pt->mmu))
+		return (gpuaddr > 0 && gpuaddr < KGSL_SVM_UPPER_BOUND);
 	return 0;
 }
 EXPORT_SYMBOL(kgsl_mmu_gpuaddr_in_range);
