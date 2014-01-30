@@ -1058,6 +1058,7 @@ struct vidc_hal_session_init_done {
 	struct hal_capability_supported scale_x;
 	struct hal_capability_supported scale_y;
 	struct hal_capability_supported bitrate;
+	struct hal_capability_supported ltr_count;
 	struct hal_uncompressed_format_supported uncomp_format;
 	struct hal_interlace_format_supported HAL_format;
 	struct hal_nal_stream_format_supported nal_stream_format;
