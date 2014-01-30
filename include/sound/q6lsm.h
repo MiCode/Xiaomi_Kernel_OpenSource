@@ -47,6 +47,8 @@ struct lsm_client {
 	uint16_t	user_sensitivity;
 	uint16_t	kw_sensitivity;
 	bool		started;
+	dma_addr_t	lsm_cal_phy_addr;
+	uint32_t	lsm_cal_size;
 };
 
 struct lsm_stream_cmd_open_tx {
@@ -126,7 +128,6 @@ int q6lsm_stop(struct lsm_client *client, bool wait);
 int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len);
 int q6lsm_snd_model_buf_free(struct lsm_client *client);
 int q6lsm_close(struct lsm_client *client);
-int q6lsm_unmap_cal_blocks(void);
 int q6lsm_register_sound_model(struct lsm_client *client,
 			       enum lsm_detection_mode mode, u16 minkeyword,
 			       u16 minuser, bool detectfailure);
