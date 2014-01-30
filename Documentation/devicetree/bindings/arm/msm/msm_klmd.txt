@@ -1,0 +1,27 @@
+KLM - Key Ladder Module
+
+KLM is a HW module which generates and decrypt keys in a secured manner.
+The KLM transfers generated keys securely into TSPP2 Key Table.
+
+The devicetree representation of the KLM block should be:
+
+Required properties:
+
+- compatible: "qcom,klm"
+- reg: physical memory base addresses and sizes for the following:
+	KLM, TSPP2, BCSS_HLOS, BCSS_KLM.
+- reg-names: names of the memory regions:
+	MSM_KLM, MSM_BCSS_TSPP2, MSM_BCSS_HLOS, MSM_BCSS_KLM
+- vdd-supply: power regulator (GDSC) supplying power to the broadcast subsystem.
+
+Example:
+
+	klm: msm-klm@fc560000 {
+		compatible = "qcom,klm";
+		reg = <0xfc560000 0x1000>, /* KLM registers */
+		      <0xfc724000 0x7000>, /* TSPP2 registers */
+		      <0xfc747000 0x1000>, /* KLM debug mode */
+		      <0xfc748200 0x100>;  /* Key Tables */
+		reg-names = "MSM_KLM", "MSM_BCSS_TSPP2", "MSM_BCSS_HLOS", "MSM_BCSS_KLM";
+		vdd-supply = <&gdsc_bcss>;
+	};

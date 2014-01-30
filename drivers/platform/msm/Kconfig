@@ -123,6 +123,11 @@ config RMNET_IPA
 	  for RmNet Data Driver and also exchange of QMI messages between
 	  A7 and Q6 IPA-driver.
 
+config KLM
+	boolean "KLM Driver"
+	help
+	  This driver handles the power management of the KLM (Key Ladder Module).
+
 config MSM_AVTIMER
 	tristate "Avtimer Driver"
 	depends on MSM_QDSP6_APRV2
