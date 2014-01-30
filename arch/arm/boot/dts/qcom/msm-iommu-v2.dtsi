@@ -36,4 +36,180 @@
 			label = "gfx3d_user";
 		};
 	};
+
+	apps_iommu: qcom,iommu@1e00000 {
+		compatible = "qcom,msm-smmu-v2";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reg = <0x1e00000 0x40000
+			0x1ef0000 0x3000>;
+		reg-names = "iommu_base", "smmu_local_base";
+		interrupts = <0 43 0>, <0 42 0>;
+		interrupt-names = "global_cfg_NS_irq", "global_cfg_S_irq";
+		label = "apps_iommu";
+		qcom,iommu-secure-id = <17>;
+		qcom,no-atos-support;
+		clocks = <&clock_gcc clk_gcc_smmu_cfg_clk>,
+			 <&clock_gcc clk_gcc_apss_tcu_clk>;
+		clock-names = "iface_clk", "core_clk";
+		qcom,cb-base-offset = <0x20000>;
+		status = "disabled";
+
+		qcom,iommu-ctx@1e22000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			reg = <0x1e22000 0x1000>;
+			interrupts = <0 70 0>;
+			qcom,iommu-ctx-sids = <0x2000>;
+			label = "jpeg_enc0";
+		};
+
+		qcom,iommu-ctx@1e23000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			reg = <0x1e23000 0x1000>;
+			interrupts = <0 70 0>;
+			qcom,iommu-ctx-sids = <0x400 0x402>;
+			label = "vfe0";
+		};
+
+		qcom,iommu-ctx@1e24000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			reg = <0x1e24000 0x1000>;
+			interrupts = <0 70 0>;
+			qcom,iommu-ctx-sids = <0xc00>;
+			label = "mdp_0";
+		};
+
+		venus_ns: qcom,iommu-ctx@1e25000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			reg = <0x1e25000 0x1000>;
+			interrupts = <0 70 0>;
+			qcom,iommu-ctx-sids = <0x800 0x801 0x802 0x803
+						0x804 0x805 0x807>;
+			label = "venus_ns";
+		};
+
+		qcom,iommu-ctx@1e27000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			reg = <0x1e27000 0x1000>;
+			interrupts = <0 70 0>;
+			qcom,iommu-ctx-sids = <0x1000>;
+			label = "mDSP";
+		};
+
+		qcom,iommu-ctx@1e28000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			reg = <0x1e28000 0x1000>;
+			interrupts = <0 70 0>;
+			qcom,iommu-ctx-sids = <0x1400>;
+			label = "gss";
+		};
+
+		qcom,iommu-ctx@1e29000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			reg = <0x1e29000 0x1000>;
+			interrupts = <0 70 0>;
+			qcom,iommu-ctx-sids = <0x1800>;
+			label = "a2";
+		};
+
+		qcom,iommu-ctx@1e32000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			qcom,secure-context;
+			reg = <0x1e32000 0x1000>;
+			interrupts = <0 70 0>;
+			qcom,iommu-ctx-sids = <0x0>;
+			label = "mdp_1";
+		};
+
+		venus_sec_pixel: qcom,iommu-ctx@1e33000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			qcom,secure-context;
+			reg = <0x1e33000 0x1000>;
+			interrupts = <0 70 0>;
+			qcom,iommu-ctx-sids = <0x0>;
+			label = "venus_sec_pixel";
+		};
+
+		venus_sec_bitstream: qcom,iommu-ctx@1e34000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			qcom,secure-context;
+			reg = <0x1e34000 0x1000>;
+			interrupts = <0 70 0>;
+			qcom,iommu-ctx-sids = <0x0>;
+			label = "venus_sec_bitstream";
+		};
+
+		venus_sec_non_pixel: qcom,iommu-ctx@1e35000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			qcom,secure-context;
+			reg = <0x1e35000 0x1000>;
+			interrupts = <0 70 0>;
+			qcom,iommu-ctx-sids = <0x0>;
+			label = "venus_sec_non_pixel";
+		};
+
+		venus_fw: qcom,iommu-ctx@1e36000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			qcom,secure-context;
+			reg = <0x1e36000 0x1000>;
+			interrupts = <0 70 0>;
+			qcom,iommu-ctx-sids = <0x0>;
+			label = "venus_fw";
+		};
+
+		qcom,iommu-ctx@1e38000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			reg = <0x1e38000 0x1000>;
+			interrupts = <0 70 0>;
+			qcom,iommu-ctx-sids = <0xC0 0xC4 0xC8 0xCC 0xD0 0xD3
+						0xD4 0xD7 0xD8 0xDB 0xDC 0xDF
+						0xF0 0xF3 0xF4 0xF7 0xF8 0xFB
+						0xFC 0xFF>;
+			label = "periph_CE";
+		};
+
+		qcom,iommu-ctx@1e39000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			reg = <0x1e39000 0x1000>;
+			interrupts = <0 70 0>;
+			qcom,iommu-ctx-sids = <0x280 0x283 0x284 0x287 0x288
+						0x28B 0x28C 0x28F 0x290 0x293
+						0x294 0x297 0x298 0x29B 0x29C
+						0x29F>;
+			label = "periph_BLSP";
+		};
+
+		qcom,iommu-ctx@1e3a000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			reg = <0x1e3a000 0x1000>;
+			interrupts = <0 70 0>;
+			qcom,iommu-ctx-sids = <0x100>;
+			label = "periph_SDC1";
+		};
+
+		qcom,iommu-ctx@1e3b000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			reg = <0x1e3b000 0x1000>;
+			interrupts = <0 70 0>;
+			qcom,iommu-ctx-sids = <0x140>;
+			label = "periph_SDC2";
+		};
+
+		qcom,iommu-ctx@1e3c000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			reg = <0x1e3c000 0x1000>;
+			interrupts = <0 70 0>;
+			qcom,iommu-ctx-sids = <0x1c0>;
+			label = "periph_audio";
+		};
+
+		qcom,iommu-ctx@1e3d000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			reg = <0x1e3d000 0x1000>;
+			interrupts = <0 70 0>;
+			qcom,iommu-ctx-sids = <0x2c0>;
+			label = "periph_USB_HS1";
+		};
+	};
 };
