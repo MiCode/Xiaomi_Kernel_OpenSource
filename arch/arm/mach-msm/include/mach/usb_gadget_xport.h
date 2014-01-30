@@ -17,7 +17,6 @@
 enum transport_type {
 	USB_GADGET_XPORT_UNDEF,
 	USB_GADGET_XPORT_TTY,
-	USB_GADGET_XPORT_SDIO,
 	USB_GADGET_XPORT_SMD,
 	USB_GADGET_XPORT_QTI,
 	USB_GADGET_XPORT_BAM,
@@ -36,8 +35,6 @@ static char *xport_to_str(enum transport_type t)
 	switch (t) {
 	case USB_GADGET_XPORT_TTY:
 		return "TTY";
-	case USB_GADGET_XPORT_SDIO:
-		return "SDIO";
 	case USB_GADGET_XPORT_SMD:
 		return "SMD";
 	case USB_GADGET_XPORT_QTI:
@@ -65,8 +62,6 @@ static enum transport_type str_to_xport(const char *name)
 {
 	if (!strncasecmp("TTY", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_TTY;
-	if (!strncasecmp("SDIO", name, XPORT_STR_LEN))
-		return USB_GADGET_XPORT_SDIO;
 	if (!strncasecmp("SMD", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_SMD;
 	if (!strncasecmp("QTI", name, XPORT_STR_LEN))
