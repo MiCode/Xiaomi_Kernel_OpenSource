@@ -22,7 +22,7 @@
 #define CHK_OVERFLOW(bufStart, start, end, length) \
 	((((bufStart) <= (start)) && ((end) - (start) >= (length))) ? 1 : 0)
 
-void diagfwd_init(void);
+int diagfwd_init(void);
 void diagfwd_exit(void);
 void diag_process_hdlc(void *data, unsigned len);
 void diag_smd_send_req(struct diag_smd_info *smd_info);

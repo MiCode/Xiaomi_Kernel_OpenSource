@@ -1980,11 +1980,11 @@ fail_free_copy:
 	return ret;
 }
 
-static void diag_real_time_info_init(void)
+static int diag_real_time_info_init(void)
 {
 	int i;
 	if (!driver)
-		return;
+		return -EIO;
 	for (i = 0; i < DIAG_NUM_PROC; i++) {
 		driver->real_time_mode[i] = 1;
 		driver->proc_rt_vote_mask[i] |= DIAG_PROC_DCI;
@@ -1994,8 +1994,11 @@ static void diag_real_time_info_init(void)
 	driver->proc_active_mask = 0;
 	driver->diag_real_time_wq = create_singlethread_workqueue(
 							"diag_real_time_wq");
+	if (!driver->diag_real_time_wq)
+		return -ENOMEM;
 	INIT_WORK(&(driver->diag_real_time_work), diag_real_time_work_fn);
 	mutex_init(&driver->real_time_mutex);
+	return 0;
 }
 
 int mask_request_validate(unsigned char mask_buf[])
@@ -2170,11 +2173,16 @@ static int __init diagchar_init(void)
 	pr_debug("diagfwd initializing ..\n");
 	ret = 0;
 	driver = kzalloc(sizeof(struct diagchar_dev) + 5, GFP_KERNEL);
+	if (!driver)
+		return -ENOMEM;
+
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 	diag_bridge = kzalloc(MAX_BRIDGES_DATA * sizeof(struct diag_bridge_dev),
 								GFP_KERNEL);
-	if (!diag_bridge)
+	if (!diag_bridge) {
 		pr_warn("diag: could not allocate memory for bridges\n");
+		goto fail;
+	}
 	diag_bridge_dci = kzalloc(MAX_BRIDGES_DCI *
 			  sizeof(struct diag_bridge_dci_dev), GFP_KERNEL);
 	if (!diag_bridge_dci) {
@@ -2183,8 +2191,10 @@ static int __init diagchar_init(void)
 	}
 	diag_hsic = kzalloc(MAX_HSIC_DATA_CH * sizeof(struct diag_hsic_dev),
 								GFP_KERNEL);
-	if (!diag_hsic)
+	if (!diag_hsic) {
 		pr_warn("diag: could not allocate memory for hsic ch\n");
+		goto fail;
+	}
 	diag_hsic_dci = kzalloc(MAX_HSIC_DCI_CH *
 				sizeof(struct diag_hsic_dci_dev), GFP_KERNEL);
 	if (!diag_hsic_dci) {
@@ -2193,89 +2203,100 @@ static int __init diagchar_init(void)
 	}
 #endif
 
-	if (driver) {
-		driver->used = 0;
-		timer_in_progress = 0;
-		driver->debug_flag = 1;
-		driver->dci_state = DIAG_DCI_NO_ERROR;
-		setup_timer(&drain_timer, drain_timer_func, 1234);
-		driver->itemsize = itemsize;
-		driver->poolsize = poolsize;
-		driver->itemsize_hdlc = itemsize_hdlc;
-		driver->poolsize_hdlc = poolsize_hdlc;
-		driver->itemsize_user = itemsize_user;
-		driver->poolsize_user = poolsize_user;
-		driver->itemsize_write_struct = itemsize_write_struct;
-		driver->poolsize_write_struct = poolsize_write_struct;
-		driver->itemsize_dci = itemsize_dci;
-		driver->poolsize_dci = poolsize_dci;
-		driver->num_clients = max_clients;
-		driver->logging_mode = USB_MODE;
-		driver->socket_process = NULL;
-		driver->callback_process = NULL;
-		driver->mask_check = 0;
-		driver->in_busy_pktdata = 0;
-		driver->in_busy_dcipktdata = 0;
-		mutex_init(&driver->diagchar_mutex);
-		init_waitqueue_head(&driver->wait_q);
-		init_waitqueue_head(&driver->smd_wait_q);
-		INIT_WORK(&(driver->diag_drain_work), diag_drain_work_fn);
-		diag_real_time_info_init();
-		diag_debugfs_init();
-		diag_masks_init();
-		diagfwd_init();
+	driver->used = 0;
+	timer_in_progress = 0;
+	driver->debug_flag = 1;
+	driver->dci_state = DIAG_DCI_NO_ERROR;
+	setup_timer(&drain_timer, drain_timer_func, 1234);
+	driver->itemsize = itemsize;
+	driver->poolsize = poolsize;
+	driver->itemsize_hdlc = itemsize_hdlc;
+	driver->poolsize_hdlc = poolsize_hdlc;
+	driver->itemsize_user = itemsize_user;
+	driver->poolsize_user = poolsize_user;
+	driver->itemsize_write_struct = itemsize_write_struct;
+	driver->poolsize_write_struct = poolsize_write_struct;
+	driver->itemsize_dci = itemsize_dci;
+	driver->poolsize_dci = poolsize_dci;
+	driver->num_clients = max_clients;
+	driver->logging_mode = USB_MODE;
+	driver->socket_process = NULL;
+	driver->callback_process = NULL;
+	driver->mask_check = 0;
+	driver->in_busy_pktdata = 0;
+	driver->in_busy_dcipktdata = 0;
+	mutex_init(&driver->diagchar_mutex);
+	init_waitqueue_head(&driver->wait_q);
+	init_waitqueue_head(&driver->smd_wait_q);
+	INIT_WORK(&(driver->diag_drain_work), diag_drain_work_fn);
+	ret = diag_real_time_info_init();
+	if (ret)
+		goto fail;
+	ret = diag_debugfs_init();
+	if (ret)
+		goto fail;
+	ret = diag_masks_init();
+	if (ret)
+		goto fail;
+	ret = diagfwd_init();
+	if (ret)
+		goto fail;
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-		diagfwd_bridge_init(HSIC_DATA_CH);
-		diagfwd_bridge_init(HSIC_DATA_CH_2);
-		ret = diagfwd_bridge_dci_init(HSIC_DCI_CH);
-		if (ret)
-			goto fail;
-		ret = diagfwd_bridge_dci_init(HSIC_DCI_CH_2);
-		if (ret)
-			goto fail;
-		/* register HSIC device */
-		ret = platform_driver_register(&msm_hsic_ch_driver);
-		if (ret)
-			pr_err("diag: could not register HSIC device, ret: %d\n",
-				ret);
-		diagfwd_bridge_init(SMUX);
-		INIT_WORK(&(driver->diag_connect_work),
-						 diag_connect_work_fn);
-		INIT_WORK(&(driver->diag_disconnect_work),
-						 diag_disconnect_work_fn);
+	ret = diagfwd_bridge_init(HSIC_DATA_CH);
+	if (ret)
+		goto fail;
+	ret = diagfwd_bridge_init(HSIC_DATA_CH_2);
+	if (ret)
+		goto fail;
+	ret = diagfwd_bridge_dci_init(HSIC_DCI_CH);
+	if (ret)
+		goto fail;
+	ret = diagfwd_bridge_dci_init(HSIC_DCI_CH_2);
+	if (ret)
+		goto fail;
+	/* register HSIC device */
+	ret = platform_driver_register(&msm_hsic_ch_driver);
+	if (ret)
+		pr_err("diag: could not register HSIC device, ret: %d\n",
+			ret);
+	ret = diagfwd_bridge_init(SMUX);
+	if (ret)
+		goto fail;
+	INIT_WORK(&(driver->diag_connect_work),
+					 diag_connect_work_fn);
+	INIT_WORK(&(driver->diag_disconnect_work),
+					 diag_disconnect_work_fn);
 #endif
-		diagfwd_cntl_init();
-		driver->dci_state = diag_dci_init();
-		diag_sdio_fn(INIT);
+	ret = diagfwd_cntl_init();
+	if (ret)
+		goto fail;
+	driver->dci_state = diag_dci_init();
+	diag_sdio_fn(INIT);
 
-		pr_debug("diagchar initializing ..\n");
-		driver->num = 1;
-		driver->name = ((void *)driver) + sizeof(struct diagchar_dev);
-		strlcpy(driver->name, "diag", 4);
-
-		/* Get major number from kernel and initialize */
-		error = alloc_chrdev_region(&dev, driver->minor_start,
-					    driver->num, driver->name);
-		if (!error) {
-			driver->major = MAJOR(dev);
-			driver->minor_start = MINOR(dev);
-		} else {
-			printk(KERN_INFO "Major number not allocated\n");
-			goto fail;
-		}
-		driver->cdev = cdev_alloc();
-		error = diagchar_setup_cdev(dev);
-		if (error)
-			goto fail;
+	pr_debug("diagchar initializing ..\n");
+	driver->num = 1;
+	driver->name = ((void *)driver) + sizeof(struct diagchar_dev);
+	strlcpy(driver->name, "diag", 4);
+	/* Get major number from kernel and initialize */
+	error = alloc_chrdev_region(&dev, driver->minor_start,
+				    driver->num, driver->name);
+	if (!error) {
+		driver->major = MAJOR(dev);
+		driver->minor_start = MINOR(dev);
 	} else {
-		printk(KERN_INFO "kzalloc failed\n");
+		pr_err("diag: Major number not allocated\n");
 		goto fail;
 	}
+	driver->cdev = cdev_alloc();
+	error = diagchar_setup_cdev(dev);
+	if (error)
+		goto fail;
 
-	pr_info("diagchar initialized now");
+	pr_debug("diagchar initialized now");
 	return 0;
 
 fail:
+	pr_err("diagchar is not initialized, ret: %d\n", ret);
 	diag_debugfs_cleanup();
 	diagchar_cleanup();
 	diagfwd_exit();

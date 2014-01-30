@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011, 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -225,7 +225,7 @@ static struct platform_driver msm_sdio_ch_driver = {
 		   },
 };
 
-void diagfwd_sdio_init(void)
+int diagfwd_sdio_init(void)
 {
 	int ret;
 
@@ -249,6 +249,9 @@ void diagfwd_sdio_init(void)
 		if (driver->usb_read_mdm_ptr == NULL)
 			goto err;
 	driver->diag_sdio_wq = create_singlethread_workqueue("diag_sdio_wq");
+	if (!driver->diag_sdio_wq)
+		goto err;
+
 #ifdef CONFIG_DIAG_OVER_USB
 	driver->mdm_ch = usb_diag_open(DIAG_MDM, driver,
 			diag_usb_legacy_notifier);
@@ -262,19 +265,20 @@ void diagfwd_sdio_init(void)
 	INIT_WORK(&(driver->diag_close_sdio_work), diag_close_sdio_work_fn);
 	ret = platform_driver_register(&msm_sdio_ch_driver);
 	if (ret)
-		printk(KERN_INFO "DIAG could not register SDIO device");
+		pr_info("diag: could not register SDIO device");
 	else
-		printk(KERN_INFO "DIAG registered SDIO device");
+		pr_debug("diag: registered SDIO device");
 
-	return;
+	return 0;
 err:
-		printk(KERN_INFO "\n Could not initialize diag buf for SDIO");
-		kfree(driver->buf_in_sdio);
-		kfree(driver->usb_buf_mdm_out);
-		kfree(driver->write_ptr_mdm);
-		kfree(driver->usb_read_mdm_ptr);
-		if (driver->diag_sdio_wq)
-			destroy_workqueue(driver->diag_sdio_wq);
+	pr_err("diag: Could not initialize diag buf for SDIO");
+	kfree(driver->buf_in_sdio);
+	kfree(driver->usb_buf_mdm_out);
+	kfree(driver->write_ptr_mdm);
+	kfree(driver->usb_read_mdm_ptr);
+	if (driver->diag_sdio_wq)
+		destroy_workqueue(driver->diag_sdio_wq);
+	return -ENOMEM;
 }
 
 void diagfwd_sdio_exit(void)
