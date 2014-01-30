@@ -321,24 +321,28 @@ static void __program_iommu_secure(void __iomem *base)
 /*
  * May only be called for non-secure iommus
  */
-static void __program_iommu(void __iomem *base)
+static void __program_iommu(struct msm_iommu_drvdata *drvdata)
 {
-	__reset_iommu(base);
+	__reset_iommu(drvdata->base);
 
 	if (!msm_iommu_get_scm_call_avail())
-		__reset_iommu_secure(base);
+		__reset_iommu_secure(drvdata->base);
 
-	SET_CR0_SMCFCFG(base, 1);
-	SET_CR0_USFCFG(base, 1);
-	SET_CR0_STALLD(base, 1);
-	SET_CR0_GCFGFIE(base, 1);
-	SET_CR0_GCFGFRE(base, 1);
-	SET_CR0_GFIE(base, 1);
-	SET_CR0_GFRE(base, 1);
-	SET_CR0_CLIENTPD(base, 0);
+	SET_CR0_SMCFCFG(drvdata->base, 1);
+	SET_CR0_USFCFG(drvdata->base, 1);
+	SET_CR0_STALLD(drvdata->base, 1);
+	SET_CR0_GCFGFIE(drvdata->base, 1);
+	SET_CR0_GCFGFRE(drvdata->base, 1);
+	SET_CR0_GFIE(drvdata->base, 1);
+	SET_CR0_GFRE(drvdata->base, 1);
+	SET_CR0_CLIENTPD(drvdata->base, 0);
 
 	if (!msm_iommu_get_scm_call_avail())
-		__program_iommu_secure(base);
+		__program_iommu_secure(drvdata->base);
+
+	if (drvdata->smmu_local_base)
+		writel_relaxed(0xFFFFFFFF, drvdata->smmu_local_base +
+							SMMU_INTR_SEL_NS);
 
 	mb(); /* Make sure writes complete before returning */
 }
@@ -689,7 +693,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	if (!iommu_drvdata->ctx_attach_count) {
 		if (!is_secure) {
 			iommu_halt(iommu_drvdata);
-			__program_iommu(iommu_drvdata->base);
+			__program_iommu(iommu_drvdata);
 			iommu_resume(iommu_drvdata);
 		} else {
 			ret = msm_iommu_sec_program_iommu(

@@ -3,10 +3,12 @@
 Required properties:
 - compatible : one of:
 	- "qcom,msm-smmu-v1"
-- reg : offset and length of the register set for the device. Optional
-	offset and length for clock register for additional clock that
+- reg : - offset and length of the register set for the device.
+	- Optional offset and length for clock register for additional clock that
 	needs to be turned on for access to this IOMMU.
-- reg-names: "iommu_base", "clk_base" (optional)
+	- Optional offset and length for enabling aggregated Context bank
+	interrupts
+- reg-names: "iommu_base", "clk_base" (optional), "smmu_local_base" (optional)
 - label: name of this IOMMU instance.
 
 Optional properties:

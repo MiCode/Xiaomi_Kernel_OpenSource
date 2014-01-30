@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1035,6 +1035,9 @@ do { \
 #define NSGFSRRESTORE	(0x044C)
 #define SMR		(0x0800)
 #define S2CR		(0x0C00)
+
+/* SMMU_LOCAL */
+#define SMMU_INTR_SEL_NS	(0x2000)
 
 /* Global Register Space 1 */
 #define CBAR		(0x1000)
