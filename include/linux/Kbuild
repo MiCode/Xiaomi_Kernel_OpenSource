@@ -146,6 +146,7 @@ header-y += generic_serial.h
 header-y += genetlink.h
 header-y += gfs2_ondisk.h
 header-y += gigaset_dev.h
+header-y += hbtp_input.h
 header-y += hdlc.h
 header-y += hdlcdrv.h
 header-y += hdreg.h

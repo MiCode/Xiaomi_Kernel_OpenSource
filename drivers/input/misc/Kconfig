@@ -73,6 +73,16 @@ config INPUT_BMA150
 	  To compile this driver as a module, choose M here: the
 	  module will be called bma150.
 
+config INPUT_HBTP_INPUT
+	tristate "HBTP input driver support"
+	help
+	  Say Y to enable HBTP input driver.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called hbtp_input.
+
+endif
+
 config INPUT_PCSPKR
 	tristate "PC Speaker support"
 	depends on PCSPKR_PLATFORM
@@ -714,4 +724,3 @@ config SENSORS_CAPELLA_CM36283
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called CM36283.
-endif
