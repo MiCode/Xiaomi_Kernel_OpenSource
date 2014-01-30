@@ -3788,6 +3788,10 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 	}
 	/* special case handling for MAP_FIXED */
 	if (flags & MAP_FIXED) {
+		if (addr + len > KGSL_SVM_UPPER_BOUND) {
+			ret = -EFAULT;
+			goto put;
+		}
 		ret = get_unmapped_area(NULL, addr, len, pgoff, flags);
 		if (!ret || IS_ERR_VALUE(ret))
 			goto put;
@@ -3816,7 +3820,7 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 	 * first try to see if the suggested address is accepted by the
 	 * system map and our gpu map
 	 */
-	if (addr) {
+	if (addr && (addr + len <= KGSL_SVM_UPPER_BOUND)) {
 		vma = find_vma(current->mm, addr);
 		if (!vma || ((addr + len) <= vma->vm_start)) {
 
@@ -3882,11 +3886,12 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 		if (flag_top_down) {
 			info.flags = VM_UNMAPPED_AREA_TOPDOWN;
 			info.low_limit = PAGE_SIZE;
-			info.high_limit = addr;
+			info.high_limit = (addr > KGSL_SVM_UPPER_BOUND) ?
+						KGSL_SVM_UPPER_BOUND : addr;
 		} else {
 			info.flags = 0;
 			info.low_limit = addr;
-			info.high_limit = TASK_SIZE;
+			info.high_limit = KGSL_SVM_UPPER_BOUND;
 		}
 		ret = vm_unmapped_area(&info);
 
