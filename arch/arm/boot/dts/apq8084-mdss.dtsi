@@ -33,6 +33,12 @@
 			<22 512 0 6400000>, <23 512 0 6400000>,
 			<22 512 0 6400000>, <23 512 0 6400000>;
 
+		/* Fudge factors */
+		qcom,mdss-ab-factor = <2 1>;		/* 2 times    */
+		qcom,mdss-ib-factor = <3 2>;		/* 1.5 times  */
+		qcom,mdss-high-ib-factor = <2 1>;	/* 2 times    */
+		qcom,mdss-clk-factor = <105 100>;	/* 1.05 times */
+
 		qcom,max-clk-rate = <320000000>;
 
 		qcom,mdss-pipe-vig-off = <0x00001200 0x00001600

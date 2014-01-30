@@ -203,6 +203,27 @@ Optional properties:
 				applied in scenarios where panel interface can
 				be more tolerant to memory latency such as
 				command mode panels.
+
+Fudge Factors:			Fudge factors are used to boost demand for
+				resources like bus bandswidth, clk rate etc. to
+				overcome system inefficiencies and avoid any
+				glitches. These fudge factors are expressed in
+				terms of numerator and denominator. First value
+				is numerator followed by denominator. They all
+				are optional but highly recommended.
+				Ex:
+				x = value to be fudged
+				a = numerator, default value is 1
+				b = denominator, default value is 1
+				FUDGE(x, a, b) = ((x * a) / b)
+- qcom,mdss-ib-factor:		This fudge factor is applied to calculated ib
+				values in default conditions.
+- qcom,mdss-high-ib-factor:	This fudge factor is applied to calculated ib
+				values. Use of this factor is determined by the
+				driver and open new use-cases.
+- qcom,mdss-clk-factor:		This fudge factor is applied to calculated mdp
+				clk rate in default conditions.
+
 Optional subnodes:
 Child nodes representing the frame buffer virtual devices.
 
@@ -260,6 +281,12 @@ Example:
 			<22 512 0 0>, <23 512 0 0>,
 			<22 512 0 6400000>, <23 512 0 6400000>,
 			<22 512 0 6400000>, <23 512 0 6400000>;
+
+		/* Fudge factors */
+		qcom,mdss-ab-factor = <2 1>;		/* 2 times    */
+		qcom,mdss-ib-factor = <3 2>;		/* 1.5 times  */
+		qcom,mdss-high-ib-factor = <2 1>;	/* 2 times    */
+		qcom,mdss-clk-factor = <5 4>;		/* 1.25 times */
 
 		qcom,max-clk-rate = <320000000>;
 		qcom,vbif-settings = <0x0004 0x00000001>,
