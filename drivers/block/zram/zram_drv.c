@@ -850,8 +850,14 @@ static void zram_slot_free_notify(struct block_device *bdev,
 {
 	struct zram *zram;
 	struct zram_slot_free *free_rq;
+	struct zram_meta *meta;
 
 	zram = bdev->bd_disk->private_data;
+	meta = zram->meta;
+
+	write_lock(&meta->tb_lock);
+	zram_free_page(zram, index);
+	write_unlock(&meta->tb_lock);
 	atomic64_inc(&zram->stats.notify_free);
 
 	free_rq = kmalloc(sizeof(struct zram_slot_free), GFP_ATOMIC);
