@@ -607,7 +607,6 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 
 		ret = msm_iommu_sec_program_iommu(iommu_drvdata->sec_id);
 
-		SET_MICRO_MMU_CTRL_RESERVED(iommu_drvdata->base, 0x3);
 		/* bfb settings are always programmed by HLOS */
 		program_iommu_bfb_settings(iommu_drvdata->base,
 					   iommu_drvdata->bfb_settings);
