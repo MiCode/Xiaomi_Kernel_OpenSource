@@ -513,7 +513,14 @@ void *smem_find(unsigned id, unsigned size_in, unsigned to_proc, unsigned flags)
 	SMEM_DBG("%s(%u, %u, %u, %u)\n", __func__, id, size_in, to_proc,
 									flags);
 
-	if (!is_probe_done())
+	/*
+	 * Handle the circular dependecy between SMEM and software implemented
+	 * remote spinlocks.  SMEM must initialize the remote spinlocks in
+	 * probe() before it is done.  EPROBE_DEFER handling will not resolve
+	 * this code path, so we must be intellegent to know that the spinlock
+	 * item is a special case.
+	 */
+	if (!is_probe_done() && id != SMEM_SPINLOCK_ARRAY)
 		return ERR_PTR(-EPROBE_DEFER);
 
 	ptr = smem_get_entry(id, &size, to_proc, flags);
@@ -781,7 +788,14 @@ void *smem_get_entry(unsigned id, unsigned *size, unsigned to_proc,
 {
 	SMEM_DBG("%s(%u, %u, %u, %u)\n", __func__, id, *size, to_proc, flags);
 
-	if (!is_probe_done())
+	/*
+	 * Handle the circular dependecy between SMEM and software implemented
+	 * remote spinlocks.  SMEM must initialize the remote spinlocks in
+	 * probe() before it is done.  EPROBE_DEFER handling will not resolve
+	 * this code path, so we must be intellegent to know that the spinlock
+	 * item is a special case.
+	 */
+	if (!is_probe_done() && id != SMEM_SPINLOCK_ARRAY)
 		return ERR_PTR(-EPROBE_DEFER);
 
 	return __smem_get_entry_secure(id, size, to_proc, flags, false, true);
