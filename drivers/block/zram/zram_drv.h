@@ -99,19 +99,8 @@ struct zram_meta {
 	struct zs_pool *mem_pool;
 };
 
-struct zram_slot_free {
-	unsigned long index;
-	struct zram_slot_free *next;
-};
-
 struct zram {
 	struct zram_meta *meta;
-	struct rw_semaphore lock; /* protect compression buffers, table,
-				   * 32bit stat counters against concurrent
-				   * notifications, reads and writes */
-
-	struct work_struct free_work;  /* handle pending free request */
-	struct zram_slot_free *slot_free_rq; /* list head of free request */
 	struct zcomp *comp;
 	struct gendisk *disk;
 	/* Prevent concurrent execution of device init */
@@ -119,7 +108,6 @@ struct zram {
 	/*
 	 * the number of pages zram can consume for storing compressed data
 	 */
-	spinlock_t slot_free_lock;
 	unsigned long limit_pages;
 	int max_comp_streams;
 
