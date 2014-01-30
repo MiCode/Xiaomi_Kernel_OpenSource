@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -525,7 +525,7 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff);
 int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg);
 int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
-		struct mdss_mdp_perf_params *perf);
+	struct mdss_mdp_perf_params *perf, struct mdss_mdp_img_rect *roi);
 int mdss_mdp_ctl_notify(struct mdss_mdp_ctl *ctl, int event);
 void mdss_mdp_ctl_notifier_register(struct mdss_mdp_ctl *ctl,
 	struct notifier_block *notifier);
@@ -637,6 +637,10 @@ int mdss_mdp_calc_phase_step(u32 src, u32 dst, u32 *out_phase);
 void mdss_mdp_intersect_rect(struct mdss_mdp_img_rect *res_rect,
 	const struct mdss_mdp_img_rect *dst_rect,
 	const struct mdss_mdp_img_rect *sci_rect);
+void mdss_mdp_crop_rect(struct mdss_mdp_img_rect *src_rect,
+	struct mdss_mdp_img_rect *dst_rect,
+	const struct mdss_mdp_img_rect *sci_rect);
+
 
 int mdss_mdp_wb_kickoff(struct msm_fb_data_type *mfd);
 int mdss_mdp_wb_ioctl_handler(struct msm_fb_data_type *mfd, u32 cmd, void *arg);
