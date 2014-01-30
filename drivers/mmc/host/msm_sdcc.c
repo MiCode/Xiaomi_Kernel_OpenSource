@@ -57,7 +57,6 @@
 #include <asm/mach/mmc.h>
 #include <mach/msm_iomap.h>
 #include <mach/dma.h>
-#include <mach/sdio_al.h>
 #include <mach/msm_bus.h>
 
 #include "msm_sdcc.h"
