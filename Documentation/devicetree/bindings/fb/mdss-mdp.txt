@@ -150,6 +150,46 @@ Bus Scaling Data:
 				bare no logic except for the use-case 0 where ab
 				and ib values needs to be 0.
 
+- qcom,mdss-prefill-outstanding-buffer-bytes: The size of mdp outstanding buffer
+				in bytes. The buffer is filled during prefill
+				time and the buffer size shall be included in
+				prefill bandwidth calculation.
+- qcom,mdss-prefill-y-buffer-bytes: The size of mdp y plane buffer in bytes. The
+				buffer is filled during prefill time when format
+				is YUV and the buffer size shall be included in
+				prefill bandwidth calculation.
+- qcom,mdss-prefill-scaler-buffer-lines-bilinear: The value indicates how many lines
+				of scaler line buffer need to be filled during
+				prefill time. If bilinear scalar is enabled, then this
+				number of lines is used to determine how many bytes
+				of scaler buffer to be included in prefill bandwidth
+				calculation.
+- qcom,mdss-prefill-scaler-buffer-lines-caf: The value indicates how many lines of
+				of scaler line buffer need to be filled during
+				prefill time. If CAF mode filter is enabled, then
+				this number of lines is used to determine how many
+				bytes of scaler buffer to be included in prefill
+				bandwidth calculation.
+- qcom,mdss-prefill-post-scaler-buffer: The size of post scaler buffer in bytes.
+				The buffer is used to smooth the output of the
+				scaler. If the buffer is present in h/w, it is
+				filled during prefill time and the number of bytes
+				shall be included in prefill bandwidth calculation.
+- qcom,mdss-prefill-pingpong-buffer-pixels: The size of pingpong buffer in pixels.
+				The buffer is used to keep pixels flowing to the
+				panel interface. If the vertical start position of a
+				layer is in the beginning of the active area, pingpong
+				buffer must be filled during prefill time to generate
+				starting lines. The number of bytes to be filled is
+				determined by the line width, starting position,
+				byte per pixel and scaling ratio, this number shall be
+				included in prefill bandwidth calculation.
+- qcom,mdss-prefill-fbc-lines:  The value indicates how many lines are required to fill
+				fbc buffer during prefill time if FBC (Frame Buffer
+				Compressor) is enabled. The number of bytes to be filled
+				is determined by the line width, bytes per pixel and
+				scaling ratio, this number shall be included in prefill bandwidth
+				calculation.
 Optional properties:
 - vdd-cx-supply :	Phandle for vdd CX regulator device node.
 - batfet-supply :	Phandle for battery FET regulator device node.
@@ -328,6 +368,15 @@ Example:
 				    0x00017100 0x00019100>;
 		qcom,mdss-intf-off = <0x00021100 0x00021300
 					   0x00021500 0x00021700>;
+
+		/* buffer parameters to calculate prefill bandwidth */
+		qcom,mdss-prefill-outstanding-buffer-bytes = <1024>;
+		qcom,mdss-prefill-y-buffer-bytes = <4096>;
+		qcom,mdss-prefill-scaler-buffer-lines-bilinear = <2>;
+		qcom,mdss-prefill-scaler-buffer-lines-caf = <4>;
+		qcom,mdss-prefill-post-scaler-buffer-pixels = <2048>;
+		qcom,mdss-prefill-pingpong-buffer-pixels = <5120>;
+		qcom,mdss-prefill-fbc-lines = <2>;
 
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;

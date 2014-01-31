@@ -133,6 +133,7 @@ static int mdss_mdp_parse_dt_handler(struct platform_device *pdev,
 static int mdss_mdp_parse_dt_prop_len(struct platform_device *pdev,
 				       char *prop_name);
 static int mdss_mdp_parse_dt_smp(struct platform_device *pdev);
+static int mdss_mdp_parse_dt_prefill(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_misc(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_ad_cfg(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev);
@@ -1532,6 +1533,12 @@ static int mdss_mdp_parse_dt(struct platform_device *pdev)
 		return rc;
 	}
 
+	rc = mdss_mdp_parse_dt_prefill(pdev);
+	if (rc) {
+		pr_err("Error in device tree : prefill\n");
+		return rc;
+	}
+
 	rc = mdss_mdp_parse_dt_misc(pdev);
 	if (rc) {
 		pr_err("Error in device tree : misc\n");
@@ -2026,6 +2033,69 @@ static void mdss_mdp_parse_dt_fudge_factors(struct platform_device *pdev,
 		ff->numer = data[0];
 		ff->denom = data[1];
 	}
+}
+
+static int mdss_mdp_parse_dt_prefill(struct platform_device *pdev)
+{
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+	struct mdss_prefill_data *prefill = &mdata->prefill_data;
+	int rc;
+
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,mdss-prefill-outstanding-buffer-bytes",
+		&prefill->ot_bytes);
+	if (rc) {
+		pr_err("prefill outstanding buffer bytes not specified\n");
+		return rc;
+	}
+
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,mdss-prefill-y-buffer-bytes", &prefill->y_buf_bytes);
+	if (rc) {
+		pr_err("prefill y buffer bytes not specified\n");
+		return rc;
+	}
+
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,mdss-prefill-scaler-buffer-lines-bilinear",
+		&prefill->y_scaler_lines_bilinear);
+	if (rc) {
+		pr_err("prefill scaler lines for bilinear not specified\n");
+		return rc;
+	}
+
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,mdss-prefill-scaler-buffer-lines-caf",
+		&prefill->y_scaler_lines_caf);
+	if (rc) {
+		pr_debug("prefill scaler lines for caf not specified\n");
+		return rc;
+	}
+
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,mdss-prefill-post-scaler-buffer-pixels",
+		&prefill->post_scaler_pixels);
+	if (rc) {
+		pr_err("prefill post scaler buffer pixels not specified\n");
+		return rc;
+	}
+
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,mdss-prefill-pingpong-buffer-pixels",
+		&prefill->pp_pixels);
+	if (rc) {
+		pr_err("prefill pingpong buffer lines not specified\n");
+		return rc;
+	}
+
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,mdss-prefill-fbc-lines", &prefill->fbc_lines);
+	if (rc) {
+		pr_err("prefill FBC lines not specified\n");
+		return rc;
+	}
+
+	return 0;
 }
 
 static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)

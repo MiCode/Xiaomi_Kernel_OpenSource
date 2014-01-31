@@ -74,6 +74,15 @@
 		qcom,mdss-has-bwc;
 		qcom,mdss-has-decimation;
 
+		/* buffer parameters to calculate prefill bandwidth */
+		qcom,mdss-prefill-outstanding-buffer-bytes = <1024>;
+		qcom,mdss-prefill-y-buffer-bytes = <4096>;
+		qcom,mdss-prefill-scaler-buffer-lines-bilinear = <2>;
+		qcom,mdss-prefill-scaler-buffer-lines-caf = <4>;
+		qcom,mdss-prefill-post-scaler-buffer-pixels = <2048>;
+		qcom,mdss-prefill-pingpong-buffer-pixels = <5120>;
+		qcom,mdss-prefill-fbc-lines = <2>;
+
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
