@@ -28,6 +28,11 @@
 		      <224 0x10001>;
 };
 
+&i2c_0 {
+	qcom,sda-gpio = <&msmgpio 14 0>;
+	qcom,scl-gpio = <&msmgpio 15 0>;
+};
+
 &soc {
 	qcom,mss@fc880000 {
 		reg = <0xfc880000 0x100>,
