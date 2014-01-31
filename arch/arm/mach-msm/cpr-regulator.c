@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -601,6 +601,10 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 					RBCPR_CTL_UP_THRESHOLD_SHIFT;
 			reg_val = reg_mask;
 			cpr_ctl_modify(cpr_vreg, reg_mask, reg_val);
+
+			/* Disable UP interrupt */
+			cpr_irq_set(cpr_vreg, CPR_INT_DEFAULT & ~CPR_INT_UP);
+
 			return;
 		}
 
@@ -696,6 +700,9 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 		reg_val = cpr_vreg->up_threshold <<
 				RBCPR_CTL_UP_THRESHOLD_SHIFT;
 		cpr_ctl_modify(cpr_vreg, reg_mask, reg_val);
+
+		/* Re-enable default interrupts */
+		cpr_irq_set(cpr_vreg, CPR_INT_DEFAULT);
 
 		/* Ack */
 		cpr_irq_clr_ack(cpr_vreg);
