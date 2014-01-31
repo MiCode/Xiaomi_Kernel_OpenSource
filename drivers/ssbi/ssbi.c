@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
  * Copyright (c) 2010, Google Inc.
  *
  * Original authors: Code Aurora Forum
@@ -380,7 +380,7 @@ ssbi_gsa_write_bytes(struct ssbi *ssbi, u16 addr, u8 *buf, int len)
 
 	while (len) {
 		if (ssbi->controller_type == FSM_SBI_CTRL_GENI_SSBI2_ARBITER)
-			cmd = GENI_SSBI2_CMD_RD |
+			cmd = GENI_SSBI2_CMD_WR |
 				(addr & SSBI_GSA_CMD_ADDR_MASK) << 8 | *buf;
 		else
 			cmd = (addr & SSBI_GSA_CMD_ADDR_MASK) << 8 | *buf;
