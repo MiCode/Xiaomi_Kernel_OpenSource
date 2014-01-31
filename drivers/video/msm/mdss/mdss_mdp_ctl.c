@@ -91,6 +91,7 @@ struct mdss_mdp_prefill_params {
 	bool is_caf;
 	bool is_fbc;
 	bool is_bwc;
+	bool is_tile;
 };
 
 static inline bool mdss_mdp_perf_is_caf(struct mdss_mdp_pipe *pipe)
@@ -213,7 +214,7 @@ static u32 mdss_mdp_perf_calc_pipe_prefill_cmd(struct mdss_mdp_prefill_params
 	/* 1st line if fbc is not enabled and 2nd line if fbc is enabled */
 	if (((params->dst_y == 0) && !params->is_fbc) ||
 		((params->dst_y <= 1) && params->is_fbc)) {
-		if (params->is_bwc) /* no tile condition for now */
+		if (params->is_bwc || params->is_tile)
 			latency_lines = 4;
 		latency_buf_bytes = params->src_w * params->bpp * latency_lines;
 		prefill_bytes += latency_buf_bytes;
@@ -350,6 +351,7 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	prefill_params.is_caf = mdss_mdp_perf_is_caf(pipe);
 	prefill_params.is_fbc = is_fbc;
 	prefill_params.is_bwc = pipe->bwc_mode;
+	prefill_params.is_tile = pipe->src_fmt->tile;
 
 	if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
 		perf->prefill_bytes = (mixer->ctl->is_video_mode) ?
