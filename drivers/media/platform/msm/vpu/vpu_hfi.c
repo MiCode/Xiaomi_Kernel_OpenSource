@@ -131,11 +131,6 @@ struct vpu_hfi_device {
 	struct vpu_platform_resources	*platform_resouce;
 };
 
-struct addr_range {
-	u32 start;
-	u32 end;
-};
-
 /* global */
 static struct vpu_hfi_device g_hfi_device;
 
@@ -1202,22 +1197,84 @@ size_t vpu_hfi_print_queues(char *buf, size_t buf_size)
 	return strlcat(buf, "", buf_size);
 }
 
-static struct addr_range csr_skip_addrs[] = {
+struct addr_range {
+	u32 start;
+	u32 end;
+};
+
+static struct addr_range restricted_csr_addrs[] = {
 	/* start and end offsets of inaccessible address ranges */
 	{ 0x0000, 0x000F },
 	{ 0x0018, 0x001B },
 	{ 0x0020, 0x0037 },
 	{ 0x00C0, 0x00DF },
-	{ 0x01A0, 0x01AF },
+	{ 0x01A0, 0x0FFF },
 };
+
+/* registers which should not be written through debugfs
+ * (may interfere with the normal operation of the driver
+ * which makes use of these registers)
+ */
+static u32 no_write_csr_regs[] = {
+	VPU_CSR_APPS_SGI_STS,
+	VPU_CSR_APPS_SGI_CLR,
+	VPU_CSR_FW_SGI_EN_SET,
+	VPU_CSR_FW_SGI_EN_CLR,
+	VPU_CSR_FW_SGI_FORCELEVEL,
+	VPU_CSR_FW_SGI_STS,
+	VPU_CSR_FW_SGI_CLR,
+	VPU_CSR_FW_SGI_TRIG,
+	VPU_CSR_SW_SCRATCH0_STS,
+	VPU_CSR_SW_SCRATCH1_QTBL_INFO,
+	VPU_CSR_SW_SCRATCH2_QTBL_ADDR,
+};
+
+int vpu_hfi_write_csr_reg(u32 off, u32 val)
+{
+	struct vpu_hfi_device *hdevice = &g_hfi_device;
+	u32 v_base = (u32)(hdevice->reg_base);
+	u32 p_base = (u32)(hdevice->platform_resouce->register_base_phy);
+	u32 write_addr = v_base + off;
+	u32 last_addr = v_base + VPU_CSR_LAST_REG;
+	int i;
+
+	if (write_addr > last_addr || write_addr < v_base) {
+		pr_err("attempting to write outside of addr range\n");
+		return -EFAULT;
+	}
+
+	if (off % 4) {
+		pr_err("addr must be 32-bit word-aligned\n");
+		return -EFAULT;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(no_write_csr_regs); i++) {
+		if (off == no_write_csr_regs[i]) {
+			pr_err("not allowed write this reg through debugfs\n");
+			return -EFAULT;
+		}
+	}
+
+	for (i = 0; i < ARRAY_SIZE(restricted_csr_addrs); i++) {
+		if (off >= restricted_csr_addrs[i].start
+			&& off <= restricted_csr_addrs[i].end) {
+			pr_err("attempting to write restricted addr range\n");
+			return -EFAULT;
+		}
+	}
+
+	raw_hfi_reg_write(write_addr, val);
+
+	pr_debug("wrote val: 0x%08x at addr: 0x%08x\n", val, p_base + off);
+	return 0;
+}
 
 int vpu_hfi_dump_csr_regs(char *buf, size_t buf_size)
 {
 	struct vpu_hfi_device *hdevice = &g_hfi_device;
 	u32 v_base = (u32)(hdevice->reg_base);
 	u32 p_base = (u32)(hdevice->platform_resouce->register_base_phy);
-	u32 last_addr = v_base +
-			csr_skip_addrs[ARRAY_SIZE(csr_skip_addrs) - 1].end;
+	u32 last_addr = v_base + VPU_CSR_LAST_REG;
 	u32 addr;
 	char temp[32];
 	int i = 0, skip = 0, temp_size = 32;
@@ -1232,8 +1289,8 @@ int vpu_hfi_dump_csr_regs(char *buf, size_t buf_size)
 			strlcat(buf, temp, buf_size);
 		}
 
-		if ((addr - v_base) >= csr_skip_addrs[i].start &&
-				(addr - v_base) <= csr_skip_addrs[i].end) {
+		if ((addr - v_base) >= restricted_csr_addrs[i].start &&
+			(addr - v_base) <= restricted_csr_addrs[i].end) {
 			skip = 1;
 			snprintf(temp, temp_size, " xxxxxxxxxx");
 			strlcat(buf, temp, buf_size);
@@ -1244,7 +1301,7 @@ int vpu_hfi_dump_csr_regs(char *buf, size_t buf_size)
 			}
 
 			snprintf(temp, temp_size, " 0x%08x",
-					readl_relaxed(addr + 0 * sizeof(u32)));
+					raw_hfi_reg_read(addr));
 			strlcat(buf, temp, buf_size);
 		}
 

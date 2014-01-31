@@ -162,6 +162,7 @@ static inline u32 vpu_hfi_q_size(int q_id)
 #define VPU_CSR_SW_SCRATCH3			0x16c	/* unused */
 #define VPU_CSR_SW_SCRATCH4_IPC_POLLING		0x170	/* IPC polling reg */
 #define VPU_HW_VERSION				0x1A0
+#define VPU_CSR_LAST_REG			VPU_HW_VERSION
 
 static inline void raw_hfi_qtbl_paddr_set(u32 regbase, u32 phyaddr)
 {
@@ -212,21 +213,25 @@ static inline void raw_hfi_int_fire(u32 regbase)
 	/* no need for barrier after */
 }
 
-static inline void raw_hfi_reg_write(u32 reg, u32 value)
+static inline void raw_hfi_reg_write(u32 addr, u32 val)
 {
-	writel_relaxed(value, reg);
+	writel_relaxed(val, addr);
 	wmb();
+}
+
+static inline u32 raw_hfi_reg_read(u32 addr)
+{
+	u32 val;
+
+	val = readl_relaxed(addr);
+	rmb();
+
+	return val;
 }
 
 static inline u32 raw_hfi_status_read(u32 regbase)
 {
-	u32 val;
-
-	/* read vpu boot status */
-	val = readl_relaxed(regbase + VPU_CSR_SW_SCRATCH0_STS);
-	rmb();
-
-	return val;
+	return raw_hfi_reg_read(regbase + VPU_CSR_SW_SCRATCH0_STS);
 }
 
 static inline bool raw_hfi_fw_ready(u32 regbase)
