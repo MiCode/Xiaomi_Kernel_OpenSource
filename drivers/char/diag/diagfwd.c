@@ -29,7 +29,7 @@
 #endif
 #include <soc/qcom/socinfo.h>
 #include <soc/qcom/smd.h>
-#include <mach/restart.h>
+#include <soc/qcom/restart.h>
 #include "diagmem.h"
 #include "diagchar.h"
 #include "diagfwd.h"

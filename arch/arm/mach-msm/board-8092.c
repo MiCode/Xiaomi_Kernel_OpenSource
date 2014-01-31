@@ -32,7 +32,7 @@
 #include <soc/qcom/pm.h>
 #include <soc/qcom/rpm-smd.h>
 #include <soc/qcom/smd.h>
-#include <mach/restart.h>
+#include <soc/qcom/restart.h>
 
 #include <linux/io.h>
 #include <linux/gpio.h>

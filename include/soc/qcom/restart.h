@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,8 +20,6 @@
 #if defined(CONFIG_MSM_NATIVE_RESTART)
 void msm_set_restart_mode(int mode);
 void msm_restart(char mode, const char *cmd);
-#elif defined(CONFIG_ARCH_FSM9XXX)
-void fsm_restart(char mode, const char *cmd);
 #else
 #define msm_set_restart_mode(mode)
 #endif
