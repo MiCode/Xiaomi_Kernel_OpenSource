@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -441,6 +441,10 @@ static inline void copy_cap_prop(
 
 	case HFI_CAPABILITY_BITRATE:
 		out = &sess_init_done->bitrate;
+		break;
+
+	case HFI_CAPABILITY_HIER_P_NUM_ENH_LAYERS:
+		out = &sess_init_done->hier_p;
 		break;
 	}
 
