@@ -1116,14 +1116,6 @@ config MSM_RPC_USB
 	 required for MSMs on which the APPS does not have a direct access
 	 to the PMIC.
 
-config MSM_ENABLE_WDOG_DEBUG_CONTROL
-	bool "Enable control of watchdog debug and boot partition select"
-	help
-	  Enables support for controlling watchdog debug and boot partition
-	  select. This is currently used to bypass debug image for PS_HOLD reset
-	  by disabling watchdog debug and boot partition select. This allows
-	  for a clean MSM reset for reboot scenarios.
-
 config MSM_UARTDM_Core_v14
 	bool "Use MSM BLSP based HSUART Core v1.4"
 	depends on SERIAL_MSM_HS

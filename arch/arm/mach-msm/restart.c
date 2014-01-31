@@ -12,18 +12,12 @@
  */
 
 #include <linux/module.h>
-#include <linux/moduleparam.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/reboot.h>
 #include <linux/io.h>
-#include <linux/delay.h>
+#include <linux/reboot.h>
 #include <linux/pm.h>
-#include <linux/cpu.h>
-#include <linux/interrupt.h>
-#include <linux/mfd/pmic8058.h>
-#include <linux/mfd/pmic8901.h>
-#include <linux/mfd/pm8xxx/misc.h>
+#include <linux/delay.h>
 #include <linux/qpnp/power-on.h>
 #include <linux/of_address.h>
 #include <soc/qcom/scm.h>
@@ -32,18 +26,6 @@
 
 #include <mach/msm_iomap.h>
 #include <soc/qcom/restart.h>
-#include <soc/qcom/socinfo.h>
-#include <mach/irqs.h>
-#include "msm_watchdog.h"
-#include "timer.h"
-#include "wdog_debug.h"
-
-#define WDT0_RST	0x38
-#define WDT0_EN		0x40
-#define WDT0_BARK_TIME	0x4C
-#define WDT0_BITE_TIME	0x5C
-
-#define PSHOLD_CTL_SU (MSM_TLMM_BASE + 0x820)
 
 #define RESTART_REASON_ADDR 0x65C
 #define DLOAD_MODE_ADDR     0x0
@@ -53,12 +35,13 @@
 #define EMERGENCY_DLOAD_MAGIC3    0x77777777
 
 #define SCM_IO_DISABLE_PMIC_ARBITER	1
+#define SCM_WDOG_DEBUG_BOOT_PART	0x9
+#define SCM_DLOAD_MODE			0X10
+#define SCM_EDLOAD_MODE			0X02
+#define SCM_DLOAD_CMD			0x10
 
 static int restart_mode;
 void *restart_reason;
-
-int pmic_reset_irq;
-static void __iomem *msm_tmr0_base;
 
 #ifdef CONFIG_MSM_DLOAD_MODE
 #define EDL_MODE_PROP "qcom,msm-imem-emergency_download_mode"
@@ -68,6 +51,8 @@ static int in_panic;
 static void *dload_mode_addr;
 static bool dload_mode_enabled;
 static void *emergency_dload_mode_addr;
+static bool scm_dload_supported;
+static bool scm_pmic_arbiter_disable_supported;
 
 /* Download mode master kill-switch */
 static int dload_set(const char *val, struct kernel_param *kp);
@@ -87,13 +72,23 @@ static struct notifier_block panic_blk = {
 
 static void set_dload_mode(int on)
 {
+	int ret;
+
 	if (dload_mode_addr) {
 		__raw_writel(on ? 0xE47B337D : 0, dload_mode_addr);
 		__raw_writel(on ? 0xCE14091A : 0,
 		       dload_mode_addr + sizeof(unsigned int));
 		mb();
-		dload_mode_enabled = on;
 	}
+
+	if (scm_dload_supported) {
+		ret = scm_call_atomic2(SCM_SVC_BOOT,
+				SCM_DLOAD_CMD, on ? SCM_DLOAD_MODE : 0, 0);
+		if (ret)
+			pr_err("Failed to set DLOAD mode: %d\n", ret);
+	}
+
+	dload_mode_enabled = on;
 }
 
 static bool get_dload_mode(void)
@@ -103,6 +98,8 @@ static bool get_dload_mode(void)
 
 static void enable_emergency_dload_mode(void)
 {
+	int ret;
+
 	if (emergency_dload_mode_addr) {
 		__raw_writel(EMERGENCY_DLOAD_MAGIC1,
 				emergency_dload_mode_addr);
@@ -117,6 +114,13 @@ static void enable_emergency_dload_mode(void)
 		 * will not auto reset. */
 		qpnp_pon_wd_config(0);
 		mb();
+	}
+
+	if (scm_dload_supported) {
+		ret = scm_call_atomic2(SCM_SVC_BOOT,
+				SCM_DLOAD_CMD, SCM_EDLOAD_MODE, 0);
+		if (ret)
+			pr_err("Failed to set EDLOAD mode: %d\n", ret);
 	}
 }
 
@@ -160,7 +164,6 @@ void msm_set_restart_mode(int mode)
 }
 EXPORT_SYMBOL(msm_set_restart_mode);
 
-static bool scm_pmic_arbiter_disable_supported;
 /*
  * Force the SPMI PMIC arbiter to shutdown so that no more SPMI transactions
  * are sent from the MSM to the PMIC.  This is required in order to avoid an
@@ -181,7 +184,6 @@ static void __msm_power_off(int lower_pshold)
 #ifdef CONFIG_MSM_DLOAD_MODE
 	set_dload_mode(0);
 #endif
-	pm8xxx_reset_pwr_off(0);
 	qpnp_pon_system_pwr_off(PON_POWER_OFF_SHUTDOWN);
 
 	if (lower_pshold) {
@@ -204,22 +206,14 @@ static void msm_restart_prepare(const char *cmd)
 {
 #ifdef CONFIG_MSM_DLOAD_MODE
 
-	/* This looks like a normal reboot at this point. */
-	set_dload_mode(0);
+	/* Write download mode flags if we're panic'ing
+	 * Write download mode flags if restart_mode says so
+	 * Kill download mode if master-kill switch is set
+	 */
 
-	/* Write download mode flags if we're panic'ing */
-	set_dload_mode(in_panic);
-
-	/* Write download mode flags if restart_mode says so */
-	if (restart_mode == RESTART_DLOAD)
-		set_dload_mode(1);
-
-	/* Kill download mode if master-kill switch is set */
-	if (!download_mode)
-		set_dload_mode(0);
+	set_dload_mode(download_mode &&
+			(in_panic || restart_mode == RESTART_DLOAD));
 #endif
-
-	pm8xxx_reset_pwr_off(1);
 
 	/* Hard reset the PMIC unless memory contents must be maintained. */
 	if (get_dload_mode() || (cmd != NULL && cmd[0] != '\0'))
@@ -251,12 +245,17 @@ static void msm_restart_prepare(const char *cmd)
 
 void msm_restart(char mode, const char *cmd)
 {
-	printk(KERN_NOTICE "Going down for restart now\n");
+	int ret;
 
+	pr_notice("Going down for restart now\n");
 	msm_restart_prepare(cmd);
 
 	/* Needed to bypass debug image on some chips */
-	msm_disable_wdog_debug();
+	ret = scm_call_atomic2(SCM_SVC_BOOT,
+			       SCM_WDOG_DEBUG_BOOT_PART, 1, 0);
+	if (ret)
+		pr_err("Failed to disable wdog debug: %d\n", ret);
+
 	halt_spmi_pmic_arbiter();
 	__raw_writel(0, MSM_MPM2_PSHOLD_BASE);
 
@@ -270,48 +269,42 @@ static int __init msm_restart_init(void)
 	int ret = 0;
 
 #ifdef CONFIG_MSM_DLOAD_MODE
+	if (scm_is_call_available(SCM_SVC_BOOT, SCM_DLOAD_CMD) > 0)
+		scm_dload_supported = true;
+
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
 	np = of_find_compatible_node(NULL, NULL, DL_MODE_PROP);
 	if (!np) {
-		pr_err("unable to find DT imem download mode node\n");
-		ret = -ENODEV;
-		goto err_dl_mode;
-	}
-	dload_mode_addr = of_iomap(np, 0);
-	if (!dload_mode_addr) {
-		pr_err("unable to map imem download model offset\n");
-		ret = -ENOMEM;
-		goto err_dl_mode;
+		pr_err("unable to find DT imem DL node\n");
+	} else {
+		dload_mode_addr = of_iomap(np, 0);
+		if (!dload_mode_addr)
+			pr_err("unable to map DL offset\n");
 	}
 
 	np = of_find_compatible_node(NULL, NULL, EDL_MODE_PROP);
 	if (!np) {
-		pr_err("unable to find DT imem emergency download mode node\n");
-		ret = -ENODEV;
-		goto err_edl_mode;
-	}
-	emergency_dload_mode_addr = of_iomap(np, 0);
-	if (!emergency_dload_mode_addr) {
-		pr_err("unable to map imem emergency download model offset\n");
-		ret = -ENOMEM;
-		goto err_edl_mode;
+		pr_err("unable to find DT imem EDL mode node\n");
+	} else {
+		emergency_dload_mode_addr = of_iomap(np, 0);
+		if (!emergency_dload_mode_addr)
+			pr_err("unable to map imem EDL offset\n");
 	}
 
 	set_dload_mode(download_mode);
 #endif
-	msm_tmr0_base = msm_timer_get_timer0_base();
 	np = of_find_compatible_node(NULL, NULL, "qcom,msm-imem-restart_reason");
 	if (!np) {
 		pr_err("unable to find DT imem restart reason node\n");
-		ret = -ENODEV;
-		goto err_restart_reason;
+	} else {
+		restart_reason = of_iomap(np, 0);
+		if (!restart_reason) {
+			pr_err("unable to map imem restart reason offset\n");
+			ret = -ENOMEM;
+			goto err_restart_reason;
+		}
 	}
-	restart_reason = of_iomap(np, 0);
-	if (!restart_reason) {
-		pr_err("unable to map imem restart reason offset\n");
-		ret = -ENOMEM;
-		goto err_restart_reason;
-	}
+
 	pm_power_off = msm_power_off;
 
 	if (scm_is_call_available(SCM_SVC_PWR, SCM_IO_DISABLE_PMIC_ARBITER) > 0)
@@ -322,9 +315,7 @@ static int __init msm_restart_init(void)
 err_restart_reason:
 #ifdef CONFIG_MSM_DLOAD_MODE
 	iounmap(emergency_dload_mode_addr);
-err_edl_mode:
 	iounmap(dload_mode_addr);
-err_dl_mode:
 #endif
 	return ret;
 }
