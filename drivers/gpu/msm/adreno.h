@@ -595,6 +595,10 @@ int adreno_perfcounter_query_group(struct adreno_device *adreno_dev,
 int adreno_perfcounter_read_group(struct adreno_device *adreno_dev,
 	struct kgsl_perfcounter_read_group __user *reads, unsigned int count);
 
+int adreno_set_constraint(struct kgsl_device *device,
+				struct kgsl_context *context,
+				struct kgsl_device_constraint *constraint);
+
 void adreno_shadermem_regread(struct kgsl_device *device,
 						unsigned int offsetwords,
 						unsigned int *value);

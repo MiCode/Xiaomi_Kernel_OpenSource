@@ -2614,7 +2614,7 @@ static int adreno_getproperty(struct kgsl_device *device,
 	return status;
 }
 
-static int adreno_set_constraint(struct kgsl_device *device,
+int adreno_set_constraint(struct kgsl_device *device,
 				struct kgsl_context *context,
 				struct kgsl_device_constraint *constraint)
 {
@@ -3244,6 +3244,7 @@ static const struct kgsl_functable adreno_functable = {
 	.drawctxt_detach = adreno_drawctxt_detach,
 	.drawctxt_destroy = adreno_drawctxt_destroy,
 	.setproperty = adreno_setproperty,
+	.setproperty_compat = adreno_setproperty_compat,
 	.drawctxt_sched = adreno_drawctxt_sched,
 	.resume = adreno_dispatcher_start,
 };

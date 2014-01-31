@@ -144,6 +144,9 @@ struct kgsl_functable {
 	int (*setproperty) (struct kgsl_device_private *dev_priv,
 		enum kgsl_property_type type, void __user *value,
 		unsigned int sizebytes);
+	int (*setproperty_compat) (struct kgsl_device_private *dev_priv,
+		enum kgsl_property_type type, void __user *value,
+		unsigned int sizebytes);
 	void (*drawctxt_sched)(struct kgsl_device *device,
 		struct kgsl_context *context);
 	void (*resume)(struct kgsl_device *device);

@@ -1340,7 +1340,12 @@ long kgsl_ioctl_device_setproperty(struct kgsl_device_private *dev_priv,
 	/* The getproperty struct is reused for setproperty too */
 	struct kgsl_device_getproperty *param = data;
 
-	if (dev_priv->device->ftbl->setproperty)
+	/* Reroute to compat version if coming from compat_ioctl */
+	if (is_compat_task())
+		result = dev_priv->device->ftbl->setproperty_compat(
+			dev_priv, param->type, param->value,
+			param->sizebytes);
+	else if (dev_priv->device->ftbl->setproperty)
 		result = dev_priv->device->ftbl->setproperty(
 			dev_priv, param->type, param->value,
 			param->sizebytes);
