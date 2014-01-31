@@ -54,7 +54,7 @@ struct isa1200_chip {
 	struct clk *pwm_clk;
 };
 
-static int isa1200_read_reg(struct i2c_client *client, int reg)
+static int isa1200_read_reg(struct i2c_client *client, u8 reg)
 {
 	int ret;
 
@@ -65,7 +65,7 @@ static int isa1200_read_reg(struct i2c_client *client, int reg)
 	return ret;
 }
 
-static int isa1200_write_reg(struct i2c_client *client, int reg, u8 value)
+static int isa1200_write_reg(struct i2c_client *client, u8 reg, u8 value)
 {
 	int ret;
 
