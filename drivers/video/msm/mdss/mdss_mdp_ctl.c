@@ -576,6 +576,156 @@ static void mdss_mdp_perf_calc_ctl(struct mdss_mdp_ctl *ctl,
 		 perf->bw_overlap, perf->bw_prefill, perf->prefill_bytes);
 }
 
+static bool mdss_mdp_ctl_perf_bw_released(struct mdss_mdp_ctl *ctl)
+{
+	unsigned long flags;
+	bool released = false;
+
+	if (!ctl || !ctl->panel_data ||
+		(ctl->panel_data->panel_info.type != MIPI_CMD_PANEL))
+		return released;
+
+	spin_lock_irqsave(&ctl->spin_lock, flags);
+	if (ctl->perf_status == 0) {
+		released = true;
+		ctl->perf_status++;
+	} else if (ctl->perf_status <= 2) {
+		ctl->perf_status++;
+	} else {
+		pr_err("pervious commit was not done\n");
+	}
+
+	pr_debug("perf_status=%d\n", ctl->perf_status);
+	spin_unlock_irqrestore(&ctl->spin_lock, flags);
+
+	return released;
+}
+
+/**
+ * @mdss_mdp_ctl_perf_taken() - indicates a committed buffer is taken
+ *                              by h/w
+ * @ctl - pointer to ctl data structure
+ *
+ * A committed buffer to be displayed is taken at a vsync or reader
+ * pointer interrupt by h/w. This function must be called in vsync
+ * interrupt context to indicate the buf status is changed.
+ */
+void mdss_mdp_ctl_perf_taken(struct mdss_mdp_ctl *ctl)
+{
+	if (!ctl || !ctl->panel_data ||
+		(ctl->panel_data->panel_info.type != MIPI_CMD_PANEL))
+		return;
+
+	spin_lock(&ctl->spin_lock);
+	if (ctl->perf_status)
+		ctl->perf_status++;
+	pr_debug("perf_status=%d\n", ctl->perf_status);
+	spin_unlock(&ctl->spin_lock);
+}
+
+/**
+ * @mdss_mdp_ctl_perf_done() - indicates a committed buffer is
+ *                             displayed, so resources such as
+ *                             bandwidth that are associated to this
+ *                             buffer can be released.
+ * @ctl - pointer to a ctl
+ *
+ * When pingping done interrupt is trigged, mdp finishes displaying a
+ * buffer which was committed by user and taken by h/w and calling
+ * this function to clear those two states. This function must be
+ * called in pinppong done interrupt context.
+ */
+void mdss_mdp_ctl_perf_done(struct mdss_mdp_ctl *ctl)
+{
+	if (!ctl || !ctl->panel_data ||
+		(ctl->panel_data->panel_info.type != MIPI_CMD_PANEL))
+		return;
+
+	spin_lock(&ctl->spin_lock);
+	if (ctl->perf_status) {
+		ctl->perf_status--;
+		if (ctl->perf_status)
+			ctl->perf_status--;
+	}
+	pr_debug("perf_status=%d\n", ctl->perf_status);
+	spin_unlock(&ctl->spin_lock);
+}
+
+static inline void mdss_mdp_ctl_perf_update_bus(struct mdss_mdp_ctl *ctl)
+{
+	u64 bw_sum_of_intfs = 0;
+	u64 bus_ab_quota, bus_ib_quota;
+	struct mdss_data_type *mdata;
+	int i;
+
+	if (!ctl || !ctl->mdata)
+		return;
+
+	mdata = ctl->mdata;
+	for (i = 0; i < mdata->nctl; i++) {
+		struct mdss_mdp_ctl *ctl;
+		ctl = mdata->ctl_off + i;
+		if (ctl->power_on) {
+			bw_sum_of_intfs += ctl->cur_perf.bw_ctl;
+			pr_debug("c=%d bw=%llu\n", ctl->num,
+				ctl->cur_perf.bw_ctl);
+		}
+	}
+	bus_ib_quota = bw_sum_of_intfs;
+	bus_ab_quota = AB_FUDGE_FACTOR(bw_sum_of_intfs);
+	mdss_mdp_bus_scale_set_quota(bus_ab_quota, bus_ib_quota);
+	pr_debug("ab=%llu ib=%llu\n", bus_ab_quota, bus_ib_quota);
+}
+
+/**
+ * @mdss_mdp_ctl_perf_release_bw() - request zero bandwidth
+ * @ctl - pointer to a ctl
+ *
+ * Function checks a state variable for the ctl, if all pending commit
+ * requests are done, meanning no more bandwidth is needed, release
+ * bandwidth request.
+ */
+void mdss_mdp_ctl_perf_release_bw(struct mdss_mdp_ctl *ctl)
+{
+	unsigned long flags;
+	int need_release = 0;
+	struct mdss_data_type *mdata;
+	int i;
+
+	/* only do this for command panel */
+	if (!ctl || !ctl->mdata || !ctl->panel_data ||
+		(ctl->panel_data->panel_info.type != MIPI_CMD_PANEL))
+		return;
+
+	mutex_lock(&mdss_mdp_ctl_lock);
+	mdata = ctl->mdata;
+	/*
+	 * If video interface present, cmd panel bandwidth cannot be
+	 * released.
+	 */
+	for (i = 0; i < mdata->nctl; i++) {
+		struct mdss_mdp_ctl *ctl = mdata->ctl_off + i;
+
+		if (ctl->power_on && ctl->is_video_mode) {
+			mutex_unlock(&mdss_mdp_ctl_lock);
+			return;
+		}
+	}
+
+	spin_lock_irqsave(&ctl->spin_lock, flags);
+	if (!ctl->perf_status)
+		need_release = 1;
+	pr_debug("need release=%d\n", need_release);
+	spin_unlock_irqrestore(&ctl->spin_lock, flags);
+
+	if (need_release) {
+		ctl->cur_perf.bw_ctl = 0;
+		ctl->new_perf.bw_ctl = 0;
+		mdss_mdp_ctl_perf_update_bus(ctl);
+	}
+	mutex_unlock(&mdss_mdp_ctl_lock);
+}
+
 static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 		int params_changed)
 {
@@ -593,9 +743,8 @@ static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 	new = &ctl->new_perf;
 
 	if (ctl->power_on) {
-		if (params_changed)
+		if (params_changed || mdss_mdp_ctl_perf_bw_released(ctl))
 			mdss_mdp_perf_calc_ctl(ctl, new);
-
 		/*
 		 * if params have just changed delay the update until
 		 * later once the hw configuration has been flushed to
@@ -623,25 +772,8 @@ static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 		update_clk = 1;
 	}
 
-	if (update_bus) {
-		u64 bw_sum_of_intfs = 0;
-		u64 bus_ab_quota = 0, bus_ib_quota = 0;
-		int i;
-
-		for (i = 0; i < mdata->nctl; i++) {
-			struct mdss_mdp_ctl *ctl;
-			ctl = mdata->ctl_off + i;
-			if (ctl->power_on) {
-				bw_sum_of_intfs += ctl->cur_perf.bw_ctl;
-				pr_debug("c=%d bw=%llu\n", ctl->num,
-					 ctl->cur_perf.bw_ctl);
-			}
-		}
-		bus_ib_quota = bw_sum_of_intfs;
-		bus_ab_quota = AB_FUDGE_FACTOR(bw_sum_of_intfs);
-		mdss_mdp_bus_scale_set_quota(bus_ab_quota, bus_ib_quota);
-		pr_debug("ab=%llu ib=%llu\n", bus_ab_quota, bus_ib_quota);
-	}
+	if (update_bus)
+		mdss_mdp_ctl_perf_update_bus(ctl);
 
 	if (update_clk) {
 		u32 clk_rate = 0;
@@ -678,6 +810,7 @@ static struct mdss_mdp_ctl *mdss_mdp_ctl_alloc(struct mdss_data_type *mdata,
 			ctl->ref_cnt++;
 			ctl->mdata = mdata;
 			mutex_init(&ctl->lock);
+			spin_lock_init(&ctl->spin_lock);
 			BLOCKING_INIT_NOTIFIER_HEAD(&ctl->notifier_head);
 			pr_debug("alloc ctl_num=%d\n", ctl->num);
 			break;
