@@ -55,8 +55,8 @@
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-te-pin-select = <1>;
-		qcom,mdss-dsi-te-v-sync-rd-ptr-irq-line = <0x2c>;
-		qcom,mdss-dsi-te-v-sync-continues-lines = <0x3c>;
+		qcom,mdss-dsi-wr-mem-start = <0x2c>;
+		qcom,mdss-dsi-wr-mem-continue = <0x3c>;
 		qcom,mdss-dsi-te-dcs-command = <1>;
 		qcom,mdss-dsi-te-check-enable;
 		qcom,mdss-dsi-te-using-te-pin;
