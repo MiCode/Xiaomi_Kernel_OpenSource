@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -123,8 +123,12 @@ long adreno_compat_ioctl(struct kgsl_device_private *dev_priv,
 		read.reads = (struct kgsl_perfcounter_read_group __user *)
 				(uintptr_t)read32->reads;
 		read.count = read32->count;
+		result = kgsl_active_count_get(device);
+		if (result)
+			break;
 		result = adreno_perfcounter_read_group(adreno_dev,
 			read.reads, read.count);
+		kgsl_active_count_put(device);
 		break;
 	}
 	default:
