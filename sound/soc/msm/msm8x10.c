@@ -24,7 +24,7 @@
 #include <sound/soc-dapm.h>
 #include <sound/pcm.h>
 #include <sound/jack.h>
-#include <mach/socinfo.h>
+#include <soc/qcom/socinfo.h>
 #include <qdsp6v2/msm-pcm-routing-v2.h>
 #include <sound/q6afe-v2.h>
 #include <linux/module.h>

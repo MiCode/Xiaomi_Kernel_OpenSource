@@ -28,7 +28,7 @@
 #include <mach/usbdiag.h>
 #endif
 #include <mach/msm_smd.h>
-#include <mach/socinfo.h>
+#include <soc/qcom/socinfo.h>
 #include <mach/restart.h>
 #include "diagmem.h"
 #include "diagchar.h"

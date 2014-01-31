@@ -20,6 +20,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
+
 #include "spm.h"
 #include "spm_driver.h"
 

@@ -18,7 +18,7 @@
 #include <linux/mutex.h>
 #include <linux/msm_audio_ion.h>
 
-#include <mach/socinfo.h>
+#include <soc/qcom/socinfo.h>
 #include <linux/qdsp6v2/apr_tal.h>
 
 #include "sound/apr_audio-v2.h"

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,7 +23,7 @@
 #include <linux/err.h>
 #include <linux/types.h>
 #include <mach/msm_iomap.h>
-#include <mach/socinfo.h>
+#include <soc/qcom/socinfo.h>
 #include <mach/msm_bus.h>
 #include <linux/qrng.h>
 #include <linux/fs.h>

@@ -36,10 +36,9 @@
 #include <linux/platform_device.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
+#include <soc/qcom/socinfo.h>
 
 #include <asm/current.h>
-
-#include <mach/socinfo.h>
 
 static int enable_debug;
 module_param(enable_debug, int, S_IRUGO | S_IWUSR);

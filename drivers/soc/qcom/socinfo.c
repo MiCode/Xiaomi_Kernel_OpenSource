@@ -25,11 +25,9 @@
 #include <linux/stat.h>
 #include <linux/types.h>
 
-#include <mach/socinfo.h>
-
+#include <soc/qcom/socinfo.h>
 #include <soc/qcom/smem.h>
-
-#include "boot_stats.h"
+#include <soc/qcom/boot_stats.h>
 
 #define BUILD_ID_LENGTH 32
 #define SMEM_IMAGE_VERSION_BLOCKS_COUNT 32
@@ -986,7 +984,7 @@ static int __init socinfo_init_sysfs(void)
 	return 0;
 }
 
-arch_initcall(socinfo_init_sysfs);
+late_initcall(socinfo_init_sysfs);
 
 static void socinfo_print(void)
 {
@@ -1070,6 +1068,11 @@ static void socinfo_print(void)
 
 int __init socinfo_init(void)
 {
+	static bool socinfo_init_done;
+
+	if (socinfo_init_done)
+		return 0;
+
 	socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
 				sizeof(struct socinfo_v8),
 				0,
@@ -1132,9 +1135,11 @@ int __init socinfo_init(void)
 
 	boot_stats_init();
 	socinfo_print();
+	socinfo_init_done = true;
 
 	return 0;
 }
+subsys_initcall(socinfo_init);
 
 const int get_core_count(void)
 {

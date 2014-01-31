@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,7 +17,7 @@
 #include <linux/clk.h>
 #include <linux/list.h>
 #include <linux/regulator/consumer.h>
-#include <mach/socinfo.h>
+#include <soc/qcom/socinfo.h>
 
 extern pgprot_t     pgprot_kernel;
 extern struct bus_type msm_iommu_sec_bus_type;

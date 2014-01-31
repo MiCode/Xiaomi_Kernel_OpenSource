@@ -31,7 +31,7 @@
 #include <linux/err.h>
 #include <linux/platform_device.h>
 #include <trace/events/power.h>
-#include <mach/socinfo.h>
+#include <soc/qcom/socinfo.h>
 #include <mach/cpufreq.h>
 
 #ifdef CONFIG_DEBUG_FS

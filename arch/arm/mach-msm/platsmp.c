@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 2002 ARM Ltd.
  *  All Rights Reserved
- *  Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -22,7 +22,7 @@
 #include <asm/mach-types.h>
 #include <asm/smp_plat.h>
 
-#include <mach/socinfo.h>
+#include <soc/qcom/socinfo.h>
 #include <mach/hardware.h>
 #include <mach/msm_iomap.h>
 

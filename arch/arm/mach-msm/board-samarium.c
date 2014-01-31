@@ -27,7 +27,7 @@
 #include <mach/msm_iomap.h>
 #include <mach/msm_memtypes.h>
 #include <mach/restart.h>
-#include <mach/socinfo.h>
+#include <soc/qcom/socinfo.h>
 #include <soc/qcom/smem.h>
 #include <mach/msm_smd.h>
 #include <mach/rpm-smd.h>
