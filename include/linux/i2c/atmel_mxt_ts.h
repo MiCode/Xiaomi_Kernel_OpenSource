@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2010 Samsung Electronics Co.Ltd
  * Author: Joonyoung Shim <jy0922.shim@samsung.com>
- * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
@@ -43,7 +43,7 @@
 /* Config data for a given maXTouch controller with a specific firmware */
 struct mxt_config_info {
 	const u8 *config;
-	size_t config_length;
+	int config_length;
 	u8 family_id;
 	u8 variant_id;
 	u8 version;
