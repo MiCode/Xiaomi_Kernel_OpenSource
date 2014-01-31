@@ -1888,12 +1888,13 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 	if (rc)
 		goto parse_fail;
 
-	rc = mdss_mdp_parse_dt_pipe_clk_ctrl(pdev,
-		"qcom,mdss-pipe-dma-clk-ctrl-offsets", mdata->dma_pipes,
-		mdata->ndma_pipes);
-	if (rc)
-		goto parse_fail;
-
+	if (mdata->ndma_pipes) {
+		rc = mdss_mdp_parse_dt_pipe_clk_ctrl(pdev,
+			"qcom,mdss-pipe-dma-clk-ctrl-offsets", mdata->dma_pipes,
+			mdata->ndma_pipes);
+		if (rc)
+			goto parse_fail;
+	}
 
 	mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-sw-reset-off",
 		&sw_reset_offset, 1);
