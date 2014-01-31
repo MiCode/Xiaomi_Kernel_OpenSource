@@ -21,5 +21,11 @@ obj-$(CONFIG_ARCH_MSM)		+= clock-rpm-plutonium.o
 obj-$(CONFIG_ARCH_MSM)		+= clock-gcc-plutonium.o
 obj-$(CONFIG_ARCH_MSM)		+= clock-mmss-plutonium.o
 
+# ACPU clock
+obj-$(CONFIG_ARCH_MSM8610)	+= clock-a7.o
+obj-$(CONFIG_ARCH_MSM8226)	+= clock-a7.o
+obj-$(CONFIG_ARCH_MDM9630)	+= clock-a7.o
+obj-$(CONFIG_ARCH_MSM8916)	+= clock-a7.o
+
 obj-y				+= gdsc.o
 obj-y				+= mdss/
