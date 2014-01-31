@@ -218,9 +218,6 @@ Fudge Factors:			Fudge factors are used to boost demand for
 				FUDGE(x, a, b) = ((x * a) / b)
 - qcom,mdss-ib-factor:		This fudge factor is applied to calculated ib
 				values in default conditions.
-- qcom,mdss-high-ib-factor:	This fudge factor is applied to calculated ib
-				values. Use of this factor is determined by the
-				driver and open new use-cases.
 - qcom,mdss-clk-factor:		This fudge factor is applied to calculated mdp
 				clk rate in default conditions.
 - qcom,mdss-highest-bank-bit: Property to indicate tile format as opposed to usual
@@ -288,7 +285,6 @@ Example:
 		/* Fudge factors */
 		qcom,mdss-ab-factor = <2 1>;		/* 2 times    */
 		qcom,mdss-ib-factor = <3 2>;		/* 1.5 times  */
-		qcom,mdss-high-ib-factor = <2 1>;	/* 2 times    */
 		qcom,mdss-clk-factor = <5 4>;		/* 1.25 times */
 
 		qcom,max-clk-rate = <320000000>;
