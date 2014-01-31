@@ -847,6 +847,22 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 	return ret;
 }
 
+int diag_dci_find_client_index_health(int client_id)
+{
+	int i, ret = DCI_CLIENT_INDEX_INVALID;
+
+	for (i = 0; i < MAX_DCI_CLIENTS; i++) {
+		if (driver->dci_client_tbl[i].client != NULL) {
+			if (driver->dci_client_tbl[i].client_id ==
+					client_id) {
+				ret = i;
+				break;
+			}
+		}
+	}
+	return ret;
+}
+
 int diag_dci_find_client_index(int client_id)
 {
 	int i, ret = DCI_CLIENT_INDEX_INVALID;
