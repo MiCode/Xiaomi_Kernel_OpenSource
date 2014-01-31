@@ -6778,7 +6778,9 @@ static struct clk_lookup mpq_clocks_8092[] = {
 	CLK_LOOKUP("core_clk", gcc_prng_ahb_clk.c, "f9bff000.qcom,msm-rng"),
 	CLK_LOOKUP("",	gcc_pwm_ahb_clk.c,	""),
 	CLK_LOOKUP("",	gcc_pwm_clk.c,	""),
-	CLK_LOOKUP("",	gcc_spss_ahb_clk.c,	""),
+	CLK_LOOKUP("iface_clk", gcc_spss_ahb_clk.c, "fc5c3000.qcom,msm-spss"),
+	CLK_LOOKUP("iface_clk", gcc_spss_ahb_clk.c,
+		   "fc5c1000.qcom,msm-geni-ir"),
 
 	/* SATA */
 	CLK_LOOKUP("core_clk", gcc_sata_axi_clk.c,             "fc580000.sata"),
