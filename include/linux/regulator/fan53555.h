@@ -57,4 +57,10 @@ struct fan53555_platform_data {
 	unsigned int sleep_vsel_id;
 };
 
+#ifdef CONFIG_REGULATOR_FAN53555
+int __init fan53555_regulator_init(void);
+#else
+static inline int __init fan53555_regulator_init(void) { return 0; }
+#endif
+
 #endif /* __FAN53555_H__ */
