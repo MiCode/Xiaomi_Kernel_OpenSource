@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, 2011, 2013 The Linux Foundation.
+/* Copyright (c) 2008-2009, 2011, 2013-2014 The Linux Foundation.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -83,6 +83,11 @@ typedef struct {
 				0; }) \
 		: 0; \
 	})
+#define remote_spin_lock_rlock_id(lock, tid) \
+	_remote_spin_lock_rlock_id(&((lock)->remote), tid)
+
+#define remote_spin_unlock_rlock(lock) \
+	_remote_spin_unlock_rlock(&((lock)->remote))
 
 #define remote_spin_release(lock, pid) \
 	_remote_spin_release(&((lock)->remote), pid)

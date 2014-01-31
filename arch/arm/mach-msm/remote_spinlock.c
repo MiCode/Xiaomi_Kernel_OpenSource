@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, 2011-2013 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2009, 2011-2014 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,6 +81,8 @@ struct spinlock_ops {
 	int (*trylock)(raw_remote_spinlock_t *lock);
 	int (*release)(raw_remote_spinlock_t *lock, uint32_t pid);
 	int (*owner)(raw_remote_spinlock_t *lock);
+	void (*lock_rlock_id)(raw_remote_spinlock_t *lock, uint32_t tid);
+	void (*unlock_rlock)(raw_remote_spinlock_t *lock);
 };
 
 static struct spinlock_ops current_ops;
@@ -364,6 +366,27 @@ static void __raw_remote_sfpb_spin_unlock(raw_remote_spinlock_t *lock)
 	writel_relaxed(0, lock);
 	smp_mb();
 }
+
+static void __raw_remote_sfpb_spin_lock_rlock_id(raw_remote_spinlock_t *lock,
+						 uint32_t tid)
+{
+	if (unlikely(!tid)) {
+		pr_err("%s: unsupported rlock tid=0\n", __func__);
+		BUG();
+	}
+
+	do {
+		writel_relaxed(tid, lock);
+		smp_mb();
+	} while (readl_relaxed(lock) != tid);
+}
+
+static void __raw_remote_sfpb_spin_unlock_rlock(raw_remote_spinlock_t *lock)
+{
+	writel_relaxed(0, lock);
+	smp_mb();
+}
+
 /* end sfpb implementation -------------------------------------------------- */
 
 /* common spinlock API ------------------------------------------------------ */
@@ -458,6 +481,9 @@ static void initialize_ops(void)
 		current_ops.trylock = __raw_remote_sfpb_spin_trylock;
 		current_ops.release = __raw_remote_gen_spin_release;
 		current_ops.owner = __raw_remote_gen_spin_owner;
+		current_ops.lock_rlock_id =
+				__raw_remote_sfpb_spin_lock_rlock_id;
+		current_ops.unlock_rlock = __raw_remote_sfpb_spin_unlock_rlock;
 		is_hw_lock_type = 1;
 		break;
 	case AUTO_MODE:
@@ -474,6 +500,10 @@ static void initialize_ops(void)
 			current_ops.trylock = __raw_remote_sfpb_spin_trylock;
 			current_ops.release = __raw_remote_gen_spin_release;
 			current_ops.owner = __raw_remote_gen_spin_owner;
+			current_ops.lock_rlock_id =
+					__raw_remote_sfpb_spin_lock_rlock_id;
+			current_ops.unlock_rlock =
+					__raw_remote_sfpb_spin_unlock_rlock;
 			is_hw_lock_type = 1;
 			break;
 		}
@@ -516,6 +546,11 @@ static void remote_spin_release_all_locks(uint32_t pid, int count)
 {
 	int n;
 	 _remote_spinlock_t lock;
+
+	if (pid >= REMOTE_SPINLOCK_NUM_PID) {
+		pr_err("%s: unsupported PID %d\n", __func__, pid);
+		return;
+	}
 
 	for (n = 0; n < count; ++n) {
 		if (remote_spinlock_init_address(n, &lock) == 0)
@@ -671,6 +706,23 @@ int _remote_spin_owner(_remote_spinlock_t *lock)
 	return current_ops.owner((raw_remote_spinlock_t *)(*lock));
 }
 EXPORT_SYMBOL(_remote_spin_owner);
+
+void _remote_spin_lock_rlock_id(_remote_spinlock_t *lock, uint32_t tid)
+{
+	if (unlikely(!current_ops.lock_rlock_id))
+		BUG();
+	current_ops.lock_rlock_id((raw_remote_spinlock_t *)(*lock), tid);
+}
+EXPORT_SYMBOL(_remote_spin_lock_rlock_id);
+
+void _remote_spin_unlock_rlock(_remote_spinlock_t *lock)
+{
+	if (unlikely(!current_ops.unlock_rlock))
+		BUG();
+	current_ops.unlock_rlock((raw_remote_spinlock_t *)(*lock));
+}
+EXPORT_SYMBOL(_remote_spin_unlock_rlock);
+
 /* end common spinlock API -------------------------------------------------- */
 
 /* remote mutex implementation ---------------------------------------------- */
