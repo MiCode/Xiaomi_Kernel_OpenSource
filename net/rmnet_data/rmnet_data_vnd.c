@@ -29,6 +29,7 @@
 #include "rmnet_map.h"
 #include "rmnet_data_vnd.h"
 #include "rmnet_data_stats.h"
+#include "rmnet_data_trace.h"
 
 RMNET_LOG_MODULE(RMNET_DATA_LOGMASK_VND);
 
@@ -168,6 +169,7 @@ static netdev_tx_t rmnet_vnd_start_xmit(struct sk_buff *skb,
 					struct net_device *dev)
 {
 	struct rmnet_vnd_private_s *dev_conf;
+	trace_rmnet_vnd_start_xmit(skb);
 	dev_conf = (struct rmnet_vnd_private_s *) netdev_priv(dev);
 	if (dev_conf->local_ep.egress_dev) {
 		/* QoS header should come after MAP header */
