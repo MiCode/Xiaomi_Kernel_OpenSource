@@ -23,6 +23,7 @@
 #include "rmnet_data_vnd.h"
 #include "rmnet_map.h"
 #include "rmnet_data_stats.h"
+#include "rmnet_data_trace.h"
 
 RMNET_LOG_MODULE(RMNET_DATA_LOGMASK_HANDLER);
 
@@ -171,6 +172,7 @@ static rx_handler_result_t rmnet_bridge_handler(struct sk_buff *skb,
 static rx_handler_result_t __rmnet_deliver_skb(struct sk_buff *skb,
 					 struct rmnet_logical_ep_conf_s *ep)
 {
+	trace___rmnet_deliver_skb(skb);
 	switch (ep->rmnet_mode) {
 	case RMNET_EPMODE_NONE:
 		return RX_HANDLER_PASS;
@@ -404,6 +406,7 @@ rx_handler_result_t rmnet_ingress_handler(struct sk_buff *skb)
 		BUG();
 
 	dev = skb->dev;
+	trace_rmnet_ingress_handler(skb);
 	rmnet_print_packet(skb, dev->name, 'r');
 
 	config = (struct rmnet_phys_ep_conf_s *)
@@ -538,6 +541,7 @@ void rmnet_egress_handler(struct sk_buff *skb,
 		rmnet_vnd_tx_fixup(skb, orig_dev);
 
 	rmnet_print_packet(skb, skb->dev->name, 't');
+	trace_rmnet_egress_handler(skb);
 	rc = dev_queue_xmit(skb);
 	if (rc != 0) {
 		LOGD("Failed to queue packet for transmission on [%s]",
