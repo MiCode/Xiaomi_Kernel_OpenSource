@@ -1728,8 +1728,17 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 		encode_rsp_and_send(5);
 		return 0;
 	}
-	 /* Check for ID for NO MODEM present */
-	else if (chk_polling_response()) {
+	 /*
+	  * If the apps processor is master and no other
+	  * processor has registered for polling command.
+	  * If modem is not up and we have not received feature
+	  * mask update from modem, in that case APPS should
+	  * respond for 0X7C command
+	  */
+	else if (chk_apps_master() &&
+			!(driver->polling_reg_flag) &&
+			!(driver->smd_data[MODEM_DATA].ch) &&
+			!(driver->rcvd_feature_mask[MODEM_DATA])) {
 		/* respond to 0x0 command */
 		if (*buf == 0x00) {
 			for (i = 0; i < 55; i++)
