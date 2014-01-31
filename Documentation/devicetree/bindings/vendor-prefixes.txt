@@ -17,6 +17,7 @@ dallas	Maxim Integrated Products (formerly Dallas Semiconductor)
 denx	Denx Software Engineering
 epson	Seiko Epson Corp.
 est	ESTeem Wireless Modems
+fairchild	Fairchild Semiconductor International, Inc.
 focaltech Focaltech systems
 fsl	Freescale Semiconductor
 GEFanuc	GE Fanuc Intelligent Platforms Embedded Systems, Inc.
