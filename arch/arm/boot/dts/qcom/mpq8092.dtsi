@@ -853,6 +853,24 @@
 		qcom,pmic-arb-channel = <0>;
 	};
 
+	emac: qcom,emac@fc540000 {
+		cell-index = <0>;
+		compatible = "qcom,emac";
+		reg-names = "emac", "emac_csr";
+		reg = <0xfc540000 0x10000>,
+		      <0xfc556000 0x1000>;
+		interrupts = <0 291 0>,
+			     <0 290 0>,
+			     <0 317 0>,
+			     <0 318 0>;
+		interrupt-names = "emac_core0_irq",
+				  "emac_core1_irq",
+				  "emac_core2_irq",
+				  "emac_core3_irq";
+		phy-mode = "rgmii";
+		phy-addr = <4>;
+	};
+
 	qcom,vpu@fde0b000 {
 		compatible = "qcom,vpu";
 		reg = <0xfde0b000 0x1000>,

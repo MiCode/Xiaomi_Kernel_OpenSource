@@ -199,7 +199,14 @@
 	gpio@cc00 { /* GPIO 13 */
 	};
 
-	gpio@cd00 { /* GPIO 14 */
+	gpio@cd00 { /* GPIO 14 - ETH_RST_N */
+		qcom,mode = <1>;         /* Digital output */
+		qcom,pull = <4>;         /* PULLDOWN_10UA */
+		qcom,vin-sel = <0>;      /* VIN0 */
+		qcom,src_sel = <0>;      /* GPIO */
+		qcom,invert = <1>;       /* Output high initially */
+		qcom,out-strength = <1>; /* Low */
+		qcom,master-en = <1>;    /* Enable GPIO */
 	};
 
 	gpio@ce00 { /* GPIO 15 */
