@@ -65,7 +65,7 @@
 
 #endif	/* ! __cplusplus */
 
-#if defined(__x86_64__)
+#if defined(__LP64__)
 #define TYPEDEF_UINTPTR
 typedef unsigned long long int uintptr;
 #endif
