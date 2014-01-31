@@ -140,7 +140,15 @@ Optional properties:
 				  1 => equal to PVS corner ceiling voltage
 				  2 => equal to slow speed corner ceiling
 				  3 => equal to qcom,vdd-mx-vmax
+				  4 => equal to VDD_APC corner mapped vdd-mx voltage
 				This is required when vdd-mx-supply is present.
+- qcom,vdd-mx-corner-map:	Array of 3 elements which defines the mapping from VDD_APC
+				fuse voltage corners to vdd-mx-supply voltages.
+				The 3 elements with index[0..2] are:
+				[0] => voltage to set for vdd-mx when VDD_APC is running at SVS corner
+				[1] => voltage to set for vdd-mx when VDD_APC is running at NOM corner
+				[2] => voltage to set for vdd-mx when VDD_APC is running at TURBO corner
+				This is required when the qcom,vdd-mx-vmin-method property has a value of 4.
 - qcom,cpr-fuse-redun-bp-cpr-disable:	Redundant bit position of the bit to indicate if CPR should be disable
 - qcom,cpr-fuse-redun-bp-scheme:	Redundant bit position of the bit to indicate if it's a global/local scheme
 					This property is required if cpr-fuse-redun-bp-cpr-disable

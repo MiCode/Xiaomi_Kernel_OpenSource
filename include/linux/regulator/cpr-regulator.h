@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -91,12 +91,15 @@ enum apc_pvs_process_enum {
  * %VDD_MX_VMIN_APC_SLOW_CORNER_CEILING:
  *					Equal to slow speed corner ceiling
  * %VDD_MX_VMIN_MX_VMAX:		Equal to specified vdd-mx-vmax voltage
+ * %VDD_MX_VMIN_APC_CORNER_MAP:		Equal to the APC corner mapped MX
+ *					voltage
  */
 enum vdd_mx_vmin_method {
 	VDD_MX_VMIN_APC,
 	VDD_MX_VMIN_APC_CORNER_CEILING,
 	VDD_MX_VMIN_APC_SLOW_CORNER_CEILING,
 	VDD_MX_VMIN_MX_VMAX,
+	VDD_MX_VMIN_APC_CORNER_MAP,
 };
 
 #ifdef CONFIG_MSM_CPR_REGULATOR
