@@ -1,4 +1,5 @@
-/* Copyright (c) 2009, 2011, 2013 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009, 2011, 2013-2014 The Linux Foundation.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +23,9 @@
 #include <linux/io.h>
 #include <linux/types.h>
 
+#define REMOTE_SPINLOCK_NUM_PID 128
+#define REMOTE_SPINLOCK_TID_START REMOTE_SPINLOCK_NUM_PID
+
 /* Remote spinlock definitions. */
 
 typedef struct {
@@ -40,6 +44,8 @@ void _remote_spin_unlock(_remote_spinlock_t *lock);
 int _remote_spin_trylock(_remote_spinlock_t *lock);
 int _remote_spin_release(_remote_spinlock_t *lock, uint32_t pid);
 int _remote_spin_owner(_remote_spinlock_t *lock);
+void _remote_spin_lock_rlock_id(_remote_spinlock_t *lock, uint32_t tid);
+void _remote_spin_unlock_rlock(_remote_spinlock_t *lock);
 #else
 static inline
 int _remote_spin_lock_init(remote_spinlock_id_t id, _remote_spinlock_t *lock)
@@ -61,5 +67,8 @@ static inline int _remote_spin_owner(_remote_spinlock_t *lock)
 {
 	return -ENODEV;
 }
+static inline void _remote_spin_lock_rlock_id(_remote_spinlock_t *lock,
+					      uint32_t tid) {}
+static inline void _remote_spin_unlock_rlock(_remote_spinlock_t *lock) {}
 #endif
 #endif /* __ASM__ARCH_QC_REMOTE_SPINLOCK_H */
