@@ -901,6 +901,7 @@
 	qcom,pdm@f9b10000 {
 		compatible = "qcom,rfic";
 		reg = <0xf9b10000 0x8000>;
+                clock-names = "gcc_pdm_ahb_clk", "gcc_pdm2_clk";
 	};
 
 	ssbi1:  qcom,ssbi@f9b18000 {

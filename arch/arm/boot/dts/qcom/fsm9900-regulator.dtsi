@@ -165,16 +165,6 @@
 			status = "okay";
 		};
 
-		/* RFICs LDO15*/
-		pma8084_l15: regulator@4e00 {
-			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
-			qcom,enable-time = <500>;
-			qcom,pull-down-enable = <1>;
-			regulator-always-on;
-			status = "okay";
-		};
-
 		/* EXT RF Switch */
 		pma8084_l18: regulator@5100 {
 			regulator-min-microvolt = <2850000>;
@@ -243,8 +233,8 @@
 
 		/* Mantaray LDO26*/
 		pma8084_l26: regulator@5900 {
-			regulator-min-microvolt = <2200000>;
-			regulator-max-microvolt = <2200000>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
 			qcom,enable-time = <500>;
 			qcom,pull-down-enable = <1>;
 			status = "okay";
