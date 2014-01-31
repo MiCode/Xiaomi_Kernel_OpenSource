@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -708,8 +708,10 @@ static void __switch_to_using_ldo(void *info)
 
 static int switch_to_using_ldo(struct krait_power_vreg *kvreg)
 {
-	if (kvreg->mode == LDO_MODE
-		&& get_krait_ldo_uv(kvreg) == kvreg->uV - kvreg->ldo_delta_uV)
+	int uV = kvreg->uV - kvreg->ldo_delta_uV;
+	int ldo_uV = DIV_ROUND_UP(uV, KRAIT_LDO_STEP) * KRAIT_LDO_STEP;
+
+	if (kvreg->mode == LDO_MODE && get_krait_ldo_uv(kvreg) == ldo_uV)
 		return 0;
 
 	return smp_call_function_single(kvreg->cpu_num,
