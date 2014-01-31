@@ -476,6 +476,7 @@ err_wlan_probe:
 err_pcie_link_up:
 	cnss_wlan_gpio_set(gpio_info, WLAN_EN_LOW);
 	cnss_wlan_vreg_set(vreg_info, VREG_OFF);
+	pci_unregister_driver(&cnss_wlan_pci_driver);
 
 err_wlan_vreg_on:
 	penv->driver = NULL;
@@ -763,6 +764,7 @@ err_wlan_reinit:
 err_pcie_link_up:
 	cnss_wlan_gpio_set(gpio_info, WLAN_EN_LOW);
 	cnss_wlan_vreg_set(vreg_info, VREG_OFF);
+	pci_unregister_driver(&cnss_wlan_pci_driver);
 
 err_wlan_vreg_on:
 	return ret;
