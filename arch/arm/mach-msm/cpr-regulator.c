@@ -144,6 +144,10 @@ struct quot_adjust_info {
 	int quot_adjust;
 };
 
+static const char * const vdd_apc_name[] =	{"vdd-apc-optional-prim",
+						"vdd-apc-optional-sec",
+						"vdd-apc"};
+
 enum voltage_change_dir {
 	NO_CHANGE,
 	DOWN,
@@ -1186,11 +1190,17 @@ static int __devinit cpr_apc_init(struct platform_device *pdev,
 			       struct cpr_regulator *cpr_vreg)
 {
 	struct device_node *of_node = pdev->dev.of_node;
-	int rc;
+	int i, rc = 0;
 
-	cpr_vreg->vdd_apc = devm_regulator_get(&pdev->dev, "vdd-apc");
-	if (IS_ERR_OR_NULL(cpr_vreg->vdd_apc)) {
+	for (i = 0; i < ARRAY_SIZE(vdd_apc_name); i++) {
+		cpr_vreg->vdd_apc = devm_regulator_get(&pdev->dev,
+					vdd_apc_name[i]);
 		rc = PTR_RET(cpr_vreg->vdd_apc);
+		if (!IS_ERR_OR_NULL(cpr_vreg->vdd_apc))
+			break;
+	}
+
+	if (rc) {
 		if (rc != -EPROBE_DEFER)
 			pr_err("devm_regulator_get: rc=%d\n", rc);
 		return rc;
