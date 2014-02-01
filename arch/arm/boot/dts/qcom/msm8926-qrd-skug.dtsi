@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#include "msm8926.dtsi"
 #include "msm8226-qrd.dtsi"
 #include "msm8926-camera-sensor-qrd.dtsi"
 
