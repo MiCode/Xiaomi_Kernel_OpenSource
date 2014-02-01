@@ -1,0 +1,14 @@
+Platform device for Host Based Touch Processing (hbtp)
+
+Required properties:
+
+ - compatible		: should be "qcom,hbtp"
+ - vcc_ana-supply	: Analog power supply needed to power device
+
+Example:
+	&soc {
+		hbtp {
+			compatible = "qcom,hbtp";
+			vcc_ana-supply = <&pm8941_l18>;
+		};
+	};
