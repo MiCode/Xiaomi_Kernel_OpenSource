@@ -16,3 +16,7 @@
 	qcom,msm-id = <200 0x20000>,
 		      <224 0x20000>;
 };
+
+&apc_vreg_corner {
+	/delete-property/ qcom,cpr-enable;
+};
