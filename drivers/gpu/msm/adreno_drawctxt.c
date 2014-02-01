@@ -432,7 +432,8 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 		KGSL_CONTEXT_PER_CONTEXT_TS |
 		KGSL_CONTEXT_USER_GENERATED_TS |
 		KGSL_CONTEXT_NO_FAULT_TOLERANCE |
-		KGSL_CONTEXT_TYPE_MASK);
+		KGSL_CONTEXT_TYPE_MASK |
+		KGSL_CONTEXT_PWR_CONSTRAINT);
 
 	/* Always enable per-context timestamps */
 	drawctxt->base.flags |= KGSL_CONTEXT_PER_CONTEXT_TS;
