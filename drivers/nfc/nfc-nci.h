@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -223,9 +223,3 @@ struct nfc_i2c_platform_data {
 	unsigned int	reg;
 };
 #endif
-/* enable LDO */
-struct vregs_info {
-	const char * const name;
-	struct regulator *regulator;
-};
-struct vregs_info regulators = {"vlogic", NULL};
