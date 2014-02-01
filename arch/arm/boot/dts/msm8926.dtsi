@@ -46,6 +46,7 @@
 		onnn,vsel-gpio = <&msmgpio 2 1>;
 		onnn,discharge-enable;
 		onnn,restore-reg;
+		onnn,tlmm-config = <0x80 0x0>;
 	};
 
 	fan53555: fan53555-regulator@60 {
