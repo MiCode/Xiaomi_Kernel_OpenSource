@@ -5,7 +5,7 @@
  *  power management protocol extension to H4 to support AR300x Bluetooth Chip.
  *
  *  Copyright (c) 2009-2010 Atheros Communications Inc.
- *  Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2012-2014 The Linux Foundation. All rights reserved.
  *
  *  Acknowledgements:
  *  This file is based on hci_h4.c, which was written
