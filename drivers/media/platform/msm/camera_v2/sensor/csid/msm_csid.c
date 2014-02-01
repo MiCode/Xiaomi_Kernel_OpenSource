@@ -304,7 +304,7 @@ static int msm_csid_release(struct csid_device *csid_dev)
 	return 0;
 }
 
-static long msm_csid_cmd(struct csid_device *csid_dev, void *arg)
+static int32_t msm_csid_cmd(struct csid_device *csid_dev, void *arg)
 {
 	int rc = 0;
 	struct csid_cfg_data *cdata = (struct csid_cfg_data *)arg;

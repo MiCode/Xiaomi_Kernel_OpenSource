@@ -535,7 +535,7 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 
 #endif
 
-static long msm_csiphy_cmd(struct csiphy_device *csiphy_dev, void *arg)
+static int32_t msm_csiphy_cmd(struct csiphy_device *csiphy_dev, void *arg)
 {
 	int rc = 0;
 	struct csiphy_cfg_data *cdata = (struct csiphy_cfg_data *)arg;

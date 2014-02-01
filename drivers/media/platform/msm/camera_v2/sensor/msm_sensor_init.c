@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,7 +66,8 @@ static int msm_sensor_wait_for_probe_done(struct msm_sensor_init_t *s_init)
 }
 
 /* Static function definition */
-static long msm_sensor_driver_cmd(struct msm_sensor_init_t *s_init, void *arg)
+static int32_t msm_sensor_driver_cmd(struct msm_sensor_init_t *s_init,
+	void *arg)
 {
 	int32_t                      rc = 0;
 	struct sensor_init_cfg_data *cfg = (struct sensor_init_cfg_data *)arg;

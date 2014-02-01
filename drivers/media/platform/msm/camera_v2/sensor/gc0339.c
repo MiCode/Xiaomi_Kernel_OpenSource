@@ -394,7 +394,7 @@ int32_t gc0339_config(struct msm_sensor_ctrl_t *s_ctrl,
 	void __user *argp)
 {
 	struct sensorb_cfg_data *cdata = (struct sensorb_cfg_data *)argp;
-	long rc = 0;
+	int32_t rc = 0;
 	int32_t i = 0;
 	mutex_lock(s_ctrl->msm_sensor_mutex);
 	switch (cdata->cfgtype) {
