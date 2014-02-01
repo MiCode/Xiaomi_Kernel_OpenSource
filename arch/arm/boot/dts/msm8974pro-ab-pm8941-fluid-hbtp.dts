@@ -26,6 +26,11 @@
 		/* Leave the SPI bus for QDSP to use */
 		status = "disabled";
 	};
+
+	hbtp {
+		compatible = "qcom,hbtp";
+		vcc_ana-supply = <&pm8941_l18>;
+	};
 };
 
 &i2c_0 {
