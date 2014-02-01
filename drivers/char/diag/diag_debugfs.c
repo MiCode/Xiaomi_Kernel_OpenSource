@@ -32,7 +32,7 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 				      size_t count, loff_t *ppos)
 {
 	char *buf;
-	int ret;
+	int ret, i;
 	unsigned int buf_size;
 	buf = kzalloc(sizeof(char) * DEBUG_BUF_SIZE, GFP_KERNEL);
 	if (!buf) {
@@ -109,8 +109,7 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"Received Feature mask from Modem: %d\n"
 		"Received Feature mask from LPASS: %d\n"
 		"Received Feature mask from WCNSS: %d\n"
-		"logging_mode: %d\n"
-		"real_time_mode: %d\n",
+		"logging_mode: %d\n",
 		driver->smd_data[MODEM_DATA].ch,
 		driver->smd_data[LPASS_DATA].ch,
 		driver->smd_data[WCNSS_DATA].ch,
@@ -179,14 +178,20 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		driver->rcvd_feature_mask[MODEM_DATA],
 		driver->rcvd_feature_mask[LPASS_DATA],
 		driver->rcvd_feature_mask[WCNSS_DATA],
-		driver->logging_mode,
-		driver->real_time_mode[DIAG_LOCAL_PROC]);
+		driver->logging_mode);
 
 #ifdef CONFIG_DIAG_OVER_USB
 	ret += scnprintf(buf+ret, buf_size-ret,
 		"usb_connected: %d\n",
 		driver->usb_connected);
 #endif
+
+	for (i = 0; i < DIAG_NUM_PROC; i++) {
+		ret += scnprintf(buf+ret, buf_size-ret,
+				 "real_time proc: %d: %d\n", i,
+				 driver->real_time_mode[i]);
+	}
+
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, ret);
 
 	kfree(buf);
@@ -654,8 +659,108 @@ static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 	return ret;
 }
 
+static ssize_t diag_dbgfs_read_bridge_dci(struct file *file, char __user *ubuf,
+					  size_t count, loff_t *ppos)
+{
+	char *buf;
+	int ret;
+	int i;
+	unsigned int bytes_remaining;
+	unsigned int bytes_in_buffer = 0;
+	unsigned int bytes_written;
+	unsigned int buf_size;
+	int bytes_hsic_inited = 45;
+	int bytes_hsic_not_inited = 410;
+
+	buf_size = (DEBUG_BUF_SIZE < count) ? DEBUG_BUF_SIZE : count;
+
+	if (diag_dbgfs_finished) {
+		diag_dbgfs_finished = 0;
+		return 0;
+	}
+
+	buf = kzalloc(sizeof(char) * buf_size, GFP_KERNEL);
+	if (ZERO_OR_NULL_PTR(buf)) {
+		pr_err("diag: %s, Error allocating memory\n", __func__);
+		return -ENOMEM;
+	}
+
+	buf_size = ksize(buf);
+	bytes_remaining = buf_size;
+
+	for (i = 0; i < MAX_HSIC_DCI_CH; i++) {
+		if (diag_hsic_dci[i].hsic_inited) {
+			/* Check if there is room to add another HSIC entry */
+			if (bytes_remaining < bytes_hsic_inited)
+				break;
+			bytes_written = scnprintf(buf+bytes_in_buffer,
+							bytes_remaining,
+			"Values for HSIC DCI Instance: %d\n"
+			"hsic ch: %d\n"
+			"hsic_inited: %d\n"
+			"hsic enabled: %d\n"
+			"hsic_opened: %d\n"
+			"hsic_suspend: %d\n"
+			"in_busy_hsic_write: %d\n"
+			"count_hsic_pool: %d\n"
+			"count_hsic_write_pool: %d\n"
+			"diag_hsic_pool: %p\n"
+			"diag_hsic_write_pool: %p\n"
+			"data: %p\n"
+			"data_buf: %p\n"
+			"data_len: %d\n"
+			"diag_read_hsic_work: %d\n"
+			"diag_process_hsic_work: %d\n\n",
+			i,
+			diag_hsic_dci[i].hsic_ch,
+			diag_hsic_dci[i].hsic_inited,
+			diag_hsic_dci[i].hsic_device_enabled,
+			diag_hsic_dci[i].hsic_device_opened,
+			diag_hsic_dci[i].hsic_suspend,
+			diag_hsic_dci[i].in_busy_hsic_write,
+			diag_hsic_dci[i].count_hsic_pool,
+			diag_hsic_dci[i].count_hsic_write_pool,
+			diag_hsic_dci[i].diag_hsic_pool,
+			diag_hsic_dci[i].diag_hsic_write_pool,
+			diag_hsic_dci[i].data,
+			diag_hsic_dci[i].data_buf,
+			diag_hsic_dci[i].data_len,
+			work_pending(&(diag_hsic_dci[i].diag_read_hsic_work)),
+			work_pending(&(diag_hsic_dci[i].
+				       diag_process_hsic_work)));
+			if (bytes_written > bytes_hsic_inited)
+				bytes_hsic_inited = bytes_written;
+		} else {
+			/* Check if there is room to add another HSIC entry */
+			if (bytes_remaining < bytes_hsic_not_inited)
+				break;
+			bytes_written = scnprintf(buf+bytes_in_buffer,
+				bytes_remaining,
+				"HSIC DCI Instance: %d has not been initialized\n\n",
+				i);
+			if (bytes_written > bytes_hsic_not_inited)
+				bytes_hsic_not_inited = bytes_written;
+		}
+
+		bytes_in_buffer += bytes_written;
+
+		bytes_remaining = buf_size - bytes_in_buffer;
+	}
+
+	*ppos = 0;
+	ret = simple_read_from_buffer(ubuf, count, ppos, buf, bytes_in_buffer);
+
+	diag_dbgfs_finished = 1;
+	kfree(buf);
+	return ret;
+}
+
 const struct file_operations diag_dbgfs_bridge_ops = {
 	.read = diag_dbgfs_read_bridge,
+};
+
+const struct file_operations diag_dbgfs_bridge_dci_ops = {
+	.read = diag_dbgfs_read_bridge_dci,
 };
 #endif
 
@@ -703,6 +808,9 @@ void diag_debugfs_init(void)
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 	debugfs_create_file("bridge", 0444, diag_dbgfs_dent, 0,
 		&diag_dbgfs_bridge_ops);
+
+	debugfs_create_file("bridge_dci", 0444, diag_dbgfs_dent, 0,
+		&diag_dbgfs_bridge_dci_ops);
 #endif
 
 	diag_dbgfs_table_index = 0;
