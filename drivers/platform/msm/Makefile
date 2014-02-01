@@ -18,3 +18,4 @@ obj-$(CONFIG_SSM) += ssm.o
 obj-$(CONFIG_QPNP_REVID) += qpnp-revid.o
 obj-$(CONFIG_QPNP_USB_DETECT) += qpnp-usbdetect.o
 obj-$(CONFIG_QCA1530) += qca1530.o
+obj-$(CONFIG_KLM) += msm_klmd.o
