@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,10 +22,6 @@
 / {
 	model = "Qualcomm MSM 8926";
 	compatible = "qcom,msm8926";
-	qcom,msm-id = <200 0>,
-		      <224 0>,
-		      <200 0x10001>,
-		      <224 0x10001>;
 };
 
 &i2c_0 {
