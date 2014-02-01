@@ -63,6 +63,7 @@
 #define PCIE20_MEMORY_BASE_LIMIT       0x20
 #define PCIE20_L1SUB_CONTROL1          0x158
 #define PCIE20_EP_L1SUB_CTL1_OFFSET    0x30
+#define PCIE20_DEVICE_CONTROL2_STATUS2 0x98
 
 #define PCIE20_ACK_F_ASPM_CTRL_REG     0x70C
 
@@ -637,10 +638,14 @@ static void msm_pcie_config_l1ss(struct msm_pcie_dev_t *dev)
 					BIT(1)|BIT(0));
 	msm_pcie_write_mask(dev->dm_core + PCIE20_L1SUB_CONTROL1, 0,
 					BIT(3)|BIT(2)|BIT(1)|BIT(0));
+	msm_pcie_write_mask(dev->dm_core + PCIE20_DEVICE_CONTROL2_STATUS2, 0,
+					BIT(10));
 	PCIE_DBG("RC's CAP_LINKCTRLSTATUS:0x%x\n",
 		readl_relaxed(dev->dm_core + PCIE20_CAP_LINKCTRLSTATUS));
 	PCIE_DBG("RC's L1SUB_CONTROL1:0x%x\n",
 		readl_relaxed(dev->dm_core + PCIE20_L1SUB_CONTROL1));
+	PCIE_DBG("RC's DEVICE_CONTROL2_STATUS2:0x%x\n",
+		readl_relaxed(dev->dm_core + PCIE20_DEVICE_CONTROL2_STATUS2));
 
 	/* Enable L1SS on EP */
 	msm_pcie_write_mask(dev->conf + PCIE20_CAP_LINKCTRLSTATUS, 0,
@@ -648,11 +653,15 @@ static void msm_pcie_config_l1ss(struct msm_pcie_dev_t *dev)
 	msm_pcie_write_mask(dev->conf + PCIE20_L1SUB_CONTROL1 +
 					PCIE20_EP_L1SUB_CTL1_OFFSET, 0,
 					BIT(3)|BIT(2)|BIT(1)|BIT(0));
+	msm_pcie_write_mask(dev->conf + PCIE20_DEVICE_CONTROL2_STATUS2, 0,
+					BIT(10));
 	PCIE_DBG("EP's CAP_LINKCTRLSTATUS:0x%x\n",
 		readl_relaxed(dev->conf + PCIE20_CAP_LINKCTRLSTATUS));
 	PCIE_DBG("EP's L1SUB_CONTROL1:0x%x\n",
 		readl_relaxed(dev->conf + PCIE20_L1SUB_CONTROL1 +
 					PCIE20_EP_L1SUB_CTL1_OFFSET));
+	PCIE_DBG("EP's DEVICE_CONTROL2_STATUS2:0x%x\n",
+		readl_relaxed(dev->conf + PCIE20_DEVICE_CONTROL2_STATUS2));
 }
 
 static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
