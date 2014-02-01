@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,6 @@
 #include <linux/debugfs.h>
 #include <soc/qcom/hsic_sysmon.h>
 #include <soc/qcom/sysmon.h>
-
 
 #define DRIVER_DESC	"HSIC System monitor driver"
 
@@ -409,6 +408,10 @@ static const struct usb_device_id hsic_sysmon_ids[] = {
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9075, 1), .driver_info = 0, },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9079, 1), .driver_info = 1, },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x908A, 1), .driver_info = 0, },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909C, 1), .driver_info = 0, },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909D, 1), .driver_info = 0, },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909E, 2), .driver_info = 0, },
+
 	{} /* terminating entry */
 };
 MODULE_DEVICE_TABLE(usb, hsic_sysmon_ids);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -573,6 +573,15 @@ static const struct usb_device_id diag_bridge_ids[] = {
 	.driver_info =  DEV_ID(0), },
 	/* 908E, ifc#1 refers to diag client interface */
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x908E, 1),
+	.driver_info =  DEV_ID(1), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909C, 0),
+	.driver_info =  DEV_ID(0), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909D, 0),
+	.driver_info =  DEV_ID(0), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909E, 0),
+	.driver_info =  DEV_ID(0), },
+	/* 909E, ifc#1 refers to diag client interface */
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909E, 1),
 	.driver_info =  DEV_ID(1), },
 
 	{} /* terminating entry */
