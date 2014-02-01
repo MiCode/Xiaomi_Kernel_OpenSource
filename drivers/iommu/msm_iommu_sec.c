@@ -60,6 +60,7 @@
 
 
 static struct iommu_access_ops *iommu_access_ops;
+static int is_secure;
 
 static const struct of_device_id msm_smmu_list[] = {
 	{ .compatible = "qcom,msm-smmu-v1", },
@@ -785,6 +786,16 @@ static int msm_iommu_domain_has_cap(struct iommu_domain *domain,
 static phys_addr_t msm_iommu_get_pt_base_addr(struct iommu_domain *domain)
 {
 	return 0;
+}
+
+void msm_iommu_check_scm_call_avail(void)
+{
+	is_secure = scm_is_call_available(SCM_SVC_MP, IOMMU_SECURE_CFG);
+}
+
+int msm_iommu_get_scm_call_avail(void)
+{
+	return is_secure;
 }
 
 static struct iommu_ops msm_iommu_ops = {
