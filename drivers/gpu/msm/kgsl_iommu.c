@@ -535,10 +535,9 @@ kgsl_iommu_disable_clk_on_ts(struct kgsl_mmu *mmu,
 	struct kgsl_iommu_disable_clk_param *param;
 
 	param = kzalloc(sizeof(*param), GFP_KERNEL);
-	if (!param) {
-		KGSL_CORE_ERR("kzalloc(%d) failed\n", sizeof(*param));
+	if (!param)
 		return;
-	}
+
 	param->mmu = mmu;
 	param->ctx_id = ctx_id;
 	param->ts = ts;
