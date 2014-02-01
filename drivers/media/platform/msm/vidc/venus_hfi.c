@@ -3114,14 +3114,14 @@ static int venus_hfi_alloc_ocmem(void *dev, unsigned long size)
 		return -EINVAL;
 	}
 	ocmem_buffer = device->resources.ocmem.buf;
-	if (!ocmem_buffer ||
-		ocmem_buffer->len < size) {
+	if (!ocmem_buffer || ocmem_buffer->len < size) {
 		ocmem_buffer = ocmem_allocate(OCMEM_VIDEO, size);
 		if (IS_ERR_OR_NULL(ocmem_buffer)) {
 			dprintk(VIDC_ERR,
 				"ocmem_allocate_nb failed: %d\n",
 				(u32) ocmem_buffer);
 			rc = -ENOMEM;
+			goto ocmem_set_failed;
 		}
 		device->resources.ocmem.buf = ocmem_buffer;
 		rc = venus_hfi_set_ocmem(device, ocmem_buffer);
