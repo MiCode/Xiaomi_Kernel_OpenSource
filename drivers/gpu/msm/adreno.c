@@ -2336,15 +2336,33 @@ static int _ft_pagefault_policy_store(struct device *dev,
 				     const char *buf, size_t count)
 {
 	struct adreno_device *adreno_dev = _get_adreno_dev(dev);
-	int ret;
+	int ret = 0;
+	unsigned int policy = 0;
 	if (adreno_dev == NULL)
 		return 0;
 
 	mutex_lock(&adreno_dev->dev.mutex);
-	ret = _ft_sysfs_store(buf, count, &adreno_dev->ft_pf_policy);
+
+	/* MMU option changed call function to reset MMU options */
+	if (count != _ft_sysfs_store(buf, count, &policy))
+		ret = -EINVAL;
+
+	if (!ret) {
+		policy &= (KGSL_FT_PAGEFAULT_INT_ENABLE |
+				KGSL_FT_PAGEFAULT_GPUHALT_ENABLE |
+				KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE |
+				KGSL_FT_PAGEFAULT_LOG_ONE_PER_INT);
+		ret = kgsl_mmu_set_pagefault_policy(&(adreno_dev->dev.mmu),
+				adreno_dev->ft_pf_policy);
+		if (!ret)
+			adreno_dev->ft_pf_policy = policy;
+	}
 	mutex_unlock(&adreno_dev->dev.mutex);
 
-	return ret;
+	if (!ret)
+		return count;
+	else
+		return 0;
 }
 
 /**

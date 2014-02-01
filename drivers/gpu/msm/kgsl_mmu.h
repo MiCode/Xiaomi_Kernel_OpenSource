@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -173,6 +173,7 @@ struct kgsl_mmu_ops {
 	unsigned int (*mmu_sync_unlock)
 			(struct kgsl_mmu *mmu, unsigned int *cmds);
 	int (*mmu_hw_halt_supported)(struct kgsl_mmu *mmu, int iommu_unit_num);
+	int (*mmu_set_pf_policy)(struct kgsl_mmu *mmu, unsigned int pf_policy);
 };
 
 struct kgsl_mmu_pt_ops {
@@ -473,6 +474,15 @@ static inline int kgsl_mmu_sync_unlock(struct kgsl_mmu *mmu,
 	if ((mmu->flags & KGSL_MMU_FLAGS_IOMMU_SYNC) &&
 		mmu->mmu_ops && mmu->mmu_ops->mmu_sync_unlock)
 		return mmu->mmu_ops->mmu_sync_unlock(mmu, cmds);
+	else
+		return 0;
+}
+
+static inline int kgsl_mmu_set_pagefault_policy(struct kgsl_mmu *mmu,
+						unsigned int pf_policy)
+{
+	if (mmu->mmu_ops && mmu->mmu_ops->mmu_set_pf_policy)
+		return mmu->mmu_ops->mmu_set_pf_policy(mmu, pf_policy);
 	else
 		return 0;
 }
