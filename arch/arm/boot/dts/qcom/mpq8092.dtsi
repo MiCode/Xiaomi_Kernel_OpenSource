@@ -1447,6 +1447,16 @@
 		reg-names = "forza";
 	};
 
+	klm: msm-klm@fc560000 {
+		compatible = "qcom,klm";
+		reg = <0xfc560000 0x1000>, /* KLM registers */
+		      <0xfc724000 0x7000>, /* TSPP2 registers */
+		      <0xfc747000 0x1000>, /* KLM debug mode */
+		      <0xfc748200 0x900>;  /* Key Tables */
+		reg-names = "MSM_KLM", "MSM_BCSS_TSPP2", "MSM_BCSS_HLOS", "MSM_BCSS_KLM";
+		vdd-supply = <&gdsc_bcss>;
+	};
+
         qcom,msm-rng@f9bff000 {
 		compatible = "qcom,msm-rng";
 		reg = <0xf9bff000 0x200>;
