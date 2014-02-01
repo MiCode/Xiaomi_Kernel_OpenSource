@@ -1618,3 +1618,4 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 out:
 	return ret;
 }
+EXPORT_SYMBOL(msm_pcie_pm_control);
