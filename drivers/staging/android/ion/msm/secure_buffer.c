@@ -163,8 +163,6 @@ static int secure_buffer_change_table(struct sg_table *table,
 		 * in RAM
 		 */
 		dmac_flush_range(chunk_list, chunk_list + chunk_list_len);
-		outer_flush_range(chunk_list_phys,
-				chunk_list_phys + chunk_list_len);
 
 		ret = secure_buffer_change_chunk(virt_to_phys(chunk_list),
 				nchunks, V2_CHUNK_SIZE, usage, lock);
