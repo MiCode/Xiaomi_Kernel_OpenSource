@@ -75,6 +75,8 @@ struct ion_device {
  * @idr:		an idr space for allocating handle ids
  * @lock:		lock protecting the tree of handles
  * @name:		used for debugging
+ * @display_name:	used for debugging (unique version of @name)
+ * @display_serial:	used for debugging (to make display_name unique)
  * @task:		used for debugging
  *
  * A client represents a list of buffers this client may access.
@@ -88,6 +90,8 @@ struct ion_client {
 	struct idr idr;
 	struct mutex lock;
 	char *name;
+	char *display_name;
+	int display_serial;
 	struct task_struct *task;
 	pid_t pid;
 	struct dentry *debug_root;
@@ -762,33 +766,17 @@ static const struct file_operations debug_client_fops = {
 	.release = single_release,
 };
 
-static bool startswith(const char *string, const char *prefix)
-{
-	size_t l1 = strlen(string);
-	size_t l2 = strlen(prefix);
-	if (l2 > l1)
-		return false;
-	return strncmp(string, prefix, min(l1, l2)) == 0;
-}
-
 static int ion_get_client_serial(const struct rb_root *root,
 					const unsigned char *name)
 {
 	int serial = -1;
 	struct rb_node *node;
 	for (node = rb_first(root); node; node = rb_next(node)) {
-		int n;
-		char *serial_string;
 		struct ion_client *client = rb_entry(node, struct ion_client,
 						node);
-		if (!startswith(client->name, name))
+		if (strcmp(client->name, name))
 			continue;
-		serial_string = strrchr(client->name, '-');
-		if (!serial_string)
-			continue;
-		serial_string++;
-		sscanf(serial_string, "%d", &n);
-		serial = max(serial, n);
+		serial = max(serial, client->display_serial);
 	}
 	return serial + 1;
 }
@@ -802,7 +790,6 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 	struct rb_node *parent = NULL;
 	struct ion_client *entry;
 	pid_t pid;
-	int client_serial;
 
 	if (!name) {
 		pr_err("%s: Name cannot be null\n", __func__);
@@ -823,11 +810,8 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 	task_unlock(current->group_leader);
 
 	client = kzalloc(sizeof(struct ion_client), GFP_KERNEL);
-	if (!client) {
-		if (task)
-			put_task_struct(current->group_leader);
-		return ERR_PTR(-ENOMEM);
-	}
+	if (!client)
+		goto err_put_task_struct;
 
 	client->dev = dev;
 	client->handles = RB_ROOT;
@@ -836,15 +820,17 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 
 	client->task = task;
 	client->pid = pid;
+	client->name = kstrdup(name, GFP_KERNEL);
+	if (!client->name)
+		goto err_free_client;
 
 	down_write(&dev->lock);
-	client_serial = ion_get_client_serial(&dev->clients, name);
-	client->name = kasprintf(GFP_KERNEL, "%s-%d", name, client_serial);
-	if (!client->name) {
+	client->display_serial = ion_get_client_serial(&dev->clients, name);
+	client->display_name = kasprintf(
+		GFP_KERNEL, "%s-%d", name, client->display_serial);
+	if (!client->display_name) {
 		up_write(&dev->lock);
-		put_task_struct(current->group_leader);
-		kfree(client);
-		return ERR_PTR(-ENOMEM);
+		goto err_free_client_name;
 	}
 	p = &dev->clients.rb_node;
 	while (*p) {
@@ -859,20 +845,28 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 	rb_link_node(&client->node, parent, p);
 	rb_insert_color(&client->node, &dev->clients);
 
-
-	client->debug_root = debugfs_create_file(client->name, 0664,
+	client->debug_root = debugfs_create_file(client->display_name, 0664,
 						dev->clients_debug_root,
 						client, &debug_client_fops);
 	if (!client->debug_root) {
 		char buf[256], *path;
 		path = dentry_path(dev->clients_debug_root, buf, 256);
-		pr_err("Failed to created client debugfs at %s/%s\n",
-			path, client->name);
+		pr_err("Failed to create client debugfs at %s/%s\n",
+			path, client->display_name);
 	}
 
 	up_write(&dev->lock);
 
 	return client;
+
+err_free_client_name:
+	kfree(client->name);
+err_free_client:
+	kfree(client);
+err_put_task_struct:
+	if (task)
+		put_task_struct(current->group_leader);
+	return ERR_PTR(-ENOMEM);
 }
 EXPORT_SYMBOL(ion_client_create);
 
@@ -898,6 +892,7 @@ void ion_client_destroy(struct ion_client *client)
 
 	up_write(&dev->lock);
 
+	kfree(client->display_name);
 	kfree(client->name);
 	kfree(client);
 }
