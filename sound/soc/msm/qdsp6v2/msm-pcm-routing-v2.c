@@ -2784,6 +2784,7 @@ static const struct snd_kcontrol_new dolby_dap_param_end_point_controls[] = {
 int msm_routing_get_rms_value_control(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol) {
 	int rc = 0;
+	int be_idx = 0;
 	char *param_value;
 	int *update_param_value;
 	uint32_t param_length = sizeof(uint32_t);
@@ -2793,21 +2794,26 @@ int msm_routing_get_rms_value_control(struct snd_kcontrol *kcontrol,
 		pr_err("%s, param memory alloc failed\n", __func__);
 		return -ENOMEM;
 	}
-	rc = adm_get_params(SLIMBUS_0_TX,
-			RMS_MODULEID_APPI_PASSTHRU,
-			RMS_PARAM_FIRST_SAMPLE,
-			param_length + param_payload_len,
-			param_value);
-	if (rc) {
-		pr_err("%s: get parameters failed\n", __func__);
-		kfree(param_value);
-		return -EINVAL;
-	}
-	update_param_value = (int *)param_value;
-	ucontrol->value.integer.value[0] = update_param_value[0];
+	for (be_idx = 0; be_idx < MSM_BACKEND_DAI_MAX; be_idx++)
+		if (msm_bedais[be_idx].port_id == SLIMBUS_0_TX)
+			break;
+	if ((be_idx < MSM_BACKEND_DAI_MAX) && msm_bedais[be_idx].active) {
+		rc = adm_get_params(SLIMBUS_0_TX,
+				RMS_MODULEID_APPI_PASSTHRU,
+				RMS_PARAM_FIRST_SAMPLE,
+				param_length + param_payload_len,
+				param_value);
+		if (rc) {
+			pr_err("%s: get parameters failed\n", __func__);
+			kfree(param_value);
+			return -EINVAL;
+		}
+		update_param_value = (int *)param_value;
+		ucontrol->value.integer.value[0] = update_param_value[0];
 
-	pr_debug("%s: FROM DSP value[0] 0x%x\n",
-		__func__, update_param_value[0]);
+		pr_debug("%s: FROM DSP value[0] 0x%x\n",
+			  __func__, update_param_value[0]);
+	}
 	kfree(param_value);
 	return 0;
 }
