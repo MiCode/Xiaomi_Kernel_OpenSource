@@ -163,6 +163,7 @@ struct rpm_vreg {
 	struct mutex		mlock;
 	unsigned long		flags;
 	bool			sleep_request_sent;
+	bool			apps_only;
 	struct msm_rpm_request	*handle_active;
 	struct msm_rpm_request	*handle_sleep;
 };
@@ -238,6 +239,16 @@ static inline bool rpm_vreg_active_or_sleep_enabled(struct rpm_vreg *rpm_vreg)
 				& BIT(RPM_REGULATOR_PARAM_ENABLE)))
 	    || ((rpm_vreg->aggr_req_sleep.param[RPM_REGULATOR_PARAM_ENABLE])
 				&& (rpm_vreg->aggr_req_sleep.valid
+					& BIT(RPM_REGULATOR_PARAM_ENABLE)));
+}
+
+static inline bool rpm_vreg_shared_active_or_sleep_enabled_valid
+						(struct rpm_vreg *rpm_vreg)
+{
+	return !rpm_vreg->apps_only &&
+		((rpm_vreg->aggr_req_active.valid
+					& BIT(RPM_REGULATOR_PARAM_ENABLE))
+		 || (rpm_vreg->aggr_req_sleep.valid
 					& BIT(RPM_REGULATOR_PARAM_ENABLE)));
 }
 
@@ -660,7 +671,8 @@ static int rpm_vreg_set_voltage(struct regulator_dev *rdev, int min_uV,
 	 * if the regulator has been configured to always send voltage updates.
 	 */
 	if (reg->always_send_voltage
-	    || rpm_vreg_active_or_sleep_enabled(reg->rpm_vreg))
+	    || rpm_vreg_active_or_sleep_enabled(reg->rpm_vreg)
+	    || rpm_vreg_shared_active_or_sleep_enabled_valid(reg->rpm_vreg))
 		rc = rpm_vreg_aggregate_requests(reg);
 
 	if (rc) {
@@ -719,7 +731,8 @@ static int rpm_vreg_set_voltage_corner(struct regulator_dev *rdev, int min_uV,
 	 * updates.
 	 */
 	if (reg->always_send_voltage
-	    || rpm_vreg_active_or_sleep_enabled(reg->rpm_vreg))
+	    || rpm_vreg_active_or_sleep_enabled(reg->rpm_vreg)
+	    || rpm_vreg_shared_active_or_sleep_enabled_valid(reg->rpm_vreg))
 		rc = rpm_vreg_aggregate_requests(reg);
 
 	if (rc) {
@@ -774,7 +787,8 @@ static int rpm_vreg_set_voltage_floor_corner(struct regulator_dev *rdev,
 	 * voltage updates.
 	 */
 	if (reg->always_send_voltage
-	    || rpm_vreg_active_or_sleep_enabled(reg->rpm_vreg))
+	    || rpm_vreg_active_or_sleep_enabled(reg->rpm_vreg)
+	    || rpm_vreg_shared_active_or_sleep_enabled_valid(reg->rpm_vreg))
 		rc = rpm_vreg_aggregate_requests(reg);
 
 	if (rc) {
@@ -829,7 +843,8 @@ static int rpm_vreg_set_mode(struct regulator_dev *rdev, unsigned int mode)
 	 * current updates.
 	 */
 	if (reg->always_send_current
-	    || rpm_vreg_active_or_sleep_enabled(reg->rpm_vreg))
+	    || rpm_vreg_active_or_sleep_enabled(reg->rpm_vreg)
+	    || rpm_vreg_shared_active_or_sleep_enabled_valid(reg->rpm_vreg))
 		rc = rpm_vreg_aggregate_requests(reg);
 
 	if (rc) {
@@ -1579,6 +1594,7 @@ static int __devinit rpm_vreg_resource_probe(struct platform_device *pdev)
 	of_property_read_u32(node, "qcom,enable-time", &rpm_vreg->enable_time);
 	of_property_read_u32(node, "qcom,hpm-min-load",
 		&rpm_vreg->hpm_min_load);
+	rpm_vreg->apps_only = of_property_read_bool(node, "qcom,apps-only");
 
 	rpm_vreg->handle_active = msm_rpm_create_request(RPM_SET_ACTIVE,
 		resource_type, rpm_vreg->resource_id, RPM_REGULATOR_PARAM_MAX);
