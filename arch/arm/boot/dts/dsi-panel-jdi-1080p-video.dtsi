@@ -66,5 +66,7 @@
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 		qcom,mdss-dsi-reset-sequence = <1 20>, <0 200>, <1 20>;
+		qcom,mdss-pan-physical-width-dimension = <61>;
+		qcom,mdss-pan-physical-height-dimension = <110>;
 	};
 };
