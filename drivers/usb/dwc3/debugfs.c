@@ -794,9 +794,9 @@ const struct file_operations dwc3_ep_trb_list_fops = {
 	.release		= single_release,
 };
 
-static unsigned int ep_addr_rxdbg_mask;
+static unsigned int ep_addr_rxdbg_mask = 1;
 module_param(ep_addr_rxdbg_mask, uint, S_IRUGO | S_IWUSR);
-static unsigned int ep_addr_txdbg_mask;
+static unsigned int ep_addr_txdbg_mask = 1;
 module_param(ep_addr_txdbg_mask, uint, S_IRUGO | S_IWUSR);
 
 /* Maximum debug message length */
