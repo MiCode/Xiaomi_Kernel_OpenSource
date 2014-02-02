@@ -29,7 +29,7 @@
 		compatible = "qcom,ipc_router_hsic_xprt";
 	        qcom,ch-name = "ipc_bridge";
 		qcom,xprt-remote = "external-modem";
-		qcom,xprt-linkid = <1>;
+		qcom,xprt-linkid = <2>;
 		qcom,xprt-version = <3>;
 	};
 };
