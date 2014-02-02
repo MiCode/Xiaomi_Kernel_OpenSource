@@ -30,7 +30,7 @@
 #define BT_PWR_DBG(fmt, arg...)  pr_debug("%s: " fmt "\n" , __func__ , ## arg)
 #define BT_PWR_INFO(fmt, arg...) pr_info("%s: " fmt "\n" , __func__ , ## arg)
 #define BT_PWR_ERR(fmt, arg...)  pr_err("%s: " fmt "\n" , __func__ , ## arg)
-
+#define BT_VDD_PA_CURRENT        60000
 
 static struct of_device_id bt_power_match_table[] = {
 	{	.compatible = "qca,ar3002" },
@@ -177,6 +177,11 @@ static int bt_configure_gpios(int on)
 		msleep(100);
 	} else {
 		gpio_set_value(bt_reset_gpio, 0);
+
+		rc = gpio_direction_input(bt_reset_gpio);
+		if (rc)
+			BT_PWR_ERR("Unable to set direction\n");
+
 		msleep(100);
 	}
 	return rc;
@@ -209,6 +214,9 @@ static int bluetooth_power(int on)
 				BT_PWR_ERR("bt_power vddpa config failed");
 				goto vdd_pa_fail;
 			}
+			regulator_set_optimum_mode(
+				bt_power_pdata->bt_vdd_pa->reg,
+				BT_VDD_PA_CURRENT);
 		}
 		if (bt_power_pdata->bt_chip_pwd) {
 			rc = bt_configure_vreg(bt_power_pdata->bt_chip_pwd);
