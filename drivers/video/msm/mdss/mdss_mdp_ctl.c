@@ -871,7 +871,7 @@ static struct mdss_mdp_ctl *mdss_mdp_ctl_alloc(struct mdss_data_type *mdata,
 	u32 nctl = mdata->nctl;
 
 	mutex_lock(&mdss_mdp_ctl_lock);
-	if (!mdata->has_wfd_blk)
+	if (mdata->wfd_mode == MDSS_MDP_WFD_SHARED)
 		nctl++;
 
 	for (cnum = off; cnum < nctl; cnum++) {
@@ -989,7 +989,8 @@ static struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 		mixer_pool += MDSS_MDP_INTF_LAYERMIXER2;
 
 	/*Allocate virtual wb mixer if no dedicated wfd wb blk is present*/
-	if (!ctl->mdata->has_wfd_blk && (type == MDSS_MDP_MIXER_TYPE_WRITEBACK))
+	if ((ctl->mdata->wfd_mode == MDSS_MDP_WFD_SHARED) &&
+			(type == MDSS_MDP_MIXER_TYPE_WRITEBACK))
 		nmixers += 1;
 
 	for (i = 0; i < nmixers; i++) {
@@ -1295,7 +1296,7 @@ static int mdss_mdp_ctl_setup_wfd(struct mdss_mdp_ctl *ctl)
 	int mixer_type;
 
 	/* if WB2 is supported, try to allocate it first */
-	if (mdata->nmixers_intf >= MDSS_MDP_INTF_LAYERMIXER2)
+	if (mdata->wfd_mode == MDSS_MDP_WFD_INTERFACE)
 		mixer_type = MDSS_MDP_MIXER_TYPE_INTF;
 	else
 		mixer_type = MDSS_MDP_MIXER_TYPE_WRITEBACK;
@@ -2014,7 +2015,8 @@ int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata,
 	int rc = 0;
 	u32 size = len;
 
-	if ((type == MDSS_MDP_MIXER_TYPE_WRITEBACK) && !mdata->has_wfd_blk)
+	if ((type == MDSS_MDP_MIXER_TYPE_WRITEBACK) &&
+			(mdata->wfd_mode == MDSS_MDP_WFD_SHARED))
 		size++;
 
 	head = devm_kzalloc(&mdata->pdev->dev, sizeof(struct mdss_mdp_mixer) *
@@ -2042,7 +2044,8 @@ int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata,
 	 * Duplicate the last writeback mixer for concurrent line and block mode
 	 * operations
 	*/
-	if ((type == MDSS_MDP_MIXER_TYPE_WRITEBACK) && !mdata->has_wfd_blk)
+	if ((type == MDSS_MDP_MIXER_TYPE_WRITEBACK) &&
+			(mdata->wfd_mode == MDSS_MDP_WFD_SHARED))
 		head[len] = head[len - 1];
 
 	switch (type) {
@@ -2072,7 +2075,7 @@ int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata,
 	u32 i;
 	u32 size = len;
 
-	if (!mdata->has_wfd_blk) {
+	if (mdata->wfd_mode == MDSS_MDP_WFD_SHARED) {
 		size++;
 		shared_lock = devm_kzalloc(&mdata->pdev->dev,
 					   sizeof(struct mutex),
@@ -2099,7 +2102,7 @@ int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata,
 		head[i].ref_cnt = 0;
 	}
 
-	if (!mdata->has_wfd_blk) {
+	if (mdata->wfd_mode == MDSS_MDP_WFD_SHARED) {
 		head[len - 1].shared_lock = shared_lock;
 		/*
 		 * Allocate a virtual ctl to be able to perform simultaneous

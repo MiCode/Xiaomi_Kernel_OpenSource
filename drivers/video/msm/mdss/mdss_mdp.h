@@ -100,6 +100,12 @@ enum mdss_mdp_csc_type {
 	MDSS_MDP_MAX_CSC
 };
 
+enum mdp_wfd_blk_type {
+	MDSS_MDP_WFD_SHARED = 0,
+	MDSS_MDP_WFD_INTERFACE,
+	MDSS_MDP_WFD_DEDICATED,
+};
+
 struct mdss_mdp_ctl;
 typedef void (*mdp_vsync_handler_t)(struct mdss_mdp_ctl *, ktime_t);
 
