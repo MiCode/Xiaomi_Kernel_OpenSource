@@ -251,6 +251,7 @@ static int __ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
 static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on);
 static int ufshcd_uic_hibern8_exit(struct ufs_hba *hba);
 static int ufshcd_uic_hibern8_enter(struct ufs_hba *hba);
+static int ufshcd_host_reset_and_restore(struct ufs_hba *hba);
 
 static inline void ufshcd_enable_irq(struct ufs_hba *hba)
 {
@@ -2496,10 +2497,16 @@ static int ufshcd_uic_hibern8_enter(struct ufs_hba *hba)
 static int ufshcd_uic_hibern8_exit(struct ufs_hba *hba)
 {
 	struct uic_command uic_cmd = {0};
+	int ret;
 
 	uic_cmd.command = UIC_CMD_DME_HIBER_EXIT;
+	ret = ufshcd_uic_pwr_ctrl(hba, &uic_cmd);
+	if (ret) {
+		ufshcd_set_link_off(hba);
+		ret = ufshcd_host_reset_and_restore(hba);
+	}
 
-	return ufshcd_uic_pwr_ctrl(hba, &uic_cmd);
+	return ret;
 }
 
  /**
