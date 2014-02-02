@@ -138,7 +138,7 @@
 		qcom,saw2-spm-dly= <0x3C102800>;
 		qcom,saw2-spm-ctl = <0x1>;
 		qcom,saw2-spm-cmd-ret = [1f 00 20 03 22 00 0f];
-		qcom,saw2-spm-cmd-gdhs = [00 20 32 42 07 44 22 50 02 32
+		qcom,saw2-spm-cmd-gdhs = [00 20 32 42 03 44 22 50 02 32
 				50 0f];
 		qcom,saw2-spm-cmd-pc = [00 10 32 42 07 12 44 50 02 32 50 0f];
 	};
