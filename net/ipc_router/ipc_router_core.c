@@ -666,6 +666,7 @@ static int prepend_header_v1(struct rr_packet *pkt, int hdr_size)
 				__func__, hdr_size);
 			return -ENOMEM;
 		}
+		skb_reserve(temp_skb, hdr_size);
 	}
 
 	hdr = (struct rr_header_v1 *)skb_push(temp_skb, hdr_size);
@@ -706,6 +707,7 @@ static int prepend_header_v2(struct rr_packet *pkt, int hdr_size)
 				__func__, hdr_size);
 			return -ENOMEM;
 		}
+		skb_reserve(temp_skb, hdr_size);
 	}
 
 	hdr = (struct rr_header_v2 *)skb_push(temp_skb, hdr_size);
