@@ -30,6 +30,7 @@
 #include <asm/cacheflush.h>
 #include "../ion_priv.h"
 #include "ion_cp_common.h"
+#include "compat_msm_ion.h"
 
 #define ION_COMPAT_STR	"qcom,msm-ion"
 
@@ -702,7 +703,7 @@ static unsigned int msm_ion_ioctl_dir(unsigned int cmd)
 	}
 }
 
-static long msm_ion_custom_ioctl(struct ion_client *client,
+long msm_ion_custom_ioctl(struct ion_client *client,
 				unsigned int cmd,
 				unsigned long arg)
 {
@@ -878,7 +879,7 @@ static int msm_ion_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	new_dev = ion_device_create(msm_ion_custom_ioctl, NULL);
+	new_dev = ion_device_create(msm_ion_custom_ioctl, compat_msm_ion_ioctl);
 	if (IS_ERR_OR_NULL(new_dev)) {
 		/*
 		 * set this to the ERR to indicate to the clients
