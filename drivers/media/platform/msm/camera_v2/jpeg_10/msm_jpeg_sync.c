@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -765,11 +765,12 @@ int msm_jpeg_start(struct msm_jpeg_device *pgmn_dev, void * __user arg)
 	for (i = 0; i < 2; i++)
 		kfree(buf_out_free[i]);
 
+	pgmn_dev->state = MSM_JPEG_EXECUTING;
 	JPEG_DBG_HIGH("%s:%d] START\n", __func__, __LINE__);
 	wmb();
 	rc = msm_jpeg_ioctl_hw_cmds(pgmn_dev, arg);
 	wmb();
-	pgmn_dev->state = MSM_JPEG_EXECUTING;
+
 	JPEG_DBG("%s:%d]", __func__, __LINE__);
 	return rc;
 }
