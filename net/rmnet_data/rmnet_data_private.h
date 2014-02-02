@@ -19,6 +19,7 @@
 #define RMNET_DATA_DFLT_PACKET_SIZE     1500
 #define RMNET_DATA_DEV_NAME_STR         "rmnet_data"
 #define RMNET_DATA_NEEDED_HEADROOM      16
+#define RMNET_DATA_TX_QUEUE_LEN         1000
 #define RMNET_ETHERNET_HEADER_LENGTH    14
 
 extern unsigned int rmnet_data_log_level;

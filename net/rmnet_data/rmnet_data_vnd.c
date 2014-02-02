@@ -466,6 +466,7 @@ static void rmnet_vnd_setup(struct net_device *dev)
 	dev->needed_headroom = RMNET_DATA_NEEDED_HEADROOM;
 	random_ether_addr(dev->dev_addr);
 	dev->watchdog_timeo = 1000;
+	dev->tx_queue_len = RMNET_DATA_TX_QUEUE_LEN;
 
 	/* Raw IP mode */
 	dev->header_ops = 0;  /* No header */
