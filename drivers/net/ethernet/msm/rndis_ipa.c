@@ -15,6 +15,7 @@
 #include <linux/etherdevice.h>
 #include <linux/debugfs.h>
 #include <linux/in.h>
+#include <linux/stddef.h>
 #include <linux/ip.h>
 #include <linux/fs.h>
 #include <linux/module.h>
@@ -23,7 +24,7 @@
 #include <linux/skbuff.h>
 #include <linux/sched.h>
 #include <linux/ipa.h>
-#include <mach/rndis_ipa.h>
+#include <linux/rndis_ipa.h>
 
 #define DRV_NAME "RNDIS_IPA"
 #define DEBUGFS_DIR_NAME "rndis_ipa"
@@ -73,7 +74,7 @@
 		} \
 		while (0)
 
-#define RNDIS_HDR_OFST(field)  ((u32)(&(((struct rndis_pkt_hdr *)0)->field)))
+#define RNDIS_HDR_OFST(field) offsetof(struct rndis_pkt_hdr, field)
 #define RNDIS_IPA_LOG_ENTRY() RNDIS_IPA_DEBUG("begin\n")
 #define RNDIS_IPA_LOG_EXIT()  RNDIS_IPA_DEBUG("end\n")
 
@@ -2328,10 +2329,10 @@ static int rndis_ipa_loopback_pipe_create(
 	loopback_pipe->dma_connect.options = SPS_O_AUTO_ENABLE;
 
 	RNDIS_IPA_DEBUG("doing sps_connect() with - ");
-	RNDIS_IPA_DEBUG("src bam_hdl:0x%x, src_pipe#:%d",
+	RNDIS_IPA_DEBUG("src bam_hdl:0x%lx, src_pipe#:%d",
 			loopback_pipe->dma_connect.source,
 			loopback_pipe->dma_connect.src_pipe_index);
-	RNDIS_IPA_DEBUG("dst bam_hdl:0x%x, dst_pipe#:%d",
+	RNDIS_IPA_DEBUG("dst bam_hdl:0x%lx, dst_pipe#:%d",
 			loopback_pipe->dma_connect.destination,
 			loopback_pipe->dma_connect.dest_pipe_index);
 
