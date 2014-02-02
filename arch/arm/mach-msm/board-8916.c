@@ -29,6 +29,7 @@
 #include "board-dt.h"
 #include "platsmp.h"
 #include "spm.h"
+#include "pm.h"
 
 static void __init msm8916_early_memory(void)
 {
@@ -62,6 +63,7 @@ void __init msm8916_add_drivers(void)
 	msm_smd_init();
 	msm_rpm_driver_init();
 	msm_spm_device_init();
+	msm_pm_sleep_status_init();
 	tsens_tm_init_driver();
 	msm_thermal_device_init();
 }
