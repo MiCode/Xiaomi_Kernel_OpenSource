@@ -118,6 +118,13 @@ struct rmnet_ioctl_extended_s {
 	} u;
 };
 
+struct rmnet_ioctl_data_s {
+	union {
+		uint32_t	operation_mode;
+		uint32_t	tcm_handle;
+	} u;
+};
+
 #define RMNET_IOCTL_QOS_MODE_6   (1<<0)
 #define RMNET_IOCTL_QOS_MODE_8   (1<<1)
 
