@@ -165,12 +165,13 @@ config ARCH_XGENE
 
 config ARCH_MSM
 	bool "Qualcomm Platforms"
+	select ARCH_REQUIRE_GPIOLIB
+	select CLKDEV_LOOKUP
 	select HAVE_CLK
 	select HAVE_CLK_PREPARE
-	select CLKDEV_LOOKUP
-	select ARCH_REQUIRE_GPIOLIB
-	select SOC_BUS
+	select MSM_IRQ
 	select PINCTRL
+	select SOC_BUS
 	help
 	  This enables support for the ARMv8 based Qualcomm chipsets.
 
