@@ -68,6 +68,18 @@
 static int tspp2_iommu_bypass;
 module_param(tspp2_iommu_bypass, int, S_IRUGO);
 
+/* Enable Invalid Adaptation Field control bits event */
+static int tspp2_en_invalid_af_ctrl;
+module_param(tspp2_en_invalid_af_ctrl, int, S_IRUGO | S_IWUSR);
+
+/* Enable Invalid Adaptation Field length event */
+static int tspp2_en_invalid_af_length;
+module_param(tspp2_en_invalid_af_length, int, S_IRUGO | S_IWUSR);
+
+/* Enable PES No Sync event */
+static int tspp2_en_pes_no_sync;
+module_param(tspp2_en_pes_no_sync, int, S_IRUGO | S_IWUSR);
+
 /**
  * enum tspp2_operation_opcode - TSPP2 Operation opcode for TSPP2_OPCODE
  */
@@ -244,7 +256,7 @@ enum tspp2_operation_opcode {
 #define TSPP2_VERSION				0x6FFC
 
 /* Bits for TSPP2_GLOBAL_IRQ_CLEAR register */
-#define GLOBAL_IRQ_CLEAR_RESERVED_OFFS		4
+#define GLOBAL_IRQ_CLEAR_RESERVED_OFFS         4
 
 /* Bits for TSPP2_VERSION register */
 #define VERSION_MAJOR_OFFS			28
@@ -2030,6 +2042,7 @@ static int tspp2_global_hw_reset(struct tspp2_device *device,
 {
 	int i, n;
 	unsigned long rate_in_hz = 0;
+	u32 global_irq_en = 0;
 
 	if (!device) {
 		pr_err("%s: NULL device\n", __func__);
@@ -2073,13 +2086,14 @@ static int tspp2_global_hw_reset(struct tspp2_device *device,
 			device->base + TSPP2_INDEX_TABLE_PARAMS(i));
 	}
 
-	/* Disable memory inputs */
+	/* Disable memory inputs. Set mode of operation to 16 batches */
 	for (i = 0; i < TSPP2_NUM_MEM_INPUTS; i++)
-		writel_relaxed(0, device->base + TSPP2_MEM_INPUT_SRC_CONFIG(i));
+		writel_relaxed((0x1 << MEM_INPUT_SRC_CONFIG_16_BATCHES_OFFS),
+			device->base + TSPP2_MEM_INPUT_SRC_CONFIG(i));
 
-	/* Disable TSIF inputs */
+	/* Disable TSIF inputs. Set mode of operation to 16 batches */
 	for (i = 0; i < TSPP2_NUM_TSIF_INPUTS; i++)
-		writel_relaxed(0,
+		writel_relaxed((0x1 << TSIF_INPUT_SRC_CONFIG_16_BATCHES_OFFS),
 			device->base + TSPP2_TSIF_INPUT_SRC_CONFIG(i));
 
 	/* Reset source related registers and performance counters */
@@ -2165,7 +2179,7 @@ static int tspp2_global_hw_reset(struct tspp2_device *device,
 	/*
 	 * Global interrupts configuration:
 	 * Flow Control (per memory source):	Disabled
-	 * Read Failue (per memory source):	Enabled
+	 * Read Failure (per memory source):	Enabled
 	 * SC_GO_LOW (aggregate):		Enabled
 	 * SC_GO_HIGH (aggregate):		Enabled
 	 * Wrong Pipe Direction (aggregate):	Enabled
@@ -2173,12 +2187,21 @@ static int tspp2_global_hw_reset(struct tspp2_device *device,
 	 * Unexpected Reset (aggregate):	Enabled
 	 * Key Not Ready (aggregate):		Disabled
 	 * Op Encrypt Level Error:		Enabled
-	 * PES No Sync:				Enabled
-	 * TSP Invalid Length:			Enabled
-	 * TSP Invalid AF Control:		Enabled
+	 * PES No Sync:				Disabled (module parameter)
+	 * TSP Invalid Length:			Disabled (module parameter)
+	 * TSP Invalid AF Control:		Disabled (module parameter)
 	 */
+	global_irq_en = 0x00FF03E8;
+	if (tspp2_en_invalid_af_ctrl)
+		global_irq_en |=
+			(0x1 << GLOBAL_IRQ_TSP_INVALID_AF_OFFS);
+	if (tspp2_en_invalid_af_length)
+		global_irq_en |= (0x1 << GLOBAL_IRQ_TSP_INVALID_LEN_OFFS);
+	if (tspp2_en_pes_no_sync)
+		global_irq_en |= (0x1 << GLOBAL_IRQ_PES_NO_SYNC_OFFS);
+
 	if (enable_intr)
-		writel_relaxed(0x00FF03EF,
+		writel_relaxed(global_irq_en,
 			device->base + TSPP2_GLOBAL_IRQ_ENABLE);
 	else
 		writel_relaxed(0, device->base + TSPP2_GLOBAL_IRQ_ENABLE);
@@ -4726,14 +4749,21 @@ int tspp2_src_pipe_detach(u32 src_handle, u32 pipe_handle)
 				__func__, pipe_handle, src_handle);
 			goto err_inval;
 		}
+
 		writel_relaxed(0xFFFF,	src->input_pipe->device->base +
 			TSPP2_PIPE_THRESH_CONFIG(src->input_pipe->hw_index));
 
-		reg = readl_relaxed(src->device->base +
-			TSPP2_MEM_INPUT_SRC_CONFIG(src->hw_index));
-		reg &= ~(0x1F << MEM_INPUT_SRC_CONFIG_INPUT_PIPE_OFFS);
-		writel_relaxed(reg, src->device->base +
-			TSPP2_MEM_INPUT_SRC_CONFIG(src->hw_index));
+		if (src->enabled) {
+			pr_warn("%s: Detaching input pipe from an active memory source\n",
+				__func__);
+		}
+		/*
+		 * Note: not updating TSPP2_MEM_INPUT_SRC_CONFIG to reflect
+		 * this pipe is detached, since there is no invalid value we
+		 * can write instead. tspp2_src_pipe_attach() already takes
+		 * care of zeroing the relevant bit-field before writing the
+		 * new pipe nummber.
+		 */
 
 		src->input_pipe = NULL;
 	} else {
@@ -7151,6 +7181,7 @@ int tspp2_global_event_notification_register(u32 dev_id,
 {
 	struct tspp2_device *device;
 	unsigned long flags;
+	u32 reg = 0;
 
 	if (dev_id >= TSPP2_NUM_DEVICES) {
 		pr_err("%s: Invalid device ID %d\n", __func__, dev_id);
@@ -7171,6 +7202,44 @@ int tspp2_global_event_notification_register(u32 dev_id,
 		mutex_unlock(&device->mutex);
 		return -EPERM;
 	}
+
+	/*
+	 * Some of the interrupts that are generated when these events occur
+	 * may be disabled due to module parameters. So we make sure to enable
+	 * them here, depending on which event was requested. If some events
+	 * were requested before and now this function is called again with
+	 * other events, though, we want to restore the interrupt configuration
+	 * to the default state according to the module parameters.
+	 */
+	reg = readl_relaxed(device->base + TSPP2_GLOBAL_IRQ_ENABLE);
+	if (global_event_bitmask & TSPP2_GLOBAL_EVENT_INVALID_AF_CTRL) {
+		reg |= (0x1 << GLOBAL_IRQ_TSP_INVALID_AF_OFFS);
+	} else {
+		if (tspp2_en_invalid_af_ctrl)
+			reg |= (0x1 << GLOBAL_IRQ_TSP_INVALID_AF_OFFS);
+		else
+			reg &= ~(0x1 << GLOBAL_IRQ_TSP_INVALID_AF_OFFS);
+	}
+
+	if (global_event_bitmask & TSPP2_GLOBAL_EVENT_INVALID_AF_LENGTH) {
+		reg |= (0x1 << GLOBAL_IRQ_TSP_INVALID_LEN_OFFS);
+	} else {
+		if (tspp2_en_invalid_af_length)
+			reg |= (0x1 << GLOBAL_IRQ_TSP_INVALID_LEN_OFFS);
+		else
+			reg &= ~(0x1 << GLOBAL_IRQ_TSP_INVALID_LEN_OFFS);
+	}
+
+	if (global_event_bitmask & TSPP2_GLOBAL_EVENT_PES_NO_SYNC) {
+		reg |= (0x1 << GLOBAL_IRQ_PES_NO_SYNC_OFFS);
+	} else {
+		if (tspp2_en_pes_no_sync)
+			reg |= (0x1 << GLOBAL_IRQ_PES_NO_SYNC_OFFS);
+		else
+			reg &= ~(0x1 << GLOBAL_IRQ_PES_NO_SYNC_OFFS);
+	}
+
+	writel_relaxed(reg, device->base + TSPP2_GLOBAL_IRQ_ENABLE);
 
 	spin_lock_irqsave(&device->spinlock, flags);
 	device->event_callback = callback;
