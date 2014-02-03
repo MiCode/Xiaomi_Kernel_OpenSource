@@ -119,56 +119,6 @@ static int a4xx_snapshot_shader_memory(struct kgsl_device *device,
 }
 
 /*
- * a4xx_init_debbus() - Sets up the trace bus to enable debug bus dump
- * @device: POinter to device whose trace bus is set up
- */
-void a4xx_init_debbus(struct kgsl_device *device)
-{
-	unsigned int val = 0;
-	/* start trace bus */
-	val |= (0x20 <<
-		A4XX_RBBM_CFG_DEBBUS_CTLT_ENT_SHIFT);
-	val |= (4 << A4XX_RBBM_CFG_DEBBUS_CTLT_GRANU_SHIFT);
-	val |= (0xf << A4XX_RBBM_CFG_DEBBUS_CTLT_SEGT_SHIFT);
-	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_CTLT, val);
-	val = 0;
-	/* start misr */
-	val |= 0xf << A4XX_RBBM_CFG_DEBBUS_CTLT_ENABLE_SHIFT;
-	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_CTLM, val);
-	val = 0;
-	/* do not invert bits */
-	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_IVTL_0, 0);
-	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_IVTL_1, 0);
-	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_IVTL_2, 0);
-	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_IVTL_3, 0);
-	/* route bits for 1 to 1 mapping */
-	val |= (1 << A4XX_RBBM_CFG_DEBBUS_BYTEL_0_BYTEL1_SHIFT);
-	val |= (2 << A4XX_RBBM_CFG_DEBBUS_BYTEL_0_BYTEL2_SHIFT);
-	val |= (3 << A4XX_RBBM_CFG_DEBBUS_BYTEL_0_BYTEL3_SHIFT);
-	val |= (4 << A4XX_RBBM_CFG_DEBBUS_BYTEL_0_BYTEL4_SHIFT);
-	val |= (5 << A4XX_RBBM_CFG_DEBBUS_BYTEL_0_BYTEL5_SHIFT);
-	val |= (6 << A4XX_RBBM_CFG_DEBBUS_BYTEL_0_BYTEL6_SHIFT);
-	val |= (7 << A4XX_RBBM_CFG_DEBBUS_BYTEL_0_BYTEL7_SHIFT);
-	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_BYTEL_0, val);
-	val = 0;
-	val |= (8 << A4XX_RBBM_CFG_DEBBUS_BYTEL_1_BYTEL8_SHIFT);
-	val |= (9 << A4XX_RBBM_CFG_DEBBUS_BYTEL_1_BYTEL9_SHIFT);
-	val |= (10 << A4XX_RBBM_CFG_DEBBUS_BYTEL_1_BYTEL10_SHIFT);
-	val |= (11 << A4XX_RBBM_CFG_DEBBUS_BYTEL_1_BYTEL11_SHIFT);
-	val |= (12 << A4XX_RBBM_CFG_DEBBUS_BYTEL_1_BYTEL12_SHIFT);
-	val |= (13 << A4XX_RBBM_CFG_DEBBUS_BYTEL_1_BYTEL13_SHIFT);
-	val |= (14 << A4XX_RBBM_CFG_DEBBUS_BYTEL_1_BYTEL14_SHIFT);
-	val |= (15 << A4XX_RBBM_CFG_DEBBUS_BYTEL_1_BYTEL15_SHIFT);
-	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_BYTEL_1, val);
-	val = 0;
-	/* set up to apss through w/o including bits in logic operations */
-	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_MASKL_0, 0);
-	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_MASKL_1, 0);
-	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_MASKL_2, 0);
-	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_MASKL_3, 0);
-}
-
-/*
  * a4xx_rbbm_debug_bus_read() - Read data from trace bus
  * @device: Device whose data bus is read
  * @block_id: Trace bus block ID
@@ -181,17 +131,17 @@ void a4xx_rbbm_debug_bus_read(struct kgsl_device *device,
 	unsigned int reg = 0;
 
 	reg |= (block_id << A4XX_RBBM_CFG_DEBBUS_SEL_PING_BLK_SEL_SHIFT);
-	reg |= (block_id << A4XX_RBBM_CFG_DEBBUS_SEL_PONG_BLK_SEL_SHIFT);
 	reg |= (index << A4XX_RBBM_CFG_DEBBUS_SEL_PING_INDEX_SHIFT);
-	reg |= (index << A4XX_RBBM_CFG_DEBBUS_SEL_PONG_INDEX_SHIFT);
 	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_SEL_A, reg);
 	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_SEL_B, reg);
 	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_SEL_C, reg);
 	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_SEL_D, reg);
 
-	kgsl_regread(device, A4XX_RBBM_CFG_DEBBUS_TRACE_BUF1, val);
+	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_IDX, 0x100);
+	kgsl_regread(device, A4XX_RBBM_CFG_DEBBUS_TRACE_BUF4, val);
 	val++;
-	kgsl_regread(device, A4XX_RBBM_CFG_DEBBUS_TRACE_BUF0, val);
+	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_IDX, 0x302);
+	kgsl_regread(device, A4XX_RBBM_CFG_DEBBUS_TRACE_BUF4, val);
 }
 
 /*
@@ -243,6 +193,9 @@ static void *a4xx_snapshot_debugbus(struct kgsl_device *device,
 	void *snapshot, int *remain)
 {
 	int i;
+
+	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_CTLM,
+		0xf << A4XX_RBBM_CFG_DEBBUS_CTLT_ENABLE_SHIFT);
 
 	for (i = 0; i < ARRAY_SIZE(a4xx_debugbus_blocks); i++) {
 		snapshot = kgsl_snapshot_add_section(device,
@@ -382,7 +335,6 @@ skip_regs:
 			&snap_data->sect_sizes->cp_merciu);
 
 	/* Debug bus */
-	a4xx_init_debbus(device);
 	snapshot = a4xx_snapshot_debugbus(device, snapshot, remain);
 	/*
 	 * TODO - Add call to _adreno_coresight_set to restore
