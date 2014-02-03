@@ -49,6 +49,7 @@ Required properties:
 				 2 : {1, 4}
 				 3 : {1, 6}
 				 4 : {1, 20}
+				 5 : {1, 8}
 - qcom,calibration-type : Reference voltage to use for channel calibration.
 			  Channel calibration is dependendent on the channel.
 			  Certain channels like XO_THERM, BATT_THERM use ratiometric
