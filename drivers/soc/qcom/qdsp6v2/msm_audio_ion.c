@@ -143,7 +143,7 @@ int msm_audio_ion_import(const char *name, struct ion_client **client,
 	bufsz should be 0 and fd shouldn't be 0 as of now
 	*/
 	*handle = ion_import_dma_buf(*client, fd);
-	pr_err("%s: DMA Buf name=%s, fd=%d handle=%p\n", __func__,
+	pr_debug("%s: DMA Buf name=%s, fd=%d handle=%p\n", __func__,
 							name, fd, *handle);
 	if (IS_ERR_OR_NULL((void *) (*handle))) {
 		pr_err("%s: ion import dma buffer failed\n",
