@@ -231,7 +231,7 @@ static int __vpu_load_bus_vector_data(struct vpu_platform_resources *res,
 		return -EINVAL;
 	}
 
-	bus_pdata->name = bus_pdata_config.name;
+	bus_pdata->name = "msm_vpu";
 	bus_pdata->num_usecases = num_elements;
 
 	bus_pdata->usecase = devm_kzalloc(&pdev->dev,

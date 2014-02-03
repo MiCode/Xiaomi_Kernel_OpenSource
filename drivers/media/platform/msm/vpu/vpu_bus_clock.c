@@ -93,8 +93,8 @@ int vpu_bus_vote(void)
 
 	handle = ctrl->bus_client;
 	if (handle) {
-		rc = msm_bus_scale_client_update_request(
-				handle, ctrl->btabl->count - 1);
+		/* vote for first non-zero bandwidth */
+		rc = msm_bus_scale_client_update_request(handle, 1);
 		if (rc)
 			pr_err("Failed to vote bus: %d\n", rc);
 	}
@@ -110,8 +110,8 @@ int vpu_bus_unvote(void)
 
 	handle = ctrl->bus_client;
 	if (handle) {
-		rc = msm_bus_scale_client_update_request(
-				handle, 0);
+		/* vote for zero bandwidth */
+		rc = msm_bus_scale_client_update_request(handle, 0);
 		if (rc)
 			pr_err("Failed to unvote bus: %d\n", rc);
 	}

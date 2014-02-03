@@ -18,6 +18,8 @@
 #include <media/v4l2-ctrls.h>
 #include <linux/stddef.h>
 #include <linux/sizes.h>
+#include <linux/time.h>
+#include <asm/div64.h>
 
 #include "vpu_configuration.h"
 #include "vpu_v4l2.h"
@@ -1074,11 +1076,123 @@ static int __get_bits_per_pixel(u32 api_pix_fmt)
 	return bpp;
 }
 
+/*
+ * Power mode / Bus load computation
+ */
 
 #define SESSION_IS_ACTIVE(s, cur)	(((s) == (cur)) ? true : \
 					(s)->streaming_state == ALL_STREAMING)
+#define TO_KILO(val)			((val) / 1000)
 
-/* __get_frequency_mode() - returns the VPU frequency mode (enum vpu_power_mode)
+#define SW_OVERHEAD_MS			1
+#define STRIPE_OVERHEAD_PERCENT		5
+#define MAX_FPS				60
+
+enum {
+	VIP_MIP = 0,
+	VIP_SIP,
+	VIP_TNR,
+	VOP_TNR,
+	VOP_SOP,
+	VIP_SCL,
+	VOP_MOP,
+
+	NUM_STAGES,
+};
+
+/*
+ * __get_vpu_load() - compute the average load value for all sessions (in kbps)
+ *
+ * 1) Pick the highest session's load (say "load_kbps")
+ * 2) Increase it by "software overhead factor"
+ *    with "software overhead factor"
+ *    = (1 / max_fps) / (1 / max_fps / num_sessions - SW_OVERHEAD_MS / 1000)
+ *    = (1000*num_sessions) / (1000 - (num_sessions*SW_OVERHEAD_MS*max_fps))
+ * 3) Increase the result by "stripe overhead"
+ *    with "stripe overhead"
+ *    = 1 + (STRIPE_OVERHEAD_PERCENT / 100)
+ *    = (100 + STRIPE_OVERHEAD_PERCENT) / 100
+ * => load_kbps *= "software overhead factor" * "stripe overhead"
+ */
+static u32 __get_vpu_load(struct vpu_dev_session *cur_session)
+{
+	struct vpu_dev_core *core = cur_session->core;
+	struct vpu_dev_session *session = NULL;
+	u32 num_sessions = 0;
+	u32 denominator = 1;
+	u64 load_kbps = 0;
+	int i;
+
+	for (i = 0; i < VPU_NUM_SESSIONS; i++) {
+		session = core->sessions[i];
+		if (!session || !SESSION_IS_ACTIVE(session, cur_session))
+			continue;
+
+		pr_debug("session %d load: %dkbps\n", i, session->load);
+		load_kbps = max_t(u32, load_kbps, session->load);
+
+		num_sessions++;
+	}
+
+	/* software overhead factor */
+	load_kbps *= MSEC_PER_SEC * num_sessions;
+	denominator *= MSEC_PER_SEC - (num_sessions * SW_OVERHEAD_MS * MAX_FPS);
+
+	/* stripe overhead */
+	load_kbps *= 100 + STRIPE_OVERHEAD_PERCENT;
+	denominator *= 100;
+
+	do_div(load_kbps, denominator);
+
+	pr_debug("Calculated load = %dkbps\n", (u32)load_kbps);
+	return (u32)load_kbps;
+}
+
+/* returns the session load in kilo bits per second */
+static u32 __calculate_session_load(struct vpu_dev_session *session)
+{
+	struct vpu_controller *controller = session->controller;
+	struct vpu_port_info *in = &session->port_info[INPUT_PORT];
+	struct vpu_port_info *out = &session->port_info[OUTPUT_PORT];
+	struct vpu_ctrl_auto_manual *nr_ctrl;
+	u32 fps, in_bpp, out_bpp, nrwb_bpp;
+	bool interlaced, nr, bbroi;
+	u32 stage_load_factor[NUM_STAGES];
+	u32 load_kbps = 0;
+	int i;
+
+	/* get required info before computation */
+	fps = in->framerate ? in->framerate : MAX_FPS;
+	nrwb_bpp = __get_bits_per_pixel(V4L2_PIX_FMT_YUYV);
+	in_bpp = __get_bits_per_pixel(in->format.pixelformat);
+	out_bpp = __get_bits_per_pixel(out->format.pixelformat);
+
+	interlaced = in->scan_mode == LINESCANINTERLACED;
+	nr_ctrl = get_control(controller, VPU_CTRL_NOISE_REDUCTION);
+	nr = nr_ctrl ? (nr_ctrl->enable == PROP_TRUE) : false;
+	bbroi = true; /* TODO: how to calculate? */
+
+	/* compute the current session's load at each stage */
+	stage_load_factor[VIP_MIP] = in_bpp;
+	stage_load_factor[VIP_SIP] = !interlaced ? 0 : in_bpp;
+	stage_load_factor[VIP_TNR] = !nr ? 0 : nrwb_bpp;
+	stage_load_factor[VOP_TNR] = !nr ? 0 : nrwb_bpp;
+	stage_load_factor[VOP_SOP] = !bbroi ? 0 : nrwb_bpp;
+	stage_load_factor[VIP_SCL] = !bbroi ? 0 : nrwb_bpp;
+	stage_load_factor[VOP_MOP] = out_bpp;
+
+	/* final bus load for the session (before software overhead factor) */
+	for (i = 0; i <= VIP_SCL; i++)
+		load_kbps += stage_load_factor[i] *
+			TO_KILO(in->format.width * in->format.height * fps);
+	for (i = VOP_MOP; i < NUM_STAGES; i++)
+		load_kbps += stage_load_factor[i] *
+			TO_KILO(out->format.width * out->format.height * fps);
+
+	return load_kbps;
+}
+
+/* __get_power_mode() - returns the VPU frequency mode (enum vpu_power_mode)
  *
  * 1) Determine the pixel rate of each session:
  *    (max(in_h, out_h) * max (in_v, out_v) * frame_rate
@@ -1090,7 +1204,7 @@ static int __get_bits_per_pixel(u32 api_pix_fmt)
  *	    threshold/2, then use this frequency mode
  * 4) If no frequency is chosen, choose turbo
  */
-static u32 __get_frequency_mode(struct vpu_dev_session *cur_sess)
+static u32 __get_power_mode(struct vpu_dev_session *cur_sess)
 {
 	struct vpu_dev_core *core = cur_sess->core;
 	struct vpu_dev_session *session = NULL;
@@ -1146,72 +1260,6 @@ exit_and_return_mode:
 	pr_debug("eligible for %s mode\n", (mode == VPU_POWER_SVS) ? "svs" :
 			((mode == VPU_POWER_NOMINAL) ? "nominal" : "turbo"));
 	return (u32)mode;
-}
-
-/* compute the average load value for all VPU sessions (in bits per second) */
-static u32 __get_vpu_load(struct vpu_dev_core *core)
-{
-	int i;
-	u32 load_bps = 0;
-	struct vpu_dev_session *session = NULL;
-
-	for (i = 0; i < VPU_NUM_SESSIONS; i++) {
-		session = core->sessions[i];
-		if (!session)
-			break;
-		pr_debug("session %d load: %dbps\n", i, session->load);
-		load_bps = max(load_bps, session->load);
-	}
-
-	pr_debug("Calculated load = %d bps\n", load_bps);
-	return 500000; /* TODO replace by load */
-}
-
-/* returns the session load in bits per second */
-int __calculate_session_load(struct vpu_dev_session *session)
-{
-	u32 bits_per_stream;
-	u32 load_bits_per_sec;
-	u32 frame_rate;
-	bool b_interlaced, b_nr, b_bbroi;
-	u32 bpp_in, bpp_vpu, h_in, w_in, bpp_out, h_out, w_out;
-	struct vpu_port_info *in = &session->port_info[INPUT_PORT];
-	struct vpu_port_info *out = &session->port_info[OUTPUT_PORT];
-	struct vpu_controller *controller = session->controller;
-	struct vpu_ctrl_auto_manual *nr_cache =
-		(struct vpu_ctrl_auto_manual *) get_control(controller,
-				VPU_CTRL_NOISE_REDUCTION);
-
-	/*
-	 * get required info before computation
-	 */
-	b_interlaced = (in->scan_mode == LINESCANINTERLACED);
-	b_nr = nr_cache ? (nr_cache->enable == PROP_TRUE) : false;
-	b_bbroi = false; /*TODO: how to calculate? */
-	bpp_in = __get_bits_per_pixel(in->format.pixelformat);
-	if (bpp_in < 0)
-		bpp_in = 0;
-	bpp_vpu = 16; /* 8bpc422 pixel format */
-	h_in = in->format.height;
-	w_in = in->format.width;
-	bpp_out = __get_bits_per_pixel(out->format.pixelformat);
-	if (bpp_out < 0)
-		bpp_out = 0;
-
-	h_out = out->format.height;
-	w_out = out->format.width;
-	frame_rate = max(in->framerate, out->framerate);
-
-	/*
-	 * compute the current session's load
-	 */
-	bits_per_stream =  ((1 + b_interlaced) * (bpp_in)
-			+ (2 * b_nr + 2 * b_bbroi) * (bpp_vpu)) * (h_in * w_in)
-			+ (bpp_out) * (h_out * w_out);
-	load_bits_per_sec = bits_per_stream * frame_rate;
-
-	pr_debug("Calculated load (%d bps)\n", load_bits_per_sec);
-	return load_bits_per_sec;
 }
 
 static int __configure_input_port(struct vpu_dev_session *session)
@@ -1294,8 +1342,7 @@ static int __do_commit(struct vpu_dev_session *session,
 		session->load = __calculate_session_load(session);
 
 	ret = vpu_hw_session_commit(session->id, commit_type,
-			__get_vpu_load(session->core),
-			__get_frequency_mode(session));
+			__get_vpu_load(session), __get_power_mode(session));
 	if (ret)
 		pr_err("Commit Failed\n");
 	else

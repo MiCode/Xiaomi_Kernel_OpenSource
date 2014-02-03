@@ -1551,7 +1551,8 @@ int vpu_hw_session_empty_buffer(u32 sid, struct vpu_buffer *vb)
 	return rc;
 }
 
-int vpu_hw_session_commit(u32 sid, enum commit_type ct, u32 load, u32 pwr_mode)
+int vpu_hw_session_commit(u32 sid, enum commit_type ct,
+			  u32 load_kbps, u32 pwr_mode)
 {
 	int rc;
 	u32 ipc_ct;
@@ -1574,10 +1575,11 @@ int vpu_hw_session_commit(u32 sid, enum commit_type ct, u32 load, u32 pwr_mode)
 	}
 
 	mutex_lock(&hal->pw_lock);
-	rc = vpu_clock_scale(hal->clk_handle, pwr_mode);
+	if (vpu_bus_scale(load_kbps))
+		pr_err("bus scale failed\n");
+	if (vpu_clock_scale(hal->clk_handle, pwr_mode))
+		pr_err("clock scale failed\n");
 	mutex_unlock(&hal->pw_lock);
-	if (rc)
-		pr_err("clock scale failed: %d\n", rc);
 
 	/* send the configuration commit through IPC */
 	rc = ipc_cmd_config_session_commit(sid, ipc_ct);
