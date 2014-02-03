@@ -286,7 +286,6 @@ struct smb135x_chg {
 	bool				batt_warm;
 	bool				batt_cool;
 
-	struct completion		resumed;
 	bool				resume_completed;
 	bool				irq_waiting;
 	u32				usb_suspended;
@@ -1889,12 +1888,12 @@ static irqreturn_t smb135x_chg_stat_handler(int irq, void *dev_id)
 	int handler_count = 0;
 
 	mutex_lock(&chip->irq_complete);
-
-	init_completion(&chip->resumed);
 	chip->irq_waiting = true;
 	if (!chip->resume_completed) {
 		dev_dbg(chip->dev, "IRQ triggered before device-resume\n");
-		wait_for_completion_interruptible(&chip->resumed);
+		disable_irq_nosync(irq);
+		mutex_unlock(&chip->irq_complete);
+		return IRQ_HANDLED;
 	}
 	chip->irq_waiting = false;
 
@@ -2802,7 +2801,6 @@ static int smb135x_charger_probe(struct i2c_client *client,
 	}
 
 	chip->resume_completed = true;
-	init_completion(&chip->resumed);
 	mutex_init(&chip->irq_complete);
 
 	/* STAT irq configuration */
@@ -3040,10 +3038,15 @@ static int smb135x_resume(struct device *dev)
 			dev_err(chip->dev,
 				"Couldn't restore irq cfg regs rc=%d\n", rc);
 	}
-
+	mutex_lock(&chip->irq_complete);
 	chip->resume_completed = true;
-	complete(&chip->resumed);
-
+	if (chip->irq_waiting) {
+		mutex_unlock(&chip->irq_complete);
+		smb135x_chg_stat_handler(client->irq, chip);
+		enable_irq(client->irq);
+	} else {
+		mutex_unlock(&chip->irq_complete);
+	}
 	return 0;
 }
 
