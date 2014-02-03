@@ -43,7 +43,6 @@
 		onnn,discharge-enable;
 		onnn,restore-reg;
 		onnn,tlmm-config = <0x80 0x0>;
-		onnn,mode = "pwm";
 	};
 
 	fan53555: fan53555-regulator@60 {
