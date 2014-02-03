@@ -822,7 +822,7 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 
 	pr_debug("pnum=%x\n", pipe->num);
 
-	if (!pipe->mixer && !pipe->mixer->ctl && !pipe->mixer->ctl->mfd)
+	if (pipe->mixer && pipe->mixer->ctl && pipe->mixer->ctl->mfd)
 		dcm_state = pipe->mixer->ctl->mfd->dcm_state;
 
 	mdata = mdss_mdp_get_mdata();
@@ -1012,7 +1012,7 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 			pipe->scale.enable_pxl_ext);
 	mdata = mdss_mdp_get_mdata();
 
-	if (!pipe->mixer && !pipe->mixer->ctl && !pipe->mixer->ctl->mfd)
+	if (pipe->mixer && pipe->mixer->ctl && pipe->mixer->ctl->mfd)
 		dcm_state = pipe->mixer->ctl->mfd->dcm_state;
 
 	if ((mdata->mdp_rev == MDSS_MDP_HW_REV_200) &&
@@ -1264,7 +1264,7 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	if (pipe == NULL)
 		return -EINVAL;
 
-	if (!pipe->mixer && !pipe->mixer->ctl && !pipe->mixer->ctl->mfd)
+	if (pipe->mixer && pipe->mixer->ctl && pipe->mixer->ctl->mfd)
 		dcm_state = pipe->mixer->ctl->mfd->dcm_state;
 
 	/* Read IGC state and update the same if tuning mode is enable */
