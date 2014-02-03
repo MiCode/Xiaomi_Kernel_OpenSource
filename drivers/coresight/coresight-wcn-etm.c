@@ -47,6 +47,23 @@ static int wcn_etm_enable(struct coresight_device *csdev)
 
 	mutex_lock(&drvdata->mutex);
 
+	/*
+	 * The QMI handle may be NULL in the following scenarios:
+	 * 1. QMI service is not present
+	 * 2. QMI service is present but attempt to enable remote ETM is earlier
+	 *    than service is ready to handle request
+	 * 3. Connection between QMI client and QMI service failed
+	 *
+	 * Enable CoreSight without processing further QMI commands which
+	 * provides the option to enable remote ETM by other means.
+	 */
+	if (!drvdata->handle) {
+		dev_info(drvdata->dev,
+			 "%s: QMI service unavailable. Skipping QMI requests\n",
+			 __func__);
+		goto out;
+	}
+
 	req.state = CORESIGHT_ETM_STATE_ENABLED_V01;
 
 	req_desc.msg_id = CORESIGHT_QMI_SET_ETM_REQ_V01;
@@ -72,7 +89,7 @@ static int wcn_etm_enable(struct coresight_device *csdev)
 		ret = -EREMOTEIO;
 		goto err;
 	}
-
+out:
 	mutex_unlock(&drvdata->mutex);
 
 	dev_info(drvdata->dev, "Wireless ETM tracing enabled\n");
@@ -81,7 +98,6 @@ err:
 	mutex_unlock(&drvdata->mutex);
 	return ret;
 }
-
 
 static void wcn_etm_disable(struct coresight_device *csdev)
 {
@@ -93,6 +109,13 @@ static void wcn_etm_disable(struct coresight_device *csdev)
 	int ret;
 
 	mutex_lock(&drvdata->mutex);
+
+	if (!drvdata->handle) {
+		dev_info(drvdata->dev,
+			 "%s: QMI service unavailable. Skipping QMI requests\n",
+			 __func__);
+		goto out;
+	}
 
 	req.state = CORESIGHT_ETM_STATE_DISABLED_V01;
 
@@ -117,7 +140,7 @@ static void wcn_etm_disable(struct coresight_device *csdev)
 			__func__, resp.resp.result, resp.resp.error);
 		goto err;
 	}
-
+out:
 	mutex_unlock(&drvdata->mutex);
 
 	dev_info(drvdata->dev, "Wireless ETM tracing disabled\n");
@@ -142,7 +165,8 @@ static void wcn_etm_rcv_msg(struct work_struct *work)
 						       work_rcv_msg);
 
 	if (qmi_recv_msg(drvdata->handle) < 0)
-		pr_err("%s: Error receiving QMI message\n", __func__);
+		dev_err(drvdata->dev, "%s: Error receiving QMI message\n",
+			__func__);
 }
 
 static void wcn_etm_notify(struct qmi_handle *handle,
@@ -167,14 +191,16 @@ static void wcn_etm_svc_arrive(struct work_struct *work)
 
 	drvdata->handle = qmi_handle_create(wcn_etm_notify, drvdata);
 	if (!drvdata->handle) {
-		pr_err("%s: QMI client handle alloc failed\n", __func__);
+		dev_err(drvdata->dev, "%s: QMI client handle alloc failed\n",
+			__func__);
 		return;
 	}
 
 	if (qmi_connect_to_service(drvdata->handle, CORESIGHT_QMI_SVC_ID,
 				   CORESIGHT_QMI_VERSION,
 				   CORESIGHT_SVC_INST_ID_WCN_V01) < 0) {
-		pr_err("%s: Could not connect handle to service\n", __func__);
+		dev_err(drvdata->dev,
+			"%s: Could not connect handle to service\n", __func__);
 		qmi_handle_destroy(drvdata->handle);
 		drvdata->handle = NULL;
 	}
@@ -265,7 +291,6 @@ static int wcn_etm_probe(struct platform_device *pdev)
 		ret = PTR_ERR(drvdata->csdev);
 		goto err1;
 	}
-
 	dev_info(dev, "Wireless ETM initialized\n");
 	return 0;
 err1:
@@ -276,7 +301,6 @@ err1:
 err0:
 	destroy_workqueue(drvdata->wq);
 	return ret;
-
 }
 
 static int wcn_etm_remove(struct platform_device *pdev)
