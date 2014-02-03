@@ -1389,7 +1389,10 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 			return -EINVAL;
 		}
 		if (stream_info->state == ACTIVE &&
-			stream_info->stream_type == BURST_STREAM) {
+			stream_info->stream_type == BURST_STREAM &&
+			(1 != update_cmd->num_streams ||
+				UPDATE_STREAM_FRAMEDROP_PATTERN !=
+					update_cmd->update_type)) {
 			pr_err("%s: Cannot update active burst stream\n",
 				__func__);
 			return -EINVAL;
@@ -1416,7 +1419,10 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 				msm_isp_get_framedrop_period(
 				   update_info->skip_pattern);
 			stream_info->runtime_init_frame_drop = 0;
-			stream_info->framedrop_pattern = 0x1;
+			if (update_info->skip_pattern == SKIP_ALL)
+				stream_info->framedrop_pattern = 0x0;
+			else
+				stream_info->framedrop_pattern = 0x1;
 			stream_info->framedrop_period = framedrop_period - 1;
 			vfe_dev->hw_info->vfe_ops.axi_ops.
 				cfg_framedrop(vfe_dev, stream_info);
