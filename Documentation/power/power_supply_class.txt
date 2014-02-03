@@ -134,6 +134,9 @@ CAPACITY_ALERT_MAX - maximum capacity alert value in percents.
 CAPACITY_LEVEL - capacity level. This corresponds to
 POWER_SUPPLY_CAPACITY_LEVEL_*.
 
+RESISTANCE - battery resistance in milli ohms
+RESISTANCE_CAPACITIVE - battery capacitive resistance in milli ohms
+
 TEMP - temperature of the power supply.
 TEMP_ALERT_MIN - minimum battery temperature alert value in milli centigrade.
 TEMP_ALERT_MAX - maximum battery temperature alert value in milli centigrade.
