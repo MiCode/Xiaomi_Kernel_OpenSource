@@ -66,6 +66,21 @@
 	};
 };
 
+&pm8226_l3 {
+	regulator-max-microvolt = <1287500>;
+};
+
+&pm8226_l3_ao {
+	regulator-max-microvolt = <1287500>;
+};
+
+&pm8226_l3_so {
+	regulator-max-microvolt = <1287500>;
+};
+
 &apc_vreg_corner {
 	/delete-property/ qcom,cpr-enable;
+	qcom,vdd-mx-vmax = <1287500>;
+	qcom,vdd-mx-vmin-method = <4>;
+	qcom,vdd-mx-corner-map = <1050000 1150000 1280000>;
 };
