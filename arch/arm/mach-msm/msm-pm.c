@@ -493,11 +493,12 @@ void msm_cpu_pm_enter_sleep(enum msm_pm_sleep_mode mode, bool from_idle)
 {
 	int64_t time = 0;
 	enum msm_pm_time_stats_id exit_stat = -1;
+	unsigned int cpu = smp_processor_id();
 
-	if (!from_idle || (MSM_PM_DEBUG_IDLE & msm_pm_debug_mask))
-		pr_info("CPU%u:%s mode:%d during %s\n",
-			smp_processor_id(), __func__, mode,
-			from_idle ? "idle" : "suspend");
+	if ((!from_idle  && cpu_online(cpu))
+			|| (MSM_PM_DEBUG_IDLE & msm_pm_debug_mask))
+		pr_info("CPU%u:%s mode:%d during %s\n", cpu, __func__,
+				mode, from_idle ? "idle" : "suspend");
 
 	if (from_idle)
 		time = sched_clock();
@@ -540,10 +541,9 @@ int msm_pm_wait_cpu_shutdown(unsigned int cpu)
 		 */
 		int acc_sts = __raw_readl(msm_pm_slp_sts[cpu].base_addr);
 
-		if (acc_sts & msm_pm_slp_sts[cpu].mask) {
-			pr_info("CPU is power collapsed\n");
+		if (acc_sts & msm_pm_slp_sts[cpu].mask)
 			return 0;
-		}
+
 		udelay(100);
 		WARN(++timeout == 20, "CPU%u didn't collapse in 2ms\n", cpu);
 	}
