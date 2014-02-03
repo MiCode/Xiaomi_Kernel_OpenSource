@@ -586,6 +586,17 @@ void msm_pm_enable_retention(bool enable)
 }
 EXPORT_SYMBOL(msm_pm_enable_retention);
 
+/**
+ * msm_pm_retention_enabled() - Check if retention is enabled
+ *
+ * returns true if retention is enabled
+ */
+bool msm_pm_retention_enabled(void)
+{
+	return msm_pm_ldo_retention_enabled;
+}
+EXPORT_SYMBOL(msm_pm_retention_enabled);
+
 static int msm_pm_snoc_client_probe(struct platform_device *pdev)
 {
 	int rc = 0;
