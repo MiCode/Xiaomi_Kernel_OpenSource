@@ -78,6 +78,14 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 
+		removed_regions: removed_regions@0 {
+                        linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0x88800000 0x0 0x06e00000>;
+			label = "removed_regions";
+		};
+
 		secure_mem: secure_region@0 {
                         linux,reserve-contiguous-region;
 			reg = <0 0 0 0x6D00000>;
@@ -542,11 +550,6 @@
                 rpm-channel-type = <15>; /* SMD_APPS_RPM */
 		rpm-standalone; /* TODO: remove this after bring up */
         };
-
-	memory_hole: qcom,msm-mem-hole {
-		compatible = "qcom,msm-mem-hole";
-		qcom,memblock-remove = <0x88800000 0x06e00000>;
-	};
 
 	qcom,bam_dmux@4044000 {
 		compatible = "qcom,bam_dmux";
