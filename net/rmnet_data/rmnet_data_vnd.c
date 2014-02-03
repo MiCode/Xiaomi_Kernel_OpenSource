@@ -212,6 +212,7 @@ static int _rmnet_vnd_do_qos_ioctl(struct net_device *dev,
 {
 	struct rmnet_vnd_private_s *dev_conf;
 	int rc;
+	struct rmnet_ioctl_data_s ioctl_data;
 	rc = 0;
 	dev_conf = (struct rmnet_vnd_private_s *) netdev_priv(dev);
 
@@ -230,18 +231,31 @@ static int _rmnet_vnd_do_qos_ioctl(struct net_device *dev,
 
 	case RMNET_IOCTL_GET_QOS:           /* Get QoS header state    */
 		LOGM("RMNET_IOCTL_GET_QOS on %s", dev->name);
-		ifr->ifr_ifru.ifru_data =
-		      (void *)(dev_conf->qos_version == RMNET_IOCTL_QOS_MODE_6);
+		ioctl_data.u.operation_mode = (dev_conf->qos_version ==
+						RMNET_IOCTL_QOS_MODE_6);
+		if (copy_to_user(ifr->ifr_ifru.ifru_data, &ioctl_data,
+			sizeof(struct rmnet_ioctl_data_s)))
+			rc = -EFAULT;
 		break;
 
 	case RMNET_IOCTL_FLOW_ENABLE:
 		LOGL("RMNET_IOCTL_FLOW_ENABLE on %s", dev->name);
-		tc_qdisc_flow_control(dev, (u32)ifr->ifr_data, 1);
+		if (copy_from_user(&ioctl_data, ifr->ifr_ifru.ifru_data,
+			sizeof(struct rmnet_ioctl_data_s))) {
+			rc = -EFAULT;
+			break;
+		}
+		tc_qdisc_flow_control(dev, ioctl_data.u.tcm_handle, 1);
 		break;
 
 	case RMNET_IOCTL_FLOW_DISABLE:
 		LOGL("RMNET_IOCTL_FLOW_DISABLE on %s", dev->name);
-		tc_qdisc_flow_control(dev, (u32)ifr->ifr_data, 0);
+		if (copy_from_user(&ioctl_data, ifr->ifr_ifru.ifru_data,
+			sizeof(struct rmnet_ioctl_data_s))) {
+			rc = -EFAULT;
+		break;
+		}
+		tc_qdisc_flow_control(dev, ioctl_data.u.tcm_handle, 0);
 		break;
 
 	default:
@@ -387,6 +401,7 @@ static int rmnet_vnd_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
 	struct rmnet_vnd_private_s *dev_conf;
 	int rc;
+	struct rmnet_ioctl_data_s ioctl_data;
 	rc = 0;
 	dev_conf = (struct rmnet_vnd_private_s *) netdev_priv(dev);
 
@@ -417,7 +432,10 @@ static int rmnet_vnd_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 
 	case RMNET_IOCTL_GET_LLP: /* Always return IP mode */
 		LOGM("RMNET_IOCTL_GET_LLP on %s", dev->name);
-		ifr->ifr_ifru.ifru_data = (void *)(RMNET_MODE_LLP_IP);
+		ioctl_data.u.operation_mode = RMNET_MODE_LLP_IP;
+		if (copy_to_user(ifr->ifr_ifru.ifru_data, &ioctl_data,
+			sizeof(struct rmnet_ioctl_data_s)))
+			rc = -EFAULT;
 		break;
 
 	case RMNET_IOCTL_EXTENDED:
