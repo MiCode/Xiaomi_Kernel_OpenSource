@@ -66,7 +66,7 @@
 		qcom,hdmi-audio-rx;
 		qcom,ext-spk-amp-supply = <&hdmi_vreg>;
 		qcom,ext-spk-amp-gpio = <&pma8084_mpps 6 0>;
-		qcom,dock-plug-det-irq = <&msmgpio 103 0>;
+		qcom,dock-plug-det-irq = <&msmgpio 142 0>;
 	};
 
 	qca1530_vreg: qca1530_vreg {
