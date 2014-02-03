@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -328,6 +328,30 @@ enum flush_buf_type {
 };
 int vpu_hw_session_flush(u32 sid, enum flush_buf_type);
 
+
+#ifdef CONFIG_DEBUG_FS
+
+extern u32 vpu_shutdown_delay;
+
+/**
+ * vpu_hw_debug_on() - turn on debugging mode for vpu
+ */
+void vpu_hw_debug_on(void);
+
+/**
+ * vpu_hw_debug_off() - turn off debugging mode for vpu
+ */
+void vpu_hw_debug_off(void);
+
+/**
+ * vpu_hw_print_queues() - print the content of the IPC queues
+ * @buf:	debug buffer to write into
+ * @buf_size:	maximum size to read, in bytes
+ *
+ * Return:	the number of bytes read
+ */
+size_t vpu_hw_print_queues(char *buf, size_t buf_size);
+
 /**
  * vpu_hw_dump_csr_regs() - dump the contents of the VPU CSR registers into buf
  * @buf:	debug buffer to write into
@@ -336,6 +360,27 @@ int vpu_hw_session_flush(u32 sid, enum flush_buf_type);
  * Return: The number of bytes read
  */
 int vpu_hw_dump_csr_regs(char *buf, size_t buf_size);
+
+/**
+ * vpu_hw_dump_csr_regs_no_lock() - dump the contents of the VPU CSR registers
+ * into buf. Do not hold mutex in order to be able to dump csr registers while
+ * firmware boots.
+ * @buf:	debug buffer to write into
+ * @buf_size:	maximum size to read, in bytes
+ *
+ * Return: The number of bytes read
+ */
+int vpu_hw_dump_csr_regs_no_lock(char *buf, size_t buf_size);
+
+/**
+ * vpu_hw_dump_smem_line() - dump the content of shared memory
+ * @buf:	buffer to write into
+ * @buf_size:	maximum size to read, in bytes
+ * @offset:	smem read location (<base_addr> + offset)
+ *
+ * Return: the number of valid bytes in buf
+ */
+int vpu_hw_dump_smem_line(char *buf, size_t size, u32 offset);
 
 /**
  * vpu_hw_sys_print_log() - Read the content of the VPU logging queue
@@ -373,4 +418,7 @@ void vpu_hw_sys_set_power_mode(u32 mode);
  *	3 VPU is in dynamic scaling mode
  */
 u32 vpu_hw_sys_get_power_mode(void);
+
+#endif /* CONFIG_DEBUG_FS */
+
 #endif /* __H_VPU_CHANNEL_H__ */

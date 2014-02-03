@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,8 @@
 #define __H_VPU_HFI_H__
 
 #include "vpu_resources.h"
+
+#define VPU_PIL_DEFAULT_TIMEOUT_MS	500
 
 /*
  * vpu_hfi_packet_t packet definition
@@ -100,6 +102,14 @@ int vpu_hfi_write_packet_extra_commit(u32 cid, struct vpu_hfi_packet *packet,
  */
 int vpu_hfi_dump_queue_headers(int idx, char *buf, size_t buf_size);
 
+#ifdef CONFIG_DEBUG_FS
+
+/**
+ * vpu_hfi_set_pil_timeout() - set pil timeout
+ * @pil_timeout:	the time to wait for pil
+ */
+void vpu_hfi_set_pil_timeout(u32 pil_timeout);
+
 /**
  * vpu_hfi_print_queues() - print the content of the IPC queues
  * @buf:	debug buffer to write into
@@ -137,5 +147,7 @@ int vpu_hfi_read_log_data(u32 cid, char *buf, int buf_size);
  * @enable:	0 to disable, otherwise enable
   */
 void vpu_hfi_set_watchdog(u32 enable);
+
+#endif /* CONFIG_DEBUG_FS */
 
 #endif /* __H_VPU_HFI_H__ */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,8 @@
 #include "vpu_hfi.h"
 #include "vpu_hfi_intf.h"
 #include "vpu_debug.h"
+
+u32 vpu_pil_timeout = VPU_PIL_DEFAULT_TIMEOUT_MS;
 
 /*
  * queue state:
@@ -135,15 +137,6 @@ struct addr_range {
 
 /* global */
 static struct vpu_hfi_device g_hfi_device;
-
-static struct addr_range csr_skip_addrs[] = {
-	/* start and end offsets of inaccessible address ranges */
-	{ 0x0000, 0x000F },
-	{ 0x0018, 0x001B },
-	{ 0x0020, 0x0037 },
-	{ 0x00C0, 0x00DF },
-	{ 0x01A0, 0x01AF },
-};
 
 /*
  * write a packet into the IPC memory
@@ -321,8 +314,8 @@ static void raw_handle_rx_msgs_q(struct vpu_hfi_rxq_info *rxq)
 	qhdr = (struct hfi_queue_header *) rxq->q_hdr;
 	hdevice = rxq->dev;
 
-	/* for log, wake up user thread */
 	if (rxq->cid == VPU_LOGGING_CHANNEL_ID) {
+		/* for logging wake up user thread */
 		if (qhdr->qhdr_write_idx != qhdr->qhdr_read_idx)
 			vpu_wakeup_fw_logging_wq();
 		goto exit_1;
@@ -474,9 +467,9 @@ static void raw_handle_rx_msgs_poll(struct vpu_hfi_device *hdevice)
 		if (unlikely(rxq->state != HFI_QUEUE_STATE_ACTIVE))
 			continue;
 
-		/* for logging, wake up user thread */
 		qhdr = (struct hfi_queue_header *) rxq->q_hdr;
 		if (rxq->cid == VPU_LOGGING_CHANNEL_ID) {
+			/* for logging wake up user thread */
 			if (qhdr->qhdr_write_idx != qhdr->qhdr_read_idx)
 				vpu_wakeup_fw_logging_wq();
 			continue;
@@ -532,7 +525,7 @@ static int vpu_hfi_boot(struct vpu_hfi_device *hdevice)
 	raw_hfi_int_enable((u32)(hdevice->reg_base));
 
 	/* wait for VPU FW up (poll status register) */
-	timeout = vpu_pil_timeout/20;
+	timeout = vpu_pil_timeout / 20;
 	while (!raw_hfi_fw_ready((u32)hdevice->reg_base)) {
 		if (timeout-- <= 0) {
 			/* FW bootup timed out */
@@ -1003,6 +996,69 @@ int vpu_hfi_write_packet_extra_commit(u32 cid, struct vpu_hfi_packet *packet,
 	return rc;
 }
 
+#define LOG_BUF_SIZE	128
+
+#define add2buf(dest, dest_size, temp, temp_size, __fmt, arg...) \
+	do { \
+		snprintf(temp, temp_size, __fmt, ## arg); \
+		strlcat(dest, temp, dest_size); \
+	} while (0)
+
+/* 26 bytes per line -> 364 bytes required */
+static void dump_queue_header(struct hfi_queue_header *qhdr,
+		char *dest, size_t dest_size)
+{
+	/* temporary buffer */
+	size_t ts = LOG_BUF_SIZE;
+	char t[LOG_BUF_SIZE];
+	/* destination buffer */
+	size_t ds = dest_size;
+	char *d = dest;
+
+	add2buf(d, ds, t, ts, "\tstatus       %10d\n", qhdr->qhdr_status);
+	add2buf(d, ds, t, ts, "\tstart_addr   0x%08x\n", qhdr->qhdr_start_addr);
+	add2buf(d, ds, t, ts, "\tq_size       %10d\n", qhdr->qhdr_q_size);
+	add2buf(d, ds, t, ts, "\tread_idx     0x%08x\n", qhdr->qhdr_read_idx);
+	add2buf(d, ds, t, ts, "\twrite_idx    0x%08x\n", qhdr->qhdr_write_idx);
+}
+
+/*
+ * dump the contents of the IPC queue table header into buf
+ * returns the number of valid bytes in buf
+ * caller needs to init the buffer with a string!!
+ */
+int vpu_hfi_dump_queue_headers(int idx, char *buf, size_t buf_size)
+{
+	struct vpu_hfi_device *dev = &g_hfi_device;
+	struct hfi_queue_header *qhdr;
+	char string[LOG_BUF_SIZE];
+
+	/* TX-i queue */
+	qhdr = dev->txqs[idx].q_hdr;
+	if (qhdr->qhdr_q_size > 0) {
+		add2buf(buf, buf_size, string, LOG_BUF_SIZE,
+				"\nTx-%d queue header:\n", idx);
+		dump_queue_header(qhdr, buf, buf_size);
+	}
+
+	/* RX-i queue */
+	qhdr = dev->rxqs[idx].q_hdr;
+	if (qhdr->qhdr_q_size > 0) {
+		add2buf(buf, buf_size, string, LOG_BUF_SIZE,
+				"\nRx-%d queue header:\n", idx);
+		dump_queue_header(qhdr, buf, buf_size);
+	}
+
+	return strlcat(buf, "\n", buf_size);
+}
+
+#ifdef CONFIG_DEBUG_FS
+
+void vpu_hfi_set_pil_timeout(u32 pil_timeout)
+{
+	vpu_pil_timeout = pil_timeout;
+}
+
 /*
  * return packet size read, or < 0 for error
  */
@@ -1060,14 +1116,6 @@ vpu_hfi_read_log_data_exit:
 	return res;
 }
 
-#define LOG_BUF_SIZE	128
-
-#define add2buf(dest, dest_size, temp, temp_size, __fmt, arg...) \
-	do { \
-		snprintf(temp, temp_size, __fmt, ## arg); \
-		strlcat(dest, temp, dest_size); \
-	} while (0)
-
 /*
  * dump the contents of the IPC queue table header into buf
  * returns the number of valid bytes in buf
@@ -1095,54 +1143,6 @@ static int dump_qtbl_header(char *buf, size_t buf_size)
 	return strlcat(d, "\n", ds);
 }
 
-/* 26 bytes per line -> 364 bytes required */
-static void dump_queue_header(struct hfi_queue_header *qhdr,
-		char *dest, size_t dest_size)
-{
-	/* temporary buffer */
-	size_t ts = LOG_BUF_SIZE;
-	char t[LOG_BUF_SIZE];
-	/* destination buffer */
-	size_t ds = dest_size;
-	char *d = dest;
-
-	add2buf(d, ds, t, ts, "\tstatus       %10d\n", qhdr->qhdr_status);
-	add2buf(d, ds, t, ts, "\tstart_addr   0x%08x\n", qhdr->qhdr_start_addr);
-	add2buf(d, ds, t, ts, "\tq_size       %10d\n", qhdr->qhdr_q_size);
-	add2buf(d, ds, t, ts, "\tread_idx     0x%08x\n", qhdr->qhdr_read_idx);
-	add2buf(d, ds, t, ts, "\twrite_idx    0x%08x\n", qhdr->qhdr_write_idx);
-}
-
-/*
- * dump the contents of the IPC queue table header into buf
- * returns the number of valid bytes in buf
- * caller needs to init the buffer with a string!!
- */
-int vpu_hfi_dump_queue_headers(int idx, char *buf, size_t buf_size)
-{
-	struct vpu_hfi_device *dev = &g_hfi_device;
-	struct hfi_queue_header *qhdr;
-	char string[LOG_BUF_SIZE];
-
-	/* TX-i queue */
-	qhdr = dev->txqs[idx].q_hdr;
-	if (qhdr->qhdr_q_size > 0) {
-		add2buf(buf, buf_size, string, LOG_BUF_SIZE,
-				"\nTx-%d queue header:\n", idx);
-		dump_queue_header(qhdr, buf, buf_size);
-	}
-
-	/* RX-i queue */
-	qhdr = dev->rxqs[idx].q_hdr;
-	if (qhdr->qhdr_q_size > 0) {
-		add2buf(buf, buf_size, string, LOG_BUF_SIZE,
-				"\nRx-%d queue header:\n", idx);
-		dump_queue_header(qhdr, buf, buf_size);
-	}
-
-	return strlcat(buf, "\n", buf_size);
-}
-
 size_t vpu_hfi_print_queues(char *buf, size_t buf_size)
 {
 	int i;
@@ -1157,6 +1157,15 @@ size_t vpu_hfi_print_queues(char *buf, size_t buf_size)
 
 	return strlcat(buf, "", buf_size);
 }
+
+static struct addr_range csr_skip_addrs[] = {
+	/* start and end offsets of inaccessible address ranges */
+	{ 0x0000, 0x000F },
+	{ 0x0018, 0x001B },
+	{ 0x0020, 0x0037 },
+	{ 0x00C0, 0x00DF },
+	{ 0x01A0, 0x01AF },
+};
 
 int vpu_hfi_dump_csr_regs(char *buf, size_t buf_size)
 {
@@ -1263,3 +1272,5 @@ void vpu_hfi_set_watchdog(u32 enable)
 		disable_irq_nosync(hdevice->irq_wd);
 	}
 }
+
+#endif /* CONFIG_DEBUG_FS */

@@ -39,6 +39,13 @@
 #include "vpu_translate.h"
 #include "vpu_debug.h"
 
+#define VPU_SHUTDOWN_DEFAULT_DELAY_MS	1000
+#define VPU_IPC_DEFAULT_TIMEOUT_MS	1000
+#define VPU_LONG_TIMEOUT_MS		10000000
+
+u32 vpu_shutdown_delay = VPU_SHUTDOWN_DEFAULT_DELAY_MS;
+u32 vpu_ipc_timeout = VPU_IPC_DEFAULT_TIMEOUT_MS;
+
 #define MAX_CHANNELS		VPU_CHANNEL_ID_MAX
 #define SYSTEM_SESSION_ID	((u32)-1)
 
@@ -815,8 +822,10 @@ static int ipc_cmd_sync_wait(struct vpu_sync_transact *ptrans, u32 timeout_ms,
 		/* timeout */
 		char dbg_buf[320];
 		size_t dbg_buf_size = 320;
+
 		pr_err("Timeout for transact 0x%08x\n",
-				ptrans->seq << TRANS_SEQ_SHIFT | ptrans->id);
+			ptrans->seq << TRANS_SEQ_SHIFT | ptrans->id);
+
 		strlcpy(dbg_buf, "", dbg_buf_size);
 		/* cid represents Tx & Rx queues index) */
 		vpu_hfi_dump_queue_headers(cid, dbg_buf, dbg_buf_size);
@@ -1148,7 +1157,7 @@ int vpu_hw_session_pause(u32 sid)
 	packet.hdr.sid = sid;
 
 	pr_debug("IPC Tx%d: CMD_SESSION_PAUSE\n", cid);
-	rc = ipc_cmd_simple(cid, &packet.hdr, false, vpu_ipc_timeout/2);
+	rc = ipc_cmd_simple(cid, &packet.hdr, false, vpu_ipc_timeout);
 
 	return rc;
 }
@@ -1170,7 +1179,7 @@ int vpu_hw_session_resume(u32 sid)
 	packet.hdr.sid = sid;
 
 	pr_debug("IPC Tx%d: CMD_SESSION_START\n", cid);
-	rc = ipc_cmd_simple(cid, &packet.hdr, false, vpu_ipc_timeout/2);
+	rc = ipc_cmd_simple(cid, &packet.hdr, false, vpu_ipc_timeout);
 
 	return rc;
 }
@@ -1795,19 +1804,6 @@ int vpu_hw_session_cmd_ext(u32 sid, u32 cmd,
 	return rc;
 }
 
-int vpu_hw_dump_csr_regs(char *buf, size_t buf_size)
-{
-	int rc = 0;
-	struct vpu_channel_hal *ch_hal = &g_vpu_ch_hal;
-
-	mutex_lock(&ch_hal->pw_lock);
-	if (VPU_IS_UP(ch_hal->mode))
-		rc = vpu_hfi_dump_csr_regs(buf, buf_size);
-	mutex_unlock(&ch_hal->pw_lock);
-
-	return rc;
-}
-
 static inline void raw_init_channel(struct vpu_channel *ch, u32 cid)
 {
 	mutex_init(&ch->chlock);
@@ -2398,6 +2394,60 @@ int vpu_hw_sys_g_property_ext(void __user *data, u32 data_size,
 	return rc;
 }
 
+#ifdef CONFIG_DEBUG_FS
+
+void vpu_hw_debug_on(void)
+{
+	/* make the timeout very long */
+	vpu_ipc_timeout = VPU_LONG_TIMEOUT_MS;
+	vpu_hfi_set_pil_timeout(VPU_LONG_TIMEOUT_MS);
+	vpu_hfi_set_watchdog(0);
+}
+
+void vpu_hw_debug_off(void)
+{
+	/* enable timeouts */
+	vpu_ipc_timeout = VPU_IPC_DEFAULT_TIMEOUT_MS;
+	vpu_hfi_set_pil_timeout(VPU_PIL_DEFAULT_TIMEOUT_MS);
+	vpu_hfi_set_watchdog(1);
+}
+
+size_t vpu_hw_print_queues(char *buf, size_t buf_size)
+{
+	return vpu_hfi_print_queues(buf, buf_size);
+}
+
+int vpu_hw_dump_csr_regs(char *buf, size_t buf_size)
+{
+	int rc = 0;
+	struct vpu_channel_hal *ch_hal = &g_vpu_ch_hal;
+
+	mutex_lock(&ch_hal->pw_lock);
+
+	if (VPU_IS_UP(ch_hal->mode))
+		rc = vpu_hfi_dump_csr_regs(buf, buf_size);
+
+	mutex_unlock(&ch_hal->pw_lock);
+
+	return rc;
+}
+
+int vpu_hw_dump_csr_regs_no_lock(char *buf, size_t buf_size)
+{
+	int rc = 0;
+	struct vpu_channel_hal *ch_hal = &g_vpu_ch_hal;
+
+	if (VPU_IS_UP(ch_hal->mode))
+		rc = vpu_hfi_dump_csr_regs(buf, buf_size);
+
+	return rc;
+}
+
+int vpu_hw_dump_smem_line(char *buf, size_t size, u32 offset)
+{
+	return vpu_hfi_dump_smem_line(buf, size, offset);
+}
+
 int vpu_hw_sys_print_log(char __user *user_buf, char *fmt_buf,
 		int buf_size)
 {
@@ -2482,3 +2532,4 @@ u32 vpu_hw_sys_get_power_mode(void)
 	return mode;
 }
 
+#endif /* CONFIG_DEBUG_FS */

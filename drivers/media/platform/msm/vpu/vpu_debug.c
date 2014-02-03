@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,16 +23,12 @@
 #include "vpu_v4l2.h"
 #include "vpu_ioctl_internal.h"
 #include "vpu_channel.h"
-#include "vpu_hfi.h"
 #include "vpu_bus_clock.h"
 
 #define BUF_SIZE	(SZ_4K)
 #define RW_MODE		(S_IRUSR | S_IWUSR)
 
-
-u32 vpu_pil_timeout = 500; /* ms */
-u32 vpu_shutdown_delay = 1000; /* ms */
-u32 vpu_ipc_timeout = 1000; /* ms */
+static int vpu_debug_on;
 
 struct fw_log_info {
 	/* wq woken by hfi layer when fw log msg received */
@@ -149,7 +145,7 @@ static ssize_t read_queue_state(struct file *file, char __user *user_buf,
 		return -ENOMEM;
 	}
 
-	size = vpu_hfi_print_queues(dbg_buf, BUF_SIZE);
+	size = vpu_hw_print_queues(dbg_buf, BUF_SIZE);
 	ret = simple_read_from_buffer(user_buf, len, ppos, dbg_buf, size);
 
 	kfree(dbg_buf);
@@ -173,7 +169,15 @@ static ssize_t read_csr_regs(struct file *file, char __user *user_buf,
 		return -ENOMEM;
 	}
 
-	size = vpu_hw_dump_csr_regs(dbg_buf, BUF_SIZE);
+	/* If debug mode is on, a lock may still be
+	 * held (while in process of booting up firmware).
+	 * We need to still be able to dump csr registers
+	 * in this case. Do not attempt to acquire the lock.
+	 */
+	if (vpu_debug_on)
+		size = vpu_hw_dump_csr_regs_no_lock(dbg_buf, BUF_SIZE);
+	else
+		size = vpu_hw_dump_csr_regs(dbg_buf, BUF_SIZE);
 	if (size > 0)
 		ret = simple_read_from_buffer(user_buf, len, ppos,
 				dbg_buf, size);
@@ -188,21 +192,16 @@ static const struct file_operations csr_regs_ops = {
 	.read = read_csr_regs,
 };
 
-static void debugon(void)
+static void debug_on(void)
 {
-	/* make the timeout very long */
-	vpu_pil_timeout = 10000000;
-	vpu_ipc_timeout = 10000000;
-
-	vpu_hfi_set_watchdog(0);
+	vpu_debug_on = 1;
+	vpu_hw_debug_on();
 }
 
-static void debugoff(void)
+static void debug_off(void)
 {
-	/* enable the timeouts */
-	vpu_pil_timeout = 500;
-	vpu_ipc_timeout = 1000;
-	vpu_hfi_set_watchdog(1);
+	vpu_hw_debug_off();
+	vpu_debug_on = 0;
 }
 
 static ssize_t write_cmd(struct file *file, const char __user *user_buf,
@@ -229,9 +228,9 @@ static ssize_t write_cmd(struct file *file, const char __user *user_buf,
 	else if (strcmp(cmp, "dynamic") == 0)
 		vpu_hw_sys_set_power_mode(VPU_POWER_DYNAMIC);
 	else if (strcmp(cmp, "debugon") == 0)
-		debugon();
+		debug_on();
 	else if (strcmp(cmp, "debugoff") == 0)
-		debugoff();
+		debug_off();
 
 	return len;
 }
@@ -268,7 +267,7 @@ static int smem_data_show(struct seq_file *m, void *private)
 	 */
 	for (; offset <= smem->offset + smem->size; offset += 4 * sizeof(u32)) {
 		int ret;
-		ret = vpu_hfi_dump_smem_line(cbuf, sizeof(cbuf), offset);
+		ret = vpu_hw_dump_smem_line(cbuf, sizeof(cbuf), offset);
 		if (ret > 0) {
 			seq_printf(m, "%s", cbuf);
 		} else {
@@ -424,6 +423,7 @@ struct dentry *init_vpu_debugfs(struct vpu_dev_core *core)
 	}
 
 	/* create cmd entry */
+	vpu_debug_on = 0;
 	attr = debugfs_create_file("cmd", RW_MODE, root, NULL,
 			&vpu_cmd_ops);
 	if (IS_ERR_OR_NULL(attr)) {
