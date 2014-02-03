@@ -537,7 +537,7 @@ int rndis_ipa_init(struct ipa_usb_init_params *params)
 	rndis_ipa_ctx->rx_dropped = 0;
 	rndis_ipa_ctx->tx_dump_enable = false;
 	rndis_ipa_ctx->rx_dump_enable = false;
-	rndis_ipa_ctx->deaggregation_enable = true;
+	rndis_ipa_ctx->deaggregation_enable = false;
 	rndis_ipa_ctx->outstanding_high = DEFAULT_OUTSTANDING_HIGH;
 	rndis_ipa_ctx->outstanding_low = DEFAULT_OUTSTANDING_LOW;
 	atomic_set(&rndis_ipa_ctx->outstanding_pkts, 0);
