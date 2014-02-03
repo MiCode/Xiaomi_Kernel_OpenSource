@@ -243,6 +243,12 @@ Optional properties:
 				applied in scenarios where panel interface can
 				be more tolerant to memory latency such as
 				command mode panels.
+- qcom,mdss-rotator-ot-limit:	This integer value indicates maximum number of pending
+				writes that can be allowed from rotator client. Default
+				value is 16 which is the maximum. This value can be
+				used to reduce the pending writes limit dynamically
+				and can be tuned to match performance requirements
+				depending upon system state.
 
 Fudge Factors:			Fudge factors are used to boost demand for
 				resources like bus bandswidth, clk rate etc. to
@@ -351,6 +357,7 @@ Example:
 
 		qcom,mdss-smp-data = <22 4096>;
 		qcom,mdss-rot-block-size = <64>;
+		qcom,mdss-rotator-ot-limit = <2>;
 		qcom,mdss-smp-mb-per-pipe = <2>;
 		qcom,mdss-pref-prim-intf = "dsi";
 		qcom,mdss-has-bwc;
