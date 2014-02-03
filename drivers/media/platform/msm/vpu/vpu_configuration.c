@@ -467,6 +467,7 @@ static struct vpu_ctrl_desc ctrl_descriptors[VPU_CTRL_ID_MAX] = {
 	},
 	[VPU_CTRL_CONTENT_PROTECTION] = {
 		.name = "Content Protection",
+		.api_size = sizeof(__s32),
 		.set_function =
 			(custom_set_function) vpu_set_content_protection,
 		.get_function =
