@@ -642,16 +642,6 @@ config MSM_SMD_DEBUG
 	  Support for debugging the SMD for communication
 	  between the ARM9 and ARM11
 
-config MSM_BAM_DMUX
-	bool "BAM Data Mux Driver"
-	depends on SPS
-	default n
-	help
-	  Support Muxed Data Channels over BAM interface.
-	  BAM has a limited number of pipes.  This driver
-	  provides a means to support more logical channels
-	  via muxing than BAM could without muxing.
-
 config MSM_SMP2P
 	bool "SMSM Point-to-Point (SMP2P)"
 	depends on MSM_SMD

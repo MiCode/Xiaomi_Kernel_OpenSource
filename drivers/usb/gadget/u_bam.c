@@ -18,10 +18,11 @@
 #include <linux/termios.h>
 #include <mach/msm_smd.h>
 #include <linux/netdevice.h>
-#include <mach/bam_dmux.h>
 #include <linux/debugfs.h>
 #include <linux/bitops.h>
 #include <linux/termios.h>
+
+#include <soc/qcom/bam_dmux.h>
 
 #include <mach/usb_gadget_xport.h>
 #include <linux/usb/msm_hsusb.h>

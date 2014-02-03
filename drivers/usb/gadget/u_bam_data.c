@@ -21,7 +21,8 @@
 #include <linux/bitops.h>
 #include <linux/usb/gadget.h>
 
-#include <mach/bam_dmux.h>
+#include <soc/qcom/bam_dmux.h>
+
 #include <mach/usb_bam.h>
 
 #include "u_bam_data.h"

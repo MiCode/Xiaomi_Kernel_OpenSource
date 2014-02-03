@@ -35,7 +35,7 @@
 #include <linux/earlysuspend.h>
 #endif
 
-#include <mach/bam_dmux.h>
+#include <soc/qcom/bam_dmux.h>
 
 /* Debug message support */
 static int msm_rmnet_bam_debug_mask;

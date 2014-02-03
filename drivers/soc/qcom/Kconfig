@@ -2,6 +2,15 @@
 
 if ARCH_MSM
 
+config MSM_BAM_DMUX
+	bool "BAM Data Mux Driver"
+	depends on SPS
+	help
+	  Support Muxed Data Channels over BAM interface.
+	  BAM has a limited number of pipes.  This driver
+	  provides a means to support more logical channels
+	  via muxing than BAM could without muxing.
+
 config MSM_IPC_ROUTER_SMD_XPRT
 	depends on MSM_SMD
 	depends on IPC_ROUTER
