@@ -1,0 +1,30 @@
+MSM Standby Processing Sub-System (SPSS) Controller
+
+Required properties:
+- compatible : Should be "qcom,msm-spss"
+- reg : Offset and length of the register region for the device
+- reg-names : Register region name referenced in 'reg' above
+	The only required register resource entry is:
+	"base"       : SPSS controller register block
+
+The SPSS device may optionally have either or both of GENI-IR and
+HDMI-CEC devices as the child devices.
+
+The address-cells, size-cells and ranges properties ensure that the SPSS child
+devices are properly enumerated.
+
+Example:
+	qcom,msm-spss@fc5c3000 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		compatible = "qcom,msm-spss";
+		reg-names = "base";
+		reg = <0xfc5c3000 0x1000>;
+
+		geni_ir_1: qcom,msm-geni-ir@fc5c1000 {
+
+		...
+
+		};
+	};
