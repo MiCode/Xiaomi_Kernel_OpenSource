@@ -180,9 +180,9 @@
 	qcom,pvs-corner-ceiling-fast = <1050000 1050000 1100000>;
 	qcom,cpr-step-quotient = <30>;
 	qcom,cpr-up-threshold = <0>;
-	qcom,cpr-down-threshold = <1>;
+	qcom,cpr-down-threshold = <2>;
 	qcom,cpr-apc-volt-step = <10000>;
-	qcom,cpr-quotient-adjustment = <0 96 96>;
+	qcom,cpr-quotient-adjustment = <0 72 72>;
 	vdd-apc-optional-prim-supply = <&ncp6335d>;
 	vdd-apc-optional-sec-supply = <&fan53555>;
 };
