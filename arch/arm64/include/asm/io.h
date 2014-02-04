@@ -170,7 +170,7 @@ static inline void __iomem *__typesafe_io(unsigned long addr)
 /*
  *  I/O port access primitives.
  */
-#define PCI_IOBASE		((void __iomem *)(MODULES_VADDR - SZ_2M))
+#define PCI_IOBASE		((void __iomem *)(MODULES_VADDR - SZ_32M))
 
 #if defined(CONFIG_PCI)
 #define IO_SPACE_LIMIT  ((resource_size_t)0xffffffff)
