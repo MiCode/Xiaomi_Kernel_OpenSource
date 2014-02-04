@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -338,7 +338,12 @@ struct hfi_buffer_info {
 	(HFI_DOMAIN_BASE_VPE + HFI_ARCH_COMMON_OFFSET + 0x7000)
 #define  HFI_PROPERTY_CONFIG_VENC_SYNC_FRAME_SEQUENCE_HEADER	\
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x008)
-
+#define  HFI_PROPERTY_CONFIG_VENC_H264_MARKLTRFRAME			\
+	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x009)
+#define  HFI_PROPERTY_CONFIG_VENC_H264_USELTRFRAME			\
+	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x00A)
+#define  HFI_PROPERTY_CONFIG_VENC_H264_LTRPERIOD			\
+	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x00C)
 #define HFI_PROPERTY_CONFIG_VPE_COMMON_START				\
 	(HFI_DOMAIN_BASE_VPE + HFI_ARCH_COMMON_OFFSET + 0x8000)
 #define HFI_PROPERTY_CONFIG_VPE_DEINTERLACE				\
@@ -361,6 +366,7 @@ struct hfi_bitrate {
 #define HFI_CAPABILITY_BITRATE				(HFI_COMMON_BASE + 0x8)
 #define  HFI_CAPABILITY_BFRAME				(HFI_COMMON_BASE + 0x9)
 #define  HFI_CAPABILITY_HIER_P_NUM_ENH_LAYERS   (HFI_COMMON_BASE + 0x10)
+#define  HFI_CAPABILITY_ENC_H264_LTR_COUNT      (HFI_COMMON_BASE + 0x11)
 
 struct hfi_capability_supported {
 	u32 capability_type;
@@ -529,6 +535,26 @@ struct hfi_quantization_range {
 	u32 min_qp;
 	u32 max_qp;
 	u32 layer_id;
+};
+
+#define HFI_LTR_MODE_DISABLE	0x0
+#define HFI_LTR_MODE_MANUAL		0x1
+#define HFI_LTR_MODE_PERIODIC	0x2
+
+struct hfi_ltrmode {
+	u32 ltrmode;
+	u32 ltrcount;
+	u32 trustmode;
+};
+
+struct hfi_ltruse {
+	u32 refltr;
+	u32 useconstrnt;
+	u32 frames;
+};
+
+struct hfi_ltrmark {
+	u32 markframe;
 };
 
 struct hfi_frame_size {
