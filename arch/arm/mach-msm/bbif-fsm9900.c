@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,14 +63,17 @@
 #define SIGMA_DELTA_VAL_2   0x0B090D0F
 #define SIGMA_DELTA_VAL_3   0x05070301
 
-#define BBIF_CONFIG_WCDMA_5_DPD 0x80802000
-#define BBIF_CONFIG_LTE_5_DPD   0x80802000
-#define BBIF_CONFIG_LTE_10      0x80803F00
-#define BBIF_CONFIG_LTE_15      0x80803B00
-#define BBIF_CONFIG_LTE_20      0x80803100
-#define BBIF_CONFIG_LTE_10_DPD  0x98800E00
+#define BBIF_CONFIG_WCDMA_5_DPD 0x80802100
+#define BBIF_CONFIG_LTE_5_DPD   0x80802100
+#define BBIF_CONFIG_LTE_10      0x80803900
+#define BBIF_CONFIG_LTE_15      0x80803500
+#define BBIF_CONFIG_LTE_20      0x80803200
+#define BBIF_CONFIG_LTE_10_DPD  0x98800F00
 #define BBIF_CONFIG_LTE_15_DPD  0x98800800
-#define BBIF_CONFIG_LTE_20_DPD  0x98800500
+#define BBIF_CONFIG_LTE_20_DPD  0x98800600
+
+#define BBIF_CONFIG_LTE_20_DPD_AAF_BYPASS  0x98800602
+#define BBIF_CONFIG_LTE_10_AAF_ENABLED     0x80807900
 
 #define BBIF_BBRX_TEST1		0x00000000
 #define BBIF_BBRX_TEST2		0x00000000
@@ -243,54 +246,25 @@ static long bbif_ioctl(struct file *file,
 	case BBIF_IOCTL_SET_ADC_BW:
 		{
 			unsigned int bbif_adc_base;
-			struct bbif_bw_param param;
+			struct bbif_bw_config param;
 
+			bbif_adc_base = (unsigned int)bbif_base + BBIF_MISC;
 			if (copy_from_user(&param, argp, sizeof(param)))
 				return -EFAULT;
 
-			if (param.number > BBIF_MAX_ADC)
+			if (param.adc_number > BBIF_MAX_ADC)
 				return -EFAULT;
 
-			bbif_adc_base = (unsigned int)bbif_base + BBIF_MISC +
-				BBIF_BBRX_CONFIG_BASE + param.number*4;
-			switch (param.bw_id) {
-			case 1:
-				__raw_writel(BBIF_CONFIG_WCDMA_5_DPD,
-					bbif_adc_base);
-				break;
-			case 2:
-				__raw_writel(BBIF_CONFIG_LTE_5_DPD,
-					bbif_adc_base);
-				break;
-			case 3:
-				__raw_writel(BBIF_CONFIG_LTE_10,
-					bbif_adc_base);
-				break;
-			case 4:
-				__raw_writel(BBIF_CONFIG_LTE_15,
-					bbif_adc_base);
-				break;
-			case 5:
-				__raw_writel(BBIF_CONFIG_LTE_20,
-					bbif_adc_base);
-				break;
-			case 6:
-				__raw_writel(BBIF_CONFIG_LTE_10_DPD,
-					bbif_adc_base);
-				break;
-			case 7:
-				__raw_writel(BBIF_CONFIG_LTE_15_DPD,
-					bbif_adc_base);
-				break;
-			case 8:
-				__raw_writel(BBIF_CONFIG_LTE_20_DPD,
-					bbif_adc_base);
-				break;
-			default:
-				pr_info("%s: BW did not change\n", __func__);
-			}
+			__raw_writel(param.bbrx_test1, bbif_adc_base +
+				BBIF_BBRX_TEST1_BASE + param.adc_number*4);
+			__raw_writel(param.bbrx_test1, bbif_adc_base +
+				BBIF_BBRX_TEST2_BASE + param.adc_number*4);
+			__raw_writel(param.bbrx_test1, bbif_adc_base +
+				BBIF_BBRX_TEST3_BASE + param.adc_number*4);
+			__raw_writel(param.bbrx_config, bbif_adc_base +
+				BBIF_BBRX_CONFIG_BASE + param.adc_number*4);
 		}
-		break;
+
 	default:
 		return -EINVAL;
 	}
@@ -382,6 +356,8 @@ static int bbif_probe(struct platform_device *pdev)
 	__raw_writel(SIGMA_DELTA_VAL_3, bbif_misc_base +
 		BBIF_MAP_SIGMA_DELTA_3);
 	__raw_writel(0, bbif_misc_base + BBIF_PRI_MODE);
+
+	/* If the values are different make sure i=1 & i=2 are reversed */
 
 	for (i = 0; i < 6; i++) {
 		__raw_writel(0, bbif_misc_base + BBIF_ADC_CFG + i*4);

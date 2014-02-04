@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,9 +14,11 @@
 #define _FSM_RFIC_H_
 
 #include <linux/ioctl.h>
+#include <mach/gpiomux.h>
 
 void fsm9900_gluon_init(void);
 void fsm9900_rfic_init(void);
+void fsm9900_mtr_init(void);
 
 
 /*
@@ -24,6 +26,7 @@ void fsm9900_rfic_init(void);
  */
 
 #define RFIC_FTR_DEVICE_NAME		"rfic_ftr"
+#define RFIC_MTR_DEVICE_NAME		"rfic_mtr"
 #define RFIC_WTR_DEVICE_NAME		"rfic_wtr"
 #define RFIC_WGR_DEVICE_NAME		"rfic_wgr"
 #define GRFC_DEVICE_NAME		"grfc"
@@ -71,9 +74,25 @@ struct bbif_param {
 	unsigned int value;
 };
 
-struct bbif_bw_param {
-	unsigned int bw_id;
-	unsigned int number;
+struct bbif_bw_config {
+	unsigned int adc_number;
+	unsigned int bbrx_test1;
+	unsigned int bbrx_test2;
+	unsigned int bbrx_test3;
+	unsigned int bbrx_config;
+};
+
+struct gpio_alt_config {
+	unsigned char gpio;
+	unsigned char func;
+	unsigned char drv;
+	unsigned char pull;
+	unsigned char dir;
+};
+
+struct rfic_gpio_param {
+	unsigned int num;
+	struct gpio_alt_config *pArray;
 };
 
 #define RFIC_IOCTL_MAGIC				'f'
@@ -92,6 +111,9 @@ struct bbif_bw_param {
 #define RFIC_IOCTL_SET_GRFC \
 	_IOC(_IOC_WRITE, RFIC_IOCTL_MAGIC, 0x11, \
 		sizeof(struct rfic_grfc_param *))
+#define RFIC_IOCTL_GPIO_SETTING \
+	_IOC(_IOC_WRITE, RFIC_IOCTL_MAGIC, 0x12, \
+		sizeof(struct gpiomux_config_t *))
 #define RFIC_IOCTL_GET_BOARDID \
 	_IOC(_IOC_READ, RFIC_IOCTL_MAGIC, 0x20, \
 		sizeof(unsigned int *))
