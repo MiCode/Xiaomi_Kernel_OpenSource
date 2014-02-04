@@ -863,7 +863,7 @@ static int tsens_calib_8916_sensors(void)
 	int tsens3_point1 = 0, tsens3_point2 = 0;
 	int tsens4_point1 = 0, tsens4_point2 = 0;
 	int tsens_calibration_mode = 0;
-	uint32_t calib_data[3];
+	uint32_t calib_data[3] = {0, 0, 0};
 	uint32_t calib_tsens_point1_data[5], calib_tsens_point2_data[5];
 
 	if (!tmdev->calibration_less_mode) {
