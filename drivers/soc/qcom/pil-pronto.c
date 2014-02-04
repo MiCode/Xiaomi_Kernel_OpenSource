@@ -85,7 +85,6 @@ struct pronto_data {
 	bool restart_inprogress;
 	bool crash;
 	struct ramdump_device *ramdump_dev;
-	struct work_struct wcnss_wdog_bite_work;
 };
 
 static int pil_pronto_make_proxy_vote(struct pil_desc *pil)
@@ -314,16 +313,6 @@ static irqreturn_t wcnss_err_fatal_intr_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static void wcnss_wdog_bite_work_hdlr(struct work_struct *wcnss_work)
-{
-	struct pronto_data *drv = container_of(wcnss_work, struct pronto_data,
-		wcnss_wdog_bite_work);
-
-	wcnss_log_debug_regs_on_bite();
-
-	restart_wcnss(drv);
-}
-
 static irqreturn_t wcnss_wdog_bite_irq_hdlr(int irq, void *dev_id)
 {
 	struct pronto_data *drv = subsys_to_drv(dev_id);
@@ -335,7 +324,7 @@ static irqreturn_t wcnss_wdog_bite_irq_hdlr(int irq, void *dev_id)
 	}
 
 	drv->restart_inprogress = true;
-	schedule_work(&drv->wcnss_wdog_bite_work);
+	restart_wcnss(drv);
 
 	return IRQ_HANDLED;
 }
@@ -463,8 +452,6 @@ static int pil_pronto_probe(struct platform_device *pdev)
 	drv->subsys_desc.crash_shutdown = crash_shutdown;
 	drv->subsys_desc.err_fatal_handler = wcnss_err_fatal_intr_handler;
 	drv->subsys_desc.wdog_bite_handler = wcnss_wdog_bite_irq_hdlr;
-
-	INIT_WORK(&drv->wcnss_wdog_bite_work, wcnss_wdog_bite_work_hdlr);
 
 	drv->subsys = subsys_register(&drv->subsys_desc);
 	if (IS_ERR(drv->subsys)) {
