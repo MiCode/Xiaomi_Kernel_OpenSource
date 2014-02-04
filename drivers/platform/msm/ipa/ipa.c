@@ -2515,6 +2515,12 @@ static int ipa_plat_drv_probe(struct platform_device *pdev_p)
 		return result;
 	}
 
+	if (dma_set_mask(&pdev_p->dev, DMA_BIT_MASK(32)) ||
+		    dma_set_coherent_mask(&pdev_p->dev, DMA_BIT_MASK(32))) {
+		IPAERR("DMA set mask failed\n");
+		return -EOPNOTSUPP;
+	}
+
 	/* Proceed to real initialization */
 	result = ipa_init(&ipa_res, &pdev_p->dev);
 	if (result) {
