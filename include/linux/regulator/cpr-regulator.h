@@ -18,9 +18,6 @@
 
 #define CPR_REGULATOR_DRIVER_NAME	"qcom,cpr-regulator"
 
-#define CPR_PVS_EFUSE_BITS_MAX		5
-#define CPR_PVS_EFUSE_BINS_MAX		(1 << CPR_PVS_EFUSE_BITS_MAX)
-
 /**
  * enum cpr_fuse_corner_enum - CPR fuse corner enum values
  * %CPR_FUSE_CORNER_SVS:		Lowest voltage for APC
@@ -36,21 +33,6 @@ enum cpr_fuse_corner_enum {
 	CPR_FUSE_CORNER_NORMAL,
 	CPR_FUSE_CORNER_TURBO,
 	CPR_FUSE_CORNER_MAX,
-};
-
-/**
- * enum pvs_process_enum - PVS process enum values
- * %APC_PVS_NO:		No PVS
- * %APC_PVS_SLOW:	Slow PVS process
- * %APC_PVS_NOM:	Nominal PVS process
- * %APC_PVS_FAST:	Fast PVS process
- */
-enum apc_pvs_process_enum {
-	APC_PVS_NO,
-	APC_PVS_SLOW,
-	APC_PVS_NOM,
-	APC_PVS_FAST,
-	NUM_APC_PVS,
 };
 
 /**
