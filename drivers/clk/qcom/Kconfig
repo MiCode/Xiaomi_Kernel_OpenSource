@@ -1,0 +1,1 @@
+source "drivers/clk/qcom/mdss/Kconfig"
