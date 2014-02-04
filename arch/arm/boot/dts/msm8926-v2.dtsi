@@ -65,3 +65,7 @@
 		};
 	};
 };
+
+&apc_vreg_corner {
+	/delete-property/ qcom,cpr-enable;
+};
