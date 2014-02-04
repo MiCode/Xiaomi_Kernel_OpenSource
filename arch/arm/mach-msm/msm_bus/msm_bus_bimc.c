@@ -1932,13 +1932,9 @@ skip_mas_bw:
 	ports = hop->node_info->num_sports;
 	MSM_BUS_DBG("BIMC: ID: %d, Sports: %d\n", hop->node_info->priv_id,
 		ports);
-	if (ports)
-		bw = INTERLEAVED_BW(fab_pdata, add_bw, ports);
-	else
-		return;
 
 	for (i = 0; i < ports; i++) {
-		sel_cd->slv[hop->node_info->slavep[i]].bw += bw;
+		sel_cd->slv[hop->node_info->slavep[i]].bw += add_bw;
 		sel_cd->slv[hop->node_info->slavep[i]].hw_id =
 			hop->node_info->slv_hw_id;
 		MSM_BUS_DBG("BIMC: Update slave_bw: ID: %d -> %llu\n",
