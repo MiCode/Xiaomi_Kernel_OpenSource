@@ -34,7 +34,6 @@
 #include <soc/qcom/smsm.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
-#include <soc/qcom/socinfo.h>
 
 #include "bam_dmux_private.h"
 
