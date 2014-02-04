@@ -95,6 +95,10 @@ struct data_bridge {
 	unsigned int			bulk_out;
 	int				err;
 
+	/* Support INT IN instead of BULK IN */
+	bool				use_int_in_pipe;
+	unsigned int			period;
+
 	/* keep track of in-flight URBs */
 	struct usb_anchor		tx_active;
 	struct usb_anchor		rx_active;
@@ -329,9 +333,14 @@ static int submit_rx_urb(struct data_bridge *dev, struct urb *rx_urb,
 	info->dev = dev;
 	info->created = created;
 
-	usb_fill_bulk_urb(rx_urb, dev->udev, dev->bulk_in,
-			  skb->data, RMNET_RX_BUFSIZE,
-			  data_bridge_read_cb, skb);
+	if (dev->use_int_in_pipe)
+		usb_fill_int_urb(rx_urb, dev->udev, dev->bulk_in,
+				skb->data, RMNET_RX_BUFSIZE,
+				data_bridge_read_cb, skb, dev->period);
+	else
+		usb_fill_bulk_urb(rx_urb, dev->udev, dev->bulk_in,
+				skb->data, RMNET_RX_BUFSIZE,
+				data_bridge_read_cb, skb);
 
 	if (test_bit(SUSPENDED, &dev->flags))
 		goto suspended;
@@ -694,8 +703,14 @@ static int data_bridge_probe(struct usb_interface *iface,
 	dev->udev = interface_to_usbdev(iface);
 	dev->intf = iface;
 
-	dev->bulk_in = usb_rcvbulkpipe(dev->udev,
-		bulk_in->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
+	if (dev->use_int_in_pipe)
+		dev->bulk_in = usb_rcvintpipe(dev->udev,
+			bulk_in->desc.bEndpointAddress &
+			USB_ENDPOINT_NUMBER_MASK);
+	else
+		dev->bulk_in = usb_rcvbulkpipe(dev->udev,
+			bulk_in->desc.bEndpointAddress &
+			USB_ENDPOINT_NUMBER_MASK);
 
 	dev->bulk_out = usb_sndbulkpipe(dev->udev,
 		bulk_out->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
@@ -949,6 +964,7 @@ bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 	struct usb_host_endpoint	*bulk_in = NULL;
 	struct usb_host_endpoint	*bulk_out = NULL;
 	struct usb_host_endpoint	*int_in = NULL;
+	struct usb_host_endpoint	*data_int_in = NULL;
 	struct usb_device		*udev;
 	int				i;
 	int				status = 0;
@@ -979,11 +995,15 @@ bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 			bulk_in = endpoint;
 		else if (usb_endpoint_is_bulk_out(&endpoint->desc))
 			bulk_out = endpoint;
-		else if (usb_endpoint_is_int_in(&endpoint->desc))
-			int_in = endpoint;
+		else if (usb_endpoint_is_int_in(&endpoint->desc)) {
+			if (int_in != 0)
+				data_int_in = endpoint;
+			else
+				int_in = endpoint;
+		}
 	}
 
-	if (!bulk_in || !bulk_out || !int_in) {
+	if ((!bulk_in && !data_int_in) || !bulk_out || !int_in) {
 		dev_err(&iface->dev, "%s: invalid endpoints\n", __func__);
 		status = -EINVAL;
 		goto out;
@@ -995,9 +1015,14 @@ bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 				__func__);
 		return -ENODEV;
 	}
-
-	status = data_bridge_probe(iface, bulk_in, bulk_out,
+	if (data_int_in) {
+		__dev[ch_id]->use_int_in_pipe = true;
+		status = data_bridge_probe(iface, data_int_in, bulk_out,
+				bname[BRIDGE_DATA_IDX], ch_id);
+	} else {
+		status = data_bridge_probe(iface, bulk_in, bulk_out,
 			bname[BRIDGE_DATA_IDX], ch_id);
+	}
 	if (status < 0) {
 		dev_err(&iface->dev, "data_bridge_probe failed %d\n", status);
 		goto out;
@@ -1104,6 +1129,9 @@ static const struct usb_device_id bridge_ids[] = {
 	.driver_info = (unsigned long)serial_hsic_bridge_names,
 	},
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909E, 5),
+	.driver_info = (unsigned long)serial_hsic_bridge_names,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90A0, 3),
 	.driver_info = (unsigned long)serial_hsic_bridge_names,
 	},
 
