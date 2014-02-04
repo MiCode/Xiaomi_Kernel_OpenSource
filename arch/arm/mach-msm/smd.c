@@ -746,6 +746,8 @@ const char *smd_edge_to_pil_str(uint32_t type)
 	const char *pil_str = NULL;
 
 	if (type < ARRAY_SIZE(edge_to_pids)) {
+		if (!edge_to_pids[type].initialized)
+			return ERR_PTR(-EPROBE_DEFER);
 		if (!remote_info[smd_edge_to_remote_pid(type)].skip_pil) {
 			pil_str = edge_to_pids[type].subsys_name;
 			if (pil_str[0] == 0x0)
@@ -770,6 +772,8 @@ const char *smd_edge_to_subsystem(uint32_t type)
 		subsys = edge_to_pids[type].subsys_name;
 		if (subsys[0] == 0x0)
 			subsys = NULL;
+		if (!edge_to_pids[type].initialized)
+			subsys = ERR_PTR(-EPROBE_DEFER);
 	}
 	return subsys;
 }
@@ -790,6 +794,10 @@ const char *smd_pid_to_subsystem(uint32_t pid)
 
 	for (i = 0; i < ARRAY_SIZE(edge_to_pids); ++i) {
 		if (pid == edge_to_pids[i].remote_pid) {
+			if (!edge_to_pids[i].initialized) {
+				subsys = ERR_PTR(-EPROBE_DEFER);
+				break;
+			}
 			if (edge_to_pids[i].subsys_name[0] != 0x0) {
 				subsys = edge_to_pids[i].subsys_name;
 				break;
@@ -1801,7 +1809,7 @@ int smd_named_open_on_edge(const char *name, uint32_t edge,
 
 	if (!smd_edge_inited(edge)) {
 		SMD_INFO("smd_open() before smd_init()\n");
-		return -ENODEV;
+		return -EPROBE_DEFER;
 	}
 
 	SMD_DBG("smd_open('%s', %p, %p)\n", name, priv, notify);
