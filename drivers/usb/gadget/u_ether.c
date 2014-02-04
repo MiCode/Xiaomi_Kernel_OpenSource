@@ -280,7 +280,7 @@ rx_submit(struct eth_dev *dev, struct usb_request *req, gfp_t gfp_flags)
 	else
 		reserve_headroom = NET_IP_ALIGN;
 
-	pr_debug("%s: size: %d + %d(hr)", __func__, size, reserve_headroom);
+	pr_debug("%s: size: %zu + %d(hr)", __func__, size, reserve_headroom);
 
 	skb = alloc_skb(size + reserve_headroom, gfp_flags);
 	if (skb == NULL) {
