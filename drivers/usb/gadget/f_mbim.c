@@ -692,29 +692,6 @@ static int mbim_bam_setup(int no_ports)
 	return 0;
 }
 
-int mbim_configure_params(void)
-{
-	struct teth_aggr_params aggr_params;
-	int ret = 0;
-
-	aggr_params.dl.aggr_prot = TETH_AGGR_PROTOCOL_MBIM;
-	aggr_params.dl.max_datagrams = mbim_ntb_parameters.wNtbOutMaxDatagrams;
-	aggr_params.dl.max_transfer_size_byte =
-			mbim_ntb_parameters.dwNtbInMaxSize;
-
-	aggr_params.ul.aggr_prot = TETH_AGGR_PROTOCOL_MBIM;
-	aggr_params.ul.max_datagrams = mbim_ntb_parameters.wNtbOutMaxDatagrams;
-	aggr_params.ul.max_transfer_size_byte =
-			mbim_ntb_parameters.dwNtbOutMaxSize;
-
-	ret = teth_bridge_set_mbim_aggr_params(&aggr_params,
-							IPA_CLIENT_USB_PROD);
-	if (ret)
-		pr_err("%s: teth_bridge_set_aggr_params failed\n", __func__);
-
-	return ret;
-}
-
 static int mbim_bam_connect(struct f_mbim *dev)
 {
 	int ret;

@@ -732,6 +732,15 @@ enum ipa_irq_type {
 	IPA_IRQ_MAX
 };
 
+/**
+ * struct ipa_tx_suspend_irq_data - interrupt data for IPA_TX_SUSPEND_IRQ
+ * @endpoints: bitmask of endpoints which case IPA_TX_SUSPEND_IRQ interrupt
+ * @dma_addr: DMA address of this Rx packet
+ */
+struct ipa_tx_suspend_irq_data {
+	u32 endpoints;
+};
+
 
 /**
  * typedef ipa_irq_handler_t - irq handler/callback type
@@ -978,9 +987,9 @@ int teth_bridge_disconnect(enum ipa_client_type client);
 
 int teth_bridge_connect(struct teth_bridge_connect_params *connect_params);
 
-int teth_bridge_set_mbim_aggr_params(struct teth_aggr_params *aggr_params,
-		enum ipa_client_type client);
-
+/*
+ * Misc.
+ */
 void ipa_bam_reg_dump(void);
 bool ipa_emb_ul_pipes_empty(void);
 
@@ -1481,13 +1490,6 @@ static inline int teth_bridge_disconnect(enum ipa_client_type client)
 
 static inline int teth_bridge_connect(struct teth_bridge_connect_params
 				      *connect_params)
-{
-	return -EPERM;
-}
-
-static inline int teth_bridge_set_mbim_aggr_params(
-				struct teth_aggr_params *aggr_params,
-				enum ipa_client_type client)
 {
 	return -EPERM;
 }

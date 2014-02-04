@@ -1170,6 +1170,7 @@ static int ipa_setup_apps_pipes(void)
 	sys_in.desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
 	sys_in.ipa_ep_cfg.mode.mode = IPA_DMA;
 	sys_in.ipa_ep_cfg.mode.dst = IPA_CLIENT_APPS_LAN_CONS;
+	sys_in.skip_ep_cfg = true;
 	if (ipa_setup_sys_pipe(&sys_in, &ipa_ctx->clnt_hdl_cmd)) {
 		IPAERR(":setup sys pipe failed.\n");
 		result = -EPERM;
@@ -2011,7 +2012,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	result = sps_register_bam_device(&bam_props, &ipa_ctx->bam_handle);
 	if (result) {
 		IPAERR(":bam register err.\n");
-		result = -ENODEV;
+		result = -EPROBE_DEFER;
 		goto fail_init_hw;
 	}
 	IPADBG("IPA BAM is registered\n");
@@ -2148,17 +2149,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	/* enable IPA clocks until the end of the initialization */
 	ipa_inc_client_enable_clks();
 
-	/* HW bridge to allow A2<->IPA BAM2BAM communication */
-	if (ipa_ctx->use_ipa_bamdma_a2_bridge) {
-		result = ipa_bridge_init();
-		if (result) {
-			IPAERR("ipa bamdma-bridge init err.\n");
-			result = -ENODEV;
-			goto fail_apps_pipes;
-		}
-		IPADBG("IPA-A2 HW bridge initialized");
-	}
-
 	/*
 	 * setup an empty routing table in system memory, this will be used
 	 * to delete a routing table cleanly and safely
@@ -2249,19 +2239,9 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		goto fail_ipa_rm_init;
 	}
 
-	if (ipa_ctx->use_a2_service) {
-		result = a2_mux_init();
-		if (result) {
-			IPAERR(":a2 service init failed (%d)\n", -result);
-			result = -ENODEV;
-			goto fail_a2_service_init;
-		}
-		IPADBG("A2 service initialized");
-	}
-
 	if (ipa_ctx->use_ipa_teth_bridge) {
 		/* Initialize the tethering bridge driver */
-		result = teth_bridge_driver_init(ipa_ctx->ipa_hw_type);
+		result = teth_bridge_driver_init();
 		if (result) {
 			IPAERR(":teth_bridge init failed (%d)\n", -result);
 			result = -ENODEV;
@@ -2277,8 +2257,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	return 0;
 
 fail_teth_bridge_init:
-	a2_mux_exit();
-fail_a2_service_init:
 	ipa_rm_exit();
 fail_ipa_rm_init:
 	cdev_del(&ipa_ctx->cdev);

@@ -849,8 +849,6 @@ int ipa_get_a2_mux_pipe_info(enum a2_mux_pipe_direction pipe_dir,
 				struct a2_mux_pipe_connection *pipe_connect);
 int ipa_get_a2_mux_bam_info(u32 *a2_bam_mem_base, u32 *a2_bam_mem_size,
 			    u32 *a2_bam_irq);
-void teth_bridge_get_client_handles(u32 *producer_handle,
-		u32 *consumer_handle);
 int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 		bool in_atomic);
 int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
@@ -944,7 +942,7 @@ int a2_mux_exit(void);
 
 void wwan_cleanup(void);
 
-int teth_bridge_driver_init(enum ipa_hw_type ipa_hw_type);
+int teth_bridge_driver_init(void);
 void ipa_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data);
 
 int __ipa_commit_flt_v1(enum ipa_ip_type ip);
