@@ -22,8 +22,8 @@
 #include <linux/mutex.h>
 #include <linux/skbuff.h>
 #include <linux/types.h>
-#include <mach/ipa.h>
-#include <mach/sps.h>
+#include <linux/ipa.h>
+#include <linux/msm-sps.h>
 #include "ipa_i.h"
 
 #define TETH_BRIDGE_DRV_NAME "ipa_tethering_bridge"

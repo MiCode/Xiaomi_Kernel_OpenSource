@@ -24,7 +24,7 @@
 #include <mach/sps.h>
 #include <mach/msm_smsm.h>
 #include <soc/qcom/socinfo.h>
-#include <mach/ipa.h>
+#include <linux/ipa.h>
 #include "ipa_i.h"
 
 #define A2_NUM_PIPES				6

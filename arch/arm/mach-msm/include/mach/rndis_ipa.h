@@ -13,7 +13,7 @@
 #ifndef _RNDIS_IPA_H_
 #define _RNDIS_IPA_H_
 
-#include <mach/ipa.h>
+#include <linux/ipa.h>
 
 /*
  * @priv: private data given upon ipa_connect

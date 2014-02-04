@@ -13,7 +13,7 @@
 #ifndef _ECM_IPA_H_
 #define _ECM_IPA_H_
 
-#include <mach/ipa.h>
+#include <linux/ipa.h>
 
 /*
  * @priv: private data given upon ipa_connect

@@ -22,7 +22,7 @@
 #include <linux/netdevice.h>
 #include <linux/skbuff.h>
 #include <linux/sched.h>
-#include <mach/ipa.h>
+#include <linux/ipa.h>
 #include <mach/rndis_ipa.h>
 
 #define DRV_NAME "RNDIS_IPA"

@@ -23,7 +23,7 @@
 #include <linux/usb/msm_hsusb.h>
 #include <mach/usb_bam.h>
 #include <mach/sps.h>
-#include <mach/ipa.h>
+#include <linux/ipa.h>
 #include <linux/workqueue.h>
 #include <linux/dma-mapping.h>
 #include <mach/msm_smsm.h>
