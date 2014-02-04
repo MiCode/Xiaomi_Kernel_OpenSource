@@ -875,6 +875,35 @@ static inline int venus_hfi_reset_core(struct venus_hfi_device *device)
 	return rc;
 }
 
+static struct venus_clock *venus_hfi_get_clock(struct venus_hfi_device *device,
+		char *name)
+{
+	struct venus_clock *vc;
+
+	venus_hfi_for_each_clock(device, vc, {
+		if (!strcmp(vc->name, name))
+			return vc;
+	});
+
+	return NULL;
+}
+
+static unsigned long venus_hfi_get_clock_rate(struct venus_clock *clock,
+	int num_mbs_per_sec)
+{
+	int num_rows = clock->count;
+	struct load_freq_table *table = clock->load_freq_tbl;
+	unsigned long ret = table[0].freq;
+	int i;
+	for (i = 0; i < num_rows; i++) {
+		if (num_mbs_per_sec > table[i].load)
+			break;
+		ret = table[i].freq;
+	}
+	dprintk(VIDC_PROF, "Required clock rate = %lu\n", ret);
+	return ret;
+}
+
 /*Calling function is responsible to acquire device->clk_pwr_lock*/
 static inline int venus_hfi_clk_enable(struct venus_hfi_device *device)
 {
@@ -935,6 +964,19 @@ static inline void venus_hfi_clk_disable(struct venus_hfi_device *device)
 	if (!device->clocks_enabled) {
 		dprintk(VIDC_DBG, "Clocks already disabled\n");
 		return;
+	}
+
+	/* We get better power savings if we lower the venus core clock to the
+	 * lowest level before disabling it. */
+	cl = venus_hfi_get_clock(device, "core_clk");
+	if (cl && cl->has_sw_power_collapse) {
+		int rc = clk_set_rate(cl->clk,
+				venus_hfi_get_clock_rate(cl, 0));
+		if (rc) {
+			dprintk(VIDC_WARN,
+					"Failed to lower core_clk before disabling: %d\n",
+					rc);
+		}
 	}
 
 	venus_hfi_for_each_clock(device, cl, {
@@ -1163,22 +1205,6 @@ already_enabled:
 	device->clocks_enabled = 1;
 fail_clk_power_on:
 	return rc;
-}
-
-static unsigned long venus_hfi_get_clock_rate(struct venus_clock *clock,
-	int num_mbs_per_sec)
-{
-	int num_rows = clock->count;
-	struct load_freq_table *table = clock->load_freq_tbl;
-	unsigned long ret = table[0].freq;
-	int i;
-	for (i = 0; i < num_rows; i++) {
-		if (num_mbs_per_sec > table[i].load)
-			break;
-		ret = table[i].freq;
-	}
-	dprintk(VIDC_PROF, "Required clock rate = %lu\n", ret);
-	return ret;
 }
 
 static int venus_hfi_scale_clocks(void *dev, int load)
@@ -2732,19 +2758,6 @@ error_irq_fail:
 err_core_init:
 	return rc;
 
-}
-
-/*static*/ struct clk *venus_hfi_get_clock(struct venus_hfi_device *device,
-		char *name)
-{
-	struct venus_clock *vc;
-
-	venus_hfi_for_each_clock(device, vc, {
-		if (!strcmp(vc->name, name))
-			return vc->clk;
-	});
-
-	return NULL;
 }
 
 static inline int venus_hfi_init_clocks(struct msm_vidc_platform_resources *res,
