@@ -101,18 +101,18 @@ struct msm_cpp_frame_strip_info {
 	uint32_t output_bytes_per_pixel;
 	uint32_t temporal_bytes_per_pixel;
 
-	unsigned int source_address[2];
-	unsigned int destination_address[2];
+	uint32_t source_address[2];
+	uint32_t destination_address[2];
 	/* source_address[1] is used for CbCR planar
 	 * to CbCr interleaved conversion
 	 */
-	unsigned int temporal_source_address[2];
+	uint32_t temporal_source_address[2];
 	/* destination_address[1] is used for CbCr interleved
 	 * to CbCr planar conversion
 	 */
-	unsigned int temporal_destination_address[2];
-	unsigned int src_stride;
-	unsigned int dst_stride;
+	uint32_t temporal_destination_address[2];
+	uint32_t src_stride;
+	uint32_t dst_stride;
 	uint32_t rotate_270;
 	uint32_t horizontal_flip;
 	uint32_t vertical_flip;
@@ -126,7 +126,7 @@ struct msm_cpp_frame_strip_info {
 };
 
 struct msm_cpp_buffer_info_t {
-	int fd;
+	int32_t fd;
 	uint32_t index;
 	uint32_t offset;
 	uint8_t native_buff;
@@ -187,7 +187,7 @@ struct msm_vpe_frame_strip_info {
 };
 
 struct msm_vpe_buffer_info_t {
-	int fd;
+	int32_t fd;
 	uint32_t index;
 	uint32_t offset;
 	uint8_t native_buff;
@@ -208,8 +208,8 @@ struct msm_vpe_frame_info_t {
 	uint32_t client_id;
 	enum msm_vpe_frame_type frame_type;
 	struct msm_vpe_frame_strip_info strip_info;
-	int src_fd;
-	int dst_fd;
+	unsigned long src_fd;
+	unsigned long dst_fd;
 	struct ion_handle *src_ion_handle;
 	struct ion_handle *dest_ion_handle;
 	unsigned long src_phyaddr;
@@ -294,7 +294,7 @@ struct msm_pproc_queue_buf_info {
 
 struct msm_camera_v4l2_ioctl_t {
 	uint32_t id;
-	uint32_t len;
+	size_t len;
 	int32_t trans_code;
 	void __user *ioctl_ptr;
 };

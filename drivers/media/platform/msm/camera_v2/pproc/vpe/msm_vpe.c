@@ -1219,7 +1219,7 @@ static long msm_vpe_subdev_ioctl(struct v4l2_subdev *sd,
 		struct msm_vpe_transaction_setup_cfg *cfg;
 		VPE_DBG("VIDIOC_MSM_VPE_TRANSACTION_SETUP\n");
 		if (sizeof(*cfg) != ioctl_ptr->len) {
-			pr_err("%s: size mismatch cmd=%d, len=%d, expected=%zu",
+			pr_err("%s: size mismatch cmd=%d, len=%zu, expected=%zu",
 				__func__, cmd, ioctl_ptr->len,
 				sizeof(*cfg));
 			rc = -EINVAL;
