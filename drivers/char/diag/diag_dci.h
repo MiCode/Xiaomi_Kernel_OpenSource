@@ -79,7 +79,7 @@ struct dci_pkt_req_entry_t {
 } __packed;
 
 struct diag_dci_reg_tbl_t {
-	uint32_t client_id;
+	int client_id;
 	uint16_t notification_list;
 	int signal_type;
 	int token;
