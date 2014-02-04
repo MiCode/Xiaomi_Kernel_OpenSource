@@ -422,6 +422,11 @@ int msm_pm_sleep_mode_allow(unsigned int cpu,
 		unsigned int mode, bool idle)
 {
 	int idx = MSM_PM_MODE(cpu, mode);
+
+	if ((mode == MSM_PM_SLEEP_MODE_RETENTION)
+			&&  !msm_pm_retention_enabled())
+		return false;
+
 	if (idle)
 		return msm_pm_sleep_modes[idx].idle_enabled &&
 			msm_pm_sleep_modes[idx].idle_supported;
