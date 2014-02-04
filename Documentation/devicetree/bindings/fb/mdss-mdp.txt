@@ -146,6 +146,12 @@ Optional properties:
 				total numbers of MMBs per pipe while values, if
 				any, following first one denotes indexes of MMBs
 				to that RGB pipe.
+- qcom,mdss-rotator-ot-limit:	This integer value indicates maximum number of pending
+				writes that can be allowed from rotator client. Default
+				value is 16 which is the maximum. This value can be
+				used to reduce the pending writes limit dynamically
+				and can be tuned to match performance requirements
+				depending upon system state.
 
 Optional subnodes:
 Child nodes representing the frame buffer virtual devices.
@@ -205,6 +211,7 @@ Example:
 						<2 6 7>;
 		qcom,mdss-smp-data = <22 4096>;
 		qcom,mdss-rot-block-size = <64>;
+		qcom,mdss-rotator-ot-limit = <2>;
 		qcom,mdss-smp-mb-per-pipe = <2>;
 		qcom,mdss-pref-prim-intf = "dsi";
 		qcom,mdss-has-bwc;

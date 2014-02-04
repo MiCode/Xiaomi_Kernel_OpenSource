@@ -19,13 +19,17 @@ struct msm_thermal_data {
 	uint32_t poll_ms;
 	int32_t limit_temp_degC;
 	int32_t temp_hysteresis_degC;
-	uint32_t freq_step;
-	uint32_t freq_control_mask;
+	uint32_t bootup_freq_step;
+	uint32_t bootup_freq_control_mask;
 	int32_t core_limit_temp_degC;
 	int32_t core_temp_hysteresis_degC;
 	int32_t hotplug_temp_degC;
 	int32_t hotplug_temp_hysteresis_degC;
 	uint32_t core_control_mask;
+	uint32_t freq_mitig_temp_degc;
+	uint32_t freq_mitig_temp_hysteresis_degc;
+	uint32_t freq_mitig_control_mask;
+	uint32_t freq_limit;
 	int32_t vdd_rstr_temp_degC;
 	int32_t vdd_rstr_temp_hyst_degC;
 	int32_t psm_temp_degC;
@@ -35,12 +39,19 @@ struct msm_thermal_data {
 #ifdef CONFIG_THERMAL_MONITOR
 extern int msm_thermal_init(struct msm_thermal_data *pdata);
 extern int msm_thermal_device_init(void);
+extern int msm_thermal_set_frequency(uint32_t cpu, uint32_t freq,
+	bool is_max);
 #else
 static inline int msm_thermal_init(struct msm_thermal_data *pdata)
 {
 	return -ENOSYS;
 }
 static inline int msm_thermal_device_init(void)
+{
+	return -ENOSYS;
+}
+static inline int msm_thermal_set_frequency(uint32_t cpu, uint32_t freq,
+	bool is_max)
 {
 	return -ENOSYS;
 }
