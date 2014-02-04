@@ -54,6 +54,7 @@ MODULE_DEVICE_TABLE(of, msm_match_table);
 #define MAX_PACKET_SIZE			(PACKET_HEADER_SIZE_NCI + 255)
 #define MAX_QCA_REG				(116)
 /* will timeout in approx. 100ms as 10us steps */
+#define NFC_RF_CLK_FREQ			(19200000)
 #define NTF_TIMEOUT				(10000)
 #define	CORE_RESET_RSP_GID		(0x60)
 #define	CORE_RESET_OID			(0x00)
@@ -1062,6 +1063,14 @@ static int qca199x_clock_select(struct qca199x_dev *qca199x_dev)
 		goto err_invalid_dis_gpio;
 	}
 	if (qca199x_dev->clk_run == false) {
+		/* Set clock rate */
+		if ((!strcmp(qca199x_dev->clk_src_name, "GPCLK")) ||
+			(!strcmp(qca199x_dev->clk_src_name, "GPCLK2"))) {
+			r = clk_set_rate(qca199x_dev->s_clk, NFC_RF_CLK_FREQ);
+			if (r)
+				goto err_invalid_clk;
+		}
+
 		r = clk_prepare_enable(qca199x_dev->s_clk);
 		if (r)
 			goto err_invalid_clk;
