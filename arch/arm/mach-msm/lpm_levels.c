@@ -276,6 +276,16 @@ static int lpm_system_mode_select(struct lpm_system_state *system_state,
 		if (!system_level->available)
 			continue;
 
+		/* The following check is to support legacy behavior where
+		 * only the last online core enters a system low power mode.
+		 * This should eventually be removed once all targets support
+		 * system low power modes with multiple cores online.
+		 */
+		if (system_level->sync_level
+				&& (num_online_cpus() > 1)
+				&& !sys_state.allow_synched_levels)
+			continue;
+
 		if (system_level->sync_level &&
 			!cpumask_equal(&system_level->num_cpu_votes,
 					&num_powered_cores))
@@ -528,16 +538,6 @@ static int lpm_cpu_power_select(struct cpuidle_device *dev, int *index)
 		uint32_t next_wakeup_us = sleep_us;
 		enum msm_pm_sleep_mode mode = level->mode;
 		bool allow;
-
-		/* The following check is to support legacy behavior where
-		 * only the last online core enters a system low power mode.
-		 * This should eventually be removed once all targets support
-		 * system low power modes with multiple cores online.
-		 */
-		if ((level->mode >= sys_state.sync_cpu_mode)
-				&& (num_online_cpus() > 1)
-				&& !sys_state.allow_synched_levels)
-			continue;
 
 		allow = msm_pm_sleep_mode_allow(dev->cpu, mode, true);
 
