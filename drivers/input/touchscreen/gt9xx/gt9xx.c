@@ -1542,15 +1542,14 @@ static ssize_t gtp_fw_upgrade_store(struct device *dev,
 				const char *buf, size_t size)
 {
 	struct goodix_ts_data *ts = dev_get_drvdata(dev);
-	unsigned long val;
+	unsigned int val;
 	int ret;
 
 	if (size > 2)
 		return -EINVAL;
 
-	ret = kstrtoul(buf, 10, &val);
-	if (ret != 0)
-		return ret;
+	if (sscanf(buf, "%u", &val) != 1);
+		return -EINVAL;
 
 	if (ts->gtp_is_suspend) {
 		dev_err(&ts->client->dev,
@@ -1576,16 +1575,60 @@ static ssize_t gtp_fw_upgrade_store(struct device *dev,
 	return size;
 }
 
+static ssize_t gtp_force_fw_upgrade_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	struct goodix_ts_data *ts = dev_get_drvdata(dev);
+	unsigned int val;
+	int ret;
+
+	if (size > 2)
+		return -EINVAL;
+
+	if (sscanf(buf, "%u", &val) != 1);
+		return -EINVAL;
+
+	if (ts->gtp_is_suspend) {
+		dev_err(&ts->client->dev,
+			"Can't start fw upgrade. Device is in suspend state.");
+		return -EBUSY;
+	}
+
+	mutex_lock(&ts->input_dev->mutex);
+	if (!ts->fw_loading && val) {
+		disable_irq(ts->client->irq);
+		ts->fw_loading = true;
+		ts->force_update = true;
+		if (config_enabled(CONFIG_GT9XX_TOUCHPANEL_UPDATE)) {
+			ret = gup_update_proc(NULL);
+			if (ret == FAIL)
+				dev_err(&ts->client->dev,
+				"Fail to force update GTP firmware.\n");
+		}
+		ts->force_update = false;
+		ts->fw_loading = false;
+		enable_irq(ts->client->irq);
+	}
+	mutex_unlock(&ts->input_dev->mutex);
+
+	return size;
+}
+
 static DEVICE_ATTR(fw_name, (S_IRUGO | S_IWUSR | S_IWGRP),
 			gtp_fw_name_show,
 			gtp_fw_name_store);
 static DEVICE_ATTR(fw_upgrade, (S_IRUGO | S_IWUSR | S_IWGRP),
 			gtp_fw_upgrade_show,
 			gtp_fw_upgrade_store);
+static DEVICE_ATTR(force_fw_upgrade, (S_IRUGO | S_IWUSR | S_IWGRP),
+			gtp_fw_upgrade_show,
+			gtp_force_fw_upgrade_store);
 
 static struct attribute *gtp_attrs[] = {
 	&dev_attr_fw_name.attr,
 	&dev_attr_fw_upgrade.attr,
+	&dev_attr_force_fw_upgrade.attr,
 	NULL
 };
 
@@ -1802,8 +1845,8 @@ static int goodix_parse_dt(struct device *dev,
 	pdata->i2c_pull_up = of_property_read_bool(np,
 						"goodix,i2c-pull-up");
 
-	pdata->no_force_update = of_property_read_bool(np,
-						"goodix,no-force-update");
+	pdata->force_update = of_property_read_bool(np,
+						"goodix,force-update");
 
 	pdata->enable_power_off = of_property_read_bool(np,
 						"goodix,enable-power-off");
@@ -1970,6 +2013,9 @@ static int goodix_ts_probe(struct i2c_client *client,
 		dev_err(&client->dev, "I2C communication ERROR!\n");
 		goto exit_power_off;
 	}
+
+	if (pdata->force_update)
+		ts->force_update = true;
 
 	if (pdata->fw_name)
 		strlcpy(ts->fw_name, pdata->fw_name,
