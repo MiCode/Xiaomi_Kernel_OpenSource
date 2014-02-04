@@ -591,6 +591,8 @@
 
 		qcom,n-fts = <0x50>;
 
+		qcom,l1ss-supported;
+
 		qcom,msi-gicm-addr = <0xF9041040>;
 		qcom,msi-gicm-base = <0x180>;
 	};
