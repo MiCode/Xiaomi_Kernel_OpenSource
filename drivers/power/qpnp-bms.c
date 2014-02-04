@@ -407,6 +407,14 @@ static void disable_bms_irq(struct bms_irq *irq)
 	}
 }
 
+static void disable_bms_irq_nosync(struct bms_irq *irq)
+{
+	if (!__test_and_set_bit(0, &irq->disabled)) {
+		disable_irq_nosync(irq->irq);
+		pr_debug("disabled irq %d\n", irq->irq);
+	}
+}
+
 #define HOLD_OREG_DATA		BIT(0)
 static int lock_output_data(struct qpnp_bms_chip *chip)
 {
@@ -3562,7 +3570,7 @@ static irqreturn_t bms_sw_cc_thr_irq_handler(int irq, void *_chip)
 	struct qpnp_bms_chip *chip = _chip;
 
 	pr_debug("sw_cc_thr irq triggered\n");
-	disable_bms_irq(&chip->sw_cc_thr_irq);
+	disable_bms_irq_nosync(&chip->sw_cc_thr_irq);
 	bms_stay_awake(&chip->soc_wake_source);
 	schedule_work(&chip->recalc_work);
 	return IRQ_HANDLED;
