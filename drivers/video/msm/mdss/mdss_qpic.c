@@ -30,7 +30,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/clk/msm-clk.h>
 
-#include <mach/sps.h>
+#include <linux/msm-sps.h>
 #include <mach/hardware.h>
 
 #include "mdss_fb.h"
@@ -201,7 +201,7 @@ int qpic_init_sps(struct platform_device *pdev,
 	struct sps_connect *sps_config = &end_point->config;
 	struct sps_register_event *sps_event = &end_point->bam_event;
 	struct sps_bam_props bam = {0};
-	u32 bam_handle = 0;
+	unsigned long bam_handle = 0;
 
 	if (qpic_res->sps_init)
 		return 0;
