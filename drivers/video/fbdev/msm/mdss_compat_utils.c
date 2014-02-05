@@ -22,6 +22,7 @@
 
 #include "mdss_fb.h"
 #include "mdss_compat_utils.h"
+#include "mdss_mdp_hwio.h"
 
 #define MSMFB_SET_LUT32 _IOW(MSMFB_IOCTL_MAGIC, 131, struct fb_cmap32)
 #define MSMFB_HISTOGRAM32 _IOWR(MSMFB_IOCTL_MAGIC, 132,\
@@ -460,6 +461,187 @@ static int __to_user_igc_lut_data(
 	return 0;
 }
 
+static int __from_user_ar_gc_lut_data(
+			struct mdp_ar_gc_lut_data32 __user *ar_gc_data32,
+			struct mdp_ar_gc_lut_data __user *ar_gc_data)
+{
+	if (copy_in_user(&ar_gc_data->x_start,
+			&ar_gc_data32->x_start,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&ar_gc_data->slope,
+			&ar_gc_data32->slope,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&ar_gc_data->offset,
+			&ar_gc_data32->offset,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __to_user_ar_gc_lut_data(
+			struct mdp_ar_gc_lut_data32 __user *ar_gc_data32,
+			struct mdp_ar_gc_lut_data __user *ar_gc_data)
+{
+	if (copy_in_user(&ar_gc_data32->x_start,
+			&ar_gc_data->x_start,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&ar_gc_data32->slope,
+			&ar_gc_data->slope,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&ar_gc_data32->offset,
+			&ar_gc_data->offset,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __from_user_pgc_lut_data(
+			struct mdp_pgc_lut_data32 __user *pgc_lut32,
+			struct mdp_pgc_lut_data __user *pgc_lut)
+{
+	struct mdp_ar_gc_lut_data32 __user *r_data_temp32;
+	struct mdp_ar_gc_lut_data32 __user *g_data_temp32;
+	struct mdp_ar_gc_lut_data32 __user *b_data_temp32;
+	struct mdp_ar_gc_lut_data __user *r_data_temp;
+	struct mdp_ar_gc_lut_data __user *g_data_temp;
+	struct mdp_ar_gc_lut_data __user *b_data_temp;
+	uint8_t num_r_stages, num_g_stages, num_b_stages;
+	int i;
+
+	if (copy_in_user(&pgc_lut->block,
+			&pgc_lut32->block,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pgc_lut->flags,
+			&pgc_lut32->flags,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pgc_lut->num_r_stages,
+			&pgc_lut32->num_r_stages,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&pgc_lut->num_g_stages,
+			&pgc_lut32->num_g_stages,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&pgc_lut->num_b_stages,
+			&pgc_lut32->num_b_stages,
+			sizeof(uint8_t)))
+		return -EFAULT;
+
+	if (copy_from_user(&num_r_stages,
+			&pgc_lut32->num_r_stages,
+			sizeof(uint8_t)) ||
+	    copy_from_user(&num_g_stages,
+			&pgc_lut32->num_g_stages,
+			sizeof(uint8_t)) ||
+	    copy_from_user(&num_b_stages,
+			&pgc_lut32->num_b_stages,
+			sizeof(uint8_t)))
+		return -EFAULT;
+
+	r_data_temp32 = compat_ptr((uintptr_t)pgc_lut32->r_data);
+	r_data_temp = pgc_lut->r_data;
+
+	for (i = 0; i < num_r_stages; i++) {
+		if (__from_user_ar_gc_lut_data(
+				&r_data_temp32[i],
+				&r_data_temp[i]))
+			return -EFAULT;
+	}
+
+	g_data_temp32 = compat_ptr((uintptr_t)pgc_lut32->g_data);
+	g_data_temp = pgc_lut->g_data;
+
+	for (i = 0; i < num_g_stages; i++) {
+		if (__from_user_ar_gc_lut_data(
+				&g_data_temp32[i],
+				&g_data_temp[i]))
+			return -EFAULT;
+	}
+
+	b_data_temp32 = compat_ptr((uintptr_t)pgc_lut32->b_data);
+	b_data_temp = pgc_lut->b_data;
+
+	for (i = 0; i < num_b_stages; i++) {
+		if (__from_user_ar_gc_lut_data(
+				&b_data_temp32[i],
+				&b_data_temp[i]))
+			return -EFAULT;
+	}
+
+	return 0;
+}
+
+static int __to_user_pgc_lut_data(
+			struct mdp_pgc_lut_data32 __user *pgc_lut32,
+			struct mdp_pgc_lut_data __user *pgc_lut)
+{
+	struct mdp_ar_gc_lut_data32 __user *r_data_temp32;
+	struct mdp_ar_gc_lut_data32 __user *g_data_temp32;
+	struct mdp_ar_gc_lut_data32 __user *b_data_temp32;
+	struct mdp_ar_gc_lut_data __user *r_data_temp;
+	struct mdp_ar_gc_lut_data __user *g_data_temp;
+	struct mdp_ar_gc_lut_data __user *b_data_temp;
+	uint8_t num_r_stages, num_g_stages, num_b_stages;
+	int i;
+
+	if (copy_in_user(&pgc_lut32->block,
+			&pgc_lut->block,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pgc_lut32->flags,
+			&pgc_lut->flags,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pgc_lut32->num_r_stages,
+			&pgc_lut->num_r_stages,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&pgc_lut32->num_g_stages,
+			&pgc_lut->num_g_stages,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&pgc_lut32->num_b_stages,
+			&pgc_lut->num_b_stages,
+			sizeof(uint8_t)))
+		return -EFAULT;
+
+	if (copy_from_user(&num_r_stages,
+			&pgc_lut->num_r_stages,
+			sizeof(uint8_t)) ||
+	    copy_from_user(&num_g_stages,
+			&pgc_lut->num_g_stages,
+			sizeof(uint8_t)) ||
+	    copy_from_user(&num_b_stages,
+			&pgc_lut->num_b_stages,
+			sizeof(uint8_t)))
+		return -EFAULT;
+
+	r_data_temp32 = compat_ptr((uintptr_t)pgc_lut32->r_data);
+	r_data_temp = pgc_lut->r_data;
+	for (i = 0; i < num_r_stages; i++) {
+		if (__to_user_ar_gc_lut_data(
+				&r_data_temp32[i],
+				&r_data_temp[i]))
+			return -EFAULT;
+	}
+
+	g_data_temp32 = compat_ptr((uintptr_t)pgc_lut32->g_data);
+	g_data_temp = pgc_lut->g_data;
+	for (i = 0; i < num_g_stages; i++) {
+		if (__to_user_ar_gc_lut_data(
+				&g_data_temp32[i],
+				&g_data_temp[i]))
+			return -EFAULT;
+	}
+
+	b_data_temp32 = compat_ptr((uintptr_t)pgc_lut32->b_data);
+	b_data_temp = pgc_lut->b_data;
+	for (i = 0; i < num_b_stages; i++) {
+		if (__to_user_ar_gc_lut_data(
+				&b_data_temp32[i],
+				&b_data_temp[i]))
+			return -EFAULT;
+	}
+
+	return 0;
+}
+
 static int __from_user_lut_cfg_data(
 			struct mdp_lut_cfg_data32 __user *lut_cfg32,
 			struct mdp_lut_cfg_data __user *lut_cfg)
@@ -481,6 +663,11 @@ static int __from_user_lut_cfg_data(
 		ret = __from_user_igc_lut_data(
 			compat_ptr((uintptr_t)&lut_cfg32->data.igc_lut_data),
 			&lut_cfg->data.igc_lut_data);
+		break;
+	case mdp_lut_pgc:
+		ret = __from_user_pgc_lut_data(
+			compat_ptr((uintptr_t)&lut_cfg32->data.pgc_lut_data),
+			&lut_cfg->data.pgc_lut_data);
 		break;
 	default:
 		break;
@@ -511,11 +698,97 @@ static int __to_user_lut_cfg_data(
 			compat_ptr((uintptr_t)&lut_cfg32->data.igc_lut_data),
 			&lut_cfg->data.igc_lut_data);
 		break;
+	case mdp_lut_pgc:
+		ret = __to_user_pgc_lut_data(
+			compat_ptr((uintptr_t)&lut_cfg32->data.pgc_lut_data),
+			&lut_cfg->data.pgc_lut_data);
+		break;
 	default:
 		break;
 	}
 
 	return ret;
+}
+
+static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
+					struct msmfb_mdp_pp __user **pp,
+					uint32_t op)
+{
+	uint32_t alloc_size = 0, lut_type, r_size, g_size, b_size;
+	struct mdp_pgc_lut_data32 __user *pgc_data32;
+	uint8_t num_r_stages, num_g_stages, num_b_stages;
+
+	alloc_size = sizeof(struct msmfb_mdp_pp);
+
+	if (op == mdp_op_lut_cfg) {
+		if (copy_from_user(&lut_type,
+			&pp32->data.lut_cfg_data.lut_type,
+			sizeof(uint32_t)))
+			return -EFAULT;
+
+		if (lut_type == mdp_lut_pgc) {
+			pgc_data32 = compat_ptr((uintptr_t)
+				&pp32->data.lut_cfg_data.data.pgc_lut_data);
+			if (copy_from_user(&num_r_stages,
+				&pgc_data32->num_r_stages,
+				sizeof(uint8_t)) ||
+			    copy_from_user(&num_g_stages,
+				&pgc_data32->num_g_stages,
+				sizeof(uint8_t)) ||
+			    copy_from_user(&num_b_stages,
+				&pgc_data32->num_b_stages,
+				sizeof(uint8_t)))
+				return -EFAULT;
+
+			if (num_r_stages > GC_LUT_SEGMENTS ||
+			    num_g_stages > GC_LUT_SEGMENTS ||
+			    num_b_stages > GC_LUT_SEGMENTS ||
+			    num_r_stages <= 0 ||
+			    num_g_stages <= 0 ||
+			    num_b_stages <= 0)
+				return -EINVAL;
+
+			r_size = num_r_stages *
+				sizeof(struct mdp_ar_gc_lut_data);
+			g_size = num_g_stages *
+				sizeof(struct mdp_ar_gc_lut_data);
+			b_size = num_b_stages *
+				sizeof(struct mdp_ar_gc_lut_data);
+
+			alloc_size += r_size + g_size + b_size;
+
+			*pp = compat_alloc_user_space(alloc_size);
+			if (NULL == pp)
+				return -ENOMEM;
+			memset(*pp, 0, alloc_size);
+
+			(*pp)->data.lut_cfg_data.data.pgc_lut_data.r_data =
+					(struct mdp_ar_gc_lut_data *)
+					((unsigned long) *pp +
+					sizeof(struct msmfb_mdp_pp));
+			(*pp)->data.lut_cfg_data.data.pgc_lut_data.g_data =
+					(struct mdp_ar_gc_lut_data *)
+					((unsigned long) *pp +
+					sizeof(struct msmfb_mdp_pp) + r_size);
+			(*pp)->data.lut_cfg_data.data.pgc_lut_data.b_data =
+					(struct mdp_ar_gc_lut_data *)
+					((unsigned long) *pp +
+					sizeof(struct msmfb_mdp_pp) +
+					r_size + g_size);
+		} else {
+			*pp = compat_alloc_user_space(alloc_size);
+			if (NULL == *pp)
+				return -ENOMEM;
+			memset(*pp, 0, alloc_size);
+		}
+	} else {
+		*pp = compat_alloc_user_space(alloc_size);
+		if (NULL == *pp)
+			return -ENOMEM;
+		memset(*pp, 0, alloc_size);
+	}
+
+	return 0;
 }
 
 static int mdss_compat_pp_ioctl(struct fb_info *info, unsigned int cmd,
@@ -527,14 +800,12 @@ static int mdss_compat_pp_ioctl(struct fb_info *info, unsigned int cmd,
 	struct msmfb_mdp_pp __user *pp;
 
 	pp32 = compat_ptr(arg);
-	pp = compat_alloc_user_space(sizeof(struct msmfb_mdp_pp));
-	if (NULL == pp)
-		return -ENOMEM;
-
-	memset(pp, 0, sizeof(struct msmfb_mdp_pp));
-
 	if (copy_from_user(&op, &pp32->op, sizeof(uint32_t)))
 		return -EFAULT;
+
+	ret = __pp_compat_alloc(pp32, &pp, op);
+	if (ret)
+		return ret;
 
 	if (copy_in_user(&pp->op, &pp32->op, sizeof(uint32_t)))
 		return -EFAULT;
