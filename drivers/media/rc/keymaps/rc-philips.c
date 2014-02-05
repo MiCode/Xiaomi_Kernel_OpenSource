@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,7 +60,7 @@ static struct rc_map_list rc6_philips_map = {
 	.map = {
 		.scan    = philips,
 		.size    = ARRAY_SIZE(philips),
-		.rc_type = RC_TYPE_RC6,
+		.rc_type = RC_TYPE_RC6_0,
 		.name    = RC_MAP_RC6_PHILIPS,
 	}
 };
