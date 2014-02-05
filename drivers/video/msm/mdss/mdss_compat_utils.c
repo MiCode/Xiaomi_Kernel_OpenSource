@@ -1537,6 +1537,21 @@ static int __to_user_ad_input(
 	return 0;
 }
 
+static int __from_user_calib_cfg(
+			struct mdss_calib_cfg32 __user *calib_cfg32,
+			struct mdss_calib_cfg __user *calib_cfg)
+{
+	if (copy_in_user(&calib_cfg->ops,
+			&calib_cfg32->ops,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&calib_cfg->calib_mask,
+			&calib_cfg32->calib_mask,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
 static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 					struct msmfb_mdp_pp __user **pp,
 					uint32_t op)
@@ -1783,6 +1798,14 @@ static int mdss_compat_pp_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = __to_user_ad_input(
 			compat_ptr((uintptr_t)&pp32->data.ad_input),
 			&pp->data.ad_input);
+		break;
+	case mdp_op_calib_mode:
+		ret = __from_user_calib_cfg(
+			compat_ptr((uintptr_t)&pp32->data.mdss_calib_cfg),
+			&pp->data.mdss_calib_cfg);
+		if (ret)
+			goto pp_compat_exit;
+		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) pp);
 		break;
 	default:
 		break;
