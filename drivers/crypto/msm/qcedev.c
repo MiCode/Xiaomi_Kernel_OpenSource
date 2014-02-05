@@ -12,8 +12,6 @@
  * GNU General Public License for more details.
  */
 #include <linux/mman.h>
-#include <soc/qcom/scm.h>
-
 #include <linux/types.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
@@ -29,10 +27,13 @@
 #include <linux/debugfs.h>
 #include <linux/scatterlist.h>
 #include <linux/crypto.h>
-#include <crypto/hash.h>
 #include <linux/platform_data/qcom_crypto_device.h>
 #include <linux/msm-bus.h>
 #include <linux/qcedev.h>
+
+#include <soc/qcom/scm.h>
+#include <crypto/hash.h>
+
 #include "qce.h"
 
 

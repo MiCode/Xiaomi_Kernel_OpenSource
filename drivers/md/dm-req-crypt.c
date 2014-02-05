@@ -33,7 +33,7 @@
 #include <crypto/hash.h>
 #include <crypto/md5.h>
 #include <crypto/algapi.h>
-#include <mach/qcrypto.h>
+#include <linux/qcrypto.h>
 
 #define DM_MSG_PREFIX "req-crypt"
 
