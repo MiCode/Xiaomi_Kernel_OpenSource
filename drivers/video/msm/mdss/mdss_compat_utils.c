@@ -945,6 +945,186 @@ static int __to_user_pa_cfg_data(
 	return 0;
 }
 
+static int __from_user_mem_col_cfg(
+			struct mdp_pa_mem_col_cfg32 __user *mem_col_cfg32,
+			struct mdp_pa_mem_col_cfg __user *mem_col_cfg)
+{
+	if (copy_in_user(&mem_col_cfg->color_adjust_p0,
+			&mem_col_cfg32->color_adjust_p0,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&mem_col_cfg->color_adjust_p1,
+			&mem_col_cfg32->color_adjust_p1,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&mem_col_cfg->hue_region,
+			&mem_col_cfg32->hue_region,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&mem_col_cfg->sat_region,
+			&mem_col_cfg32->sat_region,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&mem_col_cfg->val_region,
+			&mem_col_cfg32->val_region,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __to_user_mem_col_cfg(
+			struct mdp_pa_mem_col_cfg32 __user *mem_col_cfg32,
+			struct mdp_pa_mem_col_cfg __user *mem_col_cfg)
+{
+	if (copy_in_user(&mem_col_cfg32->color_adjust_p0,
+			&mem_col_cfg->color_adjust_p0,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&mem_col_cfg32->color_adjust_p1,
+			&mem_col_cfg->color_adjust_p1,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&mem_col_cfg32->hue_region,
+			&mem_col_cfg->hue_region,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&mem_col_cfg32->sat_region,
+			&mem_col_cfg->sat_region,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&mem_col_cfg32->val_region,
+			&mem_col_cfg->val_region,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __from_user_pa_v2_data(
+			struct mdp_pa_v2_data32 __user *pa_v2_data32,
+			struct mdp_pa_v2_data __user *pa_v2_data)
+{
+	uint32_t data;
+
+	if (copy_in_user(&pa_v2_data->flags,
+			&pa_v2_data32->flags,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_v2_data->global_hue_adj,
+			&pa_v2_data32->global_hue_adj,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_v2_data->global_sat_adj,
+			&pa_v2_data32->global_sat_adj,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_v2_data->global_val_adj,
+			&pa_v2_data32->global_val_adj,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_v2_data->global_cont_adj,
+			&pa_v2_data32->global_cont_adj,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_v2_data->six_zone_thresh,
+			&pa_v2_data32->six_zone_thresh,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_v2_data->six_zone_len,
+			&pa_v2_data32->six_zone_len,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (get_user(data, &pa_v2_data32->six_zone_curve_p0) ||
+	    put_user(compat_ptr(data), &pa_v2_data->six_zone_curve_p0) ||
+	    get_user(data, &pa_v2_data32->six_zone_curve_p1) ||
+	    put_user(compat_ptr(data), &pa_v2_data->six_zone_curve_p1))
+		return -EFAULT;
+
+	if (__from_user_mem_col_cfg(
+			compat_ptr((uintptr_t)&pa_v2_data32->skin_cfg),
+			&pa_v2_data->skin_cfg) ||
+	    __from_user_mem_col_cfg(
+			compat_ptr((uintptr_t)&pa_v2_data32->sky_cfg),
+			&pa_v2_data->sky_cfg) ||
+	    __from_user_mem_col_cfg(
+			compat_ptr((uintptr_t)&pa_v2_data32->fol_cfg),
+			&pa_v2_data->fol_cfg))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __to_user_pa_v2_data(
+			struct mdp_pa_v2_data32 __user *pa_v2_data32,
+			struct mdp_pa_v2_data __user *pa_v2_data)
+{
+	unsigned long data;
+
+	if (copy_in_user(&pa_v2_data32->flags,
+			&pa_v2_data->flags,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_v2_data32->global_hue_adj,
+			&pa_v2_data->global_hue_adj,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_v2_data32->global_sat_adj,
+			&pa_v2_data->global_sat_adj,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_v2_data32->global_val_adj,
+			&pa_v2_data->global_val_adj,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_v2_data32->global_cont_adj,
+			&pa_v2_data->global_cont_adj,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_v2_data32->six_zone_thresh,
+			&pa_v2_data->six_zone_thresh,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_v2_data32->six_zone_len,
+			&pa_v2_data->six_zone_len,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (get_user(data, &pa_v2_data->six_zone_curve_p0) ||
+	    put_user((compat_caddr_t) data, &pa_v2_data32->six_zone_curve_p0) ||
+	    get_user(data, &pa_v2_data->six_zone_curve_p1) ||
+	    put_user((compat_caddr_t) data, &pa_v2_data32->six_zone_curve_p1))
+		return -EFAULT;
+
+	if (__to_user_mem_col_cfg(
+			compat_ptr((uintptr_t)&pa_v2_data32->skin_cfg),
+			&pa_v2_data->skin_cfg) ||
+	    __to_user_mem_col_cfg(
+			compat_ptr((uintptr_t)&pa_v2_data32->sky_cfg),
+			&pa_v2_data->sky_cfg) ||
+	    __to_user_mem_col_cfg(
+			compat_ptr((uintptr_t)&pa_v2_data32->fol_cfg),
+			&pa_v2_data->fol_cfg))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __from_user_pa_v2_cfg_data(
+			struct mdp_pa_v2_cfg_data32 __user *pa_v2_cfg32,
+			struct mdp_pa_v2_cfg_data __user *pa_v2_cfg)
+{
+	if (copy_in_user(&pa_v2_cfg->block,
+			&pa_v2_cfg32->block,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (__from_user_pa_v2_data(
+			compat_ptr((uintptr_t)&pa_v2_cfg32->pa_v2_data),
+			&pa_v2_cfg->pa_v2_data))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __to_user_pa_v2_cfg_data(
+			struct mdp_pa_v2_cfg_data32 __user *pa_v2_cfg32,
+			struct mdp_pa_v2_cfg_data __user *pa_v2_cfg)
+{
+	if (copy_in_user(&pa_v2_cfg32->block,
+			&pa_v2_cfg->block,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (__to_user_pa_v2_data(
+			compat_ptr((uintptr_t)&pa_v2_cfg32->pa_v2_data),
+			&pa_v2_cfg->pa_v2_data))
+		return -EFAULT;
+
+	return 0;
+}
+
 static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 					struct msmfb_mdp_pp __user **pp,
 					uint32_t op)
@@ -1118,6 +1298,19 @@ static int mdss_compat_pp_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = __to_user_pa_cfg_data(
 			compat_ptr((uintptr_t)&pp32->data.pa_cfg_data),
 			&pp->data.pa_cfg_data);
+		break;
+	case mdp_op_pa_v2_cfg:
+		ret = __from_user_pa_v2_cfg_data(
+			compat_ptr((uintptr_t)&pp32->data.pa_v2_cfg_data),
+			&pp->data.pa_v2_cfg_data);
+		if (ret)
+			goto pp_compat_exit;
+		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) pp);
+		if (ret)
+			goto pp_compat_exit;
+		ret = __to_user_pa_v2_cfg_data(
+			compat_ptr((uintptr_t)&pp32->data.pa_v2_cfg_data),
+			&pp->data.pa_v2_cfg_data);
 		break;
 	default:
 		break;
