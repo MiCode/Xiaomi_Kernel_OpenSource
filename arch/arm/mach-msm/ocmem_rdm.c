@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -148,38 +148,6 @@ static irqreturn_t ocmem_dm_irq_handler(int irq, void *dev_id)
 	}
 	return IRQ_HANDLED;
 }
-
-#ifdef CONFIG_MSM_OCMEM_NONSECURE
-int ocmem_clear(unsigned long start, unsigned long size)
-{
-	INIT_COMPLETION(dm_clear_event);
-	/* Clear DM Mask */
-	ocmem_write(DM_MASK_RESET, dm_base + DM_INTR_MASK);
-	/* Clear DM Interrupts */
-	ocmem_write(DM_INTR_RESET, dm_base + DM_INTR_CLR);
-	/* DM CLR offset */
-	ocmem_write(start, dm_base + DM_CLR_OFFSET);
-	/* DM CLR size */
-	ocmem_write(size, dm_base + DM_CLR_SIZE);
-	/* Wipe out memory as "OCMM" */
-	ocmem_write(0x4D4D434F, dm_base + DM_CLR_PATTERN);
-	/* The offset, size and pattern for clearing must be set
-	 * before triggering the clearing engine
-	 */
-	mb();
-	/* Trigger Data Clear */
-	ocmem_write(DM_CLR_ENABLE, dm_base + DM_CLR_TRIGGER);
-
-	wait_for_completion(&dm_clear_event);
-
-	return 0;
-}
-#else
-int ocmem_clear(unsigned long start, unsigned long size)
-{
-	return 0;
-}
-#endif
 
 /* Lock during transfers */
 int ocmem_rdm_transfer(int id, struct ocmem_map_list *clist,
