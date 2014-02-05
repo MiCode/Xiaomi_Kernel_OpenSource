@@ -25,7 +25,7 @@
 #include <linux/of.h>
 #include <linux/of_slimbus.h>
 #include <linux/timer.h>
-#include <mach/sps.h>
+#include <linux/msm-sps.h>
 #include "slim-msm.h"
 #include <linux/qdsp6v2/apr.h>
 

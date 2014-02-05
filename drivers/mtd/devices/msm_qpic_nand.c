@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +31,7 @@
 #include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/ctype.h>
-#include <mach/sps.h>
+#include <linux/msm-sps.h>
 #include <mach/msm_bus.h>
 #include <soc/qcom/smem.h>
 
@@ -215,7 +215,7 @@ struct msm_nand_sps_endpt {
  * for each BAM pipe.
  */
 struct msm_nand_sps_info {
-	uint32_t bam_handle;
+	unsigned long bam_handle;
 	struct msm_nand_sps_endpt data_prod;
 	struct msm_nand_sps_endpt data_cons;
 	struct msm_nand_sps_endpt cmd_pipe;
@@ -2796,7 +2796,7 @@ static int msm_nand_bam_init(struct msm_nand_info *nand_info)
 			__func__, rc);
 		goto out;
 	}
-	pr_info("%s: BAM device registered: bam_handle 0x%x\n",
+	pr_info("%s: BAM device registered: bam_handle 0x%lx\n",
 			__func__, nand_info->sps.bam_handle);
 init_sps_ep:
 	rc = msm_nand_init_endpoint(nand_info, &nand_info->sps.data_prod,

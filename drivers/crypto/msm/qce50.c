@@ -47,7 +47,7 @@
 static DEFINE_MUTEX(bam_register_lock);
 struct bam_registration_info {
 	struct list_head qlist;
-	uint32_t handle;
+	unsigned long handle;
 	uint32_t cnt;
 	uint32_t bam_mem;
 	void __iomem *bam_iobase;

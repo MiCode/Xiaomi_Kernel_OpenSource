@@ -12,7 +12,7 @@
 
 #ifndef _USB_BAM_H_
 #define _USB_BAM_H_
-#include "sps.h"
+#include <linux/msm-sps.h>
 #include <linux/ipa.h>
 #include <linux/usb/msm_hsusb.h>
 

@@ -35,7 +35,7 @@
 #include <linux/cdev.h>
 #include <linux/usb/usb_qdss.h>
 #include <linux/dma-mapping.h>
-#include <mach/sps.h>
+#include <linux/msm-sps.h>
 #include <mach/usb_bam.h>
 #include <mach/msm_memory_dump.h>
 
@@ -124,7 +124,7 @@ enum tmc_mem_intf_width {
 
 struct tmc_etr_bam_data {
 	struct sps_bam_props	props;
-	uint32_t		handle;
+	unsigned long		handle;
 	struct sps_pipe		*pipe;
 	struct sps_connect	connect;
 	uint32_t		src_pipe_idx;

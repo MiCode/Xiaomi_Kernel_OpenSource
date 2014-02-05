@@ -22,7 +22,7 @@
 #include <linux/of.h>
 #include <linux/usb/msm_hsusb.h>
 #include <mach/usb_bam.h>
-#include <mach/sps.h>
+#include <linux/msm-sps.h>
 #include <linux/ipa.h>
 #include <linux/workqueue.h>
 #include <linux/dma-mapping.h>
@@ -92,7 +92,7 @@ struct usb_bam_ctx_type {
 	struct clk *mem_clk;
 	struct clk *mem_iface_clk;
 	char qdss_core_name[USB_BAM_MAX_STR_LEN];
-	u32 h_bam[MAX_BAMS];
+	unsigned long h_bam[MAX_BAMS];
 	u8 pipes_enabled_per_bam[MAX_BAMS];
 	u32 inactivity_timer_ms[MAX_BAMS];
 	bool is_bam_inactivity[MAX_BAMS];
@@ -488,7 +488,8 @@ static int connect_pipe_sys2bam_ipa(u8 idx,
 	enum usb_bam_pipe_dir dir = ipa_params->dir;
 	struct usb_bam_pipe_connect *pipe_connect = &usb_bam_connections[idx];
 	struct ipa_sys_connect_params sys_in_params;
-	u32 usb_handle, usb_phy_addr;
+	unsigned long usb_handle;
+	phys_addr_t usb_phy_addr;
 	u32 clnt_hdl = 0;
 
 	memset(&sys_in_params, 0, sizeof(sys_in_params));
@@ -555,7 +556,8 @@ static int connect_pipe_bam2bam_ipa(u8 idx,
 
 	struct ipa_connect_params ipa_in_params;
 	struct ipa_sps_params sps_out_params;
-	u32 usb_handle, usb_phy_addr;
+	u32 usb_phy_addr;
+	unsigned long usb_handle;
 	u32 clnt_hdl = 0;
 
 	memset(&ipa_in_params, 0, sizeof(ipa_in_params));
