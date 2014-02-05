@@ -1594,6 +1594,21 @@ static int __to_user_calib_config_buffer(
 	return 0;
 }
 
+static int __from_user_calib_dcm_state(
+			struct mdp_calib_dcm_state32 __user *calib_dcm32,
+			struct mdp_calib_dcm_state __user *calib_dcm)
+{
+	if (copy_in_user(&calib_dcm->ops,
+			&calib_dcm32->ops,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&calib_dcm->dcm_state,
+			&calib_dcm32->dcm_state,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
 static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 					struct msmfb_mdp_pp __user **pp,
 					uint32_t op)
@@ -1861,6 +1876,14 @@ static int mdss_compat_pp_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = __to_user_calib_config_buffer(
 			compat_ptr((uintptr_t)&pp32->data.calib_buffer),
 			&pp->data.calib_buffer);
+		break;
+	case mdp_op_calib_dcm_state:
+		ret = __from_user_calib_dcm_state(
+			compat_ptr((uintptr_t)&pp32->data.calib_dcm),
+			&pp->data.calib_dcm);
+		if (ret)
+			goto pp_compat_exit;
+		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) pp);
 		break;
 	default:
 		break;
