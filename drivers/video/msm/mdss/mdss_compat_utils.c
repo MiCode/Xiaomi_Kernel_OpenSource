@@ -1261,6 +1261,42 @@ static int __to_user_gamut_cfg_data(
 	return 0;
 }
 
+static int __from_user_calib_config_data(
+			struct mdp_calib_config_data32 __user *calib_cfg32,
+			struct mdp_calib_config_data __user *calib_cfg)
+{
+	if (copy_in_user(&calib_cfg->ops,
+			&calib_cfg32->ops,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&calib_cfg->addr,
+			&calib_cfg32->addr,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&calib_cfg->data,
+			&calib_cfg32->data,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __to_user_calib_config_data(
+			struct mdp_calib_config_data32 __user *calib_cfg32,
+			struct mdp_calib_config_data __user *calib_cfg)
+{
+	if (copy_in_user(&calib_cfg32->ops,
+			&calib_cfg->ops,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&calib_cfg32->addr,
+			&calib_cfg->addr,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&calib_cfg32->data,
+			&calib_cfg->data,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
 static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 					struct msmfb_mdp_pp __user **pp,
 					uint32_t op)
@@ -1473,6 +1509,19 @@ static int mdss_compat_pp_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = __to_user_gamut_cfg_data(
 			compat_ptr((uintptr_t)&pp32->data.gamut_cfg_data),
 			&pp->data.gamut_cfg_data);
+		break;
+	case mdp_op_calib_cfg:
+		ret = __from_user_calib_config_data(
+			compat_ptr((uintptr_t)&pp32->data.calib_cfg),
+			&pp->data.calib_cfg);
+		if (ret)
+			goto pp_compat_exit;
+		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) pp);
+		if (ret)
+			goto pp_compat_exit;
+		ret = __to_user_calib_config_data(
+			compat_ptr((uintptr_t)&pp32->data.calib_cfg),
+			&pp->data.calib_cfg);
 		break;
 	default:
 		break;
