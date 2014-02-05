@@ -865,6 +865,86 @@ static int __from_user_bl_scale_data(
 	return 0;
 }
 
+static int __from_user_pa_cfg(
+			struct mdp_pa_cfg32 __user *pa_data32,
+			struct mdp_pa_cfg __user *pa_data)
+{
+	if (copy_in_user(&pa_data->flags,
+			&pa_data32->flags,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_data->hue_adj,
+			&pa_data32->hue_adj,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_data->sat_adj,
+			&pa_data32->sat_adj,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_data->val_adj,
+			&pa_data32->val_adj,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_data->cont_adj,
+			&pa_data32->cont_adj,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __to_user_pa_cfg(
+			struct mdp_pa_cfg32 __user *pa_data32,
+			struct mdp_pa_cfg __user *pa_data)
+{
+	if (copy_in_user(&pa_data32->flags,
+			&pa_data->flags,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_data32->hue_adj,
+			&pa_data->hue_adj,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_data32->sat_adj,
+			&pa_data->sat_adj,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_data32->val_adj,
+			&pa_data->val_adj,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pa_data32->cont_adj,
+			&pa_data->cont_adj,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __from_user_pa_cfg_data(
+			struct mdp_pa_cfg_data32 __user *pa_cfg32,
+			struct mdp_pa_cfg_data __user *pa_cfg)
+{
+	if (copy_in_user(&pa_cfg->block,
+			&pa_cfg32->block,
+			sizeof(uint32_t)))
+		return -EFAULT;
+	if (__from_user_pa_cfg(
+			compat_ptr((uintptr_t)&pa_cfg32->pa_data),
+			&pa_cfg->pa_data))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __to_user_pa_cfg_data(
+			struct mdp_pa_cfg_data32 __user *pa_cfg32,
+			struct mdp_pa_cfg_data __user *pa_cfg)
+{
+	if (copy_in_user(&pa_cfg32->block,
+			&pa_cfg->block,
+			sizeof(uint32_t)))
+		return -EFAULT;
+	if (__to_user_pa_cfg(
+			compat_ptr((uintptr_t)&pa_cfg32->pa_data),
+			&pa_cfg->pa_data))
+		return -EFAULT;
+
+	return 0;
+}
+
 static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 					struct msmfb_mdp_pp __user **pp,
 					uint32_t op)
@@ -1025,6 +1105,19 @@ static int mdss_compat_pp_ioctl(struct fb_info *info, unsigned int cmd,
 		if (ret)
 			goto pp_compat_exit;
 		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) pp);
+		break;
+	case mdp_op_pa_cfg:
+		ret = __from_user_pa_cfg_data(
+			compat_ptr((uintptr_t)&pp32->data.pa_cfg_data),
+			&pp->data.pa_cfg_data);
+		if (ret)
+			goto pp_compat_exit;
+		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) pp);
+		if (ret)
+			goto pp_compat_exit;
+		ret = __to_user_pa_cfg_data(
+			compat_ptr((uintptr_t)&pp32->data.pa_cfg_data),
+			&pp->data.pa_cfg_data);
 		break;
 	default:
 		break;
