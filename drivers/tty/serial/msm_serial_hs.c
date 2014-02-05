@@ -2204,6 +2204,12 @@ static int msm_hs_check_clock_off(struct uart_port *uport)
 	if (use_low_power_wakeup(msm_uport)) {
 		msm_uport->wakeup.ignore = 1;
 		enable_irq(msm_uport->wakeup.irq);
+		/*
+		 * keeping uport-irq enabled all the time
+		 * gates XO shutdown in idle power collapse. Disable
+		 * this only when wakeup irq is set.
+		 */
+		disable_irq(uport->irq);
 	}
 	wake_unlock(&msm_uport->dma_wake_lock);
 
@@ -2412,8 +2418,11 @@ void msm_hs_request_clock_on(struct uart_port *uport)
 	switch (msm_uport->clk_state) {
 	case MSM_HS_CLK_OFF:
 		wake_lock(&msm_uport->dma_wake_lock);
-		if (use_low_power_wakeup(msm_uport))
+		if (use_low_power_wakeup(msm_uport)) {
 			disable_irq_nosync(msm_uport->wakeup.irq);
+			/* uport-irq was disabled when clocked off */
+			enable_irq(uport->irq);
+		}
 		spin_unlock_irqrestore(&uport->lock, flags);
 
 		ret = msm_hs_clock_vote(msm_uport);
