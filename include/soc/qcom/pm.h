@@ -1,5 +1,4 @@
-/* arch/arm/mach-msm/pm.h
- *
+/*
  * Copyright (C) 2007 Google, Inc.
  * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
  * Author: San Mehat <san@android.com>

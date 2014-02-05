@@ -26,10 +26,9 @@
 #include <mach/rpm-smd.h>
 #include <soc/qcom/smem.h>
 #include <soc/qcom/spm.h>
-
+#include <soc/qcom/pm.h>
 #include "board-dt.h"
 #include "platsmp.h"
-#include "pm.h"
 
 static void __init msm8916_early_memory(void)
 {

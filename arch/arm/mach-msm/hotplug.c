@@ -14,13 +14,12 @@
 #include <linux/notifier.h>
 #include <linux/msm_rtb.h>
 #include <soc/qcom/spm.h>
+#include <soc/qcom/pm.h>
 
 #include <asm/smp_plat.h>
 #include <asm/vfp.h>
 
 #include <mach/jtag.h>
-
-#include "pm.h"
 
 static cpumask_t cpu_dying_mask;
 

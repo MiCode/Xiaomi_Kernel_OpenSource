@@ -29,6 +29,7 @@
 #include <mach/msm_memtypes.h>
 #include <soc/qcom/smem.h>
 #include <soc/qcom/spm.h>
+#include <soc/qcom/pm.h>
 #include <mach/msm_smd.h>
 #include <mach/restart.h>
 #include <mach/rpm-smd.h>
@@ -43,7 +44,6 @@
 #include "board-dt.h"
 #include "clock.h"
 #include "platsmp.h"
-#include "pm.h"
 
 #define MPQ8092_MAC_FUSE_PHYS     0xfc4bc0e0
 #define MPQ8092_MAC_FUSE_SIZE     0x10

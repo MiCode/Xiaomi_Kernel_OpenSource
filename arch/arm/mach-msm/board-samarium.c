@@ -30,12 +30,12 @@
 #include <soc/qcom/socinfo.h>
 #include <soc/qcom/smem.h>
 #include <soc/qcom/spm.h>
+#include <soc/qcom/pm.h>
 #include <mach/msm_smd.h>
 #include <mach/rpm-smd.h>
 #include "board-dt.h"
 #include "clock.h"
 #include "platsmp.h"
-#include "pm.h"
 
 static struct of_dev_auxdata msmsamarium_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF9824000, \

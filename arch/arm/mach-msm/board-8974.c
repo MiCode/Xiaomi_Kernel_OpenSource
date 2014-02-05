@@ -38,9 +38,9 @@
 #include <soc/qcom/socinfo.h>
 #include <soc/qcom/smem.h>
 #include <soc/qcom/spm.h>
+#include <soc/qcom/pm.h>
 #include "board-dt.h"
 #include "clock.h"
-#include "pm.h"
 #include "platsmp.h"
 
 void __init msm_8974_reserve(void)
