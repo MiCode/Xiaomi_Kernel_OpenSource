@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#include <mach/sensors_adsp.h>
+#include <linux/types.h>
 #include <linux/msm_dsps.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -26,13 +26,13 @@
 #define DRV_NAME	"sensors"
 #define DRV_VERSION	"2.00"
 
-struct sns_adsp_control_s {
+struct sns_ssc_control_s {
 	struct class *dev_class;
 	dev_t dev_num;
 	struct device *dev;
 	struct cdev *cdev;
 };
-static struct sns_adsp_control_s sns_ctl;
+static struct sns_ssc_control_s sns_ctl;
 
 /*
  * Read QTimer clock ticks and scale down to 32KHz clock as used
@@ -56,17 +56,17 @@ static u32 sns_read_qtimer(void)
 	return (u32)val;
 }
 
-static int sensors_adsp_open(struct inode *ip, struct file *fp)
+static int sensors_ssc_open(struct inode *ip, struct file *fp)
 {
 	return 0;
 }
 
-static int sensors_adsp_release(struct inode *inode, struct file *file)
+static int sensors_ssc_release(struct inode *inode, struct file *file)
 {
 	return 0;
 }
 
-static long sensors_adsp_ioctl(struct file *file,
+static long sensors_ssc_ioctl(struct file *file,
 			unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
@@ -86,14 +86,14 @@ static long sensors_adsp_ioctl(struct file *file,
 	return ret;
 }
 
-const struct file_operations sensors_adsp_fops = {
+const struct file_operations sensors_ssc_fops = {
 	.owner = THIS_MODULE,
-	.open = sensors_adsp_open,
-	.release = sensors_adsp_release,
-	.unlocked_ioctl = sensors_adsp_ioctl
+	.open = sensors_ssc_open,
+	.release = sensors_ssc_release,
+	.unlocked_ioctl = sensors_ssc_ioctl
 };
 
-static int sensors_adsp_probe(struct platform_device *pdev)
+static int sensors_ssc_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 
@@ -122,7 +122,7 @@ static int sensors_adsp_probe(struct platform_device *pdev)
 		pr_err("%s: cdev_alloc fail.\n", __func__);
 		goto cdev_alloc_err;
 	}
-	cdev_init(sns_ctl.cdev, &sensors_adsp_fops);
+	cdev_init(sns_ctl.cdev, &sensors_ssc_fops);
 	sns_ctl.cdev->owner = THIS_MODULE;
 
 	ret = cdev_add(sns_ctl.cdev, sns_ctl.dev_num, 1);
@@ -145,7 +145,7 @@ res_err:
 	return -ENODEV;
 }
 
-static int sensors_adsp_remove(struct platform_device *pdev)
+static int sensors_ssc_remove(struct platform_device *pdev)
 {
 	cdev_del(sns_ctl.cdev);
 	kfree(sns_ctl.cdev);
@@ -157,29 +157,29 @@ static int sensors_adsp_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id msm_adsp_sensors_dt_match[] = {
-	{.compatible = "qcom,msm-adsp-sensors"}
+static const struct of_device_id msm_ssc_sensors_dt_match[] = {
+	{.compatible = "qcom,msm-ssc-sensors"}
 };
-MODULE_DEVICE_TABLE(of, msm_adsp_sensors_dt_match);
+MODULE_DEVICE_TABLE(of, msm_ssc_sensors_dt_match);
 
-static struct platform_driver sensors_adsp_driver = {
+static struct platform_driver sensors_ssc_driver = {
 	.driver = {
-		.name = "sensors-adsp",
+		.name = "sensors-ssc",
 		.owner = THIS_MODULE,
-		.of_match_table = msm_adsp_sensors_dt_match,
+		.of_match_table = msm_ssc_sensors_dt_match,
 	},
-	.probe = sensors_adsp_probe,
-	.remove = sensors_adsp_remove,
+	.probe = sensors_ssc_probe,
+	.remove = sensors_ssc_remove,
 };
 
-static int __init sensors_adsp_init(void)
+static int __init sensors_ssc_init(void)
 {
 	int rc;
 
 	pr_debug("%s driver version %s.\n", DRV_NAME, DRV_VERSION);
-	rc = platform_driver_register(&sensors_adsp_driver);
+	rc = platform_driver_register(&sensors_ssc_driver);
 	if (rc) {
-		pr_err("%s: Failed to register sensors adsp driver\n",
+		pr_err("%s: Failed to register sensors ssc driver\n",
 			__func__);
 		return rc;
 	}
@@ -187,12 +187,12 @@ static int __init sensors_adsp_init(void)
 	return 0;
 }
 
-static void __exit sensors_adsp_exit(void)
+static void __exit sensors_ssc_exit(void)
 {
-	platform_driver_unregister(&sensors_adsp_driver);
+	platform_driver_unregister(&sensors_ssc_driver);
 }
 
-module_init(sensors_adsp_init);
-module_exit(sensors_adsp_exit);
+module_init(sensors_ssc_init);
+module_exit(sensors_ssc_exit);
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Sensors ADSP driver");
+MODULE_DESCRIPTION("Sensors SSC driver");
