@@ -1125,6 +1125,54 @@ static int __to_user_pa_v2_cfg_data(
 	return 0;
 }
 
+static int __from_user_dither_cfg_data(
+			struct mdp_dither_cfg_data32 __user *dither_cfg32,
+			struct mdp_dither_cfg_data __user *dither_cfg)
+{
+	if (copy_in_user(&dither_cfg->block,
+			&dither_cfg32->block,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&dither_cfg->flags,
+			&dither_cfg32->flags,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&dither_cfg->g_y_depth,
+			&dither_cfg32->g_y_depth,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&dither_cfg->r_cr_depth,
+			&dither_cfg32->r_cr_depth,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&dither_cfg->b_cb_depth,
+			&dither_cfg32->b_cb_depth,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __to_user_dither_cfg_data(
+			struct mdp_dither_cfg_data32 __user *dither_cfg32,
+			struct mdp_dither_cfg_data __user *dither_cfg)
+{
+	if (copy_in_user(&dither_cfg32->block,
+			&dither_cfg->block,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&dither_cfg32->flags,
+			&dither_cfg->flags,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&dither_cfg32->g_y_depth,
+			&dither_cfg->g_y_depth,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&dither_cfg32->r_cr_depth,
+			&dither_cfg->r_cr_depth,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&dither_cfg32->b_cb_depth,
+			&dither_cfg->b_cb_depth,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
 static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 					struct msmfb_mdp_pp __user **pp,
 					uint32_t op)
@@ -1311,6 +1359,19 @@ static int mdss_compat_pp_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = __to_user_pa_v2_cfg_data(
 			compat_ptr((uintptr_t)&pp32->data.pa_v2_cfg_data),
 			&pp->data.pa_v2_cfg_data);
+		break;
+	case mdp_op_dither_cfg:
+		ret = __from_user_dither_cfg_data(
+			compat_ptr((uintptr_t)&pp32->data.dither_cfg_data),
+			&pp->data.dither_cfg_data);
+		if (ret)
+			goto pp_compat_exit;
+		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) pp);
+		if (ret)
+			goto pp_compat_exit;
+		ret = __to_user_dither_cfg_data(
+			compat_ptr((uintptr_t)&pp32->data.dither_cfg_data),
+			&pp->data.dither_cfg_data);
 		break;
 	default:
 		break;
