@@ -959,7 +959,14 @@ static int __init msm_pm_drv_init(void)
 }
 late_initcall(msm_pm_drv_init);
 
-void __init msm_pm_sleep_status_init(void)
+int __init msm_pm_sleep_status_init(void)
 {
-	platform_driver_register(&msm_cpu_status_driver);
+	static bool registered;
+
+	if (registered)
+		return 0;
+	registered = true;
+
+	return platform_driver_register(&msm_cpu_status_driver);
 }
+arch_initcall(msm_pm_sleep_status_init);

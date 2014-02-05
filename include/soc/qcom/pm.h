@@ -103,14 +103,14 @@ int msm_pm_collapse(unsigned long unused);
 #ifdef CONFIG_MSM_PM
 void msm_pm_set_rpm_wakeup_irq(unsigned int irq);
 int msm_pm_wait_cpu_shutdown(unsigned int cpu);
-void __init msm_pm_sleep_status_init(void);
+int __init msm_pm_sleep_status_init(void);
 void msm_pm_set_l2_flush_flag(enum msm_pm_l2_scm_flag flag);
 void lpm_cpu_hotplug_enter(unsigned int cpu);
 s32 msm_cpuidle_get_deep_idle_latency(void);
 #else
 static inline void msm_pm_set_rpm_wakeup_irq(unsigned int irq) {}
 static inline int msm_pm_wait_cpu_shutdown(unsigned int cpu) { return 0; }
-static inline void msm_pm_sleep_status_init(void) {};
+static inline int msm_pm_sleep_status_init(void) { return 0; };
 static inline void msm_pm_set_l2_flush_flag(unsigned int flag) { }
 static inline void lpm_cpu_hotplug_enter(unsigned int cpu) {};
 static inline s32 msm_cpuidle_get_deep_idle_latency(void) { return 0; }
