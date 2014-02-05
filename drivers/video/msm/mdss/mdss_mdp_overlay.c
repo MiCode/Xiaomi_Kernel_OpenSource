@@ -360,6 +360,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	struct mdp_histogram_start_req hist;
 	int ret;
 	u32 bwc_enabled;
+	bool is_vig_needed = false;
 
 	if (mdp5_data->ctl == NULL)
 		return -ENODEV;
@@ -420,10 +421,16 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		return -ENODEV;
 	}
 
+	if ((mdata->has_non_scalar_rgb) &&
+		((req->src_rect.w != req->dst_rect.w) ||
+			(req->src_rect.h != req->dst_rect.h)))
+		is_vig_needed = true;
+
 	if (req->id == MSMFB_NEW_REQUEST) {
 		if (req->flags & MDP_OV_PIPE_FORCE_DMA)
 			pipe_type = MDSS_MDP_PIPE_TYPE_DMA;
-		else if (fmt->is_yuv || (req->flags & MDP_OV_PIPE_SHARE))
+		else if (fmt->is_yuv || (req->flags & MDP_OV_PIPE_SHARE) ||
+				is_vig_needed)
 			pipe_type = MDSS_MDP_PIPE_TYPE_VIG;
 		else
 			pipe_type = MDSS_MDP_PIPE_TYPE_RGB;
@@ -459,6 +466,12 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		if (IS_ERR_OR_NULL(pipe)) {
 			pr_err("invalid pipe ndx=%x\n", req->id);
 			return pipe ? PTR_ERR(pipe) : -ENODEV;
+		}
+
+		if (is_vig_needed && (pipe->type != MDSS_MDP_PIPE_TYPE_VIG)) {
+			pr_err("pipe is non-scalar ndx=%x\n", req->id);
+			ret = -EINVAL;
+			goto exit_fail;
 		}
 
 		if (pipe->mixer != mixer) {
