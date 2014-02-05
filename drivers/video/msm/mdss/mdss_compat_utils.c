@@ -1552,6 +1552,48 @@ static int __from_user_calib_cfg(
 	return 0;
 }
 
+static int __from_user_calib_config_buffer(
+			struct mdp_calib_config_buffer32 __user *calib_buffer32,
+			struct mdp_calib_config_buffer __user *calib_buffer)
+{
+	uint32_t data;
+
+	if (copy_in_user(&calib_buffer->ops,
+			&calib_buffer32->ops,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&calib_buffer->size,
+			&calib_buffer32->size,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (get_user(data, &calib_buffer32->buffer) ||
+	    put_user(compat_ptr(data), &calib_buffer->buffer))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __to_user_calib_config_buffer(
+			struct mdp_calib_config_buffer32 __user *calib_buffer32,
+			struct mdp_calib_config_buffer __user *calib_buffer)
+{
+	unsigned long data;
+
+	if (copy_in_user(&calib_buffer32->ops,
+			&calib_buffer->ops,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&calib_buffer32->size,
+			&calib_buffer->size,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (get_user(data, &calib_buffer->buffer) ||
+	    put_user((compat_caddr_t) data, &calib_buffer32->buffer))
+		return -EFAULT;
+
+	return 0;
+}
+
 static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 					struct msmfb_mdp_pp __user **pp,
 					uint32_t op)
@@ -1806,6 +1848,19 @@ static int mdss_compat_pp_ioctl(struct fb_info *info, unsigned int cmd,
 		if (ret)
 			goto pp_compat_exit;
 		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) pp);
+		break;
+	case mdp_op_calib_buffer:
+		ret = __from_user_calib_config_buffer(
+			compat_ptr((uintptr_t)&pp32->data.calib_buffer),
+			&pp->data.calib_buffer);
+		if (ret)
+			goto pp_compat_exit;
+		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) pp);
+		if (ret)
+			goto pp_compat_exit;
+		ret = __to_user_calib_config_buffer(
+			compat_ptr((uintptr_t)&pp32->data.calib_buffer),
+			&pp->data.calib_buffer);
 		break;
 	default:
 		break;
