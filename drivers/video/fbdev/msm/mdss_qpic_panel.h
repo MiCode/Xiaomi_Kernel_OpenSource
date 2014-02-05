@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,7 +15,7 @@
 #define MDSS_QPIC_PANEL_H
 
 #include <linux/list.h>
-#include <mach/sps.h>
+#include <linux/msm-sps.h>
 
 #include "mdss_panel.h"
 
