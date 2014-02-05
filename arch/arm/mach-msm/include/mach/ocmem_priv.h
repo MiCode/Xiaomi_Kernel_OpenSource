@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -226,7 +226,6 @@ int process_shrink(int, struct ocmem_handle *, unsigned long);
 int process_dump(int, struct ocmem_handle *, unsigned long);
 int ocmem_rdm_transfer(int, struct ocmem_map_list *,
 				unsigned long, int);
-int ocmem_clear(unsigned long, unsigned long);
 unsigned long process_quota(int);
 int ocmem_memory_off(int, unsigned long, unsigned long);
 int ocmem_memory_on(int, unsigned long, unsigned long);
