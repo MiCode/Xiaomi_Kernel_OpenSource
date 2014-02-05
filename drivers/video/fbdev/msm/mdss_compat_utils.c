@@ -408,6 +408,116 @@ static int __to_user_csc_cfg_data(
 	return 0;
 }
 
+static int __from_user_igc_lut_data(
+		struct mdp_igc_lut_data32 __user *igc_lut32,
+		struct mdp_igc_lut_data __user *igc_lut)
+{
+	uint32_t data;
+
+	if (copy_in_user(&igc_lut->block,
+			&igc_lut32->block,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&igc_lut->len,
+			&igc_lut32->len,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&igc_lut->ops,
+			&igc_lut32->ops,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (get_user(data, &igc_lut32->c0_c1_data) ||
+	    put_user(compat_ptr(data), &igc_lut->c0_c1_data) ||
+	    get_user(data, &igc_lut32->c2_data) ||
+	    put_user(compat_ptr(data), &igc_lut->c2_data))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __to_user_igc_lut_data(
+		struct mdp_igc_lut_data32 __user *igc_lut32,
+		struct mdp_igc_lut_data __user *igc_lut)
+{
+	unsigned long data;
+
+	if (copy_in_user(&igc_lut32->block,
+			&igc_lut->block,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&igc_lut32->len,
+			&igc_lut->len,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&igc_lut32->ops,
+			&igc_lut->ops,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (get_user(data, &igc_lut->c0_c1_data) ||
+	    put_user((compat_caddr_t) data, &igc_lut32->c0_c1_data) ||
+	    get_user(data, &igc_lut->c2_data) ||
+	    put_user((compat_caddr_t) data, &igc_lut32->c2_data))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __from_user_lut_cfg_data(
+			struct mdp_lut_cfg_data32 __user *lut_cfg32,
+			struct mdp_lut_cfg_data __user *lut_cfg)
+{
+	uint32_t lut_type;
+	int ret;
+
+	if (copy_from_user(&lut_type, &lut_cfg32->lut_type,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (copy_in_user(&lut_cfg->lut_type,
+			&lut_cfg32->lut_type,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	switch (lut_type) {
+	case mdp_lut_igc:
+		ret = __from_user_igc_lut_data(
+			compat_ptr((uintptr_t)&lut_cfg32->data.igc_lut_data),
+			&lut_cfg->data.igc_lut_data);
+		break;
+	default:
+		break;
+	}
+
+	return ret;
+}
+
+static int __to_user_lut_cfg_data(
+			struct mdp_lut_cfg_data32 __user *lut_cfg32,
+			struct mdp_lut_cfg_data __user *lut_cfg)
+{
+	uint32_t lut_type;
+	int ret;
+
+	if (copy_from_user(&lut_type, &lut_cfg->lut_type,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (copy_in_user(&lut_cfg32->lut_type,
+			&lut_cfg->lut_type,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	switch (lut_type) {
+	case mdp_lut_igc:
+		ret = __to_user_igc_lut_data(
+			compat_ptr((uintptr_t)&lut_cfg32->data.igc_lut_data),
+			&lut_cfg->data.igc_lut_data);
+		break;
+	default:
+		break;
+	}
+
+	return ret;
+}
+
 static int mdss_compat_pp_ioctl(struct fb_info *info, unsigned int cmd,
 			unsigned long arg)
 {
@@ -455,6 +565,19 @@ static int mdss_compat_pp_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = __to_user_csc_cfg_data(
 			compat_ptr((uintptr_t)&pp32->data.csc_cfg_data),
 			&pp->data.csc_cfg_data);
+		break;
+	case mdp_op_lut_cfg:
+		ret = __from_user_lut_cfg_data(
+			compat_ptr((uintptr_t)&pp32->data.lut_cfg_data),
+			&pp->data.lut_cfg_data);
+		if (ret)
+			goto pp_compat_exit;
+		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) pp);
+		if (ret)
+			goto pp_compat_exit;
+		ret = __to_user_lut_cfg_data(
+			compat_ptr((uintptr_t)&pp32->data.lut_cfg_data),
+			&pp->data.lut_cfg_data);
 		break;
 	default:
 		break;
