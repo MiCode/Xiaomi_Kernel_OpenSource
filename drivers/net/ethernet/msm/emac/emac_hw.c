@@ -15,6 +15,7 @@
 
 #include <linux/crc32.h>
 #include <linux/if_vlan.h>
+#include <linux/jiffies.h>
 #include <linux/phy.h>
 
 #include "emac_hw.h"
@@ -31,6 +32,12 @@
 
 static int emac_hw_sgmii_setup_link(struct emac_hw *hw, u32 speed,
 				    bool autoneg, bool fc);
+
+/* RGMII specific macros */
+#define EMAC_RGMII_PLL_LOCK_TIMEOUT     (HZ / 1000) /* 1ms */
+#define EMAC_RGMII_CORE_IE_C            0x2001
+#define EMAC_RGMII_PLL_L_VAL            0x14
+#define EMAC_RGMII_PHY_MODE             0
 
 /* REG */
 u32 emac_reg_r32(struct emac_hw *hw, u8 base, u32 reg)
@@ -92,7 +99,7 @@ static void emac_enable_mdio_autopoll(struct emac_hw *hw)
 int emac_hw_read_phy_reg(struct emac_hw *hw, bool ext, u8 dev, bool fast,
 			 u16 reg_addr, u16 *phy_data)
 {
-	u32 i, val, clk_sel;
+	u32 i, clk_sel, val = 0;
 	int retval = 0;
 
 	*phy_data = 0;
@@ -151,7 +158,7 @@ int emac_hw_read_phy_reg(struct emac_hw *hw, bool ext, u8 dev, bool fast,
 int emac_hw_write_phy_reg(struct emac_hw *hw, bool ext, u8 dev,
 			  bool fast, u16 reg_addr, u16 phy_data)
 {
-	u32 i, val, clk_sel;
+	u32 i, clk_sel, val = 0;
 	int retval = 0;
 
 	clk_sel = fast ? MDIO_CLK_25_4 : MDIO_CLK_25_28;
@@ -382,12 +389,99 @@ int emac_hw_reset_sgmii(struct emac_hw *hw)
 	return emac_hw_init_sgmii(hw);
 }
 
+/* initialize RGMII PHY */
+static int emac_hw_init_rgmii(struct emac_hw *hw)
+{
+	u32 val;
+	unsigned long timeout;
+
+	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR1, 0, FREQ_MODE);
+	emac_reg_w32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR18,
+		     EMAC_RGMII_CORE_IE_C);
+	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR2,
+			  RGMII_PHY_MODE_BMSK,
+			  (EMAC_RGMII_PHY_MODE << RGMII_PHY_MODE_SHFT));
+	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR2, PHY_RESET, 0);
+	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR3,
+			  PLL_L_VAL_5_0_BMSK,
+			  (EMAC_RGMII_PLL_L_VAL << PLL_L_VAL_5_0_SHFT));
+
+	/* reset PHY PLL and ensure PLL is reset */
+	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR3, 0, PLL_RESET);
+	wmb();
+	udelay(10);
+
+	/* power down analog sections of PLL and ensure the same */
+	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR3, 0, BYPASSNL);
+	wmb();
+	udelay(10);
+
+	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR2, 0, CKEDGE_SEL);
+	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR2,
+			  TX_ID_EN_L, RX_ID_EN_L);
+	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR2,
+			  HDRIVE_BMSK, (0x0 << HDRIVE_SHFT));
+	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR2, WOL_EN, 0);
+
+	/* reset PHY and ensure reset is complete */
+	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR2, 0, PHY_RESET);
+	wmb();
+	udelay(10);
+
+	/* pull PHY out of reset and ensure PHY is normal */
+	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR2, PHY_RESET, 0);
+	wmb();
+	udelay(1000);
+
+	/* pull PHY PLL out of reset and ensure PLL is working */
+	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR3, PLL_RESET, 0);
+	wmb();
+	udelay(10);
+
+	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR5,
+			  0, RMII_125_CLK_EN);
+	wmb();
+
+	/* wait for PLL to lock */
+	timeout = jiffies + EMAC_RGMII_PLL_LOCK_TIMEOUT;
+	do {
+		val = emac_reg_r32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_STATUS);
+		if (val & PLL_LOCK_DET)
+			break;
+		udelay(100);
+	} while (time_after_eq(timeout, jiffies));
+
+	if (time_after(jiffies, timeout)) {
+		emac_err(hw->adpt, "PHY PLL lock failed\n");
+		return -EIO;
+	}
+
+	return 0;
+}
+
+/* initialize phy */
 int emac_hw_init_phy(struct emac_hw *hw)
 {
-	u16 phy_id[2];
-	int retval;
+	int retval = 0;
 
 	spin_lock_init(&hw->mdio_lock);
+
+	hw->autoneg = true;
+	hw->autoneg_advertised = EMAC_LINK_SPEED_DEFAULT;
+
+	if (hw->adpt->phy_mode == PHY_INTERFACE_MODE_SGMII)
+		retval = emac_hw_init_sgmii(hw);
+	else if (hw->adpt->phy_mode == PHY_INTERFACE_MODE_RGMII)
+		retval = emac_hw_init_rgmii(hw);
+
+	return retval;
+}
+
+/* initialize external phy */
+int emac_hw_init_ephy(struct emac_hw *hw)
+{
+	u16 val, phy_id[2];
+	int retval = 0;
 
 	if (hw->adpt->no_ephy == false) {
 		retval = emac_read_phy_reg(hw, hw->phy_addr,
@@ -405,19 +499,24 @@ int emac_hw_init_phy(struct emac_hw *hw)
 		emac_disable_mdio_autopoll(hw);
 	}
 
-	hw->autoneg = true;
-	hw->autoneg_advertised = EMAC_LINK_SPEED_DEFAULT;
+	/* disable hibernation in case of rgmii phy */
+	if (hw->adpt->phy_mode == PHY_INTERFACE_MODE_RGMII) {
+		retval = emac_write_phy_reg(hw, hw->phy_addr,
+					    MII_DBG_ADDR, HIBERNATE_CTRL_REG);
+		if (retval)
+			return retval;
 
-	if (hw->adpt->phy_mode == PHY_INTERFACE_MODE_SGMII)
-		retval = emac_hw_init_sgmii(hw);
+		retval = emac_read_phy_reg(hw, hw->phy_addr,
+					   MII_DBG_DATA, &val);
+		if (retval)
+			return retval;
+
+		val &= ~HIBERNATE_EN;
+		retval = emac_write_phy_reg(hw, hw->phy_addr,
+					    MII_DBG_DATA, val);
+	}
 
 	return retval;
-}
-
-int emac_hw_reset_phy(struct emac_hw *hw)
-{
-	/* reset PHY */
-	return 0;
 }
 
 /* LINK */
