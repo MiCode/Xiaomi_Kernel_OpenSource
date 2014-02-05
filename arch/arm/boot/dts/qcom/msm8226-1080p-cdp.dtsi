@@ -31,6 +31,7 @@
 			synaptics,i2c-pull-up;
 			synaptics,power-down;
 			synaptics,disable-gpios;
+			synaptics,fw-image-name = "PR1469074-s3408bt_001F010D.img";
 		};
 	};
 
