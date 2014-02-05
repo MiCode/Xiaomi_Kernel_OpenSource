@@ -268,8 +268,7 @@ static int ib_parse_load_state(struct kgsl_device *device, unsigned int *pkt,
 		/* Freeze the GPU buffer containing the shader */
 
 		ret = adreno_ib_add_range(device, ptbase, pkt[2] & 0xFFFFFFFC,
-				(((pkt[1] >> 22) & 0x03FF) * unitsize) << 2,
-				SNAPSHOT_GPU_OBJECT_SHADER,
+				0, SNAPSHOT_GPU_OBJECT_SHADER,
 				ib_obj_list);
 		if (ret < 0)
 			return ret;
@@ -300,7 +299,7 @@ static int ib_parse_set_bin_data(struct kgsl_device *device, unsigned int *pkt,
 		return ret;
 
 	/* visiblity stream size buffer (fixed size 8 dwords) */
-	ret = adreno_ib_add_range(device, ptbase, pkt[2], 32,
+	ret = adreno_ib_add_range(device, ptbase, pkt[2], 0,
 		SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
 
 	return ret;
@@ -364,8 +363,7 @@ static int ib_add_type0_entries(struct kgsl_device *device,
 		if (ib_parse_vars->cp_addr_regs[i]) {
 			ret = adreno_ib_add_range(device, ptbase,
 				ib_parse_vars->cp_addr_regs[i] & mask,
-				ib_parse_vars->cp_addr_regs[i + 1],
-				SNAPSHOT_GPU_OBJECT_GENERIC,
+				0, SNAPSHOT_GPU_OBJECT_GENERIC,
 				ib_obj_list);
 			if (ret < 0)
 				return ret;
@@ -395,7 +393,7 @@ static int ib_add_type0_entries(struct kgsl_device *device,
 		ret = adreno_ib_add_range(device, ptbase,
 			ib_parse_vars->cp_addr_regs[
 				ADRENO_CP_ADDR_VSC_SIZE_ADDRESS] & mask,
-			32, SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
+			0, SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
 		if (ret < 0)
 			return ret;
 		ib_parse_vars->cp_addr_regs[
@@ -432,14 +430,14 @@ static int ib_parse_draw_indx(struct kgsl_device *device, unsigned int *pkt,
 	case CP_DRAW_INDX:
 		if (type3_pkt_size(pkt[0]) > 3) {
 			ret = adreno_ib_add_range(device, ptbase,
-				pkt[4], pkt[5],
+				pkt[4], 0,
 				SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
 		}
 		break;
 	case CP_DRAW_INDX_OFFSET:
 		if (type3_pkt_size(pkt[0]) == 6) {
 			ret = adreno_ib_add_range(device, ptbase,
-				pkt[5], pkt[6],
+				pkt[5], 0,
 				SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
 		}
 		break;
@@ -453,7 +451,7 @@ static int ib_parse_draw_indx(struct kgsl_device *device, unsigned int *pkt,
 	case CP_DRAW_INDX_INDIRECT:
 		if (type3_pkt_size(pkt[0]) == 4) {
 			ret = adreno_ib_add_range(device, ptbase,
-				pkt[2], pkt[3],
+				pkt[2], 0,
 				SNAPSHOT_GPU_OBJECT_GENERIC, ib_obj_list);
 			if (ret)
 				break;
@@ -628,8 +626,6 @@ static void ib_parse_type0(struct kgsl_device *device, unsigned int *ptr,
 					ib_obj_list);
 		}
 	}
-	ib_add_type0_entries(device, ptbase, ib_obj_list,
-				ib_parse_vars);
 }
 
 static int ib_parse_set_draw_state(struct kgsl_device *device,
@@ -796,15 +792,7 @@ static int adreno_ib_find_objs(struct kgsl_device *device,
 		i += pktsize;
 		rem -= pktsize;
 	}
-	/*
-	 * If any type objects got missed because we did not come across draw
-	 * indx packets then catch them here. This works better for the replay
-	 * tool and also if the draw indx packet is in an IB2 and these setups
-	 * are in IB1 then these objects are definitely valid and should be
-	 * dumped
-	 */
-	ret = ib_add_type0_entries(device, ptbase, ib_obj_list,
-				&ib_parse_vars);
+
 done:
 	kgsl_memdesc_unmap(&entry->memdesc);
 	kgsl_mem_entry_put(entry);
