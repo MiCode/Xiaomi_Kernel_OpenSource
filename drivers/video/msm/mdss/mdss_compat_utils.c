@@ -1297,6 +1297,156 @@ static int __to_user_calib_config_data(
 	return 0;
 }
 
+static int __from_user_ad_init(
+			struct mdss_ad_init32 __user *ad_init32,
+			struct mdss_ad_init __user *ad_init)
+{
+	uint32_t data;
+
+	if (copy_in_user(&ad_init->asym_lut[0],
+			&ad_init32->asym_lut[0],
+			33 * sizeof(uint32_t)) ||
+	    copy_in_user(&ad_init->color_corr_lut[0],
+			&ad_init32->color_corr_lut[0],
+			33 * sizeof(uint32_t)) ||
+	    copy_in_user(&ad_init->i_control[0],
+			&ad_init32->i_control[0],
+			2 * sizeof(uint8_t)) ||
+	    copy_in_user(&ad_init->black_lvl,
+			&ad_init32->black_lvl,
+			sizeof(uint16_t)) ||
+	    copy_in_user(&ad_init->white_lvl,
+			&ad_init32->white_lvl,
+			sizeof(uint16_t)) ||
+	    copy_in_user(&ad_init->var,
+			&ad_init32->var,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&ad_init->limit_ampl,
+			&ad_init32->limit_ampl,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&ad_init->i_dither,
+			&ad_init32->i_dither,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&ad_init->slope_max,
+			&ad_init32->slope_max,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&ad_init->slope_min,
+			&ad_init32->slope_min,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&ad_init->dither_ctl,
+			&ad_init32->dither_ctl,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&ad_init->format,
+			&ad_init32->format,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&ad_init->auto_size,
+			&ad_init32->auto_size,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&ad_init->frame_w,
+			&ad_init32->frame_w,
+			sizeof(uint16_t)) ||
+	    copy_in_user(&ad_init->frame_h,
+			&ad_init32->frame_h,
+			sizeof(uint16_t)) ||
+	    copy_in_user(&ad_init->logo_v,
+			&ad_init32->logo_v,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&ad_init->logo_h,
+			&ad_init32->logo_h,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&ad_init->bl_lin_len,
+			&ad_init32->bl_lin_len,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+
+	if (get_user(data, &ad_init32->bl_lin) ||
+	    put_user(compat_ptr(data), &ad_init->bl_lin) ||
+	    get_user(data, &ad_init32->bl_lin_inv) ||
+	    put_user(compat_ptr(data), &ad_init->bl_lin_inv))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __from_user_ad_cfg(
+			struct mdss_ad_cfg32 __user *ad_cfg32,
+			struct mdss_ad_cfg __user *ad_cfg)
+{
+	if (copy_in_user(&ad_cfg->mode,
+			&ad_cfg32->mode,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&ad_cfg->al_calib_lut[0],
+			&ad_cfg32->al_calib_lut[0],
+			33 * sizeof(uint32_t)) ||
+	    copy_in_user(&ad_cfg->backlight_min,
+			&ad_cfg32->backlight_min,
+			sizeof(uint16_t)) ||
+	    copy_in_user(&ad_cfg->backlight_max,
+			&ad_cfg32->backlight_max,
+			sizeof(uint16_t)) ||
+	    copy_in_user(&ad_cfg->backlight_scale,
+			&ad_cfg32->backlight_scale,
+			sizeof(uint16_t)) ||
+	    copy_in_user(&ad_cfg->amb_light_min,
+			&ad_cfg32->amb_light_min,
+			sizeof(uint16_t)) ||
+	    copy_in_user(&ad_cfg->filter[0],
+			&ad_cfg32->filter[0],
+			2 * sizeof(uint16_t)) ||
+	    copy_in_user(&ad_cfg->calib[0],
+			&ad_cfg32->calib[0],
+			4 * sizeof(uint16_t)) ||
+	    copy_in_user(&ad_cfg->strength_limit,
+			&ad_cfg32->strength_limit,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&ad_cfg->t_filter_recursion,
+			&ad_cfg32->t_filter_recursion,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&ad_cfg->stab_itr,
+			&ad_cfg32->stab_itr,
+			sizeof(uint16_t)) ||
+	    copy_in_user(&ad_cfg->bl_ctrl_mode,
+			&ad_cfg32->bl_ctrl_mode,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __from_user_ad_init_cfg(
+			struct mdss_ad_init_cfg32 __user *ad_info32,
+			struct mdss_ad_init_cfg __user *ad_info)
+{
+	uint32_t op;
+
+	if (copy_from_user(&op, &ad_info32->ops,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (copy_in_user(&ad_info->ops,
+			&ad_info32->ops,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (op & MDP_PP_AD_INIT) {
+		if (__from_user_ad_init(
+				compat_ptr((uintptr_t)&ad_info32->params.init),
+				&ad_info->params.init))
+			return -EFAULT;
+	} else if (op & MDP_PP_AD_CFG) {
+		if (__from_user_ad_cfg(
+				compat_ptr((uintptr_t)&ad_info32->params.cfg),
+				&ad_info->params.cfg))
+			return -EFAULT;
+	} else {
+		pr_err("Invalid AD init/config operation\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 					struct msmfb_mdp_pp __user **pp,
 					uint32_t op)
@@ -1522,6 +1672,14 @@ static int mdss_compat_pp_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = __to_user_calib_config_data(
 			compat_ptr((uintptr_t)&pp32->data.calib_cfg),
 			&pp->data.calib_cfg);
+		break;
+	case mdp_op_ad_cfg:
+		ret = __from_user_ad_init_cfg(
+			compat_ptr((uintptr_t)&pp32->data.ad_init_cfg),
+			&pp->data.ad_init_cfg);
+		if (ret)
+			goto pp_compat_exit;
+		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) pp);
 		break;
 	default:
 		break;
