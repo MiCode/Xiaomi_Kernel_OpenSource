@@ -74,6 +74,9 @@ struct mdp3_bus_handle_map {
 	struct msm_bus_paths *usecases;
 	struct msm_bus_scale_pdata *scale_pdata;
 	int current_bus_idx;
+	int ref_cnt;
+	u64 restore_ab;
+	u64 restore_ib;
 	u32 handle;
 };
 
@@ -134,6 +137,7 @@ struct mdp3_hw_resource {
 	struct ion_client *ion_client;
 	struct mdp3_iommu_domain_map *domains;
 	struct mdp3_iommu_ctx_map *iommu_contexts;
+	bool allow_iommu_update;
 	struct ion_handle *ion_handle;
 	struct mutex iommu_lock;
 	struct rb_root iommu_root;
@@ -144,6 +148,7 @@ struct mdp3_hw_resource {
 	spinlock_t irq_lock;
 	u32 irq_ref_count[MDP3_MAX_INTR];
 	u32 irq_mask;
+	int irq_ref_cnt;
 	struct mdp3_intr_cb callbacks[MDP3_MAX_INTR];
 	u32 underrun_cnt;
 
@@ -183,8 +188,7 @@ void mdp3_irq_register(void);
 void mdp3_irq_deregister(void);
 int mdp3_clk_set_rate(int clk_type, unsigned long clk_rate, int client);
 int mdp3_clk_enable(int enable, int dsi_clk);
-int mdp3_clk_prepare(void);
-void mdp3_clk_unprepare(void);
+int mdp3_res_update(int enable, int dsi_clk, int client);
 int mdp3_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota);
 int mdp3_put_img(struct mdp3_img_data *data, int client);
 int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data,
