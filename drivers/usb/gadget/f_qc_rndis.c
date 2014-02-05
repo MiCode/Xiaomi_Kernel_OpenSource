@@ -86,6 +86,7 @@ struct f_rndis_qc {
 	u8				ethaddr[ETH_ALEN];
 	u32				vendorID;
 	u8				max_pkt_per_xfer;
+	u8				pkt_alignment_factor;
 	u32				max_pkt_size;
 	const char			*manufacturer;
 	int				config;
@@ -133,6 +134,8 @@ static unsigned int rndis_qc_bitrate(struct usb_gadget *g)
 /* default max packets per tarnsfer value */
 #define DEFAULT_MAX_PKT_PER_XFER			15
 
+/* default pkt alignment factor */
+#define DEFAULT_PKT_ALIGNMENT_FACTOR			2
 
 #define RNDIS_QC_IOCTL_MAGIC		'i'
 #define RNDIS_QC_GET_MAX_PKT_PER_XFER   _IOR(RNDIS_QC_IOCTL_MAGIC, 1, u8)
@@ -969,12 +972,17 @@ rndis_qc_bind(struct usb_configuration *c, struct usb_function *f)
 			rndis->manufacturer))
 		goto fail;
 
+	pr_debug("%s(): max_pkt_per_xfer:%d\n", __func__,
+				rndis->max_pkt_per_xfer);
 	rndis_set_max_pkt_xfer(rndis->config, rndis->max_pkt_per_xfer);
 
 	/* In case of aggregated packets QC device will request
 	 * aliment to 4 (2^2).
 	 */
-	rndis_set_pkt_alignment_factor(rndis->config, 2);
+	pr_debug("%s(): pkt_alignment_factor:%d\n", __func__,
+				rndis->pkt_alignment_factor);
+	rndis_set_pkt_alignment_factor(rndis->config,
+				rndis->pkt_alignment_factor);
 
 	/* NOTE:  all that is done without knowing or caring about
 	 * the network link ... which is unavailable to this code
@@ -1066,13 +1074,15 @@ static inline bool can_support_rndis_qc(struct usb_configuration *c)
 int
 rndis_qc_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN])
 {
-	return rndis_qc_bind_config_vendor(c, ethaddr, 0, NULL, 1, NULL);
+	return rndis_qc_bind_config_vendor(c, ethaddr, 0, NULL, 1, 0, NULL);
 }
 
 int
 rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
-					 u32 vendorID, const char *manufacturer,
-					 u8 max_pkt_per_xfer, char *xport_name)
+					u32 vendorID, const char *manufacturer,
+					u8 max_pkt_per_xfer,
+					u8 pkt_alignment_factor,
+					char *xport_name)
 {
 	struct f_rndis_qc	*rndis;
 	int		status;
@@ -1147,8 +1157,26 @@ rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 
 	/* if max_pkt_per_xfer was not configured set to default value */
 	rndis->max_pkt_per_xfer =
-		max_pkt_per_xfer ? max_pkt_per_xfer : DEFAULT_MAX_PKT_PER_XFER;
+			max_pkt_per_xfer ? max_pkt_per_xfer :
+			DEFAULT_MAX_PKT_PER_XFER;
 	u_bam_data_set_max_pkt_num(rndis->max_pkt_per_xfer);
+
+	/*
+	 * Check no RNDIS aggregation, and alignment if not mentioned,
+	 * use alignment factor as zero. If aggregated RNDIS data transfer,
+	 * max packet per transfer would be default if it is not set
+	 * explicitly, and same way use alignment factor as 2 by default.
+	 * This would eliminate need of writing to sysfs if default RNDIS
+	 * aggregation setting required. Writing to both sysfs entries,
+	 * those values will always override default values.
+	 */
+	if ((rndis->pkt_alignment_factor == 0) &&
+			(rndis->max_pkt_per_xfer == 1))
+		rndis->pkt_alignment_factor = 0;
+	else
+		rndis->pkt_alignment_factor = pkt_alignment_factor ?
+				pkt_alignment_factor :
+				DEFAULT_PKT_ALIGNMENT_FACTOR;
 
 	/* RNDIS activates when the host changes this filter */
 	rndis->port.cdc_filter = 0;

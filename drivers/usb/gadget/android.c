@@ -1667,6 +1667,7 @@ struct rndis_function_config {
 	u8      ethaddr[ETH_ALEN];
 	u32     vendorID;
 	u8      max_pkt_per_xfer;
+	u8	pkt_alignment_factor;
 	char	manufacturer[256];
 	/* "Wireless" RNDIS; auto-detected by Windows */
 	bool	wceis;
@@ -1791,8 +1792,8 @@ static int rndis_qc_function_bind_config(struct android_usb_function *f,
 	}
 
 	return rndis_qc_bind_config_vendor(c, rndis->ethaddr, rndis->vendorID,
-				    rndis->manufacturer,
-					rndis->max_pkt_per_xfer, trans);
+			rndis->manufacturer, rndis->max_pkt_per_xfer,
+			rndis->pkt_alignment_factor, trans);
 }
 
 static void rndis_function_unbind_config(struct android_usb_function *f,
@@ -1973,6 +1974,34 @@ static ssize_t rndis_rx_trigger_store(struct device *dev,
 static DEVICE_ATTR(rx_trigger, S_IWUSR, NULL,
 					     rndis_rx_trigger_store);
 
+static ssize_t rndis_pkt_alignment_factor_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct android_usb_function *f = dev_get_drvdata(dev);
+	struct rndis_function_config *config = f->config;
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", config->pkt_alignment_factor);
+}
+
+static ssize_t rndis_pkt_alignment_factor_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct android_usb_function *f = dev_get_drvdata(dev);
+	struct rndis_function_config *config = f->config;
+	int value;
+
+	if (sscanf(buf, "%d", &value) == 1) {
+		config->pkt_alignment_factor = value;
+		return size;
+	}
+
+	return -EINVAL;
+}
+
+static DEVICE_ATTR(pkt_alignment_factor, S_IRUGO | S_IWUSR,
+					rndis_pkt_alignment_factor_show,
+					rndis_pkt_alignment_factor_store);
+
 static struct device_attribute *rndis_function_attributes[] = {
 	&dev_attr_manufacturer,
 	&dev_attr_wceis,
@@ -1981,6 +2010,7 @@ static struct device_attribute *rndis_function_attributes[] = {
 	&dev_attr_max_pkt_per_xfer,
 	&dev_attr_rndis_transports,
 	&dev_attr_rx_trigger,
+	&dev_attr_pkt_alignment_factor,
 	NULL
 };
 

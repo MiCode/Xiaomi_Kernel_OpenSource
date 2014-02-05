@@ -1143,7 +1143,8 @@ static int rndis_proc_show(struct seq_file *m, void *v)
 			 "vendor ID : 0x%08X\n"
 			 "vendor    : %s\n"
 			 "ul-max-xfer-size:%d max-xfer-size-rcvd: %d\n"
-			 "ul-max-pkts-per-xfer:%d max-pkts-per-xfer-rcvd:%d\n",
+			 "ul-max-pkts-per-xfer:%d max-pkts-per-xfer-rcvd:%d\n"
+			"pkt_alignment_factor:%d\n",
 			 param->confignr, (param->used) ? "y" : "n",
 			 ({ char *s = "?";
 			 switch (param->state) {
@@ -1163,7 +1164,8 @@ static int rndis_proc_show(struct seq_file *m, void *v)
 				  sizeof(struct rndis_packet_msg_type) + 22),
 			 rndis_ul_max_xfer_size_rcvd,
 			 param->max_pkt_per_xfer,
-			 rndis_ul_max_pkt_per_xfer_rcvd);
+			 rndis_ul_max_pkt_per_xfer_rcvd,
+			param->pkt_alignment_factor);
 	return 0;
 }
 
@@ -1262,6 +1264,7 @@ int rndis_init(void)
 		rndis_per_dev_params[i].confignr = i;
 		rndis_per_dev_params[i].used = 0;
 		rndis_per_dev_params[i].state = RNDIS_UNINITIALIZED;
+		rndis_per_dev_params[i].pkt_alignment_factor = 0;
 		rndis_per_dev_params[i].media_state
 				= RNDIS_MEDIA_STATE_DISCONNECTED;
 		INIT_LIST_HEAD(&(rndis_per_dev_params[i].resp_queue));
