@@ -26,6 +26,7 @@
 #include "dsi_io_v2.h"
 #include "dsi_host_v2.h"
 #include "mdss_debug.h"
+#include "mdp3.h"
 
 #define DSI_POLL_SLEEP_US 1000
 #define DSI_POLL_TIMEOUT_US 16000
@@ -959,7 +960,13 @@ int msm_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 		mutex_unlock(&ctrl->cmd_mutex);
 		return ret;
 	}
-
+	/*
+	 * mdss interrupt is generated in mdp core clock domain
+	 * mdp clock need to be enabled to receive dsi interrupt
+	 * also, axi bus bandwidth need since dsi controller will
+	 * fetch dcs commands from axi bus
+	 */
+	mdp3_res_update(1, 1, MDP3_CLIENT_DMA_P);
 	msm_dsi_clk_ctrl(&ctrl->panel_data, 1);
 
 	if (0 == (req->flags & CMD_REQ_LP_MODE))
@@ -974,6 +981,7 @@ int msm_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 		dsi_set_tx_power_mode(1);
 
 	msm_dsi_clk_ctrl(&ctrl->panel_data, 0);
+	mdp3_res_update(0, 1, MDP3_CLIENT_DMA_P);
 
 	mutex_unlock(&ctrl->cmd_mutex);
 	return 0;
@@ -1412,13 +1420,16 @@ static int msm_dsi_clk_ctrl(struct mdss_panel_data *pdata, int enable)
 						&byteclk_rate, &pclk_rate);
 			msm_dsi_clk_set_rate(DSI_ESC_CLK_RATE, dsiclk_rate,
 						byteclk_rate, pclk_rate);
+			msm_dsi_prepare_clocks();
 			msm_dsi_clk_enable();
 		}
 	} else {
 		dsi_host_private->clk_count--;
 		if (dsi_host_private->clk_count == 0) {
+			msm_dsi_clear_irq(ctrl_pdata, ctrl_pdata->dsi_irq_mask);
 			msm_dsi_clk_set_rate(DSI_ESC_CLK_RATE, 0, 0, 0);
 			msm_dsi_clk_disable();
+			msm_dsi_unprepare_clocks();
 			msm_dsi_ahb_ctrl(0);
 		}
 	}
