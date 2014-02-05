@@ -54,6 +54,8 @@ Required properties:
 				 3 : pre-div ratio of {1, 6}
 				 4 : pre-div ratio of {1, 20}
 				 5 : pre-div ratio of {1, 8}
+				 6 : pre-div ratio of {10, 81}
+				 7 : pre-div ratio of {1, 10}
 - qcom,calibration-type : Reference voltage to use for channel calibration.
 			  Channel calibration is dependendent on the channel.
 			  Certain channels like XO_THERM, BATT_THERM use ratiometric

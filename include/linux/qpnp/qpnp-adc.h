@@ -192,6 +192,8 @@ enum qpnp_adc_calib_type {
  * %CHAN_PATH_SCALING3: ratio of {1, 6}
  * %CHAN_PATH_SCALING4: ratio of {1, 20}
  * %CHAN_PATH_SCALING5: ratio of {1, 8}
+ * %CHAN_PATH_SCALING6: ratio of {10, 81} The actual ratio is (1/8.1).
+ * %CHAN_PATH_SCALING7: ratio of {1, 10}
  * %CHAN_PATH_NONE: Do not use this pre-scaling ratio type.
  *
  * The pre-scaling is applied for signals to be within the voltage range
@@ -204,6 +206,8 @@ enum qpnp_adc_channel_scaling_param {
 	PATH_SCALING3,
 	PATH_SCALING4,
 	PATH_SCALING5,
+	PATH_SCALING6,
+	PATH_SCALING7,
 	PATH_SCALING_NONE,
 };
 
@@ -903,7 +907,9 @@ static const struct qpnp_vadc_scaling_ratio qpnp_vadc_amux_scaling_ratio[] = {
 	{1, 4},
 	{1, 6},
 	{1, 20},
-	{1, 8}
+	{1, 8},
+	{10, 81},
+	{1, 10}
 };
 
 /**
