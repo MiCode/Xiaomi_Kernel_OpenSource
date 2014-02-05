@@ -1173,6 +1173,94 @@ static int __to_user_dither_cfg_data(
 	return 0;
 }
 
+static int __from_user_gamut_cfg_data(
+			struct mdp_gamut_cfg_data32 __user *gamut_cfg32,
+			struct mdp_gamut_cfg_data __user *gamut_cfg)
+{
+	uint32_t data;
+	int i;
+
+	if (copy_in_user(&gamut_cfg->block,
+			&gamut_cfg32->block,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&gamut_cfg->flags,
+			&gamut_cfg32->flags,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&gamut_cfg->gamut_first,
+			&gamut_cfg32->gamut_first,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&gamut_cfg->tbl_size[0],
+			&gamut_cfg32->tbl_size[0],
+			MDP_GAMUT_TABLE_NUM * sizeof(uint32_t)))
+		return 0;
+
+	/* The Gamut LUT data contains 3 static arrays for R, G, and B
+	 * gamut data. Each these arrays contains pointers dynamic arrays
+	 * which hold the gamut LUTs for R, G, and B. Must copy the array of
+	 * pointers from 32 bit to 64 bit addresses. */
+	for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+		if (get_user(data, &gamut_cfg32->r_tbl[i]) ||
+		    put_user(compat_ptr(data), &gamut_cfg->r_tbl[i]))
+			return -EFAULT;
+	}
+
+	for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+		if (get_user(data, &gamut_cfg32->g_tbl[i]) ||
+		    put_user(compat_ptr(data), &gamut_cfg->g_tbl[i]))
+			return -EFAULT;
+	}
+
+	for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+		if (get_user(data, &gamut_cfg32->b_tbl[i]) ||
+		    put_user(compat_ptr(data), &gamut_cfg->b_tbl[i]))
+			return -EFAULT;
+	}
+
+	return 0;
+}
+
+static int __to_user_gamut_cfg_data(
+			struct mdp_gamut_cfg_data32 __user *gamut_cfg32,
+			struct mdp_gamut_cfg_data __user *gamut_cfg)
+{
+	unsigned long data;
+	int i;
+
+	if (copy_in_user(&gamut_cfg32->block,
+			&gamut_cfg->block,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&gamut_cfg32->flags,
+			&gamut_cfg->flags,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&gamut_cfg32->gamut_first,
+			&gamut_cfg->gamut_first,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&gamut_cfg32->tbl_size[0],
+			&gamut_cfg->tbl_size[0],
+			MDP_GAMUT_TABLE_NUM * sizeof(uint32_t)))
+		return 0;
+
+	for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+		if (get_user(data, &gamut_cfg->r_tbl[i]) ||
+		    put_user((compat_caddr_t)data, &gamut_cfg32->r_tbl[i]))
+			return -EFAULT;
+	}
+
+	for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+		if (get_user(data, &gamut_cfg->g_tbl[i]) ||
+		    put_user((compat_caddr_t)data, &gamut_cfg32->g_tbl[i]))
+			return -EFAULT;
+	}
+
+	for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+		if (get_user(data, &gamut_cfg->b_tbl[i]) ||
+		    put_user((compat_caddr_t)data, &gamut_cfg32->g_tbl[i]))
+			return -EFAULT;
+	}
+
+	return 0;
+}
+
 static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 					struct msmfb_mdp_pp __user **pp,
 					uint32_t op)
@@ -1372,6 +1460,19 @@ static int mdss_compat_pp_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = __to_user_dither_cfg_data(
 			compat_ptr((uintptr_t)&pp32->data.dither_cfg_data),
 			&pp->data.dither_cfg_data);
+		break;
+	case mdp_op_gamut_cfg:
+		ret = __from_user_gamut_cfg_data(
+			compat_ptr((uintptr_t)&pp32->data.gamut_cfg_data),
+			&pp->data.gamut_cfg_data);
+		if (ret)
+			goto pp_compat_exit;
+		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) pp);
+		if (ret)
+			goto pp_compat_exit;
+		ret = __to_user_gamut_cfg_data(
+			compat_ptr((uintptr_t)&pp32->data.gamut_cfg_data),
+			&pp->data.gamut_cfg_data);
 		break;
 	default:
 		break;
