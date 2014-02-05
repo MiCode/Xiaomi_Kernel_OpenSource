@@ -321,6 +321,93 @@ static int __to_user_pcc_cfg_data(
 	return 0;
 }
 
+static int __from_user_csc_cfg(
+			struct mdp_csc_cfg32 __user *csc_data32,
+			struct mdp_csc_cfg __user *csc_data)
+{
+	if (copy_in_user(&csc_data->flags,
+			&csc_data32->flags,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&csc_data->csc_mv[0],
+			&csc_data32->csc_mv[0],
+			9 * sizeof(uint32_t)) ||
+	    copy_in_user(&csc_data->csc_pre_bv[0],
+			&csc_data32->csc_pre_bv[0],
+			3 * sizeof(uint32_t)) ||
+	    copy_in_user(&csc_data->csc_post_bv[0],
+			&csc_data32->csc_post_bv[0],
+			3 * sizeof(uint32_t)) ||
+	    copy_in_user(&csc_data->csc_pre_lv[0],
+			&csc_data32->csc_pre_lv[0],
+			6 * sizeof(uint32_t)) ||
+	    copy_in_user(&csc_data->csc_post_lv[0],
+			&csc_data32->csc_post_lv[0],
+			6 * sizeof(uint32_t)))
+		return -EFAULT;
+
+	return 0;
+}
+static int __to_user_csc_cfg(
+			struct mdp_csc_cfg32 __user *csc_data32,
+			struct mdp_csc_cfg __user *csc_data)
+{
+	if (copy_in_user(&csc_data32->flags,
+			&csc_data->flags,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&csc_data32->csc_mv[0],
+			&csc_data->csc_mv[0],
+			9 * sizeof(uint32_t)) ||
+	    copy_in_user(&csc_data32->csc_pre_bv[0],
+			&csc_data->csc_pre_bv[0],
+			3 * sizeof(uint32_t)) ||
+	    copy_in_user(&csc_data32->csc_post_bv[0],
+			&csc_data->csc_post_bv[0],
+			3 * sizeof(uint32_t)) ||
+	    copy_in_user(&csc_data32->csc_pre_lv[0],
+			&csc_data->csc_pre_lv[0],
+			6 * sizeof(uint32_t)) ||
+	    copy_in_user(&csc_data32->csc_post_lv[0],
+			&csc_data->csc_post_lv[0],
+			6 * sizeof(uint32_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __from_user_csc_cfg_data(
+			struct mdp_csc_cfg_data32 __user *csc_cfg32,
+			struct mdp_csc_cfg_data __user *csc_cfg)
+{
+	if (copy_in_user(&csc_cfg->block,
+			&csc_cfg32->block,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (__from_user_csc_cfg(
+			compat_ptr((uintptr_t)&csc_cfg32->csc_data),
+			&csc_cfg->csc_data))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __to_user_csc_cfg_data(
+			struct mdp_csc_cfg_data32 __user *csc_cfg32,
+			struct mdp_csc_cfg_data __user *csc_cfg)
+{
+	if (copy_in_user(&csc_cfg32->block,
+			&csc_cfg->block,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (__to_user_csc_cfg(
+			compat_ptr((uintptr_t)&csc_cfg32->csc_data),
+			&csc_cfg->csc_data))
+		return -EFAULT;
+
+	return 0;
+}
+
 static int mdss_compat_pp_ioctl(struct fb_info *info, unsigned int cmd,
 			unsigned long arg)
 {
@@ -355,6 +442,19 @@ static int mdss_compat_pp_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = __to_user_pcc_cfg_data(
 			compat_ptr((uintptr_t)&pp32->data.pcc_cfg_data),
 			&pp->data.pcc_cfg_data);
+		break;
+	case mdp_op_csc_cfg:
+		ret = __from_user_csc_cfg_data(
+			compat_ptr((uintptr_t)&pp32->data.csc_cfg_data),
+			&pp->data.csc_cfg_data);
+		if (ret)
+			goto pp_compat_exit;
+		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) pp);
+		if (ret)
+			goto pp_compat_exit;
+		ret = __to_user_csc_cfg_data(
+			compat_ptr((uintptr_t)&pp32->data.csc_cfg_data),
+			&pp->data.csc_cfg_data);
 		break;
 	default:
 		break;
