@@ -275,6 +275,9 @@ Optional properties:
 - qcom,cpr-init-voltage-step:	The voltage step size in microvolts of the CPR initial voltage fuses described by the
 				qcom,cpr-fuse-init-voltage property.
 				This property is required if qcom,cpr-fuse-init-voltage is present.
+- mem-acc-supply:		Regulator to vote for the memory accelerator configuration.
+				Not Present: memory accelerator configuration not supported.
+
 Example:
 	apc_vreg_corner: regulator@f9018000 {
 		status = "okay";
