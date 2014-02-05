@@ -1616,7 +1616,7 @@ static void mdss_mdp_parse_dt_pipe_sw_reset(struct platform_device *pdev,
 
 		len /= sizeof(u32);
 		if (len != npipes) {
-			pr_err("%s: invalid sw_reset entries req:%d found:%d\n",
+			pr_err("%s: invalid sw_reset entries req:%zu found:%d\n",
 				prop_name, len, npipes);
 			return;
 		}
