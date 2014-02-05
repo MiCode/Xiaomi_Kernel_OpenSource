@@ -768,6 +768,88 @@ static int __to_user_lut_cfg_data(
 	return ret;
 }
 
+static int __from_user_qseed_cfg(
+			struct mdp_qseed_cfg32 __user *qseed_data32,
+			struct mdp_qseed_cfg __user *qseed_data)
+{
+	uint32_t data;
+
+	if (copy_in_user(&qseed_data->table_num,
+			&qseed_data32->table_num,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&qseed_data->ops,
+			&qseed_data32->ops,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&qseed_data->len,
+			&qseed_data32->len,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (get_user(data, &qseed_data32->data) ||
+	    put_user(compat_ptr(data), &qseed_data->data))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __to_user_qseed_cfg(
+			struct mdp_qseed_cfg32 __user *qseed_data32,
+			struct mdp_qseed_cfg __user *qseed_data)
+{
+	unsigned long data;
+
+	if (copy_in_user(&qseed_data32->table_num,
+			&qseed_data->table_num,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&qseed_data32->ops,
+			&qseed_data->ops,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&qseed_data32->len,
+			&qseed_data->len,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (get_user(data, &qseed_data->data) ||
+	    put_user((compat_caddr_t) data, &qseed_data32->data))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __from_user_qseed_cfg_data(
+			struct mdp_qseed_cfg_data32 __user *qseed_cfg32,
+			struct mdp_qseed_cfg_data __user *qseed_cfg)
+{
+	if (copy_in_user(&qseed_cfg->block,
+			&qseed_cfg32->block,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (__from_user_qseed_cfg(
+			compat_ptr((uintptr_t)&qseed_cfg32->qseed_data),
+			&qseed_cfg->qseed_data))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __to_user_qseed_cfg_data(
+			struct mdp_qseed_cfg_data32 __user *qseed_cfg32,
+			struct mdp_qseed_cfg_data __user *qseed_cfg)
+{
+	if (copy_in_user(&qseed_cfg32->block,
+			&qseed_cfg->block,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (__to_user_qseed_cfg(
+			compat_ptr((uintptr_t)&qseed_cfg32->qseed_data),
+			&qseed_cfg->qseed_data))
+		return -EFAULT;
+
+	return 0;
+}
+
 static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 					struct msmfb_mdp_pp __user **pp,
 					uint32_t op)
@@ -907,6 +989,19 @@ static int mdss_compat_pp_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = __to_user_lut_cfg_data(
 			compat_ptr((uintptr_t)&pp32->data.lut_cfg_data),
 			&pp->data.lut_cfg_data);
+		break;
+	case mdp_op_qseed_cfg:
+		ret = __from_user_qseed_cfg_data(
+			compat_ptr((uintptr_t)&pp32->data.qseed_cfg_data),
+			&pp->data.qseed_cfg_data);
+		if (ret)
+			goto pp_compat_exit;
+		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) pp);
+		if (ret)
+			goto pp_compat_exit;
+		ret = __to_user_qseed_cfg_data(
+			compat_ptr((uintptr_t)&pp32->data.qseed_cfg_data),
+			&pp->data.qseed_cfg_data);
 		break;
 	default:
 		break;
