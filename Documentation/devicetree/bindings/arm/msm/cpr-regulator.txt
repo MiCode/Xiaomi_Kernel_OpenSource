@@ -251,6 +251,8 @@ Optional properties:
 				corresponds to 'scaling' in this equation:
 				quot_adjust = (freq_turbo - freq_corner) * scaling / 1000.
 				This property is required if qcom,cpr-speed-bin-max-corners is present.
+- mem-acc-supply:		Regulator to vote for the memory accelerator configuration.
+				Not Present: memory accelerator configuration not supported.
 
 Example:
 	apc_vreg_corner: regulator@f9018000 {
