@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011,2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2011,2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -149,15 +149,4 @@ static inline int kgsl_cff_dump_enable_get(void *data, u64 *val)
 }
 
 #endif /* CONFIG_MSM_KGSL_CFF_DUMP */
-
-/*
- * kgsl_cff_core_idle() - Idle the device if CFF is on
- * @device: Device whose idle fuunction is called
- */
-static inline void kgsl_cff_core_idle(struct kgsl_device *device)
-{
-	if (device->cff_dump_enable)
-		device->ftbl->idle(device);
-}
-
 #endif /* __KGSL_CFFDUMP_H */

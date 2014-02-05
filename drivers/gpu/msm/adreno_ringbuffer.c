@@ -1277,16 +1277,18 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	/* Set the constraints before adding to ringbuffer */
 	adreno_ringbuffer_set_constraint(device, cmdbatch);
 
+	/* CFF stuff executed only if CFF is enabled */
+	kgsl_cffdump_capture_ib_desc(device, context, ibdesc, numibs);
+
 	ret = adreno_ringbuffer_addcmds(&adreno_dev->ringbuffer,
 					drawctxt,
 					flags,
 					&link[0], (cmds - link),
 					cmdbatch->timestamp);
 
-	/* CFF stuff executed only if CFF is enabled */
-	kgsl_cffdump_capture_ib_desc(device, context, ibdesc, numibs);
-	kgsl_cff_core_idle(device);
-
+	kgsl_cffdump_regpoll(device,
+		adreno_getreg(adreno_dev, ADRENO_REG_RBBM_STATUS) << 2,
+		0x00000000, 0x80000000);
 done:
 	device->pwrctrl.irq_last = 0;
 	trace_kgsl_issueibcmds(device, context->id, cmdbatch,
