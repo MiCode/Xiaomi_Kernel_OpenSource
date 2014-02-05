@@ -599,6 +599,104 @@ DEFINE_EVENT(smmu_map, iommu_map_range,
 	TP_ARGS(va, pa, chunk_size, len)
 	);
 
+DECLARE_EVENT_CLASS(ion_secure_cma_add_to_pool,
+
+	TP_PROTO(unsigned long len,
+		 int pool_total,
+		 bool is_prefetch),
+
+	TP_ARGS(len, pool_total, is_prefetch),
+
+	TP_STRUCT__entry(
+		__field(unsigned long, len)
+		__field(int, pool_total)
+		__field(bool, is_prefetch)
+		),
+
+	TP_fast_assign(
+		__entry->len = len;
+		__entry->pool_total = pool_total;
+		__entry->is_prefetch = is_prefetch;
+		),
+
+	TP_printk("len %lx, pool total %x is_prefetch %d",
+		__entry->len,
+		__entry->pool_total,
+		__entry->is_prefetch)
+	);
+
+DEFINE_EVENT(ion_secure_cma_add_to_pool, ion_secure_cma_add_to_pool_start,
+	TP_PROTO(unsigned long len,
+		int pool_total,
+		bool is_prefetch),
+
+	TP_ARGS(len, pool_total, is_prefetch)
+	);
+
+DEFINE_EVENT(ion_secure_cma_add_to_pool, ion_secure_cma_add_to_pool_end,
+	TP_PROTO(unsigned long len,
+		int pool_total,
+		bool is_prefetch),
+
+	TP_ARGS(len, pool_total, is_prefetch)
+	);
+
+DECLARE_EVENT_CLASS(ion_secure_cma_shrink_pool,
+
+	TP_PROTO(unsigned long drained_size,
+		 unsigned long skipped_size),
+
+	TP_ARGS(drained_size, skipped_size),
+
+	TP_STRUCT__entry(
+		__field(unsigned long, drained_size)
+		__field(unsigned long, skipped_size)
+		),
+
+	TP_fast_assign(
+		__entry->drained_size = drained_size;
+		__entry->skipped_size = skipped_size;
+		),
+
+	TP_printk("drained size %lx, skipped size %lx",
+		__entry->drained_size,
+		__entry->skipped_size)
+	);
+
+DEFINE_EVENT(ion_secure_cma_shrink_pool, ion_secure_cma_shrink_pool_start,
+	TP_PROTO(unsigned long drained_size,
+		 unsigned long skipped_size),
+
+	TP_ARGS(drained_size, skipped_size)
+	);
+
+DEFINE_EVENT(ion_secure_cma_shrink_pool, ion_secure_cma_shrink_pool_end,
+	TP_PROTO(unsigned long drained_size,
+		 unsigned long skipped_size),
+
+	TP_ARGS(drained_size, skipped_size)
+	);
+
+TRACE_EVENT(ion_prefetching,
+
+	TP_PROTO(unsigned long len),
+
+	TP_ARGS(len),
+
+	TP_STRUCT__entry(
+		__field(unsigned long, len)
+		),
+
+	TP_fast_assign(
+		__entry->len = len;
+		),
+
+	TP_printk("prefetch size %lx",
+		__entry->len)
+	);
+
+
+
 #endif /* _TRACE_KMEM_H */
 
 /* This part must be outside protection */
