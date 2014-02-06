@@ -57,6 +57,12 @@ Optional properties:
  - goodix,cfg-data5	: Touch screen controller config data group 5. Ask vendor
 				to provide that.
  - goodix,fw-name	: Touch screen controller firmware file name.
+ - goodix,slide-wakeup	: To specify slide-wakeup property is enabled or not.
+ - goodix,dbl-clk-wakeup	: To specify dbl-clk-wakeup property is enabled or not.
+ - goodix,change-x2y	: To specify change-x2y property is enabled or not.
+ - goodix,driver-send-cfg	: To specify driver-send-cfg property is enabled or not.
+ - goodix,have-touch-key	: To specify have-touch-key property is enabled or not.
+ - goodix,with-pen	: To specify with-pen property is enabled or not.
 Example:
 i2c@f9927000 {
 		goodix@5d {
@@ -92,5 +98,7 @@ i2c@f9927000 {
 				FF FF FF FF FF FF FF 22 22 22
 				22 22 22 FF 07 01];
 			goodix,fw_name = "gtp_fw.bin";
+			goodix,have-touch-key;
+			goodix,driver-send-cfg;
 		};
 };
