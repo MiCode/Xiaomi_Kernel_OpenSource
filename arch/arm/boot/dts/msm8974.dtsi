@@ -2012,7 +2012,7 @@
 		qcom,disk-encrypt-pipe-pair = <2>;
 		qcom,hlos-ce-hw-instance = <1>;
 		qcom,qsee-ce-hw-instance = <0>;
-		qcom,support-bus-scaling = <1>;
+		qcom,support-bus-scaling;
 		qcom,msm-bus,name = "qseecom-noc";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <1>;
