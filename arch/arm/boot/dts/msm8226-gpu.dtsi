@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,9 +34,9 @@
 		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-KBps =
 			<26 512 0 0>, <89 604 0 0>,
-			<26 512 0 1600000>, <89 604 0 3200000>,
-			<26 512 0 3200000>, <89 604 0 5120000>,
-			<26 512 0 4256000>, <89 604 0 6400000>;
+			<26 512 800000 1600000>, <89 604 0 3200000>,
+			<26 512 1600000 3200000>, <89 604 0 5120000>,
+			<26 512 2128000 4256000>, <89 604 0 6400000>;
 
 
 		/* GDSC oxili regulators */
