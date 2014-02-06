@@ -12,6 +12,45 @@
 
 /include/ "msm8926-v2.dtsi"
 
+&i2c_0 {
+	qcom,sda-gpio = <&msmgpio 14 0>;
+	qcom,scl-gpio = <&msmgpio 15 0>;
+
+	ncp6335d: ncp6335d-regulator@1c {
+		compatible = "onnn,ncp6335d-regulator";
+		reg = <0x1c>;
+		onnn,vsel = <0>;
+		onnn,slew-ns = <2666>;
+		onnn,step-size = <10000>;
+		onnn,min-slew-ns = <333>;
+		onnn,max-slew-ns = <2666>;
+		regulator-min-microvolt = <1050000>;
+		regulator-max-microvolt = <1350000>;
+		onnn,min-setpoint = <600000>;
+		onnn,vsel-gpio = <&msmgpio 2 1>;
+		onnn,discharge-enable;
+		onnn,restore-reg;
+		onnn,tlmm-config = <0x80 0x0>;
+	};
+
+	fan53555: fan53555-regulator@60 {
+		compatible = "fairchild,fan53555-regulator";
+		reg = <0x60>;
+		fairchild,backup-vsel = <1>;
+		regulator-min-microvolt = <1050000>;
+		regulator-max-microvolt = <1350000>;
+		regulator-ramp-delay = <8000>;
+		fairchild,vsel-gpio = <&msmgpio 2 1>;
+		fairchild,restore-reg;
+		fairchild,disable-suspend;
+	};
+};
+
+&apc_vreg_corner {
+	vdd-apc-optional-prim-supply = <&ncp6335d>;
+	vdd-apc-supply = <&fan53555>;
+};
+
 &soc {
 
 };
