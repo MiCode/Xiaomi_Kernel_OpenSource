@@ -96,7 +96,7 @@ static struct notifier_block __refdata lpm_cpu_nblk = {
 };
 
 static uint32_t allowed_l2_mode;
-static uint32_t sysfs_dbg_l2_mode = MSM_SPM_L2_MODE_POWER_COLLAPSE;
+static uint32_t sysfs_dbg_l2_mode = MSM_SPM_MODE_POWER_COLLAPSE;
 static uint32_t default_l2_mode;
 
 
@@ -205,21 +205,18 @@ static int lpm_set_l2_mode(struct lpm_system_state *system_state,
 	msm_pm_set_l2_flush_flag(MSM_SCM_L2_ON);
 
 	switch (sleep_mode) {
-	case MSM_SPM_L2_MODE_POWER_COLLAPSE:
+	case MSM_SPM_MODE_POWER_COLLAPSE:
 		krait_pmic_pre_disable();
 		msm_pm_set_l2_flush_flag(MSM_SCM_L2_OFF);
 		break;
-	case MSM_SPM_L2_MODE_GDHS:
+	case MSM_SPM_MODE_GDHS:
 		msm_pm_set_l2_flush_flag(MSM_SCM_L2_GDHS);
 		break;
-	case MSM_SPM_L2_MODE_PC_NO_RPM:
-		msm_pm_set_l2_flush_flag(MSM_SCM_L2_OFF);
-		break;
-	case MSM_SPM_L2_MODE_RETENTION:
-	case MSM_SPM_L2_MODE_DISABLED:
+	case MSM_SPM_MODE_RETENTION:
+	case MSM_SPM_MODE_DISABLED:
 		break;
 	default:
-		lpm = MSM_SPM_L2_MODE_DISABLED;
+		lpm = MSM_SPM_MODE_DISABLED;
 		break;
 	}
 
@@ -244,7 +241,7 @@ static void lpm_system_level_update(void)
 
 	if ((cpumask_weight(&num_powered_cores) == 1)
 			|| (sys_state.allow_synched_levels))
-		allowed_l2_mode = MSM_SPM_L2_MODE_POWER_COLLAPSE;
+		allowed_l2_mode = MSM_SPM_MODE_POWER_COLLAPSE;
 	else
 		allowed_l2_mode = default_l2_mode;
 
@@ -606,11 +603,10 @@ static int lpm_get_l2_cache_value(const char *l2_str)
 {
 	int i;
 	struct lpm_lookup_table l2_mode_lookup[] = {
-		{MSM_SPM_L2_MODE_POWER_COLLAPSE, "l2_cache_pc"},
-		{MSM_SPM_L2_MODE_PC_NO_RPM, "l2_cache_pc_no_rpm"},
-		{MSM_SPM_L2_MODE_GDHS, "l2_cache_gdhs"},
-		{MSM_SPM_L2_MODE_RETENTION, "l2_cache_retention"},
-		{MSM_SPM_L2_MODE_DISABLED, "l2_cache_active"}
+		{MSM_SPM_MODE_POWER_COLLAPSE, "l2_cache_pc"},
+		{MSM_SPM_MODE_GDHS, "l2_cache_gdhs"},
+		{MSM_SPM_MODE_RETENTION, "l2_cache_retention"},
+		{MSM_SPM_MODE_DISABLED, "l2_cache_active"}
 	};
 
 	for (i = 0; i < ARRAY_SIZE(l2_mode_lookup); i++)
@@ -1120,7 +1116,7 @@ static int lpm_probe(struct platform_device *pdev)
 		msm_pm_set_l2_flush_flag(MSM_SCM_L2_ON);
 	} else {
 		msm_pm_set_l2_flush_flag(MSM_SCM_L2_OFF);
-		default_l2_mode = MSM_SPM_L2_MODE_POWER_COLLAPSE;
+		default_l2_mode = MSM_SPM_MODE_POWER_COLLAPSE;
 	}
 
 	get_cpu();

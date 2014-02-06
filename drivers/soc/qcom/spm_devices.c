@@ -157,14 +157,19 @@ unsigned int msm_spm_get_vdd(unsigned int cpu)
 EXPORT_SYMBOL(msm_spm_get_vdd);
 
 static int msm_spm_dev_set_low_power_mode(struct msm_spm_device *dev,
-		unsigned int mode, bool notify_rpm, bool pc_mode)
+		unsigned int mode, bool notify_rpm)
 {
 	uint32_t i;
 	uint32_t start_addr = 0;
 	int ret = -EINVAL;
+	bool pc_mode = false;
 
 	if (!dev->initialized)
 		return -ENXIO;
+
+	if ((mode == MSM_SPM_MODE_POWER_COLLAPSE)
+			|| (mode == MSM_SPM_MODE_GDHS))
+		pc_mode = true;
 
 	if (mode == MSM_SPM_MODE_DISABLED) {
 		ret = msm_spm_drv_set_spm_enable(&dev->reg_data, false);
@@ -283,8 +288,7 @@ EXPORT_SYMBOL(msm_spm_reinit);
 int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm)
 {
 	struct msm_spm_device *dev = &__get_cpu_var(msm_cpu_spm_device);
-	bool pc_mode = (mode == MSM_SPM_MODE_POWER_COLLAPSE) ? true : false;
-	return msm_spm_dev_set_low_power_mode(dev, mode, notify_rpm, pc_mode);
+	return msm_spm_dev_set_low_power_mode(dev, mode, notify_rpm);
 }
 EXPORT_SYMBOL(msm_spm_set_low_power_mode);
 
@@ -323,13 +327,8 @@ int __init msm_spm_init(struct msm_spm_platform_data *data, int nr_devs)
  */
 int msm_spm_l2_set_low_power_mode(unsigned int mode, bool notify_rpm)
 {
-	bool pc_mode = true;
-
-	if (mode == MSM_SPM_L2_MODE_DISABLED ||
-		mode == MSM_SPM_L2_MODE_RETENTION)
-		pc_mode = false;
 	return msm_spm_dev_set_low_power_mode(
-			&msm_spm_l2_device, mode, notify_rpm, pc_mode);
+			&msm_spm_l2_device, mode, notify_rpm);
 }
 EXPORT_SYMBOL(msm_spm_l2_set_low_power_mode);
 
@@ -421,22 +420,13 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 		uint32_t notify_rpm;
 	};
 
-	struct mode_of of_cpu_modes[] = {
+	struct mode_of mode_of_data[] = {
 		{"qcom,saw2-spm-cmd-wfi", MSM_SPM_MODE_CLOCK_GATING, 0},
-		{"qcom,saw2-spm-cmd-ret", MSM_SPM_MODE_POWER_RETENTION, 0},
+		{"qcom,saw2-spm-cmd-ret", MSM_SPM_MODE_RETENTION, 0},
+		{"qcom,saw2-spm-cmd-gdhs", MSM_SPM_MODE_GDHS, 1},
 		{"qcom,saw2-spm-cmd-spc", MSM_SPM_MODE_POWER_COLLAPSE, 0},
 		{"qcom,saw2-spm-cmd-pc", MSM_SPM_MODE_POWER_COLLAPSE, 1},
 	};
-
-	struct mode_of of_l2_modes[] = {
-		{"qcom,saw2-spm-cmd-ret", MSM_SPM_L2_MODE_RETENTION, 1},
-		{"qcom,saw2-spm-cmd-gdhs", MSM_SPM_L2_MODE_GDHS, 1},
-		{"qcom,saw2-spm-cmd-pc-no-rpm", MSM_SPM_L2_MODE_PC_NO_RPM, 1},
-		{"qcom,saw2-spm-cmd-pc", MSM_SPM_L2_MODE_POWER_COLLAPSE, 1},
-	};
-
-	struct mode_of *mode_of_data;
-	int num_modes;
 
 	memset(&spm_data, 0, sizeof(struct msm_spm_platform_data));
 	memset(&modes, 0,
@@ -452,16 +442,11 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	 * Device with id 0..NR_CPUS are SPM for apps cores
 	 * Device with id 0xFFFF is for L2 SPM.
 	 */
-	if (cpu >= 0 && cpu < num_possible_cpus()) {
-		mode_of_data = of_cpu_modes;
-		num_modes = ARRAY_SIZE(of_cpu_modes);
+	if (cpu >= 0 && cpu < num_possible_cpus())
 		dev = &per_cpu(msm_cpu_spm_device, cpu);
-
-	} else if (cpu == 0xffff) {
-		mode_of_data = of_l2_modes;
-		num_modes = ARRAY_SIZE(of_l2_modes);
+	else if (cpu == 0xffff)
 		dev = &msm_spm_l2_device;
-	} else
+	else
 		return ret;
 
 	key = "qcom,saw2-ver-reg";
@@ -511,7 +496,7 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 		spm_data.reg_init_values[spm_of_data[i].id] = val;
 	}
 
-	for (i = 0; i < num_modes; i++) {
+	for (i = 0; i < ARRAY_SIZE(mode_of_data); i++) {
 		key = mode_of_data[i].key;
 		modes[mode_count].cmd =
 			(uint8_t *)of_get_property(node, key, &len);
