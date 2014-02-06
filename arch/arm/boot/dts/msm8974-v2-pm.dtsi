@@ -172,12 +172,13 @@
 
 			qcom,system-mode@0 {
 				qcom,l2 = "l2_cache_gdhs";
-				qcom,latency-us = <20000>;
+				qcom,latency-us = <500>;
 				qcom,ss-power = <163>;
-				qcom,energy-overhead = <1577736>;
-				qcom,time-overhead = <5067>;
-				qcom,min-cpu-mode= "pc";
+				qcom,energy-overhead = <577736>;
+				qcom,time-overhead = <1000>;
+				qcom,min-cpu-mode= "standalone_pc";
 				qcom,sync-cpus;
+
 			};
 
 			qcom,system-mode@1 {
@@ -188,6 +189,7 @@
 				qcom,time-overhead = <6605>;
 				qcom,min-cpu-mode = "pc";
 				qcom,sync-cpus;
+				qcom,send-rpm-sleep-set;
 			};
 		};
 	};
