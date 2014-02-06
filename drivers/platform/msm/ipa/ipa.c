@@ -2088,7 +2088,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 
 	if (ipa_ctx->use_ipa_teth_bridge) {
 		/* Initialize the tethering bridge driver */
-		result = teth_bridge_driver_init(ipa_ctx->ipa_hw_type);
+		result = teth_bridge_driver_init();
 		if (result) {
 			IPAERR(":teth_bridge init failed (%d)\n", -result);
 			result = -ENODEV;
