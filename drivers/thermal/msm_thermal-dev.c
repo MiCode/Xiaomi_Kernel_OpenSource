@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -134,10 +134,22 @@ process_exit:
 	return ret;
 }
 
+#ifdef CONFIG_COMPAT
+static long msm_thermal_compat_ioctl_process(struct file *filep,
+				   unsigned int cmd, unsigned long arg)
+{
+	arg = (unsigned long)compat_ptr(arg);
+	return msm_thermal_ioctl_process(filep, cmd, arg);
+}
+#endif	/* CONFIG_COMPAT */
+
 static const struct file_operations msm_thermal_fops = {
 	.owner = THIS_MODULE,
 	.open = msm_thermal_ioctl_open,
 	.unlocked_ioctl = msm_thermal_ioctl_process,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = msm_thermal_compat_ioctl_process,
+#endif  /* CONFIG_COMPAT */
 	.release = msm_thermal_ioctl_release,
 };
 
