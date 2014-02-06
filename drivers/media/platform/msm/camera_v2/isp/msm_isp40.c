@@ -1376,9 +1376,8 @@ static int msm_vfe40_get_platform_data(struct vfe_device *vfe_dev)
 		goto vfe_no_resource;
 	}
 
-	vfe_dev->iommu_ctx[0] = msm_iommu_get_ctx("vfe0");
-	vfe_dev->iommu_ctx[1] = msm_iommu_get_ctx("vfe1");
-	if (!vfe_dev->iommu_ctx[0] || !vfe_dev->iommu_ctx[1]) {
+	vfe_dev->iommu_ctx[0] = msm_iommu_get_ctx("vfe");
+	if (!vfe_dev->iommu_ctx[0]) {
 		pr_err("%s: cannot get iommu_ctx\n", __func__);
 		rc = -ENODEV;
 		goto vfe_no_resource;
@@ -1430,7 +1429,7 @@ static struct v4l2_subdev_internal_ops msm_vfe40_internal_ops = {
 };
 
 struct msm_vfe_hardware_info vfe40_hw_info = {
-	.num_iommu_ctx = 2,
+	.num_iommu_ctx = 1,
 	.vfe_clk_idx = VFE40_CLK_IDX,
 	.vfe_ops = {
 		.irq_ops = {
