@@ -37,6 +37,7 @@
 		qcom,dc-psy-type = "Wireless";
 		qcom,dc-psy-ma = <1000>;
 		qcom,thermal-mitigation = <1500 700 600 0>;
+		qcom,bmd-algo-disabled;
 	};
 };
 

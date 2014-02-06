@@ -34,6 +34,7 @@
 		regulator-name = "smb1359_otg_vreg";
 		qcom,soft-vfloat-comp-disabled;
 		therm-bias-supply = <&pma8084_lvs2>;
+		qcom,bmd-algo-disabled;
 	};
 };
 
