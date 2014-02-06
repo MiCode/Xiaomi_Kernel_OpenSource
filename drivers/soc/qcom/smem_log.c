@@ -857,7 +857,7 @@ static ssize_t debug_read(struct file *file, char __user *buf,
 			bsize = scnprintf(debug_buffer,
 				EVENTS_PRINT_SIZE, "Log not available\n");
 	}
-	DBG("%s: count %d ppos %d\n", __func__, count, (unsigned int)*ppos);
+	DBG("%s: count %zu ppos %d\n", __func__, count, (unsigned int)*ppos);
 	r =  simple_read_from_buffer(buf, count, ppos, debug_buffer,
 				     bsize);
 	return r;
@@ -880,7 +880,7 @@ static ssize_t debug_read_cont(struct file *file, char __user *buf,
 			bsize = 0;
 	}
 
-	DBG("%s: count %d bsize %d\n", __func__, count, bsize);
+	DBG("%s: count %zu bsize %d\n", __func__, count, bsize);
 	if (copy_to_user(buf, buffer, bsize)) {
 		kfree(buffer);
 		return -EFAULT;
