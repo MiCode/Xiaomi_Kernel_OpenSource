@@ -45,6 +45,8 @@
 #define VEN_MSG_RESUME	9
 #define VEN_MSG_STOP_READING_MSG	10
 #define VEN_MSG_LTRUSE_FAILED	    11
+#define VEN_MSG_HW_OVERLOAD	12
+#define VEN_MSG_MAX_CLIENTS	13
 
 
 /*Buffer flags bits masks*/
