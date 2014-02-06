@@ -3447,6 +3447,7 @@ static irqreturn_t msm_otg_irq(int irq, void *data)
 static void msm_otg_set_vbus_state(int online)
 {
 	struct msm_otg *motg = the_msm_otg;
+	static bool init;
 
 	if (online) {
 		pr_debug("PMIC: BSV set\n");
@@ -3463,11 +3464,12 @@ static void msm_otg_set_vbus_state(int online)
 		 * completion in UNDEFINED state.  Process
 		 * the initial VBUS event in ID_GND state.
 		 */
-		if (pmic_vbus_init.done)
+		if (init)
 			return;
 	}
 
-	if (!pmic_vbus_init.done) {
+	if (!init) {
+		init = true;
 		complete(&pmic_vbus_init);
 		pr_debug("PMIC: BSV init complete\n");
 		return;
