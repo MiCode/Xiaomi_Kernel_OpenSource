@@ -44,7 +44,6 @@
 #include <linux/usb/msm_hsusb.h>
 #include <linux/of.h>
 
-#include <mach/msm_xo.h>
 #include <mach/msm_iomap.h>
 #include <linux/debugfs.h>
 #include <mach/rpm-regulator.h>
@@ -73,7 +72,6 @@ struct msm_hcd {
 	struct regulator			*hsusb_3p3;
 	struct regulator			*hsusb_1p8;
 	struct regulator			*vbus;
-	struct msm_xo_voter			*xo_handle;
 	bool					vbus_on;
 	atomic_t				in_lpm;
 	int					pmic_gpio_dp_irq;
@@ -711,7 +709,6 @@ static int msm_ehci_suspend(struct msm_hcd *mhcd)
 {
 	struct usb_hcd *hcd = mhcd_to_hcd(mhcd);
 	unsigned long timeout;
-	int ret;
 	u32 portsc;
 
 	if (atomic_read(&mhcd->in_lpm)) {
@@ -785,14 +782,8 @@ static int msm_ehci_suspend(struct msm_hcd *mhcd)
 	clk_disable_unprepare(mhcd->core_clk);
 
 	/* usb phy does not require TCXO clock, hence vote for TCXO disable */
-	if (mhcd->xo_clk) {
+	if (mhcd->xo_clk)
 		clk_disable_unprepare(mhcd->xo_clk);
-	} else {
-		ret = msm_xo_mode_vote(mhcd->xo_handle, MSM_XO_MODE_OFF);
-		if (ret)
-			dev_err(mhcd->dev, "%s failed to devote for TCXO %d\n",
-								__func__, ret);
-	}
 	clear_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
 
 	msm_ehci_config_vddcx(mhcd, 0);
@@ -832,7 +823,6 @@ static int msm_ehci_resume(struct msm_hcd *mhcd)
 	struct usb_hcd *hcd = mhcd_to_hcd(mhcd);
 	unsigned long timeout;
 	unsigned temp;
-	int ret;
 	unsigned long flags;
 
 	if (!atomic_read(&mhcd->in_lpm)) {
@@ -868,14 +858,8 @@ static int msm_ehci_resume(struct msm_hcd *mhcd)
 	pm_stay_awake(mhcd->dev);
 
 	/* Vote for TCXO when waking up the phy */
-	if (mhcd->xo_clk) {
+	if (mhcd->xo_clk)
 		clk_prepare_enable(mhcd->xo_clk);
-	} else {
-		ret = msm_xo_mode_vote(mhcd->xo_handle, MSM_XO_MODE_ON);
-		if (ret)
-			dev_err(mhcd->dev, "%s failed to vote for TCXO D0 %d\n",
-								__func__, ret);
-	}
 
 	clk_prepare_enable(mhcd->core_clk);
 	clk_prepare_enable(mhcd->iface_clk);
@@ -1403,20 +1387,8 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 	}
 
 	snprintf(pdev_name, PDEV_NAME_LEN, "%s.%d", pdev->name, pdev->id);
-	if (mhcd->xo_clk) {
+	if (mhcd->xo_clk)
 		ret = clk_prepare_enable(mhcd->xo_clk);
-	} else {
-		mhcd->xo_handle = msm_xo_get(MSM_XO_TCXO_D0, pdev_name);
-		if (IS_ERR(mhcd->xo_handle)) {
-			dev_err(&pdev->dev, "%s fail to get handle for X0 D0\n",
-								__func__);
-			ret = PTR_ERR(mhcd->xo_handle);
-			mhcd->xo_handle = NULL;
-			goto free_async_irq;
-		} else {
-			ret = msm_xo_mode_vote(mhcd->xo_handle, MSM_XO_MODE_ON);
-		}
-	}
 	if (ret) {
 		dev_err(&pdev->dev, "%s failed to vote for TCXO %d\n",
 								__func__, ret);
@@ -1583,16 +1555,11 @@ deinit_vddcx:
 devote_xo_handle:
 	if (mhcd->xo_clk)
 		clk_disable_unprepare(mhcd->xo_clk);
-	else
-		msm_xo_mode_vote(mhcd->xo_handle, MSM_XO_MODE_OFF);
 free_xo_handle:
 	if (mhcd->xo_clk) {
 		clk_put(mhcd->xo_clk);
 		mhcd->xo_clk = NULL;
-	} else {
-		msm_xo_put(mhcd->xo_handle);
 	}
-free_async_irq:
 	if (mhcd->async_irq)
 		free_irq(mhcd->async_irq, mhcd);
 unmap:
@@ -1638,8 +1605,6 @@ static int ehci_msm2_remove(struct platform_device *pdev)
 	if (mhcd->xo_clk) {
 		clk_disable_unprepare(mhcd->xo_clk);
 		clk_put(mhcd->xo_clk);
-	} else {
-		msm_xo_put(mhcd->xo_handle);
 	}
 	msm_ehci_vbus_power(mhcd, 0);
 	msm_ehci_init_vbus(mhcd, 0);
