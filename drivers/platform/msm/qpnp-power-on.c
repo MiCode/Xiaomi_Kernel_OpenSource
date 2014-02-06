@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -165,6 +165,14 @@ static const char * const qpnp_poff_reason[] = {
 	[14] = "Triggered from OTST3 (Overtemp)",
 	[15] = "Triggered from STAGE3 (Stage 3 reset)",
 };
+
+/*
+ * On the kernel command line specify
+ * qpnp-power-on.warm_boot=1 to indicate a warm
+ * boot of the device.
+ */
+static int warm_boot;
+module_param(warm_boot, int, 0);
 
 static int
 qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
