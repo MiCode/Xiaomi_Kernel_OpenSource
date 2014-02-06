@@ -88,6 +88,8 @@
 				00 FF FF FF FF FF FF FF 00 00
 				00 FF FF FF FF FF FF FF FF FF
 				F8 FF FF FF E4 01];
+			goodix,have-touch-key;
+			goodix,driver-send-cfg;
 		};
 	};
 	gen-vkeys {
