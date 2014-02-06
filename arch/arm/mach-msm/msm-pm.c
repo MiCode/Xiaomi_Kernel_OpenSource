@@ -452,8 +452,8 @@ static inline void msm_pc_inc_debug_count(uint32_t cpu,
 	if (!msm_pc_debug_counters)
 		return;
 
-	cnt = readl_relaxed(msm_pc_debug_counters + cpu * 4 + offset * 4);
-	writel_relaxed(++cnt, msm_pc_debug_counters + cpu * 4 + offset * 4);
+	cnt = readl_relaxed(msm_pc_debug_counters + cpu * 4 * MSM_PC_NUM_COUNTERS + offset * 4);
+	writel_relaxed(++cnt, msm_pc_debug_counters + cpu * 4 * MSM_PC_NUM_COUNTERS + offset * 4);
 	mb();
 }
 
