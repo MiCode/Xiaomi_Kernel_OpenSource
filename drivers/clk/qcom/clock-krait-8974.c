@@ -29,6 +29,7 @@
 #include <soc/qcom/clock-krait.h>
 
 #include <asm/cputype.h>
+#include <dt-bindings/clock/msm-clocks-krait.h>
 
 #include "clock.h"
 
@@ -441,41 +442,41 @@ static struct mux_clk kpss_debug_pri_mux = {
 };
 
 static struct clk_lookup kpss_clocks_8974[] = {
-	CLK_LOOKUP("",	hfpll_src_clk.c,	""),
-	CLK_LOOKUP("",	acpu_aux_clk.c,		""),
-	CLK_LOOKUP("",	hfpll0_clk.c,		""),
-	CLK_LOOKUP("",	hfpll0_div_clk.c,	""),
-	CLK_LOOKUP("",	hfpll0_clk.c,		""),
-	CLK_LOOKUP("",	hfpll1_div_clk.c,	""),
-	CLK_LOOKUP("",	hfpll1_clk.c,		""),
-	CLK_LOOKUP("",	hfpll2_div_clk.c,	""),
-	CLK_LOOKUP("",	hfpll2_clk.c,		""),
-	CLK_LOOKUP("",	hfpll3_div_clk.c,	""),
-	CLK_LOOKUP("",	hfpll3_clk.c,		""),
-	CLK_LOOKUP("",	hfpll_l2_div_clk.c,	""),
-	CLK_LOOKUP("",	hfpll_l2_clk.c,		""),
-	CLK_LOOKUP("",	krait0_sec_mux_clk.c,		""),
-	CLK_LOOKUP("",	krait1_sec_mux_clk.c,		""),
-	CLK_LOOKUP("",	krait2_sec_mux_clk.c,		""),
-	CLK_LOOKUP("",	krait3_sec_mux_clk.c,		""),
-	CLK_LOOKUP("",	l2_sec_mux_clk.c,		""),
-	CLK_LOOKUP("",	krait0_pri_mux_clk.c,		""),
-	CLK_LOOKUP("",	krait1_pri_mux_clk.c,		""),
-	CLK_LOOKUP("",	krait2_pri_mux_clk.c,		""),
-	CLK_LOOKUP("",	krait3_pri_mux_clk.c,		""),
-	CLK_LOOKUP("",	l2_pri_mux_clk.c,		""),
-	CLK_LOOKUP("l2_clk",	l2_clk.c,     "0.qcom,msm-cpufreq"),
-	CLK_LOOKUP("cpu0_clk",	krait0_clk.c, "0.qcom,msm-cpufreq"),
-	CLK_LOOKUP("cpu1_clk",	krait1_clk.c, "0.qcom,msm-cpufreq"),
-	CLK_LOOKUP("cpu2_clk",	krait2_clk.c, "0.qcom,msm-cpufreq"),
-	CLK_LOOKUP("cpu3_clk",	krait3_clk.c, "0.qcom,msm-cpufreq"),
-	CLK_LOOKUP("l2_clk",	l2_clk.c,     "fe805664.qcom,pm"),
-	CLK_LOOKUP("cpu0_clk",	krait0_clk.c, "fe805664.qcom,pm"),
-	CLK_LOOKUP("cpu1_clk",	krait1_clk.c, "fe805664.qcom,pm"),
-	CLK_LOOKUP("cpu2_clk",	krait2_clk.c, "fe805664.qcom,pm"),
-	CLK_LOOKUP("cpu3_clk",	krait3_clk.c, "fe805664.qcom,pm"),
+	CLK_LOOKUP_OF("",	hfpll_src_clk,	""),
+	CLK_LOOKUP_OF("",	acpu_aux_clk,		""),
+	CLK_LOOKUP_OF("",	hfpll0_clk,		""),
+	CLK_LOOKUP_OF("",	hfpll0_div_clk,	""),
+	CLK_LOOKUP_OF("",	hfpll0_clk,		""),
+	CLK_LOOKUP_OF("",	hfpll1_div_clk,	""),
+	CLK_LOOKUP_OF("",	hfpll1_clk,		""),
+	CLK_LOOKUP_OF("",	hfpll2_div_clk,	""),
+	CLK_LOOKUP_OF("",	hfpll2_clk,		""),
+	CLK_LOOKUP_OF("",	hfpll3_div_clk,	""),
+	CLK_LOOKUP_OF("",	hfpll3_clk,		""),
+	CLK_LOOKUP_OF("",	hfpll_l2_div_clk,	""),
+	CLK_LOOKUP_OF("",	hfpll_l2_clk,		""),
+	CLK_LOOKUP_OF("",	krait0_sec_mux_clk,		""),
+	CLK_LOOKUP_OF("",	krait1_sec_mux_clk,		""),
+	CLK_LOOKUP_OF("",	krait2_sec_mux_clk,		""),
+	CLK_LOOKUP_OF("",	krait3_sec_mux_clk,		""),
+	CLK_LOOKUP_OF("",	l2_sec_mux_clk,		""),
+	CLK_LOOKUP_OF("",	krait0_pri_mux_clk,		""),
+	CLK_LOOKUP_OF("",	krait1_pri_mux_clk,		""),
+	CLK_LOOKUP_OF("",	krait2_pri_mux_clk,		""),
+	CLK_LOOKUP_OF("",	krait3_pri_mux_clk,		""),
+	CLK_LOOKUP_OF("",	l2_pri_mux_clk,		""),
+	CLK_LOOKUP_OF("l2_clk",	l2_clk,     "0.qcom,msm-cpufreq"),
+	CLK_LOOKUP_OF("cpu0_clk",	krait0_clk, "0.qcom,msm-cpufreq"),
+	CLK_LOOKUP_OF("cpu1_clk",	krait1_clk, "0.qcom,msm-cpufreq"),
+	CLK_LOOKUP_OF("cpu2_clk",	krait2_clk, "0.qcom,msm-cpufreq"),
+	CLK_LOOKUP_OF("cpu3_clk",	krait3_clk, "0.qcom,msm-cpufreq"),
+	CLK_LOOKUP_OF("l2_clk",	l2_clk,     "fe805664.qcom,pm"),
+	CLK_LOOKUP_OF("cpu0_clk",	krait0_clk, "fe805664.qcom,pm"),
+	CLK_LOOKUP_OF("cpu1_clk",	krait1_clk, "fe805664.qcom,pm"),
+	CLK_LOOKUP_OF("cpu2_clk",	krait2_clk, "fe805664.qcom,pm"),
+	CLK_LOOKUP_OF("cpu3_clk",	krait3_clk, "fe805664.qcom,pm"),
 
-	CLK_LOOKUP("kpss_debug_mux", kpss_debug_pri_mux.c,
+	CLK_LOOKUP_OF("kpss_debug_mux", kpss_debug_pri_mux,
 		   "fc401880.qcom,cc-debug"),
 };
 
@@ -820,7 +821,12 @@ static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	msm_clock_register(kpss_clocks_8974, ARRAY_SIZE(kpss_clocks_8974));
+	ret = of_msm_clock_register(dev->of_node, kpss_clocks_8974,
+			ARRAY_SIZE(kpss_clocks_8974));
+	if (ret) {
+		dev_err(dev, "Unable to register krait clock table.\n");
+		return ret;
+	}
 
 	/*
 	 * We don't want the CPU or L2 clocks to be turned off at late init
