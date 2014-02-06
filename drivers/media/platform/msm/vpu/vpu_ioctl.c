@@ -19,6 +19,7 @@
 #include "vpu_configuration.h"
 #include "vpu_translate.h"
 #include "vpu_channel.h"
+#include "vpu_ipc.h"
 
 #ifdef CONFIG_MSM_VPU_IN_VCAP
 extern int vpu_init_port_vcap(struct vpu_dev_session *session,
@@ -150,12 +151,15 @@ static void __sys_buffer_callback_handler(u32 sid, struct vpu_buffer *pbuf,
 	session = vb2_get_drv_priv(pbuf->vb.vb2_queue);
 
 	if (data) {
-		pr_debug("ERROR (%d) buffer callback port %d buff %d\n",
-				data, port, pbuf->vb.v4l2_buf.index);
+		pr_debug("%s (%d) buffer callback session %d port %d buff %d\n",
+			data == VPU_STS_EFRAMEUNPROCESSED ?
+					"Unprocessed" : "Error",
+			data, session->id, port, pbuf->vb.v4l2_buf.index);
+
 		vb2_buffer_done(&pbuf->vb, VB2_BUF_STATE_ERROR);
 	} else {
-		pr_debug("GOOD buffer callback for port %d buff %d\n",
-				port, pbuf->vb.v4l2_buf.index);
+		pr_debug("Good buffer callback session %d port %d buff %d\n",
+			session->id, port, pbuf->vb.v4l2_buf.index);
 
 		/* update bytesused */
 		port_info = &session->port_info[port];
@@ -175,43 +179,30 @@ static void __sys_buffer_callback_handler(u32 sid, struct vpu_buffer *pbuf,
  * Dynamic switch (on/off) of VPU hardware on first/last global client.
  * Function must be called with core->lock mutex held.
  */
-static int __dynamic_vpu_hw_switch(struct vpu_dev_core *core, int on)
+static int __vpu_hw_switch(struct vpu_dev_core *core, int on)
 {
 	int ret = 0;
 
 	if (on) {
 		if (core->global_client_count++ == 0) {
 
+			pr_debug("Starting up VPU hardware\n");
 			ret = vpu_hw_sys_start(__sys_event_callback_handler,
 					__sys_buffer_callback_handler,
 					(void *)core);
 			if (ret) {
-				pr_err("failed to start IPC system\n");
+				pr_err("failed to start VPU hardware\n");
 				core->global_client_count--;
-				goto exit_hfi_init;
-			}
-
-			ret = attach_vpu_iommus(&core->resources);
-			if (ret) {
-				pr_err("could not attach VPU IOMMUs\n");
-				core->global_client_count--;
-				goto err_stop_sys;
 			}
 		}
 
 	} else { /* off */
-		if (--core->global_client_count == 0)
-			goto hfi_deinit;
+		if (--core->global_client_count == 0) {
+			pr_debug("Shutting down VPU hardware\n");
+			vpu_hw_sys_stop(0);
+		}
 	}
 
-	goto exit_hfi_init; /* hfi system stays on */
-
-hfi_deinit:
-	pr_debug("Shutting down hfi IPC\n");
-	detach_vpu_iommus(&core->resources);
-err_stop_sys:
-	vpu_hw_sys_stop(0);
-exit_hfi_init:
 	return ret;
 }
 
@@ -251,7 +242,7 @@ static struct vpu_client *__create_client(struct vpu_dev_core *core,
 	INIT_LIST_HEAD(&client->clients_entry);
 
 	/* Initialize HFI on first client open */
-	ret = __dynamic_vpu_hw_switch(core, 1);
+	ret = __vpu_hw_switch(core, 1);
 	if (ret) {
 		devm_kfree(core->dev, client);
 		goto err_client_create;
@@ -314,7 +305,7 @@ int vpu_close_client(struct vpu_client *client)
 		vpu_detach_client(client);
 
 	mutex_lock(&client->core->lock);
-	__dynamic_vpu_hw_switch(client->core, 0);
+	__vpu_hw_switch(client->core, 0);
 	list_del_init(&client->clients_entry); /* remove from unattached list */
 	mutex_unlock(&client->core->lock);
 
@@ -919,6 +910,7 @@ static int __check_user_planes(struct vb2_queue *vbq, struct v4l2_buffer *b)
 		return 0;
 	}
 
+	pr_err("Invalid planes parameters\n");
 	return -EINVAL;
 }
 
