@@ -161,6 +161,7 @@ enum sdc_mpm_pin_state {
 #define CORE_VERSION_MAJOR_SHIFT	28
 #define CORE_VERSION_TARGET_MASK	0x000000FF
 
+#define MSM_MMC_DEFAULT_CPU_DMA_LATENCY 200 /* usecs */
 /*
  * Waiting until end of potential AHB access for data:
  * 16 AHB cycles (160ns for 100MHz and 320ns for 50MHz) +
@@ -1574,7 +1575,8 @@ static struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev)
 	if (!of_property_read_u32(np, "qcom,cpu-dma-latency-us",
 				&cpu_dma_latency))
 		pdata->cpu_dma_latency_us = cpu_dma_latency;
-
+	else
+		pdata->cpu_dma_latency_us = MSM_MMC_DEFAULT_CPU_DMA_LATENCY;
 	if (sdhci_msm_dt_get_array(dev, "qcom,clk-rates",
 			&clk_table, &clk_table_len, 0)) {
 		dev_err(dev, "failed parsing supported clock rates\n");
