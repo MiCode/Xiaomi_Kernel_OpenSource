@@ -878,6 +878,9 @@ static void arizona_micd_detect(struct work_struct *work)
 	/* Due to jack detect this should never happen */
 	if (!(val & ARIZONA_MICD_STS)) {
 		dev_warn(arizona->dev, "Detected open circuit\n");
+		info->mic = false;
+		arizona_stop_mic(info);
+		arizona_identify_headphone(info);
 		info->detecting = false;
 		goto handled;
 	}
