@@ -1,6 +1,6 @@
 /*Qualcomm Secure Execution Environment Communicator (QSEECOM) driver
  *
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2647,7 +2647,7 @@ static int __qseecom_generate_and_save_key(struct qseecom_dev_handle *data,
 	if (ret) {
 		pr_err("scm call to generate key failed : %d\n", ret);
 		__qseecom_disable_clk(CLK_QSEE);
-		return ret;
+		return -EFAULT;
 	}
 
 	switch (resp.result) {
@@ -2698,7 +2698,7 @@ static int __qseecom_delete_saved_key(struct qseecom_dev_handle *data,
 	if (ret) {
 		pr_err("scm call to delete key failed : %d\n", ret);
 		__qseecom_disable_clk(CLK_QSEE);
-		return ret;
+		return -EFAULT;
 	}
 
 	switch (resp.result) {
@@ -2706,9 +2706,18 @@ static int __qseecom_delete_saved_key(struct qseecom_dev_handle *data,
 		break;
 	case QSEOS_RESULT_INCOMPLETE:
 		ret = __qseecom_process_incomplete_cmd(data, &resp);
-		if (ret)
+		if (ret) {
 			pr_err("process_incomplete_cmd FAILED, resp.result %d\n",
 					resp.result);
+			if (resp.result == QSEOS_RESULT_FAIL_MAX_ATTEMPT) {
+				pr_debug("Max attempts to input password reached.\n");
+				ret = -ERANGE;
+			}
+		}
+		break;
+	case QSEOS_RESULT_FAIL_MAX_ATTEMPT:
+		pr_debug("Max attempts to input password reached.\n");
+		ret = -ERANGE;
 		break;
 	case QSEOS_RESULT_FAILURE:
 	default:
@@ -2746,7 +2755,7 @@ static int __qseecom_set_clear_ce_key(struct qseecom_dev_handle *data,
 		__qseecom_disable_clk(CLK_QSEE);
 		if (qseecom.qsee.instance != qseecom.ce_drv.instance)
 			__qseecom_disable_clk(CLK_CE_DRV);
-		return ret;
+		return -EFAULT;
 	}
 
 	switch (resp.result) {
@@ -2754,9 +2763,18 @@ static int __qseecom_set_clear_ce_key(struct qseecom_dev_handle *data,
 		break;
 	case QSEOS_RESULT_INCOMPLETE:
 		ret = __qseecom_process_incomplete_cmd(data, &resp);
-		if (ret)
+		if (ret) {
 			pr_err("process_incomplete_cmd FAILED, resp.result %d\n",
 					resp.result);
+			if (resp.result == QSEOS_RESULT_FAIL_MAX_ATTEMPT) {
+				pr_debug("Max attempts to input password reached.\n");
+				ret = -ERANGE;
+			}
+		}
+		break;
+	case QSEOS_RESULT_FAIL_MAX_ATTEMPT:
+		pr_debug("Max attempts to input password reached.\n");
+		ret = -ERANGE;
 		break;
 	case QSEOS_RESULT_FAILURE:
 	default:
@@ -2796,7 +2814,7 @@ static int __qseecom_update_current_key_user_info(
 		__qseecom_disable_clk(CLK_QSEE);
 		if (qseecom.qsee.instance != qseecom.ce_drv.instance)
 			__qseecom_disable_clk(CLK_CE_DRV);
-		return ret;
+		return -EFAULT;
 	}
 
 	switch (resp.result) {
@@ -2862,7 +2880,7 @@ static int qseecom_create_key(struct qseecom_dev_handle *data,
 					&generate_key_ireq);
 	if (ret) {
 		pr_err("Failed to generate key on storage: %d\n", ret);
-		return -EFAULT;
+		return ret;
 	}
 
 	set_key_ireq.qsee_command_id = QSEOS_SET_KEY;
@@ -2885,7 +2903,7 @@ static int qseecom_create_key(struct qseecom_dev_handle *data,
 	if (ret) {
 		pr_err("Failed to create key: pipe %d, ce %d: %d\n",
 			pipe, ce_hw, ret);
-		return -EFAULT;
+		return ret;
 	}
 
 	return ret;
@@ -2992,7 +3010,7 @@ static int qseecom_update_key_user_info(struct qseecom_dev_handle *data,
 						&ireq);
 	if (ret) {
 		pr_err("Failed to update key info: %d\n", ret);
-		return -EFAULT;
+		return ret;
 	}
 	return ret;
 
