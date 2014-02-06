@@ -1610,7 +1610,7 @@ static void mdss_mdp_parse_dt_pipe_sw_reset(struct platform_device *pdev,
 	size_t len;
 	const u32 *arr;
 
-	arr = of_get_property(pdev->dev.of_node, prop_name, &len);
+	arr = of_get_property(pdev->dev.of_node, prop_name, (int *) &len);
 	if (arr) {
 		int i;
 
@@ -1638,7 +1638,7 @@ static int  mdss_mdp_parse_dt_pipe_clk_ctrl(struct platform_device *pdev,
 	size_t len;
 	const u32 *arr;
 
-	arr = of_get_property(pdev->dev.of_node, prop_name, &len);
+	arr = of_get_property(pdev->dev.of_node, prop_name, (int *) &len);
 	if (arr) {
 		int i, j;
 
