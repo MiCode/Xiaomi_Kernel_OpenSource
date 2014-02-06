@@ -679,8 +679,8 @@
 		qcom,wcnss-adc_tm = <&pm8226_adc_tm>;
 	};
 
-	qcom,msm-adsp-sensors {
-		compatible = "qcom,msm-adsp-sensors";
+	qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
 	};
 
 	qcom,wdt@f9017000 {

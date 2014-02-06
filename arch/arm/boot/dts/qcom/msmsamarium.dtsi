@@ -1786,8 +1786,8 @@
 		};
 	};
 
-	qcom,msm-adsp-sensors {
-		compatible = "qcom,msm-adsp-sensors";
+	qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
 	};
 
 	qseecom: qcom,qseecom@7b00000 {

@@ -1223,14 +1223,6 @@ config MSM_OCMEM_POWER_DISABLE
 	  Enable this configuration if OCMEM is being exclusively
 	  used as GMEM or OCIMEM.
 
-config SENSORS_ADSP
-	bool "Enable Sensors Driver Support for ADSP"
-	help
-	  Add support for sensors ADSP driver.
-	  This driver is used for exercising different sensors use cases,
-	  such as for lower-power OCMEM use cases, and for time syncing
-	  with ADSP clock.
-
 config USE_PINCTRL_IRQ
 	default n
 	bool "Use Pinctrl IRQ chip"
