@@ -770,7 +770,7 @@ int arizona_hp_ev(struct snd_soc_dapm_widget *w,
 	priv->arizona->hp_ena |= val;
 
 	/* Force off if HPDET magic is active */
-	if (priv->arizona->hpdet_magic)
+	if (priv->arizona->hpdet_magic || priv->arizona->hp_short)
 		val = 0;
 
 	regmap_update_bits_async(arizona->regmap, ARIZONA_OUTPUT_ENABLES_1,

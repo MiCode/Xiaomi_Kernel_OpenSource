@@ -29,6 +29,7 @@
 #include <linux/of.h>
 #include <linux/device.h>
 #include <linux/delay.h>
+#include <linux/regmap.h>
 
 #include <sound/soc.h>
 
@@ -52,6 +53,9 @@
 #define QUICK_HEADPHONE_MAX_OHM 3
 #define MICROPHONE_MIN_OHM      1257
 #define MICROPHONE_MAX_OHM      30000
+
+#define HP_NORMAL_IMPEDANCE     0
+#define HP_LOW_IMPEDANCE        1
 
 enum {
 	MICD_LVL_1_TO_7 = ARIZONA_MICD_LVL_1 | ARIZONA_MICD_LVL_2 |
@@ -93,6 +97,7 @@ struct arizona_extcon_info {
 	bool hpdet_active;
 	bool hpdet_done;
 	bool hpdet_retried;
+	int hp_imp_level;
 
 	int num_hpdet_res;
 	unsigned int hpdet_res[3];
@@ -196,7 +201,7 @@ static void arizona_extcon_do_magic(struct arizona_extcon_info *info,
 			 ret);
 
 	/* Restore the desired state while not doing the magic */
-	if (!magic) {
+	if (!magic && !arizona->hp_short) {
 		ret = regmap_update_bits(arizona->regmap,
 					 ARIZONA_OUTPUT_ENABLES_1,
 					 ARIZONA_OUT1L_ENA |
@@ -566,6 +571,148 @@ static int arizona_hpdet_do_id(struct arizona_extcon_info *info, int *reading,
 	return 0;
 }
 
+static const struct reg_default low_impedance_patch[] = {
+	{ 0x460, 0x0C21 },
+	{ 0x461, 0xA000 },
+	{ 0x462, 0x0C41 },
+	{ 0x463, 0x50E5 },
+	{ 0x464, 0x0C41 },
+	{ 0x465, 0x4040 },
+	{ 0x466, 0x0C41 },
+	{ 0x467, 0x3940 },
+	{ 0x468, 0x0C41 },
+	{ 0x469, 0x2418 },
+	{ 0x46A, 0x0846 },
+	{ 0x46B, 0x1990 },
+	{ 0x46C, 0x08C6 },
+	{ 0x46D, 0x1450 },
+	{ 0x46E, 0x04CE },
+	{ 0x46F, 0x1020 },
+	{ 0x470, 0x04CE },
+	{ 0x471, 0x0CD0 },
+	{ 0x472, 0x04CE },
+	{ 0x473, 0x0A30 },
+	{ 0x474, 0x044E },
+	{ 0x475, 0x0660 },
+	{ 0x476, 0x044E },
+	{ 0x477, 0x0510 },
+	{ 0x478, 0x04CE },
+	{ 0x479, 0x0400 },
+	{ 0x47A, 0x04CE },
+	{ 0x47B, 0x0330 },
+	{ 0x47C, 0x05DF },
+	{ 0x47D, 0x0001 },
+	{ 0x47E, 0x07FF },
+	{ 0x483, 0x0021 },
+};
+
+static const struct reg_default normal_impedance_patch[] = {
+	{ 0x460, 0x0C40 },
+	{ 0x461, 0xA000 },
+	{ 0x462, 0x0C42 },
+	{ 0x463, 0x50E5 },
+	{ 0x464, 0x0842 },
+	{ 0x465, 0x4040 },
+	{ 0x466, 0x0842 },
+	{ 0x467, 0x3940 },
+	{ 0x468, 0x0846 },
+	{ 0x469, 0x2418 },
+	{ 0x46A, 0x0442 },
+	{ 0x46B, 0x1990 },
+	{ 0x46C, 0x04C6 },
+	{ 0x46D, 0x1450 },
+	{ 0x46E, 0x04CE },
+	{ 0x46F, 0x1020 },
+	{ 0x470, 0x04CE },
+	{ 0x471, 0x0CD0 },
+	{ 0x472, 0x04CE },
+	{ 0x473, 0x0A30 },
+	{ 0x474, 0x044E },
+	{ 0x475, 0x0660 },
+	{ 0x476, 0x044E },
+	{ 0x477, 0x0510 },
+	{ 0x478, 0x04CE },
+	{ 0x479, 0x0400 },
+	{ 0x47A, 0x04CE },
+	{ 0x47B, 0x0330 },
+	{ 0x47C, 0x05DF },
+	{ 0x47D, 0x0001 },
+	{ 0x47E, 0x07FF },
+	{ 0x483, 0x0021 },
+};
+
+int arizona_wm5110_tune_headphone(struct arizona_extcon_info *info,
+				  int reading)
+{
+	struct arizona *arizona = info->arizona;
+	const struct reg_default *patch;
+	int i, ret, size;
+	unsigned int outputs;
+
+	if (reading <= 4) {
+		/* Headphones are always off here so just mark them */
+		arizona->hp_short = true;
+		dev_warn(arizona->dev, "Possible HP short, disabling\n");
+		return 0;
+	} else if (reading <= 10) {
+		if (info->hp_imp_level == HP_LOW_IMPEDANCE)
+			return 0;
+
+		info->hp_imp_level = HP_LOW_IMPEDANCE;
+		patch = low_impedance_patch;
+		size = ARRAY_SIZE(low_impedance_patch);
+	} else {
+		if (info->hp_imp_level == HP_NORMAL_IMPEDANCE)
+			return 0;
+
+		info->hp_imp_level = HP_NORMAL_IMPEDANCE;
+		patch = normal_impedance_patch;
+		size = ARRAY_SIZE(normal_impedance_patch);
+	}
+
+	mutex_lock(&arizona->dapm->card->dapm_mutex);
+
+	ret = regmap_read(arizona->regmap, ARIZONA_OUTPUT_ENABLES_1,
+			  &outputs);
+	if (ret != 0) {
+		dev_err(arizona->dev, "Failed to read output state: %d\n", ret);
+		goto err;
+	}
+	ret = regmap_update_bits(arizona->regmap, ARIZONA_OUTPUT_ENABLES_1,
+				 ARIZONA_OUT1L_ENA | ARIZONA_OUT1R_ENA |
+				 ARIZONA_OUT2L_ENA | ARIZONA_OUT2R_ENA |
+				 ARIZONA_OUT3L_ENA | ARIZONA_OUT3R_ENA,
+				 0);
+	if (ret != 0) {
+		dev_err(arizona->dev, "Failed to disable outputs: %d\n", ret);
+		goto err;
+	}
+
+	for (i = 0; i < size; ++i) {
+		ret = regmap_write(arizona->regmap,
+				   patch[i].reg, patch[i].def);
+		if (ret != 0)
+			dev_warn(arizona->dev,
+				 "Failed to write headphone patch: %x <= %x\n",
+				 patch[i].reg, patch[i].def);
+	}
+
+	ret = regmap_update_bits(arizona->regmap, ARIZONA_OUTPUT_ENABLES_1,
+				 ARIZONA_OUT1L_ENA | ARIZONA_OUT1R_ENA |
+				 ARIZONA_OUT2L_ENA | ARIZONA_OUT2R_ENA |
+				 ARIZONA_OUT3L_ENA | ARIZONA_OUT3R_ENA,
+				 outputs);
+	if (ret != 0) {
+		dev_err(arizona->dev, "Failed to restore outputs: %d\n", ret);
+		goto err;
+	}
+
+err:
+	mutex_unlock(&arizona->dapm->card->dapm_mutex);
+
+	return ret;
+}
+
 static irqreturn_t arizona_hpdet_irq(int irq, void *data)
 {
 	struct arizona_extcon_info *info = data;
@@ -608,6 +755,14 @@ static irqreturn_t arizona_hpdet_irq(int irq, void *data)
 		goto out;
 	} else if (ret < 0) {
 		goto done;
+	}
+
+	switch (arizona->type) {
+	case WM5110:
+		arizona_wm5110_tune_headphone(info, reading);
+		break;
+	default:
+		break;
 	}
 
 	if (arizona->pdata.hpdet_cb)
@@ -1079,6 +1234,7 @@ static irqreturn_t arizona_jackdet(int irq, void *data)
 		info->hpdet_done = false;
 		info->hpdet_retried = false;
 		info->hp_impedance = 0;
+		arizona->hp_short = false;
 
 		for (i = 0; i < info->num_micd_ranges; i++)
 			input_report_key(info->input,

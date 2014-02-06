@@ -106,6 +106,7 @@ struct arizona {
 
 	bool hpdet_magic;
 	unsigned int hp_ena;
+	unsigned int hp_short;
 
 	struct mutex clk_lock;
 	int clk32k_ref;
