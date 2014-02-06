@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -346,7 +346,7 @@ static int ssm_remove(struct platform_device *pdev)
 	 */
 	ssm_drv->ready = false;
 	smd_close(ssm_drv->ch);
-	flush_work_sync(&ssm_drv->ipc_work);
+	flush_work(&ssm_drv->ipc_work);
 
 	/* Shutdown tzapp */
 	dev_dbg(&pdev->dev, "Shutting down TZapp\n");
