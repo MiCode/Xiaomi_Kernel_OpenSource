@@ -163,6 +163,9 @@ struct arizona_pdata {
 	/** Force MICBIAS on for mic detect */
 	bool micd_force_micbias;
 
+	/** Declare an open circuit as a 4 pole jack */
+	bool micd_open_circuit_declare;
+
 	/** Delay between jack detection and MICBIAS ramp */
 	int init_mic_delay;
 

@@ -878,7 +878,7 @@ static void arizona_micd_detect(struct work_struct *work)
 	/* Due to jack detect this should never happen */
 	if (!(val & ARIZONA_MICD_STS)) {
 		dev_warn(arizona->dev, "Detected open circuit\n");
-		info->mic = false;
+		info->mic = arizona->pdata.micd_open_circuit_declare;
 		arizona_stop_mic(info);
 		arizona_identify_headphone(info);
 		info->detecting = false;
@@ -1207,6 +1207,10 @@ static int arizona_extcon_get_pdata(struct arizona *arizona)
 	pdata->micd_software_compare =
 			of_property_read_bool(arizona->dev->of_node,
 					      "wlf,micd-software-compare");
+
+	pdata->micd_open_circuit_declare =
+		of_property_read_bool(arizona->dev->of_node,
+				      "wlf,micd-open-circuit-declare");
 
 	pdata->jd_gpio5 = of_property_read_bool(arizona->dev->of_node,
 						"wlf,use-jd-gpio");
