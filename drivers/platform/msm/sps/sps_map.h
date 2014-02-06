@@ -21,7 +21,7 @@
 /* End point parameters */
 struct sps_map_end_point {
 	u32 periph_class;	/* Peripheral device enumeration class */
-	u32 periph_phy_addr;	/* Peripheral base address */
+	phys_addr_t periph_phy_addr;	/* Peripheral base address */
 	u32 pipe_index;		/* Pipe index */
 	u32 event_thresh;	/* Pipe event threshold */
 };

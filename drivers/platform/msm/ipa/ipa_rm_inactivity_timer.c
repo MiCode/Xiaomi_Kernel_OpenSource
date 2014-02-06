@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,7 +17,7 @@
 #include <linux/timer.h>
 #include <linux/unistd.h>
 #include <linux/workqueue.h>
-#include <mach/ipa.h>
+#include <linux/ipa.h>
 #include "ipa_i.h"
 
 /**

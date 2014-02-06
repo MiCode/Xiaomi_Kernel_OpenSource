@@ -1,0 +1,367 @@
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "skeleton64.dtsi"
+#include <dt-bindings/clock/msm-clocks-plutonium.h>
+
+/ {
+	model = "Qualcomm MSM plutonium";
+	compatible = "qcom,msmplutonium";
+	qcom,msm-id = <207 0x0>;
+	interrupt-parent = <&intc>;
+
+	aliases {
+		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
+		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
+	};
+	soc: soc { };
+
+        aliases {
+		spi0 = &spi_0;
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x0>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x09008000>;
+		};
+
+		cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x1>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x09008000>;
+		};
+
+		cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x2>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x09008000>;
+		};
+
+		cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x3>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x09008000>;
+		};
+
+		cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a57";
+			reg = <0x100>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x09008000>;
+		};
+
+		cpu@101 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a57";
+			reg = <0x101>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x09008000>;
+		};
+
+		cpu@102 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a57";
+			reg = <0x102>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x09008000>;
+		};
+
+		cpu@103 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a57";
+			reg = <0x103>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x09008000>;
+		};
+	};
+};
+
+#include "msm-gdsc.dtsi"
+
+&soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges = <0 0 0 0xffffffff>;
+	compatible = "simple-bus";
+
+	intc: interrupt-controller@f9000000 {
+		compatible = "qcom,msm-qgic2";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		reg = <0xf9000000 0x1000>,
+		      <0xf9002000 0x1000>;
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <1 2 0xf08>,
+			     <1 3 0xf08>,
+			     <1 4 0xf08>,
+			     <1 1 0xf08>;
+		clock-frequency = <19200000>;
+	};
+
+	uartblsp1dm2: serial@f991f000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xf991f000 0x1000>;
+		interrupts = <0 109 0>;
+		status = "disabled";
+	};
+
+	clock_gcc: qcom,gcc {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
+	clock_mmss: qcom,mmsscc {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
+	clock_rpm: qcom,rpmcc {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
+	qcom,sps@f9984000 {
+		compatible = "qcom,msm_sps";
+		reg-names = "bam_mem", "core_mem";
+		reg = <0xf9984000 0x15000>,
+		      <0xf9999000 0xb000>;
+		interrupts = <0 94 0>;
+		qcom,pipe-attr-ee;
+		clocks = <&clock_rpm clk_pnoc_sps_clk>,
+			 <&clock_gcc clk_gcc_bam_dma_ahb_clk>;
+		clock-names = "dfab_clk", "dma_bam_pclk";
+	};
+
+	qcom,ipc-spinlock@fd484000 {
+		compatible = "qcom,ipc-spinlock-sfpb";
+		reg = <0xfd484000 0x400>;
+		qcom,num-locks = <8>;
+	};
+
+	qcom,smem@cc00000 {
+		compatible = "qcom,smem";
+		reg = <0xcc00000 0x200000>,
+			<0xf900d008 0x4>,
+			<0xfc428000 0x4000>;
+		reg-names = "smem", "irq-reg-base", "aux-mem1";
+		qcom,mpu-enabled;
+
+		qcom,smd-modem {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <0>;
+			qcom,smd-irq-offset = <0x0>;
+			qcom,smd-irq-bitmask = <0x1000>;
+			qcom,pil-string = "modem";
+			interrupts = <0 25 1>;
+		};
+
+		qcom,smsm-modem {
+			compatible = "qcom,smsm";
+			qcom,smsm-edge = <0>;
+			qcom,smsm-irq-offset = <0x0>;
+			qcom,smsm-irq-bitmask = <0x2000>;
+			interrupts = <0 26 1>;
+		};
+
+		qcom,smd-adsp {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <1>;
+			qcom,smd-irq-offset = <0x0>;
+			qcom,smd-irq-bitmask = <0x100>;
+			qcom,pil-string = "adsp";
+			interrupts = <0 156 1>;
+		};
+
+		qcom,smsm-adsp {
+			compatible = "qcom,smsm";
+			qcom,smsm-edge = <1>;
+			qcom,smsm-irq-offset = <0x0>;
+			qcom,smsm-irq-bitmask = <0x200>;
+			interrupts = <0 157 1>;
+		};
+
+		qcom,smd-rpm {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <15>;
+			qcom,smd-irq-offset = <0x0>;
+			qcom,smd-irq-bitmask = <0x1>;
+			interrupts = <0 168 1>;
+			qcom,irq-no-suspend;
+		};
+	};
+
+	sdhc_1: sdhci@f9824900 {
+				compatible = "qcom,sdhci-msm";
+				reg = <0xf9824900 0x1a0>, <0xf9824000 0x800>;
+				reg-names = "hc_mem", "core_mem";
+
+				interrupts = <0 123 0>, <0 138 0>;
+				interrupt-names = "hc_irq", "pwr_irq";
+
+				qcom,bus-width = <8>;
+				qcom,cpu-dma-latency-us = <200>;
+
+				qcom,msm-bus,name = "sdhc1";
+				qcom,msm-bus,num-cases = <8>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps = <78 512 0 0>, /* No vote */
+						<78 512 1600 3200>,       /* 400 KB/s*/
+						<78 512 80000 160000>,    /* 20 MB/s */
+						<78 512 100000 200000>,   /* 25 MB/s */
+						<78 512 200000 400000>,   /* 50 MB/s */
+						<78 512 400000 800000>,   /* 100 MB/s */
+						<78 512 400000 800000>,   /* 200 MB/s */
+						<78 512 2048000 4096000>; /* Max. bandwidth */
+				qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+								100000000 200000000 4294967295>;
+
+				clock-names = "bus_clk", "iface_clk", "core_clk", "cal_clk", "sleep_clk";
+				     clocks = <&clock_gcc clk_gcc_sdcc1_apps_clk>,
+				              <&clock_gcc clk_gcc_sdcc1_apps_clk>,
+				     	 	  <&clock_gcc clk_gcc_sdcc1_apps_clk>,
+				     	      <&clock_gcc clk_gcc_sdcc1_apps_clk>,
+				     	 	  <&clock_gcc clk_gcc_sdcc1_apps_clk>;
+
+				status = "disabled";
+			};
+
+	sdhc_2: sdhci@f98a4900 {
+				compatible = "qcom,sdhci-msm";
+				reg = <0xf98a4900 0x11c>, <0xf98a4000 0x800>;
+				reg-names = "hc_mem", "core_mem";
+
+				interrupts = <0 125 0>, <0 221 0>;
+				interrupt-names = "hc_irq", "pwr_irq";
+
+				clock-names = "bus_clk", "iface_clk", "core_clk", "cal_clk", "sleep_clk";
+				 clocks = <&clock_gcc clk_gcc_sdcc1_apps_clk>,
+				          <&clock_gcc clk_gcc_sdcc1_apps_clk>,
+				          <&clock_gcc clk_gcc_sdcc1_apps_clk>,
+				          <&clock_gcc clk_gcc_sdcc1_apps_clk>,
+				          <&clock_gcc clk_gcc_sdcc1_apps_clk>;
+
+				qcom,bus-width = <4>;
+				status = "disabled";
+			};
+
+	spi_0: spi@f9923000 { /* BLSP1 QUP1 */
+		compatible = "qcom,spi-qup-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "spi_physical", "spi_bam_physical";
+		reg = <0xf9923000 0x1000>,
+		      <0xf9904000 0x19000>;
+		interrupt-names = "spi_irq", "spi_bam_irq";
+		interrupts = <0 95 0>, <0 238 0>;
+		spi-max-frequency = <19200000>;
+
+		qcom,infinite-mode = <0>;
+		qcom,use-bam;
+		qcom,ver-reg-exists;
+		qcom,bam-consumer-pipe-index = <12>;
+		qcom,bam-producer-pipe-index = <13>;
+		qcom,master-id = <86>;
+		qcom,use-pinctrl;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&spi_0_active>;
+		pinctrl-1 = <&spi_0_sleep>;
+
+		clock-names = "iface_clk", "core_clk";
+
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			 <&clock_gcc clk_gcc_blsp1_qup1_spi_apps_clk>;
+	};
+};
+
+&gdsc_usb30 {
+	reg = <0xfc4003c4 0x4>;
+	status = "ok";
+};
+
+&gdsc_pcie_0 {
+	status = "ok";
+};
+
+&gdsc_pcie_1 {
+	status = "ok";
+};
+
+&gdsc_ufs {
+	status = "ok";
+};
+
+&gdsc_venus {
+	status = "ok";
+};
+
+&gdsc_venus_core0 {
+	qcom,support-hw-trigger;
+	status = "ok";
+};
+
+&gdsc_venus_core1 {
+	qcom,support-hw-trigger;
+	status = "ok";
+};
+
+&gdsc_venus_core2 {
+	qcom,support-hw-trigger;
+	status = "ok";
+};
+
+&gdsc_mdss {
+	status = "ok";
+};
+
+&gdsc_jpeg {
+	status = "ok";
+};
+
+&gdsc_vfe {
+	status = "ok";
+};
+
+&gdsc_cpp {
+	status = "ok";
+};
+
+&gdsc_fd {
+	status = "ok";
+};
+
+&gdsc_oxili_cx {
+	status = "ok";
+	parent-supply = <&pmplutonium_s2_corner>;
+};
+
+&gdsc_oxili_gx {
+	status = "ok";
+};
+
+/include/ "msmplutonium-regulator.dtsi"

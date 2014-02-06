@@ -85,6 +85,19 @@ static inline void flush_cache_page(struct vm_area_struct *vma,
 }
 
 /*
+ * Cache maintenance functions used by the DMA API. No to be used directly.
+ */
+extern void __dma_map_area(const void *, size_t, int);
+extern void __dma_unmap_area(const void *, size_t, int);
+extern void __dma_flush_range(const void *, const void *);
+extern void __dma_inv_range(const void *, const void *);
+extern void __dma_clean_range(const void *, const void *);
+
+#define dmac_flush_range __dma_flush_range
+#define dmac_inv_range __dma_inv_range
+#define dmac_clean_range __dma_clean_range
+
+/*
  * Copy user data from/to a page which is mapped into a different
  * processes address space.  Really, we want to allow our "user
  * space" model to handle this.

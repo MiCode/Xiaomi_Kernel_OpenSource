@@ -1,6 +1,7 @@
 config ARM64
 	def_bool y
 	select ARCH_HAS_ATOMIC64_DEC_IF_POSITIVE
+	select ARCH_USE_CMPXCHG_LOCKREF
 	select ARCH_WANT_OPTIONAL_GPIOLIB
 	select ARCH_WANT_COMPAT_IPC_PARSE_VERSION
 	select ARCH_WANT_FRAME_POINTERS
@@ -8,7 +9,7 @@ config ARM64
 	select ARM_ARCH_TIMER
 	select ARM_GIC
 	select CLONE_BACKWARDS
-	select COMMON_CLK
+	select COMMON_CLK if !ARCH_MSM
 	select GENERIC_CLOCKEVENTS
 	select GENERIC_IOMAP
 	select GENERIC_IRQ_PROBE
@@ -21,6 +22,7 @@ config ARM64
 	select HAVE_DEBUG_KMEMLEAK
 	select HAVE_DMA_API_DEBUG
 	select HAVE_DMA_ATTRS
+	select HAVE_DMA_CONTIGUOUS
 	select HAVE_GENERIC_DMA_COHERENT
 	select HAVE_GENERIC_HARDIRQS
 	select HAVE_HW_BREAKPOINT if PERF_EVENTS
@@ -111,6 +113,31 @@ config ARCH_VEXPRESS
 	  This enables support for the ARMv8 software model (Versatile
 	  Express).
 
+config ARCH_MSM
+	bool "Qualcomm Platforms"
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select CLKDEV_LOOKUP
+	select ARCH_REQUIRE_GPIOLIB
+	select SOC_BUS
+	select PINCTRL
+	help
+	  This enables support for the ARMv8 based Qualcomm chipsets.
+
+config ARCH_MSM8916
+	bool "Enable Support for Qualcomm MSM8916"
+	depends on ARCH_MSM
+	help
+	  This enables support for the MSM8916 chipset. If you dont
+	  know what do here, say N
+
+config ARCH_MSMPLUTONIUM
+	bool "Enable Support for Qualcomm MSMPLUTONIUM"
+	depends on ARCH_MSM
+	help
+	  This enables support for the MSMPLUTONIUM chipset. If you dont
+	  know what do here, say N
+
 endmenu
 
 menu "Bus support"
@@ -148,7 +175,14 @@ config NR_CPUS
 	int "Maximum number of CPUs (2-32)"
 	range 2 32
 	depends on SMP
-	default "4"
+	default "8"
+
+config HOTPLUG_CPU
+	bool "Support for hot-pluggable CPUs"
+	depends on SMP
+	help
+	  Say Y here to experiment with turning CPUs off and on.  CPUs
+	  can be controlled through /sys/devices/system/cpu.
 
 source kernel/Kconfig.preempt
 

@@ -21,8 +21,8 @@
 #include <linux/mutex.h>
 #include <linux/skbuff.h>
 #include <linux/slab.h>
-#include <mach/ipa.h>
-#include <mach/sps.h>
+#include <linux/ipa.h>
+#include <linux/msm-sps.h>
 #include "ipa_hw_defs.h"
 #include "ipa_ram_mmap.h"
 #include "ipa_reg.h"
@@ -649,7 +649,7 @@ struct ipa_context {
 	dev_t dev_num;
 	struct device *dev;
 	struct cdev cdev;
-	u32 bam_handle;
+	unsigned long bam_handle;
 	struct ipa_ep_context ep[IPA_NUM_PIPES];
 	struct ipa_flt_tbl flt_tbl[IPA_NUM_PIPES][IPA_IP_MAX];
 	void __iomem *mmio;

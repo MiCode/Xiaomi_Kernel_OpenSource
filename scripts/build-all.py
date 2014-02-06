@@ -27,28 +27,21 @@
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # Build the kernel for all targets using the Android build environment.
-#
-# TODO: Accept arguments to indicate what to build.
 
 import glob
 from optparse import OptionParser
-import subprocess
 import os
-import os.path
 import re
 import shutil
+import subprocess
 import sys
 
-version = 'build-all.py, version 0.01'
+version = 'build-all.py, version 1.99'
 
 build_dir = '../all-kernels'
 make_command = ["vmlinux", "modules", "dtbs"]
-make_env = os.environ
-make_env.update({
-        'ARCH': 'arm',
-        'KCONFIG_NOTIMESTAMP': 'true' })
-make_env.setdefault('CROSS_COMPILE', 'arm-none-linux-gnueabi-')
 all_options = {}
+compile64 = os.environ.get('CROSS_COMPILE64')
 
 def error(msg):
     sys.stderr.write("error: %s\n" % msg)
@@ -57,6 +50,9 @@ def fail(msg):
     """Fail with a user-printed message"""
     error(msg)
     sys.exit(1)
+
+if not os.environ.get('CROSS_COMPILE'):
+    fail("CROSS_COMPILE must be set in the environment")
 
 def check_kernel():
     """Ensure that PWD is a kernel directory"""
@@ -75,36 +71,18 @@ def check_build():
             else:
                 raise
 
-def update_config(file, str):
-    print 'Updating %s with \'%s\'\n' % (file, str)
-    defconfig = open(file, 'a')
-    defconfig.write(str + '\n')
-    defconfig.close()
+failed_targets = []
 
-def scan_configs():
-    """Get the full list of defconfigs appropriate for this tree."""
-    names = {}
-    arch_pats = (
-        r'[fm]sm[0-9]*_defconfig',
-        r'apq*_defconfig',
-        r'qsd*_defconfig',
-	r'mdm*_defconfig',
-	r'mpq*_defconfig',
-        )
-    for p in arch_pats:
-        for n in glob.glob('arch/arm/configs/' + p):
-            names[os.path.basename(n)[:-10]] = n
-    return names
-
-class Builder:
-    def __init__(self, logname):
+class LogRunner:
+    def __init__(self, logname, make_env):
         self.logname = logname
         self.fd = open(logname, 'w')
+        self.make_env = make_env
 
     def run(self, args):
         devnull = open('/dev/null', 'r')
         proc = subprocess.Popen(args, stdin=devnull,
-                env=make_env,
+                env=self.make_env,
                 bufsize=0,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT)
@@ -131,75 +109,121 @@ class Builder:
         print
         result = proc.wait()
 
-        self.fd.close()
+        self.fd.flush()
         return result
 
-failed_targets = []
+class Builder():
 
-def build(target):
-    dest_dir = os.path.join(build_dir, target)
-    log_name = '%s/log-%s.log' % (build_dir, target)
-    print 'Building %s in %s log %s' % (target, dest_dir, log_name)
-    if not os.path.isdir(dest_dir):
-        os.mkdir(dest_dir)
-    defconfig = 'arch/arm/configs/%s_defconfig' % target
-    dotconfig = '%s/.config' % dest_dir
-    savedefconfig = '%s/defconfig' % dest_dir
-    shutil.copyfile(defconfig, dotconfig)
+    def __init__(self, name, defconfig):
+        self.name = name
+        self.defconfig = defconfig
 
-    staging_dir = 'install_staging'
-    modi_dir = '%s' % staging_dir
-    hdri_dir = '%s/usr' % staging_dir
-    shutil.rmtree(os.path.join(dest_dir, staging_dir), ignore_errors=True)
+        self.confname = self.defconfig.split('/')[-1]
 
-    devnull = open('/dev/null', 'r')
-    subprocess.check_call(['make', 'O=%s' % dest_dir,
-        '%s_defconfig' % target], env=make_env, stdin=devnull)
-    devnull.close()
-
-    if not all_options.updateconfigs:
-        # Build targets can be dependent upon the completion of previous
-        # build targets, so build them one at a time.
-        cmd_line = ['make',
-            'INSTALL_HDR_PATH=%s' % hdri_dir,
-            'INSTALL_MOD_PATH=%s' % modi_dir,
-            'O=%s' % dest_dir]
-        build_targets = []
-        for c in make_command:
-            if re.match(r'^-{1,2}\w', c):
-                cmd_line.append(c)
+        # Determine if this is a 64-bit target based on the location
+        # of the defconfig.
+        self.make_env = os.environ.copy()
+        if "/arm64/" in defconfig:
+            if compile64:
+                self.make_env['CROSS_COMPILE'] = compile64
             else:
-                build_targets.append(c)
-        for t in build_targets:
-            build = Builder(log_name)
+                fail("Attempting to build 64-bit, without setting CROSS_COMPILE64")
+            self.make_env['ARCH'] = 'arm64'
+        else:
+            self.make_env['ARCH'] = 'arm'
+        self.make_env['KCONFIG_NOTIMESTAMP'] = 'true'
 
-            result = build.run(cmd_line + [t])
-            if result != 0:
-                if all_options.keep_going:
-                    failed_targets.append(target)
-                    fail_or_error = error
+    def build(self):
+        dest_dir = os.path.join(build_dir, self.name)
+        log_name = "%s/log-%s.log" % (build_dir, self.name)
+        print 'Building %s in %s log %s' % (self.name, dest_dir, log_name)
+        if not os.path.isdir(dest_dir):
+            os.mkdir(dest_dir)
+        defconfig = self.defconfig
+        dotconfig = '%s/.config' % dest_dir
+        savedefconfig = '%s/defconfig' % dest_dir
+        # shutil.copyfile(defconfig, dotconfig)  # Not really right.
+
+        staging_dir = 'install_staging'
+        modi_dir = '%s' % staging_dir
+        hdri_dir = '%s/usr' % staging_dir
+        shutil.rmtree(os.path.join(dest_dir, staging_dir), ignore_errors=True)
+
+        with open('/dev/null', 'r') as devnull:
+            subprocess.check_call(['make', 'O=%s' % dest_dir,
+                self.confname], env=self.make_env,
+                stdin=devnull)
+
+        if not all_options.updateconfigs:
+            # Build targets can be dependent upon the completion of
+            # previous build targets, so build them one at a time.
+            cmd_line = ['make',
+                'INSTALL_HDR_PATH=%s' % hdri_dir,
+                'INSTALL_MOD_PATH=%s' % modi_dir,
+                'O=%s' % dest_dir]
+            build_targets = []
+            for c in make_command:
+                if re.match(r'^-{1,2}\w', c):
+                    cmd_line.append(c)
                 else:
-                    fail_or_error = fail
-                fail_or_error("Failed to build %s, see %s" %
-                              (target, build.logname))
+                    build_targets.append(c)
+            build = LogRunner(log_name, self.make_env)
+            for t in build_targets:
+                result = build.run(cmd_line + [t])
+                if result != 0:
+                    if all_options.keep_going:
+                        failed_targets.append(target)
+                        fail_or_error = error
+                    else:
+                        fail_or_error = fail
+                    fail_or_error("Failed to build %s, see %s" %
+                            (t, build.logname))
 
-    # Copy the defconfig back.
-    if all_options.configs or all_options.updateconfigs:
-        devnull = open('/dev/null', 'r')
-        subprocess.check_call(['make', 'O=%s' % dest_dir,
-            'savedefconfig'], env=make_env, stdin=devnull)
-        devnull.close()
-        shutil.copyfile(savedefconfig, defconfig)
+        # Copy the defconfig back.
+        if all_options.configs or all_options.updateconfigs:
+            with open('/dev/null', 'r') as devnull:
+                subprocess.check_call(['make', 'O=%s' % dest_dir,
+                    'savedefconfig'], env=self.make_env, stdin=devnull)
+            shutil.copyfile(savedefconfig, defconfig)
 
-def build_many(allconf, targets):
+def update_config(file, str):
+    print 'Updating %s with \'%s\'\n' % (file, str)
+    with open(file, 'a') as defconfig:
+        defconfig.write(str + '\n')
+
+def scan_configs():
+    """Get the full list of defconfigs appropriate for this tree."""
+    names = []
+    arch_pats = (
+        r'[fm]sm[0-9]*_defconfig',
+        r'apq*_defconfig',
+        r'qsd*_defconfig',
+        r'mdm*_defconfig',
+	r'mpq*_defconfig',
+        )
+    arch64_pats = (
+        r'msm_defconfig',
+        )
+    for p in arch_pats:
+        for n in glob.glob('arch/arm/configs/' + p):
+            name = os.path.basename(n)[:-10]
+            names.append(Builder(name, n))
+    if 'CROSS_COMPILE64' in os.environ:
+        for p in arch64_pats:
+            for n in glob.glob('arch/arm64/configs/' + p):
+                name = os.path.basename(n)[:-10] + "-64"
+                names.append(Builder(name, n))
+    return names
+
+def build_many(targets):
     print "Building %d target(s)" % len(targets)
     for target in targets:
         if all_options.updateconfigs:
-            update_config(allconf[target], all_options.updateconfigs)
-        build(target)
+            update_config(target.defconfig, all_options.updateconfigs)
+        target.build()
     if failed_targets:
-        fail('\n  '.join(["Failed targets:"] +
-            [target for target in failed_targets]))
+        fail("\n  ".join(["Failed targets:"] +
+            [target.name for target in failed_targets]))
 
 def main():
     global make_command
@@ -249,8 +273,8 @@ def main():
 
     if options.list:
         print "Available targets:"
-        for target in configs.keys():
-            print "   %s" % target
+        for target in configs:
+            print "   %s" % target.name
         sys.exit(0)
 
     if options.oldconfig:
@@ -264,26 +288,29 @@ def main():
         make_command.append("-l%d" % options.load_average)
 
     if args == ['all']:
-        build_many(configs, configs.keys())
+        build_many(configs)
     elif args == ['perf']:
         targets = []
-        for t in configs.keys():
-            if "perf" in t:
+        for t in configs:
+            if "perf" in t.name:
                 targets.append(t)
-        build_many(configs, targets)
+        build_many(targets)
     elif args == ['noperf']:
         targets = []
-        for t in configs.keys():
-            if "perf" not in t:
+        for t in configs:
+            if "perf" not in t.name:
                 targets.append(t)
-        build_many(configs, targets)
+        build_many(targets)
     elif len(args) > 0:
+        all_configs = {}
+        for t in configs:
+            all_configs[t.name] = t
         targets = []
         for t in args:
-            if t not in configs.keys():
-                parser.error("Target '%s' not one of %s" % (t, configs.keys()))
-            targets.append(t)
-        build_many(configs, targets)
+            if t not in all_configs:
+                parser.error("Target '%s' not one of %s" % (t, all_configs.keys()))
+            targets.append(all_configs[t])
+        build_many(targets)
     else:
         parser.error("Must specify a target to build, or 'all'")
 

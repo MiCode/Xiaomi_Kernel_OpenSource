@@ -21,14 +21,15 @@
 #include <linux/of_coresight.h>
 #include <linux/input.h>
 
-#include <mach/msm_bus_board.h>
-#include <mach/msm_bus.h>
+#include <linux/msm-bus-board.h>
+#include <linux/msm-bus.h>
 
 #include "kgsl.h"
 #include "kgsl_pwrscale.h"
 #include "kgsl_cffdump.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_iommu.h"
+#include "kgsl_compat.h"
 #include "kgsl_trace.h"
 
 #include "adreno.h"
@@ -178,6 +179,9 @@ static const struct {
 	{ ADRENO_REV_A305C, 3, 0, 5, 0x20,
 		"a300_pm4.fw", "a300_pfp.fw", &adreno_a3xx_gpudev,
 		512, 0, 2, SZ_128K, 0x3FF037, 0x3FF016 },
+	{ ADRENO_REV_A306, 3, 0, 6, 0x00,
+		"a300_pm4.fw", "a300_pfp.fw", &adreno_a3xx_gpudev,
+		512, 0, 2, SZ_128K, NO_VER, NO_VER },
 	{ ADRENO_REV_A420, 4, 2, 0, ANY_ID,
 		"a420_pm4.fw", "a420_pfp.fw", &adreno_a4xx_gpudev,
 		512, 0, 2, (SZ_1M + SZ_512K), NO_VER, NO_VER },
@@ -3106,10 +3110,12 @@ static const struct kgsl_functable adreno_functable = {
 	.start = adreno_start,
 	.stop = adreno_stop,
 	.getproperty = adreno_getproperty,
+	.getproperty_compat = adreno_getproperty_compat,
 	.waittimestamp = adreno_waittimestamp,
 	.readtimestamp = adreno_readtimestamp,
 	.issueibcmds = adreno_ringbuffer_issueibcmds,
 	.ioctl = adreno_ioctl,
+	.compat_ioctl = adreno_compat_ioctl,
 	.setup_pt = adreno_setup_pt,
 	.cleanup_pt = adreno_cleanup_pt,
 	.power_stats = adreno_power_stats,

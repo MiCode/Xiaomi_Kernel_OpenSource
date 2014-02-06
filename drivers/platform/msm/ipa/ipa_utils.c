@@ -14,8 +14,8 @@
 #include <linux/genalloc.h>	/* gen_pool_alloc() */
 #include <linux/io.h>
 #include <linux/ratelimit.h>
-#include <mach/msm_bus.h>
-#include <mach/msm_bus_board.h>
+#include <linux/msm-bus.h>
+#include <linux/msm-bus-board.h>
 #include "ipa_i.h"
 
 #define IPA_V1_CLK_RATE (92.31 * 1000 * 1000UL)

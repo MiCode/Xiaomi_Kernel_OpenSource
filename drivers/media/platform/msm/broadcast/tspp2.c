@@ -859,7 +859,7 @@ struct tspp2_device {
 	struct device *dev;
 	void __iomem *base;
 	u32 tspp2_irq;
-	u32 bam_handle;
+	unsigned long bam_handle;
 	u32 bam_irq;
 	struct sps_bam_props bam_props;
 	struct tspp2_iommu_info iommu_info;

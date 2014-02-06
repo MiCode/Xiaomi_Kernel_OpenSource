@@ -23,7 +23,7 @@
 #include <linux/compiler.h>
 #include <linux/ratelimit.h>
 
-#include <mach/sps.h>
+#include <linux/msm-sps.h>
 
 #include "sps_map.h"
 
@@ -41,10 +41,12 @@
 #define SPS_ERROR -1
 
 /* BAM identifier used in log messages */
-#define BAM_ID(dev)       ((dev)->props.phys_addr)
+#define BAM_ID(dev)       (&(dev)->props.phys_addr)
 
 /* "Clear" value for the connection parameter struct */
-#define SPSRM_CLEAR     0xcccccccc
+#define SPSRM_CLEAR     0xccccccccUL
+#define SPSRM_ADDR_CLR \
+	((sizeof(int) == sizeof(long)) ? 0 : (SPSRM_CLEAR << 32))
 
 #define MAX_MSG_LEN 80
 
@@ -142,8 +144,8 @@ extern u8 print_limit_option;
 
 /* End point parameters */
 struct sps_conn_end_pt {
-	u32 dev;		/* Device handle of BAM */
-	u32 bam_phys;		/* Physical address of BAM. */
+	unsigned long dev;		/* Device handle of BAM */
+	phys_addr_t bam_phys;		/* Physical address of BAM. */
 	u32 pipe_index;		/* Pipe index */
 	u32 event_threshold;	/* Pipe event threshold */
 	u32 lock_group;	/* The lock group this pipe belongs to */
@@ -375,7 +377,7 @@ void sps_dma_de_init(void);
  * @return 0 on success, negative value on error
  *
  */
-int sps_dma_device_init(u32 h);
+int sps_dma_device_init(unsigned long h);
 
 /**
  * De-initialize BAM DMA device
@@ -387,7 +389,7 @@ int sps_dma_device_init(u32 h);
  * @return 0 on success, negative value on error
  *
  */
-int sps_dma_device_de_init(u32 h);
+int sps_dma_device_de_init(unsigned long h);
 
 /**
  * Initialize connection mapping module

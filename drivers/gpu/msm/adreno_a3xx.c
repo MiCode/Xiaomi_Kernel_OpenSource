@@ -179,6 +179,8 @@ unsigned int adreno_a3xx_rbbm_clock_ctl_default(struct adreno_device
 		return A305_RBBM_CLOCK_CTL_DEFAULT;
 	else if (adreno_is_a305c(adreno_dev))
 		return A305C_RBBM_CLOCK_CTL_DEFAULT;
+	else if (adreno_is_a306(adreno_dev))
+		return A306_RBBM_CLOCK_CTL_DEFAULT;
 	else if (adreno_is_a310(adreno_dev))
 		return A310_RBBM_CLOCK_CTL_DEFAULT;
 	else if (adreno_is_a320(adreno_dev))
@@ -1556,6 +1558,11 @@ static const struct adreno_vbif_data a305c_vbif[] = {
 	{0, 0},
 };
 
+static const struct adreno_vbif_data a306_vbif[] = {
+	{ A3XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x0003 },
+	{0, 0},
+};
+
 static const struct adreno_vbif_data a310_vbif[] = {
 	{ A3XX_VBIF_ABIT_SORT, 0x0001000F },
 	{ A3XX_VBIF_ABIT_SORT_CONF, 0x000000A4 },
@@ -1650,6 +1657,7 @@ static const struct adreno_vbif_data a330v21_vbif[] = {
 static const struct adreno_vbif_platform a3xx_vbif_platforms[] = {
 	{ adreno_is_a305, a305_vbif },
 	{ adreno_is_a305c, a305c_vbif },
+	{ adreno_is_a306, a306_vbif },
 	{ adreno_is_a310, a310_vbif },
 	{ adreno_is_a320, a320_vbif },
 	/* A330v2.1 needs to be ahead of A330v2 so the right device matches */

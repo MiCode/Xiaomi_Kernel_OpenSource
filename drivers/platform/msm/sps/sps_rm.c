@@ -108,8 +108,8 @@ static int sps_rm_map_match(const struct sps_connect *cfg,
 		if (cfg->desc.size != map->desc.size)
 			return false;
 
-		if (cfg->desc.phys_base != SPSRM_CLEAR &&
-		    cfg->desc.base != (void *)SPSRM_CLEAR &&
+		if (cfg->desc.phys_base != (SPSRM_CLEAR|SPSRM_ADDR_CLR) &&
+		    cfg->desc.base != (void *)(SPSRM_CLEAR|SPSRM_ADDR_CLR) &&
 		    (cfg->desc.phys_base != map->desc.phys_base ||
 		     cfg->desc.base != map->desc.base)) {
 			return false;
@@ -120,8 +120,8 @@ static int sps_rm_map_match(const struct sps_connect *cfg,
 		if (cfg->data.size != map->data.size)
 			return false;
 
-		if (cfg->data.phys_base != SPSRM_CLEAR &&
-		    cfg->data.base != (void *)SPSRM_CLEAR &&
+		if (cfg->data.phys_base != (SPSRM_CLEAR|SPSRM_ADDR_CLR) &&
+		    cfg->data.base != (void *)(SPSRM_CLEAR|SPSRM_ADDR_CLR) &&
 		    (cfg->data.phys_base != map->data.phys_base ||
 		     cfg->data.base != map->data.base))
 			return false;
@@ -210,7 +210,7 @@ static int sps_rm_assign(struct sps_pipe *pipe,
 	}
 	pipe->map = map;
 
-	SPS_DBG("sps:sps_rm_assign.bam 0x%x.pipe_index=%d\n",
+	SPS_DBG("sps:sps_rm_assign.bam %pa.pipe_index=%d\n",
 			BAM_ID(pipe->bam), pipe->pipe_index);
 
 	/* Copy parameters to client connect state */
@@ -314,14 +314,14 @@ static void sps_rm_init_map(struct sps_connection *map,
 
 	/* Did client specify descriptor FIFO? */
 	if (map->desc.size != SPSRM_CLEAR &&
-	    cfg->desc.phys_base != SPSRM_CLEAR &&
-	    cfg->desc.base != (void *)SPSRM_CLEAR)
+	    cfg->desc.phys_base != (SPSRM_CLEAR|SPSRM_ADDR_CLR) &&
+	    cfg->desc.base != (void *)(SPSRM_CLEAR|SPSRM_ADDR_CLR))
 		map->desc = cfg->desc;
 
 	/* Did client specify data FIFO? */
 	if (map->data.size != SPSRM_CLEAR &&
-	    cfg->data.phys_base != SPSRM_CLEAR &&
-	    cfg->data.base != (void *)SPSRM_CLEAR)
+	    cfg->data.phys_base != (SPSRM_CLEAR|SPSRM_ADDR_CLR) &&
+	    cfg->data.base != (void *)(SPSRM_CLEAR|SPSRM_ADDR_CLR))
 		map->data = cfg->data;
 
 	/* Did client specify source pipe? */
@@ -374,7 +374,7 @@ static struct sps_connection *sps_rm_create(struct sps_pipe *pipe)
 	map->src.bam = sps_h2bam(map->src.dev);
 	if (map->src.bam == NULL) {
 		if (map->src.dev != SPS_DEV_HANDLE_MEM) {
-			SPS_ERR("sps:Invalid BAM handle: 0x%x", map->src.dev);
+			SPS_ERR("sps:Invalid BAM handle: %pa", &map->src.dev);
 			goto exit_err;
 		}
 		map->src.pipe_index = SPS_BAM_PIPE_INVALID;
@@ -382,7 +382,7 @@ static struct sps_connection *sps_rm_create(struct sps_pipe *pipe)
 	map->dest.bam = sps_h2bam(map->dest.dev);
 	if (map->dest.bam == NULL) {
 		if (map->dest.dev != SPS_DEV_HANDLE_MEM) {
-			SPS_ERR("sps:Invalid BAM handle: 0x%x", map->dest.dev);
+			SPS_ERR("sps:Invalid BAM handle: %pa", &map->dest.dev);
 			goto exit_err;
 		}
 		map->dest.pipe_index = SPS_BAM_PIPE_INVALID;
@@ -391,8 +391,8 @@ static struct sps_connection *sps_rm_create(struct sps_pipe *pipe)
 	/* Check the BAM device for the pipe */
 	if ((dir == SPS_MODE_SRC && map->src.bam == NULL) ||
 	    (dir != SPS_MODE_SRC && map->dest.bam == NULL)) {
-		SPS_ERR("sps:Invalid BAM endpt: dir %d src 0x%x dest 0x%x",
-			dir, map->src.dev, map->dest.dev);
+		SPS_ERR("sps:Invalid BAM endpt: dir %d src %pa dest %pa",
+			dir, &map->src.dev, &map->dest.dev);
 		goto exit_err;
 	}
 
@@ -596,8 +596,8 @@ static int sps_rm_alloc(struct sps_pipe *pipe)
 		 * Client did not call sps_get_config()	to init
 		 * struct sps_connect, so only use legacy members.
 		 */
-		u32 source = pipe->connect.source;
-		u32 destination = pipe->connect.destination;
+		unsigned long source = pipe->connect.source;
+		unsigned long destination = pipe->connect.destination;
 		enum sps_mode mode = pipe->connect.mode;
 		u32 config = pipe->connect.config;
 		memset(&pipe->connect, SPSRM_CLEAR,
@@ -700,9 +700,10 @@ int sps_rm_state_change(struct sps_pipe *pipe, u32 state)
 	if (pipe->client_state == SPS_STATE_DISCONNECT &&
 	    state == SPS_STATE_ALLOCATE) {
 		if (sps_rm_alloc(pipe)) {
-			SPS_ERR("sps:Fail to allocate resource for"
-				" BAM 0x%x pipe %d",
-				(u32) pipe->bam, pipe->pipe_index);
+			SPS_ERR(
+				"sps:Fail to allocate resource for"
+					" BAM 0x%p pipe %d.\n",
+					pipe->bam, pipe->pipe_index);
 			return SPS_ERROR;
 		}
 	}
@@ -721,8 +722,8 @@ int sps_rm_state_change(struct sps_pipe *pipe, u32 state)
 		}
 		result = sps_bam_pipe_connect(pipe, &params);
 		if (result) {
-			SPS_ERR("sps:Failed to connect BAM 0x%x pipe %d",
-				(u32) pipe->bam, pipe->pipe_index);
+			SPS_ERR("sps:Failed to connect BAM 0x%p pipe %d",
+					pipe->bam, pipe->pipe_index);
 			return SPS_ERROR;
 		}
 		pipe->client_state = SPS_STATE_CONNECT;
@@ -744,8 +745,8 @@ int sps_rm_state_change(struct sps_pipe *pipe, u32 state)
 		|| (pipe->connect.options & SPS_O_AUTO_ENABLE))) {
 		result = sps_bam_pipe_enable(pipe->bam, pipe->pipe_index);
 		if (result) {
-			SPS_ERR("sps:Failed to set BAM 0x%x pipe %d flow on",
-				pipe->bam->props.phys_addr,
+			SPS_ERR("sps:Failed to set BAM %pa pipe %d flow on",
+				&pipe->bam->props.phys_addr,
 				pipe->pipe_index);
 			return SPS_ERROR;
 		}
@@ -771,8 +772,8 @@ int sps_rm_state_change(struct sps_pipe *pipe, u32 state)
 	    (state == SPS_STATE_DISABLE	|| state == SPS_STATE_DISCONNECT)) {
 		result = sps_bam_pipe_disable(pipe->bam, pipe->pipe_index);
 		if (result) {
-			SPS_ERR("sps:Failed to set BAM 0x%x pipe %d flow off",
-				pipe->bam->props.phys_addr,
+			SPS_ERR("sps:Failed to set BAM %pa pipe %d flow off",
+				&pipe->bam->props.phys_addr,
 				pipe->pipe_index);
 			return SPS_ERROR;
 		}
@@ -800,8 +801,8 @@ int sps_rm_state_change(struct sps_pipe *pipe, u32 state)
 		spin_unlock_irqrestore(&bam->isr_lock, flags);
 		result = sps_bam_pipe_disconnect(pipe->bam, pipe_index);
 		if (result) {
-			SPS_ERR("sps:Failed to disconnect BAM 0x%x pipe %d",
-				pipe->bam->props.phys_addr,
+			SPS_ERR("sps:Failed to disconnect BAM %pa pipe %d",
+				&pipe->bam->props.phys_addr,
 				pipe->pipe_index);
 			return SPS_ERROR;
 		}

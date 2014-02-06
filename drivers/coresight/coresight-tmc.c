@@ -35,7 +35,7 @@
 #include <linux/cdev.h>
 #include <linux/usb/usb_qdss.h>
 #include <linux/dma-mapping.h>
-#include <mach/sps.h>
+#include <linux/msm-sps.h>
 #include <mach/usb_bam.h>
 #include <mach/msm_memory_dump.h>
 
@@ -124,7 +124,7 @@ enum tmc_mem_intf_width {
 
 struct tmc_etr_bam_data {
 	struct sps_bam_props	props;
-	uint32_t		handle;
+	unsigned long		handle;
 	struct sps_pipe		*pipe;
 	struct sps_connect	connect;
 	uint32_t		src_pipe_idx;
@@ -971,7 +971,7 @@ static ssize_t tmc_read(struct file *file, char __user *data, size_t len,
 
 	*ppos += len;
 
-	dev_dbg(drvdata->dev, "%s: %d bytes copied, %d bytes left\n",
+	dev_dbg(drvdata->dev, "%s: %zu bytes copied, %d bytes left\n",
 		__func__, len, (int) (drvdata->size - *ppos));
 	return len;
 }
@@ -1130,7 +1130,7 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *file, char __user *data,
 	else
 		*ppos += len;
 
-	dev_dbg(drvdata->dev, "%s: %d bytes copied, %d bytes left\n",
+	dev_dbg(drvdata->dev, "%s: %zu bytes copied, %d bytes left\n",
 		__func__, len, (int) (drvdata->size - *ppos));
 	return len;
 

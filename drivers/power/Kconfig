@@ -485,6 +485,17 @@ config QPNP_BMS
 	  It registers a fuelgauge bms power supply to report
 	  State of Charge.
 
+config QPNP_LINEAR_CHARGER
+	tristate "QPNP Linear Charger driver"
+	depends on SPMI
+	depends on OF_SPMI
+	depends on MSM_QPNP_INT
+	depends on THERMAL_QPNP_ADC_TM
+	help
+	  Say Y here to enable the Linear battery charger which supports USB
+	  detection and charging. The driver also offers relevant information
+	  to userspace via the power supply framework.
+
 source "drivers/power/reset/Kconfig"
 
 endif # POWER_SUPPLY

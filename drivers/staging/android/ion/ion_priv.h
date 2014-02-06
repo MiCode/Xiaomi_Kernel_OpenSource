@@ -200,13 +200,19 @@ bool ion_buffer_fault_user_mappings(struct ion_buffer *buffer);
 /**
  * ion_device_create - allocates and returns an ion device
  * @custom_ioctl:	arch specific ioctl function if applicable
+ * @custom_comat_ioctl:	arch specific compat_ioctl function if applicable
  *
  * returns a valid device or -PTR_ERR
  */
 struct ion_device *ion_device_create(long (*custom_ioctl)
 				     (struct ion_client *client,
 				      unsigned int cmd,
-				      unsigned long arg));
+				      unsigned long arg),
+				    long (*custom_compat_ioctl)
+				     (struct ion_client *client,
+				      unsigned int cmd,
+				      unsigned long arg)
+);
 
 /**
  * ion_device_destroy - free and device and it's resource

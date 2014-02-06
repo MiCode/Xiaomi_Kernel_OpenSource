@@ -183,7 +183,7 @@ enum msm_slim_msgq {
 };
 
 struct msm_slim_sps_bam {
-	u32			hdl;
+	unsigned long		hdl;
 	void __iomem		*base;
 	int			irq;
 };

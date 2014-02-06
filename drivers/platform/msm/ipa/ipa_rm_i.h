@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,7 @@
 #define _IPA_RM_I_H_
 
 #include <linux/workqueue.h>
-#include <mach/ipa.h>
+#include <linux/ipa.h>
 
 #define IPA_RM_DRV_NAME "ipa_rm"
 

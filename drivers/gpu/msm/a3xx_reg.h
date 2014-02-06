@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -815,6 +815,7 @@
 /* RBBM_CLOCK_CTL default value */
 #define A305_RBBM_CLOCK_CTL_DEFAULT   0xAAAAAAAA
 #define A305C_RBBM_CLOCK_CTL_DEFAULT  0xAAAAAAAA
+#define A306_RBBM_CLOCK_CTL_DEFAULT   0xAAAAAAAA
 #define A310_RBBM_CLOCK_CTL_DEFAULT   0xAAAAAAAA
 #define A320_RBBM_CLOCK_CTL_DEFAULT   0xBFFFFFFF
 #define A330_RBBM_CLOCK_CTL_DEFAULT   0xBFFCFFFF

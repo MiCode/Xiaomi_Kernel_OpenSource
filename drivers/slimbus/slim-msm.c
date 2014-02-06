@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,7 +12,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/dma-mapping.h>
 #include <linux/slimbus/slimbus.h>
-#include <mach/sps.h>
+#include <linux/msm-sps.h>
 #include "slim-msm.h"
 
 int msm_slim_rx_enqueue(struct msm_slim_ctrl *dev, u32 *buf, u8 len)
@@ -745,7 +745,7 @@ int msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem,
 			u32 pipe_reg, bool remote)
 {
 	int i, ret;
-	u32 bam_handle;
+	unsigned long bam_handle;
 	struct sps_bam_props bam_props = {0};
 
 	static struct sps_bam_sec_config_props sec_props = {
@@ -809,7 +809,7 @@ int msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem,
 		return ret;
 	}
 	dev->bam.hdl = bam_handle;
-	dev_dbg(dev->dev, "SLIM BAM registered, handle = 0x%x\n", bam_handle);
+	dev_dbg(dev->dev, "SLIM BAM registered, handle = 0x%lx\n", bam_handle);
 
 init_msgq:
 	ret = msm_slim_init_rx_msgq(dev, pipe_reg);

@@ -21,6 +21,15 @@ Optional properties:
   - qcom,pipe-attr-ee: BAM pipes are attributed to a specific EE, with
     which we can know the pipes belong to apps side and can have the
     error interrupts at the pipe level.
+  - clocks: This property shall provide a list of entries each of which
+    contains a phandle to clock controller device and a macro that is
+    the clock's name in hardware.These should be "clock_rpm" as clock
+    controller phandle and "clk_pnoc_sps_clk" as macro for "dfab_clk"
+    and "clock_gcc" as clock controller phandle and "clk_gcc_bam_dma_ahb_clk"
+    as macro for "dma_bam_pclk".
+  - clock-names: This property shall contain the clock input names used
+    by driver in same order as the clocks property.These should be "dfab_clk"
+    and "dma_bam_pclk".
 
 Example:
 
@@ -32,4 +41,7 @@ Example:
 		interrupts = <0 94 0>;
 		qcom,device-type = <2>;
 		qcom,pipe-attr-ee;
+		clocks = <&clock_rpm clk_pnoc_sps_clk>,
+			 <&clock_gcc clk_gcc_bam_dma_ahb_clk>;
+		clock-names = "dfab_clk", "dma_bam_pclk";
 	};

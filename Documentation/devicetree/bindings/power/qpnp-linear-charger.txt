@@ -1,0 +1,66 @@
+Qualcomm QPNP Linear Charger
+
+The charger module supports the linear battery charger peripherals on
+Qualcomm PMIC chips.
+
+There are four different peripherals in the charger module.
+Each of these peripherals are implemented as subnodes.
+
+- qcom,chgr:		Supports charging control and status reporting
+- qcom,usb-chgpth:	USB charge path detection and input current
+			limiting configuration.
+
+Sub node required structure:
+- A qcom,charger node must be a child of an SPMI node that has specified
+	the spmi-dev-container property. Each subnode reflects
+	a hardware peripheral which adds a unique set of features
+	to the collective charging device. For example USB detection
+	and the battery interface are each seperate peripherals and
+	each should be their own subnode.
+
+Sub node required properties:
+- compatible:		Must be "qcom,qpnp-linear-charger".
+- reg:			Specifies the SPMI address and size for this peripheral.
+- interrupts:		Specifies the interrupt associated with the peripheral.
+- interrupt-names:	Specifies the interrupt names for the peripheral. Every
+			available interrupt needs to have an associated name
+			with it to indentify its purpose.
+
+			The following lists each subnode and their corresponding
+			required interrupt names:
+
+			qcom,usb-chgpth:
+			 - usbin-valid
+
+			The following interrupts are available:
+
+			qcom,usb-chgpth:
+			 - usbin-valid:		Indicates valid USB connection.
+			 - coarse-det-usb:	Coarse detect interrupt triggers
+						at low voltage on USB_IN.
+			 - chg-gone:		Triggers on VCHG line.
+			 - overtemp:		Triggers on over temperature condition
+
+			 qcom,chgr:
+			 - chg-done:		Triggers on charge completion.
+			 - chg-failed:		Notifies of charge failures.
+			 - fast-chg-on:		Notifies of fast charging.
+			 - vbat-det-lo:		Triggers on vbat-det-lo
+						voltage.
+
+Example:
+	pm8916-chg: qcom,charger {
+		spmi-dev-container;
+		compatible = "qcom,qpnp-linear-charger";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		qcom,chgr@1000 {
+			reg = <0x1000 0x100>;
+		};
+		qcom,usb-chgpth@1300 {
+			reg = <0x1300 0x100>;
+			interrupts = <0 0x13 0x1>,
+			interrupt-names = "usbin-valid",
+		};
+	};

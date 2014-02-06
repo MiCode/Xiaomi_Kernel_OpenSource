@@ -14,7 +14,7 @@
 #define _MSM_TSPP2_H_
 
 #include <linux/ion.h>
-#include <mach/sps.h>
+#include <linux/msm-sps.h>
 
 #define TSPP2_NUM_DEVICES			1
 #define TSPP2_NUM_TSIF_INPUTS			2

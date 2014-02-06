@@ -33,7 +33,7 @@
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/socinfo.h>
 
-#include <mach/sps.h>
+#include <linux/msm-sps.h>
 #include <mach/msm_smsm.h>
 
 #include <soc/qcom/bam_dmux.h>
@@ -187,7 +187,7 @@ static void *a2_phys_base;
 static uint32_t a2_phys_size;
 static int a2_bam_irq;
 static struct sps_bam_props a2_props;
-static u32 a2_device_handle;
+static unsigned long a2_device_handle;
 static struct sps_pipe *bam_tx_pipe;
 static struct sps_pipe *bam_rx_pipe;
 static struct sps_connect tx_connection;
@@ -2043,7 +2043,7 @@ static int restart_notifier_cb(struct notifier_block *this,
 
 static int bam_init(void)
 {
-	u32 h;
+	unsigned long h;
 	dma_addr_t dma_addr;
 	int ret;
 	void *a2_virt_addr;

@@ -65,7 +65,7 @@
 
 #include <mach/hardware.h>
 #include <mach/dma.h>
-#include <mach/sps.h>
+#include <linux/msm-sps.h>
 #include <mach/msm_serial_hs.h>
 #include <mach/msm_bus.h>
 
@@ -254,7 +254,7 @@ struct msm_hs_port {
 	struct work_struct disconnect_rx_endpoint; /* disconnect rx_endpoint */
 	bool tty_flush_receive;
 	enum uart_core_type uart_type;
-	u32 bam_handle;
+	unsigned long bam_handle;
 	resource_size_t bam_mem;
 	int bam_irq;
 	unsigned char __iomem *bam_base;
@@ -3145,7 +3145,7 @@ static int msm_hs_sps_init(struct msm_hs_port *msm_uport)
 {
 	int rc = 0;
 	struct sps_bam_props bam = {0};
-	u32 bam_handle;
+	unsigned long bam_handle;
 
 	rc = sps_phy2h(msm_uport->bam_mem, &bam_handle);
 	if (rc || !bam_handle) {
@@ -3174,7 +3174,7 @@ static int msm_hs_sps_init(struct msm_hs_port *msm_uport)
 				  __func__);
 			return rc;
 		}
-		MSM_HS_DBG("%s:BAM device registered. bam_handle=0x%x",
+		MSM_HS_DBG("%s:BAM device registered. bam_handle=0x%lx",
 			   __func__, msm_uport->bam_handle);
 	}
 	msm_uport->bam_handle = bam_handle;

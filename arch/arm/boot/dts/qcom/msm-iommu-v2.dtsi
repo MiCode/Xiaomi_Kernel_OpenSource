@@ -1,0 +1,39 @@
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	gfx_iommu: qcom,iommu@1f00000 {
+		compatible = "qcom,msm-smmu-v2";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reg = <0x1f00000 0x10000>;
+		reg-names = "iommu_base";
+		interrupts = <0 43 0>, <0 42 0>;
+		interrupt-names = "global_cfg_NS_irq", "global_cfg_S_irq";
+		label = "gfx_iommu";
+		qcom,iommu-secure-id = <18>;
+		qcom,no-atos-support;
+		clocks = <&clock_gcc clk_gcc_smmu_cfg_clk>,
+			 <&clock_gcc clk_gcc_gfx_tcu_clk>;
+		clock-names = "iface_clk", "core_clk";
+		status = "disabled";
+
+		qcom,iommu-ctx@1f08000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			reg = <0x1f08000 0x1000>;
+			interrupts = <0 240 0>;
+			qcom,iommu-ctx-sids = <0 1>;
+			label = "gfx3d_user";
+		};
+	};
+};

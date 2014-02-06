@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011,2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,7 +56,7 @@ struct sps_rm {
  * @return - pointer to the BAM device struct, or NULL on error
  *
  */
-struct sps_bam *sps_h2bam(u32 h);
+struct sps_bam *sps_h2bam(unsigned long h);
 
 /**
  * Initialize resource manager module

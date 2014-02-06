@@ -1233,6 +1233,7 @@ static const struct file_operations smd_pkt_fops = {
 	.write = smd_pkt_write,
 	.poll = smd_pkt_poll,
 	.unlocked_ioctl = smd_pkt_ioctl,
+	.compat_ioctl = smd_pkt_ioctl,
 };
 
 static int smd_pkt_init_add_device(struct smd_pkt_dev *smd_pkt_devp, int i)

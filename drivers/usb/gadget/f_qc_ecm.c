@@ -35,7 +35,7 @@
 #include "u_qc_ether.h"
 
 #include "u_bam_data.h"
-#include <mach/ecm_ipa.h>
+#include <linux/ecm_ipa.h>
 
 
 /*

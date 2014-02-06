@@ -12,7 +12,7 @@
 
 #include <linux/slab.h>
 #include <linux/workqueue.h>
-#include <mach/ipa.h>
+#include <linux/ipa.h>
 #include "ipa_i.h"
 #include "ipa_rm_dependency_graph.h"
 #include "ipa_rm_i.h"

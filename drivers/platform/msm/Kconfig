@@ -46,6 +46,16 @@ config SPS_SUPPORT_NDP_BAM
 	help
 	  No-Data-Path BAM is used to improve BAM performance.
 
+config SPS_SUPPORT_4K_GROUP
+	bool "SPS support 4K resource group"
+	depends on SPS && SPS_SUPPORT_NDP_BAM
+	default n
+	help
+	  The new 4K resource group support added in BAM.
+	  The register offsets of all BAM registers are
+	  changed in SPS driver to support this new 4K
+	  resource groups allocations.
+
 config QPNP_POWER_ON
 	tristate "QPNP PMIC POWER-ON Driver"
 	depends on OF_SPMI && SPMI && MSM_QPNP_INT && INPUT

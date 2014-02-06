@@ -52,6 +52,12 @@ Optional properties:
                     memory instead of system memory. In case this property
                     will not appear in the IPA DTS entry, the driver will
                     use system memory.
+- clocks: This property shall provide a list of entries each of which
+    contains a phandle to clock controller device and a macro that is
+    the clock's name in hardware.This should be "clock_rpm" as clock
+    controller phandle and "clk_ipa_clk" as macro for "iface_clk"
+- clock-names: This property shall contain the clock input names used
+    by driver in same order as the clocks property.This should be "iface_clk"
 
 Example:
 
@@ -66,6 +72,9 @@ qcom,ipa@fd4c0000 {
 	             <0 29 1>;
 	interrupt-names = "ipa-irq", "bam-irq"; "a2-bam-irq";
 	qcom,ipa-hw-ver = <1>;
+	clocks = <&clock_rpm clk_ipa_clk>;
+	clock-names = "iface_clk";
+
 
 	qcom,pipe1 {
 		label = "a2-to-ipa";

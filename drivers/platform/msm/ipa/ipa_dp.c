@@ -587,7 +587,7 @@ int ipa_send_cmd(u16 num_desc, struct ipa_desc *descr)
 
 		descr->callback = ipa_sps_irq_cmd_ack;
 		descr->user1 = descr;
-		if (ipa_send_one(sys, descr, false)) {
+		if (ipa_send_one(sys, descr, true)) {
 			IPAERR("fail to send immediate command\n");
 			result = -EFAULT;
 			goto bail;
@@ -602,7 +602,7 @@ int ipa_send_cmd(u16 num_desc, struct ipa_desc *descr)
 
 		desc->callback = ipa_sps_irq_cmd_ack;
 		desc->user1 = desc;
-		if (ipa_send(sys, num_desc, descr, false)) {
+		if (ipa_send(sys, num_desc, descr, true)) {
 			IPAERR("fail to send multiple immediate command set\n");
 			result = -EFAULT;
 			goto bail;

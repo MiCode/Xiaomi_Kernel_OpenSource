@@ -107,6 +107,35 @@ config ARCH_MPQ8092
 	select MSM_RPM_STATS_LOG
 	select MSM_RPM_LOG
 
+config ARCH_MSM8916
+	bool "MSM8916"
+	select ARCH_MSM_CORTEXMP
+	select GPIO_MSM_V3
+	select ARM_GIC
+	select MULTI_IRQ_HANDLER
+	select CPU_V7
+	select HAVE_ARM_ARCH_TIMER
+	select MAY_HAVE_SPARSE_IRQ
+	select SPARSE_IRQ
+	select PINCTRL
+	select PINCTRL_MSM_TLMM_V4
+	select USE_PINCTRL_IRQ
+	select MSM_PM if PM
+	select MSM_RPM_SMD
+	select MEMORY_HOLE_CARVEOUT
+	select DONT_MAP_HOLE_AFTER_MEMBANK0
+	select QMI_ENCDEC
+	select MSM_IRQ
+	select MSM_CORTEX_A53
+	select CPU_FREQ_MSM
+	select CPU_FREQ
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_CPUBW
+	select MSM_RPM_SMD
+	select MSM_QDSP6_APRV3
+	select MSM_QDSP6V2_CODECS
+	select MSM_AUDIO_QDSP6V2 if SND_SOC
+
 config ARCH_FSM9900
 	bool "FSM9900"
 	select ARCH_MSM_KRAITMP
@@ -291,6 +320,9 @@ config  ARCH_MSM_KRAIT
 config  MSM_CORTEX_A7
 	bool
 
+config  MSM_CORTEX_A53
+	bool
+
 config  MSM_SMP
 	select HAVE_SMP
 	bool
@@ -367,6 +399,7 @@ config PHYS_OFFSET
 	default "0x00000000" if ARCH_MSM8974
 	default "0x00000000" if ARCH_APQ8084
 	default "0x00000000" if ARCH_MPQ8092
+	default "0x80000000" if ARCH_MSM8916
 	default "0x00000000" if ARCH_MSM8226
 	default "0x00000000" if ARCH_MSM8610
 	default "0x00000000" if ARCH_MSMSAMARIUM
@@ -438,6 +471,14 @@ choice
                 help
                   Say Y here if you want the debug print routines to direct
                   their output to the serial port on MPQ8092 devices.
+
+	config DEBUG_MSM8916_UART
+                bool "Kernel low-level debugging messages via MSM8916 UART"
+                depends on ARCH_MSM8916
+                select MSM_HAS_DEBUG_UART_HS_V14
+                help
+                  Say Y here if you want the debug print routines to direct
+                  their output to the serial port on MSM8916 devices.
 
 	config DEBUG_APQ8084_UART
                 bool "Kernel low-level debugging messages via APQ8084 UART"
@@ -1222,14 +1263,13 @@ config MSM_OCMEM_POWER_DISABLE
 	  Enable this configuration if OCMEM is being exclusively
 	  used as GMEM or OCIMEM.
 
-config USE_PINCTRL_IRQ
-	default n
-	bool "Use Pinctrl IRQ chip"
+config SENSORS_ADSP
+	bool "Enable Sensors Driver Support for ADSP"
 	help
-	 Use Irq chip with Pinctrl subsystem instead of the irq chip
-	 associated with gpio lib. The pinctrl irq chip allows the pin
-	 attributes to be configured, prior to configuring them as
-	 interrupt triggers.
+	  Add support for sensors ADSP driver.
+	  This driver is used for exercising different sensors use cases,
+	  such as for lower-power OCMEM use cases, and for time syncing
+	  with ADSP clock.
 
 config MSM_CACHE_ERP
 	bool "Cache / CPU error reporting"
