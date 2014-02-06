@@ -1433,7 +1433,7 @@ static struct branch_clk gcc_sdcc3_apps_clk = {
 
 static struct branch_clk gcc_sys_noc_usb3_axi_clk = {
 	.cbcr_reg = SYS_NOC_USB3_AXI_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_sys_noc_usb3_axi_clk",
