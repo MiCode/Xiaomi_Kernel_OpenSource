@@ -3867,6 +3867,11 @@ static int mdss_ad_init_checks(struct msm_fb_data_type *mfd)
 		return -ENODEV;
 	}
 
+	if (ad_mfd->panel_info->type == DTV_PANEL) {
+		pr_debug("AD not supported on external display\n");
+		return ret;
+	}
+
 	mixer_num = mdss_mdp_get_ctl_mixers(ad_mfd->index, mixer_id);
 	if (!mixer_num) {
 		pr_debug("no mixers connected, %d", mixer_num);
