@@ -9,7 +9,12 @@ IADC node
 
 Required properties:
 - compatible : should be "qcom,qpnp-iadc" for Current ADC driver.
-- reg : offset and length of the PMIC Aribter register map.
+- reg : offset and length of the PMIC Arbiter register map.
+- reg-names : resource names used for the physical base address of the PMIC IADC
+	      peripheral, the SMBB_BAT_IF_TRIM_CNST_RDS register.
+	      Should be "iadc-base" for the PMIC IADC peripheral base register.
+	      Should be "batt-id-trim-cnst-rds" for reading the
+	      SMBB_BAT_IF_TRIM_CNST_RDS register.
 - address-cells : Must be one.
 - size-cells : Must be zero.
 - interrupts : The USR bank peripheral IADC interrupt.
@@ -21,6 +26,13 @@ Optional properties:
 - qcom,rsense : Use this property when external rsense should be used
 		for current calculation and specify the units in nano-ohms.
 - qcom,iadc-poll-eoc: Use polling instead of interrupts for End of Conversion completion.
+- qcom,use-default-rds-trim : Add this property to check if certain conditions are to be checked
+			      reading the SMBB_BAT_IF_CNST_RDS, IADC_RDS trim register and
+			      manufacturer type. Check the driver for conditions that each of the type.
+			      0 : Select this type to read the IADC and SMBB trim register and
+				  apply the default RSENSE if conditions are met.
+			      1 : Select this type to read the IADC, SMBB trim register and
+				  manufacturer type and apply the default RSENSE if conditions are met.
 
 Channel node
 NOTE: Atleast one Channel node is required.

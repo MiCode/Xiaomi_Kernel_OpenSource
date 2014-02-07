@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -129,6 +129,12 @@
 #define QPNP_BIT_SHIFT_8				8
 #define QPNP_RSENSE_MSB_SIGN_CHECK			0x80
 #define QPNP_ADC_COMPLETION_TIMEOUT			HZ
+#define SMBB_BAT_IF_TRIM_CNST_RDS_MASK			0x7
+#define SMBB_BAT_IF_TRIM_CNST_RDS_MASK_CONST		2
+#define QPNP_IADC1_USR_TRIM2_ADC_FULLSCALE1_CONST	127
+#define QPNP_IADC_RSENSE_DEFAULT_VALUE			7800000
+#define QPNP_IADC_RSENSE_DEFAULT_TYPEB_GF		9000000
+#define QPNP_IADC_RSENSE_DEFAULT_TYPEB_SMIC		9700000
 
 struct qpnp_iadc_comp {
 	bool	ext_rsense;
@@ -143,6 +149,7 @@ struct qpnp_iadc_chip {
 	struct qpnp_adc_drv			*adc;
 	int32_t					rsense;
 	bool					external_rsense;
+	bool					default_internal_rsense;
 	struct device				*iadc_hwmon;
 	struct list_head			list;
 	int64_t					die_temp;
@@ -153,10 +160,19 @@ struct qpnp_iadc_chip {
 	struct work_struct			trigger_completion_work;
 	bool					skip_auto_calibrations;
 	bool					iadc_poll_eoc;
+	u16					batt_id_trim_cnst_rds;
+	int					rds_trim_default_type;
+	bool					rds_trim_default_check;
+	int32_t					rsense_workaround_value;
 	struct sensor_device_attribute		sens_attr[0];
 };
 
 LIST_HEAD(qpnp_iadc_device_list);
+
+enum qpnp_iadc_rsense_rds_workaround {
+	QPNP_IADC_RDS_DEFAULT_TYPEA,
+	QPNP_IADC_RDS_DEFAULT_TYPEB,
+};
 
 static int32_t qpnp_iadc_read_reg(struct qpnp_iadc_chip *iadc,
 						uint32_t reg, u8 *data)
@@ -573,6 +589,67 @@ int32_t qpnp_iadc_comp_result(struct qpnp_iadc_chip *iadc, int64_t *result)
 }
 EXPORT_SYMBOL(qpnp_iadc_comp_result);
 
+static int qpnp_iadc_rds_trim_update_check(struct qpnp_iadc_chip *iadc)
+{
+	int rc = 0;
+	u8 trim2_val = 0, smbb_batt_trm_data = 0;
+
+	if (!iadc->rds_trim_default_check) {
+		pr_debug("No internal rds trim check needed\n");
+		return 0;
+	}
+
+	rc = qpnp_iadc_read_reg(iadc, QPNP_IADC_NOMINAL_RSENSE, &trim2_val);
+	if (rc < 0) {
+		pr_err("qpnp adc trim2_fullscale1 reg read failed %d\n", rc);
+		return rc;
+	}
+
+	rc = spmi_ext_register_readl(iadc->adc->spmi->ctrl, iadc->adc->slave,
+		iadc->batt_id_trim_cnst_rds, &smbb_batt_trm_data, 1);
+	if (rc < 0) {
+		pr_err("batt_id trim_cnst rds reg read failed %d\n", rc);
+		return rc;
+	}
+
+	pr_debug("n_trim:0x%x smb_trm:0x%x\n", trim2_val, smbb_batt_trm_data);
+
+	if (iadc->rds_trim_default_type == QPNP_IADC_RDS_DEFAULT_TYPEA) {
+		if (((smbb_batt_trm_data & SMBB_BAT_IF_TRIM_CNST_RDS_MASK) ==
+				SMBB_BAT_IF_TRIM_CNST_RDS_MASK_CONST) &&
+		(trim2_val == QPNP_IADC1_USR_TRIM2_ADC_FULLSCALE1_CONST)) {
+			iadc->rsense_workaround_value =
+					QPNP_IADC_RSENSE_DEFAULT_VALUE;
+			iadc->default_internal_rsense = true;
+		}
+	} else if (iadc->rds_trim_default_type ==
+						QPNP_IADC_RDS_DEFAULT_TYPEB) {
+		if (((smbb_batt_trm_data & SMBB_BAT_IF_TRIM_CNST_RDS_MASK) >=
+				SMBB_BAT_IF_TRIM_CNST_RDS_MASK_CONST) &&
+		(trim2_val == QPNP_IADC1_USR_TRIM2_ADC_FULLSCALE1_CONST)) {
+			iadc->rsense_workaround_value =
+					QPNP_IADC_RSENSE_DEFAULT_VALUE;
+				iadc->default_internal_rsense = true;
+		} else if (((smbb_batt_trm_data &
+			SMBB_BAT_IF_TRIM_CNST_RDS_MASK)
+			< SMBB_BAT_IF_TRIM_CNST_RDS_MASK_CONST) &&
+			(trim2_val ==
+				QPNP_IADC1_USR_TRIM2_ADC_FULLSCALE1_CONST)) {
+			if (iadc->iadc_comp.id == COMP_ID_GF) {
+				iadc->rsense_workaround_value =
+					QPNP_IADC_RSENSE_DEFAULT_TYPEB_GF;
+				iadc->default_internal_rsense = true;
+			} else if (iadc->iadc_comp.id == COMP_ID_SMIC) {
+				iadc->rsense_workaround_value =
+					QPNP_IADC_RSENSE_DEFAULT_TYPEB_SMIC;
+				iadc->default_internal_rsense = true;
+			}
+		}
+	}
+
+	return 0;
+}
+
 static int32_t qpnp_iadc_comp_info(struct qpnp_iadc_chip *iadc)
 {
 	int rc = 0;
@@ -948,6 +1025,11 @@ int32_t qpnp_iadc_get_rsense(struct qpnp_iadc_chip *iadc, int32_t *rsense)
 		return rc;
 	}
 
+	if (iadc->default_internal_rsense) {
+		*rsense = iadc->rsense_workaround_value;
+		return rc;
+	}
+
 	rc = qpnp_iadc_read_reg(iadc, QPNP_IADC_NOMINAL_RSENSE, &rslt_rsense);
 	if (rc < 0) {
 		pr_err("qpnp adc rsense read failed with %d\n", rc);
@@ -967,6 +1049,8 @@ int32_t qpnp_iadc_get_rsense(struct qpnp_iadc_chip *iadc, int32_t *rsense)
 	else
 		*rsense = QPNP_IADC_INTERNAL_RSENSE_N_OHMS_FACTOR +
 			(rslt_rsense * QPNP_IADC_RSENSE_LSB_N_OHMS_PER_BIT);
+
+	pr_debug("rsense value is %d\n", *rsense);
 
 	return rc;
 }
@@ -1258,6 +1342,7 @@ static int __devinit qpnp_iadc_probe(struct spmi_device *spmi)
 	struct qpnp_adc_drv *adc_qpnp;
 	struct device_node *node = spmi->dev.of_node;
 	struct device_node *child;
+	struct resource *res;
 	int rc, count_adc_channel_list = 0, i = 0;
 
 	for_each_child_of_node(node, child)
@@ -1290,6 +1375,22 @@ static int __devinit qpnp_iadc_probe(struct spmi_device *spmi)
 	if (rc) {
 		dev_err(&spmi->dev, "failed to read device tree\n");
 		return rc;
+	}
+
+	res = spmi_get_resource_byname(spmi, NULL, IORESOURCE_MEM,
+		"batt-id-trim-cnst-rds");
+	if (!res) {
+		dev_err(&spmi->dev, "failed to read batt_id trim register\n");
+		return -EINVAL;
+	}
+	iadc->batt_id_trim_cnst_rds = res->start;
+	rc = of_property_read_u32(node, "qcom,use-default-rds-trim",
+			&iadc->rds_trim_default_type);
+	if (rc)
+		pr_debug("No trim workaround needed\n");
+	else {
+		pr_debug("Use internal RDS trim workaround\n");
+		iadc->rds_trim_default_check = true;
 	}
 
 	iadc->vadc_dev = qpnp_get_vadc(&spmi->dev, "iadc");
@@ -1342,6 +1443,12 @@ static int __devinit qpnp_iadc_probe(struct spmi_device *spmi)
 	rc = qpnp_iadc_comp_info(iadc);
 	if (rc) {
 		dev_err(&spmi->dev, "abstracting IADC comp info failed!\n");
+		goto fail;
+	}
+
+	rc = qpnp_iadc_rds_trim_update_check(iadc);
+	if (rc) {
+		dev_err(&spmi->dev, "Rds trim update failed!\n");
 		goto fail;
 	}
 
