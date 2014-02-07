@@ -556,17 +556,12 @@ static int ngd_xferandwait_ack(struct slim_controller *ctrl,
 			ret = -ETIMEDOUT;
 		else
 			ret = txn->ec;
-	} else if (ret == -EREMOTEIO &&
-			(txn->mc == SLIM_USR_MC_CHAN_CTRL ||
-			 txn->mc == SLIM_USR_MC_DISCONNECT_PORT)) {
-		/* HW restarting, channel/port removal should succeed */
-		return 0;
 	}
 
 	if (ret) {
-		pr_err("master msg:0x%x,tid:%d ret:%d", txn->mc,
+		if (ret != -EREMOTEIO || txn->mc != SLIM_USR_MC_CHAN_CTRL)
+			pr_err("master msg:0x%x,tid:%d ret:%d", txn->mc,
 				txn->tid, ret);
-		WARN(1, "timeout during xfer and wait");
 		mutex_lock(&ctrl->m_ctrl);
 		ctrl->txnt[txn->tid] = NULL;
 		mutex_unlock(&ctrl->m_ctrl);
@@ -691,7 +686,10 @@ static int ngd_allocbw(struct slim_device *sb, int *subfrmc, int *clkgear)
 		txn.mc = SLIM_USR_MC_CHAN_CTRL;
 		txn.rl = txn.len + 4;
 		ret = ngd_xferandwait_ack(ctrl, &txn);
-		if (ret)
+		/* HW restarting, channel removal should succeed */
+		if (ret == -EREMOTEIO)
+			return 0;
+		else if (ret)
 			return ret;
 
 		txn.mc = SLIM_USR_MC_RECONFIG_NOW;
@@ -1073,11 +1071,13 @@ static void ngd_laddr_lookup(struct work_struct *work)
 		container_of(work, struct msm_slim_ctrl, slave_notify);
 	struct slim_controller *ctrl = &dev->ctrl;
 	struct slim_device *sbdev;
+	struct list_head *pos, *next;
 	int i;
 	slim_framer_booted(ctrl);
 	mutex_lock(&ctrl->m_ctrl);
-	list_for_each_entry(sbdev, &ctrl->devs, dev_list) {
+	list_for_each_safe(pos, next, &ctrl->devs) {
 		int ret = 0;
+		sbdev = list_entry(pos, struct slim_device, dev_list);
 		mutex_unlock(&ctrl->m_ctrl);
 		for (i = 0; i < LADDR_RETRY; i++) {
 			ret = slim_get_logical_addr(sbdev, sbdev->e_addr,
