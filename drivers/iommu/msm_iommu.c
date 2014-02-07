@@ -106,6 +106,7 @@ struct device *msm_iommu_get_ctx(const char *ctx_name)
 }
 EXPORT_SYMBOL(msm_iommu_get_ctx);
 
+#ifdef CONFIG_ARM
 /* These values come from proc-v7-2level.S */
 #define PRRR_VALUE 0xff0a81a8
 #define NMRR_VALUE 0x40e040e0
@@ -190,4 +191,32 @@ u32 msm_iommu_get_nmrr(void)
 	return nmrr;
 }
 #endif
+#endif
+#endif
+#ifdef CONFIG_ARM64
+u32 msm_iommu_get_prrr(void)
+{
+	unsigned int mair0;
+	u64 tmp;
+
+	asm volatile(
+	"	mrs	%0, mair_el1\n"
+	: "=&r" (tmp));
+
+	mair0 = tmp & 0xffffffff;
+	return mair0;
+}
+
+u32 msm_iommu_get_nmrr(void)
+{
+	unsigned int mair1;
+	u64 tmp;
+
+	asm volatile(
+	"	mrs	%0, mair_el1\n"
+	: "=&r" (tmp));
+
+	mair1 = tmp >> 32;
+	return mair1;
+}
 #endif

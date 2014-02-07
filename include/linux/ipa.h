@@ -16,7 +16,7 @@
 #include <linux/msm_ipa.h>
 #include <linux/skbuff.h>
 #include <linux/types.h>
-#include <mach/sps.h>
+#include <linux/msm-sps.h>
 
 /**
  * enum ipa_nat_en_type - NAT setting type in IPA end-point
@@ -407,7 +407,7 @@ typedef void (*ipa_notify_cb)(void *priv, enum ipa_dp_evt_type evt,
 struct ipa_connect_params {
 	struct ipa_ep_cfg ipa_ep_cfg;
 	enum ipa_client_type client;
-	u32 client_bam_hdl;
+	unsigned long client_bam_hdl;
 	u32 client_ep_idx;
 	void *priv;
 	ipa_notify_cb notify;
@@ -428,7 +428,7 @@ struct ipa_connect_params {
  *  @data:	data FIFO meta-data
  */
 struct ipa_sps_params {
-	u32 ipa_bam_hdl;
+	unsigned long ipa_bam_hdl;
 	u32 ipa_ep_idx;
 	struct sps_mem_buffer desc;
 	struct sps_mem_buffer data;
@@ -730,6 +730,15 @@ enum ipa_irq_type {
 	IPA_TX_HOLB_DROP_IRQ = 17,
 
 	IPA_IRQ_MAX
+};
+
+/**
+ * struct ipa_tx_suspend_irq_data - interrupt data for IPA_TX_SUSPEND_IRQ
+ * @endpoints: bitmask of endpoints which case IPA_TX_SUSPEND_IRQ interrupt
+ * @dma_addr: DMA address of this Rx packet
+ */
+struct ipa_tx_suspend_irq_data {
+	u32 endpoints;
 };
 
 

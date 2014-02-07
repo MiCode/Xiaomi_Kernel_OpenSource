@@ -87,6 +87,7 @@ Required properties:
 		compatible : should be "arm,coresight-fuse"
 		reg-names  : should be:
 			"fuse-base" - physical base address of fuse registers
+			"nidnt-fuse-base" - physical base address of nidnt fuse registers
 - coresight-id : unique integer identifier for the component
 - coresight-name : unique descriptive name of the component
 - coresight-nr-inports : number of input ports on the component
@@ -280,8 +281,9 @@ Examples:
 
 	fuse: fuse@fc4be024 {
 		compatible = "arm,coresight-fuse";
-		reg = <0xfc4be024 0x8>;
-		reg-names = "fuse-base";
+		reg = <0xfc4be024 0x8>
+			   <0x58040 0x4>;
+		reg-names = "fuse-base", "nidnt-fuse-base";
 
 		coresight-id = <30>;
 		coresight-name = "coresight-fuse";

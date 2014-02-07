@@ -13,7 +13,7 @@
 #ifndef IPA_QMI_SERVICE_H
 #define IPA_QMI_SERVICE_H
 
-#include <mach/ipa.h>
+#include <linux/ipa.h>
 #include <linux/ipa_qmi_service_v01.h>
 #include <uapi/linux/msm_rmnet.h>
 #include <soc/qcom/msm_qmi_interface.h>

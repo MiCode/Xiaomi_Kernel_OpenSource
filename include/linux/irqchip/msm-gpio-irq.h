@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +22,7 @@ int __init msm_gpio_of_init(struct device_node *node,
 					struct device_node *parent);
 extern struct irq_chip msm_gpio_irq_extn;
 #else
-int __init msm_tlmm_v3_of_irq_init(struct device_node *node,
+int __init msm_tlmm_of_irq_init(struct device_node *node,
 					struct device_node *parent);
 extern struct irq_chip mpm_tlmm_irq_extn;
 #endif
@@ -32,7 +32,7 @@ static inline int __init msm_gpio_of_init(struct device_node *node,
 {
 	return 0;
 }
-static inline int __init msm_tlmm_v3_of_irq_init(struct device_node *node,
+static inline int __init msm_tlmm_of_irq_init(struct device_node *node,
 					struct device_node *parent)
 {
 	return 0;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,7 +12,7 @@
 #ifndef _DRIVERS_CRYPTO_MSM_QCE50_H_
 #define _DRIVERS_CRYPTO_MSM_QCE50_H_
 
-#include <mach/sps.h>
+#include <linux/msm-sps.h>
 
 /* MAX Data xfer block size between BAM and CE */
 #define MAX_CE_BAM_BURST_SIZE   0x40

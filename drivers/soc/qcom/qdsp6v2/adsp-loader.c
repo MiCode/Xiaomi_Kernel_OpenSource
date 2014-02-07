@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +53,7 @@ static void adsp_loader_do(struct platform_device *pdev)
 	const char *adsp_dt = "qcom,adsp-state";
 	int rc = 0;
 	u32 adsp_state;
+	const char *img_name;
 
 	if (!pdev) {
 		dev_err(&pdev->dev, "%s: Platform device null\n", __func__);
@@ -72,36 +73,72 @@ static void adsp_loader_do(struct platform_device *pdev)
 		goto fail;
 	}
 
-	if (adsp_state == APR_SUBSYS_DOWN) {
-		priv = platform_get_drvdata(pdev);
-		if (!priv) {
-			dev_err(&pdev->dev,
-				" %s: Private data get failed\n", __func__);
-			goto fail;
-		}
+	rc = of_property_read_string(pdev->dev.of_node,
+					"qcom,proc-img-to-load",
+					&img_name);
 
-
-		priv->pil_h = subsystem_get("adsp");
-		if (IS_ERR(priv->pil_h)) {
-			dev_err(&pdev->dev, "%s: pil get failed,\n",
-				__func__);
-			goto fail;
-		}
-
-		/* Set the state of the ADSP in APR driver */
-		apr_set_q6_state(APR_SUBSYS_LOADED);
-	} else if (adsp_state == APR_SUBSYS_LOADED) {
+	if (rc) {
 		dev_dbg(&pdev->dev,
-			"%s: ADSP state = %x\n", __func__, adsp_state);
-		apr_set_q6_state(APR_SUBSYS_LOADED);
+			"%s: loading default image ADSP\n", __func__);
+		goto load_adsp;
 	}
+	if (!strcmp(img_name, "modem")) {
+		if (adsp_state == APR_SUBSYS_DOWN) {
+			priv = platform_get_drvdata(pdev);
+			if (!priv) {
+				dev_err(&pdev->dev,
+				" %s: Private data get failed\n", __func__);
+				goto fail;
+			}
 
+			priv->pil_h = subsystem_get("modem");
+			if (IS_ERR(priv->pil_h)) {
+				dev_err(&pdev->dev, "%s: pil get failed,\n",
+					__func__);
+				goto fail;
+			}
 
-	dev_info(&pdev->dev, "%s: Q6/ADSP image is loaded\n", __func__);
-	return;
+			/* Set the state of the ADSP in APR driver */
+			apr_set_modem_state(APR_SUBSYS_LOADED);
+		} else if (adsp_state == APR_SUBSYS_LOADED) {
+			dev_dbg(&pdev->dev,
+			"%s: MDSP state = %x\n", __func__, adsp_state);
+			apr_set_modem_state(APR_SUBSYS_LOADED);
+		}
+
+		dev_dbg(&pdev->dev, "%s: Q6/MDSP image is loaded\n", __func__);
+		return;
+	}
+load_adsp:
+	{
+		if (adsp_state == APR_SUBSYS_DOWN) {
+			priv = platform_get_drvdata(pdev);
+			if (!priv) {
+				dev_err(&pdev->dev,
+				" %s: Private data get failed\n", __func__);
+				goto fail;
+			}
+
+			priv->pil_h = subsystem_get("adsp");
+			if (IS_ERR(priv->pil_h)) {
+				dev_err(&pdev->dev, "%s: pil get failed,\n",
+					__func__);
+				goto fail;
+			}
+
+			/* Set the state of the ADSP in APR driver */
+			apr_set_q6_state(APR_SUBSYS_LOADED);
+		} else if (adsp_state == APR_SUBSYS_LOADED) {
+			dev_dbg(&pdev->dev,
+			"%s: ADSP state = %x\n", __func__, adsp_state);
+			apr_set_q6_state(APR_SUBSYS_LOADED);
+		}
+
+		dev_dbg(&pdev->dev, "%s: Q6/ADSP image is loaded\n", __func__);
+		return;
+	}
 fail:
-
-	dev_err(&pdev->dev, "%s: Q6/ADSP image loading failed\n", __func__);
+	dev_err(&pdev->dev, "%s: Q6 image loading failed\n", __func__);
 	return;
 }
 

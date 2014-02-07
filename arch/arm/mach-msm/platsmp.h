@@ -22,3 +22,4 @@ extern struct smp_operations msm8974_smp_ops;
 extern struct smp_operations msm8962_smp_ops;
 extern struct smp_operations msm8625_smp_ops;
 extern struct smp_operations scorpion_smp_ops;
+extern struct smp_operations msm8916_smp_ops;

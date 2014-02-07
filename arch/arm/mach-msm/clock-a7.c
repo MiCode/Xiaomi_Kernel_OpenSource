@@ -297,6 +297,7 @@ static int clock_a7_probe(struct platform_device *pdev)
 	unsigned long rate, aux_rate;
 	struct clk *aux_clk, *main_pll;
 	char prop_name[] = "qcom,speedX-bin-vX";
+	const void *prop;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "rcg-base");
 	if (!res) {
@@ -319,6 +320,11 @@ static int clock_a7_probe(struct platform_device *pdev)
 	a7ssmux.num_parents = of_get_clk_src(pdev, a7ssmux.parents);
 	if (IS_ERR_VALUE(a7ssmux.num_parents))
 		return a7ssmux.num_parents;
+
+	/* Override the existing safe operating frequency */
+	prop = of_get_property(pdev->dev.of_node, "qcom,safe-freq", NULL);
+	if (prop)
+		a7ssmux.safe_freq = of_read_ulong(prop, 1);
 
 	get_speed_bin(pdev, &speed_bin, &version);
 
@@ -369,7 +375,9 @@ static int clock_a7_probe(struct platform_device *pdev)
 
 static struct of_device_id clock_a7_match_table[] = {
 	{.compatible = "qcom,clock-a7-8226"},
+	{.compatible = "qcom,clock-a7-krypton"},
 	{.compatible = "qcom,clock-a7-9630"},
+	{.compatible = "qcom,clock-a53-8916"},
 	{}
 };
 

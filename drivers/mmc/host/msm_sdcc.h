@@ -2,7 +2,7 @@
  *  linux/drivers/mmc/host/msmsdcc.h - QCT MSM7K SDC Controller
  *
  *  Copyright (C) 2008 Google, All Rights Reserved.
- *  Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -26,7 +26,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/wakelock.h>
 #include <linux/pm_qos.h>
-#include <mach/sps.h>
+#include <linux/msm-sps.h>
 
 #include <asm/sizes.h>
 #include <asm/mach/mmc.h>
@@ -330,7 +330,7 @@ struct msmsdcc_sps_data {
 	enum dma_data_direction		dir;
 	struct scatterlist		*sg;
 	int				num_ents;
-	u32				bam_handle;
+	unsigned long			bam_handle;
 	unsigned int			src_pipe_index;
 	unsigned int			dest_pipe_index;
 	unsigned int			busy;

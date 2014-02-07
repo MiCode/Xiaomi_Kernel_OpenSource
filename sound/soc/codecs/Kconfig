@@ -371,6 +371,9 @@ config SND_SOC_WCD9XXX
 config SND_SOC_MSM8X10_WCD
 	tristate
 
+config SND_SOC_MSM8X16_WCD
+	tristate
+
 config SND_SOC_WL1273
 	tristate
 

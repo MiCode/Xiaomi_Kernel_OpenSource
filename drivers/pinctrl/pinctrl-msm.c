@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,6 +56,17 @@ struct msm_pinctrl_dd {
 	struct  msm_pmx_funcs *pmx_funcs;
 	unsigned int num_funcs;
 	struct device *dev;
+};
+
+/**
+ * struct msm_irq_of_info: represents of init data for tlmm interrupt
+ * controllers
+ * @compat: compat string for tlmm interrup controller instance.
+ * @irq_init: irq chip initialization callback.
+ */
+struct msm_irq_of_info {
+	const char *compat;
+	int (*irq_init)(struct device_node *np, struct irq_chip *ic);
 };
 
 static int msm_pmx_functions_count(struct pinctrl_dev *pctldev)
@@ -796,3 +807,51 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 	return 0;
 }
 EXPORT_SYMBOL(msm_pinctrl_probe);
+
+#ifdef CONFIG_USE_PINCTRL_IRQ
+struct irq_chip mpm_tlmm_irq_extn = {
+	.irq_eoi	= NULL,
+	.irq_mask	= NULL,
+	.irq_unmask	= NULL,
+	.irq_retrigger	= NULL,
+	.irq_set_type	= NULL,
+	.irq_set_wake	= NULL,
+	.irq_disable	= NULL,
+};
+
+struct msm_irq_of_info msm_tlmm_irq[] = {
+#ifdef CONFIG_PINCTRL_MSM_TLMM_V3
+	{
+		.compat = "qcom,msm-tlmmv3-gp-intc",
+		.irq_init = msm_tlmm_v3_of_irq_init,
+	},
+#endif
+#ifdef CONFIG_PINCTRL_MSM_TLMM_V4
+	{
+		.compat = "qcom,msm-tlmmv4-gp-intc",
+		.irq_init = msm_tlmm_v4_of_irq_init,
+	},
+#endif
+};
+
+int __init msm_tlmm_of_irq_init(struct device_node *controller,
+						struct device_node *parent)
+{
+	int rc, i;
+	const char *compat;
+
+	rc = of_property_read_string(controller, "compatible", &compat);
+	if (rc)
+		return rc;
+
+	for (i = 0; i < ARRAY_SIZE(msm_tlmm_irq); i++) {
+		struct msm_irq_of_info *tlmm_info = &msm_tlmm_irq[i];
+
+		if (!of_compat_cmp(tlmm_info->compat, compat, strlen(compat)))
+				return tlmm_info->irq_init(controller,
+							&mpm_tlmm_irq_extn);
+
+	}
+	return -EIO;
+}
+#endif

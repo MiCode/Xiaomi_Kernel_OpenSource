@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -625,18 +625,8 @@ static const struct irq_domain_ops msm_tlmm_v3_gp_irqd_ops = {
 	.xlate	= irq_domain_xlate_twocell,
 };
 
-struct irq_chip mpm_tlmm_irq_extn = {
-	.irq_eoi	= NULL,
-	.irq_mask	= NULL,
-	.irq_unmask	= NULL,
-	.irq_retrigger	= NULL,
-	.irq_set_type	= NULL,
-	.irq_set_wake	= NULL,
-	.irq_disable	= NULL,
-};
 
 static struct msm_tlmm_irq_chip msm_tlmm_v3_gp_irq = {
-			.irq_chip_extn = &mpm_tlmm_irq_extn,
 			.chip = {
 				.name		= "msm_tlmm_v3_irq",
 				.irq_mask	= msm_tlmm_v3_irq_mask,
@@ -694,8 +684,8 @@ static struct syscore_ops msm_tlmm_v3_irq_syscore_ops = {
 };
 
 #ifdef CONFIG_USE_PINCTRL_IRQ
-int __init msm_tlmm_v3_of_irq_init(struct device_node *controller,
-						struct device_node *parent)
+int msm_tlmm_v3_of_irq_init(struct device_node *controller,
+						struct irq_chip *chip_extn)
 {
 	int ret, num_irqs, apps_id;
 	struct msm_tlmm_irq_chip *ic = &msm_tlmm_v3_gp_irq;
@@ -716,6 +706,7 @@ int __init msm_tlmm_v3_of_irq_init(struct device_node *controller,
 						ic);
 	if (IS_ERR(ic->domain))
 			return -ENOMEM;
+	ic->irq_chip_extn = chip_extn;
 	return 0;
 }
 #endif

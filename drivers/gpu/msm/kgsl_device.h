@@ -105,6 +105,9 @@ struct kgsl_functable {
 	int (*getproperty) (struct kgsl_device *device,
 		enum kgsl_property_type type, void __user *value,
 		size_t sizebytes);
+	int (*getproperty_compat) (struct kgsl_device *device,
+		enum kgsl_property_type type, void __user *value,
+		size_t sizebytes);
 	int (*waittimestamp) (struct kgsl_device *device,
 		struct kgsl_context *context, unsigned int timestamp,
 		unsigned int msecs);
@@ -135,6 +138,8 @@ struct kgsl_functable {
 	int (*drawctxt_detach) (struct kgsl_context *context);
 	void (*drawctxt_destroy) (struct kgsl_context *context);
 	long (*ioctl) (struct kgsl_device_private *dev_priv,
+		unsigned int cmd, void *data);
+	long (*compat_ioctl) (struct kgsl_device_private *dev_priv,
 		unsigned int cmd, void *data);
 	int (*setproperty) (struct kgsl_device_private *dev_priv,
 		enum kgsl_property_type type, void __user *value,

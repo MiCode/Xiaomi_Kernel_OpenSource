@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,7 @@
 #if defined(CONFIG_ARCH_MSM8974) \
 	|| defined(CONFIG_ARCH_MSM8226) || defined(CONFIG_ARCH_MSM8610) \
 	|| defined(CONFIG_ARCH_APQ8084) || defined(CONFIG_ARCH_MPQ8092) \
-	|| defined(CONFIG_ARCH_MDM9630)
+	|| defined(CONFIG_ARCH_MDM9630)	|| defined(CONFIG_ARCH_MSM8916)
 
 #include <sound/apr_audio-v2.h>
 #include <sound/q6asm-v2.h>

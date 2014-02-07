@@ -118,6 +118,20 @@ void __init msm_map_mpq8092_io(void)
 }
 #endif /* CONFIG_ARCH_MPQ8092 */
 
+#ifdef CONFIG_ARCH_MSM8916
+static struct map_desc msm8916_io_desc[] __initdata = {
+	MSM_CHIP_DEVICE(APCS_GCC, MSM8916),
+#ifdef CONFIG_DEBUG_MSM8916_UART
+	MSM_DEVICE(DEBUG_UART),
+#endif
+};
+
+void __init msm_map_msm8916_io(void)
+{
+	iotable_init(msm8916_io_desc, ARRAY_SIZE(msm8916_io_desc));
+}
+#endif /* CONFIG_ARCH_MSM8916 */
+
 #ifdef CONFIG_ARCH_MSM8226
 static struct map_desc msm_8226_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(APCS_GCC, MSM8226),

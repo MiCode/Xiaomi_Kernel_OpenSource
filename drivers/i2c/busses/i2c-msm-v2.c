@@ -29,18 +29,14 @@
 #include <linux/time.h>
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
-#include <linux/gpio.h>
 #include <linux/dma-mapping.h>
 #include <linux/i2c.h>
 #include <linux/of.h>
-#include <linux/of_gpio.h>
 #include <linux/of_i2c.h>
 #include <linux/debugfs.h>
-#include <mach/i2c-msm.h>
-#include <mach/gpiomux.h>
-#include <mach/sps.h>
-#include <mach/msm_bus.h>
-#include <mach/msm_bus_board.h>
+#include <linux/msm-sps.h>
+#include <linux/msm-bus.h>
+#include <linux/msm-bus-board.h>
 #include "i2c-msm-v2.h"
 
 #ifdef DEBUG
@@ -142,7 +138,7 @@ static void i2c_msm_qup_fifo_calc_size(struct i2c_msm_ctrl *ctrl)
 	fifo->output_fifo_sz = i2c_msm_reg_io_modes_out_blk_sz(reg_data) *
 					i2c_msm_fifo_sz_table[output_fifo_size];
 
-	i2c_msm_dbg(ctrl, MSM_PROF, "QUP input-sz:%d, input-sz:%d",
+	i2c_msm_dbg(ctrl, MSM_PROF, "QUP input-sz:%zu, input-sz:%zu",
 			fifo->input_fifo_sz, fifo->output_fifo_sz);
 
 }
@@ -392,41 +388,14 @@ static void i2c_msm_dbg_xfer_dump(struct i2c_msm_ctrl *ctrl)
 	}
 
 	dev_info(ctrl->dev,
-		"n-msgs:%d mode:%s in-bc:%d out-bc:%d in-ovrhd:%d out-ovrhd:%d "
-		"timeout:%dmsec msg-idx:%d is_rx:%d ff-sent-bc:%d ff-recv-bc:%d\n"
-		, xfer->msg_cnt, i2c_msm_mode_str_tbl[xfer->mode_id],
+		"n-msgs:%d mode:%s in-bc:%zu out-bc:%zu in-ovrhd:%zu "
+		"out-ovrhd:%zu timeout:%dmsec msg-idx:%d is_rx:%d "
+		"ff-tx-bc:%zu ff-rx-bc:%zu\n",
+		xfer->msg_cnt, i2c_msm_mode_str_tbl[xfer->mode_id],
 		xfer->rx_cnt, xfer->tx_cnt, xfer->rx_ovrhd_cnt,
 		xfer->tx_ovrhd_cnt, jiffies_to_msecs(xfer->timeout),
 		xfer->cur_buf.msg_idx, xfer->cur_buf.is_rx, fifo->tx_bc,
 		fifo->rx_bc);
-}
-
-static void i2c_msm_dbg_gpio_dump(struct i2c_msm_ctrl *ctrl, int gpio_num,
-							const char *gpio_name)
-{
-	struct gpiomux_setting cur_conf;
-	if (msm_gpiomux_write(gpio_num, GPIOMUX_ACTIVE, NULL, &cur_conf)) {
-		dev_err(ctrl->dev, "error reading %s-gpio:#%d active setting\n",
-							gpio_name, gpio_num);
-		return;
-	}
-	dev_info(ctrl->dev,
-		"dump %s-gpio:#%d state: func:%d drv:%d pull:%d dir:%d\n",
-		gpio_name, gpio_num, cur_conf.func, cur_conf.drv, cur_conf.pull,
-		cur_conf.dir);
-
-	if (msm_gpiomux_write(gpio_num, GPIOMUX_ACTIVE, &cur_conf, NULL))
-		dev_err(ctrl->dev,
-			"error restoring %s-gpio:#%d active setting\n",
-			gpio_name, gpio_num);
-}
-
-static void i2c_msm_dbg_gpios_dump(struct i2c_msm_ctrl *ctrl)
-{
-	i2c_msm_dbg_gpio_dump(ctrl, ctrl->rsrcs.gpios[I2C_MSM_GPIO_SDA],
-									"sda");
-	i2c_msm_dbg_gpio_dump(ctrl, ctrl->rsrcs.gpios[I2C_MSM_GPIO_SCL],
-									"scl");
 }
 
 static const char * const i2c_msm_dbg_tag_val_to_str_tbl[] = {
@@ -551,7 +520,7 @@ static u8 *i2c_msm_buf_to_ptr(struct i2c_msm_xfer_buf *buf)
 static void i2c_msm_prof_evnt_add(struct i2c_msm_ctrl *ctrl,
 				enum msm_i2_debug_level dbg_level,
 				i2c_msm_prof_dump_func_func_t dump_func,
-				u32 data0, u32 data1, u32 data2)
+				u64 data0, u32 data1, u32 data2)
 {
 	struct i2c_msm_xfer       *xfer  = &ctrl->xfer;
 	struct i2c_msm_prof_event *event;
@@ -569,17 +538,17 @@ static void i2c_msm_prof_evnt_add(struct i2c_msm_ctrl *ctrl,
 
 	getnstimeofday(&event->time);
 	event->dump_func = dump_func;
-	event->data[0] = data0;
-	event->data[1] = data1;
-	event->data[2] = data2;
+	event->data0 = data0;
+	event->data1 = data1;
+	event->data2 = data2;
 }
 
 void i2c_msm_prof_dump_xfer_beg(struct i2c_msm_ctrl *ctrl,
 		struct i2c_msm_prof_event *event, size_t msec, size_t usec)
 {
 	dev_info(ctrl->dev,
-		"-->.%03zums XFER_BEG msg_cnt:%x addr:0x%x\n",
-		usec, event->data[0], event->data[1]);
+		"-->.%03zums XFER_BEG msg_cnt:%llx addr:0x%x\n",
+		usec, event->data0, event->data1);
 }
 
 /* string table for enum i2c_msm_err_bit_field */
@@ -595,8 +564,8 @@ static const char * const i2c_msm_err_str_tbl[] = {
 void i2c_msm_prof_dump_xfer_end(struct i2c_msm_ctrl *ctrl,
 		struct i2c_msm_prof_event *event, size_t msec, size_t usec)
 {
-	int ret = event->data[0];
-	int err = event->data[1];
+	int ret = event->data0;
+	int err = event->data1;
 	int bc  = ctrl->xfer.rx_cnt + ctrl->xfer.rx_ovrhd_cnt +
 		  ctrl->xfer.tx_cnt + ctrl->xfer.tx_ovrhd_cnt;
 	int bc_sec = (bc * 1000000) / (msec * 1000 + usec);
@@ -606,24 +575,24 @@ void i2c_msm_prof_dump_xfer_end(struct i2c_msm_ctrl *ctrl,
 	dev_info(ctrl->dev,
 		"%3zu.%03zums XFER_END "
 		"ret:%d err:[%s] msgs_sent:%d BC:%d B/sec:%d i2c-stts:%s\n" ,
-		msec, usec, ret, i2c_msm_err_str_tbl[err], event->data[2],
+		msec, usec, ret, i2c_msm_err_str_tbl[err], event->data2,
 		bc, bc_sec, status);
 }
 
 void i2c_msm_prof_dump_irq_begn(struct i2c_msm_ctrl *ctrl,
 		struct i2c_msm_prof_event *event, size_t msec, size_t usec)
 {
-	dev_info(ctrl->dev, "%3zu.%03zums  IRQ_BEG irq:%d\n",
-						msec, usec, event->data[0]);
+	dev_info(ctrl->dev, "%3zu.%03zums  IRQ_BEG irq:%lld\n",
+						msec, usec, event->data0);
 }
 
 void i2c_msm_prof_dump_irq_end(struct i2c_msm_ctrl *ctrl,
 		struct i2c_msm_prof_event *event, size_t msec, size_t usec)
 {
 	char str[I2C_MSM_REG_2_STR_BUF_SZ];
-	u32 mstr_stts = event->data[0];
-	u32 qup_oper  = event->data[1];
-	u32 err_flgs  = event->data[2];
+	u32 mstr_stts = event->data0;
+	u32 qup_oper  = event->data1;
+	u32 err_flgs  = event->data2;
 	dev_info(ctrl->dev,
 		"%3zu.%03zums  IRQ_END "
 		"MSTR_STTS:0x%x QUP_OPER:0x%x ERR_FLGS:0x%x\n",
@@ -639,8 +608,8 @@ void i2c_msm_prof_dump_irq_end(struct i2c_msm_ctrl *ctrl,
 				mstr_stts, str, sizeof(str),
 				i2c_msm_qup_i2c_stat_fields_map);
 
-		dev_info(ctrl->dev, "            |->MSTR_STTS:0x%x %s\n",
-						event->data[0], str);
+		dev_info(ctrl->dev, "            |->MSTR_STTS:0x%llx %s\n",
+						event->data0, str);
 	}
 	/* register QUP_OPERATIONAL */
 	if (qup_oper &
@@ -651,7 +620,7 @@ void i2c_msm_prof_dump_irq_end(struct i2c_msm_ctrl *ctrl,
 				i2c_msm_qup_op_fields_map);
 
 		dev_info(ctrl->dev, "            |-> QUP_OPER:0x%x %s\n",
-						event->data[1], str);
+						event->data1, str);
 	}
 	/* register ERR_FLAGS */
 	if (err_flgs) {
@@ -660,32 +629,32 @@ void i2c_msm_prof_dump_irq_end(struct i2c_msm_ctrl *ctrl,
 				i2c_msm_qup_err_flags_fields_map);
 
 		dev_info(ctrl->dev, "            |-> ERR_FLGS:0x%x %s\n",
-						event->data[2], str);
+						event->data2, str);
 	}
 }
 
 void i2c_msm_prof_dump_next_buf(struct i2c_msm_ctrl *ctrl,
 		struct i2c_msm_prof_event *event, size_t msec, size_t usec)
 {
-	struct i2c_msg *msg = ctrl->xfer.msgs + event->data[0];
+	struct i2c_msg *msg = ctrl->xfer.msgs + event->data0;
 	dev_info(ctrl->dev,
-		"%3zu.%03zums XFER_BUF msg[%d] pos:%d adr:0x%x "
+		"%3zu.%03zums XFER_BUF msg[%lld] pos:%d adr:0x%x "
 		"len:%d is_rx:0x%x last:0x%x\n",
-		msec, usec, event->data[0], event->data[1], msg->addr, msg->len,
+		msec, usec, event->data0, event->data1, msg->addr, msg->len,
 		(msg->flags & I2C_M_RD),
-		event->data[0] == (ctrl->xfer.msg_cnt - 1));
+		event->data0 == (ctrl->xfer.msg_cnt - 1));
 
 }
 
 void i2c_msm_prof_dump_scan_sum(struct i2c_msm_ctrl *ctrl,
 		struct i2c_msm_prof_event *event, size_t msec, size_t usec)
 {
-	u32 bc_rx       = (event->data[0] & 0xff);
-	u32 bc_rx_ovrhd = (event->data[0] >> 16);
-	u32 bc_tx       = (event->data[1] & 0xff);
-	u32 bc_tx_ovrhd = (event->data[1] >> 16);
-	u32 timeout     = (event->data[2] & 0xfff);
-	u32 mode        = (event->data[2] >> 24);
+	u32 bc_rx       = (event->data0 & 0xff);
+	u32 bc_rx_ovrhd = (event->data0 >> 16);
+	u32 bc_tx       = (event->data1 & 0xff);
+	u32 bc_tx_ovrhd = (event->data1 >> 16);
+	u32 timeout     = (event->data2 & 0xfff);
+	u32 mode        = (event->data2 >> 24);
 	u32 bc      = bc_rx + bc_rx_ovrhd + bc_tx + bc_tx_ovrhd;
 	dev_info(ctrl->dev,
 		"%3zu.%03zums SCN_SMRY BC:%u rx:%u+ovrhd:%u tx:%u+ovrhd:%u "
@@ -699,8 +668,8 @@ void i2c_msm_prof_dump_cmplt_ok(struct i2c_msm_ctrl *ctrl,
 {
 	dev_info(ctrl->dev,
 		"%3zu.%03zums  DONE_OK timeout-used:%umsec time_left:%umsec\n",
-		msec, usec, jiffies_to_msecs(event->data[0]),
-		jiffies_to_msecs(event->data[1]));
+		msec, usec, jiffies_to_msecs(event->data0),
+		jiffies_to_msecs(event->data1));
 }
 
 void i2c_msm_prof_dump_cmplt_fl(struct i2c_msm_ctrl *ctrl,
@@ -709,29 +678,29 @@ void i2c_msm_prof_dump_cmplt_fl(struct i2c_msm_ctrl *ctrl,
 	dev_info(ctrl->dev,
 		"%3zu.%03zums  TIMEOUT-error timeout-used:%umsec. "
 		"Check GPIOs configuration\n",
-		msec, usec, jiffies_to_msecs(event->data[0]));
+		msec, usec, jiffies_to_msecs(event->data0));
 }
 
 void i2c_msm_prof_dump_vlid_end(struct i2c_msm_ctrl *ctrl,
 		struct i2c_msm_prof_event *event, size_t msec, size_t usec)
 {
-	int  ret        = (int)(event->data[0] & 0xff);
-	enum i2c_msm_qup_state state = ((event->data[0] << 16) & 0xf);
-	u32  status     = event->data[2];
+	int  ret        = (int)(event->data0 & 0xff);
+	enum i2c_msm_qup_state state = ((event->data0 << 16) & 0xf);
+	u32  status     = event->data2;
 
 	dev_info(ctrl->dev,
 	"%3zu.%03zums SET_STTE set:%s ret:%d rd_cnt:%u reg_val:0x%x vld:%d\n",
 	msec, usec, i2c_msm_reg_qup_state_to_str[state], ret,
-	event->data[1], status, BIT_IS_SET(status, 2));
+	event->data1, status, BIT_IS_SET(status, 2));
 }
 
 void i2c_msm_prof_dump_actv_end(struct i2c_msm_ctrl *ctrl,
 		struct i2c_msm_prof_event *event, size_t msec, size_t usec)
 {
 	dev_info(ctrl->dev,
-	    "%3zu.%03zums ACTV_END ret:%d jiffies_left:%u/%u read_cnt:%u\n",
-	    msec, usec, event->data[0], event->data[1],
-	    I2C_MSM_MAX_POLL_MSEC, event->data[2]);
+	    "%3zu.%03zums ACTV_END ret:%lld jiffies_left:%u/%u read_cnt:%u\n",
+	    msec, usec, event->data0, event->data1,
+	    I2C_MSM_MAX_POLL_MSEC, event->data2);
 }
 
 void i2c_msm_prof_dump_bam_flsh(struct i2c_msm_ctrl *ctrl,
@@ -744,8 +713,8 @@ void i2c_msm_prof_dump_pip_dscn(struct i2c_msm_ctrl *ctrl,
 		struct i2c_msm_prof_event *event, size_t msec, size_t usec)
 {
 	struct i2c_msm_bam_pipe *pipe =
-			(struct i2c_msm_bam_pipe *) event->data[0];
-	int ret = event->data[1];
+			(struct i2c_msm_bam_pipe *) ((ulong) event->data0);
+	int ret = event->data1;
 	dev_info(ctrl->dev,
 		"%3zu.%03zums PIP_DCNCT sps_disconnect(hndl:0x%p %s):%d\n",
 		msec, usec, pipe->handle, pipe->name, ret);
@@ -755,8 +724,8 @@ void i2c_msm_prof_dump_pip_cnct(struct i2c_msm_ctrl *ctrl,
 		struct i2c_msm_prof_event *event, size_t msec, size_t usec)
 {
 	struct i2c_msm_bam_pipe *pipe =
-				(struct i2c_msm_bam_pipe *) event->data[0];
-	int ret = event->data[1];
+			(struct i2c_msm_bam_pipe *) ((ulong) event->data0);
+	int ret = event->data1;
 	dev_info(ctrl->dev,
 		"%3zu.%03zums PIP_CNCT sps_connect(hndl:0x%p %s):%d\n",
 		msec, usec, pipe->handle, pipe->name, ret);
@@ -1047,7 +1016,7 @@ i2c_msm_qup_xfer_init_reset_state(struct i2c_msm_ctrl *ctrl)
 
 bool i2c_msm_xfer_is_high_speed(struct i2c_msm_ctrl *ctrl)
 {
-	return ctrl->pdata->clk_freq_out > I2C_MSM_CLK_FAST_MAX_FREQ;
+	return ctrl->rsrcs.clk_freq_out > I2C_MSM_CLK_FAST_MAX_FREQ;
 }
 
 /*
@@ -1059,17 +1028,15 @@ static void i2c_msm_qup_xfer_init_run_state(struct i2c_msm_ctrl *ctrl)
 	u32 val = 0;
 
 	if (i2c_msm_xfer_is_high_speed(ctrl)) {
-		val = I2C_MSM_SCL_NOISE_REJECTION(val,
-						ctrl->noise_rjct_scl);
-		val = I2C_MSM_SDA_NOISE_REJECTION(val,
-						ctrl->noise_rjct_sda);
-		val = I2C_MSM_CLK_DIV(val, ctrl->pdata->clk_freq_in,
-					ctrl->pdata->clk_freq_out, true);
+		val = I2C_MSM_SCL_NOISE_REJECTION(val, ctrl->noise_rjct_scl);
+		val = I2C_MSM_SDA_NOISE_REJECTION(val, ctrl->noise_rjct_sda);
+		val = I2C_MSM_CLK_DIV(val, ctrl->rsrcs.clk_freq_in,
+					ctrl->rsrcs.clk_freq_out, true);
 	} else {
 		val = I2C_MSM_SCL_NOISE_REJECTION(val, ctrl->noise_rjct_scl);
 		val = I2C_MSM_SDA_NOISE_REJECTION(val, ctrl->noise_rjct_sda);
-		val = I2C_MSM_CLK_DIV(val, ctrl->pdata->clk_freq_in,
-					ctrl->pdata->clk_freq_out, false);
+		val = I2C_MSM_CLK_DIV(val, ctrl->rsrcs.clk_freq_in,
+					ctrl->rsrcs.clk_freq_out, false);
 	}
 
 	writel_relaxed(val, base + QUP_I2C_MASTER_CLK_CTL);
@@ -1356,7 +1323,7 @@ static int i2c_msm_fifo_create_struct(struct i2c_msm_ctrl *ctrl)
 					kmalloc(sizeof(*fifo), GFP_KERNEL);
 	if (!fifo) {
 		dev_err(ctrl->dev,
-		  "error on allocating memory for fifo mode. malloc(size:%d\n)",
+		  "error on allocating memory for fifo mode. malloc(size:%zu\n)",
 		  sizeof(*fifo));
 		return -ENOMEM;
 	}
@@ -1424,18 +1391,18 @@ static int i2c_msm_bam_xfer_prepare(struct i2c_msm_ctrl *ctrl)
 		if (dma_mapping_error(ctrl->dev, data.phy_addr)) {
 			dev_err(ctrl->dev,
 			  "error DMA mapping BAM buffers. err:%lld "
-			  "buf_vrtl:0x%p data_len:%d dma_dir:%s\n",
+			  "buf_vrtl:0x%p data_len:%zu dma_dir:%s\n",
 			  (u64) data.phy_addr, data.vrtl_addr, buf->len,
 			  ((buf_dma_dirctn == DMA_FROM_DEVICE)
 				? "DMA_FROM_DEVICE" : "DMA_TO_DEVICE"));
-			return DMA_ERROR_CODE;
+			return -EFAULT;
 		}
 
 		/* copy 8 bytes. Only tag.len bytes will be used */
 		*((u64 *)tag_arr_itr_vrtl_addr) =  buf->out_tag.val;
 
 		i2c_msm_dbg(ctrl, MSM_DBG,
-			"vrtl:0x%p phy:0x%llx val:0x%llx sizeof(dma_addr_t):%d",
+			"vrtl:0x%p phy:0x%llx val:0x%llx sizeof(dma_addr_t):%zu",
 			tag_arr_itr_vrtl_addr, (u64) tag_arr_itr_phy_addr,
 			*((u64 *)tag_arr_itr_vrtl_addr), sizeof(dma_addr_t));
 
@@ -1525,7 +1492,7 @@ static int i2c_msm_bam_xfer_process(struct i2c_msm_ctrl *ctrl)
 	int  ret           = 0;
 	u32  bam_flags     = 0; /* bam_flags!=0 only on last xfer */
 	char str[64];
-	i2c_msm_dbg(ctrl, MSM_DBG, "Going to enqueue %d buffers in BAM",
+	i2c_msm_dbg(ctrl, MSM_DBG, "Going to enqueue %zu buffers in BAM",
 							bam->buf_arr_cnt);
 
 	cons = &bam->pipe[I2C_MSM_BAM_CONS];
@@ -1561,7 +1528,7 @@ static int i2c_msm_bam_xfer_process(struct i2c_msm_ctrl *ctrl)
 		pipe = buf_itr->is_rx ? prod : cons;
 
 		i2c_msm_dbg(ctrl, MSM_DBG,
-			"Queue data buf to %s pipe desc(phy:0x%llx len:%d) "
+			"Queue data buf to %s pipe desc(phy:0x%llx len:%zu) "
 			"EOT:%d NWD:%d",
 			pipe->name, (u64) buf_itr->ptr.phy_addr, buf_itr->len,
 			!!(bam_flags & SPS_IOVEC_FLAG_EOT),
@@ -1616,7 +1583,7 @@ static int i2c_msm_bam_pipe_diconnect(struct i2c_msm_ctrl *ctrl,
 	int ret = sps_disconnect(pipe->handle);
 	if (ret) {
 		i2c_msm_prof_evnt_add(ctrl, MSM_ERR, i2c_msm_prof_dump_pip_dscn,
-					(u32) pipe, (u32)ret, 0);
+						(ulong) pipe, (u32)ret, 0);
 		return ret;
 	}
 	pipe->is_init = false;
@@ -1637,7 +1604,7 @@ static int i2c_msm_bam_pipe_connect(struct i2c_msm_ctrl *ctrl,
 	ret = sps_connect(pipe->handle, config);
 	if (ret) {
 		i2c_msm_prof_evnt_add(ctrl, MSM_ERR, i2c_msm_prof_dump_pip_cnct,
-						(u32) pipe, (u32)ret, 0);
+						(ulong) pipe, (u32)ret, 0);
 		return ret;
 	}
 
@@ -1713,15 +1680,13 @@ static int i2c_msm_bam_pipe_init(struct i2c_msm_ctrl *ctrl,
 		config->destination     = bam->handle;
 		config->mode            = SPS_MODE_DEST;
 		config->src_pipe_index  = 0;
-		config->dest_pipe_index =
-					ctrl->pdata->bam_pipe_idx_cons;
+		config->dest_pipe_index = ctrl->rsrcs.bam_pipe_idx_cons;
 		pipe->desc_cnt_max      = I2C_MSM_BAM_CONS_SZ;
 	} else {
 		config->source          = bam->handle;
 		config->destination     = SPS_DEV_HANDLE_MEM;
 		config->mode            = SPS_MODE_SRC;
-		config->src_pipe_index  =
-					ctrl->pdata->bam_pipe_idx_prod;
+		config->src_pipe_index  = ctrl->rsrcs.bam_pipe_idx_prod;
 		config->dest_pipe_index = 0;
 		pipe->desc_cnt_max      = I2C_MSM_BAM_PROD_SZ;
 	}
@@ -1835,7 +1800,7 @@ pipe_error:
 	return ret;
 }
 
-static int i2c_msm_bam_reg_dev(struct i2c_msm_ctrl *ctrl, u32 *bam_handle)
+static int i2c_msm_bam_reg_dev(struct i2c_msm_ctrl *ctrl, ulong *bam_handle)
 {
 	int                  ret;
 	struct i2c_msm_xfer_mode_bam *bam = i2c_msm_bam_get_struct(ctrl);
@@ -1877,7 +1842,7 @@ static int i2c_msm_bam_reg_dev(struct i2c_msm_ctrl *ctrl, u32 *bam_handle)
 static int i2c_msm_bam_init(struct i2c_msm_ctrl *ctrl)
 {
 	struct i2c_msm_xfer_mode_bam *bam = i2c_msm_bam_get_struct(ctrl);
-	u32             bam_handle;
+	ulong           bam_handle;
 	int             ret;
 	u8             *tags_space_virt_addr;
 	dma_addr_t      tags_space_phy_addr;
@@ -2007,7 +1972,7 @@ static int i2c_msm_bam_xfer(struct i2c_msm_ctrl *ctrl)
 	ret = i2c_msm_bam_xfer_process(ctrl);
 	if (ret)
 		dev_err(ctrl->dev,
-			"error i2c_msm_bam_xfer_process(n_bufs:%d):%d\n",
+			"error i2c_msm_bam_xfer_process(n_bufs:%zu):%d\n",
 			bam->buf_arr_cnt, ret);
 
 err_bam_xfer:
@@ -2029,7 +1994,7 @@ static int i2c_msm_bam_create_struct(struct i2c_msm_ctrl *ctrl)
 
 	if (!bam) {
 		dev_err(ctrl->dev,
-		   "error on allocating memory for bam mode. malloc(size:%d)\n",
+		   "error on allocating memory for bam mode. malloc(size:%zu)\n",
 		   sizeof(*bam));
 		return -ENOMEM;
 	}
@@ -2135,7 +2100,7 @@ static void i2c_msm_clk_path_unvote(struct i2c_msm_ctrl *ctrl)
 
 static void i2c_msm_clk_path_teardown(struct i2c_msm_ctrl *ctrl)
 {
-	if (ctrl->pdata->active_only)
+	if (ctrl->rsrcs.clk_path_vote.actv_only)
 		i2c_msm_clk_path_unvote(ctrl);
 
 	if (ctrl->rsrcs.clk_path_vote.client_hdl) {
@@ -2181,14 +2146,14 @@ static int i2c_msm_clk_path_init_structs(struct i2c_msm_ctrl *ctrl)
 	}
 
 	paths[I2C_MSM_CLK_PATH_SUSPEND_VEC] = (struct msm_bus_vectors) {
-		.src = ctrl->pdata->master_id,
+		.src = ctrl->rsrcs.clk_path_vote.mstr_id,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 0,
 		.ib  = 0,
 	};
 
 	paths[I2C_MSM_CLK_PATH_RESUME_VEC]  = (struct msm_bus_vectors) {
-		.src = ctrl->pdata->master_id,
+		.src = ctrl->rsrcs.clk_path_vote.mstr_id,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = I2C_MSM_CLK_PATH_AVRG_BW(ctrl),
 		.ib  = I2C_MSM_CLK_PATH_BRST_BW(ctrl),
@@ -2205,10 +2170,10 @@ static int i2c_msm_clk_path_init_structs(struct i2c_msm_ctrl *ctrl)
 	};
 
 	*ctrl->rsrcs.clk_path_vote.pdata = (struct msm_bus_scale_pdata) {
-		.active_only  = ctrl->pdata->active_only,
-		.name         = dev_name(ctrl->dev),
-		.num_usecases = 2,
 		.usecase      = usecases,
+		.num_usecases = 2,
+		.name         = dev_name(ctrl->dev),
+		.active_only  = ctrl->rsrcs.clk_path_vote.actv_only,
 	};
 
 	return 0;
@@ -2242,25 +2207,26 @@ static int i2c_msm_clk_path_postponed_register(struct i2c_msm_ctrl *ctrl)
 		if (ctrl->rsrcs.clk_path_vote.reg_err) {
 			/* log a success message if an error msg was logged */
 			ctrl->rsrcs.clk_path_vote.reg_err = false;
-			i2c_msm_dbg(ctrl, MSM_DBG,
-			  "success on late msm_bus_scale_register_client"
-			  "(mstr-id:%d actv-only:%d):0x%x",
-			  ctrl->pdata->master_id, ctrl->pdata->active_only,
-			  ctrl->rsrcs.clk_path_vote.client_hdl);
+			dev_err(ctrl->dev,
+				"msm_bus_scale_register_client(mstr-id:%d "
+				"actv-only:%d):0x%x (ok)",
+				ctrl->rsrcs.clk_path_vote.mstr_id,
+				ctrl->rsrcs.clk_path_vote.actv_only,
+				ctrl->rsrcs.clk_path_vote.client_hdl);
 		}
 
-		if (ctrl->pdata->active_only)
+		if (ctrl->rsrcs.clk_path_vote.actv_only)
 			i2c_msm_clk_path_vote(ctrl);
 	} else {
 		/* guard to log only one error on multiple failure */
 		if (!ctrl->rsrcs.clk_path_vote.reg_err) {
 			ctrl->rsrcs.clk_path_vote.reg_err = true;
 
-			i2c_msm_dbg(ctrl, MSM_DBG,
-			  "msm_bus_scale_register_client(mstr-id:%d actv-only:"
-			  "%d):0 (fail) prob i2c probed before bus_scale."
-			  " not a problem",
-			  ctrl->pdata->master_id, ctrl->pdata->active_only);
+			dev_info(ctrl->dev,
+				"msm_bus_scale_register_client(mstr-id:%d "
+				"actv-only:%d):0 (not a problem)",
+				ctrl->rsrcs.clk_path_vote.mstr_id,
+				ctrl->rsrcs.clk_path_vote.actv_only);
 		}
 	}
 
@@ -2273,13 +2239,14 @@ static void i2c_msm_clk_path_init(struct i2c_msm_ctrl *ctrl)
 	 * bail out if path voting is diabled (master_id == 0) or if it is
 	 * already registered (client_hdl != 0)
 	 */
-	if (!ctrl->pdata->master_id || ctrl->rsrcs.clk_path_vote.client_hdl)
+	if (!ctrl->rsrcs.clk_path_vote.mstr_id ||
+		ctrl->rsrcs.clk_path_vote.client_hdl)
 		return;
 
 	/* if fail once then try no more */
 	if (!ctrl->rsrcs.clk_path_vote.pdata &&
 					i2c_msm_clk_path_init_structs(ctrl)) {
-		ctrl->pdata->master_id = 0;
+		ctrl->rsrcs.clk_path_vote.mstr_id = 0;
 		return;
 	};
 
@@ -2287,7 +2254,7 @@ static void i2c_msm_clk_path_init(struct i2c_msm_ctrl *ctrl)
 	if (i2c_msm_clk_path_postponed_register(ctrl))
 		return;
 
-	if (ctrl->pdata->active_only)
+	if (ctrl->rsrcs.clk_path_vote.actv_only)
 		i2c_msm_clk_path_vote(ctrl);
 }
 
@@ -2582,7 +2549,7 @@ static void i2c_msm_qup_choose_mode(struct i2c_msm_ctrl *ctrl)
 		xfer->mode_id = ctrl->dbgfs.force_xfer_mode;
 	else if (((rx_cnt_sum < fifo->input_fifo_sz) &&
 		  (tx_cnt_sum < fifo->output_fifo_sz)) ||
-						ctrl->pdata->bam_disable)
+						ctrl->rsrcs.disable_dma)
 		xfer->mode_id = I2C_MSM_XFER_MODE_FIFO;
 	else
 		xfer->mode_id = I2C_MSM_XFER_MODE_BAM;
@@ -2648,7 +2615,7 @@ static void i2c_msm_xfer_calc_timeout(struct i2c_msm_ctrl *ctrl)
 {
 	size_t byte_cnt = ctrl->xfer.rx_cnt + ctrl->xfer.tx_cnt;
 	size_t bit_cnt  = byte_cnt * 9;
-	size_t bit_usec = (bit_cnt * USEC_PER_SEC) / ctrl->pdata->clk_freq_out;
+	size_t bit_usec = (bit_cnt * USEC_PER_SEC) / ctrl->rsrcs.clk_freq_out;
 	size_t loging_ovrhd_coef = ctrl->dbgfs.dbg_lvl + 1;
 	size_t safety_coef   = I2C_MSM_TIMEOUT_SAFTY_COEF * loging_ovrhd_coef;
 	size_t xfer_max_usec = (bit_usec * safety_coef) +
@@ -2672,7 +2639,6 @@ static int i2c_msm_xfer_wait_for_completion(struct i2c_msm_ctrl *ctrl)
 		i2c_msm_dbg_xfer_dump(ctrl);
 		i2c_msm_dbg_qup_reg_dump(ctrl);
 		i2c_msm_dbg_inp_fifo_dump(ctrl);
-		i2c_msm_dbg_gpios_dump(ctrl);
 		xfer->err |= I2C_MSM_ERR_TIMEOUT;
 		ret = -EIO;
 	} else {
@@ -2756,7 +2722,7 @@ static bool i2c_msm_xfer_next_msg(struct i2c_msm_ctrl *ctrl)
 		i2c_msm_dbg_tag_to_str(&cur_buf->out_tag, str, sizeof(str));
 		dev_info(ctrl->dev,
 			"msg[%d] first:0x%x last:0x%x new_adr:0x%x inp:0x%x "
-			"len:%d adr:0x%x tag:%s\n",
+			"len:%zu adr:0x%x tag:%s\n",
 			cur_buf->msg_idx, is_first_msg, is_last_msg,
 			start_req, cur_buf->is_rx, cur_buf->len, slv_addr,
 			str);
@@ -2899,7 +2865,6 @@ enum i2c_msm_dt_entry_status {
 
 enum i2c_msm_dt_entry_type {
 	DT_U32,
-	DT_GPIO,
 	DT_BOOL,
 	DT_ID,   /* of_alias_get_id() */
 };
@@ -2914,21 +2879,13 @@ struct i2c_msm_dt_to_pdata_map {
 
 static int i2c_msm_dt_to_pdata_populate(struct i2c_msm_ctrl *ctrl,
 					struct platform_device *pdev,
-					struct i2c_msm_v2_platform_data *pdata,
-					struct i2c_msm_dt_to_pdata_map  *itr)
+					struct i2c_msm_dt_to_pdata_map *itr)
 {
 	int  ret, err = 0;
 	struct device_node *node = pdev->dev.of_node;
 
 	for (; itr->dt_name ; ++itr) {
 		switch (itr->type) {
-		case DT_GPIO:
-			ret = of_get_named_gpio(node, itr->dt_name, 0);
-			if (gpio_is_valid(ret)) {
-				*((int *) itr->ptr_data) = ret;
-				ret = 0;
-			}
-			break;
 		case DT_U32:
 			ret = of_property_read_u32(node, itr->dt_name,
 							 (u32 *) itr->ptr_data);
@@ -2981,52 +2938,32 @@ static int i2c_msm_dt_to_pdata_populate(struct i2c_msm_ctrl *ctrl,
  * @return zero on success or negative error code
  */
 static int i2c_msm_rsrcs_dt_to_pdata(struct i2c_msm_ctrl *ctrl,
-					struct platform_device *pdev,
-					struct i2c_msm_v2_platform_data **pdata)
+					struct platform_device *pdev)
 {
-	int ret = 0;
-	*pdata = devm_kzalloc(&pdev->dev, sizeof(**pdata), GFP_KERNEL);
-	if (!*pdata) {
-		dev_err(ctrl->dev,
-			"error Unable to allocate mem for platform data\n");
-		ret = -ENOMEM;
-	} else {
-		struct i2c_msm_dt_to_pdata_map map[] = {
-		{"i2c",
-			&pdev->id,                       DT_REQ,  DT_ID,  -1},
-		{"qcom,clk-freq-out",
-			&(*pdata)->clk_freq_out,         DT_REQ,  DT_U32,  0},
-		{"qcom,clk-freq-in",
-			&(*pdata)->clk_freq_in,          DT_REQ,  DT_U32,  0},
-		{"qcom,bam-pipe-idx-cons",
-			&(*pdata)->bam_pipe_idx_cons,    DT_OPT,  DT_U32,  0},
-		{"qcom,bam-pipe-idx-prod",
-			&(*pdata)->bam_pipe_idx_prod,    DT_OPT,  DT_U32,  0},
-		{"qcom,bam-disable",
-			&(*pdata)->bam_disable,          DT_OPT,  DT_BOOL, 0},
-		{"qcom,master-id",
-			&(*pdata)->master_id,            DT_SGST, DT_U32,  0},
-		{"qcom,active-only",
-			&(*pdata)->active_only,          DT_OPT,  DT_BOOL, 0},
-		{"qcom,noise-rjct-scl",
-			&(*pdata)->noise_rjct_scl,       DT_OPT,  DT_U32,  0},
-		{"qcom,noise-rjct-sda",
-			&(*pdata)->noise_rjct_sda,       DT_OPT,  DT_U32,  0},
-		{"qcom,gpio-scl",
-			&(*pdata)->gpio_scl,             DT_SGST, DT_GPIO, 0},
-		{"qcom,gpio-sda",
-			&(*pdata)->gpio_sda,             DT_SGST, DT_GPIO, 0},
-		{NULL,  NULL,                            0,       0,       0},
-		};
+	struct i2c_msm_dt_to_pdata_map map[] = {
+	{"i2c",				&pdev->id,	DT_REQ,  DT_ID,  -1},
+	{"qcom,clk-freq-out",		&ctrl->rsrcs.clk_freq_out,
+							DT_REQ,  DT_U32,  0},
+	{"qcom,clk-freq-in",		&ctrl->rsrcs.clk_freq_in,
+							DT_REQ,  DT_U32,  0},
+	{"qcom,bam-pipe-idx-cons",	&(ctrl->rsrcs.bam_pipe_idx_cons),
+							DT_OPT,  DT_U32,  0},
+	{"qcom,bam-pipe-idx-prod",	&(ctrl->rsrcs.bam_pipe_idx_prod),
+							DT_OPT,  DT_U32,  0},
+	{"qcom,bam-disable",		&(ctrl->rsrcs.disable_dma),
+							DT_OPT,  DT_BOOL, 0},
+	{"qcom,master-id",		&(ctrl->rsrcs.clk_path_vote.mstr_id),
+							DT_SGST, DT_U32,  0},
+	{"qcom,active-only",		&(ctrl->rsrcs.clk_path_vote.actv_only),
+							DT_OPT,  DT_BOOL, 0},
+	{"qcom,noise-rjct-scl",		&(ctrl->noise_rjct_scl),
+							DT_OPT,  DT_U32,  0},
+	{"qcom,noise-rjct-sda",		&(ctrl->noise_rjct_sda),
+							DT_OPT,  DT_U32,  0},
+	{NULL,  NULL,					0,       0,       0},
+	};
 
-		ret = i2c_msm_dt_to_pdata_populate(ctrl, pdev, *pdata, map);
-		if (ret) {
-			devm_kfree(&pdev->dev, *pdata);
-			*pdata = NULL;
-		};
-	}
-
-	return ret;
+	return i2c_msm_dt_to_pdata_populate(ctrl, pdev, map);
 }
 
 /*
@@ -3109,60 +3046,50 @@ static void i2c_msm_rsrcs_irq_teardown(struct i2c_msm_ctrl *ctrl)
 }
 
 /*
- * i2c_msm_rsrcs_gpio_init: initializes the GPIO entries in driver struct
+ * i2c_msm_rsrcs_gpio_pinctrl_init: initializes the pinctrl for i2c gpios
  *
  * @pre platform data must be initialized
  */
-static void i2c_msm_rsrcs_gpio_init(struct i2c_msm_ctrl *ctrl)
+static int i2c_msm_rsrcs_gpio_pinctrl_init(struct i2c_msm_ctrl *ctrl)
 {
-	int i;
-	/* invalidate all */
-	for (i = 0; i < ARRAY_SIZE(i2c_msm_gpio_names); ++i)
-		ctrl->rsrcs.gpios[i] = -EINVAL;
-
-	ctrl->rsrcs.gpios[I2C_MSM_GPIO_SCL] = ctrl->pdata->gpio_scl;
-	ctrl->rsrcs.gpios[I2C_MSM_GPIO_SDA] = ctrl->pdata->gpio_sda;
-}
-
-static int i2c_msm_pm_gpio_acquire(struct i2c_msm_ctrl *ctrl)
-{
-	int i, ret;
-
-	for (i = 0; i < ARRAY_SIZE(i2c_msm_gpio_names); ++i) {
-		const int gpio_num = ctrl->rsrcs.gpios[i];
-
-		if (gpio_num >= 0) {
-			ret = gpio_request(gpio_num, i2c_msm_gpio_names[i]);
-			if (ret) {
-				dev_err(ctrl->dev,
-				     "gpio_request(num:%d, name=%s) err:%d\n",
-				     gpio_num, i2c_msm_gpio_names[i], ret);
-				goto error;
-			}
-		}
+	ctrl->rsrcs.pinctrl = devm_pinctrl_get(ctrl->dev);
+	if (IS_ERR_OR_NULL(ctrl->rsrcs.pinctrl)) {
+		dev_err(ctrl->dev, "failed to get pinctrl\n");
+		return PTR_ERR(ctrl->rsrcs.pinctrl);
 	}
+
+	ctrl->rsrcs.gpio_state_active
+		= pinctrl_lookup_state(ctrl->rsrcs.pinctrl,
+				PINCTRL_STATE_DEFAULT);
+	if (IS_ERR_OR_NULL(ctrl->rsrcs.gpio_state_active))
+		dev_info(ctrl->dev, "can not get default pinstate\n");
+
+	ctrl->rsrcs.gpio_state_suspend
+		= pinctrl_lookup_state(ctrl->rsrcs.pinctrl,
+				PINCTRL_STATE_SLEEP);
+	if (IS_ERR_OR_NULL(ctrl->rsrcs.gpio_state_suspend))
+		dev_info(ctrl->dev, "can not get sleep pinstate\n");
 	return 0;
-
-error:
-	while (--i >= 0) {
-		const int gpio_num = ctrl->rsrcs.gpios[i];
-
-		if (gpio_num >= 0)
-			gpio_free(gpio_num);
-	}
-	return ret;
 }
 
-static void i2c_msm_pm_gpio_release(struct i2c_msm_ctrl *ctrl)
+static void i2c_msm_pm_pinctrl_state(struct i2c_msm_ctrl *ctrl,
+				bool runtime_active)
 {
-	int i;
+	int ret;
+	struct pinctrl_state *pins_state;
 
-	for (i = 0; i < ARRAY_SIZE(i2c_msm_gpio_names); ++i) {
-		const int gpio_num = ctrl->rsrcs.gpios[i];
-
-		if (gpio_num >= 0)
-			gpio_free(gpio_num);
-	}
+	pins_state = runtime_active ? ctrl->rsrcs.gpio_state_active
+					: ctrl->rsrcs.gpio_state_suspend;
+	if (!IS_ERR_OR_NULL(pins_state)) {
+		ret = pinctrl_select_state(ctrl->rsrcs.pinctrl, pins_state);
+		if (ret)
+			dev_err(ctrl->dev, "can not set %s pins\n",
+				runtime_active ? PINCTRL_STATE_DEFAULT
+						: PINCTRL_STATE_SLEEP);
+	} else
+		dev_err(ctrl->dev, "not a valid '%s' pinstate\n",
+				runtime_active ? PINCTRL_STATE_DEFAULT
+						: PINCTRL_STATE_SLEEP);
 }
 
 /*
@@ -3174,11 +3101,11 @@ static int i2c_msm_rsrcs_clk_init(struct i2c_msm_ctrl *ctrl)
 {
 	int ret = 0;
 
-	if ((ctrl->pdata->clk_freq_out <= 0) ||
-	    (ctrl->pdata->clk_freq_out > I2C_MSM_CLK_HIGH_MAX_FREQ)) {
+	if ((ctrl->rsrcs.clk_freq_out <= 0) ||
+	    (ctrl->rsrcs.clk_freq_out > I2C_MSM_CLK_HIGH_MAX_FREQ)) {
 		dev_err(ctrl->dev,
-			"error clock frequency %dHZ is not supported\n",
-			ctrl->pdata->clk_freq_out);
+			"error clock frequency %dKHZ is not supported\n",
+			(ctrl->rsrcs.clk_freq_out / 1000));
 		return -EIO;
 	}
 
@@ -3189,10 +3116,10 @@ static int i2c_msm_rsrcs_clk_init(struct i2c_msm_ctrl *ctrl)
 		return ret;
 	}
 
-	ret = clk_set_rate(ctrl->rsrcs.core_clk, ctrl->pdata->clk_freq_in);
+	ret = clk_set_rate(ctrl->rsrcs.core_clk, ctrl->rsrcs.clk_freq_in);
 	if (ret) {
-		dev_err(ctrl->dev, "error on clk_set_rate(core_clk, %dHz):%d\n",
-						ctrl->pdata->clk_freq_in, ret);
+		dev_err(ctrl->dev, "error on clk_set_rate(core_clk, %dKHz):%d\n",
+					(ctrl->rsrcs.clk_freq_in / 1000), ret);
 		goto err_set_rate;
 	}
 
@@ -3393,7 +3320,7 @@ static void i2c_msm_dbgfs_init(struct i2c_msm_ctrl *ctrl)
 		{"bus-clear",       I2C_MSM_DFS_MD_W, I2C_MSM_DFS_FILE,
 				&i2c_msm_dbgfs_do_bus_clear_fops,  NULL},
 		{"freq-out-hz",     I2C_MSM_DFS_MD_RW, I2C_MSM_DFS_U32,
-				NULL, &ctrl->pdata->clk_freq_out},
+				NULL, &ctrl->rsrcs.clk_freq_out},
 		{NULL, 0, 0, NULL , NULL}, /* null terminator */
 	};
 	return i2c_msm_dbgfs_create(ctrl, i2c_msm_dbgfs_map);
@@ -3413,7 +3340,7 @@ static void i2c_msm_pm_clk_unvote(struct i2c_msm_ctrl *ctrl)
 {
 	clk_disable_unprepare(ctrl->rsrcs.core_clk);
 	clk_disable_unprepare(ctrl->rsrcs.iface_clk);
-	if (!ctrl->pdata->active_only)
+	if (!ctrl->rsrcs.clk_path_vote.actv_only)
 		i2c_msm_clk_path_unvote(ctrl);
 }
 
@@ -3422,7 +3349,7 @@ static void i2c_msm_pm_clk_vote(struct i2c_msm_ctrl *ctrl)
 	int ret;
 
 	i2c_msm_clk_path_init(ctrl);
-	if (!ctrl->pdata->active_only)
+	if (!ctrl->rsrcs.clk_path_vote.actv_only)
 		i2c_msm_clk_path_vote(ctrl);
 
 	ret = clk_prepare_enable(ctrl->rsrcs.iface_clk);
@@ -3446,7 +3373,7 @@ static int i2c_msm_pm_suspend_impl(struct device *dev)
 
 	disable_irq(ctrl->rsrcs.irq);
 	i2c_msm_pm_clk_unvote(ctrl);
-	i2c_msm_pm_gpio_release(ctrl);
+	i2c_msm_pm_pinctrl_state(ctrl, false);
 
 	return 0;
 }
@@ -3457,7 +3384,7 @@ static int  i2c_msm_pm_resume_impl(struct device *dev)
 
 	i2c_msm_dbg(ctrl, MSM_DBG, "resuming...");
 
-	i2c_msm_pm_gpio_acquire(ctrl);
+	i2c_msm_pm_pinctrl_state(ctrl, true);
 	i2c_msm_pm_clk_vote(ctrl);
 	enable_irq(ctrl->rsrcs.irq);
 	(*ctrl->ver.init)(ctrl);
@@ -3618,7 +3545,6 @@ static void i2c_msm_frmwrk_unreg(struct i2c_msm_ctrl *ctrl)
 static int i2c_msm_probe(struct platform_device *pdev)
 {
 	struct i2c_msm_ctrl             *ctrl;
-	struct i2c_msm_v2_platform_data *pdata;
 	int ret = 0;
 
 	dev_info(&pdev->dev, "probing driver i2c-msm-v2\n");
@@ -3631,21 +3557,14 @@ static int i2c_msm_probe(struct platform_device *pdev)
 	ctrl->dbgfs.dbg_lvl         = DEFAULT_DBG_LVL;
 	ctrl->dbgfs.force_xfer_mode = I2C_MSM_XFER_MODE_NONE;
 
-	if (pdev->dev.of_node) {
-		ret = i2c_msm_rsrcs_dt_to_pdata(ctrl, pdev, &pdata);
-		if (ret)
-			return ret;
-	} else {
-		pdata = pdev->dev.platform_data;
+	if (!pdev->dev.of_node) {
+		dev_err(&pdev->dev, "error: null device-tree node");
+		return -EBADE;
 	}
 
-	if (!pdata) {
-		dev_err(&pdev->dev,
-			"error platform data is not initialised (is NULL)\n");
-		devm_kfree(&pdev->dev, ctrl);
-		return -ENOSYS;
-	}
-	ctrl->pdata    = pdata;
+	ret = i2c_msm_rsrcs_dt_to_pdata(ctrl, pdev);
+	if (ret)
+		return ret;
 
 	ret = i2c_msm_rsrcs_mem_init(pdev, ctrl);
 	if (ret)
@@ -3671,7 +3590,10 @@ static int i2c_msm_probe(struct platform_device *pdev)
 
 	i2c_msm_pm_clk_unvote(ctrl);
 
-	i2c_msm_rsrcs_gpio_init(ctrl);
+	ret = i2c_msm_rsrcs_gpio_pinctrl_init(ctrl);
+	if (ret)
+		goto err_no_pinctrl;
+
 	i2c_msm_pm_rt_init(ctrl->dev);
 
 	/* allocate xfer modes */
@@ -3702,6 +3624,7 @@ rcrcs_err:
 	i2c_msm_rsrcs_irq_teardown(ctrl);
 irq_err:
 	(*ctrl->ver.destroy)(ctrl);
+err_no_pinctrl:
 ver_err:
 	i2c_msm_pm_clk_unvote(ctrl);
 	i2c_msm_rsrcs_clk_teardown(ctrl);

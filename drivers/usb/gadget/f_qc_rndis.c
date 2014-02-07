@@ -34,7 +34,7 @@
 #include "u_qc_ether.h"
 #include "rndis.h"
 #include "u_bam_data.h"
-#include <mach/rndis_ipa.h>
+#include <linux/rndis_ipa.h>
 
 /*
  * This function is an RNDIS Ethernet port -- a Microsoft protocol that's

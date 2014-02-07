@@ -22,6 +22,9 @@ Required properties:
 
 Optional properties:
 - reg-names: "efuse"
+- qcom,safe-freq: Frequency in HZ
+	     When switching rates from A to B, the mux div clock will
+             instead switch from A -> safe_freq -> B.
 
 Example:
 	qcom,acpuclk@f9011050 {

@@ -16,7 +16,6 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
-#include <mach/board.h>
 #include <linux/of.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
@@ -64,7 +63,22 @@ static int msm_jpeg_release(struct inode *inode, struct file *filp)
 		filp->f_path.dentry->d_name.name, pgmn_dev->open_count);
 	return rc;
 }
+#ifdef CONFIG_COMPAT
+static long msm_jpeg_compat_ioctl(struct file *filp, unsigned int cmd,
+	unsigned long arg)
+{
+	int rc;
+	struct msm_jpeg_device *pgmn_dev = filp->private_data;
 
+	JPEG_DBG("%s:%d] cmd=%d pgmn_dev=0x%x arg=0x%x\n", __func__,
+		__LINE__, _IOC_NR(cmd), (uint32_t)pgmn_dev, (uint32_t)arg);
+
+	rc = __msm_jpeg_compat_ioctl(pgmn_dev, cmd, arg);
+
+	JPEG_DBG("%s:%d]\n", __func__, __LINE__);
+	return rc;
+}
+#endif
 static long msm_jpeg_ioctl(struct file *filp, unsigned int cmd,
 	unsigned long arg)
 {
@@ -85,6 +99,9 @@ static const struct file_operations msm_jpeg_fops = {
 	.open		 = msm_jpeg_open,
 	.release	= msm_jpeg_release,
 	.unlocked_ioctl = msm_jpeg_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = msm_jpeg_compat_ioctl,
+#endif
 };
 
 

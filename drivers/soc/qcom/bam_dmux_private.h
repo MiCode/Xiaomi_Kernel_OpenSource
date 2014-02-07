@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,7 @@
 #include <linux/types.h>
 #include <linux/dma-mapping.h>
 
-#include <mach/sps.h>
+#include <linux/msm-sps.h>
 
 #define BAM_MUX_HDR_MAGIC_NO			0x33fc
 #define BAM_MUX_HDR_CMD_DATA			0
@@ -74,9 +74,9 @@ struct bam_ops_if {
 
 	int (*sps_register_bam_device_ptr)(
 		const struct sps_bam_props *bam_props,
-		u32 *dev_handle);
+		unsigned long *dev_handle);
 
-	int (*sps_deregister_bam_device_ptr)(u32 dev_handle);
+	int (*sps_deregister_bam_device_ptr)(unsigned long dev_handle);
 
 	struct sps_pipe *(*sps_alloc_endpoint_ptr)(void);
 
@@ -88,7 +88,7 @@ struct bam_ops_if {
 	int (*sps_get_config_ptr)(struct sps_pipe *h,
 		struct sps_connect *config);
 
-	int (*sps_device_reset_ptr)(u32 dev);
+	int (*sps_device_reset_ptr)(unsigned long dev);
 
 	int (*sps_register_event_ptr)(struct sps_pipe *h,
 		struct sps_register_event *reg);

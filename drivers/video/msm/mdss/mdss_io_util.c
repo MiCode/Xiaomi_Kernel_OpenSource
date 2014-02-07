@@ -36,7 +36,8 @@ void dss_reg_w(struct dss_io_data *io, u32 offset, u32 value, u32 debug)
 	writel_relaxed(value, io->base + offset);
 	if (debug) {
 		in_val = readl_relaxed(io->base + offset);
-		DEV_DBG("[%08x] => %08x [%08x]\n", (u32)(io->base + offset),
+		DEV_DBG("[%08x] => %08x [%08x]\n",
+			(u32)(unsigned long)(io->base + offset),
 			value, in_val);
 	}
 } /* dss_reg_w */
@@ -59,7 +60,8 @@ u32 dss_reg_r(struct dss_io_data *io, u32 offset, u32 debug)
 
 	value = readl_relaxed(io->base + offset);
 	if (debug)
-		DEV_DBG("[%08x] <= %08x\n", (u32)(io->base + offset), value);
+		DEV_DBG("[%08x] <= %08x\n",
+			(u32)(unsigned long)(io->base + offset), value);
 
 	return value;
 } /* dss_reg_r */

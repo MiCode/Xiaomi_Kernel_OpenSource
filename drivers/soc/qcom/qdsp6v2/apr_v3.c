@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,9 +15,9 @@
 #include <linux/uaccess.h>
 #include <linux/spinlock.h>
 #include <linux/kernel.h>
-#include <mach/qdsp6v2/apr.h>
-#include <mach/qdsp6v2/apr_tal.h>
-#include <mach/qdsp6v2/dsp_debug.h>
+#include <linux/qdsp6v2/apr.h>
+#include <linux/qdsp6v2/apr_tal.h>
+#include <linux/qdsp6v2/dsp_debug.h>
 
 #define DEST_ID APR_DEST_MODEM
 

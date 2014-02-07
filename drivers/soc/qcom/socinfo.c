@@ -440,6 +440,9 @@ static enum msm_cpu cpu_of_id[] = {
 	[196] = MSM_CPU_SAMARIUM,
 	[197] = MSM_CPU_SAMARIUM,
 
+	/* 8916 IDs */
+	[206] = MSM_CPU_8916,
+
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	   considered as unknown CPU. */
@@ -886,7 +889,12 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 195;
 		strlcpy(dummy_socinfo.build_id, "msmsamarium - ",
 			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_msm8916()) {
+		dummy_socinfo.id = 206;
+		strlcpy(dummy_socinfo.build_id, "msm8916 - ",
+			sizeof(dummy_socinfo.build_id));
 	}
+
 	strlcat(dummy_socinfo.build_id, "Dummy socinfo",
 		sizeof(dummy_socinfo.build_id));
 	return (void *) &dummy_socinfo;

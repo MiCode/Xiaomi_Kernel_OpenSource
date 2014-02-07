@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -145,12 +145,12 @@ struct bamdma_device {
 	struct sps_bam *bam;
 
 	/* BAM handle, for deregistration */
-	u32 h;
+	unsigned long h;
 
 	/* BAM DMA device virtual mapping */
 	void *virt_addr;
 	int virtual_mapped;
-	u32 phys_addr;
+	phys_addr_t phys_addr;
 	void *hwio;
 
 	/* BAM DMA pipe/channel state */
@@ -170,7 +170,7 @@ static struct mutex bam_dma_lock;
  * are stored in the following data array.
  */
 static int num_bams;
-static u32 bam_handles[MAX_BAM_DMA_BAMS];
+static unsigned long bam_handles[MAX_BAM_DMA_BAMS];
 
 /**
  * Find BAM-DMA device
@@ -182,7 +182,7 @@ static u32 bam_handles[MAX_BAM_DMA_BAMS];
  * @return - pointer to BAM-DMA device, or NULL on error
  *
  */
-static struct bamdma_device *sps_dma_find_device(u32 h)
+static struct bamdma_device *sps_dma_find_device(unsigned long h)
 {
 	return &bam_dma_dev[0];
 }
@@ -211,8 +211,8 @@ static int sps_dma_device_enable(struct bamdma_device *dev)
 
 	/* Enable BAM device */
 	if (sps_bam_enable(dev->bam)) {
-		SPS_ERR("sps:Failed to enable BAM DMA's BAM: %x",
-			dev->phys_addr);
+		SPS_ERR("sps:Failed to enable BAM DMA's BAM: %pa",
+			&dev->phys_addr);
 		return SPS_ERROR;
 	}
 
@@ -245,8 +245,8 @@ static int sps_dma_device_disable(struct bamdma_device *dev)
 	}
 
 	if (pipe_index < dev->num_pipes) {
-		SPS_ERR("sps:Fail to disable BAM-DMA %x:channels are active",
-			dev->phys_addr);
+		SPS_ERR("sps:Fail to disable BAM-DMA %pa:channels are active",
+			&dev->phys_addr);
 		return SPS_ERROR;
 	}
 
@@ -254,7 +254,7 @@ static int sps_dma_device_disable(struct bamdma_device *dev)
 
 	/* Disable BAM device */
 	if (sps_bam_disable(dev->bam)) {
-		SPS_ERR("sps:Fail to disable BAM-DMA BAM:%x", dev->phys_addr);
+		SPS_ERR("sps:Fail to disable BAM-DMA BAM:%pa", &dev->phys_addr);
 		return SPS_ERROR;
 	}
 
@@ -270,7 +270,7 @@ static int sps_dma_device_disable(struct bamdma_device *dev)
  * Initialize BAM DMA device
  *
  */
-int sps_dma_device_init(u32 h)
+int sps_dma_device_init(unsigned long h)
 {
 	struct bamdma_device *dev;
 	struct sps_bam_props *props;
@@ -306,16 +306,16 @@ int sps_dma_device_init(u32 h)
 		dev->virtual_mapped = false;
 	} else {
 		if (props->periph_virt_size == 0) {
-			SPS_ERR("sps:Unable to map BAM DMA IO memory: %x %x",
-			 dev->phys_addr, props->periph_virt_size);
+			SPS_ERR("sps:Unable to map BAM DMA IO memory: %pa %x",
+			 &dev->phys_addr, props->periph_virt_size);
 			goto exit_err;
 		}
 
 		dev->virt_addr = ioremap(dev->phys_addr,
 					  props->periph_virt_size);
 		if (dev->virt_addr == NULL) {
-			SPS_ERR("sps:Unable to map BAM DMA IO memory: %x %x",
-				dev->phys_addr, props->periph_virt_size);
+			SPS_ERR("sps:Unable to map BAM DMA IO memory: %pa %x",
+				&dev->phys_addr, props->periph_virt_size);
 			goto exit_err;
 		}
 		dev->virtual_mapped = true;
@@ -324,12 +324,12 @@ int sps_dma_device_init(u32 h)
 
 	/* Is the BAM-DMA device locally controlled? */
 	if ((props->manage & SPS_BAM_MGR_DEVICE_REMOTE) == 0) {
-		SPS_DBG2("sps:BAM-DMA is controlled locally: %x",
-			dev->phys_addr);
+		SPS_DBG2("sps:BAM-DMA is controlled locally: %pa",
+			&dev->phys_addr);
 		dev->local = true;
 	} else {
-		SPS_DBG2("sps:BAM-DMA is controlled remotely: %x",
-			dev->phys_addr);
+		SPS_DBG2("sps:BAM-DMA is controlled remotely: %pa",
+			&dev->phys_addr);
 		dev->local = false;
 	}
 
@@ -362,7 +362,7 @@ exit_err:
  * De-initialize BAM DMA device
  *
  */
-int sps_dma_device_de_init(u32 h)
+int sps_dma_device_de_init(unsigned long h)
 {
 	struct bamdma_device *dev;
 	u32 pipe_index;
@@ -373,7 +373,7 @@ int sps_dma_device_de_init(u32 h)
 
 	dev = sps_dma_find_device(h);
 	if (dev == NULL) {
-		SPS_ERR("sps:BAM-DMA: not registered: %x", h);
+		SPS_ERR("sps:BAM-DMA: not registered: %lx", h);
 		result = SPS_ERROR;
 		goto exit_err;
 	}
@@ -418,7 +418,7 @@ int sps_dma_init(const struct sps_bam_props *bam_props)
 {
 	struct sps_bam_props props;
 	const struct sps_bam_props *bam_reg;
-	u32 h;
+	unsigned long h;
 
 	/* Init local data */
 	memset(&bam_dma_dev, 0, sizeof(bam_dma_dev));
@@ -441,8 +441,8 @@ int sps_dma_init(const struct sps_bam_props *bam_props)
 		bam_reg = bam_props;
 		if ((bam_props->options & SPS_BAM_OPT_BAMDMA) &&
 		    (bam_props->manage & SPS_BAM_MGR_MULTI_EE) == 0) {
-			SPS_DBG("sps:Setting multi-EE options for BAM-DMA: %x",
-				bam_props->phys_addr);
+			SPS_DBG("sps:Setting multi-EE options for BAM-DMA: %pa",
+				&bam_props->phys_addr);
 			props = *bam_props;
 			props.manage |= SPS_BAM_MGR_MULTI_EE;
 			bam_reg = &props;
@@ -450,8 +450,9 @@ int sps_dma_init(const struct sps_bam_props *bam_props)
 
 		/* Register the BAM */
 		if (sps_register_bam_device(bam_reg, &h)) {
-			SPS_ERR("sps:Fail to register BAM-DMA BAM device: "
-				"phys 0x%0x", bam_props->phys_addr);
+			SPS_ERR(
+				"sps:Fail to register BAM-DMA BAM device: "
+					"phys %pa", &bam_props->phys_addr);
 			return SPS_ERROR;
 		}
 
@@ -533,7 +534,7 @@ int sps_alloc_dma_chan(const struct sps_alloc_dma_chan *alloc,
 
 	dev = sps_dma_find_device(alloc->dev);
 	if (dev == NULL) {
-		SPS_ERR("sps:BAM-DMA: invalid BAM handle: %x", alloc->dev);
+		SPS_ERR("sps:BAM-DMA: invalid BAM handle: %lx", alloc->dev);
 		goto exit_err;
 	}
 
@@ -605,7 +606,7 @@ int sps_free_dma_chan(struct sps_dma_chan *chan)
 
 	dev = sps_dma_find_device(chan->dev);
 	if (dev == NULL) {
-		SPS_ERR("sps:BAM-DMA: invalid BAM handle: %x", chan->dev);
+		SPS_ERR("sps:BAM-DMA: invalid BAM handle: %lx", chan->dev);
 		result = SPS_ERROR;
 		goto exit_err;
 	}
@@ -699,27 +700,27 @@ int sps_dma_pipe_alloc(void *bam_arg, u32 pipe_index, enum sps_mode dir)
 	/* Check pipe direction */
 	if ((DMA_PIPE_IS_DEST(pipe_index) && dir != SPS_MODE_DEST) ||
 	    (DMA_PIPE_IS_SRC(pipe_index) && dir != SPS_MODE_SRC)) {
-		SPS_ERR("sps:BAM-DMA: wrong direction for BAM %x pipe %d",
-			bam->props.phys_addr, pipe_index);
+		SPS_ERR("sps:BAM-DMA: wrong direction for BAM %pa pipe %d",
+			&bam->props.phys_addr, pipe_index);
 		return SPS_ERROR;
 	}
 
 	mutex_lock(&bam_dma_lock);
 
-	dev = sps_dma_find_device((u32) bam);
+	dev = sps_dma_find_device((unsigned long) bam);
 	if (dev == NULL) {
-		SPS_ERR("sps:BAM-DMA: invalid BAM: %x",
-			bam->props.phys_addr);
+		SPS_ERR("sps:BAM-DMA: invalid BAM: %pa",
+			&bam->props.phys_addr);
 		goto exit_err;
 	}
 	if (pipe_index >= dev->num_pipes) {
-		SPS_ERR("sps:BAM-DMA: BAM %x invalid pipe: %d",
-			bam->props.phys_addr, pipe_index);
+		SPS_ERR("sps:BAM-DMA: BAM %pa invalid pipe: %d",
+			&bam->props.phys_addr, pipe_index);
 		goto exit_err;
 	}
 	if (dev->pipes[pipe_index] != PIPE_INACTIVE) {
-		SPS_ERR("sps:BAM-DMA: BAM %x pipe %d already active",
-			bam->props.phys_addr, pipe_index);
+		SPS_ERR("sps:BAM-DMA: BAM %pa pipe %d already active",
+			&bam->props.phys_addr, pipe_index);
 		goto exit_err;
 	}
 
@@ -757,19 +758,19 @@ int sps_dma_pipe_enable(void *bam_arg, u32 pipe_index)
 
 	mutex_lock(&bam_dma_lock);
 
-	dev = sps_dma_find_device((u32) bam);
+	dev = sps_dma_find_device((unsigned long) bam);
 	if (dev == NULL) {
 		SPS_ERR("sps:BAM-DMA: invalid BAM");
 		goto exit_err;
 	}
 	if (pipe_index >= dev->num_pipes) {
-		SPS_ERR("sps:BAM-DMA: BAM %x invalid pipe: %d",
-			bam->props.phys_addr, pipe_index);
+		SPS_ERR("sps:BAM-DMA: BAM %pa invalid pipe: %d",
+			&bam->props.phys_addr, pipe_index);
 		goto exit_err;
 	}
 	if (dev->pipes[pipe_index] != PIPE_ACTIVE) {
-		SPS_ERR("sps:BAM-DMA: BAM %x pipe %d not active",
-			bam->props.phys_addr, pipe_index);
+		SPS_ERR("sps:BAM-DMA: BAM %pa pipe %d not active",
+			&bam->props.phys_addr, pipe_index);
 		goto exit_err;
 	}
 
@@ -868,7 +869,7 @@ int sps_dma_pipe_free(void *bam_arg, u32 pipe_index)
 
 	mutex_lock(&bam_dma_lock);
 
-	dev = sps_dma_find_device((u32) bam);
+	dev = sps_dma_find_device((unsigned long) bam);
 	if (dev == NULL) {
 		SPS_ERR("sps:BAM-DMA: invalid BAM");
 		result = SPS_ERROR;
@@ -890,9 +891,9 @@ exit_err:
  *
  * @return bam handle on success, zero on error
  */
-u32 sps_dma_get_bam_handle(void)
+unsigned long sps_dma_get_bam_handle(void)
 {
-	return (u32) bam_dma_dev[0].bam;
+	return (unsigned long)bam_dma_dev[0].bam;
 }
 EXPORT_SYMBOL(sps_dma_get_bam_handle);
 
@@ -900,7 +901,7 @@ EXPORT_SYMBOL(sps_dma_get_bam_handle);
  * Free the BAM handle for BAM-DMA.
  *
  */
-void sps_dma_free_bam_handle(u32 h)
+void sps_dma_free_bam_handle(unsigned long h)
 {
 }
 EXPORT_SYMBOL(sps_dma_free_bam_handle);

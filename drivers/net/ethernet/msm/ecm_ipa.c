@@ -19,7 +19,7 @@
 #include <linux/skbuff.h>
 #include <linux/sched.h>
 #include <linux/atomic.h>
-#include <mach/ecm_ipa.h>
+#include <linux/ecm_ipa.h>
 
 #define DRIVER_NAME "ecm_ipa"
 #define ECM_IPA_IPV4_HDR_NAME "ecm_eth_ipv4"

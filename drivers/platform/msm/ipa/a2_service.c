@@ -21,10 +21,10 @@
 #include <linux/skbuff.h>
 #include <linux/clk.h>
 #include <linux/wakelock.h>
-#include <mach/sps.h>
+#include <linux/msm-sps.h>
 #include <mach/msm_smsm.h>
 #include <soc/qcom/socinfo.h>
-#include <mach/ipa.h>
+#include <linux/ipa.h>
 #include "ipa_i.h"
 
 #define A2_NUM_PIPES				6

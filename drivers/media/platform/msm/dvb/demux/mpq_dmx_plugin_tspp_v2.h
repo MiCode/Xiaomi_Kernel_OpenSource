@@ -15,7 +15,7 @@
 
 #include <linux/types.h>
 #include <linux/ion.h>
-#include <mach/sps.h>
+#include <linux/msm-sps.h>
 #include <linux/timer.h>
 #include <mach/msm_tspp2.h>
 #include "mpq_dmx_plugin_common.h"

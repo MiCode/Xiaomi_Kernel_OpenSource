@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,7 +35,7 @@
 #include <linux/bitops.h>        /* BIT() macro */
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/rpm-smd-regulator.h>
-#include <mach/sps.h>            /* BAM stuff */
+#include <linux/msm-sps.h>            /* BAM stuff */
 #include <mach/gpio.h>
 #include <linux/wakelock.h>      /* Locking functions */
 #include <linux/timer.h>         /* Timer services */
@@ -444,7 +444,7 @@ struct tspp_device {
 	uint32_t tsif_bus_client;
 	unsigned int tspp_irq;
 	unsigned int bam_irq;
-	u32 bam_handle;
+	unsigned long bam_handle;
 	struct sps_bam_props bam_props;
 	struct wake_lock wake_lock;
 	spinlock_t spinlock;

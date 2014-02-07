@@ -46,21 +46,21 @@
 #define SPS_GET_LOWER_ADDR(addr) ((u32)(addr & 0xFFFFFFFF))
 
 /* SPS device handle indicating use of system memory */
-#define SPS_DEV_HANDLE_MEM       ((u32)0x7ffffffful)
+#define SPS_DEV_HANDLE_MEM       (~0x0ul>>1)
 
 /* SPS device handle indicating use of BAM-DMA */
 
 /* SPS device handle invalid value */
-#define SPS_DEV_HANDLE_INVALID   ((u32)0)
+#define SPS_DEV_HANDLE_INVALID   ((unsigned long)0)
 
 /* BAM invalid IRQ value */
 #define SPS_IRQ_INVALID          0
 
 /* Invalid address value */
-#define SPS_ADDR_INVALID      0
+#define SPS_ADDR_INVALID      ((unsigned long)0)
 
 /* Invalid peripheral device enumeration class */
-#define SPS_CLASS_INVALID     ((u32)-1)
+#define SPS_CLASS_INVALID     ((unsigned long)-1)
 
 /*
  * This value specifies different configurations for an SPS connection.
@@ -177,7 +177,7 @@ enum sps_option {
 	SPS_O_IRQ_MTI   = 0x00020000,
 	/* NWD bit written with EOT for BAM2BAM producer pipe */
 	SPS_O_WRITE_NWD   = 0x00040000,
-	/* EOT set after pipe SW offset advanced */
+       /* EOT set after pipe SW offset advanced */
 	SPS_O_LATE_EOT   = 0x00080000,
 
 	/* Options to enable software features */
@@ -307,6 +307,15 @@ enum sps_command_type {
 };
 
 /**
+ * struct msm_sps_platform_data - SPS Platform specific data.
+ * @bamdma_restricted_pipes - Bitmask of pipes restricted from local use.
+ *
+ */
+struct msm_sps_platform_data {
+	u32 bamdma_restricted_pipes;
+};
+
+/**
  * This data type corresponds to the native I/O vector (BAM descriptor)
  * supported by SPS hardware
  *
@@ -407,7 +416,7 @@ struct sps_bam_props {
 	/* BAM device properties. */
 
 	u32 options;
-	u32 phys_addr;
+	phys_addr_t phys_addr;
 	void *virt_addr;
 	u32 virt_size;
 	u32 irq;
@@ -418,7 +427,7 @@ struct sps_bam_props {
 
 	u32 periph_class;
 	u32 periph_dev_id;
-	u32 periph_phys_addr;
+	phys_addr_t periph_phys_addr;
 	void *periph_virt_addr;
 	u32 periph_virt_size;
 
@@ -509,9 +518,9 @@ struct sps_mem_buffer {
  *
  */
 struct sps_connect {
-	u32 source;
+	unsigned long source;
 	u32 src_pipe_index;
-	u32 destination;
+	unsigned long destination;
 	u32 dest_pipe_index;
 
 	enum sps_mode mode;
@@ -549,7 +558,7 @@ struct sps_satellite {
 	 * These values must be copied to either the source or destination
 	 * corresponding values in the connect struct.
 	 */
-	u32 dev;
+	phys_addr_t dev;
 	u32 pipe_index;
 
 	/**
@@ -574,7 +583,7 @@ struct sps_satellite {
  *
  */
 struct sps_alloc_dma_chan {
-	u32 dev;
+	unsigned long dev;
 
 	/* BAM DMA channel configuration parameters */
 
@@ -599,7 +608,7 @@ struct sps_alloc_dma_chan {
  *
  */
 struct sps_dma_chan {
-	u32 dev;
+	unsigned long dev;
 	u32 dest_pipe_index;
 	u32 src_pipe_index;
 };
@@ -743,7 +752,7 @@ struct sps_pipe;	/* Forward declaration */
  *
  */
 int sps_register_bam_device(const struct sps_bam_props *bam_props,
-			    u32 *dev_handle);
+			    unsigned long *dev_handle);
 
 /**
  * Deregister a BAM device
@@ -762,7 +771,7 @@ int sps_register_bam_device(const struct sps_bam_props *bam_props,
  * @return 0 on success, negative value on error
  *
  */
-int sps_deregister_bam_device(u32 dev_handle);
+int sps_deregister_bam_device(unsigned long dev_handle);
 
 /**
  * Allocate client state context
@@ -1102,7 +1111,7 @@ int sps_is_pipe_empty(struct sps_pipe *h, u32 *empty);
  * @return 0 on success, negative value on error
  *
  */
-int sps_device_reset(u32 dev);
+int sps_device_reset(unsigned long dev);
 
 /**
  * Set the configuration parameters for an SPS connection end point
@@ -1200,13 +1209,13 @@ int sps_free_dma_chan(struct sps_dma_chan *chan);
  * @return handle on success, zero on error
  *
  */
-u32 sps_dma_get_bam_handle(void);
+unsigned long sps_dma_get_bam_handle(void);
 
 /**
  * Free the BAM handle for BAM-DMA.
  *
  */
-void sps_dma_free_bam_handle(u32 h);
+void sps_dma_free_bam_handle(unsigned long h);
 
 
 /**
@@ -1257,7 +1266,7 @@ int sps_timer_ctrl(struct sps_pipe *h,
  * @return 0 on success, negative value on error
  *
  */
-int sps_phy2h(u32 phys_addr, u32 *handle);
+int sps_phy2h(phys_addr_t phys_addr, unsigned long *handle);
 
 /**
  * Setup desc/data FIFO for bam-to-bam connection
@@ -1305,7 +1314,7 @@ int sps_get_unused_desc_num(struct sps_pipe *h, u32 *desc_num);
  * @return 0 on success, negative value on error
  *
  */
-int sps_get_bam_debug_info(u32 dev, u32 option, u32 para,
+int sps_get_bam_debug_info(unsigned long dev, u32 option, u32 para,
 		u32 tb_sel, u32 desc_sel);
 
 /**
@@ -1319,12 +1328,12 @@ int sps_get_bam_debug_info(u32 dev, u32 option, u32 para,
 int sps_ctrl_bam_dma_clk(bool clk_on);
 #else
 static inline int sps_register_bam_device(const struct sps_bam_props
-			*bam_props, u32 *dev_handle)
+			*bam_props, unsigned long *dev_handle)
 {
 	return -EPERM;
 }
 
-static inline int sps_deregister_bam_device(u32 dev_handle)
+static inline int sps_deregister_bam_device(unsigned long dev_handle)
 {
 	return -EPERM;
 }
@@ -1410,7 +1419,7 @@ static inline int sps_is_pipe_empty(struct sps_pipe *h, u32 *empty)
 	return -EPERM;
 }
 
-static inline int sps_device_reset(u32 dev)
+static inline int sps_device_reset(unsigned long dev)
 {
 	return -EPERM;
 }
@@ -1442,12 +1451,12 @@ static inline int sps_free_dma_chan(struct sps_dma_chan *chan)
 	return -EPERM;
 }
 
-static inline u32 sps_dma_get_bam_handle(void)
+static inline unsigned long sps_dma_get_bam_handle(void)
 {
 	return 0;
 }
 
-static inline void sps_dma_free_bam_handle(u32 h)
+static inline void sps_dma_free_bam_handle(unsigned long h)
 {
 }
 
@@ -1458,7 +1467,7 @@ static inline int sps_timer_ctrl(struct sps_pipe *h,
 	return -EPERM;
 }
 
-static inline int sps_phy2h(u32 phys_addr, u32 *handle)
+static inline int sps_phy2h(phys_addr_t phys_addr, unsigned long *handle)
 {
 	return -EPERM;
 }
@@ -1474,8 +1483,8 @@ static inline int sps_get_unused_desc_num(struct sps_pipe *h, u32 *desc_num)
 	return -EPERM;
 }
 
-static inline int sps_get_bam_debug_info(u32 dev, u32 option, u32 para,
-		u32 tb_sel, u32 desc_sel)
+static inline int sps_get_bam_debug_info(unsigned long dev, u32 option,
+		u32 para, u32 tb_sel, u32 desc_sel)
 {
 	return -EPERM;
 }

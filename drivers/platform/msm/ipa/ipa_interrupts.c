@@ -41,6 +41,7 @@ static void deferred_interrupt_work(struct work_struct *work)
 	IPAERR("call handler from workq...\n");
 	work_data->handler(work_data->interrupt, work_data->private_data,
 			work_data->interrupt_data);
+	kfree(work_data->interrupt_data);
 	kfree(work_data);
 }
 
@@ -63,6 +64,8 @@ static int handle_interrupt(enum ipa_irq_type interrupt)
 	struct ipa_interrupt_work_wrap *work_data;
 	u32 suspend_data;
 	void *interrupt_data = NULL;
+	struct ipa_tx_suspend_irq_data *suspend_interrupt_data = NULL;
+	int res;
 
 	interrupt_info = ipa_interrupt_to_cb[interrupt];
 	if (interrupt_info.handler == NULL) {
@@ -78,8 +81,14 @@ static int handle_interrupt(enum ipa_irq_type interrupt)
 		if (!is_valid_ep(suspend_data))
 			return 0;
 
-		interrupt_data = (void *)suspend_data;
-
+		suspend_interrupt_data =
+			kzalloc(sizeof(*suspend_interrupt_data), GFP_ATOMIC);
+		if (!suspend_interrupt_data) {
+			IPAERR("failed allocating suspend_interrupt_data\n");
+			return -ENOMEM;
+		}
+		suspend_interrupt_data->endpoints = suspend_data;
+		interrupt_data = suspend_interrupt_data;
 		break;
 	default:
 		break;
@@ -90,7 +99,8 @@ static int handle_interrupt(enum ipa_irq_type interrupt)
 				GFP_ATOMIC);
 		if (!work_data) {
 			IPAERR("failed allocating ipa_interrupt_work_wrap\n");
-			return -ENOMEM;
+			res = -ENOMEM;
+			goto fail_alloc_work;
 		}
 		INIT_WORK(&work_data->interrupt_work, deferred_interrupt_work);
 		work_data->handler = interrupt_info.handler;
@@ -102,9 +112,14 @@ static int handle_interrupt(enum ipa_irq_type interrupt)
 	} else {
 		interrupt_info.handler(interrupt, interrupt_info.private_data,
 				interrupt_data);
+		kfree(interrupt_data);
 	}
 
 	return 0;
+
+fail_alloc_work:
+	kfree(interrupt_data);
+	return res;
 }
 
 static irqreturn_t ipa_isr(int irq, void *ctxt)

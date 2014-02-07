@@ -22,10 +22,6 @@ Required alias:
 	'i2c{n}' where n is the bus number.
 
 Optional property:
- - qcom,gpio-scl : I2C clock GPIO. When exist the GPIO is requested on
-	runtime-PM active and freed on suspend.
- - qcom,gpio-sda : I2C data  GPIO. When exist the GPIO is requested on
-	runtime-PM active and freed on suspend.
  - qcom,noise-rjct-scl : number of low samples on clock line to consider it low.
 	When missing default to 0.
  - qcom,noise-rjct-sda : number of low samples on data  line to consider it low.
@@ -52,8 +48,6 @@ Example:
 		interrupts = <0 104 0>, <0 238 0>;
 		qcom,clk-freq-out = <100000>;
 		qcom,clk-freq-in  = <24000000>;
-		qcom,gpio-scl = <&msmgpio 7 0>;
-		qcom,gpio-sda = <&msmgpio 6 0>;
 		qcom,noise-rjct-scl = <0>;
 		qcom,noise-rjct-sda = <0>;
 		qcom,bam-pipe-idx-cons = <18>;
