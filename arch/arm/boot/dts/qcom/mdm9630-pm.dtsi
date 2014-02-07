@@ -16,6 +16,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		reg = <0xf9009000 0x1000>;
+		qcom,name = "core0";
 		qcom,core-id = <0>;
 		qcom,saw2-ver-reg = <0xfd0>;
 		qcom,saw2-cfg = <0x101>;

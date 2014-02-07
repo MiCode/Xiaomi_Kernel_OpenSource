@@ -134,6 +134,7 @@ static struct attribute *lpm_levels_attr[] = {
 static struct attribute_group lpm_levels_attr_grp = {
 	.attrs = lpm_levels_attr,
 };
+static struct msm_spm_device *l2_device;
 
 /* SYSFS */
 static ssize_t lpm_levels_attr_show(
@@ -221,7 +222,7 @@ static int lpm_set_l2_mode(struct lpm_system_state *system_state,
 	}
 
 	if (!system_state->no_l2_saw)
-		rc = msm_spm_l2_set_low_power_mode(lpm, true);
+		rc = msm_spm_config_low_power_mode(l2_device, lpm, true);
 
 	if (rc)
 		pr_err("%s: Failed to set L2 low power mode %d, ERR %d",
@@ -1095,6 +1096,12 @@ static int lpm_probe(struct platform_device *pdev)
 	if (!sys_state.no_l2_saw) {
 		int ret;
 		const char *l2;
+
+		l2_device = msm_spm_get_device_by_name("l2");
+		if (IS_ERR_OR_NULL(l2_device)) {
+			pr_err("%s(): Cannot find spm device\n", __func__);
+			return PTR_ERR(l2_device);
+		}
 
 		key = "qcom,default-l2-state";
 		ret = of_property_read_string(node, key, &l2);

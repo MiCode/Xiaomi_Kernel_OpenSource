@@ -57,6 +57,8 @@ enum {
 	MSM_SPM_REG_NR,
 };
 
+struct msm_spm_device;
+
 struct msm_spm_seq_entry {
 	uint32_t mode;
 	uint8_t *cmd;
@@ -89,6 +91,9 @@ int msm_spm_probe_done(void);
 int msm_spm_set_vdd(unsigned int cpu, unsigned int vlevel);
 unsigned int msm_spm_get_vdd(unsigned int cpu);
 int msm_spm_turn_on_cpu_rail(unsigned long base, unsigned int cpu);
+struct msm_spm_device *msm_spm_get_device_by_name(const char *name);
+int msm_spm_config_low_power_mode(struct msm_spm_device *dev,
+		unsigned int mode, bool notify_rpm);
 
 /* Internal low power management specific functions */
 
@@ -100,32 +105,12 @@ int msm_spm_device_init(void);
 
 /* Public functions */
 
-int msm_spm_l2_set_low_power_mode(unsigned int mode, bool notify_rpm);
 int msm_spm_apcs_set_phase(unsigned int phase_cnt);
 int msm_spm_enable_fts_lpm(uint32_t mode);
 
 /* Internal low power management specific functions */
 
-int msm_spm_l2_init(struct msm_spm_platform_data *data);
-void msm_spm_l2_reinit(void);
-
 #else
-
-static inline int msm_spm_l2_set_low_power_mode(unsigned int mode,
-		bool notify_rpm)
-{
-	return -ENOSYS;
-}
-
-static inline int msm_spm_l2_init(struct msm_spm_platform_data *data)
-{
-	return -ENOSYS;
-}
-
-static inline void msm_spm_l2_reinit(void)
-{
-	/* empty */
-}
 
 static inline int msm_spm_apcs_set_phase(unsigned int phase_cnt)
 {
@@ -171,6 +156,15 @@ static inline int msm_spm_turn_on_cpu_rail(unsigned long base, unsigned int cpu)
 static inline int msm_spm_device_init(void)
 {
 	return -ENOSYS;
+}
+int msm_spm_config_low_power_mode(struct msm_spm_device *dev,
+		unsigned int mode, bool notify_rpm)
+{
+	return -ENODEV;
+}
+struct msm_spm_device *msm_spm_get_device_by_name(const char *name)
+{
+	return NULL;
 }
 
 #endif  /* defined (CONFIG_MSM_SPM_V2) */
