@@ -2053,7 +2053,7 @@ static struct branch_clk gcc_oxili_ahb_clk = {
 
 static struct branch_clk gcc_oxili_gfx3d_clk = {
 	.cbcr_reg = OXILI_GFX3D_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_oxili_gfx3d_clk",
@@ -2449,7 +2449,7 @@ static struct mux_clk gcc_debug_mux = {
 		{&gcc_mdss_vsync_clk.c,			0x01fb},
 		{&gcc_mdss_byte0_clk.c,			0x01fc},
 		{&gcc_mdss_esc0_clk.c,			0x01fd},
-		{&gcc_bimc_gpu_clk.c,			0x015c},
+		{&gcc_bimc_gpu_clk.c,			0x0157},
 		{&wcnss_m_clk.c,			0x0198},
 	),
 	.c = {
