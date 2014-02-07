@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -129,7 +129,6 @@ static int msm_generic_buf_mngr_open(struct v4l2_subdev *sd,
 		rc = -ENODEV;
 		return rc;
 	}
-	buf_mngr_dev->msm_buf_mngr_open_cnt++;
 	return rc;
 }
 
@@ -143,9 +142,6 @@ static int msm_generic_buf_mngr_close(struct v4l2_subdev *sd,
 		rc = -ENODEV;
 		return rc;
 	}
-	buf_mngr_dev->msm_buf_mngr_open_cnt--;
-	if (buf_mngr_dev->msm_buf_mngr_open_cnt == 0)
-		msm_buf_mngr_sd_shutdown(buf_mngr_dev);
 	return rc;
 }
 
