@@ -150,6 +150,8 @@ void panic(const char *fmt, ...)
 	 */
 	crash_kexec(NULL);
 
+	trace_kernel_panic_late(0);
+
 	bust_spinlocks(0);
 
 	if (!panic_blink)
