@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,134 +33,6 @@
 
 /* Maximum number of execution environment */
 #define BAM_MAX_EES 8
-
-#ifdef	CONFIG_SPS_SUPPORT_4K_GROUP
-
-/**
-  *  BAM Hardware registers.
-  *
-  */
-#define CTRL                        (0x0)
-#define REVISION                    (0x1000)
-#define SW_REVISION                 (0x1004)
-#define NUM_PIPES                   (0x1008)
-#define TIMER                       (0x40)
-#define TIMER_CTRL                  (0x44)
-#define DESC_CNT_TRSHLD             (0x8)
-#define IRQ_SRCS                    (0x3010)
-#define IRQ_SRCS_MSK                (0x3014)
-#define IRQ_SRCS_UNMASKED           (0x3018)
-#define IRQ_STTS                    (0x14)
-#define IRQ_CLR                     (0x18)
-#define IRQ_EN                      (0x1c)
-#define AHB_MASTER_ERR_CTRLS        (0x1024)
-#define AHB_MASTER_ERR_ADDR         (0x1028)
-#define AHB_MASTER_ERR_ADDR_MSB     (0x1104)
-#define AHB_MASTER_ERR_DATA         (0x102c)
-#define TRUST_REG                   (0x2000)
-#define TEST_BUS_SEL                (0x1010)
-#define TEST_BUS_REG                (0x1014)
-#define CNFG_BITS                   (0x7c)
-#define IRQ_SRCS_EE(n)             (0x3000 + 4096 * (n))
-#define IRQ_SRCS_MSK_EE(n)         (0x3004 + 4096 * (n))
-#define IRQ_SRCS_UNMASKED_EE(n)    (0x3008 + 4096 * (n))
-#define PIPE_ATTR_EE(n)            (0x300c + 4096 * (n))
-
-#define P_CTRL(n)                  (0x13000 + 4096 * (n))
-#define P_RST(n)                   (0x13004 + 4096 * (n))
-#define P_HALT(n)                  (0x13008 + 4096 * (n))
-#define P_IRQ_STTS(n)              (0x13010 + 4096 * (n))
-#define P_IRQ_CLR(n)               (0x13014 + 4096 * (n))
-#define P_IRQ_EN(n)                (0x13018 + 4096 * (n))
-#define P_TIMER(n)                 (0x1301c + 4096 * (n))
-#define P_TIMER_CTRL(n)            (0x13020 + 4096 * (n))
-#define P_PRDCR_SDBND(n)           (0x13024 + 4096 * (n))
-#define P_CNSMR_SDBND(n)           (0x13028 + 4096 * (n))
-#define P_TRUST_REG(n)             (0x2020 + 4 * (n))
-#define P_EVNT_DEST_ADDR(n)        (0x1382c + 4096 * (n))
-#define P_EVNT_DEST_ADDR_MSB(n)    (0x13934 + 4096 * (n))
-#define P_EVNT_REG(n)              (0x13818 + 4096 * (n))
-#define P_SW_OFSTS(n)              (0x13800 + 4096 * (n))
-#define P_DATA_FIFO_ADDR(n)        (0x13824 + 4096 * (n))
-#define P_DATA_FIFO_ADDR_MSB(n)    (0x13924 + 4096 * (n))
-#define P_DESC_FIFO_ADDR(n)        (0x1381c + 4096 * (n))
-#define P_DESC_FIFO_ADDR_MSB(n)    (0x13914 + 4096 * (n))
-#define P_EVNT_GEN_TRSHLD(n)       (0x13828 + 4096 * (n))
-#define P_FIFO_SIZES(n)            (0x13820 + 4096 * (n))
-#define P_RETR_CNTXT(n)            (0x13834 + 4096 * (n))
-#define P_SI_CNTXT(n)              (0x13838 + 4096 * (n))
-#define P_DF_CNTXT(n)              (0x13830 + 4096 * (n))
-#define P_AU_PSM_CNTXT_1(n)        (0x13804 + 4096 * (n))
-#define P_PSM_CNTXT_2(n)           (0x13808 + 4096 * (n))
-#define P_PSM_CNTXT_3(n)           (0x1380c + 4096 * (n))
-#define P_PSM_CNTXT_3_MSB(n)       (0x13904 + 4096 * (n))
-#define P_PSM_CNTXT_4(n)           (0x13810 + 4096 * (n))
-#define P_PSM_CNTXT_5(n)           (0x13814 + 4096 * (n))
-
-#else
-
-/**
- *  BAM Hardware registers.
- *
- */
-#define CTRL                        (0x0)
-#define REVISION                    (0x4)
-#define SW_REVISION                 (0x80)
-#define NUM_PIPES                   (0x3c)
-#define TIMER                       (0x40)
-#define TIMER_CTRL                  (0x44)
-#define DESC_CNT_TRSHLD             (0x8)
-#define IRQ_SRCS                    (0xc)
-#define IRQ_SRCS_MSK                (0x10)
-#define IRQ_SRCS_UNMASKED           (0x30)
-#define IRQ_STTS                    (0x14)
-#define IRQ_CLR                     (0x18)
-#define IRQ_EN                      (0x1c)
-#define AHB_MASTER_ERR_CTRLS        (0x24)
-#define AHB_MASTER_ERR_ADDR         (0x28)
-#define AHB_MASTER_ERR_ADDR_MSB     (0x104)
-#define AHB_MASTER_ERR_DATA         (0x2c)
-#define TRUST_REG                   (0x70)
-#define TEST_BUS_SEL                (0x74)
-#define TEST_BUS_REG                (0x78)
-#define CNFG_BITS                   (0x7c)
-#define IRQ_SRCS_EE(n)             (0x800 + 128 * (n))
-#define IRQ_SRCS_MSK_EE(n)         (0x804 + 128 * (n))
-#define IRQ_SRCS_UNMASKED_EE(n)    (0x808 + 128 * (n))
-#define PIPE_ATTR_EE(n)            (0x80c + 128 * (n))
-
-#define P_CTRL(n)                  (0x1000 + 4096 * (n))
-#define P_RST(n)                   (0x1004 + 4096 * (n))
-#define P_HALT(n)                  (0x1008 + 4096 * (n))
-#define P_IRQ_STTS(n)              (0x1010 + 4096 * (n))
-#define P_IRQ_CLR(n)               (0x1014 + 4096 * (n))
-#define P_IRQ_EN(n)                (0x1018 + 4096 * (n))
-#define P_TIMER(n)                 (0x101c + 4096 * (n))
-#define P_TIMER_CTRL(n)            (0x1020 + 4096 * (n))
-#define P_PRDCR_SDBND(n)           (0x1024 + 4096 * (n))
-#define P_CNSMR_SDBND(n)           (0x1028 + 4096 * (n))
-#define P_TRUST_REG(n)             (0x1030 + 4096 * (n))
-#define P_EVNT_DEST_ADDR(n)        (0x182c + 4096 * (n))
-#define P_EVNT_DEST_ADDR_MSB(n)    (0x1934 + 4096 * (n))
-#define P_EVNT_REG(n)              (0x1818 + 4096 * (n))
-#define P_SW_OFSTS(n)              (0x1800 + 4096 * (n))
-#define P_DATA_FIFO_ADDR(n)        (0x1824 + 4096 * (n))
-#define P_DATA_FIFO_ADDR_MSB(n)    (0x1924 + 4096 * (n))
-#define P_DESC_FIFO_ADDR(n)        (0x181c + 4096 * (n))
-#define P_DESC_FIFO_ADDR_MSB(n)    (0x1914 + 4096 * (n))
-#define P_EVNT_GEN_TRSHLD(n)       (0x1828 + 4096 * (n))
-#define P_FIFO_SIZES(n)            (0x1820 + 4096 * (n))
-#define P_RETR_CNTXT(n)            (0x1834 + 4096 * (n))
-#define P_SI_CNTXT(n)              (0x1838 + 4096 * (n))
-#define P_DF_CNTXT(n)              (0x1830 + 4096 * (n))
-#define P_AU_PSM_CNTXT_1(n)        (0x1804 + 4096 * (n))
-#define P_PSM_CNTXT_2(n)           (0x1808 + 4096 * (n))
-#define P_PSM_CNTXT_3(n)           (0x180c + 4096 * (n))
-#define P_PSM_CNTXT_3_MSB(n)       (0x1904 + 4096 * (n))
-#define P_PSM_CNTXT_4(n)           (0x1810 + 4096 * (n))
-#define P_PSM_CNTXT_5(n)           (0x1814 + 4096 * (n))
-
-#endif /* CONFIG_SPS_SUPPORT_4K_GROUP */
 
 /**
  *  BAM Hardware registers bitmask.
@@ -408,62 +280,6 @@
 #define BAM_MAX_EES 4
 
 /**
- *  BAM Hardware registers.
- *
- */
-#define CTRL                        (0xf80)
-#define REVISION                    (0xf84)
-#define NUM_PIPES                   (0xfbc)
-#define DESC_CNT_TRSHLD             (0xf88)
-#define IRQ_SRCS                    (0xf8c)
-#define IRQ_SRCS_MSK                (0xf90)
-#define IRQ_SRCS_UNMASKED           (0xfb0)
-#define IRQ_STTS                    (0xf94)
-#define IRQ_CLR                     (0xf98)
-#define IRQ_EN                      (0xf9c)
-#define IRQ_SIC_SEL                 (0xfa0)
-#define AHB_MASTER_ERR_CTRLS        (0xfa4)
-#define AHB_MASTER_ERR_ADDR         (0xfa8)
-#define AHB_MASTER_ERR_DATA         (0xfac)
-/* The addresses for IRQ_DEST and PERIPH_IRQ_DEST become reserved */
-#define IRQ_DEST                    (0xfb4)
-#define PERIPH_IRQ_DEST             (0xfb8)
-#define TEST_BUS_REG                (0xff8)
-#define CNFG_BITS                   (0xffc)
-#define TEST_BUS_SEL                (0xff4)
-#define TRUST_REG                   (0xff0)
-#define IRQ_SRCS_EE(n)             (0x1800 + 128 * (n))
-#define IRQ_SRCS_MSK_EE(n)         (0x1804 + 128 * (n))
-#define IRQ_SRCS_UNMASKED_EE(n)    (0x1808 + 128 * (n))
-
-#define P_CTRL(n)                  (0x0000 + 128 * (n))
-#define P_RST(n)                   (0x0004 + 128 * (n))
-#define P_HALT(n)                  (0x0008 + 128 * (n))
-#define P_IRQ_STTS(n)              (0x0010 + 128 * (n))
-#define P_IRQ_CLR(n)               (0x0014 + 128 * (n))
-#define P_IRQ_EN(n)                (0x0018 + 128 * (n))
-#define P_TIMER(n)                 (0x001c + 128 * (n))
-#define P_TIMER_CTRL(n)            (0x0020 + 128 * (n))
-#define P_PRDCR_SDBND(n)            (0x0024 + 128 * (n))
-#define P_CNSMR_SDBND(n)            (0x0028 + 128 * (n))
-#define P_TRUST_REG(n)             (0x0030 + 128 * (n))
-#define P_EVNT_DEST_ADDR(n)        (0x102c + 64 * (n))
-#define P_EVNT_REG(n)              (0x1018 + 64 * (n))
-#define P_SW_OFSTS(n)              (0x1000 + 64 * (n))
-#define P_DATA_FIFO_ADDR(n)        (0x1024 + 64 * (n))
-#define P_DESC_FIFO_ADDR(n)        (0x101c + 64 * (n))
-#define P_EVNT_GEN_TRSHLD(n)       (0x1028 + 64 * (n))
-#define P_FIFO_SIZES(n)            (0x1020 + 64 * (n))
-#define P_IRQ_DEST_ADDR(n)         (0x103c + 64 * (n))
-#define P_RETR_CNTXT(n)           (0x1034 + 64 * (n))
-#define P_SI_CNTXT(n)             (0x1038 + 64 * (n))
-#define P_AU_PSM_CNTXT_1(n)       (0x1004 + 64 * (n))
-#define P_PSM_CNTXT_2(n)          (0x1008 + 64 * (n))
-#define P_PSM_CNTXT_3(n)          (0x100c + 64 * (n))
-#define P_PSM_CNTXT_4(n)          (0x1010 + 64 * (n))
-#define P_PSM_CNTXT_5(n)          (0x1014 + 64 * (n))
-
-/**
  *  BAM Hardware registers bitmask.
  *  format: <register>_<field>
  *
@@ -644,11 +460,277 @@
 
 #define BAM_ERROR   (-1)
 
+enum bam_regs {
+	CTRL,
+	REVISION,
+	SW_REVISION,
+	NUM_PIPES,
+	TIMER,
+	TIMER_CTRL,
+	DESC_CNT_TRSHLD,
+	IRQ_SRCS,
+	IRQ_SRCS_MSK,
+	IRQ_SRCS_UNMASKED,
+	IRQ_STTS,
+	IRQ_CLR,
+	IRQ_EN,
+	IRQ_SIC_SEL,
+	AHB_MASTER_ERR_CTRLS,
+	AHB_MASTER_ERR_ADDR,
+	AHB_MASTER_ERR_ADDR_MSB,
+	AHB_MASTER_ERR_DATA,
+	IRQ_DEST,
+	PERIPH_IRQ_DEST,
+	TRUST_REG,
+	TEST_BUS_SEL,
+	TEST_BUS_REG,
+	CNFG_BITS,
+	IRQ_SRCS_EE,
+	IRQ_SRCS_MSK_EE,
+	IRQ_SRCS_UNMASKED_EE,
+	PIPE_ATTR_EE,
+	P_CTRL,
+	P_RST,
+	P_HALT,
+	P_IRQ_STTS,
+	P_IRQ_CLR,
+	P_IRQ_EN,
+	P_TIMER,
+	P_TIMER_CTRL,
+	P_PRDCR_SDBND,
+	P_CNSMR_SDBND,
+	P_EVNT_DEST_ADDR,
+	P_EVNT_DEST_ADDR_MSB,
+	P_EVNT_REG,
+	P_SW_OFSTS,
+	P_DATA_FIFO_ADDR,
+	P_DATA_FIFO_ADDR_MSB,
+	P_DESC_FIFO_ADDR,
+	P_DESC_FIFO_ADDR_MSB,
+	P_EVNT_GEN_TRSHLD,
+	P_FIFO_SIZES,
+	P_IRQ_DEST_ADDR,
+	P_RETR_CNTXT,
+	P_SI_CNTXT,
+	P_DF_CNTXT,
+	P_AU_PSM_CNTXT_1,
+	P_PSM_CNTXT_2,
+	P_PSM_CNTXT_3,
+	P_PSM_CNTXT_3_MSB,
+	P_PSM_CNTXT_4,
+	P_PSM_CNTXT_5,
+	P_TRUST_REG,
+	BAM_MAX_REGS,
+};
+
+static u32 bam_regmap[][BAM_MAX_REGS] = {
+	{ /* LEGACY BAM*/
+			[CTRL] = 0xf80,
+			[REVISION] = 0xf84,
+			[NUM_PIPES] = 0xfbc,
+			[DESC_CNT_TRSHLD] = 0xf88,
+			[IRQ_SRCS] = 0xf8c,
+			[IRQ_SRCS_MSK] = 0xf90,
+			[IRQ_SRCS_UNMASKED] = 0xfb0,
+			[IRQ_STTS] = 0xf94,
+			[IRQ_CLR] = 0xf98,
+			[IRQ_EN] = 0xf9c,
+			[IRQ_SIC_SEL] = 0xfa0,
+			[AHB_MASTER_ERR_CTRLS] = 0xfa4,
+			[AHB_MASTER_ERR_ADDR] = 0xfa8,
+			[AHB_MASTER_ERR_DATA] = 0xfac,
+			[IRQ_DEST] = 0xfb4,
+			[PERIPH_IRQ_DEST] = 0xfb8,
+			[TRUST_REG] = 0xff0,
+			[TEST_BUS_SEL] = 0xff4,
+			[TEST_BUS_REG] = 0xff8,
+			[CNFG_BITS] = 0xffc,
+			[IRQ_SRCS_EE] = 0x1800,
+			[IRQ_SRCS_MSK_EE] = 0x1804,
+			[IRQ_SRCS_UNMASKED_EE] = 0x1808,
+			[P_CTRL] = 0x0,
+			[P_RST] = 0x4,
+			[P_HALT] = 0x8,
+			[P_IRQ_STTS] = 0x10,
+			[P_IRQ_CLR] = 0x14,
+			[P_IRQ_EN] = 0x18,
+			[P_TIMER] = 0x1c,
+			[P_TIMER_CTRL] = 0x20,
+			[P_PRDCR_SDBND] = 0x24,
+			[P_CNSMR_SDBND] = 0x28,
+			[P_EVNT_DEST_ADDR] = 0x102c,
+			[P_EVNT_REG] = 0x1018,
+			[P_SW_OFSTS] = 0x1000,
+			[P_DATA_FIFO_ADDR] = 0x1024,
+			[P_DESC_FIFO_ADDR] = 0x101c,
+			[P_EVNT_GEN_TRSHLD] = 0x1028,
+			[P_FIFO_SIZES] = 0x1020,
+			[P_IRQ_DEST_ADDR] = 0x103c,
+			[P_RETR_CNTXT] = 0x1034,
+			[P_SI_CNTXT] = 0x1038,
+			[P_AU_PSM_CNTXT_1] = 0x1004,
+			[P_PSM_CNTXT_2] = 0x1008,
+			[P_PSM_CNTXT_3] = 0x100c,
+			[P_PSM_CNTXT_4] = 0x1010,
+			[P_PSM_CNTXT_5] = 0x1014,
+			[P_TRUST_REG] = 0x30,
+	},
+	{ /* NDP BAM */
+			[CTRL] = 0x0,
+			[REVISION] = 0x4,
+			[SW_REVISION] = 0x80,
+			[NUM_PIPES] = 0x3c,
+			[TIMER] = 0x40,
+			[TIMER_CTRL] = 0x44,
+			[DESC_CNT_TRSHLD] = 0x8,
+			[IRQ_SRCS] = 0xc,
+			[IRQ_SRCS_MSK] = 0x10,
+			[IRQ_SRCS_UNMASKED] = 0x30,
+			[IRQ_STTS] = 0x14,
+			[IRQ_CLR] = 0x18,
+			[IRQ_EN] = 0x1c,
+			[AHB_MASTER_ERR_CTRLS] = 0x24,
+			[AHB_MASTER_ERR_ADDR] = 0x28,
+			[AHB_MASTER_ERR_ADDR_MSB] = 0x104,
+			[AHB_MASTER_ERR_DATA] = 0x2c,
+			[TRUST_REG] = 0x70,
+			[TEST_BUS_SEL] = 0x74,
+			[TEST_BUS_REG] = 0x78,
+			[CNFG_BITS] = 0x7c,
+			[IRQ_SRCS_EE] = 0x800,
+			[IRQ_SRCS_MSK_EE] = 0x804,
+			[IRQ_SRCS_UNMASKED_EE] = 0x808,
+			[PIPE_ATTR_EE] = 0x80c,
+			[P_CTRL] = 0x1000,
+			[P_RST] = 0x1004,
+			[P_HALT] = 0x1008,
+			[P_IRQ_STTS] = 0x1010,
+			[P_IRQ_CLR] = 0x1014,
+			[P_IRQ_EN] = 0x1018,
+			[P_TIMER] = 0x101c,
+			[P_TIMER_CTRL] = 0x1020,
+			[P_PRDCR_SDBND] = 0x1024,
+			[P_CNSMR_SDBND] = 0x1028,
+			[P_EVNT_DEST_ADDR] = 0x182c,
+			[P_EVNT_DEST_ADDR_MSB] = 0x1934,
+			[P_EVNT_REG] = 0x1818,
+			[P_SW_OFSTS] = 0x1800,
+			[P_DATA_FIFO_ADDR] = 0x1824,
+			[P_DATA_FIFO_ADDR_MSB] = 0x1924,
+			[P_DESC_FIFO_ADDR] = 0x181c,
+			[P_DESC_FIFO_ADDR_MSB] = 0x1914,
+			[P_EVNT_GEN_TRSHLD] = 0x1828,
+			[P_FIFO_SIZES] = 0x1820,
+			[P_RETR_CNTXT] = 0x1834,
+			[P_SI_CNTXT] = 0x1838,
+			[P_DF_CNTXT] = 0x1830,
+			[P_AU_PSM_CNTXT_1] = 0x1804,
+			[P_PSM_CNTXT_2] = 0x1808,
+			[P_PSM_CNTXT_3] = 0x180c,
+			[P_PSM_CNTXT_3_MSB] = 0x1904,
+			[P_PSM_CNTXT_4] = 0x1810,
+			[P_PSM_CNTXT_5] = 0x1814,
+			[P_TRUST_REG] = 0x1030,
+	},
+	{ /* 4K OFFSETs*/
+			[CTRL] = 0x0,
+			[REVISION] = 0x1000,
+			[SW_REVISION] = 0x1004,
+			[NUM_PIPES] = 0x1008,
+			[TIMER] = 0x40,
+			[TIMER_CTRL] = 0x44,
+			[DESC_CNT_TRSHLD] = 0x8,
+			[IRQ_SRCS] = 0x3010,
+			[IRQ_SRCS_MSK] = 0x3014,
+			[IRQ_SRCS_UNMASKED] = 0x3018,
+			[IRQ_STTS] = 0x14,
+			[IRQ_CLR] = 0x18,
+			[IRQ_EN] = 0x1c,
+			[AHB_MASTER_ERR_CTRLS] = 0x1024,
+			[AHB_MASTER_ERR_ADDR] = 0x1028,
+			[AHB_MASTER_ERR_ADDR_MSB] = 0x1104,
+			[AHB_MASTER_ERR_DATA] = 0x102c,
+			[TRUST_REG] = 0x2000,
+			[TEST_BUS_SEL] = 0x1010,
+			[TEST_BUS_REG] = 0x1014,
+			[CNFG_BITS] = 0x7c,
+			[IRQ_SRCS_EE] = 0x3000,
+			[IRQ_SRCS_MSK_EE] = 0x3004,
+			[IRQ_SRCS_UNMASKED_EE] = 0x3008,
+			[PIPE_ATTR_EE] = 0x300c,
+			[P_CTRL] = 0x13000,
+			[P_RST] = 0x13004,
+			[P_HALT] = 0x13008,
+			[P_IRQ_STTS] = 0x13010,
+			[P_IRQ_CLR] = 0x13014,
+			[P_IRQ_EN] = 0x13018,
+			[P_TIMER] = 0x1301c,
+			[P_TIMER_CTRL] = 0x13020,
+			[P_PRDCR_SDBND] = 0x13024,
+			[P_CNSMR_SDBND] = 0x13028,
+			[P_EVNT_DEST_ADDR] = 0x1382c,
+			[P_EVNT_DEST_ADDR_MSB] = 0x13934,
+			[P_EVNT_REG] = 0x13818,
+			[P_SW_OFSTS] = 0x13800,
+			[P_DATA_FIFO_ADDR] = 0x13824,
+			[P_DATA_FIFO_ADDR_MSB] = 0x13924,
+			[P_DESC_FIFO_ADDR] = 0x1381c,
+			[P_DESC_FIFO_ADDR_MSB] = 0x13914,
+			[P_EVNT_GEN_TRSHLD] = 0x13828,
+			[P_FIFO_SIZES] = 0x13820,
+			[P_RETR_CNTXT] = 0x13834,
+			[P_SI_CNTXT] = 0x13838,
+			[P_DF_CNTXT] = 0x13830,
+			[P_AU_PSM_CNTXT_1] = 0x13804,
+			[P_PSM_CNTXT_2] = 0x13808,
+			[P_PSM_CNTXT_3] = 0x1380c,
+			[P_PSM_CNTXT_3_MSB] = 0x13904,
+			[P_PSM_CNTXT_4] = 0x13810,
+			[P_PSM_CNTXT_5] = 0x13814,
+			[P_TRUST_REG] = 0x2020,
+	},
+};
+
 /* AHB buffer error control */
 enum bam_nonsecure_reset {
 	BAM_NONSECURE_RESET_ENABLE  = 0,
 	BAM_NONSECURE_RESET_DISABLE = 1,
 };
+
+static inline u32 bam_get_register_offset(enum bam_regs reg, u32 param)
+{
+	u32 index = BAM_ERROR, offset = 0;
+	u32 *ptr_reg = bam_regmap[bam_type];
+
+	if (reg >= CTRL && reg < IRQ_SRCS_EE)
+		index = 0;
+	if (reg >= IRQ_SRCS_EE && reg < P_CTRL)
+		index = (bam_type == SPS_BAM_NDP_4K) ? 0x1000 : 0x80;
+	if (reg >= P_CTRL && reg < P_TRUST_REG) {
+		if (bam_type == SPS_BAM_LEGACY) {
+			if (reg >= P_EVNT_DEST_ADDR)
+				index = 0x40;
+			else
+				index = 0x80;
+		} else
+			index = 0x1000;
+	} else if (P_TRUST_REG == reg) {
+		if (bam_type == SPS_BAM_LEGACY)
+			index = 0x80;
+		else
+			index = (bam_type == SPS_BAM_NDP_4K) ? 0x4 : 0x1000;
+	}
+	if (index < 0) {
+		SPS_ERR("Failed to find register offset index\n");
+		return index;
+	}
+
+	offset = *(ptr_reg + reg) + (index * param);
+
+	SPS_DBG("sps:offset_index:0x%x;offset:0x%x\n", index, offset);
+
+	return offset;
+}
 
 /**
  *
@@ -659,11 +741,18 @@ enum bam_nonsecure_reset {
  *
  * @return u32
  */
-static inline u32 bam_read_reg(void *base, u32 offset)
+static inline u32 bam_read_reg(void *base, enum bam_regs reg, u32 param)
 {
-	u32 val = ioread32(base + offset);
-	SPS_DBG("sps:bam 0x%p(va) read reg 0x%x r_val 0x%x.\n",
-			base, offset, val);
+	u32 val, offset = 0;
+
+	offset = bam_get_register_offset(reg, param);
+	if (offset < 0) {
+		SPS_ERR("Failed to get the register offset\n");
+		return offset;
+	}
+	val = ioread32(base + offset);
+	SPS_DBG("sps:bam 0x%p(va) offset 0x%x reg 0x%x r_val 0x%x.\n",
+			base, offset, reg, val);
 	return val;
 }
 
@@ -676,10 +765,17 @@ static inline u32 bam_read_reg(void *base, u32 offset)
  *
  * @return u32
  */
-static inline u32 bam_read_reg_field(void *base, u32 offset, const u32 mask)
+static inline u32 bam_read_reg_field(void *base, enum bam_regs reg, u32 param,
+								const u32 mask)
 {
+	u32 val;
 	u32 shift = find_first_bit((void *)&mask, 32);
-	u32 val = ioread32(base + offset);
+	u32 offset = bam_get_register_offset(reg, param);
+	if (offset < 0) {
+		SPS_ERR("Failed to get the register offset\n");
+		return offset;
+	}
+	val = ioread32(base + offset);
 	val &= mask;		/* clear other bits */
 	val >>= shift;
 	SPS_DBG("sps:bam 0x%p(va) read reg 0x%x mask 0x%x r_val 0x%x.\n",
@@ -696,8 +792,14 @@ static inline u32 bam_read_reg_field(void *base, u32 offset, const u32 mask)
  * @val - value to write.
  *
  */
-static inline void bam_write_reg(void *base, u32 offset, u32 val)
+static inline void bam_write_reg(void *base, enum bam_regs reg,
+						u32 param, u32 val)
 {
+	u32 offset = bam_get_register_offset(reg, param);
+	if (offset < 0) {
+		SPS_ERR("Failed to get the register offset\n");
+		return;
+	}
 	iowrite32(val, base + offset);
 	SPS_DBG("sps:bam 0x%p(va) write reg 0x%x w_val 0x%x.\n",
 			base, offset, val);
@@ -712,11 +814,17 @@ static inline void bam_write_reg(void *base, u32 offset, u32 val)
  * @val - value to write.
  *
  */
-static inline void bam_write_reg_field(void *base, u32 offset,
-				       const u32 mask, u32 val)
+static inline void bam_write_reg_field(void *base, enum bam_regs reg,
+					u32 param, const u32 mask, u32 val)
 {
+	u32 tmp;
 	u32 shift = find_first_bit((void *)&mask, 32);
-	u32 tmp = ioread32(base + offset);
+	u32 offset = bam_get_register_offset(reg, param);
+	if (offset < 0) {
+		SPS_ERR("Failed to get the register offset\n");
+		return;
+	}
+	tmp = ioread32(base + offset);
 
 	tmp &= ~mask;		/* clear written bits */
 	val = tmp | (val << shift);
@@ -739,14 +847,14 @@ int bam_init(void *base, u32 ee,
 
 	SPS_DBG2("sps:%s:bam=0x%p(va).ee=%d.", __func__, base, ee);
 
-	ver = bam_read_reg_field(base, REVISION, BAM_REVISION);
+	ver = bam_read_reg_field(base, REVISION, 0, BAM_REVISION);
 
 	if ((ver < BAM_MIN_VERSION) || (ver > BAM_MAX_VERSION)) {
 		SPS_ERR("sps:bam 0x%p(va) Invalid BAM REVISION 0x%x.\n",
 				base, ver);
 		return -ENODEV;
 	} else
-		SPS_DBG2("sps:REVISION of BAM 0x%p is 0x%x.\n",
+		SPS_DBG("sps:REVISION of BAM 0x%p is 0x%x.\n",
 				base, ver);
 
 	if (summing_threshold == 0) {
@@ -761,43 +869,43 @@ int bam_init(void *base, u32 ee,
 	else
 		cfg_bits = 0xffffffff & ~(1 << 11);
 
-	bam_write_reg_field(base, CTRL, BAM_SW_RST, 1);
+	bam_write_reg_field(base, CTRL, 0, BAM_SW_RST, 1);
 	/* No delay needed */
-	bam_write_reg_field(base, CTRL, BAM_SW_RST, 0);
+	bam_write_reg_field(base, CTRL, 0, BAM_SW_RST, 0);
 
-	bam_write_reg_field(base, CTRL, BAM_EN, 1);
+	bam_write_reg_field(base, CTRL, 0, BAM_EN, 1);
 
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
-	bam_write_reg_field(base, CTRL, CACHE_MISS_ERR_RESP_EN, 0);
+	bam_write_reg_field(base, CTRL, 0, CACHE_MISS_ERR_RESP_EN, 0);
 
 	if (options & SPS_BAM_NO_LOCAL_CLK_GATING)
-		bam_write_reg_field(base, CTRL, LOCAL_CLK_GATING, 0);
+		bam_write_reg_field(base, CTRL, 0, LOCAL_CLK_GATING, 0);
 	else
-		bam_write_reg_field(base, CTRL, LOCAL_CLK_GATING, 1);
+		bam_write_reg_field(base, CTRL, 0, LOCAL_CLK_GATING, 1);
 
 	if (enhd_pipe) {
 		if (options & SPS_BAM_CANCEL_WB)
-			bam_write_reg_field(base, CTRL,
+			bam_write_reg_field(base, CTRL, 0,
 					BAM_MESS_ONLY_CANCEL_WB, 1);
 		else
-			bam_write_reg_field(base, CTRL,
+			bam_write_reg_field(base, CTRL, 0,
 					BAM_MESS_ONLY_CANCEL_WB, 0);
 	}
 #endif
-	bam_write_reg(base, DESC_CNT_TRSHLD, summing_threshold);
+	bam_write_reg(base, DESC_CNT_TRSHLD, 0, summing_threshold);
 
-	bam_write_reg(base, CNFG_BITS, cfg_bits);
+	bam_write_reg(base, CNFG_BITS, 0, cfg_bits);
 
 	/*
 	 *  Enable Global BAM Interrupt - for error reasons ,
 	 *  filter with mask.
 	 *  Note: Pipes interrupts are disabled until BAM_P_IRQ_enn is set
 	 */
-	bam_write_reg_field(base, IRQ_SRCS_MSK_EE(ee), BAM_IRQ, 1);
+	bam_write_reg_field(base, IRQ_SRCS_MSK_EE, ee, BAM_IRQ, 1);
 
-	bam_write_reg(base, IRQ_EN, irq_mask);
+	bam_write_reg(base, IRQ_EN, 0, irq_mask);
 
-	*num_pipes = bam_read_reg_field(base, NUM_PIPES, BAM_NUM_PIPES);
+	*num_pipes = bam_read_reg_field(base, NUM_PIPES, 0, BAM_NUM_PIPES);
 
 	*version = ver;
 
@@ -818,9 +926,9 @@ int bam_init(void *base, u32 ee,
 static void bam_set_ee(void *base, u32 ee, u32 vmid,
 			enum bam_nonsecure_reset reset)
 {
-	bam_write_reg_field(base, TRUST_REG, BAM_EE, ee);
-	bam_write_reg_field(base, TRUST_REG, BAM_VMID, vmid);
-	bam_write_reg_field(base, TRUST_REG, BAM_RST_BLOCK, reset);
+	bam_write_reg_field(base, TRUST_REG, 0, BAM_EE, ee);
+	bam_write_reg_field(base, TRUST_REG, 0, BAM_VMID, vmid);
+	bam_write_reg_field(base, TRUST_REG, 0, BAM_RST_BLOCK, reset);
 }
 
 /**
@@ -836,8 +944,8 @@ static void bam_set_ee(void *base, u32 ee, u32 vmid,
  */
 static void bam_pipe_set_ee(void *base, u32 pipe, u32 ee, u32 vmid)
 {
-	bam_write_reg_field(base, P_TRUST_REG(pipe), BAM_P_EE, ee);
-	bam_write_reg_field(base, P_TRUST_REG(pipe), BAM_P_VMID, vmid);
+	bam_write_reg_field(base, P_TRUST_REG, pipe, BAM_P_EE, ee);
+	bam_write_reg_field(base, P_TRUST_REG, pipe, BAM_P_VMID, vmid);
 }
 
 /**
@@ -856,8 +964,8 @@ int bam_security_init(void *base, u32 ee, u32 vmid, u32 pipe_mask)
 	 * Discover the hardware version number and the number of pipes
 	 * supported by this BAM
 	 */
-	version = bam_read_reg_field(base, REVISION, BAM_REVISION);
-	num_pipes = bam_read_reg_field(base, NUM_PIPES, BAM_NUM_PIPES);
+	version = bam_read_reg_field(base, REVISION, 0, BAM_REVISION);
+	num_pipes = bam_read_reg_field(base, NUM_PIPES, 0, BAM_NUM_PIPES);
 	if (version < 3 || version > 0x1F) {
 		SPS_ERR(
 			"sps:bam 0x%p(va) security is not supported for this "
@@ -890,9 +998,9 @@ static inline u32 bam_get_pipe_attr(void *base, u32 ee, bool global)
 	u32 val;
 
 	if (global)
-		val = bam_read_reg_field(base, PIPE_ATTR_EE(ee), BAM_ENABLED);
+		val = bam_read_reg_field(base, PIPE_ATTR_EE, ee, BAM_ENABLED);
 	else
-		val = bam_read_reg_field(base, PIPE_ATTR_EE(ee), P_ATTR);
+		val = bam_read_reg_field(base, PIPE_ATTR_EE, ee, P_ATTR);
 
 	return val;
 }
@@ -916,7 +1024,7 @@ int bam_check(void *base, u32 *version, u32 ee, u32 *num_pipes)
 	SPS_DBG2("sps:%s:bam=0x%p(va).", __func__, base);
 
 	if (!enhd_pipe)
-		enabled = bam_read_reg_field(base, CTRL, BAM_EN);
+		enabled = bam_read_reg_field(base, CTRL, 0, BAM_EN);
 	else
 		enabled = bam_get_pipe_attr(base, ee, true);
 
@@ -926,13 +1034,13 @@ int bam_check(void *base, u32 *version, u32 ee, u32 *num_pipes)
 		return -ENODEV;
 	}
 
-	ver = bam_read_reg(base, REVISION) & BAM_REVISION;
+	ver = bam_read_reg(base, REVISION, 0) & BAM_REVISION;
 
 	/*
 	 *  Discover the hardware version number and the number of pipes
 	 *  supported by this BAM
 	 */
-	*num_pipes = bam_read_reg_field(base, NUM_PIPES, BAM_NUM_PIPES);
+	*num_pipes = bam_read_reg_field(base, NUM_PIPES, 0, BAM_NUM_PIPES);
 	*version = ver;
 
 	/* Check BAM version */
@@ -953,12 +1061,12 @@ void bam_exit(void *base, u32 ee)
 {
 	SPS_DBG2("sps:%s:bam=0x%p(va).ee=%d.", __func__, base, ee);
 
-	bam_write_reg_field(base, IRQ_SRCS_MSK_EE(ee), BAM_IRQ, 0);
+	bam_write_reg_field(base, IRQ_SRCS_MSK_EE, ee, BAM_IRQ, 0);
 
-	bam_write_reg(base, IRQ_EN, 0);
+	bam_write_reg(base, IRQ_EN, 0, 0);
 
 	/* Disable the BAM */
-	bam_write_reg_field(base, CTRL, BAM_EN, 0);
+	bam_write_reg_field(base, CTRL, 0, BAM_EN, 0);
 }
 
 /**
@@ -976,7 +1084,7 @@ void bam_output_register_content(void *base, u32 ee)
 
 	print_bam_selected_reg(base, BAM_MAX_EES);
 
-	num_pipes = bam_read_reg_field(base, NUM_PIPES,
+	num_pipes = bam_read_reg_field(base, NUM_PIPES, 0,
 					BAM_NUM_PIPES);
 	SPS_INFO("sps:bam 0x%p(va) has %d pipes.",
 			base, num_pipes);
@@ -1001,12 +1109,12 @@ void bam_output_register_content(void *base, u32 ee)
 u32 bam_check_irq_source(void *base, u32 ee, u32 mask,
 				enum sps_callback_case *cb_case)
 {
-	u32 source = bam_read_reg(base, IRQ_SRCS_EE(ee));
+	u32 source = bam_read_reg(base, IRQ_SRCS_EE, ee);
 	u32 clr = source & (1UL << 31);
 
 	if (clr) {
 		u32 status = 0;
-		status = bam_read_reg(base, IRQ_STTS);
+		status = bam_read_reg(base, IRQ_STTS, 0);
 
 		if (status & IRQ_STTS_BAM_ERROR_IRQ) {
 			SPS_ERR("sps:bam 0x%p(va);bam irq status="
@@ -1030,7 +1138,7 @@ u32 bam_check_irq_source(void *base, u32 ee, u32 mask,
 			SPS_INFO("sps:bam 0x%p(va);bam irq status=0x%x.\n",
 					base, status);
 
-		bam_write_reg(base, IRQ_CLR, status);
+		bam_write_reg(base, IRQ_CLR, 0, status);
 	}
 
 	source &= (mask|(1UL << 31));
@@ -1046,34 +1154,34 @@ int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
 	SPS_DBG2("sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
 
 	/* Reset the BAM pipe */
-	bam_write_reg(base, P_RST(pipe), 1);
+	bam_write_reg(base, P_RST, pipe, 1);
 	/* No delay needed */
-	bam_write_reg(base, P_RST(pipe), 0);
+	bam_write_reg(base, P_RST, pipe, 0);
 
 	/* Enable the Pipe Interrupt at the BAM level */
-	bam_write_reg_field(base, IRQ_SRCS_MSK_EE(ee), (1 << pipe), 1);
+	bam_write_reg_field(base, IRQ_SRCS_MSK_EE, ee, (1 << pipe), 1);
 
-	bam_write_reg(base, P_IRQ_EN(pipe), param->pipe_irq_mask);
+	bam_write_reg(base, P_IRQ_EN, pipe, param->pipe_irq_mask);
 
-	bam_write_reg_field(base, P_CTRL(pipe), P_DIRECTION, param->dir);
-	bam_write_reg_field(base, P_CTRL(pipe), P_SYS_MODE, param->mode);
+	bam_write_reg_field(base, P_CTRL, pipe, P_DIRECTION, param->dir);
+	bam_write_reg_field(base, P_CTRL, pipe, P_SYS_MODE, param->mode);
 
-	bam_write_reg(base, P_EVNT_GEN_TRSHLD(pipe), param->event_threshold);
+	bam_write_reg(base, P_EVNT_GEN_TRSHLD, pipe, param->event_threshold);
 
-	bam_write_reg(base, P_DESC_FIFO_ADDR(pipe),
+	bam_write_reg(base, P_DESC_FIFO_ADDR, pipe,
 			SPS_GET_LOWER_ADDR(param->desc_base));
-	bam_write_reg_field(base, P_FIFO_SIZES(pipe), P_DESC_FIFO_SIZE,
+	bam_write_reg_field(base, P_FIFO_SIZES, pipe, P_DESC_FIFO_SIZE,
 			    param->desc_size);
 
-	bam_write_reg_field(base, P_CTRL(pipe), P_SYS_STRM,
+	bam_write_reg_field(base, P_CTRL, pipe, P_SYS_STRM,
 			    param->stream_mode);
 
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
 	if (SPS_LPAE)
-		bam_write_reg(base, P_DESC_FIFO_ADDR_MSB(pipe),
+		bam_write_reg(base, P_DESC_FIFO_ADDR_MSB, pipe,
 				SPS_GET_UPPER_ADDR(param->desc_base));
 
-	bam_write_reg_field(base, P_CTRL(pipe), P_LOCK_GROUP,
+	bam_write_reg_field(base, P_CTRL, pipe, P_LOCK_GROUP,
 				param->lock_group);
 
 	SPS_DBG("sps:bam=0x%p(va).pipe=%d.lock_group=%d.\n",
@@ -1082,14 +1190,15 @@ int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
 
 	if (param->mode == BAM_PIPE_MODE_BAM2BAM) {
 		u32 peer_dest_addr = param->peer_phys_addr +
-				      P_EVNT_REG(param->peer_pipe);
+				      bam_get_register_offset(P_EVNT_REG,
+						      param->peer_pipe);
 
-		bam_write_reg(base, P_DATA_FIFO_ADDR(pipe),
+		bam_write_reg(base, P_DATA_FIFO_ADDR, pipe,
 			      SPS_GET_LOWER_ADDR(param->data_base));
-		bam_write_reg_field(base, P_FIFO_SIZES(pipe),
+		bam_write_reg_field(base, P_FIFO_SIZES, pipe,
 				    P_DATA_FIFO_SIZE, param->data_size);
 
-		bam_write_reg(base, P_EVNT_DEST_ADDR(pipe), peer_dest_addr);
+		bam_write_reg(base, P_EVNT_DEST_ADDR, pipe, peer_dest_addr);
 
 		SPS_DBG2("sps:bam=0x%p(va).pipe=%d.peer_bam=0x%x."
 			"peer_pipe=%d.\n",
@@ -1099,12 +1208,12 @@ int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
 
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
 		if (SPS_LPAE) {
-			bam_write_reg(base, P_EVNT_DEST_ADDR_MSB(pipe), 0x0);
-			bam_write_reg(base, P_DATA_FIFO_ADDR_MSB(pipe),
+			bam_write_reg(base, P_EVNT_DEST_ADDR_MSB, pipe, 0x0);
+			bam_write_reg(base, P_DATA_FIFO_ADDR_MSB, pipe,
 				      SPS_GET_UPPER_ADDR(param->data_base));
 		}
 
-		bam_write_reg_field(base, P_CTRL(pipe), P_WRITE_NWD,
+		bam_write_reg_field(base, P_CTRL, pipe, P_WRITE_NWD,
 					param->write_nwd);
 
 		SPS_DBG("sps:%s WRITE_NWD bit for this bam2bam pipe.",
@@ -1113,7 +1222,7 @@ int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
 	}
 
 	/* Pipe Enable - at last */
-	bam_write_reg_field(base, P_CTRL(pipe), P_EN, 1);
+	bam_write_reg_field(base, P_CTRL, pipe, P_EN, 1);
 
 	return 0;
 }
@@ -1126,13 +1235,13 @@ void bam_pipe_exit(void *base, u32 pipe, u32 ee)
 {
 	SPS_DBG2("sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
 
-	bam_write_reg(base, P_IRQ_EN(pipe), 0);
+	bam_write_reg(base, P_IRQ_EN, pipe, 0);
 
 	/* Disable the Pipe Interrupt at the BAM level */
-	bam_write_reg_field(base, IRQ_SRCS_MSK_EE(ee), (1 << pipe), 0);
+	bam_write_reg_field(base, IRQ_SRCS_MSK_EE, ee, (1 << pipe), 0);
 
 	/* Pipe Disable */
-	bam_write_reg_field(base, P_CTRL(pipe), P_EN, 0);
+	bam_write_reg_field(base, P_CTRL, pipe, P_EN, 0);
 }
 
 /**
@@ -1143,11 +1252,11 @@ void bam_pipe_enable(void *base, u32 pipe)
 {
 	SPS_DBG2("sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
 
-	if (bam_read_reg_field(base, P_CTRL(pipe), P_EN))
+	if (bam_read_reg_field(base, P_CTRL, pipe, P_EN))
 		SPS_DBG2("sps:bam=0x%p(va).pipe=%d is already enabled.\n",
 				base, pipe);
 	else
-		bam_write_reg_field(base, P_CTRL(pipe), P_EN, 1);
+		bam_write_reg_field(base, P_CTRL, pipe, P_EN, 1);
 }
 
 /**
@@ -1158,7 +1267,7 @@ void bam_pipe_disable(void *base, u32 pipe)
 {
 	SPS_DBG2("sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
 
-	bam_write_reg_field(base, P_CTRL(pipe), P_EN, 0);
+	bam_write_reg_field(base, P_CTRL, pipe, P_EN, 0);
 }
 
 /**
@@ -1167,7 +1276,7 @@ void bam_pipe_disable(void *base, u32 pipe)
  */
 int bam_pipe_is_enabled(void *base, u32 pipe)
 {
-	return bam_read_reg_field(base, P_CTRL(pipe), P_EN);
+	return bam_read_reg_field(base, P_CTRL, pipe, P_EN);
 }
 
 /**
@@ -1180,7 +1289,7 @@ void bam_pipe_set_irq(void *base, u32 pipe, enum bam_enable irq_en,
 	SPS_DBG2("sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
 	if (src_mask & BAM_PIPE_IRQ_RST_ERROR) {
 		if (enhd_pipe)
-			bam_write_reg_field(base, IRQ_EN,
+			bam_write_reg_field(base, IRQ_EN, 0,
 					IRQ_EN_BAM_ERROR_EN, 0);
 		else {
 			src_mask &= ~BAM_PIPE_IRQ_RST_ERROR;
@@ -1189,7 +1298,7 @@ void bam_pipe_set_irq(void *base, u32 pipe, enum bam_enable irq_en,
 	}
 	if (src_mask & BAM_PIPE_IRQ_HRESP_ERROR) {
 		if (enhd_pipe)
-			bam_write_reg_field(base, IRQ_EN,
+			bam_write_reg_field(base, IRQ_EN, 0,
 					IRQ_EN_BAM_HRESP_ERR_EN, 0);
 		else {
 			src_mask &= ~BAM_PIPE_IRQ_HRESP_ERROR;
@@ -1197,8 +1306,8 @@ void bam_pipe_set_irq(void *base, u32 pipe, enum bam_enable irq_en,
 		}
 	}
 
-	bam_write_reg(base, P_IRQ_EN(pipe), src_mask);
-	bam_write_reg_field(base, IRQ_SRCS_MSK_EE(ee), (1 << pipe), irq_en);
+	bam_write_reg(base, P_IRQ_EN, pipe, src_mask);
+	bam_write_reg_field(base, IRQ_SRCS_MSK_EE, ee, (1 << pipe), irq_en);
 }
 
 /**
@@ -1207,12 +1316,12 @@ void bam_pipe_set_irq(void *base, u32 pipe, enum bam_enable irq_en,
  */
 void bam_pipe_satellite_mti(void *base, u32 pipe, u32 irq_gen_addr, u32 ee)
 {
-	bam_write_reg(base, P_IRQ_EN(pipe), 0);
+	bam_write_reg(base, P_IRQ_EN, pipe, 0);
 #ifndef CONFIG_SPS_SUPPORT_NDP_BAM
-	bam_write_reg(base, P_IRQ_DEST_ADDR(pipe), irq_gen_addr);
-	bam_write_reg_field(base, IRQ_SIC_SEL, (1 << pipe), 1);
+	bam_write_reg(base, P_IRQ_DEST_ADDR, pipe, irq_gen_addr);
+	bam_write_reg_field(base, IRQ_SIC_SEL, 0, (1 << pipe), 1);
 #endif
-	bam_write_reg_field(base, IRQ_SRCS_MSK, (1 << pipe), 1);
+	bam_write_reg_field(base, IRQ_SRCS_MSK, 0, (1 << pipe), 1);
 }
 
 /**
@@ -1232,12 +1341,12 @@ void bam_pipe_set_mti(void *base, u32 pipe, enum bam_enable irq_en,
 	 * the interrupt enable mask must be set to zero for polling mode.
 	 */
 #ifndef CONFIG_SPS_SUPPORT_NDP_BAM
-	bam_write_reg(base, P_IRQ_DEST_ADDR(pipe), irq_gen_addr);
+	bam_write_reg(base, P_IRQ_DEST_ADDR, pipe, irq_gen_addr);
 #endif
 	if (!irq_en)
 		src_mask = 0;
 
-	bam_write_reg(base, P_IRQ_EN(pipe), src_mask);
+	bam_write_reg(base, P_IRQ_EN, pipe, src_mask);
 }
 
 /**
@@ -1248,8 +1357,8 @@ u32 bam_pipe_get_and_clear_irq_status(void *base, u32 pipe)
 {
 	u32 status = 0;
 
-	status = bam_read_reg(base, P_IRQ_STTS(pipe));
-	bam_write_reg(base, P_IRQ_CLR(pipe), status);
+	status = bam_read_reg(base, P_IRQ_STTS, pipe);
+	bam_write_reg(base, P_IRQ_CLR, pipe, status);
 
 	return status;
 }
@@ -1265,7 +1374,7 @@ void bam_pipe_set_desc_write_offset(void *base, u32 pipe, u32 next_write)
 	 * the P_DESC_FIFO_PEER_OFST value, since the other field in the
 	 * register (P_BYTES_CONSUMED) is read-only.
 	 */
-	bam_write_reg_field(base, P_EVNT_REG(pipe), P_DESC_FIFO_PEER_OFST,
+	bam_write_reg_field(base, P_EVNT_REG, pipe, P_DESC_FIFO_PEER_OFST,
 			    next_write);
 }
 
@@ -1275,7 +1384,7 @@ void bam_pipe_set_desc_write_offset(void *base, u32 pipe, u32 next_write)
  */
 u32 bam_pipe_get_desc_write_offset(void *base, u32 pipe)
 {
-	return bam_read_reg_field(base, P_EVNT_REG(pipe),
+	return bam_read_reg_field(base, P_EVNT_REG, pipe,
 				  P_DESC_FIFO_PEER_OFST);
 }
 
@@ -1285,7 +1394,7 @@ u32 bam_pipe_get_desc_write_offset(void *base, u32 pipe)
  */
 u32 bam_pipe_get_desc_read_offset(void *base, u32 pipe)
 {
-	return bam_read_reg_field(base, P_SW_OFSTS(pipe), SW_DESC_OFST);
+	return bam_read_reg_field(base, P_SW_OFSTS, pipe, SW_DESC_OFST);
 }
 
 /**
@@ -1298,20 +1407,20 @@ void bam_pipe_timer_config(void *base, u32 pipe, enum bam_pipe_timer_mode mode,
 	u32 for_all_pipes = 0;
 
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
-	for_all_pipes = bam_read_reg_field(base, REVISION,
+	for_all_pipes = bam_read_reg_field(base, REVISION, 0,
 						BAM_NUM_INACTIV_TMRS);
 #endif
 
 	if (for_all_pipes) {
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
-		bam_write_reg_field(base, TIMER_CTRL, TIMER_MODE, mode);
-		bam_write_reg_field(base, TIMER_CTRL, TIMER_TRSHLD,
+		bam_write_reg_field(base, TIMER_CTRL, 0, TIMER_MODE, mode);
+		bam_write_reg_field(base, TIMER_CTRL, 0, TIMER_TRSHLD,
 				    timeout_count);
 #endif
 	} else {
-		bam_write_reg_field(base, P_TIMER_CTRL(pipe), P_TIMER_MODE,
+		bam_write_reg_field(base, P_TIMER_CTRL, pipe, P_TIMER_MODE,
 					mode);
-		bam_write_reg_field(base, P_TIMER_CTRL(pipe), P_TIMER_TRSHLD,
+		bam_write_reg_field(base, P_TIMER_CTRL, pipe, P_TIMER_TRSHLD,
 				    timeout_count);
 	}
 }
@@ -1325,22 +1434,22 @@ void bam_pipe_timer_reset(void *base, u32 pipe)
 	u32 for_all_pipes = 0;
 
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
-	for_all_pipes = bam_read_reg_field(base, REVISION,
+	for_all_pipes = bam_read_reg_field(base, REVISION, 0,
 						BAM_NUM_INACTIV_TMRS);
 #endif
 
 	if (for_all_pipes) {
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
 		/* reset */
-		bam_write_reg_field(base, TIMER_CTRL, TIMER_RST, 0);
+		bam_write_reg_field(base, TIMER_CTRL, 0, TIMER_RST, 0);
 		/* active */
-		bam_write_reg_field(base, TIMER_CTRL, TIMER_RST, 1);
+		bam_write_reg_field(base, TIMER_CTRL, 0, TIMER_RST, 1);
 #endif
 	} else {
 		/* reset */
-		bam_write_reg_field(base, P_TIMER_CTRL(pipe), P_TIMER_RST, 0);
+		bam_write_reg_field(base, P_TIMER_CTRL, pipe, P_TIMER_RST, 0);
 		/* active */
-		bam_write_reg_field(base, P_TIMER_CTRL(pipe), P_TIMER_RST, 1);
+		bam_write_reg_field(base, P_TIMER_CTRL, pipe, P_TIMER_RST, 1);
 	}
 }
 
@@ -1350,25 +1459,32 @@ void bam_pipe_timer_reset(void *base, u32 pipe)
  */
 u32 bam_pipe_timer_get_count(void *base, u32 pipe)
 {
-	return bam_read_reg(base, P_TIMER(pipe));
+	return bam_read_reg(base, P_TIMER, pipe);
 }
 
 /* output the content of BAM-level registers */
 void print_bam_reg(void *virt_addr)
 {
-	int i, n;
+	int i, n, index = 0;
 	u32 *bam = (u32 *) virt_addr;
 	u32 ctrl;
 	u32 ver;
 	u32 pipes;
+	u32 offset = 0;
 
 	if (bam == NULL)
 		return;
 
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
-	ctrl = bam[0x0 / 4];
-	ver = bam[0x4 / 4];
-	pipes = bam[0x3c / 4];
+	if (bam_type == SPS_BAM_NDP_4K) {
+		ctrl = bam[0x0 / 4];
+		ver = bam[0x1000 / 4];
+		pipes = bam[0x1008 / 4];
+	} else {
+		ctrl = bam[0x0 / 4];
+		ver = bam[0x4 / 4];
+		pipes = bam[0x3c / 4];
+	}
 #else
 	ctrl = bam[0xf80 / 4];
 	ver = bam[0xf84 / 4];
@@ -1382,7 +1498,12 @@ void print_bam_reg(void *virt_addr)
 	SPS_INFO("NUM_PIPES: 0x%x.\n", pipes);
 
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
-	for (i = 0x0; i < 0x80; i += 0x10)
+	if (bam_type == SPS_BAM_NDP_4K)
+		offset = 0x301c;
+	else
+		offset = 0x80;
+	for (i = 0x0; i < offset; i += 0x10)
+
 #else
 	for (i = 0xf80; i < 0x1000; i += 0x10)
 #endif
@@ -1391,7 +1512,14 @@ void print_bam_reg(void *virt_addr)
 			bam[(i / 4) + 2], bam[(i / 4) + 3]);
 
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
-	for (i = 0x800, n = 0; n++ < 8; i += 0x80)
+	if (bam_type == SPS_BAM_NDP_4K) {
+		offset = 0x3000;
+		index = 0x1000;
+	} else {
+		offset = 0x800;
+		index = 0x80;
+	}
+	for (i = offset, n = 0; n++ < 8; i += index)
 #else
 	for (i = 0x1800, n = 0; n++ < 4; i += 0x80)
 #endif
@@ -1408,6 +1536,7 @@ void print_bam_pipe_reg(void *virt_addr, u32 pipe_index)
 	int i;
 	u32 *bam = (u32 *) virt_addr;
 	u32 pipe = pipe_index;
+	u32 offset = 0;
 
 	if (bam == NULL)
 		return;
@@ -1418,7 +1547,11 @@ void print_bam_pipe_reg(void *virt_addr, u32 pipe_index)
 	SPS_INFO("-- Pipe Management Registers --\n");
 
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
-	for (i = 0x1000 + 0x1000 * pipe; i < 0x1000 + 0x1000 * pipe + 0x80;
+	if (bam_type == SPS_BAM_NDP_4K)
+		offset = 0x13000;
+	else
+		offset = 0x1000;
+	for (i = offset + 0x1000 * pipe; i < offset + 0x1000 * pipe + 0x80;
 	    i += 0x10)
 #else
 	for (i = 0x0000 + 0x80 * pipe; i < 0x0000 + 0x80 * (pipe + 1);
@@ -1431,8 +1564,12 @@ void print_bam_pipe_reg(void *virt_addr, u32 pipe_index)
 	SPS_INFO("-- Pipe Configuration and Internal State Registers --\n");
 
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
-	for (i = 0x1800 + 0x1000 * pipe; i < 0x1800 + 0x1000 * pipe + 0x40;
-	    i += 0x10)
+	if (bam_type == SPS_BAM_NDP_4K)
+		offset = 0x13800;
+	else
+		offset = 0x1800;
+	for (i = offset + 0x1000 * pipe; i < offset + 0x1000 * pipe + 0x40;
+		i += 0x10)
 #else
 	for (i = 0x1000 + 0x40 * pipe; i < 0x1000 + 0x40 * (pipe + 1);
 	    i += 0x10)
@@ -1483,43 +1620,43 @@ void print_bam_selected_reg(void *virt_addr, u32 ee)
 	if (base == NULL)
 		return;
 
-	bam_ctrl = bam_read_reg(base, CTRL);
-	bam_revision = bam_read_reg(base, REVISION);
-	bam_rev_num = bam_read_reg_field(base, REVISION, BAM_REVISION);
-	bam_rev_ee_num = bam_read_reg_field(base, REVISION, BAM_NUM_EES);
+	bam_ctrl = bam_read_reg(base, CTRL, 0);
+	bam_revision = bam_read_reg(base, REVISION, 0);
+	bam_rev_num = bam_read_reg_field(base, REVISION, 0, BAM_REVISION);
+	bam_rev_ee_num = bam_read_reg_field(base, REVISION, 0, BAM_NUM_EES);
 
-	bam_num_pipes = bam_read_reg(base, NUM_PIPES);
-	bam_pipe_num = bam_read_reg_field(base, NUM_PIPES, BAM_NUM_PIPES);
-	bam_data_addr_bus_width = bam_read_reg_field(base, NUM_PIPES,
+	bam_num_pipes = bam_read_reg(base, NUM_PIPES, 0);
+	bam_pipe_num = bam_read_reg_field(base, NUM_PIPES, 0, BAM_NUM_PIPES);
+	bam_data_addr_bus_width = bam_read_reg_field(base, NUM_PIPES, 0,
 					BAM_DATA_ADDR_BUS_WIDTH);
 
-	bam_desc_cnt_trshld = bam_read_reg(base, DESC_CNT_TRSHLD);
-	bam_desc_cnt_trd_val = bam_read_reg_field(base, DESC_CNT_TRSHLD,
+	bam_desc_cnt_trshld = bam_read_reg(base, DESC_CNT_TRSHLD, 0);
+	bam_desc_cnt_trd_val = bam_read_reg_field(base, DESC_CNT_TRSHLD, 0,
 					BAM_DESC_CNT_TRSHLD);
 
-	bam_irq_en = bam_read_reg(base, IRQ_EN);
-	bam_irq_stts = bam_read_reg(base, IRQ_STTS);
+	bam_irq_en = bam_read_reg(base, IRQ_EN, 0);
+	bam_irq_stts = bam_read_reg(base, IRQ_STTS, 0);
 
 	if (ee < BAM_MAX_EES) {
-		bam_irq_src_ee = bam_read_reg(base, IRQ_SRCS_EE(ee));
-		bam_irq_msk_ee = bam_read_reg(base, IRQ_SRCS_MSK_EE(ee));
-		bam_irq_unmsk_ee = bam_read_reg(base, IRQ_SRCS_UNMASKED_EE(ee));
+		bam_irq_src_ee = bam_read_reg(base, IRQ_SRCS_EE, ee);
+		bam_irq_msk_ee = bam_read_reg(base, IRQ_SRCS_MSK_EE, ee);
+		bam_irq_unmsk_ee = bam_read_reg(base, IRQ_SRCS_UNMASKED_EE, ee);
 	}
 
-	bam_ahb_err_ctrl = bam_read_reg(base, AHB_MASTER_ERR_CTRLS);
-	bam_ahb_err_addr = bam_read_reg(base, AHB_MASTER_ERR_ADDR);
-	bam_ahb_err_data = bam_read_reg(base, AHB_MASTER_ERR_DATA);
-	bam_cnfg_bits = bam_read_reg(base, CNFG_BITS);
+	bam_ahb_err_ctrl = bam_read_reg(base, AHB_MASTER_ERR_CTRLS, 0);
+	bam_ahb_err_addr = bam_read_reg(base, AHB_MASTER_ERR_ADDR, 0);
+	bam_ahb_err_data = bam_read_reg(base, AHB_MASTER_ERR_DATA, 0);
+	bam_cnfg_bits = bam_read_reg(base, CNFG_BITS, 0);
 
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
-	bam_sw_rev = bam_read_reg(base, SW_REVISION);
-	bam_timer = bam_read_reg(base, TIMER);
-	bam_timer_ctrl = bam_read_reg(base, TIMER_CTRL);
+	bam_sw_rev = bam_read_reg(base, SW_REVISION, 0);
+	bam_timer = bam_read_reg(base, TIMER, 0);
+	bam_timer_ctrl = bam_read_reg(base, TIMER_CTRL, 0);
 	bam_ahb_err_addr_msb = SPS_LPAE ?
-		bam_read_reg(base, AHB_MASTER_ERR_ADDR_MSB) : 0;
+		bam_read_reg(base, AHB_MASTER_ERR_ADDR_MSB, 0) : 0;
 	if (ee < BAM_MAX_EES)
 		bam_pipe_attr_ee = enhd_pipe ?
-			bam_read_reg(base, PIPE_ATTR_EE(ee)) : 0x0;
+			bam_read_reg(base, PIPE_ATTR_EE, ee) : 0x0;
 #endif
 
 
@@ -1629,90 +1766,90 @@ void print_bam_pipe_selected_reg(void *virt_addr, u32 pipe_index)
 	if (base == NULL)
 		return;
 
-	p_ctrl = bam_read_reg(base, P_CTRL(pipe));
-	p_sys_mode = bam_read_reg_field(base, P_CTRL(pipe), P_SYS_MODE);
-	p_direction = bam_read_reg_field(base, P_CTRL(pipe), P_DIRECTION);
+	p_ctrl = bam_read_reg(base, P_CTRL, pipe);
+	p_sys_mode = bam_read_reg_field(base, P_CTRL, pipe, P_SYS_MODE);
+	p_direction = bam_read_reg_field(base, P_CTRL, pipe, P_DIRECTION);
 
-	p_irq_en = bam_read_reg(base, P_IRQ_EN(pipe));
-	p_irq_stts = bam_read_reg(base, P_IRQ_STTS(pipe));
-	p_irq_stts_eot = bam_read_reg_field(base, P_IRQ_STTS(pipe),
+	p_irq_en = bam_read_reg(base, P_IRQ_EN, pipe);
+	p_irq_stts = bam_read_reg(base, P_IRQ_STTS, pipe);
+	p_irq_stts_eot = bam_read_reg_field(base, P_IRQ_STTS, pipe,
 					P_IRQ_STTS_P_TRNSFR_END_IRQ);
-	p_irq_stts_int = bam_read_reg_field(base, P_IRQ_STTS(pipe),
+	p_irq_stts_int = bam_read_reg_field(base, P_IRQ_STTS, pipe,
 					P_IRQ_STTS_P_PRCSD_DESC_IRQ);
 
-	p_prd_sdbd = bam_read_reg(base, P_PRDCR_SDBND(pipe));
-	p_bytes_free = bam_read_reg_field(base, P_PRDCR_SDBND(pipe),
+	p_prd_sdbd = bam_read_reg(base, P_PRDCR_SDBND, pipe);
+	p_bytes_free = bam_read_reg_field(base, P_PRDCR_SDBND, pipe,
 					P_PRDCR_SDBNDn_BAM_P_BYTES_FREE);
-	p_prd_ctrl = bam_read_reg_field(base, P_PRDCR_SDBND(pipe),
+	p_prd_ctrl = bam_read_reg_field(base, P_PRDCR_SDBND, pipe,
 					P_PRDCR_SDBNDn_BAM_P_CTRL);
-	p_prd_toggle = bam_read_reg_field(base, P_PRDCR_SDBND(pipe),
+	p_prd_toggle = bam_read_reg_field(base, P_PRDCR_SDBND, pipe,
 					P_PRDCR_SDBNDn_BAM_P_TOGGLE);
-	p_prd_sb_updated = bam_read_reg_field(base, P_PRDCR_SDBND(pipe),
+	p_prd_sb_updated = bam_read_reg_field(base, P_PRDCR_SDBND, pipe,
 					P_PRDCR_SDBNDn_BAM_P_SB_UPDATED);
-	p_con_sdbd = bam_read_reg(base, P_CNSMR_SDBND(pipe));
-	p_bytes_avail = bam_read_reg_field(base, P_CNSMR_SDBND(pipe),
+	p_con_sdbd = bam_read_reg(base, P_CNSMR_SDBND, pipe);
+	p_bytes_avail = bam_read_reg_field(base, P_CNSMR_SDBND, pipe,
 					P_CNSMR_SDBNDn_BAM_P_BYTES_AVAIL);
-	p_con_ctrl = bam_read_reg_field(base, P_CNSMR_SDBND(pipe),
+	p_con_ctrl = bam_read_reg_field(base, P_CNSMR_SDBND, pipe,
 					P_CNSMR_SDBNDn_BAM_P_CTRL);
-	p_con_toggle = bam_read_reg_field(base, P_CNSMR_SDBND(pipe),
+	p_con_toggle = bam_read_reg_field(base, P_CNSMR_SDBND, pipe,
 					P_CNSMR_SDBNDn_BAM_P_TOGGLE);
-	p_con_ack_toggle = bam_read_reg_field(base, P_CNSMR_SDBND(pipe),
+	p_con_ack_toggle = bam_read_reg_field(base, P_CNSMR_SDBND, pipe,
 					P_CNSMR_SDBNDn_BAM_P_ACK_TOGGLE);
-	p_con_ack_toggle_r = bam_read_reg_field(base, P_CNSMR_SDBND(pipe),
+	p_con_ack_toggle_r = bam_read_reg_field(base, P_CNSMR_SDBND, pipe,
 					P_CNSMR_SDBNDn_BAM_P_ACK_TOGGLE_R);
-	p_con_wait_4_ack = bam_read_reg_field(base, P_CNSMR_SDBND(pipe),
+	p_con_wait_4_ack = bam_read_reg_field(base, P_CNSMR_SDBND, pipe,
 					P_CNSMR_SDBNDn_BAM_P_WAIT_4_ACK);
-	p_con_sb_updated = bam_read_reg_field(base, P_CNSMR_SDBND(pipe),
+	p_con_sb_updated = bam_read_reg_field(base, P_CNSMR_SDBND, pipe,
 					P_CNSMR_SDBNDn_BAM_P_SB_UPDATED);
 
-	p_sw_offset = bam_read_reg(base, P_SW_OFSTS(pipe));
-	p_read_pointer = bam_read_reg_field(base, P_SW_OFSTS(pipe),
+	p_sw_offset = bam_read_reg(base, P_SW_OFSTS, pipe);
+	p_read_pointer = bam_read_reg_field(base, P_SW_OFSTS, pipe,
 						SW_DESC_OFST);
-	p_evnt_reg = bam_read_reg(base, P_EVNT_REG(pipe));
-	p_write_pointer = bam_read_reg_field(base, P_EVNT_REG(pipe),
+	p_evnt_reg = bam_read_reg(base, P_EVNT_REG, pipe);
+	p_write_pointer = bam_read_reg_field(base, P_EVNT_REG, pipe,
 						P_DESC_FIFO_PEER_OFST);
 
-	p_evnt_dest = bam_read_reg(base, P_EVNT_DEST_ADDR(pipe));
-	p_desc_fifo_addr = bam_read_reg(base, P_DESC_FIFO_ADDR(pipe));
-	p_desc_fifo_size = bam_read_reg_field(base, P_FIFO_SIZES(pipe),
+	p_evnt_dest = bam_read_reg(base, P_EVNT_DEST_ADDR, pipe);
+	p_desc_fifo_addr = bam_read_reg(base, P_DESC_FIFO_ADDR, pipe);
+	p_desc_fifo_size = bam_read_reg_field(base, P_FIFO_SIZES, pipe,
 						P_DESC_FIFO_SIZE);
-	p_data_fifo_addr = bam_read_reg(base, P_DATA_FIFO_ADDR(pipe));
-	p_data_fifo_size = bam_read_reg_field(base, P_FIFO_SIZES(pipe),
+	p_data_fifo_addr = bam_read_reg(base, P_DATA_FIFO_ADDR, pipe);
+	p_data_fifo_size = bam_read_reg_field(base, P_FIFO_SIZES, pipe,
 						P_DATA_FIFO_SIZE);
-	p_fifo_sizes = bam_read_reg(base, P_FIFO_SIZES(pipe));
+	p_fifo_sizes = bam_read_reg(base, P_FIFO_SIZES, pipe);
 
-	p_evnt_trd = bam_read_reg(base, P_EVNT_GEN_TRSHLD(pipe));
-	p_evnt_trd_val = bam_read_reg_field(base, P_EVNT_GEN_TRSHLD(pipe),
+	p_evnt_trd = bam_read_reg(base, P_EVNT_GEN_TRSHLD, pipe);
+	p_evnt_trd_val = bam_read_reg_field(base, P_EVNT_GEN_TRSHLD, pipe,
 					P_EVNT_GEN_TRSHLD_P_TRSHLD);
 
-	p_retr_ct = bam_read_reg(base, P_RETR_CNTXT(pipe));
-	p_retr_offset = bam_read_reg_field(base, P_RETR_CNTXT(pipe),
+	p_retr_ct = bam_read_reg(base, P_RETR_CNTXT, pipe);
+	p_retr_offset = bam_read_reg_field(base, P_RETR_CNTXT, pipe,
 					P_RETR_CNTXT_RETR_DESC_OFST);
-	p_si_ct = bam_read_reg(base, P_SI_CNTXT(pipe));
-	p_si_offset = bam_read_reg_field(base, P_SI_CNTXT(pipe),
+	p_si_ct = bam_read_reg(base, P_SI_CNTXT, pipe);
+	p_si_offset = bam_read_reg_field(base, P_SI_CNTXT, pipe,
 					P_SI_CNTXT_SI_DESC_OFST);
-	p_au_ct1 = bam_read_reg(base, P_AU_PSM_CNTXT_1(pipe));
-	p_psm_ct2 = bam_read_reg(base, P_PSM_CNTXT_2(pipe));
-	p_psm_ct3 = bam_read_reg(base, P_PSM_CNTXT_3(pipe));
-	p_psm_ct4 = bam_read_reg(base, P_PSM_CNTXT_4(pipe));
-	p_psm_ct5 = bam_read_reg(base, P_PSM_CNTXT_5(pipe));
+	p_au_ct1 = bam_read_reg(base, P_AU_PSM_CNTXT_1, pipe);
+	p_psm_ct2 = bam_read_reg(base, P_PSM_CNTXT_2, pipe);
+	p_psm_ct3 = bam_read_reg(base, P_PSM_CNTXT_3, pipe);
+	p_psm_ct4 = bam_read_reg(base, P_PSM_CNTXT_4, pipe);
+	p_psm_ct5 = bam_read_reg(base, P_PSM_CNTXT_5, pipe);
 
-	p_timer = bam_read_reg(base, P_TIMER(pipe));
-	p_timer_ctrl = bam_read_reg(base, P_TIMER_CTRL(pipe));
+	p_timer = bam_read_reg(base, P_TIMER, pipe);
+	p_timer_ctrl = bam_read_reg(base, P_TIMER_CTRL, pipe);
 
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
 	p_evnt_dest_msb = SPS_LPAE ?
-		bam_read_reg(base, P_EVNT_DEST_ADDR_MSB(pipe)) : 0;
+		bam_read_reg(base, P_EVNT_DEST_ADDR_MSB, pipe) : 0;
 
 	p_desc_fifo_addr_msb = SPS_LPAE ?
-		bam_read_reg(base, P_DESC_FIFO_ADDR_MSB(pipe)) : 0;
+		bam_read_reg(base, P_DESC_FIFO_ADDR_MSB, pipe) : 0;
 	p_data_fifo_addr_msb = SPS_LPAE ?
-		bam_read_reg(base, P_DATA_FIFO_ADDR_MSB(pipe)) : 0;
+		bam_read_reg(base, P_DATA_FIFO_ADDR_MSB, pipe) : 0;
 
-	p_psm_ct3_msb = SPS_LPAE ? bam_read_reg(base, P_PSM_CNTXT_3(pipe)) : 0;
-	p_lock_group = bam_read_reg_field(base, P_CTRL(pipe), P_LOCK_GROUP);
-	p_df_ct = bam_read_reg(base, P_DF_CNTXT(pipe));
-	p_df_offset = bam_read_reg_field(base, P_DF_CNTXT(pipe),
+	p_psm_ct3_msb = SPS_LPAE ? bam_read_reg(base, P_PSM_CNTXT_3, pipe) : 0;
+	p_lock_group = bam_read_reg_field(base, P_CTRL, pipe, P_LOCK_GROUP);
+	p_df_ct = bam_read_reg(base, P_DF_CNTXT, pipe);
+	p_df_offset = bam_read_reg_field(base, P_DF_CNTXT, pipe,
 					P_DF_CNTXT_DF_DESC_OFST);
 #endif
 
@@ -1799,8 +1936,8 @@ void print_bam_pipe_desc_fifo(void *virt_addr, u32 pipe_index, u32 option)
 	if (base == NULL)
 		return;
 
-	desc_fifo_addr = bam_read_reg(base, P_DESC_FIFO_ADDR(pipe));
-	desc_fifo_size = bam_read_reg_field(base, P_FIFO_SIZES(pipe),
+	desc_fifo_addr = bam_read_reg(base, P_DESC_FIFO_ADDR, pipe);
+	desc_fifo_size = bam_read_reg_field(base, P_FIFO_SIZES, pipe,
 						P_DESC_FIFO_SIZE);
 
 	if (desc_fifo_addr == 0) {
@@ -1937,11 +2074,11 @@ void print_bam_test_bus_reg(void *base, u32 tb_sel)
 
 	if (tb_sel) {
 		SPS_INFO("\nsps:Specified TEST_BUS_SEL value: 0x%x\n", tb_sel);
-		bam_write_reg_field(base, TEST_BUS_SEL, BAM_TESTBUS_SEL,
+		bam_write_reg_field(base, TEST_BUS_SEL, 0, BAM_TESTBUS_SEL,
 					tb_sel);
 		SPS_INFO("sps:BAM_TEST_BUS_REG:0x%x for TEST_BUS_SEL:0x%x\n\n",
-			bam_read_reg(base, TEST_BUS_REG),
-			bam_read_reg_field(base, TEST_BUS_SEL,
+			bam_read_reg(base, TEST_BUS_REG, 0),
+			bam_read_reg_field(base, TEST_BUS_SEL, 0,
 						BAM_TESTBUS_SEL));
 	}
 
@@ -1949,12 +2086,12 @@ void print_bam_test_bus_reg(void *base, u32 tb_sel)
 
 	/* output other selections */
 	for (i = 0; i < size; i++) {
-		bam_write_reg_field(base, TEST_BUS_SEL, BAM_TESTBUS_SEL,
+		bam_write_reg_field(base, TEST_BUS_SEL, 0, BAM_TESTBUS_SEL,
 					test_bus_selection[i]);
 
 		SPS_INFO("sps:TEST_BUS_REG:0x%x\t  TEST_BUS_SEL:0x%x\n",
-			bam_read_reg(base, TEST_BUS_REG),
-			bam_read_reg_field(base, TEST_BUS_SEL,
+			bam_read_reg(base, TEST_BUS_REG, 0),
+			bam_read_reg_field(base, TEST_BUS_SEL, 0,
 					BAM_TESTBUS_SEL));
 	}
 
