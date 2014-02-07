@@ -17,6 +17,7 @@
 #include <media/v4l2-dev.h>
 #include <media/v4l2-ctrls.h>
 #include <linux/stddef.h>
+#include <linux/sizes.h>
 
 #include "vpu_configuration.h"
 #include "vpu_v4l2.h"
@@ -1073,6 +1074,80 @@ static int __get_bits_per_pixel(u32 api_pix_fmt)
 	return bpp;
 }
 
+
+#define SESSION_IS_ACTIVE(s, cur)	(((s) == (cur)) ? true : \
+					(s)->streaming_state == ALL_STREAMING)
+
+/* __get_frequency_mode() - returns the VPU frequency mode (enum vpu_power_mode)
+ *
+ * 1) Determine the pixel rate of each session:
+ *    (max(in_h, out_h) * max (in_v, out_v) * frame_rate
+ * 2) If the resolution is higher than 2MP, then use turbo frequency
+ * 3) For each frequency mode less than turbo:
+ *	3a) if single session and pixel rate (pr) is less than threshold, then
+ *	    use this frequency mode
+ *	3b) if dual session and each session's pixel rate is less than
+ *	    threshold/2, then use this frequency mode
+ * 4) If no frequency is chosen, choose turbo
+ */
+static u32 __get_frequency_mode(struct vpu_dev_session *cur_sess)
+{
+	struct vpu_dev_core *core = cur_sess->core;
+	struct vpu_dev_session *session = NULL;
+	enum vpu_power_mode m, mode = VPU_POWER_TURBO;
+	u32 max_w = 0, max_h = 0, fps, pr[VPU_NUM_SESSIONS] = {0, };
+	int i, num_sessions = 0;
+	const u32 pr_threshold[VPU_POWER_MAX] = {
+		[VPU_POWER_SVS]     =  63000000,
+		[VPU_POWER_NOMINAL] = 125000000,
+		[VPU_POWER_TURBO]   = 260000000,
+	};
+
+	for (i = 0; i < VPU_NUM_SESSIONS; i++) {
+		struct vpu_port_info *in, *out;
+		session = core->sessions[i];
+		if (!session || !SESSION_IS_ACTIVE(session, cur_sess))
+			continue;
+
+		in  = &session->port_info[INPUT_PORT];
+		out = &session->port_info[OUTPUT_PORT];
+
+		max_w = max(in->format.width,  out->format.width);
+		max_h = max(in->format.height, out->format.height);
+		if ((max_w * max_h) > SZ_2M)
+			goto exit_and_return_mode;
+
+		fps = max(in->framerate, out->framerate);
+		fps = fps ? fps : 60;
+
+		pr[i] = max_w * max_h * fps;
+		pr_debug("session %d's pixel rate is %d\n", i, pr[i]);
+
+		num_sessions++;
+	}
+
+	for (m = VPU_POWER_SVS; m <= VPU_POWER_NOMINAL; m++) {
+		bool eligible = true;
+
+		for (i = 0; i < VPU_NUM_SESSIONS; i++) {
+			session = core->sessions[i];
+			if (!session || !SESSION_IS_ACTIVE(session, cur_sess))
+				continue;
+
+			eligible &= (pr[i] < (pr_threshold[m] / num_sessions));
+		}
+		if (eligible) {
+			mode = m;
+			break;
+		}
+	}
+
+exit_and_return_mode:
+	pr_debug("eligible for %s mode\n", (mode == VPU_POWER_SVS) ? "svs" :
+			((mode == VPU_POWER_NOMINAL) ? "nominal" : "turbo"));
+	return (u32)mode;
+}
+
 /* compute the average load value for all VPU sessions (in bits per second) */
 static u32 __get_vpu_load(struct vpu_dev_core *core)
 {
@@ -1084,7 +1159,7 @@ static u32 __get_vpu_load(struct vpu_dev_core *core)
 		session = core->sessions[i];
 		if (!session)
 			break;
-		pr_debug("session %d load: %dbps", i, session->load);
+		pr_debug("session %d load: %dbps\n", i, session->load);
 		load_bps = max(load_bps, session->load);
 	}
 
@@ -1219,7 +1294,8 @@ static int __do_commit(struct vpu_dev_session *session,
 		session->load = __calculate_session_load(session);
 
 	ret = vpu_hw_session_commit(session->id, commit_type,
-			__get_vpu_load(session->core));
+			__get_vpu_load(session->core),
+			__get_frequency_mode(session));
 	if (ret)
 		pr_err("Commit Failed\n");
 	else

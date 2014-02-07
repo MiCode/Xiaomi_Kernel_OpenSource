@@ -28,7 +28,7 @@ void vpu_clock_deinit(void *clk_handle);
 
 int  vpu_clock_enable(void *clk_handle, u32 clk_group);
 void vpu_clock_disable(void *clk_handle, u32 clk_group);
-int vpu_clock_scale(void *clk_handle, u32 load);
+int vpu_clock_scale(void *clk_handle, enum vpu_power_mode mode);
 
 int vpu_clock_gating_off(void *clkh);
 void vpu_clock_gating_on(void *clkh);

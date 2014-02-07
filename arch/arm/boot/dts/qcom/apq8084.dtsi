@@ -357,18 +357,6 @@
 		qcom,clock-names = "vdp_bus_clk", "core_clk", "vdp_clk",
 			"iface_clk", "bus_clk", "sleep_clk", "cxo_clk",
 			"maple_bus_clk", "prng_clk";
-		qcom,maple-clk-load-freq-tbl = <100000 50000000>,
-			<200000 100000000>,
-			<300000 200000000>,
-			<400000 320000000>,
-			<500000 400000000>;
-		qcom,vdp-clk-load-freq-tbl = <100000 50000000>,
-			<200000 100000000>,
-			<300000 200000000>,
-			<400000 320000000>,
-			<500000 400000000>;
-		qcom,bus-clk-load-freq-tbl = <100000 40000000>,
-			<200000 80000000>;
 		qcom,bus-load-vector-tbl = <0 0 0>,
 			<36000  208000  303000>,
 			<110400 536000  303000>,

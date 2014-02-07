@@ -82,7 +82,6 @@ struct vpu_clock_descr {
 	char *name;
 	u32 flag;	/* enum vpu_clock_flag */
 	u32 pwr_frequencies[VPU_POWER_MAX];
-	char *load_freq_dt_entry;
 };
 
 const struct vpu_clock_descr vpu_clock_set[VPU_MAX_CLKS] = {
@@ -90,25 +89,21 @@ const struct vpu_clock_descr vpu_clock_set[VPU_MAX_CLKS] = {
 			.name = "vdp_bus_clk",
 			.flag = CLOCK_CORE | CLOCK_BOOT | CLOCK_SCALABLE,
 			.pwr_frequencies = { 40000000,  80000000,  80000000},
-			.load_freq_dt_entry = "qcom,bus-clk-load-freq-tbl",
 		},
 		[VPU_MAPLE_CLK] = {
 			.name = "core_clk",
 			.flag = CLOCK_CORE | CLOCK_BOOT | CLOCK_SCALABLE,
 			.pwr_frequencies = {200000000, 400000000, 400000000},
-			.load_freq_dt_entry = "qcom,maple-clk-load-freq-tbl",
 		},
 		[VPU_VDP_CLK] = {
 			.name = "vdp_clk",
 			.flag = CLOCK_CORE | CLOCK_BOOT | CLOCK_SCALABLE,
 			.pwr_frequencies = {200000000, 200000000, 400000000},
-			.load_freq_dt_entry = "qcom,vdp-clk-load-freq-tbl",
 		},
 		[VPU_VDP_XIN] = {
 			.name = "vdp_xin_clk",
 			.flag = CLOCK_CORE | CLOCK_BOOT | CLOCK_SCALABLE,
 			.pwr_frequencies = {200000000, 467000000, 467000000},
-			.load_freq_dt_entry = "qcom,vdp-xin-clk-load-freq-tbl",
 		},
 		[VPU_AHB_CLK] = {
 			.name = "iface_clk",
@@ -207,60 +202,6 @@ static int __get_u32_array_num_elements(struct platform_device *pdev,
 
 	num_elements = len_bytes / (sizeof(u32) * element_width);
 	return num_elements;
-}
-
-static int __vpu_load_freq_table(struct vpu_platform_resources *res,
-		const char *name, struct load_freq_table *clk_table)
-{
-	int ret = 0, i;
-	int num_elements = 0;
-	struct platform_device *pdev = res->pdev;
-
-	num_elements = __get_u32_array_num_elements(pdev, name, 2);
-	if (num_elements == 0) {
-		pr_warn("no valid %s table\n", name);
-		return ret;
-	}
-
-	clk_table->entry = devm_kzalloc(&pdev->dev,
-		num_elements * sizeof(*clk_table->entry), GFP_KERNEL);
-	if (!clk_table->entry) {
-		pr_err("Failed alloc load_freq_table\n");
-		return -ENOMEM;
-	}
-
-	if (of_property_read_u32_array(pdev->dev.of_node, name,
-			(u32 *) clk_table->entry, num_elements * 2)) {
-		pr_err("Failed to read frequency table\n");
-		return -EINVAL;
-	}
-
-	for (i = 0; i < num_elements; i++)
-		pr_debug("%s, entry %d: load = %d, freq = %d\n", name, i,
-			clk_table->entry[i].load, clk_table->entry[i].freq);
-
-	clk_table->count = num_elements;
-
-	return ret;
-}
-
-static int __vpu_load_freq_tables(struct vpu_platform_resources *res)
-{
-	int ret = 0, i;
-
-	for (i = 0; i < VPU_MAX_CLKS; i++) {
-		struct vpu_clock *cl = &res->clock[i];
-
-		if ((cl->flag & CLOCK_PRESENT) && (cl->flag & CLOCK_SCALABLE)) {
-			ret = __vpu_load_freq_table(res,
-					vpu_clock_set[i].load_freq_dt_entry,
-					&cl->load_freq_tbl);
-			if (ret)
-				return ret;
-		}
-	}
-
-	return ret;
 }
 
 static int __vpu_load_bus_vector_data(struct vpu_platform_resources *res,
@@ -545,11 +486,6 @@ int read_vpu_platform_resources(struct vpu_platform_resources *res,
 		goto err_read_dt_resources;
 	}
 
-	ret = __vpu_load_freq_tables(res);
-	if (ret) {
-		pr_err("Failed to load freq tables: %d\n", ret);
-		goto err_read_dt_resources;
-	}
 	ret = __vpu_load_bus_vectors(res);
 	if (ret) {
 		pr_err("Failed to load bus vectors: %d\n", ret);

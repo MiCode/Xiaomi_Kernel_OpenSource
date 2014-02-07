@@ -171,7 +171,6 @@ int vpu_bus_scale(u32 load)
  * It is caller's responsibility to serialize the calls
  */
 struct vpu_clk_control {
-	u32 load;
 
 	/* svs, nominal, turbo, dynamic(default) */
 	u32 mode;
@@ -210,9 +209,8 @@ void *vpu_clock_init(struct vpu_platform_resources *res)
 
 		cl = clk_ctrl->clock[i];
 
-		if (CLOCK_IS_SCALABLE(clk_ctrl, i) &&
-				!cl->load_freq_tbl.count) {
-			pr_err("%s freq table size is 0\n", cl->name);
+		if (CLOCK_IS_SCALABLE(clk_ctrl, i) && !cl->pwr_frequencies) {
+			pr_err("%s pwr frequencies unknown\n", cl->name);
 			goto fail_init_clocks;
 		}
 
@@ -290,13 +288,13 @@ int vpu_clock_enable(void *clkh, u32 clk_group)
 		cl = clk_ctr->clock[i];
 
 		if (cl->status == 0) {
-			/* set rate if it's a gated clock */
-			if (CLOCK_IS_SCALABLE(clk_ctr, i) &&
-				cl->load_freq_tbl.entry) {
-				cl->current_freq =
-					cl->load_freq_tbl.entry[0].freq;
+			if (CLOCK_IS_SCALABLE(clk_ctr, i)) {
+				cl->dynamic_freq =
+					cl->pwr_frequencies[VPU_POWER_SVS];
 
-				rc = clk_set_rate(cl->clk, cl->current_freq);
+				pr_debug("clock %s set at %dHz\n", cl->name,
+							   cl->dynamic_freq);
+				rc = clk_set_rate(cl->clk, cl->dynamic_freq);
 				if (rc) {
 					pr_err("Failed to set rate for %s\n",
 						cl->name);
@@ -353,24 +351,7 @@ void vpu_clock_disable(void *clkh, u32 clk_group)
 	}
 }
 
-static unsigned long __clock_get_rate(struct vpu_clock *clock,
-	u32 num_bits_per_sec)
-{
-	struct load_freq_table *table = &clock->load_freq_tbl;
-	unsigned long ret = 0;
-	int i;
-
-	for (i = 0; i < table->count; i++) {
-		ret = table->entry[i].freq;
-		if (num_bits_per_sec <= table->entry[i].load)
-			break;
-	}
-
-	pr_debug("Required clock rate = %lu\n", ret);
-	return ret;
-}
-
-int vpu_clock_scale(void *clkh, u32 load)
+int vpu_clock_scale(void *clkh, enum vpu_power_mode mode)
 {
 	struct vpu_clk_control *clk_ctr = (struct vpu_clk_control *)clkh;
 	int i, rc = 0;
@@ -380,8 +361,6 @@ int vpu_clock_scale(void *clkh, u32 load)
 		return -EINVAL;
 	}
 
-	clk_ctr->load = load;
-
 	for (i = 0; i < VPU_MAX_CLKS; i++) {
 		struct vpu_clock *cl = clk_ctr->clock[i];
 		unsigned long freq;
@@ -389,8 +368,9 @@ int vpu_clock_scale(void *clkh, u32 load)
 		if (NOT_USED(clk_ctr, i) || !CLOCK_IS_SCALABLE(clk_ctr, i))
 			continue;
 
-		freq = __clock_get_rate(cl, load);
+		freq = cl->pwr_frequencies[mode];
 		if (clk_ctr->mode == VPU_POWER_DYNAMIC) {
+			pr_debug("clock %s set at %luHz\n", cl->name, freq);
 			rc = clk_set_rate(cl->clk, freq);
 			if (rc) {
 				pr_err("clk_set_rate failed %s rate: %lu\n",
@@ -398,7 +378,7 @@ int vpu_clock_scale(void *clkh, u32 load)
 				break;
 			}
 		}
-		cl->current_freq = freq;
+		cl->dynamic_freq = freq;
 	}
 
 	return rc;
@@ -474,7 +454,7 @@ void vpu_clock_mode_set(void *clkh, enum vpu_power_mode mode)
 	struct vpu_clk_control *clk_ctr = (struct vpu_clk_control *)clkh;
 	int i, rc = 0;
 
-	if (!clk_ctr)
+	if (!clk_ctr || (mode > VPU_POWER_MAX))
 		return;
 
 	/* no need to do anything if no change */
@@ -494,8 +474,9 @@ void vpu_clock_mode_set(void *clkh, enum vpu_power_mode mode)
 			if (mode < VPU_POWER_DYNAMIC)
 				freq = cl->pwr_frequencies[mode];
 			else
-				freq = cl->current_freq;
+				freq = cl->dynamic_freq;
 
+			pr_debug("clock %s set at %luHz\n", cl->name, freq);
 			rc = clk_set_rate(cl->clk, freq);
 
 			if (rc)
