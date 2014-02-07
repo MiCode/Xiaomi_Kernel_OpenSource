@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -93,6 +93,7 @@ struct msm_spm_platform_data {
 /* Public functions */
 
 int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm);
+int msm_spm_probe_done(void);
 int msm_spm_set_vdd(unsigned int cpu, unsigned int vlevel);
 unsigned int msm_spm_get_vdd(unsigned int cpu);
 int msm_spm_turn_on_cpu_rail(unsigned long base, unsigned int cpu);
@@ -146,6 +147,11 @@ static inline int msm_spm_enable_fts_lpm(uint32_t mode)
 #endif /* defined(CONFIG_MSM_L2_SPM) */
 #else /* defined(CONFIG_MSM_SPM_V2) */
 static inline int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm)
+{
+	return -ENOSYS;
+}
+
+static inline int msm_spm_probe_done(void)
 {
 	return -ENOSYS;
 }

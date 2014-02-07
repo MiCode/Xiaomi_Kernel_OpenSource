@@ -72,6 +72,30 @@ static void msm_spm_smp_set_vdd(void *data)
 }
 
 /**
+ * msm_spm_probe_done(): Verify and return the status of the cpu(s) and l2
+ * probe.
+ * Return: 0 if all spm devices have been probed, else return -EPROBE_DEFER.
+ */
+int msm_spm_probe_done(void)
+{
+	struct msm_spm_device *dev;
+	int cpu;
+
+	if (msm_spm_L2_apcs_master && !msm_spm_l2_device.initialized) {
+		return -EPROBE_DEFER;
+	} else {
+		for_each_possible_cpu(cpu) {
+			dev = &per_cpu(msm_cpu_spm_device, cpu);
+			if (!dev->initialized)
+				return -EPROBE_DEFER;
+		}
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(msm_spm_probe_done);
+
+/**
  * msm_spm_set_vdd(): Set core voltage
  * @cpu: core id
  * @vlevel: Encoded PMIC data.
