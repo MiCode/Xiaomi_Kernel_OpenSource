@@ -33,7 +33,6 @@
 #define MDM9x35_HSIC			"HSIC"
 #define MDM2AP_STATUS_TIMEOUT_MS	120000L
 #define MDM_MODEM_TIMEOUT		6000
-#define MDM_MODEM_DELTA			100
 #define DEF_RAMDUMP_TIMEOUT		120000
 #define DEF_RAMDUMP_DELAY		2000
 #define RD_BUF_SIZE			100
@@ -493,7 +492,6 @@ static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
 		gpio_set_value(MDM_GPIO(mdm, AP2MDM_ERRFATAL), 1);
 		end_time = jiffies + msecs_to_jiffies(MDM_MODEM_TIMEOUT);
 		while (time_before(jiffies, end_time)) {
-			msleep(MDM_MODEM_DELTA);
 			if (gpio_get_value(MDM_GPIO(mdm,
 						MDM2AP_STATUS)) == 0) {
 				status_down = true;
