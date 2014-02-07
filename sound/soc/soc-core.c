@@ -1199,6 +1199,11 @@ static int soc_probe_platform(struct snd_soc_card *card,
 		if (dai->dev != platform->dev)
 			continue;
 
+		/* dummy platform doesn't have and DAIs, don't add dummy-codec
+		 * widgets here (since dev is the same)
+		 */
+		if (!strcmp(dai->name, "snd-soc-dummy-dai"))
+			continue;
 		snd_soc_dapm_new_dai_widgets(&platform->dapm, dai);
 	}
 

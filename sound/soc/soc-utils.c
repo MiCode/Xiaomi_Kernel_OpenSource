@@ -89,7 +89,28 @@ static struct snd_soc_platform_driver dummy_platform = {
 	.ops = &dummy_dma_ops,
 };
 
-static struct snd_soc_codec_driver dummy_codec;
+static struct snd_soc_dapm_widget dapm_widgets[] = {
+	SND_SOC_DAPM_INPUT("Dummy Input"),
+	SND_SOC_DAPM_OUTPUT("Dummy Output"),
+};
+
+static struct snd_soc_dapm_route intercon[] = {
+	{ "Dummy Output", NULL, "Dummy Playback"},
+	{ "Dummy Capture", NULL, "Dummy Input"},
+};
+
+static int dummy_codec_probe(struct snd_soc_codec *codec)
+{
+	struct snd_soc_dapm_context *dapm = &codec->dapm;
+	snd_soc_dapm_new_controls(dapm, dapm_widgets,
+			ARRAY_SIZE(dapm_widgets));
+	snd_soc_dapm_add_routes(dapm, intercon, ARRAY_SIZE(intercon));
+	return 0;
+}
+
+static struct snd_soc_codec_driver dummy_codec = {
+	.probe = dummy_codec_probe,
+};
 
 #define STUB_RATES	SNDRV_PCM_RATE_8000_192000
 #define STUB_FORMATS	(SNDRV_PCM_FMTBIT_S8 | \
@@ -101,17 +122,18 @@ static struct snd_soc_codec_driver dummy_codec;
 			SNDRV_PCM_FMTBIT_S32_LE | \
 			SNDRV_PCM_FMTBIT_U32_LE | \
 			SNDRV_PCM_FMTBIT_IEC958_SUBFRAME_LE)
+
 static struct snd_soc_dai_driver dummy_dai = {
 	.name = "snd-soc-dummy-dai",
 	.playback = {
-		.stream_name	= "Playback",
+		.stream_name	= "Dummy Playback",
 		.channels_min	= 1,
 		.channels_max	= 384,
 		.rates		= STUB_RATES,
 		.formats	= STUB_FORMATS,
 	},
 	.capture = {
-		.stream_name	= "Capture",
+		.stream_name	= "Dummy Capture",
 		.channels_min	= 1,
 		.channels_max	= 384,
 		.rates = STUB_RATES,
