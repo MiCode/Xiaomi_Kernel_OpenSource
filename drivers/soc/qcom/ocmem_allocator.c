@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012,2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#include <mach/ocmem.h>
-#include <mach/ocmem_priv.h>
+#include <soc/qcom/ocmem.h>
+#include "ocmem_priv.h"
 #include <linux/genalloc.h>
 
 /* All allocator operations are serialized by ocmem driver */

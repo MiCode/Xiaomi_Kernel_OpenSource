@@ -14,7 +14,7 @@
 #include "msm_vidc_debug.h"
 #include <linux/errno.h>
 #include <linux/log2.h>
-#include <mach/ocmem.h>
+#include <soc/qcom/ocmem.h>
 
 /* Set up look-up tables to convert HAL_* to HFI_*.
  *

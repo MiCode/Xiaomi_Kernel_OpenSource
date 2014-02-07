@@ -22,7 +22,7 @@
 #include <linux/platform_device.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
-#include <mach/ocmem_priv.h>
+#include "ocmem_priv.h"
 
 enum request_states {
 	R_FREE = 0x0,   /* request is not allocated */

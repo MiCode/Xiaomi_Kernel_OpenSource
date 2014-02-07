@@ -321,6 +321,69 @@ config MSM_PIL_FEMTO
 	  Select Y if you want the modems to boot.
 	  If unsure, select N.
 
+config MSM_OCMEM
+        bool "MSM On-Chip memory driver (OCMEM)"
+        help
+          Enable support for On-Chip Memory available on certain MSM chipsets.
+          OCMEM is a low latency, high performance pool shared by subsystems.
+
+config MSM_OCMEM_LOCAL_POWER_CTRL
+        bool "OCMEM Local Power Control"
+        depends on MSM_OCMEM
+        help
+          Enable direct power management of the OCMEM core by the
+          OCMEM driver. By default power management is delegated to
+          the RPM. Selecting this option causes the OCMEM driver to
+          directly handle the various macro power transitions.
+
+config MSM_OCMEM_DEBUG
+        bool "OCMEM Debug Support"
+        depends on MSM_OCMEM
+        help
+          Enable debug options for On-chip Memory (OCMEM) driver.
+          Various debug options include memory, power and latency.
+          Choosing one of these options allows debugging of each
+          individual subsystem separately.
+
+config MSM_OCMEM_NONSECURE
+        bool "OCMEM Non Secure Mode"
+        depends on MSM_OCMEM_DEBUG
+        help
+          Disable OCMEM interaction with secure processor.
+          By default OCMEM is secured and accesses for each master
+          is requested by the OCMEM driver. Selecting this option
+          causes the OCMEM memory to be in non-secure state unless
+          its locked down by the secure processor.
+
+config MSM_OCMEM_POWER_DEBUG
+        bool "OCMEM Power Debug Support"
+        depends on MSM_OCMEM_DEBUG
+        help
+          Enable debug support for OCMEM power management.
+          This adds support for verifying all power management
+          related operations of OCMEM. Both local power management
+          and RPM assisted power management operations are supported.
+
+config MSM_OCMEM_DEBUG_ALWAYS_ON
+        bool "Keep OCMEM always turned ON"
+        depends on MSM_OCMEM_DEBUG
+        help
+          Always vote for all OCMEM clocks and keep all OCMEM
+          macros turned ON and never allow them to be turned OFF.
+          Both local power management and RPM assisted power modes
+          are supported for individual macro power control operations.
+
+config MSM_OCMEM_POWER_DISABLE
+        bool "OCMEM Disable Power Control"
+        depends on MSM_OCMEM
+        help
+          Disable all OCMEM power management.
+          Skip all OCMEM power operations that turn ON or
+          turn OFF the macros. Both local power management and
+          RPM assisted power management operations are skipped.
+          Enable this configuration if OCMEM is being exclusively
+          used as GMEM or OCIMEM.
+
 config MSM_SCM
 	bool "Secure Channel Manager (SCM) support"
 	default n
