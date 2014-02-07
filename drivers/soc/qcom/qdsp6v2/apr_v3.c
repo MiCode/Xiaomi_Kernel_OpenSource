@@ -42,3 +42,12 @@ void subsys_notif_register(struct notifier_block *mod_notif,
 	subsys_notif_register_notifier("modem", mod_notif);
 }
 
+uint16_t apr_get_reset_domain(uint16_t proc)
+{
+	return APR_DEST_QDSP6;
+}
+
+bool apr_register_voice_svc()
+{
+	return false;
+}

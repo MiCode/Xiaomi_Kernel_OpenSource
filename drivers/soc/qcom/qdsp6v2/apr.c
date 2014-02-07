@@ -327,9 +327,12 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 
 	if (!strcmp(dest, "ADSP"))
 		domain_id = APR_DOMAIN_ADSP;
-	else if (!strcmp(dest, "MODEM"))
+	else if (!strcmp(dest, "MODEM")) {
+		/* Register voice services if destination permits */
+		if (!apr_register_voice_svc())
+			goto done;
 		domain_id = APR_DOMAIN_MODEM;
-	else {
+	} else {
 		pr_err("APR: wrong destination\n");
 		goto done;
 	}
@@ -671,7 +674,7 @@ void apr_reset(void *handle)
 }
 
 /* Dispatch the Reset events to Modem and audio clients */
-void dispatch_event(unsigned long code, unsigned short proc)
+void dispatch_event(unsigned long code, uint16_t proc)
 {
 	struct apr_client *apr_client;
 	struct apr_client_data data;
@@ -681,7 +684,9 @@ void dispatch_event(unsigned long code, unsigned short proc)
 
 	data.opcode = RESET_EVENTS;
 	data.reset_event = code;
-	data.reset_proc = proc;
+
+	/* Service domain can be different from the processor */
+	data.reset_proc = apr_get_reset_domain(proc);
 
 	clnt = APR_CLIENT_AUDIO;
 	apr_client = &client[proc][clnt];
