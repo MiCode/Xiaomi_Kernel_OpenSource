@@ -344,17 +344,29 @@ static int arizona_apply_hardware_patch(struct arizona* arizona)
 	return arizona_exec_with_sysclk(arizona, arizona_hardware_patch_wseq);
 }
 
+static const struct reg_default arizona_sysclk_reg_patch[] = {
+	{ 0x337A, 0xC100 },
+	{ 0x337B, 0x0041 },
+	{ 0x3300, 0xa210 },
+	{ 0x3301, 0x050C },
+};
+
 static int arizona_sleep_patch(struct arizona* arizona)
 {
-	int ret;
+	int i, ret;
 
-	ret = regmap_write(arizona->regmap, 0x337A, 0xC100);
-	if (ret != 0)
-		return ret;
-
-	ret = regmap_write(arizona->regmap, 0x337B, 0x0041);
-	if (ret != 0)
-		return ret;
+	for (i = 0; i < ARRAY_SIZE(arizona_sysclk_reg_patch); ++i) {
+		ret = regmap_write(arizona->regmap,
+				   arizona_sysclk_reg_patch[i].reg,
+				   arizona_sysclk_reg_patch[i].def);
+		if (ret != 0) {
+			dev_err(arizona->dev,
+				"Failed to apply sleep patch: %x <= %x\n",
+				arizona_sysclk_reg_patch[i].reg,
+				arizona_sysclk_reg_patch[i].def);
+			return ret;
+		}
+	}
 
 	return 0;
 }
@@ -513,6 +525,24 @@ static int arizona_runtime_suspend(struct device *dev)
 				ret);
 			return ret;
 		}
+	}
+
+	switch (arizona->type) {
+	case WM5110:
+	case WM8280:
+		ret = regmap_update_bits(arizona->regmap,
+					 ARIZONA_LDO1_CONTROL_1,
+					 ARIZONA_LDO1_VSEL_MASK,
+					 0x0b << ARIZONA_LDO1_VSEL_SHIFT);
+		if (ret != 0) {
+			dev_err(arizona->dev,
+				"Failed to prepare for sleep %d\n",
+				ret);
+			return ret;
+		}
+		break;
+	default:
+		break;
 	}
 
 	regcache_cache_only(arizona->regmap, true);
