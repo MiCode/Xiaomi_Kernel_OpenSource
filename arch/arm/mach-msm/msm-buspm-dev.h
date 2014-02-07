@@ -28,7 +28,7 @@ struct buspm_xfer_req {
 };
 
 struct buspm_alloc_params {
-	int size;
+	size_t  size;
 };
 
 enum msm_buspm_ioc_cmds {
