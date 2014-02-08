@@ -309,6 +309,15 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	if (!drvdata->base)
 		return -ENOMEM;
 
+	r = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					"smmu_local_base");
+	if (r) {
+		drvdata->smmu_local_base =
+			devm_ioremap(&pdev->dev, r->start, resource_size(r));
+		if (!drvdata->smmu_local_base)
+			return -ENOMEM;
+	}
+
 	drvdata->glb_base = drvdata->base;
 
 	if (of_get_property(pdev->dev.of_node, "vdd-supply", NULL)) {
