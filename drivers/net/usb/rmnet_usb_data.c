@@ -375,9 +375,10 @@ static int rmnet_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
 	struct usbnet	*unet = netdev_priv(dev);
-	u32		old_opmode;
+	unsigned long	old_opmode;
 	int		prev_mtu = dev->mtu;
 	int		rc = 0;
+	struct rmnet_ioctl_data_s ioctl_data;
 
 	old_opmode = unet->data[0]; /*data[0] saves operation mode*/
 	/* Process IOCTL command */
@@ -416,9 +417,12 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 
 	case RMNET_IOCTL_GET_LLP:	/* Get link protocol state */
-		ifr->ifr_ifru.ifru_data = (void *)(unet->data[0]
+		ioctl_data.u.operation_mode = (unet->data[0]
 						& (RMNET_MODE_LLP_ETH
 						| RMNET_MODE_LLP_IP));
+		if (copy_to_user(ifr->ifr_ifru.ifru_data, &ioctl_data,
+			sizeof(struct rmnet_ioctl_data_s)))
+			rc = -EFAULT;
 		break;
 
 	case RMNET_IOCTL_SET_QOS_ENABLE:	/* Set QoS header enabled*/
@@ -434,12 +438,18 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 
 	case RMNET_IOCTL_GET_QOS:		/* Get QoS header state */
-		ifr->ifr_ifru.ifru_data = (void *)(unet->data[0]
+		ioctl_data.u.operation_mode = (unet->data[0]
 						& RMNET_MODE_QOS);
+		if (copy_to_user(ifr->ifr_ifru.ifru_data, &ioctl_data,
+			sizeof(struct rmnet_ioctl_data_s)))
+			rc = -EFAULT;
 		break;
 
 	case RMNET_IOCTL_GET_OPMODE:		/* Get operation mode*/
-		ifr->ifr_ifru.ifru_data = (void *)unet->data[0];
+		ioctl_data.u.operation_mode = unet->data[0];
+		if (copy_to_user(ifr->ifr_ifru.ifru_data, &ioctl_data,
+			sizeof(struct rmnet_ioctl_data_s)))
+			rc = -EFAULT;
 		break;
 
 	case RMNET_IOCTL_OPEN:			/* Open transport port */
@@ -463,7 +473,7 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		return -EINVAL;
 	}
 
-	DBG2("[%s] %s: cmd=0x%x opmode old=0x%08x new=0x%08lx\n",
+	DBG2("[%s] %s: cmd=0x%x opmode old=0x%08lx new=0x%08lx\n",
 		dev->name, __func__, cmd, old_opmode, unet->data[0]);
 
 	return rc;

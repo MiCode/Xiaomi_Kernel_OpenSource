@@ -579,12 +579,16 @@ static void wwan_tx_timeout(struct net_device *dev)
 static int wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
 	int rc = 0;
+	struct rmnet_ioctl_data_s ioctl_data;
 
 	switch (cmd) {
 	case RMNET_IOCTL_SET_LLP_IP:        /* Set RAWIP protocol */
 		break;
 	case RMNET_IOCTL_GET_LLP:           /* Get link protocol state */
-		ifr->ifr_ifru.ifru_data = (void *) RMNET_MODE_LLP_IP;
+		ioctl_data.u.operation_mode = RMNET_MODE_LLP_IP;
+		if (copy_to_user(ifr->ifr_ifru.ifru_data, &ioctl_data,
+			sizeof(struct rmnet_ioctl_data_s)))
+			rc = -EFAULT;
 		break;
 	case RMNET_IOCTL_SET_QOS_ENABLE:    /* Set QoS header enabled  */
 		pr_debug("[%s] wwan_ioctl(): QOS header addition is not supported\n",
@@ -593,19 +597,35 @@ static int wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	case RMNET_IOCTL_SET_QOS_DISABLE:   /* Set QoS header disabled */
 		break;
 	case RMNET_IOCTL_FLOW_ENABLE:
-		tc_qdisc_flow_control(dev, (u32)ifr->ifr_data, 1);
+		if (copy_from_user(&ioctl_data, ifr->ifr_ifru.ifru_data,
+			sizeof(struct rmnet_ioctl_data_s))) {
+			rc = -EFAULT;
+			break;
+		}
+		tc_qdisc_flow_control(dev, ioctl_data.u.tcm_handle, 1);
 		pr_debug("[%s] %s: enabled flow", dev->name, __func__);
 		break;
 	case RMNET_IOCTL_FLOW_DISABLE:
-		tc_qdisc_flow_control(dev, (u32)ifr->ifr_data, 0);
+		if (copy_from_user(&ioctl_data, ifr->ifr_ifru.ifru_data,
+			sizeof(struct rmnet_ioctl_data_s))) {
+			rc = -EFAULT;
+			break;
+		}
+		tc_qdisc_flow_control(dev, ioctl_data.u.tcm_handle, 0);
 		pr_debug("[%s] %s: disabled flow", dev->name, __func__);
 		break;
 	case RMNET_IOCTL_GET_QOS:           /* Get QoS header state    */
 		/* QoS disabled */
-		ifr->ifr_ifru.ifru_data = (void *) 0;
+		ioctl_data.u.operation_mode = 0;
+		if (copy_to_user(ifr->ifr_ifru.ifru_data, &ioctl_data,
+			sizeof(struct rmnet_ioctl_data_s)))
+			rc = -EFAULT;
 		break;
 	case RMNET_IOCTL_GET_OPMODE:        /* Get operation mode      */
-		ifr->ifr_ifru.ifru_data = (void *) RMNET_MODE_LLP_IP;
+		ioctl_data.u.operation_mode = RMNET_MODE_LLP_IP;
+		if (copy_to_user(ifr->ifr_ifru.ifru_data, &ioctl_data,
+			sizeof(struct rmnet_ioctl_data_s)))
+			rc = -EFAULT;
 		break;
 	case RMNET_IOCTL_OPEN:  /* Open transport port */
 		rc = __wwan_open(dev);

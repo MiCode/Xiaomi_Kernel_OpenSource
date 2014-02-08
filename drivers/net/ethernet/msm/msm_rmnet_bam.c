@@ -607,6 +607,7 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	unsigned long flags;
 	int prev_mtu = dev->mtu;
 	int rc = 0;
+	struct rmnet_ioctl_data_s ioctl_data;
 
 	/* Process IOCTL command */
 	switch (cmd) {
@@ -656,9 +657,11 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 
 	case RMNET_IOCTL_GET_LLP:           /* Get link protocol state */
-		ifr->ifr_ifru.ifru_data =
-			(void *)(p->operation_mode &
+		ioctl_data.u.operation_mode = (p->operation_mode &
 				 (RMNET_MODE_LLP_ETH|RMNET_MODE_LLP_IP));
+		if (copy_to_user(ifr->ifr_ifru.ifru_data, &ioctl_data,
+			sizeof(struct rmnet_ioctl_data_s)))
+			rc = -EFAULT;
 		break;
 
 	case RMNET_IOCTL_SET_QOS_ENABLE:    /* Set QoS header enabled  */
@@ -678,22 +681,38 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 
 	case RMNET_IOCTL_FLOW_ENABLE:
-		tc_qdisc_flow_control(dev, (u32)ifr->ifr_data, 1);
+		if (copy_from_user(&ioctl_data, ifr->ifr_ifru.ifru_data,
+			sizeof(struct rmnet_ioctl_data_s))) {
+			rc = -EFAULT;
+			break;
+		}
+		tc_qdisc_flow_control(dev, ioctl_data.u.tcm_handle, 1);
 		DBG0("[%s] rmnet_ioctl(): enabled flow", dev->name);
 		break;
 
 	case RMNET_IOCTL_FLOW_DISABLE:
-		tc_qdisc_flow_control(dev, (u32)ifr->ifr_data, 0);
+		if (copy_from_user(&ioctl_data, ifr->ifr_ifru.ifru_data,
+			sizeof(struct rmnet_ioctl_data_s))) {
+			rc = -EFAULT;
+			break;
+		}
+		tc_qdisc_flow_control(dev, ioctl_data.u.tcm_handle, 0);
 		DBG0("[%s] rmnet_ioctl(): disabled flow", dev->name);
 		break;
 
 	case RMNET_IOCTL_GET_QOS:           /* Get QoS header state    */
-		ifr->ifr_ifru.ifru_data =
-			(void *)(p->operation_mode & RMNET_MODE_QOS);
+		ioctl_data.u.operation_mode = (p->operation_mode
+						& RMNET_MODE_QOS);
+		if (copy_to_user(ifr->ifr_ifru.ifru_data, &ioctl_data,
+			sizeof(struct rmnet_ioctl_data_s)))
+			rc = -EFAULT;
 		break;
 
 	case RMNET_IOCTL_GET_OPMODE:        /* Get operation mode      */
-		ifr->ifr_ifru.ifru_data = (void *)p->operation_mode;
+		ioctl_data.u.operation_mode = p->operation_mode;
+		if (copy_to_user(ifr->ifr_ifru.ifru_data, &ioctl_data,
+			sizeof(struct rmnet_ioctl_data_s)))
+			rc = -EFAULT;
 		break;
 
 	case RMNET_IOCTL_OPEN:              /* Open transport port     */
