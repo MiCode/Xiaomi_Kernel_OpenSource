@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1045,7 +1045,9 @@
 			< 1344000 4066 >,
 			< 1401600 4066 >,
 			< 1497600 4066 >,
-			< 1593600 4066 >;
+			< 1593600 4066 >,
+			< 1689600 4066 >,
+			< 1785600 4066 >;
 	};
 
 	qcom,ocmem@fdd00000 {
