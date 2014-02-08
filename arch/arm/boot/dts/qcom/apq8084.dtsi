@@ -3297,6 +3297,10 @@
 		compatible = "qcom,msm-lsm-client";
 	};
 
+	qcom,msm-pcm-loopback {
+		compatible = "qcom,msm-pcm-loopback";
+	};
+
 	qcom,msm-dai-stub {
 		compatible = "qcom,msm-dai-stub";
 		qcom,msm-dai-stub-rx {
