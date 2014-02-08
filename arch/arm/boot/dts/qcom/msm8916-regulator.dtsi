@@ -81,6 +81,7 @@
 			regulator-min-microvolt = <2100000>;
 			regulator-max-microvolt = <2100000>;
 			qcom,system-load = <100000>;
+			qcom,skip-voltage-write;
 			regulator-always-on;
 		};
 
@@ -116,6 +117,7 @@
 			status = "okay";
 			parent-supply = <&pm8916_s4>;
 			qcom,enable-time = <200>;
+			qcom,skip-voltage-write;
 			regulator-min-microvolt = <2050000>;
 			regulator-max-microvolt = <2050000>;
 		};
@@ -124,6 +126,7 @@
 			status = "okay";
 			parent-supply = <&pm8916_s4>;
 			qcom,enable-time = <200>;
+			qcom,skip-voltage-write;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,system-load = <10000>;
@@ -134,6 +137,7 @@
 			status = "okay";
 			parent-supply = <&pm8916_s4>;
 			qcom,enable-time = <200>;
+			qcom,skip-voltage-write;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 		};
@@ -142,6 +146,7 @@
 			status = "okay";
 			parent-supply = <&pm8916_s4>;
 			qcom,enable-time = <200>;
+			qcom,skip-voltage-write;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 		};
@@ -149,6 +154,7 @@
 		pm8916_l8: regulator@4700 {
 			status = "okay";
 			qcom,enable-time = <200>;
+			qcom,skip-voltage-write;
 			regulator-min-microvolt = <2900000>;
 			regulator-max-microvolt = <2900000>;
 		};
@@ -156,6 +162,7 @@
 		pm8916_l9: regulator@4800 {
 			status = "okay";
 			qcom,enable-time = <200>;
+			qcom,skip-voltage-write;
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3300000>;
 		};
@@ -163,6 +170,7 @@
 		pm8916_l10: regulator@4900 {
 			status = "okay";
 			qcom,enable-time = <200>;
+			qcom,skip-voltage-write;
 			regulator-min-microvolt = <2700000>;
 			regulator-max-microvolt = <2800000>;
 		};
@@ -170,6 +178,7 @@
 		pm8916_l11: regulator@4a00 {
 			status = "okay";
 			qcom,enable-time = <200>;
+			qcom,skip-voltage-write;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2950000>;
 		};
@@ -177,6 +186,7 @@
 		pm8916_l12: regulator@4b00 {
 			status = "okay";
 			qcom,enable-time = <200>;
+			qcom,skip-voltage-write;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2950000>;
 		};
@@ -184,6 +194,7 @@
 		pm8916_l13: regulator@4c00 {
 			status = "okay";
 			qcom,enable-time = <200>;
+			qcom,skip-voltage-write;
 			regulator-min-microvolt = <3075000>;
 			regulator-max-microvolt = <3075000>;
 		};
@@ -191,6 +202,7 @@
 		pm8916_l14: regulator@4d00 {
 			status = "okay";
 			qcom,enable-time = <200>;
+			qcom,skip-voltage-write;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <3300000>;
 		};
@@ -198,6 +210,7 @@
 		pm8916_l15: regulator@4e00 {
 			status = "okay";
 			qcom,enable-time = <200>;
+			qcom,skip-voltage-write;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <3300000>;
 		};
@@ -205,6 +218,7 @@
 		pm8916_l16: regulator@4f00 {
 			status = "okay";
 			qcom,enable-time = <200>;
+			qcom,skip-voltage-write;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <3300000>;
 		};
@@ -212,6 +226,7 @@
 		pm8916_l17: regulator@5000 {
 			status = "okay";
 			qcom,enable-time = <200>;
+			qcom,skip-voltage-write;
 			regulator-min-microvolt = <2850000>;
 			regulator-max-microvolt = <2850000>;
 		};
@@ -219,6 +234,7 @@
 		pm8916_l18: regulator@5100 {
 			status = "okay";
 			qcom,enable-time = <200>;
+			qcom,skip-voltage-write;
 			regulator-min-microvolt = <2700000>;
 			regulator-max-microvolt = <2700000>;
 		};

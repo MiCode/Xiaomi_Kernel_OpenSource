@@ -172,6 +172,7 @@ struct qpnp_regulator_platform_data {
 	int					auto_mode_enable;
 	int					bypass_mode_enable;
 	int					hpm_enable;
+	int					skip_vset;
 	u16					base_addr;
 };
 

@@ -274,6 +274,7 @@ struct qpnp_regulator {
 	int					ocp_retry_delay_ms;
 	int					system_load;
 	int					hpm_min_load;
+	int					skip_vset;
 	u32					write_count;
 	u32					prev_write_count;
 	ktime_t					vs_enable_time;
@@ -474,6 +475,12 @@ static inline int qpnp_vreg_write(struct qpnp_regulator *vreg, u16 addr,
 	char str[DEBUG_PRINT_BUFFER_SIZE];
 	int rc = 0;
 
+	if (vreg->skip_vset && (addr != QPNP_COMMON_REG_ENABLE)) {
+		pr_debug("Skipping write for %x + %x",
+						vreg->base_addr, addr);
+		return 0;
+	}
+
 	if (qpnp_vreg_debug_mask & QPNP_VREG_DEBUG_WRITES) {
 		str[0] = '\0';
 		fill_string(str, DEBUG_PRINT_BUFFER_SIZE, buf, len);
@@ -551,7 +558,6 @@ static int qpnp_vreg_masked_write(struct qpnp_regulator *vreg, u16 addr, u8 val,
 	reg = (*reg_save & ~mask) | (val & mask);
 	if (reg != *reg_save) {
 		rc = qpnp_vreg_write(vreg, addr, &reg, 1);
-
 		if (rc) {
 			vreg_err(vreg, "write failed; addr=0x%03X, rc=%d\n",
 				addr, rc);
@@ -854,8 +860,8 @@ static int qpnp_regulator_single_range_set_voltage(struct regulator_dev *rdev,
 	 * only voltage set register needs to be written.
 	 */
 	rc = qpnp_vreg_masked_write(vreg, QPNP_COMMON_REG_VOLTAGE_SET,
-	       voltage_sel, 0xFF, &vreg->ctrl_reg[QPNP_COMMON_IDX_VOLTAGE_SET]);
-
+				voltage_sel, 0xFF,
+				&vreg->ctrl_reg[QPNP_COMMON_IDX_VOLTAGE_SET]);
 	if (rc)
 		vreg_err(vreg, "SPMI write failed, rc=%d\n", rc);
 	else
@@ -1781,7 +1787,8 @@ static int qpnp_regulator_get_dt_config(struct spmi_device *spmi,
 		&pdata->vs_soft_start_strength);
 	of_property_read_u32(node, "qcom,system-load", &pdata->system_load);
 	of_property_read_u32(node, "qcom,enable-time", &pdata->enable_time);
-
+	if (of_property_read_bool(node, "qcom,skip-voltage-write"))
+		pdata->skip_vset = 1;
 	return rc;
 }
 
@@ -1858,6 +1865,7 @@ static int qpnp_regulator_probe(struct spmi_device *spmi)
 	vreg->ocp_irq		= pdata->ocp_irq;
 	vreg->ocp_max_retries	= pdata->ocp_max_retries;
 	vreg->ocp_retry_delay_ms = pdata->ocp_retry_delay_ms;
+	vreg->skip_vset		= pdata->skip_vset;
 
 	if (vreg->ocp_max_retries == 0)
 		vreg->ocp_max_retries = QPNP_VS_OCP_DEFAULT_MAX_RETRIES;
