@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,6 +96,12 @@ struct div_data {
 	unsigned int min_div;
 	unsigned int max_div;
 	unsigned long rate_margin;
+	/*
+	 * Indicate whether this divider clock supports half-interger divider.
+	 * If it is, all the min_div and max_div have been doubled. It means
+	 * they are 2*N.
+	 */
+	bool is_half_divider;
 };
 
 struct div_clk {

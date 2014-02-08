@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -223,20 +223,29 @@ static long __div_round_rate(struct div_data *data, unsigned long rate,
 	struct clk *parent, unsigned int *best_div, unsigned long *best_prate)
 {
 	unsigned int div, min_div, max_div, _best_div = 1;
-	unsigned long prate, _best_prate = 0, rrate = 0;
+	unsigned long prate, _best_prate = 0, rrate = 0, req_prate, actual_rate;
+	unsigned int numer;
 
 	rate = max(rate, 1UL);
 
 	min_div = max(data->min_div, 1U);
 	max_div = min(data->max_div, (unsigned int) (ULONG_MAX / rate));
 
+	/*
+	 * div values are doubled for half dividers.
+	 * Adjust for that by picking a numer of 2.
+	 */
+	numer = data->is_half_divider ? 2 : 1;
+
 	for (div = min_div; div <= max_div; div++) {
-		prate = clk_round_rate(parent, rate * div);
+		req_prate = mult_frac(rate, div, numer);
+		prate = clk_round_rate(parent, req_prate);
 		if (IS_ERR_VALUE(prate))
 			break;
 
-		if (is_better_rate(rate, rrate, prate / div)) {
-			rrate = prate / div;
+		actual_rate = mult_frac(prate, numer, div);
+		if (is_better_rate(rate, rrate, actual_rate)) {
+			rrate = actual_rate;
 			_best_div = div;
 			_best_prate = prate;
 		}
@@ -248,7 +257,7 @@ static long __div_round_rate(struct div_data *data, unsigned long rate,
 		 * going to be able to output an even higher rate required
 		 * for a higher divider. So, stop trying higher dividers.
 		 */
-		if (prate / div < rate)
+		if (actual_rate < rate)
 			break;
 
 		if (rrate <= rate + data->rate_margin)
@@ -708,9 +717,23 @@ static enum handoff mux_div_clk_handoff(struct clk *c)
 {
 	struct mux_div_clk *md = to_mux_div_clk(c);
 	unsigned long parent_rate;
+	unsigned int numer;
 
 	parent_rate = clk_get_rate(c->parent);
-	c->rate = parent_rate / md->data.div;
+	if (!parent_rate)
+		return HANDOFF_DISABLED_CLK;
+	/*
+	 * div values are doubled for half dividers.
+	 * Adjust for that by picking a numer of 2.
+	 */
+	numer = md->data.is_half_divider ? 2 : 1;
+
+	if (md->data.div) {
+		c->rate = mult_frac(parent_rate, numer, md->data.div);
+	} else {
+		c->rate = 0;
+		return HANDOFF_DISABLED_CLK;
+	}
 
 	if (!md->ops->is_enabled)
 		return HANDOFF_DISABLED_CLK;
