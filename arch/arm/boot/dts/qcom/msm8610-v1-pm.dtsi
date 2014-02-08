@@ -145,17 +145,6 @@
 			compatible = "qcom,system-modes";
 
 			qcom,system-mode@0 {
-				qcom,l2 = "l2_cache_gdhs";
-				qcom,latency-us = <10700>;
-				qcom,ss-power = <372>;
-				qcom,energy-overhead = <738750>;
-				qcom,time-overhead = <1410>;
-				qcom,min-cpu-mode= "pc";
-				qcom,send-rpm-sleep-set;
-				qcom,sync-mode;
-			};
-
-			qcom,system-mode@1 {
 				qcom,l2 = "l2_cache_pc_no_rpm";
 				qcom,latency-us = <1000>;
 				qcom,ss-power = <315>;
@@ -165,7 +154,7 @@
 				qcom,sync-mode;
 			};
 
-			qcom,system-mode@2 {
+			qcom,system-mode@1 {
 				qcom,l2 = "l2_cache_pc";
 				qcom,latency-us = <12700>;
 				qcom,ss-power = <315>;
