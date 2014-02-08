@@ -1088,14 +1088,6 @@ config MSM_BUS_RPM_MULTI_TIER_ENABLED
 	bool "RPM Multi-tiering Configuration"
 	depends on MSM_BUS_SCALING
 
-config MSM_WATCHDOG_V2
-	bool "MSM Watchdog Support"
-	help
-		This enables the watchdog module. It causes kernel panic if the
-		watchdog times out. It allows for detection of cpu hangs and
-		deadlocks. It does not run during the bootup process, so it will
-		not catch any early lockups.
-
 config MSM_DLOAD_MODE
 	bool "Enable download mode on crashes"
 	default n
