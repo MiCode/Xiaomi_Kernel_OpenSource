@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,8 @@
 #include "msm.h"
 #include "msm_vb2.h"
 #include "msm_sd.h"
+#include <media/msmb_generic_buf_mgr.h>
+
 
 static struct v4l2_device *msm_v4l2_dev;
 static struct list_head    ordered_sd_list;
@@ -504,6 +506,7 @@ static void msm_remove_session_cmd_ack_q(struct msm_session *session)
 int msm_destroy_session(unsigned int session_id)
 {
 	struct msm_session *session;
+	struct v4l2_subdev *buf_mgr_subdev;
 
 	session = msm_queue_find(msm_session_q, struct msm_session,
 		list, __msm_queue_find_session, &session_id);
@@ -515,6 +518,12 @@ int msm_destroy_session(unsigned int session_id)
 	mutex_destroy(&session->lock);
 	msm_delete_entry(msm_session_q, struct msm_session,
 		list, session);
+	buf_mgr_subdev = msm_buf_mngr_get_subdev();
+	if (buf_mgr_subdev) {
+		v4l2_subdev_call(buf_mgr_subdev, core, ioctl,
+			MSM_SD_SHUTDOWN, NULL);
+	} else
+		pr_err("%s: Buff manger device node is NULL\n", __func__);
 
 	return 0;
 }
