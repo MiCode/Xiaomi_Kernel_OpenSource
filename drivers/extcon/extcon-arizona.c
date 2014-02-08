@@ -879,7 +879,8 @@ static void arizona_micd_detect(struct work_struct *work)
 	if (!(val & ARIZONA_MICD_STS)) {
 		dev_warn(arizona->dev, "Detected open circuit\n");
 		info->mic = arizona->pdata.micd_open_circuit_declare;
-		arizona_stop_mic(info);
+		if (!info->mic)
+			arizona_stop_mic(info);
 		arizona_identify_headphone(info);
 		info->detecting = false;
 		goto handled;
