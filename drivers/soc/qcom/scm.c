@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,10 +17,11 @@
 #include <linux/errno.h>
 #include <linux/err.h>
 #include <linux/init.h>
-#include <soc/qcom/scm.h>
 
 #include <asm/cacheflush.h>
+#include <asm/compiler.h>
 
+#include <soc/qcom/scm.h>
 
 #define SCM_ENOMEM		-5
 #define SCM_EOPNOTSUPP		-4
@@ -78,6 +79,30 @@ struct scm_response {
 	u32	is_complete;
 };
 
+#ifdef CONFIG_ARM64
+
+#define R0_STR "x0"
+#define R1_STR "x1"
+#define R2_STR "x2"
+#define R3_STR "x3"
+#define R4_STR "x4"
+
+/* Outer caches unsupported on ARM64 platforms */
+#define outer_inv_range(x, y)
+#define outer_flush_range(x, y)
+
+#define __cpuc_flush_dcache_area __flush_dcache_area
+
+#else
+
+#define R0_STR "r0"
+#define R1_STR "r1"
+#define R2_STR "r2"
+#define R3_STR "r3"
+#define R4_STR "r4"
+
+#endif
+
 /**
  * scm_command_to_response() - Get a pointer to a scm_response
  * @cmd: command
@@ -133,18 +158,18 @@ static u32 smc(u32 cmd_addr)
 {
 	int context_id;
 	register u32 r0 asm("r0") = 1;
-	register u32 r1 asm("r1") = (u32)&context_id;
+	register u32 r1 asm("r1") = (uintptr_t)&context_id;
 	register u32 r2 asm("r2") = cmd_addr;
 	do {
 		asm volatile(
-			__asmeq("%0", "r0")
-			__asmeq("%1", "r0")
-			__asmeq("%2", "r1")
-			__asmeq("%3", "r2")
+			__asmeq("%0", R0_STR)
+			__asmeq("%1", R0_STR)
+			__asmeq("%2", R1_STR)
+			__asmeq("%3", R2_STR)
 #ifdef REQUIRES_SEC
 			".arch_extension sec\n"
 #endif
-			"smc	#0	@ switch to secure world\n"
+			"smc	#0\n"
 			: "=r" (r0)
 			: "r" (r0), "r" (r1), "r" (r2)
 			: "r3");
@@ -172,6 +197,7 @@ static int __scm_call(const struct scm_command *cmd)
 	return ret;
 }
 
+#ifndef CONFIG_ARM64
 static void scm_inv_range(unsigned long start, unsigned long end)
 {
 	u32 cacheline_size, ctr;
@@ -190,6 +216,13 @@ static void scm_inv_range(unsigned long start, unsigned long end)
 	dsb();
 	isb();
 }
+#else
+
+static void scm_inv_range(unsigned long start, unsigned long end)
+{
+	dmac_inv_range((void *)start, (void *)end);
+}
+#endif
 
 /**
  * scm_call_common() - Send an SCM command
@@ -336,18 +369,18 @@ s32 scm_call_atomic1(u32 svc, u32 cmd, u32 arg1)
 {
 	int context_id;
 	register u32 r0 asm("r0") = SCM_ATOMIC(svc, cmd, 1);
-	register u32 r1 asm("r1") = (u32)&context_id;
+	register u32 r1 asm("r1") = (uintptr_t)&context_id;
 	register u32 r2 asm("r2") = arg1;
 
 	asm volatile(
-		__asmeq("%0", "r0")
-		__asmeq("%1", "r0")
-		__asmeq("%2", "r1")
-		__asmeq("%3", "r2")
+		__asmeq("%0", R0_STR)
+		__asmeq("%1", R0_STR)
+		__asmeq("%2", R1_STR)
+		__asmeq("%3", R2_STR)
 #ifdef REQUIRES_SEC
 			".arch_extension sec\n"
 #endif
-		"smc	#0	@ switch to secure world\n"
+		"smc	#0\n"
 		: "=r" (r0)
 		: "r" (r0), "r" (r1), "r" (r2)
 		: "r3");
@@ -369,20 +402,20 @@ s32 scm_call_atomic2(u32 svc, u32 cmd, u32 arg1, u32 arg2)
 {
 	int context_id;
 	register u32 r0 asm("r0") = SCM_ATOMIC(svc, cmd, 2);
-	register u32 r1 asm("r1") = (u32)&context_id;
+	register u32 r1 asm("r1") = (uintptr_t)&context_id;
 	register u32 r2 asm("r2") = arg1;
 	register u32 r3 asm("r3") = arg2;
 
 	asm volatile(
-		__asmeq("%0", "r0")
-		__asmeq("%1", "r0")
-		__asmeq("%2", "r1")
-		__asmeq("%3", "r2")
-		__asmeq("%4", "r3")
+		__asmeq("%0", R0_STR)
+		__asmeq("%1", R0_STR)
+		__asmeq("%2", R1_STR)
+		__asmeq("%3", R2_STR)
+		__asmeq("%4", R3_STR)
 #ifdef REQUIRES_SEC
 			".arch_extension sec\n"
 #endif
-		"smc	#0	@ switch to secure world\n"
+		"smc	#0\n"
 		: "=r" (r0)
 		: "r" (r0), "r" (r1), "r" (r2), "r" (r3));
 	return r0;
@@ -404,22 +437,22 @@ s32 scm_call_atomic3(u32 svc, u32 cmd, u32 arg1, u32 arg2, u32 arg3)
 {
 	int context_id;
 	register u32 r0 asm("r0") = SCM_ATOMIC(svc, cmd, 3);
-	register u32 r1 asm("r1") = (u32)&context_id;
+	register u32 r1 asm("r1") = (uintptr_t)&context_id;
 	register u32 r2 asm("r2") = arg1;
 	register u32 r3 asm("r3") = arg2;
 	register u32 r4 asm("r4") = arg3;
 
 	asm volatile(
-		__asmeq("%0", "r0")
-		__asmeq("%1", "r0")
-		__asmeq("%2", "r1")
-		__asmeq("%3", "r2")
-		__asmeq("%4", "r3")
-		__asmeq("%5", "r4")
+		__asmeq("%0", R0_STR)
+		__asmeq("%1", R0_STR)
+		__asmeq("%2", R1_STR)
+		__asmeq("%3", R2_STR)
+		__asmeq("%4", R3_STR)
+		__asmeq("%5", R4_STR)
 #ifdef REQUIRES_SEC
 			".arch_extension sec\n"
 #endif
-		"smc	#0	@ switch to secure world\n"
+		"smc	#0\n"
 		: "=r" (r0)
 		: "r" (r0), "r" (r1), "r" (r2), "r" (r3), "r" (r4));
 	return r0;
@@ -432,24 +465,24 @@ s32 scm_call_atomic4_3(u32 svc, u32 cmd, u32 arg1, u32 arg2,
 	int ret;
 	int context_id;
 	register u32 r0 asm("r0") = SCM_ATOMIC(svc, cmd, 4);
-	register u32 r1 asm("r1") = (u32)&context_id;
+	register u32 r1 asm("r1") = (uintptr_t)&context_id;
 	register u32 r2 asm("r2") = arg1;
 	register u32 r3 asm("r3") = arg2;
 	register u32 r4 asm("r4") = arg3;
 	register u32 r5 asm("r5") = arg4;
 
 	asm volatile(
-		__asmeq("%0", "r0")
-		__asmeq("%1", "r1")
-		__asmeq("%2", "r2")
-		__asmeq("%3", "r0")
-		__asmeq("%4", "r1")
-		__asmeq("%5", "r2")
-		__asmeq("%6", "r3")
+		__asmeq("%0", R0_STR)
+		__asmeq("%1", R1_STR)
+		__asmeq("%2", R2_STR)
+		__asmeq("%3", R0_STR)
+		__asmeq("%4", R1_STR)
+		__asmeq("%5", R2_STR)
+		__asmeq("%6", R3_STR)
 #ifdef REQUIRES_SEC
 			".arch_extension sec\n"
 #endif
-		"smc	#0	@ switch to secure world\n"
+		"smc	#0\n"
 		: "=r" (r0), "=r" (r1), "=r" (r2)
 		: "r" (r0), "r" (r1), "r" (r2), "r" (r3), "r" (r4), "r" (r5));
 	ret = r0;
@@ -474,17 +507,17 @@ u32 scm_get_version(void)
 	mutex_lock(&scm_lock);
 
 	r0 = 0x1 << 8;
-	r1 = (u32)&context_id;
+	r1 = (uintptr_t)&context_id;
 	do {
 		asm volatile(
-			__asmeq("%0", "r0")
-			__asmeq("%1", "r1")
-			__asmeq("%2", "r0")
-			__asmeq("%3", "r1")
+			__asmeq("%0", R0_STR)
+			__asmeq("%1", R1_STR)
+			__asmeq("%2", R0_STR)
+			__asmeq("%3", R1_STR)
 #ifdef REQUIRES_SEC
 			".arch_extension sec\n"
 #endif
-			"smc	#0	@ switch to secure world\n"
+			"smc	#0\n"
 			: "=r" (r0), "=r" (r1)
 			: "r" (r0), "r" (r1)
 			: "r2", "r3");
