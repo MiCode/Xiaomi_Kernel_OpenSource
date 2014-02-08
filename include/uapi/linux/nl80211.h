@@ -1813,7 +1813,6 @@ enum nl80211_attrs {
 	NL80211_ATTR_STA_SUPPORTED_CHANNELS,
 
 	NL80211_ATTR_STA_SUPPORTED_OPER_CLASSES,
-	/* add attributes here, update the policy in nl80211.c */
 
 	NL80211_ATTR_HANDLE_DFS,
 
@@ -1827,6 +1826,8 @@ enum nl80211_attrs {
 	NL80211_ATTR_VENDOR_DATA,
 
 	NL80211_ATTR_VENDOR_EVENTS,
+
+	/* add attributes here, update the policy in nl80211.c */
 
 	__NL80211_ATTR_AFTER_LAST,
 	NL80211_ATTR_MAX = __NL80211_ATTR_AFTER_LAST - 1
