@@ -1557,7 +1557,8 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 * If HPI is not supported then cache shouldn't be enabled.
 	 */
 	if ((host->caps2 & MMC_CAP2_CACHE_CTRL) &&
-	    (card->ext_csd.cache_size > 0) && card->ext_csd.hpi_en) {
+	    (card->ext_csd.cache_size > 0) && card->ext_csd.hpi_en &&
+	    ((card->quirks & MMC_QUIRK_CACHE_DISABLE) == 0)) {
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				EXT_CSD_CACHE_CTRL, 1,
 				card->ext_csd.generic_cmd6_time);
@@ -1576,6 +1577,11 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		} else {
 			card->ext_csd.cache_ctrl = 1;
 		}
+	}
+	if (card->quirks & MMC_QUIRK_CACHE_DISABLE) {
+		pr_warn("%s: This is Hynix card, cache disabled!\n",
+				mmc_hostname(card->host));
+		card->ext_csd.cache_ctrl = 0;
 	}
 
 	if ((host->caps2 & MMC_CAP2_PACKED_WR &&
