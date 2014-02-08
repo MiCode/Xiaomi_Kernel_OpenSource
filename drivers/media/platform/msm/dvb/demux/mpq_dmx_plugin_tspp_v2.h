@@ -41,6 +41,12 @@
 
 #define VPES_HEADER_DATA_SIZE			204
 
+/* Polling interval of scrambling bit status in milliseconds */
+#define TSPP2_DMX_SB_MONITOR_INTERVAL		50
+
+/* Number of identical scrambling bit samples considered stable to report */
+#define TSPP2_DMX_SB_MONITOR_THRESHOLD		3
+
 /* Sizes of BAM descriptor */
 #define TSPP2_DMX_SPS_SECTION_DESC_SIZE		188	/* size of TS packet */
 #define TSPP2_DMX_SPS_PCR_DESC_SIZE		195	/* size of PCR packet */
@@ -370,6 +376,9 @@ struct pipe_info {
  *			by >1 operations). Valid only when num_pes_ops is not 0.
  * @index_op:		Singular indexing operation. Valid only when
  *			indexing_enabled is set.
+ * @dwork:		Delayed work object for filter's scrambling bit monitor
+ * @scm_prev_val:	Scrambling bit value of previous sample
+ * @scm_count:		Number of consecutive identical scrambling bit samples
  */
 struct mpq_dmx_tspp2_filter {
 	u32 handle;
@@ -381,6 +390,9 @@ struct mpq_dmx_tspp2_filter {
 	u8 indexing_enabled;
 	struct mpq_dmx_tspp2_filter_op pes_analysis_op;
 	struct mpq_dmx_tspp2_filter_op index_op;
+	struct delayed_work dwork;
+	u8 scm_prev_val;
+	u8 scm_count;
 };
 
 /**
