@@ -798,6 +798,14 @@ static void cnss_crash_shutdown(const struct subsys_desc *subsys)
 
 }
 
+void cnss_device_self_recovery(void)
+{
+	cnss_shutdown(NULL, false);
+	usleep(1000);
+	cnss_powerup(NULL);
+}
+EXPORT_SYMBOL(cnss_device_self_recovery);
+
 static int cnss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
