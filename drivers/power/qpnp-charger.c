@@ -1595,27 +1595,30 @@ static irqreturn_t
 qpnp_chg_bat_if_batt_temp_irq_handler(int irq, void *_chip)
 {
 	struct qpnp_chg_chip *chip = _chip;
-	int batt_temp_good, rc;
+	int batt_temp_good, batt_present, rc;
 
 	batt_temp_good = qpnp_chg_is_batt_temp_ok(chip);
 	pr_debug("batt-temp triggered: %d\n", batt_temp_good);
 
-	rc = qpnp_chg_masked_write(chip,
-		chip->buck_base + SEC_ACCESS,
-		0xFF,
-		0xA5, 1);
-	if (rc) {
-		pr_err("failed to write SEC_ACCESS rc=%d\n", rc);
-		return rc;
-	}
+	batt_present = qpnp_chg_is_batt_present(chip);
+	if (batt_present) {
+		rc = qpnp_chg_masked_write(chip,
+			chip->buck_base + SEC_ACCESS,
+			0xFF,
+			0xA5, 1);
+		if (rc) {
+			pr_err("failed to write SEC_ACCESS rc=%d\n", rc);
+			return rc;
+		}
 
-	rc = qpnp_chg_masked_write(chip,
-		chip->buck_base + TEST_EN_SMBC_LOOP,
-		IBAT_REGULATION_DISABLE,
-		batt_temp_good ? 0 : IBAT_REGULATION_DISABLE, 1);
-	if (rc) {
-		pr_err("failed to write COMP_OVR1 rc=%d\n", rc);
-		return rc;
+		rc = qpnp_chg_masked_write(chip,
+			chip->buck_base + TEST_EN_SMBC_LOOP,
+			IBAT_REGULATION_DISABLE,
+			batt_temp_good ? 0 : IBAT_REGULATION_DISABLE, 1);
+		if (rc) {
+			pr_err("failed to write COMP_OVR1 rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	pr_debug("psy changed batt_psy\n");
@@ -1627,15 +1630,51 @@ static irqreturn_t
 qpnp_chg_bat_if_batt_pres_irq_handler(int irq, void *_chip)
 {
 	struct qpnp_chg_chip *chip = _chip;
-	int batt_present;
+	int batt_present, batt_temp_good, rc;
 
 	batt_present = qpnp_chg_is_batt_present(chip);
 	pr_debug("batt-pres triggered: %d\n", batt_present);
 
 	if (chip->batt_present ^ batt_present) {
 		if (batt_present) {
+			batt_temp_good = qpnp_chg_is_batt_temp_ok(chip);
+			rc = qpnp_chg_masked_write(chip,
+				chip->buck_base + SEC_ACCESS,
+				0xFF,
+				0xA5, 1);
+			if (rc) {
+				pr_err("failed to write SEC_ACCESS: %d\n", rc);
+				return rc;
+			}
+
+			rc = qpnp_chg_masked_write(chip,
+				chip->buck_base + TEST_EN_SMBC_LOOP,
+				IBAT_REGULATION_DISABLE,
+				batt_temp_good
+				? 0 : IBAT_REGULATION_DISABLE, 1);
+			if (rc) {
+				pr_err("failed to write COMP_OVR1 rc=%d\n", rc);
+				return rc;
+			}
 			schedule_work(&chip->insertion_ocv_work);
 		} else {
+			rc = qpnp_chg_masked_write(chip,
+				chip->buck_base + SEC_ACCESS,
+				0xFF,
+				0xA5, 1);
+			if (rc) {
+				pr_err("failed to write SEC_ACCESS: %d\n", rc);
+				return rc;
+			}
+
+			rc = qpnp_chg_masked_write(chip,
+				chip->buck_base + TEST_EN_SMBC_LOOP,
+				IBAT_REGULATION_DISABLE,
+				0, 1);
+			if (rc) {
+				pr_err("failed to write COMP_OVR1 rc=%d\n", rc);
+				return rc;
+			}
 			chip->insertion_ocv_uv = 0;
 			qpnp_chg_charge_en(chip, 0);
 		}
