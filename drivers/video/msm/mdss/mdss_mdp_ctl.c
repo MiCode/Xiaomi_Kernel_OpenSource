@@ -310,7 +310,7 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 {
 	struct mdss_mdp_mixer *mixer;
 	int fps = DEFAULT_FRAME_RATE;
-	u32 quota, rate, v_total, src_h, xres = 0;
+	u32 quota, rate, v_total, src_h, xres = 0, h_total = 0;
 	struct mdss_mdp_img_rect src, dst;
 	bool is_fbc = false;
 	struct mdss_mdp_prefill_params prefill_params;
@@ -332,9 +332,11 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 		v_total = mdss_panel_get_vtotal(pinfo);
 		xres = pinfo->xres;
 		is_fbc = pinfo->fbc.enabled;
+		h_total = mdss_panel_get_htotal(pinfo);
 	} else {
 		v_total = mixer->height;
 		xres = mixer->width;
+		h_total = mixer->width;
 	}
 
 	if (roi)
@@ -375,10 +377,12 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	if (mixer->rotator_mode) {
 		rate /= 4; /* block mode fetch at 4 pix/clk */
 		quota *= 2; /* bus read + write */
-		perf->bw_overlap = quota;
 	} else {
-		perf->bw_overlap = (quota / dst.h) * v_total;
+		quota = mult_frac(quota, v_total, dst.h);
+		if (!mixer->ctl->is_video_mode)
+			quota = mult_frac(quota, h_total, xres);
 	}
+	perf->bw_overlap = quota;
 
 	if (apply_fudge)
 		perf->mdp_clk_rate = mdss_mdp_clk_fudge_factor(mixer, rate);
