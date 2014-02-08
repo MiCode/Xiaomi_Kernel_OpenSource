@@ -32,7 +32,7 @@
 #include <linux/coresight.h>
 #include <asm/sections.h>
 #include <soc/qcom/socinfo.h>
-#include <mach/msm_memory_dump.h>
+#include <soc/qcom/memory_dump.h>
 
 #include "coresight-priv.h"
 

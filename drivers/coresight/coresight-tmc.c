@@ -37,7 +37,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/msm-sps.h>
 #include <mach/usb_bam.h>
-#include <mach/msm_memory_dump.h>
+#include <soc/qcom/memory_dump.h>
 
 #include "coresight-priv.h"
 

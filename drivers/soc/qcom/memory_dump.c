@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,8 +16,7 @@
 #include <linux/export.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
-#include <mach/msm_iomap.h>
-#include <mach/msm_memory_dump.h>
+#include <soc/qcom/memory_dump.h>
 
 #define DUMP_TABLE_OFFSET	0x14
 #define MSM_DUMP_TABLE_VERSION	MK_TABLE(1, 0)
