@@ -431,13 +431,12 @@
 
 &gdsc_oxili_cx {
 	status = "ok";
-	parent-supply = <&pmplutonium_s2_corner>;
+	parent-supply = <&pmplutonium_s1_corner>;
 };
 
 &gdsc_oxili_gx {
 	status = "ok";
 };
 
-/include/ "msmplutonium-regulator.dtsi"
-
+#include "msmplutonium-regulator.dtsi"
 #include "msmplutonium-ion.dtsi"
