@@ -14,3 +14,4 @@ obj-$(CONFIG_DEBUG_FS)		+= clock-debug.o
 obj-$(CONFIG_ARCH_MDM9630)	+= clock-alpha-pll.o
 
 obj-y				+= gdsc.o
+obj-y				+= mdss/
