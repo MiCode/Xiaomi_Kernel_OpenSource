@@ -66,9 +66,22 @@
 const DECLARE_TLV_DB_LINEAR(msm_compr_vol_gain, 0,
 				COMPRESSED_LR_VOL_MAX_STEPS);
 
+/*
+ * LSB 8 bits is used as stream id for some DSP
+ * commands for compressed playback.
+ */
+#define STREAM_ID_FROM_TOKEN(i) (i & 0xFF)
+
+/* Stream id switches between 1 and 2 */
+#define NEXT_STREAM_ID(stream_id) ((stream_id & 1) + 1)
+
+#define STREAM_ARRAY_INDEX(stream_id) (stream_id - 1)
+
+#define MAX_NUMBER_OF_STREAMS 2
+
 struct msm_compr_gapless_state {
 	bool set_next_stream_id;
-	int32_t stream_opened[2];
+	int32_t stream_opened[MAX_NUMBER_OF_STREAMS];
 	uint32_t initial_samples_drop;
 	uint32_t trailing_samples_drop;
 	uint32_t gapless_transition;
@@ -210,7 +223,8 @@ static int msm_compr_send_buffer(struct msm_compr_audio *prtd)
 	pr_debug("%s: bytes_received = %d copied_total = %d\n",
 		__func__, prtd->bytes_received, prtd->copied_total);
 	if (prtd->first_buffer &&  prtd->gapless_state.use_dsp_gapless_mode)
-		q6asm_send_meta_data(prtd->audio_client,
+		q6asm_stream_send_meta_data(prtd->audio_client,
+				prtd->audio_client->stream_id,
 				prtd->gapless_state.initial_samples_drop,
 				prtd->gapless_state.trailing_samples_drop);
 
@@ -260,6 +274,7 @@ static void compr_event_handler(uint32_t opcode,
 	uint32_t chan_mode = 0;
 	uint32_t sample_rate = 0;
 	int bytes_available, stream_id;
+	uint32_t stream_index;
 
 	pr_debug("%s opcode =%08x\n", __func__, opcode);
 	switch (opcode) {
@@ -317,8 +332,10 @@ static void compr_event_handler(uint32_t opcode,
 		spin_unlock(&prtd->lock);
 		break;
 	case ASM_DATA_EVENT_RENDERED_EOS:
-		pr_debug("ASM_DATA_CMDRSP_EOS\n");
 		spin_lock(&prtd->lock);
+		pr_debug("%s: ASM_DATA_CMDRSP_EOS token 0x%x,stream id %d\n",
+			  __func__, token, STREAM_ID_FROM_TOKEN(token));
+		stream_id = STREAM_ID_FROM_TOKEN(token);
 		if (atomic_read(&prtd->eos) &&
 		    !prtd->gapless_state.set_next_stream_id) {
 			pr_debug("ASM_DATA_CMDRSP_EOS wake up\n");
@@ -326,13 +343,22 @@ static void compr_event_handler(uint32_t opcode,
 			wake_up(&prtd->eos_wait);
 		}
 		atomic_set(&prtd->eos, 0);
-		stream_id = ac->stream_id^1; /*prev stream */
+		stream_index = STREAM_ARRAY_INDEX(stream_id);
+		if (stream_index >= MAX_NUMBER_OF_STREAMS ||
+		    stream_index < 0) {
+			pr_err("%s: Invalid stream index %d", __func__,
+				stream_index);
+			spin_unlock(&prtd->lock);
+			break;
+		}
+
 		if (prtd->gapless_state.set_next_stream_id &&
-		    prtd->gapless_state.stream_opened[stream_id]) {
-			q6asm_stream_cmd_nowait(prtd->audio_client,
-						CMD_CLOSE, stream_id);
+			prtd->gapless_state.stream_opened[stream_index]) {
+			pr_debug("%s: CMD_CLOSE stream_id %d\n",
+				  __func__, stream_id);
+			q6asm_stream_cmd_nowait(ac, CMD_CLOSE, stream_id);
 			atomic_set(&prtd->close, 1);
-			prtd->gapless_state.stream_opened[stream_id] = 0;
+			prtd->gapless_state.stream_opened[stream_index] = 0;
 			prtd->gapless_state.set_next_stream_id = false;
 		}
 		if (prtd->gapless_state.gapless_transition)
@@ -369,25 +395,35 @@ static void compr_event_handler(uint32_t opcode,
 			spin_unlock(&prtd->lock);
 			break;
 		case ASM_STREAM_CMD_FLUSH:
-			pr_debug("ASM_STREAM_CMD_FLUSH\n");
+			pr_debug("%s: ASM_STREAM_CMD_FLUSH:", __func__);
+			pr_debug("token 0x%x, stream id %d\n", token,
+				  STREAM_ID_FROM_TOKEN(token));
 			prtd->cmd_ack = 1;
 			wake_up(&prtd->flush_wait);
 			break;
 		case ASM_DATA_CMD_REMOVE_INITIAL_SILENCE:
-			pr_debug("ASM_DATA_CMD_REMOVE_INITIAL_SILENCE\n");
+			pr_debug("%s: ASM_DATA_CMD_REMOVE_INITIAL_SILENCE:",
+				   __func__);
+			pr_debug("token 0x%x, stream id = %d\n", token,
+				  STREAM_ID_FROM_TOKEN(token));
 			break;
 		case ASM_DATA_CMD_REMOVE_TRAILING_SILENCE:
-			pr_debug("ASM_DATA_CMD_REMOVE_TRAILING_SILENCE\n");
+			pr_debug("%s: ASM_DATA_CMD_REMOVE_TRAILING_SILENCE:",
+				  __func__);
+			pr_debug("token = 0x%x,	stream id = %d\n", token,
+				  STREAM_ID_FROM_TOKEN(token));
 			break;
 		case ASM_STREAM_CMD_CLOSE:
-			pr_debug("ASM_DATA_CMD_CLOSE\n");
+			pr_debug("%s: ASM_DATA_CMD_CLOSE:", __func__);
+			pr_debug("token 0x%x, stream id %d\n", token,
+				  STREAM_ID_FROM_TOKEN(token));
 			/*
 			 * wakeup wait for stream avail on stream 3
 			 * after stream 1 ends.
 			 */
 			if (prtd->next_stream) {
 				pr_debug("%s:CLOSE:wakeup wait for stream\n",
-								   __func__);
+					  __func__);
 				prtd->stream_available = 1;
 				wake_up(&prtd->wait_for_stream_avail);
 				prtd->next_stream = 0;
@@ -405,10 +441,12 @@ static void compr_event_handler(uint32_t opcode,
 		break;
 	}
 	case ASM_SESSION_CMDRSP_GET_SESSIONTIME_V3:
-		pr_debug("ASM_SESSION_CMDRSP_GET_SESSIONTIME_V3\n");
+		pr_debug("%s: ASM_SESSION_CMDRSP_GET_SESSIONTIME_V3\n",
+			  __func__);
 		break;
 	case RESET_EVENTS:
-		pr_err("Received reset events CB, move to error state");
+		pr_err("%s: Received reset events CB, move to error state",
+			__func__);
 		spin_lock(&prtd->lock);
 		snd_compr_fragment_elapsed(cstream);
 		prtd->copied_total = prtd->bytes_received;
@@ -416,7 +454,8 @@ static void compr_event_handler(uint32_t opcode,
 		spin_unlock(&prtd->lock);
 		break;
 	default:
-		pr_debug("Not Supported Event opcode[0x%x]\n", opcode);
+		pr_debug("%s: Not Supported Event opcode[0x%x]\n",
+			  __func__, opcode);
 		break;
 	}
 }
@@ -486,6 +525,7 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 	uint16_t bits_per_sample = 16;
 	int dir = IN, ret = 0;
 	struct audio_client *ac = prtd->audio_client;
+	uint32_t stream_index;
 	struct asm_softpause_params softpause = {
 		.enable = SOFT_PAUSE_ENABLE,
 		.period = SOFT_PAUSE_PERIOD,
@@ -498,7 +538,7 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 		.rampingcurve = SOFT_VOLUME_CURVE_LINEAR,
 	};
 
-	pr_debug("%s\n", __func__);
+	pr_debug("%s: stream_id %d\n", __func__, ac->stream_id);
 	ret = q6asm_stream_open_write_v2(ac,
 				prtd->codec, bits_per_sample,
 				ac->stream_id,
@@ -508,7 +548,13 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 		 return -ENOMEM;
 	}
 
-	prtd->gapless_state.stream_opened[ac->stream_id] = 1;
+	stream_index = STREAM_ARRAY_INDEX(ac->stream_id);
+	if (stream_index >= MAX_NUMBER_OF_STREAMS || stream_index < 0) {
+		pr_err("%s: Invalid stream index:%d", __func__, stream_index);
+		return -EINVAL;
+	}
+
+	prtd->gapless_state.stream_opened[stream_index] = 1;
 	pr_debug("%s be_id %d\n", __func__, soc_prtd->dai_link->be_id);
 	msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
 				ac->perf_mode,
@@ -529,7 +575,7 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 		pr_err("%s: Send SoftVolume Param failed ret=%d\n",
 			__func__, ret);
 
-	ret = q6asm_set_io_mode(ac, (COMPRESSED_IO | ASYNC_IO_MODE));
+	ret = q6asm_set_io_mode(ac, (COMPRESSED_STREAM_IO | ASYNC_IO_MODE));
 	if (ret < 0) {
 		pr_err("%s: Set IO mode failed\n", __func__);
 		return -EINVAL;
@@ -673,6 +719,7 @@ static int msm_compr_free(struct snd_compr_stream *cstream)
 	struct audio_client *ac = prtd->audio_client;
 	int dir = IN, ret = 0, stream_id;
 	unsigned long flags;
+	uint32_t stream_index;
 
 	pr_debug("%s\n", __func__);
 
@@ -693,13 +740,19 @@ static int msm_compr_free(struct snd_compr_stream *cstream)
 
 	spin_lock_irqsave(&prtd->lock, flags);
 	stream_id = ac->stream_id;
-	if (prtd->gapless_state.stream_opened[stream_id^1]) {
+	stream_index = STREAM_ARRAY_INDEX(NEXT_STREAM_ID(stream_id));
+
+	if ((stream_index < MAX_NUMBER_OF_STREAMS && stream_index >= 0) &&
+	    (prtd->gapless_state.stream_opened[stream_index])) {
 		spin_unlock_irqrestore(&prtd->lock, flags);
-		pr_debug(" close stream %d", stream_id^1);
-		q6asm_stream_cmd(ac, CMD_CLOSE, stream_id^1);
+		pr_debug(" close stream %d", NEXT_STREAM_ID(stream_id));
+		q6asm_stream_cmd(ac, CMD_CLOSE, NEXT_STREAM_ID(stream_id));
 		spin_lock_irqsave(&prtd->lock, flags);
 	}
-	if (prtd->gapless_state.stream_opened[stream_id]) {
+
+	stream_index = STREAM_ARRAY_INDEX(stream_id);
+	if ((stream_index < MAX_NUMBER_OF_STREAMS && stream_index >= 0) &&
+	    (prtd->gapless_state.stream_opened[stream_index])) {
 		spin_unlock_irqrestore(&prtd->lock, flags);
 		pr_debug("close stream %d", stream_id);
 		q6asm_stream_cmd(ac, CMD_CLOSE, stream_id);
@@ -719,8 +772,6 @@ static int msm_compr_free(struct snd_compr_stream *cstream)
 
 	pr_debug("%s: ocmem_req: %d\n", __func__,
 		atomic_read(&pdata->audio_ocmem_req));
-	/* client buf alloc was with stream id 0, so free with the same */
-	ac->stream_id = 0;
 	q6asm_audio_client_buf_free_contiguous(dir, ac);
 
 	q6asm_audio_client_free(ac);
@@ -892,6 +943,7 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 	int bytes_to_write;
 	unsigned long flags;
 	int stream_id;
+	uint32_t stream_index;
 
 	if (cstream->direction != SND_COMPRESS_PLAYBACK) {
 		pr_err("%s: Unsupported stream type\n", __func__);
@@ -944,9 +996,9 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			atomic_set(&prtd->drain, 0);
 		}
 		prtd->last_buffer = 0;
-		pr_debug("issue CMD_FLUSH\n");
 		prtd->cmd_ack = 0;
 		if (!prtd->gapless_state.gapless_transition) {
+			pr_debug("issue CMD_FLUSH stream_id %d\n", stream_id);
 			spin_unlock_irqrestore(&prtd->lock, flags);
 			rc = q6asm_stream_cmd(
 				prtd->audio_client, CMD_FLUSH, stream_id);
@@ -981,7 +1033,9 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		pr_debug("SNDRV_PCM_TRIGGER_PAUSE_PUSH transition %d\n",
 				prtd->gapless_state.gapless_transition);
 		if (!prtd->gapless_state.gapless_transition) {
-			q6asm_cmd_nowait(prtd->audio_client, CMD_PAUSE);
+			pr_debug("issue CMD_PAUSE stream_id %d\n",
+				  ac->stream_id);
+			q6asm_stream_cmd_nowait(ac, CMD_PAUSE, ac->stream_id);
 			atomic_set(&prtd->start, 0);
 		}
 		break;
@@ -1057,7 +1111,8 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 
 			/* send EOS */
 			prtd->cmd_ack = 0;
-			q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
+			pr_debug("issue CMD_EOS stream_id %d\n", ac->stream_id);
+			q6asm_stream_cmd_nowait(ac, CMD_EOS, ac->stream_id);
 			pr_info("PARTIAL DRAIN, do not wait for EOS ack\n");
 
 			/* send a zero length buffer */
@@ -1094,8 +1149,9 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			}
 
 			/* move to next stream and reset vars */
-			pr_debug("%s: Moving to next stream in gapless\n", __func__);
-			ac->stream_id ^= 1;
+			pr_debug("%s: Moving to next stream in gapless\n",
+								__func__);
+			ac->stream_id = NEXT_STREAM_ID(ac->stream_id);
 			prtd->byte_offset = 0;
 			prtd->app_pointer  = 0;
 			prtd->first_buffer = 1;
@@ -1122,11 +1178,11 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		   stream can be used for gapless playback
 		*/
 		prtd->gapless_state.set_next_stream_id = false;
-		pr_debug("%s: CMD_EOS\n", __func__);
+		pr_debug("%s:CMD_EOS stream_id %d\n", __func__, ac->stream_id);
 
 		prtd->cmd_ack = 0;
 		atomic_set(&prtd->eos, 1);
-		q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
+		q6asm_stream_cmd_nowait(ac, CMD_EOS, ac->stream_id);
 
 		spin_unlock_irqrestore(&prtd->lock, flags);
 
@@ -1138,7 +1194,8 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		if (rc < 0)
 			pr_err("%s: EOS wait failed\n", __func__);
 
-		pr_debug("%s: SNDRV_COMPRESS_DRAIN  out of wait for EOS\n", __func__);
+		pr_debug("%s: SNDRV_COMPRESS_DRAIN  out of wait for EOS\n",
+			  __func__);
 
 		if (prtd->cmd_interrupt)
 			rc = -EINTR;
@@ -1150,12 +1207,14 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			 * so prepare the current stream in session for gapless playback
 			 */
 			spin_lock_irqsave(&prtd->lock, flags);
-			pr_debug("%s: issue CMD_PAUSE ", __func__);
-			q6asm_cmd_nowait(prtd->audio_client, CMD_PAUSE);
+			pr_debug("%s:issue CMD_PAUSE stream_id %d",
+					  __func__, ac->stream_id);
+			q6asm_stream_cmd_nowait(ac, CMD_PAUSE, ac->stream_id);
 			prtd->cmd_ack = 0;
 			spin_unlock_irqrestore(&prtd->lock, flags);
-			pr_debug("%s: issue CMD_FLUSH", __func__);
-			q6asm_cmd(prtd->audio_client, CMD_FLUSH);
+			pr_debug("%s:issue CMD_FLUSH ac->stream_id %d",
+					      __func__, ac->stream_id);
+			q6asm_stream_cmd(ac, CMD_FLUSH, ac->stream_id);
 			wait_event_timeout(prtd->flush_wait,
 					   prtd->cmd_ack, 1 * HZ / 4);
 
@@ -1191,14 +1250,25 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		pr_debug("%s: SND_COMPR_TRIGGER_NEXT_TRACK\n", __func__);
 		spin_lock_irqsave(&prtd->lock, flags);
 		rc = 0;
-		stream_id = ac->stream_id^1; /*next stream in gapless*/
+		/* next stream in gapless */
+		stream_id = NEXT_STREAM_ID(ac->stream_id);
 		/*
 		 * Wait if stream 1 has not completed before honoring next
 		 * track for stream 3. Scenario happens if second clip is
 		 * small and fills in one buffer so next track will be
 		 * called immediately.
 		 */
-		if (prtd->gapless_state.stream_opened[stream_id]) {
+		stream_index = STREAM_ARRAY_INDEX(stream_id);
+		if (stream_index >= MAX_NUMBER_OF_STREAMS ||
+		    stream_index < 0) {
+			pr_err("%s: Invalid stream index: %d", __func__,
+				stream_index);
+			spin_unlock_irqrestore(&prtd->lock, flags);
+			rc = -EINVAL;
+			break;
+		}
+
+		if (prtd->gapless_state.stream_opened[stream_index]) {
 			if (prtd->gapless_state.gapless_transition) {
 				rc = msm_compr_wait_for_stream_avail(prtd,
 								    &flags);
@@ -1229,6 +1299,7 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			}
 			break;
 		}
+		pr_debug("%s: open_write stream_id %d", __func__, stream_id);
 		rc = q6asm_stream_open_write_v2(prtd->audio_client,
 				prtd->codec, 16,
 				stream_id,
@@ -1245,7 +1316,7 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			break;
 		}
 		spin_lock_irqsave(&prtd->lock, flags);
-		prtd->gapless_state.stream_opened[stream_id] = 1;
+		prtd->gapless_state.stream_opened[stream_index] = 1;
 		prtd->gapless_state.set_next_stream_id = true;
 		spin_unlock_irqrestore(&prtd->lock, flags);
 		break;
