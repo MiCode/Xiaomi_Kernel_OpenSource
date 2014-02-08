@@ -109,6 +109,7 @@ enum wcd9xx_mbhc_cs_enable_bits {
 	MBHC_CS_ENABLE_POLLING,
 	MBHC_CS_ENABLE_INSERTION,
 	MBHC_CS_ENABLE_REMOVAL,
+	MBHC_CS_ENABLE_DET_ANC,
 };
 
 enum wcd9xxx_mbhc_state {
