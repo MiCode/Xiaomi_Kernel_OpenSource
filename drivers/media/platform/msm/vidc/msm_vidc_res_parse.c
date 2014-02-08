@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -119,14 +119,12 @@ err_hfi_read:
 static inline void msm_vidc_free_freq_table(
 		struct msm_vidc_platform_resources *res)
 {
-	kfree(res->load_freq_tbl);
 	res->load_freq_tbl = NULL;
 }
 
 static inline void msm_vidc_free_reg_table(
 			struct msm_vidc_platform_resources *res)
 {
-	kfree(res->reg_set.reg_tbl);
 	res->reg_set.reg_tbl = NULL;
 }
 
@@ -137,13 +135,10 @@ static inline void msm_vidc_free_bus_vectors(
 	if (res->bus_pdata) {
 		for (i = 0; i < ARRAY_SIZE(bus_pdata_config_vector); i++) {
 			for (j = 0; j < res->bus_pdata[i].num_usecases; j++) {
-				kfree(res->bus_pdata[i].usecase[j].vectors);
 				res->bus_pdata[i].usecase[j].vectors = NULL;
 			}
-			kfree(res->bus_pdata[i].usecase);
 			res->bus_pdata[i].usecase = NULL;
 		}
-		kfree(res->bus_pdata);
 		res->bus_pdata = NULL;
 	}
 }
@@ -151,14 +146,12 @@ static inline void msm_vidc_free_bus_vectors(
 static inline void msm_vidc_free_iommu_groups(
 			struct msm_vidc_platform_resources *res)
 {
-	kfree(res->iommu_group_set.iommu_maps);
 	res->iommu_group_set.iommu_maps = NULL;
 }
 
 static inline void msm_vidc_free_buffer_usage_table(
 			struct msm_vidc_platform_resources *res)
 {
-	kfree(res->buffer_usage_set.buffer_usage_tbl);
 	res->buffer_usage_set.buffer_usage_tbl = NULL;
 }
 
@@ -170,11 +163,9 @@ static inline void msm_vidc_free_regulator_table(
 		struct regulator_info *rinfo =
 			&res->regulator_set.regulator_tbl[c];
 
-		kfree(rinfo->name);
 		rinfo->name = NULL;
 	}
 
-	kfree(res->regulator_set.regulator_tbl);
 	res->regulator_set.regulator_tbl = NULL;
 	res->regulator_set.count = 0;
 }
@@ -182,7 +173,6 @@ static inline void msm_vidc_free_regulator_table(
 static inline void msm_vidc_free_clock_table(
 			struct msm_vidc_platform_resources *res)
 {
-	kfree(res->clock_set.clock_tbl);
 	res->clock_set.clock_tbl = NULL;
 	res->clock_set.count = 0;
 }
@@ -203,11 +193,9 @@ static void msm_vidc_free_bus_vector(struct msm_bus_scale_pdata *bus_pdata)
 {
 	int i;
 	for (i = 0; i < bus_pdata->num_usecases; i++) {
-		kfree(bus_pdata->usecase[i].vectors);
 		bus_pdata->usecase[i].vectors = NULL;
 	}
 
-	kfree(bus_pdata->usecase);
 	bus_pdata->usecase = NULL;
 }
 
@@ -232,7 +220,7 @@ static int msm_vidc_load_reg_table(struct msm_vidc_platform_resources *res)
 		return rc;
 	}
 
-	reg_set->reg_tbl = kzalloc(reg_set->count *
+	reg_set->reg_tbl = devm_kzalloc(&pdev->dev, reg_set->count *
 			sizeof(*(reg_set->reg_tbl)), GFP_KERNEL);
 	if (!reg_set->reg_tbl) {
 		dprintk(VIDC_ERR, "%s Failed to alloc register table\n",
@@ -274,8 +262,8 @@ static int msm_vidc_load_freq_table(struct msm_vidc_platform_resources *res)
 		return rc;
 	}
 
-	res->load_freq_tbl = kzalloc(num_elements * sizeof(*res->load_freq_tbl),
-			GFP_KERNEL);
+	res->load_freq_tbl = devm_kzalloc(&pdev->dev, num_elements *
+			sizeof(*res->load_freq_tbl), GFP_KERNEL);
 	if (!res->load_freq_tbl) {
 		dprintk(VIDC_ERR,
 				"%s Failed to alloc load_freq_tbl\n",
@@ -307,7 +295,8 @@ static int msm_vidc_load_bus_vector(struct platform_device *pdev,
 	int i, j;
 	int rc = 0;
 
-	values = kzalloc(sizeof(*values) * bus_pdata->num_usecases, GFP_KERNEL);
+	values = devm_kzalloc(&pdev->dev, sizeof(*values) *
+			bus_pdata->num_usecases, GFP_KERNEL);
 	if (!values) {
 		dprintk(VIDC_ERR, "%s Failed to alloc bus_values\n", __func__);
 		rc = -ENOMEM;
@@ -322,8 +311,9 @@ static int msm_vidc_load_bus_vector(struct platform_device *pdev,
 		goto err_parse_dt;
 	}
 
-	bus_pdata->usecase = kzalloc(sizeof(*bus_pdata->usecase) *
-		    bus_pdata->num_usecases, GFP_KERNEL);
+	bus_pdata->usecase = devm_kzalloc(&pdev->dev,
+			sizeof(*bus_pdata->usecase) * bus_pdata->num_usecases,
+			GFP_KERNEL);
 	if (!bus_pdata->usecase) {
 		dprintk(VIDC_ERR,
 			"%s Failed to alloc bus_pdata usecase\n", __func__);
@@ -332,7 +322,7 @@ static int msm_vidc_load_bus_vector(struct platform_device *pdev,
 	}
 	bus_pdata->name = bus_pdata_config->name;
 	for (i = 0; i < bus_pdata->num_usecases; i++) {
-		bus_pdata->usecase[i].vectors = kzalloc(
+		bus_pdata->usecase[i].vectors = devm_kzalloc(&pdev->dev,
 			sizeof(*bus_pdata->usecase[i].vectors) * num_ports,
 			GFP_KERNEL);
 		if (!bus_pdata->usecase[i].vectors) {
@@ -361,15 +351,12 @@ static int msm_vidc_load_bus_vector(struct platform_device *pdev,
 	}
 	if (i < bus_pdata->num_usecases) {
 		for (--i; i >= 0; i--) {
-			kfree(bus_pdata->usecase[i].vectors);
 			bus_pdata->usecase[i].vectors = NULL;
 		}
-		kfree(bus_pdata->usecase);
 		bus_pdata->usecase = NULL;
 		rc = -EINVAL;
 	}
 err_parse_dt:
-	kfree(values);
 err_mem_alloc:
 	return rc;
 }
@@ -386,8 +373,8 @@ static int msm_vidc_load_bus_vectors(struct msm_vidc_platform_resources *res)
 			(u32 *)&num_ports, 1) || (num_ports == 0))
 		goto err_mem_alloc;
 
-	res->bus_pdata = kzalloc(sizeof(*res->bus_pdata) * num_bus_pdata,
-				GFP_KERNEL);
+	res->bus_pdata = devm_kzalloc(&pdev->dev, sizeof(*res->bus_pdata) *
+			num_bus_pdata, GFP_KERNEL);
 	if (!res->bus_pdata) {
 		dprintk(VIDC_ERR, "Failed to alloc memory\n");
 		rc = -ENOMEM;
@@ -421,7 +408,6 @@ static int msm_vidc_load_bus_vectors(struct msm_vidc_platform_resources *res)
 	if (i < num_bus_pdata) {
 		for (--i; i >= 0; i--)
 			msm_vidc_free_bus_vector(&res->bus_pdata[i]);
-		kfree(res->bus_pdata);
 		res->bus_pdata = NULL;
 	}
 err_mem_alloc:
@@ -456,8 +442,9 @@ static int msm_vidc_load_iommu_groups(struct msm_vidc_platform_resources *res)
 		rc = -ENOENT;
 		goto err_no_of_node;
 	}
-	iommu_group_set->iommu_maps = kzalloc(iommu_group_set->count *
-			sizeof(*(iommu_group_set->iommu_maps)), GFP_KERNEL);
+	iommu_group_set->iommu_maps = devm_kzalloc(&pdev->dev,
+			iommu_group_set->count *
+			sizeof(*iommu_group_set->iommu_maps), GFP_KERNEL);
 
 	if (!iommu_group_set->iommu_maps) {
 		dprintk(VIDC_ERR, "Cannot allocate iommu_maps\n");
@@ -575,8 +562,9 @@ static int msm_vidc_load_buffer_usage_table(
 		return 0;
 	}
 
-	buffer_usage_set->buffer_usage_tbl = kzalloc(buffer_usage_set->count *
-			sizeof(*(buffer_usage_set->buffer_usage_tbl)),
+	buffer_usage_set->buffer_usage_tbl = devm_kzalloc(&pdev->dev,
+			buffer_usage_set->count *
+			sizeof(*buffer_usage_set->buffer_usage_tbl),
 			GFP_KERNEL);
 	if (!buffer_usage_set->buffer_usage_tbl) {
 		dprintk(VIDC_ERR, "%s Failed to alloc buffer usage table\n",
@@ -701,7 +689,8 @@ static int msm_vidc_load_clock_table(
 		goto err_load_clk_table_fail;
 	}
 
-	clock_props = kzalloc(num_clocks * sizeof(*clock_props), GFP_KERNEL);
+	clock_props = devm_kzalloc(&pdev->dev, num_clocks *
+			sizeof(*clock_props), GFP_KERNEL);
 	if (!clock_props) {
 		dprintk(VIDC_ERR, "No memory to read clock properties\n");
 		rc = -ENOMEM;
@@ -716,7 +705,7 @@ static int msm_vidc_load_clock_table(
 		goto err_load_clk_prop_fail;
 	}
 
-	clocks->clock_tbl = kzalloc(sizeof(*clocks->clock_tbl)
+	clocks->clock_tbl = devm_kzalloc(&pdev->dev, sizeof(*clocks->clock_tbl)
 			* num_clocks, GFP_KERNEL);
 	if (!clocks->clock_tbl) {
 		dprintk(VIDC_ERR, "Failed to allocate memory for clock tbl\n");
@@ -751,11 +740,9 @@ static int msm_vidc_load_clock_table(
 				vc->has_sw_power_collapse ? "yes" : "no");
 	}
 
-	kfree(clock_props);
 	return 0;
 
 err_load_clk_prop_fail:
-	kfree(clock_props);
 err_load_clk_table_fail:
 	return rc;
 }
@@ -873,7 +860,7 @@ int read_platform_resources_from_board(
 	kres = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	res->irq = kres ? kres->start : -1;
 
-	res->load_freq_tbl = kzalloc(pdata->num_load_table *
+	res->load_freq_tbl = devm_kzalloc(&pdev->dev, pdata->num_load_table *
 			sizeof(*res->load_freq_tbl), GFP_KERNEL);
 
 	if (!res->load_freq_tbl) {
