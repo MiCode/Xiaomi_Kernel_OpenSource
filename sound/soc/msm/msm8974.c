@@ -526,8 +526,8 @@ static void msm8974_ext_control(struct snd_soc_codec *codec)
 		snd_soc_dapm_disable_pin(dapm, "Lineout_4 amp");
 	}
 
-	snd_soc_dapm_sync(dapm);
 	mutex_unlock(&dapm->codec->mutex);
+	snd_soc_dapm_sync(dapm);
 }
 
 static int msm8974_get_spk(struct snd_kcontrol *kcontrol,
