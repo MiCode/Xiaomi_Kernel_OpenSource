@@ -282,7 +282,7 @@ struct wcd9xxx_mbhc_cb {
 			   enum mbhc_impedance_detect_stages stage);
 	void (*compute_impedance) (s16 *, s16 *, uint32_t *, uint32_t *);
 	void (*enable_mbhc_txfe) (struct snd_soc_codec *, bool);
-	int (*enable_mb_source) (struct snd_soc_codec *, bool);
+	int (*enable_mb_source) (struct snd_soc_codec *, bool, bool);
 	void (*setup_int_rbias) (struct snd_soc_codec *, bool);
 	void (*pull_mb_to_vddio) (struct snd_soc_codec *, bool);
 };

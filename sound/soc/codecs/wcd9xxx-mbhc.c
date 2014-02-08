@@ -1157,7 +1157,7 @@ static short wcd9xxx_mbhc_setup_hs_polling(struct wcd9xxx_mbhc *mbhc,
 	btn_det = WCD9XXX_MBHC_CAL_BTN_DET_PTR(mbhc->mbhc_cfg->calibration);
 	/* Enable external voltage source to micbias if present */
 	if (mbhc->mbhc_cb && mbhc->mbhc_cb->enable_mb_source)
-		mbhc->mbhc_cb->enable_mb_source(codec, true);
+		mbhc->mbhc_cb->enable_mb_source(codec, true, true);
 
 	/*
 	 * setup internal micbias if codec uses internal micbias for
@@ -1300,7 +1300,7 @@ static void wcd9xxx_cleanup_hs_polling(struct wcd9xxx_mbhc *mbhc)
 
 	/* Disable external voltage source to micbias if present */
 	if (mbhc->mbhc_cb && mbhc->mbhc_cb->enable_mb_source)
-		mbhc->mbhc_cb->enable_mb_source(mbhc->codec, false);
+		mbhc->mbhc_cb->enable_mb_source(mbhc->codec, false, true);
 
 	mbhc->polling_active = false;
 	mbhc->mbhc_state = MBHC_STATE_NONE;
@@ -3874,7 +3874,7 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 	 * turn on the external voltage source for Calibration.
 	 */
 	if (mbhc->mbhc_cb && mbhc->mbhc_cb->enable_mb_source)
-		mbhc->mbhc_cb->enable_mb_source(codec, true);
+		mbhc->mbhc_cb->enable_mb_source(codec, true, false);
 
 	cfilt_mode = snd_soc_read(codec, mbhc->mbhc_bias_regs.cfilt_ctl);
 	if (mbhc->mbhc_cb && mbhc->mbhc_cb->cfilt_fast_mode)
@@ -3996,7 +3996,7 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 	usleep_range(100, 100);
 
 	if (mbhc->mbhc_cb && mbhc->mbhc_cb->enable_mb_source)
-		mbhc->mbhc_cb->enable_mb_source(codec, false);
+		mbhc->mbhc_cb->enable_mb_source(codec, false, false);
 
 	wcd9xxx_enable_irq(mbhc->resmgr->core_res,
 			   mbhc->intr_ids->dce_est_complete);

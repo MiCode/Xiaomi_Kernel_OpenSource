@@ -167,6 +167,10 @@ static char on_demand_supply_name[][MAX_ON_DEMAND_SUPPLY_NAME_LENGTH] = {
 	"cdc-vdda-cp",
 };
 
+static int on_demand_regulator_control(struct on_demand_supply *supply,
+				       bool enable,
+				       u8 shift);
+
 struct msm8x10_wcd_priv {
 	struct snd_soc_codec *codec;
 	u32 adc_count;
@@ -784,6 +788,39 @@ err:
 	return NULL;
 }
 
+static int on_demand_regulator_control(struct on_demand_supply *supply,
+				       bool enable,
+				       u8 shift)
+{
+	int ret = 0;
+
+	if (!supply || !supply->supply)
+		return 0;
+
+	if (enable) {
+		if (atomic_inc_return(&supply->ref) == 1)
+			ret = regulator_enable(supply->supply);
+		if (ret)
+			pr_err("%s: Failed to enable %s\n",
+					__func__,
+					on_demand_supply_name[shift]);
+	} else {
+		if (atomic_read(&supply->ref) == 0) {
+			pr_debug("%s: %s supply has been disabled.\n",
+					__func__, on_demand_supply_name[shift]);
+			return 0;
+		}
+		if (atomic_dec_return(&supply->ref) == 0)
+			ret = regulator_disable(supply->supply);
+		if (ret)
+			pr_err("%s: Failed to disable %s\n",
+					__func__,
+					on_demand_supply_name[shift]);
+	}
+
+	return ret;
+}
+
 static int msm8x10_wcd_codec_enable_on_demand_supply(
 		struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
@@ -809,25 +846,14 @@ static int msm8x10_wcd_codec_enable_on_demand_supply(
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		if (atomic_inc_return(&supply->ref) == 1)
-			ret = regulator_enable(supply->supply);
-		if (ret)
-			dev_err(codec->dev, "%s: Failed to enable %s\n",
-				__func__,
-				on_demand_supply_name[w->shift]);
+		ret = on_demand_regulator_control(supply,
+						  true,
+						  w->shift);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		if (atomic_read(&supply->ref) == 0) {
-			dev_dbg(codec->dev, "%s: %s supply has been disabled.\n",
-				 __func__, on_demand_supply_name[w->shift]);
-			goto out;
-		}
-		if (atomic_dec_return(&supply->ref) == 0)
-			ret = regulator_disable(supply->supply);
-			if (ret)
-				dev_err(codec->dev, "%s: Failed to disable %s\n",
-					__func__,
-					on_demand_supply_name[w->shift]);
+		ret = on_demand_regulator_control(supply,
+						  false,
+						  w->shift);
 		break;
 	default:
 		break;
@@ -2740,18 +2766,33 @@ static void msm8x10_wcd_mbhc_txfe(struct snd_soc_codec *codec, bool on)
 }
 
 static int msm8x10_wcd_enable_ext_mb_source(struct snd_soc_codec *codec,
-	bool turn_on)
+					    bool turn_on,
+					    bool use_dapm)
 {
 	int ret = 0;
 
-	if (turn_on)
-		ret = snd_soc_dapm_force_enable_pin(&codec->dapm,
-				"MICBIAS_REGULATOR");
-	else
-		ret = snd_soc_dapm_disable_pin(&codec->dapm,
-				"MICBIAS_REGULATOR");
+	if (use_dapm) {
+		if (turn_on)
+			ret = snd_soc_dapm_force_enable_pin(&codec->dapm,
+					"MICBIAS_REGULATOR");
+		else
+			ret = snd_soc_dapm_disable_pin(&codec->dapm,
+					"MICBIAS_REGULATOR");
 
-	snd_soc_dapm_sync(&codec->dapm);
+		snd_soc_dapm_sync(&codec->dapm);
+	} else {
+		struct on_demand_supply *supply;
+		struct msm8x10_wcd_priv *msm8x10_wcd =
+				snd_soc_codec_get_drvdata(codec);
+
+		supply = &msm8x10_wcd->on_demand_list[ON_DEMAND_MICBIAS];
+		if (!supply || !supply->supply || !msm8x10_wcd)
+			return 0;
+
+		ret = on_demand_regulator_control(supply,
+						  turn_on,
+						  ON_DEMAND_MICBIAS);
+	}
 
 	if (ret)
 		dev_err(codec->dev, "%s: Failed to %s external micbias source\n",
