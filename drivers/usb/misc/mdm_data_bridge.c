@@ -1023,6 +1023,7 @@ bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 	}
 	if (data_int_in) {
 		__dev[ch_id]->use_int_in_pipe = true;
+		__dev[ch_id]->period = data_int_in->desc.bInterval;
 		status = data_bridge_probe(iface, data_int_in, bulk_out,
 				bname[BRIDGE_DATA_IDX], ch_id);
 	} else {
