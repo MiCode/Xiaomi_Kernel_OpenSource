@@ -86,6 +86,7 @@ struct mdss_mdp_prefill_params {
 	bool is_bwc;
 	bool is_tile;
 	bool is_hflip;
+	bool is_cmd;
 };
 
 static inline bool mdss_mdp_perf_is_caf(struct mdss_mdp_pipe *pipe)
@@ -291,6 +292,66 @@ static u32 mdss_mdp_perf_calc_pipe_prefill_cmd(struct mdss_mdp_prefill_params
 	return prefill_bytes;
 }
 
+u32 mdss_mdp_perf_calc_pipe_prefill_single(struct mdss_mdp_prefill_params
+	*params)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_prefill_data *prefill = &mdata->prefill_data;
+	u32 prefill_bytes;
+	u32 latency_lines, latency_buf_bytes;
+	u32 y_scaler_bytes;
+	u32 fbc_cmd_lines = 0, fbc_cmd_bytes = 0;
+
+	if (params->is_bwc || params->is_tile)
+		/* can start processing after receiving 4 lines */
+		latency_lines = 4;
+	else if (!params->is_caf && params->is_hflip)
+		/* need oneline before reading backwards */
+		latency_lines = 1;
+	else
+		latency_lines = 0;
+	latency_buf_bytes = params->src_w * params->bpp * latency_lines;
+	prefill_bytes = latency_buf_bytes;
+
+	y_scaler_bytes = mdss_mdp_calc_y_scaler_bytes(params, prefill);
+	prefill_bytes += y_scaler_bytes;
+
+	if (params->is_cmd)
+		fbc_cmd_lines++;
+	if (params->is_fbc)
+		fbc_cmd_lines++;
+
+	if (fbc_cmd_lines) {
+		fbc_cmd_bytes = params->bpp * params->dst_w * fbc_cmd_lines;
+		fbc_cmd_bytes = mdss_mdp_calc_scaling_w_h(fbc_cmd_bytes,
+			params->src_h, params->dst_h, params->src_w,
+			params->dst_w);
+		prefill_bytes += fbc_cmd_bytes;
+	}
+
+	return prefill_bytes;
+}
+
+static inline bool mdss_mdp_is_single_pipe_per_mixer(
+	struct mdss_mdp_mixer *mixer)
+{
+	bool is_single = true;
+	int cnt = 0;
+	int i;
+
+	for (i = 0; i < MDSS_MDP_MAX_STAGE; i++) {
+		struct mdss_mdp_pipe *pipe = mixer->stage_pipe[i];
+		if (pipe) {
+			cnt++;
+			if (cnt > 1) {
+				is_single = false;
+				break;
+			}
+		}
+	}
+	return is_single;
+}
+
 /**
  * mdss_mdp_perf_calc_pipe() - calculate performance numbers required by pipe
  * @pipe:	Source pipe struct containing updated pipe params
@@ -389,6 +450,11 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	else
 		perf->mdp_clk_rate = rate;
 
+	if (mixer->ctl->intf_num == MDSS_MDP_NO_INTF) {
+		perf->prefill_bytes = 0;
+		return 0;
+	}
+
 	prefill_params.smp_bytes = mdss_mdp_smp_get_size(pipe);
 	prefill_params.xres = xres;
 	prefill_params.src_w = src.w;
@@ -403,14 +469,17 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	prefill_params.is_bwc = pipe->bwc_mode;
 	prefill_params.is_tile = pipe->src_fmt->tile;
 	prefill_params.is_hflip = pipe->flags & MDP_FLIP_LR;
+	prefill_params.is_cmd = !mixer->ctl->is_video_mode;
 
-	if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
-		perf->prefill_bytes = (mixer->ctl->is_video_mode) ?
-			mdss_mdp_perf_calc_pipe_prefill_video(&prefill_params) :
-			mdss_mdp_perf_calc_pipe_prefill_cmd(&prefill_params);
-	}
+	if (mdss_mdp_is_single_pipe_per_mixer(mixer))
+		perf->prefill_bytes =
+			mdss_mdp_perf_calc_pipe_prefill_single(&prefill_params);
+	else if (!prefill_params.is_cmd)
+		perf->prefill_bytes =
+			mdss_mdp_perf_calc_pipe_prefill_video(&prefill_params);
 	else
-		perf->prefill_bytes = 0;
+		perf->prefill_bytes =
+			mdss_mdp_perf_calc_pipe_prefill_cmd(&prefill_params);
 
 	pr_debug("mixer=%d pnum=%d clk_rate=%u bw_overlap=%llu prefill=%d\n",
 		 mixer->num, pipe->num, perf->mdp_clk_rate, perf->bw_overlap,
