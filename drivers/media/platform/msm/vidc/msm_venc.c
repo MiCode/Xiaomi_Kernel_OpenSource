@@ -468,6 +468,26 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.cluster = MSM_VENC_CTRL_CLUSTER_QP,
 	},
 	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_VP8_MIN_QP,
+		.name = "VP8 Minimum QP",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 1,
+		.maximum = 128,
+		.default_value = 1,
+		.step = 1,
+		.cluster = MSM_VENC_CTRL_CLUSTER_QP,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_VP8_MAX_QP,
+		.name = "VP8 Maximum QP",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 1,
+		.maximum = 128,
+		.default_value = 128,
+		.step = 1,
+		.cluster = MSM_VENC_CTRL_CLUSTER_QP,
+	},
+	{
 		.id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE,
 		.name = "Slice Mode",
 		.type = V4L2_CTRL_TYPE_MENU,
@@ -1749,6 +1769,26 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		qp_range.max_qp = ctrl->val;
 		qp_range.min_qp = qp_min->val;
 
+		pdata = &qp_range;
+		break;
+	}
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_MIN_QP: {
+		struct v4l2_ctrl *qp_max;
+		qp_max = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_VP8_MAX_QP);
+		property_id = HAL_PARAM_VENC_SESSION_QP_RANGE;
+		qp_range.layer_id = 0;
+		qp_range.max_qp = qp_max->val;
+		qp_range.min_qp = ctrl->val;
+		pdata = &qp_range;
+		break;
+	}
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_MAX_QP: {
+		struct v4l2_ctrl *qp_min;
+		qp_min = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_VP8_MIN_QP);
+		property_id = HAL_PARAM_VENC_SESSION_QP_RANGE;
+		qp_range.layer_id = 0;
+		qp_range.max_qp = ctrl->val;
+		qp_range.min_qp = qp_min->val;
 		pdata = &qp_range;
 		break;
 	}
