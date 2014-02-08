@@ -819,6 +819,7 @@ static int msm_compr_free(struct snd_compr_stream *cstream)
 
 	if ((stream_index < MAX_NUMBER_OF_STREAMS && stream_index >= 0) &&
 	    (prtd->gapless_state.stream_opened[stream_index])) {
+		prtd->gapless_state.stream_opened[stream_index] = 0;
 		spin_unlock_irqrestore(&prtd->lock, flags);
 		pr_debug(" close stream %d", NEXT_STREAM_ID(stream_id));
 		q6asm_stream_cmd(ac, CMD_CLOSE, NEXT_STREAM_ID(stream_id));
@@ -828,6 +829,7 @@ static int msm_compr_free(struct snd_compr_stream *cstream)
 	stream_index = STREAM_ARRAY_INDEX(stream_id);
 	if ((stream_index < MAX_NUMBER_OF_STREAMS && stream_index >= 0) &&
 	    (prtd->gapless_state.stream_opened[stream_index])) {
+		prtd->gapless_state.stream_opened[stream_index] = 0;
 		spin_unlock_irqrestore(&prtd->lock, flags);
 		pr_debug("close stream %d", stream_id);
 		q6asm_stream_cmd(ac, CMD_CLOSE, stream_id);
