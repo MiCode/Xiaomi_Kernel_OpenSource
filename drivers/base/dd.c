@@ -158,26 +158,49 @@ static void driver_deferred_probe_trigger(void)
 	queue_work(deferred_wq, &deferred_probe_work);
 }
 
+static void enable_trigger_defer_cycle(void)
+{
+	driver_deferred_probe_enable = true;
+	driver_deferred_probe_trigger();
+	/*
+	 * Sort as many dependencies as possible before the next initcall
+	 * level
+	 */
+	flush_workqueue(deferred_wq);
+}
+
 /**
  * deferred_probe_initcall() - Enable probing of deferred devices
  *
  * We don't want to get in the way when the bulk of drivers are getting probed.
  * Instead, this initcall makes sure that deferred probing is delayed until
- * late_initcall time.
+ * all the registered initcall functions at a particular level are completed.
+ * This function is invoked at every *_initcall_sync level.
  */
 static int deferred_probe_initcall(void)
 {
-	deferred_wq = create_singlethread_workqueue("deferwq");
-	if (WARN_ON(!deferred_wq))
-		return -ENOMEM;
+	if (!deferred_wq) {
+		deferred_wq = create_singlethread_workqueue("deferwq");
+		if (WARN_ON(!deferred_wq))
+			return -ENOMEM;
+	}
 
-	driver_deferred_probe_enable = true;
-	driver_deferred_probe_trigger();
-	/* Sort as many dependencies as possible before exiting initcalls */
-	flush_workqueue(deferred_wq);
+	enable_trigger_defer_cycle();
+	driver_deferred_probe_enable = false;
 	return 0;
 }
-late_initcall(deferred_probe_initcall);
+arch_initcall_sync(deferred_probe_initcall);
+subsys_initcall_sync(deferred_probe_initcall);
+fs_initcall_sync(deferred_probe_initcall);
+device_initcall_sync(deferred_probe_initcall);
+
+static int deferred_probe_enable_fn(void)
+{
+	/* Enable deferred probing for all time */
+	enable_trigger_defer_cycle();
+	return 0;
+}
+late_initcall(deferred_probe_enable_fn);
 
 static void driver_bound(struct device *dev)
 {
