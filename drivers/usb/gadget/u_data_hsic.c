@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,7 @@
 #include <linux/termios.h>
 #include <mach/usb_bridge.h>
 #include <mach/usb_gadget_xport.h>
+#include "f_qdss.h"
 
 static unsigned int no_data_ports;
 
@@ -31,6 +32,10 @@ static unsigned int no_data_ports;
 #define GHSIC_DATA_SERIAL_TX_Q_SIZE		20
 #define GHSIC_DATA_RX_REQ_SIZE			2048
 #define GHSIC_DATA_TX_INTR_THRESHOLD		20
+#define GHSIC_DATA_QDSS_TX_Q_SIZE		300
+
+static unsigned int ghsic_data_qdss_tx_q_size = GHSIC_DATA_QDSS_TX_Q_SIZE;
+module_param(ghsic_data_qdss_tx_q_size, uint, S_IRUGO | S_IWUSR);
 
 static unsigned int ghsic_data_rmnet_tx_q_size = GHSIC_DATA_RMNET_TX_Q_SIZE;
 module_param(ghsic_data_rmnet_tx_q_size, uint, S_IRUGO | S_IWUSR);
@@ -483,22 +488,31 @@ static void ghsic_data_start_io(struct gdata_port *port)
 	spin_lock_irqsave(&port->rx_lock, flags);
 	ep_out = port->out;
 	spin_unlock_irqrestore(&port->rx_lock, flags);
-	if (!ep_out)
-		return;
 
-	ret = ghsic_data_alloc_requests(ep_out, &port->rx_idle,
-		port->rx_q_size, ghsic_data_epout_complete, &port->rx_lock);
-	if (ret) {
-		pr_err("%s: rx req allocation failed\n", __func__);
-		return;
+	if (ep_out) {
+		ret = ghsic_data_alloc_requests(ep_out,
+					&port->rx_idle,
+					port->rx_q_size,
+					ghsic_data_epout_complete,
+					&port->rx_lock);
+
+		pr_debug("%s: ret:%u\n", __func__, ret);
+
+		if (ret) {
+			pr_err("%s: rx req allocation failed\n", __func__);
+			return;
+		}
 	}
 
 	spin_lock_irqsave(&port->tx_lock, flags);
 	ep_in = port->in;
 	spin_unlock_irqrestore(&port->tx_lock, flags);
+	pr_debug("%s: ep_in:%p\n", __func__, ep_in);
+
 	if (!ep_in) {
 		spin_lock_irqsave(&port->rx_lock, flags);
-		ghsic_data_free_requests(ep_out, &port->rx_idle);
+		if (ep_out)
+			ghsic_data_free_requests(ep_out, &port->rx_idle);
 		spin_unlock_irqrestore(&port->rx_lock, flags);
 		return;
 	}
@@ -508,7 +522,8 @@ static void ghsic_data_start_io(struct gdata_port *port)
 	if (ret) {
 		pr_err("%s: tx req allocation failed\n", __func__);
 		spin_lock_irqsave(&port->rx_lock, flags);
-		ghsic_data_free_requests(ep_out, &port->rx_idle);
+		if (ep_out)
+			ghsic_data_free_requests(ep_out, &port->rx_idle);
 		spin_unlock_irqrestore(&port->rx_lock, flags);
 		return;
 	}
@@ -724,9 +739,6 @@ static int ghsic_data_port_alloc(unsigned port_num, enum gadget_type gtype)
 	pdrv->driver.owner = THIS_MODULE;
 
 	platform_driver_register(pdrv);
-
-	pr_debug("%s: port:%p portno:%d\n", __func__, port, port_num);
-
 	return 0;
 }
 
@@ -782,6 +794,7 @@ int ghsic_data_connect(void *gptr, int port_num)
 {
 	struct gdata_port		*port;
 	struct gserial			*gser;
+	struct gqdss			*qdss;
 	struct grmnet			*gr;
 	unsigned long			flags;
 	int				ret = 0;
@@ -799,7 +812,7 @@ int ghsic_data_connect(void *gptr, int port_num)
 		pr_err("%s: port is null\n", __func__);
 		return -ENODEV;
 	}
-
+	pr_debug("%s: port gtype #%d\n", __func__, port->gtype);
 	if (port->gtype == USB_GADGET_SERIAL) {
 		gser = gptr;
 
@@ -815,9 +828,8 @@ int ghsic_data_connect(void *gptr, int port_num)
 		port->rx_q_size = ghsic_data_serial_rx_q_size;
 		gser->in->driver_data = port;
 		gser->out->driver_data = port;
-	} else {
+	} else if (port->gtype == USB_GADGET_RMNET) {
 		gr = gptr;
-
 		spin_lock_irqsave(&port->tx_lock, flags);
 		port->in = gr->in;
 		spin_unlock_irqrestore(&port->tx_lock, flags);
@@ -830,6 +842,14 @@ int ghsic_data_connect(void *gptr, int port_num)
 		port->rx_q_size = ghsic_data_rmnet_rx_q_size;
 		gr->in->driver_data = port;
 		gr->out->driver_data = port;
+	} else if (port->gtype == USB_GADGET_QDSS) {
+		pr_debug("%s:: port type = USB_GADGET_QDSS\n", __func__);
+		qdss = gptr;
+		spin_lock_irqsave(&port->tx_lock, flags);
+		port->in = qdss->data;
+		spin_unlock_irqrestore(&port->tx_lock, flags);
+		port->tx_q_size = ghsic_data_qdss_tx_q_size;
+		qdss->data->driver_data = port;
 	}
 
 	ret = usb_ep_enable(port->in);
@@ -838,13 +858,14 @@ int ghsic_data_connect(void *gptr, int port_num)
 				__func__, port->in);
 		goto fail;
 	}
-
-	ret = usb_ep_enable(port->out);
-	if (ret) {
-		pr_err("%s: usb_ep_enable failed eptype:OUT ep:%p",
-				__func__, port->out);
-		usb_ep_disable(port->in);
-		goto fail;
+	if (port->out) {
+		ret = usb_ep_enable(port->out);
+		if (ret) {
+			pr_err("%s: usb_ep_enable failed eptype:OUT ep:%p",
+					__func__, port->out);
+			usb_ep_disable(port->in);
+			goto fail;
+		}
 	}
 
 	atomic_set(&port->connected, 1);

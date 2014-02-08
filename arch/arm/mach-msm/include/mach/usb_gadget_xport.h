@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -92,12 +92,14 @@ static enum transport_type str_to_xport(const char *name)
 enum gadget_type {
 	USB_GADGET_SERIAL,
 	USB_GADGET_RMNET,
+	USB_GADGET_QDSS,
 };
-
+#define NUM_QDSS_HSIC_PORTS 1
 #define NUM_RMNET_HSIC_PORTS 2
 #define NUM_DUN_HSIC_PORTS 2
 #define NUM_PORTS (NUM_RMNET_HSIC_PORTS \
-	+ NUM_DUN_HSIC_PORTS)
+	+ NUM_DUN_HSIC_PORTS \
+	+ NUM_QDSS_HSIC_PORTS)
 
 #define NUM_RMNET_HSUART_PORTS 1
 #define NUM_DUN_HSUART_PORTS 1

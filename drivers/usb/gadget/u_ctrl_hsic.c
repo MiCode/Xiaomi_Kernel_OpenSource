@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, 2013 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011, 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -183,7 +183,7 @@ static void ghsic_ctrl_connect_w(struct work_struct *w)
 	if (!port || !test_bit(CH_READY, &port->bridge_sts))
 		return;
 
-	pr_debug("%s: port:%p\n", __func__, port);
+	pr_debug("%s: port:%p port type =%u\n", __func__, port, port->gtype);
 
 	retval = ctrl_bridge_open(&port->brdg);
 	if (retval) {

@@ -21,6 +21,19 @@
 #include "gadget_chips.h"
 #include "f_qdss.h"
 #include "u_qdss.c"
+#include <mach/usb_gadget_xport.h>
+
+static unsigned int nr_qdss_ports;
+static unsigned int no_data_bam_ports;
+static unsigned int data_hsic_ports_no;
+
+static struct qdss_ports {
+	enum transport_type		data_xport;
+	unsigned char			data_xport_num;
+	unsigned	char		port_num;
+	struct f_qdss			*port;
+} qdss_ports[NR_QDSS_PORTS];
+
 
 static DEFINE_SPINLOCK(d_lock);
 static LIST_HEAD(usb_qdss_ch_list);
@@ -138,6 +151,19 @@ static struct usb_descriptor_header *qdss_ss_desc[] = {
 	NULL,
 };
 
+static struct usb_descriptor_header *qdss_hs_data_only_desc[] = {
+	(struct usb_descriptor_header *) &qdss_data_intf_desc,
+	(struct usb_descriptor_header *) &qdss_hs_data_desc,
+	NULL,
+};
+
+static struct usb_descriptor_header *qdss_ss_data_only_desc[] = {
+	(struct usb_descriptor_header *) &qdss_data_intf_desc,
+	(struct usb_descriptor_header *) &qdss_ss_data_desc,
+	(struct usb_descriptor_header *) &qdss_data_ep_comp_desc,
+	NULL,
+};
+
 /* string descriptors: */
 #define QDSS_DATA_IDX	0
 #define QDSS_CTRL_IDX	1
@@ -160,7 +186,7 @@ static struct usb_gadget_strings *qdss_strings[] = {
 
 static inline struct f_qdss *func_to_qdss(struct usb_function *f)
 {
-	return container_of(f, struct f_qdss, function);
+	return container_of(f, struct f_qdss, port.function);
 }
 
 /*----------------------------------------------------------------------*/
@@ -181,7 +207,7 @@ static void qdss_ctrl_write_complete(struct usb_ep *ep,
 			req->length = 0;
 			d_req->actual = req->actual;
 			d_req->status = req->status;
-			if (!usb_ep_queue(qdss->ctrl_in, req, GFP_ATOMIC))
+			if (!usb_ep_queue(qdss->port.ctrl_in, req, GFP_ATOMIC))
 				return;
 		}
 	}
@@ -237,13 +263,13 @@ void usb_qdss_free_req(struct usb_qdss_ch *ch)
 	list_for_each_safe(act, tmp, &qdss->ctrl_write_pool) {
 		req = list_entry(act, struct usb_request, list);
 		list_del(&req->list);
-		usb_ep_free_request(qdss->ctrl_in, req);
+		usb_ep_free_request(qdss->port.ctrl_in, req);
 	}
 
 	list_for_each_safe(act, tmp, &qdss->ctrl_read_pool) {
 		req = list_entry(act, struct usb_request, list);
 		list_del(&req->list);
-		usb_ep_free_request(qdss->ctrl_out, req);
+		usb_ep_free_request(qdss->port.ctrl_out, req);
 	}
 }
 EXPORT_SYMBOL(usb_qdss_free_req);
@@ -263,7 +289,7 @@ int usb_qdss_alloc_req(struct usb_qdss_ch *ch, int no_write_buf,
 	}
 
 	for (i = 0; i < no_write_buf; i++) {
-		req = usb_ep_alloc_request(qdss->ctrl_in, GFP_ATOMIC);
+		req = usb_ep_alloc_request(qdss->port.ctrl_in, GFP_ATOMIC);
 		if (!req) {
 			pr_err("usb_qdss_alloc_req: ctrl_in allocation err\n");
 			goto fail;
@@ -273,7 +299,7 @@ int usb_qdss_alloc_req(struct usb_qdss_ch *ch, int no_write_buf,
 	}
 
 	for (i = 0; i < no_read_buf; i++) {
-		req = usb_ep_alloc_request(qdss->ctrl_out, GFP_ATOMIC);
+		req = usb_ep_alloc_request(qdss->port.ctrl_out, GFP_ATOMIC);
 		if (!req) {
 			pr_err("usb_qdss_alloc_req:ctrl_out allocation err\n");
 			goto fail;
@@ -296,12 +322,12 @@ static void clear_eps(struct usb_function *f)
 
 	pr_debug("clear_eps\n");
 
-	if (qdss->ctrl_in)
-		qdss->ctrl_in->driver_data = NULL;
-	if (qdss->ctrl_out)
-		qdss->ctrl_out->driver_data = NULL;
-	if (qdss->data)
-		qdss->data->driver_data = NULL;
+	if (qdss->port.ctrl_in)
+		qdss->port.ctrl_in->driver_data = NULL;
+	if (qdss->port.ctrl_out)
+		qdss->port.ctrl_out->driver_data = NULL;
+	if (qdss->port.data)
+		qdss->port.data->driver_data = NULL;
 }
 
 static void clear_desc(struct usb_gadget *gadget, struct usb_function *f)
@@ -338,14 +364,16 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 	qdss_data_intf_desc.bInterfaceNumber = iface;
 	qdss->data_iface_id = iface;
 
-	/* Allocate ctrl I/F */
-	iface = usb_interface_id(c, f);
-	if (iface < 0) {
-		pr_err("interface allocation error\n");
-		return iface;
+	if (qdss->debug_inface_enabled) {
+		/* Allocate ctrl I/F */
+		iface = usb_interface_id(c, f);
+		if (iface < 0) {
+			pr_err("interface allocation error\n");
+			return iface;
+		}
+		qdss_ctrl_intf_desc.bInterfaceNumber = iface;
+		qdss->ctrl_iface_id = iface;
 	}
-	qdss_ctrl_intf_desc.bInterfaceNumber = iface;
-	qdss->ctrl_iface_id = iface;
 
 	ep = usb_ep_autoconfig_ss(gadget, &qdss_ss_data_desc,
 		&qdss_data_ep_comp_desc);
@@ -353,36 +381,41 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 		pr_err("ep_autoconfig error\n");
 		goto fail;
 	}
-	qdss->data = ep;
+	qdss->port.data = ep;
 	ep->driver_data = qdss;
 
-	ep = usb_ep_autoconfig_ss(gadget, &qdss_ss_ctrl_in_desc,
-		&qdss_ctrl_in_ep_comp_desc);
-	if (!ep) {
-		pr_err("ep_autoconfig error\n");
-		goto fail;
-	}
-	qdss->ctrl_in = ep;
-	ep->driver_data = qdss;
+	if (qdss->debug_inface_enabled) {
+		ep = usb_ep_autoconfig_ss(gadget, &qdss_ss_ctrl_in_desc,
+			&qdss_ctrl_in_ep_comp_desc);
+		if (!ep) {
+			pr_err("ep_autoconfig error\n");
+			goto fail;
+		}
+		qdss->port.ctrl_in = ep;
+		ep->driver_data = qdss;
 
-	ep = usb_ep_autoconfig_ss(gadget, &qdss_ss_ctrl_out_desc,
-		&qdss_ctrl_out_ep_comp_desc);
-	if (!ep) {
-		pr_err("ep_autoconfig error\n");
-		goto fail;
+		ep = usb_ep_autoconfig_ss(gadget, &qdss_ss_ctrl_out_desc,
+			&qdss_ctrl_out_ep_comp_desc);
+		if (!ep) {
+			pr_err("ep_autoconfig error\n");
+			goto fail;
+		}
+		qdss->port.ctrl_out = ep;
+		ep->driver_data = qdss;
 	}
-	qdss->ctrl_out = ep;
-	ep->driver_data = qdss;
 
 	/*update descriptors*/
 	qdss_hs_data_desc.bEndpointAddress =
 		qdss_ss_data_desc.bEndpointAddress;
-	qdss_hs_ctrl_in_desc.bEndpointAddress =
+	if (qdss->debug_inface_enabled) {
+		qdss_hs_ctrl_in_desc.bEndpointAddress =
 		qdss_ss_ctrl_in_desc.bEndpointAddress;
-	qdss_hs_ctrl_out_desc.bEndpointAddress =
+		qdss_hs_ctrl_out_desc.bEndpointAddress =
 		qdss_ss_ctrl_out_desc.bEndpointAddress;
-
-	f->hs_descriptors = usb_copy_descriptors(qdss_hs_desc);
+		f->hs_descriptors = usb_copy_descriptors(qdss_hs_desc);
+	} else
+		f->hs_descriptors = usb_copy_descriptors(
+							qdss_hs_data_only_desc);
 	if (!f->hs_descriptors) {
 		pr_err("usb_copy_descriptors error\n");
 		goto fail;
@@ -390,7 +423,12 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 
 	/* update ss descriptors */
 	if (gadget_is_superspeed(gadget)) {
-		f->ss_descriptors = usb_copy_descriptors(qdss_ss_desc);
+		if (qdss->debug_inface_enabled)
+			f->ss_descriptors =
+			usb_copy_descriptors(qdss_ss_desc);
+		else
+			f->ss_descriptors =
+			usb_copy_descriptors(qdss_ss_data_only_desc);
 		if (!f->ss_descriptors) {
 			pr_err("usb_copy_descriptors error\n");
 			goto fail;
@@ -398,7 +436,7 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 	}
 
 	if (gadget_is_dwc3(gadget))
-		dwc3_tx_fifo_resize_request(qdss->data, true);
+		dwc3_tx_fifo_resize_request(qdss->port.data, true);
 
 	return 0;
 fail:
@@ -418,7 +456,7 @@ static void qdss_unbind(struct usb_configuration *c, struct usb_function *f)
 	flush_workqueue(qdss->wq);
 
 	if (gadget_is_dwc3(gadget))
-		dwc3_tx_fifo_resize_request(qdss->data, false);
+		dwc3_tx_fifo_resize_request(qdss->port.data, false);
 
 	clear_eps(f);
 	clear_desc(gadget, f);
@@ -431,41 +469,71 @@ static void qdss_eps_disable(struct usb_function *f)
 	pr_debug("qdss_eps_disable\n");
 
 	if (qdss->ctrl_in_enabled) {
-		usb_ep_disable(qdss->ctrl_in);
+		usb_ep_disable(qdss->port.ctrl_in);
 		qdss->ctrl_in_enabled = 0;
 	}
 
 	if (qdss->ctrl_out_enabled) {
-		usb_ep_disable(qdss->ctrl_out);
+		usb_ep_disable(qdss->port.ctrl_out);
 		qdss->ctrl_out_enabled = 0;
 	}
 
 	if (qdss->data_enabled) {
-		usb_ep_disable(qdss->data);
+		usb_ep_disable(qdss->port.data);
 		qdss->data_enabled = 0;
 	}
 }
 
 static void usb_qdss_disconnect_work(struct work_struct *work)
 {
-	struct f_qdss *qdss = container_of(work, struct f_qdss, disconnect_w);
+	struct f_qdss *qdss;
 	int status;
+	unsigned char portno;
+	enum transport_type	dxport;
 
+	qdss = container_of(work, struct f_qdss, disconnect_w);
+	dxport = qdss_ports[qdss->port_num].data_xport;
+	portno = qdss_ports[qdss->port_num].data_xport_num;
+
+	if (qdss->port_num >= nr_qdss_ports) {
+		pr_err("%s: supporting ports#%u port_id:%u", __func__,
+				nr_qdss_ports, portno);
+		return;
+	}
 	pr_debug("usb_qdss_disconnect_work\n");
-
-	status = uninit_data(qdss->data);
-	if (status)
-		pr_err("%s: uninit_data error\n", __func__);
-
-	/* notify qdss to cancell all active transfers*/
-	if (qdss->ch.notify) {
-		qdss->ch.notify(qdss->ch.priv, USB_QDSS_DISCONNECT, NULL,
-			NULL);
-		/* If the app was never started, we can skip USB BAM reset */
-		status = set_qdss_data_connection(qdss->cdev->gadget,
-			qdss->data, qdss->data->address, 0);
+	switch (dxport) {
+	case USB_GADGET_XPORT_BAM:
+		status = uninit_data(qdss->port.data);
 		if (status)
-			pr_err("qdss_disconnect error");
+			pr_err("%s: uninit_data error\n", __func__);
+		/* notify qdss to cancell all active transfers*/
+		if (qdss->ch.notify) {
+			qdss->ch.notify(qdss->ch.priv,
+					USB_QDSS_DISCONNECT,
+					NULL,
+					NULL);
+			/*
+			 * If the app was never started,
+			 * we can skip USB BAM reset.
+			 */
+			status = set_qdss_data_connection(
+					qdss->cdev->gadget,
+					qdss->port.data,
+					qdss->port.data->address,
+					0);
+			if (status)
+				pr_err("qdss_disconnect error");
+		}
+		break;
+	case USB_GADGET_XPORT_HSIC:
+		pr_debug("usb_qdss_disconnect_work: HSIC transport\n");
+		ghsic_data_disconnect(&qdss->port, portno);
+		break;
+	case USB_GADGET_XPORT_NONE:
+		break;
+	default:
+		pr_err("%s: Un-supported transport: %s\n", __func__,
+				xport_to_str(dxport));
 	}
 
 }
@@ -474,52 +542,90 @@ static void qdss_disable(struct usb_function *f)
 {
 	struct f_qdss	*qdss = func_to_qdss(f);
 	unsigned long flags;
-
+	unsigned char portno;
+	portno = qdss->port_num;
+	if (portno >= nr_qdss_ports) {
+		pr_err("%s: supporting ports#%u port_id:%u", __func__,
+				nr_qdss_ports, portno);
+		return;
+	}
 	pr_debug("qdss_disable\n");
-
 	spin_lock_irqsave(&qdss->lock, flags);
 	if (!qdss->usb_connected) {
 		spin_unlock_irqrestore(&qdss->lock, flags);
 		return;
 	}
-
 	qdss->usb_connected = 0;
 	spin_unlock_irqrestore(&qdss->lock, flags);
-
 	/*cancell all active xfers*/
 	qdss_eps_disable(f);
-
 	queue_work(qdss->wq, &qdss->disconnect_w);
 }
 
 static void usb_qdss_connect_work(struct work_struct *work)
 {
-	struct f_qdss *qdss = container_of(work, struct f_qdss, connect_w);
+	struct f_qdss *qdss;
 	int status;
+	unsigned char port_num;
+	enum transport_type	dxport;
 
+	qdss = container_of(work, struct f_qdss, connect_w);
+	dxport = qdss_ports[qdss->port_num].data_xport;
+	port_num = qdss_ports[qdss->port_num].data_xport_num;
+	pr_debug("%s: data xport: %s dev: %p portno: %d\n",
+			__func__, xport_to_str(dxport),
+			qdss, qdss->port_num);
+	if (qdss->port_num >= nr_qdss_ports) {
+		pr_err("%s: supporting ports#%u port_id:%u", __func__,
+				nr_qdss_ports, qdss->port_num);
+		return;
+	}
 	pr_debug("usb_qdss_connect_work\n");
-
-	status = init_data(qdss->data);
-	if (status) {
-		pr_err("init_data error");
-		return;
-	}
-
-	status = set_qdss_data_connection(qdss->cdev->gadget, qdss->data,
-		qdss->data->address, 1);
-	if (status) {
-		pr_err("set_qdss_data_connection error");
-		return;
-	}
-	if (qdss->ch.notify)
-		qdss->ch.notify(qdss->ch.priv, USB_QDSS_CONNECT, NULL,
+	switch (dxport) {
+	case USB_GADGET_XPORT_BAM:
+		status = init_data(qdss->port.data);
+		if (status) {
+			pr_err("init_data error");
+			return;
+		}
+		status = set_qdss_data_connection(
+				qdss->cdev->gadget,
+				qdss->port.data,
+				qdss->port.data->address,
+				1);
+		if (status) {
+			pr_err("set_qdss_data_connection error");
+			return;
+		}
+		if (qdss->ch.notify)
+			qdss->ch.notify(qdss->ch.priv,
+			USB_QDSS_CONNECT,
+			NULL,
 			&qdss->ch);
-
-	status = send_sps_req(qdss->data);
-	if (status) {
-		pr_err("send_sps_req error\n");
-		return;
+		status = send_sps_req(qdss->port.data);
+		if (status) {
+			pr_err("send_sps_req error\n");
+			return;
+		}
+		break;
+	case USB_GADGET_XPORT_HSIC:
+		pr_debug("usb_qdss_connect_work: HSIC transport\n");
+		status = ghsic_data_connect(&qdss->port, port_num);
+		if (status) {
+			pr_err("%s: ghsic_data_connect failed: err:%d\n",
+					__func__, status);
+			return;
+		}
+		break;
+	case USB_GADGET_XPORT_NONE:
+		break;
+	default:
+		pr_err("%s: Un-supported transport: %s\n", __func__,
+				xport_to_str(dxport));
 	}
+
+
+
 }
 
 static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
@@ -528,59 +634,74 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	struct usb_gadget *gadget = f->config->cdev->gadget;
 	struct usb_qdss_ch *ch = &qdss->ch;
 	int ret = 0;
+	enum transport_type	dxport;
 
-	pr_debug("qdss_set_alt\n");
+	dxport = qdss_ports[qdss->port_num].data_xport;
+
+	pr_debug("qdss_set_alt qdss pointer = %p\n", qdss);
 
 	if (alt != 0)
 		goto fail;
 
 	if (gadget->speed != USB_SPEED_SUPER &&
 		gadget->speed != USB_SPEED_HIGH) {
-			pr_err("qdss_st_alt: qdss supportes HS or SS only\n");
-			ret = -EINVAL;
-			goto fail;
+		pr_err("qdss_st_alt: qdss supportes HS or SS only\n");
+		ret = -EINVAL;
+		goto fail;
 	}
 
 	if (intf == qdss->data_iface_id) {
-		if (config_ep_by_speed(gadget, f, qdss->data))
-			return -EINVAL;
 
-		ret = usb_ep_enable(qdss->data);
+		if (config_ep_by_speed(gadget, f, qdss->port.data))
+			return -EINVAL;
+		ret = usb_ep_enable(qdss->port.data);
 		if (ret)
 			goto fail;
 
-		qdss->data->driver_data = qdss;
+		qdss->port.data->driver_data = qdss;
 		qdss->data_enabled = 1;
 
-	} else if (intf == qdss->ctrl_iface_id) {
-		if (config_ep_by_speed(gadget, f, qdss->ctrl_in))
+
+	} else if ((intf == qdss->ctrl_iface_id) &&
+	(qdss->debug_inface_enabled)) {
+
+		if (config_ep_by_speed(gadget, f, qdss->port.ctrl_in))
 			return -EINVAL;
 
-		ret = usb_ep_enable(qdss->ctrl_in);
+		ret = usb_ep_enable(qdss->port.ctrl_in);
 		if (ret)
 			goto fail;
 
-		qdss->ctrl_in->driver_data = qdss;
+		qdss->port.ctrl_in->driver_data = qdss;
 		qdss->ctrl_in_enabled = 1;
 
-		if (config_ep_by_speed(gadget, f, qdss->ctrl_out))
+		if (config_ep_by_speed(gadget, f, qdss->port.ctrl_out))
 			return -EINVAL;
 
-		ret = usb_ep_enable(qdss->ctrl_out);
+
+		ret = usb_ep_enable(qdss->port.ctrl_out);
 		if (ret)
 			goto fail;
 
-		qdss->ctrl_out->driver_data = qdss;
+		qdss->port.ctrl_out->driver_data = qdss;
 		qdss->ctrl_out_enabled = 1;
 	}
 
-	if (qdss->ctrl_out_enabled && qdss->ctrl_in_enabled &&
-		qdss->data_enabled)
-		qdss->usb_connected = 1;
-
-	if (qdss->usb_connected && ch->app_conn)
+	if (qdss->debug_inface_enabled) {
+		if (qdss->ctrl_out_enabled && qdss->ctrl_in_enabled &&
+			qdss->data_enabled) {
+			qdss->usb_connected = 1;
+			pr_debug("qdss_set_alt usb_connected INTF enabled\n");
+		}
+	} else {
+		if (qdss->data_enabled) {
+			qdss->usb_connected = 1;
+			pr_debug("qdss_set_alt usb_connected INTF disabled\n");
+		}
+	}
+	if (qdss->usb_connected && (ch->app_conn ||
+		(dxport == USB_GADGET_XPORT_HSIC)))
 		queue_work(qdss->wq, &qdss->connect_w);
-
 	return 0;
 fail:
 	pr_err("qdss_set_alt failed\n");
@@ -588,14 +709,21 @@ fail:
 	return ret;
 }
 
-static int qdss_bind_config(struct usb_configuration *c, const char *name)
+static int qdss_bind_config(struct usb_configuration *c, unsigned char portno)
 {
 	struct f_qdss *qdss;
 	int status, found = 0;
 	struct usb_qdss_ch *ch;
 	unsigned long flags;
+	char *name;
 
 	pr_debug("qdss_bind_config\n");
+	if (portno >= nr_qdss_ports) {
+		pr_err("%s: supporting ports#%u port_id:%u", __func__,
+				nr_qdss_ports, portno);
+		return -ENODEV;
+	}
+	qdss = qdss_ports[portno].port;
 
 	if (qdss_string_defs[QDSS_DATA_IDX].id == 0) {
 		status = usb_string_id(c->cdev);
@@ -603,27 +731,30 @@ static int qdss_bind_config(struct usb_configuration *c, const char *name)
 			return status;
 		qdss_string_defs[QDSS_DATA_IDX].id = status;
 		qdss_data_intf_desc.iInterface = status;
-
-		status = usb_string_id(c->cdev);
-		if (status < 0)
-			return status;
-		qdss_string_defs[QDSS_CTRL_IDX].id = status;
-		qdss_ctrl_intf_desc.iInterface = status;
+		if (qdss->debug_inface_enabled) {
+			status = usb_string_id(c->cdev);
+			if (status < 0)
+				return status;
+			qdss_string_defs[QDSS_CTRL_IDX].id = status;
+			qdss_ctrl_intf_desc.iInterface = status;
+		}
 	}
 
+	if (qdss_ports[portno].data_xport == USB_GADGET_XPORT_BAM)
+		name = kasprintf(GFP_ATOMIC, "qdss");
+	else
+		name = kasprintf(GFP_ATOMIC, "qdss%d", portno);
+
 	spin_lock_irqsave(&d_lock, flags);
+
 	list_for_each_entry(ch, &usb_qdss_ch_list, list) {
 		if (!strcmp(name, ch->name)) {
 			found = 1;
 			break;
 		}
 	}
-
 	if (!found) {
-		pr_debug("qdss_bind_config allocating channel\n");
-		qdss = kzalloc(sizeof *qdss, GFP_ATOMIC);
 		if (!qdss) {
-			pr_err("qdss_bind_config: allocating channel failed\n");
 			spin_unlock_irqrestore(&d_lock, flags);
 			return -ENOMEM;
 		}
@@ -640,24 +771,30 @@ static int qdss_bind_config(struct usb_configuration *c, const char *name)
 	} else {
 		qdss = container_of(ch, struct f_qdss, ch);
 		ch->priv_usb = qdss;
+		qdss->debug_inface_enabled =
+		qdss_ports[portno].port->debug_inface_enabled;
+		if (qdss != qdss_ports[portno].port) {
+			kfree(qdss_ports[portno].port);
+			qdss_ports[portno].port = qdss;
+		}
 	}
 	spin_unlock_irqrestore(&d_lock, flags);
 	qdss->cdev = c->cdev;
-	qdss->function.name = name;
-	qdss->function.fs_descriptors = qdss_hs_desc;
-	qdss->function.hs_descriptors = qdss_hs_desc;
-	qdss->function.strings = qdss_strings;
-	qdss->function.bind = qdss_bind;
-	qdss->function.unbind = qdss_unbind;
-	qdss->function.set_alt = qdss_set_alt;
-	qdss->function.disable = qdss_disable;
+	qdss->port_num = portno;
+	qdss->port.function.name = name;
+	qdss->port.function.fs_descriptors = qdss_hs_desc;
+	qdss->port.function.hs_descriptors = qdss_hs_desc;
+	qdss->port.function.strings = qdss_strings;
+	qdss->port.function.bind = qdss_bind;
+	qdss->port.function.unbind = qdss_unbind;
+	qdss->port.function.set_alt = qdss_set_alt;
+	qdss->port.function.disable = qdss_disable;
 	spin_lock_init(&qdss->lock);
 	INIT_LIST_HEAD(&qdss->ctrl_read_pool);
 	INIT_LIST_HEAD(&qdss->ctrl_write_pool);
 	INIT_WORK(&qdss->connect_w, usb_qdss_connect_work);
 	INIT_WORK(&qdss->disconnect_w, usb_qdss_disconnect_work);
-
-	status = usb_add_function(c, &qdss->function);
+	status = usb_add_function(c, &qdss->port.function);
 	if (status) {
 		pr_err("qdss usb_add_function failed\n");
 		ch->priv_usb = NULL;
@@ -699,7 +836,7 @@ int usb_qdss_ctrl_read(struct usb_qdss_ch *ch, struct qdss_request *d_req)
 	req->length = d_req->length;
 	req->context = d_req;
 
-	if (usb_ep_queue(qdss->ctrl_out, req, GFP_ATOMIC)) {
+	if (usb_ep_queue(qdss->port.ctrl_out, req, GFP_ATOMIC)) {
 		/* If error add the link to linked list again*/
 		spin_lock_irqsave(&qdss->lock, flags);
 		list_add_tail(&req->list, &qdss->ctrl_read_pool);
@@ -744,7 +881,7 @@ int usb_qdss_ctrl_write(struct usb_qdss_ch *ch, struct qdss_request *d_req)
 	req->buf = d_req->buf;
 	req->length = d_req->length;
 	req->context = d_req;
-	if (usb_ep_queue(qdss->ctrl_in, req, GFP_ATOMIC)) {
+	if (usb_ep_queue(qdss->port.ctrl_in, req, GFP_ATOMIC)) {
 		spin_lock_irqsave(&qdss->lock, flags);
 		list_add_tail(&req->list, &qdss->ctrl_write_pool);
 		spin_unlock_irqrestore(&qdss->lock, flags);
@@ -826,8 +963,8 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 	pr_debug("usb_qdss_close\n");
 
 	spin_lock_irqsave(&d_lock, flags);
-	usb_ep_dequeue(qdss->data, qdss->endless_req);
-	usb_ep_free_request(qdss->data, qdss->endless_req);
+	usb_ep_dequeue(qdss->port.data, qdss->endless_req);
+	usb_ep_free_request(qdss->port.data, qdss->endless_req);
 	qdss->endless_req = NULL;
 	ch->app_conn = 0;
 	spin_unlock_irqrestore(&d_lock, flags);
@@ -864,3 +1001,96 @@ static int qdss_setup(void)
 	return 0;
 }
 
+static int qdss_init_port(const char *data_name,
+		const char *port_name, bool debug_enable)
+{
+	struct f_qdss			*dev;
+	struct qdss_ports		*qdss_port;
+	int				ret;
+	int				i;
+
+	if (nr_qdss_ports >= NR_QDSS_PORTS) {
+		pr_err("%s: Max-%d instances supported\n",
+				__func__, NR_QDSS_PORTS);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: port#:%d, data port: %s\n",
+		__func__, nr_qdss_ports, data_name);
+
+	dev = kzalloc(sizeof(struct f_qdss), GFP_KERNEL);
+	if (!dev) {
+		pr_err("%s: Unable to allocate qdss device\n", __func__);
+		return -ENOMEM;
+	}
+
+	dev->port_num = nr_qdss_ports;
+	spin_lock_init(&dev->lock);
+
+	qdss_port = &qdss_ports[nr_qdss_ports];
+	qdss_port->port = dev;
+	qdss_port->port_num = nr_qdss_ports;
+	qdss_port->data_xport = str_to_xport(data_name);
+	qdss_port->port->debug_inface_enabled = debug_enable;
+
+	switch (qdss_port->data_xport) {
+	case USB_GADGET_XPORT_BAM:
+		qdss_port->data_xport_num = no_data_bam_ports;
+		no_data_bam_ports++;
+		pr_debug("USB_GADGET_XPORT_BAM %d\n", no_data_bam_ports);
+		break;
+	case USB_GADGET_XPORT_HSIC:
+	    pr_debug("%s USB_GADGET_XPORT_HSIC\n", __func__);
+		ghsic_data_set_port_name(port_name, data_name);
+		qdss_port->data_xport_num = data_hsic_ports_no;
+		data_hsic_ports_no++;
+		break;
+	case USB_GADGET_XPORT_NONE:
+		break;
+	default:
+		pr_err("%s: Un-supported transport: %u\n", __func__,
+				qdss_port->data_xport);
+		ret = -ENODEV;
+		goto fail_probe;
+	}
+	nr_qdss_ports++;
+	return 0;
+
+fail_probe:
+	for (i = 0; i < nr_qdss_ports; i++)
+		kfree(qdss_ports[i].port);
+
+	nr_qdss_ports = 0;
+	no_data_bam_ports = 0;
+	data_hsic_ports_no = 0;
+	return ret;
+}
+
+static int qdss_gport_setup(void)
+{
+	int	port_idx;
+	int	i;
+
+	pr_debug("%s: bam ports: %u data hsic ports: %u nr_qdss_ports: %u\n",
+			__func__, no_data_bam_ports, data_hsic_ports_no,
+			nr_qdss_ports);
+
+	if (data_hsic_ports_no) {
+		pr_debug("%s: go to setup hsic data\n", __func__);
+		port_idx = ghsic_data_setup(data_hsic_ports_no,
+				USB_GADGET_QDSS);
+		if (port_idx < 0)
+			return port_idx;
+		for (i = 0; i < nr_qdss_ports; i++) {
+			if (qdss_ports[i].data_xport ==
+					USB_GADGET_XPORT_HSIC) {
+				qdss_ports[i].data_xport_num = port_idx;
+				pr_debug("%s: qdss data_xport_num = %d\n",
+					__func__, qdss_ports[i].data_xport_num);
+				port_idx++;
+			}
+		}
+	}
+
+	return 0;
+}
