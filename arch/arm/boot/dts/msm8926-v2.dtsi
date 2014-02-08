@@ -80,6 +80,13 @@
 
 &apc_vreg_corner {
 	/delete-property/ qcom,cpr-enable;
+	/delete-property/ qcom,cpr-fuse-cond-min-volt-sel;
+	/delete-property/ qcom,cpr-cond-min-voltage;
+	/delete-property/ qcom,cpr-fuse-uplift-sel;
+	/delete-property/ qcom,cpr-uplift-voltage;
+	/delete-property/ qcom,cpr-uplift-quotient;
+	/delete-property/ qcom,cpr-uplift-max-volt;
+	/delete-property/ qcom,cpr-uplift-speed-bin;
 	qcom,vdd-mx-vmax = <1287500>;
 	qcom,vdd-mx-vmin-method = <4>;
 	qcom,vdd-mx-corner-map = <1050000 1150000 1280000>;
