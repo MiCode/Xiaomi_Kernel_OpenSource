@@ -27,7 +27,6 @@
 #include <linux/timer.h>
 #include <mach/sps.h>
 #include "slim-msm.h"
-#include <mach/qdsp6v2/apr.h>
 
 #define NGD_SLIM_NAME	"ngd_msm_ctrl"
 #define SLIM_LA_MGR	0xFF
@@ -814,7 +813,7 @@ capability_retry:
 					prev_state);
 			/* ADSP SSR, send device_up notifications */
 			if (prev_state == MSM_CTRL_DOWN)
-				schedule_work(&dev->slave_notify);
+				complete(&dev->qmi.slave_notify);
 		} else if (ret == -EIO) {
 			pr_info("capability message NACKed, retrying");
 			if (retries < INIT_MX_RETRIES) {
@@ -1065,31 +1064,54 @@ static int ngd_slim_rx_msgq_thread(void *data)
 	return 0;
 }
 
-static void ngd_laddr_lookup(struct work_struct *work)
+static int ngd_notify_slaves(void *data)
 {
-	struct msm_slim_ctrl *dev =
-		container_of(work, struct msm_slim_ctrl, slave_notify);
+	struct msm_slim_ctrl *dev = (struct msm_slim_ctrl *)data;
 	struct slim_controller *ctrl = &dev->ctrl;
 	struct slim_device *sbdev;
 	struct list_head *pos, *next;
-	int i;
-	slim_framer_booted(ctrl);
-	mutex_lock(&ctrl->m_ctrl);
-	list_for_each_safe(pos, next, &ctrl->devs) {
-		int ret = 0;
-		sbdev = list_entry(pos, struct slim_device, dev_list);
-		mutex_unlock(&ctrl->m_ctrl);
-		for (i = 0; i < LADDR_RETRY; i++) {
-			ret = slim_get_logical_addr(sbdev, sbdev->e_addr,
-					6, &sbdev->laddr);
-			if (!ret)
-				break;
-			else /* time for ADSP to assign LA */
-				msleep(20);
+	int ret, i = 0;
+	while (!kthread_should_stop()) {
+		set_current_state(TASK_INTERRUPTIBLE);
+		ret = wait_for_completion_timeout(&dev->qmi.slave_notify,
+								HZ);
+		if (!ret) {
+			dev_err(dev->dev, "slave thread wait err:%d", ret);
+			continue;
 		}
+		/* Probe devices for first notification */
+		if (!i) {
+			dev->err = 0;
+			if (dev->dev->of_node)
+				of_register_slim_devices(&dev->ctrl);
+
+			/*
+			 * Add devices registered with board-info now that
+			 * controller is up
+			 */
+			slim_ctrl_add_boarddevs(&dev->ctrl);
+		} else {
+			slim_framer_booted(ctrl);
+		}
+		i++;
 		mutex_lock(&ctrl->m_ctrl);
+		list_for_each_safe(pos, next, &ctrl->devs) {
+			sbdev = list_entry(pos, struct slim_device, dev_list);
+			mutex_unlock(&ctrl->m_ctrl);
+			for (i = 0; i < LADDR_RETRY; i++) {
+				ret = slim_get_logical_addr(sbdev,
+						sbdev->e_addr,
+						6, &sbdev->laddr);
+				if (!ret)
+					break;
+				else /* time for ADSP to assign LA */
+					msleep(20);
+			}
+			mutex_lock(&ctrl->m_ctrl);
+		}
+		mutex_unlock(&ctrl->m_ctrl);
 	}
-	mutex_unlock(&ctrl->m_ctrl);
+	return 0;
 }
 
 static void ngd_adsp_down(struct work_struct *work)
@@ -1130,17 +1152,8 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 	struct resource		*bam_mem;
 	struct resource		*slim_mem;
 	struct resource		*irq, *bam_irq;
-	enum apr_subsys_state q6_state;
 	bool			rxreg_access = false;
 	bool			slim_mdm = false;
-
-	q6_state = apr_get_q6_state();
-	if (q6_state == APR_SUBSYS_DOWN) {
-		dev_dbg(&pdev->dev, "defering %s, adsp_state %d\n", __func__,
-			q6_state);
-		return -EPROBE_DEFER;
-	} else
-		dev_dbg(&pdev->dev, "adsp is ready\n");
 
 	slim_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"slimbus_physical");
@@ -1246,6 +1259,7 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 	dev->use_tx_msgqs = MSM_MSGQ_RESET;
 
 	init_completion(&dev->rx_msgq_notify);
+	init_completion(&dev->qmi.slave_notify);
 
 	/* Register with framework */
 	ret = slim_add_numbered_controller(&dev->ctrl);
@@ -1267,6 +1281,7 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 	}
 
 	init_completion(&dev->qmi.qmi_comp);
+	dev->err = -EPROBE_DEFER;
 	pm_runtime_use_autosuspend(dev->dev);
 	pm_runtime_set_autosuspend_delay(dev->dev, MSM_SLIM_AUTOSUSPEND);
 	pm_runtime_set_suspended(dev->dev);
@@ -1282,7 +1297,6 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 				dev->mdm.ssr);
 	}
 
-	INIT_WORK(&dev->slave_notify, ngd_laddr_lookup);
 	INIT_WORK(&dev->qmi.ssr_down, ngd_adsp_down);
 	INIT_WORK(&dev->qmi.ssr_up, ngd_adsp_up);
 	dev->qmi.nb.notifier_call = ngd_qmi_available;
@@ -1298,23 +1312,27 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 
 	/* Fire up the Rx message queue thread */
 	dev->rx_msgq_thread = kthread_run(ngd_slim_rx_msgq_thread, dev,
-					NGD_SLIM_NAME "_ngd_msgq_thread");
+					"ngd_rx_thread%d", dev->ctrl.nr);
 	if (IS_ERR(dev->rx_msgq_thread)) {
 		ret = PTR_ERR(dev->rx_msgq_thread);
-		dev_err(dev->dev, "Failed to start Rx message queue thread\n");
-		goto err_thread_create_failed;
+		dev_err(dev->dev, "Failed to start Rx thread:%d\n", ret);
+		goto err_rx_thread_create_failed;
 	}
 
-	if (pdev->dev.of_node)
-		of_register_slim_devices(&dev->ctrl);
-
-	/* Add devices registered with board-info now that controller is up */
-	slim_ctrl_add_boarddevs(&dev->ctrl);
-
+	/* Start thread to probe, and notify slaves */
+	dev->qmi.slave_thread = kthread_run(ngd_notify_slaves, dev,
+					"ngd_notify_sl%d", dev->ctrl.nr);
+	if (IS_ERR(dev->qmi.slave_thread)) {
+		ret = PTR_ERR(dev->qmi.slave_thread);
+		dev_err(dev->dev, "Failed to start notifier thread:%d\n", ret);
+		goto err_notify_thread_create_failed;
+	}
 	dev_dbg(dev->dev, "NGD SB controller is up!\n");
 	return 0;
 
-err_thread_create_failed:
+err_notify_thread_create_failed:
+	kthread_stop(dev->rx_msgq_thread);
+err_rx_thread_create_failed:
 	qmi_svc_event_notifier_unregister(SLIMBUS_QMI_SVC_ID,
 				SLIMBUS_QMI_SVC_V1,
 				SLIMBUS_QMI_INS_ID, &dev->qmi.nb);
