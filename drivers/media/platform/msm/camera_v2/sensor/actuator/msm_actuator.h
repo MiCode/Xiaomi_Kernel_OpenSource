@@ -18,9 +18,14 @@
 #include <media/v4l2-subdev.h>
 #include <media/msmb_camera.h>
 #include "msm_camera_i2c.h"
+#include "msm_camera_dt_util.h"
+#include "msm_camera_io_util.h"
+
 
 #define DEFINE_MSM_MUTEX(mutexname) \
 	static struct mutex mutexname = __MUTEX_INITIALIZER(mutexname)
+
+#define	MSM_ACTUATOT_MAX_VREGS (10)
 
 struct msm_actuator_ctrl_t;
 
@@ -57,6 +62,12 @@ struct msm_actuator {
 	struct msm_actuator_func_tbl func_tbl;
 };
 
+struct msm_actuator_vreg {
+	struct camera_vreg_t *cam_vreg;
+	void *data[MSM_ACTUATOT_MAX_VREGS];
+	int num_vreg;
+};
+
 struct msm_actuator_ctrl_t {
 	struct i2c_driver *i2c_driver;
 	struct platform_driver *pdriver;
@@ -89,6 +100,7 @@ struct msm_actuator_ctrl_t {
 	enum cci_i2c_master_t cci_master;
 	uint32_t subdev_id;
 	enum msm_actuator_state_t actuator_state;
+	struct msm_actuator_vreg vreg_cfg;
 };
 
 #endif
