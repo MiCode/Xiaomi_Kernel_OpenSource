@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -64,6 +64,7 @@
 #define STATUS_REL_DETECTION 0x0C
 
 #define HS_DETECT_PLUG_TIME_MS (5 * 1000)
+#define ANC_HPH_DETECT_PLUG_TIME_MS (5 * 1000)
 #define HS_DETECT_PLUG_INERVAL_MS 100
 #define SWCH_REL_DEBOUNCE_TIME_MS 50
 #define SWCH_IRQ_DEBOUNCE_TIME_US 5000
@@ -2057,7 +2058,7 @@ static int wcd9xxx_enable_hs_detect(struct wcd9xxx_mbhc *mbhc,
  */
 static bool wcd9xxx_detect_anc_plug_type(struct wcd9xxx_mbhc *mbhc)
 {
-	struct wcd9xxx_mbhc_detect rt[4];
+	struct wcd9xxx_mbhc_detect rt[NUM_DCE_PLUG_INS_DETECT - 1];
 	bool anc_mic_found = true;
 	int i;
 	const struct wcd9xxx_mbhc_plug_type_cfg *plug_type =
@@ -2065,6 +2066,9 @@ static bool wcd9xxx_detect_anc_plug_type(struct wcd9xxx_mbhc *mbhc)
 	const s16 hs_max = plug_type->v_hs_max;
 	const s16 no_mic = plug_type->v_no_mic;
 	bool override_en;
+	bool timedout;
+	unsigned long timeout, retry = 0;
+	enum wcd9xxx_mbhc_plug_type type;
 
 	if (mbhc->mbhc_cfg->anc_micbias != MBHC_MICBIAS3 &&
 	    mbhc->mbhc_cfg->anc_micbias != MBHC_MICBIAS2)
@@ -2089,51 +2093,82 @@ static bool wcd9xxx_detect_anc_plug_type(struct wcd9xxx_mbhc *mbhc)
 
 	wcd9xxx_mbhc_ctrl_clk_bandgap(mbhc, true);
 
-	rt[0].hphl_status = wcd9xxx_hphl_status(mbhc);
-	rt[0].dce = wcd9xxx_mbhc_setup_hs_polling(mbhc,
+	timeout = jiffies + msecs_to_jiffies(ANC_HPH_DETECT_PLUG_TIME_MS);
+	anc_mic_found = true;
+
+	while (!(timedout = time_after(jiffies, timeout))) {
+		retry++;
+
+		if (wcd9xxx_swch_level_remove(mbhc)) {
+			pr_debug("%s: Switch level is low\n", __func__);
+			anc_mic_found = false;
+			break;
+		}
+
+		pr_debug("%s: Retry attempt %lu", __func__, retry - 1);
+
+		rt[0].hphl_status = wcd9xxx_hphl_status(mbhc);
+		rt[0].dce = wcd9xxx_mbhc_setup_hs_polling(mbhc,
 						  &mbhc->mbhc_anc_bias_regs,
 						  false);
-	rt[0]._vdces = wcd9xxx_codec_sta_dce_v(mbhc, true, rt[0].dce);
+		rt[0]._vdces = wcd9xxx_codec_sta_dce_v(mbhc, true, rt[0].dce);
 
-	if (rt[0]._vdces >= no_mic && rt[0]._vdces < hs_max)
-		rt[0]._type = PLUG_TYPE_HEADSET;
-	else if (rt[0]._vdces < no_mic)
-		rt[0]._type = PLUG_TYPE_HEADPHONE;
-	else
-		rt[0]._type = PLUG_TYPE_HIGH_HPH;
-
-	pr_debug("%s: DCE #%d, V %04d, HPHL %d TYPE %d\n",
-			__func__, 0, rt[0]._vdces,
-			rt[0].hphl_status & 0x01,
-			rt[0]._type);
-
-	for (i = 1; i < 4; i++) {
-		rt[i].dce = __wcd9xxx_codec_sta_dce(mbhc, 1, true, true);
-		rt[i]._vdces = wcd9xxx_codec_sta_dce_v(mbhc, true, rt[i].dce);
-
-		if (rt[i]._vdces >= no_mic && rt[i]._vdces < hs_max)
-			rt[i]._type = PLUG_TYPE_HEADSET;
-		else if (rt[i]._vdces < no_mic)
-			rt[i]._type = PLUG_TYPE_HEADPHONE;
+		if (rt[0]._vdces >= no_mic && rt[0]._vdces < hs_max)
+			rt[0]._type = PLUG_TYPE_HEADSET;
+		else if (rt[0]._vdces < no_mic)
+			rt[0]._type = PLUG_TYPE_HEADPHONE;
 		else
-			rt[i]._type = PLUG_TYPE_HIGH_HPH;
-
-		rt[i].hphl_status = wcd9xxx_hphl_status(mbhc);
+			rt[0]._type = PLUG_TYPE_HIGH_HPH;
 
 		pr_debug("%s: DCE #%d, V %04d, HPHL %d TYPE %d\n",
-				__func__, i, rt[i]._vdces,
-				rt[i].hphl_status & 0x01,
-				rt[i]._type);
-	}
+				__func__, 0, rt[0]._vdces,
+				rt[0].hphl_status & 0x01,
+				rt[0]._type);
 
-	/*
-	 * Check for the "type" of all the 4 measurements
-	 * If all 4 measurements have the Type as PLUG_TYPE_HEADSET
-	 * then it is proper mic and declare that the plug has two mics
-	 */
-	for (i = 0; i < 4; i++) {
-		if (rt[i]._type != PLUG_TYPE_HEADSET)
+		for (i = 1; i < NUM_DCE_PLUG_INS_DETECT - 1; i++) {
+			rt[i].dce = __wcd9xxx_codec_sta_dce(mbhc, 1,
+							    true, true);
+			rt[i]._vdces = wcd9xxx_codec_sta_dce_v(mbhc,
+							       true, rt[i].dce);
+
+			if (rt[i]._vdces >= no_mic && rt[i]._vdces < hs_max)
+				rt[i]._type = PLUG_TYPE_HEADSET;
+			else if (rt[i]._vdces < no_mic)
+				rt[i]._type = PLUG_TYPE_HEADPHONE;
+			else
+				rt[i]._type = PLUG_TYPE_HIGH_HPH;
+
+			rt[i].hphl_status = wcd9xxx_hphl_status(mbhc);
+
+			pr_debug("%s: DCE #%d, V %04d, HPHL %d TYPE %d\n",
+					__func__, i, rt[i]._vdces,
+					rt[i].hphl_status & 0x01,
+					rt[i]._type);
+		}
+
+		/*
+		 * Check for the "type" of all the 4 measurements
+		 * If all 4 measurements have the Type as PLUG_TYPE_HEADSET
+		 * then it is proper mic and declare that the plug has two mics
+		 */
+		for (i = 0; i < NUM_DCE_PLUG_INS_DETECT - 1; i++) {
+			if (i > 0 && (rt[i - 1]._type != rt[i]._type)) {
+				type = PLUG_TYPE_INVALID;
+				break;
+			} else {
+				type = rt[0]._type;
+			}
+		}
+
+		pr_debug("%s: Plug type found in ANC detection :%d",
+			__func__, type);
+		if (type != PLUG_TYPE_HEADSET)
 			anc_mic_found = false;
+		if (anc_mic_found || (type == PLUG_TYPE_HEADPHONE &&
+		    mbhc->mbhc_cfg->hw_jack_type == FIVE_POLE_JACK) ||
+		    (type == PLUG_TYPE_HIGH_HPH &&
+		    mbhc->mbhc_cfg->hw_jack_type == SIX_POLE_JACK))
+			break;
 	}
 
 	wcd9xxx_mbhc_ctrl_clk_bandgap(mbhc, false);
