@@ -61,9 +61,11 @@ static void ipa_wq_write_done_common(struct ipa_sys_context *sys, u32 cnt)
 	struct ipa_tx_pkt_wrapper *tx_pkt_expected;
 	int i;
 
+	spin_lock_bh(&sys->spinlock);
 	for (i = 0; i < cnt; i++) {
 		if (unlikely(list_empty(&sys->head_desc_list))) {
 			WARN_ON(1);
+			spin_unlock_bh(&sys->spinlock);
 			return;
 		}
 		tx_pkt_expected = list_first_entry(&sys->head_desc_list,
@@ -74,9 +76,11 @@ static void ipa_wq_write_done_common(struct ipa_sys_context *sys, u32 cnt)
 		dma_unmap_single(ipa_ctx->pdev, tx_pkt_expected->mem.phys_base,
 				tx_pkt_expected->mem.size,
 				DMA_TO_DEVICE);
+		spin_unlock_bh(&sys->spinlock);
 		if (tx_pkt_expected->callback)
 			tx_pkt_expected->callback(tx_pkt_expected->user1,
 					tx_pkt_expected->user2);
+		spin_lock_bh(&sys->spinlock);
 		if (tx_pkt_expected->cnt > 1 &&
 				tx_pkt_expected->cnt != IPA_LAST_DESC_CNT)
 			dma_pool_free(ipa_ctx->dma_pool,
@@ -84,12 +88,14 @@ static void ipa_wq_write_done_common(struct ipa_sys_context *sys, u32 cnt)
 					tx_pkt_expected->mult.phys_base);
 		kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt_expected);
 	}
+	spin_unlock_bh(&sys->spinlock);
 }
 
 static void ipa_wq_write_done_status(int src_pipe)
 {
 	struct ipa_tx_pkt_wrapper *tx_pkt_expected;
 	struct ipa_sys_context *sys;
+	u32 cnt;
 
 	sys = ipa_ctx->ep[src_pipe].sys;
 	if (!sys) {
@@ -107,8 +113,9 @@ static void ipa_wq_write_done_status(int src_pipe)
 	tx_pkt_expected = list_first_entry(&sys->head_desc_list,
 					   struct ipa_tx_pkt_wrapper,
 					   link);
-	ipa_wq_write_done_common(sys, tx_pkt_expected->cnt);
+	cnt = tx_pkt_expected->cnt;
 	spin_unlock_bh(&sys->spinlock);
+	ipa_wq_write_done_common(sys, cnt);
 }
 
 /**
@@ -134,9 +141,7 @@ static void ipa_wq_write_done(struct work_struct *work)
 	cnt = tx_pkt->cnt;
 	sys = tx_pkt->sys;
 
-	spin_lock_bh(&sys->spinlock);
 	ipa_wq_write_done_common(sys, cnt);
-	spin_unlock_bh(&sys->spinlock);
 }
 
 static int ipa_handle_tx_core(struct ipa_sys_context *sys, bool process_all,
@@ -159,9 +164,7 @@ static int ipa_handle_tx_core(struct ipa_sys_context *sys, bool process_all,
 		if (iov.addr == 0)
 			break;
 
-		spin_lock_bh(&sys->spinlock);
 		ipa_wq_write_done_common(sys, 1);
-		spin_unlock_bh(&sys->spinlock);
 		cnt++;
 	};
 
