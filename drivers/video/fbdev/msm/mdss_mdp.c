@@ -2345,6 +2345,11 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 	if (rc)
 		pr_debug("max bandwidth (high) property not specified\n");
 
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,max-bandwidth-per-pipe-kbps", &mdata->max_bw_per_pipe);
+	if (rc)
+		pr_debug("max bandwidth (per pipe) property not specified\n");
+
 	return 0;
 }
 

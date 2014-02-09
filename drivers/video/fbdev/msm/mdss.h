@@ -143,6 +143,7 @@ struct mdss_data_type {
 	struct msm_bus_scale_pdata *bus_scale_table;
 	u32 max_bw_low;
 	u32 max_bw_high;
+	u32 max_bw_per_pipe;
 
 	struct mdss_fudge_factor ab_factor;
 	struct mdss_fudge_factor ib_factor;
