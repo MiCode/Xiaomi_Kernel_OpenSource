@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,7 +73,5 @@ TRACE_EVENT(rpm_send_message,
 			__entry->rsc_id, __entry->msg_id)
 );
 #endif
-#undef TRACE_INCLUDE_PATH
-#define TRACE_INCLUDE_PATH mach
 #define TRACE_INCLUDE_FILE trace_rpm_smd
 #include <trace/define_trace.h>

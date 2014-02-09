@@ -38,9 +38,9 @@
 
 #include <mach/msm_smd.h>
 #define CREATE_TRACE_POINTS
-#include <mach/trace_rpm_smd.h>
-/* Debug Definitions */
+#include <trace/events/trace_rpm_smd.h>
 
+/* Debug Definitions */
 enum {
 	MSM_RPM_LOG_REQUEST_PRETTY	= BIT(0),
 	MSM_RPM_LOG_REQUEST_RAW		= BIT(1),
