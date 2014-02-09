@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,8 +14,8 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <asm/cputype.h>
-#include <mach/avs.h>
-#include "spm.h"
+#include <soc/qcom/avs.h>
+#include <soc/qcom/spm.h>
 
 u32 avs_get_avscsr(void)
 {

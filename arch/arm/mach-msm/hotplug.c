@@ -13,6 +13,7 @@
 #include <linux/cpu.h>
 #include <linux/notifier.h>
 #include <linux/msm_rtb.h>
+#include <soc/qcom/spm.h>
 
 #include <asm/smp_plat.h>
 #include <asm/vfp.h>
@@ -20,7 +21,6 @@
 #include <mach/jtag.h>
 
 #include "pm.h"
-#include "spm.h"
 
 static cpumask_t cpu_dying_mask;
 

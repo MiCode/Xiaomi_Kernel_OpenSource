@@ -20,8 +20,8 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
+#include <soc/qcom/spm.h>
 
-#include "spm.h"
 #include "spm_driver.h"
 
 struct msm_spm_power_modes {

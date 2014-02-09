@@ -37,9 +37,9 @@
 #include <mach/rpm-smd.h>
 #include <soc/qcom/socinfo.h>
 #include <soc/qcom/smem.h>
+#include <soc/qcom/spm.h>
 #include "board-dt.h"
 #include "clock.h"
-#include "spm.h"
 #include "pm.h"
 #include "platsmp.h"
 

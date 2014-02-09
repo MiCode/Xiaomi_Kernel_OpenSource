@@ -31,9 +31,9 @@
 #include <mach/restart.h>
 #include <soc/qcom/socinfo.h>
 #include <soc/qcom/smem.h>
+#include <soc/qcom/spm.h>
 #include "board-dt.h"
 #include "clock.h"
-#include "spm.h"
 
 static struct of_dev_auxdata mdm9630_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,sdhci-msm", 0xF98A4900, "msm_sdcc.2", NULL),
