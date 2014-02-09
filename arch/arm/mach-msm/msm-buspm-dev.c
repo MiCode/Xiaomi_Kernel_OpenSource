@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +22,7 @@
 #include <linux/uaccess.h>
 #include <linux/miscdevice.h>
 #include <linux/dma-mapping.h>
-#include <mach/rpm-smd.h>
+#include <soc/qcom/rpm-smd.h>
 #include "msm-buspm-dev.h"
 
 #define MSM_BUSPM_DRV_NAME "msm-buspm-dev"

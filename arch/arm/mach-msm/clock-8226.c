@@ -28,7 +28,7 @@
 #include <soc/qcom/clock-voter.h>
 
 #include <soc/qcom/socinfo.h>
-#include <mach/rpm-smd.h>
+#include <soc/qcom/rpm-smd.h>
 
 #include "clock-mdss-8974.h"
 #include "clock.h"

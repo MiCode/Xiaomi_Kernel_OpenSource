@@ -30,9 +30,9 @@
 #include <soc/qcom/smem.h>
 #include <soc/qcom/spm.h>
 #include <soc/qcom/pm.h>
+#include <soc/qcom/rpm-smd.h>
 #include <mach/msm_smd.h>
 #include <mach/restart.h>
-#include <mach/rpm-smd.h>
 
 #include <linux/io.h>
 #include <linux/gpio.h>

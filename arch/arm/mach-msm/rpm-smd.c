@@ -33,12 +33,12 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/rbtree.h>
+#include <soc/qcom/rpm-notifier.h>
+#include <soc/qcom/rpm-smd.h>
 
 #include <mach/msm_smd.h>
-#include <mach/rpm-smd.h>
 #define CREATE_TRACE_POINTS
 #include <mach/trace_rpm_smd.h>
-#include "rpm-notifier.h"
 /* Debug Definitions */
 
 enum {
