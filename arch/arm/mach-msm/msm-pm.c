@@ -43,7 +43,7 @@
 #include "pm-boot.h"
 
 #define CREATE_TRACE_POINTS
-#include <mach/trace_msm_low_power.h>
+#include <trace/events/trace_msm_low_power.h>
 
 #define SCM_CMD_TERMINATE_PC	(0x2)
 #define SCM_CMD_CORE_HOTPLUGGED (0x10)
