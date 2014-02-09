@@ -27,6 +27,7 @@
 #include <linux/cpu_pm.h>
 #include <soc/qcom/avs.h>
 #include <soc/qcom/spm.h>
+#include <soc/qcom/pm.h>
 #include <soc/qcom/scm.h>
 #include <asm/suspend.h>
 #include <asm/cacheflush.h>
@@ -37,7 +38,6 @@
 #include <mach/msm_bus.h>
 #include <mach/jtag.h>
 #include "idle.h"
-#include "pm.h"
 #include "scm-boot.h"
 #include "clock.h"
 #include "pm-boot.h"

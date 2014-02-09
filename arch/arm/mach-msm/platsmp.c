@@ -17,6 +17,7 @@
 #include <linux/io.h>
 #include <linux/regulator/krait-regulator.h>
 #include <soc/qcom/spm.h>
+#include <soc/qcom/pm.h>
 
 #include <asm/cacheflush.h>
 #include <asm/cputype.h>
@@ -27,7 +28,6 @@
 #include <mach/hardware.h>
 #include <mach/msm_iomap.h>
 
-#include "pm.h"
 #include "platsmp.h"
 #include "scm-boot.h"
 

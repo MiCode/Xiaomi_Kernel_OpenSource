@@ -48,10 +48,10 @@
 #include <soc/qcom/smem.h>
 #include <linux/msm_thermal.h>
 #include <soc/qcom/spm.h>
+#include <soc/qcom/pm.h>
 #include "board-dt.h"
 #include "clock.h"
 #include "platsmp.h"
-#include "pm.h"
 #include "spm-regulator.h"
 
 static struct of_dev_auxdata msm_hsic_host_adata[] = {

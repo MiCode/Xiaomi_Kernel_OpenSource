@@ -15,7 +15,7 @@
 #define __ARCH_ARM_MACH_MSM_CPUIDLE_H
 
 #include <linux/notifier.h>
-#include "../../pm.h"
+#include <soc/qcom/pm.h>
 
 struct msm_cpuidle_state {
 	int state_nr;

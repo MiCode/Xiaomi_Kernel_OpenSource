@@ -27,9 +27,9 @@
 #include <linux/pm_qos.h>
 #include <linux/of_platform.h>
 #include <soc/qcom/spm.h>
+#include <soc/qcom/pm.h>
 #include <mach/cpuidle.h>
 #include <mach/event_timer.h>
-#include "pm.h"
 #include "rpm-notifier.h"
 
 #define SCLK_HZ (32768)

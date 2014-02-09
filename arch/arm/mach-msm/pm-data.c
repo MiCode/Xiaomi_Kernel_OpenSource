@@ -12,7 +12,7 @@
 
 #include <linux/module.h>
 #include <linux/slab.h>
-#include "pm.h"
+#include <soc/qcom/pm.h>
 
 #define GET_CPU_OF_ATTR(attr) \
 	(container_of(attr, struct msm_pm_kobj_attribute, ka)->cpu)

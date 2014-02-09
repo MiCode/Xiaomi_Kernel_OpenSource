@@ -31,10 +31,9 @@
 #include <linux/syscore_ops.h>
 #include <linux/cpu.h>
 #include <soc/qcom/spm.h>
+#include <soc/qcom/pm.h>
 #include <mach/msm_iomap.h>
 #include "krait-regulator-pmic.h"
-
-#include "pm.h"
 
 /*
  *                   supply
