@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1350,6 +1350,62 @@ static void mpq_dmx_release_streambuffer(
 	}
 }
 
+int mpq_dmx_flush_stream_buffer(struct dvb_demux_feed *feed)
+{
+	struct mpq_feed *mpq_feed = feed->priv;
+	struct mpq_video_feed_info *feed_data = &mpq_feed->video_info;
+	struct mpq_streambuffer *sbuff;
+	int ret = 0;
+
+	if (!dvb_dmx_is_video_feed(feed)) {
+		MPQ_DVB_DBG_PRINT("%s: not a video feed, feed type=%d\n",
+			__func__, feed->pes_type);
+		return 0;
+	}
+
+	spin_lock(&feed_data->video_buffer_lock);
+
+	sbuff = feed_data->video_buffer;
+	if (sbuff == NULL) {
+		MPQ_DVB_DBG_PRINT("%s: feed_data->video_buffer is NULL\n",
+			__func__);
+		spin_unlock(&feed_data->video_buffer_lock);
+		return -ENODEV;
+	}
+
+	feed_data->pending_pattern_len = 0;
+
+	ret = mpq_streambuffer_flush(sbuff);
+	if (ret)
+		MPQ_DVB_ERR_PRINT("%s: mpq_streambuffer_flush failed, ret=%d\n",
+			__func__, ret);
+
+	spin_unlock(&feed_data->video_buffer_lock);
+
+	return ret;
+}
+
+static int mpq_dmx_flush_buffer(struct dmx_ts_feed *ts_feed, size_t length)
+{
+	struct dvb_demux_feed *feed = (struct dvb_demux_feed *)ts_feed;
+	struct dvb_demux *demux = feed->demux;
+	int ret = 0;
+
+	if (mutex_lock_interruptible(&demux->mutex))
+		return -ERESTARTSYS;
+
+	dvbdmx_ts_reset_pes_state(feed);
+
+	if (dvb_dmx_is_video_feed(feed)) {
+		MPQ_DVB_DBG_PRINT("%s: flushing video buffer\n", __func__);
+
+		ret = mpq_dmx_flush_stream_buffer(feed);
+	}
+
+	mutex_unlock(&demux->mutex);
+	return ret;
+}
+
 /**
  * mpq_dmx_init_video_feed - Initializes of video feed information
  * used to pass data directly to decoder.
@@ -2273,6 +2329,15 @@ static int mpq_sdmx_dvr_buffer_desc(struct mpq_demux *mpq_demux,
 	return 0;
 }
 
+static inline int mpq_dmx_notify_overflow(struct dvb_demux_feed *feed)
+{
+	struct dmx_data_ready data;
+
+	data.data_length = 0;
+	data.status = DMX_OVERRUN_ERROR;
+	return feed->data_ready_cb.ts(&feed->feed.ts, &data);
+}
+
 /**
  * mpq_dmx_decoder_frame_closure - Helper function to handle closing current
  * pending frame upon reaching EOS.
@@ -2657,9 +2722,10 @@ static int mpq_dmx_process_video_packet_framing(
 	 * header pattern.
 	 */
 	if (feed_data->first_prefix_size) {
-		if (mpq_streambuffer_data_write(stream_buffer,
-					(feed_data->patterns[0]->pattern),
-					feed_data->first_prefix_size) < 0) {
+		ret = mpq_streambuffer_data_write(stream_buffer,
+			feed_data->patterns[0]->pattern,
+			feed_data->first_prefix_size);
+		if (ret < 0) {
 			mpq_demux->decoder_stat
 				[feed_data->stream_interface].drop_count +=
 				feed_data->first_prefix_size;
@@ -2667,6 +2733,8 @@ static int mpq_dmx_process_video_packet_framing(
 				feed_data->first_prefix_size;
 			MPQ_DVB_DBG_PRINT("%s: could not write prefix\n",
 				__func__);
+			if (ret == -ENOSPC)
+				mpq_dmx_notify_overflow(feed);
 		} else {
 			MPQ_DVB_DBG_PRINT(
 				"%s: Writing pattern prefix of size %d\n",
@@ -2742,26 +2810,26 @@ static int mpq_dmx_process_video_packet_framing(
 			 */
 			bytes_to_write = framing_res.info[i].offset;
 		} else {
-			/*
-			 * Previous pending frame is in
-			 * the same packet
-			 */
+			/* Previous pending frame is in the same packet */
 			bytes_to_write =
 				framing_res.info[i].offset -
 				feed_data->last_pattern_offset;
 		}
 
-		if (mpq_streambuffer_data_write(
+		ret = mpq_streambuffer_data_write(
 			stream_buffer,
 			(buf + ts_payload_offset + bytes_written),
-			bytes_to_write) < 0) {
+			bytes_to_write);
+		if (ret < 0) {
 			mpq_demux->decoder_stat
 				[feed_data->stream_interface].drop_count +=
 				bytes_to_write;
 			feed_data->ts_dropped_bytes += bytes_to_write;
 			MPQ_DVB_DBG_PRINT(
-				"%s: Couldn't write %d bytes to data buffer\n",
-				__func__, bytes_to_write);
+				"%s: Couldn't write %d bytes to data buffer, ret=%d\n",
+				__func__, bytes_to_write, ret);
+			if (ret == -ENOSPC)
+				mpq_dmx_notify_overflow(feed);
 		} else {
 			bytes_written += bytes_to_write;
 			pending_data_len -= bytes_to_write;
@@ -2801,8 +2869,7 @@ static int mpq_dmx_process_video_packet_framing(
 			mpq_dmx_update_decoder_stat(mpq_feed);
 
 			/*
-			 * writing meta-data that includes
-			 * the framing information
+			 * Write meta-data that includes the framing information
 			 */
 			ret = mpq_streambuffer_pkt_write(stream_buffer, &packet,
 				(u8 *)&meta_data);
@@ -2810,6 +2877,8 @@ static int mpq_dmx_process_video_packet_framing(
 				MPQ_DVB_ERR_PRINT(
 					"%s: mpq_streambuffer_pkt_write failed, ret=%d\n",
 					__func__, ret);
+				if (ret == -ENOSPC)
+					mpq_dmx_notify_overflow(feed);
 			} else {
 				mpq_dmx_prepare_es_event_data(
 					&packet, &meta_data, feed_data,
@@ -2817,10 +2886,14 @@ static int mpq_dmx_process_video_packet_framing(
 
 				feed->data_ready_cb.ts(&feed->feed.ts, &data);
 
-				mpq_streambuffer_get_data_rw_offset(
-					feed_data->video_buffer,
-					NULL,
-					&feed_data->frame_offset);
+				if (feed_data->video_buffer->mode ==
+					MPQ_STREAMBUFFER_BUFFER_MODE_LINEAR)
+					feed_data->frame_offset = 0;
+				else
+					mpq_streambuffer_get_data_rw_offset(
+						feed_data->video_buffer,
+						NULL,
+						&feed_data->frame_offset);
 			}
 
 			/*
@@ -2845,6 +2918,8 @@ static int mpq_dmx_process_video_packet_framing(
 						drop_count += bytes_avail;
 					feed_data->ts_dropped_bytes +=
 					 framing_res.info[i].used_prefix_size;
+					if (ret == -ENOSPC)
+						mpq_dmx_notify_overflow(feed);
 				} else {
 					feed_data->pending_pattern_len =
 					 framing_res.info[i].used_prefix_size;
@@ -2903,8 +2978,10 @@ static int mpq_dmx_process_video_packet_framing(
 				pending_data_len;
 			feed_data->ts_dropped_bytes += pending_data_len;
 			MPQ_DVB_DBG_PRINT(
-				"%s: Couldn't write %d bytes to data buffer\n",
-				__func__, pending_data_len);
+				"%s: Couldn't write %d pending bytes to data buffer, ret=%d\n",
+				__func__, pending_data_len, ret);
+			if (ret == -ENOSPC)
+				mpq_dmx_notify_overflow(feed);
 		} else {
 			feed_data->pending_pattern_len += pending_data_len;
 		}
@@ -2930,6 +3007,7 @@ static int mpq_dmx_process_video_packet_no_framing(
 	int discontinuity_indicator = 0;
 	struct dmx_data_ready data;
 	int cookie;
+	int ret;
 
 	mpq_demux = feed->demux->priv;
 	mpq_feed = feed->priv;
@@ -3115,13 +3193,14 @@ static int mpq_dmx_process_video_packet_no_framing(
 	mpq_demux->decoder_stat[feed_data->stream_interface].cc_errors +=
 		feed_data->continuity_errs;
 
-	if (mpq_streambuffer_data_write(
-				stream_buffer,
-				buf+ts_payload_offset,
-				bytes_avail) < 0) {
+	ret = mpq_streambuffer_data_write(stream_buffer, buf+ts_payload_offset,
+		bytes_avail);
+	if (ret < 0) {
 		mpq_demux->decoder_stat
 			[feed_data->stream_interface].drop_count += bytes_avail;
 		feed_data->ts_dropped_bytes += bytes_avail;
+		if (ret == -ENOSPC)
+			mpq_dmx_notify_overflow(feed);
 	} else {
 		feed->peslen += bytes_avail;
 	}
@@ -3829,6 +3908,9 @@ int mpq_dmx_init_mpq_feed(struct dvb_demux_feed *feed)
 	mpq_feed->metadata_buf_handle = NULL;
 	mpq_feed->sdmx_filter_handle = SDMX_INVALID_FILTER_HANDLE;
 
+	if (feed->type != DMX_TYPE_SEC)
+		feed->feed.ts.flush_buffer = mpq_dmx_flush_buffer;
+
 	if (dvb_dmx_is_video_feed(feed)) {
 		ret = mpq_dmx_init_video_feed(mpq_feed);
 		if (ret) {
@@ -4309,9 +4391,7 @@ pes_filter_check_overflow:
 	if ((mpq_demux->demux.playback_mode == DMX_PB_MODE_PUSH) &&
 		(sts->error_indicators & SDMX_FILTER_ERR_D_BUF_FULL)) {
 		MPQ_DVB_ERR_PRINT("%s: DMX_OVERRUN_ERROR\n", __func__);
-		data_event.status = DMX_OVERRUN_ERROR;
-		data_event.data_length = 0;
-		feed->data_ready_cb.ts(&feed->feed.ts, &data_event);
+		mpq_dmx_notify_overflow(feed);
 	}
 
 	if (sts->status_indicators & SDMX_FILTER_STATUS_EOS) {
@@ -4592,10 +4672,7 @@ decoder_filter_check_flags:
 	if ((mpq_demux->demux.playback_mode == DMX_PB_MODE_PUSH) &&
 		(sts->error_indicators & SDMX_FILTER_ERR_D_LIN_BUFS_FULL)) {
 		MPQ_DVB_ERR_PRINT("%s: DMX_OVERRUN_ERROR\n", __func__);
-		data_event.status = DMX_OVERRUN_ERROR;
-		data_event.data_length = 0;
-		mpq_feed->dvb_demux_feed->data_ready_cb.ts(
-			&mpq_feed->dvb_demux_feed->feed.ts, &data_event);
+		mpq_dmx_notify_overflow(mpq_feed->dvb_demux_feed);
 	}
 
 	if (sts->status_indicators & SDMX_FILTER_STATUS_EOS) {
@@ -4741,9 +4818,7 @@ raw_filter_check_flags:
 	if ((mpq_demux->demux.playback_mode == DMX_PB_MODE_PUSH) &&
 		(sts->error_indicators & SDMX_FILTER_ERR_D_BUF_FULL)) {
 		MPQ_DVB_DBG_PRINT("%s: DMX_OVERRUN_ERROR\n", __func__);
-		data_event.status = DMX_OVERRUN_ERROR;
-		data_event.data_length = 0;
-		feed->data_ready_cb.ts(&feed->feed.ts, &data_event);
+		mpq_dmx_notify_overflow(feed);
 	}
 
 	if (sts->status_indicators & SDMX_FILTER_STATUS_EOS) {

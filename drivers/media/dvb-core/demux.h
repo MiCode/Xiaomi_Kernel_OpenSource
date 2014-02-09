@@ -63,7 +63,6 @@
 /*
  * enum dmx_success: Success codes for the Demux Callback API.
  */
-
 enum dmx_success {
 	DMX_OK = 0, /* Received Ok */
 	DMX_OK_PES_END, /* Received OK, data reached end of PES packet */
@@ -79,7 +78,7 @@ enum dmx_success {
 	DMX_OK_DECODER_BUF, /* Received OK, new ES data in decoder buffer */
 	DMX_OK_IDX, /* Received OK, new index event */
 	DMX_OK_SCRAMBLING_STATUS, /* Received OK, new scrambling status */
-} ;
+};
 
 
 /*
@@ -219,6 +218,7 @@ struct dmx_ts_feed {
 	int (*ts_insertion_insert_buffer)(struct dmx_ts_feed *feed,
 			char *data, size_t size);
 	int (*get_scrambling_bits)(struct dmx_ts_feed *feed, u8 *value);
+	int (*flush_buffer)(struct dmx_ts_feed *feed, size_t length);
 };
 
 /*--------------------------------------------------------------------------*/
@@ -272,6 +272,7 @@ struct dmx_section_feed {
 	int (*oob_command) (struct dmx_section_feed *feed,
 				struct dmx_oob_command *cmd);
 	int (*get_scrambling_bits)(struct dmx_section_feed *feed, u8 *value);
+	int (*flush_buffer)(struct dmx_section_feed *feed, size_t length);
 };
 
 /*--------------------------------------------------------------------------*/

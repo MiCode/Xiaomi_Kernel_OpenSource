@@ -6728,6 +6728,7 @@ static int mpq_dmx_tsppv2_init(struct dvb_adapter *mpq_adapter,
 	mpq_demux->demux.oob_command = NULL;
 	mpq_demux->demux.set_indexing = mpq_dmx_tspp2_set_indexing;
 	mpq_demux->demux.convert_ts = mpq_dmx_tspp2_convert_ts;
+	mpq_demux->demux.flush_decoder_buffer = NULL;
 
 	/* Initialize dvb_demux object */
 	result = dvb_dmx_init(&mpq_demux->demux);
