@@ -16,7 +16,7 @@
 #include <linux/clockchips.h>
 #include <linux/init.h>
 #include <linux/slab.h>
-#include <mach/event_timer.h>
+#include <soc/qcom/event_timer.h>
 
 #define __INIT_HEAD(x)	{ .head = RB_ROOT,\
 			.next = NULL, }
