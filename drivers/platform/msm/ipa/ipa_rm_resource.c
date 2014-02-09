@@ -217,7 +217,7 @@ static int ipa_rm_resource_producer_create(struct ipa_rm_resource **resource,
 {
 	int result = 0;
 
-	*producer = kzalloc(sizeof(**producer), GFP_KERNEL);
+	*producer = kzalloc(sizeof(**producer), GFP_ATOMIC);
 	if (*producer == NULL) {
 		IPA_RM_ERR("no mem\n");
 		result = -ENOMEM;
@@ -265,7 +265,7 @@ static int ipa_rm_resource_consumer_create(struct ipa_rm_resource **resource,
 {
 	int result = 0;
 
-	*consumer = kzalloc(sizeof(**consumer), GFP_KERNEL);
+	*consumer = kzalloc(sizeof(**consumer), GFP_ATOMIC);
 	if (*consumer == NULL) {
 		IPA_RM_ERR("no mem\n");
 		result = -ENOMEM;
@@ -446,7 +446,7 @@ int ipa_rm_resource_producer_register(struct ipa_rm_resource_prod *producer,
 
 	}
 
-	reg_info = kzalloc(sizeof(*reg_info), GFP_KERNEL);
+	reg_info = kzalloc(sizeof(*reg_info), GFP_ATOMIC);
 	if (reg_info == NULL) {
 		IPA_RM_ERR("no mem\n");
 		result = -ENOMEM;
