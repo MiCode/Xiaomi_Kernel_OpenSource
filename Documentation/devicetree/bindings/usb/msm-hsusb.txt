@@ -102,6 +102,8 @@ Optional properties :
 	enable this feature without proper bus voting.
 - qcom,disable-retention-with-vdd-min: If present don't allow phy retention but allow
 	vdd min.
+- qcom,usbin-vadc: Corresponding vadc device's phandle to read usbin voltage using VADC.
+	This will be used to get value of usb power supply's VOLTAGE_NOW property.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
@@ -137,6 +139,7 @@ Example HSUSB OTG controller device node :
 		qcom,hsusb-otg-vddmin-gpio = <&pm8019_mpps 6 0>;
 		qcom,hsusb-otg-rw-during-lpm-workaround = <1>;
 		qcom,disable-retention-with-vdd-min;
+		qcom,usbin-vadc = <&pm8226_vadc>;
 	};
 
 MSM HSUSB EHCI controller
