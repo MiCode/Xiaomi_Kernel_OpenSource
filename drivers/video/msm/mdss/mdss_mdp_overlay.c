@@ -266,7 +266,8 @@ static int __mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe)
 	for (;;) {
 		rc = mdss_mdp_perf_calc_pipe(pipe, &perf, NULL, true);
 
-		if (!rc && (perf.mdp_clk_rate <= mdata->max_mdp_clk_rate))
+		if (!rc && (perf.mdp_clk_rate <= mdata->max_mdp_clk_rate) &&
+			!mdss_mdp_perf_bw_check_pipe(&perf, pipe))
 			break;
 
 		/*

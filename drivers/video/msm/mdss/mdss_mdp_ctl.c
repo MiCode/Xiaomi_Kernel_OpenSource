@@ -679,6 +679,39 @@ int mdss_mdp_perf_bw_check(struct mdss_mdp_ctl *ctl,
 	return 0;
 }
 
+int mdss_mdp_perf_bw_check_pipe(struct mdss_mdp_perf_params *perf,
+		struct mdss_mdp_pipe *pipe)
+{
+	struct mdss_data_type *mdata = pipe->mixer->ctl->mdata;
+	struct mdss_mdp_ctl *ctl = pipe->mixer->ctl;
+	u32 vbp_fac, threshold;
+	u64 prefill_bw, pipe_bw;
+
+	/* we only need bandwidth check on real-time clients (interfaces) */
+	if (ctl->intf_type == MDSS_MDP_NO_INTF)
+		return 0;
+
+	vbp_fac = mdss_mdp_get_vbp_factor_max(ctl);
+	prefill_bw = perf->prefill_bytes * vbp_fac;
+	pipe_bw = max(prefill_bw, perf->bw_overlap);
+	pr_debug("prefill=%llu, vbp_fac=%u, overlap=%llu\n",
+			prefill_bw, vbp_fac, perf->bw_overlap);
+
+	/* convert bandwidth to kb */
+	pipe_bw = DIV_ROUND_UP_ULL(pipe_bw, 1000);
+
+	threshold = mdata->max_bw_per_pipe;
+	pr_debug("bw=%llu threshold=%u\n", pipe_bw, threshold);
+
+	if (threshold && pipe_bw > threshold) {
+		pr_debug("pipe exceeds bandwidth: %llukb > %ukb\n", pipe_bw,
+				threshold);
+		return -E2BIG;
+	}
+
+	return 0;
+}
+
 static void mdss_mdp_perf_calc_ctl(struct mdss_mdp_ctl *ctl,
 		struct mdss_mdp_perf_params *perf)
 {
