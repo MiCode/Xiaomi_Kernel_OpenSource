@@ -220,6 +220,8 @@ static int msm_cpufreq_verify(struct cpufreq_policy *policy)
 
 static unsigned int msm_cpufreq_get_freq(unsigned int cpu)
 {
+	if (is_sync)
+		cpu = 0;
 	return clk_get_rate(cpu_clk[cpu]) / 1000;
 }
 
