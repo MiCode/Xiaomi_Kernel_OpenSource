@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -308,8 +308,8 @@ static int msm_pcm_ioctl(struct snd_pcm_substream *substream,
 	case SNDRV_VOICE_IOCTL_LCH:
 		if (copy_from_user(&lch_mode, (void *)arg,
 				   sizeof(enum voice_lch_mode))) {
-			pr_err("%s: Copy from user failed, size %d\n", __func__,
-			       sizeof(enum voice_lch_mode));
+			pr_err("%s: Copy from user failed, size %zd\n",
+				__func__, sizeof(enum voice_lch_mode));
 
 			ret = -EFAULT;
 			break;

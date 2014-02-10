@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -75,9 +75,9 @@ struct hpcm_buf_node {
 
 struct vocpcm_ion_buffer {
 	/* Physical address */
-	uint32_t paddr;
+	phys_addr_t paddr;
 	/* Kernel virtual address */
-	uint32_t kvaddr;
+	void *kvaddr;
 };
 
 struct dai_data {
@@ -104,8 +104,8 @@ struct tap_point {
 struct session {
 	struct tap_point tx_tap_point;
 	struct tap_point rx_tap_point;
-	uint32_t sess_paddr;
-	uint32_t sess_kvaddr;
+	phys_addr_t sess_paddr;
+	void *sess_kvaddr;
 	struct ion_handle *ion_handle;
 	struct mem_map_table tp_mem_table;
 };
@@ -371,7 +371,7 @@ static void hpcm_create_free_queue(struct snd_dma_buffer *dma_buf,
 
 static void hpcm_free_allocated_mem(struct hpcm_drv *prtd)
 {
-	uint32_t paddr = 0;
+	phys_addr_t paddr = 0;
 	struct tap_point *txtp = NULL;
 	struct tap_point *rxtp = NULL;
 	struct session *sess = NULL;
@@ -415,7 +415,7 @@ static void hpcm_free_allocated_mem(struct hpcm_drv *prtd)
 static void hpcm_unmap_and_free_shared_memory(struct hpcm_drv *prtd)
 
 {
-	unsigned long paddr = 0;
+	phys_addr_t paddr = 0;
 	char *sess_name = hpcm_get_sess_name(prtd->mixer_conf.sess_indx);
 
 	if (prtd->mixer_conf.sess_indx >= 0)
@@ -450,8 +450,8 @@ static int hpcm_allocate_shared_memory(struct hpcm_drv *prtd)
 {
 	int result;
 	int ret = 0;
-	int mem_len;
-	int len;
+	size_t mem_len;
+	size_t len;
 	struct tap_point *txtp = NULL;
 	struct tap_point *rxtp = NULL;
 	struct session *sess = NULL;
@@ -464,9 +464,9 @@ static int hpcm_allocate_shared_memory(struct hpcm_drv *prtd)
 				     &prtd->ion_client,
 				     &sess->ion_handle,
 				     VHPCM_BLOCK_SIZE,
-				     (ion_phys_addr_t *) &sess->sess_paddr,
-				     (size_t *) &mem_len,
-				     (void *) &sess->sess_kvaddr);
+				     &sess->sess_paddr,
+				     &mem_len,
+				     &sess->sess_kvaddr);
 	if (result) {
 		pr_err("%s: msm_audio_ion_alloc error, rc = %d\n",
 			__func__, result);
@@ -482,8 +482,8 @@ static int hpcm_allocate_shared_memory(struct hpcm_drv *prtd)
 			&sess->tp_mem_table.client,
 			&sess->tp_mem_table.handle,
 			sizeof(struct vss_imemory_table_t),
-			(ion_phys_addr_t *) &sess->tp_mem_table.phys,
-			(size_t *) &len,
+			&sess->tp_mem_table.phys,
+			&len,
 			&sess->tp_mem_table.data);
 
 	if (result) {
@@ -504,30 +504,29 @@ static int hpcm_allocate_shared_memory(struct hpcm_drv *prtd)
 
 	sess->tp_mem_table.size = sizeof(struct vss_imemory_table_t);
 
-	pr_debug("%s: data 0x%x phys %pa\n", __func__,
-		 (unsigned int) sess->tp_mem_table.data,
-		 &sess->tp_mem_table.phys);
+	pr_debug("%s: data %p phys %pa\n", __func__,
+		 sess->tp_mem_table.data, &sess->tp_mem_table.phys);
 
 	/* Split 4096 block into four 1024 byte blocks for each dai */
 	txtp->capture_dai_data.vocpcm_ion_buffer.paddr =
-	(uint32_t) sess->sess_paddr;
+	sess->sess_paddr;
 	txtp->capture_dai_data.vocpcm_ion_buffer.kvaddr =
-	(uint32_t) (uint8_t *) sess->sess_kvaddr;
+	sess->sess_kvaddr;
 
 	txtp->playback_dai_data.vocpcm_ion_buffer.paddr =
-	(uint32_t) sess->sess_paddr + VHPCM_BLOCK_SIZE/4;
+	sess->sess_paddr + VHPCM_BLOCK_SIZE/4;
 	txtp->playback_dai_data.vocpcm_ion_buffer.kvaddr =
-	(uint32_t) (uint8_t *) sess->sess_kvaddr + VHPCM_BLOCK_SIZE/4;
+	sess->sess_kvaddr + VHPCM_BLOCK_SIZE/4;
 
 	rxtp->capture_dai_data.vocpcm_ion_buffer.paddr =
-	(uint32_t) sess->sess_paddr + (VHPCM_BLOCK_SIZE/4) * 2;
+	sess->sess_paddr + (VHPCM_BLOCK_SIZE/4) * 2;
 	rxtp->capture_dai_data.vocpcm_ion_buffer.kvaddr =
-	(uint32_t) (uint8_t *) sess->sess_kvaddr + (VHPCM_BLOCK_SIZE/4) * 2;
+	sess->sess_kvaddr + (VHPCM_BLOCK_SIZE/4) * 2;
 
 	rxtp->playback_dai_data.vocpcm_ion_buffer.paddr =
-	(uint32_t) sess->sess_paddr + (VHPCM_BLOCK_SIZE/4) * 3;
+	sess->sess_paddr + (VHPCM_BLOCK_SIZE/4) * 3;
 	rxtp->playback_dai_data.vocpcm_ion_buffer.kvaddr =
-	(uint32_t) (uint8_t *) sess->sess_kvaddr + (VHPCM_BLOCK_SIZE/4) * 3;
+	sess->sess_kvaddr + (VHPCM_BLOCK_SIZE/4) * 3;
 
 done:
 	return ret;
@@ -605,7 +604,7 @@ static void hpcm_copy_playback_data_from_queue(struct dai_data *dai_data,
 				struct hpcm_buf_node, list);
 		list_del(&buf_node->list);
 		*len = buf_node->frame.len;
-		memcpy((uint8_t *)dai_data->vocpcm_ion_buffer.kvaddr,
+		memcpy((u8 *)dai_data->vocpcm_ion_buffer.kvaddr,
 		       &buf_node->frame.voc_pkt[0],
 		       buf_node->frame.len);
 
@@ -683,8 +682,8 @@ void hpcm_notify_evt_processing(uint8_t *data, char *session,
 	}
 
 	if (tp == NULL || tmd == NULL) {
-		pr_err("%s: tp = %x or tmd = %x is null\n", __func__,
-		       (uint32_t)tp, (uint32_t)tmd);
+		pr_err("%s: tp = %p or tmd = %p is null\n", __func__,
+		       tp, tmd);
 
 		return;
 	}

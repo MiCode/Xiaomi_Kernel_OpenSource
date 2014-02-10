@@ -1,6 +1,6 @@
 /* Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -117,8 +117,8 @@ struct audio_aio_ion_region {
 	struct ion_handle *handle;
 	int fd;
 	void *vaddr;
-	unsigned long paddr;
-	unsigned long kvaddr;
+	phys_addr_t paddr;
+	void *kvaddr;
 	unsigned long len;
 	unsigned ref_cnt;
 };
@@ -215,7 +215,7 @@ void audio_aio_async_in_flush(struct q6audio_aio *audio);
 void audio_aio_ioport_reset(struct q6audio_aio *audio);
 int enable_volume_ramp(struct q6audio_aio *audio);
 #ifdef CONFIG_DEBUG_FS
-ssize_t audio_aio_debug_open(struct inode *inode, struct file *file);
+int audio_aio_debug_open(struct inode *inode, struct file *file);
 ssize_t audio_aio_debug_read(struct file *file, char __user *buf,
 			size_t count, loff_t *ppos);
 #endif

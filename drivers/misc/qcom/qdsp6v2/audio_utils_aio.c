@@ -1,6 +1,6 @@
 /* Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -29,9 +29,8 @@
 #ifdef CONFIG_USE_DEV_CTRL_VOLUME
 #include <linux/qdsp6v2/audio_dev_ctl.h>
 #endif /*CONFIG_USE_DEV_CTRL_VOLUME*/
-
 #ifdef CONFIG_DEBUG_FS
-ssize_t audio_aio_debug_open(struct inode *inode, struct file *file)
+int audio_aio_debug_open(struct inode *inode, struct file *file)
 {
 	file->private_data = inode->i_private;
 	return 0;
@@ -130,11 +129,11 @@ static int audio_aio_ion_lookup_vaddr(struct q6audio_aio *audio, void *addr,
 			if (addr >= region_elt->vaddr &&
 			addr < region_elt->vaddr + region_elt->len &&
 			addr + len <= region_elt->vaddr + region_elt->len)
-				pr_err("\t%s[%p]:%p, %ld --> %p\n",
+				pr_err("\t%s[%p]:%p, %ld --> %pa\n",
 					__func__, audio,
 					region_elt->vaddr,
 					region_elt->len,
-					(void *)region_elt->paddr);
+					&region_elt->paddr);
 		}
 	}
 
@@ -429,11 +428,11 @@ static void audio_aio_unmap_ion_region(struct q6audio_aio *audio)
 	pr_debug("%s[%p]:\n", __func__, audio);
 	list_for_each_safe(ptr, next, &audio->ion_region_queue) {
 		region = list_entry(ptr, struct audio_aio_ion_region, list);
-		pr_debug("%s[%p]: phy_address = 0x%lx\n",
-				__func__, audio, region->paddr);
+		pr_debug("%s[%p]: phy_address = 0x%pa\n",
+				__func__, audio, &region->paddr);
 		if (region != NULL) {
 			rc = q6asm_memory_unmap(audio->ac,
-						(uint32_t)region->paddr, IN);
+						region->paddr, IN);
 			if (rc < 0)
 				pr_err("%s[%p]: memory unmap failed\n",
 					__func__, audio);
@@ -769,10 +768,10 @@ static int audio_aio_ion_check(struct q6audio_aio *audio,
 	list_for_each_entry(region_elt, &audio->ion_region_queue, list) {
 		if (CONTAINS(region_elt, &t) || CONTAINS(&t, region_elt) ||
 			OVERLAPS(region_elt, &t)) {
-			pr_err("%s[%p]:region (vaddr %p len %ld) clashes with registered region (vaddr %p paddr %p len %ld)\n",
+			pr_err("%s[%p]:region (vaddr %p len %ld) clashes with registered region (vaddr %p paddr %pa len %ld)\n",
 				__func__, audio, vaddr, len,
 				region_elt->vaddr,
-				(void *)region_elt->paddr, region_elt->len);
+				&region_elt->paddr, region_elt->len);
 			return -EINVAL;
 		}
 	}
@@ -817,15 +816,15 @@ static int audio_aio_ion_add(struct q6audio_aio *audio,
 	region->vaddr = info->vaddr;
 	region->fd = info->fd;
 	region->paddr = paddr;
-	region->kvaddr = (unsigned long)kvaddr;
+	region->kvaddr = kvaddr;
 	region->len = len;
 	region->ref_cnt = 0;
-	pr_debug("%s[%p]:add region paddr %lx vaddr %p, len %lu kvaddr %lx\n",
+	pr_debug("%s[%p]:add region paddr %pa vaddr %p, len %lu kvaddr %p\n",
 		__func__, audio,
-		region->paddr, region->vaddr, region->len, region->kvaddr);
+		&region->paddr, region->vaddr, region->len,
+		region->kvaddr);
 	list_add_tail(&region->list, &audio->ion_region_queue);
-	rc = q6asm_memory_map(audio->ac, (uint32_t) paddr, IN, (uint32_t) len,
-				1);
+	rc = q6asm_memory_map(audio->ac,  paddr, IN, len, 1);
 	if (rc < 0) {
 		pr_err("%s[%p]: memory map failed\n", __func__, audio);
 		goto mmap_error;
@@ -895,8 +894,8 @@ static void audio_aio_async_write(struct q6audio_aio *audio,
 			__func__, audio, buf_node);
 		return;
 	}
-	pr_debug("%s[%p]: Send write buff %p phy %lx len %d meta_enable = %d\n",
-		__func__, audio, buf_node, buf_node->paddr,
+	pr_debug("%s[%p]: Send write buff %p phy %pa len %d meta_enable = %d\n",
+		__func__, audio, buf_node, &buf_node->paddr,
 		buf_node->buf.data_len,
 		audio->buf_cfg.meta_info_enable);
 	pr_debug("%s[%p]: flags = 0x%x\n", __func__, audio,
@@ -923,9 +922,9 @@ static void audio_aio_async_write(struct q6audio_aio *audio,
 	if (buf_node->meta_info.meta_in.nflags & AUDIO_DEC_EOF_SET)
 		param.flags |= AUDIO_DEC_EOF_SET;
 
-	param.uid = param.paddr;
+	param.uid = ac->session;
 	/* Read command will populate paddr as token */
-	buf_node->token = param.paddr;
+	buf_node->token = ac->session;
 	rc = q6asm_async_write(ac, &param);
 	if (rc < 0)
 		pr_err("%s[%p]:failed\n", __func__, audio);
@@ -968,9 +967,9 @@ static void audio_aio_async_read(struct q6audio_aio *audio,
 	struct audio_aio_read_param param;
 	int rc;
 
-	pr_debug("%s[%p]: Send read buff %p phy %lx len %d\n",
+	pr_debug("%s[%p]: Send read buff %p phy %pa len %d\n",
 		__func__, audio, buf_node,
-		buf_node->paddr, buf_node->buf.buf_len);
+		&buf_node->paddr, buf_node->buf.buf_len);
 	ac = audio->ac;
 	/* Provide address so driver can append nr frames information */
 	param.paddr = buf_node->paddr +

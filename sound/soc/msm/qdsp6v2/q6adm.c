@@ -26,7 +26,6 @@
 
 #include "audio_acdb.h"
 
-
 #define TIMEOUT_MS 1000
 
 #define RESET_COPP_ID 99
@@ -744,8 +743,8 @@ void send_adm_custom_topology(int port_id)
 
 	get_adm_custom_topology(&cal_block);
 	if (cal_block.cal_size == 0) {
-		pr_debug("%s: no cal to send addr= 0x%x\n",
-				__func__, cal_block.cal_paddr);
+		pr_debug("%s: no cal to send addr= 0x%pa\n",
+				__func__, &cal_block.cal_paddr);
 		goto done;
 	}
 
@@ -766,8 +765,8 @@ void send_adm_custom_topology(int port_id)
 		result = adm_memory_map_regions(port_id,
 				&cal_block.cal_paddr, 0, &size, 1);
 		if (result < 0) {
-			pr_err("%s: mmap did not work! addr = 0x%x, size = %d\n",
-				__func__, cal_block.cal_paddr,
+			pr_err("%s: mmap did not work! addr = 0x%pa, size = %zd\n",
+				__func__, &cal_block.cal_paddr,
 			       cal_block.cal_size);
 			goto done;
 		}
@@ -786,8 +785,8 @@ void send_adm_custom_topology(int port_id)
 	adm_top.hdr.dest_port = atomic_read(&this_adm.copp_id[index]);
 	adm_top.hdr.token = port_id;
 	adm_top.hdr.opcode = ADM_CMD_ADD_TOPOLOGIES;
-	adm_top.payload_addr_lsw = cal_block.cal_paddr;
-	adm_top.payload_addr_msw = 0;
+	adm_top.payload_addr_lsw = lower_32_bits(cal_block.cal_paddr);
+	adm_top.payload_addr_msw = upper_32_bits(cal_block.cal_paddr);
 	adm_top.mem_map_handle =
 		atomic_read(&this_adm.mem_map_cal_handles[ADM_CUSTOM_TOP_CAL]);
 	adm_top.payload_size = cal_block.cal_size;
@@ -798,8 +797,8 @@ void send_adm_custom_topology(int port_id)
 		adm_top.payload_size);
 	result = apr_send_pkt(this_adm.apr, (uint32_t *)&adm_top);
 	if (result < 0) {
-		pr_err("%s: Set topologies failed port = 0x%x payload = 0x%x\n",
-			__func__, port_id, cal_block.cal_paddr);
+		pr_err("%s: Set topologies failed port = 0x%x payload = 0x%pa\n",
+			__func__, port_id, &cal_block.cal_paddr);
 		goto done;
 	}
 	/* Wait for the callback */
@@ -807,8 +806,8 @@ void send_adm_custom_topology(int port_id)
 		atomic_read(&this_adm.copp_stat[index]),
 		msecs_to_jiffies(TIMEOUT_MS));
 	if (!result) {
-		pr_err("%s: Set topologies timed out port = 0x%x, payload = 0x%x\n",
-			__func__, port_id, cal_block.cal_paddr);
+		pr_err("%s: Set topologies timed out port = 0x%x, payload = 0x%pa\n",
+			__func__, port_id, &cal_block.cal_paddr);
 		goto done;
 	}
 
@@ -856,8 +855,8 @@ static int send_adm_cal_block(int port_id, struct acdb_cal_block *aud_cal,
 
 	adm_params.hdr.token = port_id;
 	adm_params.hdr.opcode = ADM_CMD_SET_PP_PARAMS_V5;
-	adm_params.payload_addr_lsw = aud_cal->cal_paddr;
-	adm_params.payload_addr_msw = 0;
+	adm_params.payload_addr_lsw = lower_32_bits(aud_cal->cal_paddr);
+	adm_params.payload_addr_msw = upper_32_bits(aud_cal->cal_paddr);
 	adm_params.mem_map_handle = atomic_read(&this_adm.mem_map_cal_handles[
 				atomic_read(&this_adm.mem_map_cal_index)]);
 	adm_params.payload_size = aud_cal->cal_size;
@@ -868,8 +867,8 @@ static int send_adm_cal_block(int port_id, struct acdb_cal_block *aud_cal,
 		adm_params.payload_size);
 	result = apr_send_pkt(this_adm.apr, (uint32_t *)&adm_params);
 	if (result < 0) {
-		pr_err("%s: Set params failed port = %#x payload = 0x%x\n",
-			__func__, port_id, aud_cal->cal_paddr);
+		pr_err("%s: Set params failed port = %#x payload = 0x%pa\n",
+			__func__, port_id, &aud_cal->cal_paddr);
 		result = -EINVAL;
 		goto done;
 	}
@@ -878,8 +877,8 @@ static int send_adm_cal_block(int port_id, struct acdb_cal_block *aud_cal,
 		atomic_read(&this_adm.copp_stat[index]),
 		msecs_to_jiffies(TIMEOUT_MS));
 	if (!result) {
-		pr_err("%s: Set params timed out port = %#x, payload = 0x%x\n",
-			__func__, port_id, aud_cal->cal_paddr);
+		pr_err("%s: Set params timed out port = %#x, payload = 0x%pa\n",
+			__func__, port_id, &aud_cal->cal_paddr);
 		result = -EINVAL;
 		goto done;
 	}
@@ -920,8 +919,8 @@ static void send_adm_cal(int port_id, int path, int perf_mode)
 		result = adm_memory_map_regions(port_id, &aud_cal.cal_paddr,
 						0, &size, 1);
 		if (result < 0) {
-			pr_err("ADM audproc mmap did not work! path = %d, addr = 0x%x, size = %d\n",
-				acdb_path, aud_cal.cal_paddr,
+			pr_err("ADM audproc mmap did not work! path = %d, addr = 0x%pa, size = %zd\n",
+				acdb_path, &aud_cal.cal_paddr,
 				aud_cal.cal_size);
 		} else {
 			this_adm.mem_addr_audproc[acdb_path].cal_paddr =
@@ -954,8 +953,8 @@ static void send_adm_cal(int port_id, int path, int perf_mode)
 		result = adm_memory_map_regions(port_id, &aud_cal.cal_paddr,
 						0, &size, 1);
 		if (result < 0) {
-			pr_err("ADM audvol mmap did not work! path = %d, addr = 0x%x, size = %d\n",
-				acdb_path, aud_cal.cal_paddr,
+			pr_err("ADM audvol mmap did not work! path = %d, addr = 0x%pa, size = %zd\n",
+				acdb_path, &aud_cal.cal_paddr,
 				aud_cal.cal_size);
 		} else {
 			this_adm.mem_addr_audvol[acdb_path].cal_paddr =
@@ -1004,8 +1003,8 @@ int adm_map_rtac_block(struct rtac_cal_block_data *cal_block)
 			&cal_block->cal_data.paddr, 0,
 			&cal_block->map_data.map_size, 1);
 	if (result < 0) {
-		pr_err("%s: RTAC mmap did not work! addr = 0x%x, size = %d\n",
-			__func__, cal_block->cal_data.paddr,
+		pr_err("%s: RTAC mmap did not work! addr = 0x%pa, size = %d\n",
+			__func__, &cal_block->cal_data.paddr,
 			cal_block->map_data.map_size);
 		goto done;
 	}
@@ -1500,7 +1499,7 @@ fail_cmd:
 }
 
 int adm_memory_map_regions(int port_id,
-		uint32_t *buf_add, uint32_t mempool_id,
+		phys_addr_t *buf_add, uint32_t mempool_id,
 		uint32_t *bufsz, uint32_t bufcnt)
 {
 	struct  avs_cmd_shared_mem_map_regions *mmap_regions = NULL;
@@ -1562,8 +1561,8 @@ int adm_memory_map_regions(int port_id,
 	mregions = (struct avs_shared_map_region_payload *)payload;
 
 	for (i = 0; i < bufcnt; i++) {
-		mregions->shm_addr_lsw = buf_add[i];
-		mregions->shm_addr_msw = 0x00;
+		mregions->shm_addr_lsw = lower_32_bits(buf_add[i]);
+		mregions->shm_addr_msw = upper_32_bits(buf_add[i]);
 		mregions->mem_size_bytes = bufsz[i];
 		++mregions;
 	}

@@ -12,7 +12,7 @@ enum lsm_detection_mode {
 };
 
 struct snd_lsm_sound_model {
-	__u8 *data;
+	__u8 __user *data;
 	__u32 data_size;
 	enum lsm_detection_mode detection_mode;
 	__u16 min_keyw_confidence;

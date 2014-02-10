@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -381,7 +381,7 @@ static int msm_afe_open(struct snd_pcm_substream *substream)
 		pr_err("Failed to allocate memory for msm_audio\n");
 		return -ENOMEM;
 	} else
-		pr_debug("prtd %x\n", (unsigned int)prtd);
+		pr_debug("prtd %p\n", prtd);
 
 	mutex_init(&prtd->lock);
 	spin_lock_init(&prtd->dsp_lock);

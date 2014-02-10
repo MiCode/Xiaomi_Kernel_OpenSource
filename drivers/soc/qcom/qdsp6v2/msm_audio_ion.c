@@ -95,10 +95,11 @@ int msm_audio_ion_alloc(const char *name, struct ion_client **client,
 		pr_err("%s: ION memory mapping for AUDIO failed\n", __func__);
 		goto err_ion_handle;
 	}
-	pr_debug("%s: mapped address = %p, size=%d\n", __func__, *vaddr, bufsz);
+	pr_debug("%s: mapped address = %p, size=%zd\n", __func__,
+		*vaddr, bufsz);
 
 	if (bufsz != 0) {
-		pr_debug("%s: memset to 0 %p %d\n", __func__, *vaddr, bufsz);
+		pr_debug("%s: memset to 0 %p %zd\n", __func__, *vaddr, bufsz);
 		memset((void *)*vaddr, 0, bufsz);
 	}
 
@@ -174,7 +175,8 @@ int msm_audio_ion_import(const char *name, struct ion_client **client,
 		rc = -ENOMEM;
 		goto err_ion_handle;
 	}
-	pr_debug("%s: mapped address = %p, size=%d\n", __func__, *vaddr, bufsz);
+	pr_debug("%s: mapped address = %p, size=%zd\n", __func__,
+		*vaddr, bufsz);
 
 	return 0;
 
@@ -284,14 +286,14 @@ int msm_audio_ion_mmap(struct audio_buffer *ab,
 				, __func__ , ret);
 			return ret;
 		}
-		pr_debug("phys=%x len=%d\n", (unsigned int)phys_addr, phys_len);
+		pr_debug("phys=%pa len=%zd\n", &phys_addr, phys_len);
 		pr_debug("vma=%p, vm_start=%x vm_end=%x vm_pgoff=%ld vm_page_prot=%ld\n",
 			vma, (unsigned int)vma->vm_start,
 			(unsigned int)vma->vm_end, vma->vm_pgoff,
 			(unsigned long int)vma->vm_page_prot);
 		va_len = vma->vm_end - vma->vm_start;
 		if ((offset > phys_len) || (va_len > phys_len-offset)) {
-			pr_err("wrong offset size %ld, lens= %d, va_len=%d\n",
+			pr_err("wrong offset size %ld, lens= %zd, va_len=%zd\n",
 				offset, phys_len, va_len);
 			return -EINVAL;
 		}
@@ -467,7 +469,7 @@ static int msm_audio_ion_get_phys(struct ion_client *client,
 		/* SMMU is disabled*/
 		rc = ion_phys(client, handle, addr, len);
 	}
-	pr_debug("phys=%x, len=%d, rc=%d\n", (unsigned int)*addr, *len, rc);
+	pr_debug("phys=%pa, len=%zd, rc=%d\n", &(*addr), *len, rc);
 	return rc;
 }
 

@@ -153,9 +153,11 @@ int afe_start_pseudo_port(u16 port_id);
 int afe_stop_pseudo_port(u16 port_id);
 uint32_t afe_req_mmap_handle(struct afe_audio_client *ac);
 int afe_unmap_cal_blocks(void);
-int afe_memory_map(u32 dma_addr_p, u32 dma_buf_sz, struct afe_audio_client *ac);
-int afe_cmd_memory_map(u32 dma_addr_p, u32 dma_buf_sz);
-int afe_cmd_memory_map_nowait(int port_id, u32 dma_addr_p, u32 dma_buf_sz);
+int afe_memory_map(phys_addr_t dma_addr_p, u32 dma_buf_sz,
+		struct afe_audio_client *ac);
+int afe_cmd_memory_map(phys_addr_t dma_addr_p, u32 dma_buf_sz);
+int afe_cmd_memory_map_nowait(int port_id, phys_addr_t dma_addr_p,
+			u32 dma_buf_sz);
 int afe_cmd_memory_unmap(u32 dma_addr_p);
 int afe_cmd_memory_unmap_nowait(u32 dma_addr_p);
 void afe_set_dtmf_gen_rx_portid(u16 rx_port_id, int set);

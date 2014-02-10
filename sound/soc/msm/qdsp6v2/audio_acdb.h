@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,9 +30,9 @@ enum {
 };
 
 struct acdb_cal_block {
-	uint32_t		cal_size;
-	uint32_t		cal_kvaddr;
-	uint32_t		cal_paddr;
+	size_t		cal_size;
+	void			*cal_kvaddr;
+	phys_addr_t		cal_paddr;
 };
 
 struct hw_delay_entry {

@@ -238,11 +238,13 @@ static int msm_compr_send_buffer(struct msm_compr_audio *prtd)
 		pr_debug("wrap around situation, send partial data %d now", buffer_length);
 	}
 
-	if (buffer_length)
+	if (buffer_length) {
 		param.paddr	= prtd->buffer_paddr + prtd->byte_offset;
+		WARN(prtd->byte_offset % 32 != 0, "offset %x not multiple of 32",
+		prtd->byte_offset);
+	}
 	else
 		param.paddr	= prtd->buffer_paddr;
-	WARN(param.paddr % 32 != 0, "param.paddr %lx not multiple of 32", param.paddr);
 
 	param.len	= buffer_length;
 	param.msw_ts	= 0;
@@ -1495,7 +1497,7 @@ static int msm_compr_ack(struct snd_compr_stream *cstream,
 	WARN(1, "This path is untested");
 	return -EINVAL;
 
-	pr_debug("%s: count = %d\n", __func__, count);
+	pr_debug("%s: count = %zd\n", __func__, count);
 	if (!prtd->buffer) {
 		pr_err("%s: Buffer is not allocated yet ??\n", __func__);
 		return -EINVAL;
@@ -1541,7 +1543,7 @@ static int msm_compr_copy(struct snd_compr_stream *cstream,
 	size_t bytes_available = 0;
 	unsigned long flags;
 
-	pr_debug("%s: count = %d\n", __func__, count);
+	pr_debug("%s: count = %zd\n", __func__, count);
 	if (!prtd->buffer) {
 		pr_err("%s: Buffer is not allocated yet ??", __func__);
 		return 0;
@@ -1577,10 +1579,10 @@ static int msm_compr_copy(struct snd_compr_stream *cstream,
 	prtd->bytes_received += count;
 	if (atomic_read(&prtd->start)) {
 		if (atomic_read(&prtd->xrun)) {
-			pr_debug("%s: in xrun, count = %d\n", __func__, count);
+			pr_debug("%s: in xrun, count = %zd\n", __func__, count);
 			bytes_available = prtd->bytes_received - prtd->copied_total;
 			if (bytes_available >= runtime->fragment_size) {
-				pr_debug("%s: handle xrun, bytes_to_write = %d\n",
+				pr_debug("%s: handle xrun, bytes_to_write = %zd\n",
 					 __func__,
 					 bytes_available);
 				atomic_set(&prtd->xrun, 0);
