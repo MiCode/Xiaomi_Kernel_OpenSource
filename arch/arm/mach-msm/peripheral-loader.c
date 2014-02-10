@@ -515,7 +515,7 @@ static void pil_release_mmap(struct pil_desc *desc)
 	}
 }
 
-#define IOMAP_SIZE SZ_4M
+#define IOMAP_SIZE SZ_1M
 
 static int pil_load_seg(struct pil_desc *desc, struct pil_seg *seg)
 {
