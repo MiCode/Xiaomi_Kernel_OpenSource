@@ -572,7 +572,7 @@ Required properties:
 * APQ8084 ASoC Machine driver
 
 Required properties:
-- compatible : "qcom,apq8084-audio-taiko"
+- compatible : "qcom,apq8084-audio-taiko" or "qcom,apq8084-audio-i2s-taiko" based on the Bus used to connect APQ8084 to Codec
 - qcom,ext-mclk-gpio  : audio uses this GPIO to request mclk in MTP and CDP
 
 Example:
