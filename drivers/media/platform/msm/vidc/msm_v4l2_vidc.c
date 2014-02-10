@@ -21,7 +21,7 @@
 #include <linux/version.h>
 #include <linux/slab.h>
 #include <mach/board.h>
-#include <mach/iommu.h>
+#include <linux/qcom_iommu.h>
 #include <linux/msm_iommu_domains.h>
 #include <media/msm_vidc.h>
 #include "msm_vidc_internal.h"

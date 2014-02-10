@@ -13,7 +13,7 @@
 #ifndef __KGSL_MMU_H
 #define __KGSL_MMU_H
 
-#include <mach/iommu.h>
+#include <linux/qcom_iommu.h>
 #include "kgsl_iommu.h"
 /*
  * These defines control the address range for allocations that

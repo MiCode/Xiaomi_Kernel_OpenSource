@@ -26,9 +26,9 @@
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 
-#include <mach/iommu_hw-v1.h>
-#include <mach/iommu.h>
-#include <mach/iommu_perfmon.h>
+#include "msm_iommu_hw-v1.h"
+#include <linux/qcom_iommu.h>
+#include "msm_iommu_perfmon.h"
 
 static struct of_device_id msm_iommu_ctx_match_table[];
 

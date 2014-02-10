@@ -23,9 +23,9 @@
 #include <linux/idr.h>
 #include <asm/sizes.h>
 #include <asm/page.h>
-#include <mach/iommu.h>
+#include <linux/qcom_iommu.h>
 #include <linux/msm_iommu_domains.h>
-#include <mach/msm_iommu_priv.h>
+#include "msm_iommu_priv.h"
 #include <soc/qcom/socinfo.h>
 
 struct msm_iova_data {

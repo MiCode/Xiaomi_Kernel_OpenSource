@@ -19,8 +19,8 @@
 
 #include <asm/cacheflush.h>
 
-#include <mach/iommu.h>
-#include <mach/msm_iommu_priv.h>
+#include <linux/qcom_iommu.h>
+#include "msm_iommu_priv.h"
 #include <trace/events/kmem.h>
 #include "msm_iommu_pagetable.h"
 

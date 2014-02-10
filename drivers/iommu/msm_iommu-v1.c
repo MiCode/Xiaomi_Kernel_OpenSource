@@ -29,12 +29,12 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/regulator/consumer.h>
+#include <linux/qcom_iommu.h>
 #include <asm/sizes.h>
 
-#include <mach/iommu_hw-v1.h>
-#include <mach/iommu.h>
-#include <mach/msm_iommu_priv.h>
-#include <mach/iommu_perfmon.h>
+#include "msm_iommu_hw-v1.h"
+#include "msm_iommu_priv.h"
+#include "msm_iommu_perfmon.h"
 #include "msm_iommu_pagetable.h"
 
 #ifdef CONFIG_IOMMU_LPAE

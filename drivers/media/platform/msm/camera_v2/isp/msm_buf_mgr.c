@@ -29,7 +29,7 @@
 #include <media/msm_camera.h>
 #include <media/msm_isp.h>
 
-#include <mach/iommu.h>
+#include <linux/qcom_iommu.h>
 
 #include "msm.h"
 #include "msm_buf_mgr.h"

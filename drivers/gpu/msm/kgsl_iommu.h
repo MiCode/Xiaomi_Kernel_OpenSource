@@ -13,7 +13,7 @@
 #ifndef __KGSL_IOMMU_H
 #define __KGSL_IOMMU_H
 
-#include <mach/iommu.h>
+#include <linux/qcom_iommu.h>
 
 /* Pagetable virtual base */
 #define KGSL_PAGETABLE_BASE     0x10000000

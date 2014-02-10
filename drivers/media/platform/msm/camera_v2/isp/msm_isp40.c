@@ -11,7 +11,7 @@
  */
 
 #include <linux/module.h>
-#include <mach/iommu.h>
+#include <linux/qcom_iommu.h>
 #include <linux/ratelimit.h>
 
 #include "msm_isp40.h"
