@@ -23,6 +23,8 @@ obj-$(CONFIG_SND_SOC_INTEL_BAYTRAIL) += snd-soc-sst-baytrail-pcm.o
 # Machine support
 snd-soc-sst-haswell-objs := haswell.o
 snd-soc-sst-broadwell-objs := broadwell.o
+snd-soc-sst-byt-rt5640-mach-objs := byt-rt5640.o
 
 obj-$(CONFIG_SND_SOC_INTEL_HASWELL_MACH) += snd-soc-sst-haswell.o
 obj-$(CONFIG_SND_SOC_INTEL_BROADWELL_MACH) += snd-soc-sst-broadwell.o
+obj-$(CONFIG_SND_SOC_INTEL_BYT_RT5640_MACH) += snd-soc-sst-byt-rt5640-mach.o

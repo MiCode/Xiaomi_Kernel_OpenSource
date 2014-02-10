@@ -179,6 +179,17 @@ static struct sst_acpi_desc sst_acpi_broadwell_desc = {
 	.dma_size = SST_LPT_DSP_DMA_SIZE,
 };
 
+static struct sst_acpi_desc sst_acpi_baytrail_desc = {
+	.drv_name = "baytrail-pcm-audio",
+	.resindex_lpe_base = 0,
+	.resindex_pcicfg_base = 1,
+	.resindex_fw_base = 2,
+	.irqindex_host_ipc = 5,
+	.sst_id = SST_DEV_ID_BYT,
+	.fw_filename = "intel/fw_sst_0f28.bin-i2s_master",
+	.resindex_dma_base = -1,
+};
+
 static struct sst_acpi_mach haswell_mach = {
 	.drv_name = "haswell-audio",
 	.res_desc = &sst_acpi_haswell_desc,
@@ -189,9 +200,15 @@ static struct sst_acpi_mach broadwell_mach = {
 	.res_desc = &sst_acpi_broadwell_desc,
 };
 
+static struct sst_acpi_mach byt_rt5640 = {
+	.drv_name = "byt-rt5640",
+	.res_desc = &sst_acpi_baytrail_desc,
+};
+
 static struct acpi_device_id sst_acpi_match[] = {
 	{ "INT33C8", (unsigned long)&haswell_mach },
 	{ "INT3438", (unsigned long)&broadwell_mach },
+	{ "80860F28", (unsigned long)&byt_rt5640 },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, sst_acpi_match);
