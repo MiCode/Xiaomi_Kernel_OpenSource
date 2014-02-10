@@ -213,7 +213,7 @@ static void scm_pas_disable_bw(void)
 	mutex_unlock(&scm_pas_bw_mutex);
 }
 
-static void scm_pas_init(enum msm_bus_fabric_master_type id)
+static void scm_pas_init(int id)
 {
 	int i, rate;
 	static int is_inited;
