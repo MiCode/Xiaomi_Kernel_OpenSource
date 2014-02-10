@@ -378,6 +378,7 @@ int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 		return -ENOMEM;
 	}
 	power_setting = ps;
+	power_info->power_setting = ps;
 
 	for (i = 0; i < count; i++) {
 		rc = of_property_read_string_index(of_node,
