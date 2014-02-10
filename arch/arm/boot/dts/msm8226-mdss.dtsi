@@ -50,6 +50,8 @@
 
 		qcom,mdss-smp-data = <7 4096>;
 
+		qcom,mdss-no-lut-read;
+
 		qcom,mdss-ctl-off = <0x00000600 0x00000700>;
 		qcom,mdss-mixer-intf-off = <0x00003200>;
 		qcom,mdss-mixer-wb-off = <0x00003E00>;
