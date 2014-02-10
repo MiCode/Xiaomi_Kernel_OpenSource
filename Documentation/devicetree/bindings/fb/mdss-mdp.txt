@@ -247,6 +247,8 @@ Optional properties:
 				AD offset).
 - qcom,mdss-has-wb-ad: Boolean property to indicate assertive display feature
 				support on write back framebuffer.
+- qcom,mdss-no-lut-read: 	Boolean property to indicate reading of LUT is
+				not supported.
 - qcom,mdss-mdp-wfd-mode:	A string that specifies what is the mode of
 				   writeback wfd block.
 				"intf" = Writeback wfd block is
@@ -415,6 +417,7 @@ Example:
 		qcom,mdss-has-bwc;
 		qcom,mdss-has-decimation;
 		qcom,mdss-wfd-mode = "intf";
+		qcom,mdss-no-lut-read;
 
 		qcom,mdss-pipe-vig-xin-id = <0 4 8>;
 		qcom,mdss-pipe-rgb-xin-id = <1 5 9>;
