@@ -526,6 +526,7 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
 			container_of(w, struct bam_data_port, disconnect_w);
 	struct bam_data_ch_info *d = &port->data_ch;
 	int ret;
+	void *priv;
 
 	if (!port->is_connected) {
 		pr_info("%s: Already disconnected. Bailing out.\n", __func__);
@@ -533,11 +534,15 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
 	}
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		if (d->func_type == USB_FUNC_ECM)
-			ecm_ipa_disconnect(d->ipa_params.priv);
+		if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM)
+			priv = d->ipa_params.priv;
+		else
+			priv = d->ul_params.teth_priv;
 
-		if (d->func_type == USB_FUNC_RNDIS) {
-			rndis_ipa_pipe_disconnect_notify(d->ipa_params.priv);
+		if (d->func_type == USB_FUNC_ECM) {
+			ecm_ipa_disconnect(priv);
+		} else if (d->func_type == USB_FUNC_RNDIS) {
+			rndis_ipa_pipe_disconnect_notify(priv);
 			is_ipa_rndis_net_on = false;
 		}
 
@@ -546,10 +551,10 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
 			pr_err("usb_bam_disconnect_ipa failed: err:%d\n", ret);
 		if (d->func_type == USB_FUNC_MBIM)
 			teth_bridge_disconnect(d->ipa_params.src_client);
-
 	}
 
 	port->is_connected = false;
+	pr_debug("Disconnect workqueue done (port %p)\n", port);
 }
 /*
  * This function configured data fifo based on index passed to get bam2bam
@@ -857,17 +862,20 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	}
 
 	port->is_connected = true;
-	pr_debug("%s: Connect workqueue done", __func__);
+	pr_debug("Connect workqueue done (port %p)", port);
 }
 
 static void bam2bam_data_port_free(int portno)
 {
-	if (bam2bam_data_ports[portno] == NULL)
+	if (bam2bam_data_ports[portno] == NULL) {
+		pr_debug("port %d already free\n", portno);
 		return;
+	}
 
 	if (--bam2bam_data_ports[portno]->ref_count == 0) {
 		kfree(bam2bam_data_ports[portno]);
 		bam2bam_data_ports[portno] = NULL;
+		pr_debug("freed port %d\n", portno);
 	}
 }
 
@@ -877,13 +885,17 @@ static int bam2bam_data_port_alloc(int portno)
 	struct bam_data_ch_info	*d = NULL;
 
 	if (bam2bam_data_ports[portno] != NULL) {
+		pr_debug("port %d already allocated. incremeting ref_count\n",
+				portno);
 		bam2bam_data_ports[portno]->ref_count++;
 		goto done;
 	}
 
 	port = kzalloc(sizeof(struct bam_data_port), GFP_KERNEL);
-	if (!port)
+	if (!port) {
+		pr_err("no memory to allocate port %d\n", portno);
 		return -ENOMEM;
+	}
 
 	port->port_num  = portno;
 	port->ref_count = 1;
