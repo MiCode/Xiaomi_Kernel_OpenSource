@@ -708,6 +708,7 @@ int mdss_mdp_overlay_get_buf(struct msm_fb_data_type *mfd,
 	if ((num_planes <= 0) || (num_planes > MAX_PLANES))
 		return -EINVAL;
 
+	mdss_bus_bandwidth_ctrl(1);
 	memset(data, 0, sizeof(*data));
 	for (i = 0; i < num_planes; i++) {
 		data->p[i].flags = flags;
@@ -721,6 +722,7 @@ int mdss_mdp_overlay_get_buf(struct msm_fb_data_type *mfd,
 			break;
 		}
 	}
+	mdss_bus_bandwidth_ctrl(0);
 
 	data->num_planes = i;
 
@@ -730,8 +732,11 @@ int mdss_mdp_overlay_get_buf(struct msm_fb_data_type *mfd,
 int mdss_mdp_overlay_free_buf(struct mdss_mdp_data *data)
 {
 	int i;
+
+	mdss_bus_bandwidth_ctrl(1);
 	for (i = 0; i < data->num_planes && data->p[i].len; i++)
 		mdss_mdp_put_img(&data->p[i]);
+	mdss_bus_bandwidth_ctrl(0);
 
 	data->num_planes = 0;
 
