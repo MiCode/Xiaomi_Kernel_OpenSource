@@ -17,8 +17,6 @@
 #include <linux/module.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
-#include <mach/board.h>
-#include <mach/rpm.h>
 #include "msm_bus_core.h"
 #include "msm_bus_noc.h"
 #include "msm_bus_bimc.h"

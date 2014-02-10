@@ -69,7 +69,7 @@ int msm_bus_device_match_adhoc(struct device *dev, void *id)
 	struct msm_bus_node_device_type *bnode = dev->platform_data;
 
 	if (bnode)
-		ret = (bnode->node_info->id == (unsigned int)id);
+		ret = (bnode->node_info->id == *(unsigned int *)id);
 	else
 		ret = 0;
 
@@ -124,7 +124,7 @@ static int gen_lnode(struct device *dev,
 	} else {
 		lnode->next = prev_idx;
 		lnode->next_dev = bus_find_device(&msm_bus_type, NULL,
-					(void *) next_hop,
+					(void *) &next_hop,
 					msm_bus_device_match_adhoc);
 	}
 
@@ -167,7 +167,7 @@ static int prune_path(struct list_head *route_list, int dest, int src)
 	struct msm_bus_node_device_type *bus_node;
 	int search_dev_id = dest;
 	struct device *dest_dev = bus_find_device(&msm_bus_type, NULL,
-					(void *) dest,
+					(void *) &dest,
 					msm_bus_device_match_adhoc);
 	int lnode_hop = -1;
 
@@ -188,7 +188,8 @@ static int prune_path(struct list_head *route_list, int dest, int src)
 							&msm_bus_type,
 							NULL,
 							(void *)
-							bus_node->node_info->id,
+							&bus_node->node_info->
+								id,
 						msm_bus_device_match_adhoc);
 						lnode_hop = gen_lnode(dest_dev,
 								search_dev_id,
@@ -224,7 +225,7 @@ static int getpath(int src, int dest)
 	struct list_head edge_list;
 	struct list_head route_list;
 	struct device *src_dev = bus_find_device(&msm_bus_type, NULL,
-					(void *) src,
+					(void *) &src,
 					msm_bus_device_match_adhoc);
 	struct msm_bus_node_device_type *src_node;
 	struct bus_search_type *search_node;
@@ -343,7 +344,7 @@ static int update_path(int src, int dest, uint64_t req_ib, uint64_t req_bw,
 	int num_dirty = 0;
 
 	src_dev = bus_find_device(&msm_bus_type, NULL,
-				(void *) src,
+				(void *) &src,
 				msm_bus_device_match_adhoc);
 
 	if (!src_dev) {
@@ -417,7 +418,7 @@ static int remove_path(int src, int dst, uint64_t cur_ib, uint64_t cur_ab,
 	}
 
 	src_dev = bus_find_device(&msm_bus_type, NULL,
-				(void *) src,
+				(void *) &src,
 				msm_bus_device_match_adhoc);
 	if (!src_dev) {
 		MSM_BUS_ERR("%s: Can't find source device %d", __func__, src);
@@ -450,7 +451,7 @@ static void getpath_debug(int src, int curr, int active_only)
 	int i;
 
 	dev_node = bus_find_device(&msm_bus_type, NULL,
-				(void *) src,
+				(void *) &src,
 				msm_bus_device_match_adhoc);
 
 	if (!dev_node) {
@@ -530,8 +531,7 @@ static void unregister_client_adhoc(uint32_t cl)
 		remove_path(src, dest, cur_clk, cur_bw, lnode,
 						pdata->active_only);
 	}
-	msm_bus_dbg_client_data(client->pdata, MSM_BUS_DBG_UNREGISTER,
-							(uint32_t)client);
+	msm_bus_dbg_client_data(client->pdata, MSM_BUS_DBG_UNREGISTER, cl);
 	kfree(client->src_pnode);
 	kfree(client);
 	handle_list.cl_list[cl] = NULL;
@@ -648,7 +648,7 @@ static uint32_t register_client_adhoc(struct msm_bus_scale_pdata *pdata)
 
 	handle = gen_handle(client);
 	msm_bus_dbg_client_data(client->pdata, MSM_BUS_DBG_REGISTER,
-					(uint32_t)client);
+					handle);
 	MSM_BUS_DBG("%s:Client handle %d %s", __func__, handle,
 						client->pdata->name);
 exit_register_client:
@@ -662,7 +662,7 @@ static int update_request_adhoc(uint32_t cl, unsigned int index)
 	struct msm_bus_scale_pdata *pdata;
 	int lnode, src, curr, dest;
 	uint64_t req_clk, req_bw, curr_clk, curr_bw;
-	struct msm_bus_client *client = (struct msm_bus_client *)cl;
+	struct msm_bus_client *client;
 	const char *test_cl = "test-client";
 	bool log_transaction = false;
 
@@ -685,7 +685,7 @@ static int update_request_adhoc(uint32_t cl, unsigned int index)
 
 	if (index >= pdata->num_usecases) {
 		MSM_BUS_ERR("Client %u passed invalid index: %d\n",
-			(uint32_t)client, index);
+			cl, index);
 		ret = -ENXIO;
 		goto exit_update_request;
 	}
@@ -734,7 +734,7 @@ static int update_request_adhoc(uint32_t cl, unsigned int index)
 		if (log_transaction)
 			getpath_debug(src, lnode, pdata->active_only);
 	}
-	msm_bus_dbg_client_data(client->pdata, index , (uint32_t)client);
+	msm_bus_dbg_client_data(client->pdata, index , cl);
 exit_update_request:
 	mutex_unlock(&msm_bus_adhoc_lock);
 	return ret;

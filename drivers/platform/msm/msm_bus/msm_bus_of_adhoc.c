@@ -363,8 +363,9 @@ struct msm_bus_device_node_registration
 					connections[j]);
 		}
 		if (pdata->info[i].fabdev)
-			dev_dbg(&pdev->dev, "base_addr %d\nbus_type %d\n",
-					pdata->info[i].fabdev->pqos_base,
+			dev_dbg(&pdev->dev, "base_addr %zu\nbus_type %d\n",
+					(size_t)pdata->info[i].
+						fabdev->pqos_base,
 					pdata->info[i].fabdev->bus_type);
 	}
 	return pdata;

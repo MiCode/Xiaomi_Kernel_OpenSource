@@ -219,7 +219,7 @@ int msm_bus_commit_data(int *dirty_nodes, int ctx, int num_dirty)
 	for (i = 0; i < num_dirty; i++) {
 		struct device *node_device =
 					bus_find_device(&msm_bus_type, NULL,
-						(void *)dirty_nodes[i],
+						(void *)&dirty_nodes[i],
 						msm_bus_device_match_adhoc);
 
 		ret = flush_bw_data(node_device, ctx);
@@ -580,9 +580,9 @@ static int msm_bus_fabric_init(struct device *dev,
 	fabdev->qos_base = devm_ioremap(dev,
 				fabdev->pqos_base, fabdev->qos_range);
 	if (!fabdev->qos_base) {
-		MSM_BUS_ERR("%s: Error remapping address 0x%x :bus device %d",
+		MSM_BUS_ERR("%s: Error remapping address 0x%zx :bus device %d",
 			__func__,
-			 fabdev->pqos_base, node_dev->node_info->id);
+			 (size_t)fabdev->pqos_base, node_dev->node_info->id);
 		ret = -ENOMEM;
 		goto exit_fabric_init;
 	}
@@ -767,7 +767,7 @@ static int msm_bus_setup_dev_conn(struct device *bus_dev, void *data)
 	if (!bus_node->node_info->is_fab_dev) {
 		struct device *bus_parent_device =
 			bus_find_device(&msm_bus_type, NULL,
-				(void *)bus_node->node_info->bus_device_id,
+				(void *)&bus_node->node_info->bus_device_id,
 				msm_bus_device_match_adhoc);
 
 		if (!bus_parent_device) {
@@ -784,7 +784,7 @@ static int msm_bus_setup_dev_conn(struct device *bus_dev, void *data)
 	for (j = 0; j < bus_node->node_info->num_connections; j++) {
 		bus_node->node_info->dev_connections[j] =
 			bus_find_device(&msm_bus_type, NULL,
-				(void *)bus_node->node_info->connections[j],
+				(void *)&bus_node->node_info->connections[j],
 				msm_bus_device_match_adhoc);
 
 		if (!bus_node->node_info->dev_connections[j]) {
