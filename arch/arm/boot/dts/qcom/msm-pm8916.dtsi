@@ -26,7 +26,6 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			label = "pm8916-mpp";
-			status = "disabled";
 
 			mpp@a000 {
 				reg = <0xa000 0x100>;
@@ -57,7 +56,6 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			label = "pm8916-gpio";
-			status = "disabled";
 
 			gpio@c000 {
 				reg = <0xc000 0x100>;
