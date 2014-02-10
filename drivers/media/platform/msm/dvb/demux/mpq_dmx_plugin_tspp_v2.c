@@ -1595,7 +1595,7 @@ static int mpq_dmx_tspp2_remove_indexing_op(struct mpq_dmx_tspp2_filter *filter)
  *
  * If successful pipe_info->buffer.iova is updated with proper mapping of the
  * buffer with TSPP2. In case internal allocation was requested
- * pipe_info->handle is also updated.
+ * pipe_info->buffer.handle is also updated.
  *
  * @mpq_demux: mpq demux instance
  * @buffer_size: Size of the pipe buffer
@@ -1729,6 +1729,7 @@ static int mpq_dmx_init_out_pipe(struct mpq_demux *mpq_demux,
 	pipe_info->session_id++;
 	pipe_info->hw_missed_notif = 0;
 	pipe_info->handler_count = 0;
+	pipe_info->overflow = 0;
 	return 0;
 
 close_pipe:
@@ -2208,16 +2209,15 @@ static void mpq_dmx_sps_producer_cb(struct sps_event_notify *notify)
 
 	mpq_dmx_tspp2_update_pipe_stats(pipe_info);
 
-	/* Schedule a new work to relevant source workqueue */
-	if (notify->event_id == SPS_EVENT_OUT_OF_DESC) {
-		MPQ_DVB_ERR_PRINT("%s: SPS_EVENT_OUT_OF_DESC!\n", __func__);
-		ret = mpq_dmx_tspp2_queue_pipe_handler(pipe_info,
-			PIPE_OVERFLOW_EVENT);
-	} else {
-		ret = mpq_dmx_tspp2_queue_pipe_handler(pipe_info,
-			PIPE_DATA_EVENT);
+	if (notify->event_id != SPS_EVENT_EOT) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: unexpected sps event id=%d (expected=%d)\n",
+			__func__, notify->event_id, SPS_EVENT_EOT);
+		return;
 	}
 
+	/* Schedule a new work to relevant pipe workqueue */
+	ret = mpq_dmx_tspp2_queue_pipe_handler(pipe_info, PIPE_DATA_EVENT);
 	if (ret)
 		pipe_info->hw_missed_notif++;
 }
@@ -2374,9 +2374,9 @@ static inline size_t mpq_dmx_calc_fullness(u32 write_offset,
  */
 static int mpq_dmx_release_data(struct pipe_info *pipe_info, u32 data_length)
 {
-	int ret = 0;
-	u32 desc_num;
 	struct sps_iovec desc;
+	u32 desc_num;
+	int ret;
 
 	pipe_info->tspp_read_offset += data_length;
 	if (pipe_info->tspp_read_offset >= pipe_info->buffer.size)
@@ -2385,6 +2385,16 @@ static int mpq_dmx_release_data(struct pipe_info *pipe_info, u32 data_length)
 	desc_num = mpq_dmx_calc_fullness(pipe_info->tspp_read_offset,
 			pipe_info->bam_read_offset, pipe_info->buffer.size);
 	desc_num /= pipe_info->pipe_cfg.sps_cfg.descriptor_size;
+
+	/*
+	 * In case pipe is completely full and we release all the data,
+	 * desc_num will be 0 if calculated according to pipe offsets.
+	 * So if this is the case calculate according to length of data to
+	 * release.
+	 */
+	if (desc_num == 0)
+		desc_num = data_length /
+			pipe_info->pipe_cfg.sps_cfg.descriptor_size;
 
 	while (desc_num) {
 		/*
@@ -2429,7 +2439,7 @@ static int mpq_dmx_release_data(struct pipe_info *pipe_info, u32 data_length)
 				__func__, ret);
 			break;
 		}
-
+		pipe_info->overflow = 0;
 		desc_num--;
 		pipe_info->bam_read_offset += desc.size;
 		if (pipe_info->bam_read_offset >= pipe_info->buffer.size)
@@ -2471,6 +2481,28 @@ static inline u8 *mpq_dmx_get_kernel_addr(struct pipe_info *pipe_info,
 	return kernel_address;
 }
 
+static void mpq_dmx_tspp2_check_pipe_overflow(struct pipe_info *pipe_info)
+{
+	struct dmx_data_ready data;
+	struct dvb_demux_feed *feed =
+		pipe_info->parent->mpq_feed->dvb_demux_feed;
+
+	if (feed->demux->playback_mode == DMX_PB_MODE_PUSH &&
+		dvb_ringbuffer_free(feed->feed.ts.buffer.ringbuff) == 0 &&
+		!pipe_info->overflow) {
+		/* Output buffer is completely full, report overflow */
+		MPQ_DVB_ERR_PRINT(
+			"%s: pipe overflow (type=%d, pid=%u) overflow (pipe: bam=%u, rd=%u wr=%u)!\n",
+			__func__, pipe_info->type, feed->pid,
+			pipe_info->bam_read_offset, pipe_info->tspp_read_offset,
+			pipe_info->tspp_write_offset);
+		data.status = DMX_OVERRUN_ERROR;
+		data.data_length = 0;
+		feed->data_ready_cb.ts(&feed->feed.ts, &data);
+		pipe_info->overflow = 1;
+	}
+}
+
 /**
  * mpq_dmx_tspp2_pcr_pipe_handler() - Handler for PCR pipe notifications
  *
@@ -2495,16 +2527,6 @@ static int mpq_dmx_tspp2_pcr_pipe_handler(struct pipe_info *pipe_info,
 	if (unlikely(!feed)) {
 		MPQ_DVB_ERR_PRINT("%s: invalid feed!\n", __func__);
 		return -EINVAL;
-	}
-
-	if (event == PIPE_OVERFLOW_EVENT) {
-		/* Should NEVER happen... */
-		MPQ_DVB_ERR_PRINT("%s: PCR overflow!\n", __func__);
-
-		data.status = DMX_OVERRUN_ERROR;
-		data.data_length = 0;
-		feed->data_ready_cb.ts(&feed->feed.ts, &data);
-		return 0;
 	}
 
 	/* Read all descriptors */
@@ -2666,14 +2688,6 @@ static int mpq_dmx_tspp2_section_pipe_handler(struct pipe_info *pipe_info,
 		&pipe_info->source_info->demux_src.mpq_demux->demux;
 	struct dvb_demux_feed *feed;
 
-	/* check if we have overflow event */
-	if (event == PIPE_OVERFLOW_EVENT) {
-		/* should NEVER happen */
-		MPQ_DVB_ERR_PRINT(
-			"%s: section overflow!\n", __func__);
-		return -EINVAL;
-	}
-
 	tspp2_pipe_last_address_used_get(pipe_info->handle, &tspp_last_addr);
 	data_size = mpq_dmx_tspp2_calc_pipe_data(pipe_info, tspp_last_addr);
 	if (data_size) {
@@ -2685,6 +2699,13 @@ static int mpq_dmx_tspp2_section_pipe_handler(struct pipe_info *pipe_info,
 		pipe_info->tspp_read_offset, pipe_info->buffer.size);
 	if (data_size == 0)
 		return 0;
+
+	/* Warn if buffer is near overflow, which should never happen */
+	if (data_size > TSPP2_DMX_SECTION_BUFFER_THRESHOLD)
+		MPQ_DVB_WARN_PRINT(
+			"%s: Section buffer is over threshold (size=%u > threshold=%u)\n",
+			__func__, data_size,
+			TSPP2_DMX_SECTION_BUFFER_THRESHOLD);
 
 	num_packets = data_size / TSPP2_DMX_SPS_SECTION_DESC_SIZE;
 
@@ -2763,11 +2784,33 @@ static int mpq_dmx_tspp2_process_full_pes_desc(struct pipe_info *pipe_info,
 	 */
 	if (feed->peslen < PES_STC_FIELD_LENGTH) {
 		if (iovec->size < PES_STC_FIELD_LENGTH) {
-			/* Descriptor too small to hold STC */
-			MPQ_DVB_ERR_PRINT(
+			/*
+			 * Descriptor too small to even hold STC info,
+			 * report this descriptor as an empty PES.
+			 */
+			MPQ_DVB_DBG_PRINT(
 				"%s: descriptor size %d is too small (peslen=%d)\n",
 				__func__, iovec->size, feed->peslen);
-			return -EINVAL;
+
+			data.status = DMX_OK;
+			data.data_length = TSPP2_DMX_SPS_NON_VID_PES_DESC_SIZE;
+			feed->data_ready_cb.ts(&feed->feed.ts, &data);
+
+			memset(&data, 0, sizeof(data));
+			data.status = DMX_OK_PES_END;
+			data.data_length = 0;
+			data.pes_end.start_gap =
+				TSPP2_DMX_SPS_NON_VID_PES_DESC_SIZE;
+			data.pes_end.actual_length = 0;
+			data.pes_end.stc = feed->prev_stc;
+			ret = mpq_dmx_tspp2_ts_event_check(feed, pipe_info);
+			if (ret)
+				return ret;
+			feed->data_ready_cb.ts(&feed->feed.ts, &data);
+
+			/* Reset accumulated PES length for next iteration */
+			feed->peslen = 0;
+			return 0;
 		}
 
 		feed->prev_stc = mpq_dmx_tspp2_get_stc(&data_buffer[0], 7);
@@ -2852,20 +2895,6 @@ static int mpq_dmx_tspp2_pes_pipe_handler(struct pipe_info *pipe_info,
 	if (unlikely(!feed)) {
 		MPQ_DVB_ERR_PRINT("%s: invalid feed!\n", __func__);
 		return -EINVAL;
-	}
-
-	if (event == PIPE_OVERFLOW_EVENT) {
-		MPQ_DVB_ERR_PRINT("%s: PES %d overflow!\n",
-					__func__, feed->pid);
-
-		data.status = DMX_OVERRUN_ERROR;
-		data.data_length = 0;
-		feed->data_ready_cb.ts(&feed->feed.ts, &data);
-		/*
-		 * Nothing more to do... Waiting for someone
-		 * to read the data out or flush the buffer
-		 */
-		return 0;
 	}
 
 	/*
@@ -2984,6 +3013,8 @@ static int mpq_dmx_tspp2_pes_pipe_handler(struct pipe_info *pipe_info,
 		data.status = DMX_OK_EOS;
 		data.data_length = 0;
 		feed->data_ready_cb.ts(&feed->feed.ts, &data);
+	} else {
+		mpq_dmx_tspp2_check_pipe_overflow(pipe_info);
 	}
 
 	return 0;
@@ -3053,10 +3084,19 @@ static int mpq_dmx_tspp2_process_video_headers(struct mpq_feed *mpq_feed,
 	struct mpq_adapter_video_meta_data meta_data;
 	struct mpq_streambuffer *stream_buffer;
 	struct dmx_pts_dts_info *pts_dts_info;
+	struct dmx_data_ready data;
 
 	feed = mpq_feed->dvb_demux_feed;
 	feed_data = &mpq_feed->video_info;
 	pes_header = &feed_data->pes_header;
+	stream_buffer = feed_data->video_buffer;
+
+	if (stream_buffer == NULL) {
+		MPQ_DVB_NOTICE_PRINT(
+			"%s: PES detected but video_buffer was released\n",
+			__func__);
+		return 1;
+	}
 
 	mpq_dmx_parse_video_header_suffix(buffer, partial_header,
 		&stc, &pes_payload_sa, &pes_payload_ea,
@@ -3066,10 +3106,28 @@ static int mpq_dmx_tspp2_process_video_headers(struct mpq_feed *mpq_feed,
 			"%s: status_flags=0x%x, sa=%u, ea=%u\n", __func__,
 			status_flags, pes_payload_sa, pes_payload_ea);
 
-	if (pes_payload_sa == ULONG_MAX || pes_payload_sa == ULONG_MAX) {
-		MPQ_DVB_DBG_PRINT("%s: Data was not written to payload pipe\n",
-			__func__);
-		return 0;
+	if (pes_payload_sa == ULONG_MAX || pes_payload_ea == ULONG_MAX) {
+		/*
+		 * Several video headers may indicate overflow so set an
+		 * overflow error indication in the mpq_streambuffer to report
+		 * overflow just once.
+		 * The overflow error indication will be reset when
+		 * mpq_streambuffer is flushed, or when the next non-overflow
+		 * video header is read.
+		 */
+		if (!stream_buffer->packet_data.error) {
+			stream_buffer->packet_data.error = -EOVERFLOW;
+			MPQ_DVB_DBG_PRINT(
+				"%s: S-PES payload overflow (sa=0x%x, ea=0x%x, sts=0x%x)\n",
+				__func__, pes_payload_sa, pes_payload_ea,
+				status_flags);
+			data.status = DMX_OVERRUN_ERROR;
+			data.data_length = 0;
+			feed->data_ready_cb.ts(&feed->feed.ts, &data);
+			return 1;
+		}
+	} else if (stream_buffer->packet_data.error == -EOVERFLOW) {
+		stream_buffer->packet_data.error = 0;
 	}
 
 	ts_header = (struct ts_packet_header *)buffer;
@@ -3140,14 +3198,6 @@ static int mpq_dmx_tspp2_process_video_headers(struct mpq_feed *mpq_feed,
 	mpq_dmx_save_pts_dts(feed_data);
 	mpq_dmx_write_pts_dts(feed_data, pts_dts_info);
 	meta_data.info.pes.stc = feed->prev_stc;
-
-	stream_buffer = feed_data->video_buffer;
-	if (stream_buffer == NULL) {
-		MPQ_DVB_NOTICE_PRINT(
-			"%s: PES detected but video_buffer was released\n",
-			__func__);
-		return 1;
-	}
 
 	ret = mpq_streambuffer_get_buffer_handle(stream_buffer,
 		0, &packet.raw_data_handle);
@@ -3257,31 +3307,14 @@ static int mpq_dmx_tspp2_video_pipe_handler(struct pipe_info *pipe_info,
 	struct pipe_info *main_pipe;
 	struct dmx_data_ready eos_event;
 
-	if (pipe_info->type == VPES_PAYLOAD_PIPE) {
-		if (event == PIPE_OVERFLOW_EVENT) {
-			MPQ_DVB_ERR_PRINT("%s: video overflow!\n",
-				__func__);
-
-			/* TODO: What should we do here?! */
-		}
-
+	if (pipe_info->type == VPES_PAYLOAD_PIPE)
 		return 0;
-	}
 
 	/* Video header pipe. Read descriptors until EOT */
 	tspp2_feed = pipe_info->parent;
 	if (unlikely(!tspp2_feed)) {
 		MPQ_DVB_ERR_PRINT("%s: invalid feed!\n", __func__);
 		return -EINVAL;
-	}
-
-	if (event == PIPE_OVERFLOW_EVENT) {
-		MPQ_DVB_ERR_PRINT("%s: VPES header overflow!\n",
-				__func__);
-		/* TODO - think what to do here, basically this
-		should never happen */
-
-		return 0;
 	}
 
 	main_pipe = tspp2_feed->main_pipe;
@@ -3653,15 +3686,6 @@ static int mpq_dmx_tspp2_index_pipe_handler(struct pipe_info *rec_pipe,
 		return -EINVAL;
 	}
 
-	if (event == PIPE_OVERFLOW_EVENT) {
-		MPQ_DVB_ERR_PRINT("%s: indexing pipe overflow!\n",
-				__func__);
-		/* TODO - think what to do here, basically this
-		should never happen */
-
-		return -EINVAL;
-	}
-
 	tspp2_feed = index_pipe->parent;
 	feed = tspp2_feed->mpq_feed->dvb_demux_feed;
 
@@ -3861,16 +3885,6 @@ static int mpq_dmx_tspp2_rec_pipe_handler(struct pipe_info *pipe_info,
 		feed->tsp_out_format == DMX_TSP_FORMAT_192_TAIL)
 		ts_packet_size = 192;
 
-	/* Check if we have overflow event */
-	if (event == PIPE_OVERFLOW_EVENT) {
-		MPQ_DVB_ERR_PRINT("%s: recording overflow!\n", __func__);
-
-		data.status = DMX_OVERRUN_ERROR;
-		data.data_length = 0;
-		feed->data_ready_cb.ts(&feed->feed.ts, &data);
-		return 0;
-	}
-
 	/*
 	 * Sample indexing pipe before sampling the recording pipe.
 	 * This ensures indexing data refers to the current recording chunk,
@@ -3884,12 +3898,11 @@ static int mpq_dmx_tspp2_rec_pipe_handler(struct pipe_info *pipe_info,
 
 	tspp2_pipe_last_address_used_get(pipe_info->handle, &tspp_last_addr);
 	data_size = mpq_dmx_tspp2_calc_pipe_data(pipe_info, tspp_last_addr);
-	if (data_size == 0)
-		return 0;
 
 	/* Process only complete TS packets */
 	data_size = (data_size / ts_packet_size) * ts_packet_size;
 	num_packets = data_size / ts_packet_size;
+
 	MPQ_DVB_DBG_PRINT("%s: new data: size=%u, num_pkts=%u\n",
 		__func__, data_size, num_packets);
 	if (data_size) {
@@ -3907,9 +3920,15 @@ static int mpq_dmx_tspp2_rec_pipe_handler(struct pipe_info *pipe_info,
 			return ret;
 
 		feed->data_ready_cb.ts(&feed->feed.ts, &data);
+
+		/* Report overflow if output buffer is completely full */
+		mpq_dmx_tspp2_check_pipe_overflow(pipe_info);
 	}
 
-	/* Handle indexing on the recorded data */
+	/*
+	 * Handle indexing of recorded data even if recording chunk size is 0,
+	 * to process any HW indexing data not read in previous iteration.
+	 */
 	if (feed->rec_info->idx_info.indexing_feeds_num) {
 		/* Handle PUSI / RAI indexing */
 		mpq_dmx_tspp2_index(feed, pipe_info, data_size, ts_packet_size);
@@ -4008,8 +4027,8 @@ static int mpq_dmx_allocate_sec_pipe(struct dvb_demux_feed *feed)
 		sps_cfg.descriptor_size = TSPP2_DMX_SPS_SECTION_DESC_SIZE;
 		sps_cfg.descriptor_flags = 0;
 		sps_cfg.setting = SPS_O_AUTO_ENABLE | SPS_O_HYBRID |
-			SPS_O_OUT_OF_DESC | SPS_O_ACK_TRANSFERS;
-		sps_cfg.wakeup_events = SPS_O_OUT_OF_DESC;
+			SPS_O_ACK_TRANSFERS;
+		sps_cfg.wakeup_events = 0;
 		sps_cfg.callback = mpq_dmx_sps_producer_cb;
 		sps_cfg.user_info = pipe_info;
 
@@ -4153,8 +4172,8 @@ static int mpq_dmx_allocate_pcr_pipe(struct dvb_demux_feed *feed)
 	sps_cfg.descriptor_size = TSPP2_DMX_SPS_PCR_DESC_SIZE;
 	sps_cfg.descriptor_flags = SPS_IOVEC_FLAG_INT;
 	sps_cfg.setting = SPS_O_AUTO_ENABLE | SPS_O_DESC_DONE |
-		SPS_O_OUT_OF_DESC | SPS_O_ACK_TRANSFERS;
-	sps_cfg.wakeup_events = SPS_O_DESC_DONE | SPS_O_OUT_OF_DESC;
+		SPS_O_ACK_TRANSFERS;
+	sps_cfg.wakeup_events = SPS_O_DESC_DONE;
 	sps_cfg.callback = mpq_dmx_sps_producer_cb;
 	sps_cfg.user_info = pipe_info;
 
@@ -4266,8 +4285,8 @@ static int mpq_dmx_allocate_pes_pipe(struct dvb_demux_feed *feed)
 	if (is_video) {
 		sps_cfg.descriptor_size = TSPP2_DMX_SPS_VPES_PAYLOAD_DESC_SIZE;
 		sps_cfg.setting = SPS_O_AUTO_ENABLE | SPS_O_HYBRID |
-			SPS_O_OUT_OF_DESC | SPS_O_ACK_TRANSFERS;
-		sps_cfg.wakeup_events = SPS_O_OUT_OF_DESC;
+			SPS_O_ACK_TRANSFERS;
+		sps_cfg.wakeup_events = 0;
 		pipe_info->type = VPES_PAYLOAD_PIPE;
 		pipe_info->pipe_handler = mpq_dmx_tspp2_video_pipe_handler;
 
@@ -4282,8 +4301,8 @@ static int mpq_dmx_allocate_pes_pipe(struct dvb_demux_feed *feed)
 	} else {
 		sps_cfg.descriptor_size = TSPP2_DMX_SPS_NON_VID_PES_DESC_SIZE;
 		sps_cfg.setting = SPS_O_AUTO_ENABLE | SPS_O_EOT |
-			SPS_O_OUT_OF_DESC | SPS_O_ACK_TRANSFERS;
-		sps_cfg.wakeup_events = SPS_O_EOT | SPS_O_OUT_OF_DESC;
+			SPS_O_LATE_EOT | SPS_O_ACK_TRANSFERS;
+		sps_cfg.wakeup_events = SPS_O_EOT;
 		pipe_info->type = PES_PIPE;
 		pipe_info->pipe_handler = mpq_dmx_tspp2_pes_pipe_handler;
 
@@ -4337,8 +4356,8 @@ static int mpq_dmx_allocate_pes_pipe(struct dvb_demux_feed *feed)
 		sps_cfg.descriptor_size = TSPP2_DMX_SPS_VPES_HEADER_DESC_SIZE;
 		sps_cfg.descriptor_flags = 0;
 		sps_cfg.setting = SPS_O_AUTO_ENABLE | SPS_O_EOT |
-			SPS_O_OUT_OF_DESC | SPS_O_ACK_TRANSFERS;
-		sps_cfg.wakeup_events = SPS_O_EOT | SPS_O_OUT_OF_DESC;
+			SPS_O_LATE_EOT | SPS_O_ACK_TRANSFERS;
+		sps_cfg.wakeup_events = SPS_O_EOT;
 		sps_cfg.callback = mpq_dmx_sps_producer_cb;
 		sps_cfg.user_info = header_pipe;
 
@@ -4473,8 +4492,8 @@ static int mpq_dmx_tspp2_allocate_index_pipe(struct dvb_demux_feed *feed)
 	sps_cfg.descriptor_size = TSPP2_DMX_SPS_INDEXING_DESC_SIZE;
 	sps_cfg.descriptor_flags = 0;
 	sps_cfg.setting = SPS_O_AUTO_ENABLE | SPS_O_HYBRID |
-		SPS_O_OUT_OF_DESC | SPS_O_ACK_TRANSFERS;
-	sps_cfg.wakeup_events = SPS_O_OUT_OF_DESC;
+		SPS_O_ACK_TRANSFERS;
+	sps_cfg.wakeup_events = 0;
 	sps_cfg.callback = mpq_dmx_sps_producer_cb;
 	sps_cfg.user_info = pipe_info;
 
@@ -4580,8 +4599,8 @@ static int mpq_dmx_allocate_rec_pipe(struct dvb_demux_feed *feed)
 		}
 		sps_cfg.descriptor_flags = 0;
 		sps_cfg.setting = SPS_O_AUTO_ENABLE | SPS_O_HYBRID |
-			SPS_O_OUT_OF_DESC | SPS_O_ACK_TRANSFERS;
-		sps_cfg.wakeup_events = SPS_O_OUT_OF_DESC;
+			SPS_O_ACK_TRANSFERS;
+		sps_cfg.wakeup_events = 0;
 		sps_cfg.callback = mpq_dmx_sps_producer_cb;
 		sps_cfg.user_info = pipe_info;
 
@@ -4820,11 +4839,12 @@ static int mpq_dmx_tspp2_notify_data_read(struct dmx_ts_feed *ts_feed,
 	return 0;
 }
 
-static void mpq_dmx_tspp2_streambuffer_cb(struct mpq_streambuffer *sbuff,
-	u32 offset, size_t len, void *user_data)
+static void mpq_dmx_tspp2_release_video_payload(struct pipe_info *pipe_info,
+	u32 offset, size_t len)
 {
 	int ret;
-	struct pipe_info *pipe_info = user_data;
+	u32 end_offset;
+	u32 data_len;
 
 	if (mutex_lock_interruptible(&pipe_info->mutex))
 		return;
@@ -4835,12 +4855,25 @@ static void mpq_dmx_tspp2_streambuffer_cb(struct mpq_streambuffer *sbuff,
 		return;
 	}
 
-	ret = mpq_dmx_release_data(pipe_info, len);
+	end_offset = (offset + len) % pipe_info->buffer.size;
+	data_len = mpq_dmx_calc_fullness(end_offset,
+		pipe_info->tspp_read_offset, pipe_info->buffer.size);
+
+	ret = mpq_dmx_release_data(pipe_info, data_len);
 	if (ret)
-		MPQ_DVB_ERR_PRINT("%s: mpq_dmx_release_data failed, ret=%d\n",
-			__func__, ret);
+		MPQ_DVB_ERR_PRINT(
+			"%s: mpq_dmx_release_data(data_len=%u) failed, ret=%d\n",
+			__func__, data_len, ret);
 
 	mutex_unlock(&pipe_info->mutex);
+}
+
+static void mpq_dmx_tspp2_streambuffer_cb(struct mpq_streambuffer *sbuff,
+	u32 offset, size_t len, void *user_data)
+{
+	struct pipe_info *pipe_info = user_data;
+
+	mpq_dmx_tspp2_release_video_payload(pipe_info, offset, len);
 }
 
 static int mpq_dmx_tspp2_eos_cmd(struct mpq_tspp2_feed *tspp2_feed)
@@ -5538,6 +5571,101 @@ end:
 	return ret;
 }
 
+static int mpq_dmx_tspp2_flush_index_pipe(struct pipe_info *index_pipe)
+{
+	u32 last_addr;
+	size_t data_size;
+
+	tspp2_pipe_last_address_used_get(index_pipe->handle, &last_addr);
+
+	data_size = mpq_dmx_tspp2_calc_pipe_data(index_pipe, last_addr);
+	index_pipe->tspp_last_addr = last_addr;
+	index_pipe->tspp_write_offset += data_size;
+	if (index_pipe->tspp_write_offset >= index_pipe->buffer.size)
+		index_pipe->tspp_write_offset -= index_pipe->buffer.size;
+
+	return mpq_dmx_release_data(index_pipe, data_size);
+}
+
+static int mpq_dmx_tspp2_flush_buffer(struct dmx_ts_feed *ts_feed, size_t len)
+{
+	struct dvb_demux_feed *feed = (struct dvb_demux_feed *)ts_feed;
+	struct mpq_feed *mpq_feed = feed->priv;
+	struct mpq_tspp2_feed *tspp2_feed = mpq_feed->plugin_priv;
+	struct pipe_info *pipe_info;
+	int ret = 0;
+
+	if (mutex_lock_interruptible(&feed->demux->mutex))
+		return -ERESTARTSYS;
+
+	if (feed->state != DMX_STATE_GO) {
+		mutex_unlock(&feed->demux->mutex);
+		return -EINVAL;
+	}
+
+	if ((feed->ts_type & TS_PAYLOAD_ONLY) || dvb_dmx_is_video_feed(feed))
+		dvbdmx_ts_reset_pes_state(feed);
+
+	if (dvb_dmx_is_video_feed(feed)) {
+		/* S-PES */
+		pipe_info = tspp2_feed->secondary_pipe;
+		if (mutex_lock_interruptible(&pipe_info->mutex)) {
+			ret = -ERESTARTSYS;
+			goto end;
+		}
+
+		/* Header pipe was closed */
+		if (!pipe_info->ref_count) {
+			ret = -ENODEV;
+			goto release_pipe_mutex;
+		}
+
+		MPQ_DVB_DBG_PRINT("%s: Flush mpq_streambuffer\n", __func__);
+		mpq_dmx_flush_stream_buffer(feed);
+
+		/* Flush video payload pipe */
+		MPQ_DVB_DBG_PRINT("%s: Flushing S-PES data pipe\n", __func__);
+
+		MPQ_DVB_DBG_PRINT(
+			"%s: Flushing video payload pipe till offset %u\n",
+			__func__, tspp2_feed->main_pipe->tspp_write_offset);
+
+		mpq_dmx_tspp2_release_video_payload(tspp2_feed->main_pipe,
+			tspp2_feed->main_pipe->tspp_write_offset, 0);
+	} else if (!dvb_dmx_is_pcr_feed(feed)) {
+		pipe_info = tspp2_feed->main_pipe;
+		MPQ_DVB_DBG_PRINT("%s: Flushing %s pipe\n", __func__,
+			pipe_info->type == PES_PIPE ? "PES" : "REC");
+		if (mutex_lock_interruptible(&pipe_info->mutex)) {
+			ret = -ERESTARTSYS;
+			goto end;
+		}
+
+		if (!pipe_info->ref_count) {
+			ret = -ENODEV;
+			goto release_pipe_mutex;
+		}
+
+		ret = mpq_dmx_release_data(pipe_info, len);
+
+		/* Indexing pipe */
+		if (dvb_dmx_is_rec_feed(feed) && feed->idx_params.enable &&
+			feed->pattern_num) {
+			MPQ_DVB_DBG_PRINT("%s: Flushing indexing pipe\n",
+				__func__);
+			ret = mpq_dmx_tspp2_flush_index_pipe(
+				tspp2_feed->secondary_pipe);
+		}
+	}
+
+release_pipe_mutex:
+	mutex_unlock(&pipe_info->mutex);
+end:
+	mutex_unlock(&feed->demux->mutex);
+	MPQ_DVB_DBG_PRINT("%s(%d) exit, ret=%d\n", __func__, feed->pid, ret);
+	return ret;
+}
+
 /**
  * Implementation of dvb-demux start_feed function.
  *
@@ -5566,6 +5694,7 @@ static int mpq_dmx_tspp2_start_filtering(struct dvb_demux_feed *feed)
 	feed->pusi_seen = 0;
 
 	if (feed->type == DMX_TYPE_TS) {
+		feed->feed.ts.flush_buffer = mpq_dmx_tspp2_flush_buffer;
 		feed->feed.ts.notify_data_read = mpq_dmx_tspp2_notify_data_read;
 		feed->feed.ts.oob_command = mpq_dmx_tspp2_ts_oob_cmd;
 		if (dvb_dmx_is_rec_feed(feed)) {
@@ -5577,6 +5706,7 @@ static int mpq_dmx_tspp2_start_filtering(struct dvb_demux_feed *feed)
 				mpq_dmx_tspp2_ts_insertion_terminate;
 		}
 	} else {
+		feed->feed.sec.flush_buffer = NULL;
 		feed->feed.sec.notify_data_read = NULL;
 		feed->feed.sec.oob_command = mpq_dmx_tspp2_section_oob_cmd;
 	}
@@ -5848,6 +5978,17 @@ static int mpq_dmx_tspp2_disconnect_frontend(struct dmx_demux *demux)
 		MPQ_DVB_ERR_PRINT("%s: invalid source %d\n", __func__, source);
 		mutex_unlock(&mpq_dmx_tspp2_info.mutex);
 		return -ENODEV;
+	}
+
+	/* Disable source before detaching the input pipe */
+	if (source_info->handle != TSPP2_INVALID_HANDLE &&
+		source_info->enabled) {
+		ret = tspp2_src_disable(source_info->handle);
+		if (ret)
+			MPQ_DVB_ERR_PRINT(
+				"%s: tspp2_src_disable failed, ret=%d\n",
+				__func__, ret);
+		source_info->enabled = 0;
 	}
 
 	pipe_info = source_info->input_pipe;
