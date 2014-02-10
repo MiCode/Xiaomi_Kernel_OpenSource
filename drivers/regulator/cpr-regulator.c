@@ -1093,36 +1093,122 @@ static int cpr_voltage_uplift_wa_inc_volt(struct cpr_regulator *cpr_vreg,
 	return rc;
 }
 
-static int cpr_pvs_init(struct platform_device *pdev,
-			       struct cpr_regulator *cpr_vreg)
+/*
+ * Property qcom,cpr-fuse-init-voltage specifies the fuse position of the
+ * initial voltage for each fuse corner. MSB of the fuse value is a sign
+ * bit, and the remaining bits define the steps of the offset. Each step has
+ * units of microvolts defined in the qcom,cpr-fuse-init-voltage-step property.
+ * The initial voltages can be calculated using the formula:
+ * pvs_corner_v[corner] = ceiling_volt[corner] + (sign * steps * step_size_uv)
+ */
+static int cpr_pvs_per_corner_init(struct device_node *of_node,
+				struct cpr_regulator *cpr_vreg)
 {
-	struct device_node *of_node = pdev->dev.of_node;
 	u64 efuse_bits;
-	int rc, i, stripe_size;
+	int i, size, sign, steps, step_size_uv, rc;
+	u32 *fuse_sel, *tmp;
+	struct property *prop;
+
+	prop = of_find_property(of_node, "qcom,cpr-fuse-init-voltage", NULL);
+	if (!prop) {
+		pr_err("qcom,cpr-fuse-init-voltage is missing\n");
+		return -EINVAL;
+	}
+	size = prop->length / sizeof(u32);
+	if (size != (CPR_FUSE_CORNER_MAX - 1) * 4) {
+		pr_err("fuse position for init voltages is invalid\n");
+		return -EINVAL;
+	}
+	fuse_sel = kzalloc(sizeof(u32) * size, GFP_KERNEL);
+	if (!fuse_sel) {
+		pr_err("memory alloc failed.\n");
+		return -ENOMEM;
+	}
+	rc = of_property_read_u32_array(of_node, "qcom,cpr-fuse-init-voltage",
+							fuse_sel, size);
+	if (rc < 0) {
+		pr_err("read cpr-fuse-init-voltage failed, rc = %d\n", rc);
+		kfree(fuse_sel);
+		return rc;
+	}
+	rc = of_property_read_u32(of_node, "qcom,cpr-init-voltage-step",
+							&step_size_uv);
+	if (rc < 0) {
+		pr_err("read cpr-init-voltage-step failed, rc = %d\n", rc);
+		kfree(fuse_sel);
+		return rc;
+	}
+	tmp = fuse_sel;
+	for (i = CPR_FUSE_CORNER_SVS; i < CPR_FUSE_CORNER_MAX; i++) {
+		efuse_bits = cpr_read_efuse_row(cpr_vreg, fuse_sel[0],
+							fuse_sel[3]);
+		sign = (efuse_bits >> fuse_sel[1]) & (1 << (fuse_sel[2] - 1));
+		sign = ((sign == 0) ? 1 : -1);
+		steps = (efuse_bits >> fuse_sel[1]) &
+			((1 << (fuse_sel[2] - 1)) - 1);
+		pr_debug("corner %d: sign = %d, steps = %d\n", i, sign, steps);
+		cpr_vreg->pvs_corner_v[i] = cpr_vreg->ceiling_volt[i] +
+					sign * steps * step_size_uv;
+		cpr_vreg->pvs_corner_v[i] = DIV_ROUND_UP(
+				cpr_vreg->pvs_corner_v[i],
+				cpr_vreg->step_volt) *
+				cpr_vreg->step_volt;
+		if (cpr_vreg->pvs_corner_v[i] > cpr_vreg->ceiling_volt[i]) {
+			pr_info("Warning: initial voltage[%d] %d above ceiling %d\n",
+						i, cpr_vreg->pvs_corner_v[i],
+						cpr_vreg->ceiling_volt[i]);
+			cpr_vreg->pvs_corner_v[i] = cpr_vreg->ceiling_volt[i];
+		} else if (cpr_vreg->pvs_corner_v[i] <
+				cpr_vreg->floor_volt[i]) {
+			pr_info("Warning: initial voltage[%d] %d below floor %d\n",
+						i, cpr_vreg->pvs_corner_v[i],
+						cpr_vreg->floor_volt[i]);
+			cpr_vreg->pvs_corner_v[i] = cpr_vreg->floor_volt[i];
+		}
+		fuse_sel += 4;
+	}
+	kfree(tmp);
+
+	return 0;
+}
+
+/*
+ * A single PVS bin is stored in a fuse that's position is defined either
+ * in the qcom,pvs-fuse-redun property or in the qcom,pvs-fuse property.
+ * The fuse value defined in the qcom,pvs-fuse-redun-sel property is used
+ * to pick between the primary or redudant PVS fuse position.
+ * After the PVS bin value is read out successfully, it is used as the row
+ * index to get initial voltages for each fuse corner from the voltage table
+ * defined in the qcom,pvs-voltage-table property.
+ */
+static int cpr_pvs_single_bin_init(struct device_node *of_node,
+				struct cpr_regulator *cpr_vreg)
+{
+	u64 efuse_bits;
 	u32 pvs_fuse[4], pvs_fuse_redun_sel[5];
+	int rc, i, stripe_size;
 	bool redundant;
 	size_t pvs_bins;
 	u32 *tmp;
 
 	rc = of_property_read_u32_array(of_node, "qcom,pvs-fuse-redun-sel",
-					pvs_fuse_redun_sel, 5);
+						pvs_fuse_redun_sel, 5);
 	if (rc < 0) {
 		pr_err("pvs-fuse-redun-sel missing: rc=%d\n", rc);
 		return rc;
 	}
 
 	redundant = cpr_fuse_is_setting_expected(cpr_vreg, pvs_fuse_redun_sel);
-
 	if (redundant) {
 		rc = of_property_read_u32_array(of_node, "qcom,pvs-fuse-redun",
-						pvs_fuse, 4);
+								pvs_fuse, 4);
 		if (rc < 0) {
 			pr_err("pvs-fuse-redun missing: rc=%d\n", rc);
 			return rc;
 		}
 	} else {
 		rc = of_property_read_u32_array(of_node, "qcom,pvs-fuse",
-						pvs_fuse, 4);
+							pvs_fuse, 4);
 		if (rc < 0) {
 			pr_err("pvs-fuse missing: rc=%d\n", rc);
 			return rc;
@@ -1130,13 +1216,10 @@ static int cpr_pvs_init(struct platform_device *pdev,
 	}
 
 	/* Construct PVS process # from the efuse bits */
-
 	efuse_bits = cpr_read_efuse_row(cpr_vreg, pvs_fuse[0], pvs_fuse[3]);
 	cpr_vreg->pvs_bin = (efuse_bits >> pvs_fuse[1]) &
-				   ((1 << pvs_fuse[2]) - 1);
-
+				((1 << pvs_fuse[2]) - 1);
 	pvs_bins = 1 << pvs_fuse[2];
-
 	stripe_size = CPR_FUSE_CORNER_MAX - 1;
 	tmp = kzalloc(sizeof(u32) * pvs_bins * stripe_size, GFP_KERNEL);
 	if (!tmp) {
@@ -1145,7 +1228,7 @@ static int cpr_pvs_init(struct platform_device *pdev,
 	}
 
 	rc = of_property_read_u32_array(of_node, "qcom,pvs-voltage-table",
-					tmp, pvs_bins * stripe_size);
+						tmp, pvs_bins * stripe_size);
 	if (rc < 0) {
 		pr_err("pvs-voltage-table missing: rc=%d\n", rc);
 		kfree(tmp);
@@ -1156,6 +1239,46 @@ static int cpr_pvs_init(struct platform_device *pdev,
 		cpr_vreg->pvs_corner_v[i] = tmp[cpr_vreg->pvs_bin *
 						stripe_size + i - 1];
 	kfree(tmp);
+
+	return 0;
+}
+
+/*
+ * The initial voltage for each fuse corner may be determined by one of two
+ * possible styles of fuse. If qcom,cpr-fuse-init-voltage is present, then
+ * the initial voltages are encoded in a fuse for each fuse corner. If it is
+ * not present, then the initial voltages are all determined using a single
+ * PVS bin fuse value.
+ */
+static int cpr_pvs_init(struct platform_device *pdev,
+			       struct cpr_regulator *cpr_vreg)
+{
+	struct device_node *of_node = pdev->dev.of_node;
+	int i, rc;
+
+	rc = of_property_read_u32(of_node, "qcom,cpr-apc-volt-step",
+					&cpr_vreg->step_volt);
+	if (rc < 0) {
+		pr_err("read cpr-apc-volt-step failed, rc = %d\n", rc);
+		return rc;
+	} else if (cpr_vreg->step_volt == 0) {
+		pr_err("apc voltage step size can't be set to 0.\n");
+		return -EINVAL;
+	}
+
+	if (of_find_property(of_node, "qcom,cpr-fuse-init-voltage", NULL)) {
+		rc = cpr_pvs_per_corner_init(of_node, cpr_vreg);
+		if (rc < 0) {
+			pr_err("get pvs per corner failed, rc = %d", rc);
+			return rc;
+		}
+	} else {
+		rc = cpr_pvs_single_bin_init(of_node, cpr_vreg);
+		if (rc < 0) {
+			pr_err("get pvs from single bin failed, rc = %d", rc);
+			return rc;
+		}
+	}
 
 	if (cpr_vreg->flags & FLAGS_UPLIFT_QUOT_VOLT) {
 		rc = cpr_voltage_uplift_wa_inc_volt(cpr_vreg, of_node);
@@ -1782,10 +1905,6 @@ static int cpr_init_cpr_parameters(struct platform_device *pdev,
 		return rc;
 	CPR_PROP_READ_U32(of_node, "vdd-apc-step-down-limit",
 			  &cpr_vreg->vdd_apc_step_down_limit, rc);
-	if (rc)
-		return rc;
-	CPR_PROP_READ_U32(of_node, "cpr-apc-volt-step",
-			  &cpr_vreg->step_volt, rc);
 	if (rc)
 		return rc;
 
