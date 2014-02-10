@@ -772,7 +772,7 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	dev->last_residency = (int)time;
 
 	local_irq_enable();
-	return index;
+	return idx;
 }
 
 /**
