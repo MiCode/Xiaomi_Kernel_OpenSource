@@ -18,6 +18,7 @@
 #include <linux/regulator/krait-regulator.h>
 #include <soc/qcom/spm.h>
 #include <soc/qcom/pm.h>
+#include <soc/qcom/scm-boot.h>
 
 #include <asm/cacheflush.h>
 #include <asm/cputype.h>
@@ -29,7 +30,6 @@
 #include <mach/msm_iomap.h>
 
 #include "platsmp.h"
-#include "scm-boot.h"
 
 #define VDD_SC1_ARRAY_CLAMP_GFS_CTL 0x15A0
 #define SCSS_CPU1CORE_RESET 0xD80
