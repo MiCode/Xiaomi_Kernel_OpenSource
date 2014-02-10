@@ -519,11 +519,16 @@ out:
 static ssize_t mma8x5x_enable_show(struct device *dev,
 				   struct device_attribute *attr, char *buf)
 {
-	struct input_polled_dev *poll_dev = dev_get_drvdata(dev);
-	struct mma8x5x_data *pdata = (struct mma8x5x_data *)(poll_dev->private);
-	struct i2c_client *client = pdata->client;
+	struct mma8x5x_data *pdata = drv_data;
+	struct i2c_client *client;
 	u8 val;
 	int enable;
+
+	if (!pdata) {
+		dev_err(dev, "Invalid driver private data!");
+		return -EINVAL;
+	}
+	client = pdata->client;
 
 	mutex_lock(&pdata->data_lock);
 	val = i2c_smbus_read_byte_data(client, MMA8X5X_CTRL_REG1);
@@ -539,13 +544,17 @@ static ssize_t mma8x5x_enable_store(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t count)
 {
-	struct input_polled_dev *poll_dev = dev_get_drvdata(dev);
-	struct mma8x5x_data *pdata = (struct mma8x5x_data *)(poll_dev->private);
-	struct i2c_client *client = pdata->client;
+	struct mma8x5x_data *pdata = drv_data;
+	struct i2c_client *client;
 	int ret;
 	unsigned long enable;
 	u8 val = 0;
 
+	if (!pdata) {
+		dev_err(dev, "Invalid driver private data!");
+		return -EINVAL;
+	}
+	client = pdata->client;
 	ret = kstrtoul(buf, 10, &enable);
 	if (ret)
 		return ret;
