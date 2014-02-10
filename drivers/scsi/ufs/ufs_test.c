@@ -232,6 +232,10 @@ static char *ufs_test_get_test_case_str(struct test_data *td)
 	case UFS_TEST_MULTI_QUERY:
 		return "Test multiple queries at the same time";
 		break;
+	case UFS_TEST_LONG_RANDOM_READ:
+		return "UFS long random read test";
+	case UFS_TEST_LONG_RANDOM_WRITE:
+		return "UFS long random write test";
 	case UFS_TEST_LONG_SEQUENTIAL_READ:
 		return "UFS long sequential read test";
 		break;
