@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -690,11 +690,18 @@ int pil_boot(struct pil_desc *desc)
 	if (ret)
 		goto release_fw;
 
+	desc->priv->unvoted_flag = 0;
+	ret = pil_proxy_vote(desc);
+	if (ret) {
+		pil_err(desc, "Failed to proxy vote\n");
+		goto release_fw;
+	}
+
 	if (desc->ops->init_image)
 		ret = desc->ops->init_image(desc, fw->data, fw->size);
 	if (ret) {
 		pil_err(desc, "Invalid firmware metadata\n");
-		goto release_fw;
+		goto err_boot;
 	}
 
 	if (desc->ops->mem_setup)
@@ -702,20 +709,13 @@ int pil_boot(struct pil_desc *desc)
 				priv->region_end - priv->region_start);
 	if (ret) {
 		pil_err(desc, "Memory setup error\n");
-		goto release_fw;
+		goto err_boot;
 	}
 
 	list_for_each_entry(seg, &desc->priv->segs, list) {
 		ret = pil_load_seg(desc, seg);
 		if (ret)
-			goto release_fw;
-	}
-
-	desc->priv->unvoted_flag = 0;
-	ret = pil_proxy_vote(desc);
-	if (ret) {
-		pil_err(desc, "Failed to proxy vote\n");
-		goto release_fw;
+			goto err_boot;
 	}
 
 	ret = desc->ops->auth_and_reset(desc);
