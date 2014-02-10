@@ -115,6 +115,7 @@ struct mdss_data_type {
 	u32 has_bwc;
 	u32 has_decimation;
 	u32 wfd_mode;
+	u32 has_no_lut_read;
 	u8 has_wb_ad;
 	u8 has_non_scalar_rgb;
 
