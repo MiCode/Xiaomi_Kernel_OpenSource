@@ -2275,7 +2275,8 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 	mdss_fb_power_setting_idle(mfd);
 	if ((cmd != MSMFB_VSYNC_CTRL) && (cmd != MSMFB_OVERLAY_VSYNC_CTRL) &&
 			(cmd != MSMFB_ASYNC_BLIT) && (cmd != MSMFB_BLIT) &&
-			(cmd != MSMFB_NOTIFY_UPDATE)) {
+			(cmd != MSMFB_NOTIFY_UPDATE) &&
+			(cmd != MSMFB_OVERLAY_PREPARE)) {
 		ret = mdss_fb_pan_idle(mfd);
 		if (ret) {
 			pr_debug("Shutdown pending. Aborting operation %x\n",
