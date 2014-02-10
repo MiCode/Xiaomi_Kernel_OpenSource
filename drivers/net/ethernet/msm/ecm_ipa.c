@@ -244,7 +244,13 @@ int ecm_ipa_init(struct ecm_ipa_params *params)
 	ECM_IPA_DEBUG("network device was successfully allocated\n");
 
 	ecm_ipa_ctx = netdev_priv(net);
+	if (!ecm_ipa_ctx) {
+		ECM_IPA_ERROR("fail to extract netdev priv\n");
+		result = -ENOMEM;
+		goto fail_netdev_priv;
+	}
 	memset(ecm_ipa_ctx, 0, sizeof(*ecm_ipa_ctx));
+
 	ecm_ipa_ctx->net = net;
 	ecm_ipa_ctx->tx_enable = true;
 	ecm_ipa_ctx->rx_enable = true;
@@ -322,6 +328,7 @@ fail_rules_cfg:
 fail_create_rm:
 	ecm_ipa_debugfs_destroy(ecm_ipa_ctx);
 fail_debugfs:
+fail_netdev_priv:
 	free_netdev(net);
 fail_alloc_etherdev:
 	return result;
@@ -385,7 +392,11 @@ int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl,
 	}
 	ecm_ipa_ctx->ipa_to_usb_hdl = ipa_to_usb_hdl;
 	ecm_ipa_ctx->usb_to_ipa_hdl = usb_to_ipa_hdl;
-	ecm_ipa_ep_registers_cfg(usb_to_ipa_hdl, ipa_to_usb_hdl);
+	retval = ecm_ipa_ep_registers_cfg(usb_to_ipa_hdl, ipa_to_usb_hdl);
+	if (retval) {
+		ECM_IPA_ERROR("fail on ep cfg\n");
+		goto fail_ep;
+	}
 	ECM_IPA_DEBUG("end-point configured\n");
 
 	netif_carrier_on(ecm_ipa_ctx->net);
@@ -400,13 +411,13 @@ int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl,
 	retval = ipa_send_msg(&msg_meta, ecm_msg, ecm_ipa_msg_free_cb);
 	if (retval) {
 		ECM_IPA_ERROR("fail to send ECM_CONNECT message\n");
-		kfree(ecm_msg);
-		return -EPERM;
+		goto fail_msg;
 	}
 
 	if (!netif_carrier_ok(ecm_ipa_ctx->net)) {
 		ECM_IPA_ERROR("netif_carrier_ok error\n");
-		return -EBUSY;
+		retval = -EBUSY;
+		goto fail_carrier;
 	}
 	ECM_IPA_DEBUG("carrier_on notified, ecm_ipa is operational\n");
 
@@ -418,6 +429,12 @@ int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl,
 	ECM_IPA_LOG_EXIT();
 
 	return 0;
+
+fail_carrier:
+fail_msg:
+	kfree(ecm_msg);
+fail_ep:
+	return retval;
 }
 EXPORT_SYMBOL(ecm_ipa_connect);
 
