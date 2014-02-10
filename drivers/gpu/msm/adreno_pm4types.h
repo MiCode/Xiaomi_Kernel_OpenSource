@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -149,6 +149,9 @@
 
 /* test 2 memory locations to dword values specified */
 #define CP_TEST_TWO_MEMS	0x71
+
+/* Write register, ignoring context state for context sensitive registers */
+#define CP_REG_WR_NO_CTXT  0x78
 
 /* PFP waits until the FIFO between the PFP and the ME is empty */
 #define CP_WAIT_FOR_ME		0x13

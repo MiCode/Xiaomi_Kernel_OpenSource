@@ -1076,6 +1076,118 @@ static unsigned int _adreno_iommu_setstate_v1(struct kgsl_device *device,
 	return cmds - cmds_orig;
 }
 
+static unsigned int _adreno_iommu_setstate_v2(struct kgsl_device *device,
+					unsigned int *cmds_orig,
+					phys_addr_t pt_val,
+					int num_iommu_units, uint32_t flags)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	phys_addr_t ttbr0_val;
+	unsigned int reg_pt_val;
+	unsigned int *cmds = cmds_orig;
+	int i;
+	unsigned int ttbr0, tlbiall, tlbstatus, tlbsync;
+
+	cmds += adreno_add_idle_cmds(adreno_dev, cmds);
+
+	for (i = 0; i < num_iommu_units; i++) {
+		ttbr0_val = kgsl_mmu_get_default_ttbr0(&device->mmu,
+				i, KGSL_IOMMU_CONTEXT_USER);
+		ttbr0_val &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
+		ttbr0_val |= (pt_val & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK);
+		if (flags & KGSL_MMUFLAGS_PTUPDATE) {
+
+			ttbr0 = kgsl_mmu_get_reg_ahbaddr(&device->mmu, i,
+						KGSL_IOMMU_CONTEXT_USER,
+						KGSL_IOMMU_CTX_TTBR0) >> 2;
+
+			/*
+			 * glue commands together until next
+			 * WAIT_FOR_ME
+			 */
+			cmds += adreno_wait_reg_eq(cmds,
+				adreno_getreg(adreno_dev,
+					ADRENO_REG_CP_WFI_PEND_CTR),
+					1, 0xFFFFFFFF, 0xF);
+
+			/* MMU-500 VBIF stall */
+			*cmds++ = cp_type3_packet(CP_REG_RMW, 3);
+			*cmds++ = A3XX_VBIF_DDR_OUTPUT_RECOVERABLE_HALT_CTRL0;
+			/* AND to unmask the HALT bit */
+			*cmds++ = ~(VBIF_RECOVERABLE_HALT_CTRL);
+			/* OR to set the HALT bit */
+			*cmds++ = 0x1;
+
+			/* Wait for acknowledgement */
+			cmds += adreno_wait_reg_eq(cmds,
+				A3XX_VBIF_DDR_OUTPUT_RECOVERABLE_HALT_CTRL1,
+					1, 0xFFFFFFFF, 0xF);
+
+			/* set ttbr0 */
+			if (sizeof(phys_addr_t) > sizeof(unsigned int)) {
+				reg_pt_val = ttbr0_val & 0xFFFFFFFF;
+				*cmds++ = cp_type3_packet(CP_REG_WR_NO_CTXT, 2);
+				*cmds++ = ttbr0;
+				*cmds++ = reg_pt_val;
+				reg_pt_val = (unsigned int)
+				((ttbr0_val & 0xFFFFFFFF00000000ULL) >> 32);
+				*cmds++ = cp_type3_packet(CP_REG_WR_NO_CTXT, 2);
+				*cmds++ = ttbr0 + 1;
+				*cmds++ = reg_pt_val;
+			} else {
+				reg_pt_val = ttbr0_val;
+				*cmds++ = cp_type3_packet(CP_REG_WR_NO_CTXT, 2);
+				*cmds++ = ttbr0;
+				*cmds++ = reg_pt_val;
+			}
+
+			/* MMU-500 VBIF unstall */
+			*cmds++ = cp_type3_packet(CP_REG_RMW, 3);
+			*cmds++ = A3XX_VBIF_DDR_OUTPUT_RECOVERABLE_HALT_CTRL0;
+			/* AND to unmask the HALT bit */
+			*cmds++ = ~(VBIF_RECOVERABLE_HALT_CTRL);
+			/* OR to reset the HALT bit */
+			*cmds++ = 0;
+
+			/* release all commands with wait_for_me */
+			*cmds++ = cp_type3_packet(CP_WAIT_FOR_ME, 1);
+			*cmds++ = 0;
+
+		}
+		if (flags & KGSL_MMUFLAGS_TLBFLUSH) {
+			tlbiall = kgsl_mmu_get_reg_ahbaddr(&device->mmu, i,
+						KGSL_IOMMU_CONTEXT_USER,
+						KGSL_IOMMU_CTX_TLBIALL) >> 2;
+			*cmds++ = cp_type3_packet(CP_REG_WR_NO_CTXT, 2);
+			*cmds++ = tlbiall;
+			*cmds++ = 1;
+
+			tlbsync = kgsl_mmu_get_reg_ahbaddr(&device->mmu, i,
+						KGSL_IOMMU_CONTEXT_USER,
+						KGSL_IOMMU_CTX_TLBSYNC) >> 2;
+			*cmds++ = cp_type3_packet(CP_REG_WR_NO_CTXT, 2);
+			*cmds++ = tlbsync;
+			*cmds++ = 0;
+
+			tlbstatus = kgsl_mmu_get_reg_ahbaddr(&device->mmu, i,
+					KGSL_IOMMU_CONTEXT_USER,
+					KGSL_IOMMU_CTX_TLBSTATUS) >> 2;
+			if (adreno_is_a4xx(adreno_dev))
+				cmds += adreno_wait_reg_mem(cmds, tlbstatus, 0,
+					KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE, 0xF);
+			else
+				cmds += adreno_wait_reg_eq(cmds, tlbstatus, 0,
+					KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE, 0xF);
+			/* release all commands with wait_for_me */
+			*cmds++ = cp_type3_packet(CP_WAIT_FOR_ME, 1);
+			*cmds++ = 0;
+		}
+	}
+
+	cmds += adreno_add_idle_cmds(adreno_dev, cmds);
+
+	return cmds - cmds_orig;
+}
 /**
  * adreno_use_default_setstate() - Use CPU instead of the GPU to manage the mmu?
  * @adreno_dev: the device
@@ -1133,7 +1245,10 @@ static int adreno_iommu_setstate(struct kgsl_device *device,
 		device->mmu.setstate_memory.gpuaddr +
 		KGSL_IOMMU_SETSTATE_NOP_OFFSET);
 
-	if (msm_soc_version_supports_iommu_v0())
+	if (kgsl_msm_supports_iommu_v2())
+		cmds += _adreno_iommu_setstate_v2(device, cmds, pt_val,
+						num_iommu_units, flags);
+	else if (msm_soc_version_supports_iommu_v0())
 		cmds += _adreno_iommu_setstate_v0(device, cmds, pt_val,
 						num_iommu_units, flags);
 	else

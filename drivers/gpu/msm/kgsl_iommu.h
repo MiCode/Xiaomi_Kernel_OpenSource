@@ -17,7 +17,13 @@
 
 #define KGSL_IOMMU_CTX_OFFSET_V0	0
 #define KGSL_IOMMU_CTX_OFFSET_V1	0x8000
+#define KGSL_IOMMU_CTX_OFFSET_V2	0x8000
 #define KGSL_IOMMU_CTX_SHIFT		12
+
+/* IOMMU V2 AHB base is fixed */
+#define KGSL_IOMMU_V2_AHB_BASE		0xA000
+/* IOMMU_V2 AHB base points to ContextBank0 */
+#define KGSL_IOMMU_CTX_AHB_OFFSET_V2   0
 
 /* TLBLKCR fields */
 #define KGSL_IOMMU_TLBLKCR_LKE_MASK		0x00000001
@@ -198,7 +204,9 @@ struct kgsl_iommu_unit {
  * instance of the IOMMU driver
  * @device: Pointer to kgsl device
  * @ctx_offset: The context offset to be added to base address when
- * accessing IOMMU registers
+ * accessing IOMMU registers from the CPU
+ * @ctx_ahb_offset: The context offset to be added to base address when
+ * accessing IOMMU registers from the GPU
  * @iommu_reg_list: List of IOMMU registers { offset, map, shift } array
  * @sync_lock_vars: Pointer to the IOMMU spinlock for serializing access to the
  * IOMMU registers
@@ -213,6 +221,7 @@ struct kgsl_iommu {
 	unsigned int unit_count;
 	struct kgsl_device *device;
 	unsigned int ctx_offset;
+	unsigned int ctx_ahb_offset;
 	struct kgsl_iommu_register_list *iommu_reg_list;
 	struct remote_iommu_petersons_spinlock *sync_lock_vars;
 	struct kgsl_memdesc sync_lock_desc;
@@ -243,5 +252,44 @@ struct kgsl_iommu_disable_clk_param {
 	int ctx_id;
 	unsigned int ts;
 };
+
+/*
+ * kgsl_msm_supports_iommu_v2 - Checks whether IOMMU version is V2 or not
+ *
+ * Checks whether IOMMU version is V2 or not by parsing nodes.
+ * Return: 1 if IOMMU v2 is found else 0
+ */
+#ifdef CONFIG_OF
+static inline int _kgsl_msm_checks_iommu_v2(void)
+{
+	struct device_node *node;
+	node = of_find_compatible_node(NULL, NULL, "qcom,msm-smmu-v2");
+	if (node) {
+		of_node_put(node);
+		return 1;
+	}
+	return 0;
+}
+#endif
+
+#if !defined(CONFIG_MSM_IOMMU_V0) && defined(CONFIG_OF)
+static inline int kgsl_msm_supports_iommu_v2(void)
+{
+	static int soc_supports_v2 = -1;
+
+	if (soc_supports_v2 != -1)
+		return soc_supports_v2;
+	if (_kgsl_msm_checks_iommu_v2()) {
+		soc_supports_v2 = 1;
+		return 1;
+	}
+	return 0;
+}
+#else
+static inline int kgsl_msm_supports_iommu_v2(void)
+{
+	return 0;
+}
+#endif
 
 #endif
