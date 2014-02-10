@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -265,7 +265,7 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	writel_relaxed(0x6C, phy->base + QSERDES_RX_RX_EQU_ADAPTOR_CNTRL3);
 	writel_relaxed(0xC7, phy->base + QSERDES_RX_RX_EQU_ADAPTOR_CNTRL4);
 	writel_relaxed(0x40, phy->base + QSERDES_RX_SIGDET_ENABLES);
-	writel_relaxed(0x70, phy->base + QSERDES_RX_SIGDET_CNTRL);
+	writel_relaxed(0x73, phy->base + QSERDES_RX_SIGDET_CNTRL);
 	writel_relaxed(0x06, phy->base + QSERDES_RX_SIGDET_DEGLITCH_CNTRL);
 	writel_relaxed(0x48, phy->base + PCIE_USB3_PHY_RX_IDLE_DTCT_CNTRL);
 	writel_relaxed(0x01, phy->base + QSERDES_COM_SSC_EN_CENTER);
