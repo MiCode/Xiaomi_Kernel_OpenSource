@@ -30,7 +30,6 @@
 #include <soc/qcom/pm.h>
 #include <soc/qcom/rpm-notifier.h>
 #include <soc/qcom/event_timer.h>
-#include <mach/cpuidle.h>
 
 #define SCLK_HZ (32768)
 

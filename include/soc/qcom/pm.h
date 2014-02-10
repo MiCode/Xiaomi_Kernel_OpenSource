@@ -105,11 +105,6 @@ struct msm_pm_cpr_ops {
 	void (*cpr_resume)(void);
 };
 
-struct msm_cpuidle_state;
-
-enum msm_pm_sleep_mode msm_pm_idle_enter(struct cpuidle_device *dev,
-			struct cpuidle_driver *drv, int index,
-			const struct msm_cpuidle_state *states);
 void __init msm_pm_set_tz_retention_flag(unsigned int flag);
 void msm_pm_enable_retention(bool enable);
 bool msm_pm_retention_enabled(void);
@@ -121,16 +116,16 @@ int msm_pm_wait_cpu_shutdown(unsigned int cpu);
 void __init msm_pm_sleep_status_init(void);
 void msm_pm_set_l2_flush_flag(enum msm_pm_l2_scm_flag flag);
 void lpm_cpu_hotplug_enter(unsigned int cpu);
+s32 msm_cpuidle_get_deep_idle_latency(void);
 #else
 static inline void msm_pm_set_rpm_wakeup_irq(unsigned int irq) {}
 static inline int msm_pm_wait_cpu_shutdown(unsigned int cpu) { return 0; }
 static inline void msm_pm_sleep_status_init(void) {};
-static inline void msm_pm_set_l2_flush_flag(unsigned int flag)
-{
-	/* empty */
-}
+static inline void msm_pm_set_l2_flush_flag(unsigned int flag) { }
 static inline void lpm_cpu_hotplug_enter(unsigned int cpu) {};
+static inline s32 msm_cpuidle_get_deep_idle_latency(void) { return 0; }
 #endif
+
 #ifdef CONFIG_HOTPLUG_CPU
 int msm_platform_secondary_init(unsigned int cpu);
 #else

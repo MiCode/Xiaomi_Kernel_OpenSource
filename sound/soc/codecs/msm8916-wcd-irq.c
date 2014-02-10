@@ -22,7 +22,7 @@
 #include <linux/of_device.h>
 #include <linux/interrupt.h>
 #include <linux/pm_qos.h>
-#include <mach/cpuidle.h>
+#include <soc/qcom/pm.h>
 #include <sound/soc.h>
 #include "msm8x16-wcd.h"
 #include "msm8916-wcd-irq.h"
