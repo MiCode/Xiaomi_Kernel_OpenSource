@@ -257,6 +257,10 @@ kgsl_ioctl_gpumem_get_info_compat(struct kgsl_device_private *dev_priv,
 
 	param.gpuaddr = (unsigned long)param32->gpuaddr;
 	param.id = param32->id;
+	param.flags = param32->flags;
+	param.size = (size_t)param32->size;
+	param.mmapsize = (size_t)param32->mmapsize;
+	param.useraddr = (unsigned long)param32->useraddr;
 
 	result = kgsl_ioctl_gpumem_get_info(dev_priv, cmd, &param);
 
