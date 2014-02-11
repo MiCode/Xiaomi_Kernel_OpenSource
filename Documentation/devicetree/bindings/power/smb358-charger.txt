@@ -1,0 +1,71 @@
+Summit smb358 battery charger
+
+SMB358 is a single-cell battery charger. It can charge
+the battery and power the system via the USB/AC adapter input.
+
+The smb358 interface is via I2C bus.
+
+Required Properties:
+- compatible			Must be "qcom,smb358-charger".
+- reg				The device 7-bit I2C address.
+- interrupt-parent		parent of interrupt.
+- interrupts			This indicates the IRQ number of the GPIO
+				connected to the STAT pin.
+- qcom,irq-gpio			GPIO which receives interrupts from STAT output.
+- qcom,bms-psy-name		This is a string and it points to the bms
+				power supply name.
+- qcom,float-voltage-mv		Float Voltage in mV - the maximum voltage up to which
+				the battery is charged. Supported range 3500mV to 4500mV
+- qcom,vcc-i2c-supply		Power source required to power up i2c bus.
+- qcom,chg-vadc			Corresponding VADC device's phandle.
+
+Optional Properties:
+
+- qcom,fastchg-current-max-ma	Fast Charging current in mA. Supported range is
+				from 200mA to 2000mA.
+- qcom,chg-valid-gpio		GPIO which indicates the charger presence.
+				This GPIO is connected to the SYSOK pin.
+- qcom,chg-autonomous-mode	This is a bool property and it indicates that the
+				charger is configured for autonomous operation and
+				does not require any software configuration.
+- qcom,disable-apsd		This is a bool property which disables automatic
+				power source detection (APSD). If this is set
+				charger detection is done by DCIN UV irq.
+- qcom,charger-disabled		This is a bool property which disables charging.
+- qcom,using-pmic-therm		This property indicates thermal pin connected to pmic or smb.
+- qcom,iterm-ma			Specifies the termination current to indicate end-of-charge.
+				Possible values in mA - 30, 40, 60, 80, 100, 125, 150, 200.
+- qcom,iterm-disabled		Disables the termination current feature. This is a bool
+				property.
+- qcom,recharge-mv		Recharge threshold in mV - the offset from the float-volatge
+				as which the charger restarts charging. Possible
+				values are 50mV to 300mV.
+- qcom,recharge-disabled	Boolean value which disables the auto-recharge.
+- qcom,chg-adc_tm		phandle to the corresponding VADC device to read the ADC channels.
+- qcom,cold-bat-decidegc	Cold battery temperature in decidegC.
+- qcom,hot-bat-decidegc		Hot battery temperature in decidegC.
+- qcom,bat-present-decidegc	This is a property indicating battery present temperature, if
+				higher than it, battery should exist. Default value is negative,
+				if this property is 200, it stands for -200 decidegC.
+
+Example:
+	i2c@f9967000 {
+		smb358-charger@1b {
+			compatible = "qcom,smb358-charger";
+			reg = <0x1b>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <17 0x0>;
+			qcom,irq-gpio = <&msmgpio 17 0x00>;
+			qcom,vcc-i2c-supply = <&pm8226_lvs1>;
+			qcom,float-voltage-mv = <4350>;
+			qcom,disable-apsd;
+			qcom,fastchg-current-max-ma = <1500>;
+			qcom,bms-psy-name = "bms";
+			qcom,chg-vadc = <&pm8226_vadc>;
+			qcom,chg-adc_tm = <&pm8226_adc_tm>;
+			qcom,hot-bat-decidegc = <500>;
+			qcom,cold-bat-decidegc = <0>;
+			qcom,bat-present-decidegc = <200>;
+		};
+	};
+
