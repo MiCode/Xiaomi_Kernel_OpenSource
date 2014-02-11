@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,10 @@ int create_pkt_set_cmd_sys_resource(
 		void *resource_value);
 
 int create_pkt_cmd_sys_debug_config(
+		struct hfi_cmd_sys_set_property_packet *pkt,
+		u32 mode);
+
+int create_pkt_cmd_sys_coverage_config(
 		struct hfi_cmd_sys_set_property_packet *pkt,
 		u32 mode);
 

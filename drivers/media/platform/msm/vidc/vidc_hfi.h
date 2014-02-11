@@ -385,6 +385,7 @@ struct hfi_uncompressed_plane_actual_constraints_info {
 #define VIDC_IFACEQ_MIN_PKT_SIZE                        8
 #define VIDC_IFACEQ_VAR_SMALL_PKT_SIZE          100
 #define VIDC_IFACEQ_VAR_LARGE_PKT_SIZE          512
+#define VIDC_IFACEQ_VAR_HUGE_PKT_SIZE          (1024*12)
 
 
 struct hfi_cmd_sys_session_abort_packet {

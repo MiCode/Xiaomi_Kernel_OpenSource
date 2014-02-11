@@ -208,6 +208,8 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_SYS_COMMON_START + 0x005)
 #define  HFI_PROPERTY_SYS_IMAGE_VERSION    \
 	(HFI_PROPERTY_SYS_COMMON_START + 0x006)
+#define  HFI_PROPERTY_SYS_CONFIG_COVERAGE    \
+	(HFI_PROPERTY_SYS_COMMON_START + 0x007)
 
 #define HFI_PROPERTY_PARAM_COMMON_START	\
 	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET + 0x1000)
@@ -760,6 +762,7 @@ struct hfi_mvc_buffer_layout_descp_type {
 #define HFI_MSG_SYS_SESSION_INIT_DONE	(HFI_MSG_SYS_COMMON_START + 0x6)
 #define HFI_MSG_SYS_SESSION_END_DONE	(HFI_MSG_SYS_COMMON_START + 0x7)
 #define HFI_MSG_SYS_IDLE		(HFI_MSG_SYS_COMMON_START + 0x8)
+#define HFI_MSG_SYS_COV                 (HFI_MSG_SYS_COMMON_START + 0x9)
 #define HFI_MSG_SYS_PROPERTY_INFO	(HFI_MSG_SYS_COMMON_START + 0xA)
 
 #define HFI_MSG_SESSION_COMMON_START		\
@@ -942,6 +945,15 @@ struct hfi_msg_sys_debug_packet {
 	u32 size;
 	u32 packet_type;
 	u32 msg_type;
+	u32 msg_size;
+	u32 time_stamp_hi;
+	u32 time_stamp_lo;
+	u8 rg_msg_data[1];
+};
+
+struct hfi_msg_sys_coverage_packet {
+	u32 size;
+	u32 packet_type;
 	u32 msg_size;
 	u32 time_stamp_hi;
 	u32 time_stamp_lo;
