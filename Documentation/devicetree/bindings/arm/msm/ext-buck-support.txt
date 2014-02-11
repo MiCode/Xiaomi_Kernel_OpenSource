@@ -1,0 +1,24 @@
+* MSM EXT BUCK SUPPORT
+
+EXT BUCK SUPPORT driver is for supporting the external buck controlled by RPM.
+This driver sends active and sleep set votes when handshaking with rpm for
+supporting external buck by toggling a gpio to trun-on and turn-off external
+buck.
+
+The required properties for EXT BUCK SUPPORT are:
+
+- compatible: "qcom,ext-buck-support"
+
+The optional properties are:
+- qcom,gpio-num: Indicates the GPIO number which will turn-on and turn-off
+		 the external buck.
+- qcom,settling-time: Indicates the settling time for the external buck to
+		      get turn-on or turn-off. Settling time is calculated
+		      in terms of QTIMER(19.2MHz).
+
+Example:
+	qcom,ext-buck-support {
+		compatible = "qcom,ext-buck-support";
+		qcom,gpio-num = <50>;
+		qcom,settling-time = <2580>;
+	};
