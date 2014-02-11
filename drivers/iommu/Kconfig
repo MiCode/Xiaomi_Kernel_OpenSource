@@ -87,6 +87,16 @@ config IOMMU_PGTABLES_L2
          section mappings and TLB misses should be quite infrequent.
          Most people can probably say Y here.
 
+config MSM_IOMMU_VBIF_CHECK
+	bool "Enable support for VBIF check when IOMMU gets stuck"
+	depends on MSM_IOMMU
+	help
+	  Enables an extra check in the IOMMU driver that logs debugging
+	  information when TLB sync or iommu halt issue occurs. This helps
+	  in debugging such issues.
+
+	  If unsure, say N here.
+
 config IOMMU_NON_SECURE
 	bool "Turns on programming of secure SMMU by kernel"
 	depends on MSM_IOMMU
