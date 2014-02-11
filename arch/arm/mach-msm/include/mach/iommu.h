@@ -224,9 +224,9 @@ enum dump_reg {
 struct dump_regs_tbl {
 	/*
 	 * To keep things context-bank-agnostic, we only store the CB
-	 * register offset in `key'
+	 * register offset in `reg_offset'
 	 */
-	unsigned long key;
+	unsigned long reg_offset;
 	const char *name;
 	int offset;
 	int must_be_present;
