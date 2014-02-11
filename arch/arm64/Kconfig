@@ -284,6 +284,15 @@ config ARCH_WANT_HUGE_PMD_SHARE
 config HAVE_ARCH_TRANSPARENT_HUGEPAGE
 	def_bool y
 
+config ARMV7_COMPAT
+	bool "Kernel support for ARMv7 applications"
+	depends on COMPAT
+	help
+	 This option enables features that allow that ran on an ARMv7 or older
+	 processor to continue functioning.
+
+	 If you want to execute ARMv7 applications, say Y
+
 source "mm/Kconfig"
 
 config XEN_DOM0
