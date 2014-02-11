@@ -24,6 +24,7 @@
  * $Id: wl_cfg80211.c,v 1.1.4.1.2.14 2011/02/09 01:40:07 Exp $
  */
 
+#include <linux/vmalloc.h>
 #include <net/rtnetlink.h>
 
 #include <bcmutils.h>
@@ -50,6 +51,7 @@ static int dhd_dongle_up = FALSE;
 #include <dhd.h>
 #include <dhdioctl.h>
 #include <wlioctl.h>
+#include <brcm_nl80211.h>
 #include <dhd_cfg80211.h>
 
 static s32 wl_dongle_up(struct net_device *ndev, u32 up);
@@ -171,10 +173,15 @@ int dhd_cfg80211_testmode_cmd(struct wiphy *wiphy, void *data, int len)
 	struct sk_buff *reply;
 	struct bcm_cfg80211 *cfg;
 	dhd_pub_t *dhd;
-	dhd_ioctl_t *ioc = data;
+	struct bcm_nlmsg_hdr *nlioc = data;
+	dhd_ioctl_t ioc = { 0 };
 	int err = 0;
+	void *buf = NULL, *cur;
+	u16 buflen;
+	u16 maxmsglen = PAGE_SIZE - 0x100;
+	bool newbuf = false;
 
-	WL_TRACE(("entry: cmd = %d\n", ioc->cmd));
+	WL_TRACE(("entry: cmd = %d\n", nlioc->cmd));
 	cfg = wiphy_priv(wiphy);
 	dhd = cfg->pub;
 
@@ -188,16 +195,66 @@ int dhd_cfg80211_testmode_cmd(struct wiphy *wiphy, void *data, int len)
 		return OSL_ERROR(BCME_DONGLE_DOWN);
 	}
 
-	/* currently there is only one wiphy for ifidx 0 */
-	err = dhd_ioctl_process(dhd, 0, ioc);
-	if (err)
-		goto done;
+	len -= sizeof(struct bcm_nlmsg_hdr);
 
-	/* response data is in ioc->buf so return ioc here */
-	reply = cfg80211_testmode_alloc_reply_skb(wiphy, sizeof(*ioc));
-	nla_put(reply, NL80211_ATTR_TESTDATA, sizeof(*ioc), ioc);
-	err = cfg80211_testmode_reply(reply);
+	if (nlioc->len > 0) {
+		if (nlioc->len <= len) {
+			buf = (void *)nlioc + nlioc->offset;
+			*(char *)(buf + nlioc->len) = '\0';
+		} else {
+			if (nlioc->len > DHD_IOCTL_MAXLEN)
+				nlioc->len = DHD_IOCTL_MAXLEN;
+			buf = vzalloc(nlioc->len);
+			if (!buf)
+				return -ENOMEM;
+			newbuf = true;
+			memcpy(buf, (void *)nlioc + nlioc->offset, len);
+			*(char *)(buf + len) = '\0';
+		}
+	}
+
+	ioc.cmd = nlioc->cmd;
+	ioc.len = nlioc->len;
+	ioc.set = nlioc->set;
+	ioc.driver = nlioc->magic;
+	err = dhd_ioctl_process(dhd, 0, &ioc, buf);
+	if (err) {
+		WL_TRACE(("dhd_ioctl_process return err %d\n", err));
+		err = OSL_ERROR(err);
+		goto done;
+	}
+
+	cur = buf;
+	while (nlioc->len > 0) {
+		buflen = nlioc->len > maxmsglen ? maxmsglen : nlioc->len;
+		nlioc->len -= buflen;
+		reply = cfg80211_testmode_alloc_reply_skb(wiphy, buflen+4);
+		if (!reply) {
+			WL_ERR(("Failed to allocate reply msg\n"));
+			err = -ENOMEM;
+			break;
+		}
+
+		if (nla_put(reply, BCM_NLATTR_DATA, buflen, cur) ||
+			nla_put_u16(reply, BCM_NLATTR_LEN, buflen)) {
+			kfree_skb(reply);
+			err = -ENOBUFS;
+			break;
+		}
+
+		do {
+			err = cfg80211_testmode_reply(reply);
+		} while (err == -EAGAIN);
+		if (err) {
+			WL_ERR(("testmode reply failed:%d\n", err));
+			break;
+		}
+		cur += buflen;
+	}
+
 done:
+	if (newbuf)
+		vfree(buf);
 	DHD_OS_WAKE_UNLOCK(dhd);
 	return err;
 }
