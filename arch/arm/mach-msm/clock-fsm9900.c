@@ -2744,6 +2744,7 @@ static struct clk_lookup fsm_clocks_9900[] = {
 	/* USB clocks */
 	CLK_LOOKUP("iface_clk", gcc_usb_hs_ahb_clk.c,      "f9a55000.usb"),
 	CLK_LOOKUP("core_clk",  gcc_usb_hs_system_clk.c,   "f9a55000.usb"),
+	CLK_LOOKUP("sleep_clk",	gcc_usb2a_phy_sleep_clk.c, "f9a55000.usb"),
 	CLK_LOOKUP("xo",        xo_usb_hs_host_clk.c,      "f9a55000.usb"),
 
 	CLK_LOOKUP("iface_clk",	gcc_usb_hs_ahb_clk.c,	   "msm_ehci_host"),
