@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,6 +68,18 @@ struct v4l2_subdev_info {
 	uint16_t order;
 };
 
+struct msm_camera_power_ctrl_t {
+	struct device *dev;
+	struct msm_sensor_power_setting *power_setting;
+	uint16_t power_setting_size;
+	struct msm_camera_gpio_conf *gpio_conf;
+	struct camera_vreg_t *cam_vreg;
+	int num_vreg;
+	struct msm_camera_i2c_conf *i2c_conf;
+	struct msm_cam_clk_info *clk_info;
+	uint16_t clk_info_size;
+};
+
 struct msm_camera_sensor_board_info {
 	const char *sensor_name;
 	struct msm_camera_slave_info *slave_info;
@@ -81,6 +93,7 @@ struct msm_camera_sensor_board_info {
 	struct msm_sensor_info_t *sensor_info;
 	struct msm_sensor_init_params *sensor_init_params;
 	const char *misc_regulator;
+	struct msm_camera_power_ctrl_t power_info;
 };
 
 enum msm_camera_i2c_cmd_type {
@@ -112,30 +125,23 @@ struct eeprom_map_t {
 	uint32_t delay;
 };
 
-struct eeprom_memory_map_t {
+struct msm_eeprom_memory_map_t {
 	struct eeprom_map_t page;
 	struct eeprom_map_t pageen;
 	struct eeprom_map_t poll;
 	struct eeprom_map_t mem;
 };
 
-struct msm_camera_power_ctrl_t {
-	struct device *dev;
-	struct msm_sensor_power_setting *power_setting;
-	uint16_t power_setting_size;
-	struct msm_camera_gpio_conf *gpio_conf;
-	struct camera_vreg_t *cam_vreg;
-	int num_vreg;
-	struct msm_camera_i2c_conf *i2c_conf;
-	struct msm_cam_clk_info *clk_info;
-	uint16_t clk_info_size;
+struct msm_eeprom_memory_block_t {
+	struct msm_eeprom_memory_map_t *map;
+	uint32_t num_map;	/* number of map blocks */
+	uint8_t *mapdata;
+	uint32_t num_data;	/* size of total mapdata */
 };
 
 struct msm_eeprom_board_info {
 	const char *eeprom_name;
 	uint16_t i2c_slaveaddr;
-	uint32_t num_blocks;
-	struct eeprom_memory_map_t *eeprom_map;
 	struct msm_camera_power_ctrl_t power_info;
 };
 

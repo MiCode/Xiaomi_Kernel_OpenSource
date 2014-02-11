@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,8 @@ struct msm_eeprom_ctrl_t;
 #define DEFINE_MSM_MUTEX(mutexname) \
 	static struct mutex mutexname = __MUTEX_INITIALIZER(mutexname)
 
+#define PROPERTY_MAXSIZE 32
+
 struct msm_eeprom_ctrl_t {
 	struct platform_device *pdev;
 	struct mutex *eeprom_mutex;
@@ -38,8 +40,7 @@ struct msm_eeprom_ctrl_t {
 	enum cci_i2c_master_t cci_master;
 
 	struct msm_camera_i2c_client i2c_client;
-	uint32_t num_bytes;
-	uint8_t *memory_data;
+	struct msm_eeprom_memory_block_t cal_data;
 	uint8_t is_supported;
 	struct msm_eeprom_board_info *eboard_info;
 	uint32_t subdev_id;
