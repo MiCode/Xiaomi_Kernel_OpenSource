@@ -29,6 +29,7 @@
 #include <linux/arm-smccc.h>
 #include <linux/kprobes.h>
 
+#include <asm/cacheflush.h>
 #include <asm/checksum.h>
 
 EXPORT_SYMBOL(copy_page);
@@ -75,3 +76,8 @@ NOKPROBE_SYMBOL(_mcount);
 	/* arm-smccc */
 EXPORT_SYMBOL(__arm_smccc_smc);
 EXPORT_SYMBOL(__arm_smccc_hvc);
+
+	/* caching functions */
+EXPORT_SYMBOL(__dma_inv_area);
+EXPORT_SYMBOL(__dma_clean_area);
+EXPORT_SYMBOL(__dma_flush_area);
