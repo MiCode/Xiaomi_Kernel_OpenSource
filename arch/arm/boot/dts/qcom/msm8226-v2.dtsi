@@ -57,6 +57,11 @@
 		reg =	<0xf9011050 0x8>,
 			<0xfc4b80b0 0x8>;
 		reg-names = "rcg-base", "efuse";
+		qcom,speed0-bin-v0 =
+			<         0 0>,
+			< 384000000 2>,
+			< 787200000 4>,
+			<1190400000 7>;
 		qcom,speed0-bin-v2 =
 			<         0 0>,
 			< 384000000 2>,
