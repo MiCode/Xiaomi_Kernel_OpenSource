@@ -1,0 +1,68 @@
+SMB1360 battery charger and fuel gauge
+
+SMB1360 is a single path switch-mode battery charger and
+fuel gauge. The charger has a max current rating of 1.5A.
+The fuel gauge uses voltage + coulomb counting to report
+the state of charge.
+
+The smb1360 interface is via I2C bus.
+
+Required Properties:
+- compatible:			Must be "qcom,smb1360-charger-fg"
+- reg:				The device 7-bit I2C address.
+
+Optional Properties:
+
+- interrupts			This indicates the IRQ number of the GPIO
+				connected to the STAT pin.
+- qcom,float-voltage-mv	 	Float Voltage in mV - the maximum voltage up to which
+				the battery is charged. Supported range 3460V to 4360V
+- qcom,charging-timeout		Maximum duration in minutes that a single charge
+				cycle may last.  Supported values are: 0, 192, 384,
+				768, and 1536.  A value of 0 means that no
+				charge cycle timeout is used and charging can
+				continue indefinitely.
+- qcom,charging-disabled		Set this if charging should be disabled in the build
+				by default. Useful in usecases where battery current
+				needs to be profiled even when USB is present.
+- qcom,recharge-thresh-mv	Specifies the minimum voltage drop in millivolts
+				below the float voltage that is required in
+				order to initiate a new charging cycle.
+				Supported values are: 50, 100, 200 and 300mV.
+- qcom,recharge-disabled		Disabled the auto-recharge function
+- qcom,iterm-ma			Specifies the termination current to indicate end-of-charge.
+				Possible values in mA - 25, 50, 75, 100, 125, 150, 175, 200
+- qcom,iterm-disabled		Disables the termination current feature. This is a bool
+				property.
+- qcom,chg-inhibit-disabled	Disables the charger-inhibit function.
+- qcom,batt-id-disabled		Disabled the batt-id function. Doing this will
+				disable the ability of RID based battery profile selection.
+- qcom,fg-delta-soc		The delta in SOC which will generate an interrupt
+- qcom,fg-soc-max		SOC value (max) at which an interrupt is generated.
+				This can be used to alert the system when the
+				battery reaches a specifc (maximum) SOC value.
+- qcom,fg-soc-min		SOC value (min) at which an interrupt is generated.
+				This can be used to alert the system when the
+				battery reaches a specific (minimum) SOC value.
+- qcom,fg-voltage-min-mv	The minimum volatge at which an interrupt is generated.
+				This can be used as an alert mechanism.
+- qcom,fg-voltage-empty-mv	The voltage which indicates the battery is empty.
+- qcom,thermal-mitigation:	Array of input current limit values for different
+				system thermal mitigation level.
+
+Example:
+	i2c@f9967000 {
+		smb1360-chg-fg@1b {
+			compatible = "qcom,smb1360-chg-fg";
+			reg = <0x1b>;
+			interrupt-parent = <&spmi_bus>;
+			interrupts = <0x00 0xcd 0>;
+			qcom,float-voltage-mv = <4200>;
+			qcom,iterm-ma = <100>;
+			qcom,charging-disabled;
+			qcom,recharge-thresh-mv = <100>;
+			qcom,fg-soc-max = <85>;
+			qcom,fg-soc-min = <15>;
+			qcom,thermal-mitigation = <1500 700 300 0>;
+		};
+	};
