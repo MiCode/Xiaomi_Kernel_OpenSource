@@ -86,6 +86,7 @@ struct msm_iommu_bfb_settings {
  * struct msm_iommu_drvdata - A single IOMMU hardware instance
  * @base:	IOMMU config port base address (VA)
  * @glb_base:	IOMMU config port base address for global register space (VA)
+ * @phys_base:  IOMMU physical base address.
  * @ncb		The number of contexts on this IOMMU
  * @irq:	Interrupt number
  * @clk:	The bus clock for this IOMMU hardware instance
@@ -108,6 +109,7 @@ struct msm_iommu_bfb_settings {
  */
 struct msm_iommu_drvdata {
 	void __iomem *base;
+	phys_addr_t phys_base;
 	void __iomem *glb_base;
 	int ncb;
 	int ttbr_split;
