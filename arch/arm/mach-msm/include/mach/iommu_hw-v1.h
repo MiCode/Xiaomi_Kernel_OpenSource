@@ -15,23 +15,24 @@
 
 #define CTX_SHIFT  12
 
-#define GET_GLOBAL_REG(reg, base) (readl_relaxed((base) + (reg)))
-#define GET_GLOBAL_REG_Q(reg, base) (readq_relaxed((base) + (reg)))
-#define GET_CTX_REG(reg, base, ctx) \
-	(readl_relaxed((base) + (reg) + ((ctx) << CTX_SHIFT)))
-#define GET_CTX_REG_Q(reg, base, ctx) \
-	(readq_relaxed((base) + (reg) + ((ctx) << CTX_SHIFT)))
+#define CTX_REG(reg, base, ctx) \
+	((base) + (reg) + ((ctx) << CTX_SHIFT))
+#define GLB_REG(reg, base) \
+	((base) + (reg))
+
+#define GET_GLOBAL_REG(reg, base) (readl_relaxed(GLB_REG(reg, base)))
+#define GET_GLOBAL_REG_Q(reg, base) (readq_relaxed(GLB_REG(reg, base)))
+#define GET_CTX_REG(reg, base, ctx) (readl_relaxed(CTX_REG(reg, base, ctx)))
+#define GET_CTX_REG_Q(reg, base, ctx) (readq_relaxed(CTX_REG(reg, base, ctx)))
 
 #define SET_GLOBAL_REG(reg, base, val)	writel_relaxed((val), ((base) + (reg)))
 #define SET_GLOBAL_REG_Q(reg, base, val) \
-	(writeq_relaxed((val), ((base) + (reg))))
+	(writeq_relaxed((val), GLB_REG(reg, base)))
 
 #define SET_CTX_REG(reg, base, ctx, val) \
-	writel_relaxed((val), \
-		((base) + (reg) + ((ctx) << CTX_SHIFT)))
+	writel_relaxed((val), (CTX_REG(reg, base, ctx)))
 #define SET_CTX_REG_Q(reg, base, ctx, val) \
-	writeq_relaxed((val), \
-		((base) + (reg) + ((ctx) << CTX_SHIFT)))
+	writeq_relaxed((val), CTX_REG(reg, base, ctx))
 
 /* Wrappers for numbered registers */
 #define SET_GLOBAL_REG_N(b, n, r, v) SET_GLOBAL_REG((b), ((r) + (n << 2)), (v))
@@ -172,6 +173,9 @@ do { \
 				GET_GLOBAL_FIELD(b, MICRO_MMU_CTRL, IDLE)
 #define SET_MICRO_MMU_CTRL_RESERVED(b, v) \
 				SET_GLOBAL_FIELD(b, MICRO_MMU_CTRL, RESERVED, v)
+
+#define MMU_CTRL_IDLE (MICRO_MMU_CTRL_IDLE_MASK << MICRO_MMU_CTRL_IDLE_SHIFT)
+
 #define SET_PREDICTIONDIS0(b, v) SET_GLOBAL_REG(PREDICTIONDIS0, (b), (v))
 #define SET_PREDICTIONDIS1(b, v) SET_GLOBAL_REG(PREDICTIONDIS1, (b), (v))
 #define SET_S1L1BFBLP0(b, v)     SET_GLOBAL_REG(S1L1BFBLP0, (b), (v))
