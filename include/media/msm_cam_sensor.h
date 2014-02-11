@@ -252,12 +252,20 @@ enum cci_i2c_master_t {
 	MASTER_MAX,
 };
 
+enum i2c_freq_mode_t {
+	I2C_STANDARD_MODE,
+	I2C_FAST_MODE,
+	I2C_CUSTOM_MODE,
+	I2C_MAX_MODES,
+};
+
 struct msm_camera_sensor_slave_info {
 	char sensor_name[32];
 	char eeprom_name[32];
 	char actuator_name[32];
 	enum msm_sensor_camera_id_t camera_id;
 	uint16_t slave_addr;
+	enum i2c_freq_mode_t i2c_freq_mode;
 	enum msm_camera_i2c_reg_addr_type addr_type;
 	struct msm_sensor_id_info_t sensor_id_info;
 	struct msm_sensor_power_setting_array power_setting_array;
@@ -477,6 +485,7 @@ enum msm_actuator_cfg_type_t {
 	CFG_MOVE_FOCUS,
 	CFG_ACTUATOR_POWERDOWN,
 	CFG_ACTUATOR_POWERUP,
+	CFG_ACTUATOR_INIT,
 };
 
 enum actuator_type {

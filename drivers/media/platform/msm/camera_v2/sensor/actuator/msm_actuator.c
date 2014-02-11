@@ -538,7 +538,7 @@ static int32_t msm_actuator_set_position(
 	return rc;
 }
 
-static int32_t msm_actuator_init(struct msm_actuator_ctrl_t *a_ctrl,
+static int32_t msm_actuator_set_param(struct msm_actuator_ctrl_t *a_ctrl,
 	struct msm_actuator_set_info_t *set_info) {
 	struct reg_settings_t *init_settings = NULL;
 	int32_t rc = -EFAULT;
@@ -666,6 +666,24 @@ static int32_t msm_actuator_init(struct msm_actuator_ctrl_t *a_ctrl,
 	return rc;
 }
 
+static int msm_actuator_init(struct msm_actuator_ctrl_t *a_ctrl)
+{
+	int rc = 0;
+	CDBG("Enter\n");
+	if (!a_ctrl) {
+		pr_err("failed\n");
+		return -EINVAL;
+	}
+	if (a_ctrl->act_device_type == MSM_CAMERA_PLATFORM_DEVICE) {
+		rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_util(
+			&a_ctrl->i2c_client, MSM_CCI_INIT);
+		if (rc < 0)
+			pr_err("cci_init failed\n");
+	}
+	CDBG("Exit\n");
+	return rc;
+}
+
 static int32_t msm_actuator_config(struct msm_actuator_ctrl_t *a_ctrl,
 	void __user *argp)
 {
@@ -676,13 +694,18 @@ static int32_t msm_actuator_config(struct msm_actuator_ctrl_t *a_ctrl,
 	CDBG("Enter\n");
 	CDBG("%s type %d\n", __func__, cdata->cfgtype);
 	switch (cdata->cfgtype) {
+	case CFG_ACTUATOR_INIT:
+		rc = msm_actuator_init(a_ctrl);
+		if (rc < 0)
+			pr_err("msm_actuator_init failed %d\n", rc);
+		break;
 	case CFG_GET_ACTUATOR_INFO:
 		cdata->is_af_supported = 1;
 		cdata->cfg.cam_name = a_ctrl->cam_name;
 		break;
 
 	case CFG_SET_ACTUATOR_INFO:
-		rc = msm_actuator_init(a_ctrl, &cdata->cfg.set_info);
+		rc = msm_actuator_set_param(a_ctrl, &cdata->cfg.set_info);
 		if (rc < 0)
 			pr_err("init table failed %d\n", rc);
 		break;
@@ -769,25 +792,6 @@ static struct msm_camera_i2c_fn_t msm_sensor_qup_func_tbl = {
 	.i2c_poll = msm_camera_qup_i2c_poll,
 };
 
-static int msm_actuator_open(struct v4l2_subdev *sd,
-	struct v4l2_subdev_fh *fh) {
-	int rc = 0;
-	struct msm_actuator_ctrl_t *a_ctrl =  v4l2_get_subdevdata(sd);
-	CDBG("Enter\n");
-	if (!a_ctrl) {
-		pr_err("failed\n");
-		return -EINVAL;
-	}
-	if (a_ctrl->act_device_type == MSM_CAMERA_PLATFORM_DEVICE) {
-		rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_util(
-			&a_ctrl->i2c_client, MSM_CCI_INIT);
-		if (rc < 0)
-			pr_err("cci_init failed\n");
-	}
-	CDBG("Exit\n");
-	return rc;
-}
-
 static int msm_actuator_close(struct v4l2_subdev *sd,
 	struct v4l2_subdev_fh *fh) {
 	int rc = 0;
@@ -811,7 +815,6 @@ static int msm_actuator_close(struct v4l2_subdev *sd,
 }
 
 static const struct v4l2_subdev_internal_ops msm_actuator_internal_ops = {
-	.open = msm_actuator_open,
 	.close = msm_actuator_close,
 };
 

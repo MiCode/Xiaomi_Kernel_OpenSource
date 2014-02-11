@@ -52,46 +52,49 @@ static struct v4l2_subdev *g_cci_subdev;
 
 static struct msm_cam_clk_info cci_clk_info[CCI_NUM_CLK_MAX];
 
-static void msm_cci_set_clk_param(struct cci_device *cci_dev)
+static void msm_cci_set_clk_param(struct cci_device *cci_dev,
+	struct msm_camera_cci_ctrl *c_ctrl)
 {
 	struct msm_cci_clk_params_t *clk_params = NULL;
-	uint8_t count = 0;
+	enum cci_i2c_master_t master = c_ctrl->cci_info->cci_i2c_master;
+	enum i2c_freq_mode_t i2c_freq_mode = c_ctrl->cci_info->i2c_freq_mode;
 
-	for (count = 0; count < MASTER_MAX; count++) {
-		if (MASTER_0 == count) {
-			clk_params = &cci_dev->cci_clk_params[count];
-			msm_camera_io_w(clk_params->hw_thigh << 16 |
-				clk_params->hw_tlow,
-				cci_dev->base + CCI_I2C_M0_SCL_CTL_ADDR);
-			msm_camera_io_w(clk_params->hw_tsu_sto << 16 |
-				clk_params->hw_tsu_sta,
-				cci_dev->base + CCI_I2C_M0_SDA_CTL_0_ADDR);
-			msm_camera_io_w(clk_params->hw_thd_dat << 16 |
-				clk_params->hw_thd_sta,
-				cci_dev->base + CCI_I2C_M0_SDA_CTL_1_ADDR);
-			msm_camera_io_w(clk_params->hw_tbuf,
-				cci_dev->base + CCI_I2C_M0_SDA_CTL_2_ADDR);
-			msm_camera_io_w(clk_params->hw_scl_stretch_en << 8 |
-				clk_params->hw_trdhld << 4 | clk_params->hw_tsp,
-				cci_dev->base + CCI_I2C_M0_MISC_CTL_ADDR);
-		} else if (MASTER_1 == count) {
-			clk_params = &cci_dev->cci_clk_params[count];
-			msm_camera_io_w(clk_params->hw_thigh << 16 |
-				clk_params->hw_tlow,
-				cci_dev->base + CCI_I2C_M1_SCL_CTL_ADDR);
-			msm_camera_io_w(clk_params->hw_tsu_sto << 16 |
-				clk_params->hw_tsu_sta,
-				cci_dev->base + CCI_I2C_M1_SDA_CTL_0_ADDR);
-			msm_camera_io_w(clk_params->hw_thd_dat << 16 |
-				clk_params->hw_thd_sta,
-				cci_dev->base + CCI_I2C_M1_SDA_CTL_1_ADDR);
-			msm_camera_io_w(clk_params->hw_tbuf,
-				cci_dev->base + CCI_I2C_M1_SDA_CTL_2_ADDR);
-			msm_camera_io_w(clk_params->hw_scl_stretch_en << 8 |
-				clk_params->hw_trdhld << 4 | clk_params->hw_tsp,
-				cci_dev->base + CCI_I2C_M1_MISC_CTL_ADDR);
-		}
+	if (cci_dev->master_clk_init[master])
+		return;
+	clk_params = &cci_dev->cci_clk_params[i2c_freq_mode];
+
+	if (MASTER_0 == master) {
+		msm_camera_io_w(clk_params->hw_thigh << 16 |
+			clk_params->hw_tlow,
+			cci_dev->base + CCI_I2C_M0_SCL_CTL_ADDR);
+		msm_camera_io_w(clk_params->hw_tsu_sto << 16 |
+			clk_params->hw_tsu_sta,
+			cci_dev->base + CCI_I2C_M0_SDA_CTL_0_ADDR);
+		msm_camera_io_w(clk_params->hw_thd_dat << 16 |
+			clk_params->hw_thd_sta,
+			cci_dev->base + CCI_I2C_M0_SDA_CTL_1_ADDR);
+		msm_camera_io_w(clk_params->hw_tbuf,
+			cci_dev->base + CCI_I2C_M0_SDA_CTL_2_ADDR);
+		msm_camera_io_w(clk_params->hw_scl_stretch_en << 8 |
+			clk_params->hw_trdhld << 4 | clk_params->hw_tsp,
+			cci_dev->base + CCI_I2C_M0_MISC_CTL_ADDR);
+	} else if (MASTER_1 == master) {
+		msm_camera_io_w(clk_params->hw_thigh << 16 |
+			clk_params->hw_tlow,
+			cci_dev->base + CCI_I2C_M1_SCL_CTL_ADDR);
+		msm_camera_io_w(clk_params->hw_tsu_sto << 16 |
+			clk_params->hw_tsu_sta,
+			cci_dev->base + CCI_I2C_M1_SDA_CTL_0_ADDR);
+		msm_camera_io_w(clk_params->hw_thd_dat << 16 |
+			clk_params->hw_thd_sta,
+			cci_dev->base + CCI_I2C_M1_SDA_CTL_1_ADDR);
+		msm_camera_io_w(clk_params->hw_tbuf,
+			cci_dev->base + CCI_I2C_M1_SDA_CTL_2_ADDR);
+		msm_camera_io_w(clk_params->hw_scl_stretch_en << 8 |
+			clk_params->hw_trdhld << 4 | clk_params->hw_tsp,
+			cci_dev->base + CCI_I2C_M1_MISC_CTL_ADDR);
 	}
+	cci_dev->master_clk_init[master] = 1;
 	return;
 }
 
@@ -648,11 +651,11 @@ static int msm_cci_subdev_g_chip_ident(struct v4l2_subdev *sd,
 static int32_t msm_cci_init(struct v4l2_subdev *sd,
 	struct msm_camera_cci_ctrl *c_ctrl)
 {
+	uint8_t i = 0;
 	int32_t rc = 0;
 	struct cci_device *cci_dev;
 	enum cci_i2c_master_t master;
 	cci_dev = v4l2_get_subdevdata(sd);
-
 
 	if (!cci_dev || !c_ctrl) {
 		pr_err("%s:%d failed: invalid params %p %p\n", __func__,
@@ -660,6 +663,7 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 		rc = -ENOMEM;
 		return rc;
 	}
+
 	if (cci_dev->ref_count++) {
 		CDBG("%s ref_count %d\n", __func__, cci_dev->ref_count);
 		master = c_ctrl->cci_info->cci_i2c_master;
@@ -669,6 +673,7 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 			/* Set reset pending flag to TRUE */
 			cci_dev->cci_master_info[master].reset_pending = TRUE;
 			/* Set proper mask to RESET CMD address */
+			msm_cci_set_clk_param(cci_dev, c_ctrl);
 			if (master == MASTER_0)
 				msm_camera_io_w(CCI_M0_RESET_RMSK,
 					cci_dev->base + CCI_RESET_CMD_ADDR);
@@ -721,7 +726,10 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 			rc = -ETIMEDOUT;
 		goto reset_complete_failed;
 	}
-	msm_cci_set_clk_param(cci_dev);
+
+	for (i = 0; i < MASTER_MAX; i++)
+		cci_dev->master_clk_init[i] = 0;
+	msm_cci_set_clk_param(cci_dev, c_ctrl);
 	msm_camera_io_w(CCI_IRQ_MASK_0_RMSK,
 		cci_dev->base + CCI_IRQ_MASK_0_ADDR);
 	msm_camera_io_w(CCI_IRQ_MASK_0_RMSK,
@@ -745,6 +753,7 @@ request_gpio_failed:
 
 static int32_t msm_cci_release(struct v4l2_subdev *sd)
 {
+	uint8_t i = 0;
 	struct cci_device *cci_dev;
 	cci_dev = v4l2_get_subdevdata(sd);
 
@@ -767,6 +776,8 @@ static int32_t msm_cci_release(struct v4l2_subdev *sd)
 	msm_camera_request_gpio_table(cci_dev->cci_gpio_tbl,
 		cci_dev->cci_gpio_tbl_size, 0);
 
+	for (i = 0; i < MASTER_MAX; i++)
+		cci_dev->master_clk_init[i] = 0;
 	cci_dev->cci_state = CCI_STATE_DISABLED;
 
 	return 0;
@@ -994,6 +1005,22 @@ ERROR1:
 	return rc;
 }
 
+static void msm_cci_init_default_clk_params(struct cci_device *cci_dev,
+	uint8_t index)
+{
+	/* default clock params are for 100Khz */
+	cci_dev->cci_clk_params[index].hw_thigh = 78;
+	cci_dev->cci_clk_params[index].hw_tlow = 114;
+	cci_dev->cci_clk_params[index].hw_tsu_sto = 28;
+	cci_dev->cci_clk_params[index].hw_tsu_sta = 28;
+	cci_dev->cci_clk_params[index].hw_thd_dat = 10;
+	cci_dev->cci_clk_params[index].hw_thd_sta = 77;
+	cci_dev->cci_clk_params[index].hw_tbuf = 118;
+	cci_dev->cci_clk_params[index].hw_scl_stretch_en = 0;
+	cci_dev->cci_clk_params[index].hw_trdhld = 6;
+	cci_dev->cci_clk_params[index].hw_tsp = 1;
+}
+
 static void msm_cci_init_clk_params(struct cci_device *cci_dev)
 {
 	int32_t rc = 0;
@@ -1002,89 +1029,84 @@ static void msm_cci_init_clk_params(struct cci_device *cci_dev)
 	struct device_node *of_node = cci_dev->pdev->dev.of_node;
 	struct device_node *src_node = NULL;
 
-	for (count = 0; count < MASTER_MAX; count++) {
+	for (count = 0; count < I2C_MAX_MODES; count++) {
 
-		if (MASTER_0 == count)
+		if (I2C_STANDARD_MODE == count)
 			src_node = of_find_node_by_name(of_node,
-				"qcom,cci-master0");
-		else if (MASTER_1 == count)
+				"qcom,i2c_standard_mode");
+		else if (I2C_FAST_MODE == count)
 			src_node = of_find_node_by_name(of_node,
-				"qcom,cci-master1");
+				"qcom,i2c_fast_mode");
 		else
-			return;
+			src_node = of_find_node_by_name(of_node,
+				"qcom,i2c_custom_mode");
 
 		rc = of_property_read_u32(src_node, "qcom,hw-thigh", &val);
 		CDBG("%s qcom,hw-thigh %d, rc %d\n", __func__, val, rc);
-		if (!rc)
+		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_thigh = val;
-		else
-			cci_dev->cci_clk_params[count].hw_thigh = 78;
-
-		rc = of_property_read_u32(src_node, "qcom,hw-tlow", &val);
-		CDBG("%s qcom,hw-tlow %d, rc %d\n", __func__, val, rc);
-		if (!rc)
+			rc = of_property_read_u32(src_node, "qcom,hw-tlow",
+				&val);
+			CDBG("%s qcom,hw-tlow %d, rc %d\n", __func__, val, rc);
+		}
+		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_tlow = val;
-		else
-			cci_dev->cci_clk_params[count].hw_tlow = 114;
-
-		rc = of_property_read_u32(src_node, "qcom,hw-tsu-sto", &val);
-		CDBG("%s qcom,hw-tsu-sto %d, rc %d\n", __func__, val, rc);
-		if (!rc)
+			rc = of_property_read_u32(src_node, "qcom,hw-tsu-sto",
+				&val);
+			CDBG("%s qcom,hw-tsu-sto %d, rc %d\n",
+				__func__, val, rc);
+		}
+		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_tsu_sto = val;
-		else
-			cci_dev->cci_clk_params[count].hw_tsu_sto = 28;
-
-		rc = of_property_read_u32(src_node, "qcom,hw-tsu-sta", &val);
-		CDBG("%s qcom,hw-tsu-sta %d, rc %d\n", __func__, val, rc);
-		if (!rc)
+			rc = of_property_read_u32(src_node, "qcom,hw-tsu-sta",
+				&val);
+			CDBG("%s qcom,hw-tsu-sta %d, rc %d\n",
+				__func__, val, rc);
+		}
+		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_tsu_sta = val;
-		else
-			cci_dev->cci_clk_params[count].hw_tsu_sta = 28;
-
-		rc = of_property_read_u32(src_node, "qcom,hw-thd-dat", &val);
-		CDBG("%s qcom,hw-thd-dat %d, rc %d\n", __func__, val, rc);
-		if (!rc)
+			rc = of_property_read_u32(src_node, "qcom,hw-thd-dat",
+				&val);
+			CDBG("%s qcom,hw-thd-dat %d, rc %d\n",
+				__func__, val, rc);
+		}
+		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_thd_dat = val;
-		else
-			cci_dev->cci_clk_params[count].hw_thd_dat = 10;
-
-		rc = of_property_read_u32(src_node, "qcom,hw-thd-sta", &val);
-		CDBG("%s qcom,hwthd-sta %d, rc %d\n", __func__, val, rc);
-		if (!rc)
+			rc = of_property_read_u32(src_node, "qcom,hw-thd-sta",
+				&val);
+			CDBG("%s qcom,hw-thd-sta %d, rc %d\n", __func__,
+				val, rc);
+		}
+		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_thd_sta = val;
-		else
-			cci_dev->cci_clk_params[count].hw_thd_sta = 77;
-
-		rc = of_property_read_u32(src_node, "qcom,hw-tbuf", &val);
-		CDBG("%s qcom,hw-tbuf %d, rc %d\n", __func__, val, rc);
-		if (!rc)
+			rc = of_property_read_u32(src_node, "qcom,hw-tbuf",
+				&val);
+			CDBG("%s qcom,hw-tbuf %d, rc %d\n", __func__, val, rc);
+		}
+		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_tbuf = val;
-		else
-			cci_dev->cci_clk_params[count].hw_tbuf = 118;
-
-		rc = of_property_read_u32(src_node,
-			"qcom,hw-scl-stretch-en", &val);
-		CDBG("%s qcom,hw-scl-stretch-en %d, rc %d\n",
-			__func__, val, rc);
-		if (!rc)
+			rc = of_property_read_u32(src_node,
+				"qcom,hw-scl-stretch-en", &val);
+			CDBG("%s qcom,hw-scl-stretch-en %d, rc %d\n",
+				__func__, val, rc);
+		}
+		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_scl_stretch_en = val;
-		else
-			cci_dev->cci_clk_params[count].hw_scl_stretch_en = 0;
-
-		rc = of_property_read_u32(src_node, "qcom,hw-trdhld", &val);
-		CDBG("%s qcom,hw-trdhld %d, rc %d\n", __func__, val, rc);
-		if (!rc)
+			rc = of_property_read_u32(src_node, "qcom,hw-trdhld",
+				&val);
+			CDBG("%s qcom,hw-trdhld %d, rc %d\n",
+				__func__, val, rc);
+		}
+		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_trdhld = val;
-		else
-			cci_dev->cci_clk_params[count].hw_trdhld = 6;
-
-		rc = of_property_read_u32(src_node, "qcom,hw-tsp", &val);
-		CDBG("%s qcom,hw-tsp %d, rc %d\n", __func__, val, rc);
+			rc = of_property_read_u32(src_node, "qcom,hw-tsp",
+				&val);
+			CDBG("%s qcom,hw-tsp %d, rc %d\n", __func__, val, rc);
+		}
 		if (!rc)
 			cci_dev->cci_clk_params[count].hw_tsp = val;
 		else
-			cci_dev->cci_clk_params[count].hw_tsp = 1;
-
+			msm_cci_init_default_clk_params(cci_dev, count);
 		of_node_put(src_node);
 		src_node = NULL;
 	}
