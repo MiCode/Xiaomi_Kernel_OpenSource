@@ -340,6 +340,27 @@ static int __cpuinit msm8916_boot_secondary(unsigned int cpu,
 	return release_from_pen(cpu);
 }
 
+static int __cpuinit msm8936_boot_secondary(unsigned int cpu,
+						struct task_struct *idle)
+{
+	pr_debug("Starting secondary CPU %d\n", cpu);
+
+	if (per_cpu(cold_boot_done, cpu) == false) {
+		u32 mpidr = cpu_logical_map(cpu);
+		u32 apcs_base = MPIDR_AFFINITY_LEVEL(mpidr, 1) ?
+				0xb088000 : 0xb188000;
+		if (of_board_is_sim())
+			release_secondary_sim(apcs_base,
+				MPIDR_AFFINITY_LEVEL(mpidr, 0));
+		else if (!of_board_is_rumi())
+			arm_release_secondary(apcs_base,
+				MPIDR_AFFINITY_LEVEL(mpidr, 0));
+
+		per_cpu(cold_boot_done, cpu) = true;
+	}
+	return release_from_pen(cpu);
+}
+
 int __cpuinit arm_boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	pr_debug("Starting secondary CPU %d\n", cpu);
@@ -431,6 +452,17 @@ struct smp_operations msm8916_smp_ops __initdata = {
 	.smp_prepare_cpus = msm_platform_smp_prepare_cpus,
 	.smp_secondary_init = msm_secondary_init,
 	.smp_boot_secondary = msm8916_boot_secondary,
+#ifdef CONFIG_HOTPLUG
+	.cpu_die = msm_cpu_die,
+	.cpu_kill = msm_cpu_kill,
+#endif
+};
+
+struct smp_operations msm8936_smp_ops __initdata = {
+	.smp_init_cpus = arm_smp_init_cpus,
+	.smp_prepare_cpus = msm_platform_smp_prepare_cpus,
+	.smp_secondary_init = msm_secondary_init,
+	.smp_boot_secondary = msm8936_boot_secondary,
 #ifdef CONFIG_HOTPLUG
 	.cpu_die = msm_cpu_die,
 	.cpu_kill = msm_cpu_kill,
