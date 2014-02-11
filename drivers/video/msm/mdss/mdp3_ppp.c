@@ -272,11 +272,11 @@ int mdp3_ppp_pipe_wait(void)
 	int ret = 1;
 
 	/*
-	 * wait 40 ms for ppp operation to complete before declaring
+	 * wait 200 ms for ppp operation to complete before declaring
 	 * the MDP hung
 	 */
 	ret = wait_for_completion_timeout(
-	  &ppp_stat->ppp_comp, msecs_to_jiffies(40));
+	  &ppp_stat->ppp_comp, msecs_to_jiffies(200));
 	if (!ret)
 		pr_err("%s: Timed out waiting for the MDP.\n",
 			__func__);
