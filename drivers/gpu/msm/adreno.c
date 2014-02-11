@@ -2796,8 +2796,11 @@ static int adreno_soft_reset(struct kgsl_device *device)
 	/* save physical performance counter values before GPU soft reset */
 	adreno_perfcounter_save(adreno_dev);
 
+	kgsl_cffdump_close(device);
 	/* Reset the GPU */
 	adreno_dev->gpudev->soft_reset(adreno_dev);
+	/* start of new CFF after reset */
+	kgsl_cffdump_open(device);
 
 	/* Restore physical performance counter values after soft reset */
 	adreno_perfcounter_restore(adreno_dev);
