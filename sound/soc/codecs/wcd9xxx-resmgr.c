@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -860,7 +860,7 @@ int wcd9xxx_resmgr_init(struct wcd9xxx_resmgr *resmgr,
 			enum wcd9xxx_cdc_type cdc_type)
 {
 	WARN(ARRAY_SIZE(wcd9xxx_event_string) != WCD9XXX_EVENT_LAST + 1,
-	     "Event string table isn't up to date!, %d != %d\n",
+	     "Event string table isn't up to date!, %zd != %d\n",
 	     ARRAY_SIZE(wcd9xxx_event_string), WCD9XXX_EVENT_LAST + 1);
 
 	resmgr->bandgap_type = WCD9XXX_BANDGAP_OFF;
