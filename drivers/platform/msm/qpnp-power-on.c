@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,8 +52,15 @@
 #define QPNP_PON_PS_HOLD_RST_CTL2(base)		(base + 0x5B)
 #define QPNP_PON_WD_RST_S2_CTL(base)		(base + 0x56)
 #define QPNP_PON_WD_RST_S2_CTL2(base)		(base + 0x57)
-#define QPNP_PON_TRIGGER_EN(base)		(base + 0x80)
+#define QPNP_PON_S3_SRC(base)			(base + 0x74)
 #define QPNP_PON_S3_DBC_CTL(base)		(base + 0x75)
+#define QPNP_PON_TRIGGER_EN(base)		(base + 0x80)
+
+#define QPNP_PON_S3_SRC_KPDPWR			0
+#define QPNP_PON_S3_SRC_RESIN			1
+#define QPNP_PON_S3_SRC_KPDPWR_OR_RESIN		2
+#define QPNP_PON_S3_SRC_KPDPWR_AND_RESIN	3
+#define QPNP_PON_S3_SRC_MASK			0x3
 
 #define QPNP_PON_WARM_RESET_TFT			BIT(4)
 
@@ -990,7 +997,17 @@ static int __devinit qpnp_pon_config_init(struct qpnp_pon *pon)
 					"Unable to config pon reset\n");
 				goto unreg_input_dev;
 			}
+		} else {
+			/* disable S2 reset */
+			rc = qpnp_pon_masked_write(pon, cfg->s2_cntl2_addr,
+						QPNP_PON_S2_CNTL_EN, 0);
+			if (rc) {
+				dev_err(&pon->spmi->dev,
+					"Unable to disable S2 reset\n");
+				goto unreg_input_dev;
+			}
 		}
+
 		rc = qpnp_pon_request_irqs(pon, cfg);
 		if (rc) {
 			dev_err(&pon->spmi->dev, "Unable to request-irq's\n");
@@ -1019,6 +1036,8 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 	u32 delay = 0, s3_debounce = 0;
 	int rc, sys_reset, index;
 	u8 pon_sts = 0;
+	const char *s3_src;
+	u8 s3_src_reg;
 
 	pon = devm_kzalloc(&spmi->dev, sizeof(struct qpnp_pon),
 							GFP_KERNEL);
@@ -1117,6 +1136,32 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 			dev_err(&spmi->dev, "Unable to set S3 debounce\n");
 			return rc;
 		}
+	}
+
+	/* program s3 source */
+	s3_src = "kpdpwr-and-resin";
+	rc = of_property_read_string(pon->spmi->dev.of_node,
+				"qcom,s3-src", &s3_src);
+	if (rc && rc != -EINVAL) {
+		dev_err(&pon->spmi->dev, "Unable to read s3 timer\n");
+		return rc;
+	}
+
+	if (!strcmp(s3_src, "kpdpwr"))
+		s3_src_reg = QPNP_PON_S3_SRC_KPDPWR;
+	else if (!strcmp(s3_src, "resin"))
+		s3_src_reg = QPNP_PON_S3_SRC_RESIN;
+	else if (!strcmp(s3_src, "kpdpwr-or-resin"))
+		s3_src_reg = QPNP_PON_S3_SRC_KPDPWR_OR_RESIN;
+	else /* default combination */
+		s3_src_reg = QPNP_PON_S3_SRC_KPDPWR_AND_RESIN;
+
+	rc = qpnp_pon_masked_write(pon, QPNP_PON_S3_SRC(pon->base),
+			QPNP_PON_S3_SRC_MASK, s3_src_reg);
+	if (rc) {
+		dev_err(&spmi->dev,
+			"Unable to program s3 source\n");
+		return rc;
 	}
 
 	dev_set_drvdata(&spmi->dev, pon);
