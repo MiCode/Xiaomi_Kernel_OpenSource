@@ -2395,7 +2395,10 @@ static int wcnss_notif_cb(struct notifier_block *this, unsigned long code,
 			wcnss_wlan_power(&pdev->dev, pwlanconfig,
 					WCNSS_WLAN_SWITCH_OFF, NULL);
 		}
-	} else if (code == SUBSYS_POWERUP_FAILURE)
+	} else if ((code == SUBSYS_BEFORE_SHUTDOWN && ss_handle) ||
+						code == SUBSYS_SOC_RESET)
+		wcnss_log_debug_regs_on_bite();
+	else if (code == SUBSYS_POWERUP_FAILURE)
 		wcnss_pronto_log_debug_regs();
 
 	return NOTIFY_DONE;
