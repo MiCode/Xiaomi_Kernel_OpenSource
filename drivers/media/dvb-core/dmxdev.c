@@ -3870,7 +3870,7 @@ static int dvb_dmxdev_set_cipher(struct dmxdev *dmxdev,
 	if (!filter || !cipher_ops ||
 		(cipher_ops->operations_count > caps.num_cipher_ops) ||
 		(cipher_ops->operations_count >
-		 DMX_MAX_CIPHER_OPERATIONS_COUNT))
+			DMX_MAX_CIPHER_OPERATIONS_COUNT))
 		return -EINVAL;
 
 	pr_debug("%s: pid=%d, operations=%d\n", __func__,

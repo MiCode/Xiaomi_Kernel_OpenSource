@@ -20,6 +20,8 @@
 #include <mach/msm_tspp2.h>
 #include "mpq_dmx_plugin_common.h"
 
+#define TSPP2_DMX_MAX_CIPHER_OPS		5
+
 /*
  * Allocate source per possible TSIF input, and per demux instance as any
  * instance may use it's DVR as BAM source.
@@ -268,10 +270,12 @@ struct pipe_work_queue {
  *
  * @op:		TSPP2 driver operation (along with parameters)
  * @next:	Filter operations list
+ * @ref_count:	Number of feeds using this operation
  */
 struct mpq_dmx_tspp2_filter_op {
 	struct tspp2_operation op;
 	struct list_head next;
+	u8 ref_count;
 };
 
 /**
@@ -374,7 +378,7 @@ struct pipe_info {
  * @pid:		Filtered PID (mask set for single PID filtering)
  * @operations_list:	Filter operations list
  * @num_ops:		Number of filter operations
- * @num_pes_ops:	Number of operations requiring PES analysis operation
+ * @num_cipher_ops:	Number of cipher operations in filter
  * @indexing_enabled:	Whether the indexing operation exists for this filter
  * @pes_analysis_op:	Singular PES analysis operation (can be required
  *			by >1 operations). Valid only when num_pes_ops is not 0.
@@ -383,6 +387,8 @@ struct pipe_info {
  * @dwork:		Delayed work object for filter's scrambling bit monitor
  * @scm_prev_val:	Scrambling bit value of previous sample
  * @scm_count:		Number of consecutive identical scrambling bit samples
+ * @scm_started:	Flag stating whether monitor is running
+ * @cipher_ops:		Cipher operation objects
  */
 struct mpq_dmx_tspp2_filter {
 	u32 handle;
@@ -390,13 +396,15 @@ struct mpq_dmx_tspp2_filter {
 	u16 pid;
 	struct list_head operations_list;
 	u8 num_ops;
-	u8 num_pes_ops;
+	u8 num_cipher_ops;
 	u8 indexing_enabled;
 	struct mpq_dmx_tspp2_filter_op pes_analysis_op;
 	struct mpq_dmx_tspp2_filter_op index_op;
 	struct delayed_work dwork;
 	u8 scm_prev_val;
 	u8 scm_count;
+	bool scm_started;
+	struct mpq_dmx_tspp2_filter_op cipher_ops[TSPP2_DMX_MAX_CIPHER_OPS];
 };
 
 /**
