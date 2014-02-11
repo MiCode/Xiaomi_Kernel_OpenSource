@@ -38,7 +38,7 @@
 			compatible = "arm,cortex-a53";
 			reg = <0x0>;
 			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x09008000>;
+			cpu-release-addr = <0x0 0x06000000>;
 		};
 
 		cpu@1 {
@@ -46,7 +46,7 @@
 			compatible = "arm,cortex-a53";
 			reg = <0x1>;
 			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x09008000>;
+			cpu-release-addr = <0x0 0x06000000>;
 		};
 
 		cpu@2 {
@@ -54,7 +54,7 @@
 			compatible = "arm,cortex-a53";
 			reg = <0x2>;
 			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x09008000>;
+			cpu-release-addr = <0x0 0x06000000>;
 		};
 
 		cpu@3 {
@@ -62,7 +62,7 @@
 			compatible = "arm,cortex-a53";
 			reg = <0x3>;
 			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x09008000>;
+			cpu-release-addr = <0x0 0x06000000>;
 		};
 
 		cpu@100 {
@@ -70,7 +70,7 @@
 			compatible = "arm,cortex-a57";
 			reg = <0x100>;
 			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x09008000>;
+			cpu-release-addr = <0x0 0x06000000>;
 		};
 
 		cpu@101 {
@@ -78,7 +78,7 @@
 			compatible = "arm,cortex-a57";
 			reg = <0x101>;
 			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x09008000>;
+			cpu-release-addr = <0x0 0x06000000>;
 		};
 
 		cpu@102 {
@@ -86,7 +86,7 @@
 			compatible = "arm,cortex-a57";
 			reg = <0x102>;
 			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x09008000>;
+			cpu-release-addr = <0x0 0x06000000>;
 		};
 
 		cpu@103 {
@@ -94,7 +94,7 @@
 			compatible = "arm,cortex-a57";
 			reg = <0x103>;
 			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x09008000>;
+			cpu-release-addr = <0x0 0x06000000>;
 		};
 	};
 
