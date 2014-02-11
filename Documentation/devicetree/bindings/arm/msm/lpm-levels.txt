@@ -58,6 +58,9 @@ Required propertieis to define System low power mode :
 - qcom,min-cpu-mode: The min cpu sleep mode at which the given system level is
 		 valid. All cpus should have entered this low power mode before
 		 this system level can be chosen.
+- qcom,send-rpm-sleep-set: The system mode notifies RPM of Apps sleep and should
+		send the current sleep set votes and configure MPM before
+		entering this low power mode.
 
 Example:
 qcom,lpm-levels {
