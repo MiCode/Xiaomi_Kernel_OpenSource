@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011, 2013 - 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@ enum subsys_notif_type {
 	SUBSYS_POWERUP_FAILURE,
 	SUBSYS_PROXY_VOTE,
 	SUBSYS_PROXY_UNVOTE,
+	SUBSYS_SOC_RESET,
 	SUBSYS_NOTIF_TYPE_COUNT
 };
 

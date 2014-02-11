@@ -795,6 +795,7 @@ int subsystem_restart_dev(struct subsys_device *dev)
 		__subsystem_restart_dev(dev);
 		break;
 	case RESET_SOC:
+		notify_each_subsys_device(&dev, 1, SUBSYS_SOC_RESET, NULL);
 		panic("subsys-restart: Resetting the SoC - %s crashed.", name);
 		break;
 	default:
