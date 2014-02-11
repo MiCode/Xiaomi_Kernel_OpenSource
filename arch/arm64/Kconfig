@@ -100,6 +100,13 @@ config IOMMU_HELPER
 config KERNEL_MODE_NEON
 	def_bool y
 
+config ARCH_HAS_CPUFREQ
+	bool
+	help
+	  Internal node to signify that the ARCH has CPUFREQ support
+	  and that the relevant menu configurations are displayed for
+	  it.
+
 source "init/Kconfig"
 
 source "kernel/Kconfig.freezer"
@@ -125,6 +132,8 @@ config ARCH_MSM
 	select MSM_IRQ
 	select PINCTRL
 	select SOC_BUS
+	select ARCH_HAS_CPUFREQ
+	select CPU_FREQ_MSM
 	help
 	  This enables support for the ARMv8 based Qualcomm chipsets.
 
@@ -318,6 +327,10 @@ config ARM64_CPU_SUSPEND
 endmenu
 
 menu "CPU Power Management"
+
+if ARCH_HAS_CPUFREQ
+source "drivers/cpufreq/Kconfig"
+endif
 
 source "drivers/cpuidle/Kconfig"
 
