@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -95,27 +95,29 @@ int msm_flash_led_init(struct msm_led_flash_ctrl_t *fctrl)
 {
 	int rc = 0;
 	struct msm_camera_sensor_board_info *flashdata = NULL;
+	struct msm_camera_power_ctrl_t *power_info = NULL;
 	CDBG("%s:%d called\n", __func__, __LINE__);
 
 	flashdata = fctrl->flashdata;
-	if (flashdata->gpio_conf->cam_gpiomux_conf_tbl != NULL) {
+	power_info = &flashdata->power_info;
+	if (power_info->gpio_conf->cam_gpiomux_conf_tbl != NULL) {
 		pr_err("%s:%d mux install\n", __func__, __LINE__);
 		msm_gpiomux_install(
 			(struct msm_gpiomux_config *)
-			flashdata->gpio_conf->cam_gpiomux_conf_tbl,
-			flashdata->gpio_conf->cam_gpiomux_conf_tbl_size);
+			power_info->gpio_conf->cam_gpiomux_conf_tbl,
+			power_info->gpio_conf->cam_gpiomux_conf_tbl_size);
 	}
 
 	rc = msm_camera_request_gpio_table(
-		flashdata->gpio_conf->cam_gpio_req_tbl,
-		flashdata->gpio_conf->cam_gpio_req_tbl_size, 1);
+		power_info->gpio_conf->cam_gpio_req_tbl,
+		power_info->gpio_conf->cam_gpio_req_tbl_size, 1);
 	if (rc < 0) {
 		pr_err("%s: request gpio failed\n", __func__);
 		return rc;
 	}
 	msleep(20);
 	gpio_set_value_cansleep(
-		flashdata->gpio_conf->gpio_num_info->gpio_num[0],
+		power_info->gpio_conf->gpio_num_info->gpio_num[0],
 		GPIO_OUT_HIGH);
 
 	if (fctrl->flash_i2c_client && fctrl->reg_setting) {
@@ -133,22 +135,24 @@ int msm_flash_led_release(struct msm_led_flash_ctrl_t *fctrl)
 {
 	int rc = 0;
 	struct msm_camera_sensor_board_info *flashdata = NULL;
+	struct msm_camera_power_ctrl_t *power_info = NULL;
 
 	flashdata = fctrl->flashdata;
+	power_info = &flashdata->power_info;
 	CDBG("%s:%d called\n", __func__, __LINE__);
 	if (!fctrl) {
 		pr_err("%s:%d fctrl NULL\n", __func__, __LINE__);
 		return -EINVAL;
 	}
 	gpio_set_value_cansleep(
-		flashdata->gpio_conf->gpio_num_info->gpio_num[0],
+		power_info->gpio_conf->gpio_num_info->gpio_num[0],
 		GPIO_OUT_LOW);
 	gpio_set_value_cansleep(
-		flashdata->gpio_conf->gpio_num_info->gpio_num[1],
+		power_info->gpio_conf->gpio_num_info->gpio_num[1],
 		GPIO_OUT_LOW);
 	rc = msm_camera_request_gpio_table(
-		flashdata->gpio_conf->cam_gpio_req_tbl,
-		flashdata->gpio_conf->cam_gpio_req_tbl_size, 0);
+		power_info->gpio_conf->cam_gpio_req_tbl,
+		power_info->gpio_conf->cam_gpio_req_tbl_size, 0);
 	if (rc < 0) {
 		pr_err("%s: request gpio failed\n", __func__);
 		return rc;
@@ -160,8 +164,10 @@ int msm_flash_led_off(struct msm_led_flash_ctrl_t *fctrl)
 {
 	int rc = 0;
 	struct msm_camera_sensor_board_info *flashdata = NULL;
+	struct msm_camera_power_ctrl_t *power_info = NULL;
 
 	flashdata = fctrl->flashdata;
+	power_info = &flashdata->power_info;
 	CDBG("%s:%d called\n", __func__, __LINE__);
 	if (!fctrl) {
 		pr_err("%s:%d fctrl NULL\n", __func__, __LINE__);
@@ -175,7 +181,7 @@ int msm_flash_led_off(struct msm_led_flash_ctrl_t *fctrl)
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 	}
 	gpio_set_value_cansleep(
-		flashdata->gpio_conf->gpio_num_info->gpio_num[1],
+		power_info->gpio_conf->gpio_num_info->gpio_num[1],
 		GPIO_OUT_LOW);
 
 	return rc;
@@ -185,15 +191,17 @@ int msm_flash_led_low(struct msm_led_flash_ctrl_t *fctrl)
 {
 	int rc = 0;
 	struct msm_camera_sensor_board_info *flashdata = NULL;
+	struct msm_camera_power_ctrl_t *power_info = NULL;
 	CDBG("%s:%d called\n", __func__, __LINE__);
 
 	flashdata = fctrl->flashdata;
+	power_info = &flashdata->power_info;
 	gpio_set_value_cansleep(
-		flashdata->gpio_conf->gpio_num_info->gpio_num[0],
+		power_info->gpio_conf->gpio_num_info->gpio_num[0],
 		GPIO_OUT_HIGH);
 
 	gpio_set_value_cansleep(
-		flashdata->gpio_conf->gpio_num_info->gpio_num[1],
+		power_info->gpio_conf->gpio_num_info->gpio_num[1],
 		GPIO_OUT_HIGH);
 
 
@@ -212,15 +220,17 @@ int msm_flash_led_high(struct msm_led_flash_ctrl_t *fctrl)
 {
 	int rc = 0;
 	struct msm_camera_sensor_board_info *flashdata = NULL;
+	struct msm_camera_power_ctrl_t *power_info = NULL;
 	CDBG("%s:%d called\n", __func__, __LINE__);
 
 	flashdata = fctrl->flashdata;
+	power_info = &flashdata->power_info;
 	gpio_set_value_cansleep(
-		flashdata->gpio_conf->gpio_num_info->gpio_num[0],
+		power_info->gpio_conf->gpio_num_info->gpio_num[0],
 		GPIO_OUT_HIGH);
 
 	gpio_set_value_cansleep(
-		flashdata->gpio_conf->gpio_num_info->gpio_num[1],
+		power_info->gpio_conf->gpio_num_info->gpio_num[1],
 		GPIO_OUT_HIGH);
 
 	if (fctrl->flash_i2c_client && fctrl->reg_setting) {
@@ -234,61 +244,6 @@ int msm_flash_led_high(struct msm_led_flash_ctrl_t *fctrl)
 	return rc;
 }
 
-static int32_t msm_flash_init_gpio_pin_tbl(struct device_node *of_node,
-	struct msm_camera_gpio_conf *gconf, uint16_t *gpio_array,
-	uint16_t gpio_array_size)
-{
-	int32_t rc = 0;
-	int32_t val = 0;
-
-	gconf->gpio_num_info = kzalloc(sizeof(struct msm_camera_gpio_num_info),
-		GFP_KERNEL);
-	if (!gconf->gpio_num_info) {
-		pr_err("%s failed %d\n", __func__, __LINE__);
-		rc = -ENOMEM;
-		return rc;
-	}
-
-	rc = of_property_read_u32(of_node, "qcom,gpio-flash-en", &val);
-	if (rc < 0) {
-		pr_err("%s:%d read qcom,gpio-flash-en failed rc %d\n",
-			__func__, __LINE__, rc);
-		goto ERROR;
-	} else if (val >= gpio_array_size) {
-		pr_err("%s:%d qcom,gpio-flash-en invalid %d\n",
-			__func__, __LINE__, val);
-		goto ERROR;
-	}
-	/*index 0 is for qcom,gpio-flash-en */
-	gconf->gpio_num_info->gpio_num[0] =
-		gpio_array[val];
-	CDBG("%s qcom,gpio-flash-en %d\n", __func__,
-		gconf->gpio_num_info->gpio_num[0]);
-
-	rc = of_property_read_u32(of_node, "qcom,gpio-flash-now", &val);
-	if (rc < 0) {
-		pr_err("%s:%d read qcom,gpio-flash-now failed rc %d\n",
-			__func__, __LINE__, rc);
-		goto ERROR;
-	} else if (val >= gpio_array_size) {
-		pr_err("%s:%d qcom,gpio-flash-now invalid %d\n",
-			__func__, __LINE__, val);
-		goto ERROR;
-	}
-	/*index 1 is for qcom,gpio-flash-now */
-	gconf->gpio_num_info->gpio_num[1] =
-		gpio_array[val];
-	CDBG("%s qcom,gpio-flash-now %d\n", __func__,
-		gconf->gpio_num_info->gpio_num[1]);
-
-	return rc;
-
-ERROR:
-	kfree(gconf->gpio_num_info);
-	gconf->gpio_num_info = NULL;
-	return rc;
-}
-
 static int32_t msm_led_get_dt_data(struct device_node *of_node,
 		struct msm_led_flash_ctrl_t *fctrl)
 {
@@ -296,6 +251,7 @@ static int32_t msm_led_get_dt_data(struct device_node *of_node,
 	struct msm_camera_gpio_conf *gconf = NULL;
 	struct device_node *flash_src_node = NULL;
 	struct msm_camera_sensor_board_info *flashdata = NULL;
+	struct msm_camera_power_ctrl_t *power_info = NULL;
 	uint32_t count = 0;
 	uint16_t *gpio_array = NULL;
 	uint16_t gpio_array_size = 0;
@@ -317,13 +273,7 @@ static int32_t msm_led_get_dt_data(struct device_node *of_node,
 	}
 
 	flashdata = fctrl->flashdata;
-
-	flashdata->sensor_init_params = kzalloc(sizeof(
-		struct msm_sensor_init_params), GFP_KERNEL);
-	if (!flashdata->sensor_init_params) {
-		pr_err("%s failed %d\n", __func__, __LINE__);
-		return -ENOMEM;
-	}
+	power_info = &flashdata->power_info;
 
 	rc = of_property_read_u32(of_node, "cell-index", &fctrl->subdev_id);
 	if (rc < 0) {
@@ -389,15 +339,15 @@ static int32_t msm_led_get_dt_data(struct device_node *of_node,
 		}
 
 	} else { /*Handle LED Flash Ctrl by GPIO*/
-		flashdata->gpio_conf =
+		power_info->gpio_conf =
 			 kzalloc(sizeof(struct msm_camera_gpio_conf),
 				 GFP_KERNEL);
-		if (!flashdata->gpio_conf) {
+		if (!power_info->gpio_conf) {
 			pr_err("%s failed %d\n", __func__, __LINE__);
 			rc = -ENOMEM;
 			return rc;
 		}
-		gconf = flashdata->gpio_conf;
+		gconf = power_info->gpio_conf;
 
 		gpio_array_size = of_gpio_count(of_node);
 		CDBG("%s gpio count %d\n", __func__, gpio_array_size);
@@ -416,21 +366,21 @@ static int32_t msm_led_get_dt_data(struct device_node *of_node,
 					gpio_array[i]);
 			}
 
-			rc = msm_sensor_get_dt_gpio_req_tbl(of_node, gconf,
+			rc = msm_camera_get_dt_gpio_req_tbl(of_node, gconf,
 				gpio_array, gpio_array_size);
 			if (rc < 0) {
 				pr_err("%s failed %d\n", __func__, __LINE__);
 				goto ERROR4;
 			}
 
-			rc = msm_sensor_get_dt_gpio_set_tbl(of_node, gconf,
+			rc = msm_camera_get_dt_gpio_set_tbl(of_node, gconf,
 				gpio_array, gpio_array_size);
 			if (rc < 0) {
 				pr_err("%s failed %d\n", __func__, __LINE__);
 				goto ERROR5;
 			}
 
-			rc = msm_flash_init_gpio_pin_tbl(of_node, gconf,
+			rc = msm_camera_init_gpio_pin_tbl(of_node, gconf,
 				gpio_array, gpio_array_size);
 			if (rc < 0) {
 				pr_err("%s failed %d\n", __func__, __LINE__);
@@ -462,7 +412,7 @@ static int32_t msm_led_get_dt_data(struct device_node *of_node,
 ERROR9:
 		kfree(fctrl->flashdata->slave_info);
 ERROR8:
-		kfree(fctrl->flashdata->gpio_conf->gpio_num_info);
+		kfree(fctrl->flashdata->power_info.gpio_conf->gpio_num_info);
 ERROR6:
 		kfree(gconf->cam_gpio_set_tbl);
 ERROR5:
