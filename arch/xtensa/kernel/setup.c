@@ -152,8 +152,8 @@ static int __init parse_tag_initrd(const bp_tag_t* tag)
 {
 	meminfo_t* mi;
 	mi = (meminfo_t*)(tag->data);
-	initrd_start = (void*)(mi->start);
-	initrd_end = (void*)(mi->end);
+	initrd_start = __va(mi->start);
+	initrd_end = __va(mi->end);
 
 	return 0;
 }
@@ -164,14 +164,13 @@ __tagtable(BP_TAG_INITRD, parse_tag_initrd);
 
 static int __init parse_tag_fdt(const bp_tag_t *tag)
 {
-	dtb_start = (void *)(tag->data[0]);
+	dtb_start = __va(tag->data[0]);
 	return 0;
 }
 
 __tagtable(BP_TAG_FDT, parse_tag_fdt);
 
-void __init early_init_dt_setup_initrd_arch(unsigned long start,
-		unsigned long end)
+void __init early_init_dt_setup_initrd_arch(u64 start, u64 end)
 {
 	initrd_start = (void *)__va(start);
 	initrd_end = (void *)__va(end);

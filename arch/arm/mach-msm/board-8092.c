@@ -19,8 +19,6 @@
 #include <linux/of_platform.h>
 #include <linux/of_fdt.h>
 #include <linux/of_irq.h>
-#include <linux/msm_tsens.h>
-#include <linux/msm_thermal.h>
 #include <linux/clk/msm-clk-provider.h>
 #include <linux/regulator/rpm-smd-regulator.h>
 #include <asm/mach/arch.h>
@@ -157,9 +155,6 @@ void __init mpq8092_add_drivers(void)
 		msm_clock_init(&mpq8092_rumi_clock_init_data);
 	else
 		msm_clock_init(&mpq8092_clock_init_data);
-	tsens_tm_init_driver();
-	msm_thermal_device_init();
-
 	emac_dt_update(0, MPQ8092_MAC_FUSE_PHYS, MPQ8092_MAC_FUSE_SIZE);
 }
 

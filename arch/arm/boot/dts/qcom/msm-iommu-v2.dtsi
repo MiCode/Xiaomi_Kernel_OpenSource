@@ -28,12 +28,20 @@
 		clock-names = "iface_clk", "core_clk";
 		status = "disabled";
 
-		qcom,iommu-ctx@1f08000 {
+		qcom,iommu-ctx@1f09000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
-			reg = <0x1f08000 0x1000>;
-			interrupts = <0 240 0>;
-			qcom,iommu-ctx-sids = <0 1>;
+			reg = <0x1f09000 0x1000>;
+			interrupts = <0 241 0>;
+			qcom,iommu-ctx-sids = <0>;
 			label = "gfx3d_user";
+		};
+
+		qcom,iommu-ctx@1f0a000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			reg = <0x1f0a000 0x1000>;
+			interrupts = <0 242 0>;
+			qcom,iommu-ctx-sids = <1>;
+			label = "gfx3d_priv";
 		};
 	};
 

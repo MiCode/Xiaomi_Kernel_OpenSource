@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2012 Synopsys, Inc. (www.synopsys.com)
+ * linux/arch/arm64/include/asm/neon.h
+ *
+ * Copyright (C) 2013 Linaro Ltd <ard.biesheuvel@linaro.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
 
-#ifndef _ASM_ARC_PROM_H_
-#define _ASM_ARC_PROM_H_
+#define cpu_has_neon()		(1)
 
-#define HAVE_ARCH_DEVTREE_FIXUPS
-
-#endif
+void kernel_neon_begin(void);
+void kernel_neon_end(void);

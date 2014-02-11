@@ -222,6 +222,10 @@ follow_huge_pmd(struct mm_struct *mm, unsigned long address,
 	return NULL;
 }
 
+int pmd_huge_support(void)
+{
+	return 0;
+}
 #else
 
 struct page *
@@ -264,6 +268,10 @@ follow_huge_pud(struct mm_struct *mm, unsigned long address,
 	return page;
 }
 
+int pmd_huge_support(void)
+{
+	return 1;
+}
 #endif
 
 /* x86_64 also uses this file */

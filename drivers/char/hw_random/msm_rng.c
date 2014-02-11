@@ -22,12 +22,11 @@
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/types.h>
-#include <mach/msm_iomap.h>
-#include <soc/qcom/socinfo.h>
-#include <mach/msm_bus.h>
+#include <linux/msm-bus.h>
 #include <linux/qrng.h>
 #include <linux/fs.h>
 #include <linux/cdev.h>
+#include <linux/of.h>
 
 #define DRIVER_NAME "msm_rng"
 
@@ -51,7 +50,7 @@ struct msm_rng_device {
 	struct platform_device *pdev;
 	void __iomem *base;
 	struct clk *prng_clk;
-	uint32_t qrng_perf_client;
+	unsigned int qrng_perf_client;
 };
 
 struct msm_rng_device msm_rng_device_info;
@@ -61,7 +60,7 @@ static long msm_rng_ioctl(struct file *filp, unsigned int cmd,
 {
 	long ret = 0;
 
-	pr_debug("ioctl: cmd = %d\n", cmd);
+	pr_debug("ioctl: cmd = %u\n", cmd);
 	switch (cmd) {
 	case QRNG_IOCTL_RESET_BUS_BANDWIDTH:
 		pr_info("calling msm_rng_bus_scale(LOW)\n");

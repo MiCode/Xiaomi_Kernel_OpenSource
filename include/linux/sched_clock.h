@@ -5,11 +5,18 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-#ifndef ASM_SCHED_CLOCK
-#define ASM_SCHED_CLOCK
+#ifndef LINUX_SCHED_CLOCK
+#define LINUX_SCHED_CLOCK
 
+#ifdef CONFIG_GENERIC_SCHED_CLOCK
 extern void sched_clock_postinit(void);
+#else
+static inline void sched_clock_postinit(void) { }
+#endif
+
 extern void setup_sched_clock(u32 (*read)(void), int bits, unsigned long rate);
+extern void sched_clock_register(u64 (*read)(void), int bits,
+				 unsigned long rate);
 
 extern unsigned long long (*sched_clock_func)(void);
 

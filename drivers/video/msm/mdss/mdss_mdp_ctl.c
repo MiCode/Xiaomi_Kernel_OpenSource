@@ -838,8 +838,8 @@ static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 			update_clk = 1;
 		}
 	} else {
-		memset(old, 0, sizeof(old));
-		memset(new, 0, sizeof(new));
+		memset(old, 0, sizeof(*old));
+		memset(new, 0, sizeof(*new));
 		update_bus = 1;
 		update_clk = 1;
 	}

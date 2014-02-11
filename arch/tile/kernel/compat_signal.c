@@ -48,7 +48,7 @@ struct compat_rt_sigframe {
 	struct compat_ucontext uc;
 };
 
-int copy_siginfo_to_user32(struct compat_siginfo __user *to, siginfo_t *from)
+int copy_siginfo_to_user32(struct compat_siginfo __user *to, const siginfo_t *from)
 {
 	int err;
 

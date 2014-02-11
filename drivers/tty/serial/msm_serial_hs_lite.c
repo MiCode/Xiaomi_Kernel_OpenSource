@@ -49,9 +49,8 @@
 #include <linux/wakelock.h>
 #include <linux/types.h>
 #include <asm/byteorder.h>
-#include <mach/board.h>
-#include <mach/msm_serial_hs_lite.h>
-#include <mach/msm_bus.h>
+#include <linux/platform_data/qcom-serial_hs_lite.h>
+#include <linux/msm-bus.h>
 #include "msm_serial_hs_hwreg.h"
 
 /*
@@ -85,7 +84,7 @@ struct msm_hsl_port {
 	unsigned int            *gsbi_mapbase;
 	unsigned int            *mapped_gsbi;
 	unsigned int            old_snap_state;
-	unsigned int		ver_id;
+	unsigned long		ver_id;
 	int			tx_timeout;
 	struct mutex		clk_mutex;
 	enum uart_core_type	uart_type;
@@ -168,13 +167,13 @@ static inline void msm_hsl_write(struct uart_port *port,
 				 unsigned int val, unsigned int off)
 {
 	__iowmb();
-	__raw_writel_no_log((__force __u32)cpu_to_le32(val),
+	__raw_writel((__force __u32)cpu_to_le32(val),
 		port->membase + off);
 }
 static inline unsigned int msm_hsl_read(struct uart_port *port,
 		     unsigned int off)
 {
-	unsigned int v = le32_to_cpu((__force __le32)__raw_readl_no_log(
+	unsigned int v = le32_to_cpu((__force __le32)__raw_readl(
 		port->membase + off));
 	__iormb();
 	return v;
@@ -1769,7 +1768,7 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 	if (!match) {
 		msm_hsl_port->ver_id = UARTDM_VERSION_11_13;
 	} else {
-		msm_hsl_port->ver_id = (unsigned int)match->data;
+		msm_hsl_port->ver_id = (unsigned long)match->data;
 		/*
 		 * BLSP based UART configuration is available with
 		 * UARTDM v14 Revision. Hence set uart_type as UART_BLSP.
