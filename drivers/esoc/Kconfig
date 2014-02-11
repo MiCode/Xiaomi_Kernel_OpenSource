@@ -19,6 +19,15 @@ config ESOC_DEV
 	  for the external soc. It can receive event notifications from the
 	  control link.
 
+config ESOC_CLIENT
+	bool "ESOC client interface"
+	depends on OF
+	help
+	  Say yes here to enable client interface for external socs.
+	  Clients can specify the external soc that they are interested in
+	  by using device tree phandles. Based on this, clients can register
+	  for notifications from a specific soc.
+
 config ESOC_DEBUG
 	bool "ESOC debug support"
 	help

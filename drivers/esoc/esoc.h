@@ -57,6 +57,7 @@ struct esoc_eng {
  * @compat_data: compat data of esoc driver.
  * @subsys_desc: descriptor for subsystem restart
  * @subsys_dev: ssr device handle.
+ * @np: device tree node for esoc_clink.
  */
 struct esoc_clink {
 	const char *name;
@@ -73,6 +74,7 @@ struct esoc_clink {
 	void *compat_data;
 	struct subsys_desc subsys;
 	struct subsys_device *subsys_dev;
+	struct device_node *np;
 };
 
 /**
@@ -125,6 +127,7 @@ int esoc_dev_init(void);
 void esoc_clink_unregister(struct esoc_clink *esoc_dev);
 int esoc_clink_register(struct esoc_clink *esoc_dev);
 struct esoc_clink *get_esoc_clink(int id);
+struct esoc_clink *get_esoc_clink_by_node(struct device_node *node);
 void put_esoc_clink(struct esoc_clink *esoc_clink);
 void *get_esoc_clink_data(struct esoc_clink *esoc);
 void set_esoc_clink_data(struct esoc_clink *esoc, void *data);
@@ -147,4 +150,14 @@ void *esoc_get_drv_data(struct esoc_clink *esoc_clink);
 int esoc_clink_register_ssr(struct esoc_clink *esoc_clink);
 int esoc_clink_request_ssr(struct esoc_clink *esoc_clink);
 void esoc_clink_unregister_ssr(struct esoc_clink *esoc_clink);
+/* client notification */
+#ifdef CONFIG_ESOC_CLIENT
+void notify_esoc_clients(struct esoc_clink *esoc_clink, unsigned long evt);
+#else
+static inline void notify_esoc_clients(struct esoc_clink *esoc_clink,
+							unsigned long evt)
+{
+	return;
+}
+#endif
 #endif
