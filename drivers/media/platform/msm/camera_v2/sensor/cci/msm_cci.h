@@ -26,7 +26,6 @@
 
 #define TRUE  1
 #define FALSE 0
-
 enum cci_i2c_queue_t {
 	QUEUE_0,
 	QUEUE_1,
@@ -35,6 +34,7 @@ enum cci_i2c_queue_t {
 struct msm_camera_cci_client {
 	struct v4l2_subdev *cci_subdev;
 	uint32_t freq;
+	enum i2c_freq_mode_t i2c_freq_mode;
 	enum cci_i2c_master_t cci_i2c_master;
 	uint16_t sid;
 	uint16_t cid;
@@ -133,9 +133,10 @@ struct cci_device {
 	struct msm_camera_cci_i2c_queue_info
 		cci_i2c_queue_info[NUM_MASTERS][NUM_QUEUES];
 	struct msm_camera_cci_master_info cci_master_info[NUM_MASTERS];
-	struct msm_cci_clk_params_t cci_clk_params[MASTER_MAX];
+	struct msm_cci_clk_params_t cci_clk_params[I2C_MAX_MODES];
 	struct gpio *cci_gpio_tbl;
 	uint8_t cci_gpio_tbl_size;
+	uint8_t master_clk_init[MASTER_MAX];
 };
 
 enum msm_cci_i2c_cmd_type {

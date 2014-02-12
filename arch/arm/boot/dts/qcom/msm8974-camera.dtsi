@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -200,16 +200,19 @@
 				      "CCI_I2C_CLK0",
 				      "CCI_I2C_DATA1",
 				      "CCI_I2C_CLK1";
-		master0: qcom,cci-master0 {
+		i2c_freq_100Khz: qcom,i2c_standard_mode {
 			status = "disabled";
 		};
-		master1: qcom,cci-master1 {
+		i2c_freq_400Khz: qcom,i2c_fast_mode {
+			status = "disabled";
+		};
+		i2c_freq_custom: qcom,i2c_custom_mode {
 			status = "disabled";
 		};
 	};
 };
 
-&master0 {
+&i2c_freq_100Khz {
 	qcom,hw-thigh = <78>;
 	qcom,hw-tlow = <114>;
 	qcom,hw-tsu-sto = <28>;
@@ -223,16 +226,30 @@
 	status = "ok";
 };
 
-&master1 {
-	qcom,hw-thigh = <78>;
-	qcom,hw-tlow = <114>;
-	qcom,hw-tsu-sto = <28>;
-	qcom,hw-tsu-sta = <28>;
-	qcom,hw-thd-dat = <10>;
-	qcom,hw-thd-sta = <77>;
-	qcom,hw-tbuf = <118>;
+&i2c_freq_400Khz {
+	qcom,hw-thigh = <20>;
+	qcom,hw-tlow = <28>;
+	qcom,hw-tsu-sto = <21>;
+	qcom,hw-tsu-sta = <21>;
+	qcom,hw-thd-dat = <13>;
+	qcom,hw-thd-sta = <18>;
+	qcom,hw-tbuf = <25>;
 	qcom,hw-scl-stretch-en = <0>;
 	qcom,hw-trdhld = <6>;
-	qcom,hw-tsp = <1>;
+	qcom,hw-tsp = <3>;
+	status = "ok";
+};
+
+&i2c_freq_custom {
+	qcom,hw-thigh = <15>;
+	qcom,hw-tlow = <28>;
+	qcom,hw-tsu-sto = <21>;
+	qcom,hw-tsu-sta = <21>;
+	qcom,hw-thd-dat = <13>;
+	qcom,hw-thd-sta = <18>;
+	qcom,hw-tbuf = <25>;
+	qcom,hw-scl-stretch-en = <1>;
+	qcom,hw-trdhld = <6>;
+	qcom,hw-tsp = <3>;
 	status = "ok";
 };

@@ -22,10 +22,13 @@ Required properties:
 - clock-rates: clock rate in Hz
 
 Optional properties:
-- master0: qcom,cci-master0 - node should contain clock settings for
-    cci master 0 bus
-- master1: qcom,cci-master1 - node should contain clock settings for
-    cci master 1 bus
+- i2c_freq_100Khz: qcom,i2c_standard_mode - node should contain clock settings for
+    100Khz
+- i2c_freq_400Khz: qcom,i2c_fast_mode - node should contain clock settings for
+    400Khz
+- i2c_freq_custom: qcom,i2c_custom_mode - node can contain clock settings for
+    frequencies other than 100Khz and 400Khz which is specific to usecase.
+    Currently it has settings for 375Khz.
 
 [Second level nodes]
 * Qualcomm CCI clock settings
@@ -212,12 +215,15 @@ Example:
                              "CCI_I2C_CLK0",
                              "CCI_I2C_DATA1",
                              "CCI_I2C_CLK1";
-       master0: qcom,cci-master0 {
-                status = "disabled";
-       };
-       master1: qcom,cci-master1 {
-                status = "disabled";
-       };
+		i2c_freq_100Khz: qcom,i2c_standard_mode {
+			status = "disabled";
+		};
+		i2c_freq_400Khz: qcom,i2c_fast_mode {
+			status = "disabled";
+		};
+		i2c_freq_custom: qcom,i2c_custom_mode {
+			status = "disabled";
+		};
 
         actuator0: qcom,actuator@18 {
                 cell-index = <0>;
@@ -276,30 +282,44 @@ Example:
        };
    };
 
-   &master0 {
-           qcom,hw-thigh = <78>;
-           qcom,hw-tlow = <114>;
-           qcom,hw-tsu-sto = <28>;
-           qcom,hw-tsu-sta = <28>;
-           qcom,hw-thd-dat = <10>;
-           qcom,hw-thd-sta = <77>;
-           qcom,hw-tbuf = <118>;
-           qcom,hw-scl-stretch-en = <0>;
-           qcom,hw-trdhld = <6>;
-           qcom,hw-tsp = <1>;
-           status = "ok";
-   };
+&i2c_freq_100Khz {
+	qcom,hw-thigh = <78>;
+	qcom,hw-tlow = <114>;
+	qcom,hw-tsu-sto = <28>;
+	qcom,hw-tsu-sta = <28>;
+	qcom,hw-thd-dat = <10>;
+	qcom,hw-thd-sta = <77>;
+	qcom,hw-tbuf = <118>;
+	qcom,hw-scl-stretch-en = <0>;
+	qcom,hw-trdhld = <6>;
+	qcom,hw-tsp = <1>;
+	status = "ok";
+};
 
-   &master1 {
-           qcom,hw-thigh = <78>;
-           qcom,hw-tlow = <114>;
-           qcom,hw-tsu-sto = <28>;
-           qcom,hw-tsu-sta = <28>;
-           qcom,hw-thd-dat = <10>;
-           qcom,hw-thd-sta = <77>;
-           qcom,hw-tbuf = <118>;
-           qcom,hw-scl-stretch-en = <0>;
-           qcom,hw-trdhld = <6>;
-           qcom,hw-tsp = <1>;
-           status = "ok";
-   };
+&i2c_freq_400Khz {
+	qcom,hw-thigh = <20>;
+	qcom,hw-tlow = <28>;
+	qcom,hw-tsu-sto = <21>;
+	qcom,hw-tsu-sta = <21>;
+	qcom,hw-thd-dat = <13>;
+	qcom,hw-thd-sta = <18>;
+	qcom,hw-tbuf = <25>;
+	qcom,hw-scl-stretch-en = <0>;
+	qcom,hw-trdhld = <6>;
+	qcom,hw-tsp = <3>;
+	status = "ok";
+};
+
+&i2c_freq_custom {
+	qcom,hw-thigh = <15>;
+	qcom,hw-tlow = <28>;
+	qcom,hw-tsu-sto = <21>;
+	qcom,hw-tsu-sta = <21>;
+	qcom,hw-thd-dat = <13>;
+	qcom,hw-thd-sta = <18>;
+	qcom,hw-tbuf = <25>;
+	qcom,hw-scl-stretch-en = <1>;
+	qcom,hw-trdhld = <6>;
+	qcom,hw-tsp = <3>;
+	status = "ok";
+};

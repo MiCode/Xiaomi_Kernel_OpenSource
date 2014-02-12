@@ -455,6 +455,7 @@ int32_t msm_sensor_driver_probe(void *setting)
 	cci_client->sid = slave_info->slave_addr >> 1;
 	cci_client->retries = 3;
 	cci_client->id_map = 0;
+	cci_client->i2c_freq_mode = slave_info->i2c_freq_mode;
 
 	/* Parse and fill vreg params for powerup settings */
 	rc = msm_camera_fill_vreg_params(
