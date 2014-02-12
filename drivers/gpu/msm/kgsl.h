@@ -14,6 +14,8 @@
 #define __KGSL_H
 
 #include <linux/types.h>
+#include <linux/slab.h>
+#include <linux/vmalloc.h>
 #include <linux/msm_kgsl.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
@@ -174,7 +176,6 @@ struct kgsl_memdesc {
 	unsigned int priv; /* Internal flags and settings */
 	struct scatterlist *sg;
 	unsigned int sglen; /* Active entries in the sglist */
-	unsigned int sglen_alloc;  /* Allocated entries in the sglist */
 	struct kgsl_memdesc_ops *ops;
 	unsigned int flags; /* Flags set from userspace */
 	struct device *dev;
@@ -402,6 +403,35 @@ static inline bool kgsl_addr_range_overlap(unsigned int gpuaddr1,
 		return false;
 	return !(((gpuaddr1 + size1) <= gpuaddr2) ||
 		(gpuaddr1 >= (gpuaddr2 + size2)));
+}
+
+/**
+ * kgsl_malloc() - Use either kzalloc or vmalloc to allocate memory
+ * @size: Size of the desired allocation
+ *
+ * Allocate a block of memory for the driver - if it is small try to allocate it
+ * from kmalloc (fast!) otherwise we need to go with vmalloc (safe!)
+ */
+static inline void *kgsl_malloc(size_t size)
+{
+	if (size <= PAGE_SIZE)
+		return kzalloc(size, GFP_KERNEL);
+
+	return vmalloc(size);
+}
+
+/**
+ * kgsl_free() - Free memory allocated by kgsl_malloc()
+ * @ptr: Pointer to the memory to free
+ *
+ * Free the memory be it in vmalloc or kmalloc space
+ */
+static inline void kgsl_free(void *ptr)
+{
+	if (is_vmalloc_addr(ptr))
+		return vfree(ptr);
+
+	kfree(ptr);
 }
 
 #endif /* __KGSL_H */

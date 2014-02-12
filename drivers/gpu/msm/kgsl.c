@@ -20,7 +20,6 @@
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
 #include <linux/dma-buf.h>
-#include <linux/vmalloc.h>
 #include <linux/pm_runtime.h>
 #include <linux/rbtree.h>
 #include <linux/ashmem.h>
@@ -2545,13 +2544,12 @@ static int memdesc_sg_virt(struct kgsl_memdesc *memdesc,
 	int i;
 	int sglen = PAGE_ALIGN(size) / PAGE_SIZE;
 
-	memdesc->sg = kgsl_sg_alloc(sglen);
+	memdesc->sg = kgsl_malloc(sglen * sizeof(struct scatterlist));
 
 	if (memdesc->sg == NULL)
 		return -ENOMEM;
 
 	memdesc->sglen = sglen;
-	memdesc->sglen_alloc = sglen;
 
 	sg_init_table(memdesc->sg, sglen);
 
@@ -2588,7 +2586,7 @@ static int memdesc_sg_virt(struct kgsl_memdesc *memdesc,
 
 err:
 	spin_unlock(&current->mm->page_table_lock);
-	kgsl_sg_free(memdesc->sg,  sglen);
+	kgsl_free(memdesc->sg);
 	memdesc->sg = NULL;
 
 	return -EINVAL;

@@ -15,7 +15,6 @@
 
 #include <linux/slab.h>
 #include <linux/dma-mapping.h>
-#include <linux/vmalloc.h>
 #include "kgsl_mmu.h"
 #include <linux/slab.h>
 #include <linux/kmemleak.h>
@@ -123,37 +122,11 @@ static inline unsigned int kgsl_get_sg_pa(struct scatterlist *sg)
 	return pa;
 }
 
-/*
- * For relatively small sglists, it is preferable to use kzalloc
- * rather than going down the vmalloc rat hole.  If the size of
- * the sglist is < PAGE_SIZE use kzalloc otherwise fallback to
- * vmalloc
- */
-
-static inline void *kgsl_sg_alloc(unsigned int sglen)
-{
-	if ((sglen == 0) || (sglen >= ULONG_MAX / sizeof(struct scatterlist)))
-		return NULL;
-
-	if ((sglen * sizeof(struct scatterlist)) <  PAGE_SIZE)
-		return kzalloc(sglen * sizeof(struct scatterlist), GFP_KERNEL);
-	else
-		return vmalloc(sglen * sizeof(struct scatterlist));
-}
-
-static inline void kgsl_sg_free(void *ptr, unsigned int sglen)
-{
-	if ((sglen * sizeof(struct scatterlist)) < PAGE_SIZE)
-		kfree(ptr);
-	else
-		vfree(ptr);
-}
-
 static inline int
 memdesc_sg_phys(struct kgsl_memdesc *memdesc,
 		phys_addr_t physaddr, size_t size)
 {
-	memdesc->sg = kgsl_sg_alloc(1);
+	memdesc->sg = kgsl_malloc(sizeof(struct scatterlist));
 	if (memdesc->sg == NULL)
 		return -ENOMEM;
 

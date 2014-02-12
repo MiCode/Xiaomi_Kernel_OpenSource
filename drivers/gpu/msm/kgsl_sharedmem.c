@@ -462,8 +462,8 @@ static int kgsl_page_alloc_map_kernel(struct kgsl_memdesc *memdesc)
 		int i, count = 0;
 
 		/* create a list of pages to call vmap */
-		pages = vmalloc(npages * sizeof(struct page *));
-		if (!pages) {
+		pages = kgsl_malloc(npages * sizeof(struct page *));
+		if (pages == NULL) {
 			ret = -ENOMEM;
 			goto done;
 		}
@@ -484,7 +484,7 @@ static int kgsl_page_alloc_map_kernel(struct kgsl_memdesc *memdesc)
 				kgsl_driver.stats.vmalloc_max);
 		else
 			ret = -ENOMEM;
-		vfree(pages);
+		kgsl_free(pages);
 	}
 	if (memdesc->hostptr)
 		memdesc->hostptr_count++;
@@ -611,8 +611,7 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 	memdesc->pagetable = pagetable;
 	memdesc->ops = &kgsl_page_alloc_ops;
 
-	memdesc->sglen_alloc = sglen_alloc;
-	memdesc->sg = kgsl_sg_alloc(memdesc->sglen_alloc);
+	memdesc->sg = kgsl_malloc(sglen_alloc * sizeof(struct scatterlist));
 
 	if (memdesc->sg == NULL) {
 		ret = -ENOMEM;
@@ -620,17 +619,11 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 	}
 
 	/*
-	 * Allocate space to store the list of pages to send to vmap.
-	 * This is an array of pointers so we can track 1024 pages per page
-	 * of allocation.  Since allocations can be as large as the user dares,
-	 * we have to use the kmalloc/vmalloc trick here to make sure we can
-	 * get the memory we need.
+	 * Allocate space to store the list of pages to send to vmap. This is an
+	 * array of pointers so we can track 1024 pages per page of allocation
 	 */
 
-	if ((memdesc->sglen_alloc * sizeof(struct page *)) > PAGE_SIZE)
-		pages = vmalloc(memdesc->sglen_alloc * sizeof(struct page *));
-	else
-		pages = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	pages = kgsl_malloc(sglen_alloc * sizeof(struct page *));
 
 	if (pages == NULL) {
 		ret = -ENOMEM;
@@ -639,7 +632,7 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 
 	kmemleak_not_leak(memdesc->sg);
 
-	sg_init_table(memdesc->sg, memdesc->sglen_alloc);
+	sg_init_table(memdesc->sg, sglen_alloc);
 
 	len = size;
 
@@ -750,10 +743,7 @@ done:
 	KGSL_STATS_ADD(memdesc->size, kgsl_driver.stats.page_alloc,
 		kgsl_driver.stats.page_alloc_max);
 
-	if ((memdesc->sglen_alloc * sizeof(struct page *)) > PAGE_SIZE)
-		vfree(pages);
-	else
-		kfree(pages);
+	kgsl_free(pages);
 
 	if (ret)
 		kgsl_sharedmem_free(memdesc);
@@ -845,7 +835,7 @@ void kgsl_sharedmem_free(struct kgsl_memdesc *memdesc)
 	if (memdesc->ops && memdesc->ops->free)
 		memdesc->ops->free(memdesc);
 
-	kgsl_sg_free(memdesc->sg, memdesc->sglen_alloc);
+	kgsl_free(memdesc->sg);
 
 	memset(memdesc, 0, sizeof(*memdesc));
 }

@@ -1857,11 +1857,11 @@ static int kgsl_iommu_close(struct kgsl_mmu *mmu)
 
 		if (reg_map->hostptr)
 			iounmap(reg_map->hostptr);
-		kgsl_sg_free(reg_map->sg, reg_map->sglen);
+		kgsl_free(reg_map->sg);
 		reg_map->priv &= ~KGSL_MEMDESC_GLOBAL;
 	}
 	/* clear IOMMU GPU CPU sync structures */
-	kgsl_sg_free(iommu->sync_lock_desc.sg, iommu->sync_lock_desc.sglen);
+	kgsl_free(iommu->sync_lock_desc.sg);
 	memset(&iommu->sync_lock_desc, 0, sizeof(iommu->sync_lock_desc));
 	iommu->sync_lock_vars = NULL;
 
