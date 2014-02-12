@@ -14,6 +14,7 @@
 #include <linux/err.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/i2c.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
@@ -37,6 +38,7 @@ struct hsic_hub {
 	struct regulator	*hsic_hub_reg;
 	struct regulator	*int_pad_reg, *hub_vbus_reg;
 	bool enabled;
+	struct pinctrl		*smsc_pinctrl;
 };
 static struct hsic_hub *smsc_hub;
 static struct platform_driver smsc_hub_driver;
@@ -240,7 +242,8 @@ static int msm_hsic_hub_init_clock(struct hsic_hub *hub, int init)
 #define HSIC_HUB_INT_VOL_MAX	2950000 /* uV */
 static int msm_hsic_hub_init_gpio(struct hsic_hub *hub, int init)
 {
-	int ret;
+	int ret = 0;
+	struct pinctrl_state *set_state;
 	struct smsc_hub_platform_data *pdata = hub->pdata;
 
 	if (!init) {
@@ -249,40 +252,82 @@ static int msm_hsic_hub_init_gpio(struct hsic_hub *hub, int init)
 			regulator_set_voltage(smsc_hub->int_pad_reg, 0,
 						HSIC_HUB_INT_VOL_MAX);
 		}
-		return 0;
+		if (smsc_hub->smsc_pinctrl) {
+			set_state = pinctrl_lookup_state(smsc_hub->smsc_pinctrl,
+					"smsc_sleep");
+			if (IS_ERR(set_state)) {
+				pr_err("cannot get smsc pinctrl sleep state\n");
+				ret = PTR_ERR(set_state);
+				goto out;
+			}
+			ret = pinctrl_select_state(smsc_hub->smsc_pinctrl,
+					set_state);
+		}
+		goto out;
+	}
+
+	/* Get pinctrl if target uses pinctrl */
+	smsc_hub->smsc_pinctrl = devm_pinctrl_get(smsc_hub->dev);
+	if (IS_ERR(smsc_hub->smsc_pinctrl)) {
+		if (of_property_read_bool(smsc_hub->dev->of_node,
+					"pinctrl-names")) {
+			dev_err(smsc_hub->dev, "Error encountered while getting pinctrl");
+			ret = PTR_ERR(smsc_hub->smsc_pinctrl);
+			goto out;
+		}
+		dev_dbg(smsc_hub->dev, "Target does not use pinctrl\n");
+		smsc_hub->smsc_pinctrl = NULL;
+	}
+
+	if (smsc_hub->smsc_pinctrl) {
+		set_state = pinctrl_lookup_state(smsc_hub->smsc_pinctrl,
+				"smsc_active");
+		if (IS_ERR(set_state)) {
+			pr_err("cannot get smsc pinctrl active state\n");
+			ret = PTR_ERR(set_state);
+			goto out;
+		}
+		ret = pinctrl_select_state(smsc_hub->smsc_pinctrl, set_state);
+		if (ret) {
+			pr_err("cannot set smsc pinctrl active state\n");
+			goto out;
+		}
 	}
 
 	ret = devm_gpio_request(hub->dev, pdata->hub_reset, "HSIC_HUB_RESET");
 	if (ret < 0) {
 		dev_err(hub->dev, "gpio request failed for GPIO%d\n",
 							pdata->hub_reset);
-		return ret;
+		goto out;
 	}
 
-	if (pdata->refclk_gpio) {
-		ret = devm_gpio_request(hub->dev, pdata->refclk_gpio,
-							 "HSIC_HUB_CLK");
-		if (ret < 0)
-			dev_err(hub->dev, "gpio request failed (CLK GPIO)\n");
-	}
-
-	if (pdata->xo_clk_gpio) {
-		ret = devm_gpio_request(hub->dev, pdata->xo_clk_gpio,
-							 "HSIC_HUB_XO_CLK");
-		if (ret < 0) {
-			dev_err(hub->dev, "gpio request failed(XO CLK GPIO)\n");
-			return ret;
-		}
-	}
-
-	if (pdata->int_gpio) {
-		ret = devm_gpio_request(hub->dev, pdata->int_gpio,
-							 "HSIC_HUB_INT");
-		if (ret < 0) {
-			dev_err(hub->dev, "gpio request failed (INT GPIO)\n");
-			return ret;
+	if (IS_ERR_OR_NULL(smsc_hub->smsc_pinctrl)) {
+		if (pdata->refclk_gpio) {
+			ret = devm_gpio_request(hub->dev, pdata->refclk_gpio,
+					"HSIC_HUB_CLK");
+			if (ret < 0)
+				dev_err(hub->dev, "gpio request failed (CLK GPIO)\n");
 		}
 
+		if (pdata->xo_clk_gpio) {
+			ret = devm_gpio_request(hub->dev, pdata->xo_clk_gpio,
+					"HSIC_HUB_XO_CLK");
+			if (ret < 0) {
+				dev_err(hub->dev, "gpio request failed(XO CLK GPIO)\n");
+				goto out;
+			}
+		}
+
+		if (pdata->int_gpio) {
+			ret = devm_gpio_request(hub->dev, pdata->int_gpio,
+					"HSIC_HUB_INT");
+			if (ret < 0) {
+				dev_err(hub->dev, "gpio request failed (INT GPIO)\n");
+				goto out;
+			}
+		}
+	}
+	if (of_get_property(smsc_hub->dev->of_node, "hub-int-supply", NULL)) {
 		/* Enable LDO if required for external pull-up */
 		smsc_hub->int_pad_reg = devm_regulator_get(hub->dev, "hub-int");
 		if (IS_ERR(smsc_hub->int_pad_reg)) {
@@ -294,19 +339,19 @@ static int msm_hsic_hub_init_gpio(struct hsic_hub *hub, int init)
 			if (ret) {
 				dev_err(hub->dev, "unable to set the voltage\n"
 						" for hsic hub int reg\n");
-				return ret;
+				goto out;
 			}
 			ret = regulator_enable(smsc_hub->int_pad_reg);
 			if (ret) {
 				dev_err(hub->dev, "unable to enable int reg\n");
 				regulator_set_voltage(smsc_hub->int_pad_reg, 0,
 							HSIC_HUB_INT_VOL_MAX);
-				return ret;
+				goto out;
 			}
 		}
 	}
-
-	return 0;
+out:
+	return ret;
 }
 
 #define HSIC_HUB_VDD_VOL_MIN	1650000 /* uV */
