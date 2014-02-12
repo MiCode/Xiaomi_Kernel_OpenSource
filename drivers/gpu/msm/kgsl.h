@@ -43,6 +43,9 @@
 /* The size of each entry in a page table */
 #define KGSL_PAGETABLE_ENTRY_SIZE  4
 
+/* The SVM upper bound is the same as the TASK_SIZE in arm32 */
+#define KGSL_SVM_UPPER_BOUND (0xC0000000 - SZ_16M)
+
 /* Pagetable Virtual Address base */
 #ifndef CONFIG_MSM_KGSL_CFF_DUMP
 #define KGSL_PAGETABLE_BASE	0x10000000
