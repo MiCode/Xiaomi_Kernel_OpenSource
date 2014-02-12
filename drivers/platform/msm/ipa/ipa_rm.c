@@ -459,7 +459,7 @@ int ipa_rm_wq_send_cmd(enum ipa_rm_wq_cmd wq_cmd,
 		bool notify_registered_only)
 {
 	int result = -ENOMEM;
-	struct ipa_rm_wq_work_type *work = kzalloc(sizeof(*work), GFP_KERNEL);
+	struct ipa_rm_wq_work_type *work = kzalloc(sizeof(*work), GFP_ATOMIC);
 	if (work) {
 		INIT_WORK((struct work_struct *)work, ipa_rm_wq_handler);
 		work->wq_cmd = wq_cmd;
