@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,7 @@
 
 #include <linux/i2c.h>
 #include <linux/gpio.h>
-#include <mach/camera2.h>
+#include <soc/qcom/camera2.h>
 #include <media/v4l2-subdev.h>
 #include <media/msmb_camera.h>
 #include "msm_camera_i2c.h"

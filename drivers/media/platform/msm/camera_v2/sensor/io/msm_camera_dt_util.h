@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,7 +13,7 @@
 #ifndef MSM_CAMERA_DT_UTIL_H__
 #define MSM_CAMERA_DT_UTIL_H__
 
-#include <mach/camera2.h>
+#include <soc/qcom/camera2.h>
 #include <linux/gpio.h>
 #include <linux/of.h>
 #include "msm_camera_i2c.h"
