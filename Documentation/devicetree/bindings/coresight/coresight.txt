@@ -25,7 +25,8 @@ Required properties:
 	"qcom,coresight-audio-etm" for coresight audio etm trace device,
 	"qcom,coresight-modem-etm" for coresight modem etm trace device,
 	"qcom,coresight-wcn-etm" for coresight wireless etm trace device,
-	"qcom,coresight-rpm-etm" for coresight rpm etm trace device
+	"qcom,coresight-rpm-etm" for coresight rpm etm trace device,
+	"qcom,coresight-qpdi" for coresight qpdi device
 - reg : physical base address and length of the register set(s) of the component.
 	Not required for the following compatible strings:
 	- "qcom,coresight-audio-etm",
@@ -88,6 +89,11 @@ Required properties:
 		reg-names  : should be:
 			"fuse-base" - physical base address of fuse registers
 			"nidnt-fuse-base" - physical base address of nidnt fuse registers
+			"qpdi-fuse-base" - physical base address of qpdi fuse registers
+	- for coresight qpdi device:
+		compatible : should be "qcom,coresight-qpdi"
+		reg-names  : should be:
+			"qpdi-base" - physical base address of qpdi registers
 - coresight-id : unique integer identifier for the component
 - coresight-name : unique descriptive name of the component
 - coresight-nr-inports : number of input ports on the component
