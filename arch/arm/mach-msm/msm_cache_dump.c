@@ -24,6 +24,7 @@
 #include <linux/of_device.h>
 #include <linux/dma-mapping.h>
 #include <soc/qcom/scm.h>
+#include <asm/cacheflush.h>
 #include <mach/msm_cache_dump.h>
 #include <mach/msm_iomap.h>
 #include <soc/qcom/memory_dump.h>
@@ -100,8 +101,8 @@ static int msm_cache_dump_probe(struct platform_device *pdev)
 
 	memset(msm_cache_dump_vaddr, 0xFF, total_size);
 	/* Clean caches before sending buffer to TZ */
-	clean_caches((unsigned long) msm_cache_dump_vaddr, total_size,
-			msm_cache_dump_addr);
+	dmac_clean_range(msm_cache_dump_vaddr,
+				msm_cache_dump_vaddr + total_size);
 
 	l1_cache_data.buf = msm_cache_dump_addr;
 	l1_cache_data.size = l1_size;
