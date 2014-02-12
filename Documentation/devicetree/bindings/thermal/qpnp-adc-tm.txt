@@ -26,6 +26,12 @@ Optional properties:
 		to set temperature thresholds and receive notification when the temperature
 		crosses a set threshold, read temperature and enable/set trip types supported
 		by the thermal framework.
+- qcom,meas-interval-timer-idx: If present select from the following timer index to choose
+		a preset configurable measurement interval timer value. The driver defaults
+		to timer 1 with a measurement interval of 1 second if the property is not present.
+		0 : Select Timer 1 for a measurement polling interval of 1 second.
+		1 : Select Timer 2 for a measurement polling interval of 500ms.
+		2 : Select Timer 3 for a measurement polling interval of 4 seconds.
 
 Client required property:
 - qcom,<consumer name>-adc_tm : The phandle to the corresponding adc_tm device.
