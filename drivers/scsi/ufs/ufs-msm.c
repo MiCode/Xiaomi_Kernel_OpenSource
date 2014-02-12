@@ -41,7 +41,7 @@
 #define UFS_MSM_LIMIT_TX_PWR_PWM	SLOW_MODE
 #define UFS_MSM_LIMIT_RX_PWR_HS	FAST_MODE
 #define UFS_MSM_LIMIT_TX_PWR_HS	FAST_MODE
-#define UFS_MSM_LIMIT_HS_RATE		PA_HS_MODE_B
+#define UFS_MSM_LIMIT_HS_RATE		PA_HS_MODE_A
 #define UFS_MSM_LIMIT_DESIRED_MODE	FAST
 
 static struct msm_ufs_phy_calibration phy_cal_table_ctrl_1_1_0_rate_A[] = {
