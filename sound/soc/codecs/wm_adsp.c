@@ -1598,7 +1598,8 @@ static int wm_adsp_load_coeff(struct wm_adsp *dsp)
 	const struct wm_adsp_region *mem;
 	struct wm_adsp_alg_region *alg_region;
 	const char *region_name;
-	int ret, pos, blocks, type, offset, reg;
+	int ret = 0;
+	int err, pos, blocks, type, offset, reg;
 	char *file;
 	struct wm_adsp_buf *buf;
 	int tmp;
@@ -1740,7 +1741,7 @@ static int wm_adsp_load_coeff(struct wm_adsp *dsp)
 			if (!buf) {
 				adsp_err(dsp, "Out of memory\n");
 				ret = -ENOMEM;
-				goto out_fw;
+				goto out_async;
 			}
 
 			adsp_dbg(dsp, "%s.%d: Writing %d bytes at %x\n",
@@ -1764,13 +1765,17 @@ static int wm_adsp_load_coeff(struct wm_adsp *dsp)
 		blocks++;
 	}
 
-	ret = regmap_async_complete(regmap);
-	if (ret != 0)
-		adsp_err(dsp, "Failed to complete async write: %d\n", ret);
-
 	if (pos > firmware->size)
 		adsp_warn(dsp, "%s.%d: %zu bytes at end of file\n",
 			  file, blocks, pos - firmware->size);
+
+out_async:
+	err = regmap_async_complete(regmap);
+	if (err != 0) {
+		adsp_err(dsp, "Failed to complete async write: %d\n", err);
+		if (!ret)
+			ret = err;
+	}
 
 out_fw:
 	regmap_async_complete(regmap);
