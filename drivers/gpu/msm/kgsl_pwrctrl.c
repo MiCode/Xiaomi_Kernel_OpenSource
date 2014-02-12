@@ -1015,6 +1015,7 @@ EXPORT_SYMBOL(kgsl_pwrctrl_irq);
 int kgsl_pwrctrl_init(struct kgsl_device *device)
 {
 	int i, k, m, n = 0, result = 0;
+	int freq_i;
 	struct clk *clk;
 	struct platform_device *pdev =
 		container_of(device->parentdev, struct platform_device, dev);
@@ -1105,6 +1106,17 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	/* Set if independent bus BW voting is supported */
 	pwr->bus_control = pdata->bus_control;
+
+	/*
+	 * Set the range permitted for BIMC votes per-GPU frequency.
+	 * For the moment assume the BIMC votes are listed in order
+	 * per GPU frequency.  If this is no longer needed in the bus
+	 * table the min/max values can be explicitly set in the dtsi
+	 * file.
+	 */
+	freq_i = pwr->min_pwrlevel;
+	pwr->pwrlevels[freq_i].bus_min = 1;
+
 	/*
 	 * Pull the BW vote out of the bus table.  They will be used to
 	 * calculate the ratio between the votes.
@@ -1116,8 +1128,17 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		if (vector->dst == MSM_BUS_SLAVE_EBI_CH0 &&
 				vector->ib != 0) {
 			for (k = 0; k < n; k++)
-				if (vector->ib == pwr->bus_ib[k])
+				if (vector->ib == pwr->bus_ib[k]) {
+					static uint64_t last_ib = 0xFFFFFFFF;
+					if (vector->ib <= last_ib) {
+						pwr->pwrlevels[freq_i--].
+							bus_max = i - 1;
+						pwr->pwrlevels[freq_i].
+							bus_min = i;
+					}
+					last_ib = vector->ib;
 					break;
+				}
 			/* if this is a new ib value, save it */
 			if (k == n) {
 				pwr->bus_ib[k] = vector->ib;
@@ -1133,6 +1154,8 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 			}
 		}
 	}
+	pwr->pwrlevels[freq_i].bus_max = i - 1;
+
 	return result;
 
 clk_err:
