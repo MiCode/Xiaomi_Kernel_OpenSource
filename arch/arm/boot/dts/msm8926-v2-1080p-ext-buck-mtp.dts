@@ -21,3 +21,12 @@
 	compatible = "qcom,msm8926-mtp", "qcom,msm8926", "qcom,mtp";
 	qcom,board-id = <8 3>;
 };
+
+&smsc_hub {
+	status = "ok";
+	smsc,model-id = <3502>;
+	smsc,reset-gpio = <&msmgpio 114 0x00>;
+	smsc,int-gpio = <&msmgpio 9 0x00>;
+	smsc,xo-clk-gpio = <&msmgpio 8 0x00>;
+	hub-int-supply = <&pm8226_l6>;
+};
