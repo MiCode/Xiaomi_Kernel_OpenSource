@@ -1,4 +1,4 @@
-/* arch/arm/mach-msm/smp2p_gpio.c
+/* drivers/gpio/gpio-msm-smp2p.c
  *
  * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
@@ -22,8 +22,8 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/ipc_logging.h>
-#include "smp2p_private_api.h"
-#include "smp2p_private.h"
+#include "../soc/qcom/smp2p_private_api.h"
+#include "../soc/qcom/smp2p_private.h"
 
 /* GPIO device - one per SMP2P entry. */
 struct smp2p_chip_dev {

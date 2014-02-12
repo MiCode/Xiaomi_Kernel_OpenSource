@@ -1,4 +1,4 @@
-/* arch/arm/mach-msm/smp2p_gpio_test.c
+/* drivers/gpio/gpio-msm-smp2p-test.c
  *
  * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
@@ -20,8 +20,8 @@
 #include <linux/completion.h>
 #include <linux/interrupt.h>
 #include <linux/bitmap.h>
-#include "smp2p_private.h"
-#include "smp2p_test_common.h"
+#include "../soc/qcom/smp2p_private.h"
+#include "../soc/qcom/smp2p_test_common.h"
 
 /* Interrupt callback data */
 struct gpio_info {

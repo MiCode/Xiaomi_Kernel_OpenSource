@@ -1,4 +1,4 @@
-/* arch/arm/mach-msm/smp2p_loopback.c
+/* drivers/soc/qcom/smp2p_loopback.c
  *
  * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
@@ -21,7 +21,7 @@
 #include <linux/termios.h>
 #include <linux/module.h>
 #include <linux/remote_spinlock.h>
-#include "../../../drivers/soc/qcom/smem_private.h"
+#include "smem_private.h"
 #include "smp2p_private.h"
 
 /**

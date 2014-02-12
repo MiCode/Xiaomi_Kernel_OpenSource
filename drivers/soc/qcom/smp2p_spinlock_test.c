@@ -1,4 +1,4 @@
-/* arch/arm/mach-msm/smp2p_spinlock_test.c
+/* drivers/soc/qcom/smp2p_spinlock_test.c
  *
  * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
@@ -18,7 +18,7 @@
 #include <linux/completion.h>
 #include <linux/remote_spinlock.h>
 #include <soc/qcom/smem.h>
-#include "../../../drivers/soc/qcom/smem_private.h"
+#include "smem_private.h"
 #include "smp2p_private.h"
 #include "smp2p_test_common.h"
 
