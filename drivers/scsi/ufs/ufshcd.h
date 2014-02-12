@@ -461,6 +461,13 @@ struct ufs_hba {
 	 */
 	#define UFSHCD_BROKEN_LCC			  (1 << 9)
 
+	/*
+	 * The attribute PA_RXHSUNTERMCAP specifies whether or not the
+	 * inbound Link supports unterminated line in HS mode. Setting this
+	 * attribute to 1 fixes moving to HS gear.
+	 */
+	#define UFSHCD_BROKEN_GEAR_CHANGE_INTO_HS        (1 << 10)
+
 	wait_queue_head_t tm_wq;
 	wait_queue_head_t tm_tag_wq;
 	unsigned long tm_condition;
