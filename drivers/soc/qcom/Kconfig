@@ -159,16 +159,6 @@ config MSM_PIL_MSS_QDSP6V5
 
 	  If unsure, say N.
 
-config MSM_PIL_PRONTO
-	tristate "PRONTO (WCNSS) Boot Support"
-	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
-	help
-	  Support for booting and shutting down the PRONTO processor (WCNSS).
-	  PRONTO is the wireless subsystem processor used in bluetooth, wireless
-	  LAN, and FM software applications. Select Y if you want to be able
-	  use WiFi/Bluetooth/FM radio.
-	  If unsure, select N.
-
 config MSM_PIL_FEMTO
 	tristate "FSM99XX Boot Support"
 	depends on MSM_PIL && ARCH_FSM9900
