@@ -35,6 +35,16 @@ struct synaptics_dsx_cap_button_map {
 };
 
 /*
+ * struct synaptics_virtual_key_map - 2d button map
+ * @nkeys: number of virtual keys
+ * @map: pointer to array of virtual keys
+ */
+struct synaptics_rmi4_virtual_key_map {
+	unsigned char nkeys;
+	unsigned int *map;
+};
+
+/*
  * struct synaptics_dsx_board_data - dsx board data
  * @x_flip: x flip flag
  * @y_flip: y flip flag
@@ -60,11 +70,12 @@ struct synaptics_dsx_board_data {
 	bool y_flip;
 	bool swap_axes;
 	int irq_gpio;
+	u32 irq_flags;
 	int power_gpio;
 	int power_on_state;
 	int reset_gpio;
+	u32 reset_flags;
 	int reset_on_state;
-	unsigned long irq_flags;
 	unsigned int panel_x;
 	unsigned int panel_y;
 	unsigned int power_delay_ms;
@@ -73,8 +84,21 @@ struct synaptics_dsx_board_data {
 	unsigned int byte_delay_us;
 	unsigned int block_delay_us;
 	unsigned char *regulator_name;
+	unsigned int package_id;
 	int (*gpio_config)(int gpio, bool configure, int dir, int state);
 	struct synaptics_dsx_cap_button_map *cap_button_map;
+	struct synaptics_rmi4_virtual_key_map *virtual_key_map;
+	u32 panel_minx;
+	u32 panel_miny;
+	u32 panel_maxx;
+	u32 panel_maxy;
+	u32 disp_minx;
+	u32 disp_miny;
+	u32 disp_maxx;
+	u32 disp_maxy;
+	bool disable_gpios;
+	bool detect_device;
+	const char *fw_name;
 };
 
 #endif

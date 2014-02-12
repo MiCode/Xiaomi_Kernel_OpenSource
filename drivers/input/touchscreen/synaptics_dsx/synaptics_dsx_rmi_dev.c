@@ -26,7 +26,7 @@
 #include <linux/uaccess.h>
 #include <linux/cdev.h>
 #include <linux/platform_device.h>
-#include <linux/input/synaptics_dsx.h>
+#include <linux/input/synaptics_dsx_v2.h>
 #include "synaptics_dsx_core.h"
 
 #define CHAR_DEVICE_NAME "rmi"
@@ -72,7 +72,7 @@ struct rmidev_data {
 static struct bin_attribute attr_data = {
 	.attr = {
 		.name = "data",
-		.mode = (S_IRUGO | S_IWUGO),
+		.mode = (S_IRUGO | S_IWUSR),
 	},
 	.size = 0,
 	.read = rmidev_sysfs_data_show,
@@ -80,11 +80,11 @@ static struct bin_attribute attr_data = {
 };
 
 static struct device_attribute attrs[] = {
-	__ATTR(open, S_IWUGO,
-			synaptics_rmi4_show_error,
+	__ATTR(open, S_IWUSR | S_IWGRP,
+			NULL,
 			rmidev_sysfs_open_store),
-	__ATTR(release, S_IWUGO,
-			synaptics_rmi4_show_error,
+	__ATTR(release, S_IWUSR | S_IWGRP,
+			NULL,
 			rmidev_sysfs_release_store),
 	__ATTR(attn_state, S_IRUGO,
 			rmidev_sysfs_attn_state_show,
@@ -522,7 +522,7 @@ static void rmidev_device_cleanup(struct rmidev_data *dev_data)
 	return;
 }
 
-static char *rmi_char_devnode(struct device *dev, mode_t *mode)
+static char *rmi_char_devnode(struct device *dev, umode_t *mode)
 {
 	if (!mode)
 		return NULL;
@@ -759,14 +759,14 @@ static struct synaptics_rmi4_exp_fn rmidev_module = {
 
 static int __init rmidev_module_init(void)
 {
-	synaptics_rmi4_new_function(&rmidev_module, true);
+	synaptics_rmi4_dsx_new_function(&rmidev_module, true);
 
 	return 0;
 }
 
 static void __exit rmidev_module_exit(void)
 {
-	synaptics_rmi4_new_function(&rmidev_module, false);
+	synaptics_rmi4_dsx_new_function(&rmidev_module, false);
 
 	wait_for_completion(&rmidev_remove_complete);
 
