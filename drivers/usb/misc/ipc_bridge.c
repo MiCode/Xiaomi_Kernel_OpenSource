@@ -681,6 +681,7 @@ static const struct usb_device_id ipc_bridge_ids[] = {
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x908E, 9) },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909D, 5) },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909E, 7) },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90A4, 9) },
 
 	{} /* terminating entry */
 };
