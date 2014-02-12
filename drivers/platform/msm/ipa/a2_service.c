@@ -22,7 +22,7 @@
 #include <linux/clk.h>
 #include <linux/wakelock.h>
 #include <linux/msm-sps.h>
-#include <mach/msm_smsm.h>
+#include <soc/qcom/smsm.h>
 #include <soc/qcom/socinfo.h>
 #include <linux/ipa.h>
 #include "ipa_i.h"

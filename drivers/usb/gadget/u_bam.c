@@ -16,7 +16,7 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/termios.h>
-#include <mach/msm_smd.h>
+#include <soc/qcom/smd.h>
 #include <linux/netdevice.h>
 #include <linux/debugfs.h>
 #include <linux/bitops.h>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,10 +30,8 @@
 #include <soc/qcom/sysmon.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/ramdump.h>
-
-#include <mach/msm_smsm.h>
-
 #include <soc/qcom/smem.h>
+#include <soc/qcom/smsm.h>
 
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"

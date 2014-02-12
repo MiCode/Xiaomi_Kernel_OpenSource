@@ -27,8 +27,8 @@
 #ifdef CONFIG_DIAG_OVER_USB
 #include <mach/usbdiag.h>
 #endif
-#include <mach/msm_smd.h>
 #include <soc/qcom/socinfo.h>
+#include <soc/qcom/smd.h>
 #include <mach/restart.h>
 #include "diagmem.h"
 #include "diagchar.h"

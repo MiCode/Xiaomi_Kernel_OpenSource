@@ -31,7 +31,7 @@
 #include <soc/qcom/spm.h>
 #include <soc/qcom/pm.h>
 #include <soc/qcom/rpm-smd.h>
-#include <mach/msm_smd.h>
+#include <soc/qcom/smd.h>
 #include <mach/restart.h>
 
 #include <linux/io.h>

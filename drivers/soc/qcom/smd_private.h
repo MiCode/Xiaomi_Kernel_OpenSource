@@ -1,7 +1,7 @@
-/* arch/arm/mach-msm/smd_private.h
+/* drivers/soc/qcom/smd_private.h
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2014, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -22,8 +22,9 @@
 #include <linux/remote_spinlock.h>
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
-#include <mach/msm_smsm.h>
-#include <mach/msm_smd.h>
+
+#include <soc/qcom/smd.h>
+#include <soc/qcom/smsm.h>
 
 #define VERSION_QDSP6     4
 #define VERSION_APPS_SBL  6

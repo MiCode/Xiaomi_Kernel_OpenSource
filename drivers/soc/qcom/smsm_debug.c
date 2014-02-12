@@ -1,4 +1,4 @@
-/* arch/arm/mach-msm/smsm_debug.c
+/* drivers/soc/qcom/smsm_debug.c
  *
  * Copyright (C) 2007 Google, Inc.
  * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
@@ -20,9 +20,8 @@
 #include <linux/ctype.h>
 #include <linux/jiffies.h>
 
-#include <mach/msm_smsm.h>
-
 #include <soc/qcom/smem.h>
+#include <soc/qcom/smsm.h>
 
 #if defined(CONFIG_DEBUG_FS)
 

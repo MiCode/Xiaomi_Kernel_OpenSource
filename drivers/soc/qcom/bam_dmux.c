@@ -29,14 +29,12 @@
 #include <linux/of.h>
 #include <linux/ipc_logging.h>
 #include <linux/srcu.h>
+#include <linux/msm-sps.h>
+#include <soc/qcom/bam_dmux.h>
+#include <soc/qcom/smsm.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/socinfo.h>
-
-#include <linux/msm-sps.h>
-#include <mach/msm_smsm.h>
-
-#include <soc/qcom/bam_dmux.h>
 
 #include "bam_dmux_private.h"
 

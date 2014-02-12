@@ -36,7 +36,7 @@
 
 #include <soc/qcom/smem.h>
 #if defined(CONFIG_MSM_SMD)
-#include <mach/msm_smsm.h>
+#include <soc/qcom/smsm.h>
 #endif
 #include "timer.h"
 

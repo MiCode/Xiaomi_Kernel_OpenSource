@@ -1,4 +1,4 @@
-/* arch/arm/mach-msm/smd.c
+/* drivers/soc/qcom/smd.c
  *
  * Copyright (C) 2007 Google, Inc.
  * Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
@@ -38,16 +38,15 @@
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/ipc_logging.h>
-#include <soc/qcom/subsystem_restart.h>
-#include <soc/qcom/subsystem_notif.h>
+
 #include <soc/qcom/ramdump.h>
-
-#include <mach/msm_smd.h>
-
+#include <soc/qcom/smd.h>
 #include <soc/qcom/smem.h>
+#include <soc/qcom/subsystem_notif.h>
+#include <soc/qcom/subsystem_restart.h>
 
 #include "smd_private.h"
-#include "../../../drivers/soc/qcom/smem_private.h"
+#include "smem_private.h"
 
 #define SMSM_SNAPSHOT_CNT 64
 #define SMSM_SNAPSHOT_SIZE ((SMSM_NUM_ENTRIES + 1) * 4 + sizeof(uint64_t))

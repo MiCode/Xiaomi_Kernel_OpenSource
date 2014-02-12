@@ -43,8 +43,8 @@
 #include <mach/msm_memtypes.h>
 #include <soc/qcom/socinfo.h>
 #include <mach/board.h>
-#include <mach/msm_smd.h>
 #include <soc/qcom/rpm-smd.h>
+#include <soc/qcom/smd.h>
 #include <soc/qcom/smem.h>
 #include <linux/msm_thermal.h>
 #include <soc/qcom/spm.h>

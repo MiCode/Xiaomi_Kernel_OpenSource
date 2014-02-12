@@ -22,7 +22,7 @@
 #include <linux/workqueue.h>
 #include <linux/sched.h>
 #include <linux/wakelock.h>
-#include <mach/msm_smd.h>
+#include <soc/qcom/smd.h>
 #include <asm/atomic.h>
 
 /* Size of the USB buffers used for read and write*/

@@ -26,7 +26,7 @@
 #include <linux/ipa.h>
 #include <linux/workqueue.h>
 #include <linux/dma-mapping.h>
-#include <mach/msm_smsm.h>
+#include <soc/qcom/smsm.h>
 #include <linux/pm_runtime.h>
 
 #define USB_THRESHOLD 512
