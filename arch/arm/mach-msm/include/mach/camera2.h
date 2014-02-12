@@ -129,10 +129,18 @@ struct msm_eeprom_memory_block_t {
 	uint32_t num_data;	/* size of total mapdata */
 };
 
+struct msm_eeprom_mm_t {
+	uint32_t mm_support;
+	uint32_t mm_compression;
+	uint32_t mm_offset;
+	uint32_t mm_size;
+};
+
 struct msm_eeprom_board_info {
 	const char *eeprom_name;
 	uint16_t i2c_slaveaddr;
 	struct msm_camera_power_ctrl_t power_info;
+	struct msm_eeprom_mm_t mm_data;
 };
 
 #endif

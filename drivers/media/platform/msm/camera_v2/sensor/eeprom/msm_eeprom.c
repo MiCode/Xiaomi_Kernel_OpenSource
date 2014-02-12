@@ -100,6 +100,17 @@ static uint32_t msm_eeprom_match_crc(struct msm_eeprom_memory_block_t *data)
 	return ret;
 }
 
+static int msm_eeprom_get_mm_data(struct msm_eeprom_ctrl_t *e_ctrl,
+				       struct msm_eeprom_cfg_data *cdata)
+{
+	int rc = 0;
+	struct msm_eeprom_mm_t *mm_data = &e_ctrl->eboard_info->mm_data;
+	cdata->cfg.get_mm_data.mm_support = mm_data->mm_support;
+	cdata->cfg.get_mm_data.mm_compression = mm_data->mm_compression;
+	cdata->cfg.get_mm_data.mm_size = mm_data->mm_size;
+	return rc;
+}
+
 static int eeprom_config_read_cal_data(struct msm_eeprom_ctrl_t *e_ctrl,
 				       struct msm_eeprom_cfg_data *cdata)
 {
@@ -139,7 +150,7 @@ static int msm_eeprom_config(struct msm_eeprom_ctrl_t *e_ctrl,
 	CDBG("%s E\n", __func__);
 	switch (cdata->cfgtype) {
 	case CFG_EEPROM_GET_INFO:
-	CDBG("%s E CFG_EEPROM_GET_INFO\n", __func__);
+		CDBG("%s E CFG_EEPROM_GET_INFO\n", __func__);
 		cdata->is_supported = e_ctrl->is_supported;
 		memcpy(cdata->cfg.eeprom_name,
 			e_ctrl->eboard_info->eeprom_name,
@@ -153,6 +164,10 @@ static int msm_eeprom_config(struct msm_eeprom_ctrl_t *e_ctrl,
 	case CFG_EEPROM_READ_CAL_DATA:
 		CDBG("%s E CFG_EEPROM_READ_CAL_DATA\n", __func__);
 		rc = eeprom_config_read_cal_data(e_ctrl, cdata);
+		break;
+	case CFG_EEPROM_GET_MM_INFO:
+		CDBG("%s E CFG_EEPROM_GET_MM_INFO\n", __func__);
+		rc = msm_eeprom_get_mm_data(e_ctrl, cdata);
 		break;
 	default:
 		break;
@@ -652,6 +667,38 @@ ERROR1:
 	return rc;
 }
 
+static int msm_eeprom_mm_dts(struct msm_eeprom_board_info *eb_info,
+				struct device_node *of_node)
+{
+	int rc = 0;
+	struct msm_eeprom_mm_t *mm_data = &eb_info->mm_data;
+
+	mm_data->mm_support =
+		of_property_read_bool(of_node,"qcom,mm-data-support");
+	if (!mm_data->mm_support)
+		return -EINVAL;
+	mm_data->mm_compression =
+		of_property_read_bool(of_node,"qcom,mm-data-compressed");
+	if (!mm_data->mm_compression)
+		pr_err("No MM compression data\n");
+
+	rc = of_property_read_u32(of_node, "qcom,mm-data-offset",
+				  &mm_data->mm_offset);
+	if (rc < 0)
+		pr_err("No MM offset data\n");
+
+	rc = of_property_read_u32(of_node, "qcom,mm-data-size",
+				  &mm_data->mm_size);
+	if (rc < 0)
+		pr_err("No MM size data\n");
+
+	CDBG("mm_support: mm_compr %d, mm_offset %d, mm_size %d\n",
+		mm_data->mm_compression,
+		mm_data->mm_offset,
+		mm_data->mm_size);
+	return 0;
+}
+
 static int msm_eeprom_spi_setup(struct spi_device *spi)
 {
 	struct msm_eeprom_ctrl_t *e_ctrl = NULL;
@@ -704,6 +751,12 @@ static int msm_eeprom_spi_setup(struct spi_device *spi)
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		goto board_free;
 	}
+
+        rc = msm_eeprom_mm_dts(e_ctrl->eboard_info, spi->dev.of_node);
+	if (rc < 0) {
+		pr_err("%s MM data miss:%d\n", __func__, __LINE__);
+	}
+
 	power_info = &eb_info->power_info;
 
 	power_info->clk_info = cam_8974_clk_info;
@@ -941,6 +994,10 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 		goto board_free;
 	}
 
+        rc = msm_eeprom_mm_dts(e_ctrl->eboard_info, of_node);
+	if (rc < 0) {
+		pr_err("%s MM data miss:%d\n", __func__, __LINE__);
+	}
 	rc = msm_eeprom_get_dt_data(e_ctrl);
 	if (rc)
 		goto board_free;

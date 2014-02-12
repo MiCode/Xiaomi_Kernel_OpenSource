@@ -402,6 +402,7 @@ enum eeprom_cfg_type_t {
 	CFG_EEPROM_GET_CAL_DATA,
 	CFG_EEPROM_READ_CAL_DATA,
 	CFG_EEPROM_WRITE_DATA,
+	CFG_EEPROM_GET_MM_INFO,
 };
 
 struct eeprom_get_t {
@@ -418,6 +419,12 @@ struct eeprom_write_t {
 	uint32_t num_bytes;
 };
 
+struct eeprom_get_mm_t {
+	uint32_t mm_support;
+	uint32_t mm_compression;
+	uint32_t mm_size;
+};
+
 struct msm_eeprom_cfg_data {
 	enum eeprom_cfg_type_t cfgtype;
 	uint8_t is_supported;
@@ -426,6 +433,7 @@ struct msm_eeprom_cfg_data {
 		struct eeprom_get_t get_data;
 		struct eeprom_read_t read_data;
 		struct eeprom_write_t write_data;
+		struct eeprom_get_mm_t get_mm_data;
 	} cfg;
 };
 
