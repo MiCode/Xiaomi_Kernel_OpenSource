@@ -173,6 +173,14 @@ static const char * const qpnp_poff_reason[] = {
 	[15] = "Triggered from STAGE3 (Stage 3 reset)",
 };
 
+/*
+ * On the kernel command line specify
+ * qpnp-power-on.warm_boot=1 to indicate a warm
+ * boot of the device.
+ */
+static int warm_boot;
+module_param(warm_boot, int, 0);
+
 static int
 qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
 {
