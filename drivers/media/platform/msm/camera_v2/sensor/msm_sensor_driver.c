@@ -213,6 +213,53 @@ static int32_t msm_sensor_fill_eeprom_subdevid_by_name(
 	return rc;
 }
 
+static int32_t msm_sensor_fill_actuator_subdevid_by_name(
+				struct msm_sensor_ctrl_t *s_ctrl)
+{
+	int32_t rc = 0;
+	struct device_node *src_node = NULL;
+	uint32_t val = 0, actuator_name_len;
+	int32_t *actuator_subdev_id;
+	struct  msm_sensor_info_t *sensor_info;
+	struct device_node *of_node = s_ctrl->of_node;
+
+	if (!s_ctrl->sensordata->actuator_name || !of_node)
+		return -EINVAL;
+
+	actuator_name_len = strlen(s_ctrl->sensordata->actuator_name);
+	if (actuator_name_len >= MAX_SENSOR_NAME)
+		return -EINVAL;
+
+	sensor_info = s_ctrl->sensordata->sensor_info;
+	actuator_subdev_id = &sensor_info->subdev_id[SUB_MODULE_ACTUATOR];
+	/*
+	 * string for actuator name is valid, set sudev id to -1
+	 * and try to found new id
+	 */
+	*actuator_subdev_id = -1;
+
+	if (0 == actuator_name_len)
+		return 0;
+
+	src_node = of_parse_phandle(of_node, "qcom,actuator-src", 0);
+	if (!src_node) {
+		CDBG("%s:%d src_node NULL\n", __func__, __LINE__);
+	} else {
+		rc = of_property_read_u32(src_node, "cell-index", &val);
+		CDBG("%s qcom,actuator cell index %d, rc %d\n", __func__,
+			val, rc);
+		if (rc < 0) {
+			pr_err("%s failed %d\n", __func__, __LINE__);
+			return -EINVAL;
+		}
+		*actuator_subdev_id = val;
+		of_node_put(src_node);
+		src_node = NULL;
+	}
+
+	return rc;
+}
+
 /* static function definition */
 int32_t msm_sensor_driver_probe(void *setting)
 {
@@ -439,11 +486,20 @@ int32_t msm_sensor_driver_probe(void *setting)
 	 */
 	s_ctrl->sensordata->sensor_name = slave_info->sensor_name;
 	s_ctrl->sensordata->eeprom_name = slave_info->eeprom_name;
+	s_ctrl->sensordata->actuator_name = slave_info->actuator_name;
 
 	/*
 	 * Update eeporm subdevice Id by input eeprom name
 	 */
 	rc = msm_sensor_fill_eeprom_subdevid_by_name(s_ctrl);
+	if (rc < 0) {
+		pr_err("%s failed %d\n", __func__, __LINE__);
+		goto FREE_POWER_SETTING;
+	}
+	/*
+	 * Update actuator subdevice Id by input actuator name
+	 */
+	rc = msm_sensor_fill_actuator_subdevid_by_name(s_ctrl);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		goto FREE_POWER_SETTING;
