@@ -34,6 +34,10 @@
 	interrupt-names = "core_irq";
 };
 
+&qcom_tzlog {
+	status = "okay";
+};
+
 &qcom_rng {
 	status = "okay";
 };

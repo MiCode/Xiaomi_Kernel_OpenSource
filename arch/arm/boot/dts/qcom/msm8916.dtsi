@@ -555,6 +555,12 @@
 		qcom,rx-ring-size = <32>;
 	};
 
+	qcom_tzlog: tz-log@8603720 {
+		compatible = "qcom,tz-log";
+		reg = <0x08603720 0x1000>;
+		status = "disabled";
+	};
+
 	qcom_rng: qrng@22000 {
 		compatible = "qcom,msm-rng";
 		reg = <0x22000 0x200>;
