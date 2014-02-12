@@ -189,6 +189,7 @@ struct msm8x10_wcd_priv {
 	 * end of impedance measurement
 	 */
 	struct list_head reg_save_restore;
+	u32 micb_en_count;
 };
 
 static unsigned short rx_digital_gain_reg[] = {
@@ -1697,6 +1698,9 @@ static int msm8x10_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, micb_int_reg, 0x04, 0x04);
 		snd_soc_update_bits(codec, MSM8X10_WCD_A_MICB_1_CTL,
 					0x80, 0x80);
+		msm8x10_wcd->micb_en_count++;
+		pr_debug("%s micb_en_count : %d", __func__,
+				msm8x10_wcd->micb_en_count);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		usleep_range(20000, 20100);
@@ -1704,6 +1708,10 @@ static int msm8x10_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		wcd9xxx_resmgr_notifier_call(&msm8x10_wcd->resmgr, e_post_on);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		if (msm8x10_wcd->micb_en_count > 0)
+			msm8x10_wcd->micb_en_count--;
+		pr_debug("%s micb_en_count : %d", __func__,
+				msm8x10_wcd->micb_en_count);
 		snd_soc_update_bits(codec, MSM8X10_WCD_A_MICB_1_CTL,
 					0x80, 0x00);
 		/* Let MBHC module know so micbias switch to be off */
@@ -2802,6 +2810,7 @@ static int msm8x10_wcd_enable_mbhc_micbias(struct snd_soc_codec *codec,
 					   enum wcd9xxx_micbias_num micb_num)
 {
 	int rc;
+	struct msm8x10_wcd_priv *msm8x10_wcd = snd_soc_codec_get_drvdata(codec);
 
 	if (micb_num != MBHC_MICBIAS1) {
 		rc = -EINVAL;
@@ -2811,13 +2820,18 @@ static int msm8x10_wcd_enable_mbhc_micbias(struct snd_soc_codec *codec,
 	if (enable)
 		rc = snd_soc_dapm_force_enable_pin(&codec->dapm,
 			DAPM_MICBIAS_EXTERNAL_STANDALONE);
-	else
+	else {
+		if (msm8x10_wcd->micb_en_count > 0) {
+			msm8x10_wcd->micb_en_count--;
+			pr_debug("%s micb_en_count : %d", __func__,
+					msm8x10_wcd->micb_en_count);
+			return 0;
+		}
 		rc = snd_soc_dapm_disable_pin(&codec->dapm,
 			DAPM_MICBIAS_EXTERNAL_STANDALONE);
+	}
 	snd_soc_dapm_sync(&codec->dapm);
 
-	snd_soc_update_bits(codec, WCD9XXX_A_MICB_1_CTL,
-		0x80, enable ? 0x80 : 0x00);
 err:
 	if (rc)
 		pr_debug("%s: Failed to force %s micbias", __func__,
@@ -3290,6 +3304,8 @@ static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 				codec->control_data,
 				on_demand_supply_name[ON_DEMAND_MICBIAS]);
 	atomic_set(&msm8x10_wcd_priv->on_demand_list[ON_DEMAND_MICBIAS].ref, 0);
+
+	msm8x10_wcd_priv->micb_en_count = 0;
 
 	ret = wcd9xxx_mbhc_init(&msm8x10_wcd_priv->mbhc,
 				&msm8x10_wcd_priv->resmgr,
