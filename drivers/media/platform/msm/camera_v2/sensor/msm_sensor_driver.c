@@ -144,13 +144,16 @@ static int32_t msm_sensor_driver_create_v4l_subdev
 int32_t msm_sensor_driver_probe(void *setting)
 {
 	int32_t                              rc = 0;
-	uint16_t                             i = 0, size = 0;
+	uint16_t                             i = 0, size = 0, size_down = 0;
 	struct msm_sensor_ctrl_t            *s_ctrl = NULL;
 	struct msm_camera_cci_client        *cci_client = NULL;
 	struct msm_camera_sensor_slave_info *slave_info = NULL;
 	struct msm_sensor_power_setting     *power_setting = NULL;
+	struct msm_sensor_power_setting     *power_down_setting = NULL;
 	struct msm_camera_slave_info        *camera_info = NULL;
 	struct msm_camera_power_ctrl_t      *power_info = NULL;
+	int c, end;
+	struct msm_sensor_power_setting     power_down_setting_t;
 
 	/* Validate input parameters */
 	if (!setting) {
@@ -178,7 +181,8 @@ int32_t msm_sensor_driver_probe(void *setting)
 	CDBG("sensor_id_reg_addr %x",
 		slave_info->sensor_id_info.sensor_id_reg_addr);
 	CDBG("sensor_id %x", slave_info->sensor_id_info.sensor_id);
-	CDBG("size %x", slave_info->power_setting_array.size);
+	CDBG("size %d", slave_info->power_setting_array.size);
+	CDBG("size down %d", slave_info->power_setting_array.size_down);
 
 	/* Validate camera id */
 	if (slave_info->camera_id >= MAX_CAMERAS) {
@@ -211,7 +215,7 @@ int32_t msm_sensor_driver_probe(void *setting)
 	}
 
 	size = slave_info->power_setting_array.size;
-	/* Allocate memory for power setting */
+	/* Allocate memory for power up setting */
 	power_setting = kzalloc(sizeof(*power_setting) * size, GFP_KERNEL);
 	if (!power_setting) {
 		pr_err("failed: no memory power_setting %p", power_setting);
@@ -229,15 +233,68 @@ int32_t msm_sensor_driver_probe(void *setting)
 
 	/* Print power setting */
 	for (i = 0; i < size; i++) {
-		CDBG("seq_type %d seq_val %d config_val %ld delay %d",
+		CDBG("UP seq_type %d seq_val %d config_val %ld delay %d",
 			power_setting[i].seq_type, power_setting[i].seq_val,
 			power_setting[i].config_val, power_setting[i].delay);
+	}
+	/*DOWN*/
+	size_down = slave_info->power_setting_array.size_down;
+	if (!size_down)
+		size_down = size;
+	/* Allocate memory for power down setting */
+	power_down_setting =
+		kzalloc(sizeof(*power_setting) * size_down, GFP_KERNEL);
+	if (!power_down_setting) {
+		pr_err("failed: no memory power_setting %p",
+						power_down_setting);
+		rc = -ENOMEM;
+		goto FREE_POWER_SETTING;
+	}
+
+	if (slave_info->power_setting_array.power_down_setting) {
+		if (copy_from_user(power_down_setting,
+			(void *)slave_info->power_setting_array.
+						power_down_setting,
+			sizeof(*power_down_setting) * size_down)) {
+			pr_err("failed: copy_from_user");
+			rc = -EFAULT;
+			goto FREE_POWER_DOWN_SETTING;
+		}
+	} else {
+		pr_err("failed: no power_down_setting");
+		if (copy_from_user(power_down_setting,
+			(void *)slave_info->power_setting_array.
+						power_setting,
+			sizeof(*power_down_setting) * size_down)) {
+			pr_err("failed: copy_from_user");
+			rc = -EFAULT;
+			goto FREE_POWER_DOWN_SETTING;
+		}
+
+		/*reverce*/
+		end = size_down - 1;
+		for (c = 0; c < size_down/2; c++) {
+			power_down_setting_t = power_down_setting[c];
+			power_down_setting[c] = power_down_setting[end];
+			power_down_setting[end] = power_down_setting_t;
+			end--;
+		}
+
+	}
+
+	/* Print power setting */
+	for (i = 0; i < size_down; i++) {
+		CDBG("DOWN seq_type %d seq_val %d config_val %ld delay %d",
+			power_down_setting[i].seq_type,
+			power_down_setting[i].seq_val,
+			power_down_setting[i].config_val,
+			power_down_setting[i].delay);
 	}
 
 	camera_info = kzalloc(sizeof(struct msm_camera_slave_info), GFP_KERNEL);
 	if (!camera_info) {
 		pr_err("failed: no memory slave_info %p", camera_info);
-		goto FREE_POWER_SETTING;
+		goto FREE_POWER_DOWN_SETTING;
 
 	}
 
@@ -245,6 +302,8 @@ int32_t msm_sensor_driver_probe(void *setting)
 	power_info = &s_ctrl->sensordata->power_info;
 	power_info->power_setting = power_setting;
 	power_info->power_setting_size = size;
+	power_info->power_down_setting = power_down_setting;
+	power_info->power_down_setting_size = size_down;
 
 	s_ctrl->sensordata->slave_info = camera_info;
 
@@ -259,7 +318,7 @@ int32_t msm_sensor_driver_probe(void *setting)
 		pr_err("failed: sensor_i2c_client %p",
 			s_ctrl->sensor_i2c_client);
 		rc = -EINVAL;
-		goto FREE_POWER_SETTING;
+		goto FREE_CAMERA_INFO;
 	}
 	/* Fill sensor address type */
 	s_ctrl->sensor_i2c_client->addr_type = slave_info->addr_type;
@@ -270,7 +329,7 @@ int32_t msm_sensor_driver_probe(void *setting)
 	cci_client = s_ctrl->sensor_i2c_client->cci_client;
 	if (!cci_client) {
 		pr_err("failed: cci_client %p", cci_client);
-		goto FREE_POWER_SETTING;
+		goto FREE_CAMERA_INFO;
 	}
 	cci_client->cci_i2c_master = s_ctrl->cci_i2c_master;
 	cci_client->sid = slave_info->slave_addr >> 1;
@@ -286,7 +345,7 @@ int32_t msm_sensor_driver_probe(void *setting)
 	if (rc < 0) {
 		pr_err("failed: msm_camera_get_dt_power_setting_data rc %d",
 			rc);
-		goto FREE_POWER_SETTING;
+		goto FREE_CAMERA_INFO;
 	}
 
 	/* Parse and fill vreg params for powerdown settings*/
@@ -298,7 +357,7 @@ int32_t msm_sensor_driver_probe(void *setting)
 	if (rc < 0) {
 		pr_err("failed: msm_camera_fill_vreg_params for PDOWN rc %d",
 			rc);
-		goto FREE_POWER_SETTING;
+		goto FREE_CAMERA_INFO;
 	}
 
 	/* Update sensor, actuator and eeprom name in
@@ -309,7 +368,7 @@ int32_t msm_sensor_driver_probe(void *setting)
 	rc = s_ctrl->func_tbl->sensor_power_up(s_ctrl);
 	if (rc < 0) {
 		pr_err("%s power up failed", slave_info->sensor_name);
-		goto FREE_POWER_SETTING;
+		goto FREE_CAMERA_INFO;
 	}
 
 	pr_err("%s probe succeeded", slave_info->sensor_name);
@@ -344,6 +403,10 @@ int32_t msm_sensor_driver_probe(void *setting)
 
 CAMERA_POWER_DOWN:
 	s_ctrl->func_tbl->sensor_power_down(s_ctrl);
+FREE_CAMERA_INFO:
+	kfree(camera_info);
+FREE_POWER_DOWN_SETTING:
+	kfree(power_down_setting);
 FREE_POWER_SETTING:
 	kfree(power_setting);
 FREE_SLAVE_INFO:
