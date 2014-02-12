@@ -31,6 +31,7 @@
 #include <linux/pm_wakeup.h>
 #include <linux/pm_runtime.h>
 #include <linux/dma-mapping.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/regulator/consumer.h>
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
@@ -87,6 +88,7 @@ struct msm_hcd {
 	bool					wakeup_irq_enabled;
 	int					wakeup_irq;
 	void __iomem				*usb_phy_ctrl_reg;
+	struct pinctrl				*hsusb_pinctrl;
 };
 
 static inline struct msm_hcd *hcd_to_mhcd(struct usb_hcd *hcd)
@@ -1283,6 +1285,7 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 	struct usb_hcd *hcd;
 	struct resource *res;
 	struct msm_hcd *mhcd;
+	struct pinctrl_state *set_state;
 	const struct msm_usb_host_platform_data *pdata;
 	char pdev_name[PDEV_NAME_LEN];
 	int ret;
@@ -1377,6 +1380,33 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 		goto free_xo_handle;
 	}
 
+	/* Get pinctrl if target uses pinctrl */
+	mhcd->hsusb_pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR(mhcd->hsusb_pinctrl)) {
+		if (of_property_read_bool(pdev->dev.of_node, "pinctrl-names")) {
+			dev_err(&pdev->dev, "Error encountered while getting pinctrl");
+			ret = PTR_ERR(mhcd->hsusb_pinctrl);
+			goto devote_xo_handle;
+		}
+		pr_debug("Target does not use pinctrl\n");
+		mhcd->hsusb_pinctrl = NULL;
+	}
+
+	if (mhcd->hsusb_pinctrl) {
+		set_state = pinctrl_lookup_state(mhcd->hsusb_pinctrl,
+				"ehci_active");
+		if (IS_ERR(set_state)) {
+			pr_err("cannot get hsusb pinctrl active state\n");
+			ret = PTR_ERR(set_state);
+			goto devote_xo_handle;
+		}
+		ret = pinctrl_select_state(mhcd->hsusb_pinctrl, set_state);
+		if (ret) {
+			pr_err("cannot set hsusb pinctrl active state\n");
+			goto devote_xo_handle;
+		}
+	}
+
 	if (pdata && gpio_is_valid(pdata->resume_gpio)) {
 		mhcd->resume_gpio = pdata->resume_gpio;
 		ret = devm_gpio_request(&pdev->dev, mhcd->resume_gpio,
@@ -1401,7 +1431,7 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 				"reset gpio(%d) request failed:%d\n",
 				pdata->ext_hub_reset_gpio, ret);
-			goto devote_xo_handle;
+			goto pinctrl_sleep;
 		} else {
 			/* reset external hub */
 			gpio_direction_output(pdata->ext_hub_reset_gpio, 0);
@@ -1420,13 +1450,13 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "unable to initialize VDDCX\n");
 		ret = -ENODEV;
-		goto devote_xo_handle;
+		goto pinctrl_sleep;
 	}
 
 	ret = msm_ehci_config_vddcx(mhcd, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "hsusb vddcx configuration failed\n");
-		goto devote_xo_handle;
+		goto deinit_vddcx;
 	}
 
 	ret = msm_ehci_ldo_init(mhcd, 1);
@@ -1534,6 +1564,15 @@ deinit_ldo:
 	msm_ehci_ldo_init(mhcd, 0);
 deinit_vddcx:
 	msm_ehci_init_vddcx(mhcd, 0);
+pinctrl_sleep:
+	if (mhcd->hsusb_pinctrl) {
+		set_state = pinctrl_lookup_state(mhcd->hsusb_pinctrl,
+				"ehci_sleep");
+		if (IS_ERR(set_state))
+			pr_err("cannot get hsusb pinctrl sleep state\n");
+		else
+			pinctrl_select_state(mhcd->hsusb_pinctrl, set_state);
+	}
 devote_xo_handle:
 	if (mhcd->xo_clk)
 		clk_disable_unprepare(mhcd->xo_clk);
@@ -1561,6 +1600,7 @@ static int ehci_msm2_remove(struct platform_device *pdev)
 {
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 	struct msm_hcd *mhcd = hcd_to_mhcd(hcd);
+	struct pinctrl_state *set_state;
 
 	if (mhcd->pmic_gpio_dp_irq) {
 		if (mhcd->pmic_gpio_dp_irq_enabled)
@@ -1593,6 +1633,15 @@ static int ehci_msm2_remove(struct platform_device *pdev)
 	msm_ehci_ldo_enable(mhcd, 0);
 	msm_ehci_ldo_init(mhcd, 0);
 	msm_ehci_init_vddcx(mhcd, 0);
+
+	if (mhcd->hsusb_pinctrl) {
+		set_state = pinctrl_lookup_state(mhcd->hsusb_pinctrl,
+				"ehci_sleep");
+		if (IS_ERR(set_state))
+			pr_err("cannot get hsusb pinctrl sleep state\n");
+		else
+			pinctrl_select_state(mhcd->hsusb_pinctrl, set_state);
+	}
 
 	msm_ehci_init_clocks(mhcd, 0);
 	wakeup_source_trash(&mhcd->ws);
