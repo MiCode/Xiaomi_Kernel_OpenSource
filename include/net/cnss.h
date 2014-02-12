@@ -30,12 +30,13 @@ struct cnss_fw_files {
 
 struct cnss_wlan_driver {
 	char *name;
-	int  (*probe)(struct pci_dev *, const struct pci_device_id *);
-	void (*remove)(struct pci_dev *);
-	int  (*reinit)(struct pci_dev *, const struct pci_device_id *);
-	void (*shutdown)(struct pci_dev *);
-	int  (*suspend)(struct pci_dev *, pm_message_t state);
-	int  (*resume)(struct pci_dev *);
+	int  (*probe)(struct pci_dev *pdev, const struct pci_device_id *id);
+	void (*remove)(struct pci_dev *pdev);
+	int  (*reinit)(struct pci_dev *pdev, const struct pci_device_id *id);
+	void (*shutdown)(struct pci_dev *pdev);
+	void (*crash_shutdown)(struct pci_dev *pdev);
+	int  (*suspend)(struct pci_dev *pdev, pm_message_t state);
+	int  (*resume)(struct pci_dev *pdev);
 	const struct pci_device_id *id_table;
 };
 

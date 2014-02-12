@@ -795,7 +795,16 @@ static int cnss_ramdump(int enable, const struct subsys_desc *subsys)
 
 static void cnss_crash_shutdown(const struct subsys_desc *subsys)
 {
+	struct cnss_wlan_driver *wdrv;
+	struct pci_dev *pdev;
 
+	if (!penv)
+		return;
+
+	wdrv = penv->driver;
+	pdev = penv->pdev;
+	if (pdev && wdrv && wdrv->crash_shutdown)
+		wdrv->crash_shutdown(pdev);
 }
 
 void cnss_device_self_recovery(void)
