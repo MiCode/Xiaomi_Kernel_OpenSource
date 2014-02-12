@@ -54,8 +54,7 @@ int kgsl_cff_dump_enable_set(void *data, u64 val);
 int kgsl_cff_dump_enable_get(void *data, u64 *val);
 int kgsl_cffdump_capture_ib_desc(struct kgsl_device *device,
 				struct kgsl_context *context,
-				struct kgsl_ibdesc *ibdesc,
-				unsigned int numibs);
+				struct kgsl_cmdbatch *cmdbatch);
 
 #else
 
@@ -132,8 +131,7 @@ static inline void kgsl_cffdump_user_event(struct kgsl_device *device,
 
 static inline int kgsl_cffdump_capture_ib_desc(struct kgsl_device *device,
 				struct kgsl_context *context,
-				struct kgsl_ibdesc *ibdesc,
-				unsigned int numibs)
+				struct kgsl_cmdbatch *cmdbatch)
 {
 	return 0;
 }

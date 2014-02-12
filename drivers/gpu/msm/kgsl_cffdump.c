@@ -711,12 +711,11 @@ static int kgsl_cffdump_capture_adreno_ib_cff(struct kgsl_device *device,
  */
 int kgsl_cffdump_capture_ib_desc(struct kgsl_device *device,
 				struct kgsl_context *context,
-				struct kgsl_ibdesc *ibdesc,
-				unsigned int numibs)
+				struct kgsl_cmdbatch *cmdbatch)
 {
 	int ret = 0;
 	unsigned int ptbase;
-	int i;
+	struct kgsl_ibdesc_node *ibdesc;
 
 	if (!device->cff_dump_enable)
 		return 0;
@@ -727,15 +726,15 @@ int kgsl_cffdump_capture_ib_desc(struct kgsl_device *device,
 		ret = -EINVAL;
 		goto done;
 	}
-	for (i = 0; i < numibs; i++) {
+	list_for_each_entry(ib, &cmdbatch->ibdesclist, node) {
 		ret = kgsl_cffdump_capture_adreno_ib_cff(
-			device, ptbase, ibdesc[i].gpuaddr,
-			ibdesc[i].sizedwords);
+			device, ptbase, ibdesc->gpuaddr,
+			ibdesc->sizedwords);
 		if (ret) {
 			KGSL_DRV_ERR(device,
 			"Fail cff capture, IB %lx, size %zx\n",
-			ibdesc[i].gpuaddr,
-			ibdesc[i].sizedwords << 2);
+			ibdesc->gpuaddr,
+			ibdesc->sizedwords << 2);
 			break;
 		}
 	}
