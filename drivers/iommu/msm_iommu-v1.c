@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/errno.h>
 #include <linux/io.h>
+#include <linux/iopoll.h>
 #include <linux/interrupt.h>
 #include <linux/list.h>
 #include <linux/mutex.h>
@@ -174,13 +175,20 @@ struct iommu_access_ops iommu_access_ops_v1 = {
 	.iommu_lock_release = _iommu_lock_release,
 };
 
-void iommu_halt(const struct msm_iommu_drvdata *iommu_drvdata)
+void iommu_halt(struct msm_iommu_drvdata const *iommu_drvdata)
 {
 	if (iommu_drvdata->halt_enabled) {
-		SET_MICRO_MMU_CTRL_HALT_REQ(iommu_drvdata->base, 1);
+		unsigned int val;
+		void __iomem *base = iommu_drvdata->base;
+		int res;
 
-		while (GET_MICRO_MMU_CTRL_IDLE(iommu_drvdata->base) == 0)
-			cpu_relax();
+		SET_MICRO_MMU_CTRL_HALT_REQ(base, 1);
+		res = readl_tight_poll_timeout(
+			GLB_REG(MICRO_MMU_CTRL, base), val,
+			     (val & MMU_CTRL_IDLE) == MMU_CTRL_IDLE, 5000000);
+
+		if (res)
+			BUG();
 		/* Ensure device is idle before continuing */
 		mb();
 	}
@@ -204,21 +212,19 @@ void iommu_resume(const struct msm_iommu_drvdata *iommu_drvdata)
 	}
 }
 
-static void __sync_tlb(void __iomem *base, int ctx)
+static void __sync_tlb(struct msm_iommu_drvdata *iommu_drvdata, int ctx)
 {
-	int i;
+	unsigned int val;
+	unsigned int res;
+	void __iomem *base = iommu_drvdata->cb_base;
 
 	SET_TLBSYNC(base, ctx, 0);
 
-	/* No barrier needed due to register proximity */
-	for (i = 0; i < IOMMU_MSEC_TIMEOUT; i += IOMMU_MSEC_STEP)
-		if (GET_CB_TLBSTATUS_SACTIVE(base, ctx) == 0)
-			break;
-		else
-			msleep(IOMMU_MSEC_STEP);
-
-	BUG_ON(i >= IOMMU_MSEC_TIMEOUT);
 	/* No barrier needed due to read dependency */
+	res = readl_tight_poll_timeout(CTX_REG(CB_TLBSTATUS, base, ctx), val,
+				(val & CB_TLBSTATUS_SACTIVE) == 0, 5000000);
+	if (res)
+		BUG();
 }
 
 static int __flush_iotlb_va(struct iommu_domain *domain, unsigned int va)
@@ -242,7 +248,7 @@ static int __flush_iotlb_va(struct iommu_domain *domain, unsigned int va)
 		SET_TLBIVA(iommu_drvdata->cb_base, ctx_drvdata->num,
 			   ctx_drvdata->asid | (va & CB_TLBIVA_VA));
 		mb();
-		__sync_tlb(iommu_drvdata->cb_base, ctx_drvdata->num);
+		__sync_tlb(iommu_drvdata, ctx_drvdata->num);
 		__disable_clocks(iommu_drvdata);
 	}
 fail:
@@ -269,7 +275,7 @@ static int __flush_iotlb(struct iommu_domain *domain)
 		SET_TLBIASID(iommu_drvdata->cb_base, ctx_drvdata->num,
 			     ctx_drvdata->asid);
 		mb();
-		__sync_tlb(iommu_drvdata->cb_base, ctx_drvdata->num);
+		__sync_tlb(iommu_drvdata, ctx_drvdata->num);
 		__disable_clocks(iommu_drvdata);
 	}
 
