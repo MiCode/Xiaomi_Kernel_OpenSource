@@ -4014,6 +4014,83 @@ exit_irqrestore:
 	return ret;
 }
 
+static int qseecom_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	int ret = 0;
+	struct qseecom_clk *qclk;
+	qclk = &qseecom.qsee;
+
+	if (qseecom.cumulative_mode != INACTIVE) {
+		ret = __qseecom_set_msm_bus_request(INACTIVE);
+		if (ret)
+			pr_err("Fail to scale down bus\n");
+	}
+	mutex_lock(&clk_access_lock);
+	if (qclk->clk_access_cnt) {
+		if (qclk->ce_clk != NULL)
+			clk_disable_unprepare(qclk->ce_clk);
+		if (qclk->ce_core_clk != NULL)
+			clk_disable_unprepare(qclk->ce_core_clk);
+		if (qclk->ce_bus_clk != NULL)
+			clk_disable_unprepare(qclk->ce_bus_clk);
+	}
+	mutex_unlock(&clk_access_lock);
+	return 0;
+}
+
+static int qseecom_resume(struct platform_device *pdev)
+{
+	int mode = 0;
+	int ret = 0;
+	struct qseecom_clk *qclk;
+	qclk = &qseecom.qsee;
+
+	if (qseecom.cumulative_mode >= HIGH)
+		mode = HIGH;
+	else
+		mode = qseecom.cumulative_mode;
+
+	if (qseecom.cumulative_mode != INACTIVE) {
+		ret = __qseecom_set_msm_bus_request(mode);
+		if (ret)
+			pr_err("Fail to scale down bus\n");
+	}
+
+	mutex_lock(&clk_access_lock);
+	if (qclk->clk_access_cnt) {
+
+		ret = clk_prepare_enable(qclk->ce_core_clk);
+		if (ret) {
+			pr_err("Unable to enable/prepare CE core clk\n");
+			qclk->clk_access_cnt = 0;
+			goto err;
+		}
+
+		ret = clk_prepare_enable(qclk->ce_clk);
+		if (ret) {
+			pr_err("Unable to enable/prepare CE iface clk\n");
+			qclk->clk_access_cnt = 0;
+			goto ce_clk_err;
+		}
+
+		ret = clk_prepare_enable(qclk->ce_bus_clk);
+		if (ret) {
+			pr_err("Unable to enable/prepare CE bus clk\n");
+			qclk->clk_access_cnt = 0;
+			goto ce_bus_clk_err;
+		}
+	}
+	mutex_unlock(&clk_access_lock);
+	return 0;
+
+ce_bus_clk_err:
+	clk_disable_unprepare(qclk->ce_clk);
+ce_clk_err:
+	clk_disable_unprepare(qclk->ce_core_clk);
+err:
+	mutex_unlock(&clk_access_lock);
+	return -EIO;
+}
 static struct of_device_id qseecom_match[] = {
 	{
 		.compatible = "qcom,qseecom",
@@ -4024,6 +4101,8 @@ static struct of_device_id qseecom_match[] = {
 static struct platform_driver qseecom_plat_driver = {
 	.probe = qseecom_probe,
 	.remove = qseecom_remove,
+	.suspend = qseecom_suspend,
+	.resume = qseecom_resume,
 	.driver = {
 		.name = "qseecom",
 		.owner = THIS_MODULE,
