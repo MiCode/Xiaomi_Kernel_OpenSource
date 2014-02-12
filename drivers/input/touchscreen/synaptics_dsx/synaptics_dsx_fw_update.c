@@ -24,7 +24,7 @@
 #include <linux/input.h>
 #include <linux/firmware.h>
 #include <linux/platform_device.h>
-#include <linux/input/synaptics_dsx.h>
+#include <linux/input/synaptics_dsx_v2.h>
 #include "synaptics_dsx_core.h"
 
 #define FW_IMAGE_NAME "synaptics/startup_fw_update.img"
@@ -325,7 +325,7 @@ static struct device_attribute attrs[] = {
 
 static struct synaptics_rmi4_fwu_handle *fwu;
 
-DECLARE_COMPLETION(fwu_remove_complete);
+DECLARE_COMPLETION(fwu_dsx_remove_complete);
 
 static unsigned int extract_uint_le(const unsigned char *ptr)
 {
@@ -1332,7 +1332,7 @@ static int fwu_start_reflash(void)
 		}
 
 		dev_dbg(rmi4_data->pdev->dev.parent,
-				"%s: Firmware image size = %d\n",
+				"%s: Firmware image size = %zu\n",
 				__func__, fw_entry->size);
 
 		fw_image = fw_entry->data;
@@ -1417,7 +1417,7 @@ exit:
 	return retval;
 }
 
-int synaptics_fw_updater(unsigned char *fw_data)
+int synaptics_dsx_fw_updater(unsigned char *fw_data)
 {
 	int retval;
 
@@ -1434,11 +1434,11 @@ int synaptics_fw_updater(unsigned char *fw_data)
 
 	return retval;
 }
-EXPORT_SYMBOL(synaptics_fw_updater);
+EXPORT_SYMBOL(synaptics_dsx_fw_updater);
 
 static void fwu_startup_fw_update_work(struct work_struct *work)
 {
-	synaptics_fw_updater(NULL);
+	synaptics_dsx_fw_updater(NULL);
 
 	return;
 }
@@ -1451,7 +1451,7 @@ static ssize_t fwu_sysfs_show_image(struct file *data_file,
 
 	if (count < fwu->config_size) {
 		dev_err(rmi4_data->pdev->dev.parent,
-				"%s: Not enough space (%d bytes) in buffer\n",
+				"%s: Not enough space (%zu bytes) in buffer\n",
 				__func__, count);
 		return -EINVAL;
 	}
@@ -1499,7 +1499,7 @@ static ssize_t fwu_sysfs_do_reflash_store(struct device *dev,
 	if (input == FORCE)
 		fwu->force_update = true;
 
-	retval = synaptics_fw_updater(fwu->ext_data_source);
+	retval = synaptics_dsx_fw_updater(fwu->ext_data_source);
 	if (retval < 0) {
 		dev_err(rmi4_data->pdev->dev.parent,
 				"%s: Failed to do reflash\n",
@@ -1808,7 +1808,7 @@ static void synaptics_rmi4_fwu_remove(struct synaptics_rmi4_data *rmi4_data)
 	fwu = NULL;
 
 exit:
-	complete(&fwu_remove_complete);
+	complete(&fwu_dsx_remove_complete);
 
 	return;
 }
@@ -1828,16 +1828,16 @@ static struct synaptics_rmi4_exp_fn fwu_module = {
 
 static int __init rmi4_fw_update_module_init(void)
 {
-	synaptics_rmi4_new_function(&fwu_module, true);
+	synaptics_rmi4_dsx_new_function(&fwu_module, true);
 
 	return 0;
 }
 
 static void __exit rmi4_fw_update_module_exit(void)
 {
-	synaptics_rmi4_new_function(&fwu_module, false);
+	synaptics_rmi4_dsx_new_function(&fwu_module, false);
 
-	wait_for_completion(&fwu_remove_complete);
+	wait_for_completion(&fwu_dsx_remove_complete);
 
 	return;
 }

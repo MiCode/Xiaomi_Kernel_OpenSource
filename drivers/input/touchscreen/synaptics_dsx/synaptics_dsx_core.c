@@ -25,7 +25,7 @@
 #include <linux/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
-#include <linux/input/synaptics_dsx.h>
+#include <linux/input/synaptics_dsx_v2.h>
 #include "synaptics_dsx_core.h"
 #ifdef KERNEL_ABOVE_2_6_38
 #include <linux/input/mt.h>
@@ -2069,7 +2069,7 @@ static void synaptics_rmi4_set_params(struct synaptics_rmi4_data *rmi4_data)
 
 #ifdef TYPE_B_PROTOCOL
 	input_mt_init_slots(rmi4_data->input_dev,
-			rmi4_data->num_of_fingers);
+			rmi4_data->num_of_fingers, 0);
 #endif
 
 	f1a = NULL;
@@ -2419,7 +2419,7 @@ static void synaptics_rmi4_exp_fn_work(struct work_struct *work)
 }
 
 /**
-* synaptics_rmi4_new_function()
+* synaptics_rmi4_dsx_new_function()
 *
 * Called by other expansion Function modules in their module init and
 * module exit functions.
@@ -2430,7 +2430,7 @@ static void synaptics_rmi4_exp_fn_work(struct work_struct *work)
 * can be inserted or removed dynamically at module init and exit times,
 * respectively.
 */
-void synaptics_rmi4_new_function(struct synaptics_rmi4_exp_fn *exp_fn,
+void synaptics_rmi4_dsx_new_function(struct synaptics_rmi4_exp_fn *exp_fn,
 		bool insert)
 {
 	struct synaptics_rmi4_exp_fhandler *exp_fhandler;
@@ -2474,7 +2474,7 @@ exit:
 
 	return;
 }
-EXPORT_SYMBOL(synaptics_rmi4_new_function);
+EXPORT_SYMBOL(synaptics_rmi4_dsx_new_function);
 
  /**
  * synaptics_rmi4_probe()
@@ -2490,7 +2490,7 @@ EXPORT_SYMBOL(synaptics_rmi4_new_function);
  * and creates a work queue for detection of other expansion Function
  * modules.
  */
-static int __devinit synaptics_rmi4_probe(struct platform_device *pdev)
+static int synaptics_rmi4_probe(struct platform_device *pdev)
 {
 	int retval;
 	unsigned char attr_count;
@@ -2532,7 +2532,11 @@ static int __devinit synaptics_rmi4_probe(struct platform_device *pdev)
 			retval = PTR_ERR(rmi4_data->regulator);
 			goto err_regulator;
 		}
-		regulator_enable(rmi4_data->regulator);
+		retval = regulator_enable(rmi4_data->regulator);
+		if (retval)
+			dev_err(&pdev->dev,
+				"%s: Failed to enable regulators\n",
+				__func__);
 		msleep(bdata->power_delay_ms);
 	}
 
@@ -2676,7 +2680,7 @@ err_regulator:
  * frees the interrupt, unregisters the driver from the input subsystem,
  * turns off the power to the sensor, and frees other allocated resources.
  */
-static int __devexit synaptics_rmi4_remove(struct platform_device *pdev)
+static int synaptics_rmi4_remove(struct platform_device *pdev)
 {
 	unsigned char attr_count;
 	struct synaptics_rmi4_data *rmi4_data = platform_get_drvdata(pdev);
@@ -2972,7 +2976,11 @@ static int synaptics_rmi4_resume(struct device *dev)
 		return 0;
 
 	if (rmi4_data->regulator) {
-		regulator_enable(rmi4_data->regulator);
+		retval = regulator_enable(rmi4_data->regulator);
+		if (retval)
+			dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Failed to enable regulators\n",
+				__func__);
 		msleep(bdata->reset_delay_ms);
 		rmi4_data->current_page = MASK_8BIT;
 	}
@@ -3004,6 +3012,18 @@ static const struct dev_pm_ops synaptics_rmi4_dev_pm_ops = {
 	.suspend = synaptics_rmi4_suspend,
 	.resume  = synaptics_rmi4_resume,
 };
+#else
+static int synaptics_rmi4_suspend(struct device *dev)
+{
+	dev_err(dev, "PM not supported\n");
+	return -EINVAL;
+}
+
+static int synaptics_rmi4_resume(struct device *dev)
+{
+	dev_err(dev, "PM not supported\n");
+	return -EINVAL;
+}
 #endif
 
 static struct platform_driver synaptics_rmi4_driver = {
@@ -3015,7 +3035,7 @@ static struct platform_driver synaptics_rmi4_driver = {
 #endif
 	},
 	.probe = synaptics_rmi4_probe,
-	.remove = __devexit_p(synaptics_rmi4_remove),
+	.remove = synaptics_rmi4_remove,
 };
 
  /**

@@ -24,7 +24,7 @@
 #include <linux/input.h>
 #include <linux/types.h>
 #include <linux/platform_device.h>
-#include <linux/input/synaptics_dsx.h>
+#include <linux/input/synaptics_dsx_v2.h>
 #include "synaptics_dsx_core.h"
 
 #define SYN_I2C_RETRY_TIMES 10
@@ -248,7 +248,7 @@ static struct i2c_driver synaptics_rmi4_i2c_driver = {
 		.owner = THIS_MODULE,
 	},
 	.probe = synaptics_rmi4_i2c_probe,
-	.remove = __devexit_p(synaptics_rmi4_i2c_remove),
+	.remove = synaptics_rmi4_i2c_remove,
 	.id_table = synaptics_rmi4_id_table,
 };
 

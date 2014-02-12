@@ -23,7 +23,7 @@
 #include <linux/delay.h>
 #include <linux/input.h>
 #include <linux/platform_device.h>
-#include <linux/input/synaptics_dsx.h>
+#include <linux/input/synaptics_dsx_v2.h>
 #include "synaptics_dsx_core.h"
 
 #define PROX_PHYS_NAME "synaptics_dsx/input1"
@@ -649,14 +649,14 @@ static struct synaptics_rmi4_exp_fn proximity_module = {
 
 static int __init rmi4_proximity_module_init(void)
 {
-	synaptics_rmi4_new_function(&proximity_module, true);
+	synaptics_rmi4_dsx_new_function(&proximity_module, true);
 
 	return 0;
 }
 
 static void __exit rmi4_proximity_module_exit(void)
 {
-	synaptics_rmi4_new_function(&proximity_module, false);
+	synaptics_rmi4_dsx_new_function(&proximity_module, false);
 
 	wait_for_completion(&prox_remove_complete);
 
