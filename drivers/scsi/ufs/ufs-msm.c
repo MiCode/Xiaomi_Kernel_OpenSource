@@ -2312,6 +2312,7 @@ static void msm_ufs_advertise_quirks(struct ufs_hba *hba)
 			      | UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
 			      | UFSHCD_QUIRK_BROKEN_INTR_AGGR
 			      | UFSHCD_QUIRK_BROKEN_SUSPEND
+			      | UFSHCD_BROKEN_GEAR_CHANGE_INTO_HS
 			      | UFSHCD_BROKEN_LCC);
 }
 
