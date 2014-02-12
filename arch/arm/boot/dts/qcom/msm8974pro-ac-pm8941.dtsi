@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,8 +17,4 @@
 		      <210 0x10000>,
 		      <213 0x10000>,
 		      <216 0x10000>;
-};
-
-&sdhc_1 {
-	reg = <0xf9824900 0x1a0>, <0xf9824000 0x800>;
 };
