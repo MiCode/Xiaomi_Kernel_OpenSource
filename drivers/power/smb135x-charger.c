@@ -1874,6 +1874,38 @@ static struct irq_handler_info handlers[] = {
 	},
 };
 
+static int smb135x_irq_read(struct smb135x_chg *chip)
+{
+	int rc, i;
+
+	/*
+	 * When dcin path is suspended the irq triggered status is not cleared
+	 * causing a storm. To prevent this situation unsuspend dcin path while
+	 * reading interrupts and restore its status back.
+	 */
+	mutex_lock(&chip->path_suspend_lock);
+
+	if (chip->dc_suspended)
+		__smb135x_dc_suspend(chip, false);
+
+	for (i = 0; i < ARRAY_SIZE(handlers); i++) {
+		rc = smb135x_read(chip, handlers[i].stat_reg,
+						&handlers[i].val);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't read %d rc = %d\n",
+					handlers[i].stat_reg, rc);
+			handlers[i].val = 0;
+			continue;
+		}
+	}
+
+	if (chip->dc_suspended)
+		__smb135x_dc_suspend(chip, true);
+
+	mutex_unlock(&chip->path_suspend_lock);
+
+	return rc;
+}
 #define IRQ_LATCHED_MASK	0x02
 #define IRQ_STATUS_MASK		0x01
 #define BITS_PER_IRQ		2
@@ -1897,15 +1929,8 @@ static irqreturn_t smb135x_chg_stat_handler(int irq, void *dev_id)
 	}
 	chip->irq_waiting = false;
 
+	smb135x_irq_read(chip);
 	for (i = 0; i < ARRAY_SIZE(handlers); i++) {
-		rc = smb135x_read(chip, handlers[i].stat_reg,
-						&handlers[i].val);
-		if (rc < 0) {
-			dev_err(chip->dev, "Couldn't read %d rc = %d\n",
-					handlers[i].stat_reg, rc);
-			continue;
-		}
-
 		for (j = 0; j < ARRAY_SIZE(handlers[i].irq_info); j++) {
 			triggered = handlers[i].val
 			       & (IRQ_LATCHED_MASK << (j * BITS_PER_IRQ));
