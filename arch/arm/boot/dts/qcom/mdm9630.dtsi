@@ -243,7 +243,7 @@
 				9 &intc 0 50 0
 				10 &intc 0 51 0
 				11 &intc 0 52 0
-				12 &msmgpio 69 0x2>;
+				12 &msmgpio 65 0x2>;
 		interrupt-names = "int_msi", "int_a", "int_b", "int_c", "int_d",
 				"int_pls_pme", "int_pme_legacy", "int_pls_err",
 				"int_aer_legacy", "int_pls_link_up",
