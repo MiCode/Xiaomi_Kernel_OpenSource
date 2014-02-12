@@ -51,6 +51,8 @@ struct snd_msm {
 #define CAPTURE_MAX_NUM_PERIODS     8
 #define CAPTURE_MAX_PERIOD_SIZE     4096
 #define CAPTURE_MIN_PERIOD_SIZE     320
+#define CMD_EOS_MIN_TIMEOUT_LENGTH  50
+#define CMD_EOS_TIMEOUT_MULTIPLIER  (HZ * 50)
 
 static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 	.info =                 (SNDRV_PCM_INFO_MMAP |
@@ -519,6 +521,7 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct msm_audio *prtd = runtime->private_data;
+	uint32_t timeout;
 	int dir = 0;
 	int ret = 0;
 
@@ -526,9 +529,23 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 
 	if (prtd->audio_client) {
 		dir = IN;
+
+		/* determine timeout length */
+		if (runtime->frame_bits == 0 || runtime->rate == 0) {
+			timeout = CMD_EOS_MIN_TIMEOUT_LENGTH;
+		} else {
+			timeout = (runtime->period_size *
+					CMD_EOS_TIMEOUT_MULTIPLIER) /
+					((runtime->frame_bits / 8) *
+					 runtime->rate);
+			if (timeout < CMD_EOS_MIN_TIMEOUT_LENGTH)
+				timeout = CMD_EOS_MIN_TIMEOUT_LENGTH;
+		}
+		pr_debug("%s: CMD_EOS timeout is %d\n", __func__, timeout);
+
 		ret = wait_event_timeout(the_locks.eos_wait,
 					 !test_bit(CMD_EOS, &prtd->cmd_pending),
-					 5 * HZ);
+					 timeout);
 		if (!ret)
 			pr_err("%s: CMD_EOS failed, cmd_pending 0x%lx\n",
 			       __func__, prtd->cmd_pending);
