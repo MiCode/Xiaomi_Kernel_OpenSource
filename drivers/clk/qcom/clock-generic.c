@@ -207,6 +207,17 @@ static enum handoff mux_handoff(struct clk *c)
 	return HANDOFF_DISABLED_CLK;
 }
 
+static void __iomem *mux_clk_list_registers(struct clk *c, int n,
+			struct clk_register_data **regs, u32 *size)
+{
+	struct mux_clk *mux = to_mux_clk(c);
+
+	if (mux->ops && mux->ops->list_registers)
+		return mux->ops->list_registers(mux, n, regs, size);
+
+	return ERR_PTR(-EINVAL);
+}
+
 struct clk_ops clk_ops_gen_mux = {
 	.enable = mux_enable,
 	.disable = mux_disable,
@@ -215,6 +226,7 @@ struct clk_ops clk_ops_gen_mux = {
 	.set_rate = mux_set_rate,
 	.handoff = mux_handoff,
 	.get_parent = mux_get_parent,
+	.list_registers = mux_clk_list_registers,
 };
 
 /* ==================== Divider clock ==================== */
@@ -374,12 +386,24 @@ static enum handoff div_handoff(struct clk *c)
 	return HANDOFF_DISABLED_CLK;
 }
 
+static void __iomem *div_clk_list_registers(struct clk *c, int n,
+			struct clk_register_data **regs, u32 *size)
+{
+	struct div_clk *d = to_div_clk(c);
+
+	if (d->ops && d->ops->list_registers)
+		return d->ops->list_registers(d, n, regs, size);
+
+	return ERR_PTR(-EINVAL);
+}
+
 struct clk_ops clk_ops_div = {
 	.enable = div_enable,
 	.disable = div_disable,
 	.round_rate = div_round_rate,
 	.set_rate = div_set_rate,
 	.handoff = div_handoff,
+	.list_registers = div_clk_list_registers,
 };
 
 static long __slave_div_round_rate(struct clk *c, unsigned long rate,
@@ -452,6 +476,7 @@ struct clk_ops clk_ops_slave_div = {
 	.set_rate = slave_div_set_rate,
 	.get_rate = slave_div_get_rate,
 	.handoff = div_handoff,
+	.list_registers = div_clk_list_registers,
 };
 
 
@@ -742,6 +767,17 @@ static enum handoff mux_div_clk_handoff(struct clk *c)
 	return HANDOFF_DISABLED_CLK;
 }
 
+static void __iomem *mux_div_clk_list_registers(struct clk *c, int n,
+				struct clk_register_data **regs, u32 *size)
+{
+	struct mux_div_clk *md = to_mux_div_clk(c);
+
+	if (md->ops && md->ops->list_registers)
+		return md->ops->list_registers(md, n , regs, size);
+
+	return ERR_PTR(-EINVAL);
+}
+
 struct clk_ops clk_ops_mux_div_clk = {
 	.enable = mux_div_clk_enable,
 	.disable = mux_div_clk_disable,
@@ -749,4 +785,5 @@ struct clk_ops clk_ops_mux_div_clk = {
 	.round_rate = mux_div_clk_round_rate,
 	.get_parent = mux_div_clk_get_parent,
 	.handoff = mux_div_clk_handoff,
+	.list_registers = mux_div_clk_list_registers,
 };
