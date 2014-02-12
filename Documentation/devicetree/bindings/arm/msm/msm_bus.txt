@@ -100,8 +100,8 @@ qcom,mode-thresh:	Threshold mode for a BIMC/NoC master. Beyond a certain
 			(Can be Fixed/Limiter/Bypass/Regulator)
 qcom,bimc,bw:		Bandwidth limit for a BIMC master using dual modes.
 			This bandwidth is used to calculate Grant count and
-			other parameters used in Limiter and Regular mode
-			for static BKE configuration. It is defined in KBps.
+			other parameters used in Limiter and Regular mode.
+			for static BKE configuration. It is defined in KBytes/s.
 qcom,bimc,gp:		Grant Period for configuring a master in limiter
 			mode. This is an integer value in nano-seconds.
 qcom,bimc,thmp:		Medium threshold percentage for BIMC masters.
@@ -111,11 +111,12 @@ qcom,bimc,thmp:		Medium threshold percentage for BIMC masters.
 			1 and 100.
 qcom,thresh:		Beyond this threshold frequency, the mode usage is
 			switched from mode specified by property qcom,mode
-			to the one specified by qcom,mode-thresh. In case the
-			requested IB value falls below this threshold, the mode
-			is switched back to qcom,mode. Frequency is specified in
-			KBps.
-
+			to the one specified by qcom,mode-thresh. These thresholds
+			can be setup in increasing order of thresholds, so the
+			requested IB is evaluated at each threshold level before
+			making the decision to switch QoS modes and applying the
+			corresponding qcom,bimc,bw limitig bw as needed.
+			This is specified in KBytes/s.
 
 
 
