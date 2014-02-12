@@ -27,3 +27,10 @@
 &pm8226_iadc {
         qcom,rsense = <10000000>;
 };
+
+&slim_msm {
+	tapan_codec {
+		qcom,cdc-micbias1-ext-cap;
+		qcom,cdc-micbias3-ext-cap;
+	};
+};

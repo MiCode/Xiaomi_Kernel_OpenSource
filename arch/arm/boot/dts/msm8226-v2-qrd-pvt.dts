@@ -27,3 +27,10 @@
 &dsi_nt35590_720_vid {
 	qcom,cont-splash-enabled;
 };
+
+&slim_msm {
+	tapan_codec {
+		qcom,cdc-micbias1-ext-cap;
+		qcom,cdc-micbias3-ext-cap;
+	};
+};

@@ -482,13 +482,6 @@
 	};
 };
 
-&slim_msm {
-	tapan_codec {
-		qcom,cdc-micbias1-ext-cap;
-		qcom,cdc-micbias3-ext-cap;
-	};
-};
-
 &pm8226_vadc {
 	chan@30 {
 		label = "batt_therm";
