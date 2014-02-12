@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,7 @@ struct apq8084_dock {
 	int			dock_hub_reset;
 	int			dock_eth_reset;
 	int			dock_enable;
+	struct platform_device	*usb3_pdev;
 };
 
 static void dock_detected_work(struct work_struct *w)
@@ -42,6 +43,12 @@ static void dock_detected_work(struct work_struct *w)
 	gpio_direction_output(dock->dock_enable, 0);
 
 	if (docked) {
+		if (device_attach(&dock->usb3_pdev->dev) != 1) {
+			dev_err(dock->dev, "Could not add USB driver 0x%p\n",
+				dock->usb3_pdev);
+			return;
+		}
+
 		/* assert RESETs before turning on power */
 		gpio_direction_output(dock->dock_hub_reset, 1);
 		gpio_direction_output(dock->dock_eth_reset, 1);
@@ -50,6 +57,8 @@ static void dock_detected_work(struct work_struct *w)
 		msleep(20); /* short delay before de-asserting RESETs */
 		gpio_direction_output(dock->dock_hub_reset, 0);
 		gpio_direction_output(dock->dock_eth_reset, 0);
+	} else {
+		device_release_driver(&dock->usb3_pdev->dev);
 	}
 
 	/* Allow system suspend */
@@ -69,6 +78,7 @@ static irqreturn_t dock_detected(int irq, void *data)
 static int apq8084_dock_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
+	struct device_node *usb3_node;
 	struct apq8084_dock *dock;
 	int ret;
 
@@ -131,6 +141,20 @@ static int apq8084_dock_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	usb3_node = of_parse_phandle(node, "qcom,usb-host", 0);
+	if (!usb3_node) {
+		dev_err(dock->dev, "unable to get usb-host\n");
+		return -ENODEV;
+	}
+
+	dock->usb3_pdev = of_find_device_by_node(usb3_node);
+	if (!dock->usb3_pdev) {
+		dev_err(dock->dev, "cannot find usb3_pdev\n");
+		of_node_put(usb3_node);
+		return -EPROBE_DEFER;
+	}
+
+	of_node_put(usb3_node);
 	schedule_work(&dock->dock_work);
 	device_init_wakeup(dock->dev, true);
 	enable_irq_wake(gpio_to_irq(dock->dock_detect));
@@ -144,6 +168,7 @@ static int apq8084_dock_remove(struct platform_device *pdev)
 
 	disable_irq_wake(gpio_to_irq(dock->dock_detect));
 	cancel_work_sync(&dock->dock_work);
+	platform_device_put(dock->usb3_pdev);
 
 	return 0;
 }
