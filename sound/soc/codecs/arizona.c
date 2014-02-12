@@ -529,6 +529,15 @@ const char *arizona_rate_text[ARIZONA_RATE_ENUM_SIZE] = {
 };
 EXPORT_SYMBOL_GPL(arizona_rate_text);
 
+const struct soc_enum arizona_output_rate =
+	SOC_VALUE_ENUM_SINGLE(ARIZONA_OUTPUT_RATE_1,
+			      ARIZONA_OUT_RATE_SHIFT,
+			      0x0f,
+			      ARIZONA_OUT_RATE_ENUM_SIZE,
+			      arizona_rate_text,
+			      arizona_sample_rate_val);
+EXPORT_SYMBOL_GPL(arizona_output_rate);
+
 const int arizona_rate_val[ARIZONA_RATE_ENUM_SIZE] = {
 	0, 1, 2, 8,
 };
