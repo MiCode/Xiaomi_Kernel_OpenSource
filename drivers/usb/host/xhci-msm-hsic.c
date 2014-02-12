@@ -92,8 +92,6 @@ struct mxhci_hsic_hcd {
 	struct regulator	*hsic_vddcx;
 	struct regulator	*hsic_gdsc;
 
-	struct wakeup_source	ws;
-
 	u32			bus_perf_client;
 	struct msm_bus_scale_pdata	*bus_scale_table;
 	struct work_struct	bus_vote_w;
@@ -1137,7 +1135,6 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 	mxhci_hsic_ulpi_write(mxhci, 0x01, MSM_HSIC_CFG_SET);
 
 	device_init_wakeup(&pdev->dev, 1);
-	wakeup_source_init(&mxhci->ws, dev_name(&pdev->dev));
 	pm_stay_awake(mxhci->dev);
 
 	pm_runtime_set_active(&pdev->dev);
@@ -1211,11 +1208,10 @@ static int mxhci_hsic_remove(struct platform_device *pdev)
 
 	destroy_workqueue(mxhci->wq);
 
-	device_init_wakeup(&pdev->dev, 0);
+	device_wakeup_disable(&pdev->dev);
 	mxhci_hsic_init_vddcx(mxhci, 0);
 	mxhci_hsic_init_clocks(mxhci, 0);
 	mxhci_msm_config_gdsc(mxhci, 0);
-	wakeup_source_trash(&mxhci->ws);
 	usb_put_hcd(hcd);
 
 	return 0;
