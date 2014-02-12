@@ -137,6 +137,7 @@
 		qcom,dock-hub-reset-gpio = <&msmgpio 65 0>;
 		qcom,dock-enable-gpio = <&msmgpio 93 0>;
 		qcom,dock-eth-reset-gpio = <&msmgpio 94 0>;
+		qcom,usb-host = <&usb3_sec>;
 	};
 };
 
