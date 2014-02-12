@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +22,7 @@
 #include <linux/coresight.h>
 #include <soc/qcom/scm.h>
 #include <asm/hardware/cp14.h>
-#include <mach/jtag.h>
+#include <soc/qcom/jtag.h>
 
 /* DBGv7 with baseline CP14 registers implemented */
 #define ARM_DEBUG_ARCH_V7B	(0x3)

@@ -37,7 +37,7 @@
 #include <asm/vfp.h>
 #endif
 #include <mach/msm_bus.h>
-#include <mach/jtag.h>
+#include <soc/qcom/jtag.h>
 #include "idle.h"
 #include "clock.h"
 #include "pm-boot.h"

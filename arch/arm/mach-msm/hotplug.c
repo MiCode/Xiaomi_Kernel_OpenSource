@@ -19,7 +19,7 @@
 #include <asm/smp_plat.h>
 #include <asm/vfp.h>
 
-#include <mach/jtag.h>
+#include <soc/qcom/jtag.h>
 
 static cpumask_t cpu_dying_mask;
 
