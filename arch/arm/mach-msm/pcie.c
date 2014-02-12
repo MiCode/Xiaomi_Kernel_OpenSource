@@ -900,6 +900,7 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 
 	/* assert PCIe reset link to keep EP in reset */
 
+	pr_info("PCIe: Assert the reset of endpoint\n");
 	gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
 				dev->gpio[MSM_PCIE_GPIO_PERST].on);
 	usleep_range(PERST_PROPAGATION_DELAY_US_MIN,
@@ -960,6 +961,7 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 
 	/* de-assert PCIe reset link to bring EP out of reset */
 
+	pr_info("PCIe: Release the reset of endpoint\n");
 	gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
 				1 - dev->gpio[MSM_PCIE_GPIO_PERST].on);
 	usleep_range(PERST_PROPAGATION_DELAY_US_MIN,
@@ -994,6 +996,7 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	if (val & XMLH_LINK_UP) {
 		pr_info("PCIe link initialized\n");
 	} else {
+		pr_info("PCIe: Assert the reset of endpoint\n");
 		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
 			dev->gpio[MSM_PCIE_GPIO_PERST].on);
 		pr_err("PCIe link initialization failed\n");
@@ -1028,6 +1031,7 @@ void msm_pcie_disable(struct msm_pcie_dev_t *dev, u32 options)
 {
 	PCIE_DBG("\n");
 
+	pr_info("PCIe: Assert the reset of endpoint\n");
 	gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
 				dev->gpio[MSM_PCIE_GPIO_PERST].on);
 
