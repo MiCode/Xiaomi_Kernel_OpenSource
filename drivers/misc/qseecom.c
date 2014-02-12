@@ -53,7 +53,7 @@
 #define QSEE_VERSION_03			0x403000
 #define QSEE_VERSION_04			0x404000
 #define QSEE_VERSION_05			0x405000
-
+#define QSEE_VERSION_20			0x800000
 
 
 #define QSEOS_CHECK_VERSION_CMD		0x00001803
@@ -1297,8 +1297,7 @@ static int qseecom_send_cmd(struct qseecom_dev_handle *data, void __user *argp)
 }
 
 static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
-					struct qseecom_dev_handle *data,
-					bool listener_svc)
+			struct qseecom_dev_handle *data, bool qteec)
 {
 	struct ion_handle *ihandle;
 	char *field;
@@ -1306,15 +1305,19 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 	int i = 0;
 	uint32_t len = 0;
 	struct scatterlist *sg;
-	struct qseecom_send_modfd_cmd_req *cmd_req = NULL;
+	struct qseecom_send_modfd_cmd_req *req = NULL;
 	struct qseecom_send_modfd_listener_resp *lstnr_resp = NULL;
 	struct qseecom_registered_listener_list *this_lstnr = NULL;
+
+	if ((data->type != QSEECOM_LISTENER_SERVICE) &&
+			(data->type != QSEECOM_CLIENT_APP))
+		return -EFAULT;
 
 	if (msg == NULL) {
 		pr_err("Invalid address\n");
 		return -EINVAL;
 	}
-	if (listener_svc) {
+	if (data->type == QSEECOM_LISTENER_SERVICE) {
 		lstnr_resp = (struct qseecom_send_modfd_listener_resp *)msg;
 		this_lstnr = __qseecom_find_svc(data->listener.id);
 		if (IS_ERR_OR_NULL(this_lstnr)) {
@@ -1322,21 +1325,22 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 			return -ENOMEM;
 		}
 	} else {
-		cmd_req = (struct qseecom_send_modfd_cmd_req *)msg;
+		req = (struct qseecom_send_modfd_cmd_req *)msg;
 	}
 
 	for (i = 0; i < MAX_ION_FD; i++) {
 		struct sg_table *sg_ptr = NULL;
-		if ((!listener_svc) && (cmd_req->ifd_data[i].fd > 0)) {
+		if ((data->type != QSEECOM_LISTENER_SERVICE) &&
+						(req->ifd_data[i].fd > 0)) {
 			ihandle = ion_import_dma_buf(qseecom.ion_clnt,
-					cmd_req->ifd_data[i].fd);
+					req->ifd_data[i].fd);
 			if (IS_ERR_OR_NULL(ihandle)) {
 				pr_err("Ion client can't retrieve the handle\n");
 				return -ENOMEM;
 			}
-			field = (char *) cmd_req->cmd_req_buf +
-				cmd_req->ifd_data[i].cmd_buf_offset;
-		} else if ((listener_svc) &&
+			field = (char *) req->cmd_req_buf +
+				req->ifd_data[i].cmd_buf_offset;
+		} else if ((data->type == QSEECOM_LISTENER_SERVICE) &&
 				(lstnr_resp->ifd_data[i].fd > 0)) {
 			ihandle = ion_import_dma_buf(qseecom.ion_clnt,
 						lstnr_resp->ifd_data[i].fd);
@@ -1347,7 +1351,7 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 			field = lstnr_resp->resp_buf_ptr +
 				lstnr_resp->ifd_data[i].cmd_buf_offset;
 		} else {
-			return ret;
+			continue;
 		}
 		/* Populate the cmd data structure with the phys_addr */
 		sg_ptr = ion_sg_table(qseecom.ion_clnt, ihandle);
@@ -1375,6 +1379,8 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 				*update = (uint32_t)sg_dma_address(
 							sg_ptr->sgl);
 				len += (uint32_t)sg->length;
+				if (qteec)
+					*(update + 1) = (uint32_t)sg->length;
 		} else {
 			struct qseecom_sg_entry *update;
 			int j = 0;
@@ -3110,6 +3116,208 @@ static int qseecom_save_partition_hash(void __user *argp)
 	return 0;
 }
 
+static int __qseecom_qteec_validate_msg(struct qseecom_dev_handle *data,
+				struct qseecom_qteec_req *req)
+{
+	if (req->req_ptr == NULL || req->resp_ptr == NULL) {
+		pr_err("cmd buffer or response buffer is null\n");
+		return -EINVAL;
+	}
+	if (((uint32_t)req->req_ptr < data->client.user_virt_sb_base) ||
+		((uint32_t)req->req_ptr >= (data->client.user_virt_sb_base +
+					data->client.sb_length))) {
+		pr_err("cmd buffer address not within shared bufffer\n");
+		return -EINVAL;
+	}
+
+	if (((uint32_t)req->resp_ptr < data->client.user_virt_sb_base)  ||
+		((uint32_t)req->resp_ptr >= (data->client.user_virt_sb_base +
+					data->client.sb_length))){
+		pr_err("response buffer address not within shared bufffer\n");
+		return -EINVAL;
+	}
+
+	if ((req->req_len == 0) || (req->resp_len == 0) ||
+		req->req_len > data->client.sb_length ||
+		req->resp_len > data->client.sb_length) {
+		pr_err("cmd buf lengtgh/response buf length not valid\n");
+		return -EINVAL;
+	}
+
+	if (req->req_len > UINT_MAX - req->resp_len) {
+		pr_err("Integer overflow detected in req_len/rsp_len, exit\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int __qseecom_qteec_issue_cmd(struct qseecom_dev_handle *data,
+				struct qseecom_qteec_req *req, uint32_t cmd_id)
+{
+	struct qseecom_command_scm_resp resp;
+	struct qseecom_qteec_ireq ireq;
+	int ret = 0;
+	uint32_t reqd_len_sb_in = 0;
+
+	ret  = __qseecom_qteec_validate_msg(data, req);
+	if (ret)
+		return ret;
+	ireq.qsee_cmd_id = cmd_id;
+	ireq.app_id = data->client.app_id;
+	ireq.req_ptr = (void *)__qseecom_uvirt_to_kphys(data,
+						(uint32_t)req->req_ptr);
+	ireq.req_len = req->req_len;
+	ireq.resp_ptr = (void *)__qseecom_uvirt_to_kphys(data,
+						(uint32_t)req->resp_ptr);
+	ireq.resp_len = req->resp_len;
+
+	reqd_len_sb_in = req->req_len + req->resp_len;
+	msm_ion_do_cache_op(qseecom.ion_clnt, data->client.ihandle,
+					data->client.sb_virt,
+					reqd_len_sb_in,
+					ION_IOC_CLEAN_INV_CACHES);
+
+	ret = scm_call(SCM_SVC_TZSCHEDULER, 1, (const void *) &ireq,
+					sizeof(ireq),
+					&resp, sizeof(resp));
+	if (ret) {
+		pr_err("scm_call() failed with err: %d (app_id = %d)\n",
+					ret, data->client.app_id);
+		return ret;
+	}
+
+	if (resp.result == QSEOS_RESULT_INCOMPLETE) {
+		ret = __qseecom_process_incomplete_cmd(data, &resp);
+		if (ret) {
+			pr_err("process_incomplete_cmd failed err: %d\n", ret);
+			return ret;
+		}
+	} else {
+		if (resp.result != QSEOS_RESULT_SUCCESS) {
+			pr_err("Response result %d not supported\n",
+							resp.result);
+			ret = -EINVAL;
+		}
+	}
+	msm_ion_do_cache_op(qseecom.ion_clnt, data->client.ihandle,
+				data->client.sb_virt, data->client.sb_length,
+				ION_IOC_INV_CACHES);
+	return 0;
+}
+
+static int qseecom_qteec_open_session(struct qseecom_dev_handle *data,
+				void __user *argp)
+{
+	struct qseecom_qteec_req req;
+	int ret = 0;
+
+	ret = copy_from_user(&req, argp, sizeof(struct qseecom_qteec_req));
+	if (ret) {
+		pr_err("copy_from_user failed\n");
+		return ret;
+	}
+	ret = __qseecom_qteec_issue_cmd(data, &req, QSEOS_TEE_OPEN_SESSION);
+
+	return ret;
+}
+
+static int qseecom_qteec_close_session(struct qseecom_dev_handle *data,
+				void __user *argp)
+{
+	struct qseecom_qteec_req req;
+	int ret = 0;
+
+	ret = copy_from_user(&req, argp, sizeof(struct qseecom_qteec_req));
+	if (ret) {
+		pr_err("copy_from_user failed\n");
+		return ret;
+	}
+	ret = __qseecom_qteec_issue_cmd(data, &req, QSEOS_TEE_CLOSE_SESSION);
+	return ret;
+}
+
+static int qseecom_qteec_invoke_modfd_cmd(struct qseecom_dev_handle *data,
+				void __user *argp)
+{
+	struct qseecom_send_modfd_cmd_req req;
+	struct qseecom_command_scm_resp resp;
+	struct qseecom_qteec_ireq ireq;
+	int ret = 0;
+	int i = 0;
+	uint32_t reqd_len_sb_in = 0;
+
+	ret = copy_from_user(&req, argp,
+			sizeof(struct qseecom_send_modfd_cmd_req));
+	if (ret) {
+		pr_err("copy_from_user failed\n");
+		return ret;
+	}
+
+	ret = __qseecom_qteec_validate_msg(data,
+					(struct qseecom_qteec_req *)(&req));
+	if (ret)
+		return ret;
+
+	ireq.qsee_cmd_id = QSEOS_TEE_INVOKE_COMMAND;
+	ireq.app_id = data->client.app_id;
+	ireq.req_ptr = (void *)__qseecom_uvirt_to_kphys(data,
+						(uint32_t)req.cmd_req_buf);
+	ireq.req_len = req.cmd_req_len;
+	ireq.resp_ptr = (void *)__qseecom_uvirt_to_kphys(data,
+						(uint32_t)req.resp_buf);
+	ireq.resp_len = req.resp_len;
+	reqd_len_sb_in = req.cmd_req_len + req.resp_len;
+
+	/* validate offsets */
+	for (i = 0; i < MAX_ION_FD; i++) {
+		if (req.ifd_data[i].fd) {
+			if (req.ifd_data[i].cmd_buf_offset >= req.cmd_req_len)
+				return -EINVAL;
+		}
+	}
+	req.cmd_req_buf = (void *)__qseecom_uvirt_to_kvirt(data,
+						(uint32_t)req.cmd_req_buf);
+	req.resp_buf = (void *)__qseecom_uvirt_to_kvirt(data,
+						(uint32_t)req.resp_buf);
+	ret = __qseecom_update_cmd_buf(&req, false, data, true);
+	if (ret)
+		return ret;
+	msm_ion_do_cache_op(qseecom.ion_clnt, data->client.ihandle,
+					data->client.sb_virt,
+					reqd_len_sb_in,
+					ION_IOC_CLEAN_INV_CACHES);
+	ret = scm_call(SCM_SVC_TZSCHEDULER, 1, (const void *) &ireq,
+					sizeof(ireq),
+					&resp, sizeof(resp));
+	if (ret) {
+		pr_err("scm_call() failed with err: %d (app_id = %d)\n",
+					ret, data->client.app_id);
+		return ret;
+	}
+
+	if (resp.result == QSEOS_RESULT_INCOMPLETE) {
+		ret = __qseecom_process_incomplete_cmd(data, &resp);
+		if (ret) {
+			pr_err("process_incomplete_cmd failed err: %d\n", ret);
+			return ret;
+		}
+	} else {
+		if (resp.result != QSEOS_RESULT_SUCCESS) {
+			pr_err("Response result %d not supported\n",
+							resp.result);
+			ret = -EINVAL;
+		}
+	}
+	ret = __qseecom_update_cmd_buf(&req, true, data, true);
+	if (ret)
+		return ret;
+
+	msm_ion_do_cache_op(qseecom.ion_clnt, data->client.ihandle,
+				data->client.sb_virt, data->client.sb_length,
+				ION_IOC_INV_CACHES);
+	return 0;
+}
+
 static long qseecom_ioctl(struct file *file, unsigned cmd,
 		unsigned long arg)
 {
@@ -3548,8 +3756,80 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 			pr_err("failed qseecom_send_mod_resp: %d\n", ret);
 		break;
 	}
+	case QSEECOM_QTEEC_IOCTL_OPEN_SESSION_REQ: {
+		if ((data->client.app_id == 0) ||
+			(data->type != QSEECOM_CLIENT_APP)) {
+			pr_err("Open session: invalid handle (%d) appid(%d)\n",
+					data->type, data->client.app_id);
+			ret = -EINVAL;
+			break;
+		}
+		if (qseecom.qsee_version < QSEE_VERSION_20) {
+			pr_err("GP feature unsupported: qsee ver %u\n",
+				qseecom.qsee_version);
+			return -EINVAL;
+		}
+		/* Only one client allowed here at a time */
+		mutex_lock(&app_access_lock);
+		atomic_inc(&data->ioctl_count);
+		ret = qseecom_qteec_open_session(data, argp);
+		atomic_dec(&data->ioctl_count);
+		wake_up_all(&data->abort_wq);
+		mutex_unlock(&app_access_lock);
+		if (ret)
+			pr_err("failed open_session_cmd: %d\n", ret);
+		break;
+	}
+	case QSEECOM_QTEEC_IOCTL_CLOSE_SESSION_REQ: {
+		if ((data->client.app_id == 0) ||
+			(data->type != QSEECOM_CLIENT_APP)) {
+			pr_err("Close session: invalid handle (%d) appid(%d)\n",
+					data->type, data->client.app_id);
+			ret = -EINVAL;
+			break;
+		}
+		if (qseecom.qsee_version < QSEE_VERSION_20) {
+			pr_err("GP feature unsupported: qsee ver %u\n",
+				qseecom.qsee_version);
+			return -EINVAL;
+		}
+		/* Only one client allowed here at a time */
+		mutex_lock(&app_access_lock);
+		atomic_inc(&data->ioctl_count);
+		ret = qseecom_qteec_close_session(data, argp);
+		atomic_dec(&data->ioctl_count);
+		wake_up_all(&data->abort_wq);
+		mutex_unlock(&app_access_lock);
+		if (ret)
+			pr_err("failed close_session_cmd: %d\n", ret);
+		break;
+	}
+	case QSEECOM_QTEEC_IOCTL_INVOKE_MODFD_CMD_REQ: {
+		if ((data->client.app_id == 0) ||
+			(data->type != QSEECOM_CLIENT_APP)) {
+			pr_err("Invoke cmd: invalid handle (%d) appid(%d)\n",
+					data->type, data->client.app_id);
+			ret = -EINVAL;
+			break;
+		}
+		if (qseecom.qsee_version < QSEE_VERSION_20) {
+			pr_err("GP feature unsupported: qsee ver %u\n",
+				qseecom.qsee_version);
+			return -EINVAL;
+		}
+		/* Only one client allowed here at a time */
+		mutex_lock(&app_access_lock);
+		atomic_inc(&data->ioctl_count);
+		ret = qseecom_qteec_invoke_modfd_cmd(data, argp);
+		atomic_dec(&data->ioctl_count);
+		wake_up_all(&data->abort_wq);
+		mutex_unlock(&app_access_lock);
+		if (ret)
+			pr_err("failed Invoke cmd: %d\n", ret);
+		break;
+	}
 	default:
-		pr_err("Invalid IOCTL: %d\n", cmd);
+		pr_err("Invalid IOCTL: 0x%x\n", cmd);
 		return -EINVAL;
 	}
 	return ret;
