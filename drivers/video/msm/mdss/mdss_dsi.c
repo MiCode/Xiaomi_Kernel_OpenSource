@@ -379,7 +379,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	if (!pdata->panel_info.mipi.lp11_init)
 		mdss_dsi_panel_reset(pdata, 1);
 
-	ret = mdss_dsi_enable_bus_clocks(ctrl_pdata);
+	ret = mdss_dsi_bus_clk_start(ctrl_pdata);
 	if (ret) {
 		pr_err("%s: failed to enable bus clocks. rc=%d\n", __func__,
 			ret);
@@ -390,7 +390,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 
 	mdss_dsi_phy_sw_reset((ctrl_pdata->ctrl_base));
 	mdss_dsi_phy_init(pdata);
-	mdss_dsi_disable_bus_clocks(ctrl_pdata);
+	mdss_dsi_bus_clk_stop(ctrl_pdata);
 
 	mdss_dsi_clk_ctrl(ctrl_pdata, 1);
 
