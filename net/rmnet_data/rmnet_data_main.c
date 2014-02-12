@@ -22,6 +22,10 @@
 #include "rmnet_data_config.h"
 #include "rmnet_data_vnd.h"
 
+/* ***************** Trace Points ******************************************* */
+#define CREATE_TRACE_POINTS
+#include "rmnet_data_trace.h"
+
 /* ***************** Module Parameters ************************************** */
 unsigned int rmnet_data_log_level = RMNET_LOG_LVL_ERR | RMNET_LOG_LVL_HI;
 module_param(rmnet_data_log_level, uint,  S_IRUGO | S_IWUSR);
