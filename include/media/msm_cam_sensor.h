@@ -248,6 +248,7 @@ enum cci_i2c_master_t {
 
 struct msm_camera_sensor_slave_info {
 	char sensor_name[32];
+	char eeprom_name[32];
 	enum msm_sensor_camera_id_t camera_id;
 	uint16_t slave_addr;
 	enum msm_camera_i2c_reg_addr_type addr_type;
