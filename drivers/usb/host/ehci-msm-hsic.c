@@ -31,6 +31,7 @@
 #include <linux/seq_file.h>
 #include <linux/wakelock.h>
 #include <linux/pm_runtime.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/regulator/consumer.h>
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
@@ -114,6 +115,8 @@ struct msm_hsic_hcd {
 
 	struct pm_qos_request pm_qos_req_dma;
 	unsigned		enable_hbm:1;
+
+	struct pinctrl		*hsic_pinctrl;
 };
 
 struct msm_hsic_hcd *__mehci;
@@ -533,6 +536,31 @@ static int ulpi_write(struct msm_hsic_hcd *mehci, u32 val, u32 reg)
 	return 0;
 }
 
+static int msm_hsic_config_pinctrl(struct msm_hsic_hcd *mehci, int state)
+{
+	struct pinctrl_state *set_state;
+	int rc = 0;
+	if (state) {
+		set_state = pinctrl_lookup_state(mehci->hsic_pinctrl,
+				"hsic_ehci_active");
+		if (IS_ERR(set_state)) {
+			pr_err("cannot get hsic pinctrl active state\n");
+			return PTR_ERR(set_state);
+		}
+		rc = pinctrl_select_state(mehci->hsic_pinctrl, set_state);
+	} else {
+		set_state = pinctrl_lookup_state(mehci->hsic_pinctrl,
+				"hsic_ehci_sleep");
+		if (IS_ERR(set_state)) {
+			pr_err("cannot get hsic pinctrl sleep state\n");
+			return PTR_ERR(set_state);
+		}
+		rc = pinctrl_select_state(mehci->hsic_pinctrl, set_state);
+	}
+
+	return rc;
+}
+
 static int msm_hsic_config_gpios(struct msm_hsic_hcd *mehci, int gpio_en)
 {
 	int rc = 0;
@@ -541,36 +569,35 @@ static int msm_hsic_config_gpios(struct msm_hsic_hcd *mehci, int gpio_en)
 
 	pdata = mehci->dev->platform_data;
 
-	if (!pdata || !pdata->strobe || !pdata->data)
-		return rc;
+	if (!pdata)
+		return -ENODEV;
 
-	if (gpio_status == gpio_en)
+	if (gpio_status == gpio_en || mehci->hsic_pinctrl)
 		return 0;
 
+	if (!pdata->strobe || !pdata->data)
+		return -ENODEV;
+
+	if (gpio_en) {
+		rc = gpio_request(pdata->strobe, "HSIC_STROBE_GPIO");
+		if (rc < 0) {
+			dev_err(mehci->dev, "gpio request failed for HSIC STROBE\n");
+			goto out;
+		}
+
+		rc = gpio_request(pdata->data, "HSIC_DATA_GPIO");
+		if (rc < 0) {
+			dev_err(mehci->dev, "gpio request failed for HSIC DATA\n");
+			gpio_free(pdata->strobe);
+			goto out;
+		}
+	} else {
+		gpio_free(pdata->data);
+		gpio_free(pdata->strobe);
+	}
+
 	gpio_status = gpio_en;
-
-	if (!gpio_en)
-		goto free_gpio;
-
-	rc = gpio_request(pdata->strobe, "HSIC_STROBE_GPIO");
-	if (rc < 0) {
-		dev_err(mehci->dev, "gpio request failed for HSIC STROBE\n");
-		return rc;
-	}
-
-	rc = gpio_request(pdata->data, "HSIC_DATA_GPIO");
-	if (rc < 0) {
-		dev_err(mehci->dev, "gpio request failed for HSIC DATA\n");
-		goto free_strobe;
-	}
-
-	return 0;
-
-free_gpio:
-	gpio_free(pdata->data);
-free_strobe:
-	gpio_free(pdata->strobe);
-
+out:
 	return rc;
 }
 
@@ -656,6 +683,14 @@ static int msm_hsic_start(struct msm_hsic_hcd *mehci)
 	int ret;
 	void __iomem *reg;
 
+	if (mehci->hsic_pinctrl) {
+		ret = msm_hsic_config_pinctrl(mehci, 1);
+		if (ret) {
+			dev_err(mehci->dev, "pinctrl configuarion failed:%d\n",
+					ret);
+			return ret;
+		}
+	}
 	if (pdata && pdata->resume_gpio) {
 		ret = gpio_request(pdata->resume_gpio, "HSIC_RESUME_GPIO");
 		if (ret < 0) {
@@ -667,7 +702,7 @@ static int msm_hsic_start(struct msm_hsic_hcd *mehci)
 
 	/* HSIC init sequence when HSIC signals (Strobe/Data) are
 	routed via GPIOs */
-	if (pdata && pdata->strobe && pdata->data) {
+	if (pdata && ((pdata->strobe && pdata->data) || mehci->hsic_pinctrl)) {
 
 		if (!pdata->ignore_cal_pad_config) {
 			/* Enable LV_MODE in HSIC_CAL_PAD_CTL register */
@@ -739,7 +774,8 @@ static int msm_hsic_start(struct msm_hsic_hcd *mehci)
 free_resume_gpio:
 	if (pdata && pdata->resume_gpio)
 		gpio_free(pdata->resume_gpio);
-
+	if (mehci->hsic_pinctrl)
+		msm_hsic_config_pinctrl(mehci, 0);
 	return ret;
 }
 
@@ -2073,6 +2109,18 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 		goto destroy_wq;
 	}
 
+	/* Check whether target uses pinctrl */
+	mehci->hsic_pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR(mehci->hsic_pinctrl)) {
+		if (of_property_read_bool(pdev->dev.of_node, "pinctrl-names")) {
+			dev_err(&pdev->dev, "Error encountered while getting pinctrl");
+			ret = PTR_ERR(mehci->hsic_pinctrl);
+			goto destroy_wq;
+		}
+		dev_dbg(&pdev->dev, "Target does not use pinctrl\n");
+		mehci->hsic_pinctrl = NULL;
+	}
+
 	ret = msm_hsic_start(mehci);
 	if (ret) {
 		dev_err(&pdev->dev, "unable to initialize PHY\n");
@@ -2251,6 +2299,8 @@ static int ehci_hsic_msm_remove(struct platform_device *pdev)
 
 	if (pdata && pdata->resume_gpio)
 		gpio_free(pdata->resume_gpio);
+	if (mehci->hsic_pinctrl)
+		msm_hsic_config_pinctrl(mehci, 0);
 
 	msm_hsic_init_vddcx(mehci, 0);
 	msm_hsic_init_gdsc(mehci, 0);
