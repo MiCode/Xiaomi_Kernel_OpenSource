@@ -1,0 +1,103 @@
+Synaptics DSX touch controller
+
+Required properties:
+
+ - compatible		: should be "synaptics,dsx"
+ - reg			: i2c slave address of the device
+ - interrupt-parent	: parent of interrupt
+ - interrupts		: touch sample interrupt to indicate presense or release
+				of fingers on the panel.
+ - synaptics,irq-gpio	: irq gpio
+ - synaptics,reset-gpio	: reset gpio
+
+Optional property:
+ - vdd-supply			: digital voltage power supply needed to power device
+ - avdd-supply			: analog voltage power supply needed to power device
+ - synaptics,button-map		: virtual key code mappings to be used
+ - synaptics,x-flip		: modify orientation of the x axis
+ - synaptics,y-flip		: modify orientation of the y axis
+ - synaptics,reset-delay-ms	: reset delay for controller (ms), default 100
+ - synaptics,panel-coords	: touch panel min x, min y, max x and
+					max y resolution
+ - synaptics,display-coords	: display min x, min y, max x and
+					max y resolution
+ - synaptics,fw-name		: name of firmware .img file in /etc/firmware
+ - synaptics,disable-gpios	: specify this to disable gpios in suspend
+ - pinctrl-names		: This should be defined if a target uses pinctrl framework.
+			See "pinctrl" in Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt.
+			It should specify the names of the configs that pinctrl can install in driver.
+			Following are the pinctrl configs that can be installed:
+			"pmx_ts_active" : Active configuration of pins, this should specify active
+			config defined in pin groups of interrupt and reset gpio.
+			"pmx_ts_suspend" : Disabled configuration of pins, this should specify sleep
+			config defined in pin groups of interrupt and reset gpio.
+			"pmx_ts_release" : Release configuration of pins, this should specify
+			release config defined in pin groups of interrupt and reset gpio.
+ - synaptics,detect-device	: Define this property when two Synaptics Touchscreen controllers
+				need to be supported without changing the DT. In this case, all
+				such devices are placed as child nodes of Synaptics touchscreen
+				node. Following are the properties that can be defined inside
+				these child nodes:
+				- synaptics-package-id
+				- synaptics,panel-coords
+				- synaptics-display-coords
+				- synaptics,button-map
+				- synaptics,key-codes
+ - clocks			: Optional property that represents the clocks associated
+				with the underlying bus when secure touch is enabled. This property
+				is required only if secure touch is enabled and used with this driver.
+ - clock-names:			: Clock names used for secure touch. The names are:
+				"iface_clk", "core_clk".
+
+Optional properties inside child node:
+These properties are defined only when synaptics,detect-device property is defined in DT.
+ - synaptics,package-id		: Specifies the Package Id of touch controller.
+ - synaptics,panel-coords	: Specifies the Touch panel min x, min y, max x and max y
+				resolution.
+ - synaptics,display-coords	: Specifies the display min x, min y, max x and max y
+				resolution.
+ - synaptics,button-map		: Key code mappings to be used when device
+				supports 0D buttons and directly sends key codes.
+ - synaptics,key-codes		: Virtual key code mappings to be used when device
+				supports 2D buttons and sends coordinates instead of
+				key codes.
+ - synaptics,bypass-sensor-coords-check : Bypass the comparison of sensor coordinates
+				range read from DT and touch controller. Used when some
+				touch panels in the field are unprogrammed and misprogrammed.
+
+Example:
+	i2c@f9927000 {
+		synaptics@20 {
+			compatible = "synaptics,dsx"
+			reg = <0x20>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <17 0x2>;
+			vdd-supply = <&pm8226_l19>;
+			avdd-supply = <&pm8226_lvs1>;
+			synaptics,reset-gpio = <&msmgpio 16 0x00>;
+			synaptics,irq-gpio = <&msmgpio 17 0x00>;
+			synaptics,reset-delay-ms = <100>;
+			synaptics,x-flip;
+			synaptics,y-flip;
+			synaptics,disable-gpios;
+			synaptics,fw-name = "PR1610974.img";
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend", "pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+			synaptics,detect-device;
+			synaptics,device1 {
+				synaptics,package-id = <3202>;
+				synaptics,button-map = <139 172 158>;
+			};
+			synaptics,device2 {
+				synaptics,package-id = <3408>;
+				synaptics,display-coords = <0 0 1079 1919>;
+				synaptics,panel-coords = <0 0 1079 2084>;
+				synaptics,key-codes = <139 172 158 217>;
+			};
+			clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			 <&clock_gcc clk_gcc_blsp1_qup5_i2c_apps_clk>;
+			clock-names = "iface_clk", "core_clk";
+		};
+	};
