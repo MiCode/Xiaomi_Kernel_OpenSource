@@ -463,7 +463,6 @@ struct msm_otg {
 	unsigned long tmouts;
 	u8 active_tmout;
 	struct hrtimer timer;
-	enum usb_vdd_type vdd_type;
 	struct power_supply usb_psy;
 	unsigned int online;
 	unsigned int host_mode;
