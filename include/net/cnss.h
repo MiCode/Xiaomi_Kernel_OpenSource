@@ -37,6 +37,7 @@ struct cnss_wlan_driver {
 	void (*crash_shutdown)(struct pci_dev *pdev);
 	int  (*suspend)(struct pci_dev *pdev, pm_message_t state);
 	int  (*resume)(struct pci_dev *pdev);
+	void (*modem_status)(struct pci_dev *, int state);
 	const struct pci_device_id *id_table;
 };
 

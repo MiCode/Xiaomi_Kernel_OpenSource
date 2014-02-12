@@ -26,6 +26,7 @@
 #include <linux/sched.h>
 #include <linux/pm_qos.h>
 #include <soc/qcom/subsystem_restart.h>
+#include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/ramdump.h>
 #include <mach/gpiomux.h>
 #include <mach/msm_pcie.h>
@@ -53,6 +54,8 @@
 
 #define POWER_ON_DELAY		2000
 #define WLAN_ENABLE_DELAY	10000
+
+#define MODEM_NAME		"esoc0"
 
 struct cnss_wlan_gpio_info {
 	char *name;
@@ -87,6 +90,7 @@ static struct cnss_data {
 	u16 revision_id;
 	struct cnss_fw_files fw_files;
 	struct pm_qos_request qos_request;
+	void *modem_notify_handler;
 } *penv;
 
 static int cnss_wlan_vreg_set(struct cnss_wlan_vreg_info *vreg_info, bool state)
@@ -815,6 +819,36 @@ void cnss_device_self_recovery(void)
 }
 EXPORT_SYMBOL(cnss_device_self_recovery);
 
+static int cnss_modem_notifier_nb(struct notifier_block *this,
+				  unsigned long code,
+				  void *ss_handle)
+{
+	struct cnss_wlan_driver *wdrv;
+	struct pci_dev *pdev;
+
+	pr_debug("%s: Modem-Notify: event %lu\n", __func__, code);
+
+	if (!penv)
+		return NOTIFY_DONE;
+
+	wdrv = penv->driver;
+	pdev = penv->pdev;
+
+	if (!wdrv || !pdev || !wdrv->modem_status)
+		return NOTIFY_DONE;
+
+	if (SUBSYS_AFTER_POWERUP == code)
+		wdrv->modem_status(pdev, 1);
+	else if (SUBSYS_BEFORE_SHUTDOWN == code)
+		wdrv->modem_status(pdev, 0);
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block mnb = {
+	.notifier_call = cnss_modem_notifier_nb,
+};
+
 static int cnss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -839,6 +873,13 @@ static int cnss_probe(struct platform_device *pdev)
 	if (IS_ERR(penv->subsys)) {
 		ret = PTR_ERR(penv->subsys);
 		goto err_subsys_reg;
+	}
+
+	penv->modem_notify_handler =
+		subsys_notif_register_notifier(MODEM_NAME, &mnb);
+	if (IS_ERR(penv->modem_notify_handler)) {
+		ret = PTR_ERR(penv->modem_notify_handler);
+		goto err_notif_modem;
 	}
 
 	subsystem_get(penv->subsysdesc.name);
@@ -877,6 +918,9 @@ err_get_wlan_res:
 	destroy_ramdump_device(penv->ramdump_dev);
 
 err_ramdump_create:
+	subsys_notif_unregister_notifier(penv->modem_notify_handler, &mnb);
+
+err_notif_modem:
 	subsys_unregister(penv->subsys);
 
 err_subsys_reg:
@@ -924,6 +968,7 @@ static void __exit cnss_exit(void)
 {
 	if (penv->ramdump_dev)
 		destroy_ramdump_device(penv->ramdump_dev);
+	subsys_notif_unregister_notifier(penv->modem_notify_handler, &mnb);
 	subsys_unregister(penv->subsys);
 	platform_driver_unregister(&cnss_driver);
 }
