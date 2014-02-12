@@ -39,6 +39,7 @@
 			qcom,pon-dbc-delay = <15625>;
 			qcom,system-reset;
 			qcom,s3-debounce = <32>;
+			qcom,s3-src = "kpdpwr-and-resin";
 
 			qcom,pon_1 {
 				qcom,pon-type = <0>;
@@ -50,10 +51,6 @@
 				qcom,pon-type = <1>;
 				qcom,pull-up = <1>;
 				linux,code = <114>;
-				qcom,s1-timer = <6720>;
-				qcom,s2-timer = <2000>;
-				qcom,s2-type = <7>;
-				qcom,support-reset = <1>;
 			};
 
 			qcom,pon_3 {
