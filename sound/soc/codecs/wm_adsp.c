@@ -667,7 +667,9 @@ static int wmfw_add_ctl(struct wm_adsp *adsp, struct wm_coeff_ctl *ctl)
 	ctl->kcontrol = snd_soc_card_get_kcontrol(adsp->card,
 						  ctl->name);
 
+	mutex_lock(&adsp->ctl_lock);
 	list_add(&ctl->list, &adsp->ctl_list);
+	mutex_unlock(&adsp->ctl_lock);
 	return 0;
 
 err_kcontrol:
@@ -2320,6 +2322,7 @@ int wm_adsp2_init(struct wm_adsp *adsp, bool dvfs)
 	INIT_LIST_HEAD(&adsp->alg_regions);
 	INIT_LIST_HEAD(&adsp->ctl_list);
 	INIT_WORK(&adsp->boot_work, wm_adsp2_boot_work);
+	mutex_init(&adsp->ctl_lock);
 
 	if (dvfs) {
 		adsp->dvfs = devm_regulator_get(adsp->dev, "DCVDD");

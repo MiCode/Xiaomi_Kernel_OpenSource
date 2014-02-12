@@ -90,6 +90,7 @@ struct wm_adsp {
 	int fw_ver;
 
 	struct regulator *dvfs;
+	struct mutex ctl_lock;
 
 	u32 host_buf_ptr;
 
