@@ -96,9 +96,8 @@ static DEFINE_CLK_BRANCH_VOTER(xo_gcc, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_otg_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_lpm_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_pil_pronto_clk, &xo_clk_src.c);
-static DEFINE_CLK_BRANCH_VOTER(xo_mss_pil_clk, &xo_clk_src.c);
+static DEFINE_CLK_BRANCH_VOTER(xo_pil_mss_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_wlan_clk, &xo_clk_src.c);
-static DEFINE_CLK_BRANCH_VOTER(xo_pil_mba_clk, &xo_clk_src.c);
 
 static struct mux_clk rpm_debug_mux = {
 	.ops = &mux_reg_ops,
@@ -129,6 +128,8 @@ static struct clk_lookup msm_clocks_rpm[] = {
 	CLK_LIST(xo_a_clk_src),
 	CLK_LIST(xo_otg_clk),
 	CLK_LIST(xo_lpm_clk),
+	CLK_LIST(xo_pil_mss_clk),
+	CLK_LIST(xo_pil_pronto_clk),
 
 	CLK_LIST(snoc_msmbus_clk),
 	CLK_LIST(snoc_msmbus_a_clk),
