@@ -309,6 +309,8 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	if (!drvdata->base)
 		return -ENOMEM;
 
+	drvdata->phys_base = r->start;
+
 	r = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 					"smmu_local_base");
 	if (r) {
