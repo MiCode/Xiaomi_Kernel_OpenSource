@@ -108,6 +108,7 @@
 #include "msm-gdsc-8916.dtsi"
 #include "msm8916-iommu.dtsi"
 #include "msm8916-gpu.dtsi"
+#include "msm8916-mdss.dtsi"
 
 &soc {
 	#address-cells = <1>;
