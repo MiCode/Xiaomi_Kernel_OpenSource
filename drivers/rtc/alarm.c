@@ -72,9 +72,19 @@ static bool suspended;
 static long power_on_alarm;
 
 static void alarm_shutdown(struct platform_device *dev);
-void set_power_on_alarm(long secs)
+void set_power_on_alarm(long secs, bool enable)
 {
-	power_on_alarm = secs;
+	if (enable) {
+		power_on_alarm = secs;
+	} else {
+		if (power_on_alarm && power_on_alarm != secs) {
+			pr_alarm(FLOW, "power-off alarm mismatch: \
+				previous=%ld, now=%ld\n",
+				power_on_alarm, secs);
+		}
+		else
+			power_on_alarm = 0;
+	}
 	alarm_shutdown(NULL);
 }
 
@@ -555,8 +565,8 @@ static void alarm_shutdown(struct platform_device *dev)
 	return;
 
 disable_alarm:
-	rtc_alarm_irq_enable(alarm_rtc_dev, 0);
 	spin_unlock_irqrestore(&alarm_slock, flags);
+	rtc_alarm_irq_enable(alarm_rtc_dev, 0);
 }
 
 static struct rtc_task alarm_rtc_task = {
