@@ -2522,7 +2522,8 @@ static void msm_chg_detect_work(struct work_struct *w)
 		 * due to which charger detection fails in case of PET.
 		 * Add delay of 100 microsec to avoid that.
 		 */
-		udelay(100);
+		if (aca_enabled())
+			udelay(100);
 		msm_chg_enable_aca_intr(motg);
 		dev_dbg(phy->dev, "chg_type = %s\n",
 			chg_to_string(motg->chg_type));
