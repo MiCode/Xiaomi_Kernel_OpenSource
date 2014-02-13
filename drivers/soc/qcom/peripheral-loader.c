@@ -531,7 +531,7 @@ static void pil_release_mmap(struct pil_desc *desc)
 	}
 }
 
-#define IOMAP_SIZE SZ_4M
+#define IOMAP_SIZE SZ_1M
 
 static void *map_fw_mem(phys_addr_t paddr, size_t size)
 {
