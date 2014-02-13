@@ -100,6 +100,7 @@
 };
 
 #include "msm-gdsc.dtsi"
+#include "msmplutonium-smp2p.dtsi"
 
 &soc {
 	#address-cells = <1>;
