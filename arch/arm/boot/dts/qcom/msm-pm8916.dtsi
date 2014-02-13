@@ -254,6 +254,55 @@
 				reg = <0x1600 0x100>;
 			};
 		};
+
+		pm8916_bms: qcom,vmbms {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-vm-bms";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "disabled";
+
+			qcom,v-cutoff-uv = <3400000>;
+			qcom,max-voltage-uv = <4200000>;
+			qcom,r-conn-mohm = <0>;
+			qcom,shutdown-soc-valid-limit = <100>;
+			qcom,low-soc-calculate-soc-threshold = <15>;
+			qcom,low-voltage-calculate-soc-ms = <1000>;
+			qcom,low-soc-calculate-soc-ms = <5000>;
+			qcom,calculate-soc-ms = <20000>;
+			qcom,volatge-soc-timeout-ms = <60000>;
+			qcom,low-voltage-threshold = <3420000>;
+			qcom,bms-vadc = <&pm8916_vadc>;
+
+			qcom,force-s3-on-suspend;
+			qcom,force-s2-in-charging;
+			qcom,report-charger-eoc;
+
+			qcom,batt-pres-status@1208 {
+				reg = <0x1208 0x1>;
+			};
+
+			qcom,qpnp-chg-pres@1008 {
+				reg = <0x1008 0x1>;
+			};
+
+			qcom,vm-bms@4000 {
+				reg = <0x4000 0x100>;
+				interrupts =	<0x0 0x40 0x0>,
+						<0x0 0x40 0x1>,
+						<0x0 0x40 0x2>,
+						<0x0 0x40 0x3>,
+						<0x0 0x40 0x4>,
+						<0x0 0x40 0x5>;
+
+				interrupt-names = "leave_cv",
+						  "enter_cv",
+						  "good_ocv",
+						  "ocv_thr",
+						  "fifo_update_done",
+						  "fsm_state_change";
+			};
+		};
 	};
 
 	qcom,pm8916@1 {
