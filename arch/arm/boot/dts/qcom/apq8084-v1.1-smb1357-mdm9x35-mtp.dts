@@ -12,13 +12,13 @@
 
 /dts-v1/;
 
-#include "apq8084.dtsi"
+#include "apq8084-v1.1.dtsi"
 #include "apq8084-mtp.dtsi"
 
 / {
-	model = "Qualcomm APQ 8084, SMB1357 MTP";
+	model = "Qualcomm APQ 8084 v1.1, SMB1357 MDM9x35 MTP";
 	compatible = "qcom,apq8084-mtp", "qcom,apq8084", "qcom,mtp";
-	qcom,board-id = <8 2>;
+	qcom,board-id = <8 3>;
 };
 
 &i2c_0 {
@@ -37,11 +37,10 @@
 		qcom,dc-psy-type = "Wireless";
 		qcom,dc-psy-ma = <1000>;
 		qcom,thermal-mitigation = <1500 700 600 0>;
-		qcom,bmd-algo-disabled;
 	};
 };
 
-&mdm0 {
+&mdm1 {
 	interrupt-map = <0 &msmgpio 111 0x3
 			1 &msmgpio 109 0x3
 			2 &msmgpio 113 0x3
@@ -55,6 +54,7 @@
 	qcom,ap2mdm-wakeup-gpio = <&msmgpio 108 0x00>;
 	qcom,ap2mdm-vddmin-gpio = <&msmgpio 114 0x00>;
 	qcom,mdm2ap-vddmin-gpio = <&msmgpio 115 0x00>;
+	qcom,mdm-dual-link;
 	status = "ok";
 };
 
