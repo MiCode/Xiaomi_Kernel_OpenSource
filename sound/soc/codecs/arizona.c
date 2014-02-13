@@ -1839,7 +1839,7 @@ int arizona_set_output_mode(struct snd_soc_codec *codec, int output, bool diff)
 EXPORT_SYMBOL_GPL(arizona_set_output_mode);
 
 int arizona_set_hpdet_cb(struct snd_soc_codec *codec,
-			 void (*hpdet_cb)(unsigned int))
+			 void (*hpdet_cb)(unsigned int measurement))
 {
 	struct arizona *arizona = dev_get_drvdata(codec->dev->parent);
 
