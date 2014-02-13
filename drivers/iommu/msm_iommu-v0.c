@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,7 +48,7 @@
 static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
 				 unsigned int len);
 
-static inline void clean_pte(unsigned long *start, unsigned long *end,
+static inline void clean_pte(u32 *start, u32 *end,
 			     int redirect)
 {
 	if (!redirect)
@@ -432,7 +432,7 @@ static int msm_iommu_domain_init(struct iommu_domain *domain, int flags)
 		goto fail_nomem;
 
 	INIT_LIST_HEAD(&priv->list_attached);
-	priv->pt.fl_table = (unsigned long *)__get_free_pages(GFP_KERNEL,
+	priv->pt.fl_table = (u32 *)__get_free_pages(GFP_KERNEL,
 							  get_order(SZ_16K));
 
 	if (!priv->pt.fl_table)
@@ -462,7 +462,7 @@ fail_nomem:
 static void msm_iommu_domain_destroy(struct iommu_domain *domain)
 {
 	struct msm_iommu_priv *priv;
-	unsigned long *fl_table;
+	u32 *fl_table;
 	int i;
 
 	mutex_lock(&msm_iommu_lock);
@@ -649,11 +649,11 @@ static int __get_pgprot(int prot, int len)
 	return pgprot;
 }
 
-static unsigned long *make_second_level(struct msm_iommu_priv *priv,
-					unsigned long *fl_pte)
+static u32 *make_second_level(struct msm_iommu_priv *priv,
+					u32 *fl_pte)
 {
-	unsigned long *sl;
-	sl = (unsigned long *) __get_free_pages(GFP_KERNEL,
+	u32 *sl;
+	sl = (u32 *) __get_free_pages(GFP_KERNEL,
 			get_order(SZ_4K));
 
 	if (!sl) {
@@ -671,7 +671,7 @@ fail:
 	return sl;
 }
 
-static int sl_4k(unsigned long *sl_pte, phys_addr_t pa, unsigned int pgprot)
+static int sl_4k(u32 *sl_pte, phys_addr_t pa, unsigned int pgprot)
 {
 	int ret = 0;
 
@@ -686,7 +686,7 @@ fail:
 	return ret;
 }
 
-static int sl_64k(unsigned long *sl_pte, phys_addr_t pa, unsigned int pgprot)
+static int sl_64k(u32 *sl_pte, phys_addr_t pa, unsigned int pgprot)
 {
 	int ret = 0;
 
@@ -707,7 +707,7 @@ fail:
 }
 
 
-static inline int fl_1m(unsigned long *fl_pte, phys_addr_t pa, int pgprot)
+static inline int fl_1m(u32 *fl_pte, phys_addr_t pa, int pgprot)
 {
 	if (*fl_pte)
 		return -EBUSY;
@@ -719,7 +719,7 @@ static inline int fl_1m(unsigned long *fl_pte, phys_addr_t pa, int pgprot)
 }
 
 
-static inline int fl_16m(unsigned long *fl_pte, phys_addr_t pa, int pgprot)
+static inline int fl_16m(u32 *fl_pte, phys_addr_t pa, int pgprot)
 {
 	int i;
 	int ret = 0;
@@ -739,12 +739,12 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 			 phys_addr_t pa, size_t len, int prot)
 {
 	struct msm_iommu_priv *priv;
-	unsigned long *fl_table;
-	unsigned long *fl_pte;
-	unsigned long fl_offset;
-	unsigned long *sl_table;
-	unsigned long *sl_pte;
-	unsigned long sl_offset;
+	u32 *fl_table;
+	u32 *fl_pte;
+	u32 fl_offset;
+	u32 *sl_table;
+	u32 *sl_pte;
+	u32 sl_offset;
 	unsigned int pgprot;
 	int ret = 0;
 
@@ -811,7 +811,7 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 		}
 	}
 
-	sl_table = (unsigned long *) __va(((*fl_pte) & FL_BASE_MASK));
+	sl_table = (u32 *) __va(((*fl_pte) & FL_BASE_MASK));
 	sl_offset = SL_OFFSET(va);
 	sl_pte = sl_table + sl_offset;
 
@@ -840,12 +840,12 @@ static size_t msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 			    size_t len)
 {
 	struct msm_iommu_priv *priv;
-	unsigned long *fl_table;
-	unsigned long *fl_pte;
-	unsigned long fl_offset;
-	unsigned long *sl_table;
-	unsigned long *sl_pte;
-	unsigned long sl_offset;
+	u32 *fl_table;
+	u32 *fl_pte;
+	u32 fl_offset;
+	u32 *sl_table;
+	u32 *sl_pte;
+	u32 sl_offset;
 	int i, ret = 0;
 
 	mutex_lock(&msm_iommu_lock);
@@ -890,7 +890,7 @@ static size_t msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 		clean_pte(fl_pte, fl_pte + 1, priv->pt.redirect);
 	}
 
-	sl_table = (unsigned long *) __va(((*fl_pte) & FL_BASE_MASK));
+	sl_table = (u32 *) __va(((*fl_pte) & FL_BASE_MASK));
 	sl_offset = SL_OFFSET(va);
 	sl_pte = sl_table + sl_offset;
 
@@ -951,14 +951,14 @@ static inline int is_fully_aligned(unsigned int va, phys_addr_t pa, size_t len,
 		&& (len >= align);
 }
 
-static int check_range(unsigned long *fl_table, unsigned int va,
+static int check_range(u32 *fl_table, unsigned int va,
 				 unsigned int len)
 {
 	unsigned int offset = 0;
-	unsigned long *fl_pte;
-	unsigned long fl_offset;
-	unsigned long *sl_table;
-	unsigned long sl_start, sl_end;
+	u32 *fl_pte;
+	u32 fl_offset;
+	u32 *sl_table;
+	u32 sl_start, sl_end;
 	int i;
 
 	fl_offset = FL_OFFSET(va);	/* Upper 12 bits */
@@ -1007,11 +1007,11 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 	unsigned int pa;
 	unsigned int start_va = va;
 	unsigned int offset = 0;
-	unsigned long *fl_table;
-	unsigned long *fl_pte;
-	unsigned long fl_offset;
-	unsigned long *sl_table = NULL;
-	unsigned long sl_offset, sl_start;
+	u32 *fl_table;
+	u32 *fl_pte;
+	u32 fl_offset;
+	u32 *sl_table = NULL;
+	u32 sl_offset, sl_start;
 	unsigned int chunk_size, chunk_offset = 0;
 	int ret = 0;
 	struct msm_iommu_priv *priv;
@@ -1154,11 +1154,11 @@ static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
 				 unsigned int len)
 {
 	unsigned int offset = 0;
-	unsigned long *fl_table;
-	unsigned long *fl_pte;
-	unsigned long fl_offset;
-	unsigned long *sl_table;
-	unsigned long sl_start, sl_end;
+	u32 *fl_table;
+	u32 *fl_pte;
+	u32 fl_offset;
+	u32 *sl_table;
+	u32 sl_start, sl_end;
 	int used, i;
 	struct msm_iommu_priv *priv;
 
