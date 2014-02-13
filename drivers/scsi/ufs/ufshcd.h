@@ -550,6 +550,7 @@ struct ufs_hba {
 	struct ufs_stats ufs_stats;
 	struct debugfs_files debugfs_files;
 #endif
+	bool is_sys_suspended;
 };
 
 /* Returns true if clocks can be gated. Otherwise false */
