@@ -1,0 +1,35 @@
+AKM AK8963 3-axis electronic compass driver
+
+Required properties:
+
+ - compatible		: Should be "ak,ak8963".
+ - reg				: i2c address of the device.
+ - interrupt-parent : Parent of interrupt.
+ - interrupts		: Ecompass interrupt to indicate new data ready.
+ - vdd-supply		: Analog power supply needed to power up the device.
+ - vio-supply		: Digital IO power supply needed for IO and I2C.
+ - akm,layout		: The layout of the ecompass sensor chip. There are 8
+	patterns of layout described as below:
+	0: Indicate the invalid pattern, The userspace will decide the pattern.
+	1: 1st pin is right down
+	2: 1st pin is left down
+	3: 1st pin is left top
+	4: 1st pin is right top
+	5: 1st pin is left down (from top view)
+	6: 1st pin is left top (from top view)
+	7: 1st pin is right top (from top view)
+	8: 1st pin is right down (from top view)
+ - akm,gpio_rstn	: The gpio pin to reset the sensor chip.
+
+ Example:
+	akm@c {
+			compatible = "ak,ak8963";
+			reg = <0x0c>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <83 0x2>;
+			vdd-supply = <&pm8110_l19>;
+			vio-supply = <&pm8110_l14>;
+			akm,layout = <0x0>;
+			akm,gpio_rstn = <&msmgpio 82 0x0>;
+	};
+
