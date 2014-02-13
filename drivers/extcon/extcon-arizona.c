@@ -879,8 +879,17 @@ static void arizona_micd_detect(struct work_struct *work)
 	if (!(val & ARIZONA_MICD_STS)) {
 		dev_warn(arizona->dev, "Detected open circuit\n");
 		info->mic = arizona->pdata.micd_open_circuit_declare;
-		if (!info->mic)
+		if (!info->mic) {
 			arizona_stop_mic(info);
+		} else {
+			/* Don't need to regulate for button detection */
+			ret = regulator_allow_bypass(info->micvdd, true);
+			if (ret != 0) {
+				dev_err(arizona->dev,
+					"Failed to bypass MICVDD: %d\n",
+					ret);
+			}
+		}
 		arizona_identify_headphone(info);
 		info->detecting = false;
 		goto handled;
