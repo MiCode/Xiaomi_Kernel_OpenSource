@@ -571,6 +571,7 @@ static const struct attribute *vlv_attrs[] = {
 	&dev_attr_gt_max_freq_mhz.attr,
 	&dev_attr_gt_min_freq_mhz.attr,
 	&dev_attr_vlv_rpe_freq_mhz.attr,
+	&dev_attr_thaw.attr,
 	NULL,
 };
 
