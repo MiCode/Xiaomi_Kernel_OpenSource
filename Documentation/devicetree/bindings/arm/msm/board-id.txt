@@ -7,12 +7,34 @@ information at boot-up to decide which device tree to use when given multiple
 device trees, some of which may not be compatible with the actual hardware.  It
 is the bootloader's responsibility to pass the correct device tree to the kernel.
 
-Format:
+Legacy format:
 
 It is expected that the qcom,board-id entry be at the top level of the device
 tree structure.  The format of the entry is:
 
    qcom,board-id = <platform_id, subtype_id> [, <p2, s2> ...]
 
+where platform_id and subtype_id are the numeric values for the platform and
+subtype of the current hardware.
+
+
+Modern format:
+The cell layout of the qcom,board-id property is as follows:
+
+   qcom,board-id = <board_id, reserved>
+
+where board_id is a 32-bit integer whose bit values are defined as follows:
+    bits 31-24 = Platform Subtype ID
+    bits 23-16 = Platform Version (Major)
+    bits 15-8  = Platform Version (Minor)
+    bits  7-0  = Platform Type ID
+and the 'reserved' cell shall have the value 0
+
+In the event that a given device tree is applicable to all hardware versions
+matching a given Platform Type / Subtype ID, the major/minior platform version
+fields in the board_id property shall both be specified as 0xff.
+
 Example:
    qcom,board-id = <15 0>;
+   qcom,board-id = <0x01040708, 0>;
+   qcom,board-id = <0x01ffff08, 0>;
