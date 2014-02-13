@@ -586,14 +586,8 @@ static void msm_bus_noc_update_bw(struct msm_bus_inode_info *hop,
 
 skip_mas_bw:
 	ports = hop->node_info->num_sports;
-	if (ports == 0) {
-		MSM_BUS_DBG("\nDIVIDE BY 0, hop: %d\n",
-			hop->node_info->priv_id);
-		return;
-	}
-	bw = INTERLEAVED_BW(fab_pdata, add_bw, ports);
 	for (i = 0; i < ports; i++) {
-		sel_cd->slv[hop->node_info->slavep[i]].bw += bw;
+		sel_cd->slv[hop->node_info->slavep[i]].bw += add_bw;
 		sel_cd->slv[hop->node_info->slavep[i]].hw_id =
 			hop->node_info->slv_hw_id;
 		MSM_BUS_DBG("NOC: Update slave_bw for ID: %d -> %llu\n",
