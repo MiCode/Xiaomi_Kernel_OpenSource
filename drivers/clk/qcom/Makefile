@@ -27,5 +27,10 @@ obj-$(CONFIG_ARCH_MSM8226)	+= clock-a7.o
 obj-$(CONFIG_ARCH_MDM9630)	+= clock-a7.o
 obj-$(CONFIG_ARCH_MSM8916)	+= clock-a7.o
 
+obj-$(CONFIG_ARCH_MSM_KRAIT)	+= clock-krait.o
+obj-$(CONFIG_ARCH_FSM9900)	+= clock-krait-8974.o
+obj-$(CONFIG_ARCH_APQ8084)	+= clock-krait-8974.o
+obj-$(CONFIG_ARCH_MSM8974)	+= clock-krait-8974.o
+
 obj-y				+= gdsc.o
 obj-y				+= mdss/

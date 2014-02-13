@@ -26,12 +26,12 @@
 #include <soc/qcom/clock-pll.h>
 #include <soc/qcom/clock-rpm.h>
 #include <soc/qcom/clock-voter.h>
+#include <soc/qcom/clock-krait.h>
 
 #include <soc/qcom/socinfo.h>
 #include <soc/qcom/rpm-smd.h>
 
 #include "clock.h"
-#include "clock-krait.h"
 
 enum {
 	GCC_BASE,
