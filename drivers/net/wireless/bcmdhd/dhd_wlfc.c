@@ -1618,7 +1618,7 @@ _dhd_wlfc_mac_entry_update(athost_wl_status_info_t* ctx, wlfc_mac_descriptor_t* 
 				ctx->active_entry_count++;
 			} else {
 				DHD_ERROR(("%s():%d, entry(%d)\n", __FUNCTION__, __LINE__,
-					entry - &ctx->destination_entries.nodes[0]));
+					(int)(entry - &ctx->destination_entries.nodes[0])));
 			}
 		}
 	} else if (action == eWLFC_MAC_ENTRY_ACTION_DEL) {

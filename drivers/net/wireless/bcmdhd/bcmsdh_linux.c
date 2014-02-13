@@ -174,7 +174,7 @@ void* bcmsdh_probe(osl_t *osh, void *dev, void *sdioh, void *adapter_info, uint 
 	vendevid = bcmsdh_query_device(bcmsdh);
 	/* try to attach to the target device */
 	bcmsdh_osinfo->context = drvinfo.probe((vendevid >> 16), (vendevid & 0xFFFF), bus_num,
-		slot_num, 0, bus_type, (void *)regs, osh, bcmsdh);
+		slot_num, 0, bus_type, (void *)(uintptr)regs, osh, bcmsdh);
 	if (bcmsdh_osinfo->context == NULL) {
 		SDLX_MSG(("%s: device attach failed\n", __FUNCTION__));
 		goto err;
