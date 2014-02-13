@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +12,7 @@
  */
 
 #include <linux/types.h>
+#include <linux/delay.h>
 #include <linux/mhl_8334.h>
 #include <linux/vmalloc.h>
 #include <linux/input.h>

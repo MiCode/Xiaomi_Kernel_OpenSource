@@ -16,6 +16,7 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of_address.h>
+#include <linux/of_platform.h>
 #include <linux/of_gpio.h>
 #include <linux/types.h>
 #include <linux/vmalloc.h>
