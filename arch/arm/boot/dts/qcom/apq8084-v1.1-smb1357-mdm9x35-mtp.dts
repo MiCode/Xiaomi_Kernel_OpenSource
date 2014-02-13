@@ -18,7 +18,7 @@
 / {
 	model = "Qualcomm APQ 8084 v1.1, SMB1357 MDM9x35 MTP";
 	compatible = "qcom,apq8084-mtp", "qcom,apq8084", "qcom,mtp";
-	qcom,board-id = <8 3>;
+	qcom,board-id = <0x03010108 0>;
 };
 
 &i2c_0 {

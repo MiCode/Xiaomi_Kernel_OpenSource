@@ -173,10 +173,10 @@
 	rpm-regulator-ldoa3 {
 		status = "okay";
 		pma8084_l3: regulator-l3 {
-			regulator-min-microvolt = <1225000>;
-			regulator-max-microvolt = <1225000>;
-			qcom,init-voltage = <1225000>;
-			qcom,init-current = <200>;
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1000000>;
+			qcom,init-voltage = <1000000>;
+			qcom,init-current = <50>;
 			regulator-boot-on;
 			status = "okay";
 		};
@@ -185,10 +185,10 @@
 	rpm-regulator-ldoa4 {
 		status = "okay";
 		pma8084_l4: regulator-l4 {
-			regulator-min-microvolt = <1000000>;
-			regulator-max-microvolt = <1000000>;
-			qcom,init-voltage = <1000000>;
-			qcom,init-current = <50>;
+			regulator-min-microvolt = <1225000>;
+			regulator-max-microvolt = <1225000>;
+			qcom,init-voltage = <1225000>;
+			qcom,init-current = <450>;
 			regulator-boot-on;
 			status = "okay";
 		};

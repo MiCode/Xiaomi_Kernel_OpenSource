@@ -12,13 +12,14 @@
 
 /dts-v1/;
 
-#include "apq8084.dtsi"
-#include "apq8084-mtp.dtsi"
+#include "apq8084-v1.1.dtsi"
+#include "apq8084-old-pwr-grid.dtsi"
+#include "apq8084-cdp.dtsi"
 
 / {
-	model = "Qualcomm APQ 8084 v1.0, SMB1357 MDM9x35 MTP";
-	compatible = "qcom,apq8084-mtp", "qcom,apq8084", "qcom,mtp";
-	qcom,board-id = <8 3>;
+	model = "Qualcomm APQ 8084 v1.1, Old Pwr Grid, SMB1357 MDM9x35 ALT RCM";
+	compatible = "qcom,apq8084-cdp", "qcom,apq8084", "qcom,cdp";
+	qcom,board-id = <21 6>;
 };
 
 &i2c_0 {
@@ -34,8 +35,6 @@
 		regulator-name = "smb1357_otg_vreg";
 		qcom,soft-vfloat-comp-disabled;
 		therm-bias-supply = <&pma8084_lvs2>;
-		qcom,dc-psy-type = "Wireless";
-		qcom,dc-psy-ma = <1000>;
 		qcom,thermal-mitigation = <1500 700 600 0>;
 	};
 };

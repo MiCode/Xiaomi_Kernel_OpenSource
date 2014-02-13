@@ -13,31 +13,25 @@
 /dts-v1/;
 
 #include "apq8084.dtsi"
+#include "apq8084-old-pwr-grid.dtsi"
 #include "apq8084-mtp.dtsi"
 
 / {
-	model = "Qualcomm APQ 8084 v1.0, SMB1357 MTP";
+	model = "Qualcomm APQ 8084, Old Pwr Grid, SMB349 MTP";
 	compatible = "qcom,apq8084-mtp", "qcom,apq8084", "qcom,mtp";
-	qcom,board-id = <8 2>;
+	qcom,board-id = <8 1>;
 };
 
 &i2c_0 {
-	smb1357_otg_vreg: smb1357-charger@1c {
-		compatible = "qcom,smb1357-charger";
-		reg = <0x1c>;
+	smb349_otg_vreg: smb349-charger@1b {
+		compatible = "qcom,smb349-charger";
+		reg = <0x1b>;
 		interrupt-parent = <&spmi_bus>;
-		interrupts = <0x0 0xcd 0x0>;	/* PMA8084 GPIO 14 */
+		interrupts = <0x00 0xcd 0x0>; /* PMA8084 GPIO 14 */
+		regulator-name = "smb349_otg_vreg";
 		qcom,float-voltage-mv = <4200>;
-		qcom,charging-timeout = <1536>;
-		qcom,recharge-thresh-mv = <200>;
 		qcom,iterm-ma = <100>;
-		regulator-name = "smb1357_otg_vreg";
-		qcom,soft-vfloat-comp-disabled;
-		therm-bias-supply = <&pma8084_lvs2>;
-		qcom,dc-psy-type = "Wireless";
-		qcom,dc-psy-ma = <1000>;
-		qcom,thermal-mitigation = <1500 700 600 0>;
-		qcom,bmd-algo-disabled;
+		qcom,recharge-mv = <50>;
 	};
 };
 
@@ -59,5 +53,5 @@
 };
 
 &usb3 {
-	vbus_dwc3-supply = <&smb1357_otg_vreg>;
+	vbus_dwc3-supply = <&smb349_otg_vreg>;
 };
