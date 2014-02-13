@@ -445,7 +445,7 @@ static int smd_tty_add_driver(struct smd_tty_info *info)
 
 	mutex_lock(&smd_tty_pfdriver_lock_lha1);
 	list_for_each_entry(item, &smd_tty_pfdriver_list, list) {
-		if (!strcmp(item->driver.driver.name, info->ch_name)) {
+		if (!strcmp(item->driver.driver.name, info->dev_name)) {
 			SMD_TTY_INFO("%s:%s Driver Already reg. cnt:%d\n",
 				__func__, info->ch_name, item->ref_cnt);
 			++item->ref_cnt;
@@ -504,7 +504,7 @@ static void smd_tty_remove_driver(struct smd_tty_info *info)
 	mutex_lock(&smd_tty_pfdriver_lock_lha1);
 	list_for_each_entry(smd_tty_pfdriverp, &smd_tty_pfdriver_list, list) {
 		if (!strcmp(smd_tty_pfdriverp->driver.driver.name,
-					info->ch_name)) {
+					info->dev_name)) {
 			found_item = true;
 			SMD_TTY_INFO("%s:%s Platform driver cnt:%d\n",
 				__func__, info->ch_name,
