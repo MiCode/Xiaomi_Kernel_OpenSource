@@ -1495,6 +1495,20 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) * 2;
 		break;
 	}
+	case HAL_PARAM_VENC_ENABLE_INITIAL_QP:
+	{
+		struct hfi_initial_quantization *hfi;
+		struct hal_initial_quantization *quant = pdata;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VENC_INITIAL_QP;
+		hfi = (struct hfi_initial_quantization *) &pkt->rg_property_data[1];
+		hfi->init_qp_enable = quant->initqp_enable;
+		hfi->qp_i = quant->qpi;
+		hfi->qp_p = quant->qpp;
+		hfi->qp_b = quant->qpb;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_initial_quantization);
+		break;
+	}
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */
 	case HAL_CONFIG_BUFFER_REQUIREMENTS:
 	case HAL_CONFIG_PRIORITY:
