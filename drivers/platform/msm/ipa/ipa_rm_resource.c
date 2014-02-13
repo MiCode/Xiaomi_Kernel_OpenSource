@@ -30,7 +30,6 @@ int ipa_rm_prod_index(enum ipa_rm_resource_name resource_name)
 
 	switch (resource_name) {
 	case IPA_RM_RESOURCE_BRIDGE_PROD:
-	case IPA_RM_RESOURCE_A2_PROD:
 	case IPA_RM_RESOURCE_USB_PROD:
 	case IPA_RM_RESOURCE_HSIC_PROD:
 	case IPA_RM_RESOURCE_STD_ECM_PROD:
@@ -66,7 +65,6 @@ int ipa_rm_cons_index(enum ipa_rm_resource_name resource_name)
 {
 	int result = resource_name;
 	switch (resource_name) {
-	case IPA_RM_RESOURCE_A2_CONS:
 	case IPA_RM_RESOURCE_USB_CONS:
 	case IPA_RM_RESOURCE_HSIC_CONS:
 		break;
