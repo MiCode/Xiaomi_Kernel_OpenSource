@@ -1061,15 +1061,12 @@ int __qseecom_process_rpmb_svc_cmd(struct qseecom_dev_handle *data_ptr,
 		return -EINVAL;
 	}
 
-	if (((uint32_t)req_ptr->cmd_req_buf <
-			data_ptr->client.user_virt_sb_base)
-			|| ((uint32_t)req_ptr->cmd_req_buf >=
-			(data_ptr->client.user_virt_sb_base +
-			data_ptr->client.sb_length))) {
-		pr_err("cmd buffer address not within shared bufffer\n");
+	/* Clients need to ensure req_buf is at base offset of shared buffer */
+	if ((uint32_t)req_ptr->cmd_req_buf !=
+			data_ptr->client.user_virt_sb_base) {
+		pr_err("cmd buf not pointing to base offset of shared buffer\n");
 		return -EINVAL;
 	}
-
 
 	if (((uint32_t)req_ptr->resp_buf < data_ptr->client.user_virt_sb_base)
 			|| ((uint32_t)req_ptr->resp_buf >=
@@ -1089,8 +1086,6 @@ int __qseecom_process_rpmb_svc_cmd(struct qseecom_dev_handle *data_ptr,
 					(uint32_t)req_ptr->resp_buf));
 	send_svc_ireq_ptr->rsp_len = req_ptr->resp_len;
 
-	pr_debug("CMD ID (%x), KEY_TYPE (%d)\n", send_svc_ireq_ptr->qsee_cmd_id,
-	((struct qseecom_rpmb_provision_key *)req_ptr->cmd_req_buf)->key_type);
 	return ret;
 }
 
@@ -1112,6 +1107,21 @@ static int qseecom_send_service_cmd(struct qseecom_dev_handle *data,
 
 	if (req.resp_buf == NULL) {
 		pr_err("cmd buffer or response buffer is null\n");
+		return -EINVAL;
+	}
+
+	if (data->client.sb_virt == NULL) {
+		pr_err("sb_virt null\n");
+		return -EINVAL;
+	}
+
+	if (data->client.user_virt_sb_base == 0) {
+		pr_err("user_virt_sb_base is null\n");
+		return -EINVAL;
+	}
+
+	if (data->client.sb_length == 0) {
+		pr_err("sb_length is 0\n");
 		return -EINVAL;
 	}
 
