@@ -218,19 +218,28 @@ enum dump_reg {
 	DUMP_REG_MAIR0 = DUMP_REG_PRRR,
 	DUMP_REG_NMRR,
 	DUMP_REG_MAIR1 = DUMP_REG_NMRR,
+	DUMP_REG_CBAR_N,
+	DUMP_REG_CBFRSYNRA_N,
 	MAX_DUMP_REGS,
 };
 
-struct dump_regs_tbl {
+enum dump_reg_type {
+	DRT_CTX_REG,
+	DRT_GLOBAL_REG,
+	DRT_GLOBAL_REG_N,
+};
+
+struct dump_regs_tbl_entry {
 	/*
-	 * To keep things context-bank-agnostic, we only store the CB
+	 * To keep things context-bank-agnostic, we only store the
 	 * register offset in `reg_offset'
 	 */
-	unsigned long reg_offset;
+	unsigned int reg_offset;
 	const char *name;
 	int must_be_present;
+	enum dump_reg_type dump_reg_type;
 };
-extern struct dump_regs_tbl dump_regs_tbl[MAX_DUMP_REGS];
+extern struct dump_regs_tbl_entry dump_regs_tbl[MAX_DUMP_REGS];
 
 #define COMBINE_DUMP_REG(upper, lower) (((u64) upper << 32) | lower)
 
