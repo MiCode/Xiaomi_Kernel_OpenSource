@@ -135,7 +135,7 @@ static unsigned int rndis_qc_bitrate(struct usb_gadget *g)
 #define DEFAULT_MAX_PKT_PER_XFER			15
 
 /* default pkt alignment factor */
-#define DEFAULT_PKT_ALIGNMENT_FACTOR			2
+#define DEFAULT_PKT_ALIGNMENT_FACTOR			4
 
 #define RNDIS_QC_IOCTL_MAGIC		'i'
 #define RNDIS_QC_GET_MAX_PKT_PER_XFER   _IOR(RNDIS_QC_IOCTL_MAGIC, 1, u8)
