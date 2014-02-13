@@ -514,6 +514,9 @@ static void kgsl_iommu_clk_disable_event(struct kgsl_device *device, void *data,
 	else
 		/* something went wrong with the event handling mechanism */
 		BUG_ON(1);
+
+	/* Free param we are done using it */
+	kfree(param);
 }
 
 /*
