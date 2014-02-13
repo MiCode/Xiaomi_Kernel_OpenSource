@@ -1209,7 +1209,7 @@
 		vdd_pll-supply = <&pm8226_l8>;
 		qcom,vdd_pll = <1800000>;
 
-		qcom,firmware-name = "mba";
+		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
 
 		/* GPIO inputs from mss */

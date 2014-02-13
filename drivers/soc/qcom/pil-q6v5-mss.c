@@ -42,18 +42,6 @@
 #define MAX_SSR_REASON_LEN	81U
 #define STOP_ACK_TIMEOUT_MS	1000
 
-struct modem_data {
-	struct mba_data *mba;
-	struct q6v5_data *q6;
-	struct subsys_device *subsys;
-	struct subsys_desc subsys_desc;
-	void *adsp_state_notifier;
-	void *ramdump_dev;
-	bool crash_shutdown;
-	bool ignore_errors;
-	struct completion stop_ack;
-};
-
 #define subsys_to_drv(d) container_of(d, struct modem_data, subsys_desc)
 
 static void log_modem_sfr(void)
@@ -125,7 +113,6 @@ static int modem_shutdown(const struct subsys_desc *subsys, bool force_stop)
 		gpio_set_value(subsys->force_stop_gpio, 0);
 	}
 
-	pil_shutdown(&drv->mba->desc);
 	pil_shutdown(&drv->q6->desc);
 
 	return 0;
@@ -134,7 +121,6 @@ static int modem_shutdown(const struct subsys_desc *subsys, bool force_stop)
 static int modem_powerup(const struct subsys_desc *subsys)
 {
 	struct modem_data *drv = subsys_to_drv(subsys);
-	int ret;
 
 	if (subsys->is_not_loadable)
 		return 0;
@@ -145,14 +131,7 @@ static int modem_powerup(const struct subsys_desc *subsys)
 	 */
 	INIT_COMPLETION(drv->stop_ack);
 	drv->ignore_errors = false;
-	ret = pil_boot(&drv->q6->desc);
-	if (ret)
-		return ret;
-	ret = pil_boot(&drv->mba->desc);
-	if (ret)
-		pil_shutdown(&drv->q6->desc);
-
-	return ret;
+	return pil_boot(&drv->q6->desc);
 }
 
 static void modem_crash_shutdown(const struct subsys_desc *subsys)
@@ -173,15 +152,20 @@ static int modem_ramdump(int enable, const struct subsys_desc *subsys)
 	if (!enable)
 		return 0;
 
-	ret = pil_boot(&drv->q6->desc);
+	ret = pil_mss_make_proxy_votes(&drv->q6->desc);
 	if (ret)
 		return ret;
 
-	ret = pil_do_ramdump(&drv->mba->desc, drv->ramdump_dev);
+	ret = pil_mss_reset_load_mba(&drv->q6->desc);
+	if (ret)
+		return ret;
+
+	ret = pil_do_ramdump(&drv->q6->desc, drv->ramdump_dev);
 	if (ret < 0)
 		pr_err("Unable to dump modem fw memory (rc = %d).\n", ret);
 
-	pil_shutdown(&drv->q6->desc);
+	pil_mss_shutdown(&drv->q6->desc);
+	pil_mss_remove_proxy_votes(&drv->q6->desc);
 	return ret;
 }
 
@@ -263,27 +247,22 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 					struct platform_device *pdev)
 {
 	struct q6v5_data *q6;
-	struct mba_data *mba;
-	struct pil_desc *q6_desc, *mba_desc;
+	struct pil_desc *q6_desc;
 	struct resource *res;
 	struct property *prop;
 	int ret;
-
-	mba = devm_kzalloc(&pdev->dev, sizeof(*mba), GFP_KERNEL);
-	if (!mba)
-		return -ENOMEM;
-	drv->mba = mba;
 
 	q6 = pil_q6v5_init(pdev);
 	if (IS_ERR(q6))
 		return PTR_ERR(q6);
 	drv->q6 = q6;
-	drv->mba->xo = q6->xo;
+	drv->xo = q6->xo;
 
 	q6_desc = &q6->desc;
-	q6_desc->ops = &pil_msa_pbl_ops;
 	q6_desc->owner = THIS_MODULE;
 	q6_desc->proxy_timeout = PROXY_TIMEOUT_MS;
+
+	q6_desc->ops = &pil_msa_mss_ops;
 
 	q6->self_auth = of_property_read_bool(pdev->dev.of_node,
 							"qcom,pil-self-auth");
@@ -293,7 +272,8 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 		q6->rmb_base = devm_request_and_ioremap(&pdev->dev, res);
 		if (!q6->rmb_base)
 			return -ENOMEM;
-		mba->rmb_base = q6->rmb_base;
+		drv->rmb_base = q6->rmb_base;
+		q6_desc->ops = &pil_msa_mss_ops_selfauth;
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "restart_reg");
@@ -349,25 +329,8 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 		return PTR_ERR(q6->rom_clk);
 
 	ret = pil_desc_init(q6_desc);
-	if (ret)
-		return ret;
 
-	mba_desc = &mba->desc;
-	mba_desc->name = "modem";
-	mba_desc->dev = &pdev->dev;
-	mba_desc->ops = &pil_msa_mba_ops;
-	mba_desc->owner = THIS_MODULE;
-
-	ret = pil_desc_init(mba_desc);
-	if (ret)
-		goto err_mba_desc;
-
-	return 0;
-
-err_mba_desc:
-	pil_desc_release(q6_desc);
 	return ret;
-
 }
 
 static int pil_mss_driver_probe(struct platform_device *pdev)
@@ -402,7 +365,6 @@ static int pil_mss_driver_exit(struct platform_device *pdev)
 						&adsp_state_notifier_block);
 	subsys_unregister(drv->subsys);
 	destroy_ramdump_device(drv->ramdump_dev);
-	pil_desc_release(&drv->mba->desc);
 	pil_desc_release(&drv->q6->desc);
 	return 0;
 }
