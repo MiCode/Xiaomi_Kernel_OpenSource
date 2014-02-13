@@ -19,13 +19,18 @@
 	((base) + (reg) + ((ctx) << CTX_SHIFT))
 #define GLB_REG(reg, base) \
 	((base) + (reg))
+#define GLB_REG_N(b, n, r) GLB_REG(b, ((r) + ((n) << 2)))
+#define GLB_FIELD(b, r) ((b) + (r))
+#define GLB_CTX_FIELD(b, c, r) (GLB_FIELD(b, r) + ((c) << CTX_SHIFT))
+#define GLB_FIELD_N(b, n, r) (GLB_FIELD(b, r) + ((n) << 2))
+
 
 #define GET_GLOBAL_REG(reg, base) (readl_relaxed(GLB_REG(reg, base)))
 #define GET_GLOBAL_REG_Q(reg, base) (readq_relaxed(GLB_REG(reg, base)))
 #define GET_CTX_REG(reg, base, ctx) (readl_relaxed(CTX_REG(reg, base, ctx)))
 #define GET_CTX_REG_Q(reg, base, ctx) (readq_relaxed(CTX_REG(reg, base, ctx)))
 
-#define SET_GLOBAL_REG(reg, base, val)	writel_relaxed((val), ((base) + (reg)))
+#define SET_GLOBAL_REG(reg, base, val) writel_relaxed((val), GLB_REG(reg, base))
 #define SET_GLOBAL_REG_Q(reg, base, val) \
 	(writeq_relaxed((val), GLB_REG(reg, base)))
 
@@ -35,33 +40,33 @@
 	writeq_relaxed((val), CTX_REG(reg, base, ctx))
 
 /* Wrappers for numbered registers */
-#define SET_GLOBAL_REG_N(b, n, r, v) SET_GLOBAL_REG((b), ((r) + (n << 2)), (v))
-#define GET_GLOBAL_REG_N(b, n, r)    GET_GLOBAL_REG((b), ((r) + (n << 2)))
+#define SET_GLOBAL_REG_N(b, n, r, v) writel_relaxed(((v)), GLB_REG_N(b, n, r))
+#define GET_GLOBAL_REG_N(b, n, r) (readl_relaxed(GLB_REG_N(b, n, r)))
 
 /* Field wrappers */
 #define GET_GLOBAL_FIELD(b, r, F) \
-	GET_FIELD(((b) + (r)), r##_##F##_MASK, r##_##F##_SHIFT)
+	GET_FIELD(GLB_FIELD(b, r), r##_##F##_MASK, r##_##F##_SHIFT)
 #define GET_CONTEXT_FIELD(b, c, r, F) \
-	GET_FIELD(((b) + (r) + ((c) << CTX_SHIFT)), \
+	GET_FIELD(GLB_CTX_FIELD(b, c, r),	\
 			r##_##F##_MASK, r##_##F##_SHIFT)
 #define GET_CONTEXT_FIELD_Q(b, c, r, F) \
-	GET_FIELD_Q(((b) + (r) + ((c) << CTX_SHIFT)), \
+	GET_FIELD_Q(GLB_CTX_FIELD(b, c, r),	\
 			r##_##F##_MASK, r##_##F##_SHIFT)
 
 #define SET_GLOBAL_FIELD(b, r, F, v) \
-	SET_FIELD(((b) + (r)), r##_##F##_MASK, r##_##F##_SHIFT, (v))
+	SET_FIELD(GLB_FIELD(b, r), r##_##F##_MASK, r##_##F##_SHIFT, (v))
 #define SET_CONTEXT_FIELD(b, c, r, F, v) \
-	SET_FIELD(((b) + (r) + ((c) << CTX_SHIFT)), \
+	SET_FIELD(GLB_CTX_FIELD(b, c, r),		\
 			r##_##F##_MASK, r##_##F##_SHIFT, (v))
 #define SET_CONTEXT_FIELD_Q(b, c, r, F, v) \
-	SET_FIELD_Q(((b) + (r) + ((c) << CTX_SHIFT)), \
+	SET_FIELD_Q(GLB_CTX_FIELD(b, c, r),	\
 			r##_##F##_MASK, r##_##F##_SHIFT, (v))
 
 /* Wrappers for numbered field registers */
 #define SET_GLOBAL_FIELD_N(b, n, r, F, v) \
-	SET_FIELD(((b) + ((n) << 2) + (r)), r##_##F##_MASK, r##_##F##_SHIFT, v)
+	SET_FIELD(GLB_FIELD_N(b, n, r), r##_##F##_MASK, r##_##F##_SHIFT, v)
 #define GET_GLOBAL_FIELD_N(b, n, r, F) \
-	GET_FIELD(((b) + ((n) << 2) + (r)), r##_##F##_MASK, r##_##F##_SHIFT)
+	GET_FIELD(GLB_FIELD_N(b, n, r), r##_##F##_MASK, r##_##F##_SHIFT)
 
 #define GET_FIELD(addr, mask, shift) ((readl_relaxed(addr) >> (shift)) & (mask))
 #define GET_FIELD_Q(addr, mask, shift) \
