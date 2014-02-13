@@ -653,7 +653,6 @@ int arizona_wm5110_tune_headphone(struct arizona_extcon_info *info,
 	struct arizona *arizona = info->arizona;
 	const struct reg_default *patch;
 	int i, ret, size;
-	unsigned int outputs;
 
 	if (reading <= 4) {
 		/* Headphones are always off here so just mark them */
@@ -676,24 +675,6 @@ int arizona_wm5110_tune_headphone(struct arizona_extcon_info *info,
 		size = ARRAY_SIZE(normal_impedance_patch);
 	}
 
-	mutex_lock(&arizona->dapm->card->dapm_mutex);
-
-	ret = regmap_read(arizona->regmap, ARIZONA_OUTPUT_ENABLES_1,
-			  &outputs);
-	if (ret != 0) {
-		dev_err(arizona->dev, "Failed to read output state: %d\n", ret);
-		goto err;
-	}
-	ret = regmap_update_bits(arizona->regmap, ARIZONA_OUTPUT_ENABLES_1,
-				 ARIZONA_OUT1L_ENA | ARIZONA_OUT1R_ENA |
-				 ARIZONA_OUT2L_ENA | ARIZONA_OUT2R_ENA |
-				 ARIZONA_OUT3L_ENA | ARIZONA_OUT3R_ENA,
-				 0);
-	if (ret != 0) {
-		dev_err(arizona->dev, "Failed to disable outputs: %d\n", ret);
-		goto err;
-	}
-
 	for (i = 0; i < size; ++i) {
 		ret = regmap_write(arizona->regmap,
 				   patch[i].reg, patch[i].def);
@@ -703,20 +684,7 @@ int arizona_wm5110_tune_headphone(struct arizona_extcon_info *info,
 				 patch[i].reg, patch[i].def);
 	}
 
-	ret = regmap_update_bits(arizona->regmap, ARIZONA_OUTPUT_ENABLES_1,
-				 ARIZONA_OUT1L_ENA | ARIZONA_OUT1R_ENA |
-				 ARIZONA_OUT2L_ENA | ARIZONA_OUT2R_ENA |
-				 ARIZONA_OUT3L_ENA | ARIZONA_OUT3R_ENA,
-				 outputs);
-	if (ret != 0) {
-		dev_err(arizona->dev, "Failed to restore outputs: %d\n", ret);
-		goto err;
-	}
-
-err:
-	mutex_unlock(&arizona->dapm->card->dapm_mutex);
-
-	return ret;
+	return 0;
 }
 
 static irqreturn_t arizona_hpdet_irq(int irq, void *data)
