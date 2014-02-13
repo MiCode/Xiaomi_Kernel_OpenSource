@@ -714,7 +714,7 @@ int rndis_ipa_pipe_connect_notify(u32 usb_to_ipa_hdl,
 	}
 	RNDIS_IPA_DEBUG("carrier_on notified\n");
 
-	if (rndis_ipa_ctx->state == RNDIS_IPA_CONNECTED_AND_UP) {
+	if (next_state == RNDIS_IPA_CONNECTED_AND_UP) {
 		netif_start_queue(rndis_ipa_ctx->net);
 		RNDIS_IPA_DEBUG("queue started, NETDEV is operational\n");
 	}
@@ -756,7 +756,7 @@ static int rndis_ipa_open(struct net_device *net)
 		return -EPERM;
 	}
 
-	if (rndis_ipa_ctx->state == RNDIS_IPA_CONNECTED_AND_UP) {
+	if (next_state == RNDIS_IPA_CONNECTED_AND_UP) {
 		netif_start_queue(net);
 		RNDIS_IPA_DEBUG("queue started\n");
 	} else {
@@ -1123,14 +1123,16 @@ int rndis_ipa_pipe_disconnect_notify(void *private)
 		RNDIS_IPA_ERROR("can't disconnect before connect\n");
 		return -EPERM;
 	}
-	rndis_ipa_ctx->state = next_state;
-	RNDIS_IPA_STATE_DEBUG(rndis_ipa_ctx);
 
 	netif_carrier_off(rndis_ipa_ctx->net);
 	RNDIS_IPA_DEBUG("carrier_off notification was sent\n");
 
 	netif_stop_queue(rndis_ipa_ctx->net);
 	RNDIS_IPA_DEBUG("queue stopped\n");
+
+
+	rndis_ipa_ctx->state = next_state;
+	RNDIS_IPA_STATE_DEBUG(rndis_ipa_ctx);
 
 	pr_info("RNDIS_IPA NetDev pipes were disconnected (outstanding=%d)",
 		atomic_read(&rndis_ipa_ctx->outstanding_pkts));
