@@ -5304,6 +5304,8 @@ static DEFINE_CLK_MEASURE(krait1_m_clk);
 static DEFINE_CLK_MEASURE(krait2_m_clk);
 static DEFINE_CLK_MEASURE(krait3_m_clk);
 
+static DEFINE_CLK_MEASURE(gcc_bimc_clk);
+
 #ifdef CONFIG_DEBUG_FS
 
 struct measure_mux_entry {
@@ -5438,6 +5440,7 @@ static struct measure_mux_entry measure_mux[] = {
 	{&cnoc_clk.c,				GCC_BASE, 0x0008},
 	{&pnoc_clk.c,				GCC_BASE, 0x0010},
 	{&snoc_clk.c,				GCC_BASE, 0x0000},
+	{&gcc_bimc_clk,				GCC_BASE, 0x0154},
 	{&bimc_clk.c,				GCC_BASE, 0x0155},
 
 	{&mmssnoc_ahb_clk.c,			MMSS_BASE, 0x0001},
@@ -5834,6 +5837,7 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("core_clk", gfx3d_clk_src.c, ""),
 	CLK_LOOKUP("core_clk", gfx3d_a_clk_src.c, ""),
 	CLK_LOOKUP("core_clk", qdss_clk.c, ""),
+	CLK_LOOKUP("",	gcc_bimc_clk, ""),
 
 	/* PLL */
 	CLK_LOOKUP("gpll0", gpll0_clk_src.c, ""),
