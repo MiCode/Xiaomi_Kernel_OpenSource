@@ -500,6 +500,10 @@ static int arizona_hpdet_read(struct arizona_extcon_info *info)
 	}
 
 	info->hp_impedance = val;
+
+	if (arizona->pdata.hpdet_cb)
+		arizona->pdata.hpdet_cb(info->hp_impedance);
+
 	dev_dbg(arizona->dev, "HP impedance %d ohms\n", val);
 	return val;
 }
@@ -767,9 +771,6 @@ static irqreturn_t arizona_hpdet_irq(int irq, void *data)
 	default:
 		break;
 	}
-
-	if (arizona->pdata.hpdet_cb)
-		arizona->pdata.hpdet_cb(reading);
 
 	if (mic || info->mic)
 		switch_set_state(&info->edev, BIT_HEADSET);
