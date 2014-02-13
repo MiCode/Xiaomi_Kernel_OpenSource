@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,6 +54,16 @@ struct msm_ufs_phy_calibration {
 	u32 cfg_value;
 };
 
+struct msm_ufs_stored_attributes {
+	u32 att;
+	u32 value;
+};
+
+enum msm_ufs_phy_init_type {
+	UFS_PHY_INIT_FULL,
+	UFS_PHY_INIT_CFG_RESTORE,
+};
+
 struct msm_ufs_phy_vreg {
 	const char *name;
 	struct regulator *reg;
@@ -76,6 +86,39 @@ struct msm_ufs_phy {
 	bool is_ref_clk_enabled;
 	struct msm_ufs_phy_vreg vdda_pll;
 	struct msm_ufs_phy_vreg vdda_phy;
+	unsigned int quirks;
+	/*
+	 * As part of UFS power management, UFS link would be put in hibernate
+	 * and UFS device would be put in SLEEP mode as part of runtime/system
+	 * suspend callback. But when system goes into suspend with VDD
+	 * minimization, UFS PHY states are being reset which means UFS link
+	 * hibernate exit command on system resume would fail.
+	 * If this quirk is enabled then above issue is workaround by saving
+	 * the UFS PHY state information before system goes into suspend and
+	 * restoring the saved state information during system resume but
+	 * before executing the hibern8 exit command.
+	 * Note that this quirk will help restoring the PHY state if even when
+	 * link in not kept in hibern8 during suspend.
+	 *
+	 * Here is the list of steps to save/restore the configuration:
+	 * Before entering into system suspend:
+	 *	1. Read Critical PCS SWI Registers  + less critical PHY CSR
+	 *	2. Read RMMI Attributes
+	 * Enter into system suspend
+	 * After exiting from system suspend:
+	 *	1. Set UFS_PHY_SOFT_RESET bit in UFS_CFG1 register of the UFS
+	 *	   Controller
+	 *	2. Write 0x01 to the UFS_PHY_POWER_DOWN_CONTROL register in the
+	 *	   UFS PHY
+	 *	3. Write back the values of the PHY SWI registers
+	 *	4. Clear UFS_PHY_SOFT_RESET bit in UFS_CFG1 register of the UFS
+	 *	   Controller
+	 *	5. Write 0x01 to the UFS_PHY_PHY_START in the UFS PHY. This will
+	 *	   start the PLL calibration and bring-up of the PHY.
+	 *	6. Write back the values to the PHY RMMI Attributes
+	 *	7. Wait for UFS_PHY_PCS_READY_STATUS[0] to be '1'
+	 */
+	#define MSM_UFS_PHY_QUIRK_CFG_RESTORE		(1 << 0)
 };
 
 struct msm_ufs_bus_vote {
@@ -248,6 +291,19 @@ static int msm_ufs_update_bus_bw_vote(struct msm_ufs_host *host);
 #define UFS_PHY_DEBUG_BUS_1_STATUS                          PHY_OFF(0x154)
 #define UFS_PHY_DEBUG_BUS_2_STATUS                          PHY_OFF(0x158)
 #define UFS_PHY_DEBUG_BUS_3_STATUS                          PHY_OFF(0x15C)
+#define UFS_PHY_RMMI_ATTR_CTRL				    PHY_OFF(0x16C)
+#define UFS_PHY_RMMI_RX_CFGUPDT_L1	(1 << 7)
+#define UFS_PHY_RMMI_TX_CFGUPDT_L1	(1 << 6)
+#define UFS_PHY_RMMI_CFGWR_L1		(1 << 5)
+#define UFS_PHY_RMMI_CFGRD_L1		(1 << 4)
+#define UFS_PHY_RMMI_RX_CFGUPDT_L0	(1 << 3)
+#define UFS_PHY_RMMI_TX_CFGUPDT_L0	(1 << 2)
+#define UFS_PHY_RMMI_CFGWR_L0		(1 << 1)
+#define UFS_PHY_RMMI_CFGRD_L0		(1 << 0)
+#define UFS_PHY_RMMI_ATTRID				    PHY_OFF(0x170)
+#define UFS_PHY_RMMI_ATTRWRVAL				    PHY_OFF(0x174)
+#define UFS_PHY_RMMI_ATTRRDVAL_L0_STATUS		    PHY_OFF(0x178)
+#define UFS_PHY_RMMI_ATTRRDVAL_L1_STATUS		    PHY_OFF(0x17C)
 
 /* TX LANE n (0, 1) registers */
 #define QSERDES_TX_BIST_MODE_LANENO(n)                      TX_OFF(n, 0x00)

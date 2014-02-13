@@ -342,6 +342,7 @@ struct debugfs_files {
 #ifdef CONFIG_UFS_FAULT_INJECTION
 	struct fault_attr fail_attr;
 #endif
+	bool is_sys_suspended;
 };
 
 /* tag stats statistics types */
