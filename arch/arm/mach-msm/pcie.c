@@ -104,6 +104,8 @@
 #define LINK_UP_TIMEOUT_US_MIN                5000
 #define LINK_UP_TIMEOUT_US_MAX                5100
 #define LINK_UP_CHECK_MAX_COUNT               20
+#define PHY_STABILIZATION_DELAY_US_MIN        995
+#define PHY_STABILIZATION_DELAY_US_MAX        1005
 
 #define PHY_READY_TIMEOUT_COUNT               10
 #define XMLH_LINK_UP                          0x400
@@ -1003,6 +1005,8 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	pcie_phy_init(dev);
 
 	if (options & PM_PIPE_CLK) {
+		usleep_range(PHY_STABILIZATION_DELAY_US_MIN,
+					 PHY_STABILIZATION_DELAY_US_MAX);
 		/* Enable the pipe clock */
 		ret = msm_pcie_pipe_clk_init(dev);
 		wmb();
