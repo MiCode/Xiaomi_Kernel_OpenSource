@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -612,10 +612,10 @@ enum a4xx_vfd_perfctr_vfd_sel {
 #define A4XX_VBIF_PERF_PWR_HIGH_REG_LOW_OFF	8
 
 /* Bit flags for RBBM_CTL */
-#define A4XX_RBBM_RBBM_CTL_RESET_PWR_CTR0  BIT(0)
-#define A4XX_RBBM_RBBM_CTL_RESET_PWR_CTR1  BIT(1)
-#define A4XX_RBBM_RBBM_CTL_ENABLE_PWR_CTR0  BIT(4)
-#define A4XX_RBBM_RBBM_CTL_ENABLE_PWR_CTR1  BIT(5)
+#define A4XX_RBBM_RBBM_CTL_RESET_PWR_CTR0	0x00000001
+#define A4XX_RBBM_RBBM_CTL_RESET_PWR_CTR1	0x00000002
+#define A4XX_RBBM_RBBM_CTL_ENABLE_PWR_CTR0	0x00000010
+#define A4XX_RBBM_RBBM_CTL_ENABLE_PWR_CTR1	0x00000020
 
 /* GRAS registers */
 #define A4XX_GRAS_PERFCTR_TSE_SEL_0	0xc88
