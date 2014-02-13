@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -92,6 +92,9 @@ extern void msm_iommu_set_client_name(struct iommu_domain *domain,
 				      char const *name);
 extern struct iommu_domain *msm_get_iommu_domain(int domain_num);
 extern int msm_find_domain_no(const struct iommu_domain *domain);
+extern struct iommu_domain *msm_iommu_domain_find(const char *name);
+extern int msm_iommu_domain_no_find(const char *name);
+
 
 extern int msm_allocate_iova_address(unsigned int iommu_domain,
 					unsigned int partition_no,
