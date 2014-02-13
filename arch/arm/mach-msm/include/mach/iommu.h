@@ -228,7 +228,6 @@ struct dump_regs_tbl {
 	 */
 	unsigned long reg_offset;
 	const char *name;
-	int offset;
 	int must_be_present;
 };
 extern struct dump_regs_tbl dump_regs_tbl[MAX_DUMP_REGS];
