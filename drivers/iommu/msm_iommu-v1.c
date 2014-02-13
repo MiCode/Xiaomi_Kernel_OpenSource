@@ -1143,6 +1143,7 @@ void print_ctx_regs(struct msm_iommu_context_reg regs[])
 {
 	uint32_t fsr = regs[DUMP_REG_FSR].val;
 	u64 ttbr;
+	enum dump_reg iter;
 
 	pr_err("FAR    = %016llx\n",
 		COMBINE_DUMP_REG(
@@ -1186,6 +1187,11 @@ void print_ctx_regs(struct msm_iommu_context_reg regs[])
 	pr_err("CBAR  = %08x    CBFRSYNRA  = %08x\n",
 		regs[DUMP_REG_CBAR_N].val, regs[DUMP_REG_CBFRSYNRA_N].val);
 	print_ctx_mem_attr_regs(regs);
+
+	for (iter = DUMP_REG_FIRST; iter < MAX_DUMP_REGS; ++iter)
+		if (!regs[iter].valid)
+			pr_err("NOTE: Value actually unknown for %s\n",
+				dump_regs_tbl[iter].name);
 }
 
 static void __print_ctx_regs(void __iomem *base, int ctx, unsigned int fsr)

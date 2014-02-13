@@ -217,7 +217,6 @@ static int msm_iommu_reg_dump_to_regs(
 	if (i != nvals) {
 		pr_err("Invalid dump! %d != %d\n", i, nvals);
 		ret = 1;
-		goto out;
 	}
 
 	for (i = 0; i < MAX_DUMP_REGS; ++i) {
@@ -231,11 +230,10 @@ static int msm_iommu_reg_dump_to_regs(
 						dump_regs_tbl[i].reg_offset));
 				ret = 1;
 			}
-			ctx_regs[i].val = 0;
+			ctx_regs[i].val = 0xd00dfeed;
 		}
 	}
 
-out:
 	return ret;
 }
 
@@ -289,7 +287,9 @@ irqreturn_t msm_iommu_secure_fault_handler_v2(int irq, void *dev_id)
 		memset(ctx_regs, 0, sizeof(ctx_regs));
 		tmp = msm_iommu_reg_dump_to_regs(
 			ctx_regs, regs, drvdata, ctx_drvdata);
-		if (!tmp && ctx_regs[DUMP_REG_FSR].val) {
+		if (ctx_regs[DUMP_REG_FSR].val) {
+			if (tmp)
+				pr_err("Incomplete fault register dump. Printout will be incomplete.\n");
 			if (!ctx_drvdata->attached_domain) {
 				pr_err("Bad domain in interrupt handler\n");
 				tmp = -ENOSYS;
