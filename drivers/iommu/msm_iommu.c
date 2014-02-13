@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +33,14 @@ __asm__ __volatile__ (							\
 
 #define RCP15_MAIR0(reg)   MRC(reg, p15, 0, c10, c2, 0)
 #define RCP15_MAIR1(reg)   MRC(reg, p15, 0, c10, c2, 1)
+
+/* These values come from proc-v7-2level.S */
+#define PRRR_VALUE 0xff0a81a8
+#define NMRR_VALUE 0x40e040e0
+
+/* These values come from proc-v7-3level.S */
+#define MAIR0_VALUE 0xeeaa4400
+#define MAIR1_VALUE 0xff000004
 
 static struct iommu_access_ops *iommu_access_ops;
 
@@ -107,14 +115,6 @@ struct device *msm_iommu_get_ctx(const char *ctx_name)
 EXPORT_SYMBOL(msm_iommu_get_ctx);
 
 #ifdef CONFIG_ARM
-/* These values come from proc-v7-2level.S */
-#define PRRR_VALUE 0xff0a81a8
-#define NMRR_VALUE 0x40e040e0
-
-/* These values come from proc-v7-3level.S */
-#define MAIR0_VALUE 0xeeaa4400
-#define MAIR1_VALUE 0xff000004
-
 #ifdef CONFIG_IOMMU_LPAE
 #ifdef CONFIG_ARM_LPAE
 /*
@@ -196,27 +196,11 @@ u32 msm_iommu_get_nmrr(void)
 #ifdef CONFIG_ARM64
 u32 msm_iommu_get_prrr(void)
 {
-	unsigned int mair0;
-	u64 tmp;
-
-	asm volatile(
-	"	mrs	%0, mair_el1\n"
-	: "=&r" (tmp));
-
-	mair0 = tmp & 0xffffffff;
-	return mair0;
+	return PRRR_VALUE;
 }
 
 u32 msm_iommu_get_nmrr(void)
 {
-	unsigned int mair1;
-	u64 tmp;
-
-	asm volatile(
-	"	mrs	%0, mair_el1\n"
-	: "=&r" (tmp));
-
-	mair1 = tmp >> 32;
-	return mair1;
+	return NMRR_VALUE;
 }
 #endif
