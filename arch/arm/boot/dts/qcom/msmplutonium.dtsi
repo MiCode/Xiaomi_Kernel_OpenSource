@@ -315,6 +315,10 @@
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp1_qup1_spi_apps_clk>;
 	};
+
+	qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+	};
 };
 
 &gdsc_usb30 {
