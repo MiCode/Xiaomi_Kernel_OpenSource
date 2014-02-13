@@ -363,6 +363,7 @@
 			interrupt-names = "eoc-int-en-set";
 			qcom,adc-bit-resolution = <15>;
 			qcom,adc-vdd-reference = <1800>;
+			qcom,vadc-poll-eoc;
 
 			chan@8 {
 				label = "die_temp";
@@ -421,6 +422,7 @@
 			qcom,adc-bit-resolution = <16>;
 			qcom,adc-vdd-reference = <1800>;
 			qcom,iadc-vadc = <&pm8226_vadc>;
+			qcom,iadc-poll-eoc;
 			qcom,use-default-rds-trim = <0>;
 
 			chan@0 {
