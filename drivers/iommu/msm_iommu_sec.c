@@ -143,11 +143,9 @@ static int msm_iommu_dump_fault_regs(int smmu_id, int cb_num,
 	return ret;
 }
 
-#define EXTRACT_DUMP_REG_KEY(addr, ctx) (addr & ((1 << CTX_SHIFT) - 1))
-
 static int msm_iommu_reg_dump_to_regs(
 	struct msm_iommu_context_reg ctx_regs[],
-	struct msm_scm_fault_regs_dump *dump, int cb_num)
+	struct msm_scm_fault_regs_dump *dump, struct msm_iommu_drvdata *drvdata)
 {
 	int i, j, ret = 0;
 	const uint32_t nvals = (dump->dump_size / sizeof(uint32_t));
@@ -155,21 +153,27 @@ static int msm_iommu_reg_dump_to_regs(
 	const uint32_t * const end = ((uint32_t *) dump) + nvals;
 
 	for (i = 1; it < end; it += 2, i += 2) {
+		unsigned long reg_offset;
 		uint32_t addr	= *it;
 		uint32_t val	= *(it + 1);
 		struct msm_iommu_context_reg *reg = NULL;
+		if (drvdata->phys_base > addr) {
+			pr_err("Bogus-looking register (0x%x) for Iommu with base at %pa. Skipping.\n",
+				addr, &drvdata->phys_base);
+			continue;
+		}
+		reg_offset = addr - drvdata->phys_base;
 
 		for (j = 0; j < MAX_DUMP_REGS; ++j) {
-			if (dump_regs_tbl[j].key ==
-				EXTRACT_DUMP_REG_KEY(addr, cb_num)) {
+			if (dump_regs_tbl[j].reg_offset == reg_offset) {
 				reg = &ctx_regs[j];
 				break;
 			}
 		}
 
 		if (reg == NULL) {
-			pr_debug("Unknown register in secure CB dump: %x (%x)\n",
-				addr, EXTRACT_DUMP_REG_KEY(addr, cb_num));
+			pr_debug("Unknown register in secure CB dump: %x\n",
+				addr);
 			continue;
 		}
 
@@ -194,7 +198,7 @@ static int msm_iommu_reg_dump_to_regs(
 			if (dump_regs_tbl[i].must_be_present) {
 				pr_err("Register missing from dump: %s, %lx\n",
 					dump_regs_tbl[i].name,
-					dump_regs_tbl[i].key);
+					dump_regs_tbl[i].reg_offset);
 				ret = 1;
 			}
 			ctx_regs[i].val = 0;
@@ -253,8 +257,7 @@ irqreturn_t msm_iommu_secure_fault_handler_v2(int irq, void *dev_id)
 	} else {
 		struct msm_iommu_context_reg ctx_regs[MAX_DUMP_REGS];
 		memset(ctx_regs, 0, sizeof(ctx_regs));
-		tmp = msm_iommu_reg_dump_to_regs(ctx_regs, regs,
-						ctx_drvdata->num);
+		tmp = msm_iommu_reg_dump_to_regs(ctx_regs, regs, drvdata);
 		if (!tmp && ctx_regs[DUMP_REG_FSR].val) {
 			if (!ctx_drvdata->attached_domain) {
 				pr_err("Bad domain in interrupt handler\n");

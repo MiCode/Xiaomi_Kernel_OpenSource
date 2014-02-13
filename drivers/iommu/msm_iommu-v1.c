@@ -1192,7 +1192,8 @@ static void __print_ctx_regs(void __iomem *base, int ctx, unsigned int fsr)
 	unsigned int i;
 
 	for (i = DUMP_REG_FIRST; i < MAX_DUMP_REGS; ++i) {
-		regs[i].val = GET_CTX_REG(dump_regs_tbl[i].key, base, ctx);
+		regs[i].val = GET_CTX_REG(dump_regs_tbl[i].reg_offset,
+					base, ctx);
 		regs[i].valid = 1;
 	}
 	print_ctx_regs(regs);
@@ -1342,11 +1343,11 @@ static phys_addr_t msm_iommu_get_pt_base_addr(struct iommu_domain *domain)
 	return __pa(priv->pt.fl_table);
 }
 
-#define DUMP_REG_INIT(dump_reg, cb_reg, mbp)			\
-	do {							\
-		dump_regs_tbl[dump_reg].key = cb_reg;		\
-		dump_regs_tbl[dump_reg].name = #cb_reg;		\
-		dump_regs_tbl[dump_reg].must_be_present = mbp;	\
+#define DUMP_REG_INIT(dump_reg, cb_reg, mbp)				\
+	do {								\
+		dump_regs_tbl[dump_reg].reg_offset = cb_reg;	\
+		dump_regs_tbl[dump_reg].name = #cb_reg;			\
+		dump_regs_tbl[dump_reg].must_be_present = mbp;		\
 	} while (0)
 
 static void msm_iommu_build_dump_regs_table(void)
