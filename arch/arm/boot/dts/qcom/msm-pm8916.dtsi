@@ -198,13 +198,60 @@
 			compatible = "qcom,qpnp-linear-charger";
 			#address-cells = <1>;
 			#size-cells = <1>;
+
+			qcom,vddmax-mv = <4200>;
+			qcom,vddsafe-mv = <4200>;
+			qcom,vinmin-mv = <4200>;
+			qcom,ibatsafe-ma = <1440>;
+			qcom,vbatweak-mv = <3210>;
+			qcom,thermal-mitigation = <1500 700 600 325>;
+			qcom,cool-bat-decidegc = <100>;
+			qcom,warm-bat-decidegc = <450>;
+			qcom,cool-bat-mv = <4100>;
+			qcom,ibatmax-warm-ma = <360>;
+			qcom,ibatmax-cool-ma = <360>;
+			qcom,warm-bat-degc = <45>;
+			qcom,warm-bat-mv = <4100>;
+			qcom,batt-hot-percentage = <25>;
+			qcom,batt-cold-percentage = <85>;
+			qcom,tchg-mins = <152>;
+			qcom,resume-soc = <99>;
+			qcom,charging-disabled;
+			qcom,chg-vadc = <&pm8916_vadc>;
+			qcom,chg-adc_tm = <&pm8916_adc_tm>;
+
+			status = "disabled";
+
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
+				interrupts =	<0x0 0x10 0x7>,
+						<0x0 0x10 0x6>,
+						<0x0 0x10 0x5>,
+						<0x0 0x10 0x0>;
+				interrupt-names =	"chg-done",
+							"chg-failed",
+							"fast-chg-on",
+							"vbat-det-lo";
 			};
+
+			qcom,bat-if@1200 {
+				reg = <0x1200 0x100>;
+				interrupts =	<0x0 0x12 0x1>,
+						<0x0 0x12 0x0>;
+				interrupt-names =	"bat-temp-ok",
+							"batt-pres";
+			};
+
 			qcom,usb-chgpth@1300 {
 				reg = <0x1300 0x100>;
-				interrupts = <0 0x13 0x1>;
-				interrupt-names = "usbin-valid";
+				interrupts =	<0 0x13 0x2>,
+						<0 0x13 0x1>;
+				interrupt-names =	"chg-gone",
+							"usbin-valid";
+			};
+
+			qcom,chg-misc@1600 {
+				reg = <0x1600 0x100>;
 			};
 		};
 	};
