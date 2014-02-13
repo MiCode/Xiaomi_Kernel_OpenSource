@@ -652,7 +652,7 @@ int msm_ep_config(struct usb_ep *ep)
 	mdwc->original_ep_ops[dep->number] = ep->ops;
 
 	/* Set new usb ops as we like */
-	new_ep_ops = kzalloc(sizeof(struct usb_ep_ops), GFP_KERNEL);
+	new_ep_ops = kzalloc(sizeof(struct usb_ep_ops), GFP_ATOMIC);
 	if (!new_ep_ops) {
 		dev_err(mdwc->dev,
 			"%s: unable to allocate mem for new usb ep ops\n",
