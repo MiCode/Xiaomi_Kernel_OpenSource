@@ -217,7 +217,7 @@ static struct of_device_id msm_clk_rpm_match_table[] = {
 static struct platform_driver msm_clock_rpm_driver = {
 	.probe = msm_rpmcc_8916_probe,
 	.driver = {
-		.name = "rpmcc",
+		.name = "qcom,rpmcc-8916",
 		.of_match_table = msm_clk_rpm_match_table,
 		.owner = THIS_MODULE,
 	},
