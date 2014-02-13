@@ -71,14 +71,16 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
 	struct msm_isp_timestamp *ts)
 {
-	int i, rc;
+	int i, j, rc;
 	struct msm_isp_event_data buf_event;
 	struct msm_isp_stats_event *stats_event = &buf_event.u.stats;
 	struct msm_isp_buffer *done_buf;
 	struct msm_vfe_stats_stream *stream_info = NULL;
 	uint32_t pingpong_status;
-	uint32_t comp_stats_type_mask = 0;
+	uint32_t comp_stats_type_mask = 0, atomic_stats_mask = 0;
 	uint32_t stats_comp_mask = 0, stats_irq_mask = 0;
+	uint32_t num_stats_comp_mask =
+		vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask;
 	stats_comp_mask = vfe_dev->hw_info->vfe_ops.stats_ops.
 		get_comp_mask(irq_status0, irq_status1);
 	stats_irq_mask = vfe_dev->hw_info->vfe_ops.stats_ops.
@@ -87,59 +89,85 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 		return;
 	ISP_DBG("%s: status: 0x%x\n", __func__, irq_status0);
 
-	if (!stats_comp_mask)
-		stats_irq_mask &=
-			~atomic_read(&vfe_dev->stats_data.stats_comp_mask);
-	else
-		stats_irq_mask |=
-			atomic_read(&vfe_dev->stats_data.stats_comp_mask);
-
-	memset(&buf_event, 0, sizeof(struct msm_isp_event_data));
-	buf_event.timestamp = ts->event_time;
-	buf_event.frame_id =
-		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
-	buf_event.input_intf = VFE_PIX_0;
-	pingpong_status = vfe_dev->hw_info->
-		vfe_ops.stats_ops.get_pingpong_status(vfe_dev);
-
-	for (i = 0; i < vfe_dev->hw_info->stats_hw_info->num_stats_type; i++) {
-		if (!(stats_irq_mask & (1 << i)))
-			continue;
-		stream_info = &vfe_dev->stats_data.stream_info[i];
-		done_buf = NULL;
-		msm_isp_stats_cfg_ping_pong_address(vfe_dev,
-			stream_info, pingpong_status, &done_buf);
-		if (done_buf) {
-			rc = vfe_dev->buf_mgr->ops->buf_divert(vfe_dev->buf_mgr,
-				done_buf->bufq_handle, done_buf->buf_idx,
-				&ts->buf_time, vfe_dev->axi_data.
-				src_info[VFE_PIX_0].frame_id);
-			if (rc != 0)
-				continue;
-
-			stats_event->stats_buf_idxs[stream_info->stats_type] =
-				done_buf->buf_idx;
-			if (!stream_info->composite_flag) {
-				stats_event->stats_mask =
-					1 << stream_info->stats_type;
-				ISP_DBG("%s: stats event frame id: 0x%x\n",
-					__func__, buf_event.frame_id);
-				msm_isp_send_event(vfe_dev,
-					ISP_EVENT_STATS_NOTIFY +
-					stream_info->stats_type, &buf_event);
-			} else {
-				comp_stats_type_mask |=
-					1 << stream_info->stats_type;
-			}
+	/*
+	 * If any of composite mask is set, clear irq bits from mask,
+	 * they will be restored by comp mask
+	 */
+	if (stats_comp_mask) {
+		for (j = 0; j < num_stats_comp_mask; j++) {
+			stats_irq_mask &= ~atomic_read(
+				&vfe_dev->stats_data.stats_comp_mask[j]);
 		}
 	}
 
-	if (comp_stats_type_mask) {
-		ISP_DBG("%s: composite stats event frame id: 0x%x mask: 0x%x\n",
-			__func__, buf_event.frame_id, comp_stats_type_mask);
-		stats_event->stats_mask = comp_stats_type_mask;
-		msm_isp_send_event(vfe_dev,
-			ISP_EVENT_COMP_STATS_NOTIFY, &buf_event);
+	for (j = 0; j < num_stats_comp_mask; j++) {
+		atomic_stats_mask = atomic_read(
+			&vfe_dev->stats_data.stats_comp_mask[j]);
+		if (!stats_comp_mask) {
+			stats_irq_mask &= ~atomic_stats_mask;
+		} else {
+			/* restore irq bits from composite mask */
+			if (stats_comp_mask & (1 << j))
+				stats_irq_mask |= atomic_stats_mask;
+		}
+		/* if no irq bits set from this composite mask continue*/
+		if (!stats_irq_mask)
+			continue;
+		memset(&buf_event, 0, sizeof(struct msm_isp_event_data));
+		buf_event.timestamp = ts->event_time;
+		buf_event.frame_id =
+			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
+		buf_event.input_intf = VFE_PIX_0;
+		pingpong_status = vfe_dev->hw_info->
+			vfe_ops.stats_ops.get_pingpong_status(vfe_dev);
+
+		for (i = 0; i < vfe_dev->hw_info->stats_hw_info->num_stats_type;
+			i++) {
+			if (!(stats_irq_mask & (1 << i)))
+				continue;
+			stream_info = &vfe_dev->stats_data.stream_info[i];
+			done_buf = NULL;
+			msm_isp_stats_cfg_ping_pong_address(vfe_dev,
+				stream_info, pingpong_status, &done_buf);
+			if (done_buf) {
+				rc = vfe_dev->buf_mgr->ops->buf_divert(
+					vfe_dev->buf_mgr, done_buf->bufq_handle,
+					done_buf->buf_idx, &ts->buf_time,
+					vfe_dev->axi_data.
+					src_info[VFE_PIX_0].frame_id);
+				if (rc != 0)
+					continue;
+
+				stats_event->stats_buf_idxs
+					[stream_info->stats_type] =
+					done_buf->buf_idx;
+				if (!stream_info->composite_flag) {
+					stats_event->stats_mask =
+						1 << stream_info->stats_type;
+					ISP_DBG("%s: stats frameid: 0x%x %d\n",
+						__func__, buf_event.frame_id,
+						stream_info->stats_type);
+					msm_isp_send_event(vfe_dev,
+						ISP_EVENT_STATS_NOTIFY +
+						stream_info->stats_type,
+						&buf_event);
+				} else {
+					comp_stats_type_mask |=
+						1 << stream_info->stats_type;
+				}
+			}
+			stats_irq_mask &= ~(1 << i);
+		}
+
+		if (comp_stats_type_mask) {
+			ISP_DBG("%s: comp_stats frameid: 0x%x, 0x%x\n",
+				__func__, buf_event.frame_id,
+				comp_stats_type_mask);
+			stats_event->stats_mask = comp_stats_type_mask;
+			msm_isp_send_event(vfe_dev,
+				ISP_EVENT_COMP_STATS_NOTIFY, &buf_event);
+			comp_stats_type_mask = 0;
+		}
 	}
 }
 
@@ -346,12 +374,6 @@ void msm_isp_stats_stream_update(struct vfe_device *vfe_dev)
 			stats_data->stream_info[i].state == STATS_STOPPING) {
 			if (stats_data->stream_info[i].composite_flag)
 				comp_stats_mask |= i;
-			if (stats_data->stream_info[i].state == STATS_STARTING)
-				atomic_add(BIT(i),
-					&stats_data->stats_comp_mask);
-			else
-				atomic_sub(BIT(i),
-					&stats_data->stats_comp_mask);
 			stats_data->stream_info[i].state =
 				stats_data->stream_info[i].state ==
 				STATS_STARTING ? STATS_ACTIVE : STATS_INACTIVE;
@@ -383,9 +405,14 @@ static int msm_isp_start_stats_stream(struct vfe_device *vfe_dev,
 	struct msm_vfe_stats_stream_cfg_cmd *stream_cfg_cmd)
 {
 	int i, rc = 0;
-	uint32_t stats_mask = 0, comp_stats_mask = 0, idx;
+	uint32_t stats_mask = 0, idx;
+	uint32_t comp_stats_mask[MAX_NUM_STATS_COMP_MASK] = {0};
+	uint32_t num_stats_comp_mask = 0;
 	struct msm_vfe_stats_stream *stream_info;
 	struct msm_vfe_stats_shared_data *stats_data = &vfe_dev->stats_data;
+
+	num_stats_comp_mask =
+		vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask;
 	rc = vfe_dev->hw_info->vfe_ops.stats_ops.check_streams(
 		stats_data->stream_info);
 	if (rc < 0)
@@ -405,6 +432,13 @@ static int msm_isp_start_stats_stream(struct vfe_device *vfe_dev,
 				__func__, stream_cfg_cmd->stream_handle[i]);
 			continue;
 		}
+
+		if (stream_info->composite_flag > num_stats_comp_mask) {
+			pr_err("%s: comp grp %d exceed max %d\n",
+				__func__, stream_info->composite_flag,
+				num_stats_comp_mask);
+			return -EINVAL;
+		}
 		rc = msm_isp_init_stats_ping_pong_reg(vfe_dev, stream_info);
 		if (rc < 0) {
 			pr_err("%s: No buffer for stream%d\n", __func__, idx);
@@ -418,17 +452,27 @@ static int msm_isp_start_stats_stream(struct vfe_device *vfe_dev,
 
 		stats_data->num_active_stream++;
 		stats_mask |= 1 << idx;
-		if (stream_info->composite_flag)
-			comp_stats_mask |= 1 << idx;
+
+		if (stream_info->composite_flag > 0)
+			comp_stats_mask[stream_info->composite_flag-1] |=
+				1 << idx;
+
+		ISP_DBG("%s: stats_mask %x %x active streams %d\n",
+			__func__, comp_stats_mask[0],
+			comp_stats_mask[1],
+			stats_data->num_active_stream);
+
 	}
+
 	if (vfe_dev->axi_data.src_info[VFE_PIX_0].active) {
 		rc = msm_isp_stats_wait_for_cfg_done(vfe_dev);
 	} else {
 		vfe_dev->hw_info->vfe_ops.stats_ops.enable_module(
 			vfe_dev, stats_mask, stream_cfg_cmd->enable);
-		atomic_add(comp_stats_mask, &stats_data->stats_comp_mask);
-		vfe_dev->hw_info->vfe_ops.stats_ops.cfg_comp_mask(
-		   vfe_dev, comp_stats_mask, 1);
+		for (i = 0; i < num_stats_comp_mask; i++) {
+			vfe_dev->hw_info->vfe_ops.stats_ops.cfg_comp_mask(
+			 vfe_dev, comp_stats_mask[i], 1);
+		}
 	}
 	return rc;
 }
@@ -437,10 +481,16 @@ static int msm_isp_stop_stats_stream(struct vfe_device *vfe_dev,
 	struct msm_vfe_stats_stream_cfg_cmd *stream_cfg_cmd)
 {
 	int i, rc = 0;
-	uint32_t stats_mask = 0, comp_stats_mask = 0, idx;
+	uint32_t stats_mask = 0, idx;
+	uint32_t comp_stats_mask[MAX_NUM_STATS_COMP_MASK] = {0};
+	uint32_t num_stats_comp_mask = 0;
 	struct msm_vfe_stats_stream *stream_info;
 	struct msm_vfe_stats_shared_data *stats_data = &vfe_dev->stats_data;
+	num_stats_comp_mask =
+		vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask;
+
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
+
 		idx = STATS_IDX(stream_cfg_cmd->stream_handle[i]);
 
 		if (idx >= vfe_dev->hw_info->stats_hw_info->num_stats_type) {
@@ -456,6 +506,13 @@ static int msm_isp_stop_stats_stream(struct vfe_device *vfe_dev,
 			continue;
 		}
 
+		if (stream_info->composite_flag > num_stats_comp_mask) {
+			pr_err("%s: comp grp %d exceed max %d\n",
+				__func__, stream_info->composite_flag,
+				num_stats_comp_mask);
+			return -EINVAL;
+		}
+
 		if (vfe_dev->axi_data.src_info[VFE_PIX_0].active)
 			stream_info->state = STATS_STOP_PENDING;
 		else
@@ -463,17 +520,26 @@ static int msm_isp_stop_stats_stream(struct vfe_device *vfe_dev,
 
 		stats_data->num_active_stream--;
 		stats_mask |= 1 << idx;
-		if (stream_info->composite_flag)
-			comp_stats_mask |= 1 << idx;
+
+		if (stream_info->composite_flag > 0)
+			comp_stats_mask[stream_info->composite_flag-1] |=
+				1 << idx;
+
+		ISP_DBG("%s: stats_mask %x %x active streams %d\n",
+			__func__, comp_stats_mask[0],
+			comp_stats_mask[1],
+			stats_data->num_active_stream);
 	}
+
 	if (vfe_dev->axi_data.src_info[VFE_PIX_0].active) {
 		rc = msm_isp_stats_wait_for_cfg_done(vfe_dev);
 	} else {
 		vfe_dev->hw_info->vfe_ops.stats_ops.enable_module(
 			vfe_dev, stats_mask, stream_cfg_cmd->enable);
-		atomic_sub(comp_stats_mask, &stats_data->stats_comp_mask);
-		vfe_dev->hw_info->vfe_ops.stats_ops.cfg_comp_mask(
-		   vfe_dev, comp_stats_mask, 0);
+		for (i = 0; i < num_stats_comp_mask; i++) {
+			vfe_dev->hw_info->vfe_ops.stats_ops.cfg_comp_mask(
+			   vfe_dev, comp_stats_mask[i], 0);
+		}
 	}
 
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {

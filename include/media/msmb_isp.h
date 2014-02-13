@@ -109,6 +109,13 @@ enum msm_vfe_inputmux {
 	EXTERNAL_READ,
 };
 
+enum msm_vfe_stats_composite_group {
+	STATS_COMPOSITE_GRP_NONE,
+	STATS_COMPOSITE_GRP_1,
+	STATS_COMPOSITE_GRP_2,
+	STATS_COMPOSITE_GRP_MAX,
+};
+
 struct msm_vfe_pix_cfg {
 	struct msm_vfe_camif_cfg camif_cfg;
 	enum msm_vfe_inputmux input_mux;

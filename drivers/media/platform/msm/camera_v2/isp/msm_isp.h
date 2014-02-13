@@ -45,6 +45,7 @@
 
 #define VFE_MAX_CFG_TIMEOUT 3000
 #define VFE_CLK_INFO_MAX 16
+#define STATS_COMP_BIT_MASK 0xFF0000
 
 struct vfe_device;
 struct msm_vfe_axi_stream;
@@ -375,7 +376,7 @@ struct msm_vfe_stats_stream {
 struct msm_vfe_stats_shared_data {
 	struct msm_vfe_stats_stream stream_info[MSM_ISP_STATS_MAX];
 	uint8_t num_active_stream;
-	atomic_t stats_comp_mask;
+	atomic_t stats_comp_mask[MAX_NUM_STATS_COMP_MASK];
 	uint16_t stream_handle_cnt;
 	atomic_t stats_update;
 };
