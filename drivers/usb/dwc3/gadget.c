@@ -2755,6 +2755,7 @@ static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc)
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
+	pm_runtime_put(dwc->dev);
 	return ret;
 }
 
@@ -2795,6 +2796,9 @@ static irqreturn_t dwc3_interrupt(int irq, void *_dwc)
 		if (status == IRQ_WAKE_THREAD)
 			ret = status;
 	}
+
+	if (ret == IRQ_WAKE_THREAD)
+		pm_runtime_get(dwc->dev);
 
 	return ret;
 }
