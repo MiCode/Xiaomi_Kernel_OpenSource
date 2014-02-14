@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,11 +18,7 @@
 
 #include "vpu_v4l2.h"
 
-
-extern u32 vpu_pil_timeout;
-extern u32 vpu_shutdown_delay;
-extern u32 vpu_ipc_timeout;
-
+#ifdef CONFIG_DEBUG_FS
 
 /* functions to init and deinit VPU debugfs entries */
 struct dentry *init_vpu_debugfs(struct vpu_dev_core *core);
@@ -32,5 +28,19 @@ void cleanup_vpu_debugfs(struct dentry *dir);
 /* hfi layer uses this to inform debug layer that firmware sent a log msg */
 void vpu_wakeup_fw_logging_wq(void);
 
-#endif /* __H_VPU_DEBUG_H__ */
+#else
 
+static inline struct dentry *init_vpu_debugfs(struct vpu_dev_core *core)
+{
+	return NULL;
+}
+
+static inline void cleanup_vpu_debugfs(struct dentry *dir)
+{ }
+
+static inline void vpu_wakeup_fw_logging_wq(void)
+{ }
+
+#endif /* CONFIG_DEBUG_FS */
+
+#endif /* __H_VPU_DEBUG_H__ */
