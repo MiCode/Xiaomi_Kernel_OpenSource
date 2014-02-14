@@ -17,8 +17,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
-#include <mach/board.h>
-#include <mach/rpm-smd.h>
+#include <soc/qcom/rpm-smd.h>
 #include "msm_bus_core.h"
 #include "msm_bus_adhoc.h"
 #include "msm_bus_noc.h"

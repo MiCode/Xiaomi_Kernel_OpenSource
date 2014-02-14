@@ -17,7 +17,7 @@
 #include <linux/iommu.h>
 #include <linux/qcom_iommu.h>
 #include <linux/msm_iommu_domains.h>
-#include <mach/msm_bus_board.h>
+#include <linux/msm-bus-board.h>
 #include <asm-generic/sizes.h>
 
 #include "vpu_resources.h"

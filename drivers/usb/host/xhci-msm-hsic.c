@@ -25,7 +25,7 @@
 #include <linux/workqueue.h>
 #include <linux/clk/msm-clk.h>
 
-#include <mach/msm_bus.h>
+#include <linux/msm-bus.h>
 #include <mach/rpm-regulator.h>
 #include <mach/msm_iomap.h>
 

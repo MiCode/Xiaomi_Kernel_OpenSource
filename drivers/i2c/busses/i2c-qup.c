@@ -38,7 +38,7 @@
 #include <linux/of_gpio.h>
 #include <mach/board.h>
 #include <mach/gpiomux.h>
-#include <mach/msm_bus_board.h>
+#include <linux/msm-bus-board.h>
 
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("0.2");

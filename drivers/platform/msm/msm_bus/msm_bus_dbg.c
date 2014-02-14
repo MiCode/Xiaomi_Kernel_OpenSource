@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,8 +22,8 @@
 #include <linux/string.h>
 #include <linux/uaccess.h>
 #include <linux/hrtimer.h>
-#include <mach/msm_bus_board.h>
-#include <mach/msm_bus.h>
+#include <linux/msm-bus-board.h>
+#include <linux/msm-bus.h>
 #include "msm_bus_core.h"
 
 #define MAX_BUFF_SIZE 4096
@@ -431,7 +431,7 @@ static ssize_t  msm_bus_dbg_update_request_write(struct file *file,
 	MSM_BUS_DBG("buffer: %s\n size: %d\n", buf, sizeof(ubuf));
 
 	list_for_each_entry(cldata, &cl_list, list) {
-		if (strstr(chid, cldata->pdata->name)) {
+		if (strnstr(chid, cldata->pdata->name, cnt)) {
 			cldata = cldata;
 			strsep(&chid, " ");
 			if (chid) {

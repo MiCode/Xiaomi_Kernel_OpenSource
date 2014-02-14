@@ -25,7 +25,7 @@
 #include <linux/clkdev.h>
 #include <linux/of_platform.h>
 #include <linux/ssbi.h>
-#include <mach/msm_bus.h>
+#include <linux/msm-bus.h>
 
 #define RF_TYPE_16 0x10
 #define RF_TYPE_17 0x11

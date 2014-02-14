@@ -17,7 +17,7 @@
 #include <linux/clk.h>
 #include <linux/slab.h>
 #include <linux/gfp.h>
-#include <mach/msm_bus.h>
+#include <linux/msm-bus.h>
 
 #include "vpu_bus_clock.h"
 #include "vpu_resources.h"

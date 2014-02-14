@@ -32,7 +32,7 @@
 #include <linux/of.h>
 #include <linux/ctype.h>
 #include <linux/msm-sps.h>
-#include <mach/msm_bus.h>
+#include <linux/msm-bus.h>
 #include <soc/qcom/smem.h>
 
 #define PAGE_SIZE_2K 2048

@@ -46,7 +46,7 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/string.h>
-#include <mach/msm_bus.h>
+#include <linux/msm-bus.h>
 
 /*
  * General defines

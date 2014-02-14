@@ -16,7 +16,7 @@
 
 #include <linux/platform_device.h>
 #include <linux/msm_iommu_domains.h>
-#include <mach/msm_bus.h>
+#include <linux/msm-bus.h>
 
 /*
  * Device Tree Resources

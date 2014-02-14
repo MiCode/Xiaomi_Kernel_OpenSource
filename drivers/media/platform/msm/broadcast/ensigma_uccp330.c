@@ -37,8 +37,8 @@
 #include <linux/regulator/consumer.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
-#include <mach/msm_bus_board.h>
-#include <mach/msm_bus.h>
+#include <linux/msm-bus-board.h>
+#include <linux/msm-bus.h>
 #include <linux/clk/msm-clk.h>
 #include <linux/iommu.h>
 #include <linux/qcom_iommu.h>

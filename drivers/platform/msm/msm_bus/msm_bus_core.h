@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,8 +17,8 @@
 #include <linux/device.h>
 #include <linux/radix-tree.h>
 #include <linux/platform_device.h>
-#include <mach/msm_bus_board.h>
-#include <mach/msm_bus.h>
+#include <linux/msm-bus-board.h>
+#include <linux/msm-bus.h>
 
 #define MSM_BUS_DBG(msg, ...) \
 	pr_debug(msg, ## __VA_ARGS__)

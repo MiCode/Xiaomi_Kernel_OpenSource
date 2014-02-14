@@ -15,8 +15,8 @@
 
 #include <linux/types.h>
 #include <linux/device.h>
-#include <mach/msm_bus_board.h>
-#include <mach/msm_bus.h>
+#include <linux/msm-bus-board.h>
+#include <linux/msm-bus.h>
 #include "msm_bus_core.h"
 
 struct msm_bus_node_device_type;

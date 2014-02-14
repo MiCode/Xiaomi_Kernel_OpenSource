@@ -5,6 +5,8 @@
 ccflags-y += -Idrivers/misc/
 
 
+obj-$(CONFIG_MSM_BUS_SCALING) += msm_bus/
+obj-$(CONFIG_BUS_TOPOLOGY_ADHOC) += msm_bus/
 obj-$(CONFIG_MSM_SSBI) += ssbi.o
 obj-$(CONFIG_USB_BAM) += usb_bam.o
 obj-$(CONFIG_IPA) += ipa/

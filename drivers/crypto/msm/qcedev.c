@@ -1,6 +1,6 @@
 /* Qualcomm CE device driver.
  *
- * Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +31,7 @@
 #include <linux/crypto.h>
 #include <crypto/hash.h>
 #include <linux/platform_data/qcom_crypto_device.h>
-#include <mach/msm_bus.h>
+#include <linux/msm-bus.h>
 #include <linux/qcedev.h>
 #include "qce.h"
 

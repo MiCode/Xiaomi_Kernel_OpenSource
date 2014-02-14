@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,8 +19,8 @@
 #include <linux/mutex.h>
 #include <linux/radix-tree.h>
 #include <linux/clk.h>
-#include <mach/msm_bus_board.h>
-#include <mach/msm_bus.h>
+#include <linux/msm-bus-board.h>
+#include <linux/msm-bus.h>
 #include "msm_bus_core.h"
 
 static atomic_t num_fab = ATOMIC_INIT(0);
@@ -30,7 +30,7 @@ int msm_bus_get_num_fab(void)
 	return atomic_read(&num_fab);
 }
 
-int msm_bus_device_match(struct device *dev, void* id)
+int msm_bus_device_match(struct device *dev, void *id)
 {
 	struct msm_bus_fabric_device *fabdev = to_msm_bus_fabric_device(dev);
 

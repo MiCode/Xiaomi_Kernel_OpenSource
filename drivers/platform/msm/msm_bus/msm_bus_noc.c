@@ -14,7 +14,7 @@
 
 #include <linux/slab.h>
 #include <linux/io.h>
-#include <mach/msm_bus_board.h>
+#include <linux/msm-bus-board.h>
 #include "msm_bus_core.h"
 #include "msm_bus_noc.h"
 #include "msm_bus_adhoc.h"
