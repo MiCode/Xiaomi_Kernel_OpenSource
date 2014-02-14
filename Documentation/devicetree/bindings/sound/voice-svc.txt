@@ -1,0 +1,11 @@
+* Voice Service binding
+
+Required properties:
+- compatible : "qcom,msm-voice-svc"
+
+Example:
+
+	qcom,msm-voice-svc {
+		compatible = "qcom,msm-voice-svc";
+	};
+
