@@ -20,7 +20,6 @@ config ARC
 	select GENERIC_SMP_IDLE_THREAD
 	select HAVE_ARCH_KGDB
 	select HAVE_ARCH_TRACEHOOK
-	select HAVE_GENERIC_HARDIRQS
 	select HAVE_IOREMAP_PROT
 	select HAVE_KPROBES
 	select HAVE_KRETPROBES
@@ -119,7 +118,6 @@ config ARC_PLAT_NEEDS_CPU_TO_DMA
 config SMP
 	bool "Symmetric Multi-Processing (Incomplete)"
 	default n
-	select USE_GENERIC_SMP_HELPERS
 	help
 	  This enables support for systems with more than one CPU. If you have
 	  a system with only one CPU, like most personal computers, say N. If

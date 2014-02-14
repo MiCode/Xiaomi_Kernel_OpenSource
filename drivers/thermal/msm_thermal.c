@@ -37,6 +37,7 @@
 #include <linux/msm_thermal_ioctl.h>
 #include <soc/qcom/rpm-smd.h>
 
+#define MAX_CURRENT_UA 100000
 #define MAX_RAILS 5
 #define MAX_THRESHOLD 2
 #define MONITOR_ALL_TSENS -1
@@ -60,6 +61,7 @@ static int enabled;
 static int polling_enabled;
 static int rails_cnt;
 static int psm_rails_cnt;
+static int ocr_rail_cnt;
 static int limit_idx;
 static int limit_idx_low;
 static int limit_idx_high;
@@ -74,6 +76,10 @@ static bool psm_enabled;
 static bool psm_nodes_called;
 static bool psm_probed;
 static bool freq_mitigation_enabled;
+static bool ocr_enabled;
+static bool ocr_nodes_called;
+static bool ocr_probed;
+static bool ocr_reg_init_defer;
 static bool hotplug_enabled;
 static bool interrupt_mode_enable;
 static bool msm_thermal_probed;
@@ -84,6 +90,7 @@ static DEFINE_MUTEX(vdd_rstr_mutex);
 static DEFINE_MUTEX(psm_mutex);
 static DEFINE_MUTEX(cx_mutex);
 static DEFINE_MUTEX(gfx_mutex);
+static DEFINE_MUTEX(ocr_mutex);
 static uint32_t min_freq_limit;
 static uint32_t curr_gfx_band;
 static uint32_t curr_cx_band;
@@ -158,6 +165,7 @@ struct psm_rail {
 	uint8_t mode;
 	struct kobj_attribute mode_attr;
 	struct rpm_regulator *reg;
+	struct regulator *phase_reg;
 	struct attribute_group attr_gp;
 };
 
@@ -166,6 +174,7 @@ enum msm_thresh_list {
 	MSM_CX_PHASE_CTRL_HOT,
 	MSM_GFX_PHASE_CTRL_WARM,
 	MSM_GFX_PHASE_CTRL_HOT,
+	MSM_OCR,
 	MSM_LIST_MAX_NR,
 };
 
@@ -187,6 +196,7 @@ enum msm_temp_band {
 };
 
 static struct psm_rail *psm_rails;
+static struct psm_rail *ocr_rails;
 static struct rail *rails;
 static struct cpu_info cpus[NR_CPUS];
 static struct threshold_info *thresh;
@@ -201,6 +211,12 @@ enum PMIC_SW_MODE {
 	PMIC_AUTO_MODE  = RPM_REGULATOR_MODE_AUTO,
 	PMIC_IPEAK_MODE = RPM_REGULATOR_MODE_IPEAK,
 	PMIC_PWM_MODE   = RPM_REGULATOR_MODE_HPM,
+};
+
+enum ocr_request {
+	OPTIMUM_CURRENT_MIN,
+	OPTIMUM_CURRENT_MAX,
+	OPTIMUM_CURRENT_NR,
 };
 
 #define VDD_RES_RO_ATTRIB(_rail, ko_attr, j, _name) \
@@ -227,6 +243,14 @@ enum PMIC_SW_MODE {
 
 #define VDD_RSTR_REG_LEVEL_FROM_ATTRIBS(attr) \
 	(container_of(attr, struct rail, level_attr));
+
+#define OCR_RW_ATTRIB(_rail, ko_attr, j, _name) \
+	ko_attr.attr.name = __stringify(_name); \
+	ko_attr.attr.mode = 0644; \
+	ko_attr.show = ocr_reg_##_name##_show; \
+	ko_attr.store = ocr_reg_##_name##_store; \
+	sysfs_attr_init(&ko_attr.attr); \
+	_rail.attr_gp.attrs[j] = &ko_attr.attr;
 
 #define PSM_RW_ATTRIB(_rail, ko_attr, j, _name) \
 	ko_attr.attr.name = __stringify(_name); \
@@ -628,6 +652,90 @@ static ssize_t vdd_rstr_reg_level_store(struct kobject *kobj,
 
 done_store_level:
 	mutex_unlock(&vdd_rstr_mutex);
+	return count;
+}
+
+static int request_optimum_current(struct psm_rail *rail, enum ocr_request req)
+{
+	int ret = 0;
+
+	if ((!rail) || (req >= OPTIMUM_CURRENT_NR) ||
+		(req < 0)) {
+		pr_err("Invalid input %d\n", req);
+		ret = -EINVAL;
+		goto request_ocr_exit;
+	}
+
+	ret = regulator_set_optimum_mode(rail->phase_reg,
+		(req == OPTIMUM_CURRENT_MAX) ? MAX_CURRENT_UA : 0);
+	if (ret < 0) {
+		pr_err("Optimum current request failed. err:%d\n", ret);
+		goto request_ocr_exit;
+	}
+	ret = 0; /*regulator_set_optimum_mode returns the mode on success*/
+	pr_debug("Requested optimum current mode: %d\n", req);
+
+request_ocr_exit:
+	return ret;
+}
+
+static int ocr_set_mode_all(enum ocr_request req)
+{
+	int ret = 0, i;
+
+	for (i = 0; i < ocr_rail_cnt; i++) {
+		if (ocr_rails[i].mode == req)
+			continue;
+		ret = request_optimum_current(&ocr_rails[i], req);
+		if (ret)
+			goto ocr_set_mode_exit;
+		ocr_rails[i].mode = req;
+	}
+
+ocr_set_mode_exit:
+	return ret;
+}
+
+static ssize_t ocr_reg_mode_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	struct psm_rail *reg = PSM_REG_MODE_FROM_ATTRIBS(attr);
+	return snprintf(buf, PAGE_SIZE, "%d\n", reg->mode);
+}
+
+static ssize_t ocr_reg_mode_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int ret = 0;
+	int val = 0;
+	struct psm_rail *reg = PSM_REG_MODE_FROM_ATTRIBS(attr);
+
+	if (!ocr_enabled)
+		return count;
+
+	mutex_lock(&ocr_mutex);
+	ret = kstrtoint(buf, 10, &val);
+	if (ret) {
+		pr_err("Invalid input %s for mode. err:%d\n",
+			buf, ret);
+		goto done_ocr_store;
+	}
+
+	if ((val != OPTIMUM_CURRENT_MAX) &&
+		(val != OPTIMUM_CURRENT_MIN)) {
+		pr_err("Invalid value %d for mode\n", val);
+		goto done_ocr_store;
+	}
+
+	if (val != reg->mode) {
+		ret = request_optimum_current(reg, val);
+		if (ret)
+			goto done_ocr_store;
+		reg->mode = val;
+	}
+
+done_ocr_store:
+	mutex_unlock(&ocr_mutex);
 	return count;
 }
 
@@ -1168,6 +1276,66 @@ cx_phase_cond_exit:
 	return ret;
 }
 
+static int do_ocr(void)
+{
+	long temp = 0;
+	int ret = 0;
+	int i = 0, j = 0;
+	int pfm_cnt = 0;
+
+	if (!ocr_enabled)
+		return ret;
+
+	mutex_lock(&ocr_mutex);
+	for (i = 0; i < thresh[MSM_OCR].thresh_ct; i++) {
+		ret = therm_get_temp(
+			thresh[MSM_OCR].thresh_list[i].sensor_id,
+			thresh[MSM_OCR].thresh_list[i].id_type,
+			&temp);
+		if (ret) {
+			pr_err("Unable to read TSENS sensor %d. err:%d\n",
+			thresh[MSM_OCR].thresh_list[i].sensor_id,
+			ret);
+			pfm_cnt++;
+			continue;
+		}
+
+		if (temp > msm_thermal_info.ocr_temp_degC) {
+			if (ocr_rails[0].init != OPTIMUM_CURRENT_NR)
+				for (j = 0; j < ocr_rail_cnt; j++)
+					ocr_rails[j].init = OPTIMUM_CURRENT_NR;
+			ret = ocr_set_mode_all(OPTIMUM_CURRENT_MAX);
+			if (ret)
+				pr_err("Error setting max ocr. err:%d\n",
+					ret);
+			goto do_ocr_exit;
+		} else if (temp <= (msm_thermal_info.ocr_temp_degC -
+			msm_thermal_info.ocr_temp_hyst_degC))
+			pfm_cnt++;
+	}
+
+	if (pfm_cnt == thresh[MSM_OCR].thresh_ct ||
+		ocr_rails[0].init != OPTIMUM_CURRENT_NR) {
+		/* 'init' not equal to OPTIMUM_CURRENT_NR means this is the
+		** first polling iteration after device probe. During first
+		** iteration, if temperature is less than the set point, clear
+		** the max current request made and reset the 'init'.
+		*/
+		if (ocr_rails[0].init != OPTIMUM_CURRENT_NR)
+			for (j = 0; j < ocr_rail_cnt; j++)
+				ocr_rails[j].init = OPTIMUM_CURRENT_NR;
+		ret = ocr_set_mode_all(OPTIMUM_CURRENT_MIN);
+		if (ret) {
+			pr_err("Error setting min ocr. err:%d\n",
+				ret);
+			goto do_ocr_exit;
+		}
+	}
+do_ocr_exit:
+	mutex_unlock(&ocr_mutex);
+	return ret;
+}
+
 static int do_vdd_restriction(void)
 {
 	long temp = 0;
@@ -1320,6 +1488,7 @@ static void check_temp(struct work_struct *work)
 	do_psm();
 	do_gfx_phase_cond();
 	do_cx_phase_cond();
+	do_ocr();
 
 	if (!limit_init) {
 		ret = msm_thermal_get_freq_table();
@@ -1820,7 +1989,55 @@ static void vdd_restriction_notify(struct therm_threshold *trig_thresh)
 	}
 
 unlock_and_exit:
-	mutex_lock(&vdd_rstr_mutex);
+	mutex_unlock(&vdd_rstr_mutex);
+set_and_exit:
+	set_threshold(trig_thresh->sensor_id, trig_thresh->threshold);
+	return;
+}
+
+static void ocr_notify(struct therm_threshold *trig_thresh)
+{
+	int ret = 0;
+	static uint32_t ocr_sens_status;
+
+	if (!ocr_enabled)
+		return;
+	if (!trig_thresh) {
+		pr_err("Invalid input\n");
+		return;
+	}
+	if (trig_thresh->trip_triggered < 0)
+		goto set_and_exit;
+
+	mutex_lock(&ocr_mutex);
+	pr_debug("sensor%d reached %d thresh for Optimum current request\n",
+		tsens_id_map[trig_thresh->sensor_id],
+		trig_thresh->trip_triggered);
+	switch (trig_thresh->trip_triggered) {
+	case THERMAL_TRIP_CONFIGURABLE_HI:
+		ocr_sens_status |= BIT(trig_thresh->sensor_id);
+		break;
+	case THERMAL_TRIP_CONFIGURABLE_LOW:
+		if (ocr_sens_status & BIT(trig_thresh->sensor_id))
+			ocr_sens_status ^= BIT(trig_thresh->sensor_id);
+		break;
+	default:
+		pr_err("Unsupported trip type\n");
+		goto unlock_and_exit;
+		break;
+	}
+
+	ret = ocr_set_mode_all(ocr_sens_status ? OPTIMUM_CURRENT_MAX :
+				OPTIMUM_CURRENT_MIN);
+	if (ret) {
+		pr_err("%s Optimum current mode for all failed. err:%d\n",
+			(ocr_sens_status) ?
+			"Enable" : "Disable", ret);
+			goto unlock_and_exit;
+	}
+
+unlock_and_exit:
+	mutex_unlock(&ocr_mutex);
 set_and_exit:
 	set_threshold(trig_thresh->sensor_id, trig_thresh->threshold);
 	return;
@@ -1913,6 +2130,9 @@ static void thermal_monitor_init(void)
 		therm_set_threshold(&thresh[MSM_GFX_PHASE_CTRL_WARM]);
 		therm_set_threshold(&thresh[MSM_GFX_PHASE_CTRL_HOT]);
 	}
+	if ((ocr_enabled) &&
+		!(convert_to_zone_id(&thresh[MSM_OCR])))
+		therm_set_threshold(&thresh[MSM_OCR]);
 
 init_exit:
 	return;
@@ -2308,7 +2528,17 @@ int msm_thermal_pre_init(void)
 {
 	int ret = 0;
 
-	tsens_get_max_sensor_num(&max_tsens_num);
+	if (tsens_is_ready() <= 0) {
+		pr_err("Tsens driver is not ready yet\n");
+		return -EPROBE_DEFER;
+	}
+
+	ret = tsens_get_max_sensor_num(&max_tsens_num);
+	if (ret < 0) {
+		pr_err("failed to get max sensor number, err:%d\n", ret);
+		return ret;
+	}
+
 	if (create_sensor_id_map()) {
 		ret = -EINVAL;
 		goto pre_init_exit;
@@ -2368,6 +2598,42 @@ int msm_thermal_init(struct msm_thermal_data *pdata)
 	if (num_possible_cpus() > 1)
 		register_cpu_notifier(&msm_thermal_cpu_notifier);
 
+	return ret;
+}
+
+static int ocr_reg_init(struct platform_device *pdev)
+{
+	int ret = 0;
+	int i, j;
+
+	for (i = 0; i < ocr_rail_cnt; i++) {
+		/* Check if vdd_restriction has already initialized any
+		 * regualtor handle. If so use the same handle.*/
+		for (j = 0; j < rails_cnt; j++) {
+			if (!strcmp(ocr_rails[i].name, rails[j].name)) {
+				if (rails[j].reg == NULL)
+					break;
+				ocr_rails[i].phase_reg = rails[j].reg;
+				goto reg_init;
+			}
+
+		}
+		ocr_rails[i].phase_reg = devm_regulator_get(&pdev->dev,
+					ocr_rails[i].name);
+		if (IS_ERR_OR_NULL(ocr_rails[i].phase_reg)) {
+			ret = PTR_ERR(ocr_rails[i].phase_reg);
+			if (ret != -EPROBE_DEFER) {
+				pr_err("Could not get regulator: %s, err:%d\n",
+					ocr_rails[i].name, ret);
+				ocr_rails[i].phase_reg = NULL;
+				ocr_rails[i].mode = 0;
+				ocr_rails[i].init = 0;
+			}
+			return ret;
+		}
+reg_init:
+		ocr_rails[i].mode = OPTIMUM_CURRENT_MIN;
+	}
 	return ret;
 }
 
@@ -2536,6 +2802,79 @@ thermal_sysfs_add_exit:
 		}
 		if (vdd_rstr_kobj)
 			kobject_del(vdd_rstr_kobj);
+	}
+	return rc;
+}
+
+static int msm_thermal_add_ocr_nodes(void)
+{
+	struct kobject *module_kobj = NULL;
+	struct kobject *ocr_kobj = NULL;
+	struct kobject *ocr_reg_kobj[MAX_RAILS] = {0};
+	int rc = 0;
+	int i = 0;
+
+	if (!ocr_probed) {
+		ocr_nodes_called = true;
+		return rc;
+	}
+
+	if (ocr_probed && ocr_rail_cnt == 0)
+		return rc;
+
+	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
+	if (!module_kobj) {
+		pr_err("Cannot find kobject\n");
+		rc = -ENOENT;
+		goto ocr_node_exit;
+	}
+
+	ocr_kobj = kobject_create_and_add("opt_curr_req", module_kobj);
+	if (!ocr_kobj) {
+		pr_err("Cannot create ocr kobject\n");
+		rc = -ENOMEM;
+		goto ocr_node_exit;
+	}
+
+	for (i = 0; i < ocr_rail_cnt; i++) {
+		ocr_reg_kobj[i] = kobject_create_and_add(ocr_rails[i].name,
+					ocr_kobj);
+		if (!ocr_reg_kobj[i]) {
+			pr_err("Cannot create kobject for %s\n",
+				ocr_rails[i].name);
+			rc = -ENOMEM;
+			goto ocr_node_exit;
+		}
+		ocr_rails[i].attr_gp.attrs = kzalloc(
+				sizeof(struct attribute *) * 2, GFP_KERNEL);
+		if (!ocr_rails[i].attr_gp.attrs) {
+			pr_err("Fail to allocate memory for attribute for %s\n",
+				ocr_rails[i].name);
+			rc = -ENOMEM;
+			goto ocr_node_exit;
+		}
+
+		OCR_RW_ATTRIB(ocr_rails[i], ocr_rails[i].mode_attr, 0, mode);
+		ocr_rails[i].attr_gp.attrs[1] = NULL;
+
+		rc = sysfs_create_group(ocr_reg_kobj[i], &ocr_rails[i].attr_gp);
+		if (rc) {
+			pr_err("Cannot create attribute group for %s. err:%d\n",
+				ocr_rails[i].name, rc);
+			goto ocr_node_exit;
+		}
+	}
+
+ocr_node_exit:
+	if (rc) {
+		for (i = 0; i < ocr_rail_cnt; i++) {
+			if (ocr_reg_kobj[i])
+				kobject_del(ocr_reg_kobj[i]);
+			kfree(ocr_rails[i].attr_gp.attrs);
+			ocr_rails[i].attr_gp.attrs = NULL;
+		}
+		if (ocr_kobj)
+			kobject_del(ocr_kobj);
 	}
 	return rc;
 }
@@ -2714,6 +3053,115 @@ read_node_fail:
 	}
 	if (ret == -EPROBE_DEFER)
 		vdd_rstr_probed = false;
+	return ret;
+}
+
+static int probe_ocr(struct device_node *node, struct msm_thermal_data *data,
+		struct platform_device *pdev)
+{
+	int ret = 0;
+	int j = 0;
+	char *key = NULL;
+
+	if (ocr_probed) {
+		pr_info("Nodes already probed\n");
+		goto read_ocr_exit;
+	}
+	ocr_rails = NULL;
+
+	key = "qcom,pmic-opt-curr-temp";
+	ret = of_property_read_u32(node, key, &data->ocr_temp_degC);
+	if (ret)
+		goto read_ocr_fail;
+
+	key = "qcom,pmic-opt-curr-temp-hysteresis";
+	ret = of_property_read_u32(node, key, &data->ocr_temp_hyst_degC);
+	if (ret)
+		goto read_ocr_fail;
+
+	key = "qcom,pmic-opt-curr-regs";
+	ocr_rail_cnt = of_property_count_strings(node, key);
+	if (ocr_rail_cnt <= 0) {
+		pr_err("Invalid ocr rail count. err:%d\n", ocr_rail_cnt);
+		goto read_ocr_fail;
+	}
+	ocr_rails = kzalloc(sizeof(struct psm_rail) * ocr_rail_cnt,
+			GFP_KERNEL);
+	if (!ocr_rails) {
+		pr_err("Fail to allocate memory for ocr rails\n");
+		ocr_rail_cnt = 0;
+		return -ENOMEM;
+	}
+
+	for (j = 0; j < ocr_rail_cnt; j++) {
+		ret = of_property_read_string_index(node, key, j,
+				&ocr_rails[j].name);
+		if (ret)
+			goto read_ocr_fail;
+		ocr_rails[j].phase_reg = NULL;
+		ocr_rails[j].init = OPTIMUM_CURRENT_MAX;
+	}
+
+	key = "qcom,pmic-opt-curr-sensor-id";
+	ret = of_property_read_u32(node, key, &data->ocr_sensor_id);
+	if (ret) {
+		pr_info("ocr sensor is not configured, use all TSENS. err:%d\n",
+			ret);
+		data->ocr_sensor_id = MONITOR_ALL_TSENS;
+	}
+
+	ret = ocr_reg_init(pdev);
+	if (ret) {
+		if (ret == -EPROBE_DEFER) {
+			ocr_reg_init_defer = true;
+			pr_info("ocr reg init is defered\n");
+		} else {
+			pr_err(
+			"Failed to get regulators. KTM continues. err:%d\n",
+			ret);
+			goto read_ocr_fail;
+		}
+	}
+
+	ret = init_threshold(MSM_OCR, data->ocr_sensor_id,
+		data->ocr_temp_degC,
+		data->ocr_temp_degC - data->ocr_temp_hyst_degC,
+		ocr_notify);
+	if (ret)
+		goto read_ocr_fail;
+
+	if (!ocr_reg_init_defer)
+		ocr_enabled = true;
+	ocr_nodes_called = false;
+	/*
+	 * Vote for max optimum current by default until we have made
+	 * our first temp reading
+	 */
+	if (ocr_enabled) {
+		ret = ocr_set_mode_all(OPTIMUM_CURRENT_MAX);
+		if (ret) {
+			pr_err("Set max optimum current failed. err:%d\n",
+				ret);
+			ocr_enabled = false;
+		}
+	}
+
+read_ocr_fail:
+	ocr_probed = true;
+	if (ret) {
+		if (ret == -EPROBE_DEFER) {
+			ret = 0;
+			goto read_ocr_exit;
+		}
+		dev_err(
+		&pdev->dev,
+		"%s:Failed reading node=%s, key=%s err:%d. KTM continues\n",
+		__func__, node->full_name, key, ret);
+		kfree(ocr_rails);
+		ocr_rails = NULL;
+		ocr_rail_cnt = 0;
+	}
+read_ocr_exit:
 	return ret;
 }
 
@@ -3030,6 +3478,8 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	struct msm_thermal_data data;
 
 	memset(&data, 0, sizeof(struct msm_thermal_data));
+	data.pdev = pdev;
+
 	ret = msm_thermal_pre_init();
 	if (ret)
 		goto fail;
@@ -3071,6 +3521,9 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	 * Probe optional properties below. Call probe_psm before
 	 * probe_vdd_rstr because rpm_regulator_get has to be called
 	 * before devm_regulator_get
+	 * probe_ocr should be called after probe_vdd_rstr to reuse the
+	 * regualtor handle. calling devm_regulator_get more than once
+	 * will fail.
 	 */
 	ret = probe_psm(node, &data, pdev);
 	if (ret == -EPROBE_DEFER)
@@ -3078,6 +3531,7 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	ret = probe_vdd_rstr(node, &data, pdev);
 	if (ret == -EPROBE_DEFER)
 		goto fail;
+	ret = probe_ocr(node, &data, pdev);
 
 	/*
 	 * In case sysfs add nodes get called before probe function.
@@ -3090,6 +3544,10 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	if (vdd_rstr_nodes_called) {
 		msm_thermal_add_vdd_rstr_nodes();
 		vdd_rstr_nodes_called = false;
+	}
+	if (ocr_nodes_called) {
+		msm_thermal_add_ocr_nodes();
+		ocr_nodes_called = false;
 	}
 	msm_thermal_ioctl_init();
 	ret = msm_thermal_init(&data);
@@ -3111,6 +3569,8 @@ fail:
 
 static int msm_thermal_dev_exit(struct platform_device *inp_dev)
 {
+	int i = 0;
+
 	msm_thermal_ioctl_cleanup();
 	if (thresh) {
 		if (vdd_rstr_enabled)
@@ -3120,6 +3580,13 @@ static int msm_thermal_dev_exit(struct platform_device *inp_dev)
 		if (gfx_phase_ctrl_enabled) {
 			kfree(thresh[MSM_GFX_PHASE_CTRL_WARM].thresh_list);
 			kfree(thresh[MSM_GFX_PHASE_CTRL_HOT].thresh_list);
+		}
+		if (ocr_enabled) {
+			for (i = 0; i < ocr_rail_cnt; i++)
+				kfree(ocr_rails[i].attr_gp.attrs);
+			kfree(ocr_rails);
+			ocr_rails = NULL;
+			kfree(thresh[MSM_OCR].thresh_list);
 		}
 		kfree(thresh);
 		thresh = NULL;
@@ -3146,6 +3613,7 @@ int __init msm_thermal_device_init(void)
 {
 	return platform_driver_register(&msm_thermal_device_driver);
 }
+arch_initcall(msm_thermal_device_init);
 
 int __init msm_thermal_late_init(void)
 {
@@ -3153,6 +3621,12 @@ int __init msm_thermal_late_init(void)
 		msm_thermal_add_cc_nodes();
 	msm_thermal_add_psm_nodes();
 	msm_thermal_add_vdd_rstr_nodes();
+	if (ocr_reg_init_defer) {
+		if (!ocr_reg_init(msm_thermal_info.pdev)) {
+			ocr_enabled = true;
+			msm_thermal_add_ocr_nodes();
+		}
+	}
 	interrupt_mode_init();
 	return 0;
 }

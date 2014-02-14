@@ -544,14 +544,8 @@ void __init early_init_dt_add_memory_arch(u64 base, u64 size)
 	memblock_add(base, size);
 }
 
-void * __init early_init_dt_alloc_memory_arch(u64 size, u64 align)
-{
-	return __va(memblock_alloc(size, align));
-}
-
 #ifdef CONFIG_BLK_DEV_INITRD
-void __init early_init_dt_setup_initrd_arch(unsigned long start,
-		unsigned long end)
+void __init early_init_dt_setup_initrd_arch(u64 start, u64 end)
 {
 	initrd_start = (unsigned long)__va(start);
 	initrd_end = (unsigned long)__va(end);
@@ -826,50 +820,6 @@ static int __init prom_reconfig_setup(void)
 }
 __initcall(prom_reconfig_setup);
 #endif
-
-/* Find the device node for a given logical cpu number, also returns the cpu
- * local thread number (index in ibm,interrupt-server#s) if relevant and
- * asked for (non NULL)
- */
-struct device_node *of_get_cpu_node(int cpu, unsigned int *thread)
-{
-	int hardid;
-	struct device_node *np;
-
-	hardid = get_hard_smp_processor_id(cpu);
-
-	for_each_node_by_type(np, "cpu") {
-		const u32 *intserv;
-		unsigned int plen, t;
-
-		/* Check for ibm,ppc-interrupt-server#s. If it doesn't exist
-		 * fallback to "reg" property and assume no threads
-		 */
-		intserv = of_get_property(np, "ibm,ppc-interrupt-server#s",
-				&plen);
-		if (intserv == NULL) {
-			const u32 *reg = of_get_property(np, "reg", NULL);
-			if (reg == NULL)
-				continue;
-			if (*reg == hardid) {
-				if (thread)
-					*thread = 0;
-				return np;
-			}
-		} else {
-			plen /= sizeof(u32);
-			for (t = 0; t < plen; t++) {
-				if (hardid == intserv[t]) {
-					if (thread)
-						*thread = t;
-					return np;
-				}
-			}
-		}
-	}
-	return NULL;
-}
-EXPORT_SYMBOL(of_get_cpu_node);
 
 #if defined(CONFIG_DEBUG_FS) && defined(DEBUG)
 static struct debugfs_blob_wrapper flat_dt_blob;

@@ -78,6 +78,14 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 
+		removed_regions: removed_regions@0 {
+                        linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0x88800000 0x0 0x06e00000>;
+			label = "removed_regions";
+		};
+
 		secure_mem: secure_region@0 {
                         linux,reserve-contiguous-region;
 			reg = <0 0 0 0x6D00000>;
@@ -484,9 +492,9 @@
 		qcom,rtb-size = <0x100000>;
 	};
 
-	qcom,smem@8e380000 {
+	qcom,smem@8e200000 {
 		compatible = "qcom,smem";
-		reg = <0x8e380000 0x100000>,
+		reg = <0x8e200000 0x100000>,
 			<0x0b011008 0x4>,
 			<0x60000 0x8000>,
 			<0x193D000 0x8>;
@@ -543,11 +551,6 @@
                 rpm-channel-type = <15>; /* SMD_APPS_RPM */
 		rpm-standalone; /* TODO: remove this after bring up */
         };
-
-	memory_hole: qcom,msm-mem-hole {
-		compatible = "qcom,msm-mem-hole";
-		qcom,memblock-remove = <0x88800000 0x06e00000>;
-	};
 
 	qcom,bam_dmux@4044000 {
 		compatible = "qcom,bam_dmux";
@@ -1134,6 +1137,28 @@
 #include "msm8916-pm.dtsi"
 
 &pm8916_vadc {
+	chan@0 {
+		label = "usb_in";
+		reg = <0>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <7>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@2 {
+		label = "ireg_fb";
+		reg = <2>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <6>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+	};
+
 	chan@5 {
 		label = "vcoin";
 		reg = <5>;
@@ -1148,6 +1173,17 @@
 	chan@6 {
 		label = "vbat_sns";
 		reg = <6>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <1>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@7 {
+		label = "vph_pwr";
+		reg = <7>;
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <1>;
 		qcom,calibration-type = "absolute";

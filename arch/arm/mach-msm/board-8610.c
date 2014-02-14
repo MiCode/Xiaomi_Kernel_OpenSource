@@ -24,7 +24,6 @@
 #include <linux/of_fdt.h>
 #include <linux/of_irq.h>
 #include <linux/memory.h>
-#include <linux/msm_tsens.h>
 #include <linux/clk/msm-clk-provider.h>
 #include <asm/mach/map.h>
 #include <asm/mach/arch.h>
@@ -42,7 +41,6 @@
 #include <soc/qcom/smem.h>
 #include <soc/qcom/spm.h>
 #include <soc/qcom/pm.h>
-#include <linux/msm_thermal.h>
 #include "board-dt.h"
 #include "clock.h"
 #include "platsmp.h"
@@ -77,8 +75,6 @@ void __init msm8610_add_drivers(void)
 	msm_pm_sleep_status_init();
 	rpm_smd_regulator_driver_init();
 	qpnp_regulator_init();
-	tsens_tm_init_driver();
-	msm_thermal_device_init();
 
 	if (of_board_is_rumi())
 		msm_clock_init(&msm8610_rumi_clock_init_data);

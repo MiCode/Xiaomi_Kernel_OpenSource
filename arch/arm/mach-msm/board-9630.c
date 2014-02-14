@@ -16,8 +16,6 @@
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/memory.h>
-#include <linux/msm_tsens.h>
-#include <linux/msm_thermal.h>
 #include <linux/clk/msm-clk-provider.h>
 #include <linux/regulator/rpm-smd-regulator.h>
 #include <soc/qcom/rpm-smd.h>
@@ -54,8 +52,6 @@ void __init mdm9630_add_drivers(void)
 	rpm_smd_regulator_driver_init();
 	msm_spm_device_init();
 	msm_clock_init(&mdm9630_clock_init_data);
-	tsens_tm_init_driver();
-	msm_thermal_device_init();
 }
 
 void __init mdm9630_reserve(void)

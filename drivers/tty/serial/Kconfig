@@ -5,7 +5,7 @@
 if TTY
 
 menu "Serial drivers"
-	depends on HAS_IOMEM && GENERIC_HARDIRQS
+	depends on HAS_IOMEM
 
 source "drivers/tty/serial/8250/Kconfig"
 
@@ -1056,7 +1056,7 @@ config SERIAL_MSM_RX_WAKEUP
 
 config SERIAL_MSM_HSL
 	tristate "MSM UART High Speed : Legacy mode Serial Driver"
-	depends on ARM && ARCH_MSM
+	depends on (ARM || ARM64) && ARCH_MSM
 	select SERIAL_CORE
 	default n
 	help

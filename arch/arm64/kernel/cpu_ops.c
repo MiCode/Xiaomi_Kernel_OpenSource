@@ -68,8 +68,8 @@ int __init cpu_read_ops(struct device_node *dn, int cpu)
 
 	cpu_ops[cpu] = cpu_get_ops(enable_method);
 	if (!cpu_ops[cpu]) {
-		pr_err("%s: invalid enable-method property: %s\n",
-		       dn->full_name, enable_method);
+		pr_warn("%s: unsupported enable-method property: %s\n",
+			dn->full_name, enable_method);
 		return -EOPNOTSUPP;
 	}
 
@@ -78,22 +78,10 @@ int __init cpu_read_ops(struct device_node *dn, int cpu)
 
 void __init cpu_read_bootcpu_ops(void)
 {
-	struct device_node *dn = NULL;
-	u64 mpidr = cpu_logical_map(0);
-
-	while ((dn = of_find_node_by_type(dn, "cpu"))) {
-		u64 hwid;
-		const __be32 *prop;
-
-		prop = of_get_property(dn, "reg", NULL);
-		if (!prop)
-			continue;
-
-		hwid = of_read_number(prop, of_n_addr_cells(dn));
-		if (hwid == mpidr) {
-			cpu_read_ops(dn, 0);
-			of_node_put(dn);
-			return;
-		}
+	struct device_node *dn = of_get_cpu_node(0, NULL);
+	if (!dn) {
+		pr_err("Failed to find device node for boot cpu\n");
+		return;
 	}
+	cpu_read_ops(dn, 0);
 }
