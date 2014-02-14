@@ -663,6 +663,11 @@ int arizona_wm5110_tune_headphone(struct arizona_extcon_info *info,
 			return 0;
 
 		info->hp_imp_level = HP_LOW_IMPEDANCE;
+
+		regmap_update_bits(arizona->regmap,
+				   ARIZONA_HP1_SHORT_CIRCUIT_CTRL,
+				   ARIZONA_HP1_SC_ENA_MASK, 0);
+
 		patch = low_impedance_patch;
 		size = ARRAY_SIZE(low_impedance_patch);
 	} else {
@@ -670,6 +675,12 @@ int arizona_wm5110_tune_headphone(struct arizona_extcon_info *info,
 			return 0;
 
 		info->hp_imp_level = HP_NORMAL_IMPEDANCE;
+
+		regmap_update_bits(arizona->regmap,
+				   ARIZONA_HP1_SHORT_CIRCUIT_CTRL,
+				   ARIZONA_HP1_SC_ENA_MASK,
+				   ARIZONA_HP1_SC_ENA_MASK);
+
 		patch = normal_impedance_patch;
 		size = ARRAY_SIZE(normal_impedance_patch);
 	}
