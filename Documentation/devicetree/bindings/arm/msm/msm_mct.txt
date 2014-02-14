@@ -1,0 +1,52 @@
+MSM Maximum Current Throttling (MSM-MCT) driver
+
+The MCT driver provides support to enable/disable the MCT
+mechanism and to modify the MCT control parameters. The
+MCT mechanism's main goal is to limit the CPU's max power
+consumption over a period of time by assessing the number
+and type of instructions that are executed and then by mitigating
+the CPU's instruction execution rate. The MCT works on a user
+defined power budget for every cycle and when the CPU's average
+power consumption exceeds this budget for a particular period of time,
+then the CPU's instruction execution rate is throttled.
+
+The devicetree representation of the MCT block should be:
+Required Properties:
+- compatible            : "qcom,max-current-throttling"
+
+Optional Properties:
+- qcom,mct-wr-weight    : Energy weight of integer instruction.
+- qcom,mct-vxwr-weight  : Energy weight of VeNum arithmetic operations.
+- qcom,mct-vlswr-weight : Energy weight of VeNum memory operations.
+- qcom,mct-vaw-energy   : Energy associated with clocking the VeNum unit.
+- qcom,mct-ulim         : The maximum energy debt that can be incurred
+                          before throttling will be engaged.
+- qcom,mct-dcnt         : The per-cycle energy budget.
+- <mct-regulator-name>-supply = <&phandle_of_regulator> : mct-regulator-name
+                          is the regulator name that's defined in the mct
+                          driver. phandle_of_regulator should be the phandle
+                          for mct regulator, defined by regulator device tree.
+- qcom,mct-regulators   : List of MCT regulators corresponding to each CPU.
+                          These regulators will be enabled/disabled, whenever
+                          the MCT feature for that particular CPU is
+                          enabled/disabled in the driver. User can specify
+                          regulators for specific CPU's and give empty string
+                          for the rest. The phandle for the regulator supply
+                          should be defined.
+
+Example:
+qcom,msm-mct {
+	compatible = "qcom,max-current-throttling";
+	krait0-mct-supply = <&krait0_adj_reg>;
+	krait1-mct-supply = <&krait1_adj_reg>;
+	krait2-mct-supply = <&krait2_adj_reg>;
+	krait3-mct-supply = <&krait3_adj_reg>;
+	qcom,mct-regulators = "krait0-mct", "krait1-mct",
+				"krait2-mct", "krait3-mct";
+	qcom,mct-wr-weight = <0x14221120>;
+	qcom,mct-vxwr-weight = <0xf8436430>;
+	qcom,mct-vlswr-weight = <0xa5846330>;
+	qcom,mct-vaw-energy = <0x1>;
+	qcom,mct-ulim = <0x007f>;
+	qcom,mct-dcnt = <0x0c>;
+};
