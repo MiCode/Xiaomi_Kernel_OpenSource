@@ -82,6 +82,7 @@ static int arizona_spi_remove(struct spi_device *spi)
 static const struct spi_device_id arizona_spi_ids[] = {
 	{ "wm5102", WM5102 },
 	{ "wm8280", WM8280 },
+	{ "wm8281", WM8280 },
 	{ "wm5110", WM5110 },
 	{ },
 };

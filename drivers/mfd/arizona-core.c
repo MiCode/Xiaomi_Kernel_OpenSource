@@ -1133,8 +1133,13 @@ int arizona_dev_init(struct arizona *arizona)
 	case 0x5110:
 		switch (arizona->type) {
 		case WM8280:
-			type_name = "WM8280";
-			revision_char = arizona->rev + 61;
+			if (arizona->rev >= 0x5) {
+				type_name = "WM8281";
+				revision_char = arizona->rev + 60;
+			} else {
+				type_name = "WM8280";
+				revision_char = arizona->rev + 61;
+			}
 			break;
 
 		case WM5110:
