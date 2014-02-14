@@ -640,6 +640,17 @@ static int update_fsm_state(struct qpnp_bms_chip *chip)
 	u8 val = 0;
 	int rc;
 
+	/*
+	 * To read the STATUS1 register, write a value(any) to this register,
+	 * wait for 10ms and then read the register.
+	 */
+	rc = qpnp_write_wrapper(chip, &val, chip->base + STATUS1_REG, 1);
+	if (rc) {
+		pr_err("Unable to write STATUS1_REG rc=%d\n", rc);
+		return rc;
+	}
+	usleep_range(10000, 11000);
+
 	/* read the current FSM state */
 	rc = qpnp_read_wrapper(chip, &val, chip->base + STATUS1_REG, 1);
 	if (rc) {
