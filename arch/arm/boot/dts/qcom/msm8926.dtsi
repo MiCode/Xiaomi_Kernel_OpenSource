@@ -22,6 +22,25 @@
 / {
 	model = "Qualcomm MSM 8926";
 	compatible = "qcom,msm8926";
+
+	memory {
+		alt_peripheral_mem: peripheral_region@8000000 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x08000000 0x5c00000>;
+			label = "peripheral_mem";
+		};
+	};
+
+};
+
+&modem_mem {
+	status = "disabled";
+};
+
+&peripheral_mem {
+	status = "disabled";
 };
 
 &soc {
@@ -176,11 +195,6 @@
 
 &msmgpio {
 	ngpio = <121>;
-};
-
-&memory_hole {
-	qcom,memblock-remove = <0x08000000 0x7500000
-				0x0fa00000 0x500000>; /* Address and size of the hole */
 };
 
 &hsic_host {
