@@ -1212,6 +1212,7 @@ static int mxhci_hsic_remove(struct platform_device *pdev)
 	mxhci_hsic_init_vddcx(mxhci, 0);
 	mxhci_hsic_init_clocks(mxhci, 0);
 	mxhci_msm_config_gdsc(mxhci, 0);
+	kfree(xhci);
 	usb_put_hcd(hcd);
 
 	return 0;
