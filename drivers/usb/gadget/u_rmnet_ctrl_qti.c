@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -121,7 +121,7 @@ static int grmnet_ctrl_qti_send_cpkt_tomodem(u8 portno,
 
 	/* drop cpkt if port is not open */
 	if (!port->is_open) {
-		pr_err("rmnet file handler %p(index=%d) is not open",
+		pr_debug("rmnet file handler %p(index=%d) is not open",
 		       port, port->index);
 		spin_unlock_irqrestore(&port->lock, flags);
 		free_rmnet_ctrl_pkt(cpkt);
