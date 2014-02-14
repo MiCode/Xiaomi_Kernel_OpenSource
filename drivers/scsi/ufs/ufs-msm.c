@@ -2569,10 +2569,8 @@ static void msm_ufs_advertise_quirks(struct ufs_hba *hba)
 			      | UFSHCD_QUIRK_BROKEN_SUSPEND
 			      | UFSHCD_BROKEN_LCC);
 	} else if ((major == 0x1) && (minor == 0x001) && (step == 0x0001)) {
-		hba->quirks |= (UFSHCD_QUIRK_BROKEN_HIBERN8
-			      | UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
+		hba->quirks |= (UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
 			      | UFSHCD_QUIRK_BROKEN_INTR_AGGR
-			      | UFSHCD_QUIRK_BROKEN_SUSPEND
 			      | UFSHCD_BROKEN_GEAR_CHANGE_INTO_HS
 			      | UFSHCD_BROKEN_LCC);
 
