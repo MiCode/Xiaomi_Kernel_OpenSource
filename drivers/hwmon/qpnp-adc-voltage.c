@@ -538,32 +538,22 @@ static int32_t qpnp_ocv_comp(int64_t *result,
 	if (version == -EINVAL)
 		return 0;
 
-	if (version == QPNP_REV_ID_8110_2_0) {
-		if (die_temp < -20000)
-			die_temp = -20000;
-	} else if (version == QPNP_REV_ID_8026_2_2) {
+	if (version == QPNP_REV_ID_8026_2_2) {
 		if (die_temp > 25000)
 			return 0;
-	} else {
-		if (die_temp < 25000)
-			return 0;
-		if (die_temp > 60000)
-			die_temp = 60000;
 	}
 
 	switch (version) {
 	case QPNP_REV_ID_8941_3_1:
 		switch (vadc->id) {
 		case COMP_ID_TSMC:
-			temp_var = (((die_temp *
-			(-QPNP_VBAT_COEFF_4))
-			+ QPNP_VBAT_COEFF_5));
+			 temp_var = ((die_temp - 25000) *
+			(-QPNP_VBAT_COEFF_4));
 			break;
 		default:
 		case COMP_ID_GF:
-			temp_var = (((die_temp *
-			(-QPNP_VBAT_COEFF_1))
-			+ QPNP_VBAT_COEFF_2));
+			temp_var = ((die_temp - 25000) *
+			(-QPNP_VBAT_COEFF_1));
 			break;
 		}
 		break;
@@ -620,9 +610,6 @@ static int32_t qpnp_ocv_comp(int64_t *result,
 				temp_var = QPNP_VBAT_COEFF_19;
 			temp_var = (die_temp - 25000) * temp_var;
 			break;
-		case COMP_ID_TSMC:
-			pr_debug("No TSMC Comp Info, exiting\n");
-			return 0;
 		default:
 		case COMP_ID_GF:
 			*result -= QPNP_OCV_OFFSET_GF;
@@ -662,12 +649,7 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result,
 	if (version == -EINVAL)
 		return 0;
 
-	if (version == QPNP_REV_ID_8110_2_0) {
-		if (die_temp < -20000)
-			die_temp = -20000;
-	} else {
-		if (die_temp < 25000)
-			return 0;
+	if (version != QPNP_REV_ID_8941_3_1) {
 		/* min(die_temp_c, 60_degC) */
 		if (die_temp > 60000)
 			die_temp = 60000;
@@ -677,14 +659,16 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result,
 	case QPNP_REV_ID_8941_3_1:
 		switch (vadc->id) {
 		case COMP_ID_TSMC:
-			temp_var = (die_temp *
+			temp_var = ((die_temp - 25000) *
 			(-QPNP_VBAT_COEFF_1));
 			break;
 		default:
 		case COMP_ID_GF:
-			temp_var = (((die_temp *
-			(-QPNP_VBAT_COEFF_6))
-			+ QPNP_VBAT_COEFF_7));
+			/* min(die_temp_c, 60_degC) */
+			if (die_temp > 60000)
+				die_temp = 60000;
+			temp_var = ((die_temp - 25000) *
+			(-QPNP_VBAT_COEFF_1));
 			break;
 		}
 		break;
@@ -736,9 +720,6 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result,
 			temp_var = ((die_temp - 25000) *
 			(QPNP_VBAT_COEFF_17));
 			break;
-		case COMP_ID_TSMC:
-			pr_debug("No TSMC Comp Info, exiting\n");
-			return 0;
 		default:
 		case COMP_ID_GF:
 			*result -= QPNP_VBAT_OFFSET_GF;
