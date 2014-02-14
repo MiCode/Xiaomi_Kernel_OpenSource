@@ -851,6 +851,7 @@ try_again:
 	   ((*rocr & 0x41000000) == 0x41000000)) {
 		err = mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_180, true);
 		if (err) {
+			mmc_power_cycle(host);
 			ocr &= ~SD_OCR_S18R;
 			goto try_again;
 		}
