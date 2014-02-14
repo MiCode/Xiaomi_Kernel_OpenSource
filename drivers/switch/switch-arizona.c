@@ -200,7 +200,7 @@ static void arizona_extcon_do_magic(struct arizona_extcon_info *info,
 			 ret);
 
 	/* Restore the desired state while not doing the magic */
-	if (!magic && !arizona->hp_short) {
+	if (!magic && arizona->hp_impedance > ARIZONA_HP_SHORT_IMPEDANCE) {
 		ret = regmap_update_bits(arizona->regmap,
 					 ARIZONA_OUTPUT_ENABLES_1,
 					 ARIZONA_OUT1L_ENA |
@@ -654,12 +654,11 @@ int arizona_wm5110_tune_headphone(struct arizona_extcon_info *info,
 	const struct reg_default *patch;
 	int i, ret, size;
 
-	if (reading <= 4) {
+	if (reading <= ARIZONA_HP_SHORT_IMPEDANCE) {
 		/* Headphones are always off here so just mark them */
-		arizona->hp_short = true;
 		dev_warn(arizona->dev, "Possible HP short, disabling\n");
 		return 0;
-	} else if (reading <= 10) {
+	} else if (reading <= 13) {
 		if (info->hp_imp_level == HP_LOW_IMPEDANCE)
 			return 0;
 
@@ -733,7 +732,7 @@ static irqreturn_t arizona_hpdet_irq(int irq, void *data)
 
 	switch (arizona->type) {
 	case WM5110:
-		arizona_wm5110_tune_headphone(info, reading);
+		arizona_wm5110_tune_headphone(info, arizona->hp_impedance);
 		break;
 	default:
 		break;
@@ -1214,7 +1213,6 @@ static irqreturn_t arizona_jackdet(int irq, void *data)
 		info->hpdet_done = false;
 		info->hpdet_retried = false;
 		arizona->hp_impedance = 0;
-		arizona->hp_short = false;
 
 		for (i = 0; i < info->num_micd_ranges; i++)
 			input_report_key(info->input,
