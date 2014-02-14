@@ -1226,6 +1226,14 @@ static irqreturn_t arizona_jackdet(int irq, void *data)
 				   ARIZONA_MICD_CLAMP_DB | ARIZONA_JD1_DB,
 				   ARIZONA_MICD_CLAMP_DB | ARIZONA_JD1_DB);
 
+		switch (arizona->type) {
+		case WM5110:
+			arizona_wm5110_tune_headphone(info, ARIZONA_HP_Z_OPEN);
+			break;
+		default:
+			break;
+		}
+
 		/* Use a sufficiently large number to indicate open circuit */
 		if (arizona->pdata.hpdet_cb) {
 			arizona->pdata.hpdet_cb(ARIZONA_HP_Z_OPEN);
