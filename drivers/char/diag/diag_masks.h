@@ -28,7 +28,7 @@ void diag_send_log_mask_update(struct diag_smd_info *smd_info, int);
 void diag_mask_update_fn(struct work_struct *work);
 void diag_send_feature_mask_update(struct diag_smd_info *smd_info);
 int diag_process_apps_masks(unsigned char *buf, int len);
-void diag_masks_init(void);
+int diag_masks_init(void);
 void diag_masks_exit(void);
 extern int diag_event_num_bytes;
 #endif

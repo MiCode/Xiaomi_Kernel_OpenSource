@@ -905,7 +905,7 @@ static void diag_log_mask_init(void)
 	}
 }
 
-void diag_masks_init(void)
+int diag_masks_init(void)
 {
 	driver->event_status = DIAG_CTRL_MASK_INVALID;
 	driver->msg_status = DIAG_CTRL_MASK_INVALID;
@@ -990,7 +990,7 @@ void diag_masks_init(void)
 			goto err;
 		kmemleak_not_leak(driver->event_masks);
 	}
-	return;
+	return 0;
 err:
 	pr_err("diag: Could not initialize diag mask buffers");
 	kfree(driver->event_mask);
@@ -1001,6 +1001,7 @@ err:
 	kfree(driver->event_masks);
 	kfree(driver->feature_mask);
 	kfree(driver->buf_feature_mask_update);
+	return -ENOMEM;
 }
 
 void diag_masks_exit(void)

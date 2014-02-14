@@ -673,27 +673,29 @@ static struct platform_driver diag_smd_lite_cntl_driver = {
 	},
 };
 
-void diagfwd_cntl_init(void)
+int diagfwd_cntl_init(void)
 {
-	int success;
+	int ret;
 	int i;
 
 	reg_dirty = 0;
 	driver->polling_reg_flag = 0;
 	driver->log_on_demand_support = 1;
 	driver->diag_cntl_wq = create_singlethread_workqueue("diag_cntl_wq");
+	if (!driver->diag_cntl_wq)
+		goto err;
 
 	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
-		success = diag_smd_constructor(&driver->smd_cntl[i], i,
+		ret = diag_smd_constructor(&driver->smd_cntl[i], i,
 							SMD_CNTL_TYPE);
-		if (!success)
+		if (ret)
 			goto err;
 	}
 
 	platform_driver_register(&msm_smd_ch1_cntl_driver);
 	platform_driver_register(&diag_smd_lite_cntl_driver);
 
-	return;
+	return 0;
 err:
 	pr_err("diag: Could not initialize diag buffers");
 
@@ -702,6 +704,7 @@ err:
 
 	if (driver->diag_cntl_wq)
 		destroy_workqueue(driver->diag_cntl_wq);
+	return -ENOMEM;
 }
 
 void diagfwd_cntl_exit(void)

@@ -2369,6 +2369,9 @@ void diag_smd_destructor(struct diag_smd_info *smd_info)
 int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
 			  int type)
 {
+	if (!smd_info)
+		return -EIO;
+
 	smd_info->peripheral = peripheral;
 	smd_info->type = type;
 	smd_info->encode_hdlc = 0;
@@ -2480,6 +2483,8 @@ int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
 			smd_info->wq = NULL;
 			break;
 		}
+		if (!smd_info->wq)
+			goto err;
 	} else {
 		smd_info->wq = NULL;
 	}
@@ -2568,7 +2573,7 @@ int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
 		}
 	}
 
-	return 1;
+	return 0;
 err:
 	kfree(smd_info->buf_in_1);
 	kfree(smd_info->buf_in_2);
@@ -2576,13 +2581,15 @@ err:
 	kfree(smd_info->write_ptr_2);
 	kfree(smd_info->buf_in_1_raw);
 	kfree(smd_info->buf_in_2_raw);
+	if (smd_info->wq)
+		destroy_workqueue(smd_info->wq);
 
-	return 0;
+	return -ENOMEM;
 }
 
-void diagfwd_init(void)
+int diagfwd_init(void)
 {
-	int success;
+	int ret;
 	int i;
 
 	wrap_enabled = 0;
@@ -2615,17 +2622,17 @@ void diagfwd_init(void)
 	}
 
 	for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
-		success = diag_smd_constructor(&driver->smd_data[i], i,
+		ret = diag_smd_constructor(&driver->smd_data[i], i,
 							SMD_DATA_TYPE);
-		if (!success)
+		if (ret)
 			goto err;
 	}
 
 	if (driver->supports_separate_cmdrsp) {
 		for (i = 0; i < NUM_SMD_CMD_CHANNELS; i++) {
-			success = diag_smd_constructor(&driver->smd_cmd[i], i,
+			ret = diag_smd_constructor(&driver->smd_cmd[i], i,
 								SMD_CMD_TYPE);
-			if (!success)
+			if (ret)
 				goto err;
 		}
 	}
@@ -2694,7 +2701,12 @@ void diagfwd_init(void)
 		kmemleak_not_leak(driver->apps_rsp_buf);
 	}
 	driver->diag_wq = create_singlethread_workqueue("diag_wq");
+	if (!driver->diag_wq)
+		goto err;
 	driver->diag_usb_wq = create_singlethread_workqueue("diag_usb_wq");
+	if (!driver->diag_usb_wq)
+		goto err;
+
 #ifdef CONFIG_DIAG_OVER_USB
 	INIT_WORK(&(driver->diag_usb_connect_work),
 						 diag_usb_connect_work_fn);
@@ -2717,9 +2729,9 @@ void diagfwd_init(void)
 			platform_driver_register(&smd_lite_data_cmd_drivers[i]);
 	}
 
-	return;
+	return 0;
 err:
-	pr_err("diag: Could not initialize diag buffers");
+	pr_err("diag: In %s, couldn't initialize diag\n", __func__);
 
 	for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++)
 		diag_smd_destructor(&driver->smd_data[i]);
@@ -2745,6 +2757,7 @@ err:
 		destroy_workqueue(driver->diag_wq);
 	if (driver->diag_usb_wq)
 		destroy_workqueue(driver->diag_usb_wq);
+	return -ENOMEM;
 }
 
 void diagfwd_exit(void)

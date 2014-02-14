@@ -148,7 +148,7 @@ struct diag_ctrl_dci_status {
 	uint8_t count;
 } __packed;
 
-void diagfwd_cntl_init(void);
+int diagfwd_cntl_init(void);
 void diagfwd_cntl_exit(void);
 void diag_read_smd_cntl_work_fn(struct work_struct *);
 void diag_notify_ctrl_update_fn(struct work_struct *work);
