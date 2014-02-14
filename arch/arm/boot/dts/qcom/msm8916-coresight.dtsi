@@ -101,13 +101,13 @@
 		clock-names = "core_clk", "core_a_clk";
 	};
 
-	funnel_kpss: funnel@841000 {
+	funnel_apss: funnel@841000 {
 		compatible = "arm,coresight-funnel";
 		reg = <0x841000 0x1000>;
 		reg-names = "funnel-base";
 
 		coresight-id = <5>;
-		coresight-name = "coresight-funnel-kpss";
+		coresight-name = "coresight-funnel-apss";
 		coresight-nr-inports = <4>;
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_in0>;
