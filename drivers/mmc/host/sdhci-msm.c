@@ -228,6 +228,7 @@ struct sdhci_msm_pin_data {
 	 * = 1 if controller pins are using gpios
 	 * = 0 if controller has dedicated MSM pads
 	 */
+	u8 is_gpio;
 	struct sdhci_msm_gpio_data *gpio_data;
 };
 
@@ -1043,8 +1044,8 @@ static int sdhci_msm_setup_pins(struct sdhci_msm_pltfm_data *pdata, bool enable)
 		return 0;
 	}
 
-	ret = sdhci_msm_setup_gpio(pdata, enable);
-
+	if (pdata->pin_data->is_gpio)
+		ret = sdhci_msm_setup_gpio(pdata, enable);
 out:
 	if (!ret)
 		pdata->pin_cfg_sts = enable;
@@ -1213,6 +1214,7 @@ static int sdhci_msm_dt_parse_gpio_info(struct device *dev,
 	} else {
 		dev_err(dev, "Parsing Pinctrl failed with %d, falling back on GPIO lib\n",
 			ret);
+		ret = 0;
 	}
 	pin_data = devm_kzalloc(dev, sizeof(*pin_data), GFP_KERNEL);
 	if (!pin_data) {
@@ -1253,10 +1255,9 @@ static int sdhci_msm_dt_parse_gpio_info(struct device *dev,
 			dev_dbg(dev, "%s: gpio[%s] = %d\n", __func__,
 					pin_data->gpio_data->gpio[i].name,
 					pin_data->gpio_data->gpio[i].no);
-			pdata->pin_data = pin_data;
 		}
 	}
-
+	pdata->pin_data = pin_data;
 out:
 	if (ret)
 		dev_err(dev, "%s failed with err %d\n", __func__, ret);
