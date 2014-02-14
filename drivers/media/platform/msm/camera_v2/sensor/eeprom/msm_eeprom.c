@@ -26,9 +26,9 @@
 #endif
 
 DEFINE_MSM_MUTEX(msm_eeprom_mutex);
-
-
-
+#ifdef CONFIG_COMPAT
+static struct v4l2_file_operations msm_eeprom_v4l2_subdev_fops;
+#endif
 /**
   * msm_eeprom_verify_sum - verify crc32 checksum
   * @mem:	data buffer
@@ -39,7 +39,7 @@ DEFINE_MSM_MUTEX(msm_eeprom_mutex);
   */
 static int msm_eeprom_verify_sum(const char *mem, uint32_t size, uint32_t sum)
 {
-	uint32_t crc = ~0UL;
+	uint32_t crc = ~0;
 
 	/* check overflow */
 	if (size > crc - sizeof(uint32_t))
@@ -112,16 +112,16 @@ static int msm_eeprom_get_cmm_data(struct msm_eeprom_ctrl_t *e_ctrl,
 }
 
 static int eeprom_config_read_cal_data(struct msm_eeprom_ctrl_t *e_ctrl,
-				       struct msm_eeprom_cfg_data *cdata)
+	struct msm_eeprom_cfg_data *cdata)
 {
 	int rc;
 
 	/* check range */
 	if (cdata->cfg.read_data.num_bytes >
-	    e_ctrl->cal_data.num_data) {
+		e_ctrl->cal_data.num_data) {
 		CDBG("%s: Invalid size. exp %u, req %u\n", __func__,
-		     e_ctrl->cal_data.num_data,
-		     cdata->cfg.read_data.num_bytes);
+			e_ctrl->cal_data.num_data,
+			cdata->cfg.read_data.num_bytes);
 		return -EINVAL;
 	}
 	if (!e_ctrl->cal_data.mapdata)
@@ -141,7 +141,7 @@ static int eeprom_config_read_cal_data(struct msm_eeprom_ctrl_t *e_ctrl,
 }
 
 static int msm_eeprom_config(struct msm_eeprom_ctrl_t *e_ctrl,
-			     void __user *argp)
+	void __user *argp)
 {
 	struct msm_eeprom_cfg_data *cdata =
 		(struct msm_eeprom_cfg_data *)argp;
@@ -911,6 +911,113 @@ static int msm_eeprom_spi_remove(struct spi_device *sdev)
 	return 0;
 }
 
+#ifdef CONFIG_COMPAT
+static int eeprom_config_read_cal_data32(struct msm_eeprom_ctrl_t *e_ctrl,
+	void __user *arg)
+{
+	int rc;
+	uint8_t *ptr_dest = NULL;
+	struct msm_eeprom_cfg_data32 *cdata32 =
+		(struct msm_eeprom_cfg_data32 *) arg;
+	struct msm_eeprom_cfg_data cdata;
+
+	cdata.cfgtype = cdata32->cfgtype;
+	cdata.is_supported = cdata32->is_supported;
+	cdata.cfg.read_data.num_bytes = cdata32->cfg.read_data.num_bytes;
+	/* check range */
+	if (cdata.cfg.read_data.num_bytes >
+	    e_ctrl->cal_data.num_data) {
+		CDBG("%s: Invalid size. exp %u, req %u\n", __func__,
+			e_ctrl->cal_data.num_data,
+			cdata.cfg.read_data.num_bytes);
+		return -EINVAL;
+	}
+	if (!e_ctrl->cal_data.mapdata)
+		return -EFAULT;
+
+	ptr_dest = (uint8_t *) compat_ptr(cdata32->cfg.read_data.dbuffer);
+
+	rc = copy_to_user(ptr_dest, e_ctrl->cal_data.mapdata,
+		cdata.cfg.read_data.num_bytes);
+
+	/* should only be called once.  free kernel resource */
+	if (!rc) {
+		kfree(e_ctrl->cal_data.mapdata);
+		kfree(e_ctrl->cal_data.map);
+		memset(&e_ctrl->cal_data, 0, sizeof(e_ctrl->cal_data));
+	}
+	return rc;
+}
+
+static int msm_eeprom_config32(struct msm_eeprom_ctrl_t *e_ctrl,
+	void __user *argp)
+{
+	struct msm_eeprom_cfg_data *cdata = (struct msm_eeprom_cfg_data *)argp;
+	int rc = 0;
+
+	CDBG("%s E\n", __func__);
+	switch (cdata->cfgtype) {
+	case CFG_EEPROM_GET_INFO:
+		CDBG("%s E CFG_EEPROM_GET_INFO\n", __func__);
+		cdata->is_supported = e_ctrl->is_supported;
+		memcpy(cdata->cfg.eeprom_name,
+			e_ctrl->eboard_info->eeprom_name,
+			sizeof(cdata->cfg.eeprom_name));
+		break;
+	case CFG_EEPROM_GET_CAL_DATA:
+		CDBG("%s E CFG_EEPROM_GET_CAL_DATA\n", __func__);
+		cdata->cfg.get_data.num_bytes =
+			e_ctrl->cal_data.num_data;
+		break;
+	case CFG_EEPROM_READ_CAL_DATA:
+		CDBG("%s E CFG_EEPROM_READ_CAL_DATA\n", __func__);
+		rc = eeprom_config_read_cal_data32(e_ctrl, argp);
+		break;
+	default:
+		break;
+	}
+
+	CDBG("%s X rc: %d\n", __func__, rc);
+	return rc;
+}
+
+static long msm_eeprom_subdev_ioctl32(struct v4l2_subdev *sd,
+		unsigned int cmd, void *arg)
+{
+	struct msm_eeprom_ctrl_t *e_ctrl = v4l2_get_subdevdata(sd);
+	void __user *argp = (void __user *)arg;
+
+	CDBG("%s E\n", __func__);
+	CDBG("%s:%d a_ctrl %p argp %p\n", __func__, __LINE__, e_ctrl, argp);
+	switch (cmd) {
+	case VIDIOC_MSM_SENSOR_GET_SUBDEV_ID:
+		return msm_eeprom_get_subdev_id(e_ctrl, argp);
+	case VIDIOC_MSM_EEPROM_CFG32:
+		return msm_eeprom_config32(e_ctrl, argp);
+	default:
+		return -ENOIOCTLCMD;
+	}
+
+	CDBG("%s X\n", __func__);
+}
+
+static long msm_eeprom_subdev_do_ioctl32(
+	struct file *file, unsigned int cmd, void *arg)
+{
+	struct video_device *vdev = video_devdata(file);
+	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
+
+	return msm_eeprom_subdev_ioctl32(sd, cmd, arg);
+}
+
+static long msm_eeprom_subdev_fops_ioctl32(struct file *file, unsigned int cmd,
+	unsigned long arg)
+{
+	return video_usercopy(file, cmd, arg, msm_eeprom_subdev_do_ioctl32);
+}
+
+#endif
+
 static int msm_eeprom_platform_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -1053,6 +1160,13 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 	e_ctrl->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
 	e_ctrl->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_EEPROM;
 	msm_sd_register(&e_ctrl->msm_sd);
+
+#ifdef CONFIG_COMPAT
+	msm_eeprom_v4l2_subdev_fops = v4l2_subdev_fops;
+	msm_eeprom_v4l2_subdev_fops.compat_ioctl32 =
+		msm_eeprom_subdev_fops_ioctl32;
+	e_ctrl->msm_sd.sd.devnode->fops = &msm_eeprom_v4l2_subdev_fops;
+#endif
 
 	e_ctrl->is_supported = (e_ctrl->is_supported << 1) | 1;
 	CDBG("%s X\n", __func__);

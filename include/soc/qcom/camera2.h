@@ -15,7 +15,11 @@
 #define __CAMERA2_H__
 
 #include <media/msm_cam_sensor.h>
-#include <mach/board.h>
+#include <linux/interrupt.h>
+#include <linux/of_platform.h>
+#include <linux/of_device.h>
+#include <linux/of.h>
+
 
 enum msm_camera_device_type_t {
 	MSM_CAMERA_I2C_DEVICE,
@@ -68,7 +72,6 @@ struct v4l2_subdev_info {
 	uint16_t order;
 };
 
-#ifdef CONFIG_COMPAT
 struct msm_camera_gpio_num_info {
 	uint16_t gpio_num[10];
 	uint8_t valid[10];
@@ -90,7 +93,7 @@ struct msm_camera_gpio_conf {
 	uint8_t camera_on_table_size;
 	struct msm_camera_gpio_num_info *gpio_num_info;
 };
-#endif
+
 struct msm_camera_power_ctrl_t {
 	struct device *dev;
 	struct msm_sensor_power_setting *power_setting;
@@ -106,7 +109,7 @@ struct msm_camera_power_ctrl_t {
 	uint8_t cam_pinctrl_status;
 	uint16_t clk_info_size;
 };
-#ifdef CONFIG_COMPAT
+
 enum msm_camera_actuator_name {
 	MSM_ACTUATOR_MAIN_CAM_0,
 	MSM_ACTUATOR_MAIN_CAM_1,
@@ -137,7 +140,6 @@ struct msm_camera_i2c_conf {
 	struct platform_device *mux_dev;
 	enum msm_camera_i2c_mux_mode i2c_mux_mode;
 };
-#endif
 
 struct msm_camera_sensor_board_info {
 	const char *sensor_name;
