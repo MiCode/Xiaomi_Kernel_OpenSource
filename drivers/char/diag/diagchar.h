@@ -107,6 +107,10 @@
 #define DIAG_STM_WCNSS	0x04
 #define DIAG_STM_APPS	0x08
 
+#define DIAG_DIAG_STM		0x214
+
+#define BAD_PARAM_RESPONSE_MESSAGE 20
+
 /*
  * The status bit masks when received in a signal handler are to be
  * used in conjunction with the peripheral list bit mask to determine the
