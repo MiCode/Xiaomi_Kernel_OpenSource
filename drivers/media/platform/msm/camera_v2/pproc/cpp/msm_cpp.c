@@ -1646,16 +1646,6 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 
 		kfree(k_stream_buff_info.buffer_info);
 		kfree(u_stream_buff_info);
-		if (cpp_dev->stream_cnt == 0) {
-			rc = msm_isp_update_bandwidth(ISP_CPP, 981345600,
-				1066680000);
-			if (rc < 0) {
-				pr_err("Bandwidth Set Failed!\n");
-				msm_isp_update_bandwidth(ISP_CPP, 0, 0);
-				mutex_unlock(&cpp_dev->mutex);
-				return -EINVAL;
-			}
-		}
 
 		if (cmd != VIDIOC_MSM_CPP_APPEND_STREAM_BUFF_INFO) {
 			cpp_dev->stream_cnt++;
@@ -1763,10 +1753,19 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 			return -EINVAL;
 		}
 
-		if ((clock_rate == MSM_CPP_NOMINAL_CLOCK) ||
-			(clock_rate == MSM_CPP_TURBO_CLOCK)) {
+		if (clock_rate > 0) {
+			clock_rate =
+				clk_round_rate(cpp_dev->cpp_clk[4], clock_rate);
 			CPP_DBG("clk:%ld\n", clock_rate);
 			clk_set_rate(cpp_dev->cpp_clk[4], clock_rate);
+			rc = msm_isp_update_bandwidth(ISP_CPP, clock_rate * 4,
+				clock_rate * 6);
+			if (rc < 0) {
+				pr_err("Bandwidth Set Failed!\n");
+				msm_isp_update_bandwidth(ISP_CPP, 0, 0);
+				mutex_unlock(&cpp_dev->mutex);
+				return -EINVAL;
+			}
 		}
 		break;
 	}
