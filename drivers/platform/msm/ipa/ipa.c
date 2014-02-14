@@ -144,13 +144,6 @@ static struct clk *ipa_inactivity_clk;
 
 struct ipa_context *ipa_ctx;
 
-static int ipa_load_pipe_connection(struct platform_device *pdev,
-				    enum a2_mux_pipe_direction pipe_dir,
-				    struct a2_mux_pipe_connection     *pdata);
-
-static int ipa_update_connections_info(struct device_node *node,
-			struct a2_mux_pipe_connection *pipe_connection);
-
 static int ipa_open(struct inode *inode, struct file *filp)
 {
 	struct ipa_context *ctx = NULL;
@@ -1264,188 +1257,6 @@ static void ipa_teardown_apps_pipes(void)
 	ipa_teardown_sys_pipe(ipa_ctx->clnt_hdl_cmd);
 }
 
-static int ipa_load_pipe_connection(struct platform_device *pdev,
-				    enum a2_mux_pipe_direction  pipe_dir,
-				    struct a2_mux_pipe_connection *pdata)
-{
-	struct device_node *node;
-	int rc = 0;
-
-	if (!pdata || !pdev)
-		goto err;
-
-	node = pdev->dev.of_node;
-
-	/* retrieve device tree parameters */
-	for_each_child_of_node(pdev->dev.of_node, node)
-	{
-		const char *str;
-
-		rc = of_property_read_string(node, "label", &str);
-		if (rc) {
-			IPAERR("Cannot read string\n");
-			goto err;
-		}
-
-		/* Check if connection type is supported */
-		if (strncmp(str, "a2-to-ipa", 10)
-			&& strncmp(str, "ipa-to-a2", 10))
-			goto err;
-
-		if (strnstr(str, "a2-to-ipa", strnlen("a2-to-ipa", 10))
-				&& IPA_TO_A2 == pipe_dir)
-			continue; /* skip to the next pipe */
-		else if (strnstr(str, "ipa-to-a2", strnlen("ipa-to-a2", 10))
-				&& A2_TO_IPA == pipe_dir)
-			continue; /* skip to the next pipe */
-
-
-		rc = ipa_update_connections_info(node, pdata);
-		if (rc)
-			goto err;
-	}
-
-	return 0;
-err:
-	IPAERR("%s: failed\n", __func__);
-
-	return rc;
-}
-
-static int ipa_update_connections_info(struct device_node *node,
-		struct a2_mux_pipe_connection     *pipe_connection)
-{
-	u32      rc = 0;
-	char     *key = NULL;
-	uint32_t val;
-	enum ipa_pipe_mem_type mem_type;
-
-	if (!pipe_connection || !node)
-		return -EINVAL;
-
-	key = "qcom,src-bam-physical-address";
-	rc = of_property_read_u32(node, key, &val);
-	if (rc)
-		goto err;
-	pipe_connection->src_phy_addr = val;
-
-	key = "qcom,ipa-bam-mem-type";
-	rc = of_property_read_u32(node, key, &mem_type);
-	if (rc)
-		goto err;
-	pipe_connection->mem_type = mem_type;
-
-	key = "qcom,src-bam-pipe-index";
-	rc = of_property_read_u32(node, key, &val);
-	if (rc)
-		goto err;
-	pipe_connection->src_pipe_index = val;
-
-	key = "qcom,dst-bam-physical-address";
-	rc = of_property_read_u32(node, key, &val);
-	if (rc)
-		goto err;
-	pipe_connection->dst_phy_addr = val;
-
-	key = "qcom,dst-bam-pipe-index";
-	rc = of_property_read_u32(node, key, &val);
-	if (rc)
-		goto err;
-	pipe_connection->dst_pipe_index = val;
-
-	key = "qcom,data-fifo-offset";
-	rc = of_property_read_u32(node, key, &val);
-	if (rc)
-		goto err;
-	pipe_connection->data_fifo_base_offset = val;
-
-	key = "qcom,data-fifo-size";
-	rc = of_property_read_u32(node, key, &val);
-	if (rc)
-		goto err;
-	pipe_connection->data_fifo_size = val;
-
-	key = "qcom,descriptor-fifo-offset";
-	rc = of_property_read_u32(node, key, &val);
-	if (rc)
-		goto err;
-	pipe_connection->desc_fifo_base_offset = val;
-
-	key = "qcom,descriptor-fifo-size";
-	rc = of_property_read_u32(node, key, &val);
-	if (rc)
-		goto err;
-
-	pipe_connection->desc_fifo_size = val;
-
-	return 0;
-err:
-	IPAERR("%s: Error in name %s key %s\n", __func__,
-		node->full_name, (key != NULL) ? key : "Null");
-
-	return rc;
-}
-
-/**
-* ipa_get_a2_mux_pipe_info() - Exposes A2 parameters fetched from DTS
-*
-* @pipe_dir: pipe direction
-* @pipe_connect: connect structure containing the parameters fetched from DTS
-*
-* Return codes:
-* 0: success
-* -EFAULT: invalid parameters
-*/
-int ipa_get_a2_mux_pipe_info(enum a2_mux_pipe_direction  pipe_dir,
-			     struct a2_mux_pipe_connection *pipe_connect)
-{
-	if (!pipe_connect) {
-		IPAERR("ipa_get_a2_mux_pipe_info switch null args\n");
-		return -EFAULT;
-	}
-
-	switch (pipe_dir) {
-	case A2_TO_IPA:
-		*pipe_connect = ipa_res.a2_to_ipa_pipe;
-		break;
-	case IPA_TO_A2:
-		*pipe_connect = ipa_res.ipa_to_a2_pipe;
-		break;
-	default:
-		IPAERR("ipa_get_a2_mux_pipe_info switch in default\n");
-		return -EFAULT;
-	}
-
-	return 0;
-}
-
-/**
-* ipa_get_a2_mux_bam_info() - Exposes A2 parameters fetched from
-* DTS
-*
-* @a2_bam_mem_base: A2 BAM Memory base
-* @a2_bam_mem_size: A2 BAM Memory size
-* @a2_bam_irq: A2 BAM IRQ
-*
-* Return codes:
-* 0: success
-* -EFAULT: invalid parameters
-*/
-int ipa_get_a2_mux_bam_info(u32 *a2_bam_mem_base, u32 *a2_bam_mem_size,
-			    u32 *a2_bam_irq)
-{
-	if (!a2_bam_mem_base || !a2_bam_mem_size || !a2_bam_irq) {
-		IPAERR("ipa_get_a2_mux_bam_info null args\n");
-		return -EFAULT;
-	}
-
-	*a2_bam_mem_base = ipa_res.a2_bam_mem_base;
-	*a2_bam_mem_size = ipa_res.a2_bam_mem_size;
-	*a2_bam_irq = ipa_res.a2_bam_irq;
-
-	return 0;
-}
-
 #ifdef CONFIG_COMPAT
 long compat_ipa_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
@@ -1920,10 +1731,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_ctx->ipa_wrapper_base = resource_p->ipa_mem_base;
 	ipa_ctx->ipa_hw_type = resource_p->ipa_hw_type;
 	ipa_ctx->ipa_hw_mode = resource_p->ipa_hw_mode;
-	ipa_ctx->use_ipa_bamdma_a2_bridge =
-			resource_p->use_ipa_bamdma_a2_bridge;
 	ipa_ctx->use_ipa_teth_bridge = resource_p->use_ipa_teth_bridge;
-	ipa_ctx->use_a2_service = resource_p->use_a2_service;
 
 	/* default aggregation parameters */
 	ipa_ctx->aggregation_type = IPA_MBIM_16;
@@ -2309,51 +2117,6 @@ fail_mem_ctx:
 	return result;
 }
 
-static int get_a2_pipes_configurations(struct ipa_plat_drv_res *ipa_res,
-					struct platform_device *pdev_p)
-{
-	int result;
-	struct resource *resource_p;
-
-	result = ipa_load_pipe_connection(pdev_p,
-					A2_TO_IPA,
-					&ipa_res->a2_to_ipa_pipe);
-	if (result)
-		IPAERR(":ipa_load_pipe_connection failed!\n");
-
-	result = ipa_load_pipe_connection(pdev_p, IPA_TO_A2,
-					  &ipa_res->ipa_to_a2_pipe);
-	if (result)
-		IPAERR(":ipa_load_pipe_connection failed!\n");
-
-	/* Get IPA A2 BAM address */
-	resource_p = platform_get_resource_byname(pdev_p,
-			IORESOURCE_MEM, "a2-bam-base");
-	if (!resource_p) {
-		IPAERR(":get resource failed for a2-bam-base!\n");
-		return -ENODEV;
-	} else {
-		ipa_res->a2_bam_mem_base = resource_p->start;
-		ipa_res->a2_bam_mem_size = resource_size(resource_p);
-		IPADBG(":a2-bam-base = 0x%x , size = 0x%x\n",
-				ipa_res->a2_bam_mem_base,
-				ipa_res->a2_bam_mem_size);
-	}
-
-	/* Get IPA A2 BAM IRQ number */
-	resource_p = platform_get_resource_byname(pdev_p,
-			IORESOURCE_IRQ, "a2-bam-irq");
-	if (!resource_p) {
-		IPAERR(":get resource failed for a2-bam-irq!\n");
-		return -ENODEV;
-	} else {
-		ipa_res->a2_bam_irq = resource_p->start;
-		IPADBG("a2-bam-irq = 0x%x\n", ipa_res->a2_bam_irq);
-	}
-
-	return 0;
-}
-
 static int get_ipa_dts_configuration(struct platform_device *pdev,
 		struct ipa_plat_drv_res *ipa_drv_res)
 {
@@ -2383,19 +2146,6 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	else
 		IPADBG(": found ipa_drv_res->ipa_hw_mode = %d",
 				ipa_drv_res->ipa_hw_mode);
-
-	ipa_drv_res->use_ipa_bamdma_a2_bridge =
-			of_property_read_bool(pdev->dev.of_node,
-			"qcom,use-ipa-bamdma-a2-bridge");
-	IPADBG(": using A2-BAMDMA bridge = %s",
-		ipa_drv_res->use_ipa_bamdma_a2_bridge ?
-				"True" : "False");
-
-	ipa_drv_res->use_a2_service = of_property_read_bool(pdev->dev.of_node,
-			"qcom,use-a2-service");
-	IPADBG(": using A2 service = %s",
-			ipa_drv_res->use_a2_service
-			? "True" : "False");
 
 	ipa_drv_res->use_ipa_teth_bridge =
 			of_property_read_bool(pdev->dev.of_node,
@@ -2465,12 +2215,6 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	} else {
 		ipa_drv_res->bam_irq = resource->start;
 		IPADBG(":ibam-irq = %d\n", ipa_drv_res->bam_irq);
-	}
-
-	if (ipa_drv_res->use_a2_service) {
-		result = get_a2_pipes_configurations(&ipa_res, pdev);
-		if (result)
-			return -ENODEV;
 	}
 
 	result = of_property_read_u32(pdev->dev.of_node, "qcom,ee",

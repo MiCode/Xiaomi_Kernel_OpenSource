@@ -16,9 +16,9 @@
  * These values were determined empirically and shows good E2E bi-
  * directional throughputs
  */
-#define IPA_A2_HOLB_TMR_EN 0x1
-#define IPA_A2_HOLB_TMR_DIS 0x0
-#define IPA_A2_HOLB_TMR_DEFAULT_VAL 0x1ff
+#define IPA_HOLB_TMR_EN 0x1
+#define IPA_HOLB_TMR_DIS 0x0
+#define IPA_HOLB_TMR_DEFAULT_VAL 0x1ff
 
 #define IPA_PKT_FLUSH_TO_US 100
 
@@ -38,7 +38,7 @@ int ipa_enable_data_path(u32 clnt_hdl)
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 &&
 	    IPA_CLIENT_IS_CONS(ep->client)) {
 		memset(&holb_cfg, 0 , sizeof(holb_cfg));
-		holb_cfg.en = IPA_A2_HOLB_TMR_DIS;
+		holb_cfg.en = IPA_HOLB_TMR_DIS;
 		holb_cfg.tmr_val = 0;
 		res = ipa_cfg_ep_holb(clnt_hdl, &holb_cfg);
 	}
@@ -68,7 +68,7 @@ int ipa_disable_data_path(u32 clnt_hdl)
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 &&
 	    IPA_CLIENT_IS_CONS(ep->client)) {
 		memset(&holb_cfg, 0 , sizeof(holb_cfg));
-		holb_cfg.en = IPA_A2_HOLB_TMR_EN;
+		holb_cfg.en = IPA_HOLB_TMR_EN;
 		holb_cfg.tmr_val = 0;
 		res = ipa_cfg_ep_holb(clnt_hdl, &holb_cfg);
 	}
@@ -170,28 +170,6 @@ static int ipa_connect_allocate_fifo(const struct ipa_connect_params *in,
 	return 0;
 }
 
-static void ipa_program_holb(struct ipa_ep_context *ep, int ipa_ep_idx)
-{
-	struct ipa_ep_cfg_holb holb;
-
-	if (IPA_CLIENT_IS_PROD(ep->client))
-		return;
-
-	memset(&holb, 0, sizeof(holb));
-
-	switch (ep->client) {
-	case IPA_CLIENT_A2_TETHERED_CONS:
-	case IPA_CLIENT_A2_EMBEDDED_CONS:
-		holb.en = IPA_A2_HOLB_TMR_EN;
-		holb.tmr_val = IPA_A2_HOLB_TMR_DEFAULT_VAL;
-		break;
-	default:
-		return;
-	}
-
-	ipa_cfg_ep_holb(ipa_ep_idx, &holb);
-}
-
 /**
  * ipa_connect() - low-level IPA client connect
  * @in:	[in] input parameters from client
@@ -199,7 +177,7 @@ static void ipa_program_holb(struct ipa_ep_context *ep, int ipa_ep_idx)
  * @clnt_hdl:	[out] opaque client handle assigned by IPA to client
  *
  * Should be called by the driver of the peripheral that wants to connect to
- * IPA in BAM-BAM mode. these peripherals are A2, USB and HSIC. this api
+ * IPA in BAM-BAM mode. these peripherals are USB and HSIC. this api
  * expects caller to take responsibility to add any needed headers, routing
  * and filtering tables and rules as needed.
  *
@@ -320,8 +298,6 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	*clnt_hdl = ipa_ep_idx;
 	memcpy(&sps->desc, &ep->connect.desc, sizeof(struct sps_mem_buffer));
 	memcpy(&sps->data, &ep->connect.data, sizeof(struct sps_mem_buffer));
-
-	ipa_program_holb(ep, ipa_ep_idx);
 
 	if (!ep->skip_ep_cfg && IPA_CLIENT_IS_PROD(in->client))
 		ipa_install_dflt_flt_rules(ipa_ep_idx);
