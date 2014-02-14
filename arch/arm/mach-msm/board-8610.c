@@ -30,11 +30,11 @@
 #include <mach/board.h>
 #include <mach/gpiomux.h>
 #include <mach/msm_iomap.h>
-#include <mach/restart.h>
 #include <linux/regulator/qpnp-regulator.h>
 #include <linux/regulator/rpm-smd-regulator.h>
 #include <mach/msm_memtypes.h>
 #include <soc/qcom/socinfo.h>
+#include <soc/qcom/restart.h>
 #include <mach/board.h>
 #include <soc/qcom/rpm-smd.h>
 #include <soc/qcom/smd.h>

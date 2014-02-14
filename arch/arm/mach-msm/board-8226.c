@@ -38,8 +38,8 @@
 #include <mach/msm_bus.h>
 #include <mach/gpiomux.h>
 #include <mach/msm_iomap.h>
-#include <mach/restart.h>
 #include <mach/msm_memtypes.h>
+#include <soc/qcom/restart.h>
 #include <soc/qcom/socinfo.h>
 #include <mach/board.h>
 #include <soc/qcom/rpm-smd.h>

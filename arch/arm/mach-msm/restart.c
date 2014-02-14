@@ -31,7 +31,7 @@
 #include <asm/cacheflush.h>
 
 #include <mach/msm_iomap.h>
-#include <mach/restart.h>
+#include <soc/qcom/restart.h>
 #include <soc/qcom/socinfo.h>
 #include <mach/irqs.h>
 #include "msm_watchdog.h"
