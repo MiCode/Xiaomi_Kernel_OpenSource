@@ -108,10 +108,14 @@
 		vdd-supply = <&pm8916_l17>;
 		vddio-supply = <&pm8916_l6>;
 		vdda-supply = <&pm8916_l2>;
-		clocks = <&clock_gcc clk_gcc_mdss_ahb_clk>,
-			 <&clock_gcc clk_gcc_mdss_axi_clk>,
-			 <&clock_gcc clk_gcc_mdss_mdp_clk>;
-		clock-names = "iface_clk", "bus_clk", "mdp_core_clk";
+		clocks = <&clock_gcc clk_gcc_mdss_mdp_clk>,
+                         <&clock_gcc clk_gcc_mdss_ahb_clk>,
+                         <&clock_gcc clk_gcc_mdss_axi_clk>,
+                         <&clock_gcc clk_gcc_mdss_byte0_clk>,
+                         <&clock_gcc clk_gcc_mdss_pclk0_clk>,
+                         <&clock_gcc clk_gcc_mdss_esc0_clk>;
+                clock-names = "mdp_core_clk", "iface_clk", "bus_clk",
+                                "byte_clk", "pixel_clk", "core_clk";
 		qcom,platform-strength-ctrl = [ff 06];
 		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
 		qcom,platform-regulator-settings = [07 09 03 00 20 00 01];
