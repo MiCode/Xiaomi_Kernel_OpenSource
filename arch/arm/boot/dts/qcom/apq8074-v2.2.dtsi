@@ -19,6 +19,32 @@
 #include "msm8974-v2.2.dtsi"
 #include "apq8074-v2.2-ion.dtsi"
 
+/ {
+        memory {
+                alt_peripheral_mem: peripheral_region@a700000 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+                        reg = <0x0a700000 0x3300000>;
+			label = "peripheral_mem";
+		};
+
+		adsp_venus_mem: adsp_venus_region@0xd000000 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+                        reg = <0x0dc00000 0x1e00000>;
+			label = "adsp_venus_mem";
+
+		};
+
+        };
+};
+
+&peripheral_mem {
+	status = "disabled";
+};
+
 &soc {
 	qcom,qseecom@a700000 {
 		compatible = "qcom,qseecom";
@@ -43,10 +69,6 @@
 	sound {
 		compatible = "qcom,apq8074-audio-taiko";
 	};
-};
-
-&memory_hole {
-	qcom,memblock-remove = <0x0a700000 0x5800000>; /* Address and size of the hole */
 };
 
 &qseecom {
