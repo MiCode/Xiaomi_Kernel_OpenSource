@@ -601,13 +601,7 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	}
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		if (usb_bam_get_pipe_type(d->ipa_params.src_idx,
-				&d->src_pipe_type) ||
-			usb_bam_get_pipe_type(d->ipa_params.dst_idx,
-					&d->dst_pipe_type)) {
-			pr_err("%s:usb_bam_get_pipe_type() failed\n", __func__);
-			return;
-		}
+
 		if (d->dst_pipe_type != USB_BAM_PIPE_BAM2BAM) {
 			pr_err("%s: no software preparation for DL not using bam2bam\n",
 					__func__);
@@ -978,6 +972,21 @@ void bam_data_disconnect(struct data_port *gr, u8 port_num)
 			usb_ep_disable(port->port_usb->out);
 			usb_ep_disable(port->port_usb->in);
 
+			/*
+			 * Set endless flag to false as USB Endpoint
+			 * is already disable.
+			 */
+			if (d->trans == USB_GADGET_XPORT_BAM2BAM ||
+				d->trans == USB_GADGET_XPORT_BAM2BAM_IPA ||
+				d->trans == USB_GADGET_XPORT_BAM) {
+
+				if (d->dst_pipe_type == USB_BAM_PIPE_BAM2BAM)
+					port->port_usb->in->endless = false;
+
+				if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM)
+					port->port_usb->out->endless = false;
+			}
+
 			port->port_usb->in->driver_data = NULL;
 			port->port_usb->out->driver_data = NULL;
 
@@ -1015,24 +1024,9 @@ int bam_data_connect(struct data_port *gr, u8 port_num,
 	}
 
 	port = bam2bam_data_ports[port_num];
-	d = &port->data_ch;
-
-	ret = usb_ep_enable(gr->in);
-	if (ret) {
-		pr_err("usb_ep_enable failed eptype:IN ep:%p", gr->in);
-		goto exit;
-	}
-	gr->in->driver_data = port;
-
-	ret = usb_ep_enable(gr->out);
-	if (ret) {
-		pr_err("usb_ep_enable failed eptype:OUT ep:%p", gr->out);
-		gr->in->driver_data = 0;
-		goto exit;
-	}
-	gr->out->driver_data = port;
 
 	port->port_usb = gr;
+	d = &port->data_ch;
 
 	d->src_connection_idx = src_connection_idx;
 	d->dst_connection_idx = dst_connection_idx;
@@ -1048,7 +1042,56 @@ int bam_data_connect(struct data_port *gr, u8 port_num,
 		d->rx_flow_control_disable = 0;
 		d->rx_flow_control_enable = 0;
 		d->rx_flow_control_triggered = 0;
+
+		/*
+		 * Query pipe type using IPA src/dst index with
+		 * usbbam driver. It is being set either as
+		 * BAM2BAM or SYS2BAM.
+		 */
+		if (usb_bam_get_pipe_type(d->ipa_params.src_idx,
+			&d->src_pipe_type) ||
+			usb_bam_get_pipe_type(d->ipa_params.dst_idx,
+			&d->dst_pipe_type)) {
+			pr_err("usb_bam_get_pipe_type() failed\n");
+			return -EINVAL;
+		}
 	}
+
+	/*
+	 * Check for pipe_type. If it is BAM2BAM, then it is required
+	 * to disable Xfer complete and Xfer not ready interrupts for
+	 * that particular endpoint. Hence it set endless flag based
+	 * it which is considered into UDC driver while enabling
+	 * USB Endpoint.
+	 */
+	if (d->trans == USB_GADGET_XPORT_BAM2BAM ||
+		d->trans == USB_GADGET_XPORT_BAM2BAM_IPA ||
+		d->trans == USB_GADGET_XPORT_BAM) {
+
+		if (d->dst_pipe_type == USB_BAM_PIPE_BAM2BAM)
+			port->port_usb->in->endless = true;
+
+		if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM)
+			port->port_usb->out->endless = true;
+	}
+
+	ret = usb_ep_enable(gr->in);
+	if (ret) {
+		pr_err("usb_ep_enable failed eptype:IN ep:%p", gr->in);
+		goto exit;
+	}
+
+	gr->in->driver_data = port;
+
+	ret = usb_ep_enable(gr->out);
+	if (ret) {
+		pr_err("usb_ep_enable failed eptype:OUT ep:%p", gr->out);
+		gr->in->driver_data = 0;
+		goto exit;
+	}
+
+	gr->out->driver_data = port;
+
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA && d->func_type ==
 		USB_FUNC_RNDIS) {
