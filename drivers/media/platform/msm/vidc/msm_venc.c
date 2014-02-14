@@ -138,6 +138,11 @@ static const char *const intra_refresh_modes[] = {
 	"Random"
 };
 
+static const char *const timestamp_mode[] = {
+	"Honor",
+	"Ignore",
+};
+
 enum msm_venc_ctrl_cluster {
 	MSM_VENC_CTRL_CLUSTER_QP = 1 << 0,
 	MSM_VENC_CTRL_CLUSTER_INTRA_PERIOD = 1 << 1,
@@ -869,6 +874,17 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.step = 1,
 		.qmenu = NULL,
 		.cluster = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_TIMESTAMP_MODE,
+		.name = "Encoder Timestamp Mode",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.default_value =
+			V4L2_MPEG_VIDC_VIDEO_RATE_CONTROL_TIMESTAMP_MODE_HONOR,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDC_VIDEO_RATE_CONTROL_TIMESTAMP_MODE_HONOR) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_RATE_CONTROL_TIMESTAMP_MODE_IGNORE)),
+		.qmenu = timestamp_mode,
 	},
 };
 
@@ -2202,6 +2218,12 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			break;
 		}
 		pdata = &hier_p_layers;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_TIMESTAMP_MODE:
+		property_id = HAL_PARAM_VENC_DISABLE_RC_TIMESTAMP;
+		enable.enable = (ctrl->val ==
+		V4L2_MPEG_VIDC_VIDEO_RATE_CONTROL_TIMESTAMP_MODE_IGNORE);
+		pdata = &enable;
 		break;
 	default:
 		dprintk(VIDC_ERR, "Unsupported index: %x\n", ctrl->id);
