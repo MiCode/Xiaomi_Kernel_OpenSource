@@ -1383,7 +1383,7 @@ static ssize_t apds993x_store_enable_ps_sensor(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(enable_ps_sensor, S_IWUGO | S_IRUGO,
+static DEVICE_ATTR(enable_ps_sensor, S_IWUSR | S_IWGRP | S_IRUGO,
 		apds993x_show_enable_ps_sensor,
 		apds993x_store_enable_ps_sensor);
 
@@ -1414,7 +1414,7 @@ static ssize_t apds993x_store_enable_als_sensor(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(enable_als_sensor, S_IWUGO | S_IRUGO,
+static DEVICE_ATTR(enable_als_sensor, S_IWUSR | S_IWGRP | S_IRUGO,
 		apds993x_show_enable_als_sensor,
 		apds993x_store_enable_als_sensor);
 
