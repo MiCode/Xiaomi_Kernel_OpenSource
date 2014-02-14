@@ -412,7 +412,7 @@
 		vdd_pll-supply = <&pmd9635_l7>;
 		qcom,vdd_pll = <1800000>;
 
-		qcom,firmware-name = "mba";
+		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
 
 		/* GPIO inputs from mss */
