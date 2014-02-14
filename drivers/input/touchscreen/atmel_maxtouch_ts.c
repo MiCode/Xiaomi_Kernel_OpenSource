@@ -1,6 +1,11 @@
 /*
  * Atmel maXTouch Touchscreen driver
  *
+ * Copyright (c) 2014, The Linux Foundation.  All rights reserved.
+ *
+ * Linux foundation chooses to take subject only to the GPLv2 license terms,
+ * and distributes only under these terms.
+ *
  * Copyright (C) 2010 Samsung Electronics Co.Ltd
  * Copyright (C) 2011-2012 Atmel Corporation
  * Copyright (C) 2012 Google, Inc.
@@ -26,6 +31,8 @@
 #include <linux/slab.h>
 #include <linux/regulator/consumer.h>
 #include <linux/gpio.h>
+#include <linux/of_gpio.h>
+#include <linux/of_irq.h>
 
 /* Configuration file */
 #define MXT_CFG_MAGIC		"OBP_RAW V1"
@@ -194,6 +201,30 @@ struct t9_range {
 #define MXT_PIXELS_PER_MM	20
 
 #define DEBUG_MSG_MAX		200
+
+#define MXT_COORDS_ARR_SIZE	4
+
+/* Orient */
+#define MXT_NORMAL		0x0
+#define MXT_DIAGONAL		0x1
+#define MXT_HORIZONTAL_FLIP	0x2
+#define MXT_ROTATED_90_COUNTER	0x3
+#define MXT_VERTICAL_FLIP	0x4
+#define MXT_ROTATED_90		0x5
+#define MXT_ROTATED_180		0x6
+#define MXT_DIAGONAL_COUNTER	0x7
+
+/* MXT_TOUCH_KEYARRAY_T15 */
+#define MXT_KEYARRAY_MAX_KEYS	32
+
+/* Bootoader IDs */
+#define MXT_BOOTLOADER_ID_224		0x0A
+#define MXT_BOOTLOADER_ID_224E		0x06
+#define MXT_BOOTLOADER_ID_336S		0x1A
+#define MXT_BOOTLOADER_ID_1386		0x01
+#define MXT_BOOTLOADER_ID_1386E		0x10
+#define MXT_BOOTLOADER_ID_1664S		0x14
+
 
 struct mxt_info {
 	u8 family_id;
@@ -545,6 +576,11 @@ static int mxt_lookup_bootloader_address(struct mxt_data *data, bool retry)
 	u8 appmode = data->client->addr;
 	u8 bootloader;
 	u8 family_id = 0;
+
+	if (data->pdata->bl_addr) {
+		data->bootloader_addr = data->pdata->bl_addr;
+		return 0;
+	}
 
 	if (data->info)
 		family_id = data->info->family_id;
@@ -2266,8 +2302,78 @@ static int mxt_read_t100_config(struct mxt_data *data)
 	return 0;
 }
 
-static int mxt_input_open(struct input_dev *dev);
-static void mxt_input_close(struct input_dev *dev);
+static void mxt_start(struct mxt_data *data)
+{
+	if (!data->suspended || data->in_bootloader)
+		return;
+
+	if (data->use_regulator) {
+		mxt_regulator_enable(data);
+	} else {
+		/* Discard any messages still in message buffer from before
+		 * chip went to sleep */
+		mxt_process_messages_until_invalid(data);
+
+		mxt_set_t7_power_cfg(data, MXT_POWER_CFG_RUN);
+
+		/* Recalibrate since chip has been in deep sleep */
+		mxt_t6_command(data, MXT_COMMAND_CALIBRATE, 1, false);
+	}
+
+	mxt_acquire_irq(data);
+	data->enable_reporting = true;
+	data->suspended = false;
+}
+
+static void mxt_reset_slots(struct mxt_data *data)
+{
+	struct input_dev *input_dev = data->input_dev;
+	unsigned int num_mt_slots;
+	int id;
+
+	num_mt_slots = data->num_touchids + data->num_stylusids;
+
+	for (id = 0; id < num_mt_slots; id++) {
+		input_mt_slot(input_dev, id);
+		input_mt_report_slot_state(input_dev, MT_TOOL_FINGER, 0);
+	}
+
+	mxt_input_sync(input_dev);
+}
+
+static void mxt_stop(struct mxt_data *data)
+{
+	if (data->suspended || data->in_bootloader)
+		return;
+
+	data->enable_reporting = false;
+	disable_irq(data->irq);
+
+	if (data->use_regulator)
+		mxt_regulator_disable(data);
+	else
+		mxt_set_t7_power_cfg(data, MXT_POWER_CFG_DEEPSLEEP);
+
+	mxt_reset_slots(data);
+	data->suspended = true;
+}
+
+
+static int mxt_input_open(struct input_dev *dev)
+{
+	struct mxt_data *data = input_get_drvdata(dev);
+
+	mxt_start(data);
+
+	return 0;
+}
+
+static void mxt_input_close(struct input_dev *dev)
+{
+	struct mxt_data *data = input_get_drvdata(dev);
+
+	mxt_stop(data);
+}
 
 static int mxt_initialize_t100_input_device(struct mxt_data *data)
 {
@@ -2277,7 +2383,7 @@ static int mxt_initialize_t100_input_device(struct mxt_data *data)
 
 	error = mxt_read_t100_config(data);
 	if (error)
-		dev_warn(dev, "Failed to initialize T9 resolution\n");
+		dev_warn(dev, "Failed to initialize T100 resolution\n");
 
 	input_dev = input_allocate_device();
 	if (!data || !input_dev) {
@@ -2293,8 +2399,10 @@ static int mxt_initialize_t100_input_device(struct mxt_data *data)
 	input_dev->open = mxt_input_open;
 	input_dev->close = mxt_input_close;
 
-	set_bit(EV_ABS, input_dev->evbit);
-	input_set_capability(input_dev, EV_KEY, BTN_TOUCH);
+	__set_bit(EV_ABS, input_dev->evbit);
+	__set_bit(EV_KEY, input_dev->evbit);
+	__set_bit(BTN_TOUCH, input_dev->keybit);
+	__set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 
 	/* For single touch */
 	input_set_abs_params(input_dev, ABS_X,
@@ -2348,8 +2456,164 @@ err_free_mem:
 	return error;
 }
 
-static int mxt_initialize_t9_input_device(struct mxt_data *data);
-static int mxt_configure_objects(struct mxt_data *data);
+static int mxt_initialize_t9_input_device(struct mxt_data *data)
+{
+	struct device *dev = &data->client->dev;
+	const struct mxt_platform_data *pdata = data->pdata;
+	struct input_dev *input_dev;
+	int error;
+	unsigned int num_mt_slots;
+	int i;
+
+	error = mxt_read_t9_resolution(data);
+	if (error)
+		dev_warn(dev, "Failed to initialize T9 resolution\n");
+
+	input_dev = input_allocate_device();
+	if (!input_dev) {
+		dev_err(dev, "Failed to allocate memory\n");
+		return -ENOMEM;
+	}
+
+	input_dev->name = "Atmel maXTouch Touchscreen";
+	input_dev->phys = data->phys;
+	input_dev->id.bustype = BUS_I2C;
+	input_dev->dev.parent = dev;
+	input_dev->open = mxt_input_open;
+	input_dev->close = mxt_input_close;
+
+	__set_bit(EV_ABS, input_dev->evbit);
+	__set_bit(EV_KEY, input_dev->evbit);
+	__set_bit(BTN_TOUCH, input_dev->keybit);
+	__set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
+
+	if (pdata->t19_num_keys) {
+		__set_bit(INPUT_PROP_BUTTONPAD, input_dev->propbit);
+
+		for (i = 0; i < pdata->t19_num_keys; i++)
+			if (pdata->t19_keymap[i] != KEY_RESERVED)
+				input_set_capability(input_dev, EV_KEY,
+						     pdata->t19_keymap[i]);
+
+		__set_bit(BTN_TOOL_FINGER, input_dev->keybit);
+		__set_bit(BTN_TOOL_DOUBLETAP, input_dev->keybit);
+		__set_bit(BTN_TOOL_TRIPLETAP, input_dev->keybit);
+		__set_bit(BTN_TOOL_QUADTAP, input_dev->keybit);
+
+		input_abs_set_res(input_dev, ABS_X, MXT_PIXELS_PER_MM);
+		input_abs_set_res(input_dev, ABS_Y, MXT_PIXELS_PER_MM);
+		input_abs_set_res(input_dev, ABS_MT_POSITION_X,
+				  MXT_PIXELS_PER_MM);
+		input_abs_set_res(input_dev, ABS_MT_POSITION_Y,
+				  MXT_PIXELS_PER_MM);
+
+		input_dev->name = "Atmel maXTouch Touchpad";
+	}
+
+	/* For single touch */
+	input_set_abs_params(input_dev, ABS_X,
+			     data->pdata->disp_minx, data->pdata->disp_maxx,
+				0, 0);
+	input_set_abs_params(input_dev, ABS_Y,
+			     data->pdata->disp_miny, data->pdata->disp_maxy,
+				0, 0);
+	input_set_abs_params(input_dev, ABS_PRESSURE,
+			     0, 255, 0, 0);
+
+	/* For multi touch */
+	num_mt_slots = data->num_touchids + data->num_stylusids;
+	error = input_mt_init_slots(input_dev, num_mt_slots, 0);
+	if (error) {
+		dev_err(dev, "Error %d initialising slots\n", error);
+		goto err_free_mem;
+	}
+
+	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR,
+			     0, MXT_MAX_AREA, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_POSITION_X,
+			     data->pdata->disp_minx, data->pdata->disp_maxx,
+				0, 0);
+	input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
+			     data->pdata->disp_miny, data->pdata->disp_maxy,
+				0, 0);
+	input_set_abs_params(input_dev, ABS_MT_PRESSURE,
+			     0, 255, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_ORIENTATION,
+			     0, 255, 0, 0);
+
+	/* For T63 active stylus */
+	if (data->T63_reportid_min) {
+		input_set_capability(input_dev, EV_KEY, BTN_STYLUS);
+		input_set_capability(input_dev, EV_KEY, BTN_STYLUS2);
+		input_set_abs_params(input_dev, ABS_MT_TOOL_TYPE,
+			0, MT_TOOL_MAX, 0, 0);
+	}
+
+	/* For T15 key array */
+	if (data->pdata->key_codes && data->T15_reportid_min) {
+		data->t15_keystatus = 0;
+
+		for (i = 0; i < data->pdata->t15_num_keys; i++)
+			input_set_capability(input_dev, EV_KEY,
+				     data->pdata->t15_keymap[i]);
+	}
+
+	input_set_drvdata(input_dev, data);
+
+	error = input_register_device(input_dev);
+	if (error) {
+		dev_err(dev, "Error %d registering input device\n", error);
+		goto err_free_mem;
+	}
+
+	data->input_dev = input_dev;
+
+	return 0;
+
+err_free_mem:
+	input_free_device(input_dev);
+	return error;
+}
+
+static int mxt_configure_objects(struct mxt_data *data)
+{
+	struct i2c_client *client = data->client;
+	int error;
+
+	error = mxt_debug_msg_init(data);
+	if (error)
+		return error;
+
+	error = mxt_init_t7_power_cfg(data);
+	if (error) {
+		dev_err(&client->dev, "Failed to initialize power cfg\n");
+		return error;
+	}
+
+	/* Check register init values */
+	error = mxt_check_reg_init(data);
+	if (error) {
+		dev_err(&client->dev, "Error %d initialising configuration\n",
+			error);
+		return error;
+	}
+
+	if (data->T9_reportid_min) {
+		error = mxt_initialize_t9_input_device(data);
+		if (error)
+			return error;
+	} else if (data->T100_reportid_min) {
+		error = mxt_initialize_t100_input_device(data);
+		if (error)
+			return error;
+	} else {
+		dev_warn(&client->dev, "No touch object detected\n");
+	}
+
+	data->enable_reporting = true;
+	return 0;
+}
+
 
 static int mxt_initialize(struct mxt_data *data)
 {
@@ -2403,45 +2667,6 @@ retry_bootloader:
 	if (error)
 		return error;
 
-	return 0;
-}
-
-static int mxt_configure_objects(struct mxt_data *data)
-{
-	struct i2c_client *client = data->client;
-	int error;
-
-	error = mxt_debug_msg_init(data);
-	if (error)
-		return error;
-
-	error = mxt_init_t7_power_cfg(data);
-	if (error) {
-		dev_err(&client->dev, "Failed to initialize power cfg\n");
-		return error;
-	}
-
-	/* Check register init values */
-	error = mxt_check_reg_init(data);
-	if (error) {
-		dev_err(&client->dev, "Error %d initialising configuration\n",
-			error);
-		return error;
-	}
-
-	if (data->T9_reportid_min) {
-		error = mxt_initialize_t9_input_device(data);
-		if (error)
-			return error;
-	} else if (data->T100_reportid_min) {
-		error = mxt_initialize_t100_input_device(data);
-		if (error)
-			return error;
-	} else {
-		dev_warn(&client->dev, "No touch object detected\n");
-	}
-
-	data->enable_reporting = true;
 	return 0;
 }
 
@@ -2897,225 +3122,134 @@ static const struct attribute_group mxt_attr_group = {
 	.attrs = mxt_attrs,
 };
 
-static void mxt_reset_slots(struct mxt_data *data)
+#ifdef CONFIG_OF
+static int mxt_get_dt_coords(struct device *dev, char *name,
+				struct mxt_platform_data *pdata)
 {
-	struct input_dev *input_dev = data->input_dev;
-	unsigned int num_mt_slots;
-	int id;
+	u32 coords[MXT_COORDS_ARR_SIZE];
+	struct property *prop;
+	struct device_node *np = dev->of_node;
+	size_t coords_size;
+	int rc;
 
-	num_mt_slots = data->num_touchids + data->num_stylusids;
+	prop = of_find_property(np, name, NULL);
+	if (!prop)
+		return -EINVAL;
+	if (!prop->value)
+		return -ENODATA;
 
-	for (id = 0; id < num_mt_slots; id++) {
-		input_mt_slot(input_dev, id);
-		input_mt_report_slot_state(input_dev, MT_TOOL_FINGER, 0);
+	coords_size = prop->length / sizeof(u32);
+	if (coords_size != MXT_COORDS_ARR_SIZE) {
+		dev_err(dev, "invalid %s\n", name);
+		return -EINVAL;
 	}
 
-	mxt_input_sync(input_dev);
-}
+	rc = of_property_read_u32_array(np, name, coords, coords_size);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read %s\n", name);
+		return rc;
+	}
 
-static void mxt_start(struct mxt_data *data)
-{
-	if (!data->suspended || data->in_bootloader)
-		return;
-
-	if (data->use_regulator) {
-		mxt_regulator_enable(data);
+	if (strcmp(name, "atmel,panel-coords") == 0) {
+		pdata->panel_minx = coords[0];
+		pdata->panel_miny = coords[1];
+		pdata->panel_maxx = coords[2];
+		pdata->panel_maxy = coords[3];
+	} else if (strcmp(name, "atmel,display-coords") == 0) {
+		pdata->disp_minx = coords[0];
+		pdata->disp_miny = coords[1];
+		pdata->disp_maxx = coords[2];
+		pdata->disp_maxy = coords[3];
 	} else {
-		/* Discard any messages still in message buffer from before
-		 * chip went to sleep */
-		mxt_process_messages_until_invalid(data);
-
-		mxt_set_t7_power_cfg(data, MXT_POWER_CFG_RUN);
-
-		/* Recalibrate since chip has been in deep sleep */
-		mxt_t6_command(data, MXT_COMMAND_CALIBRATE, 1, false);
+		dev_err(dev, "unsupported property %s\n", name);
+		return -EINVAL;
 	}
-
-	mxt_acquire_irq(data);
-	data->enable_reporting = true;
-	data->suspended = false;
-}
-
-static void mxt_stop(struct mxt_data *data)
-{
-	if (data->suspended || data->in_bootloader)
-		return;
-
-	data->enable_reporting = false;
-	disable_irq(data->irq);
-
-	if (data->use_regulator)
-		mxt_regulator_disable(data);
-	else
-		mxt_set_t7_power_cfg(data, MXT_POWER_CFG_DEEPSLEEP);
-
-	mxt_reset_slots(data);
-	data->suspended = true;
-}
-
-static int mxt_input_open(struct input_dev *dev)
-{
-	struct mxt_data *data = input_get_drvdata(dev);
-
-	mxt_start(data);
 
 	return 0;
 }
 
-static void mxt_input_close(struct input_dev *dev)
+static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
 {
-	struct mxt_data *data = input_get_drvdata(dev);
+	int rc;
+	u32 temp_val;
+	struct device_node *np = dev->of_node;
+	struct property *prop;
 
-	mxt_stop(data);
-}
+	rc = mxt_get_dt_coords(dev, "atmel,panel-coords", pdata);
+	if (rc)
+		return rc;
 
-static int mxt_handle_pdata(struct mxt_data *data)
-{
-	data->pdata = dev_get_platdata(&data->client->dev);
+	rc = mxt_get_dt_coords(dev, "atmel,display-coords", pdata);
+	if (rc)
+		return rc;
 
-	/* Use provided platform data if present */
-	if (data->pdata) {
-		if (data->pdata->cfg_name)
-			mxt_update_file_name(&data->client->dev,
-					     &data->cfg_name,
-					     data->pdata->cfg_name,
-					     strlen(data->pdata->cfg_name));
+	/* reset, irq gpio info */
+	pdata->reset_gpio = of_get_named_gpio_flags(np, "atmel,reset-gpio",
+				0, &temp_val);
+	pdata->resetflags = temp_val;
+	pdata->irq_gpio = of_get_named_gpio_flags(np, "atmel,irq-gpio",
+				0, &temp_val);
+	pdata->irqflags = temp_val;
 
-		return 0;
+	rc = of_property_read_u32(np, "atmel,bl-addr", &temp_val);
+	if (rc && (rc != -EINVAL))
+		dev_err(dev, "Unable to read bootloader address\n");
+	else if (rc != -EINVAL)
+		pdata->bl_addr = (u8) temp_val;
+
+	/* keycodes for keyarray object*/
+	prop = of_find_property(np, "atmel,key-codes", NULL);
+	if (prop) {
+		pdata->key_codes = devm_kzalloc(dev,
+				sizeof(int) * MXT_KEYARRAY_MAX_KEYS,
+				GFP_KERNEL);
+		if (!pdata->key_codes)
+			return -ENOMEM;
+		if ((prop->length/sizeof(u32)) == MXT_KEYARRAY_MAX_KEYS) {
+			rc = of_property_read_u32_array(np, "atmel,key-codes",
+				pdata->key_codes, MXT_KEYARRAY_MAX_KEYS);
+			if (rc) {
+				dev_err(dev, "Unable to read key codes\n");
+				return rc;
+			}
+		} else
+			return -EINVAL;
 	}
-
-	data->pdata = kzalloc(sizeof(*data->pdata), GFP_KERNEL);
-	if (!data->pdata) {
-		dev_err(&data->client->dev, "Failed to allocate pdata\n");
-		return -ENOMEM;
-	}
-
-	/* Set default parameters */
-	data->pdata->irqflags = IRQF_TRIGGER_FALLING;
 
 	return 0;
 }
-
-static int mxt_initialize_t9_input_device(struct mxt_data *data)
+#else
+static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
 {
-	struct device *dev = &data->client->dev;
-	const struct mxt_platform_data *pdata = data->pdata;
-	struct input_dev *input_dev;
-	int error;
-	unsigned int num_mt_slots;
-	int i;
-
-	error = mxt_read_t9_resolution(data);
-	if (error)
-		dev_warn(dev, "Failed to initialize T9 resolution\n");
-
-	input_dev = input_allocate_device();
-	if (!input_dev) {
-		dev_err(dev, "Failed to allocate memory\n");
-		return -ENOMEM;
-	}
-
-	input_dev->name = "Atmel maXTouch Touchscreen";
-	input_dev->phys = data->phys;
-	input_dev->id.bustype = BUS_I2C;
-	input_dev->dev.parent = dev;
-	input_dev->open = mxt_input_open;
-	input_dev->close = mxt_input_close;
-
-	__set_bit(EV_ABS, input_dev->evbit);
-	input_set_capability(input_dev, EV_KEY, BTN_TOUCH);
-
-	if (pdata->t19_num_keys) {
-		__set_bit(INPUT_PROP_BUTTONPAD, input_dev->propbit);
-
-		for (i = 0; i < pdata->t19_num_keys; i++)
-			if (pdata->t19_keymap[i] != KEY_RESERVED)
-				input_set_capability(input_dev, EV_KEY,
-						     pdata->t19_keymap[i]);
-
-		__set_bit(BTN_TOOL_FINGER, input_dev->keybit);
-		__set_bit(BTN_TOOL_DOUBLETAP, input_dev->keybit);
-		__set_bit(BTN_TOOL_TRIPLETAP, input_dev->keybit);
-		__set_bit(BTN_TOOL_QUADTAP, input_dev->keybit);
-
-		input_abs_set_res(input_dev, ABS_X, MXT_PIXELS_PER_MM);
-		input_abs_set_res(input_dev, ABS_Y, MXT_PIXELS_PER_MM);
-		input_abs_set_res(input_dev, ABS_MT_POSITION_X,
-				  MXT_PIXELS_PER_MM);
-		input_abs_set_res(input_dev, ABS_MT_POSITION_Y,
-				  MXT_PIXELS_PER_MM);
-
-		input_dev->name = "Atmel maXTouch Touchpad";
-	}
-
-	/* For single touch */
-	input_set_abs_params(input_dev, ABS_X,
-			     0, data->max_x, 0, 0);
-	input_set_abs_params(input_dev, ABS_Y,
-			     0, data->max_y, 0, 0);
-	input_set_abs_params(input_dev, ABS_PRESSURE,
-			     0, 255, 0, 0);
-
-	/* For multi touch */
-	num_mt_slots = data->num_touchids + data->num_stylusids;
-	error = input_mt_init_slots(input_dev, num_mt_slots, 0);
-	if (error) {
-		dev_err(dev, "Error %d initialising slots\n", error);
-		goto err_free_mem;
-	}
-
-	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR,
-			     0, MXT_MAX_AREA, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_POSITION_X,
-			     0, data->max_x, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
-			     0, data->max_y, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_PRESSURE,
-			     0, 255, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_ORIENTATION,
-			     0, 255, 0, 0);
-
-	/* For T63 active stylus */
-	if (data->T63_reportid_min) {
-		input_set_capability(input_dev, EV_KEY, BTN_STYLUS);
-		input_set_capability(input_dev, EV_KEY, BTN_STYLUS2);
-		input_set_abs_params(input_dev, ABS_MT_TOOL_TYPE,
-			0, MT_TOOL_MAX, 0, 0);
-	}
-
-	/* For T15 key array */
-	if (data->T15_reportid_min) {
-		data->t15_keystatus = 0;
-
-		for (i = 0; i < data->pdata->t15_num_keys; i++)
-			input_set_capability(input_dev, EV_KEY,
-					     data->pdata->t15_keymap[i]);
-	}
-
-	input_set_drvdata(input_dev, data);
-
-	error = input_register_device(input_dev);
-	if (error) {
-		dev_err(dev, "Error %d registering input device\n", error);
-		goto err_free_mem;
-	}
-
-	data->input_dev = input_dev;
-
-	return 0;
-
-err_free_mem:
-	input_free_device(input_dev);
-	return error;
+	return -ENODEV;
 }
+#endif
 
 static int mxt_probe(struct i2c_client *client,
 			       const struct i2c_device_id *id)
 {
 	struct mxt_data *data;
+	struct mxt_platform_data *pdata;
 	int error;
 
-	data = kzalloc(sizeof(struct mxt_data), GFP_KERNEL);
+	if (client->dev.of_node) {
+		pdata = devm_kzalloc(&client->dev,
+			sizeof(struct mxt_platform_data), GFP_KERNEL);
+		if (!pdata) {
+			dev_err(&client->dev, "Failed to allocate memory\n");
+			return -ENOMEM;
+		}
+
+		error = mxt_parse_dt(&client->dev, pdata);
+		if (error)
+			return error;
+	} else
+		pdata = client->dev.platform_data;
+
+	if (!pdata)
+		return -EINVAL;
+
+	data = devm_kzalloc(&client->dev, sizeof(struct mxt_data), GFP_KERNEL);
 	if (!data) {
 		dev_err(&client->dev, "Failed to allocate memory\n");
 		return -ENOMEM;
@@ -3126,32 +3260,25 @@ static int mxt_probe(struct i2c_client *client,
 
 	data->client = client;
 	data->irq = client->irq;
+	data->pdata = pdata;
 	i2c_set_clientdata(client, data);
 
-	error = mxt_handle_pdata(data);
-	if (error)
-		goto err_free_mem;
+	if (data->pdata->cfg_name)
+		mxt_update_file_name(&data->client->dev,
+				     &data->cfg_name,
+				     data->pdata->cfg_name,
+				     strlen(data->pdata->cfg_name));
 
 	init_completion(&data->bl_completion);
 	init_completion(&data->reset_completion);
 	init_completion(&data->crc_completion);
 	mutex_init(&data->debug_msg_lock);
 
-	error = request_threaded_irq(data->irq, NULL, mxt_interrupt,
-				     data->pdata->irqflags | IRQF_ONESHOT,
-				     client->name, data);
-	if (error) {
-		dev_err(&client->dev, "Failed to register interrupt\n");
-		goto err_free_pdata;
-	}
-
 	mxt_probe_regulators(data);
-
-	disable_irq(data->irq);
 
 	error = mxt_initialize(data);
 	if (error)
-		goto err_free_irq;
+		goto err_initialize;
 
 	error = sysfs_create_group(&client->dev.kobj, &mxt_attr_group);
 	if (error) {
@@ -3174,19 +3301,22 @@ static int mxt_probe(struct i2c_client *client,
 		goto err_remove_sysfs_group;
 	}
 
+	error = request_threaded_irq(data->irq, NULL, mxt_interrupt,
+				     data->pdata->irqflags | IRQF_ONESHOT,
+				     client->name, data);
+	if (error) {
+		dev_err(&client->dev, "Failed to register interrupt\n");
+		goto err_remove_sysfs_group;
+	}
+
 	return 0;
 
 err_remove_sysfs_group:
 	sysfs_remove_group(&client->dev.kobj, &mxt_attr_group);
 err_free_object:
 	mxt_free_object_table(data);
-err_free_irq:
-	free_irq(data->irq, data);
-err_free_pdata:
-	if (!dev_get_platdata(&data->client->dev))
-		kfree(data->pdata);
-err_free_mem:
-	kfree(data);
+err_initialize:
+	mutex_destroy(&data->debug_msg_lock);
 	return error;
 }
 
@@ -3256,17 +3386,27 @@ static void mxt_shutdown(struct i2c_client *client)
 static const struct i2c_device_id mxt_id[] = {
 	{ "qt602240_ts", 0 },
 	{ "atmel_mxt_ts", 0 },
+	{ "atmel_maxtouch_ts", 0 },
 	{ "atmel_mxt_tp", 0 },
 	{ "mXT224", 0 },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, mxt_id);
+#ifdef CONFIG_OF
+static struct of_device_id mxt_match_table[] = {
+	{ .compatible = "atmel,maxtouch-ts",},
+	{ },
+};
+#else
+#define mxt_match_table NULL
+#endif
 
 static struct i2c_driver mxt_driver = {
 	.driver = {
-		.name	= "atmel_mxt_ts",
+		.name	= "atmel_maxtouch_ts",
 		.owner	= THIS_MODULE,
 		.pm	= &mxt_pm_ops,
+		.of_match_table = mxt_match_table,
 	},
 	.probe		= mxt_probe,
 	.remove		= mxt_remove,
@@ -3274,18 +3414,7 @@ static struct i2c_driver mxt_driver = {
 	.id_table	= mxt_id,
 };
 
-static int __init mxt_init(void)
-{
-	return i2c_add_driver(&mxt_driver);
-}
-
-static void __exit mxt_exit(void)
-{
-	i2c_del_driver(&mxt_driver);
-}
-
-module_init(mxt_init);
-module_exit(mxt_exit);
+module_i2c_driver(mxt_driver);
 
 /* Module information */
 MODULE_AUTHOR("Joonyoung Shim <jy0922.shim@samsung.com>");
