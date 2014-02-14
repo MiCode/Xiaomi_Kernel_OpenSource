@@ -4109,8 +4109,8 @@ ssize_t i915_timestamp_read(struct file *filp,
 	ftrace_ts = ftrace_now(cpu);
 	local_irq_restore(flags);
 
-	sec  = (u32)(ftrace_ts / NSEC_PER_SEC);
-	nsec = (u32)(ftrace_ts % NSEC_PER_SEC);
+	nsec = do_div(ftrace_ts, NSEC_PER_SEC);
+	sec = (u32) ftrace_ts;
 
 	len = snprintf(buf, TIMESTAMP_BUFFER_LEN,
 		      "CPU%03u %u.%09u s\nGPU %u ticks\n",
