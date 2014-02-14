@@ -108,6 +108,8 @@ struct arizona {
 	unsigned int hp_ena;
 	unsigned int hp_short;
 
+	unsigned int hp_impedance;
+
 	struct mutex clk_lock;
 	int clk32k_ref;
 
