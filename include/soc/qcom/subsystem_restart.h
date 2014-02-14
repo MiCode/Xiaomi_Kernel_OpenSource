@@ -64,6 +64,16 @@ struct subsys_desc {
 	int force_stop_gpio;
 };
 
+/**
+ * struct notif_data - additional notif information
+ * @crashed: indicates if subsystem has crashed
+ * @enable_ramdump: ramdumps disabled if set to 0
+ */
+struct notif_data {
+	bool crashed;
+	int enable_ramdump;
+};
+
 #if defined(CONFIG_MSM_SUBSYSTEM_RESTART)
 
 extern int subsys_get_restart_level(struct subsys_device *dev);

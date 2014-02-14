@@ -386,11 +386,16 @@ static void notify_each_subsys_device(struct subsys_device **list,
 		enum subsys_notif_type notif, void *data)
 {
 	while (count--) {
-		enum subsys_notif_type type = (enum subsys_notif_type)type;
 		struct subsys_device *dev = *list++;
+		struct notif_data notif_data;
 		if (!dev)
 			continue;
-		subsys_notif_queue_notification(dev->notify, notif, data);
+
+		notif_data.crashed = subsys_get_crash_status(dev);
+		notif_data.enable_ramdump = enable_ramdumps;
+
+		subsys_notif_queue_notification(dev->notify, notif,
+								&notif_data);
 	}
 }
 
@@ -672,7 +677,6 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	struct subsys_tracking *track;
 	unsigned count;
 	unsigned long flags;
-	bool force_stop = true;
 
 	/*
 	 * It's OK to not take the registration lock at this point.
@@ -701,14 +705,12 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 
 	pr_debug("[%p]: Starting restart sequence for %s\n", current,
 			desc->name);
-	notify_each_subsys_device(list, count, SUBSYS_BEFORE_SHUTDOWN,
-							(void *)force_stop);
+	notify_each_subsys_device(list, count, SUBSYS_BEFORE_SHUTDOWN, NULL);
 	for_each_subsys_device(list, count, NULL, subsystem_shutdown);
-	notify_each_subsys_device(list, count, SUBSYS_AFTER_SHUTDOWN,
-							(void *)force_stop);
+	notify_each_subsys_device(list, count, SUBSYS_AFTER_SHUTDOWN, NULL);
 
 	notify_each_subsys_device(list, count, SUBSYS_RAMDUMP_NOTIFICATION,
-							  &enable_ramdumps);
+									NULL);
 
 	spin_lock_irqsave(&track->s_lock, flags);
 	track->p_state = SUBSYS_RESTARTING;
