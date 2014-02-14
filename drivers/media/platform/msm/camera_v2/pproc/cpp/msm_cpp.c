@@ -58,10 +58,12 @@
 #define MSM_CPP_TURBO_CLOCK	320000000
 
 #define CPP_FW_VERSION_1_2_0	0x10020000
+#define CPP_FW_VERSION_1_4_0	0x10040000
 #define CPP_FW_VERSION_1_6_0	0x10060000
 
 /* stripe information offsets in frame command */
 #define STRIPE_BASE_FW_1_2_0	130
+#define STRIPE_BASE_FW_1_4_0	140
 #define STRIPE_BASE_FW_1_6_0	464
 
 
@@ -671,37 +673,47 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 		}
 	}
 
-	cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX] =
-		clk_get(&cpp_dev->pdev->dev,
-		cpp_clk_info[MSM_MICRO_IFACE_CLK_IDX].clk_name);
-	if (IS_ERR(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX])) {
-		pr_err("%s get failed\n",
+	if (cpp_dev->hw_info.cpp_hw_version != CPP_HW_VERSION_4_0_0) {
+		cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX] =
+			clk_get(&cpp_dev->pdev->dev,
 			cpp_clk_info[MSM_MICRO_IFACE_CLK_IDX].clk_name);
-		rc = PTR_ERR(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX]);
-		goto remap_failed;
-	}
+		if (IS_ERR(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX])) {
+			pr_err("%s get failed\n",
+			cpp_clk_info[MSM_MICRO_IFACE_CLK_IDX].clk_name);
+			rc =
+			PTR_ERR(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX]);
+			goto remap_failed;
+		}
 
-	rc = clk_reset(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX],
-		CLK_RESET_ASSERT);
-	if (rc) {
-		pr_err("%s:micro_iface_clk assert failed\n", __func__);
+		rc = clk_reset(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX],
+			CLK_RESET_ASSERT);
+		if (rc) {
+			pr_err("%s:micro_iface_clk assert failed\n",
+			__func__);
+			clk_put(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX]);
+			goto remap_failed;
+		}
+		/*Below usleep values are chosen based on experiments
+		and this was the smallest number which works. This
+		sleep is needed to leave enough time for Microcontroller
+		to resets all its registers.*/
+		usleep_range(10000, 12000);
+
+		rc = clk_reset(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX],
+			CLK_RESET_DEASSERT);
+		if (rc) {
+			pr_err("%s:micro_iface_clk assert failed\n", __func__);
+			clk_put(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX]);
+			goto remap_failed;
+		}
+		/*Below usleep values are chosen based on experiments and
+		this was the smallest number which works. This sleep is
+		needed to leave enough time for Microcontroller to
+		resets all its registers.*/
+		usleep_range(1000, 1200);
+
 		clk_put(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX]);
-		goto remap_failed;
 	}
-
-	usleep_range(10000, 12000);
-
-	rc = clk_reset(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX],
-		CLK_RESET_DEASSERT);
-	  if (rc) {
-		pr_err("%s:micro_iface_clk assert failed\n", __func__);
-		clk_put(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX]);
-		goto remap_failed;
-	}
-
-	usleep_range(1000, 1200);
-
-	clk_put(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX]);
 
 	rc = msm_cam_clk_enable(&cpp_dev->pdev->dev, cpp_clk_info,
 			cpp_dev->cpp_clk, cpp_dev->num_clk, 1);
@@ -764,14 +776,23 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 	msm_cpp_create_buff_queue(cpp_dev, MSM_CPP_MAX_BUFF_QUEUE);
 	pr_err("stream_cnt:%d\n", cpp_dev->stream_cnt);
 	cpp_dev->stream_cnt = 0;
-	if (cpp_dev->is_firmware_loaded == 1) {
-		disable_irq(cpp_dev->irq->start);
-		cpp_load_fw(cpp_dev, cpp_dev->fw_name_bin);
-		enable_irq(cpp_dev->irq->start);
-		msm_camera_io_w_mb(0x7C8, cpp_dev->base +
-			MSM_CPP_MICRO_IRQGEN_MASK);
-		msm_camera_io_w_mb(0xFFFF, cpp_dev->base +
-			MSM_CPP_MICRO_IRQGEN_CLR);
+	if (cpp_dev->hw_info.cpp_hw_version != CPP_HW_VERSION_4_0_0) {
+		if (cpp_dev->is_firmware_loaded == 1) {
+			disable_irq(cpp_dev->irq->start);
+			cpp_load_fw(cpp_dev, cpp_dev->fw_name_bin);
+			enable_irq(cpp_dev->irq->start);
+			msm_camera_io_w_mb(0x7C8, cpp_dev->base +
+				MSM_CPP_MICRO_IRQGEN_MASK);
+			msm_camera_io_w_mb(0xFFFF, cpp_dev->base +
+				MSM_CPP_MICRO_IRQGEN_CLR);
+		}
+	} else {
+		msm_camera_io_w(0x1,
+			cpp_dev->base + MSM_CPP_MICRO_CLKEN_CTL);
+		msm_camera_io_w_mb(0x7C8,
+			cpp_dev->base + MSM_CPP_MICRO_IRQGEN_MASK);
+		msm_camera_io_w_mb(0xFFFF,
+			cpp_dev->base + MSM_CPP_MICRO_IRQGEN_CLR);
 	}
 	return rc;
 req_irq_fail:
@@ -1399,6 +1420,8 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 
 	if ((cpp_dev->fw_version & 0xffff0000) == CPP_FW_VERSION_1_2_0) {
 		stripe_base = STRIPE_BASE_FW_1_2_0;
+	} else if ((cpp_dev->fw_version & 0xffff0000) == CPP_FW_VERSION_1_4_0) {
+		stripe_base = STRIPE_BASE_FW_1_4_0;
 	} else if ((cpp_dev->fw_version & 0xffff0000) == CPP_FW_VERSION_1_6_0) {
 		stripe_base = STRIPE_BASE_FW_1_6_0;
 	} else {
