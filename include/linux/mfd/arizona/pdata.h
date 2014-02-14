@@ -163,6 +163,9 @@ struct arizona_pdata {
 	/** Force MICBIAS on for mic detect */
 	bool micd_force_micbias;
 
+	/** Force MICBIAS on for initial mic detect only, not button detect */
+	bool micd_force_micbias_initial;
+
 	/** Declare an open circuit as a 4 pole jack */
 	bool micd_open_circuit_declare;
 
