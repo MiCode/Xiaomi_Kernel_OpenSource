@@ -875,6 +875,7 @@
 			qcom,hw-settle-time = <2>;
 			qcom,fast-avg-setup = <3>;
 			qcom,btm-channel-number = <0x68>;
+			qcom,meas-interval-timer-idx = <2>;
 		};
 
 		chan@8 {
