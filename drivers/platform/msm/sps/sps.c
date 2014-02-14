@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,7 @@
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
 
 #include "sps_bam.h"
 #include "spsi.h"
@@ -81,6 +82,8 @@ static struct sps_drv *sps;
 u32 d_type;
 bool enhd_pipe;
 bool imem;
+enum sps_bam_type bam_type;
+enum sps_bam_type bam_types[] = {SPS_BAM_LEGACY, SPS_BAM_NDP, SPS_BAM_NDP_4K};
 
 static void sps_device_de_init(void);
 
@@ -2497,6 +2500,16 @@ static int get_device_tree_data(struct platform_device *pdev)
 	return 0;
 }
 
+static struct of_device_id msm_sps_match[] = {
+	{	.compatible = "qcom,msm_sps",
+		.data = &bam_types[SPS_BAM_NDP]
+	},
+	{	.compatible = "qcom,msm_sps_4k",
+		.data = &bam_types[SPS_BAM_NDP_4K]
+	},
+	{}
+};
+
 static int msm_sps_probe(struct platform_device *pdev)
 {
 	int ret = -ENODEV;
@@ -2504,11 +2517,22 @@ static int msm_sps_probe(struct platform_device *pdev)
 	SPS_DBG2("sps:%s.", __func__);
 
 	if (pdev->dev.of_node) {
+		const struct of_device_id *match;
+
 		if (get_device_tree_data(pdev)) {
 			SPS_ERR("sps:Fail to get data from device tree.");
 			return -ENODEV;
 		} else
 			SPS_DBG("sps:get data from device tree.");
+
+		match = of_match_device(msm_sps_match, &pdev->dev);
+		if (match) {
+			bam_type = *((enum sps_bam_type *)(match->data));
+			SPS_DBG("sps:BAM type is:%d\n", bam_type);
+		} else {
+			bam_type = SPS_BAM_NDP;
+			SPS_DBG("sps:use default BAM type:%d\n", bam_type);
+		}
 	} else {
 		d_type = 0;
 		if (get_platform_data(pdev)) {
@@ -2516,6 +2540,7 @@ static int msm_sps_probe(struct platform_device *pdev)
 			return -ENODEV;
 		} else
 			SPS_DBG("sps:get platform data.");
+		bam_type = SPS_BAM_LEGACY;
 	}
 
 	/* Create Device */
@@ -2651,12 +2676,6 @@ static int msm_sps_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-static struct of_device_id msm_sps_match[] = {
-	{	.compatible = "qcom,msm_sps",
-	},
-	{}
-};
 
 static struct platform_driver msm_sps_driver = {
 	.probe          = msm_sps_probe,

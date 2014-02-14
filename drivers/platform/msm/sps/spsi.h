@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +53,7 @@
 extern u32 d_type;
 extern bool enhd_pipe;
 extern bool imem;
+extern enum sps_bam_type bam_type;
 
 #ifdef CONFIG_DEBUG_FS
 extern u8 debugfs_record_enabled;
@@ -194,6 +195,12 @@ struct sps_mem_stats {
 	u32 blocks_used;
 	u32 bytes_used;
 	u32 max_bytes_used;
+};
+
+enum sps_bam_type {
+	SPS_BAM_LEGACY,
+	SPS_BAM_NDP,
+	SPS_BAM_NDP_4K
 };
 
 #ifdef CONFIG_DEBUG_FS
