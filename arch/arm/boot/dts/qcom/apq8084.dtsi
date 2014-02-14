@@ -48,6 +48,30 @@
 			reg = <0 0 0 0xfc00000>;
 			label = "secure_mem";
 		};
+
+		tz_apps_and_debug_mem: tz_apps_and_debug_region@d400000 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0xd400000 0x0 0x700000>;
+			label = "tz_apps_and_debug_mem";
+		};
+
+		peripheral_mem: peripheral_region@0xdb00000 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0x0db00000 0x0 0x1d00000>;
+			label = "peripheral_mem";
+		};
+
+		external_image_mem: external_image_region@f800000 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0x0f800000 0x0 0x600000>;
+			label = "external_image_mem";
+		};
         };
 };
 
@@ -2799,11 +2823,6 @@
 			qcom,ocmem-part-min = <0x55000>;
 		};
 
-	};
-
-	memory_hole: qcom,msm-mem-hole {
-		compatible = "qcom,msm-mem-hole";
-		qcom,memblock-remove = <0x0d400000 0x02a00000>; /* Address and Size of Hole */
 	};
 
 	qcom,ipc-spinlock@fd484000 {

@@ -38,9 +38,8 @@
 		qcom,ion-heap@23 { /* OTHER PIL HEAP */
 			compatible = "qcom,msm-ion-reserve";
 			reg = <23>;
-			qcom,heap-align = <0x1000>;
-			qcom,memory-fixed = <0x0db00000 0x1d00000>;
-			qcom,ion-heap-type = "CARVEOUT";
+			linux,contiguous-region = <&peripheral_mem>;
+			qcom,ion-heap-type = "DMA";
 		};
 
 		qcom,ion-heap@27 { /* QSECOM HEAP */
