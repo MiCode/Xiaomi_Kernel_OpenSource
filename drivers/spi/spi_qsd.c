@@ -1493,20 +1493,6 @@ static void msm_spi_process_transfer(struct msm_spi *dd)
 	read_count = DIV_ROUND_UP(dd->cur_msg_len, dd->bytes_per_word);
 	if (dd->cur_msg->spi->mode & SPI_LOOP)
 		int_loopback = 1;
-	if (int_loopback && dd->multi_xfr &&
-			(read_count > dd->input_fifo_size)) {
-		if (dd->read_len && dd->write_len)
-			pr_err(
-			"%s:Internal Loopback does not support > fifo size"
-			"for write-then-read transactions\n",
-			__func__);
-		else if (dd->write_len && !dd->read_len)
-			pr_err(
-			"%s:Internal Loopback does not support > fifo size"
-			"for write-then-write transactions\n",
-			__func__);
-		return;
-	}
 
 	if (msm_spi_set_state(dd, SPI_OP_STATE_RESET))
 		dev_err(dd->dev,
