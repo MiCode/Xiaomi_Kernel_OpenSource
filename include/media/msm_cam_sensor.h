@@ -55,6 +55,11 @@
 
 #define MAX_LED_TRIGGERS 3
 
+enum sensor_stats_type {
+	YRGB,
+	YYYY,
+};
+
 enum flash_type {
 	LED_FLASH = 1,
 	STROBE_FLASH,
