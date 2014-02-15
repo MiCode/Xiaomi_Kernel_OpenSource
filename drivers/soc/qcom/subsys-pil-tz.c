@@ -36,6 +36,7 @@
 #define PROXY_TIMEOUT_MS	10000
 #define MAX_SSR_REASON_LEN	81U
 #define STOP_ACK_TIMEOUT_MS	1000
+#define CRASH_STOP_ACK_TO_MS	200
 
 #define desc_to_data(d) container_of(d, struct pil_tz_data, desc)
 #define subsys_to_data(d) container_of(d, struct pil_tz_data, subsys_desc)
@@ -564,7 +565,7 @@ static void subsys_crash_shutdown(const struct subsys_desc *subsys)
 	if (subsys->force_stop_gpio > 0 &&
 				!subsys_get_crash_status(d->subsys)) {
 		gpio_set_value(subsys->force_stop_gpio, 1);
-		msleep(STOP_ACK_TIMEOUT_MS);
+		mdelay(CRASH_STOP_ACK_TO_MS);
 	}
 }
 
