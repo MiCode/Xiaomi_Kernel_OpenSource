@@ -1256,7 +1256,9 @@ void __init apq8084_init_gpiomux(void)
 		msm_gpiomux_install(msm_sensor_configs,
 				ARRAY_SIZE(msm_sensor_configs));
 	msm_gpiomux_install(msm_pcie_configs, ARRAY_SIZE(msm_pcie_configs));
-	msm_gpiomux_install(msm_epm_configs, ARRAY_SIZE(msm_epm_configs));
+	if (of_board_is_liquid())
+		msm_gpiomux_install(msm_epm_configs,
+						ARRAY_SIZE(msm_epm_configs));
 
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 	if (of_board_is_cdp())
