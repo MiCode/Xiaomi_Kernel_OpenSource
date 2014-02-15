@@ -79,6 +79,7 @@ static struct sensors_classdev sensors_cdev = {
 #define MMA_INT_ROUTING_CFG	0x01
 
 #define MMA_POWER_CFG_MASK	0xFE
+#define MMA_ODR_MASK		0x38
 
 struct sensor_regulator {
 	struct regulator *vreg;
@@ -405,7 +406,7 @@ static int mma8x5x_device_set_odr(struct i2c_client *client, u32 delay_ms)
 	if (result < 0)
 		goto out;
 
-	val = (u8)result | val;
+	val = ((u8)result & ~MMA_ODR_MASK) | val;
 	result = i2c_smbus_write_byte_data(client, MMA8X5X_CTRL_REG1,
 					   (val & MMA_POWER_CFG_MASK));
 	if (result < 0)
