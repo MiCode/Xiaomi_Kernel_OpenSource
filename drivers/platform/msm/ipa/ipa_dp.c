@@ -1287,7 +1287,7 @@ static void ipa_replenish_wlan_rx_cache(struct ipa_sys_context *sys)
 
 	IPADBG("\n");
 
-	spin_lock(&ipa_ctx->wlan_spinlock);
+	spin_lock_bh(&ipa_ctx->wlan_spinlock);
 	rx_len_cached = sys->len;
 
 	if (rx_len_cached < sys->rx_pool_sz) {
@@ -1316,12 +1316,12 @@ static void ipa_replenish_wlan_rx_cache(struct ipa_sys_context *sys)
 			rx_len_cached = ++sys->len;
 
 			if (rx_len_cached >= sys->rx_pool_sz) {
-				spin_unlock(&ipa_ctx->wlan_spinlock);
+				spin_unlock_bh(&ipa_ctx->wlan_spinlock);
 				return;
 			}
 		}
 	}
-	spin_unlock(&ipa_ctx->wlan_spinlock);
+	spin_unlock_bh(&ipa_ctx->wlan_spinlock);
 
 	if (rx_len_cached < sys->rx_pool_sz &&
 			ipa_ctx->wlan_comm_cnt < IPA_WLAN_COMM_RX_POOL_HIGH) {
@@ -1333,7 +1333,7 @@ static void ipa_replenish_wlan_rx_cache(struct ipa_sys_context *sys)
 
 fail_sps_transfer:
 	list_del(&rx_pkt->link);
-	spin_unlock(&ipa_ctx->wlan_spinlock);
+	spin_unlock_bh(&ipa_ctx->wlan_spinlock);
 
 	return;
 }
@@ -2272,7 +2272,7 @@ int ipa_tx_dp_mul(enum ipa_client_type src,
 	IPADBG("Received data desc anchor:%p\n", data_desc);
 	ipa_ctx->wstats.rx_hd_rcvd++;
 
-	spin_lock(&ipa_ctx->ipa_tx_mul_spinlock);
+	spin_lock_bh(&ipa_ctx->ipa_tx_mul_spinlock);
 
 	ep_idx = ipa_get_ep_mapping(src);
 	if (unlikely(ep_idx == -1)) {
@@ -2337,11 +2337,11 @@ int ipa_tx_dp_mul(enum ipa_client_type src,
 	}
 
 	ipa_ctx->wstats.rx_hd_processed++;
-	spin_unlock(&ipa_ctx->ipa_tx_mul_spinlock);
+	spin_unlock_bh(&ipa_ctx->ipa_tx_mul_spinlock);
 	return 0;
 
 fail_send:
-	spin_unlock(&ipa_ctx->ipa_tx_mul_spinlock);
+	spin_unlock_bh(&ipa_ctx->ipa_tx_mul_spinlock);
 	return -EFAULT;
 
 }
@@ -2351,7 +2351,7 @@ void ipa_free_skb(struct ipa_rx_data *data)
 {
 	struct ipa_rx_pkt_wrapper *rx_pkt;
 
-	spin_lock(&ipa_ctx->wlan_spinlock);
+	spin_lock_bh(&ipa_ctx->wlan_spinlock);
 
 	ipa_ctx->wstats.tx_pkts_freed++;
 	rx_pkt = container_of(data, struct ipa_rx_pkt_wrapper, data);
@@ -2362,7 +2362,7 @@ void ipa_free_skb(struct ipa_rx_data *data)
 	list_add_tail(&rx_pkt->link, &ipa_ctx->wlan_comm_desc_list);
 	ipa_ctx->wstats.tx_buf_cnt++;
 
-	spin_unlock(&ipa_ctx->wlan_spinlock);
+	spin_unlock_bh(&ipa_ctx->wlan_spinlock);
 }
 EXPORT_SYMBOL(ipa_free_skb);
 
