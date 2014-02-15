@@ -31,6 +31,22 @@
 			reg = <0 0xAF000>;
 			label = "audio_mem";
 		};
+
+		peripheral_mem: peripheral_region@0x100000 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x1000000 0x5e00000>;
+			label = "peripheral_mem";
+		};
+
+		sbl_mem: sbl_region@0x7f00000 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x7f00000 0x100000>;
+			label = "sbl_mem";
+		};
 	};
 
 	soc: soc { };
@@ -105,12 +121,6 @@
 			compatible = "qcom,msm-imem-emergency_download_mode";
 			reg = <0xfe0 12>;
 		};
-	};
-
-	qcom,msm-mem-hole {
-		compatible = "qcom,msm-mem-hole";
-		qcom,memblock-remove = <0x01000000 0x05E00000
-					0x07F00000 0x00100000>; /* Address and Size of Hole */
 	};
 
 	timer@f9020000 {
