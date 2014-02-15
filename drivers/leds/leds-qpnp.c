@@ -704,7 +704,7 @@ static int qpnp_wled_set(struct qpnp_led_data *led)
 		for (i = 0; i < num_wled_strings; i++) {
 			rc = qpnp_led_masked_write(led,
 				WLED_FULL_SCALE_REG(led->base, i),
-				WLED_MAX_CURR_MASK, led->max_current);
+				WLED_MAX_CURR_MASK, (u8)led->max_current);
 			if (rc) {
 				dev_err(&led->spmi_dev->dev,
 					"Write max current failure (%d)\n",
@@ -803,7 +803,8 @@ static int qpnp_wled_set(struct qpnp_led_data *led)
 
 static int qpnp_mpp_set(struct qpnp_led_data *led)
 {
-	int rc, val;
+	int rc;
+	u8 val;
 	int duty_us;
 
 	if (led->cdev.brightness) {
@@ -1771,7 +1772,7 @@ static int qpnp_wled_init(struct qpnp_led_data *led)
 
 		rc = qpnp_led_masked_write(led,
 			WLED_FULL_SCALE_REG(led->base, i), WLED_MAX_CURR_MASK,
-			led->max_current);
+			(u8)led->max_current);
 		if (rc) {
 			dev_err(&led->spmi_dev->dev,
 				"WLED max current reg write failed(%d)\n", rc);
@@ -2612,7 +2613,8 @@ static int qpnp_rgb_init(struct qpnp_led_data *led)
 
 static int qpnp_mpp_init(struct qpnp_led_data *led)
 {
-	int rc, val;
+	int rc;
+	u8 val;
 
 
 	if (led->max_current < LED_MPP_CURRENT_MIN ||
