@@ -42,6 +42,7 @@ struct i915_params i915 __read_mostly = {
 	.preliminary_hw_support = IS_ENABLED(CONFIG_DRM_I915_PRELIMINARY_HW_SUPPORT),
 	.disable_power_well = 1,
 	.enable_ips = 1,
+	.enable_rps_boost = 0,
 	.fastboot = 0,
 	.prefault_disable = 0,
 	.reset = true,
@@ -133,8 +134,13 @@ module_param_named(disable_power_well, i915.disable_power_well, int, 0600);
 MODULE_PARM_DESC(disable_power_well,
 	"Disable the power well when possible (default: true)");
 
+module_param_named(enable_rps_boost, i915.enable_rps_boost, int, 0600);
+MODULE_PARM_DESC(enable_rps_boost,
+		"Enable/Disable boost RPS frequency (default: false)");
+
 module_param_named(enable_ips, i915.enable_ips, int, 0600);
 MODULE_PARM_DESC(enable_ips, "Enable IPS (default: true)");
+
 
 module_param_named(fastboot, i915.fastboot, bool, 0600);
 MODULE_PARM_DESC(fastboot,

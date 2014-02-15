@@ -2137,6 +2137,7 @@ struct i915_params {
 	unsigned int preliminary_hw_support;
 	int disable_power_well;
 	int enable_ips;
+	int enable_rps_boost;
 	int invert_brightness;
 	int enable_cmd_parser;
 	/* leave bools at the end to not create holes */

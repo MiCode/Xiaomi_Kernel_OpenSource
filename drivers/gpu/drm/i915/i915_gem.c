@@ -1128,6 +1128,17 @@ static bool can_wait_boost(struct drm_i915_file_private *file_priv)
 	return !atomic_xchg(&file_priv->rps_wait_boost, true);
 }
 
+static int  intel_enable_rps_boost(struct drm_device *dev)
+{
+	/* No RPS Boost before Ironlake */
+	if (INTEL_INFO(dev)->gen < 6)
+		return 0;
+
+	/* Respect the kernel parameter if it is set */
+	return i915.enable_rps_boost;
+
+}
+
 /**
  * __wait_seqno - wait until execution of seqno has finished
  * @ring: the ring expected to report seqno
@@ -1169,7 +1180,8 @@ static int __wait_seqno(struct intel_engine_cs *ring, u32 seqno,
 	timeout_expire = timeout ? jiffies + timespec_to_jiffies_timeout(timeout) : 0;
 
 	if (INTEL_INFO(dev)->gen >= 6 && can_wait_boost(file_priv)) {
-		gen6_rps_boost(dev_priv);
+		if (intel_enable_rps_boost(ring->dev))
+			gen6_rps_boost(dev_priv);
 		if (file_priv)
 			mod_delayed_work(dev_priv->wq,
 					 &file_priv->mm.idle_work,
