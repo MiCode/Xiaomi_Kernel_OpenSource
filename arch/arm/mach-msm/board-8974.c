@@ -46,11 +46,6 @@ void __init msm_8974_reserve(void)
 	of_scan_flat_dt(dt_scan_for_memory_reserve, NULL);
 }
 
-static void __init msm8974_early_memory(void)
-{
-	of_scan_flat_dt(dt_scan_for_memory_hole, NULL);
-}
-
 /*
  * Used to satisfy dependencies for devices that need to be
  * run early or in a particular order. Most likely your device doesn't fall
@@ -132,11 +127,6 @@ void __init msm8974_init(void)
 	msm8974_add_drivers();
 }
 
-void __init msm8974_init_very_early(void)
-{
-	msm8974_early_memory();
-}
-
 static const char *msm8974_dt_match[] __initconst = {
 	"qcom,msm8974",
 	"qcom,apq8074",
@@ -149,6 +139,5 @@ DT_MACHINE_START(MSM8974_DT,
 	.init_machine		= msm8974_init,
 	.dt_compat		= msm8974_dt_match,
 	.reserve		= msm_8974_reserve,
-	.init_very_early	= msm8974_init_very_early,
 	.smp			= &msm8974_smp_ops,
 MACHINE_END

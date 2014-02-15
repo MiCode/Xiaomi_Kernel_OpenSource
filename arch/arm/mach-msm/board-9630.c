@@ -58,10 +58,6 @@ void __init mdm9630_reserve(void)
 {
 	of_scan_flat_dt(dt_scan_for_memory_reserve, NULL);
 }
-static void __init mdm9630_early_memory(void)
-{
-	of_scan_flat_dt(dt_scan_for_memory_hole, NULL);
-}
 static void __init mdm9630_map_io(void)
 {
 	msm_map_mdm9630_io();
@@ -96,5 +92,4 @@ DT_MACHINE_START(MDM9630_DT,
 	.init_machine		= mdm9630_init,
 	.dt_compat		= mdm9630_dt_match,
 	.reserve		= mdm9630_reserve,
-	.init_very_early	= mdm9630_early_memory,
 MACHINE_END

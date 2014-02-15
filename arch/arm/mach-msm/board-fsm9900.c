@@ -46,10 +46,6 @@ void __init fsm9900_reserve(void)
 {
 }
 
-static void __init fsm9900_early_memory(void)
-{
-}
-
 /*
  * Used to satisfy dependencies for devices that need to be
  * run early or in a particular order. Most likely your device doesn't fall
@@ -167,11 +163,6 @@ void __init fsm9900_init(void)
 	fsm9900_add_drivers();
 }
 
-void __init fsm9900_init_very_early(void)
-{
-	fsm9900_early_memory();
-}
-
 static const char *fsm9900_dt_match[] __initconst = {
 	"qcom,fsm9900",
 	NULL
@@ -183,6 +174,5 @@ DT_MACHINE_START(FSM9900_DT,
 	.init_machine		= fsm9900_init,
 	.dt_compat		= fsm9900_dt_match,
 	.reserve		= fsm9900_reserve,
-	.init_very_early	= fsm9900_init_very_early,
 	.smp			= &msm8974_smp_ops,
 MACHINE_END

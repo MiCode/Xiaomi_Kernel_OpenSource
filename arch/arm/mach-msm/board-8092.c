@@ -48,11 +48,6 @@
 
 static const char mac_addr_prop_name[] = "mac-address";
 
-static void __init mpq8092_early_memory(void)
-{
-	of_scan_flat_dt(dt_scan_for_memory_hole, NULL);
-}
-
 static void __init mpq8092_dt_reserve(void)
 {
 	of_scan_flat_dt(dt_scan_for_memory_reserve, NULL);
@@ -188,6 +183,5 @@ DT_MACHINE_START(MSM8092_DT,
 	.init_machine		= mpq8092_init,
 	.dt_compat		= mpq8092_dt_match,
 	.reserve		= mpq8092_dt_reserve,
-	.init_very_early	= mpq8092_early_memory,
 	.smp			= &msm8974_smp_ops,
 MACHINE_END
