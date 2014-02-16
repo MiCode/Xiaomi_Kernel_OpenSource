@@ -2915,7 +2915,7 @@ static inline int venus_hfi_init_clocks(struct msm_vidc_platform_resources *res,
 	}
 
 	venus_hfi_for_each_clock(device, cl) {
-		if (!strcmp(cl->name, "mem_clk") && !res->has_ocmem) {
+		if (!strcmp(cl->name, "mem_clk") && !res->ocmem_size) {
 			dprintk(VIDC_ERR,
 				"Found %s on a target that doesn't support ocmem\n",
 				cl->name);
@@ -3123,7 +3123,7 @@ static int venus_hfi_init_bus(struct venus_hfi_device *device)
 	venus_hfi_for_each_bus(device, bus) {
 		const char *name = bus->pdata->name;
 
-		if (!device->res->has_ocmem &&
+		if (!device->res->ocmem_size &&
 			strnstr(name, "ocmem", strlen(name))) {
 			dprintk(VIDC_ERR,
 				"%s found when target doesn't support ocmem\n",
@@ -3388,7 +3388,7 @@ static int venus_hfi_init_resources(struct venus_hfi_device *device,
 		goto err_register_iommu_domain;
 	}
 
-	if (res->has_ocmem)
+	if (res->ocmem_size)
 		venus_hfi_ocmem_init(device);
 
 	return rc;
@@ -3404,7 +3404,7 @@ err_init_clocks:
 
 static void venus_hfi_deinit_resources(struct venus_hfi_device *device)
 {
-	if (device->res->has_ocmem)
+	if (device->res->ocmem_size)
 		venus_hfi_deinit_ocmem(device);
 	venus_hfi_deregister_iommu_domains(device);
 	venus_hfi_deinit_bus(device);

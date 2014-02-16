@@ -654,7 +654,7 @@ int read_platform_resources_from_dt(
 	res->irq = kres ? kres->start : -1;
 
 	of_property_read_u32(pdev->dev.of_node,
-			"qcom,ocmem-size", &res->has_ocmem);
+			"qcom,ocmem-size", &res->ocmem_size);
 
 	rc = msm_vidc_load_freq_table(res);
 	if (rc) {
