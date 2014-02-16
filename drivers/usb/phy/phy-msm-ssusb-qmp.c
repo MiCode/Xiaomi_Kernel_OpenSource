@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,53 +31,60 @@
 
 #define SS_PHY_ENABLED 0
 
-#define PCIE_USB3_PHY_POWER_DOWN_CONTROL	0x604
 
-#define QSERDES_COM_SYSCLK_EN_SEL_TXBAND	0x48
-#define QSERDES_COM_DEC_START1			0xA4
-#define QSERDES_COM_DEC_START2			0x104
-#define QSERDES_COM_DIV_FRAC_START1		0xF8
-#define QSERDES_COM_DIV_FRAC_START2		0xFC
-#define QSERDES_COM_DIV_FRAC_START3		0x100
-#define QSERDES_COM_PLLLOCK_CMP_EN		0x94
-#define QSERDES_COM_PLLLOCK_CMP1		0x88
-#define QSERDES_COM_PLLLOCK_CMP2		0x8C
-#define QSERDES_COM_PLL_CRCTRL			0x10C
-#define QSERDES_COM_PLL_CP_SETI		0x34
-#define QSERDES_COM_PLL_IP_SETP		0x38
-#define QSERDES_COM_PLL_CP_SETP		0x3C
-#define QSERDES_COM_PLL_IP_SETI		0x24
 #define QSERDES_COM_IE_TRIM			0xC
 #define QSERDES_COM_IP_TRIM			0x10
 #define QSERDES_COM_PLL_CNTRL			0x14
-
-#define QSERDES_RX_CDR_CONTROL1		0x400
-#define QSERDES_RX_CDR_CONTROL2		0x404
-
+#define QSERDES_COM_PLL_IP_SETI			0x24
+#define QSERDES_COM_PLL_CP_SETI			0x34
+#define QSERDES_COM_PLL_IP_SETP			0x38
+#define QSERDES_COM_PLL_CP_SETP			0x3C
+#define QSERDES_COM_SYSCLK_EN_SEL_TXBAND	0x48
 #define QSERDES_COM_RESETSM_CNTRL		0x4C
 #define QSERDES_COM_RESETSM_CNTRL2		0x50
-
-#define QSERDES_COM_RES_CODE_START_SEG1	0xD8
-#define QSERDES_COM_RES_CODE_CAL_CSR		0xE0
-#define QSERDES_COM_RES_TRIM_CONTROL		0xE8
-#define QSERDES_TX_RCV_DETECT_LVL		0x268
-#define QSERDES_RX_RX_EQU_ADAPTOR_CNTRL2	0x4BC
-#define QSERDES_RX_RX_EQU_ADAPTOR_CNTRL3	0x4C0
-#define QSERDES_RX_RX_EQU_ADAPTOR_CNTRL4	0x4C4
-#define QSERDES_RX_SIGDET_ENABLES		0x4F8
-#define QSERDES_RX_SIGDET_CNTRL		0x500
-#define QSERDES_RX_SIGDET_DEGLITCH_CNTRL	0x504
-#define PCIE_USB3_PHY_RX_IDLE_DTCT_CNTRL	0x64C
+#define QSERDES_COM_PLLLOCK_CMP1		0x88
+#define QSERDES_COM_PLLLOCK_CMP2		0x8C
+#define QSERDES_COM_PLLLOCK_CMP_EN		0x94
+#define QSERDES_COM_DEC_START1			0xA4
 #define QSERDES_COM_SSC_EN_CENTER		0xAC
 #define QSERDES_COM_SSC_ADJ_PER1		0xB0
 #define QSERDES_COM_SSC_PER1			0xB8
 #define QSERDES_COM_SSC_PER2			0xBC
 #define QSERDES_COM_SSC_STEP_SIZE1		0xC0
 #define QSERDES_COM_SSC_STEP_SIZE2		0xC4
-#define PCIE_USB3_PHY_POWER_STATE_CONFIG2	0x654
+#define QSERDES_COM_RES_CODE_START_SEG1		0xD8
+#define QSERDES_COM_RES_CODE_CAL_CSR		0xE0
+#define QSERDES_COM_RES_TRIM_CONTROL		0xE8
+#define QSERDES_COM_DIV_FRAC_START1		0xF8
+#define QSERDES_COM_DIV_FRAC_START2		0xFC
+
+#define QSERDES_COM_DIV_FRAC_START3		0x100
+#define QSERDES_COM_DEC_START2			0x104
+#define QSERDES_COM_PLL_CRCTRL			0x10C
+
+#define QSERDES_TX_RCV_DETECT_LVL		0x268
+
+#define QSERDES_RX_CDR_CONTROL1			0x400
+#define QSERDES_RX_CDR_CONTROL2			0x404
+#define QSERDES_RX_RX_EQU_ADAPTOR_CNTRL2	0x4BC
+#define QSERDES_RX_RX_EQU_ADAPTOR_CNTRL3	0x4C0
+#define QSERDES_RX_RX_EQU_ADAPTOR_CNTRL4	0x4C4
+#define QSERDES_RX_SIGDET_ENABLES		0x4F8
+
+#define QSERDES_RX_SIGDET_CNTRL			0x500
+#define QSERDES_RX_SIGDET_DEGLITCH_CNTRL	0x504
 
 #define PCIE_USB3_PHY_SW_RESET			0x600
+#define PCIE_USB3_PHY_POWER_DOWN_CONTROL	0x604
 #define PCIE_USB3_PHY_START			0x608
+#define PCIE_USB3_PHY_RX_IDLE_DTCT_CNTRL	0x64C
+#define PCIE_USB3_PHY_POWER_STATE_CONFIG2	0x654
+
+#define PCIE_USB3_PHY_PCS_STATUS		0x728
+
+#define PHYSTATUS				BIT(6)
+
+#define INIT_MAX_TIME_USEC			1000
 
 
 struct msm_ssphy_qmp {
@@ -91,6 +98,7 @@ struct msm_ssphy_qmp {
 	struct clk		*pipe_clk;
 	struct clk		*phy_com_reset;
 	struct clk		*phy_reset;
+	bool			clk_enabled;
 };
 
 static int msm_ssusb_qmp_config_vdd(struct msm_ssphy_qmp *phy, int high)
@@ -208,7 +216,7 @@ static int msm_ssphy_qmp_init_clocks(struct msm_ssphy_qmp *phy)
 		ret = PTR_ERR(phy->phy_reset);
 		goto disable_pipe_clk;
 	}
-
+	phy->clk_enabled = true;
 	return ret;
 
 disable_pipe_clk:
@@ -226,8 +234,18 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 {
 	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
 					phy);
+	int ret;
+	unsigned init_timeout_usec = INIT_MAX_TIME_USEC;
 
 	dev_dbg(uphy->dev, "%s\n", __func__);
+
+	if (!phy->clk_enabled) {
+		ret = msm_ssphy_qmp_init_clocks(phy);
+		if (ret) {
+			dev_err(uphy->dev, "failed to init clocks %d\n", ret);
+			return ret;
+		}
+	}
 
 	writel_relaxed(0x01, phy->base + PCIE_USB3_PHY_POWER_DOWN_CONTROL);
 
@@ -279,6 +297,20 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	writel_relaxed(0x00, phy->base + PCIE_USB3_PHY_SW_RESET);
 	writel_relaxed(0x03, phy->base + PCIE_USB3_PHY_START);
 
+	/* Wait for PHY initialization to be done */
+	do {
+		if (readl_relaxed(phy->base + PCIE_USB3_PHY_PCS_STATUS) &
+			PHYSTATUS)
+			usleep(1);
+		else
+			break;
+	} while (init_timeout_usec--);
+
+	if (!init_timeout_usec) {
+		dev_err(uphy->dev, "QMP PHY initialization timeout\n");
+		return -EBUSY;
+	};
+
 	/*
 	 * After PHY initilization above, the PHY is generating
 	 * the usb3_pipe_clk in 125MHz. Therefore now we can (and need)
@@ -298,6 +330,14 @@ static int msm_ssphy_qmp_reset(struct usb_phy *uphy)
 	int ret;
 
 	dev_dbg(uphy->dev, "%s\n", __func__);
+
+	if (!phy->clk_enabled) {
+		ret = msm_ssphy_qmp_init_clocks(phy);
+		if (ret) {
+			dev_err(uphy->dev, "failed to init clocks %d\n", ret);
+			return ret;
+		}
+	}
 
 	/* Assert USB3 PHY reset */
 	ret = clk_reset(phy->phy_com_reset, CLK_RESET_ASSERT);
@@ -443,12 +483,6 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	phy->phy.notify_disconnect	= msm_ssphy_qmp_notify_disconnect;
 	phy->phy.reset			= msm_ssphy_qmp_reset;
 	phy->phy.type			= USB_PHY_TYPE_USB3;
-
-	ret = msm_ssphy_qmp_init_clocks(phy);
-	if (ret) {
-		dev_err(dev, "Fail to init qmp phy clocks\n");
-		goto disable_ss_ldo;
-	}
 
 	ret = usb_add_phy_dev(&phy->phy);
 	if (ret)
