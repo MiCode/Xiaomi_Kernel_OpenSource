@@ -3,6 +3,7 @@
 #
 obj-$(CONFIG_QPNP_REVID) += qpnp-revid.o
 obj-$(CONFIG_QPNP_COINCELL) += qpnp-coincell.o
+obj-$(CONFIG_MSM_MHI) += mhi/
 obj-$(CONFIG_MSM_MHI_UCI) += mhi_uci/
 obj-$(CONFIG_SPS) += sps/
 obj-$(CONFIG_GSI) += gsi/
