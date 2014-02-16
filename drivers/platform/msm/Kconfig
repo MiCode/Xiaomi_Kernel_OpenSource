@@ -145,6 +145,15 @@ config SSM
 	  This driver uses Secure Channel Manager interface for trustzone
 	  communication and communicates with modem over SMD channel.
 
+config MSM_MHI
+	tristate "Modem Host Interface Driver"
+	help
+	  This kernel module is used to interact with PCIe endpoints
+	  supporting MHI protocol. MHI is a data transmission protocol
+	  involving communication between a host and a device over shared
+	  memory. The MHI driver manages the shared memory by use of logical
+	  unidirectional channels.
+
 config MSM_MHI_UCI
 	 tristate "MHI Usperspace Control Interface Driver"
 	 depends on MSM_MHI

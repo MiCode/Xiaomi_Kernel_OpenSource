@@ -643,8 +643,9 @@
 				<100 512 0 0>,
 				<100 512 500 800>;
 	};
+
 	mhi: qcom,mhi {
-		compatible = "qcom,msm_pcie";
+		compatible = "qcom,mhi";
 	};
 
 	spmi_bus: qcom,spmi@fc4c0000 {

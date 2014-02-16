@@ -1,0 +1,36 @@
+MSM MHI
+
+MSM MHI enables communication with a device over a PCIe link using the
+Modem Host Interface protocol. The bindings referred to below, enable
+the correct configuration of the interface and required sideband
+signals.
+
+Required properties:
+  - compatible: should be "qcom,mhi"
+  - Refer to "Documentation/devicetree/bindings/esoc/esoc_client.txt" for
+    below properties:
+	- esoc-names
+	- esoc-0
+  - wakeup-gpios: gpio used to wake device from low power mode.
+  - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+    below optional properties:
+	- qcom,msm-bus,name
+	- qcom,msm-bus,num-cases
+	- qcom,msm-bus,num-paths
+	- qcom,msm-bus,vectors-KBps
+
+Example:
+
+	mhi: qcom,mhi {
+		compatible = "qcom,mhi";
+		esoc-names = "mdm";
+		esoc-0 = <&mdm1>;
+		mhi-device-wake-gpio =
+			<&msmgpio 108 0>;
+		qcom,msm-bus,name = "mhi";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<100 512 0 0>,
+				<100 512 1200000000 1200000000>;
+	};
