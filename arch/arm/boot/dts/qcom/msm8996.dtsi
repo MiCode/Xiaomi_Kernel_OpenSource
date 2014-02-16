@@ -1738,6 +1738,10 @@
 					 <0>, <0>, <0>, <0>, <0>, <0>, <0>;
 	};
 
+	mhi: qcom,mhi {
+		compatible = "qcom,mhi";
+	};
+
         qcom,ipc-spinlock@740000 {
                 compatible = "qcom,ipc-spinlock-sfpb";
                 reg = <0x740000 0x8000>;
