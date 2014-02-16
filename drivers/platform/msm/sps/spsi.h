@@ -27,7 +27,7 @@
 
 #include "sps_map.h"
 
-#ifdef CONFIG_ARM_LPAE
+#if defined(CONFIG_PHYS_ADDR_T_64BIT) || defined(CONFIG_ARM_LPAE)
 #define SPS_LPAE (true)
 #else
 #define SPS_LPAE (false)

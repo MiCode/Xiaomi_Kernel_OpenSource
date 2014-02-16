@@ -17,7 +17,7 @@
 
 #include <linux/types.h>	/* u32 */
 
-#ifdef CONFIG_ARM_LPAE
+#if defined(CONFIG_PHYS_ADDR_T_64BIT) || defined(CONFIG_ARM_LPAE)
 
 /* Returns upper 4bits of 36bits physical address */
 #define SPS_GET_UPPER_ADDR(addr) ((addr & 0xF00000000ULL) >> 32)
