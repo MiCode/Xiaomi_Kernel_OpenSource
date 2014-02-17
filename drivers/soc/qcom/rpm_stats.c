@@ -24,7 +24,7 @@
 #include <linux/mm.h>
 #include <linux/types.h>
 #include <linux/of.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <asm/arch_timer.h>
 #include "rpm_stats.h"
 
@@ -43,12 +43,13 @@ static char *msm_rpmstats_id_labels[ID_MAX] = {
 #define SCLK_HZ 32768
 #define MSM_ARCH_TIMER_FREQ 19200000
 
-struct msm_rpmstats_record{
+struct msm_rpmstats_record {
 	char		name[32];
 	uint32_t	id;
 	uint32_t	val;
 };
-struct msm_rpmstats_private_data{
+
+struct msm_rpmstats_private_data {
 	void __iomem *reg_base;
 	u32 num_records;
 	u32 read_idx;
