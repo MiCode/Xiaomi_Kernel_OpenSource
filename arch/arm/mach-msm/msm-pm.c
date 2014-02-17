@@ -293,10 +293,8 @@ static bool __ref msm_pm_spm_power_collapse(
 	}
 	msm_jtag_restore_state();
 
-	if (collapsed) {
-		cpu_init();
+	if (collapsed)
 		local_fiq_enable();
-	}
 
 	msm_pm_boot_config_after_pc(cpu);
 
