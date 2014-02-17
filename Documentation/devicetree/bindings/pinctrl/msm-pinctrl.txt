@@ -10,6 +10,7 @@ semantics.
  Required Properties:
  - compatible: should be one of the following.
    - "qcom,msm-tlmm-v3": for MSM with TLMM version 3.
+   - "qcom,msm-tlmm-v4": for MSM with TLMM version 4.
 
  - reg: Base address of the pin controller hardware module and length of
    the address space it occupies.
@@ -40,6 +41,7 @@ semantics.
    - #interrupt-controller: Can be used as an interrupt controller
    - compatible: identifies the interrupt controller feature version.
 			- "qcom,msm-tlmmv3-gp-intc": TLMM V3 interrupt chip.
+			- "qcom,msm-tlmmv4-gp-intc": TLMM V4 interrupt chip.
    - num_irqs: number of pins that can be used as an interrupt source.
    - apps_id: if present, override the default core id for given TLMM block.
    - #interrupt-cells: Should be two. The first cell is the pin number used as
