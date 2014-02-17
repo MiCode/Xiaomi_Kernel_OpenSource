@@ -102,6 +102,7 @@
 	vbus_dwc3-supply = <&pm8941_mvs1>;
 	qcom,misc-ref = <&pm8941_misc>;
 	dwc_usb3-adc_tm = <&pm8941_adc_tm>;
+	qcom,usbin-vadc = <&pm8941_vadc>;
 	interrupt-map-mask = <0x0 0xffffffff>;
 	interrupt-map = <0x0 0 &intc 0 133 0
 			0x0 1 &spmi_bus 0x0 0x2 0x9 0x0>;
