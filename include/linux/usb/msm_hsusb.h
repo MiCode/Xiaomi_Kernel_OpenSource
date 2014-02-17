@@ -464,6 +464,7 @@ struct msm_otg {
 	struct completion ext_chg_wait;
 	int ui_enabled;
 	bool pm_done;
+	struct qpnp_vadc_chip	*vadc_dev;
 };
 
 struct ci13xxx_platform_data {
