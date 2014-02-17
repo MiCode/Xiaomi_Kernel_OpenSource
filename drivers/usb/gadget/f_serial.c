@@ -64,7 +64,6 @@ struct f_gser {
 };
 
 static unsigned int no_tty_ports;
-static unsigned int no_sdio_ports;
 static unsigned int no_smd_ports;
 static unsigned int no_hsic_sports;
 static unsigned int no_hsuart_sports;
@@ -76,13 +75,6 @@ static struct port_info {
 	unsigned		port_num;
 	unsigned char		client_port_num;
 } gserial_ports[GSERIAL_NO_PORTS];
-
-static inline bool is_transport_sdio(enum transport_type t)
-{
-	if (t == USB_GADGET_XPORT_SDIO)
-		return 1;
-	return 0;
-}
 
 static inline struct f_gser *func_to_gser(struct usb_function *f)
 {
@@ -307,9 +299,9 @@ int gport_setup(struct usb_configuration *c)
 	int port_idx;
 	int i;
 
-	pr_debug("%s: no_tty_ports: %u no_sdio_ports: %u"
+	pr_debug("%s: no_tty_ports: %u "
 		" no_smd_ports: %u no_hsic_sports: %u no_hsuart_ports: %u nr_ports: %u\n",
-			__func__, no_tty_ports, no_sdio_ports, no_smd_ports,
+			__func__, no_tty_ports, no_smd_ports,
 			no_hsic_sports, no_hsuart_sports, nr_ports);
 
 	if (no_tty_ports) {
@@ -321,8 +313,6 @@ int gport_setup(struct usb_configuration *c)
 		}
 	}
 
-	if (no_sdio_ports)
-		ret = gsdio_setup(c->cdev->gadget, no_sdio_ports);
 	if (no_smd_ports)
 		ret = gsmd_setup(c->cdev->gadget, no_smd_ports);
 	if (no_hsic_sports) {
@@ -383,9 +373,6 @@ static int gport_connect(struct f_gser *gser)
 	case USB_GADGET_XPORT_TTY:
 		gserial_connect(&gser->port, port_num);
 		break;
-	case USB_GADGET_XPORT_SDIO:
-		gsdio_connect(&gser->port, port_num);
-		break;
 	case USB_GADGET_XPORT_SMD:
 		gsmd_connect(&gser->port, port_num);
 		break;
@@ -434,9 +421,6 @@ static int gport_disconnect(struct f_gser *gser)
 	switch (gser->transport) {
 	case USB_GADGET_XPORT_TTY:
 		gserial_disconnect(&gser->port);
-		break;
-	case USB_GADGET_XPORT_SDIO:
-		gsdio_disconnect(&gser->port, port_num);
 		break;
 	case USB_GADGET_XPORT_SMD:
 		gsmd_disconnect(&gser->port, port_num);
@@ -1086,10 +1070,6 @@ int gserial_init_port(int port_num, const char *name,
 	switch (transport) {
 	case USB_GADGET_XPORT_TTY:
 		no_tty_ports++;
-		break;
-	case USB_GADGET_XPORT_SDIO:
-		gserial_ports[port_num].client_port_num = no_sdio_ports;
-		no_sdio_ports++;
 		break;
 	case USB_GADGET_XPORT_SMD:
 		gserial_ports[port_num].client_port_num = no_smd_ports;

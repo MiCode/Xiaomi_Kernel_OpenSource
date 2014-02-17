@@ -33,6 +33,7 @@
  */
 
 #define MBIM_BULK_BUFFER_SIZE		4096
+#define MAX_CTRL_PKT_SIZE		4096
 
 
 enum mbim_peripheral_ep_type {
