@@ -7,6 +7,13 @@ config MSM_PM
 	  low power modes. It interface with various system
 	  driver and put the cores into low power modes.
 
+config MSM_NOPM
+	default y if !PM
+	bool
+	help
+	  This enables bare minimum support of power management at platform level.
+	  i.e WFI
+
 if MSM_PM
 menuconfig MSM_IDLE_STATS
 	bool "Collect idle statistics"
