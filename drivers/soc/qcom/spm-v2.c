@@ -258,7 +258,7 @@ int msm_spm_drv_write_seq_data(struct msm_spm_driver_data *dev,
 		last_cmd = 0;
 		cmd_w = dev->reg_seq_entry_shadow[offset_w];
 
-		for (i = (*offset % 4) ; i < 4; i++) {
+		for (i = (*offset % 4); i < 4; i++) {
 			last_cmd = *(cmd++);
 			cmd_w |=  last_cmd << (i * 8);
 			(*offset)++;
