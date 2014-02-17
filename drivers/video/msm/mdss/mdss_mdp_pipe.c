@@ -672,15 +672,19 @@ static int mdss_mdp_pipe_free(struct mdss_mdp_pipe *pipe)
 	pr_debug("ndx=%x pnum=%d ref_cnt=%d\n", pipe->ndx, pipe->num,
 			atomic_read(&pipe->ref_cnt));
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-	mdss_mdp_pipe_sspp_term(pipe);
-	mdss_mdp_smp_free(pipe);
+	if (pipe->play_cnt) {
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+		mdss_mdp_pipe_sspp_term(pipe);
+		mdss_mdp_smp_free(pipe);
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	} else {
+		mdss_mdp_smp_unreserve(pipe);
+	}
+
 	pipe->flags = 0;
 	pipe->bwc_mode = 0;
 	pipe->mfd = NULL;
 	memset(&pipe->scale, 0, sizeof(struct mdp_scale_data));
-
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 
 	return 0;
 }
@@ -815,6 +819,7 @@ int mdss_mdp_pipe_handoff(struct mdss_mdp_pipe *pipe)
 		pipe->src_fmt->bpp);
 
 	pipe->is_handed_off = true;
+	pipe->play_cnt = 1;
 	atomic_inc(&pipe->ref_cnt);
 
 error:

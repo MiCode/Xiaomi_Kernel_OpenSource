@@ -1104,7 +1104,7 @@ static int mdss_mdp_overlay_release(struct msm_fb_data_type *mfd, int ndx)
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	u32 pipe_ndx, unset_ndx = 0;
-	int i;
+	int i, destroy_pipe;
 
 	for (i = 0; unset_ndx != ndx && i < MDSS_MDP_MAX_SSPP; i++) {
 		pipe_ndx = BIT(i);
@@ -1115,16 +1115,22 @@ static int mdss_mdp_overlay_release(struct msm_fb_data_type *mfd, int ndx)
 				pr_warn("unknown pipe ndx=%x\n", pipe_ndx);
 				continue;
 			}
+
 			mutex_lock(&mfd->lock);
 			pipe->pid = 0;
+			destroy_pipe = pipe->play_cnt == 0;
+
 			if (!list_empty(&pipe->used_list)) {
 				list_del_init(&pipe->used_list);
-				list_add(&pipe->cleanup_list,
-					&mdp5_data->pipes_cleanup);
+				if (!destroy_pipe)
+					list_add(&pipe->cleanup_list,
+						&mdp5_data->pipes_cleanup);
 			}
 			mutex_unlock(&mfd->lock);
 			mdss_mdp_mixer_pipe_unstage(pipe);
 			mdss_mdp_pipe_unmap(pipe);
+			if (destroy_pipe)
+				mdss_mdp_pipe_destroy(pipe);
 		}
 	}
 	return 0;
