@@ -64,6 +64,10 @@
 	qcom,init-smps-mode = <0>;	/* Allow AUTO mode for VDD_CX. */
 };
 
+&usb3 {
+	qcom,usbin-vadc = <&pm8941_vadc>;
+};
+
 &krait_regulator_pmic {
 	status = "ok";
 
