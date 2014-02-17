@@ -96,6 +96,7 @@ void __init msm_pm_set_tz_retention_flag(unsigned int flag);
 void msm_pm_enable_retention(bool enable);
 bool msm_pm_retention_enabled(void);
 void msm_cpu_pm_enter_sleep(enum msm_pm_sleep_mode mode, bool from_idle);
+int msm_pm_collapse(unsigned long unused);
 
 #ifdef CONFIG_MSM_PM
 void msm_pm_set_rpm_wakeup_irq(unsigned int irq);
