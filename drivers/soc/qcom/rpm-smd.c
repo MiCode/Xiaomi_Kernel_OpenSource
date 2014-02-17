@@ -36,7 +36,6 @@
 #include <soc/qcom/rpm-notifier.h>
 #include <soc/qcom/rpm-smd.h>
 #include <soc/qcom/smd.h>
-
 #define CREATE_TRACE_POINTS
 #include <trace/events/trace_rpm_smd.h>
 
@@ -571,7 +570,7 @@ static struct msm_rpm_request *msm_rpm_create_request_common(
 			GFP_FLAG(noirq));
 
 	if (!cdata) {
-		printk(KERN_INFO"%s():Cannot allocate memory for client data\n",
+		pr_err("%s():Cannot allocate memory for client data\n",
 				__func__);
 		goto cdata_alloc_fail;
 	}

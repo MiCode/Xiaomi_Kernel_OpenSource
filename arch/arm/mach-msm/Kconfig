@@ -345,17 +345,6 @@ config  MSM_KRAIT_WFE_FIXUP
 config  ARCH_MSM_CORTEX_A5
 	bool
 
-config MSM_RPM_SMD
-	depends on MSM_SMD
-	select MSM_MPM_OF
-	bool "RPM driver using SMD protocol"
-	help
-	  RPM is the dedicated hardware engine for managing shared SoC
-	  resources. This config adds driver support for using SMD as a
-	  transport layer communication with RPM hardware. It also selects
-	  the MSM_MPM config that programs the MPM module to monitor interrupts
-	  during sleep modes.
-
 config MSM_MPM_OF
 	bool "Modem Power Manager"
 	depends on OF
