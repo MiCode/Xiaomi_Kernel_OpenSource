@@ -2643,13 +2643,20 @@ disable_dwc3_gdsc:
 	return ret;
 }
 
+static int dwc3_msm_remove_children(struct device *dev, void *data)
+{
+	device_unregister(dev);
+	return 0;
+}
+
 static int dwc3_msm_remove(struct platform_device *pdev)
 {
 	struct dwc3_msm	*mdwc = platform_get_drvdata(pdev);
 
-	platform_device_put(mdwc->dwc3);
+	pm_runtime_disable(mdwc->dev);
+	device_wakeup_disable(mdwc->dev);
 
-	if (!mdwc->ext_chg_device) {
+	if (mdwc->ext_chg_device) {
 		device_destroy(mdwc->ext_chg_class, mdwc->ext_chg_dev);
 		cdev_del(&mdwc->ext_chg_cdev);
 		class_destroy(mdwc->ext_chg_class);
@@ -2664,11 +2671,12 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 		dwc3_start_chg_det(&mdwc->charger, false);
 	if (mdwc->usb_psy.dev)
 		power_supply_unregister(&mdwc->usb_psy);
+
+	platform_device_put(mdwc->dwc3);
+	device_for_each_child(&pdev->dev, NULL, dwc3_msm_remove_children);
+
 	if (!IS_ERR_OR_NULL(mdwc->vbus_otg))
 		regulator_disable(mdwc->vbus_otg);
-
-	pm_runtime_disable(mdwc->dev);
-	device_init_wakeup(mdwc->dev, 0);
 
 	clk_disable_unprepare(mdwc->core_clk);
 	clk_disable_unprepare(mdwc->iface_clk);
