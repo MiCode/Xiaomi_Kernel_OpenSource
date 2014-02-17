@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2009,2012-2013 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2007-2009,2012-2014 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,13 +14,10 @@
 #ifndef _ARCH_ARM_MACH_MSM_IDLE_H_
 #define _ARCH_ARM_MACH_MSM_IDLE_H_
 
-#ifdef CONFIG_CPU_V7
+#if defined(CONFIG_CPU_V7) || defined(CONFIG_ARM64)
 extern unsigned long msm_pm_boot_vector[NR_CPUS];
 void msm_pm_boot_entry(void);
 #else
-static inline void msm_pm_boot_entry(void)
-{
-	/* empty */
-}
+static inline void msm_pm_boot_entry(void) {}
 #endif
 #endif
