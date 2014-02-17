@@ -2178,9 +2178,9 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 	pr_debug("%s: name %s sname %s updated value %u shift %d\n", __func__,
 		widget->name, widget->sname, widget->value, widget->shift);
 
+	mutex_unlock(&codec->mutex);
 	snd_soc_dapm_mixer_update_power(widget, kcontrol, enable);
 
-	mutex_unlock(&codec->mutex);
 	return 0;
 }
 
@@ -2268,9 +2268,9 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 		goto err;
 	}
 rtn:
+	mutex_unlock(&codec->mutex);
 	snd_soc_dapm_mux_update_power(widget, kcontrol, widget->value, e);
 
-	mutex_unlock(&codec->mutex);
 	return 0;
 err:
 	mutex_unlock(&codec->mutex);
