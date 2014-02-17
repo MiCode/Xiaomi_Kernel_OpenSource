@@ -16,7 +16,6 @@
 
 #include <linux/types.h>
 #include <linux/platform_device.h>
-#include <mach/board.h>
 #include <linux/mhl_devcap.h>
 #include <linux/power_supply.h>
 #include <linux/mhl_defs.h>
