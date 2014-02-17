@@ -31,4 +31,3 @@ int scm_set_boot_addr(phys_addr_t addr, unsigned int flags)
 			&cmd, sizeof(cmd), NULL, 0);
 }
 EXPORT_SYMBOL(scm_set_boot_addr);
-

@@ -24,7 +24,7 @@ obj-$(CONFIG_MSM_JTAG) += jtag-fuse.o jtag.o
 obj-$(CONFIG_MSM_JTAG_MM) +=  jtag-fuse.o jtag-mm.o
 obj-$(CONFIG_MSM_QMI_INTERFACE) += qmi_interface.o
 
-obj-$(CONFIG_MSM_SCM) += scm.o
+obj-$(CONFIG_MSM_SCM) += scm.o scm-boot.o
 
 obj-$(CONFIG_MSM_SMD) += smd.o smd_debug.o smd_private.o smd_init_dt.o smsm_debug.o
 obj-$(CONFIG_MSM_SMEM) += smem.o smem_debug.o
