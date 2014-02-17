@@ -100,6 +100,7 @@ struct arizona {
 
 	unsigned int external_dcvdd:1;
 
+	unsigned int irq_sem;
 	int irq;
 	struct irq_domain *virq;
 	struct regmap_irq_chip_data *aod_irq_chip;
