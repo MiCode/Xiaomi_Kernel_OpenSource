@@ -284,6 +284,7 @@
 		qcom,hsusb-otg-otg-control = <2>;
 		qcom,dp-manual-pullup;
 		qcom,ahb-async-bridge-bypass;
+		qcom,usbin-vadc = <&pm8226_vadc>;
 
 		qcom,msm-bus,name = "usb";
 		qcom,msm-bus,num-cases = <3>;
