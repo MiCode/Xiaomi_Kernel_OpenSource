@@ -3,7 +3,6 @@ ifndef CONFIG_ARM_ARCH_TIMER
 obj-y += timer.o
 endif
 obj-$(CONFIG_USE_OF) += board-dt.o
-obj-$(CONFIG_DEBUG_FS) += nohlt.o
 
 obj-y += acpuclock.o
 obj-$(CONFIG_ARCH_MSM_KRAIT) += clock-krait.o
