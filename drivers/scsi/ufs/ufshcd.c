@@ -5608,6 +5608,8 @@ int ufshcd_system_suspend(struct ufs_hba *hba)
 out:
 	trace_ufshcd_system_suspend(dev_name(hba->dev), ret,
 			ktime_to_us(ktime_sub(ktime_get(), start)));
+	if (!ret)
+		hba->is_sys_suspended = true;
 	return ret;
 }
 EXPORT_SYMBOL(ufshcd_system_suspend);
