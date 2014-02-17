@@ -58,6 +58,8 @@ Optional properties :
 		for TX fifo allocation in QDSS composition
 - qcom,dwc-ssphy-deemphasis-value: This property if present represents ss phy
   deemphasis value to be used for overriding into SSPHY register.
+- qcom,usbin-vadc: Corresponding vadc device's phandle to read usbin voltage using VADC.
+	This will be used to get value of usb power supply's VOLTAGE_NOW property,
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
@@ -85,6 +87,7 @@ Example MSM USB3.0 controller device node :
 		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
 		qcom,dwc-usb3-msm-qdss-tx-fifo-size = <16384>;
 		qcom,dwc-ssphy-deemphasis-value = <26>;
+		qcom,usbin-vadc = <&pm8941_vadc>;
 
 		qcom,msm_bus,name = "usb3";
 		qcom,msm_bus,num_cases = <2>;
