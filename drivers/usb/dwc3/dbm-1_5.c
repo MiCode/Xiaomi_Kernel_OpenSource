@@ -53,6 +53,7 @@ struct dbm_data {
 
 	int dbm_num_eps;
 	u8 ep_num_mapping[DBM_1_5_NUM_EP];
+	bool dbm_reset_ep_after_lpm;
 };
 
 static struct dbm_data *dbm_data;
@@ -147,12 +148,12 @@ static int soft_reset(bool reset)
  * @enter_reset - should we enter a reset state or get out of it.
  *
  */
-static int dbm_ep_soft_reset(u8 dbm_ep, bool enter_reset)
+static int ep_soft_reset(u8 dbm_ep, bool enter_reset)
 {
 	pr_debug("%s\n", __func__);
 
 	if (dbm_ep >= dbm_data->dbm_num_eps) {
-		pr_err("%s: Invalid DBM ep index\n", __func__);
+		pr_err("Invalid DBM ep index %d\n", dbm_ep);
 		return -ENODEV;
 	}
 
@@ -202,7 +203,7 @@ static int ep_config(u8 usb_ep, u8 bam_pipe, bool producer, bool disable_wb,
 	}
 
 	/* First, reset the dbm endpoint */
-	dbm_ep_soft_reset(dbm_ep, 0);
+	ep_soft_reset(dbm_ep, 0);
 
 	/* Set ioc bit for dbm_ep if needed */
 	msm_dbm_write_reg_field(dbm_data->base, DBM_DBG_CNFG,
@@ -254,13 +255,13 @@ static int ep_unconfig(u8 usb_ep)
 	msm_dbm_write_reg(dbm_data->base, DBM_EP_CFG(dbm_ep), data);
 
 	/* Reset the dbm endpoint */
-	dbm_ep_soft_reset(dbm_ep, true);
+	ep_soft_reset(dbm_ep, true);
 	/*
 	 * 10 usec delay is required before deasserting DBM endpoint reset
 	 * according to hardware programming guide.
 	 */
 	udelay(10);
-	dbm_ep_soft_reset(dbm_ep, false);
+	ep_soft_reset(dbm_ep, false);
 
 	return 0;
 }
@@ -339,9 +340,17 @@ static void enable(void)
 	msm_dbm_write_reg(dbm_data->base, DBM_DATA_FIFO_SIZE_EN, 0x000000FF);
 }
 
+static bool reset_ep_after_lpm(void)
+{
+	return dbm_data->dbm_reset_ep_after_lpm;
+}
+
+
+
 static int msm_dbm_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct device_node *node = pdev->dev.of_node;
 	struct dbm *dbm;
 	struct resource *res;
 	int ret = 0;
@@ -374,6 +383,9 @@ static int msm_dbm_probe(struct platform_device *pdev)
 		goto free_dbm_data;
 	}
 
+	dbm_data->dbm_reset_ep_after_lpm = of_property_read_bool(node,
+			"qcom,reset-ep-after-lpm-resume");
+
 	dbm->dev = dev;
 
 	dbm->soft_reset = soft_reset;
@@ -384,6 +396,8 @@ static int msm_dbm_probe(struct platform_device *pdev)
 	dbm->data_fifo_config = data_fifo_config;
 	dbm->set_speed = set_speed;
 	dbm->enable = enable;
+	dbm->ep_soft_reset = ep_soft_reset;
+	dbm->reset_ep_after_lpm = reset_ep_after_lpm;
 
 	platform_set_drvdata(pdev, dbm);
 
