@@ -185,7 +185,6 @@
 	qcom,pm@fe805664 {
 		compatible = "qcom,pm";
 		reg = <0xfe805664 0x40>;
-		qcom,pc-mode = "tz_l2_ext";
 		qcom,use-sync-timer;
 		qcom,synced-clocks;
 	};
