@@ -99,6 +99,7 @@ struct msm_ssphy_qmp {
 	struct clk		*phy_com_reset;
 	struct clk		*phy_reset;
 	bool			clk_enabled;
+	bool			suspend_allowed;
 };
 
 static int msm_ssusb_qmp_config_vdd(struct msm_ssphy_qmp *phy, int high)
@@ -389,23 +390,60 @@ static int msm_ssphy_qmp_set_params(struct usb_phy *uphy)
 	return 0;
 }
 
+/**
+ * Performs QMP PHY suspend/resume functionality.
+ *
+ * @uphy - usb phy pointer.
+ * @suspend - to enable suspend or not. 1 - suspend, 0 - resume
+ *
+ */
 static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 {
-	dev_dbg(uphy->dev, "%s\n", __func__);
+	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
+					phy);
+
+	dev_dbg(uphy->dev, "%s: suspend state: current :%d new:%d\n",
+				__func__, phy->suspend_allowed, suspend);
+
+	if (!!suspend == phy->suspend_allowed) {
+		pr_debug("%s(): USB PHY is already suspended.\n", __func__);
+		return 0;
+	}
+
+	if (suspend) {
+		clk_disable_unprepare(phy->pipe_clk);
+		clk_disable_unprepare(phy->cfg_ahb_clk);
+		clk_disable_unprepare(phy->aux_clk);
+		phy->suspend_allowed = true;
+	} else {
+		clk_prepare_enable(phy->aux_clk);
+		clk_prepare_enable(phy->cfg_ahb_clk);
+		clk_prepare_enable(phy->pipe_clk);
+		phy->suspend_allowed = false;
+	}
+
 	return 0;
 }
 
 static int msm_ssphy_qmp_notify_connect(struct usb_phy *uphy,
 				       enum usb_device_speed speed)
 {
+	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
+					phy);
+
 	dev_dbg(uphy->dev, "%s\n", __func__);
+	phy->suspend_allowed = true;
 	return 0;
 }
 
 static int msm_ssphy_qmp_notify_disconnect(struct usb_phy *uphy,
 				       enum usb_device_speed speed)
 {
+	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
+					phy);
+
 	dev_dbg(uphy->dev, "%s\n", __func__);
+	phy->suspend_allowed = false;
 	return 0;
 }
 
