@@ -27,9 +27,6 @@
 #include <asm/cputype.h>
 #include <asm/smp_plat.h>
 
-extern void secondary_holding_pen(void);
-volatile unsigned long secondary_holding_pen_release = INVALID_HWID;
-
 static phys_addr_t cpu_release_addr[NR_CPUS];
 
 /*
