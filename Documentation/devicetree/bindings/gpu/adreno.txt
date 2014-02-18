@@ -71,6 +71,13 @@ Optional Properties:
 			   This is used to override faulty hardware readings.
 - qcom,strtstp-sleepwake:  Boolean. Enables use of GPU SLUMBER instead of SLEEP for power savings
 
+- qcom,pm-qos-latency:		Every time GPU wakes up from sleep, driver votes for
+				acceptable maximum latency to the pm-qos driver. This
+				voting demands that *CPU* can not go into a power save
+				state *if* the latency to bring CPU back into normal
+				state is more than this value.
+				Value is in microseconds.
+
 The following properties are optional as collecting data via coresight might
 not be supported for every chipset. The documentation for coresight
 properties can be found in:
