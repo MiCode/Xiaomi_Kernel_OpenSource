@@ -253,6 +253,49 @@
 		qcom,sensor-id = <0 1 2 4 5>;
 	};
 
+	qcom,clock-a7@0b011050 {
+		compatible = "qcom,clock-a53-8916";
+		reg = <0x0b011050 0x8>;
+		reg-names = "rcg-base";
+		qcom,safe-freq = < 400000000 >;
+		cpu-vdd-supply = <&apc_vreg_corner>;
+		clocks = <&clock_gcc clk_gpll0_ao_clk_src>,
+			 <&clock_gcc clk_a53sspll>;
+		clock-names = "clk-4", "clk-5";
+		qcom,speed0-bin-v0 =
+			<          0 0>,
+			<  400000000 1>,
+			<  800000000 2>,
+			< 1401600000 3>;
+	};
+
+	qcom,cpubw {
+		compatible = "qcom,cpubw";
+		qcom,cpu-mem-ports = <1 512>;
+		qcom,bw-tbl =
+			/*  73 9.60 MHz */
+			/* 381  50MHz */
+			<  762 /* 100 MHz */>,
+			< 1525 /* 200 MHz */>,
+			< 3051 /* 400 MHz */>,
+			< 4066 /* 533 MHz */>;
+	};
+
+	qcom,msm-cpufreq@0 {
+		reg = <0 4>;
+		compatible = "qcom,msm-cpufreq";
+		qcom,cpufreq-table =
+			 <  200000  762>,
+			 <  400000  762>,
+			 <  533330  1525>,
+			 <  800000  1525>,
+			 <  998400  1525>,
+			 < 1094400  3051>,
+			 < 1190400  3051>,
+			 < 1248000  4066>,
+			 < 1401600  4066>;
+	};
+
 	qcom,sps {
 		compatible = "qcom,msm_sps_4k";
 		qcom,device-type = <3>;
