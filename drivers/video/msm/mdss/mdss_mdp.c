@@ -818,9 +818,11 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 	    mdss_mdp_irq_clk_register(mdata, "core_clk_src",
 				      MDSS_CLK_MDP_SRC) ||
 	    mdss_mdp_irq_clk_register(mdata, "core_clk",
-				      MDSS_CLK_MDP_CORE) ||
-	    mdss_mdp_irq_clk_register(mdata, "lut_clk", MDSS_CLK_MDP_LUT))
+				      MDSS_CLK_MDP_CORE))
 		return -EINVAL;
+
+	/* lut_clk is not present on all MDSS revisions */
+	mdss_mdp_irq_clk_register(mdata, "lut_clk", MDSS_CLK_MDP_LUT);
 
 	/* vsync_clk is optional for non-smart panels */
 	mdss_mdp_irq_clk_register(mdata, "vsync_clk", MDSS_CLK_MDP_VSYNC);
