@@ -561,7 +561,7 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 		return NULL;
 	}
 
-	if (mdss_mdp_pipe_is_sw_reset_available(mdata)) {
+	if (pipe && mdss_mdp_pipe_is_sw_reset_available(mdata)) {
 		force_off_mask =
 			BIT(pipe->clk_ctrl.bit_off + CLK_FORCE_OFF_OFFSET);
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
