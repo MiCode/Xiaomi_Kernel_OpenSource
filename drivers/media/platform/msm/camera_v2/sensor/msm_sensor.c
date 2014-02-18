@@ -1347,6 +1347,7 @@ int32_t msm_sensor_init_default_params(struct msm_sensor_ctrl_t *s_ctrl)
 	int32_t                       rc = -ENOMEM;
 	struct msm_camera_cci_client *cci_client = NULL;
 	struct msm_cam_clk_info      *clk_info = NULL;
+	unsigned long mount_pos = 0;
 
 	/* Validate input parameters */
 	if (!s_ctrl) {
@@ -1408,6 +1409,12 @@ int32_t msm_sensor_init_default_params(struct msm_sensor_ctrl_t *s_ctrl)
 	s_ctrl->sensordata->power_info.clk_info = clk_info;
 	s_ctrl->sensordata->power_info.clk_info_size =
 		ARRAY_SIZE(cam_8974_clk_info);
+
+	/* Update sensor mount angle and position in media entity flag */
+	mount_pos = s_ctrl->sensordata->sensor_info->position << 16;
+	mount_pos = mount_pos | ((s_ctrl->sensordata->sensor_info->
+					sensor_mount_angle / 90) << 8);
+	s_ctrl->msm_sd.sd.entity.flags = mount_pos | MEDIA_ENT_FL_DEFAULT;
 
 	return 0;
 
