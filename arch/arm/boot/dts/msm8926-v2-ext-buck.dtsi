@@ -52,5 +52,36 @@
 };
 
 &soc {
+	qcom,spm@f9012000 {
+		compatible = "qcom,spm-v2";
+		qcom,saw2-spm-cmd-pc-no-rpm = [00 32 10 e0 d0 6b c0 42 f0
+				03 50 4e 02 02 c0 d0 12 e0 6b 02 32
+				50 f0 0f];
+		qcom,saw2-spm-cmd-pc = [00 32 10 e0 d0 6b c0 42 f0
+				07 50 4e 02 02 c0 d0 12 e0 6b 02 32
+				50 f0 0f];
+	};
+
+	qcom,lpm-levels {
+		qcom,system-modes {
+			compatible = "qcom,system-modes";
+			qcom,system-modes@2 {
+				qcom,l2 = "l2_cache_pc";
+				qcom,latency-us = <13200>;
+				qcom,ss-power = <315>;
+				qcom,energy-overhead = <1027150>;
+				qcom,time-overhead = <2400>;
+				qcom,min-cpu-mode= "pc";
+				qcom,sync-cpus;
+				qcom,send-rpm-sleep-set;
+			};
+		};
+	};
+
+	qcom,ext-buck-support {
+		compatible = "qcom,ext-buck-support";
+		qcom,gpio-num = <50>;
+		qcom,settling-time = <2580>;
+	};
 
 };
