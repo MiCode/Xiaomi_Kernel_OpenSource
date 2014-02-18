@@ -59,7 +59,9 @@
 
 #include <net/x25.h>
 #include <net/compat.h>
-
+#ifdef KW_TAINT_ANALYSIS
+   extern void * get_tainted_stuff();
+#endif
 int sysctl_x25_restart_request_timeout = X25_DEFAULT_T20;
 int sysctl_x25_call_request_timeout    = X25_DEFAULT_T21;
 int sysctl_x25_reset_request_timeout   = X25_DEFAULT_T22;
@@ -1625,7 +1627,7 @@ static const struct net_proto_family x25_family_ops = {
 
 #ifdef CONFIG_COMPAT
 static int compat_x25_subscr_ioctl(unsigned int cmd,
-		struct compat_x25_subscrip_struct __user *x25_subscr32)
+		struct compat_x25_subscrip_struct __user *x25_subscr32_actual)
 {
 	struct compat_x25_subscrip_struct x25_subscr;
 	struct x25_neigh *nb;
@@ -1633,6 +1635,11 @@ static int compat_x25_subscr_ioctl(unsigned int cmd,
 	int rc = -EINVAL;
 
 	rc = -EFAULT;
+	#ifdef KW_TAINT_ANALYSIS
+	struct compat_x25_subscrip_struct __user *x25_subscr32 = (struct compat_x25_subscrip_struct __user *)get_tainted_stuff();
+	#else
+	struct compat_x25_subscrip_struct __user *x25_subscr32 = x25_subscr32_actual;
+	#endif
 	if (copy_from_user(&x25_subscr, x25_subscr32, sizeof(*x25_subscr32)))
 		goto out;
 
@@ -1675,7 +1682,11 @@ out_dev_put:
 static int compat_x25_ioctl(struct socket *sock, unsigned int cmd,
 				unsigned long arg)
 {
+	#ifdef KW_TAINT_ANALYSIS
+	void __user *argp = (void __user *)get_tainted_stuff();
+	#else
 	void __user *argp = compat_ptr(arg);
+	#endif	
 	struct sock *sk = sock->sk;
 
 	int rc = -ENOIOCTLCMD;
