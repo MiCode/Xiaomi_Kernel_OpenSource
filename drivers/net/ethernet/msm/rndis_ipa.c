@@ -534,6 +534,7 @@ int rndis_ipa_init(struct ipa_usb_init_params *params)
 		goto fail_netdev_priv;
 	}
 	memset(rndis_ipa_ctx, 0, sizeof(*rndis_ipa_ctx));
+	RNDIS_IPA_DEBUG("rndis_ipa_ctx (private) = %p", rndis_ipa_ctx);
 
 	rndis_ipa_ctx->net = net;
 	rndis_ipa_ctx->tx_filter = false;
