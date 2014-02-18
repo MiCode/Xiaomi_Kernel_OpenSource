@@ -1151,13 +1151,6 @@ static int unmap_cal_tables(void)
 		result = result2;
 	}
 
-	result2 = q6lsm_unmap_cal_blocks();
-	if (result2 < 0) {
-		pr_err("%s: lsm_unmap_cal_blocks failed, err = %d\n",
-			__func__, result2);
-		result = result2;
-	}
-
 	result2 = q6asm_unmap_cal_blocks();
 	if (result2 < 0) {
 		pr_err("%s: asm_unmap_cal_blocks failed, err = %d\n",
