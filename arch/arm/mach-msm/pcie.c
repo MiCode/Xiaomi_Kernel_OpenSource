@@ -40,7 +40,11 @@
 
 /* Root Complex Port vendor/device IDs */
 #define PCIE_VENDOR_ID_RCP             0x17cb
+#ifdef CONFIG_ARCH_MDM9630
+#define PCIE_DEVICE_ID_RCP             0x300
+#else
 #define PCIE_DEVICE_ID_RCP             0x0101
+#endif
 
 #define PCIE20_PARF_SYS_CTRL           0x00
 #define PCIE20_PARF_PM_STTS            0x24
