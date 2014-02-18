@@ -98,11 +98,15 @@
 			<47 172>, /* usb1_hs_async_wakeup_irq */
 			<41 180>,   /* usb2_hsic_async_wakeup_irq */
 			<62 222>,   /* ee0_krait_hlos_spmi_periph_irq */
+			<0xff 18>,  /* WDT_barkInt */
+			<0xff 38>,  /* qtmr_virt_irq[0] */
 			<0xff 56>,  /* q6ss_wdog_exp_irq */
 			<0xff 57>,  /* mss_to_apps_irq(0) */
 			<0xff 58>,  /* mss_to_apps_irq(1) */
 			<0xff 59>,  /* mss_to_apps_irq(2) */
 			<0xff 60>,  /* mss_to_apps_irq(3) */
+			<0xff 73>,  /* pcie20_int_msi */
+			<0xff 126>, /* bam_irq[0] */
 			<0xff 165>, /* msm_dwc3_irq */
 			<0xff 173>, /* o_wcss_apss_smd_hi */
 			<0xff 174>, /* o_wcss_apss_smd_med */
@@ -121,6 +125,7 @@
 			<0xff 195>, /* slimbus_core_ee1_irq */
 			<0xff 196>, /* bam_irq(1) */
 			<0xff 197>, /* qdss_irq_out(7) */
+			<0xff 198>, /* coresight_tmc_etr */
 			<0xff 200>, /* rpm_ipc(4) */
 			<0xff 201>, /* rpm_ipc(5) */
 			<0xff 202>, /* rpm_ipc(6) */
@@ -129,8 +134,8 @@
 			<0xff 205>, /* rpm_ipc(25)   */
 			<0xff 206>, /* rpm_ipc(26)   */
 			<0xff 207>, /* rpm_ipc(27)   */
-			<0xff 240>; /* summary_irq_kpss */
-
+			<0xff 240>, /* summary_irq_kpss */
+			<0xff 270>; /* bam_irq[0] */
 		qcom,gpio-parent = <&msmgpio>;
 		qcom,gpio-map = <3 80>,
 			<4 0>,
