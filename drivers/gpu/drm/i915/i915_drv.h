@@ -651,6 +651,8 @@ struct i915_drrs {
 struct i915_psr {
 	bool sink_support;
 	bool source_ok;
+	bool setup_done;
+	struct mutex lock;
 };
 
 enum intel_pch {
