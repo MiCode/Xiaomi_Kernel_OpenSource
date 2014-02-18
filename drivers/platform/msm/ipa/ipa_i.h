@@ -590,6 +590,8 @@ struct ipa_controller;
  * @cdev: cdev of the device
  * @bam_handle: IPA driver's BAM handle
  * @ep: list of all end points
+ * @skip_ep_cfg_shadow: state to update filter table correctly across
+  power-save
  * @flt_tbl: list of all IPA filter tables
  * @mode: IPA operating mode
  * @mmio: iomem
@@ -642,6 +644,7 @@ struct ipa_context {
 	struct cdev cdev;
 	unsigned long bam_handle;
 	struct ipa_ep_context ep[IPA_NUM_PIPES];
+	bool skip_ep_cfg_shadow[IPA_NUM_PIPES];
 	struct ipa_flt_tbl flt_tbl[IPA_NUM_PIPES][IPA_IP_MAX];
 	void __iomem *mmio;
 	u32 ipa_wrapper_base;

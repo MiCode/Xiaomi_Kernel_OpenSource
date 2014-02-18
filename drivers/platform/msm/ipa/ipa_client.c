@@ -302,6 +302,7 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	if (!ep->skip_ep_cfg && IPA_CLIENT_IS_PROD(in->client))
 		ipa_install_dflt_flt_rules(ipa_ep_idx);
 
+	ipa_ctx->skip_ep_cfg_shadow[ipa_ep_idx] = ep->skip_ep_cfg;
 	IPADBG("client %d (ep: %d) connected\n", in->client, ipa_ep_idx);
 
 	return 0;

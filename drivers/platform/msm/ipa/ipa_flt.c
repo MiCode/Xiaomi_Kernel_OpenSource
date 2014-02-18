@@ -323,10 +323,10 @@ static int ipa_generate_flt_hw_tbl_common(enum ipa_ip_type ip, u8 *base,
 #define IPA_WRITE_FLT_HDR(idx, val) {			\
 	if (idx <= 5) {					\
 		*((u32 *)hdr + 1 + idx) = val;		\
-	} else if (idx >= 6 && idx <= 9) {		\
+	} else if (idx >= 6 && idx <= 10) {		\
 		WARN_ON(1);				\
-	} else if (idx >= 10 && idx <= 19) {		\
-		*((u32 *)hdr2 + idx - 10) = val;	\
+	} else if (idx >= 11 && idx <= 19) {		\
+		*((u32 *)hdr2 + idx - 11) = val;	\
 	} else {					\
 		WARN_ON(1);				\
 	}						\
@@ -741,7 +741,7 @@ static int ipa_generate_flt_hw_tbl_v2(enum ipa_ip_type ip,
 		entr++;
 	}
 
-	num_words = 10;
+	num_words = 9;
 	head2->size = num_words * 4;
 	head2->base = dma_alloc_coherent(ipa_ctx->pdev, head2->size,
 			&head2->phys_base, GFP_KERNEL);
@@ -803,40 +803,47 @@ err:
 
 int __ipa_commit_flt_v2(enum ipa_ip_type ip)
 {
-	struct ipa_desc desc[3];
+	struct ipa_desc *desc;
+	struct ipa_hw_imm_cmd_dma_shared_mem *cmd;
 	struct ipa_mem_buffer body;
 	struct ipa_mem_buffer head1;
 	struct ipa_mem_buffer head2;
-	struct ipa_hw_imm_cmd_dma_shared_mem cmd1 = {0};
-	struct ipa_hw_imm_cmd_dma_shared_mem cmd2 = {0};
-	struct ipa_hw_imm_cmd_dma_shared_mem cmd3 = {0};
-	u16 avail;
 	int rc = 0;
-	u32 local_addr1;
-	u32 local_addr2;
-	u32 local_addr3;
+	u32 local_addrb;
+	u32 local_addrh;
 	bool lcl;
+	int num_desc = 0;
+	int i;
+	u16 avail;
 
-	memset(desc, 0, 3 * sizeof(struct ipa_desc));
+	desc = kzalloc(16 * sizeof(*desc), GFP_ATOMIC);
+	if (desc == NULL) {
+		IPAERR("fail to alloc desc blob ip %d\n", ip);
+		rc = -ENOMEM;
+		goto fail_desc;
+	}
+
+	cmd = kzalloc(16 * sizeof(*cmd), GFP_ATOMIC);
+	if (cmd == NULL) {
+		IPAERR("fail to alloc cmd blob ip %d\n", ip);
+		rc = -ENOMEM;
+		goto fail_imm;
+	}
 
 	if (ip == IPA_IP_v4) {
 		avail = ipa_ctx->ip4_flt_tbl_lcl ? IPA_v2_RAM_APPS_V4_FLT_SIZE :
 			IPA_RAM_V4_FLT_SIZE_DDR;
-		local_addr1 = ipa_ctx->smem_restricted_bytes +
+		local_addrh = ipa_ctx->smem_restricted_bytes +
 			IPA_v2_RAM_V4_FLT_OFST + 4;
-		local_addr2 = ipa_ctx->smem_restricted_bytes +
-			IPA_v2_RAM_V4_FLT_OFST + 12 * 4;
-		local_addr3 = ipa_ctx->smem_restricted_bytes +
+		local_addrb = ipa_ctx->smem_restricted_bytes +
 			IPA_v2_RAM_APPS_V4_FLT_OFST;
 		lcl = ipa_ctx->ip4_flt_tbl_lcl;
 	} else {
 		avail = ipa_ctx->ip6_flt_tbl_lcl ? IPA_v2_RAM_APPS_V6_FLT_SIZE :
 			IPA_RAM_V6_FLT_SIZE_DDR;
-		local_addr1 = ipa_ctx->smem_restricted_bytes +
+		local_addrh = ipa_ctx->smem_restricted_bytes +
 			IPA_v2_RAM_V6_FLT_OFST + 4;
-		local_addr2 = ipa_ctx->smem_restricted_bytes +
-			IPA_v2_RAM_V6_FLT_OFST + 12 * 4;
-		local_addr3 = ipa_ctx->smem_restricted_bytes +
+		local_addrb = ipa_ctx->smem_restricted_bytes +
 			IPA_v2_RAM_APPS_V6_FLT_OFST;
 		lcl = ipa_ctx->ip6_flt_tbl_lcl;
 	}
@@ -852,41 +859,88 @@ int __ipa_commit_flt_v2(enum ipa_ip_type ip)
 		goto fail_send_cmd;
 	}
 
-	cmd1.size = head1.size;
-	cmd1.system_addr = head1.phys_base;
-	cmd1.local_addr = local_addr1;
+	cmd[num_desc].size = 4;
+	cmd[num_desc].system_addr = head1.phys_base;
+	cmd[num_desc].local_addr = local_addrh;
 
-	desc[0].opcode = IPA_DMA_SHARED_MEM;
-	desc[0].pyld = &cmd1;
-	desc[0].len = sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
-	desc[0].type = IPA_IMM_CMD_DESC;
+	desc[num_desc].opcode = IPA_DMA_SHARED_MEM;
+	desc[num_desc].pyld = &cmd[num_desc];
+	desc[num_desc].len = sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
+	desc[num_desc++].type = IPA_IMM_CMD_DESC;
 
-	cmd2.size = head2.size;
-	cmd2.system_addr = head2.phys_base;
-	cmd2.local_addr = local_addr2;
+	for (i = 0; i < 6; i++) {
+		if (ipa_ctx->skip_ep_cfg_shadow[i]) {
+			IPADBG("skip %d\n", i);
+			continue;
+		}
 
-	desc[1].opcode = IPA_DMA_SHARED_MEM;
-	desc[1].pyld = &cmd2;
-	desc[1].len = sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
-	desc[1].type = IPA_IMM_CMD_DESC;
+		if (ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS) == i ||
+			ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS) == i ||
+			ipa_get_ep_mapping(IPA_CLIENT_APPS_CMD_PROD) == i) {
+			IPADBG("skip %d\n", i);
+			continue;
+		}
+
+		if (ip == IPA_IP_v4) {
+			local_addrh = ipa_ctx->smem_restricted_bytes +
+				IPA_v2_RAM_V4_FLT_OFST + 8 + i * 4;
+		} else {
+			local_addrh = ipa_ctx->smem_restricted_bytes +
+				IPA_v2_RAM_V6_FLT_OFST + 8 + i * 4;
+		}
+		cmd[num_desc].size = 4;
+		cmd[num_desc].system_addr = head1.phys_base + 4 + i * 4;
+		cmd[num_desc].local_addr = local_addrh;
+
+		desc[num_desc].opcode = IPA_DMA_SHARED_MEM;
+		desc[num_desc].pyld = &cmd[num_desc];
+		desc[num_desc].len =
+			sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
+		desc[num_desc++].type = IPA_IMM_CMD_DESC;
+	}
+
+	for (i = 11; i < IPA_NUM_PIPES; i++) {
+		if (ipa_ctx->skip_ep_cfg_shadow[i]) {
+			IPADBG("skip %d\n", i);
+			continue;
+		}
+
+		if (ip == IPA_IP_v4) {
+			local_addrh = ipa_ctx->smem_restricted_bytes +
+				IPA_v2_RAM_V4_FLT_OFST + 13 * 4 + (i - 11) * 4;
+		} else {
+			local_addrh = ipa_ctx->smem_restricted_bytes +
+				IPA_v2_RAM_V6_FLT_OFST + 13 * 4 + (i - 11) * 4;
+		}
+		cmd[num_desc].size = 4;
+		cmd[num_desc].system_addr = head2.phys_base + (i - 11) * 4;
+		cmd[num_desc].local_addr = local_addrh;
+
+		desc[num_desc].opcode = IPA_DMA_SHARED_MEM;
+		desc[num_desc].pyld = &cmd[num_desc];
+		desc[num_desc].len =
+			sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
+		desc[num_desc++].type = IPA_IMM_CMD_DESC;
+	}
 
 	if (lcl) {
-		cmd3.size = body.size;
-		cmd3.system_addr = body.phys_base;
-		cmd3.local_addr = local_addr3;
+		cmd[num_desc].size = body.size;
+		cmd[num_desc].system_addr = body.phys_base;
+		cmd[num_desc].local_addr = local_addrb;
 
-		desc[2].opcode = IPA_DMA_SHARED_MEM;
-		desc[2].pyld = &cmd3;
-		desc[2].len = sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
-		desc[2].type = IPA_IMM_CMD_DESC;
+		desc[num_desc].opcode = IPA_DMA_SHARED_MEM;
+		desc[num_desc].pyld = &cmd[num_desc];
+		desc[num_desc].len =
+			sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
+		desc[num_desc++].type = IPA_IMM_CMD_DESC;
 
-		if (ipa_send_cmd(3, desc)) {
+		if (ipa_send_cmd(num_desc, desc)) {
 			IPAERR("fail to send immediate command\n");
 			rc = -EFAULT;
 			goto fail_send_cmd;
 		}
 	} else {
-		if (ipa_send_cmd(2, desc)) {
+		if (ipa_send_cmd(num_desc, desc)) {
 			IPAERR("fail to send immediate command\n");
 			rc = -EFAULT;
 			goto fail_send_cmd;
@@ -894,6 +948,7 @@ int __ipa_commit_flt_v2(enum ipa_ip_type ip)
 	}
 
 	__ipa_reap_sys_flt_tbls(ip);
+
 fail_send_cmd:
 	if (body.size)
 		dma_free_coherent(ipa_ctx->pdev, body.size, body.base,
@@ -903,6 +958,10 @@ fail_send_cmd:
 	dma_free_coherent(ipa_ctx->pdev, head2.size, head2.base,
 			head2.phys_base);
 fail_gen:
+	kfree(cmd);
+fail_imm:
+	kfree(desc);
+fail_desc:
 	return rc;
 }
 
