@@ -175,6 +175,12 @@ struct  intel_hw_status_page {
 #define I915_WRITE_CTL_CTX_MMIO(engine, ctx, val) \
 	__INTEL_WRITE_CTX_AND_MMIO__((engine), (ctx), (val), buffer_ctl, CTL)
 
+#define I915_READ_UHPTR(ring) \
+		I915_READ(RING_UHPTR((ring)->mmio_base))
+#define I915_WRITE_UHPTR(ring, val) \
+		I915_WRITE(RING_UHPTR((ring)->mmio_base), val)
+#define I915_READ_NOPID(ring) I915_READ(RING_NOPID((ring)->mmio_base))
+
 enum intel_ring_hangcheck_action {
 	HANGCHECK_IDLE = 0,
 	HANGCHECK_WAIT,
@@ -530,12 +536,42 @@ intel_write_status_page(struct intel_engine_cs *ring,
  * 0x1f: Last written status offset. (GM45)
  *
  * The area from dword 0x20 to 0x3ff is available for driver usage.
+ *
+ * Note: in general the allocation of these indices is arbitrary, as long
+ * as they are all unique. But a few of them are used with instructions that
+ * have specific alignment requirements, those particular indices must be
+ * chosen carefully to meet those requirements. The list below shows the
+ * currently-known alignment requirements:
+ *
+ *	I915_GEM_SCRATCH_INDEX	    must be EVEN
  */
 #define I915_GEM_HWS_INDEX		0x20
-#define I915_GEM_HWS_SCRATCH_INDEX	0x30
-#define I915_GEM_HWS_SCRATCH_ADDR (I915_GEM_HWS_SCRATCH_INDEX << MI_STORE_DWORD_INDEX_SHIFT)
-#define I915_GEM_ACTIVE_SEQNO_INDEX     0x34
-#define I915_GEM_PGFLIP_INDEX           0x35
+#define I915_GEM_ACTIVE_SEQNO_INDEX	0x21  /* Executing seqno for TDR only */
+#define I915_GEM_PGFLIP_INDEX		0x22
+
+#define I915_GEM_HWS_SCRATCH_INDEX	0x24  /* QWord */
+#define I915_GEM_HWS_SCRATCH_ADDR	(I915_GEM_HWS_SCRATCH_INDEX << MI_STORE_DWORD_INDEX_SHIFT)
+
+/*
+ * Tracking; these are updated by the GPU at the beginning and/or end of every
+ * batch. One pair for regular buffers, the other for preemptive ones.
+ */
+#define I915_BATCH_DONE_SEQNO		0x30  /* Completed batch seqno        */
+#define I915_BATCH_ACTIVE_SEQNO		0x31  /* In progress batch seqno      */
+#define I915_PREEMPTIVE_DONE_SEQNO	0x32  /* Completed preemptive batch   */
+#define I915_PREEMPTIVE_ACTIVE_SEQNO	0x33  /* In progress preemptive batch */
+
+/*
+ * Preemption; these are used by the GPU to save important registers
+ */
+#define I915_SAVE_PREEMPTED_RING_PTR	0x34  /* HEAD before preemption     */
+#define I915_SAVE_PREEMPTED_BB_PTR	0x35  /* BB ptr before preemption   */
+#define I915_SAVE_PREEMPTED_SBB_PTR	0x36  /* SBB before preemption      */
+#define I915_SAVE_PREEMPTED_UHPTR	0x37  /* UHPTR after preemption     */
+#define I915_SAVE_PREEMPTED_HEAD	0x38  /* HEAD after preemption      */
+#define I915_SAVE_PREEMPTED_TAIL	0x39  /* TAIL after preemption      */
+#define I915_SAVE_PREEMPTED_STATUS	0x3A  /* RS preemption status       */
+#define I915_SAVE_PREEMPTED_NOPID	0x3B  /* Dummy                      */
 
 void intel_unpin_ringbuffer_obj(struct intel_ringbuffer *ringbuf);
 int intel_pin_and_map_ringbuffer_obj(struct drm_device *dev,

@@ -210,6 +210,10 @@
 #define  MI_GLOBAL_GTT    (1<<22)
 
 #define MI_NOOP			MI_INSTR(0, 0)
+#define   MI_NOOP_WRITE_ID		(1<<22)
+#define   MI_NOOP_ID_MASK		((1<<22) - 1)
+#define   MI_NOOP_MID(id)		((id) & MI_NOOP_ID_MASK)
+#define MI_NOOP_WITH_ID(id)	MI_INSTR(0, MI_NOOP_WRITE_ID|MI_NOOP_MID(id))
 #define MI_USER_INTERRUPT	MI_INSTR(0x02, 0)
 #define MI_WAIT_FOR_EVENT       MI_INSTR(0x03, 0)
 #define   MI_WAIT_FOR_OVERLAY_FLIP	(1<<16)
@@ -227,6 +231,7 @@
 #define MI_ARB_ON_OFF		MI_INSTR(0x08, 0)
 #define   MI_ARB_ENABLE			(1<<0)
 #define   MI_ARB_DISABLE		(0<<0)
+#define MI_ARB_CHECK		MI_INSTR(0x05, 0)
 #define MI_BATCH_BUFFER_END	MI_INSTR(0x0a, 0)
 #define MI_SUSPEND_FLUSH	MI_INSTR(0x0b, 0)
 #define   MI_SUSPEND_FLUSH_EN	(1<<0)
@@ -265,6 +270,8 @@
 #define   MI_SEMAPHORE_SYNC_INVALID (3<<16)
 #define   MI_SEMAPHORE_SYNC_MASK    (3<<16)
 #define MI_SET_CONTEXT		MI_INSTR(0x18, 0)
+#define   MI_CONTEXT_ADDR_MASK		((~0)<<12)
+#define   MI_SET_CONTEXT_FLAG_MASK	((1<<12)-1)
 #define   MI_MM_SPACE_GTT		(1<<8)
 #define   MI_MM_SPACE_PHYSICAL		(0<<8)
 #define   MI_SAVE_EXT_STATE_EN		(1<<3)
@@ -277,6 +284,10 @@
 #define   MI_USE_GGTT		(1 << 22) /* g4x+ */
 #define MI_STORE_DWORD_INDEX	MI_INSTR(0x21, 1)
 #define   MI_STORE_DWORD_INDEX_SHIFT 2
+#define MI_STORE_REG_MEM	MI_INSTR(0x24, 1)
+#define   MI_STORE_REG_MEM_GTT		(1 << 22)
+#define   MI_STORE_REG_MEM_PREDICATE	(1 << 21)
+
 /* Official intel docs are somewhat sloppy concerning MI_LOAD_REGISTER_IMM:
  * - Always issue a MI_NOOP _before_ the MI_LOAD_REGISTER_IMM - otherwise hw
  *   simply ignores the register load under certain conditions.
@@ -291,7 +302,10 @@
 #define MI_FLUSH_DW		MI_INSTR(0x26, 1) /* for GEN6 */
 #define   MI_FLUSH_DW_STORE_INDEX	(1<<21)
 #define   MI_INVALIDATE_TLB		(1<<18)
+#define   MI_FLUSH_DW_OP_NONE		(0<<14)
 #define   MI_FLUSH_DW_OP_STOREDW	(1<<14)
+#define   MI_FLUSH_DW_OP_RSVD		(2<<14)
+#define   MI_FLUSH_DW_OP_STAMP		(3<<14)
 #define   MI_FLUSH_DW_OP_MASK		(3<<14)
 #define   MI_FLUSH_DW_NOTIFY		(1<<8)
 #define   MI_INVALIDATE_BSD		(1<<7)
@@ -1165,6 +1179,19 @@ enum punit_power_well {
 #define GEN6_VERSYNC	(RING_SYNC_1(VEBOX_RING_BASE))
 #define GEN6_VEVSYNC	(RING_SYNC_2(VEBOX_RING_BASE))
 #define GEN6_NOSYNC 0
+
+/*
+ * Premption-related registers
+ */
+#define RING_UHPTR(base)	((base)+0x134)
+#define   UHPTR_GFX_ADDR_ALIGN		(0x7)
+#define   UHPTR_VALID			(0x1)
+#define RING_PREEMPT_ADDR	0x0214c
+#define   PREEMPT_BATCH_LEVEL_MASK	(0x3)
+#define BB_PREEMPT_ADDR		0x02148
+#define SBB_PREEMPT_ADDR	0x0213c
+#define RS_PREEMPT_STATUS	0x0215c
+
 #define RING_MAX_IDLE(base)	((base)+0x54)
 #define RING_HWS_PGA(base)	((base)+0x80)
 #define RING_HWS_PGA_GEN6(base)	((base)+0x2080)
@@ -5823,7 +5850,8 @@ enum punit_power_well {
 #define VLV_RC_COUNTER_CONTROL                  0xFFFF00FF
 
 #define  GTFIFODBG				0x120000
-#define    GT_FIFO_SBDROPERR			(1<<6)
+#define    GT_FIFO_CPU_ERROR_MASK		0xf
+#define    GT_FIFO_SDDROPERR			(1<<6)
 #define    GT_FIFO_BLOBDROPERR			(1<<5)
 #define    GT_FIFO_SB_READ_ABORTERR		(1<<4)
 #define    GT_FIFO_DROPERR			(1<<3)
