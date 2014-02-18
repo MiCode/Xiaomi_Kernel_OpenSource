@@ -287,7 +287,7 @@ static int __qseecom_set_sb_memory(struct qseecom_registered_listener_list *svc,
 	/* Get the handle of the shared fd */
 	svc->ihandle = ion_import_dma_buf(qseecom.ion_clnt,
 					listener->ifd_data_fd);
-	if (svc->ihandle == NULL) {
+	if (IS_ERR_OR_NULL(svc->ihandle)) {
 		pr_err("Ion client could not retrieve the handle\n");
 		return -ENOMEM;
 	}
