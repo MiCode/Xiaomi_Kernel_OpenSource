@@ -32,9 +32,6 @@
 #include "diagfwd.h"
 #include "diagfwd_cntl.h"
 #include "diag_dci.h"
-#ifdef CONFIG_DIAG_SDIO_PIPE
-#include "diagfwd_sdio.h"
-#endif
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 #include "diagfwd_hsic.h"
 #include "diagfwd_smux.h"
@@ -820,41 +817,6 @@ void diag_cmp_logging_modes_diagfwd_bridge(int old_mode, int new_mode)
 }
 #endif
 
-#ifdef CONFIG_DIAG_SDIO_PIPE
-void diag_cmp_logging_modes_sdio_pipe(int old_mode, int new_mode)
-{
-	if (old_mode == MEMORY_DEVICE_MODE && new_mode
-					== NO_LOGGING_MODE) {
-		mutex_lock(&driver->diagchar_mutex);
-		driver->in_busy_sdio = 1;
-		mutex_unlock(&driver->diagchar_mutex);
-	} else if (old_mode == NO_LOGGING_MODE && new_mode
-					== MEMORY_DEVICE_MODE) {
-		mutex_lock(&driver->diagchar_mutex);
-		driver->in_busy_sdio = 0;
-		mutex_unlock(&driver->diagchar_mutex);
-		/* Poll SDIO channel to check for data */
-		if (driver->sdio_ch)
-			queue_work(driver->diag_sdio_wq,
-				&(driver->diag_read_sdio_work));
-	} else if (old_mode == USB_MODE && new_mode
-					== MEMORY_DEVICE_MODE) {
-		mutex_lock(&driver->diagchar_mutex);
-		driver->in_busy_sdio = 0;
-		mutex_unlock(&driver->diagchar_mutex);
-		/* Poll SDIO channel to check for data */
-		if (driver->sdio_ch)
-			queue_work(driver->diag_sdio_wq,
-				&(driver->diag_read_sdio_work));
-	}
-}
-#else
-void diag_cmp_logging_modes_sdio_pipe(int old_mode, int new_mode)
-{
-
-}
-#endif
-
 int diag_switch_logging(int requested_mode)
 {
 	int temp = 0, success = -EINVAL, status = 0;
@@ -932,14 +894,11 @@ int diag_switch_logging(int requested_mode)
 	if (temp == MEMORY_DEVICE_MODE && driver->logging_mode
 						== NO_LOGGING_MODE) {
 		diag_reset_smd_data(RESET_AND_NO_QUEUE);
-		diag_cmp_logging_modes_sdio_pipe(temp, driver->logging_mode);
 		diag_cmp_logging_modes_diagfwd_bridge(temp,
 							driver->logging_mode);
 	} else if (temp == NO_LOGGING_MODE && driver->logging_mode
 						== MEMORY_DEVICE_MODE) {
 		diag_reset_smd_data(RESET_AND_QUEUE);
-		diag_cmp_logging_modes_sdio_pipe(temp,
-						driver->logging_mode);
 		diag_cmp_logging_modes_diagfwd_bridge(temp,
 						driver->logging_mode);
 	} else if (temp == USB_MODE && driver->logging_mode
@@ -956,7 +915,6 @@ int diag_switch_logging(int requested_mode)
 						== MEMORY_DEVICE_MODE) {
 		diagfwd_disconnect();
 		diag_reset_smd_data(RESET_AND_QUEUE);
-		diag_cmp_logging_modes_sdio_pipe(temp, driver->logging_mode);
 		diag_cmp_logging_modes_diagfwd_bridge(temp,
 						driver->logging_mode);
 	} else if (temp == MEMORY_DEVICE_MODE &&
@@ -1316,25 +1274,7 @@ drop:
 				}
 			}
 		}
-#ifdef CONFIG_DIAG_SDIO_PIPE
-		/* copy 9K data over SDIO */
-		if (driver->in_busy_sdio == 1) {
-			remote_token = diag_get_remote(MDM);
-			num_data++;
 
-			/*Copy the negative token of data being passed*/
-			COPY_USER_SPACE_OR_EXIT(buf+ret,
-						remote_token, 4);
-			/*Copy the length of data being passed*/
-			COPY_USER_SPACE_OR_EXIT(buf+ret,
-				 (driver->write_ptr_mdm->length), 4);
-			/*Copy the actual data being passed*/
-			COPY_USER_SPACE_OR_EXIT(buf+ret,
-					*(driver->buf_in_sdio),
-					 driver->write_ptr_mdm->length);
-			driver->in_busy_sdio = 0;
-		}
-#endif
 		/* Copy date from remote processors */
 		exit_stat = diag_copy_remote(buf, count, &ret, &num_data);
 		if (exit_stat == 1)
@@ -1348,11 +1288,7 @@ drop:
 				queue_work(driver->smd_data[i].wq,
 				&(driver->smd_data[i].diag_read_smd_work));
 		}
-#ifdef CONFIG_DIAG_SDIO_PIPE
-		if (driver->sdio_ch)
-			queue_work(driver->diag_sdio_wq,
-					   &(driver->diag_read_sdio_work));
-#endif
+
 		APPEND_DEBUG('n');
 		goto exit;
 	} else if (driver->data_ready[index] & USER_SPACE_DATA_TYPE) {
@@ -1620,18 +1556,6 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 					(2 * payload_size) + token_offset - 1);
 		diag_hdlc_encode(&send, &enc);
 
-#ifdef CONFIG_DIAG_SDIO_PIPE
-		/* send masks to 9k too */
-		if (driver->sdio_ch && (remote_proc == MDM)) {
-			wait_event_interruptible(driver->wait_q,
-				 (sdio_write_avail(driver->sdio_ch) >=
-					 payload_size));
-			if (driver->sdio_ch && (payload_size > 0)) {
-				sdio_write(driver->sdio_ch, (void *)
-				   (char *)buf_hdlc, payload_size + 3);
-			}
-		}
-#endif
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 		/* send masks to All 9k */
 		if ((remote_proc >= MDM) && (remote_proc <= MDM2)) {
@@ -1718,19 +1642,7 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 			pr_debug("\t %x", *((driver->user_space_data_buf
 						+ token_offset)+i));
 #endif
-#ifdef CONFIG_DIAG_SDIO_PIPE
-		/* send masks to 9k too */
-		if (driver->sdio_ch && (remote_proc == MDM)) {
-			wait_event_interruptible(driver->wait_q,
-				 (sdio_write_avail(driver->sdio_ch) >=
-					 payload_size));
-			if (driver->sdio_ch && (payload_size > 0)) {
-				sdio_write(driver->sdio_ch, (void *)
-				   (driver->user_space_data_buf + token_offset),
-				   payload_size);
-			}
-		}
-#endif
+
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 		/* send masks to All 9k */
 		if ((remote_proc >= MDM) && (remote_proc <= MDM2) &&
@@ -2139,20 +2051,6 @@ static void diag_disconnect_work_fn(struct work_struct *w)
 }
 #endif
 
-#ifdef CONFIG_DIAG_SDIO_PIPE
-void diag_sdio_fn(int type)
-{
-	if (machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa()) {
-		if (type == INIT)
-			diagfwd_sdio_init();
-		else if (type == EXIT)
-			diagfwd_sdio_exit();
-	}
-}
-#else
-inline void diag_sdio_fn(int type) {}
-#endif
-
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 void diagfwd_bridge_fn(int type)
 {
@@ -2271,8 +2169,6 @@ static int __init diagchar_init(void)
 	if (ret)
 		goto fail;
 	driver->dci_state = diag_dci_init();
-	diag_sdio_fn(INIT);
-
 	pr_debug("diagchar initializing ..\n");
 	driver->num = 1;
 	driver->name = ((void *)driver) + sizeof(struct diagchar_dev);
@@ -2303,7 +2199,6 @@ fail:
 	diagfwd_cntl_exit();
 	diag_dci_exit();
 	diag_masks_exit();
-	diag_sdio_fn(EXIT);
 	diagfwd_bridge_fn(EXIT);
 	return -1;
 }
@@ -2318,7 +2213,6 @@ static void diagchar_exit(void)
 	diagfwd_cntl_exit();
 	diag_dci_exit();
 	diag_masks_exit();
-	diag_sdio_fn(EXIT);
 	diagfwd_bridge_fn(EXIT);
 	diag_debugfs_cleanup();
 	diagchar_cleanup();

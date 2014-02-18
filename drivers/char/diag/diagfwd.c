@@ -36,9 +36,6 @@
 #include "diagfwd_cntl.h"
 #include "diagfwd_hsic.h"
 #include "diagchar_hdlc.h"
-#ifdef CONFIG_DIAG_SDIO_PIPE
-#include "diagfwd_sdio.h"
-#endif
 #include "diag_dci.h"
 #include "diag_masks.h"
 #include "diagfwd_bridge.h"
@@ -947,13 +944,7 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 							diag_read_smd_work));
 			}
 		}
-#ifdef CONFIG_DIAG_SDIO_PIPE
-		else if (data_type == SDIO_DATA) {
-			driver->in_busy_sdio = 0;
-			queue_work(driver->diag_sdio_wq,
-				&(driver->diag_read_sdio_work));
-		}
-#endif
+
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 		else if (data_type == HSIC_DATA || data_type == HSIC_2_DATA) {
 			index = data_type - HSIC_DATA;
@@ -998,17 +989,7 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 #endif /* DIAG DEBUG */
 			err = diag_write_to_usb(driver->legacy_ch, write_ptr);
 		}
-#ifdef CONFIG_DIAG_SDIO_PIPE
-		else if (data_type == SDIO_DATA) {
-			if (machine_is_msm8x60_fusion() ||
-					 machine_is_msm8x60_fusn_ffa()) {
-				write_ptr->buf = buf;
-				err = usb_diag_write(driver->mdm_ch, write_ptr);
-			} else
-				pr_err("diag: Incorrect sdio data "
-						"while USB write\n");
-		}
-#endif
+
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 		else if (data_type == HSIC_DATA || data_type == HSIC_2_DATA) {
 			index = data_type - HSIC_DATA;
@@ -1956,14 +1937,6 @@ int diagfwd_connect(void)
 
 	/* Poll USB channel to check for data*/
 	queue_work(driver->diag_wq, &(driver->diag_read_work));
-#ifdef CONFIG_DIAG_SDIO_PIPE
-	if (machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa()) {
-		if (driver->mdm_ch && !IS_ERR(driver->mdm_ch))
-			diagfwd_connect_sdio();
-		else
-			printk(KERN_INFO "diag: No USB MDM ch");
-	}
-#endif
 
 	return 0;
 exit:
@@ -2003,11 +1976,6 @@ int diagfwd_disconnect(void)
 	}
 	queue_work(driver->diag_real_time_wq,
 				 &driver->diag_real_time_work);
-#ifdef CONFIG_DIAG_SDIO_PIPE
-	if (machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa())
-		if (driver->mdm_ch && !IS_ERR(driver->mdm_ch))
-			diagfwd_disconnect_sdio();
-#endif
 	/* TBD - notify and flow control SMD */
 	return 0;
 }
@@ -2058,18 +2026,6 @@ int diagfwd_write_complete(struct diag_request *diag_write_ptr)
 		found_it = diagfwd_check_buf_match(NUM_SMD_CMD_CHANNELS,
 						driver->smd_cmd, buf);
 
-#ifdef CONFIG_DIAG_SDIO_PIPE
-	if (!found_it) {
-		if (buf == (void *)driver->buf_in_sdio) {
-			if (machine_is_msm8x60_fusion() ||
-				 machine_is_msm8x60_fusn_ffa())
-				diagfwd_write_complete_sdio();
-			else
-				pr_err("diag: Incorrect buffer pointer while WRITE");
-			found_it = 1;
-		}
-	}
-#endif
 	if (!found_it) {
 		if (driver->logging_mode != USB_MODE)
 			pr_debug("diag: freeing buffer when not in usb mode\n");
@@ -2107,16 +2063,6 @@ int diagfwd_read_complete(struct diag_request *diag_read_ptr)
 						 &(driver->diag_read_work));
 		}
 	}
-#ifdef CONFIG_DIAG_SDIO_PIPE
-	else if (buf == (void *)driver->usb_buf_mdm_out) {
-		if (machine_is_msm8x60_fusion() ||
-				 machine_is_msm8x60_fusn_ffa()) {
-			driver->read_len_mdm = diag_read_ptr->actual;
-			diagfwd_read_complete_sdio();
-		} else
-			pr_err("diag: Incorrect buffer pointer while READ");
-	}
-#endif
 	else
 		printk(KERN_ERR "diag: Unknown buffer ptr from USB");
 

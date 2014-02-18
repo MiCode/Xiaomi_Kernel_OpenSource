@@ -78,9 +78,8 @@
 #define LPASS_DATA		1
 #define WCNSS_DATA		2
 #define APPS_DATA		3
-#define SDIO_DATA		4
-#define HSIC_DATA		5
-#define HSIC_2_DATA		6
+#define HSIC_DATA		4
+#define HSIC_2_DATA		5
 #define SMUX_DATA		10
 #define APPS_PROC		1
 /*
@@ -465,20 +464,7 @@ struct diagchar_dev {
 	int logging_process_id;
 	struct task_struct *socket_process;
 	struct task_struct *callback_process;
-#ifdef CONFIG_DIAG_SDIO_PIPE
-	unsigned char *buf_in_sdio;
-	unsigned char *usb_buf_mdm_out;
-	struct sdio_channel *sdio_ch;
-	int read_len_mdm;
-	int in_busy_sdio;
-	struct usb_diag_ch *mdm_ch;
-	struct work_struct diag_read_mdm_work;
-	struct workqueue_struct *diag_sdio_wq;
-	struct work_struct diag_read_sdio_work;
-	struct work_struct diag_close_sdio_work;
-	struct diag_request *usb_read_mdm_ptr;
-	struct diag_request *write_ptr_mdm;
-#endif
+
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 	/* common for all bridges */
 	struct work_struct diag_connect_work;
