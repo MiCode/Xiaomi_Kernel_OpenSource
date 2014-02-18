@@ -250,6 +250,7 @@ int ecm_ipa_init(struct ecm_ipa_params *params)
 		goto fail_netdev_priv;
 	}
 	memset(ecm_ipa_ctx, 0, sizeof(*ecm_ipa_ctx));
+	ECM_IPA_DEBUG("ecm_ipa_ctx (private) = %p", ecm_ipa_ctx);
 
 	ecm_ipa_ctx->net = net;
 	ecm_ipa_ctx->tx_enable = true;
