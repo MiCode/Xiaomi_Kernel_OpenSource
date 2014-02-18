@@ -3,7 +3,7 @@
  * FocalTech ft5x06 TouchScreen driver.
  *
  * Copyright (c) 2010  Focal tech Ltd.
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -582,6 +582,26 @@ static int ft5x06_ts_resume(struct device *dev)
 	return 0;
 }
 
+static const struct dev_pm_ops ft5x06_ts_pm_ops = {
+#if (!defined(CONFIG_FB) && !defined(CONFIG_HAS_EARLYSUSPEND))
+	.suspend = ft5x06_ts_suspend,
+	.resume = ft5x06_ts_resume,
+#endif
+};
+
+#else
+static int ft5x06_ts_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static int ft5x06_ts_resume(struct device *dev)
+{
+	return 0;
+}
+
+#endif
+
 #if defined(CONFIG_FB)
 static int fb_notifier_callback(struct notifier_block *self,
 				 unsigned long event, void *data)
@@ -620,14 +640,6 @@ static void ft5x06_ts_late_resume(struct early_suspend *handler)
 
 	ft5x06_ts_resume(&data->client->dev);
 }
-#endif
-
-static const struct dev_pm_ops ft5x06_ts_pm_ops = {
-#if (!defined(CONFIG_FB) && !defined(CONFIG_HAS_EARLYSUSPEND))
-	.suspend = ft5x06_ts_suspend,
-	.resume = ft5x06_ts_resume,
-#endif
-};
 #endif
 
 static int ft5x06_auto_cal(struct i2c_client *client)
@@ -889,7 +901,7 @@ static int ft5x06_fw_upgrade(struct device *dev, bool force)
 	}
 
 	if (fw->size < FT_FW_MIN_SIZE || fw->size > FT_FW_MAX_SIZE) {
-		dev_err(dev, "Invalid firmware size (%d)\n", fw->size);
+		dev_err(dev, "Invalid firmware size (%zu)\n", fw->size);
 		rc = -EIO;
 		goto rel_fw;
 	}
