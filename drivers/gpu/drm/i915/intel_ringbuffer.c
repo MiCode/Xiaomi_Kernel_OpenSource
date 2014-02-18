@@ -2937,7 +2937,10 @@ int intel_init_render_ring_buffer(struct drm_device *dev)
 			ring->irq_put = gen6_ring_put_irq;
 		}
 		ring->irq_enable_mask = GT_RENDER_USER_INTERRUPT;
-		ring->get_seqno = gen6_ring_get_seqno;
+		if (IS_VALLEYVIEW(dev))
+			ring->get_seqno = ring_get_seqno;
+		else
+			ring->get_seqno = gen6_ring_get_seqno;
 		ring->set_seqno = ring_set_seqno;
 		ring->semaphore.sync_to = gen6_ring_sync;
 		ring->semaphore.signal = gen6_signal;
