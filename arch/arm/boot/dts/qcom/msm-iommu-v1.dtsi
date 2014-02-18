@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -520,24 +520,24 @@
 			compatible = "qcom,msm-smmu-v1-ctx";
 			reg = <0xfda4c000 0x1000>;
 			interrupts = <0 65 0>;
-			qcom,iommu-ctx-sids = <0>;
-			label = "vfe0";
+			qcom,iommu-ctx-sids = <0 1>;
+			label = "vfe";
 		};
 
 		qcom,iommu-ctx@fda4d000 {
 			compatible = "qcom,msm-smmu-v1-ctx";
 			reg = <0xfda4d000 0x1000>;
 			interrupts = <0 65 0>;
-			qcom,iommu-ctx-sids = <1>;
-			label = "vfe1";
+			qcom,iommu-ctx-sids = <2>;
+			label = "cpp";
 		};
 
 		qcom,iommu-ctx@fda4e000 {
 			compatible = "qcom,msm-smmu-v1-ctx";
 			reg = <0xfda4e000 0x1000>;
 			interrupts = <0 65 0>;
-			qcom,iommu-ctx-sids = <2>;
-			label = "cpp";
+			qcom,iommu-ctx-sids = <>;
+			label = "vfe_secure";
 		};
 	};
 
