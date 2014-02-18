@@ -175,6 +175,11 @@
 #define ADD_TO_CROSS_TALK	300
 #define SUB_FROM_PS_THRESHOLD	100
 
+/*PS tuning value*/
+static int apds993x_ps_detection_threshold = 0;
+static int apds993x_ps_hsyteresis_threshold = 0;
+static int apds993x_ps_pulse_number = 0;
+static int apds993x_ps_pgain = 0;
 
 typedef enum
 {
@@ -580,7 +585,7 @@ static void apds993x_set_ps_threshold_adding_cross_talk(
 		cal_data = 0;
 
 	if (cal_data == 0) {
-		data->ps_threshold = APDS993X_PS_DETECTION_THRESHOLD;
+		data->ps_threshold = apds993x_ps_detection_threshold;
 		data->ps_hysteresis_threshold =
 			data->ps_threshold - SUB_FROM_PS_THRESHOLD;
 	} else {
@@ -1094,7 +1099,7 @@ static int apds993x_enable_als_sensor(struct i2c_client *client, int val)
 
 			apds993x_set_piht(client, 0);
 			apds993x_set_piht(client,
-					APDS993X_PS_DETECTION_THRESHOLD);
+					apds993x_ps_detection_threshold);
 
 			/* only enable prox sensor with interrupt */
 			apds993x_set_enable(client, 0x27);
@@ -1184,8 +1189,7 @@ static int apds993x_enable_ps_sensor(struct i2c_client *client, int val)
 			/* init threshold for proximity */
 			apds993x_set_pilt(client, 0);
 			apds993x_set_piht(client,
-					APDS993X_PS_DETECTION_THRESHOLD);
-
+					apds993x_ps_detection_threshold);
 			/*calirbation*/
 			apds993x_set_ps_threshold_adding_cross_talk(client, data->cross_talk);
 
@@ -1771,7 +1775,7 @@ static int apds993x_init_client(struct i2c_client *client)
 	if (err < 0)
 		return err;
 
-	err = apds993x_set_ppcount(client, APDS993X_PS_PULSE_NUMBER);
+	err = apds993x_set_ppcount(client, apds993x_ps_pulse_number);
 	if (err < 0)
 		return err;
 
@@ -1783,7 +1787,7 @@ static int apds993x_init_client(struct i2c_client *client)
 	err = apds993x_set_control(client,
 			APDS993X_PDRVIE_100MA |
 			APDS993X_PRX_IR_DIOD |
-			APDS993X_PGAIN_2X |
+			apds993x_ps_pgain |
 			apds993x_als_again_bit_tb[data->als_again_index]);
 	if (err < 0)
 		return err;
@@ -1793,7 +1797,7 @@ static int apds993x_init_client(struct i2c_client *client)
 	if (err < 0)
 		return err;
 
-	err = apds993x_set_piht(client, APDS993X_PS_DETECTION_THRESHOLD);
+	err = apds993x_set_piht(client, apds993x_ps_detection_threshold);
 	if (err < 0)
 		return err;
 
@@ -2113,6 +2117,8 @@ static int sensor_parse_dt(struct device *dev,
 		struct apds993x_platform_data *pdata)
 {
 	struct device_node *np = dev->of_node;
+	unsigned int tmp;
+	int rc;
 
 	/* regulator info */
 	pdata->i2c_pull_up = of_property_read_bool(np, "avago,i2c-pull-up");
@@ -2127,6 +2133,35 @@ static int sensor_parse_dt(struct device *dev,
 	pdata->exit = sensor_platform_hw_exit;
 	pdata->power_on = sensor_platform_hw_power_on;
 
+	/* ps tuning data*/
+	rc = of_property_read_u32(np, "avago,ps_threshold", &tmp);
+	if (rc) {
+		dev_err(dev, "Unable to read ps_threshold\n");
+		return rc;
+	}
+	pdata->prox_threshold = tmp;
+
+	rc = of_property_read_u32(np, "avago,ps_hysteresis_threshold", &tmp);
+	 if (rc) {
+		dev_err(dev, "Unable to read ps_hysteresis_threshold\n");
+		return rc;
+	}
+	pdata->prox_hsyteresis_threshold = tmp;
+
+	rc = of_property_read_u32(np, "avago,ps_pulse", &tmp);
+	if (rc) {
+		dev_err(dev, "Unable to read ps_pulse\n");
+		return rc;
+	}
+	pdata->prox_pulse = tmp;
+
+	rc = of_property_read_u32(np, "avago,ps_pgain", &tmp);
+	if (rc) {
+		dev_err(dev, "Unable to read ps_pgain\n");
+		return rc;
+	}
+	pdata->prox_gain = tmp;
+
 	return 0;
 }
 
@@ -2139,7 +2174,7 @@ static int apds993x_probe(struct i2c_client *client,
 {
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	struct apds993x_data *data;
-	struct apds993x_platform_data *platform_data;
+	struct apds993x_platform_data *pdata;
 	int err = 0;
 
 	pr_debug("%s\n", __func__);
@@ -2150,23 +2185,33 @@ static int apds993x_probe(struct i2c_client *client,
 	}
 
 	if (client->dev.of_node) {
-		platform_data = devm_kzalloc(&client->dev,
+		pdata = devm_kzalloc(&client->dev,
 				sizeof(struct apds993x_platform_data),
 				GFP_KERNEL);
-		if (!platform_data) {
+		if (!pdata) {
 			dev_err(&client->dev, "Failed to allocate memory\n");
 			return -ENOMEM;
 		}
 
-		client->dev.platform_data = platform_data;
-		err = sensor_parse_dt(&client->dev, platform_data);
+		client->dev.platform_data = pdata;
+		err = sensor_parse_dt(&client->dev, pdata);
 		if (err) {
 			pr_err("%s: sensor_parse_dt() err\n", __func__);
 			return err;
 		}
 	} else {
-		platform_data = client->dev.platform_data;
+		pdata = client->dev.platform_data;
+		if (!pdata) {
+			dev_err(&client->dev, "No platform data\n");
+			return -ENODEV;
+		}
 	}
+
+	/* Set the default parameters */
+	apds993x_ps_detection_threshold = pdata->prox_threshold;
+	apds993x_ps_hsyteresis_threshold = pdata->prox_hsyteresis_threshold;
+	apds993x_ps_pulse_number = pdata->prox_pulse;
+	apds993x_ps_pgain = pdata->prox_gain;
 
 	data = kzalloc(sizeof(struct apds993x_data), GFP_KERNEL);
 	if (!data) {
@@ -2176,22 +2221,22 @@ static int apds993x_probe(struct i2c_client *client,
 	}
 	pdev_data = data;
 
-	data->platform_data = platform_data;
+	data->platform_data = pdata;
 	data->client = client;
 	apds993x_i2c_client = client;
 
 	/* h/w initialization */
-	if (platform_data->init)
-		err = platform_data->init();
+	if (pdata->init)
+		err = pdata->init();
 
-	if (platform_data->power_on)
-		err = platform_data->power_on(true);
+	if (pdata->power_on)
+		err = pdata->power_on(true);
 
 	i2c_set_clientdata(client, data);
 
 	data->enable = 0;	/* default mode is standard */
-	data->ps_threshold = APDS993X_PS_DETECTION_THRESHOLD;
-	data->ps_hysteresis_threshold = APDS993X_PS_HSYTERESIS_THRESHOLD;
+	data->ps_threshold = apds993x_ps_detection_threshold;
+	data->ps_hysteresis_threshold = apds993x_ps_hsyteresis_threshold;
 	data->ps_detection = 0;	/* default to no detection */
 	data->enable_als_sensor = 0;	// default to 0
 	data->enable_ps_sensor = 0;	// default to 0
@@ -2311,10 +2356,10 @@ exit_free_dev_als:
 exit_free_irq:
 	free_irq(data->irq, client);
 exit_kfree:
-	if (platform_data->power_on)
-		platform_data->power_on(false);
-	if (platform_data->exit)
-		platform_data->exit();
+	if (pdata->power_on)
+		pdata->power_on(false);
+	if (pdata->exit)
+		pdata->exit();
 
 	kfree(data);
 	pdev_data = NULL;
