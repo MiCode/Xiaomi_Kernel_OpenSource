@@ -26,115 +26,15 @@
 #include <linux/clk/msm-clock-generic.h>
 #include <soc/qcom/clock-local2.h>
 
-#define UPDATE_CHECK_MAX_LOOPS 200
-
-struct cortex_reg_data {
-	u32 cmd_offset;
-	u32 update_mask;
-	u32 poll_mask;
-};
-
-#define DIV_REG(x) ((x)->base + (x)->div_offset)
-#define SRC_REG(x) ((x)->base + (x)->src_offset)
-#define CMD_REG(x) ((x)->base + \
-			((struct cortex_reg_data *)(x)->priv)->cmd_offset)
-
-static int update_config(struct mux_div_clk *md)
-{
-	u32 regval, count;
-	struct cortex_reg_data *r = md->priv;
-
-	/* Update the configuration */
-	regval = readl_relaxed(CMD_REG(md));
-	regval |= r->update_mask;
-	writel_relaxed(regval, CMD_REG(md));
-
-	/* Wait for update to take effect */
-	for (count = UPDATE_CHECK_MAX_LOOPS; count > 0; count--) {
-		if (!(readl_relaxed(CMD_REG(md)) &
-				r->poll_mask))
-			return 0;
-		udelay(1);
-	}
-
-	CLK_WARN(&md->c, true, "didn't update its configuration.");
-
-	return -EINVAL;
-}
-
-static void cortex_get_config(struct mux_div_clk *md, u32 *src_sel, u32 *div)
-{
-	u32 regval;
-
-	regval = readl_relaxed(DIV_REG(md));
-	regval &= (md->div_mask << md->div_shift);
-	*div = regval >> md->div_shift;
-	*div = max((u32)1, (*div + 1) / 2);
-
-	regval = readl_relaxed(SRC_REG(md));
-	regval &= (md->src_mask << md->src_shift);
-	*src_sel = regval >> md->src_shift;
-}
-
-static int cortex_set_config(struct mux_div_clk *md, u32 src_sel, u32 div)
-{
-	u32 regval;
-
-	div = div ? ((2 * div) - 1) : 0;
-	regval = readl_relaxed(DIV_REG(md));
-	regval &= ~(md->div_mask  << md->div_shift);
-	regval |= div << md->div_shift;
-	writel_relaxed(regval, DIV_REG(md));
-
-	regval = readl_relaxed(SRC_REG(md));
-	regval &= ~(md->src_mask  << md->src_shift);
-	regval |= src_sel << md->src_shift;
-	writel_relaxed(regval, SRC_REG(md));
-
-	return update_config(md);
-}
-
-static int cortex_enable(struct mux_div_clk *md)
-{
-	u32 src_sel = parent_to_src_sel(md->parents, md->num_parents,
-							md->c.parent);
-	return cortex_set_config(md, src_sel, md->data.div);
-}
-
-static void cortex_disable(struct mux_div_clk *md)
-{
-	u32 src_sel = parent_to_src_sel(md->parents, md->num_parents,
-							md->safe_parent);
-	cortex_set_config(md, src_sel, md->safe_div);
-}
-
-static bool cortex_is_enabled(struct mux_div_clk *md)
-{
-	return true;
-}
-
-struct mux_div_ops cortex_mux_div_ops = {
-	.set_src_div = cortex_set_config,
-	.get_src_div = cortex_get_config,
-	.is_enabled = cortex_is_enabled,
-	.enable = cortex_enable,
-	.disable = cortex_disable,
-};
-
-static struct cortex_reg_data a7ssmux_priv = {
-	.cmd_offset = 0x0,
-	.update_mask = BIT(0),
-	.poll_mask = BIT(0),
-};
-
 DEFINE_VDD_REGS_INIT(vdd_cpu, 1);
 
 static struct mux_div_clk a7ssmux = {
-	.ops = &cortex_mux_div_ops,
+	.ops = &rcg_mux_div_ops,
 	.safe_freq = 300000000,
 	.data = {
-		.max_div = 8,
-		.min_div = 1,
+		.max_div = 32,
+		.min_div = 2,
+		.is_half_divider = true,
 	},
 	.c = {
 		.dbg_name = "a7ssmux",
@@ -143,11 +43,7 @@ static struct mux_div_clk a7ssmux = {
 		CLK_INIT(a7ssmux.c),
 	},
 	.parents = (struct clk_src[8]) {},
-	.priv = &a7ssmux_priv,
-	.div_offset = 0x4,
 	.div_mask = BM(4, 0),
-	.div_shift = 0,
-	.src_offset = 0x4,
 	.src_mask = BM(10, 8) >> 8,
 	.src_shift = 8,
 };
