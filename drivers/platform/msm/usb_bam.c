@@ -1521,6 +1521,7 @@ static void usb_bam_ipa_create_resources(void)
 							usb_prod_notify_cb;
 		usb_prod_create_params.reg_params.user_data =
 							&ipa_rm_bams[i].bam;
+		usb_prod_create_params.floor_voltage = IPA_VOLTAGE_SVS;
 		ret = ipa_rm_create_resource(&usb_prod_create_params);
 		if (ret) {
 			pr_err("%s: Failed to create USB_PROD resource\n",
@@ -1536,6 +1537,7 @@ static void usb_bam_ipa_create_resources(void)
 						request_resource_cb[cur_bam];
 		usb_cons_create_params.release_resource =
 						release_resource_cb[cur_bam];
+		usb_cons_create_params.floor_voltage = IPA_VOLTAGE_SVS;
 		ret = ipa_rm_create_resource(&usb_cons_create_params);
 		if (ret) {
 			pr_err("%s: Failed to create USB_CONS resource\n",
