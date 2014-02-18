@@ -731,6 +731,8 @@ int rndis_ipa_pipe_connect_notify(u32 usb_to_ipa_hdl,
 	if (next_state == RNDIS_IPA_CONNECTED_AND_UP) {
 		netif_start_queue(rndis_ipa_ctx->net);
 		RNDIS_IPA_DEBUG("queue started, NETDEV is operational\n");
+	}  else {
+		RNDIS_IPA_DEBUG("queue shall be started after open()\n");
 	}
 	pr_info("RNDIS_IPA NetDev pipes were connected");
 
@@ -826,7 +828,7 @@ static netdev_tx_t rndis_ipa_start_xmit(struct sk_buff *skb,
 
 	net->trans_start = jiffies;
 
-	RNDIS_IPA_DEBUG("packet Tx, len=%d, skb->protocol=%d",
+	RNDIS_IPA_DEBUG("packet Tx, len=%d, skb->protocol=%d\n",
 		skb->len, skb->protocol);
 
 	if (unlikely(netif_queue_stopped(net))) {
@@ -883,6 +885,9 @@ fail_tx_packet:
 out:
 	resource_release(rndis_ipa_ctx);
 resource_busy:
+	RNDIS_IPA_DEBUG("packet Tx done - %s\n",
+		(status == NETDEV_TX_OK) ? "OK" : "FAIL");
+
 	return status;
 }
 
