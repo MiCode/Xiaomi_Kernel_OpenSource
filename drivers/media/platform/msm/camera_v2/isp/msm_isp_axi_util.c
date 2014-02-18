@@ -1223,6 +1223,8 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 			msm_isp_axi_stream_enable_cfg(vfe_dev, stream_info);
 			stream_info->state = ACTIVE;
 		}
+		vfe_dev->axi_data.src_info[
+			SRC_TO_INTF(stream_info->stream_src)].frame_id = 0;
 	}
 	msm_isp_update_stream_bandwidth(vfe_dev);
 	vfe_dev->hw_info->vfe_ops.axi_ops.reload_wm(vfe_dev, wm_reload_mask);
@@ -1234,16 +1236,6 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id = 0;
 		vfe_dev->hw_info->vfe_ops.core_ops.
 			update_camif_state(vfe_dev, camif_update);
-	}
-
-	if (vfe_dev->axi_data.src_info[VFE_RAW_0].raw_stream_count > 0) {
-		vfe_dev->axi_data.src_info[VFE_RAW_0].frame_id = 0;
-	}
-	else if (vfe_dev->axi_data.src_info[VFE_RAW_1].raw_stream_count > 0) {
-		vfe_dev->axi_data.src_info[VFE_RAW_1].frame_id = 0;
-	}
-	else if (vfe_dev->axi_data.src_info[VFE_RAW_2].raw_stream_count > 0) {
-		vfe_dev->axi_data.src_info[VFE_RAW_2].frame_id = 0;
 	}
 
 	if (wait_for_complete)
