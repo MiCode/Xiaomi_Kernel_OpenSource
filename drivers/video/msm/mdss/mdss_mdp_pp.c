@@ -1589,7 +1589,7 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 	if (mdata->nad_cfgs == 0)
 		valid_mixers = false;
 	for (i = 0; i < mixer_cnt && valid_mixers; i++) {
-		if (mixer_id[i] > mdata->nad_cfgs)
+		if (mixer_id[i] >= mdata->nad_cfgs)
 			valid_mixers = false;
 	}
 	if (valid_mixers && (mixer_cnt <= mdata->nmax_concurrent_ad_hw)) {
@@ -4391,7 +4391,7 @@ static void pp_ad_calc_worker(struct work_struct *work)
 	ctl = mfd_to_ctl(ad->mfd);
 	mdata = mfd_to_mdata(ad->mfd);
 
-	if (!mdata || ad->calc_hw_num > mdata->nad_cfgs) {
+	if (!mdata || ad->calc_hw_num >= mdata->nad_cfgs) {
 		mutex_unlock(&ad->lock);
 		return;
 	}
