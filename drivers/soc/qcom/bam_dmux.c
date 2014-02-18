@@ -1767,8 +1767,8 @@ static void reconnect_to_bam(void)
 		/* delayed to here to prevent bus stall */
 		bam_ops->sps_disconnect_ptr(bam_tx_pipe);
 		bam_ops->sps_disconnect_ptr(bam_rx_pipe);
-		__memzero(rx_desc_mem_buf.base, rx_desc_mem_buf.size);
-		__memzero(tx_desc_mem_buf.base, tx_desc_mem_buf.size);
+		memset(rx_desc_mem_buf.base, 0, rx_desc_mem_buf.size);
+		memset(tx_desc_mem_buf.base, 0, tx_desc_mem_buf.size);
 	}
 	ssr_skipped_disconnect = 0;
 	i = bam_ops->sps_device_reset_ptr(a2_device_handle);
@@ -1842,8 +1842,8 @@ static void disconnect_to_bam(void)
 		bam_ops->sps_disconnect_ptr(bam_tx_pipe);
 		BAM_DMUX_LOG("%s: disconnect rx\n", __func__);
 		bam_ops->sps_disconnect_ptr(bam_rx_pipe);
-		__memzero(rx_desc_mem_buf.base, rx_desc_mem_buf.size);
-		__memzero(tx_desc_mem_buf.base, tx_desc_mem_buf.size);
+		memset(rx_desc_mem_buf.base, 0, rx_desc_mem_buf.size);
+		memset(tx_desc_mem_buf.base, 0, tx_desc_mem_buf.size);
 		BAM_DMUX_LOG("%s: device reset\n", __func__);
 		sps_device_reset(a2_device_handle);
 	} else {
