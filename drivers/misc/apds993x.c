@@ -611,6 +611,12 @@ static int LuxCalculation(struct i2c_client *client, int ch0data, int ch1data)
 	int IAC2=0;
 	int IAC=0;
 
+	if (ch0data >= apds993x_als_res_tb[data->als_atime_index] ||
+	    ch1data >= apds993x_als_res_tb[data->als_atime_index]) {
+		luxValue = 30*1000;
+		return luxValue;
+	}
+
 	/* re-adjust COE_B to avoid 2 decimal point */
 	IAC1 = (ch0data - (apds993x_coe_b * ch1data) / 100);
 	/* re-adjust COE_C and COE_D to void 2 decimal point */
@@ -630,7 +636,7 @@ static int LuxCalculation(struct i2c_client *client, int ch0data, int ch1data)
 	}
 
 	if (data->als_reduce) {
-		luxValue = ((IAC * apds993x_ga * APDS993X_DF) / 100) * 4 /
+		luxValue = ((IAC * apds993x_ga * APDS993X_DF) / 100) * 65 / 10 /
 			((apds993x_als_integration_tb[data->als_atime_index] /
 			  100) * apds993x_als_again_tb[data->als_again_index]);
 	} else {
