@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -607,6 +607,7 @@ static unsigned int a4xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A4XX_SP_FS_OBJ_START),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_RBBM_CTL, A4XX_RBBM_RBBM_CTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SW_RESET_CMD, A4XX_RBBM_SW_RESET_CMD),
+	ADRENO_REG_DEFINE(ADRENO_REG_UCHE_INVALIDATE0, A4XX_UCHE_INVALIDATE0),
 };
 
 const struct adreno_reg_offsets a4xx_reg_offsets = {
