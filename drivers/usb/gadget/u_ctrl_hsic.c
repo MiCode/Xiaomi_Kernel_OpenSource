@@ -85,7 +85,7 @@ static int ghsic_ctrl_receive(void *dev, void *buf, size_t actual)
 	struct gctrl_port	*port = dev;
 	int retval = 0;
 
-	pr_debug_ratelimited("%s: read complete bytes read: %d\n",
+	pr_debug_ratelimited("%s: read complete bytes read: %zu\n",
 			__func__, actual);
 
 	/* send it to USB here */
@@ -132,7 +132,7 @@ ghsic_send_cpkt_tomodem(u8 portno, void *buf, size_t len)
 		return 0;
 	}
 
-	pr_debug("%s: ctrl_pkt:%d bytes\n", __func__, len);
+	pr_debug("%s: ctrl_pkt:%zu bytes\n", __func__, len);
 
 	ctrl_bridge_write(port->brdg.ch_id, cbuf, len);
 

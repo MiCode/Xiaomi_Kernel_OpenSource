@@ -96,7 +96,7 @@ static int grmnet_ctrl_qti_send_cpkt_tomodem(u8 portno,
 	struct rmnet_ctrl_pkt *cpkt;
 
 	if (len > MAX_QTI_PKT_SIZE) {
-		pr_err("given pkt size too big:%d > max_pkt_size:%d\n",
+		pr_err("given pkt size too big:%zu > max_pkt_size:%d\n",
 				len, MAX_QTI_PKT_SIZE);
 		return -EINVAL;
 	}
@@ -116,7 +116,8 @@ static int grmnet_ctrl_qti_send_cpkt_tomodem(u8 portno,
 	memcpy(cpkt->buf, buf, len);
 	cpkt->len = len;
 
-	pr_debug("%s: Add to cpkt_req_q packet with len = %d\n", __func__, len);
+	pr_debug("%s: Add to cpkt_req_q packet with len = %zu\n",
+			__func__, len);
 	spin_lock_irqsave(&port->lock, flags);
 
 	/* drop cpkt if port is not open */
@@ -304,10 +305,10 @@ rmnet_ctrl_read(struct file *fp, char __user *buf, size_t count, loff_t *pos)
 	unsigned long flags;
 	int ret = 0;
 
-	pr_debug("%s: Enter(%d)\n", __func__, count);
+	pr_debug("%s: Enter(%zu)\n", __func__, count);
 
 	if (count > MAX_QTI_PKT_SIZE) {
-		pr_err("Buffer size is too big %d, should be at most %d\n",
+		pr_err("Buffer size is too big %zu, should be at most %d\n",
 			count, MAX_QTI_PKT_SIZE);
 		return -EINVAL;
 	}
@@ -340,7 +341,7 @@ rmnet_ctrl_read(struct file *fp, char __user *buf, size_t count, loff_t *pos)
 	spin_unlock_irqrestore(&port->lock, flags);
 
 	if (cpkt->len > count) {
-		pr_err("cpkt size too big:%d > buf size:%d\n",
+		pr_err("cpkt size too big:%d > buf size:%zu\n",
 				cpkt->len, count);
 		rmnet_ctrl_unlock(&port->read_excl);
 		free_rmnet_ctrl_pkt(cpkt);
@@ -375,7 +376,7 @@ rmnet_ctrl_write(struct file *fp, const char __user *buf, size_t count,
 	unsigned long flags;
 	int ret = 0;
 
-	pr_debug("%s: Enter(%d) port_index=%d", __func__, count, port->index);
+	pr_debug("%s: Enter(%zu) port_index=%d", __func__, count, port->index);
 
 	if (!count) {
 		pr_debug("zero length ctrl pkt\n");
@@ -383,7 +384,7 @@ rmnet_ctrl_write(struct file *fp, const char __user *buf, size_t count,
 	}
 
 	if (count > MAX_QTI_PKT_SIZE) {
-		pr_debug("given pkt size too big:%d > max_pkt_size:%d\n",
+		pr_debug("given pkt size too big:%zu > max_pkt_size:%d\n",
 				count, MAX_QTI_PKT_SIZE);
 		return -EINVAL;
 	}
@@ -436,7 +437,7 @@ rmnet_ctrl_write(struct file *fp, const char __user *buf, size_t count,
 	kfree(kbuf);
 	rmnet_ctrl_unlock(&port->write_excl);
 
-	pr_debug("%s: Exit(%d)", __func__, count);
+	pr_debug("%s: Exit(%zu)", __func__, count);
 
 	return count;
 

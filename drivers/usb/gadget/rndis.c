@@ -1069,7 +1069,7 @@ int rndis_rm_hdr(struct gether *port,
 		u32		msg_len, data_offset, data_len;
 
 		if (skb->len < sizeof *hdr) {
-			pr_err("invalid rndis pkt: skblen:%u hdr_len:%u",
+			pr_err("invalid rndis pkt: skblen:%u hdr_len:%zu",
 					skb->len, sizeof *hdr);
 			dev_kfree_skb_any(skb);
 			return -EINVAL;
@@ -1142,7 +1142,7 @@ static int rndis_proc_show(struct seq_file *m, void *v)
 			 "cable     : %s\n"
 			 "vendor ID : 0x%08X\n"
 			 "vendor    : %s\n"
-			 "ul-max-xfer-size:%d max-xfer-size-rcvd: %d\n"
+			 "ul-max-xfer-size:%zu max-xfer-size-rcvd: %d\n"
 			 "ul-max-pkts-per-xfer:%d max-pkts-per-xfer-rcvd:%d\n"
 			"pkt_alignment_factor:%d\n",
 			 param->confignr, (param->used) ? "y" : "n",

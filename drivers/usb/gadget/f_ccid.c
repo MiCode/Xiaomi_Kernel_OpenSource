@@ -393,7 +393,7 @@ ccid_function_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	ccid_dev->notify_req->context = ccid_dev;
 
 	/* now allocate requests for our endpoints */
-	req = ccid_request_alloc(ccid_dev->out, BULK_OUT_BUFFER_SIZE,
+	req = ccid_request_alloc(ccid_dev->out, (unsigned)BULK_OUT_BUFFER_SIZE,
 							GFP_ATOMIC);
 	if (IS_ERR(req)) {
 		pr_err("%s: unable to allocate memory for out req\n",
@@ -406,8 +406,9 @@ ccid_function_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	bulk_dev->rx_req = req;
 
 	for (i = 0; i < TX_REQ_MAX; i++) {
-		req = ccid_request_alloc(ccid_dev->in, BULK_IN_BUFFER_SIZE,
-								GFP_ATOMIC);
+		req = ccid_request_alloc(ccid_dev->in,
+				(unsigned)BULK_IN_BUFFER_SIZE,
+				GFP_ATOMIC);
 		if (IS_ERR(req)) {
 			pr_err("%s: unable to allocate memory for in req\n",
 					__func__);
@@ -612,10 +613,10 @@ static ssize_t ccid_bulk_read(struct file *fp, char __user *buf,
 	int ret;
 	unsigned long flags;
 
-	pr_debug("ccid_bulk_read(%d)\n", count);
+	pr_debug("ccid_bulk_read(%zu)\n", count);
 
 	if (count > BULK_OUT_BUFFER_SIZE) {
-		pr_err("%s: max_buffer_size:%d given_pkt_size:%d\n",
+		pr_err("%s: max_buffer_size:%zu given_pkt_size:%zu\n",
 				__func__, BULK_OUT_BUFFER_SIZE, count);
 		return -ENOMEM;
 	}
@@ -704,7 +705,7 @@ static ssize_t ccid_bulk_write(struct file *fp, const char __user *buf,
 	int ret;
 	unsigned long flags;
 
-	pr_debug("ccid_bulk_write(%d)\n", count);
+	pr_debug("ccid_bulk_write(%zu)\n", count);
 
 	if (!atomic_read(&ccid_dev->online)) {
 		pr_debug("%s: USB cable not connected\n", __func__);
@@ -716,7 +717,7 @@ static ssize_t ccid_bulk_write(struct file *fp, const char __user *buf,
 		return -ENODEV;
 	}
 	if (count > BULK_IN_BUFFER_SIZE) {
-		pr_err("%s: max_buffer_size:%d given_pkt_size:%d\n",
+		pr_err("%s: max_buffer_size:%zu given_pkt_size:%zu\n",
 				__func__, BULK_IN_BUFFER_SIZE, count);
 		return -ENOMEM;
 	}
