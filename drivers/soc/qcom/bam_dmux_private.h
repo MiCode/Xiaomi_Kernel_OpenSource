@@ -94,7 +94,7 @@ struct bam_ops_if {
 		struct sps_register_event *reg);
 
 	int (*sps_transfer_one_ptr)(struct sps_pipe *h,
-		u32 addr, u32 size,
+		phys_addr_t addr, u32 size,
 		void *user, u32 flags);
 
 	int (*sps_get_iovec_ptr)(struct sps_pipe *h,
