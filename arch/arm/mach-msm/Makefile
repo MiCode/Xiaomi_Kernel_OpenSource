@@ -76,7 +76,6 @@ obj-$(CONFIG_ARCH_MSM8610) += gpiomux-v2.o gpiomux.o
 obj-$(CONFIG_ARCH_APQ8084) += gpiomux-v2.o gpiomux.o
 obj-$(CONFIG_ARCH_FSM9900) += gpiomux-v2.o gpiomux.o
 
-obj-$(CONFIG_MSM_RUN_QUEUE_STATS) += msm_rq_stats.o
 obj-$(CONFIG_MSM_NATIVE_RESTART) += restart.o
 
 obj-$(CONFIG_MSM_CACHE_ERP) += cache_erp.o

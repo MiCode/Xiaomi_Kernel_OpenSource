@@ -871,14 +871,6 @@ config MSM_DLOAD_MODE
 		make the kernel reboot on a kernel panic - that must be
 		enabled via another mechanism.
 
-config MSM_RUN_QUEUE_STATS
-	bool "Enable collection and exporting of MSM Run Queue stats to userspace"
-	default n
-	help
-	 This option enalbes statistics collection on Run Queue. A daemon
-         in user mode, called MPDecision will be using this data to decide
-         on when to switch off/on the other cores.
-
 config MSM_STANDALONE_POWER_COLLAPSE
        bool "Enable standalone power collapse"
        default n
