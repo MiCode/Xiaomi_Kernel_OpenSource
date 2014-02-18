@@ -487,7 +487,7 @@ static void bam_mux_process_data(struct sk_buff *rx_skb)
 	rx_hdr = (struct bam_mux_hdr *)rx_skb->data;
 
 	rx_skb->data = (unsigned char *)(rx_hdr + 1);
-	rx_skb->tail = rx_skb->data + rx_hdr->pkt_len;
+	skb_set_tail_pointer(rx_skb, rx_hdr->pkt_len);
 	rx_skb->len = rx_hdr->pkt_len;
 	rx_skb->truesize = rx_hdr->pkt_len + sizeof(struct sk_buff);
 
@@ -822,7 +822,7 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 	hdr->pad_len = skb->len - (sizeof(struct bam_mux_hdr) + hdr->pkt_len);
 
 	DBG("%s: data %p, tail %p skb len %d pkt len %d pad len %d\n",
-	    __func__, skb->data, skb->tail, skb->len,
+	    __func__, skb->data, skb_tail_pointer(skb), skb->len,
 	    hdr->pkt_len, hdr->pad_len);
 
 	pkt = kmalloc(sizeof(struct tx_pkt_info), GFP_ATOMIC);
