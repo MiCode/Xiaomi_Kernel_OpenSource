@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,25 +13,36 @@
 /dts-v1/;
 
 #include "apq8084-v1.1.dtsi"
+#include "apq8084-old-pwr-grid.dtsi"
 #include "apq8084-cdp.dtsi"
 
 / {
-	model = "Qualcomm APQ 8084 v1.1, MDM9x35 ALT CDP";
+	model = "Qualcomm APQ 8084 v1.1, Old Pwr Grid, SMB1357 CDP";
 	compatible = "qcom,apq8084-cdp", "qcom,apq8084", "qcom,cdp";
-	qcom,board-id = <0x06010101 0>;
+	qcom,board-id = <1 2>,
+			<1 4>,
+			<21 2>,
+			<21 4>;
 };
 
-&soc {
-	/* No smb charger */
-	usb_detect {
-		compatible = "qcom,qpnp-usbdetect";
+&i2c_0 {
+	smb1357_otg_vreg: smb1357-charger@1c {
+		compatible = "qcom,smb1357-charger";
+		reg = <0x1c>;
 		interrupt-parent = <&spmi_bus>;
-		interrupts = <0x0 0xca 0x0>;  /* PMA8084 GPIO 11 */
-		interrupt-names = "vbus_det_irq";
+		interrupts = <0x0 0xcd 0x0>;	/* PMA8084 GPIO 14 */
+		qcom,float-voltage-mv = <4200>;
+		qcom,charging-timeout = <1536>;
+		qcom,recharge-thresh-mv = <200>;
+		qcom,iterm-ma = <100>;
+		regulator-name = "smb1357_otg_vreg";
+		qcom,soft-vfloat-comp-disabled;
+		therm-bias-supply = <&pma8084_lvs2>;
+		qcom,thermal-mitigation = <1500 700 600 0>;
 	};
 };
 
-&mdm1 {
+&mdm0 {
 	interrupt-map = <0 &msmgpio 111 0x3
 			1 &msmgpio 109 0x3
 			2 &msmgpio 113 0x3
@@ -45,7 +56,9 @@
 	qcom,ap2mdm-wakeup-gpio = <&msmgpio 108 0x00>;
 	qcom,ap2mdm-vddmin-gpio = <&msmgpio 114 0x00>;
 	qcom,mdm2ap-vddmin-gpio = <&msmgpio 115 0x00>;
-	qcom,mdm-dual-link;
 	status = "ok";
 };
 
+&usb3 {
+	vbus_dwc3-supply = <&smb1357_otg_vreg>;
+};

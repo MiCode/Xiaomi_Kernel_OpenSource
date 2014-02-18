@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,22 +12,32 @@
 
 /dts-v1/;
 
-#include "apq8084-v1.1.dtsi"
-#include "apq8084-cdp.dtsi"
+#include "apq8084.dtsi"
+#include "apq8084-old-pwr-grid.dtsi"
+#include "apq8084-mtp.dtsi"
 
 / {
-	model = "Qualcomm APQ 8084 v1.1, MDM9x35 ALT CDP";
-	compatible = "qcom,apq8084-cdp", "qcom,apq8084", "qcom,cdp";
-	qcom,board-id = <0x06010101 0>;
+	model = "Qualcomm APQ 8084 v1.0, Old Pwr Grid, SMB1357 MDM9x35 MTP";
+	compatible = "qcom,apq8084-mtp", "qcom,apq8084", "qcom,mtp";
+	qcom,board-id = <8 3>;
 };
 
-&soc {
-	/* No smb charger */
-	usb_detect {
-		compatible = "qcom,qpnp-usbdetect";
+&i2c_0 {
+	smb1357_otg_vreg: smb1357-charger@1c {
+		compatible = "qcom,smb1357-charger";
+		reg = <0x1c>;
 		interrupt-parent = <&spmi_bus>;
-		interrupts = <0x0 0xca 0x0>;  /* PMA8084 GPIO 11 */
-		interrupt-names = "vbus_det_irq";
+		interrupts = <0x0 0xcd 0x0>;	/* PMA8084 GPIO 14 */
+		qcom,float-voltage-mv = <4200>;
+		qcom,charging-timeout = <1536>;
+		qcom,recharge-thresh-mv = <200>;
+		qcom,iterm-ma = <100>;
+		regulator-name = "smb1357_otg_vreg";
+		qcom,soft-vfloat-comp-disabled;
+		therm-bias-supply = <&pma8084_lvs2>;
+		qcom,dc-psy-type = "Wireless";
+		qcom,dc-psy-ma = <1000>;
+		qcom,thermal-mitigation = <1500 700 600 0>;
 	};
 };
 
@@ -49,3 +59,6 @@
 	status = "ok";
 };
 
+&usb3 {
+	vbus_dwc3-supply = <&smb1357_otg_vreg>;
+};

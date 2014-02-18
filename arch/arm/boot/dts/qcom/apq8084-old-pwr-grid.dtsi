@@ -1,0 +1,53 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*
+ * The consumers and constraints of PMA8084 LDO 3 and LDO 4 are swapped on
+ * boards utilizing the old power grid.  This file should be included within
+ * the dts file corresponding to any board utilizing the old power grid.  It
+ * overrides property values found in apq8084.dtsi and apq8084-regulator.dtsi.
+ */
+
+&pma8084_l3 {
+	regulator-min-microvolt = <1225000>;
+	regulator-max-microvolt = <1225000>;
+	qcom,init-voltage = <1225000>;
+	qcom,init-current = <200>;
+};
+
+&pma8084_l4 {
+	regulator-min-microvolt = <1000000>;
+	regulator-max-microvolt = <1000000>;
+	qcom,init-voltage = <1000000>;
+	qcom,init-current = <50>;
+};
+
+&pcie0 {
+	vreg-0.9-supply = <&pma8084_l4>;
+};
+
+&pcie1 {
+	vreg-0.9-supply = <&pma8084_l4>;
+};
+
+&ufsphy1 {
+	vdda-phy-supply = <&pma8084_l4>;
+};
+
+&sataphy0 {
+	vdda-phy-supply = <&pma8084_l4>;
+};
+
+&ufs1 {
+	vccq-supply = <&pma8084_l3>;
+	vccq-max-microamp = <200000>;
+};

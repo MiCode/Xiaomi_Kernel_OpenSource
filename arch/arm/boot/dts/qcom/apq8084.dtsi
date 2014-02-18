@@ -555,7 +555,7 @@
 
 		gdsc-vdd-supply = <&gdsc_pcie_0>;
 		vreg-1.8-supply = <&pma8084_l12>;
-		vreg-0.9-supply = <&pma8084_l4>;
+		vreg-0.9-supply = <&pma8084_l3>;
 		vreg-3.3-supply = <&wlan_vreg>;
 
 		qcom,l1ss-supported;
@@ -611,7 +611,7 @@
 
 		gdsc-vdd-supply = <&gdsc_pcie_1>;
 		vreg-1.8-supply = <&pma8084_l12>;
-		vreg-0.9-supply = <&pma8084_l4>;
+		vreg-0.9-supply = <&pma8084_l3>;
 
 		qcom,msi-gicm-addr = <0xF9041040>;
 		qcom,msi-gicm-base = <0x180>;
@@ -2894,7 +2894,7 @@
 	ufsphy1: ufsphy@0xfc597000 {
 		compatible = "qcom,ufsphy";
 		reg = <0xfc597000 0x87c>;
-		vdda-phy-supply = <&pma8084_l4>;
+		vdda-phy-supply = <&pma8084_l3>;
 		vdda-pll-supply = <&pma8084_l12>;
 		vdda-phy-max-microamp = <50000>;
 		vdda-pll-max-microamp = <1000>;
@@ -2909,10 +2909,10 @@
 
 		ufs-phy = <&ufsphy1>;
 		vcc-supply = <&pma8084_l19>;
-		vccq-supply = <&pma8084_l3>;
+		vccq-supply = <&pma8084_l4>;
 		vccq2-supply = <&pma8084_s4>;
 		vcc-max-microamp = <460000>;
-		vccq-max-microamp = <200000>;
+		vccq-max-microamp = <450000>;
 		vccq2-max-microamp = <145000>;
 
 		clock-names = "core_clk_src", "core_clk", "bus_clk", "iface_clk",
@@ -2968,7 +2968,7 @@
 		reg = <0xfc581000 0x400>, <0xfd4ab20c 0x4>;
 		reg-names = "phy_mem", "phy_sel";
 		#phy-cells = <0>;
-		vdda-phy-supply = <&pma8084_l4>;
+		vdda-phy-supply = <&pma8084_l3>;
 		vdda-pll-supply = <&pma8084_l12>;
 		vdda-phy-max-microamp = <50000>;
 		vdda-pll-max-microamp = <1000>;
