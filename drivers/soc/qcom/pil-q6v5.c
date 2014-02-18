@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,7 @@
 /* QDSP6SS_GFMUX_CTL */
 #define Q6SS_CLK_ENA			BIT(1)
 #define Q6SS_CLK_SRC_SEL_C		BIT(3)
+#define Q6SS_CLK_SRC_SWITCH_CLK_OVR	BIT(8)
 
 /* QDSP6SS_PWR_CTL */
 #define Q6SS_L2DATA_SLP_NRET_N_0	BIT(0)
@@ -252,6 +253,11 @@ static int __pil_q6v5_reset(struct pil_desc *pil)
 	/* Need a different clock source for v5.2.0 */
 	if (drv->qdsp6v5_2_0)
 		val |= Q6SS_CLK_SRC_SEL_C;
+
+	/* force clock on during source switch */
+	if (drv->qdsp6v56)
+		val |= Q6SS_CLK_SRC_SWITCH_CLK_OVR;
+
 	writel_relaxed(val, drv->reg_base + QDSP6SS_GFMUX_CTL);
 
 	/* Start core execution */
@@ -388,6 +394,8 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 						"qcom,pil-q6v55-mss");
 	drv->qdsp6v55 |= of_device_is_compatible(pdev->dev.of_node,
 						"qcom,pil-q6v55-lpass");
+	drv->qdsp6v56 = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,pil-q6v56-mss");
 
 	drv->xo = devm_clk_get(&pdev->dev, "xo");
 	if (IS_ERR(drv->xo))

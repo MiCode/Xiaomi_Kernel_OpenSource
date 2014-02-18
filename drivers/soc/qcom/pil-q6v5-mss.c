@@ -372,6 +372,7 @@ static int pil_mss_driver_exit(struct platform_device *pdev)
 static struct of_device_id mss_match_table[] = {
 	{ .compatible = "qcom,pil-q6v5-mss" },
 	{ .compatible = "qcom,pil-q6v55-mss" },
+	{ .compatible = "qcom,pil-q6v56-mss" },
 	{}
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,6 +43,7 @@ struct q6v5_data {
 	void *mba_virt;
 	bool qdsp6v55;
 	bool qdsp6v5_2_0;
+	bool qdsp6v56;
 };
 
 int pil_q6v5_make_proxy_votes(struct pil_desc *pil);
