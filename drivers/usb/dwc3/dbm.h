@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -84,6 +84,12 @@ struct dbm {
 	/* Enable DBM */
 	void (*enable)(void);
 
+	/* Reset a USB DBM ep */
+	int (*ep_soft_reset)(u8 dbm_ep, bool enter_reset);
+
+	/* Check whether the USB DBM requires ep reset after lpm suspend */
+	bool (*reset_ep_after_lpm)(void);
+
 };
 
 struct dbm *usb_get_dbm_by_phandle(struct device *dev,
@@ -92,23 +98,30 @@ int usb_add_dbm(struct dbm *x);
 
 
 
-#define CHECK_DBM_PTR_INT(dbm) do {					   \
-	if (!(dbm)) {							   \
+#define CHECK_DBM_PTR_INT(dbm, func) do {				   \
+	if (!(dbm) || !((dbm)->func)) {					   \
 		pr_err("Can't call %s, dbp pointer == NULL\n", __func__);  \
 		return -EPERM;						   \
 	}								   \
 } while (0)
 
-#define CHECK_DBM_PTR_VOID(dbm) do {				   \
-	if (!(dbm)) {							   \
+#define CHECK_DBM_PTR_VOID(dbm, func) do {				   \
+	if (!(dbm) || !((dbm)->func)) {					   \
 		pr_err("Can't call %s, dbp pointer == NULL\n", __func__);  \
 		return;							   \
 	}								   \
 } while (0)
 
+#define CHECK_DBM_PTR_BOOL(dbm, func, ret) do {				   \
+	if (!(dbm) || !((dbm)->func)) {					   \
+		pr_err("Can't call %s, dbp pointer == NULL\n", __func__);  \
+		return ret;						   \
+	}								   \
+} while (0)
+
 static inline int dbm_soft_reset(struct dbm *dbm, bool enter_reset)
 {
-	CHECK_DBM_PTR_INT(dbm);
+	CHECK_DBM_PTR_INT(dbm, soft_reset);
 	return dbm->soft_reset(enter_reset);
 }
 
@@ -116,7 +129,7 @@ static inline int dbm_ep_config(struct dbm  *dbm, u8 usb_ep, u8 bam_pipe,
 			bool producer, bool disable_wb, bool internal_mem,
 			bool ioc)
 {
-	CHECK_DBM_PTR_INT(dbm);
+	CHECK_DBM_PTR_INT(dbm, ep_config);
 	return dbm->ep_config(usb_ep, bam_pipe, producer, disable_wb,
 				  internal_mem, ioc);
 
@@ -124,41 +137,55 @@ static inline int dbm_ep_config(struct dbm  *dbm, u8 usb_ep, u8 bam_pipe,
 
 static inline int dbm_ep_unconfig(struct dbm *dbm, u8 usb_ep)
 {
-	CHECK_DBM_PTR_INT(dbm);
+	CHECK_DBM_PTR_INT(dbm, ep_unconfig);
 	return dbm->ep_unconfig(usb_ep);
 }
 
 static inline int dbm_get_num_of_eps_configured(struct dbm *dbm)
 {
-	CHECK_DBM_PTR_INT(dbm);
+	CHECK_DBM_PTR_INT(dbm, get_num_of_eps_configured);
 	return dbm->get_num_of_eps_configured();
 }
 
 static inline int dbm_event_buffer_config(struct dbm *dbm, u32 addr_lo,
 					u32 addr_hi, int size)
 {
-	CHECK_DBM_PTR_INT(dbm);
+	CHECK_DBM_PTR_INT(dbm, event_buffer_config);
 	return dbm->event_buffer_config(addr_lo, addr_hi, size);
 }
 
 static inline int dbm_data_fifo_config(struct dbm *dbm, u8 dep_num,
 				phys_addr_t addr, u32 size, u8 dst_pipe_idx)
 {
-	CHECK_DBM_PTR_INT(dbm);
+	CHECK_DBM_PTR_INT(dbm, data_fifo_config);
 	return dbm->data_fifo_config(dep_num, addr, size, dst_pipe_idx);
 }
 
 static inline void dbm_set_speed(struct dbm *dbm, bool speed)
 {
-	CHECK_DBM_PTR_VOID(dbm);
+	CHECK_DBM_PTR_VOID(dbm, set_speed);
 	dbm->set_speed(speed);
 }
 
 static inline void dbm_enable(struct dbm *dbm)
 {
-	CHECK_DBM_PTR_VOID(dbm);
+	CHECK_DBM_PTR_VOID(dbm, enable);
 	dbm->enable();
 }
 
+static inline int dbm_ep_soft_reset(struct dbm *dbm, u8 dbm_ep,
+					bool enter_reset)
+{
+	CHECK_DBM_PTR_INT(dbm, ep_soft_reset);
+	return dbm->ep_soft_reset(dbm_ep, enter_reset);
+}
+
+
+static inline bool dbm_reset_ep_after_lpm(struct dbm *dbm)
+{
+	/* Default (backward compatible) setting is false */
+	CHECK_DBM_PTR_BOOL(dbm, reset_ep_after_lpm, false);
+	return dbm->reset_ep_after_lpm();
+}
 
 #endif /* __DBM_H */

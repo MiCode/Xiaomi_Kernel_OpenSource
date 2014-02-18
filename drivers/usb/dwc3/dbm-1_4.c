@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -147,7 +147,7 @@ static int soft_reset(bool reset)
  * @enter_reset - should we enter a reset state or get out of it.
  *
  */
-static int dbm_ep_soft_reset(u8 dbm_ep, bool enter_reset)
+static int ep_soft_reset(u8 dbm_ep, bool enter_reset)
 {
 	pr_debug("%s\n", __func__);
 
@@ -196,7 +196,7 @@ static int ep_config(u8 usb_ep, u8 bam_pipe, bool producer, bool disable_wb,
 	}
 
 	/* First, reset the dbm endpoint */
-	dbm_ep_soft_reset(dbm_ep, 0);
+	ep_soft_reset(dbm_ep, 0);
 
 	/* Set ioc bit for dbm_ep if needed */
 	msm_dbm_write_reg_field(dbm_data->base, DBM_DBG_CNFG,
@@ -248,13 +248,13 @@ static int ep_unconfig(u8 usb_ep)
 	msm_dbm_write_reg(dbm_data->base, DBM_EP_CFG(dbm_ep), data);
 
 	/* Reset the dbm endpoint */
-	dbm_ep_soft_reset(dbm_ep, true);
+	ep_soft_reset(dbm_ep, true);
 	/*
 	 * 10 usec delay is required before deasserting DBM endpoint reset
 	 * according to hardware programming guide.
 	 */
 	udelay(10);
-	dbm_ep_soft_reset(dbm_ep, false);
+	ep_soft_reset(dbm_ep, false);
 
 	return 0;
 }
@@ -336,6 +336,11 @@ static void set_speed(bool speed)
 	msm_dbm_write_reg(dbm_data->base, DBM_GEN_CFG, speed >> 2);
 }
 
+static bool reset_ep_after_lpm(void)
+{
+	return false;
+}
+
 static void enable(void) {}
 
 
@@ -384,6 +389,8 @@ static int msm_dbm_probe(struct platform_device *pdev)
 	dbm->data_fifo_config = data_fifo_config;
 	dbm->set_speed = set_speed;
 	dbm->enable = enable;
+	dbm->ep_soft_reset = ep_soft_reset;
+	dbm->reset_ep_after_lpm = reset_ep_after_lpm;
 
 	platform_set_drvdata(pdev, dbm);
 
