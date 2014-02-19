@@ -37,6 +37,8 @@ Optional properties:
 - qcom,gpio-stop-ack: GPIO used by the modem to ack force stop or a graceful stop
 		      to the apps.
 - qcom,restart-group: List of subsystems that will need to restart together.
+- qcom,mba-image-is-not-elf:	Boolean- Present if MBA image doesnt use the ELF
+				format.
 
 Example:
 	qcom,mss@fc880000 {
@@ -56,6 +58,7 @@ Example:
 		qcom,is-not-loadable;
 		qcom,firmware-name = "mba";
 		qcom,pil-self-auth;
+		qcom,mba-image-is-not-elf;
 
 		/* GPIO inputs from mss */
 		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;

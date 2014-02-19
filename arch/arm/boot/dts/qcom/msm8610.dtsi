@@ -880,6 +880,7 @@
 		qcom,vdd_pll = <1800000>;
 		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
+		qcom,mba-image-is-not-elf;
 
 		/* GPIO inputs from mss */
 		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;

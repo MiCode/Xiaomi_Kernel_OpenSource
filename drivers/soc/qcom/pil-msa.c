@@ -311,19 +311,21 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 	const struct firmware *fw;
+	char fw_name_legacy[10] = "mba.b00";
+	char fw_name[10] = "mba.mbn";
+	char *fw_name_p;
 	void *mba_virt;
 	dma_addr_t mba_phys;
 	int ret, count;
 	const u8 *data;
 
+	fw_name_p = drv->non_elf_image ? fw_name_legacy : fw_name;
 	/* Load and authenticate mba image */
-	ret = request_firmware(&fw, "mba.mbn", pil->dev);
+	ret = request_firmware(&fw, fw_name_p, pil->dev);
 	if (ret) {
-		ret = request_firmware(&fw, "mba.b00", pil->dev);
-		if (ret) {
-			dev_err(pil->dev, "Failed to locate mba.b00/.mbn\n");
-			goto err_request_firmware;
-		}
+		dev_err(pil->dev, "Failed to locate %s\n",
+						fw_name_p);
+		goto err_request_firmware;
 	}
 
 	mba_virt = dma_alloc_coherent(pil->dev, MBA_SIZE, &mba_phys,
