@@ -2480,7 +2480,7 @@ static ssize_t _wake_timeout_show(struct device *dev,
 					struct device_attribute *attr,
 					char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%d\n", _wake_timeout);
+	return snprintf(buf, PAGE_SIZE, "%u\n", _wake_timeout);
 }
 
 #define FT_DEVICE_ATTR(name) \
