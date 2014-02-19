@@ -61,6 +61,8 @@
 #define A3XX_RBBM_AHB_CTL0 0x020
 #define A3XX_RBBM_AHB_CTL1 0x021
 #define A3XX_RBBM_AHB_CMD 0x022
+#define A3XX_RBBM_AHB_ME_SPLIT_STATUS 0x25
+#define A3XX_RBBM_AHB_PFP_SPLIT_STATUS 0x26
 #define A3XX_RBBM_AHB_ERROR_STATUS 0x027
 #define A3XX_RBBM_GPR0_CTL 0x02E
 /* This the same register as on A2XX, just in a different place */
