@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -432,6 +432,7 @@ enum a4xx_rb_perfctr_rb_sel {
 #define A4XX_CP_PROTECT_CTRL		0x250
 #define A4XX_CP_ME_STATUS		0x4D1
 #define A4XX_CP_WFI_PEND_CTR		0x4d2
+#define A4XX_CP_HW_FAULT		0x4D8
 #define A4XX_CP_PERFCTR_CP_SEL_0	0x500
 #define A4XX_CP_PERFCTR_CP_SEL_1	0x501
 #define A4XX_CP_SCRATCH_REG0		0x578
