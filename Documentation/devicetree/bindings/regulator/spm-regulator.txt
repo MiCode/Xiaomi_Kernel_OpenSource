@@ -1,4 +1,4 @@
-Qualcomm SPM Regulators
+Qualcomm Technologies SPM Regulators
 
 spm-regulator is a regulator device which supports PMIC processor supply
 regulators via the SPM module.
