@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,9 +15,43 @@
 
 #include <linux/types.h>
 
+enum msm_pcie_config {
+	MSM_PCIE_CONFIG_INVALID = 0,
+	MSM_PCIE_CONFIG_NO_CFG_RESTORE = 0x1,
+	MSM_PCIE_CONFIG_LINKDOWN = 0x2,
+};
+
 enum msm_pcie_pm_opt {
 	MSM_PCIE_SUSPEND,
 	MSM_PCIE_RESUME
+};
+
+enum msm_pcie_event {
+	MSM_PCIE_EVENT_INVALID = 0,
+	MSM_PCIE_EVENT_LINKDOWN = 0x1,
+	MSM_PCIE_EVENT_LINKUP = 0x2,
+};
+
+enum msm_pcie_trigger {
+	MSM_PCIE_TRIGGER_CALLBACK,
+	MSM_PCIE_TRIGGER_COMPLETION,
+};
+
+struct msm_pcie_notify {
+	enum msm_pcie_event event;
+	void *user;
+	void *data;
+	u32 options;
+};
+
+struct msm_pcie_register_event {
+	u32 events;
+	void *user;
+	enum msm_pcie_trigger mode;
+	void (*callback)(struct msm_pcie_notify *notify);
+	struct msm_pcie_notify notify;
+	struct completion *completion;
+	u32 options;
 };
 
 /**
@@ -36,4 +70,25 @@ enum msm_pcie_pm_opt {
 int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 			void *data, u32 options);
 
+/**
+ * msm_pcie_register_event - register an event with PCIe bus driver.
+ * @reg:	event structure
+ *
+ * This function gives PCIe endpoint device drivers an option to register
+ * events with PCIe bus driver.
+ *
+ * Return: 0 on success, negative value on error
+ */
+int msm_pcie_register_event(struct msm_pcie_register_event *reg);
+
+/**
+ * msm_pcie_deregister_event - deregister an event with PCIe bus driver.
+ * @reg:	event structure
+ *
+ * This function gives PCIe endpoint device drivers an option to deregister
+ * events with PCIe bus driver.
+ *
+ * Return: 0 on success, negative value on error
+ */
+int msm_pcie_deregister_event(struct msm_pcie_register_event *reg);
 #endif
