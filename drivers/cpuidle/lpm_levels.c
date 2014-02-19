@@ -784,14 +784,19 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 
 void lpm_cpu_hotplug_enter(unsigned int cpu)
 {
-	int i;
-	for (i = sys_state.num_cpu_levels - 1; i >= 0; i--) {
-		bool allow = msm_pm_sleep_mode_allow(cpu,
-				sys_state.cpu_level[i].mode, false);
-		if (allow)
-			msm_cpu_pm_enter_sleep(sys_state.cpu_level[i].mode,
-					false);
-	}
+	enum msm_pm_sleep_mode mode = MSM_PM_SLEEP_MODE_NR;
+
+	if (msm_pm_sleep_mode_allow(cpu, MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
+				false))
+		mode = MSM_PM_SLEEP_MODE_POWER_COLLAPSE;
+	else if (msm_pm_sleep_mode_allow(cpu,
+			MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE, false))
+		mode = MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE;
+	else
+		__WARN_printf("Power collapse modes not enabled for hotpug\n");
+
+	if (mode < MSM_PM_SLEEP_MODE_NR)
+		msm_cpu_pm_enter_sleep(mode, false);
 }
 
 static int lpm_suspend_enter(suspend_state_t state)
