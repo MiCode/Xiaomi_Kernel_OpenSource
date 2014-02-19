@@ -27,6 +27,7 @@
 #include <linux/cpu_pm.h>
 #include <linux/remote_spinlock.h>
 #include <linux/msm_remote_spinlock.h>
+#include <linux/msm-bus.h>
 #include <soc/qcom/avs.h>
 #include <soc/qcom/spm.h>
 #include <soc/qcom/pm.h>
@@ -37,7 +38,6 @@
 #ifdef CONFIG_VFP
 #include <asm/vfp.h>
 #endif
-#include <mach/msm_bus.h>
 #include <soc/qcom/jtag.h>
 #include "idle.h"
 #include "pm-boot.h"
