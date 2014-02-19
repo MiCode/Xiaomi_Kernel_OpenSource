@@ -188,6 +188,7 @@ static DEFINE_SPINLOCK(reg_spinlock);
 
 /* max 20mhz channel count */
 #define WCNSS_MAX_CH_NUM			45
+#define WCNSS_MAX_PIL_RETRY			3
 
 #define VALID_VERSION(version) \
 	((strncmp(version, "INVALID", WCNSS_VERSION_LEN)) ? 1 : 0)
@@ -2049,6 +2050,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 	unsigned long wcnss_phys_addr;
 	int size = 0;
 	struct resource *res;
+	int pil_retry = 0;
 	int has_pronto_hw = of_property_read_bool(pdev->dev.of_node,
 									"qcom,has-pronto-hw");
 
@@ -2240,12 +2242,17 @@ wcnss_trigger_config(struct platform_device *pdev)
 		penv->fw_vbatt_state = WCNSS_CONFIG_UNSPECIFIED;
 	}
 
-	/* trigger initialization of the WCNSS */
-	penv->pil = subsystem_get(WCNSS_PIL_DEVICE);
-	if (IS_ERR(penv->pil)) {
-		dev_err(&pdev->dev, "Peripheral Loader failed on WCNSS.\n");
-		ret = PTR_ERR(penv->pil);
-		wcnss_pronto_log_debug_regs();
+	do {
+		/* trigger initialization of the WCNSS */
+		penv->pil = subsystem_get(WCNSS_PIL_DEVICE);
+		if (IS_ERR(penv->pil)) {
+			dev_err(&pdev->dev, "Peripheral Loader failed on WCNSS.\n");
+			ret = PTR_ERR(penv->pil);
+			wcnss_pronto_log_debug_regs();
+		}
+	} while (pil_retry++ < WCNSS_MAX_PIL_RETRY && IS_ERR(penv->pil));
+
+	if (pil_retry >= WCNSS_MAX_PIL_RETRY) {
 		penv->pil = NULL;
 		goto fail_pil;
 	}
