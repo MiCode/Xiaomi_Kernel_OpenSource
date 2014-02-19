@@ -30,6 +30,7 @@
 #include <linux/regulator/onsemi-ncp6335d.h>
 #include <linux/regulator/qpnp-regulator.h>
 #include <linux/regulator/rpm-smd-regulator.h>
+#include <linux/regulator/spm-regulator.h>
 #include <linux/clk/msm-clk-provider.h>
 #include <asm/mach/map.h>
 #include <asm/mach/arch.h>
@@ -50,7 +51,6 @@
 #include "board-dt.h"
 #include "clock.h"
 #include "platsmp.h"
-#include "spm-regulator.h"
 
 static struct of_dev_auxdata msm_hsic_host_adata[] = {
 	OF_DEV_AUXDATA("qcom,hsic-host", 0xF9A00000, "msm_hsic_host", NULL),

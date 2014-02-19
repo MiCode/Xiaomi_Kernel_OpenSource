@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,13 +10,13 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _ARCH_ARM_MACH_MSM_SPM_REGULATOR_H
-#define _ARCH_ARM_MACH_MSM_SPM_REGULATOR_H
+#ifndef _LINUX_REGULATOR_SPM_H
+#define _LINUX_REGULATOR_SPM_H
 
 #include <linux/err.h>
 #include <linux/init.h>
 
-#ifdef CONFIG_MSM_SPM_REGULATOR
+#ifdef CONFIG_REGULATOR_SPM
 int __init spm_regulator_init(void);
 #else
 static inline int __init spm_regulator_init(void) { return -ENODEV; }
