@@ -1288,7 +1288,6 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	kgsl_cff_core_idle(device);
 
 done:
-	device->pwrctrl.irq_last = 0;
 	trace_kgsl_issueibcmds(device, context->id, cmdbatch,
 		cmdbatch->timestamp, cmdbatch->flags, ret,
 		drawctxt->type);
