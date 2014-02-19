@@ -487,6 +487,10 @@
 		compatible = "qcom,msm-lsm-client";
 	};
 
+	qti,msm-pcm-loopback {
+		compatible = "qti,msm-pcm-loopback";
+	};
+
 	qcom,msm-dai-q6 {
 		compatible = "qcom,msm-dai-q6";
 		qcom,msm-dai-q6-sb-0-rx {
