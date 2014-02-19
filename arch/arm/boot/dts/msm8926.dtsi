@@ -170,3 +170,9 @@
 	hsic,strobe-gpio = <&msmgpio 119 0x00>;
 	hsic,data-gpio = <&msmgpio 120 0x00>;
 };
+
+&usb_otg {
+	/delete-property/ qcom,hsusb-otg-disable-reset;
+	qcom,ahb-async-bridge-bypass;
+};
+
