@@ -66,7 +66,8 @@
 			/* 0-3 for sdc1 4-6 for sdc2 */
 			qcom,num-pins = <7>;
 			/* Order of pins */
-			/* CLK -> 0, CMD -> 1, DATA -> 2, RCLK -> 3*/
+			/* SDC1: CLK -> 0, CMD -> 1, DATA -> 2, RCLK -> 3 */
+			/* SDC2: CLK -> 4, CMD -> 5, DATA -> 6 */
 			#qcom,pin-cells = <1>;
 		};
 
@@ -167,4 +168,3 @@
 		};
 	};
 };
-

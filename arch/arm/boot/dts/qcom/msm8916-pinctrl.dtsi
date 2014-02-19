@@ -61,10 +61,11 @@
 		/* SDC pin type */
 		sdc: sdc {
 			qcom,pin-type-sdc;
-			/* 0-2 for sdc1 3-5 for sdc2 */
-			qcom,num-pins = <6>;
+			/* 0-2 for sdc1 4-6 for sdc2 */
+			qcom,num-pins = <7>;
 			/* Order of pins */
-			/* CLK -> 0, CMD -> 1, DATA -> 2 */
+			/* SDC1: CLK -> 0, CMD -> 1, DATA -> 2 */
+			/* SDC2: CLK -> 4, CMD -> 5, DATA -> 6 */
 			#qcom,pin-cells = <1>;
 		};
 
@@ -111,7 +112,7 @@
 		};
 
 		pmx_sdc2_clk {
-			qcom,pins = <&sdc 3>;
+			qcom,pins = <&sdc 4>;
 			qcom,num-grp-pins = <1>;
 			label = "sdc2-clk";
 			sdc2_clk_on: clk_on {
@@ -125,7 +126,7 @@
 		};
 
 		pmx_sdc2_cmd {
-			qcom,pins = <&sdc 4>;
+			qcom,pins = <&sdc 5>;
 			qcom,num-grp-pins = <1>;
 			label = "sdc2-cmd";
 			sdc2_cmd_on: cmd_on {
@@ -139,7 +140,7 @@
 		};
 
 		pmx_sdc2_data {
-			qcom,pins = <&sdc 5>;
+			qcom,pins = <&sdc 6>;
 			qcom,num-grp-pins = <1>;
 			label = "sdc2-data";
 			sdc2_data_on: data_on {
