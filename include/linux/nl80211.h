@@ -615,6 +615,28 @@
  * @NL80211_CMD_CRIT_PROTOCOL_STOP: Indicates the connection reliability can
  *	return back to normal.
  *
+ * @NL80211_CMD_GET_COALESCE: Get currently supported coalesce rules.
+ * @NL80211_CMD_SET_COALESCE: Configure coalesce rules or clear existing rules.
+ *
+ * @NL80211_CMD_CHANNEL_SWITCH: Perform a channel switch by announcing the
+ *	the new channel information (Channel Switch Announcement - CSA)
+ *	in the beacon for some time (as defined in the
+ *	%NL80211_ATTR_CH_SWITCH_COUNT parameter) and then change to the
+ *	new channel. Userspace provides the new channel information (using
+ *	%NL80211_ATTR_WIPHY_FREQ and the attributes determining channel
+ *	width). %NL80211_ATTR_CH_SWITCH_BLOCK_TX may be supplied to inform
+ *	other station that transmission must be blocked until the channel
+ *	switch is complete.
+ *
+ * @NL80211_CMD_VENDOR: Vendor-specified command/event. The command is specified
+ *	by the %NL80211_ATTR_VENDOR_ID attribute and a sub-command in
+ *	%NL80211_ATTR_VENDOR_SUBCMD. Parameter(s) can be transported in
+ *	%NL80211_ATTR_VENDOR_DATA.
+ *	For feature advertisement, the %NL80211_ATTR_VENDOR_DATA attribute is
+ *	used in the wiphy data as a nested attribute containing descriptions
+ *	(&struct nl80211_vendor_cmd_info) of the supported vendor commands.
+ *	This may also be sent as an event with the same attributes.
+ *
  * @NL80211_CMD_MAX: highest used command number
  * @__NL80211_CMD_AFTER_LAST: internal use
  */
@@ -777,6 +799,13 @@ enum nl80211_commands {
 
 	NL80211_CMD_CRIT_PROTOCOL_START,
 	NL80211_CMD_CRIT_PROTOCOL_STOP,
+
+	NL80211_CMD_GET_COALESCE,
+	NL80211_CMD_SET_COALESCE,
+
+	NL80211_CMD_CHANNEL_SWITCH,
+
+	NL80211_CMD_VENDOR,
 
 	/* add new commands above here */
 
@@ -1402,6 +1431,19 @@ enum nl80211_commands {
  * @NL80211_ATTR_STA_SUPPORTED_OPER_CLASSES: array of supported
  *      supported operating classes.
  *
+ * @NL80211_ATTR_HANDLE_DFS: A flag indicating whether user space
+ *	controls DFS operation in IBSS mode. If the flag is included in
+ *	%NL80211_CMD_JOIN_IBSS request, the driver will allow use of DFS
+ *	channels and reports radar events to userspace. Userspace is required
+ *	to react to radar events, e.g. initiate a channel switch or leave the
+ *	IBSS network.
+ *
+ * @NL80211_ATTR_VENDOR_ID: The vendor ID, either a 24-bit OUI or, if
+ *	%NL80211_VENDOR_ID_IS_LINUX is set, a special Linux ID (not used yet)
+ * @NL80211_ATTR_VENDOR_SUBCMD: vendor sub-command
+ * @NL80211_ATTR_VENDOR_DATA: data for the vendor command, if any; this
+ *	attribute is also used for vendor command feature advertisement
+ *
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
  */
@@ -1715,6 +1757,18 @@ enum nl80211_attrs {
 	NL80211_ATTR_STA_SUPPORTED_CHANNELS,
 
 	NL80211_ATTR_STA_SUPPORTED_OPER_CLASSES,
+
+	NL80211_ATTR_HANDLE_DFS,
+
+	NL80211_ATTR_SUPPORT_5_MHZ,
+	NL80211_ATTR_SUPPORT_10_MHZ,
+
+	NL80211_ATTR_OPMODE_NOTIF,
+
+	NL80211_ATTR_VENDOR_ID,
+	NL80211_ATTR_VENDOR_SUBCMD,
+	NL80211_ATTR_VENDOR_DATA,
+
 	/* add attributes here, update the policy in nl80211.c */
 
 	__NL80211_ATTR_AFTER_LAST,
@@ -3177,5 +3231,25 @@ enum nl80211_crit_proto_id {
 
 /* maximum duration for critical protocol measures */
 #define NL80211_CRIT_PROTO_MAX_DURATION		5000 /* msec */
+
+/*
+ * If this flag is unset, the lower 24 bits are an OUI, if set
+ * a Linux nl80211 vendor ID is used (no such IDs are allocated
+ * yet, so that's not valid so far)
+ */
+#define NL80211_VENDOR_ID_IS_LINUX	0x80000000
+
+/**
+ * struct nl80211_vendor_cmd_info - vendor command data
+ * @vendor_id: If the %NL80211_VENDOR_ID_IS_LINUX flag is clear, then the
+ *	value is a 24-bit OUI; if it is set then a separately allocated ID
+ *	may be used, but no such IDs are allocated yet. New IDs should be
+ *	added to this file when needed.
+ * @subcmd: sub-command ID for the command
+ */
+struct nl80211_vendor_cmd_info {
+	__u32 vendor_id;
+	__u32 subcmd;
+};
 
 #endif /* __LINUX_NL80211_H */
