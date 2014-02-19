@@ -35,6 +35,8 @@ config ARCH_MSM8974
 	select USB_ARCH_HAS_XHCI
 	select ENABLE_VMALLOC_SAVINGS
 	select MSM_IRQ
+	select PINCTRL
+	select PINCTRL_MSM_TLMM_V3
 
 config ARCH_APQ8084
 	bool "APQ8084"
