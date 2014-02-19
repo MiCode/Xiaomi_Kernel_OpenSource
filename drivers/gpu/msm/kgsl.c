@@ -14,6 +14,7 @@
 #include <linux/fb.h>
 #include <linux/file.h>
 #include <linux/fs.h>
+#include <linux/fdtable.h>
 #include <linux/list.h>
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
@@ -68,6 +69,11 @@ static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry);
 static void
 kgsl_put_process_private(struct kgsl_device *device,
 			 struct kgsl_process_private *private);
+
+static int kgsl_setup_dma_buf(struct kgsl_mem_entry *entry,
+				struct kgsl_pagetable *pagetable,
+				struct kgsl_device *device,
+				struct dma_buf *dmabuf);
 
 static int kgsl_memfree_hist_init(void)
 {
@@ -2550,16 +2556,50 @@ out:
 	return ret;
 }
 
+static int match_file(const void *p, struct file *file, unsigned int fd)
+{
+	/*
+	 * We must return fd + 1 because iterate_fd stops searching on
+	 * non-zero return, but 0 is a valid fd.
+	 */
+	return (p == file) ? (fd + 1) : 0;
+}
+
 static int kgsl_setup_useraddr(struct kgsl_mem_entry *entry,
 			      struct kgsl_pagetable *pagetable,
-			      void *data)
+			      void *data,
+			      struct kgsl_device *device)
 {
 	struct kgsl_map_user_mem *param = data;
+	struct dma_buf *dmabuf = NULL;
+	struct vm_area_struct *vma = NULL;
 
 	if (param->offset != 0 || param->hostptr == 0
 		|| !KGSL_IS_PAGE_ALIGNED(param->hostptr)
 		|| !KGSL_IS_PAGE_ALIGNED(param->len))
 		return -EINVAL;
+
+	/*
+	 * Find the VMA containing this pointer and figure out if it
+	 * is a dma-buf.
+	 */
+	down_read(&current->mm->mmap_sem);
+	vma = find_vma(current->mm, param->hostptr);
+	if (vma && vma->vm_file) {
+		/* Look for the fd that matches this the vma file */
+		int fd = iterate_fd(current->files, 0,
+				match_file, vma->vm_file);
+		if (fd != 0)
+			dmabuf = dma_buf_get(fd - 1);
+	}
+	up_read(&current->mm->mmap_sem);
+
+	if (!IS_ERR_OR_NULL(dmabuf)) {
+		int ret = kgsl_setup_dma_buf(entry, pagetable, device, dmabuf);
+		if (ret)
+			dma_buf_put(dmabuf);
+		return ret;
+	}
 
 	entry->memdesc.pagetable = pagetable;
 	entry->memdesc.size = param->len;
@@ -2612,31 +2652,20 @@ static int kgsl_setup_ashmem(struct kgsl_mem_entry *entry,
 #endif
 
 #ifdef CONFIG_DMA_SHARED_BUFFER
-static int kgsl_setup_ion(struct kgsl_mem_entry *entry,
-		struct kgsl_pagetable *pagetable, void *data,
-		struct kgsl_device *device)
+static int kgsl_setup_dma_buf(struct kgsl_mem_entry *entry,
+				struct kgsl_pagetable *pagetable,
+				struct kgsl_device *device,
+				struct dma_buf *dmabuf)
 {
+	int ret = 0;
 	struct scatterlist *s;
 	struct sg_table *sg_table;
-	struct kgsl_map_user_mem *param = data;
-	int fd = param->fd;
-	struct dma_buf *dmabuf;
 	struct dma_buf_attachment *attach = NULL;
 	struct kgsl_dma_buf_meta *meta;
-	int ret = 0;
-
-	if (!param->len)
-		return -EINVAL;
 
 	meta = kzalloc(sizeof(*meta), GFP_KERNEL);
 	if (!meta)
 		return -ENOMEM;
-
-	dmabuf = dma_buf_get(fd);
-	if (IS_ERR_OR_NULL(dmabuf)) {
-		ret = PTR_ERR(dmabuf);
-		goto out;
-	}
 
 	attach = dma_buf_attach(dmabuf, device->dev);
 	if (IS_ERR_OR_NULL(attach)) {
@@ -2681,15 +2710,46 @@ out:
 		if (!IS_ERR_OR_NULL(attach))
 			dma_buf_detach(dmabuf, attach);
 
-		if (!IS_ERR_OR_NULL(dmabuf))
-			dma_buf_put(dmabuf);
 
 		kfree(meta);
 	}
 
 	return ret;
 }
+
+static int kgsl_setup_ion(struct kgsl_mem_entry *entry,
+		struct kgsl_pagetable *pagetable, void *data,
+		struct kgsl_device *device)
+{
+	int ret;
+	struct kgsl_map_user_mem *param = data;
+	int fd = param->fd;
+	struct dma_buf *dmabuf;
+
+	if (!param->len)
+		return -EINVAL;
+
+	dmabuf = dma_buf_get(fd);
+	if (IS_ERR_OR_NULL(dmabuf)) {
+		ret = PTR_ERR(dmabuf);
+		return ret ? ret : -EINVAL;
+	}
+	ret = kgsl_setup_dma_buf(entry, pagetable, device, dmabuf);
+	if (ret)
+		dma_buf_put(dmabuf);
+	return ret;
+}
+
 #else
+
+static int kgsl_setup_dma_buf(struct kgsl_mem_entry *entry,
+				struct kgsl_pagetable *pagetable,
+				struct kgsl_device *device,
+				struct dma_buf *dmabuf)
+{
+	return -EINVAL;
+}
+
 static int kgsl_setup_ion(struct kgsl_mem_entry *entry,
 		struct kgsl_pagetable *pagetable, void *data,
 		struct kgsl_device *device)
@@ -2760,7 +2820,8 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 		if (param->hostptr == 0)
 			break;
 
-		result = kgsl_setup_useraddr(entry, private->pagetable, data);
+		result = kgsl_setup_useraddr(entry, private->pagetable, data,
+				dev_priv->device);
 		break;
 
 	case KGSL_MEM_ENTRY_ASHMEM:
