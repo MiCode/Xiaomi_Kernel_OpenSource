@@ -137,10 +137,10 @@ void a4xx_rbbm_debug_bus_read(struct kgsl_device *device,
 	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_SEL_C, reg);
 	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_SEL_D, reg);
 
-	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_IDX, 0x100);
+	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_IDX, 0x3020000);
 	kgsl_regread(device, A4XX_RBBM_CFG_DEBBUS_TRACE_BUF4, val);
 	val++;
-	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_IDX, 0x302);
+	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_IDX, 0x1000000);
 	kgsl_regread(device, A4XX_RBBM_CFG_DEBBUS_TRACE_BUF4, val);
 }
 
