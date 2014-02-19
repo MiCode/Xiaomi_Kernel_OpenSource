@@ -3115,9 +3115,13 @@ static void a3xx_err_callback(struct adreno_device *adreno_dev, int bit)
 		KGSL_DRV_CRIT_RATELIMIT(device,
 				"ringbuffer reserved bit error interrupt\n");
 		break;
-	case A3XX_INT_CP_HW_FAULT:
-		KGSL_DRV_CRIT(device, "ringbuffer hardware fault\n");
+	case A3XX_INT_CP_HW_FAULT: {
+		unsigned int reg;
+		adreno_readreg(adreno_dev, ADRENO_REG_CP_HW_FAULT, &reg);
+		KGSL_DRV_CRIT_RATELIMIT(device,
+			"CP | Ringbuffer HW fault | status=%x\n", reg);
 		break;
+	}
 	case A3XX_INT_CP_REG_PROTECT_FAULT: {
 		unsigned int reg;
 		kgsl_regread(device, A3XX_CP_PROTECT_STATUS, &reg);
@@ -4569,6 +4573,7 @@ static unsigned int a3xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_TIMESTAMP, REG_CP_TIMESTAMP),
 	ADRENO_REG_DEFINE(ADRENO_REG_SCRATCH_ADDR, REG_SCRATCH_ADDR),
 	ADRENO_REG_DEFINE(ADRENO_REG_SCRATCH_UMSK, REG_SCRATCH_UMSK),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_HW_FAULT, A3XX_CP_HW_FAULT),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS, A3XX_RBBM_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_CTL, A3XX_RBBM_PERFCTR_CTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_CMD0,
