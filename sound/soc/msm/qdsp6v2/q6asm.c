@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -303,27 +303,35 @@ static void config_debug_fs_init(void)
 	out_buffer = kmalloc(OUT_BUFFER_SIZE, GFP_KERNEL);
 	if (out_buffer == NULL) {
 		pr_err("%s: kmalloc() for out_buffer failed\n", __func__);
-		goto fail_1;
+		goto outbuf_fail;
 	}
 	in_buffer = kmalloc(IN_BUFFER_SIZE, GFP_KERNEL);
 	if (in_buffer == NULL) {
 		pr_err("%s: kmalloc() for in_buffer failed\n", __func__);
-		goto fail_2;
+		goto inbuf_fail;
 	}
 	out_dentry = debugfs_create_file("audio_out_latency_measurement_node",\
 				S_IRUGO | S_IWUSR | S_IWGRP,\
 				NULL, NULL, &audio_output_latency_debug_fops);
-	if (IS_ERR(out_dentry))
+	if (IS_ERR(out_dentry)) {
 		pr_err("%s: debugfs_create_file failed\n", __func__);
+		goto file_fail;
+	}
 	in_dentry = debugfs_create_file("audio_in_latency_measurement_node",\
 				S_IRUGO | S_IWUSR | S_IWGRP,\
 				NULL, NULL, &audio_input_latency_debug_fops);
-	if (IS_ERR(in_dentry))
+	if (IS_ERR(in_dentry)) {
 		pr_err("%s: debugfs_create_file failed\n", __func__);
+		goto file_fail;
+	}
 	return;
-fail_2:
+file_fail:
+	kfree(in_buffer);
+inbuf_fail:
 	kfree(out_buffer);
-fail_1:
+outbuf_fail:
+	in_buffer = NULL;
+	out_buffer = NULL;
 	return;
 }
 #else
