@@ -13,6 +13,7 @@
 &soc {
 	mdm0: qcom,mdm0 {
                 compatible = "qcom,ext-mdm9x25";
+		reg = <0xfe805000 0x1000>;
 		cell-index = <0>;
 		#address-cells = <0>;
                 interrupt-parent = <&mdm0>;
@@ -37,6 +38,7 @@
 
 	mdm1: qcom,mdm1 {
                 compatible = "qcom,ext-mdm9x35";
+		reg = <0xfe805000 0x1000>;
 		cell-index = <0>;
 		#address-cells = <0>;
                 interrupt-parent = <&mdm1>;
