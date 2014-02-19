@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -79,9 +79,16 @@ enum {
 	MSM_FRONTEND_DAI_VOICE_STUB,
 	MSM_FRONTEND_DAI_VOLTE,
 	MSM_FRONTEND_DAI_DTMF_RX,
-	MSM_FRONTEND_DAI_LSM1,
 	MSM_FRONTEND_DAI_VOICE2,
 	MSM_FRONTEND_DAI_QCHAT,
+	MSM_FRONTEND_DAI_LSM1,
+	MSM_FRONTEND_DAI_LSM2,
+	MSM_FRONTEND_DAI_LSM3,
+	MSM_FRONTEND_DAI_LSM4,
+	MSM_FRONTEND_DAI_LSM5,
+	MSM_FRONTEND_DAI_LSM6,
+	MSM_FRONTEND_DAI_LSM7,
+	MSM_FRONTEND_DAI_LSM8,
 	MSM_FRONTEND_DAI_MAX,
 };
 
