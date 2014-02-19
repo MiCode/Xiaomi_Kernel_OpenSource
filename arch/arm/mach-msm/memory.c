@@ -63,15 +63,6 @@ char *memtype_name[] = {
 	"EBI1"
 };
 
-unsigned int msm_ttbr0;
-
-void store_ttbr0(void)
-{
-	/* Store TTBR0 for post-mortem debugging purposes. */
-	asm("mrc p15, 0, %0, c2, c0, 0\n"
-		: "=r" (msm_ttbr0));
-}
-
 static int __init check_for_compat(unsigned long node)
 {
 	char **start = __compat_exports_start;
