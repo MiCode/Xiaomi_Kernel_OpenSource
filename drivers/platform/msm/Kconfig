@@ -145,6 +145,16 @@ config SSM
 	  This driver uses Secure Channel Manager interface for trustzone
 	  communication and communicates with modem over SMD channel.
 
+config MSM_MHI_UCI
+	 tristate "MHI Usperspace Control Interface Driver"
+	 depends on MSM_MHI
+	 help
+	  This modules enables userspace software clients to communicate
+	  with devices supporting the MHI protocol. Userspace clients
+	  may open the device nodes exposed by MHI UCI and perform
+	  read, write and ioctl operations to communicate with the
+	  attached device.
+
 config QCA1530
 	tristate "QCA1530 SoC GNSS Driver"
 	depends on REGULATOR && OF
