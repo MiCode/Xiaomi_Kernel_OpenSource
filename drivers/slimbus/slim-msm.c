@@ -69,7 +69,7 @@ void msm_slim_put_ctrl(struct msm_slim_ctrl *dev)
 	if (ref <= 0)
 		dev_err(dev->dev, "reference count mismatch:%d", ref);
 	else
-		pm_runtime_put(dev->dev);
+		pm_runtime_put_sync(dev->dev);
 #endif
 }
 
