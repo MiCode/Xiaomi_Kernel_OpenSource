@@ -1206,6 +1206,21 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 	i915_gem_execbuffer_move_to_active(vmas, ring);
 	i915_gem_execbuffer_retire_commands(dev, file, ring, batch_obj);
 
+	/* For VLV, modify RC6 promotion timer upon hitting Media workload only
+	   This will help in better power savings with media scenarios.
+	*/
+	if (((args->flags & I915_EXEC_RING_MASK) == I915_EXEC_BSD) &&
+		IS_VALLEYVIEW(dev) && dev_priv->rps.enabled) {
+
+		vlv_modify_rc6_promotion_timer(dev_priv, true);
+
+		/*Start a timer for 1 sec to reset this value to original*/
+		mod_delayed_work(dev_priv->wq,
+				&dev_priv->rps.vlv_media_timeout_work,
+				msecs_to_jiffies(1000));
+
+	}
+
 error:
 	if (ret || sync_err)
 		i915_sync_cancel_request(handle, args, ring);

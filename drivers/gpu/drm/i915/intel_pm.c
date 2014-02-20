@@ -3971,6 +3971,29 @@ static void valleyview_disable_rps(struct drm_device *dev)
 	/* Disable rps */
 	vlv_set_rps_mode(dev, true);
 
+	/*Cancel any pending work-item*/
+	cancel_delayed_work_sync(&dev_priv->rps.vlv_media_timeout_work);
+
+}
+
+void vlv_modify_rc6_promotion_timer(struct drm_i915_private *dev_priv,
+				    bool media_active)
+{
+	/* Update RC6 promotion timers */
+	if (media_active)
+		I915_WRITE(GEN6_RC6_THRESHOLD,
+				GEN6_RC6_MEDIA_PROMOTION_TIMER_TO);
+	else
+		I915_WRITE(GEN6_RC6_THRESHOLD,
+				GEN6_RC6_RENDER_PROMOTION_TIMER_TO);
+}
+
+static void vlv_media_timeout_work_func(struct work_struct *work)
+{
+	struct drm_i915_private *dev_priv = container_of(work, struct drm_i915_private,
+					    rps.vlv_media_timeout_work.work);
+
+	vlv_modify_rc6_promotion_timer(dev_priv, false);
 }
 
 static void intel_print_rc6_info(struct drm_device *dev, u32 mode)
@@ -8084,6 +8107,12 @@ void intel_pm_setup(struct drm_device *dev)
 
 	INIT_DELAYED_WORK(&dev_priv->rps.delayed_resume_work,
 			  intel_gen6_powersave_work);
+
+	/* Initialize a work item to modify RC6 promotion timer
+	 * based on MFX engine activity
+	 */
+	INIT_DELAYED_WORK(&dev_priv->rps.vlv_media_timeout_work,
+				vlv_media_timeout_work_func);
 
 	dev_priv->pm.suspended = false;
 	dev_priv->pm.irqs_disabled = false;
