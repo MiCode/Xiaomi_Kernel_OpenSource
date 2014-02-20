@@ -16,6 +16,8 @@ The required nodes for the MPM driver are:
 	to the register that triggers a interrupt to the RPM.
 - reg-names: "vmpm" - string to identify the shared memory space region
 	     "ipc" - string to identify the register that triggers a interrupt
+- clocks: clock identifers used by clock driver while looking up mpm clocks.
+- clock-names: name of the clock used by mpm driver.
 - qcom,ipc-bit-offset: The bit to set in the ipc register that triggers a interrupt
 	to the RPM
 - qcom,gic-parent: phandle to the gic interrupt controller
@@ -40,6 +42,8 @@ Example:
 		    <0xfa006000 0x1000>;   /* MSM_APCS_GCC_BASE 4K*/
 		reg-names = "vmpm", "ipc"
 			interrupts = <0 171 1>;
+		clocks = <&clock_rpm clk_xo_lpm_clk>;
+		clock-names = "xo";
 
 		qcom,ipc-bit-offset = <0>;
 
