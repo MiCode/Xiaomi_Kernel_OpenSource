@@ -4,7 +4,7 @@
  * Copyright (C) 2003-2005,2008 David Brownell
  * Copyright (C) 2003-2004 Robert Schwebel, Benedikt Spranger
  * Copyright (C) 2008 Nokia Corporation
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -355,6 +355,11 @@ struct net_device *gether_qc_get_net(const char *netname)
 	if (!net_dev)
 		return ERR_PTR(-EINVAL);
 
+	/*
+	 * Decrement net_dev refcount as it was incremented in
+	 * dev_get_by_name().
+	 */
+	dev_put(net_dev);
 	return net_dev;
 }
 /**
