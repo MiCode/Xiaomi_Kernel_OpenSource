@@ -1014,7 +1014,7 @@ EXPORT_SYMBOL(qpnp_get_iadc);
 
 int32_t qpnp_iadc_get_rsense(struct qpnp_iadc_chip *iadc, int32_t *rsense)
 {
-	uint8_t	rslt_rsense;
+	uint8_t	rslt_rsense = 0;
 	int32_t	rc = 0, sign_bit = 0;
 
 	if (qpnp_iadc_is_valid(iadc) < 0)
@@ -1022,35 +1022,36 @@ int32_t qpnp_iadc_get_rsense(struct qpnp_iadc_chip *iadc, int32_t *rsense)
 
 	if (iadc->external_rsense) {
 		*rsense = iadc->rsense;
-		return rc;
-	}
-
-	if (iadc->default_internal_rsense) {
+	} else if (iadc->default_internal_rsense) {
 		*rsense = iadc->rsense_workaround_value;
-		return rc;
-	}
+	} else {
 
-	rc = qpnp_iadc_read_reg(iadc, QPNP_IADC_NOMINAL_RSENSE, &rslt_rsense);
-	if (rc < 0) {
-		pr_err("qpnp adc rsense read failed with %d\n", rc);
-		return rc;
-	}
+		rc = qpnp_iadc_read_reg(iadc, QPNP_IADC_NOMINAL_RSENSE,
+							&rslt_rsense);
+		if (rc < 0) {
+			pr_err("qpnp adc rsense read failed with %d\n", rc);
+			return rc;
+		}
 
-	pr_debug("rsense:0%x\n", rslt_rsense);
+		pr_debug("rsense:0%x\n", rslt_rsense);
 
-	if (rslt_rsense & QPNP_RSENSE_MSB_SIGN_CHECK)
-		sign_bit = 1;
+		if (rslt_rsense & QPNP_RSENSE_MSB_SIGN_CHECK)
+			sign_bit = 1;
 
-	rslt_rsense &= ~QPNP_RSENSE_MSB_SIGN_CHECK;
+		rslt_rsense &= ~QPNP_RSENSE_MSB_SIGN_CHECK;
 
-	if (sign_bit)
-		*rsense = QPNP_IADC_INTERNAL_RSENSE_N_OHMS_FACTOR -
+		if (sign_bit)
+			*rsense = QPNP_IADC_INTERNAL_RSENSE_N_OHMS_FACTOR -
 			(rslt_rsense * QPNP_IADC_RSENSE_LSB_N_OHMS_PER_BIT);
-	else
-		*rsense = QPNP_IADC_INTERNAL_RSENSE_N_OHMS_FACTOR +
+		else
+			*rsense = QPNP_IADC_INTERNAL_RSENSE_N_OHMS_FACTOR +
 			(rslt_rsense * QPNP_IADC_RSENSE_LSB_N_OHMS_PER_BIT);
-
+	}
 	pr_debug("rsense value is %d\n", *rsense);
+
+	if (*rsense == 0)
+		pr_err("incorrect rsens value:%d rslt_rsense:%d\n",
+				*rsense, rslt_rsense);
 
 	return rc;
 }
@@ -1215,6 +1216,11 @@ int32_t qpnp_iadc_vadc_sync_read(struct qpnp_iadc_chip *iadc,
 	if (qpnp_iadc_is_valid(iadc) < 0)
 		return -EPROBE_DEFER;
 
+	if ((iadc->adc->calib.gain_raw - iadc->adc->calib.offset_raw) == 0) {
+		pr_err("raw offset errors! run iadc calibration again\n");
+		return -EINVAL;
+	}
+
 	mutex_lock(&iadc->adc->adc_lock);
 
 	if (iadc->iadc_poll_eoc) {
@@ -1251,6 +1257,11 @@ int32_t qpnp_iadc_vadc_sync_read(struct qpnp_iadc_chip *iadc,
 	result_current = i_result->result_uv;
 	result_current *= QPNP_IADC_NANO_VOLTS_FACTOR;
 	/* Intentional fall through. Process the result w/o comp */
+	if (!rsense_u_ohms) {
+		pr_err("rsense error=%d\n", rsense_u_ohms);
+		goto fail_release_vadc;
+	}
+
 	do_div(result_current, rsense_u_ohms);
 
 	if (sign) {
