@@ -878,9 +878,9 @@ void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
 		sgir |= (1 << 15);
 	/*
 	 * Ensure that stores to Normal memory are visible to the
-	 * other CPUs before issuing the IPI.
+	 * other CPUs before they observe us issuing the IPI.
 	 */
-	dsb();
+	dmb(ishst);
 
 	/* this always happens on GIC0 */
 	writel_relaxed_no_log(sgir,
