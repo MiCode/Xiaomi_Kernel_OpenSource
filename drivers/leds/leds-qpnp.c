@@ -130,6 +130,7 @@
 #define FLASH_TMR_SAFETY		0x00
 #define FLASH_FAULT_DETECT_MASK		0X80
 #define FLASH_HW_VREG_OK		0x40
+#define FLASH_SW_VREG_OK                0x80
 #define FLASH_VREG_MASK			0xC0
 #define FLASH_STARTUP_DLY_MASK		0x02
 #define FLASH_CURRENT_RAMP_MASK		0xBF
@@ -412,6 +413,7 @@ struct mpp_config_data {
  *  @flash_reg_get - flash regulator attached or not
  *  @flash_on - flash status, on or off
  *  @torch_on - torch status, on or off
+ *  @vreg_ok - specifies strobe type, sw or hw
  *  @flash_boost_reg - boost regulator for flash
  *  @torch_boost_reg - boost regulator for torch
  */
@@ -432,6 +434,7 @@ struct flash_config_data {
 	bool	flash_reg_get;
 	bool	flash_on;
 	bool	torch_on;
+	bool	vreg_ok;
 	struct regulator *flash_boost_reg;
 	struct regulator *torch_boost_reg;
 };
@@ -2466,8 +2469,13 @@ static int qpnp_flash_init(struct qpnp_led_data *led)
 	}
 
 	/* Set Vreg force */
-	rc = qpnp_led_masked_write(led,	FLASH_VREG_OK_FORCE(led->base),
-		FLASH_VREG_MASK, FLASH_HW_VREG_OK);
+	if (led->flash_cfg->vreg_ok)
+		rc = qpnp_led_masked_write(led,	FLASH_VREG_OK_FORCE(led->base),
+			FLASH_VREG_MASK, FLASH_SW_VREG_OK);
+	else
+		rc = qpnp_led_masked_write(led, FLASH_VREG_OK_FORCE(led->base),
+			FLASH_VREG_MASK, FLASH_HW_VREG_OK);
+
 	if (rc) {
 		dev_err(&led->spmi_dev->dev,
 			"Vreg OK reg write failed(%d)\n", rc);
@@ -2992,6 +3000,9 @@ static int qpnp_get_config_flash(struct qpnp_led_data *led,
 
 	led->flash_cfg->safety_timer =
 		of_property_read_bool(node, "qcom,safety-timer");
+
+	led->flash_cfg->vreg_ok =
+		of_property_read_bool(node, "qcom,sw_vreg_ok");
 
 	return 0;
 
