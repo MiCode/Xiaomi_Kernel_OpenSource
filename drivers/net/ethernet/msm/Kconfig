@@ -1,0 +1,12 @@
+#
+# msm network device configuration
+#
+
+config MSM_RMNET_MHI
+	bool "RMNET MHI Driver"
+	depends on MSM_MHI
+	help
+	  Implements RMNET over MHI interface.
+	  RMNET provides a virtual ethernet interface
+	  for routing IP packets within the MSM using
+	  BAM as a physical transport.
