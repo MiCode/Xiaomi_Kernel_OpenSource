@@ -537,7 +537,12 @@ static int adreno_dispatcher_issuecmds(struct adreno_device *adreno_dev)
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 	int ret;
 
-	mutex_lock(&dispatcher->mutex);
+	/* If the dispatcher is busy then schedule the work for later */
+	if (!mutex_trylock(&dispatcher->mutex)) {
+		adreno_dispatcher_schedule(&adreno_dev->dev);
+		return 0;
+	}
+
 	ret = _adreno_dispatcher_issuecmds(adreno_dev);
 	mutex_unlock(&dispatcher->mutex);
 
