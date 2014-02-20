@@ -3129,8 +3129,15 @@ int slim_ctrl_clk_pause(struct slim_controller *ctrl, bool wakeup, u8 restart)
 		 */
 		if (ctrl->clk_state == SLIM_CLK_PAUSED && ctrl->wakeup)
 			ret = ctrl->wakeup(ctrl);
+		/*
+		 * If wakeup fails, make sure that next attempt can succeed.
+		 * Since we already consumed pause_comp, complete it so
+		 * that next wakeup isn't blocked forever
+		 */
 		if (!ret)
 			ctrl->clk_state = SLIM_CLK_ACTIVE;
+		else
+			complete(&ctrl->pause_comp);
 		mutex_unlock(&ctrl->m_ctrl);
 		return ret;
 	} else {

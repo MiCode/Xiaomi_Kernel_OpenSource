@@ -305,7 +305,18 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 			if (!timeout && dev->state == MSM_CTRL_DOWN)
 				return -ETIMEDOUT;
 		}
-		msm_slim_get_ctrl(dev);
+		ret = msm_slim_get_ctrl(dev);
+		/*
+		 * Runtime-pm's callbacks are not called until runtime-pm's
+		 * error status is cleared
+		 * Setting runtime status to suspended clears the error
+		 * It also makes HW status cosistent with what SW has it here
+		 */
+		if (ret == -ENETRESET && dev->state == MSM_CTRL_DOWN) {
+			pm_runtime_set_suspended(dev->dev);
+			msm_slim_put_ctrl(dev);
+			return -EREMOTEIO;
+		}
 	}
 	mutex_lock(&dev->tx_lock);
 
@@ -1280,8 +1291,11 @@ static int ngd_slim_runtime_resume(struct device *device)
 	if (dev->state >= MSM_CTRL_ASLEEP)
 		ret = slim_ctrl_clk_pause(&dev->ctrl, true, 0);
 	if (ret) {
-		dev_err(device, "clk pause not exited:%d", ret);
-		dev->state = MSM_CTRL_ASLEEP;
+		/* Did SSR cause this clock pause failure */
+		if (dev->state != MSM_CTRL_DOWN)
+			dev->state = MSM_CTRL_ASLEEP;
+		else
+			dev_err(device, "HW wakeup attempt during SSR");
 	} else {
 		dev->state = MSM_CTRL_AWAKE;
 	}
