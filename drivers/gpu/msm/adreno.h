@@ -645,6 +645,8 @@ void adreno_coresight_stop(struct adreno_device *adreno_dev);
 
 void adreno_coresight_remove(struct kgsl_device *device);
 
+bool adreno_hw_isidle(struct kgsl_device *device);
+
 static inline int adreno_is_a3xx(struct adreno_device *adreno_dev)
 {
 	return ((adreno_dev->gpurev >= 300) && (adreno_dev->gpurev < 400));
