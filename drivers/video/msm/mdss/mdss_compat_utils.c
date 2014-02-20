@@ -2085,6 +2085,125 @@ static int __to_user_pp_params(struct mdp_overlay_pp_params *ppp,
 	return ret;
 }
 
+static int __from_user_hist_start_req(
+			struct mdp_histogram_start_req32 __user *hist_req32,
+			struct mdp_histogram_start_req __user *hist_req)
+{
+	if (copy_in_user(&hist_req->block,
+			&hist_req32->block,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&hist_req->frame_cnt,
+			&hist_req32->frame_cnt,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&hist_req->bit_mask,
+			&hist_req32->bit_mask,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&hist_req->num_bins,
+			&hist_req32->num_bins,
+			sizeof(uint16_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __from_user_hist_data(
+			struct mdp_histogram_data32 __user *hist_data32,
+			struct mdp_histogram_data __user *hist_data)
+{
+	uint32_t data;
+
+	if (copy_in_user(&hist_data->block,
+			&hist_data32->block,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&hist_data->bin_cnt,
+			&hist_data32->bin_cnt,
+			sizeof(uint8_t)))
+		return -EFAULT;
+
+	if (get_user(data, &hist_data32->c0) ||
+	    put_user(compat_ptr(data), &hist_data->c0) ||
+	    get_user(data, &hist_data32->c1) ||
+	    put_user(compat_ptr(data), &hist_data->c1) ||
+	    get_user(data, &hist_data32->c2) ||
+	    put_user(compat_ptr(data), &hist_data->c2) ||
+	    get_user(data, &hist_data32->extra_info) ||
+	    put_user(compat_ptr(data), &hist_data->extra_info))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __to_user_hist_data(
+			struct mdp_histogram_data32 __user *hist_data32,
+			struct mdp_histogram_data __user *hist_data)
+{
+	unsigned long data;
+
+	if (copy_in_user(&hist_data32->block,
+			&hist_data->block,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&hist_data32->bin_cnt,
+			&hist_data->bin_cnt,
+			sizeof(uint8_t)))
+		return -EFAULT;
+
+	if (get_user(data, &hist_data->c0) ||
+	    put_user((compat_caddr_t) data, &hist_data32->c0) ||
+	    get_user(data, &hist_data->c1) ||
+	    put_user((compat_caddr_t) data, &hist_data32->c1) ||
+	    get_user(data, &hist_data->c2) ||
+	    put_user((compat_caddr_t) data, &hist_data32->c2) ||
+	    get_user(data, &hist_data->extra_info) ||
+	    put_user((compat_caddr_t) data, &hist_data32->extra_info))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int mdss_histo_compat_ioctl(struct fb_info *info, unsigned int cmd,
+			unsigned long arg)
+{
+	struct mdp_histogram_data __user *hist;
+	struct mdp_histogram_data32 __user *hist32;
+	struct mdp_histogram_start_req __user *hist_req;
+	struct mdp_histogram_start_req32 __user *hist_req32;
+	int ret = 0;
+
+	switch (cmd) {
+	case MSMFB_HISTOGRAM_START:
+		hist_req32 = compat_ptr(arg);
+		hist_req = compat_alloc_user_space(
+				sizeof(struct mdp_histogram_start_req));
+		memset(hist_req, 0, sizeof(struct mdp_histogram_start_req));
+		ret = __from_user_hist_start_req(hist_req32, hist_req);
+		if (ret)
+			goto histo_compat_err;
+		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) hist_req);
+		break;
+	case MSMFB_HISTOGRAM_STOP:
+		ret = mdss_fb_do_ioctl(info, cmd, arg);
+		break;
+	case MSMFB_HISTOGRAM:
+		hist32 = compat_ptr(arg);
+		hist = compat_alloc_user_space(
+				sizeof(struct mdp_histogram_data));
+		memset(hist, 0, sizeof(struct mdp_histogram_data));
+		ret = __from_user_hist_data(hist32, hist);
+		if (ret)
+			goto histo_compat_err;
+		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) hist);
+		if (ret)
+			goto histo_compat_err;
+		ret = __to_user_hist_data(hist32, hist);
+		break;
+	default:
+		break;
+	}
+
+histo_compat_err:
+	return ret;
+}
+
 static int __to_user_mdp_overlay(struct mdp_overlay32 __user *ov32,
 				 struct mdp_overlay __user *ov)
 {
@@ -2198,6 +2317,11 @@ int mdss_compat_overlay_ioctl(struct fb_info *info, unsigned int cmd,
 	case MSMFB_MDP_PP:
 		ret = mdss_compat_pp_ioctl(info, cmd, arg);
 		break;
+	case MSMFB_HISTOGRAM_START:
+	case MSMFB_HISTOGRAM_STOP:
+	case MSMFB_HISTOGRAM:
+		ret = mdss_histo_compat_ioctl(info, cmd, arg);
+		break;
 	case MSMFB_OVERLAY_GET:
 		ov = compat_alloc_user_space(sizeof(*ov));
 		ov32 = compat_ptr(arg);
@@ -2267,6 +2391,9 @@ int mdss_fb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = mdss_fb_compat_buf_sync(info, cmd, arg);
 		break;
 	case MSMFB_MDP_PP:
+	case MSMFB_HISTOGRAM_START:
+	case MSMFB_HISTOGRAM_STOP:
+	case MSMFB_HISTOGRAM:
 	case MSMFB_OVERLAY_GET:
 	case MSMFB_OVERLAY_SET:
 	case MSMFB_OVERLAY_UNSET:
