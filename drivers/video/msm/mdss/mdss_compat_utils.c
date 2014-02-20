@@ -850,6 +850,21 @@ static int __to_user_qseed_cfg_data(
 	return 0;
 }
 
+static int __from_user_bl_scale_data(
+			struct mdp_bl_scale_data32 __user *bl_scale32,
+			struct mdp_bl_scale_data __user *bl_scale)
+{
+	if (copy_in_user(&bl_scale->min_lvl,
+			&bl_scale32->min_lvl,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&bl_scale->scale,
+			&bl_scale32->scale,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
 static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 					struct msmfb_mdp_pp __user **pp,
 					uint32_t op)
@@ -1002,6 +1017,14 @@ static int mdss_compat_pp_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = __to_user_qseed_cfg_data(
 			compat_ptr((uintptr_t)&pp32->data.qseed_cfg_data),
 			&pp->data.qseed_cfg_data);
+		break;
+	case mdp_bl_scale_cfg:
+		ret = __from_user_bl_scale_data(
+			compat_ptr((uintptr_t)&pp32->data.bl_scale_data),
+			&pp->data.bl_scale_data);
+		if (ret)
+			goto pp_compat_exit;
+		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) pp);
 		break;
 	default:
 		break;
