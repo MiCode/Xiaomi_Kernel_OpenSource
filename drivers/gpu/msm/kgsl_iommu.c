@@ -652,8 +652,12 @@ static int kgsl_iommu_pt_equal(struct kgsl_mmu *mmu,
 static void kgsl_iommu_destroy_pagetable(struct kgsl_pagetable *pt)
 {
 	struct kgsl_iommu_pt *iommu_pt = pt->priv;
+	phys_addr_t domain_ptbase = iommu_get_pt_base_addr(iommu_pt->domain);
+
 	if (iommu_pt->domain)
 		msm_unregister_domain(iommu_pt->domain);
+
+	trace_kgsl_pagetable_destroy(domain_ptbase, pt->name);
 
 	kfree(iommu_pt);
 	iommu_pt = NULL;
