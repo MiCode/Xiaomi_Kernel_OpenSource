@@ -1447,6 +1447,96 @@ static int __from_user_ad_init_cfg(
 	return 0;
 }
 
+static int __from_user_ad_input(
+			struct mdss_ad_input32 __user *ad_input32,
+			struct mdss_ad_input __user *ad_input)
+{
+	int mode;
+
+	if (copy_from_user(&mode,
+			&ad_input32->mode,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (copy_in_user(&ad_input->mode,
+			&ad_input32->mode,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&ad_input->output,
+			&ad_input32->output,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	switch (mode) {
+	case MDSS_AD_MODE_AUTO_BL:
+	case MDSS_AD_MODE_AUTO_STR:
+		if (copy_in_user(&ad_input->in.amb_light,
+				&ad_input32->in.amb_light,
+				sizeof(uint32_t)))
+			return -EFAULT;
+		break;
+	case MDSS_AD_MODE_TARG_STR:
+	case MDSS_AD_MODE_MAN_STR:
+		if (copy_in_user(&ad_input->in.strength,
+				&ad_input32->in.strength,
+				sizeof(uint32_t)))
+			return -EFAULT;
+		break;
+	case MDSS_AD_MODE_CALIB:
+		if (copy_in_user(&ad_input->in.calib_bl,
+				&ad_input32->in.calib_bl,
+				sizeof(uint32_t)))
+			return -EFAULT;
+		break;
+	}
+
+	return 0;
+}
+
+static int __to_user_ad_input(
+			struct mdss_ad_input32 __user *ad_input32,
+			struct mdss_ad_input __user *ad_input)
+{
+	int mode;
+
+	if (copy_from_user(&mode,
+			&ad_input->mode,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	if (copy_in_user(&ad_input32->mode,
+			&ad_input->mode,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&ad_input32->output,
+			&ad_input->output,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	switch (mode) {
+	case MDSS_AD_MODE_AUTO_BL:
+	case MDSS_AD_MODE_AUTO_STR:
+		if (copy_in_user(&ad_input32->in.amb_light,
+				&ad_input->in.amb_light,
+				sizeof(uint32_t)))
+			return -EFAULT;
+		break;
+	case MDSS_AD_MODE_TARG_STR:
+	case MDSS_AD_MODE_MAN_STR:
+		if (copy_in_user(&ad_input32->in.strength,
+				&ad_input->in.strength,
+				sizeof(uint32_t)))
+			return -EFAULT;
+		break;
+	case MDSS_AD_MODE_CALIB:
+		if (copy_in_user(&ad_input32->in.calib_bl,
+				&ad_input->in.calib_bl,
+				sizeof(uint32_t)))
+			return -EFAULT;
+		break;
+	}
+
+	return 0;
+}
+
 static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 					struct msmfb_mdp_pp __user **pp,
 					uint32_t op)
@@ -1680,6 +1770,19 @@ static int mdss_compat_pp_ioctl(struct fb_info *info, unsigned int cmd,
 		if (ret)
 			goto pp_compat_exit;
 		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) pp);
+		break;
+	case mdp_op_ad_input:
+		ret = __from_user_ad_input(
+			compat_ptr((uintptr_t)&pp32->data.ad_input),
+			&pp->data.ad_input);
+		if (ret)
+			goto pp_compat_exit;
+		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) pp);
+		if (ret)
+			goto pp_compat_exit;
+		ret = __to_user_ad_input(
+			compat_ptr((uintptr_t)&pp32->data.ad_input),
+			&pp->data.ad_input);
 		break;
 	default:
 		break;
