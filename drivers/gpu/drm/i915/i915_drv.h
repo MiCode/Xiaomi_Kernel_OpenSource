@@ -945,6 +945,9 @@ struct intel_gen6_power_mgmt {
 	u32 rc6_mask;
 	bool rc6_disable;
 
+	u32 rps_mask;
+	bool rps_disable;
+
 	struct delayed_work delayed_resume_work;
 
 	/*
@@ -2730,6 +2733,7 @@ extern void intel_init_pch_refclk(struct drm_device *dev);
 extern void gen6_set_rc6_mode(struct drm_device *dev, bool disable);
 extern void vlv_set_rc6_mode(struct drm_device *dev, bool disable);
 extern void gen6_set_rps_mode(struct drm_device *dev, bool manual);
+extern void vlv_set_rps_mode(struct drm_device *dev, bool disable);
 extern void gen6_set_rps(struct drm_device *dev, u8 val);
 extern void valleyview_set_rps(struct drm_device *dev, u8 val);
 extern int valleyview_rps_max_freq(struct drm_i915_private *dev_priv);

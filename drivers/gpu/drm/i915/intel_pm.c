@@ -34,6 +34,9 @@
 #include <drm/i915_powerwell.h>
 #include <linux/pm_runtime.h>
 
+static void gen6_disable_rps_interrupts(struct drm_device *dev);
+static void gen6_enable_rps_interrupts(struct drm_device *dev);
+
 /**
  * RC6 is a special power stage which allows the GPU to enter an very
  * low-voltage mode when idle, using down to 0V while at this stage.  This
@@ -3570,6 +3573,27 @@ void vlv_set_rc6_mode(struct drm_device *dev, bool disable)
 		I915_WRITE(GEN6_RC_CONTROL, dev_priv->rps.rc6_mask);
 }
 
+void vlv_set_rps_mode(struct drm_device *dev, bool disable)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if (!IS_VALLEYVIEW(dev)) {
+		DRM_DEBUG_DRIVER("RPS mode change not supported\n");
+		return;
+	}
+
+	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
+
+	dev_priv->rps.rps_disable = disable;
+
+	if (disable) {
+		I915_WRITE(GEN6_RP_CONTROL, 0);
+		gen6_disable_rps_interrupts(dev);
+	} else {
+		I915_WRITE(GEN6_RP_CONTROL, dev_priv->rps.rps_mask);
+		gen6_enable_rps_interrupts(dev);
+	}
+}
 
 void gen6_set_rc6_mode(struct drm_device *dev, bool disable)
 {
@@ -3708,7 +3732,9 @@ static void valleyview_disable_rps(struct drm_device *dev)
 	/* Disable rc6 */
 	vlv_set_rc6_mode(dev, true);
 
-	gen6_disable_rps_interrupts(dev);
+	/* Disable rps */
+	vlv_set_rps_mode(dev, true);
+
 }
 
 static void intel_print_rc6_info(struct drm_device *dev, u32 mode)
@@ -4247,13 +4273,12 @@ static void valleyview_enable_rps(struct drm_device *dev)
 
 	I915_WRITE(GEN6_RP_IDLE_HYSTERSIS, 10);
 
-	I915_WRITE(GEN6_RP_CONTROL,
-		   GEN6_RP_MEDIA_TURBO |
-		   GEN6_RP_MEDIA_HW_NORMAL_MODE |
-		   GEN6_RP_MEDIA_IS_GFX |
-		   GEN6_RP_ENABLE |
-		   GEN6_RP_UP_BUSY_AVG |
-		   GEN6_RP_DOWN_IDLE_CONT);
+	dev_priv->rps.rps_mask = GEN6_RP_MEDIA_TURBO |
+				   GEN6_RP_MEDIA_HW_NORMAL_MODE |
+				   GEN6_RP_MEDIA_IS_GFX |
+				   GEN6_RP_ENABLE |
+				   GEN6_RP_UP_BUSY_AVG |
+				   GEN6_RP_DOWN_IDLE_CONT;
 
 	I915_WRITE(GEN6_RC6_WAKE_RATE_LIMIT, 0x00280000);
 	I915_WRITE(GEN6_RC_EVALUATION_INTERVAL, 125000);
@@ -4294,7 +4319,7 @@ static void valleyview_enable_rps(struct drm_device *dev)
 
 	valleyview_set_rps(dev_priv->dev, dev_priv->rps.efficient_freq);
 
-	gen6_enable_rps_interrupts(dev);
+	vlv_set_rps_mode(dev, false);
 
 	gen6_gt_force_wake_put(dev_priv, FORCEWAKE_ALL);
 }
