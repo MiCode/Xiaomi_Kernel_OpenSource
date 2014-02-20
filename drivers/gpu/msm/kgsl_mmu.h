@@ -22,8 +22,6 @@
 #define KGSL_IOMMU_GLOBAL_MEM_BASE	0xf8000000
 #define KGSL_IOMMU_GLOBAL_MEM_SIZE	SZ_4M
 
-#define KGSL_MMU_ALIGN_MASK     (~((1 << PAGE_SHIFT) - 1))
-
 /* defconfig option for disabling per process pagetables */
 #ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
 #define KGSL_MMU_USE_PER_PROCESS_PT true
@@ -40,11 +38,6 @@
 
 struct kgsl_device;
 
-#define GSL_PT_SUPER_PTE 8
-#define GSL_PT_PAGE_WV		0x00000001
-#define GSL_PT_PAGE_RV		0x00000002
-#define GSL_PT_PAGE_DIRTY	0x00000004
-
 /* MMU Flags */
 #define KGSL_MMUFLAGS_TLBFLUSH         0x10000000
 #define KGSL_MMUFLAGS_PTUPDATE         0x20000000
@@ -57,7 +50,6 @@ enum kgsl_mmutype {
 struct kgsl_pagetable {
 	spinlock_t lock;
 	struct kref refcount;
-	unsigned int   max_entries;
 	struct gen_pool *pool;
 	struct gen_pool *kgsl_pool;
 	struct list_head list;
@@ -68,7 +60,6 @@ struct kgsl_pagetable {
 		unsigned int entries;
 		unsigned int mapped;
 		unsigned int max_mapped;
-		unsigned int max_entries;
 	} stats;
 	const struct kgsl_mmu_pt_ops *pt_ops;
 	unsigned int tlb_flags;
@@ -89,7 +80,6 @@ struct kgsl_mmu_ops {
 		unsigned int context_id);
 	int (*mmu_device_setstate) (struct kgsl_mmu *mmu,
 					uint32_t flags);
-	void (*mmu_pagefault) (struct kgsl_mmu *mmu);
 	phys_addr_t (*mmu_get_current_ptbase)
 			(struct kgsl_mmu *mmu);
 	void (*mmu_pagefault_resume)
@@ -131,7 +121,6 @@ struct kgsl_mmu_ops {
 struct kgsl_mmu_pt_ops {
 	int (*mmu_map) (struct kgsl_pagetable *pt,
 			struct kgsl_memdesc *memdesc,
-			unsigned int protflags,
 			unsigned int *tlb_flags);
 	int (*mmu_unmap) (struct kgsl_pagetable *pt,
 			struct kgsl_memdesc *memdesc,
@@ -143,7 +132,6 @@ struct kgsl_mmu_pt_ops {
 #define KGSL_MMU_FLAGS_IOMMU_SYNC BIT(31)
 
 struct kgsl_mmu {
-	unsigned int     refcnt;
 	uint32_t      flags;
 	struct kgsl_device     *device;
 	struct kgsl_memdesc    setstate_memory;

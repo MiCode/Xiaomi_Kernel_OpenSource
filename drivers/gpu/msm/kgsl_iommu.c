@@ -1434,8 +1434,6 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 		}
 	}
 
-	dev_info(mmu->device->dev, "|%s| MMU type set for device is IOMMU\n",
-			__func__);
 done:
 	if (status) {
 		kfree(iommu);
@@ -1692,7 +1690,7 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 	   functions purturb the gpuaddr with an offset, so apply the
 	   mask here to make sure we have the right address */
 
-	unsigned int gpuaddr = memdesc->gpuaddr &  KGSL_MMU_ALIGN_MASK;
+	unsigned int gpuaddr = PAGE_ALIGN(memdesc->gpuaddr);
 
 	if (range == 0 || gpuaddr == 0)
 		return 0;
@@ -1738,17 +1736,22 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 static int
 kgsl_iommu_map(struct kgsl_pagetable *pt,
 			struct kgsl_memdesc *memdesc,
-			unsigned int protflags,
 			unsigned int *tlb_flags)
 {
 	int ret;
 	unsigned int iommu_virt_addr;
 	struct kgsl_iommu_pt *iommu_pt = pt->priv;
 	size_t size = memdesc->size;
+	unsigned int protflags;
 
 	BUG_ON(NULL == iommu_pt);
 
 	iommu_virt_addr = memdesc->gpuaddr;
+
+	/* Set up the protection for the page(s) */
+	protflags = IOMMU_READ;
+	if (!(memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY))
+		protflags |= IOMMU_WRITE;
 
 	ret = iommu_map_range(iommu_pt->domain, iommu_virt_addr, memdesc->sg,
 				size, protflags);
@@ -2107,7 +2110,6 @@ struct kgsl_mmu_ops iommu_ops = {
 	.mmu_stop = kgsl_iommu_stop,
 	.mmu_setstate = kgsl_iommu_setstate,
 	.mmu_device_setstate = kgsl_iommu_default_setstate,
-	.mmu_pagefault = NULL,
 	.mmu_pagefault_resume = kgsl_iommu_pagefault_resume,
 	.mmu_get_current_ptbase = kgsl_iommu_get_current_ptbase,
 	.mmu_enable_clk = kgsl_iommu_enable_clk,

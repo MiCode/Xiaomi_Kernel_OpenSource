@@ -23,8 +23,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/mm.h>
 
-#define KGSL_NAME "kgsl"
-
 /* The number of memstore arrays limits the number of contexts allowed.
  * If more contexts are needed, update multiple for MEMSTORE_SIZE
  */
@@ -40,27 +38,8 @@
 #define DRM_KGSL_GEM_CACHE_OP_TO_DEV	0x0001
 #define DRM_KGSL_GEM_CACHE_OP_FROM_DEV	0x0002
 
-/* The size of each entry in a page table */
-#define KGSL_PAGETABLE_ENTRY_SIZE  4
-
 /* The SVM upper bound is the same as the TASK_SIZE in arm32 */
 #define KGSL_SVM_UPPER_BOUND (0xC0000000 - SZ_16M)
-
-/* Extra accounting entries needed in the pagetable */
-#define KGSL_PT_EXTRA_ENTRIES      16
-
-#define KGSL_PAGETABLE_ENTRIES(_sz) (((_sz) >> PAGE_SHIFT) + \
-				     KGSL_PT_EXTRA_ENTRIES)
-
-#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
-#define KGSL_PAGETABLE_COUNT (CONFIG_MSM_KGSL_PAGE_TABLE_COUNT)
-#else
-#define KGSL_PAGETABLE_COUNT 1
-#endif
-
-/* Casting using container_of() for structures that kgsl owns. */
-#define KGSL_CONTAINER_OF(ptr, type, member) \
-		container_of(ptr, type, member)
 
 /* A macro for memory statistics - add the new size to the stat and if
    the statisic is greater then _max, set _max
@@ -197,12 +176,6 @@ struct kgsl_mem_entry {
 	int pending_free;
 	struct kgsl_device_private *dev_priv;
 };
-
-#ifdef CONFIG_MSM_KGSL_MMU_PAGE_FAULT
-#define MMU_CONFIG 2
-#else
-#define MMU_CONFIG 1
-#endif
 
 long kgsl_ioctl_device_getproperty(struct kgsl_device_private *dev_priv,
 					  unsigned int cmd, void *data);

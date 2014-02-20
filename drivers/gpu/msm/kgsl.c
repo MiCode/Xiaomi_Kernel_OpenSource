@@ -49,11 +49,7 @@
 #define arch_mmap_check(addr, len, flags)	(0)
 #endif
 
-static int kgsl_pagetable_count = KGSL_PAGETABLE_COUNT;
 static char *ksgl_mmu_type;
-module_param_named(ptcount, kgsl_pagetable_count, int, 0);
-MODULE_PARM_DESC(kgsl_pagetable_count,
-"Minimum number of pagetables for KGSL to allocate at initialization time");
 module_param_named(mmutype, ksgl_mmu_type, charp, 0);
 MODULE_PARM_DESC(ksgl_mmu_type,
 "Type of MMU to be used for graphics. Valid values are 'iommu' or 'nommu'");
@@ -1043,9 +1039,8 @@ static int kgsl_open(struct inode *inodep, struct file *filep)
 		goto err_stop;
 	}
 
-	KGSL_DRV_INFO(device, "Initialized %s: mmu=%s pagetable_count=%d\n",
-		device->name, kgsl_mmu_enabled() ? "on" : "off",
-		kgsl_pagetable_count);
+	dev_info(device->dev, "Initialized %s: mmu=%s\n", device->name,
+		kgsl_mmu_enabled() ? "on" : "off");
 
 	return result;
 
@@ -4253,8 +4248,10 @@ static int __init kgsl_core_init(void)
 	int result = 0;
 	/* alloc major and minor device numbers */
 	result = alloc_chrdev_region(&kgsl_driver.major, 0, KGSL_DEVICE_MAX,
-				  KGSL_NAME);
+		"kgsl");
+
 	if (result < 0) {
+
 		KGSL_CORE_ERR("alloc_chrdev_region failed err = %d\n", result);
 		goto err;
 	}
@@ -4271,11 +4268,11 @@ static int __init kgsl_core_init(void)
 		goto err;
 	}
 
-	kgsl_driver.class = class_create(THIS_MODULE, KGSL_NAME);
+	kgsl_driver.class = class_create(THIS_MODULE, "kgsl");
 
 	if (IS_ERR(kgsl_driver.class)) {
 		result = PTR_ERR(kgsl_driver.class);
-		KGSL_CORE_ERR("failed to create class %s", KGSL_NAME);
+		KGSL_CORE_ERR("failed to create class for kgsl");
 		goto err;
 	}
 

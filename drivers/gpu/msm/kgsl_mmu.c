@@ -219,23 +219,6 @@ sysfs_show_max_mapped(struct kobject *kobj,
 	return ret;
 }
 
-static ssize_t
-sysfs_show_max_entries(struct kobject *kobj,
-		       struct kobj_attribute *attr,
-		       char *buf)
-{
-	struct kgsl_pagetable *pt;
-	int ret = 0;
-
-	pt = _get_pt_from_kobj(kobj);
-
-	if (pt)
-		ret += snprintf(buf, PAGE_SIZE, "%d\n", pt->stats.max_entries);
-
-	kgsl_put_pagetable(pt);
-	return ret;
-}
-
 static struct kobj_attribute attr_entries = {
 	.attr = { .name = "entries", .mode = 0444 },
 	.show = sysfs_show_entries,
@@ -260,18 +243,11 @@ static struct kobj_attribute attr_max_mapped = {
 	.store = NULL,
 };
 
-static struct kobj_attribute attr_max_entries = {
-	.attr = { .name = "max_entries", .mode = 0444 },
-	.show = sysfs_show_max_entries,
-	.store = NULL,
-};
-
 static struct attribute *pagetable_attrs[] = {
 	&attr_entries.attr,
 	&attr_mapped.attr,
 	&attr_va_range.attr,
 	&attr_max_mapped.attr,
-	&attr_max_entries.attr,
 	NULL,
 };
 
@@ -389,8 +365,6 @@ int kgsl_mmu_init(struct kgsl_device *device)
 				mmu->setstate_memory.size);
 
 	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type) {
-		dev_info(device->dev, "|%s| MMU type set for device is "
-				"NOMMU\n", __func__);
 		status = dma_set_coherent_mask(device->dev->parent,
 					DMA_BIT_MASK(sizeof(dma_addr_t)*8));
 		goto done;
@@ -440,7 +414,6 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu,
 	ptsize = kgsl_mmu_get_ptsize(mmu);
 	pagetable->mmu = mmu;
 	pagetable->name = name;
-	pagetable->max_entries = KGSL_PAGETABLE_ENTRIES(ptsize);
 	pagetable->fault_addr = 0xFFFFFFFF;
 
 	/*
@@ -648,7 +621,6 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 {
 	int ret = 0;
 	int size;
-	unsigned int protflags = kgsl_memdesc_protflags(memdesc);
 
 	if (!memdesc->gpuaddr)
 		return -EINVAL;
@@ -667,18 +639,13 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 
 	if (KGSL_MMU_TYPE_IOMMU != kgsl_mmu_get_mmutype())
 		spin_lock(&pagetable->lock);
-	ret = pagetable->pt_ops->mmu_map(pagetable, memdesc, protflags,
+	ret = pagetable->pt_ops->mmu_map(pagetable, memdesc,
 						&pagetable->tlb_flags);
 	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype())
 		spin_lock(&pagetable->lock);
 
 	if (ret)
 		goto done;
-
-	/* Keep track of the statistics for the sysfs files */
-
-	KGSL_STATS_ADD(1, pagetable->stats.entries,
-		       pagetable->stats.max_entries);
 
 	KGSL_STATS_ADD(size, pagetable->stats.mapped,
 		       pagetable->stats.max_mapped);
@@ -872,16 +839,9 @@ EXPORT_SYMBOL(kgsl_mmu_get_mmutype);
 
 void kgsl_mmu_set_mmutype(char *mmutype)
 {
-	/* Set the default MMU to NONE */
-	kgsl_mmu_type = KGSL_MMU_TYPE_NONE;
+	kgsl_mmu_type = iommu_present(&platform_bus_type) ?
+		KGSL_MMU_TYPE_IOMMU : KGSL_MMU_TYPE_NONE;
 
-	/* Use the IOMMU if it is found */
-	if (iommu_present(&platform_bus_type))
-		kgsl_mmu_type = KGSL_MMU_TYPE_IOMMU;
-
-	if (iommu_present(&platform_bus_type) && mmutype &&
-	    !strncmp(mmutype, "iommu", 5))
-		kgsl_mmu_type = KGSL_MMU_TYPE_IOMMU;
 	if (mmutype && !strncmp(mmutype, "nommu", 5))
 		kgsl_mmu_type = KGSL_MMU_TYPE_NONE;
 }
