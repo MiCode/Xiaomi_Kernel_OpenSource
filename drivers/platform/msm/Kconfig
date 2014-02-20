@@ -118,6 +118,16 @@ config RMNET_IPA
 	  for RmNet Data Driver and also exchange of QMI messages between
 	  A7 and Q6 IPA-driver.
 
+config MSM_MHI_UCI
+	 tristate "MHI Usperspace Control Interface Driver"
+	 depends on MSM_MHI
+	 help
+	  This modules enables userspace software clients to communicate
+	  with devices supporting the MHI protocol. Userspace clients
+	  may open the device nodes exposed by MHI UCI and perform
+	  read, write and ioctl operations to communicate with the
+	  attached device.
+
 config I2C_MSM_PROF_DBG
 	tristate "I2C_MSM_PROF_DBG"
 	depends on ARCH_MSM && I2C_MSM_V2
