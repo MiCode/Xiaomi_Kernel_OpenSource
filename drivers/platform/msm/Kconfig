@@ -133,6 +133,16 @@ config GPIO_USB_DETECT
 	  USB driver of VBUS presence/disconnection using the power_supply
 	  framework.
 
+config MSM_MHI_UCI
+	 tristate "MHI Usperspace Control Interface Driver"
+	 depends on MSM_MHI
+	 help
+	  This modules enables userspace software clients to communicate
+	  with devices supporting the MHI protocol. Userspace clients
+	  may open the device nodes exposed by MHI UCI and perform
+	  read, write and ioctl operations to communicate with the
+	  attached device.
+
 config MSM_11AD
 	tristate "Platform driver for 11ad chip"
 	depends on PCI
