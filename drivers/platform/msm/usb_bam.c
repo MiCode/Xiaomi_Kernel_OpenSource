@@ -933,6 +933,13 @@ static int usb_bam_disconnect_ipa_prod(
 		}
 
 		pipe_connect->enabled = false;
+		spin_lock(&usb_bam_lock);
+		if (ctx.pipes_enabled_per_bam[pipe_connect->bam_type] == 0)
+			pr_err("%s: wrong pipes enabled counter for bam=%d\n",
+				__func__, pipe_connect->bam_type);
+		else
+			ctx.pipes_enabled_per_bam[pipe_connect->bam_type] -= 1;
+		spin_unlock(&usb_bam_lock);
 	}
 	info[cur_bam].prod_pipes_enabled_per_bam -= 1;
 
@@ -983,6 +990,13 @@ static int usb_bam_disconnect_ipa_cons(
 		}
 
 		pipe_connect->enabled = false;
+		spin_lock(&usb_bam_lock);
+		if (ctx.pipes_enabled_per_bam[pipe_connect->bam_type] == 0)
+			pr_err("%s: wrong pipes enabled counter for bam=%d\n",
+				__func__, pipe_connect->bam_type);
+		else
+			ctx.pipes_enabled_per_bam[pipe_connect->bam_type] -= 1;
+		spin_unlock(&usb_bam_lock);
 	}
 
 	pipe_connect->ipa_clnt_hdl = -1;
