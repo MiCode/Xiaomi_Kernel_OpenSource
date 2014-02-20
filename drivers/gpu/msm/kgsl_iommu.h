@@ -15,6 +15,9 @@
 
 #include <mach/iommu.h>
 
+/* Pagetable virtual base */
+#define KGSL_PAGETABLE_BASE     0x10000000
+
 #define KGSL_IOMMU_CTX_OFFSET_V0	0
 #define KGSL_IOMMU_CTX_OFFSET_V1	0x8000
 #define KGSL_IOMMU_CTX_OFFSET_V2	0x8000
