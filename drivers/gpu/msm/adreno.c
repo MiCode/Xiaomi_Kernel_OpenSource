@@ -96,7 +96,6 @@ static struct adreno_device device_3d0 = {
 		.mem_log = KGSL_LOG_LEVEL_DEFAULT,
 		.pwr_log = KGSL_LOG_LEVEL_DEFAULT,
 	},
-	.gmem_base = 0,
 	.gmem_size = SZ_256K,
 	.pfp_fw = NULL,
 	.pm4_fw = NULL,
@@ -1269,6 +1268,7 @@ adreno_identify_gpu(struct adreno_device *adreno_dev)
 	adreno_dev->pfp_jt_addr = adreno_gpulist[i].pfp_jt_addr;
 	adreno_dev->pfp_bstrp_size = adreno_gpulist[i].pfp_bstrp_size;
 	adreno_dev->pfp_bstrp_ver = adreno_gpulist[i].pfp_bstrp_ver;
+	adreno_dev->features = adreno_gpulist[i].features;
 	adreno_dev->gpulist_index = i;
 	/*
 	 * Initialize uninitialzed gpu registers, only needs to be done once
@@ -1552,12 +1552,9 @@ err:
 
 #ifdef CONFIG_MSM_OCMEM
 static int
-adreno_ocmem_gmem_malloc(struct adreno_device *adreno_dev)
+adreno_ocmem_malloc(struct adreno_device *adreno_dev)
 {
-	if (!(adreno_is_a330(adreno_dev) ||
-		adreno_is_a305b(adreno_dev) ||
-		adreno_is_a310(adreno_dev) ||
-		adreno_is_a4xx(adreno_dev)))
+	if (!adreno_dev->features & ADRENO_USES_OCMEM)
 		return 0;
 
 	if (adreno_dev->ocmem_hdl == NULL) {
@@ -1569,14 +1566,14 @@ adreno_ocmem_gmem_malloc(struct adreno_device *adreno_dev)
 		}
 
 		adreno_dev->gmem_size = adreno_dev->ocmem_hdl->len;
-		adreno_dev->ocmem_base = adreno_dev->ocmem_hdl->addr;
+		adreno_dev->gmem_base = adreno_dev->ocmem_hdl->addr;
 	}
 
 	return 0;
 }
 
 static void
-adreno_ocmem_gmem_free(struct adreno_device *adreno_dev)
+adreno_ocmem_free(struct adreno_device *adreno_dev)
 {
 	if (adreno_dev->ocmem_hdl != NULL) {
 		ocmem_free(OCMEM_GRAPHICS, adreno_dev->ocmem_hdl);
@@ -1585,13 +1582,13 @@ adreno_ocmem_gmem_free(struct adreno_device *adreno_dev)
 }
 #else
 static int
-adreno_ocmem_gmem_malloc(struct adreno_device *adreno_dev)
+adreno_ocmem_malloc(struct adreno_device *adreno_dev)
 {
 	return 0;
 }
 
 static void
-adreno_ocmem_gmem_free(struct adreno_device *adreno_dev)
+adreno_ocmem_free(struct adreno_device *adreno_dev)
 {
 }
 #endif
@@ -1826,7 +1823,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (status)
 		goto error_clk_off;
 
-	status = adreno_ocmem_gmem_malloc(adreno_dev);
+	status = adreno_ocmem_malloc(adreno_dev);
 	if (status) {
 		KGSL_DRV_ERR(device, "OCMEM malloc failed\n");
 		goto error_mmu_off;
@@ -1973,7 +1970,7 @@ static int adreno_stop(struct kgsl_device *device)
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 	del_timer_sync(&device->idle_timer);
 
-	adreno_ocmem_gmem_free(adreno_dev);
+	adreno_ocmem_free(adreno_dev);
 
 	/* Save active coresight registers if applicable */
 	adreno_coresight_stop(adreno_dev);
@@ -2794,14 +2791,9 @@ int adreno_idle(struct kgsl_device *device)
 
 	BUG_ON(!mutex_is_locked(&device->mutex));
 
-	if (adreno_is_a3xx(adreno_dev) || adreno_is_a4xx(adreno_dev))
-		kgsl_cffdump_regpoll(device,
-			adreno_getreg(adreno_dev, ADRENO_REG_RBBM_STATUS) << 2,
-			0x00000000, 0x80000000);
-	else
-		kgsl_cffdump_regpoll(device,
-			adreno_getreg(adreno_dev, ADRENO_REG_RBBM_STATUS) << 2,
-			0x110, 0x110);
+	kgsl_cffdump_regpoll(device,
+		adreno_getreg(adreno_dev, ADRENO_REG_RBBM_STATUS) << 2,
+		0x00000000, 0x80000000);
 
 	while (time_before(jiffies, wait)) {
 		/*

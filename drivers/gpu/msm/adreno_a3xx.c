@@ -2094,12 +2094,10 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A3XX_RBBM_GPR0_CTL,
 			A310_RBBM_GPR0_CTL_DEFAULT);
 
-	/* Set the OCMEM base address for A330 */
-	if (adreno_is_a330(adreno_dev) ||
-		adreno_is_a305b(adreno_dev) || adreno_is_a310(adreno_dev)) {
+	if (adreno_dev->features & ADRENO_USES_OCMEM)
 		kgsl_regwrite(device, A3XX_RB_GMEM_BASE_ADDR,
-			(unsigned int)(adreno_dev->ocmem_base >> 14));
-	}
+			(unsigned int)(adreno_dev->gmem_base >> 14));
+
 	/* Turn on protection */
 	a3xx_protect_init(device);
 
