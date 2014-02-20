@@ -79,6 +79,9 @@
 	{ KGSL_EVENT_TIMESTAMP_RETIRED, "retired" }, \
 	{ KGSL_EVENT_CANCELLED, "cancelled" }
 
+#define KGSL_CONTEXT_ID(_context) \
+	((_context != NULL) ? (_context)->id : KGSL_MEMSTORE_GLOBAL)
+
 struct kgsl_device;
 struct platform_device;
 struct kgsl_device_private;

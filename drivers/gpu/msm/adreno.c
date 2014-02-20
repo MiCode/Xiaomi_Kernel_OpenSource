@@ -3074,7 +3074,7 @@ static int adreno_readtimestamp(struct kgsl_device *device,
 					unsigned int *timestamp)
 {
 	int status = 0;
-	unsigned int id = context ? context->id : KGSL_MEMSTORE_GLOBAL;
+	unsigned int id = KGSL_CONTEXT_ID(context);
 
 	/*
 	 * If user passed in a NULL pointer for timestamp, return without
