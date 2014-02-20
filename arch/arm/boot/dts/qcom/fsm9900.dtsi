@@ -1284,7 +1284,7 @@
 		      <0xff001000 0x1000>,
 		      <0xff100000 0x1000>,
 		      <0xff200000 0x100000>,
-		      <0xff300000 0x600000>;
+		      <0xff300000 0x500000>;
 
 		reg-names = "parf", "phy", "dm_core", "elbi",
 				"conf", "io", "bars";
