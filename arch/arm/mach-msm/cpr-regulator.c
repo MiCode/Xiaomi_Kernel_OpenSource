@@ -347,6 +347,19 @@ static void cpr_ctl_enable(struct cpr_regulator *cpr_vreg, int corner)
 	if (cpr_vreg->is_cpr_suspended)
 		return;
 
+	/* Program Consecutive Up & Down */
+	val = ((cpr_vreg->timer_cons_down & RBIF_TIMER_ADJ_CONS_DOWN_MASK)
+			<< RBIF_TIMER_ADJ_CONS_DOWN_SHIFT) |
+		(cpr_vreg->timer_cons_up & RBIF_TIMER_ADJ_CONS_UP_MASK);
+	cpr_masked_write(cpr_vreg, REG_RBIF_TIMER_ADJUST,
+			RBIF_TIMER_ADJ_CONS_UP_MASK |
+			RBIF_TIMER_ADJ_CONS_DOWN_MASK, val);
+	cpr_masked_write(cpr_vreg, REG_RBCPR_CTL,
+			RBCPR_CTL_SW_AUTO_CONT_NACK_DN_EN |
+			RBCPR_CTL_SW_AUTO_CONT_ACK_EN,
+			cpr_vreg->save_ctl[corner]);
+	cpr_irq_set(cpr_vreg, cpr_vreg->save_irq[corner]);
+
 	if (cpr_is_allowed(cpr_vreg) &&
 	    (cpr_vreg->ceiling_volt[fuse_corner] >
 		cpr_vreg->floor_volt[fuse_corner]))
@@ -360,6 +373,16 @@ static void cpr_ctl_disable(struct cpr_regulator *cpr_vreg)
 {
 	if (cpr_vreg->is_cpr_suspended)
 		return;
+
+	cpr_irq_set(cpr_vreg, 0);
+	cpr_ctl_modify(cpr_vreg, RBCPR_CTL_SW_AUTO_CONT_NACK_DN_EN |
+			RBCPR_CTL_SW_AUTO_CONT_ACK_EN, 0);
+	cpr_masked_write(cpr_vreg, REG_RBIF_TIMER_ADJUST,
+			RBIF_TIMER_ADJ_CONS_UP_MASK |
+			RBIF_TIMER_ADJ_CONS_DOWN_MASK, 0);
+	cpr_irq_clr(cpr_vreg);
+	cpr_write(cpr_vreg, REG_RBIF_CONT_ACK_CMD, 1);
+	cpr_write(cpr_vreg, REG_RBIF_CONT_NACK_CMD, 1);
 	cpr_ctl_modify(cpr_vreg, RBCPR_CTL_LOOP_EN, 0);
 }
 
