@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -848,6 +848,9 @@ static struct v4l2_file_operations msm_fops = {
 	.poll   = msm_poll,
 	.release = msm_close,
 	.ioctl   = video_ioctl2,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl32 = video_ioctl2,
+#endif
 };
 
 struct msm_stream *msm_get_stream(unsigned int session_id,
