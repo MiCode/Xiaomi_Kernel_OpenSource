@@ -834,6 +834,20 @@
 			qcom,turn-off-delay-ms = <1000>;
 		};
 	};
+
+	qcom,leds@d300 {
+		pm8941_flash0: qcom,flash_0 {
+			qcom,sw_vreg_ok;
+		};
+
+		pm8941_flash1: qcom,flash_1 {
+			qcom,sw_vreg_ok;
+		};
+
+		pm8941_torch: qcom,flash_torch {
+			qcom,sw_vreg_ok;
+		};
+	};
 };
 
 &pm8941_chg {
