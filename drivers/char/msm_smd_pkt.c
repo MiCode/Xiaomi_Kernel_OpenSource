@@ -1014,6 +1014,7 @@ exit:
 static void smd_pkt_remove_driver(struct smd_pkt_dev *smd_pkt_devp)
 {
 	struct smd_pkt_driver *smd_pkt_driverp;
+	bool found_item = false;
 
 	if (!smd_pkt_devp) {
 		pr_err("%s on a NULL device\n", __func__);
@@ -1026,6 +1027,7 @@ static void smd_pkt_remove_driver(struct smd_pkt_dev *smd_pkt_devp)
 	list_for_each_entry(smd_pkt_driverp, &smd_pkt_driver_list, list) {
 		if (!strcmp(smd_pkt_driverp->pdriver_name,
 					smd_pkt_devp->ch_name)) {
+			found_item = true;
 			D_STATUS("%s:%s Platform driver cnt:%d\n",
 				__func__, smd_pkt_devp->ch_name,
 				smd_pkt_driverp->ref_cnt);
@@ -1036,8 +1038,11 @@ static void smd_pkt_remove_driver(struct smd_pkt_dev *smd_pkt_devp)
 			break;
 		}
 	}
+	if (!found_item)
+		pr_err("%s:%s No item found in list.\n",
+				__func__, smd_pkt_devp->ch_name);
 
-	if (smd_pkt_driverp->ref_cnt == 0) {
+	if (found_item && smd_pkt_driverp->ref_cnt == 0) {
 		platform_driver_unregister(&smd_pkt_driverp->driver);
 		smd_pkt_driverp->driver.probe = NULL;
 		list_del(&smd_pkt_driverp->list);
