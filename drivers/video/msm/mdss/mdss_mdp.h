@@ -647,6 +647,7 @@ int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata, u32 *mixer_offsets,
 int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata, u32 *ctl_offsets,
 		u32 *wb_offsets, u32 len);
 
+int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_pipe_destroy(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 			     struct mdss_mdp_data *src_data);
