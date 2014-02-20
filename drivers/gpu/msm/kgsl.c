@@ -2687,7 +2687,7 @@ static int kgsl_setup_ashmem(struct kgsl_mem_entry *entry,
 		size = len;
 
 	if (size != len) {
-		KGSL_CORE_ERR("Invalid size %d for vma region %lx\n",
+		KGSL_CORE_ERR("Invalid size %zd for vma region %lx\n",
 			      size, useraddr);
 		return -EINVAL;
 	}
