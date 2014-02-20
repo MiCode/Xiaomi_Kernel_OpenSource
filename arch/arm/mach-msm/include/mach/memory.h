@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/include/mach/memory.h
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -21,9 +21,6 @@
 #define PLAT_PHYS_OFFSET UL(CONFIG_PHYS_OFFSET)
 
 #ifndef __ASSEMBLY__
-void clean_and_invalidate_caches(unsigned long, unsigned long, unsigned long);
-void clean_caches(unsigned long, unsigned long, unsigned long);
-void invalidate_caches(unsigned long, unsigned long, unsigned long);
 int msm_get_memory_type_from_name(const char *memtype_name);
 
 #ifdef CONFIG_CACHE_L2X0
