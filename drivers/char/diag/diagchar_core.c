@@ -247,6 +247,8 @@ static int diagchar_open(struct inode *inode, struct file *file)
 		driver->data_ready[i] |= MSG_MASKS_TYPE;
 		driver->data_ready[i] |= EVENT_MASKS_TYPE;
 		driver->data_ready[i] |= LOG_MASKS_TYPE;
+		driver->data_ready[i] |= DCI_LOG_MASKS_TYPE;
+		driver->data_ready[i] |= DCI_EVENT_MASKS_TYPE;
 
 		if (driver->ref_count == 0)
 			diagmem_init(driver);
