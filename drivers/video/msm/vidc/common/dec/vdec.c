@@ -42,7 +42,9 @@
 #define ERR(x...) pr_err(x)
 
 #define VID_DEC_NAME "msm_vidc_dec"
-
+#ifdef KW_TAINT_ANALYSIS	51
+	extern void * get_tainted_stuff();
+#endif
 static char *node_name[2] = {"", "_sec"};
 static struct vid_dec_dev *vid_dec_device_p;
 static dev_t vid_dec_dev_num;
@@ -1736,7 +1738,11 @@ static long vid_dec_ioctl(struct file *file,
 	unsigned long kernel_vaddr, phy_addr, len;
 	unsigned long ker_vaddr;
 	u32 result = true;
+	#ifdef KW_TAINT_ANALYSIS
+    void __user *arg = (void __user *) get_tainted_stuff();
+	#else
 	void __user *arg = (void __user *)u_arg;
+	#endif
 	int rc = 0;
 	size_t ion_len;
 
