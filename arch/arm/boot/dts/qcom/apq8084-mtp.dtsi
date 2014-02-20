@@ -144,55 +144,6 @@
 	status = "ok";
 };
 
-/* CoreSight */
-&tpiu {
-	qcom,seta-gpios = <&msmgpio 4 0>,
-			  <&msmgpio 5 0>,
-			  <&msmgpio 6 0>,
-			  <&msmgpio 7 0>,
-			  <&msmgpio 48 0>,
-			  <&msmgpio 49 0>,
-			  <&msmgpio 50 0>,
-			  <&msmgpio 51 0>,
-			  <&msmgpio 52 0>,
-			  <&msmgpio 53 0>,
-			  <&msmgpio 54 0>,
-			  <&msmgpio 55 0>,
-			  <&msmgpio 56 0>,
-			  <&msmgpio 57 0>,
-			  <&msmgpio 63 0>,
-			  <&msmgpio 64 0>,
-			  <&msmgpio 75 0>,
-			  <&msmgpio 122 0>;
-	qcom,seta-gpios-func = <4 4 4 4 5 4 4 5 5 4 4 4 4 4 4 5 2 1>;
-	qcom,seta-gpios-drv =  <7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7>;
-	qcom,seta-gpios-pull = <0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
-	qcom,seta-gpios-dir =  <2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2>;
-
-	qcom,setb-gpios = <&msmgpio 10 0>,
-			  <&msmgpio 11 0>,
-			  <&msmgpio 29 0>,
-			  <&msmgpio 30 0>,
-			  <&msmgpio 39 0>,
-			  <&msmgpio 40 0>,
-			  <&msmgpio 43 0>,
-			  <&msmgpio 44 0>,
-			  <&msmgpio 45 0>,
-			  <&msmgpio 46 0>,
-			  <&msmgpio 67 0>,
-			  <&msmgpio 68 0>,
-			  <&msmgpio 69 0>,
-			  <&msmgpio 70 0>,
-			  <&msmgpio 71 0>,
-			  <&msmgpio 72 0>,
-			  <&msmgpio 102 0>,
-			  <&msmgpio 121 0>;
-	qcom,setb-gpios-func = <4 4 5 4 4 4 4 4 4 4 3 3 2 4 3 3 2 1>;
-	qcom,setb-gpios-drv =  <7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7>;
-	qcom,setb-gpios-pull = <0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
-	qcom,setb-gpios-dir =  <2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2>;
-};
-
 &ufsphy1 {
 	status = "ok";
 };
