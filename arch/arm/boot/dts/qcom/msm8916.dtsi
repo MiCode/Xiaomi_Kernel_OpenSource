@@ -656,8 +656,8 @@
 		compatible = "qcom,msm-pcm-lpa";
 	};
 
-	qcom,msm-compr-dsp {
-		compatible = "qcom,msm-compr-dsp";
+	qcom,msm-compress-dsp {
+		compatible = "qcom,msm-compress-dsp";
 	};
 
 	qcom,msm-voip-dsp {
@@ -826,6 +826,10 @@
 		qcom,msm-cpudai-auxpcm-data = <0>, <0>;
 		qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>, <2048000>;
 		qcom,msm-auxpcm-interface = "primary";
+	};
+
+	qcom,msm-audio-ion {
+		compatible = "qcom,msm-audio-ion";
 	};
 
 	qcom,smdtty {
