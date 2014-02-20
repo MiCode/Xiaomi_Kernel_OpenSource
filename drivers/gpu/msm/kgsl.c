@@ -4014,7 +4014,7 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 
 		for_each_sg(entry->memdesc.sg, s, sglen, i) {
 			int j;
-			for (j = 0; j < (sg_dma_len(s) >> PAGE_SHIFT); j++) {
+			for (j = 0; j < (s->length >> PAGE_SHIFT); j++) {
 				struct page *page = sg_page(s);
 				page = nth_page(page, j);
 				vm_insert_page(vma, addr, page);
