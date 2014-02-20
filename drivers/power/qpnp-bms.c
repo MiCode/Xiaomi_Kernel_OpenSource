@@ -130,6 +130,7 @@ struct fcc_sample {
 struct bms_irq {
 	unsigned int	irq;
 	unsigned long	disabled;
+	bool		ready;
 };
 
 struct bms_wakeup_source {
@@ -393,7 +394,7 @@ static void bms_relax(struct bms_wakeup_source *source)
 
 static void enable_bms_irq(struct bms_irq *irq)
 {
-	if (__test_and_clear_bit(0, &irq->disabled)) {
+	if (irq->ready && __test_and_clear_bit(0, &irq->disabled)) {
 		enable_irq(irq->irq);
 		pr_debug("enabled irq %d\n", irq->irq);
 	}
@@ -401,7 +402,7 @@ static void enable_bms_irq(struct bms_irq *irq)
 
 static void disable_bms_irq(struct bms_irq *irq)
 {
-	if (!__test_and_set_bit(0, &irq->disabled)) {
+	if (irq->ready && !__test_and_set_bit(0, &irq->disabled)) {
 		disable_irq(irq->irq);
 		pr_debug("disabled irq %d\n", irq->irq);
 	}
@@ -409,7 +410,7 @@ static void disable_bms_irq(struct bms_irq *irq)
 
 static void disable_bms_irq_nosync(struct bms_irq *irq)
 {
-	if (!__test_and_set_bit(0, &irq->disabled)) {
+	if (irq->ready && !__test_and_set_bit(0, &irq->disabled)) {
 		disable_irq_nosync(irq->irq);
 		pr_debug("disabled irq %d\n", irq->irq);
 	}
@@ -3884,6 +3885,7 @@ do {									\
 		pr_err("Unable to request " #irq_name " irq: %d\n", rc);\
 		return -ENXIO;						\
 	}								\
+	chip->irq_name##_irq.ready = true;				\
 } while (0)
 
 static int bms_request_irqs(struct qpnp_bms_chip *chip)
