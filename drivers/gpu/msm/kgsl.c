@@ -1348,56 +1348,34 @@ long kgsl_ioctl_device_setproperty(struct kgsl_device_private *dev_priv,
 	return result;
 }
 
-static long _device_waittimestamp(struct kgsl_device_private *dev_priv,
-		struct kgsl_context *context,
-		unsigned int timestamp,
-		unsigned int timeout)
+long kgsl_ioctl_device_waittimestamp_ctxtid(
+		struct kgsl_device_private *dev_priv, unsigned int cmd,
+		void *data)
 {
-	int result = 0;
+	struct kgsl_device_waittimestamp_ctxtid *param = data;
 	struct kgsl_device *device = dev_priv->device;
-	unsigned int context_id = context ? context->id : KGSL_MEMSTORE_GLOBAL;
+	long result = -EINVAL;
 	unsigned int temp_cur_ts = 0;
+	struct kgsl_context *context;
+
+	context = kgsl_context_get_owner(dev_priv, param->context_id);
+	if (context == NULL)
+		goto out;
 
 	kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED,
-			   &temp_cur_ts);
+		&temp_cur_ts);
 
-	trace_kgsl_waittimestamp_entry(device, context_id, temp_cur_ts,
-		timestamp, timeout);
+	trace_kgsl_waittimestamp_entry(device, context->id, temp_cur_ts,
+		param->timestamp, param->timeout);
 
-	result = device->ftbl->waittimestamp(dev_priv->device,
-	context, timestamp, timeout);
+	result = device->ftbl->waittimestamp(device, context, param->timestamp,
+		param->timeout);
 
 	kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED,
 		&temp_cur_ts);
 	trace_kgsl_waittimestamp_exit(device, temp_cur_ts, result);
 
-	return result;
-}
-
-long kgsl_ioctl_device_waittimestamp(struct kgsl_device_private
-						*dev_priv, unsigned int cmd,
-						void *data)
-{
-	struct kgsl_device_waittimestamp *param = data;
-
-	return _device_waittimestamp(dev_priv, NULL,
-			param->timestamp, param->timeout);
-}
-
-long kgsl_ioctl_device_waittimestamp_ctxtid(struct kgsl_device_private
-						*dev_priv, unsigned int cmd,
-						void *data)
-{
-	struct kgsl_device_waittimestamp_ctxtid *param = data;
-	struct kgsl_context *context;
-	long result = -EINVAL;
-
-	context = kgsl_context_get_owner(dev_priv, param->context_id);
-
-	if (context)
-		result = _device_waittimestamp(dev_priv, context,
-			param->timestamp, param->timeout);
-
+out:
 	kgsl_context_put(context);
 	return result;
 }
@@ -2190,30 +2168,6 @@ done:
 	return result;
 }
 
-static long _cmdstream_readtimestamp(struct kgsl_device_private *dev_priv,
-		struct kgsl_context *context, unsigned int type,
-		unsigned int *timestamp)
-{
-	int ret;
-	ret = kgsl_readtimestamp(dev_priv->device, context, type, timestamp);
-
-	trace_kgsl_readtimestamp(dev_priv->device,
-			context ? context->id : KGSL_MEMSTORE_GLOBAL,
-			type, *timestamp);
-
-	return ret;
-}
-
-long kgsl_ioctl_cmdstream_readtimestamp(struct kgsl_device_private
-						*dev_priv, unsigned int cmd,
-						void *data)
-{
-	struct kgsl_cmdstream_readtimestamp *param = data;
-
-	return _cmdstream_readtimestamp(dev_priv, NULL,
-			param->type, &param->timestamp);
-}
-
 long kgsl_ioctl_cmdstream_readtimestamp_ctxtid(struct kgsl_device_private
 						*dev_priv, unsigned int cmd,
 						void *data)
@@ -2224,9 +2178,13 @@ long kgsl_ioctl_cmdstream_readtimestamp_ctxtid(struct kgsl_device_private
 
 	context = kgsl_context_get_owner(dev_priv, param->context_id);
 
-	if (context)
-		result = _cmdstream_readtimestamp(dev_priv, context,
+	if (context) {
+		result = kgsl_readtimestamp(dev_priv->device, context,
 			param->type, &param->timestamp);
+
+		trace_kgsl_readtimestamp(dev_priv->device, context->id,
+			param->type, param->timestamp);
+	}
 
 	kgsl_context_put(context);
 	return result;
@@ -2242,81 +2200,50 @@ static void kgsl_freemem_event_cb(struct kgsl_device *device,
 	kgsl_mem_entry_put(entry);
 }
 
-/**
- * _cmdstream_freememontimestamp(): Implements core mechanism for freeing
- * memory on timestamp.
- * @dev_priv: Pointer to device private GPU struct
- * @gpuaddr: gpuaddr (memory entry) to be freed
- * @timestamp: Timestamp to be freed on
- * @type: Type of timestamp
- *
- * Implements the core mechanism of freeing a given GPU memory entry (identified
- * by gpuaddr) when the supplied timestamp becomes RETIRED timestamp for
- * the given context. This is done by adding this timestamp expiration as an
- * event to be acted on, on the timeline for this context.
- */
-static long _cmdstream_freememontimestamp(struct kgsl_device_private *dev_priv,
-		unsigned int gpuaddr, struct kgsl_context *context,
-		unsigned int timestamp, unsigned int type)
+long kgsl_ioctl_cmdstream_freememontimestamp_ctxtid(
+		struct kgsl_device_private *dev_priv,
+		unsigned int cmd, void *data)
 {
-	int result = 0;
-	struct kgsl_mem_entry *entry = NULL;
-	unsigned int context_id = context ? context->id : KGSL_MEMSTORE_GLOBAL;
-	unsigned int temp_cur_ts = 0;
+	struct kgsl_cmdstream_freememontimestamp_ctxtid *param = data;
 	struct kgsl_device *device = dev_priv->device;
+	struct kgsl_context *context;
+	struct kgsl_mem_entry *entry;
+	int result = -EINVAL;
+	unsigned int temp_cur_ts = 0;
 
-	/*
-	 * If the user supplies incorrect type for timestamp, bail.
-	 */
-	if (type != KGSL_TIMESTAMP_RETIRED)
+	/* If the user supplies incorrect type for timestamp, bail. */
+	if (param->type != KGSL_TIMESTAMP_RETIRED)
 		return -EINVAL;
-	entry = kgsl_sharedmem_find(dev_priv->process_priv, gpuaddr);
+
+	context = kgsl_context_get_owner(dev_priv, param->context_id);
+	if (context == NULL)
+		return -EINVAL;
+
+	entry = kgsl_sharedmem_find(dev_priv->process_priv, param->gpuaddr);
 
 	if (!entry) {
-		KGSL_DRV_ERR(dev_priv->device,
-				"invalid gpuaddr %08x\n", gpuaddr);
-		return -EINVAL;
+		KGSL_DRV_ERR(device, "invalid gpuaddr 0x%08lX\n",
+			param->gpuaddr);
+		goto out;
 	}
 	if (!kgsl_mem_entry_set_pend(entry)) {
-		KGSL_DRV_WARN(dev_priv->device,
-		"Cannot set pending bit for gpuaddr %08x\n", gpuaddr);
+		KGSL_DRV_WARN(device,
+			"Cannot set pending bit for gpuaddr 0x%08lX\n",
+			param->gpuaddr);
 		kgsl_mem_entry_put(entry);
-		return -EBUSY;
+		result = -EBUSY;
+		goto out;
 	}
 
 	kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED,
 		&temp_cur_ts);
-	trace_kgsl_mem_timestamp_queue(device, entry, context_id,
-		temp_cur_ts, timestamp);
-	result = kgsl_add_event(dev_priv->device, context_id, timestamp,
+	trace_kgsl_mem_timestamp_queue(device, entry, context->id, temp_cur_ts,
+		param->timestamp);
+	result = kgsl_add_event(device, context->id, param->timestamp,
 				kgsl_freemem_event_cb, entry, dev_priv);
 	kgsl_mem_entry_put(entry);
-	return result;
-}
 
-long kgsl_ioctl_cmdstream_freememontimestamp(struct kgsl_device_private
-						    *dev_priv, unsigned int cmd,
-						    void *data)
-{
-	struct kgsl_cmdstream_freememontimestamp *param = data;
-
-	return _cmdstream_freememontimestamp(dev_priv, param->gpuaddr,
-			NULL, param->timestamp, param->type);
-}
-
-long kgsl_ioctl_cmdstream_freememontimestamp_ctxtid(
-						struct kgsl_device_private
-						*dev_priv, unsigned int cmd,
-						void *data)
-{
-	struct kgsl_cmdstream_freememontimestamp_ctxtid *param = data;
-	struct kgsl_context *context;
-	long result = -EINVAL;
-
-	context = kgsl_context_get_owner(dev_priv, param->context_id);
-	if (context)
-		result = _cmdstream_freememontimestamp(dev_priv, param->gpuaddr,
-			context, param->timestamp, param->type);
+out:
 	kgsl_context_put(context);
 	return result;
 }
@@ -3358,9 +3285,7 @@ static const struct kgsl_ioctl kgsl_ioctl_funcs[] = {
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_DEVICE_GETPROPERTY,
 			kgsl_ioctl_device_getproperty,
 			KGSL_IOCTL_LOCK),
-	KGSL_IOCTL_FUNC(IOCTL_KGSL_DEVICE_WAITTIMESTAMP,
-			kgsl_ioctl_device_waittimestamp,
-			KGSL_IOCTL_LOCK),
+	/* IOCTL_KGSL_DEVICE_WAITTIMESTAMP is no longer supported */
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_DEVICE_WAITTIMESTAMP_CTXTID,
 			kgsl_ioctl_device_waittimestamp_ctxtid,
 			KGSL_IOCTL_LOCK),
@@ -3368,15 +3293,11 @@ static const struct kgsl_ioctl kgsl_ioctl_funcs[] = {
 			kgsl_ioctl_rb_issueibcmds, 0),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_SUBMIT_COMMANDS,
 			kgsl_ioctl_submit_commands, 0),
-	KGSL_IOCTL_FUNC(IOCTL_KGSL_CMDSTREAM_READTIMESTAMP,
-			kgsl_ioctl_cmdstream_readtimestamp,
-			KGSL_IOCTL_LOCK),
+	/* IOCTL_KGSL_CMDSTREAM_READTIMESTAMP is no longer supported */
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_CMDSTREAM_READTIMESTAMP_CTXTID,
 			kgsl_ioctl_cmdstream_readtimestamp_ctxtid,
 			KGSL_IOCTL_LOCK),
-	KGSL_IOCTL_FUNC(IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP,
-			kgsl_ioctl_cmdstream_freememontimestamp,
-			KGSL_IOCTL_LOCK),
+	/* IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP is no longer supported */
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP_CTXTID,
 			kgsl_ioctl_cmdstream_freememontimestamp_ctxtid,
 			KGSL_IOCTL_LOCK),
