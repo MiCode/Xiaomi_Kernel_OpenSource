@@ -414,6 +414,8 @@ struct mpp_config_data {
  *  @flash_on - flash status, on or off
  *  @torch_on - torch status, on or off
  *  @vreg_ok - specifies strobe type, sw or hw
+ *  @no_smbb_support - specifies if smbb boost is not required and there is a
+    single regulator for both flash and torch
  *  @flash_boost_reg - boost regulator for flash
  *  @torch_boost_reg - boost regulator for torch
  */
@@ -435,6 +437,7 @@ struct flash_config_data {
 	bool	flash_on;
 	bool	torch_on;
 	bool	vreg_ok;
+	bool    no_smbb_support;
 	struct regulator *flash_boost_reg;
 	struct regulator *torch_boost_reg;
 };
@@ -1094,7 +1097,12 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 		if (led->flash_cfg->torch_enable) {
 			if (led->flash_cfg->peripheral_subtype ==
 							FLASH_SUBTYPE_DUAL) {
-				rc = qpnp_torch_regulator_operate(led, true);
+				if (!led->flash_cfg->no_smbb_support)
+					rc = qpnp_torch_regulator_operate(led,
+									true);
+				else
+					rc = qpnp_flash_regulator_operate(led,
+									true);
 				if (rc) {
 					dev_err(&led->spmi_dev->dev,
 					"Torch regulator operate failed(%d)\n",
@@ -1308,7 +1316,12 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 		if (led->flash_cfg->torch_enable) {
 			if (led->flash_cfg->peripheral_subtype ==
 							FLASH_SUBTYPE_DUAL) {
-				rc = qpnp_torch_regulator_operate(led, false);
+				if (!led->flash_cfg->no_smbb_support)
+					rc = qpnp_torch_regulator_operate(led,
+									false);
+				else
+					rc = qpnp_flash_regulator_operate(led,
+									false);
 				if (rc) {
 					dev_err(&led->spmi_dev->dev,
 						"Torch regulator operate failed(%d)\n",
@@ -1365,7 +1378,10 @@ error_reg_write:
 		goto error_flash_set;
 
 error_torch_set:
-	error = qpnp_torch_regulator_operate(led, false);
+	if (!led->flash_cfg->no_smbb_support)
+		error = qpnp_torch_regulator_operate(led, false);
+	else
+		error = qpnp_flash_regulator_operate(led, false);
 	if (error) {
 		dev_err(&led->spmi_dev->dev,
 			"Torch regulator operate failed(%d)\n", rc);
@@ -2859,6 +2875,9 @@ static int qpnp_get_config_flash(struct qpnp_led_data *led,
 	led->flash_cfg->torch_enable =
 		of_property_read_bool(node, "qcom,torch-enable");
 
+	led->flash_cfg->no_smbb_support =
+		of_property_read_bool(node, "qcom,no-smbb-support");
+
 	if (led->id == QPNP_ID_FLASH1_LED0) {
 		led->flash_cfg->enable_module = FLASH_ENABLE_LED_0;
 		led->flash_cfg->current_addr = FLASH_LED_0_CURR(led->base);
@@ -2913,14 +2932,17 @@ static int qpnp_get_config_flash(struct qpnp_led_data *led,
 	if (led->flash_cfg->torch_enable) {
 		if (of_find_property(of_get_parent(node), "torch-boost-supply",
 									NULL)) {
-			led->flash_cfg->torch_boost_reg =
-				regulator_get(&led->spmi_dev->dev,
+			if (!led->flash_cfg->no_smbb_support) {
+				led->flash_cfg->torch_boost_reg =
+					regulator_get(&led->spmi_dev->dev,
 								"torch-boost");
-			if (IS_ERR(led->flash_cfg->torch_boost_reg)) {
-				rc = PTR_ERR(led->flash_cfg->torch_boost_reg);
-				dev_err(&led->spmi_dev->dev,
+				if (IS_ERR(led->flash_cfg->torch_boost_reg)) {
+					rc = PTR_ERR(led->flash_cfg->
+							torch_boost_reg);
+					dev_err(&led->spmi_dev->dev,
 					"Torch regulator get failed(%d)\n", rc);
-				goto error_get_torch_reg;
+					goto error_get_torch_reg;
+				}
 			}
 			led->flash_cfg->enable_module = FLASH_ENABLE_MODULE;
 		} else
@@ -3007,7 +3029,10 @@ static int qpnp_get_config_flash(struct qpnp_led_data *led,
 	return 0;
 
 error_get_torch_reg:
-	regulator_put(led->flash_cfg->torch_boost_reg);
+	if (led->flash_cfg->no_smbb_support)
+		regulator_put(led->flash_cfg->flash_boost_reg);
+	else
+		regulator_put(led->flash_cfg->torch_boost_reg);
 
 error_get_flash_reg:
 	regulator_put(led->flash_cfg->flash_boost_reg);
@@ -3657,8 +3682,9 @@ static int qpnp_leds_remove(struct spmi_device *spmi)
 				regulator_put(led_array[i].flash_cfg-> \
 							flash_boost_reg);
 			if (led_array[i].flash_cfg->torch_enable)
-				regulator_put(led_array[i].flash_cfg->\
-							torch_boost_reg);
+				if (!led_array[i].flash_cfg->no_smbb_support)
+					regulator_put(led_array[i].
+					flash_cfg->torch_boost_reg);
 			sysfs_remove_group(&led_array[i].cdev.dev->kobj,
 							&led_attr_group);
 			break;
