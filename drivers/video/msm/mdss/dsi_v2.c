@@ -63,14 +63,14 @@ static int dsi_panel_handler(struct mdss_panel_data *pdata, int enable)
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	if (enable) {
+	if (enable && pdata->panel_info.panel_power_on == 0) {
 		dsi_ctrl_gpio_request(ctrl_pdata);
 		mdss_dsi_panel_reset(pdata, 1);
 		pdata->panel_info.panel_power_on = 1;
 		rc = ctrl_pdata->on(pdata);
 		if (rc)
 			pr_err("dsi_panel_handler panel on failed %d\n", rc);
-	} else {
+	} else if (!enable && pdata->panel_info.panel_power_on == 1) {
 		if (dsi_intf.op_mode_config)
 			dsi_intf.op_mode_config(DSI_CMD_MODE, pdata);
 		rc = ctrl_pdata->off(pdata);
