@@ -30,9 +30,6 @@ struct kgsl_process_private;
 #define KGSL_CACHE_OP_FLUSH     0x02
 #define KGSL_CACHE_OP_CLEAN     0x03
 
-int kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
-			   struct kgsl_pagetable *pagetable, size_t size);
-
 int kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 				struct kgsl_pagetable *pagetable,
 				size_t size);
@@ -237,31 +234,6 @@ kgsl_memdesc_mmapsize(const struct kgsl_memdesc *memdesc)
 		kgsl_memdesc_has_guard_page(memdesc))
 		size += SZ_4K;
 	return size;
-}
-
-static inline int
-kgsl_allocate(struct kgsl_device *device, struct kgsl_memdesc *memdesc,
-		struct kgsl_pagetable *pagetable, size_t size)
-{
-	int ret;
-	memdesc->priv |= (KGSL_MEMTYPE_KERNEL << KGSL_MEMTYPE_SHIFT);
-	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE) {
-		size = ALIGN(size, PAGE_SIZE * 2);
-		return kgsl_cma_alloc_coherent(device, memdesc, pagetable,
-						size);
-	}
-	ret = kgsl_sharedmem_page_alloc(memdesc, pagetable, size);
-	if (ret)
-		return ret;
-	ret = kgsl_mmu_get_gpuaddr(pagetable, memdesc);
-	if (ret) {
-		kgsl_sharedmem_free(memdesc);
-		return ret;
-	}
-	ret = kgsl_mmu_map(pagetable, memdesc);
-	if (ret)
-		kgsl_sharedmem_free(memdesc);
-	return ret;
 }
 
 static inline int
