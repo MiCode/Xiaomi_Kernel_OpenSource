@@ -16,6 +16,9 @@
 #include "msm_camera_i2c_mux.h"
 #include "msm_cci.h"
 
+#define CAM_SENSOR_PINCTRL_STATE_SLEEP "cam_suspend"
+#define CAM_SENSOR_PINCTRL_STATE_DEFAULT "cam_default"
+
 /*#define CONFIG_MSM_CAMERA_DT_DEBUG*/
 #undef CDBG
 #ifdef CONFIG_MSM_CAMERA_DT_DEBUG
@@ -23,6 +26,8 @@
 #else
 #define CDBG(fmt, args...) do { } while (0)
 #endif
+
+static int32_t pin_ctrl_enable = -1;/*Initializing to non zero value*/
 
 int msm_camera_fill_vreg_params(struct camera_vreg_t *cam_vreg,
 	int num_vreg, struct msm_sensor_power_setting *power_setting,
@@ -949,11 +954,43 @@ static int msm_camera_disable_i2c_mux(struct msm_camera_i2c_conf *i2c_conf)
 	return 0;
 }
 
+static int msm_camera_pinctrl_init(struct msm_camera_power_ctrl_t *ctrl)
+{
+	struct msm_pinctrl_info *sensor_pctrl = NULL;
+	sensor_pctrl = &ctrl->pinctrl_info;
+
+	sensor_pctrl->pinctrl = devm_pinctrl_get(ctrl->dev);
+
+	if (IS_ERR_OR_NULL(sensor_pctrl->pinctrl)) {
+		pr_err("%s:%d Getting pinctrl handle failed\n",
+			__func__, __LINE__);
+		return -EINVAL;
+	}
+	sensor_pctrl->gpio_state_active =
+		pinctrl_lookup_state(sensor_pctrl->pinctrl,
+				CAM_SENSOR_PINCTRL_STATE_DEFAULT);
+	if (IS_ERR_OR_NULL(sensor_pctrl->gpio_state_active)) {
+		pr_err("%s:%d Failed to get the active state pinctrl handle\n",
+			__func__, __LINE__);
+		return -EINVAL;
+	}
+	sensor_pctrl->gpio_state_suspend
+		= pinctrl_lookup_state(sensor_pctrl->pinctrl,
+				CAM_SENSOR_PINCTRL_STATE_SLEEP);
+
+	if (IS_ERR_OR_NULL(sensor_pctrl->gpio_state_suspend)) {
+		pr_err("%s:%d Failed to get the suspend state pinctrl handle\n",
+				__func__, __LINE__);
+		return -EINVAL;
+	}
+	return 0;
+}
+
 int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 	enum msm_camera_device_type_t device_type,
 	struct msm_camera_i2c_client *sensor_i2c_client)
 {
-	int rc = 0, index = 0, no_gpio = 0;
+	int rc = 0, index = 0, no_gpio = 0, ret = 0;
 	struct msm_sensor_power_setting *power_setting = NULL;
 
 	CDBG("%s:%d\n", __func__, __LINE__);
@@ -968,6 +1005,27 @@ int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 			(struct msm_gpiomux_config *)
 			ctrl->gpio_conf->cam_gpiomux_conf_tbl,
 			ctrl->gpio_conf->cam_gpiomux_conf_tbl_size);
+	}
+
+	ret = msm_camera_pinctrl_init(ctrl);
+	if (ret < 0) {
+		/*ignoring ret for backward compatibility*/
+		/*need to check with a flag later*/
+		pr_err("%s:%d Initialization of pinctrl failed\n",
+				__func__, __LINE__);
+		pin_ctrl_enable = 0;
+	} else
+		pin_ctrl_enable = 1;
+
+	if (pin_ctrl_enable) {
+		ret = pinctrl_select_state(ctrl->pinctrl_info.pinctrl,
+			ctrl->pinctrl_info.gpio_state_active);
+		if (ret) {
+			/*ignoring ret for backward compatibility*/
+			/*need to check with a flag later*/
+			pr_err("%s:%d cannot set pin to active state",
+				__func__, __LINE__);
+		}
 	}
 
 	rc = msm_camera_request_gpio_table(
@@ -1088,6 +1146,7 @@ power_up_failed:
 			gpio_set_value_cansleep(
 				ctrl->gpio_conf->gpio_num_info->gpio_num
 				[power_setting->seq_val], GPIOF_OUT_INIT_LOW);
+
 			break;
 		case SENSOR_VREG:
 			msm_camera_config_single_vreg(ctrl->dev,
@@ -1111,9 +1170,21 @@ power_up_failed:
 				(power_setting->delay * 1000) + 1000);
 		}
 	}
+
 	msm_camera_request_gpio_table(
 		ctrl->gpio_conf->cam_gpio_req_tbl,
 		ctrl->gpio_conf->cam_gpio_req_tbl_size, 0);
+
+	if (pin_ctrl_enable) {
+		ret = pinctrl_select_state(ctrl->pinctrl_info.pinctrl,
+				ctrl->pinctrl_info.gpio_state_suspend);
+		if (ret) {
+			/*ignoring ret for backward compatibilit*/
+			/*need to check with a flag later*/
+			 pr_err("%s:%d cannot set pin to suspend state\n",
+				__func__, __LINE__);
+		}
+	}
 	return rc;
 }
 
@@ -1141,10 +1212,9 @@ int msm_camera_power_down(struct msm_camera_power_ctrl_t *ctrl,
 	enum msm_camera_device_type_t device_type,
 	struct msm_camera_i2c_client *sensor_i2c_client)
 {
-	int index = 0;
+	int index = 0, ret = 0;
 	struct msm_sensor_power_setting *pd = NULL;
 	struct msm_sensor_power_setting *ps;
-
 
 	CDBG("%s:%d\n", __func__, __LINE__);
 	if (!ctrl || !sensor_i2c_client) {
@@ -1235,6 +1305,16 @@ int msm_camera_power_down(struct msm_camera_power_ctrl_t *ctrl,
 	msm_camera_request_gpio_table(
 		ctrl->gpio_conf->cam_gpio_req_tbl,
 		ctrl->gpio_conf->cam_gpio_req_tbl_size, 0);
+	if (pin_ctrl_enable) {
+		ret = pinctrl_select_state(ctrl->pinctrl_info.pinctrl,
+				ctrl->pinctrl_info.gpio_state_suspend);
+		if (ret) {
+			/*ignoring ret for backward compatibility*/
+			/*need to check with a flag later*/
+			 pr_err("%s:%d cannot set pin to suspend state",
+				__func__, __LINE__);
+		}
+	}
 	CDBG("%s exit\n", __func__);
 	return 0;
 }
