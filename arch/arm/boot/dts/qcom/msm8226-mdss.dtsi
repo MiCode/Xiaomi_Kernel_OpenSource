@@ -48,11 +48,11 @@
 		qcom,mdss-pipe-rgb-xin-id = <1>;
 		qcom,mdss-pipe-dma-xin-id = <2>;
 
-		qcom,mdss-pipe-vig-clk-ctrl-offsets = <0x3AC 0 0>;
-		qcom,mdss-pipe-rgb-clk-ctrl-offsets = <0x3AC 4 8>;
-		qcom,mdss-pipe-dma-clk-ctrl-offsets = <0x3AC 8 12>;
+		qcom,mdss-pipe-vig-clk-ctrl-offsets = <0x2AC 0 0>;
+		qcom,mdss-pipe-rgb-clk-ctrl-offsets = <0x2AC 4 8>;
+		qcom,mdss-pipe-dma-clk-ctrl-offsets = <0x2AC 8 12>;
 
-		qcom,mdss-pipe-sw-reset-off = <0x01A8>;
+		qcom,mdss-pipe-sw-reset-off = <0x00A8>;
 		qcom,mdss-pipe-vig-sw-reset-map = <0>;
 		qcom,mdss-pipe-rgb-sw-reset-map = <1>;
 		qcom,mdss-pipe-dma-sw-reset-map = <2>;

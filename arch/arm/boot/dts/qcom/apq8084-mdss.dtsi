@@ -57,18 +57,18 @@
 						<2 4 5>,
 						<2 6 7>;
 
-		qcom,mdss-pipe-vig-clk-ctrl-offsets = <0x3AC 0 0>,
-						      <0x3B4 0 0>,
-						      <0x3BC 0 0>,
-						      <0x3C4 0 0>;
-		qcom,mdss-pipe-rgb-clk-ctrl-offsets = <0x3AC 4 8>,
-						      <0x3B4 4 8>,
-						      <0x3BC 4 8>,
-						      <0x3C4 4 8>;
-		qcom,mdss-pipe-dma-clk-ctrl-offsets = <0x3AC 8 12>,
-						      <0x3B4 8 12>;
+		qcom,mdss-pipe-vig-clk-ctrl-offsets = <0x2AC 0 0>,
+						      <0x2B4 0 0>,
+						      <0x2BC 0 0>,
+						      <0x2C4 0 0>;
+		qcom,mdss-pipe-rgb-clk-ctrl-offsets = <0x2AC 4 8>,
+						      <0x2B4 4 8>,
+						      <0x2BC 4 8>,
+						      <0x2C4 4 8>;
+		qcom,mdss-pipe-dma-clk-ctrl-offsets = <0x2AC 8 12>,
+						      <0x2B4 8 12>;
 
-		qcom,mdss-pipe-sw-reset-off = <0x0128>;
+		qcom,mdss-pipe-sw-reset-off = <0x0028>;
 		qcom,mdss-pipe-vig-sw-reset-map = <5 6 7 8>;
 		qcom,mdss-pipe-rgb-sw-reset-map = <9 10 11 12>;
 		qcom,mdss-pipe-dma-sw-reset-map = <13 14>;

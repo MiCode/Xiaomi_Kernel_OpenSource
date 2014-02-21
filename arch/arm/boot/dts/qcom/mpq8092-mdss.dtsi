@@ -45,12 +45,12 @@
 		qcom,mdss-pipe-vig-xin-id = <0 1 2 3>;
 		qcom,mdss-pipe-rgb-xin-id = <4 5>;
 
-		qcom,mdss-pipe-vig-clk-ctrl-offsets = <0x3AC 0 0>,
-						      <0x3B4 0 0>,
-						      <0x3BC 0 0>,
-						      <0x3BC 24 16>;
-		qcom,mdss-pipe-rgb-clk-ctrl-offsets = <0x3AC 4 8>,
-						      <0x3B4 4 8>;
+		qcom,mdss-pipe-vig-clk-ctrl-offsets = <0x2AC 0 0>,
+						      <0x2B4 0 0>,
+						      <0x2BC 0 0>,
+						      <0x2BC 24 16>;
+		qcom,mdss-pipe-rgb-clk-ctrl-offsets = <0x2AC 4 8>,
+						      <0x2B4 4 8>;
 
 		qcom,mdss-ctl-off = <0x00000600 0x00000700>;
 		qcom,mdss-mixer-intf-off = <0x00004a00 0x00004e00>;
