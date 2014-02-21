@@ -361,6 +361,7 @@ void oops_enter(void)
 	tracing_off();
 	/* can't trust the integrity of the kernel anymore: */
 	debug_locks_off();
+	oops_printk_start();
 	do_oops_enter_exit();
 }
 
