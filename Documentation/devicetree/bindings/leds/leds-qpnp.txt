@@ -47,6 +47,7 @@ Optional properties for flash:
 - linux,default-trigger: trigger the led from external modules such as display
 - qcom,default-state:  default state of the led, should be "on" or "off"
 - qcom,torch-enable: set flash led to torch mode functionality and triggers software workaround for torch if hardware does not support
+- qcom,sw_vreg_ok: Specify if software strobe is used to inform the readiness of flash module to fire the flash LED when there is no smbb support
 - flash-boost-supply: SMBB regulator for LED flash mode
 - torch-boost-supply: SMBB regulator for LED torch mode
 
