@@ -118,13 +118,14 @@ static int mdss_mdp_rotator_busy_wait(struct mdss_mdp_rotator_session *rot)
 {
 
 	mutex_lock(&rot->lock);
-	if (!rot->pipe || !rot->pipe->mixer || !rot->pipe->mixer->ctl) {
+	if (!rot->pipe || !rot->pipe->mixer_left ||
+		!rot->pipe->mixer_left->ctl) {
 		mutex_unlock(&rot->lock);
 		return -ENODEV;
 	}
 
 	if (rot->busy) {
-		struct mdss_mdp_ctl *ctl = rot->pipe->mixer->ctl;
+		struct mdss_mdp_ctl *ctl = rot->pipe->mixer_left->ctl;
 		mdss_mdp_display_wait4comp(ctl);
 		rot->busy = false;
 		if (ctl->shared_lock)
@@ -254,7 +255,7 @@ static int mdss_mdp_rotator_queue_sub(struct mdss_mdp_rotator_session *rot,
 
 	pr_debug("queue rotator pnum=%d\n", rot_pipe->num);
 
-	orig_ctl = rot_pipe->mixer->ctl;
+	orig_ctl = rot_pipe->mixer_left->ctl;
 	if (orig_ctl->shared_lock)
 		mutex_lock(orig_ctl->shared_lock);
 
@@ -264,7 +265,7 @@ static int mdss_mdp_rotator_queue_sub(struct mdss_mdp_rotator_session *rot,
 		ret = -EINVAL;
 		goto error;
 	} else {
-		rot->pipe->mixer = rot_ctl->mixer_left;
+		rot->pipe->mixer_left = rot_ctl->mixer_left;
 	}
 
 	if (rot->params_changed || rot_ctl->mdata->mixer_switched) {
@@ -645,7 +646,7 @@ static int mdss_mdp_rotator_finish(struct mdss_mdp_rotator_session *rot)
 	rot->commit_work = commit_work;
 
 	if (rot_pipe) {
-		struct mdss_mdp_mixer *mixer = rot_pipe->mixer;
+		struct mdss_mdp_mixer *mixer = rot_pipe->mixer_left;
 		mdss_mdp_pipe_unmap(rot_pipe);
 		tmp = mdss_mdp_ctl_mixer_switch(mixer->ctl,
 				MDSS_MDP_WB_CTL_TYPE_BLOCK);

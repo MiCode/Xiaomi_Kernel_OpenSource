@@ -278,11 +278,11 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 		if (rc)
 			return rc;
 
-		if (pipe->mixer && pipe->mixer->rotator_mode) {
+		if (pipe->mixer_left && pipe->mixer_left->rotator_mode) {
 			rot_mode = 1;
-		} else if (pipe->mixer && (ps.num_planes == 1)) {
+		} else if (pipe->mixer_left && (ps.num_planes == 1)) {
 			ps.ystride[0] = MAX_BPP *
-				max(pipe->mixer->width, width);
+				max(pipe->mixer_left->width, width);
 		} else if (mdata->has_decimation) {
 			/*
 			 * To avoid quailty loss, MDP does one less decimation
@@ -303,7 +303,7 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	else
 		nlines = pipe->bwc_mode ? 1 : 2;
 
-	if (pipe->mixer->type == MDSS_MDP_MIXER_TYPE_WRITEBACK)
+	if (pipe->mixer_left->type == MDSS_MDP_MIXER_TYPE_WRITEBACK)
 		wb_mixer = 1;
 
 	mutex_lock(&mdss_mdp_smp_lock);
@@ -341,7 +341,7 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	}
 
 	if (reserved < num_blks) {
-		pr_debug("insufficient MMB blocks\n");
+		pr_debug("insufficient MMB blocks. pnum:%d\n", pipe->num);
 		for (; i >= 0; i--)
 			mdss_mdp_smp_mmb_free(pipe->smp_map[i].reserved,
 				false);
@@ -505,7 +505,7 @@ int mdss_mdp_pipe_map(struct mdss_mdp_pipe *pipe)
 }
 
 static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
-						u32 type, u32 off)
+	u32 type, u32 off, struct mdss_mdp_pipe *left_blend_pipe)
 {
 	struct mdss_mdp_pipe *pipe = NULL;
 	struct mdss_data_type *mdata;
@@ -547,10 +547,18 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 	for (i = off; i < npipes; i++) {
 		pipe = pipe_pool + i;
 		if (atomic_cmpxchg(&pipe->ref_cnt, 0, 1) == 0) {
-			pipe->mixer = mixer;
+			pipe->mixer_left = mixer;
 			break;
 		}
 		pipe = NULL;
+	}
+
+	if (left_blend_pipe && pipe &&
+	    pipe->priority <= left_blend_pipe->priority) {
+		pr_debug("priority limitation. l_pipe_prio:%d r_pipe_prio:%d\n",
+			left_blend_pipe->priority, pipe->priority);
+		atomic_dec(&pipe->ref_cnt);
+		return NULL;
 	}
 
 	if (pipe && mdss_mdp_pipe_fetch_halt(pipe)) {
@@ -586,7 +594,7 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 		 * shared as long as its attached to a writeback mixer
 		 */
 		pipe = mdata->dma_pipes + mixer->num;
-		if (pipe->mixer->type != MDSS_MDP_MIXER_TYPE_WRITEBACK)
+		if (pipe->mixer_left->type != MDSS_MDP_MIXER_TYPE_WRITEBACK)
 			return NULL;
 		atomic_inc(&pipe->ref_cnt);
 		pr_debug("pipe sharing for pipe=%d\n", pipe->num);
@@ -604,7 +612,8 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_dma(struct mdss_mdp_mixer *mixer)
 
 	mutex_lock(&mdss_mdp_sspp_lock);
 	mdata = mixer->ctl->mdata;
-	pipe = mdss_mdp_pipe_init(mixer, MDSS_MDP_PIPE_TYPE_DMA, mixer->num);
+	pipe = mdss_mdp_pipe_init(mixer, MDSS_MDP_PIPE_TYPE_DMA, mixer->num,
+		NULL);
 	if (!pipe) {
 		pr_err("DMA pipes not available for mixer=%d\n", mixer->num);
 	} else if (pipe != &mdata->dma_pipes[mixer->num]) {
@@ -613,18 +622,18 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_dma(struct mdss_mdp_mixer *mixer)
 		mdss_mdp_pipe_unmap(pipe);
 		pipe = NULL;
 	} else {
-		pipe->mixer = mixer;
+		pipe->mixer_left = mixer;
 	}
 	mutex_unlock(&mdss_mdp_sspp_lock);
 	return pipe;
 }
 
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(struct mdss_mdp_mixer *mixer,
-						 u32 type)
+	u32 type, struct mdss_mdp_pipe *left_blend_pipe)
 {
 	struct mdss_mdp_pipe *pipe;
 	mutex_lock(&mdss_mdp_sspp_lock);
-	pipe = mdss_mdp_pipe_init(mixer, type, 0);
+	pipe = mdss_mdp_pipe_init(mixer, type, 0, left_blend_pipe);
 	mutex_unlock(&mdss_mdp_sspp_lock);
 	return pipe;
 }
@@ -713,8 +722,11 @@ static int mdss_mdp_pipe_free(struct mdss_mdp_pipe *pipe)
 	}
 
 	pipe->flags = 0;
+	pipe->is_right_blend = false;
+	pipe->src_split_req = false;
 	pipe->bwc_mode = 0;
 	pipe->mfd = NULL;
+	pipe->mixer_left = pipe->mixer_right = NULL;
 	memset(&pipe->scale, 0, sizeof(struct mdp_scale_data));
 
 	return 0;
@@ -1009,11 +1021,13 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 		pr_debug("Image decimation h=%d v=%d\n",
 				pipe->horz_deci, pipe->vert_deci);
 
-	sci = pipe->mixer->ctl->roi;
+	sci = pipe->mixer_left->ctl->roi;
 	dst = pipe->dst;
 	src = pipe->src;
 
-	if (pipe->mixer->type == MDSS_MDP_MIXER_TYPE_INTF)
+	if ((pipe->mixer_left->type != MDSS_MDP_MIXER_TYPE_WRITEBACK) &&
+	    !pipe->mixer_left->ctl->is_video_mode &&
+	    !pipe->src_split_req)
 		mdss_mdp_crop_rect(&src, &dst, &sci);
 
 	src_size = (src.h << 16) | src.w;
@@ -1152,7 +1166,7 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 
 int mdss_mdp_pipe_addr_setup(struct mdss_data_type *mdata,
 	struct mdss_mdp_pipe *head, u32 *offsets, u32 *ftch_id, u32 *xin_id,
-	u32 type, u32 num_base, u32 len)
+	u32 type, u32 num_base, u32 len, u8 priority_base)
 {
 	u32 i;
 
@@ -1167,7 +1181,11 @@ int mdss_mdp_pipe_addr_setup(struct mdss_data_type *mdata,
 		head[i].xin_id = xin_id[i];
 		head[i].num = i + num_base;
 		head[i].ndx = BIT(i + num_base);
+		head[i].priority = i + priority_base;
 		head[i].base = mdata->mdss_base + offsets[i];
+		pr_info("type:%d ftchid:%d xinid:%d num:%d ndx:0x%x prio:%d\n",
+			head[i].type, head[i].ftch_id, head[i].xin_id,
+			head[i].num, head[i].ndx, head[i].priority);
 	}
 
 	return 0;
@@ -1250,32 +1268,39 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 	struct mdss_mdp_ctl *ctl;
 	u32 params_changed;
 	u32 opmode = 0;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	if (!pipe) {
 		pr_err("pipe not setup properly for queue\n");
 		return -ENODEV;
 	}
 
-	if (!pipe->mixer || !pipe->mixer->ctl) {
-		pr_err("pipe mixer not setup properly for queue\n");
+	if (!pipe->mixer_left || !pipe->mixer_left->ctl) {
+		if (src_data)
+			pr_err("pipe%d mixer not setup properly\n", pipe->num);
 		return -ENODEV;
 	}
 
+	if (pipe->src_split_req && !mdata->has_src_split) {
+		pr_err("src split can't be requested on mdp:0x%x\n",
+			mdata->mdp_rev);
+		return -EINVAL;
+	}
+
 	pr_debug("pnum=%x mixer=%d play_cnt=%u\n", pipe->num,
-		 pipe->mixer->num, pipe->play_cnt);
+		 pipe->mixer_left->num, pipe->play_cnt);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-	ctl = pipe->mixer->ctl;
+	ctl = pipe->mixer_left->ctl;
 	/*
 	 * Reprogram the pipe when there is no dedicated wfd blk and
 	 * virtual mixer is allocated for the DMA pipe during concurrent
 	 * line and block mode operations
 	 */
 	params_changed = (pipe->params_changed) ||
-			 ((pipe->type == MDSS_MDP_PIPE_TYPE_DMA) &&
-			 (pipe->mixer->type == MDSS_MDP_MIXER_TYPE_WRITEBACK)
-			 && (ctl->mdata->mixer_switched)) ||
-			 ctl->roi_changed;
+		((pipe->type == MDSS_MDP_PIPE_TYPE_DMA) &&
+		 (pipe->mixer_left->type == MDSS_MDP_MIXER_TYPE_WRITEBACK) &&
+		 (ctl->mdata->mixer_switched)) || ctl->roi_changed;
 	if ((!(pipe->flags & MDP_VPU_PIPE) && src_data == NULL) ||
 			(pipe->flags & MDP_SOLID_FILL)) {
 		pipe->params_changed = 0;
@@ -1325,7 +1350,17 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 	}
 
 update_nobuf:
-	mdss_mdp_mixer_pipe_update(pipe, params_changed);
+	if (pipe->src_split_req) {
+		pr_debug("src_split_enabled. pnum:%d\n", pipe->num);
+		mdss_mdp_mixer_pipe_update(pipe, ctl->mixer_left,
+			params_changed);
+		mdss_mdp_mixer_pipe_update(pipe, ctl->mixer_right,
+			params_changed);
+		pipe->mixer_right = ctl->mixer_right;
+	} else {
+		mdss_mdp_mixer_pipe_update(pipe, pipe->mixer_left,
+			params_changed);
+	}
 
 	pipe->play_cnt++;
 
@@ -1337,7 +1372,7 @@ done:
 
 int mdss_mdp_pipe_is_staged(struct mdss_mdp_pipe *pipe)
 {
-	return (pipe == pipe->mixer->stage_pipe[pipe->mixer_stage]);
+	return (pipe == pipe->mixer_left->stage_pipe[pipe->mixer_stage]);
 }
 
 static inline void __mdss_mdp_pipe_program_pixel_extn_helper(

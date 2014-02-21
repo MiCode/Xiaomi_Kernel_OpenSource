@@ -118,6 +118,7 @@ struct mdss_data_type {
 	u32 has_no_lut_read;
 	u8 has_wb_ad;
 	u8 has_non_scalar_rgb;
+	bool has_src_split;
 
 	u32 rotator_ot_limit;
 	u32 mdp_irq_mask;
