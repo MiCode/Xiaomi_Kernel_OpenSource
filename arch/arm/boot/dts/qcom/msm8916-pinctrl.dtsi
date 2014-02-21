@@ -177,14 +177,26 @@
 				bias-disable = <0>; /* No PULL */
 			};
 		};
+		spi0_cs0_active {
+			/* CS */
+			qcom,pins = <&gp 10>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <1>;
+			label = "spi0-cs0-active";
+			spi0_cs0_active: cs0_active {
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+		};
 
-		spi0_cs_suspend {
+
+		spi0_cs0_suspend {
 			/* CS */
 			qcom,pins = <&gp 10>;
 			qcom,num-grp-pins = <1>;
 			qcom,pin-func = <0>;
-			label = "spi0-cs-suspend";
-			spi0_cs_sleep: cs_sleep {
+			label = "spi0-cs0-suspend";
+			spi0_cs0_sleep: cs0_sleep {
 				drive-strength = <2>;
 				bias-disable = <0>;
 			};
