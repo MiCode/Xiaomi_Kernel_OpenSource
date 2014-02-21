@@ -222,8 +222,9 @@ static long hh_ioctl(struct file *file,
 				return -EFAULT;
 			if (!HH_OFFSET_VALID(param.offset))
 				return -EINVAL;
-			if (param.num == 0)
-				break;
+			if ((param.num == 0) ||
+			(param.num >= (UINT32_MAX / sizeof(unsigned int))))
+				return -EINVAL;
 			req_sz = sizeof(unsigned int) * param.num;
 
 			if (pdfi->array_num < param.num) {
