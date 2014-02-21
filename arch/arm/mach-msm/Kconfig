@@ -860,6 +860,15 @@ config MSM_BUS_SCALING
 	bool "Bus scaling driver"
 	default n
 
+config BUS_TOPOLOGY_ADHOC
+	bool "ad-hoc bus scaling topology"
+	default n
+	help
+		This option enables a driver that can handle adhoc bus topologies.
+		Adhoc bus topology driver allows one to many connections and maintains
+		directionality of connections by explicitly listing device connections
+		thus avoiding illegal routes.
+
 config MSM_BUS_RPM_MULTI_TIER_ENABLED
 	bool "RPM Multi-tiering Configuration"
 	depends on MSM_BUS_SCALING

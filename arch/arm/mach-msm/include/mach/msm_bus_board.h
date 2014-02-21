@@ -42,6 +42,13 @@ struct msm_bus_fabric_registration {
 	void *hw_data;
 	uint32_t qos_freq;
 	uint32_t qos_baseoffset;
+	uint32_t qos_delta;
+	bool virt;
+};
+
+struct msm_bus_device_node_registration {
+	struct msm_bus_node_device_type *info;
+	unsigned int num_devices;
 	bool virt;
 };
 
@@ -99,6 +106,8 @@ extern struct msm_bus_fabric_registration msm_bus_9625_bimc_pdata;
 extern struct msm_bus_fabric_registration msm_bus_9625_periph_noc_pdata;
 extern struct msm_bus_fabric_registration msm_bus_9625_config_noc_pdata;
 
+extern int msm_bus_device_match_adhoc(struct device *dev, void *id);
+
 void msm_bus_rpm_set_mt_mask(void);
 int msm_bus_board_rpm_get_il_ids(uint16_t *id);
 int msm_bus_board_get_iid(int id);
@@ -116,6 +125,7 @@ int msm_bus_board_get_iid(int id);
 #define FABRIC_ID_KEY 1024
 #define SLAVE_ID_KEY ((FABRIC_ID_KEY) >> 1)
 #define MAX_FAB_KEY 7168  /* OR(All fabric ids) */
+#define INT_NODE_START 10000
 
 #define GET_FABID(id) ((id) & MAX_FAB_KEY)
 
@@ -319,6 +329,40 @@ enum msm_bus_fabric_master_type {
 		MSM_BUS_SYSTEM_MASTER_CPSS_FPB,
 };
 
+enum msm_bus_fabric_int_type {
+	MSM_BUS_SNOC_MM_INT_0 = INT_NODE_START,
+	MSM_BUS_SNOC_MM_INT_1,
+	MSM_BUS_SNOC_MM_INT_2,
+	MSM_BUS_SNOC_MM_INT_BIMC,
+	MSM_BUS_SNOC_INT_0,
+	MSM_BUS_SNOC_INT_1,
+	MSM_BUS_SNOC_INT_BIMC,
+	MSM_BUS_SNOC_BIMC_0_MAS,
+	MSM_BUS_SNOC_BIMC_1_MAS,
+	MSM_BUS_SNOC_QDSS_INT,
+	MSM_BUS_PNOC_SNOC_MAS,
+	MSM_BUS_PNOC_SNOC_SLV,
+	MSM_BUS_PNOC_INT_0,
+	MSM_BUS_PNOC_INT_1,
+	MSM_BUS_PNOC_M_0,
+	MSM_BUS_PNOC_M_1,
+	MSM_BUS_BIMC_SNOC_MAS,
+	MSM_BUS_BIMC_SNOC_SLV,
+	MSM_BUS_PNOC_SLV_0,
+	MSM_BUS_PNOC_SLV_1,
+	MSM_BUS_PNOC_SLV_2,
+	MSM_BUS_PNOC_SLV_3,
+	MSM_BUS_PNOC_SLV_4,
+	MSM_BUS_PNOC_SLV_8,
+	MSM_BUS_PNOC_SLV_9,
+	MSM_BUS_SNOC_BIMC_0_SLV,
+	MSM_BUS_SNOC_BIMC_1_SLV,
+	MSM_BUS_SNOC_PNOC_MAS,
+	MSM_BUS_SNOC_PNOC_SLV,
+
+	MSM_BUS_INT_LAST,
+};
+
 enum msm_bus_fabric_slave_type {
 	MSM_BUS_SLAVE_FIRST = SLAVE_ID_KEY,
 	MSM_BUS_SLAVE_EBI_CH0 = SLAVE_ID_KEY,
@@ -481,6 +525,8 @@ enum msm_bus_fabric_slave_type {
 	MSM_BUS_SLAVE_KLM_CFG,
 	MSM_BUS_SLAVE_GENI_IR_CFG,
 	MSM_BUS_SLAVE_OCMEM_GFX,
+	MSM_BUS_SLAVE_CATS_128,
+	MSM_BUS_SLAVE_OCMEM_64,
 
 	MSM_BUS_SLAVE_LAST,
 
