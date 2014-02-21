@@ -826,6 +826,10 @@ static ssize_t ipa_read_wstats(struct file *file, char __user *ubuf,
 	cnt += nbytes;
 
 	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
+		"Tx Pkts Dropped:", ipa_ctx->wstats.tx_pkts_dropped);
+	cnt += nbytes;
+
+	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
 		"Avail Fifo Desc:", ipa_ctx->ep[19].avail_fifo_desc);
 	cnt += nbytes;
 
