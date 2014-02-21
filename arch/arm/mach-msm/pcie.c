@@ -70,6 +70,7 @@
 #define PCIE20_DEVICE_CONTROL2_STATUS2 0x98
 
 #define PCIE20_ACK_F_ASPM_CTRL_REG     0x70C
+#define PCIE20_ACK_N_FTS               0xff00
 
 #define PCIE20_PLR_IATU_VIEWPORT       0x900
 #define PCIE20_PLR_IATU_CTRL1          0x904
@@ -621,17 +622,23 @@ static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 		readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_UTAR));
 	PCIE_DBG("PCIE20_PLR_IATU_CTRL2:0x%x\n",
 		readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_CTRL2));
+
+	/* configure N_FTS */
+	PCIE_DBG("Original PCIE20_ACK_F_ASPM_CTRL_REG:0x%x\n",
+		readl_relaxed(dev->dm_core + PCIE20_ACK_F_ASPM_CTRL_REG));
+	if (!dev->n_fts)
+		msm_pcie_write_mask(dev->dm_core + PCIE20_ACK_F_ASPM_CTRL_REG,
+					0, BIT(15));
+	else
+		msm_pcie_write_mask(dev->dm_core + PCIE20_ACK_F_ASPM_CTRL_REG,
+					PCIE20_ACK_N_FTS,
+					dev->n_fts << 8);
+	PCIE_DBG("Updated PCIE20_ACK_F_ASPM_CTRL_REG:0x%x\n",
+		readl_relaxed(dev->dm_core + PCIE20_ACK_F_ASPM_CTRL_REG));
 }
 
 static void msm_pcie_config_l1ss(struct msm_pcie_dev_t *dev)
 {
-	PCIE_DBG("Original PCIE20_ACK_F_ASPM_CTRL_REG:0x%x\n",
-		readl_relaxed(dev->dm_core + PCIE20_ACK_F_ASPM_CTRL_REG));
-	msm_pcie_write_mask(dev->dm_core + PCIE20_ACK_F_ASPM_CTRL_REG, 0,
-						BIT(15));
-	PCIE_DBG("Updated PCIE20_ACK_F_ASPM_CTRL_REG:0x%x\n",
-		readl_relaxed(dev->dm_core + PCIE20_ACK_F_ASPM_CTRL_REG));
-
 	/* Enable the AUX Clock and the Core Clk to be synchronous for L1SS*/
 	if (!dev->aux_clk_sync)
 		msm_pcie_write_mask(dev->parf +
@@ -1243,6 +1250,17 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				"qcom,aux-clk-sync");
 	PCIE_DBG("AUX clock is %s synchronous to Core clock.\n",
 		msm_pcie_dev[rc_idx].aux_clk_sync ? "" : "not");
+
+	msm_pcie_dev[rc_idx].n_fts = 0;
+	ret = of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,n-fts",
+				&msm_pcie_dev[rc_idx].n_fts);
+
+	if (ret)
+		PCIE_DBG("n-fts does not exist.\n");
+	else
+		PCIE_DBG("n-fts: 0x%x.\n",
+				msm_pcie_dev[rc_idx].n_fts);
 
 	msm_pcie_dev[rc_idx].ext_ref_clk =
 		of_property_read_bool((&pdev->dev)->of_node,

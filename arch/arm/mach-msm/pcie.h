@@ -174,6 +174,7 @@ struct msm_pcie_dev_t {
 
 	bool                         l1ss_supported;
 	bool                         aux_clk_sync;
+	uint32_t                     n_fts;
 	bool                         ext_ref_clk;
 	uint32_t                     ep_latency;
 
