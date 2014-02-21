@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -155,7 +155,6 @@ struct on_chip_mem {
 
 struct venus_resources {
 	struct msm_vidc_fw fw;
-	struct venus_bus_info bus_info;
 	struct on_chip_mem ocmem;
 };
 
@@ -165,7 +164,7 @@ struct venus_hfi_device {
 	u32 intr_status;
 	u32 device_id;
 	u32 clk_load;
-	u32 bus_load[MSM_VIDC_MAX_DEVICES];
+	struct vidc_bus_vote_data *bus_load;
 	u32 clocks_enabled;
 	u32 power_enabled;
 	struct mutex read_lock;

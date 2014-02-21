@@ -22,50 +22,6 @@ enum clock_properties {
 	CLOCK_PROP_HAS_SW_POWER_COLLAPSE = 1 << 1,
 };
 
-struct master_slave {
-	int masters_ocmem[2];
-	int masters_ddr[2];
-	int slaves_ocmem[2];
-	int slaves_ddr[2];
-};
-
-static struct master_slave bus_vectors_masters_slaves = {
-	.masters_ocmem = {MSM_BUS_MASTER_VIDEO_P0_OCMEM,
-				MSM_BUS_MASTER_VIDEO_P1_OCMEM},
-	.masters_ddr = {MSM_BUS_MASTER_VIDEO_P0, MSM_BUS_MASTER_VIDEO_P1},
-	.slaves_ocmem = {MSM_BUS_SLAVE_OCMEM, MSM_BUS_SLAVE_OCMEM},
-	.slaves_ddr = {MSM_BUS_SLAVE_EBI_CH0, MSM_BUS_SLAVE_EBI_CH0},
-};
-
-struct bus_pdata_config {
-	int *masters;
-	int *slaves;
-	char *name;
-};
-
-static struct bus_pdata_config bus_pdata_config_vector[] = {
-	{
-		.masters = bus_vectors_masters_slaves.masters_ocmem,
-		.slaves = bus_vectors_masters_slaves.slaves_ocmem,
-		.name = "qcom,enc-ocmem-ab-ib",
-	},
-	{
-		.masters = bus_vectors_masters_slaves.masters_ocmem,
-		.slaves = bus_vectors_masters_slaves.slaves_ocmem,
-		.name = "qcom,dec-ocmem-ab-ib",
-	},
-	{
-		.masters = bus_vectors_masters_slaves.masters_ddr,
-		.slaves = bus_vectors_masters_slaves.slaves_ddr,
-		.name = "qcom,enc-ddr-ab-ib",
-	},
-	{
-		.masters = bus_vectors_masters_slaves.masters_ddr,
-		.slaves = bus_vectors_masters_slaves.slaves_ddr,
-		.name = "qcom,dec-ddr-ab-ib",
-	},
-};
-
 static size_t get_u32_array_num_elements(struct platform_device *pdev,
 					char *name)
 {
@@ -131,15 +87,10 @@ static inline void msm_vidc_free_reg_table(
 static inline void msm_vidc_free_bus_vectors(
 			struct msm_vidc_platform_resources *res)
 {
-	int i, j;
-	if (res->bus_pdata) {
-		for (i = 0; i < ARRAY_SIZE(bus_pdata_config_vector); i++) {
-			for (j = 0; j < res->bus_pdata[i].num_usecases; j++) {
-				res->bus_pdata[i].usecase[j].vectors = NULL;
-			}
-			res->bus_pdata[i].usecase = NULL;
-		}
-		res->bus_pdata = NULL;
+	int i = 0;
+	for (i = 0; i < res->bus_set.count; i++) {
+		if (res->bus_set.bus_tbl[i].pdata)
+			msm_bus_cl_clear_pdata(res->bus_set.bus_tbl[i].pdata);
 	}
 }
 
@@ -187,16 +138,6 @@ void msm_vidc_free_platform_resources(
 	msm_vidc_free_bus_vectors(res);
 	msm_vidc_free_iommu_groups(res);
 	msm_vidc_free_buffer_usage_table(res);
-}
-
-static void msm_vidc_free_bus_vector(struct msm_bus_scale_pdata *bus_pdata)
-{
-	int i;
-	for (i = 0; i < bus_pdata->num_usecases; i++) {
-		bus_pdata->usecase[i].vectors = NULL;
-	}
-
-	bus_pdata->usecase = NULL;
 }
 
 static int msm_vidc_load_reg_table(struct msm_vidc_platform_resources *res)
@@ -283,134 +224,76 @@ static int msm_vidc_load_freq_table(struct msm_vidc_platform_resources *res)
 	return rc;
 }
 
-static int msm_vidc_load_bus_vector(struct platform_device *pdev,
-			struct msm_bus_scale_pdata *bus_pdata, u32 num_ports,
-			struct bus_pdata_config *bus_pdata_config)
-{
-	struct bus_values {
-	    u32 ab;
-	    u32 ib;
-	};
-	struct bus_values *values;
-	int i, j;
-	int rc = 0;
-
-	values = devm_kzalloc(&pdev->dev, sizeof(*values) *
-			bus_pdata->num_usecases, GFP_KERNEL);
-	if (!values) {
-		dprintk(VIDC_ERR, "%s Failed to alloc bus_values\n", __func__);
-		rc = -ENOMEM;
-		goto err_mem_alloc;
-	}
-
-	if (of_property_read_u32_array(pdev->dev.of_node,
-		    bus_pdata_config->name, (u32 *)values,
-		    bus_pdata->num_usecases * (sizeof(*values)/sizeof(u32)))) {
-		dprintk(VIDC_ERR, "%s Failed to read bus values\n", __func__);
-		rc = -EINVAL;
-		goto err_parse_dt;
-	}
-
-	bus_pdata->usecase = devm_kzalloc(&pdev->dev,
-			sizeof(*bus_pdata->usecase) * bus_pdata->num_usecases,
-			GFP_KERNEL);
-	if (!bus_pdata->usecase) {
-		dprintk(VIDC_ERR,
-			"%s Failed to alloc bus_pdata usecase\n", __func__);
-		rc = -ENOMEM;
-		goto err_parse_dt;
-	}
-	bus_pdata->name = bus_pdata_config->name;
-	for (i = 0; i < bus_pdata->num_usecases; i++) {
-		bus_pdata->usecase[i].vectors = devm_kzalloc(&pdev->dev,
-			sizeof(*bus_pdata->usecase[i].vectors) * num_ports,
-			GFP_KERNEL);
-		if (!bus_pdata->usecase[i].vectors) {
-			dprintk(VIDC_ERR,
-				"%s Failed to alloc bus_pdata usecase\n",
-				__func__);
-			break;
-		}
-		for (j = 0; j < num_ports; j++) {
-			bus_pdata->usecase[i].vectors[j].ab = (u64)values[i].ab
-									* 1000;
-			bus_pdata->usecase[i].vectors[j].ib = (u64)values[i].ib
-									* 1000;
-			bus_pdata->usecase[i].vectors[j].src =
-						bus_pdata_config->masters[j];
-			bus_pdata->usecase[i].vectors[j].dst =
-						bus_pdata_config->slaves[j];
-			dprintk(VIDC_DBG,
-				"ab = %llu, ib = %llu, src = %d, dst = %d\n",
-				bus_pdata->usecase[i].vectors[j].ab,
-				bus_pdata->usecase[i].vectors[j].ib,
-				bus_pdata->usecase[i].vectors[j].src,
-				bus_pdata->usecase[i].vectors[j].dst);
-		}
-		bus_pdata->usecase[i].num_paths = num_ports;
-	}
-	if (i < bus_pdata->num_usecases) {
-		for (--i; i >= 0; i--) {
-			bus_pdata->usecase[i].vectors = NULL;
-		}
-		bus_pdata->usecase = NULL;
-		rc = -EINVAL;
-	}
-err_parse_dt:
-err_mem_alloc:
-	return rc;
-}
-
 static int msm_vidc_load_bus_vectors(struct msm_vidc_platform_resources *res)
 {
-	u32 num_ports = 0;
-	int rc = 0;
-	int i;
 	struct platform_device *pdev = res->pdev;
-	u32 num_bus_pdata = ARRAY_SIZE(bus_pdata_config_vector);
+	struct device_node *child_node, *bus_node;
+	struct bus_set *buses = &res->bus_set;
+	int rc = 0, c = 0;
+	u32 num_buses = 0;
 
-	if (of_property_read_u32_array(pdev->dev.of_node, "qcom,bus-ports",
-			(u32 *)&num_ports, 1) || (num_ports == 0))
-		goto err_mem_alloc;
-
-	res->bus_pdata = devm_kzalloc(&pdev->dev, sizeof(*res->bus_pdata) *
-			num_bus_pdata, GFP_KERNEL);
-	if (!res->bus_pdata) {
-		dprintk(VIDC_ERR, "Failed to alloc memory\n");
-		rc = -ENOMEM;
-		goto err_mem_alloc;
+	bus_node = of_find_node_by_name(pdev->dev.of_node,
+			"qcom,msm-bus-clients");
+	if (!bus_node) {
+		dprintk(VIDC_ERR, "Failed to find qcom,msm-bus-clients\n");
+		rc = -ENOENT;
+		goto err_bad_node;
 	}
-	for (i = 0; i < num_bus_pdata; i++) {
-		if (!res->has_ocmem &&
-			(!strcmp(bus_pdata_config_vector[i].name,
-				"qcom,enc-ocmem-ab-ib")
-			|| !strcmp(bus_pdata_config_vector[i].name,
-				"qcom,dec-ocmem-ab-ib"))) {
-			continue;
-		}
-		res->bus_pdata[i].num_usecases = get_u32_array_num_elements(
-					pdev, bus_pdata_config_vector[i].name);
-		if (res->bus_pdata[i].num_usecases == 0) {
-			dprintk(VIDC_ERR, "no elements in %s\n",
-				bus_pdata_config_vector[i].name);
+
+	for_each_child_of_node(bus_node, child_node)
+		++num_buses;
+
+	buses->bus_tbl = devm_kzalloc(&pdev->dev, sizeof(*buses->bus_tbl) *
+			num_buses, GFP_KERNEL);
+	if (!buses->bus_tbl) {
+		dprintk(VIDC_ERR, "%s: Failed to allocate memory\n", __func__);
+		rc = -ENOMEM;
+		goto err_bad_node;
+	}
+
+	buses->count = num_buses;
+	c = 0;
+
+	for_each_child_of_node(bus_node, child_node) {
+		u32 configs = 0;
+		struct bus_info *bus = &buses->bus_tbl[c];
+
+		rc = of_property_read_u32(child_node, "qcom,bus-configs",
+				&configs);
+		if (rc) {
+			dprintk(VIDC_ERR,
+					"Failed to read qcom,bus-configs in %s: %d\n",
+					child_node->name, rc);
+			break;
+		} else if (!configs) {
+			dprintk(VIDC_ERR,
+					"qcom,bus-configs in %s needs to be applicable for some codec\n",
+					child_node->name);
 			rc = -EINVAL;
 			break;
 		}
 
-		rc = msm_vidc_load_bus_vector(pdev, &res->bus_pdata[i],
-				num_ports, &bus_pdata_config_vector[i]);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"Failed to load bus vector: %d\n", i);
+		bus->sessions_supported = configs;
+		bus->pdata = msm_bus_pdata_from_node(pdev, child_node);
+		if (IS_ERR_OR_NULL(bus->pdata)) {
+			rc = PTR_ERR(bus->pdata);
+			dprintk(VIDC_ERR, "Failed to get bus pdata: %d\n", rc);
 			break;
 		}
+
+		dprintk(VIDC_DBG, "Bus %s supports: %x\n", bus->pdata->name,
+				bus->sessions_supported);
+		++c;
 	}
-	if (i < num_bus_pdata) {
-		for (--i; i >= 0; i--)
-			msm_vidc_free_bus_vector(&res->bus_pdata[i]);
-		res->bus_pdata = NULL;
+
+	if (c < num_buses) {
+		for (c--; c >= 0; c--)
+			msm_bus_cl_clear_pdata(buses->bus_tbl[c].pdata);
+
+		goto err_bad_node;
 	}
-err_mem_alloc:
+
+err_bad_node:
 	return rc;
 }
 
@@ -676,7 +559,7 @@ static int msm_vidc_load_clock_table(
 	int rc = 0, num_clocks = 0, c = 0;
 	struct platform_device *pdev = res->pdev;
 	int *clock_props = NULL;
-	struct venus_clock_set *clocks = &res->clock_set;
+	struct clock_set *clocks = &res->clock_set;
 
 	num_clocks = of_property_count_strings(pdev->dev.of_node,
 				"qcom,clock-names");
@@ -717,7 +600,7 @@ static int msm_vidc_load_clock_table(
 	dprintk(VIDC_DBG, "Found %d clocks\n", num_clocks);
 
 	for (c = 0; c < num_clocks; ++c) {
-		struct venus_clock *vc = &res->clock_set.clock_tbl[c];
+		struct clock_info *vc = &res->clock_set.clock_tbl[c];
 
 		of_property_read_string_index(pdev->dev.of_node,
 				"qcom,clock-names", c, &vc->name);
