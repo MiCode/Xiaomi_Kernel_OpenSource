@@ -2703,6 +2703,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 
 static struct of_device_id msm_clock_gcc_match_table[] = {
 	{ .compatible = "qcom,gcc-8916" },
+	{},
 };
 
 static struct platform_driver msm_clock_gcc_driver = {
