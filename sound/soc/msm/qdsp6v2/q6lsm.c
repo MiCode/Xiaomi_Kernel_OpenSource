@@ -27,8 +27,7 @@
 #include <sound/lsm_params.h>
 #include <sound/q6lsm.h>
 #include <asm/ioctls.h>
-#include <mach/memory.h>
-#include <mach/debug_mm.h>
+#include <linux/memory.h>
 #include <linux/msm_audio_ion.h>
 #include "audio_acdb.h"
 #include "q6core.h"
@@ -58,7 +57,6 @@ struct lsm_common {
 };
 
 static struct lsm_common lsm_common;
-
 /*
  * mmap_handle_p can point either client->sound_model.mem_map_handle or
  * lsm_common.mmap_handle_for_cal.
@@ -726,7 +724,7 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len)
 	memset(&lsm_cal, 0, sizeof(lsm_cal));
 	mutex_lock(&client->cmd_lock);
 	get_lsm_cal(&lsm_cal);
-	pr_debug("%s:Snd Model len = %d cal size %d", __func__,
+	pr_debug("%s:Snd Model len = %zd cal size %zd", __func__,
 			 len, lsm_cal.cal_size);
 	if (!lsm_cal.cal_paddr) {
 		pr_err("%s: No LSM calibration set for session", __func__);
@@ -738,7 +736,7 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len)
 		pad_zero = (LSM_ALIGN_BOUNDARY -
 			    (len % LSM_ALIGN_BOUNDARY));
 		total_mem = PAGE_ALIGN(pad_zero + len + lsm_cal.cal_size);
-		pr_debug("%s: Pad zeros sound model %d Total mem %d\n",
+		pr_debug("%s: Pad zeros sound model %zd Total mem %zd\n",
 				 __func__, pad_zero, total_mem);
 		rc = msm_audio_ion_alloc("lsm_client",
 				&client->sound_model.client,

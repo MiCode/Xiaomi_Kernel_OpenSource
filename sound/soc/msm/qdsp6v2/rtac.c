@@ -46,6 +46,8 @@ void rtac_remove_voice(u32 cvs_handle) {}
 void rtac_set_voice_handle(u32 mode, void *handle) {}
 bool rtac_make_voice_callback(u32 mode, uint32_t *payload,
 		u32 payload_size) {return false; }
+int rtac_clear_mapping(uint32_t cal_type)
+{return -EINVAL; }
 
 #else
 
