@@ -60,3 +60,11 @@
 &usb3 {
 	vbus_dwc3-supply = <&smb1359_otg_vreg>;
 };
+
+&ufsphy1 {
+	status = "disabled";
+};
+
+&ufs1 {
+	status = "disabled";
+};

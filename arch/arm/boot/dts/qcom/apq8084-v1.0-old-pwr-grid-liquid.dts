@@ -22,3 +22,11 @@
 	compatible = "qcom,apq8084-liquid", "qcom,apq8084", "qcom,liquid";
 	qcom,board-id = <9 0>;
 };
+
+&ufsphy1 {
+	status = "disabled";
+};
+
+&ufs1 {
+	status = "disabled";
+};
