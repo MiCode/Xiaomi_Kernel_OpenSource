@@ -2378,9 +2378,15 @@ static void pp_read_igc_lut(struct mdp_igc_lut_data *cfg,
 {
 	int i;
 	u32 data;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	int32_t mask = 0, n_mixers = mdata->nmixers_intf;
 
+	while (n_mixers > 0) {
+		mask = (mask << 1) + 1;
+		n_mixers--;
+	}
 	/* INDEX_UPDATE & VALUE_UPDATEN */
-	data = (3 << 24) | (((~(1 << blk_idx)) & 0x7) << 28);
+	data = (3 << 24) | (((~(1 << blk_idx)) & mask) << 28);
 	writel_relaxed(data, addr);
 
 	for (i = 0; i < cfg->len; i++)
@@ -2402,8 +2408,16 @@ static void pp_update_igc_lut(struct mdp_igc_lut_data *cfg,
 {
 	int i;
 	u32 data;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	int32_t mask = 0, n_mixers = mdata->nmixers_intf;
+
+	while (n_mixers > 0) {
+		mask = (mask << 1) + 1;
+		n_mixers--;
+	}
+
 	/* INDEX_UPDATE */
-	data = (1 << 25) | (((~(1 << blk_idx)) & 0x7) << 28);
+	data = (1 << 25) | (((~(1 << blk_idx)) & mask) << 28);
 	writel_relaxed((cfg->c0_c1_data[0] & 0xFFF) | data, addr);
 
 	/* disable index update */
