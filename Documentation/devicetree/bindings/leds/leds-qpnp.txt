@@ -48,6 +48,7 @@ Optional properties for flash:
 - qcom,default-state:  default state of the led, should be "on" or "off"
 - qcom,torch-enable: set flash led to torch mode functionality and triggers software workaround for torch if hardware does not support
 - qcom,sw_vreg_ok: Specify if software strobe is used to inform the readiness of flash module to fire the flash LED when there is no smbb support
+- qcom,no-smbb-support: Specify if smbb boost is not required and there is a single regulator for both flash and torch.
 - flash-boost-supply: SMBB regulator for LED flash mode
 - torch-boost-supply: SMBB regulator for LED torch mode
 
