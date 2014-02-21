@@ -94,21 +94,6 @@ kgsl_ioctl_rb_issueibcmds_compat(struct kgsl_device_private *dev_priv,
 	return result;
 }
 
-static long
-kgsl_ioctl_cmdstream_freememontimestamp_compat(struct kgsl_device_private
-					*dev_priv, unsigned int cmd,
-					void *data)
-{
-	struct kgsl_cmdstream_freememontimestamp_compat *param32 = data;
-	struct kgsl_cmdstream_freememontimestamp param;
-
-	param.gpuaddr = (unsigned long)param32->gpuaddr;
-	param.type = param32->type;
-	param.timestamp = param32->timestamp;
-
-	return kgsl_ioctl_cmdstream_freememontimestamp(dev_priv, cmd, &param);
-}
-
 static long kgsl_ioctl_cmdstream_freememontimestamp_ctxtid_compat(
 						struct kgsl_device_private
 						*dev_priv, unsigned int cmd,
@@ -302,9 +287,7 @@ static const struct kgsl_ioctl kgsl_compat_ioctl_funcs[] = {
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_DEVICE_GETPROPERTY_COMPAT,
 			kgsl_ioctl_device_getproperty_compat,
 			KGSL_IOCTL_LOCK),
-	KGSL_IOCTL_FUNC(IOCTL_KGSL_DEVICE_WAITTIMESTAMP,
-			kgsl_ioctl_device_waittimestamp,
-			KGSL_IOCTL_LOCK),
+	/* IOCTL_KGSL_DEVICE_WAITTIMESTAMP is no longer supported */
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_DEVICE_WAITTIMESTAMP_CTXTID,
 			kgsl_ioctl_device_waittimestamp_ctxtid,
 			KGSL_IOCTL_LOCK),
@@ -312,15 +295,11 @@ static const struct kgsl_ioctl kgsl_compat_ioctl_funcs[] = {
 			kgsl_ioctl_rb_issueibcmds_compat, 0),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_SUBMIT_COMMANDS_COMPAT,
 			kgsl_ioctl_submit_commands_compat, 0),
-	KGSL_IOCTL_FUNC(IOCTL_KGSL_CMDSTREAM_READTIMESTAMP,
-			kgsl_ioctl_cmdstream_readtimestamp,
-			KGSL_IOCTL_LOCK),
+	/* IOCTL_KGSL_CMDSTREAM_READTIMESTAMP is no longer supported */
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_CMDSTREAM_READTIMESTAMP_CTXTID,
 			kgsl_ioctl_cmdstream_readtimestamp_ctxtid,
 			KGSL_IOCTL_LOCK),
-	KGSL_IOCTL_FUNC(IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP_COMPAT,
-			kgsl_ioctl_cmdstream_freememontimestamp_compat,
-			KGSL_IOCTL_LOCK),
+	/* IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP is no longer supported */
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP_CTXTID_COMPAT,
 			kgsl_ioctl_cmdstream_freememontimestamp_ctxtid_compat,
 			KGSL_IOCTL_LOCK),
