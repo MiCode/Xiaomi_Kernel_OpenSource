@@ -62,45 +62,6 @@ struct diag_master_table entry;
 int wrap_enabled;
 uint16_t wrap_count;
 
-void encode_rsp_and_send(int buf_length)
-{
-	struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
-	struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
-	struct diag_smd_info *data = &(driver->smd_data[MODEM_DATA]);
-	int err;
-	unsigned long flags;
-
-	if (buf_length > APPS_BUF_SIZE) {
-		pr_err("diag: In %s, invalid len %d, permissible len %d\n",
-					__func__, buf_length, APPS_BUF_SIZE);
-		return;
-	}
-
-	send.state = DIAG_STATE_START;
-	send.pkt = driver->apps_rsp_buf;
-	send.last = (void *)(driver->apps_rsp_buf + buf_length);
-	send.terminate = 1;
-	if (!data->in_busy_1) {
-		spin_lock_irqsave(&data->in_busy_lock, flags);
-		enc.dest = data->buf_in_1;
-		enc.dest_last = (void *)(data->buf_in_1 + APPS_BUF_SIZE - 1);
-		diag_hdlc_encode(&send, &enc);
-		data->write_ptr_1->buf = data->buf_in_1;
-		data->write_ptr_1->length = (int)(enc.dest -
-						(void *)(data->buf_in_1));
-		data->in_busy_1 = 1;
-		err = diag_device_write(data->buf_in_1, data->peripheral,
-					data->write_ptr_1);
-		if (err) {
-			pr_err("diag: In %s, Unable to write to device, err: %d\n",
-			       __func__, err);
-			data->in_busy_1 = 0;
-		}
-		memset(driver->apps_rsp_buf, '\0', APPS_BUF_SIZE);
-		spin_unlock_irqrestore(&data->in_busy_lock, flags);
-	}
-}
-
 /* Determine if this device uses a device tree */
 #ifdef CONFIG_OF
 static int has_device_tree(void)
@@ -867,6 +828,68 @@ static int diag_write_to_usb(struct usb_diag_ch *ch,
 	return err;
 }
 #endif
+
+void encode_rsp_and_send(int buf_length)
+{
+	struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
+	struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
+	unsigned char *rsp_ptr = driver->encoded_rsp_buf;
+	int err, retry_count = 0;
+	unsigned long flags;
+
+	if (!rsp_ptr)
+		return;
+
+	if (buf_length > APPS_BUF_SIZE || buf_length <= 0) {
+		pr_err("diag: In %s, invalid len %d, permissible len %d\n",
+					__func__, buf_length, APPS_BUF_SIZE);
+		return;
+	}
+
+	/*
+	 * Keep trying till we get the buffer back. It should probably
+	 * take one or two iterations. When this loops till UINT_MAX, it
+	 * means we did not get a write complete for the previous
+	 * response.
+	 */
+	while (retry_count < UINT_MAX) {
+		if (!driver->rsp_buf_busy)
+			break;
+		/*
+		 * Wait for sometime and try again. The value 10000 was chosen
+		 * empirically as an optimum value for USB to complete a write
+		 */
+		usleep_range(10000, 10100);
+		retry_count++;
+	}
+	if (driver->rsp_buf_busy) {
+		pr_err("diag: unable to get hold of response buffer\n");
+		return;
+	}
+
+	spin_lock_irqsave(&driver->rsp_buf_busy_lock, flags);
+	driver->rsp_buf_busy = 1;
+	spin_unlock_irqrestore(&driver->rsp_buf_busy_lock, flags);
+	send.state = DIAG_STATE_START;
+	send.pkt = driver->apps_rsp_buf;
+	send.last = (void *)(driver->apps_rsp_buf + buf_length);
+	send.terminate = 1;
+	enc.dest = rsp_ptr;
+	enc.dest_last = (void *)(rsp_ptr + HDLC_OUT_BUF_SIZE - 1);
+	diag_hdlc_encode(&send, &enc);
+	driver->rsp_write_ptr->buf = rsp_ptr;
+	driver->rsp_write_ptr->length =  (int)(enc.dest - (void *)rsp_ptr);
+	err = diag_write_to_usb(driver->legacy_ch, driver->rsp_write_ptr);
+	if (err) {
+		pr_err("diag: In %s, Unable to write to device, err: %d\n",
+			__func__, err);
+		spin_lock_irqsave(&driver->rsp_buf_busy_lock, flags);
+		driver->rsp_buf_busy = 0;
+		spin_unlock_irqrestore(&driver->rsp_buf_busy_lock, flags);
+	}
+	memset(driver->apps_rsp_buf, '\0', APPS_BUF_SIZE);
+
+}
 
 int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 {
@@ -2035,6 +2058,7 @@ int diagfwd_write_complete(struct diag_request *diag_write_ptr)
 {
 	unsigned char *buf = diag_write_ptr->buf;
 	int found_it = 0;
+	unsigned long flags;
 
 	/* Determine if the write complete is for data from modem/apps/q6 */
 	found_it = diagfwd_check_buf_match(NUM_SMD_DATA_CHANNELS,
@@ -2043,6 +2067,13 @@ int diagfwd_write_complete(struct diag_request *diag_write_ptr)
 	if (!found_it && driver->supports_separate_cmdrsp)
 		found_it = diagfwd_check_buf_match(NUM_SMD_CMD_CHANNELS,
 						driver->smd_cmd, buf);
+
+	if (!found_it && buf == (void *)driver->rsp_write_ptr->buf) {
+		found_it = 1;
+		spin_lock_irqsave(&driver->rsp_buf_busy_lock, flags);
+		driver->rsp_buf_busy = 0;
+		spin_unlock_irqrestore(&driver->rsp_buf_busy_lock, flags);
+	}
 
 	if (!found_it) {
 		if (driver->logging_mode != USB_MODE)
@@ -2573,6 +2604,17 @@ int diagfwd_init(void)
 	driver->supports_apps_hdlc_encoding = 1;
 	mutex_init(&driver->diag_hdlc_mutex);
 	mutex_init(&driver->diag_cntl_mutex);
+	driver->encoded_rsp_buf = kzalloc(HDLC_OUT_BUF_SIZE, GFP_KERNEL);
+	if (!driver->encoded_rsp_buf)
+		goto err;
+	kmemleak_not_leak(driver->encoded_rsp_buf);
+	driver->rsp_buf_busy = 0;
+	driver->rsp_write_ptr = kzalloc(sizeof(struct diag_request),
+					GFP_KERNEL);
+	if (!driver->rsp_write_ptr)
+		goto err;
+	kmemleak_not_leak(driver->rsp_write_ptr);
+	spin_lock_init(&driver->rsp_buf_busy_lock);
 
 	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
 		driver->separate_cmdrsp[i] = 0;
@@ -2703,6 +2745,8 @@ err:
 	for (i = 0; i < NUM_SMD_CMD_CHANNELS; i++)
 		diag_smd_destructor(&driver->smd_cmd[i]);
 
+	kfree(driver->encoded_rsp_buf);
+	kfree(driver->rsp_write_ptr);
 	kfree(driver->buf_msg_mask_update);
 	kfree(driver->buf_log_mask_update);
 	kfree(driver->buf_event_mask_update);
@@ -2745,6 +2789,8 @@ void diagfwd_exit(void)
 		}
 	}
 
+	kfree(driver->encoded_rsp_buf);
+	kfree(driver->rsp_write_ptr);
 	kfree(driver->buf_msg_mask_update);
 	kfree(driver->buf_log_mask_update);
 	kfree(driver->buf_event_mask_update);
