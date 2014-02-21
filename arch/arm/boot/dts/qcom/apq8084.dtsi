@@ -3183,7 +3183,24 @@
 			};
 
 			qcom,msm-bus-client@1 {
-				qcom,msm-bus,name = "vdec-ddr";
+				qcom,msm-bus,name = "vdec-core0-ddr";
+				qcom,msm-bus,num-cases = <8>;
+				qcom,msm-bus,active-only = <0>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<63 512 0 0>,
+					<63 512 312000 454500>,
+					<63 512 804000 2400000>,
+					<63 512 1518000 2400000>,
+					<63 512 3036000 2400000>,
+					<63 512 4860000 2400000>,
+					<63 512 6072000 2400000>,
+					<63 512 6396000 2400000>;
+				qcom,bus-configs = <0xc000000>;
+			};
+
+			qcom,msm-bus-client@2 {
+				qcom,msm-bus,name = "vdec-core1-ddr";
 				qcom,msm-bus,num-cases = <8>;
 				qcom,msm-bus,active-only = <0>;
 				qcom,msm-bus,num-paths = <1>;
@@ -3196,10 +3213,10 @@
 					<63 512 3240000 1600000>,
 					<63 512 4048000 1600000>,
 					<63 512 4264000 1600000>;
-				qcom,bus-configs = <0xf0fcfff>;
+				qcom,bus-configs = <0x30fcfff>;
 			};
 
-			qcom,msm-bus-client@2 {
+			qcom,msm-bus-client@3 {
 				qcom,msm-bus,name = "venc-ocmem";
 				qcom,msm-bus,num-cases = <8>;
 				qcom,msm-bus,active-only = <0>;
@@ -3216,8 +3233,26 @@
 				qcom,bus-configs = <0x1000414>;
 			};
 
-			qcom,msm-bus-client@3 {
-				qcom,msm-bus,name = "vdec-ocmem";
+			qcom,msm-bus-client@4 {
+				qcom,msm-bus,name = "vdec-core0-ocmem";
+				qcom,msm-bus,num-cases = <8>;
+				qcom,msm-bus,active-only = <0>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<68 604 0 0>,
+					<68 604 264000 778500>,
+					<68 604 684000 778500>,
+					<68 604 1296000 943500>,
+					<68 604 2592000 1557000>,
+					<68 604 4149000 2491500>,
+					<68 604 5184000 3114000>,
+					<68 604 5493000 3297000>;
+
+				qcom,bus-configs = <0xc000000>;
+			};
+
+			qcom,msm-bus-client@5 {
+				qcom,msm-bus,name = "vdec-core1-ocmem";
 				qcom,msm-bus,num-cases = <8>;
 				qcom,msm-bus,active-only = <0>;
 				qcom,msm-bus,num-paths = <1>;
@@ -3230,7 +3265,7 @@
 					<68 604 2766000 1661000>,
 					<68 604 3456000 2076000>,
 					<68 604 3662000 2198000>;
-				qcom,bus-configs = <0xf0fcfff>;
+				qcom,bus-configs = <0x30fcfff>;
 			};
 		};
 	};
