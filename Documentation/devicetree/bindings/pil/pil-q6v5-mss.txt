@@ -6,7 +6,8 @@ preparing the subsystem's processor to execute code. It's also responsible for
 shutting down the processor when it's not needed.
 
 Required properties:
-- compatible:	      Must be "qcom,pil-q6v5-mss" or "qcom,pil-q6v55-mss"
+- compatible:	      Must be "qcom,pil-q6v5-mss" or "qcom,pil-q6v55-mss" or
+			"pil-q6v56-mss".
 - reg:		      Pairs of physical base addresses and region sizes of
 		      memory mapped registers.
 - reg-names:	      Names of the bases for the above registers. "qdsp6_base",
