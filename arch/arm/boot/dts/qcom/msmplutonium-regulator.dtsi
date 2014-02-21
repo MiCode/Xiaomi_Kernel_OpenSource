@@ -13,21 +13,22 @@
 /* Stub regulators */
 
 / {
-	pmplutonium_s1: regulator-pmplutonium-s1 {
+	/* PMplutonium S1 + S6 = 2 phase VDD_CX supply */
+	pmplutonium_s1_corner: regulator-pmplutonium-s1-corner {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pmplutonium-s1";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <675000>;
-		regulator-max-microvolt = <1287500>;
-	};
-
-	/* PMplutonium S2 + S12 = 2 phase VDD_CX supply */
-	pmplutonium_s2_corner: regulator-pmplutonium-s2-corner {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmplutonium-s2-corner";
+		regulator-name = "pmplutonium-s1-corner";
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <7>;
+	};
+
+	/* PMplutonium S2 + S12 = 2 phase VDD_MX supply */
+	pmplutonium_s2: regulator-pmplutonium-s2 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmplutonium-s2";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <675000>;
+		regulator-max-microvolt = <1287500>;
 	};
 
 	pmplutonium_s3: regulator-pmplutonium-s3 {
@@ -54,14 +55,6 @@
 		regulator-max-microvolt = <2150000>;
 	};
 
-	pmplutonium_s6: regulator-pmplutonium-s6 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmplutonium-s6";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <1100000>;
-		regulator-max-microvolt = <1100000>;
-	};
-
 	pmplutonium_s7: regulator-pmplutonium-s7 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmplutonium-s7";
@@ -70,7 +63,7 @@
 		regulator-max-microvolt = <1000000>;
 	};
 
-	/* PMplutonium S8 + S9 + S10 + S11 = 4 phase VDD_APC supply */
+	/* PMplutonium S8 = VDD_APC0 supply */
 	pmplutonium_s8: regulator-pmplutonium-s8 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmplutonium-s8";
@@ -79,10 +72,19 @@
 		regulator-max-microvolt = <1330000>;
 	};
 
+	/* PMplutonium S9 + S10 + S11 = 3 phase VDD_APC1 supply */
+	pmplutonium_s9: regulator-pmplutonium-s9 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmplutonium-s9";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <900000>;
+		regulator-max-microvolt = <1330000>;
+	};
+
 	pmplutonium_l1: regulator-pmplutonium-l1 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmplutonium-l1";
-		parent-supply = <&pmplutonium_s3>;
+		parent-supply = <&pmiplutonium_s1>;
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <1000000>;
 		regulator-max-microvolt = <1000000>;
@@ -102,8 +104,8 @@
 		regulator-name = "pmplutonium-l3";
 		parent-supply = <&pmplutonium_s3>;
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <900000>;
-		regulator-max-microvolt = <900000>;
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
 	};
 
 	pmplutonium_l4: regulator-pmplutonium-l4 {
@@ -204,8 +206,8 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmplutonium-l17";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2800000>;
-		regulator-max-microvolt = <2800000>;
+		regulator-min-microvolt = <2700000>;
+		regulator-max-microvolt = <2700000>;
 	};
 
 	pmplutonium_l18: regulator-pmplutonium-l18 {
@@ -220,8 +222,8 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmplutonium-l19";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
 	};
 
 	pmplutonium_l20: regulator-pmplutonium-l20 {
@@ -267,10 +269,10 @@
 	pmplutonium_l25: regulator-pmplutonium-l25 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmplutonium-l25";
-		parent-supply = <&pmplutonium_s3>;
+		parent-supply = <&pmplutonium_s5>;
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1200000>;
-		regulator-max-microvolt = <1200000>;
+		regulator-min-microvolt = <1000000>;
+		regulator-max-microvolt = <1000000>;
 	};
 
 	pmplutonium_l26: regulator-pmplutonium-l26 {
@@ -278,8 +280,8 @@
 		regulator-name = "pmplutonium-l26";
 		parent-supply = <&pmplutonium_s3>;
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <900000>;
-		regulator-max-microvolt = <900000>;
+		regulator-min-microvolt = <987500>;
+		regulator-max-microvolt = <987500>;
 	};
 
 	pmplutonium_l27: regulator-pmplutonium-l27 {
@@ -346,21 +348,21 @@
 		parent-supply = <&pmplutonium_s4>;
 	};
 
-	/* PMIplutonium S1 + S2 = 2 phase VDD_GFX supply */
-	pmiplutonium_s1_corner: regulator-pmiplutonium-s1-corner {
+	pmiplutonium_s1: regulator-pmiplutonium-s1 {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pmiplutonium-s1-corner";
+		regulator-name = "pmiplutonium-s1";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1025000>;
+		regulator-max-microvolt = <1025000>;
+	};
+
+	/* PMIplutonium S2 + S3 = 2 phase VDD_GFX supply */
+	pmiplutonium_s2_corner: regulator-pmiplutonium-s2-corner {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmiplutonium-s2-corner";
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <7>;
-	};
-
-	pmiplutonium_s3: regulator-pmiplutonium-s3 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmiplutonium-s3";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <1000000>;
-		regulator-max-microvolt = <1000000>;
 	};
 
 	pmiplutonium_boost: regulator-pmiplutonium-boost {
