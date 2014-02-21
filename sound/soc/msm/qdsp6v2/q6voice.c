@@ -983,7 +983,7 @@ static int voice_destroy_mvm_cvs_session(struct voice_data *v)
 	    is_qchat_session(v->session_id) ||
 	    is_volte_session(v->session_id) ||
 	    is_vowlan_session(v->session_id) ||
-	    v->voc_state == VOC_ERROR) {
+	    v->voc_state == VOC_ERROR || common.is_destroy_cvd) {
 		/* Destroy CVS. */
 		pr_debug("%s: CVS destroy session\n", __func__);
 
@@ -1389,6 +1389,12 @@ int voc_enable_dtmf_rx_detection(uint32_t session_id, uint32_t enable)
 	mutex_unlock(&v->lock);
 
 	return ret;
+}
+
+void voc_set_destroy_cvd_flag(bool is_destroy_cvd)
+{
+	pr_debug("%s: %d\n", __func__, is_destroy_cvd);
+	common.is_destroy_cvd = is_destroy_cvd;
 }
 
 int voc_alloc_cal_shared_memory(void)
@@ -6273,6 +6279,9 @@ static int __init voice_init(void)
 	common.ec_ref_ext = false;
 	/* Initialize MVS info. */
 	common.mvs_info.network_type = VSS_NETWORK_ID_DEFAULT;
+
+	/* Initialize is low memory flag */
+	common.is_destroy_cvd = false;
 
 	mutex_init(&common.common_lock);
 

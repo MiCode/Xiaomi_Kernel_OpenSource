@@ -62,6 +62,8 @@ Required properties:
 Required properties:
 
  - compatible : "qcom,msm-pcm-voice"
+ - qcom,destroy-cvd : Flag indicating whether to destroy cvd at
+                      the end of call for low memory targets
 
 * msm-voice-host-pcm
 
@@ -296,6 +298,11 @@ Example:
         qcom,msm-voip-dsp {
                 compatible = "qcom,msm-voip-dsp";
         };
+
+	qcom,msm-pcm-voice {
+		compatible = "qcom,msm-pcm-voice";
+		qcom,destroy-cvd;
+	};
 
         qcom,msm-voice-host-pcm {
                 compatible = "qcom,msm-voice-host-pcm";

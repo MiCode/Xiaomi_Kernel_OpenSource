@@ -25,6 +25,7 @@
 #include <sound/initval.h>
 #include <sound/control.h>
 #include <asm/dma.h>
+#include <linux/of_device.h>
 
 #include "msm-pcm-voice-v2.h"
 #include "q6voice.h"
@@ -560,6 +561,8 @@ static struct snd_soc_platform_driver msm_soc_platform = {
 static int msm_pcm_probe(struct platform_device *pdev)
 {
 	int rc;
+	bool destroy_cvd = false;
+	const char *is_destroy_cvd = "qcom,destroy-cvd";
 
 	if (!is_voc_initialized()) {
 		pr_debug("%s: voice module not initialized yet, deferring probe()\n",
@@ -582,6 +585,11 @@ static int msm_pcm_probe(struct platform_device *pdev)
 
 	if (pdev->dev.of_node)
 		dev_set_name(&pdev->dev, "%s", "msm-pcm-voice");
+	pr_debug("%s: dev name %s\n",
+			__func__, dev_name(&pdev->dev));
+	destroy_cvd = of_property_read_bool(pdev->dev.of_node,
+						is_destroy_cvd);
+	voc_set_destroy_cvd_flag(destroy_cvd);
 
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
 	rc = snd_soc_register_platform(&pdev->dev,
