@@ -19,6 +19,7 @@
 #include <linux/slab.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/err.h>
 #include <linux/platform_device.h>
 #include <linux/err.h>
 #include <soc/qcom/spm.h>
@@ -38,61 +39,49 @@ struct msm_spm_device {
 	struct msm_spm_power_modes *modes;
 	uint32_t num_modes;
 	uint32_t cpu_vdd;
+	struct cpumask mask;
 	void __iomem *q2s_reg;
 };
 
 struct msm_spm_vdd_info {
-	uint32_t cpu;
+	struct msm_spm_device *vctl_dev;
 	uint32_t vlevel;
 	int err;
 };
 
 static LIST_HEAD(spm_list);
-static struct msm_spm_device *msm_spm_l2_device;
 static DEFINE_PER_CPU_SHARED_ALIGNED(struct msm_spm_device, msm_cpu_spm_device);
-static bool msm_spm_L2_apcs_master;
+static DEFINE_PER_CPU(struct msm_spm_device *, cpu_vctl_device);
 
 static void msm_spm_smp_set_vdd(void *data)
 {
-	struct msm_spm_device *dev;
 	struct msm_spm_vdd_info *info = (struct msm_spm_vdd_info *)data;
-
-	if (msm_spm_L2_apcs_master)
-		dev = msm_spm_l2_device;
-	else
-		dev = &per_cpu(msm_cpu_spm_device, info->cpu);
-
-	if (!dev->initialized)
-		return;
-
-	if (msm_spm_L2_apcs_master)
-		get_cpu();
+	struct msm_spm_device *dev = info->vctl_dev;
 
 	dev->cpu_vdd = info->vlevel;
 	info->err = msm_spm_drv_set_vdd(&dev->reg_data, info->vlevel);
-
-	if (msm_spm_L2_apcs_master)
-		put_cpu();
 }
 
 /**
  * msm_spm_probe_done(): Verify and return the status of the cpu(s) and l2
  * probe.
  * Return: 0 if all spm devices have been probed, else return -EPROBE_DEFER.
+ * if probe failed, then return the err number for that failure.
  */
 int msm_spm_probe_done(void)
 {
 	struct msm_spm_device *dev;
 	int cpu;
+	int ret = 0;
 
-	if (msm_spm_L2_apcs_master && !msm_spm_l2_device) {
-		return -EPROBE_DEFER;
-	} else {
-		for_each_possible_cpu(cpu) {
-			dev = &per_cpu(msm_cpu_spm_device, cpu);
-			if (!dev->initialized)
-				return -EPROBE_DEFER;
-		}
+	for_each_possible_cpu(cpu) {
+		dev = per_cpu(cpu_vctl_device, cpu);
+		if (!dev)
+			return -EPROBE_DEFER;
+
+		ret = IS_ERR(dev);
+		if (ret)
+			return ret;
 	}
 
 	return 0;
@@ -103,43 +92,31 @@ EXPORT_SYMBOL(msm_spm_probe_done);
  * msm_spm_set_vdd(): Set core voltage
  * @cpu: core id
  * @vlevel: Encoded PMIC data.
+ *
+ * Return: 0 on success or -(ERRNO) on failure.
  */
 int msm_spm_set_vdd(unsigned int cpu, unsigned int vlevel)
 {
 	struct msm_spm_vdd_info info;
+	struct msm_spm_device *dev = per_cpu(cpu_vctl_device, cpu);
 	int ret;
-	int current_cpu;
 
-	info.cpu = cpu;
+	if (!dev)
+		return -EPROBE_DEFER;
+
+	ret = IS_ERR(dev);
+	if (ret)
+		return ret;
+
+	info.vctl_dev = dev;
 	info.vlevel = vlevel;
-	info.err = -ENODEV;
 
-	current_cpu = get_cpu();
-	if (!msm_spm_L2_apcs_master && (current_cpu != cpu) &&
-			cpu_online(cpu)) {
-		/**
-		 * We do not want to set the voltage of another core from
-		 * this core, as its possible that we may race the vdd change
-		 * with the SPM state machine of that core, which could also
-		 * be changing the voltage of that core during power collapse.
-		 * Hence, set the function to be executed on that core and block
-		 * until the vdd change is complete.
-		 */
-		ret = smp_call_function_single(cpu, msm_spm_smp_set_vdd,
-				&info, true);
-		if (!ret)
-			ret = info.err;
-	} else {
-		/**
-		 * Since the core is not online, it is safe to set the vdd
-		 * directly.
-		 */
-		msm_spm_smp_set_vdd(&info);
-		ret = info.err;
-	}
-	put_cpu();
+	ret = smp_call_function_any(&dev->mask, msm_spm_smp_set_vdd, &info,
+					true);
+	if (ret)
+		return ret;
 
-	return ret;
+	return info.err;
 }
 EXPORT_SYMBOL(msm_spm_set_vdd);
 
@@ -150,12 +127,16 @@ EXPORT_SYMBOL(msm_spm_set_vdd);
  */
 unsigned int msm_spm_get_vdd(unsigned int cpu)
 {
-	struct msm_spm_device *dev;
+	int ret;
+	struct msm_spm_device *dev = per_cpu(cpu_vctl_device, cpu);
 
-	if (msm_spm_L2_apcs_master)
-		dev = msm_spm_l2_device;
-	else
-		dev = &per_cpu(msm_cpu_spm_device, cpu);
+	if (!dev)
+		return -EPROBE_DEFER;
+
+	ret = IS_ERR(dev);
+	if (ret)
+		return ret;
+
 	return dev->cpu_vdd;
 }
 EXPORT_SYMBOL(msm_spm_get_vdd);
@@ -383,9 +364,13 @@ int msm_spm_config_low_power_mode(struct msm_spm_device *dev,
  */
 int msm_spm_apcs_set_phase(unsigned int phase_cnt)
 {
-	if (!msm_spm_l2_device || !msm_spm_l2_device->initialized)
+	struct msm_spm_device *dev = per_cpu(cpu_vctl_device,
+			raw_smp_processor_id());
+
+	if (!dev)
 		return -ENXIO;
-	return msm_spm_drv_set_pmic_data(&msm_spm_l2_device->reg_data,
+
+	return msm_spm_drv_set_pmic_data(&dev->reg_data,
 			MSM_SPM_PMIC_PHASE_PORT, phase_cnt);
 }
 EXPORT_SYMBOL(msm_spm_apcs_set_phase);
@@ -396,9 +381,13 @@ EXPORT_SYMBOL(msm_spm_apcs_set_phase);
  */
 int msm_spm_enable_fts_lpm(uint32_t mode)
 {
-	if (!msm_spm_l2_device || !msm_spm_l2_device->initialized)
+	struct msm_spm_device *dev = per_cpu(cpu_vctl_device,
+			raw_smp_processor_id());
+
+	if (!dev)
 		return -ENXIO;
-	return msm_spm_drv_set_pmic_data(&msm_spm_l2_device->reg_data,
+
+	return msm_spm_drv_set_pmic_data(&dev->reg_data,
 			MSM_SPM_PMIC_PFM_PORT, mode);
 }
 EXPORT_SYMBOL(msm_spm_enable_fts_lpm);
@@ -435,13 +424,12 @@ static struct msm_spm_device *msm_spm_get_device(struct platform_device *pdev)
 	char *key = "qcom,name";
 	int cpu = get_cpu_id(pdev->dev.of_node);
 
-	if ((cpu >= 0) && cpu < num_possible_cpus()) {
+	if ((cpu >= 0) && cpu < num_possible_cpus())
 		dev = &per_cpu(msm_cpu_spm_device, cpu);
-	} else if (cpu == 0xffff) {
+	else if ((cpu == 0xffff) || (cpu < 0))
 		dev = devm_kzalloc(&pdev->dev, sizeof(struct msm_spm_device),
-				GFP_KERNEL);
-		msm_spm_l2_device = dev;
-	}
+					GFP_KERNEL);
+
 	if (!dev)
 		return NULL;
 
@@ -454,6 +442,38 @@ static struct msm_spm_device *msm_spm_get_device(struct platform_device *pdev)
 	list_add(&dev->list, &spm_list);
 
 	return dev;
+}
+
+static void get_cpumask(struct device_node *node, struct cpumask *mask)
+{
+	unsigned long vctl_mask = 0;
+	unsigned c = 0;
+	int idx = 0;
+	struct device_node *cpu_node = NULL;
+	int ret = 0;
+	char *key = "qcom,cpu-vctl-list";
+	bool found = false;
+
+	cpu_node = of_parse_phandle(node, key, idx++);
+	while (cpu_node) {
+		found = true;
+		for_each_possible_cpu(c) {
+			if (of_get_cpu_node(c, NULL) == cpu_node)
+				cpumask_set_cpu(c, mask);
+		}
+		cpu_node = of_parse_phandle(node, key, idx++);
+	};
+
+	if (found)
+		return;
+
+	key = "qcom,cpu-vctl-mask";
+	ret = of_property_read_u32(node, key, (u32 *) &vctl_mask);
+	if (!ret) {
+		for_each_set_bit(c, &vctl_mask, num_possible_cpus()) {
+			cpumask_set_cpu(c, mask);
+		}
+	}
 }
 
 static int msm_spm_dev_probe(struct platform_device *pdev)
@@ -508,6 +528,13 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 		{"qcom,saw2-spm-cmd-pc", MSM_SPM_MODE_POWER_COLLAPSE, 1},
 	};
 
+	dev = msm_spm_get_device(pdev);
+	if (!dev) {
+		ret = -ENOMEM;
+		goto fail;
+	}
+	get_cpumask(node, &dev->mask);
+
 	memset(&spm_data, 0, sizeof(struct msm_spm_platform_data));
 	memset(&modes, 0,
 		(MSM_SPM_MODE_NR - 2) * sizeof(struct msm_spm_seq_entry));
@@ -525,13 +552,17 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 
 	/* SAW start address */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res)
+	if (!res) {
+		ret = -EFAULT;
 		goto fail;
+	}
 
 	spm_data.reg_base_addr = devm_ioremap(&pdev->dev, res->start,
 					resource_size(res));
-	if (!spm_data.reg_base_addr)
-		return -ENOMEM;
+	if (!spm_data.reg_base_addr) {
+		ret = -ENOMEM;
+		goto fail;
+	}
 
 	spm_data.vctl_port = -1;
 	spm_data.phase_port = -1;
@@ -546,10 +577,6 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	key = "qcom,pfm-port";
 	of_property_read_u32(node, key, &spm_data.pfm_port);
 
-	dev = msm_spm_get_device(pdev);
-	if (!dev)
-		return -EINVAL;
-
 	/* Q2S (QChannel-2-SPM) register */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (res) {
@@ -558,15 +585,9 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 		if (!dev->q2s_reg) {
 			pr_err("%s(): Unable to iomap Q2S register\n",
 					__func__);
-			return -EADDRNOTAVAIL;
+			ret = -EADDRNOTAVAIL;
+			goto fail;
 		}
-	}
-
-	/* optional */
-	if (dev == msm_spm_l2_device) {
-		key = "qcom,L2-spm-is-apcs-master";
-		msm_spm_L2_apcs_master =
-			of_property_read_bool(pdev->dev.of_node, key);
 	}
 
 	for (i = 0; i < ARRAY_SIZE(spm_of_data); i++) {
@@ -594,17 +615,26 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	spm_data.num_modes = mode_count;
 
 	ret = msm_spm_dev_init(dev, &spm_data);
+	if (ret)
+		goto fail;
+
 	platform_set_drvdata(pdev, dev);
 
-	if (ret < 0)
-		pr_warn("%s():failed core-id:%u ret:%d\n", __func__, cpu, ret);
+	for_each_cpu(cpu, &dev->mask)
+		per_cpu(cpu_vctl_device, cpu) = dev;
 
 	return ret;
 
 fail:
-	pr_err("%s: Failed reading node=%s, key=%s\n",
-			__func__, node->full_name, key);
-	return -EFAULT;
+	cpu = get_cpu_id(pdev->dev.of_node);
+	if (dev && (cpu >= num_possible_cpus() || (cpu < 0))) {
+		for_each_cpu(cpu, &dev->mask)
+			per_cpu(cpu_vctl_device, cpu) = ERR_PTR(ret);
+	}
+
+	pr_err("%s: CPU%d SPM device probe failed: %d\n", __func__, cpu, ret);
+
+	return ret;
 }
 
 static int msm_spm_dev_remove(struct platform_device *pdev)

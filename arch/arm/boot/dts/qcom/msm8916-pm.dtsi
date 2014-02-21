@@ -100,12 +100,12 @@
 		qcom,vctl-port = <0x0>;
 		qcom,phase-port = <0x1>;
 		qcom,pfm-port = <0x2>;
+		qcom,cpu-vctl-mask = <0xf>;
 		qcom,saw2-spm-cmd-ret = [00 03 00 0f];
 		qcom,saw2-spm-cmd-gdhs = [00 20 32 6B C0 E0 D0 42 F0 03 50 4E
 				02 02 D0 E0 C0 22 6B 02 32 52 F0 0F];
 		qcom,saw2-spm-cmd-pc = [00 32 B0 10 E0 D0 6B C0 42 11 07 01
 				B0 50 4E 02 02 C0 D0 12 E0 6B 02 32 50 0F];
-		qcom,L2-spm-is-apcs-master;
 	};
 
 
