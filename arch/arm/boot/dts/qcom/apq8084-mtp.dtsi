@@ -112,7 +112,7 @@
 	qcom,conditional-power-on;
 };
 
-#include "dsi-panel-jdi-1080p-video.dtsi"
+#include "apq8084-mdss-panels.dtsi"
 &dsi_jdi_1080_vid {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
 	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
