@@ -453,6 +453,7 @@
 		qcom,phase-coeff-threshold = <1000000 2000000 4000000>;
 		qcom,phase-scaling-factor-bits-pos = <14>;
 		qcom,valid-scaling-factor-versions = <1 0 0 0>;
+		qcom,use-phase-scaling-factor;
 
 		krait0_vreg: regulator@f9088000 {
 			compatible = "qcom,krait-regulator";
