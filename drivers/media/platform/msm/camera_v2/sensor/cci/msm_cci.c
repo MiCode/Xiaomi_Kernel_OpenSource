@@ -647,14 +647,42 @@ static int msm_cci_subdev_g_chip_ident(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int32_t msm_cci_pinctrl_init(struct cci_device *cci_dev)
+{
+	struct msm_pinctrl_info *cci_pctrl = NULL;
+	cci_pctrl = &cci_dev->cci_pinctrl;
+
+	cci_pctrl->pinctrl = devm_pinctrl_get(&cci_dev->pdev->dev);
+	if (IS_ERR_OR_NULL(cci_pctrl->pinctrl)) {
+		pr_err("%s:%d devm_pinctrl_get cci_pinctrl failed\n",
+			__func__, __LINE__);
+		return -EINVAL;
+	}
+	cci_pctrl->gpio_state_active =
+	pinctrl_lookup_state(cci_pctrl->pinctrl, CCI_PINCTRL_STATE_DEFAULT);
+	if (IS_ERR_OR_NULL(cci_pctrl->gpio_state_active)) {
+		pr_err("%s:%d look up state  for active state failed\n",
+			__func__, __LINE__);
+		return -EINVAL;
+	}
+	cci_pctrl->gpio_state_suspend
+	= pinctrl_lookup_state(cci_pctrl->pinctrl, CCI_PINCTRL_STATE_SLEEP);
+	if (IS_ERR_OR_NULL(cci_pctrl->gpio_state_suspend)) {
+		pr_err("%s:%d look up state for suspend state failed\n",
+			__func__, __LINE__);
+		return -EINVAL;
+	}
+	return 0;
+}
 
 static int32_t msm_cci_init(struct v4l2_subdev *sd,
 	struct msm_camera_cci_ctrl *c_ctrl)
 {
 	uint8_t i = 0;
-	int32_t rc = 0;
+	int32_t rc = 0, ret = 0;
 	struct cci_device *cci_dev;
 	enum cci_i2c_master_t master;
+
 	cci_dev = v4l2_get_subdevdata(sd);
 
 	if (!cci_dev || !c_ctrl) {
@@ -692,8 +720,32 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 		}
 		return 0;
 	}
+
+	ret = msm_cci_pinctrl_init(cci_dev);
+
+	if (ret < 0) {
+		/*ignoring ret for backward compatibility*/
+		/*need to check with a flag later*/
+		pr_err("%s:%d Initialization of pinctrl failed\n",
+				__func__, __LINE__);
+		cci_dev->cci_pinctrl_status = 0;
+	} else
+		cci_dev->cci_pinctrl_status = 1;
+
 	rc = msm_camera_request_gpio_table(cci_dev->cci_gpio_tbl,
 		cci_dev->cci_gpio_tbl_size, 1);
+
+	if (cci_dev->cci_pinctrl_status) {
+		ret = pinctrl_select_state(cci_dev->cci_pinctrl.pinctrl,
+				cci_dev->cci_pinctrl.gpio_state_active);
+		if (ret) {
+			/*ignoring ret for backward compatibility*/
+			/*need to check with a flag later*/
+			pr_err("%s:%d cannot set pin to active state\n",
+				__func__, __LINE__);
+		}
+	}
+
 	if (rc < 0) {
 		cci_dev->ref_count--;
 		CDBG("%s: request gpio failed\n", __func__);
@@ -744,8 +796,20 @@ reset_complete_failed:
 	msm_cam_clk_enable(&cci_dev->pdev->dev, cci_clk_info,
 		cci_dev->cci_clk, cci_dev->num_clk, 0);
 clk_enable_failed:
+	if (cci_dev->cci_pinctrl_status) {
+		ret = pinctrl_select_state(cci_dev->cci_pinctrl.pinctrl,
+				cci_dev->cci_pinctrl.gpio_state_suspend);
+		if (ret) {
+			/*ignoring ret for backward compatibility*/
+			/*need to check with a flag later*/
+			pr_err("%s:%d cannot set pin to suspend state\n",
+				__func__, __LINE__);
+		}
+	}
+
 	msm_camera_request_gpio_table(cci_dev->cci_gpio_tbl,
 		cci_dev->cci_gpio_tbl_size, 0);
+
 request_gpio_failed:
 	cci_dev->ref_count--;
 	return rc;
@@ -753,8 +817,9 @@ request_gpio_failed:
 
 static int32_t msm_cci_release(struct v4l2_subdev *sd)
 {
-	uint8_t i = 0;
+	uint8_t i = 0, rc = 0;
 	struct cci_device *cci_dev;
+
 	cci_dev = v4l2_get_subdevdata(sd);
 
 	if (!cci_dev->ref_count || cci_dev->cci_state != CCI_STATE_ENABLED) {
@@ -773,6 +838,18 @@ static int32_t msm_cci_release(struct v4l2_subdev *sd)
 	msm_cam_clk_enable(&cci_dev->pdev->dev, cci_clk_info,
 		cci_dev->cci_clk, cci_dev->num_clk, 0);
 
+	if (cci_dev->cci_pinctrl_status) {
+		rc = pinctrl_select_state(cci_dev->cci_pinctrl.pinctrl,
+				cci_dev->cci_pinctrl.gpio_state_suspend);
+		if (rc) {
+			/*ignoring ret for backward compatibility*/
+			/*need to check with a flag later*/
+			pr_err("%s:%d cannot set pin to active state\n",
+				__func__, __LINE__);
+		}
+	}
+
+	cci_dev->cci_pinctrl_status = 0;
 	msm_camera_request_gpio_table(cci_dev->cci_gpio_tbl,
 		cci_dev->cci_gpio_tbl_size, 0);
 
