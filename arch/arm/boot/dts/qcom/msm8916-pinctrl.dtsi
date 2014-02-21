@@ -215,5 +215,23 @@
 				bias-disable = <0>; /* No PULL */
 			};
 		};
+
+		mdss_pinmux: mdss_pinmux {
+			qcom,pin-func = <1>;
+			label = "mdss-pins";
+                        /* Can install other active-suspend
+                         * pin configs for hdmi, edp etc.. */
+			mdss_dsi_active: active {
+				drive-strength = <8>; /* 8 mA */
+				bias-disable = <0>; /* no pull */
+				output-high;
+			};
+
+			mdss_dsi_suspend: suspend {
+				drive-strength = <2>; /* 2 mA */
+				bias-pull-down; /* pull down */
+				output-low;
+			};
+		};
 	};
 };

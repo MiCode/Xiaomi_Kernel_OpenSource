@@ -925,6 +925,54 @@ end:
 	return dsi_pan_node;
 }
 
+static void mdss_dsi_pinctrl_set_state(
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata,
+	bool active)
+{
+	struct pinctrl_state *pin_state;
+	int rc;
+
+	pin_state = active ? ctrl_pdata->pin_res.gpio_state_active
+					: ctrl_pdata->pin_res.gpio_state_suspend;
+	if (!IS_ERR_OR_NULL(pin_state)) {
+		rc = pinctrl_select_state(ctrl_pdata->pin_res.pinctrl, pin_state);
+		if (rc)
+			pr_err("%s: can not set %s pins\n", __func__,
+			       active ? PINCTRL_STATE_DEFAULT
+			       : PINCTRL_STATE_SLEEP);
+	} else {
+		pr_err("%s: invalid '%s' pinstate\n", __func__,
+		       active ? PINCTRL_STATE_DEFAULT
+		       : PINCTRL_STATE_SLEEP);
+	}
+}
+
+static int mdss_dsi_pinctrl_init(struct platform_device *pdev)
+{
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata;
+
+	ctrl_pdata = platform_get_drvdata(pdev);
+	ctrl_pdata->pin_res.pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR_OR_NULL(ctrl_pdata->pin_res.pinctrl)) {
+		pr_err("%s: failed to get pinctrl\n", __func__);
+		return PTR_ERR(ctrl_pdata->pin_res.pinctrl);
+	}
+
+	ctrl_pdata->pin_res.gpio_state_active
+		= pinctrl_lookup_state(ctrl_pdata->pin_res.pinctrl,
+				PINCTRL_STATE_DEFAULT);
+	if (IS_ERR_OR_NULL(ctrl_pdata->pin_res.gpio_state_active))
+		pr_warn("%s: can not get default pinstate\n", __func__);
+
+	ctrl_pdata->pin_res.gpio_state_suspend
+		= pinctrl_lookup_state(ctrl_pdata->pin_res.pinctrl,
+				PINCTRL_STATE_SLEEP);
+	if (IS_ERR_OR_NULL(ctrl_pdata->pin_res.gpio_state_suspend))
+		pr_warn("%s: can not get sleep pinstate\n", __func__);
+
+	return 0;
+}
+
 static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -1006,6 +1054,19 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 			"%s: failed to add child nodes, rc=%d\n",
 			__func__, rc);
 		goto error_ioremap;
+	}
+
+	rc = mdss_dsi_pinctrl_init(pdev);
+	if (rc) {
+		pr_err("%s: failed to get pin resources\n", __func__);
+		/* TODO: handle goto error_pinctrl; or fallback to gpio */
+	} else {
+		/*
+		 * TODO: set and unset as appropriate
+		 * i.e., suspend and resume.
+		 * default Installing the pins here for now
+		 */
+		mdss_dsi_pinctrl_set_state(ctrl_pdata, true);
 	}
 
 	/* Parse the regulator information */
