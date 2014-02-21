@@ -193,6 +193,7 @@ struct mdss_data_type {
 	struct mdss_prefill_data prefill_data;
 
 	int handoff_pending;
+	bool ulps;
 };
 extern struct mdss_data_type *mdss_res;
 
