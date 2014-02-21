@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,6 +49,8 @@
 #define HH_IRQ_FIFO_FULL(pdev)		((((pdev)->irq_fifo_tail + 1) % \
 					HH_IRQ_FIFO_SIZE) == \
 					(pdev)->irq_fifo_head)
+
+#define UINT32_MAX  (0xFFFFFFFFU)
 
 static struct hh_dev_node_info {
 	spinlock_t hh_lock;
@@ -270,8 +272,10 @@ static long hh_ioctl(struct file *file,
 
 			if (copy_from_user(&param, argp, sizeof param))
 				return -EFAULT;
-			if (param.num == 0)
-				break;
+			if ((param.num == 0) ||
+			(param.num >= (UINT32_MAX  /
+			sizeof(struct dfe_command_entry))))
+				return -EINVAL;
 			req_sz = sizeof(struct dfe_command_entry) * param.num;
 
 			if (pdfi->cmd_num < param.num) {
