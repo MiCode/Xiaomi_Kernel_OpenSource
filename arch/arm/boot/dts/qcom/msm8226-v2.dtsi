@@ -37,14 +37,28 @@
 	qcom,cpr-up-threshold = <0>;
 	qcom,cpr-down-threshold = <5>;
 	qcom,cpr-corner-map = <1 1 2 2 3 3 3 3 3 3 3 3 3 3>;
-	qcom,cpr-quot-adjust-table =
-				<1 5 450>,
-				<1 6 375>,
-				<1 7 300>,
-				<1 8 225>,
-				<1 9 187>,
-				<1 10 150>,
-				<1 11 75>;
+	qcom,pvs-version-fuse-sel = <22 4 2 0>;
+	qcom,cpr-corner-frequency-map =
+			<1 300000000>,
+			<2 384000000>,
+			<3 600000000>,
+			<4 787200000>,
+			<5 998400000>,
+			<6 1094400000>,
+			<7 1190400000>,
+			<8 1305600000>,
+			<9 1344000000>,
+			<10 1401600000>,
+			<11 1497600000>,
+			<12 1593600000>,
+			<13 1689600000>,
+			<14 1785600000>;
+	qcom,cpr-speed-bin-max-corners =
+			<0 2 2 4 7>,
+			<1 2 2 4 12>,
+			<2 2 2 4 10>,
+			<5 2 2 4 14>;
+	qcom,cpr-quot-adjust-scaling-factor-max = <650>;
 };
 
 &msm_gpu {
