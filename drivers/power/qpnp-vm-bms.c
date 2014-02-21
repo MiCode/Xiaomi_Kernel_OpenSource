@@ -2899,16 +2899,20 @@ static int bms_resume(struct device *dev)
 	struct qpnp_bms_chip *chip = dev_get_drvdata(dev);
 
 	if (!chip->charging_while_suspended) {
-		enable_bms_irq(&chip->fsm_state_change_irq);
-		enable_irq_wake(chip->fsm_state_change_irq.irq);
-
 		if (chip->dt.cfg_force_s3_on_suspend) {
 			pr_debug("Unforcing S3 state, setting AUTO state\n");
 			set_auto_fsm_state(chip);
 		}
-	}
+		/*
+		 * if we were charging while suspended, we will
+		 * be woken up by the fifo done interrupt and no
+		 * additional processing is needed
+		 */
+		process_suspended_data(chip);
 
-	process_suspended_data(chip);
+		enable_bms_irq(&chip->fsm_state_change_irq);
+		enable_irq_wake(chip->fsm_state_change_irq.irq);
+	}
 
 	/* start the soc_monitor */
 	bms_stay_awake(&chip->vbms_soc_wake_source);
