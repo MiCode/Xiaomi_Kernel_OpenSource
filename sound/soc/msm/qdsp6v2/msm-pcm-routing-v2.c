@@ -77,17 +77,18 @@ static const char * const mad_audio_mux_text[] = {
 };
 
 
-static void msm_pcm_routing_cfg_pp(int port_id, int topology, int channels)
+static void msm_pcm_routing_cfg_pp(int port_id, int copp_idx, int topology,
+				   int channels)
 {
 	switch (topology) {
 	case SRS_TRUMEDIA_TOPOLOGY_ID:
 		pr_debug("%s: SRS_TRUMEDIA_TOPOLOGY_ID\n", __func__);
-		msm_dts_srs_tm_send_params(port_id, 1, 0);
+		msm_dts_srs_tm_init(port_id, copp_idx);
 		break;
 	case DOLBY_ADM_COPP_TOPOLOGY_ID:
 		pr_debug("%s: DOLBY_ADM_COPP_TOPOLOGY_ID\n", __func__);
-		if (msm_dolby_dap_init(port_id, channels, is_custom_stereo_on)
-			< 0)
+		if (msm_dolby_dap_init(port_id, copp_idx, channels,
+				       is_custom_stereo_on) < 0)
 			pr_err("%s: err init dolby dap\n", __func__);
 		break;
 	default:
@@ -101,7 +102,7 @@ static void msm_pcm_routing_deinit_pp(int port_id, int topology)
 	switch (topology) {
 	case SRS_TRUMEDIA_TOPOLOGY_ID:
 		pr_debug("%s: SRS_TRUMEDIA_TOPOLOGY_ID\n", __func__);
-		msm_dts_srs_tm_set_port_id(-1);
+		msm_dts_srs_tm_deinit(port_id);
 		break;
 	case DOLBY_ADM_COPP_TOPOLOGY_ID:
 		pr_debug("%s: DOLBY_ADM_COPP_TOPOLOGY_ID\n", __func__);
@@ -113,20 +114,20 @@ static void msm_pcm_routing_deinit_pp(int port_id, int topology)
 	}
 }
 
-static void msm_pcm_routng_cfg_matrix_map_pp(struct route_payload *payload,
-					     int dspst_id, int path_type,
-					     int perf_mode)
+static void msm_pcm_routng_cfg_matrix_map_pp(struct route_payload payload,
+					     int path_type, int perf_mode)
 {
 	int itr = 0;
 	if ((path_type == ADM_PATH_PLAYBACK) &&
 	    (perf_mode == LEGACY_PCM_MODE) &&
 	    is_custom_stereo_on) {
-		for (itr = 0; itr < payload->num_copps; itr++) {
-			if ((payload->copp_ids[itr] == SLIMBUS_0_RX) ||
-			    (payload->copp_ids[itr] == RT_PROXY_PORT_001_RX)) {
+		for (itr = 0; itr < payload.num_copps; itr++) {
+			if ((payload.port_id[itr] == SLIMBUS_0_RX) ||
+			    (payload.port_id[itr] == RT_PROXY_PORT_001_RX)) {
 				msm_qti_pp_send_stereo_to_custom_stereo_cmd(
-						payload->copp_ids[itr],
-						dspst_id,
+						payload.port_id[itr],
+						payload.copp_idx[itr],
+						payload.session_id,
 						Q14_GAIN_ZERO_POINT_FIVE,
 						Q14_GAIN_ZERO_POINT_FIVE,
 						Q14_GAIN_ZERO_POINT_FIVE,
@@ -136,66 +137,52 @@ static void msm_pcm_routng_cfg_matrix_map_pp(struct route_payload *payload,
 	}
 }
 
-int get_topology(int path_type)
-{
-	int topology_id = 0;
-	if (path_type == ADM_PATH_PLAYBACK)
-		topology_id = get_adm_rx_topology();
-	else
-		topology_id = get_adm_tx_topology();
-
-	if (topology_id  == 0)
-		topology_id = NULL_COPP_TOPOLOGY;
-
-	return topology_id;
-}
-
 #define SLIMBUS_EXTPROC_RX AFE_PORT_INVALID
 static struct msm_pcm_routing_bdai_data msm_bedais[MSM_BACKEND_DAI_MAX] = {
-	{ PRIMARY_I2S_RX, 0, 0, 0, 0, 0},
-	{ PRIMARY_I2S_TX, 0, 0, 0, 0, 0},
-	{ SLIMBUS_0_RX, 0, 0, 0, 0, 0},
-	{ SLIMBUS_0_TX, 0, 0, 0, 0, 0},
-	{ HDMI_RX, 0, 0, 0, 0, 0},
-	{ INT_BT_SCO_RX, 0, 0, 0, 0, 0},
-	{ INT_BT_SCO_TX, 0, 0, 0, 0, 0},
-	{ INT_FM_RX, 0, 0, 0, 0, 0},
-	{ INT_FM_TX, 0, 0, 0, 0, 0},
-	{ RT_PROXY_PORT_001_RX, 0, 0, 0, 0, 0},
-	{ RT_PROXY_PORT_001_TX, 0, 0, 0, 0, 0},
-	{ AFE_PORT_ID_PRIMARY_PCM_RX, 0, 0, 0, 0, 0},
-	{ AFE_PORT_ID_PRIMARY_PCM_TX, 0, 0, 0, 0, 0},
-	{ VOICE_PLAYBACK_TX, 0, 0, 0, 0, 0},
-	{ VOICE2_PLAYBACK_TX, 0, 0, 0, 0, 0},
-	{ VOICE_RECORD_RX, 0, 0, 0, 0, 0},
-	{ VOICE_RECORD_TX, 0, 0, 0, 0, 0},
-	{ MI2S_RX, 0, 0, 0, 0, 0},
-	{ MI2S_TX, 0, 0, 0, 0},
-	{ SECONDARY_I2S_RX, 0, 0, 0, 0, 0},
-	{ SLIMBUS_1_RX, 0, 0, 0, 0, 0},
-	{ SLIMBUS_1_TX, 0, 0, 0, 0, 0},
-	{ SLIMBUS_4_RX, 0, 0, 0, 0, 0},
-	{ SLIMBUS_4_TX, 0, 0, 0, 0, 0},
-	{ SLIMBUS_3_RX, 0, 0, 0, 0, 0},
-	{ SLIMBUS_3_TX, 0, 0, 0, 0, 0},
-	{ SLIMBUS_5_TX, 0, 0, 0, 0, 0 },
-	{ SLIMBUS_EXTPROC_RX, 0, 0, 0, 0, 0},
-	{ SLIMBUS_EXTPROC_RX, 0, 0, 0, 0, 0},
-	{ SLIMBUS_EXTPROC_RX, 0, 0, 0, 0, 0},
-	{ AFE_PORT_ID_QUATERNARY_MI2S_RX, 0, 0, 0, 0, 0},
-	{ AFE_PORT_ID_QUATERNARY_MI2S_TX, 0, 0, 0, 0, 0},
-	{ AFE_PORT_ID_SECONDARY_MI2S_RX,  0, 0, 0, 0, 0},
-	{ AFE_PORT_ID_SECONDARY_MI2S_TX,  0, 0, 0, 0, 0},
-	{ AFE_PORT_ID_PRIMARY_MI2S_RX,    0, 0, 0, 0, 0},
-	{ AFE_PORT_ID_PRIMARY_MI2S_TX,    0, 0, 0, 0, 0},
-	{ AFE_PORT_ID_TERTIARY_MI2S_RX,   0, 0, 0, 0, 0},
-	{ AFE_PORT_ID_TERTIARY_MI2S_TX,   0, 0, 0, 0, 0},
-	{ AUDIO_PORT_ID_I2S_RX,           0, 0, 0, 0, 0},
-	{ AFE_PORT_ID_SECONDARY_PCM_RX,	  0, 0, 0, 0, 0},
-	{ AFE_PORT_ID_SECONDARY_PCM_TX,   0, 0, 0, 0, 0},
-	{ SLIMBUS_6_RX, 0, 0, 0, 0, 0},
-	{ SLIMBUS_6_TX, 0, 0, 0, 0, 0},
-	{ AFE_PORT_ID_SPDIF_RX, 0, 0, 0, 0, 0},
+	{ PRIMARY_I2S_RX, 0, 0, 0, 0, 0, 0},
+	{ PRIMARY_I2S_TX, 0, 0, 0, 0, 0, 0},
+	{ SLIMBUS_0_RX, 0, 0, 0, 0, 0, 0},
+	{ SLIMBUS_0_TX, 0, 0, 0, 0, 0, 0},
+	{ HDMI_RX, 0, 0, 0, 0, 0, 0},
+	{ INT_BT_SCO_RX, 0, 0, 0, 0, 0, 0},
+	{ INT_BT_SCO_TX, 0, 0, 0, 0, 0, 0},
+	{ INT_FM_RX, 0, 0, 0, 0, 0, 0},
+	{ INT_FM_TX, 0, 0, 0, 0, 0, 0},
+	{ RT_PROXY_PORT_001_RX, 0, 0, 0, 0, 0, 0},
+	{ RT_PROXY_PORT_001_TX, 0, 0, 0, 0, 0, 0},
+	{ AFE_PORT_ID_PRIMARY_PCM_RX, 0, 0, 0, 0, 0, 0},
+	{ AFE_PORT_ID_PRIMARY_PCM_TX, 0, 0, 0, 0, 0, 0},
+	{ VOICE_PLAYBACK_TX, 0, 0, 0, 0, 0, 0},
+	{ VOICE2_PLAYBACK_TX, 0, 0, 0, 0, 0, 0},
+	{ VOICE_RECORD_RX, 0, 0, 0, 0, 0, 0},
+	{ VOICE_RECORD_TX, 0, 0, 0, 0, 0, 0},
+	{ MI2S_RX, 0, 0, 0, 0, 0, 0},
+	{ MI2S_TX, 0, 0, 0, 0, 0, 0},
+	{ SECONDARY_I2S_RX, 0, 0, 0, 0, 0, 0},
+	{ SLIMBUS_1_RX, 0, 0, 0, 0, 0, 0},
+	{ SLIMBUS_1_TX, 0, 0, 0, 0, 0, 0},
+	{ SLIMBUS_4_RX, 0, 0, 0, 0, 0, 0},
+	{ SLIMBUS_4_TX, 0, 0, 0, 0, 0, 0},
+	{ SLIMBUS_3_RX, 0, 0, 0, 0, 0, 0},
+	{ SLIMBUS_3_TX, 0, 0, 0, 0, 0, 0},
+	{ SLIMBUS_5_TX, 0, 0, 0, 0, 0, 0},
+	{ SLIMBUS_EXTPROC_RX, 0, 0, 0, 0, 0, 0},
+	{ SLIMBUS_EXTPROC_RX, 0, 0, 0, 0, 0, 0},
+	{ SLIMBUS_EXTPROC_RX, 0, 0, 0, 0, 0, 0},
+	{ AFE_PORT_ID_QUATERNARY_MI2S_RX, 0, 0, 0, 0, 0, 0},
+	{ AFE_PORT_ID_QUATERNARY_MI2S_TX, 0, 0, 0, 0, 0, 0},
+	{ AFE_PORT_ID_SECONDARY_MI2S_RX,  0, 0, 0, 0, 0, 0},
+	{ AFE_PORT_ID_SECONDARY_MI2S_TX,  0, 0, 0, 0, 0, 0},
+	{ AFE_PORT_ID_PRIMARY_MI2S_RX,    0, 0, 0, 0, 0, 0},
+	{ AFE_PORT_ID_PRIMARY_MI2S_TX,    0, 0, 0, 0, 0, 0},
+	{ AFE_PORT_ID_TERTIARY_MI2S_RX,   0, 0, 0, 0, 0, 0},
+	{ AFE_PORT_ID_TERTIARY_MI2S_TX,   0, 0, 0, 0, 0, 0},
+	{ AUDIO_PORT_ID_I2S_RX,           0, 0, 0, 0, 0, 0},
+	{ AFE_PORT_ID_SECONDARY_PCM_RX,	  0, 0, 0, 0, 0, 0},
+	{ AFE_PORT_ID_SECONDARY_PCM_TX,   0, 0, 0, 0, 0, 0},
+	{ SLIMBUS_6_RX, 0, 0, 0, 0, 0, 0},
+	{ SLIMBUS_6_TX, 0, 0, 0, 0, 0, 0},
+	{ AFE_PORT_ID_SPDIF_RX, 0, 0, 0, 0, 0, 0},
 	{ AFE_PORT_ID_SECONDARY_MI2S_RX_VIBRA, 0, 0, 0, 0, 0},
 };
 
@@ -204,63 +191,56 @@ static struct msm_pcm_routing_bdai_data msm_bedais[MSM_BACKEND_DAI_MAX] = {
 static struct msm_pcm_routing_fdai_data
 	fe_dai_map[MSM_FRONTEND_DAI_MM_SIZE][2] = {
 	/* MULTIMEDIA1 */
-	{{0, INVALID_SESSION, {NULL, NULL} },
-	{0, INVALID_SESSION, {NULL, NULL} } },
+	{{0, INVALID_SESSION, LEGACY_PCM_MODE, {NULL, NULL} },
+	 {0, INVALID_SESSION, LEGACY_PCM_MODE, {NULL, NULL} } },
 	/* MULTIMEDIA2 */
-	{{0, INVALID_SESSION, {NULL, NULL} },
-	{0, INVALID_SESSION, {NULL, NULL} } },
+	{{0, INVALID_SESSION, LEGACY_PCM_MODE, {NULL, NULL} },
+	 {0, INVALID_SESSION, LEGACY_PCM_MODE, {NULL, NULL} } },
 	/* MULTIMEDIA3 */
-	{{0, INVALID_SESSION, {NULL, NULL} },
-	{0, INVALID_SESSION, {NULL, NULL} } },
+	{{0, INVALID_SESSION, LEGACY_PCM_MODE, {NULL, NULL} },
+	 {0, INVALID_SESSION, LEGACY_PCM_MODE, {NULL, NULL} } },
 	/* MULTIMEDIA4 */
-	{{0, INVALID_SESSION, {NULL, NULL} },
-	{0, INVALID_SESSION,  {NULL, NULL} } },
+	{{0, INVALID_SESSION, LEGACY_PCM_MODE, {NULL, NULL} },
+	 {0, INVALID_SESSION, LEGACY_PCM_MODE, {NULL, NULL} } },
 	/* MULTIMEDIA5 */
-	{{0, INVALID_SESSION, {NULL, NULL} },
-	{0, INVALID_SESSION, {NULL, NULL} } },
+	{{0, INVALID_SESSION, LEGACY_PCM_MODE, {NULL, NULL} },
+	 {0, INVALID_SESSION, LEGACY_PCM_MODE, {NULL, NULL} } },
 	/* MULTIMEDIA6 */
-	{{0, INVALID_SESSION, {NULL, NULL} },
-	{0, INVALID_SESSION, {NULL, NULL} } },
+	{{0, INVALID_SESSION, LEGACY_PCM_MODE, {NULL, NULL} },
+	 {0, INVALID_SESSION, LEGACY_PCM_MODE, {NULL, NULL} } },
 	/* MULTIMEDIA7*/
-	{{0, INVALID_SESSION, {NULL, NULL} },
-	{0, INVALID_SESSION, {NULL, NULL} } },
+	{{0, INVALID_SESSION, LEGACY_PCM_MODE, {NULL, NULL} },
+	 {0, INVALID_SESSION, LEGACY_PCM_MODE, {NULL, NULL} } },
 	/* MULTIMEDIA8 */
-	{{0, INVALID_SESSION, {NULL, NULL} },
-	{0, INVALID_SESSION, {NULL, NULL} } },
+	{{0, INVALID_SESSION, LEGACY_PCM_MODE, {NULL, NULL} },
+	 {0, INVALID_SESSION, LEGACY_PCM_MODE, {NULL, NULL} } },
 	/* MULTIMEDIA9 */
-	{{0, INVALID_SESSION, {NULL, NULL} },
-	{0, INVALID_SESSION, {NULL, NULL} } },
+	{{0, INVALID_SESSION, LEGACY_PCM_MODE, {NULL, NULL} },
+	 {0, INVALID_SESSION, LEGACY_PCM_MODE, {NULL, NULL} } },
 };
 
-/* Track performance mode of all front-end multimedia sessions.
- * Performance mode is only valid when session is valid.
- */
-static int fe_dai_perf_mode[MSM_FRONTEND_DAI_MM_SIZE][2];
-
+static unsigned long session_copp_map[MSM_FRONTEND_DAI_MM_SIZE][2]
+				     [MSM_BACKEND_DAI_MAX];
+static struct msm_pcm_routing_app_type_data app_type_cfg[MAX_APP_TYPES];
 static struct msm_pcm_stream_app_type_cfg
 			 fe_dai_app_type_cfg[MSM_FRONTEND_DAI_MM_SIZE];
-
-static struct msm_pcm_routing_app_type_data app_type_cfg[MAX_APP_TYPES];
 
 /* The caller of this should aqcuire routing lock */
 void msm_pcm_routing_get_bedai_info(int be_idx,
 				    struct msm_pcm_routing_bdai_data *be_dai)
 {
-	memcpy(be_dai, &msm_bedais[be_idx],
-		sizeof(struct msm_pcm_routing_bdai_data));
+	if (be_idx > 0 && be_idx < MSM_BACKEND_DAI_MAX)
+		memcpy(be_dai, &msm_bedais[be_idx],
+		       sizeof(struct msm_pcm_routing_bdai_data));
 }
 
 /* The caller of this should aqcuire routing lock */
 void msm_pcm_routing_get_fedai_info(int fe_idx, int sess_type,
-				    struct msm_pcm_routing_fdai_data *fe_dai,
-				    int *fe_perf_mode)
+				    struct msm_pcm_routing_fdai_data *fe_dai)
 {
-	if ((sess_type == SESSION_TYPE_TX) ||
-	    (sess_type == SESSION_TYPE_RX)) {
+	if ((sess_type == SESSION_TYPE_TX) || (sess_type == SESSION_TYPE_RX))
 		memcpy(fe_dai, &fe_dai_map[fe_idx][sess_type],
-			sizeof(struct msm_pcm_routing_fdai_data));
-		*fe_perf_mode = fe_dai_perf_mode[fe_idx][sess_type];
-	}
+		       sizeof(struct msm_pcm_routing_fdai_data));
 }
 
 void msm_pcm_routing_acquire_lock(void)
@@ -273,9 +253,24 @@ void msm_pcm_routing_release_lock(void)
 	mutex_unlock(&routing_lock);
 }
 
+static int msm_pcm_routing_get_app_type_idx(int app_type)
+{
+	int idx;
+
+	pr_debug("%s: app_type: %d\n", __func__, app_type);
+	for (idx = 0; idx < MAX_APP_TYPES; idx++) {
+		if (app_type_cfg[idx].app_type == app_type)
+			return idx;
+	}
+	pr_info("%s: App type not available, fallback to default\n", __func__);
+	return 0;
+}
+
 void msm_pcm_routing_reg_stream_app_type_cfg(int fedai_id, int app_type,
 	int acdb_dev_id)
 {
+	pr_debug("%s: fedai_id- %d, app_type: %d\n", __func__, fedai_id,
+		 app_type);
 	if (fedai_id > MSM_FRONTEND_DAI_MM_MAX_ID) {
 		/* bad ID assigned in machine driver */
 		pr_err("%s: bad MM ID %d\n", __func__, fedai_id);
@@ -283,6 +278,23 @@ void msm_pcm_routing_reg_stream_app_type_cfg(int fedai_id, int app_type,
 	}
 	fe_dai_app_type_cfg[fedai_id].app_type = app_type;
 	fe_dai_app_type_cfg[fedai_id].acdb_dev_id = acdb_dev_id;
+}
+
+int msm_pcm_routing_get_topology(int path_type, int fedai_id)
+{
+	int topology_id = 0, app_type = 0, acdb_dev_id = 0;
+	if (path_type == ADM_PATH_PLAYBACK) {
+		app_type = fe_dai_app_type_cfg[fedai_id].app_type;
+		acdb_dev_id = fe_dai_app_type_cfg[fedai_id].acdb_dev_id;
+		/* Get the topology based on the acdb device id and app type */
+		topology_id = get_adm_rx_topology();
+	} else
+		topology_id = get_adm_tx_topology();
+
+	if (topology_id  == 0)
+		topology_id = NULL_COPP_TOPOLOGY;
+
+	return topology_id;
 }
 
 static uint8_t is_be_dai_extproc(int be_dai)
@@ -295,35 +307,44 @@ static uint8_t is_be_dai_extproc(int be_dai)
 		return 0;
 }
 
-static void msm_pcm_routing_build_matrix(int fedai_id, int dspst_id,
-	int path_type, int perf_mode)
+static void msm_pcm_routing_build_matrix(int fedai_id, int sess_type,
+					 int path_type, int perf_mode)
 {
-	int i, port_type;
+	int i, port_type, j, num_copps = 0;
 	struct route_payload payload;
 
-	payload.num_copps = 0;
-	port_type = (path_type == ADM_PATH_PLAYBACK ?
-		MSM_AFE_PORT_TYPE_RX : MSM_AFE_PORT_TYPE_TX);
-
+	port_type = (path_type == ADM_PATH_PLAYBACK ? MSM_AFE_PORT_TYPE_RX :
+						      MSM_AFE_PORT_TYPE_TX);
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
 		if (!is_be_dai_extproc(i) &&
 		   (afe_get_port_type(msm_bedais[i].port_id) == port_type) &&
 		   (msm_bedais[i].active) &&
-		   (test_bit(fedai_id, &msm_bedais[i].fe_sessions)))
-			payload.copp_ids[payload.num_copps++] =
-					msm_bedais[i].port_id;
+		   (test_bit(fedai_id, &msm_bedais[i].fe_sessions))) {
+			for (j = 0; j < MAX_COPPS_PER_PORT; j++) {
+				unsigned long copp =
+				      session_copp_map[fedai_id][sess_type][i];
+				if (test_bit(j, &copp)) {
+					payload.port_id[num_copps] =
+							msm_bedais[i].port_id;
+					payload.copp_idx[num_copps] = j;
+					num_copps++;
+				}
+			}
+		}
 	}
 
-	if (payload.num_copps) {
-		adm_matrix_map(dspst_id, path_type,
-			payload.num_copps, payload.copp_ids, 0, perf_mode);
-		msm_pcm_routng_cfg_matrix_map_pp(&payload, dspst_id, path_type,
-						 perf_mode);
+	if (num_copps) {
+		payload.num_copps = num_copps;
+		payload.session_id = fe_dai_map[fedai_id][sess_type].strm_id;
+		payload.app_type = fe_dai_app_type_cfg[fedai_id].app_type;
+		payload.acdb_dev_id = fe_dai_app_type_cfg[fedai_id].acdb_dev_id;
+		adm_matrix_map(path_type, payload, perf_mode);
+		msm_pcm_routng_cfg_matrix_map_pp(payload, path_type, perf_mode);
 	}
 }
 
 void msm_pcm_routing_reg_psthr_stream(int fedai_id, int dspst_id,
-					int stream_type)
+				      int stream_type)
 {
 	int i, session_type, path_type, port_type;
 	u32 mode = 0;
@@ -361,18 +382,18 @@ void msm_pcm_routing_reg_psthr_stream(int fedai_id, int dspst_id,
 	mutex_unlock(&routing_lock);
 }
 
-void msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
-					int dspst_id, int stream_type)
+int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
+				   int dspst_id, int stream_type)
 {
-	int i, session_type, path_type, port_type, topology;
+	int i, j, session_type, path_type, port_type, topology, num_copps = 0;
 	struct route_payload payload;
-	u32 channels;
+	u32 channels, sample_rate;
 	uint16_t bits_per_sample = 16;
 
 	if (fedai_id > MSM_FRONTEND_DAI_MM_MAX_ID) {
 		/* bad ID assigned in machine driver */
 		pr_err("%s: bad MM ID %d\n", __func__, fedai_id);
-		return;
+		return -EINVAL;
 	}
 
 	if (stream_type == SNDRV_PCM_STREAM_PLAYBACK) {
@@ -389,17 +410,16 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 
 	payload.num_copps = 0; /* only RX needs to use payload */
 	fe_dai_map[fedai_id][session_type].strm_id = dspst_id;
-	fe_dai_perf_mode[fedai_id][session_type] = perf_mode;
+	fe_dai_map[fedai_id][session_type].perf_mode = perf_mode;
 
 	/* re-enable EQ if active */
 	msm_qti_pp_send_eq_values(fedai_id);
-	topology = get_topology(path_type);
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
 		if (!is_be_dai_extproc(i) &&
 		   (afe_get_port_type(msm_bedais[i].port_id) == port_type) &&
 		   (msm_bedais[i].active) &&
 		   (test_bit(fedai_id, &msm_bedais[i].fe_sessions))) {
-
+			int app_type, app_type_idx, copp_idx;
 			channels = msm_bedais[i].channel;
 
 			if (msm_bedais[i].format == SNDRV_PCM_FORMAT_S16_LE)
@@ -408,58 +428,86 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 						SNDRV_PCM_FORMAT_S24_LE)
 				bits_per_sample = 24;
 
+			app_type = (stream_type == SNDRV_PCM_STREAM_PLAYBACK) ?
+				   fe_dai_app_type_cfg[fedai_id].app_type : 0;
+			if (app_type) {
+				app_type_idx =
+				msm_pcm_routing_get_app_type_idx(app_type);
+				sample_rate =
+					app_type_cfg[app_type_idx].sample_rate;
+				bits_per_sample =
+					app_type_cfg[app_type_idx].bit_width;
+			} else
+				sample_rate = msm_bedais[i].sample_rate;
+
+			topology =
+			msm_pcm_routing_get_topology(path_type, fedai_id);
 			if (msm_bedais[i].port_id == VOICE_RECORD_RX ||
 			    msm_bedais[i].port_id == VOICE_RECORD_TX)
 				topology = NULL_COPP_TOPOLOGY;
-			if ((stream_type == SNDRV_PCM_STREAM_PLAYBACK) &&
-				(channels > 0))
-				adm_multi_ch_copp_open(msm_bedais[i].port_id,
-				path_type,
-				msm_bedais[i].sample_rate,
-				msm_bedais[i].channel,
-				topology, perf_mode,
-				bits_per_sample);
-			else
-				adm_open(msm_bedais[i].port_id,
-				path_type,
-				msm_bedais[i].sample_rate,
-				msm_bedais[i].channel,
-				topology,
-				perf_mode,
-				bits_per_sample);
+			copp_idx = adm_open(msm_bedais[i].port_id, path_type,
+					    sample_rate, channels, topology,
+					    perf_mode, bits_per_sample,
+					    app_type);
+			if ((copp_idx < 0) && (copp_idx > MAX_COPPS_PER_PORT)) {
+				pr_err("%s: adm open failed copp_idx:%d\n",
+					__func__, copp_idx);
+				return -EINVAL;
+			}
+			pr_debug("%s: setting idx bit of fe:%d, type: %d, be:%d\n",
+				 __func__, fedai_id, session_type, i);
+			set_bit(copp_idx,
+				&session_copp_map[fedai_id][session_type][i]);
 
-			payload.copp_ids[payload.num_copps++] =
-				msm_bedais[i].port_id;
+			for (j = 0; j < MAX_COPPS_PER_PORT; j++) {
+				unsigned long copp =
+				    session_copp_map[fedai_id][session_type][i];
+				if (test_bit(j, &copp)) {
+					payload.port_id[num_copps] =
+							msm_bedais[i].port_id;
+					payload.copp_idx[num_copps] = j;
+					num_copps++;
+				}
+			}
 			if (perf_mode == LEGACY_PCM_MODE)
 				msm_pcm_routing_cfg_pp(msm_bedais[i].port_id,
-						       topology, channels);
+						       copp_idx, topology,
+						       channels);
 		}
 	}
-	if (payload.num_copps) {
-		adm_matrix_map(dspst_id, path_type,
-			payload.num_copps, payload.copp_ids, 0, perf_mode);
-		msm_pcm_routng_cfg_matrix_map_pp(&payload, dspst_id, path_type,
-						 perf_mode);
+	if (num_copps) {
+		payload.num_copps = num_copps;
+		payload.session_id = fe_dai_map[fedai_id][session_type].strm_id;
+		payload.app_type = fe_dai_app_type_cfg[fedai_id].app_type;
+		payload.acdb_dev_id = fe_dai_app_type_cfg[fedai_id].acdb_dev_id;
+		adm_matrix_map(path_type, payload, perf_mode);
+		msm_pcm_routng_cfg_matrix_map_pp(payload, path_type, perf_mode);
 	}
 	mutex_unlock(&routing_lock);
+	return 0;
 }
 
-void msm_pcm_routing_reg_phy_stream_v2(int fedai_id, bool perf_mode,
-				       int dspst_id, int stream_type,
-				       struct msm_pcm_routing_evt event_info)
+int msm_pcm_routing_reg_phy_stream_v2(int fedai_id, bool perf_mode,
+				      int dspst_id, int stream_type,
+				      struct msm_pcm_routing_evt event_info)
 {
-	msm_pcm_routing_reg_phy_stream(fedai_id, perf_mode, dspst_id,
-				       stream_type);
+	if (msm_pcm_routing_reg_phy_stream(fedai_id, perf_mode, dspst_id,
+				       stream_type)) {
+		pr_err("%s: failed to reg phy stream\n", __func__);
+		return -EINVAL;
+	}
 
 	if (stream_type == SNDRV_PCM_STREAM_PLAYBACK)
 		fe_dai_map[fedai_id][SESSION_TYPE_RX].event_info = event_info;
 	else
 		fe_dai_map[fedai_id][SESSION_TYPE_TX].event_info = event_info;
+	return 0;
 }
 
 void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type)
 {
 	int i, port_type, session_type, path_type, topology;
+	struct msm_pcm_routing_fdai_data *fdai;
 
 	if (fedai_id > MSM_FRONTEND_DAI_MM_MAX_ID) {
 		/* bad ID assigned in machine driver */
@@ -478,17 +526,28 @@ void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type)
 	}
 
 	mutex_lock(&routing_lock);
-	topology = get_topology(path_type);
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
 		if (!is_be_dai_extproc(i) &&
 		   (afe_get_port_type(msm_bedais[i].port_id) == port_type) &&
 		   (msm_bedais[i].active) &&
 		   (test_bit(fedai_id, &msm_bedais[i].fe_sessions))) {
-			adm_close(msm_bedais[i].port_id,
-				  fe_dai_perf_mode[fedai_id][session_type]);
+			int idx;
+			unsigned long copp =
+				session_copp_map[fedai_id][session_type][i];
+			fdai = &fe_dai_map[fedai_id][session_type];
+
+			topology =
+			msm_pcm_routing_get_topology(path_type, fedai_id);
+			for (idx = 0; idx < MAX_COPPS_PER_PORT; idx++)
+				if (test_bit(idx, &copp))
+					break;
+			adm_close(msm_bedais[i].port_id, fdai->perf_mode, idx);
+			pr_debug("%s:copp:%ld,idx bit fe:%d,type:%d,be:%d\n",
+				 __func__, copp, fedai_id, session_type, i);
+			clear_bit(idx,
+				  &session_copp_map[fedai_id][session_type][i]);
 			if ((DOLBY_ADM_COPP_TOPOLOGY_ID == topology) &&
-			    (fe_dai_perf_mode[fedai_id][session_type] ==
-							LEGACY_PCM_MODE))
+			    (fdai->perf_mode == LEGACY_PCM_MODE))
 				msm_pcm_routing_deinit_pp(msm_bedais[i].port_id,
 							  topology);
 		}
@@ -519,7 +578,7 @@ static bool msm_pcm_routing_route_is_set(u16 be_id, u16 fe_id)
 static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 {
 	int session_type, path_type, topology;
-	u32 channels;
+	u32 channels, sample_rate;
 	uint16_t bits_per_sample = 16;
 	struct msm_pcm_routing_fdai_data *fdai;
 
@@ -541,7 +600,6 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 	}
 
 	mutex_lock(&routing_lock);
-	topology = get_topology(path_type);
 	if (set) {
 		if (!test_bit(val, &msm_bedais[reg].fe_sessions) &&
 			((msm_bedais[reg].port_id == VOICE_PLAYBACK_TX) ||
@@ -551,7 +609,7 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 		fdai = &fe_dai_map[val][session_type];
 		if (msm_bedais[reg].active && fdai->strm_id !=
 			INVALID_SESSION) {
-
+			int app_type, app_type_idx, copp_idx;
 			channels = msm_bedais[reg].channel;
 			if (session_type == SESSION_TYPE_TX &&
 			    fdai->be_srate &&
@@ -568,24 +626,31 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 			if (msm_bedais[reg].format == SNDRV_PCM_FORMAT_S24_LE)
 				bits_per_sample = 24;
 
+			app_type = (session_type == SESSION_TYPE_RX) ?
+				   fe_dai_app_type_cfg[val].app_type : 0;
+			if (app_type) {
+				app_type_idx =
+				msm_pcm_routing_get_app_type_idx(app_type);
+				sample_rate =
+					app_type_cfg[app_type_idx].sample_rate;
+				bits_per_sample =
+					app_type_cfg[app_type_idx].bit_width;
+			} else
+				sample_rate = msm_bedais[reg].sample_rate;
+
+			topology = msm_pcm_routing_get_topology(path_type, val);
 			if (msm_bedais[reg].port_id == VOICE_RECORD_RX ||
 			    msm_bedais[reg].port_id == VOICE_RECORD_TX)
 				topology = NULL_COPP_TOPOLOGY;
-			if ((session_type == SESSION_TYPE_RX) &&
-				(channels > 0)) {
-				adm_multi_ch_copp_open(msm_bedais[reg].port_id,
-				path_type,
-				msm_bedais[reg].sample_rate,
-				channels,
-				topology,
-				fe_dai_perf_mode[val][session_type],
-				bits_per_sample);
-			} else
-				adm_open(msm_bedais[reg].port_id,
-				path_type,
-				msm_bedais[reg].sample_rate, channels,
-				topology, fe_dai_perf_mode[val][session_type],
-				bits_per_sample);
+			copp_idx = adm_open(msm_bedais[reg].port_id, path_type,
+					    sample_rate, channels, topology,
+					    fdai->perf_mode, bits_per_sample,
+					    app_type);
+
+			pr_debug("%s: setting idx bit of fe:%d, type: %d, be:%d\n",
+				 __func__, val, session_type, reg);
+			set_bit(copp_idx,
+				&session_copp_map[val][session_type][reg]);
 
 			if (session_type == SESSION_TYPE_RX &&
 			    fdai->event_info.event_func)
@@ -593,13 +658,13 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 					MSM_PCM_RT_EVT_DEVSWITCH,
 					fdai->event_info.priv_data);
 
-			msm_pcm_routing_build_matrix(val,
-				fdai->strm_id, path_type,
-				fe_dai_perf_mode[val][session_type]);
-			if (fe_dai_perf_mode[val][session_type] ==
-							LEGACY_PCM_MODE)
+			msm_pcm_routing_build_matrix(val, session_type,
+						     path_type,
+						     fdai->perf_mode);
+			if (fdai->perf_mode == LEGACY_PCM_MODE)
 				msm_pcm_routing_cfg_pp(msm_bedais[reg].port_id,
-						       topology, channels);
+						       copp_idx, topology,
+						       channels);
 		}
 	} else {
 		if (test_bit(val, &msm_bedais[reg].fe_sessions) &&
@@ -610,17 +675,27 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 		fdai = &fe_dai_map[val][session_type];
 		if (msm_bedais[reg].active && fdai->strm_id !=
 			INVALID_SESSION) {
-			adm_close(msm_bedais[reg].port_id,
-				  fe_dai_perf_mode[val][session_type]);
+			int idx;
+			unsigned long copp =
+				session_copp_map[val][session_type][reg];
+			for (idx = 0; idx < MAX_COPPS_PER_PORT; idx++)
+				if (test_bit(idx, &copp))
+					break;
+			topology = msm_pcm_routing_get_topology(path_type, val);
+			adm_close(msm_bedais[reg].port_id, fdai->perf_mode,
+				  idx);
+			pr_debug("%s: copp: %ld, reset idx bit fe:%d, type: %d, be:%d\n",
+				 __func__, copp, val, session_type, reg);
+			clear_bit(idx,
+				  &session_copp_map[val][session_type][reg]);
 			if ((DOLBY_ADM_COPP_TOPOLOGY_ID == topology) &&
-			    (fe_dai_perf_mode[val][session_type] ==
-							LEGACY_PCM_MODE))
+			    (fdai->perf_mode == LEGACY_PCM_MODE))
 				msm_pcm_routing_deinit_pp(
 						msm_bedais[reg].port_id,
 						topology);
-			msm_pcm_routing_build_matrix(val,
-				fdai->strm_id, path_type,
-				fe_dai_perf_mode[val][session_type]);
+			msm_pcm_routing_build_matrix(val, session_type,
+						     path_type,
+						     fdai->perf_mode);
 		}
 	}
 	if ((msm_bedais[reg].port_id == VOICE_RECORD_RX)
@@ -2756,7 +2831,7 @@ static int msm_routing_put_stereo_to_custom_stereo_control(
 					struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
-	int flag = 0, i = 0;
+	int flag = 0, i = 0, idx = 0;
 	int be_index = 0, port_id;
 	unsigned int session_id = 0;
 	uint16_t op_FL_ip_FL_weight;
@@ -2777,7 +2852,7 @@ static int msm_routing_put_stereo_to_custom_stereo_control(
 			for_each_set_bit(i,
 				&msm_bedais[be_index].fe_sessions,
 				MSM_FRONTEND_DAI_MM_SIZE) {
-				if (fe_dai_perf_mode[i][SESSION_TYPE_RX] !=
+				if (fe_dai_map[i][SESSION_TYPE_RX].perf_mode !=
 				    LEGACY_PCM_MODE)
 					goto skip_send_custom_stereo;
 				session_id =
@@ -2797,19 +2872,25 @@ static int msm_routing_put_stereo_to_custom_stereo_control(
 					op_FR_ip_FL_weight = 0;
 					op_FR_ip_FR_weight = Q14_GAIN_UNITY;
 				}
-				if (msm_qti_pp_send_stereo_to_custom_stereo_cmd(
-						msm_bedais[be_index].port_id,
-						session_id,
-						op_FL_ip_FL_weight,
-						op_FL_ip_FR_weight,
-						op_FR_ip_FL_weight,
-						op_FR_ip_FR_weight) ||
+				for (idx = 0; idx < MAX_COPPS_PER_PORT; idx++) {
+					unsigned long copp =
+						session_copp_map[i]
+						[SESSION_TYPE_RX][be_index];
+					if (test_bit(idx, &copp) &&
+				  (msm_qti_pp_send_stereo_to_custom_stereo_cmd(
+							port_id, idx,
+							session_id,
+							op_FL_ip_FL_weight,
+							op_FL_ip_FR_weight,
+							op_FR_ip_FL_weight,
+							op_FR_ip_FR_weight) ||
 				    dolby_dap_set_custom_stereo_onoff(
-						msm_bedais[be_index].port_id,
-						is_custom_stereo_on)) {
+							port_id, idx,
+							is_custom_stereo_on))) {
 skip_send_custom_stereo:
-					pr_err("%s: err setting custom stereo\n",
-						__func__);
+						pr_err("%s: err setting custom stereo\n",
+							__func__);
+					}
 				}
 			}
 		}
@@ -2879,7 +2960,7 @@ int msm_routing_get_rms_value_control(struct snd_kcontrol *kcontrol,
 		if (msm_bedais[be_idx].port_id == SLIMBUS_0_TX)
 			break;
 	if ((be_idx < MSM_BACKEND_DAI_MAX) && msm_bedais[be_idx].active) {
-		rc = adm_get_params(SLIMBUS_0_TX,
+		rc = adm_get_params(SLIMBUS_0_TX, 0,
 				RMS_MODULEID_APPI_PASSTHRU,
 				RMS_PARAM_FIRST_SAMPLE,
 				param_length + param_payload_len,
@@ -4102,6 +4183,7 @@ static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 	unsigned int be_id = rtd->dai_link->be_id;
 	int i, session_type, path_type, topology;
 	struct msm_pcm_routing_bdai_data *bedai;
+	struct msm_pcm_routing_fdai_data *fdai;
 
 	if (be_id >= MSM_BACKEND_DAI_MAX) {
 		pr_err("%s: unexpected be_id %d\n", __func__, be_id);
@@ -4117,15 +4199,23 @@ static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 		path_type = ADM_PATH_LIVE_REC;
 
 	mutex_lock(&routing_lock);
-	topology = get_topology(path_type);
 	for_each_set_bit(i, &bedai->fe_sessions, MSM_FRONTEND_DAI_MM_SIZE) {
-		if (fe_dai_map[i][session_type].strm_id != INVALID_SESSION) {
-			fe_dai_map[i][session_type].be_srate =
-				bedai->sample_rate;
-			adm_close(bedai->port_id,
-				  fe_dai_perf_mode[i][session_type]);
-			if (fe_dai_perf_mode[i][session_type] ==
-							LEGACY_PCM_MODE)
+		fdai = &fe_dai_map[i][session_type];
+		if (fdai->strm_id != INVALID_SESSION) {
+			int idx;
+			unsigned long copp =
+				session_copp_map[i][session_type][be_id];
+			for (idx = 0; idx < MAX_COPPS_PER_PORT; idx++)
+				if (test_bit(idx, &copp))
+					break;
+			fdai->be_srate = bedai->sample_rate;
+			topology = msm_pcm_routing_get_topology(path_type, i);
+			adm_close(bedai->port_id, fdai->perf_mode, idx);
+			pr_debug("%s: copp:%ld,idx bit fe:%d, type:%d,be:%d\n",
+				 __func__, copp, i, session_type, be_id);
+			clear_bit(idx,
+				  &session_copp_map[i][session_type][be_id]);
+			if (fdai->perf_mode == LEGACY_PCM_MODE)
 				msm_pcm_routing_deinit_pp(bedai->port_id,
 							  topology);
 		}
@@ -4145,7 +4235,7 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 	unsigned int be_id = rtd->dai_link->be_id;
 	int i, path_type, session_type, topology;
 	struct msm_pcm_routing_bdai_data *bedai;
-	u32 channels;
+	u32 channels, sample_rate;
 	bool playback, capture;
 	uint16_t bits_per_sample = 16;
 	struct msm_pcm_routing_fdai_data *fdai;
@@ -4166,7 +4256,6 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 	}
 
 	mutex_lock(&routing_lock);
-	topology = get_topology(path_type);
 	if (bedai->active == 1)
 		goto done; /* Ignore prepare if back-end already active */
 
@@ -4182,6 +4271,7 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 	for_each_set_bit(i, &bedai->fe_sessions, MSM_FRONTEND_DAI_MM_SIZE) {
 		fdai = &fe_dai_map[i][session_type];
 		if (fdai->strm_id != INVALID_SESSION) {
+			int app_type, app_type_idx, copp_idx;
 			if (session_type == SESSION_TYPE_TX &&
 			    fdai->be_srate &&
 			    (fdai->be_srate != bedai->sample_rate)) {
@@ -4195,36 +4285,42 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 						fdai->event_info.priv_data);
 				fdai->be_srate = 0; /* might not need it */
 			}
-			channels = bedai->channel;
 			if (bedai->format == SNDRV_PCM_FORMAT_S24_LE)
 				bits_per_sample = 24;
 
+			app_type = playback ?
+				   fe_dai_app_type_cfg[i].app_type : 0;
+			if (app_type) {
+				app_type_idx =
+				msm_pcm_routing_get_app_type_idx(app_type);
+				sample_rate =
+					app_type_cfg[app_type_idx].sample_rate;
+				bits_per_sample =
+					app_type_cfg[app_type_idx].bit_width;
+			} else
+				sample_rate = bedai->sample_rate;
+			channels = bedai->channel;
+			topology = msm_pcm_routing_get_topology(path_type, i);
 			if (bedai->port_id == VOICE_RECORD_RX ||
 			    bedai->port_id == VOICE_RECORD_TX)
 				topology = NULL_COPP_TOPOLOGY;
-			if ((playback) && (channels > 0)) {
-				adm_multi_ch_copp_open(bedai->port_id,
-					path_type,
-					bedai->sample_rate,
-					channels,
-					topology,
-					fe_dai_perf_mode[i][session_type],
-					bits_per_sample);
-			} else if (capture) {
-				adm_open(bedai->port_id,
-				path_type,
-				bedai->sample_rate,
-				channels,
-				topology, fe_dai_perf_mode[i][session_type],
-				bits_per_sample);
+			copp_idx = adm_open(bedai->port_id, path_type,
+					    sample_rate, channels, topology,
+					    fdai->perf_mode, bits_per_sample,
+					    app_type);
+			if ((copp_idx < 0) && (copp_idx > MAX_COPPS_PER_PORT)) {
+				pr_err("%s: adm open failed\n", __func__);
+				return -EINVAL;
 			}
+			pr_debug("%s: setting idx bit of fe:%d, type: %d, be:%d\n",
+				 __func__, i, session_type, be_id);
+			set_bit(copp_idx,
+				&session_copp_map[i][session_type][be_id]);
 
-			msm_pcm_routing_build_matrix(i,
-				fdai->strm_id, path_type,
-				fe_dai_perf_mode[i][session_type]);
-			if (fe_dai_perf_mode[i][session_type] ==
-							LEGACY_PCM_MODE)
-				msm_pcm_routing_cfg_pp(bedai->port_id,
+			msm_pcm_routing_build_matrix(i, session_type, path_type,
+						     fdai->perf_mode);
+			if (fdai->perf_mode == LEGACY_PCM_MODE)
+				msm_pcm_routing_cfg_pp(bedai->port_id, copp_idx,
 						       topology, channels);
 		}
 	}

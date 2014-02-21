@@ -633,10 +633,14 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 
 	prtd->gapless_state.stream_opened[stream_index] = 1;
 	pr_debug("%s be_id %d\n", __func__, soc_prtd->dai_link->be_id);
-	msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
+	ret = msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
 				ac->perf_mode,
 				prtd->session_id,
 				SNDRV_PCM_STREAM_PLAYBACK);
+	if (ret) {
+		pr_err("%s: stream reg failed:%d\n", __func__, ret);
+		return ret;
+	}
 
 	ret = msm_compr_set_volume(cstream, 0, 0);
 	if (ret < 0)

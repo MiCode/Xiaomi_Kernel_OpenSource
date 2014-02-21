@@ -767,9 +767,13 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 		pr_debug("%s: session ID %d\n", __func__,
 			prtd->audio_client->session);
 		prtd->session_id = prtd->audio_client->session;
-		msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
+		ret = msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
 				prtd->audio_client->perf_mode,
 				prtd->session_id, substream->stream);
+		if (ret) {
+			pr_err("%s: stream reg failed ret:%d\n", __func__, ret);
+			return ret;
+		}
 	}
 
 	/* Capture Path */
@@ -793,10 +797,15 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 		prtd->session_id = prtd->audio_client->session;
 		event.event_func = msm_pcm_route_event_handler;
 		event.priv_data = (void *) prtd;
-		msm_pcm_routing_reg_phy_stream_v2(soc_prtd->dai_link->be_id,
+		ret = msm_pcm_routing_reg_phy_stream_v2(
+				soc_prtd->dai_link->be_id,
 				prtd->audio_client->perf_mode,
 				prtd->session_id, substream->stream,
 				event);
+		if (ret) {
+			pr_err("%s: stream reg failed ret:%d\n", __func__, ret);
+			return ret;
+		}
 	}
 
 	ret = q6asm_audio_client_buf_alloc_contiguous(dir,
