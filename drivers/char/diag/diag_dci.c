@@ -2230,6 +2230,8 @@ static int diag_dci_probe(struct platform_device *pdev)
 		if (err)
 			pr_err("diag: In %s, cannot open DCI Modem port, Id = %d, err: %d\n",
 				__func__, pdev->id, err);
+		else
+			diag_smd_buffer_init(&driver->smd_dci[index]);
 	}
 
 	if (pdev->id == SMD_APPS_QDSP) {
@@ -2243,6 +2245,8 @@ static int diag_dci_probe(struct platform_device *pdev)
 		if (err)
 			pr_err("diag: In %s, cannot open DCI Lpass port, Id = %d, err: %d\n",
 				__func__, pdev->id, err);
+		else
+			diag_smd_buffer_init(&driver->smd_dci[index]);
 	}
 
 	return err;
@@ -2265,6 +2269,8 @@ static int diag_dci_cmd_probe(struct platform_device *pdev)
 		if (err)
 			pr_err("diag: In %s, cannot open DCI Modem CMD port, Id = %d, err: %d\n",
 				__func__, pdev->id, err);
+		else
+			diag_smd_buffer_init(&driver->smd_dci_cmd[index]);
 	}
 
 	return err;

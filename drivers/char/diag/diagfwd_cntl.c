@@ -628,6 +628,7 @@ static int diag_smd_cntl_probe(struct platform_device *pdev)
 				diag_smd_notify);
 			driver->smd_cntl[index].ch_save =
 				driver->smd_cntl[index].ch;
+			diag_smd_buffer_init(&driver->smd_cntl[index]);
 		}
 		pr_debug("diag: In %s, open SMD CNTL port, Id = %d, r = %d\n",
 			__func__, pdev->id, r);
