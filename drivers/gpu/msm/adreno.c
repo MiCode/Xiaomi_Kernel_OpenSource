@@ -12,7 +12,6 @@
  */
 #include <linux/module.h>
 #include <linux/uaccess.h>
-#include <linux/vmalloc.h>
 #include <linux/ioctl.h>
 #include <linux/sched.h>
 #include <linux/of.h>
