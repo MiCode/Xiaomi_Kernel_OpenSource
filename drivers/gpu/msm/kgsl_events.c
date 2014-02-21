@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,13 +46,12 @@ static inline void _do_signal_event(struct kgsl_device *device,
 		struct kgsl_event *event, unsigned int timestamp,
 		unsigned int type)
 {
-	int id = event->context ? event->context->id : KGSL_MEMSTORE_GLOBAL;
-
-	trace_kgsl_fire_event(id, timestamp, type, jiffies - event->created,
-		event->func);
+	trace_kgsl_fire_event(KGSL_CONTEXT_ID(event->context), timestamp, type,
+		jiffies - event->created, event->func);
 
 	if (event->func)
-		event->func(device, event->priv, id, timestamp, type);
+		event->func(device, event->priv,
+			KGSL_CONTEXT_ID(event->context), timestamp, type);
 
 	list_del(&event->list);
 	kgsl_context_put(event->context);
