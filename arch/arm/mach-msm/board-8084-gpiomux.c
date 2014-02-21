@@ -694,6 +694,12 @@ static struct msm_gpiomux_config apq8084_hsic_configs[] = {
 			[GPIOMUX_SUSPENDED] = &hsic_ap2mdm_chlrdy_sus_cfg,
 		}
 	},
+	{
+		.gpio = 108,     /* ap2mdm_wakeup is used as resume gpio */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ap2mdm_wakeup,
+		}
+	},
 };
 
 static struct gpiomux_setting lcd_en_act_cfg = {
