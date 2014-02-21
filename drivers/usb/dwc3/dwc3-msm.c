@@ -76,6 +76,10 @@ static bool prop_chg_detect;
 module_param(prop_chg_detect, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(prop_chg_detect, "Enable Proprietary charger detection");
 
+static bool usb_lpm_override;
+module_param(usb_lpm_override, bool, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(usb_lpm_override, "Override no_suspend_resume with USB");
+
 #define USB3_PORTSC		(0x430)
 #define PORT_PE			(0x1 << 1)
 /**
@@ -1281,9 +1285,10 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	bool host_ss_active;
 	bool can_suspend_ssphy;
 
-	dev_dbg(mdwc->dev, "%s: entering lpm\n", __func__);
+	dev_dbg(mdwc->dev, "%s: entering lpm. usb_lpm_override:%d\n",
+					 __func__, usb_lpm_override);
 
-	if (mdwc->suspend_resume_no_support) {
+	if (!usb_lpm_override && mdwc->suspend_resume_no_support) {
 		dev_dbg(mdwc->dev, "%s no support for suspend\n", __func__);
 		return -EPERM;
 	}
