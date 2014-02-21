@@ -731,6 +731,10 @@
 		qcom,temp-hysteresis = <10>;
 		qcom,freq-step = <2>;
 		qcom,freq-control-mask = <0x0>;
+		qcom,mx-restriction-temp = <5>;
+		qcom,mx-restriction-temp-hysteresis = <5>;
+		qcom,mx-retention-min = <710000>;
+		vdd-mx-supply = <&pmd9635_s3>;
 	};
 
 	qcom,lpass@fe200000 {
