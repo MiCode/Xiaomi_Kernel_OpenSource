@@ -1237,6 +1237,12 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	PCIE_DBG("AUX clock is %s synchronous to Core clock.\n",
 		msm_pcie_dev[rc_idx].aux_clk_sync ? "" : "not");
 
+	msm_pcie_dev[rc_idx].ext_ref_clk =
+		of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,ext-ref-clk");
+	PCIE_DBG("ref clk is %s.\n",
+		msm_pcie_dev[rc_idx].ext_ref_clk ? "external" : "internal");
+
 	msm_pcie_dev[rc_idx].msi_gicm_addr = 0;
 	msm_pcie_dev[rc_idx].msi_gicm_base = 0;
 	ret = of_property_read_u32((&pdev->dev)->of_node,
