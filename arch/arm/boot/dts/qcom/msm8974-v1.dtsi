@@ -138,39 +138,75 @@
 		<0x80124 0x00000001>,
 		<0xE0020 0x5555556>,
 		<0xE0024 0x0>;
-	qcom,bus-ports = <1>;
-	qcom,enc-ocmem-ab-ib = <0 0>,
-		<138200 1222000>,
-		<414700 1222000>,
-		<940000 2444000>,
-		<1880000 2444000>,
-		<3008000 3910400>,
-		<3760000 4888000>;
-	qcom,dec-ocmem-ab-ib = <0 0>,
-		<176900 1556640>,
-		<456200 1556640>,
-		<864800 1556640>,
-		<1729600 3113280>,
-		<2767360 4981248>,
-		<3459200 6226560>;
-	qcom,enc-ddr-ab-ib = <0 0>,
-		<60000 664950>,
-		<181000 664950>,
-		<403000 664950>,
-		<806000 1329900>,
-		<1289600 2127840>,
-		<1612000 6400000>;
-	qcom,dec-ddr-ab-ib = <0 0>,
-		<110000 909000>,
-		<268000 909000>,
-		<505000 909000>,
-		<1010000 1818000>,
-		<1616000 2908800>,
-		<2020000 6400000>;
 	qcom,iommu-groups = <&venus_domain_ns &venus_domain_cp>;
 	qcom,iommu-group-buffer-types = <0xfff 0x1ff>;
 	qcom,buffer-type-tz-usage-table = <0x1 0x1>,
 					<0x7fe 0x2>;
+	qcom,msm-bus-clients {
+		qcom,msm-bus-client@0 {
+			qcom,msm-bus,name = "venc-ddr";
+			qcom,msm-bus,num-cases = <7>;
+			qcom,msm-bus,active-only = <0>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+				<63 512 0 0>,
+				<63 512 60000 664950>,
+				<63 512 181000 664950>,
+				<63 512 403000 664950>,
+				<63 512 806000 1329900>,
+				<63 512 1289600 2127840>,
+				<63 512 161200 6400000>;
+			qcom,bus-configs = <0x1000414>;
+		};
+
+		qcom,msm-bus-client@1 {
+			qcom,msm-bus,name = "vdec-ddr";
+			qcom,msm-bus,num-cases = <7>;
+			qcom,msm-bus,active-only = <0>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+				<63 512 0 0>,
+				<63 512 110000 909000>,
+				<63 512 268000 909000>,
+				<63 512 505000 909000>,
+				<63 512 1010000 1818000>,
+				<63 512 1616000 2908800>,
+				<63 512 2020000 6400000>;
+			qcom,bus-configs = <0x30fcfff>;
+		};
+
+		qcom,msm-bus-client@2 {
+			qcom,msm-bus,name = "venc-ocmem";
+			qcom,msm-bus,num-cases = <7>;
+			qcom,msm-bus,active-only = <0>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+				<68 604 0 0>,
+				<68 604 138200 1222000>,
+				<68 604 414700 1222000>,
+				<68 604 940000 2444000>,
+				<68 604 1880000 2444000>,
+				<68 604 3008000 3910400>,
+				<68 604 3760000 4888000>;
+			qcom,bus-configs = <0x1000414>;
+		};
+
+		qcom,msm-bus-client@3 {
+			qcom,msm-bus,name = "vdec-ocmem";
+			qcom,msm-bus,num-cases = <7>;
+			qcom,msm-bus,active-only = <0>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+				<68 604 0 0>,
+				<68 604 176900 1556640>,
+				<68 604 456200 1556640>,
+				<68 604 864800 1556640>,
+				<68 604 1729600 3113280>,
+				<68 604 2767360 4981248>,
+				<68 604 3459200 6226560>;
+			qcom,bus-configs = <0x30fcfff>;
+		};
+	};
 };
 
 &sfpb_spinlock {
