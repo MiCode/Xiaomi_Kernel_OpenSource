@@ -197,7 +197,7 @@ int mdss_mdp_wb_set_secure(struct msm_fb_data_type *mfd, int enable)
 	if (!enable) {
 		if (pipe) {
 			/* unset pipe */
-			mdss_mdp_mixer_pipe_unstage(pipe);
+			mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_left);
 			mdss_mdp_pipe_destroy(pipe);
 			wb->secure_pipe = NULL;
 		}
@@ -211,10 +211,11 @@ int mdss_mdp_wb_set_secure(struct msm_fb_data_type *mfd, int enable)
 	}
 
 	if (!pipe) {
-		pipe = mdss_mdp_pipe_alloc(mixer, MDSS_MDP_PIPE_TYPE_RGB);
+		pipe = mdss_mdp_pipe_alloc(mixer, MDSS_MDP_PIPE_TYPE_RGB,
+			NULL);
 		if (!pipe)
 			pipe = mdss_mdp_pipe_alloc(mixer,
-					MDSS_MDP_PIPE_TYPE_VIG);
+				MDSS_MDP_PIPE_TYPE_VIG, NULL);
 		if (!pipe) {
 			pr_err("Unable to get pipe to set secure session\n");
 			return -ENOMEM;
