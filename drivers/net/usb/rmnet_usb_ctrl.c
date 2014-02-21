@@ -175,6 +175,11 @@ static void get_encap_work(struct work_struct *w)
 	if (!test_bit(RMNET_CTRL_DEV_READY, &dev->status))
 		return;
 
+	if (dev->rcvurb->anchor) {
+		dev->ignore_encap_work++;
+		return;
+	}
+
 	udev = interface_to_usbdev(dev->intf);
 
 	status = usb_autopm_get_interface(dev->intf);
@@ -981,6 +986,7 @@ static ssize_t rmnet_usb_ctrl_read_stats(struct file *file, char __user *ubuf,
 					"mdm_wait_timeout:         %u\n"
 					"zlp_cnt:                  %u\n"
 					"get_encap_failure_cnt     %u\n"
+					"ignore_encap_work         %u\n"
 					"invalid mux id cnt        %u\n"
 					"RMNET_CTRL_DEV_MUX_EN:    %d\n"
 					"RMNET_CTRL_DEV_OPEN:      %d\n"
@@ -996,6 +1002,7 @@ static ssize_t rmnet_usb_ctrl_read_stats(struct file *file, char __user *ubuf,
 					cdev->mdm_wait_timeout,
 					dev->zlp_cnt,
 					dev->get_encap_failure_cnt,
+					dev->ignore_encap_work,
 					dev->invalid_mux_id_cnt,
 					test_bit(RMNET_CTRL_DEV_MUX_EN,
 							&dev->status),
@@ -1030,6 +1037,7 @@ static ssize_t rmnet_usb_ctrl_reset_stats(struct file *file, const char __user *
 			dev->tx_ctrl_err_cnt = 0;
 			dev->zlp_cnt = 0;
 			dev->invalid_mux_id_cnt = 0;
+			dev->ignore_encap_work = 0;
 		}
 	}
 	return count;
