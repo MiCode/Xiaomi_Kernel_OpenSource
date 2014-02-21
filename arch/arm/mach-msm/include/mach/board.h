@@ -35,6 +35,12 @@
 #define RF_TYPE_48 0x30
 #define RF_TYPE_49 0x31
 
+#define WLAN_RF_REG_ADDR_START_OFFSET   0x3
+#define WLAN_RF_REG_DATA_START_OFFSET   0xf
+#define WLAN_RF_READ_REG_CMD            0x3
+#define WLAN_RF_WRITE_REG_CMD           0x2
+#define WLAN_RF_READ_CMD_MASK           0x3fff
+
 struct msm_camera_io_ext {
 	uint32_t mdcphy;
 	uint32_t mdcsz;
@@ -690,4 +696,5 @@ int smd_debugfs_init(void);
 static inline int smd_debugfs_init(void) { return 0; }
 #endif
 
+u32 wcnss_rf_read_reg(u32 rf_reg_addr);
 #endif
