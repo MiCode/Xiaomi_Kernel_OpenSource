@@ -7,6 +7,7 @@ Required properties:
 - compatible:				Must be "qcom,mdss-dsi-ctrl"
 - cell-index:				Specifies the controller used among the two controllers.
 - reg:					offset and length of the register set for the device.
+- qcom,mdss-dsi-phy-reg-offset:		offset of the dsi phy register set from the controller base.
 - vdd-supply:				Phandle for vdd regulator device node.
 - vddio-supply:				Phandle for vdd-io regulator device node.
 - vdda-supply:				Phandle for vreg regulator device node.
@@ -54,6 +55,7 @@ Example:
 		label = "MDSS DSI CTRL->0";
 		cell-index = <0>;
 		reg = <0xfd922800 0x600>;
+		qcom,mdss-dsi-phy-reg-offset = <0x300>;
 		vdd-supply = <&pm8226_l15>;
 		vddio-supply = <&pm8226_l8>;
 		vdda-supply = <&pm8226_l4>;

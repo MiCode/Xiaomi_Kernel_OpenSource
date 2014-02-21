@@ -1143,7 +1143,7 @@ int dsi_panel_device_register(struct device_node *pan_node,
 				struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	struct mipi_panel_info *mipi;
-	int rc, i, len;
+	int rc, i, len, dsi_phy_offset;
 	struct mdss_panel_info *pinfo = &(ctrl_pdata->panel_data.panel_info);
 	struct device_node *dsi_ctrl_np = NULL;
 	struct platform_device *ctrl_pdev = NULL;
@@ -1349,6 +1349,15 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		pr_err("%s: unable to get Dsi controller res\n", __func__);
 		return -EPERM;
 	}
+
+	/* Parse the phy specific register base offset*/
+	rc = of_property_read_u32(ctrl_pdev->dev.of_node,
+		"qcom,mdss-dsi-phy-reg-offset", &dsi_phy_offset);
+	if (rc) {
+		pr_err("Error in device tree : dsi phy reg base\n");
+		return rc;
+	}
+	ctrl_pdata->phy_base = ctrl_pdata->ctrl_base + dsi_phy_offset;
 
 	ctrl_pdata->panel_data.event_handler = mdss_dsi_event_handler;
 	ctrl_pdata->check_status = mdss_dsi_bta_status_check;

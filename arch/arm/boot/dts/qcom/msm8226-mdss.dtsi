@@ -105,6 +105,7 @@
 		label = "MDSS DSI CTRL->0";
 		cell-index = <0>;
 		reg = <0xfd922800 0x600>;
+		qcom,mdss-dsi-phy-reg-offset = <0x300>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
 		qcom,mdss-mdp = <&mdss_mdp>;
 		vdd-supply = <&pm8226_l15>;

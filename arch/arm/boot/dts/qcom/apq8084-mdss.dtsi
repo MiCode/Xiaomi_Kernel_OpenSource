@@ -151,6 +151,7 @@
 		label = "MDSS DSI CTRL->0";
 		cell-index = <0>;
 		reg = <0xfd922800 0x600>;
+		qcom,mdss-dsi-phy-reg-offset = <0x300>;
 		vdd-supply = <&pma8084_l22>;
 		vddio-supply = <&pma8084_l12>;
 		vdda-supply = <&pma8084_l2>;
@@ -207,6 +208,7 @@
 		label = "MDSS DSI CTRL->1";
 		cell-index = <1>;
 		reg = <0xfd922e00 0x600>;
+		qcom,mdss-dsi-phy-reg-offset = <0x300>;
 		vdd-supply = <&pma8084_l22>;
 		vddio-supply = <&pma8084_l12>;
 		vdda-supply = <&pma8084_l2>;

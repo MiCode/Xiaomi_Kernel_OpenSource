@@ -234,6 +234,7 @@ struct mdss_dsi_ctrl_pdata {
 	int (*cmdlist_commit)(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp);
 	struct mdss_panel_data panel_data;
 	unsigned char *ctrl_base;
+	unsigned char *phy_base;
 	int reg_size;
 	u32 clk_cnt;
 	int clk_cnt_sub;
