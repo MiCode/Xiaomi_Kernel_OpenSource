@@ -167,9 +167,6 @@ struct adreno_device {
 	unsigned int pfp_jt_addr;
 	unsigned int pfp_bstrp_size;
 	unsigned int pfp_bstrp_ver;
-	unsigned int istore_size;
-	unsigned int pix_shader_start;
-	unsigned int instruction_size;
 	unsigned int ib_check_level;
 	unsigned int fast_hang_detect;
 	unsigned int ft_policy;
