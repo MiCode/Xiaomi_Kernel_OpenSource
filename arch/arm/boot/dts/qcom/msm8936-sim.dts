@@ -25,3 +25,6 @@
 	interrupt-names = "core_irq";
 };
 
+&blsp1_uart2 {
+	status = "ok";
+};
