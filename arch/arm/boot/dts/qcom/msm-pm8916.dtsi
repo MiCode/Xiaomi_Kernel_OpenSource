@@ -23,6 +23,28 @@
 			reg = <0x100 0x100>;
 		};
 
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+			interrupts = <0x0 0x8 0x0>,
+				     <0x0 0x8 0x1>;
+			interrupt-names = "kpdpwr", "resin";
+			qcom,pon-dbc-delay = <15625>;
+			qcom,system-reset;
+
+			qcom,pon_1 {
+				qcom,pon-type = <0>;
+				qcom,pull-up = <1>;
+				linux,code = <116>;
+			};
+
+			qcom,pon_2 {
+				qcom,pon-type = <1>;
+				qcom,pull-up = <1>;
+				linux,code = <114>;
+			};
+		};
+
 		pm8916_mpps: mpps {
 			compatible = "qcom,qpnp-pin";
 			spmi-dev-container;
@@ -405,6 +427,13 @@
 			reg-names = "qpnp-lpg-channel-base";
 			qcom,channel-id = <0>;
 			qcom,supported-sizes = <6>, <9>;
+		};
+
+		qcom,vibrator@c000 {
+			compatible = "qcom,qpnp-vibrator";
+			reg = <0xc000 0x100>;
+			label = "vibrator";
+			status = "disabled";
 		};
 
 		msm8x16_wcd_codec@f000{
