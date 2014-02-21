@@ -34,6 +34,8 @@
 
 &krait_pdn {
 	qcom,use-phase-switching;
+        qcom,valid-scaling-factor-versions = <0 1 1 0>;
+
 };
 
 &krait0_vreg {

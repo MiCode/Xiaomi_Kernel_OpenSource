@@ -22,7 +22,12 @@ Required properties:
 				the phase scaling factor eFuse address.
 - qcom,pfm-threshold		The power coeff threshold in abstract power units below which
 				pmic will be made to operate in PFM mode.
-
+- qcom,phase-scaling-factor-bits-pos	indicates bit position of scaling factor data within the efuse
+					register.
+- qcom,valid-scaling-factor-versions	This is an array holding four boolean values and indicates whether
+					the version read from efuses is valid.
+					The version is a two bit field and the value read from hardware is
+					used as an index in this array to check for validity.
 Optional properties:
 - qcom,use-phase-switching	indicates whether the driver should add/shed phases on the PMIC
 				ganged regulator as cpus are hotplugged.
@@ -70,6 +75,9 @@ Example:
 		qcom,use-phase-switching;
 		qcom,use-phase-scaling-factor;
 		qcom,pfm-threshold = <376975>;
+		qcom,phase-scaling-factor-bits-pos = <18>;
+		qcom,valid-scaling-factor-versions = <0 1 1 0>;
+
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
