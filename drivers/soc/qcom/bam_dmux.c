@@ -180,7 +180,7 @@ struct bam_ch_info {
 #define A2_BAM_IRQ -1
 #endif
 
-static void *a2_phys_base;
+static phys_addr_t a2_phys_base;
 static uint32_t a2_phys_size;
 static int a2_bam_irq;
 static struct sps_bam_props a2_props;
@@ -2049,14 +2049,13 @@ static int bam_init(void)
 
 	vote_dfab();
 	/* init BAM */
-	a2_virt_addr = ioremap_nocache((unsigned long)(a2_phys_base),
-							a2_phys_size);
+	a2_virt_addr = ioremap_nocache(a2_phys_base, a2_phys_size);
 	if (!a2_virt_addr) {
 		pr_err("%s: ioremap failed\n", __func__);
 		ret = -ENOMEM;
 		goto ioremap_failed;
 	}
-	a2_props.phys_addr = (u32)(a2_phys_base);
+	a2_props.phys_addr = a2_phys_base;
 	a2_props.virt_addr = a2_virt_addr;
 	a2_props.virt_size = a2_phys_size;
 	a2_props.irq = a2_bam_irq;
@@ -2341,7 +2340,7 @@ static int bam_dmux_probe(struct platform_device *pdev)
 			pr_err("%s: reg field missing\n", __func__);
 			return -ENODEV;
 		}
-		a2_phys_base = (void *)(r->start);
+		a2_phys_base = r->start;
 		a2_phys_size = (uint32_t)(resource_size(r));
 		a2_bam_irq = platform_get_irq(pdev, 0);
 		if (a2_bam_irq == -ENXIO) {
@@ -2361,14 +2360,14 @@ static int bam_dmux_probe(struct platform_device *pdev)
 		}
 
 		DBG("%s: base:%p size:%x irq:%d satellite:%d num_buffs:%d\n",
-							__func__,
-							a2_phys_base,
-							a2_phys_size,
-							a2_bam_irq,
-							satellite_mode,
-							num_buffers);
+						__func__,
+						(void *)(uintptr_t)a2_phys_base,
+						a2_phys_size,
+						a2_bam_irq,
+						satellite_mode,
+						num_buffers);
 	} else { /* fallback to default init data */
-		a2_phys_base = (void *)(A2_PHYS_BASE);
+		a2_phys_base = A2_PHYS_BASE;
 		a2_phys_size = A2_PHYS_SIZE;
 		a2_bam_irq = A2_BAM_IRQ;
 		num_buffers = DEFAULT_NUM_BUFFERS;
