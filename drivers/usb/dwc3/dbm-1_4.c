@@ -333,7 +333,7 @@ static int data_fifo_config(u8 dep_num, phys_addr_t addr,
 
 static void set_speed(bool speed)
 {
-	msm_dbm_write_reg(dbm_data->base, DBM_GEN_CFG, speed >> 2);
+	msm_dbm_write_reg(dbm_data->base, DBM_GEN_CFG, speed);
 }
 
 static bool reset_ep_after_lpm(void)
