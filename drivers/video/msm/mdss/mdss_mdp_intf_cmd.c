@@ -408,6 +408,8 @@ static void __mdss_mdp_cmd_ulps_work(struct work_struct *work)
 	if (!mdss_mdp_ctl_intf_event(ctx->ctl, MDSS_EVENT_DSI_ULPS_CTRL,
 		(void *)1)) {
 		ctx->ulps = true;
+		ctx->ctl->play_cnt = 0;
+		mdss_mdp_footswitch_ctrl_ulps(0, &ctx->ctl->mfd->pdev->dev);
 	}
 }
 
