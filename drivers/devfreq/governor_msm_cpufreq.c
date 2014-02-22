@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,7 +12,7 @@
  */
 
 #include <linux/devfreq.h>
-#include <mach/cpufreq.h>
+#include <soc/qcom/cpufreq.h>
 #include "governor.h"
 
 DEFINE_MUTEX(df_lock);
