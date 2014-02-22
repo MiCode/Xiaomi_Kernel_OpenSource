@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -82,6 +82,23 @@ TRACE_EVENT(unhandled_abort,
 	),
 
 	TP_printk("addr:%lu, fsr:%u", __entry->addr, __entry->fsr)
+);
+
+TRACE_EVENT(kernel_panic,
+
+	TP_PROTO(long dummy),
+
+	TP_ARGS(dummy),
+
+	TP_STRUCT__entry(
+		__field(long, dummy)
+	),
+
+	TP_fast_assign(
+		__entry->dummy	= dummy;
+	),
+
+	TP_printk("dummy:%ld", __entry->dummy)
 );
 
 #endif
