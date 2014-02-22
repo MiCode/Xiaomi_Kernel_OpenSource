@@ -1405,10 +1405,17 @@ EXPORT_SYMBOL(subsys_register);
 
 void subsys_unregister(struct subsys_device *subsys)
 {
+	struct subsys_device *subsys_dev, *tmp;
+
 	if (IS_ERR_OR_NULL(subsys))
 		return;
 
 	if (get_device(&subsys->dev)) {
+		mutex_lock(&subsys_list_lock);
+		list_for_each_entry_safe(subsys_dev, tmp, &subsys_list, list)
+			if (subsys_dev == subsys)
+				list_del(&subsys->list);
+		mutex_unlock(&subsys_list_lock);
 		mutex_lock(&subsys->track.lock);
 		WARN_ON(subsys->count);
 		device_unregister(&subsys->dev);
