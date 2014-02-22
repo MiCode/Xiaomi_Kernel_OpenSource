@@ -11,6 +11,8 @@ Required properties:
 - reg-names :		names to refer to register sets related to this device
 - gdsc-supply:		Phandle for gdsc regulator device node.
 - vddio-supply:		Phandle for vddio regulator device node.
+- clocks:		List of Phandles for clock device nodes
+			needed by the device.
 - clock-names:		List of clock names needed by the device.
 - clock-rate:		List of clock rates in Hz.
 
@@ -44,6 +46,9 @@ Example:
 		gdsc-supply = <&gdsc_mdss>;
 		vddio-supply = <&pm8941_l12>;
 
+		clocks = <&clock_gcc clk_gcc_mdss_mdp_clk>,
+			 <&clock_gcc clk_gcc_mdss_ahb_clk>,
+			 <&clock_gcc clk_gcc_mdss_axi_clk>;
 		clock-names = "mdp_core_clk", "iface_clk", "bus_clk";
 		clock-rate = <0>, <0>, <0>;
 
