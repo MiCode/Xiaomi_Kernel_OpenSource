@@ -397,6 +397,9 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 	drv->qdsp6v56 = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,pil-q6v56-mss");
 
+	drv->non_elf_image = of_property_read_bool(pdev->dev.of_node,
+						"qcom,mba-image-is-not-elf");
+
 	drv->xo = devm_clk_get(&pdev->dev, "xo");
 	if (IS_ERR(drv->xo))
 		return ERR_CAST(drv->xo);

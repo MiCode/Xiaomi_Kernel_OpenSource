@@ -44,6 +44,7 @@ struct q6v5_data {
 	bool qdsp6v55;
 	bool qdsp6v5_2_0;
 	bool qdsp6v56;
+	bool non_elf_image;
 };
 
 int pil_q6v5_make_proxy_votes(struct pil_desc *pil);
