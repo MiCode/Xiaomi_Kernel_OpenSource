@@ -6,34 +6,40 @@ on streaming video.
 
 
 Required properties:
-- compatible :
+- compatible:
     - "qcom,vpu"
-- reg : Specify offset and length of the device register sets.
-- reg-names : Names corresponding to the defined register sets.
-    - "vpu_csr" : CSR registers
-    - "vpu_smem" : Shared memory
-- interrupts : Specify the vpu interrupts.
-- interrupt-names : Names corresponding to the defined interrupts list.
-    - "vpu_wdog" : Watchdog interrupt
-    - "vpu_hfi" : Firmware to Host interrupt
+- reg: Specify offset and length of the device register sets.
+- reg-names: Names corresponding to the defined register sets.
+    - "vpu_csr": CSR registers
+    - "vpu_smem": Shared memory
+    - "vpu_vbif": VBIF registers (optional)
+- interrupts: Specify the vpu interrupts.
+- interrupt-names: Names corresponding to the defined interrupts list.
+    - "vpu_wdog": Watchdog interrupt
+    - "vpu_hfi": Firmware to Host interrupt
 - clock-names: Array of clocks that the driver requires for the device.
- The names here correspond to the clock names used in clk_get(<name>).
-
+  The names here correspond to the clock names used in clk_get(<name>).
 - qcom,maple-clk-load-freq-tbl: Table of <load, freq> entries. An entry
   specifies a given VPU processing load (in bits per second), and a
-  corresponding clock frequency (in Hz) to set. Entries should be in ascending
-  order of load, and their number is variable. For maple clock.
+  corresponding clock frequency (in Hz) to set. Entries should be in
+  ascending order of load, and their number is variable. For maple clock.
 - qcom,vdp-clk-load-freq-tbl: Same as above, for vdp clock.
 - qcom,bus-clk-load-freq-tbl: Same as above, for bus clock.
 - qcom,bus-load-vector-tbl: Vectors of <load, ab, ib>. The (ab,ib) pairs are
   ddr bus bandwidths to be requested at corresponding video processing load.
   Vectors should be in ascending order of load, and their number is variable.
-- qcom,enabled-iommu-maps: List of IOMMU maps to be enabled, defined by name.
-    - "vpu_nonsecure" : IOMMU for accessing non-secure video buffers
-    - "vpu_secure" : IOMMU for accessing secure video buffers
-    - "vpu_firmware" : IOMMU for loading firmware image.
 - vdd-supply: regulator that supplies the vpu.
 
+Optional properties:
+- qcom,enabled-iommu-maps: List of IOMMU maps to be enabled, defined by name.
+  If this property is not defined or invalid, then device assumes contiguous
+  buffers. Valid iommu names are:
+    - "vpu_nonsecure": IOMMU for accessing non-secure video buffers.
+    - "vpu_secure":    IOMMU for accessing secure video buffers.
+    - "vpu_firmware":  IOMMU for loading firmware image.
+- qcom,vbif-reg-presets: List of offset-value pairs for VBIF registers to be
+  programmed. The offsets are from the base register specified in 'vpu_vbif'.
+  This is used to program default register values for QoS settings, etc.
 
 Example:
 	qcom,vpu@fdc00000 {
@@ -54,5 +60,7 @@ Example:
 			<489600 536000 1600000>,
 			<979200 2024000 1600000>;
 		qcom,enabled-iommu-maps = "vpu_nonsecure", "vpu_secure";
+		qcom,vbif-reg-presets = <0xb0138 0x43ff>,
+			<0xb0178 0xff12350e>;
 		vdd-supply = <&gdsc_vpu>;
 	};

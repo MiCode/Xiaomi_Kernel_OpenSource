@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -210,6 +210,12 @@ static inline void raw_hfi_int_fire(u32 regbase)
 	writel_relaxed(1, regbase + VPU_CSR_FW_SGI_TRIG);
 
 	/* no need for barrier after */
+}
+
+static inline void raw_hfi_reg_write(u32 reg, u32 value)
+{
+	writel_relaxed(value, reg);
+	wmb();
 }
 
 static inline u32 raw_hfi_status_read(u32 regbase)
