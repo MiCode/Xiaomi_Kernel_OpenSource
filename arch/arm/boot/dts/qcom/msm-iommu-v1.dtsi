@@ -448,6 +448,7 @@
 		interrupt-names = "pmon",
 				"global_cfg_NS_irq", "global_client_NS_irq",
 				"global_cfg_S_irq", "global_client_S_irq";
+		qcom,iommu-secure-id = <19>;
 		qcom,needs-alt-core-clk;
 		label = "vfe_iommu";
 		qcom,msm-bus,name = "vfe_ebi";
@@ -535,9 +536,10 @@
 		qcom,iommu-ctx@fda4e000 {
 			compatible = "qcom,msm-smmu-v1-ctx";
 			reg = <0xfda4e000 0x1000>;
-			interrupts = <0 65 0>;
+			interrupts = <0 65 0>, <0 64 0>;
 			qcom,iommu-ctx-sids = <>;
 			label = "vfe_secure";
+			qcom,secure-context;
 		};
 	};
 
