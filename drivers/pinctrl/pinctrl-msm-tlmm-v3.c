@@ -57,6 +57,8 @@
 #define TLMMV3_SDC1_DATA_PULL_MASK	0x3
 #define TLMMV3_SDC1_CMD_PULL_SHFT	11
 #define TLMMV3_SDC1_CMD_PULL_MASK	0x3
+#define TLMMV3_SDC1_RCLK_PULL_SHFT	15
+#define TLMMV3_SDC1_RCLK_PULL_MASK	0x3
 /* SDC2 PIN TYPE REG MASKS */
 #define TLMMV3_SDC2_CLK_DRV_SHFT	6
 #define TLMMV3_SDC2_CLK_DRV_MASK	0x7
@@ -148,6 +150,12 @@ static struct msm_sdc_regs sdc_regs[] = {
 		.drv_mask = TLMMV3_SDC1_DATA_DRV_MASK,
 		.drv_shft = TLMMV3_SDC1_DATA_DRV_SHFT,
 	},
+	/* SDC1 RCLK */
+	{
+		.offset = 0,
+		.pull_mask = TLMMV3_SDC1_RCLK_PULL_MASK,
+		.pull_shft = TLMMV3_SDC1_RCLK_PULL_SHFT,
+	},
 	/* SDC2 CLK */
 	{
 		.offset = 0x4,
@@ -181,6 +189,9 @@ static int msm_tlmm_v3_sdc_cfg(uint pin_no, unsigned long *config,
 	unsigned int val, id, data;
 	u32 mask, shft;
 	void __iomem *cfg_reg;
+
+	if (pin_no >= ARRAY_SIZE(sdc_regs))
+		return -EINVAL;
 
 	cfg_reg = reg_base + sdc_regs[pin_no].offset;
 	id = pinconf_to_config_param(*config);
