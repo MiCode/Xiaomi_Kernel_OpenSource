@@ -1327,9 +1327,20 @@ static int rcg_set_src_div(struct mux_div_clk *md, u32 src_sel, u32 div)
 
 static int rcg_enable(struct mux_div_clk *md)
 {
-	u32 src_sel = parent_to_src_sel(md->parents, md->num_parents,
-						md->c.parent);
-	return rcg_set_src_div(md, src_sel, md->data.div);
+	return rcg_set_src_div(md, md->src_sel, md->data.div);
+}
+
+static void rcg_disable(struct mux_div_clk *md)
+{
+	u32 src_sel;
+
+	if (!md->safe_freq)
+		return;
+
+	src_sel = parent_to_src_sel(md->parents, md->num_parents,
+				md->safe_parent);
+
+	rcg_set_src_div(md, src_sel, md->safe_div);
 }
 
 static bool rcg_is_enabled(struct mux_div_clk *md)
@@ -1470,6 +1481,7 @@ struct clk_mux_ops mux_reg_ops = {
 
 struct mux_div_ops rcg_mux_div_ops = {
 	.enable = rcg_enable,
+	.disable = rcg_disable,
 	.set_src_div = rcg_set_src_div,
 	.get_src_div = rcg_get_src_div,
 	.is_enabled = rcg_is_enabled,
