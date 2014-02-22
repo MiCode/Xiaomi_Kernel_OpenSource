@@ -1128,6 +1128,8 @@ static int gate_clk_enable(struct clk *c)
 	regval |= g->en_mask;
 	writel_relaxed(regval, GATE_EN_REG(g));
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+	if (g->delay_us)
+		udelay(g->delay_us);
 
 	return 0;
 }
@@ -1143,6 +1145,8 @@ static void gate_clk_disable(struct clk *c)
 	regval &= ~(g->en_mask);
 	writel_relaxed(regval, GATE_EN_REG(g));
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+	if (g->delay_us)
+		udelay(g->delay_us);
 }
 
 static void __iomem *gate_clk_list_registers(struct clk *c, int n,
@@ -1467,6 +1471,8 @@ struct clk_ops clk_ops_vote = {
 struct clk_ops clk_ops_gate = {
 	.enable = gate_clk_enable,
 	.disable = gate_clk_disable,
+	.get_rate = parent_get_rate,
+	.round_rate = parent_round_rate,
 	.handoff = gate_clk_handoff,
 	.list_registers = gate_clk_list_registers,
 };
