@@ -141,7 +141,7 @@ static struct msm_pcie_vreg_info_t msm_pcie_vreg_info[MSM_PCIE_MAX_VREG] = {
 
 /* GPIOs */
 static struct msm_pcie_gpio_info_t msm_pcie_gpio_info[MSM_PCIE_MAX_GPIO] = {
-	{"perst-gpio",      0, 1, 0, 1},
+	{"perst-gpio",      0, 1, 0, 0},
 	{"wake-gpio",       0, 0, 0, 0},
 	{"clkreq-gpio",     0, 0, 0, 0}
 };
