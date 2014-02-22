@@ -37,6 +37,8 @@
 #include <asm/pgtable.h>
 #include <asm/tlbflush.h>
 
+#include <trace/events/exception.h>
+
 static const char *fault_name(unsigned int esr);
 
 /*
@@ -114,6 +116,8 @@ static void __do_user_fault(struct task_struct *tsk, unsigned long addr,
 			    struct pt_regs *regs)
 {
 	struct siginfo si;
+
+	trace_user_fault(tsk, addr, esr);
 
 	if (show_unhandled_signals && unhandled_signal(tsk, sig) &&
 	    printk_ratelimit()) {

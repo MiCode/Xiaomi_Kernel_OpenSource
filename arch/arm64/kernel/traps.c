@@ -38,6 +38,8 @@
 #include <asm/exception.h>
 #include <asm/system_misc.h>
 
+#include <trace/events/exception.h>
+
 static const char *handler[]= {
 	"Synchronous Abort",
 	"IRQ",
@@ -331,6 +333,8 @@ asmlinkage void __exception do_undefinstr(struct pt_regs *regs)
 
 	if (call_undef_hook(regs) == 0)
 		return;
+
+	trace_undef_instr(regs, (void *)pc);
 
 	if (show_unhandled_signals && unhandled_signal(current, SIGILL) &&
 	    printk_ratelimit()) {
