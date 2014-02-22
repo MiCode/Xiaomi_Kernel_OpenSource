@@ -76,7 +76,7 @@
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e23000 0x1000>;
 			interrupts = <0 70 0>;
-			qcom,iommu-ctx-sids = <0x400 0x402>;
+			qcom,iommu-ctx-sids = <0x400>;
 			label = "vfe0";
 		};
 
@@ -95,6 +95,14 @@
 			qcom,iommu-ctx-sids = <0x800 0x801 0x802 0x803
 						0x804 0x805 0x807>;
 			label = "venus_ns";
+		};
+
+		qcom,iommu-ctx@1e26000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			reg = <0x1e26000 0x1000>;
+			interrupts = <0 70 0>;
+			qcom,iommu-ctx-sids = <0x402>;
+			label = "cpp";
 		};
 
 		qcom,iommu-ctx@1e27000 {
