@@ -225,6 +225,14 @@ static ssize_t msm_pm_write_proc(struct file *file, const char __user *buffer,
 			stats[i].total_time = 0;
 		}
 	}
+	memset(suspend_stats.bucket,
+		0, sizeof(suspend_stats.bucket));
+	memset(suspend_stats.min_time,
+		0, sizeof(suspend_stats.min_time));
+	memset(suspend_stats.max_time,
+		0, sizeof(suspend_stats.max_time));
+	suspend_stats.count = 0;
+	suspend_stats.total_time = 0;
 
 	spin_unlock_irqrestore(&msm_pm_stats_lock, flags);
 	return count;
