@@ -59,7 +59,7 @@
 		qcom,mdss-intf-off = <0x00000000 0x00021300>;
 		qcom,mdss-rot-block-size = <64>;
 		qcom,mdss-rotator-ot-limit = <2>;
-		qcom,mdss-smp-mb-per-pipe = <4>;
+		qcom,mdss-smp-mb-per-pipe = <3>;
 		vdd-cx-supply = <&pm8226_s1_corner>;
 
 		qcom,vbif-settings = <0x004 0x00000001>,
