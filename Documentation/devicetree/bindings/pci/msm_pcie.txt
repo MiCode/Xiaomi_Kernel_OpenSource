@@ -51,6 +51,8 @@ Optional Properties:
   - qcom,msi-gicm-addr: MSI address for GICv2m.
   - qcom,msi-gicm-base: MSI IRQ base for GICv2m.
   - qcom,ext-ref-clk: The reference clock is external.
+  - qcom,ep-latency: The time (unit: ms) to wait for the PCIe endpoint to become
+    stable after power on, before de-assert the PERST to the endpoint.
 
 Example:
 
@@ -113,4 +115,5 @@ Example:
 		qcom,msi-gicm-addr = <0xf9040040>;
 		qcom,msi-gicm-base = <0x160>;
 		qcom,ext-ref-clk;
+		qcom,ep-latency = <100>;
 	};
