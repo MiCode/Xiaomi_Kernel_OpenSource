@@ -47,6 +47,9 @@ static ulong total_bytes;
 static ulong total_syncmem;
 static long last_sec;
 
+/* Some simulators have start address of gmem at this offset */
+#define KGSL_CFF_GMEM_OFFSET	0x100000
+
 #define MEMBUF_SIZE	64
 
 #define CFF_OP_WRITE_REG        0x00000002
@@ -361,19 +364,12 @@ void kgsl_cffdump_open(struct kgsl_device *device)
 	if (!device->cff_dump_enable)
 		return;
 
-	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype()) {
-		kgsl_cffdump_memory_base(device,
-			KGSL_PAGETABLE_BASE,
-			KGSL_IOMMU_GLOBAL_MEM_BASE +
-			KGSL_IOMMU_GLOBAL_MEM_SIZE -
-			KGSL_PAGETABLE_BASE,
-			adreno_dev->gmem_size);
-	} else {
-		kgsl_cffdump_memory_base(device,
-			kgsl_mmu_get_base_addr(&device->mmu),
-			kgsl_mmu_get_ptsize(&device->mmu),
-			adreno_dev->gmem_size);
-	}
+	/* Set the maximum possible address range */
+	kgsl_cffdump_memory_base(device,
+				adreno_dev->gmem_size + KGSL_CFF_GMEM_OFFSET,
+				0xFFFFFFFF -
+				(adreno_dev->gmem_size + KGSL_CFF_GMEM_OFFSET),
+				adreno_dev->gmem_size);
 }
 
 void kgsl_cffdump_memory_base(struct kgsl_device *device, unsigned int base,
