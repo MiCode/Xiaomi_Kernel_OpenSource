@@ -46,6 +46,13 @@ struct kgsl_shadowprop_compat {
 	unsigned int flags;
 };
 
+struct kgsl_device_constraint_compat {
+	unsigned int type;
+	unsigned int context_id;
+	compat_uptr_t data;
+	compat_size_t size;
+};
+
 struct kgsl_device_getproperty_compat {
 	unsigned int type;
 	compat_uptr_t value;
@@ -252,6 +259,11 @@ int adreno_getproperty_compat(struct kgsl_device *device,
 			void __user *value,
 			size_t sizebytes);
 
+int adreno_setproperty_compat(struct kgsl_device_private *dev_priv,
+				enum kgsl_property_type type,
+				void __user *value,
+				unsigned int sizebytes);
+
 long adreno_compat_ioctl(struct kgsl_device_private *dev_priv,
 			unsigned int cmd, void *data);
 
@@ -269,12 +281,21 @@ static inline long kgsl_compat_ioctl(struct file *filep, unsigned int cmd,
 {
 	BUG();
 }
+
 static inline int adreno_getproperty_compat(struct kgsl_device *device,
 				enum kgsl_property_type type,
 				void __user *value, size_t sizebytes)
 {
 	BUG();
 }
+
+static inline int adreno_setproperty_compat(struct kgsl_device_private
+				*dev_priv, enum kgsl_property_type type,
+				void __user *value, unsigned int sizebytes)
+{
+	BUG();
+}
+
 static inline long adreno_compat_ioctl(struct kgsl_device_private *dev_priv,
 				unsigned int cmd, void *data)
 {
