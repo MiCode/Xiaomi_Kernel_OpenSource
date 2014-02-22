@@ -94,6 +94,21 @@
 		};
 	};
 
+	i2c@f9928000 { /* BLSP1 QUP6 */
+		nfc-nci@e {
+			compatible = "qcom,nfc-nci";
+			reg = <0x0e>;
+			qcom,irq-gpio = <&msmgpio 59 0x00>;
+			qcom,clk-req-gpio= <&msmgpio 0 0x00>;
+			qcom,dis-gpio = <&pma8084_mpps 7 0>;
+			qcom,clk-src-gpio= <&msmgpio 0 0x00>;
+			qcom,clk-src = "BBCLK2";
+			interrupt-parent = <&msmgpio>;
+			interrupts = <59 0>;
+			qcom,clk-gpio = <&pma8084_gpios 10 0>;
+		};
+	};
+
 	ssusb@f9200000 {
 		vbus_dwc3-supply = <&pm8941_mvs1>;
 	};
@@ -201,9 +216,11 @@
 	};
 
 	gpio@c900 { /* GPIO 10 */
-		/* NFC clock request */
-		qcom,mode = <0>;		/* Digital input */
-		qcom,pull = <4>;		/* Pull down */
+		/* NFC clk request */
+		qcom,mode = <0>;		/* QPNP_PIN_MODE_DIG_IN */
+		qcom,pull = <5>;		/* QPNP_PIN_PULL_NO */
+		qcom,vin-sel = <2>;		/* QPNP_PIN_VIN2 */
+		qcom,src-sel = <2>;		/* QPNP_PIN_SEL_FUNC_1 */
 		qcom,master-en = <1>;
 	};
 
@@ -216,10 +233,11 @@
 	};
 
 	gpio@cb00 { /* GPIO 12 */
-		/* Unused */
-		qcom,mode = <1>;		/* Digital output */
-		qcom,out-strength = <1>;	/* Low */
-		qcom,src-sel = <2>;		/* Function 1  */
+		/* NFC clk request */
+		qcom,mode = <0>;		/* QPNP_PIN_MODE_DIG_IN */
+		qcom,pull = <5>;		/* QPNP_PIN_PULL_NO */
+		qcom,vin-sel = <2>;		/* QPNP_PIN_VIN2 */
+		qcom,src-sel = <2>;		/* QPNP_PIN_SEL_FUNC_1 */
 		qcom,master-en = <1>;
 	};
 
@@ -254,7 +272,7 @@
 		qcom,output-type = <0>;		/* CMOS */
 		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8 V */
 		qcom,out-strength = <3>;	/* High */
-		qcom,src-sel = <3>;       	/* Function 2 - SLEEPCLK3  */
+		qcom,src-sel = <3>;		/* Function 2 - SLEEPCLK3  */
 		qcom,master-en = <1>;
 	};
 
