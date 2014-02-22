@@ -25,6 +25,7 @@
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/sched.h>
+#include <linux/bug.h>
 
 #include <linux/atomic.h>
 #include <asm/cacheflush.h>
@@ -765,6 +766,7 @@ void __pgd_error(const char *file, int line, pgd_t pgd)
 asmlinkage void __div0(void)
 {
 	printk("Division by zero in kernel.\n");
+	BUG_ON(PANIC_CORRUPTION);
 	dump_stack();
 }
 EXPORT_SYMBOL(__div0);
