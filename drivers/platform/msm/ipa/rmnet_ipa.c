@@ -35,6 +35,8 @@
 #define TAILROOM            0 /* for padding by mux layer */
 #define MAX_NUM_OF_MUX_CHANNEL  10 /* max mux channels */
 #define UL_FILTER_RULE_HANDLE_START 69
+#define DEFAULT_OUTSTANDING_HIGH 64
+#define DEFAULT_OUTSTANDING_LOW 32
 
 #define IPA_WWAN_DEV_NAME "rmnet_ipa%d"
 #define IPA_WWAN_DEVICE_COUNT (1)
@@ -59,7 +61,11 @@ enum wwan_device_status {
 
 /**
  * struct wwan_private - WWAN private data
+ * @net: network interface struct implemented by this driver
  * @stats: iface statistics
+ * @outstanding_pkts: number of packets sent to IPA without TX complete ACKed
+ * @outstanding_high: number of outstanding packets allowed
+ * @outstanding_low: number of outstanding packets which shall cause
  * @ch_id: channel id
  * @lock: spinlock for mutual exclusion
  * @device_status: holds device status
@@ -67,7 +73,11 @@ enum wwan_device_status {
  * WWAN private - holds all relevant info about WWAN driver
  */
 struct wwan_private {
+	struct net_device *net;
 	struct net_device_stats stats;
+	atomic_t outstanding_pkts;
+	int outstanding_high;
+	int outstanding_low;
 	uint32_t ch_id;
 	spinlock_t lock;
 	struct completion resource_granted_completion;
@@ -763,6 +773,7 @@ static int ipa_wwan_change_mtu(struct net_device *dev, int new_mtu)
 static int ipa_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	int ret = 0;
+	struct wwan_private *wwan_ptr = netdev_priv(dev);
 
 	if (netif_queue_stopped(dev)) {
 		IPAWANERR("[%s]fatal: ipa_wwan_xmit stopped\n", dev->name);
@@ -777,31 +788,27 @@ static int ipa_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 		goto out;
 	}
 
-	ret = ipa_tx_dp(IPA_CLIENT_APPS_LAN_WAN_PROD, skb, NULL);
-	if (ret == -EPERM)
-		ret = NETDEV_TX_BUSY;
-
-	/*
-	* detected SSR a bit early.  shut some things down now, and leave
-	* the rest to the main ssr handling code when that happens later
-	*/
-	if (ret == -EFAULT) {
-		netif_carrier_off(dev);
-		dev_kfree_skb_any(skb);
-		ret = 0;
-	}
-	if (ret == -EAGAIN) {
-		/*
-		* This should not happen
-		* EAGAIN means we attempted to overflow the high watermark
-		* Clearly the queue is not stopped like it should be, so
-		* stop it and return BUSY to the TCP/IP framework.  It will
-		* retry this packet with the queue is restarted which happens
-		* in the write_done callback when the low watermark is hit.
-		*/
+	/* checking High WM hit */
+	if (atomic_read(&wwan_ptr->outstanding_pkts) >=
+					wwan_ptr->outstanding_high) {
+		IPAWANDBG("Outstanding high (%d)- stopping\n",
+				wwan_ptr->outstanding_high);
 		netif_stop_queue(dev);
 		ret = NETDEV_TX_BUSY;
+		goto out;
 	}
+
+	ret = ipa_tx_dp(IPA_CLIENT_APPS_LAN_WAN_PROD, skb, NULL);
+	if (ret) {
+		ret = NETDEV_TX_BUSY;
+		goto out;
+	}
+
+	atomic_inc(&wwan_ptr->outstanding_pkts);
+	dev->stats.tx_packets++;
+	dev->stats.tx_bytes += skb->len;
+	ret = NETDEV_TX_OK;
+
 out:
 	return ret;
 }
@@ -826,9 +833,18 @@ static void apps_ipa_tx_complete_notify(void *priv,
 		unsigned long data)
 {
 	struct sk_buff *skb = (struct sk_buff *)data;
+	struct wwan_private *wwan_ptr = priv;
 	if (evt != IPA_WRITE_DONE) {
 		IPAWANERR("unsupported event on Tx callback\n");
 		return;
+	}
+	atomic_dec(&wwan_ptr->outstanding_pkts);
+	if (netif_queue_stopped(wwan_ptr->net) &&
+		atomic_read(&wwan_ptr->outstanding_pkts) <
+					(wwan_ptr->outstanding_low)) {
+		IPAWANDBG("Outstanding low (%d) - waking up queue\n",
+				wwan_ptr->outstanding_low);
+		netif_wake_queue(wwan_ptr->net);
 	}
 	dev_kfree_skb_any(skb);
 	return;
@@ -1283,6 +1299,12 @@ static int __init ipa_wwan_init(void)
 	}
 	ipa_netdevs[0] = dev;
 	wwan_ptr = netdev_priv(dev);
+	memset(wwan_ptr, 0, sizeof(*wwan_ptr));
+	IPAWANDBG("wwan_ptr (private) = %p", wwan_ptr);
+	wwan_ptr->net = dev;
+	wwan_ptr->outstanding_high = DEFAULT_OUTSTANDING_HIGH;
+	wwan_ptr->outstanding_low = DEFAULT_OUTSTANDING_LOW;
+	atomic_set(&wwan_ptr->outstanding_pkts, 0);
 	spin_lock_init(&wwan_ptr->lock);
 	init_completion(&wwan_ptr->resource_granted_completion);
 	ret = register_netdev(dev);
