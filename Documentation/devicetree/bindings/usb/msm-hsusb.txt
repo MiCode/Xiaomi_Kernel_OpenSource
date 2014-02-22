@@ -27,6 +27,9 @@ Required properties :
          Required "supply-name" is "HSUSB_VDDCX" (when voting for VDDCX) or
          "hsusb_vdd_dig" (when voting for VDDCX Corner voltage),
          "HSUSB_1p8-supply" and "HSUSB_3p3-supply".
+- qcom,vdd-voltage-level: This property must be a list of three integer
+	values (no, min, max) where each value represents either a voltage
+	in microvolts or a value corresponding to voltage corner.
 
 Optional properties :
 - reg : offset and length of the TCSR register for routing USB Controller
@@ -70,9 +73,6 @@ Optional properties :
 	power mode.
 - <supply-name>-supply: handle to the regulator device tree node.
          Optional "supply-name" is "vbus_otg" to supply vbus in host mode.
-- qcom,vdd-voltage-level: This property must be a list of three integer
-	values (no, min, max) where each value represents either a voltage
-	in microvolts or a value corresponding to voltage corner.
 - qcom,dp-manual-pullup: If present, vbus is not routed to USB controller/phy
 	and controller driver therefore enables pull-up explicitly before
 	starting controller using usbcmd run/stop bit.
@@ -154,15 +154,6 @@ Required properties :
   Required "supply-name" is either "hsusb_vdd_dig" or "HSUSB_VDDCX"
   "HSUSB_1p8-supply" "HSUSB_3p3-supply".
 - qcom,usb2-power-budget: maximum vbus power (in mA) that can be provided.
-
-Optional properties :
-- qcom,usb2-enable-hsphy2: If present, select second PHY for USB operation.
-- qcom,resume-gpio: if present then peripheral connected to usb controller
-  cannot wakeup from XO shutdown using in-band usb bus resume. Use resume
-  gpio to wakeup peripheral.
-- qcom,ext-hub-reset-gpio: If present then an external HUB is connected to
-  the USB host controller and its RESET_N signal is connected to this
-  ext-hub-reset-gpio GPIO. It should be driven LOW to RESET the HUB.
 - qcom,vdd-voltage-level: This property must be a list of five integer
   values (no, 0.5vsuspend, 0.75suspend, min, max) where each value respresents
   either a voltage in microvolts or a value corresponding to voltage corner.
@@ -172,6 +163,15 @@ Optional properties :
   and no peripheral connected over dock during low power mode, fourth value represents
   minimum value to vote when USB is operational, fifth item represents maximum value
   to vote for USB is operational.
+
+Optional properties :
+- qcom,usb2-enable-hsphy2: If present, select second PHY for USB operation.
+- qcom,resume-gpio: if present then peripheral connected to usb controller
+  cannot wakeup from XO shutdown using in-band usb bus resume. Use resume
+  gpio to wakeup peripheral.
+- qcom,ext-hub-reset-gpio: If present then an external HUB is connected to
+  the USB host controller and its RESET_N signal is connected to this
+  ext-hub-reset-gpio GPIO. It should be driven LOW to RESET the HUB.
 
 Example MSM HSUSB EHCI controller device node :
 	ehci: qcom,ehci-host@f9a55000 {

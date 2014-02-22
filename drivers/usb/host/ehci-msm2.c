@@ -46,7 +46,6 @@
 
 #include <mach/msm_iomap.h>
 #include <linux/debugfs.h>
-#include <mach/rpm-regulator.h>
 
 #include "ehci.h"
 
@@ -88,7 +87,6 @@ struct msm_hcd {
 	int					wakeup_int_cnt;
 	bool					wakeup_irq_enabled;
 	int					wakeup_irq;
-	enum usb_vdd_type			vdd_type;
 	void __iomem				*usb_phy_ctrl_reg;
 };
 
@@ -126,22 +124,7 @@ enum hsusb_vdd_value {
 	VDD_VAL_MAX_OP,
 };
 
-static int hsusb_vdd_val[VDD_TYPE_MAX][VDD_VAL_MAX_OP] = {
-		{   /* VDD_CX CORNER Voting */
-			[VDD_MIN_NONE]	= RPM_VREG_CORNER_NONE,
-			[VDD_MIN_P50]	= RPM_VREG_CORNER_NONE,
-			[VDD_MIN_P75]	= RPM_VREG_CORNER_NONE,
-			[VDD_MIN_OP]	= RPM_VREG_CORNER_NOMINAL,
-			[VDD_MAX_OP]	= RPM_VREG_CORNER_HIGH,
-		},
-		{   /* VDD_CX Voltage Voting */
-			[VDD_MIN_NONE]	= HSUSB_PHY_VDD_DIG_VOL_NONE,
-			[VDD_MIN_P50]	= HSUSB_PHY_SUSP_DIG_VOL_P50,
-			[VDD_MIN_P75]	= HSUSB_PHY_SUSP_DIG_VOL_P75,
-			[VDD_MIN_OP]	= HSUSB_PHY_VDD_DIG_VOL_MIN,
-			[VDD_MAX_OP]	= HSUSB_PHY_VDD_DIG_VOL_MAX,
-		},
-};
+static int hsusb_vdd_val[VDD_VAL_MAX_OP];
 
 static int msm_ehci_init_vddcx(struct msm_hcd *mhcd, int init)
 {
@@ -151,12 +134,11 @@ static int msm_ehci_init_vddcx(struct msm_hcd *mhcd, int init)
 	int len = 0;
 
 	if (!init) {
-		none_vol = hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_NONE];
-		max_vol = hsusb_vdd_val[mhcd->vdd_type][VDD_MAX_OP];
+		none_vol = hsusb_vdd_val[VDD_MIN_NONE];
+		max_vol = hsusb_vdd_val[VDD_MAX_OP];
 		goto disable_reg;
 	}
 
-	mhcd->vdd_type = VDDCX_CORNER;
 	mhcd->hsusb_vddcx = devm_regulator_get(mhcd->dev, "hsusb_vdd_dig");
 	if (IS_ERR(mhcd->hsusb_vddcx)) {
 		mhcd->hsusb_vddcx = devm_regulator_get(mhcd->dev,
@@ -165,30 +147,31 @@ static int msm_ehci_init_vddcx(struct msm_hcd *mhcd, int init)
 			dev_err(mhcd->dev, "unable to get ehci vddcx\n");
 			return PTR_ERR(mhcd->hsusb_vddcx);
 		}
-		mhcd->vdd_type = VDDCX;
 	}
 
-	if (mhcd->dev->of_node) {
-		of_get_property(mhcd->dev->of_node,
-				"qcom,vdd-voltage-level",
-				&len);
+	if (of_get_property(mhcd->dev->of_node,
+			"qcom,vdd-voltage-level",
+			&len)) {
 		if (len == sizeof(tmp)) {
 			of_property_read_u32_array(mhcd->dev->of_node,
-					"qcom,vdd-voltage-level",
-					tmp, len/sizeof(*tmp));
-			hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_NONE] = tmp[0];
-			hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_P50] = tmp[1];
-			hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_P75] = tmp[2];
-			hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_OP] = tmp[3];
-			hsusb_vdd_val[mhcd->vdd_type][VDD_MAX_OP] = tmp[4];
+				"qcom,vdd-voltage-level",
+				tmp, len/sizeof(*tmp));
+			hsusb_vdd_val[VDD_MIN_NONE] = tmp[0];
+			hsusb_vdd_val[VDD_MIN_P50] = tmp[1];
+			hsusb_vdd_val[VDD_MIN_P75] = tmp[2];
+			hsusb_vdd_val[VDD_MIN_OP] = tmp[3];
+			hsusb_vdd_val[VDD_MAX_OP] = tmp[4];
 		} else {
 			dev_dbg(mhcd->dev, "Use default vdd config\n");
+			return -ENODEV;
 		}
+	} else {
+		return -ENODEV;
 	}
 
-	none_vol = hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_NONE];
-	min_vol = hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_OP];
-	max_vol = hsusb_vdd_val[mhcd->vdd_type][VDD_MAX_OP];
+	none_vol = hsusb_vdd_val[VDD_MIN_NONE];
+	min_vol = hsusb_vdd_val[VDD_MIN_OP];
+	max_vol = hsusb_vdd_val[VDD_MAX_OP];
 
 	ret = regulator_set_voltage(mhcd->hsusb_vddcx, min_vol, max_vol);
 	if (ret) {
@@ -271,19 +254,19 @@ put_3p3_lpm:
 static int msm_ehci_config_vddcx(struct msm_hcd *mhcd, int high)
 {
 	struct msm_usb_host_platform_data *pdata;
-	int max_vol = hsusb_vdd_val[mhcd->vdd_type][VDD_MAX_OP];
+	int max_vol = hsusb_vdd_val[VDD_MAX_OP];
 	int min_vol;
 	int ret;
 
 	pdata = mhcd->dev->platform_data;
 
 	if (high)
-		min_vol = hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_OP];
+		min_vol = hsusb_vdd_val[VDD_MIN_OP];
 	else if (pdata && pdata->dock_connect_irq &&
 			!irq_read_line(pdata->dock_connect_irq))
-		min_vol = hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_P75];
+		min_vol = hsusb_vdd_val[VDD_MIN_P75];
 	else
-		min_vol = hsusb_vdd_val[mhcd->vdd_type][VDD_MIN_P50];
+		min_vol = hsusb_vdd_val[VDD_MIN_P50];
 
 	ret = regulator_set_voltage(mhcd->hsusb_vddcx, min_vol, max_vol);
 	if (ret) {
