@@ -154,6 +154,7 @@ static int flush_bw_data(struct device *node_device, int ctx)
 				MSM_BUS_ERR("%s: Failed to send RPM msg for%d",
 				__func__, node_info->node_info->id);
 		}
+		node_info->node_ab.dirty = false;
 	}
 
 exit_flush_bw_data:
@@ -185,9 +186,10 @@ static int flush_clk_data(struct device *node_device, int ctx)
 							nodeclk->rate);
 			ret = setrate_nodeclk(nodeclk, rounded_rate);
 
-			if (!ret) {
-				MSM_BUS_ERR("%s: Failed to set_rate for %d",
-					__func__, node_info->node_info->id);
+			if (ret) {
+				MSM_BUS_ERR("%s: Failed to set_rate %lu for %d",
+					__func__, rounded_rate,
+						node_info->node_info->id);
 				ret = -ENODEV;
 				goto exit_flush_clk_data;
 			}
@@ -196,18 +198,19 @@ static int flush_clk_data(struct device *node_device, int ctx)
 		} else
 			ret = disable_nodeclk(nodeclk);
 
-		if (!ret) {
+		if (ret) {
 			MSM_BUS_ERR("%s: Failed to enable for %d", __func__,
 						node_info->node_info->id);
 			ret = -ENODEV;
 			goto exit_flush_clk_data;
 		}
-
 		MSM_BUS_DBG("%s: Updated %d clk to %llu", __func__,
 				node_info->node_info->id, nodeclk->rate);
-		nodeclk->dirty = 0;
+
 	}
 exit_flush_clk_data:
+	nodeclk->dirty = 0;
+	nodeclk->rate = 0;
 	return ret;
 }
 
@@ -228,13 +231,11 @@ int msm_bus_commit_data(int *dirty_nodes, int ctx, int num_dirty)
 					__func__, dirty_nodes[i]);
 
 		ret = flush_clk_data(node_device, ctx);
-		if (ret) {
+		if (ret)
 			MSM_BUS_ERR("%s: Error flushing clk data for node %d",
 					__func__, dirty_nodes[i]);
-			goto exit_commit_data;
-		}
 	}
-exit_commit_data:
+	kfree(dirty_nodes);
 	return ret;
 }
 
@@ -252,8 +253,6 @@ static int add_dirty_node(int **dirty_nodes, int id, int *num_dirty)
 		}
 	}
 
-	/*store num hops statically after get path*/
-	/*store pointer to nodeinfo here*/
 	if (!found) {
 		(*num_dirty)++;
 		dnode =
@@ -357,6 +356,9 @@ int msm_bus_update_clks(struct msm_bus_node_device_type *nodedev,
 
 	req_clk = nodedev->cur_clk_hz[ctx];
 	nodeclk = &nodedev->clk[ctx];
+
+	if (!nodeclk->clk)
+		goto exit_set_clks;
 
 	if (!nodeclk->dirty || (nodeclk->dirty && (nodeclk->rate < req_clk))) {
 		nodeclk->rate = req_clk;
@@ -519,7 +521,6 @@ static int msm_bus_dev_init_qos(struct device *dev, void *data)
 		}
 
 		if (bus_node_info->fabdev &&
-			!bus_node_info->fabdev->bypass_qos_prg &&
 			bus_node_info->fabdev->noc_ops.qos_init) {
 
 			if (node_dev->ap_owned &&
