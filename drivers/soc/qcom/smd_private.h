@@ -144,7 +144,7 @@ struct smd_channel {
 
 	int (*read)(smd_channel_t *ch, void *data, int len, int user_buf);
 	int (*write)(smd_channel_t *ch, const void *data, int len,
-			int user_buf);
+			int user_buf, bool int_ntfy);
 	int (*read_avail)(smd_channel_t *ch);
 	int (*write_avail)(smd_channel_t *ch);
 	int (*read_from_cb)(smd_channel_t *ch, void *data, int len,
