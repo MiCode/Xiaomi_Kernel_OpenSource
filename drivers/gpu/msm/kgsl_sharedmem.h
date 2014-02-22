@@ -164,26 +164,6 @@ kgsl_memdesc_has_guard_page(const struct kgsl_memdesc *memdesc)
 }
 
 /*
- * kgsl_memdesc_protflags - get mmu protection flags
- * @memdesc - the memdesc
- * Returns a mask of GSL_PT_PAGE* or IOMMU* values based
- * on the memdesc flags.
- */
-static inline unsigned int
-kgsl_memdesc_protflags(const struct kgsl_memdesc *memdesc)
-{
-	unsigned int protflags = 0;
-	enum kgsl_mmutype mmutype = kgsl_mmu_get_mmutype();
-
-	if (mmutype == KGSL_MMU_TYPE_IOMMU) {
-		protflags = IOMMU_READ;
-		if (!(memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY))
-			protflags |= IOMMU_WRITE;
-	}
-	return protflags;
-}
-
-/*
  * kgsl_memdesc_use_cpu_map - use the same virtual mapping on CPU and GPU?
  * @memdesc - the memdesc
  */

@@ -49,24 +49,3 @@ config KGSL_PER_PROCESS_PAGE_TABLE
 	depends on !MSM_KGSL_DRM
 	---help---
 	  The MMU will use per process pagetables when enabled.
-
-config MSM_KGSL_PAGE_TABLE_SIZE
-	hex "Size of pagetables"
-	default 0xFFF0000
-	---help---
-	  Sets the pagetable size used by the MMU.  The max value
-	  is 0xFFF0000 or (256M - 64K).
-
-config MSM_KGSL_PAGE_TABLE_COUNT
-	int "Minimum of concurrent pagetables to support"
-	default 8
-	depends on KGSL_PER_PROCESS_PAGE_TABLE
-	---help---
-	  Specify the number of pagetables to allocate at init time
-	  This is the number of concurrent processes that are guaranteed to
-	  to run at any time.  Additional processes can be created dynamically
-	  assuming there is enough contiguous memory to allocate the pagetable.
-
-config MSM_KGSL_MMU_PAGE_FAULT
-	bool "Force the GPU MMU to page fault for unmapped regions"
-	default y

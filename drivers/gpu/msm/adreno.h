@@ -26,10 +26,10 @@
 #define DEVICE_3D0_NAME "kgsl-3d0"
 
 #define ADRENO_DEVICE(device) \
-		KGSL_CONTAINER_OF(device, struct adreno_device, dev)
+		container_of(device, struct adreno_device, dev)
 
 #define ADRENO_CONTEXT(device) \
-		KGSL_CONTAINER_OF(device, struct adreno_context, base)
+		container_of(device, struct adreno_context, base)
 
 #define ADRENO_CHIPID_CORE(_id) (((_id) >> 24) & 0xFF)
 #define ADRENO_CHIPID_MAJOR(_id) (((_id) >> 16) & 0xFF)
