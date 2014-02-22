@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,18 +10,24 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
-#include "msm8974pro-ac-pm8941.dtsi"
-#include "msm8974-cdp.dtsi"
-
-/ {
-	model = "Qualcomm MSM 8974Pro-AC CDP";
-	compatible = "qcom,msm8974-cdp", "qcom,msm8974", "qcom,cdp";
-	qcom,board-id = <1 0>;
+&sdc {
+	/* 0-3 for sdc1 4-6 for sdc2 */
+	qcom,num-pins = <7>;
+	/* Order of pins */
+	/* SDC1: CLK -> 0, CMD -> 1, DATA -> 2, RCLK -> 3 */
+	/* SDC2: CLK -> 4, CMD -> 5, DATA -> 6 */
 };
 
-&sdhc_1 {
-	pinctrl-0 = <&sdc1_clk_on_16 &sdc1_cmd_on &sdc1_data_on &sdc1_rclk_on>;
-	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_rclk_off>;
+&tlmm_pinmux {
+	pmx_sdc1_rclk {
+		qcom,pins = <&sdc 3>;
+		qcom,num-grp-pins = <1>;
+		label = "sdc1-rclk";
+		sdc1_rclk_on: rclk_on {
+			bias-pull-down;
+		};
+		sdc1_rclk_off: rclk_off {
+			bias-pull-down;
+		};
+	};
 };

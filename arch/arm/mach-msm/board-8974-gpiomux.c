@@ -751,28 +751,6 @@ static struct gpiomux_setting cam_settings[] = {
 	},
 };
 
-static struct gpiomux_setting sd_card_det_active_config = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_NONE,
-	.dir = GPIOMUX_IN,
-};
-
-static struct gpiomux_setting sd_card_det_sleep_config = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_UP,
-	.dir = GPIOMUX_IN,
-};
-
-static struct msm_gpiomux_config sd_card_det __initdata = {
-	.gpio = 62,
-	.settings = {
-		[GPIOMUX_ACTIVE]    = &sd_card_det_active_config,
-		[GPIOMUX_SUSPENDED] = &sd_card_det_sleep_config,
-	},
-};
-
 static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 	{
 		.gpio = 15, /* CAM_MCLK0 */
@@ -1493,8 +1471,6 @@ void __init msm_8974_init_gpiomux(void)
 	else
 		msm_gpiomux_install(msm_sensor_configs, \
 				ARRAY_SIZE(msm_sensor_configs));
-
-	msm_gpiomux_install(&sd_card_det, 1);
 
 	if (machine_is_apq8074() && (of_board_is_liquid() || \
 	    of_board_is_dragonboard()))

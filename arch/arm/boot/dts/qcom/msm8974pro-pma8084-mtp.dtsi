@@ -138,8 +138,8 @@
 	vdd-supply = <&pma8084_l20>;
 	vdd-io-supply = <&pma8084_s4>;
 
-	qcom,pad-pull-on = <0x0 0x3 0x3 0x1>; /* no-pull, pull-up, pull-up, pull-down */
-	qcom,pad-pull-off = <0x0 0x3 0x3 0x1>; /* no-pull, pull-up, pull-up, pull-down */
+	pinctrl-0 = <&sdc1_clk_on_16 &sdc1_cmd_on &sdc1_data_on &sdc1_rclk_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_rclk_off>;
 };
 
 &sdhc_2 {
