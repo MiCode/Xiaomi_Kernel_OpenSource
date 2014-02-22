@@ -158,7 +158,8 @@ static int sensors_ssc_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id msm_ssc_sensors_dt_match[] = {
-	{.compatible = "qcom,msm-ssc-sensors"}
+	{.compatible = "qcom,msm-ssc-sensors"},
+	{},
 };
 MODULE_DEVICE_TABLE(of, msm_ssc_sensors_dt_match);
 
