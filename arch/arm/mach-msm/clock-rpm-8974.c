@@ -349,7 +349,7 @@ static int msm_rpmcc_8974_probe(struct platform_device *pdev)
 static struct platform_driver msm_clock_rpm_driver = {
 	.probe = msm_rpmcc_8974_probe,
 	.driver = {
-		.name = "rpmcc",
+		.name = "qcom,rpmcc-8974",
 		.of_match_table = msm_clock_rpm_match_table,
 		.owner = THIS_MODULE,
 	},

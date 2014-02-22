@@ -2687,7 +2687,7 @@ static int msm_gcc_8974_probe(struct platform_device *pdev)
 static struct platform_driver msm_clock_gcc_driver = {
 	.probe = msm_gcc_8974_probe,
 	.driver = {
-		.name = "gcc",
+		.name = "qcom,gcc-8974",
 		.of_match_table = msm_clock_gcc_match_table,
 		.owner = THIS_MODULE,
 	},
@@ -2749,7 +2749,7 @@ static int msm_clock_debug_8974_probe(struct platform_device *pdev)
 static struct platform_driver msm_clock_debug_driver = {
 	.probe = msm_clock_debug_8974_probe,
 	.driver = {
-		.name = "cc-debug",
+		.name = "qcom,cc-debug-8974",
 		.of_match_table = msm_clock_debug_match_table,
 		.owner = THIS_MODULE,
 	},

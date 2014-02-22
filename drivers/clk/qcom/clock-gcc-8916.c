@@ -2709,7 +2709,7 @@ static struct of_device_id msm_clock_gcc_match_table[] = {
 static struct platform_driver msm_clock_gcc_driver = {
 	.probe = msm_gcc_probe,
 	.driver = {
-		.name = "gcc",
+		.name = "qcom,gcc-8916",
 		.of_match_table = msm_clock_gcc_match_table,
 		.owner = THIS_MODULE,
 	},
@@ -2760,7 +2760,7 @@ static struct of_device_id msm_clock_debug_match_table[] = {
 static struct platform_driver msm_clock_debug_driver = {
 	.probe = msm_clock_debug_probe,
 	.driver = {
-		.name = "cc-debug",
+		.name = "qcom,cc-debug-8916",
 		.of_match_table = msm_clock_debug_match_table,
 		.owner = THIS_MODULE,
 	},
