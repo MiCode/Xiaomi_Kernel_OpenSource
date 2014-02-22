@@ -18,6 +18,7 @@
 #include <linux/sched.h>
 #include <linux/seq_file.h>
 #include <linux/sizes.h>
+#include <linux/atomic.h>
 
 #include "vpu_debug.h"
 #include "vpu_v4l2.h"
@@ -25,8 +26,9 @@
 #include "vpu_channel.h"
 #include "vpu_bus_clock.h"
 
-#define BUF_SIZE	(SZ_4K)
-#define RW_MODE		(S_IRUSR | S_IWUSR)
+#define BUF_SIZE		(SZ_4K)
+#define RW_MODE			(S_IRUSR | S_IWUSR)
+#define FW_LOG_TIMEOUT_MS	500
 
 static int vpu_debug_on;
 
@@ -34,9 +36,11 @@ struct fw_log_info {
 	/* wq woken by hfi layer when fw log msg received */
 	wait_queue_head_t wq;
 	/* wq only woken by hfi layer if this flag set */
-	int wake_up_request;
+	int log_available;
 	/* buf used for formatting log msgs */
 	char *fmt_buf;
+	/* only one thread may read fw logs at a time */
+	atomic_t num_readers;
 };
 
 /* SMEM controller data */
@@ -57,30 +61,33 @@ static struct fw_log_info fw_log;
 
 void vpu_wakeup_fw_logging_wq(void)
 {
-	if (fw_log.wake_up_request) {
-		fw_log.wake_up_request = 0;
-		wake_up_interruptible_all(&fw_log.wq);
-	}
+	fw_log.log_available = 1;
+	wake_up_interruptible(&fw_log.wq);
 }
 
 static int open_fw_log(struct inode *inode, struct file *file)
 {
 	char *fmt_buf;
 
-	fw_log.wake_up_request = 0;
-	init_waitqueue_head(&fw_log.wq);
+	/* Only one user thread may read firmware logs at a time.
+	 * We decrement number of readers upon release of the
+	 * firmware logs.
+	 */
+	if (atomic_inc_return(&fw_log.num_readers) > 1) {
+		atomic_dec(&fw_log.num_readers);
+		return -EBUSY;
+	}
 
 	fmt_buf = kzalloc(BUF_SIZE, GFP_KERNEL);
 	if (unlikely(!fmt_buf)) {
-		pr_err("Failed to allocated fmt_buf\n");
+		pr_err("Failed to allocate fmt_buf\n");
+		atomic_dec(&fw_log.num_readers);
 		return -ENOMEM;
 	}
 
 	fw_log.fmt_buf = fmt_buf;
 	return 0;
 }
-
-
 
 static ssize_t read_fw_log(struct file *file, char __user *user_buf,
 	size_t len, loff_t *ppos)
@@ -104,9 +111,10 @@ static ssize_t read_fw_log(struct file *file, char __user *user_buf,
 		 * something in the logging queue.
 		 */
 		if ((bytes_read == -EAGAIN) || (bytes_read == 0)) {
-			fw_log.wake_up_request = 1;
-			ret = wait_event_interruptible(fw_log.wq,
-					fw_log.wake_up_request == 0);
+			fw_log.log_available = 0;
+			ret = wait_event_interruptible_timeout(fw_log.wq,
+				fw_log.log_available == 1,
+				msecs_to_jiffies(FW_LOG_TIMEOUT_MS));
 			if (ret < 0)
 				return ret;
 		} else if (bytes_read < 0) {
@@ -124,6 +132,9 @@ static int release_fw_log(struct inode *inode, struct file *file)
 	kfree(fw_log.fmt_buf);
 	fw_log.fmt_buf = NULL;
 
+	/* Allow another reader to access firmware logs */
+	atomic_dec(&fw_log.num_readers);
+
 	return 0;
 }
 
@@ -131,6 +142,62 @@ static const struct file_operations fw_logging_ops = {
 	.open = open_fw_log,
 	.read = read_fw_log,
 	.release = release_fw_log,
+};
+
+static ssize_t write_fw_log_level(struct file *file,
+		const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	int ret;
+	char buf[4];
+	int log_level;
+	int len;
+
+	len = min(count, sizeof(buf) - 1);
+	if (copy_from_user(buf, user_buf, len))
+		return -EFAULT;
+	buf[len] = '\0';
+
+	if (kstrtou32(buf, 0, &log_level))
+		return -EINVAL;
+
+	if (log_level < VPU_LOGGING_NONE || log_level > VPU_LOGGING_ALL) {
+		pr_err("Invalid logging level %d\n", log_level);
+		return -EINVAL;
+	}
+
+	ret = vpu_hw_sys_set_log_level(log_level);
+	if (ret)
+		return ret;
+
+	pr_debug("Firmware log level set to %s\n", buf);
+	return count;
+}
+
+static ssize_t read_fw_log_level(struct file *file, char __user *user_buf,
+	size_t len, loff_t *ppos)
+{
+	int ret;
+	char buf[4];
+	int log_level;
+
+	ret = vpu_hw_sys_get_log_level();
+	if (ret < 0)
+		return ret;
+	log_level = ret;
+
+	ret = snprintf(buf, sizeof(buf), "%d\n", log_level);
+	if (ret < 0) {
+		pr_err("Error converting log level from int to char\n");
+		return ret;
+	}
+
+	return simple_read_from_buffer(user_buf, len, ppos, buf, sizeof(buf));
+}
+
+static const struct file_operations fw_log_level_ops = {
+	.open = simple_open,
+	.write = write_fw_log_level,
+	.read = read_fw_log_level,
 };
 
 static ssize_t read_queue_state(struct file *file, char __user *user_buf,
@@ -398,11 +465,21 @@ struct dentry *init_vpu_debugfs(struct vpu_dev_core *core)
 		goto failed_create_attr;
 	}
 
-	/* create firmware_log file */
+	/* create firmware log file */
+	init_waitqueue_head(&fw_log.wq);
+	atomic_set(&fw_log.num_readers, 0);
 	attr = debugfs_create_file("firmware_log", S_IRUGO, root, NULL,
 			&fw_logging_ops);
 	if (IS_ERR_OR_NULL(attr)) {
 		pr_err("Failed to create firmware logging attribute\n");
+		goto failed_create_attr;
+	}
+
+	/* create firmware log level file */
+	attr = debugfs_create_file("firmware_log_level", RW_MODE, root, NULL,
+			&fw_log_level_ops);
+	if (IS_ERR_OR_NULL(attr)) {
+		pr_err("Failed to create firmware logging level attribute\n");
 		goto failed_create_attr;
 	}
 
