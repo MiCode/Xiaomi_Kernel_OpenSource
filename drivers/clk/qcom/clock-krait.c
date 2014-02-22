@@ -22,10 +22,10 @@
 #include <linux/clk/msm-clk.h>
 #include <linux/clk/msm-clock-generic.h>
 #include <soc/qcom/avs.h>
+#include <soc/qcom/clock-krait.h>
 
 #include <linux/clk.h>
 #include <mach/msm-krait-l2-accessors.h>
-#include "clock-krait.h"
 
 static DEFINE_SPINLOCK(kpss_clock_reg_lock);
 
