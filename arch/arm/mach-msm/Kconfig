@@ -339,7 +339,6 @@ config ARCH_FSM9900
 	select MSM_GPIOMUX
 	select MULTI_IRQ_HANDLER
 	select PM_DEVFREQ
-	select MSM_DEVFREQ_CPUBW
 	select MSM_PIL
 	select MSM_NATIVE_RESTART
 	select MSM_RESTART_V2
