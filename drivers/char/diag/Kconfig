@@ -21,16 +21,6 @@ config DIAG_OVER_USB
 	 This feature helps segregate code required for DIAG traffic to go over USB.
 endmenu
 
-menu "SDIO support for DIAG"
-
-config DIAG_SDIO_PIPE
-	depends on MSM_SDIO_AL
-	default y
-	bool "Enable 9K DIAG traffic over SDIO"
-	help
-	 SDIO Transport Layer for DIAG Router
-endmenu
-
 menu "HSIC/SMUX support for DIAG"
 
 config DIAGFWD_BRIDGE_CODE
