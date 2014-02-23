@@ -57,7 +57,8 @@
 #define IPA_IOCTL_QUERY_EP_MAPPING 33
 #define IPA_IOCTL_QUERY_RT_TBL_INDEX 34
 #define IPA_IOCTL_WRITE_QMAPID 35
-#define IPA_IOCTL_MAX            36
+#define IPA_IOCTL_MDFY_FLT_RULE 36
+#define IPA_IOCTL_MAX            37
 
 /**
  * max size of the header to be inserted
@@ -672,6 +673,37 @@ struct ipa_ioc_add_flt_rule {
 };
 
 /**
+ * struct ipa_flt_rule_mdfy - filtering rule descriptor includes
+ * in and out parameters
+ * @rule: actual rule to be added
+ * @flt_rule_hdl: handle to rule
+ * @status:	output parameter, status of filtering rule modify  operation,
+ *		0 for success,
+ *		-1 for failure
+ *
+ */
+struct ipa_flt_rule_mdfy {
+	struct ipa_flt_rule rule;
+	uint32_t rule_hdl;
+	int status;
+};
+
+/**
+ * struct ipa_ioc_mdfy_flt_rule - filtering rule modify parameters (supports
+ * multiple rules and commit)
+ * @commit: should rules be written to IPA HW also?
+ * @ip: IP family of rule
+ * @num_rules: number of filtering rules that follow
+ * @rules: all rules need to go back to back here, no pointers
+ */
+struct ipa_ioc_mdfy_flt_rule {
+	uint8_t commit;
+	enum ipa_ip_type ip;
+	uint8_t num_rules;
+	struct ipa_flt_rule_mdfy rules[0];
+};
+
+/**
  * struct ipa_flt_rule_del - filtering rule descriptor includes
  * in and out parameters
  *
@@ -1112,6 +1144,9 @@ struct ipa_ioc_write_qmapid {
 #define IPA_IOC_WRITE_QMAPID  _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_WRITE_QMAPID, \
 				struct ipa_ioc_write_qmapid *)
+#define IPA_IOC_MDFY_FLT_RULE _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_MDFY_FLT_RULE, \
+					struct ipa_ioc_mdfy_flt_rule *)
 
 /*
  * unique magic number of the Tethering bridge ioctls
