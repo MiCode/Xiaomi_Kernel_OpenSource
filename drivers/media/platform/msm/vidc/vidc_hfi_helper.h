@@ -466,6 +466,11 @@ struct hfi_max_num_b_frames {
 	u32 max_num_b_frames;
 };
 
+struct hfi_vc1e_perf_cfg_type {
+	u32 search_range_x_subsampled[3];
+	u32 search_range_y_subsampled[3];
+};
+
 struct hfi_conceal_color {
 	u32 conceal_color;
 };

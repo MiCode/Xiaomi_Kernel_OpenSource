@@ -158,6 +158,7 @@ enum msm_venc_ctrl_cluster {
 	MSM_VENC_CTRL_CLUSTER_DEINTERLACE = 1 << 11,
 	MSM_VENC_CTRL_CLUSTER_USE_LTRFRAME = 1 << 12,
 	MSM_VENC_CTRL_CLUSTER_MAX = 1 << 13,
+	MSM_VENC_CTRL_CLUSTER_SEARCH_RANGE = 1 << 14,
 };
 
 static struct msm_vidc_ctrl msm_venc_ctrls[] = {
@@ -929,7 +930,79 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.default_value = 1,
 		.step = 1,
 		.qmenu = NULL,
-	}
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_IFRAME_X_RANGE,
+		.name = "I-Frame X coordinate search range",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 4,
+		.maximum = 128,
+		.default_value = 4,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+		.cluster = MSM_VENC_CTRL_CLUSTER_SEARCH_RANGE,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_IFRAME_Y_RANGE,
+		.name = "I-Frame Y coordinate search range",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 4,
+		.maximum = 128,
+		.default_value = 4,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+		.cluster = MSM_VENC_CTRL_CLUSTER_SEARCH_RANGE,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_PFRAME_X_RANGE,
+		.name = "P-Frame X coordinate search range",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 4,
+		.maximum = 128,
+		.default_value = 4,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+		.cluster = MSM_VENC_CTRL_CLUSTER_SEARCH_RANGE,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_PFRAME_Y_RANGE,
+		.name = "P-Frame Y coordinate search range",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 4,
+		.maximum = 128,
+		.default_value = 4,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+		.cluster = MSM_VENC_CTRL_CLUSTER_SEARCH_RANGE,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_BFRAME_X_RANGE,
+		.name = "B-Frame X coordinate search range",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 4,
+		.maximum = 128,
+		.default_value = 4,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+		.cluster = MSM_VENC_CTRL_CLUSTER_SEARCH_RANGE,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_BFRAME_Y_RANGE,
+		.name = "B-Frame Y coordinate search range",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 4,
+		.maximum = 128,
+		.default_value = 4,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+		.cluster = MSM_VENC_CTRL_CLUSTER_SEARCH_RANGE,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -2353,6 +2426,7 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 	struct v4l2_ext_control *control;
 	struct hfi_device *hdev;
 	struct hal_ltrmode ltrmode;
+	struct hal_vc1e_perf_cfg_type search_range = { {0} };
 	struct v4l2_ctrl *cluster;
 	u32 property_id = 0;
 	void *pdata = NULL;
@@ -2421,6 +2495,36 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 			quant.qpb = control[i].value;
 			property_id = HAL_PARAM_VENC_ENABLE_INITIAL_QP;
 			pdata = &quant;
+			break;
+		case V4L2_CID_MPEG_VIDC_VIDEO_IFRAME_X_RANGE:
+			search_range.i_frame.x_subsampled = control[i].value;
+			property_id = HAL_PARAM_VENC_SEARCH_RANGE;
+			pdata = &search_range;
+			break;
+		case V4L2_CID_MPEG_VIDC_VIDEO_IFRAME_Y_RANGE:
+			search_range.i_frame.y_subsampled = control[i].value;
+			property_id = HAL_PARAM_VENC_SEARCH_RANGE;
+			pdata = &search_range;
+			break;
+		case V4L2_CID_MPEG_VIDC_VIDEO_PFRAME_X_RANGE:
+			search_range.p_frame.x_subsampled = control[i].value;
+			property_id = HAL_PARAM_VENC_SEARCH_RANGE;
+			pdata = &search_range;
+			break;
+		case V4L2_CID_MPEG_VIDC_VIDEO_PFRAME_Y_RANGE:
+			search_range.p_frame.y_subsampled = control[i].value;
+			property_id = HAL_PARAM_VENC_SEARCH_RANGE;
+			pdata = &search_range;
+			break;
+		case V4L2_CID_MPEG_VIDC_VIDEO_BFRAME_X_RANGE:
+			search_range.b_frame.x_subsampled = control[i].value;
+			property_id = HAL_PARAM_VENC_SEARCH_RANGE;
+			pdata = &search_range;
+			break;
+		case V4L2_CID_MPEG_VIDC_VIDEO_BFRAME_Y_RANGE:
+			search_range.b_frame.y_subsampled = control[i].value;
+			property_id = HAL_PARAM_VENC_SEARCH_RANGE;
+			pdata = &search_range;
 			break;
 		default:
 			dprintk(VIDC_ERR, "Invalid id set: %d\n",
