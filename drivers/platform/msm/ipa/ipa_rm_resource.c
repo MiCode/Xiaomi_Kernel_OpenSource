@@ -29,19 +29,14 @@ int ipa_rm_prod_index(enum ipa_rm_resource_name resource_name)
 	int result = resource_name;
 
 	switch (resource_name) {
-	case IPA_RM_RESOURCE_BRIDGE_PROD:
+	case IPA_RM_RESOURCE_Q6_PROD:
 	case IPA_RM_RESOURCE_USB_PROD:
 	case IPA_RM_RESOURCE_HSIC_PROD:
 	case IPA_RM_RESOURCE_STD_ECM_PROD:
 	case IPA_RM_RESOURCE_RNDIS_PROD:
 	case IPA_RM_RESOURCE_WWAN_0_PROD:
-	case IPA_RM_RESOURCE_WWAN_1_PROD:
-	case IPA_RM_RESOURCE_WWAN_2_PROD:
-	case IPA_RM_RESOURCE_WWAN_3_PROD:
-	case IPA_RM_RESOURCE_WWAN_4_PROD:
-	case IPA_RM_RESOURCE_WWAN_5_PROD:
-	case IPA_RM_RESOURCE_WWAN_6_PROD:
-	case IPA_RM_RESOURCE_WWAN_7_PROD:
+	case IPA_RM_RESOURCE_ODU_PROD:
+	case IPA_RM_RESOURCE_ODU_BRIDGE_PROD:
 	case IPA_RM_RESOURCE_WLAN_PROD:
 		break;
 	default:
@@ -64,14 +59,19 @@ int ipa_rm_prod_index(enum ipa_rm_resource_name resource_name)
 int ipa_rm_cons_index(enum ipa_rm_resource_name resource_name)
 {
 	int result = resource_name;
+
 	switch (resource_name) {
+	case IPA_RM_RESOURCE_Q6_CONS:
 	case IPA_RM_RESOURCE_USB_CONS:
 	case IPA_RM_RESOURCE_HSIC_CONS:
+	case IPA_RM_RESOURCE_WLAN_CONS:
+	case IPA_RM_RESOURCE_APPS_CONS:
 		break;
 	default:
 		result = IPA_RM_INDEX_INVALID;
 		break;
 	}
+
 	return result;
 }
 
