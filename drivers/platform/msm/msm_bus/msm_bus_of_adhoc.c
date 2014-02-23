@@ -25,27 +25,26 @@
 #include "msm_bus_core.h"
 #include "msm_bus_adhoc.h"
 
+#define DEFAULT_QOS_FREQ	19200
+
 static int get_qos_mode(struct platform_device *pdev,
 			struct device_node *node, const char *qos_mode)
 {
-	const char *qos_names[] = {"Fixed", "Limiter", "Bypass", "Regulator"};
+	const char *qos_names[] = {"fixed", "limiter", "bypass", "regulator"};
 	int i = 0;
-	int ret = 0;
+	int ret = -1;
 
-	if (!qos_mode) {
-		ret = 2;
+	if (!qos_mode)
 		goto exit_get_qos_mode;
-	}
 
 	for (i = 0; i < ARRAY_SIZE(qos_names); i++) {
 		if (!strcmp(qos_mode, qos_names[i]))
 			break;
 	}
-	if (i == ARRAY_SIZE(qos_names)) {
-		ret = -1;
-		dev_dbg(&pdev->dev, "Cannot match mode qos %s using Bypass",
+	if (i == ARRAY_SIZE(qos_names))
+		dev_err(&pdev->dev, "Cannot match mode qos %s using Bypass",
 				qos_mode);
-	} else
+	else
 		ret = i;
 
 exit_get_qos_mode:
@@ -77,11 +76,11 @@ static int *get_arr(struct platform_device *pdev,
 	ret = of_property_read_u32_array(node, prop, (u32 *)arr, *nports);
 	if (ret) {
 		dev_err(&pdev->dev, "Error in reading property: %s\n", prop);
-		goto err;
+		goto arr_err;
 	}
 
 	return arr;
-err:
+arr_err:
 	devm_kfree(&pdev->dev, arr);
 	return NULL;
 }
@@ -107,14 +106,14 @@ static struct msm_bus_fab_device_type *get_fab_device_info(
 	ret = of_property_read_string(dev_node, "qcom,base-name", &base_name);
 	if (ret) {
 		dev_err(&pdev->dev, "Error: Unable to get base address name\n");
-		goto err;
+		goto fab_dev_err;
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, base_name);
 	if (!res) {
 		dev_err(&pdev->dev, "Error getting qos base addr %s\n",
 								base_name);
-		goto err;
+		goto fab_dev_err;
 	}
 	fab_dev->pqos_base = res->start;
 	fab_dev->qos_range = resource_size(res);
@@ -136,12 +135,19 @@ static struct msm_bus_fab_device_type *get_fab_device_info(
 						&fab_dev->bus_type);
 	if (ret) {
 		dev_warn(&pdev->dev, "Bus type is missing\n");
-		goto err;
+		goto fab_dev_err;
+	}
+
+	ret = of_property_read_u32(dev_node, "qcom,qos-freq",
+						&fab_dev->qos_freq);
+	if (ret) {
+		dev_dbg(&pdev->dev, "Bus qos freq is missing\n");
+		fab_dev->qos_freq = DEFAULT_QOS_FREQ;
 	}
 
 	return fab_dev;
 
-err:
+fab_dev_err:
 	devm_kfree(&pdev->dev, fab_dev);
 	fab_dev = 0;
 	return NULL;
@@ -171,12 +177,12 @@ static struct msm_bus_node_info_type *get_node_info_data(
 	ret = of_property_read_u32(dev_node, "cell-id", &node_info->id);
 	if (ret) {
 		dev_warn(&pdev->dev, "Bus node is missing cell-id\n");
-		goto err;
+		goto node_info_err;
 	}
 	ret = of_property_read_string(dev_node, "label", &node_info->name);
 	if (ret) {
 		dev_warn(&pdev->dev, "Bus node is missing name\n");
-		goto err;
+		goto node_info_err;
 	}
 	node_info->qport = get_arr(pdev, dev_node, "qcom,qport",
 			&node_info->num_qports);
@@ -193,11 +199,11 @@ static struct msm_bus_node_info_type *get_node_info_data(
 	for (i = 0; i < node_info->num_connections; i++) {
 		con_node = of_parse_phandle(dev_node, "qcom,connections", i);
 		if (IS_ERR_OR_NULL(con_node))
-			goto err;
+			goto node_info_err;
 
 		if (of_property_read_u32(con_node, "cell-id",
 				&node_info->connections[i]))
-			goto err;
+			goto node_info_err;
 		of_node_put(con_node);
 	}
 
@@ -207,7 +213,7 @@ static struct msm_bus_node_info_type *get_node_info_data(
 			&node_info->bus_device_id)) {
 			dev_err(&pdev->dev, "Can't find bus device. Node %d",
 					node_info->id);
-			goto err;
+			goto node_info_err;
 		}
 
 		of_node_put(bus_dev);
@@ -240,16 +246,24 @@ static struct msm_bus_node_info_type *get_node_info_data(
 	}
 
 	ret = of_property_read_string(dev_node, "qcom,qos-mode", &qos_mode);
-	node_info->mode = get_qos_mode(pdev, dev_node, qos_mode);
+
+	if (ret)
+		node_info->mode = -1;
+	else
+		node_info->mode = get_qos_mode(pdev, dev_node, qos_mode);
 
 	ret = of_property_read_u32(dev_node, "qcom,prio-lvl",
-						&node_info->slv_rpm_id);
+						&node_info->prio_lvl);
 	ret = of_property_read_u32(dev_node, "qcom,prio1", &node_info->prio1);
 	ret = of_property_read_u32(dev_node, "qcom,prio0", &node_info->prio0);
+	ret = of_property_read_u32(dev_node, "qcom,prio-rd",
+						&node_info->prio_rd);
+	ret = of_property_read_u32(dev_node, "qcom,prio-wr",
+						&node_info->prio_wr);
 
 	return node_info;
 
-err:
+node_info_err:
 	devm_kfree(&pdev->dev, node_info);
 	node_info = 0;
 	return NULL;
@@ -333,7 +347,7 @@ struct msm_bus_device_node_registration
 	if (!pdata->info) {
 		dev_err(&pdev->dev,
 			"Error: Memory allocation for pdata->info failed\n");
-		goto err;
+		goto node_reg_err;
 	}
 
 	ret = 0;
@@ -342,7 +356,7 @@ struct msm_bus_device_node_registration
 				&pdata->info[i]);
 		if (ret) {
 			dev_err(&pdev->dev, "Error: unable to initialize bus nodes\n");
-			goto err_1;
+			goto node_reg_err_1;
 		}
 		i++;
 	}
@@ -370,9 +384,9 @@ struct msm_bus_device_node_registration
 	}
 	return pdata;
 
-err_1:
+node_reg_err_1:
 	devm_kfree(&pdev->dev, pdata->info);
-err:
+node_reg_err:
 	devm_kfree(&pdev->dev, pdata);
 	pdata = NULL;
 	return NULL;

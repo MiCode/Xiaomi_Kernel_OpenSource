@@ -317,8 +317,8 @@ static uint64_t arbitrate_bus_req(struct msm_bus_node_device_type *bus_dev,
 	}
 
 	/* Account for multiple channels if any */
-	if (bus_dev->node_info->num_ports > 1)
-		sum_ab = msm_bus_div64(bus_dev->node_info->num_ports,
+	if (bus_dev->node_info->num_qports > 1)
+		sum_ab = msm_bus_div64(bus_dev->node_info->num_qports,
 					sum_ab);
 
 	if (!bus_dev->node_info->buswidth) {
