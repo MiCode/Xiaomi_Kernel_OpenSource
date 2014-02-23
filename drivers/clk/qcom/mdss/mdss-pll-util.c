@@ -75,11 +75,6 @@ int mdss_pll_util_resource_enable(struct mdss_pll_resources *pll_res,
 	struct dss_module_power *mp = &pll_res->mp;
 
 	if (enable) {
-		if (pll_res->resource_refcount) {
-			pll_res->resource_refcount++;
-			return 0;
-		}
-
 		rc = msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, enable);
 		if (rc) {
 			pr_err("Failed to enable vregs rc=%d\n", rc);
@@ -97,21 +92,10 @@ int mdss_pll_util_resource_enable(struct mdss_pll_resources *pll_res,
 			pr_err("clock enable failed rc:%d\n", rc);
 			goto clk_err;
 		}
-		pll_res->resource_refcount++;
 	} else {
-		if (pll_res->resource_refcount) {
-			pll_res->resource_refcount--;
-		} else {
-			pr_err("Trying to disable the resources without enabling them\n");
-			return -EINVAL;
-		}
+		msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
 
-		if (!pll_res->resource_refcount) {
-			msm_dss_enable_clk(mp->clk_config, mp->num_clk, enable);
-
-			msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg,
-									enable);
-		}
+		msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, enable);
 	}
 
 	return rc;
