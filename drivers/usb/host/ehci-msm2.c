@@ -693,6 +693,8 @@ static int msm_ehci_suspend(struct msm_hcd *mhcd)
 	unsigned long timeout;
 	int ret;
 	u32 portsc;
+	const struct msm_usb_host_platform_data *pdata;
+	u32 func_ctrl;
 
 	if (atomic_read(&mhcd->in_lpm)) {
 		dev_dbg(mhcd->dev, "%s called in lpm\n", __func__);
@@ -709,6 +711,14 @@ static int msm_ehci_suspend(struct msm_hcd *mhcd)
 		return -EBUSY;
 	}
 
+	pdata = mhcd->dev->platform_data;
+	if (pdata && pdata->is_uicc) {
+		/* put the controller in non-driving mode */
+		func_ctrl = msm_ulpi_read(mhcd, ULPI_FUNC_CTRL);
+		func_ctrl &= ~ULPI_FUNC_CTRL_OPMODE_MASK;
+		func_ctrl |= ULPI_FUNC_CTRL_OPMODE_NONDRIVING;
+		msm_ulpi_write(mhcd, func_ctrl, ULPI_FUNC_CTRL);
+	}
 	/* If port is enabled wait 5ms for PHCD to come up. Reset PHY
 	 * and link if it fails to do so.
 	 * If port is not enabled set the PHCD bit and poll for it to
@@ -813,6 +823,8 @@ static int msm_ehci_resume(struct msm_hcd *mhcd)
 	unsigned temp;
 	int ret;
 	unsigned long flags;
+	u32 func_ctrl;
+	const struct msm_usb_host_platform_data *pdata;
 
 	if (!atomic_read(&mhcd->in_lpm)) {
 		dev_dbg(mhcd->dev, "%s called in !in_lpm\n", __func__);
@@ -882,6 +894,14 @@ static int msm_ehci_resume(struct msm_hcd *mhcd)
 	}
 
 skip_phy_resume:
+	pdata = mhcd->dev->platform_data;
+	if (pdata && pdata->is_uicc) {
+		/* put the controller in normal mode */
+		func_ctrl = msm_ulpi_read(mhcd, ULPI_FUNC_CTRL);
+		func_ctrl &= ~ULPI_FUNC_CTRL_OPMODE_MASK;
+		func_ctrl |= ULPI_FUNC_CTRL_OPMODE_NORMAL;
+		msm_ulpi_write(mhcd, func_ctrl, ULPI_FUNC_CTRL);
+	}
 
 	usb_hcd_resume_root_hub(hcd);
 	atomic_set(&mhcd->in_lpm, 0);
