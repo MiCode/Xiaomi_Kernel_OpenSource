@@ -1,0 +1,39 @@
+Avago apds993x ambient light + proximity combo driver
+
+Required properties:
+
+ - compatible					: Should be "avago,apds9930".
+ - reg							: i2c slave address of the device.
+ - interrupt-parent				: Parent of interrupt.
+ - interupts					: L/P sample interrupt to indicate new data ready.
+ - vdd-supply					: Power supply needed to power up the device.
+ - vio-supply					: IO power supply needed for IO and I2C.
+ - avago,irq-gpio				: The gpio pin for the interrupt.
+ - avago,ps_threshold			: The threshold adc value for proximity sensor to trigger away interrupt.
+ - avago,ps_hysteresis_threshold: The hysteresis threshold adc value for proximity sensor to trigger  close interrupt.
+ - avago,ps_pulse				: The proximity pulse that the LDR will generate.
+ - avago,ps_gain				: The proximity gain of the sensor.
+ - avago,als_B					: Tunning value of COE_B parameter.
+ - avago,als_C					: Tunning value of COE_C parameter.
+ - avago,als_D					: Tunning value of COE_D parameter.
+ - avago,ga_value				: Tunning value of the gain for light sensor.
+
+ Example:
+
+	 avago@39 {
+		 compatible = "avago,apds9930";
+		 reg = <0x39>;
+		 interrupt-parent = <&msmgpio>;
+		 interrupts = <80 0x2>;
+		 vdd-supply = <&pm8110_l19>;
+		 vio-supply = <&pm8110_l14>;
+		 avago,irq-gpio = <&msmgpio 80 0x2>;
+		 avago,ps_threshold = <600>;
+		 avago,ps_hysteresis_threshold = <500>;
+		 avago,ps_pulse = <8>;
+		 avago,ps_pgain = <0>;
+		 avago,als_B = <223>;
+		 avago,als_C = <70>;
+		 avago,als_D = <142>;
+		 avago,ga_value = <48>;
+	 };

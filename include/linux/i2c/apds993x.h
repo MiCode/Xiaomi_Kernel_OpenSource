@@ -67,6 +67,12 @@ struct apds993x_chip_factors {
  *
  */
 
+/* POWER SUPPLY VOLTAGE RANGE */
+#define APDS993X_VDD_MIN_UV  2000000
+#define APDS993X_VDD_MAX_UV  3300000
+#define APDS993X_VIO_MIN_UV  1750000
+#define APDS993X_VIO_MAX_UV  1950000
+
 /* Analog voltage @2.7 V */
 #define AVDD_VTG_MIN_UV		3000000
 #define AVDD_VTG_MAX_UV		3000000
@@ -113,10 +119,6 @@ struct apds993x_platform_data {
 
 	unsigned int irq_gpio;
 	u32 irq_gpio_flags;
-
-	struct regulator *vcc_ana;
-	struct regulator *vcc_dig;
-	struct regulator *vcc_i2c;
 };
 
 #endif
