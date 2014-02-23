@@ -20,7 +20,10 @@
 
 #define IPA_V1_CLK_RATE (92.31 * 1000 * 1000UL)
 #define IPA_V1_1_CLK_RATE (100 * 1000 * 1000UL)
-#define IPA_V2_0_CLK_RATE (150 * 1000 * 1000UL)
+#define IPA_V2_0_CLK_RATE_LOW (75 * 1000 * 1000UL)
+#define IPA_V2_0_CLK_RATE_HIGH (150 * 1000 * 1000UL)
+
+#define IPA_V2_0_BW_THRESHOLD_MBPS (800)
 
 static const int ipa_ofst_meq32[] = { IPA_OFFSET_MEQ32_0,
 					IPA_OFFSET_MEQ32_1, -1 };
@@ -2958,7 +2961,8 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_cfg_ep_status = _ipa_cfg_ep_status_v1_1;
 		ctrl->ipa_cfg_ep_cfg = _ipa_cfg_ep_cfg_v1_1;
 		ctrl->ipa_cfg_ep_metadata_mask = _ipa_cfg_ep_metadata_mask_v1_1;
-		ctrl->ipa_clk_rate = IPA_V1_CLK_RATE;
+		ctrl->ipa_clk_rate_hi = IPA_V1_CLK_RATE;
+		ctrl->ipa_clk_rate_lo = IPA_V1_CLK_RATE;
 		ctrl->ipa_read_gen_reg = _ipa_read_gen_reg_v1_0;
 		ctrl->ipa_read_ep_reg = _ipa_read_ep_reg_v1_0;
 		ctrl->ipa_write_dbg_cnt = _ipa_write_dbg_cnt_v1;
@@ -2985,7 +2989,8 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_cfg_ep_status = _ipa_cfg_ep_status_v1_1;
 		ctrl->ipa_cfg_ep_cfg = _ipa_cfg_ep_cfg_v1_1;
 		ctrl->ipa_cfg_ep_metadata_mask = _ipa_cfg_ep_metadata_mask_v1_1;
-		ctrl->ipa_clk_rate = IPA_V1_1_CLK_RATE;
+		ctrl->ipa_clk_rate_hi = IPA_V1_1_CLK_RATE;
+		ctrl->ipa_clk_rate_lo = IPA_V1_1_CLK_RATE;
 		ctrl->ipa_read_gen_reg = _ipa_read_gen_reg_v1_1;
 		ctrl->ipa_read_ep_reg = _ipa_read_ep_reg_v1_1;
 		ctrl->ipa_write_dbg_cnt = _ipa_write_dbg_cnt_v1;
@@ -3012,7 +3017,8 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_cfg_ep_status = _ipa_cfg_ep_status_v2_0;
 		ctrl->ipa_cfg_ep_cfg = _ipa_cfg_ep_cfg_v2_0;
 		ctrl->ipa_cfg_ep_metadata_mask = _ipa_cfg_ep_metadata_mask_v2_0;
-		ctrl->ipa_clk_rate = IPA_V2_0_CLK_RATE;
+		ctrl->ipa_clk_rate_hi = IPA_V2_0_CLK_RATE_HIGH;
+		ctrl->ipa_clk_rate_lo = IPA_V2_0_CLK_RATE_LOW;
 		ctrl->ipa_read_gen_reg = _ipa_read_gen_reg_v2_0;
 		ctrl->ipa_read_ep_reg = _ipa_read_ep_reg_v2_0;
 		ctrl->ipa_write_dbg_cnt = _ipa_write_dbg_cnt_v2_0;
@@ -3024,6 +3030,7 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_disable_clks = _ipa_disable_clks_v2_0;
 		ctrl->msm_bus_data_ptr = &ipa_bus_client_pdata_v2_0;
 		ctrl->ipa_cfg_ep_metadata = _ipa_cfg_ep_metadata_v2_0;
+		ctrl->clock_scaling_bw_threshold = IPA_V2_0_BW_THRESHOLD_MBPS;
 		break;
 	default:
 		return -EPERM;
