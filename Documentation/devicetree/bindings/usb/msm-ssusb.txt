@@ -42,7 +42,7 @@ Optional properties :
   passed to secure channel manager(scm) driver. scm driver uses this device
   id to restore USB controller related security configuration after coming
   out of the controller power collapse.
-- qcom,ref-clk-rate: Indicates refclk frequency (in Hz) to the core. If not
+- qcom,utmi-clk-rate: Indicates refclk frequency (in Hz) to the core. If not
   specified, default of 19.2MHz is assumed.
 - qcom,reset_hsphy_sleep_clk_on_init: If present, the HSUSB PHY sleep clock is
   being reset in initialization.
