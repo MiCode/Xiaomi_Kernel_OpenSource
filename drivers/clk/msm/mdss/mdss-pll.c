@@ -39,18 +39,16 @@ int mdss_pll_resource_enable(struct mdss_pll_resources *pll_res, bool enable)
 	 * 1 refcount.
 	 */
 	if (pll_res->handoff_resources &&
-		(!enable || (enable && pll_res->resource_refcount == 1))) {
+		(!enable || (enable & pll_res->resource_enable))) {
 		pr_debug("Do not turn on/off pll resources during handoff case\n");
 		return rc;
 	}
 
-	mutex_lock(&pll_res->resource_lock);
 	rc = mdss_pll_util_resource_enable(pll_res, enable);
 	if (rc)
 		pr_err("Resource update failed rc=%d\n", rc);
 	else
 		pll_res->resource_enable = enable;
-	mutex_unlock(&pll_res->resource_lock);
 
 	return rc;
 }
@@ -191,9 +189,6 @@ static int mdss_pll_probe(struct platform_device *pdev)
 	}
 	platform_set_drvdata(pdev, pll_res);
 
-	mutex_init(&pll_res->resource_lock);
-	pll_res->resource_refcount = 0;
-
 	pll_base_reg = platform_get_resource_byname(pdev,
 						IORESOURCE_MEM, "pll_base");
 	if (!pll_base_reg) {
@@ -259,7 +254,6 @@ phy_io_error:
 res_parse_error:
 	iounmap(pll_res->pll_base);
 io_error:
-	mutex_destroy(&pll_res->resource_lock);
 	devm_kfree(&pdev->dev, pll_res);
 error:
 	return rc;
@@ -280,7 +274,6 @@ static int mdss_pll_remove(struct platform_device *pdev)
 		iounmap(pll_res->phy_base);
 	mdss_pll_resource_release(pdev, pll_res);
 	iounmap(pll_res->pll_base);
-	mutex_destroy(&pll_res->resource_lock);
 	devm_kfree(&pdev->dev, pll_res);
 	return 0;
 }

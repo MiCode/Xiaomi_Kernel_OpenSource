@@ -94,20 +94,12 @@ static struct lpfr_cfg lpfr_lut_struct[] = {
 
 int set_byte_mux_sel(struct mux_clk *clk, int sel)
 {
-	int rc;
 	struct mdss_pll_resources *dsi_pll_res = clk->priv;
-
-	rc = mdss_pll_resource_enable(dsi_pll_res, true);
-	if (rc) {
-		pr_err("Failed to enable mdss dsi pll resources\n");
-		return rc;
-	}
 
 	pr_debug("byte mux set to %s mode\n", sel ? "indirect" : "direct");
 	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
 				DSI_PHY_PLL_UNIPHY_PLL_VREG_CFG, (sel << 1));
 
-	mdss_pll_resource_enable(dsi_pll_res, false);
 	return 0;
 }
 
@@ -147,6 +139,13 @@ int dsi_pll_mux_prepare(struct clk *c)
 {
 	struct mux_clk *mux = to_mux_clk(c);
 	int i, rc, sel = 0;
+	struct mdss_pll_resources *dsi_pll_res = mux->priv;
+
+	rc = mdss_pll_resource_enable(dsi_pll_res, true);
+	if (rc) {
+		pr_err("Failed to enable mdss dsi pll resources\n");
+		return rc;
+	}
 
 	for (i = 0; i < mux->num_parents; i++)
 		if (mux->parents[i].src == c->parent) {
@@ -164,6 +163,7 @@ int dsi_pll_mux_prepare(struct clk *c)
 	rc = mux->ops->set_mux_sel(mux, sel);
 
 error:
+	mdss_pll_resource_enable(dsi_pll_res, false);
 	return rc;
 }
 

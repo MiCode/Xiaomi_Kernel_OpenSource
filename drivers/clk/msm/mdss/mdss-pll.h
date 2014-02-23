@@ -64,15 +64,6 @@ struct mdss_pll_resources {
 	 * feature is disabled.
 	 */
 	bool		handoff_resources;
-
-	/*
-	 * Keep refrence count of pll resource client to avoid releasing them
-	 * before all clients are finished with their tasks
-	 */
-	unsigned int	resource_refcount;
-
-	/* Lock status to provide updated resource status to all clients */
-	struct mutex	resource_lock;
 };
 
 int mdss_pll_resource_enable(struct mdss_pll_resources *pll_res, bool enable);
