@@ -32,7 +32,7 @@
 		};
 
 		pmx-uartconsole {
-			qcom,pins = <&gp 0>, <&gp 1>;
+			qcom,pins = <&gp 4>, <&gp 5>;
 			qcom,num-grp-pins = <2>;
 			qcom,pin-func = <2>;
 			label = "uart-console";
