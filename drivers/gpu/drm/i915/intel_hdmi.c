@@ -902,7 +902,8 @@ intel_hdmi_mode_valid(struct drm_connector *connector,
 	if (mode->clock < 20000)
 		return MODE_CLOCK_LOW;
 
-	/* WAR
+	/*
+	 * WAR
 	 * For limitation in memory chanel bandwidth.
 	 */
 	if ((i915.limitbw) && (IS_VALLEYVIEW(dev))) {
@@ -997,7 +998,7 @@ bool intel_hdmi_compute_config(struct intel_encoder *encoder,
 	return true;
 }
 
-static int hdmi_live_status(struct drm_device *dev,
+static bool vlv_hdmi_live_status(struct drm_device *dev,
 			struct intel_hdmi *intel_hdmi)
 {
 	u32 bit = 0;
@@ -1021,20 +1022,142 @@ static int hdmi_live_status(struct drm_device *dev,
 	}
 
 	/* Return results of connector connection status */
-	return ((I915_READ(PORT_HOTPLUG_STAT) & bit) ?
-		connector_status_connected : connector_status_disconnected);
+	return I915_READ(PORT_HOTPLUG_STAT) & bit;
 }
 
-void intel_hdmi_reset(struct drm_connector *connector)
+/*
+ * intel_hdmi_live_status: detect live status of HDMI
+ * if device is Gen 7 and above, read the live status reg
+ * else, do not block the detection, return true
+ */
+static bool intel_hdmi_live_status(struct drm_connector *connector)
 {
+	struct drm_device *dev = connector->dev;
 	struct intel_hdmi *intel_hdmi = intel_attached_hdmi(connector);
 
-	/* Clean previous detects and modes */
-	intel_hdmi->edid_mode_count = 0;
-	intel_cleanup_modes(connector);
+	if (INTEL_INFO(dev)->gen > 6) {
+
+		/* Todo: Implement for other Gen7 and above archs */
+		if (IS_VALLEYVIEW(dev))
+			return vlv_hdmi_live_status(dev, intel_hdmi);
+	}
+	return true;
+}
+
+/*
+ * intel_hdmi_send_uevent: inform usespace about an event
+ */
+void intel_hdmi_send_uevent(struct drm_device *dev, char *uevent)
+{
+	char *envp[] = {uevent, NULL};
+
+	/* Notify usp the change */
+	kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE, envp);
+}
+
+/* Read DDC and get EDID */
+struct edid *intel_hdmi_get_edid(struct drm_connector *connector, bool force)
+{
+	bool current_state = false;
+	struct edid *new_edid = NULL;
+	struct i2c_adapter *adapter = NULL;
+	struct drm_device *dev = connector->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_hdmi *intel_hdmi = intel_attached_hdmi(connector);
+
+	if (!intel_hdmi) {
+		DRM_ERROR("Invalid input to get hdmi\n");
+		return NULL;
+	}
+
+	current_state = intel_hdmi_live_status(connector);
+
+	/* Read EDID if live status is up */
+	if (current_state || force) {
+
+		adapter = intel_gmbus_get_adapter(dev_priv,
+					intel_hdmi->ddc_bus);
+		if (!adapter) {
+			DRM_ERROR("Get_hdmi cant get adapter\n");
+			return NULL;
+		}
+
+		new_edid = drm_get_edid(connector, adapter);
+		if (!new_edid) {
+			DRM_ERROR("Get_hdmi cant read edid\n");
+			return NULL;
+		}
+
+		DRM_DEBUG_KMS("Live status up, got EDID");
+	}
+
+	return new_edid;
+}
+
+/*
+ * Encoder's Hot plug function
+ * Caller must hold mode_config mutex
+ * Read EDID based on Live status register
+ */
+void intel_hdmi_hot_plug(struct intel_encoder *intel_encoder)
+{
+	struct drm_encoder *encoder = &intel_encoder->base;
+	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(encoder);
+	struct drm_device *dev = encoder->dev;
+	struct drm_connector *connector = NULL;
+	struct edid *edid = NULL;
+	bool need_event = false;
+
+	connector = &intel_hdmi->attached_connector->base;
+
+	/*
+	 * We are here, means there is a HDMI hot-plug
+	 * Lets try to get EDID
+	 */
+	edid = intel_hdmi_get_edid(connector, false);
+	if (edid) {
+		if (connector->status == connector_status_connected) {
+			DRM_DEBUG_DRIVER("Hdmi: Monitor connected\n");
+			need_event = true;
+		}
+	} else {
+		if (connector->status == connector_status_disconnected) {
+			DRM_DEBUG_DRIVER("Hdmi: Monitor disconnected\n");
+			need_event = true;
+		}
+	}
+
+	/*
+	 * need_event
+	 * This check is required for HDMI compliance when a few
+	 * analyzers are capable of generating on-the-fly EDID,
+	 * and they just send a couple of connect and disconnect
+	 * events on EDID change.
+	 * Consider this case:
+	 * 1. HDMI connect event with EDID 1 with mode 1
+	 * 2. Bottom half calls hot_plug() and detect, connector
+	 * status = connected
+	 * 3. EDID switch to test EDID, first disconnect event
+	 * (This is smaller in duration)
+	 * 4. Bottom half calls hot_plug()
+	 * 5. By the time hot_plug gets schedules, connect call comes,
+	 * with new EDID
+	 * 6. Bottom half calls detect() which reports status = connected
+	 * again
+	 * 7. Bottom half checks previous status = current status =
+	 * connected so no event sent to userspace.
+	 * 8. In this way, the usp is never informed about EDID change,
+	 * so HDMI tests fail So if we are in HDMI hot_plug, there is
+	 * some event
+	 */
+	if (need_event) {
+		DRM_DEBUG_DRIVER("Sending self event");
+		intel_hdmi_send_uevent(dev, "HOTPLUG=1");
+	}
+
+	/* Update EDID, kfree is NULL protected */
 	kfree(intel_hdmi->edid);
-	intel_hdmi->edid = NULL;
-	connector->status = connector_status_disconnected;
+	intel_hdmi->edid = edid;
 }
 
 static enum drm_connector_status
@@ -1046,13 +1169,9 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 		hdmi_to_dig_port(intel_hdmi);
 	struct intel_encoder *intel_encoder = &intel_dig_port->base;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct i2c_adapter *i2c_adpter = NULL;
 	struct edid *edid = NULL;
 	enum intel_display_power_domain power_domain;
 	enum drm_connector_status status = connector_status_disconnected;
-#ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
-	bool inform_audio = false;
-#endif
 
 #ifdef CONFIG_EXTCON
 	struct intel_connector *intel_connector =
@@ -1071,42 +1190,15 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 		goto det_out;
 	}
 
-	/* Suppress spurious IRQ, if current status is same as live status */
-	status = hdmi_live_status(dev, intel_hdmi);
-	if (connector->status == status) {
-		status = connector->status;
-		goto det_out;
-	}
-
 	intel_hdmi->has_hdmi_sink = false;
 	intel_hdmi->has_audio = false;
 	intel_hdmi->rgb_quant_range_selectable = false;
 
-#ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
-	if (IS_VALLEYVIEW(dev)) {
-		/* Need to inform audio about the event */
-		if (intel_hdmi->has_audio)
-			inform_audio = true;
-		intel_hdmi->has_audio = false;
-	}
-#endif
-
-	/* Read EDID only if live status permits */
-	if (status == connector_status_connected) {
-		i2c_adpter = intel_gmbus_get_adapter(dev_priv,
-						intel_hdmi->ddc_bus);
-
-		if (i2c_adpter == NULL) {
-			DRM_ERROR("Can't get correct I2C [ddc_bus:%x]\n",
-					intel_hdmi->ddc_bus);
-		} else {
-			DRM_INFO("Probed [ddc_bus:%x]\n", intel_hdmi->ddc_bus);
-			edid = drm_get_edid(connector, i2c_adpter);
-		}
-	}
+	edid = intel_hdmi->edid;
 
 	if (edid) {
 		if (edid->input & DRM_EDID_INPUT_DIGITAL) {
+			status = connector_status_connected;
 			if (intel_hdmi->force_audio != HDMI_AUDIO_OFF_DVI)
 				intel_hdmi->has_hdmi_sink =
 						drm_detect_hdmi_monitor(edid);
@@ -1114,22 +1206,16 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 			intel_hdmi->rgb_quant_range_selectable =
 				drm_rgb_quant_range_selectable(edid);
 
-			/*
-			 * Free previously saved EDID and save new one
-			 * for read modes. kfree is NULL protected
-			 */
-			kfree(intel_hdmi->edid);
-			intel_hdmi->edid = edid;
+			DRM_DEBUG_DRIVER("Got edid, HDMI connected\n");
 		} else {
 			DRM_ERROR("No digital form EDID? Using stored one\n");
-			kfree(edid);
 			goto det_out;
 		}
 	} else {
-
-		/* HDMI is disconneted, so remove saved old EDID */
-		kfree(intel_hdmi->edid);
-		intel_hdmi->edid = NULL;
+		DRM_DEBUG_DRIVER("No edid, HDMI disconnected\n");
+		status = connector_status_disconnected;
+		intel_cleanup_modes(connector);
+		intel_hdmi->edid_mode_count = 0;
 	}
 
 	if (status == connector_status_connected) {
@@ -1153,11 +1239,9 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 #ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
 		if ((status != i915_hdmi_state) && (IS_VALLEYVIEW(dev))) {
 			/* Send a disconnect event to audio */
-			if (inform_audio) {
-				DRM_DEBUG_DRIVER("Sending event to audio");
-				mid_hdmi_audio_signal_event(dev_priv->dev,
-					HAD_EVENT_HOT_UNPLUG);
-			}
+			DRM_DEBUG_DRIVER("Sending event to audio");
+			mid_hdmi_audio_signal_event(dev_priv->dev,
+				HAD_EVENT_HOT_UNPLUG);
 		}
 #endif
 	}
@@ -1188,13 +1272,11 @@ det_out:
 
 static int intel_hdmi_get_modes(struct drm_connector *connector)
 {
-	int count = 0;
-	struct drm_display_mode *mode = NULL;
 	struct intel_encoder *intel_encoder = intel_attached_encoder(connector);
 	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(&intel_encoder->base);
 	struct drm_i915_private *dev_priv = connector->dev->dev_private;
 	enum intel_display_power_domain power_domain;
-	struct edid *edid = intel_hdmi->edid;
+	struct edid *edid = NULL;
 	int ret = 0;
 
 	/* We should parse the EDID data and find out if it's an HDMI sink so
@@ -1208,39 +1290,25 @@ static int intel_hdmi_get_modes(struct drm_connector *connector)
 	if (connector->status != connector_status_connected)
 		goto e_out;
 
-	/*
-	 * Need not to read modes again if previously read modes are
-	 * available and display is consistent
-	 */
-	if (connector->status) {
-		list_for_each_entry(mode, &connector->modes, head) {
-			if (mode) {
-				mode->status = MODE_OK;
-				count++;
-			}
-		}
-
-		/* If modes are available, no need to read again */
-		if (count) {
-			ret = count;
-			goto e_out;
-		}
-	}
+	DRM_DEBUG_DRIVER("Reading modes from EDID");
 
 	/*
 	 * EDID was saved in detect, re-use that if available, avoid
 	 * reading EDID everytime. If __unlikely(EDID not available),
 	 * read now
 	 */
+	edid =  intel_hdmi->edid;
 	if (edid) {
 		drm_mode_connector_update_edid_property(connector, edid);
 		ret = drm_add_edid_modes(connector, edid);
+#ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
 		drm_edid_to_eld(connector, edid);
-	} else {
-		ret = intel_ddc_get_modes(connector,
-			   intel_gmbus_get_adapter(dev_priv,
-			   intel_hdmi->ddc_bus));
+		hdmi_get_eld(connector->eld);
+#endif
 	}
+
+	/* Update the mode status */
+	intel_hdmi->edid_mode_count = ret;
 
 e_out:
 	intel_display_power_put(dev_priv, power_domain);
@@ -1837,6 +1905,21 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 		u32 temp = I915_READ(PEG_BAND_GAP_DATA);
 		I915_WRITE(PEG_BAND_GAP_DATA, (temp & ~0xf) | 0xd);
 	}
+
+	/* Load initialized connector */
+	intel_hdmi->attached_connector = intel_connector;
+
+	/*
+	 * Probe the first state of HDMI forcefully. This is required as
+	 * EDID read is happening only it hot_plug() functions, but in
+	 * few configurations kms or fb_console drivers call detect
+	 * not the hot_plug(). After init, we can detect plug-in/out in
+	 * hot-plug functions
+	 */
+	intel_hdmi->edid = intel_hdmi_get_edid(connector, true);
+
+	/* Update the first status */
+	connector->status = intel_hdmi_detect(connector, false);
 }
 
 #ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
@@ -1895,6 +1978,7 @@ void intel_hdmi_init(struct drm_device *dev, int hdmi_reg, enum port port)
 		intel_encoder->enable = intel_enable_hdmi;
 	}
 
+	intel_encoder->hot_plug = intel_hdmi_hot_plug;
 	intel_encoder->type = INTEL_OUTPUT_HDMI;
 	if (IS_CHERRYVIEW(dev)) {
 		if (port == PORT_D)

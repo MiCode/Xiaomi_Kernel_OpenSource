@@ -2153,7 +2153,16 @@ static void i9xx_hpd_irq_handler(struct drm_device *dev)
 	} else {
 		u32 hotplug_trigger = hotplug_status & HOTPLUG_INT_STATUS_I915;
 
-		intel_hpd_irq_handler(dev, hotplug_trigger, hpd_status_i915);
+		if (IS_VALLEYVIEW(dev)) {
+
+			/* Ignore short pulse interrupts */
+			if (!(hotplug_trigger & HPD_SHORT_PULSE)) {
+				intel_hpd_irq_handler(dev, hotplug_trigger,
+							hpd_status_i915);
+			}
+		} else
+			intel_hpd_irq_handler(dev, hotplug_trigger,
+							hpd_status_i915);
 	}
 
 	if ((IS_G4X(dev) || IS_VALLEYVIEW(dev)) &&
