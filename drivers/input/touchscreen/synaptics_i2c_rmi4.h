@@ -263,6 +263,7 @@ struct synaptics_rmi4_data {
 	struct early_suspend early_suspend;
 #endif
 #endif
+	struct pinctrl* ts_pinctrl;
 };
 
 enum exp_fn {

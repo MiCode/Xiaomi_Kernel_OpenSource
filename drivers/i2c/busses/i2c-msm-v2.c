@@ -2044,6 +2044,9 @@ static int i2c_msm_qup_rsrcs_init(struct platform_device *pdev,
 static bool i2c_msm_qup_slv_holds_bus(struct i2c_msm_ctrl *ctrl)
 {
 	u32 status = readl_relaxed(ctrl->rsrcs.base + QUP_I2C_STATUS);
+	bool ret = (!(status & QUP_I2C_SDA) && (status & QUP_BUS_ACTIVE) && !(status & QUP_BUS_MASTER));
+if (ret)
+	pr_err("SLAVE HOLDS BUS:status:0x%x", status);
 
 	return  !(status & QUP_I2C_SDA) &&
 		(status & QUP_BUS_ACTIVE) &&
@@ -2065,6 +2068,7 @@ static int i2c_msm_qup_poll_bus_active_unset(struct i2c_msm_ctrl *ctrl)
 	ulong timeout = jiffies + msecs_to_jiffies(I2C_MSM_MAX_POLL_MSEC);
 	int    ret      = 0;
 	size_t read_cnt = 0;
+u32 status;
 
 	do {
 		if (!(readl_relaxed(base + QUP_I2C_STATUS) & QUP_BUS_ACTIVE))
@@ -2073,6 +2077,8 @@ static int i2c_msm_qup_poll_bus_active_unset(struct i2c_msm_ctrl *ctrl)
 	} while (time_before_eq(jiffies, timeout));
 
 	ret = -EBUSY;
+status = readl_relaxed(base + QUP_I2C_STATUS);
+pr_err("active status is not cleared: status:0x%x,retries:%zu", status, read_cnt);
 
 poll_active_end:
 	/* second logged value is time-left before timeout or zero if expired */
@@ -2316,15 +2322,15 @@ static irqreturn_t i2c_msm_qup_isr(int irq, void *devid)
 			struct i2c_msg *cur_msg = ctrl->xfer.msgs +
 						ctrl->xfer.cur_buf.msg_idx;
 			dev_err(ctrl->dev,
-				"slave:0x%x is not responding (I2C-NACK) ensure the slave is powered and out of reset",
-				cur_msg->addr);
+				"slave:0x%x NACK i2c-status:0x%x,err:0x%x,op:0x%x", cur_msg->addr,i2c_status,err_flags, qup_op);
 
 			ctrl->xfer.err |= I2C_MSM_ERR_NACK;
 			dump_details = true;
 		}
 
-		if (i2c_status & QUP_ARB_LOST)
+		if (i2c_status & QUP_ARB_LOST) {
 			ctrl->xfer.err |= I2C_MSM_ERR_ARB_LOST;
+		}
 
 		if (i2c_status & QUP_BUS_ERROR)
 			ctrl->xfer.err |= I2C_MSM_ERR_BUS_ERR;
@@ -2357,7 +2363,7 @@ static irqreturn_t i2c_msm_qup_isr(int irq, void *devid)
 			signal_complete = true;
 	}
 
-	if (dump_details && (ctrl->dbgfs.dbg_lvl >= MSM_DBG)) {
+	if (dump_details) {
 		dev_info(ctrl->dev,
 				"irq:%d transfer details and reg dump\n", irq);
 		i2c_msm_dbg_xfer_dump(ctrl);
@@ -2467,7 +2473,7 @@ static int i2c_msm_qup_init(struct i2c_msm_ctrl *ctrl)
 /*
  * i2c_msm_qup_do_bus_clear: issue QUP bus clear command
  */
-static bool i2c_msm_qup_do_bus_clear(struct i2c_msm_ctrl *ctrl)
+static int i2c_msm_qup_do_bus_clear(struct i2c_msm_ctrl *ctrl)
 {
 	int ret;
 	dev_info(ctrl->dev, "Executing bus recovery procedure (9 clk pulse)\n");
@@ -2486,6 +2492,7 @@ static bool i2c_msm_qup_do_bus_clear(struct i2c_msm_ctrl *ctrl)
 		return ret;
 
 	writel_relaxed(0x1, ctrl->rsrcs.base + QUP_I2C_MASTER_BUS_CLR);
+	usleep_range(100, 100);
 	return 0;
 }
 
@@ -2509,6 +2516,7 @@ static int i2c_msm_qup_post_xfer(struct i2c_msm_ctrl *ctrl, int err)
 			if (i2c_msm_qup_slv_holds_bus(ctrl))
 				i2c_msm_qup_do_bus_clear(ctrl);
 
+pr_err("err bits for ctrl:0x%x", ctrl->xfer.err);
 			if (!err)
 				err = -EIO;
 		}

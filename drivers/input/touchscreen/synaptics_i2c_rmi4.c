@@ -27,6 +27,7 @@
 #include <linux/input.h>
 #include <linux/gpio.h>
 #include <linux/regulator/consumer.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/input/synaptics_dsx.h>
 #include <linux/of_gpio.h>
 #include "synaptics_i2c_rmi4.h"
@@ -726,8 +727,11 @@ static int synaptics_rmi4_set_page(struct synaptics_rmi4_data *rmi4_data,
 				break;
 			}
 		}
-	} else
+	} else {
 		return PAGE_SELECT_LEN;
+	}
+	printk(" Returning from synaptics_rmi4_set_page with retry limit : %d \n", retry);
+
 	return (retval == PAGE_SELECT_LEN) ? retval : -EIO;
 }
 
@@ -763,7 +767,7 @@ static int synaptics_rmi4_i2c_read(struct synaptics_rmi4_data *rmi4_data,
 	};
 
 	buf = addr & MASK_8BIT;
-
+	printk(" Inside synaptics_rmi4_i2c_read with requested length : %d  \n", length);
 	mutex_lock(&(rmi4_data->rmi4_io_ctrl_mutex));
 
 	retval = synaptics_rmi4_set_page(rmi4_data, addr);
@@ -791,6 +795,7 @@ static int synaptics_rmi4_i2c_read(struct synaptics_rmi4_data *rmi4_data,
 exit:
 	mutex_unlock(&(rmi4_data->rmi4_io_ctrl_mutex));
 
+	printk(" Returned from synaptics_rmi4_i2c_read with requested length : %d  and retry : %d \n", length, retry);
 	return retval;
 }
 
@@ -911,6 +916,7 @@ static int synaptics_rmi4_f11_abs_report(struct synaptics_rmi4_data *rmi4_data,
 	int wy;
 	int z;
 
+	printk(" Inside f11_abs_report \n");
 	/*
 	 * The number of finger status registers is determined by the
 	 * maximum number of fingers supported - 2 bits per finger. So
@@ -1046,7 +1052,7 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 	struct synaptics_rmi4_f12_finger_data *data;
 	struct synaptics_rmi4_f12_finger_data *finger_data;
 
-	fingers_to_process = fhandler->num_of_data_points;
+	fingers_to_process = 2;//fhandler->num_of_data_points;
 	data_addr = fhandler->full_addr.data_base;
 	extra_data = (struct synaptics_rmi4_f12_extra_data *)fhandler->extra;
 	size_of_2d_data = sizeof(struct synaptics_rmi4_f12_finger_data);
@@ -1090,7 +1096,7 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 			if (rmi4_data->flip_y)
 				y = rmi4_data->sensor_max_y - y;
 
-			dev_dbg(&rmi4_data->i2c_client->dev,
+			dev_info(&rmi4_data->i2c_client->dev,
 					"%s: Finger %d:\n"
 					"status = 0x%02x\n"
 					"x = %d\n"
@@ -1246,7 +1252,7 @@ static void synaptics_rmi4_report_touch(struct synaptics_rmi4_data *rmi4_data,
 {
 	unsigned char touch_count_2d;
 
-	dev_dbg(&rmi4_data->i2c_client->dev,
+	dev_info(&rmi4_data->i2c_client->dev,
 			"%s: Function %02x reporting\n",
 			__func__, fhandler->fn_number);
 
@@ -1315,6 +1321,7 @@ static int synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data)
 	if (retval < 0)
 		return retval;
 
+	printk(" Inside synaptics_rmi4_sensor_report : %d \n ", intr[0]);
 	/*
 	 * Traverse the function handler list and service the source(s)
 	 * of the interrupt accordingly.
@@ -1360,6 +1367,7 @@ static irqreturn_t synaptics_rmi4_irq(int irq, void *data)
 {
 	struct synaptics_rmi4_data *rmi4_data = data;
 
+	printk(" Inside synaptics_irq \n");
 	synaptics_rmi4_sensor_report(rmi4_data);
 
 	return IRQ_HANDLED;
@@ -2600,6 +2608,7 @@ static int synaptics_rmi4_regulator_configure(struct synaptics_rmi4_data
 			}
 		}
 	}
+	msleep(100);
 	return 0;
 
 err_set_vtg_i2c:
@@ -2742,6 +2751,7 @@ static int synaptics_rmi4_gpio_configure(struct synaptics_rmi4_data *rmi4_data,
 
 			gpio_set_value(rmi4_data->board->reset_gpio, 1);
 			msleep(rmi4_data->board->reset_delay);
+			msleep(100);
 		} else
 			synaptics_rmi4_reset_command(rmi4_data);
 
@@ -2809,6 +2819,7 @@ static int synaptics_rmi4_probe(struct i2c_client *client,
 	struct synaptics_rmi4_platform_data *platform_data =
 			client->dev.platform_data;
 	struct dentry *temp;
+	struct pinctrl_state* set_state;
 
 	if (!i2c_check_functionality(client->adapter,
 			I2C_FUNC_SMBUS_BYTE_DATA)) {
@@ -2911,6 +2922,26 @@ static int synaptics_rmi4_probe(struct i2c_client *client,
 		goto err_power_device;
 	}
 
+	/* Get pinctrl if target uses pinctrl */
+	rmi4_data->ts_pinctrl = devm_pinctrl_get(&(client->dev));
+	if (IS_ERR(rmi4_data->ts_pinctrl)) {
+		if (PTR_ERR(rmi4_data->ts_pinctrl) == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
+		pr_debug("Target does not use pinctrl\n");
+		rmi4_data->ts_pinctrl = NULL;
+	}
+	pr_info(" after pinctrl_get \n");
+	if (rmi4_data->ts_pinctrl) {
+		set_state =
+			pinctrl_lookup_state(rmi4_data->ts_pinctrl, "pmx_ts_active");
+		if (IS_ERR(set_state)) {
+			pr_info("cannot get ts pinctrl active state\n");
+		retval = pinctrl_select_state(rmi4_data->ts_pinctrl, set_state);
+		if (retval) {
+pr_info("cannot set ts pinctrl active state\n");
+			}
+		}
+	}
 	retval = synaptics_rmi4_gpio_configure(rmi4_data, true);
 	if (retval < 0) {
 		dev_err(&client->dev, "Failed to configure gpios\n");
@@ -3544,6 +3575,7 @@ static int synaptics_rmi4_check_configuration(struct synaptics_rmi4_data
 #ifdef CONFIG_PM
 static int synaptics_rmi4_suspend(struct device *dev)
 {
+#if 0
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 	int retval;
 
@@ -3587,9 +3619,9 @@ static int synaptics_rmi4_suspend(struct device *dev)
 		}
 	}
 	rmi4_data->suspended = true;
-
+#endif
 	return 0;
-
+#if 0
 err_gpio_configure:
 	synaptics_rmi4_regulator_lpm(rmi4_data, false);
 
@@ -3601,6 +3633,7 @@ err_lpm_regulator:
 	}
 
 	return retval;
+#endif
 }
 
  /**
@@ -3615,6 +3648,7 @@ err_lpm_regulator:
  */
 static int synaptics_rmi4_resume(struct device *dev)
 {
+#if 0	
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 	int retval;
 
@@ -3665,6 +3699,8 @@ err_gpio_configure:
 	wake_up(&rmi4_data->wait);
 
 	return retval;
+#endif	
+	return 0;
 }
 
 #if (!defined(CONFIG_FB) && !defined(CONFIG_HAS_EARLYSUSPEND))
@@ -3728,6 +3764,10 @@ static struct i2c_driver synaptics_rmi4_driver = {
  */
 static int __init synaptics_rmi4_init(void)
 {
+	printk(" Inside init of synaptics driver \n");
+	printk(" Inside init of synaptics driver \n");
+	printk(" Inside init of synaptics driver \n");
+	printk(" Inside init of synaptics driver \n");
 	return i2c_add_driver(&synaptics_rmi4_driver);
 }
 
