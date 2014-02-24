@@ -79,7 +79,8 @@
 #define MSMFB_WRITEBACK_SET_MIRRORING_HINT _IOW(MSMFB_IOCTL_MAGIC, 167, \
 						unsigned int)
 #define MSMFB_ASYNC_BLIT              _IOW(MSMFB_IOCTL_MAGIC, 168, unsigned int)
-
+#define MSMFB_OVERLAY_PREPARE		_IOWR(MSMFB_IOCTL_MAGIC, 169, \
+						struct mdp_overlay_list)
 #define FB_TYPE_3D_PANEL 0x10101010
 #define MDP_IMGTYPE2_START 0x10000
 #define MSMFB_DRIVER_VERSION	0xF9E8D701
@@ -811,6 +812,7 @@ enum {
 
 #define MDSS_MAX_BL_BRIGHTNESS 255
 #define AD_BL_LIN_LEN 256
+#define AD_BL_ATT_LUT_LEN 33
 
 #define MDSS_AD_MODE_AUTO_BL	0x0
 #define MDSS_AD_MODE_AUTO_STR	0x1
@@ -839,9 +841,13 @@ struct mdss_ad_init {
 	uint16_t frame_h;
 	uint8_t logo_v;
 	uint8_t logo_h;
+	uint32_t alpha;
+	uint32_t alpha_base;
 	uint32_t bl_lin_len;
+	uint32_t bl_att_len;
 	uint32_t *bl_lin;
 	uint32_t *bl_lin_inv;
+	uint32_t *bl_att_lut;
 };
 
 #define MDSS_AD_BL_CTRL_MODE_EN 1
@@ -965,6 +971,8 @@ struct mdss_hw_caps {
 	uint8_t rgb_pipes;
 	uint8_t vig_pipes;
 	uint8_t dma_pipes;
+	uint8_t max_smp_cnt;
+	uint8_t smp_per_pipe;
 	uint32_t features;
 };
 
@@ -1008,6 +1016,24 @@ struct mdp_display_commit {
 	uint32_t wait_for_finish;
 	struct fb_var_screeninfo var;
 	struct mdp_rect roi;
+};
+
+/**
+* struct mdp_overlay_list - argument for ioctl MSMFB_OVERLAY_PREPARE
+* @num_overlays:	Number of overlay layers as part of the frame.
+* @overlay_list:	Pointer to a list of overlay structures identifying
+*			the layers as part of the frame
+* @flags:		Flags can be used to extend behavior.
+* @processed_overlays:	Output parameter indicating how many pipes were
+*			successful. If there are no errors this number should
+*			match num_overlays. Otherwise it will indicate the last
+*			successful index for overlay that couldn't be set.
+*/
+struct mdp_overlay_list {
+	uint32_t num_overlays;
+	struct mdp_overlay **overlay_list;
+	uint32_t flags;
+	uint32_t processed_overlays;
 };
 
 struct mdp_page_protection {

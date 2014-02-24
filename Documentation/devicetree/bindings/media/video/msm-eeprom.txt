@@ -57,6 +57,7 @@ Optional properties:
 - qcom,pageen%d : number %d page enable reg size, start address, address type,
     data, data type, delay in ms. size 0 stand for not used.
 - cam_vdig-supply : should contain regulator to be used for the digital vdd.
+- qcom,saddr%d : property should specify the slave address for block (%d).
 
 Optional properties -EEPROM Camera Multimodule
 - qcom,mm-data-support - Camera Multimodule data capability flag.
@@ -82,6 +83,7 @@ Example:
         qcom,pageen1 = <1 0x0202 2 0x01 1 10>;
         qcom,poll1 = <0 0x0 2 0 1 1>;
         qcom,mem1 = <32 0x3000 2 0 1 0>;
+        qcom,saddr1 = <0x62>;
 
 	qcom,mm-data-support;
 	qcom,mm-data-compressed;

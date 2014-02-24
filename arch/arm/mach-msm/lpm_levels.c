@@ -754,7 +754,7 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	do_div(time, 1000);
 	dev->last_residency = (int)time;
 	local_irq_enable();
-	return index;
+	return idx;
 }
 
 static int lpm_suspend_enter(suspend_state_t state)
