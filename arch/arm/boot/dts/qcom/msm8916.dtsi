@@ -556,8 +556,8 @@
                 compatible = "qcom,rpm-smd";
                 rpm-channel-name = "rpm_requests";
                 rpm-channel-type = <15>; /* SMD_APPS_RPM */
-		rpm-standalone; /* TODO: remove this after bring up */
-        };
+		rpm-standalone;
+	};
 
 	qcom,bam_dmux@4044000 {
 		compatible = "qcom,bam_dmux";
@@ -599,6 +599,7 @@
 			"AMIC1", "MIC BIAS External",
 			"AMIC2", "MIC BIAS Internal2",
 			"AMIC3", "MIC BIAS External";
+			status = "disabled";
 	};
 
 	qcom,msm-pcm {
@@ -1018,7 +1019,8 @@
                 qcom,bam-consumer-pipe-index = <8>;
                 qcom,bam-producer-pipe-index = <9>;
                 qcom,master-id = <86>;
-        };
+		status = "disabled";
+	};
 
 	i2c_0: i2c@78b6000 { /* BLSP1 QUP2 */
 		compatible = "qcom,i2c-msm-v2";
@@ -1040,6 +1042,7 @@
 		qcom,bam-pipe-idx-cons = <6>;
 		qcom,bam-pipe-idx-prod = <7>;
 		qcom,master-id = <86>;
+		status = "disabled";
 	};
 
 	spmi_bus: qcom,spmi@200f000 {
