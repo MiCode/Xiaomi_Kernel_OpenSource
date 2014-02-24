@@ -324,12 +324,12 @@ struct mxt_data {
 	bool suspended;
 };
 
-static inline size_t mxt_obj_size(const struct mxt_object *obj)
+static inline unsigned int mxt_obj_size(const struct mxt_object *obj)
 {
 	return obj->size_minus_one + 1;
 }
 
-static inline size_t mxt_obj_instances(const struct mxt_object *obj)
+static inline unsigned int mxt_obj_instances(const struct mxt_object *obj)
 {
 	return obj->instances_minus_one + 1;
 }
@@ -784,7 +784,7 @@ static int __mxt_write_reg(struct i2c_client *client, u16 reg, u16 len,
 			   const void *val)
 {
 	u8 *buf;
-	size_t count;
+	int count;
 	int ret;
 	bool retry = false;
 
@@ -1551,7 +1551,7 @@ static int mxt_check_reg_init(struct mxt_data *data)
 	int cfg_start_ofs;
 	u32 info_crc, config_crc, calculated_crc;
 	u8 *config_mem;
-	size_t config_mem_size;
+	unsigned int config_mem_size;
 	unsigned int type, instance, size;
 	u8 val;
 	u16 reg;
@@ -2026,7 +2026,7 @@ static int mxt_read_info_block(struct mxt_data *data)
 {
 	struct i2c_client *client = data->client;
 	int error;
-	size_t size;
+	u16 size;
 	void *buf;
 	uint8_t num_objects;
 	u32 calculated_crc;
@@ -2969,7 +2969,7 @@ static int mxt_load_fw(struct device *dev)
 	if (ret)
 		goto disable_irq;
 
-	dev_info(dev, "Sent %d frames, %zd bytes\n", frame, pos);
+	dev_info(dev, "Sent %d frames, %u bytes\n", frame, pos);
 
 	/* Wait for device to reset. Some bootloader versions do not assert
 	 * the CHG line after bootloading has finished, so ignore error */
