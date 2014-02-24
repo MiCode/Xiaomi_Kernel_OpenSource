@@ -752,6 +752,7 @@ static void ccid_bridge_disconnect(struct usb_interface *intf)
 	}
 
 	ccid->intf = NULL;
+	usb_put_dev(ccid->udev);
 
 	mutex_unlock(&ccid->event_mutex);
 	mutex_unlock(&ccid->read_mutex);
