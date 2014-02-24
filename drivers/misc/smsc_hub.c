@@ -402,6 +402,8 @@ static int smsc_hub_enable(struct hsic_hub *hub)
 
 	pm_runtime_allow(hub->dev);
 
+	return 0;
+
 reset:
 	gpio_direction_output(pdata->hub_reset, 0);
 disable_xo:
