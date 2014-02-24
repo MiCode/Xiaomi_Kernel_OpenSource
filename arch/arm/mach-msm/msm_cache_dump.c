@@ -138,11 +138,11 @@ static int msm_cache_dump_probe(struct platform_device *pdev)
 	l2_dump_entry.start_addr = msm_cache_dump_addr + l1_size;
 	l2_dump_entry.end_addr = l2_dump_entry.start_addr + l2_size - 1;
 
-	ret = msm_dump_table_register(&l1_dump_entry);
+	ret = msm_dump_tbl_register(&l1_dump_entry);
 	if (ret)
 		pr_err("Could not register L1 dump area: %d\n", ret);
 
-	ret = msm_dump_table_register(&l2_dump_entry);
+	ret = msm_dump_tbl_register(&l2_dump_entry);
 	if (ret)
 		pr_err("Could not register L2 dump area: %d\n", ret);
 

@@ -1726,7 +1726,7 @@ static int tmc_probe(struct platform_device *pdev)
 		dump.id = MSM_TMC_ETFETB + etfetb_count;
 		dump.start_addr = virt_to_phys(baddr);
 		dump.end_addr = dump.start_addr + PAGE_SIZE + drvdata->size;
-		ret = msm_dump_table_register(&dump);
+		ret = msm_dump_tbl_register(&dump);
 		/*
 		 * Don't free the buffer in case of error since it can still
 		 * be used to provide dump collection via the device node or
@@ -1744,7 +1744,7 @@ static int tmc_probe(struct platform_device *pdev)
 		dump.id = MSM_TMC0_REG + count;
 		dump.start_addr = virt_to_phys(baddr);
 		dump.end_addr = dump.start_addr + PAGE_SIZE + reg_size;
-		ret = msm_dump_table_register(&dump);
+		ret = msm_dump_tbl_register(&dump);
 		/*
 		 * Don't free the buffer in case of error since it can still
 		 * be used to dump registers as part of abort to aid post crash

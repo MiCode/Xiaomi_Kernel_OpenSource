@@ -378,7 +378,7 @@ static void configure_bark_dump(struct msm_watchdog_data *wdog_dd)
 		dump_entry.id = MSM_CPU_CTXT;
 		dump_entry.start_addr = virt_to_phys(wdog_dd->scm_regsave);
 		dump_entry.end_addr = dump_entry.start_addr + PAGE_SIZE;
-		ret = msm_dump_table_register(&dump_entry);
+		ret = msm_dump_tbl_register(&dump_entry);
 		if (ret)
 			pr_err("Setting cpu dump region failed\n"
 				"Registers wont be dumped during cpu hang\n");
