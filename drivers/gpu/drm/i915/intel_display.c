@@ -13124,7 +13124,7 @@ int i915_enable_plane_reserved_reg_bit_2(struct drm_device *dev, void *data,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_i915_enable_plane_reserved_reg_bit_2 *rrb = data;
 	u32 enable = rrb->enable;
-	u32 val, reg;
+	u32 val,reg=0;
 	u32 surface_id;
 	struct intel_plane *intel_plane;
 
@@ -13134,25 +13134,44 @@ int i915_enable_plane_reserved_reg_bit_2(struct drm_device *dev, void *data,
 
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return -ENODEV;
-
-	/* crtc_id is not for Plane*/
-	drmmode_obj = drm_mode_object_find(dev, rrb->plane,
-			DRM_MODE_OBJECT_PLANE);
-
-	if (drmmode_obj) {
-		intel_plane = to_intel_plane(obj_to_plane(drmmode_obj));
-		surface_id = intel_plane->pipe;
-		reg = SPRSURF(surface_id);
-	} else {
+	if (IS_HASWELL(dev)) {
+		/* crtc_id is not for Plane*/
 		drmmode_obj = drm_mode_object_find(dev, rrb->plane,
-				DRM_MODE_OBJECT_CRTC);
+				DRM_MODE_OBJECT_PLANE);
+
 		if (drmmode_obj) {
-			crtc = to_intel_crtc(obj_to_crtc(drmmode_obj));
-			surface_id = crtc->plane;
-			reg = DSPSURF(surface_id);
+			intel_plane = to_intel_plane(obj_to_plane(drmmode_obj));
+			surface_id = intel_plane->pipe;
+			reg = SPRSURF(surface_id);
 		} else {
-			DRM_ERROR("no such CRTC id for Plane or Sprite\n");
-			return -EINVAL;
+			drmmode_obj = drm_mode_object_find(dev, rrb->plane,
+					DRM_MODE_OBJECT_CRTC);
+			if (drmmode_obj) {
+				crtc = to_intel_crtc(obj_to_crtc(drmmode_obj));
+				surface_id = crtc->plane;
+				reg = DSPSURF(surface_id);
+			} else {
+				DRM_ERROR("no such CRTC id for Plane or Sprite\n");
+				return -EINVAL;
+			}
+		}
+	}
+	if (IS_VALLEYVIEW(dev)) {
+		rrb->plane = rrb->plane - 2;
+		switch (rrb->plane) {
+		case SPRITEA: /* SPRITE A */
+			reg = SPSURF(0, 0);
+			break;
+		case SPRITEB: /* SPRITE B */
+			reg = SPSURF(0, 1);
+			break;
+		case SPRITEC: /* SPRITE C */
+			reg = SPSURF(1, 0);
+			break;
+		case SPRITED: /* SPRITE D */
+			reg = SPSURF(1, 1);
+			break;
+		default: return -EINVAL;
 		}
 	}
 
