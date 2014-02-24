@@ -194,10 +194,7 @@ u32 mdss_mdp_fb_stride(u32 fb_index, u32 xres, int bpp)
 	   is writing directly to fb0, the framebuffer pitch
 	   also needs to be 32 pixel aligned */
 
-	if (fb_index == 0)
-		return ALIGN(xres, 32) * bpp;
-	else
-		return xres * bpp;
+	return xres * bpp;
 }
 
 static inline int mdss_irq_dispatch(u32 hw_ndx, int irq, void *ptr)
