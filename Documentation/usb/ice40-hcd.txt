@@ -1,0 +1,257 @@
+Introduction
+============
+
+USB UICC connectivity is required for MSM8x12. This SoC has only 1 USB
+controller which is used for peripheral mode and charging. Hence an external
+USB host controller over SPI is used to connect a USB UICC card. ICE40 FPGA
+based SPI to IC-USB (Inter-Chip USB) bridge chip is used.
+
+The ICE40 Host controller driver (ice40-hcd) is registered as a SPI protocol
+driver and interacts with the SPI subsystem on one side and interacts with the
+USB core on the other side.
+
+Hardware description
+====================
+
+The ICE40 devices are SRAM-based FPGAs. The SRAM memory cells are volatile,
+meaning that once power is removed from the device, its configuration is lost
+and must be reloaded on the next power-up. An on-chip non-volatile configuration
+memory or an external SPI flash are not used to store the configuration data due
+to increased power consumption.  Instead, the software loads the configuration
+data through SPI interface after powering up the bridge chip. Once the
+configuration data is programmed successfully, the bridge chip will be ready for
+the USB host controller operations.
+
+The ICE40 device has an interrupt signal apart from the standard SPI signals
+CSn, SCLK, MOSI and MISO. It has support for 25 to 50 MHz frequencies. The
+maximum operating frequency during configuration loading is 25 MHz.
+
+The bridge chip requires two power supplies, SPI_VCC (1.8v - 3.3v) and VCC_CORE
+(1.2v). The SPI_VCC manages the SPI slave portion and VCC_CORE manages the USB
+serial engine (SIE) portion.  It requires a 19.2 MHz reference clock and a
+32 MHz clock is required for remote wakeup detection during suspend.
+
+The configuration loading sequence:
+
+- Assert the RSTn pin. This keeps bridge chip in reset state after downloading
+the configuration data.
+- The bridge chip samples the SPI interface chip select pin during power-up and
+enters SPI slave mode if it is low. Drive the chip select pin low before
+powering up the bridge chip.
+- Power-up the bridge chip by enabling SPI_VCC and VCC_CORE
+- De-assert the chip select pin after 50 usec.
+- Transfer the configuration data over SPI. Note that the bridge chip requires
+49 dummy clock cycles after sending the data.
+- The bridge chip indicates the status of the configuration loading via config
+done pin. It may take 50 usec to assert this pin.
+
+The 19.2 MHz clock should be supplied before de-asserting the RSTn pin. A PLL
+is used to generate a 48MHz clock signal that then creates a 12MHz clock signal
+by a divider. When the PLLOK bit is set in USB Transfer Result register, it
+indicates that the PLL output is locked to the input reference clock. When it
+is 0, it indicates that the PLL is out of lock. It is recommended to assert the
+RSTn pin to re-synchronize the PLL to the reference clock when the PLL loses
+lock. The chip will be ready for the USB host controller operations after it is
+brought out of reset and PLL is synchronized to the reference clock.
+
+The software is responsible for initiating all the USB host transfers by writing
+the associated registers. The SIE in the bridge chip performs the USB host
+operations via the IC-USB bus based on the registers set by the software. The
+USB transfer results as well as the bus status like the peripheral connection,
+disconnection, resume, etc. are notified to software through the interrupt and
+the internal registers.
+
+The bridge chip provides the DP & DM pull-down resistor control to the software.
+The pull-down resistors are enabled automatically after the power up to force
+the SE0 condition on the bus. The software is required to disable these
+resistors before driving the reset on the bus. Control, Bulk and Interrupt
+transfers are supported. The data toggling states are not maintained in the
+hardware and should be serviced by the software. The bridge chip returns
+one of the following values for a USB transaction (SETUP/IN/OUT) via Transfer
+result register.
+
+xSUCCESS: Successful transfer.
+xBUSY: The SIE is busy with a USB transfer.
+xPKTERR: Packet Error (stuff, EOP).
+xPIDERR: PID check bits are incorrect.
+xNAK: Device returned NAK. This is not an error condition for IN/OUT. But it
+is an error condition for SETUP.
+xSTALL: Device returned STALL.
+xWRONGPID: Wrong PID is received. For example a IN transaction is attempted on
+OUT endpoint.
+xCRCERR: CRC error.
+xTOGERR: Toggle bit error. The SIE returns ACK when the toggle mismatch happens
+for IN transaction  and returns this error code. Software should discard the
+data as it was received already in the previous transaction.
+xBADLEN: Too big packet size received.
+xTIMEOUT: Device failed to respond in time.
+
+Software description
+====================
+
+This driver is compiled as a module and is loaded by the userspace after
+getting the UICC card insertion event from the modem processor. The module is
+unloaded upon the UICC card removal.
+
+This driver registers as a SPI protocol driver. The SPI controller driver
+manages the chip select pin. This pin needs to be driven low before powering
+up the bridge chip. Hence this pin settings are overridden temporarily during
+the bridge chip power-up sequence. The original settings are restored before
+sending the configuration data to the bridge chip which acts as a SPI slave.
+Both pinctl and gpiomux framework allow this type of use case.
+
+The configuration data file is stored on the eMMC card. Firmware class API
+request_firmware() is used to read the configuration data file. The
+configuration data is then sent to the bridge chip via SPI interface. The
+bridge chip asserts the config done pin once the configuration is completed.
+This configuration data file is cached in kernel memory to improve the resume
+latency.
+
+The driver registers as a Full Speed (USB 1.1) HCD. The following methods
+are implemented that are part of hc_drive struct:
+
+reset: It is called one time by the core during HCD registration. The
+default address 0 is programmed and the line state is sampled to check if any
+device is connected. If any device is connected, the port flags are updated
+accordingly. As the module is loaded after the UICC card is inserted, the
+device would be present at this time. If the card is not inserted, this
+method returns an error code to fail the USB HCD registration.
+
+start: This method is called one time by the core during HCD registration.
+The bridge chip is programmed to transmit the SOFs.
+
+stop: The method is called one time by the core during HCD deregistration.
+The bridge chip is programmed to stop transmitting the SOFs.
+
+hub_control: This method is called by the core to manage the Root HUB. The
+hardware does not maintain port state.  The software maintain the port
+state and provide the information to the core when required.  The following
+HUB class requests are supported.
+
+- GetHubDescriptor: The HUB descriptor is sent to the core. Only 1 port
+is present. Over current protection and port power control are not supported.
+- SetPortFeature: The device reset and suspend are supported. The The DP & DM
+pull-down resistors are disabled before driving the reset as per the IC-USB
+spec. The reset signaling is stopped when the core queries the port status.
+- GetPortStatus: The device connection status is sent to the core.  If a reset
+is in progress, it is stopped before returning the port status.
+- ClearPortFeature: The device resume (clear suspend) is supported.
+
+urb_enqueue: This method is called by the core to initiate a USB Control/Bulk
+transfer.  If the endpoint private context is not present, it will be created to
+hold the endpoint number, host endpoint structure, transaction error count, halt
+state and unlink state. The URB is attached to the endpoint URB list. If the
+endpoint is not active, it is attached to the asynchronous schedule list and the
+work is scheduled to traverse this list. The traversal algorithm is explained
+later in this document.
+
+urb_dequeue: This method is called by the core when an URB is unlinked.  If the
+endpoint is not active, the URB is unlinked immediately.  Otherwise the endpoint
+is marked for unlink and URB is unlinked from the asynchronous schedule work.
+
+bus_suspend: This method is called by the core during root hub suspend. The SOFs
+are stopped to put the card in suspend state. The card takes ~3 msec to enter
+suspend. Turn off the SPI_VCC and VCC_CORE power supplies to avoid leakage
+current. The card state will not be lost as it has a different power supply.
+
+bus_resume: This method is called by the core during root hub resume. The
+configuration data must be loaded again as the bridge is power collapsed
+during suspend. Drive the resume signaling after loading the configuration
+data.
+
+endpoint_disable: This method is called by the core during the device
+disconnect. All the URB are unlinked by this time, so free the endpoint private
+structure.
+
+Asynchronous scheduling:
+
+All the active endpoints are queued to the asynchronous schedule list. A worker
+thread iterates over this circular list and process the URBs. Processing an URB
+involves initiating multiple SETUP/IN/OUT transactions and checking the result.
+After receiving the DATA/ACK, the toggle bit is inverted.
+
+A URB is finished when any of the following events occur:
+
+- The entire data is received for an OUT endpoint or a short packet is received
+for an IN endpoint.
+- The endpoint is stalled by the device. -EPIPE is returned.
+- Transaction error is occurred consecutively 3 times. -EPROTO is returned.
+- A NAK received for a SETUP transaction.
+- The URB is unlinked.
+
+The next transaction is issued on the next endpoint (if available) irrespective
+of the result of the current transaction.  But the IN/OUT transaction of data
+or status phase is attempted immediately after the SETUP transaction for a
+control endpoint. If a NAK is received for this transaction, the control
+transfer is resumed next time when the control endpoint is encountered in the
+asynchronous schedule list. This is to give the control transfers priority
+over the bulk transfers.
+
+The endpoint is marked as halted when a URB is finished due to transaction
+errors or stall condition. The halted endpoint is removed from the asynchronous
+schedule list.  It will be added again next time when a URB is enqueued on this
+endpoint.
+
+This driver provides debugfs interface and exports a file called "command" under
+<debugfs root>/ice40 directory.  The following strings can be echoed to this
+file.
+
+"poll": If the device is connected after the module is loaded, it will not be
+detected automatically. The bus is sampled when this string is echoed. If a
+device is connected, port flags are updated and core is notified about the
+device connect event.
+
+"force_disconnect": Echo this string to forcefully disconnect the attached
+device. This can be used to simulate the UICC card disconnect. Echo "poll"
+again to enumerate the card.
+
+"rwtest": Function Address register is written and read back to validate the
+contents. This should NOT be used while the usb device is connected. This is
+strictly for debugging purpose.
+
+Design Goals:
+=============
+
+- Handle errors gracefully. Implement retry mechanism for transaction errors,
+memory failures. Mark HCD as dead for serious errors like SPI transaction
+errors to avoid further interactions with the attached USB device.
+- Keep the asynchronous schedule algorithm simple and efficient. Take advantage
+of the static configuration of the USB device. UICC cards has only CCID and Mass
+storage interfaces. These interface protocol allows only 1 active transfer on
+either in or out endpoint.
+- Add trace points to capture USB transactions.
+
+Driver parameters
+=================
+
+The driver is compiled as a module and it accepts the configuration data file
+name as a module param called "firmware". The default configuration file name
+is "ice40.bin".
+
+The debugger module param allows the user to load the module without inserting
+the card. The module load will fail otherwise without a card.
+
+Config options
+==============
+
+Set CONFIG_USB_ICE40_HCD to m to compile this driver as a module.  The driver
+should not be compiled statically, because the configuration data is not
+available during kernel boot.
+
+To do
+=====
+
+- The bridge chip has 2 IN FIFO and 2 OUT FIFO.  Implement double buffering.
+- The bridge chip has an interrupt to indicate the transaction (IN/OUT)
+completion. The current implementation uses polling for simplicity and to avoid
+interrupt latencies.  Evaluate interrupt approach.
+- The bridge chip is completely power collapsed during suspend to avoid leakage
+current. Remote wakeup can not be supported with this approach. The bridge
+chip needs to be powered on during suspend to detect the remote wakeup.
+Implement this feature if cards can support remote wakeup.
+- Implement Interrupt transfers if required.
+- The request_firmware() API copies the configuration data file to the kernel
+virtual memory. This memory can't be used for DMA. The current implementation
+copies this data into contiguous physical memory which is allocated via
+kmalloc. If this memory allocation fails, try to allocate multiple pages
+and submit the SPI message with multiple transfers.
