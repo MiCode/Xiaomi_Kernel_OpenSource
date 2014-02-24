@@ -247,6 +247,14 @@ config MSM_MEMORY_DUMP
 	  of deadlocks or cpu hangs these dump regions are captured to
 	  give a snapshot of the system at the time of the crash.
 
+config MSM_MEMORY_DUMP_V2
+	bool "MSM Memory Dump v2 Support"
+	help
+	  This enables memory dump feature. It allows various client
+	  subsystems to register respective dump regions. At the time
+	  of deadlocks or cpu hangs these dump regions are captured to
+	  give a snapshot of the system at the time of the crash.
+
 config MSM_WATCHDOG_V2
 	bool "MSM Watchdog Support"
 	help
