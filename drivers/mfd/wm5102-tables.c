@@ -138,30 +138,11 @@ static const struct {
 	{ wm5102t_pwr_4, ARRAY_SIZE(wm5102t_pwr_4) },
 };
 
-static int wm5102_apply_patch(struct arizona *arizona,
-			      const struct reg_default *wm5102_patch,
-			      const int patch_size)
-{
-	int i, ret;
-
-	for (i = 0; i < patch_size; i++) {
-		ret = regmap_write(arizona->regmap, wm5102_patch[i].reg,
-				   wm5102_patch[i].def);
-		if (ret != 0) {
-			dev_err(arizona->dev, "Failed to write %x = %x: %d\n",
-				wm5102_patch[i].reg, wm5102_patch[i].def, ret);
-			return ret;
-		}
-	}
-
-	return 0;
-}
-
 /* We use a function so we can use ARRAY_SIZE() */
 int wm5102_patch(struct arizona *arizona)
 {
 	const struct reg_default *wm5102_patch;
-	int ret = 0;
+	int ret;
 	int patch_size;
 	int pwr_index = arizona->pdata.wm5102t_output_pwr;
 
@@ -176,21 +157,20 @@ int wm5102_patch(struct arizona *arizona)
 		break;
 	}
 
-	regcache_cache_bypass(arizona->regmap, true);
-
-	ret = wm5102_apply_patch(arizona, wm5102_patch, patch_size);
+	ret = regmap_multi_reg_write_bypassed(arizona->regmap,
+					      wm5102_patch,
+					      patch_size);
 	if (ret != 0)
 		goto out;
 
 	if (pwr_index < ARRAY_SIZE(wm5102t_pwr))
-		ret = wm5102_apply_patch(arizona,
-					 wm5102t_pwr[pwr_index].patch,
-					 wm5102t_pwr[pwr_index].size);
+		ret = regmap_multi_reg_write_bypassed(arizona->regmap,
+						      wm5102t_pwr[pwr_index].patch,
+						      wm5102t_pwr[pwr_index].size);
 	else
 		dev_err(arizona->dev, "Invalid wm5102t output power\n");
 
 out:
-	regcache_cache_bypass(arizona->regmap, false);
 	return ret;
 }
 
