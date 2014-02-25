@@ -268,6 +268,14 @@ static int pil_mss_reset(struct pil_desc *pil)
 	if (ret)
 		goto err_clks;
 
+	if (drv->mss_enable) {
+		writel_relaxed(0, drv->mss_enable);
+		mb();
+		mdelay(100);
+		writel_relaxed(1, drv->mss_enable);
+		mb();
+	}
+
 	/* Program Image Address */
 	if (drv->self_auth) {
 		writel_relaxed(start_addr, drv->rmb_base + RMB_MBA_IMAGE);
@@ -297,6 +305,8 @@ static int pil_mss_reset(struct pil_desc *pil)
 	return 0;
 
 err_q6v5_reset:
+	if (drv->mss_enable)
+		writel_relaxed(0, drv->mss_enable);
 	pil_mss_disable_clks(drv);
 err_clks:
 	if (drv->restart_reg)

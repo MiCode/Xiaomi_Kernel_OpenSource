@@ -32,6 +32,7 @@ struct q6v5_data {
 	struct clk *rom_clk;	   /* Boot ROM */
 	void __iomem *axi_halt_base;
 	void __iomem *restart_reg;
+	void __iomem *mss_enable;
 	struct regulator *vreg;
 	struct regulator *vreg_cx;
 	struct regulator *vreg_mx;
