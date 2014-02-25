@@ -387,7 +387,7 @@ int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 		goto bail;
 	}
 	size = sizeof(struct ipa_desc) * dma->entries;
-	desc = kmalloc(size, GFP_KERNEL);
+	desc = kzalloc(size, GFP_KERNEL);
 	if (desc == NULL) {
 		IPAERR("Failed to alloc memory\n");
 		ret = -ENOMEM;

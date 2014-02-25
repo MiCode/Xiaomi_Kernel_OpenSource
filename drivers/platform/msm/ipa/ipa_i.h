@@ -423,6 +423,7 @@ enum ipa_desc_type {
  * >1 and <0xFFFF for first of a "multiple" tranfer,
  * 0xFFFF for last desc, 0 for rest of "multiple' transfer
  * @bounce: va of bounce buffer
+ * @unmap_dma: in case this is true, the buffer will not be dma unmapped
  *
  * This struct can wrap both data packet and immediate command packet.
  */
@@ -438,6 +439,7 @@ struct ipa_tx_pkt_wrapper {
 	struct ipa_mem_buffer mult;
 	u32 cnt;
 	void *bounce;
+	bool no_unmap_dma;
 };
 
 /**
@@ -445,6 +447,8 @@ struct ipa_tx_pkt_wrapper {
  * @type: skb or immediate command or plain old data
  * @pyld: points to skb
  * or kmalloc'ed immediate command parameters/plain old data
+ * @dma_address: dma mapped address of pyld
+ * @dma_address_valid: valid field for dma_address
  * @len: length of the pyld
  * @opcode: for immediate commands
  * @callback: IPA client provided completion callback
@@ -455,6 +459,8 @@ struct ipa_tx_pkt_wrapper {
 struct ipa_desc {
 	enum ipa_desc_type type;
 	void *pyld;
+	dma_addr_t dma_address;
+	bool dma_address_valid;
 	u16 len;
 	u16 opcode;
 	void (*callback)(void *user1, int user2);

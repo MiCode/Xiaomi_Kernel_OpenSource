@@ -496,6 +496,8 @@ struct ipa_sys_connect_params {
  * struct ipa_tx_meta - meta-data for the TX packet
  * @mbim_stream_id:	the stream ID used in NDP signature
  * @mbim_stream_id_valid:	 is above field valid?
+ * @dma_address: dma mapped address of TX packet
+ * @dma_address_valid: is above field valid?
  */
 struct ipa_tx_meta {
 	u8 mbim_stream_id;
@@ -503,6 +505,8 @@ struct ipa_tx_meta {
 	u8 pkt_init_dst_ep;
 	bool pkt_init_dst_ep_valid;
 	bool pkt_init_dst_ep_remote;
+	dma_addr_t dma_address;
+	bool dma_address_valid;
 };
 
 /**
