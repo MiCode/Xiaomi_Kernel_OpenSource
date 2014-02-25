@@ -492,9 +492,8 @@ int ipa_reset_hdr(void)
 	list_for_each_entry_safe(entry, next,
 			&ipa_ctx->hdr_tbl.head_hdr_entry_list, link) {
 
-		/* do not remove the default exception header */
-		if (!strncmp(entry->name, IPA_A5_MUX_HDR_NAME,
-					IPA_RESOURCE_NAME_MAX))
+		/* do not remove the default header */
+		if (!strcmp(entry->name, IPA_LAN_RX_HDR_NAME))
 			continue;
 
 		if (ipa_id_find(entry->id) == NULL) {
