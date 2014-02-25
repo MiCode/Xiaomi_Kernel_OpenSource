@@ -870,6 +870,15 @@ static int qpnp_mpp_set(struct qpnp_led_data *led)
 		else {
 			if (led->cdev.brightness < LED_MPP_CURRENT_MIN)
 				led->cdev.brightness = LED_MPP_CURRENT_MIN;
+			else {
+				/*
+				 * PMIC supports LED intensity from 5mA - 40mA
+				 * in steps of 5mA. Brightness is rounded to
+				 * 5mA or nearest lower supported values
+				 */
+				led->cdev.brightness /= LED_MPP_CURRENT_MIN;
+				led->cdev.brightness *= LED_MPP_CURRENT_MIN;
+			}
 
 			val = (led->cdev.brightness / LED_MPP_CURRENT_MIN) - 1;
 
