@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,6 +45,25 @@ enum {
 			[C1_B_Cb] = COLOR_5BIT,			\
 		},						\
 	}
+
+#define FMT_RGB_565_TILE(fmt, e0, e1, e2)				\
+	{							\
+		.format = (fmt),				\
+		.fetch_planes = MDSS_MDP_PLANE_INTERLEAVED,	\
+		.unpack_tight = 1,				\
+		.unpack_align_msb = 0,				\
+		.alpha_enable = 0,				\
+		.unpack_count = 3,				\
+		.bpp = 2,					\
+		.tile = 1,					\
+		.element = { (e0), (e1), (e2) },		\
+		.bits = {					\
+			[C2_R_Cr] = COLOR_5BIT,			\
+			[C0_G_Y] = COLOR_6BIT,			\
+			[C1_B_Cb] = COLOR_5BIT,			\
+		},						\
+	}
+
 
 #define FMT_RGB_888(fmt, e0, e1, e2)				\
 	{							\
@@ -135,6 +154,8 @@ enum {
 static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 	FMT_RGB_565(MDP_RGB_565, C1_B_Cb, C0_G_Y, C2_R_Cr),
 	FMT_RGB_565(MDP_BGR_565, C2_R_Cr, C0_G_Y, C1_B_Cb),
+	FMT_RGB_565_TILE(MDP_RGB_565_TILE, C1_B_Cb, C0_G_Y, C2_R_Cr),
+	FMT_RGB_565_TILE(MDP_BGR_565_TILE, C2_R_Cr, C0_G_Y, C1_B_Cb),
 	FMT_RGB_888(MDP_RGB_888, C2_R_Cr, C0_G_Y, C1_B_Cb),
 	FMT_RGB_888(MDP_BGR_888, C1_B_Cb, C0_G_Y, C2_R_Cr),
 
