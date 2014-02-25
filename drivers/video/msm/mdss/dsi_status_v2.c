@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -82,7 +82,19 @@ void check_dsi_ctrl_status(struct work_struct *work)
 	mdp3_session = pdsi_status->mfd->mdp.private1;
 	mutex_lock(&mdp3_session->lock);
 
-	ret = ctrl_pdata->check_status(ctrl_pdata);
+	if (!mdp3_session->status) {
+		pr_info("display off already\n");
+		mutex_unlock(&mdp3_session->lock);
+		return;
+	}
+
+	if (mdp3_session->wait_for_dma_done)
+		ret = mdp3_session->wait_for_dma_done(mdp3_session);
+
+	if (!ret)
+		ret = ctrl_pdata->check_status(ctrl_pdata);
+	else
+		pr_err("wait_for_dma_done error\n");
 
 	mutex_unlock(&mdp3_session->lock);
 
