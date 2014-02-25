@@ -731,6 +731,7 @@ struct dwc3_scratchpad_array {
  * @setup_packet_pending: true when there's a Setup Packet in FIFO. Workaround
  * @start_config_issued: true when StartConfig command has been issued
  * @three_stage_setup: set if we perform a three phase setup
+ * @err_evt_seen: previous event in queue was erratic error
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -847,6 +848,7 @@ struct dwc3 {
 	unsigned		softconnect:1;
 
 	unsigned		nominal_elastic_buffer:1;
+	unsigned		err_evt_seen:1;
 };
 
 /* -------------------------------------------------------------------------- */
