@@ -358,6 +358,7 @@ EXPORT_SYMBOL(mdss_disable_irq_nosync);
 
 static int mdss_mdp_bus_scale_register(struct mdss_data_type *mdata)
 {
+	return 0;
 	if (!mdata->bus_hdl) {
 		mdata->bus_hdl =
 			msm_bus_scale_register_client(mdata->bus_scale_table);
@@ -836,6 +837,7 @@ int mdss_iommu_attach(struct mdss_data_type *mdata)
 	struct mdss_iommu_map_type *iomap;
 	int i;
 
+	return 0;
 	mutex_lock(&mdp_iommu_lock);
 	if (mdata->iommu_attached) {
 		pr_debug("mdp iommu already attached\n");
@@ -867,6 +869,7 @@ int mdss_iommu_dettach(struct mdss_data_type *mdata)
 	struct mdss_iommu_map_type *iomap;
 	int i;
 
+	return 0;
 	mutex_lock(&mdp_iommu_lock);
 	if (!mdata->iommu_attached) {
 		pr_debug("mdp iommu already dettached\n");
@@ -2389,6 +2392,7 @@ static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev)
 	int rc;
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 
+	return 0;
 	rc = of_property_read_u32(pdev->dev.of_node, "qcom,msm-bus,num-paths",
 		&mdata->axi_port_cnt);
 	if (rc) {
