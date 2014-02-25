@@ -182,6 +182,7 @@ struct qpnp_pin_chip {
 	struct device_node	*int_ctrl;
 	struct list_head	chip_list;
 	struct dentry		*dfs_dir;
+	bool			chip_registered;
 };
 
 static LIST_HEAD(qpnp_pin_chips);
@@ -912,7 +913,7 @@ static int qpnp_pin_apply_config(struct qpnp_pin_chip *q_chip,
 static int qpnp_pin_free_chip(struct qpnp_pin_chip *q_chip)
 {
 	struct spmi_device *spmi = q_chip->spmi;
-	int rc, i;
+	int i, rc = 0;
 
 	if (q_chip->chip_gpios)
 		for (i = 0; i < spmi->num_dev_node; i++)
@@ -921,10 +922,12 @@ static int qpnp_pin_free_chip(struct qpnp_pin_chip *q_chip)
 	mutex_lock(&qpnp_pin_chips_lock);
 	list_del(&q_chip->chip_list);
 	mutex_unlock(&qpnp_pin_chips_lock);
-	rc = gpiochip_remove(&q_chip->gpio_chip);
-	if (rc)
-		dev_err(&q_chip->spmi->dev, "%s: unable to remove gpio\n",
-				__func__);
+	if (q_chip->chip_registered) {
+		rc = gpiochip_remove(&q_chip->gpio_chip);
+		if (rc)
+			dev_err(&q_chip->spmi->dev, "%s: unable to remove gpio\n",
+					__func__);
+	}
 	kfree(q_chip->chip_gpios);
 	kfree(q_chip->pmic_pins);
 	kfree(q_chip);
@@ -1342,6 +1345,7 @@ static int qpnp_pin_probe(struct spmi_device *spmi)
 		goto err_probe;
 	}
 
+	q_chip->chip_registered = true;
 	/* now configure gpio config defaults if they exist */
 	for (i = 0; i < spmi->num_dev_node; i++) {
 		q_spec = qpnp_chip_gpio_get_spec(q_chip, i);
