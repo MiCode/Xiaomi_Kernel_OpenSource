@@ -2792,6 +2792,15 @@ out:
 	return err;
 }
 
+#define	ANDROID_BOOT_DEV_MAX	30
+static char android_boot_dev[ANDROID_BOOT_DEV_MAX];
+static int get_android_boot_dev(char *str)
+{
+	strlcpy(android_boot_dev, str, ANDROID_BOOT_DEV_MAX);
+	return 1;
+}
+__setup("androidboot.bootdevice=", get_android_boot_dev);
+
 /**
  * msm_ufs_init - bind phy with controller
  * @hba: host controller instance
@@ -2808,6 +2817,9 @@ static int msm_ufs_init(struct ufs_hba *hba)
 	struct device *dev = hba->dev;
 	struct msm_ufs_phy *phy = msm_get_ufs_phy(hba->dev);
 	struct msm_ufs_host *host;
+
+	if (strlen(android_boot_dev) && strcmp(android_boot_dev, dev_name(dev)))
+		return -ENODEV;
 
 	if (IS_ERR(phy)) {
 		err = PTR_ERR(phy);
