@@ -1936,8 +1936,21 @@ int smd_named_open_on_edge(const char *name, uint32_t edge,
 
 	ch = smd_get_channel(name, edge);
 	if (!ch) {
-		/* check closing list for port */
 		spin_lock_irqsave(&smd_lock, flags);
+		/* check opened list for port */
+		list_for_each_entry(ch,
+			&remote_info[edge_to_pids[edge].remote_pid].ch_list,
+			ch_list) {
+			if (!strcmp(name, ch->name)) {
+				/* channel is already open */
+				spin_unlock_irqrestore(&smd_lock, flags);
+				SMD_DBG("smd_open: channel '%s' already open\n",
+					ch->name);
+				return -EBUSY;
+			}
+		}
+
+		/* check closing list for port */
 		list_for_each_entry(ch, &smd_ch_closing_list, ch_list) {
 			if (!strncmp(name, ch->name, 20) &&
 				(edge == ch->type)) {
