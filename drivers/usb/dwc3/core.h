@@ -749,6 +749,7 @@ struct dwc3_scratchpad_array {
  * 	1	- -3.5dB de-emphasis
  * 	2	- No de-emphasis
  * 	3	- Reserved
+ * @err_evt_seen: previous event in queue was erratic error
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -895,6 +896,7 @@ struct dwc3 {
 	unsigned		tx_de_emphasis:2;
 
 	unsigned		nominal_elastic_buffer:1;
+	unsigned		err_evt_seen:1;
 };
 
 /* -------------------------------------------------------------------------- */

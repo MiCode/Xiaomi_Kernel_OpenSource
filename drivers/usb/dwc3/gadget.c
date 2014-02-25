@@ -2658,8 +2658,10 @@ static void dwc3_gadget_interrupt(struct dwc3 *dwc,
 		break;
 	case DWC3_DEVICE_EVENT_ERRATIC_ERROR:
 		dwc3_trace(trace_dwc3_gadget, "Erratic Error");
-		dbg_event(0xFF, "ERROR", 0);
-		dwc3_dump_reg_info(dwc);
+		if (!dwc->err_evt_seen) {
+			dbg_event(0xFF, "ERROR", 0);
+			dwc3_dump_reg_info(dwc);
+		}
 		break;
 	case DWC3_DEVICE_EVENT_CMD_CMPL:
 		dwc3_trace(trace_dwc3_gadget, "Command Complete");
@@ -2671,6 +2673,8 @@ static void dwc3_gadget_interrupt(struct dwc3 *dwc,
 	default:
 		dev_WARN(dwc->dev, "UNKNOWN IRQ %d\n", event->type);
 	}
+
+	dwc->err_evt_seen = (event->type == DWC3_DEVICE_EVENT_ERRATIC_ERROR);
 }
 
 static void dwc3_process_event_entry(struct dwc3 *dwc,
