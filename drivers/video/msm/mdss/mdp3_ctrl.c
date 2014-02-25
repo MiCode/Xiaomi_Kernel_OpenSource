@@ -706,6 +706,7 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 	mdp3_session->vsync_enabled = 0;
 	atomic_set(&mdp3_session->vsync_countdown, 0);
 	mdp3_session->clk_on = 0;
+	mdp3_session->in_splash_screen = 0;
 off_error:
 	mdp3_session->status = 0;
 	mdp3_bufq_deinit(&mdp3_session->bufq_out);
@@ -758,6 +759,7 @@ static int mdp3_ctrl_reset_cmd(struct msm_fb_data_type *mfd)
 		mdp3_dma->vsync_enable(mdp3_dma, &vsync_client);
 
 	mdp3_session->first_commit = true;
+	mdp3_session->in_splash_screen = 0;
 
 reset_error:
 	mutex_unlock(&mdp3_session->lock);
@@ -846,6 +848,7 @@ static int mdp3_ctrl_reset(struct msm_fb_data_type *mfd)
 		mdp3_dma->vsync_enable(mdp3_dma, &vsync_client);
 
 	mdp3_session->first_commit = true;
+	mdp3_session->in_splash_screen = 0;
 
 reset_error:
 	mutex_unlock(&mdp3_session->lock);
@@ -1000,7 +1003,7 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 	}
 
 	panel = mdp3_session->panel;
-	if (!mdp3_iommu_is_attached(MDP3_CLIENT_DMA_P)) {
+	if (mdp3_session->in_splash_screen) {
 		pr_debug("continuous splash screen, IOMMU not attached\n");
 		rc = mdp3_ctrl_reset(mfd);
 		if (rc) {
@@ -1086,7 +1089,7 @@ static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd,
 	if (!mdp3_session || !mdp3_session->dma)
 		return;
 
-	if (!mdp3_iommu_is_attached(MDP3_CLIENT_DMA_P)) {
+	if (mdp3_session->in_splash_screen) {
 		pr_debug("continuous splash screen, IOMMU not attached\n");
 		rc = mdp3_ctrl_reset(mfd);
 		if (rc) {
@@ -1873,6 +1876,7 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 
 	if (mdp3_get_cont_spash_en()) {
 		mdp3_session->clk_on = 1;
+		mdp3_session->in_splash_screen = 1;
 		mdp3_ctrl_notifier_register(mdp3_session,
 			&mdp3_session->mfd->mdp_sync_pt_data.notifier);
 	}
