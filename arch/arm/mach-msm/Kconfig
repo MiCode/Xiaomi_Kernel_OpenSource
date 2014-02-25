@@ -1153,4 +1153,12 @@ config KRAIT_REGULATOR
 	 line from the PMIC. This supply line is powered by multiple
 	 regulators running in ganged mode inside the PMIC. Enable
 	 this option to support such configurations.
+
+config MSM_PP2S_FEMTO
+	bool "FSM99XX PP2S Interrupt Notification"
+	depends on ARCH_FSM9900
+	help
+	  Support for being notified relative to a PP2S pulse
+	  Select Y if you want this notification to manifest.
+	  If unsure, select N.
 endif

@@ -1,0 +1,45 @@
+QTI Femtocell Pulse Per 2 Second (PP2S)
+
+PP2S is a hardware generated pulse that occurs every two seconds and
+is used for synchronizing certain system behaviors as they relate to
+time.
+
+The PP2S notification driver will be used by applications for two
+reasons:
+
+  1) So that they can be informed when PP2S interrupts occur, and
+
+  2) So that the wall clock time registers can be accessed/manipulated
+     from within the driver and from user space.
+
+Two device tree nodes have been added.
+
+The first is for the PP2S interrupt. It is made up of the following
+required properties:
+
+- compatible: "qcom,pp2s"
+- interrupts: The interrupt number
+- interrupt-names: the interrupt name
+
+Example:
+
+    qcom,pp2s {
+        compatible = "qcom,pp2s";
+        interrupts = <0 219 0>;
+        interrupt-names = "pp2s_irq";
+    };
+
+The second is for mapping the wall clock regisers into usable
+memory. It is made up of the required following:
+
+- compatible: "qcom,wallclock"
+- reg-names: The names given to the two memory bank locations
+- reg: The base address and length for each bank
+
+Example:
+
+    qcom,wallclock@fd4aa000 {
+        compatible = "qcom,wallclock";
+        reg-names = "wallclock_time_bank", "wallclock_cntrl_bank";
+        reg = <0xfd4aa000 0x20>, <0xfd4a9000 0x40>;
+    };
