@@ -724,7 +724,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 
 	/* Add any IB required for profiling if it is enabled */
 	if (profile_ready)
-		adreno_profile_preib_processing(rb->device, context_id,
+		adreno_profile_preib_processing(rb->device, drawctxt,
 				&flags, &ringcmds, &rcmd_gpu);
 
 	/* start-of-pipeline timestamp */

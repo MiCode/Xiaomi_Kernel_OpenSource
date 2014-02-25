@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,7 +67,7 @@ void adreno_profile_init(struct kgsl_device *device);
 void adreno_profile_close(struct kgsl_device *device);
 int adreno_profile_process_results(struct kgsl_device *device);
 void adreno_profile_preib_processing(struct kgsl_device *device,
-		unsigned int context_id, unsigned int *cmd_flags,
+		struct adreno_context *drawctxt, unsigned int *cmd_flags,
 		unsigned int **rbptr, unsigned int *cmds_gpu);
 void adreno_profile_postib_processing(struct kgsl_device *device,
 		unsigned int *cmd_flags, unsigned int **rbptr,
@@ -81,7 +81,7 @@ static inline int adreno_profile_process_results(struct kgsl_device *device)
 }
 
 static inline void adreno_profile_preib_processing(struct kgsl_device *device,
-		unsigned int context_id, unsigned int *cmd_flags,
+		struct adreno_context *drawctxt, unsigned int *cmd_flags,
 		unsigned int **rbptr, unsigned int *cmds_gpu) { }
 
 static inline void adreno_profile_postib_processing(struct kgsl_device *device,
