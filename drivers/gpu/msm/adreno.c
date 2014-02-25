@@ -2012,12 +2012,17 @@ static ssize_t _ft_policy_store(struct device *dev,
 {
 	struct adreno_device *adreno_dev = _get_adreno_dev(dev);
 	int ret;
+	unsigned int temp;
 	if (adreno_dev == NULL)
 		return 0;
 
 	mutex_lock(&adreno_dev->dev.mutex);
-	ret = kgsl_sysfs_store(buf, &adreno_dev->ft_policy);
+	ret = kgsl_sysfs_store(buf, &temp);
 	mutex_unlock(&adreno_dev->dev.mutex);
+	if (!ret) {
+		temp &= KGSL_FT_POLICY_MASK;
+		adreno_dev->ft_policy = temp;
+	}
 
 	return ret < 0 ? ret : count;
 }
