@@ -133,6 +133,7 @@
 
 #include "msm-gdsc.dtsi"
 #include "msmplutonium-smp2p.dtsi"
+#include "msmplutonium-ipcrouter.dtsi"
 
 &soc {
 	#address-cells = <1>;
