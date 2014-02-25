@@ -796,6 +796,21 @@ static void arizona_identify_headphone(struct arizona_extcon_info *info)
 	if (info->hpdet_done)
 		return;
 
+	if (info->arizona->pdata.fixed_hpdet_imp) {
+		int imp = info->arizona->pdata.fixed_hpdet_imp;
+
+		switch (arizona->type) {
+		case WM5110:
+			arizona_wm5110_tune_headphone(info, imp);
+			info->arizona->hp_impedance = imp;
+			break;
+		default:
+			break;
+		}
+
+		goto out;
+	}
+
 	dev_dbg(arizona->dev, "Starting HPDET\n");
 
 	/* Make sure we keep the device enabled during the measurement */
@@ -814,7 +829,7 @@ static void arizona_identify_headphone(struct arizona_extcon_info *info)
 				 ARIZONA_ACCDET_MODE_HPL);
 	if (ret != 0) {
 		dev_err(arizona->dev, "Failed to set HPDETL mode: %d\n", ret);
-		goto err;
+		goto out;
 	}
 
 	ret = regmap_update_bits(arizona->regmap, ARIZONA_HEADPHONE_DETECT_1,
@@ -822,12 +837,12 @@ static void arizona_identify_headphone(struct arizona_extcon_info *info)
 	if (ret != 0) {
 		dev_err(arizona->dev, "Can't start HPDETL measurement: %d\n",
 			ret);
-		goto err;
+		goto out;
 	}
 
 	return;
 
-err:
+out:
 	regmap_update_bits(arizona->regmap, ARIZONA_ACCESSORY_DETECT_MODE_1,
 			   ARIZONA_ACCDET_MODE_MASK, ARIZONA_ACCDET_MODE_MIC);
 
@@ -1339,6 +1354,9 @@ static int arizona_extcon_get_pdata(struct arizona *arizona)
 
 	arizona_of_read_u32(arizona, "wlf,init-mic-delay", false,
 			    &pdata->init_mic_delay);
+
+	arizona_of_read_u32(arizona, "wlf,fixed-hpdet-imp", false,
+			    &pdata->fixed_hpdet_imp);
 
 	return 0;
 }
