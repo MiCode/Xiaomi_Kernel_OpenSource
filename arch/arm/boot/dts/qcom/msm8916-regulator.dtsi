@@ -157,6 +157,7 @@
 			qcom,skip-voltage-write;
 			regulator-min-microvolt = <2900000>;
 			regulator-max-microvolt = <2900000>;
+			regulator-always-on;
 		};
 
 		pm8916_l9: regulator@4800 {
