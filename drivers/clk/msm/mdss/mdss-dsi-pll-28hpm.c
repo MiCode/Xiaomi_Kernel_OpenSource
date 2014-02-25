@@ -22,6 +22,7 @@
 #include <linux/clk/msm-clock-generic.h>
 
 #include <dt-bindings/clock/msm-clocks-8974.h>
+#include <dt-bindings/clock/msm-clocks-8916.h>
 
 #include "mdss-pll.h"
 #include "mdss-dsi-pll.h"
@@ -71,12 +72,25 @@
 
 #define DSI_PLL_POLL_MAX_READS			10
 #define DSI_PLL_POLL_TIMEOUT_US			50
+#define DSI_PLL_SEQ_M_MAX_COUNTER	7
 
 static struct clk_div_ops fixed_2div_ops;
 static struct clk_ops byte_mux_clk_ops;
 static struct clk_ops pixel_clk_src_ops;
 static struct clk_ops byte_clk_src_ops;
 static struct clk_ops analog_postdiv_clk_ops;
+static struct lpfr_cfg lpfr_lut_struct[] = {
+	{479500000, 8},
+	{480000000, 11},
+	{575500000, 8},
+	{576000000, 12},
+	{610500000, 8},
+	{659500000, 9},
+	{671500000, 10},
+	{672000000, 14},
+	{708500000, 10},
+	{750000000, 11},
+};
 
 int set_byte_mux_sel(struct mux_clk *clk, int sel)
 {
@@ -297,6 +311,17 @@ static void dsi_pll_software_reset(struct mdss_pll_resources *dsi_pll_res)
 	udelay(1);
 }
 
+static void dsi_pll_toggle_lock_detect(struct mdss_pll_resources *dsi_pll_res)
+{
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base, DSI_PHY_PLL_UNIPHY_PLL_LKDET_CFG2,
+		0x0d);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base, DSI_PHY_PLL_UNIPHY_PLL_LKDET_CFG2,
+		0x0c);
+	udelay(1);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base, DSI_PHY_PLL_UNIPHY_PLL_LKDET_CFG2,
+		0x0d);
+}
+
 static int dsi_pll_enable_seq_8974(struct mdss_pll_resources *dsi_pll_res)
 {
 	int i, rc = 0;
@@ -372,6 +397,196 @@ static int dsi_pll_enable_seq_8974(struct mdss_pll_resources *dsi_pll_res)
 	}
 
 	return rc;
+}
+
+static int dsi_pll_enable_seq_m(struct mdss_pll_resources *dsi_pll_res)
+{
+	int i = 0;
+	int pll_locked = 0;
+
+	dsi_pll_software_reset(dsi_pll_res);
+
+	/*
+	 * Add hardware recommended delays between register writes for
+	 * the updates to take effect. These delays are necessary for the
+	 * PLL to successfully lock
+	 */
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG1, 0x34);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x01);
+	udelay(200);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
+	udelay(200);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
+	udelay(600);
+
+	dsi_pll_toggle_lock_detect(dsi_pll_res);
+	pll_locked = dsi_pll_lock_status(dsi_pll_res);
+	for (i = 0; (i < DSI_PLL_SEQ_M_MAX_COUNTER) && !pll_locked; i++) {
+		MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_PWRGEN_CFG, 0x00);
+		udelay(50);
+		MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+				DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
+		udelay(100);
+		MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+				DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
+		udelay(600);
+		dsi_pll_toggle_lock_detect(dsi_pll_res);
+		pll_locked = dsi_pll_lock_status(dsi_pll_res);
+	}
+
+	if (pll_locked)
+		pr_debug("PLL Locked at attempt #%d\n", i);
+	else
+		pr_debug("PLL failed to lock after %d attempt(s)\n", i);
+
+	return pll_locked ? 0 : -EINVAL;
+}
+
+static int dsi_pll_enable_seq_d(struct mdss_pll_resources *dsi_pll_res)
+{
+	int pll_locked = 0;
+
+	dsi_pll_software_reset(dsi_pll_res);
+
+	/*
+	 * Add hardware recommended delays between register writes for
+	 * the updates to take effect. These delays are necessary for the
+	 * PLL to successfully lock
+	 */
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_PWRGEN_CFG, 0x00);
+	udelay(50);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x01);
+	udelay(200);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
+	udelay(200);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x07);
+	udelay(200);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
+	udelay(200);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x07);
+	udelay(200);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
+	udelay(600);
+
+	dsi_pll_toggle_lock_detect(dsi_pll_res);
+	pll_locked = dsi_pll_lock_status(dsi_pll_res);
+	pr_debug("PLL status = %s\n", pll_locked ? "Locked" : "Unlocked");
+
+	return pll_locked ? 0 : -EINVAL;
+}
+
+static int dsi_pll_enable_seq_f1(struct mdss_pll_resources *dsi_pll_res)
+{
+	int pll_locked = 0;
+
+	dsi_pll_software_reset(dsi_pll_res);
+
+	/*
+	 * Add hardware recommended delays between register writes for
+	 * the updates to take effect. These delays are necessary for the
+	 * PLL to successfully lock
+	 */
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_PWRGEN_CFG, 0x00);
+	udelay(50);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x01);
+	udelay(200);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
+	udelay(200);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
+	udelay(200);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0d);
+	udelay(200);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
+	udelay(600);
+
+	dsi_pll_toggle_lock_detect(dsi_pll_res);
+	pll_locked = dsi_pll_lock_status(dsi_pll_res);
+	pr_debug("PLL status = %s\n", pll_locked ? "Locked" : "Unlocked");
+
+	return pll_locked ? 0 : -EINVAL;
+}
+
+static int dsi_pll_enable_seq_c(struct mdss_pll_resources *dsi_pll_res)
+{
+	int pll_locked = 0;
+
+	dsi_pll_software_reset(dsi_pll_res);
+
+	/*
+	 * Add hardware recommended delays between register writes for
+	 * the updates to take effect. These delays are necessary for the
+	 * PLL to successfully lock
+	 */
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_PWRGEN_CFG, 0x00);
+	udelay(50);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x01);
+	udelay(200);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
+	udelay(200);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
+	udelay(600);
+
+	dsi_pll_toggle_lock_detect(dsi_pll_res);
+	pll_locked = dsi_pll_lock_status(dsi_pll_res);
+	pr_debug("PLL status = %s\n", pll_locked ? "Locked" : "Unlocked");
+
+	return pll_locked ? 0 : -EINVAL;
+}
+
+static int dsi_pll_enable_seq_e(struct mdss_pll_resources *dsi_pll_res)
+{
+	int pll_locked = 0;
+
+	dsi_pll_software_reset(dsi_pll_res);
+
+	/*
+	 * Add hardware recommended delays between register writes for
+	 * the updates to take effect. These delays are necessary for the
+	 * PLL to successfully lock
+	 */
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_PWRGEN_CFG, 0x00);
+	udelay(50);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x01);
+	udelay(200);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
+	udelay(200);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0d);
+	udelay(1);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+			DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
+	udelay(600);
+
+	dsi_pll_toggle_lock_detect(dsi_pll_res);
+	pll_locked = dsi_pll_lock_status(dsi_pll_res);
+	pr_debug("PLL status = %s\n", pll_locked ? "Locked" : "Unlocked");
+
+	return pll_locked ? 0 : -EINVAL;
 }
 
 static int dsi_pll_enable(struct clk *c)
@@ -737,26 +952,15 @@ static struct dsi_pll_vco_clk dsi_vco_clk_8974 = {
 	.pll_enable_seqs[1] = dsi_pll_enable_seq_8974,
 	.pll_enable_seqs[2] = dsi_pll_enable_seq_8974,
 	.lpfr_lut_size = 10,
-	.lpfr_lut = (struct lpfr_cfg[]){
-		{479500000, 8},
-		{480000000, 11},
-		{575500000, 8},
-		{576000000, 12},
-		{610500000, 8},
-		{659500000, 9},
-		{671500000, 10},
-		{672000000, 14},
-		{708500000, 10},
-		{750000000, 11},
-	},
+	.lpfr_lut = lpfr_lut_struct,
 	.c = {
-		.dbg_name = "dsi_vco_clk",
+		.dbg_name = "dsi_vco_clk_8974",
 		.ops = &clk_ops_dsi_vco,
 		CLK_INIT(dsi_vco_clk_8974.c),
 	},
 };
 
-static struct div_clk analog_postdiv_clk_8974 = {
+static struct div_clk analog_postdiv_clk = {
 	.data = {
 		.max_div = 255,
 		.min_div = 1,
@@ -767,11 +971,11 @@ static struct div_clk analog_postdiv_clk_8974 = {
 		.dbg_name = "analog_postdiv_clk",
 		.ops = &analog_postdiv_clk_ops,
 		.flags = CLKFLAG_NO_RATE_CACHE,
-		CLK_INIT(analog_postdiv_clk_8974.c),
+		CLK_INIT(analog_postdiv_clk.c),
 	},
 };
 
-static struct div_clk indirect_path_div2_clk_8974 = {
+static struct div_clk indirect_path_div2_clk = {
 	.ops = &fixed_2div_ops,
 	.data = {
 		.div = 2,
@@ -779,15 +983,15 @@ static struct div_clk indirect_path_div2_clk_8974 = {
 		.max_div = 2,
 	},
 	.c = {
-		.parent = &analog_postdiv_clk_8974.c,
+		.parent = &analog_postdiv_clk.c,
 		.dbg_name = "indirect_path_div2_clk",
 		.ops = &clk_ops_div,
 		.flags = CLKFLAG_NO_RATE_CACHE,
-		CLK_INIT(indirect_path_div2_clk_8974.c),
+		CLK_INIT(indirect_path_div2_clk.c),
 	},
 };
 
-struct div_clk pixel_clk_src_8974 = {
+struct div_clk pixel_clk_src = {
 	.data = {
 		.max_div = 255,
 		.min_div = 1,
@@ -798,63 +1002,102 @@ struct div_clk pixel_clk_src_8974 = {
 		.dbg_name = "pixel_clk_src",
 		.ops = &pixel_clk_src_ops,
 		.flags = CLKFLAG_NO_RATE_CACHE,
-		CLK_INIT(pixel_clk_src_8974.c),
+		CLK_INIT(pixel_clk_src.c),
 	},
 };
 
-struct mux_clk byte_mux_8974 = {
+struct mux_clk byte_mux = {
 	.num_parents = 2,
 	.parents = (struct clk_src[]){
 		{&dsi_vco_clk_8974.c, 0},
-		{&indirect_path_div2_clk_8974.c, 1},
+		{&indirect_path_div2_clk.c, 1},
 	},
 	.ops = &byte_mux_ops,
 	.c = {
 		.parent = &dsi_vco_clk_8974.c,
 		.dbg_name = "byte_mux",
 		.ops = &byte_mux_clk_ops,
-		CLK_INIT(byte_mux_8974.c),
+		CLK_INIT(byte_mux.c),
 	},
 };
 
-struct div_clk byte_clk_src_8974 = {
+struct div_clk byte_clk_src = {
 	.ops = &fixed_4div_ops,
 	.data = {
 		.min_div = 4,
 		.max_div = 4,
 	},
 	.c = {
-		.parent = &byte_mux_8974.c,
+		.parent = &byte_mux.c,
 		.dbg_name = "byte_clk_src",
 		.ops = &byte_clk_src_ops,
-		CLK_INIT(byte_clk_src_8974.c),
+		CLK_INIT(byte_clk_src.c),
+	},
+};
+
+struct dsi_pll_vco_clk dsi_vco_clk_8916 = {
+	.ref_clk_rate = 19200000,
+	.min_rate = 350000000,
+	.max_rate = 750000000,
+	.pll_en_seq_cnt = 7,
+	.pll_enable_seqs[0] = dsi_pll_enable_seq_m,
+	.pll_enable_seqs[1] = dsi_pll_enable_seq_m,
+	.pll_enable_seqs[2] = dsi_pll_enable_seq_d,
+	.pll_enable_seqs[3] = dsi_pll_enable_seq_d,
+	.pll_enable_seqs[4] = dsi_pll_enable_seq_f1,
+	.pll_enable_seqs[5] = dsi_pll_enable_seq_c,
+	.pll_enable_seqs[6] = dsi_pll_enable_seq_e,
+	.lpfr_lut_size = 10,
+	.lpfr_lut = lpfr_lut_struct,
+	.c = {
+		.dbg_name = "dsi_vco_clk_8916",
+		.ops = &clk_ops_dsi_vco,
+		CLK_INIT(dsi_vco_clk_8916.c),
 	},
 };
 
 static struct clk_lookup mdss_dsi_pllcc_8974[] = {
-	CLK_LOOKUP_OF("pixel_src", pixel_clk_src_8974,
+	CLK_LOOKUP_OF("pixel_src", pixel_clk_src,
 						"fd8c0000.qcom,mmsscc-mdss"),
-	CLK_LOOKUP_OF("byte_src", byte_clk_src_8974,
+	CLK_LOOKUP_OF("byte_src", byte_clk_src,
 						"fd8c0000.qcom,mmsscc-mdss"),
+};
+
+static struct clk_lookup mdss_dsi_pllcc_8916[] = {
+	CLK_LIST(pixel_clk_src),
+	CLK_LIST(byte_clk_src),
 };
 
 int dsi_pll_clock_register(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res)
 {
 	int rc;
+	const char *compatible_stream = NULL;
+	int compat_len = 0;
+
+	if (!pdev || !pll_res || !pdev->dev.of_node) {
+		pr_err("Invalid input parameters\n");
+		return -EINVAL;
+	}
+
+	compatible_stream = of_get_property(pdev->dev.of_node, "compatible",
+								&compat_len);
+	if (!compatible_stream || (compat_len <= 0)) {
+		pr_err("Invalid compatible string\n");
+		return -EINVAL;
+	}
 
 	if (!pll_res || !pll_res->pll_base) {
-		pr_err("Invalide input parameters\n");
+		pr_err("Invalid input parameters\n");
 		return -EPROBE_DEFER;
 	}
 
 	/* Set client data to mux, div and vco clocks */
-	byte_clk_src_8974.priv = pll_res;
-	byte_mux_8974.priv = pll_res;
-	pixel_clk_src_8974.priv = pll_res;
-	indirect_path_div2_clk_8974.priv = pll_res;
-	analog_postdiv_clk_8974.priv = pll_res;
-	dsi_vco_clk_8974.priv = pll_res;
+	byte_clk_src.priv = pll_res;
+	pixel_clk_src.priv = pll_res;
+	byte_mux.priv = pll_res;
+	indirect_path_div2_clk.priv = pll_res;
+	analog_postdiv_clk.priv = pll_res;
 
 	/* Set clock source operations */
 	pixel_clk_src_ops = clk_ops_slave_div;
@@ -869,12 +1112,33 @@ int dsi_pll_clock_register(struct platform_device *pdev,
 	byte_mux_clk_ops = clk_ops_gen_mux;
 	byte_mux_clk_ops.prepare = dsi_pll_mux_prepare;
 
-	rc = of_msm_clock_register(pdev->dev.of_node, mdss_dsi_pllcc_8974,
-					 ARRAY_SIZE(mdss_dsi_pllcc_8974));
-	if (rc) {
-		pr_err("Clock register failed\n");
-		rc = -EPROBE_DEFER;
+	if (!strcmp(compatible_stream, "qcom,mdss_dsi_pll_8916")) {
+		dsi_vco_clk_8916.priv = pll_res;
+		analog_postdiv_clk.c.parent = &dsi_vco_clk_8916.c;
+		byte_mux.parents[0] = (struct clk_src) {&dsi_vco_clk_8916.c, 0};
+		byte_mux.c.parent = &dsi_vco_clk_8916.c;
+		pixel_clk_src.c.parent = &dsi_vco_clk_8916.c;
+		rc = of_msm_clock_register(pdev->dev.of_node,
+			mdss_dsi_pllcc_8916, ARRAY_SIZE(mdss_dsi_pllcc_8916));
+		if (rc) {
+			pr_err("Clock register failed\n");
+			rc = -EPROBE_DEFER;
+		}
+	} else if (!strcmp(compatible_stream, "qcom,mdss_dsi_pll_8974")) {
+		dsi_vco_clk_8974.priv = pll_res;
+		rc = of_msm_clock_register(pdev->dev.of_node,
+			mdss_dsi_pllcc_8974, ARRAY_SIZE(mdss_dsi_pllcc_8974));
+		if (rc) {
+			pr_err("Clock register failed\n");
+			rc = -EPROBE_DEFER;
+		}
+	} else {
+		pr_err("Invalid compatible string\n");
+		rc = -EINVAL;
 	}
+
+	if (!rc)
+		pr_info("Registered DSI PLL clocks successfully\n");
 
 	return rc;
 }
