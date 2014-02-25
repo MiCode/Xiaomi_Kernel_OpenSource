@@ -19,3 +19,29 @@
 	compatible = "qcom,msm8916-qrd", "qcom,msm8916", "qcom,qrd";
 	qcom,board-id = <11 0>;
 };
+
+#include "dsi-panel-innolux-720p-video.dtsi"
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&dsi_innolux_720p_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+};
+
+&mdss_pinmux {
+                 qcom,num-grp-pins = <3>;
+                 qcom,pins = <&gp 32>, <&gp 25>, <&gp 97>;
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_innolux_720p_video>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&mdss_dsi_active>;
+	pinctrl-1 = <&mdss_dsi_suspend>;
+
+	qcom,platform-enable-gpio = <&msm_gpio 32 0>;
+	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
+	qcom,platform-bklight-en-gpio = <&msm_gpio 97 0>;
+};
