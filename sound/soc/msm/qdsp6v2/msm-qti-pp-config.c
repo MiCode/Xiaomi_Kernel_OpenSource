@@ -62,6 +62,10 @@ struct msm_audio_eq_stream_config {
 
 struct msm_audio_eq_stream_config	eq_data[MAX_EQ_SESSIONS];
 
+static int msm_route_hfp_vol_control;
+static const DECLARE_TLV_DB_LINEAR(hfp_rx_vol_gain, 0,
+				INT_RX_VOL_MAX_STEPS);
+
 static void msm_qti_pp_send_eq_values_(int eq_idx)
 {
 	int result;
@@ -384,6 +388,23 @@ static int msm_qti_pp_set_fm_vol_mixer(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm_qti_pp_get_hfp_vol_mixer(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = msm_route_hfp_vol_control;
+	return 0;
+}
+
+static int msm_qti_pp_set_hfp_vol_mixer(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	afe_loopback_gain(INT_BT_SCO_TX , ucontrol->value.integer.value[0]);
+
+	msm_route_hfp_vol_control = ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
 static int msm_qti_pp_get_multimedia2_vol_mixer(struct snd_kcontrol *kcontrol,
 					    struct snd_ctl_elem_value *ucontrol)
 {
@@ -451,6 +472,12 @@ static const struct snd_kcontrol_new int_fm_vol_mixer_controls[] = {
 	SOC_SINGLE_EXT_TLV("Internal FM RX Volume", SND_SOC_NOPM, 0,
 	INT_RX_VOL_GAIN, 0, msm_qti_pp_get_fm_vol_mixer,
 	msm_qti_pp_set_fm_vol_mixer, fm_rx_vol_gain),
+};
+
+static const struct snd_kcontrol_new int_hfp_vol_mixer_controls[] = {
+	SOC_SINGLE_EXT_TLV("Internal HFP RX Volume", SND_SOC_NOPM, 0,
+	INT_RX_VOL_GAIN, 0, msm_qti_pp_get_hfp_vol_mixer,
+	msm_qti_pp_set_hfp_vol_mixer, hfp_rx_vol_gain),
 };
 
 static const struct snd_kcontrol_new multimedia2_vol_mixer_controls[] = {
@@ -619,6 +646,9 @@ void msm_qti_pp_add_controls(struct snd_soc_platform *platform)
 {
 	snd_soc_add_platform_controls(platform, int_fm_vol_mixer_controls,
 			ARRAY_SIZE(int_fm_vol_mixer_controls));
+
+	snd_soc_add_platform_controls(platform, int_hfp_vol_mixer_controls,
+			ARRAY_SIZE(int_hfp_vol_mixer_controls));
 
 	snd_soc_add_platform_controls(platform, multimedia2_vol_mixer_controls,
 			ARRAY_SIZE(multimedia2_vol_mixer_controls));
