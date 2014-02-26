@@ -271,7 +271,7 @@ EXPORT_SYMBOL(coherent_swiotlb_dma_ops);
 
 void __init arm64_swiotlb_init(void)
 {
-	dma_ops = &coherent_swiotlb_dma_ops;
+	dma_ops = &noncoherent_swiotlb_dma_ops;
 	swiotlb_init(1);
 }
 
