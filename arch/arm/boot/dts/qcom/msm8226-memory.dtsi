@@ -32,12 +32,6 @@
 			label = "qsecom_mem";
 		};
 
-		fb_mem: fb_region@0 {
-			linux,reserve-contiguous-region;
-			reg = <0 0x800000>;
-			label = "fb_mem";
-		};
-
 		audio_mem: audio_region@0 {
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
