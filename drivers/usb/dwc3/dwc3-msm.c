@@ -573,7 +573,7 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	 * Override req->complete function, but before doing that,
 	 * store it's original pointer in the req_complete_list.
 	 */
-	req_complete = kzalloc(sizeof(*req_complete), GFP_KERNEL);
+	req_complete = kzalloc(sizeof(*req_complete), gfp_flags);
 	if (!req_complete) {
 		dev_err(mdwc->dev, "%s: not enough memory\n", __func__);
 		return -ENOMEM;
