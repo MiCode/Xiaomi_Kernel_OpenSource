@@ -45,6 +45,7 @@
 #define AES_XTS_IV_LEN 16
 
 #define DM_REQ_CRYPT_ERROR -1
+#define DM_REQ_CRYPT_ERROR_AFTER_PAGE_MALLOC -2
 
 struct req_crypt_result {
 	struct completion completion;
@@ -105,9 +106,10 @@ static void req_crypt_dec_pending_encrypt(struct req_dm_crypt_io *io)
 
 	atomic_dec(&io->pending);
 
-	if (error < 0)
+	if (error < 0) {
 		dm_kill_unmapped_request(clone, error);
-	else
+		mempool_free(io, req_io_pool);
+	} else
 		dm_dispatch_request(clone);
 }
 
@@ -158,8 +160,6 @@ static void req_cryptd_crypt_read_convert(struct req_dm_crypt_io *io)
 	struct req_crypt_result result;
 	struct scatterlist *req_sg_read = NULL;
 	int err = 0;
-	struct req_iterator iter2;
-	struct bio_vec *bvec = NULL;
 	u8 IV[AES_XTS_IV_LEN];
 
 	if (io) {
@@ -217,11 +217,12 @@ static void req_cryptd_crypt_read_convert(struct req_dm_crypt_io *io)
 		goto ablkcipher_req_alloc_failure;
 	}
 
-
-	/* total bytes to copy */
-	bvec = NULL;
-	rq_for_each_segment(bvec, clone, iter2) {
-		total_bytes_in_req = total_bytes_in_req + bvec->bv_len;
+	total_bytes_in_req = clone->__data_len;
+	if (total_bytes_in_req > REQ_DM_512_KB) {
+		DMERR("%s total_bytes_in_req > 512 MB %d",
+				__func__, total_bytes_in_req);
+		err = DM_REQ_CRYPT_ERROR;
+		goto ablkcipher_req_alloc_failure;
 	}
 
 	memset(IV, 0, AES_XTS_IV_LEN);
@@ -263,7 +264,8 @@ ablkcipher_req_alloc_failure:
 	kfree(req_sg_read);
 
 submit_request:
-	io->error = err;
+	if (io)
+		io->error = err;
 	req_crypt_dec_pending_decrypt(io);
 }
 
@@ -277,7 +279,8 @@ static void req_cryptd_crypt_write_convert(struct req_dm_crypt_io *io)
 	struct bio *bio_src = NULL;
 	unsigned int total_sg_len_req_in = 0, total_sg_len_req_out = 0,
 		total_bytes_in_req = 0, error = DM_MAPIO_REMAPPED, rc = 0;
-	struct req_iterator iter;
+	struct req_iterator iter = {0, NULL};
+	struct req_iterator iter1 = {0, NULL};
 	struct ablkcipher_request *req = NULL;
 	struct req_crypt_result result;
 	struct bio_vec *bvec = NULL;
@@ -350,20 +353,28 @@ static void req_cryptd_crypt_write_convert(struct req_dm_crypt_io *io)
 		goto ablkcipher_req_alloc_failure;
 	}
 
+	total_bytes_in_req = clone->__data_len;
+	if (total_bytes_in_req > REQ_DM_512_KB) {
+		DMERR("%s total_bytes_in_req > 512 MB %d",
+				__func__, total_bytes_in_req);
+		error = DM_REQ_CRYPT_ERROR;
+		goto ablkcipher_req_alloc_failure;
+	}
 
 	rq_for_each_segment(bvec, clone, iter) {
-try_again:
 		if (bvec->bv_len > remaining_size) {
 			page = NULL;
-		page = mempool_alloc(req_page_pool, gfp_mask);
-		if (!page) {
-			DMERR("%s Crypt page alloc failed", __func__);
-			congestion_wait(BLK_RW_ASYNC, HZ/100);
-			goto try_again;
+			while (page == NULL) {
+				page = mempool_alloc(req_page_pool, gfp_mask);
+				if (!page) {
+					DMERR("%s Crypt page alloc failed",
+							__func__);
+					congestion_wait(BLK_RW_ASYNC, HZ/100);
+				}
 			}
+
 			bvec->bv_page = page;
 			bvec->bv_offset = 0;
-			total_bytes_in_req = total_bytes_in_req + bvec->bv_len;
 			remaining_size = PAGE_SIZE -  bvec->bv_len;
 			if (remaining_size < 0)
 				BUG();
@@ -371,7 +382,6 @@ try_again:
 			bvec->bv_page = page;
 			bvec->bv_offset = PAGE_SIZE - remaining_size;
 			remaining_size = remaining_size -  bvec->bv_len;
-			total_bytes_in_req = total_bytes_in_req + bvec->bv_len;
 		}
 	}
 
@@ -379,7 +389,7 @@ try_again:
 	if ((total_sg_len_req_out <= 0) ||
 			(total_sg_len_req_out > MAX_SG_LIST)) {
 		DMERR("%s Request Error %d", __func__, total_sg_len_req_out);
-		error = DM_REQ_CRYPT_ERROR;
+		error = DM_REQ_CRYPT_ERROR_AFTER_PAGE_MALLOC;
 		goto ablkcipher_req_alloc_failure;
 	}
 
@@ -405,13 +415,13 @@ try_again:
 		if (result.err) {
 			DMERR("%s error = %d encrypting the request\n",
 				 __func__, result.err);
-			error = DM_REQ_CRYPT_ERROR;
+			error = DM_REQ_CRYPT_ERROR_AFTER_PAGE_MALLOC;
 			goto ablkcipher_req_alloc_failure;
 		}
 		break;
 
 	default:
-		error = DM_REQ_CRYPT_ERROR;
+		error = DM_REQ_CRYPT_ERROR_AFTER_PAGE_MALLOC;
 		goto ablkcipher_req_alloc_failure;
 	}
 
@@ -428,13 +438,25 @@ ablkcipher_req_alloc_failure:
 	if (req)
 		ablkcipher_request_free(req);
 
+	if (error == DM_REQ_CRYPT_ERROR_AFTER_PAGE_MALLOC) {
+		bvec = NULL;
+		rq_for_each_segment(bvec, clone, iter1) {
+			if (bvec->bv_offset == 0) {
+				mempool_free(bvec->bv_page, req_page_pool);
+				bvec->bv_page = NULL;
+			} else
+				bvec->bv_page = NULL;
+		}
+	}
+
 
 	kfree(req_sg_in);
 
 	kfree(req_sg_out);
 
 submit_request:
-	io->error = error;
+	if (io)
+		io->error = error;
 	req_crypt_dec_pending_encrypt(io);
 }
 
@@ -449,7 +471,7 @@ static void req_cryptd_crypt(struct work_struct *work)
 	else if (rq_data_dir(io->cloned_request) == READ)
 		req_cryptd_crypt_read_convert(io);
 	else
-		DMERR("%s received non-write request for Clone %u\n",
+		DMERR("%s received non-read/write request for Clone %u\n",
 				__func__, (unsigned int)io->cloned_request);
 }
 
@@ -484,6 +506,11 @@ static inline void req_crypt_blk_partition_remap(struct bio *bio)
 
 	if (bio_sectors(bio) && bdev != bdev->bd_contains) {
 		struct hd_struct *p = bdev->bd_part;
+		/*
+		* Check for integer overflow, should never happen.
+		*/
+		if (p->start_sect > (UINT_MAX - bio->bi_sector))
+			BUG();
 
 		bio->bi_sector += p->start_sect;
 		bio->bi_bdev = bdev->bd_contains;
@@ -543,8 +570,15 @@ static int req_crypt_map(struct dm_target *ti, struct request *clone,
 			 union map_info *map_context)
 {
 	struct req_dm_crypt_io *req_io = NULL;
-	int error = DM_MAPIO_REMAPPED, copy_bio_sector_to_req = 0;
+	int error = DM_REQ_CRYPT_ERROR, copy_bio_sector_to_req = 0;
 	struct bio *bio_src = NULL;
+
+	if ((rq_data_dir(clone) != READ) &&
+			 (rq_data_dir(clone) != WRITE)) {
+		error = DM_REQ_CRYPT_ERROR;
+		DMERR("%s Unknown request\n", __func__);
+		goto submit_request;
+	}
 
 	req_io = mempool_alloc(req_io_pool, GFP_NOWAIT);
 	if (!req_io) {
@@ -598,9 +632,6 @@ static int req_crypt_map(struct dm_target *ti, struct request *clone,
 		req_cryptd_queue_crypt(req_io);
 		error = DM_MAPIO_SUBMITTED;
 		goto submit_request;
-	} else {
-		error = DM_REQ_CRYPT_ERROR;
-		DMERR("%s Unknown request\n", __func__);
 	}
 
 submit_request:
@@ -608,22 +639,24 @@ submit_request:
 
 }
 
-static int req_crypt_status(struct dm_target *ti, status_type_t type,
-			char *result, unsigned maxlen)
-{
-	return 0;
-}
-
 static void req_crypt_dtr(struct dm_target *ti)
 {
-	if (req_crypt_queue)
+	if (req_crypt_queue) {
 		destroy_workqueue(req_crypt_queue);
-	if (req_io_pool)
+		req_crypt_queue = NULL;
+	}
+	if (req_io_pool) {
 		mempool_destroy(req_io_pool);
-	if (req_page_pool)
+		req_io_pool = NULL;
+	}
+	if (req_page_pool) {
 		mempool_destroy(req_page_pool);
-	if (tfm)
+		req_page_pool = NULL;
+	}
+	if (tfm) {
 		crypto_free_ablkcipher(tfm);
+		tfm = NULL;
+	}
 }
 
 
@@ -635,71 +668,96 @@ static int req_crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 {
 	unsigned long long tmpll;
 	char dummy;
+	int err = DM_REQ_CRYPT_ERROR;
 
-	if (dm_get_device(ti, argv[3], dm_table_get_mode(ti->table), &dev)) {
-		DMERR(" %s Device Lookup failed\n", __func__);
-		return DM_REQ_CRYPT_ERROR;
+	if (argc < 5) {
+		DMERR(" %s Not enough args\n", __func__);
+		err = DM_REQ_CRYPT_ERROR;
+		goto ctr_exit;
 	}
 
-	if (sscanf(argv[4], "%llu%c", &tmpll, &dummy) != 1) {
-		DMERR("%s Invalid device sector\n", __func__);
-		return DM_REQ_CRYPT_ERROR;
+	if (argv[3]) {
+		if (dm_get_device(ti, argv[3],
+				dm_table_get_mode(ti->table), &dev)) {
+			DMERR(" %s Device Lookup failed\n", __func__);
+			err =  DM_REQ_CRYPT_ERROR;
+			goto ctr_exit;
+		}
+	} else {
+		DMERR(" %s Arg[3] invalid\n", __func__);
+		err =  DM_REQ_CRYPT_ERROR;
+		goto ctr_exit;
 	}
+
+	if (argv[4]) {
+		if (sscanf(argv[4], "%llu%c", &tmpll, &dummy) != 1) {
+			DMERR("%s Invalid device sector\n", __func__);
+			err =  DM_REQ_CRYPT_ERROR;
+			goto ctr_exit;
+		}
+	} else {
+		DMERR(" %s Arg[4]invalid\n", __func__);
+		err =  DM_REQ_CRYPT_ERROR;
+		goto ctr_exit;
+	}
+
 	start_sector_orig = tmpll;
 
 	req_crypt_queue = alloc_workqueue("req_cryptd",
-					  WQ_HIGHPRI |
-					  WQ_CPU_INTENSIVE|
-					  WQ_MEM_RECLAIM,
-					  1);
+					WQ_NON_REENTRANT |
+					WQ_HIGHPRI |
+					WQ_CPU_INTENSIVE|
+					WQ_MEM_RECLAIM,
+					1);
 	if (!req_crypt_queue) {
 		DMERR("%s req_crypt_queue not allocated\n", __func__);
-		return DM_REQ_CRYPT_ERROR;
+		err =  DM_REQ_CRYPT_ERROR;
+		goto ctr_exit;
 	}
 
 	/* Allocate the crypto alloc blk cipher and keep the handle */
 	tfm = crypto_alloc_ablkcipher("qcom-xts(aes)", 0, 0);
 	if (IS_ERR(tfm)) {
-		DMERR("%s ablkcipher tfm allocation failed : error = %lu\n",
-					 __func__, PTR_ERR(tfm));
-		return DM_REQ_CRYPT_ERROR;
+		DMERR("%s ablkcipher tfm allocation failed : error\n",
+					 __func__);
+		err =  DM_REQ_CRYPT_ERROR;
+		goto ctr_exit;
 	}
 
 	req_io_pool = mempool_create_slab_pool(MIN_IOS, _req_crypt_io_pool);
 	if (!req_io_pool) {
 		DMERR("%s req_io_pool not allocated\n", __func__);
-		return DM_REQ_CRYPT_ERROR;
+		err =  DM_REQ_CRYPT_ERROR;
+		goto ctr_exit;
 	}
 
 	req_page_pool = mempool_create_page_pool(MIN_POOL_PAGES, 0);
 	if (!req_page_pool) {
 		DMERR("%s req_page_pool not allocated\n", __func__);
-		return DM_REQ_CRYPT_ERROR;
+		err =  DM_REQ_CRYPT_ERROR;
+		goto ctr_exit;
 	}
-
-	return 0;
-}
-
-static void req_crypt_postsuspend(struct dm_target *ti)
-{
-}
-
-static int req_crypt_preresume(struct dm_target *ti)
-{
-	return 0;
-}
-
-static void req_crypt_resume(struct dm_target *ti)
-{
-}
-
-/* Message interface
- *	key set <key>
- *	key wipe
- */
-static int req_crypt_message(struct dm_target *ti, unsigned argc, char **argv)
-{
-	return 0;
+	err = 0;
+ctr_exit:
+	if (err != 0) {
+		if (req_crypt_queue) {
+			destroy_workqueue(req_crypt_queue);
+			req_crypt_queue = NULL;
+		}
+		if (req_io_pool) {
+			mempool_destroy(req_io_pool);
+			req_io_pool = NULL;
+		}
+		if (req_page_pool) {
+			mempool_destroy(req_page_pool);
+			req_page_pool = NULL;
+		}
+		if (tfm) {
+			crypto_free_ablkcipher(tfm);
+			tfm = NULL;
+		}
+	}
+	return err;
 }
 
 static int req_crypt_iterate_devices(struct dm_target *ti,
@@ -716,11 +774,6 @@ static struct target_type req_crypt_target = {
 	.dtr    = req_crypt_dtr,
 	.map_rq = req_crypt_map,
 	.rq_end_io = req_crypt_endio,
-	.status = req_crypt_status,
-	.postsuspend = req_crypt_postsuspend,
-	.preresume = req_crypt_preresume,
-	.resume = req_crypt_resume,
-	.message = req_crypt_message,
 	.iterate_devices = req_crypt_iterate_devices,
 };
 
@@ -733,8 +786,10 @@ static int __init req_dm_crypt_init(void)
 		return -ENOMEM;
 
 	r = dm_register_target(&req_crypt_target);
-	if (r < 0)
+	if (r < 0) {
 		DMERR("register failed %d", r);
+		kmem_cache_destroy(_req_crypt_io_pool);
+	}
 
 	return r;
 }
