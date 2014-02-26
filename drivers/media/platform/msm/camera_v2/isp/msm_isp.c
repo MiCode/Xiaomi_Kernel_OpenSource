@@ -20,6 +20,8 @@
 #include <linux/of_device.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-device.h>
+#include <media/v4l2-ioctl.h>
+#include <media/v4l2-event.h>
 #include <mach/iommu.h>
 
 #include "msm_isp.h"
@@ -57,6 +59,42 @@ static const struct platform_device_id msm_vfe_dev_id[] = {
 };
 
 static struct msm_isp_buf_mgr vfe_buf_mgr;
+static long msm_isp_subdev_do_ioctl(
+	struct file *file, unsigned int cmd, void *arg)
+{
+	struct video_device *vdev = video_devdata(file);
+	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
+	struct v4l2_fh *vfh = file->private_data;
+
+	switch (cmd) {
+	case VIDIOC_DQEVENT:
+		if (!(sd->flags & V4L2_SUBDEV_FL_HAS_EVENTS))
+			return -ENOIOCTLCMD;
+
+		return v4l2_event_dequeue(vfh, arg, file->f_flags & O_NONBLOCK);
+	case VIDIOC_SUBSCRIBE_EVENT:
+		return v4l2_subdev_call(sd, core, subscribe_event, vfh, arg);
+
+	case VIDIOC_UNSUBSCRIBE_EVENT:
+		return v4l2_subdev_call(sd, core, unsubscribe_event, vfh, arg);
+
+	default:
+		return v4l2_subdev_call(sd, core, ioctl, cmd, arg);
+	}
+}
+
+static long msm_isp_subdev_fops_ioctl(struct file *file, unsigned int cmd,
+	unsigned long arg)
+{
+	return video_usercopy(file, cmd, arg, msm_isp_subdev_do_ioctl);
+}
+
+static struct v4l2_file_operations msm_isp_v4l2_subdev_fops = {
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = msm_isp_subdev_fops_ioctl,
+#endif
+	.unlocked_ioctl = msm_isp_subdev_fops_ioctl
+};
 
 static int vfe_probe(struct platform_device *pdev)
 {
@@ -136,6 +174,13 @@ static int vfe_probe(struct platform_device *pdev)
 		kfree(vfe_dev);
 		goto end;
 	}
+
+	msm_isp_v4l2_subdev_fops.owner = v4l2_subdev_fops.owner;
+	msm_isp_v4l2_subdev_fops.open = v4l2_subdev_fops.open;
+	msm_isp_v4l2_subdev_fops.release = v4l2_subdev_fops.release;
+	msm_isp_v4l2_subdev_fops.poll = v4l2_subdev_fops.poll;
+
+	vfe_dev->subdev.sd.devnode->fops = &msm_isp_v4l2_subdev_fops;
 
 	vfe_dev->buf_mgr = &vfe_buf_mgr;
 	v4l2_subdev_notify(&vfe_dev->subdev.sd,
