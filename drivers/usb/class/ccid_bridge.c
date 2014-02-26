@@ -698,6 +698,7 @@ ccid_bridge_probe(struct usb_interface *intf, const struct usb_device_id *id)
 	}
 
 	usb_set_intfdata(intf, ccid);
+	usb_enable_autosuspend(ccid->udev);
 
 	mutex_lock(&ccid->open_mutex);
 	ccid->intf = intf;
