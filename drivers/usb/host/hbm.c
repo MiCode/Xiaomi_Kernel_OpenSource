@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,7 +13,7 @@
 
 #include <linux/kernel.h>
 #include <linux/usb/hbm.h>
-#include <mach/usb_bam.h>
+#include <linux/usb_bam.h>
 
 /**
  *  USB HBM Hardware registers.

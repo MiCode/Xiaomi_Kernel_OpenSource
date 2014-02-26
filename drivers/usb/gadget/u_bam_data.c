@@ -22,8 +22,7 @@
 #include <linux/usb/gadget.h>
 
 #include <soc/qcom/bam_dmux.h>
-
-#include <mach/usb_bam.h>
+#include <linux/usb_bam.h>
 
 #include "u_bam_data.h"
 

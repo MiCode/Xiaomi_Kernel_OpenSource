@@ -25,7 +25,7 @@
 #include <linux/uaccess.h>
 #include <linux/usb.h>
 #include <linux/debugfs.h>
-#include <mach/diag_bridge.h>
+#include <linux/usb/diag_bridge.h>
 
 #define DRIVER_DESC	"USB host diag bridge driver"
 #define DRIVER_VERSION	"1.0"

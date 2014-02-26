@@ -67,7 +67,8 @@
 #include <linux/usb/otg.h>
 #include <linux/usb/msm_hsusb.h>
 #include <linux/tracepoint.h>
-#include <mach/usb_trace.h>
+#include <linux/qcom/usb_trace.h>
+
 #include "ci13xxx_udc.h"
 
 /******************************************************************************

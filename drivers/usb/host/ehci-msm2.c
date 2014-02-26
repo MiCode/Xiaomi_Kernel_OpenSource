@@ -44,7 +44,6 @@
 #include <linux/usb/msm_hsusb.h>
 #include <linux/of.h>
 
-#include <mach/msm_iomap.h>
 #include <linux/debugfs.h>
 
 #include "ehci.h"

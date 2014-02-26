@@ -13,7 +13,7 @@
 #ifndef __U_BAM_DATA_H
 #define __U_BAM_DATA_H
 
-#include <mach/usb_gadget_xport.h>
+#include "usb_gadget_xport.h"
 
 enum function_type {
 	USB_FUNC_ECM,

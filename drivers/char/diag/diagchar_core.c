@@ -23,7 +23,7 @@
 #include <linux/sched.h>
 #include <linux/ratelimit.h>
 #ifdef CONFIG_DIAG_OVER_USB
-#include <mach/usbdiag.h>
+#include <linux/usb/usbdiag.h>
 #endif
 #include <asm/current.h>
 #include "diagchar_hdlc.h"

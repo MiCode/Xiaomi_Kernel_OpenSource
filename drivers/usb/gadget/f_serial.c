@@ -14,8 +14,8 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/device.h>
-#include <mach/usb_gadget_xport.h>
 
+#include "usb_gadget_xport.h"
 #include "u_serial.h"
 #include "gadget_chips.h"
 

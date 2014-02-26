@@ -20,7 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/smux.h>
 #ifdef CONFIG_DIAG_OVER_USB
-#include <mach/usbdiag.h>
+#include <linux/usb/usbdiag.h>
 #endif
 #include "diagchar.h"
 #include "diagmem.h"

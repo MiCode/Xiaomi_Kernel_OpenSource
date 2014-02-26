@@ -20,7 +20,7 @@
 #include <linux/smux.h>
 #include <linux/completion.h>
 
-#include <mach/usb_gadget_xport.h>
+#include "usb_gadget_xport.h"
 
 #define CH_OPENED 0
 #define CH_READY 1
