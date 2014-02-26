@@ -4553,6 +4553,9 @@ static void haswell_crtc_enable(struct drm_crtc *crtc)
 	intel_crtc_enable_planes(crtc);
 
 	drm_crtc_vblank_on(crtc);
+
+	if (I915_HAS_DPST(dev))
+		i915_dpst_display_on(dev);
 }
 
 static void ironlake_pfit_disable(struct intel_crtc *crtc)
@@ -4646,6 +4649,9 @@ static void haswell_crtc_disable(struct drm_crtc *crtc)
 
 	if (!intel_crtc->active)
 		return;
+
+	if (I915_HAS_DPST(dev))
+		i915_dpst_display_off(dev);
 
 	intel_crtc_disable_planes(crtc);
 

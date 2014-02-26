@@ -1478,15 +1478,19 @@ struct drm_i915_private {
 		enum pipe pipe;
 		u32 signal;
 		u32 blc_adjustment;
+		u32 gb_delay;
+		u32 init_image_res;
 		bool user_enable;	/* user client wishes to enable */
 		bool kernel_disable;	/* kernel override wishes to disable */
 		bool enabled;		/* actual functional state */
+		bool pipe_mismatch;	/* Indicates pipe mismatch between user mode and kernel */
 		struct {
 			bool is_valid;
 			u32 blc_adjustment;
 		} saved;
 		struct mutex ioctl_lock;
 		struct i915_dpst_registers reg;
+		struct intel_connector *connector;
 	} dpst;
 
 	/* PCH chipset type */
@@ -2644,6 +2648,8 @@ void i915_dpst_set_brightness(struct drm_device *dev, u32 brightness_val);
 int i915_dpst_set_kernel_disable(struct drm_device *dev, bool km_disable);
 void i915_dpst_irq_handler(struct drm_device *dev, enum pipe);
 void intel_panel_actually_set_backlight(struct intel_connector *conn, u32 level);
+void i915_dpst_display_on(struct drm_device *dev);
+void i915_dpst_display_off(struct drm_device *dev);
 
 /* intel_acpi.c */
 #ifdef CONFIG_ACPI
