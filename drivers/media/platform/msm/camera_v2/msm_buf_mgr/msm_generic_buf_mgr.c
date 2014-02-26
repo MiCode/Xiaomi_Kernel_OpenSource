@@ -187,6 +187,74 @@ static long msm_buf_mngr_subdev_ioctl(struct v4l2_subdev *sd,
 	return rc;
 }
 
+#ifdef CONFIG_COMPAT
+static long msm_bmgr_subdev_fops_compat_ioctl(struct file *file,
+		unsigned int cmd, unsigned long arg)
+{
+	struct video_device *vdev = video_devdata(file);
+	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
+	int32_t rc = 0;
+
+	void __user *up = compat_ptr(arg);
+
+	struct msm_buf_mngr_info32_t *buf_info32 = NULL;
+	struct msm_buf_mngr_info *buf_info;
+
+	if (copy_from_user(buf_info32, (void __user *)up,
+				sizeof(struct msm_buf_mngr_info32_t)))
+		return -EFAULT;
+
+	buf_info->session_id = buf_info32->session_id;
+	buf_info->stream_id = buf_info32->stream_id;
+	buf_info->frame_id = buf_info32->frame_id;
+	buf_info->index = buf_info32->index;
+	buf_info->timestamp.tv_sec = (long) buf_info32->timestamp.tv_sec;
+	buf_info->timestamp.tv_usec = (long) buf_info32->timestamp.tv_usec;
+
+	/* Convert 32 bit IOCTL ID's to 64 bit IOCTL ID's
+	 * except VIDIOC_MSM_CPP_CFG32, which needs special
+	 * processing
+	 */
+	switch (cmd) {
+	case VIDIOC_MSM_BUF_MNGR_GET_BUF32:
+		cmd = VIDIOC_MSM_BUF_MNGR_GET_BUF;
+		break;
+	case VIDIOC_MSM_BUF_MNGR_BUF_DONE32:
+		cmd = VIDIOC_MSM_BUF_MNGR_BUF_DONE;
+		break;
+	case VIDIOC_MSM_BUF_MNGR_PUT_BUF32:
+		cmd = VIDIOC_MSM_BUF_MNGR_PUT_BUF;
+		break;
+	default:
+		pr_debug("%s : unsupported compat type", __func__);
+		break;
+	}
+
+	switch (cmd) {
+	case VIDIOC_MSM_BUF_MNGR_GET_BUF:
+	case VIDIOC_MSM_BUF_MNGR_BUF_DONE:
+	case VIDIOC_MSM_BUF_MNGR_PUT_BUF:
+		rc = v4l2_subdev_call(sd, core, ioctl, cmd, buf_info);
+		break;
+	default:
+		pr_debug("%s : unsupported compat type", __func__);
+		break;
+	}
+
+	buf_info32->session_id = buf_info->session_id;
+	buf_info32->stream_id = buf_info->stream_id;
+	buf_info32->index = buf_info->index;
+	buf_info32->timestamp.tv_sec = (int32_t) buf_info->timestamp.tv_sec;
+	buf_info32->timestamp.tv_usec = (int32_t) buf_info->timestamp.tv_usec;
+
+	if (copy_to_user((void __user *)up, buf_info32,
+			sizeof(struct msm_buf_mngr_info32_t)))
+		return -EFAULT;
+
+	return 0;
+}
+#endif
+
 static struct v4l2_subdev_core_ops msm_buf_mngr_subdev_core_ops = {
 	.ioctl = msm_buf_mngr_subdev_ioctl,
 };
@@ -243,6 +311,10 @@ static int32_t __init msm_buf_mngr_init(void)
 	msm_buf_v4l2_subdev_fops.release = v4l2_subdev_fops.release;
 	msm_buf_v4l2_subdev_fops.poll = v4l2_subdev_fops.poll;
 
+#ifdef CONFIG_COMPAT
+	msm_buf_v4l2_subdev_fops.compat_ioctl32 =
+			msm_bmgr_subdev_fops_compat_ioctl;
+#endif
 	snprintf(msm_buf_mngr_dev->subdev.sd.name,
 		ARRAY_SIZE(msm_buf_mngr_dev->subdev.sd.name), "msm_buf_mngr");
 	msm_buf_mngr_dev->subdev.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
