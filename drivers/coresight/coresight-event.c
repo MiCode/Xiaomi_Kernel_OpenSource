@@ -25,10 +25,10 @@ static int event_abort_set(const char *val, struct kernel_param *kp);
 module_param_call(event_abort_enable, event_abort_set, param_get_int,
 		  &event_abort_enable, 0644);
 
-static int event_abort_on_panic = 1;
+static int event_abort_early_panic = 1;
 static int event_abort_on_panic_set(const char *val, struct kernel_param *kp);
-module_param_call(event_abort_on_panic, event_abort_on_panic_set, param_get_int,
-		  &event_abort_on_panic, 0644);
+module_param_call(event_abort_early_panic, event_abort_on_panic_set,
+		  param_get_int, &event_abort_early_panic, 0644);
 
 static void event_abort_user_fault(void *ignore,
 				   struct task_struct *task,
@@ -125,12 +125,23 @@ static int event_abort_on_panic_set(const char *val, struct kernel_param *kp)
 		return ret;
 	}
 
-	if (event_abort_on_panic)
+	if (event_abort_early_panic) {
+		unregister_trace_kernel_panic_late(event_abort_kernel_panic,
+						   NULL);
 		ret = register_trace_kernel_panic(event_abort_kernel_panic,
 						  NULL);
-	else
+		if (ret)
+			goto err;
+	} else {
 		unregister_trace_kernel_panic(event_abort_kernel_panic, NULL);
-
+		ret = register_trace_kernel_panic_late(event_abort_kernel_panic,
+						       NULL);
+		if (ret)
+			goto err;
+	}
+	return 0;
+err:
+	pr_err("coresight_event: error registering panic event %d\n", ret);
 	return ret;
 }
 

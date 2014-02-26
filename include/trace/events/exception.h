@@ -101,6 +101,23 @@ TRACE_EVENT(kernel_panic,
 	TP_printk("dummy:%ld", __entry->dummy)
 );
 
+TRACE_EVENT(kernel_panic_late,
+
+	TP_PROTO(long dummy),
+
+	TP_ARGS(dummy),
+
+	TP_STRUCT__entry(
+		__field(long, dummy)
+	),
+
+	TP_fast_assign(
+		__entry->dummy	= dummy;
+	),
+
+	TP_printk("dummy:%ld", __entry->dummy)
+);
+
 #endif
 
 #include <trace/define_trace.h>

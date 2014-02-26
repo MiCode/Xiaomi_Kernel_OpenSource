@@ -136,6 +136,8 @@ void panic(const char *fmt, ...)
 
 	atomic_notifier_call_chain(&panic_notifier_list, 0, buf);
 
+	trace_kernel_panic_late(0);
+
 	bust_spinlocks(0);
 
 	if (!panic_blink)
