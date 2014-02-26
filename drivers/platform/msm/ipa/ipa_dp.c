@@ -36,7 +36,8 @@
  * part of the data buffer */
 #define IPA_LAN_RX_BUFF_SZ 7936
 
-#define IPA_WLAN_RX_POOL_SZ 16
+#define IPA_WLAN_RX_POOL_SZ 100
+#define IPA_WLAN_RX_POOL_SZ_LOW_WM 5
 #define IPA_WLAN_RX_BUFF_SZ 2048
 #define IPA_WLAN_COMM_RX_POOL_LOW 100
 #define IPA_WLAN_COMM_RX_POOL_HIGH 900
@@ -2013,9 +2014,13 @@ static void ipa_wlan_wq_rx_common(struct ipa_sys_context *sys, u32 size)
 	rx_skb->len = rx_pkt_expected->len;
 	rx_skb->truesize = rx_pkt_expected->len + sizeof(struct sk_buff);
 	ipa_ctx->wstats.tx_pkts_rcvd++;
-
-	sys->ep->client_notify(sys->ep->priv, IPA_RECEIVE,
-		(unsigned long)(&rx_pkt_expected->data));
+	if (sys->len <= IPA_WLAN_RX_POOL_SZ_LOW_WM) {
+		ipa_free_skb(&rx_pkt_expected->data);
+		ipa_ctx->wstats.tx_pkts_dropped++;
+	} else {
+		sys->ep->client_notify(sys->ep->priv, IPA_RECEIVE,
+				(unsigned long)(&rx_pkt_expected->data));
+	}
 	ipa_replenish_wlan_rx_cache(sys);
 }
 

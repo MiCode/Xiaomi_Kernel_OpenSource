@@ -577,6 +577,7 @@ struct ipa_wlan_stats {
 	u32 tx_buf_cnt;
 	u32 tx_pkts_freed;
 	u32 tx_pkts_rcvd;
+	u32 tx_pkts_dropped;
 };
 
 
