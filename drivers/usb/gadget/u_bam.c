@@ -668,10 +668,10 @@ static void gbam_stop_endless_rx(struct gbam_port *port)
 		return;
 	}
 	pr_debug("%s: dequeue\n", __func__);
-
 	status = usb_ep_dequeue(port->port_usb->out, d->rx_req);
 	if (status)
 		pr_err("%s: error dequeuing transfer, %d\n", __func__, status);
+
 	spin_unlock(&port->port_lock_ul);
 }
 
@@ -1572,6 +1572,21 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 	usb_ep_disable(gr->out);
 	usb_ep_disable(gr->in);
 
+	/*
+	 * Set endless flag to false as USB Endpoint is already
+	 * disable.
+	 */
+	if (d->trans == USB_GADGET_XPORT_BAM2BAM ||
+		d->trans == USB_GADGET_XPORT_BAM2BAM_IPA ||
+		d->trans == USB_GADGET_XPORT_BAM) {
+
+		if (d->dst_pipe_type == USB_BAM_PIPE_BAM2BAM)
+			gr->in->endless = false;
+
+		if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM)
+			gr->out->endless = false;
+	}
+
 	gr->in->driver_data = NULL;
 	gr->out->driver_data = NULL;
 
@@ -1622,6 +1637,72 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 		port = bam2bam_ports[port_num];
 
 	d = &port->data_ch;
+	d->trans = trans;
+
+	spin_lock_irqsave(&port->port_lock_ul, flags);
+	spin_lock(&port->port_lock_dl);
+	port->port_usb = gr;
+
+	if (d->trans == USB_GADGET_XPORT_BAM) {
+		d->to_host = 0;
+		d->to_modem = 0;
+		d->pending_with_bam = 0;
+		d->tohost_drp_cnt = 0;
+		d->tomodem_drp_cnt = 0;
+		d->rx_flow_control_disable = 0;
+		d->rx_flow_control_enable = 0;
+		d->rx_flow_control_triggered = 0;
+		d->max_num_pkts_pending_with_bam = 0;
+	}
+
+	spin_unlock(&port->port_lock_dl);
+	spin_unlock_irqrestore(&port->port_lock_ul, flags);
+
+	if (d->trans == USB_GADGET_XPORT_BAM2BAM) {
+		port->gr = gr;
+		d->src_connection_idx = src_connection_idx;
+		d->dst_connection_idx = dst_connection_idx;
+	} else if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		port->gr = gr;
+		d->src_connection_idx = src_connection_idx;
+		d->dst_connection_idx = dst_connection_idx;
+		d->ipa_params.src_pipe = &(d->src_pipe_idx);
+		d->ipa_params.dst_pipe = &(d->dst_pipe_idx);
+		d->ipa_params.src_idx = src_connection_idx;
+		d->ipa_params.dst_idx = dst_connection_idx;
+
+		/*
+		 * Query pipe type using IPA src/dst index with
+		 * usbbam driver. It is being set either as
+		 * BAM2BAM or SYS2BAM.
+		 */
+		if (usb_bam_get_pipe_type(d->ipa_params.src_idx,
+			&d->src_pipe_type) ||
+			usb_bam_get_pipe_type(d->ipa_params.dst_idx,
+			&d->dst_pipe_type)) {
+			pr_err("%s:usb_bam_get_pipe_type() failed\n",
+				__func__);
+			return -EINVAL;
+		}
+	}
+
+	/*
+	 * Check for pipe_type. If it is BAM2BAM, then it is required
+	 * to disable Xfer complete and Xfer not ready interrupts for
+	 * that particular endpoint. Hence it set endless flag based
+	 * it which is considered into UDC driver while enabling
+	 * USB Endpoint.
+	 */
+	if (d->trans == USB_GADGET_XPORT_BAM2BAM ||
+		d->trans == USB_GADGET_XPORT_BAM2BAM_IPA ||
+		d->trans == USB_GADGET_XPORT_BAM) {
+
+		if (d->dst_pipe_type == USB_BAM_PIPE_BAM2BAM)
+			port->port_usb->in->endless = true;
+
+		if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM)
+			port->port_usb->out->endless = true;
+	}
 
 	ret = usb_ep_enable(gr->in);
 	if (ret) {
@@ -1640,40 +1721,6 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 	}
 	gr->out->driver_data = port;
 
-	spin_lock_irqsave(&port->port_lock_ul, flags);
-	spin_lock(&port->port_lock_dl);
-	port->port_usb = gr;
-
-	if (trans == USB_GADGET_XPORT_BAM) {
-		d->to_host = 0;
-		d->to_modem = 0;
-		d->pending_with_bam = 0;
-		d->tohost_drp_cnt = 0;
-		d->tomodem_drp_cnt = 0;
-		d->rx_flow_control_disable = 0;
-		d->rx_flow_control_enable = 0;
-		d->rx_flow_control_triggered = 0;
-		d->max_num_pkts_pending_with_bam = 0;
-	}
-
-	spin_unlock(&port->port_lock_dl);
-	spin_unlock_irqrestore(&port->port_lock_ul, flags);
-
-	if (trans == USB_GADGET_XPORT_BAM2BAM) {
-		port->gr = gr;
-		d->src_connection_idx = src_connection_idx;
-		d->dst_connection_idx = dst_connection_idx;
-	} else if (trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		port->gr = gr;
-		d->src_connection_idx = src_connection_idx;
-		d->dst_connection_idx = dst_connection_idx;
-		d->ipa_params.src_pipe = &(d->src_pipe_idx);
-		d->ipa_params.dst_pipe = &(d->dst_pipe_idx);
-		d->ipa_params.src_idx = src_connection_idx;
-		d->ipa_params.dst_idx = dst_connection_idx;
-	}
-
-	d->trans = trans;
 	queue_work(gbam_wq, &port->connect_w);
 	return 0;
 }
