@@ -1276,6 +1276,7 @@
 				"pcie_0_ldo";
 		max-clock-frequency-hz = <125000000>, <0>, <1010000>,
 						<0>, <0>, <0>, <0>;
+		status = "disabled";
 	};
 
 	pcie1: qcom,pcie@fc528000 {
@@ -1334,8 +1335,8 @@
 				"pcie_1_ldo";
 		max-clock-frequency-hz = <125000000>, <0>, <1010000>,
 						<0>, <0>, <0>, <0>;
+		status = "disabled";
 	};
-
 
 	qseecom: qcom,qseecom@30280000 {
 		compatible = "qcom,qseecom";
