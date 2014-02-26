@@ -424,6 +424,12 @@ static int ecm_qc_bam_connect(struct f_ecm_qc *dev)
 static int ecm_qc_bam_disconnect(struct f_ecm_qc *dev)
 {
 	pr_debug("%s: dev:%p. Disconnect BAM.\n", __func__, dev);
+
+	dev->bam_port.cdev = NULL;
+	dev->bam_port.func = NULL;
+	dev->bam_port.in = NULL;
+	dev->bam_port.out = NULL;
+
 	bam_data_disconnect(&dev->bam_port, 0);
 
 	return 0;
@@ -686,6 +692,12 @@ static void ecm_qc_suspend(struct usb_function *f)
 {
 	struct f_ecm_qc	*ecm = func_to_ecm_qc(f);
 
+	/* Is DATA interface initialized? */
+	if (!ecm->bam_port.cdev) {
+		pr_debug("data interface not up\n");
+		return;
+	}
+
 	if (f->config->cdev->gadget->remote_wakeup) {
 		bam_data_suspend(ECM_QC_ACTIVE_PORT);
 	} else {
@@ -707,6 +719,12 @@ static void ecm_qc_suspend(struct usb_function *f)
 static void ecm_qc_resume(struct usb_function *f)
 {
 	struct f_ecm_qc	*ecm = func_to_ecm_qc(f);
+
+	/* Nothing to do if DATA interface wasn't initialized */
+	if (!ecm->bam_port.cdev) {
+		pr_debug("data interface was not up\n");
+		return;
+	}
 
 	if (f->config->cdev->gadget->remote_wakeup) {
 		bam_data_resume(ECM_QC_ACTIVE_PORT);
