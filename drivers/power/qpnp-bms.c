@@ -606,12 +606,14 @@ static int get_battery_current(struct qpnp_bms_chip *chip, int *result_ua)
 	temp_current = div_s64((vsense_uv * 1000000LL),
 				(int)chip->r_sense_uohm);
 
+	*result_ua = temp_current;
 	rc = qpnp_iadc_comp_result(chip->iadc_dev, &temp_current);
 	if (rc)
 		pr_debug("error compensation failed: %d\n", rc);
 
+	pr_debug("%d uA err compensated ibat=%llduA\n",
+			*result_ua, temp_current);
 	*result_ua = temp_current;
-	pr_debug("err compensated ibat=%duA\n", *result_ua);
 	return 0;
 }
 
