@@ -150,7 +150,7 @@
 		reg = <0x90>;
 		qcom,slave-id = <0x90 0x0 0x2481>;
 		qcom,csiphy-sd-index = <1>;
-		qcom,csid-sd-index = <0>;
+		qcom,csid-sd-index = <1>;
 		qcom,mount-angle = <0>;
 		qcom,sensor-name = "mt9m114";
 		cam_vdig-supply = <&pm8941_l3>;
