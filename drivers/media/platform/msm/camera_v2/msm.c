@@ -858,6 +858,9 @@ static struct v4l2_file_operations msm_fops = {
 	.poll   = msm_poll,
 	.release = msm_close,
 	.ioctl   = video_ioctl2,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl32 = video_ioctl2,
+#endif
 };
 
 struct msm_stream *msm_get_stream(unsigned int session_id,
