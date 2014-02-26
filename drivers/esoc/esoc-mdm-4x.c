@@ -545,6 +545,15 @@ static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
 					      !mdm->soft_reset_inverted);
 		}
 		break;
+	case ESOC_PRIMARY_REBOOT:
+		dev_dbg(mdm->dev, "Triggering mdm cold reset");
+		mdm->ready = 0;
+		gpio_direction_output(MDM_GPIO(mdm, AP2MDM_SOFT_RESET),
+				!!mdm->soft_reset_inverted);
+		mdelay(300);
+		gpio_direction_output(MDM_GPIO(mdm, AP2MDM_SOFT_RESET),
+				!mdm->soft_reset_inverted);
+		break;
 	};
 	return;
 }
