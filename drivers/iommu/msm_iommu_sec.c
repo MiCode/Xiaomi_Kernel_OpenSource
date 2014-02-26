@@ -35,7 +35,6 @@
 #include <mach/iommu_hw-v1.h>
 #include <mach/msm_iommu_priv.h>
 #include <mach/iommu.h>
-#include <mach/memory.h>
 
 /* bitmap of the page sizes currently supported */
 #define MSM_IOMMU_PGSIZES	(SZ_4K | SZ_64K | SZ_1M | SZ_16M)
