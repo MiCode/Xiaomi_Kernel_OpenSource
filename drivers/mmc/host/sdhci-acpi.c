@@ -41,6 +41,7 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/pm.h>
 #include <linux/mmc/sdhci.h>
+#include <linux/mmc/slot-gpio.h>
 
 #include "sdhci.h"
 
@@ -194,17 +195,10 @@ static const struct sdhci_acpi_slot *sdhci_acpi_get_slot(acpi_handle handle,
 
 #ifdef CONFIG_PM_RUNTIME
 
-static irqreturn_t sdhci_acpi_sd_cd(int irq, void *dev_id)
-{
-	mmc_detect_change(dev_id, msecs_to_jiffies(200));
-	return IRQ_HANDLED;
-}
-
 static int sdhci_acpi_add_own_cd(struct device *dev, struct mmc_host *mmc)
 {
 	struct gpio_desc *desc;
-	unsigned long flags;
-	int err, irq;
+	int err, gpio;
 
 	desc = devm_gpiod_get_index(dev, "sd_cd", 0);
 	if (IS_ERR(desc)) {
@@ -212,25 +206,15 @@ static int sdhci_acpi_add_own_cd(struct device *dev, struct mmc_host *mmc)
 		goto out;
 	}
 
-	err = gpiod_direction_input(desc);
-	if (err)
-		goto out_free;
+	gpio = desc_to_gpio(desc);
+	devm_gpiod_put(dev, desc);
 
-	irq = gpiod_to_irq(desc);
-	if (irq < 0) {
-		err = irq;
-		goto out_free;
-	}
-
-	flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING;
-	err = devm_request_irq(dev, irq, sdhci_acpi_sd_cd, flags, "sd_cd", mmc);
+	err = mmc_gpio_request_cd(mmc, gpio, 0);
 	if (err)
-		goto out_free;
+		goto out;
 
 	return 0;
 
-out_free:
-	devm_gpiod_put(dev, desc);
 out:
 	dev_warn(dev, "failed to setup card detect wake up\n");
 	return err;
