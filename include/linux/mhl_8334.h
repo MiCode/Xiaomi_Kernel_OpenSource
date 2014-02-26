@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -155,6 +155,8 @@ struct mhl_tx_ctrl {
 	struct list_head list_cmd;
 	struct input_dev *input;
 	struct workqueue_struct *msc_send_workqueue;
+	struct workqueue_struct *mhl_workq;
+	struct work_struct mhl_intr_work;
 	u16 *rcp_key_code_tbl;
 	size_t rcp_key_code_tbl_len;
 	struct scrpd_struct scrpd;
