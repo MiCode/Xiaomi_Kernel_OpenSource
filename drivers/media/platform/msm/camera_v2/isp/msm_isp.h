@@ -22,8 +22,8 @@
 #include <linux/avtimer.h>
 #include <media/v4l2-subdev.h>
 #include <media/msmb_isp.h>
-#include <mach/msm_bus.h>
-#include <mach/msm_bus_board.h>
+#include <linux/msm-bus.h>
+#include <linux/msm-bus-board.h>
 
 #include "msm_buf_mgr.h"
 

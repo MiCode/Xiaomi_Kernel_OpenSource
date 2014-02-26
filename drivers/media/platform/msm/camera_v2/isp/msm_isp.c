@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,10 +17,9 @@
 #include <linux/proc_fs.h>
 #include <linux/debugfs.h>
 #include <linux/videodev2.h>
+#include <linux/of_device.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-device.h>
-#include <mach/board.h>
-#include <mach/vreg.h>
 #include <mach/iommu.h>
 
 #include "msm_isp.h"
