@@ -1018,15 +1018,15 @@ static void arizona_micd_detect(struct work_struct *work)
 					ret);
 			}
 		}
-		arizona_identify_headphone(info);
 		info->detecting = false;
+		arizona_identify_headphone(info);
 		goto handled;
 	}
 
 	/* If we got a high impedence we should have a headset, report it. */
 	if (info->detecting && (val & ARIZONA_MICD_LVL_8)) {
 		info->mic = true;
-
+		info->detecting = false;
 		arizona_identify_headphone(info);
 
 		/* Don't need to regulate for button detection */
@@ -1036,7 +1036,6 @@ static void arizona_micd_detect(struct work_struct *work)
 				ret);
 		}
 
-		info->detecting = false;
 		goto handled;
 	}
 
@@ -1049,9 +1048,10 @@ static void arizona_micd_detect(struct work_struct *work)
 	if (info->detecting && (val & MICD_LVL_1_TO_7)) {
 		if (info->jack_flips >= info->micd_num_modes * 10) {
 			dev_dbg(arizona->dev, "Detected HP/line\n");
-			arizona_identify_headphone(info);
 
 			info->detecting = false;
+
+			arizona_identify_headphone(info);
 
 			arizona_stop_mic(info);
 		} else {
