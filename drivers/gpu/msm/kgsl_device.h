@@ -349,7 +349,6 @@ struct kgsl_device {
 	int mem_log;
 	int pwr_log;
 	struct kgsl_pwrscale pwrscale;
-	struct kobject pwrscale_kobj;
 	struct work_struct event_work;
 
 	int reset_counter; /* Track how many GPU core resets have occured */
