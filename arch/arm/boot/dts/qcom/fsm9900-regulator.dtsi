@@ -158,8 +158,8 @@
 
 		/* HVDDA_BBRX_CHx; VDDA_TXDACx */
 		pma8084_l14: regulator@4d00 {
-			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
+			regulator-min-microvolt = <1850000>;
+			regulator-max-microvolt = <1850000>;
 			qcom,enable-time = <500>;
 			qcom,pull-down-enable = <1>;
 			status = "okay";
