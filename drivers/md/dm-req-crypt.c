@@ -658,7 +658,7 @@ static int req_crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	}
 
 	/* Allocate the crypto alloc blk cipher and keep the handle */
-	tfm = crypto_alloc_ablkcipher("xts(aes)", 0, 0);
+	tfm = crypto_alloc_ablkcipher("qcom-xts(aes)", 0, 0);
 	if (IS_ERR(tfm)) {
 		DMERR("%s ablkcipher tfm allocation failed : error = %lu\n",
 					 __func__, PTR_ERR(tfm));
