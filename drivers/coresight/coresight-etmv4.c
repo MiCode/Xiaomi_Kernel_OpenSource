@@ -221,6 +221,15 @@ do {									\
 #define ETM_REG_DUMP_VER_OFF		(4)
 #define ETM_REG_DUMP_VER		(1)
 
+#ifdef CONFIG_CORESIGHT_ETMV4_DEFAULT_RESET
+static int boot_reset = 1;
+#else
+static int boot_reset;
+#endif
+module_param_named(
+	boot_reset, boot_reset, int, S_IRUGO
+);
+
 #ifdef CONFIG_CORESIGHT_ETMV4_DEFAULT_ENABLE
 static int boot_enable = 1;
 #else
@@ -493,6 +502,115 @@ static int etm_set_mode_exclude(struct etm_drvdata *drvdata, bool exclude)
 		}
 	}
 	return 0;
+}
+
+static void etm_reset_data(struct etm_drvdata *drvdata)
+{
+	int i;
+
+	spin_lock(&drvdata->spinlock);
+
+	drvdata->mode = 0x0;
+
+	/* Disable data tracing: do not trace load and store data transfers */
+	drvdata->mode &= ~(ETM_MODE_LOAD | ETM_MODE_STORE);
+	drvdata->cfg &= ~(BIT(1) | BIT(2));
+	/* Disable data value and data address tracing */
+	drvdata->mode &= ~(ETM_MODE_DATA_TRACE_ADDR |
+				  ETM_MODE_DATA_TRACE_VAL);
+	drvdata->cfg &= ~(BIT(16) | BIT(17));
+
+	/* Disable all events tracing */
+	drvdata->event_ctrl0 = 0x0;
+	drvdata->event_ctrl1 = 0x0;
+
+	/* Disable timestamp event */
+	drvdata->ts_ctrl = 0x0;
+
+	/* Disable stalling */
+	drvdata->stall_ctrl = 0x0;
+
+	/* Reset trace synchronization period  to 2^8 = 256 bytes*/
+	if (drvdata->syncpr_fixed == false)
+		drvdata->syncfreq = 0x8;
+
+	/*
+	 * Enable ViewInst to trace everything with start-stop logic in
+	 * started state. ARM recommends start-stop logic is set before
+	 * each trace run.
+	 */
+	drvdata->vinst_ctrl |= BIT(0);
+	if (drvdata->nr_addr_cmp == true) {
+		drvdata->mode |= ETM_MODE_VIEWINST_STARTSTOP;
+		drvdata->vinst_ctrl |= BIT(9);
+	}
+
+	/* No address range filtering for ViewInst */
+	drvdata->vinst_incex_ctrl = 0x0;
+
+	/* No start-stop filtering for ViewInst */
+	drvdata->vinst_startstop_ctrl = 0x0;
+
+	/* Disable ViewData */
+	drvdata->vdata_ctrl = 0x0;
+	/* No address filtering for ViewData */
+	drvdata->vdata_incex_single = 0x0;
+	drvdata->vdata_incex_range = 0x0;
+
+	/* Disable seq events */
+	for (i = 0; i < drvdata->nr_seq_state-1; i++)
+		drvdata->seq_ctrl[i] = 0x0;
+	drvdata->seq_rst = 0x0;
+	drvdata->seq_state = 0x0;
+
+	/* Disable external input events */
+	drvdata->ext_inp = 0x0;
+
+	drvdata->cntr_idx = 0x0;
+	for (i = 0; i < drvdata->nr_cntr; i++) {
+		drvdata->cntr_rld_val[i] = 0x0;
+		drvdata->cntr_ctrl[i] = 0x0;
+		drvdata->cntr_val[i] = 0x0;
+	}
+
+	drvdata->resource_idx = 0x0;
+	for (i = 0; i < drvdata->nr_resource; i++)
+		drvdata->resource_ctrl[i] = 0x0;
+
+	drvdata->ss_idx = 0x0;
+	for (i = 0; i < drvdata->nr_ss_cmp; i++) {
+		drvdata->ss_ctrl[i] = 0x0;
+		drvdata->ss_pe_cmp[i] = 0x0;
+	}
+
+	drvdata->addr_idx = 0x0;
+	for (i = 0; i < drvdata->nr_addr_cmp * 2; i++) {
+		drvdata->addr_val[i] = 0x0;
+		drvdata->addr_acctype[i] = 0x0;
+		drvdata->addr_type[i] = ETM_ADDR_TYPE_NONE;
+	}
+
+	drvdata->data_idx = 0x0;
+	for (i = 0; i < drvdata->nr_data_cmp; i++) {
+		drvdata->data_val[i] = 0;
+		drvdata->data_mask[i] = ~(0);
+	}
+
+	drvdata->ctxid_idx = 0x0;
+	for (i = 0; i < drvdata->nr_ctxid_cmp; i++)
+		drvdata->ctxid_val[i] = 0x0;
+	drvdata->ctxid_mask0 = 0x0;
+	drvdata->ctxid_mask1 = 0x0;
+
+	drvdata->vmid_idx = 0x0;
+	for (i = 0; i < drvdata->nr_vmid_cmp; i++)
+		drvdata->vmid_val[i] = 0x0;
+	drvdata->vmid_mask0 = 0x0;
+	drvdata->vmid_mask1 = 0x0;
+
+	drvdata->trcid = drvdata->cpu + 1;
+
+	spin_unlock(&drvdata->spinlock);
 }
 
 static void __etm_enable(void *info)
@@ -787,119 +905,14 @@ static ssize_t etm_store_reset(struct device *dev,
 			       size_t size)
 {
 	struct etm_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	int i;
 	unsigned long val;
 
 	if (sscanf(buf, "%lx", &val) != 1)
 		return -EINVAL;
 
-	spin_lock(&drvdata->spinlock);
-	if (!val) {
-		spin_unlock(&drvdata->spinlock);
-		return size;
-	}
+	if (val)
+		etm_reset_data(drvdata);
 
-	drvdata->mode = 0x0;
-
-	/* Disable data tracing: do not trace load and store data transfers */
-	drvdata->mode &= ~(ETM_MODE_LOAD | ETM_MODE_STORE);
-	drvdata->cfg &= ~(BIT(1) | BIT(2));
-	/* Disable data value and data address tracing */
-	drvdata->mode &= ~(ETM_MODE_DATA_TRACE_ADDR |
-				  ETM_MODE_DATA_TRACE_VAL);
-	drvdata->cfg &= ~(BIT(16) | BIT(17));
-
-	/* Disable all events tracing */
-	drvdata->event_ctrl0 = 0x0;
-	drvdata->event_ctrl1 = 0x0;
-
-	/* Disable timestamp event */
-	drvdata->ts_ctrl = 0x0;
-
-	/* Disable stalling */
-	drvdata->stall_ctrl = 0x0;
-
-	/* Reset trace synchronization period  to 2^8 = 256 bytes*/
-	if (drvdata->syncpr_fixed == false)
-		drvdata->syncfreq = 0x8;
-
-	/*
-	 * Enable ViewInst to trace everything with start-stop logic in
-	 * started state. ARM recommends start-stop logic is set before
-	 * each trace run.
-	 */
-	drvdata->vinst_ctrl |= BIT(0);
-	if (drvdata->nr_addr_cmp == true) {
-		drvdata->mode |= ETM_MODE_VIEWINST_STARTSTOP;
-		drvdata->vinst_ctrl |= BIT(9);
-	}
-
-	/* No address range filtering for ViewInst */
-	drvdata->vinst_incex_ctrl = 0x0;
-
-	/* No start-stop filtering for ViewInst */
-	drvdata->vinst_startstop_ctrl = 0x0;
-
-	/* Disable ViewData */
-	drvdata->vdata_ctrl = 0x0;
-	/* No address filtering for ViewData */
-	drvdata->vdata_incex_single = 0x0;
-	drvdata->vdata_incex_range = 0x0;
-
-	/* Disable seq events */
-	for (i = 0; i < drvdata->nr_seq_state-1; i++)
-		drvdata->seq_ctrl[i] = 0x0;
-	drvdata->seq_rst = 0x0;
-	drvdata->seq_state = 0x0;
-
-	/* Disable external input events */
-	drvdata->ext_inp = 0x0;
-
-	drvdata->cntr_idx = 0x0;
-	for (i = 0; i < drvdata->nr_cntr; i++) {
-		drvdata->cntr_rld_val[i] = 0x0;
-		drvdata->cntr_ctrl[i] = 0x0;
-		drvdata->cntr_val[i] = 0x0;
-	}
-
-	drvdata->resource_idx = 0x0;
-	for (i = 0; i < drvdata->nr_resource; i++)
-		drvdata->resource_ctrl[i] = 0x0;
-
-	drvdata->ss_idx = 0x0;
-	for (i = 0; i < drvdata->nr_ss_cmp; i++) {
-		drvdata->ss_ctrl[i] = 0x0;
-		drvdata->ss_pe_cmp[i] = 0x0;
-	}
-
-	drvdata->addr_idx = 0x0;
-	for (i = 0; i < drvdata->nr_addr_cmp * 2; i++) {
-		drvdata->addr_val[i] = 0x0;
-		drvdata->addr_acctype[i] = 0x0;
-		drvdata->addr_type[i] = ETM_ADDR_TYPE_NONE;
-	}
-
-	drvdata->data_idx = 0x0;
-	for (i = 0; i < drvdata->nr_data_cmp; i++) {
-		drvdata->data_val[i] = 0;
-		drvdata->data_mask[i] = ~(0);
-	}
-
-	drvdata->ctxid_idx = 0x0;
-	for (i = 0; i < drvdata->nr_ctxid_cmp; i++)
-		drvdata->ctxid_val[i] = 0x0;
-	drvdata->ctxid_mask0 = 0x0;
-	drvdata->ctxid_mask1 = 0x0;
-
-	drvdata->vmid_idx = 0x0;
-	for (i = 0; i < drvdata->nr_vmid_cmp; i++)
-		drvdata->vmid_val[i] = 0x0;
-	drvdata->vmid_mask0 = 0x0;
-	drvdata->vmid_mask1 = 0x0;
-
-	drvdata->trcid = drvdata->cpu + 1;
-
-	spin_unlock(&drvdata->spinlock);
 	return size;
 }
 static DEVICE_ATTR(reset, S_IRUGO | S_IWUSR, etm_show_reset, etm_store_reset);
@@ -3321,6 +3334,9 @@ static int etm_probe(struct platform_device *pdev)
 	}
 
 	dev_info(dev, "ETMv4 initialized\n");
+
+	if (boot_reset)
+		etm_reset_data(drvdata);
 
 	if (boot_enable) {
 		coresight_enable(drvdata->csdev);

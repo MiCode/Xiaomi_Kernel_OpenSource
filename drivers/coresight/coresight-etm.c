@@ -183,6 +183,15 @@ enum etm_addr_type {
 	ETM_ADDR_TYPE_STOP,
 };
 
+#ifdef CONFIG_CORESIGHT_ETM_DEFAULT_RESET
+static int boot_reset = 1;
+#else
+static int boot_reset;
+#endif
+module_param_named(
+	boot_reset, boot_reset, int, S_IRUGO
+);
+
 #ifdef CONFIG_CORESIGHT_ETM_DEFAULT_ENABLE
 static int boot_enable = 1;
 #else
@@ -464,6 +473,73 @@ static bool etm_version_gte(uint8_t arch, uint8_t base_arch)
 		return false;
 }
 
+static void etm_reset_data(struct etm_drvdata *drvdata)
+{
+	int i;
+
+	spin_lock(&drvdata->spinlock);
+
+	drvdata->mode = ETM_MODE_EXCLUDE;
+	drvdata->ctrl = 0x0;
+	if (etm_version_gte(drvdata->arch, ETM_ARCH_V1_0))
+		drvdata->ctrl |= BIT(11);
+	if (cpu_is_krait_v1()) {
+		drvdata->mode |= ETM_MODE_CYCACC;
+		drvdata->ctrl |= BIT(12);
+	}
+	drvdata->trigger_event = 0x406F;
+	drvdata->startstop_ctrl = 0x0;
+	if (etm_version_gte(drvdata->arch, ETM_ARCH_V1_2))
+		drvdata->enable_ctrl2 = 0x0;
+	drvdata->enable_event = 0x6F;
+	drvdata->enable_ctrl1 = 0x1000000;
+	drvdata->fifofull_level = 0x28;
+	if (drvdata->data_trace_support == true) {
+		drvdata->mode |= (ETM_MODE_DATA_TRACE_VAL |
+					ETM_MODE_DATA_TRACE_ADDR);
+		drvdata->ctrl |= BIT(2) | BIT(3);
+		drvdata->viewdata_event = 0x6F;
+		drvdata->viewdata_ctrl1 = 0x0;
+		drvdata->viewdata_ctrl3 = 0x10000;
+	}
+	drvdata->addr_idx = 0x0;
+	for (i = 0; i < drvdata->nr_addr_cmp; i++) {
+		drvdata->addr_val[i] = 0x0;
+		drvdata->addr_acctype[i] = 0x0;
+		drvdata->addr_type[i] = ETM_ADDR_TYPE_NONE;
+	}
+	for (i = 0; i < drvdata->nr_data_cmp; i++) {
+		drvdata->data_val[i] = 0;
+		drvdata->data_mask[i] = ~(0);
+	}
+	drvdata->cntr_idx = 0x0;
+	for (i = 0; i < drvdata->nr_cntr; i++) {
+		drvdata->cntr_rld_val[i] = 0x0;
+		drvdata->cntr_event[i] = 0x406F;
+		drvdata->cntr_rld_event[i] = 0x406F;
+		drvdata->cntr_val[i] = 0x0;
+	}
+	drvdata->seq_12_event = 0x406F;
+	drvdata->seq_21_event = 0x406F;
+	drvdata->seq_23_event = 0x406F;
+	drvdata->seq_31_event = 0x406F;
+	drvdata->seq_32_event = 0x406F;
+	drvdata->seq_13_event = 0x406F;
+	drvdata->seq_curr_state = 0x0;
+	drvdata->ctxid_idx = 0x0;
+	for (i = 0; i < drvdata->nr_ctxid_cmp; i++)
+		drvdata->ctxid_val[i] = 0x0;
+	drvdata->ctxid_mask = 0x0;
+	/* Bits[7:0] of ETMSYNCFR are reserved on Krait pass3 onwards */
+	if (cpu_is_krait() && !cpu_is_krait_v1() && !cpu_is_krait_v2())
+		drvdata->sync_freq = 0x100;
+	else
+		drvdata->sync_freq = 0x80;
+	drvdata->timestamp_event = 0x406F;
+
+	spin_unlock(&drvdata->spinlock);
+}
+
 static void __etm_enable(void *info)
 {
 	int i;
@@ -681,73 +757,14 @@ static ssize_t etm_store_reset(struct device *dev,
 			       size_t size)
 {
 	struct etm_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	int i;
 	unsigned long val;
 
 	if (sscanf(buf, "%lx", &val) != 1)
 		return -EINVAL;
 
-	spin_lock(&drvdata->spinlock);
-	if (val) {
-		drvdata->mode = ETM_MODE_EXCLUDE;
-		drvdata->ctrl = 0x0;
-		if (etm_version_gte(drvdata->arch, ETM_ARCH_V1_0))
-			drvdata->ctrl |= BIT(11);
-		if (cpu_is_krait_v1()) {
-			drvdata->mode |= ETM_MODE_CYCACC;
-			drvdata->ctrl |= BIT(12);
-		}
-		drvdata->trigger_event = 0x406F;
-		drvdata->startstop_ctrl = 0x0;
-		if (etm_version_gte(drvdata->arch, ETM_ARCH_V1_2))
-			drvdata->enable_ctrl2 = 0x0;
-		drvdata->enable_event = 0x6F;
-		drvdata->enable_ctrl1 = 0x1000000;
-		drvdata->fifofull_level = 0x28;
-		if (drvdata->data_trace_support == true) {
-			drvdata->mode |= (ETM_MODE_DATA_TRACE_VAL |
-						ETM_MODE_DATA_TRACE_ADDR);
-			drvdata->ctrl |= BIT(2) | BIT(3);
-			drvdata->viewdata_event = 0x6F;
-			drvdata->viewdata_ctrl1 = 0x0;
-			drvdata->viewdata_ctrl3 = 0x10000;
-		}
-		drvdata->addr_idx = 0x0;
-		for (i = 0; i < drvdata->nr_addr_cmp; i++) {
-			drvdata->addr_val[i] = 0x0;
-			drvdata->addr_acctype[i] = 0x0;
-			drvdata->addr_type[i] = ETM_ADDR_TYPE_NONE;
-		}
-		for (i = 0; i < drvdata->nr_data_cmp; i++) {
-			drvdata->data_val[i] = 0;
-			drvdata->data_mask[i] = ~(0);
-		}
-		drvdata->cntr_idx = 0x0;
-		for (i = 0; i < drvdata->nr_cntr; i++) {
-			drvdata->cntr_rld_val[i] = 0x0;
-			drvdata->cntr_event[i] = 0x406F;
-			drvdata->cntr_rld_event[i] = 0x406F;
-			drvdata->cntr_val[i] = 0x0;
-		}
-		drvdata->seq_12_event = 0x406F;
-		drvdata->seq_21_event = 0x406F;
-		drvdata->seq_23_event = 0x406F;
-		drvdata->seq_31_event = 0x406F;
-		drvdata->seq_32_event = 0x406F;
-		drvdata->seq_13_event = 0x406F;
-		drvdata->seq_curr_state = 0x0;
-		drvdata->ctxid_idx = 0x0;
-		for (i = 0; i < drvdata->nr_ctxid_cmp; i++)
-			drvdata->ctxid_val[i] = 0x0;
-		drvdata->ctxid_mask = 0x0;
-		/* Bits[7:0] of ETMSYNCFR are reserved on Krait pass3 onwards */
-		if (cpu_is_krait() && !cpu_is_krait_v1() && !cpu_is_krait_v2())
-			drvdata->sync_freq = 0x100;
-		else
-			drvdata->sync_freq = 0x80;
-		drvdata->timestamp_event = 0x406F;
-	}
-	spin_unlock(&drvdata->spinlock);
+	if (val)
+		etm_reset_data(drvdata);
+
 	return size;
 }
 static DEVICE_ATTR(reset, S_IRUGO | S_IWUSR, etm_show_reset, etm_store_reset);
@@ -2257,6 +2274,9 @@ static int etm_probe(struct platform_device *pdev)
 	}
 
 	dev_info(dev, "ETM initialized\n");
+
+	if (boot_reset)
+		etm_reset_data(drvdata);
 
 	if (boot_enable) {
 		coresight_enable(drvdata->csdev);
