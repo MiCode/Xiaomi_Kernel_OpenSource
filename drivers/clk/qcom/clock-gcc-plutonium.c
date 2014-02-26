@@ -2368,10 +2368,13 @@ static int gcc_set_mux_sel(struct mux_clk *clk, int sel)
 static struct mux_clk gcc_debug_mux = {
 	.priv = &debug_mux_priv,
 	.ops = &gcc_debug_mux_ops,
-	.rec_set_par = 1,
 	.en_mask = BIT(16),
 	.mask = 0x3FF,
 	.base = &virt_dbgbase,
+	MUX_REC_SRC_LIST(
+		&debug_mmss_clk.c,
+		&debug_rpm_clk.c,
+	),
 	MUX_SRC_LIST(
 		{ &debug_mmss_clk.c, 0x002b },
 		{ &debug_rpm_clk.c, 0xffff },

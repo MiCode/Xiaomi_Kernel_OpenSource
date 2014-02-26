@@ -2390,7 +2390,9 @@ static struct mux_clk apss_debug_sec_mux = {
 		{&apss_debug_ter_mux.c, 0},
 		{&l2_m_clk.c, 1},
 	),
-	.rec_set_par = 1,
+	MUX_REC_SRC_LIST(
+		&apss_debug_ter_mux.c,
+	),
 	.base = &meas_base,
 	.c = {
 		.dbg_name = "apss_debug_sec_mux",
@@ -2406,7 +2408,9 @@ static struct mux_clk apss_debug_pri_mux = {
 	MUX_SRC_LIST(
 		{&apss_debug_sec_mux.c, 0},
 	),
-	.rec_set_par = 1,
+	MUX_REC_SRC_LIST(
+		&apss_debug_sec_mux.c,
+	),
 	.base = &meas_base,
 	.c = {
 		.dbg_name = "apss_debug_pri_mux",
@@ -2446,11 +2450,14 @@ static struct clk_mux_ops gcc_debug_mux_ops;
 static struct mux_clk gcc_debug_mux = {
 	.priv = &debug_mux_priv,
 	.ops = &gcc_debug_mux_ops,
-	.rec_set_par = true,
 	.offset = GCC_DEBUG_CLK_CTL,
 	.en_mask = BIT(16),
 	.mask = 0x1FF,
 	.base = &virt_bases[GCC_BASE],
+	MUX_REC_SRC_LIST(
+		&rpm_debug_clk.c,
+		&apss_debug_pri_mux.c,
+	),
 	MUX_SRC_LIST(
 		{&rpm_debug_clk.c,			0xFFFF},
 		{&apss_debug_pri_mux.c,			0x016A},

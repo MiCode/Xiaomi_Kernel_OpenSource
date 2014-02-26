@@ -394,7 +394,12 @@ static struct mux_clk kpss_debug_ter_mux = {
 		{&krait2_div_clk.c, 2},
 		{&krait3_div_clk.c, 3},
 	),
-	.rec_set_par = 1,
+	MUX_REC_SRC_LIST(
+		&krait0_div_clk.c,
+		&krait1_div_clk.c,
+		&krait2_div_clk.c,
+		&krait3_div_clk.c,
+	),
 	.base = &meas_base,
 	.c = {
 		.dbg_name = "kpss_debug_ter_mux",
@@ -415,7 +420,10 @@ static struct mux_clk kpss_debug_sec_mux = {
 		{&kpss_debug_ter_mux.c, 0},
 		{&l2_div_clk.c, 1},
 	),
-	.rec_set_par = 1,
+	MUX_REC_SRC_LIST(
+		&kpss_debug_ter_mux.c,
+		&l2_div_clk.c,
+	),
 	.base = &meas_base,
 	.c = {
 		.dbg_name = "kpss_debug_sec_mux",
@@ -432,7 +440,9 @@ static struct mux_clk kpss_debug_pri_mux = {
 	MUX_SRC_LIST(
 		{&kpss_debug_sec_mux.c, 0},
 	),
-	.rec_set_par = 1,
+	MUX_REC_SRC_LIST(
+		&kpss_debug_sec_mux.c,
+	),
 	.base = &meas_base,
 	.c = {
 		.dbg_name = "kpss_debug_pri_mux",

@@ -49,15 +49,20 @@ struct clk_mux_ops {
 	.parents = (struct clk_src[]){__VA_ARGS__}, \
 	.num_parents = ARRAY_SIZE(((struct clk_src[]){__VA_ARGS__}))
 
+#define MUX_REC_SRC_LIST(...) \
+	.rec_parents = (struct clk * []){__VA_ARGS__}, \
+	.num_rec_parents = ARRAY_SIZE(((struct clk * []){__VA_ARGS__}))
+
 struct mux_clk {
 	/* Parents in decreasing order of preference for obtaining rates. */
 	struct clk_src	*parents;
 	int		num_parents;
+	/* Recursively search for the requested parent in rec_parents. */
+	struct clk	**rec_parents;
+	int		num_rec_parents;
 	struct clk	*safe_parent;
 	int		safe_sel;
 	struct clk_mux_ops *ops;
-	/* Recursively search for the requested parent. */
-	bool		rec_set_par;
 
 	/* Fields not used by helper function. */
 	void *const __iomem *base;
