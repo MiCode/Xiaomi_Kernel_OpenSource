@@ -196,8 +196,8 @@ struct kgsl_gpumem_sync_cache_compat {
 	compat_ulong_t gpuaddr;
 	unsigned int id;
 	unsigned int op;
-/* private: reserved for future use*/
-	unsigned int __pad[2]; /* For future binary compatibility */
+	compat_size_t length;
+	compat_size_t offset;
 };
 
 #define IOCTL_KGSL_GPUMEM_SYNC_CACHE_COMPAT \
