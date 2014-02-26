@@ -123,12 +123,9 @@ static void dwc3_core_soft_reset_after_phy_init(struct dwc3 *dwc)
 	usb_phy_reset(dwc->usb3_phy);
 	usb_phy_reset(dwc->usb2_phy);
 
-	msleep(100);
-
 	/* Bring up PHYs */
 	usb_phy_init(dwc->usb2_phy);
 	usb_phy_init(dwc->usb3_phy);
-	msleep(100);
 
 	/* Put Core in Reset */
 	reg = dwc3_readl(dwc->regs, DWC3_GCTL);
@@ -136,8 +133,6 @@ static void dwc3_core_soft_reset_after_phy_init(struct dwc3 *dwc)
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 
 	dwc3_notify_event(dwc, DWC3_CONTROLLER_RESET_EVENT);
-
-	msleep(100);
 
 	/* Take Core out of reset state */
 	reg = dwc3_readl(dwc->regs, DWC3_GCTL);
