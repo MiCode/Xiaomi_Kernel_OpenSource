@@ -447,6 +447,8 @@
 		qcom,cores-per-phase = <2>;
 		qcom,valid-phases = <1 2>;
 		qcom,phase-coeff-threshold = <2000000 4000000>;
+		qcom,phase-scaling-factor-bits-pos = <14>;
+		qcom,valid-scaling-factor-versions = <1 0 0 0>;
 
 		krait0_vreg: regulator@f9088000 {
 			compatible = "qcom,krait-regulator";
