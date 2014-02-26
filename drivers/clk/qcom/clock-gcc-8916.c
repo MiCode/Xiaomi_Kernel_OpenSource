@@ -2514,9 +2514,6 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	/* Voteable Clocks */
 	CLK_LIST(gcc_blsp1_ahb_clk),
 	CLK_LIST(gcc_boot_rom_ahb_clk),
-	CLK_LIST(gcc_crypto_ahb_clk),
-	CLK_LIST(gcc_crypto_axi_clk),
-	CLK_LIST(gcc_crypto_clk),
 	CLK_LIST(gcc_prng_ahb_clk),
 	CLK_LIST(gcc_apss_tcu_clk),
 	CLK_LIST(gcc_gfx_tbu_clk),
@@ -2606,6 +2603,15 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(gcc_mdss_byte0_clk),
 };
 
+static struct clk_lookup msm_clocks_gcc_8916_crypto[] = {
+	/* Camera Sensor clocks */
+	CLK_LOOKUP_OF("core_clk",     gcc_crypto_clk,      "scm"),
+	CLK_LOOKUP_OF("iface_clk",    gcc_crypto_ahb_clk,  "scm"),
+	CLK_LOOKUP_OF("bus_clk",      gcc_crypto_axi_clk,  "scm"),
+	CLK_LOOKUP_OF("core_clk_src", crypto_clk_src,      "scm"),
+};
+
+
 static int msm_gcc_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -2680,6 +2686,12 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	ret = of_msm_clock_register(pdev->dev.of_node,
 				msm_clocks_lookup,
 				ARRAY_SIZE(msm_clocks_lookup));
+	if (ret)
+		return ret;
+
+	ret = of_msm_clock_register(pdev->dev.of_node,
+				 msm_clocks_gcc_8916_crypto,
+				 ARRAY_SIZE(msm_clocks_gcc_8916_crypto));
 	if (ret)
 		return ret;
 
