@@ -23,7 +23,7 @@
 
 #include <linux/tracepoint.h>
 #include "kgsl_device.h"
-
+#include "kgsl_sharedmem.h"
 #include "adreno_drawctxt.h"
 
 struct kgsl_device;
@@ -490,7 +490,7 @@ TRACE_EVENT(kgsl_mem_map,
 		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
 		__entry->size = mem_entry->memdesc.size;
 		__entry->fd = fd;
-		__entry->type = mem_entry->memtype;
+		__entry->type = kgsl_memdesc_usermem_type(&mem_entry->memdesc);
 		__entry->tgid = mem_entry->priv->pid;
 		kgsl_get_memory_usage(__entry->usage, sizeof(__entry->usage),
 				     mem_entry->memdesc.flags);
@@ -498,9 +498,10 @@ TRACE_EVENT(kgsl_mem_map,
 	),
 
 	TP_printk(
-		"gpuaddr=0x%08x size=%u type=%d fd=%d tgid=%u usage=%s id=%u",
+		"gpuaddr=0x%08x size=%u type=%s fd=%d tgid=%u usage=%s id=%u",
 		__entry->gpuaddr, __entry->size,
-		__entry->type, __entry->fd, __entry->tgid,
+		__print_symbolic(__entry->type, KGSL_MEM_TYPES),
+		__entry->fd, __entry->tgid,
 		__entry->usage, __entry->id
 	)
 );
@@ -524,7 +525,7 @@ TRACE_EVENT(kgsl_mem_free,
 	TP_fast_assign(
 		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
 		__entry->size = mem_entry->memdesc.size;
-		__entry->type = mem_entry->memtype;
+		__entry->type = kgsl_memdesc_usermem_type(&mem_entry->memdesc);
 		__entry->tgid = mem_entry->priv->pid;
 		kgsl_get_memory_usage(__entry->usage, sizeof(__entry->usage),
 				     mem_entry->memdesc.flags);
@@ -532,8 +533,9 @@ TRACE_EVENT(kgsl_mem_free,
 	),
 
 	TP_printk(
-		"gpuaddr=0x%08x size=%u type=%d tgid=%u usage=%s id=%u",
-		__entry->gpuaddr, __entry->size, __entry->type,
+		"gpuaddr=0x%08x size=%u type=%s tgid=%u usage=%s id=%u",
+		__entry->gpuaddr, __entry->size,
+		__print_symbolic(__entry->type, KGSL_MEM_TYPES),
 		__entry->tgid, __entry->usage, __entry->id
 	)
 );
@@ -626,18 +628,18 @@ DECLARE_EVENT_CLASS(kgsl_mem_timestamp_template,
 				     mem_entry->memdesc.flags);
 		__entry->id = mem_entry->id;
 		__entry->drawctxt_id = id;
-		__entry->type = mem_entry->memtype;
+		__entry->type = kgsl_memdesc_usermem_type(&mem_entry->memdesc);
 		__entry->curr_ts = curr_ts;
 		__entry->free_ts = free_ts;
 	),
 
 	TP_printk(
-		"d_name=%s gpuaddr=0x%08x size=%u type=%d usage=%s id=%u ctx=%u"
+		"d_name=%s gpuaddr=0x%08x size=%u type=%s usage=%s id=%u ctx=%u"
 		" curr_ts=%u free_ts=%u",
 		__get_str(device_name),
 		__entry->gpuaddr,
 		__entry->size,
-		__entry->type,
+		__print_symbolic(__entry->type, KGSL_MEM_TYPES),
 		__entry->usage,
 		__entry->id,
 		__entry->drawctxt_id,
