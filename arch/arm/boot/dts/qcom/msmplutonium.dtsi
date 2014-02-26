@@ -440,3 +440,4 @@
 
 #include "msmplutonium-regulator.dtsi"
 #include "msmplutonium-ion.dtsi"
+#include "msmplutonium-iommu.dtsi"
