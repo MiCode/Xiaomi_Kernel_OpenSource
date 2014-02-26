@@ -78,6 +78,14 @@ static struct afe_digital_clk_cfg digital_cdc_clk = {
 	0,
 };
 
+struct cdc_pdm_pinctrl_info {
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *cdc_pdm_sus;
+	struct pinctrl_state *cdc_pdm_act;
+};
+
+static struct cdc_pdm_pinctrl_info pinctrl_info;
+
 static atomic_t mclk_rsc_ref;
 static struct mutex cdc_mclk_mutex;
 
@@ -258,9 +266,12 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
+
 	ret = mi2s_clk_ctl(substream, false);
 	if (ret < 0)
 		pr_err("%s:clock disable failed\n", __func__);
+	pinctrl_select_state(pinctrl_info.pinctrl,
+				pinctrl_info.cdc_pdm_sus);
 }
 
 static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
@@ -272,8 +283,13 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
 
+	ret = pinctrl_select_state(pinctrl_info.pinctrl,
+					pinctrl_info.cdc_pdm_act);
+	if (ret < 0) {
+		pr_err("failed to configure the gpio\n");
+		return ret;
+	}
 	ret = mi2s_clk_ctl(substream, true);
-
 	ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
 	if (ret < 0)
 		pr_err("set fmt cpu dai failed\n");
@@ -709,6 +725,38 @@ static struct snd_soc_card bear_cards[MAX_SND_CARDS] = {
 	},
 };
 
+static int cdc_pdm_get_pinctrl(struct platform_device *pdev)
+{
+	struct pinctrl *pinctrl;
+	int ret;
+
+	pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR(pinctrl)) {
+		pr_err("%s: Unable to get pinctrl handle\n", __func__);
+		return -EINVAL;
+	}
+	pinctrl_info.pinctrl = pinctrl;
+	/* get all the states handles from Device Tree*/
+	pinctrl_info.cdc_pdm_sus = pinctrl_lookup_state(pinctrl,
+							"cdc_pdm_lines_sus");
+	pinctrl_info.cdc_pdm_act = pinctrl_lookup_state(pinctrl,
+							"cdc_pdm_lines_act");
+	if (IS_ERR(pinctrl_info.cdc_pdm_sus)) {
+		pr_err("%s: Unable to get pinctrl disable state handle\n",
+								__func__);
+		return -EINVAL;
+	}
+	/* Reset the CDC PDM TLMM pins to a default state */
+	ret = pinctrl_select_state(pinctrl_info.pinctrl,
+					pinctrl_info.cdc_pdm_sus);
+	if (ret != 0) {
+		pr_err("%s: Failed to disable the TLMM pins\n", __func__);
+		return -EIO;
+	}
+
+	return 0;
+}
+
 static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card;
@@ -733,7 +781,11 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "No platform supplied from device tree\n");
 		return -EINVAL;
 	}
-
+	ret = cdc_pdm_get_pinctrl(pdev);
+	if (ret < 0) {
+		pr_err("failed to get the pdm gpios\n");
+		return ret;
+	}
 	if (pdev->id >= MAX_SND_CARDS) {
 		dev_err(&pdev->dev, "Sound Card parsed is wrong\n");
 		return -EINVAL;
