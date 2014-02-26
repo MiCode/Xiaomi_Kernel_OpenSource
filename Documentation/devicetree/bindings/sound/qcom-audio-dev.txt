@@ -475,6 +475,40 @@ Example:
 		elemental-addr = [ff ff ff ff 17 02];
 	};
 
+* MSM8916 ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,msm8x16-audio-codec"
+- qcom,model : The user-visible name of this sound card.
+- qcom,msm-snd-card-id : This id is used to recognize the sound card number
+- qcom,msm-codec-type : This property is used to recognize the codec type
+  internal or external.
+- pinctrl-names : Pincntrl entries to configure the PDM gpio lines accordingly
+- pinctrl-0 : This exoplains the active state of the PDM gpio lines
+- pinctrl-1 : This exoplains the suspend state of the PDM gpio lines
+
+Example:
+
+	sound {
+		compatible = "qcom,msm8x16-audio-codec";
+		qcom,model = "msm8x16-snd-card";
+		qcom,msm-snd-card-id = <0>;
+		qcom,msm-codec-type = "internal";
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"INT_LDO_H", "MCLK",
+			"MIC BIAS External", "Handset Mic",
+			"MIC BIAS Internal2", "Headset Mic",
+			"MIC BIAS External", "Secondary Mic",
+			"AMIC1", "MIC BIAS External",
+			"AMIC2", "MIC BIAS Internal2",
+			"AMIC3", "MIC BIAS External";
+		pinctrl-names = "cdc_pdm_lines_act",
+				"cdc_pdm_lines_sus";
+		pinctrl-0 = <&cdc_pdm_lines_act>;
+		pinctrl-1 = <&cdc_pdm_lines_sus>;
+	};
+
 * MSM8974 ASoC Machine driver
 
 Required properties:
