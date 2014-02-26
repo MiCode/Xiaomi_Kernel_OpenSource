@@ -2321,7 +2321,7 @@ static struct mux_clk gcc_debug_mux = {
 	.base = &virt_dbgbase,
 	MUX_SRC_LIST(
 		{ &debug_mmss_clk.c, 0x002b },
-		{ &debug_rpm_clk.c, 0x002b },
+		{ &debug_rpm_clk.c, 0xffff },
 		{ &gcc_sys_noc_usb3_axi_clk.c, 0x0006 },
 		{ &gcc_mss_cfg_ahb_clk.c, 0x0030 },
 		{ &gcc_mss_q6_bimc_axi_clk.c, 0x0031 },
