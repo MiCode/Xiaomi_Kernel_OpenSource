@@ -106,6 +106,10 @@ Parent node optional properties:
 - qcom,vbatdet-maxerr-mv		This property in mV is a hystersis value for the charge
 					resume voltage property qcom,vbatdet-delta-mv. If this
 					property is not defined it defaults to 50 mV.
+- qcom,parallel-ovp-mode		When this option is enabled, it allows charging through both
+					DC and USB OVP FETs. Please note that this should only
+					be enabled in board designs with PM8941 which have DC_IN
+					and USB_IN connected via a short.
 
 Sub node required structure:
 - A qcom,chg node must be a child of an SPMI node that has specified
