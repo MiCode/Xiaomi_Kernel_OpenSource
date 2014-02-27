@@ -432,10 +432,14 @@
 				<78 512 2048000 4096000>; /* Max. bandwidth */
 		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
 						100000000 200000000 4294967295>;
-		status = "disabled";
 		clocks = <&clock_gcc clk_gcc_sdcc1_ahb_clk>,
 			 <&clock_gcc clk_gcc_sdcc1_apps_clk>;
 		clock-names = "iface_clk", "core_clk";
+
+		qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
+		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+
+		status = "disabled";
 	};
 
 	sdhc_2: sdhci@07864000 {
@@ -461,11 +465,13 @@
 				<81 512 2048000 4096000>; /* Max. bandwidth */
 		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
 						100000000 200000000 4294967295>;
-		status = "disabled";
 		clocks = <&clock_gcc clk_gcc_sdcc2_ahb_clk>,
 			 <&clock_gcc clk_gcc_sdcc2_apps_clk>;
 		clock-names = "iface_clk", "core_clk";
 
+		qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
+
+		status = "disabled";
 	};
 
 	qcom,ipc-spinlock@1905000 {
