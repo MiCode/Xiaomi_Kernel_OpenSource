@@ -192,7 +192,7 @@ static size_t _ion_heap_freelist_drain(struct ion_heap *heap, size_t size,
 		list_del(&buffer->list);
 		heap->free_list_size -= buffer->size;
 		if (skip_pools)
-			buffer->flags |= ION_FLAG_FREED_FROM_SHRINKER;
+			buffer->private_flags |= ION_PRIV_FLAG_SHRINKER_FREE;
 		total_drained += buffer->size;
 		spin_unlock(&heap->free_lock);
 		ion_buffer_destroy(buffer);

@@ -95,7 +95,7 @@ static void free_buffer_page(struct ion_system_heap *heap,
 {
 	bool cached = ion_buffer_cached(buffer);
 
-	if (!(buffer->flags & ION_FLAG_FREED_FROM_SHRINKER)) {
+	if (!(buffer->private_flags & ION_PRIV_FLAG_SHRINKER_FREE)) {
 		struct ion_page_pool *pool;
 		if (cached)
 			pool = heap->cached_pools[order_to_index(order)];
@@ -287,7 +287,7 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 	return 0;
 err_free_sg2:
 	/* We failed to zero buffers. Bypass pool */
-	buffer->flags |= ION_FLAG_FREED_FROM_SHRINKER;
+	buffer->flags |= ION_PRIV_FLAG_SHRINKER_FREE;
 
 	for_each_sg(table->sgl, sg, table->nents, i)
 		free_buffer_page(sys_heap, buffer, sg_page(sg),
@@ -323,7 +323,7 @@ void ion_system_heap_free(struct ion_buffer *buffer)
 	LIST_HEAD(pages);
 	int i;
 
-	if (!(buffer->flags & ION_FLAG_FREED_FROM_SHRINKER))
+	if (!(buffer->private_flags & ION_PRIV_FLAG_SHRINKER_FREE))
 		msm_ion_heap_buffer_zero(buffer);
 
 	for_each_sg(table->sgl, sg, table->nents, i)
