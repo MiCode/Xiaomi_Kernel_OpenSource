@@ -1285,6 +1285,7 @@ static struct branch_clk gcc_mss_q6_bimc_axi_clk = {
 	.cbcr_reg = MSS_Q6_BIMC_AXI_CBCR,
 	.has_sibling = 1,
 	.base = &virt_bases[GCC_BASE],
+	.halt_check = DELAY,
 	.c = {
 		.dbg_name = "gcc_mss_q6_bimc_axi_clk",
 		.ops = &clk_ops_branch,
