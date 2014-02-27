@@ -325,6 +325,7 @@ struct ipa_ep_cfg_status {
  * @suspended: valid for B2B pipes, whether IPA EP is suspended
  * @skip_ep_cfg: boolean field that determines if EP should be configured
  *  by IPA driver
+ * @keep_ipa_awake: when true, IPA will not be clock gated
  */
 struct ipa_ep_context {
 	int valid;
@@ -351,6 +352,7 @@ struct ipa_ep_context {
 	u32 dflt_flt4_rule_hdl;
 	u32 dflt_flt6_rule_hdl;
 	bool skip_ep_cfg;
+	bool keep_ipa_awake;
 };
 
 enum ipa_sys_pipe_policy {
@@ -635,6 +637,8 @@ struct ipa_controller;
  * @ipa_bus_hdl: msm driver handle for the data path bus
  * @ctrl: holds the core specific operations based on
  *  core version (vtable like)
+ * @enable_clock_scaling: clock scaling is enabled ?
+ * @curr_ipa_clk_rate: ipa_clk current rate
 
  * IPA context - holds all relevant info about IPA driver and its state
  */
@@ -703,6 +707,8 @@ struct ipa_context {
 	struct idr ipa_idr;
 	struct device *pdev;
 	spinlock_t idr_lock;
+	u32 enable_clock_scaling;
+	u32 curr_ipa_clk_rate;
 
 	/* wlan related member */
 	spinlock_t wlan_spinlock;
@@ -758,7 +764,9 @@ struct ipa_plat_drv_res {
 };
 
 struct ipa_controller {
-	u32 ipa_clk_rate;
+	u32 ipa_clk_rate_hi;
+	u32 ipa_clk_rate_lo;
+	u32 clock_scaling_bw_threshold;
 	void (*ipa_sram_read_settings)(void);
 	void (*ipa_cfg_ep_hdr)(u32 pipe_number,
 			const struct ipa_ep_cfg_hdr *ipa_ep_hdr_cfg);

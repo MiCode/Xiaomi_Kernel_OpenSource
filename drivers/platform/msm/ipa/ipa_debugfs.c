@@ -1289,6 +1289,21 @@ void ipa_debugfs_init(void)
 		goto fail;
 	}
 
+	file = debugfs_create_u32("enable_clock_scaling", read_write_mode,
+		dent, &ipa_ctx->enable_clock_scaling);
+	if (!file) {
+		IPAERR("could not create enable_clock_scaling file\n");
+		goto fail;
+	}
+
+	file = debugfs_create_u32("clock_scaling_bw_threshold_mbps",
+		read_write_mode, dent,
+		&ipa_ctx->ctrl->clock_scaling_bw_threshold);
+	if (!file) {
+		IPAERR("could not create clock_scaling_bw_threshold_mbps\n");
+		goto fail;
+	}
+
 	return;
 
 fail:

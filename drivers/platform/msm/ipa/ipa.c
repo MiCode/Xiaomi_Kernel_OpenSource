@@ -1413,7 +1413,8 @@ void _ipa_enable_clks_v2_0(void)
 	if (ipa_clk) {
 		clk_prepare(ipa_clk);
 		clk_enable(ipa_clk);
-		clk_set_rate(ipa_clk, ipa_ctx->ctrl->ipa_clk_rate);
+		IPADBG("curr_ipa_clk_rate=%d", ipa_ctx->curr_ipa_clk_rate);
+		clk_set_rate(ipa_clk, ipa_ctx->curr_ipa_clk_rate);
 	} else {
 		WARN_ON(1);
 	}
@@ -1432,7 +1433,7 @@ void _ipa_enable_clks_v1(void)
 
 	if (ipa_clk_src)
 		clk_set_rate(ipa_clk_src,
-				ipa_ctx->ctrl->ipa_clk_rate);
+				ipa_ctx->curr_ipa_clk_rate);
 	else
 		WARN_ON(1);
 
@@ -1607,7 +1608,57 @@ fail:
 int ipa_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 				  u32 bandwidth_mbps)
 {
-	IPADBG("Not Implemented yet");
+	enum ipa_voltage_level needed_voltage;
+	u32 clk_rate;
+
+	IPADBG("floor_voltage=%d, bandwidth_mbps=%u",
+					floor_voltage, bandwidth_mbps);
+
+	if (floor_voltage < IPA_VOLTAGE_UNSPECIFIED ||
+		floor_voltage >= IPA_VOLTAGE_MAX) {
+		IPAERR("bad voltage\n");
+		return -EINVAL;
+	}
+
+	if (ipa_ctx->enable_clock_scaling) {
+		IPADBG("Clock scaling is enabled\n");
+		if (bandwidth_mbps > ipa_ctx->ctrl->clock_scaling_bw_threshold)
+			needed_voltage = IPA_VOLTAGE_NOMINAL;
+		else
+			needed_voltage = IPA_VOLTAGE_SVS;
+	} else {
+		IPADBG("Clock scaling is disabled\n");
+		needed_voltage = IPA_VOLTAGE_NOMINAL;
+	}
+
+	needed_voltage = max(needed_voltage, floor_voltage);
+	switch (needed_voltage) {
+	case IPA_VOLTAGE_SVS:
+		clk_rate = ipa_ctx->ctrl->ipa_clk_rate_lo;
+		break;
+	case IPA_VOLTAGE_NOMINAL:
+		clk_rate = ipa_ctx->ctrl->ipa_clk_rate_hi;
+		break;
+	default:
+		IPAERR("bad voltage\n");
+		WARN_ON(1);
+		return -EFAULT;
+	}
+
+	if (clk_rate == ipa_ctx->curr_ipa_clk_rate) {
+		IPADBG("Same voltage\n");
+		return 0;
+	}
+
+	mutex_lock(&ipa_ctx->ipa_active_clients_lock);
+	ipa_ctx->curr_ipa_clk_rate = clk_rate;
+	IPADBG("setting clock rate to %u\n", ipa_ctx->curr_ipa_clk_rate);
+	if (ipa_ctx->ipa_active_clients > 0)
+		clk_set_rate(ipa_clk, ipa_ctx->curr_ipa_clk_rate);
+	else
+		IPADBG("clocks are gated, not setting rate\n");
+	mutex_unlock(&ipa_ctx->ipa_active_clients_lock);
+	IPADBG("Done\n");
 	return 0;
 }
 
@@ -1780,6 +1831,9 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		result = -ENODEV;
 		goto fail_bind;
 	}
+
+	ipa_ctx->enable_clock_scaling = 0;
+	ipa_ctx->curr_ipa_clk_rate = ipa_ctx->ctrl->ipa_clk_rate_hi;
 
 	/* enable IPA clocks explicitly to allow the initialization */
 	ipa_enable_clks();
