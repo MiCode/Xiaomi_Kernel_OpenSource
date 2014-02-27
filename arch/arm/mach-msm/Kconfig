@@ -224,7 +224,7 @@ config ARCH_MSM8610
 	select REGULATOR_RPM_SMD
 	select REGULATOR_SPM
 	select MSM_JTAG_MM if CORESIGHT_ETM
-	select MSM_CPR_REGULATOR
+	select REGULATOR_CPR
 	select MSM_RPM_LOG
 	select MSM_IOMMU_SYNC
 	select MSM_RPM_STATS_LOG
@@ -265,7 +265,7 @@ config ARCH_MSM8226
 	select REGULATOR_RPM_SMD
 	select REGULATOR_SPM
 	select MSM_JTAG_MM if CORESIGHT_ETM
-	select MSM_CPR_REGULATOR
+	select REGULATOR_CPR
 	select MSM_RPM_LOG
 	select MSM_RPM_STATS_LOG
 	select ARCH_WANT_KMAP_ATOMIC_FLUSH
@@ -1145,17 +1145,6 @@ config MSM_XPU_ERR_FATAL
 	bool "Configure XPU violations as fatal errors"
 	help
 	 Select if XPU violations have to be configured as fatal errors.
-
-config MSM_CPR_REGULATOR
-	bool "RBCPR regulator driver for APC"
-	depends on REGULATOR
-	depends on OF
-	help
-	  Compile in RBCPR (RapidBridge Core Power Reduction) driver to support
-	  corner vote for APC power rail. The driver takes PTE process voltage
-	  suggestions in efuse as initial settings. It converts corner vote
-	  to voltage value before writing to a voltage regulator API, such as
-	  that provided by spm-regulator driver.
 
 config KRAIT_REGULATOR
 	bool "Support Kraits powered via ganged regulators in the pmic"
