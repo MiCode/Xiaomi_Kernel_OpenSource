@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#include <mach/msm_bus_board.h>
+#include <linux/msm-bus-board.h>
 
 #ifndef __MSM_SCM_PAS_H
 #define __MSM_SCM_PAS_H
