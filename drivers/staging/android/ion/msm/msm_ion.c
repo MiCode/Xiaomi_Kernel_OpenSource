@@ -879,7 +879,7 @@ static int msm_ion_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	new_dev = ion_device_create(msm_ion_custom_ioctl, compat_msm_ion_ioctl);
+	new_dev = ion_device_create(compat_msm_ion_ioctl);
 	if (IS_ERR_OR_NULL(new_dev)) {
 		/*
 		 * set this to the ERR to indicate to the clients

@@ -61,9 +61,6 @@ struct ion_device {
 	struct plist_head heaps;
 	long (*custom_ioctl) (struct ion_client *client, unsigned int cmd,
 			      unsigned long arg);
-	long (*custom_compat_ioctl) (struct ion_client *client,
-			      unsigned int cmd,
-			      unsigned long arg);
 	struct rb_root clients;
 	struct dentry *debug_root;
 	struct dentry *heaps_debug_root;
@@ -1443,12 +1440,7 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	{
 		if (!dev->custom_ioctl)
 			return -ENOTTY;
-
-		if (dev->custom_compat_ioctl)
-			ret = dev->custom_compat_ioctl(client, data.custom.cmd,
-						data.custom.arg);
-		else
-			ret = dev->custom_ioctl(client, data.custom.cmd,
+		ret = dev->custom_ioctl(client, data.custom.cmd,
 						data.custom.arg);
 		break;
 	}
@@ -1815,10 +1807,6 @@ EXPORT_SYMBOL(ion_walk_heaps);
 struct ion_device *ion_device_create(long (*custom_ioctl)
 				     (struct ion_client *client,
 				      unsigned int cmd,
-				      unsigned long arg),
-				  long (*custom_compat_ioctl)
-				     (struct ion_client *client,
-				      unsigned int cmd,
 				      unsigned long arg))
 {
 	struct ion_device *idev;
@@ -1856,7 +1844,6 @@ struct ion_device *ion_device_create(long (*custom_ioctl)
 debugfs_done:
 
 	idev->custom_ioctl = custom_ioctl;
-	idev->custom_compat_ioctl = custom_compat_ioctl;
 	idev->buffers = RB_ROOT;
 	mutex_init(&idev->buffer_lock);
 	init_rwsem(&idev->lock);
