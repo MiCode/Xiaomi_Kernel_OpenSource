@@ -48,7 +48,6 @@ static unsigned int freq_index[NR_CPUS];
 static unsigned int max_freq_index;
 static struct cpufreq_frequency_table *freq_table;
 static unsigned int *l2_khz;
-static bool is_sync;
 static unsigned long *mem_bw;
 static bool hotplug_ready;
 
@@ -221,8 +220,6 @@ static int msm_cpufreq_verify(struct cpufreq_policy *policy)
 
 static unsigned int msm_cpufreq_get_freq(unsigned int cpu)
 {
-	if (is_sync)
-		cpu = 0;
 	return clk_get_rate(cpu_clk[cpu]) / 1000;
 }
 
@@ -233,25 +230,24 @@ static int msm_cpufreq_init(struct cpufreq_policy *policy)
 	int ret = 0;
 	struct cpufreq_frequency_table *table;
 	struct cpufreq_work_struct *cpu_work = NULL;
+	int cpu;
 
 	table = cpufreq_frequency_get_table(policy->cpu);
 	if (table == NULL)
 		return -ENODEV;
 	/*
-	 * In some SoC, cpu cores' frequencies can not
-	 * be changed independently. Each cpu is bound to
-	 * same frequency. Hence set the cpumask to all cpu.
+	 * In some SoC, some cores are clocked by same source, and their
+	 * frequencies can not be changed independently. Find all other
+	 * CPUs that share same clock, and mark them as controlled by
+	 * same policy.
 	 */
-	if (is_sync)
-		cpumask_setall(policy->cpus);
+	for_each_possible_cpu(cpu)
+		if (cpu_clk[cpu] == cpu_clk[policy->cpu])
+			cpumask_set_cpu(cpu, policy->cpus);
 
 	cpu_work = &per_cpu(cpufreq_work, policy->cpu);
 	INIT_WORK(&cpu_work->work, set_cpu_work);
 	init_completion(&cpu_work->complete);
-
-	/* synchronous cpus share the same policy */
-	if (!cpu_clk[policy->cpu])
-		return 0;
 
 	if (cpufreq_frequency_table_cpuinfo(policy, table)) {
 #ifdef CONFIG_MSM_CPU_FREQ_SET_MIN_MAX
@@ -561,14 +557,10 @@ static int __init msm_cpufreq_probe(struct platform_device *pdev)
 	for_each_possible_cpu(cpu) {
 		snprintf(clk_name, sizeof(clk_name), "cpu%d_clk", cpu);
 		c = devm_clk_get(dev, clk_name);
-		if (!IS_ERR(c))
-			cpu_clk[cpu] = c;
-		else
-			is_sync = true;
+		if (IS_ERR(c))
+			return PTR_ERR(c);
+		cpu_clk[cpu] = c;
 	}
-
-	if (!cpu_clk[0])
-		return -ENODEV;
 	hotplug_ready = true;
 
 	ret = cpufreq_parse_dt(dev);
