@@ -22,8 +22,8 @@ struct compat_ion_flush_data {
 	compat_ion_user_handle_t handle;
 	compat_int_t fd;
 	compat_uptr_t vaddr;
-	compat_ulong_t offset;
-	compat_ulong_t length;
+	compat_uint_t offset;
+	compat_uint_t length;
 };
 
 struct compat_ion_prefetch_data {
@@ -149,6 +149,9 @@ long compat_msm_ion_ioctl(struct ion_client *client, unsigned int cmd,
 
 	}
 	default:
-		return -ENOIOCTLCMD;
+		if (is_compat_task())
+			return -ENOIOCTLCMD;
+		else
+			return msm_ion_custom_ioctl(client, cmd, arg);
 	}
 }
