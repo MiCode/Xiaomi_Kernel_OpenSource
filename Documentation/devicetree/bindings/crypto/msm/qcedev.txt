@@ -12,6 +12,7 @@ Required properties:
   - qcom,msm_bus,active-only: Boolean flag for context of request (actve/dual)
   - qcom,msm_bus,num_paths: The paths for source and destination ports
   - qcom,msm_bus,vectors: Vectors for bus topology.
+  - qcom,ce-device: Device number.
 
 Optional properties:
   - qcom,ce-hw-shared : optional, indicates if the hardware is shared between EE.
@@ -27,6 +28,7 @@ Example:
 		interrupts = <0 235 0>;
 		qcom,bam-pipe-pair = <0>;
 		qcom,ce-hw-instance = <1>;
+		qcom,ce-device = <0>;
 		qcom,ce-hw-shared;
                 qcom,msm-bus,name = "qcedev-noc";
 		qcom,msm-bus,num-cases = <2>;
