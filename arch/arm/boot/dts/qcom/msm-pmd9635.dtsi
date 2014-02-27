@@ -55,6 +55,7 @@
 			gpio@c100 {
 				reg = <0xc100 0x100>;
 				qcom,pin-num = <2>;
+				status = "disabled";
 			};
 
 			gpio@c200 {
