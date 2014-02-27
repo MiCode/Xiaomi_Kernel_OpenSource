@@ -31,7 +31,7 @@
 
 #include "clock.h"
 
-#define GCC_DEBUG_CLK_CTL	0x6c000
+#define GCC_DEBUG_CLK_CTL	0x74000
 #define RPM_MISC_CLK_TYPE	0x306b6c63
 #define RPM_BUS_CLK_TYPE	0x316b6c63
 #define RPM_MEM_CLK_TYPE	0x326b6c63
@@ -203,6 +203,14 @@ static int msm_rpmcc_8916_probe(struct platform_device *pdev)
 	clk_prepare_enable(&snoc_mmnoc_axi_clk.c);
 
 	clk_prepare_enable(&xo_a_clk_src.c);
+
+        /* Bus driver votes */
+        clk_prepare_enable(&bimc_msmbus_a_clk.c);
+        clk_prepare_enable(&bimc_msmbus_clk.c);
+        clk_prepare_enable(&snoc_msmbus_clk.c);
+        clk_prepare_enable(&snoc_msmbus_a_clk.c);
+        clk_prepare_enable(&pcnoc_msmbus_clk.c);
+        clk_prepare_enable(&pcnoc_msmbus_a_clk.c);
 
 	dev_info(&pdev->dev, "Registered RPM clocks.\n");
 
