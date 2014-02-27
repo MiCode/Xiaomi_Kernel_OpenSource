@@ -25,9 +25,8 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
+#include <linux/regulator/spm-regulator.h>
 #include <soc/qcom/spm.h>
-
-#include "spm-regulator.h"
 
 #define SPM_REGULATOR_DRIVER_NAME "qcom,spm-regulator"
 

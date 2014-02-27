@@ -222,7 +222,7 @@ config ARCH_MSM8610
 	select ARM_HAS_SG_CHAIN
 	select REGULATOR
 	select REGULATOR_RPM_SMD
-	select MSM_SPM_REGULATOR
+	select REGULATOR_SPM
 	select MSM_JTAG_MM if CORESIGHT_ETM
 	select MSM_CPR_REGULATOR
 	select MSM_RPM_LOG
@@ -263,7 +263,7 @@ config ARCH_MSM8226
 	select ARM_HAS_SG_CHAIN
 	select REGULATOR
 	select REGULATOR_RPM_SMD
-	select MSM_SPM_REGULATOR
+	select REGULATOR_SPM
 	select MSM_JTAG_MM if CORESIGHT_ETM
 	select MSM_CPR_REGULATOR
 	select MSM_RPM_LOG
@@ -295,7 +295,7 @@ config ARCH_MSMSAMARIUM
 	select MSM_RPM_SMD
 	select REGULATOR
 	select REGULATOR_RPM_SMD
-	select MSM_SPM_REGULATOR
+	select REGULATOR_SPM
 	select ARM_HAS_SG_CHAIN
 	select MSM_RUN_QUEUE_STATS
 	select ARCH_WANT_KMAP_ATOMIC_FLUSH
@@ -806,16 +806,6 @@ config MSM_IDLE_WAIT_ON_MODEM
 	  If Modem is not ready to handle Application Processor's request
 	  for idle power collapse, wait the number of microseconds in case
 	  Modem becomes ready soon.
-
-config MSM_SPM_REGULATOR
-	bool "SPM regulator driver"
-	depends on REGULATOR && SPMI && OF_SPMI
-	help
-	  Enable support for the SPM regulator driver which is used for
-	  setting voltages of processor supply regulators via the SPM module
-	  found inside of the MSM chips.  The SPM regulator driver can be used
-	  on MSM systems where the APSS processor cores are supplied by their
-	  own PMIC regulator.
 
 config MSM_SMCMOD
 	tristate "Secure Monitor Call (SMC) Module"

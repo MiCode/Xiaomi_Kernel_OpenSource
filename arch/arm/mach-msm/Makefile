@@ -23,8 +23,6 @@ obj-$(CONFIG_SURF_FFA_GPIO_KEYPAD) += keypad-surf-ffa.o
 
 obj-$(CONFIG_MSM_BOOT_STATS) += boot_stats.o
 
-obj-$(CONFIG_MSM_SPM_REGULATOR) += spm-regulator.o
-
 obj-$(CONFIG_ARCH_FSM9900) += board-fsm9900.o board-fsm9900-gpiomux.o
 obj-$(CONFIG_ARCH_FSM9900) += clock-fsm9900.o
 obj-$(CONFIG_ARCH_FSM9900) += rfic-fsm9900.o bbif-fsm9900.o
