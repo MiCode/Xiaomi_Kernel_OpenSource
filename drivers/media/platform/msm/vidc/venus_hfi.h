@@ -138,8 +138,9 @@ struct vidc_iface_q_info {
 
 struct hal_data {
 	u32 irq;
-	phys_addr_t firmware_base_addr;
-	u8 *register_base_addr;
+	phys_addr_t firmware_base;
+	u8 __iomem *register_base;
+	u32 register_size;
 };
 
 struct venus_bus_info {
@@ -183,10 +184,6 @@ struct venus_hfi_device {
 	struct workqueue_struct *venus_pm_workq;
 	int spur_count;
 	int reg_count;
-	phys_addr_t firmware_base;
-	phys_addr_t register_base;
-	u32 register_size;
-	u32 irq;
 	struct venus_resources resources;
 	struct msm_vidc_platform_resources *res;
 };
