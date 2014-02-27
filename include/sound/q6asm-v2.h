@@ -180,6 +180,7 @@ struct audio_client {
 	int					   stream_id;
 	/* audio cache operations fptr*/
 	int (*fptr_cache_ops)(struct audio_buffer *abuff, int cache_op);
+	atomic_t               unmap_cb_success;
 };
 
 void q6asm_audio_client_free(struct audio_client *ac);
