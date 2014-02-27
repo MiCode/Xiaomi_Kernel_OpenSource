@@ -15,27 +15,24 @@
 
 #include <linux/irq.h>
 
-#if defined(CONFIG_GPIO_MSM_V1) || defined(CONFIG_GPIO_MSM_V2) \
-		|| defined(CONFIG_GPIO_MSM_V3)
-#ifndef CONFIG_USE_PINCTRL_IRQ
+#if (defined(CONFIG_GPIO_MSM_V1) || defined(CONFIG_GPIO_MSM_V2) \
+	|| defined(CONFIG_GPIO_MSM_V3) && !defined(CONFIG_USE_PINCTRL_IRQ))
 int __init msm_gpio_of_init(struct device_node *node,
 					struct device_node *parent);
 extern struct irq_chip msm_gpio_irq_extn;
-#else
-int __init msm_tlmm_of_irq_init(struct device_node *node,
-					struct device_node *parent);
-extern struct irq_chip mpm_tlmm_irq_extn;
-#endif
-#else
-static inline int __init msm_gpio_of_init(struct device_node *node,
-					struct device_node *parent)
-{
-	return 0;
-}
 static inline int __init msm_tlmm_of_irq_init(struct device_node *node,
 					struct device_node *parent)
 {
 	return 0;
 }
+#else
+int __init msm_tlmm_of_irq_init(struct device_node *node,
+					struct device_node *parent);
+extern struct irq_chip mpm_tlmm_irq_extn;
+static inline int __init msm_gpio_of_init(struct device_node *node,
+					struct device_node *parent)
+{
+	return 0;
+}
 #endif
-#endif /* MSM_GPIO_IRQ_H */
+#endif
