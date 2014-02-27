@@ -3084,7 +3084,7 @@
 		qcom,rpm-phase-resource-type = "misc";
 		qcom,rpm-phase-resource-id = <0>;
 		qcom,cx-phase-resource-key = "tmpc";
-		qcom,cx-phase-hot-crit-temp = <75>;
+		qcom,cx-phase-hot-crit-temp = <85>;
 		qcom,cx-phase-hot-crit-temp-hyst = <15>;
 		qcom,gfx-phase-warm-temp = <60>;
 		qcom,gfx-phase-warm-temp-hyst = <10>;
