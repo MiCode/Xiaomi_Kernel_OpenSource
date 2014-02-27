@@ -24,6 +24,10 @@
 	timer {
 		clock-frequency = <5000000>;
 	};
+
+	timer@b120000 {
+		clock-frequency = <5000000>;
+	};
 };
 
 &blsp1_uart2 {
