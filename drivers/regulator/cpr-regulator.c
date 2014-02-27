@@ -1666,7 +1666,7 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 {
 	struct device_node *of_node = pdev->dev.of_node;
 	int i, rc = 0;
-	bool redundant = false;
+	bool redundant = false, scheme_fuse_valid = false;
 	u32 cpr_fuse_redun_sel[5];
 	char *targ_quot_str, *ro_sel_str;
 	u32 cpr_fuse_row[2];
@@ -1734,9 +1734,14 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 			CPR_PROP_READ_U32(of_node,
 					  "cpr-fuse-redun-bp-cpr-disable",
 					  &bp_cpr_disable, rc);
-			CPR_PROP_READ_U32(of_node,
-					  "cpr-fuse-redun-bp-scheme",
-					  &bp_scheme, rc);
+			if (of_find_property(of_node,
+					"qcom,cpr-fuse-redun-bp-scheme",
+					NULL)) {
+				CPR_PROP_READ_U32(of_node,
+						"cpr-fuse-redun-bp-scheme",
+						&bp_scheme, rc);
+				scheme_fuse_valid = true;
+			}
 			if (rc)
 				return rc;
 			fuse_bits_2 = fuse_bits;
@@ -1746,8 +1751,14 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 			/* Use original fuse if no optional property */
 			CPR_PROP_READ_U32(of_node, "cpr-fuse-bp-cpr-disable",
 					  &bp_cpr_disable, rc);
-			CPR_PROP_READ_U32(of_node, "cpr-fuse-bp-scheme",
-					  &bp_scheme, rc);
+			if (of_find_property(of_node,
+					"qcom,cpr-fuse-bp-scheme",
+					NULL)) {
+				CPR_PROP_READ_U32(of_node,
+						"cpr-fuse-bp-scheme",
+						&bp_scheme, rc);
+				scheme_fuse_valid = true;
+			}
 			rc = of_property_read_u32_array(of_node,
 					"qcom,cpr-fuse-row",
 					temp_row, 2);
@@ -1762,18 +1773,27 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 	} else {
 		CPR_PROP_READ_U32(of_node, "cpr-fuse-bp-cpr-disable",
 				  &bp_cpr_disable, rc);
-		CPR_PROP_READ_U32(of_node, "cpr-fuse-bp-scheme",
-				  &bp_scheme, rc);
+		if (of_find_property(of_node, "qcom,cpr-fuse-bp-scheme",
+							NULL)) {
+			CPR_PROP_READ_U32(of_node, "cpr-fuse-bp-scheme",
+					&bp_scheme, rc);
+			scheme_fuse_valid = true;
+		}
 		if (rc)
 			return rc;
 		fuse_bits_2 = fuse_bits;
 	}
 
 	cpr_vreg->cpr_fuse_disable = (fuse_bits_2 >> bp_cpr_disable) & 0x01;
-	cpr_vreg->cpr_fuse_local = (fuse_bits_2 >> bp_scheme) & 0x01;
-
-	pr_info("disable = %d, local = %d\n",
-		cpr_vreg->cpr_fuse_disable, cpr_vreg->cpr_fuse_local);
+	if (scheme_fuse_valid) {
+		cpr_vreg->cpr_fuse_local = (fuse_bits_2 >> bp_scheme) & 0x01;
+		pr_info("disable = %d, local = %d\n",
+				cpr_vreg->cpr_fuse_disable,
+				cpr_vreg->cpr_fuse_local);
+	} else {
+		cpr_vreg->cpr_fuse_local = true;
+		pr_info("disable = %d\n", cpr_vreg->cpr_fuse_disable);
+	}
 
 	for (i = CPR_FUSE_CORNER_SVS; i < CPR_FUSE_CORNER_MAX; i++) {
 		ro_sel = (fuse_bits >> bp_ro_sel[i])
