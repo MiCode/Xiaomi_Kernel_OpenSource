@@ -105,6 +105,7 @@ struct mxhci_hsic_hcd {
 	int			strobe;
 	int			data;
 	int			host_ready;
+	int			resume_gpio;
 	int			wakeup_irq;
 	int			pwr_event_irq;
 	unsigned int		vdd_no_vol_level;
@@ -383,6 +384,17 @@ static int mxhci_hsic_config_gpios(struct mxhci_hsic_hcd *mxhci)
 		}
 	}
 
+	if (mxhci->resume_gpio) {
+		rc = devm_gpio_request(mxhci->dev,
+				mxhci->resume_gpio, "HSIC_RESUME_GPIO");
+		if (rc < 0) {
+			dev_err(mxhci->dev,
+				"gpio request failed for resume gpio\n");
+			mxhci->resume_gpio = 0;
+			rc = 0;
+		}
+	}
+
 out:
 	return rc;
 }
@@ -616,14 +628,30 @@ static int mxhci_hsic_bus_suspend(struct usb_hcd *hcd)
 static int mxhci_hsic_bus_resume(struct usb_hcd *hcd)
 {
 	int ret;
+	struct mxhci_hsic_hcd *mxhci = hcd_to_hsic(hcd->primary_hcd);
 
 	if (!usb_hcd_is_primary_hcd(hcd))
 		return 0;
+
+	if (mxhci->resume_gpio) {
+		xhci_dbg_log_event(&dbg_hsic, NULL, "resume gpio high",
+				readl_relaxed(MSM_HSIC_PORTSC));
+		gpio_direction_output(mxhci->resume_gpio, 1);
+
+		usleep_range(9000, 10000);
+	}
 
 	ret = xhci_bus_resume(hcd);
 
 	xhci_dbg_log_event(&dbg_hsic, NULL, "Resume RH",
 			readl_relaxed(MSM_HSIC_PORTSC));
+
+	if (mxhci->resume_gpio) {
+		xhci_dbg_log_event(&dbg_hsic, NULL, "resume gpio low",
+				readl_relaxed(MSM_HSIC_PORTSC));
+		gpio_direction_output(mxhci->resume_gpio, 0);
+	}
+
 	return ret;
 }
 
@@ -996,6 +1024,10 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 					"qcom,host-ready-gpio", 0);
 	if (mxhci->host_ready < 0)
 		mxhci->host_ready = 0;
+
+	mxhci->resume_gpio = of_get_named_gpio(node, "hsic,resume-gpio", 0);
+	if (mxhci->resume_gpio < 0)
+		mxhci->resume_gpio = 0;
 
 	ret = of_property_read_u32_array(node, "qcom,vdd-voltage-level",
 							tmp, ARRAY_SIZE(tmp));

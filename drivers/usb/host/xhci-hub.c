@@ -1442,7 +1442,7 @@ int xhci_bus_resume(struct usb_hcd *hcd)
 						port_index, XDEV_RESUME);
 
 				spin_unlock_irqrestore(&xhci->lock, flags);
-				msleep(20);
+				usleep_range(20000, 21000);
 				spin_lock_irqsave(&xhci->lock, flags);
 
 				xhci_set_link_state(xhci, port_array,
@@ -1452,7 +1452,7 @@ int xhci_bus_resume(struct usb_hcd *hcd)
 			 * state change.
 			 */
 			spin_unlock_irqrestore(&xhci->lock, flags);
-			msleep(20);
+			usleep_range(20000, 21000);
 			spin_lock_irqsave(&xhci->lock, flags);
 
 			/* Clear PLC */
