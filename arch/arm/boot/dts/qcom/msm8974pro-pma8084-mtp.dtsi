@@ -73,6 +73,13 @@
 		cam_vana-supply = <&pma8084_l17>;
 		cam_vio-supply = <&pma8084_lvs4>;
 	};
+
+	qcom,actuator@18 {
+		cam_vaf-supply = <&pma8084_l23>;
+	};
+	qcom,actuator@36 {
+		cam_vaf-supply = <&pma8084_l23>;
+	};
 };
 
 &soc {
