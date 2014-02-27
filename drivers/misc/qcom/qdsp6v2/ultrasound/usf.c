@@ -11,6 +11,7 @@
  *
  */
 
+#include <linux/compat.h>
 #include <linux/fs.h>
 #include <linux/module.h>
 #include <linux/miscdevice.h>
@@ -21,7 +22,7 @@
 #include <linux/uaccess.h>
 #include <linux/time.h>
 #include <sound/apr_audio.h>
-#include <mach/qdsp6v2/usf.h>
+#include <linux/qdsp6v2/usf.h>
 #include "q6usm.h"
 #include "usfcdev.h"
 
@@ -501,7 +502,7 @@ static int config_xx(struct usf_xx_type *usf_xx, struct us_xx_info_type *config)
 
 	if (config->client_name != NULL) {
 		if (strncpy_from_user(usf_xx->client_name,
-				      config->client_name,
+				      (char __user *)config->client_name,
 				      sizeof(usf_xx->client_name) - 1) < 0) {
 			pr_err("%s: get client name failed\n", __func__);
 			return -EINVAL;
@@ -562,7 +563,7 @@ static int config_xx(struct usf_xx_type *usf_xx, struct us_xx_info_type *config)
 			return -ENOMEM;
 		}
 		rc = copy_from_user(usf_xx->encdec_cfg.params,
-				    config->params_data,
+				    (uint8_t __user *)config->params_data,
 				    config->params_data_size);
 		if (rc) {
 			pr_err("%s: transparent data copy failure\n",
@@ -708,7 +709,7 @@ static int register_input_device(struct usf_type *usf_info,
 
 static void handle_input_event(struct usf_type *usf_info,
 			       uint16_t event_counter,
-			       struct usf_event_type *event)
+			       struct usf_event_type __user *event)
 {
 	uint16_t ind = 0;
 	uint16_t events_num = 0;
@@ -729,7 +730,7 @@ static void handle_input_event(struct usf_type *usf_info,
 			event_counter = 0;
 		}
 		rc = copy_from_user(usf_events,
-				event,
+				(struct usf_event_type __user *)event,
 				events_num * sizeof(struct usf_event_type));
 		if (rc) {
 			pr_err("%s: copy upd_rx_info from user; rc=%d\n",
@@ -792,37 +793,29 @@ static int usf_start_rx(struct usf_xx_type *usf_xx)
 	return rc;
 } /* usf_start_rx */
 
-static int usf_set_us_detection(struct usf_type *usf, unsigned long arg)
+static int __usf_set_us_detection(struct usf_type *usf,
+				  struct us_detect_info_type *detect_info)
 {
 	uint32_t timeout = 0;
-	struct us_detect_info_type detect_info;
 	struct usm_session_cmd_detect_info *p_allocated_memory = NULL;
 	struct usm_session_cmd_detect_info usm_detect_info;
 	struct usm_session_cmd_detect_info *p_usm_detect_info =
 						&usm_detect_info;
 	uint32_t detect_info_size = sizeof(struct usm_session_cmd_detect_info);
 	struct usf_xx_type *usf_xx =  &usf->usf_tx;
-	int rc = copy_from_user(&detect_info,
-				(void *) arg,
-				sizeof(detect_info));
+	int rc = 0;
 
-	if (rc) {
-		pr_err("%s: copy detect_info from user; rc=%d\n",
-			__func__, rc);
-		return -EFAULT;
-	}
-
-	if (detect_info.us_detector != US_DETECT_FW) {
+	if (detect_info->us_detector != US_DETECT_FW) {
 		pr_err("%s: unsupported detector: %d\n",
-			__func__, detect_info.us_detector);
+			__func__, detect_info->us_detector);
 		return -EINVAL;
 	}
 
-	if ((detect_info.params_data_size != 0) &&
-	    (detect_info.params_data != NULL)) {
+	if ((detect_info->params_data_size != 0) &&
+	    (detect_info->params_data != NULL)) {
 		uint8_t *p_data = NULL;
 
-		detect_info_size += detect_info.params_data_size;
+		detect_info_size += detect_info->params_data_size;
 		 p_allocated_memory = kzalloc(detect_info_size, GFP_KERNEL);
 		if (p_allocated_memory == NULL) {
 			pr_err("%s: detect_info[%d] allocation failed\n",
@@ -834,8 +827,8 @@ static int usf_set_us_detection(struct usf_type *usf, unsigned long arg)
 			sizeof(struct usm_session_cmd_detect_info);
 
 		rc = copy_from_user(p_data,
-				    (void *)detect_info.params_data,
-				    detect_info.params_data_size);
+			(uint8_t __user *)(detect_info->params_data),
+			detect_info->params_data_size);
 		if (rc) {
 			pr_err("%s: copy params from user; rc=%d\n",
 				__func__, rc);
@@ -843,33 +836,33 @@ static int usf_set_us_detection(struct usf_type *usf, unsigned long arg)
 			return -EFAULT;
 		}
 		p_usm_detect_info->algorithm_cfg_size =
-				detect_info.params_data_size;
+				detect_info->params_data_size;
 	} else
 		usm_detect_info.algorithm_cfg_size = 0;
 
-	p_usm_detect_info->detect_mode = detect_info.us_detect_mode;
-	p_usm_detect_info->skip_interval = detect_info.skip_time;
+	p_usm_detect_info->detect_mode = detect_info->us_detect_mode;
+	p_usm_detect_info->skip_interval = detect_info->skip_time;
 
 	usf_xx->us_detect_type = USF_US_DETECT_UNDEF;
 
 	rc = q6usm_set_us_detection(usf_xx->usc,
 				    p_usm_detect_info,
 				    detect_info_size);
-	if (rc || (detect_info.detect_timeout == USF_NO_WAIT_TIMEOUT)) {
+	if (rc || (detect_info->detect_timeout == USF_NO_WAIT_TIMEOUT)) {
 		kfree(p_allocated_memory);
 		return rc;
 	}
 
 	/* Get US detection result */
-	if (detect_info.detect_timeout == USF_INFINITIVE_TIMEOUT) {
+	if (detect_info->detect_timeout == USF_INFINITIVE_TIMEOUT) {
 		rc = wait_event_interruptible(usf_xx->wait,
 						(usf_xx->us_detect_type !=
 						USF_US_DETECT_UNDEF));
 	} else {
-		if (detect_info.detect_timeout == USF_DEFAULT_TIMEOUT)
+		if (detect_info->detect_timeout == USF_DEFAULT_TIMEOUT)
 			timeout = USF_TIMEOUT_JIFFIES;
 		else
-			timeout = detect_info.detect_timeout * HZ;
+			timeout = detect_info->detect_timeout * HZ;
 	}
 	rc = wait_event_interruptible_timeout(usf_xx->wait,
 					(usf_xx->us_detect_type !=
@@ -881,39 +874,53 @@ static int usf_set_us_detection(struct usf_type *usf, unsigned long arg)
 		       __func__, rc);
 	else {
 		usf->usf_rx.us_detect_type = usf->usf_tx.us_detect_type;
-		detect_info.is_us =
+		detect_info->is_us =
 			(usf_xx->us_detect_type == USF_US_DETECT_YES);
-		rc = copy_to_user((void __user *)arg,
-				  &detect_info,
-				  sizeof(detect_info));
-		if (rc) {
-			pr_err("%s: copy detect_info to user; rc=%d\n",
-				__func__, rc);
-			rc = -EFAULT;
-		}
 	}
 
 	kfree(p_allocated_memory);
 
 	return rc;
-} /* usf_set_us_detection */
+} /* __usf_set_us_detection */
 
-static int usf_set_tx_info(struct usf_type *usf, unsigned long arg)
+static int usf_set_us_detection(struct usf_type *usf, unsigned long arg)
 {
-	struct us_tx_info_type config_tx;
-	const char *name = NULL;
-	struct usf_xx_type *usf_xx =  &usf->usf_tx;
-	int rc = copy_from_user(&config_tx,
-			    (void *) arg,
-			    sizeof(config_tx));
+	struct us_detect_info_type detect_info;
+
+	int rc = copy_from_user(&detect_info,
+				(struct us_detect_info_type __user *) arg,
+				sizeof(detect_info));
 
 	if (rc) {
-		pr_err("%s: copy config_tx from user; rc=%d\n",
+		pr_err("%s: copy detect_info from user; rc=%d\n",
 			__func__, rc);
 		return -EFAULT;
 	}
 
-	name = config_tx.us_xx_info.client_name;
+	rc = __usf_set_us_detection(usf, &detect_info);
+	if (rc < 0) {
+		pr_err("%s: set us detection failed; rc=%d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	rc = copy_to_user((void __user *)arg,
+			  &detect_info,
+			  sizeof(detect_info));
+	if (rc) {
+		pr_err("%s: copy detect_info to user; rc=%d\n",
+			__func__, rc);
+		rc = -EFAULT;
+	}
+
+	return rc;
+} /* usf_set_us_detection */
+
+static int __usf_set_tx_info(struct usf_type *usf,
+			     struct us_tx_info_type *config_tx)
+{
+	struct usf_xx_type *usf_xx =  &usf->usf_tx;
+	int rc = 0;
 
 	usf_xx->new_region = USM_UNDEF_TOKEN;
 	usf_xx->prev_region = USM_UNDEF_TOKEN;
@@ -921,10 +928,10 @@ static int usf_set_tx_info(struct usf_type *usf, unsigned long arg)
 
 	init_waitqueue_head(&usf_xx->wait);
 
-	if (name != NULL) {
+	if (config_tx->us_xx_info.client_name != NULL) {
 		int res = strncpy_from_user(
 			usf_xx->client_name,
-			name,
+			(char __user *)(config_tx->us_xx_info.client_name),
 			sizeof(usf_xx->client_name)-1);
 		if (res < 0) {
 			pr_err("%s: get client name failed\n",
@@ -933,7 +940,7 @@ static int usf_set_tx_info(struct usf_type *usf, unsigned long arg)
 		}
 	}
 
-	rc = config_xx(usf_xx, &config_tx.us_xx_info);
+	rc = config_xx(usf_xx, &(config_tx->us_xx_info));
 	if (rc)
 		return rc;
 
@@ -953,9 +960,9 @@ static int usf_set_tx_info(struct usf_type *usf, unsigned long arg)
 	rc = q6usm_enc_cfg_blk(usf_xx->usc,
 			       &usf_xx->encdec_cfg);
 	if (!rc &&
-	     (config_tx.input_info.event_types != USF_NO_EVENT)) {
+	     (config_tx->input_info.event_types != USF_NO_EVENT)) {
 		rc = register_input_device(usf,
-					   &config_tx.input_info);
+					   &(config_tx->input_info));
 	}
 
 	if (rc)
@@ -964,28 +971,37 @@ static int usf_set_tx_info(struct usf_type *usf, unsigned long arg)
 		usf_xx->usf_state = USF_CONFIGURED_STATE;
 
 	return rc;
-} /* usf_set_tx_info */
+} /* __usf_set_tx_info */
 
-static int usf_set_rx_info(struct usf_type *usf, unsigned long arg)
+static int usf_set_tx_info(struct usf_type *usf, unsigned long arg)
 {
-	struct us_rx_info_type config_rx;
-	struct usf_xx_type *usf_xx =  &usf->usf_rx;
-	int rc = copy_from_user(&config_rx,
-			    (void *) arg,
-			    sizeof(config_rx));
+	struct us_tx_info_type config_tx;
+
+	int rc = copy_from_user(&config_tx,
+			    (struct us_tx_info_type __user *) arg,
+			    sizeof(config_tx));
 
 	if (rc) {
-		pr_err("%s: copy config_rx from user; rc=%d\n",
+		pr_err("%s: copy config_tx from user; rc=%d\n",
 			__func__, rc);
 		return -EFAULT;
 	}
+
+	return __usf_set_tx_info(usf, &config_tx);
+} /* usf_set_tx_info */
+
+static int __usf_set_rx_info(struct usf_type *usf,
+			     struct us_rx_info_type *config_rx)
+{
+	struct usf_xx_type *usf_xx =  &usf->usf_rx;
+	int rc = 0;
 
 	usf_xx->new_region = USM_UNDEF_TOKEN;
 	usf_xx->prev_region = USM_UNDEF_TOKEN;
 
 	usf_xx->cb = usf_rx_cb;
 
-	rc = config_xx(usf_xx, &config_rx.us_xx_info);
+	rc = config_xx(usf_xx, &(config_rx->us_xx_info));
 	if (rc)
 		return rc;
 
@@ -1014,51 +1030,60 @@ static int usf_set_rx_info(struct usf_type *usf, unsigned long arg)
 	}
 
 	return rc;
-} /* usf_set_rx_info */
+} /* __usf_set_rx_info */
 
-
-static int usf_get_tx_update(struct usf_type *usf, unsigned long arg)
+static int usf_set_rx_info(struct usf_type *usf, unsigned long arg)
 {
-	struct us_tx_update_info_type upd_tx_info;
-	unsigned long prev_jiffies = 0;
-	uint32_t timeout = 0;
-	struct usf_xx_type *usf_xx =  &usf->usf_tx;
-	int rc = copy_from_user(&upd_tx_info, (void *) arg,
-			    sizeof(upd_tx_info));
+	struct us_rx_info_type config_rx;
+
+	int rc = copy_from_user(&config_rx,
+				(struct us_rx_info_type __user *) arg,
+				sizeof(config_rx));
 
 	if (rc) {
-		pr_err("%s: copy upd_tx_info from user; rc=%d\n",
+		pr_err("%s: copy config_rx from user; rc=%d\n",
 			__func__, rc);
 		return -EFAULT;
 	}
 
+	return __usf_set_rx_info(usf, &config_rx);
+} /* usf_set_rx_info */
+
+static int __usf_get_tx_update(struct usf_type *usf,
+			struct us_tx_update_info_type *upd_tx_info)
+{
+	unsigned long prev_jiffies = 0;
+	uint32_t timeout = 0;
+	struct usf_xx_type *usf_xx =  &usf->usf_tx;
+	int rc = 0;
+
 	if (!usf_xx->user_upd_info_na) {
-		usf_set_event_filters(usf, upd_tx_info.event_filters);
+		usf_set_event_filters(usf, upd_tx_info->event_filters);
 		handle_input_event(usf,
-				   upd_tx_info.event_counter,
-				   upd_tx_info.event);
+				   upd_tx_info->event_counter,
+				   upd_tx_info->event);
 
 		/* Release available regions */
 		rc = q6usm_read(usf_xx->usc,
-				upd_tx_info.free_region);
+				upd_tx_info->free_region);
 		if (rc)
 			return rc;
 	} else
 		usf_xx->user_upd_info_na = 0;
 
 	/* Get data ready regions */
-	if (upd_tx_info.timeout == USF_INFINITIVE_TIMEOUT) {
+	if (upd_tx_info->timeout == USF_INFINITIVE_TIMEOUT) {
 		rc = wait_event_interruptible(usf_xx->wait,
 			   (usf_xx->prev_region !=
 			    usf_xx->new_region) ||
 			   (usf_xx->usf_state !=
 			    USF_WORK_STATE));
 	} else {
-		if (upd_tx_info.timeout == USF_NO_WAIT_TIMEOUT)
+		if (upd_tx_info->timeout == USF_NO_WAIT_TIMEOUT)
 			rc = (usf_xx->prev_region != usf_xx->new_region);
 		else {
 			prev_jiffies = jiffies;
-			if (upd_tx_info.timeout == USF_DEFAULT_TIMEOUT) {
+			if (upd_tx_info->timeout == USF_DEFAULT_TIMEOUT) {
 				timeout = USF_TIMEOUT_JIFFIES;
 				rc = wait_event_timeout(
 						usf_xx->wait,
@@ -1068,7 +1093,7 @@ static int usf_get_tx_update(struct usf_type *usf, unsigned long arg)
 						 USF_WORK_STATE),
 						timeout);
 			} else {
-				timeout = upd_tx_info.timeout * HZ;
+				timeout = upd_tx_info->timeout * HZ;
 				rc = wait_event_interruptible_timeout(
 						usf_xx->wait,
 						(usf_xx->prev_region !=
@@ -1085,7 +1110,7 @@ static int usf_get_tx_update(struct usf_type *usf, unsigned long arg)
 				__func__, usf_xx->prev_region,
 				usf_xx->new_region);
 			pr_debug("%s: timeout. free_region=%d;\n",
-				__func__, upd_tx_info.free_region);
+				__func__, upd_tx_info->free_region);
 			if (usf_xx->prev_region ==
 			    usf_xx->new_region) {
 				pr_err("%s:read data: timeout\n",
@@ -1102,16 +1127,41 @@ static int usf_get_tx_update(struct usf_type *usf, unsigned long arg)
 		return -EINTR;
 	}
 
-	upd_tx_info.ready_region = usf_xx->new_region;
-	usf_xx->prev_region = upd_tx_info.ready_region;
+	upd_tx_info->ready_region = usf_xx->new_region;
+	usf_xx->prev_region = upd_tx_info->ready_region;
 
-	if (upd_tx_info.ready_region == USM_WRONG_TOKEN) {
+	if (upd_tx_info->ready_region == USM_WRONG_TOKEN) {
 		pr_err("%s: TX path corrupted; prev=%d\n",
 		       __func__, usf_xx->prev_region);
 		return -EIO;
 	}
 
-	rc = copy_to_user((void __user *)arg, &upd_tx_info,
+	return rc;
+} /* __usf_get_tx_update */
+
+static int usf_get_tx_update(struct usf_type *usf, unsigned long arg)
+{
+	struct us_tx_update_info_type upd_tx_info;
+
+	int rc = copy_from_user(&upd_tx_info,
+				(struct us_tx_update_info_type __user *) arg,
+				sizeof(upd_tx_info));
+
+	if (rc < 0) {
+		pr_err("%s: copy upd_tx_info from user; rc=%d\n",
+			__func__, rc);
+		return -EFAULT;
+	}
+
+	rc = __usf_get_tx_update(usf, &upd_tx_info);
+	if (rc < 0) {
+		pr_err("%s: get tx update failed; rc=%d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	rc = copy_to_user((void __user *)arg,
+			  &upd_tx_info,
 			  sizeof(upd_tx_info));
 	if (rc) {
 		pr_err("%s: copy upd_tx_info to user; rc=%d\n",
@@ -1122,24 +1172,17 @@ static int usf_get_tx_update(struct usf_type *usf, unsigned long arg)
 	return rc;
 } /* usf_get_tx_update */
 
-static int usf_set_rx_update(struct usf_xx_type *usf_xx, unsigned long arg)
+static int __usf_set_rx_update(struct usf_xx_type *usf_xx,
+			       struct us_rx_update_info_type *upd_rx_info)
 {
-	struct us_rx_update_info_type upd_rx_info;
-	int rc = copy_from_user(&upd_rx_info, (void *) arg,
-			    sizeof(upd_rx_info));
-
-	if (rc) {
-		pr_err("%s: copy upd_rx_info from user; rc=%d\n",
-			__func__, rc);
-		return -EFAULT;
-	}
+	int rc = 0;
 
 	/* Send available data regions */
-	if (upd_rx_info.ready_region !=
+	if (upd_rx_info->ready_region !=
 	    usf_xx->buffer_count) {
 		rc = q6usm_write(
 			usf_xx->usc,
-			upd_rx_info.ready_region);
+			upd_rx_info->ready_region);
 		if (rc)
 			return rc;
 	}
@@ -1149,7 +1192,7 @@ static int usf_set_rx_update(struct usf_xx_type *usf_xx, unsigned long arg)
 		usf_xx->wait,
 		!q6usm_is_write_buf_full(
 			usf_xx->usc,
-			&upd_rx_info.free_region) ||
+			&(upd_rx_info->free_region)) ||
 		(usf_xx->usf_state == USF_IDLE_STATE),
 		USF_TIMEOUT_JIFFIES);
 
@@ -1164,17 +1207,40 @@ static int usf_set_rx_update(struct usf_xx_type *usf_xx, unsigned long arg)
 			       __func__,
 			       usf_xx->usf_state);
 			rc = -EINTR;
-		} else {
-			rc = copy_to_user(
-				(void __user *)arg,
-				&upd_rx_info,
-				sizeof(upd_rx_info));
-			if (rc) {
-				pr_err("%s: copy rx_info to user; rc=%d\n",
-					__func__, rc);
-				rc = -EFAULT;
-			}
 		}
+	}
+
+	return rc;
+} /* __usf_set_rx_update */
+
+static int usf_set_rx_update(struct usf_xx_type *usf_xx, unsigned long arg)
+{
+	struct us_rx_update_info_type upd_rx_info;
+
+	int rc = copy_from_user(&upd_rx_info,
+				(struct us_rx_update_info_type __user *) arg,
+				sizeof(upd_rx_info));
+
+	if (rc) {
+		pr_err("%s: copy upd_rx_info from user; rc=%d\n",
+			__func__, rc);
+		return -EFAULT;
+	}
+
+	rc = __usf_set_rx_update(usf_xx, &upd_rx_info);
+	if (rc < 0) {
+		pr_err("%s: set rx update failed; rc=%d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	rc = copy_to_user((void __user *)arg,
+			&upd_rx_info,
+			sizeof(upd_rx_info));
+	if (rc) {
+		pr_err("%s: copy rx_info to user; rc=%d\n",
+			__func__, rc);
+		rc = -EFAULT;
 	}
 
 	return rc;
@@ -1208,10 +1274,34 @@ static int usf_stop_tx(struct usf_type *usf)
 	return 0;
 } /* usf_stop_tx */
 
+static int __usf_get_version(struct us_version_info_type *version_info)
+{
+	int rc = 0;
+
+	if (version_info->buf_size < sizeof(DRV_VERSION)) {
+		pr_err("%s: buf_size (%d) < version string size (%zu)\n",
+			__func__, version_info->buf_size, sizeof(DRV_VERSION));
+		return -EINVAL;
+	}
+
+	rc = copy_to_user((void __user *)(version_info->pbuf),
+			  DRV_VERSION,
+			  sizeof(DRV_VERSION));
+	if (rc) {
+		pr_err("%s: copy to version_info.pbuf; rc=%d\n",
+			__func__, rc);
+		rc = -EFAULT;
+	}
+
+	return rc;
+} /* __usf_get_version */
+
 static int usf_get_version(unsigned long arg)
 {
 	struct us_version_info_type version_info;
-	int rc = copy_from_user(&version_info, (void *) arg,
+
+	int rc = copy_from_user(&version_info,
+				(struct us_version_info_type __user *) arg,
 				sizeof(version_info));
 
 	if (rc) {
@@ -1220,19 +1310,11 @@ static int usf_get_version(unsigned long arg)
 		return -EFAULT;
 	}
 
-	if (version_info.buf_size < sizeof(DRV_VERSION)) {
-		pr_err("%s: buf_size (%d) < version string size (%d)\n",
-			__func__, version_info.buf_size, sizeof(DRV_VERSION));
-		return -EINVAL;
-	}
-
-	rc = copy_to_user(version_info.pbuf,
-			  DRV_VERSION,
-			  sizeof(DRV_VERSION));
-	if (rc) {
-		pr_err("%s: copy to version_info.pbuf; rc=%d\n",
+	rc = __usf_get_version(&version_info);
+	if (rc < 0) {
+		pr_err("%s: get version failed; rc=%d\n",
 			__func__, rc);
-		rc = -EFAULT;
+		return rc;
 	}
 
 	rc = copy_to_user((void __user *)arg,
@@ -1393,6 +1475,471 @@ static long usf_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	return rc;
 } /* usf_ioctl */
 
+#ifdef CONFIG_COMPAT
+
+#define US_SET_TX_INFO32   _IOW(USF_IOCTL_MAGIC, 0, \
+				struct us_tx_info_type32)
+#define US_GET_TX_UPDATE32 _IOWR(USF_IOCTL_MAGIC, 2, \
+				struct us_tx_update_info_type32)
+#define US_SET_RX_INFO32   _IOW(USF_IOCTL_MAGIC, 3, \
+				struct us_rx_info_type32)
+#define US_SET_RX_UPDATE32 _IOWR(USF_IOCTL_MAGIC, 4, \
+				struct us_rx_update_info_type32)
+#define US_SET_DETECTION32 _IOWR(USF_IOCTL_MAGIC, 8, \
+				struct us_detect_info_type32)
+#define US_GET_VERSION32  _IOWR(USF_IOCTL_MAGIC, 9, \
+				struct us_version_info_type32)
+
+/* Info structure common for TX and RX */
+struct us_xx_info_type32 {
+/* Input:  general info */
+/* Name of the client - event calculator, ptr to char */
+	const compat_uptr_t client_name;
+/* Selected device identification, accepted in the kernel's CAD */
+	uint32_t dev_id;
+/* 0 - point_epos type; (e.g. 1 - gr_mmrd) */
+	uint32_t stream_format;
+/* Required sample rate in Hz */
+	uint32_t sample_rate;
+/* Size of a buffer (bytes) for US data transfer between the module and USF */
+	uint32_t buf_size;
+/* Number of the buffers for the US data transfer */
+	uint16_t buf_num;
+/* Number of the microphones (TX) or speakers(RX) */
+	uint16_t port_cnt;
+/* Microphones(TX) or speakers(RX) indexes in their enumeration */
+	uint8_t  port_id[USF_MAX_PORT_NUM];
+/* Bits per sample 16 or 32 */
+	uint16_t bits_per_sample;
+/* Input:  Transparent info for encoder in the LPASS */
+/* Parameters data size in bytes */
+	uint16_t params_data_size;
+/* Pointer to the parameters, ptr to uint8_t */
+	compat_uptr_t params_data;
+};
+
+struct us_tx_info_type32 {
+/* Common info. This struct includes ptr and therefore the 32 version */
+	struct us_xx_info_type32 us_xx_info;
+/* Info specific for TX. This struct doesn't include long or ptr
+   and therefore no 32 version */
+	struct us_input_info_type input_info;
+};
+
+struct us_tx_update_info_type32 {
+/* Input  general: */
+/* Number of calculated events */
+	uint16_t event_counter;
+/* Calculated events or NULL, ptr to struct usf_event_type */
+	compat_uptr_t event;
+/* Pointer (read index) to the end of available region */
+/* in the shared US data memory */
+	uint32_t free_region;
+/* Time (sec) to wait for data or special values: */
+/* USF_NO_WAIT_TIMEOUT, USF_INFINITIVE_TIMEOUT, USF_DEFAULT_TIMEOUT */
+	uint32_t timeout;
+/* Events (from conflicting devs) to be disabled/enabled */
+	uint16_t event_filters;
+
+/* Input  transparent data: */
+/* Parameters size */
+	uint16_t params_data_size;
+/* Pointer to the parameters, ptr to uint8_t */
+	compat_uptr_t params_data;
+/* Output parameters: */
+/* Pointer (write index) to the end of ready US data region */
+/* in the shared memory */
+	uint32_t ready_region;
+};
+
+struct us_rx_info_type32 {
+	/* Common info */
+	struct us_xx_info_type32 us_xx_info;
+	/* Info specific for RX*/
+};
+
+struct us_rx_update_info_type32 {
+/* Input  general: */
+/* Pointer (write index) to the end of ready US data region */
+/* in the shared memory */
+	uint32_t ready_region;
+/* Input  transparent data: */
+/* Parameters size */
+	uint16_t params_data_size;
+/* pPointer to the parameters, ptr to uint8_t */
+	compat_uptr_t params_data;
+/* Output parameters: */
+/* Pointer (read index) to the end of available region */
+/* in the shared US data memory */
+	uint32_t free_region;
+};
+
+struct us_detect_info_type32 {
+/* US detection place (HW|FW) */
+/* NA in the Active and OFF states */
+	enum us_detect_place_enum us_detector;
+/* US detection mode */
+	enum us_detect_mode_enum  us_detect_mode;
+/* US data dropped during this time (msec) */
+	uint32_t skip_time;
+/* Transparent data size */
+	uint16_t params_data_size;
+/* Pointer to the transparent data, ptr to uint8_t */
+	compat_uptr_t params_data;
+/* Time (sec) to wait for US presence event */
+	uint32_t detect_timeout;
+/* Out parameter: US presence */
+	bool is_us;
+};
+
+struct us_version_info_type32 {
+/* Size of memory for the version string */
+	uint16_t buf_size;
+/* Pointer to the memory for the version string, ptr to char */
+	compat_uptr_t pbuf;
+};
+
+static void usf_compat_xx_info_type(struct us_xx_info_type32 *us_xx_info32,
+				   struct us_xx_info_type *us_xx_info)
+{
+	int i = 0;
+	us_xx_info->client_name = compat_ptr(us_xx_info32->client_name);
+	us_xx_info->dev_id = us_xx_info32->dev_id;
+	us_xx_info->stream_format = us_xx_info32->stream_format;
+	us_xx_info->sample_rate = us_xx_info32->sample_rate;
+	us_xx_info->buf_size = us_xx_info32->buf_size;
+	us_xx_info->buf_num = us_xx_info32->buf_num;
+	us_xx_info->port_cnt = us_xx_info32->port_cnt;
+	for (i = 0; i < USF_MAX_PORT_NUM; i++)
+		us_xx_info->port_id[i] = us_xx_info32->port_id[i];
+	us_xx_info->bits_per_sample = us_xx_info32->bits_per_sample;
+	us_xx_info->params_data_size = us_xx_info32->params_data_size;
+	us_xx_info->params_data = compat_ptr(us_xx_info32->params_data);
+}
+
+static int usf_set_tx_info32(struct usf_type *usf, unsigned long arg)
+{
+	struct us_tx_info_type32 config_tx32;
+	struct us_tx_info_type config_tx;
+
+	int rc = copy_from_user(&config_tx32,
+			    (struct us_tx_info_type32 __user *) arg,
+			    sizeof(config_tx32));
+
+	if (rc) {
+		pr_err("%s: copy config_tx from user; rc=%d\n",
+			__func__, rc);
+		return -EFAULT;
+	}
+	memset(&config_tx, 0, sizeof(config_tx));
+	usf_compat_xx_info_type(&(config_tx32.us_xx_info),
+				&(config_tx.us_xx_info));
+	config_tx.input_info = config_tx32.input_info;
+
+	return __usf_set_tx_info(usf, &config_tx);
+} /* usf_set_tx_info 32*/
+
+static int usf_set_rx_info32(struct usf_type *usf, unsigned long arg)
+{
+	struct us_rx_info_type32 config_rx32;
+	struct us_rx_info_type config_rx;
+
+	int rc = copy_from_user(&config_rx32,
+				(struct us_rx_info_type32 __user *) arg,
+				sizeof(config_rx32));
+
+	if (rc) {
+		pr_err("%s: copy config_rx from user; rc=%d\n",
+			__func__, rc);
+		return -EFAULT;
+	}
+	memset(&config_rx, 0, sizeof(config_rx));
+	usf_compat_xx_info_type(&(config_rx32.us_xx_info),
+				&(config_rx.us_xx_info));
+
+	return __usf_set_rx_info(usf, &config_rx);
+} /* usf_set_rx_info32 */
+
+static int usf_get_tx_update32(struct usf_type *usf, unsigned long arg)
+{
+	struct us_tx_update_info_type32 upd_tx_info32;
+	struct us_tx_update_info_type upd_tx_info;
+
+	int rc = copy_from_user(&upd_tx_info32,
+				(struct us_tx_update_info_type32 __user *) arg,
+				sizeof(upd_tx_info32));
+
+	if (rc) {
+		pr_err("%s: copy upd_tx_info32 from user; rc=%d\n",
+			__func__, rc);
+		return -EFAULT;
+	}
+
+	memset(&upd_tx_info, 0, sizeof(upd_tx_info));
+	upd_tx_info.event_counter = upd_tx_info32.event_counter;
+	upd_tx_info.event = compat_ptr(upd_tx_info32.event);
+	upd_tx_info.free_region = upd_tx_info32.free_region;
+	upd_tx_info.timeout = upd_tx_info32.timeout;
+	upd_tx_info.event_filters = upd_tx_info32.event_filters;
+	upd_tx_info.params_data_size = upd_tx_info32.params_data_size;
+	upd_tx_info.params_data = compat_ptr(upd_tx_info32.params_data);
+	upd_tx_info.ready_region = upd_tx_info32.ready_region;
+
+	rc = __usf_get_tx_update(usf, &upd_tx_info);
+	if (rc < 0) {
+		pr_err("%s: get tx update failed; rc=%d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	/* Update only the fields that were changed */
+	upd_tx_info32.ready_region = upd_tx_info.ready_region;
+
+	rc = copy_to_user((void __user *)arg, &upd_tx_info32,
+			  sizeof(upd_tx_info32));
+	if (rc) {
+		pr_err("%s: copy upd_tx_info32 to user; rc=%d\n",
+			__func__, rc);
+		rc = -EFAULT;
+	}
+
+	return rc;
+} /* usf_get_tx_update */
+
+static int usf_set_rx_update32(struct usf_xx_type *usf_xx, unsigned long arg)
+{
+	struct us_rx_update_info_type32 upd_rx_info32;
+	struct us_rx_update_info_type upd_rx_info;
+
+	int rc = copy_from_user(&upd_rx_info32,
+				(struct us_rx_update_info_type32 __user *) arg,
+				sizeof(upd_rx_info32));
+
+	if (rc) {
+		pr_err("%s: copy upd_rx_info32 from user; rc=%d\n",
+			__func__, rc);
+		return -EFAULT;
+	}
+
+	memset(&upd_rx_info, 0, sizeof(upd_rx_info));
+	upd_rx_info.ready_region = upd_rx_info32.ready_region;
+	upd_rx_info.params_data_size = upd_rx_info32.params_data_size;
+	upd_rx_info.params_data = compat_ptr(upd_rx_info32.params_data);
+	upd_rx_info.free_region = upd_rx_info32.free_region;
+
+	rc = __usf_set_rx_update(usf_xx, &upd_rx_info);
+	if (rc < 0) {
+		pr_err("%s: set rx update failed; rc=%d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	/* Update only the fields that were changed */
+	upd_rx_info32.free_region = upd_rx_info.free_region;
+
+	rc = copy_to_user((void __user *)arg,
+			&upd_rx_info32,
+			sizeof(upd_rx_info32));
+	if (rc) {
+		pr_err("%s: copy rx_info32 to user; rc=%d\n",
+			__func__, rc);
+		rc = -EFAULT;
+	}
+
+	return rc;
+} /* usf_set_rx_update32 */
+
+static int usf_set_us_detection32(struct usf_type *usf, unsigned long arg)
+{
+	struct us_detect_info_type32 detect_info32;
+	struct us_detect_info_type detect_info;
+
+	int rc = copy_from_user(&detect_info32,
+				(struct us_detect_info_type32 __user *) arg,
+				sizeof(detect_info32));
+
+	if (rc) {
+		pr_err("%s: copy detect_info32 from user; rc=%d\n",
+			__func__, rc);
+		return -EFAULT;
+	}
+
+	memset(&detect_info, 0, sizeof(detect_info));
+	detect_info.us_detector = detect_info32.us_detector;
+	detect_info.us_detect_mode = detect_info32.us_detect_mode;
+	detect_info.skip_time = detect_info32.skip_time;
+	detect_info.params_data_size = detect_info32.params_data_size;
+	detect_info.params_data = compat_ptr(detect_info32.params_data);
+	detect_info.detect_timeout = detect_info32.detect_timeout;
+	detect_info.is_us = detect_info32.is_us;
+
+	rc = __usf_set_us_detection(usf, &detect_info);
+	if (rc < 0) {
+		pr_err("%s: set us detection failed; rc=%d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	/* Update only the fields that were changed */
+	detect_info32.is_us = detect_info.is_us;
+
+	rc = copy_to_user((void __user *)arg,
+			  &detect_info32,
+			  sizeof(detect_info32));
+	if (rc) {
+		pr_err("%s: copy detect_info32 to user; rc=%d\n",
+			__func__, rc);
+		rc = -EFAULT;
+	}
+
+	return rc;
+} /* usf_set_us_detection32 */
+
+static int usf_get_version32(unsigned long arg)
+{
+	struct us_version_info_type32 version_info32;
+	struct us_version_info_type version_info;
+
+	int rc = copy_from_user(&version_info32,
+				(struct us_version_info_type32 __user *) arg,
+				sizeof(version_info32));
+
+	if (rc) {
+		pr_err("%s: copy version_info32 from user; rc=%d\n",
+			__func__, rc);
+		return -EFAULT;
+	}
+
+	memset(&version_info, 0, sizeof(version_info));
+	version_info.buf_size = version_info32.buf_size;
+	version_info.pbuf = compat_ptr(version_info32.pbuf);
+
+	rc = __usf_get_version(&version_info);
+	if (rc < 0) {
+		pr_err("%s: get version failed; rc=%d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	/* None of the fields were changed */
+
+	rc = copy_to_user((void __user *)arg,
+			  &version_info32,
+			  sizeof(version_info32));
+	if (rc) {
+		pr_err("%s: copy version_info32 to user; rc=%d\n",
+			__func__, rc);
+		rc = -EFAULT;
+	}
+
+	return rc;
+} /* usf_get_version32 */
+
+static long usf_compat_ioctl(struct file *file,
+			     unsigned int cmd,
+			     unsigned long arg)
+{
+	int rc = 0;
+	struct usf_type *usf = file->private_data;
+	struct usf_xx_type *usf_xx = NULL;
+
+	switch (cmd) {
+	case US_START_TX:
+	case US_START_RX:
+	case US_STOP_TX:
+	case US_STOP_RX: {
+		return usf_ioctl(file, cmd, arg);
+	}
+
+	case US_SET_TX_INFO32: {
+		usf_xx = &usf->usf_tx;
+		if (usf_xx->usf_state == USF_OPENED_STATE)
+			rc = usf_set_tx_info32(usf, arg);
+		else {
+			pr_err("%s: set_tx_info32: wrong state[%d]\n",
+			       __func__,
+			       usf_xx->usf_state);
+			return -EBADFD;
+		}
+
+		break;
+	} /* US_SET_TX_INFO */
+
+	case US_SET_RX_INFO32: {
+		usf_xx = &usf->usf_rx;
+		if (usf_xx->usf_state == USF_OPENED_STATE)
+			rc = usf_set_rx_info32(usf, arg);
+		else {
+			pr_err("%s: set_rx_info32: wrong state[%d]\n",
+				__func__,
+				usf_xx->usf_state);
+			return -EBADFD;
+		}
+
+		break;
+	} /* US_SET_RX_INFO */
+
+	case US_GET_TX_UPDATE32: {
+		struct usf_xx_type *usf_xx = &usf->usf_tx;
+		if (usf_xx->usf_state == USF_WORK_STATE)
+			rc = usf_get_tx_update32(usf, arg);
+		else {
+			pr_err("%s: get_tx_update32: wrong state[%d]\n",
+			       __func__,
+			       usf_xx->usf_state);
+			rc = -EBADFD;
+		}
+		break;
+	} /* US_GET_TX_UPDATE */
+
+	case US_SET_RX_UPDATE32: {
+		struct usf_xx_type *usf_xx = &usf->usf_rx;
+		if (usf_xx->usf_state == USF_WORK_STATE)
+			rc = usf_set_rx_update32(usf_xx, arg);
+		else {
+			pr_err("%s: set_rx_update: wrong state[%d]\n",
+			       __func__,
+			       usf_xx->usf_state);
+			rc = -EBADFD;
+		}
+		break;
+	} /* US_SET_RX_UPDATE */
+
+	case US_SET_DETECTION32: {
+		struct usf_xx_type *usf_xx = &usf->usf_tx;
+		if (usf_xx->usf_state == USF_WORK_STATE)
+			rc = usf_set_us_detection32(usf, arg);
+		else {
+			pr_err("%s: set us detection: wrong state[%d]\n",
+			       __func__,
+			       usf_xx->usf_state);
+			rc = -EBADFD;
+		}
+		break;
+	} /* US_SET_DETECTION */
+
+	case US_GET_VERSION32: {
+		rc = usf_get_version32(arg);
+		break;
+	} /* US_GET_VERSION */
+
+	default:
+		pr_err("%s: unsupported IOCTL command [%d]\n",
+		       __func__,
+		       cmd);
+		rc = -ENOTTY;
+		break;
+	}
+
+	if (rc &&
+	    ((cmd == US_SET_TX_INFO) ||
+	     (cmd == US_SET_RX_INFO)))
+		release_xx(usf_xx);
+
+	return rc;
+} /* usf_compat_ioctl */
+#endif /* CONFIG_COMPAT */
+
 static int usf_mmap(struct file *file, struct vm_area_struct *vms)
 {
 	struct usf_type *usf = file->private_data;
@@ -1478,15 +2025,22 @@ static int usf_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
+extern long usf_compat_ioctl(struct file *file,
+			     unsigned int cmd,
+			     unsigned long arg);
+
 static const struct file_operations usf_fops = {
 	.owner                  = THIS_MODULE,
 	.open                   = usf_open,
 	.release                = usf_release,
 	.unlocked_ioctl = usf_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = usf_compat_ioctl,
+#endif /* CONFIG_COMPAT */
 	.mmap                   = usf_mmap,
 };
 
-struct miscdevice usf_misc[MAX_DEVS_NUMBER] = {
+static struct miscdevice usf_misc[MAX_DEVS_NUMBER] = {
 	{
 		.minor  = MISC_DYNAMIC_MINOR,
 		.name   = "usf1",

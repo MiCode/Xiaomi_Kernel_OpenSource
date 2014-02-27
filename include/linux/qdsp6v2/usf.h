@@ -108,7 +108,7 @@ enum us_detect_mode_enum {
 struct us_xx_info_type {
 /* Input:  general info */
 /* Name of the client - event calculator */
-	const char *client_name;
+	const char __user *client_name;
 /* Selected device identification, accepted in the kernel's CAD */
 	uint32_t dev_id;
 /* 0 - point_epos type; (e.g. 1 - gr_mmrd) */
@@ -129,7 +129,7 @@ struct us_xx_info_type {
 /* Parameters data size in bytes */
 	uint16_t params_data_size;
 /* Pointer to the parameters */
-	uint8_t *params_data;
+	uint8_t __user *params_data;
 };
 
 struct us_input_info_type {
@@ -211,7 +211,7 @@ struct us_tx_update_info_type {
 /* Number of calculated events */
 	uint16_t event_counter;
 /* Calculated events or NULL */
-	struct usf_event_type *event;
+	struct usf_event_type __user *event;
 /* Pointer (read index) to the end of available region */
 /* in the shared US data memory */
 	uint32_t free_region;
@@ -225,7 +225,7 @@ struct us_tx_update_info_type {
 /* Parameters size */
 	uint16_t params_data_size;
 /* Pointer to the parameters */
-	uint8_t *params_data;
+	uint8_t __user *params_data;
 /* Output parameters: */
 /* Pointer (write index) to the end of ready US data region */
 /* in the shared memory */
@@ -241,7 +241,7 @@ struct us_rx_update_info_type {
 /* Parameters size */
 	uint16_t params_data_size;
 /* pPointer to the parameters */
-	uint8_t *params_data;
+	uint8_t __user *params_data;
 /* Output parameters: */
 /* Pointer (read index) to the end of available region */
 /* in the shared US data memory */
@@ -259,7 +259,7 @@ struct us_detect_info_type {
 /* Transparent data size */
 	uint16_t params_data_size;
 /* Pointer to the transparent data */
-	uint8_t *params_data;
+	uint8_t __user *params_data;
 /* Time (sec) to wait for US presence event */
 	uint32_t detect_timeout;
 /* Out parameter: US presence */
@@ -270,7 +270,7 @@ struct us_version_info_type {
 /* Size of memory for the version string */
 	uint16_t buf_size;
 /* Pointer to the memory for the version string */
-	char *pbuf;
+	char __user *pbuf;
 };
 
 #endif /* __USF_H__ */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +18,7 @@
 #include <linux/slab.h>
 #include <linux/msm_audio.h>
 #include <sound/apr_audio-v2.h>
-#include <mach/qdsp6v2/apr_us_b.h>
+#include <linux/qdsp6v2/apr_us.h>
 #include "q6usm.h"
 
 #define ADSP_MEMORY_MAP_SHMEM8_4K_POOL 3
@@ -68,7 +68,7 @@ static void q6usm_add_mmaphdr(struct us_client *usc, struct apr_hdr *hdr,
 	return;
 }
 
-static int q6usm_memory_map(struct us_client *usc, uint32_t buf_add, int dir,
+static int q6usm_memory_map(struct us_client *usc, phys_addr_t buf_add, int dir,
 		     uint32_t bufsz, uint32_t bufcnt)
 {
 	struct usm_cmd_memory_map_region mem_region_map;
@@ -89,8 +89,8 @@ static int q6usm_memory_map(struct us_client *usc, uint32_t buf_add, int dir,
 	mem_region_map.num_regions = 1;
 	mem_region_map.flags = 0;
 
-	mem_region_map.shm_addr_lsw = buf_add;
-	mem_region_map.shm_addr_msw = 0;
+	mem_region_map.shm_addr_lsw = lower_32_bits(buf_add);
+	mem_region_map.shm_addr_msw = upper_32_bits(buf_add);
 	mem_region_map.mem_size_bytes = bufsz * bufcnt;
 
 	rc = apr_send_pkt(this_mmap.apr, (uint32_t *) &mem_region_map);
@@ -117,7 +117,8 @@ fail_cmd:
 	return rc;
 }
 
-int q6usm_memory_unmap(struct us_client *usc, uint32_t buf_add, int dir)
+static int q6usm_memory_unmap(struct us_client *usc, phys_addr_t buf_add,
+			      int dir)
 {
 	struct usm_cmd_memory_unmap_region mem_unmap;
 	struct us_port_data *port = &usc->port[dir];
@@ -181,12 +182,12 @@ static void q6usm_session_free(struct us_client *usc)
 	pr_debug("%s: to free session[%d]\n", __func__, ind);
 	if (ind < USM_SESSION_MAX) {
 		mutex_lock(&session_lock);
-		session[ind] = 0;
+		session[ind] = NULL;
 		mutex_unlock(&session_lock);
 	}
 }
 
-int q6usm_us_client_buf_free(unsigned int dir,
+static int q6usm_us_client_buf_free(unsigned int dir,
 			     struct us_client *usc)
 {
 	struct us_port_data *port;
@@ -345,7 +346,7 @@ int q6usm_us_client_buf_alloc(unsigned int dir,
 	int rc = 0;
 	struct us_port_data *port = NULL;
 	unsigned int size = bufsz*bufcnt;
-	int len;
+	size_t len;
 
 	if ((usc == NULL) ||
 	    ((dir != IN) && (dir != OUT)) || (size == 0) ||
@@ -364,8 +365,8 @@ int q6usm_us_client_buf_alloc(unsigned int dir,
 
 	rc = msm_audio_ion_alloc("ultrasound_client",
 		&port->client, &port->handle,
-		size, (ion_phys_addr_t *)&port->phys,
-		(size_t *)&len, &port->data);
+		size, &port->phys,
+		&len, &port->data);
 
 	if (rc) {
 		pr_err("%s: US ION allocation failed, rc = %d\n",
@@ -997,6 +998,7 @@ int q6usm_read(struct us_client *usc, uint32_t read_ind)
 	int rc = 0;
 	u32 read_counter = 0;
 	u32 loop_ind = 0;
+	u64 buf_addr = 0;
 
 	if ((usc == NULL) || (usc->apr == NULL)) {
 		pr_err("%s: APR handle NULL\n", __func__);
@@ -1024,14 +1026,18 @@ int q6usm_read(struct us_client *usc, uint32_t read_ind)
 
 	read.hdr.opcode = USM_DATA_CMD_READ;
 	read.buf_size = port->buf_size;
-	read.buf_addr_msw = 0;
+	buf_addr = (u64)(port->phys) + port->buf_size * (port->cpu_buf);
+	read.buf_addr_lsw = lower_32_bits(buf_addr);
+	read.buf_addr_msw = upper_32_bits(buf_addr);
 	read.mem_map_handle = *((uint32_t *)(port->ext));
 
 	for (loop_ind = 0; loop_ind < read_counter; ++loop_ind) {
 		u32 temp_cpu_buf = port->cpu_buf;
 
-		read.buf_addr_lsw = (uint32_t)(port->phys) +
-			       port->buf_size * (port->cpu_buf);
+		buf_addr = (u64)(port->phys) +
+				port->buf_size * (port->cpu_buf);
+		read.buf_addr_lsw = lower_32_bits(buf_addr);
+		read.buf_addr_msw = upper_32_bits(buf_addr);
 		read.seq_id = port->cpu_buf;
 		read.hdr.token = port->cpu_buf;
 		read.counter = 1;
@@ -1061,6 +1067,7 @@ int q6usm_write(struct us_client *usc, uint32_t write_ind)
 	struct usm_stream_cmd_write cmd_write;
 	struct us_port_data *port = NULL;
 	u32 current_dsp_buf = 0;
+	u64 buf_addr = 0;
 
 	if ((usc == NULL) || (usc->apr == NULL)) {
 		pr_err("%s: APR handle NULL\n", __func__);
@@ -1096,7 +1103,9 @@ int q6usm_write(struct us_client *usc, uint32_t write_ind)
 
 	cmd_write.hdr.opcode = USM_DATA_CMD_WRITE;
 	cmd_write.buf_size = port->buf_size;
-	cmd_write.buf_addr_msw = 0;
+	buf_addr = (u64)(port->phys) + port->buf_size * (port->cpu_buf);
+	cmd_write.buf_addr_lsw = lower_32_bits(buf_addr);
+	cmd_write.buf_addr_msw = upper_32_bits(buf_addr);
 	cmd_write.mem_map_handle = *((uint32_t *)(port->ext));
 	cmd_write.res0 = 0;
 	cmd_write.res1 = 0;
@@ -1105,8 +1114,10 @@ int q6usm_write(struct us_client *usc, uint32_t write_ind)
 	while (port->cpu_buf != write_ind) {
 		u32 temp_cpu_buf = port->cpu_buf;
 
-		cmd_write.buf_addr_lsw = (uint32_t)(port->phys) +
-				    port->buf_size * (port->cpu_buf);
+		buf_addr = (u64)(port->phys) +
+				port->buf_size * (port->cpu_buf);
+		cmd_write.buf_addr_lsw = lower_32_bits(buf_addr);
+		cmd_write.buf_addr_msw = upper_32_bits(buf_addr);
 		cmd_write.seq_id = port->cpu_buf;
 		cmd_write.hdr.token = port->cpu_buf;
 

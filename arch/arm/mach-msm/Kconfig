@@ -28,7 +28,7 @@ config ARCH_MSM8974
 	select MEMORY_HOLE_CARVEOUT
 	select MSM_RPM_STATS_LOG
 	select QMI_ENCDEC
-	select MSM_ULTRASOUND_B
+	select MSM_ULTRASOUND
 	select MSM_RPM_LOG
 	select ARCH_WANT_KMAP_ATOMIC_FLUSH
 	select KRAIT_REGULATOR
@@ -71,7 +71,7 @@ config ARCH_APQ8084
 	select MSM_DEVFREQ_CPUBW
 	select MSM_PIL
 	select ENABLE_VMALLOC_SAVINGS
-	select MSM_ULTRASOUND_B
+	select MSM_ULTRASOUND
 	select MAXIMUM_CURRENT_THROTTLING
 	select MSM_IRQ
 	select PINCTRL
@@ -894,7 +894,7 @@ config MSM_GSBI9_UART
 	help
 	  This enables GSBI9 configured into UART.
 
-config MSM_ULTRASOUND_B
+config MSM_ULTRASOUND
 	bool "QDSP6V2 HW Ultrasound support"
 	help
 	  Enable HW Ultrasound support in QDSP6V2.

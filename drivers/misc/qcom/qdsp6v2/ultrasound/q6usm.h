@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,7 +13,7 @@
 #ifndef __Q6_USM_H__
 #define __Q6_USM_H__
 
-#include <mach/qdsp6v2/apr_us.h>
+#include <linux/qdsp6v2/apr_us.h>
 
 #define Q6USM_EVENT_UNDEF                0
 #define Q6USM_EVENT_READ_DONE            1
@@ -53,7 +53,7 @@ struct us_port_data {
 	/* number of buffers in the region */
 	uint32_t	buf_cnt;
 	/* size of buffer */
-	uint32_t	buf_size;
+	size_t		buf_size;
 	/* write index */
 	uint32_t	dsp_buf;
 	/* read index */
