@@ -590,7 +590,7 @@ EXPORT_SYMBOL(cnss_pm_wake_lock);
 
 void cnss_pm_wake_lock_timeout(struct wakeup_source *ws, ulong msec)
 {
-	__pm_wakeup_event(ws, jiffies_to_msecs(msec));
+	__pm_wakeup_event(ws, msec);
 }
 EXPORT_SYMBOL(cnss_pm_wake_lock_timeout);
 
