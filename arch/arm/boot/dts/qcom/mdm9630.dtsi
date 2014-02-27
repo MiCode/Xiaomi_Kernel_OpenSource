@@ -736,6 +736,15 @@
 		qcom,mx-restriction-temp-hysteresis = <5>;
 		qcom,mx-retention-min = <710000>;
 		vdd-mx-supply = <&pmd9635_s3>;
+		qcom,vdd-restriction-temp = <5>;
+		qcom,vdd-restriction-temp-hysteresis = <10>;
+		vdd-dig-supply = <&pmd9635_l3_corner>;
+
+		qcom,vdd-dig-rstr{
+			qcom,vdd-rstr-reg = "vdd-dig";
+			qcom,levels = <5 7 7>; /* Nominal, Super Turbo, Super Turbo */
+			qcom,min-level = <1>; /* No Request */
+		};
 	};
 
 	qcom,lpass@fe200000 {
