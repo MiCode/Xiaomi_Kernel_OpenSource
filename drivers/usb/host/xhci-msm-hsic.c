@@ -116,6 +116,7 @@ struct mxhci_hsic_hcd {
 	struct completion	phy_in_lpm;
 
 	uint32_t		wakeup_int_cnt;
+	uint32_t		pwr_evt_irq_inlpm;
 };
 
 #define SYNOPSIS_DWC3_VENDOR	0x5533
@@ -554,7 +555,16 @@ static irqreturn_t mxhci_hsic_pwr_event_irq(int irq, void *data)
 {
 	struct mxhci_hsic_hcd *mxhci = data;
 	struct usb_hcd *hcd = hsic_to_hcd(mxhci);
-	u32 stat;
+	u32 stat = 0;
+	bool in_lpm = mxhci->in_lpm;
+
+	if (in_lpm) {
+		clk_prepare_enable(mxhci->core_clk);
+		xhci_dbg_log_event(&dbg_hsic, NULL,
+				"PWR EVT IRQ IN LPM",
+				in_lpm);
+		mxhci->pwr_evt_irq_inlpm++;
+	}
 
 	stat = readl_relaxed(MSM_HSIC_PWR_EVENT_IRQ_STAT);
 	if (stat & LPM_IN_L2_IRQ_STAT) {
@@ -563,7 +573,11 @@ static irqreturn_t mxhci_hsic_pwr_event_irq(int irq, void *data)
 
 		/* Ensure irq is acked before turning off clks for lpm */
 		mb();
-		complete(&mxhci->phy_in_lpm);
+
+		/* this can be spurious interrupt if in_lpm is true */
+		if (!in_lpm)
+			complete(&mxhci->phy_in_lpm);
+
 	} else if (stat & LPM_OUT_L2_IRQ_STAT) {
 		xhci_dbg_log_event(&dbg_hsic, NULL, "LPM_OUT_L2_IRQ", stat);
 		writel_relaxed(stat, MSM_HSIC_PWR_EVENT_IRQ_STAT);
@@ -577,6 +591,9 @@ static irqreturn_t mxhci_hsic_pwr_event_irq(int irq, void *data)
 			"%s: spurious interrupt.pwr_event_irq stat = %x\n",
 			__func__, stat);
 	}
+
+	if (in_lpm)
+		clk_disable_unprepare(mxhci->core_clk);
 
 	return IRQ_HANDLED;
 }
@@ -1155,9 +1172,9 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 		goto remove_usb3_hcd;
 	}
 
-	ret = devm_request_irq(&pdev->dev, mxhci->pwr_event_irq,
-				mxhci_hsic_pwr_event_irq,
-				0, "mxhci_hsic_pwr_evt", mxhci);
+	ret = devm_request_threaded_irq(&pdev->dev, mxhci->pwr_event_irq,
+				NULL, mxhci_hsic_pwr_event_irq,
+				IRQF_ONESHOT, "mxhci_hsic_pwr_evt", mxhci);
 	if (ret) {
 		dev_err(&pdev->dev, "request irq failed (pwr event irq)\n");
 		goto remove_usb3_hcd;
