@@ -1872,12 +1872,12 @@ static int cpr_efuse_init(struct platform_device *pdev,
 	cpr_vreg->efuse_addr = res->start;
 	len = res->end - res->start + 1;
 
-	pr_info("efuse_addr = 0x%x (len=0x%x)\n", res->start, len);
+	pr_info("efuse_addr = %pa (len=0x%x)\n", &res->start, len);
 
 	cpr_vreg->efuse_base = ioremap(cpr_vreg->efuse_addr, len);
 	if (!cpr_vreg->efuse_base) {
-		pr_err("Unable to map efuse_addr 0x%08x\n",
-				cpr_vreg->efuse_addr);
+		pr_err("Unable to map efuse_addr %pa\n",
+				&cpr_vreg->efuse_addr);
 		return -EINVAL;
 	}
 
