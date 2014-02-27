@@ -70,7 +70,6 @@ struct arizona_extcon_info {
 	struct input_dev *input;
 
 	u16 last_jackdet;
-	u32 hp_impedance;
 
 	int micd_mode;
 	const struct arizona_micd_config *micd_modes;
@@ -495,7 +494,7 @@ static int arizona_hpdet_read(struct arizona_extcon_info *info)
 		}
 	}
 
-	info->hp_impedance = val;
+	arizona->hp_impedance = val;
 	dev_dbg(arizona->dev, "HP impedance %d ohms\n", val);
 	return val;
 }
@@ -1129,7 +1128,7 @@ static irqreturn_t arizona_jackdet(int irq, void *data)
 		info->mic = false;
 		info->hpdet_done = false;
 		info->hpdet_retried = false;
-		info->hp_impedance = 0;
+		arizona->hp_impedance = 0;
 
 		for (i = 0; i < info->num_micd_ranges; i++)
 			input_report_key(info->input,
@@ -1243,7 +1242,7 @@ static ssize_t arizona_extcon_show(struct device *dev,
 	struct platform_device *pdev = to_platform_device(dev);
 	struct arizona_extcon_info *info = platform_get_drvdata(pdev);
 
-	return scnprintf(buf, PAGE_SIZE, "%d\n", info->hp_impedance);
+	return scnprintf(buf, PAGE_SIZE, "%d\n", info->arizona->hp_impedance);
 }
 
 static int arizona_extcon_probe(struct platform_device *pdev)
