@@ -459,6 +459,7 @@ struct vfe_device {
 	uint8_t vt_enable;
 	void __iomem *p_avtimer_msw;
 	void __iomem *p_avtimer_lsw;
+	uint8_t ignore_error;
 };
 
 #endif
