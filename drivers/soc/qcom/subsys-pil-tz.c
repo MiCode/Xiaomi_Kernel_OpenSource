@@ -509,7 +509,7 @@ static void log_failure_reason(const struct pil_tz_data *d)
 		return;
 	}
 
-	strlcpy(reason, smem_reason, min(size, sizeof(reason)));
+	strlcpy(reason, smem_reason, min(size, MAX_SSR_REASON_LEN));
 	pr_err("%s subsystem failure reason: %s.\n", name, reason);
 
 	smem_reason[0] = '\0';
