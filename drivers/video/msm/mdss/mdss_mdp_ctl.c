@@ -2706,6 +2706,15 @@ static inline int __mdss_mdp_ctl_get_mixer_off(struct mdss_mdp_mixer *mixer)
 	}
 }
 
+u32 mdss_mdp_get_mixercfg(struct mdss_mdp_mixer *mixer)
+{
+	if (!mixer && !mixer->ctl)
+		return 0;
+
+	return mdss_mdp_ctl_read(mixer->ctl,
+		__mdss_mdp_ctl_get_mixer_off(mixer));
+}
+
 static int __mdss_mdp_mixer_handoff_helper(struct mdss_mdp_mixer *mixer,
 	struct mdss_mdp_pipe *pipe)
 {
