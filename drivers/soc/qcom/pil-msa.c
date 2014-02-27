@@ -325,14 +325,15 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	if (ret) {
 		dev_err(pil->dev, "Failed to locate %s\n",
 						fw_name_p);
-		goto err_request_firmware;
+		return ret;
 	}
 
 	mba_virt = dma_alloc_coherent(pil->dev, MBA_SIZE, &mba_phys,
 					GFP_KERNEL);
 	if (!mba_virt) {
 		dev_err(pil->dev, "MBA metadata buffer allocation failed\n");
-		goto err_mss_reset;
+		ret = -ENOMEM;
+		goto err_dma_alloc;
 	}
 
 	drv->mba_phys = mba_phys;
@@ -356,9 +357,9 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	return 0;
 
 err_mss_reset:
-	release_firmware(fw);
-err_request_firmware:
 	dma_free_coherent(pil->dev, MBA_SIZE, drv->mba_virt, drv->mba_phys);
+err_dma_alloc:
+	release_firmware(fw);
 	return ret;
 }
 
