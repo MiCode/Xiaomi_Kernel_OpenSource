@@ -374,7 +374,7 @@ static int msm_iommu_probe(struct platform_device *pdev)
 						   "qcom,needs-alt-iface-clk");
 	if (needs_alt_iface_clk) {
 		drvdata->aiclk = devm_clk_get(&pdev->dev, "alt_iface_clk");
-		if (IS_ERR(drvdata->aclk))
+		if (IS_ERR(drvdata->aiclk))
 			return PTR_ERR(drvdata->aiclk);
 	}
 
