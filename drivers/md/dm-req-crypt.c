@@ -41,7 +41,7 @@
 #define MAX_ENCRYPTION_BUFFERS 1
 #define MIN_IOS 16
 #define MIN_POOL_PAGES 32
-#define KEY_SIZE_XTS 32
+#define KEY_SIZE_XTS 64
 #define AES_XTS_IV_LEN 16
 
 #define DM_REQ_CRYPT_ERROR -1
