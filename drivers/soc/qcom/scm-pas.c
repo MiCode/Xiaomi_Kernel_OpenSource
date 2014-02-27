@@ -17,13 +17,14 @@
 #include <linux/string.h>
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
+#include <linux/msm-bus.h>
+#include <linux/msm-bus-board.h>
+
 #include <soc/qcom/scm.h>
 #include <soc/qcom/socinfo.h>
 
 #include <asm/cacheflush.h>
 
-#include <mach/msm_bus.h>
-#include <mach/msm_bus_board.h>
 #include "scm-pas.h"
 
 #define PAS_INIT_IMAGE_CMD	1
