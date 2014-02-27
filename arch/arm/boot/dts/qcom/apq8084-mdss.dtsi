@@ -95,6 +95,7 @@
 		qcom,mdss-has-bwc;
 		qcom,mdss-has-decimation;
 		qcom,mdss-wfd-mode = "intf";
+		qcom,mdss-has-source-split;
 
 		qcom,vbif-settings = <0x0B0 0x00080808>,
 				     <0x0B4 0x08000808>,
