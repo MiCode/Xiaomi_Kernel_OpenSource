@@ -1004,6 +1004,8 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep, bool starting)
 	list_for_each_entry_safe(req, n, &dep->request_list, list) {
 		unsigned	length;
 		dma_addr_t	dma;
+		bool		last_req = list_is_last(&req->list,
+							&dep->request_list);
 		last_one = false;
 
 		if (req->request.num_mapped_sgs > 0) {
@@ -1020,8 +1022,7 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep, bool starting)
 
 				if (i == (request->num_mapped_sgs - 1) ||
 						sg_is_last(s)) {
-					if (list_is_last(&req->list,
-							&dep->request_list))
+					if (last_req)
 						last_one = true;
 					chain = false;
 				}
@@ -1039,7 +1040,9 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep, bool starting)
 				if (last_one)
 					break;
 			}
-			dbg_queue(dep->number, &req->request, 0);
+			dbg_queue(dep->number, &req->request, trbs_left);
+			if (last_one)
+				break;
 		} else {
 			struct dwc3_request	*req1;
 			int maxpkt_size = usb_endpoint_maxp(dep->endpoint.desc);
@@ -1062,7 +1065,7 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep, bool starting)
 			}
 
 			/* Is this the last request? */
-			if (list_is_last(&req->list, &dep->request_list))
+			if (last_req)
 				last_one = 1;
 
 			dwc3_prepare_one_trb(dep, req, dma, length,
