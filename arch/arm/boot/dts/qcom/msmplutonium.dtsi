@@ -484,6 +484,18 @@
 		compatible = "qcom,msm-ssc-sensors";
 	};
 
+	slim_msm: slim@fe12f000 {
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0xfe12f000 0x2C000>,
+		      <0xfe104000 0x20000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0>, <0 164 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x60000000>;
+		qcom,ea-pc = <0x110>;
+	};
+
 	spmi_bus: qcom,spmi@fc4c0000 {
 		compatible = "qcom,spmi-pmic-arb";
 		reg-names = "core", "intr", "cnfg";
