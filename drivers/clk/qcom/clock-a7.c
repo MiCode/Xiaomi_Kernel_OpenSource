@@ -279,6 +279,7 @@ static struct of_device_id clock_a7_match_table[] = {
 };
 
 static struct platform_driver clock_a7_driver = {
+	.probe = clock_a7_probe,
 	.driver = {
 		.name = "clock-a7",
 		.of_match_table = clock_a7_match_table,
@@ -288,6 +289,6 @@ static struct platform_driver clock_a7_driver = {
 
 static int __init clock_a7_init(void)
 {
-	return platform_driver_probe(&clock_a7_driver, clock_a7_probe);
+	return platform_driver_register(&clock_a7_driver);
 }
 arch_initcall(clock_a7_init);
