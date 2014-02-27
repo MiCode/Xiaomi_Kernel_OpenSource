@@ -2430,8 +2430,12 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			ret = -EPROBE_DEFER;
 			goto disable_ref_clk;
 		}
-		}
+	}
 
+	ret = of_property_read_u32(node, "qcom,restore-sec-cfg-for-scm-dev-id",
+					&mdwc->scm_dev_id);
+	if (ret)
+		dev_dbg(&pdev->dev, "unable to read scm device id (%d)\n", ret);
 
 	if (of_property_read_u32(node, "qcom,dwc-usb3-msm-tx-fifo-size",
 				 &mdwc->tx_fifo_size))
@@ -2583,11 +2587,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		if (ret)
 			dev_err(&pdev->dev, "Fail to setup dwc3 setup cdev\n");
 	}
-
-	ret = of_property_read_u32(node, "qcom,restore-sec-cfg-for-scm-dev-id",
-					&mdwc->scm_dev_id);
-	if (ret && ret != -ENODATA)
-		dev_dbg(&pdev->dev, "unable to read scm device id\n");
 
 	device_init_wakeup(mdwc->dev, 1);
 	pm_stay_awake(mdwc->dev);
