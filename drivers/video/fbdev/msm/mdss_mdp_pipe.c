@@ -808,9 +808,6 @@ int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
 			writel_relaxed(reg_val | BIT(pipe->sw_reset.bit_off),
 				mdata->mdp_base + sw_reset_off);
 			wmb();
-			writel_relaxed(reg_val & ~BIT(pipe->sw_reset.bit_off),
-				mdata->mdp_base + sw_reset_off);
-			wmb();
 		}
 		mutex_unlock(&mdata->reg_lock);
 
@@ -830,6 +827,10 @@ int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
 			mdata->vbif_base + MMSS_VBIF_XIN_HALT_CTRL0);
 
 		if (sw_reset_avail) {
+			writel_relaxed(reg_val & ~BIT(pipe->sw_reset.bit_off),
+				mdata->mdp_base + sw_reset_off);
+			wmb();
+
 			reg_val = readl_relaxed(mdata->mdp_base + clk_ctrl_off);
 			reg_val |= BIT(pipe->clk_ctrl.bit_off +
 				CLK_FORCE_OFF_OFFSET);
