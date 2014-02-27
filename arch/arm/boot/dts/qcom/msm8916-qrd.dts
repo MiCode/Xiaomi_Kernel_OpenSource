@@ -102,3 +102,37 @@
 
 	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
 };
+
+&soc {
+	spi_0 {
+		status = "disabled";
+	};
+
+	gpio-leds {
+		compatible = "gpio-leds";
+		status = "okay";
+		pinctrl-names = "default";
+		pinctrl-0 = <&gpio_led_off>;
+
+		red {
+			gpios = <&msm_gpio 8 0>;
+			label = "red";
+			linux,default-trigger = "battery-charging";
+			default-state = "off";
+		};
+
+		green {
+			gpios = <&msm_gpio 9 0>;
+			label = "green";
+			linux,default-trigger = "battery-full";
+			default-state = "off";
+		};
+
+		blue {
+			gpios = <&msm_gpio 10 0>;
+			label = "blue";
+			linux,default-trigger = "none";
+			default-state = "off";
+		};
+	};
+};
