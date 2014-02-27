@@ -1666,7 +1666,7 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 {
 	struct device_node *of_node = pdev->dev.of_node;
 	int i, rc = 0;
-	bool redundant;
+	bool redundant = false;
 	u32 cpr_fuse_redun_sel[5];
 	char *targ_quot_str, *ro_sel_str;
 	u32 cpr_fuse_row[2];
@@ -1677,14 +1677,17 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 	u64 fuse_bits, fuse_bits_2;
 	u32 quot_adjust[CPR_FUSE_CORNER_MAX];
 
-	rc = of_property_read_u32_array(of_node, "qcom,cpr-fuse-redun-sel",
+	if (of_find_property(of_node, "qcom,cpr-fuse-redun-sel", NULL)) {
+		rc = of_property_read_u32_array(of_node,
+					"qcom,cpr-fuse-redun-sel",
 					cpr_fuse_redun_sel, 5);
-	if (rc < 0) {
-		pr_err("cpr-fuse-redun-sel missing: rc=%d\n", rc);
-		return rc;
+		if (rc < 0) {
+			pr_err("cpr-fuse-redun-sel missing: rc=%d\n", rc);
+			return rc;
+		}
+		redundant = cpr_fuse_is_setting_expected(cpr_vreg,
+						cpr_fuse_redun_sel);
 	}
-
-	redundant = cpr_fuse_is_setting_expected(cpr_vreg, cpr_fuse_redun_sel);
 
 	if (redundant) {
 		rc = of_property_read_u32_array(of_node,

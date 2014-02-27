@@ -48,20 +48,6 @@ Required properties:
 - qcom,cpr-idle-clocks:		Idle clock cycles RO can be in.
 - qcom,cpr-gcnt-time:		The time for gate count in microseconds.
 - qcom,cpr-apc-volt-step:	The voltage in microvolt per CPR step, such as 5000uV.
-- qcom,cpr-fuse-redun-sel:	Array of 5 elements to indicate where to read the bits, what value to
-				compare with in order to decide if the redundant CPR fuse bits would be
-				used instead of the original bits and method to read fuse row, using SCM
-				to read or read register directly. The 5 elements with index [0..4] are:
-				  [0] => the fuse row number of the selector
-				  [1] => LSB bit position of the bits
-				  [2] => number of bits
-				  [3] => the value to indicate redundant selection
-				  [4] => fuse reading method, 0 for direct reading or 1 for SCM reading
-				When the value of the fuse bits specified by first 3 elements equals to
-				the value in 4th element, redundant CPR fuse bits should be selected.
-				Otherwise, the original CPR bits should be selected. If the 5th element
-				is 0, read the fuse row from register directly. Otherwise, read it through
-				SCM.
 - qcom,cpr-fuse-row:		Array of row number of CPR fuse and method to read that row. It should have
 				index and value like this:
 				 [0] => the fuse row number
@@ -78,20 +64,6 @@ Required properties:
 				  [0] => bit position of the LSB bit for SVS RO select bits
 				  [1] => bit position of the LSB bit for NOMINAL RO select bits
 				  [2] => bit position of the LSB bit for TURBO RO select bits
-- qcom,cpr-fuse-redun-row:	Array of row number of redundant CPR fuse and method to read that
-				row. It should have index and value like this:
-				 [0] => the redundant fuse row number
-				 [1] => the value to indicate reading the fuse row directly or using SCM
-- qcom,cpr-fuse-redun-target-quot:	Array of bit positions in fuse for redundant Target Quotient of all corners.
-				It should have index and value like this:
-				  [0] => bit position of the LSB bit for redundant SVS target quotient
-				  [1] => bit position of the LSB bit for redundant NOMINAL target quotient
-				  [2] => bit position of the LSB bit for redundant TURBO target quotient
-- qcom,cpr-fuse-redun-ro-sel:	Array of bit positions in eFuse for redundant RO select.
-				It should have index and value like this:
-				  [0] => bit position of the LSB bit for redundant SVS RO select bits
-				  [1] => bit position of the LSB bit for redundant NOMINAL RO select bits
-				  [2] => bit position of the LSB bit for redundant TURBO RO select bits
 
 
 Optional properties:
@@ -150,6 +122,37 @@ Optional properties:
 				  [2] => number of bits
 				  [3] => fuse reading method, 0 for direct reading or 1 for SCM reading
 				This property is required if qcom,pvs-voltage-table is present.
+- qcom,cpr-fuse-redun-sel:	Array of 5 elements to indicate where to read the bits, what value to
+				compare with in order to decide if the redundant CPR fuse bits would be
+				used instead of the original bits and method to read fuse row, using SCM
+				to read or read register directly. The 5 elements with index [0..4] are:
+				  [0] => the fuse row number of the selector
+				  [1] => LSB bit position of the bits
+				  [2] => number of bits
+				  [3] => the value to indicate redundant selection
+				  [4] => fuse reading method, 0 for direct reading or 1 for SCM reading
+				When the value of the fuse bits specified by first 3 elements equals to
+				the value in 4th element, redundant CPR fuse bits should be selected.
+				Otherwise, the original CPR bits should be selected. If the 5th element
+				is 0, read the fuse row from register directly. Otherwise, read it through
+				SCM.
+- qcom,cpr-fuse-redun-row:	Array of row number of redundant CPR fuse and method to read that
+				row. It should have index and value like this:
+				 [0] => the redundant fuse row number
+				 [1] => the value to indicate reading the fuse row directly or using SCM
+				This property is required if qcom,cpr-fuse-redun-sel is present.
+- qcom,cpr-fuse-redun-target-quot:	Array of bit positions in fuse for redundant Target Quotient of all corners.
+				It should have index and value like this:
+				  [0] => bit position of the LSB bit for redundant SVS target quotient
+				  [1] => bit position of the LSB bit for redundant NOMINAL target quotient
+				  [2] => bit position of the LSB bit for redundant TURBO target quotient
+				This property is required if qcom,cpr-fuse-redun-sel is present.
+- qcom,cpr-fuse-redun-ro-sel:	Array of bit positions in eFuse for redundant RO select.
+				It should have index and value like this:
+				  [0] => bit position of the LSB bit for redundant SVS RO select bits
+				  [1] => bit position of the LSB bit for redundant NOMINAL RO select bits
+				  [2] => bit position of the LSB bit for redundant TURBO RO select bits
+				This property is required if qcom,cpr-fuse-redun-sel is present.
 - qcom,cpr-fuse-redun-bp-cpr-disable:	Redundant bit position of the bit to indicate if CPR should be disable
 - qcom,cpr-fuse-redun-bp-scheme:	Redundant bit position of the bit to indicate if it's a global/local scheme
 					This property is required if cpr-fuse-redun-bp-cpr-disable
