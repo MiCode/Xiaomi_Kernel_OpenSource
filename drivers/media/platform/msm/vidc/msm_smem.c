@@ -67,12 +67,15 @@ static int get_device_address(struct smem_client *smem_client,
 		return -EINVAL;
 	}
 
-	rc = msm_smem_get_domain_partition(smem_client, flags, buffer_type,
-			&domain, &partition);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to get domain and partition: %d\n",
-				rc);
-		goto mem_domain_get_failed;
+	if (is_iommu_present(smem_client->res)) {
+		rc = msm_smem_get_domain_partition(smem_client, flags,
+				buffer_type, &domain, &partition);
+		if (rc) {
+			dprintk(VIDC_ERR,
+					"Failed to get domain and partition: %d\n",
+					rc);
+			goto mem_domain_get_failed;
+		}
 	}
 
 	if (flags & SMEM_SECURE) {

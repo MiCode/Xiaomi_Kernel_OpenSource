@@ -92,6 +92,9 @@ Optional properties:
   The bitmap is defined as:
   scalable = 0x1 (if the driver should vary the clock's frequency based on load)
   power collapsible = 0x2 (if the driver should disable the clock if no load)
+- qcom,use-non-secure-pil = A bool indicating which type of pil to use to load
+  the fw.
+- qcom,fw-bias = The address at which venus fw is loaded (manually).
 
 Example:
 
@@ -153,5 +156,6 @@ Example:
 							<0x7c1>;
 			};
 		};
-
+		qcom,use-non-secure-pil;
+		qcom,fw-bias = <0xe000000>;
 	};

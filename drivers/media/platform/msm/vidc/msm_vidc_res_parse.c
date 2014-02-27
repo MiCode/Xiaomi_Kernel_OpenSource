@@ -637,13 +637,14 @@ int read_platform_resources_from_dt(
 	struct platform_device *pdev = res->pdev;
 	struct resource *kres = NULL;
 	int rc = 0;
+	uint32_t firmware_base = 0;
 
 	if (!pdev->dev.of_node) {
 		dprintk(VIDC_ERR, "DT node not found\n");
 		return -ENOENT;
 	}
 
-	res->firmware_base = 0x0;
+	res->firmware_base = (phys_addr_t)firmware_base;
 
 	kres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	res->register_base = kres ? kres->start : -1;
@@ -703,6 +704,16 @@ int read_platform_resources_from_dt(
 		goto err_load_max_hw_load;
 	}
 
+	res->use_non_secure_pil = of_property_read_bool(pdev->dev.of_node,
+			"qcom,use-non-secure-pil");
+
+	if (!is_iommu_present(res)) {
+		of_property_read_u32(pdev->dev.of_node, "qcom,fw-bias",
+				&firmware_base);
+		res->firmware_base = (phys_addr_t)firmware_base;
+		dprintk(VIDC_DBG,
+				"Using fw-bias : %pa", &res->firmware_base);
+	}
 	return rc;
 err_load_max_hw_load:
 	msm_vidc_free_clock_table(res);
