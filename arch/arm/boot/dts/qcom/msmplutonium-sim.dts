@@ -228,3 +228,8 @@
 	mpp@a300 { /* MPP 4 */
 	};
 };
+
+&msm_vidc {
+	qcom,use-non-secure-pil;
+	qcom,fw-bias = <0xf500000>;
+};
