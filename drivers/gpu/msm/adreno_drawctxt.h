@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -133,7 +133,6 @@ extern const struct adreno_context_ops adreno_preamble_ctx_ops;
  */
 struct adreno_context {
 	struct kgsl_context base;
-	unsigned int ib_gpu_time_used;
 	unsigned int timestamp;
 	unsigned int internal_timestamp;
 	int state;
