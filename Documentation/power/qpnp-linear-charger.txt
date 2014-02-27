@@ -1,0 +1,115 @@
+Introduction
+============
+
+The QPNP linear charger driver implements input and external peripheral power management for 8916 chipsets. The input can be supplied to the device via USB path. Output paths is the VPH_PWR rail.
+
+Software description
+====================
+
+Design
+======
+
+Design Goals:
+
+The qpnp-linear-charger driver interacts as a consumer and producer for
+various input and output power information, as well as relaying information
+to userspace.
+
+Given the abundance of configurations for different board designs it is
+important to distinguish between configurations which are required versus
+those available to be configured at compile and at run time. The target
+of this design is to achieve this as follows:
+
+  1. Compile time options are defined in the devicetree documentation.
+
+  Documentation/devicetree/bindings/power/qpnp-linear-charger.txt
+
+  2. Runtime configuration is implemented via the power supply framework.
+
+  3. Chipset dependent features and workarounds are configured via
+  runtime subtype detection and are typically not changed.
+
+Power Supply Property Implementations
+-------------------------------------
+
+While the power supply framework implementation supplies basic definitions
+of each property this documentation will define the ones used in more detail.
+
+The notification model in the power supply framework is used to notify other
+consumers of information conveyed by the charger driver as outlined below.
+Each notification is handled via the supply supplicant relationship.
+Whenever a supply is changed and the power_supply_changed API is called the
+external_power_supply_changed callback will be invoked at the supplicant.
+One can picture the notification as one directional.
+
+ power_supply_changed()
++----------------------+                                      +------------+
+|                      |  external_power_supply_changed()     |            |
+|        supply        |------------------------------------->| supplicant |
+|                      |                                      |            |
++----------------------+                                      +------------+
+
+Registered supplies in qpnp-linear-charger:
+  * battery
+
+Other supplies in other drivers:
+  * bms: registered in the Battery Management (BMS) qpnp-vm-bms.c driver.
+  * usb: registered in the corresponding dwc3 or msm_otg driver.
+
+Battery:
+  * supplicants: bms
+  * supplies: bms, usb
+  * writable properties:
+    - POWER_SUPPLY_PROP_CHARGING_ENABLED
+         This bit allows to disable current from entering the battery
+         as well as disabling any current being drawn from external inputs.
+    -  POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL
+         The temperature level is used by the thermal daemon to configure
+         the maximum battery current input limit to reduce heat produced
+         from the battery when charging.
+    -  POWER_SUPPLY_PROP_VOLTAGE_MIN
+         The minimum input voltage for a given input to the charger.
+    -  POWER_SUPPLY_PROP_COOL_TEMP
+         Allows to configure a cool threshold notification which is
+	 configured via the ADC battery temperature monitoring API.
+    -  POWER_SUPPLY_PROP_WARM_TEMP
+         Allows to configure a warm threshold notification which is
+	 configured via the ADC battery temperature monitoring API.
+    -  POWER_SUPPLY_PROP_STATUS
+	 This property is set by BMS wheneverBMS detects end of charge
+	 condition. Charger driver uses this to sto p charging.
+    -  POWER_SUPPLY_PROP_CAPACITY
+         This property is set by the BMS supply whenever the capacity of the
+	 battery is changed. If there is no BMS supply present a default
+	 value is returned. This property can also be manually overridden
+	 from userspace to set a fake capacity. This feature allows for test
+	 environments to prevent certain userspaces from shutting down the
+	 device.
+  * other notable properties:
+    - POWER_SUPPLY_PROP_PRESENT:
+        Indicates whether valid voltage has been detected on either
+	BATT_THERM or BATT_ID.
+
+Note that the Battery Management (BMS) supply is a special case as there is
+a circular notification requirement of the STATUS (battery) and the CAPACITY
+(bms) properties.
+
+The battery power supply is also a supplicant to BMS because of userspace
+not being aware of the BMS power supply type. Thus the CAPACITY property needs
+to be relayed through the appropriate battery supply type.
+
+Config options
+==============
+
+CONFIG_QPNP_LINEAR_CHARGER - Enables QPNP charger support.
+
+User space utilities
+====================
+
+The power supply framework sends uevents whenever power_supply_changed is
+invoked. Said event contains the name of the supply changed as well as all
+implemented power supply properties.
+
+The qpnp-linear-charger driver takes advantage of the framework to notify
+userspace. There are a few userspace applications which take advantage of
+this information to track things like battery capacity, presence and health.
