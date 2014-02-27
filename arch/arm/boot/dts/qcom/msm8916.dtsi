@@ -1059,6 +1059,12 @@
 			qcom,smdpkt-dev-name = "smdcntl8";
 		};
 
+		qcom,smdpkt-apr-apps2 {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "apr_apps2";
+			qcom,smdpkt-dev-name = "apr_apps2";
+		};
+
 		qcom,smdpkt-loopback {
 			qcom,smdpkt-remote = "modem";
 			qcom,smdpkt-port-name = "LOOPBACK";
