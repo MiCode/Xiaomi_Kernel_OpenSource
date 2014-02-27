@@ -19,6 +19,7 @@
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
 #include <linux/iopoll.h>
+#include <linux/compat.h>
 #include <media/msmb_isp.h>
 
 #include "msm_ispif.h"
@@ -1036,10 +1037,19 @@ static long msm_ispif_cmd(struct v4l2_subdev *sd, void *arg)
 	mutex_unlock(&ispif->mutex);
 	return rc;
 }
+static struct v4l2_file_operations msm_ispif_v4l2_subdev_fops;
 
 static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
 {
+#ifdef CONFIG_COMPAT
+	void __user *up;
+	if (is_compat_task()) {
+		up = (void __user *)compat_ptr((unsigned long)arg);
+		arg = up;
+	}
+#endif
+
 	switch (cmd) {
 	case VIDIOC_MSM_ISPIF_CFG:
 		return msm_ispif_cmd(sd, arg);
@@ -1055,6 +1065,20 @@ static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd,
 			__func__, cmd);
 		return -ENOIOCTLCMD;
 	}
+}
+
+static long msm_ispif_subdev_do_ioctl(
+	struct file *file, unsigned int cmd, void *arg)
+{
+	struct video_device *vdev = video_devdata(file);
+	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
+	return msm_ispif_subdev_ioctl(sd, cmd, arg);
+}
+
+static long msm_ispif_subdev_fops_ioctl(struct file *file, unsigned int cmd,
+	unsigned long arg)
+{
+	return video_usercopy(file, cmd, arg, msm_ispif_subdev_do_ioctl);
 }
 
 static int ispif_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
@@ -1182,6 +1206,14 @@ static int ispif_probe(struct platform_device *pdev)
 		pr_err("%s: msm_sd_register error = %d\n", __func__, rc);
 		goto error;
 	}
+	msm_ispif_v4l2_subdev_fops.owner = v4l2_subdev_fops.owner;
+	msm_ispif_v4l2_subdev_fops.open = v4l2_subdev_fops.open;
+	msm_ispif_v4l2_subdev_fops.unlocked_ioctl = msm_ispif_subdev_fops_ioctl;
+	msm_ispif_v4l2_subdev_fops.release = v4l2_subdev_fops.release;
+	msm_ispif_v4l2_subdev_fops.poll = v4l2_subdev_fops.poll;
+#ifdef CONFIG_COMPAT
+	msm_ispif_v4l2_subdev_fops.compat_ioctl32 = msm_ispif_subdev_fops_ioctl;
+#endif
 
 	ispif->pdev = pdev;
 	ispif->ispif_state = ISPIF_POWER_DOWN;
