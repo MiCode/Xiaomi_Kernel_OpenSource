@@ -356,12 +356,13 @@ int clk_enable(struct clk *clk)
 	int ret = 0;
 	unsigned long flags;
 	struct clk *parent;
-	const char *name = clk ? clk->dbg_name : NULL;
+	const char *name;
 
 	if (!clk)
 		return 0;
 	if (IS_ERR(clk))
 		return -EINVAL;
+	name = clk->dbg_name;
 
 	spin_lock_irqsave(&clk->lock, flags);
 	WARN(!clk->prepare_count,
@@ -399,11 +400,12 @@ EXPORT_SYMBOL(clk_enable);
 
 void clk_disable(struct clk *clk)
 {
-	const char *name = clk ? clk->dbg_name : NULL;
+	const char *name;
 	unsigned long flags;
 
 	if (IS_ERR_OR_NULL(clk))
 		return;
+	name = clk->dbg_name;
 
 	spin_lock_irqsave(&clk->lock, flags);
 	WARN(!clk->prepare_count,
@@ -428,10 +430,11 @@ EXPORT_SYMBOL(clk_disable);
 
 void clk_unprepare(struct clk *clk)
 {
-	const char *name = clk ? clk->dbg_name : NULL;
+	const char *name;
 
 	if (IS_ERR_OR_NULL(clk))
 		return;
+	name = clk->dbg_name;
 
 	mutex_lock(&clk->prepare_lock);
 	if (WARN(!clk->prepare_count, "%s is unbalanced (prepare)", name))
@@ -483,10 +486,11 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 {
 	unsigned long start_rate;
 	int rc = 0;
-	const char *name = clk ? clk->dbg_name : NULL;
+	const char *name;
 
 	if (IS_ERR_OR_NULL(clk))
 		return -EINVAL;
+	name = clk->dbg_name;
 
 	if (!is_rate_valid(clk, rate))
 		return -EINVAL;
