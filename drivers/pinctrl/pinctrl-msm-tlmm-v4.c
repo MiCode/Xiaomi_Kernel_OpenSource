@@ -403,6 +403,7 @@ static int msm_tlmm_v4_gp_cfg(uint pin_no, unsigned long *config,
 			data = pinconf_to_config_argument(*config);
 			inout_val = dir_to_inout_val(data);
 			writel_relaxed(inout_val, inout_reg);
+			data = mask;
 		} else {
 			inout_val = readl_relaxed(inout_reg);
 			data = inout_val_to_dir(inout_val);
