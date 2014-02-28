@@ -2224,6 +2224,7 @@ static int __to_user_mdp_overlay(struct mdp_overlay32 __user *ov32,
 	ret |= put_user(ov->transp_mask, &ov32->transp_mask);
 	ret |= put_user(ov->flags, &ov32->flags);
 	ret |= put_user(ov->id, &ov32->id);
+	ret |= put_user(ov->priority, &ov32->priority);
 	if (ret)
 		return -EFAULT;
 
@@ -2277,7 +2278,9 @@ static int __from_user_mdp_overlay(struct mdp_overlay *ov,
 	    get_user(data, &ov32->flags) ||
 	    put_user(data, &ov->flags) ||
 	    get_user(data, &ov32->id) ||
-	    put_user(data, &ov->id))
+	    put_user(data, &ov->id) ||
+	    get_user(data, &ov32->priority) ||
+	    put_user(data, &ov->priority))
 		return -EFAULT;
 
 	if (copy_in_user(&ov->user_data, &ov32->user_data,
