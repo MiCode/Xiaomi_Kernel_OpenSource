@@ -861,6 +861,7 @@ static int mdm9x25_setup_hw(struct mdm_ctrl *mdm,
 	esoc->clink_ops = ops;
 	esoc->parent = mdm->dev;
 	esoc->owner = THIS_MODULE;
+	esoc->np = pdev->dev.of_node;
 	set_esoc_clink_data(esoc, mdm);
 	ret = esoc_clink_register(esoc);
 	if (ret) {
@@ -933,6 +934,7 @@ static int mdm9x35_setup_hw(struct mdm_ctrl *mdm,
 	esoc->clink_ops = ops;
 	esoc->parent = mdm->dev;
 	esoc->owner = THIS_MODULE;
+	esoc->np = pdev->dev.of_node;
 	set_esoc_clink_data(esoc, mdm);
 	ret = esoc_clink_register(esoc);
 	if (ret) {
