@@ -21,6 +21,7 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/workqueue.h>
+#include <linux/sched.h>
 #include <soc/qcom/sysmon.h>
 #include <mach/gpiomux.h>
 #include "esoc.h"
@@ -35,7 +36,7 @@
 #define MDM9x35_DUAL_LINK		"HSIC+PCIe"
 #define MDM9x35_HSIC			"HSIC"
 #define MDM2AP_STATUS_TIMEOUT_MS	120000L
-#define MDM_MODEM_TIMEOUT		6000
+#define MDM_MODEM_TIMEOUT		3000
 #define DEF_RAMDUMP_TIMEOUT		120000
 #define DEF_RAMDUMP_DELAY		2000
 #define RD_BUF_SIZE			100
@@ -480,7 +481,8 @@ static void mdm_get_restart_reason(struct work_struct *work)
 static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
 {
 	bool status_down;
-	unsigned long end_time;
+	uint64_t timeout;
+	uint64_t now;
 	struct mdm_ctrl *mdm = get_esoc_clink_data(esoc);
 	struct device *dev = mdm->dev;
 
@@ -516,18 +518,31 @@ static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
 		status_down = false;
 		dev_dbg(dev, "signal apq err fatal for graceful restart\n");
 		gpio_set_value(MDM_GPIO(mdm, AP2MDM_ERRFATAL), 1);
-		end_time = jiffies + msecs_to_jiffies(MDM_MODEM_TIMEOUT);
-		while (time_before(jiffies, end_time)) {
+		timeout = local_clock();
+		do_div(timeout, NSEC_PER_MSEC);
+		timeout += MDM_MODEM_TIMEOUT;
+		do {
 			if (gpio_get_value(MDM_GPIO(mdm,
 						MDM2AP_STATUS)) == 0) {
 				status_down = true;
 				break;
 			}
-		}
+			now = local_clock();
+			do_div(now, NSEC_PER_MSEC);
+		} while (!time_after64(now, timeout));
+
 		if (!status_down) {
-			dev_err(mdm->dev, "%s MDM2AP status didnot go low\n",
+			dev_err(mdm->dev, "%s MDM2AP status did not go low\n",
 								__func__);
-			mdm_toggle_soft_reset(mdm);
+			gpio_direction_output(MDM_GPIO(mdm, AP2MDM_SOFT_RESET),
+					      !!mdm->soft_reset_inverted);
+			/*
+			 * allow PS hold assert to be detected.
+			 * pmic requires 6ms for crash reset case.
+			 */
+			mdelay(6);
+			gpio_direction_output(MDM_GPIO(mdm, AP2MDM_SOFT_RESET),
+					      !mdm->soft_reset_inverted);
 		}
 		break;
 	};
