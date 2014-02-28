@@ -486,11 +486,11 @@
 
 &gdsc_oxili_cx {
 	status = "ok";
-	parent-supply = <&pmplutonium_s1_corner>;
 };
 
 &gdsc_oxili_gx {
 	status = "ok";
+	parent-supply = <&pmiplutonium_s2_corner>;
 };
 
 #include "msmplutonium-regulator.dtsi"
