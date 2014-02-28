@@ -3230,8 +3230,8 @@ static int tomtom_hphl_dac_event(struct snd_soc_dapm_widget *w,
 		if (!ret)
 			wcd9xxx_clsh_imped_config(codec, impedl);
 		else
-			dev_err(codec->dev, "Failed to get mbhc impedance %d\n",
-						ret);
+			dev_dbg(codec->dev, "%s: Failed to get mbhc impedance %d\n",
+						__func__, ret);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		break;
@@ -6793,10 +6793,35 @@ static enum wcd9xxx_cdc_type tomtom_get_cdc_type(void)
 	return WCD9XXX_CDC_TYPE_TOMTOM;
 }
 
+static bool tomtom_mbhc_ins_rem_status(struct snd_soc_codec *codec)
+{
+	return snd_soc_read(codec, WCD9XXX_A_MBHC_INSERT_DET_STATUS) &
+			    (1 << 1);
+}
+
+static void tomtom_mbhc_micb_pulldown_ctrl(struct wcd9xxx_mbhc *mbhc,
+					   bool enable)
+{
+	struct snd_soc_codec *codec = mbhc->codec;
+
+	if (!enable) {
+		/* Remove automatic pulldown on micbias */
+		snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.cfilt_ctl,
+				    0x01, 0x00);
+	} else {
+		/* Enable automatic pulldown on micbias */
+		snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.cfilt_ctl,
+				    0x01, 0x01);
+	}
+}
+
 static const struct wcd9xxx_mbhc_cb mbhc_cb = {
 	.get_cdc_type = tomtom_get_cdc_type,
 	.setup_zdet = tomtom_setup_zdet,
 	.compute_impedance = tomtom_compute_impedance,
+	.insert_rem_status = tomtom_mbhc_ins_rem_status,
+	.micbias_pulldown_ctrl = tomtom_mbhc_micb_pulldown_ctrl,
+	.codec_rco_ctrl = tomtom_codec_internal_rco_ctrl,
 };
 
 static const struct wcd9xxx_mbhc_intr cdc_intr_ids = {
