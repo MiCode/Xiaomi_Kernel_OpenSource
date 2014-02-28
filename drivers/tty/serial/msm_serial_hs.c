@@ -139,7 +139,7 @@ enum flush_reason {
 	FLUSH_NONE,
 	FLUSH_DATA_READY,
 	FLUSH_DATA_INVALID,  /* values after this indicate invalid data */
-	FLUSH_IGNORE = FLUSH_DATA_INVALID,
+	FLUSH_IGNORE,
 	FLUSH_STOP,
 	FLUSH_SHUTDOWN,
 };
@@ -204,6 +204,7 @@ struct msm_hs_rx {
 	struct tasklet_struct tlet;
 	struct msm_hs_sps_ep_conn_data prod;
 	bool rx_cmd_queued;
+	bool rx_cmd_exec;
 };
 enum buffer_states {
 	NONE_PENDING = 0x0,
@@ -1248,7 +1249,7 @@ static void msm_hs_set_termios(struct uart_port *uport,
 
 	if (msm_uport->rx.flush == FLUSH_NONE) {
 		wake_lock(&msm_uport->rx.wake_lock);
-		msm_uport->rx.flush = FLUSH_IGNORE;
+		msm_uport->rx.flush = FLUSH_DATA_INVALID;
 		/*
 		 * Before using dmov APIs make sure that
 		 * previous writel are completed. Hence
@@ -1265,6 +1266,7 @@ static void msm_hs_set_termios(struct uart_port *uport,
 				MSM_HS_ERR("%s(): sps_disconnect failed\n",
 							__func__);
 			msm_hs_spsconnect_rx(uport);
+			msm_uport->rx.flush = FLUSH_IGNORE;
 			msm_serial_hs_rx_tlet((unsigned long) &rx->tlet);
 		} else {
 			msm_uport->rx_discard_flush_issued = true;
@@ -1371,7 +1373,7 @@ static void msm_hs_stop_rx_locked(struct uart_port *uport)
 	unsigned int data;
 
 	MSM_HS_DBG("In %s():\n", __func__);
-	if (msm_uport->clk_state == MSM_HS_CLK_ON) {
+	if (msm_uport->clk_state != MSM_HS_CLK_OFF) {
 		/* disable dlink */
 		data = msm_hs_read(uport, UART_DM_DMEN);
 		if (is_blsp_uart(msm_uport))
@@ -1503,6 +1505,12 @@ static void msm_hs_start_rx_locked(struct uart_port *uport)
 		MSM_HS_WARN("%s: Failed.Clocks are OFF\n", __func__);
 		return;
 	}
+	if (rx->rx_cmd_exec) {
+		MSM_HS_DBG("%s: Rx Cmd got executed, wait for rx_tlet\n",
+								 __func__);
+		rx->flush = FLUSH_IGNORE;
+		return;
+	}
 	msm_uport->rx.buffer_pending = 0;
 	if (buffer_pending && hs_serial_debug_mask)
 		MSM_HS_ERR("Error: rx started in buffer state = %x",
@@ -1632,6 +1640,7 @@ static void msm_serial_hs_rx_tlet(unsigned long tlet_ptr)
 	rx = &msm_uport->rx;
 
 	msm_uport->rx.rx_cmd_queued = false;
+	msm_uport->rx.rx_cmd_exec = false;
 
 	status = msm_hs_read(uport, UART_DM_SR);
 
@@ -1902,6 +1911,7 @@ static void msm_hs_sps_rx_callback(struct sps_event_notify *notify)
 	if (msm_uport->rx.flush == FLUSH_NONE) {
 		spin_lock_irqsave(&uport->lock, flags);
 		msm_uport->rx_count_callback = notify->data.transfer.iovec.size;
+		msm_uport->rx.rx_cmd_exec = true;
 		spin_unlock_irqrestore(&uport->lock, flags);
 		tasklet_schedule(&msm_uport->rx.tlet);
 	}
@@ -2697,6 +2707,7 @@ static int msm_hs_startup(struct uart_port *uport)
 	/* Initialize the tx */
 	tx->tx_ready_int_en = 0;
 	tx->dma_in_flight = 0;
+	rx->rx_cmd_exec = false;
 	msm_uport->tty_flush_receive = false;
 	MSM_HS_DBG("%s: Setting tty_flush_receive to false\n", __func__);
 
