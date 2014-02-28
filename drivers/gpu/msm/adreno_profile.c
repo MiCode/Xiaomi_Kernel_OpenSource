@@ -717,10 +717,10 @@ static ssize_t profile_assignments_write(struct file *filep,
 	buf[len] = '\0';
 
 	/* parse file buf and add(remove) to(from) appropriate lists */
-	while (1) {
+	while (pbuf) {
 		pbuf = _parse_next_assignment(adreno_dev, pbuf, &groupid,
 				&countable, &remove_assignment);
-		if (pbuf == NULL)
+		if (groupid < 0 || countable < 0)
 			break;
 
 		if (remove_assignment)
