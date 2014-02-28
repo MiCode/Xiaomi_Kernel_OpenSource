@@ -5,6 +5,16 @@
 
 menu "Light sensors"
 
+config ACPI_ALS
+	tristate "ACPI Ambient Light Sensor"
+	depends on ACPI
+	select IIO_TRIGGERED_BUFFER
+	help
+	 Support for the ACPI0008 Ambient Light Sensor.
+
+	 This driver can also be built as a module.  If so, the module
+	 will be called acpi-als.
+
 config ADJD_S311
 	tristate "ADJD-S311-CR999 digital color sensor"
 	select IIO_BUFFER

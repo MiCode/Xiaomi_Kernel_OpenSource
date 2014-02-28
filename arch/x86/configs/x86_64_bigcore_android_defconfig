@@ -3522,6 +3522,7 @@ CONFIG_R8188EU=m
 # CONFIG_SENSORS_ISL29028 is not set
 # CONFIG_TSL2583 is not set
 # CONFIG_TSL2x7x is not set
+CONFIG_ACPI_ALS=y
 
 #
 # Magnetometer sensors
