@@ -81,7 +81,7 @@
 	qcom,ext-buck-control {
 		compatible = "qcom,ext-buck-control";
 		qcom,gpio-num = <50>;
-		qcom,settling-time-us = <2580>;
+		qcom,settling-time-us = <9600>;
 	};
 
 };
