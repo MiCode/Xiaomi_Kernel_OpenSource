@@ -16,6 +16,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_fdt.h>
 #include <linux/of_irq.h>
+#include <linux/regulator/rpm-smd-regulator.h>
 #include <asm/mach/arch.h>
 #include <soc/qcom/socinfo.h>
 #include <mach/board.h>
@@ -57,6 +58,7 @@ void __init msm8916_add_drivers(void)
 {
 	msm_smd_init();
 	msm_rpm_driver_init();
+	rpm_smd_regulator_driver_init();
 	msm_spm_device_init();
 	msm_pm_sleep_status_init();
 }
