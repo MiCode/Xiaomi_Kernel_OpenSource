@@ -962,6 +962,7 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 	int ret;
 	int irq;
 	u32 tmp[3];
+	u32 temp;
 
 	if (usb_disabled())
 		return -ENODEV;
@@ -1188,6 +1189,11 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 			goto delete_wq;
 		}
 	}
+
+	temp = xhci_readl(xhci, &xhci->ir_set->irq_control);
+	temp &= ~ER_IRQ_INTERVAL_MASK;
+	temp |= (u32) 4000;
+	xhci_writel(xhci, temp, &xhci->ir_set->irq_control);
 
 	ret = device_create_file(&pdev->dev, &dev_attr_config_imod);
 	if (ret)
