@@ -4,6 +4,7 @@ Required properties:
 - compatible : Should be "qcom,qseecom"
 - reg : should contain memory region address reserved for loading secure apps.
 - qcom,disk-encrypt-pipe-pair : indicates what CE HW pipe pair is used for disk encryption
+- qcom,file-encrypt-pipe-pair : indicates what CE HW pipe pair is used for file encryption
 - qcom,hlos-ce-hw-instance : indicates what CE HW is used by HLOS crypto driver
 - qcom,qsee-ce-hw-instance : indicates what CE HW is used by secure domain (TZ) crypto driver
 - qcom, msm_bus,name: Should be "qseecom-noc"
@@ -12,7 +13,9 @@ Required properties:
 - qcom, msm_bus,vectors: Vectors for bus topology.
 
 Optional properties:
-  - qcom,support-bus-scaling : optional, indicates if driver support scaling the bus for crypto operation.
+  - qcom,support-bus-scaling : indicates if driver support scaling the bus for crypto operation.
+  - qcom,support-fde : indicates if driver support key managing for full disk encryption feature.
+  - qcom,support-pfe : indicates if driver support key managing for per file encryption feature.
 
 Example:
 	qcom,qseecom@fe806000 {
@@ -20,8 +23,11 @@ Example:
 		reg = <0x7f00000 0x500000>;
 		reg-names = "secapp-region";
                 qcom,disk-encrypt-pipe-pair = <2>;
+                qcom,file-encrypt-pipe-pair = <0>;
 		qcom,hlos-ce-hw-instance = <1>;
 		qcom,qsee-ce-hw-instance = <0>;
+		qcom,support-fde;
+		qcom,support-pfe;
 		qcom,msm_bus,name = "qseecom-noc";
 		qcom,msm_bus,num_cases = <4>;
 		qcom,msm_bus,active_only = <0>;
