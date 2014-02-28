@@ -1069,7 +1069,7 @@
 		interrupt-names = "qup_irq", "bam_irq";
 		interrupts = <0 96 0>, <0 238 0>;
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
-			 <&clock_gcc clk_gcc_blsp1_qup1_i2c_apps_clk>;
+			 <&clock_gcc clk_gcc_blsp1_qup2_i2c_apps_clk>;
 		clock-names = "iface_clk", "core_clk";
 		qcom,clk-freq-out = <100000>;
 		qcom,clk-freq-in  = <19200000>;
