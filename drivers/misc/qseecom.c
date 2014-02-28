@@ -4294,6 +4294,7 @@ static int qseecom_probe(struct platform_device *pdev)
 
 	/* register client for bus scaling */
 	if (pdev->dev.of_node) {
+		qseecom.pdev->of_node = pdev->dev.of_node;
 		qseecom.support_bus_scaling =
 				of_property_read_bool((&pdev->dev)->of_node,
 						"qcom,support-bus-scaling");
