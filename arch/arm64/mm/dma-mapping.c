@@ -136,7 +136,7 @@ static void arm64_swiotlb_free_noncoherent(struct device *dev, size_t size,
 	void *swiotlb_addr = phys_to_virt(dma_to_phys(dev, dma_handle));
 
 	vunmap(vaddr);
-	swiotlb_free_coherent(dev, size, swiotlb_addr, dma_handle);
+	arm64_swiotlb_free_coherent(dev, size, swiotlb_addr, dma_handle, attrs);
 }
 
 static dma_addr_t arm64_swiotlb_map_page(struct device *dev,
