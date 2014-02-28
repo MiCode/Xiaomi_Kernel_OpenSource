@@ -687,26 +687,72 @@ static void arizona_in_set_vu(struct snd_soc_codec *codec, int ena)
 				    ARIZONA_IN_VU, val);
 }
 
+static int arizona_update_input(struct arizona* arizona, bool enable)
+{
+	unsigned int val;
+
+	switch (arizona->type) {
+	case WM5110:
+		break;
+	default:
+		return 0;
+	}
+
+	if (enable) {
+		regmap_write(arizona->regmap, 0x80,  0x3);
+		regmap_write(arizona->regmap, 0x3A5, 0x3);
+		regmap_write(arizona->regmap, 0x3A6, 0x5555);
+		regmap_write(arizona->regmap, 0x80,  0x0);
+	} else {
+		regmap_write(arizona->regmap, 0x80,  0x3);
+
+		regmap_read(arizona->regmap, 0x3A5, &val);
+		if (val) {
+			msleep(10);
+			regmap_write(arizona->regmap, 0x3A5, 0x0);
+			regmap_write(arizona->regmap, 0x3A6, 0x0);
+			msleep(5);
+		}
+
+		regmap_write(arizona->regmap, 0x80,  0x0);
+	}
+
+	return 0;
+}
+
 int arizona_in_ev(struct snd_soc_dapm_widget *w, struct snd_kcontrol *kcontrol,
 		  int event)
 {
 	struct arizona_priv *priv = snd_soc_codec_get_drvdata(w->codec);
+	unsigned int ctrl;
 	unsigned int reg;
 
-	if (w->shift % 2)
+	if (w->shift % 2) {
 		reg = ARIZONA_ADC_DIGITAL_VOLUME_1L + ((w->shift / 2) * 8);
-	else
+		ctrl = reg - 1;
+	} else {
 		reg = ARIZONA_ADC_DIGITAL_VOLUME_1R + ((w->shift / 2) * 8);
+		ctrl = reg - 4;
+	}
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		priv->in_pending++;
+
+		/* Check for analogue input */
+		if ((snd_soc_read(w->codec, ctrl) & 0x0400) == 0)
+			arizona_update_input(priv->arizona, true);
+
 		break;
 	case SND_SOC_DAPM_POST_PMU:
+		priv->in_pending--;
+
+		if (priv->in_pending == 0)
+			arizona_update_input(priv->arizona, false);
+
 		snd_soc_update_bits(w->codec, reg, ARIZONA_IN1L_MUTE, 0);
 
 		/* If this is the last input pending then allow VU */
-		priv->in_pending--;
 		if (priv->in_pending == 0) {
 			msleep(1);
 			arizona_in_set_vu(w->codec, 1);
