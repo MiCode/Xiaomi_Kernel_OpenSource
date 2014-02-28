@@ -356,6 +356,7 @@ struct mdp_overlay32 {
 	uint32_t transp_mask;
 	uint32_t flags;
 	uint32_t id;
+	uint8_t priority;
 	uint32_t user_data[6];
 	uint32_t bg_color;
 	uint8_t horz_deci;
