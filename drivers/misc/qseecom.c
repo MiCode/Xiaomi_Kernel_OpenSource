@@ -127,6 +127,7 @@ struct ce_hw_usage_info {
 	uint32_t  qsee_ce_hw_instance;
 	uint32_t  hlos_ce_hw_instance;
 	uint32_t  disk_encrypt_pipe;
+	uint32_t  file_encrypt_pipe;
 };
 
 struct qseecom_clk {
@@ -166,6 +167,8 @@ struct qseecom_control {
 	struct qseecom_clk ce_drv;
 
 	bool support_bus_scaling;
+	bool support_fde;
+	bool support_pfe;
 	uint32_t  cumulative_mode;
 	enum qseecom_bandwidth_request_mode  current_mode;
 	struct timer_list bw_scale_down_timer;
@@ -2688,16 +2691,28 @@ static int __qseecom_get_ce_pipe_info(
 	int ret;
 	switch (usage) {
 	case QSEOS_KM_USAGE_DISK_ENCRYPTION:
-		if (qseecom.ce_info.disk_encrypt_pipe == 0xFF ||
-			qseecom.ce_info.hlos_ce_hw_instance == 0xFF) {
-			pr_err("nfo unavailable: disk encr pipe %d ce_hw %d\n",
-				qseecom.ce_info.disk_encrypt_pipe,
-				qseecom.ce_info.hlos_ce_hw_instance);
-			ret = -EINVAL;
-		} else {
+		if (qseecom.support_fde) {
 			*pipe = qseecom.ce_info.disk_encrypt_pipe;
 			*ce_hw = qseecom.ce_info.hlos_ce_hw_instance;
 			ret = 0;
+
+		} else {
+			pr_err("info unavailable: disk encr pipe %d ce_hw %d\n",
+				qseecom.ce_info.disk_encrypt_pipe,
+				qseecom.ce_info.hlos_ce_hw_instance);
+			ret = -EINVAL;
+		}
+		break;
+	case QSEOS_KM_USAGE_FILE_ENCRYPTION:
+		if (qseecom.support_pfe) {
+			*pipe = qseecom.ce_info.file_encrypt_pipe;
+			*ce_hw = qseecom.ce_info.hlos_ce_hw_instance;
+			ret = 0;
+		} else {
+			pr_err("info unavailable: file encr pipe %d ce_hw %d\n",
+				qseecom.ce_info.file_encrypt_pipe,
+				qseecom.ce_info.hlos_ce_hw_instance);
+			ret = -EINVAL;
 		}
 		break;
 	default:
@@ -3838,6 +3853,8 @@ static int __devinit qseecom_probe(struct platform_device *pdev)
 	qseecom.cumulative_mode = 0;
 	qseecom.current_mode = INACTIVE;
 	qseecom.support_bus_scaling = false;
+	qseecom.support_fde = false;
+	qseecom.support_pfe = false;
 
 	qseecom.ce_drv.ce_core_clk = NULL;
 	qseecom.ce_drv.ce_clk = NULL;
@@ -3924,40 +3941,67 @@ static int __devinit qseecom_probe(struct platform_device *pdev)
 						"qcom,support-bus-scaling");
 		pr_warn("support_bus_scaling=0x%x",
 				qseecom.support_bus_scaling);
-		if (of_property_read_u32((&pdev->dev)->of_node,
+		qseecom.support_fde =
+				of_property_read_bool((&pdev->dev)->of_node,
+						"qcom,support-fde");
+		if (qseecom.support_fde) {
+			if (of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,disk-encrypt-pipe-pair",
 				&qseecom.ce_info.disk_encrypt_pipe)) {
-			pr_err("Fail to get disk-encrypt pipe pair information.\n");
-			qseecom.ce_info.disk_encrypt_pipe = 0xff;
-			rc = -EINVAL;
-			goto exit_destroy_ion_client;
+				pr_err("Fail to get FDE pipe information.\n");
+				rc = -EINVAL;
+				goto exit_destroy_ion_client;
+			} else {
+				pr_warn("disk-encrypt-pipe-pair=0x%x",
+				qseecom.ce_info.disk_encrypt_pipe);
+			}
 		} else {
-			pr_warn("bam_pipe_pair=0x%x",
-			qseecom.ce_info.disk_encrypt_pipe);
+			pr_warn("Device does not support FDE");
+			qseecom.ce_info.disk_encrypt_pipe = 0xff;
+		}
+		qseecom.support_pfe =
+				of_property_read_bool((&pdev->dev)->of_node,
+						"qcom,support-pfe");
+		if (qseecom.support_pfe) {
+			if (of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,file-encrypt-pipe-pair",
+				&qseecom.ce_info.disk_encrypt_pipe)) {
+				pr_err("Fail to get PFE pipe information.\n");
+				rc = -EINVAL;
+				goto exit_destroy_ion_client;
+			} else {
+				pr_warn("file-encrypt-pipe-pair=0x%x",
+				qseecom.ce_info.file_encrypt_pipe);
+			}
+		} else {
+			pr_warn("Device does not support PFE");
+			qseecom.ce_info.file_encrypt_pipe = 0xff;
+		}
+		if (qseecom.support_pfe || qseecom.support_fde) {
+			if (of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,hlos-ce-hw-instance",
+				&qseecom.ce_info.hlos_ce_hw_instance)) {
+				pr_err("Fail: get hlos ce hw instanc info\n");
+				rc = -EINVAL;
+				goto exit_destroy_ion_client;
+			} else {
+				pr_warn("hlos-ce-hw-instance=0x%x",
+				qseecom.ce_info.hlos_ce_hw_instance);
+			}
+		} else {
+			pr_warn("Device does not support PFE/FDE");
+			qseecom.ce_info.hlos_ce_hw_instance = 0xff;
 		}
 
 		if (of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,qsee-ce-hw-instance",
 				&qseecom.ce_info.qsee_ce_hw_instance)) {
 			pr_err("Fail to get qsee ce hw instance information.\n");
-			qseecom.ce_info.qsee_ce_hw_instance = 0xff;
 			rc = -EINVAL;
 			goto exit_destroy_ion_client;
 		} else {
 			pr_warn("qsee-ce-hw-instance=0x%x",
 			qseecom.ce_info.qsee_ce_hw_instance);
-		}
-
-		if (of_property_read_u32((&pdev->dev)->of_node,
-				"qcom,hlos-ce-hw-instance",
-				&qseecom.ce_info.hlos_ce_hw_instance)) {
-			pr_err("Fail to get hlos ce hw instance information.\n");
-			qseecom.ce_info.hlos_ce_hw_instance = 0xff;
-			rc = -EINVAL;
-			goto exit_destroy_ion_client;
-		} else {
-			pr_warn("hlos-ce-hw-instance=0x%x",
-			qseecom.ce_info.hlos_ce_hw_instance);
 		}
 
 		qseecom.qsee.instance = qseecom.ce_info.qsee_ce_hw_instance;
