@@ -131,7 +131,7 @@ SMSC HSIC HUB
 
 Required properties :
 - compatible : should be "qcom,hsic-smsc-hub"
-- smsc,model-id : should be either <3503> or <4604> depending on hub model. It
+- smsc,model-id : should be <3502>/<3503>/<4604> depending on hub model. It
   will be 0 for standalone HSIC controller configuration.
 - smsc,reset-gpio: this output gpio is used to assert/de-assert the hub reset
 - Sub node for "MSM HSIC EHCI controller".
@@ -141,6 +141,8 @@ Optional properties :
 - smsc,int-gpio: this input gpio indicate HUB suspend status and signal remote
   wakeup interrupt
 - smsc,refclk-gpio: this gpio is used to supply the reference clock
+- smsc,xo-clk-gio: this output gpio is used to control the external XO clock
+  which is supplied to the hub as a reference clock
 - hub-vbus-supply: this regulator is used to supply the power to
   downstream ports
 - hub-int-supply: this regulator is used to bias the interrupt gpio
