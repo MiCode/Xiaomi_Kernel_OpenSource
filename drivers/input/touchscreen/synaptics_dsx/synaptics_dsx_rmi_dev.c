@@ -26,7 +26,7 @@
 #include <linux/uaccess.h>
 #include <linux/cdev.h>
 #include <linux/platform_device.h>
-#include <linux/input/synaptics_dsx.h>
+#include <linux/input/synaptics_dsx_v2.h>
 #include "synaptics_dsx_core.h"
 
 #define CHAR_DEVICE_NAME "rmi"
@@ -522,7 +522,7 @@ static void rmidev_device_cleanup(struct rmidev_data *dev_data)
 	return;
 }
 
-static char *rmi_char_devnode(struct device *dev, mode_t *mode)
+static char *rmi_char_devnode(struct device *dev, umode_t *mode)
 {
 	if (!mode)
 		return NULL;
@@ -759,14 +759,14 @@ static struct synaptics_rmi4_exp_fn rmidev_module = {
 
 static int __init rmidev_module_init(void)
 {
-	synaptics_rmi4_new_function(&rmidev_module, true);
+	synaptics_rmi4_dsx_new_function(&rmidev_module, true);
 
 	return 0;
 }
 
 static void __exit rmidev_module_exit(void)
 {
-	synaptics_rmi4_new_function(&rmidev_module, false);
+	synaptics_rmi4_dsx_new_function(&rmidev_module, false);
 
 	wait_for_completion(&rmidev_remove_complete);
 

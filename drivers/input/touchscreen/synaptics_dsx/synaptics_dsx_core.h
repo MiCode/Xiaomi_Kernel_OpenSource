@@ -283,10 +283,10 @@ int synaptics_rmi4_bus_init(void);
 
 void synaptics_rmi4_bus_exit(void);
 
-void synaptics_rmi4_new_function(struct synaptics_rmi4_exp_fn *exp_fn_module,
+void synaptics_rmi4_dsx_new_function(struct synaptics_rmi4_exp_fn *exp_fn_mod,
 		bool insert);
 
-int synaptics_fw_updater(unsigned char *fw_data);
+int synaptics_dsx_fw_updater(unsigned char *fw_data);
 
 static inline int synaptics_rmi4_reg_read(
 		struct synaptics_rmi4_data *rmi4_data,
