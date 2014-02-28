@@ -473,6 +473,11 @@
 	};
 
 	mpp@a500 { /* MPP 6 */
+		qcom,mode = <4>;		/* Digital output */
+		qcom,invert = <1>;
+		qcom,ain-route = <1>;		/* AMUX 6 */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;
 	};
 
 	mpp@a600 { /* MPP 7 */
