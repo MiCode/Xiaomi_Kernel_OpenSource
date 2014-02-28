@@ -61,6 +61,7 @@ static const struct inv_mpu6050_reg_map reg_set_6050 = {
 	.int_enable             = INV_MPU6050_REG_INT_ENABLE,
 	.pwr_mgmt_1             = INV_MPU6050_REG_PWR_MGMT_1,
 	.pwr_mgmt_2             = INV_MPU6050_REG_PWR_MGMT_2,
+	.int_pin_cfg		= INV_MPU6050_REG_INT_PIN_CFG,
 };
 
 static const struct inv_mpu6050_chip_config chip_config_6050 = {
@@ -616,6 +617,21 @@ static const struct iio_info mpu_info = {
 	.validate_trigger = inv_mpu6050_validate_trigger,
 };
 
+int inv_set_bypass_status(struct inv_mpu6050_state *st, bool enable)
+{
+	int ret;
+
+	if (enable)
+		ret = inv_mpu6050_write_reg(st, st->reg->int_pin_cfg,
+					st->client->irq |
+						INV_MPU6050_BIT_BYPASS_EN);
+	else
+		ret = inv_mpu6050_write_reg(st, st->reg->int_pin_cfg,
+					st->client->irq);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(inv_set_bypass_status);
+
 /**
  *  inv_check_and_setup_chip() - check and setup chip.
  */
@@ -654,7 +670,9 @@ static int inv_check_and_setup_chip(struct inv_mpu6050_state *st,
 	if (result)
 		return result;
 
-	return 0;
+	result = inv_set_bypass_status(st, true);
+
+	return result;
 }
 
 /**

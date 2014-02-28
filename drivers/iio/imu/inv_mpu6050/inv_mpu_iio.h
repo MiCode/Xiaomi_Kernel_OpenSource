@@ -54,6 +54,7 @@ struct inv_mpu6050_reg_map {
 	u8 int_enable;
 	u8 pwr_mgmt_1;
 	u8 pwr_mgmt_2;
+	u8 int_pin_cfg;
 };
 
 /*device enum */
@@ -184,6 +185,9 @@ struct inv_mpu6050_state {
 #define INV_MPU6050_MAX_FIFO_RATE                         1000
 #define INV_MPU6050_MIN_FIFO_RATE                         4
 #define INV_MPU6050_ONE_K_HZ                              1000
+
+#define INV_MPU6050_REG_INT_PIN_CFG		0x37
+#define INV_MPU6050_BIT_BYPASS_EN		0x2
 
 /* scan element definition */
 enum inv_mpu6050_scan {
