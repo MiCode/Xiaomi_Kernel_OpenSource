@@ -131,7 +131,8 @@ SMSC HSIC HUB
 
 Required properties :
 - compatible : should be "qcom,hsic-smsc-hub"
-- smsc,model-id : should be either <3503> or <4604> depending on hub model
+- smsc,model-id : should be either <3503> or <4604> depending on hub model. It
+  will be 0 for standalone HSIC controller configuration.
 - smsc,reset-gpio: this output gpio is used to assert/de-assert the hub reset
 - Sub node for "MSM HSIC EHCI controller".
   Sub node has the required properties mentioned above.
