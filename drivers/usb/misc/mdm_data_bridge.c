@@ -84,6 +84,9 @@ module_param(stop_submit_urb_limit, uint, S_IRUGO | S_IWUSR);
 static unsigned tx_urb_mult = 20;
 module_param(tx_urb_mult, uint, S_IRUGO|S_IWUSR);
 
+static unsigned int rx_rmnet_buffer_size = RMNET_RX_BUFSIZE;
+module_param(rx_rmnet_buffer_size, uint, S_IRUGO | S_IWUSR);
+
 #define TX_HALT   0
 #define RX_HALT   1
 #define SUSPENDED 2
@@ -329,7 +332,7 @@ static int submit_rx_urb(struct data_bridge *dev, struct urb *rx_urb,
 	unsigned int		created;
 
 	created = get_timestamp();
-	skb = alloc_skb(RMNET_RX_BUFSIZE, flags);
+	skb = alloc_skb(rx_rmnet_buffer_size, flags);
 	if (!skb)
 		return -ENOMEM;
 
@@ -339,11 +342,11 @@ static int submit_rx_urb(struct data_bridge *dev, struct urb *rx_urb,
 
 	if (dev->use_int_in_pipe)
 		usb_fill_int_urb(rx_urb, dev->udev, dev->bulk_in,
-				skb->data, RMNET_RX_BUFSIZE,
+				skb->data, rx_rmnet_buffer_size,
 				data_bridge_read_cb, skb, dev->period);
 	else
 		usb_fill_bulk_urb(rx_urb, dev->udev, dev->bulk_in,
-				skb->data, RMNET_RX_BUFSIZE,
+				skb->data, rx_rmnet_buffer_size,
 				data_bridge_read_cb, skb);
 
 	if (test_bit(SUSPENDED, &dev->flags))
