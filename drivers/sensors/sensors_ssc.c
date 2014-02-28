@@ -25,6 +25,9 @@
 #define CLASS_NAME	"ssc"
 #define DRV_NAME	"sensors"
 #define DRV_VERSION	"2.00"
+#ifdef CONFIG_COMPAT
+#define DSPS_IOCTL_READ_SLOW_TIMER32 _IOR(DSPS_IOCTL_MAGIC, 3, compat_uint_t)
+#endif
 
 struct sns_ssc_control_s {
 	struct class *dev_class;
@@ -74,6 +77,9 @@ static long sensors_ssc_ioctl(struct file *file,
 
 	switch (cmd) {
 	case DSPS_IOCTL_READ_SLOW_TIMER:
+#ifdef CONFIG_COMPAT
+	case DSPS_IOCTL_READ_SLOW_TIMER32:
+#endif
 		val = sns_read_qtimer();
 		ret = put_user(val, (u32 __user *) arg);
 		break;
@@ -90,6 +96,9 @@ const struct file_operations sensors_ssc_fops = {
 	.owner = THIS_MODULE,
 	.open = sensors_ssc_open,
 	.release = sensors_ssc_release,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = sensors_ssc_ioctl,
+#endif
 	.unlocked_ioctl = sensors_ssc_ioctl
 };
 
