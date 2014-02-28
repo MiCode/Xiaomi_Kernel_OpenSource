@@ -199,6 +199,7 @@ static void __iomem *virt_bases[N_BASES];
 #define CAMSS_AHB_CBCR					0x5A014
 #define CAMSS_TOP_AHB_CBCR				0x56004
 #define CAMSS_MICRO_AHB_CBCR				0x5600C
+#define CAMSS_MICRO_BCR					0x56008
 #define JPEG0_CMD_RCGR					0x57000
 #define CAMSS_JPEG0_BCR					0x57018
 #define CAMSS_JPEG0_CBCR				0x57020
@@ -1689,6 +1690,7 @@ static struct branch_clk gcc_camss_mclk1_clk = {
 
 static struct branch_clk gcc_camss_micro_ahb_clk = {
 	.cbcr_reg = CAMSS_MICRO_AHB_CBCR,
+	.bcr_reg =  CAMSS_MICRO_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
@@ -1785,7 +1787,7 @@ static struct branch_clk gcc_camss_vfe0_clk = {
 
 static struct branch_clk gcc_camss_vfe_ahb_clk = {
 	.cbcr_reg = CAMSS_VFE_AHB_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_camss_vfe_ahb_clk",
