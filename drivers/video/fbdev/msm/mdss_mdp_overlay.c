@@ -699,6 +699,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	pipe->bg_color = req->bg_color;
 
 	req->id = pipe->ndx;
+	req->priority = pipe->priority;
 	pipe->req_data = *req;
 
 	if (pipe->flags & MDP_OVERLAY_PP_CFG_EN) {
@@ -2542,8 +2543,9 @@ static int __mdss_overlay_map(struct mdp_overlay *ovs,
 			if ((ovs[j].dst_rect.x == op_ovs[k].dst_rect.x) &&
 			    (ovs[j].z_order == op_ovs[k].z_order)) {
 				op_ovs[k].id = ovs[j].id;
+				op_ovs[k].priority = ovs[j].priority;
 				break;
-		    }
+			}
 		}
 		if ((i != num_ovs) && (i != j) &&
 		    (ovs[j].dst_rect.x == op_ovs[k].dst_rect.x) &&
