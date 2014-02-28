@@ -49,6 +49,14 @@
 #define arch_mmap_check(addr, len, flags)	(0)
 #endif
 
+#ifndef pgprot_writebackcache
+#define pgprot_writebackcache(_prot)	(_prot)
+#endif
+
+#ifndef pgprot_writethroughcache
+#define pgprot_writethroughcache(_prot)	(_prot)
+#endif
+
 static char *ksgl_mmu_type;
 module_param_named(mmutype, ksgl_mmu_type, charp, 0);
 MODULE_PARM_DESC(ksgl_mmu_type,
@@ -3076,6 +3084,28 @@ long kgsl_ioctl_sharedmem_flush_cache(struct kgsl_device_private *dev_priv,
 	return ret;
 }
 
+#ifdef CONFIG_ARM64
+static int kgsl_filter_cachemode(unsigned int flags)
+{
+	/*
+	 * WRITETHROUGH is not supported in arm64, so we tell the user that we
+	 * use WRITEBACK which is the default caching policy.
+	 */
+	if ((flags & KGSL_CACHEMODE_MASK) >> KGSL_CACHEMODE_SHIFT ==
+					KGSL_CACHEMODE_WRITETHROUGH) {
+		flags &= ~KGSL_CACHEMODE_MASK;
+		flags |= (KGSL_CACHEMODE_WRITEBACK << KGSL_CACHEMODE_SHIFT) &
+							KGSL_CACHEMODE_MASK;
+	}
+	return flags;
+}
+#else
+static int kgsl_filter_cachemode(unsigned int flags)
+{
+	return flags;
+}
+#endif
+
 /*
  * The common parts of kgsl_ioctl_gpumem_alloc and kgsl_ioctl_gpumem_alloc_id.
  */
@@ -3108,6 +3138,8 @@ _gpumem_alloc(struct kgsl_device_private *dev_priv,
 		flags &= ~KGSL_MEMALIGN_MASK;
 		flags |= (31 << KGSL_MEMALIGN_SHIFT) & KGSL_MEMALIGN_MASK;
 	}
+
+	flags = kgsl_filter_cachemode(flags);
 
 	entry = kgsl_mem_entry_create();
 	if (entry == NULL)
@@ -3920,17 +3952,13 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 		break;
 	case KGSL_CACHEMODE_WRITETHROUGH:
-		/*
-		 * WRITETHROUGH is not supported in arm64, so we tell the
-		 * user that we use WRITEBACK which is the default caching
-		 * policy.
-		 */
-		entry->memdesc.flags |= (KGSL_CACHEMODE_WRITEBACK >>
-					KGSL_CACHEMODE_SHIFT) &
-					KGSL_CACHEMODE_MASK;
-		WARN_ONCE(1, "WRITETHROUGH is deprecated");
+		vma->vm_page_prot = pgprot_writethroughcache(vma->vm_page_prot);
+		if (vma->vm_page_prot ==
+			pgprot_writebackcache(vma->vm_page_prot))
+			WARN_ONCE(1, "WRITETHROUGH is deprecated for arm64");
 		break;
 	case KGSL_CACHEMODE_WRITEBACK:
+		vma->vm_page_prot = pgprot_writebackcache(vma->vm_page_prot);
 		break;
 	case KGSL_CACHEMODE_WRITECOMBINE:
 	default:
