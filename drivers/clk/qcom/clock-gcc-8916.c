@@ -199,6 +199,7 @@ static void __iomem *virt_bases[N_BASES];
 #define CAMSS_AHB_CBCR					0x5A014
 #define CAMSS_TOP_AHB_CBCR				0x56004
 #define CAMSS_MICRO_AHB_CBCR				0x5600C
+#define CAMSS_MICRO_BCR					0x56008
 #define JPEG0_CMD_RCGR					0x57000
 #define CAMSS_JPEG0_BCR					0x57018
 #define CAMSS_JPEG0_CBCR				0x57020
@@ -904,6 +905,7 @@ static struct rcg_clk jpeg0_clk_src = {
 
 static struct clk_freq_tbl ftbl_gcc_camss_mclk0_1_clk[] = {
 	F(  66670000,	   gpll0,  12,	  0,	0),
+	F(  23880000,      gpll0,   1,    2,   67),
 	F_END
 };
 
@@ -916,7 +918,7 @@ static struct rcg_clk mclk0_clk_src = {
 	.c = {
 		.dbg_name = "mclk0_clk_src",
 		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP1(LOW, 66670000),
+		VDD_DIG_FMAX_MAP2(LOW, 23880000, NOMINAL, 66670000),
 		CLK_INIT(mclk0_clk_src.c),
 	},
 };
@@ -930,7 +932,7 @@ static struct rcg_clk mclk1_clk_src = {
 	.c = {
 		.dbg_name = "mclk1_clk_src",
 		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP1(LOW, 66670000),
+		VDD_DIG_FMAX_MAP2(LOW, 23880000, NOMINAL, 66670000),
 		CLK_INIT(mclk1_clk_src.c),
 	},
 };
@@ -1686,6 +1688,7 @@ static struct branch_clk gcc_camss_mclk1_clk = {
 
 static struct branch_clk gcc_camss_micro_ahb_clk = {
 	.cbcr_reg = CAMSS_MICRO_AHB_CBCR,
+	.bcr_reg =  CAMSS_MICRO_BCR,
 	.has_sibling = 1,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
@@ -1782,7 +1785,7 @@ static struct branch_clk gcc_camss_vfe0_clk = {
 
 static struct branch_clk gcc_camss_vfe_ahb_clk = {
 	.cbcr_reg = CAMSS_VFE_AHB_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_camss_vfe_ahb_clk",
