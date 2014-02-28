@@ -1766,7 +1766,7 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 				page_to_phys(kgsl_guard_page), PAGE_SIZE,
 				protflags & ~IOMMU_WRITE);
 		if (ret) {
-			KGSL_CORE_ERR("iommu_map(%p, %x, guard, %x) err: %d\n",
+			KGSL_CORE_ERR("iommu_map(%p, %zx, guard, %x) err: %d\n",
 				iommu_pt->domain, iommu_virt_addr + size,
 				protflags & ~IOMMU_WRITE,
 				ret);
