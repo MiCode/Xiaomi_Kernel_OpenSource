@@ -1917,7 +1917,7 @@ int ufshcd_query_attr_retry(struct ufs_hba *hba, enum query_opcode opcode,
  * received on the response.
  */
 int ufshcd_query_descriptor(struct ufs_hba *hba,
-			enum query_opcode opcode, enum attr_idn idn, u8 index,
+			enum query_opcode opcode, enum desc_idn idn, u8 index,
 			u8 selector, u8 *desc_buf, int *buf_len)
 {
 	struct ufs_query_req *request = NULL;
