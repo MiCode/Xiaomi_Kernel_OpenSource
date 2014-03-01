@@ -19,3 +19,36 @@
 	compatible = "qcom,msm8916-qrd", "qcom,msm8916", "qcom,qrd";
 	qcom,board-id = <11 0>;
 };
+
+&tlmm_pinmux {
+	akm_reset_pin {
+		qcom,pins = <&gp 36>;
+		qcom,pin-func = <0>;
+		qcom,num-grp-pins = <1>;
+		label = "akm_reset_pin";
+		akm_default: akm_default {
+			  drive-strength = <16>;
+			  bias-pull-up;
+		};
+		akm_reset: akm_reset {
+			   drive-strength = <16>;
+			   bias-pull-down;
+		};
+	};
+};
+
+&i2c_0 { /* BLSP1 QUP2 */
+	akm@c {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "ak,ak09911";
+		reg = <0x0c>;
+		pinctrl-names = "default","reset";
+		pinctrl-0 = <&akm_default>;
+		pinctrl-1 = <&akm_reset>;
+		vdd-supply = <&pm8916_l17>;
+		vio-supply = <&pm8916_l6>;
+		akm,layout = <0x0>;
+		akm,gpio_rstn = <&msmgpio 36 0x0>;
+	};
+};
