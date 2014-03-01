@@ -48,6 +48,8 @@ Optional Properties:
   - qcom,l1ss-supported: L1 sub-states (L1ss) is supported.
   - qcom,aux-clk-sync: The AUX clock is synchronous to the Core clock to
     support L1ss.
+  - qcom,n-fts: The number of fast training sequences sent when the link state
+    is changed from L0s to L0.
   - qcom,msi-gicm-addr: MSI address for GICv2m.
   - qcom,msi-gicm-base: MSI IRQ base for GICv2m.
   - qcom,ext-ref-clk: The reference clock is external.
@@ -112,6 +114,7 @@ Example:
 						<0>, <0>, <0>, <0>;
 		qcom,l1ss-supported;
 		qcom,aux-clk-sync;
+		qcom,n-fts = <0x50>;
 		qcom,msi-gicm-addr = <0xf9040040>;
 		qcom,msi-gicm-base = <0x160>;
 		qcom,ext-ref-clk;
