@@ -1,0 +1,29 @@
+TI (PANEL) Power Management
+This device is designed to support positive / negative voltage for driving TFT-LCD panels.
+
+Required properties:
+- compatible: should be "ti,tps65132".
+- reg: i2c address to be used.
+- pinctrl-names : This should be defined if a target uses gpio and pinctrl framework.
+  See "pinctrl" in Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt.
+  It should specify the names of the configs that pinctrl can install in driver
+	Following are the pinctrl config that can be installed
+	"pmx_tps_active" : Active configuration of pins, this should specify active
+	config of enn & enp gpio (if used) defined in their pin groups.
+	"pmx_tps_sleep" : Disabled configuration of pins, this should specify sleep
+	config of enn & enp gpio (if used) defined in their pin groups.
+- pinctrl-0 : This exoplains the active state of the enn & enp gpio lines.
+- pinctrl-1 : This exoplains the suspend state of the enn & enp gpio lines.
+- tps,enn-gpio: Enable pin for negative supply rail.
+- tps,enp-gpio: Enable pin for positive supply rail.
+
+Example:
+	tps@3e {
+		compatible = "ti,tps65132";
+		reg = <0x3e>;
+		pinctrl-names = "pmx_tps_active","pmx_tps_suspend";
+		pinctrl-0 = <&tps_active>;
+		pinctrl-1 = <&tps_suspend>;
+		ti,enn-gpio = <&msm_gpio 32 0x00>;
+		ti,enp-gpio = <&msm_gpio 97 0x00>;
+	};
