@@ -23,6 +23,7 @@
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/iommu.h>
+#include <linux/msm-bus.h>
 #include <linux/clk.h>
 #include <linux/scatterlist.h>
 #include <linux/of.h>
@@ -34,7 +35,6 @@
 #include <mach/iommu.h>
 #include <mach/msm_iommu_priv.h>
 #include <mach/iommu_perfmon.h>
-#include <mach/msm_bus.h>
 #include "msm_iommu_pagetable.h"
 
 #ifdef CONFIG_IOMMU_LPAE

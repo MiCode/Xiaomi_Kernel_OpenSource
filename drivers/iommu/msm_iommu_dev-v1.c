@@ -19,6 +19,7 @@
 #include <linux/clk.h>
 #include <linux/iommu.h>
 #include <linux/interrupt.h>
+#include <linux/msm-bus.h>
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/of.h>
@@ -28,7 +29,6 @@
 #include <mach/iommu_hw-v1.h>
 #include <mach/iommu.h>
 #include <mach/iommu_perfmon.h>
-#include <mach/msm_bus.h>
 
 static struct of_device_id msm_iommu_ctx_match_table[];
 
