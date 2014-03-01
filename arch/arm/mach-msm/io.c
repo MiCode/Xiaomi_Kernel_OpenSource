@@ -121,6 +121,7 @@ void __init msm_map_mpq8092_io(void)
 #ifdef CONFIG_ARCH_MSM8916
 static struct map_desc msm8916_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(APCS_GCC, MSM8916),
+	MSM_CHIP_DEVICE(MPM2_PSHOLD, MSM8916),
 #ifdef CONFIG_DEBUG_MSM8916_UART
 	MSM_DEVICE(DEBUG_UART),
 #endif

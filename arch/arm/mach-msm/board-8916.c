@@ -22,6 +22,7 @@
 #include <mach/board.h>
 #include <mach/msm_memtypes.h>
 #include <soc/qcom/rpm-smd.h>
+#include <soc/qcom/restart.h>
 #include <soc/qcom/smd.h>
 #include <soc/qcom/smem.h>
 #include <soc/qcom/spm.h>
@@ -93,4 +94,5 @@ DT_MACHINE_START(MSM8916_DT, "Qualcomm MSM 8916 (Flattened Device Tree)")
 	.reserve = msm8916_dt_reserve,
 	.init_very_early = msm8916_early_memory,
 	.smp = &msm8916_smp_ops,
+	.restart = msm_restart,
 MACHINE_END
