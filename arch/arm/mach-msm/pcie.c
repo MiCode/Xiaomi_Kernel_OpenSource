@@ -98,8 +98,9 @@
 #define REFCLK_STABILIZATION_DELAY_US_MAX     1500
 #define LINK_RETRY_TIMEOUT_US_MIN             20000
 #define LINK_RETRY_TIMEOUT_US_MAX             25000
-#define LINK_UP_TIMEOUT_US_MIN                100000
-#define LINK_UP_TIMEOUT_US_MAX                105000
+#define LINK_UP_TIMEOUT_US_MIN                5000
+#define LINK_UP_TIMEOUT_US_MAX                5100
+#define LINK_UP_CHECK_MAX_COUNT               20
 
 #define PHY_READY_TIMEOUT_COUNT               10
 #define XMLH_LINK_UP                          0x400
@@ -906,6 +907,7 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	int ret;
 	uint32_t val;
 	long int retries = 0;
+	int link_check_count = 0;
 
 	PCIE_DBG("\n");
 
@@ -988,11 +990,20 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 
 	PCIE_DBG("check if link is up\n");
 
-	/* Wait for 100ms for the link to come up */
-	usleep_range(LINK_UP_TIMEOUT_US_MIN, LINK_UP_TIMEOUT_US_MAX);
+	/* Wait for up to 100ms for the link to come up */
+	do {
+		usleep_range(LINK_UP_TIMEOUT_US_MIN, LINK_UP_TIMEOUT_US_MAX);
+		val =  readl_relaxed(dev->elbi + PCIE20_ELBI_SYS_STTS);
+	} while (!(val & XMLH_LINK_UP) &&
+		(link_check_count++ < LINK_UP_CHECK_MAX_COUNT));
+
+	if (val & XMLH_LINK_UP)
+		PCIE_DBG("Link is up after %d checkings\n", link_check_count);
+	else
+		PCIE_DBG("Initial link training failed\n");
 
 	retries = 0;
-	val =  readl_relaxed(dev->elbi + PCIE20_ELBI_SYS_STTS);
+
 	while (!(val & XMLH_LINK_UP) && (retries < MAX_LINK_RETRIES)) {
 		PCIE_DBG("LTSSM_STATE:0x%x\n", (val >> 0xC) & 0x1f);
 		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
