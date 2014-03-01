@@ -73,7 +73,6 @@
 #define QRK_MBI_SOC_WRITE	0x07
 
 #if IS_ENABLED(CONFIG_IOSF_MBI)
-
 bool iosf_mbi_available(void);
 
 /**
