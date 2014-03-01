@@ -38,7 +38,7 @@
 
 #define PCIE_DBG(x...) do {              \
 	if (msm_pcie_get_debug_mask())   \
-		pr_info(x);              \
+		pr_alert(x);              \
 	} while (0)
 
 #define PCIE_BUS_PRIV_DATA(pdev) \
