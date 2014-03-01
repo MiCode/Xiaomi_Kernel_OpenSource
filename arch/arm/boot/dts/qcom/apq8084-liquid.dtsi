@@ -332,6 +332,7 @@
 };
 
 &usb3 {
+	vbus_dwc3-supply = <&usb0_vreg>;
 	qcom,charging-disabled;
 };
 
