@@ -73,3 +73,8 @@
 &xhci_hsic_host {
 	hsic,resume-gpio = <&msmgpio 108 0x00>;
 };
+
+&cnss {
+	esoc-names = "modem_wlan";
+	esoc-0 = <&mdm0>;
+};

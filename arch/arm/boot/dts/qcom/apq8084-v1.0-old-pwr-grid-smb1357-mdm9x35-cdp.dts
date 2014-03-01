@@ -68,3 +68,8 @@
 &ufs1 {
 	status = "disabled";
 };
+
+&cnss {
+	esoc-names = "modem_wlan";
+	esoc-0 = <&mdm1>;
+};

@@ -51,6 +51,11 @@
 	status = "ok";
 };
 
+&cnss {
+	esoc-names = "modem_wlan";
+	esoc-0 = <&mdm0>;
+};
+
 &usb3 {
 	vbus_dwc3-supply = <&smb349_otg_vreg>;
 };
