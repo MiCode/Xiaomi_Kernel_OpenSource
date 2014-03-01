@@ -141,6 +141,7 @@ struct smq_invoke_ctx {
 	int retval;
 	int cid;
 	int pid;
+	int tgid;
 	remote_arg_t *pra;
 	remote_arg_t *rpra;
 	struct fastrpc_buf obuf;
@@ -389,6 +390,7 @@ static int context_alloc(struct fastrpc_apps *me, uint32_t kernel,
 	ctx->retval = -1;
 	ctx->cid = cid;
 	ctx->pid = current->pid;
+	ctx->tgid = current->tgid;
 	ctx->apps = me;
 	init_completion(&ctx->work);
 	spin_lock(&clst->hlock);
@@ -1310,10 +1312,19 @@ static int fastrpc_device_release(struct inode *inode, struct file *file)
 {
 	struct file_data *fdata = (struct file_data *)file->private_data;
 	struct fastrpc_apps *me = &gfa;
+	struct smq_context_list *clst = &me->clst;
+	struct smq_invoke_ctx *ictx = 0;
+	struct hlist_node *n;
 	int cid = MINOR(inode->i_rdev);
 
 	(void)fastrpc_release_current_dsp_process(cid);
 	cleanup_current_dev(cid);
+	spin_lock(&clst->hlock);
+	hlist_for_each_entry_safe(ictx, n, &clst->interrupted, hn) {
+		if (ictx->tgid == current->tgid)
+			context_free(ictx, 0);
+	}
+	spin_unlock(&clst->hlock);
 	if (fdata) {
 		struct fastrpc_mmap *map = 0;
 		struct hlist_node *n;
