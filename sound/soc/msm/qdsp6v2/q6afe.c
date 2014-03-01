@@ -248,6 +248,7 @@ int afe_get_port_type(u16 port_id)
 	case AUDIO_PORT_ID_I2S_RX:
 	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 	case AFE_PORT_ID_SECONDARY_MI2S_RX:
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_VIBRA:
 	case AFE_PORT_ID_TERTIARY_MI2S_RX:
 	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
 	case AFE_PORT_ID_SECONDARY_PCM_RX:
@@ -1375,6 +1376,7 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 	case AFE_PORT_ID_PRIMARY_MI2S_TX:
 	case AFE_PORT_ID_SECONDARY_MI2S_RX:
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_VIBRA:
 	case AFE_PORT_ID_SECONDARY_MI2S_TX:
 	case AFE_PORT_ID_TERTIARY_MI2S_RX:
 	case AFE_PORT_ID_TERTIARY_MI2S_TX:
@@ -1514,6 +1516,8 @@ int afe_get_port_index(u16 port_id)
 		 return IDX_AFE_PORT_ID_TERTIARY_MI2S_RX;
 	case AFE_PORT_ID_TERTIARY_MI2S_TX:
 		 return IDX_AFE_PORT_ID_TERTIARY_MI2S_TX;
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_VIBRA:
+		return IDX_AFE_PORT_ID_SECONDARY_MI2S_RX_VIBRA;
 
 	default: return -EINVAL;
 	}
@@ -1869,6 +1873,93 @@ int afe_pseudo_port_stop_nowait(u16 port_id)
 	if (ret)
 		pr_err("%s: AFE close failed %d\n", __func__, ret);
 
+	return ret;
+}
+
+int afe_port_group_set_param(u16 *port_id, int channel_count)
+{
+	int ret;
+	struct afe_port_group_create config;
+
+	pr_debug("%s: enter\n", __func__);
+
+	ret = afe_q6_interface_prepare();
+	if (ret != 0)
+		return ret;
+
+	memset(&config, 0, sizeof(config));
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+					     APR_HDR_LEN(APR_HDR_SIZE),
+					     APR_PKT_VER);
+	config.hdr.pkt_size = sizeof(config);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = IDX_GLOBAL_CFG;
+	config.hdr.opcode = AFE_SVC_CMD_SET_PARAM;
+
+	config.param.payload_size = sizeof(config) - sizeof(struct apr_hdr) -
+				    sizeof(config.param);
+	config.param.payload_address_lsw = 0x00;
+	config.param.payload_address_msw = 0x00;
+	config.param.mem_map_handle = 0x00;
+	config.pdata.module_id = AFE_MODULE_GROUP_DEVICE;
+	config.pdata.param_id = AFE_PARAM_ID_GROUP_DEVICE_CFG;
+	config.pdata.param_size = sizeof(struct afe_group_device_group_cfg);
+	config.data.group_cfg.minor_version = 1;
+	config.data.group_cfg.group_id = AFE_GROUP_DEVICE_ID_SECONDARY_MI2S_RX;
+	config.data.group_cfg.port_id[0] = port_id[0];
+	config.data.group_cfg.port_id[1] = port_id[1];
+	config.data.group_cfg.port_id[2] = port_id[2];
+	config.data.group_cfg.port_id[3] = port_id[3];
+	config.data.group_cfg.port_id[4] = port_id[4];
+	config.data.group_cfg.port_id[5] = port_id[5];
+	config.data.group_cfg.port_id[6] = port_id[6];
+	config.data.group_cfg.port_id[7] = port_id[7];
+	config.data.group_cfg.num_channels = channel_count;
+
+	ret = afe_apr_send_pkt(&config, &this_afe.wait[IDX_GLOBAL_CFG]);
+	if (ret)
+		pr_err("%s: AFE_PARAM_ID_GROUP_DEVICE_CFG failed %d\n",
+			__func__, ret);
+	return ret;
+}
+
+int afe_port_group_enable(u16 enable)
+{
+	int ret;
+	struct afe_port_group_create config;
+
+	pr_debug("%s: enter\n", __func__);
+	ret = afe_q6_interface_prepare();
+	if (ret != 0)
+		return ret;
+
+	memset(&config, 0, sizeof(config));
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+					     APR_HDR_LEN(APR_HDR_SIZE),
+					     APR_PKT_VER);
+	config.hdr.pkt_size = sizeof(config);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = IDX_GLOBAL_CFG;
+	config.hdr.opcode = AFE_SVC_CMD_SET_PARAM;
+
+	config.param.payload_size = sizeof(config) - sizeof(struct apr_hdr) -
+				    sizeof(config.param);
+	config.param.payload_address_lsw = 0x00;
+	config.param.payload_address_msw = 0x00;
+	config.param.mem_map_handle = 0x00;
+	config.pdata.module_id = AFE_MODULE_GROUP_DEVICE;
+	config.pdata.param_id = AFE_PARAM_ID_GROUP_DEVICE_ENABLE;
+	config.pdata.param_size = sizeof(struct afe_group_device_enable);
+	config.data.group_enable.group_id =
+			AFE_GROUP_DEVICE_ID_SECONDARY_MI2S_RX;
+	config.data.group_enable.enable = enable;
+
+	ret = afe_apr_send_pkt(&config, &this_afe.wait[IDX_GLOBAL_CFG]);
+	if (ret)
+		pr_err("%s: AFE_PARAM_ID_ENABLE failed %d\n", __func__,
+		       ret);
 	return ret;
 }
 

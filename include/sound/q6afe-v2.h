@@ -84,6 +84,7 @@ enum {
 	IDX_AFE_PORT_ID_SECONDARY_PCM_RX = 42,
 	IDX_AFE_PORT_ID_SECONDARY_PCM_TX = 43,
 	IDX_VOICE2_PLAYBACK_TX = 44,
+	IDX_AFE_PORT_ID_SECONDARY_MI2S_RX_VIBRA = 45,
 	IDX_GLOBAL_CFG,
 	AFE_MAX_PORTS
 };
@@ -204,4 +205,6 @@ void afe_clear_config(enum afe_config_type config);
 bool afe_has_config(enum afe_config_type config);
 
 void afe_set_aanc_info(struct aanc_data *aanc_info);
+int afe_port_group_set_param(u16 *port_id, int channel_count);
+int afe_port_group_enable(u16 enable);
 #endif /* __Q6AFE_V2_H__ */
