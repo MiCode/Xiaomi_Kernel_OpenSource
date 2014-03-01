@@ -340,9 +340,8 @@ static int32_t msm_csid_cmd(struct csid_device *csid_dev, void *arg)
 			break;
 		}
 		for (i = 0; i < csid_params.lut_params.num_cid; i++) {
-			vc_cfg = kzalloc(csid_params.lut_params.num_cid *
-				sizeof(struct msm_camera_csid_vc_cfg),
-				GFP_KERNEL);
+			vc_cfg = kzalloc(sizeof(struct msm_camera_csid_vc_cfg),
+			    GFP_KERNEL);
 			if (!vc_cfg) {
 				pr_err("%s: %d failed\n", __func__, __LINE__);
 				for (i--; i >= 0; i--)
@@ -352,8 +351,7 @@ static int32_t msm_csid_cmd(struct csid_device *csid_dev, void *arg)
 			}
 			if (copy_from_user(vc_cfg,
 				(void *)csid_params.lut_params.vc_cfg[i],
-				(csid_params.lut_params.num_cid *
-				sizeof(struct msm_camera_csid_vc_cfg)))) {
+				sizeof(struct msm_camera_csid_vc_cfg))) {
 				pr_err("%s: %d failed\n", __func__, __LINE__);
 				kfree(vc_cfg);
 				for (i--; i >= 0; i--)
