@@ -282,6 +282,15 @@ static inline int msm_pcie_oper_conf(struct pci_bus *bus, u32 devfn, int oper,
 		goto unlock;
 	}
 
+	if (dev->link_status != MSM_PCIE_LINK_ENABLED) {
+		PCIE_DBG(
+			"Access to RC%d %d:0x%02x + 0x%04x[%d] is denied because link is down\n",
+			rc_idx, bus->number, devfn, where, size);
+		*val = ~0;
+		rv = PCIBIOS_DEVICE_NOT_FOUND;
+		goto unlock;
+	}
+
 	/* check if the link is up for endpoint */
 	if (!rc && !msm_pcie_is_link_up(dev)) {
 			pr_err("RC%d %s fail, link down - bus %d devfn %d\n",
