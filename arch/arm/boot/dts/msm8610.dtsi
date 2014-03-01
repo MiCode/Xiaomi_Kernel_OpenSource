@@ -656,6 +656,13 @@
 		qti,latency-level = "ultra";
 	};
 
+	qcom,msm-pcm-ultra-low {
+		compatible = "qcom,msm-pcm-dsp";
+		qcom,msm-pcm-dsp-id = <2>;
+		qcom,msm-pcm-low-latency;
+		qcom,latency-level = "ultra";
+	};
+
 	qcom,msm-pcm-routing {
 		compatible = "qcom,msm-pcm-routing";
 	};
@@ -705,6 +712,13 @@
 			compatible = "qcom,msm-dai-q6-mi2s";
 			qcom,msm-dai-q6-mi2s-dev-id = <1>;
 			qcom,msm-mi2s-rx-lines = <3>;
+			qcom,msm-mi2s-tx-lines = <0>;
+		};
+
+		qcom,msm-dai-q6-mi2s-sec-sd1 {
+			compatible = "qcom,msm-dai-q6-mi2s";
+			qcom,msm-dai-q6-mi2s-dev-id = <4>;
+			qcom,msm-mi2s-rx-lines = <2>;
 			qcom,msm-mi2s-tx-lines = <0>;
 		};
 	};
