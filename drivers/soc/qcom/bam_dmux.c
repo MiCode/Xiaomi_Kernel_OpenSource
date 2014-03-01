@@ -196,6 +196,7 @@ static struct sps_register_event rx_register_event;
 static bool satellite_mode;
 static uint32_t num_buffers;
 static unsigned long long last_rx_pkt_timestamp;
+static struct device *dma_dev;
 
 static struct bam_ch_info bam_ch[BAM_DMUX_NUM_CHANNELS];
 static int bam_mux_initialized;
@@ -415,7 +416,7 @@ static void __queue_rx(gfp_t alloc_flags)
 		}
 		ptr = skb_put(info->skb, BUFFER_SIZE);
 
-		info->dma_address = dma_map_single(NULL, ptr, BUFFER_SIZE,
+		info->dma_address = dma_map_single(dma_dev, ptr, BUFFER_SIZE,
 							bam_ops->dma_from);
 		if (info->dma_address == 0 || info->dma_address == ~0) {
 			DMUX_LOG_KERR("%s: dma_map_single failure %p for %p\n",
@@ -435,7 +436,8 @@ static void __queue_rx(gfp_t alloc_flags)
 			DMUX_LOG_KERR("%s: sps_transfer_one failed %d\n",
 				__func__, ret);
 
-			dma_unmap_single(NULL, info->dma_address, BUFFER_SIZE,
+			dma_unmap_single(dma_dev, info->dma_address,
+						BUFFER_SIZE,
 						bam_ops->dma_from);
 
 			goto fail_skb;
@@ -539,7 +541,7 @@ static void handle_bam_mux_cmd(struct work_struct *work)
 
 	info = container_of(work, struct rx_pkt_info, work);
 	rx_skb = info->skb;
-	dma_unmap_single(NULL, info->dma_address, BUFFER_SIZE,
+	dma_unmap_single(dma_dev, info->dma_address, BUFFER_SIZE,
 			bam_ops->dma_from);
 	kfree(info);
 
@@ -643,7 +645,7 @@ static int bam_mux_write_cmd(void *data, uint32_t len)
 		return rc;
 	}
 
-	dma_address = dma_map_single(NULL, data, len,
+	dma_address = dma_map_single(dma_dev, data, len,
 					bam_ops->dma_to);
 	if (!dma_address) {
 		pr_err("%s: dma_map_single() failed\n", __func__);
@@ -667,7 +669,7 @@ static int bam_mux_write_cmd(void *data, uint32_t len)
 		list_del(&pkt->list_node);
 		DBG_INC_TX_SPS_FAILURE_CNT();
 		spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
-		dma_unmap_single(NULL, pkt->dma_address,
+		dma_unmap_single(dma_dev, pkt->dma_address,
 					pkt->len,
 					bam_ops->dma_to);
 		kfree(pkt);
@@ -831,7 +833,7 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 		goto write_fail2;
 	}
 
-	dma_address = dma_map_single(NULL, skb->data, skb->len,
+	dma_address = dma_map_single(dma_dev, skb->data, skb->len,
 					bam_ops->dma_to);
 	if (!dma_address) {
 		pr_err("%s: dma_map_single() failed\n", __func__);
@@ -852,7 +854,7 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 		list_del(&pkt->list_node);
 		DBG_INC_TX_SPS_FAILURE_CNT();
 		spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
-		dma_unmap_single(NULL, pkt->dma_address,
+		dma_unmap_single(dma_dev, pkt->dma_address,
 					pkt->skb->len,	bam_ops->dma_to);
 		kfree(pkt);
 		if (new_skb)
@@ -1274,11 +1276,11 @@ static void bam_mux_tx_notify(struct sps_event_notify *notify)
 	case SPS_EVENT_EOT:
 		pkt = notify->data.transfer.user;
 		if (!pkt->is_cmd)
-			dma_unmap_single(NULL, pkt->dma_address,
+			dma_unmap_single(dma_dev, pkt->dma_address,
 						pkt->skb->len,
 						bam_ops->dma_to);
 		else
-			dma_unmap_single(NULL, pkt->dma_address,
+			dma_unmap_single(dma_dev, pkt->dma_address,
 						pkt->len,
 						bam_ops->dma_to);
 		queue_work(bam_mux_tx_workqueue, &pkt->work);
@@ -1857,7 +1859,7 @@ static void disconnect_to_bam(void)
 		node = bam_rx_pool.next;
 		list_del(node);
 		info = container_of(node, struct rx_pkt_info, list_node);
-		dma_unmap_single(NULL, info->dma_address, BUFFER_SIZE,
+		dma_unmap_single(dma_dev, info->dma_address, BUFFER_SIZE,
 							bam_ops->dma_from);
 		dev_kfree_skb_any(info->skb);
 		kfree(info);
@@ -2021,12 +2023,12 @@ static int restart_notifier_cb(struct notifier_block *this,
 		info = container_of(node, struct tx_pkt_info,
 							list_node);
 		if (!info->is_cmd) {
-			dma_unmap_single(NULL, info->dma_address,
+			dma_unmap_single(dma_dev, info->dma_address,
 						info->skb->len,
 						bam_ops->dma_to);
 			dev_kfree_skb_any(info->skb);
 		} else {
-			dma_unmap_single(NULL, info->dma_address,
+			dma_unmap_single(dma_dev, info->dma_address,
 						info->len,
 						bam_ops->dma_to);
 			kfree(info->skb);
@@ -2093,7 +2095,7 @@ static int bam_init(void)
 	tx_connection.mode = SPS_MODE_DEST;
 	tx_connection.options = SPS_O_AUTO_ENABLE | SPS_O_EOT;
 	tx_desc_mem_buf.size = 0x800; /* 2k */
-	tx_desc_mem_buf.base = dma_alloc_coherent(NULL, tx_desc_mem_buf.size,
+	tx_desc_mem_buf.base = dma_alloc_coherent(dma_dev, tx_desc_mem_buf.size,
 							&dma_addr, 0);
 	if (tx_desc_mem_buf.base == NULL) {
 		pr_err("%s: tx memory alloc failed\n", __func__);
@@ -2131,7 +2133,7 @@ static int bam_init(void)
 	rx_connection.options = SPS_O_AUTO_ENABLE | SPS_O_EOT |
 					SPS_O_ACK_TRANSFERS;
 	rx_desc_mem_buf.size = 0x800; /* 2k */
-	rx_desc_mem_buf.base = dma_alloc_coherent(NULL, rx_desc_mem_buf.size,
+	rx_desc_mem_buf.base = dma_alloc_coherent(dma_dev, rx_desc_mem_buf.size,
 							&dma_addr, 0);
 	if (rx_desc_mem_buf.base == NULL) {
 		pr_err("%s: rx memory alloc failed\n", __func__);
@@ -2187,7 +2189,7 @@ static int bam_init(void)
 rx_event_reg_failed:
 	bam_ops->sps_disconnect_ptr(bam_rx_pipe);
 rx_connect_failed:
-	dma_free_coherent(NULL, rx_desc_mem_buf.size, rx_desc_mem_buf.base,
+	dma_free_coherent(dma_dev, rx_desc_mem_buf.size, rx_desc_mem_buf.base,
 				rx_desc_mem_buf.phys_base);
 rx_mem_failed:
 rx_get_config_failed:
@@ -2195,7 +2197,7 @@ rx_get_config_failed:
 rx_alloc_endpoint_failed:
 	bam_ops->sps_disconnect_ptr(bam_tx_pipe);
 tx_connect_failed:
-	dma_free_coherent(NULL, tx_desc_mem_buf.size, tx_desc_mem_buf.base,
+	dma_free_coherent(dma_dev, tx_desc_mem_buf.size, tx_desc_mem_buf.base,
 				tx_desc_mem_buf.phys_base);
 tx_get_config_failed:
 	bam_ops->sps_free_endpoint_ptr(bam_tx_pipe);
@@ -2372,6 +2374,16 @@ static int bam_dmux_probe(struct platform_device *pdev)
 		a2_bam_irq = A2_BAM_IRQ;
 		num_buffers = DEFAULT_NUM_BUFFERS;
 	}
+
+	dma_dev = &pdev->dev;
+	/* The BAM only suports 32 bits of address */
+	dma_dev->dma_mask = kmalloc(sizeof(*dma_dev->dma_mask), GFP_KERNEL);
+	if (!dma_dev->dma_mask) {
+		DMUX_LOG_KERR("%s: cannot allocate dma_mask\n", __func__);
+		return -ENOMEM;
+	}
+	*dma_dev->dma_mask = DMA_BIT_MASK(32);
+	dma_dev->coherent_dma_mask = DMA_BIT_MASK(32);
 
 	xo_clk = clk_get(&pdev->dev, "xo");
 	if (IS_ERR(xo_clk)) {
