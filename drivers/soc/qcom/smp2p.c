@@ -580,8 +580,8 @@ static int smp2p_out_create_v1(struct msm_smp2p_out *out_entry)
 
 		entry_ptr = (struct smp2p_entry_v1 *)((char *)(smp2p_h_ptr + 1)
 			+ empty_spot * sizeof(struct smp2p_entry_v1));
-		strlcpy(entry_ptr->name, out_entry->name,
-				sizeof(entry_ptr->name));
+		memcpy_toio(entry_ptr->name, out_entry->name,
+						sizeof(entry_ptr->name));
 		out_entry->l_smp2p_entry = &entry_ptr->entry;
 		++entries_valid;
 		SMP2P_DBG("%s: item '%s':%d fully created as entry %d of %d\n",
