@@ -12,13 +12,12 @@ Required properties:
 - qcom,clk-src-gpio: msm gpio clock,used ony if clock source is msm gpio
 - qcom,clk-req-gpio: clk-req input gpio for MSM based clocks.
                      not used for pmic implementation
-- vlogic-supply: LDO for power supply
 - interrupt-parent: Should be phandle for the interrupt controller
                     that services interrupts for this device.
 - interrupts: Nfc read interrupt,gpio-clk-req interrupt
 - qcom,clk-gpio: pmic or msm gpio on which bbclk2 signal is coming.
 
-LDO example:
+Example:
 
 	i2c@f9925000 { /* BLSP-1 QUP-3 */
 		nfc-nci@e {
@@ -31,7 +30,6 @@ LDO example:
 			interrupt-parent = <&msmgpio>;
 			interrupts = <77 0>;
 			qcom,clk-gpio = <&msmgpio 75 0x00>;
-			vlogic-supply = <&pm8110_l14>;
 		};
 	};
 
