@@ -167,5 +167,65 @@
 				drive-strength = <2>; /* 2 MA */
 			};
 		};
+
+		pmx_pri_mi2s_mclk {
+			qcom,pins = <&gp 76>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <1>;
+			label = "pri_mi2s_mclk";
+			pri_mi2s_mclk_active: pri_mi2s_mclk_active {
+				drive-strength = <8>;	/* 8 MA */
+				bias-disable;		/* No PULL */
+		        };
+			pri_mi2s_mclk_sleep: pri_mi2s_mclk_sleep {
+				drive-strength = <2>;	/* 2 MA */
+				bias-pull-down;		/* PULL DOWN */
+		        };
+		};
+
+		pmx_pri_mi2s {
+			qcom,pins = <&gp 77>, <&gp 78>, <&gp 79>, <&gp 80>;
+			qcom,num-grp-pins = <4>;
+			qcom,pin-func = <1>;
+			label = "pri_mi2s";
+			pri_mi2s_active: pri_mi2s_active {
+				drive-strength = <8>;	/* 8 MA */
+				bias-disable;		/* No PULL */
+		        };
+			pri_mi2s_sleep: pri_mi2s_sleep {
+				drive-strength = <2>;	/* 2 MA */
+				bias-pull-down;		/* PULL DOWN */
+		        };
+		};
+
+		pmx_quad_mi2s_mclk {
+			qcom,pins = <&gp 91>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <1>;
+			label = "quad_mi2s_mclk";
+			quad_mi2s_mclk_active: quad_mi2s_mclk_active {
+				drive-strength = <8>;	/* 8 MA */
+				bias-disable;		/* No PULL */
+		        };
+			quad_mi2s_mclk_sleep: quad_mi2s_mclk_sleep {
+				drive-strength = <2>;	/* 2 MA */
+				bias-pull-down;		/* PULL DOWN */
+		        };
+		};
+
+		pmx_quad_mi2s {
+			qcom,pins = <&gp 92>, <&gp 93>, <&gp 94>, <&gp 95>;
+			qcom,num-grp-pins = <4>;
+			qcom,pin-func = <1>;
+			label = "quad_mi2s";
+			quad_mi2s_active: quad_mi2s_active {
+				drive-strength = <8>;	/* 8 MA */
+				bias-disable;		/* No PULL */
+		        };
+			quad_mi2s_sleep: quad_mi2s_sleep {
+				drive-strength = <2>;	/* 2 MA */
+				bias-pull-down;		/* PULL DOWN */
+		        };
+		};
 	};
 };
