@@ -1150,6 +1150,10 @@
 		qcom,iris-vddpa-supply   = <&pm8916_l9>;
 		qcom,iris-vdddig-supply  = <&pm8916_l5>;
 
+		pinctrl-names = "wcnss_default", "wcnss_sleep";
+		pinctrl-0 = <&wcnss_default>;
+		pinctrl-1 = <&wcnss_sleep>;
+
 		qcom,has-autodetect-xo;
 		qcom,has-pronto-hw;
 	};
