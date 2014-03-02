@@ -236,9 +236,15 @@ static int ak8975_setup(struct i2c_client *client)
 	if (data->eoc_gpio > 0 || client->irq) {
 		ret = ak8975_setup_irq(data);
 		if (ret < 0) {
-			dev_err(&client->dev,
-				"Error setting data ready interrupt\n");
-			return ret;
+			if (ret == -EBUSY) {
+				dev_err(&client->dev,
+					"device Intr busy:polling required\n");
+				ret = 0;
+			} else {
+				dev_err(&client->dev,
+					"Error setting data ready interrupt\n");
+				return ret;
+			}
 		}
 	}
 
