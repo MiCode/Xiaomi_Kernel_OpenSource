@@ -64,6 +64,16 @@ int mdss_dsi_clk_init(struct platform_device *pdev,
 		goto mdss_dsi_clk_err;
 	}
 
+	if (ctrl_pdata->panel_data.panel_info.type == MIPI_CMD_PANEL) {
+		ctrl_pdata->mmss_misc_ahb_clk = clk_get(dev, "core_mmss_clk");
+		if (IS_ERR(ctrl_pdata->mmss_misc_ahb_clk)) {
+			rc = PTR_ERR(ctrl_pdata->mmss_misc_ahb_clk);
+			pr_err("%s: Unable to get mmss misc ahb clk. rc=%d\n",
+				__func__, rc);
+			goto mdss_dsi_clk_err;
+		}
+	}
+
 	ctrl_pdata->byte_clk = clk_get(dev, "byte_clk");
 	if (IS_ERR(ctrl_pdata->byte_clk)) {
 		rc = PTR_ERR(ctrl_pdata->byte_clk);
@@ -105,6 +115,8 @@ void mdss_dsi_clk_deinit(struct mdss_dsi_ctrl_pdata  *ctrl_pdata)
 		clk_put(ctrl_pdata->esc_clk);
 	if (ctrl_pdata->pixel_clk)
 		clk_put(ctrl_pdata->pixel_clk);
+	if (ctrl_pdata->mmss_misc_ahb_clk)
+		clk_put(ctrl_pdata->mmss_misc_ahb_clk);
 	if (ctrl_pdata->axi_clk)
 		clk_put(ctrl_pdata->axi_clk);
 	if (ctrl_pdata->ahb_clk)
@@ -275,12 +287,26 @@ int mdss_dsi_bus_clk_start(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		goto error;
 	}
 
+	if (ctrl_pdata->mmss_misc_ahb_clk) {
+		rc = clk_prepare_enable(ctrl_pdata->mmss_misc_ahb_clk);
+		if (rc) {
+			pr_err("%s: failed to enable mmss misc ahb clk.rc=%d\n",
+				__func__, rc);
+			clk_disable_unprepare(ctrl_pdata->axi_clk);
+			clk_disable_unprepare(ctrl_pdata->ahb_clk);
+			clk_disable_unprepare(ctrl_pdata->mdp_core_clk);
+			goto error;
+		}
+	}
+
 error:
 	return rc;
 }
 
 void mdss_dsi_bus_clk_stop(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
+	if (ctrl_pdata->mmss_misc_ahb_clk)
+		clk_disable_unprepare(ctrl_pdata->mmss_misc_ahb_clk);
 	clk_disable_unprepare(ctrl_pdata->axi_clk);
 	clk_disable_unprepare(ctrl_pdata->ahb_clk);
 	clk_disable_unprepare(ctrl_pdata->mdp_core_clk);
@@ -506,6 +532,16 @@ static void mdss_dsi_clk_ctrl_sub(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 }
 
 static DEFINE_MUTEX(dsi_clk_lock); /* per system */
+
+bool __mdss_dsi_clk_enabled(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	bool enabled;
+	mutex_lock(&dsi_clk_lock);
+	enabled = ctrl->clk_cnt ? true : false;
+	mutex_unlock(&dsi_clk_lock);
+
+	return enabled;
+}
 
 void mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 {

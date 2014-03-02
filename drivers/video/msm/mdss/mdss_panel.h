@@ -127,6 +127,11 @@ struct mdss_panel_recovery {
 				 - 1 clock enable
  * @MDSS_EVENT_ENABLE_PARTIAL_UPDATE: Event to update ROI of the panel.
  * @MDSS_EVENT_DSI_CMDLIST_KOFF: acquire dsi_mdp_busy lock before kickoff.
+ * @MDSS_EVENT_DSI_ULPS_CTRL:	Event to configure Ultra Lower Power Saving
+ *				mode for the DSI data and clock lanes. The
+ *				event arguments can have one of these values:
+ *				- 0: Disable ULPS mode
+ *				- 1: Enable ULPS mode
  */
 enum mdss_intf_events {
 	MDSS_EVENT_RESET = 1,
@@ -145,6 +150,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_PANEL_CLK_CTRL,
 	MDSS_EVENT_DSI_CMDLIST_KOFF,
 	MDSS_EVENT_ENABLE_PARTIAL_UPDATE,
+	MDSS_EVENT_DSI_ULPS_CTRL,
 };
 
 struct lcd_panel_info {
@@ -300,6 +306,7 @@ struct mdss_panel_info {
 	int pwm_period;
 	u32 mode_gpio_state;
 	bool dynamic_fps;
+	bool ulps_feature_enabled;
 	char dfps_update;
 	int new_fps;
 

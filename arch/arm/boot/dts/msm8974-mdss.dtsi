@@ -113,7 +113,9 @@
 		compatible = "qcom,mdss-dsi-ctrl";
 		label = "MDSS DSI CTRL->0";
 		cell-index = <0>;
-		reg = <0xfd922800 0x600>;
+		reg = 	<0xfd922800 0x600>,
+			<0xfdf30000 0x108>;
+		reg-names = "dsi_phys", "mmss_misc_phys";
 		vdd-supply = <&pm8941_l22>;
 		vddio-supply = <&pm8941_l12>;
 		vdda-supply = <&pm8941_l2>;
@@ -169,7 +171,9 @@
 		compatible = "qcom,mdss-dsi-ctrl";
 		label = "MDSS DSI CTRL->1";
 		cell-index = <1>;
-		reg = <0xfd922e00 0x600>;
+		reg = 	<0xfd922e00 0x600>,
+			<0xfdf30000 0x108>;
+		reg-names = "dsi_phys", "mmss_misc_phys";
 		vdd-supply = <&pm8941_l22>;
 		vddio-supply = <&pm8941_l12>;
 		vdda-supply = <&pm8941_l2>;
