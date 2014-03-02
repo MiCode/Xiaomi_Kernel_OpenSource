@@ -94,6 +94,7 @@ struct mmc_ext_csd {
 	u8			raw_erased_mem_count;	/* 181 */
 	u8			raw_ext_csd_structure;	/* 194 */
 	u8			raw_card_type;		/* 196 */
+	u8			raw_drive_strength;	/* 197 */
 	u8			out_of_int_time;	/* 198 */
 	u8			raw_s_a_timeout;		/* 217 */
 	u8			raw_hc_erase_gap_size;	/* 221 */
