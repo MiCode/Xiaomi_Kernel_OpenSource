@@ -177,6 +177,7 @@ struct tmc_drvdata {
 	bool			byte_cntr_read_active;
 	wait_queue_head_t	wq;
 	char			*byte_cntr_node;
+	uint32_t		mem_size;
 };
 
 static void tmc_wait_for_flush(struct tmc_drvdata *drvdata)
@@ -1310,6 +1311,32 @@ static ssize_t tmc_etr_store_byte_cntr_value(struct device *dev,
 static DEVICE_ATTR(byte_cntr_value, S_IRUGO | S_IWUSR,
 		   tmc_etr_show_byte_cntr_value, tmc_etr_store_byte_cntr_value);
 
+static ssize_t tmc_etr_show_mem_size(struct device *dev,
+				     struct device_attribute *attr,
+				     char *buf)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val = drvdata->mem_size;
+
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+}
+
+static ssize_t tmc_etr_store_mem_size(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t size)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	drvdata->mem_size = val;
+	return size;
+}
+static DEVICE_ATTR(mem_size, S_IRUGO | S_IWUSR,
+		   tmc_etr_show_mem_size, tmc_etr_store_mem_size);
+
 static struct attribute *tmc_attrs[] = {
 	&dev_attr_trigger_cntr.attr,
 	NULL,
@@ -1322,6 +1349,7 @@ static struct attribute_group tmc_attr_grp = {
 static struct attribute *tmc_etr_attrs[] = {
 	&dev_attr_out_mode.attr,
 	&dev_attr_byte_cntr_value.attr,
+	&dev_attr_mem_size.attr,
 	NULL,
 };
 
