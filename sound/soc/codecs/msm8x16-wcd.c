@@ -215,6 +215,16 @@ static int msm8x16_wcd_ahb_write_device(u16 reg, u8 *value, u32 bytes)
 	u32 temp = ((u32)(*value)) & 0x000000FF;
 	u32 offset = (((u32)(reg)) ^ 0x00000400) & 0x00000FFF;
 
+	bool q6_state = false;
+
+	q6_state = q6core_is_adsp_ready();
+	if (q6_state != true) {
+		pr_err("%s q6 not ready %d\n", __func__, q6_state);
+		return 0;
+	}
+	 else
+		pr_err("DSP is ready q6_state = %d\n", q6_state);
+
 	iowrite32(temp, ioremap(MSM8X16_DIGITAL_CODEC_BASE_ADDR + offset, 4));
 	return 0;
 }
@@ -223,6 +233,15 @@ static int msm8x16_wcd_ahb_read_device(u16 reg, u32 bytes, u8 *value)
 {
 	u32 temp;
 	u32 offset = (((u32)(reg)) ^ 0x00000400) & 0x00000FFF;
+	bool q6_state = false;
+	pr_err("%s\n", __func__);
+	q6_state = q6core_is_adsp_ready();
+	if (q6_state != true) {
+		pr_err("%s q6 not ready %d\n", __func__, q6_state);
+		return 0;
+	}
+	 else
+		pr_err("DSP is ready %d\n", q6_state);
 
 	temp = ioread32(ioremap(MSM8X16_DIGITAL_CODEC_BASE_ADDR +
 				      offset, 4));
@@ -307,6 +326,7 @@ static int __msm8x16_wcd_reg_read(struct msm8x16_wcd *msm8x16_wcd,
 	int ret = -EINVAL;
 	u8 temp;
 
+	pr_debug("%s reg = %x\n", __func__, reg);
 	mutex_lock(&msm8x16_wcd->io_lock);
 	if (MSM8X16_WCD_IS_TOMBAK_REG(reg))
 		ret = msm8x16_wcd_spmi_read(reg, 1, &temp);
@@ -2683,7 +2703,7 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 {
 	struct msm8x16_wcd_priv *msm8x16_wcd_priv;
 	struct msm8x16_wcd *msm8x16_wcd;
-	enum apr_subsys_state modem_state;
+	bool q6_state;
 	int i;
 
 	dev_dbg(codec->dev, "%s()\n", __func__);
@@ -2693,13 +2713,12 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 		dev_err(codec->dev, "Failed to allocate private data\n");
 		return -ENOMEM;
 	}
-	modem_state = apr_get_modem_state();
-	if ((modem_state == APR_SUBSYS_DOWN)) {
-		dev_dbg(codec->dev, "defering %s, modem_state %d\n",
-			__func__, modem_state);
-		return -EPROBE_DEFER;
-	} else
-		dev_dbg(codec->dev, "Modem is ready\n");
+	q6_state = q6core_is_adsp_ready();
+	if ((q6_state != true))
+		dev_err(codec->dev, "defering %s, modem_state %d\n",
+			__func__, q6_state);
+	 else
+		dev_err(codec->dev, "DSP is ready\n");
 
 	for (i = 0; i < NUM_DECIMATORS; i++) {
 		tx_hpf_work[i].msm8x16_wcd = msm8x16_wcd_priv;
@@ -2932,7 +2951,7 @@ static int msm8x16_wcd_spmi_probe(struct spmi_device *spmi)
 	struct msm8x16_wcd *msm8x16 = NULL;
 	struct msm8x16_wcd_pdata *pdata;
 	struct resource *wcd_resource;
-	enum apr_subsys_state modem_state;
+	bool q6_state = false;
 
 	dev_dbg(&spmi->dev, "%s(%d):slave ID = 0x%x\n",
 		__func__, __LINE__,  spmi->sid);
@@ -2969,12 +2988,11 @@ static int msm8x16_wcd_spmi_probe(struct spmi_device *spmi)
 	}
 
 	/* Note we need to check Modem state */
-	modem_state = apr_get_modem_state();
-	if ((modem_state == APR_SUBSYS_DOWN) &&
+	q6_state = q6core_is_adsp_ready();
+	if ((q6_state != true) &&
 	    (wcd_resource->start == TOMBAK_CORE_0_SPMI_ADDR)) {
 		dev_dbg(&spmi->dev, "defering %s, modem_state %d\n",
-			__func__, modem_state);
-		return -EPROBE_DEFER;
+			__func__, q6_state);
 	} else
 		dev_dbg(&spmi->dev, "Modem is ready\n");
 
