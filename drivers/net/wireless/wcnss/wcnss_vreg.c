@@ -112,6 +112,29 @@ static struct vregs_info pronto_vregs[] = {
 		1800000, 0,    NULL},
 };
 
+/* IRIS regulators for Pronto v2 hardware */
+static struct vregs_info iris_vregs_pronto_v2[] = {
+	{"qcom,iris-vddxo",  VREG_NULL_CONFIG, 1800000, 0,
+		1800000, 10000,  NULL},
+	{"qcom,iris-vddrfa", VREG_NULL_CONFIG, 1300000, 0,
+		1300000, 100000, NULL},
+	{"qcom,iris-vddpa",  VREG_NULL_CONFIG, 3300000, 0,
+		3300000, 515000, NULL},
+	{"qcom,iris-vdddig", VREG_NULL_CONFIG, 1800000, 0,
+		1800000, 10000,  NULL},
+};
+
+/* WCNSS regulators for Pronto v2 hardware */
+static struct vregs_info pronto_vregs_pronto_v2[] = {
+	{"qcom,pronto-vddmx",  VREG_NULL_CONFIG, 1287500,  0,
+		1287500, 0,    NULL},
+	{"qcom,pronto-vddcx",  VREG_NULL_CONFIG, RPM_REGULATOR_CORNER_NORMAL,
+		RPM_REGULATOR_CORNER_NONE, RPM_REGULATOR_CORNER_SUPER_TURBO,
+		0,             NULL},
+	{"qcom,pronto-vddpx",  VREG_NULL_CONFIG, 1800000, 0,
+		1800000, 0,    NULL},
+};
+
 
 struct host_driver {
 	char name[20];
@@ -418,15 +441,21 @@ fail:
 
 }
 
-static void wcnss_iris_vregs_off(enum wcnss_hw_type hw_type)
+static void wcnss_iris_vregs_off(enum wcnss_hw_type hw_type,
+					int is_pronto_vt)
 {
 	switch (hw_type) {
 	case WCNSS_RIVA_HW:
 		wcnss_vregs_off(iris_vregs_riva, ARRAY_SIZE(iris_vregs_riva));
 		break;
 	case WCNSS_PRONTO_HW:
-		wcnss_vregs_off(iris_vregs_pronto,
+		if (is_pronto_vt) {
+			wcnss_vregs_off(iris_vregs_pronto_v2,
+				ARRAY_SIZE(iris_vregs_pronto_v2));
+		} else {
+			wcnss_vregs_off(iris_vregs_pronto,
 				ARRAY_SIZE(iris_vregs_pronto));
+		}
 		break;
 	default:
 		pr_err("%s invalid hardware %d\n", __func__, hw_type);
@@ -434,7 +463,9 @@ static void wcnss_iris_vregs_off(enum wcnss_hw_type hw_type)
 	}
 }
 
-static int wcnss_iris_vregs_on(struct device *dev, enum wcnss_hw_type hw_type)
+static int wcnss_iris_vregs_on(struct device *dev,
+				enum wcnss_hw_type hw_type,
+				int is_pronto_vt)
 {
 	int ret = -1;
 
@@ -444,8 +475,13 @@ static int wcnss_iris_vregs_on(struct device *dev, enum wcnss_hw_type hw_type)
 				ARRAY_SIZE(iris_vregs_riva));
 		break;
 	case WCNSS_PRONTO_HW:
-		ret = wcnss_vregs_on(dev, iris_vregs_pronto,
-				ARRAY_SIZE(iris_vregs_pronto));
+		if (is_pronto_vt) {
+			ret = wcnss_vregs_on(dev, iris_vregs_pronto_v2,
+					ARRAY_SIZE(iris_vregs_pronto_v2));
+		} else {
+			ret = wcnss_vregs_on(dev, iris_vregs_pronto,
+					ARRAY_SIZE(iris_vregs_pronto));
+		}
 		break;
 	default:
 		pr_err("%s invalid hardware %d\n", __func__, hw_type);
@@ -453,14 +489,21 @@ static int wcnss_iris_vregs_on(struct device *dev, enum wcnss_hw_type hw_type)
 	return ret;
 }
 
-static void wcnss_core_vregs_off(enum wcnss_hw_type hw_type)
+static void wcnss_core_vregs_off(enum wcnss_hw_type hw_type,
+					int is_pronto_vt)
 {
 	switch (hw_type) {
 	case WCNSS_RIVA_HW:
 		wcnss_vregs_off(riva_vregs, ARRAY_SIZE(riva_vregs));
 		break;
 	case WCNSS_PRONTO_HW:
-		wcnss_vregs_off(pronto_vregs, ARRAY_SIZE(pronto_vregs));
+		if (is_pronto_vt) {
+			wcnss_vregs_off(pronto_vregs_pronto_v2,
+				ARRAY_SIZE(pronto_vregs_pronto_v2));
+		} else {
+			wcnss_vregs_off(pronto_vregs,
+				ARRAY_SIZE(pronto_vregs));
+		}
 		break;
 	default:
 		pr_err("%s invalid hardware %d\n", __func__, hw_type);
@@ -468,7 +511,9 @@ static void wcnss_core_vregs_off(enum wcnss_hw_type hw_type)
 
 }
 
-static int wcnss_core_vregs_on(struct device *dev, enum wcnss_hw_type hw_type)
+static int wcnss_core_vregs_on(struct device *dev,
+				enum wcnss_hw_type hw_type,
+				int is_pronto_vt)
 {
 	int ret = -1;
 
@@ -477,8 +522,13 @@ static int wcnss_core_vregs_on(struct device *dev, enum wcnss_hw_type hw_type)
 		ret = wcnss_vregs_on(dev, riva_vregs, ARRAY_SIZE(riva_vregs));
 		break;
 	case WCNSS_PRONTO_HW:
-		ret = wcnss_vregs_on(dev, pronto_vregs,
-				ARRAY_SIZE(pronto_vregs));
+		if (is_pronto_vt) {
+			ret = wcnss_vregs_on(dev, pronto_vregs_pronto_v2,
+					ARRAY_SIZE(pronto_vregs_pronto_v2));
+		} else {
+			ret = wcnss_vregs_on(dev, pronto_vregs,
+					ARRAY_SIZE(pronto_vregs));
+		}
 		break;
 	default:
 		pr_err("%s invalid hardware %d\n", __func__, hw_type);
@@ -498,12 +548,14 @@ int wcnss_wlan_power(struct device *dev,
 	if (on) {
 		down(&wcnss_power_on_lock);
 		/* RIVA regulator settings */
-		rc = wcnss_core_vregs_on(dev, hw_type);
+		rc = wcnss_core_vregs_on(dev, hw_type,
+			cfg->is_pronto_vt);
 		if (rc)
 			goto fail_wcnss_on;
 
 		/* IRIS regulator settings */
-		rc = wcnss_iris_vregs_on(dev, hw_type);
+		rc = wcnss_iris_vregs_on(dev, hw_type,
+			cfg->is_pronto_vt);
 		if (rc)
 			goto fail_iris_on;
 
@@ -517,17 +569,17 @@ int wcnss_wlan_power(struct device *dev,
 	} else {
 		configure_iris_xo(dev, cfg,
 				WCNSS_WLAN_SWITCH_OFF, NULL);
-		wcnss_iris_vregs_off(hw_type);
-		wcnss_core_vregs_off(hw_type);
+		wcnss_iris_vregs_off(hw_type, cfg->is_pronto_vt);
+		wcnss_core_vregs_off(hw_type, cfg->is_pronto_vt);
 	}
 
 	return rc;
 
 fail_iris_xo:
-	wcnss_iris_vregs_off(hw_type);
+	wcnss_iris_vregs_off(hw_type, cfg->is_pronto_vt);
 
 fail_iris_on:
-	wcnss_core_vregs_off(hw_type);
+	wcnss_core_vregs_off(hw_type, cfg->is_pronto_vt);
 
 fail_wcnss_on:
 	up(&wcnss_power_on_lock);

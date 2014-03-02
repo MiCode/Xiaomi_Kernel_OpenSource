@@ -28,6 +28,7 @@ enum wcnss_hw_type {
 
 struct wcnss_wlan_config {
 	int	use_48mhz_xo;
+	int	is_pronto_vt;
 	void __iomem	*msm_wcnss_base;
 };
 
