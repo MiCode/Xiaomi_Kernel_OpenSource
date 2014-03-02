@@ -62,6 +62,7 @@ static const struct inv_mpu6050_reg_map reg_set_6050 = {
 	.pwr_mgmt_1             = INV_MPU6050_REG_PWR_MGMT_1,
 	.pwr_mgmt_2             = INV_MPU6050_REG_PWR_MGMT_2,
 	.int_pin_cfg		= INV_MPU6050_REG_INT_PIN_CFG,
+	.who_am_i		= INV_MPU6050_REG_WHOAMI,
 };
 
 static const struct inv_mpu6050_chip_config chip_config_6050 = {
@@ -617,7 +618,7 @@ static const struct iio_info mpu_info = {
 	.validate_trigger = inv_mpu6050_validate_trigger,
 };
 
-int inv_set_bypass_status(struct inv_mpu6050_state *st, bool enable)
+static int inv_set_bypass_status(struct inv_mpu6050_state *st, bool enable)
 {
 	int ret;
 
@@ -650,6 +651,18 @@ static int inv_check_and_setup_chip(struct inv_mpu6050_state *st,
 	if (result)
 		return result;
 	msleep(INV_MPU6050_POWER_UP_TIME);
+
+	result = i2c_smbus_read_byte_data(st->client, st->reg->who_am_i);
+	if (result < 0) {
+		dev_err(&st->client->dev, "Error reading WhoAmI\n");
+		return result;
+	}
+	if (result != INV_MPU6500_UNIQUE_ID) {
+		dev_err(&st->client->dev, "Not a valid MPU6500 device %x\n",
+								result);
+		return -ENOSYS;
+	}
+
 	/* toggle power state. After reset, the sleep bit could be on
 		or off depending on the OTP settings. Toggling power would
 		make it in a definite state as well as making the hardware

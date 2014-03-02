@@ -55,6 +55,7 @@ struct inv_mpu6050_reg_map {
 	u8 pwr_mgmt_1;
 	u8 pwr_mgmt_2;
 	u8 int_pin_cfg;
+	u8 who_am_i;
 };
 
 /*device enum */
@@ -188,6 +189,9 @@ struct inv_mpu6050_state {
 
 #define INV_MPU6050_REG_INT_PIN_CFG		0x37
 #define INV_MPU6050_BIT_BYPASS_EN		0x2
+
+#define INV_MPU6050_REG_WHOAMI			0x75
+#define INV_MPU6500_UNIQUE_ID			0x70
 
 /* scan element definition */
 enum inv_mpu6050_scan {
