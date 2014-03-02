@@ -1354,6 +1354,18 @@
 				<55 512 3936000 393600>,
 				<55 512 3936000 393600>;
 	};
+
+	qcom,pp2s {
+		compatible = "qcom,pp2s";
+		interrupts = <0 219 0>;
+		interrupt-names = "pp2s_irq";
+	};
+
+	qcom,wallclock@fd4aa000 {
+		compatible = "qcom,wallclock";
+		reg-names = "wallclock_time_bank", "wallclock_cntrl_bank";
+		reg = <0xfd4aa000 0x20>, <0xfd4a9000 0x40>;
+	};
 };
 
 &gdsc_pcie_0{
