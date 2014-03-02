@@ -704,79 +704,103 @@ static void mdss_mdp_perf_calc_ctl(struct mdss_mdp_ctl *ctl,
 		 perf->bw_overlap, perf->bw_prefill, perf->prefill_bytes);
 }
 
-static bool mdss_mdp_ctl_perf_bw_released(struct mdss_mdp_ctl *ctl)
+static void set_status(u32 *value, bool status, u32 bit_num)
 {
-	unsigned long flags;
-	bool released = false;
-
-	if (!ctl || !ctl->panel_data ||
-		(ctl->panel_data->panel_info.type != MIPI_CMD_PANEL))
-		return released;
-
-	spin_lock_irqsave(&ctl->spin_lock, flags);
-	if (ctl->perf_status == 0) {
-		released = true;
-		ctl->perf_status++;
-	} else if (ctl->perf_status <= 2) {
-		ctl->perf_status++;
-	} else {
-		pr_err("pervious commit was not done\n");
-	}
-
-	pr_debug("perf_status=%d\n", ctl->perf_status);
-	spin_unlock_irqrestore(&ctl->spin_lock, flags);
-
-	return released;
+	if (status)
+		*value |= BIT(bit_num);
+	else
+		*value &= ~BIT(bit_num);
 }
 
 /**
- * @mdss_mdp_ctl_perf_taken() - indicates a committed buffer is taken
- *                              by h/w
- * @ctl - pointer to ctl data structure
- *
- * A committed buffer to be displayed is taken at a vsync or reader
- * pointer interrupt by h/w. This function must be called in vsync
- * interrupt context to indicate the buf status is changed.
- */
-void mdss_mdp_ctl_perf_taken(struct mdss_mdp_ctl *ctl)
-{
-	if (!ctl || !ctl->panel_data ||
-		(ctl->panel_data->panel_info.type != MIPI_CMD_PANEL))
-		return;
-
-	spin_lock(&ctl->spin_lock);
-	if (ctl->perf_status)
-		ctl->perf_status++;
-	pr_debug("perf_status=%d\n", ctl->perf_status);
-	spin_unlock(&ctl->spin_lock);
-}
-
-/**
- * @mdss_mdp_ctl_perf_done() - indicates a committed buffer is
- *                             displayed, so resources such as
- *                             bandwidth that are associated to this
- *                             buffer can be released.
+ * @ mdss_mdp_ctl_perf_set_transaction_status() -
+ *                             Set the status of the on-going operations
+ *                             for the command mode panels.
  * @ctl - pointer to a ctl
  *
- * When pingping done interrupt is trigged, mdp finishes displaying a
- * buffer which was committed by user and taken by h/w and calling
- * this function to clear those two states. This function must be
- * called in pinppong done interrupt context.
+ * This function is called to set the status bit in the perf_transaction_status
+ * according to the operation that it is on-going for the command mode
+ * panels, where:
+ *
+ * PERF_SW_COMMIT_STATE:
+ *           1 - If SW operation has been commited and bw
+ *               has been requested (HW transaction have not started yet).
+ *           0 - If there is no SW operation pending
+ * PERF_HW_MDP_STATE:
+ *           1 - If HW transaction is on-going
+ *           0 - If there is no HW transaction on going (ping-pong interrupt
+ *               has finished)
+ * Only if both states are zero there are no pending operations and
+ * BW could be released.
+ * State can be queried calling "mdss_mdp_ctl_perf_get_transaction_status"
  */
-void mdss_mdp_ctl_perf_done(struct mdss_mdp_ctl *ctl)
+void mdss_mdp_ctl_perf_set_transaction_status(struct mdss_mdp_ctl *ctl,
+	enum mdss_mdp_perf_state_type component, bool new_status)
 {
+	u32  previous_transaction;
+	bool previous_status;
+	unsigned long flags;
+
 	if (!ctl || !ctl->panel_data ||
 		(ctl->panel_data->panel_info.type != MIPI_CMD_PANEL))
 		return;
 
-	spin_lock(&ctl->spin_lock);
-	if (ctl->perf_status) {
-		ctl->perf_status--;
-		if (ctl->perf_status)
-			ctl->perf_status--;
+	spin_lock_irqsave(&ctl->spin_lock, flags);
+
+	previous_transaction = ctl->perf_transaction_status;
+	previous_status = previous_transaction & BIT(component) ?
+		PERF_STATUS_BUSY : PERF_STATUS_DONE;
+
+	/*
+	 * If we set "done" state when previous state was not "busy",
+	 * we want to print a warning since maybe there is a state
+	 * that we are not considering
+	 */
+	WARN((PERF_STATUS_DONE == new_status) &&
+		(PERF_STATUS_BUSY != previous_status),
+		"unexpected previous state for component: %d\n", component);
+
+	set_status(&ctl->perf_transaction_status, new_status,
+		(u32)component);
+
+	pr_debug("component:%d previous_transaction:%d transaction_status:%d\n",
+		component, previous_transaction, ctl->perf_transaction_status);
+	pr_debug("new_status:%d prev_status:%d\n",
+		new_status, previous_status);
+
+	spin_unlock_irqrestore(&ctl->spin_lock, flags);
+}
+
+/**
+ * @ mdss_mdp_ctl_perf_get_transaction_status() -
+ *                             Get the status of the on-going operations
+ *                             for the command mode panels.
+ * @ctl - pointer to a ctl
+ *
+ * Return:
+ * The status of the transactions for the command mode panels,
+ * note that the bandwidth can be released only if all transaction
+ * status bits are zero.
+ */
+u32 mdss_mdp_ctl_perf_get_transaction_status(struct mdss_mdp_ctl *ctl)
+{
+	unsigned long flags;
+	u32 transaction_status;
+
+	/*
+	 * If Video Mode or not valid data to determine the status, return busy
+	 * status, so the bandwidth cannot be freed by the caller
+	 */
+	if (!ctl || !ctl->panel_data ||
+		(ctl->panel_data->panel_info.type != MIPI_CMD_PANEL)) {
+		return PERF_STATUS_BUSY;
 	}
-	pr_debug("perf_status=%d\n", ctl->perf_status);
-	spin_unlock(&ctl->spin_lock);
+
+	spin_lock_irqsave(&ctl->spin_lock, flags);
+	transaction_status = ctl->perf_transaction_status;
+	spin_unlock_irqrestore(&ctl->spin_lock, flags);
+
+	return transaction_status;
 }
 
 static inline void mdss_mdp_ctl_perf_update_bus(struct mdss_mdp_ctl *ctl)
@@ -810,13 +834,12 @@ static inline void mdss_mdp_ctl_perf_update_bus(struct mdss_mdp_ctl *ctl)
  * @ctl - pointer to a ctl
  *
  * Function checks a state variable for the ctl, if all pending commit
- * requests are done, meanning no more bandwidth is needed, release
+ * requests are done, meaning no more bandwidth is needed, release
  * bandwidth request.
  */
 void mdss_mdp_ctl_perf_release_bw(struct mdss_mdp_ctl *ctl)
 {
-	unsigned long flags;
-	int need_release = 0;
+	int transaction_status;
 	struct mdss_data_type *mdata;
 	int i;
 
@@ -834,23 +857,21 @@ void mdss_mdp_ctl_perf_release_bw(struct mdss_mdp_ctl *ctl)
 	for (i = 0; i < mdata->nctl; i++) {
 		struct mdss_mdp_ctl *ctl = mdata->ctl_off + i;
 
-		if (ctl->power_on && ctl->is_video_mode) {
-			mutex_unlock(&mdss_mdp_ctl_lock);
-			return;
-		}
+		if (ctl->power_on && ctl->is_video_mode)
+			goto exit;
 	}
 
-	spin_lock_irqsave(&ctl->spin_lock, flags);
-	if (!ctl->perf_status)
-		need_release = 1;
-	pr_debug("need release=%d\n", need_release);
-	spin_unlock_irqrestore(&ctl->spin_lock, flags);
+	transaction_status = mdss_mdp_ctl_perf_get_transaction_status(ctl);
+	pr_debug("transaction_status=0x%x\n", transaction_status);
 
-	if (need_release) {
+	/*Release the bandwidth only if there are no transactions pending*/
+	if (!transaction_status) {
 		ctl->cur_perf.bw_ctl = 0;
 		ctl->new_perf.bw_ctl = 0;
+		pr_debug("Release BW ctl=%d\n", ctl->num);
 		mdss_mdp_ctl_perf_update_bus(ctl);
 	}
+exit:
 	mutex_unlock(&mdss_mdp_ctl_lock);
 }
 
@@ -860,6 +881,7 @@ static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 	struct mdss_mdp_perf_params *new, *old;
 	int update_bus = 0, update_clk = 0;
 	struct mdss_data_type *mdata;
+	bool is_bw_released;
 
 	if (!ctl || !ctl->mdata)
 		return;
@@ -870,8 +892,14 @@ static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 	old = &ctl->cur_perf;
 	new = &ctl->new_perf;
 
+	/*
+	 * We could have released the bandwidth if there were no transactions
+	 * pending, so we want to re-calculate the bandwidth in this situation
+	 */
+	is_bw_released = !mdss_mdp_ctl_perf_get_transaction_status(ctl);
+
 	if (ctl->power_on) {
-		if (params_changed || mdss_mdp_ctl_perf_bw_released(ctl))
+		if (is_bw_released || params_changed)
 			mdss_mdp_perf_calc_ctl(ctl, new);
 		/*
 		 * if params have just changed delay the update until
@@ -2413,6 +2441,7 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 	struct mdss_mdp_ctl *sctl = NULL;
 	int mixer1_changed, mixer2_changed;
 	int ret = 0;
+	bool is_bw_released;
 
 	if (!ctl) {
 		pr_err("display function not set\n");
@@ -2434,7 +2463,15 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 
-	if (mixer1_changed || mixer2_changed
+	/*
+	 * We could have released the bandwidth if there were no transactions
+	 * pending, so we want to re-calculate the bandwidth in this situation
+	 */
+	is_bw_released = !mdss_mdp_ctl_perf_get_transaction_status(ctl);
+	mdss_mdp_ctl_perf_set_transaction_status(ctl, PERF_SW_COMMIT_STATE,
+		PERF_STATUS_BUSY);
+
+	if (is_bw_released || mixer1_changed || mixer2_changed
 			|| ctl->force_screen_state) {
 		if (ctl->prepare_fnc)
 			ret = ctl->prepare_fnc(ctl, arg);
