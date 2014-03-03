@@ -35,6 +35,8 @@
 #include <linux/rwsem.h>
 #include <linux/mfd/pm8xxx/misc.h>
 #include <linux/qpnp/qpnp-adc.h>
+#include <linux/pinctrl/consumer.h>
+
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
 
@@ -50,6 +52,9 @@
 #define CTRL_DEVICE "wcnss_ctrl"
 #define VERSION "1.01"
 #define WCNSS_PIL_DEVICE "wcnss"
+
+#define WCNSS_PINCTRL_STATE_DEFAULT "wcnss_default"
+#define WCNSS_PINCTRL_STATE_SLEEP "wcnss_sleep"
 
 /* module params */
 #define WCNSS_CONFIG_UNSPECIFIED (-1)
@@ -370,6 +375,9 @@ static struct {
 	u16 unsafe_ch_count;
 	u16 unsafe_ch_list[WCNSS_MAX_CH_NUM];
 	void *wcnss_notif_hdle;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *gpio_state_active;
+	struct pinctrl_state *gpio_state_suspend;
 } *penv = NULL;
 
 static ssize_t wcnss_wlan_macaddr_store(struct device *dev,
@@ -837,6 +845,66 @@ static void wcnss_smd_notify_event(void *data, unsigned int event)
 	default:
 		break;
 	}
+}
+
+static int
+wcnss_pinctrl_set_state(bool active)
+{
+	struct pinctrl_state *pin_state;
+	int rc;
+
+	pr_info("%s: Set GPIO state : %d\n", __func__, active);
+
+	pin_state = active ? penv->gpio_state_active
+			: penv->gpio_state_suspend;
+
+	if (!IS_ERR_OR_NULL(pin_state)) {
+		rc = pinctrl_select_state(penv->pinctrl, pin_state);
+		if (rc) {
+			pr_err("%s: can not set %s pins\n", __func__,
+				active ? WCNSS_PINCTRL_STATE_DEFAULT
+				: WCNSS_PINCTRL_STATE_SLEEP);
+			return 1;
+		}
+	} else {
+		pr_err("%s: invalid '%s' pinstate\n", __func__,
+			active ? WCNSS_PINCTRL_STATE_DEFAULT
+			: WCNSS_PINCTRL_STATE_SLEEP);
+			return 1;
+	}
+
+	return 0;
+}
+
+static int
+wcnss_pinctrl_init(struct platform_device *pdev)
+{
+	penv->pinctrl = devm_pinctrl_get(&pdev->dev);
+
+	if (IS_ERR_OR_NULL(penv->pinctrl)) {
+		pr_err("%s: failed to get pinctrl\n", __func__);
+		return PTR_ERR(penv->pinctrl);
+	}
+
+	penv->gpio_state_active
+		= pinctrl_lookup_state(penv->pinctrl,
+			WCNSS_PINCTRL_STATE_DEFAULT);
+
+	if (IS_ERR_OR_NULL(penv->gpio_state_active)) {
+		pr_err("%s: can not get default pinstate\n", __func__);
+		return 1;
+	}
+
+	penv->gpio_state_suspend
+		= pinctrl_lookup_state(penv->pinctrl,
+			WCNSS_PINCTRL_STATE_SLEEP);
+
+	if (IS_ERR_OR_NULL(penv->gpio_state_suspend)) {
+		pr_warn("%s: can not get sleep pinstate\n", __func__);
+		return 1;
+	}
+
+	return 0;
 }
 
 static int
@@ -1994,8 +2062,12 @@ wcnss_trigger_config(struct platform_device *pdev)
 	int ret;
 	struct qcom_wcnss_opts *pdata;
 	struct resource *res;
+	int is_pronto_light;
 	int has_pronto_hw = of_property_read_bool(pdev->dev.of_node,
 									"qcom,has-pronto-hw");
+
+	is_pronto_light = of_property_read_bool(pdev->dev.of_node,
+							"qcom,is-pronto-light");
 
 	if (of_property_read_u32(pdev->dev.of_node,
 			"qcom,wlan-rx-buff-count", &penv->wlan_rx_buff_count)) {
@@ -2040,13 +2112,29 @@ wcnss_trigger_config(struct platform_device *pdev)
 			goto fail_gpio_res;
 		}
 		ret = wcnss_gpios_config(penv->gpios_5wire, true);
-	} else
+	} else if (is_pronto_light) {
+		/* Use Pinctrl to configure 5 wire GPIOs */
+		ret = wcnss_pinctrl_init(pdev);
+		if (ret) {
+			pr_err("%s: failed to get pin resources\n", __func__);
+			goto fail_gpio_res;
+		} else {
+			/* Set GPIO State */
+			ret = wcnss_pinctrl_set_state(true);
+			if (ret) {
+				pr_err("%s: failed to set pin state\n",
+								__func__);
+				goto fail_gpio_res;
+			}
+		}
+	} else {
 		ret = wcnss_pronto_gpios_config(&pdev->dev, true);
-
-	if (ret) {
-		dev_err(&pdev->dev, "WCNSS gpios config failed.\n");
-		goto fail_gpio_res;
+		if (ret) {
+			dev_err(&pdev->dev, "WCNSS gpios config failed.\n");
+			goto fail_gpio_res;
+		}
 	}
+
 
 	/* allocate resources */
 	penv->mmio_res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -2242,10 +2330,12 @@ fail_ioremap2:
 fail_ioremap:
 	wake_lock_destroy(&penv->wcnss_wake_lock);
 fail_res:
-	if (has_pronto_hw)
-		wcnss_pronto_gpios_config(&pdev->dev, false);
-	else
+	if (!has_pronto_hw)
 		wcnss_gpios_config(penv->gpios_5wire, false);
+	else if (is_pronto_light)
+		wcnss_pinctrl_set_state(false);
+	else
+		wcnss_pronto_gpios_config(&pdev->dev, false);
 fail_gpio_res:
 	penv = NULL;
 	return ret;
