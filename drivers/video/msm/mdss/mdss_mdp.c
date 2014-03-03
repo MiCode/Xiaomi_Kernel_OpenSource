@@ -296,6 +296,7 @@ void mdss_disable_irq_nosync(struct mdss_hw *hw)
 	pr_debug("Disable HW=%d irq ena=%d mask=%x\n", hw->hw_ndx,
 			mdss_res->irq_ena, mdss_res->irq_mask);
 
+	spin_lock(&mdss_lock);
 	if (!(mdss_res->irq_mask & ndx_bit)) {
 		pr_warn("MDSS HW ndx=%d is NOT set, mask=%x, hist mask=%x\n",
 			hw->hw_ndx, mdss_res->mdp_irq_mask,
@@ -307,6 +308,7 @@ void mdss_disable_irq_nosync(struct mdss_hw *hw)
 			disable_irq_nosync(mdss_res->irq);
 		}
 	}
+	spin_unlock(&mdss_lock);
 }
 EXPORT_SYMBOL(mdss_disable_irq_nosync);
 
@@ -505,7 +507,16 @@ void mdss_mdp_hist_irq_disable(u32 irq)
 	spin_unlock_irqrestore(&mdp_lock, irq_flags);
 }
 
-/* called from interrupt context */
+/**
+ * mdss_mdp_irq_disable_nosync() - disable mdp irq
+ * @intr_type:	mdp interface type
+ * @intf_num:	mdp interface num
+ *
+ * This fucntion is called from interrupt context
+ * mdp_lock is already held at up stream (mdss_irq_handler)
+ * therefore spin_lock(&mdp_lock) is not allowed here
+ *
+*/
 void mdss_mdp_irq_disable_nosync(u32 intr_type, u32 intf_num)
 {
 	u32 irq;
