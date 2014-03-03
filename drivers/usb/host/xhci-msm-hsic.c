@@ -629,11 +629,16 @@ static int mxhci_hsic_bus_resume(struct usb_hcd *hcd)
 {
 	int ret;
 	struct mxhci_hsic_hcd *mxhci = hcd_to_hsic(hcd->primary_hcd);
+	struct xhci_bus_state *bus_state;
 
 	if (!usb_hcd_is_primary_hcd(hcd))
 		return 0;
 
 	if (mxhci->resume_gpio) {
+		bus_state = &mxhci->xhci->bus_state[hcd_index(hcd)];
+		if (time_before_eq(jiffies, bus_state->next_statechange))
+			usleep_range(10000, 11000);
+
 		xhci_dbg_log_event(&dbg_hsic, NULL, "resume gpio high",
 				readl_relaxed(MSM_HSIC_PORTSC));
 		gpio_direction_output(mxhci->resume_gpio, 1);

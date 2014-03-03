@@ -1306,6 +1306,9 @@ int xhci_bus_suspend(struct usb_hcd *hcd)
 	max_ports = xhci_get_ports(hcd, &port_array);
 	bus_state = &xhci->bus_state[hcd_index(hcd)];
 
+	if (time_before_eq(jiffies, bus_state->next_statechange))
+		usleep_range(10000, 11000);
+
 	spin_lock_irqsave(&xhci->lock, flags);
 
 	if (hcd->self.root_hub->do_remote_wakeup) {
@@ -1398,8 +1401,8 @@ int xhci_bus_resume(struct usb_hcd *hcd)
 	max_ports = xhci_get_ports(hcd, &port_array);
 	bus_state = &xhci->bus_state[hcd_index(hcd)];
 
-	if (time_before(jiffies, bus_state->next_statechange))
-		msleep(5);
+	if (time_before_eq(jiffies, bus_state->next_statechange))
+		usleep_range(10000, 11000);
 
 	spin_lock_irqsave(&xhci->lock, flags);
 	if (!HCD_HW_ACCESSIBLE(hcd)) {
