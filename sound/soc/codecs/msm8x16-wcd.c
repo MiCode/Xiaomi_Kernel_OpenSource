@@ -959,7 +959,7 @@ static const struct snd_kcontrol_new msm8x16_wcd_snd_controls[] = {
 			0,  -84,	40, digital_gain),
 
 	SOC_SINGLE("MICBIAS1 CAPLESS Switch",
-		   MSM8X16_WCD_A_ANALOG_MICB_1_EN, 4, 1, 1),
+		   MSM8X16_WCD_A_ANALOG_MICB_1_EN, 6, 1, 1),
 
 	SOC_ENUM("TX1 HPF cut off", cf_dec1_enum),
 	SOC_ENUM("TX2 HPF cut off", cf_dec2_enum),
@@ -1344,14 +1344,25 @@ static int msm8x16_wcd_codec_enable_adc(struct snd_soc_dapm_widget *w,
 		msm8x16_wcd_codec_enable_adc_block(codec, 1);
 		snd_soc_update_bits(codec, adc_reg, 1 << init_bit_shift,
 				1 << init_bit_shift);
+		snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_DIGITAL_CDC_CONN_TX2_CTL,
+				0x03, 0x00);
 		usleep_range(CODEC_DELAY_1_MS, CODEC_DELAY_1_1_MS);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		snd_soc_update_bits(codec, adc_reg, 1 << init_bit_shift, 0x00);
 		usleep_range(CODEC_DELAY_1_MS, CODEC_DELAY_1_1_MS);
+		if (w->reg == MSM8X16_WCD_A_ANALOG_TX_2_EN)
+			snd_soc_update_bits(codec, w->reg, 0x60, 0x60);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		msm8x16_wcd_codec_enable_adc_block(codec, 0);
+		snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_DIGITAL_CDC_CONN_TX2_CTL,
+				0x03, 0x02);
+		if (w->reg == MSM8X16_WCD_A_ANALOG_TX_2_EN)
+			snd_soc_update_bits(codec, w->reg, 0x60, 0x00);
+
 		break;
 	}
 	return 0;
@@ -1494,6 +1505,7 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 	dev_dbg(codec->dev, "%s %d\n", __func__, event);
 	switch (w->reg) {
 	case MSM8X16_WCD_A_ANALOG_MICB_1_EN:
+	case MSM8X16_WCD_A_ANALOG_MICB_2_EN:
 		micb_int_reg = MSM8X16_WCD_A_ANALOG_MICB_1_INT_RBIAS;
 		break;
 	default:
@@ -1505,26 +1517,39 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		if (strnstr(w->name, internal1_text, 30))
+		if (strnstr(w->name, internal1_text, 30)) {
 			snd_soc_update_bits(codec, micb_int_reg, 0x80, 0x80);
-		else if (strnstr(w->name, internal2_text, 30))
+			snd_soc_update_bits(codec, w->reg, 0x1, 0x0);
+		} else if (strnstr(w->name, internal2_text, 30)) {
 			snd_soc_update_bits(codec, micb_int_reg, 0x10, 0x10);
-		else if (strnstr(w->name, internal3_text, 30))
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_MICB_1_EN,
+					0x45, 0x44);
+			snd_soc_update_bits(codec, w->reg, 0x20, 0x00);
+		} else if (strnstr(w->name, internal3_text, 30)) {
 			snd_soc_update_bits(codec, micb_int_reg, 0x2, 0x2);
-		snd_soc_update_bits(codec, w->reg, 0x1, 0x0);
+			snd_soc_update_bits(codec, w->reg, 0x1, 0x0);
+		}
+
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		usleep_range(20000, 20100);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		if (strnstr(w->name, internal1_text, 30))
+		if (strnstr(w->name, internal1_text, 30)) {
 			snd_soc_update_bits(codec, micb_int_reg, 0x80, 0x00);
-		else if (strnstr(w->name, internal2_text, 30))
+			snd_soc_update_bits(codec, w->reg, 0x1, 0x1);
+		} else if (strnstr(w->name, internal2_text, 30)) {
 			snd_soc_update_bits(codec, micb_int_reg, 0x10, 0x00);
-		else if (strnstr(w->name, internal3_text, 30))
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_MICB_1_EN,
+					0x45, 0x00);
+			snd_soc_update_bits(codec, w->reg, 0x20, 0x20);
+		} else if (strnstr(w->name, internal3_text, 30)) {
 			snd_soc_update_bits(codec, micb_int_reg, 0x2, 0x0);
+			snd_soc_update_bits(codec, w->reg, 0x1, 0x1);
+		}
 
-		snd_soc_update_bits(codec, w->reg, 0x1, 0x1);
 		break;
 	}
 	return 0;
@@ -2445,7 +2470,7 @@ static const struct snd_soc_dapm_widget msm8x16_wcd_dapm_widgets[] = {
 		msm8x16_wcd_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS Internal2",
-		MSM8X16_WCD_A_ANALOG_MICB_1_EN, 7, 0,
+		MSM8X16_WCD_A_ANALOG_MICB_2_EN, 7, 0,
 		msm8x16_wcd_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS Internal3",
