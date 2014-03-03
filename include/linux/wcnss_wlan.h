@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@ enum wcnss_hw_type {
 
 struct wcnss_wlan_config {
 	int		use_48mhz_xo;
+	void __iomem *msm_wcnss_base;
 };
 
 enum {
@@ -58,7 +59,7 @@ void wcnss_unregister_thermal_mitigation(
 struct platform_device *wcnss_get_platform_device(void);
 struct wcnss_wlan_config *wcnss_get_wlan_config(void);
 void wcnss_set_iris_xo_mode(int iris_xo_mode_set);
-int wcnss_wlan_power(struct device *dev,
+int wcnss_wlan_power(struct platform_device *pdev,
 				struct wcnss_wlan_config *cfg,
 				enum wcnss_opcode opcode,
 				int *iris_xo_mode_set);

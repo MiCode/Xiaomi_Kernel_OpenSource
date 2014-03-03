@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,9 +33,6 @@ static LIST_HEAD(power_on_lock_list);
 static DEFINE_MUTEX(list_lock);
 static DEFINE_SEMAPHORE(wcnss_power_on_lock);
 static int auto_detect;
-
-#define MSM_RIVA_PHYS           0x03204000
-#define MSM_PRONTO_PHYS         0xfb21b000
 
 #define RIVA_PMU_OFFSET         0x28
 #define PRONTO_PMU_OFFSET       0x1004
@@ -143,41 +140,40 @@ int xo_auto_detect(u32 reg)
 	}
 }
 
-static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on,
-			int *iris_xo_set)
+static int
+configure_iris_xo(struct platform_device *pdev,
+			struct wcnss_wlan_config *cfg,
+			int on, int *iris_xo_set)
 {
 	u32 reg = 0;
 	u32 iris_reg = WCNSS_INVALID_IRIS_REG;
 	int rc = 0;
-	int size = 0;
 	int pmu_offset = 0;
 	int spare_offset = 0;
-	unsigned long wcnss_phys_addr;
 	void __iomem *pmu_conf_reg;
 	void __iomem *spare_reg;
 	void __iomem *iris_read_reg;
 	struct clk *clk;
 	struct clk *clk_rf = NULL;
+	bool use_48mhz_xo;
+
+	use_48mhz_xo = cfg->use_48mhz_xo;
 
 	if (wcnss_hardware_type() == WCNSS_PRONTO_HW) {
-		wcnss_phys_addr = MSM_PRONTO_PHYS;
 		pmu_offset = PRONTO_PMU_OFFSET;
 		spare_offset = PRONTO_SPARE_OFFSET;
-		size = 0x3000;
 
-		clk = clk_get(dev, "xo");
+		clk = clk_get(&pdev->dev, "xo");
 		if (IS_ERR(clk)) {
 			pr_err("Couldn't get xo clock\n");
 			return PTR_ERR(clk);
 		}
 
 	} else {
-		wcnss_phys_addr = MSM_RIVA_PHYS;
 		pmu_offset = RIVA_PMU_OFFSET;
 		spare_offset = RIVA_SPARE_OFFSET;
-		size = SZ_256;
 
-		clk = clk_get(dev, "cxo");
+		clk = clk_get(&pdev->dev, "cxo");
 		if (IS_ERR(clk)) {
 			pr_err("Couldn't get cxo clock\n");
 			return PTR_ERR(clk);
@@ -185,7 +181,7 @@ static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on,
 	}
 
 	if (on) {
-		msm_wcnss_base = ioremap(wcnss_phys_addr, size);
+		msm_wcnss_base = cfg->msm_wcnss_base;
 		if (!msm_wcnss_base) {
 			pr_err("ioremap wcnss physical failed\n");
 			goto fail;
@@ -278,7 +274,7 @@ static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on,
 		if ((!use_48mhz_xo && auto_detect == WCNSS_XO_INVALID)
 				|| auto_detect ==  WCNSS_XO_19MHZ) {
 
-			clk_rf = clk_get(dev, "rf_clk");
+			clk_rf = clk_get(&pdev->dev, "rf_clk");
 			if (IS_ERR(clk_rf)) {
 				pr_err("Couldn't get rf_clk\n");
 				goto fail;
@@ -295,7 +291,7 @@ static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on,
 
 	}  else if ((!use_48mhz_xo && auto_detect == WCNSS_XO_INVALID)
 			|| auto_detect ==  WCNSS_XO_19MHZ) {
-		clk_rf = clk_get(dev, "rf_clk");
+		clk_rf = clk_get(&pdev->dev, "rf_clk");
 		if (IS_ERR(clk_rf)) {
 			pr_err("Couldn't get rf_clk\n");
 			goto fail;
@@ -492,7 +488,7 @@ static int wcnss_core_vregs_on(struct device *dev, enum wcnss_hw_type hw_type)
 
 }
 
-int wcnss_wlan_power(struct device *dev,
+int wcnss_wlan_power(struct platform_device *pdev,
 		struct wcnss_wlan_config *cfg,
 		enum wcnss_opcode on, int *iris_xo_set)
 {
@@ -502,24 +498,24 @@ int wcnss_wlan_power(struct device *dev,
 	if (on) {
 		down(&wcnss_power_on_lock);
 		/* RIVA regulator settings */
-		rc = wcnss_core_vregs_on(dev, hw_type);
+		rc = wcnss_core_vregs_on(&pdev->dev, hw_type);
 		if (rc)
 			goto fail_wcnss_on;
 
 		/* IRIS regulator settings */
-		rc = wcnss_iris_vregs_on(dev, hw_type);
+		rc = wcnss_iris_vregs_on(&pdev->dev, hw_type);
 		if (rc)
 			goto fail_iris_on;
 
 		/* Configure IRIS XO */
-		rc = configure_iris_xo(dev, cfg->use_48mhz_xo,
+		rc = configure_iris_xo(pdev, cfg,
 				WCNSS_WLAN_SWITCH_ON, iris_xo_set);
 		if (rc)
 			goto fail_iris_xo;
 		up(&wcnss_power_on_lock);
 
 	} else {
-		configure_iris_xo(dev, cfg->use_48mhz_xo,
+		configure_iris_xo(pdev, cfg,
 				WCNSS_WLAN_SWITCH_OFF, NULL);
 		wcnss_iris_vregs_off(hw_type);
 		wcnss_core_vregs_off(hw_type);

@@ -73,13 +73,8 @@ MODULE_PARM_DESC(do_not_cancel_vote, "Do not cancel votes for wcnss");
 
 static DEFINE_SPINLOCK(reg_spinlock);
 
-#define MSM_RIVA_PHYS			0x03204000
-#define MSM_PRONTO_PHYS			0xfb21b000
-
 #define RIVA_SPARE_OFFSET		0x0b4
 #define RIVA_SUSPEND_BIT		BIT(24)
-
-#define MSM_RIVA_CCU_BASE			0x03200800
 
 #define CCU_RIVA_INVALID_ADDR_OFFSET		0x100
 #define CCU_RIVA_LAST_ADDR0_OFFSET		0x104
@@ -116,7 +111,6 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define PRONTO_PMU_COM_CSR_OFFSET          0x1040
 #define PRONTO_PMU_SOFT_RESET_OFFSET       0x104C
 
-#define MSM_PRONTO_A2XB_BASE		0xfb100400
 #define A2XB_CFG_OFFSET				0x00
 #define A2XB_INT_SRC_OFFSET			0x0c
 #define A2XB_TSTBUS_CTRL_OFFSET		0x14
@@ -134,24 +128,17 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define WCNSS_TSTBUS_CTRL_CTRL_CFG0	(0x00 << 28)
 #define WCNSS_TSTBUS_CTRL_CTRL_CFG1	(0x01 << 28)
 
-#define MSM_PRONTO_CCPU_BASE			0xfb205050
 #define CCU_PRONTO_INVALID_ADDR_OFFSET		0x08
 #define CCU_PRONTO_LAST_ADDR0_OFFSET		0x0c
 #define CCU_PRONTO_LAST_ADDR1_OFFSET		0x10
 #define CCU_PRONTO_LAST_ADDR2_OFFSET		0x14
 
-#define MSM_PRONTO_SAW2_BASE			0xfb219000
 #define PRONTO_SAW2_SPM_STS_OFFSET		0x0c
 
-#define MSM_PRONTO_PLL_BASE				0xfb21b1c0
 #define PRONTO_PLL_STATUS_OFFSET		0x1c
+#define PRONTO_PLL_MODE_OFFSET			0x1c0
 
-#define MSM_PRONTO_TXP_STATUS           0xfb08040c
-#define MSM_PRONTO_TXP_PHY_ABORT        0xfb080488
-#define MSM_PRONTO_BRDG_ERR_SRC         0xfb080fb0
 
-#define MSM_PRONTO_ALARMS_TXCTL         0xfb0120a8
-#define MSM_PRONTO_ALARMS_TACTL         0xfb012448
 
 #define WCNSS_DEF_WLAN_RX_BUFF_COUNT		1024
 #define WCNSS_VBATT_THRESHOLD		3500000
@@ -2006,8 +1993,6 @@ wcnss_trigger_config(struct platform_device *pdev)
 {
 	int ret;
 	struct qcom_wcnss_opts *pdata;
-	unsigned long wcnss_phys_addr;
-	int size = 0;
 	struct resource *res;
 	int has_pronto_hw = of_property_read_bool(pdev->dev.of_node,
 									"qcom,has-pronto-hw");
@@ -2083,39 +2068,58 @@ wcnss_trigger_config(struct platform_device *pdev)
 	wake_lock_init(&penv->wcnss_wake_lock, WAKE_LOCK_SUSPEND, "wcnss");
 
 	if (wcnss_hardware_type() == WCNSS_PRONTO_HW) {
-		size = 0x3000;
-		wcnss_phys_addr = MSM_PRONTO_PHYS;
+		res = platform_get_resource_byname(pdev,
+			IORESOURCE_MEM, "pronto_phy_base");
+		penv->msm_wcnss_base =
+			devm_request_and_ioremap(&pdev->dev, res);
 	} else {
-		wcnss_phys_addr = MSM_RIVA_PHYS;
-		size = SZ_256;
+		res = platform_get_resource_byname(pdev,
+			IORESOURCE_MEM, "riva_phy_base");
+		penv->msm_wcnss_base =
+			devm_request_and_ioremap(&pdev->dev, res);
 	}
 
-	penv->msm_wcnss_base = ioremap(wcnss_phys_addr, size);
 	if (!penv->msm_wcnss_base) {
 		ret = -ENOMEM;
 		pr_err("%s: ioremap wcnss physical failed\n", __func__);
 		goto fail_ioremap;
 	}
 
+	penv->wlan_config.msm_wcnss_base = penv->msm_wcnss_base;
 	if (wcnss_hardware_type() == WCNSS_RIVA_HW) {
-		penv->riva_ccu_base =  ioremap(MSM_RIVA_CCU_BASE, SZ_512);
+		res = platform_get_resource_byname(pdev,
+			IORESOURCE_MEM, "riva_ccu_base");
+		penv->riva_ccu_base =
+			devm_request_and_ioremap(&pdev->dev, res);
+
 		if (!penv->riva_ccu_base) {
 			ret = -ENOMEM;
-			pr_err("%s: ioremap wcnss physical failed\n", __func__);
-			goto fail_ioremap2;
+			pr_err("%s: ioremap riva ccu physical failed\n",
+								 __func__);
+			goto fail_ioremap;
 		}
 	} else {
-		penv->pronto_a2xb_base =  ioremap(MSM_PRONTO_A2XB_BASE, SZ_512);
+		res = platform_get_resource_byname(pdev,
+			IORESOURCE_MEM, "pronto_a2xb_base");
+		penv->pronto_a2xb_base =
+			devm_request_and_ioremap(&pdev->dev, res);
+
 		if (!penv->pronto_a2xb_base) {
 			ret = -ENOMEM;
-			pr_err("%s: ioremap wcnss physical failed\n", __func__);
-			goto fail_ioremap2;
+			pr_err("%s: ioremap pronto a2xb physical failed\n",
+								 __func__);
+			goto fail_ioremap;
 		}
-		penv->pronto_ccpu_base =  ioremap(MSM_PRONTO_CCPU_BASE, SZ_512);
+
+		res = platform_get_resource_byname(pdev,
+			IORESOURCE_MEM, "pronto_ccpu_base");
+		penv->pronto_ccpu_base =
+			devm_request_and_ioremap(&pdev->dev, res);
+
 		if (!penv->pronto_ccpu_base) {
 			ret = -ENOMEM;
 			pr_err("%s: ioremap wcnss physical failed\n", __func__);
-			goto fail_ioremap3;
+			goto fail_ioremap;
 		}
 		/* for reset FIQ */
 		res = platform_get_resource_byname(penv->pdev,
@@ -2123,63 +2127,92 @@ wcnss_trigger_config(struct platform_device *pdev)
 		if (!res) {
 			dev_err(&pdev->dev, "insufficient irq mem resources\n");
 			ret = -ENOENT;
-			goto fail_ioremap4;
+			goto fail_ioremap;
 		}
 		penv->fiq_reg = ioremap_nocache(res->start, resource_size(res));
 		if (!penv->fiq_reg) {
 			pr_err("wcnss: %s: ioremap_nocache() failed fiq_reg addr:%pr\n",
 				__func__, &res->start);
 			ret = -ENOMEM;
-			goto fail_ioremap4;
+			goto fail_ioremap;
 		}
-		penv->pronto_saw2_base = ioremap_nocache(MSM_PRONTO_SAW2_BASE,
-				SZ_32);
+
+		res = platform_get_resource_byname(pdev,
+			IORESOURCE_MEM, "pronto_saw2_base");
+		penv->pronto_saw2_base =
+			devm_request_and_ioremap(&pdev->dev, res);
+
 		if (!penv->pronto_saw2_base) {
 			pr_err("%s: ioremap wcnss physical(saw2) failed\n",
 					__func__);
 			ret = -ENOMEM;
-			goto fail_ioremap5;
+			goto fail_ioremap2;
 		}
-		penv->pronto_pll_base = ioremap_nocache(MSM_PRONTO_PLL_BASE,
-				SZ_64);
+
+		penv->pronto_pll_base =
+			penv->msm_wcnss_base + PRONTO_PLL_MODE_OFFSET;
 		if (!penv->pronto_pll_base) {
 			pr_err("%s: ioremap wcnss physical(pll) failed\n",
 					__func__);
 			ret = -ENOMEM;
-			goto fail_ioremap6;
+			goto fail_ioremap2;
 		}
 
-		penv->wlan_tx_phy_aborts =  ioremap(MSM_PRONTO_TXP_PHY_ABORT,
-					SZ_8);
+		res = platform_get_resource_byname(pdev,
+			IORESOURCE_MEM, "wlan_tx_phy_aborts");
+		penv->wlan_tx_phy_aborts =
+			devm_request_and_ioremap(&pdev->dev, res);
+
 		if (!penv->wlan_tx_phy_aborts) {
 			ret = -ENOMEM;
 			pr_err("%s: ioremap wlan TX PHY failed\n", __func__);
-			goto fail_ioremap7;
+			goto fail_ioremap2;
 		}
-		penv->wlan_brdg_err_source =  ioremap(MSM_PRONTO_BRDG_ERR_SRC,
-							SZ_8);
+
+		res = platform_get_resource_byname(pdev,
+			IORESOURCE_MEM, "wlan_brdg_err_source");
+		penv->wlan_brdg_err_source =
+			devm_request_and_ioremap(&pdev->dev, res);
+
 		if (!penv->wlan_brdg_err_source) {
 			ret = -ENOMEM;
 			pr_err("%s: ioremap wlan BRDG ERR failed\n", __func__);
-			goto fail_ioremap8;
+			goto fail_ioremap2;
 		}
-		penv->wlan_tx_status = ioremap(MSM_PRONTO_TXP_STATUS, SZ_8);
+
+
+		res = platform_get_resource_byname(pdev,
+			IORESOURCE_MEM, "wlan_tx_status");
+		penv->wlan_tx_status =
+			devm_request_and_ioremap(&pdev->dev, res);
+
 		if (!penv->wlan_tx_status) {
 			ret = -ENOMEM;
 			pr_err("%s: ioremap wlan TX STATUS failed\n", __func__);
-			goto fail_ioremap9;
+			goto fail_ioremap2;
 		}
-		penv->alarms_txctl = ioremap(MSM_PRONTO_ALARMS_TXCTL, SZ_8);
+
+		res = platform_get_resource_byname(pdev,
+			IORESOURCE_MEM, "alarms_txctl");
+		penv->alarms_txctl =
+			devm_request_and_ioremap(&pdev->dev, res);
+
 		if (!penv->alarms_txctl) {
 			ret = -ENOMEM;
 			pr_err("%s: ioremap alarms TXCTL failed\n", __func__);
-			goto fail_ioremap10;
+			goto fail_ioremap2;
 		}
-		penv->alarms_tactl = ioremap(MSM_PRONTO_ALARMS_TACTL, SZ_8);
+
+
+		res = platform_get_resource_byname(pdev,
+			IORESOURCE_MEM, "alarms_tactl");
+		penv->alarms_tactl =
+			devm_request_and_ioremap(&pdev->dev, res);
+
 		if (!penv->alarms_tactl) {
 			ret = -ENOMEM;
 			pr_err("%s: ioremap alarms TACTL failed\n", __func__);
-			goto fail_ioremap11;
+			goto fail_ioremap2;
 		}
 	}
 	penv->adc_tm_dev = qpnp_get_adc_tm(&penv->pdev->dev, "wcnss");
@@ -2198,46 +2231,14 @@ wcnss_trigger_config(struct platform_device *pdev)
 		ret = PTR_ERR(penv->pil);
 		wcnss_pronto_log_debug_regs();
 		penv->pil = NULL;
-		goto fail_pil;
+		goto fail_ioremap2;
 	}
 
 	return 0;
 
-fail_pil:
-	if (penv->riva_ccu_base)
-		iounmap(penv->riva_ccu_base);
-	if (penv->alarms_tactl)
-		iounmap(penv->alarms_tactl);
-fail_ioremap11:
-	if (penv->alarms_txctl)
-		iounmap(penv->alarms_txctl);
-fail_ioremap10:
-	if (penv->wlan_tx_status)
-		iounmap(penv->wlan_tx_status);
-fail_ioremap9:
-	if (penv->wlan_brdg_err_source)
-		iounmap(penv->wlan_brdg_err_source);
-fail_ioremap8:
-	if (penv->wlan_tx_phy_aborts)
-		iounmap(penv->wlan_tx_phy_aborts);
-fail_ioremap7:
-	if (penv->pronto_pll_base)
-		iounmap(penv->pronto_pll_base);
-fail_ioremap6:
-	if (penv->pronto_saw2_base)
-		iounmap(penv->pronto_saw2_base);
-fail_ioremap5:
+fail_ioremap2:
 	if (penv->fiq_reg)
 		iounmap(penv->fiq_reg);
-fail_ioremap4:
-	if (penv->pronto_ccpu_base)
-		iounmap(penv->pronto_ccpu_base);
-fail_ioremap3:
-	if (penv->pronto_a2xb_base)
-		iounmap(penv->pronto_a2xb_base);
-fail_ioremap2:
-	if (penv->msm_wcnss_base)
-		iounmap(penv->msm_wcnss_base);
 fail_ioremap:
 	wake_lock_destroy(&penv->wcnss_wake_lock);
 fail_res:
@@ -2380,7 +2381,7 @@ static int wcnss_notif_cb(struct notifier_block *this, unsigned long code,
 
 	if (code == SUBSYS_PROXY_VOTE) {
 		if (pdev && pwlanconfig) {
-			ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
+			ret = wcnss_wlan_power(pdev, pwlanconfig,
 					WCNSS_WLAN_SWITCH_ON, &xo_mode);
 			wcnss_set_iris_xo_mode(xo_mode);
 			if (ret)
@@ -2393,7 +2394,7 @@ static int wcnss_notif_cb(struct notifier_block *this, unsigned long code,
 			 * voting for it's resources too early.
 			 */
 			msleep(20);
-			wcnss_wlan_power(&pdev->dev, pwlanconfig,
+			wcnss_wlan_power(pdev, pwlanconfig,
 					WCNSS_WLAN_SWITCH_OFF, NULL);
 		}
 	} else if ((code == SUBSYS_BEFORE_SHUTDOWN && ss_handle) ||
