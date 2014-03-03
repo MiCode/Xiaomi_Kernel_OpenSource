@@ -183,6 +183,7 @@ struct cpp_device {
 	struct workqueue_struct *timer_wq;
 	struct msm_cpp_work_t *work;
 	uint8_t stream_cnt;
+	uint8_t timeout_trial_cnt;
 
 	int domain_num;
 	struct iommu_domain *domain;
