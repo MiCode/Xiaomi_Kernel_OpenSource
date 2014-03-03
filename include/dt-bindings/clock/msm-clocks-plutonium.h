@@ -372,6 +372,18 @@
 #define clk_venus0_core2_vcodec_clk 0x24fa20a3
 #define clk_mmss_debug_mux 0xe646ffda
 
+/* clock_mdss controlled clocks */
+#define clk_pclk0_clk_src 0xccac1f35
+#define clk_pclk1_clk_src 0x090f68ac
+#define clk_byte0_clk_src 0x75cc885b
+#define clk_byte1_clk_src 0x63c2c955
+#define clk_extpclk_clk_src 0xb2c31abd
+#define clk_mdss_byte0_clk 0xf5a03f64
+#define clk_mdss_byte1_clk 0xb8c7067d
+#define clk_mdss_extpclk_clk 0xfa5aadb0
+#define clk_mdss_pclk0_clk 0x3487234a
+#define clk_mdss_pclk1_clk 0xd5804246
+
 /* clock_debug controlled clocks */
 #define clk_gcc_debug_mux 0x8121ac15
 
