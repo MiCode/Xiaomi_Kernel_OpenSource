@@ -612,6 +612,14 @@
 		#clock-cells = <1>;
 	};
 
+	clock_mdss: qcom,mmsscc-mdss@fd8c0000 {
+		compatible = "qcom,mmsscc-mdss-plutonium";
+		reg = <0xfd8c0000 0x5200>;
+		reg-names = "cc_base";
+		vdd_dig-supply = <&pmplutonium_s1_corner>;
+		#clock-cells = <1>;
+	};
+
 	clock_debug: qcom,cc-debug@fc401880 {
 		compatible = "qcom,cc-debug-plutonium";
 		reg = <0xfc401880 0x4>;
