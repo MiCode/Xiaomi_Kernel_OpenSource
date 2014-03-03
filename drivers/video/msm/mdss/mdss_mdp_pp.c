@@ -1900,6 +1900,10 @@ int mdss_mdp_pp_init(struct device *dev)
 				for (i = 0; i < mdata->nmixers_intf; i++) {
 					mutex_init(&hist[i].hist_mutex);
 					spin_lock_init(&hist[i].hist_lock);
+					hist[i].intr_shift = (i * 4) + 12;
+					hist[i].base =
+						mdss_mdp_get_dspp_addr_off(i) +
+						MDSS_MDP_REG_DSPP_HIST_CTL_BASE;
 				}
 				mdss_pp_res->dspp_hist = hist;
 			}
@@ -1910,6 +1914,9 @@ int mdss_mdp_pp_init(struct device *dev)
 		for (i = 0; i < mdata->nvig_pipes; i++) {
 			mutex_init(&vig[i].pp_res.hist.hist_mutex);
 			spin_lock_init(&vig[i].pp_res.hist.hist_lock);
+			vig[i].pp_res.hist.intr_shift = (vig[i].num * 4);
+			vig[i].pp_res.hist.base = vig[i].base +
+				MDSS_MDP_REG_VIG_HIST_CTL_BASE;
 		}
 		if (!mdata->pp_bus_hdl) {
 			pp_bus_pdata = &mdp_pp_bus_scale_table;
@@ -3230,9 +3237,6 @@ int mdss_mdp_hist_start(struct mdp_histogram_start_req *req)
 				goto hist_stop_clk;
 			}
 			hist_info = &pipe->pp_res.hist;
-			hist_info->intr_shift = (pipe->num * 4);
-			hist_info->base = pipe->base +
-				MDSS_MDP_REG_VIG_HIST_CTL_BASE;
 			ret = pp_hist_enable(hist_info, req);
 			mdss_mdp_pipe_unmap(pipe);
 		}
@@ -3240,9 +3244,6 @@ int mdss_mdp_hist_start(struct mdp_histogram_start_req *req)
 		for (i = 0; i < mixer_cnt; i++) {
 			dspp_num = mixer_id[i];
 			hist_info = &mdss_pp_res->dspp_hist[dspp_num];
-			hist_info->intr_shift = (dspp_num * 4) + 12;
-			hist_info->base = mdss_mdp_get_dspp_addr_off(dspp_num) +
-				MDSS_MDP_REG_DSPP_HIST_CTL_BASE;
 			ret = pp_hist_enable(hist_info, req);
 			mdss_pp_res->pp_disp_flags[disp_num] |=
 							PP_FLAGS_DIRTY_HIST_COL;
