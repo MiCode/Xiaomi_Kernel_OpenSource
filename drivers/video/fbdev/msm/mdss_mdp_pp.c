@@ -1906,6 +1906,9 @@ int mdss_mdp_pp_init(struct device *dev)
 						MDSS_MDP_REG_DSPP_HIST_CTL_BASE;
 					init_completion(&hist[i].comp);
 				}
+				if (mdata->nmixers_intf == 4)
+					hist[3].intr_shift = 22;
+
 				mdss_pp_res->dspp_hist = hist;
 			}
 		}
