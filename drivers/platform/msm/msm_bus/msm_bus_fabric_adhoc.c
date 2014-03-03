@@ -61,6 +61,35 @@ static int setrate_nodeclk(struct nodeclk *nclk, long rate)
 	return ret;
 }
 
+static int msm_bus_agg_fab_clks(struct device *bus_dev, void *data)
+{
+	struct msm_bus_node_device_type *node = NULL;
+	int ret = 0;
+	int ctx = *(int *)data;
+
+	if (ctx >= NUM_CTX)
+		MSM_BUS_ERR("%s: Invalid Context %d", __func__, ctx);
+
+	node = bus_dev->platform_data;
+	if (!node) {
+		MSM_BUS_ERR("%s: Can't get device info", __func__);
+		goto exit_agg_fab_clks;
+	}
+
+	if (!node->node_info->is_fab_dev) {
+		struct msm_bus_node_device_type *bus_dev = NULL;
+
+		bus_dev = node->node_info->bus_device->platform_data;
+
+		if (node->cur_clk_hz[ctx] >= bus_dev->cur_clk_hz[ctx])
+			bus_dev->cur_clk_hz[ctx] = node->cur_clk_hz[ctx];
+	}
+
+exit_agg_fab_clks:
+	return ret;
+}
+
+
 static int send_rpm_msg(struct device *device)
 {
 	int ret = 0;
@@ -164,19 +193,25 @@ exit_flush_bw_data:
 
 static int flush_clk_data(struct device *node_device, int ctx)
 {
-	struct msm_bus_node_device_type *node_info;
+	struct msm_bus_node_device_type *node;
 	struct nodeclk *nodeclk = NULL;
 	int ret = 0;
 
-	node_info = node_device->platform_data;
-	if (!node_info) {
+	node = node_device->platform_data;
+	if (!node) {
 		MSM_BUS_ERR("%s: Unable to find bus device for device %d",
-			__func__, node_info->node_info->id);
+			__func__, node->node_info->id);
 		ret = -ENODEV;
 		goto exit_flush_clk_data;
 	}
 
-	nodeclk = &node_info->clk[ctx];
+	nodeclk = &node->clk[ctx];
+	if (node->node_info->is_fab_dev) {
+		if (nodeclk->rate != node->cur_clk_hz[ctx]) {
+			nodeclk->rate = node->cur_clk_hz[ctx];
+			nodeclk->dirty = true;
+		}
+	}
 
 	if (nodeclk && nodeclk->clk && nodeclk->dirty) {
 		long rounded_rate;
@@ -189,7 +224,7 @@ static int flush_clk_data(struct device *node_device, int ctx)
 			if (ret) {
 				MSM_BUS_ERR("%s: Failed to set_rate %lu for %d",
 					__func__, rounded_rate,
-						node_info->node_info->id);
+						node->node_info->id);
 				ret = -ENODEV;
 				goto exit_flush_clk_data;
 			}
@@ -200,17 +235,20 @@ static int flush_clk_data(struct device *node_device, int ctx)
 
 		if (ret) {
 			MSM_BUS_ERR("%s: Failed to enable for %d", __func__,
-						node_info->node_info->id);
+						node->node_info->id);
 			ret = -ENODEV;
 			goto exit_flush_clk_data;
 		}
 		MSM_BUS_DBG("%s: Updated %d clk to %llu", __func__,
-				node_info->node_info->id, nodeclk->rate);
+				node->node_info->id, nodeclk->rate);
 
 	}
 exit_flush_clk_data:
+	/* Reset the aggregated clock rate for fab devices*/
+	if (node->node_info->is_fab_dev)
+		node->cur_clk_hz[ctx] = 0;
+
 	nodeclk->dirty = 0;
-	nodeclk->rate = 0;
 	return ret;
 }
 
@@ -218,6 +256,10 @@ int msm_bus_commit_data(int *dirty_nodes, int ctx, int num_dirty)
 {
 	int ret = 0;
 	int i = 0;
+
+	/* Aggregate the bus clocks */
+	bus_for_each_dev(&msm_bus_type, NULL, (void *)&ctx,
+				msm_bus_agg_fab_clks);
 
 	for (i = 0; i < num_dirty; i++) {
 		struct device *node_device =
@@ -335,11 +377,7 @@ int msm_bus_update_clks(struct msm_bus_node_device_type *nodedev,
 	req_clk = nodedev->cur_clk_hz[ctx];
 	busclk = &bus_info->clk[ctx];
 
-	/* If the busclk rate is not marked "dirty" update the rate.
-	 * If the rate is dirty but less than this updated request
-	 * then modify (this means within the same update transaction)
-	 */
-	if (!busclk->dirty || (busclk->dirty && (busclk->rate < req_clk))) {
+	if (busclk->rate != req_clk) {
 		busclk->rate = req_clk;
 		busclk->dirty = 1;
 		MSM_BUS_DBG("%s: Modifying bus clk %d Rate %llu", __func__,
