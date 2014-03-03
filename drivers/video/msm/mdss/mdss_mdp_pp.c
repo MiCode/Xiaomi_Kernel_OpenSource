@@ -3467,7 +3467,8 @@ int mdss_mdp_hist_intr_setup(struct mdss_intr *intr, int type)
 		dis = intr->curr;
 		intr->curr = 0;
 		intr->state = MDSS_INTR_STATE_SUSPEND;
-	} else if (intr->state != MDSS_IRQ_SUSPEND) {
+	} else if (intr->state != MDSS_IRQ_SUSPEND &&
+			type == MDSS_IRQ_REQ) {
 		/* Not resuming/suspending or in suspend state */
 		diff = intr->req ^ intr->curr;
 		en = diff & ~intr->curr;
