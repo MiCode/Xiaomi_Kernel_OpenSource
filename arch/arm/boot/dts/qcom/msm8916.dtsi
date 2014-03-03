@@ -1050,7 +1050,6 @@
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp1_qup2_i2c_apps_clk>;
 		clock-names = "iface_clk", "core_clk";
-		qcom,use-pinctrl;
 		qcom,clk-freq-out = <100000>;
 		qcom,clk-freq-in  = <19200000>;
 		pinctrl-names = "default", "sleep";
@@ -1061,7 +1060,6 @@
 		qcom,bam-pipe-idx-cons = <6>;
 		qcom,bam-pipe-idx-prod = <7>;
 		qcom,master-id = <86>;
-		status = "disabled";
 	};
 	i2c_5: i2c@78b9000 { /* BLSP1 QUP5 */
 		compatible = "qcom,i2c-msm-v2";
