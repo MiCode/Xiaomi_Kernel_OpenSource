@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,7 @@ enum wcd9xxx_cdc_type {
 	WCD9XXX_CDC_TYPE_TAIKO,
 	WCD9XXX_CDC_TYPE_TAPAN,
 	WCD9XXX_CDC_TYPE_HELICON,
+	WCD9XXX_CDC_TYPE_TOMTOM,
 };
 
 enum wcd9xxx_clock_type {
