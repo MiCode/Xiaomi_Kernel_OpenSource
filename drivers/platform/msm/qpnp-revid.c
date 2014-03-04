@@ -36,8 +36,8 @@ static const char *const pmic_names[] = {
 	"PMA8084",
 	"PMI8962",
 	"PMD9635",
-	"Unknown PMIC",
-	"Unknown PMIC",
+	"PMPlutonium",
+	"PMIPlutonium",
 	"PM8916",
 };
 
