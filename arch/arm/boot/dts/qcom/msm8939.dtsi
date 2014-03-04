@@ -19,6 +19,8 @@
 	qcom,msm-id = <239 0>, <241 0>;
 	interrupt-parent = <&intc>;
 	aliases {
+		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
+		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 		/* smdtty devices */
 		smd1 = &smdtty_apps_fm;
 		smd2 = &smdtty_apps_riva_bt_acl;
@@ -600,6 +602,47 @@
 		#size-cells = <0>;
 		cell-index = <0>;
 		qcom,not-wakeup; /* Needed until RPM is fully configured */
+	};
+
+	sdhc_1: sdhci@7824000 {
+		compatible = "qcom,sdhci-msm";
+		reg = <0x7824900 0x11c>, <0x7824000 0x800>;
+		reg-names = "hc_mem", "core_mem";
+
+		interrupts = <0 123 0>, <0 138 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		qcom,bus-width = <8>;
+		qcom,cpu-dma-latency-us = <701>;
+
+		clocks = <&clock_gcc clk_gcc_sdcc1_ahb_clk>,
+			 <&clock_gcc clk_gcc_sdcc1_apps_clk>;
+		clock-names = "iface_clk", "core_clk";
+
+		qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
+		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+
+		status = "disabled";
+	};
+
+	sdhc_2: sdhci@7864000 {
+		compatible = "qcom,sdhci-msm";
+		reg = <0x7864900 0x11c>, <0x7864000 0x800>;
+		reg-names = "hc_mem", "core_mem";
+
+		interrupts = <0 125 0>, <0 221 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		qcom,bus-width = <4>;
+		qcom,cpu-dma-latency-us = <701>;
+
+		clocks = <&clock_gcc clk_gcc_sdcc2_ahb_clk>,
+			 <&clock_gcc clk_gcc_sdcc2_apps_clk>;
+		clock-names = "iface_clk", "core_clk";
+
+		qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
+
+		status = "disabled";
 	};
 };
 
