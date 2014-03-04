@@ -77,6 +77,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define USB3_PHY_AUX_CBCR                                (0x1408)
 #define USB3_PHY_PIPE_CBCR                               (0x140C)
 #define USB3_PHY_AUX_CMD_RCGR                            (0x1414)
+#define USB_HS_BCR                                       (0x0480)
 #define USB_HS_SYSTEM_CBCR                               (0x0484)
 #define USB_HS_AHB_CBCR                                  (0x0488)
 #define USB_HS_SYSTEM_CMD_RCGR                           (0x0490)
@@ -2257,6 +2258,7 @@ static struct branch_clk gcc_usb_hs_ahb_clk = {
 
 static struct branch_clk gcc_usb_hs_system_clk = {
 	.cbcr_reg = USB_HS_SYSTEM_CBCR,
+	.bcr_reg = USB_HS_BCR,
 	.has_sibling = 0,
 	.base = &virt_base,
 	.c = {
