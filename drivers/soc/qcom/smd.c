@@ -1487,6 +1487,8 @@ static inline void log_irq(uint32_t subsystem)
 
 irqreturn_t smd_modem_irq_handler(int irq, void *data)
 {
+	if (unlikely(!edge_to_pids[SMD_APPS_MODEM].initialized))
+		return IRQ_HANDLED;
 	log_irq(SMD_APPS_MODEM);
 	++interrupt_stats[SMD_MODEM].smd_in_count;
 	handle_smd_irq(&remote_info[SMD_MODEM], notify_modem_smd);
@@ -1496,6 +1498,8 @@ irqreturn_t smd_modem_irq_handler(int irq, void *data)
 
 irqreturn_t smd_dsp_irq_handler(int irq, void *data)
 {
+	if (unlikely(!edge_to_pids[SMD_APPS_QDSP].initialized))
+		return IRQ_HANDLED;
 	log_irq(SMD_APPS_QDSP);
 	++interrupt_stats[SMD_Q6].smd_in_count;
 	handle_smd_irq(&remote_info[SMD_Q6], notify_dsp_smd);
@@ -1505,6 +1509,8 @@ irqreturn_t smd_dsp_irq_handler(int irq, void *data)
 
 irqreturn_t smd_dsps_irq_handler(int irq, void *data)
 {
+	if (unlikely(!edge_to_pids[SMD_APPS_DSPS].initialized))
+		return IRQ_HANDLED;
 	log_irq(SMD_APPS_DSPS);
 	++interrupt_stats[SMD_DSPS].smd_in_count;
 	handle_smd_irq(&remote_info[SMD_DSPS], notify_dsps_smd);
@@ -1514,6 +1520,8 @@ irqreturn_t smd_dsps_irq_handler(int irq, void *data)
 
 irqreturn_t smd_wcnss_irq_handler(int irq, void *data)
 {
+	if (unlikely(!edge_to_pids[SMD_APPS_WCNSS].initialized))
+		return IRQ_HANDLED;
 	log_irq(SMD_APPS_WCNSS);
 	++interrupt_stats[SMD_WCNSS].smd_in_count;
 	handle_smd_irq(&remote_info[SMD_WCNSS], notify_wcnss_smd);
@@ -1523,6 +1531,8 @@ irqreturn_t smd_wcnss_irq_handler(int irq, void *data)
 
 irqreturn_t smd_modemfw_irq_handler(int irq, void *data)
 {
+	if (unlikely(!edge_to_pids[SMD_APPS_Q6FW].initialized))
+		return IRQ_HANDLED;
 	log_irq(SMD_APPS_Q6FW);
 	++interrupt_stats[SMD_MODEM_Q6_FW].smd_in_count;
 	handle_smd_irq(&remote_info[SMD_MODEM_Q6_FW], notify_modemfw_smd);
@@ -1532,6 +1542,8 @@ irqreturn_t smd_modemfw_irq_handler(int irq, void *data)
 
 irqreturn_t smd_rpm_irq_handler(int irq, void *data)
 {
+	if (unlikely(!edge_to_pids[SMD_APPS_RPM].initialized))
+		return IRQ_HANDLED;
 	log_irq(SMD_APPS_RPM);
 	++interrupt_stats[SMD_RPM].smd_in_count;
 	handle_smd_irq(&remote_info[SMD_RPM], notify_rpm_smd);
