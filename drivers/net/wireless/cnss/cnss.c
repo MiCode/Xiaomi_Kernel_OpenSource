@@ -28,6 +28,8 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/ramdump.h>
+#include <linux/msm-bus.h>
+#include <linux/msm-bus-board.h>
 #include <mach/gpiomux.h>
 #include <mach/msm_pcie.h>
 #include <net/cnss.h>
@@ -93,6 +95,8 @@ static struct cnss_data {
 	void *modem_notify_handler;
 	bool pci_register_again;
 	int modem_current_status;
+	struct msm_bus_scale_pdata *bus_scale_table;
+	uint32_t bus_client;
 } *penv;
 
 static int cnss_wlan_vreg_set(struct cnss_wlan_vreg_info *vreg_info, bool state)
@@ -542,6 +546,8 @@ void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver)
 		return;
 	}
 
+	msm_bus_scale_client_update_request(penv->bus_client, 0);
+
 	if (!pdev) {
 		pr_err("%d: invalid pdev\n", __LINE__);
 		goto cut_power;
@@ -963,8 +969,23 @@ static int cnss_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_pci_reg;
 
+	penv->bus_scale_table = msm_bus_cl_get_pdata(pdev);
+	if (!penv->bus_scale_table)
+		goto err_bus_scale;
+
+	penv->bus_client = msm_bus_scale_register_client
+	    (penv->bus_scale_table);
+	if (!penv->bus_client)
+		goto err_bus_reg;
+
 	pr_info("cnss: Platform driver probed successfully.\n");
 	return ret;
+
+err_bus_reg:
+	msm_bus_cl_clear_pdata(penv->bus_scale_table);
+
+err_bus_scale:
+	pci_unregister_driver(&cnss_wlan_pci_driver);
 
 err_pci_reg:
 	cnss_wlan_release_resources();
@@ -1039,6 +1060,34 @@ void cnss_remove_pm_qos(void)
 	pm_qos_remove_request(&penv->qos_request);
 }
 EXPORT_SYMBOL(cnss_remove_pm_qos);
+
+int cnss_request_bus_bandwidth(int bandwidth)
+{
+	int ret = 0;
+
+	if (!penv || !penv->bus_client)
+		return -ENODEV;
+
+	switch (bandwidth) {
+	case CNSS_BUS_WIDTH_NONE:
+	case CNSS_BUS_WIDTH_LOW:
+	case CNSS_BUS_WIDTH_MEDIUM:
+	case CNSS_BUS_WIDTH_HIGH:
+		ret = msm_bus_scale_client_update_request(penv->bus_client,
+							  bandwidth);
+		if (ret)
+			pr_err("%s: could not set bus bandwidth %d, ret = %d\n",
+			       __func__, bandwidth, ret);
+		break;
+
+	default:
+		pr_err("%s: Invalid request %d", __func__, bandwidth);
+		ret = -EINVAL;
+
+	}
+	return ret;
+}
+EXPORT_SYMBOL(cnss_request_bus_bandwidth);
 
 module_init(cnss_initialize);
 module_exit(cnss_exit);
