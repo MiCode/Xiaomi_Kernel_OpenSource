@@ -34,6 +34,13 @@
 		qcom,ext-mclk-gpio  = <&msmgpio 47 0>;
 	};
 
+	sound-9330 {
+		qcom,model = "apq8084-tomtom-cdp-snd-card";
+		qcom,hdmi-audio-rx;
+		qcom,cdc-micbias2-headset-only;
+		qcom,ext-mclk-gpio  = <&msmgpio 47 0>;
+	};
+
 	gpio_keys {
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
@@ -414,6 +421,18 @@
 
 &slim_msm {
 	taiko_codec {
+		qcom,cdc-micbias1-ext-cap;
+		qcom,cdc-micbias3-ext-cap;
+		qcom,cdc-micbias4-ext-cap;
+
+		cdc-vdd-spkdrv-supply = <&hdmi_vreg>;
+		qcom,cdc-vdd-spkdrv-voltage = <5000000 5000000>;
+		qcom,cdc-vdd-spkdrv-current = <1250000>;
+
+		qcom,cdc-on-demand-supplies = "cdc-vdd-spkdrv";
+	};
+
+	tomtom_codec {
 		qcom,cdc-micbias1-ext-cap;
 		qcom,cdc-micbias3-ext-cap;
 		qcom,cdc-micbias4-ext-cap;
