@@ -296,6 +296,12 @@
 			qcom,smdpkt-port-name = "LOGGING_4";
 			qcom,smdpkt-dev-name = "smd_logging_4";
 		};
+
+		qcom,smdpkt-phy_trace {
+			qcom,smdpkt-remote = "tenx";
+			qcom,smdpkt-port-name = "PHY_TRACE";
+			qcom,smdpkt-dev-name = "smd_phy_trace";
+		};
 	};
 
 	qcom,ipc_router{
