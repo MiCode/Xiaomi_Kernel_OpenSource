@@ -27,6 +27,7 @@
 #include <linux/input.h>
 #include <linux/gpio.h>
 #include <linux/regulator/consumer.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/input/synaptics_dsx.h>
 #include <linux/of_gpio.h>
 #include "synaptics_i2c_rmi4.h"
@@ -2690,6 +2691,67 @@ power_off:
 	return 0;
 }
 
+static int synaptics_rmi4_pinctrl_init(struct synaptics_rmi4_data *rmi4_data)
+{
+	int retval;
+
+	/* Get pinctrl if target uses pinctrl */
+	rmi4_data->ts_pinctrl = devm_pinctrl_get(&(rmi4_data->i2c_client->dev));
+	if (IS_ERR_OR_NULL(rmi4_data->ts_pinctrl)) {
+		dev_dbg(&rmi4_data->i2c_client->dev,
+			"Target does not use pinctrl\n");
+		retval = PTR_ERR(rmi4_data->ts_pinctrl);
+		rmi4_data->ts_pinctrl = NULL;
+		return retval;
+	}
+
+	rmi4_data->gpio_state_active
+		= pinctrl_lookup_state(rmi4_data->ts_pinctrl, "pmx_ts_active");
+	if (IS_ERR_OR_NULL(rmi4_data->gpio_state_active)) {
+		dev_dbg(&rmi4_data->i2c_client->dev,
+			"Can not get ts default pinstate\n");
+		retval = PTR_ERR(rmi4_data->gpio_state_active);
+		rmi4_data->ts_pinctrl = NULL;
+		return retval;
+	}
+
+	rmi4_data->gpio_state_suspend
+		= pinctrl_lookup_state(rmi4_data->ts_pinctrl, "pmx_ts_suspend");
+	if (IS_ERR_OR_NULL(rmi4_data->gpio_state_suspend)) {
+		dev_dbg(&rmi4_data->i2c_client->dev,
+			"Can not get ts sleep pinstate\n");
+		retval = PTR_ERR(rmi4_data->gpio_state_suspend);
+		rmi4_data->ts_pinctrl = NULL;
+		return retval;
+	}
+
+	return 0;
+}
+
+static int synpatics_rmi4_pinctrl_select(struct synaptics_rmi4_data *rmi4_data,
+						bool on)
+{
+	struct pinctrl_state *pins_state;
+	int ret;
+
+	pins_state = on ? rmi4_data->gpio_state_active
+		: rmi4_data->gpio_state_suspend;
+	if (!IS_ERR_OR_NULL(pins_state)) {
+		ret = pinctrl_select_state(rmi4_data->ts_pinctrl, pins_state);
+		if (ret) {
+			dev_err(&rmi4_data->i2c_client->dev,
+				"can not set %s pins\n",
+				on ? "pmx_ts_active" : "pmx_ts_suspend");
+			return ret;
+		}
+	} else
+		dev_err(&rmi4_data->i2c_client->dev,
+			"not a valid '%s' pinstate\n",
+				on ? "pmx_ts_active" : "pmx_ts_suspend");
+
+	return 0;
+}
+
 static int synaptics_rmi4_gpio_configure(struct synaptics_rmi4_data *rmi4_data,
 					bool on)
 {
@@ -2911,10 +2973,17 @@ static int synaptics_rmi4_probe(struct i2c_client *client,
 		goto err_power_device;
 	}
 
+	retval = synaptics_rmi4_pinctrl_init(rmi4_data);
+	if (!retval && rmi4_data->ts_pinctrl) {
+		retval = synpatics_rmi4_pinctrl_select(rmi4_data, true);
+		if (retval < 0)
+			goto err_gpio_config;
+	}
+
 	retval = synaptics_rmi4_gpio_configure(rmi4_data, true);
 	if (retval < 0) {
 		dev_err(&client->dev, "Failed to configure gpios\n");
-		goto err_gpio_config;
+		goto pinctrl_sleep;
 	}
 
 	init_waitqueue_head(&rmi4_data->wait);
@@ -3115,6 +3184,12 @@ err_free_gpios:
 		gpio_free(rmi4_data->board->reset_gpio);
 	if (gpio_is_valid(rmi4_data->board->irq_gpio))
 		gpio_free(rmi4_data->board->irq_gpio);
+pinctrl_sleep:
+	if (rmi4_data->ts_pinctrl) {
+		retval = synpatics_rmi4_pinctrl_select(rmi4_data, false);
+		if (retval < 0)
+			pr_err("Cannot get idle pinctrl state\n");
+	}
 err_gpio_config:
 	synaptics_rmi4_power_on(rmi4_data, false);
 err_power_device:
@@ -3145,6 +3220,7 @@ static int synaptics_rmi4_remove(struct i2c_client *client)
 	struct synaptics_rmi4_fn *next_fhandler;
 	struct synaptics_rmi4_data *rmi4_data = i2c_get_clientdata(client);
 	struct synaptics_rmi4_device_info *rmi;
+	int retval;
 
 	rmi = &(rmi4_data->rmi4_mod_info);
 
@@ -3184,6 +3260,12 @@ static int synaptics_rmi4_remove(struct i2c_client *client)
 		gpio_free(rmi4_data->board->reset_gpio);
 	if (gpio_is_valid(rmi4_data->board->irq_gpio))
 		gpio_free(rmi4_data->board->irq_gpio);
+
+	if (rmi4_data->ts_pinctrl) {
+		retval = synpatics_rmi4_pinctrl_select(rmi4_data, false);
+		if (retval < 0)
+			pr_err("Cannot get idle pinctrl state\n");
+	}
 
 	synaptics_rmi4_power_on(rmi4_data, false);
 	synaptics_rmi4_regulator_configure(rmi4_data, false);
@@ -3580,6 +3662,13 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	}
 
 	if (rmi4_data->board->disable_gpios) {
+		if (rmi4_data->ts_pinctrl) {
+			retval = synpatics_rmi4_pinctrl_select(rmi4_data,
+								 false);
+			if (retval < 0)
+				dev_err(dev, "Cannot get idle pinctrl state\n");
+		}
+
 		retval = synaptics_rmi4_gpio_configure(rmi4_data, false);
 		if (retval < 0) {
 			dev_err(dev, "failed to put gpios in suspend state\n");
@@ -3591,6 +3680,11 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	return 0;
 
 err_gpio_configure:
+	if (rmi4_data->ts_pinctrl) {
+		retval = synpatics_rmi4_pinctrl_select(rmi4_data, true);
+		if (retval < 0)
+			dev_err(dev, "Cannot get default pinctrl state\n");
+	}
 	synaptics_rmi4_regulator_lpm(rmi4_data, false);
 
 err_lpm_regulator:
@@ -3633,6 +3727,12 @@ static int synaptics_rmi4_resume(struct device *dev)
 	}
 
 	if (rmi4_data->board->disable_gpios) {
+		if (rmi4_data->ts_pinctrl) {
+			retval = synpatics_rmi4_pinctrl_select(rmi4_data, true);
+			if (retval < 0)
+				dev_err(dev, "Cannot get default pinctrl state\n");
+		}
+
 		retval = synaptics_rmi4_gpio_configure(rmi4_data, true);
 		if (retval < 0) {
 			dev_err(dev, "Failed to put gpios in active state\n");
@@ -3658,9 +3758,27 @@ err_check_configuration:
 	rmi4_data->touch_stopped = true;
 	synaptics_rmi4_sensor_sleep(rmi4_data);
 
-	if (rmi4_data->board->disable_gpios)
+	if (rmi4_data->board->disable_gpios) {
+		if (rmi4_data->ts_pinctrl) {
+			retval = synpatics_rmi4_pinctrl_select(rmi4_data,
+								false);
+			if (retval < 0)
+				dev_err(dev, "Cannot get idle pinctrl state\n");
+		}
+
 		synaptics_rmi4_gpio_configure(rmi4_data, false);
+	}
+	synaptics_rmi4_regulator_lpm(rmi4_data, true);
+	wake_up(&rmi4_data->wait);
+
+	return retval;
+
 err_gpio_configure:
+	if (rmi4_data->ts_pinctrl) {
+		retval = synpatics_rmi4_pinctrl_select(rmi4_data, false);
+		if (retval < 0)
+			pr_err("Cannot get idle pinctrl state\n");
+	}
 	synaptics_rmi4_regulator_lpm(rmi4_data, true);
 	wake_up(&rmi4_data->wait);
 

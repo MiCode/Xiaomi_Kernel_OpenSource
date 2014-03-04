@@ -9,7 +9,14 @@ Required properties:
 				of fingers on the panel.
  - synaptics,irq-gpio	: irq gpio
  - synaptics,reset-gpio	: reset gpio
-
+ - pinctrl-names : This should be defined if a target uses pinctrl framework.
+			See "pinctrl" in Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt.
+			It should specify the names of the configs that pinctrl can install in driver.
+			Following are the pinctrl configs that can be installed:
+			"pmx_ts_active" : Active configuration of pins, this should specify active
+			config defined in pin groups of interrupt and reset gpio.
+			"pmx_ts_suspend" : Disabled configuration of pins, this should specify sleep
+			config defined in pin groups of interrupt and reset gpio.
 Optional property:
  - vdd-supply		: Analog power supply needed to power device
  - vcc_i2c-supply		: Power source required to pull up i2c bus
@@ -49,6 +56,10 @@ Example:
 			interrupts = <17 0x2>;
 			vdd-supply = <&pm8226_l19>;
 			vcc_i2c-supply = <&pm8226_lvs1>;
+
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 			synaptics,reset-gpio = <&msmgpio 16 0x00>;
 			synaptics,irq-gpio = <&msmgpio 17 0x00>;
 			synaptics,button-map = [8B 66 9E];
