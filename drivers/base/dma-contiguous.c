@@ -225,8 +225,17 @@ int __init cma_fdt_scan(unsigned long node, const char *uname,
 	unsigned long size_cells = dt_root_size_cells;
 	unsigned long addr_cells = dt_root_addr_cells;
 	phys_addr_t limit = MEMBLOCK_ALLOC_ANYWHERE;
+	char *status;
 
 	if (!of_get_flat_dt_prop(node, "linux,reserve-contiguous-region", NULL))
+		return 0;
+
+	status = of_get_flat_dt_prop(node, "status", NULL);
+	/*
+	 * Yes, we actually want strncmp here to check for a prefix
+	 * ok vs. okay
+	 */
+	if (status && (strncmp(status, "ok", 2) != 0))
 		return 0;
 
 	prop = of_get_flat_dt_prop(node, "#size-cells", NULL);
