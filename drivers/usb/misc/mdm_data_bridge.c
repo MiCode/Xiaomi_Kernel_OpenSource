@@ -1154,6 +1154,9 @@ static const struct usb_device_id bridge_ids[] = {
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90A0, 3),
 	.driver_info = (unsigned long)serial_hsic_bridge_names,
 	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90A0, 5),
+	.driver_info = (unsigned long)rmnet_hsic_bridge_names,
+	},
 	/* this PID supports QDSS-MDM trace*/
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90A4, 4),
 	.driver_info = (unsigned long)qdss_hsic_bridge_names,
