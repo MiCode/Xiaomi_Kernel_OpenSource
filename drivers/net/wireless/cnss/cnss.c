@@ -91,6 +91,7 @@ static struct cnss_data {
 	struct cnss_fw_files fw_files;
 	struct pm_qos_request qos_request;
 	void *modem_notify_handler;
+	bool pci_register_again;
 } *penv;
 
 static int cnss_wlan_vreg_set(struct cnss_wlan_vreg_info *vreg_info, bool state)
@@ -332,6 +333,12 @@ static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 	penv->pdev = pdev;
 	penv->id = id;
 
+	if (penv->pci_register_again) {
+		pr_debug("%s: PCI re-registration complete\n", __func__);
+		penv->pci_register_again = false;
+		return 0;
+	}
+
 	pci_read_config_word(pdev, QCA6174_REV_ID_OFFSET, &penv->revision_id);
 	cnss_setup_fw_files(penv->revision_id);
 
@@ -444,6 +451,21 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver)
 	cnss_wlan_gpio_set(gpio_info, WLAN_EN_HIGH);
 	usleep(WLAN_ENABLE_DELAY);
 
+	if (!pdev) {
+		pr_debug("%s: invalid pdev. register pci device\n", __func__);
+		ret = pci_register_driver(&cnss_wlan_pci_driver);
+
+		if (ret) {
+			pr_err("%s: pci registration failed\n", __func__);
+			goto err_pcie_link_up;
+		}
+		pdev = penv->pdev;
+		if (!pdev) {
+			pr_err("%s: pdev is still invalid\n", __func__);
+			goto err_pcie_link_up;
+		}
+	}
+
 	if (!penv->pcie_link_state) {
 		ret = msm_pcie_pm_control(MSM_PCIE_RESUME,
 					  cnss_get_pci_dev_bus_number(pdev),
@@ -456,15 +478,17 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver)
 		penv->pcie_link_state = PCIE_LINK_UP;
 	}
 
-	if (pdev && wdrv->probe) {
+	if (wdrv->probe) {
 		if (penv->saved_state)
 			pci_load_and_free_saved_state(pdev, &penv->saved_state);
 
 		pci_restore_state(pdev);
 
 		ret = wdrv->probe(pdev, penv->id);
-		if (ret)
+		if (ret) {
+			pr_err("Failed to probe WLAN\n");
 			goto err_wlan_probe;
+		}
 	}
 
 	return ret;
@@ -480,7 +504,12 @@ err_wlan_probe:
 err_pcie_link_up:
 	cnss_wlan_gpio_set(gpio_info, WLAN_EN_LOW);
 	cnss_wlan_vreg_set(vreg_info, VREG_OFF);
-	pci_unregister_driver(&cnss_wlan_pci_driver);
+	if (pdev) {
+		pr_err("%d: Unregistering PCI device\n", __LINE__);
+		pci_unregister_driver(&cnss_wlan_pci_driver);
+		penv->pdev = NULL;
+		penv->pci_register_again = true;
+	}
 
 err_wlan_vreg_on:
 	penv->driver = NULL;
@@ -509,8 +538,10 @@ void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver)
 		return;
 	}
 
-	if (!pdev)
+	if (!pdev) {
+		pr_err("%d: invalid pdev\n", __LINE__);
 		goto cut_power;
+	}
 
 	if (wdrv->remove)
 		wdrv->remove(pdev);
@@ -728,6 +759,11 @@ static int cnss_powerup(const struct subsys_desc *subsys)
 		cnss_wlan_gpio_set(gpio_info, WLAN_EN_HIGH);
 		usleep(WLAN_ENABLE_DELAY);
 
+		if (!pdev) {
+			pr_err("%d: invalid pdev\n", __LINE__);
+			goto err_pcie_link_up;
+		}
+
 		if (!penv->pcie_link_state) {
 			ret = msm_pcie_pm_control(MSM_PCIE_RESUME,
 					  cnss_get_pci_dev_bus_number(pdev),
@@ -741,7 +777,7 @@ static int cnss_powerup(const struct subsys_desc *subsys)
 			penv->pcie_link_state = PCIE_LINK_UP;
 		}
 
-		if (pdev && wdrv && wdrv->reinit) {
+		if (wdrv && wdrv->reinit) {
 			if (penv->saved_state)
 				pci_load_and_free_saved_state(pdev,
 					&penv->saved_state);
@@ -749,10 +785,14 @@ static int cnss_powerup(const struct subsys_desc *subsys)
 			pci_restore_state(pdev);
 
 			ret = wdrv->reinit(pdev, penv->id);
-			if (ret)
+			if (ret) {
+				pr_err("%d: Failed to do reinit\n", __LINE__);
 				goto err_wlan_reinit;
-		} else
+			}
+		} else {
+			pr_err("%d: wdrv->reinit is invalid\n", __LINE__);
 			goto err_pcie_link_up;
+		}
 	}
 
 	return ret;
@@ -768,7 +808,12 @@ err_wlan_reinit:
 err_pcie_link_up:
 	cnss_wlan_gpio_set(gpio_info, WLAN_EN_LOW);
 	cnss_wlan_vreg_set(vreg_info, VREG_OFF);
-	pci_unregister_driver(&cnss_wlan_pci_driver);
+	if (penv->pdev) {
+		pr_err("%d: Unregistering pci device\n", __LINE__);
+		pci_unregister_driver(&cnss_wlan_pci_driver);
+		penv->pdev = NULL;
+		penv->pci_register_again = true;
+	}
 
 err_wlan_vreg_on:
 	return ret;
@@ -898,6 +943,7 @@ static int cnss_probe(struct platform_device *pdev)
 	penv->gpio_info.prop = false;
 	penv->vreg_info.wlan_reg = NULL;
 	penv->vreg_info.state = VREG_OFF;
+	penv->pci_register_again = false;
 
 	ret = cnss_wlan_get_resources(pdev);
 	if (ret)
