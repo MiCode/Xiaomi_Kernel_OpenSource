@@ -1214,7 +1214,7 @@ static phys_addr_t kgsl_iommu_get_pt_base_addr(struct kgsl_mmu *mmu,
  * @ctx_id - The context bank whose lsb valus is to be returned
  * Return - returns the ttbr0 value programmed by iommu driver
  */
-static phys_addr_t kgsl_iommu_get_default_ttbr0(struct kgsl_mmu *mmu,
+static uint64_t kgsl_iommu_get_default_ttbr0(struct kgsl_mmu *mmu,
 				unsigned int unit_id,
 				enum kgsl_iommu_context_id ctx_id)
 {
@@ -1904,7 +1904,7 @@ static int kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 	int ret = 0;
 	phys_addr_t pt_base = kgsl_iommu_get_pt_base_addr(mmu,
 						mmu->hwpagetable);
-	phys_addr_t pt_val;
+	uint64_t pt_val;
 
 	ret = kgsl_iommu_enable_clk(mmu, KGSL_IOMMU_CONTEXT_USER);
 	if (ret) {
