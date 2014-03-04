@@ -660,10 +660,12 @@
 		clock-names = "iface_clk";
 		status = "disabled";
 	};
+
 	sound {
 		compatible = "qcom,msm8x16-audio-codec";
 		qcom,model = "msm8x16-snd-card";
 		qcom,msm-snd-card-id = <0>;
+		qcom,msm-codec-type = "internal";
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"INT_LDO_H", "MCLK",
