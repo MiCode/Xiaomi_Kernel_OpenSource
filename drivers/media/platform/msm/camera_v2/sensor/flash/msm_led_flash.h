@@ -60,11 +60,14 @@ struct msm_led_flash_ctrl_t {
 	void *data;
 	uint32_t num_sources;
 	enum msm_camera_device_type_t flash_device_type;
+	enum cci_i2c_master_t cci_i2c_master;
 	uint32_t subdev_id;
 };
 
 int msm_flash_i2c_probe(struct i2c_client *client,
 	const struct i2c_device_id *id);
+
+int msm_flash_probe(struct platform_device *pdev, const void *data);
 
 int32_t msm_led_flash_create_v4lsubdev(struct platform_device *pdev,
 	void *data);
