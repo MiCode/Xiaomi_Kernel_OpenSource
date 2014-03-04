@@ -950,121 +950,117 @@ static int nfcc_initialise(struct i2c_client *client, unsigned short curr_addr)
 	if (r < 0)
 		goto err_init;
 
-	if (0x10 != (0x10 & buf)) {
-		RAW(s73, 0x02);
+	RAW(s73, 0x02);
 
-		r = nfc_i2c_write(client, &raw_s73[0], sizeof(raw_s73));
-		if (r < 0)
-			goto err_init;
-
-		usleep(1000);
-		RAW(1p8_CONTROL_011, XTAL_CLOCK | 0x01);
-
-		r = nfc_i2c_write(client, &raw_1p8_CONTROL_011[0],
-						sizeof(raw_1p8_CONTROL_011));
-		if (r < 0)
-			goto err_init;
-
-		usleep(1000);
-		RAW(1P8_CONTROL_010, (0x8));
-		r = nfc_i2c_write(client, &raw_1P8_CONTROL_010[0],
-						sizeof(raw_1P8_CONTROL_010));
-		if (r < 0)
-			goto err_init;
-
-		usleep(10000);  /* 10ms wait */
-		RAW(1P8_CONTROL_010, (0xC));
-		r = nfc_i2c_write(client, &raw_1P8_CONTROL_010[0],
-					sizeof(raw_1P8_CONTROL_010));
-		if (r < 0)
-			goto err_init;
-
-		usleep(100);  /* 100uS wait */
-		RAW(1P8_X0_0B0, (FREQ_SEL_19));
-		r = nfc_i2c_write(client, &raw_1P8_X0_0B0[0],
-						sizeof(raw_1P8_X0_0B0));
-		if (r < 0)
-			goto err_init;
-
-		usleep(1000);
-
-		/* PWR_EN = 1 */
-		RAW(1P8_CONTROL_010, (0xd));
-		r = nfc_i2c_write(client, &raw_1P8_CONTROL_010[0],
-						sizeof(raw_1P8_CONTROL_010));
-		if (r < 0)
-			goto err_init;
-
-
-		usleep(20000);  /* 20ms wait */
-		/* LS_EN = 1 */
-		RAW(1P8_CONTROL_010, 0xF);
-		r = nfc_i2c_write(client, &raw_1P8_CONTROL_010[0],
-						sizeof(raw_1P8_CONTROL_010));
-		if (r < 0)
-			goto err_init;
-
-		usleep(20000);  /* 20ms wait */
-
-		/* Enable the PMIC clock */
-		RAW(1P8_PAD_CFG_CLK_REQ, (0x1));
-		r = nfc_i2c_write(client, &raw_1P8_PAD_CFG_CLK_REQ[0],
-					  sizeof(raw_1P8_PAD_CFG_CLK_REQ));
-		if (r < 0)
-			goto err_init;
-
-		usleep(1000);
-
-		RAW(1P8_PAD_CFG_PWR_REQ, (0x1));
-		r = nfc_i2c_write(client, &raw_1P8_PAD_CFG_PWR_REQ[0],
-					  sizeof(raw_1P8_PAD_CFG_PWR_REQ));
-		if (r < 0)
-			goto err_init;
-
-		usleep(1000);
-
-		RAW(slave2, 0x10);
-		r = nfc_i2c_write(client, &raw_slave2[0], sizeof(raw_slave2));
-		if (r < 0)
-			goto err_init;
-
-		usleep(1000);
-
-		RAW(slave1, NCI_I2C_SLAVE);
-		r = nfc_i2c_write(client, &raw_slave1[0], sizeof(raw_slave1));
-		if (r < 0)
-			goto err_init;
-
-		usleep(1000);
-
-		/* QCA199x NFCC CPU should now boot... */
-		r = i2c_master_recv(client, &raw_slave1_rd, 1);
-		/* Talk on NCI slave address NCI_I2C_SLAVE 0x2C*/
-		client->addr = NCI_I2C_SLAVE;
-
-		/*
-			Start with small delay and then we will poll until we
-			get a core reset notification - This is time for chip
-			& NFCC controller to come-up.
-		*/
-		usleep(1000); /* 1 ms */
-
-		do {
-			ret = i2c_master_recv(client, rsp, 5);
-			/* Found core reset notification */
-			if (((rsp[0] == CORE_RESET_RSP_GID) &&
-				(rsp[1] == CORE_RESET_OID) &&
-				(rsp[2] == CORE_RST_NTF_LENGTH))
-					|| time_taken == NTF_TIMEOUT) {
-				core_reset_completed = true;
-			}
-			usleep(10);  /* 10us sleep before retry */
-			time_taken++;
-		} while (!core_reset_completed);
-		r = 0;
-	} else {
+	r = nfc_i2c_write(client, &raw_s73[0], sizeof(raw_s73));
+	if (r < 0)
 		goto err_init;
-	}
+
+	usleep(1000);
+	RAW(1p8_CONTROL_011, XTAL_CLOCK | 0x01);
+
+	r = nfc_i2c_write(client, &raw_1p8_CONTROL_011[0],
+					sizeof(raw_1p8_CONTROL_011));
+	if (r < 0)
+		goto err_init;
+
+	usleep(1000);
+	RAW(1P8_CONTROL_010, (0x8));
+	r = nfc_i2c_write(client, &raw_1P8_CONTROL_010[0],
+					sizeof(raw_1P8_CONTROL_010));
+	if (r < 0)
+		goto err_init;
+
+	usleep(10000);  /* 10ms wait */
+	RAW(1P8_CONTROL_010, (0xC));
+	r = nfc_i2c_write(client, &raw_1P8_CONTROL_010[0],
+				sizeof(raw_1P8_CONTROL_010));
+	if (r < 0)
+		goto err_init;
+
+	usleep(100);  /* 100uS wait */
+	RAW(1P8_X0_0B0, (FREQ_SEL_19));
+	r = nfc_i2c_write(client, &raw_1P8_X0_0B0[0],
+					sizeof(raw_1P8_X0_0B0));
+	if (r < 0)
+		goto err_init;
+
+	usleep(1000);
+
+	/* PWR_EN = 1 */
+	RAW(1P8_CONTROL_010, (0xd));
+	r = nfc_i2c_write(client, &raw_1P8_CONTROL_010[0],
+					sizeof(raw_1P8_CONTROL_010));
+	if (r < 0)
+		goto err_init;
+
+
+	usleep(20000);  /* 20ms wait */
+	/* LS_EN = 1 */
+	RAW(1P8_CONTROL_010, 0xF);
+	r = nfc_i2c_write(client, &raw_1P8_CONTROL_010[0],
+					sizeof(raw_1P8_CONTROL_010));
+	if (r < 0)
+		goto err_init;
+
+	usleep(20000);  /* 20ms wait */
+
+	/* Enable the PMIC clock */
+	RAW(1P8_PAD_CFG_CLK_REQ, (0x1));
+	r = nfc_i2c_write(client, &raw_1P8_PAD_CFG_CLK_REQ[0],
+				  sizeof(raw_1P8_PAD_CFG_CLK_REQ));
+	if (r < 0)
+		goto err_init;
+
+	usleep(1000);
+
+	RAW(1P8_PAD_CFG_PWR_REQ, (0x1));
+	r = nfc_i2c_write(client, &raw_1P8_PAD_CFG_PWR_REQ[0],
+				  sizeof(raw_1P8_PAD_CFG_PWR_REQ));
+	if (r < 0)
+		goto err_init;
+
+	usleep(1000);
+
+	RAW(slave2, 0x10);
+	r = nfc_i2c_write(client, &raw_slave2[0], sizeof(raw_slave2));
+	if (r < 0)
+		goto err_init;
+
+	usleep(1000);
+
+	RAW(slave1, NCI_I2C_SLAVE);
+	r = nfc_i2c_write(client, &raw_slave1[0], sizeof(raw_slave1));
+	if (r < 0)
+		goto err_init;
+
+	usleep(1000);
+
+	/* QCA199x NFCC CPU should now boot... */
+	r = i2c_master_recv(client, &raw_slave1_rd, 1);
+	/* Talk on NCI slave address NCI_I2C_SLAVE 0x2C*/
+	client->addr = NCI_I2C_SLAVE;
+
+	/*
+		Start with small delay and then we will poll until we
+		get a core reset notification - This is time for chip
+		& NFCC controller to come-up.
+	*/
+	usleep(1000); /* 1 ms */
+
+	do {
+		ret = i2c_master_recv(client, rsp, 5);
+		/* Found core reset notification */
+		if (((rsp[0] == CORE_RESET_RSP_GID) &&
+			(rsp[1] == CORE_RESET_OID) &&
+			(rsp[2] == CORE_RST_NTF_LENGTH))
+				|| time_taken == NTF_TIMEOUT) {
+			core_reset_completed = true;
+		}
+		usleep(10);  /* 10us sleep before retry */
+		time_taken++;
+	} while (!core_reset_completed);
+	r = 0;
 	return r;
 err_init:
 	r = 1;
