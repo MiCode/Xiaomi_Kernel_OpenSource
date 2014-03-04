@@ -404,6 +404,11 @@ struct diagchar_dev {
 	struct diag_ctrl_msg_mask *msg_mask;
 	struct diag_ctrl_feature_mask *feature_mask;
 	struct mutex log_mask_mutex;
+	/* Members for Sending response */
+	unsigned char *encoded_rsp_buf;
+	uint8_t rsp_buf_busy;
+	struct diag_request *rsp_write_ptr;
+	spinlock_t rsp_buf_busy_lock;
 	/* State for diag forwarding */
 	struct diag_smd_info smd_data[NUM_SMD_DATA_CHANNELS];
 	struct diag_smd_info smd_cntl[NUM_SMD_CONTROL_CHANNELS];
