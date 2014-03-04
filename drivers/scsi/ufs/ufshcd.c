@@ -101,6 +101,9 @@
 /* UIC command timeout, unit: ms */
 #define UIC_CMD_TIMEOUT	500
 
+/* Retries waiting for doorbells to clear */
+#define POWER_MODE_RETRIES	10
+
 /* NOP OUT retries waiting for NOP IN response */
 #define NOP_OUT_RETRIES    10
 /* Timeout after 30 msecs if NOP OUT hangs without response */
@@ -253,8 +256,6 @@ static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on);
 static int ufshcd_uic_hibern8_exit(struct ufs_hba *hba);
 static int ufshcd_uic_hibern8_enter(struct ufs_hba *hba);
 static int ufshcd_host_reset_and_restore(struct ufs_hba *hba);
-static int ufshcd_config_pwr_mode(struct ufs_hba *hba,
-		struct ufs_pa_layer_attr *desired_pwr_mode);
 
 static inline void ufshcd_enable_irq(struct ufs_hba *hba)
 {
@@ -1113,15 +1114,12 @@ ufshcd_wait_for_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
  * @uic_cmd: UIC command
  *
  * Identical to ufshcd_send_uic_cmd() expect mutex. Must be called
- * with mutex held.
+ * with mutex held and host_lock locked.
  * Returns 0 only if success.
  */
 static int
 __ufshcd_send_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
 {
-	int ret;
-	unsigned long flags;
-
 	if (!ufshcd_ready_for_uic_cmd(hba)) {
 		dev_err(hba->dev,
 			"Controller not ready to accept UIC commands\n");
@@ -1130,13 +1128,9 @@ __ufshcd_send_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
 
 	init_completion(&uic_cmd->done);
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
 	ufshcd_dispatch_uic_cmd(hba, uic_cmd);
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
-	ret = ufshcd_wait_for_uic_cmd(hba, uic_cmd);
-
-	return ret;
+	return 0;
 }
 
 /**
@@ -1150,12 +1144,19 @@ static int
 ufshcd_send_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
 {
 	int ret;
+	unsigned long flags;
 
 	ufshcd_hold(hba, false);
+	pm_runtime_get_sync(hba->dev);
 	mutex_lock(&hba->uic_cmd_mutex);
+	spin_lock_irqsave(hba->host->host_lock, flags);
 	ret = __ufshcd_send_uic_cmd(hba, uic_cmd);
-	mutex_unlock(&hba->uic_cmd_mutex);
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	if (!ret)
+		ret = ufshcd_wait_for_uic_cmd(hba, uic_cmd);
 
+	mutex_unlock(&hba->uic_cmd_mutex);
+	pm_runtime_put_sync(hba->dev);
 	ufshcd_release(hba);
 	return ret;
 }
@@ -2414,16 +2415,53 @@ int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 	unsigned long flags;
 	u8 status;
 	int ret;
+	u32 tm_doorbell;
+	u32 tr_doorbell;
+	bool uic_ready;
+	int retries = POWER_MODE_RETRIES;
 
 	ufshcd_hold(hba, false);
+	pm_runtime_get_sync(hba->dev);
 	mutex_lock(&hba->uic_cmd_mutex);
 	init_completion(&uic_async_done);
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	/*
+	 * Before changing the power mode there should be no outstanding
+	 * tasks/transfer requests. Verify by checking the doorbell registers
+	 * are clear.
+	 */
+	do {
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		uic_ready = ufshcd_ready_for_uic_cmd(hba);
+		tm_doorbell = ufshcd_readl(hba, REG_UTP_TASK_REQ_DOOR_BELL);
+		tr_doorbell = ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL);
+		if (!tm_doorbell && !tr_doorbell && uic_ready)
+			break;
+
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		schedule();
+		retries--;
+	} while (retries && (tm_doorbell || tr_doorbell || !uic_ready));
+
+	if (!retries) {
+		dev_err(hba->dev,
+			"%s: too many retries waiting for doorbell to clear (tm=0x%x, tr=0x%x, uicrdy=%d)\n",
+			__func__, tm_doorbell, tr_doorbell, uic_ready);
+		ret = -EBUSY;
+		goto out;
+	}
+
 	hba->uic_async_done = &uic_async_done;
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	ret = __ufshcd_send_uic_cmd(hba, cmd);
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	if (ret) {
+		dev_err(hba->dev,
+			"pwr ctrl cmd 0x%x with mode 0x%x uic error %d\n",
+			cmd->command, cmd->argument3, ret);
+		goto out;
+	}
+	ret = ufshcd_wait_for_uic_cmd(hba, cmd);
 	if (ret) {
 		dev_err(hba->dev,
 			"pwr ctrl cmd 0x%x with mode 0x%x uic error %d\n",
@@ -2452,7 +2490,7 @@ out:
 	hba->uic_async_done = NULL;
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	mutex_unlock(&hba->uic_cmd_mutex);
-
+	pm_runtime_put_sync(hba->dev);
 	ufshcd_release(hba);
 	return ret;
 }
@@ -2622,7 +2660,7 @@ static int ufshcd_get_max_pwr_mode(struct ufs_hba *hba)
  * @hba: per-adapter instance
  * @desired_pwr_mode: desired power configuration
  */
-static int ufshcd_config_pwr_mode(struct ufs_hba *hba,
+int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 		struct ufs_pa_layer_attr *desired_pwr_mode)
 {
 	struct ufs_pa_layer_attr final_params = { 0 };

@@ -19,6 +19,7 @@
 
 #include <linux/random.h>
 #include "debugfs.h"
+#include "unipro.h"
 
 enum field_width {
 	BYTE	= 1,
@@ -484,6 +485,123 @@ static const struct file_operations ufsdbg_dump_device_desc = {
 	.read		= seq_read,
 };
 
+static ssize_t ufsdbg_power_mode_show(struct seq_file *file, void *data)
+{
+	struct ufs_hba *hba = (struct ufs_hba *)file->private;
+	char *names[] = {
+		"INVALID MODE",
+		"FAST MODE",
+		"SLOW MODE",
+		"INVALID MODE",
+		"FASTAUTO MODE",
+		"SLOWAUTO MODE",
+		"INVALID MODE",
+	};
+
+	/* Print current status */
+	seq_puts(file, "UFS current power mode [RX, TX]:");
+	seq_printf(file, "gear=[%d,%d], lane=[%d,%d], pwr=[%s,%s], rate = %c",
+		 hba->pwr_info.gear_rx, hba->pwr_info.gear_tx,
+		 hba->pwr_info.lane_rx, hba->pwr_info.lane_tx,
+		 names[hba->pwr_info.pwr_rx],
+		 names[hba->pwr_info.pwr_tx],
+		 hba->pwr_info.hs_rate == PA_HS_MODE_B ? 'B' : 'A');
+	seq_puts(file, "\n\n");
+
+	/* Print usage */
+	seq_puts(file,
+		"To change power mode write 'GGLLMM' where:\n"
+		"G - selected gear\n"
+		"L - number of lanes\n"
+		"M - power mode:\n"
+		"\t1 = fast mode\n"
+		"\t2 = slow mode\n"
+		"\t4 = fast-auto mode\n"
+		"\t5 = slow-auto mode\n"
+		"first letter is for RX, second letter is for TX.\n\n");
+
+	return 0;
+}
+
+static bool ufsdbg_power_mode_validate(struct ufs_pa_layer_attr *pwr_mode)
+{
+	if (pwr_mode->gear_rx < UFS_PWM_G1 || pwr_mode->gear_rx > UFS_PWM_G7 ||
+		pwr_mode->gear_tx < UFS_PWM_G1 || pwr_mode->gear_tx > UFS_PWM_G7
+		|| pwr_mode->lane_rx < 1 || pwr_mode->lane_rx > 2 ||
+		pwr_mode->lane_tx < 1 || pwr_mode->lane_tx > 2 ||
+		(pwr_mode->pwr_rx != FAST_MODE &&
+		pwr_mode->pwr_rx != SLOW_MODE &&
+		pwr_mode->pwr_rx != FASTAUTO_MODE &&
+		pwr_mode->pwr_rx != SLOWAUTO_MODE) ||
+		(pwr_mode->pwr_tx != FAST_MODE &&
+		pwr_mode->pwr_tx != SLOW_MODE &&
+		pwr_mode->pwr_tx != FASTAUTO_MODE &&
+		pwr_mode->pwr_tx != SLOWAUTO_MODE))
+		return false;
+
+	return true;
+}
+
+static ssize_t ufsdbg_power_mode_write(struct file *file,
+				const char __user *ubuf, size_t cnt,
+				loff_t *ppos)
+{
+	struct ufs_hba *hba = file->f_mapping->host->i_private;
+	struct ufs_pa_layer_attr pwr_mode;
+	char pwr_mode_str[BUFF_LINE_CAPACITY] = {0};
+	loff_t buff_pos = 0;
+	int ret;
+	int idx = 0;
+
+	ret = simple_write_to_buffer(pwr_mode_str, BUFF_LINE_CAPACITY,
+		&buff_pos, ubuf, cnt);
+
+	pwr_mode.gear_rx = pwr_mode_str[idx++] - '0';
+	pwr_mode.gear_tx = pwr_mode_str[idx++] - '0';
+	pwr_mode.lane_rx = pwr_mode_str[idx++] - '0';
+	pwr_mode.lane_tx = pwr_mode_str[idx++] - '0';
+	pwr_mode.pwr_rx = pwr_mode_str[idx++] - '0';
+	pwr_mode.pwr_tx = pwr_mode_str[idx++] - '0';
+	/*
+	 * Switching between rates is not currently supported so use the
+	 * current rate.
+	 * TODO: add rate switching if and when it is supported in the future
+	 */
+	pwr_mode.hs_rate = hba->pwr_info.hs_rate;
+
+	/* Validate user input */
+	if (!ufsdbg_power_mode_validate(&pwr_mode))
+		return -EINVAL;
+
+	pr_debug(
+		"%s: new power mode requested [RX,TX]: Gear=[%d,%d] Lanes=[%d,%d], Mode=[%d,%d]\n",
+		__func__, pwr_mode.gear_rx, pwr_mode.gear_tx, pwr_mode.lane_rx,
+		pwr_mode.lane_tx, pwr_mode.pwr_rx, pwr_mode.pwr_tx);
+
+	ret = ufshcd_config_pwr_mode(hba, &pwr_mode);
+	if (ret == -EBUSY)
+		dev_err(hba->dev,
+			"%s: ufshcd_config_pwr_mode failed: system is busy, try again\n",
+			__func__);
+	else if (ret)
+		dev_err(hba->dev,
+			"%s: ufshcd_config_pwr_mode failed, ret=%d\n",
+			__func__, ret);
+
+	return cnt;
+}
+
+static int ufsdbg_power_mode_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ufsdbg_power_mode_show, inode->i_private);
+}
+
+static const struct file_operations ufsdbg_power_mode_desc = {
+	.open		= ufsdbg_power_mode_open,
+	.read		= seq_read,
+	.write		= ufsdbg_power_mode_write,
+};
+
 void ufsdbg_add_debugfs(struct ufs_hba *hba)
 {
 	if (!hba) {
@@ -544,6 +662,16 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 	if (!hba->debugfs_files.dump_dev_desc) {
 		dev_err(hba->dev,
 			"%s:  NULL dump_device_desc file, exiting", __func__);
+		goto err;
+	}
+
+	hba->debugfs_files.power_mode =
+		debugfs_create_file("power_mode", S_IRUSR | S_IWUSR,
+				    hba->debugfs_files.debugfs_root, hba,
+				    &ufsdbg_power_mode_desc);
+	if (!hba->debugfs_files.power_mode) {
+		dev_err(hba->dev,
+			"%s:  NULL power_mode_desc file, exiting", __func__);
 		goto err;
 	}
 
