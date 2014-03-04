@@ -181,12 +181,6 @@ the appropriate macros. */
 #define MSG_SSID_23			0xC000
 #define MSG_SSID_23_LAST		0xC063
 
-struct diagpkt_delay_params {
-	void *rsp_ptr;
-	int size;
-	int *num_bytes_ptr;
-};
-
 static const uint32_t msg_bld_masks_0[] = {
 	MSG_LVL_LOW,
 	MSG_LVL_MED,
