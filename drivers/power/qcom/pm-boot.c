@@ -73,4 +73,4 @@ static int __init msm_pm_boot_init(void)
 
 	return ret;
 }
-device_initcall(msm_pm_boot_init);
+postcore_initcall(msm_pm_boot_init);
