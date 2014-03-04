@@ -115,6 +115,11 @@ enum tmc_etr_out_mode {
 	TMC_ETR_OUT_MODE_USB,
 };
 
+enum tmc_etr_mem_type {
+	TMC_ETR_MEM_TYPE_CONTIG,
+	TMC_ETR_MEM_TYPE_SG,
+};
+
 enum tmc_mem_intf_width {
 	TMC_MEM_INTF_WIDTH_32BITS	= 0x2,
 	TMC_MEM_INTF_WIDTH_64BITS	= 0x3,
@@ -179,6 +184,7 @@ struct tmc_drvdata {
 	char			*byte_cntr_node;
 	uint32_t		mem_size;
 	bool			sticky_enable;
+	enum tmc_etr_mem_type	mem_type;
 };
 
 static void tmc_wait_for_flush(struct tmc_drvdata *drvdata)
@@ -1414,6 +1420,40 @@ static ssize_t tmc_etr_store_mem_size(struct device *dev,
 static DEVICE_ATTR(mem_size, S_IRUGO | S_IWUSR,
 		   tmc_etr_show_mem_size, tmc_etr_store_mem_size);
 
+static ssize_t tmc_etr_show_mem_type(struct device *dev,
+				     struct device_attribute *attr,
+				     char *buf)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	return scnprintf(buf, PAGE_SIZE, "%s\n",
+			 drvdata->mem_type == TMC_ETR_MEM_TYPE_CONTIG ?
+			 "contig" : "sg");
+}
+
+static ssize_t tmc_etr_store_mem_type(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf,
+				      size_t size)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	char str[10] = "";
+
+	if (strlen(buf) >= 10)
+		return -EINVAL;
+	if (sscanf(buf, "%s", str) != 1)
+		return -EINVAL;
+
+	if (!strcmp(str, "contig"))
+		drvdata->mem_type = TMC_ETR_MEM_TYPE_CONTIG;
+	else if (!strcmp(str, "sg"))
+		drvdata->mem_type = TMC_ETR_MEM_TYPE_SG;
+
+	return size;
+}
+static DEVICE_ATTR(mem_type, S_IRUGO | S_IWUSR,
+		   tmc_etr_show_mem_type, tmc_etr_store_mem_type);
+
 static struct attribute *tmc_attrs[] = {
 	&dev_attr_trigger_cntr.attr,
 	NULL,
@@ -1427,6 +1467,7 @@ static struct attribute *tmc_etr_attrs[] = {
 	&dev_attr_out_mode.attr,
 	&dev_attr_byte_cntr_value.attr,
 	&dev_attr_mem_size.attr,
+	&dev_attr_mem_type.attr,
 	NULL,
 };
 
