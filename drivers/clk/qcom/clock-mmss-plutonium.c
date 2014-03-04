@@ -1929,6 +1929,7 @@ static struct clk_mux_ops debug_mux_ops = {
 static struct mux_clk mmss_debug_mux = {
 	.ops = &debug_mux_ops,
 	MUX_SRC_LIST(
+		{ &mmsscc_mmssnoc_ahb.c, 0x0001 },
 		{ &mmss_misc_ahb_clk.c, 0x0003 },
 		{ &mmss_mmssnoc_axi_clk.c, 0x0004 },
 		{ &mmss_s0_axi_clk.c, 0x0005 },
@@ -2013,6 +2014,9 @@ static struct mux_clk mmss_debug_mux = {
 };
 
 static struct clk_lookup msm_clocks_mmss_plutonium[] = {
+	CLK_LIST(mmsscc_xo),
+	CLK_LIST(mmsscc_gpll0),
+	CLK_LIST(mmsscc_mmssnoc_ahb),
 	CLK_LIST(mmpll0),
 	CLK_LIST(mmpll0_out_main),
 	CLK_LIST(mmpll4),

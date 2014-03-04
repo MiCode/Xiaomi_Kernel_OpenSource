@@ -251,6 +251,9 @@
 #define clk_gcc_debug_mux 0x8121ac15
 
 /* clock_mmss controlled clocks */
+#define clk_mmsscc_xo 0x05e63704
+#define clk_mmsscc_gpll0 0xe900c515
+#define clk_mmsscc_mmssnoc_ahb 0x7b4bd6f7
 #define clk_mmpll0 0xdd83b751
 #define clk_mmpll0_out_main 0x2f996a31
 #define clk_mmpll4 0x22c063c1
