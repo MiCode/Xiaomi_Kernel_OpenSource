@@ -120,6 +120,7 @@ static int msm_dbm_find_matching_dbm_ep(u8 usb_ep)
 		if (dbm_data->ep_num_mapping[i] == usb_ep)
 			return i;
 
+	pr_err("%s: No DBM EP matches USB EP %d", __func__, usb_ep);
 	return -ENODEV; /* Not found */
 }
 
@@ -150,7 +151,7 @@ static int soft_reset(bool reset)
  */
 static int ep_soft_reset(u8 dbm_ep, bool enter_reset)
 {
-	pr_debug("%s\n", __func__);
+	pr_debug("Setting DBM ep %d reset to %d\n", dbm_ep, enter_reset);
 
 	if (dbm_ep >= dbm_data->dbm_num_eps) {
 		pr_err("Invalid DBM ep index %d\n", dbm_ep);
@@ -170,6 +171,27 @@ static int ep_soft_reset(u8 dbm_ep, bool enter_reset)
 
 
 /**
+ * Soft reset specific DBM ep (by USB EP number).
+ * This function is called by the function driver upon events
+ * such as transfer aborting, USB re-enumeration and USB
+ * disconnection.
+ *
+ * The function relies on ep_soft_reset() for checking
+ * the legality of the resulting DBM ep number.
+ *
+ * @usb_ep - USB ep number.
+ * @enter_reset - should we enter a reset state or get out of it.
+ *
+ */
+static int usb_ep_soft_reset(u8 usb_ep, bool enter_reset)
+{
+	int dbm_ep = msm_dbm_find_matching_dbm_ep(usb_ep);
+
+	pr_debug("Setting USB ep %d reset to %d\n", usb_ep, enter_reset);
+	return ep_soft_reset(dbm_ep, enter_reset);
+}
+
+/**
  * Configure a USB DBM ep to work in BAM mode.
  *
  *
@@ -187,18 +209,18 @@ static int ep_config(u8 usb_ep, u8 bam_pipe, bool producer, bool disable_wb,
 	int dbm_ep;
 	u32 ep_cfg;
 
-	pr_debug("%s\n", __func__);
+	pr_debug("Configuring DBM ep\n");
 
 	dbm_ep = msm_dbm_find_matching_dbm_ep(usb_ep);
 
 	if (dbm_ep < 0) {
-		pr_err("%s: Invalid usb ep index\n", __func__);
+		pr_err("usb ep index %d has no corresponding dbm ep\n", usb_ep);
 		return -ENODEV;
 	}
 
 	/* Due to HW issue, EP 7 can be set as IN EP only */
 	if (dbm_ep == 7 && producer) {
-		pr_err("%s: last DBM EP can't be OUT EP\n", __func__);
+		pr_err("last DBM EP can't be OUT EP\n");
 		return -ENODEV;
 	}
 
@@ -239,12 +261,12 @@ static int ep_unconfig(u8 usb_ep)
 	int dbm_ep;
 	u32 data;
 
-	pr_debug("%s\n", __func__);
+	pr_debug("Unconfiguring DB ep\n");
 
 	dbm_ep = msm_dbm_find_matching_dbm_ep(usb_ep);
 
 	if (dbm_ep < 0) {
-		pr_err("%s: Invalid usb ep index\n", __func__);
+		pr_err("usb ep index %d has no corresponding dbm ep\n", usb_ep);
 		return -ENODEV;
 	}
 
@@ -292,10 +314,10 @@ static int get_num_of_eps_configured(void)
  */
 static int event_buffer_config(u32 addr_lo, u32 addr_hi, int size)
 {
-	pr_debug("%s\n", __func__);
+	pr_debug("Configuring event buffer\n");
 
 	if (size < 0) {
-		pr_err("%s: Invalid size. size = %d", __func__, size);
+		pr_err("Invalid size. size = %d", size);
 		return -EINVAL;
 	}
 
@@ -396,7 +418,7 @@ static int msm_dbm_probe(struct platform_device *pdev)
 	dbm->data_fifo_config = data_fifo_config;
 	dbm->set_speed = set_speed;
 	dbm->enable = enable;
-	dbm->ep_soft_reset = ep_soft_reset;
+	dbm->ep_soft_reset = usb_ep_soft_reset;
 	dbm->reset_ep_after_lpm = reset_ep_after_lpm;
 
 	platform_set_drvdata(pdev, dbm);
