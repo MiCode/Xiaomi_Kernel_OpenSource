@@ -2360,8 +2360,8 @@ static struct snd_soc_dai_driver msm_dai_q6_mi2s_dai[] = {
 	},
 	{
 		.playback = {
-			/*No AIF to connect*/
 			.stream_name = "Tertiary MI2S Playback",
+			.aif_name = "TERT_MI2S_RX",
 			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
 			SNDRV_PCM_RATE_16000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,
@@ -2369,8 +2369,8 @@ static struct snd_soc_dai_driver msm_dai_q6_mi2s_dai[] = {
 			.rate_max =     48000,
 		},
 		.capture = {
-			/*No AIF to connect*/
 			.stream_name = "Tertiary MI2S Capture",
+			.aif_name = "TERT_MI2S_TX",
 			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
 			SNDRV_PCM_RATE_16000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,

@@ -57,7 +57,7 @@ static struct afe_clk_cfg mi2s_rx_clk = {
 	Q6AFE_LPASS_OSR_CLK_12_P288_MHZ,
 	Q6AFE_LPASS_CLK_SRC_INTERNAL,
 	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
-	Q6AFE_LPASS_MODE_BOTH_VALID,
+	Q6AFE_LPASS_MODE_CLK1_VALID,
 	0,
 };
 
@@ -67,7 +67,7 @@ static struct afe_clk_cfg mi2s_tx_clk = {
 	Q6AFE_LPASS_OSR_CLK_12_P288_MHZ,
 	Q6AFE_LPASS_CLK_SRC_INTERNAL,
 	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
-	Q6AFE_LPASS_MODE_BOTH_VALID,
+	Q6AFE_LPASS_MODE_CLK1_VALID,
 	0,
 };
 
@@ -176,12 +176,10 @@ static int mi2s_clk_ctl(struct snd_pcm_substream *substream, bool enable)
 	if (enable) {
 		digital_cdc_clk.clk_val = 9600000;
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-			mi2s_rx_clk.clk_val2 = Q6AFE_LPASS_OSR_CLK_12_P288_MHZ;
 			mi2s_rx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
 			ret = afe_set_lpass_clock(AFE_PORT_ID_PRIMARY_MI2S_RX,
 						  &mi2s_rx_clk);
 		} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-			mi2s_tx_clk.clk_val2 = Q6AFE_LPASS_OSR_CLK_12_P288_MHZ;
 			mi2s_tx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
 			ret = afe_set_lpass_clock(AFE_PORT_ID_TERTIARY_MI2S_TX,
 						  &mi2s_tx_clk);
@@ -194,12 +192,10 @@ static int mi2s_clk_ctl(struct snd_pcm_substream *substream, bool enable)
 	} else {
 		digital_cdc_clk.clk_val = 0;
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-			mi2s_rx_clk.clk_val2 = Q6AFE_LPASS_OSR_CLK_DISABLE;
 			mi2s_rx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_DISABLE;
 			ret = afe_set_lpass_clock(AFE_PORT_ID_PRIMARY_MI2S_RX,
 						  &mi2s_rx_clk);
 		} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-			mi2s_tx_clk.clk_val2 = Q6AFE_LPASS_OSR_CLK_DISABLE;
 			mi2s_tx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_DISABLE;
 			ret = afe_set_lpass_clock(AFE_PORT_ID_TERTIARY_MI2S_TX,
 						  &mi2s_tx_clk);
@@ -444,7 +440,7 @@ static struct snd_soc_dai_link msm8x16_dai[] = {
 		.name = "MSM8X16 Compr",
 		.stream_name = "COMPR",
 		.cpu_dai_name	= "MultiMedia4",
-		.platform_name  = "msm-compr-dsp",
+		.platform_name  = "msm-compress-dsp",
 		.dynamic = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			 SND_SOC_DPCM_TRIGGER_POST},
