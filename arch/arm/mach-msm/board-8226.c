@@ -167,7 +167,7 @@ static const char *msm8226_dt_match[] __initconst = {
 	NULL
 };
 
-DT_MACHINE_START(MSM8226_DT, "Qualcomm MSM 8226 (Flattened Device Tree)")
+DT_MACHINE_START(MSM8226_DT, "Qualcomm MSM 8x26 / MSM 8x28 (Flattened Device Tree)")
 	.map_io = msm_map_msm8226_io,
 	.init_irq = msm_dt_init_irq,
 	.init_machine = msm8226_init,
