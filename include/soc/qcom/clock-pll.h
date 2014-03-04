@@ -153,6 +153,7 @@ struct pll_config {
 	u32 main_output_mask;
 	u32 aux_output_val;
 	u32 aux_output_mask;
+	u32 cfg_ctl_val;
 	/* SR2 PLL specific fields */
 	u32 add_factor_val;
 	u32 add_factor_mask;
@@ -165,6 +166,7 @@ struct pll_config_regs {
 	void __iomem *n_reg;
 	void __iomem *config_reg;
 	void __iomem *config_alt_reg;
+	void __iomem *config_ctl_reg;
 	void __iomem *mode_reg;
 	void *const __iomem *base;
 };

@@ -33,8 +33,10 @@
 #define PLL_M_REG(x)		(*(x)->base + (unsigned long) (x)->m_reg)
 #define PLL_N_REG(x)		(*(x)->base + (unsigned long) (x)->n_reg)
 #define PLL_CONFIG_REG(x)	(*(x)->base + (unsigned long) (x)->config_reg)
-#define PLL_CFG_CTL_REG(x)	(*(x)->base + (unsigned long) \
+#define PLL_CFG_ALT_REG(x)	(*(x)->base + (unsigned long) \
 							(x)->config_alt_reg)
+#define PLL_CFG_CTL_REG(x)	(*(x)->base + (unsigned long) \
+							(x)->config_ctl_reg)
 
 static DEFINE_SPINLOCK(pll_reg_lock);
 
@@ -546,14 +548,14 @@ static void __configure_alt_config(struct pll_alt_config config,
 {
 	u32 regval;
 
-	regval = readl_relaxed(PLL_CFG_CTL_REG(regs));
+	regval = readl_relaxed(PLL_CFG_ALT_REG(regs));
 
 	if (config.mask) {
 		regval &= ~config.mask;
 		regval |= config.val;
 	}
 
-	writel_relaxed(regval, PLL_CFG_CTL_REG(regs));
+	writel_relaxed(regval, PLL_CFG_ALT_REG(regs));
 }
 
 void __configure_pll(struct pll_config *config,
@@ -604,6 +606,9 @@ void __configure_pll(struct pll_config *config,
 
 	if (regs->config_alt_reg)
 		__configure_alt_config(config->alt_cfg, regs);
+
+	if (regs->config_ctl_reg)
+		writel_relaxed(config->cfg_ctl_val, PLL_CFG_CTL_REG(regs));
 }
 
 void configure_sr_pll(struct pll_config *config,
