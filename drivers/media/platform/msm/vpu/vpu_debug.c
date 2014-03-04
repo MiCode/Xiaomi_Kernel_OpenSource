@@ -447,21 +447,111 @@ static const struct file_operations vpu_client_ops = {
 	.read = read_client,
 };
 
-struct dentry *init_vpu_debugfs(struct vpu_dev_core *core)
+static ssize_t read_streaming_state(struct file *file, char __user *user_buf,
+		size_t len, loff_t *ppos)
 {
-	struct dentry *attr;
-	struct dentry *root = debugfs_create_dir(VPU_DRV_NAME, NULL);
+	struct vpu_dev_session *session = file->private_data;
+	char temp_buf[8];
+	size_t size, ret;
 
-	if (IS_ERR_OR_NULL(root)) {
-		if (PTR_ERR(root) != -ENODEV) /* DEBUG_FS is defined */
-			pr_err("Failed to create debugfs directory\n");
-		goto failed_create_root;
+	size = snprintf(temp_buf, sizeof(temp_buf), "%d\n",
+			session->streaming_state == ALL_STREAMING);
+	ret = simple_read_from_buffer(user_buf, len, ppos, temp_buf, size);
+
+	return ret;
+}
+
+static const struct file_operations streaming_state_ops = {
+	.open = simple_open,
+	.read = read_streaming_state,
+};
+
+static int init_vpu_session_info_dir(struct dentry *root,
+		struct vpu_dev_session *session)
+{
+	struct dentry *attr_root, *attr;
+	char attr_name[SZ_16];
+	if (!session || !root)
+		goto failed_create_dir;
+
+	/* create session debugfs directory */
+	snprintf(attr_name, SZ_16, "session_%d", session->id);
+
+	attr_root = debugfs_create_dir(attr_name, root);
+	if (IS_ERR_OR_NULL(attr_root)) {
+		pr_err("Failed to create %s info directory\n", attr_name);
+		goto failed_create_dir;
 	}
 
+	/* create number of clients attribute */
+	attr = debugfs_create_u32("num_clients", S_IRUGO, attr_root,
+			&session->client_count);
+	if (IS_ERR_OR_NULL(attr)) {
+		pr_err("Failed to create number of clients attribute\n");
+		goto failed_create_attr;
+	}
+
+	/* create streaming state attribute file */
+	attr = debugfs_create_file("streaming", S_IRUGO,
+			attr_root, session, &streaming_state_ops);
+	if (IS_ERR_OR_NULL(attr)) {
+		pr_err("Failed to create streaming state attribute\n");
+		goto failed_create_attr;
+	}
+
+	/* create resolution attribute files */
+	attr = debugfs_create_u32("in_width", S_IRUGO, attr_root,
+			&session->port_info[INPUT_PORT].format.width);
+	if (IS_ERR_OR_NULL(attr)) {
+		pr_err("Failed to create input width attribute\n");
+		goto failed_create_attr;
+	}
+
+	attr = debugfs_create_u32("in_height", S_IRUGO, attr_root,
+			&session->port_info[INPUT_PORT].format.height);
+	if (IS_ERR_OR_NULL(attr)) {
+		pr_err("Failed to create input height attribute\n");
+		goto failed_create_attr;
+	}
+
+	attr = debugfs_create_u32("out_width", S_IRUGO, attr_root,
+			&session->port_info[OUTPUT_PORT].format.width);
+	if (IS_ERR_OR_NULL(attr)) {
+		pr_err("Failed to create output width attribute\n");
+		goto failed_create_attr;
+	}
+
+	attr = debugfs_create_u32("out_height", S_IRUGO, attr_root,
+			&session->port_info[OUTPUT_PORT].format.height);
+	if (IS_ERR_OR_NULL(attr)) {
+		pr_err("Failed to create output height attribute\n");
+		goto failed_create_attr;
+	}
+
+	return 0;
+
+failed_create_attr:
+	debugfs_remove_recursive(attr_root);
+failed_create_dir:
+	return -ENOENT;
+}
+
+struct dentry *init_vpu_debugfs(struct vpu_dev_core *core)
+{
+	struct dentry *root, *attr;
+	int i;
+
+	root = debugfs_create_dir(VPU_DRV_NAME, NULL);
+	if (IS_ERR_OR_NULL(root)) {
+		pr_err("Failed to create debugfs directory\n");
+		goto failed_create_dir;
+	}
+
+	/* create shutdown delay file */
 	attr = debugfs_create_u32("shutdown_delay_ms", S_IRUGO | S_IWUSR,
 			root, &vpu_shutdown_delay);
 	if (IS_ERR_OR_NULL(attr)) {
-		pr_err("Failed to create shutdown_delay file\n");
+		pr_err("Failed to create shutdown_delay attribute\n");
 		goto failed_create_attr;
 	}
 
@@ -523,13 +613,16 @@ struct dentry *init_vpu_debugfs(struct vpu_dev_core *core)
 		goto failed_create_attr;
 	}
 
+	/* create sessions station information directories */
+	for (i = 0; i < VPU_NUM_SESSIONS; i++)
+		init_vpu_session_info_dir(root, core->sessions[i]);
+
 	return root;
 
 failed_create_attr:
 	cleanup_vpu_debugfs(root);
-	return attr ? attr : ERR_PTR(-ENOMEM);
-failed_create_root:
-	return root ? root : ERR_PTR(-ENOMEM);
+failed_create_dir:
+	return NULL;
 }
 
 void cleanup_vpu_debugfs(struct dentry *root)
