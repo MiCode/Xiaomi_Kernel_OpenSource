@@ -349,6 +349,43 @@ static void a4xx_enable_hwcg(struct kgsl_device *device)
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2, 0);
 }
 
+/**
+ * a4xx_protect_init() - Initializes register protection on a4xx
+ * @device: Pointer to the device structure
+ * Performs register writes to enable protected access to sensitive
+ * registers
+ */
+static void a4xx_protect_init(struct kgsl_device *device)
+{
+	int index = 0;
+
+	/* enable access protection to privileged registers */
+	kgsl_regwrite(device, A4XX_CP_PROTECT_CTRL, 0x00000007);
+	/* RBBM registers */
+	adreno_set_protected_registers(device, &index, 0x4, 2);
+	adreno_set_protected_registers(device, &index, 0x8, 3);
+	adreno_set_protected_registers(device, &index, 0x10, 4);
+	adreno_set_protected_registers(device, &index, 0x20, 5);
+	adreno_set_protected_registers(device, &index, 0x40, 6);
+	adreno_set_protected_registers(device, &index, 0x80, 4);
+
+	/* CP registers */
+	adreno_set_protected_registers(device, &index, 0x200, 7);
+	adreno_set_protected_registers(device, &index, 0x580, 4);
+
+	/* RB registers */
+	adreno_set_protected_registers(device, &index, 0xCC0, 0);
+
+	/* HLSQ registers */
+	adreno_set_protected_registers(device, &index, 0xE00, 0);
+
+	/* VPC registers */
+	adreno_set_protected_registers(device, &index, 0xE60, 1);
+
+	/* SMMU registers */
+	adreno_set_protected_registers(device, &index, 0x4000, 14);
+}
+
 static void a4xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
@@ -412,6 +449,8 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 		val |= 2 << A4XX_CGC_HLSQ_TP_EARLY_CYC_SHIFT;
 		kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_HLSQ, val);
 	}
+
+	a4xx_protect_init(device);
 }
 
 int a4xx_perfcounter_enable_vbif(struct kgsl_device *device,
@@ -564,6 +603,7 @@ static unsigned int a4xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_MEQ_ADDR, A4XX_CP_MEQ_ADDR),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_MEQ_DATA, A4XX_CP_MEQ_DATA),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_HW_FAULT, A4XX_CP_HW_FAULT),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_PROTECT_STATUS, A4XX_CP_PROTECT_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_SCRATCH_ADDR, A4XX_CP_SCRATCH_ADDR),
 	ADRENO_REG_DEFINE(ADRENO_REG_SCRATCH_UMSK, A4XX_CP_SCRATCH_UMASK),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS, A4XX_RBBM_STATUS),

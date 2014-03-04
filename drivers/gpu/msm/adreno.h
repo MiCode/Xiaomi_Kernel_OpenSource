@@ -25,6 +25,7 @@
 #endif
 
 #include "a3xx_reg.h"
+#include "a4xx_reg.h"
 
 #define DEVICE_3D_NAME "kgsl-3d"
 #define DEVICE_3D0_NAME "kgsl-3d0"
@@ -324,6 +325,7 @@ enum adreno_regs {
 	ADRENO_REG_CP_MEQ_ADDR,
 	ADRENO_REG_CP_MEQ_DATA,
 	ADRENO_REG_CP_HW_FAULT,
+	ADRENO_REG_CP_PROTECT_STATUS,
 	ADRENO_REG_SCRATCH_ADDR,
 	ADRENO_REG_SCRATCH_UMSK,
 	ADRENO_REG_SCRATCH_REG2,
@@ -1008,18 +1010,22 @@ static inline void adreno_set_protected_registers(struct kgsl_device *device,
 	unsigned int *index, unsigned int reg, int mask_len)
 {
 	unsigned int val;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	/* There are only 16 registers available */
 	BUG_ON(*index >= 16);
 
-	val = 0x60000000 | ((mask_len & 0x1F) << 24) | ((reg << 2) & 0x1FFFF);
+	val = 0x60000000 | ((mask_len & 0x1F) << 24) | ((reg << 2) & 0xFFFFF);
 
 	/*
 	 * Write the protection range to the next available protection
 	 * register
 	 */
 
-	kgsl_regwrite(device, A3XX_CP_PROTECT_REG_0 + *index, val);
+	if (adreno_is_a4xx(adreno_dev))
+		kgsl_regwrite(device, A4XX_CP_PROTECT_REG_0 + *index, val);
+	else if (adreno_is_a3xx(adreno_dev))
+		kgsl_regwrite(device, A3XX_CP_PROTECT_REG_0 + *index, val);
 	*index = *index + 1;
 }
 
