@@ -145,6 +145,25 @@ static const struct reg_default florida_sysclk_revd_patch[] = {
 	{ 0x33fb, 0xfe00 },
 };
 
+static const struct reg_default florida_sysclk_reve_patch[] = {
+	{ 0x325C, 0xE410 },
+	{ 0x325D, 0x3066 },
+	{ 0x325E, 0xE410 },
+	{ 0x325F, 0x3070 },
+	{ 0x3260, 0xE410 },
+	{ 0x3261, 0x3078 },
+	{ 0x3262, 0xE410 },
+	{ 0x3263, 0x3080 },
+	{ 0x3266, 0xE414 },
+	{ 0x3267, 0x3066 },
+	{ 0x3268, 0xE414 },
+	{ 0x3269, 0x3070 },
+	{ 0x326A, 0xE414 },
+	{ 0x326B, 0x3078 },
+	{ 0x326C, 0xE414 },
+	{ 0x326D, 0x3080 },
+};
+
 static int florida_sysclk_ev(struct snd_soc_dapm_widget *w,
 			    struct snd_kcontrol *kcontrol, int event)
 {
@@ -158,6 +177,10 @@ static int florida_sysclk_ev(struct snd_soc_dapm_widget *w,
 	case 3:
 		patch = florida_sysclk_revd_patch;
 		patch_size = ARRAY_SIZE(florida_sysclk_revd_patch);
+		break;
+	case 4:
+		patch = florida_sysclk_reve_patch;
+		patch_size = ARRAY_SIZE(florida_sysclk_reve_patch);
 		break;
 	default:
 		return 0;
@@ -958,10 +981,12 @@ SND_SOC_DAPM_AIF_IN("AIF3RX2", NULL, 0,
 
 SND_SOC_DAPM_PGA_E("OUT1L", SND_SOC_NOPM,
 		   ARIZONA_OUT1L_ENA_SHIFT, 0, NULL, 0, arizona_hp_ev,
-		   SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMU),
+		   SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_PRE_PMU |
+		   SND_SOC_DAPM_POST_PMU),
 SND_SOC_DAPM_PGA_E("OUT1R", SND_SOC_NOPM,
 		   ARIZONA_OUT1R_ENA_SHIFT, 0, NULL, 0, arizona_hp_ev,
-		   SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMU),
+		   SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_PRE_PMU |
+		   SND_SOC_DAPM_POST_PMU),
 SND_SOC_DAPM_PGA_E("OUT2L", ARIZONA_OUTPUT_ENABLES_1,
 		   ARIZONA_OUT2L_ENA_SHIFT, 0, NULL, 0, arizona_out_ev,
 		   SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMU),

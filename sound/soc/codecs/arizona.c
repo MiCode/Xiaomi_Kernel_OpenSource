@@ -774,15 +774,95 @@ int arizona_in_ev(struct snd_soc_dapm_widget *w, struct snd_kcontrol *kcontrol,
 }
 EXPORT_SYMBOL_GPL(arizona_in_ev);
 
+int florida_hp_pre_enable(struct snd_soc_dapm_widget *w)
+{
+	unsigned int val = snd_soc_read(w->codec, ARIZONA_DRE_ENABLE);
+
+	switch (w->shift) {
+	case ARIZONA_OUT1L_ENA_SHIFT:
+		if (!(val & ARIZONA_DRE1L_ENA_MASK))
+			snd_soc_update_bits(w->codec,
+					    ARIZONA_OUTPUT_PATH_CONFIG_1L,
+					    ARIZONA_OUT1L_PGA_VOL_MASK,
+					    0x56);
+		break;
+	case ARIZONA_OUT1R_ENA_SHIFT:
+		if (!(val & ARIZONA_DRE1R_ENA_MASK))
+			snd_soc_update_bits(w->codec,
+					    ARIZONA_OUTPUT_PATH_CONFIG_1R,
+					    ARIZONA_OUT1R_PGA_VOL_MASK,
+					    0x56);
+		break;
+
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+int florida_hp_post_enable(struct snd_soc_dapm_widget *w)
+{
+	unsigned int wseq = 0;
+	unsigned int val = snd_soc_read(w->codec, ARIZONA_DRE_ENABLE);
+
+	switch (w->shift) {
+	case ARIZONA_OUT1L_ENA_SHIFT:
+		if (!(val & ARIZONA_DRE1L_ENA_MASK)) {
+			snd_soc_write(w->codec,
+				      ARIZONA_WRITE_SEQUENCER_CTRL_0,
+				      ARIZONA_WSEQ_ENA | ARIZONA_WSEQ_START |
+				      0x12E);
+			msleep(10);
+			snd_soc_update_bits(w->codec,
+					    ARIZONA_OUTPUT_PATH_CONFIG_1L,
+					    ARIZONA_OUT1L_PGA_VOL_MASK,
+					    0x80);
+		}
+		break;
+	case ARIZONA_OUT1R_ENA_SHIFT:
+		if (!(val & ARIZONA_DRE1R_ENA_MASK)) {
+			snd_soc_write(w->codec,
+				      ARIZONA_WRITE_SEQUENCER_CTRL_0,
+				      ARIZONA_WSEQ_ENA | ARIZONA_WSEQ_START |
+				      0x133);
+			msleep(10);
+			snd_soc_update_bits(w->codec,
+					    ARIZONA_OUTPUT_PATH_CONFIG_1R,
+					    ARIZONA_OUT1R_PGA_VOL_MASK,
+					    0x80);
+		}
+		break;
+
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 int arizona_out_ev(struct snd_soc_dapm_widget *w,
 		   struct snd_kcontrol *kcontrol,
 		   int event)
 {
+	struct arizona_priv *priv = snd_soc_codec_get_drvdata(w->codec);
+
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		switch (w->shift) {
 		case ARIZONA_OUT1L_ENA_SHIFT:
 		case ARIZONA_OUT1R_ENA_SHIFT:
+			msleep(17);
+
+			switch (priv->arizona->type) {
+			case WM5110:
+				florida_hp_post_enable(w);
+				break;
+			default:
+				break;
+			}
+
+			break;
 		case ARIZONA_OUT2L_ENA_SHIFT:
 		case ARIZONA_OUT2R_ENA_SHIFT:
 		case ARIZONA_OUT3L_ENA_SHIFT:
@@ -810,6 +890,15 @@ int arizona_hp_ev(struct snd_soc_dapm_widget *w,
 	unsigned int val;
 
 	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		switch (priv->arizona->type) {
+		case WM5110:
+			florida_hp_pre_enable(w);
+			break;
+		default:
+			break;
+		}
+		return 0;
 	case SND_SOC_DAPM_POST_PMU:
 		val = mask;
 		break;
