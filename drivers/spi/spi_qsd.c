@@ -1753,9 +1753,9 @@ static void msm_spi_process_message(struct msm_spi *dd)
 		dd->num_xfrs_grped = 1;
 		msm_spi_process_transfer(dd);
 	}
+	return;
 error:
 	msm_spi_free_cs_gpio(dd);
-	return;
 }
 
 /**
