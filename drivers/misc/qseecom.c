@@ -164,13 +164,14 @@ struct qseecom_control {
 	uint32_t qsee_perf_client;
 	struct qseecom_clk qsee;
 	struct qseecom_clk ce_drv;
-	struct cdev cdev;
 
 	bool support_bus_scaling;
 	uint32_t  cumulative_mode;
 	enum qseecom_bandwidth_request_mode  current_mode;
 	struct timer_list bw_scale_down_timer;
 	struct work_struct bw_inactive_req_ws;
+	struct cdev cdev;
+	bool timer_running;
 };
 
 struct qseecom_client_handle {
@@ -490,6 +491,7 @@ static void qseecom_bw_inactive_req_work(struct work_struct *work)
 	__qseecom_set_msm_bus_request(INACTIVE);
 	pr_debug("current_mode = %d, cumulative_mode = %d\n",
 				qseecom.current_mode, qseecom.cumulative_mode);
+	qseecom.timer_running = false;
 	mutex_unlock(&qsee_bw_mutex);
 	mutex_unlock(&app_access_lock);
 	return;
@@ -500,6 +502,25 @@ static void qseecom_scale_bus_bandwidth_timer_callback(unsigned long data)
 	schedule_work(&qseecom.bw_inactive_req_ws);
 	return;
 }
+
+static void __qseecom_decrease_clk_ref_count(enum qseecom_ce_hw_instance ce)
+{
+	struct qseecom_clk *qclk;
+	mutex_lock(&clk_access_lock);
+	if (ce == CLK_QSEE)
+		qclk = &qseecom.qsee;
+	else
+		qclk = &qseecom.ce_drv;
+
+	if (qclk->clk_access_cnt == 0) {
+		mutex_unlock(&clk_access_lock);
+		return;
+	}
+	qclk->clk_access_cnt--;
+	mutex_unlock(&clk_access_lock);
+	return;
+}
+
 
 static int qseecom_scale_bus_bandwidth_timer(uint32_t mode, uint32_t duration)
 {
@@ -515,13 +536,16 @@ static int qseecom_scale_bus_bandwidth_timer(uint32_t mode, uint32_t duration)
 	} else {
 		request_mode = mode;
 	}
-	__qseecom_set_msm_bus_request(request_mode);
 
-	del_timer_sync(&(qseecom.bw_scale_down_timer));
+	__qseecom_set_msm_bus_request(request_mode);
+	if (qseecom.timer_running) {
+		__qseecom_decrease_clk_ref_count(CLK_QSEE);
+		del_timer_sync(&(qseecom.bw_scale_down_timer));
+	}
 	qseecom.bw_scale_down_timer.expires = jiffies +
 				msecs_to_jiffies(duration);
 	add_timer(&(qseecom.bw_scale_down_timer));
-
+	qseecom.timer_running = true;
 	mutex_unlock(&qsee_bw_mutex);
 	return ret;
 }
@@ -3924,6 +3948,7 @@ static int __devinit qseecom_probe(struct platform_device *pdev)
 		qseecom.bw_scale_down_timer.function =
 				qseecom_scale_bus_bandwidth_timer_callback;
 	}
+	qseecom.timer_running = false;
 	qseecom.qsee_perf_client = msm_bus_scale_register_client(
 					qseecom_platform_support);
 
