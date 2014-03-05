@@ -767,7 +767,7 @@ int nfc_ioctl_nfcc_version(struct file *filp, unsigned int cmd,
 				&raw_chip_rev_id_addr, 1);
 		if (r < 0)
 			goto invalid_wr;
-		usleep(10);
+		usleep(20);
 		r = i2c_master_recv(qca199x_dev->client, &raw_chip_version, 1);
 		/* Restore original NFCC slave I2C address */
 		qca199x_dev->client->addr = curr_addr;
