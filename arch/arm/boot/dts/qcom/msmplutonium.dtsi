@@ -498,6 +498,8 @@
 	parent-supply = <&pmiplutonium_s2_corner>;
 };
 
+#include "msm-pmplutonium.dtsi"
+#include "msm-pmiplutonium.dtsi"
 #include "msmplutonium-regulator.dtsi"
 #include "msmplutonium-ion.dtsi"
 #include "msmplutonium-iommu.dtsi"
