@@ -74,21 +74,10 @@ enum vpu_power_mode {
 	VPU_POWER_MAX = VPU_POWER_DYNAMIC
 };
 
-struct load_freq_pair {
-	u32 load;
-	u32 freq;
-};
-
-struct load_freq_table {
-	struct load_freq_pair *entry;
-	int count;
-};
-
 struct vpu_clock {
 	struct clk *clk;
 	u32 status;
-	u32 current_freq;
-	struct load_freq_table load_freq_tbl;
+	u32 dynamic_freq;
 	const char *name;
 	const u32 *pwr_frequencies;
 	u32 flag;

@@ -19,12 +19,6 @@ Required properties:
     - "vpu_hfi": Firmware to Host interrupt
 - clock-names: Array of clocks that the driver requires for the device.
   The names here correspond to the clock names used in clk_get(<name>).
-- qcom,maple-clk-load-freq-tbl: Table of <load, freq> entries. An entry
-  specifies a given VPU processing load (in bits per second), and a
-  corresponding clock frequency (in Hz) to set. Entries should be in
-  ascending order of load, and their number is variable. For maple clock.
-- qcom,vdp-clk-load-freq-tbl: Same as above, for vdp clock.
-- qcom,bus-clk-load-freq-tbl: Same as above, for bus clock.
 - qcom,bus-load-vector-tbl: Vectors of <load, ab, ib>. The (ab,ib) pairs are
   ddr bus bandwidths to be requested at corresponding video processing load.
   Vectors should be in ascending order of load, and their number is variable.
