@@ -36,17 +36,14 @@
 #include <linux/usb/msm_hsusb.h>
 #include <linux/usb/msm_ext_chg.h>
 #include <linux/regulator/consumer.h>
-#include <linux/regulator/rpm-smd-regulator.h>
 #include <linux/pm_wakeup.h>
 #include <linux/power_supply.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/cdev.h>
 #include <linux/completion.h>
 #include <linux/clk/msm-clk.h>
+#include <linux/msm-bus.h>
 #include <soc/qcom/scm.h>
-
-#include <mach/rpm-regulator.h>
-#include <mach/msm_bus.h>
 
 #include "dwc3_otg.h"
 #include "core.h"
