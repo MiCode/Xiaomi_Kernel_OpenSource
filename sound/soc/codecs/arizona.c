@@ -803,7 +803,6 @@ int florida_hp_pre_enable(struct snd_soc_dapm_widget *w)
 
 int florida_hp_post_enable(struct snd_soc_dapm_widget *w)
 {
-	unsigned int wseq = 0;
 	unsigned int val = snd_soc_read(w->codec, ARIZONA_DRE_ENABLE);
 
 	switch (w->shift) {
