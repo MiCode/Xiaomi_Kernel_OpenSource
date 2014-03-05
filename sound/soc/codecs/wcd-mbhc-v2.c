@@ -819,7 +819,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 
 	ret = wcd9xxx_request_irq(mbhc->intr_ids->mbhc_hs_ins_rem_intr,
 				  wcd_mbhc_hs_ins_rem_irq,
-				  "Elect Insertion/Remove", mbhc);
+				  "Elect Insert Remove", mbhc);
 	if (ret) {
 		pr_err("%s: Failed to request irq %d\n", __func__,
 		       mbhc->intr_ids->mbhc_hs_ins_rem_intr);

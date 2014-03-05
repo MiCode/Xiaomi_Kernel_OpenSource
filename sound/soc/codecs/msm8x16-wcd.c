@@ -164,9 +164,9 @@ struct msm8x16_wcd_spmi {
 
 static const struct wcd_mbhc_intr intr_ids = {
 	.mbhc_sw_intr =  MSM8X16_WCD_IRQ_MBHC_HS_DET,
-	.mbhc_btn_press_intr = MSM8X16_WCD_IRQ_MBHC_INSREM_DET,
-	.mbhc_btn_release_intr = MSM8X16_WCD_IRQ_MBHC_PRESS,
-	.mbhc_hs_ins_rem_intr = MSM8X16_WCD_IRQ_MBHC_RELEASE,
+	.mbhc_btn_press_intr = MSM8X16_WCD_IRQ_MBHC_PRESS,
+	.mbhc_btn_release_intr = MSM8X16_WCD_IRQ_MBHC_RELEASE,
+	.mbhc_hs_ins_rem_intr = MSM8X16_WCD_IRQ_MBHC_INSREM_DET,
 	.hph_left_ocp = MSM8X16_WCD_IRQ_HPHL_OCP,
 	.hph_right_ocp = MSM8X16_WCD_IRQ_HPHR_OCP,
 };
