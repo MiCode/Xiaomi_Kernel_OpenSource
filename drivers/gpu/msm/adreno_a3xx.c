@@ -1207,7 +1207,7 @@ static inline int active_countable(unsigned int countable)
  * Read all the physical performance counter's values and save them
  * before GPU power collapse.
  */
-static void a3xx_perfcounter_save(struct adreno_device *adreno_dev)
+void a3xx_perfcounter_save(struct adreno_device *adreno_dev)
 {
 	struct adreno_perfcounters *counters = adreno_dev->gpudev->perfcounters;
 	struct adreno_perfcount_group *group;
@@ -1245,20 +1245,23 @@ static void a3xx_perfcounter_save(struct adreno_device *adreno_dev)
 static void a3xx_perfcounter_write(struct adreno_device *adreno_dev,
 				unsigned int group, unsigned int counter)
 {
-	struct kgsl_device *device = &(adreno_dev->dev);
 	struct adreno_perfcount_register *reg;
 	unsigned int val;
 
 	reg = &(adreno_dev->gpudev->perfcounters->groups[group].regs[counter]);
 
 	/* Clear the load cmd registers */
-	kgsl_regwrite(device, A3XX_RBBM_PERFCTR_LOAD_CMD0, 0);
-	kgsl_regwrite(device, A3XX_RBBM_PERFCTR_LOAD_CMD1, 0);
+	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_PERFCTR_LOAD_CMD0, 0);
+	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_PERFCTR_LOAD_CMD1, 0);
+	if (adreno_is_a4xx(adreno_dev))
+		adreno_writereg(adreno_dev,
+			ADRENO_REG_RBBM_PERFCTR_LOAD_CMD2, 0);
+
 
 	/* Write the saved value to PERFCTR_LOAD_VALUE* registers. */
-	kgsl_regwrite(device, A3XX_RBBM_PERFCTR_LOAD_VALUE_LO,
+	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_LO,
 			(uint32_t)reg->value);
-	kgsl_regwrite(device, A3XX_RBBM_PERFCTR_LOAD_VALUE_HI,
+	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
 			(uint32_t)(reg->value >> 32));
 
 	/*
@@ -1268,10 +1271,16 @@ static void a3xx_perfcounter_write(struct adreno_device *adreno_dev,
 	 */
 	if (reg->load_bit < 32)	{
 		val = 1 << reg->load_bit;
-		kgsl_regwrite(device, A3XX_RBBM_PERFCTR_LOAD_CMD0, val);
-	} else {
+		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_PERFCTR_LOAD_CMD0,
+			val);
+	} else if (reg->load_bit < 64) {
 		val  = 1 << (reg->load_bit - 32);
-		kgsl_regwrite(device, A3XX_RBBM_PERFCTR_LOAD_CMD1, val);
+		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_PERFCTR_LOAD_CMD1,
+			val);
+	} else if (reg->load_bit >= 64 && adreno_is_a4xx(adreno_dev)) {
+		val = 1 << (reg->load_bit - 64);
+		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_PERFCTR_LOAD_CMD2,
+			val);
 	}
 }
 
@@ -1282,9 +1291,8 @@ static void a3xx_perfcounter_write(struct adreno_device *adreno_dev,
  * This function together with a3xx_perfcounter_save make sure that performance
  * counters are coherent across GPU power collapse.
  */
-static void a3xx_perfcounter_restore(struct adreno_device *adreno_dev)
+void a3xx_perfcounter_restore(struct adreno_device *adreno_dev)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
 	struct adreno_perfcounters *counters = adreno_dev->gpudev->perfcounters;
 	struct adreno_perfcount_group *group;
 	unsigned int regid, groupid;
@@ -1305,8 +1313,11 @@ static void a3xx_perfcounter_restore(struct adreno_device *adreno_dev)
 	}
 
 	/* Clear the load cmd registers */
-	kgsl_regwrite(device, A3XX_RBBM_PERFCTR_LOAD_CMD0, 0);
-	kgsl_regwrite(device, A3XX_RBBM_PERFCTR_LOAD_CMD1, 0);
+	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_PERFCTR_LOAD_CMD0, 0);
+	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_PERFCTR_LOAD_CMD1, 0);
+	if (adreno_is_a4xx(adreno_dev))
+		adreno_writereg(adreno_dev,
+			ADRENO_REG_RBBM_PERFCTR_LOAD_CMD2, 0);
 
 }
 
@@ -2267,6 +2278,10 @@ static unsigned int a3xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SW_RESET_CMD, A3XX_RBBM_SW_RESET_CMD),
 	ADRENO_REG_DEFINE(ADRENO_REG_UCHE_INVALIDATE0,
 			A3XX_UCHE_CACHE_INVALIDATE0_REG),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_LO,
+				A3XX_RBBM_PERFCTR_LOAD_VALUE_LO),
+	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
+				A3XX_RBBM_PERFCTR_LOAD_VALUE_HI),
 };
 
 const struct adreno_reg_offsets a3xx_reg_offsets = {
