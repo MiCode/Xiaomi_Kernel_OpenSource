@@ -18,9 +18,9 @@
 #include <linux/delay.h>
 #include <linux/of.h>
 #include <linux/iommu.h>
+#include <linux/qcom_iommu.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/scm.h>
-#include <mach/iommu.h>
 #include <linux/msm_iommu_domains.h>
 #include <mach/ocmem.h>
 #include <soc/qcom/smem.h>

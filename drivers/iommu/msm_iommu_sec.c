@@ -31,10 +31,10 @@
 #include <asm/cacheflush.h>
 #include <asm/sizes.h>
 
-#include <mach/iommu_perfmon.h>
-#include <mach/iommu_hw-v1.h>
-#include <mach/msm_iommu_priv.h>
-#include <mach/iommu.h>
+#include "msm_iommu_perfmon.h"
+#include "msm_iommu_hw-v1.h"
+#include "msm_iommu_priv.h"
+#include <linux/qcom_iommu.h>
 
 /* bitmap of the page sizes currently supported */
 #define MSM_IOMMU_PGSIZES	(SZ_4K | SZ_64K | SZ_1M | SZ_16M)

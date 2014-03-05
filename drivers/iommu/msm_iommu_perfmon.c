@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,8 +20,8 @@
 #include <linux/interrupt.h>
 #include <linux/bitops.h>
 #include <linux/debugfs.h>
-#include <mach/iommu.h>
-#include <mach/iommu_perfmon.h>
+#include <linux/qcom_iommu.h>
+#include "msm_iommu_perfmon.h"
 
 static LIST_HEAD(iommu_list);
 static struct dentry *msm_iommu_root_debugfs_dir;

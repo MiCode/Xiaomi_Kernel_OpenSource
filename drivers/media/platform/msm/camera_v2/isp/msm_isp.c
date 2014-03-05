@@ -18,11 +18,11 @@
 #include <linux/debugfs.h>
 #include <linux/videodev2.h>
 #include <linux/of_device.h>
+#include <linux/qcom_iommu.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-event.h>
-#include <mach/iommu.h>
 
 #include "msm_isp.h"
 #include "msm_isp_util.h"

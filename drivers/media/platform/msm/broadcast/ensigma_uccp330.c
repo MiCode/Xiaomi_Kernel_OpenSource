@@ -41,8 +41,9 @@
 #include <mach/msm_bus.h>
 #include <linux/clk/msm-clk.h>
 #include <linux/iommu.h>
-#include <mach/iommu.h>
-#include <mach/iommu_domains.h>
+#include <linux/qcom_iommu.h>
+#include <linux/msm_iommu_domains.h>
+
 #define DRV_NAME_DEMOD "demod"
 #define DRVDBG(fmt, args...)\
 	pr_debug(DRV_NAME_DEMOD " %s():%d " fmt, __func__, __LINE__, ## args)

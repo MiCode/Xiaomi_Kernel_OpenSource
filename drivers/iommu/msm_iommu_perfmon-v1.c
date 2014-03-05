@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,9 +18,9 @@
 #include <linux/io.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
-#include <mach/iommu_hw-v1.h>
-#include <mach/iommu_perfmon.h>
-#include <mach/iommu.h>
+#include "msm_iommu_hw-v1.h"
+#include "msm_iommu_perfmon.h"
+#include <linux/qcom_iommu.h>
 
 #define PMCR_P_MASK		(0x1)
 #define PMCR_P_SHIFT		(1)

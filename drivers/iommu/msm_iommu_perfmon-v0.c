@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,9 +19,9 @@
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/device.h>
-#include <mach/iommu_hw-v0.h>
-#include <mach/iommu_perfmon.h>
-#include <mach/iommu.h>
+#include "msm_iommu_hw-v0.h"
+#include "msm_iommu_perfmon.h"
+#include <linux/qcom_iommu.h>
 
 #define PM_RESET_MASK		(0xF)
 #define PM_RESET_SHIFT		(0x8)
