@@ -117,6 +117,7 @@
 #include "msm8916-iommu.dtsi"
 #include "msm8916-gpu.dtsi"
 #include "msm8916-mdss.dtsi"
+#include "msm8916-mdss-pll.dtsi"
 #include "msm8916-iommu-domains.dtsi"
 #include "msm8916-bus.dtsi"
 
