@@ -21,7 +21,7 @@
 
 &soc {
 	i2c@78b9000 { /* BLSP1 QUP5 */
-		synaptics@20 {
+		synaptics@70 {
 			compatible = "synaptics,rmi4";
 			reg = <0x70>;
 			interrupt-parent = <&msm_gpio>;
@@ -34,8 +34,9 @@
 			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 			synaptics,irq-gpio = <&msm_gpio 13 0x2008>;
 			synaptics,reset-gpio = <&msm_gpio 12 0x0>;
-			synaptics,button-map = <158 102 139>;
 			synaptics,i2c-pull-up;
+			synaptics,display-coords = <0 0 720 1280>;
+			synaptics,panel-coords = <0 0 720 1369>;
 			synaptics,power-down;
 			synaptics,disable-gpios;
 		};
@@ -49,7 +50,7 @@
 		qcom,disp-maxy = <1280>;
 		qcom,panel-maxx = <720>;
 		qcom,panel-maxy = <1369>;
-		qcom,key-codes = <158 102 139>;
+		qcom,key-codes = <158 172 139>;
 		qcom,y-offset = <0>;
 	};
 

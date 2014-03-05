@@ -34,7 +34,8 @@
 			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 			synaptics,irq-gpio = <&msm_gpio 13 0x2008>;
 			synaptics,reset-gpio = <&msm_gpio 12 0x0>;
-			synaptics,button-map = <158 102 139>;
+			synaptics,display-coords = <0 0 1079 1919>;
+			synaptics,panel-coords = <0 0 1079 2084>;
 			synaptics,i2c-pull-up;
 			synaptics,power-down;
 			synaptics,disable-gpios;
@@ -44,11 +45,11 @@
 	gen-vkeys {
 		compatible = "qcom,gen-vkeys";
 		label = "synaptics_rmi4_i2c";
-		qcom,disp-maxx = <719>;
-		qcom,disp-maxy = <1279>;
-		qcom,panel-maxx = <719>;
-		qcom,panel-maxy = <1399>;
-		qcom,key-codes = <158 139 102 217>;
+		qcom,disp-maxx = <1079>;
+		qcom,disp-maxy = <1919>;
+		qcom,panel-maxx = <1079>;
+		qcom,panel-maxy = <2084>;
+		qcom,key-codes = <158 139 172 217>;
 	};
 
 	i2c@78ba000 { /* BLSP1 QUP6 */
