@@ -52,7 +52,6 @@ Required properties:
 				index and value like this:
 				 [0] => the fuse row number
 				 [1] => fuse reading method, 0 for direct reading or 1 for SCM reading
-- qcom,cpr-fuse-bp-cpr-disable:	Bit position of the bit to indicate if CPR should be disable
 - qcom,cpr-fuse-target-quot:	Array of bit positions in fuse for Target Quotient of all corners.
 				It should have index and value like this:
 				  [0] => bit position of the LSB bit for SVS target quotient
@@ -156,6 +155,7 @@ Optional properties:
 - qcom,cpr-fuse-redun-bp-scheme:	Redundant bit position of the bit to indicate if it's a global/local scheme
 					This property is required if cpr-fuse-redun-bp-cpr-disable
 					is present, and vise versa.
+- qcom,cpr-fuse-bp-cpr-disable:	Bit position of the bit to indicate if CPR should be disabled
 - qcom,cpr-fuse-bp-scheme:     Bit position of the bit to indicate if it's a global/local scheme
 - qcom,cpr-enable:		Present: CPR enabled by default.
 				Not Present: CPR disable by default.
