@@ -69,6 +69,22 @@ module_param(pbl_mba_boot_timeout_ms, int, S_IRUGO | S_IWUSR);
 static int modem_auth_timeout_ms = 10000;
 module_param(modem_auth_timeout_ms, int, S_IRUGO | S_IWUSR);
 
+static void modem_log_rmb_regs(void __iomem *base)
+{
+	pr_err("RMB_MBA_IMAGE: %08x\n", readl_relaxed(base + RMB_MBA_IMAGE));
+	pr_err("RMB_PBL_STATUS: %08x\n", readl_relaxed(base + RMB_PBL_STATUS));
+	pr_err("RMB_MBA_COMMAND: %08x\n",
+				readl_relaxed(base + RMB_MBA_COMMAND));
+	pr_err("RMB_MBA_STATUS: %08x\n", readl_relaxed(base + RMB_MBA_STATUS));
+	pr_err("RMB_PMI_META_DATA: %08x\n",
+				readl_relaxed(base + RMB_PMI_META_DATA));
+	pr_err("RMB_PMI_CODE_START: %08x\n",
+				readl_relaxed(base + RMB_PMI_CODE_START));
+	pr_err("RMB_PMI_CODE_LENGTH: %08x\n",
+				readl_relaxed(base + RMB_PMI_CODE_LENGTH));
+
+}
+
 static int pil_mss_power_up(struct q6v5_data *drv)
 {
 	int ret = 0;
@@ -304,6 +320,7 @@ static int pil_mss_reset(struct pil_desc *pil)
 	return 0;
 
 err_q6v5_reset:
+	modem_log_rmb_regs(drv->rmb_base);
 	pil_mss_disable_clks(drv);
 err_clks:
 	if (drv->restart_reg)
@@ -408,8 +425,11 @@ static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
 
 	dma_free_coherent(pil->dev, size, mdata_virt, mdata_phys);
 
-	if (ret && drv->q6)
-		pil_mss_shutdown(pil);
+	if (ret) {
+		modem_log_rmb_regs(drv->rmb_base);
+		if (drv->q6)
+			pil_mss_shutdown(pil);
+	}
 	return ret;
 }
 
@@ -444,6 +464,7 @@ static int pil_msa_mba_verify_blob(struct pil_desc *pil, phys_addr_t phy_addr,
 	status = readl_relaxed(drv->rmb_base + RMB_MBA_STATUS);
 	if (status < 0) {
 		dev_err(pil->dev, "MBA returned error %d\n", status);
+		modem_log_rmb_regs(drv->rmb_base);
 		return -EINVAL;
 	}
 
@@ -471,6 +492,8 @@ static int pil_msa_mba_auth(struct pil_desc *pil)
 		/* Reclaim MBA memory. */
 		dma_free_coherent(pil->dev, MBA_SIZE, drv->q6->mba_virt,
 							drv->q6->mba_phys);
+	if (ret)
+		modem_log_rmb_regs(drv->rmb_base);
 	return ret;
 }
 
