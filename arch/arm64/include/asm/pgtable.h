@@ -156,6 +156,8 @@ PTE_BIT_FUNC(mkdirty,   |= PTE_DIRTY);
 PTE_BIT_FUNC(mkold,     &= ~PTE_AF);
 PTE_BIT_FUNC(mkyoung,   |= PTE_AF);
 PTE_BIT_FUNC(mkspecial, |= PTE_SPECIAL);
+PTE_BIT_FUNC(mkexec,	&= ~PTE_PXN);
+PTE_BIT_FUNC(mknexec,	|= PTE_PXN);
 
 static inline void set_pte(pte_t *ptep, pte_t pte)
 {
