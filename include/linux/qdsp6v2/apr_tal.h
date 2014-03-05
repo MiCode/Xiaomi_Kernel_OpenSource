@@ -31,7 +31,7 @@
 
 #define APR_MAX_BUF   8192
 
-#define APR_OPEN_TIMEOUT_MS 5000
+#define APR_OPEN_TIMEOUT_MS 500
 
 typedef void (*apr_svc_cb_fn)(void *buf, int len, void *priv);
 struct apr_svc_ch_dev *apr_tal_open(uint32_t svc, uint32_t dest,
