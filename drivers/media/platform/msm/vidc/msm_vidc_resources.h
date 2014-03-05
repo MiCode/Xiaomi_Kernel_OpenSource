@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,7 +74,7 @@ struct regulator_set {
 	u32 count;
 };
 
-struct venus_clock {
+struct clock_info {
 	const char *name;
 	struct clk *clk;
 	struct load_freq_table *load_freq_tbl;
@@ -82,8 +82,19 @@ struct venus_clock {
 	bool has_sw_power_collapse;
 };
 
-struct venus_clock_set {
-	struct venus_clock *clock_tbl;
+struct clock_set {
+	struct clock_info *clock_tbl;
+	u32 count;
+};
+
+struct bus_info {
+	struct msm_bus_scale_pdata *pdata;
+	u32 priv;
+	u32 sessions_supported; /* bitmask */
+};
+
+struct bus_set {
+	struct bus_info *bus_tbl;
 	u32 count;
 };
 
@@ -95,14 +106,14 @@ struct msm_vidc_platform_resources {
 	struct load_freq_table *load_freq_tbl;
 	uint32_t load_freq_tbl_size;
 	struct reg_set reg_set;
-	struct msm_bus_scale_pdata *bus_pdata;
 	struct iommu_set iommu_group_set;
 	struct buffer_usage_set buffer_usage_set;
 	uint32_t has_ocmem;
 	uint32_t max_load;
 	struct platform_device *pdev;
 	struct regulator_set regulator_set;
-	struct venus_clock_set clock_set;
+	struct clock_set clock_set;
+	struct bus_set bus_set;
 };
 
 static inline int is_iommu_present(struct msm_vidc_platform_resources *res)

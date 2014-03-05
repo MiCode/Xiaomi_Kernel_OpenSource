@@ -211,6 +211,9 @@ static void venus_hfi_sim_modify_cmd_packet(u8 *packet)
 #define venus_hfi_for_each_clock(__device, __cinfo, __codeblock) \
 	venus_hfi_for_each_thing(clock, __device, __cinfo, __codeblock)
 
+#define venus_hfi_for_each_bus(__device, __binfo, __codeblock) \
+	venus_hfi_for_each_thing(bus, __device, __binfo, __codeblock)
+
 static struct regulator *venus_hfi_get_regulator(
 		struct venus_hfi_device *device, char *name)
 {
@@ -665,66 +668,13 @@ static void venus_hfi_iommu_detach(struct venus_hfi_device *device)
 	}
 }
 
-static int venus_hfi_unvote_bus(void *dev,
-				enum session_type type, enum mem_type mtype)
-{
-	int rc = 0;
-	u32 handle = 0;
-	struct venus_hfi_device *device = dev;
-
-	if (!device) {
-		dprintk(VIDC_ERR, "%s invalid device handle %p\n",
-			__func__, device);
-		return -EINVAL;
-	}
-
-	if (mtype & DDR_MEM)
-		handle = device->resources.bus_info.ddr_handle[type];
-	if (mtype & OCMEM_MEM)
-		handle = device->resources.bus_info.ocmem_handle[type];
-
-	if (handle) {
-		rc = msm_bus_scale_client_update_request(
-				handle, 0);
-		if (rc)
-			dprintk(VIDC_ERR, "Failed to unvote bus: %d\n", rc);
-	} else {
-		dprintk(VIDC_ERR, "Failed to unvote bus, mtype: %d\n",
-				mtype);
-		rc = -EINVAL;
-	}
-	return rc;
-}
-
-static void venus_hfi_unvote_buses(void *dev, enum mem_type mtype)
-{
-	int i;
-	struct venus_hfi_device *device = dev;
-
-	if (!device) {
-		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
-		return;
-	}
-
-	for (i = 0; i < MSM_VIDC_MAX_DEVICES; i++) {
-		if ((mtype & DDR_MEM) &&
-			venus_hfi_unvote_bus(device, i, DDR_MEM))
-			dprintk(VIDC_WARN,
-				"Failed to unvote for DDR accesses\n");
-
-		if ((mtype & OCMEM_MEM) &&
-			venus_hfi_unvote_bus(device, i, OCMEM_MEM))
-			dprintk(VIDC_WARN,
-				"Failed to unvote for OCMEM accesses\n");
-	}
-}
-
 #define BUS_LOAD(__w, __h, __fps) (\
 	/* Something's fishy if the width & height aren't macroblock aligned */\
 	BUILD_BUG_ON_ZERO(!IS_ALIGNED(__h, 16) || !IS_ALIGNED(__w, 16)) ?: \
 	(__h >> 4) * (__w >> 4) * __fps)
 
 static const u32 venus_hfi_bus_table[] = {
+	BUS_LOAD(0, 0, 0),
 	BUS_LOAD(640, 480, 30),
 	BUS_LOAD(1280, 736, 30),
 	BUS_LOAD(1920, 1088, 30),
@@ -734,111 +684,172 @@ static const u32 venus_hfi_bus_table[] = {
 	BUS_LOAD(3840, 2176, 30),
 };
 
-static int venus_hfi_get_bus_vector(struct venus_hfi_device *device, int load,
-			enum session_type type, enum mem_type mtype)
+static int venus_hfi_get_bus_vector(struct venus_hfi_device *device,
+		struct bus_info *bus, int load)
 {
-	int num_rows = sizeof(venus_hfi_bus_table)/(sizeof(u32));
+	int num_rows = ARRAY_SIZE(venus_hfi_bus_table);
 	int i, j;
-	int idx = 0;
-
-	if (!device || (mtype != DDR_MEM && mtype != OCMEM_MEM) ||
-		(type != MSM_VIDC_ENCODER && type != MSM_VIDC_DECODER)) {
-		dprintk(VIDC_ERR, "%s invalid params\n", __func__);
-		return -EINVAL;
-	}
 
 	for (i = 0; i < num_rows; i++) {
 		if (load <= venus_hfi_bus_table[i])
 			break;
 	}
 
-	if (type == MSM_VIDC_ENCODER)
-		idx = (mtype == DDR_MEM) ? BUS_IDX_ENC_DDR : BUS_IDX_ENC_OCMEM;
-	else
-		idx = (mtype == DDR_MEM) ? BUS_IDX_DEC_DDR : BUS_IDX_DEC_OCMEM;
-
-	j = clamp(i, 0, num_rows-1) + 1;
+	j = clamp(i, 0, num_rows - 1);
 
 	/* Ensure bus index remains within the supported range,
 	* as specified in the device dtsi file */
-	j = clamp(j, 0, device->res->bus_pdata[idx].num_usecases - 1);
+	j = clamp(j, 0, bus->pdata->num_usecases - 1);
 
 	dprintk(VIDC_DBG, "Required bus = %d\n", j);
 	return j;
 }
 
-static int venus_hfi_scale_bus(void *dev, int load,
-				enum session_type type, enum mem_type mtype)
+static bool venus_hfi_bus_supports_session(unsigned long sessions_supported,
+		enum vidc_bus_vote_data_session session_type)
 {
-	int rc = 0;
-	u32 handle = 0;
-	struct venus_hfi_device *device = dev;
-	int bus_vector = 0;
+	bool same_codec, same_session_type;
+	int codec_bit, session_type_bit;
+	unsigned long session = session_type;
 
-	if (!device) {
-		dprintk(VIDC_ERR, "%s invalid device handle %p\n",
-			__func__, device);
+	if (!sessions_supported || !session)
+		return false;
+
+	/* ffs returns a 1 indexed, test_bit takes a 0 indexed...index */
+	codec_bit = ffs(session) - 1;
+	session_type_bit = codec_bit + 1;
+
+	same_codec = test_bit(codec_bit, &sessions_supported) ==
+		test_bit(codec_bit, &session);
+	same_session_type = test_bit(session_type_bit, &sessions_supported) ==
+		test_bit(session_type_bit, &session);
+
+	return same_codec && same_session_type;
+}
+
+static int venus_hfi_vote_buses(void *dev, struct vidc_bus_vote_data *data,
+		int num_data)
+{
+	struct {
+		struct bus_info *bus;
+		int load;
+	} *aggregate_load_table;
+	int rc = 0, i = 0, num_bus = 0;
+	struct venus_hfi_device *device = dev;
+	struct bus_info *bus = NULL;
+
+	if (!dev) {
+		dprintk(VIDC_ERR, "Invalid device\n");
+		return -EINVAL;
+	} else if (!num_data) {
+		/* Meh nothing to do */
+		return 0;
+	} else if (!data) {
+		dprintk(VIDC_ERR, "Invalid voting data\n");
 		return -EINVAL;
 	}
 
-	if (mtype & DDR_MEM)
-		handle = device->resources.bus_info.ddr_handle[type];
-	if (mtype & OCMEM_MEM)
-		handle = device->resources.bus_info.ocmem_handle[type];
-
-	if (handle) {
-		bus_vector = venus_hfi_get_bus_vector(device, load,
-				type, mtype);
-		if (bus_vector < 0) {
-			dprintk(VIDC_ERR, "Failed to get bus vector\n");
-			return -EINVAL;
-		}
-		device->bus_load[type] = load;
-		rc = msm_bus_scale_client_update_request(handle, bus_vector);
-		if (rc)
-			dprintk(VIDC_ERR, "Failed to scale bus: %d\n", rc);
-	} else {
-		dprintk(VIDC_ERR, "Failed to scale bus, mtype: %d\n",
-				mtype);
-		rc = -EINVAL;
+	/* alloc & init the load table */
+	num_bus = device->res->bus_set.count;
+	aggregate_load_table = kzalloc(sizeof(*aggregate_load_table) * num_bus,
+			GFP_TEMPORARY);
+	if (!aggregate_load_table) {
+		dprintk(VIDC_ERR, "The world is ending (no more memory)\n");
+		rc = -ENOMEM;
+		goto err_no_mem;
 	}
 
+	i = 0;
+	venus_hfi_for_each_bus(device, bus, {
+		aggregate_load_table[i++].bus = bus;
+
+	});
+
+	/* aggregate the loads for each bus */
+	for (i = 0; i < num_data; ++i) {
+		int j = 0;
+
+		for (j = 0; j < num_bus; ++j) {
+			bool matches = venus_hfi_bus_supports_session(
+					aggregate_load_table[j].bus->
+						sessions_supported,
+					data[i].session);
+
+			if (matches) {
+				aggregate_load_table[j].load +=
+					data[i].load;
+			}
+		}
+	}
+
+	/* Now vote for each bus */
+	for (i = 0; i < num_bus; ++i) {
+		int bus_vector = 0;
+		struct bus_info *bus = aggregate_load_table[i].bus;
+		int load = aggregate_load_table[i].load;
+
+		/* Let's avoid voting for ocmem if allocation failed.
+		 * There's no clean way presently to check which buses are
+		 * associated with ocmem. So do a crude check for the bus name,
+		 * which relies on the buses being named appropriately. */
+		if (device->resources.ocmem.buf && strnstr(bus->pdata->name,
+					"ocmem", strlen(bus->pdata->name))) {
+			dprintk(VIDC_DBG, "Skipping voting for %s (no ocmem)\n",
+					bus->pdata->name);
+			continue;
+		}
+
+		bus_vector = venus_hfi_get_bus_vector(device, bus, load);
+		rc = msm_bus_scale_client_update_request(bus->priv, bus_vector);
+		if (rc) {
+			dprintk(VIDC_ERR, "Failed voting for bus %s @ %d: %d\n",
+					bus->pdata->name, bus_vector, rc);
+			/* Ignore error and try to vote for the rest */
+			rc = 0;
+		} else {
+			dprintk(VIDC_PROF,
+					"Voting bus %s to vector %d with load %d\n",
+					bus->pdata->name, bus_vector, load);
+		}
+
+		device->bus_load[i].session = bus->sessions_supported;
+		device->bus_load[i].load = load;
+	}
+
+	kfree(aggregate_load_table);
+err_no_mem:
 	return rc;
+
 }
 
-static int venus_hfi_scale_buses(void *dev, enum mem_type mtype)
+static int venus_hfi_unvote_buses(void *dev)
 {
-	int i, rc = 0;
 	struct venus_hfi_device *device = dev;
+	struct bus_info *bus = NULL;
+	int rc = 0;
 
 	if (!device) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
-	for (i = 0; i < MSM_VIDC_MAX_DEVICES; i++) {
-		if (mtype & DDR_MEM) {
-			rc = venus_hfi_scale_bus(device, device->bus_load[i],
-					i, DDR_MEM);
-			if (rc) {
-				dprintk(VIDC_ERR,
-						"Failed to scale bus for DDR accesses, session type %d, load %u\n",
-						i, device->bus_load[i]);
-				goto err_scale_bus;
-			}
-		}
 
-		if (mtype & OCMEM_MEM) {
-			rc = venus_hfi_scale_bus(device, device->bus_load[i],
-					i, OCMEM_MEM);
-			if (rc) {
-				dprintk(VIDC_ERR,
-						"Failed to scale bus for OCMEM accesses, session type %d, load %u\n",
-						i, device->bus_load[i]);
-				goto err_scale_bus;
-			}
+	venus_hfi_for_each_bus(device, bus, {
+		int bus_vector = 0;
+		int local_rc = 0;
+
+		bus_vector = venus_hfi_get_bus_vector(device, bus, 0);
+		local_rc = msm_bus_scale_client_update_request(bus->priv,
+			bus_vector);
+		if (local_rc) {
+			rc = rc ?: local_rc;
+			dprintk(VIDC_ERR, "Failed unvoting bus %s @ %d: %d\n",
+					bus->pdata->name, bus_vector, rc);
+		} else {
+			dprintk(VIDC_PROF, "Unvoting bus %s to vector %d\n",
+					bus->pdata->name, bus_vector);
 		}
-	}
-err_scale_bus:
+	});
+
 	return rc;
 }
 
@@ -876,10 +887,10 @@ static inline int venus_hfi_reset_core(struct venus_hfi_device *device)
 	return rc;
 }
 
-static struct venus_clock *venus_hfi_get_clock(struct venus_hfi_device *device,
+static struct clock_info *venus_hfi_get_clock(struct venus_hfi_device *device,
 		char *name)
 {
-	struct venus_clock *vc;
+	struct clock_info *vc;
 
 	venus_hfi_for_each_clock(device, vc, {
 		if (!strcmp(vc->name, name))
@@ -889,7 +900,7 @@ static struct venus_clock *venus_hfi_get_clock(struct venus_hfi_device *device,
 	return NULL;
 }
 
-static unsigned long venus_hfi_get_clock_rate(struct venus_clock *clock,
+static unsigned long venus_hfi_get_clock_rate(struct clock_info *clock,
 	int num_mbs_per_sec)
 {
 	int num_rows = clock->count;
@@ -910,7 +921,7 @@ static inline int venus_hfi_clk_enable(struct venus_hfi_device *device)
 {
 	int rc = 0;
 	int i = 0;
-	struct venus_clock *cl;
+	struct clock_info *cl;
 
 	if (!device) {
 		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
@@ -956,7 +967,7 @@ fail_clk_enable:
 /*Calling function is responsible to acquire device->clk_pwr_lock*/
 static inline void venus_hfi_clk_disable(struct venus_hfi_device *device)
 {
-	struct venus_clock *cl;
+	struct clock_info *cl;
 
 	if (!device) {
 		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
@@ -1052,10 +1063,8 @@ static inline int venus_hfi_power_off(struct venus_hfi_device *device)
 		dprintk(VIDC_ERR, "Failed to disable GDSC, %d\n", rc);
 		return rc;
 	}
-	if (device->res->has_ocmem)
-		venus_hfi_unvote_buses(device, DDR_MEM|OCMEM_MEM);
-	else
-		venus_hfi_unvote_buses(device, DDR_MEM);
+
+	venus_hfi_unvote_buses(device);
 
 	device->power_enabled = 0;
 	dprintk(VIDC_INFO, "entering power collapse\n");
@@ -1071,13 +1080,11 @@ static inline int venus_hfi_power_on(struct venus_hfi_device *device)
 		return -EINVAL;
 	}
 
-	if (device->res->has_ocmem)
-		rc = venus_hfi_scale_buses(device, DDR_MEM|OCMEM_MEM);
-	else
-		rc = venus_hfi_scale_buses(device, DDR_MEM);
+	rc = venus_hfi_vote_buses(device, device->bus_load,
+			device->res->bus_set.count);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to scale buses\n");
-		goto err_scale_buses;
+		goto err_vote_buses;
 	}
 
 	rc = regulator_enable(venus_hfi_get_regulator(device, "venus"));
@@ -1146,11 +1153,8 @@ err_enable_clk:
 err_iommu_attach:
 	regulator_disable(venus_hfi_get_regulator(device, "venus"));
 err_enable_gdsc:
-	if (device->res->has_ocmem)
-		venus_hfi_unvote_buses(device, DDR_MEM|OCMEM_MEM);
-	else
-		venus_hfi_unvote_buses(device, DDR_MEM);
-err_scale_buses:
+	venus_hfi_unvote_buses(device);
+err_vote_buses:
 	return rc;
 }
 
@@ -1212,7 +1216,7 @@ static int venus_hfi_scale_clocks(void *dev, int load)
 {
 	int rc = 0;
 	struct venus_hfi_device *device = dev;
-	struct venus_clock *cl;
+	struct clock_info *cl;
 
 	if (!device) {
 		dprintk(VIDC_ERR, "Invalid args: %p\n", device);
@@ -2153,7 +2157,7 @@ static int venus_hfi_session_end(void *session)
 {
 	struct hal_session *sess;
 	if (!session) {
-		dprintk(VIDC_ERR, "Invalid Params %s", __func__);
+		dprintk(VIDC_ERR, "Invalid Params %s\n", __func__);
 		return -EINVAL;
 	}
 	sess = session;
@@ -2819,7 +2823,7 @@ static inline int venus_hfi_init_clocks(struct msm_vidc_platform_resources *res,
 		struct venus_hfi_device *device)
 {
 	int rc = 0;
-	struct venus_clock *cl = NULL;
+	struct clock_info *cl = NULL;
 
 	if (!res || !device) {
 		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
@@ -2873,7 +2877,7 @@ err_found_bad_ocmem:
 
 static inline void venus_hfi_deinit_clocks(struct venus_hfi_device *device)
 {
-	struct venus_clock *cl;
+	struct clock_info *cl;
 	if (!device) {
 		dprintk(VIDC_ERR, "Invalid args\n");
 		return;
@@ -2886,7 +2890,7 @@ static inline void venus_hfi_deinit_clocks(struct venus_hfi_device *device)
 
 static inline void venus_hfi_disable_clks(struct venus_hfi_device *device)
 {
-	struct venus_clock *cl;
+	struct clock_info *cl;
 	if (!device) {
 		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
 		return;
@@ -2911,7 +2915,7 @@ static inline void venus_hfi_disable_clks(struct venus_hfi_device *device)
 
 static inline int venus_hfi_enable_clks(struct venus_hfi_device *device)
 {
-	struct venus_clock *cl = NULL, *cl_fail = NULL;
+	struct clock_info *cl = NULL, *cl_fail = NULL;
 	int rc = 0;
 	if (!device) {
 		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
@@ -3019,77 +3023,67 @@ static void venus_hfi_deregister_iommu_domains(struct venus_hfi_device *device)
 
 static void venus_hfi_deinit_bus(struct venus_hfi_device *device)
 {
-	struct venus_bus_info *bus_info;
-	int i = 0;
-
+	struct bus_info *bus = NULL;
 	if (!device)
 		return;
 
-	bus_info = &device->resources.bus_info;
-
-	for (i = 0; i < MSM_VIDC_MAX_DEVICES; i++) {
-		if (bus_info->ddr_handle[i]) {
+	venus_hfi_for_each_bus(device, bus, {
+		if (bus->priv) {
 			msm_bus_scale_unregister_client(
-			   bus_info->ddr_handle[i]);
-			bus_info->ddr_handle[i] = 0;
+				bus->priv);
+			bus->priv = 0;
+			dprintk(VIDC_DBG, "Unregistered bus client %s\n",
+				bus->pdata->name);
 		}
+	});
 
-		if (bus_info->ocmem_handle[i]) {
-			msm_bus_scale_unregister_client(
-			   bus_info->ocmem_handle[i]);
-			bus_info->ocmem_handle[i] = 0;
-		}
-	}
+	kfree(device->bus_load);
+	device->bus_load = NULL;
 }
 
 static int venus_hfi_init_bus(struct venus_hfi_device *device)
 {
-	struct venus_bus_info *bus_info;
+	struct bus_info *bus = NULL;
 	int rc = 0;
-	if ((!device) || (!device->res->bus_pdata))
+	if (!device)
 		return -EINVAL;
 
-	bus_info = &device->resources.bus_info;
 
-	bus_info->ddr_handle[MSM_VIDC_ENCODER] =
-		msm_bus_scale_register_client(
-			&device->res->bus_pdata[BUS_IDX_ENC_DDR]);
-	if (!bus_info->ddr_handle[MSM_VIDC_ENCODER]) {
-		dprintk(VIDC_ERR, "Failed to register bus scale client\n");
-		goto err_init_bus;
-	}
-	bus_info->ddr_handle[MSM_VIDC_DECODER] =
-		msm_bus_scale_register_client(
-			&device->res->bus_pdata[BUS_IDX_DEC_DDR]);
-	if (!bus_info->ddr_handle[MSM_VIDC_DECODER]) {
-		dprintk(VIDC_ERR, "Failed to register bus scale client\n");
-		goto err_init_bus;
-	}
+	venus_hfi_for_each_bus(device, bus, {
+		const char *name = bus->pdata->name;
 
-	if (device->res->has_ocmem) {
-		bus_info->ocmem_handle[MSM_VIDC_ENCODER] =
-			msm_bus_scale_register_client(
-				&device->res->bus_pdata[BUS_IDX_ENC_OCMEM]);
-		if (!bus_info->ocmem_handle[MSM_VIDC_ENCODER]) {
+		if (!device->res->has_ocmem &&
+			strnstr(name, "ocmem", strlen(name))) {
 			dprintk(VIDC_ERR,
-				"Failed to register bus scale client\n");
+				"%s found when target doesn't support ocmem\n",
+				name);
+			rc = -EINVAL;
 			goto err_init_bus;
 		}
 
-		bus_info->ocmem_handle[MSM_VIDC_DECODER] =
-			msm_bus_scale_register_client(
-				&device->res->bus_pdata[BUS_IDX_DEC_OCMEM]);
-		if (!bus_info->ocmem_handle[MSM_VIDC_DECODER]) {
+		bus->priv = msm_bus_scale_register_client(bus->pdata);
+		if (!bus->priv) {
 			dprintk(VIDC_ERR,
-				"Failed to register bus scale client\n");
+				"Failed to register bus client %s\n", name);
+			rc = -EBADHANDLE;
 			goto err_init_bus;
 		}
+
+		dprintk(VIDC_DBG, "Registered bus client %s\n", name);
+	});
+
+	device->bus_load = kzalloc(sizeof(*device->bus_load) *
+			device->res->bus_set.count, GFP_KERNEL);
+	if (!device->bus_load) {
+		dprintk(VIDC_ERR, "Failed to allocate memory\n");
+		rc = -ENOMEM;
+		goto err_init_bus;
 	}
 
 	return rc;
 err_init_bus:
 	venus_hfi_deinit_bus(device);
-	return -EINVAL;
+	return rc;
 }
 
 static int venus_hfi_set_ocmem(void *dev, struct ocmem_buf *ocmem)
@@ -3871,8 +3865,8 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->session_set_property = venus_hfi_session_set_property;
 	hdev->session_get_property = venus_hfi_session_get_property;
 	hdev->scale_clocks = venus_hfi_scale_clocks;
-	hdev->scale_bus = venus_hfi_scale_bus;
-	hdev->unvote_bus = venus_hfi_unvote_bus;
+	hdev->vote_bus = venus_hfi_vote_buses;
+	hdev->unvote_bus = venus_hfi_unvote_buses;
 	hdev->unset_ocmem = venus_hfi_unset_ocmem;
 	hdev->alloc_ocmem = venus_hfi_alloc_ocmem;
 	hdev->free_ocmem = venus_hfi_free_ocmem;
