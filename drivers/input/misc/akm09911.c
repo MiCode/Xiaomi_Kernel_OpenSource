@@ -52,6 +52,9 @@ struct akm_compass_data {
 	struct input_dev	*input;
 	struct device		*class_dev;
 	struct class		*compass;
+	struct pinctrl		*pinctrl;
+	struct pinctrl_state *pin_default;
+	struct pinctrl_state *pin_reset;
 
 	wait_queue_head_t	drdy_wq;
 	wait_queue_head_t	open_wq;
@@ -236,6 +239,7 @@ static int AKECS_Reset(
 	int hard)
 {
 	int err;
+	struct i2c_client *client = akm->i2c;
 
 #if AKM_HAS_RESET
 	uint8_t buffer[2];
@@ -244,10 +248,26 @@ static int AKECS_Reset(
 	mutex_lock(&akm->sensor_mutex);
 
 	if (hard != 0) {
-		gpio_set_value(akm->gpio_rstn, 0);
-		udelay(5);
-		gpio_set_value(akm->gpio_rstn, 1);
-		/* No error is returned */
+		if (!IS_ERR_OR_NULL(s_akm->pinctrl)) {
+			err = pinctrl_select_state(s_akm->pinctrl,
+					s_akm->pin_reset);
+			if (err) {
+				dev_err(&client->dev, "can't select state!!\n");
+				goto exit;
+			}
+			udelay(5);
+			err = pinctrl_select_state(s_akm->pinctrl,
+					s_akm->pin_default);
+			if (err) {
+				dev_err(&client->dev, "can't select state!!\n");
+				goto exit;
+			}
+		} else {
+			gpio_set_value(akm->gpio_rstn, 0);
+			udelay(5);
+			gpio_set_value(akm->gpio_rstn, 1);
+			/* No error is returned */
+		}
 		err = 0;
 	} else {
 		buffer[0] = AKM_REG_RESET;
@@ -265,7 +285,7 @@ static int AKECS_Reset(
 	/* Clear status */
 	akm->is_busy = 0;
 	atomic_set(&akm->drdy, 0);
-
+exit:
 	mutex_unlock(&akm->sensor_mutex);
 	/***** unlock *****/
 
@@ -1524,6 +1544,31 @@ static int akm_compass_parse_dt(struct device *dev,
 }
 #endif /* !CONFIG_OF */
 
+static int akm_pinctrl_init(struct akm_compass_data *s_akm)
+{
+	struct i2c_client *client = s_akm->i2c;
+
+	s_akm->pinctrl = devm_pinctrl_get(&client->dev);
+	if (IS_ERR_OR_NULL(s_akm->pinctrl)) {
+		dev_err(&client->dev, "Failed to get pinctrl\n");
+		return PTR_ERR(s_akm->pinctrl);
+	}
+
+	s_akm->pin_default = pinctrl_lookup_state(s_akm->pinctrl, "default");
+	if (IS_ERR_OR_NULL(s_akm->pin_default)) {
+		dev_err(&client->dev, "Failed to look up default state\n");
+		return PTR_ERR(s_akm->pin_default);
+	}
+
+	s_akm->pin_reset = pinctrl_lookup_state(s_akm->pinctrl, "reset");
+	if (IS_ERR_OR_NULL("s_akm->pin_reset")) {
+		dev_err(&client->dev, "Failed to look up reset state\n");
+		return PTR_ERR(s_akm->pin_reset);
+	}
+
+	return 0;
+}
+
 int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct akm09911_platform_data *pdata;
@@ -1597,6 +1642,16 @@ int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	s_akm->i2c = client;
 	/* set client data */
 	i2c_set_clientdata(client, s_akm);
+
+	/* initialize pinctrl */
+	if (!akm_pinctrl_init(s_akm)) {
+		err = pinctrl_select_state(s_akm->pinctrl, s_akm->pin_default);
+		if (err) {
+			dev_err(&client->dev, "Can't select pinctrl state\n");
+			goto exit2;
+		}
+	}
+
 	/* check connection */
 	err = akm_compass_power_set(s_akm, 1);
 	if (err < 0)
