@@ -58,6 +58,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mpq8092")
 #define early_machine_is_msm8916()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8916")
+#define early_machine_is_msm8936()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8936")
 #define early_machine_is_apq8084()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,apq8084")
 #define early_machine_is_mdm9630()	\
@@ -89,6 +91,7 @@
 #define early_machine_is_msm8610()	0
 #define early_machine_is_mpq8092()	0
 #define early_machine_is_msm8916()	0
+#define early_machine_is_msm8936()	0
 #define early_machine_is_apq8084()	0
 #define early_machine_is_mdm9630()	0
 #define early_machine_is_fsm9900()	0
@@ -133,6 +136,7 @@ enum msm_cpu {
 	MSM_CPU_9625,
 	MSM_CPU_8092,
 	MSM_CPU_8916,
+	MSM_CPU_8936,
 	MSM_CPU_8226,
 	MSM_CPU_8610,
 	MSM_CPU_8625Q,
@@ -501,6 +505,20 @@ static inline int cpu_is_msm8916(void)
 #endif
 
 }
+
+static inline int cpu_is_msm8936(void)
+{
+#ifdef CONFIG_ARCH_MSM8916
+	enum msm_cpu cpu = socinfo_get_msm_cpu();
+
+	BUG_ON(cpu == MSM_CPU_UNKNOWN);
+	return cpu == MSM_CPU_8936;
+#else
+	return 0;
+#endif
+
+}
+
 
 static inline int cpu_is_msm8226(void)
 {
