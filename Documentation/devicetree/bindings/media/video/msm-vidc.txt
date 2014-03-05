@@ -16,17 +16,43 @@ Optional properties:
   clock required for optimal performance in descending order.
 - qcom,reg-presets : list of offset-value pairs for registers to be written.
   The offsets are from the base offset specified in 'reg'. This is mainly
-  used for QoS, vbif, etc. presets for video.
-- qcom,bus-ports : number of bus ports supported by venus to access
-  ddr/ocmem.
-- qcom,enc-ocmem-ab-ib : list of bus vectors (ab, ib pair) for ocmem
-  bandwidth request by different video encoder usecases.
-- qcom,dec-ocmem-ab-ib : list of bus vectors(ab, ib pair) for ocmem
-  bandwidth request by different video decoder usecases.
-- qcom,enc-ddr-ab-ib : list of bus vectors(ab,ib pair) for ddr bandwidth
-  request by different video encoder usecases.
-- qcom,dec-ddr-ab-ib : list of bus vectors(ab, ib pair) for ddr bandwidth
-  request by different video decoder usecases.
+  used for QoS, VBIF, etc. presets for video.
+- qcom,msm-bus-clients : list of bus clients/consumer each listed as a node.
+  The format of the node should follow the layout specified by the bus provider
+  for bus consumers at Documentation/devicetree/bindings/arm/msm/msm_bus.txt.
+  In addition to the properties specified by the bus provider client also needs
+        - qcom,bus-configs: A bitmap that describes the configuration of the
+          bus. The bitmaps are as follows:
+          supports mvc encoder = 0x00000001
+          supports mvc decoder = 0x00000003
+          supports h264 encoder = 0x00000004
+          supports h264 decoder = 0x0000000c
+          supports h263 encoder = 0x00000010
+          supports h263 decoder = 0x00000030
+          supports mpeg1 encoder = 0x00000040
+          supports mpeg1 decoder = 0x000000c0
+          supports mpeg2 encoder = 0x00000100
+          supports mpeg2 decoder = 0x00000300
+          supports mpeg4 encoder = 0x00000400
+          supports mpeg4 decoder = 0x00000c00
+          supports divx_311 encoder = 0x00001000
+          supports divx_311 decoder = 0x00003000
+          supports divx encoder = 0x00004000
+          supports divx decoder = 0x0000c000
+          supports vc1 encoder = 0x00010000
+          supports vc1 decoder = 0x00030000
+          supports spark encoder = 0x00040000
+          supports spark decoder = 0x000c0000
+          supports vp6 encoder = 0x00100000
+          supports vp6 decoder = 0x00300000
+          supports vp7 encoder = 0x00400000
+          supports vp7 decoder = 0x00c00000
+          supports vp8 encoder = 0x01000000
+          supports vp8 decoder = 0x03000000
+          supports hevc encoder = 0x04000000
+          supports hevc decoder = 0x0c000000
+          supports hevc_hybrid encoder = 0x10000000
+          supports hevc_hybrid decoder = 0x30000000
 - qcom,buffer-type-tz-usage-table : a key-value pair, mapping a buffer type
   (enum hal_buffer) to its corresponding TZ usage. The TZ usages are defined
   as "enum cp_mem_usage" in include/linux/msm_ion.h
@@ -87,18 +113,31 @@ Example:
 		qcom,hfi = "venus";
 		qcom,reg-presets = <0x80004 0x1>,
 			<0x80178 0x00001FFF>;
-		qcom,bus-ports = <1>;
-		qcom,enc-ocmem-ab-ib = <0 0>,
-			<138200 1222000>;
-		qcom,dec-ocmem-ab-ib = <0 0>,
-			<176900 1556640>;
-		qcom,enc-ddr-ab-ib = <0 0>,
-			<60000 664950>;
-		qcom,dec-ddr-ab-ib = <0 0>,
-			<110000 909000>;
-		qcom,buffer-type-tz-usage-table = <0x1 0x1>,
-						<0x1fe 0x2>;
 		qcom,max-hw-load = <1224450>; /* 4k @ 30 + 1080p @ 30*/
+		qcom,clock-names = "foo_clk", "bar_clk", "baz_clk";
+		qcom,clock-properties = <0x3 0x1 0x0>;
+		qcom,msm-bus-clients {
+			qcom,msm-bus-client@0 {
+				qcom,msm-bus,name = "venc-ddr";
+				qcom,msm-bus,num-cases = <2>;
+				qcom,msm-bus,active-only = <0>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<63 512 0 0>,
+					<63 512 60000 302000>;
+				qcom,bus-configs = <0x2>;
+			};
+			qcom,msm-bus-client@1 {
+				qcom,msm-bus,name = "vdec-ddr";
+				qcom,msm-bus,num-cases = <2>;
+				qcom,msm-bus,active-only = <0>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<63 512 0 0>,
+					<63 512 104000 303000>;
+				qcom,bus-configs = <0xf>;
+			};
+		};
 		qcom,vidc-iommu-domains {
 			qcom,domain-ns {
 				qcom,vidc-domain-phandle = <&venus_domain_ns>;
@@ -112,8 +151,5 @@ Example:
 							<0x7c1>;
 			};
 		};
-
-		qcom,clock-names = "foo_clk", "bar_clk", "baz_clk";
-		qcom,clock-properties = <0x3 0x1 0x0>;
 
 	};

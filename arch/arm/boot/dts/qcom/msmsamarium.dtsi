@@ -169,32 +169,11 @@
 			<36000   50000000>;
 		qcom,hfi = "venus";
 		qcom,ocmem-size = <131072>; /* 128 * 1024 */
-		qcom,bus-ports = <1>;
 		qcom,reg-presets = <0xE0024 0x0>,
 			<0x80124 0x3>,
 			<0xE0020 0x5555556>,
 			<0x80070 0x00001F00>,
 			<0x80074 0x000000A4>;
-		qcom,enc-ocmem-ab-ib = <0 0>,
-			<138000 1034000>,
-			<414000 1034000>,
-			<940000 1034000>,
-			<1880000 2068000>;
-		qcom,dec-ocmem-ab-ib = <0 0>,
-			<176000 519000>,
-			<456000 519000>,
-			<864000 519000>,
-			<1728000 1038000>;
-		qcom,enc-ddr-ab-ib = <0 0>,
-			<129000 142000>,
-			<384000 422000>,
-			<866000 953000>,
-			<1732000 1906000>;
-		qcom,dec-ddr-ab-ib = <0 0>,
-			<103000 134000>,
-			<268000 348000>,
-			<505000 657000>,
-			<1010000 1314000>;
 		qcom,buffer-type-tz-usage-table = <0x1 0x1>,
 			<0x6 0x2>,
 			<0x7c0 0x3>;
@@ -216,6 +195,63 @@
 			qcom,domain-sec-np {
 				qcom,vidc-domain-phandle = <&venus_domain_sec_non_pixel>;
 				qcom,vidc-partition-buffer-types = <0x480>;
+			};
+		};
+		qcom,msm-bus-clients {
+			qcom,msm-bus-client@0 {
+				qcom,msm-bus,name = "venc-ddr";
+				qcom,msm-bus,num-cases = <5>;
+				qcom,msm-bus,active-only = <0>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<63 512 0 0>,
+					<63 512 129000 142000>,
+					<63 512 384000 422000>,
+					<63 512 866000 953000>,
+					<63 512 1732000 1906000>;
+				qcom,bus-configs = <0x1000414>;
+			};
+
+			qcom,msm-bus-client@1 {
+				qcom,msm-bus,name = "vdec-ddr";
+				qcom,msm-bus,num-cases = <5>;
+				qcom,msm-bus,active-only = <0>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<63 512 0 0>,
+					<63 512 103000 134000>,
+					<63 512 268000 348000>,
+					<63 512 505000 657000>,
+					<63 512 1010000 1314000>;
+				qcom,bus-configs = <0x30fcfff>;
+			};
+
+			qcom,msm-bus-client@2 {
+				qcom,msm-bus,name = "venc-ocmem";
+				qcom,msm-bus,num-cases = <5>;
+				qcom,msm-bus,active-only = <0>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<68 604 0 0>,
+					<68 604 138000 1034000>,
+					<68 604 414000 1034000>,
+					<68 604 940000 1034000>,
+					<68 604 1880000 2068000>;
+				qcom,bus-configs = <0x1000414>;
+			};
+
+			qcom,msm-bus-client@3 {
+				qcom,msm-bus,name = "vdec-ocmem";
+				qcom,msm-bus,num-cases = <8>;
+				qcom,msm-bus,active-only = <0>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<68 604 0 0>,
+					<68 604 176000 519000>,
+					<68 604 456000 519000>,
+					<68 604 864000 519000>,
+					<68 604 1728000 1038000>;
+				qcom,bus-configs = <0x30fcfff>;
 			};
 		};
 	};
