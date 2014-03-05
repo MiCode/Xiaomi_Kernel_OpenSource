@@ -118,15 +118,18 @@ int adreno_drawctxt_wait(struct adreno_device *adreno_dev,
 	mutex_unlock(&device->mutex);
 
 	if (timeout) {
-		ret = (int) adreno_wait_event_interruptible_timeout(
+		long ret_temp;
+		ret_temp = adreno_wait_event_interruptible_timeout(
 			drawctxt->waiting,
 			_check_context_timestamp(device, drawctxt, timestamp),
 			msecs_to_jiffies(timeout), io);
 
-		if (ret == 0)
+		if (ret_temp == 0)
 			ret = -ETIMEDOUT;
-		else if (ret > 0)
+		else if (ret_temp > 0)
 			ret = 0;
+		else
+			ret = (int) ret_temp;
 	} else {
 		ret = (int) adreno_wait_event_interruptible(drawctxt->waiting,
 			_check_context_timestamp(device, drawctxt, timestamp),
