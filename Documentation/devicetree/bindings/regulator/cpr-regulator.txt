@@ -157,6 +157,13 @@ Optional properties:
 					is present, and vise versa.
 - qcom,cpr-fuse-bp-cpr-disable:	Bit position of the bit to indicate if CPR should be disabled
 - qcom,cpr-fuse-bp-scheme:     Bit position of the bit to indicate if it's a global/local scheme
+- qcom,cpr-fuse-target-quot-size:	Array of bit size in the CPR fuse for the target quotient of all corners.
+					The elements with index[0..2] are:
+					  [0] => bit size of the SVS target quotient
+					  [1] => bit size of the NOMINAL target quotient
+					  [2] => bit size of the TURBO target quotient
+					If this property is not present, then all target quotient fuse values
+					are assumed to be the default length of 12 bits.
 - qcom,cpr-enable:		Present: CPR enabled by default.
 				Not Present: CPR disable by default.
 - qcom,cpr-fuse-cond-min-volt-sel:	Array of 5 elements to indicate where to read the bits,  what value to
@@ -351,6 +358,7 @@ Example:
 		qcom,cpr-fuse-bp-cpr-disable = <36>;
 		qcom,cpr-fuse-bp-scheme = <37>;
 		qcom,cpr-fuse-target-quot = <24 12 0>;
+		qcom,cpr-fuse-target-quot-size = <12 12 12>;
 		qcom,cpr-fuse-ro-sel = <54 38 41>;
 		qcom,cpr-fuse-redun-sel = <138 57 1 1 1>;
 		qcom,cpr-fuse-redun-row = <139 1>;
