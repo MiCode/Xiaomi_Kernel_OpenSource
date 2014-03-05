@@ -493,8 +493,8 @@ static int __init arch_timer_mem_register(void)
 	clockevents_config_and_register(clk, arch_timer_rate,
 					0xf, 0x7fffffff);
 
-	err = request_irq(arch_timer_spi, arch_timer_handler_mem, 0,
-		"arch_timer", clk);
+	err = request_irq(arch_timer_spi, arch_timer_handler_mem,
+			IRQF_TIMER, "arch_timer", clk);
 
 	return err;
 }
