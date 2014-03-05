@@ -1664,8 +1664,8 @@ static ssize_t _store_uint(struct adreno_dispatcher *dispatcher,
 	unsigned int val = 0;
 	int ret;
 
-	ret = kgsl_sysfs_store(buf, size, &val);
-	if (ret != size)
+	ret = kgsl_sysfs_store(buf, &val);
+	if (ret)
 		return ret;
 
 	if (!val || (attr->max && (val > attr->max)))

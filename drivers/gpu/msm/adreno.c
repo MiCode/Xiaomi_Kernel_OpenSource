@@ -2075,15 +2075,15 @@ static ssize_t _ft_policy_store(struct device *dev,
 				     const char *buf, size_t count)
 {
 	struct adreno_device *adreno_dev = _get_adreno_dev(dev);
-	ssize_t ret;
+	int ret;
 	if (adreno_dev == NULL)
 		return 0;
 
 	mutex_lock(&adreno_dev->dev.mutex);
-	ret = kgsl_sysfs_store(buf, count, &adreno_dev->ft_policy);
+	ret = kgsl_sysfs_store(buf, &adreno_dev->ft_policy);
 	mutex_unlock(&adreno_dev->dev.mutex);
 
-	return ret;
+	return ret < 0 ? ret : count;
 }
 
 /**
@@ -2132,26 +2132,23 @@ static ssize_t _ft_pagefault_policy_store(struct device *dev,
 		return 0;
 
 	mutex_lock(&adreno_dev->dev.mutex);
-	/* MMU option changed call function to reset MMU options */
-	if (count != kgsl_sysfs_store(buf, count, &policy))
-		ret = -EINVAL;
 
-	if (!ret) {
-		policy &= (KGSL_FT_PAGEFAULT_INT_ENABLE |
-				KGSL_FT_PAGEFAULT_GPUHALT_ENABLE |
-				KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE |
-				KGSL_FT_PAGEFAULT_LOG_ONE_PER_INT);
-		ret = kgsl_mmu_set_pagefault_policy(&(adreno_dev->dev.mmu),
-				adreno_dev->ft_pf_policy);
-		if (!ret)
-			adreno_dev->ft_pf_policy = policy;
-	}
-	mutex_unlock(&adreno_dev->dev.mutex);
+	ret = kgsl_sysfs_store(buf, &policy);
+	if (ret)
+		goto out;
 
+	policy &= (KGSL_FT_PAGEFAULT_INT_ENABLE |
+			KGSL_FT_PAGEFAULT_GPUHALT_ENABLE |
+			KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE |
+			KGSL_FT_PAGEFAULT_LOG_ONE_PER_INT);
+	ret = kgsl_mmu_set_pagefault_policy(&(adreno_dev->dev.mmu),
+			adreno_dev->ft_pf_policy);
 	if (!ret)
-		return count;
-	else
-		return 0;
+		adreno_dev->ft_pf_policy = policy;
+
+out:
+	mutex_unlock(&adreno_dev->dev.mutex);
+	return ret < 0 ? ret : count;
 }
 
 /**
@@ -2198,7 +2195,7 @@ static ssize_t _ft_fast_hang_detect_store(struct device *dev,
 
 	tmp = adreno_dev->fast_hang_detect;
 
-	ret = kgsl_sysfs_store(buf, count, &adreno_dev->fast_hang_detect);
+	ret = kgsl_sysfs_store(buf, &adreno_dev->fast_hang_detect);
 
 	if (tmp != adreno_dev->fast_hang_detect) {
 		if (adreno_dev->fast_hang_detect) {
@@ -2214,7 +2211,7 @@ static ssize_t _ft_fast_hang_detect_store(struct device *dev,
 
 	mutex_unlock(&adreno_dev->dev.mutex);
 
-	return ret;
+	return ret < 0 ? ret : count;
 
 }
 
@@ -2257,10 +2254,10 @@ static ssize_t _ft_long_ib_detect_store(struct device *dev,
 		return 0;
 
 	mutex_lock(&adreno_dev->dev.mutex);
-	ret = kgsl_sysfs_store(buf, count, &adreno_dev->long_ib_detect);
+	ret = kgsl_sysfs_store(buf, &adreno_dev->long_ib_detect);
 	mutex_unlock(&adreno_dev->dev.mutex);
 
-	return ret;
+	return ret < 0 ? ret : count;
 
 }
 
@@ -2303,8 +2300,8 @@ static ssize_t _ft_hang_intr_status_store(struct device *dev,
 	adreno_dev = ADRENO_DEVICE(device);
 
 	mutex_lock(&device->mutex);
-	ret = kgsl_sysfs_store(buf, count, &new_setting);
-	if (ret != count)
+	ret = kgsl_sysfs_store(buf, &new_setting);
+	if (ret)
 		goto done;
 	if (new_setting)
 		new_setting = 1;
@@ -2351,7 +2348,7 @@ static ssize_t _ft_hang_intr_status_store(struct device *dev,
 	}
 done:
 	mutex_unlock(&device->mutex);
-	return ret;
+	return ret < 0 ? ret : count;
 }
 
 /**
@@ -2385,7 +2382,8 @@ static ssize_t _wake_timeout_store(struct device *dev,
 				     struct device_attribute *attr,
 				     const char *buf, size_t count)
 {
-	return kgsl_sysfs_store(buf, count, &_wake_timeout);
+	int ret = kgsl_sysfs_store(buf, &_wake_timeout);
+	return ret < 0 ? ret : count;
 }
 
 /**
