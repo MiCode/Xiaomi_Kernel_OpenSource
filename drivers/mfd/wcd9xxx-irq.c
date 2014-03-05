@@ -596,6 +596,9 @@ wcd9xxx_get_irq_drv_d(const struct wcd9xxx_core_resource *wcd9xxx_res)
 		return NULL;
 
 	domain = irq_find_host(pnode);
+	if (unlikely(!domain))
+		return NULL;
+
 	return (struct wcd9xxx_irq_drv_data *)domain->host_data;
 }
 
