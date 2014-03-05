@@ -17,3 +17,4 @@ obj-$(CONFIG_CORESIGHT_AUDIO_ETM) += coresight-audio-etm.o
 obj-$(CONFIG_CORESIGHT_MODEM_ETM) += coresight-modem-etm.o
 obj-$(CONFIG_CORESIGHT_WCN_ETM) += coresight-wcn-etm.o
 obj-$(CONFIG_CORESIGHT_RPM_ETM) += coresight-rpm-etm.o
+obj-$(CONFIG_CORESIGHT_QPDI) += coresight-qpdi.o
