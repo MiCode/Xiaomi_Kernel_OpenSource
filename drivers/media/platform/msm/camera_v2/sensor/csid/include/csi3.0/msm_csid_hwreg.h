@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,6 +60,7 @@ static struct msm_cam_clk_info csid_clk_info[] = {
 	{"csi_phy_clk", -1},
 	{"csi_pix_clk", -1},
 	{"csi_rdi_clk", -1},
+	{"camss_ahb_clk", -1},
 };
 
 static struct msm_cam_clk_info csid_clk_src_info[] = {

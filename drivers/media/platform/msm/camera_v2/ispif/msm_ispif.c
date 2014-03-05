@@ -65,6 +65,7 @@ static inline int msm_ispif_is_intf_valid(uint32_t csid_version,
 
 static struct msm_cam_clk_info ispif_8974_ahb_clk_info[] = {
 	{"ispif_ahb_clk", -1},
+	{"camss_ahb_clk", -1},
 };
 
 static struct msm_cam_clk_info ispif_8974_reset_clk_info[] = {

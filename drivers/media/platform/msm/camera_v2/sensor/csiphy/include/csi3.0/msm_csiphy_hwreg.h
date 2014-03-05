@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,6 +48,7 @@ static struct msm_cam_clk_info csiphy_clk_info[] = {
 	{"ispif_ahb_clk", -1},
 	{"csiphy_timer_src_clk", 200000000},
 	{"csiphy_timer_clk", -1},
+	{"camss_ahb_clk", -1},
 };
 
 static struct msm_cam_clk_info csiphy_8610_clk_info[] = {

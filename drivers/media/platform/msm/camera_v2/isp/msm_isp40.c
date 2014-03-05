@@ -92,6 +92,7 @@ static struct msm_cam_clk_info msm_vfe40_clk_info[] = {
 	{"camss_csi_vfe_clk", -1},
 	{"iface_clk", -1},
 	{"bus_clk", -1},
+	{"camss_ahb_clk", -1},
 };
 
 static void msm_vfe40_init_qos_parms(struct vfe_device *vfe_dev)
@@ -255,11 +256,14 @@ static void msm_vfe40_init_vbif_parms(struct vfe_device *vfe_dev)
 	case VFE40_8x26V2_VERSION:
 		msm_vfe40_init_vbif_parms_8x26(vfe_dev);
 		break;
+	case VFE40_8916_VERSION:
+		/*Reset hardware values are correct vbif values.
+		So no need to set*/
+		break;
 	default:
 		BUG();
 		pr_err("%s: VBIF is NOT configured for HW Version %x\n",
 			__func__, vfe_dev->vfe_hw_version);
-		break;
 	}
 
 }
