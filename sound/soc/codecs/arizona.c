@@ -774,7 +774,7 @@ int arizona_in_ev(struct snd_soc_dapm_widget *w, struct snd_kcontrol *kcontrol,
 }
 EXPORT_SYMBOL_GPL(arizona_in_ev);
 
-int florida_hp_pre_enable(struct snd_soc_dapm_widget *w)
+static int florida_hp_pre_enable(struct snd_soc_dapm_widget *w)
 {
 	unsigned int val = snd_soc_read(w->codec, ARIZONA_DRE_ENABLE);
 
@@ -801,7 +801,7 @@ int florida_hp_pre_enable(struct snd_soc_dapm_widget *w)
 	return 0;
 }
 
-int florida_hp_post_enable(struct snd_soc_dapm_widget *w)
+static int florida_hp_post_enable(struct snd_soc_dapm_widget *w)
 {
 	unsigned int val = snd_soc_read(w->codec, ARIZONA_DRE_ENABLE);
 
