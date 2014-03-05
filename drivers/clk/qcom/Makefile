@@ -18,6 +18,10 @@ obj-$(CONFIG_ARCH_MSMPLUTONIUM)	+= clock-rpm-plutonium.o
 obj-$(CONFIG_ARCH_MSMPLUTONIUM)	+= clock-gcc-plutonium.o
 obj-$(CONFIG_ARCH_MSMPLUTONIUM)	+= clock-mmss-plutonium.o
 
+# MSM8936
+obj-$(CONFIG_ARCH_MSM8916)	+= clock-rpm-8936.o
+obj-$(CONFIG_ARCH_MSM8916)	+= clock-gcc-8936.o
+
 # ACPU clock
 obj-$(CONFIG_ARCH_MSM8610)	+= clock-a7.o
 obj-$(CONFIG_ARCH_MSM8226)	+= clock-a7.o
