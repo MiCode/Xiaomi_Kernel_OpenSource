@@ -27,7 +27,7 @@
 #include <linux/of.h>
 
 #define CREATE_TRACE_POINTS
-#include "trace_thermal.h"
+#include <trace/trace_thermal.h>
 
 #define TSENS_DRIVER_NAME		"msm-tsens"
 /* TSENS register info */
