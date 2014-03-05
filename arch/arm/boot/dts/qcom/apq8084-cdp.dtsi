@@ -104,12 +104,37 @@
 	qcom,cont-splash-enabled;
 };
 
+&dsi_dual_jdi_video_0 {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <50>;
+	qcom,mdss-dsi-bl-pmic-bank-select = <2>;
+	qcom,mdss-dsi-pwm-gpio = <&pma8084_gpios 7 0>;
+	qcom,cont-splash-enabled;
+};
+
+&dsi_dual_jdi_video_1 {
+	qcom,cont-splash-enabled;
+};
+
+&dsi_dual_jdi_cmd_0 {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <50>;
+	qcom,mdss-dsi-bl-pmic-bank-select = <2>;
+	qcom,mdss-dsi-pwm-gpio = <&pma8084_gpios 7 0>;
+	qcom,cont-splash-enabled;
+};
+
+&dsi_dual_jdi_cmd_1 {
+	qcom,cont-splash-enabled;
+};
+
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
 };
 
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_jdi_1080_vid>;
+	qcom,platform-te-gpio = <&msmgpio 12 0>;
 	qcom,platform-reset-gpio = <&msmgpio 96 0>;
 	qcom,platform-enable-gpio = <&msmgpio 137 0>;
 	qcom,platform-bklight-en-gpio = <&msmgpio 86 0>;
