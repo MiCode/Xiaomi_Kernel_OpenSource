@@ -51,6 +51,7 @@ struct ocmem_hw_region {
 static struct ocmem_hw_region *region_ctrl;
 static struct mutex region_ctrl_lock;
 static void *ocmem_base;
+static void *ocmem_vbase;
 
 #define OCMEM_V1_MACROS 8
 #define OCMEM_V1_MACRO_SZ (SZ_64K)
@@ -560,6 +561,13 @@ static void ocmem_gfx_mpu_remove(void)
 {
 	ocmem_write(0x0, ocmem_base + OC_GFX_MPU_START);
 	ocmem_write(0x0, ocmem_base + OC_GFX_MPU_END);
+}
+
+int ocmem_clear(unsigned long start, unsigned long size)
+{
+	memset((ocmem_vbase + start), 0x4D4D434F, size);
+	mb();
+	return 0;
 }
 
 static int do_lock(enum ocmem_client id, unsigned long offset,
@@ -1144,6 +1152,7 @@ int ocmem_core_init(struct platform_device *pdev)
 
 	pdata = platform_get_drvdata(pdev);
 	ocmem_base = pdata->reg_base;
+	ocmem_vbase = pdata->vbase;
 
 	rc = ocmem_enable_core_clock();
 
