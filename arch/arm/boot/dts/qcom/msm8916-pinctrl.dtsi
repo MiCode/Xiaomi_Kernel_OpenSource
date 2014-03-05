@@ -1073,5 +1073,39 @@
 				bias-pull-down = <0>; /* PULL DOWN */
 			};
 		};
+
+		pmx_i2c_4 {
+			/* CLK, DATA */
+			qcom,pins = <&gp 14>, <&gp 15>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <2>;
+			label = "pmx_i2c_4";
+
+			i2c_4_active: i2c_4_active {
+				drive-strength = <2>;	/* 2 MA */
+				bias-disable = <0>;	/* No PULL */
+			};
+
+			i2c_4_sleep: i2c_4_sleep {
+				drive-strength = <2>;	/* 2 MA */
+				bias-disable = <0>;	/* No PULL */
+			};
+
+		};
+
+		smb_int_pin {
+			qcom,pins = <&gp 62>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "smb1360_int_gpio";
+			smb_int_active: smb_int_active {
+				drive-strength = <2>;	/* 2 MA */
+				bias-pull-up;		/* PULL UP*/
+			};
+			smb_int_sleep: smb_int_sleep {
+				drive-strength = <2>;	/* 2 MA */
+				bias-pull-up;		/* PULL UP */
+			};
+		};
 	};
 };
