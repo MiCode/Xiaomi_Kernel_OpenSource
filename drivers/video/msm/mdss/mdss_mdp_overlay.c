@@ -2783,6 +2783,56 @@ int mdss_panel_register_done(struct mdss_panel_data *pdata)
 	return 0;
 }
 
+static int __mdss_mdp_ctl_handoff(struct mdss_mdp_ctl *ctl,
+	struct mdss_data_type *mdata)
+{
+	int rc = 0;
+	int i, j;
+	u32 mixercfg;
+	struct mdss_mdp_pipe *pipe = NULL;
+
+	if (!ctl || !mdata)
+		return -EINVAL;
+
+	for (i = 0; i < mdata->nmixers_intf; i++) {
+		mixercfg = mdss_mdp_ctl_read(ctl, MDSS_MDP_REG_CTL_LAYER(i));
+		pr_debug("for lm%d mixercfg = 0x%09x\n", i, mixercfg);
+
+		j = MDSS_MDP_SSPP_VIG0;
+		for (; j < MDSS_MDP_MAX_SSPP && mixercfg; j++) {
+			u32 cfg = j * 3;
+			if ((j == MDSS_MDP_SSPP_VIG3) ||
+			    (j == MDSS_MDP_SSPP_RGB3)) {
+				/* Add 2 to account for Cursor & Border bits */
+				cfg += 2;
+			}
+			if (mixercfg & (0x7 << cfg)) {
+				pr_debug("Pipe %d staged\n", j);
+				pipe = mdss_mdp_pipe_search(mdata, BIT(j));
+				if (!pipe) {
+					pr_warn("Invalid pipe %d staged\n", j);
+					continue;
+				}
+
+				rc = mdss_mdp_pipe_handoff(pipe);
+				if (rc) {
+					pr_err("Failed to handoff pipe%d\n",
+						pipe->num);
+					goto exit;
+				}
+
+				rc = mdss_mdp_mixer_handoff(ctl, i, pipe);
+				if (rc) {
+					pr_err("failed to handoff mix%d\n", i);
+					goto exit;
+				}
+			}
+		}
+	}
+exit:
+	return rc;
+}
+
 /**
  * mdss_mdp_overlay_handoff() - Read MDP registers to handoff an active ctl path
  * @mfd: Msm frame buffer structure associated with the fb device.
@@ -2798,10 +2848,8 @@ static int mdss_mdp_overlay_handoff(struct msm_fb_data_type *mfd)
 	int rc = 0;
 	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
-	int i, j;
-	u32 reg;
-	struct mdss_mdp_pipe *pipe = NULL;
 	struct mdss_mdp_ctl *ctl = NULL;
+	struct mdss_mdp_ctl *sctl = NULL;
 
 	if (!mdp5_data->ctl) {
 		ctl = __mdss_mdp_overlay_ctl_init(mfd);
@@ -2825,38 +2873,23 @@ static int mdss_mdp_overlay_handoff(struct msm_fb_data_type *mfd)
 	ctl->clk_rate = mdss_mdp_get_clk_rate(MDSS_CLK_MDP_SRC);
 	pr_debug("Set the ctl clock rate to %d Hz\n", ctl->clk_rate);
 
-	for (i = 0; i < mdata->nmixers_intf; i++) {
-		reg = mdss_mdp_ctl_read(ctl, MDSS_MDP_REG_CTL_LAYER(i));
-		pr_debug("for lm%d reg = 0x%09x\n", i, reg);
-		for (j = MDSS_MDP_SSPP_VIG0; j < MDSS_MDP_MAX_SSPP; j++) {
-			u32 cfg = j * 3;
-			if ((j == MDSS_MDP_SSPP_VIG3) ||
-				(j == MDSS_MDP_SSPP_RGB3)) {
-				/* Add 2 to account for Cursor & Border bits */
-				cfg += 2;
-			}
-			if (reg & (0x7 << cfg)) {
-				pr_debug("Pipe %d staged\n", j);
-				pipe = mdss_mdp_pipe_search(mdata, BIT(j));
-				if (!pipe) {
-					pr_warn("Invalid pipe %d staged\n", j);
-					continue;
-				}
+	rc = __mdss_mdp_ctl_handoff(ctl, mdata);
+	if (rc) {
+		pr_err("primary ctl handoff failed. rc=%d\n", rc);
+		goto error;
+	}
 
-				rc = mdss_mdp_pipe_handoff(pipe);
-				if (rc) {
-					pr_err("Failed to handoff pipe num %d\n"
-						, pipe->num);
-					goto error;
-				}
-
-				rc = mdss_mdp_mixer_handoff(ctl, i, pipe);
-				if (rc) {
-					pr_err("failed to handoff mixer num %d\n"
-						, i);
-					goto error;
-				}
-			}
+	if (mfd->split_display) {
+		sctl = mdss_mdp_get_split_ctl(ctl);
+		if (!sctl) {
+			pr_err("cannot get secondary ctl. fail the handoff\n");
+			rc = -EPERM;
+			goto error;
+		}
+		rc = __mdss_mdp_ctl_handoff(sctl, mdata);
+		if (rc) {
+			pr_err("secondary ctl handoff failed. rc=%d\n", rc);
+			goto error;
 		}
 	}
 
