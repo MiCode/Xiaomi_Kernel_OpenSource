@@ -167,7 +167,7 @@ static struct bam_portmaster {
 struct  u_bam_data_connect_info {
 	u32 usb_bam_pipe_idx;
 	u32 peer_pipe_idx;
-	u32 usb_bam_handle;
+	unsigned long usb_bam_handle;
 };
 
 struct gbam_port *bam2bam_ports[BAM2BAM_N_PORTS];
