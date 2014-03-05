@@ -66,15 +66,15 @@ struct esoc_desc *devm_register_esoc_client(struct device *dev,
 		kfree(esoc_prop);
 		esoc_node = of_find_node_by_phandle(be32_to_cpup(parp));
 		esoc_clink = get_esoc_clink_by_node(esoc_node);
-		if (!esoc_clink) {
+		if (IS_ERR_OR_NULL(esoc_clink)) {
 			dev_err(dev, "matching esoc clink not present\n");
-			return NULL;
+			return ERR_PTR(-EPROBE_DEFER);
 		}
 		desc = devres_alloc(devm_esoc_desc_release,
 						sizeof(*desc), GFP_KERNEL);
 		if (!desc)
 			return ERR_PTR(-ENOMEM);
-		esoc_name = kasprintf(GFP_KERNEL, "subsys_esoc%d",
+		esoc_name = kasprintf(GFP_KERNEL, "esoc%d",
 							esoc_clink->id);
 		desc->name = esoc_name;
 		desc->priv = esoc_clink;
