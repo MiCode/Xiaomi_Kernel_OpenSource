@@ -31,7 +31,7 @@
 
 #include "clock.h"
 
-#define GCC_DEBUG_CLK_CTL	0x6c000
+#define GCC_DEBUG_CLK_CTL	0x74000
 #define RPM_MISC_CLK_TYPE	0x306b6c63
 #define RPM_BUS_CLK_TYPE	0x316b6c63
 #define RPM_MEM_CLK_TYPE	0x326b6c63
@@ -86,11 +86,6 @@ static DEFINE_CLK_VOTER(bimc_acpu_a_clk,    &bimc_a_clk.c,  LONG_MAX);
 static DEFINE_CLK_VOTER(pcnoc_keepalive_a_clk, &pcnoc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(pcnoc_sps_clk,        &pcnoc_a_clk.c, LONG_MAX);
 
-/* MMNOC no longer available, put equivalent vote on SNOC */
-static DEFINE_CLK_VOTER(snoc_mmnoc_ahb_clk, &snoc_a_clk.c, LONG_MAX);
-static DEFINE_CLK_VOTER(snoc_mmnoc_axi_clk, &snoc_a_clk.c, LONG_MAX);
-
-
 /* Branch Voter clocks */
 static DEFINE_CLK_BRANCH_VOTER(xo_gcc, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_otg_clk, &xo_clk_src.c);
@@ -130,11 +125,10 @@ static struct clk_lookup msm_clocks_rpm[] = {
 	CLK_LIST(xo_lpm_clk),
 	CLK_LIST(xo_pil_mss_clk),
 	CLK_LIST(xo_pil_pronto_clk),
+	CLK_LIST(xo_wlan_clk),
 
 	CLK_LIST(snoc_msmbus_clk),
 	CLK_LIST(snoc_msmbus_a_clk),
-	CLK_LIST(snoc_mmnoc_axi_clk),
-	CLK_LIST(snoc_mmnoc_ahb_clk),
 	CLK_LIST(pcnoc_msmbus_clk),
 	CLK_LIST(pcnoc_msmbus_a_clk),
 	CLK_LIST(bimc_msmbus_clk),
@@ -198,9 +192,6 @@ static int msm_rpmcc_8916_probe(struct platform_device *pdev)
 	 */
 	clk_set_rate(&pcnoc_keepalive_a_clk.c, 19200000);
 	clk_prepare_enable(&pcnoc_keepalive_a_clk.c);
-
-	clk_prepare_enable(&snoc_mmnoc_ahb_clk.c);
-	clk_prepare_enable(&snoc_mmnoc_axi_clk.c);
 
 	clk_prepare_enable(&xo_a_clk_src.c);
 
