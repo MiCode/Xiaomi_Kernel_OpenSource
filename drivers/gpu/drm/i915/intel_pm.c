@@ -660,6 +660,8 @@ static void intel_drrs_work_fn(struct work_struct *__work)
 
 	intel_dp_set_drrs_state(work->crtc->dev,
 		dev_priv->drrs.connector->panel.downclock_mode->vrefresh);
+
+	intel_update_watermarks(work->crtc);
 }
 
 static void intel_cancel_drrs_work(struct drm_i915_private *dev_priv)
@@ -698,6 +700,7 @@ void intel_disable_drrs(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_dp *intel_dp = NULL;
+	struct drm_crtc *crtc;
 
 	if (dev_priv->drrs.connector == NULL)
 		return;
@@ -712,6 +715,13 @@ void intel_disable_drrs(struct drm_device *dev)
 		intel_cancel_drrs_work(dev_priv);
 		intel_dp_set_drrs_state(dev,
 			dev_priv->drrs.connector->panel.fixed_mode->vrefresh);
+	}
+
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+		if (crtc) {
+			if (intel_pipe_has_type(crtc, INTEL_OUTPUT_EDP))
+				intel_update_watermarks(crtc);
+		}
 	}
 }
 
@@ -734,7 +744,7 @@ void intel_update_drrs(struct drm_device *dev)
 		return;
 
 	list_for_each_entry(tmp_crtc, &dev->mode_config.crtc_list, head) {
-		if (tmp_crtc != NULL && intel_crtc_active(tmp_crtc)) {
+		if (intel_crtc_active(tmp_crtc)) {
 			if (crtc) {
 				DRM_DEBUG_KMS(
 				"more than one pipe active, disabling DRRS\n");

@@ -5475,6 +5475,7 @@ static void intel_crtc_update_sarea(struct drm_crtc *crtc,
 		DRM_ERROR("Can't update pipe %c in SAREA\n", pipe_name(pipe));
 		break;
 	}
+	intel_update_drrs(dev);
 }
 
 /* Master function to enable/disable CRTC and corresponding power wells */

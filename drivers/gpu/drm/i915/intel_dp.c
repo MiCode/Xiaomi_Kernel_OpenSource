@@ -4555,10 +4555,16 @@ void intel_dp_set_drrs_state(struct drm_device *dev, int refresh_rate)
 		reg = PIPECONF(intel_crtc->config.cpu_transcoder);
 		val = I915_READ(reg);
 		if (index > DRRS_HIGH_RR) {
-			val |= PIPECONF_EDP_RR_MODE_SWITCH;
+			if (IS_VALLEYVIEW(dev))
+				val |= PIPECONF_EDP_RR_MODE_SWITCH_VLV;
+			else
+				val |= PIPECONF_EDP_RR_MODE_SWITCH;
 			intel_dp_set_m2_n2(intel_crtc, &config->dp_m2_n2);
 		} else {
-			val &= ~PIPECONF_EDP_RR_MODE_SWITCH;
+			if (IS_VALLEYVIEW(dev))
+				val &= ~PIPECONF_EDP_RR_MODE_SWITCH_VLV;
+			else
+				val &= ~PIPECONF_EDP_RR_MODE_SWITCH;
 		}
 		I915_WRITE(reg, val);
 	}
