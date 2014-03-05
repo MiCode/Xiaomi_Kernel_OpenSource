@@ -145,7 +145,7 @@
 #define IRQ_C_CHG_TERM			BIT(0)
 
 #define IRQ_D_REG			0x53
-#define IRQ_E_REG			0x53
+#define IRQ_E_REG			0x54
 #define IRQ_F_REG			0x55
 
 #define IRQ_G_REG			0x56
@@ -162,10 +162,10 @@
 #define VTG_EMPTY_REG			0x26
 
 /* FG SHADOW registers */
-#define SHDW_FG_MSYS_SOC		0xE1
-#define SHDW_FG_CAPACITY		0xE2
-#define SHDW_FG_VTG_NOW			0xE9
-#define SHDW_FG_BATT_TEMP		0xED
+#define SHDW_FG_MSYS_SOC		0x61
+#define SHDW_FG_CAPACITY		0x62
+#define SHDW_FG_VTG_NOW			0x69
+#define SHDW_FG_BATT_TEMP		0x6D
 
 /* Constants */
 #define CURRENT_100_MA			100
