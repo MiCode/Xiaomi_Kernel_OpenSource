@@ -840,6 +840,77 @@ static int florida_hp_post_enable(struct snd_soc_dapm_widget *w)
 	return 0;
 }
 
+static int florida_hp_pre_disable(struct snd_soc_dapm_widget *w)
+{
+	unsigned int val = snd_soc_read(w->codec, ARIZONA_DRE_ENABLE);
+
+	switch (w->shift) {
+	case ARIZONA_OUT1L_ENA_SHIFT:
+		if (!(val & ARIZONA_DRE1L_ENA_MASK)) {
+			snd_soc_write(w->codec,
+				      ARIZONA_WRITE_SEQUENCER_CTRL_0,
+				      ARIZONA_WSEQ_ENA | ARIZONA_WSEQ_START |
+				      0x138);
+			msleep(10);
+			snd_soc_update_bits(w->codec,
+					    ARIZONA_OUTPUT_PATH_CONFIG_1L,
+					    ARIZONA_OUT1L_PGA_VOL_MASK,
+					    0x56);
+		}
+		break;
+	case ARIZONA_OUT1R_ENA_SHIFT:
+		if (!(val & ARIZONA_DRE1R_ENA_MASK)) {
+			snd_soc_write(w->codec,
+				      ARIZONA_WRITE_SEQUENCER_CTRL_0,
+				      ARIZONA_WSEQ_ENA | ARIZONA_WSEQ_START |
+				      0x13d);
+			msleep(10);
+			snd_soc_update_bits(w->codec,
+					    ARIZONA_OUTPUT_PATH_CONFIG_1R,
+					    ARIZONA_OUT1R_PGA_VOL_MASK,
+					    0x56);
+		}
+		break;
+
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static int florida_hp_post_disable(struct snd_soc_dapm_widget *w)
+{
+	unsigned int wseq = 0;
+	unsigned int val = snd_soc_read(w->codec, ARIZONA_DRE_ENABLE);
+
+	switch (w->shift) {
+	case ARIZONA_OUT1L_ENA_SHIFT:
+		if (!(val & ARIZONA_DRE1L_ENA_MASK)) {
+			msleep(17);
+			snd_soc_update_bits(w->codec,
+					    ARIZONA_OUTPUT_PATH_CONFIG_1L,
+					    ARIZONA_OUT1L_PGA_VOL_MASK,
+					    0x80);
+		}
+		break;
+	case ARIZONA_OUT1R_ENA_SHIFT:
+		if (!(val & ARIZONA_DRE1R_ENA_MASK)) {
+			msleep(17);
+			snd_soc_update_bits(w->codec,
+					    ARIZONA_OUTPUT_PATH_CONFIG_1R,
+					    ARIZONA_OUT1R_PGA_VOL_MASK,
+					    0x80);
+		}
+		break;
+
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 int arizona_out_ev(struct snd_soc_dapm_widget *w,
 		   struct snd_kcontrol *kcontrol,
 		   int event)
@@ -903,7 +974,24 @@ int arizona_hp_ev(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		val = 0;
+		switch (priv->arizona->type) {
+		case WM5110:
+			florida_hp_pre_disable(w);
+			break;
+		default:
+			break;
+		}
 		break;
+	case SND_SOC_DAPM_POST_PMD:
+		switch (priv->arizona->type) {
+		case WM5110:
+			florida_hp_post_disable(w);
+			break;
+		default:
+			break;
+		}
+
+		return 0;
 	default:
 		return -EINVAL;
 	}

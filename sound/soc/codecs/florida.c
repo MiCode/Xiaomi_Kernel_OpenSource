@@ -162,6 +162,22 @@ static const struct reg_default florida_sysclk_reve_patch[] = {
 	{ 0x326B, 0x3078 },
 	{ 0x326C, 0xE414 },
 	{ 0x326D, 0x3080 },
+	{ 0x3270, 0xE410 },
+	{ 0x3271, 0x3078 },
+	{ 0x3272, 0xE410 },
+	{ 0x3273, 0x3070 },
+	{ 0x3274, 0xE410 },
+	{ 0x3275, 0x3066 },
+	{ 0x3276, 0xE410 },
+	{ 0x3277, 0x3056 },
+	{ 0x327A, 0xE414 },
+	{ 0x327B, 0x3078 },
+	{ 0x327C, 0xE414 },
+	{ 0x327D, 0x3070 },
+	{ 0x327E, 0xE414 },
+	{ 0x327F, 0x3066 },
+	{ 0x3280, 0xE414 },
+	{ 0x3281, 0x3056 },
 };
 
 static int florida_sysclk_ev(struct snd_soc_dapm_widget *w,
@@ -981,12 +997,12 @@ SND_SOC_DAPM_AIF_IN("AIF3RX2", NULL, 0,
 
 SND_SOC_DAPM_PGA_E("OUT1L", SND_SOC_NOPM,
 		   ARIZONA_OUT1L_ENA_SHIFT, 0, NULL, 0, arizona_hp_ev,
-		   SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_PRE_PMU |
-		   SND_SOC_DAPM_POST_PMU),
+		   SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD |
+		   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
 SND_SOC_DAPM_PGA_E("OUT1R", SND_SOC_NOPM,
 		   ARIZONA_OUT1R_ENA_SHIFT, 0, NULL, 0, arizona_hp_ev,
-		   SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_PRE_PMU |
-		   SND_SOC_DAPM_POST_PMU),
+		   SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD |
+		   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
 SND_SOC_DAPM_PGA_E("OUT2L", ARIZONA_OUTPUT_ENABLES_1,
 		   ARIZONA_OUT2L_ENA_SHIFT, 0, NULL, 0, arizona_out_ev,
 		   SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMU),
