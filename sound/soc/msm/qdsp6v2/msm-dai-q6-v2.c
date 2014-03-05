@@ -2436,6 +2436,17 @@ static struct snd_soc_dai_driver msm_dai_q6_mi2s_dai[] = {
 		.probe = msm_dai_q6_dai_mi2s_probe,
 		.remove = msm_dai_q6_dai_mi2s_remove,
 	},
+	{
+		.playback = {
+			.stream_name = "Secondary MI2S Playback Vibra",
+			.aif_name = "SEC_MI2S_RX_VIBRA",
+			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+			SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.rate_min =     8000,
+			.rate_max =     48000,
+		},
+	},
 };
 
 
