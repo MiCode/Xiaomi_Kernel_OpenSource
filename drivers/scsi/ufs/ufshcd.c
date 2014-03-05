@@ -4578,7 +4578,7 @@ static int ufshcd_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buffer)
 
 	ioctl_data = kmalloc(sizeof(struct ufs_ioctl_query_data), GFP_KERNEL);
 	if (!ioctl_data) {
-		dev_err(hba->dev, "%s: Failed allocating %d bytes\n", __func__,
+		dev_err(hba->dev, "%s: Failed allocating %zu bytes\n", __func__,
 				sizeof(struct ufs_ioctl_query_data));
 		err = -ENOMEM;
 		goto out;
