@@ -537,6 +537,8 @@ static void ksb_rx_cb(struct urb *urb)
 		goto done;
 	}
 
+	usb_mark_last_busy(ksb->udev);
+
 	if (urb->actual_length == 0) {
 		submit_one_urb(ksb, GFP_ATOMIC, pkt);
 		goto done;
@@ -795,6 +797,11 @@ static int ksb_usb_suspend(struct usb_interface *ifc, pm_message_t message)
 	unsigned long flags;
 
 	dbg_log_event(ksb, "SUSPEND", 0, 0);
+
+	if (pm_runtime_autosuspend_expiration(&ksb->udev->dev)) {
+		dbg_log_event(ksb, "SUSP ABORT-TimeCheck", 0, 0);
+		return -EBUSY;
+	}
 
 	usb_kill_anchored_urbs(&ksb->submitted);
 
