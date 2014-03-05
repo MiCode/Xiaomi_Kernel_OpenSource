@@ -583,6 +583,7 @@
 		interrupts = <0 110 0>;
 		qcom,bam-pipe-pair = <1>;
 		qcom,ce-hw-instance = <1>;
+		qcom,ce-device = <0>;
 	};
 	qcom,qcrypto@fe040000 {
 		compatible = "qcom,qcrypto";
@@ -592,6 +593,7 @@
 		interrupts = <0 115 0>;
 		qcom,bam-pipe-pair = <1>;
 		qcom,ce-hw-instance = <6>;
+		qcom,ce-device = <1>;
 	};
 	qcom,qcrypto@fe000000 {
 		compatible = "qcom,qcrypto";
@@ -601,6 +603,7 @@
 		interrupts = <0 116 0>;
 		qcom,bam-pipe-pair = <1>;
 		qcom,ce-hw-instance = <7>;
+		qcom,ce-device = <2>;
 	};
 
 	qcom,qcota@fe140000 {
@@ -611,6 +614,7 @@
 		interrupts = <0 111 0>;
 		qcom,bam-pipe-pair = <1>;
 		qcom,ce-hw-instance = <2>;
+		qcom,ce-device = <0>;
 	};
 	qcom,qcota@fe0c0000 {
 		compatible = "qcom,qcota";
@@ -620,6 +624,7 @@
 		interrupts = <0 113 0>;
 		qcom,bam-pipe-pair = <1>;
 		qcom,ce-hw-instance = <4>;
+		qcom,ce-device = <1>;
 	};
 
 	tsens: tsens@fc4a8000 {
