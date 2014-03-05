@@ -3711,14 +3711,14 @@ int sdhci_add_host(struct sdhci_host *host)
 	else if (host->flags & SDHCI_USE_SDMA)
 		mmc->max_segs = 1;
 	else/* PIO */
-		mmc->max_segs = host->adma_max_desc;
+		mmc->max_segs = 128;
 
 	/*
 	 * Maximum number of sectors in one transfer. Limited by DMA boundary
 	 * size (512KiB), unless specified by platform specific driver. Each
 	 * descriptor can transfer a maximum of 64KB.
 	 */
-	if (host->ops->get_max_segments)
+	if (host->flags & SDHCI_USE_ADMA)
 		mmc->max_req_size = (host->adma_max_desc * 65536);
 	else
 		mmc->max_req_size = 524288;
