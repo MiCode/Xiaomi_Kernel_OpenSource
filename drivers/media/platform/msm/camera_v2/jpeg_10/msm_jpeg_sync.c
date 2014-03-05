@@ -669,6 +669,7 @@ int __msm_jpeg_open(struct msm_jpeg_device *pgmn_dev)
 int __msm_jpeg_release(struct msm_jpeg_device *pgmn_dev)
 {
 	JPEG_DBG("%s:%d] Enter\n", __func__, __LINE__);
+	return 0;
 	mutex_lock(&pgmn_dev->lock);
 	if (!pgmn_dev->open_count) {
 		JPEG_PR_ERR(KERN_ERR "%s: not opened\n", __func__);

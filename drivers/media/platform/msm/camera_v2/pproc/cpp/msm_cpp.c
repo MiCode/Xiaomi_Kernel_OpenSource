@@ -671,55 +671,61 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 			cpp_dev->fs_cpp = NULL;
 			goto fs_failed;
 		}
-	}
+		if (cpp_dev->fs_cpp != NULL) {
+			uint32_t cpp_hw_ver = cpp_dev->hw_info.cpp_hw_version;
+			if (cpp_hw_ver != CPP_HW_VERSION_4_0_0) {
+				const int FaceClkId = MSM_MICRO_IFACE_CLK_IDX;
+				cpp_dev->cpp_clk[FaceClkId] =
+				clk_get(&cpp_dev->pdev->dev,
+				cpp_clk_info[FaceClkId].clk_name);
+				if (IS_ERR(cpp_dev->cpp_clk[FaceClkId])) {
+					dev_err(&cpp_dev->pdev->dev,
+					"%s, clk not found\n",
+					cpp_clk_info[FaceClkId].clk_name);
+					rc =
+					PTR_ERR(cpp_dev->cpp_clk[FaceClkId]);
+					goto remap_failed;
+				}
 
-	if (cpp_dev->hw_info.cpp_hw_version != CPP_HW_VERSION_4_0_0) {
-		cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX] =
-			clk_get(&cpp_dev->pdev->dev,
-			cpp_clk_info[MSM_MICRO_IFACE_CLK_IDX].clk_name);
-		if (IS_ERR(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX])) {
-			pr_err("%s get failed\n",
-			cpp_clk_info[MSM_MICRO_IFACE_CLK_IDX].clk_name);
-			rc =
-			PTR_ERR(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX]);
-			goto remap_failed;
+				rc = clk_reset(cpp_dev->cpp_clk[FaceClkId],
+					CLK_RESET_ASSERT);
+				if (rc) {
+					pr_err("%s:micro_iface_clk assert fail",
+					__func__);
+					clk_put(cpp_dev->cpp_clk[FaceClkId]);
+					goto remap_failed;
+				}
+				/*Below usleep values are chosen based on
+				experiments and this was the smallest number
+				which works. This sleep is needed to leave enough
+				time for Microcontroller to resets all its registers.*/
+				usleep_range(10000, 12000);
+
+				rc = clk_reset(cpp_dev->cpp_clk[FaceClkId],
+					CLK_RESET_DEASSERT);
+				if (rc) {
+					pr_err("%s:micro_iface_clk assert fail",
+						__func__);
+					clk_put(cpp_dev->cpp_clk[FaceClkId]);
+					goto remap_failed;
+				}
+				/*Below usleep values are chosen based on
+				experiments and this was the smallest number
+				which works. This sleep is needed to leave enough
+				time for Microcontroller to resets all its registers.*/
+				usleep_range(1000, 1200);
+
+				clk_put(cpp_dev->cpp_clk[FaceClkId]);
+			}
+			rc = msm_cam_clk_enable(&cpp_dev->pdev->dev,
+				cpp_clk_info,cpp_dev->cpp_clk,
+				cpp_dev->num_clk, 1);
+			if (rc < 0) {
+				pr_err("clk enable failed\n");
+				goto clk_failed;
+			}
 		}
 
-		rc = clk_reset(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX],
-			CLK_RESET_ASSERT);
-		if (rc) {
-			pr_err("%s:micro_iface_clk assert failed\n",
-			__func__);
-			clk_put(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX]);
-			goto remap_failed;
-		}
-		/*Below usleep values are chosen based on experiments
-		and this was the smallest number which works. This
-		sleep is needed to leave enough time for Microcontroller
-		to resets all its registers.*/
-		usleep_range(10000, 12000);
-
-		rc = clk_reset(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX],
-			CLK_RESET_DEASSERT);
-		if (rc) {
-			pr_err("%s:micro_iface_clk assert failed\n", __func__);
-			clk_put(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX]);
-			goto remap_failed;
-		}
-		/*Below usleep values are chosen based on experiments and
-		this was the smallest number which works. This sleep is
-		needed to leave enough time for Microcontroller to
-		resets all its registers.*/
-		usleep_range(1000, 1200);
-
-		clk_put(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX]);
-	}
-
-	rc = msm_cam_clk_enable(&cpp_dev->pdev->dev, cpp_clk_info,
-			cpp_dev->cpp_clk, cpp_dev->num_clk, 1);
-	if (rc < 0) {
-		pr_err("clk enable failed\n");
-		goto clk_failed;
 	}
 
 	cpp_dev->base = ioremap(cpp_dev->mem->start,
@@ -730,6 +736,7 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 		goto remap_failed;
 	}
 
+	pr_err("cpp: 1\n");
 	cpp_dev->vbif_base = ioremap(cpp_dev->vbif_mem->start,
 		resource_size(cpp_dev->vbif_mem));
 	if (!cpp_dev->vbif_base) {
@@ -738,6 +745,7 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 		goto vbif_remap_failed;
 	}
 
+	pr_err("cpp: 2 : %x\n", (unsigned int) cpp_dev->cpp_hw_mem->start);
 	cpp_dev->cpp_hw_base = ioremap(cpp_dev->cpp_hw_mem->start,
 		resource_size(cpp_dev->cpp_hw_mem));
 	if (!cpp_dev->cpp_hw_base) {
@@ -746,15 +754,19 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 		goto cpp_hw_remap_failed;
 	}
 
+	pr_err("cpp: 3\n");
 	if (cpp_dev->state != CPP_STATE_BOOT) {
+		pr_err("cpp: 4\n");
 		rc = request_irq(cpp_dev->irq->start, msm_cpp_irq,
 			IRQF_TRIGGER_RISING, "cpp", cpp_dev);
 		if (rc < 0) {
 			pr_err("irq request fail\n");
 			goto req_irq_fail;
 		}
+		pr_err("cpp: 5\n");
 		cpp_dev->buf_mgr_subdev = msm_buf_mngr_get_subdev();
 
+		pr_err("cpp: 6\n");
 		rc = msm_cpp_buffer_ops(cpp_dev,
 			VIDIOC_MSM_BUF_MNGR_INIT, NULL);
 		if (rc < 0) {
@@ -764,12 +776,13 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 		}
 	}
 
+	pr_err("cpp: 7 : %x\n", (unsigned int)cpp_dev->cpp_hw_base);
 	cpp_dev->hw_info.cpp_hw_version =
 		msm_camera_io_r(cpp_dev->cpp_hw_base);
-	pr_info("CPP HW Version: 0x%x\n", cpp_dev->hw_info.cpp_hw_version);
+	pr_err("CPP HW Version: 0x%x\n", cpp_dev->hw_info.cpp_hw_version);
 	cpp_dev->hw_info.cpp_hw_caps =
 		msm_camera_io_r(cpp_dev->cpp_hw_base + 0x4);
-	pr_debug("CPP HW Caps: 0x%x\n", cpp_dev->hw_info.cpp_hw_caps);
+	pr_err("CPP HW Caps: 0x%x\n", cpp_dev->hw_info.cpp_hw_caps);
 	msm_camera_io_w(0x1, cpp_dev->vbif_base + 0x4);
 	cpp_dev->taskletq_idx = 0;
 	atomic_set(&cpp_dev->irq_cnt, 0);
@@ -779,7 +792,13 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 	if (cpp_dev->hw_info.cpp_hw_version != CPP_HW_VERSION_4_0_0) {
 		if (cpp_dev->is_firmware_loaded == 1) {
 			disable_irq(cpp_dev->irq->start);
-			cpp_load_fw(cpp_dev, cpp_dev->fw_name_bin);
+            msm_camera_io_w(0x1,
+                cpp_dev->base + MSM_CPP_MICRO_CLKEN_CTL);
+            msm_camera_io_w_mb(0x7C8,
+                cpp_dev->base + MSM_CPP_MICRO_IRQGEN_MASK);
+            msm_camera_io_w_mb(0xFFFF,
+                cpp_dev->base + MSM_CPP_MICRO_IRQGEN_CLR);
+			//cpp_load_fw(cpp_dev, cpp_dev->fw_name_bin);
 			enable_irq(cpp_dev->irq->start);
 			msm_camera_io_w_mb(0x7C8, cpp_dev->base +
 				MSM_CPP_MICRO_IRQGEN_MASK);
@@ -831,11 +850,13 @@ static void cpp_release_hardware(struct cpp_device *cpp_dev)
 	iounmap(cpp_dev->base);
 	iounmap(cpp_dev->vbif_base);
 	iounmap(cpp_dev->cpp_hw_base);
+#if 0
 	msm_cam_clk_enable(&cpp_dev->pdev->dev, cpp_clk_info,
 		cpp_dev->cpp_clk, cpp_dev->num_clk, 0);
 	regulator_disable(cpp_dev->fs_cpp);
 	regulator_put(cpp_dev->fs_cpp);
 	cpp_dev->fs_cpp = NULL;
+#endif
 	if (cpp_dev->stream_cnt > 0) {
 		pr_err("error: stream count active\n");
 		msm_isp_update_bandwidth(ISP_CPP, 0, 0);
@@ -851,10 +872,10 @@ static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 	int32_t rc = -EFAULT;
 	const struct firmware *fw = NULL;
 	struct device *dev = &cpp_dev->pdev->dev;
-
-	msm_camera_io_w(0x1, cpp_dev->base + MSM_CPP_MICRO_CLKEN_CTL);
 	msm_camera_io_w(0x1, cpp_dev->base +
 				 MSM_CPP_MICRO_BOOT_START);
+	msm_camera_io_w(0x1, cpp_dev->base + MSM_CPP_MICRO_CLKEN_CTL);
+	usleep_range(1000, 2000);
 	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_CMD);
 
 	if (fw_name_bin) {
@@ -868,18 +889,22 @@ static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 		if (NULL != fw)
 			ptr_bin = (uint32_t *)fw->data;
 
-		msm_camera_io_w(0x1, cpp_dev->base +
-					 MSM_CPP_MICRO_BOOT_START);
-		msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_CMD);
+		//msm_camera_io_w(0x1, cpp_dev->base +
+		//MSM_CPP_MICRO_BOOT_START);
+		//msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_CMD);
 		msm_camera_io_w(0xFFFFFFFF, cpp_dev->base +
 			MSM_CPP_MICRO_IRQGEN_CLR);
 
 		/*Start firmware loading*/
 		msm_cpp_write(MSM_CPP_CMD_FW_LOAD, cpp_dev->base);
-		if (fw)
+		if (fw) {
+			pr_err("cpp got fw");
 			msm_cpp_write(fw->size, cpp_dev->base);
-		else
+        	}
+		else {
+			pr_err("cpp did not get fw");
 			msm_cpp_write(MSM_CPP_END_ADDRESS, cpp_dev->base);
+		}
 		msm_cpp_write(MSM_CPP_START_ADDRESS, cpp_dev->base);
 
 		if (ptr_bin) {
@@ -1949,7 +1974,7 @@ static int msm_cpp_get_clk_info(struct cpp_device *cpp_dev,
 	struct device_node *of_node;
 	of_node = pdev->dev.of_node;
 
-	count = of_property_count_strings(of_node, "qcom,clock-names");
+	count = of_property_count_strings(of_node, "clock-names");
 
 	CPP_DBG("count = %d\n", count);
 	if (count == 0) {
@@ -1964,7 +1989,7 @@ static int msm_cpp_get_clk_info(struct cpp_device *cpp_dev,
 	}
 
 	for (i = 0; i < count; i++) {
-		rc = of_property_read_string_index(of_node, "qcom,clock-names",
+		rc = of_property_read_string_index(of_node, "clock-names",
 				i, &(cpp_clk_info[i].clk_name));
 		CPP_DBG("clock-names[%d] = %s\n", i, cpp_clk_info[i].clk_name);
 		if (rc < 0) {

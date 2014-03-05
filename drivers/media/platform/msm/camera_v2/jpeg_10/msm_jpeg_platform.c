@@ -294,7 +294,7 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 	JPEG_DBG_HIGH("%s:%d] jpeg HW version 0x%x", __func__, __LINE__,
 		pgmn_dev->hw_version);
 
-	pgmn_dev->jpeg_vbif = ioremap(VBIF_BASE_ADDRESS, VBIF_REGION_SIZE);
+	pgmn_dev->jpeg_vbif = ioremap(0x1B60000, VBIF_REGION_SIZE);
 	if (!pgmn_dev->jpeg_vbif) {
 		rc = -ENOMEM;
 		JPEG_PR_ERR("%s:%d] ioremap failed\n", __func__, __LINE__);
