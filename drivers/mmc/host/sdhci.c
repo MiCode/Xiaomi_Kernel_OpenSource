@@ -1972,12 +1972,27 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		host->cmd = NULL;
 		host->mrq = NULL;
 
-		spin_unlock_irqrestore(&host->lock, flags);
-		/* Wait for Buffer Read Ready interrupt */
-		wait_event_interruptible_timeout(host->buf_ready_int,
-					(host->tuning_done == 1),
-					msecs_to_jiffies(50));
-		spin_lock_irqsave(&host->lock, flags);
+		if (unlikely(host->quirks2 & SDHCI_QUIRK2_TUNING_POLL)) {
+			unsigned long timeout = jiffies + msecs_to_jiffies(150);
+			do {
+				unsigned int intmask =
+					sdhci_readl(host, SDHCI_INT_STATUS);
+				if (!(intmask & SDHCI_INT_DATA_AVAIL))
+					continue;
+				host->tuning_done = 1;
+				sdhci_writel(host,
+						intmask & SDHCI_INT_DATA_AVAIL,
+						SDHCI_INT_STATUS);
+				break;
+			} while (!time_after(jiffies, timeout));
+		} else {
+			spin_unlock_irqrestore(&host->lock, flags);
+			/* Wait for Buffer Read Ready interrupt */
+			wait_event_interruptible_timeout(host->buf_ready_int,
+						(host->tuning_done == 1),
+						msecs_to_jiffies(50));
+			spin_lock_irqsave(&host->lock, flags);
+		}
 
 		if (!host->tuning_done) {
 			pr_info(DRIVER_NAME ": Timeout waiting for "
