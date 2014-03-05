@@ -60,7 +60,7 @@
 		sdhc2_cd_pin {
 			qcom,pins = <&gp 38>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <1>;
+			qcom,pin-func = <0>;
 			label = "cd-gpio";
 			sdc2_cd_on: cd_on {
 				drive-strength = <2>;
