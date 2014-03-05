@@ -1,7 +1,7 @@
 /*
  *  Copyright (c) 2003 ARM Limited
  *  All Rights Reserved
- *  Copyright (c) 2010, 2012 The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2010, 2012, 2014 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -27,7 +27,7 @@ THUMB(	bx	r9		)	@ If this is a Thumb-2 kernel,
 THUMB(	.thumb			)	@ switch to Thumb now.
 THUMB(2:			)
 	mrc	p15, 0, r0, c0, c0, 5 	@ MPIDR
-	and	r0, r0, #15		@ What CPU am I
+	bic     r0, #0xff000000         @ What CPU am I
 	adr	r4, 1f			@ address of
 	ldmia	r4, {r5, r6}		@ load curr addr and pen_rel addr
 	sub	r4, r4, r5		@ determine virtual/phys offsets

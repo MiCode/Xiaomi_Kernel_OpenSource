@@ -2,7 +2,7 @@
  * Idle processing for ARMv7-based Qualcomm SoCs.
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2009, 2011-2013 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2009, 2011-2014 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -26,7 +26,7 @@ THUMB(	bx	r9		)	/* If this is a Thumb-2 kernel, */
 THUMB(	.thumb			)	/* switch to Thumb now.		*/
 THUMB(2:			)
 	mrc     p15, 0, r0, c0, c0, 5    /* MPIDR                          */
-	and     r0, r0, #15              /* what CPU am I                  */
+	bic     r0, #0xff000000         /* what CPU am I                  */
 
 	adr	r3, 3f
 	ldr	r1, [r3]
