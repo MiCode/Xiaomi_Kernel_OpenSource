@@ -491,7 +491,7 @@ struct clk_ops clk_ops_slave_div = {
  * function and set is as a parent to this external clock..
  */
 
-static long ext_round_rate(struct clk *c, unsigned long rate)
+long parent_round_rate(struct clk *c, unsigned long rate)
 {
 	return clk_round_rate(c->parent, rate);
 }
@@ -501,7 +501,7 @@ static int ext_set_rate(struct clk *c, unsigned long rate)
 	return clk_set_rate(c->parent, rate);
 }
 
-static unsigned long ext_get_rate(struct clk *c)
+unsigned long parent_get_rate(struct clk *c)
 {
 	return clk_get_rate(c->parent);
 }
@@ -520,9 +520,9 @@ static enum handoff ext_handoff(struct clk *c)
 
 struct clk_ops clk_ops_ext = {
 	.handoff = ext_handoff,
-	.round_rate = ext_round_rate,
+	.round_rate = parent_round_rate,
 	.set_rate = ext_set_rate,
-	.get_rate = ext_get_rate,
+	.get_rate = parent_get_rate,
 	.set_parent = ext_set_parent,
 };
 

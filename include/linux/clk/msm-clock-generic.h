@@ -136,6 +136,8 @@ struct ext_clk {
 	struct clk c;
 };
 
+long parent_round_rate(struct clk *c, unsigned long rate);
+unsigned long parent_get_rate(struct clk *c);
 extern struct clk_ops clk_ops_ext;
 
 #define DEFINE_FIXED_DIV_CLK(clk_name, _div, _parent) \
