@@ -752,6 +752,19 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 		}
 		break;
 	}
+	case GET_ISP_ID: {
+		uint32_t *isp_id = NULL;
+
+		if (cmd_len < sizeof(uint32_t)) {
+			pr_err("%s:%d failed: invalid cmd len %u exp %u\n",
+				__func__, __LINE__, cmd_len,
+				sizeof(uint32_t));
+			return -EINVAL;
+		}
+
+		isp_id = (uint32_t *)cfg_data;
+		*isp_id = vfe_dev->pdev->id;
+	}
 	}
 	return 0;
 }

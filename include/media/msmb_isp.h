@@ -246,6 +246,7 @@ enum msm_vfe_reg_cfg_type {
 	VFE_READ_DMI_32BIT,
 	VFE_READ_DMI_64BIT,
 	GET_MAX_CLK_RATE,
+	GET_ISP_ID,
 };
 
 struct msm_vfe_cfg_cmd2 {
