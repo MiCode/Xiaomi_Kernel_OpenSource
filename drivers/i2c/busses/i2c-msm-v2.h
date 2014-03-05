@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -521,6 +521,9 @@ struct i2c_msm_resources {
 	struct pinctrl_state        *gpio_state_active;
 	struct pinctrl_state        *gpio_state_suspend;
 };
+
+#define I2C_MSM_PINCTRL_ACTIVE       "i2c_active"
+#define I2C_MSM_PINCTRL_SUSPEND        "i2c_sleep"
 
 /*
  * i2c_msm_xfer_buf: current xfer position and preprocessed tags
