@@ -745,6 +745,28 @@ static void xhci_giveback_urb_in_irq(struct xhci_hcd *xhci,
 }
 
 /*
+ * Resets sw enq and deq pointers to the first seg trb of the ring
+ * and issues set tr deq cmd to reset hw deq pointer to the first
+ * seg trb of the ring.
+*/
+static void xhci_reset_ep_ring(struct xhci_hcd *xhci, int slot_id,
+		struct xhci_ring *ep_ring, unsigned int ep_index)
+{
+	struct xhci_dequeue_state deq_state;
+
+	if (ep_ring->enqueue != ep_ring->dequeue) {
+		xhci_reinit_xfer_ring(ep_ring, 1);
+		memset(&deq_state, 0, sizeof(deq_state));
+		deq_state.new_deq_ptr = ep_ring->first_seg->trbs;
+		deq_state.new_deq_seg = ep_ring->first_seg;
+		deq_state.new_cycle_state = 0x1;
+		xhci_queue_new_dequeue_state(xhci, slot_id, ep_index,
+				ep_ring->stream_id, &deq_state);
+		xhci_ring_cmd_db(xhci);
+	}
+}
+
+/*
  * When we get a command completion for a Stop Endpoint Command, we need to
  * unlink any cancelled TDs from the ring.  There are two ways to do that:
  *
@@ -859,6 +881,11 @@ remove_finished_td:
 	}
 	ep->stopped_td = NULL;
 	ep->stopped_trb = NULL;
+
+	if ((xhci->quirks & XHCI_TR_DEQ_RESET_QUIRK) &&
+			list_empty(&ep->ring->td_list) &&
+			!(ep->ep_state & SET_DEQ_PENDING))
+		xhci_reset_ep_ring(xhci, slot_id, ep_ring, ep_index);
 
 	/*
 	 * Drop the lock and complete the URBs in the cancelled TD list.
@@ -1147,10 +1174,13 @@ static void handle_set_deq_completion(struct xhci_hcd *xhci,
 	dev->eps[ep_index].queued_deq_seg = NULL;
 	dev->eps[ep_index].queued_deq_ptr = NULL;
 
-	handle_cmd_in_cmd_wait_list(xhci, dev, event);
-
 	/* Restart any rings with pending URBs */
 	ring_doorbell_for_active_rings(xhci, slot_id, ep_index);
+
+	/* reset ring here if it was not done due to pending set tr deq cmd */
+	if (xhci->quirks & XHCI_TR_DEQ_RESET_QUIRK &&
+			list_empty(&ep_ring->td_list))
+		xhci_reset_ep_ring(xhci, slot_id, ep_ring, ep_index);
 }
 
 static void handle_reset_ep_completion(struct xhci_hcd *xhci,
