@@ -2440,6 +2440,19 @@ size_t vpu_hw_print_queues(char *buf, size_t buf_size)
 	return vpu_hfi_print_queues(buf, buf_size);
 }
 
+int vpu_hw_write_csr_reg(u32 off, u32 val)
+{
+	int rc;
+	struct vpu_channel_hal *ch_hal = &g_vpu_ch_hal;
+
+	if (VPU_IS_UP(ch_hal->mode))
+		rc = vpu_hfi_write_csr_reg(off, val);
+	else
+		rc = -EIO; /* firmware down */
+
+	return rc;
+}
+
 int vpu_hw_dump_csr_regs(char *buf, size_t buf_size)
 {
 	int rc = 0;

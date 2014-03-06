@@ -119,6 +119,14 @@ void vpu_hfi_set_pil_timeout(u32 pil_timeout);
  */
 size_t vpu_hfi_print_queues(char *buf, size_t buf_size);
 
+/**
+ * vpu_hfi_write_csr_reg() - write a value into a CSR register
+ * @off:	offset (from base) to write
+ * @val:	value to write
+ *
+ * Return: 0 on success, -ve on failure
+ */
+int vpu_hfi_write_csr_reg(u32 off, u32 val);
 
 /**
  * vpu_hfi_dump_csr_regs() - dump the contents of the VPU CSR registers

@@ -254,9 +254,43 @@ static ssize_t read_csr_regs(struct file *file, char __user *user_buf,
 	return ret;
 }
 
+int write_csr_reg(struct file *file, const char __user *user_buf,
+	size_t count, loff_t *ppos)
+{
+	int ret;
+	int len;
+	char buf[24];
+	char *sptr, *token;
+	u32 reg_off;
+	u32 reg_val;
+
+	len = min(count, sizeof(buf) - 1);
+	if (copy_from_user(buf, user_buf, len))
+		return -EFAULT;
+	buf[len] = '\0';
+
+	sptr = buf;
+	token = strsep(&sptr, ":");
+	if (!token)
+		return -EINVAL;
+
+	if (kstrtou32(token, 0, &reg_off))
+		return -EINVAL;
+
+	if (kstrtou32(sptr, 0, &reg_val))
+		return -EINVAL;
+
+	ret = vpu_hw_write_csr_reg(reg_off, reg_val);
+	if (ret)
+		return ret;
+
+	return count;
+}
+
 static const struct file_operations csr_regs_ops = {
 	.open = simple_open,
 	.read = read_csr_regs,
+	.write = write_csr_reg,
 };
 
 static void debug_on(void)
@@ -582,7 +616,7 @@ struct dentry *init_vpu_debugfs(struct vpu_dev_core *core)
 	}
 
 	/* create csr regs file */
-	attr = debugfs_create_file("csr_regs", S_IRUGO, root, NULL,
+	attr = debugfs_create_file("csr_regs", RW_MODE, root, NULL,
 			&csr_regs_ops);
 	if (IS_ERR_OR_NULL(attr)) {
 		pr_err("Failed to create csr regs attribute\n");
