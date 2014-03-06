@@ -320,6 +320,10 @@ struct mdss_panel_info {
 	char dfps_update;
 	int new_fps;
 	u32 mode_gpio_state;
+	u32 xstart_pix_align;
+	u32 width_pix_align;
+	u32 ystart_pix_align;
+	u32 height_pix_align;
 
 	u32 cont_splash_enabled;
 	u32 partial_update_enabled;
