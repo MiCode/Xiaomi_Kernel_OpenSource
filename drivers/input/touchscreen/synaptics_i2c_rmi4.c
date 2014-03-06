@@ -730,7 +730,6 @@ static int synaptics_rmi4_set_page(struct synaptics_rmi4_data *rmi4_data,
 	} else {
 		return PAGE_SELECT_LEN;
 	}
-	printk(" Returning from synaptics_rmi4_set_page with retry limit : %d \n", retry);
 
 	return (retval == PAGE_SELECT_LEN) ? retval : -EIO;
 }
@@ -767,7 +766,6 @@ static int synaptics_rmi4_i2c_read(struct synaptics_rmi4_data *rmi4_data,
 	};
 
 	buf = addr & MASK_8BIT;
-	printk(" Inside synaptics_rmi4_i2c_read with requested length : %d  \n", length);
 	mutex_lock(&(rmi4_data->rmi4_io_ctrl_mutex));
 
 	retval = synaptics_rmi4_set_page(rmi4_data, addr);
@@ -795,7 +793,6 @@ static int synaptics_rmi4_i2c_read(struct synaptics_rmi4_data *rmi4_data,
 exit:
 	mutex_unlock(&(rmi4_data->rmi4_io_ctrl_mutex));
 
-	printk(" Returned from synaptics_rmi4_i2c_read with requested length : %d  and retry : %d \n", length, retry);
 	return retval;
 }
 
@@ -916,7 +913,6 @@ static int synaptics_rmi4_f11_abs_report(struct synaptics_rmi4_data *rmi4_data,
 	int wy;
 	int z;
 
-	printk(" Inside f11_abs_report \n");
 	/*
 	 * The number of finger status registers is determined by the
 	 * maximum number of fingers supported - 2 bits per finger. So
@@ -1096,16 +1092,6 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 			if (rmi4_data->flip_y)
 				y = rmi4_data->sensor_max_y - y;
 
-			dev_info(&rmi4_data->i2c_client->dev,
-					"%s: Finger %d:\n"
-					"status = 0x%02x\n"
-					"x = %d\n"
-					"y = %d\n"
-					"wx = %d\n"
-					"wy = %d\n",
-					__func__, finger,
-					finger_status,
-					x, y, wx, wy);
 
 			input_report_key(rmi4_data->input_dev,
 					BTN_TOUCH, 1);
@@ -1321,7 +1307,6 @@ static int synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data)
 	if (retval < 0)
 		return retval;
 
-	printk(" Inside synaptics_rmi4_sensor_report : %d \n ", intr[0]);
 	/*
 	 * Traverse the function handler list and service the source(s)
 	 * of the interrupt accordingly.
@@ -1367,7 +1352,6 @@ static irqreturn_t synaptics_rmi4_irq(int irq, void *data)
 {
 	struct synaptics_rmi4_data *rmi4_data = data;
 
-	printk(" Inside synaptics_irq \n");
 	synaptics_rmi4_sensor_report(rmi4_data);
 
 	return IRQ_HANDLED;
@@ -3764,9 +3748,6 @@ static struct i2c_driver synaptics_rmi4_driver = {
  */
 static int __init synaptics_rmi4_init(void)
 {
-	printk(" Inside init of synaptics driver \n");
-	printk(" Inside init of synaptics driver \n");
-	printk(" Inside init of synaptics driver \n");
 	printk(" Inside init of synaptics driver \n");
 	return i2c_add_driver(&synaptics_rmi4_driver);
 }
