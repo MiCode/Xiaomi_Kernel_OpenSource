@@ -258,8 +258,8 @@ static ssize_t kgsl_drv_full_cache_threshold_store(struct device *dev,
 	int ret;
 	unsigned int thresh = 0;
 
-	ret = kgsl_sysfs_store(buf, count, &thresh);
-	if (ret != count)
+	ret = kgsl_sysfs_store(buf, &thresh);
+	if (ret)
 		return ret;
 
 	kgsl_driver.full_cache_threshold = thresh;

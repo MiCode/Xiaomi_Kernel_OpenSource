@@ -90,7 +90,7 @@ struct kgsl_pwrctrl {
 	unsigned long ctrl_flags;
 	struct kgsl_pwrlevel pwrlevels[KGSL_MAX_PWRLEVELS];
 	unsigned int active_pwrlevel;
-	int thermal_pwrlevel;
+	unsigned int thermal_pwrlevel;
 	unsigned int default_pwrlevel;
 	unsigned int init_pwrlevel;
 	unsigned int wakeup_maxpwrlevel;
