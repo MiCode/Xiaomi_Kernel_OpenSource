@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013 - 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,117 +56,111 @@ enum {
 	OP_ILI9341_READ_DISPLAY_MADCTL = OP_SIZE_PAIR(0x0b, 2),
 };
 
-static int rst_gpio;
-static int cs_gpio;
-static int ad8_gpio;
-static int te_gpio;
-struct regulator *vdd_vreg;
-struct regulator *avdd_vreg;
-
-int ili9341_init(struct platform_device *pdev,
-			struct device_node *np)
+static int ili9341_init(struct qpic_panel_io_desc *panel_io)
 {
-	int rc = 0;
-	rst_gpio = of_get_named_gpio(np, "qcom,rst-gpio", 0);
-	cs_gpio = of_get_named_gpio(np, "qcom,cs-gpio", 0);
-	ad8_gpio = of_get_named_gpio(np, "qcom,ad8-gpio", 0);
-	te_gpio = of_get_named_gpio(np, "qcom,te-gpio", 0);
-	if (!gpio_is_valid(rst_gpio)) {
-		pr_err("%s: reset gpio not specified\n" , __func__);
-		return -EINVAL;
+	int rc;
+	if (panel_io->vdd_vreg) {
+		rc = regulator_set_voltage(panel_io->vdd_vreg,
+			1800000, 1800000);
+		if (rc) {
+			pr_err("vdd_vreg->set_voltage failed, rc=%d\n", rc);
+			return -EINVAL;
+		}
 	}
-	if (!gpio_is_valid(cs_gpio)) {
-		pr_err("%s: cs gpio not specified\n", __func__);
-		return -EINVAL;
-	}
-	if (!gpio_is_valid(ad8_gpio)) {
-		pr_err("%s: ad8 gpio not specified\n", __func__);
-		return -EINVAL;
-	}
-	if (!gpio_is_valid(te_gpio)) {
-		pr_err("%s: te gpio not specified\n", __func__);
-		return -EINVAL;
-	}
-	vdd_vreg = devm_regulator_get(&pdev->dev, "vdd");
-	if (IS_ERR(vdd_vreg)) {
-		pr_err("%s could not get vdd,", __func__);
-		return -ENODEV;
-	}
-	avdd_vreg = devm_regulator_get(&pdev->dev, "avdd");
-	if (IS_ERR(avdd_vreg)) {
-		pr_err("%s could not get avdd,", __func__);
-		return -ENODEV;
-	}
-	rc = regulator_set_voltage(vdd_vreg, 1800000, 1800000);
-	if (rc) {
-		pr_err("vdd_vreg->set_voltage failed, rc=%d\n", rc);
-		return -EINVAL;
-	}
-	rc = regulator_set_voltage(avdd_vreg, 2700000, 2700000);
-	if (rc) {
-		pr_err("vdd_vreg->set_voltage failed, rc=%d\n", rc);
-		return -EINVAL;
+	if (panel_io->avdd_vreg) {
+		rc = regulator_set_voltage(panel_io->avdd_vreg,
+			2700000, 2700000);
+		if (rc) {
+			pr_err("vdd_vreg->set_voltage failed, rc=%d\n", rc);
+			return -EINVAL;
+		}
 	}
 	return 0;
 }
 
-static int ili9341_panel_power_on(void)
+void ili9341_off(struct qpic_panel_io_desc *qpic_panel_io)
+{
+	if (qpic_panel_io->ad8_gpio)
+		gpio_free(qpic_panel_io->ad8_gpio);
+	if (qpic_panel_io->cs_gpio)
+		gpio_free(qpic_panel_io->cs_gpio);
+	if (qpic_panel_io->rst_gpio)
+		gpio_free(qpic_panel_io->rst_gpio);
+	if (qpic_panel_io->te_gpio)
+		gpio_free(qpic_panel_io->te_gpio);
+	if (qpic_panel_io->bl_gpio)
+		gpio_free(qpic_panel_io->bl_gpio);
+	if (qpic_panel_io->vdd_vreg)
+		regulator_disable(qpic_panel_io->vdd_vreg);
+	if (qpic_panel_io->avdd_vreg)
+		regulator_disable(qpic_panel_io->avdd_vreg);
+}
+
+static int ili9341_panel_power_on(struct qpic_panel_io_desc *qpic_panel_io)
 {
 	int rc;
-	rc = regulator_enable(vdd_vreg);
-	if (rc) {
-		pr_err("enable vdd failed, rc=%d\n", rc);
-		return -ENODEV;
-	}
-	rc = regulator_enable(avdd_vreg);
-	if (rc) {
-		pr_err("enable avdd failed, rc=%d\n", rc);
-		return -ENODEV;
+	if (qpic_panel_io->vdd_vreg) {
+		rc = regulator_enable(qpic_panel_io->vdd_vreg);
+		if (rc) {
+			pr_err("enable vdd failed, rc=%d\n", rc);
+			return -ENODEV;
+		}
 	}
 
-	if (gpio_request(rst_gpio, "disp_rst_n")) {
+	if (qpic_panel_io->avdd_vreg) {
+		rc = regulator_enable(qpic_panel_io->avdd_vreg);
+		if (rc) {
+			pr_err("enable avdd failed, rc=%d\n", rc);
+			goto power_on_error;
+		}
+	}
+
+	if ((qpic_panel_io->rst_gpio) &&
+		(gpio_request(qpic_panel_io->rst_gpio, "disp_rst_n"))) {
 		pr_err("%s request reset gpio failed\n", __func__);
-		return -EINVAL;
-	}
-	if (gpio_request(cs_gpio, "disp_cs_n")) {
-		gpio_free(rst_gpio);
-		pr_err("%s request cs gpio failed\n", __func__);
-		return -EINVAL;
+		goto power_on_error;
 	}
 
-	if (gpio_request(ad8_gpio, "disp_ad8_n")) {
-		gpio_free(cs_gpio);
-		gpio_free(rst_gpio);
-		pr_err("%s request ad8 gpio failed\n", __func__);
-		return -EINVAL;
+	if ((qpic_panel_io->cs_gpio) &&
+		(gpio_request(qpic_panel_io->cs_gpio, "disp_cs_n"))) {
+		pr_err("%s request cs gpio failed\n", __func__);
+		goto power_on_error;
 	}
-	if (gpio_request(te_gpio, "disp_te_n")) {
-		gpio_free(ad8_gpio);
-		gpio_free(cs_gpio);
-		gpio_free(rst_gpio);
+
+	if ((qpic_panel_io->ad8_gpio) &&
+		(gpio_request(qpic_panel_io->ad8_gpio, "disp_ad8_n"))) {
+		pr_err("%s request ad8 gpio failed\n", __func__);
+		goto power_on_error;
+	}
+
+	if ((qpic_panel_io->te_gpio) &&
+		(gpio_request(qpic_panel_io->te_gpio, "disp_te_n"))) {
 		pr_err("%s request te gpio failed\n", __func__);
-		return -EINVAL;
+		goto power_on_error;
+	}
+
+	if ((qpic_panel_io->bl_gpio) &&
+		(gpio_request(qpic_panel_io->bl_gpio, "disp_bl_n"))) {
+		pr_err("%s request bl gpio failed\n", __func__);
+		goto power_on_error;
 	}
 	/* wait for 20 ms after enable gpio as suggested by hw */
 	msleep(20);
 	return 0;
+power_on_error:
+	ili9341_off(qpic_panel_io);
+	return -EINVAL;
 }
 
-static void ili9341_panel_power_off(void)
-{
-	gpio_free(ad8_gpio);
-	gpio_free(cs_gpio);
-	gpio_free(rst_gpio);
-	gpio_free(te_gpio);
-	regulator_disable(vdd_vreg);
-	regulator_disable(avdd_vreg);
-}
-
-int ili9341_on(void)
+int ili9341_on(struct qpic_panel_io_desc *qpic_panel_io)
 {
 	u32 param[20];
 	int ret;
-	ret = ili9341_panel_power_on();
+	if (!qpic_panel_io->init) {
+		ili9341_init(qpic_panel_io);
+		qpic_panel_io->init = true;
+	}
+	ret = ili9341_panel_power_on(qpic_panel_io);
 	if (ret)
 		return ret;
 	qpic_panel_set_cmd_only(OP_SOFT_RESET);
@@ -216,9 +210,4 @@ int ili9341_on(void)
 	msleep(20);
 
 	return 0;
-}
-
-void ili9341_off(void)
-{
-	ili9341_panel_power_off();
 }

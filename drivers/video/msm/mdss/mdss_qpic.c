@@ -35,6 +35,7 @@
 
 #include "mdss_fb.h"
 #include "mdss_qpic.h"
+#include "mdss_qpic_panel.h"
 
 static int mdss_qpic_probe(struct platform_device *pdev);
 static int mdss_qpic_remove(struct platform_device *pdev);
@@ -68,18 +69,19 @@ static struct platform_driver mdss_qpic_driver = {
 int qpic_on(struct msm_fb_data_type *mfd)
 {
 	int ret;
-	ret = mdss_qpic_panel_on(qpic_res->panel_data);
+	ret = mdss_qpic_panel_on(qpic_res->panel_data, &qpic_res->panel_io);
 	return ret;
 }
 
 int qpic_off(struct msm_fb_data_type *mfd)
 {
 	int ret;
-	ret = mdss_qpic_panel_off(qpic_res->panel_data);
+	ret = mdss_qpic_panel_off(qpic_res->panel_data, &qpic_res->panel_io);
 	return ret;
 }
 
-static void mdss_qpic_pan_display(struct msm_fb_data_type *mfd)
+static void mdss_qpic_pan_display(struct msm_fb_data_type *mfd,
+		struct mdp_overlay *req, int image_len, int *pipe_ndx)
 {
 
 	struct fb_info *fbi;
@@ -104,7 +106,7 @@ static void mdss_qpic_pan_display(struct msm_fb_data_type *mfd)
 	}
 	fb_offset = (u32)fbi->fix.smem_start + offset;
 
-	mdss_qpic_panel_on(qpic_res->panel_data);
+	mdss_qpic_panel_on(qpic_res->panel_data, &qpic_res->panel_io);
 	size = fbi->var.xres * fbi->var.yres * bpp;
 
 	qpic_send_frame(0, 0, fbi->var.xres, fbi->var.yres,
@@ -593,6 +595,8 @@ static int mdss_qpic_probe(struct platform_device *pdev)
 
 	qpic_res->irq = res->start;
 	qpic_res->res_init = true;
+
+	mdss_qpic_panel_io_init(pdev, &qpic_res->panel_io);
 
 	rc = mdss_fb_register_mdp_instance(&qpic_interface);
 	if (rc)
