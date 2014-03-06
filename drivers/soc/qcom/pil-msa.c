@@ -351,8 +351,6 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 		goto err_mss_reset;
 	}
 
-	/* The MBA doesn't run from DDR, free the memory now. */
-	dma_free_coherent(pil->dev, MBA_SIZE, drv->mba_virt, drv->mba_phys);
 	release_firmware(fw);
 
 	return 0;
@@ -459,6 +457,10 @@ static int pil_msa_mba_auth(struct pil_desc *pil)
 		ret = -EINVAL;
 	}
 
+	if (drv->q6->mba_virt)
+		/* Reclaim MBA memory. */
+		dma_free_coherent(pil->dev, MBA_SIZE, drv->q6->mba_virt,
+							drv->q6->mba_phys);
 	return ret;
 }
 
