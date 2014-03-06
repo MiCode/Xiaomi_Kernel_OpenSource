@@ -36,6 +36,11 @@ enum clk_reset_action {
 	CLK_RESET_ASSERT	= 1
 };
 
+struct clk_src {
+	struct clk *src;
+	int sel;
+};
+
 /* Rate is maximum clock rate in Hz */
 int clk_set_max_rate(struct clk *clk, unsigned long rate);
 
@@ -44,5 +49,11 @@ int clk_reset(struct clk *clk, enum clk_reset_action action);
 
 /* Set clock-specific configuration parameters */
 int clk_set_flags(struct clk *clk, unsigned long flags);
+
+/* returns the mux selection index associated with a particular parent */
+int parent_to_src_sel(struct clk_src *parents, int num_parents, struct clk *p);
+
+/* returns the mux selection index associated with a particular parent */
+int clk_get_parent_sel(struct clk *c, struct clk *parent);
 
 #endif

@@ -21,18 +21,6 @@
 
 /* ==================== Mux clock ==================== */
 
-int parent_to_src_sel(struct clk_src *parents, int num_parents, struct clk *p)
-{
-	int i;
-
-	for (i = 0; i < num_parents; i++) {
-		if (parents[i].src == p)
-			return parents[i].sel;
-	}
-
-	return -EINVAL;
-}
-
 static int mux_parent_to_src_sel(struct mux_clk *mux, struct clk *p)
 {
 	return parent_to_src_sel(mux->parents, mux->num_parents, p);
