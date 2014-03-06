@@ -20,6 +20,8 @@
 	soc: soc { };
 };
 
+#include "msm8936-smp2p.dtsi"
+
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
