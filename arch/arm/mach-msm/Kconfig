@@ -110,7 +110,6 @@ config ARCH_MPQ8092
 config ARCH_MSM8916
 	bool "MSM8916"
 	select ARCH_MSM_CORTEXMP
-	select GPIO_MSM_V3
 	select ARM_GIC
 	select MULTI_IRQ_HANDLER
 	select CPU_V7
