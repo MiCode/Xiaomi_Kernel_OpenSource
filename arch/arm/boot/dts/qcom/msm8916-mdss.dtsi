@@ -102,7 +102,9 @@
 		compatible = "qcom,mdss-dsi-ctrl";
 		label = "MDSS DSI CTRL->0";
 		cell-index = <0>;
-		reg = <0x1a98000 0x800>;
+		reg = <0x1a98000 0x25c>,
+		      <0x1a98500 0x2b0>;
+		reg-names = "dsi_ctrl", "dsi_phy";
 		qcom,mdss-fb-map = <&mdss_fb0>;
 		qcom,mdss-mdp = <&mdss_mdp>;
 		vdd-supply = <&pm8916_l17>;
