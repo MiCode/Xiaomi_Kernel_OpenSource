@@ -480,6 +480,14 @@ static int spm_regulator_probe(struct spmi_device *spmi)
 		return -ENODEV;
 	}
 
+	rc = msm_spm_probe_done();
+	if (rc) {
+		if (rc != -EPROBE_DEFER)
+			dev_err(&spmi->dev, "%s: spm unavailable, rc=%d\n",
+				__func__, rc);
+		return rc;
+	}
+
 	vreg = devm_kzalloc(&spmi->dev, sizeof(*vreg), GFP_KERNEL);
 	if (!vreg) {
 		pr_err("allocation failed.\n");
