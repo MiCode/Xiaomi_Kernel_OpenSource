@@ -270,7 +270,7 @@ static enum handoff rpm_clk_handoff(struct clk *clk)
 #define RPM_MISC_CLK_TYPE	0x306b6c63
 #define RPM_SCALING_ENABLE_ID	0x2
 
-void enable_rpm_scaling(void)
+int enable_rpm_scaling(void)
 {
 	int rc, value = 0x1;
 	struct msm_rpm_kvp kvp = {
@@ -281,11 +281,21 @@ void enable_rpm_scaling(void)
 
 	rc = msm_rpm_send_message_noirq(MSM_RPM_CTX_SLEEP_SET,
 			RPM_MISC_CLK_TYPE, RPM_SCALING_ENABLE_ID, &kvp, 1);
-	WARN(rc < 0, "RPM clock scaling (sleep set) did not enable!\n");
+	if (rc < 0) {
+		if (rc != -EPROBE_DEFER)
+			WARN(1, "RPM clock scaling (sleep set) did not enable!\n");
+		return rc;
+	}
 
 	rc = msm_rpm_send_message_noirq(MSM_RPM_CTX_ACTIVE_SET,
 			RPM_MISC_CLK_TYPE, RPM_SCALING_ENABLE_ID, &kvp, 1);
-	WARN(rc < 0, "RPM clock scaling (active set) did not enable!\n");
+	if (rc < 0) {
+		if (rc != -EPROBE_DEFER)
+			WARN(1, "RPM clock scaling (active set) did not enable!\n");
+		return rc;
+	}
+
+	return 0;
 }
 
 struct clk_ops clk_ops_rpm = {

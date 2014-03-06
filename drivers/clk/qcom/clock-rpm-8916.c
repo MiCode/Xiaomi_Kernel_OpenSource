@@ -166,7 +166,9 @@ static int msm_rpmcc_8916_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret;
 
-	enable_rpm_scaling();
+	ret = enable_rpm_scaling();
+	if (ret)
+		return ret;
 
 	res =  platform_get_resource_byname(pdev, IORESOURCE_MEM, "cc_base");
 	if (!res) {
