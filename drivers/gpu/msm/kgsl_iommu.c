@@ -1391,9 +1391,8 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	 * we're better off with extra room.
 	 */
 	if (mmu->pt_per_process) {
-		mmu->pt_base = PAGE_OFFSET;
-		mmu->pt_size = KGSL_IOMMU_GLOBAL_MEM_BASE
-				- kgsl_mmu_get_base_addr(mmu) - SZ_1M;
+		mmu->pt_base = KGSL_PER_PROCESS_PT_BASE;
+		mmu->pt_size = KGSL_PER_PROCESS_PT_SIZE;
 		mmu->use_cpu_map = true;
 	} else {
 		mmu->pt_base = KGSL_PAGETABLE_BASE;
