@@ -105,10 +105,22 @@ enum {
 	OP_WRITE_MEMORY_START     = OP_SIZE_PAIR(0x2C, INV_SIZE),
 };
 
+struct qpic_panel_io_desc {
+	int rst_gpio;
+	int cs_gpio;
+	int ad8_gpio;
+	int te_gpio;
+	int bl_gpio;
+	struct regulator *vdd_vreg;
+	struct regulator *avdd_vreg;
+	u32 init;
+};
+
+int mdss_qpic_panel_io_init(struct platform_device *pdev,
+	struct qpic_panel_io_desc *qpic_panel_io);
 u32 qpic_panel_set_cmd_only(u32 command);
 u32 qpic_send_panel_cmd(u32 cmd, u32 *val, u32 length);
-int ili9341_on(void);
-void ili9341_off(void);
-int ili9341_init(struct platform_device *pdev,
-			struct device_node *np);
+int ili9341_on(struct qpic_panel_io_desc *qpic_panel_io);
+void ili9341_off(struct qpic_panel_io_desc *qpic_panel_io);
+
 #endif /* MDSS_QPIC_PANEL_H */
