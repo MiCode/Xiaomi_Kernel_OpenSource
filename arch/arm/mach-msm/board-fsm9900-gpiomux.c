@@ -37,18 +37,6 @@ static struct gpiomux_setting blsp_i2c_config = {
 
 static struct msm_gpiomux_config fsm_blsp_configs[] __initdata = {
 	{
-		.gpio      = 0,	       /* BLSP UART1 TX */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &blsp_uart_no_pull_config,
-		},
-	},
-	{
-		.gpio      = 1,	       /* BLSP UART1 RX */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &blsp_uart_pull_up_config,
-		},
-	},
-	{
 		.gpio      = 2,	       /* BLSP I2C SDA */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &blsp_i2c_config,
