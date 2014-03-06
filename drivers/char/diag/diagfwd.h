@@ -47,8 +47,6 @@ void diag_smd_notify(void *ctxt, unsigned event);
 int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
 			 int type);
 void diag_smd_destructor(struct diag_smd_info *smd_info);
-int diag_switch_logging(int);
-int diag_command_reg(unsigned long);
 void diag_cmp_logging_modes_diagfwd_bridge(int old_mode, int new_mode);
 int diag_process_apps_pkt(unsigned char *buf, int len);
 void diag_reset_smd_data(int queue);
