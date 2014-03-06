@@ -626,16 +626,28 @@ static int msm8x16_wcd_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
 	dev_dbg(codec->dev, "%s: event = %d\n", __func__, event);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL, 0xD0, 0xD0);
+		if (!(strcmp(w->name, "EAR CP")))
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
+					0x80, 0x80);
+		else
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
+					0xC0, 0xC0);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		usleep_range(CODEC_DELAY_1_MS, CODEC_DELAY_1_1_MS);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		usleep_range(CODEC_DELAY_1_MS, CODEC_DELAY_1_1_MS);
-		snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL, 0x40, 0x00);
+		if (!(strcmp(w->name, "EAR CP")))
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
+					0x80, 0x00);
+		else
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
+					0xC0, 0x00);
 		break;
 	}
 	return 0;
@@ -1349,7 +1361,7 @@ static int msm8x16_wcd_codec_enable_adc(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMU:
 		snd_soc_update_bits(codec, adc_reg, 1 << init_bit_shift, 0x00);
 		usleep_range(CODEC_DELAY_1_MS, CODEC_DELAY_1_1_MS);
-		snd_soc_update_bits(codec, w->reg, 0x60, 0x60);
+		snd_soc_update_bits(codec, w->reg, 0x30, 0x30);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		msm8x16_wcd_codec_enable_adc_block(codec, 0);
@@ -1362,7 +1374,7 @@ static int msm8x16_wcd_codec_enable_adc(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_DIGITAL_CDC_CONN_TX2_CTL,
 				0x03, 0x02);
-		snd_soc_update_bits(codec, w->reg, 0x60, 0x00);
+		snd_soc_update_bits(codec, w->reg, 0x30, 0x00);
 
 		break;
 	}
@@ -1520,37 +1532,34 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_PRE_PMU:
 		if (strnstr(w->name, internal1_text, 30)) {
 			snd_soc_update_bits(codec, micb_int_reg, 0x80, 0x80);
-			snd_soc_update_bits(codec, w->reg, 0x1, 0x0);
 		} else if (strnstr(w->name, internal2_text, 30)) {
 			snd_soc_update_bits(codec, micb_int_reg, 0x10, 0x10);
-			snd_soc_update_bits(codec,
-					MSM8X16_WCD_A_ANALOG_MICB_1_EN,
-					0x45, 0x44);
 			snd_soc_update_bits(codec, w->reg, 0x20, 0x00);
 		} else if (strnstr(w->name, internal3_text, 30)) {
 			snd_soc_update_bits(codec, micb_int_reg, 0x2, 0x2);
-			snd_soc_update_bits(codec, w->reg, 0x1, 0x0);
 		}
+		snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_MICB_1_EN, 0x45, 0x44);
 
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		usleep_range(20000, 20100);
+		if (strnstr(w->name, internal1_text, 30))
+			snd_soc_update_bits(codec, micb_int_reg, 0x40, 0x0);
+		else if (strnstr(w->name, internal2_text, 30))
+			snd_soc_update_bits(codec, micb_int_reg, 0x08, 0x0);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (strnstr(w->name, internal1_text, 30)) {
-			snd_soc_update_bits(codec, micb_int_reg, 0x80, 0x00);
-			snd_soc_update_bits(codec, w->reg, 0x1, 0x1);
+			snd_soc_update_bits(codec, micb_int_reg, 0xC0, 0x40);
 		} else if (strnstr(w->name, internal2_text, 30)) {
-			snd_soc_update_bits(codec, micb_int_reg, 0x10, 0x00);
-			snd_soc_update_bits(codec,
-					MSM8X16_WCD_A_ANALOG_MICB_1_EN,
-					0x45, 0x00);
+			snd_soc_update_bits(codec, micb_int_reg, 0x18, 0x08);
 			snd_soc_update_bits(codec, w->reg, 0x20, 0x20);
 		} else if (strnstr(w->name, internal3_text, 30)) {
 			snd_soc_update_bits(codec, micb_int_reg, 0x2, 0x0);
-			snd_soc_update_bits(codec, w->reg, 0x1, 0x1);
 		}
-
+		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_1_EN,
+				0x45, 0x01);
 		break;
 	}
 	return 0;
@@ -1901,6 +1910,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"EAR PA", NULL, "RX_BIAS"},
 	{"EAR PA", NULL, "HPHL DAC"},
 	{"EAR PA", NULL, "HPHR DAC"},
+	{"EAR PA", NULL, "EAR CP"},
 
 	/* Headset (RX MIX1 and RX MIX2) */
 	{"HEADPHONE", NULL, "HPHL PA"},
@@ -2454,6 +2464,10 @@ static const struct snd_soc_dapm_widget msm8x16_wcd_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY("CP", MSM8X16_WCD_A_ANALOG_NCP_EN, 0, 0,
 		msm8x16_wcd_codec_enable_charge_pump, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU |	SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_SUPPLY("EAR CP", MSM8X16_WCD_A_ANALOG_NCP_EN, 4, 0,
+		msm8x16_wcd_codec_enable_charge_pump, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_SUPPLY("RX_BIAS", MSM8X16_WCD_A_ANALOG_RX_COM_BIAS_DAC,
 		0, 0,
