@@ -252,9 +252,13 @@ struct mdss_ad_init32 {
 	uint16_t frame_h;
 	uint8_t logo_v;
 	uint8_t logo_h;
+	uint32_t alpha;
+	uint32_t alpha_base;
 	uint32_t bl_lin_len;
+	uint32_t bl_att_len;
 	compat_caddr_t bl_lin;
 	compat_caddr_t bl_lin_inv;
+	compat_caddr_t bl_att_lut;
 };
 
 struct mdss_ad_cfg32 {
