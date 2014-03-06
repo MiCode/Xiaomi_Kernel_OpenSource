@@ -19,6 +19,7 @@
 #include <linux/msm-sps.h>
 
 #include "mdss_panel.h"
+#include "mdss_qpic_panel.h"
 
 #define QPIC_REG_QPIC_LCDC_CTRL				0x22000
 #define QPIC_REG_LCDC_VERSION				0x22004
@@ -50,10 +51,11 @@ int mdss_qpic_init(void);
 int qpic_flush_buffer(u32 cmd, u32 len, u32 *param, u32 is_cmd);
 
 u32 msm_qpic_get_bam_hdl(struct sps_bam_props *bam);
-int mdss_qpic_panel_on(struct mdss_panel_data *pdata);
-int mdss_qpic_panel_off(struct mdss_panel_data *pdata);
+int mdss_qpic_panel_on(struct mdss_panel_data *pdata,
+	struct qpic_panel_io_desc *panel_io);
+int mdss_qpic_panel_off(struct mdss_panel_data *pdata,
+	struct qpic_panel_io_desc *panel_io);
 int qpic_register_panel(struct mdss_panel_data *pdata);
-int ili9341_on(void);
 
 /* Structure that defines an SPS end point for a BAM pipe. */
 struct qpic_sps_endpt {
@@ -80,6 +82,7 @@ struct qpic_data_type {
 	u32 sps_init;
 	u32 irq_requested;
 	struct mdss_panel_data *panel_data;
+	struct qpic_panel_io_desc panel_io;
 };
 
 u32 qpic_send_frame(

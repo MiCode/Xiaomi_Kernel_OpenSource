@@ -32,10 +32,9 @@
 
 static u32 panel_is_on;
 static u32 panel_refresh_rate;
-static int (*qpic_panel_on)(void);
-static void (*qpic_panel_off)(void);
-static int (*qpic_panel_init)(struct platform_device *pdev,
-			struct device_node *np);
+
+static int (*qpic_panel_on)(struct qpic_panel_io_desc *qpic_panel_io);
+static void (*qpic_panel_off)(struct qpic_panel_io_desc *qpic_panel_io);
 
 u32 qpic_panel_get_framerate(void)
 {
@@ -135,7 +134,8 @@ u32 qpic_send_frame(u32 x_start,
 	return 0;
 }
 
-int mdss_qpic_panel_on(struct mdss_panel_data *pdata)
+int mdss_qpic_panel_on(struct mdss_panel_data *pdata,
+	struct qpic_panel_io_desc *panel_io)
 {
 	int rc = 0;
 
@@ -144,18 +144,74 @@ int mdss_qpic_panel_on(struct mdss_panel_data *pdata)
 	mdss_qpic_init();
 
 	if (qpic_panel_on)
-		rc = qpic_panel_on();
+		rc = qpic_panel_on(panel_io);
 	if (rc)
 		return rc;
 	panel_is_on = true;
 	return 0;
 }
 
-int mdss_qpic_panel_off(struct mdss_panel_data *pdata)
+int mdss_qpic_panel_off(struct mdss_panel_data *pdata,
+	struct qpic_panel_io_desc *panel_io)
 {
 	if (qpic_panel_off)
-		qpic_panel_off();
+		qpic_panel_off(panel_io);
 	panel_is_on = false;
+	return 0;
+}
+
+
+int mdss_qpic_panel_io_init(struct platform_device *pdev,
+	struct qpic_panel_io_desc *qpic_panel_io)
+{
+	struct device_node *np = pdev->dev.of_node;
+	int rst_gpio, cs_gpio, te_gpio, ad8_gpio, bl_gpio;
+	struct regulator *vdd_vreg;
+	struct regulator *avdd_vreg;
+
+	rst_gpio = of_get_named_gpio(np, "qcom,rst-gpio", 0);
+	cs_gpio = of_get_named_gpio(np, "qcom,cs-gpio", 0);
+	ad8_gpio = of_get_named_gpio(np, "qcom,ad8-gpio", 0);
+	te_gpio = of_get_named_gpio(np, "qcom,te-gpio", 0);
+	bl_gpio = of_get_named_gpio(np, "qcom,bl-gpio", 0);
+
+	if (!gpio_is_valid(rst_gpio))
+		pr_err("%s: reset gpio not specified\n" , __func__);
+	else
+		qpic_panel_io->rst_gpio = rst_gpio;
+
+	if (!gpio_is_valid(cs_gpio))
+		pr_err("%s: cs gpio not specified\n", __func__);
+	else
+		qpic_panel_io->cs_gpio = cs_gpio;
+
+	if (!gpio_is_valid(ad8_gpio))
+		pr_err("%s: ad8 gpio not specified\n", __func__);
+	else
+		qpic_panel_io->ad8_gpio = ad8_gpio;
+
+	if (!gpio_is_valid(te_gpio))
+		pr_err("%s: te gpio not specified\n", __func__);
+	else
+		qpic_panel_io->te_gpio = te_gpio;
+
+	if (!gpio_is_valid(bl_gpio))
+		pr_err("%s: te gpio not specified\n", __func__);
+	else
+		qpic_panel_io->bl_gpio = bl_gpio;
+
+	vdd_vreg = devm_regulator_get(&pdev->dev, "vdd");
+	if (IS_ERR(vdd_vreg))
+		pr_err("%s could not get vdd,", __func__);
+	else
+		qpic_panel_io->vdd_vreg = vdd_vreg;
+
+	avdd_vreg = devm_regulator_get(&pdev->dev, "avdd");
+	if (IS_ERR(avdd_vreg))
+		pr_err("%s could not get avdd,", __func__);
+	else
+		qpic_panel_io->avdd_vreg = avdd_vreg;
+
 	return 0;
 }
 
@@ -186,9 +242,6 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 	panel_data->panel_info.type = EBI2_PANEL;
 	panel_data->panel_info.pdest = DISPLAY_1;
 
-	if (qpic_panel_init)
-		rc = qpic_panel_init(pdev, np);
-
 	return rc;
 }
 
@@ -210,14 +263,12 @@ static int mdss_qpic_panel_probe(struct platform_device *pdev)
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
 
 	/* select panel according to label */
-	qpic_panel_init = ili9341_init;
 	qpic_panel_on = ili9341_on;
 	qpic_panel_off = ili9341_off;
 
 	rc = mdss_panel_parse_dt(pdev, &vendor_pdata);
 	if (rc)
 		return rc;
-
 	rc = qpic_register_panel(&vendor_pdata);
 	if (rc)
 		return rc;
