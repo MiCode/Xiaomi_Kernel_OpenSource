@@ -77,7 +77,7 @@
 			reg = <0x1e23000 0x1000>;
 			interrupts = <0 70 0>;
 			qcom,iommu-ctx-sids = <0x400>;
-			label = "vfe0";
+			label = "vfe";
 		};
 
 		qcom,iommu-ctx@1e24000 {
