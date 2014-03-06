@@ -142,10 +142,11 @@ void smp_spin_table_cpu_postboot(void)
 	raw_spin_unlock(&boot_lock);
 }
 
-const struct cpu_operations smp_spin_table_ops = {
+static const struct cpu_operations smp_spin_table_ops = {
 	.name		= "spin-table",
 	.cpu_init	= smp_spin_table_cpu_init,
 	.cpu_prepare	= smp_spin_table_cpu_prepare,
 	.cpu_boot	= smp_spin_table_cpu_boot,
 	.cpu_postboot	= smp_spin_table_cpu_postboot,
 };
+CPU_METHOD_OF_DECLARE(spin_table, &smp_spin_table_ops);
