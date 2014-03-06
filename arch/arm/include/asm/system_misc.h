@@ -21,6 +21,7 @@ extern void (*arm_pm_idle)(void);
 #define UDBG_BUS	(1 << 4)
 
 extern unsigned int user_debug;
+extern char* (*arch_read_hardware_id)(void);
 
 #endif /* !__ASSEMBLY__ */
 
