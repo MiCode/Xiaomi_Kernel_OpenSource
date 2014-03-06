@@ -1400,7 +1400,7 @@ int msm_vdec_cmd(struct msm_vidc_inst *inst, struct v4l2_decoder_cmd *dec)
 	case V4L2_DEC_QCOM_CMD_FLUSH:
 		if (core->state != VIDC_CORE_INVALID &&
 			inst->state ==  MSM_VIDC_CORE_INVALID) {
-			rc = msm_comm_recover_from_session_error(inst);
+			rc = msm_comm_kill_session(inst);
 			if (rc)
 				dprintk(VIDC_ERR,
 					"Failed to recover from session_error: %d\n",
@@ -1415,7 +1415,7 @@ int msm_vdec_cmd(struct msm_vidc_inst *inst, struct v4l2_decoder_cmd *dec)
 	case V4L2_DEC_CMD_STOP:
 		if (core->state != VIDC_CORE_INVALID &&
 			inst->state ==  MSM_VIDC_CORE_INVALID) {
-			rc = msm_comm_recover_from_session_error(inst);
+			rc = msm_comm_kill_session(inst);
 			if (rc)
 				dprintk(VIDC_ERR,
 					"Failed to recover from session_error: %d\n",
