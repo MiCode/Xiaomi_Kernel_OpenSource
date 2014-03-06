@@ -621,6 +621,7 @@ static struct usb_driver diag_bridge_driver = {
 	.disconnect =	diag_bridge_disconnect,
 	.suspend =	diag_bridge_suspend,
 	.resume =	diag_bridge_resume,
+	.reset_resume =	diag_bridge_resume,
 	.id_table =	diag_bridge_ids,
 	.supports_autosuspend = 1,
 };

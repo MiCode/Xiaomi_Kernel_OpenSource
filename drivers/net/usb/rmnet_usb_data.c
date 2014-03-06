@@ -752,6 +752,7 @@ static struct usb_driver rmnet_usb = {
 	.disconnect = rmnet_usb_disconnect,
 	.suspend    = rmnet_usb_suspend,
 	.resume     = rmnet_usb_resume,
+	.reset_resume     = rmnet_usb_resume,
 	.supports_autosuspend = true,
 };
 

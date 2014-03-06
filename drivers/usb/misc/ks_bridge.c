@@ -889,6 +889,7 @@ static struct usb_driver ksb_usb_driver = {
 	.disconnect =	ksb_usb_disconnect,
 	.suspend =	ksb_usb_suspend,
 	.resume =	ksb_usb_resume,
+	.reset_resume =	ksb_usb_resume,
 	.id_table =	ksb_usb_ids,
 	.supports_autosuspend = 1,
 };
