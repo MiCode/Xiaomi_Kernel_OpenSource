@@ -22,10 +22,6 @@
 	aliases {
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
-	};
-	soc: soc { };
-
-        aliases {
 		spi0 = &spi_0;
 	};
 
@@ -97,6 +93,8 @@
 			cpu-release-addr = <0x0 0x06000000>;
 		};
 	};
+
+	soc: soc { };
 
 	memory {
 		#address-cells = <2>;
