@@ -21,6 +21,7 @@
 };
 
 #include "msm8936-smp2p.dtsi"
+#include "msm8936-ipcrouter.dtsi"
 
 &soc {
 	#address-cells = <1>;
