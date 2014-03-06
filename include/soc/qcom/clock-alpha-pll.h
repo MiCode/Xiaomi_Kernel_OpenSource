@@ -19,12 +19,13 @@
 #include <linux/clk/msm-clk-provider.h>
 
 struct alpha_pll_masks {
-	u32 lock_mask;
-	u32 update_mask;
-	u32 vco_mask;
+	u32 lock_mask;		/* lock_det bit */
+	u32 active_mask;	/* active_flag in FSM mode */
+	u32 update_mask;	/* update bit for dynamic update */
+	u32 vco_mask;		/* vco_sel bits */
 	u32 vco_shift;
-	u32 alpha_en_mask;
-	u32 output_mask;
+	u32 alpha_en_mask;	/* alpha_en bit */
+	u32 output_mask;	/* pllout_* bits */
 };
 
 struct alpha_pll_vco_tbl {
@@ -43,6 +44,11 @@ struct alpha_pll_clk {
 	struct alpha_pll_masks *masks;
 	void *const __iomem *base;
 	const u32 offset;
+
+	/* if fsm_en_mask is set, config PLL to FSM mode */
+	const u32 fsm_reg_offset;
+	const u32 fsm_en_mask;
+
 	u32 enable_config;	/* bitmask of outputs to be enabled */
 
 	struct alpha_pll_vco_tbl *vco_tbl;
