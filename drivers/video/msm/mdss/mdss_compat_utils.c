@@ -1432,8 +1432,17 @@ static int __from_user_ad_init(
 	    copy_in_user(&ad_init->logo_h,
 			&ad_init32->logo_h,
 			sizeof(uint8_t)) ||
+	    copy_in_user(&ad_init->alpha,
+			&ad_init32->alpha,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&ad_init->alpha_base,
+			&ad_init32->alpha_base,
+			sizeof(uint32_t)) ||
 	    copy_in_user(&ad_init->bl_lin_len,
 			&ad_init32->bl_lin_len,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&ad_init->bl_att_len,
+			&ad_init32->bl_att_len,
 			sizeof(uint32_t)))
 		return -EFAULT;
 
@@ -1441,7 +1450,9 @@ static int __from_user_ad_init(
 	if (get_user(data, &ad_init32->bl_lin) ||
 	    put_user(compat_ptr(data), &ad_init->bl_lin) ||
 	    get_user(data, &ad_init32->bl_lin_inv) ||
-	    put_user(compat_ptr(data), &ad_init->bl_lin_inv))
+	    put_user(compat_ptr(data), &ad_init->bl_lin_inv) ||
+	    get_user(data, &ad_init32->bl_att_lut) ||
+	    put_user(compat_ptr(data), &ad_init->bl_att_lut))
 		return -EFAULT;
 
 	return 0;
