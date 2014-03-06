@@ -132,16 +132,29 @@ int mdss_qpic_alloc_fb_mem(struct msm_fb_data_type *mfd)
 	if (!qpic_res->fb_virt) {
 		qpic_res->fb_virt = (void *)dmam_alloc_coherent(
 						&qpic_res->pdev->dev,
-						size + QPIC_MAX_CMD_BUF_SIZE,
+						size,
 						&qpic_res->fb_phys,
 						GFP_KERNEL);
-		pr_err("%s size=%d vir_addr=%x phys_addr=%x",
+		pr_debug("%s size=%d vir_addr=%x phys_addr=%x",
 			__func__, size, (int)qpic_res->fb_virt,
 			(int)qpic_res->fb_phys);
-		if (!qpic_res->fb_virt)
+		if (!qpic_res->fb_virt) {
+			pr_err("%s fb allocation failed", __func__);
 			return -ENOMEM;
-		qpic_res->cmd_buf_virt = qpic_res->fb_virt + size;
-		qpic_res->cmd_buf_phys = qpic_res->fb_phys + size;
+		}
+	}
+
+	if (!qpic_res->cmd_buf_virt) {
+		qpic_res->cmd_buf_virt = dma_alloc_writecombine(
+			NULL, QPIC_MAX_CMD_BUF_SIZE,
+			&qpic_res->cmd_buf_phys, GFP_KERNEL);
+		pr_debug("%s cmd_buf virt=%x phys=%x", __func__,
+			(int)qpic_res->cmd_buf_virt,
+			qpic_res->cmd_buf_phys);
+		if (!qpic_res->cmd_buf_virt) {
+			pr_err("%s cmd buf allocation failed", __func__);
+			return -ENOMEM;
+		}
 	}
 	mfd->fbi->fix.smem_start = qpic_res->fb_phys;
 	mfd->fbi->screen_base = qpic_res->fb_virt;
@@ -338,9 +351,6 @@ int qpic_flush_buffer_bam(u32 cmd, u32 len, u32 *param, u32 is_cmd)
 	u32 phys_addr, cfg2, block_len , flags;
 	if (is_cmd) {
 		memcpy((u8 *)qpic_res->cmd_buf_virt, param, len);
-		invalidate_caches((unsigned long)qpic_res->cmd_buf_virt,
-		len,
-		(unsigned long)qpic_res->cmd_buf_phys);
 		phys_addr = qpic_res->cmd_buf_phys;
 	} else {
 		phys_addr = (u32)param;
