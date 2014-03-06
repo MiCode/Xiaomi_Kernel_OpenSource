@@ -32,7 +32,7 @@
 		interrupts = <0x0 0xcd 0x0>;	/* PMA8084 GPIO 14 */
 		qcom,float-voltage-mv = <4200>;
 		qcom,charging-timeout = <1536>;
-		qcom,recharge-thresh-mv = <200>;
+		qcom,recharge-thresh-mv = <100>;
 		qcom,iterm-ma = <100>;
 		regulator-name = "smb1357_otg_vreg";
 		qcom,soft-vfloat-comp-disabled;
