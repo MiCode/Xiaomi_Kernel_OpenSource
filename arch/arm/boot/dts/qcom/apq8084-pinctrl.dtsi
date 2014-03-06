@@ -624,5 +624,16 @@
 				bias-disable;
 			};
 		};
+
+		cti_trigout_a {
+			qcom,pins = <&gp 63>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <5>;
+			label = "cti-trigout-a";
+			trigout_a: default {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
 	};
 };
