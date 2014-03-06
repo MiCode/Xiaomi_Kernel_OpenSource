@@ -402,6 +402,7 @@ static struct usb_serial_driver csvt_device = {
 	.set_termios		= csvt_ctrl_set_termios,
 	.read_int_callback	= csvt_ctrl_int_cb,
 	.attach			= csvt_ctrl_attach,
+	.reset_resume		= usb_serial_generic_resume,
 	.release		= csvt_ctrl_release,
 };
 
