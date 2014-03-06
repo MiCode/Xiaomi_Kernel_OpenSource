@@ -1290,7 +1290,6 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		adreno_getreg(adreno_dev, ADRENO_REG_RBBM_STATUS) << 2,
 		0x00000000, 0x80000000);
 done:
-	device->pwrctrl.irq_last = 0;
 	trace_kgsl_issueibcmds(device, context->id, cmdbatch,
 		cmdbatch->timestamp, cmdbatch->flags, ret,
 		drawctxt->type);

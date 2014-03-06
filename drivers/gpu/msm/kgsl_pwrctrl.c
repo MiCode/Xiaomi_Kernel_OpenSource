@@ -1201,8 +1201,6 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
  */
 void kgsl_idle_check(struct work_struct *work)
 {
-	int delay = INIT_UDELAY;
-	int requested_state;
 	struct kgsl_device *device = container_of(work, struct kgsl_device,
 							idle_check_ws);
 	WARN_ON(device == NULL);
@@ -1215,30 +1213,9 @@ void kgsl_idle_check(struct work_struct *work)
 
 	if (device->state == KGSL_STATE_ACTIVE
 		   || device->state ==  KGSL_STATE_NAP) {
-		/*
-		 * If no user is explicitly trying to use the GPU
-		 * (active_cnt is zero), then loop with increasing delay,
-		 * waiting for the GPU to become idle.
-		 */
-		while (!atomic_read(&device->active_cnt) &&
-			(delay < MAX_UDELAY)) {
-			requested_state = device->requested_state;
-			if (!kgsl_pwrctrl_sleep(device))
-				break;
-			/*
-			 * If no new commands have been issued since the
-			 * last interrupt, stay in this loop waiting for
-			 * the GPU to become idle.
-			 */
-			if (!device->pwrctrl.irq_last)
-				break;
-			kgsl_pwrctrl_request_state(device, requested_state);
-			mutex_unlock(&device->mutex);
-			udelay(delay);
-			delay *= 2;
-			mutex_lock(&device->mutex);
-		}
 
+		if (!atomic_read(&device->active_cnt))
+			kgsl_pwrctrl_sleep(device);
 
 		kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 		if (device->state == KGSL_STATE_ACTIVE) {
@@ -1255,8 +1232,6 @@ void kgsl_idle_check(struct work_struct *work)
 				kgsl_pwrctrl_busy_time(device, true);
 				device->pwrctrl.clk_stats.no_nap_cnt = 0;
 			}
-		} else {
-			device->pwrctrl.irq_last = 0;
 		}
 	}
 
