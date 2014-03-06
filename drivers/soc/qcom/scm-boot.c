@@ -21,8 +21,8 @@
 int scm_set_boot_addr(phys_addr_t addr, unsigned int flags)
 {
 	struct {
-		unsigned int flags;
-		unsigned long addr;
+		u32 flags;
+		u32 addr;
 	} cmd;
 
 	cmd.addr = addr;
