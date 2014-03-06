@@ -53,6 +53,11 @@
 #define MAX_AF_ITERATIONS 3
 #define MAX_NUMBER_OF_STEPS 47
 
+typedef enum sensor_stats_type {
+	YRGB,
+	YYYY,
+} sensor_stats_type_t;
+
 enum flash_type {
 	LED_FLASH = 1,
 	STROBE_FLASH,
