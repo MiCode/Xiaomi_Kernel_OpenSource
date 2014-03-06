@@ -15,6 +15,7 @@
 #define __MSM_CLOCK_GENERIC_H
 
 #include <linux/clk/msm-clk-provider.h>
+#include <linux/of.h>
 
 /**
  * struct fixed_clk - fixed rate clock
@@ -138,10 +139,18 @@ extern struct clk_ops clk_ops_slave_div;
 
 struct ext_clk {
 	struct clk c;
+	struct device *dev;
+	char *clk_id;
 };
 
 long parent_round_rate(struct clk *c, unsigned long rate);
 unsigned long parent_get_rate(struct clk *c);
+
+static inline struct ext_clk *to_ext_clk(struct clk *c)
+{
+	return container_of(c, struct ext_clk, c);
+}
+
 extern struct clk_ops clk_ops_ext;
 
 #define DEFINE_FIXED_DIV_CLK(clk_name, _div, _parent) \
