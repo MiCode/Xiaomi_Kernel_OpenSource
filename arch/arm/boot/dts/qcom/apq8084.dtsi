@@ -3615,6 +3615,15 @@
 		reg-names = "ramdump";
 		wlan-en-gpio = <&msmgpio 82 0>;
 		vdd-wlan-supply = <&wlan_vreg>;
+
+		qcom,msm-bus,name = "msm-cnss";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+					  <45 512 0 0>,           /* No vote */
+					  <45 512 6250 200000>,   /* 50 Mbps */
+					  <45 512 25000 200000>,  /* 200 Mbps */
+					  <45 512 100000 200000>; /* 800 Mbps */
 	};
 };
 
