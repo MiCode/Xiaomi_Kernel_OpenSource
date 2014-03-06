@@ -11,6 +11,11 @@
 #define ESOC_REG_REQ_ENG	_IO(ESOC_CODE, 7)
 #define ESOC_REG_CMD_ENG	_IO(ESOC_CODE, 8)
 
+/*Link types for communication with external SOCs*/
+#define HSIC		"HSIC"
+#define HSICPCIe	"HSIC+PCIe"
+#define PCIe		"PCIe"
+
 enum esoc_evt {
 	ESOC_RUN_STATE = 0x1,
 	ESOC_UNEXPECTED_RESET,

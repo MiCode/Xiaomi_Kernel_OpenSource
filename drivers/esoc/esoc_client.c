@@ -22,6 +22,7 @@ static void devm_esoc_desc_release(struct device *dev, void *res)
 {
 	struct esoc_desc *esoc_desc = res;
 	kfree(esoc_desc->name);
+	kfree(esoc_desc->link);
 	put_esoc_clink(esoc_desc->priv);
 }
 
@@ -42,7 +43,7 @@ struct esoc_desc *devm_register_esoc_client(struct device *dev,
 	struct device_node *np = dev->of_node;
 	struct esoc_clink *esoc_clink;
 	struct esoc_desc *desc;
-	char *esoc_name;
+	char *esoc_name, *esoc_link;
 
 	for (index = 0;; index++) {
 		esoc_prop = kasprintf(GFP_KERNEL, "esoc-%d", index);
@@ -70,13 +71,28 @@ struct esoc_desc *devm_register_esoc_client(struct device *dev,
 			dev_err(dev, "matching esoc clink not present\n");
 			return ERR_PTR(-EPROBE_DEFER);
 		}
-		desc = devres_alloc(devm_esoc_desc_release,
-						sizeof(*desc), GFP_KERNEL);
-		if (!desc)
-			return ERR_PTR(-ENOMEM);
 		esoc_name = kasprintf(GFP_KERNEL, "esoc%d",
 							esoc_clink->id);
+		if (IS_ERR_OR_NULL(esoc_name)) {
+			dev_err(dev, "unable to allocate esoc name\n");
+			return ERR_PTR(-ENOMEM);
+		}
+		esoc_link = kasprintf(GFP_KERNEL, "%s", esoc_clink->link_name);
+		if (IS_ERR_OR_NULL(esoc_link)) {
+			dev_err(dev, "unable to allocate esoc link name\n");
+			kfree(esoc_name);
+			return ERR_PTR(-ENOMEM);
+		}
+		desc = devres_alloc(devm_esoc_desc_release,
+						sizeof(*desc), GFP_KERNEL);
+		if (IS_ERR_OR_NULL(desc)) {
+			kfree(esoc_name);
+			kfree(esoc_link);
+			dev_err(dev, "unable to allocate esoc descriptor\n");
+			return ERR_PTR(-ENOMEM);
+		}
 		desc->name = esoc_name;
+		desc->link = esoc_link;
 		desc->priv = esoc_clink;
 		devres_add(dev, desc);
 		return desc;
