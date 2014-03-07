@@ -195,6 +195,7 @@ struct qpnp_adc_tm_sensor {
 	uint32_t			high_thr;
 	uint32_t			btm_channel_num;
 	uint32_t			vadc_channel_num;
+	struct workqueue_struct		*req_wq;
 	struct work_struct		work;
 	bool				thermal_node;
 	uint32_t			scale_type;
@@ -208,6 +209,8 @@ struct qpnp_adc_tm_chip {
 	bool				adc_tm_initialized;
 	int				max_channels_available;
 	struct qpnp_vadc_chip		*vadc_dev;
+	struct workqueue_struct		*high_thr_wq;
+	struct workqueue_struct		*low_thr_wq;
 	struct work_struct		trigger_high_thr_work;
 	struct work_struct		trigger_low_thr_work;
 	struct qpnp_adc_tm_sensor	sensor[0];
@@ -1601,7 +1604,8 @@ fail:
 	mutex_unlock(&chip->adc->adc_lock);
 
 	if (adc_tm_high_enable || adc_tm_low_enable)
-		schedule_work(&chip->sensor[sensor_num].work);
+		queue_work(chip->sensor[sensor_num].req_wq,
+				&chip->sensor[sensor_num].work);
 
 	return rc;
 }
@@ -1630,7 +1634,7 @@ static irqreturn_t qpnp_adc_tm_high_thr_isr(int irq, void *data)
 
 	qpnp_adc_tm_disable(chip);
 
-	schedule_work(&chip->trigger_high_thr_work);
+	queue_work(chip->high_thr_wq, &chip->trigger_high_thr_work);
 
 	return IRQ_HANDLED;
 }
@@ -1659,7 +1663,7 @@ static irqreturn_t qpnp_adc_tm_low_thr_isr(int irq, void *data)
 
 	qpnp_adc_tm_disable(chip);
 
-	schedule_work(&chip->trigger_low_thr_work);
+	queue_work(chip->low_thr_wq, &chip->trigger_low_thr_work);
 
 	return IRQ_HANDLED;
 }
@@ -2021,11 +2025,29 @@ static int qpnp_adc_tm_probe(struct spmi_device *spmi)
 			if (IS_ERR(chip->sensor[sen_idx].tz_dev))
 				pr_err("thermal device register failed.\n");
 		}
+		chip->sensor[sen_idx].req_wq = alloc_workqueue(
+				"qpnp_adc_notify_wq", WQ_HIGHPRI, 0);
+		if (!chip->sensor[sen_idx].req_wq) {
+			pr_err("Requesting priority wq failed\n");
+			goto fail;
+		}
 		INIT_WORK(&chip->sensor[sen_idx].work, notify_adc_tm_fn);
 		INIT_LIST_HEAD(&chip->sensor[sen_idx].thr_list);
 		sen_idx++;
 	}
 	chip->max_channels_available = count_adc_channel_list;
+	chip->high_thr_wq = alloc_workqueue("qpnp_adc_tm_high_thr_wq",
+							WQ_HIGHPRI, 0);
+	if (!chip->high_thr_wq) {
+		pr_err("Requesting high thr priority wq failed\n");
+		goto fail;
+	}
+	chip->low_thr_wq = alloc_workqueue("qpnp_adc_tm_low_thr_wq",
+							WQ_HIGHPRI, 0);
+	if (!chip->low_thr_wq) {
+		pr_err("Requesting low thr priority wq failed\n");
+		goto fail;
+	}
 	INIT_WORK(&chip->trigger_high_thr_work, qpnp_adc_tm_high_thr_work);
 	INIT_WORK(&chip->trigger_low_thr_work, qpnp_adc_tm_low_thr_work);
 
@@ -2079,10 +2101,17 @@ fail:
 	for_each_child_of_node(node, child) {
 		thermal_node = of_property_read_bool(child,
 					"qcom,thermal-node");
-		if (thermal_node)
+		if (thermal_node) {
 			thermal_zone_device_unregister(chip->sensor[i].tz_dev);
+			if (chip->sensor[i].req_wq)
+				destroy_workqueue(chip->sensor[sen_idx].req_wq);
+		}
 		i++;
 	}
+	if (chip->high_thr_wq)
+		destroy_workqueue(chip->high_thr_wq);
+	if (chip->low_thr_wq)
+		destroy_workqueue(chip->low_thr_wq);
 	dev_set_drvdata(&spmi->dev, NULL);
 	return rc;
 }
@@ -2097,11 +2126,18 @@ static int qpnp_adc_tm_remove(struct spmi_device *spmi)
 	for_each_child_of_node(node, child) {
 		thermal_node = of_property_read_bool(child,
 					"qcom,thermal-node");
-		if (thermal_node)
+		if (thermal_node) {
 			thermal_zone_device_unregister(chip->sensor[i].tz_dev);
+			if (chip->sensor[i].req_wq)
+				destroy_workqueue(chip->sensor[i].req_wq);
+		}
 		i++;
 	}
 
+	if (chip->high_thr_wq)
+		destroy_workqueue(chip->high_thr_wq);
+	if (chip->low_thr_wq)
+		destroy_workqueue(chip->low_thr_wq);
 	dev_set_drvdata(&spmi->dev, NULL);
 
 	return 0;
