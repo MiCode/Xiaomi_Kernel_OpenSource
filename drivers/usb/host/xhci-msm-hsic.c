@@ -79,6 +79,14 @@
 #define PHY_LPM_WAIT_TIMEOUT_MS	5000
 #define ULPI_IO_TIMEOUT_USECS	(10 * 1000)
 
+/*
+ * Higher value allows xhci core to moderate interrupts resulting
+ * in fewer interrupts from xhci core. This may result in better
+ * overall power consumption during peak throughput. Hence set the
+ * default HSIC interrupt moderation to 8000 (or 2ms interval)
+ */
+#define MSM_HSIC_INT_MODERATION 8000
+
 static u64 dma_mask = DMA_BIT_MASK(64);
 
 struct mxhci_hsic_hcd {
@@ -1244,7 +1252,7 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 
 	temp = xhci_readl(xhci, &xhci->ir_set->irq_control);
 	temp &= ~ER_IRQ_INTERVAL_MASK;
-	temp |= (u32) 4000;
+	temp |= (u32) MSM_HSIC_INT_MODERATION;
 	xhci_writel(xhci, temp, &xhci->ir_set->irq_control);
 
 	ret = device_create_file(&pdev->dev, &dev_attr_config_imod);
