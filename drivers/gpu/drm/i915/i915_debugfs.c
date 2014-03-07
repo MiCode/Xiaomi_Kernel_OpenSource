@@ -3979,6 +3979,143 @@ static const struct file_operations i915_cur_wm_latency_fops = {
 	.write = cur_wm_latency_write
 };
 
+static ssize_t
+i915_sb_punit_read(struct file *filp, char __user *ubuf, size_t max,
+		   loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	char buf[] = "punit read is not defined";
+	u32 rval, len;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	if (!dev_priv->debug.punit_read)
+		return 0;
+
+	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
+
+	mutex_lock(&dev_priv->rps.hw_lock);
+	rval = vlv_punit_read(dev_priv, dev_priv->debug.punit_read);
+	mutex_unlock(&dev_priv->rps.hw_lock);
+
+	len = snprintf(buf, sizeof(buf),
+			"0x%x: 0x%x\n", dev_priv->debug.punit_read, rval);
+	if (len > sizeof(buf))
+		len = sizeof(buf);
+
+	dev_priv->debug.punit_read = 0;
+	return simple_read_from_buffer(ubuf, max, ppos, buf, len);
+}
+
+
+static ssize_t
+i915_sb_punit_write(struct file *filp, const char __user *ubuf, size_t cnt,
+		    loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	char buf[20];
+	int ret;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	if (cnt > 0) {
+		if (cnt > sizeof(buf) - 1)
+			return -EINVAL;
+
+		if (copy_from_user(buf, ubuf, cnt))
+			return -EFAULT;
+
+		buf[cnt] = 0;
+
+		ret = kstrtoul(buf, 0,
+				(unsigned long *)&dev_priv->debug.punit_read);
+		if (ret)
+			return -EINVAL;
+	}
+
+	return cnt;
+}
+
+static const struct file_operations i915_punit_read_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_sb_punit_read,
+	.write = i915_sb_punit_write,
+	.llseek = default_llseek,
+};
+
+static ssize_t
+i915_sb_fuse_read(struct file *filp, char __user *ubuf, size_t max,
+		   loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	char buf[] = "punit read is not defined";
+	u32 rval, len;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	if (!dev_priv->debug.fuse_read)
+		return 0;
+
+	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
+
+	mutex_lock(&dev_priv->rps.hw_lock);
+	rval = vlv_nc_read(dev_priv, dev_priv->debug.fuse_read);
+	mutex_unlock(&dev_priv->rps.hw_lock);
+
+	len = snprintf(buf, sizeof(buf),
+			"0x%x: 0x%x\n", dev_priv->debug.fuse_read, rval);
+	if (len > sizeof(buf))
+		len = sizeof(buf);
+
+	dev_priv->debug.fuse_read = 0;
+	return simple_read_from_buffer(ubuf, max, ppos, buf, len);
+}
+
+static ssize_t
+i915_sb_fuse_write(struct file *filp, const char __user *ubuf, size_t cnt,
+		    loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	char buf[20];
+	int ret;
+
+	if (!(IS_VALLEYVIEW(dev)))
+		return -ENODEV;
+
+	if (cnt > 0) {
+		if (cnt > sizeof(buf) - 1)
+			return -EINVAL;
+
+		if (copy_from_user(buf, ubuf, cnt))
+			return -EFAULT;
+
+		buf[cnt] = 0;
+
+		ret = kstrtoul(buf, 0,
+				(unsigned long *)&dev_priv->debug.fuse_read);
+		if (ret)
+			return -EINVAL;
+	}
+
+	return cnt;
+}
+
+static const struct file_operations i915_fuse_read_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_sb_fuse_read,
+	.write = i915_sb_fuse_write,
+	.llseek = default_llseek,
+};
+
 static int
 i915_wedged_get(void *data, u64 *val)
 {
@@ -4780,6 +4917,8 @@ static const struct i915_debugfs_files {
 	{"i915_spr_wm_latency", &i915_spr_wm_latency_fops},
 	{"i915_cur_wm_latency", &i915_cur_wm_latency_fops},
 	{"i915_timestamp", &i915_timestamp_fops},
+	{"i915_punit_read", &i915_punit_read_fops},
+	{"i915_fuse_read", &i915_fuse_read_fops},
 };
 
 void intel_display_crc_init(struct drm_device *dev)

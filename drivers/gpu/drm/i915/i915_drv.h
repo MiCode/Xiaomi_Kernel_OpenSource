@@ -904,6 +904,13 @@ struct vlv_s0ix_state {
 	u32 clock_gate_dis2;
 };
 
+#ifdef CONFIG_DEBUG_FS
+struct debugfs_vars {
+	u32 punit_read;
+	u32 fuse_read;
+};
+#endif
+
 struct intel_gen6_power_mgmt {
 	/* work and pm_iir are protected by dev_priv->irq_lock */
 	struct work_struct work;
@@ -1570,6 +1577,10 @@ struct drm_i915_private {
 
 	/* Cannot be determined by PCIID. You must always read a register. */
 	size_t ellc_size;
+
+#ifdef CONFIG_DEBUG_FS
+	struct debugfs_vars debug;
+#endif
 
 	/* gen6+ rps state */
 	struct intel_gen6_power_mgmt rps;
