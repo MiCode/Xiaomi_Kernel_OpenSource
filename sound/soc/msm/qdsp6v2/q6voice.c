@@ -141,6 +141,7 @@ static bool voice_is_valid_session_id(uint32_t session_id)
 	case VOLTE_SESSION_VSID:
 	case VOIP_SESSION_VSID:
 	case QCHAT_SESSION_VSID:
+	case VOWLAN_SESSION_VSID:
 	case ALL_SESSION_VSID:
 		ret = true;
 		break;
@@ -234,6 +235,9 @@ char *voc_get_session_name(u32 session_id)
 	} else if (session_id ==
 			common.voice[VOC_PATH_QCHAT_PASSIVE].session_id) {
 		session_name = QCHAT_SESSION_NAME;
+	} else if (session_id ==
+			common.voice[VOC_PATH_VOWLAN_PASSIVE].session_id) {
+		session_name = VOWLAN_SESSION_NAME;
 	} else if (session_id == common.voice[VOC_PATH_FULL].session_id) {
 		session_name = VOIP_SESSION_NAME;
 	}
@@ -256,6 +260,9 @@ uint32_t voc_get_session_id(char *name)
 		else if (!strncmp(name, "QCHAT session", 13))
 			session_id =
 			common.voice[VOC_PATH_QCHAT_PASSIVE].session_id;
+		else if (!strncmp(name, "VoWLAN session", 14))
+			session_id =
+			common.voice[VOC_PATH_VOWLAN_PASSIVE].session_id;
 		else
 			session_id = common.voice[VOC_PATH_FULL].session_id;
 
@@ -289,6 +296,10 @@ static struct voice_data *voice_get_session(u32 session_id)
 
 	case QCHAT_SESSION_VSID:
 		v = &common.voice[VOC_PATH_QCHAT_PASSIVE];
+		break;
+
+	case VOWLAN_SESSION_VSID:
+		v = &common.voice[VOC_PATH_VOWLAN_PASSIVE];
 		break;
 
 	case ALL_SESSION_VSID:
@@ -329,6 +340,10 @@ int voice_get_idx_for_session(u32 session_id)
 
 	case QCHAT_SESSION_VSID:
 		idx = VOC_PATH_QCHAT_PASSIVE;
+		break;
+
+	case VOWLAN_SESSION_VSID:
+		idx = VOC_PATH_VOWLAN_PASSIVE;
 		break;
 
 	case ALL_SESSION_VSID:
@@ -373,6 +388,11 @@ static bool is_voice2_session(u32 session_id)
 static bool is_qchat_session(u32 session_id)
 {
 	return (session_id == common.voice[VOC_PATH_QCHAT_PASSIVE].session_id);
+}
+
+static bool is_vowlan_session(u32 session_id)
+{
+	return (session_id == common.voice[VOC_PATH_VOWLAN_PASSIVE].session_id);
 }
 
 static bool is_voc_state_active(int voc_state)
@@ -433,6 +453,7 @@ static void init_session_id(void)
 	common.voice[VOC_PATH_VOICE2_PASSIVE].session_id = VOICE2_SESSION_VSID;
 	common.voice[VOC_PATH_FULL].session_id = VOIP_SESSION_VSID;
 	common.voice[VOC_PATH_QCHAT_PASSIVE].session_id = QCHAT_SESSION_VSID;
+	common.voice[VOC_PATH_VOWLAN_PASSIVE].session_id = VOWLAN_SESSION_VSID;
 }
 
 static int voice_apr_register(void)
@@ -661,6 +682,10 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 				strlcpy(mvm_session_cmd.mvm_session.name,
 				QCHAT_SESSION_VSID_STR,
 				sizeof(mvm_session_cmd.mvm_session.name));
+			} else if (is_vowlan_session(v->session_id)) {
+				strlcpy(mvm_session_cmd.mvm_session.name,
+				VOWLAN_SESSION_VSID_STR,
+				sizeof(mvm_session_cmd.mvm_session.name));
 			} else {
 				strlcpy(mvm_session_cmd.mvm_session.name,
 				"default modem voice",
@@ -752,6 +777,10 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 			} else if (is_qchat_session(v->session_id)) {
 				strlcpy(cvs_session_cmd.cvs_session.name,
 				QCHAT_SESSION_VSID_STR,
+				sizeof(cvs_session_cmd.cvs_session.name));
+			} else if (is_vowlan_session(v->session_id)) {
+				strlcpy(cvs_session_cmd.cvs_session.name,
+				VOWLAN_SESSION_VSID_STR,
 				sizeof(cvs_session_cmd.cvs_session.name));
 			} else {
 			strlcpy(cvs_session_cmd.cvs_session.name,
