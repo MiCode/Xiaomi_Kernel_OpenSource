@@ -27,6 +27,7 @@ enum dump_client_type {
 	MSM_ETM3_REG,
 	MSM_TMC0_REG, /* TMC_ETR */
 	MSM_TMC1_REG, /* TMC_ETF */
+	MSM_LOG_BUF,
 	MAX_NUM_CLIENTS,
 };
 
