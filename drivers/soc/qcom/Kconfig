@@ -89,6 +89,14 @@ config MSM_CPUSS_DUMP
 	 the entities if corruption is suspected.
 	 If unsure, say N
 
+config MSM_COMMON_LOG
+	bool "MSM Common Log Support"
+	help
+	 Use this to export symbols of some log address and variables
+	 that need to parse crash dump files to a memory dump table. This
+	 table can be used by post analysis tools to extract information
+	 from memory when device crashes.
+
 config MSM_DDR_HEALTH
 	bool "MSM DDR Health Driver"
 	default n
