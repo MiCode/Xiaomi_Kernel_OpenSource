@@ -395,7 +395,9 @@ static int i2c_device_pm_restore(struct device *dev)
 
 static void i2c_client_dev_release(struct device *dev)
 {
-	kfree(to_i2c_client(dev));
+	struct i2c_client *client = to_i2c_client(dev);
+	kfree(client->comp_addrs);
+	kfree(client);
 }
 
 static ssize_t
@@ -627,7 +629,7 @@ static void i2c_dev_set_name(struct i2c_adapter *adap,
 	struct acpi_device *adev = ACPI_COMPANION(&client->dev);
 
 	if (adev) {
-		dev_set_name(&client->dev, "i2c-%s", acpi_dev_name(adev));
+		dev_set_name(&client->dev, "i2c-%s", client->name);
 		return;
 	}
 
@@ -673,6 +675,8 @@ i2c_new_device(struct i2c_adapter *adap, struct i2c_board_info const *info)
 	client->flags = info->flags;
 	client->addr = info->addr;
 	client->irq = info->irq;
+	client->comp_addr_count = info->comp_addr_count;
+	client->comp_addrs = info->comp_addrs;
 
 	strlcpy(client->name, info->type, sizeof(client->name));
 
@@ -726,6 +730,36 @@ void i2c_unregister_device(struct i2c_client *client)
 }
 EXPORT_SYMBOL_GPL(i2c_unregister_device);
 
+static int i2c_find_client_addr(struct device *dev, void *addrp)
+{
+	struct i2c_client *client = i2c_verify_client(dev);
+	unsigned short addr = *(unsigned short *)addrp;
+
+	if (client && client->addr == addr)
+		return 1;
+
+	return 0;
+}
+
+struct i2c_client *i2c_get_comp_client(struct i2c_client *client,
+						unsigned short addr)
+{
+	struct device *dev = NULL;
+
+	if (!client)
+		return NULL;
+
+	if (client->addr == addr)
+		return client;
+
+	dev = device_find_child(&client->adapter->dev, &addr,
+						i2c_find_client_addr);
+	if (dev)
+		return to_i2c_client(dev);
+
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(i2c_get_comp_client);
 
 static const struct i2c_device_id dummy_id[] = {
 	{ "dummy", 0 },
@@ -1080,24 +1114,37 @@ static void of_i2c_register_devices(struct i2c_adapter *adap) { }
 /* ACPI support code */
 
 #if IS_ENABLED(CONFIG_ACPI)
+/* Using some arbitary limit for max adresses in resource */
+#define MAX_CRS_ELEMENTS	20
+struct i2c_resource_info {
+	struct i2c_comp_address addrs[MAX_CRS_ELEMENTS];
+	int count;
+	int common_irq;
+};
+
 static int acpi_i2c_add_resource(struct acpi_resource *ares, void *data)
 {
-	struct i2c_board_info *info = data;
+	struct i2c_resource_info *rcs_info = data;
 
 	if (ares->type == ACPI_RESOURCE_TYPE_SERIAL_BUS) {
 		struct acpi_resource_i2c_serialbus *sb;
 
 		sb = &ares->data.i2c_serial_bus;
 		if (sb->type == ACPI_RESOURCE_SERIAL_TYPE_I2C) {
-			info->addr = sb->slave_address;
+			if (rcs_info->count >= MAX_CRS_ELEMENTS)
+				return 1;
+			rcs_info->addrs[rcs_info->count].addr =
+							sb->slave_address;
 			if (sb->access_mode == ACPI_I2C_10BIT_MODE)
-				info->flags |= I2C_CLIENT_TEN;
+				rcs_info->addrs[rcs_info->count].flags =
+								I2C_CLIENT_TEN;
+			rcs_info->count++;
 		}
-	} else if (info->irq < 0) {
+	} else if (rcs_info->common_irq < 0) {
 		struct resource r;
 
 		if (acpi_dev_resource_interrupt(ares, 0, &r))
-			info->irq = r.start;
+			rcs_info->common_irq = r.start;
 	}
 
 	/* Tell the ACPI core to skip this resource */
@@ -1111,7 +1158,10 @@ static acpi_status acpi_i2c_add_device(acpi_handle handle, u32 level,
 	struct list_head resource_list;
 	struct i2c_board_info info;
 	struct acpi_device *adev;
+	struct i2c_resource_info rcs_info;
+	struct i2c_client *i2c_client;
 	int ret;
+	int i;
 
 	if (acpi_bus_get_device(handle, &adev))
 		return AE_OK;
@@ -1120,23 +1170,43 @@ static acpi_status acpi_i2c_add_device(acpi_handle handle, u32 level,
 
 	memset(&info, 0, sizeof(info));
 	info.acpi_node.companion = adev;
-	info.irq = -1;
+
+	memset(&rcs_info, 0, sizeof(rcs_info));
+	rcs_info.common_irq = -1;
 
 	INIT_LIST_HEAD(&resource_list);
 	ret = acpi_dev_get_resources(adev, &resource_list,
-				     acpi_i2c_add_resource, &info);
+				     acpi_i2c_add_resource, &rcs_info);
 	acpi_dev_free_resource_list(&resource_list);
 
-	if (ret < 0 || !info.addr)
+	if (ret < 0)
 		return AE_OK;
 
 	adev->power.flags.ignore_parent = true;
-	strlcpy(info.type, dev_name(&adev->dev), sizeof(info.type));
-	if (!i2c_new_device(adapter, &info)) {
-		adev->power.flags.ignore_parent = false;
-		dev_err(&adapter->dev,
-			"failed to add I2C device %s from ACPI\n",
-			dev_name(&adev->dev));
+	info.irq = rcs_info.common_irq;
+	info.comp_addr_count = rcs_info.count;
+	for (i = 0; i < rcs_info.count; ++i) {
+		if (!rcs_info.addrs[i].addr)
+			continue;
+		info.addr = rcs_info.addrs[i].addr;
+		info.flags = rcs_info.addrs[i].flags;
+		snprintf(info.type, sizeof(info.type), "%s:%02x",
+						dev_name(&adev->dev),
+						info.addr);
+		info.comp_addrs = kmemdup(rcs_info.addrs,
+					rcs_info.count *
+					sizeof(struct i2c_comp_address),
+					GFP_KERNEL);
+		i2c_client = i2c_new_device(adapter, &info);
+		if (!i2c_client) {
+			if (!i)
+				adev->power.flags.ignore_parent = false;
+			dev_err(&adapter->dev,
+				"failed to add I2C device %s from ACPI\n",
+					dev_name(&adev->dev));
+			kfree(info.comp_addrs);
+			break;
+		}
 	}
 
 	return AE_OK;
