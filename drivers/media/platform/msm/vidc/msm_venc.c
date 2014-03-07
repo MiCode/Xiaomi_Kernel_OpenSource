@@ -2615,6 +2615,14 @@ int msm_venc_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			"Invalid input, inst = %p, format = %p\n", inst, f);
 		return -EINVAL;
 	}
+
+	rc = msm_comm_try_get_bufreqs(inst);
+	if (rc) {
+		dprintk(VIDC_WARN, "Getting new buffer requirements failed: %d\n",
+				rc);
+		return rc;
+	}
+
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		fmt = inst->fmts[CAPTURE_PORT];
 		height = inst->prop.height[CAPTURE_PORT];
