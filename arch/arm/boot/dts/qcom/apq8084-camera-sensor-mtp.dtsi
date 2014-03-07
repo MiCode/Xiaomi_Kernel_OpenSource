@@ -135,7 +135,7 @@
 		reg = <0x01>;
 		qcom,csiphy-sd-index = <2>;
 		qcom,csid-sd-index = <2>;
-		qcom,mount-angle = <270>;
+		qcom,mount-angle = <90>;
 		cam_vana-supply = <&pma8084_l17>;
 		cam_vdig-supply = <&pma8084_l15>;
 		cam_vio-supply = <&pma8084_lvs4>;
