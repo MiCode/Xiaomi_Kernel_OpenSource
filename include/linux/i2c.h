@@ -225,6 +225,7 @@ struct i2c_comp_address {
  * @comp_addr_count: Number of addresses in comp_addrs pointer
  * @comp_addrs: Pointer to companion list of i2c addresses and
  *	associated flags.
+ * @irq_flags: indicates the IRQ flags (format: IORESOURCE_IRQ_XXXX)
  *
  * An i2c_client identifies a single device (i.e. chip) connected to an
  * i2c bus. The behaviour exposed to Linux is defined by the driver
@@ -242,6 +243,7 @@ struct i2c_client {
 	struct list_head detected;
 	int comp_addr_count;
 	struct i2c_comp_address *comp_addrs;
+	unsigned long irq_flags;
 };
 #define to_i2c_client(d) container_of(d, struct i2c_client, dev)
 
@@ -277,6 +279,7 @@ static inline void i2c_set_clientdata(struct i2c_client *dev, void *data)
  * @comp_addr_count: Number of addresses in comp_addrs pointer
  * @comp_addrs: Pointer to companion list of i2c addresses and
  *	associated flags.
+ * @irq_flags: indicates the IRQ flags (format: IORESOURCE_IRQ_XXXX)
  *
  * I2C doesn't actually support hardware probing, although controllers and
  * devices may be able to use I2C_SMBUS_QUICK to tell whether or not there's
@@ -300,6 +303,7 @@ struct i2c_board_info {
 	int		irq;
 	int comp_addr_count;
 	struct i2c_comp_address *comp_addrs;
+	unsigned long irq_flags;
 };
 
 /**
