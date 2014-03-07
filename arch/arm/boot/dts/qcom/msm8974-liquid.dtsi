@@ -886,14 +886,6 @@
 	};
 };
 
-&sdcc1 {
-       status = "disabled";
-};
-
-&sdcc2 {
-       status = "disabled";
-};
-
 &sdhc_1 {
 	vdd-supply = <&pm8941_l20>;
 	vdd-io-supply = <&pm8941_s3>;
@@ -936,14 +928,6 @@
  * But since the driver has been been using the below values from the start
  * without any problems, continue to use those.
  */
-&sdcc1 {
-	qcom,pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
-};
-
-&sdcc2 {
-	qcom,pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
-};
-
 &sdhc_1 {
 	pinctrl-0 = <&sdc1_clk_on_16 &sdc1_cmd_on &sdc1_data_on>;
 };

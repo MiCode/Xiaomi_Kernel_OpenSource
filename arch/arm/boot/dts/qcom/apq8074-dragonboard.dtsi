@@ -248,11 +248,6 @@
 	qcom,memory-reservation-size = <0x1000000>; /* size 16MB */
 };
 
-&sdcc3 {
-	qcom,sup-voltages = <2000 2000>;
-	status = "ok";
-};
-
 &pm8941_l19 {
 	regulator-min-microvolt = <3300000>;
 	regulator-max-microvolt = <3300000>;

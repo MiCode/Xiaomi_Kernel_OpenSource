@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,16 +76,6 @@
 		HSUSB_VDDCX-supply = <&pma8084_s2_corner>;
 		HSUSB_1p8-supply = <&pma8084_l6>;
 		HSUSB_3p3-supply = <&pma8084_l24>;
-	};
-
-	qcom,sdcc@f9824000 {
-		vdd-supply = <&pma8084_l20>;
-		vdd-io-supply = <&pma8084_s4>;
-	};
-
-	qcom,sdcc@f98a4000 {
-		vdd-supply = <&pma8084_l21>;
-		vdd-io-supply = <&pma8084_l13>;
 	};
 
 	slim@fe12f000 {
