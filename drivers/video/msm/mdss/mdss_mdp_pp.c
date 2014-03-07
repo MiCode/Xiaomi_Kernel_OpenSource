@@ -3166,6 +3166,7 @@ int mdss_mdp_hist_start(struct mdp_histogram_start_req *req)
 	u32 mixer_cnt, mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
 	u32 frame_size;
 	struct mdss_mdp_pipe *pipe;
+	struct mdss_mdp_ctl *ctl;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	bool is_hist_v2 = mdata->mdp_rev >= MDSS_MDP_HW_REV_103;
 
@@ -3192,8 +3193,9 @@ int mdss_mdp_hist_start(struct mdp_histogram_start_req *req)
 		goto hist_exit;
 	}
 
-	frame_size = (mdata->ctl_off[mixer_id[0]].width *
-					mdata->ctl_off[mixer_id[0]].height);
+	ctl = mdata->mixer_intf[mixer_id[0]].ctl;
+	frame_size = (ctl->width * ctl->height);
+
 	if (!frame_size ||
 		((MDSS_MAX_HIST_BIN_SIZE / frame_size) < req->frame_cnt)) {
 		pr_err("%s, too many frames for given display size, %d",
