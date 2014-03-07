@@ -71,11 +71,13 @@
 			gpio@c400 {
 				reg = <0xc400 0x100>;
 				qcom,pin-num = <5>;
+				status = "disabled";
 			};
 
 			gpio@c500 {
 				reg = <0xc500 0x100>;
 				qcom,pin-num = <6>;
+				status = "disabled";
 			};
 		};
 
