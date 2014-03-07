@@ -116,6 +116,8 @@ Example:
 		qcom,max-hw-load = <1224450>; /* 4k @ 30 + 1080p @ 30*/
 		qcom,clock-names = "foo_clk", "bar_clk", "baz_clk";
 		qcom,clock-properties = <0x3 0x1 0x0>;
+		qcom,buffer-type-tz-usage-table = <0x1 0x1>,
+						<0x1fe 0x2>;
 		qcom,msm-bus-clients {
 			qcom,msm-bus-client@0 {
 				qcom,msm-bus,name = "venc-ddr";
