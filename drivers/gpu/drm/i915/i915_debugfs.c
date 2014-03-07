@@ -4492,7 +4492,6 @@ static int i915_cur_freq_get(void *data, u64 *val)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	if ((INTEL_INFO(dev)->gen < 6) ||
-	     IS_VALLEYVIEW(dev) ||
 	     IS_BROADWELL(dev))
 		return -ENODEV;
 
@@ -4511,7 +4510,6 @@ static int i915_cur_freq_set(void *data, u64 val)
 	int ret;
 
 	if ((INTEL_INFO(dev)->gen < 6) ||
-	     IS_VALLEYVIEW(dev) ||
 	     IS_BROADWELL(dev))
 		return -ENODEV;
 
@@ -4671,7 +4669,10 @@ static int i915_rc6_disable_set(void *data, u64 val)
 	if (ret)
 		return ret;
 
-	gen6_set_rc6_mode(dev, val);
+	if (IS_VALLEYVIEW(dev))
+		vlv_set_rc6_mode(dev, val);
+	else
+		gen6_set_rc6_mode(dev, val);
 
 	mutex_unlock(&dev_priv->rps.hw_lock);
 

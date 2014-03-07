@@ -3551,6 +3551,26 @@ void gen6_set_rps_mode(struct drm_device *dev, bool manual)
 	gen6_set_rps(dev, delay);
 }
 
+void vlv_set_rc6_mode(struct drm_device *dev, bool disable)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if (!IS_VALLEYVIEW(dev)) {
+		DRM_DEBUG_DRIVER("RC6 disable not supported\n");
+		return;
+	}
+
+	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
+
+	dev_priv->rps.rc6_disable = disable;
+
+	if (disable)
+		I915_WRITE(GEN6_RC_CONTROL, 0);
+	else
+		I915_WRITE(GEN6_RC_CONTROL, dev_priv->rps.rc6_mask);
+}
+
+
 void gen6_set_rc6_mode(struct drm_device *dev, bool disable)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -3685,7 +3705,8 @@ static void valleyview_disable_rps(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	I915_WRITE(GEN6_RC_CONTROL, 0);
+	/* Disable rc6 */
+	vlv_set_rc6_mode(dev, true);
 
 	gen6_disable_rps_interrupts(dev);
 }
@@ -4248,12 +4269,14 @@ static void valleyview_enable_rps(struct drm_device *dev)
 		   _MASKED_BIT_ENABLE(VLV_COUNT_RANGE_HIGH |
 				      VLV_MEDIA_RC6_COUNT_EN |
 				      VLV_RENDER_RC6_COUNT_EN));
+
+	rc6_mode = GEN7_RC_CTL_TO_MODE | VLV_RC_CTL_CTX_RST_PARALLEL;
+	dev_priv->rps.rc6_mask = rc6_mode;
+
 	if (intel_enable_rc6(dev) & INTEL_RC6_ENABLE)
-		rc6_mode = GEN7_RC_CTL_TO_MODE | VLV_RC_CTL_CTX_RST_PARALLEL;
+		vlv_set_rc6_mode(dev, false);
 
 	intel_print_rc6_info(dev, rc6_mode);
-
-	I915_WRITE(GEN6_RC_CONTROL, rc6_mode);
 
 	val = vlv_punit_read(dev_priv, PUNIT_REG_GPU_FREQ_STS);
 

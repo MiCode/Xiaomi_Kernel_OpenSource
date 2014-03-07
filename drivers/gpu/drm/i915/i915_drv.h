@@ -2728,6 +2728,7 @@ extern void intel_disable_fbc(struct drm_device *dev);
 extern bool ironlake_set_drps(struct drm_device *dev, u8 val);
 extern void intel_init_pch_refclk(struct drm_device *dev);
 extern void gen6_set_rc6_mode(struct drm_device *dev, bool disable);
+extern void vlv_set_rc6_mode(struct drm_device *dev, bool disable);
 extern void gen6_set_rps_mode(struct drm_device *dev, bool manual);
 extern void gen6_set_rps(struct drm_device *dev, u8 val);
 extern void valleyview_set_rps(struct drm_device *dev, u8 val);
