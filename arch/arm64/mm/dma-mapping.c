@@ -237,9 +237,38 @@ static void arm64_swiotlb_sync_sg_for_device(struct device *dev,
 			       sg->length, dir);
 }
 
+int arm64_swiotlb_mmap(struct device *dev, struct vm_area_struct *vma,
+		 void *cpu_addr, dma_addr_t dma_addr, size_t size,
+		 struct dma_attrs *attrs)
+{
+	int ret = -ENXIO;
+	unsigned long nr_vma_pages = (vma->vm_end - vma->vm_start) >>
+					PAGE_SHIFT;
+	unsigned long nr_pages = PAGE_ALIGN(size) >> PAGE_SHIFT;
+	unsigned long pfn = dma_to_phys(dev, dma_addr) >> PAGE_SHIFT;
+	unsigned long off = vma->vm_pgoff;
+
+	vma->vm_page_prot = __get_dma_pgprot(vma->vm_page_prot, attrs);
+
+	if (dma_mmap_from_coherent(dev, vma, cpu_addr, size, &ret))
+		return ret;
+
+	if (off < nr_pages && nr_vma_pages <= (nr_pages - off)) {
+		ret = remap_pfn_range(vma, vma->vm_start,
+				      pfn + off,
+				      vma->vm_end - vma->vm_start,
+				      vma->vm_page_prot);
+	}
+
+	return ret;
+}
+
+
+
 struct dma_map_ops noncoherent_swiotlb_dma_ops = {
 	.alloc = arm64_swiotlb_alloc_noncoherent,
 	.free = arm64_swiotlb_free_noncoherent,
+	.mmap = arm64_swiotlb_mmap,
 	.map_page = arm64_swiotlb_map_page,
 	.unmap_page = arm64_swiotlb_unmap_page,
 	.map_sg = arm64_swiotlb_map_sg_attrs,
