@@ -19,6 +19,14 @@ config MSM_PFE_WA
 
 	  If unsure, say N.
 
+config QCOM_COMMON_LOG
+	bool "QCOM Common Log Support"
+	help
+	  Use this to export symbols of some log address and variables
+	  that need to parse crash dump files to a memory dump table. This
+	  table can be used by post analysis tools to extract information
+	  from memory when device crashes.
+
 config MSM_SMEM
 	depends on ARCH_QCOM
 	depends on REMOTE_SPINLOCK_MSM
