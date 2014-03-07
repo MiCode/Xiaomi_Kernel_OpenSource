@@ -150,8 +150,6 @@ void panic(const char *fmt, ...)
 	 */
 	crash_kexec(NULL);
 
-	trace_kernel_panic_late(0);
-
 	bust_spinlocks(0);
 
 	if (!panic_blink)
@@ -173,6 +171,9 @@ void panic(const char *fmt, ...)
 			mdelay(PANIC_TIMER_STEP);
 		}
 	}
+
+	trace_kernel_panic_late(0);
+
 	if (panic_timeout != 0) {
 		/*
 		 * This will not be a clean reboot, with everything
