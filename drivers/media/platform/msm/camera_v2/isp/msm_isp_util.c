@@ -559,11 +559,6 @@ static long msm_isp_ioctl_compat(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
 {
 	long rc = 0;
-	void __user *up;
-	if (is_compat_task()) {
-		up = compat_ptr((unsigned long)arg);
-		arg = up;
-	}
 
 	switch (cmd) {
 	case VIDIOC_MSM_VFE_REG_CFG_COMPAT: {
@@ -571,8 +566,7 @@ static long msm_isp_ioctl_compat(struct v4l2_subdev *sd,
 		struct msm_vfe_cfg_cmd2 proc_cmd;
 		struct msm_vfe_cfg_cmd2_32 *proc_cmd_ptr32;
 		mutex_lock(&vfe_dev->realtime_mutex);
-		proc_cmd_ptr32 = (struct msm_vfe_cfg_cmd2_32 *)
-						compat_ptr((unsigned long)arg);
+		proc_cmd_ptr32 = (struct msm_vfe_cfg_cmd2_32 *) arg;
 		proc_cmd.num_cfg = proc_cmd_ptr32->num_cfg;
 		proc_cmd.cmd_len = proc_cmd_ptr32->cmd_len;
 		proc_cmd.cfg_data = compat_ptr(proc_cmd_ptr32->cfg_data);
