@@ -1197,6 +1197,10 @@ void adreno_ringbuffer_set_constraint(struct kgsl_device *device,
 					context->pwr_constraint.type;
 			device->pwrctrl.constraint.hint.
 					pwrlevel.level = constraint;
+			/* Trace the constraint being set by the driver */
+			trace_kgsl_constraint(device,
+					device->pwrctrl.constraint.type,
+					constraint, 1);
 		}
 
 		device->pwrctrl.constraint.expires = jiffies +

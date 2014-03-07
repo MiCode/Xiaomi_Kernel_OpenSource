@@ -259,9 +259,15 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 	else {
 		/* Change the power level */
 		kgsl_pwrctrl_pwrlevel_change(device, level);
-
-		/*Invalidate the constraint set */
-		pwr->constraint.type = KGSL_CONSTRAINT_NONE;
+		if (pwr->constraint.type != KGSL_CONSTRAINT_NONE) {
+			/* Trace the constraint being un-set by the driver */
+			trace_kgsl_constraint(device,
+				pwr->constraint.type,
+				level,
+				0);
+			/*Invalidate the constraint set */
+			pwr->constraint.type = KGSL_CONSTRAINT_NONE;
+		}
 		pwr->constraint.expires = 0;
 
 		*freq = kgsl_pwrctrl_active_freq(pwr);
