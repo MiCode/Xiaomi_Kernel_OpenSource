@@ -171,6 +171,12 @@
 #define ARIZONA_IN4R_CONTROL                     0x32C
 #define ARIZONA_ADC_DIGITAL_VOLUME_4R            0x32D
 #define ARIZONA_DMIC4R_CONTROL                   0x32E
+#define ARIZONA_ADC_VCO_CAL_4                    0x393
+#define ARIZONA_ADC_VCO_CAL_5                    0x394
+#define ARIZONA_ADC_VCO_CAL_6                    0x395
+#define ARIZONA_ADC_VCO_CAL_7                    0x396
+#define ARIZONA_ADC_VCO_CAL_8                    0x397
+#define ARIZONA_ADC_VCO_CAL_9                    0x398
 #define ARIZONA_OUTPUT_ENABLES_1                 0x400
 #define ARIZONA_OUTPUT_STATUS_1                  0x401
 #define ARIZONA_OUTPUT_STANDBY_1                 0x405
@@ -2730,6 +2736,48 @@
 #define ARIZONA_IN4R_DMIC_DLY_MASK               0x003F  /* IN4R_DMIC_DLY - [5:0] */
 #define ARIZONA_IN4R_DMIC_DLY_SHIFT                   0  /* IN4R_DMIC_DLY - [5:0] */
 #define ARIZONA_IN4R_DMIC_DLY_WIDTH                   6  /* IN4R_DMIC_DLY - [5:0] */
+
+/*
+ * R915 (0x393) -  ADC VCO Cal 4
+ */
+#define ARIZONA_ADC1L_COUNT_RD_MASK              0x1FC0  /* ADC1L_COUNT_RD - [12:6] */
+#define ARIZONA_ADC1L_COUNT_RD_SHIFT                  6  /* ADC1L_COUNT_RD - [12:6] */
+#define ARIZONA_ADC1L_COUNT_RD_WIDTH                  7  /* ADC1L_COUNT_RD - [12:6] */
+
+/*
+ * R916 (0x394) -  ADC VCO Cal 5
+ */
+#define ARIZONA_ADC1R_COUNT_RD_MASK              0x1FC0  /* ADC1R_COUNT_RD - [12:6] */
+#define ARIZONA_ADC1R_COUNT_RD_SHIFT                  6  /* ADC1R_COUNT_RD - [12:6] */
+#define ARIZONA_ADC1R_COUNT_RD_WIDTH                  7  /* ADC1R_COUNT_RD - [12:6] */
+
+/*
+ * R917 (0x395) -  ADC VCO Cal 6
+ */
+#define ARIZONA_ADC2L_COUNT_RD_MASK              0x1FC0  /* ADC2L_COUNT_RD - [12:6] */
+#define ARIZONA_ADC2L_COUNT_RD_SHIFT                  6  /* ADC2L_COUNT_RD - [12:6] */
+#define ARIZONA_ADC2L_COUNT_RD_WIDTH                  7  /* ADC2L_COUNT_RD - [12:6] */
+
+/*
+ * R918 (0x396) -  ADC VCO Cal 7
+ */
+#define ARIZONA_ADC2R_COUNT_RD_MASK              0x1FC0  /* ADC2R_COUNT_RD - [12:6] */
+#define ARIZONA_ADC2R_COUNT_RD_SHIFT                  6  /* ADC2R_COUNT_RD - [12:6] */
+#define ARIZONA_ADC2R_COUNT_RD_WIDTH                  7  /* ADC2R_COUNT_RD - [12:6] */
+
+/*
+ * R919 (0x397) -  ADC VCO Cal 8
+ */
+#define ARIZONA_ADC3L_COUNT_RD_MASK              0x1FC0  /* ADC3L_COUNT_RD - [12:6] */
+#define ARIZONA_ADC3L_COUNT_RD_SHIFT                  6  /* ADC3L_COUNT_RD - [12:6] */
+#define ARIZONA_ADC3L_COUNT_RD_WIDTH                  7  /* ADC3L_COUNT_RD - [12:6] */
+
+/*
+ * R920 (0x398) -  ADC VCO Cal 9
+ */
+#define ARIZONA_ADC3R_COUNT_RD_MASK              0x1FC0  /* ADC3R_COUNT_RD - [12:6] */
+#define ARIZONA_ADC3R_COUNT_RD_SHIFT                  6  /* ADC3R_COUNT_RD - [12:6] */
+#define ARIZONA_ADC3R_COUNT_RD_WIDTH                  7  /* ADC3R_COUNT_RD - [12:6] */
 
 /*
  * R1024 (0x400) - Output Enables 1

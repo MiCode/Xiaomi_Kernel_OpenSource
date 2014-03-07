@@ -945,6 +945,134 @@ static const struct mfd_cell wm8997_devs[] = {
 	},
 };
 
+static const struct {
+	unsigned int enable;
+	unsigned int conf_reg;
+	unsigned int vol_reg;
+	unsigned int adc_reg;
+} arizona_florida_channel_defs[] = {
+	{
+		ARIZONA_IN1R_ENA, ARIZONA_IN1L_CONTROL,
+		ARIZONA_ADC_DIGITAL_VOLUME_1R, ARIZONA_ADC_VCO_CAL_5
+	},
+	{
+		ARIZONA_IN1L_ENA, ARIZONA_IN1L_CONTROL,
+		ARIZONA_ADC_DIGITAL_VOLUME_1L, ARIZONA_ADC_VCO_CAL_4
+	},
+	{
+		ARIZONA_IN2R_ENA, ARIZONA_IN2L_CONTROL,
+		ARIZONA_ADC_DIGITAL_VOLUME_2R, ARIZONA_ADC_VCO_CAL_7
+	},
+	{
+		ARIZONA_IN2L_ENA, ARIZONA_IN2L_CONTROL,
+		ARIZONA_ADC_DIGITAL_VOLUME_2L, ARIZONA_ADC_VCO_CAL_6
+	},
+	{
+		ARIZONA_IN3R_ENA, ARIZONA_IN3L_CONTROL,
+		ARIZONA_ADC_DIGITAL_VOLUME_3R, ARIZONA_ADC_VCO_CAL_9
+	},
+	{
+		ARIZONA_IN3L_ENA, ARIZONA_IN3L_CONTROL,
+		ARIZONA_ADC_DIGITAL_VOLUME_3L, ARIZONA_ADC_VCO_CAL_8
+	},
+};
+
+static void arizona_florida_mute_analog(struct arizona* arizona,
+					unsigned int mute)
+{
+	unsigned int val, chans;
+	int i;
+
+	regmap_read(arizona->regmap, ARIZONA_INPUT_ENABLES_STATUS, &chans);
+
+	for (i = 0; i < ARRAY_SIZE(arizona_florida_channel_defs); ++i) {
+		if (!(chans & arizona_florida_channel_defs[i].enable))
+			continue;
+
+		/* Check for analogue input */
+		regmap_read(arizona->regmap,
+			    arizona_florida_channel_defs[i].conf_reg,
+			    &val);
+		if (val & 0x0400)
+			continue;
+
+		regmap_update_bits(arizona->regmap,
+				   arizona_florida_channel_defs[i].vol_reg,
+				   ARIZONA_IN1L_MUTE,
+				   mute);
+	}
+}
+
+static bool arizona_florida_get_input_state(struct arizona* arizona)
+{
+	unsigned int val, chans;
+	int count, i, j;
+
+	regmap_read(arizona->regmap, ARIZONA_INPUT_ENABLES_STATUS, &chans);
+
+	for (i = 0; i < ARRAY_SIZE(arizona_florida_channel_defs); ++i) {
+		if (!(chans & arizona_florida_channel_defs[i].enable))
+			continue;
+
+		/* Check for analogue input */
+		regmap_read(arizona->regmap,
+			    arizona_florida_channel_defs[i].conf_reg,
+			    &val);
+		if (val & 0x0400)
+			continue;
+
+		count = 0;
+
+		for (j = 0; j < 4; ++j) {
+			regmap_read(arizona->regmap,
+				    arizona_florida_channel_defs[i].adc_reg,
+				    &val);
+			val &= ARIZONA_ADC1L_COUNT_RD_MASK;
+			val >>= ARIZONA_ADC1L_COUNT_RD_SHIFT;
+
+			dev_dbg(arizona->dev, "ADC Count: %d\n", val);
+
+			if (val > 78 || val < 54)
+				count++;
+		}
+
+		if (count == j)
+			return true;
+	}
+
+	return false;
+}
+
+void arizona_florida_clear_input(struct arizona *arizona)
+{
+	regmap_write(arizona->regmap, 0x80, 0x3);
+
+	if (arizona_florida_get_input_state(arizona)) {
+		arizona_florida_mute_analog(arizona, ARIZONA_IN1L_MUTE);
+
+		regmap_write(arizona->regmap, 0x3A6, 0x5555);
+		regmap_write(arizona->regmap, 0x3A5, 0x3);
+		msleep(10);
+		regmap_write(arizona->regmap, 0x3A5, 0x0);
+
+		if (arizona_florida_get_input_state(arizona)) {
+			regmap_write(arizona->regmap, 0x3A6, 0xAAAA);
+			regmap_write(arizona->regmap, 0x3A5, 0x5);
+			msleep(10);
+			regmap_write(arizona->regmap, 0x3A5, 0x0);
+		}
+
+		regmap_write(arizona->regmap, 0x3A6, 0x0);
+
+		msleep(5);
+
+		arizona_florida_mute_analog(arizona, 0);
+	}
+
+	regmap_write(arizona->regmap, 0x80, 0x0);
+}
+EXPORT_SYMBOL_GPL(arizona_florida_clear_input);
+
 int arizona_dev_init(struct arizona *arizona)
 {
 	struct device *dev = arizona->dev;

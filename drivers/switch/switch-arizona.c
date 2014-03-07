@@ -92,6 +92,8 @@ struct arizona_extcon_info {
 	struct delayed_work hpdet_work;
 	struct delayed_work micd_detect_work;
 	struct delayed_work micd_timeout_work;
+	struct delayed_work micd_clear_work;
+	bool first_clear;
 
 	bool hpdet_active;
 	bool hpdet_done;
@@ -1124,6 +1126,24 @@ handled:
 	mutex_unlock(&info->lock);
 }
 
+static void arizona_micd_input_clear(struct work_struct *work)
+{
+	struct arizona_extcon_info *info = container_of(work,
+							struct arizona_extcon_info,
+							micd_clear_work.work);
+	struct arizona *arizona = info->arizona;
+
+	arizona_florida_clear_input(arizona);
+
+	mutex_lock(&info->lock);
+	if (info->first_clear) {
+		schedule_delayed_work(&info->micd_clear_work,
+				      msecs_to_jiffies(900));
+		info->first_clear = false;
+	}
+	mutex_unlock(&info->lock);
+}
+
 static irqreturn_t arizona_micdet(int irq, void *data)
 {
 	struct arizona_extcon_info *info = data;
@@ -1132,10 +1152,23 @@ static irqreturn_t arizona_micdet(int irq, void *data)
 
 	cancel_delayed_work_sync(&info->micd_detect_work);
 	cancel_delayed_work_sync(&info->micd_timeout_work);
+	cancel_delayed_work_sync(&info->micd_clear_work);
 
 	mutex_lock(&info->lock);
+
 	if (!info->detecting)
 		debounce = 0;
+
+	switch (arizona->type) {
+	case WM5110:
+		info->first_clear = true;
+		schedule_delayed_work(&info->micd_clear_work,
+				      msecs_to_jiffies(80));
+		break;
+	default:
+		break;
+	}
+
 	mutex_unlock(&info->lock);
 
 	if (debounce)
@@ -1405,6 +1438,7 @@ static int arizona_extcon_probe(struct platform_device *pdev)
 	info->last_jackdet = ~(ARIZONA_MICD_CLAMP_STS | ARIZONA_JD1_STS);
 	INIT_DELAYED_WORK(&info->hpdet_work, arizona_hpdet_work);
 	INIT_DELAYED_WORK(&info->micd_detect_work, arizona_micd_detect);
+	INIT_DELAYED_WORK(&info->micd_clear_work, arizona_micd_input_clear);
 	INIT_DELAYED_WORK(&info->micd_timeout_work, arizona_micd_timeout_work);
 	platform_set_drvdata(pdev, info);
 
