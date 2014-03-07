@@ -82,8 +82,8 @@ int q6audio_get_port_index(u16 port_id)
 		return IDX_AFE_PORT_ID_TERTIARY_MI2S_TX;
 	case AUDIO_PORT_ID_I2S_RX:
 		return IDX_AUDIO_PORT_ID_I2S_RX;
-	case AFE_PORT_ID_SECONDARY_MI2S_RX_VIBRA:
-		return IDX_AFE_PORT_ID_SECONDARY_MI2S_RX_VIBRA;
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_SD1:
+		return IDX_AFE_PORT_ID_SECONDARY_MI2S_RX_SD1;
 	default: return -EINVAL;
 	}
 }
@@ -151,8 +151,8 @@ int q6audio_get_port_id(u16 port_id)
 			     return AFE_PORT_ID_TERTIARY_MI2S_TX;
 	case AUDIO_PORT_ID_I2S_RX:
 			return AUDIO_PORT_ID_I2S_RX;
-	case AFE_PORT_ID_SECONDARY_MI2S_RX_VIBRA:
-			     return AFE_PORT_ID_SECONDARY_MI2S_RX_VIBRA;
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_SD1:
+			     return AFE_PORT_ID_SECONDARY_MI2S_RX_SD1;
 	default:
 		pr_warn("%s: Invalid port_id %d\n", __func__, port_id);
 		return -EINVAL;
@@ -203,7 +203,7 @@ int q6audio_is_digital_pcm_interface(u16 port_id)
 	case AFE_PORT_ID_SECONDARY_MI2S_RX:
 	case AFE_PORT_ID_SECONDARY_MI2S_TX:
 	case AUDIO_PORT_ID_I2S_RX:
-	case AFE_PORT_ID_SECONDARY_MI2S_RX_VIBRA:
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_SD1:
 		break;
 	default:
 		ret = -EINVAL;
@@ -263,7 +263,7 @@ int q6audio_validate_port(u16 port_id)
 	case AFE_PORT_ID_SPDIF_RX:
 	case AFE_PORT_ID_TERTIARY_MI2S_RX:
 	case AFE_PORT_ID_TERTIARY_MI2S_TX:
-	case AFE_PORT_ID_SECONDARY_MI2S_RX_VIBRA:
+	case AFE_PORT_ID_SECONDARY_MI2S_RX_SD1:
 	{
 		ret = 0;
 		break;
