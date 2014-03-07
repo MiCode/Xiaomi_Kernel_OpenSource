@@ -3240,7 +3240,7 @@ static int _sha256_hmac_digest(struct ahash_request *req)
 static int _qcrypto_prefix_alg_cra_name(char cra_name[], unsigned int size)
 {
 	char new_cra_name[CRYPTO_MAX_ALG_NAME] = "qcom-";
-	if (CRYPTO_MAX_ALG_NAME < size + 5)
+	if (size >= CRYPTO_MAX_ALG_NAME - strlen("qcom-"))
 		return -EINVAL;
 	strlcat(new_cra_name, cra_name, CRYPTO_MAX_ALG_NAME);
 	strlcpy(cra_name, new_cra_name, CRYPTO_MAX_ALG_NAME);
