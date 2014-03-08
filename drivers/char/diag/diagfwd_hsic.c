@@ -258,7 +258,7 @@ static void diag_read_hsic_dci_work_fn(struct work_struct *work)
 static void diag_hsic_read_complete_callback(void *ctxt, char *buf,
 					int buf_size, int actual_size)
 {
-	int err = -2;
+	int err = 0;
 	int index = (int)ctxt;
 	static DEFINE_RATELIMIT_STATE(rl, 10*HZ, 1);
 
@@ -310,13 +310,15 @@ static void diag_hsic_read_complete_callback(void *ctxt, char *buf,
 	}
 
 	/*
-	 * If for some reason there was no HSIC data to write to the
-	 * mdm channel, set up another read
+	 * Actual Size is a negative error value when read complete
+	 * fails. Don't queue a read in this case. Doing so will not let
+	 * HSIC to goto suspend.
+	 *
+	 * Queue another read only when the read completes successfully
+	 * and Diag is either in Memory device mode or USB is connected.
 	 */
-	if (err &&
-		((driver->logging_mode == MEMORY_DEVICE_MODE) ||
-		(diag_bridge[index].usb_connected &&
-		!diag_hsic[index].hsic_suspend))) {
+	if (actual_size >= 0 && (driver->logging_mode == MEMORY_DEVICE_MODE ||
+				 diag_bridge[index].usb_connected)) {
 		queue_work(diag_bridge[index].wq,
 				 &diag_hsic[index].diag_read_hsic_work);
 	}
