@@ -1715,7 +1715,7 @@ static void __exit rpm_vreg_exit(void)
 	platform_driver_unregister(&rpm_vreg_resource_driver);
 }
 
-module_init(rpm_smd_regulator_driver_init);
+arch_initcall(rpm_smd_regulator_driver_init);
 module_exit(rpm_vreg_exit);
 
 MODULE_LICENSE("GPL v2");
