@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -121,7 +121,7 @@ char *mdss_dsi_buf_unreserve(struct dsi_buf *dp, int len);
 char *mdss_dsi_buf_push(struct dsi_buf *dp, int len);
 char *mdss_dsi_buf_reserve_hdr(struct dsi_buf *dp, int hlen);
 char *mdss_dsi_buf_init(struct dsi_buf *dp);
-int mdss_dsi_buf_alloc(struct dsi_buf *dp, int size);
+int mdss_dsi_buf_alloc(struct device *ctrl_dev, struct dsi_buf *dp, int size);
 int mdss_dsi_cmd_dma_add(struct dsi_buf *dp, struct dsi_cmd_desc *cm);
 int mdss_dsi_short_read1_resp(struct dsi_buf *rp);
 int mdss_dsi_short_read2_resp(struct dsi_buf *rp);

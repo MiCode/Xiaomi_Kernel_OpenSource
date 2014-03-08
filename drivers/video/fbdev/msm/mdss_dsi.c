@@ -1579,7 +1579,7 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	if (ctrl_pdata->bklt_ctrl == BL_PWM)
 		mdss_dsi_panel_pwm_cfg(ctrl_pdata);
 
-	mdss_dsi_ctrl_init(ctrl_pdata);
+	mdss_dsi_ctrl_init(&ctrl_pdev->dev, ctrl_pdata);
 	/*
 	 * register in mdp driver
 	 */
