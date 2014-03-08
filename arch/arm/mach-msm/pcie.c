@@ -35,6 +35,8 @@
 #include <mach/gpiomux.h>
 #include <mach/hardware.h>
 #include <mach/msm_iomap.h>
+#include <linux/msm-bus.h>
+#include <linux/msm-bus-board.h>
 
 #include "pcie.h"
 
@@ -480,6 +482,16 @@ static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
 		return rc;
 	}
 
+	if (dev->bus_client) {
+		rc = msm_bus_scale_client_update_request(dev->bus_client, 1);
+		if (rc) {
+			pr_err(
+				"PCIe:%s:fail to set bus bandwidth for RC %d:%d\n",
+				__func__, dev->rc_idx, rc);
+			return rc;
+		}
+	}
+
 	for (i = 0; i < MSM_PCIE_MAX_CLK; i++) {
 		info = &dev->clk[i];
 
@@ -520,10 +532,19 @@ static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
 static void msm_pcie_clk_deinit(struct msm_pcie_dev_t *dev)
 {
 	int i;
+	int rc;
 
 	for (i = 0; i < MSM_PCIE_MAX_CLK; i++)
 		if (dev->clk[i].hdl)
 			clk_disable_unprepare(dev->clk[i].hdl);
+
+	if (dev->bus_client) {
+		rc = msm_bus_scale_client_update_request(dev->bus_client, 0);
+		if (rc)
+			pr_err(
+				"PCIe:%s:fail to set bus bandwidth for RC %d:%d\n",
+				__func__, dev->rc_idx, rc);
+	}
 
 	regulator_disable(dev->gdsc);
 }
@@ -838,6 +859,25 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 				PCIE_DBG("Freq of Clock %s is:%d\n",
 					clk_info->name, clk_info->freq);
 			}
+		}
+	}
+
+
+	dev->bus_scale_table = msm_bus_cl_get_pdata(pdev);
+	if (!dev->bus_scale_table) {
+		PCIE_DBG("PCIe: No bus scale table for RC %d (%s)\n",
+			dev->rc_idx, dev->pdev->name);
+		dev->bus_client = 0;
+	} else {
+		dev->bus_client =
+			msm_bus_scale_register_client(dev->bus_scale_table);
+		if (!dev->bus_client) {
+			pr_err(
+				"PCIe: Failed to register bus client for RC %d (%s)\n",
+				dev->rc_idx, dev->pdev->name);
+			msm_bus_cl_clear_pdata(dev->bus_scale_table);
+			ret = -ENODEV;
+			goto out;
 		}
 	}
 
