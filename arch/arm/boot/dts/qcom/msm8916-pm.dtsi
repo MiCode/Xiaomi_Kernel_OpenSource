@@ -231,7 +231,7 @@
 			<0xff 207>, /* rpm_ipc(27) */
 			<0xff 240>; /* summary_irq_kpss */
 
-		qcom,gpio-parent = <&msmgpio>;
+		qcom,gpio-parent = <&msm_gpio>;
 		qcom,gpio-map = <3  108 >,
 			<4  1 >,
 			<5  5 >,
