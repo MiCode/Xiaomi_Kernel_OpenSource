@@ -14,6 +14,7 @@
 #include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/msm-bus.h>
 #include <linux/platform_device.h>
 #include <linux/errno.h>
 #include <linux/io.h>
