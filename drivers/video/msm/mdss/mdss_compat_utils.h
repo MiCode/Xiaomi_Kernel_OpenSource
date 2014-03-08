@@ -369,4 +369,11 @@ struct mdp_overlay32 {
 	struct mdp_scale_data scale;
 };
 
+struct mdp_overlay_list32 {
+	uint32_t num_overlays;
+	compat_caddr_t overlay_list;
+	uint32_t flags;
+	uint32_t processed_overlays;
+};
+
 #endif
