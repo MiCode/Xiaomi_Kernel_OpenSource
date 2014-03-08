@@ -36,6 +36,7 @@
 #include <linux/mfd/pm8xxx/misc.h>
 #include <linux/qpnp/qpnp-adc.h>
 
+#include <mach/board.h>
 #include <mach/msm_smd.h>
 #include <mach/msm_iomap.h>
 #include <mach/subsystem_restart.h>
@@ -749,6 +750,22 @@ void wcnss_pronto_log_debug_regs(void)
 EXPORT_SYMBOL(wcnss_pronto_log_debug_regs);
 
 #ifdef CONFIG_WCNSS_REGISTER_DUMP_ON_BITE
+static void wcnss_log_iris_regs(void)
+{
+	int i;
+	u32 reg_val;
+	u32 regs_array[] = {
+		0x04, 0x05, 0x11, 0x1e, 0x40, 0x48,
+		0x49, 0x4b, 0x00, 0x01, 0x4d};
+
+	pr_info("IRIS Registers [address] : value\n");
+
+	for (i = 0; i < ARRAY_SIZE(regs_array); i++) {
+		reg_val = wcnss_rf_read_reg(regs_array[i]);
+		pr_info("[0x%08x] : 0x%08x\n", regs_array[i], reg_val);
+	}
+}
+
 void wcnss_log_debug_regs_on_bite(void)
 {
 	struct platform_device *pdev = wcnss_get_platform_device();
@@ -769,10 +786,12 @@ void wcnss_log_debug_regs_on_bite(void)
 		clk_rate = clk_get_rate(measure);
 		pr_debug("wcnss: clock frequency is: %luHz\n", clk_rate);
 
-		if (clk_rate)
+		if (clk_rate) {
 			wcnss_pronto_log_debug_regs();
-		else
+		} else {
 			pr_err("clock frequency is zero, cannot access PMU or other registers\n");
+			wcnss_log_iris_regs();
+		}
 	}
 }
 #endif
