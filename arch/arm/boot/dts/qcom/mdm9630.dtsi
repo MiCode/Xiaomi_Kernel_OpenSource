@@ -282,6 +282,13 @@
 				"pcie_0_ldo";
 		max-clock-frequency-hz = <125000000>, <0>, <1000000>,
 						<0>, <0>, <0>, <0>;
+
+		qcom,msm-bus,name = "pcie0";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<45 512 0 0>,
+				<45 512 500 800>;
 	};
 
 	spi_2: spi@f9924000 { /* BLSP1 QUP2 */
