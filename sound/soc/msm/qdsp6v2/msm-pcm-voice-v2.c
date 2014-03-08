@@ -405,12 +405,37 @@ static int msm_voice_mute_put(struct snd_kcontrol *kcontrol,
 	pr_debug("%s: mute=%d session_id=%#x ramp_duration=%d\n", __func__,
 		mute, session_id, ramp_duration);
 
-	voc_set_tx_mute(session_id, TX_PATH, mute, ramp_duration);
+	ret = voc_set_tx_mute(session_id, TX_PATH, mute, ramp_duration);
 
 done:
 	return ret;
 }
 
+static int msm_voice_tx_device_mute_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	int mute = ucontrol->value.integer.value[0];
+	uint32_t session_id = ucontrol->value.integer.value[1];
+	int ramp_duration = ucontrol->value.integer.value[2];
+
+	if ((mute < 0) || (mute > 1) || (ramp_duration < 0) ||
+	    (ramp_duration > MAX_RAMP_DURATION)) {
+		pr_err(" %s Invalid arguments", __func__);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	pr_debug("%s: mute=%d session_id=%#x ramp_duration=%d\n", __func__,
+		 mute, session_id, ramp_duration);
+
+	ret = voc_set_device_mute(session_id, VSS_IVOLUME_DIRECTION_TX,
+				  mute, ramp_duration);
+
+done:
+	return ret;
+}
 
 static int msm_voice_rx_device_mute_put(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
@@ -420,8 +445,8 @@ static int msm_voice_rx_device_mute_put(struct snd_kcontrol *kcontrol,
 	uint32_t session_id = ucontrol->value.integer.value[1];
 	int ramp_duration = ucontrol->value.integer.value[2];
 
-	if ((mute < 0) || (mute > 1) || (ramp_duration < 0)
-		|| (ramp_duration > MAX_RAMP_DURATION)) {
+	if ((mute < 0) || (mute > 1) || (ramp_duration < 0) ||
+	    (ramp_duration > MAX_RAMP_DURATION)) {
 		pr_err(" %s Invalid arguments", __func__);
 
 		ret = -EINVAL;
@@ -429,9 +454,10 @@ static int msm_voice_rx_device_mute_put(struct snd_kcontrol *kcontrol,
 	}
 
 	pr_debug("%s: mute=%d session_id=%#x ramp_duration=%d\n", __func__,
-		mute, session_id, ramp_duration);
+		 mute, session_id, ramp_duration);
 
-	voc_set_rx_device_mute(session_id, mute, ramp_duration);
+	voc_set_device_mute(session_id, VSS_IVOLUME_DIRECTION_RX,
+			    mute, ramp_duration);
 
 done:
 	return ret;
@@ -485,6 +511,8 @@ static int msm_voice_slowtalk_put(struct snd_kcontrol *kcontrol,
 static struct snd_kcontrol_new msm_voice_controls[] = {
 	SOC_SINGLE_MULTI_EXT("Voice Rx Device Mute", SND_SOC_NOPM, 0, VSID_MAX,
 				0, 3, NULL, msm_voice_rx_device_mute_put),
+	SOC_SINGLE_MULTI_EXT("Voice Tx Device Mute", SND_SOC_NOPM, 0, VSID_MAX,
+				0, 3, NULL, msm_voice_tx_device_mute_put),
 	SOC_SINGLE_MULTI_EXT("Voice Tx Mute", SND_SOC_NOPM, 0, VSID_MAX,
 				0, 3, NULL, msm_voice_mute_put),
 	SOC_SINGLE_MULTI_EXT("Voice Rx Gain", SND_SOC_NOPM, 0, VSID_MAX, 0, 3,
