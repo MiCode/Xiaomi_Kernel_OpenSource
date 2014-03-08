@@ -164,6 +164,14 @@ config MT9M114
 		and snapshot. The preview and snapshot resolution shall be
 		1280 * 270. It does not support auto focus. It supports
 		few special effects like saturation.
+config OV5645
+	bool "Sensor OV5645 (YUV 5.0MP)"
+	depends on MSMB_CAMERA
+	---help---
+		OV5645 is Omnivision YUV sensor. It supports 5.0 MP preview
+		and snapshot. The preview and snapshot resolution shall be
+		1280 * 270. It does not support auto focus. It supports
+		few special effects like saturation.
 
 config SP1628
 	bool "Sensor SP1628 (YUV 720P)"

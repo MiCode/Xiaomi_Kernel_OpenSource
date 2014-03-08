@@ -38,7 +38,7 @@
 
 
 	qcom,camera@78 {
-		compatible = "qcom,ov5645";
+		compatible = "ovti,ov5645";
 		reg = <0x78 0x0>;
 		qcom,slave-id = <0x78 0x300a 0x5645>;
 		qcom,csiphy-sd-index = <1>;
