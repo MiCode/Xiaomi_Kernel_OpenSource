@@ -88,6 +88,22 @@ static const char *const proxy_rx_ch_text[] = {"One", "Two", "Three", "Four",
 static const char *const mi2s_tx_ch_text[] = {"One", "Two"};
 static const char *const mi2s_rx_ch_text[] = {"One", "Two"};
 
+/*
+ * enum mi2s_pin_state - states for the mi2s pinctrl states
+ * Note: these states are similar to the "pinctrl-names
+ * in board/target specific DTSI file.
+ */
+enum mi2s_pin_state {
+	MI2S_STATE_DISABLE = 0,
+	MI2S_STATE_PRI_ON = 1,
+	MI2S_STATE_PRI_QUAD_ON = 2,
+	MI2S_STATE_QUAD_ON = 3
+};
+static const char *const mi2s_pin_states[] = {"Disable",
+					      "pri_mi2s_active",
+					      "pri_quad_mi2s_active",
+					      "quad_mi2s_active"};
+
 void *def_taiko_i2s_mbhc_cal(void);
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec,
 		int enable, bool dapm);
@@ -134,6 +150,26 @@ struct msm_mi2s_ctrl {
 	void __iomem *mi2s_mux;
 };
 
+/*
+ * struct msm_mi2s_pinctrl_info - manage all the pinctrl information
+ *
+ * @pinctrl:		TSC pinctrl state holder.
+ * @disable:		pinctrl state to disable all the pins.
+ * @pri_mi2s_active:	pinctrl state to activate Primary MI2S alone.
+ * @pri_quad_mi2s_active:pinctrl state to activate both Primary and Quaternary
+ *			MI2S
+ * @quad_mi2s_active:	pinctrl state to activate Quaternary MI2S alone.
+ * @curr_state:		the current state of the TLMM pins.
+ */
+struct msm_mi2s_pinctrl_info {
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *disable;
+	struct pinctrl_state *pri_mi2s_active;
+	struct pinctrl_state *pri_quad_mi2s_active;
+	struct pinctrl_state *quad_mi2s_active;
+	enum mi2s_pin_state curr_mi2s_state;
+};
+
 struct apq8084_asoc_mach_data {
 	u32 mclk_freq;
 	int us_euro_gpio;
@@ -145,6 +181,8 @@ struct apq8084_asoc_mach_data {
 	u32 pri_tx_clk_usrs;
 	u32 quad_rx_clk_usrs;
 	u32 quad_tx_clk_usrs;
+	bool use_pinctrl;
+	struct msm_mi2s_pinctrl_info mi2s_pinctrl_info;
 };
 
 static const struct afe_clk_cfg lpass_default = {
@@ -515,6 +553,158 @@ static struct snd_soc_ops msm_sec_auxpcm_be_ops = {
 	.shutdown = msm_sec_auxpcm_shutdown,
 };
 
+static int msm_quad_mi2s_set_pinctrl(struct apq8084_asoc_mach_data *pdata)
+{
+	struct msm_mi2s_pinctrl_info *pinctrl_info = &pdata->mi2s_pinctrl_info;
+	int ret;
+
+	pr_debug("%s: curr_mi2s_state = %s\n", __func__,
+		 mi2s_pin_states[pinctrl_info->curr_mi2s_state]);
+	/* Enable Quaternary MI2S TLMM pins and set to appropriate state */
+	switch (pinctrl_info->curr_mi2s_state) {
+	case MI2S_STATE_DISABLE:
+		ret = pinctrl_select_state(pinctrl_info->pinctrl,
+					   pinctrl_info->quad_mi2s_active);
+		if (ret)
+			goto err;
+		pinctrl_info->curr_mi2s_state = MI2S_STATE_QUAD_ON;
+		break;
+	case MI2S_STATE_PRI_ON:
+		ret = pinctrl_select_state(pinctrl_info->pinctrl,
+					   pinctrl_info->pri_quad_mi2s_active);
+		if (ret)
+			goto err;
+		pinctrl_info->curr_mi2s_state = MI2S_STATE_PRI_QUAD_ON;
+		break;
+	case MI2S_STATE_PRI_QUAD_ON:
+	case MI2S_STATE_QUAD_ON:
+		pr_err("%s: MI2S TLMM pins already set\n", __func__);
+		break;
+	default:
+		pr_err("%s: MI2S TLMM pin state is invalid\n", __func__);
+		return -EINVAL;
+	}
+
+	return 0;
+err:
+	pr_err("%s: Failed to set TLMM pins with %d\n", __func__, ret);
+	return -EIO;
+}
+
+static int msm_quad_mi2s_reset_pinctrl(struct apq8084_asoc_mach_data *pdata)
+{
+	struct msm_mi2s_pinctrl_info *pinctrl_info = &pdata->mi2s_pinctrl_info;
+	int ret;
+
+	pr_debug("%s: curr_mi2s_state = %s\n", __func__,
+		 mi2s_pin_states[pinctrl_info->curr_mi2s_state]);
+	/* Reset Quaternary MI2S TLMM pins and set to appropriate state */
+	switch (pinctrl_info->curr_mi2s_state) {
+	case MI2S_STATE_QUAD_ON:
+		ret = pinctrl_select_state(pinctrl_info->pinctrl,
+					   pinctrl_info->disable);
+		if (ret)
+			goto err;
+		pinctrl_info->curr_mi2s_state = MI2S_STATE_DISABLE;
+		break;
+	case MI2S_STATE_PRI_QUAD_ON:
+		ret = pinctrl_select_state(pinctrl_info->pinctrl,
+					   pinctrl_info->pri_mi2s_active);
+		if (ret)
+			goto err;
+		pinctrl_info->curr_mi2s_state = MI2S_STATE_PRI_ON;
+		break;
+	case MI2S_STATE_PRI_ON:
+	case MI2S_STATE_DISABLE:
+		pr_err("%s: MI2S TLMM pins already disabled\n", __func__);
+		break;
+	default:
+		pr_err("%s: MI2S TLMM pin state is invalid\n", __func__);
+		return -EINVAL;
+	}
+
+	return 0;
+err:
+	pr_err("%s: Failed to reset TLMM pins with %d\n", __func__, ret);
+	return -EIO;
+}
+
+static int msm_pri_mi2s_set_pinctrl(struct apq8084_asoc_mach_data *pdata)
+{
+	struct msm_mi2s_pinctrl_info *pinctrl_info = &pdata->mi2s_pinctrl_info;
+	int ret;
+
+	pr_debug("%s: curr_mi2s_state = %s\n", __func__,
+		 mi2s_pin_states[pinctrl_info->curr_mi2s_state]);
+	/* Enable Primary MI2S TLMM pins and set to appropriate state */
+	switch (pinctrl_info->curr_mi2s_state) {
+	case MI2S_STATE_DISABLE:
+		ret = pinctrl_select_state(pinctrl_info->pinctrl,
+					   pinctrl_info->pri_mi2s_active);
+		if (ret)
+			goto err;
+		pinctrl_info->curr_mi2s_state = MI2S_STATE_PRI_ON;
+		break;
+	case MI2S_STATE_QUAD_ON:
+		ret = pinctrl_select_state(pinctrl_info->pinctrl,
+					   pinctrl_info->pri_quad_mi2s_active);
+		if (ret)
+			goto err;
+		pinctrl_info->curr_mi2s_state = MI2S_STATE_PRI_QUAD_ON;
+		break;
+	case MI2S_STATE_PRI_QUAD_ON:
+	case MI2S_STATE_PRI_ON:
+		pr_err("%s: MI2S TLMM pins already set\n", __func__);
+		break;
+	default:
+		pr_err("%s: MI2S TLMM pin state is invalid\n", __func__);
+		return -EINVAL;
+	}
+
+	return 0;
+err:
+	pr_err("%s: Failed to set TLMM pins with %d\n", __func__, ret);
+	return -EIO;
+}
+
+static int msm_pri_mi2s_reset_pinctrl(struct apq8084_asoc_mach_data *pdata)
+{
+	struct msm_mi2s_pinctrl_info *pinctrl_info = &pdata->mi2s_pinctrl_info;
+	int ret;
+
+	pr_debug("%s: curr_mi2s_state = %s\n", __func__,
+		 mi2s_pin_states[pinctrl_info->curr_mi2s_state]);
+	/* Reset Primary MI2S TLMM pins and set to appropriate state */
+	switch (pinctrl_info->curr_mi2s_state) {
+	case MI2S_STATE_PRI_ON:
+		ret = pinctrl_select_state(pinctrl_info->pinctrl,
+					   pinctrl_info->disable);
+		if (ret)
+			goto err;
+		pinctrl_info->curr_mi2s_state = MI2S_STATE_DISABLE;
+		break;
+	case MI2S_STATE_PRI_QUAD_ON:
+		ret = pinctrl_select_state(pinctrl_info->pinctrl,
+					   pinctrl_info->quad_mi2s_active);
+		if (ret)
+			goto err;
+		pinctrl_info->curr_mi2s_state = MI2S_STATE_QUAD_ON;
+		break;
+	case MI2S_STATE_QUAD_ON:
+	case MI2S_STATE_DISABLE:
+		pr_err("%s: MI2S TLMM pins already disabled\n", __func__);
+		break;
+	default:
+		pr_err("%s: MI2S TLMM pin state is invalid\n", __func__);
+		return -EINVAL;
+	}
+
+	return 0;
+err:
+	pr_err("%s: Failed to reset TLMM pins with %d\n", __func__, ret);
+	return -EIO;
+}
+
 static int msm_mi2s_get_gpios(struct msm_mi2s_ctrl *mi2s_ctrl)
 {
 	struct msm_mi2s_gpio *pin_data = NULL;
@@ -693,12 +883,18 @@ static int msm_quad_mi2s_startup(struct snd_pcm_substream *substream)
 		goto err;
 	}
 	mi2s_ctrl = pdata->quad_mi2s_ctrl;
-
-	if (mi2s_ctrl == NULL || mi2s_ctrl->pin_data == NULL ||
-	    mi2s_ctrl->mi2s_mux == NULL) {
-		pr_err("%s: Invalid control data for AUXPCM\n", __func__);
+	if (mi2s_ctrl == NULL || mi2s_ctrl->mi2s_mux == NULL) {
+		pr_err("%s: Invalid control data for Quad MI2S\n", __func__);
 		ret = -EINVAL;
 		goto err;
+	}
+	if (!pdata->use_pinctrl) {
+		if (mi2s_ctrl->pin_data == NULL) {
+			pr_err("%s: Invalid GPIO data for Quad MI2S\n",
+				__func__);
+			ret = -EINVAL;
+			goto err;
+		}
 	}
 	if (atomic_inc_return(&quad_mi2s_ref_count) == 1) {
 		pcm_sel_reg = ioread32(mi2s_ctrl->mi2s_mux);
@@ -713,11 +909,20 @@ static int msm_quad_mi2s_startup(struct snd_pcm_substream *substream)
 			  (MI2S_SLAVE_SEL << MI2S_SLAVE_SEL_OFFSET),
 			  mi2s_ctrl->mi2s_mux);
 
-		ret = msm_mi2s_get_gpios(mi2s_ctrl);
-		if (ret) {
-			pr_err("%s: MI2S GPIO request failed with %d\n",
-				__func__, ret);
-			return -EINVAL;
+		if (pdata->use_pinctrl) {
+			ret = msm_quad_mi2s_set_pinctrl(pdata);
+			if (ret) {
+				pr_err("%s: MI2S TLMM pinctrl set failed with %d\n",
+					__func__, ret);
+				return ret;
+			}
+		} else {
+			ret = msm_mi2s_get_gpios(mi2s_ctrl);
+			if (ret) {
+				pr_err("%s: MI2S GPIO request failed with %d\n",
+					__func__, ret);
+				return -EINVAL;
+			}
 		}
 
 		ret = apq8084_quad_mi2s_clk_ctl(rtd, true, substream);
@@ -758,7 +963,14 @@ static void msm_quad_mi2s_shutdown(struct snd_pcm_substream *substream)
 	mi2s_ctrl = pdata->quad_mi2s_ctrl;
 
 	if (atomic_dec_return(&quad_mi2s_ref_count) == 0) {
-		msm_mi2s_free_gpios(mi2s_ctrl);
+		if (pdata->use_pinctrl) {
+			ret = msm_quad_mi2s_reset_pinctrl(pdata);
+			if (ret)
+				pr_err("%s Reset pinctrl failed with %d\n",
+					__func__, ret);
+		} else {
+			msm_mi2s_free_gpios(mi2s_ctrl);
+		}
 		ret = apq8084_quad_mi2s_clk_ctl(rtd, false, substream);
 		if (ret)
 			pr_err("%s Clock disable failed with %d\n",
@@ -960,13 +1172,21 @@ static int msm_pri_mi2s_startup(struct snd_pcm_substream *substream)
 		goto err;
 	}
 	mi2s_ctrl = pdata->pri_mi2s_ctrl;
-
-	if (mi2s_ctrl == NULL || mi2s_ctrl->pin_data == NULL ||
-	    mi2s_ctrl->mi2s_mux == NULL) {
-		pr_err("%s: Invalid control data for AUXPCM\n", __func__);
+	if (mi2s_ctrl == NULL || mi2s_ctrl->mi2s_mux == NULL) {
+		pr_err("%s: Invalid control data for Primary MI2S\n",
+			__func__);
 		ret = -EINVAL;
 		goto err;
 	}
+	if (!pdata->use_pinctrl) {
+		if (mi2s_ctrl->pin_data == NULL) {
+			pr_err("%s: Invalid GPIO data for Primary MI2S\n",
+				__func__);
+			ret = -EINVAL;
+			goto err;
+		}
+	}
+
 	if (atomic_inc_return(&pri_mi2s_ref_count) == 1) {
 		pcm_sel_reg = ioread32(mi2s_ctrl->mi2s_mux);
 		if ((pcm_sel_reg & (I2S_PCM_SEL << I2S_PCM_SEL_OFFSET)) ==
@@ -980,10 +1200,20 @@ static int msm_pri_mi2s_startup(struct snd_pcm_substream *substream)
 			  (MI2S_SLAVE_SEL << MI2S_SLAVE_SEL_OFFSET),
 			  mi2s_ctrl->mi2s_mux);
 
-		ret = msm_mi2s_get_gpios(mi2s_ctrl);
-		if (ret) {
-			pr_err("%s: MI2S GPIO request failed\n", __func__);
-			return ret;
+		if (pdata->use_pinctrl) {
+			ret = msm_pri_mi2s_set_pinctrl(pdata);
+			if (ret) {
+				pr_err("%s: MI2S TLMM pinctrl set failed with %d\n",
+					__func__, ret);
+				return ret;
+			}
+		} else {
+			ret = msm_mi2s_get_gpios(mi2s_ctrl);
+			if (ret) {
+				pr_err("%s: MI2S GPIO request failed\n",
+					__func__);
+				return ret;
+			}
 		}
 		ret = apq8084_pri_mi2s_clk_ctl(rtd, true, substream);
 		if (ret) {
@@ -1023,7 +1253,14 @@ static void msm_pri_mi2s_shutdown(struct snd_pcm_substream *substream)
 	mi2s_ctrl = pdata->pri_mi2s_ctrl;
 
 	if (atomic_dec_return(&pri_mi2s_ref_count) == 0) {
-		msm_mi2s_free_gpios(mi2s_ctrl);
+		if (pdata->use_pinctrl) {
+			ret = msm_pri_mi2s_reset_pinctrl(pdata);
+			if (ret)
+				pr_err("%s Reset pinctrl failed with %d\n",
+					__func__, ret);
+		} else {
+			msm_mi2s_free_gpios(mi2s_ctrl);
+		}
 		ret = apq8084_pri_mi2s_clk_ctl(rtd, false, substream);
 		if (ret)
 			pr_err("%s PRI MI2S Clock disable failed with %d\n",
@@ -1855,6 +2092,79 @@ err:
 	return ret;
 }
 
+/**
+ * msm_mi2s_get_pinctrl() - Get the MI2S pinctrl definitions.
+ *
+ * @pdev:	A pointer to the Audio platform device.
+ *
+ * Get the pinctrl states' handles from the device tree. The function doesn't
+ * enforce wrong pinctrl definitions, i.e. it's the client's responsibility to
+ * define all the necessary states for the board being used.
+ *
+ * Return 0 on success, error value otherwise.
+ */
+static int msm_mi2s_get_pinctrl(struct platform_device *pdev)
+{
+	struct snd_soc_card *card = platform_get_drvdata(pdev);
+	struct apq8084_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	struct msm_mi2s_pinctrl_info *pinctrl_info = &pdata->mi2s_pinctrl_info;
+	struct pinctrl *pinctrl;
+	int ret;
+
+	pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR(pinctrl)) {
+		pr_err("%s: Unable to get pinctrl handle\n", __func__);
+		return -EINVAL;
+	}
+	pinctrl_info->pinctrl = pinctrl;
+
+	/* get all the states handles from Device Tree*/
+	pinctrl_info->disable = pinctrl_lookup_state(pinctrl,
+						"pmx-pri-quad-mi2s-sleep");
+	if (IS_ERR(pinctrl_info->disable)) {
+		pr_err("%s: could not get disable pinstate\n", __func__);
+		goto err;
+	}
+
+	pinctrl_info->pri_mi2s_active =	pinctrl_lookup_state(pinctrl,
+						"pmx-pri-mi2s-active");
+	if (IS_ERR(pinctrl_info->pri_mi2s_active)) {
+		pr_err("%s: could not get pri_mi2s_active pinstate\n",
+			__func__);
+		goto err;
+	}
+	pinctrl_info->pri_quad_mi2s_active = pinctrl_lookup_state(pinctrl,
+						"pmx-pri-quad-mi2s-active");
+	if (IS_ERR(pinctrl_info->pri_quad_mi2s_active)) {
+		pr_err("%s: could not get pri_quad_mi2s_active pinstate\n",
+			__func__);
+		goto err;
+	}
+
+	pinctrl_info->quad_mi2s_active = pinctrl_lookup_state(pinctrl,
+						"pmx-quad-mi2s-active");
+	if (IS_ERR(pinctrl_info->quad_mi2s_active)) {
+		pr_err("%s: could not get quad_mi2s_active pinstate\n",
+			__func__);
+		goto err;
+	}
+
+	/* Reset the MI2S TLMM pins to a default state */
+	ret = pinctrl_select_state(pinctrl_info->pinctrl,
+					pinctrl_info->disable);
+	if (ret != 0) {
+		pr_err("%s: Failed to disable the TLMM pins\n", __func__);
+		return -EIO;
+	}
+	pinctrl_info->curr_mi2s_state = MI2S_STATE_DISABLE;
+	return 0;
+
+err:
+	devm_pinctrl_put(pinctrl);
+	pinctrl_info->pinctrl = NULL;
+	return -EINVAL;
+}
+
 static int apq8084_dtparse_mi2s(struct platform_device *pdev,
 				struct msm_mi2s_ctrl **mi2s_ctrl,
 				char *msm_mi2s_gpio_name[][2])
@@ -2030,22 +2340,32 @@ static int apq8084_asoc_machine_probe(struct platform_device *pdev)
 		goto err_quad_mi2s_ctrl;
 	}
 
-	/* Parse Primary MI2S info from DT */
-	ret = apq8084_dtparse_mi2s(pdev, &pdata->pri_mi2s_ctrl,
+	/* get pinctrl info for MI2S ports */
+	ret = msm_mi2s_get_pinctrl(pdev);
+	if (!ret) {
+		pr_debug("%s: MI2S pinctrl parsing successful\n", __func__);
+		pdata->use_pinctrl = true;
+	} else {
+		dev_info(&pdev->dev,
+			"%s: Parsing pinctrl failed with %d, Falling back to GPIO lib\n",
+			__func__, ret);
+		/* Parse Primary MI2S info from DT */
+		ret = apq8084_dtparse_mi2s(pdev, &pdata->pri_mi2s_ctrl,
 						msm_pri_mi2s_gpio_name);
-	if (ret) {
-		dev_err(&pdev->dev, "%s: PRI MI2S pin data parse failed\n",
-			__func__);
-		goto err_mi2s_ctrl;
-	}
+		if (ret) {
+			dev_err(&pdev->dev, "%s: PRI MI2S pin data parse failed\n",
+				__func__);
+			goto err_mi2s_ctrl;
+		}
 
-	/* Parse Quarternary MI2S info from DT */
-	ret = apq8084_dtparse_mi2s(pdev, &pdata->quad_mi2s_ctrl,
+		/* Parse Quarternary MI2S info from DT */
+		ret = apq8084_dtparse_mi2s(pdev, &pdata->quad_mi2s_ctrl,
 						msm_quad_mi2s_gpio_name);
-	if (ret) {
-		dev_err(&pdev->dev, "%s: QUAD MI2S pin data parse failed\n",
-			__func__);
-		goto err_mi2s_ctrl;
+		if (ret) {
+			dev_err(&pdev->dev, "%s: QUAD MI2S pin data parse failed\n",
+				__func__);
+			goto err_mi2s_ctrl;
+		}
 	}
 
 	pdata->pri_mi2s_ctrl->mi2s_mux = ioremap(LPAIF_PRI_MODE_MUXSEL, 4);
@@ -2053,7 +2373,7 @@ static int apq8084_asoc_machine_probe(struct platform_device *pdev)
 		pr_err("%s: Primary MI2S Mux virt addr is null\n",
 			__func__);
 		ret = -EINVAL;
-		goto err_mi2s_ctrl;
+		goto err_pinctrl;
 	}
 	pdata->quad_mi2s_ctrl->mi2s_mux = ioremap(LPAIF_QUAD_MODE_MUXSEL, 4);
 	if (pdata->quad_mi2s_ctrl->mi2s_mux == NULL) {
@@ -2124,6 +2444,12 @@ err_mi2s_mux:
 err_quad_mi2s_mux:
 	iounmap(pdata->pri_mi2s_ctrl->mi2s_mux);
 	pdata->pri_mi2s_ctrl->mi2s_mux = NULL;
+err_pinctrl:
+	if (pdata->use_pinctrl) {
+		dev_dbg(&pdev->dev, "%s: freeing MI2S pinctrl\n", __func__);
+		devm_pinctrl_put(pdata->mi2s_pinctrl_info.pinctrl);
+		pdata->use_pinctrl = false;
+	}
 err_mi2s_ctrl:
 	devm_kfree(&pdev->dev, pdata->quad_mi2s_ctrl);
 err_quad_mi2s_ctrl:
@@ -2151,6 +2477,7 @@ static int apq8084_asoc_machine_remove(struct platform_device *pdev)
 	if (gpio_is_valid(ext_mclk_ctrl_gpio))
 		gpio_free(ext_mclk_ctrl_gpio);
 
+	pdata->use_pinctrl = false;
 	iounmap(pdata->pri_auxpcm_ctrl->mux);
 	iounmap(pdata->sec_auxpcm_ctrl->mux);
 	iounmap(pdata->pri_mi2s_ctrl->mi2s_mux);
