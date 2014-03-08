@@ -5331,6 +5331,8 @@ static void intel_connector_check_state(struct intel_connector *connector)
  * consider. */
 void intel_connector_dpms(struct drm_connector *connector, int mode)
 {
+	struct drm_device *dev = connector->dev;
+
 	/* All the simple cases only support two dpms states. */
 	if (mode != DRM_MODE_DPMS_ON)
 		mode = DRM_MODE_DPMS_OFF;
@@ -5339,6 +5341,9 @@ void intel_connector_dpms(struct drm_connector *connector, int mode)
 		return;
 
 	connector->dpms = mode;
+
+	if (mode == DRM_MODE_DPMS_ON)
+		intel_modeset_setup_hw_state(dev, true);
 
 	/* Only need to change hw state when actually enabled */
 	if (connector->encoder)
