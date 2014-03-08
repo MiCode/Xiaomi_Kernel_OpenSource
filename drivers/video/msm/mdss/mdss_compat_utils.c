@@ -46,6 +46,8 @@
 						struct msmfb_mixer_info_req32)
 #define MSMFB_MDP_PP32 _IOWR(MSMFB_IOCTL_MAGIC, 156, struct msmfb_mdp_pp32)
 #define MSMFB_BUFFER_SYNC32  _IOW(MSMFB_IOCTL_MAGIC, 162, struct mdp_buf_sync32)
+#define MSMFB_OVERLAY_PREPARE32		_IOWR(MSMFB_IOCTL_MAGIC, 169, \
+						struct mdp_overlay_list32)
 
 static unsigned int __do_compat_ioctl_nr(unsigned int cmd32)
 {
@@ -84,6 +86,9 @@ static unsigned int __do_compat_ioctl_nr(unsigned int cmd32)
 		break;
 	case MSMFB_BUFFER_SYNC32:
 		cmd = MSMFB_BUFFER_SYNC;
+		break;
+	case MSMFB_OVERLAY_PREPARE32:
+		cmd = MSMFB_OVERLAY_PREPARE;
 		break;
 	default:
 		cmd = cmd32;
@@ -2255,7 +2260,7 @@ static int __to_user_mdp_overlay(struct mdp_overlay32 __user *ov32,
 
 
 static int __from_user_mdp_overlay(struct mdp_overlay *ov,
-				   struct mdp_overlay32 *ov32)
+				   struct mdp_overlay32 __user *ov32)
 {
 	__u32 data;
 
@@ -2307,11 +2312,130 @@ static int __from_user_mdp_overlay(struct mdp_overlay *ov,
 	return 0;
 }
 
+static int __from_user_mdp_overlaylist(struct mdp_overlay_list *ovlist,
+				   struct mdp_overlay_list32 *ovlist32,
+				   struct mdp_overlay **to_list_head)
+{
+	__u32 i, ret;
+	unsigned long data, from_list_head;
+	struct mdp_overlay32 *iter;
+
+	if (!to_list_head || !ovlist32 || !ovlist) {
+		pr_err("%s:%u: null error\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	if (copy_in_user(&ovlist->num_overlays, &ovlist32->num_overlays,
+			 sizeof(ovlist32->num_overlays)))
+		return -EFAULT;
+
+	if (copy_in_user(&ovlist->flags, &ovlist32->flags,
+			 sizeof(ovlist32->flags)))
+		return -EFAULT;
+
+	if (copy_in_user(&ovlist->processed_overlays,
+			&ovlist32->processed_overlays,
+			 sizeof(ovlist32->processed_overlays)))
+		return -EFAULT;
+
+	if (get_user(data, &ovlist32->overlay_list)) {
+		ret = -EFAULT;
+		goto validate_exit;
+	}
+	for (i = 0; i < ovlist32->num_overlays; i++) {
+		if (get_user(from_list_head, (__u32 *)data + i)) {
+			ret = -EFAULT;
+			goto validate_exit;
+		}
+
+		iter = compat_ptr(from_list_head);
+		if (__from_user_mdp_overlay(to_list_head[i],
+			       (struct mdp_overlay32 *)(iter))) {
+			ret = -EFAULT;
+			goto validate_exit;
+		}
+	}
+	ovlist->overlay_list = to_list_head;
+
+	return 0;
+
+validate_exit:
+	pr_err("%s: %u: copy error\n", __func__, __LINE__);
+	return -EFAULT;
+}
+
+static int __to_user_mdp_overlaylist(struct mdp_overlay_list32 *ovlist32,
+				   struct mdp_overlay_list *ovlist,
+				   struct mdp_overlay **l_ptr)
+{
+	__u32 i, ret;
+	unsigned long data, data1;
+	struct mdp_overlay32 *temp;
+	struct mdp_overlay *l = l_ptr[0];
+
+	if (copy_in_user(&ovlist32->num_overlays, &ovlist->num_overlays,
+			 sizeof(ovlist32->num_overlays)))
+		return -EFAULT;
+
+	if (get_user(data, &ovlist32->overlay_list)) {
+		ret = -EFAULT;
+		pr_err("%s:%u: err\n", __func__, __LINE__);
+		goto validate_exit;
+	}
+
+	for (i = 0; i < ovlist32->num_overlays; i++) {
+		if (get_user(data1, (__u32 *)data + i)) {
+			ret = -EFAULT;
+			goto validate_exit;
+		}
+		temp = compat_ptr(data1);
+		if (__to_user_mdp_overlay(
+				(struct mdp_overlay32 *) temp,
+				l + i)) {
+			ret = -EFAULT;
+			goto validate_exit;
+		}
+	}
+
+	if (copy_in_user(&ovlist32->flags, &ovlist->flags,
+				sizeof(ovlist32->flags)))
+		return -EFAULT;
+
+	if (copy_in_user(&ovlist32->processed_overlays,
+			&ovlist->processed_overlays,
+			sizeof(ovlist32->processed_overlays)))
+		return -EFAULT;
+
+	return 0;
+
+validate_exit:
+	pr_err("%s: %u: copy error\n", __func__, __LINE__);
+	return -EFAULT;
+
+}
+
+void mdss_compat_align_list(void __user *total_mem_chunk,
+		struct mdp_overlay __user **list_ptr, u32 num_ov)
+{
+	int i = 0;
+	struct mdp_overlay __user *contig_overlays;
+
+	contig_overlays = total_mem_chunk + sizeof(struct mdp_overlay_list) +
+		 (num_ov * sizeof(struct mdp_overlay *));
+
+	for (i = 0; i < num_ov; i++)
+		list_ptr[i] = contig_overlays + i;
+}
+
 int mdss_compat_overlay_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg)
 {
-	struct mdp_overlay *ov;
+	struct mdp_overlay *ov, **layers_head;
 	struct mdp_overlay32 *ov32;
+	struct mdp_overlay_list __user *ovlist;
+	struct mdp_overlay_list32 __user *ovlist32;
+	size_t layers_refs_sz, layers_sz, prepare_sz;
+	void __user *total_mem_chunk;
 	int ret;
 
 	if (!info || !info->par)
@@ -2346,6 +2470,40 @@ int mdss_compat_overlay_ioctl(struct fb_info *info, unsigned int cmd,
 		} else {
 			ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) ov);
 			ret = __to_user_mdp_overlay(ov32, ov);
+		}
+		break;
+	case MSMFB_OVERLAY_PREPARE:
+		ovlist32 = compat_ptr(arg);
+
+		layers_sz = ovlist32->num_overlays *
+					sizeof(struct mdp_overlay);
+		prepare_sz = sizeof(struct mdp_overlay_list);
+		layers_refs_sz = ovlist32->num_overlays *
+					sizeof(struct mdp_overlay *);
+
+		total_mem_chunk = compat_alloc_user_space(
+			prepare_sz + layers_refs_sz + layers_sz);
+		if (!total_mem_chunk) {
+			pr_err("%s:%u: compat alloc error [%zu] bytes\n",
+				 __func__, __LINE__,
+				 layers_refs_sz + layers_sz + prepare_sz);
+			return -EINVAL;
+		}
+
+		layers_head = total_mem_chunk + prepare_sz;
+		mdss_compat_align_list(total_mem_chunk, layers_head,
+					ovlist32->num_overlays);
+		ovlist = (struct mdp_overlay_list *)total_mem_chunk;
+
+		ret = __from_user_mdp_overlaylist(ovlist, ovlist32,
+					layers_head);
+		if (ret) {
+			pr_err("compat mdp overlaylist failed\n");
+		} else {
+			ret = mdss_fb_do_ioctl(info, cmd,
+						(unsigned long) ovlist);
+			ret = __to_user_mdp_overlaylist(ovlist32, ovlist,
+						layers_head);
 		}
 		break;
 	case MSMFB_OVERLAY_UNSET:
@@ -2410,6 +2568,7 @@ int mdss_fb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 	case MSMFB_OVERLAY_COMMIT:
 	case MSMFB_METADATA_SET:
 	case MSMFB_METADATA_GET:
+	case MSMFB_OVERLAY_PREPARE:
 		ret = mdss_compat_overlay_ioctl(info, cmd, arg);
 		break;
 	case MSMFB_NOTIFY_UPDATE:
