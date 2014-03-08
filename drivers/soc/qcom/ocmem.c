@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +22,7 @@
 #include <linux/platform_device.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
-#include <mach/ocmem_priv.h>
+#include "ocmem_priv.h"
 
 #define OCMEM_REGION_CTL_BASE 0xFDD0003C
 #define OCMEM_REGION_CTL_SIZE 0xFD0

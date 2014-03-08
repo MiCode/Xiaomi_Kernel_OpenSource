@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,7 +11,7 @@
  */
 
 #include <linux/slab.h>
-#include <mach/ocmem_priv.h>
+#include "ocmem_priv.h"
 
 static DEFINE_MUTEX(ocmem_eviction_lock);
 static DECLARE_BITMAP(evicted, OCMEM_CLIENT_MAX);

@@ -25,7 +25,7 @@
 #include <linux/interrupt.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
-#include <mach/ocmem_priv.h>
+#include "ocmem_priv.h"
 
 #define RDM_MAX_ENTRIES 32
 #define RDM_MAX_CLIENTS 2

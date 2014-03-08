@@ -17,7 +17,7 @@
 #include <soc/qcom/scm.h>
 #include <soc/qcom/rpm-smd.h>
 
-#include <mach/ocmem_priv.h>
+#include "ocmem_priv.h"
 
 static unsigned num_regions;
 static unsigned num_macros;

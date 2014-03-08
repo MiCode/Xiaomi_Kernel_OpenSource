@@ -19,8 +19,7 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <asm/io.h>
-#include <mach/msm_iomap.h>
-#include "ocmem.h"
+#include <soc/qcom/ocmem.h>
 
 
 #define OCMEM_PHYS_BASE 0xFEC00000
