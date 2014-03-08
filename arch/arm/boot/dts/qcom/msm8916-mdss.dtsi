@@ -30,13 +30,13 @@
 
 		/* Fudge factors */
 		qcom,mdss-ab-factor = <2 1>;		/* 2 times    */
-		qcom,mdss-ib-factor = <3 2>;		/* 1.5 times  */
-		qcom,mdss-clk-factor = <5 4>;		/* 1.25 times */
-		qcom,max-bandwidth-low-kbps = <1660000>;
-		qcom,max-bandwidth-high-kbps = <1660000>;
+		qcom,mdss-ib-factor = <6 5>;		/* 1.2 times  */
+		qcom,mdss-clk-factor = <105 100>;	/* 1.05 times */
+		qcom,max-bandwidth-low-kbps = <1100000>;
+		qcom,max-bandwidth-high-kbps = <1100000>;
 
 		qcom,mdss-mdp-reg-offset = <0x00001000>;
-		qcom,max-clk-rate = <216000000>;
+		qcom,max-clk-rate = <320000000>;
 		qcom,mdss-pipe-vig-off = <0x00005000>;
 		qcom,mdss-pipe-rgb-off = <0x00015000 0x00017000>;
 		qcom,mdss-pipe-dma-off = <0x00025000>;
@@ -64,6 +64,8 @@
 		qcom,mdss-rot-block-size = <64>;
 		qcom,mdss-wfd-mode = "dedicated";
 		qcom,mdss-has-non-scalar-rgb;
+		qcom,mdss-has-decimation;
+
 		vdd-cx-supply = <&pm8916_s1_corner>;
 		clocks = <&clock_gcc clk_gcc_mdss_ahb_clk>,
 			 <&clock_gcc clk_gcc_mdss_axi_clk>,
