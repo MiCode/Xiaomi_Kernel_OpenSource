@@ -149,3 +149,7 @@
 	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
 	qcom,platform-bklight-en-gpio = <&msm_gpio 98 0>;
 };
+
+&pm8916_chg {
+	status = "ok";
+};
