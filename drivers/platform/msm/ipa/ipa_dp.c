@@ -22,7 +22,7 @@
 	list_entry(pos->member.next, typeof(*pos), member)
 #define IPA_LAST_DESC_CNT 0xFFFF
 #define POLLING_INACTIVITY_RX 40
-#define POLLING_MIN_SLEEP_RX 950
+#define POLLING_MIN_SLEEP_RX 1010
 #define POLLING_MAX_SLEEP_RX 1050
 #define POLLING_INACTIVITY_TX 40
 #define POLLING_MIN_SLEEP_TX 400
@@ -31,7 +31,7 @@
 #define IPA_GENERIC_AGGR_BYTE_LIMIT 6
 #define IPA_GENERIC_AGGR_TIME_LIMIT 1
 #define IPA_GENERIC_AGGR_PKT_LIMIT 0
-#define IPA_GENERIC_RX_POOL_SZ 7
+#define IPA_GENERIC_RX_POOL_SZ 32
 /* 8K less the headroom (NET_SKB_PAD) and skb_shared_info which are implicitly
  * part of the data buffer */
 #define IPA_LAN_RX_BUFF_SZ 7936
@@ -2044,7 +2044,7 @@ static void ipa_wq_rx_avail(struct work_struct *work)
  *
  * This function defer the work for this event to a workqueue.
  */
-static void ipa_sps_irq_rx_no_aggr_notify(struct sps_event_notify *notify)
+void ipa_sps_irq_rx_no_aggr_notify(struct sps_event_notify *notify)
 {
 	struct ipa_rx_pkt_wrapper *rx_pkt;
 
@@ -2124,13 +2124,18 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 					ipa_sps_irq_tx_no_aggr_notify;
 			}
 		} else {
-			sys->policy = IPA_POLICY_INTR_MODE;
-			sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT);
-			sys->sps_callback = ipa_sps_irq_rx_no_aggr_notify;
 			if (in->client == IPA_CLIENT_APPS_LAN_CONS ||
 			    in->client == IPA_CLIENT_APPS_WAN_CONS) {
+				sys->policy = IPA_POLICY_INTR_POLL_MODE;
+				sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT
+						| SPS_O_ACK_TRANSFERS);
+				sys->sps_callback = ipa_sps_irq_rx_notify;
+				INIT_WORK(&sys->work, ipa_wq_handle_rx);
+				INIT_DELAYED_WORK(&sys->switch_to_intr_work,
+					switch_to_intr_rx_work_func);
 				INIT_DELAYED_WORK(&sys->replenish_rx_work,
 						replenish_rx_work_func);
+				atomic_set(&sys->curr_polling_state, 0);
 				sys->rx_buff_sz = IPA_LAN_RX_BUFF_SZ;
 				sys->rx_pool_sz = IPA_GENERIC_RX_POOL_SZ;
 				sys->get_skb = ipa_get_skb_ipa_rx;
