@@ -1090,7 +1090,7 @@
 		pinctrl-2 = <&spi0_cs0_active>;
 		pinctrl-3 = <&spi0_cs0_sleep>;
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
-			 <&clock_gcc clk_gcc_blsp1_qup1_spi_apps_clk>;
+			 <&clock_gcc clk_gcc_blsp1_qup3_spi_apps_clk>;
 		clock-names = "iface_clk", "core_clk";
                 qcom,infinite-mode = <0>;
 		qcom,use-bam;
