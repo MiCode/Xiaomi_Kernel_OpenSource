@@ -1075,7 +1075,7 @@ static int msm_compr_ioctl_shared(struct snd_pcm_substream *substream,
 			}
 			if (params_length > MAX_AC3_PARAM_SIZE) {
 				/*MAX is 36*sizeof(int) this should not happen*/
-				pr_err("%s: params_length(%d) is greater than %d\n",
+				pr_err("%s: params_length(%d) is greater than %zd\n",
 				__func__, params_length, MAX_AC3_PARAM_SIZE);
 				return -EINVAL;
 			}
