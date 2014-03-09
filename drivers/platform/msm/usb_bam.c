@@ -2021,12 +2021,12 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 			info[cur_bam].pipes_suspended = 0;
 			info[cur_bam].pipes_to_suspend = 0;
 			info[cur_bam].pipes_resumed = 0;
-			pipe_connect->cons_stopped = 0;
-			pipe_connect->prod_stopped = 0;
 			spin_unlock(&usb_bam_ipa_handshake_info_lock);
 			usb_bam_resume_core(cur_bam, USB_BAM_DEVICE);
 		} else
 			spin_unlock(&usb_bam_lock);
+		pipe_connect->cons_stopped = 0;
+		pipe_connect->prod_stopped = 0;
 	}
 
 	 /* Check if BAM requires RESET before connect and reset first pipe */
