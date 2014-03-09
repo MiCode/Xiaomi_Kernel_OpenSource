@@ -389,7 +389,8 @@ static void gbam_data_write_tobam(struct work_struct *w)
 		return;
 	}
 
-	while (d->pending_with_bam < bam_pending_limit) {
+	while (d->pending_with_bam < bam_pending_limit &&
+	       usb_bam_get_prod_granted(d->dst_connection_idx)) {
 		skb =  __skb_dequeue(&d->rx_skb_q);
 		if (!skb)
 			break;
@@ -500,9 +501,15 @@ gbam_epout_complete(struct usb_ep *ep, struct usb_request *req)
 	}
 
 	spin_lock(&port->port_lock_ul);
+
 	if (queue) {
 		__skb_queue_tail(&d->rx_skb_q, skb);
-		queue_work(gbam_wq, &d->write_tobam_w);
+		if (!usb_bam_get_prod_granted(d->dst_connection_idx)) {
+			list_add_tail(&req->list, &d->rx_idle);
+			spin_unlock(&port->port_lock_ul);
+			return;
+		} else
+			queue_work(gbam_wq, &d->write_tobam_w);
 	}
 
 	/* TODO: Handle flow control gracefully by having
@@ -614,6 +621,10 @@ static void gbam_start_rx(struct gbam_port *port)
 			break;
 		}
 	}
+
+	/* If this function was called from resume, send pending skbs to BAM */
+	queue_work(gbam_wq, &d->write_tobam_w);
+
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 }
 
