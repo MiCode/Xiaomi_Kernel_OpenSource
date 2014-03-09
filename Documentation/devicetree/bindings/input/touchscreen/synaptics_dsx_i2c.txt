@@ -1,0 +1,37 @@
+Synaptics DSX touch controller
+
+Required properties:
+
+ - compatible		: should be "synaptics,dsx"
+ - reg			: i2c slave address of the device
+ - interrupt-parent	: parent of interrupt
+ - interrupts		: touch sample interrupt to indicate presense or release
+				of fingers on the panel.
+ - synaptics,irq-gpio	: irq gpio
+ - synaptics,reset-gpio	: reset gpio
+
+Optional property:
+ - vdd-supply			: digital voltage power supply needed to power device
+ - avdd-supply			: analog voltage power supply needed to power device
+ - synaptics,button-map		: virtual key code mappings to be used
+ - synaptics,x-flip		: modify orientation of the x axis
+ - synaptics,y-flip		: modify orientation of the y axis
+ - synaptics,reset-delay-ms	: reset delay for controller (ms), default 100
+
+Example:
+	i2c@f9927000 {
+		synaptics@20 {
+			compatible = "synaptics,dsx"
+			reg = <0x20>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <17 0x2>;
+			vdd-supply = <&pm8226_l19>;
+			avdd-supply = <&pm8226_lvs1>;
+			synaptics,reset-gpio = <&msmgpio 16 0x00>;
+			synaptics,irq-gpio = <&msmgpio 17 0x00>;
+			synaptics,button-map = [8B 66 9E];
+			synaptics,reset-delay-ms = <100>;
+			synaptics,x-flip;
+			synaptics,y-flip;
+		};
+	};
