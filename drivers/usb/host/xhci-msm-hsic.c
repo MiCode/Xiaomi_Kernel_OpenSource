@@ -615,6 +615,8 @@ static int mxhci_hsic_bus_suspend(struct usb_hcd *hcd)
 		return -EAGAIN;
 	}
 
+	xhci_dbg_log_event(&dbg_hsic, NULL, "mxhci_hsic_bus_suspend", 0);
+
 	init_completion(&mxhci->phy_in_lpm);
 
 	ret = xhci_bus_suspend(hcd);
@@ -632,7 +634,7 @@ static int mxhci_hsic_bus_suspend(struct usb_hcd *hcd)
 				readl_relaxed(MSM_HSIC_PORTSC));
 		xhci_dbg_log_event(&dbg_hsic, NULL, "PORTLI",
 				readl_relaxed(MSM_HSIC_PORTLI));
-		panic("fail to get IN_L2 power event irq");
+		panic("IN_L2 power event irq timedout");
 	}
 
 	xhci_dbg_log_event(&dbg_hsic, NULL, "Suspend RH",
@@ -1225,6 +1227,8 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 	/* Enable HSIC PHY */
 	mxhci_hsic_ulpi_write(mxhci, 0x01, MSM_HSIC_CFG_SET);
 
+	init_completion(&mxhci->phy_in_lpm);
+
 	device_init_wakeup(&pdev->dev, 1);
 	pm_stay_awake(mxhci->dev);
 
@@ -1263,6 +1267,10 @@ static int mxhci_hsic_remove(struct platform_device *pdev)
 	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
 	struct mxhci_hsic_hcd *mxhci = hcd_to_hsic(hcd);
 	u32 reg;
+
+	xhci_dbg_log_event(&dbg_hsic, NULL,  "mxhci_hsic_remove", 0);
+
+	complete(&mxhci->phy_in_lpm);
 
 	/* disable STROBE_PAD_CTL */
 	reg = readl_relaxed(TLMM_GPIO_HSIC_STROBE_PAD_CTL);
