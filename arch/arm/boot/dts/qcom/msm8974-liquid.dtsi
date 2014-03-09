@@ -836,16 +836,21 @@
 	};
 
 	qcom,leds@d300 {
+		flash-boost-supply = <&ext_5v>;
+
 		pm8941_flash0: qcom,flash_0 {
 			qcom,sw_vreg_ok;
+			qcom,no-smbb-support;
 		};
 
 		pm8941_flash1: qcom,flash_1 {
 			qcom,sw_vreg_ok;
+			qcom,no-smbb-support;
 		};
 
 		pm8941_torch: qcom,flash_torch {
 			qcom,sw_vreg_ok;
+			qcom,no-smbb-support;
 		};
 	};
 };
