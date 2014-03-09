@@ -235,8 +235,9 @@ static int msm_vidc_load_bus_vectors(struct msm_vidc_platform_resources *res)
 	bus_node = of_find_node_by_name(pdev->dev.of_node,
 			"qcom,msm-bus-clients");
 	if (!bus_node) {
-		dprintk(VIDC_ERR, "Failed to find qcom,msm-bus-clients\n");
-		rc = -ENOENT;
+		/* Not a required property */
+		dprintk(VIDC_DBG, "qcom,msm-bus-clients not found\n");
+		rc = 0;
 		goto err_bad_node;
 	}
 
