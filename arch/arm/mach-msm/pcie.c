@@ -983,9 +983,9 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	PCIE_DBG("number of PHY retries: %ld\n", retries);
 
 	if (pcie_phy_is_ready(dev))
-		pr_info("PCIe PHY is ready!\n");
+		pr_info("PCIe RC %d PHY is ready!\n", dev->rc_idx);
 	else {
-		pr_err("PCIe PHY failed to come up!\n");
+		pr_err("PCIe PHY RC %d failed to come up!\n", dev->rc_idx);
 		ret = -ENODEV;
 		goto link_fail;
 	}
@@ -1037,12 +1037,12 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	PCIE_DBG("number of link training retries: %ld\n", retries);
 
 	if (val & XMLH_LINK_UP) {
-		pr_info("PCIe link initialized\n");
+		pr_info("PCIe RC %d link initialized\n", dev->rc_idx);
 	} else {
 		pr_info("PCIe: Assert the reset of endpoint\n");
 		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
 			dev->gpio[MSM_PCIE_GPIO_PERST].on);
-		pr_err("PCIe link initialization failed\n");
+		pr_err("PCIe RC %d link initialization failed\n", dev->rc_idx);
 		ret = -1;
 		goto link_fail;
 	}
@@ -1072,7 +1072,7 @@ out:
 
 void msm_pcie_disable(struct msm_pcie_dev_t *dev, u32 options)
 {
-	PCIE_DBG("\n");
+	PCIE_DBG("RC %d\n", dev->rc_idx);
 
 	pr_info("PCIe: Assert the reset of endpoint\n");
 	gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
@@ -1627,6 +1627,8 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 	int ret = 0;
 	struct pci_dev *dev;
 	u32 rc_idx = 0;
+
+	PCIE_DBG("pm_opt:%d;busnr:%d;options:%d\n", pm_opt, busnr, options);
 
 	switch (busnr) {
 	case 1:
