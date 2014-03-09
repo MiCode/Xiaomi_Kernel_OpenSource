@@ -195,7 +195,8 @@ struct synaptics_rmi4_device_info {
  * @input_dev: pointer to associated input device
  * @hw_if: pointer to hardware interface data
  * @rmi4_mod_info: device information
- * @regulator: pointer to associated regulator
+ * @regulator_vdd: pointer to associated vdd regulator
+ * @regulator_add: pointer to associated avdd regulator
  * @rmi4_io_ctrl_mutex: mutex for i2c i/o control
  * @early_suspend: instance to support early suspend power management
  * @current_page: current page in sensor to acess
@@ -220,7 +221,8 @@ struct synaptics_rmi4_data {
 	struct input_dev *input_dev;
 	const struct synaptics_dsx_hw_interface *hw_if;
 	struct synaptics_rmi4_device_info rmi4_mod_info;
-	struct regulator *regulator;
+	struct regulator *regulator_vdd;
+	struct regulator *regulator_avdd;
 	struct mutex rmi4_reset_mutex;
 	struct mutex rmi4_io_ctrl_mutex;
 #ifdef CONFIG_HAS_EARLYSUSPEND

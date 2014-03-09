@@ -2476,6 +2476,63 @@ exit:
 }
 EXPORT_SYMBOL(synaptics_rmi4_dsx_new_function);
 
+static int synaptics_dsx_regulator_configure(struct synaptics_rmi4_data
+			*rmi4_data)
+{
+	int retval;
+	rmi4_data->regulator_vdd = regulator_get(rmi4_data->pdev->dev.parent,
+			"vdd");
+	if (IS_ERR(rmi4_data->regulator_vdd)) {
+		dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Failed to get regulator vdd\n",
+				__func__);
+		retval = PTR_ERR(rmi4_data->regulator_vdd);
+		return retval;
+	}
+	rmi4_data->regulator_avdd = regulator_get(rmi4_data->pdev->dev.parent,
+			"avdd");
+	if (IS_ERR(rmi4_data->regulator_avdd)) {
+		dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Failed to get regulator avdd\n",
+				__func__);
+		retval = PTR_ERR(rmi4_data->regulator_avdd);
+		regulator_put(rmi4_data->regulator_vdd);
+		return retval;
+	}
+
+	return 0;
+};
+
+static int synaptics_dsx_regulator_enable(struct synaptics_rmi4_data
+			*rmi4_data, bool on)
+{
+	int retval;
+
+	if (on) {
+		retval = regulator_enable(rmi4_data->regulator_vdd);
+		if (retval) {
+			dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Failed to enable regulator vdd\n",
+				__func__);
+			return retval;
+		}
+		retval = regulator_enable(rmi4_data->regulator_avdd);
+		if (retval) {
+			dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Failed to enable regulator avdd\n",
+				__func__);
+			regulator_disable(rmi4_data->regulator_vdd);
+			return retval;
+		}
+		msleep(rmi4_data->hw_if->board_data->power_delay_ms);
+	} else {
+		regulator_disable(rmi4_data->regulator_vdd);
+		regulator_disable(rmi4_data->regulator_avdd);
+	}
+
+	return 0;
+}
+
  /**
  * synaptics_rmi4_probe()
  *
@@ -2522,24 +2579,6 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	if (*bdata->regulator_name != 0x00) {
-		rmi4_data->regulator = regulator_get(&pdev->dev,
-				bdata->regulator_name);
-		if (IS_ERR(rmi4_data->regulator)) {
-			dev_err(&pdev->dev,
-					"%s: Failed to get regulator\n",
-					__func__);
-			retval = PTR_ERR(rmi4_data->regulator);
-			goto err_regulator;
-		}
-		retval = regulator_enable(rmi4_data->regulator);
-		if (retval)
-			dev_err(&pdev->dev,
-				"%s: Failed to enable regulators\n",
-				__func__);
-		msleep(bdata->power_delay_ms);
-	}
-
 	rmi4_data->pdev = pdev;
 	rmi4_data->current_page = MASK_8BIT;
 	rmi4_data->hw_if = hw_if;
@@ -2553,6 +2592,19 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 
 	mutex_init(&(rmi4_data->rmi4_io_ctrl_mutex));
 	mutex_init(&(rmi4_data->rmi4_reset_mutex));
+
+	retval = synaptics_dsx_regulator_configure(rmi4_data);
+	if (retval) {
+		dev_err(&pdev->dev,
+			"%s: regulator configuration failed\n", __func__);
+		goto err_regulator_configure;
+	}
+	retval = synaptics_dsx_regulator_enable(rmi4_data, true);
+	if (retval) {
+		dev_err(&pdev->dev,
+			"%s: regulator enable failed\n", __func__);
+		goto err_regulator_enable;
+	}
 
 	platform_set_drvdata(pdev, rmi4_data);
 
@@ -2659,12 +2711,12 @@ err_set_input_dev:
 	}
 
 err_set_gpio:
-	if (rmi4_data->regulator) {
-		regulator_disable(rmi4_data->regulator);
-		regulator_put(rmi4_data->regulator);
-	}
-
-err_regulator:
+	regulator_disable(rmi4_data->regulator_vdd);
+	regulator_disable(rmi4_data->regulator_avdd);
+err_regulator_enable:
+	regulator_put(rmi4_data->regulator_vdd);
+	regulator_put(rmi4_data->regulator_avdd);
+err_regulator_configure:
 	kfree(rmi4_data);
 
 	return retval;
@@ -2724,9 +2776,13 @@ static int synaptics_rmi4_remove(struct platform_device *pdev)
 		}
 	}
 
-	if (rmi4_data->regulator) {
-		regulator_disable(rmi4_data->regulator);
-		regulator_put(rmi4_data->regulator);
+	if (rmi4_data->regulator_vdd) {
+		regulator_disable(rmi4_data->regulator_vdd);
+		regulator_put(rmi4_data->regulator_vdd);
+	}
+	if (rmi4_data->regulator_avdd) {
+		regulator_disable(rmi4_data->regulator_avdd);
+		regulator_put(rmi4_data->regulator_avdd);
 	}
 
 	kfree(rmi4_data);
@@ -2948,8 +3004,7 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	}
 	mutex_unlock(&exp_data.mutex);
 
-	if (rmi4_data->regulator)
-		regulator_disable(rmi4_data->regulator);
+	synaptics_dsx_regulator_enable(rmi4_data, false);
 
 	return 0;
 }
@@ -2969,21 +3024,11 @@ static int synaptics_rmi4_resume(struct device *dev)
 	int retval;
 	struct synaptics_rmi4_exp_fhandler *exp_fhandler;
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
-	const struct synaptics_dsx_board_data *bdata =
-			rmi4_data->hw_if->board_data;
 
 	if (rmi4_data->staying_awake)
 		return 0;
 
-	if (rmi4_data->regulator) {
-		retval = regulator_enable(rmi4_data->regulator);
-		if (retval)
-			dev_err(rmi4_data->pdev->dev.parent,
-				"%s: Failed to enable regulators\n",
-				__func__);
-		msleep(bdata->reset_delay_ms);
-		rmi4_data->current_page = MASK_8BIT;
-	}
+	synaptics_dsx_regulator_enable(rmi4_data, true);
 
 	synaptics_rmi4_sensor_wake(rmi4_data);
 	synaptics_rmi4_irq_enable(rmi4_data, true);
