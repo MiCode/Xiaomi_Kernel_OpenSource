@@ -694,6 +694,7 @@ static struct usb_driver ipc_bridge_driver = {
 	.disconnect = ipc_bridge_disconnect,
 	.suspend = ipc_bridge_suspend,
 	.resume = ipc_bridge_resume,
+	.reset_resume = ipc_bridge_resume,
 	.id_table = ipc_bridge_ids,
 	.supports_autosuspend = 1,
 };

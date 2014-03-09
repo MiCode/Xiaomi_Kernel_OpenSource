@@ -424,6 +424,7 @@ static struct usb_driver hsic_sysmon_driver = {
 	.disconnect =	hsic_sysmon_disconnect,
 	.suspend =	hsic_sysmon_suspend,
 	.resume =	hsic_sysmon_resume,
+	.reset_resume =	hsic_sysmon_resume,
 	.id_table =	hsic_sysmon_ids,
 	.supports_autosuspend = 1,
 };

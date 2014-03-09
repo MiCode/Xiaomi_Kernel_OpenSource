@@ -1180,6 +1180,7 @@ static struct usb_driver bridge_driver = {
 	.id_table =		bridge_ids,
 	.suspend =		bridge_suspend,
 	.resume =		bridge_resume,
+	.reset_resume =		bridge_resume,
 	.supports_autosuspend =	1,
 };
 
