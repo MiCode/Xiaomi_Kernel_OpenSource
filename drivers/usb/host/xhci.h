@@ -1676,7 +1676,7 @@ static inline int xhci_link_trb_quirk(struct xhci_hcd *xhci)
 #define DBG_MSG_LEN   64UL
 
 /* Maximum number of messages */
-#define DBG_MAX_MSG   512UL
+#define DBG_MAX_MSG   1024UL
 #define TIME_BUF_LEN  20
 #define HEX_DUMP_LEN  72
 struct dbg_data {
