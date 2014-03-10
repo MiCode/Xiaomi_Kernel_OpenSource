@@ -27,6 +27,8 @@
 #include <linux/interrupt.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
+#include <linux/netdevice.h>
+#include <linux/delay.h>
 #include "ipa_i.h"
 #include "ipa_rm_i.h"
 
@@ -140,6 +142,9 @@ struct ipa_ioc_nat_alloc_mem32 {
 	compat_off_t offset;
 };
 #endif
+
+static void ipa_start_tag_process(struct work_struct *work);
+static DECLARE_WORK(ipa_tag_work, ipa_start_tag_process);
 
 static struct ipa_plat_drv_res ipa_res = {0, };
 static struct of_device_id ipa_plat_drv_match[] = {
@@ -1582,6 +1587,52 @@ void ipa_disable_clks(void)
 		WARN_ON(1);
 }
 /**
+ * ipa_start_tag_process() - Send TAG packet and wait for it to come back
+ *
+ * This function is called prior to clock gating when active client counter
+ * is 1. TAG process ensures that there are no packets inside IPA HW that
+ * were not submitted to peer's BAM. During TAG process all aggregation frames
+ * are (force) closed.
+ *
+ * Return codes:
+ * None
+ */
+static void ipa_start_tag_process(struct work_struct *work)
+{
+	int res;
+
+	IPADBG("starting TAG process\n");
+	mutex_lock(&ipa_ctx->ipa_active_clients_lock);
+	ipa_ctx->start_tag_process_again = false;
+	mutex_unlock(&ipa_ctx->ipa_active_clients_lock);
+
+	/* close aggregation frames on all pipes */
+	res = ipa_tag_aggr_force_close(-1);
+	if (res) {
+		IPAERR("ipa_tag_aggr_force_close failed %d\n", res);
+		return;
+	}
+
+	mutex_lock(&ipa_ctx->ipa_active_clients_lock);
+	ipa_ctx->ipa_active_clients--;
+	if (ipa_ctx->ipa_active_clients == 0) {
+		/* check if during tag process a client used IPA */
+		if (ipa_ctx->start_tag_process_again) {
+			IPADBG("Starting TAG process again\n");
+			ipa_ctx->ipa_active_clients = 1;
+			mutex_unlock(&ipa_ctx->ipa_active_clients_lock);
+			queue_work(ipa_ctx->power_mgmt_wq, &ipa_tag_work);
+			return;
+		}
+		ipa_disable_clks();
+	}
+	mutex_unlock(&ipa_ctx->ipa_active_clients_lock);
+
+	IPADBG("TAG process done\n");
+	return;
+}
+
+/**
 * ipa_inc_client_enable_clks() - Increase active clients counter, and
 * enable ipa clocks if necessary
 *
@@ -1626,19 +1677,29 @@ bail:
 }
 
 /**
-* ipa_dec_client_disable_clks() - Decrease active clients counter, and
-* disable ipa clocks if necessary
-*
-* Return codes:
-* None
-*/
+ * ipa_dec_client_disable_clks() - Decrease active clients counter
+ *
+ * In case that there are no active clients this function also starts
+ * TAG process. When TAG progress ends ipa clocks will be gated.
+ * start_tag_process_again flag is set during this function to signal TAG
+ * process to start again as there was another client that may send data to ipa
+ *
+ * Return codes:
+ * None
+ */
 void ipa_dec_client_disable_clks(void)
 {
 	mutex_lock(&ipa_ctx->ipa_active_clients_lock);
+	ipa_ctx->start_tag_process_again = true;
 	ipa_ctx->ipa_active_clients--;
 	IPADBG("active clients = %d\n", ipa_ctx->ipa_active_clients);
-	if (ipa_ctx->ipa_active_clients == 0)
-		ipa_disable_clks();
+	if (ipa_ctx->ipa_active_clients == 0) {
+		/* when TAG process ends, active clients will be decreased */
+		ipa_ctx->ipa_active_clients = 1;
+		mutex_unlock(&ipa_ctx->ipa_active_clients_lock);
+		queue_work(ipa_ctx->power_mgmt_wq, &ipa_tag_work);
+		return;
+	}
 	mutex_unlock(&ipa_ctx->ipa_active_clients_lock);
 }
 
@@ -2214,6 +2275,15 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 			MAJOR(ipa_ctx->dev_num),
 			MINOR(ipa_ctx->dev_num));
 
+	/* Create workqueue for power management */
+	ipa_ctx->power_mgmt_wq =
+		create_singlethread_workqueue("ipa_power_mgmt");
+	if (!ipa_ctx->power_mgmt_wq) {
+		IPAERR("failed to create wq\n");
+		result = -ENOMEM;
+		goto fail_power_mgmt_wq;
+	}
+
 	/* Initialize IPA RM (resource manager) */
 	result = ipa_rm_initialize();
 	if (result) {
@@ -2273,6 +2343,8 @@ fail_ipa_interrupts_init:
 fail_create_apps_resource:
 	ipa_rm_exit();
 fail_ipa_rm_init:
+	destroy_workqueue(ipa_ctx->power_mgmt_wq);
+fail_power_mgmt_wq:
 	cdev_del(&ipa_ctx->cdev);
 fail_cdev_add:
 	device_destroy(ipa_ctx->class, ipa_ctx->dev_num);

@@ -62,6 +62,7 @@ int ipa_disable_data_path(u32 clnt_hdl)
 	struct ipa_ep_context *ep = &ipa_ctx->ep[clnt_hdl];
 	struct ipa_ep_cfg_holb holb_cfg;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
+	u32 aggr_init;
 	int res = 0;
 
 	IPADBG("Disabling data path\n");
@@ -72,7 +73,7 @@ int ipa_disable_data_path(u32 clnt_hdl)
 	/* On IPA 2.0, enable HOLB in order to prevent IPA from stalling */
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 &&
 	    IPA_CLIENT_IS_CONS(ep->client)) {
-		memset(&holb_cfg, 0 , sizeof(holb_cfg));
+		memset(&holb_cfg, 0, sizeof(holb_cfg));
 		holb_cfg.en = IPA_HOLB_TMR_EN;
 		holb_cfg.tmr_val = 0;
 		res = ipa_cfg_ep_holb(clnt_hdl, &holb_cfg);
@@ -86,10 +87,11 @@ int ipa_disable_data_path(u32 clnt_hdl)
 	}
 
 	udelay(IPA_PKT_FLUSH_TO_US);
-	if (IPA_CLIENT_IS_CONS(ep->client) &&
-			ep->cfg.aggr.aggr_en == IPA_ENABLE_AGGR &&
-			ep->cfg.aggr.aggr_time_limit)
-		msleep(ep->cfg.aggr.aggr_time_limit);
+	aggr_init = ipa_read_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_AGGR_N_OFST_v2_0(clnt_hdl));
+	if (((aggr_init & IPA_ENDP_INIT_AGGR_N_AGGR_EN_BMSK) >>
+	    IPA_ENDP_INIT_AGGR_N_AGGR_EN_SHFT) == IPA_ENABLE_AGGR)
+		ipa_tag_aggr_force_close(clnt_hdl);
 
 	return res;
 }
