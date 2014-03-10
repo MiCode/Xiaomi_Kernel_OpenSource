@@ -166,6 +166,16 @@ Required properties :
 
 Optional properties :
 - qcom,usb2-enable-hsphy2: If present, select second PHY for USB operation.
+- pinctrl-names : This should be defined if a target uses pinctrl framework.
+  See "pinctrl" in Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt.
+  It should specify the names of the configs that pinctrl can install in driver
+  Following are the pinctrl configs that can be installed
+	"ehci_active" : Active configuration of pins, this should specify active
+	config defined in pin groups of used gpio's from resume and
+	ext-hub-reset.
+	"ehci_sleep" : Disabled configuration of pins, this should specify sleep
+	config defined in pin groups of used gpio's from resume and
+	ext-hub-reset.
 - qcom,resume-gpio: if present then peripheral connected to usb controller
   cannot wakeup from XO shutdown using in-band usb bus resume. Use resume
   gpio to wakeup peripheral.
@@ -179,6 +189,12 @@ Example MSM HSUSB EHCI controller device node :
 		reg = <0xf9a55000 0x400>;
 		interrupts = <0 134 0>, <0 140 0>;
 		interrupt-names = "core_irq", "async_irq";
+		/* If pinctrl is used and ext-hub-reset and resume gpio's are present*/
+		pinctrl-names = "ehci_active","ehci_sleep";
+		pinctrl-0 = <&ehci_reset_act &resume_act>;
+		pinctrl-1 = <&ehci_reset_sus &resume_sus>;
+		qcom,resume-gpio = <&msm_gpio 80 0>;
+		qcom,ext-hub-reset-gpio = <&msm_gpio 0 0>;
 		hsusb_vdd_dig-supply = <&pm8841_s2_corner>;
 		HSUSB_1p8-supply = <&pm8941_l6>;
 		HSUSB_3p3-supply = <&pm8941_l24>;
