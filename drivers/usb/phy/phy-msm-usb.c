@@ -30,6 +30,7 @@
 #include <linux/of.h>
 #include <linux/dma-mapping.h>
 #include <linux/clk/msm-clk.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/irqchip/msm-mpm-irq.h>
 #include <soc/qcom/scm.h>
 
@@ -1493,13 +1494,6 @@ static void msm_otg_start_host(struct usb_otg *otg, int on)
 			ulpi_write(otg->phy, OTG_COMP_DISABLE,
 				ULPI_SET(ULPI_PWR_CLK_MNG_REG));
 
-		/*
-		 * Some boards have a switch cotrolled by gpio
-		 * to enable/disable internal HUB. Enable internal
-		 * HUB before kicking the host.
-		 */
-		if (pdata->setup_gpio)
-			pdata->setup_gpio(OTG_STATE_A_HOST);
 		usb_add_hcd(hcd, hcd->irq, IRQF_SHARED);
 	} else {
 		dev_dbg(otg->phy->dev, "host off\n");
@@ -1507,9 +1501,6 @@ static void msm_otg_start_host(struct usb_otg *otg, int on)
 		usb_remove_hcd(hcd);
 		/* HCD core reset all bits of PORTSC. select ULPI phy */
 		writel_relaxed(0x80000000, USB_PORTSC);
-
-		if (pdata->setup_gpio)
-			pdata->setup_gpio(OTG_STATE_UNDEFINED);
 
 		if (pdata->otg_control == OTG_PHY_CONTROL)
 			ulpi_write(otg->phy, OTG_COMP_DISABLE,
@@ -1701,6 +1692,7 @@ static void msm_otg_start_peripheral(struct usb_otg *otg, int on)
 {
 	struct msm_otg *motg = container_of(otg->phy, struct msm_otg, phy);
 	struct msm_otg_platform_data *pdata = motg->pdata;
+	struct pinctrl_state *set_state;
 	int ret;
 
 	if (!otg->gadget)
@@ -1708,13 +1700,6 @@ static void msm_otg_start_peripheral(struct usb_otg *otg, int on)
 
 	if (on) {
 		dev_dbg(otg->phy->dev, "gadget on\n");
-		/*
-		 * Some boards have a switch cotrolled by gpio
-		 * to enable/disable internal HUB. Disable internal
-		 * HUB before kicking the gadget.
-		 */
-		if (pdata->setup_gpio)
-			pdata->setup_gpio(OTG_STATE_B_PERIPHERAL);
 
 		/* Configure BUS performance parameters for MAX bandwidth */
 		if (debug_bus_voting_enabled)
@@ -1727,26 +1712,45 @@ static void msm_otg_start_peripheral(struct usb_otg *otg, int on)
 		 * minimazation during peripheral bus suspend.
 		 */
 		if (pdata->vddmin_gpio) {
+			if (motg->phy_pinctrl) {
+				set_state =
+					pinctrl_lookup_state(motg->phy_pinctrl,
+							"hsusb_active");
+				if (IS_ERR(set_state)) {
+					pr_err("cannot get phy pinctrl active state\n");
+					return;
+				}
+				pinctrl_select_state(motg->phy_pinctrl,
+						set_state);
+			}
+
 			ret = gpio_request(pdata->vddmin_gpio,
-				"MSM_OTG_VDD_MIN_GPIO");
+					"MSM_OTG_VDD_MIN_GPIO");
 			if (ret < 0) {
-				dev_err(otg->phy->dev,
-					"gpio req failed for vdd min:%d\n",
+				dev_err(otg->phy->dev, "gpio req failed for vdd min:%d\n",
 						ret);
 				pdata->vddmin_gpio = 0;
 			}
 		}
-
 	} else {
 		dev_dbg(otg->phy->dev, "gadget off\n");
 		usb_gadget_vbus_disconnect(otg->gadget);
 		/* Configure BUS performance parameters to default */
 		msm_otg_bus_vote(motg, USB_MIN_PERF_VOTE);
-		if (pdata->setup_gpio)
-			pdata->setup_gpio(OTG_STATE_UNDEFINED);
 
-		if (pdata->vddmin_gpio)
+		if (pdata->vddmin_gpio) {
 			gpio_free(pdata->vddmin_gpio);
+			if (motg->phy_pinctrl) {
+				set_state =
+					pinctrl_lookup_state(motg->phy_pinctrl,
+							"hsusb_sleep");
+				if (IS_ERR(set_state))
+					pr_err("cannot get phy pinctrl sleep state\n");
+				else
+					pinctrl_select_state(motg->phy_pinctrl,
+						set_state);
+			}
+		}
 	}
 }
 
@@ -4646,6 +4650,18 @@ static int msm_otg_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "hsusb vreg configuration failed\n");
 		goto free_hsusb_vdd;
+	}
+
+	/* Get pinctrl if target uses pinctrl */
+	motg->phy_pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR(motg->phy_pinctrl)) {
+		if (of_property_read_bool(pdev->dev.of_node, "pinctrl-names")) {
+			dev_err(&pdev->dev, "Error encountered while getting pinctrl");
+			ret = PTR_ERR(motg->phy_pinctrl);
+			goto free_ldo_init;
+		}
+		dev_dbg(&pdev->dev, "Target does not use pinctrl\n");
+		motg->phy_pinctrl = NULL;
 	}
 
 	if (pdata->mhl_enable) {

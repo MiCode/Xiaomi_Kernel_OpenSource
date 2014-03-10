@@ -249,7 +249,6 @@ struct msm_otg_platform_data {
 	enum otg_control_type otg_control;
 	enum usb_mode_type default_mode;
 	enum msm_usb_phy_type phy_type;
-	void (*setup_gpio)(enum usb_otg_state state);
 	int pmic_id_irq;
 	unsigned int mpm_otgsessvld_int;
 	unsigned int mpm_dpshv_int;
@@ -477,6 +476,7 @@ struct msm_otg {
 	bool ext_chg_opened;
 	bool ext_chg_active;
 	struct completion ext_chg_wait;
+	struct pinctrl *phy_pinctrl;
 	int ui_enabled;
 	bool pm_done;
 	struct qpnp_vadc_chip	*vadc_dev;
