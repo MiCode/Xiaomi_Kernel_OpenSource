@@ -35,6 +35,7 @@
 #include <linux/i2c/apds993x.h>
 #include <linux/regulator/consumer.h>
 #include <linux/of_gpio.h>
+#include <linux/sensors.h>
 
 #define APDS993X_HAL_USE_SYS_ENABLE
 
@@ -206,6 +207,8 @@ struct apds993x_data {
 	struct input_dev *input_dev_ps;
 	struct regulator *vdd;
 	struct regulator *vio;
+	struct sensors_classdev als_cdev;
+	struct sensors_classdev ps_cdev;
 
 	struct apds993x_platform_data *platform_data;
 	int irq;
@@ -249,6 +252,42 @@ struct apds993x_data {
 	unsigned int als_atime_index;	/* storage for als integratiion time */
 	unsigned int als_again_index;	/* storage for als GAIN */
 	unsigned int als_reduce;	/* flag indicate ALS 6x reduction */
+};
+
+static struct sensors_classdev sensors_light_cdev = {
+	.name = "apds9930-light",
+	.vendor = "avago",
+	.version = 1,
+	.handle = SENSORS_LIGHT_HANDLE,
+	.type = SENSOR_TYPE_LIGHT,
+	.max_range = "30000",
+	.resolution = "0.0125",
+	.sensor_power = "0.20",
+	.min_delay = 1000, /* in microseconds */
+	.fifo_reserved_event_count = 0,
+	.fifo_max_event_count = 0,
+	.enabled = 0,
+	.delay_msec = 100,
+	.sensors_enable = NULL,
+	.sensors_poll_delay = NULL,
+};
+
+static struct sensors_classdev sensors_proximity_cdev = {
+	.name = "apds9930-proximity",
+	.vendor = "avago",
+	.version = 1,
+	.handle = SENSORS_PROXIMITY_HANDLE,
+	.type = SENSOR_TYPE_PROXIMITY,
+	.max_range = "5",
+	.resolution = "5.0",
+	.sensor_power = "3",
+	.min_delay = 1000, /* in microseconds */
+	.fifo_reserved_event_count = 0,
+	.fifo_max_event_count = 0,
+	.enabled = 0,
+	.delay_msec = 100,
+	.sensors_enable = NULL,
+	.sensors_poll_delay = NULL,
 };
 
 /*
@@ -1668,6 +1707,34 @@ static ssize_t apds993x_store_enable_als_sensor(struct device *dev,
 	return count;
 }
 
+static int apds993x_als_set_enable(struct sensors_classdev *sensors_cdev,
+		unsigned int enable)
+{
+	struct apds993x_data *data = container_of(sensors_cdev,
+			struct apds993x_data, als_cdev);
+
+	if ((enable != 0) && (enable != 1)) {
+		pr_err("%s: invalid value(%d)\n", __func__, enable);
+		return -EINVAL;
+	}
+
+	return apds993x_enable_als_sensor(data->client, enable);
+}
+
+static int apds993x_ps_set_enable(struct sensors_classdev *sensors_cdev,
+		unsigned int enable)
+{
+	struct apds993x_data *data = container_of(sensors_cdev,
+			struct apds993x_data, ps_cdev);
+
+	if ((enable != 0) && (enable != 1)) {
+		pr_err("%s: invalid value(%d)\n", __func__, enable);
+		return -EINVAL;
+	}
+
+	return apds993x_enable_ps_sensor(data->client, enable);
+}
+
 static DEVICE_ATTR(enable_als_sensor, S_IWUSR | S_IWGRP | S_IRUGO,
 		apds993x_show_enable_als_sensor,
 		apds993x_store_enable_als_sensor);
@@ -2305,10 +2372,37 @@ static int apds993x_probe(struct i2c_client *client,
 		goto exit_unregister_ps_ioctl;
 	}
 
+	/* Register to sensors class */
+	data->als_cdev = sensors_light_cdev;
+	data->als_cdev.sensors_enable = apds993x_als_set_enable;
+	data->als_cdev.sensors_poll_delay = NULL;
+
+	data->ps_cdev = sensors_proximity_cdev;
+	data->ps_cdev.sensors_enable = apds993x_ps_set_enable;
+	data->ps_cdev.sensors_poll_delay = NULL,
+
+	err = sensors_classdev_register(&client->dev, &data->als_cdev);
+	if (err) {
+		pr_err("%s: Unable to register to sensors class: %d\n",
+				__func__, err);
+		goto exit_unregister_als_ioctl;
+	}
+
+	err = sensors_classdev_register(&client->dev, &data->ps_cdev);
+	if (err) {
+		pr_err("%s: Unable to register to sensors class: %d\n",
+			       __func__, err);
+		goto exit_unregister_als_class;
+	}
+
 	pr_info("%s: Support ver. %s enabled\n", __func__, DRIVER_VERSION);
 
 	return 0;
 
+exit_unregister_als_class:
+	sensors_classdev_unregister(&data->als_cdev);
+exit_unregister_als_ioctl:
+	misc_deregister(&apds993x_als_device);
 exit_unregister_ps_ioctl:
 	misc_deregister(&apds993x_ps_device);
 exit_remove_sysfs_group:
