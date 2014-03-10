@@ -841,7 +841,7 @@ static netdev_tx_t rndis_ipa_start_xmit(struct sk_buff *skb,
 
 	if (unlikely(rndis_ipa_ctx->state != RNDIS_IPA_CONNECTED_AND_UP)) {
 		RNDIS_IPA_ERROR("Missing pipe connected and/or iface up\n");
-		return -NETDEV_TX_BUSY;
+		return NETDEV_TX_BUSY;
 	}
 
 	if (unlikely(tx_filter(skb))) {
@@ -865,7 +865,7 @@ static netdev_tx_t rndis_ipa_start_xmit(struct sk_buff *skb,
 				rndis_ipa_ctx->outstanding_high);
 		netif_stop_queue(net);
 		RNDIS_IPA_DEBUG("send  queue was stopped");
-		status = -NETDEV_TX_BUSY;
+		status = NETDEV_TX_BUSY;
 		goto out;
 	}
 
