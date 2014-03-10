@@ -34,13 +34,13 @@
 #include <linux/spinlock.h>
 #include <linux/firmware.h>
 #include <linux/spi/spi.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/ch11.h>
 
 #include <asm/unaligned.h>
-#include <mach/gpiomux.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/ice40.h>
@@ -154,6 +154,7 @@ struct ice40_hcd {
 
 	struct clk *xo_clk;
 
+	struct pinctrl *pinctrl;
 	int reset_gpio;
 	int slave_select_gpio;
 	int config_done_gpio;
@@ -1444,13 +1445,6 @@ out:
 	return ret;
 }
 
-static struct gpiomux_setting slave_select_setting = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_NONE,
-	.dir = GPIOMUX_OUT_LOW,
-};
-
 #define CONFIG_LOAD_FREQ_MAX_HZ 25000000
 static int ice40_spi_cache_fw(struct ice40_hcd *ihcd)
 {
@@ -1513,7 +1507,6 @@ out:
 static int ice40_spi_load_fw(struct ice40_hcd *ihcd)
 {
 	int ret, i;
-	struct gpiomux_setting old_setting;
 
 	ret = gpio_direction_output(ihcd->reset_gpio, 0);
 	if (ret  < 0) {
@@ -1540,19 +1533,28 @@ static int ice40_spi_load_fw(struct ice40_hcd *ihcd)
 	 */
 	spi_bus_lock(ihcd->spi->master);
 
-	ret = msm_gpiomux_write(ihcd->slave_select_gpio, GPIOMUX_SUSPENDED,
-			&slave_select_setting, &old_setting);
+	ret = gpio_request(ihcd->slave_select_gpio, "ice40_spi_cs");
 	if (ret < 0) {
-		pr_err("fail to select the slave %d\n", ret);
+		pr_err("fail to request slave select gpio %d\n", ret);
+		spi_bus_unlock(ihcd->spi->master);
+		goto out;
+	}
+
+	ret = gpio_direction_output(ihcd->slave_select_gpio, 0);
+	if (ret < 0) {
+		pr_err("fail to drive slave select gpio %d\n", ret);
+		gpio_free(ihcd->slave_select_gpio);
+		spi_bus_unlock(ihcd->spi->master);
 		goto out;
 	}
 
 	ret = ice40_spi_power_up(ihcd);
 	if (ret < 0) {
 		pr_err("fail to power up the chip\n");
+		gpio_free(ihcd->slave_select_gpio);
+		spi_bus_unlock(ihcd->spi->master);
 		goto out;
 	}
-
 
 	/*
 	 * The databook says 1200 usec is required before the
@@ -1560,12 +1562,8 @@ static int ice40_spi_load_fw(struct ice40_hcd *ihcd)
 	 */
 	usleep_range(1200, 1250);
 
-	ret = msm_gpiomux_write(ihcd->slave_select_gpio, GPIOMUX_SUSPENDED,
-			&old_setting, NULL);
-	if (ret < 0) {
-		pr_err("fail to de-select the slave %d\n", ret);
-		goto power_off;
-	}
+	gpio_direction_output(ihcd->slave_select_gpio, 1);
+	gpio_free(ihcd->slave_select_gpio);
 
 	ret = spi_sync_locked(ihcd->spi, ihcd->fmsg);
 
@@ -1697,6 +1695,13 @@ out:
 static int ice40_spi_request_gpios(struct ice40_hcd *ihcd)
 {
 	int ret;
+
+	ihcd->pinctrl = devm_pinctrl_get_select_default(&ihcd->spi->dev);
+	if (IS_ERR(ihcd->pinctrl)) {
+		ret = PTR_ERR(ihcd->pinctrl);
+		pr_err("fail to get pinctrl info %d\n", ret);
+		goto out;
+	}
 
 	ret = devm_gpio_request(&ihcd->spi->dev, ihcd->reset_gpio,
 				"ice40_reset");
@@ -2110,6 +2115,7 @@ static int ice40_spi_remove(struct spi_device *spi)
 {
 	struct usb_hcd *hcd = spi_get_drvdata(spi);
 	struct ice40_hcd *ihcd = hcd_to_ihcd(hcd);
+	struct pinctrl_state *s;
 
 	debugfs_remove_recursive(ihcd->dbg_root);
 
@@ -2117,6 +2123,10 @@ static int ice40_spi_remove(struct spi_device *spi)
 	usb_put_hcd(hcd);
 	destroy_workqueue(ihcd->wq);
 	ice40_spi_power_off(ihcd);
+
+	s = pinctrl_lookup_state(ihcd->pinctrl, PINCTRL_STATE_SLEEP);
+	if (!IS_ERR(s))
+		pinctrl_select_state(ihcd->pinctrl, s);
 
 	pm_runtime_disable(&spi->dev);
 	pm_relax(&spi->dev);
