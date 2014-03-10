@@ -388,6 +388,14 @@ int usb_bam_get_connection_idx(const char *name, enum peer_bam client,
 * @return 0 on success, negative value on error
 */
 int usb_bam_get_pipe_type(u8 idx, enum usb_bam_pipe_type *type);
+
+/**
+* Indicates whether USB producer is granted to IPA resource manager.
+*
+* @return true when producer granted, false when prodcuer is released.
+*/
+bool usb_bam_get_prod_granted(u8 idx);
+
 #else
 static inline int usb_bam_connect(u8 idx, u32 *bam_pipe_idx)
 {
@@ -487,5 +495,11 @@ static inline int usb_bam_get_pipe_type(u8 idx, enum usb_bam_pipe_type *type)
 {
 	return -ENODEV;
 }
+
+static inline bool usb_bam_get_prod_granted(u8 idx)
+{
+	return false;
+}
+
 #endif
 #endif				/* _USB_BAM_H_ */

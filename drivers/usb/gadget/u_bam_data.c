@@ -255,6 +255,9 @@ static void bam_data_start_rx(struct bam_data_port *port)
 		}
 	}
 
+	/* If this function was called from resume, send pending skbs to BAM */
+	queue_work(bam_data_wq, &d->write_tobam_w);
+
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 }
 
@@ -288,7 +291,12 @@ static void bam_data_epout_complete(struct usb_ep *ep, struct usb_request *req)
 	spin_lock(&port->port_lock_ul);
 	if (queue) {
 		__skb_queue_tail(&d->rx_skb_q, skb);
-		queue_work(bam_data_wq, &d->write_tobam_w);
+		if (!usb_bam_get_prod_granted(d->dst_connection_idx)) {
+			list_add_tail(&req->list, &d->rx_idle);
+			spin_unlock(&port->port_lock_ul);
+			return;
+		} else
+			queue_work(bam_data_wq, &d->write_tobam_w);
 	}
 
 	if (bam_mux_rx_fctrl_support &&
@@ -373,7 +381,8 @@ static void bam_data_write_toipa(struct work_struct *w)
 		return;
 	}
 
-	while (d->pending_with_bam < BAM_PENDING_LIMIT) {
+	while (d->pending_with_bam < BAM_PENDING_LIMIT &&
+	       usb_bam_get_prod_granted(d->dst_connection_idx)) {
 		skb =  __skb_dequeue(&d->rx_skb_q);
 		if (!skb)
 			break;

@@ -3195,6 +3195,16 @@ int usb_bam_get_qdss_idx(u8 num)
 }
 EXPORT_SYMBOL(usb_bam_get_qdss_idx);
 
+bool usb_bam_get_prod_granted(u8 idx)
+{
+	struct usb_bam_pipe_connect *pipe_connect = &usb_bam_connections[idx];
+	enum usb_bam cur_bam = pipe_connect->bam_type;
+
+	return (info[cur_bam].cur_prod_state == IPA_RM_RESOURCE_GRANTED);
+}
+EXPORT_SYMBOL(usb_bam_get_prod_granted);
+
+
 void usb_bam_set_qdss_core(const char *qdss_core)
 {
 	strlcpy(ctx.qdss_core_name, qdss_core, USB_BAM_MAX_STR_LEN);
