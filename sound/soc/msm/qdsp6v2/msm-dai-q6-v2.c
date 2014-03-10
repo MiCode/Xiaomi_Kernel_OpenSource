@@ -2296,7 +2296,7 @@ static int msm_dai_q6_mi2s_hw_free(struct snd_pcm_substream *substream,
 		 &mi2s_dai_data->tx_dai.mi2s_dai_data);
 
 	if (test_bit(STATUS_PORT_STARTED, dai_data->hwfree_status)) {
-		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
+		clear_bit(STATUS_PORT_STARTED, dai_data->hwfree_status);
 		dev_dbg(dai->dev, "%s: clear hwfree_status\n", __func__);
 	}
 	return 0;
