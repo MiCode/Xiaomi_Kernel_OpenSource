@@ -1570,10 +1570,18 @@ void dwc3_gadget_enable_irq(struct dwc3 *dwc)
 			DWC3_DEVTEN_CMDCMPLTEN |
 			DWC3_DEVTEN_ERRTICERREN |
 			DWC3_DEVTEN_WKUPEVTEN |
-			DWC3_DEVTEN_ULSTCNGEN |
 			DWC3_DEVTEN_CONNECTDONEEN |
 			DWC3_DEVTEN_USBRSTEN |
 			DWC3_DEVTEN_DISCONNEVTEN);
+
+	/*
+	 * Enable SUSPENDEVENT(BIT:6) for version 230A and above
+	 * else enable USB Link change event (BIT:3) for older version
+	 */
+	if (dwc->revision < DWC3_REVISION_230A)
+		reg |= DWC3_DEVTEN_ULSTCNGEN;
+	else
+		reg |= DWC3_DEVTEN_SUSPEND;
 
 	dwc3_writel(dwc->regs, DWC3_DEVTEN, reg);
 }
@@ -2469,9 +2477,7 @@ static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc)
 	 * TODO take core out of low power mode when that's
 	 * implemented.
 	 */
-
-	dbg_event(0xFF, "WAKEUP", 0);
-	dwc->gadget_driver->resume(&dwc->gadget);
+	dwc3_resume_gadget(dwc);
 }
 
 static void dwc3_gadget_linksts_change_interrupt(struct dwc3 *dwc,
@@ -2598,6 +2604,18 @@ static void dwc3_gadget_hibernation_interrupt(struct dwc3 *dwc,
 	/* enter hibernation here */
 }
 
+static void dwc3_gadget_suspend_interrupt(struct dwc3 *dwc,
+			unsigned int evtinfo)
+{
+	enum dwc3_link_state    next = evtinfo & DWC3_LINK_STATE_MASK;
+
+	if (next == DWC3_LINK_STATE_U3)
+		dwc3_suspend_gadget(dwc);
+
+	dwc->link_state = next;
+	dwc3_trace(trace_dwc3_gadget, "link state %d", dwc->link_state);
+}
+
 static void dwc3_dump_reg_info(struct dwc3 *dwc)
 {
 	dbg_event(0xFF, "REGDUMP", 0);
@@ -2648,8 +2666,14 @@ static void dwc3_gadget_interrupt(struct dwc3 *dwc,
 	case DWC3_DEVICE_EVENT_LINK_STATUS_CHANGE:
 		dwc3_gadget_linksts_change_interrupt(dwc, event->event_info);
 		break;
-	case DWC3_DEVICE_EVENT_EOPF:
-		dwc3_trace(trace_dwc3_gadget, "End of Periodic Frame");
+	case DWC3_DEVICE_EVENT_SUSPEND:
+		if (dwc->revision < DWC3_REVISION_230A) {
+			dwc3_trace(trace_dwc3_gadget, "End of Periodic Frame");
+		} else {
+			dwc3_trace(trace_dwc3_gadget, "U3/L1-L2 Suspend Event");
+			dbg_event(0xFF, "GAD SUS", 0);
+			dwc3_gadget_suspend_interrupt(dwc, event->event_info);
+		}
 		break;
 	case DWC3_DEVICE_EVENT_SOF:
 		dwc3_trace(trace_dwc3_gadget, "Start of Periodic Frame");
