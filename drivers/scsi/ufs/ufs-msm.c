@@ -2123,7 +2123,7 @@ msm_ufs_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs, u32 rate)
 		if (rate == PA_HS_MODE_A) {
 			if (gear > ARRAY_SIZE(hs_fr_table_rA)) {
 				dev_err(hba->dev,
-					"%s: index %d exceeds table size %d\n",
+					"%s: index %d exceeds table size %zu\n",
 					__func__, gear,
 					ARRAY_SIZE(hs_fr_table_rA));
 				goto out_error;
@@ -2132,7 +2132,7 @@ msm_ufs_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs, u32 rate)
 		} else if (rate == PA_HS_MODE_B) {
 			if (gear > ARRAY_SIZE(hs_fr_table_rB)) {
 				dev_err(hba->dev,
-					"%s: index %d exceeds table size %d\n",
+					"%s: index %d exceeds table size %zu\n",
 					__func__, gear,
 					ARRAY_SIZE(hs_fr_table_rB));
 				goto out_error;
@@ -2148,7 +2148,7 @@ msm_ufs_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs, u32 rate)
 	case SLOW_MODE:
 		if (gear > ARRAY_SIZE(pwm_fr_table)) {
 			dev_err(hba->dev,
-					"%s: index %d exceeds table size %d\n",
+					"%s: index %d exceeds table size %zu\n",
 					__func__, gear,
 					ARRAY_SIZE(pwm_fr_table));
 			goto out_error;
