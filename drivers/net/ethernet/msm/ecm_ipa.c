@@ -513,7 +513,7 @@ static netdev_tx_t ecm_ipa_start_xmit(struct sk_buff *skb,
 
 	if (unlikely(ecm_ipa_ctx->state != ECM_IPA_CONNECTED_AND_UP)) {
 		ECM_IPA_ERROR("Missing pipe connected and/or iface up\n");
-		return -NETDEV_TX_BUSY;
+		return NETDEV_TX_BUSY;
 	}
 
 	if (unlikely(tx_filter(skb))) {
@@ -534,7 +534,7 @@ static netdev_tx_t ecm_ipa_start_xmit(struct sk_buff *skb,
 		ECM_IPA_DEBUG("Outstanding high (%d)- stopping\n",
 				ecm_ipa_ctx->outstanding_high);
 		netif_stop_queue(net);
-		status = -NETDEV_TX_BUSY;
+		status = NETDEV_TX_BUSY;
 		goto out;
 	}
 
