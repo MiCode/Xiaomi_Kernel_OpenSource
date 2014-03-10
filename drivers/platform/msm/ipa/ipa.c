@@ -52,6 +52,7 @@
 #define IPA_AGGR_STR_IN_BYTES(str) \
 	(strnlen((str), IPA_AGGR_MAX_STR_LENGTH - 1) + 1)
 
+#ifdef CONFIG_COMPAT
 #define IPA_IOC_ADD_HDR32 _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_ADD_HDR, \
 					compat_uptr_t)
@@ -125,6 +126,19 @@
 				IPA_IOCTL_WRITE_QMAPID, \
 				compat_uptr_t)
 
+/**
+ * struct ipa_ioc_nat_alloc_mem32 - nat table memory allocation
+ * properties
+ * @dev_name: input parameter, the name of table
+ * @size: input parameter, size of table in bytes
+ * @offset: output parameter, offset into page in case of system memory
+ */
+struct ipa_ioc_nat_alloc_mem32 {
+	char dev_name[IPA_RESOURCE_NAME_MAX];
+	compat_size_t size;
+	compat_off_t offset;
+};
+#endif
 
 static struct ipa_plat_drv_res ipa_res = {0, };
 static struct of_device_id ipa_plat_drv_match[] = {
@@ -1260,6 +1274,10 @@ static void ipa_teardown_apps_pipes(void)
 #ifdef CONFIG_COMPAT
 long compat_ipa_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
+	int retval = 0;
+	struct ipa_ioc_nat_alloc_mem32 nat_mem32;
+	struct ipa_ioc_nat_alloc_mem nat_mem;
+
 	switch (cmd) {
 	case IPA_IOC_ADD_HDR32:
 		cmd = IPA_IOC_ADD_HDR;
@@ -1301,8 +1319,30 @@ long compat_ipa_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		cmd = IPA_IOC_GET_HDR;
 		break;
 	case IPA_IOC_ALLOC_NAT_MEM32:
-		cmd = IPA_IOC_ALLOC_NAT_MEM;
-		break;
+		if (copy_from_user((u8 *)&nat_mem32, (u8 *)arg,
+			sizeof(struct ipa_ioc_nat_alloc_mem32))) {
+			retval = -EFAULT;
+			goto ret;
+		}
+		memcpy(nat_mem.dev_name, nat_mem32.dev_name,
+				IPA_RESOURCE_NAME_MAX);
+		nat_mem.size = (size_t)nat_mem32.size;
+		nat_mem.offset = (off_t)nat_mem32.offset;
+
+		/* null terminate the string */
+		nat_mem.dev_name[IPA_RESOURCE_NAME_MAX - 1] = '\0';
+
+		if (allocate_nat_device(&nat_mem)) {
+			retval = -EFAULT;
+			goto ret;
+		}
+		nat_mem32.offset = (compat_off_t)nat_mem.offset;
+		if (copy_to_user((u8 *)arg, (u8 *)&nat_mem32,
+			sizeof(struct ipa_ioc_nat_alloc_mem32))) {
+			retval = -EFAULT;
+		}
+ret:
+		return retval;
 	case IPA_IOC_V4_INIT_NAT32:
 		cmd = IPA_IOC_V4_INIT_NAT;
 		break;
