@@ -173,11 +173,11 @@ static inline void dbm_enable(struct dbm *dbm)
 	dbm->enable();
 }
 
-static inline int dbm_ep_soft_reset(struct dbm *dbm, u8 dbm_ep,
+static inline int dbm_ep_soft_reset(struct dbm *dbm, u8 usb_ep,
 					bool enter_reset)
 {
 	CHECK_DBM_PTR_INT(dbm, ep_soft_reset);
-	return dbm->ep_soft_reset(dbm_ep, enter_reset);
+	return dbm->ep_soft_reset(usb_ep, enter_reset);
 }
 
 
