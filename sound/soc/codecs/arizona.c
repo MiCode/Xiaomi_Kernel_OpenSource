@@ -700,8 +700,8 @@ static int arizona_update_input(struct arizona* arizona, bool enable)
 
 	if (enable) {
 		regmap_write(arizona->regmap, 0x80,  0x3);
-		regmap_write(arizona->regmap, 0x3A5, 0x3);
 		regmap_write(arizona->regmap, 0x3A6, 0x5555);
+		regmap_write(arizona->regmap, 0x3A5, 0x3);
 		regmap_write(arizona->regmap, 0x80,  0x0);
 	} else {
 		regmap_write(arizona->regmap, 0x80,  0x3);
