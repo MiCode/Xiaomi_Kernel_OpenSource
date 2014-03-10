@@ -1356,6 +1356,7 @@ static void usbnet_bh (unsigned long param)
 	struct sk_buff		*skb;
 	struct skb_data		*entry;
 
+	set_wake_up_idle(true);
 	while ((skb = skb_dequeue (&dev->done))) {
 		entry = (struct skb_data *) skb->cb;
 		switch (entry->state) {
@@ -1372,6 +1373,7 @@ static void usbnet_bh (unsigned long param)
 			netdev_dbg(dev->net, "bogus skb state %d\n", entry->state);
 		}
 	}
+	set_wake_up_idle(false);
 
 	/* restart RX again after disabling due to high error rate */
 	clear_bit(EVENT_RX_KILL, &dev->flags);
