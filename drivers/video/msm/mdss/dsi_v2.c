@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -202,74 +202,22 @@ int dsi_ctrl_gpio_request(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	int rc = 0;
 
-	if (gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
-		rc = gpio_request(ctrl_pdata->disp_en_gpio, "disp_enable");
-		if (rc)
-			goto gpio_request_err4;
-
-		ctrl_pdata->disp_en_gpio_requested = 1;
-	}
-
-	if (gpio_is_valid(ctrl_pdata->rst_gpio)) {
-		rc = gpio_request(ctrl_pdata->rst_gpio, "disp_rst_n");
-		if (rc)
-			goto gpio_request_err3;
-
-		ctrl_pdata->rst_gpio_requested = 1;
-	}
-
 	if (gpio_is_valid(ctrl_pdata->disp_te_gpio)) {
 		rc = gpio_request(ctrl_pdata->disp_te_gpio, "disp_te");
 		if (rc)
-			goto gpio_request_err2;
-
-		ctrl_pdata->disp_te_gpio_requested = 1;
+			ctrl_pdata->disp_te_gpio_requested = 0;
+		else
+			ctrl_pdata->disp_te_gpio_requested = 1;
 	}
 
-	if (gpio_is_valid(ctrl_pdata->mode_gpio)) {
-		rc = gpio_request(ctrl_pdata->mode_gpio, "panel_mode");
-		if (rc)
-			goto gpio_request_err1;
-
-		ctrl_pdata->mode_gpio_requested = 1;
-	}
-
-	return rc;
-
-gpio_request_err1:
-	if (gpio_is_valid(ctrl_pdata->disp_te_gpio))
-		gpio_free(ctrl_pdata->disp_te_gpio);
-gpio_request_err2:
-	if (gpio_is_valid(ctrl_pdata->rst_gpio))
-		gpio_free(ctrl_pdata->rst_gpio);
-gpio_request_err3:
-	if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
-		gpio_free(ctrl_pdata->disp_en_gpio);
-gpio_request_err4:
-	ctrl_pdata->disp_en_gpio_requested = 0;
-	ctrl_pdata->rst_gpio_requested = 0;
-	ctrl_pdata->disp_te_gpio_requested = 0;
-	ctrl_pdata->mode_gpio_requested = 0;
 	return rc;
 }
 
 void dsi_ctrl_gpio_free(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
-	if (ctrl_pdata->disp_en_gpio_requested) {
-		gpio_free(ctrl_pdata->disp_en_gpio);
-		ctrl_pdata->disp_en_gpio_requested = 0;
-	}
-	if (ctrl_pdata->rst_gpio_requested) {
-		gpio_free(ctrl_pdata->rst_gpio);
-		ctrl_pdata->rst_gpio_requested = 0;
-	}
 	if (ctrl_pdata->disp_te_gpio_requested) {
 		gpio_free(ctrl_pdata->disp_te_gpio);
 		ctrl_pdata->disp_te_gpio_requested = 0;
-	}
-	if (ctrl_pdata->mode_gpio_requested) {
-		gpio_free(ctrl_pdata->mode_gpio);
-		ctrl_pdata->mode_gpio_requested = 0;
 	}
 }
 
