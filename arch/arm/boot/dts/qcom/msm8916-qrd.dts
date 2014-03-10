@@ -13,6 +13,7 @@
 /dts-v1/;
 
 #include "msm8916-qrd.dtsi"
+#include "dsi-panel-innolux-720p-video.dtsi"
 
 / {
 	model = "Qualcomm MSM 8916 QRD";
@@ -51,4 +52,22 @@
 		akm,layout = <0x0>;
 		akm,gpio_rstn = <&msm_gpio 36 0x0>;
 	};
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&pmx_mdss {
+	qcom,num-grp-pins = <1>;
+	qcom,pins = <&gp 25>;
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_innolux_720p_video>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active>;
+	pinctrl-1 = <&mdss_dsi_suspend>;
+
+	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
 };
