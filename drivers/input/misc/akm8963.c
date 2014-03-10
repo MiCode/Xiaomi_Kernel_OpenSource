@@ -52,6 +52,7 @@ struct akm_compass_data {
 	struct input_dev	*input;
 	struct device		*class_dev;
 	struct class		*compass;
+	struct sensors_classdev	cdev;
 
 	wait_queue_head_t	drdy_wq;
 	wait_queue_head_t	open_wq;
@@ -84,6 +85,24 @@ struct akm_compass_data {
 	int power_enabled;
 	struct regulator *vdd;
 	struct regulator *vio;
+};
+
+static struct sensors_classdev sensors_cdev = {
+	.name = "akm8963-mag",
+	.vendor = "Asahi Kasei Microdevices Corporation",
+	.version = 1,
+	.handle = SENSORS_MAGNETIC_FIELD_HANDLE,
+	.type = SENSOR_TYPE_MAGNETIC_FIELD,
+	.max_range = "1228.8",
+	.resolution = "0.06",
+	.sensor_power = "0.35",
+	.min_delay = 10000,
+	.fifo_reserved_event_count = 0,
+	.fifo_max_event_count = 0,
+	.enabled = 0,
+	.delay_msec = 10000,
+	.sensors_enable = NULL,
+	.sensors_poll_delay = NULL,
 };
 
 static struct akm_compass_data *s_akm;
@@ -809,6 +828,23 @@ static void akm_compass_sysfs_update_status(
 		en, atomic_read(&akm->active));
 }
 
+static int akm_enable_set(struct sensors_classdev *sensors_cdev,
+		unsigned int enable)
+{
+
+	struct akm_compass_data *akm = container_of(sensors_cdev,
+			struct akm_compass_data, cdev);
+
+	mutex_lock(&akm->val_mutex);
+	akm->enable_flag &= ~(1<<MAG_DATA_FLAG);
+	akm->enable_flag |= ((uint32_t)(enable))<<MAG_DATA_FLAG;
+	mutex_unlock(&akm->val_mutex);
+
+	akm_compass_sysfs_update_status(akm);
+
+	return 0;
+}
+
 static ssize_t akm_compass_sysfs_enable_show(
 	struct akm_compass_data *akm, char *buf, int pos)
 {
@@ -893,6 +929,19 @@ static ssize_t akm_enable_fusion_store(
 }
 
 /***** sysfs delay **************************************************/
+static int akm_poll_delay_set(struct sensors_classdev *sensors_cdev,
+		unsigned int delay_msec)
+{
+	struct akm_compass_data *akm = container_of(sensors_cdev,
+			struct akm_compass_data, cdev);
+
+	mutex_lock(&akm->val_mutex);
+	akm->delay[MAG_DATA_FLAG] = delay_msec * 1000000;
+	mutex_unlock(&akm->val_mutex);
+
+	return 0;
+}
+
 static ssize_t akm_compass_sysfs_delay_show(
 	struct akm_compass_data *akm, char *buf, int pos)
 {
@@ -1645,6 +1694,16 @@ int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	if (0 > err) {
 		dev_err(&client->dev,
 			"%s: create sysfs failed.", __func__);
+		goto exit6;
+	}
+
+	s_akm->cdev = sensors_cdev;
+	s_akm->cdev.sensors_enable = akm_enable_set;
+	s_akm->cdev.sensors_poll_delay = akm_poll_delay_set;
+	err = sensors_classdev_register(&client->dev, &s_akm->cdev);
+
+	if (err) {
+		dev_err(&client->dev, "class device create failed: %d\n", err);
 		goto exit6;
 	}
 
