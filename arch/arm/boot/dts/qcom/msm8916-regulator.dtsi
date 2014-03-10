@@ -55,7 +55,8 @@
 
 		qcom,vdd-mx-corner-map = <1050000 1150000 1287500>;
 		qcom,vdd-mx-vmin-method = <4>;
-		qcom,vdd-mx-supply = <&pm8916_l3>;
+		vdd-mx-supply = <&pm8916_l3>;
+		qcom,vdd-mx-vmax = <1287500>;
 
 		qcom,cpr-ref-clk = <19200>;
 		qcom,cpr-timer-delay = <5000>;
