@@ -248,6 +248,11 @@ const unsigned int a4xx_cp_addr_regs[ADRENO_CP_ADDR_MAX] = {
 				A4XX_UCHE_INVALIDATE1),
 };
 
+static const struct adreno_vbif_data a405_vbif[] = {
+	{ A4XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x00000003 },
+	{0, 0},
+};
+
 static const struct adreno_vbif_data a420_vbif[] = {
 	{ A4XX_VBIF_ABIT_SORT, 0x0001001F },
 	{ A4XX_VBIF_ABIT_SORT_CONF, 0x000000A4 },
@@ -271,6 +276,7 @@ static const struct adreno_vbif_data a430_vbif[] = {
 };
 
 static const struct adreno_vbif_platform a4xx_vbif_platforms[] = {
+	{ adreno_is_a405, a405_vbif },
 	{ adreno_is_a420, a420_vbif },
 	{ adreno_is_a430, a430_vbif },
 };
@@ -422,22 +428,37 @@ static void a4xx_enable_hwcg(struct kgsl_device *device)
 		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB2, 0x00022020);
 		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB3, 0x00022020);
 	}
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_MARB_CCU0, 0x00000922);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_MARB_CCU1, 0x00000922);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_MARB_CCU2, 0x00000922);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_MARB_CCU3, 0x00000922);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_RB_MARB_CCU0, 0x00000000);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_RB_MARB_CCU1, 0x00000000);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_RB_MARB_CCU2, 0x00000000);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_RB_MARB_CCU3, 0x00000000);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_RB_MARB_CCU_L1_0,
+	/* No CCU for A405 */
+	if (!adreno_is_a405(adreno_dev)) {
+		kgsl_regwrite(device,
+			A4XX_RBBM_CLOCK_CTL_MARB_CCU0, 0x00000922);
+		kgsl_regwrite(device,
+			A4XX_RBBM_CLOCK_CTL_MARB_CCU1, 0x00000922);
+		kgsl_regwrite(device,
+			A4XX_RBBM_CLOCK_CTL_MARB_CCU2, 0x00000922);
+		kgsl_regwrite(device,
+			A4XX_RBBM_CLOCK_CTL_MARB_CCU3, 0x00000922);
+		kgsl_regwrite(device,
+			A4XX_RBBM_CLOCK_HYST_RB_MARB_CCU0, 0x00000000);
+		kgsl_regwrite(device,
+			A4XX_RBBM_CLOCK_HYST_RB_MARB_CCU1, 0x00000000);
+		kgsl_regwrite(device,
+			A4XX_RBBM_CLOCK_HYST_RB_MARB_CCU2, 0x00000000);
+		kgsl_regwrite(device,
+			A4XX_RBBM_CLOCK_HYST_RB_MARB_CCU3, 0x00000000);
+		kgsl_regwrite(device,
+				A4XX_RBBM_CLOCK_DELAY_RB_MARB_CCU_L1_0,
 				0x00000001);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_RB_MARB_CCU_L1_1,
+		kgsl_regwrite(device,
+				A4XX_RBBM_CLOCK_DELAY_RB_MARB_CCU_L1_1,
 				0x00000001);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_RB_MARB_CCU_L1_2,
+		kgsl_regwrite(device,
+				A4XX_RBBM_CLOCK_DELAY_RB_MARB_CCU_L1_2,
 				0x00000001);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_RB_MARB_CCU_L1_3,
+		kgsl_regwrite(device,
+				A4XX_RBBM_CLOCK_DELAY_RB_MARB_CCU_L1_3,
 				0x00000001);
+	}
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_MODE_GPC, 0x02222222);
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_GPC, 0x04100104);
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_GPC, 0x00022222);
