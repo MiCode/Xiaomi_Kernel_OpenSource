@@ -405,10 +405,13 @@ static void dwc3_msm_req_complete_func(struct usb_ep *ep,
 
 	/*
 	 * If this is the last endpoint we unconfigured, than reset also
-	 * the event buffers.
+	 * the event buffers; unless unconfiguring the ep due to lpm,
+	 * in which case the event buffer only gets reset during the
+	 * block reset.
 	 */
-	if (0 == dbm_get_num_of_eps_configured(mdwc->dbm))
-		dbm_event_buffer_config(mdwc->dbm, 0, 0, 0);
+	if (0 == dbm_get_num_of_eps_configured(mdwc->dbm) &&
+		!dbm_reset_ep_after_lpm(mdwc->dbm))
+			dbm_event_buffer_config(mdwc->dbm, 0, 0, 0);
 
 	/*
 	 * Call original complete function, notice that dwc->lock is already
@@ -420,6 +423,65 @@ static void dwc3_msm_req_complete_func(struct usb_ep *ep,
 
 	kfree(req_complete);
 }
+
+
+/**
+* Helper function
+*
+* Reset  DBM endpoint.
+*
+* @mdwc - pointer to dwc3_msm instance.
+* @dep - pointer to dwc3_ep instance.
+*
+* @return int - 0 on success, negative on error.
+*/
+static int __dwc3_msm_dbm_ep_reset(struct dwc3_msm *mdwc, struct dwc3_ep *dep)
+{
+	int ret;
+
+	dev_dbg(mdwc->dev, "Resetting dbm endpoint %d\n", dep->number);
+
+	/* Reset the dbm endpoint */
+	ret = dbm_ep_soft_reset(mdwc->dbm, dep->number, true);
+	if (ret) {
+		dev_err(mdwc->dev, "%s: failed to assert dbm ep reset\n",
+				__func__);
+		return ret;
+	}
+
+	/*
+	 * 10 usec delay is required before deasserting DBM endpoint reset
+	 * according to hardware programming guide.
+	 */
+	udelay(10);
+	ret = dbm_ep_soft_reset(mdwc->dbm, dep->number, false);
+	if (ret) {
+		dev_err(mdwc->dev, "%s: failed to deassert dbm ep reset\n",
+				__func__);
+		return ret;
+	}
+
+	return 0;
+}
+
+/**
+* Reset the DBM endpoint which is linked to the given USB endpoint.
+*
+* @usb_ep - pointer to usb_ep instance.
+*
+* @return int - 0 on success, negative on error.
+*/
+
+int msm_dwc3_reset_dbm_ep(struct usb_ep *ep)
+{
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3 *dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+
+	return __dwc3_msm_dbm_ep_reset(mdwc, dep);
+}
+EXPORT_SYMBOL(msm_dwc3_reset_dbm_ep);
+
 
 /**
 * Helper function.
@@ -625,6 +687,7 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	return 0;
 }
 
+
 /**
  * Configure MSM endpoint.
  * This function do specific configurations
@@ -666,8 +729,6 @@ int msm_ep_config(struct usb_ep *ep)
 	}
 	(*new_ep_ops) = (*ep->ops);
 	new_ep_ops->queue = dwc3_msm_ep_queue;
-	new_ep_ops->disable = ep->ops->disable;
-
 	ep->ops = new_ep_ops;
 
 	/*
@@ -804,6 +865,20 @@ int msm_register_usb_ext_notification(struct usb_ext_notification *info)
 	return 0;
 }
 EXPORT_SYMBOL(msm_register_usb_ext_notification);
+
+/*
+ * Check whether the DWC3 requires resetting the ep
+ * after going to Low Power Mode (lpm)
+ */
+bool msm_dwc3_reset_ep_after_lpm(struct usb_gadget *gadget)
+{
+	struct dwc3 *dwc = container_of(gadget, struct dwc3, gadget);
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+
+	return dbm_reset_ep_after_lpm(mdwc->dbm);
+}
+EXPORT_SYMBOL(msm_dwc3_reset_ep_after_lpm);
+
 
 /*
  * Config Global Distributed Switch Controller (GDSC)
