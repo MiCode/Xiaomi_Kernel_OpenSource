@@ -3894,12 +3894,24 @@ void mdss_mdp_hist_intr_done(u32 isr)
 			spin_unlock(&hist_info->hist_lock);
 			if (need_complete)
 				complete(&hist_info->comp);
+		} else if (hist_info && (isr_blk & 0x1) &&
+				!(hist_info->col_en)) {
+			/*
+			 * Histogram collection is disabled yet we got an
+			 * interrupt somehow.
+			 */
+			pr_err("Hist[%d] Done interrupt, col_en=false!\n",
+				blk_idx);
 		}
 		/* Histogram Reset Done Interrupt */
 		if (hist_info && (isr_blk & 0x2) && (hist_info->col_en)) {
-				spin_lock(&hist_info->hist_lock);
-				hist_info->col_state = HIST_IDLE;
-				spin_unlock(&hist_info->hist_lock);
+			spin_lock(&hist_info->hist_lock);
+			hist_info->col_state = HIST_IDLE;
+			spin_unlock(&hist_info->hist_lock);
+		} else if (hist_info && (isr_blk & 0x2) &&
+				!(hist_info->col_en)) {
+			pr_err("Hist[%d] Reset Done interrupt, col_en=false!\n",
+				blk_idx);
 		}
 	};
 }
