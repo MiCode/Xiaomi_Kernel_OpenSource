@@ -51,10 +51,11 @@ ENDPROC(flush_dcache_louis)
  *     Invalidate the I-cache to the point of unification.
  */
 ENTRY(flush_cache_louis)
+	mov	x12, lr
 	bl	flush_dcache_louis
 	mov	x0, #0
 	ic	ialluis				// I+BTB cache invalidate
-	ret
+	ret x12
 ENDPROC(flush_cache_louis)
 
 /*
