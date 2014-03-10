@@ -246,18 +246,11 @@ int ipa_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev)
 	IPADBG("IPA IRQ handler irq=%d registered\n", ipa_irq);
 
 	res = enable_irq_wake(ipa_irq);
-	if (res) {
+	if (res)
 		IPAERR("fail to enable IPA IRQ wakeup irq=%d res=%d\n",
 				ipa_irq, res);
-		res = -ENODEV;
-		goto fail_enable_irq_wake;
-	}
-	IPADBG("IPA IRQ wakeup enabled irq=%d\n", ipa_irq);
+	else
+		IPADBG("IPA IRQ wakeup enabled irq=%d\n", ipa_irq);
 
 	return 0;
-
-fail_enable_irq_wake:
-		free_irq(ipa_irq, ipa_dev);
-
-	return res;
 }
