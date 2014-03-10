@@ -162,10 +162,25 @@ Required properties :
   Sub node has the required properties mentioned above.
 
 Optional properties :
+- pinctrl-names : This should be defined if a target uses pinctrl framework.
+  See "pinctrl" in Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt.
+  It should specify the names of the configs that pinctrl can install in driver
+  Following are the pinctrl configs that can be installed
+	"smsc_active" : Active configuration of pins, this should specify active
+	config defined in pin groups of used gpio's from reset, refclk, xo-clk
+	and int.
+	"smsc_sleep" : Disabled configuration of pins, this should specify the sleep
+	config defined in pin groups of used gpio's from reset, refclk, xo-clk
+	and int.
+  If pinctrl is being used we need to only define gpio's which drives signals
+  using gpiolib api's like reset and xo-clk gpio in dt, the node name in such
+  cases should be msm_gpio as defined in pinctrl-dtsi. For gpio's only
+  installing active and sleep configs it is not required to specify the gpio
+  in dt file.
 - smsc,int-gpio: this input gpio indicate HUB suspend status and signal remote
   wakeup interrupt
 - smsc,refclk-gpio: this gpio is used to supply the reference clock
-- smsc,xo-clk-gio: this output gpio is used to control the external XO clock
+- smsc,xo-clk-gpio: this output gpio is used to control the external XO clock
   which is supplied to the hub as a reference clock
 - hub-vbus-supply: this regulator is used to supply the power to
   downstream ports
@@ -178,9 +193,16 @@ Example SMSC HSIC HUB :
 		compatible = "qcom,hsic-smsc-hub";
 		smsc,model-id = <4604>;
 		ranges;
+		/* If pinctrl is used with all gpio_present */
+		pinctrl-names = "smsc_active","smsc_sleep";
+		pinctrl-0 = <&reset_act &refclk_act &int_act>;
+		pinctrl-1 = <&reset_sus &refclk_sus &int_sus>;
+		smsc,reset-gpio = <&pm8941_gpios 8 0x00>;
+		/* If target does not use pinctrl */
 		smsc,reset-gpio = <&pm8941_gpios 8 0x00>;
 		smsc,refclk-gpio = <&pm8941_gpios 16 0x00>;
 		smsc,int-gpio = <&msmgpio 50 0x00>;
+		/* End if */
 		hub-int-supply = <&pm8941_l10>;
 		hub-vbus-supply = <&pm8941_mvs1>;
 
@@ -198,4 +220,3 @@ Example SMSC HSIC HUB :
 			hsic,data-pad-offset = <0x2054>;
 		};
 	};
-
