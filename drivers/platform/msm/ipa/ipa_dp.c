@@ -74,9 +74,11 @@ static void ipa_wq_write_done_common(struct ipa_sys_context *sys, u32 cnt)
 						   link);
 		list_del(&tx_pkt_expected->link);
 		sys->len--;
-		dma_unmap_single(ipa_ctx->pdev, tx_pkt_expected->mem.phys_base,
-				tx_pkt_expected->mem.size,
-				DMA_TO_DEVICE);
+		if (!tx_pkt_expected->no_unmap_dma)
+			dma_unmap_single(ipa_ctx->pdev,
+					tx_pkt_expected->mem.phys_base,
+					tx_pkt_expected->mem.size,
+					DMA_TO_DEVICE);
 		spin_unlock_bh(&sys->spinlock);
 		if (tx_pkt_expected->callback)
 			tx_pkt_expected->callback(tx_pkt_expected->user1,
@@ -275,28 +277,33 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 		goto fail_mem_alloc;
 	}
 
-	if (unlikely(ipa_ctx->ipa_hw_type == IPA_HW_v1_0)) {
-		WARN_ON(desc->len > 512);
+	if (!desc->dma_address_valid) {
+		if (unlikely(ipa_ctx->ipa_hw_type == IPA_HW_v1_0)) {
+			WARN_ON(desc->len > 512);
 
-		/*
-		 * Due to a HW limitation, we need to make sure that the packet
-		 * does not cross a 1KB boundary
-		 */
-		tx_pkt->bounce = dma_pool_alloc(
-					ipa_ctx->dma_pool,
-					mem_flag, &dma_address);
-		if (!tx_pkt->bounce) {
-			dma_address = 0;
+			/*
+			 * Due to a HW limitation, we need to make sure that
+			 * the packet does not cross a 1KB boundary
+			 */
+			tx_pkt->bounce = dma_pool_alloc(
+				ipa_ctx->dma_pool,
+				mem_flag, &dma_address);
+			if (!tx_pkt->bounce) {
+				dma_address = 0;
+			} else {
+				WARN_ON(!ipa_straddle_boundary
+					((u32)dma_address,
+					(u32)dma_address + desc->len - 1,
+					1024));
+				memcpy(tx_pkt->bounce, desc->pyld, desc->len);
+			}
 		} else {
-			WARN_ON(!ipa_straddle_boundary
-		       ((u32)dma_address,
-				(u32)dma_address + desc->len - 1,
-				1024));
-			memcpy(tx_pkt->bounce, desc->pyld, desc->len);
+			dma_address = dma_map_single(ipa_ctx->pdev, desc->pyld,
+				desc->len, DMA_TO_DEVICE);
 		}
 	} else {
-		dma_address = dma_map_single(ipa_ctx->pdev, desc->pyld,
-				desc->len, DMA_TO_DEVICE);
+		dma_address = desc->dma_address;
+		tx_pkt->no_unmap_dma = true;
 	}
 	if (!dma_address) {
 		IPAERR("failed to DMA wrap\n");
@@ -438,33 +445,41 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 		tx_pkt->mem.base = desc[i].pyld;
 		tx_pkt->mem.size = desc[i].len;
 
-		if (unlikely(ipa_ctx->ipa_hw_type == IPA_HW_v1_0)) {
-			WARN_ON(tx_pkt->mem.size > 512);
+		if (!desc->dma_address_valid) {
+			if (unlikely(ipa_ctx->ipa_hw_type == IPA_HW_v1_0)) {
+				WARN_ON(tx_pkt->mem.size > 512);
 
-			/*
-			 * Due to a HW limitation, we need to make sure that the
-			 * packet does not cross a 1KB boundary
-			 */
-			tx_pkt->bounce =
-			   dma_pool_alloc(ipa_ctx->dma_pool,
-					   mem_flag,
-					   &tx_pkt->mem.phys_base);
-			if (!tx_pkt->bounce) {
-				tx_pkt->mem.phys_base = 0;
-			} else {
-				WARN_ON(!ipa_straddle_boundary(
+				/*
+				 * Due to a HW limitation, we need to make sure
+				 * that the packet does not cross a
+				 * 1KB boundary
+				 */
+				tx_pkt->bounce =
+				dma_pool_alloc(ipa_ctx->dma_pool,
+					       mem_flag,
+					       &tx_pkt->mem.phys_base);
+				if (!tx_pkt->bounce) {
+					tx_pkt->mem.phys_base = 0;
+				} else {
+					WARN_ON(!ipa_straddle_boundary(
 						(u32)tx_pkt->mem.phys_base,
 						(u32)tx_pkt->mem.phys_base +
 						tx_pkt->mem.size - 1, 1024));
-				memcpy(tx_pkt->bounce, tx_pkt->mem.base,
+					memcpy(tx_pkt->bounce, tx_pkt->mem.base,
 						tx_pkt->mem.size);
+				}
+			} else {
+				tx_pkt->mem.phys_base =
+					dma_map_single(ipa_ctx->pdev,
+					tx_pkt->mem.base,
+					tx_pkt->mem.size,
+					DMA_TO_DEVICE);
 			}
 		} else {
-			tx_pkt->mem.phys_base =
-			   dma_map_single(ipa_ctx->pdev, tx_pkt->mem.base,
-					   tx_pkt->mem.size,
-					   DMA_TO_DEVICE);
+			tx_pkt->mem.phys_base = desc->dma_address;
+			tx_pkt->no_unmap_dma = true;
 		}
+
 		if (!tx_pkt->mem.phys_base) {
 			IPAERR("failed to alloc tx wrapper\n");
 			fail_dma_wrap = 1;
@@ -1194,6 +1209,8 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	struct ipa_sys_context *sys;
 	int src_ep_idx;
 
+	memset(desc, 0, 2 * sizeof(struct ipa_desc));
+
 	/*
 	 * USB_CONS: PKT_INIT ep_idx = dst pipe
 	 * Q6_CONS: PKT_INIT ep_idx = sender pipe
@@ -1242,6 +1259,10 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 				meta->pkt_init_dst_ep_remote) ?
 				src_ep_idx :
 				dst_ep_idx;
+		if (meta && meta->dma_address_valid) {
+			desc[1].dma_address_valid = true;
+			desc[1].dma_address = meta->dma_address;
+		}
 
 		if (ipa_send(sys, 2, desc, true)) {
 			IPAERR("fail to send immediate command\n");
@@ -1256,6 +1277,11 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		desc[0].callback = ipa_tx_comp_usr_notify_release;
 		desc[0].user1 = skb;
 		desc[0].user2 = src_ep_idx;
+
+		if (meta && meta->dma_address_valid) {
+			desc[0].dma_address_valid = true;
+			desc[0].dma_address = meta->dma_address;
+		}
 
 		if (ipa_send_one(sys, &desc[0], true)) {
 			IPAERR("fail to send skb\n");
@@ -2275,7 +2301,7 @@ int ipa_tx_dp_mul(enum ipa_client_type src,
 #define IPA_WLAN_HDR_QMAP_ID_OFFSET 1
 	struct ipa_tx_data_desc *entry;
 	struct ipa_sys_context *sys;
-	struct ipa_desc desc;
+	struct ipa_desc desc = { 0 };
 	u32 num_desc, cnt;
 	int ep_idx;
 
