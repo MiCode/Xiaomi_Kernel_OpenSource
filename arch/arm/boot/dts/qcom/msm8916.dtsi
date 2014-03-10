@@ -1174,6 +1174,27 @@
                 qcom,bam-consumer-pipe-index = <8>;
                 qcom,bam-producer-pipe-index = <9>;
                 qcom,master-id = <86>;
+
+		lattice,spi-usb@0 {
+			compatible = "lattice,ice40-spi-usb";
+			reg = <0>;
+			spi-max-frequency = <50000000>;
+			spi-cpol = <1>;
+			spi-cpha = <1>;
+			core-vcc-supply = <&pm8916_l2>;
+			spi-vcc-supply = <&pm8916_l5>;
+			lattice,reset-gpio = <&msm_gpio 3 0>;
+			lattice,slave-select-gpio = <&msm_gpio 10 0>;
+			lattice,config-done-gpio = <&msm_gpio 1 0>;
+			lattice,vcc-en-gpio = <&msm_gpio 114 0>;
+			lattice,clk-en-gpio = <&msm_gpio 0 0>;
+
+			clocks = <&clock_rpm clk_bb_clk2_pin>;
+			clock-names = "xo";
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&ice40_default>;
+			pinctrl-1 = <&ice40_sleep>;
+		};
         };
 
 	i2c_0: i2c@78b6000 { /* BLSP1 QUP2 */
