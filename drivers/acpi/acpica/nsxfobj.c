@@ -47,9 +47,61 @@
 #include <acpi/acpi.h>
 #include "accommon.h"
 #include "acnamesp.h"
+#include "amlcode.h"
 
 #define _COMPONENT          ACPI_NAMESPACE
 ACPI_MODULE_NAME("nsxfobj")
+
+/*******************************************************************************
+ *
+ * FUNCTION:    acpi_get_serial_access_length
+ *
+ * PARAMETERS:  accessor_type   - The type of the protocol indicated by region
+ *                                field access attributes
+ *              access_length   - The access length of the region field
+ *
+ * RETURN:      Decoded access length
+ *
+ * DESCRIPTION: This routine returns the length of the generic_serial_bus
+ *              protocol bytes
+ *
+ ******************************************************************************/
+u32 acpi_get_serial_access_length(u32 accessor_type, u32 access_length)
+{
+	u32 length;
+
+	switch (accessor_type) {
+	case AML_FIELD_ATTRIB_QUICK:
+	case AML_FIELD_ATTRIB_SEND_RCV:
+	case AML_FIELD_ATTRIB_BYTE:
+
+		length = 1;
+		break;
+
+	case AML_FIELD_ATTRIB_WORD:
+	case AML_FIELD_ATTRIB_WORD_CALL:
+
+		length = 2;
+		break;
+
+	case AML_FIELD_ATTRIB_MULTIBYTE:
+	case AML_FIELD_ATTRIB_RAW_BYTES:
+	case AML_FIELD_ATTRIB_RAW_PROCESS:
+
+		length = access_length;
+		break;
+
+	case AML_FIELD_ATTRIB_BLOCK:
+	case AML_FIELD_ATTRIB_BLOCK_CALL:
+	default:
+
+		length = ACPI_GSBUS_BUFFER_SIZE;
+		break;
+	}
+
+	return (length);
+}
+ACPI_EXPORT_SYMBOL(acpi_get_serial_access_length);
 
 /*******************************************************************************
  *

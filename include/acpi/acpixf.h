@@ -271,6 +271,7 @@ acpi_status acpi_get_parent(acpi_handle object, acpi_handle * out_handle);
 /*
  * Handler interfaces
  */
+u32 acpi_get_serial_access_length(u32 accessor_type, u32 access_length);
 acpi_status
 acpi_install_initialization_handler(acpi_init_handler handler, u32 function);
 

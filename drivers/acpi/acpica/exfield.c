@@ -116,9 +116,12 @@ acpi_ex_read_data_from_field(struct acpi_walk_state *walk_state,
 			    ACPI_READ | (obj_desc->field.attribute << 16);
 		} else if (obj_desc->field.region_obj->region.space_id ==
 			   ACPI_ADR_SPACE_GSBUS) {
-			length = ACPI_GSBUS_BUFFER_SIZE;
-			function =
-			    ACPI_READ | (obj_desc->field.attribute << 16);
+			u16 accessor_type;
+
+			accessor_type = obj_desc->field.attribute;
+			length = acpi_get_serial_access_length(accessor_type,
+							       obj_desc->field. access_length);
+			function = ACPI_READ | (accessor_type << 16);
 		} else {	/* IPMI */
 
 			length = ACPI_IPMI_BUFFER_SIZE;
@@ -315,9 +318,12 @@ acpi_ex_write_data_to_field(union acpi_operand_object *source_desc,
 			    ACPI_WRITE | (obj_desc->field.attribute << 16);
 		} else if (obj_desc->field.region_obj->region.space_id ==
 			   ACPI_ADR_SPACE_GSBUS) {
-			length = ACPI_GSBUS_BUFFER_SIZE;
-			function =
-			    ACPI_WRITE | (obj_desc->field.attribute << 16);
+			u16 accessor_type;
+
+			accessor_type = obj_desc->field.attribute;
+			length = acpi_get_serial_access_length(accessor_type,
+					obj_desc->field. access_length);
+			function =  ACPI_WRITE | (obj_desc->field.attribute << 16);
 		} else {	/* IPMI */
 
 			length = ACPI_IPMI_BUFFER_SIZE;

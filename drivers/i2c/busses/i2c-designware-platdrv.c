@@ -41,6 +41,8 @@
 #include <linux/io.h>
 #include <linux/slab.h>
 #include <linux/acpi.h>
+
+#include <acpi/actypes.h>
 #include "i2c-designware-core.h"
 
 static struct i2c_algorithm i2c_dw_algo = {
@@ -53,6 +55,121 @@ static u32 i2c_dw_get_clk_rate_khz(struct dw_i2c_dev *dev)
 }
 
 #ifdef CONFIG_ACPI
+struct dw_i2c_acpi_handler_data {
+	struct acpi_connection_info info;
+	struct platform_device *pdev;
+};
+
+static acpi_status
+dw_i2c_acpi_space_handler(u32 function, acpi_physical_address address,
+			u32 bits, u64 *value64,
+			void *handler_context, void *region_context)
+{
+	struct dw_i2c_acpi_handler_data *data = handler_context;
+	struct acpi_connection_info *info = &data->info;
+	struct dw_i2c_dev *dev = platform_get_drvdata(data->pdev);
+	struct acpi_resource_i2c_serialbus *sb;
+	struct acpi_resource *ares;
+	u8 target;
+	int ret, length;
+	u8 *value = (u8 *)value64;
+	u8 *buffer;
+	u32 accessor_type = function >> 16;
+	u8 addr = (u8)address;
+	struct i2c_msg msgs[2];
+
+
+	acpi_buffer_to_resource(info->connection, info->length, &ares);
+	if (ares->type != ACPI_RESOURCE_TYPE_SERIAL_BUS)
+		return AE_BAD_PARAMETER;
+
+	sb = &ares->data.i2c_serial_bus;
+	if (sb->type != ACPI_RESOURCE_SERIAL_TYPE_I2C)
+		return AE_BAD_PARAMETER;
+
+	pr_info("%s: Found I2C Resource type, addr %d\n",
+				__func__, sb->slave_address);
+	target = sb->slave_address;
+
+	length = acpi_get_serial_access_length(accessor_type, info->access_length);
+	pr_info("%s: access opeation region, addr 0x%x operation %d len %d\n",
+		__func__, addr, function, length);
+
+	if (!value64)
+		return AE_BAD_PARAMETER;
+
+	function &= ACPI_IO_MASK; 
+	if (function == ACPI_READ) {
+		buffer = kzalloc(length, GFP_KERNEL);
+	
+		msgs[0].addr = target;
+		msgs[0].flags = 0;
+		msgs[0].len = 1;
+		msgs[0].buf = &addr;
+	
+		msgs[1].addr = target;
+		msgs[1].flags = I2C_M_RD;
+		msgs[1].len = length;
+		msgs[1].buf = buffer;
+	
+		ret = i2c_transfer(&dev->adapter, msgs, 2);
+		if (ret < 0) {
+			pr_info("%s: i2c read failed\n", __func__);	
+			return AE_ERROR;		
+		}
+	
+		memcpy(value + 2, buffer, length - 2);
+		value[0] = value[1] = 0;
+		kfree(buffer);
+	} else if (function == ACPI_WRITE) {
+//		buffer = kzalloc(length - 1, GFP_KERNEL);
+//		
+//		buffer[0] = addr;
+//		memcpy(buffer + 1, value + 2, length - 2);
+//		msgs[0].addr = target;
+//		msgs[0].flags = 0;
+//		msgs[0].len = length - 1;
+//		msgs[0].buf = buffer;
+//
+//		ret = i2c_transfer(&dev->adapter, msgs, 2);
+//		if (ret < 0) {
+//			pr_info("%s: i2c read failed\n", __func__);	
+//			return AE_ERROR;		
+//		}
+//		kfree(buffer);
+//
+	}
+
+	return AE_OK;
+}
+
+static int dw_i2c_acpi_install_space_handler(struct platform_device *pdev)
+{
+	struct acpi_device *adev = ACPI_COMPANION(&pdev->dev);
+	struct dw_i2c_acpi_handler_data *data;
+	acpi_status status;
+
+	if (!adev)
+		return -EFAULT;
+
+	data = devm_kzalloc(&pdev->dev, sizeof(struct dw_i2c_acpi_handler_data),
+			    GFP_KERNEL);
+
+	if(!data)
+		return -ENOMEM;
+
+	data->pdev = pdev;
+	status = acpi_install_address_space_handler(adev->handle,
+				ACPI_ADR_SPACE_GSBUS,
+				&dw_i2c_acpi_space_handler,
+				NULL,
+				data);
+	if (ACPI_FAILURE(status))
+		return -EFAULT;
+	return 0;
+}
+
+
 static void dw_i2c_acpi_params(struct platform_device *pdev, char method[],
 			       u16 *hcnt, u16 *lcnt, u32 *sda_hold)
 {
@@ -213,6 +330,8 @@ static int dw_i2c_probe(struct platform_device *pdev)
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 
+	dw_i2c_acpi_install_space_handler(pdev);
+	acpi_walk_dep_device_list();
 	return 0;
 }
 
