@@ -489,13 +489,6 @@
 	status = "disabled";
 };
 
-&pma8084_l17 {
-	status = "ok";
-	regulator-min-microvolt = <2850000>;
-	regulator-max-microvolt = <2850000>;
-	qcom,init-voltage = <2850000>;
-};
-
 &hdmi_vreg {
 	status = "disabled";
 };
