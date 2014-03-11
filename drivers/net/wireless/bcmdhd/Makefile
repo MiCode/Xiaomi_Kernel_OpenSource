@@ -10,7 +10,7 @@ DHDCFLAGS += -Wall -Wstrict-prototypes -Dlinux -DLINUX -DBCMDRIVER            \
 	-DKEEP_ALIVE -DCSCAN -DPKT_FILTER_SUPPORT                             \
 	-DEMBEDDED_PLATFORM -DPNO_SUPPORT                                     \
 	-DDHD_DONOT_FORWARD_BCMEVENT_AS_NETWORK_PKT                           \
-	-DENABLE_INSMOD_NO_FW_LOAD -DCUSTOMER_HW2
+	-DENABLE_INSMOD_NO_FW_LOAD -DCUSTOMER_HW2 -DGET_CUSTOM_MAC_ENABLE
 
 #################
 # Common feature
