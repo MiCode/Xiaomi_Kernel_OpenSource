@@ -732,7 +732,7 @@ int arizona_in_ev(struct snd_soc_dapm_widget *w, struct snd_kcontrol *kcontrol,
 		ctrl = reg - 1;
 	} else {
 		reg = ARIZONA_ADC_DIGITAL_VOLUME_1R + ((w->shift / 2) * 8);
-		ctrl = reg - 4;
+		ctrl = reg - 5;
 	}
 
 	switch (event) {
