@@ -1714,6 +1714,7 @@
 	qcom,mdss-has-bwc;
 	qcom,mdss-has-decimation;
 	qcom,mdss-ad-off = <0x0013100 0x00013300>;
+	qcom,max-bandwidth-low-kbps = <2750000>;
 };
 
 &mdss_hdmi_tx {
