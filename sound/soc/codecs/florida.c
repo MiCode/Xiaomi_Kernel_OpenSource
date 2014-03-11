@@ -194,12 +194,10 @@ static int florida_sysclk_ev(struct snd_soc_dapm_widget *w,
 		patch = florida_sysclk_revd_patch;
 		patch_size = ARRAY_SIZE(florida_sysclk_revd_patch);
 		break;
-	case 4:
+	default:
 		patch = florida_sysclk_reve_patch;
 		patch_size = ARRAY_SIZE(florida_sysclk_reve_patch);
 		break;
-	default:
-		return 0;
 	}
 
 	switch (event) {
