@@ -33,8 +33,7 @@
 
 #include <asm/ioctls.h>
 
-#include <mach/memory.h>
-#include <mach/debug_mm.h>
+#include <linux/memory.h>
 
 #include <sound/apr_audio-v2.h>
 #include <sound/q6asm-v2.h>
