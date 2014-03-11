@@ -177,6 +177,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define TSIF_AHB_CBCR                                    (0x0D84)
 #define TSIF_REF_CBCR                                    (0x0D88)
 #define TSIF_REF_CMD_RCGR                                (0x0D90)
+#define BOOT_ROM_AHB_CBCR                                (0x0E04)
 #define GCC_XO_DIV4_CBCR                                 (0x10C8)
 #define LPASS_Q6_AXI_CBCR                                (0x11C0)
 #define APCS_GPLL_ENA_VOTE                               (0x1480)
@@ -1720,6 +1721,18 @@ static struct branch_clk gcc_blsp2_uart6_apps_clk = {
 	},
 };
 
+static struct local_vote_clk gcc_boot_rom_ahb_clk = {
+	.cbcr_reg = BOOT_ROM_AHB_CBCR,
+	.vote_reg = APCS_CLOCK_BRANCH_ENA_VOTE,
+	.en_mask = BIT(10),
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_boot_rom_ahb_clk",
+		.ops = &clk_ops_vote,
+		CLK_INIT(gcc_boot_rom_ahb_clk.c),
+	},
+};
+
 static struct branch_clk gcc_gp1_clk = {
 	.cbcr_reg = GP1_CBCR,
 	.has_sibling = 0,
@@ -2389,6 +2402,7 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_bam_dma_ahb_clk.c, 0x00e0 },
 		{ &gcc_tsif_ahb_clk.c, 0x00e8 },
 		{ &gcc_tsif_ref_clk.c, 0x00e9 },
+		{ &gcc_boot_rom_ahb_clk.c, 0x00f8 },
 		{ &gcc_lpass_q6_axi_clk.c, 0x0160 },
 		{ &gcc_pcie_0_slv_axi_clk.c, 0x01e8 },
 		{ &gcc_pcie_0_mstr_axi_clk.c, 0x01e9 },
@@ -2524,6 +2538,7 @@ static struct clk_lookup msm_clocks_gcc_plutonium[] = {
 	CLK_LIST(gcc_blsp2_uart4_apps_clk),
 	CLK_LIST(gcc_blsp2_uart5_apps_clk),
 	CLK_LIST(gcc_blsp2_uart6_apps_clk),
+	CLK_LIST(gcc_boot_rom_ahb_clk),
 	CLK_LIST(gcc_gp1_clk),
 	CLK_LIST(gcc_gp2_clk),
 	CLK_LIST(gcc_gp3_clk),

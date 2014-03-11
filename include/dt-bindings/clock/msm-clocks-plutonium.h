@@ -200,6 +200,7 @@
 #define clk_gcc_blsp2_uart4_apps_clk 0x87a44b42
 #define clk_gcc_blsp2_uart5_apps_clk 0x5cd30649
 #define clk_gcc_blsp2_uart6_apps_clk 0x8feee5ab
+#define clk_gcc_boot_rom_ahb_clk 0xde2adeb1
 #define clk_gcc_gp1_clk 0x057f7b69
 #define clk_gcc_gp2_clk 0x9bf83ffd
 #define clk_gcc_gp3_clk 0xec6539ee
