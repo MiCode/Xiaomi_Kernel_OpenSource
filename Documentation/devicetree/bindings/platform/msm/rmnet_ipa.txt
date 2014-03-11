@@ -1,0 +1,11 @@
+* Qualcomm RmNet IPA driver module
+
+This module enables embedded data calls using IPA HW.
+
+Required properties:
+- compatible:		Must be "qcom,rmnet-ipa"
+
+Example:
+	qcom,rmnet-ipa {
+		compatible = "qcom,rmnet-ipa";
+	}

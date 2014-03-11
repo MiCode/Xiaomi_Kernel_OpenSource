@@ -451,6 +451,10 @@
 		qcom,use-ipa-tethering-bridge;
 	};
 
+	qcom,rmnet-ipa {
+		compatible = "qcom,rmnet-ipa";
+	};
+
 	usb3: ssusb@f9200000 {
 		compatible = "qcom,dwc-usb3-msm";
 		reg = <0xf9200000 0xfc000>,
