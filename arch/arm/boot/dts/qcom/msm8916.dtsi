@@ -48,29 +48,29 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x0 0x0>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x80000020>;
+			enable-method = "qcom,arm-cortex-acc";
+			qcom,acc = <&acc0>;
 		};
 		cpu@1 {
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x0 0x1>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x80000020>;
+			enable-method = "qcom,arm-cortex-acc";
+			qcom,acc = <&acc1>;
 		};
 		cpu@2 {
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x0 0x2>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x80000020>;
+			enable-method = "qcom,arm-cortex-acc";
+			qcom,acc = <&acc2>;
 		};
 		cpu@3 {
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x0 0x3>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x80000020>;
+			enable-method = "qcom,arm-cortex-acc";
+			qcom,acc = <&acc3>;
 		};
 	};
 
@@ -126,6 +126,30 @@
 	#size-cells = <1>;
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
+
+	acc0:clock-controller@b088000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b088000 0x1000>,
+		      <0x0b008000 0x1000>;
+	};
+
+	acc1:clock-controller@b098000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b098000 0x1000>,
+		      <0x0b008000 0x1000>;
+	};
+
+	acc2:clock-controller@b0a8000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b0a8000 0x1000>,
+		      <0x0b008000 0x1000>;
+	};
+
+	acc3:clock-controller@b0b8000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b0b8000 0x1000>,
+		      <0x0b008000 0x1000>;
+	};
 
 	intc: interrupt-controller@b000000 {
 		compatible = "qcom,msm-qgic2";
