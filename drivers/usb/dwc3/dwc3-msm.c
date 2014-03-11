@@ -549,6 +549,8 @@ static int __dwc3_msm_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 		return ret;
 	}
 	dep->flags |= DWC3_EP_BUSY;
+	dep->resource_index = dwc3_gadget_ep_get_transfer_index(dep->dwc,
+		dep->number);
 
 	return ret;
 }
