@@ -2767,6 +2767,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
 static int dwc3_msm_pm_suspend(struct device *dev)
 {
 	int ret = 0;
@@ -2817,7 +2818,9 @@ static int dwc3_msm_pm_resume(struct device *dev)
 
 	return ret;
 }
+#endif
 
+#ifdef CONFIG_PM_RUNTIME
 static int dwc3_msm_runtime_idle(struct device *dev)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
@@ -2861,6 +2864,7 @@ static int dwc3_msm_runtime_resume(struct device *dev)
 
 	return dwc3_msm_resume(mdwc);
 }
+#endif
 
 static const struct dev_pm_ops dwc3_msm_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(dwc3_msm_pm_suspend, dwc3_msm_pm_resume)
