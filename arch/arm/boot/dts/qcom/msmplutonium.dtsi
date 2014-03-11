@@ -487,6 +487,35 @@
 		};
 
 	};
+
+	msm_vidc: qcom,vidc@fdc00000 {
+		  compatible = "qcom,msm-vidc";
+		  reg = <0xfdc00000 0xff000>;
+		  interrupts = <0 44 0>;
+		  qcom,hfi = "venus";
+		  qcom,reg-presets = <0x800B0 0x00101001>,
+			<0x800B4 0x00101010>,
+			<0x800B8 0x10100010>,
+			<0x800BC 0x00001010>,
+			<0x800C0 0x1000100f>,
+			<0x800C4 0x10000000>,
+			<0x800C8 0x10001000>,
+			<0x800CC 0x00001000>,
+			<0x80070 0x00013FFF>,
+			<0x80074 0x000000A4>,
+			<0x800A8 0x00003FFF>,
+			<0xe0020 0x5555556>,
+			<0xe0024 0x5555556>,
+			<0x80124 0x3>;
+		  qcom,max-hw-load = <1281600>; /* Full 4k @ 30 + 1080p @ 30 */
+		  qcom,clock-names = "core_clk", "core0_clk", "core1_clk", "iface_clk", "bus_clk",
+			  "mem_clk";
+		  qcom,clock-configs = <0x3 0x0 0x0 0x0 0x0 0x0>;
+		  qcom,load-freq-tbl = <979200 465000000>,
+			<783360 465000000>,
+			<489600 266670000>,
+			<244800 133330000>;
+	  };
 };
 
 &gdsc_usb30 {
