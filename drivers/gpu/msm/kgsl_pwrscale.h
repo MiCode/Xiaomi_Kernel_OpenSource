@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,6 +47,7 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor);
 void kgsl_pwrscale_close(struct kgsl_device *device);
 
 void kgsl_pwrscale_update(struct kgsl_device *device);
+void kgsl_pwrscale_update_stats(struct kgsl_device *device);
 void kgsl_pwrscale_busy(struct kgsl_device *device);
 void kgsl_pwrscale_sleep(struct kgsl_device *device);
 void kgsl_pwrscale_wake(struct kgsl_device *device);

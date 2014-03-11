@@ -1283,8 +1283,6 @@ EXPORT_SYMBOL(kgsl_pre_hwaccess);
 static int
 _nap(struct kgsl_device *device)
 {
-	struct kgsl_power_stats stats;
-
 	switch (device->state) {
 	case KGSL_STATE_ACTIVE:
 		if (!device->ftbl->isidle(device)) {
@@ -1299,8 +1297,7 @@ _nap(struct kgsl_device *device)
 		 * the simple-on-demand governor will get the latest
 		 * busy_time data even if the gpu isn't active.
 		*/
-		device->ftbl->power_stats(device, &stats);
-		device->pwrscale.accum_stats.busy_time += stats.busy_time;
+		kgsl_pwrscale_update_stats(device);
 
 		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 		kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_OFF, KGSL_STATE_NAP);
