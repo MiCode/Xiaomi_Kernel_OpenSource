@@ -623,6 +623,56 @@
 			};
 		};
 
+		tsif0_signals {
+			qcom,pins = <&gp 86>,	/* TSIF0 CLK */
+				<&gp 85>,	/* TSIF0 Enable */
+				<&gp 84>;	/* TSIF0 DATA */
+			qcom,num-grp-pins = <3>;
+			qcom,pins-func = <3>;
+			label = "tsif0-signals";
+			tsif0_signals_active: tsif0_signals_active {
+				drive_strength = <2>;	/* 2 mA */
+				bias-pull-down;		/* pull down */
+			};
+		};
+
+		/* sync signal is only used in mode-2 */
+		tsif0_sync {
+			qcom,pins = <&gp 83>;	/* TSIF0 SYNC */
+			qcom,num-grp-pins = <1>;
+			qcom,pins-func = <3>;
+			label = "tsif0-sync";
+			tsif0_sync_active: tsif0_sync_active {
+				drive_strength = <2>;	/* 2 mA */
+				bias-pull-down;		/* pull down */
+			};
+		};
+
+		tsif1_signals {
+			qcom,pins = <&gp 91>,	/* TSIF1 CLK */
+				<&gp 96>,	/* TSIF1 Enable */
+				<&gp 97>;	/* TSIF1 DATA */
+			qcom,num-grp-pins = <3>;
+			qcom,pins-func = <3>;
+			label = "tsif1-signals";
+			tsif1_signals_active: tsif1_signals_active {
+				drive_strength = <2>;	/* 2 mA */
+				bias-pull-down;		/* pull down */
+			};
+		};
+
+		/* sync signal is only used in mode-2 */
+		tsif1_sync {
+			qcom,pins = <&gp 95>;	/* TSIF1 SYNC */
+			qcom,num-grp-pins = <1>;
+			qcom,pins-func = <3>;
+			label = "tsif1-sync";
+			tsif1_sync_active: tsif1_sync_active {
+				drive_strength = <2>;	/* 2 mA */
+				bias-pull-down;		/* pull down */
+			};
+		};
+
 		cti_trigout_a {
 			qcom,pins = <&gp 63>;
 			qcom,num-grp-pins = <1>;

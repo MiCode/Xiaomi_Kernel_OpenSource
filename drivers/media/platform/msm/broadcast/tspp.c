@@ -433,6 +433,21 @@ struct tspp_key_table {
 	struct tspp_key_entry entry[TSPP_NUM_KEYS];
 };
 
+struct tspp_pinctrl {
+	struct pinctrl *pinctrl;
+
+	struct pinctrl_state *disabled;
+	struct pinctrl_state *tsif0_mode1;
+	struct pinctrl_state *tsif0_mode2;
+	struct pinctrl_state *tsif1_mode1;
+	struct pinctrl_state *tsif1_mode2;
+	struct pinctrl_state *dual_mode1;
+	struct pinctrl_state *dual_mode2;
+
+	bool tsif0_active;
+	bool tsif1_active;
+};
+
 /* this represents the actual hardware device */
 struct tspp_device {
 	struct list_head devlist; /* list of all devices */
@@ -460,6 +475,9 @@ struct tspp_device {
 	struct tspp_pipe_context_regs *tspp_pipe_context;
 	struct tspp_pipe_performance_regs *tspp_pipe_performance;
 	bool req_irqs;
+	/* pinctrl */
+	struct mutex mutex;
+	struct tspp_pinctrl pinctrl;
 
 	struct dentry *dent;
 	struct dentry *debugfs_regs[ARRAY_SIZE(debugfs_tspp_regs)];
@@ -637,115 +655,152 @@ static void tspp_sps_complete_tlet(unsigned long data)
 	spin_unlock_irqrestore(&device->spinlock, flags);
 }
 
-/*** GPIO functions ***/
-static int tspp_gpios_disable(const struct tspp_tsif_device *tsif_device,
-				const struct msm_gpio *table,
-				int size)
-{
-	int rc = 0;
-	int i;
-	const struct msm_gpio *g;
-
-	for (i = size-1; i >= 0; i--) {
-		int tmp;
-		g = table + i;
-
-		/* don't use sync GPIO when not working in mode 2 */
-		if ((tsif_device->mode != TSPP_TSIF_MODE_2) &&
-			(strnstr(g->label, "sync", strlen(g->label)) != NULL))
-			continue;
-
-		tmp = gpio_tlmm_config(GPIO_CFG(GPIO_PIN(g->gpio_cfg),
-			0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
-			GPIO_CFG_DISABLE);
-		if (tmp) {
-			pr_err("tspp_gpios_disable(0x%08x, GPIO_CFG_DISABLE) <%s> failed: %d\n",
-			       g->gpio_cfg, g->label ?: "?", rc);
-			pr_err("tspp: pin %d func %d dir %d pull %d drvstr %d\n",
-			       GPIO_PIN(g->gpio_cfg), GPIO_FUNC(g->gpio_cfg),
-			       GPIO_DIR(g->gpio_cfg), GPIO_PULL(g->gpio_cfg),
-			       GPIO_DRVSTR(g->gpio_cfg));
-			if (!rc)
-				rc = tmp;
-		}
-	}
-
-	return rc;
-}
-
-static int tspp_gpios_enable(const struct tspp_tsif_device *tsif_device,
-				const struct msm_gpio *table,
-				int size)
-{
-	int rc;
-	int i;
-	const struct msm_gpio *g;
-
-	for (i = 0; i < size; i++) {
-		g = table + i;
-
-		/* don't use sync GPIO when not working in mode 2 */
-		if ((tsif_device->mode != TSPP_TSIF_MODE_2) &&
-			(strnstr(g->label, "sync", strlen(g->label)) != NULL))
-			continue;
-
-		rc = gpio_tlmm_config(g->gpio_cfg, GPIO_CFG_ENABLE);
-		if (rc) {
-			pr_err("tspp: gpio_tlmm_config(0x%08x, GPIO_CFG_ENABLE) <%s> failed: %d\n",
-			       g->gpio_cfg, g->label ?: "?", rc);
-			pr_err("tspp: pin %d func %d dir %d pull %d drvstr %d\n",
-			       GPIO_PIN(g->gpio_cfg), GPIO_FUNC(g->gpio_cfg),
-			       GPIO_DIR(g->gpio_cfg), GPIO_PULL(g->gpio_cfg),
-			       GPIO_DRVSTR(g->gpio_cfg));
-			goto err;
-		}
-	}
-	return 0;
-err:
-	tspp_gpios_disable(tsif_device, table, i);
-
-	return rc;
-}
-
-
 static int tspp_config_gpios(struct tspp_device *device,
 				enum tspp_source source,
 				int enable)
 {
-	const struct msm_gpio *table;
-	struct msm_tspp_platform_data *pdata = device->pdev->dev.platform_data;
-	int num_gpios = (pdata->num_gpios / TSPP_TSIF_INSTANCES);
-	int i = 0;
-
-	if (num_gpios != TSPP_GPIOS_PER_TSIF) {
-		pr_err("tspp %s: unexpected number of GPIOs %d, expected %d\n",
-			__func__, num_gpios, TSPP_GPIOS_PER_TSIF);
-		return -EINVAL;
-	}
+	int ret;
+	struct pinctrl_state *s;
+	struct tspp_pinctrl *p = &device->pinctrl;
+	/* Both TSIF always work in the same mode */
+	bool mode2 = device->tsif[0].mode == TSPP_TSIF_MODE_2;
 
 	/*
-	 * Note: this code assumes that the GPIO definitions in the
-	 * pdata->gpios table are according to the TSIF instance number,
-	 * i.e., that TSIF0 GPIOs are defined first, then TSIF1 GPIOs etc.
+	 * TSIF devices are handled separately, however changing of the pinctrl
+	 * state must be protected from race condition.
 	 */
+	if (mutex_lock_interruptible(&device->mutex))
+		return -ERESTARTSYS;
+
 	switch (source) {
 	case TSPP_SOURCE_TSIF0:
-		i = 0;
+		if (enable == p->tsif1_active) {
+			if (enable)
+				/* Both tsif enabled */
+				s = mode2 ? p->dual_mode2 : p->dual_mode1;
+			else
+				/* Both tsif disabled */
+				s = p->disabled;
+		} else if (enable) {
+			/* Only tsif0 is enabled */
+			s = mode2 ? p->tsif0_mode2 : p->tsif0_mode1;
+		} else {
+			/* Only tsif1 is enabled */
+			s = mode2 ? p->tsif1_mode2 : p->tsif1_mode1;
+		}
+
+		ret = pinctrl_select_state(p->pinctrl, s);
+		if (!ret)
+			p->tsif0_active = enable;
 		break;
 	case TSPP_SOURCE_TSIF1:
-		i = 1;
+		if (enable == p->tsif0_active) {
+			if (enable)
+				/* Both tsif enabled */
+				s = mode2 ? p->dual_mode2 : p->dual_mode1;
+			else
+				/* Both tsif disabled */
+				s = p->disabled;
+		} else if (enable) {
+			/* Only tsif1 is enabled */
+			s = mode2 ? p->tsif1_mode2 : p->tsif1_mode1;
+		} else {
+			/* Only tsif0 is enabled */
+			s = mode2 ? p->tsif0_mode2 : p->tsif0_mode1;
+		}
+
+		ret = pinctrl_select_state(p->pinctrl, s);
+		if (!ret)
+			p->tsif1_active = enable;
 		break;
 	default:
-		pr_err("tspp %s: invalid source\n", __func__);
+		pr_err("%s: invalid source %d\n", __func__, source);
+		mutex_unlock(&device->mutex);
 		return -EINVAL;
 	}
 
-	table = pdata->gpios + (i * num_gpios);
-	if (enable)
-		return tspp_gpios_enable(&device->tsif[i], table, num_gpios);
-	else
-		return tspp_gpios_disable(&device->tsif[i], table, num_gpios);
+	if (ret)
+		pr_err("%s: failed to change pinctrl state, ret=%d\n",
+			__func__, ret);
+
+	mutex_unlock(&device->mutex);
+	return ret;
 }
+
+static int tspp_get_pinctrl(struct tspp_device *device)
+{
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *state;
+
+	pinctrl = devm_pinctrl_get(&device->pdev->dev);
+	if (IS_ERR(pinctrl)) {
+		pr_err("%s: Unable to get pinctrl handle\n", __func__);
+		return -EINVAL;
+	}
+	device->pinctrl.pinctrl = pinctrl;
+
+	state = pinctrl_lookup_state(pinctrl, "disabled");
+	if (IS_ERR(state)) {
+		pr_err("%s: Unable to find state %s\n",
+			__func__, "disabled");
+		return -EINVAL;
+	}
+	device->pinctrl.disabled = state;
+
+	state = pinctrl_lookup_state(pinctrl, "tsif0-mode1");
+	if (IS_ERR(state)) {
+		pr_err("%s: Unable to find state %s\n",
+			__func__, "tsif0-mode1");
+		return -EINVAL;
+	}
+	device->pinctrl.tsif0_mode1 = state;
+
+	state = pinctrl_lookup_state(pinctrl, "tsif0-mode2");
+	if (IS_ERR(state)) {
+		pr_err("%s: Unable to find state %s\n",
+			__func__, "tsif0-mode2");
+		return -EINVAL;
+	}
+	device->pinctrl.tsif0_mode2 = state;
+
+	state = pinctrl_lookup_state(pinctrl, "tsif1-mode1");
+	if (IS_ERR(state)) {
+		pr_err("%s: Unable to find state %s\n",
+			__func__, "tsif1-mode1");
+		return -EINVAL;
+	}
+	device->pinctrl.tsif1_mode1 = state;
+
+	state = pinctrl_lookup_state(pinctrl, "tsif1-mode2");
+	if (IS_ERR(state)) {
+		pr_err("%s: Unable to find state %s\n",
+			__func__, "tsif1-mode2");
+		return -EINVAL;
+	}
+	device->pinctrl.tsif1_mode2 = state;
+
+	state = pinctrl_lookup_state(pinctrl, "dual-tsif-mode1");
+	if (IS_ERR(state)) {
+		pr_err("%s: Unable to find state %s\n",
+			__func__, "dual-tsif-mode1");
+		return -EINVAL;
+	}
+	device->pinctrl.dual_mode1 = state;
+
+	state = pinctrl_lookup_state(pinctrl, "dual-tsif-mode2");
+	if (IS_ERR(state)) {
+		pr_err("%s: Unable to find state %s\n",
+			__func__, "dual-tsif-mode2");
+		return -EINVAL;
+	}
+	device->pinctrl.dual_mode2 = state;
+
+	device->pinctrl.tsif0_active = false;
+	device->pinctrl.tsif1_active = false;
+
+	return 0;
+}
+
 
 /*** Clock functions ***/
 static int tspp_clock_start(struct tspp_device *device)
@@ -2601,11 +2656,8 @@ msm_tspp_dt_to_pdata(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
 	struct msm_tspp_platform_data *data;
-	struct msm_gpio *gpios;
 	struct property *prop;
-	int i, rc;
-	int gpio;
-	u32 gpio_func;
+	int rc;
 
 	/* Note: memory allocated by devm_kzalloc is freed automatically */
 	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
@@ -2631,37 +2683,6 @@ msm_tspp_dt_to_pdata(struct platform_device *pdev)
 	prop = of_find_property(node, "vdd_cx-supply", NULL);
 	if (prop)
 		data->tsif_vreg_present = 1;
-
-	data->num_gpios = of_gpio_count(node);
-	if (data->num_gpios == 0) {
-		pr_err("tspp: Could not find GPIO definitions\n");
-		return NULL;
-	}
-	gpios = devm_kzalloc(&pdev->dev,
-			(data->num_gpios * sizeof(struct msm_gpio)),
-			GFP_KERNEL);
-	if (!gpios) {
-		pr_err("tspp: Unable to allocate memory for GPIOs table\n");
-		return NULL;
-	}
-	/* Assuming GPIO FUNC property is the same for all GPIOs */
-	if (of_property_read_u32(node, "qcom,gpios-func", &gpio_func)) {
-		pr_err("tspp: Could not find gpios-func property\n");
-		return NULL;
-	}
-	for (i = 0; i < data->num_gpios; i++) {
-		gpio = of_get_gpio(node, i);
-		gpios[i].gpio_cfg = GPIO_CFG(gpio, gpio_func,
-						GPIO_CFG_INPUT,
-						GPIO_CFG_PULL_DOWN,
-						GPIO_CFG_2MA);
-		rc = of_property_read_string_index(node, "qcom,gpio-names",
-						i, &gpios[i].label);
-		if (rc)
-			pr_warn("tspp: Could not find gpio-names property\n");
-	}
-
-	data->gpios = gpios;
 
 	return data;
 }
@@ -2738,19 +2759,20 @@ static int msm_tspp_probe(struct platform_device *pdev)
 
 		tspp_bus_pdata = msm_bus_cl_get_pdata(pdev);
 	} else {
-		/* must have platform data */
-		data = pdev->dev.platform_data;
-		tspp_bus_pdata = NULL;
+		/* must have device tree data */
+		pr_err("tspp: Device tree data not available\n");
+		rc = -EINVAL;
+		goto out;
 	}
 	if (!data) {
-		pr_err("tspp: Platform data not available");
+		pr_err("tspp: Platform data not available\n");
 		rc = -EINVAL;
 		goto out;
 	}
 
 	/* check for valid device id */
 	if ((pdev->id < 0) || (pdev->id >= TSPP_MAX_DEVICES)) {
-		pr_err("tspp: Invalid device ID %d", pdev->id);
+		pr_err("tspp: Invalid device ID %d\n", pdev->id);
 		rc = -EINVAL;
 		goto out;
 	}
@@ -2758,7 +2780,7 @@ static int msm_tspp_probe(struct platform_device *pdev)
 	/* OK, we will use this device */
 	device = kzalloc(sizeof(struct tspp_device), GFP_KERNEL);
 	if (!device) {
-		pr_err("tspp: Failed to allocate memory for device");
+		pr_err("tspp: Failed to allocate memory for device\n");
 		rc = -ENOMEM;
 		goto out;
 	}
@@ -2766,6 +2788,13 @@ static int msm_tspp_probe(struct platform_device *pdev)
 	/* set up references */
 	device->pdev = pdev;
 	platform_set_drvdata(pdev, device);
+
+	/* setup pin control */
+	rc = tspp_get_pinctrl(device);
+	if (rc) {
+		pr_err("tspp: failed to get pin control data, rc=%d\n", rc);
+		goto err_pinctrl;
+	}
 
 	/* register bus client */
 	if (tspp_bus_pdata) {
@@ -2828,21 +2857,21 @@ static int msm_tspp_probe(struct platform_device *pdev)
 	mem_tsif0 = platform_get_resource_byname(pdev,
 				IORESOURCE_MEM, "MSM_TSIF0_PHYS");
 	if (!mem_tsif0) {
-		pr_err("tspp: Missing tsif0 MEM resource");
+		pr_err("tspp: Missing tsif0 MEM resource\n");
 		rc = -ENXIO;
 		goto err_res_tsif0;
 	}
 	device->tsif[0].base = ioremap(mem_tsif0->start,
 		resource_size(mem_tsif0));
 	if (!device->tsif[0].base) {
-		pr_err("tspp: ioremap failed");
+		pr_err("tspp: ioremap failed\n");
 		goto err_map_tsif0;
 	}
 
 	mem_tsif1 = platform_get_resource_byname(pdev,
 				IORESOURCE_MEM, "MSM_TSIF1_PHYS");
 	if (!mem_tsif1) {
-		dev_err(&pdev->dev, "Missing tsif1 MEM resource");
+		dev_err(&pdev->dev, "Missing tsif1 MEM resource\n");
 		rc = -ENXIO;
 		goto err_res_tsif1;
 	}
@@ -2922,6 +2951,7 @@ static int msm_tspp_probe(struct platform_device *pdev)
 	device->bam_handle = SPS_DEV_HANDLE_INVALID;
 
 	spin_lock_init(&device->spinlock);
+	mutex_init(&device->mutex);
 	tasklet_init(&device->tlet, tspp_sps_complete_tlet,
 			(unsigned long)device);
 
@@ -2976,6 +3006,7 @@ err_pclock:
 err_regultaor:
 	if (device->tsif_bus_client)
 		msm_bus_scale_unregister_client(device->tsif_bus_client);
+err_pinctrl:
 	kfree(device);
 
 out:
@@ -2998,6 +3029,8 @@ static int msm_tspp_remove(struct platform_device *pdev)
 	for (i = 0; i < TSPP_TSIF_INSTANCES; i++) {
 		tsif_debugfs_exit(&device->tsif[i]);
 	}
+
+	mutex_destroy(&device->mutex);
 
 	if (device->tsif_bus_client)
 		msm_bus_scale_unregister_client(device->tsif_bus_client);

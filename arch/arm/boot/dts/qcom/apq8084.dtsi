@@ -688,7 +688,7 @@
 		reg = <0xf99d8000 0x1000>, /* MSM_TSIF0_PHYS */
 		      <0xf99d9000 0x1000>, /* MSM_TSIF1_PHYS */
 		      <0xf99da000 0x1000>, /* MSM_TSPP_PHYS  */
-		      <0xf99c4000 0x14000>; /* MSM_TSPP_BAM_PHYS */
+		      <0xf99c4000 0x11000>; /* MSM_TSPP_BAM_PHYS */
 		reg-names = "MSM_TSIF0_PHYS",
 			"MSM_TSIF1_PHYS",
 			"MSM_TSPP_PHYS",
@@ -703,23 +703,6 @@
 			"TSIF_BAM_IRQ";
 		qcom,tsif-pclk = "iface_clk";
 		qcom,tsif-ref-clk = "ref_clk";
-		gpios = <&msmgpio 86 0>, /* TSIF0 CLK  */
-			<&msmgpio 85 0>, /* TSIF0 EN   */
-			<&msmgpio 84 0>, /* TSIF0 DATA */
-			<&msmgpio 83 0>, /* TSIF0 SYNC */
-			<&msmgpio 91 0>, /* TSIF1 CLK  */
-			<&msmgpio 96 0>, /* TSIF1 EN   */
-			<&msmgpio 97 0>, /* TSIF1 DATA */
-			<&msmgpio 95 0>; /* TSIF1 SYNC */
-		qcom,gpio-names = "tsif_clk",
-				"tsif_en",
-				"tsif_data",
-				"tsif_sync",
-				"tsif_clk",
-				"tsif_en",
-				"tsif_data",
-				"tsif_sync";
-		qcom,gpios-func = <1>;
 
 		qcom,msm-bus,name = "tsif";
 		qcom,msm-bus,num-cases = <2>;
@@ -727,6 +710,25 @@
 		qcom,msm-bus,vectors-KBps =
 				<82 512 0 0>, /* No vote */
 				<82 512 12288 24576>; /* Max. bandwidth, 2xTSIF, each max of 96Mbps */
+
+		pinctrl-names = "disabled",
+			"tsif0-mode1", "tsif0-mode2",
+			"tsif1-mode1", "tsif1-mode2",
+			"dual-tsif-mode1", "dual-tsif-mode2";
+
+		pinctrl-0 = <>;				/* disabled */
+		pinctrl-1 = <&tsif0_signals_active>;	/* tsif0-mode1 */
+		pinctrl-2 = <&tsif0_signals_active
+			&tsif0_sync_active>;		/* tsif0-mode2 */
+		pinctrl-3 = <&tsif1_signals_active>;	/* tsif1-mode1 */
+		pinctrl-4 = <&tsif1_signals_active
+			&tsif1_sync_active>;		/* tsif1-mode2 */
+		pinctrl-5 = <&tsif0_signals_active
+			&tsif1_signals_active>;		/* dual-tsif-mode1 */
+		pinctrl-6 = <&tsif0_signals_active
+			&tsif0_sync_active
+			&tsif1_signals_active
+			&tsif1_sync_active>;		/* dual-tsif-mode2 */
 	};
 
 	slim_msm: slim@fe1af000 {
