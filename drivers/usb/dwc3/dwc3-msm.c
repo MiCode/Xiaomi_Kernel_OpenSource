@@ -630,6 +630,12 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 		dep->free_slot = 0;
 	}
 
+	/* HW restriction regarding TRB size (8KB) */
+	if (req->request.length < 0x2000) {
+		dev_err(mdwc->dev, "%s: Min TRB size is 8KB\n", __func__);
+		return -EINVAL;
+	}
+
 	/*
 	 * Override req->complete function, but before doing that,
 	 * store it's original pointer in the req_complete_list.
