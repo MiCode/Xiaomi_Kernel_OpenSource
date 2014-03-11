@@ -811,8 +811,7 @@ static int qpnp_mpp_set(struct qpnp_led_data *led)
 {
 	int rc;
 	u8 val;
-	int duty_us, duty_ns;
-	int period_us = led->mpp_cfg->pwm_cfg->pwm_period_us;
+	int duty_us, duty_ns, period_us;
 
 	if (led->cdev.brightness) {
 		if (led->mpp_cfg->mpp_reg && !led->mpp_cfg->enable) {
@@ -854,6 +853,7 @@ static int qpnp_mpp_set(struct qpnp_led_data *led)
 		if (led->mpp_cfg->pwm_mode == PWM_MODE) {
 			pwm_disable(led->mpp_cfg->pwm_cfg->pwm_dev);
 			/*config pwm for brightness scaling*/
+			period_us = led->mpp_cfg->pwm_cfg->pwm_period_us;
 			if (period_us > INT_MAX / NSEC_PER_USEC) {
 				duty_us = (period_us * led->cdev.brightness) /
 					LED_FULL;
@@ -1422,8 +1422,7 @@ error_flash_set:
 static int qpnp_kpdbl_set(struct qpnp_led_data *led)
 {
 	int rc;
-	int duty_us, duty_ns;
-	int period_us = led->kpdbl_cfg->pwm_cfg->pwm_period_us;
+	int duty_us, duty_ns, period_us;
 
 	if (led->cdev.brightness) {
 		if (!led->kpdbl_cfg->pwm_cfg->blinking)
@@ -1440,6 +1439,7 @@ static int qpnp_kpdbl_set(struct qpnp_led_data *led)
 		}
 
 		if (led->kpdbl_cfg->pwm_cfg->mode == PWM_MODE) {
+			period_us = led->kpdbl_cfg->pwm_cfg->pwm_period_us;
 			if (period_us > INT_MAX / NSEC_PER_USEC) {
 				duty_us = (period_us * led->cdev.brightness) /
 					KPDBL_MAX_LEVEL;
@@ -1475,7 +1475,7 @@ static int qpnp_kpdbl_set(struct qpnp_led_data *led)
 
 		if (led->kpdbl_cfg->always_on) {
 			rc = pwm_config_us(led->kpdbl_cfg->pwm_cfg->pwm_dev, 0,
-					period_us);
+				led->kpdbl_cfg->pwm_cfg->pwm_period_us);
 			if (rc < 0) {
 				dev_err(&led->spmi_dev->dev,
 						"pwm config failed\n");
@@ -1514,14 +1514,14 @@ static int qpnp_kpdbl_set(struct qpnp_led_data *led)
 static int qpnp_rgb_set(struct qpnp_led_data *led)
 {
 	int rc;
-	int duty_us, duty_ns;
-	int period_us = led->rgb_cfg->pwm_cfg->pwm_period_us;
+	int duty_us, duty_ns, period_us;
 
 	if (led->cdev.brightness) {
 		if (!led->rgb_cfg->pwm_cfg->blinking)
 			led->rgb_cfg->pwm_cfg->mode =
 				led->rgb_cfg->pwm_cfg->default_mode;
 		if (led->rgb_cfg->pwm_cfg->mode == PWM_MODE) {
+			period_us = led->rgb_cfg->pwm_cfg->pwm_period_us;
 			if (period_us > INT_MAX / NSEC_PER_USEC) {
 				duty_us = (period_us * led->cdev.brightness) /
 					LED_FULL;
