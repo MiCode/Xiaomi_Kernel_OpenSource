@@ -183,9 +183,9 @@
 		qcom,mode = "tz";
 	};
 
-	qcom,mpm@601c8 {
+	qcom,mpm@601d0 {
 		compatible = "qcom,mpm-v2";
-		reg = <0x601c8 0x1000>, /* MSM_RPM_MPM_BASE 4K */
+		reg = <0x601d0 0x1000>, /* MSM_RPM_MPM_BASE 4K */
 		    <0xb011008 0x4>;
 		reg-names = "vmpm", "ipc";
 		interrupts = <0 171 1>;
