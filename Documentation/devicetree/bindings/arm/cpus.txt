@@ -180,6 +180,7 @@ nodes to be present and contain the properties described below.
 			  be one of:
 			     "spin-table"
 			     "psci"
+			     "qcom,arm-cortex-acc"
 			# On ARM 32-bit systems this property is optional and
 			  can be one of:
 			    "qcom,gcc-msm8660"
@@ -204,8 +205,8 @@ nodes to be present and contain the properties described below.
 
 	- qcom,acc
 		Usage: required for systems that have an "enable-method"
-		       property value of "qcom,kpss-acc-v1" or
-		       "qcom,kpss-acc-v2"
+		       property value of "qcom,kpss-acc-v1",
+		       "qcom,kpss-acc-v2" or "qcom,arm-cortex-acc"
 		Value type: <phandle>
 		Definition: Specifies the ACC[2] node associated with this CPU.
 
