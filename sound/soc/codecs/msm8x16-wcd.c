@@ -2017,9 +2017,11 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"MIC BIAS Internal1", NULL, "INT_LDO_H"},
 	{"MIC BIAS Internal2", NULL, "INT_LDO_H"},
 	{"MIC BIAS External", NULL, "INT_LDO_H"},
+	{"MIC BIAS External2", NULL, "INT_LDO_H"},
 	{"MIC BIAS Internal1", NULL, "MICBIAS_REGULATOR"},
 	{"MIC BIAS Internal2", NULL, "MICBIAS_REGULATOR"},
 	{"MIC BIAS External", NULL, "MICBIAS_REGULATOR"},
+	{"MIC BIAS External2", NULL, "MICBIAS_REGULATOR"},
 };
 
 static int msm8x16_wcd_startup(struct snd_pcm_substream *substream,
@@ -2520,6 +2522,9 @@ static const struct snd_soc_dapm_widget msm8x16_wcd_dapm_widgets[] = {
 
 	SND_SOC_DAPM_MICBIAS("MIC BIAS External",
 		MSM8X16_WCD_A_ANALOG_MICB_1_EN, 7, 0),
+
+	SND_SOC_DAPM_MICBIAS("MIC BIAS External2",
+		MSM8X16_WCD_A_ANALOG_MICB_2_EN, 7, 0),
 
 	SND_SOC_DAPM_INPUT("AMIC3"),
 
