@@ -683,6 +683,61 @@ static struct msm_gpiomux_config msm_interrupt_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting ice40_spi_cs_act_config = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting ice40_spi_cs_susp_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting ice40_act_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting ice40_susp_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct msm_gpiomux_config ice40_spi_usb_configs[] __initdata = {
+	{
+		.gpio = 85,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &ice40_spi_cs_act_config,
+			[GPIOMUX_SUSPENDED] = &ice40_spi_cs_susp_config,
+		},
+	},
+	{
+		.gpio = 94,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &ice40_act_config,
+			[GPIOMUX_SUSPENDED] = &ice40_susp_config,
+		},
+	},
+	{
+		.gpio = 95,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &ice40_act_config,
+			[GPIOMUX_SUSPENDED] = &ice40_susp_config,
+		},
+	},
+	{
+		.gpio = 96,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &ice40_act_config,
+			[GPIOMUX_SUSPENDED] = &ice40_susp_config,
+		},
+	},
+};
+
 void __init msm8610_init_gpiomux(void)
 {
 	int rc;
@@ -719,6 +774,10 @@ void __init msm8610_init_gpiomux(void)
 		msm_gpiomux_install(msm_non_qrd_configs,
 			ARRAY_SIZE(msm_non_qrd_configs));
 	}
+
+	if (of_board_is_cdp())
+		msm_gpiomux_install(ice40_spi_usb_configs,
+			ARRAY_SIZE(ice40_spi_usb_configs));
 }
 
 static void wcnss_switch_to_gpio(void)
