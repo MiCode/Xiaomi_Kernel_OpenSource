@@ -1351,7 +1351,7 @@ static void dwc3_start_chg_det(struct dwc3_charger *charger, bool start)
 
 static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 {
-	int ret;
+	int ret, i;
 	bool dcp;
 	bool host_bus_suspend;
 	bool host_ss_active;
@@ -1359,6 +1359,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 
 	dev_dbg(mdwc->dev, "%s: entering lpm. usb_lpm_override:%d\n",
 					 __func__, usb_lpm_override);
+	dbg_event(0xFF, "Controller Suspend", 0);
 
 	if (!usb_lpm_override && mdwc->suspend_resume_no_support) {
 		dev_dbg(mdwc->dev, "%s no support for suspend\n", __func__);
@@ -1368,6 +1369,21 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	if (atomic_read(&mdwc->in_lpm)) {
 		dev_dbg(mdwc->dev, "%s: Already suspended\n", __func__);
 		return 0;
+	}
+
+	/* pending device events need to be handled by dwc3_thread_interrupt */
+	if (mdwc->dwc3) {
+		struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+		for (i = 0; i < dwc->num_event_buffers; i++) {
+			struct dwc3_event_buffer *evt = dwc->ev_buffs[i];
+			if ((evt->flags & DWC3_EVENT_PENDING)) {
+				dev_warn(mdwc->dev, "%s: %d device events pending, abort suspend\n",
+					__func__, evt->count / 4);
+				dbg_print_reg("PENDING DEVICE EVENT",
+						*(u32 *)(evt->buf + evt->lpos));
+				return -EBUSY;
+			}
+		}
 	}
 
 	host_ss_active = dwc3_msm_read_reg(mdwc->base, USB3_PORTSC) & PORT_PE;
@@ -1462,6 +1478,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	bool resume_from_core_clk_off = false;
 
 	dev_dbg(mdwc->dev, "%s: exiting lpm\n", __func__);
+	dbg_event(0xFF, "Controller Resume", 0);
 
 	if (!atomic_read(&mdwc->in_lpm)) {
 		dev_dbg(mdwc->dev, "%s: Already resumed\n", __func__);

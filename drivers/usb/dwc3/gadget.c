@@ -2942,6 +2942,8 @@ static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc)
 	irqreturn_t ret = IRQ_NONE;
 	int i;
 
+	dbg_event(0xFF, "IRQ Thread", 0);
+
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	for (i = 0; i < dwc->num_event_buffers; i++) {
@@ -2958,14 +2960,6 @@ static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc)
 			union dwc3_event event;
 
 			event.raw = *(u32 *) (evt->buf + evt->lpos);
-
-			/* Core registers may not be accessible in LPM */
-			if (pm_runtime_suspended(dwc->dev)) {
-				dev_warn(dwc->dev, "%s: event (0x%x, count %d) while suspended\n",
-						__func__, event.raw,
-						evt->count);
-				break;
-			}
 
 			dwc3_process_event_entry(dwc, &event);
 
@@ -2991,6 +2985,7 @@ static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc)
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
+	pm_runtime_put(dwc->dev);
 	return ret;
 }
 
@@ -3029,6 +3024,9 @@ static irqreturn_t dwc3_interrupt(int irq, void *_dwc)
 	}
 
 	spin_unlock(&dwc->lock);
+
+	if (ret == IRQ_WAKE_THREAD)
+		pm_runtime_get(dwc->dev);
 
 	return ret;
 }
