@@ -337,12 +337,28 @@ static int check_range(u32 *fl_table, unsigned int va,
 	return 0;
 }
 
+/*
+ * For debugging we may want to force mappings to be 4K only
+ */
+#ifdef CONFIG_IOMMU_FORCE_4K_MAPPINGS
+static inline int is_fully_aligned(unsigned int va, phys_addr_t pa, size_t len,
+				   int align)
+{
+	if (align == SZ_4K) {
+		return  IS_ALIGNED(va, align) && IS_ALIGNED(pa, align)
+			&& (len >= align);
+	} else {
+		return 0;
+	}
+}
+#else
 static inline int is_fully_aligned(unsigned int va, phys_addr_t pa, size_t len,
 				   int align)
 {
 	return  IS_ALIGNED(va, align) && IS_ALIGNED(pa, align)
 		&& (len >= align);
 }
+#endif
 
 int msm_iommu_pagetable_map_range(struct msm_iommu_pt *pt, unsigned int va,
 		       struct scatterlist *sg, unsigned int len, int prot)
