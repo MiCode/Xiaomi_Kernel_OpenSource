@@ -1497,7 +1497,7 @@ static irqreturn_t tmc_etr_byte_cntr_irq(int irq, void *data)
 	atomic_inc(&drvdata->byte_cntr_irq_cnt);
 	if (atomic_read(&drvdata->byte_cntr_irq_cnt) >
 			drvdata->byte_cntr_overflow_cnt) {
-		dev_err(drvdata->dev, "Byte counter overflow\n");
+		dev_err_ratelimited(drvdata->dev, "Byte counter overflow\n");
 		drvdata->byte_cntr_overflow = true;
 	}
 	wake_up(&drvdata->wq);
