@@ -18,6 +18,8 @@
 #include <linux/iio/sysfs.h>
 #include <linux/iio/events.h>
 #include <linux/init.h>
+#include <linux/acpi.h>
+
 
 /* Registers Address */
 #define CM32181_REG_ADDR_CMD		0x00
@@ -62,6 +64,19 @@ struct cm32181_chip {
 	int calibscale;
 };
 
+/* Blind read ARA register of smbus and ack */
+static void cm32181_ack_smalrt(struct cm32181_chip *cm32181)
+{
+	struct i2c_client *client = cm32181->client;
+	unsigned short store_addr;
+	int ret;
+
+	store_addr = client->addr;
+	client->addr = 0x0C; /* smlrt slave addr */
+	ret = i2c_smbus_read_byte(client);
+	client->addr = store_addr;
+}
+
 /**
  * cm32181_reg_init() - Initialize CM32181 registers
  * @cm32181:	pointer of struct cm32181.
@@ -76,12 +91,16 @@ static int cm32181_reg_init(struct cm32181_chip *cm32181)
 	int i;
 	s32 ret;
 
-	ret = i2c_smbus_read_word_data(client, CM32181_REG_ADDR_ID);
-	if (ret < 0)
-		return ret;
+	cm32181_ack_smalrt(cm32181);
 
+	ret = i2c_smbus_read_word_data(client, CM32181_REG_ADDR_ID);
+	if (ret < 0){
+		printk(KERN_ERR "i2c read failed reg REG_ADDR_ID ret=%d\n", ret);
+		return ret;
+	}
+	printk(KERN_ERR "cm32181_reg_init REG_ADDR_ID %x\n", ret);
 	/* check device ID */
-	if ((ret & 0xFF) != 0x81)
+	if (((ret & 0xFF) != 0x81) && ((ret & 0xFF) != 0x18))
 		return -ENODEV;
 
 	/* Default Values */
@@ -103,13 +122,13 @@ static int cm32181_reg_init(struct cm32181_chip *cm32181)
 /**
  *  cm32181_read_als_it() - Get sensor integration time (ms)
  *  @cm32181:	pointer of struct cm32181
- *  @val2:	pointer of int to load the als_it value.
+ *  @val:	pointer of int to load the als_it value.
  *
  *  Report the current integartion time by millisecond.
  *
- *  Return: IIO_VAL_INT_PLUS_MICRO for success, otherwise -EINVAL.
+ *  Return: IIO_VAL_INT for success, otherwise -EINVAL.
  */
-static int cm32181_read_als_it(struct cm32181_chip *cm32181, int *val2)
+static int cm32181_read_als_it(struct cm32181_chip *cm32181, int *val)
 {
 	u16 als_it;
 	int i;
@@ -119,8 +138,8 @@ static int cm32181_read_als_it(struct cm32181_chip *cm32181, int *val2)
 	als_it >>= CM32181_CMD_ALS_IT_SHIFT;
 	for (i = 0; i < ARRAY_SIZE(als_it_bits); i++) {
 		if (als_it == als_it_bits[i]) {
-			*val2 = als_it_value[i];
-			return IIO_VAL_INT_PLUS_MICRO;
+			*val = als_it_value[i];
+			return IIO_VAL_INT;
 		}
 	}
 
@@ -188,9 +207,13 @@ static int cm32181_get_lux(struct cm32181_chip *cm32181)
 	lux *= CM32181_MLUX_PER_BIT_BASE_IT;
 	lux /= als_it;
 
+	cm32181_ack_smalrt(cm32181);
+
 	ret = i2c_smbus_read_word_data(client, CM32181_REG_ADDR_ALS);
 	if (ret < 0)
 		return ret;
+
+	printk(KERN_ERR "ARJAN: cm32181_get_lux returns %i  / %x \n", ret,ret);
 
 	lux *= ret;
 	lux *= cm32181->calibscale;
@@ -222,7 +245,7 @@ static int cm32181_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_INT_TIME:
 		*val = 0;
-		ret = cm32181_read_als_it(cm32181, val2);
+		ret = cm32181_read_als_it(cm32181, val);
 		return ret;
 	}
 
@@ -241,7 +264,7 @@ static int cm32181_write_raw(struct iio_dev *indio_dev,
 		cm32181->calibscale = val;
 		return val;
 	case IIO_CHAN_INFO_INT_TIME:
-		ret = cm32181_write_als_it(cm32181, val2);
+		ret = cm32181_write_als_it(cm32181, val);
 		return ret;
 	}
 
@@ -265,7 +288,7 @@ static ssize_t cm32181_get_it_available(struct device *dev,
 
 	n = ARRAY_SIZE(als_it_value);
 	for (i = 0, len = 0; i < n; i++)
-		len += sprintf(buf + len, "0.%06u ", als_it_value[i]);
+		len += sprintf(buf + len, "%d ", als_it_value[i]);
 	return len + sprintf(buf + len, "\n");
 }
 
@@ -305,6 +328,7 @@ static int cm32181_probe(struct i2c_client *client,
 	struct iio_dev *indio_dev;
 	int ret;
 
+	printk(KERN_ERR "cm32181_probe i2c_addr %x\n", client->addr);
 	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*cm32181));
 	if (!indio_dev) {
 		dev_err(&client->dev, "devm_iio_device_alloc failed\n");
@@ -320,7 +344,10 @@ static int cm32181_probe(struct i2c_client *client,
 	indio_dev->channels = cm32181_channels;
 	indio_dev->num_channels = ARRAY_SIZE(cm32181_channels);
 	indio_dev->info = &cm32181_info;
-	indio_dev->name = id->name;
+	if (id && id->name)
+		indio_dev->name = id->name;
+	else
+		indio_dev->name = (char *)dev_name(&client->dev);
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
 	ret = cm32181_reg_init(cm32181);
@@ -362,9 +389,16 @@ static const struct of_device_id cm32181_of_match[] = {
 	{ }
 };
 
+static const struct acpi_device_id cm32181_acpi_match[] = {
+        {"CPLM3218", 0 },
+        { },
+};
+MODULE_DEVICE_TABLE(acpi, cm32181_acpi_match);
+
 static struct i2c_driver cm32181_driver = {
 	.driver = {
 		.name	= "cm32181",
+		.acpi_match_table = ACPI_PTR(cm32181_acpi_match),
 		.of_match_table = of_match_ptr(cm32181_of_match),
 		.owner	= THIS_MODULE,
 	},
