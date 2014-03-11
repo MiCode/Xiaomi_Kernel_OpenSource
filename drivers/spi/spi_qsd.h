@@ -274,8 +274,8 @@ struct msm_spi_bam_pipe {
 
 struct msm_spi_bam {
 	void __iomem            *base;
-	u32                      phys_addr;
-	u32                      handle;
+	phys_addr_t              phys_addr;
+	uintptr_t                handle;
 	u32                      irq;
 	struct msm_spi_bam_pipe  prod;
 	struct msm_spi_bam_pipe  cons;
