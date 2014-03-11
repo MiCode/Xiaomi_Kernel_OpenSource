@@ -391,46 +391,18 @@ fail:
 int msm_iommu_pagetable_map(struct msm_iommu_pt *pt, unsigned long va,
 			    phys_addr_t pa, size_t len, int prot)
 {
-	u64 *fl_pte;
-	u32 fl_offset;
-	u32 sl_offset;
-	u64 *sl_table;
-	u64 *sl_pte;
-	u64 upper_attr;
-	u64 lower_attr;
 	s32 ret;
-	u32 redirect = pt->redirect;
+	struct scatterlist sg;
 
 	ret = common_error_check(len, pt->fl_table);
 	if (ret)
 		goto fail;
 
-	if (!pt->fl_table) {
-		pr_err("Null page table\n");
-		ret = -EINVAL;
-		goto fail;
-	}
+	sg_init_table(&sg, 1);
+	sg_dma_address(&sg) = pa;
+	sg.length = len;
 
-	__get_attr(prot, &upper_attr, &lower_attr);
-
-	fl_offset = FL_OFFSET(va);
-	fl_pte = pt->fl_table + fl_offset;
-
-	ret = handle_1st_lvl(fl_pte, pa, upper_attr, lower_attr, len, redirect);
-	if (ret)
-		goto fail;
-
-	sl_table = FOLLOW_TO_NEXT_TABLE(fl_pte);
-	sl_offset = SL_OFFSET(va);
-	sl_pte = sl_table + sl_offset;
-
-	if (len == SZ_32M)
-		ret = sl_32m_map(sl_pte, pa, upper_attr, lower_attr, redirect);
-	else if (len == SZ_2M)
-		ret = sl_2m_map(sl_pte, pa, upper_attr, lower_attr, redirect);
-	else if (len == SZ_64K || len == SZ_4K)
-		ret = handle_3rd_lvl(sl_pte, va, pa, upper_attr, lower_attr,
-				     len, redirect);
+	ret = msm_iommu_pagetable_map_range(pt, va, &sg, len, prot);
 
 fail:
 	return ret;
