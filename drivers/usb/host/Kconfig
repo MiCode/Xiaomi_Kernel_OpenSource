@@ -755,3 +755,16 @@ config USB_HCD_SSB
 	  for ehci and ohci.
 
 	  If unsure, say N.
+
+config USB_ICE40_HCD
+	tristate "ICE40 FPGA based SPI to Inter-Chip USB host controller"
+	depends on USB && SPI
+	help
+	  A driver for ICE40 FPGA based SPI to Inter-Chip USB host
+	  controller. This driver registers as a SPI protocol driver
+	  and interacts with the SPI subsystem on one side and interacts
+	  with the USB core on the other side. Control and Bulk transfers
+	  are supported.
+
+	  To compile this driver a module, choose M here: the module
+	  will be called "ice40-hcd".
