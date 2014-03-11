@@ -92,6 +92,7 @@ static struct cnss_data {
 	struct pm_qos_request qos_request;
 	void *modem_notify_handler;
 	bool pci_register_again;
+	int modem_current_status;
 } *penv;
 
 static int cnss_wlan_vreg_set(struct cnss_wlan_vreg_info *vreg_info, bool state)
@@ -491,6 +492,9 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver)
 		}
 	}
 
+	if (pdev && wdrv->modem_status)
+		wdrv->modem_status(pdev, penv->modem_current_status);
+
 	return ret;
 
 err_wlan_probe:
@@ -876,16 +880,20 @@ static int cnss_modem_notifier_nb(struct notifier_block *this,
 	if (!penv)
 		return NOTIFY_DONE;
 
+	if (SUBSYS_AFTER_POWERUP == code)
+		penv->modem_current_status = 1;
+	else if (SUBSYS_BEFORE_SHUTDOWN == code)
+		penv->modem_current_status = 0;
+	else
+		return NOTIFY_DONE;
+
 	wdrv = penv->driver;
 	pdev = penv->pdev;
 
 	if (!wdrv || !pdev || !wdrv->modem_status)
 		return NOTIFY_DONE;
 
-	if (SUBSYS_AFTER_POWERUP == code)
-		wdrv->modem_status(pdev, 1);
-	else if (SUBSYS_BEFORE_SHUTDOWN == code)
-		wdrv->modem_status(pdev, 0);
+	wdrv->modem_status(pdev, penv->modem_current_status);
 
 	return NOTIFY_OK;
 }
@@ -920,6 +928,7 @@ static int cnss_probe(struct platform_device *pdev)
 		goto err_subsys_reg;
 	}
 
+	penv->modem_current_status = 0;
 	penv->modem_notify_handler =
 		subsys_notif_register_notifier(MODEM_NAME, &mnb);
 	if (IS_ERR(penv->modem_notify_handler)) {
