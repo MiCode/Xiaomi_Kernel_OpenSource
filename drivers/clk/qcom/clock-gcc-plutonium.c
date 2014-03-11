@@ -246,7 +246,6 @@ static struct pll_vote_clk gpll0 = {
 		CLK_INIT(gpll0.c),
 	},
 };
-DEFINE_EXT_CLK(gpll0_out_main, &gpll0.c);
 
 static struct pll_vote_clk gpll0_ao = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
@@ -264,6 +263,8 @@ static struct pll_vote_clk gpll0_ao = {
 		CLK_INIT(gpll0_ao.c),
 	},
 };
+
+DEFINE_EXT_CLK(gpll0_out_main, &gpll0.c);
 
 static struct pll_vote_clk gpll4 = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
@@ -1205,6 +1206,19 @@ static struct rcg_clk usb_hs_system_clk_src = {
 		VDD_DIG_FMAX_MAP3(SVS2, 19200000, LOW, 60000000,
 				  NOMINAL, 75000000),
 		CLK_INIT(usb_hs_system_clk_src.c),
+	},
+};
+
+static struct gate_clk gpll0_out_mmsscc = {
+	.en_reg = APCS_CLOCK_BRANCH_ENA_VOTE,
+	.en_mask = BIT(26),
+	.delay_us = 1,
+	.base = &virt_base,
+	.c = {
+		.parent = &gpll0_out_main.c,
+		.dbg_name = "gpll0_out_mmsscc",
+		.ops = &clk_ops_gate,
+		CLK_INIT(gpll0_out_mmsscc.c),
 	},
 };
 
@@ -2423,8 +2437,8 @@ static struct clk_lookup msm_clocks_gcc_plutonium[] = {
 	CLK_LIST(debug_mmss_clk),
 	CLK_LIST(debug_rpm_clk),
 	CLK_LIST(gpll0),
-	CLK_LIST(gpll0_out_main),
 	CLK_LIST(gpll0_ao),
+	CLK_LIST(gpll0_out_main),
 	CLK_LIST(gpll4),
 	CLK_LIST(gpll4_out_main),
 	CLK_LIST(ufs_axi_clk_src),
@@ -2481,6 +2495,7 @@ static struct clk_lookup msm_clocks_gcc_plutonium[] = {
 	CLK_LIST(usb30_mock_utmi_clk_src),
 	CLK_LIST(usb3_phy_aux_clk_src),
 	CLK_LIST(usb_hs_system_clk_src),
+	CLK_LIST(gpll0_out_mmsscc),
 	CLK_LIST(pcie_0_phy_ldo),
 	CLK_LIST(pcie_1_phy_ldo),
 	CLK_LIST(ufs_phy_ldo),
@@ -2579,7 +2594,6 @@ static int msm_gcc_plutonium_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	struct clk *tmp_clk;
-	u32 regval;
 	int ret;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cc_base");
@@ -2613,11 +2627,6 @@ static int msm_gcc_plutonium_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Unable to get xo_a_clk clock!");
 		return PTR_ERR(tmp_clk);
 	}
-
-	/* Vote for LPASS and MMSS controller to use GPLL0 */
-	regval = readl_relaxed(GCC_REG_BASE(APCS_CLOCK_BRANCH_ENA_VOTE));
-	writel_relaxed(regval | BIT(26),
-		       GCC_REG_BASE(APCS_CLOCK_BRANCH_ENA_VOTE));
 
 	ret = of_msm_clock_register(pdev->dev.of_node, msm_clocks_gcc_plutonium,
 				    ARRAY_SIZE(msm_clocks_gcc_plutonium));
