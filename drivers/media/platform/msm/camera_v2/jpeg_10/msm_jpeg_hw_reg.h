@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -64,22 +64,22 @@
 #define JPEG_PLN0_RD_PNTR_BMSK  0xFFFFFFFF
 
 #define JPEG_PLN0_RD_OFFSET_ADDR 0x0000003C
-#define JPEG_PLN0_RD_OFFSET_BMSK 0x1FFFFFFF
+#define JPEG_PLN0_RD_OFFSET_BMSK 0xFFFFFFFF
 
 #define JPEG_PLN1_RD_PNTR_ADDR (JPEG_REG_BASE + 0x00000044)
 #define JPEG_PLN1_RD_PNTR_BMSK 0xFFFFFFFF
 
 #define JPEG_PLN1_RD_OFFSET_ADDR 0x00000048
-#define JPEG_PLN1_RD_OFFSET_BMSK 0x1FFFFFFF
+#define JPEG_PLN1_RD_OFFSET_BMSK 0xFFFFFFFF
 
 #define JPEG_PLN2_RD_PNTR_ADDR (JPEG_REG_BASE + 0x00000050)
 #define JPEG_PLN2_RD_PNTR_BMSK 0xFFFFFFFF
 
 #define JPEG_PLN2_RD_OFFSET_ADDR 0x00000054
-#define JPEG_PLN2_RD_OFFSET_BMSK 0x1FFFFFFF
+#define JPEG_PLN2_RD_OFFSET_BMSK 0xFFFFFFFF
 
 #define JPEG_CMD_ADDR (JPEG_REG_BASE + 0x00000010)
-#define JPEG_CMD_BMSK 0x00000FFF
+#define JPEG_CMD_BMSK 0xFFFFFFFF
 #define JPEG_CMD_CLEAR_WRITE_PLN_QUEUES 0x700
 
 #define JPEG_PLN0_WR_PNTR_ADDR (JPEG_REG_BASE + 0x000000cc)
