@@ -13,3 +13,4 @@ header-y += compress_params.h
 header-y += compress_offload.h
 header-y += lsm_params.h
 header-y += voice_params.h
+header-y += voice_svc.h
