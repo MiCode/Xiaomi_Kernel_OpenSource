@@ -77,13 +77,6 @@ enum {
 	RX_MIX1_INP_SEL_RX3,
 };
 
-static struct afe_digital_clk_cfg digital_cdc_core_clk = {
-	AFE_API_VERSION_I2S_CONFIG,
-	9600000,
-	5,  /* Digital Codec root */
-	0,
-};
-
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
 static struct snd_soc_dai_driver msm8x16_wcd_i2s_dai[];
@@ -214,6 +207,15 @@ static int msm8x16_wcd_ahb_write_device(u16 reg, u8 *value, u32 bytes)
 {
 	u32 temp = ((u32)(*value)) & 0x000000FF;
 	u32 offset = (((u32)(reg)) ^ 0x00000400) & 0x00000FFF;
+	bool q6_state = false;
+
+	q6_state = q6core_is_adsp_ready();
+	if (q6_state != true) {
+		pr_debug("%s: q6 not ready %d\n", __func__, q6_state);
+		return 0;
+	} else
+		pr_debug("%s: DSP is ready q6_state = %d\n",
+					__func__, q6_state);
 
 	iowrite32(temp, ioremap(MSM8X16_DIGITAL_CODEC_BASE_ADDR + offset, 4));
 	return 0;
@@ -223,6 +225,14 @@ static int msm8x16_wcd_ahb_read_device(u16 reg, u32 bytes, u8 *value)
 {
 	u32 temp;
 	u32 offset = (((u32)(reg)) ^ 0x00000400) & 0x00000FFF;
+	bool q6_state = false;
+
+	q6_state = q6core_is_adsp_ready();
+	if (q6_state != true) {
+		pr_debug("%s: q6 not ready %d\n", __func__, q6_state);
+		return 0;
+	} else
+		pr_debug("%s: DSP is ready %d\n", __func__, q6_state);
 
 	temp = ioread32(ioremap(MSM8X16_DIGITAL_CODEC_BASE_ADDR +
 				      offset, 4));
@@ -307,6 +317,7 @@ static int __msm8x16_wcd_reg_read(struct msm8x16_wcd *msm8x16_wcd,
 	int ret = -EINVAL;
 	u8 temp;
 
+	pr_debug("%s reg = %x\n", __func__, reg);
 	mutex_lock(&msm8x16_wcd->io_lock);
 	if (MSM8X16_WCD_IS_TOMBAK_REG(reg))
 		ret = msm8x16_wcd_spmi_read(reg, 1, &temp);
@@ -2684,7 +2695,6 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 {
 	struct msm8x16_wcd_priv *msm8x16_wcd_priv;
 	struct msm8x16_wcd *msm8x16_wcd;
-	enum apr_subsys_state modem_state;
 	int i;
 
 	dev_dbg(codec->dev, "%s()\n", __func__);
@@ -2694,13 +2704,6 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 		dev_err(codec->dev, "Failed to allocate private data\n");
 		return -ENOMEM;
 	}
-	modem_state = apr_get_modem_state();
-	if ((modem_state == APR_SUBSYS_DOWN)) {
-		dev_dbg(codec->dev, "defering %s, modem_state %d\n",
-			__func__, modem_state);
-		return -EPROBE_DEFER;
-	} else
-		dev_dbg(codec->dev, "Modem is ready\n");
 
 	for (i = 0; i < NUM_DECIMATORS; i++) {
 		tx_hpf_work[i].msm8x16_wcd = msm8x16_wcd_priv;
@@ -2715,9 +2718,6 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 
 	/* codec resmgr module init */
 	msm8x16_wcd = codec->control_data;
-	digital_cdc_core_clk.clk_val = 9600000;
-	afe_set_digital_codec_core_clock(AFE_PORT_ID_PRIMARY_MI2S_RX,
-				&digital_cdc_core_clk);
 	msm8x16_wcd_bringup(codec);
 	msm8x16_wcd_codec_init_reg(codec);
 	msm8x16_wcd_update_reg_defaults(codec);
@@ -2746,9 +2746,6 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 		registered_codec = NULL;
 		return -ENOMEM;
 	}
-	digital_cdc_core_clk.clk_val = 0;
-	afe_set_digital_codec_core_clock(AFE_PORT_ID_PRIMARY_MI2S_RX,
-				&digital_cdc_core_clk);
 	return 0;
 }
 
@@ -2933,7 +2930,6 @@ static int msm8x16_wcd_spmi_probe(struct spmi_device *spmi)
 	struct msm8x16_wcd *msm8x16 = NULL;
 	struct msm8x16_wcd_pdata *pdata;
 	struct resource *wcd_resource;
-	enum apr_subsys_state modem_state;
 
 	dev_dbg(&spmi->dev, "%s(%d):slave ID = 0x%x\n",
 		__func__, __LINE__,  spmi->sid);
@@ -2969,22 +2965,10 @@ static int msm8x16_wcd_spmi_probe(struct spmi_device *spmi)
 		goto rtn;
 	}
 
-	/* Note we need to check Modem state */
-	modem_state = apr_get_modem_state();
-	if ((modem_state == APR_SUBSYS_DOWN) &&
-	    (wcd_resource->start == TOMBAK_CORE_0_SPMI_ADDR)) {
-		dev_dbg(&spmi->dev, "defering %s, modem_state %d\n",
-			__func__, modem_state);
-		return -EPROBE_DEFER;
-	} else
-		dev_dbg(&spmi->dev, "Modem is ready\n");
 
 	dev_dbg(&spmi->dev, "%s(%d):start addr = 0x%x\n",
 		__func__, __LINE__,  wcd_resource->start);
 
-	digital_cdc_core_clk.clk_val = 9600000;
-	afe_set_digital_codec_core_clock(AFE_PORT_ID_PRIMARY_MI2S_RX,
-				&digital_cdc_core_clk);
 	if (wcd_resource->start != TOMBAK_CORE_0_SPMI_ADDR)
 		goto rtn;
 
@@ -3046,9 +3030,6 @@ static int msm8x16_wcd_spmi_probe(struct spmi_device *spmi)
 	} else {
 		goto rtn;
 	}
-	digital_cdc_core_clk.clk_val = 0;
-	afe_set_digital_codec_core_clock(AFE_PORT_ID_PRIMARY_MI2S_RX,
-				&digital_cdc_core_clk);
 err_supplies:
 	msm8x16_wcd_disable_supplies(msm8x16, pdata);
 err_codec:
