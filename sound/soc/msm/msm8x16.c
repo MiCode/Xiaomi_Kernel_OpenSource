@@ -108,15 +108,6 @@ static const struct snd_soc_dapm_widget msm8x16_dapm_widgets[] = {
 
 };
 
-static int msm_config_mclk(u16 port_id, struct afe_digital_clk_cfg *cfg)
-{
-	iowrite32(0x1, ioremap(MSM8X16_TOMBAK_LPASS_DIGCODEC_CBCR, 4));
-	/* Set the update bit to make the settings go through */
-	iowrite32(0x1, ioremap(MSM8X16_TOMBAK_LPASS_DIGCODEC_CMD_RCGR, 4));
-
-	return 0;
-}
-
 static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				struct snd_pcm_hw_params *params)
 {
@@ -188,7 +179,6 @@ static int mi2s_clk_ctl(struct snd_pcm_substream *substream, bool enable)
 {
 	int ret = 0;
 	if (enable) {
-		digital_cdc_clk.clk_val = 9600000;
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			mi2s_rx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
 			ret = afe_set_lpass_clock(AFE_PORT_ID_PRIMARY_MI2S_RX,
@@ -204,7 +194,6 @@ static int mi2s_clk_ctl(struct snd_pcm_substream *substream, bool enable)
 			pr_err("%s:afe_set_lpass_clock failed\n", __func__);
 
 	} else {
-		digital_cdc_clk.clk_val = 0;
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			mi2s_rx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_DISABLE;
 			ret = afe_set_lpass_clock(AFE_PORT_ID_PRIMARY_MI2S_RX,
@@ -236,7 +225,8 @@ static int msm8x16_enable_codec_ext_clk(struct snd_soc_codec *codec,
 	if (enable) {
 		if (atomic_inc_return(&mclk_rsc_ref) == 1) {
 			digital_cdc_clk.clk_val = 9600000;
-			msm_config_mclk(AFE_PORT_ID_SECONDARY_MI2S_RX,
+			afe_set_digital_codec_core_clock(
+					AFE_PORT_ID_PRIMARY_MI2S_RX,
 					&digital_cdc_clk);
 			msm8x16_wcd_mclk_enable(codec, 1, dapm);
 		}
@@ -244,7 +234,8 @@ static int msm8x16_enable_codec_ext_clk(struct snd_soc_codec *codec,
 		if (atomic_dec_return(&mclk_rsc_ref) == 0) {
 			digital_cdc_clk.clk_val = 0;
 			msm8x16_wcd_mclk_enable(codec, 0, dapm);
-			msm_config_mclk(AFE_PORT_ID_SECONDARY_MI2S_RX,
+			afe_set_digital_codec_core_clock(
+					AFE_PORT_ID_PRIMARY_MI2S_RX,
 					&digital_cdc_clk);
 		}
 	}
