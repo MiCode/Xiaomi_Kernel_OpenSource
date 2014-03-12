@@ -145,6 +145,93 @@ void a4xx_rbbm_debug_bus_read(struct kgsl_device *device,
 }
 
 /*
+ * a4xx_snapshot_vbif_debugbus() - Dump the VBIF debug data
+ * @device: Device pointer for which the debug data is dumped
+ * @snapshot: Pointer to the memory where the data is dumped
+ * @remain: Amout of bytes remaining in snapshot
+ * @priv: Pointer to debug bus block
+ *
+ * Returns the number of bytes dumped
+ */
+static int a4xx_snapshot_vbif_debugbus(struct kgsl_device *device,
+			void *snapshot, int remain, void *priv)
+{
+	struct kgsl_snapshot_debugbus *header = snapshot;
+	struct adreno_debugbus_block *block = priv;
+	int i, j;
+	/*
+	 * Total number of VBIF data words considering 3 sections:
+	 * 2 arbiter blocks of 16 words
+	 * 5 AXI XIN blocks of 4 dwords each
+	 * 5 core clock side XIN blocks of 5 dwords each
+	 */
+	unsigned int dwords = (16 * A4XX_NUM_AXI_ARB_BLOCKS) +
+			(4 * A4XX_NUM_XIN_BLOCKS) + (5 * A4XX_NUM_XIN_BLOCKS);
+	unsigned int *data = snapshot + sizeof(*header);
+	int size;
+	unsigned int reg_clk;
+
+	size = (dwords * sizeof(unsigned int)) + sizeof(*header);
+
+	if (remain < size) {
+		SNAPSHOT_ERR_NOMEM(device, "DEBUGBUS");
+		return 0;
+	}
+	header->id = block->block_id;
+	header->count = dwords;
+
+	kgsl_regread(device, A4XX_VBIF_CLKON, &reg_clk);
+	kgsl_regwrite(device, A4XX_VBIF_CLKON, reg_clk |
+			(A4XX_VBIF_CLKON_FORCE_ON_TESTBUS_MASK <<
+			A4XX_VBIF_CLKON_FORCE_ON_TESTBUS_SHIFT));
+	kgsl_regwrite(device, A4XX_VBIF_TEST_BUS1_CTRL0, 0);
+	kgsl_regwrite(device, A4XX_VBIF_TEST_BUS_OUT_CTRL,
+			(A4XX_VBIF_TEST_BUS_OUT_CTRL_EN_MASK <<
+			A4XX_VBIF_TEST_BUS_OUT_CTRL_EN_SHIFT));
+	for (i = 0; i < A4XX_NUM_AXI_ARB_BLOCKS; i++) {
+		kgsl_regwrite(device, A4XX_VBIF_TEST_BUS2_CTRL0,
+			(1 << (i + 16)));
+		for (j = 0; j < 16; j++) {
+			kgsl_regwrite(device, A4XX_VBIF_TEST_BUS2_CTRL1,
+				((j & A4XX_VBIF_TEST_BUS2_CTRL1_DATA_SEL_MASK)
+				<< A4XX_VBIF_TEST_BUS2_CTRL1_DATA_SEL_SHIFT));
+			kgsl_regread(device, A4XX_VBIF_TEST_BUS_OUT,
+					data);
+			data++;
+		}
+	}
+
+	/* XIN blocks AXI side */
+	for (i = 0; i < A4XX_NUM_XIN_BLOCKS; i++) {
+		kgsl_regwrite(device, A4XX_VBIF_TEST_BUS2_CTRL0, 1 << i);
+		for (j = 0; j < 4; j++) {
+			kgsl_regwrite(device, A4XX_VBIF_TEST_BUS2_CTRL1,
+				((j & A4XX_VBIF_TEST_BUS2_CTRL1_DATA_SEL_MASK)
+				<< A4XX_VBIF_TEST_BUS2_CTRL1_DATA_SEL_SHIFT));
+			kgsl_regread(device, A4XX_VBIF_TEST_BUS_OUT,
+				data);
+			data++;
+		}
+	}
+
+	/* XIN blocks core clock side */
+	for (i = 0; i < A4XX_NUM_XIN_BLOCKS; i++) {
+		kgsl_regwrite(device, A4XX_VBIF_TEST_BUS1_CTRL0, 1 << i);
+		for (j = 0; j < 5; j++) {
+			kgsl_regwrite(device, A4XX_VBIF_TEST_BUS1_CTRL1,
+				((j & A4XX_VBIF_TEST_BUS1_CTRL1_DATA_SEL_MASK)
+				<< A4XX_VBIF_TEST_BUS1_CTRL1_DATA_SEL_SHIFT));
+			kgsl_regread(device, A4XX_VBIF_TEST_BUS_OUT,
+				data);
+			data++;
+		}
+	}
+	/* restore the clock of VBIF */
+	kgsl_regwrite(device, A4XX_VBIF_CLKON, reg_clk);
+	return size;
+}
+
+/*
  * a4xx_snapshot_debugbus_block() - Capture debug data for a gpu block
  * @device: Pointer to device
  * @snapshot: Memory where data is captured
@@ -198,9 +285,18 @@ static void *a4xx_snapshot_debugbus(struct kgsl_device *device,
 		0xf << A4XX_RBBM_CFG_DEBBUS_CTLT_ENABLE_SHIFT);
 
 	for (i = 0; i < ARRAY_SIZE(a4xx_debugbus_blocks); i++) {
-		snapshot = kgsl_snapshot_add_section(device,
-			KGSL_SNAPSHOT_SECTION_DEBUGBUS, snapshot, remain,
-			a4xx_snapshot_debugbus_block,
+		if (A4XX_RBBM_DEBBUS_VBIF_ID ==
+			a4xx_debugbus_blocks[i].block_id)
+			snapshot = kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_DEBUGBUS,
+				snapshot, remain,
+				a4xx_snapshot_vbif_debugbus,
+				(void *) &a4xx_debugbus_blocks[i]);
+		else
+			snapshot = kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_DEBUGBUS,
+				snapshot, remain,
+				a4xx_snapshot_debugbus_block,
 			(void *) &a4xx_debugbus_blocks[i]);
 	}
 
