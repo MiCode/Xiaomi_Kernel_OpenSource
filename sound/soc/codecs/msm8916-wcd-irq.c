@@ -120,7 +120,8 @@ int wcd9xxx_request_irq(int irq, irq_handler_t handler,
 	rc = devm_request_threaded_irq(&map.spmi[BIT_BYTE(irq)]->dev,
 				map.linuxirq[irq], NULL,
 				wcd9xxx_irq_handler,
-				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING
+				| IRQF_ONESHOT,
 				name, priv);
 		if (rc < 0) {
 			dev_err(&map.spmi[BIT_BYTE(irq)]->dev,
