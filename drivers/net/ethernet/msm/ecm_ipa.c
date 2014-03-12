@@ -940,8 +940,8 @@ static void ecm_ipa_rm_notify(void *user_data, enum ipa_rm_event event,
 	ECM_IPA_LOG_ENTRY();
 	if (event == IPA_RM_RESOURCE_GRANTED &&
 			netif_queue_stopped(ecm_ipa_ctx->net)) {
-		ECM_IPA_DEBUG("Resource Granted - waking queue\n");
-		netif_wake_queue(ecm_ipa_ctx->net);
+		ECM_IPA_DEBUG("Resource Granted - starting queue\n");
+		netif_start_queue(ecm_ipa_ctx->net);
 	} else {
 		ECM_IPA_DEBUG("Resource released\n");
 	}
