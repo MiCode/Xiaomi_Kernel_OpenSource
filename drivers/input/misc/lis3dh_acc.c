@@ -67,6 +67,7 @@
 #include	<linux/module.h>
 #include	<linux/regulator/consumer.h>
 #include	<linux/of_gpio.h>
+#include	<linux/sensors.h>
 
 #define	DEBUG	1
 
@@ -219,6 +220,7 @@ struct {
 struct lis3dh_acc_data {
 	struct i2c_client *client;
 	struct lis3dh_acc_platform_data *pdata;
+	struct sensors_classdev cdev;
 
 	struct mutex lock;
 	struct delayed_work input_work;
@@ -245,6 +247,24 @@ struct lis3dh_acc_data {
 #ifdef DEBUG
 	u8 reg_addr;
 #endif
+};
+
+static struct sensors_classdev lis3dh_acc_cdev = {
+	.name = "lis3dh-accel",
+	.vendor = "STMicroelectronics",
+	.version = 1,
+	.handle = SENSORS_ACCELERATION_HANDLE,
+	.type = SENSOR_TYPE_ACCELEROMETER,
+	.max_range = "156.8",
+	.resolution = "0.01",
+	.sensor_power = "0.01",
+	.min_delay = 5000,
+	.delay_msec = 200,
+	.fifo_reserved_event_count = 0,
+	.fifo_max_event_count = 0,
+	.enabled = 0,
+	.sensors_enable = NULL,
+	.sensors_poll_delay = NULL,
 };
 
 struct sensor_regulator {
@@ -1125,6 +1145,34 @@ static int remove_sysfs_interfaces(struct device *dev)
 	return 0;
 }
 
+static int lis3dh_acc_poll_delay_set(struct sensors_classdev *sensors_cdev,
+	unsigned int delay_msec)
+{
+	struct lis3dh_acc_data *acc = container_of(sensors_cdev,
+		struct lis3dh_acc_data, cdev);
+	int err;
+
+	mutex_lock(&acc->lock);
+	acc->pdata->poll_interval = delay_msec;
+	err = lis3dh_acc_update_odr(acc, delay_msec);
+	mutex_unlock(&acc->lock);
+	return err;
+}
+
+static int lis3dh_acc_enable_set(struct sensors_classdev *sensors_cdev,
+	unsigned int enable)
+{
+	struct lis3dh_acc_data *acc = container_of(sensors_cdev,
+		struct lis3dh_acc_data, cdev);
+	int err;
+
+	if (enable)
+		err = lis3dh_acc_enable(acc);
+	else
+		err = lis3dh_acc_disable(acc);
+	return err;
+}
+
 static void lis3dh_acc_input_work_func(struct work_struct *work)
 {
 	struct lis3dh_acc_data *acc;
@@ -1476,6 +1524,16 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		goto err_input_cleanup;
 	}
 
+	acc->cdev = lis3dh_acc_cdev;
+	acc->cdev.sensors_enable = lis3dh_acc_enable_set;
+	acc->cdev.sensors_poll_delay = lis3dh_acc_poll_delay_set;
+	err = sensors_classdev_register(&client->dev, &acc->cdev);
+	if (err) {
+		dev_err(&client->dev,
+			"class device create failed: %d\n", err);
+		goto err_remove_sysfs_int;
+	}
+
 	lis3dh_acc_device_power_off(acc);
 
 	/* As default, do not report information */
@@ -1489,7 +1547,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 			err = -ENOMEM;
 			dev_err(&client->dev,
 					"cannot create work queue1: %d\n", err);
-			goto err_remove_sysfs_int;
+			goto err_unreg_sensor_class;
 		}
 		err = request_irq(acc->irq1, lis3dh_acc_isr1,
 				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
@@ -1535,6 +1593,8 @@ err_free_irq1:
 err_destoyworkqueue1:
 	if (gpio_is_valid(acc->pdata->gpio_int1))
 		destroy_workqueue(acc->irq1_work_queue);
+err_unreg_sensor_class:
+	sensors_classdev_unregister(&acc->cdev);
 err_remove_sysfs_int:
 	remove_sysfs_interfaces(&client->dev);
 err_input_cleanup:
@@ -1570,6 +1630,7 @@ static int lis3dh_acc_remove(struct i2c_client *client)
 		destroy_workqueue(acc->irq2_work_queue);
 	}
 
+	sensors_classdev_unregister(&acc->cdev);
 	lis3dh_acc_input_cleanup(acc);
 	lis3dh_acc_device_power_off(acc);
 	remove_sysfs_interfaces(&client->dev);
