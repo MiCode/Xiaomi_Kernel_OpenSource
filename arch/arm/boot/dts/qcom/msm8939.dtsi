@@ -553,3 +553,5 @@
 		qcom,not-wakeup; /* Needed until RPM is fully configured */
 	};
 };
+
+#include "msm8939-regulator.dtsi"
