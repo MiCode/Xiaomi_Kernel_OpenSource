@@ -12,7 +12,7 @@
 
 #include "ipa_i.h"
 
-static const u32 ipa_hdr_bin_sz[IPA_HDR_BIN_MAX] = { 8, 16, 24, 36, 58};
+static const u32 ipa_hdr_bin_sz[IPA_HDR_BIN_MAX] = { 8, 16, 24, 36, 60};
 
 /**
  * ipa_generate_hdr_hw_tbl() - generates the headers table
@@ -200,10 +200,12 @@ int __ipa_commit_hdr_v2(void)
 		dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base,
 				mem.phys_base);
 	} else {
-		if (!rc && ipa_ctx->hdr_mem.phys_base) {
-			dma_free_coherent(ipa_ctx->pdev, ipa_ctx->hdr_mem.size,
-					  ipa_ctx->hdr_mem.base,
-					  ipa_ctx->hdr_mem.phys_base);
+		if (!rc) {
+			if (ipa_ctx->hdr_mem.phys_base)
+				dma_free_coherent(ipa_ctx->pdev,
+						ipa_ctx->hdr_mem.size,
+						ipa_ctx->hdr_mem.base,
+						ipa_ctx->hdr_mem.phys_base);
 			ipa_ctx->hdr_mem = mem;
 		}
 	}
