@@ -220,6 +220,53 @@ uint32_t msm_isp_get_framedrop_period(
 	return 1;
 }
 
+int msm_isp_get_clk_info(struct vfe_device *vfe_dev,
+	struct platform_device *pdev, struct msm_cam_clk_info *vfe_clk_info)
+{
+	uint32_t count;
+	int i, rc;
+	uint32_t rates[VFE_CLK_INFO_MAX];
+
+	struct device_node *of_node;
+	of_node = pdev->dev.of_node;
+
+	count = of_property_count_strings(of_node, "qcom,clock-names");
+
+	ISP_DBG("count = %d\n", count);
+	if (count == 0) {
+		pr_err("no clocks found in device tree, count=%d", count);
+		return 0;
+	}
+
+	if (count > VFE_CLK_INFO_MAX) {
+		pr_err("invalid count=%d, max is %d\n", count,
+			VFE_CLK_INFO_MAX);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < count; i++) {
+		rc = of_property_read_string_index(of_node, "qcom,clock-names",
+				i, &(vfe_clk_info[i].clk_name));
+		ISP_DBG("clock-names[%d] = %s\n", i, vfe_clk_info[i].clk_name);
+		if (rc < 0) {
+			pr_err("%s failed %d\n", __func__, __LINE__);
+			return rc;
+		}
+	}
+	rc = of_property_read_u32_array(of_node, "qcom,clock-rates",
+		rates, count);
+	if (rc < 0) {
+		pr_err("%s failed %d\n", __func__, __LINE__);
+		return rc;
+	}
+	for (i = 0; i < count; i++) {
+		vfe_clk_info[i].clk_rate = (rates[i] == 0) ? -1 : rates[i];
+		ISP_DBG("clk_rate[%d] = %ld\n", i, vfe_clk_info[i].clk_rate);
+	}
+	vfe_dev->num_clk = count;
+	return 0;
+}
+
 static inline void msm_isp_get_timestamp(struct msm_isp_timestamp *time_stamp)
 {
 	struct timespec ts;

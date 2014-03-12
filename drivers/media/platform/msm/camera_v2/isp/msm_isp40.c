@@ -85,14 +85,7 @@ static uint8_t stats_pingpong_offset_map[] = {
 #define VFE40_BUS_BDG_QOS_CFG_7     0x000002E0
 
 #define VFE40_CLK_IDX 1
-static struct msm_cam_clk_info msm_vfe40_clk_info[] = {
-	{"camss_top_ahb_clk", -1},
-	{"vfe_clk_src", 266670000},
-	{"camss_vfe_vfe_clk", -1},
-	{"camss_csi_vfe_clk", -1},
-	{"iface_clk", -1},
-	{"bus_clk", -1},
-};
+static struct msm_cam_clk_info msm_vfe40_clk_info[VFE_CLK_INFO_MAX];
 
 static void msm_vfe40_init_qos_parms(struct vfe_device *vfe_dev)
 {
@@ -255,11 +248,14 @@ static void msm_vfe40_init_vbif_parms(struct vfe_device *vfe_dev)
 	case VFE40_8x26V2_VERSION:
 		msm_vfe40_init_vbif_parms_8x26(vfe_dev);
 		break;
+	case VFE40_8916_VERSION:
+		/*Reset hardware values are correct vbif values.
+		So no need to set*/
+		break;
 	default:
 		BUG();
 		pr_err("%s: VBIF is NOT configured for HW Version %x\n",
 			__func__, vfe_dev->vfe_hw_version);
-		break;
 	}
 
 }
@@ -281,8 +277,15 @@ static int msm_vfe40_init_hardware(struct vfe_device *vfe_dev)
 		}
 	}
 
+	rc = msm_isp_get_clk_info(vfe_dev, vfe_dev->pdev,
+		 &msm_vfe40_clk_info[0]);
+	if (rc < 0) {
+		pr_err("msm_isp_get_clk_info() failed\n");
+		goto fs_failed;
+	}
+
 	rc = msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe40_clk_info,
-		vfe_dev->vfe_clk, ARRAY_SIZE(msm_vfe40_clk_info), 1);
+		vfe_dev->vfe_clk, vfe_dev->num_clk, 1);
 	if (rc < 0)
 		goto clk_enable_failed;
 
@@ -331,7 +334,7 @@ static void msm_vfe40_release_hardware(struct vfe_device *vfe_dev)
 	iounmap(vfe_dev->vfe_vbif_base);
 	iounmap(vfe_dev->vfe_base);
 	msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe40_clk_info,
-		vfe_dev->vfe_clk, ARRAY_SIZE(msm_vfe40_clk_info), 0);
+		vfe_dev->vfe_clk, vfe_dev->num_clk, 0);
 	regulator_disable(vfe_dev->fs_vfe);
 	msm_isp_deinit_bandwidth_mgr(ISP_VFE0 + vfe_dev->pdev->id);
 }
