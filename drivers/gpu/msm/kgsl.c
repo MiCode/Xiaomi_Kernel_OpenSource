@@ -1071,8 +1071,6 @@ static int kgsl_open(struct inode *inodep, struct file *filep)
 		goto err_stop;
 	}
 
-	dev_info(device->dev, "Initialized %s: mmu=%s\n", device->name,
-		kgsl_mmu_enabled() ? "on" : "off");
 
 	return result;
 
@@ -4226,6 +4224,9 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 	/* Initialize common sysfs entries */
 	kgsl_pwrctrl_init_sysfs(device);
+
+	dev_info(device->dev, "Initialized %s: mmu=%s\n", device->name,
+		kgsl_mmu_enabled() ? "on" : "off");
 
 	return 0;
 
