@@ -2246,6 +2246,7 @@ static int diag_smd_probe(struct platform_device *pdev)
 					&driver->smd_data[index],
 					diag_smd_notify);
 		driver->smd_data[index].ch_save = driver->smd_data[index].ch;
+		diag_smd_buffer_init(&driver->smd_data[index]);
 	}
 
 	pm_runtime_set_active(&pdev->dev);
@@ -2278,6 +2279,7 @@ static int diag_smd_cmd_probe(struct platform_device *pdev)
 			diag_smd_notify);
 		driver->smd_cmd[index].ch_save =
 			driver->smd_cmd[index].ch;
+		diag_smd_buffer_init(&driver->smd_cmd[index]);
 	}
 
 	pr_debug("diag: In %s, open SMD CMD port, Id = %d, r = %d\n",
@@ -2361,36 +2363,18 @@ void diag_smd_destructor(struct diag_smd_info *smd_info)
 	kfree(smd_info->buf_in_2_raw);
 }
 
-int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
-			  int type)
+void diag_smd_buffer_init(struct diag_smd_info *smd_info)
 {
-	if (!smd_info)
-		return -EIO;
-
-	smd_info->peripheral = peripheral;
-	smd_info->type = type;
-	smd_info->encode_hdlc = 0;
-	mutex_init(&smd_info->smd_ch_mutex);
-	spin_lock_init(&smd_info->in_busy_lock);
-
-	switch (peripheral) {
-	case MODEM_DATA:
-		smd_info->peripheral_mask = DIAG_CON_MPSS;
-		break;
-	case LPASS_DATA:
-		smd_info->peripheral_mask = DIAG_CON_LPASS;
-		break;
-	case WCNSS_DATA:
-		smd_info->peripheral_mask = DIAG_CON_WCNSS;
-		break;
-	default:
-		pr_err("diag: In %s, unknown peripheral, peripheral: %d\n",
-			__func__, peripheral);
-		goto err;
+	if (!smd_info) {
+		pr_err("diag: Invalid smd_info\n");
+		return;
 	}
 
-	smd_info->ch = 0;
-	smd_info->ch_save = 0;
+	if (smd_info->inited) {
+		pr_debug("diag: smd buffers are already initialized, peripheral: %d, type: %d\n",
+			 smd_info->peripheral, smd_info->type);
+		return;
+	}
 
 	if (smd_info->buf_in_1 == NULL) {
 		smd_info->buf_in_1 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
@@ -2458,6 +2442,49 @@ int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
 			kmemleak_not_leak(smd_info->buf_in_1_raw);
 		}
 	}
+	smd_info->inited = 1;
+	return;
+err:
+	smd_info->inited = 0;
+	kfree(smd_info->buf_in_1);
+	kfree(smd_info->buf_in_2);
+	kfree(smd_info->write_ptr_1);
+	kfree(smd_info->write_ptr_2);
+	kfree(smd_info->buf_in_1_raw);
+	kfree(smd_info->buf_in_2_raw);
+}
+
+int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
+			  int type)
+{
+	if (!smd_info)
+		return -EIO;
+
+	smd_info->peripheral = peripheral;
+	smd_info->type = type;
+	smd_info->encode_hdlc = 0;
+	smd_info->inited = 0;
+	mutex_init(&smd_info->smd_ch_mutex);
+	spin_lock_init(&smd_info->in_busy_lock);
+
+	switch (peripheral) {
+	case MODEM_DATA:
+		smd_info->peripheral_mask = DIAG_CON_MPSS;
+		break;
+	case LPASS_DATA:
+		smd_info->peripheral_mask = DIAG_CON_LPASS;
+		break;
+	case WCNSS_DATA:
+		smd_info->peripheral_mask = DIAG_CON_WCNSS;
+		break;
+	default:
+		pr_err("diag: In %s, unknown peripheral, peripheral: %d\n",
+			__func__, peripheral);
+		goto err;
+	}
+
+	smd_info->ch = 0;
+	smd_info->ch_save = 0;
 
 	/* The smd data type needs separate work queues for reads */
 	if (type == SMD_DATA_TYPE) {
@@ -2570,12 +2597,6 @@ int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
 
 	return 0;
 err:
-	kfree(smd_info->buf_in_1);
-	kfree(smd_info->buf_in_2);
-	kfree(smd_info->write_ptr_1);
-	kfree(smd_info->write_ptr_2);
-	kfree(smd_info->buf_in_1_raw);
-	kfree(smd_info->buf_in_2_raw);
 	if (smd_info->wq)
 		destroy_workqueue(smd_info->wq);
 

@@ -46,6 +46,7 @@ void encode_rsp_and_send(int buf_length);
 void diag_smd_notify(void *ctxt, unsigned event);
 int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
 			 int type);
+void diag_smd_buffer_init(struct diag_smd_info *smd_info);
 void diag_smd_destructor(struct diag_smd_info *smd_info);
 void diag_cmp_logging_modes_diagfwd_bridge(int old_mode, int new_mode);
 int diag_process_apps_pkt(unsigned char *buf, int len);

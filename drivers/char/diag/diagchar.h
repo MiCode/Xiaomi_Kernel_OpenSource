@@ -323,6 +323,7 @@ struct diag_smd_info {
 	int notify_context;
 	struct work_struct diag_general_smd_work;
 	int general_context;
+	uint8_t inited;
 
 	/*
 	 * Function ptr for function to call to process the data that
