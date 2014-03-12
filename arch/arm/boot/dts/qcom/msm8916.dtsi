@@ -1167,6 +1167,7 @@
 		qcom,has-autodetect-xo;
 		qcom,is-pronto-vt;
 		qcom,has-pronto-hw;
+		qcom,wcnss-adc_tm = <&pm8916_adc_tm>;
 	};
 
 	spi_0: spi@78b7000 { /* BLSP1 QUP3 */
