@@ -32,6 +32,7 @@
 #include <asm/cpu_ops.h>
 #include <asm/cputype.h>
 #include <asm/smp_plat.h>
+#include <soc/qcom/pm.h>
 
 #define CPU_PWR_CTL_OFFSET		0x4
 #define CPU_PWR_GATE_CTL_OFFSET		0x14
@@ -239,7 +240,7 @@ static void msm_wfi_cpu_die(unsigned int cpu)
 		BUG();
 	}
 	for (;;) {
-		wfi();
+		lpm_cpu_hotplug_enter(cpu);
 		if (secondary_holding_pen_release == cpu_logical_map(cpu)) {
 			/*Proper wake up */
 			break;
