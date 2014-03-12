@@ -260,5 +260,6 @@ static const struct cpu_operations msm_cortex_a_ops = {
 #ifdef CONFIG_HOTPLUG_CPU
 	.cpu_die        = msm_wfi_cpu_die,
 #endif
+	.cpu_suspend       = msm_pm_collapse,
 };
 CPU_METHOD_OF_DECLARE(msm_cortex_a_ops, &msm_cortex_a_ops);
