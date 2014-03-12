@@ -585,7 +585,7 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 		return ret;
 
 	dma_set_attr(DMA_ATTR_STRONGLY_ORDERED, &attrs);
-	mdata_buf = dma_alloc_attrs(NULL, size, &mdata_phys, GFP_KERNEL,
+	mdata_buf = dma_alloc_attrs(pil->dev, size, &mdata_phys, GFP_KERNEL,
 					&attrs);
 	if (!mdata_buf) {
 		pr_err("scm-pas: Allocation for metadata failed.\n");
@@ -601,7 +601,7 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 	ret = scm_call(SCM_SVC_PIL, PAS_INIT_IMAGE_CMD, &request,
 			sizeof(request), &scm_ret, sizeof(scm_ret));
 
-	dma_free_attrs(NULL, size, mdata_buf, mdata_phys, &attrs);
+	dma_free_attrs(pil->dev, size, mdata_buf, mdata_phys, &attrs);
 	scm_pas_disable_bw();
 	if (ret)
 		return ret;
