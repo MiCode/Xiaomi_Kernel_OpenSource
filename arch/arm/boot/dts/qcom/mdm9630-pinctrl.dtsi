@@ -21,10 +21,29 @@
 			qcom,num-pins = <90>;
 			#qcom,pin-cells = <1>;
 			msm_gpio: msm_gpio {
+				compatible = "qcom,msm-tlmmv3-gp-intc";
 				gpio-controller;
 				#gpio-cells = <2>;
+				#interrupt-cells = <2>;
+				num_irqs = <90>;
 			};
 		};
+
+		sdhc2_cd_pin {
+			qcom,pins = <&gp 50>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "cd-gpio";
+			sdc2_cd_on: cd_on {
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+			sdc2_cd_off: cd_off {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		/* SDC pin type */
 		sdc: sdc {
 			qcom,pin-type-sdc;
