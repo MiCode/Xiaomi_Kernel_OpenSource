@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,6 +44,7 @@
 #define QFP_FUSE_OFF                0x00
 
 #define QFP_FUSE_BUF_SIZE           64
+#define UINT32_MAX                  (0xFFFFFFFFU)
 
 static const char *blow_supply = "vdd-blow";
 
@@ -71,8 +72,11 @@ static struct qfp_priv_t *qfp_priv;
 static inline bool is_usr_req_valid(const struct qfp_fuse_req *req)
 {
 	uint32_t size = qfp_priv->end - qfp_priv->base;
-	uint32_t req_size = req->size * sizeof(uint32_t);
+	uint32_t req_size;
 
+	if (req->size >= (UINT32_MAX / sizeof(uint32_t)))
+		return false;
+	req_size = req->size * sizeof(uint32_t);
 	if ((req_size == 0) || (req_size > size))
 		return false;
 	if (req->offset >= size)
