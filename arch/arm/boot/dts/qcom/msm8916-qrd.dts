@@ -51,8 +51,6 @@
 
 &i2c_0 { /* BLSP1 QUP2 */
 	akm@c {
-		#address-cells = <1>;
-		#size-cells = <0>;
 		compatible = "ak,ak09911";
 		reg = <0x0c>;
 		pinctrl-names = "default","reset";

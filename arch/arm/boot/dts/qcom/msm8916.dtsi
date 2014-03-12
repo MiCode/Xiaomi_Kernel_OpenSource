@@ -1143,6 +1143,8 @@
 
 	i2c_0: i2c@78b6000 { /* BLSP1 QUP2 */
 		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
 		reg-names = "qup_phys_addr", "bam_phys_addr";
 		reg = <0x78b6000 0x600>,
 		      <0x7884000 0x23000>;
