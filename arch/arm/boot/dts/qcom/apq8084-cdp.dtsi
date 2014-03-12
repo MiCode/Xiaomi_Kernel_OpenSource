@@ -130,6 +130,7 @@
 };
 
 &blsp2_uart0 {
+	qcom,no-suspend-delay;
 	status = "ok";
 };
 
