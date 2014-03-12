@@ -14,6 +14,7 @@
 #include <linux/ctype.h>
 #include <linux/list.h>
 #include <linux/debugfs.h>
+#include <linux/io.h>
 #include "smp2p_private.h"
 
 #if defined(CONFIG_DEBUG_FS)
@@ -167,6 +168,7 @@ static void smp2p_item(struct seq_file *s, int remote_pid)
 	struct smp2p_entry_v1 *in_entries = NULL;
 	int out_valid = 0;
 	int in_valid = 0;
+	char entry_name[SMP2P_MAX_ENTRY_NAME];
 
 	int_cfg = smp2p_get_interrupt_config();
 	if (!int_cfg)
@@ -239,9 +241,11 @@ static void smp2p_item(struct seq_file *s, int remote_pid)
 
 	for (entry = 0; out_entries || in_entries; ++entry) {
 		if (out_entries && entry < out_valid) {
+			memcpy_fromio(entry_name, out_entries->name,
+							SMP2P_MAX_ENTRY_NAME);
 			scnprintf(tmp_buff, sizeof(tmp_buff),
 					"%-16s 0x%08x",
-					out_entries->name,
+					entry_name,
 					out_entries->entry);
 			++out_entries;
 		} else {
@@ -251,9 +255,11 @@ static void smp2p_item(struct seq_file *s, int remote_pid)
 		seq_printf(s, "| %-37s", tmp_buff);
 
 		if (in_entries && entry < in_valid) {
+			memcpy_fromio(entry_name, in_entries->name,
+							SMP2P_MAX_ENTRY_NAME);
 			scnprintf(tmp_buff, sizeof(tmp_buff),
 					"%-16s 0x%08x",
-					in_entries->name,
+					entry_name,
 					in_entries->entry);
 			++in_entries;
 		} else {
