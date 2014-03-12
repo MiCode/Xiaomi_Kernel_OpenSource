@@ -23,7 +23,7 @@ ENTRY(msm_pm_boot_entry)
 	mrs	x0, mpidr_el1
 	and     x0, x0, #15              /* what CPU am I */
 
-	adr	x3, 3f
+	adr	x3, align
 	ldr	x1, [x3]
 	sub	x3, x1, x3
 	ldr	x1, =msm_pc_debug_counters_phys /*phys addr for IMEM reg */
@@ -42,17 +42,17 @@ skip_pc_debug3:
 	ldr     x1, =msm_pm_boot_vector
 	sub	x1, x1, x3		/* translate virt to phys */
 
-	add     x1, x1, x0, LSL #2      /* locate boot vector for our cpu */
+	add     x1, x1, x0, LSL #3      /* locate boot vector for our cpu */
+	ldr x1, [x1]
 	ret	x1                 /* jump                           */
 ENDPROC(msm_pm_boot_entry)
 
-3:	.quad	.
-
+	__ALIGN
+align:  .quad .
 	.data
-
 	.globl msm_pm_boot_vector
 msm_pm_boot_vector:
-	.space  4 * NR_CPUS
+	.space  8 * NR_CPUS
 
 	.globl msm_pc_debug_counters_phys
 msm_pc_debug_counters_phys:
