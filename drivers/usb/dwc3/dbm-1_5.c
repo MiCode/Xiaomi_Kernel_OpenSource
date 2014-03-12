@@ -321,6 +321,10 @@ static int event_buffer_config(u32 addr_lo, u32 addr_hi, int size)
 		return -EINVAL;
 	}
 
+	/* In case event buffer is already configured, Do nothing. */
+	if (msm_dbm_read_reg(dbm_data->base, DBM_GEVNTSIZ))
+		return 0;
+
 	msm_dbm_write_reg(dbm_data->base, DBM_GEVNTADR_LSB, addr_lo);
 	msm_dbm_write_reg(dbm_data->base, DBM_GEVNTADR_MSB, addr_hi);
 	msm_dbm_write_reg_field(dbm_data->base, DBM_GEVNTSIZ,
