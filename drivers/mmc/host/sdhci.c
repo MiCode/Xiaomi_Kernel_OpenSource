@@ -2591,17 +2591,6 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 			host->cmd->error = -EILSEQ;
 	}
 
-	if (host->quirks2 & SDHCI_QUIRK2_IGNORE_CMDCRC_FOR_TUNING) {
-		if ((host->cmd->opcode == MMC_SEND_TUNING_BLOCK_HS400) ||
-			(host->cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200) ||
-			(host->cmd->opcode == MMC_SEND_TUNING_BLOCK)) {
-			if (intmask & SDHCI_INT_CRC) {
-				sdhci_reset(host, SDHCI_RESET_CMD);
-				host->cmd->error = 0;
-			}
-		}
-	}
-
 	if (host->cmd->error) {
 		if (host->cmd->error == -EILSEQ)
 			host->flags |= SDHCI_NEEDS_RETUNING;
@@ -2629,17 +2618,6 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 
 		/* The controller does not support the end-of-busy IRQ,
 		 * fall through and take the SDHCI_INT_RESPONSE */
-	}
-
-	if (host->quirks2 & SDHCI_QUIRK2_IGNORE_CMDCRC_FOR_TUNING) {
-		if ((host->cmd->opcode == MMC_SEND_TUNING_BLOCK_HS400) ||
-			(host->cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200) ||
-			(host->cmd->opcode == MMC_SEND_TUNING_BLOCK)) {
-			if (intmask & SDHCI_INT_CRC) {
-				sdhci_finish_command(host);
-				return;
-			}
-		}
 	}
 
 	if (intmask & SDHCI_INT_RESPONSE)
@@ -2727,8 +2705,7 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 		host->data->error = -EIO;
 	}
 	if (host->data->error) {
-		if ((intmask & (SDHCI_INT_DATA_CRC | SDHCI_INT_DATA_TIMEOUT)) &&
-		    (host->quirks2 & SDHCI_QUIRK2_IGNORE_CMDCRC_FOR_TUNING)) {
+		if (intmask & (SDHCI_INT_DATA_CRC | SDHCI_INT_DATA_TIMEOUT)) {
 			command = SDHCI_GET_CMD(sdhci_readw(host,
 							    SDHCI_COMMAND));
 			if ((command != MMC_SEND_TUNING_BLOCK_HS400) &&
