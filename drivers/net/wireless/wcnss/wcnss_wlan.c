@@ -2475,6 +2475,7 @@ static int wcnss_notif_cb(struct notifier_block *this, unsigned long code,
 {
 	struct platform_device *pdev = wcnss_get_platform_device();
 	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
+	struct notif_data *data = (struct notif_data *)ss_handle;
 	int ret, xo_mode;
 
 	pr_debug("%s: wcnss notification event: %lu\n", __func__, code);
@@ -2497,7 +2498,7 @@ static int wcnss_notif_cb(struct notifier_block *this, unsigned long code,
 			wcnss_wlan_power(&pdev->dev, pwlanconfig,
 					WCNSS_WLAN_SWITCH_OFF, NULL);
 		}
-	} else if ((code == SUBSYS_BEFORE_SHUTDOWN && ss_handle) ||
+	} else if ((code == SUBSYS_BEFORE_SHUTDOWN && data && data->crashed) ||
 						code == SUBSYS_SOC_RESET)
 		wcnss_log_debug_regs_on_bite();
 	else if (code == SUBSYS_POWERUP_FAILURE)
