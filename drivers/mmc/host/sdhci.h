@@ -444,9 +444,6 @@ struct sdhci_host {
  */
 #define SDHCI_QUIRK2_SLOW_INT_CLR			(1<<18)
 
-/* Ignore CMD CRC errors for tuning commands */
-#define SDHCI_QUIRK2_IGNORE_CMDCRC_FOR_TUNING		(1<<6)
-
 #define SDHCI_QUIRK2_ALWAYS_USE_BASE_CLOCK		(1<<19)
 
 #define SDHCI_QUIRK2_USE_MAX_DISCARD_SIZE		(1<<20)
@@ -490,6 +487,10 @@ struct sdhci_host {
  * 1-bit mode of SDIO.
  */
 #define SDHCI_QUIRK2_IGN_DATA_END_BIT_ERROR             (1<<24)
+
+/* Controller has nonstandard clock management */
+#define SDHCI_QUIRK_NONSTANDARD_CLOCK			(1<<25)
+
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
 
