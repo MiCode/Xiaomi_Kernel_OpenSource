@@ -22,6 +22,10 @@ Required properties:
 	8: 1st pin is right down (from top view)
  - akm,gpio_rstn	: The gpio pin to reset the sensor chip.
 
+Optional properites:
+
+ - akm,auto-report	: Enable auto-report mode.
+
  Example:
 	akm@c {
 			compatible = "ak,ak09911";
@@ -33,5 +37,6 @@ Required properties:
 			vio-supply = <&pm8110_l14>;
 			akm,layout = <0x0>;
 			akm,gpio_rstn = <&msmgpio 82 0x0>;
+			akm,auto-report;
 	};
 
