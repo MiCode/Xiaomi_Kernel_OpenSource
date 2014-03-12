@@ -21,7 +21,7 @@
 
 ENTRY(msm_pm_boot_entry)
 	mrs	x0, mpidr_el1
-	and     x0, x0, #15              /* what CPU am I */
+	and     x0, x0, #0xffff              /* what CPU/cluster affinity */
 
 	adr	x3, align
 	ldr	x1, [x3]
@@ -41,9 +41,12 @@ ENTRY(msm_pm_boot_entry)
 skip_pc_debug3:
 	ldr     x1, =msm_pm_boot_vector
 	sub	x1, x1, x3		/* translate virt to phys */
+	lsr	x2, x0, #0x8		/* Get cluster id and clear cpu id */
+	add	x1, x1, x2, lsl #0x5	/* Get offset for this cluster */
+	and	x0, x0, #0x03		/* Get cpu id and clear cluster id */
+	add	x1, x1, x0, lsl #3	/* Get offset for this cpu */
 
-	add     x1, x1, x0, LSL #3      /* locate boot vector for our cpu */
-	ldr x1, [x1]
+	ldr 	x1, [x1]
 	ret	x1                 /* jump                           */
 ENDPROC(msm_pm_boot_entry)
 
@@ -52,7 +55,7 @@ align:  .quad .
 	.data
 	.globl msm_pm_boot_vector
 msm_pm_boot_vector:
-	.space  8 * NR_CPUS
+	.space  8 * 4 * 4
 
 	.globl msm_pc_debug_counters_phys
 msm_pc_debug_counters_phys:

@@ -26,7 +26,8 @@ THUMB(	bx	r9		)	/* If this is a Thumb-2 kernel, */
 THUMB(	.thumb			)	/* switch to Thumb now.		*/
 THUMB(2:			)
 	mrc     p15, 0, r0, c0, c0, 5    /* MPIDR                          */
-	bic     r0, #0xff000000         /* what CPU am I                  */
+	bic     r0, #0xff000000         /* what CPU am I*/
+	bic     r0, #0x00ff0000         /* clear bits 31-16 */
 
 	adr	r3, 3f
 	ldr	r1, [r3]
@@ -46,9 +47,12 @@ THUMB(2:			)
 skip_pc_debug3:
 	ldr     r1, =msm_pm_boot_vector
 	sub	r1, r1, r3		/* translate virt to phys */
+	mov     r2, r0, lsr #8		/* get cluster num */
+	add	r1, r1, r2, lsl #4	/* Get offset for the cluster */
+	and	r0, r0, #0xff		/* cpu id */
+	add	r1, r1, r0, lsl #2	/* Get offset for the cpu */
 
-	add     r1, r1, r0, LSL #2       /* locate boot vector for our cpu */
-	ldr     pc, [r1]                 /* jump                           */
+	ldr     pc, [r1]                 /* jump                    */
 ENDPROC(msm_pm_boot_entry)
 
 3:	.long	.
@@ -57,7 +61,7 @@ ENDPROC(msm_pm_boot_entry)
 
 	.globl msm_pm_boot_vector
 msm_pm_boot_vector:
-	.space  4 * NR_CPUS
+	.space  4 * 4 * 4
 
 	.globl msm_pc_debug_counters_phys
 msm_pc_debug_counters_phys:
