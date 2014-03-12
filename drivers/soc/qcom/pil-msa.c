@@ -457,7 +457,7 @@ static int pil_msa_mba_auth(struct pil_desc *pil)
 		ret = -EINVAL;
 	}
 
-	if (drv->q6->mba_virt)
+	if (drv->q6 && drv->q6->mba_virt)
 		/* Reclaim MBA memory. */
 		dma_free_coherent(pil->dev, MBA_SIZE, drv->q6->mba_virt,
 							drv->q6->mba_phys);
