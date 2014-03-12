@@ -473,7 +473,7 @@
 		#size-cells = <1>;
 		ranges = <0x0 0xfec00000 0x200000>;
 		clocks = <&clock_rpm clk_ocmemgx_core_clk>,
-			<&clock_gcc clk_ocmemcx_ocmemnoc_clk>;
+			<&clock_mmss clk_ocmemcx_ocmemnoc_clk>;
 		clock-names = "core_clk", "iface_clk";
 
 		partition@0 {
