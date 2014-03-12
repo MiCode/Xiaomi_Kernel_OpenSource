@@ -31,7 +31,7 @@
 #include "msm_iommu_hw-v0.h"
 #include "msm_iommu_priv.h"
 #include <linux/qcom_iommu.h>
-#include <mach/msm_bus.h>
+#include <linux/msm-bus.h>
 
 #include <soc/qcom/smem.h>
 

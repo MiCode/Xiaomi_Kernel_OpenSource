@@ -16,7 +16,7 @@
 #include <linux/slab.h>
 #include <linux/mutex.h>
 #include <linux/clk.h>
-#include <mach/msm_bus.h>
+#include <linux/msm-bus.h>
 #include "msm_bus_core.h"
 #include "msm_bus_adhoc.h"
 

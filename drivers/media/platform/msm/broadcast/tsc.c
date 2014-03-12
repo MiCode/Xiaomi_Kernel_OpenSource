@@ -40,7 +40,7 @@
 #include <linux/pm_runtime.h>	/* debugfs support */
 #include <linux/pm_wakeup.h>	/* debugfs support */
 #include <linux/regulator/consumer.h> /* gdsc */
-#include <mach/msm_bus.h>	/* bus client */
+#include <linux/msm-bus.h>	/* bus client */
 #include <linux/delay.h>	/* usleep function */
 /* TODO: include <linux/mpq_standby_if.h> after MCU is mainlined */
 

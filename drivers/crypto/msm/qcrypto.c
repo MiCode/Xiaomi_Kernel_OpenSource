@@ -43,7 +43,7 @@
 #include <crypto/internal/aead.h>
 
 #include <linux/platform_data/qcom_crypto_device.h>
-#include <mach/msm_bus.h>
+#include <linux/msm-bus.h>
 #include <mach/qcrypto.h>
 #include "qce.h"
 

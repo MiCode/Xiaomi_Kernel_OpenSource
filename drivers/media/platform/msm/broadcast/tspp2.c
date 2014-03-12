@@ -29,7 +29,7 @@
 #include <linux/iommu.h>
 #include <linux/qcom_iommu.h>
 #include <linux/msm_iommu_domains.h>
-#include <mach/msm_bus.h>
+#include <linux/msm-bus.h>
 #include <mach/msm_tspp2.h>
 #include <linux/clk/msm-clk.h>
 

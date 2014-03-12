@@ -14,8 +14,8 @@
 #define pr_fmt(fmt) "AXI: %s(): " fmt, __func__
 
 #include "msm_bus_core.h"
-#include <mach/msm_bus.h>
-#include <mach/msm_bus_board.h>
+#include <linux/msm-bus.h>
+#include <linux/msm-bus-board.h>
 #include <soc/qcom/rpm-smd.h>
 
 /* Stubs for backward compatibility */

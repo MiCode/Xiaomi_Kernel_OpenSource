@@ -21,7 +21,7 @@
 #include <linux/iopoll.h>
 #include <linux/platform_device.h>
 
-#include <mach/msm_bus.h>
+#include <linux/msm-bus.h>
 
 #include "ufshcd.h"
 #include "unipro.h"

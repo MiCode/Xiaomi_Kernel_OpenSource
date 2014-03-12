@@ -158,7 +158,7 @@ Bus Scaling Data:
 				of (src, dst, ab, ib) which is defined at
 				Documentation/devicetree/bindings/arm/msm/msm_bus.txt
 				* Current values of src & dst are defined at
-				arch/arm/mach-msm/msm_bus_board.h
+				include/linux/msm-bus-board.h
 				src values allowed for MDSS are:
 					22 = MSM_BUS_MASTER_MDP_PORT0
 					23 = MSM_BUS_MASTER_MDP_PORT1

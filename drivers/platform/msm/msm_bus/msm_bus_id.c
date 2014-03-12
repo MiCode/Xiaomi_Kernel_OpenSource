@@ -15,8 +15,8 @@
 #include <linux/init.h>
 #include <linux/device.h>
 #include <linux/module.h>
-#include <mach/msm_bus.h>
-#include <mach/msm_bus_board.h>
+#include <linux/msm-bus.h>
+#include <linux/msm-bus-board.h>
 #include <mach/board.h>
 #include <mach/rpm.h>
 #include <soc/qcom/socinfo.h>

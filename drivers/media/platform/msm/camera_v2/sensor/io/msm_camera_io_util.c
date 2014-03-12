@@ -18,7 +18,7 @@
 #include <linux/err.h>
 #include <soc/qcom/camera2.h>
 #include <mach/gpiomux.h>
-#include <mach/msm_bus.h>
+#include <linux/msm-bus.h>
 #include "msm_camera_io_util.h"
 
 #define BUFF_SIZE_128 128

@@ -8,7 +8,7 @@
 #include <linux/mmc/card.h>
 #include <linux/mmc/sdio_func.h>
 #include <mach/gpio.h>
-#include <mach/msm_bus.h>
+#include <linux/msm-bus.h>
 
 #define SDC_DAT1_DISABLE 0
 #define SDC_DAT1_ENABLE  1
