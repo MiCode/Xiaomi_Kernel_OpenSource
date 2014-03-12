@@ -104,7 +104,7 @@ static int msm_bus_rpm_req(int ctx, uint32_t rsc_type, uint32_t key,
 			goto free_rpm_request;
 		}
 
-		MSM_BUS_DBG("Added Key: %d, Val: %llu, size: %d\n", key,
+		MSM_BUS_DBG("Added Key: %d, Val: %llu, size: %zu\n", key,
 			hw_info->bw, sizeof(uint64_t));
 	} else {
 		/* Invalidate RPM requests */

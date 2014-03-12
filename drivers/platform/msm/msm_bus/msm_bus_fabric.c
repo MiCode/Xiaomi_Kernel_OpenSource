@@ -19,7 +19,6 @@
 #include <linux/module.h>
 #include <linux/clk.h>
 #include <linux/radix-tree.h>
-#include <mach/board.h>
 #include "msm_bus_core.h"
 
 enum {
