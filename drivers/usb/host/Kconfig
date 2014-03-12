@@ -239,6 +239,15 @@ config USB_EHCI_MSM_HOST4
 	  Enables support for the EHCI Compliant USB Host controller# 4
 	  present on the Qualcomm chipsets.
 
+config USB_EHCI_MSM_UICC
+	tristate "Support for EHCI MSM UICC controller"
+	depends on USB_EHCI_HCD
+	---help---
+	  Enables support for the Full-Speed only EHCI controller that
+	  is used for UICC connectivity on MSM targets. The controller
+	  is configured in serial mode and TLMM block converts the
+	  controller serial lines into USB DP and DM signals.
+
 config USB_EHCI_TEGRA
        boolean "NVIDIA Tegra HCD support"
        depends on ARCH_TEGRA
