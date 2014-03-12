@@ -59,6 +59,13 @@ Optional properties:
 - cam_vdig-supply : should contain regulator to be used for the digital vdd.
 - qcom,saddr%d : property should specify the slave address for block (%d).
 
+Optional properties -EEPROM Camera Multimodule
+- qcom,cmm-data-support - Camera MultiModule data capability flag.
+- qcom,cmm-data-compressed - Camera MultiModule data compresion flag.
+- qcom,cmm-data-offset - Camera MultiModule data start offset.
+- qcom,cmm-data-size - Camera MultiModule data size.
+
+
 Example:
 
     eeprom0: qcom,eeprom@60 {
@@ -77,6 +84,11 @@ Example:
         qcom,poll1 = <0 0x0 2 0 1 1>;
         qcom,mem1 = <32 0x3000 2 0 1 0>;
         qcom,saddr1 = <0x62>;
+
+	qcom,cmm-data-support;
+	qcom,cmm-data-compressed;
+	qcom,cmm-data-offset = <0>;
+	qcom,cmm-data-size = <0>;
 
         cam_vdig-supply = <&pm8226_l5>;
         cam_vio-supply = <&pm8226_lvs1>;
