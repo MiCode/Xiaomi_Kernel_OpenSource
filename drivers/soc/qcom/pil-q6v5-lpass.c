@@ -25,9 +25,7 @@
 #include <linux/of_gpio.h>
 #include <linux/clk/msm-clk.h>
 #include <linux/msm-bus-board.h>
-#include <soc/qcom/sysmon.h>
 #include <soc/qcom/subsystem_restart.h>
-#include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/ramdump.h>
 
 #include <soc/qcom/smem.h>
@@ -49,8 +47,6 @@ struct lpass_data {
 	struct subsys_desc subsys_desc;
 	void *ramdump_dev;
 	struct work_struct work;
-	void *wcnss_notif_hdle;
-	void *modem_notif_hdle;
 	int crash_shutdown;
 };
 
@@ -202,36 +198,6 @@ static struct pil_reset_ops pil_lpass_ops_trusted = {
 	.proxy_unvote = pil_q6v5_remove_proxy_votes,
 	.auth_and_reset = pil_lpass_reset_trusted,
 	.shutdown = pil_lpass_shutdown_trusted,
-};
-
-static int wcnss_notifier_cb(struct notifier_block *this, unsigned long code,
-								void *ss_handle)
-{
-	int ret;
-	pr_debug("%s: W-Notify: event %lu\n", __func__, code);
-	ret = sysmon_send_event(SYSMON_SS_LPASS, "wcnss", code);
-	if (ret < 0)
-		pr_err("%s: sysmon_send_event error %d", __func__, ret);
-	return NOTIFY_DONE;
-}
-
-static struct notifier_block wnb = {
-	.notifier_call = wcnss_notifier_cb,
-};
-
-static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
-								void *ss_handle)
-{
-	int ret;
-	pr_debug("%s: M-Notify: event %lu\n", __func__, code);
-	ret = sysmon_send_event(SYSMON_SS_LPASS, "modem", code);
-	if (ret < 0)
-		pr_err("%s: sysmon_send_event error %d", __func__, ret);
-	return NOTIFY_DONE;
-}
-
-static struct notifier_block mnb = {
-	.notifier_call = modem_notifier_cb,
 };
 
 static void adsp_log_failure_reason(void)
@@ -449,17 +415,6 @@ static int pil_lpass_driver_probe(struct platform_device *pdev)
 		goto err_subsys;
 	}
 
-	drv->wcnss_notif_hdle = subsys_notif_register_notifier("wcnss", &wnb);
-	if (IS_ERR(drv->wcnss_notif_hdle)) {
-		ret = PTR_ERR(drv->wcnss_notif_hdle);
-		goto err_notif_wcnss;
-	}
-
-	drv->modem_notif_hdle = subsys_notif_register_notifier("modem", &mnb);
-	if (IS_ERR(drv->modem_notif_hdle)) {
-		ret = PTR_ERR(drv->modem_notif_hdle);
-		goto err_notif_modem;
-	}
 	lpass_status = kobject_create_and_add("audio_voice_service",
 						kernel_kobj);
 	if (!lpass_status) {
@@ -479,10 +434,6 @@ static int pil_lpass_driver_probe(struct platform_device *pdev)
 err_kobj:
 	kobject_put(lpass_status);
 err_create_kobj:
-	subsys_notif_unregister_notifier(drv->modem_notif_hdle, &mnb);
-err_notif_modem:
-	subsys_notif_unregister_notifier(drv->wcnss_notif_hdle, &wnb);
-err_notif_wcnss:
 	subsys_unregister(drv->subsys);
 err_subsys:
 	destroy_ramdump_device(drv->ramdump_dev);
@@ -494,8 +445,6 @@ err_ramdump:
 static int pil_lpass_driver_exit(struct platform_device *pdev)
 {
 	struct lpass_data *drv = platform_get_drvdata(pdev);
-	subsys_notif_unregister_notifier(drv->wcnss_notif_hdle, &wnb);
-	subsys_notif_unregister_notifier(drv->modem_notif_hdle, &mnb);
 	subsys_unregister(drv->subsys);
 	destroy_ramdump_device(drv->ramdump_dev);
 	pil_desc_release(&drv->q6->desc);
