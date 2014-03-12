@@ -4,7 +4,7 @@ Required properties:
 - cell-index: jpeg hardware core index
 - compatible :
     - "qcom,jpeg"
-- reg : offset and length of the register set for the device
+- reg : offset and length of the register set of jpeg device and vbif device
     for the jpeg operating in compatible mode.
 - reg-names : should specify relevant names to each reg property defined.
 - interrupts : should contain the jpeg interrupt.
