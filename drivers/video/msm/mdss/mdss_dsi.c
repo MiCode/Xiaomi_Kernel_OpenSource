@@ -472,7 +472,13 @@ static int mdss_dsi_ulps_config_sub(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 			goto error;
 		}
 
-		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
+		ret = mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
+		if (ret) {
+			pr_err("%s: Failed to enable clocks. rc=%d\n",
+				__func__, ret);
+			goto error;
+		}
+
 		/*
 		 * ULPS Entry Request.
 		 * Wait for a short duration to ensure that the lanes
@@ -480,6 +486,14 @@ static int mdss_dsi_ulps_config_sub(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		 */
 		MIPI_OUTP(ctrl_pdata->ctrl_base + 0x0AC, 0x01F);
 		usleep(100);
+		lane_status = MIPI_INP(ctrl_pdata->ctrl_base + 0xA8);
+		if (lane_status & 0x1F00) {
+			pr_err("%s: ULPS entry req failed. Lane status=0x%08x\n",
+				__func__, lane_status);
+			ret = -EINVAL;
+			mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
+			goto error;
+		}
 
 		/* Enable MMSS DSI Clamps */
 		MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14, 0x3FF);
@@ -491,10 +505,17 @@ static int mdss_dsi_ulps_config_sub(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		/* disable DSI controller */
 		mdss_dsi_controller_cfg(0, pdata);
 
-		lane_status = MIPI_INP(ctrl_pdata->ctrl_base + 0xA8),
 		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
 		ctrl_pdata->ulps = true;
 	} else if (ctrl_pdata->ulps) {
+		ret = mdss_dsi_clk_ctrl(ctrl_pdata, DSI_BUS_CLKS, 1);
+		if (ret) {
+			pr_err("%s: Failed to enable bus clocks. rc=%d\n",
+				__func__, ret);
+			goto error;
+		}
+
+		MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x108, 0x0);
 		mdss_dsi_phy_init(pdata);
 
 		__mdss_dsi_ctrl_setup(pdata);
@@ -503,8 +524,27 @@ static int mdss_dsi_ulps_config_sub(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		mdss_dsi_op_mode_config(pdata->panel_info.mipi.mode,
 			pdata);
 
+		/*
+		 * ULPS Entry Request. This is needed because, after power
+		 * collapse and reset, the DSI controller resets back to
+		 * idle state and not ULPS.
+		 * Wait for a short duration to ensure that the lanes
+		 * enter ULP state.
+		 */
+		MIPI_OUTP(ctrl_pdata->ctrl_base + 0x0AC, 0x01F);
+		usleep(100);
+
 		/* Disable MMSS DSI Clamps */
+		MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14, 0x3FF);
 		MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14, 0x0);
+
+		ret = mdss_dsi_clk_ctrl(ctrl_pdata, DSI_LINK_CLKS, 1);
+		if (ret) {
+			pr_err("%s: Failed to enable link clocks. rc=%d\n",
+				__func__, ret);
+			mdss_dsi_clk_ctrl(ctrl_pdata, DSI_BUS_CLKS, 0);
+			goto error;
+		}
 
 		/*
 		 * ULPS Exit Request
@@ -520,7 +560,9 @@ static int mdss_dsi_ulps_config_sub(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		 */
 		usleep(100);
 
-		lane_status = MIPI_INP(ctrl_pdata->ctrl_base + 0xA8),
+		lane_status = MIPI_INP(ctrl_pdata->ctrl_base + 0xA8);
+		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_LINK_CLKS, 0);
+		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_BUS_CLKS, 0);
 		ctrl_pdata->ulps = false;
 	}
 
