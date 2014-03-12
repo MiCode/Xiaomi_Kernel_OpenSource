@@ -122,8 +122,8 @@ struct sdhci_host {
  * be called twice.
  */
 #define SDHCI_QUIRK2_SLOW_INT_CLR			(1<<5)
-/* Ignore CMD CRC errors for tuning commands */
-#define SDHCI_QUIRK2_IGNORE_CMDCRC_FOR_TUNING		(1<<6)
+/* Controller has nonstandard clock management */
+#define SDHCI_QUIRK_NONSTANDARD_CLOCK			(1<<17)
 /*
  * Ignore data timeout error for R1B commands as there will be no
  * data associated and the busy timeout value for these commands
@@ -155,7 +155,7 @@ struct sdhci_host {
  * will be used in such cases to avoid controller mulplication when timeout is
  * calculated based on the base clock.
  */
-#define SDHCI_QUIRK2_DIVIDE_TOUT_BY_4 (1 << 12)
+#define SDHCI_QUIRK2_DIVIDE_TOUT_BY_4 (1 << 11)
 
 /*
  * Some SDHC controllers are unable to handle data-end bit error in
