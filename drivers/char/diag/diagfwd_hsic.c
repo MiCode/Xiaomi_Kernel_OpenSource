@@ -361,11 +361,13 @@ static void diag_hsic_dci_read_complete_callback(void *ctxt, char *buf,
 	}
 
 	/*
-	 * If the size of the data received is 0 or if the buffer is invalid,
-	 * queue another read.
+	 * Actual Size can be negative error codes. In such cases, don't
+	 * queue another read. The HSIC channel can goto suspend.
+	 * Queuing a read will prevent HSIC from going to suspend.
 	 */
-	queue_work(diag_bridge_dci[index].wq,
-		   &diag_hsic_dci[index].diag_read_hsic_work);
+	if (actual_size >= 0)
+		queue_work(diag_bridge_dci[index].wq,
+			   &diag_hsic_dci[index].diag_read_hsic_work);
 }
 
 static void diag_hsic_write_complete_callback(void *ctxt, char *buf,
@@ -470,10 +472,8 @@ static void diag_hsic_dci_resume(void *ctxt)
 	pr_debug("diag: hsic_dci_resume\n");
 	diag_hsic_dci[index].hsic_suspend = 0;
 
-	if (diag_hsic_dci[index].count_hsic_pool <
-		diag_hsic_dci[index].poolsize_hsic)
-		queue_work(diag_bridge_dci[index].wq,
-			   &diag_hsic_dci[index].diag_read_hsic_work);
+	queue_work(diag_bridge_dci[index].wq,
+		   &diag_hsic_dci[index].diag_read_hsic_work);
 }
 
 struct diag_bridge_ops hsic_diag_bridge_ops[MAX_HSIC_DATA_CH] = {
