@@ -1413,6 +1413,43 @@ int kgsl_pwrctrl_sleep(struct kgsl_device *device)
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_sleep);
 
+/*
+ * kgsl_pwrctrl_slumber() - Put device into slumber if it is not in suspend
+ * @device: Device pointer
+ *
+ * Return 0 on success else error code
+ */
+int kgsl_pwrctrl_slumber(struct kgsl_device *device)
+{
+	int ret = 0;
+
+	if (KGSL_STATE_SLUMBER == device->state ||
+		KGSL_STATE_SUSPEND == device->state)
+		return ret;
+	if (KGSL_STATE_SUSPEND == device->requested_state)
+		return ret;
+	/* drain to prevent from more commands being submitted */
+	device->ftbl->drain(device);
+	/* wait for active count so device can be put in slumber */
+	ret = kgsl_active_count_wait(device, 0);
+	if (ret) {
+		device->ftbl->resume(device);
+		return ret;
+	}
+
+	ret = device->ftbl->idle(device);
+	if (ret) {
+		device->ftbl->resume(device);
+		return ret;
+	}
+	/* resume since we drained earlier */
+	device->ftbl->resume(device);
+	kgsl_pwrctrl_request_state(device, KGSL_STATE_SLUMBER);
+	ret = kgsl_pwrctrl_sleep(device);
+	return ret;
+}
+EXPORT_SYMBOL(kgsl_pwrctrl_slumber);
+
 /**
  * kgsl_pwrctrl_wake() - Power up the GPU from a slumber/sleep state
  * @device - Pointer to the kgsl_device struct
