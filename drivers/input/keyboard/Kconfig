@@ -652,4 +652,10 @@ config KEYBOARD_CROS_EC
 	  To compile this driver as a module, choose M here: the
 	  module will be called cros_ec_keyb.
 
+config KEYBOARD_ACPI_GPIO
+	tristate "ACPI GPIO Button Array"
+	help
+	  Say Y here to enable support for ACPI5-based GPIO button
+	  array objects used by some modern PC tablet devices.
+
 endif
