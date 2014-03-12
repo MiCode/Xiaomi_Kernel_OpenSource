@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,16 @@
 #include <ipa_qmi_service.h>
 
 #define DRIVER_NAME "wwan_ioctl"
+
+#ifdef CONFIG_COMPAT
+#define WAN_IOC_ADD_FLT_RULE32 _IOWR(WAN_IOC_MAGIC, \
+		WAN_IOCTL_ADD_FLT_RULE, \
+		compat_uptr_t)
+#define WAN_IOC_ADD_FLT_RULE_INDEX32 _IOWR(WAN_IOC_MAGIC, \
+		WAN_IOCTL_ADD_FLT_INDEX, \
+		compat_uptr_t)
+#endif
+
 static unsigned int dev_num = 1;
 static struct cdev wan_ioctl_cdev;
 
@@ -89,6 +99,23 @@ static long wan_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	return retval;
 }
 
+#ifdef CONFIG_COMPAT
+long compat_wan_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	switch (cmd) {
+	case WAN_IOC_ADD_FLT_RULE32:
+		cmd = WAN_IOC_ADD_FLT_RULE;
+		break;
+	case WAN_IOC_ADD_FLT_RULE_INDEX32:
+		cmd = WAN_IOC_ADD_FLT_RULE_INDEX;
+		break;
+	default:
+		return -ENOIOCTLCMD;
+	}
+	return wan_ioctl(file, cmd, (unsigned long) compat_ptr(arg));
+}
+#endif
+
 static int wan_ioctl_open(struct inode *inode, struct file *filp)
 {
 	IPAWANDBG("\n IPA A7 wan_ioctl open OK :>>>> ");
@@ -100,6 +127,9 @@ const struct file_operations fops = {
 	.open = wan_ioctl_open,
 	.read = NULL,
 	.unlocked_ioctl = wan_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = compat_wan_ioctl,
+#endif
 };
 
 int wan_ioctl_init(void)
