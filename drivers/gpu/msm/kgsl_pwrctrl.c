@@ -77,6 +77,8 @@ struct clk_pair clks[KGSL_MAX_CLKS] = {
 	},
 };
 
+static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
+					int requested_state);
 static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state);
 static void kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state);
 
