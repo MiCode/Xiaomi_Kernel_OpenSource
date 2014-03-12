@@ -1000,7 +1000,7 @@ int qpnp_adc_get_revid_version(struct device *dev)
 
 	revid_data = get_revid_data(revid_dev_node);
 	if (IS_ERR(revid_data)) {
-		pr_err("revid error rc = %ld\n", PTR_ERR(revid_data));
+		pr_debug("revid error rc = %ld\n", PTR_ERR(revid_data));
 		return -EINVAL;
 	}
 
@@ -1011,6 +1011,20 @@ int qpnp_adc_get_revid_version(struct device *dev)
 		(revid_data->pmic_type == PM8941_V3P1_TYPE) &&
 		(revid_data->pmic_subtype == PM8941_V3P1_SUBTYPE))
 			return QPNP_REV_ID_8941_3_1;
+	else if ((revid_data->rev1 == PM8941_V3P0_REV1) &&
+		(revid_data->rev2 == PM8941_V3P0_REV2) &&
+		(revid_data->rev3 == PM8941_V3P0_REV3) &&
+		(revid_data->rev4 == PM8941_V3P0_REV4) &&
+		(revid_data->pmic_type == PM8941_V3P0_TYPE) &&
+		(revid_data->pmic_subtype == PM8941_V3P0_SUBTYPE))
+			return QPNP_REV_ID_8941_3_0;
+	else if ((revid_data->rev1 == PM8941_V2P0_REV1) &&
+		(revid_data->rev2 == PM8941_V2P0_REV2) &&
+		(revid_data->rev3 == PM8941_V2P0_REV3) &&
+		(revid_data->rev4 == PM8941_V2P0_REV4) &&
+		(revid_data->pmic_type == PM8941_V2P0_TYPE) &&
+		(revid_data->pmic_subtype == PM8941_V2P0_SUBTYPE))
+			return QPNP_REV_ID_8941_2_0;
 	else if ((revid_data->rev1 == PM8226_V2P2_REV1) &&
 		(revid_data->rev2 == PM8226_V2P2_REV2) &&
 		(revid_data->rev3 == PM8226_V2P2_REV3) &&
