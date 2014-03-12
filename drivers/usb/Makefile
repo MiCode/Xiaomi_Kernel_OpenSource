@@ -28,6 +28,7 @@ obj-$(CONFIG_USB_ISP1760_HCD)	+= host/
 obj-$(CONFIG_USB_IMX21_HCD)	+= host/
 obj-$(CONFIG_USB_FSL_MPH_DR_OF)	+= host/
 obj-$(CONFIG_USB_PEHCI_HCD)	+= host/
+obj-$(CONFIG_USB_ICE40_HCD)	+= host/
 
 obj-$(CONFIG_USB_C67X00_HCD)	+= c67x00/
 
