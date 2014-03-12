@@ -5421,6 +5421,15 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 disable_clks:
 	/*
+	 * The clock scaling needs access to controller registers. Hence, Wait
+	 * for pending clock scaling work to be done before clocks are
+	 * turned off.
+	 */
+	if (ufshcd_is_clkscaling_enabled(hba)) {
+		devfreq_suspend_device(hba->devfreq);
+		hba->clk_scaling.window_start_t = 0;
+	}
+	/*
 	 * Call vendor specific suspend callback. As these callbacks may access
 	 * vendor specific host controller register space call them before the
 	 * host clocks are ON.
@@ -5452,10 +5461,6 @@ disable_clks:
 	 */
 	ufshcd_disable_irq(hba);
 
-	if (ufshcd_is_clkscaling_enabled(hba)) {
-		devfreq_suspend_device(hba->devfreq);
-		hba->clk_scaling.window_start_t = 0;
-	}
 	goto out;
 
 vops_resume:
