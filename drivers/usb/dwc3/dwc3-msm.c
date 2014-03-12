@@ -670,6 +670,11 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	dev_vdbg(dwc->dev, "%s: queing request %p to ep %s length %d\n",
 			__func__, request, ep->name, request->length);
 
+	dbm_event_buffer_config(mdwc->dbm,
+		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRLO(0)),
+		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRHI(0)),
+		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTSIZ(0)));
+
 	/*
 	 * We must obtain the lock of the dwc3 core driver,
 	 * including disabling interrupts, so we will be sure
