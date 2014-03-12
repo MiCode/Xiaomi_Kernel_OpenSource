@@ -312,7 +312,7 @@
 
 	etm7: etm@fbf40000 {
 		compatible = "arm,coresight-etmv4";
-		reg = <0xfbb40000 0x1000>;
+		reg = <0xfbf40000 0x1000>;
 		reg-names = "etm-base";
 
 		coresight-id = <17>;
