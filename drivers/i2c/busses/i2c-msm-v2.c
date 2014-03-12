@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3045,6 +3045,19 @@ static void i2c_msm_rsrcs_irq_teardown(struct i2c_msm_ctrl *ctrl)
 	free_irq(ctrl->rsrcs.irq, ctrl->dev);
 }
 
+
+static struct pinctrl_state *
+i2c_msm_rsrcs_gpio_get_state(struct i2c_msm_ctrl *ctrl, const char *name)
+{
+	struct pinctrl_state *pin_state
+			= pinctrl_lookup_state(ctrl->rsrcs.pinctrl, name);
+
+	if (IS_ERR_OR_NULL(pin_state))
+		dev_info(ctrl->dev, "note pinctrl_lookup_state(%s) err:%ld\n",
+						name, PTR_ERR(pin_state));
+	return pin_state;
+}
+
 /*
  * i2c_msm_rsrcs_gpio_pinctrl_init: initializes the pinctrl for i2c gpios
  *
@@ -3054,42 +3067,45 @@ static int i2c_msm_rsrcs_gpio_pinctrl_init(struct i2c_msm_ctrl *ctrl)
 {
 	ctrl->rsrcs.pinctrl = devm_pinctrl_get(ctrl->dev);
 	if (IS_ERR_OR_NULL(ctrl->rsrcs.pinctrl)) {
-		dev_err(ctrl->dev, "failed to get pinctrl\n");
+		dev_err(ctrl->dev, "error devm_pinctrl_get() failed err:%ld\n",
+				PTR_ERR(ctrl->rsrcs.pinctrl));
 		return PTR_ERR(ctrl->rsrcs.pinctrl);
 	}
 
-	ctrl->rsrcs.gpio_state_active
-		= pinctrl_lookup_state(ctrl->rsrcs.pinctrl,
-				PINCTRL_STATE_DEFAULT);
-	if (IS_ERR_OR_NULL(ctrl->rsrcs.gpio_state_active))
-		dev_info(ctrl->dev, "can not get default pinstate\n");
+	ctrl->rsrcs.gpio_state_active =
+		i2c_msm_rsrcs_gpio_get_state(ctrl, I2C_MSM_PINCTRL_ACTIVE);
 
-	ctrl->rsrcs.gpio_state_suspend
-		= pinctrl_lookup_state(ctrl->rsrcs.pinctrl,
-				PINCTRL_STATE_SLEEP);
-	if (IS_ERR_OR_NULL(ctrl->rsrcs.gpio_state_suspend))
-		dev_info(ctrl->dev, "can not get sleep pinstate\n");
+	ctrl->rsrcs.gpio_state_suspend =
+		i2c_msm_rsrcs_gpio_get_state(ctrl, I2C_MSM_PINCTRL_SUSPEND);
+
 	return 0;
 }
 
 static void i2c_msm_pm_pinctrl_state(struct i2c_msm_ctrl *ctrl,
 				bool runtime_active)
 {
-	int ret;
 	struct pinctrl_state *pins_state;
+	const char           *pins_state_name;
 
-	pins_state = runtime_active ? ctrl->rsrcs.gpio_state_active
-					: ctrl->rsrcs.gpio_state_suspend;
+	if (runtime_active) {
+		pins_state      = ctrl->rsrcs.gpio_state_active;
+		pins_state_name = I2C_MSM_PINCTRL_ACTIVE;
+	} else {
+		pins_state      = ctrl->rsrcs.gpio_state_suspend;
+		pins_state_name = I2C_MSM_PINCTRL_SUSPEND;
+	}
+
 	if (!IS_ERR_OR_NULL(pins_state)) {
-		ret = pinctrl_select_state(ctrl->rsrcs.pinctrl, pins_state);
+		int ret = pinctrl_select_state(ctrl->rsrcs.pinctrl, pins_state);
 		if (ret)
-			dev_err(ctrl->dev, "can not set %s pins\n",
-				runtime_active ? PINCTRL_STATE_DEFAULT
-						: PINCTRL_STATE_SLEEP);
-	} else
-		dev_err(ctrl->dev, "not a valid '%s' pinstate\n",
-				runtime_active ? PINCTRL_STATE_DEFAULT
-						: PINCTRL_STATE_SLEEP);
+			dev_err(ctrl->dev,
+			"error pinctrl_select_state(%s) err:%d\n",
+			pins_state_name, ret);
+	} else {
+		dev_err(ctrl->dev,
+			"error pinctrl state-name:'%s' is not configured\n",
+			pins_state_name);
+	}
 }
 
 /*
