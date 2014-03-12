@@ -148,7 +148,6 @@ enum dsi_lane_map_type {
 #define DSI_CMD_TERM    BIT(0)
 
 extern struct device dsi_dev;
-extern int mdss_dsi_clk_on;
 extern u32 dsi_irq;
 extern struct mdss_dsi_ctrl_pdata *ctrl_list[];
 
@@ -249,7 +248,6 @@ struct mdss_dsi_ctrl_pdata {
 	struct dss_io_data phy_io;
 	int reg_size;
 	u32 clk_cnt;
-	int clk_cnt_sub;
 	u32 flags;
 	struct clk *mdp_core_clk;
 	struct clk *ahb_clk;
@@ -261,7 +259,6 @@ struct mdss_dsi_ctrl_pdata {
 	u8 ctrl_state;
 	int panel_mode;
 	int irq_cnt;
-	int mdss_dsi_clk_on;
 	int rst_gpio;
 	int disp_en_gpio;
 	int disp_te_gpio;
@@ -323,7 +320,7 @@ void mdp4_dsi_cmd_trigger(void);
 void mdss_dsi_cmd_mdp_start(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_cmd_bta_sw_trigger(struct mdss_panel_data *pdata);
 void mdss_dsi_ack_err_status(struct mdss_dsi_ctrl_pdata *ctrl);
-void mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable);
+int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable);
 int mdss_dsi_link_clk_start(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_link_clk_stop(struct mdss_dsi_ctrl_pdata *ctrl);
 int mdss_dsi_bus_clk_start(struct mdss_dsi_ctrl_pdata *ctrl);
