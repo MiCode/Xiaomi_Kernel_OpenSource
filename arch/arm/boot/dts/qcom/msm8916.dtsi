@@ -1098,6 +1098,10 @@
 		};
 	};
 
+	qcom,iris-fm {
+		compatible = "qcom,iris_fm";
+	};
+
 	spi_0: spi@78b7000 { /* BLSP1 QUP3 */
 		compatible = "qcom,spi-qup-v2";
                 #address-cells = <1>;
