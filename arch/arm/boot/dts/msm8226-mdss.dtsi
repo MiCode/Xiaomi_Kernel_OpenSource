@@ -19,7 +19,7 @@
 		interrupts = <0 72 0>;
 		vdd-supply = <&gdsc_mdss>;
 
-		qcom,max-bandwidth-low-kbps = <1660000>;
+		qcom,max-bandwidth-low-kbps = <1100000>;
 		qcom,max-bandwidth-high-kbps = <1660000>;
 
 		/* Bus Scale Settings */
