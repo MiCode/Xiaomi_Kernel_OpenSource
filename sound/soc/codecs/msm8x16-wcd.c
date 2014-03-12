@@ -2069,9 +2069,9 @@ static int msm8x16_wcd_hw_params(struct snd_pcm_substream *substream,
 	int ret;
 
 	dev_dbg(dai->codec->dev,
-		"%s: dai_name = %s DAI-ID %x rate %d num_ch %d\n", __func__,
-		 dai->name, dai->id, params_rate(params),
-		 params_channels(params));
+		"%s: dai_name = %s DAI-ID %x rate %d num_ch %d format %d\n",
+		__func__, dai->name, dai->id, params_rate(params),
+		params_channels(params), params_format(params));
 
 	switch (params_rate(params)) {
 	case 8000:
@@ -2131,6 +2131,21 @@ static int msm8x16_wcd_hw_params(struct snd_pcm_substream *substream,
 			"%s: Invalid stream type %d\n", __func__,
 			substream->stream);
 		return -EINVAL;
+	}
+	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_S16_LE:
+		snd_soc_update_bits(dai->codec,
+				MSM8X16_WCD_A_CDC_CLK_RX_I2S_CTL, 0x20, 0x20);
+		break;
+	case SNDRV_PCM_FORMAT_S24_LE:
+		snd_soc_update_bits(dai->codec,
+				MSM8X16_WCD_A_CDC_CLK_RX_I2S_CTL, 0x20, 0x00);
+		break;
+	default:
+		dev_err(dai->codec->dev, "%s: wrong format selected\n",
+				__func__);
+		return -EINVAL;
+		break;
 	}
 
 	return 0;
