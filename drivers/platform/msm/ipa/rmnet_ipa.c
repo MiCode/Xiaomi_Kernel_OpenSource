@@ -833,7 +833,8 @@ static void apps_ipa_tx_complete_notify(void *priv,
 		unsigned long data)
 {
 	struct sk_buff *skb = (struct sk_buff *)data;
-	struct wwan_private *wwan_ptr = priv;
+	struct net_device *dev = (struct net_device *)priv;
+	struct wwan_private *wwan_ptr = netdev_priv(dev);
 	if (evt != IPA_WRITE_DONE) {
 		IPAWANERR("unsupported event on Tx callback\n");
 		return;
@@ -1115,6 +1116,7 @@ static int ipa_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 				apps_ipa_tx_complete_notify;
 			apps_to_ipa_ep_cfg.desc_fifo_sz =
 			IPA_SYS_TX_DATA_DESC_FIFO_SZ;
+			apps_to_ipa_ep_cfg.priv = dev;
 
 			rc = ipa_setup_sys_pipe(&apps_to_ipa_ep_cfg,
 				&apps_to_ipa_hdl);
