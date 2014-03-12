@@ -2119,6 +2119,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		IPADBG("teth_bridge initialized");
 	}
 
+	ipa_debugfs_init();
 	ipa_dec_client_disable_clks();
 
 	pr_info("IPA driver initialization was successful.\n");
@@ -2330,16 +2331,10 @@ struct ipa_context *ipa_get_ctx(void)
 
 static int __init ipa_module_init(void)
 {
-	int result = 0;
-
 	IPADBG("IPA module init\n");
 
 	/* Register as a platform device driver */
-	platform_driver_register(&ipa_plat_drv);
-
-	ipa_debugfs_init();
-
-	return result;
+	return platform_driver_register(&ipa_plat_drv);
 }
 subsys_initcall(ipa_module_init);
 
