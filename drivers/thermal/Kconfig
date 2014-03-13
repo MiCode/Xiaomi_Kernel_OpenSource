@@ -235,6 +235,15 @@ config INTEL_BYT_AUX_DTS_THERMAL
 	  a critical trip point, which was set by the driver based on the TJ
 	  MAX temperature.
 
+config INTEL_THERMAL
+	bool
+	depends on X86 && ACPI
+	help
+	  Newer laptops and tablets that use ACPI for thermal control
+	  outside the core CPU/SOC for thermal safety reasons.
+	  They are exposed for the OS to use via an INT3400 ACPI device object
+	  as the master, and INT3401~INT340B ACPI device objects as the slaves.
+
 menu "Texas Instruments thermal drivers"
 source "drivers/thermal/ti-soc-thermal/Kconfig"
 endmenu
