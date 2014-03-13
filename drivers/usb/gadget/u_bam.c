@@ -882,34 +882,54 @@ static void gbam_notify(void *p, int event, unsigned long data)
 	}
 }
 
-static void gbam_free_buffers(struct gbam_port *port)
+static void gbam_free_rx_buffers(struct gbam_port *port)
 {
 	struct sk_buff		*skb;
 	unsigned long		flags;
 	struct bam_ch_info	*d;
 
 	spin_lock_irqsave(&port->port_lock_ul, flags);
-	spin_lock(&port->port_lock_dl);
 
 	if (!port || !port->port_usb)
-		goto free_buf_out;
+		goto free_rx_buf_out;
 
 	d = &port->data_ch;
-
-	gbam_free_requests(port->port_usb->in, &d->tx_idle);
 	gbam_free_requests(port->port_usb->out, &d->rx_idle);
-
-	while ((skb = __skb_dequeue(&d->tx_skb_q)))
-		dev_kfree_skb_any(skb);
 
 	while ((skb = __skb_dequeue(&d->rx_skb_q)))
 		dev_kfree_skb_any(skb);
 
 	gbam_free_rx_skb_idle_list(port);
 
-free_buf_out:
-	spin_unlock(&port->port_lock_dl);
+free_rx_buf_out:
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
+}
+
+static void gbam_free_tx_buffers(struct gbam_port *port)
+{
+	struct sk_buff		*skb;
+	unsigned long		flags;
+	struct bam_ch_info	*d;
+
+	spin_lock_irqsave(&port->port_lock_dl, flags);
+
+	if (!port || !port->port_usb)
+		goto free_tx_buf_out;
+
+	d = &port->data_ch;
+	gbam_free_requests(port->port_usb->in, &d->tx_idle);
+
+	while ((skb = __skb_dequeue(&d->tx_skb_q)))
+		dev_kfree_skb_any(skb);
+
+free_tx_buf_out:
+	spin_unlock_irqrestore(&port->port_lock_dl, flags);
+}
+
+static void gbam_free_buffers(struct gbam_port *port)
+{
+	gbam_free_rx_buffers(port);
+	gbam_free_tx_buffers(port);
 }
 
 static void gbam_disconnect_work(struct work_struct *w)
@@ -1647,6 +1667,8 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 
 	if (trans == USB_GADGET_XPORT_BAM)
 		gbam_free_buffers(port);
+	else if (trans == USB_GADGET_XPORT_BAM2BAM_IPA)
+		gbam_free_rx_buffers(port);
 
 	spin_lock_irqsave(&port->port_lock_ul, flags);
 	spin_lock(&port->port_lock_dl);
