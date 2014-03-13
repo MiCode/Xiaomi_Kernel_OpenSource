@@ -2120,6 +2120,7 @@ static int smb_parse_dt(struct smb1360_chip *chip)
 static int smb1360_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
+	u8 reg;
 	int rc;
 	struct smb1360_chip *chip;
 	struct power_supply *usb_psy;
@@ -2140,6 +2141,14 @@ static int smb1360_probe(struct i2c_client *client,
 	chip->dev = &client->dev;
 	chip->usb_psy = usb_psy;
 	chip->fake_battery_soc = -EINVAL;
+	mutex_init(&chip->read_write_lock);
+
+	/* probe the device to check if its actually connected */
+	rc = smb1360_read(chip, CFG_BATT_CHG_REG, &reg);
+	if (rc) {
+		pr_err("Failed to detect SMB1360, device may be absent\n");
+		return -ENODEV;
+	}
 
 	rc = smb_parse_dt(chip);
 	if (rc < 0) {
@@ -2153,7 +2162,6 @@ static int smb1360_probe(struct i2c_client *client,
 	mutex_init(&chip->irq_complete);
 	mutex_init(&chip->charging_disable_lock);
 	mutex_init(&chip->current_change_lock);
-	mutex_init(&chip->read_write_lock);
 
 	rc = smb1360_regulator_init(chip);
 	if  (rc) {
