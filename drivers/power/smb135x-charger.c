@@ -1485,6 +1485,13 @@ static int taper_handler(struct smb135x_chg *chip, u8 rt_stat)
 	return 0;
 }
 
+static int fast_chg_handler(struct smb135x_chg *chip, u8 rt_stat)
+{
+	pr_debug("rt_stat = 0x%02x\n", rt_stat);
+	power_supply_changed(&chip->batt_psy);
+	return 0;
+}
+
 static int recharge_handler(struct smb135x_chg *chip, u8 rt_stat)
 {
 	pr_debug("rt_stat = 0x%02x\n", rt_stat);
@@ -1797,6 +1804,7 @@ static struct irq_handler_info handlers[] = {
 			},
 			{
 				.name		= "fast_chg",
+				.smb_irq	= fast_chg_handler,
 			},
 		},
 	},
