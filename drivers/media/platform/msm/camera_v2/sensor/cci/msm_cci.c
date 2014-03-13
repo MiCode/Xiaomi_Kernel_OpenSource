@@ -673,7 +673,6 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 			/* Set reset pending flag to TRUE */
 			cci_dev->cci_master_info[master].reset_pending = TRUE;
 			/* Set proper mask to RESET CMD address */
-			msm_cci_set_clk_param(cci_dev, c_ctrl);
 			if (master == MASTER_0)
 				msm_camera_io_w(CCI_M0_RESET_RMSK,
 					cci_dev->base + CCI_RESET_CMD_ADDR);
