@@ -1357,12 +1357,12 @@ static int adreno_of_get_pwrlevels(struct device_node *parent,
 			&level->bus_freq))
 			goto done;
 
-		if (adreno_of_read_property(child, "qcom,io-fraction",
+		if (of_property_read_u32(child, "qcom,io-fraction",
 			&level->io_fraction))
 			level->io_fraction = 0;
 	}
 
-	if (adreno_of_read_property(parent, "qcom,initial-pwrlevel",
+	if (of_property_read_u32(parent, "qcom,initial-pwrlevel",
 		&pdata->init_level))
 		pdata->init_level = 1;
 
@@ -1498,7 +1498,7 @@ static int adreno_of_get_pdata(struct platform_device *pdev)
 		&pdata->pm_qos_latency))
 		pdata->pm_qos_latency = 501;
 
-	if (adreno_of_read_property(pdev->dev.of_node, "qcom,idle-timeout",
+	if (of_property_read_u32(pdev->dev.of_node, "qcom,idle-timeout",
 		&pdata->idle_timeout))
 		pdata->idle_timeout = HZ/12;
 
