@@ -393,6 +393,7 @@ static struct {
 	struct pinctrl_state *gpio_state_active;
 	struct pinctrl_state *gpio_state_suspend;
 	int use_pinctrl;
+	u8 is_shutdown;
 } *penv = NULL;
 
 static ssize_t wcnss_wlan_macaddr_store(struct device *dev,
@@ -1163,12 +1164,20 @@ EXPORT_SYMBOL(wcnss_get_wlan_config);
 
 int wcnss_device_ready(void)
 {
-	if (penv && penv->pdev && penv->nv_downloaded)
+	if (penv && penv->pdev && penv->nv_downloaded &&
+	    !wcnss_device_is_shutdown())
 		return 1;
 	return 0;
 }
 EXPORT_SYMBOL(wcnss_device_ready);
 
+int wcnss_device_is_shutdown(void)
+{
+	if (penv && penv->is_shutdown)
+		return 1;
+	return 0;
+}
+EXPORT_SYMBOL(wcnss_device_is_shutdown);
 
 struct resource *wcnss_wlan_get_memory_map(struct device *dev)
 {
@@ -2672,6 +2681,10 @@ static int wcnss_notif_cb(struct notifier_block *this, unsigned long code,
 		wcnss_log_debug_regs_on_bite();
 	else if (code == SUBSYS_POWERUP_FAILURE)
 		wcnss_pronto_log_debug_regs();
+	else if (SUBSYS_BEFORE_SHUTDOWN == code)
+		penv->is_shutdown = 1;
+	else if (SUBSYS_AFTER_POWERUP == code)
+		penv->is_shutdown = 0;
 
 	return NOTIFY_DONE;
 }
