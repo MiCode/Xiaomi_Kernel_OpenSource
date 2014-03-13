@@ -128,6 +128,9 @@ static int gen_lnode(struct device *dev,
 					msm_bus_device_match_adhoc);
 	}
 
+	memset(lnode->lnode_ib, 0, sizeof(uint64_t) * NUM_CTX);
+	memset(lnode->lnode_ab, 0, sizeof(uint64_t) * NUM_CTX);
+
 exit_gen_lnode:
 	return lnode_idx;
 }
@@ -383,6 +386,14 @@ static int update_path(int src, int dest, uint64_t req_ib, uint64_t req_bw,
 					__func__, dev_info->node_info->id);
 				goto exit_update_path;
 			}
+		}
+
+		ret = msm_bus_update_bw(dev_info, ctx, req_bw, &dirty_nodes,
+								&num_dirty);
+		if (ret) {
+			MSM_BUS_ERR("%s: Failed to update bw dev %d",
+				__func__, dev_info->node_info->id);
+			goto exit_update_path;
 		}
 
 		next_dev = lnode->next_dev;
