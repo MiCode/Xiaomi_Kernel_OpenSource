@@ -22,6 +22,7 @@
  */
 struct esoc_desc {
 	const char *name;
+	const char *link;
 	void *priv;
 };
 
