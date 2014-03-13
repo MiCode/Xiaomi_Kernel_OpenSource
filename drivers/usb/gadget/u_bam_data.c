@@ -93,6 +93,7 @@ struct bam_data_ch_info {
 	enum usb_bam_pipe_type	src_pipe_type;
 	enum usb_bam_pipe_type	dst_pipe_type;
 	unsigned int		pending_with_bam;
+	int			rx_buffer_size;
 
 	unsigned int		rx_flow_control_disable;
 	unsigned int		rx_flow_control_enable;
@@ -230,14 +231,14 @@ static void bam_data_start_rx(struct bam_data_port *port)
 			break;
 
 		req = list_first_entry(&d->rx_idle, struct usb_request, list);
-		skb = alloc_skb(bam_mux_rx_req_size + BAM_MUX_HDR, GFP_ATOMIC);
+		skb = alloc_skb(d->rx_buffer_size + BAM_MUX_HDR, GFP_ATOMIC);
 		if (!skb)
 			break;
 		skb_reserve(skb, BAM_MUX_HDR);
 
 		list_del(&req->list);
 		req->buf = skb->data;
-		req->length = bam_mux_rx_req_size;
+		req->length = d->rx_buffer_size;
 		req->context = skb;
 		spin_unlock_irqrestore(&port->port_lock_ul, flags);
 		ret = usb_ep_queue(ep, req, GFP_ATOMIC);
@@ -311,7 +312,7 @@ static void bam_data_epout_complete(struct usb_ep *ep, struct usb_request *req)
 	}
 	spin_unlock(&port->port_lock_ul);
 
-	skb = alloc_skb(bam_mux_rx_req_size + BAM_MUX_HDR, GFP_ATOMIC);
+	skb = alloc_skb(d->rx_buffer_size + BAM_MUX_HDR, GFP_ATOMIC);
 	if (!skb) {
 		list_add_tail(&req->list, &d->rx_idle);
 		return;
@@ -319,7 +320,7 @@ static void bam_data_epout_complete(struct usb_ep *ep, struct usb_request *req)
 	skb_reserve(skb, BAM_MUX_HDR);
 
 	req->buf = skb->data;
-	req->length = bam_mux_rx_req_size;
+	req->length = d->rx_buffer_size;
 	req->context = skb;
 
 	status = usb_ep_queue(ep, req, GFP_ATOMIC);
@@ -1041,7 +1042,10 @@ int bam_data_connect(struct data_port *gr, u8 port_num,
 
 	d->trans = trans;
 	d->func_type = func;
+	d->rx_buffer_size = (gr->rx_buffer_size ? gr->rx_buffer_size :
+					bam_mux_rx_req_size);
 
+	pr_debug("%s(): rx_buffer_size:%d\n", __func__, d->rx_buffer_size);
 	if (trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		d->ipa_params.src_pipe = &(d->src_pipe_idx);
 		d->ipa_params.dst_pipe = &(d->dst_pipe_idx);
