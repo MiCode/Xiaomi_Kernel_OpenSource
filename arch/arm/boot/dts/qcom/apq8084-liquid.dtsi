@@ -198,6 +198,7 @@
 };
 
 &blsp2_uart4 {
+	qcom,no-suspend-delay;
 	status = "ok";
 };
 
@@ -849,3 +850,4 @@
 		};
 	};
 };
+
