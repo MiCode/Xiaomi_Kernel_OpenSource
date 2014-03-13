@@ -986,8 +986,8 @@ static void rndis_ipa_rm_notify(void *user_data, enum ipa_rm_event event,
 	RNDIS_IPA_DEBUG("Resource Granted\n");
 
 	if (netif_queue_stopped(rndis_ipa_ctx->net)) {
-		RNDIS_IPA_DEBUG("waking queue\n");
-		netif_wake_queue(rndis_ipa_ctx->net);
+		RNDIS_IPA_DEBUG("starting queue\n");
+		netif_start_queue(rndis_ipa_ctx->net);
 	} else {
 		RNDIS_IPA_DEBUG("queue already awake\n");
 	}
