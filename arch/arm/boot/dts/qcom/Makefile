@@ -141,7 +141,8 @@ dtb-$(CONFIG_ARCH_APQ8084) += apq8084-v1.0-old-pwr-grid-liquid.dtb \
 	apq8084-v1.1-old-pwr-grid-mdm9x35-alt-cdp.dtb \
 	apq8084-v1.1-mdm9x35-alt-cdp.dtb \
 	apq8084-v1.1-sbc.dtb
-dtb-$(CONFIG_ARCH_MSM) += msmplutonium-sim.dtb
+dtb-$(CONFIG_ARCH_MSMPLUTONIUM) += msmplutonium-sim.dtb
+dtb-$(CONFIG_ARCH_MSMPLUTONIUM) += msmplutonium-rumi.dtb
 
 DTB_NAMES := $(subst $\",,$(CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES))
 ifneq ($(DTB_NAMES),)
