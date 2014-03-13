@@ -1705,8 +1705,7 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 		return err;
 	}
 	if (pkt_type == CALLBACK_DATA_TYPE) {
-		if (payload_size > driver->itemsize ||
-				payload_size <= MIN_SIZ_ALLOW) {
+		if (payload_size > driver->itemsize) {
 			pr_err("diag: Dropping packet, invalid packet size. Current payload size %d\n",
 				payload_size);
 			driver->dropped_count++;
@@ -1738,6 +1737,11 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 			return ret;
 		}
 		/* The packet is for the remote processor */
+		if (payload_size <= MIN_SIZ_ALLOW) {
+				pr_err("diag: Integer underflow in %s, payload size: %d",
+							__func__, payload_size);
+			return -EBADMSG;
+		}
 		token_offset = 4;
 		payload_size -= 4;
 		buf += 4;
