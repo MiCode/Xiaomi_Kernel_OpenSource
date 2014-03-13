@@ -100,6 +100,14 @@ void wcd9xxx_enable_irq(int irq)
 	map.mask[BIT_BYTE(irq)] &=
 		~(BYTE_BIT_MASK(irq));
 	enable_irq_wake(map.linuxirq[irq]);
+	if ((irq >= 0) && (irq <= 7))
+		snd_soc_update_bits(map.codec,
+				MSM8X16_WCD_A_DIGITAL_INT_EN_SET,
+				(0x01 << irq), (0x01 << irq));
+	if ((irq > 7) && (irq <= 15))
+		snd_soc_update_bits(map.codec,
+				MSM8X16_WCD_A_ANALOG_INT_EN_SET,
+				(0x01 << (irq - 8)), (0x01 << (irq - 8)));
 }
 
 void wcd9xxx_disable_irq(int irq)
@@ -108,6 +116,14 @@ void wcd9xxx_disable_irq(int irq)
 		(BYTE_BIT_MASK(irq));
 
 	disable_irq_nosync(map.linuxirq[irq]);
+	if ((irq >= 0) && (irq <= 7))
+		snd_soc_update_bits(map.codec,
+				MSM8X16_WCD_A_DIGITAL_INT_EN_SET,
+				(0x01 << irq), 0x00);
+	if ((irq > 7) && (irq <= 15))
+		snd_soc_update_bits(map.codec,
+				MSM8X16_WCD_A_ANALOG_INT_EN_SET,
+				(0x01 << (irq - 8)), 0x00);
 }
 
 int wcd9xxx_request_irq(int irq, irq_handler_t handler,
