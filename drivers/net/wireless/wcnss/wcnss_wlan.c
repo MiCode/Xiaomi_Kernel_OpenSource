@@ -409,6 +409,7 @@ static struct {
 	u16 unsafe_ch_count;
 	u16 unsafe_ch_list[WCNSS_MAX_CH_NUM];
 	void *wcnss_notif_hdle;
+	u8 is_shutdown;
 } *penv = NULL;
 
 static ssize_t wcnss_wlan_macaddr_store(struct device *dev,
@@ -1125,12 +1126,20 @@ EXPORT_SYMBOL(wcnss_get_wlan_config);
 
 int wcnss_device_ready(void)
 {
-	if (penv && penv->pdev && penv->nv_downloaded)
+	if (penv && penv->pdev && penv->nv_downloaded &&
+	    !wcnss_device_is_shutdown())
 		return 1;
 	return 0;
 }
 EXPORT_SYMBOL(wcnss_device_ready);
 
+int wcnss_device_is_shutdown(void)
+{
+	if (penv && penv->is_shutdown)
+		return 1;
+	return 0;
+}
+EXPORT_SYMBOL(wcnss_device_is_shutdown);
 
 struct resource *wcnss_wlan_get_memory_map(struct device *dev)
 {
@@ -2529,6 +2538,10 @@ static int wcnss_notif_cb(struct notifier_block *this, unsigned long code,
 
 	if (SUBSYS_POWERUP_FAILURE == code)
 		wcnss_pronto_log_debug_regs();
+	else if (SUBSYS_BEFORE_SHUTDOWN == code)
+		penv->is_shutdown = 1;
+	else if (SUBSYS_AFTER_POWERUP == code)
+		penv->is_shutdown = 0;
 
 	return NOTIFY_DONE;
 }
