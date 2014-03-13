@@ -19,13 +19,14 @@
 
 #include <linux/types.h>
 #include <linux/cpuidle.h>
+#include <asm/smp_plat.h>
 
 #if !defined(CONFIG_SMP)
 #define msm_secondary_startup NULL
 #elif defined(CONFIG_CPU_V7)
 extern void msm_secondary_startup(void);
 #else
-#define msm_secondary_startup secondary_entry
+#define msm_secondary_startup secondary_holding_pen
 #endif
 
 enum msm_pm_sleep_mode {
