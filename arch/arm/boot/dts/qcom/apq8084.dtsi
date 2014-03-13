@@ -3511,6 +3511,10 @@
 		compatible = "qcom,msm-pcm-loopback";
 	};
 
+	qcom,msm-cpe-lsm {
+		compatible = "qcom,msm-cpe-lsm";
+	};
+
 	qcom,msm-dai-stub {
 		compatible = "qcom,msm-dai-stub";
 		qcom,msm-dai-stub-rx {
