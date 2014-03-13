@@ -39,6 +39,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/msm_thermal_ioctl.h>
 #include <soc/qcom/rpm-smd.h>
+#include <soc/qcom/scm.h>
 
 #define MAX_CURRENT_UA 100000
 #define MAX_RAILS 5
@@ -46,6 +47,7 @@
 #define MONITOR_ALL_TSENS -1
 #define TSENS_NAME_MAX 20
 #define TSENS_NAME_FORMAT "tsens_tz_sensor%d"
+#define THERM_SECURE_BITE_CMD 8
 
 static struct msm_thermal_data msm_thermal_info;
 static struct delayed_work check_temp_work;
@@ -90,6 +92,7 @@ static bool msm_thermal_probed;
 static bool gfx_phase_ctrl_enabled;
 static bool cx_phase_ctrl_enabled;
 static bool vdd_mx_enabled;
+static bool therm_reset_enabled;
 static int *tsens_id_map;
 static DEFINE_MUTEX(vdd_rstr_mutex);
 static DEFINE_MUTEX(psm_mutex);
@@ -179,6 +182,7 @@ struct psm_rail {
 };
 
 enum msm_thresh_list {
+	MSM_THERM_RESET,
 	MSM_VDD_RESTRICTION,
 	MSM_CX_PHASE_CTRL_HOT,
 	MSM_GFX_PHASE_CTRL_WARM,
@@ -1229,6 +1233,73 @@ static void vdd_mx_notify(struct therm_threshold *trig_thresh)
 	set_threshold(trig_thresh->sensor_id, trig_thresh->threshold);
 }
 
+static void msm_thermal_bite(int tsens_id, long temp)
+{
+	pr_err("TSENS:%d reached temperature:%ld. System reset\n",
+		tsens_id, temp);
+	scm_call_atomic1(SCM_SVC_BOOT, THERM_SECURE_BITE_CMD, 0);
+}
+
+static int do_therm_reset(void)
+{
+	int ret = 0, i;
+	long temp = 0;
+
+	if (!therm_reset_enabled)
+		return ret;
+
+	for (i = 0; i < thresh[MSM_THERM_RESET].thresh_ct; i++) {
+		ret = therm_get_temp(
+			thresh[MSM_THERM_RESET].thresh_list[i].sensor_id,
+			thresh[MSM_THERM_RESET].thresh_list[i].id_type,
+			&temp);
+		if (ret) {
+			pr_err("Unable to read TSENS sensor:%d. err:%d\n",
+			thresh[MSM_THERM_RESET].thresh_list[i].sensor_id,
+			ret);
+			continue;
+		}
+
+		if (temp >= msm_thermal_info.therm_reset_temp_degC)
+			msm_thermal_bite(
+			thresh[MSM_THERM_RESET].thresh_list[i].sensor_id, temp);
+	}
+
+	return ret;
+}
+
+static void therm_reset_notify(struct therm_threshold *thresh_data)
+{
+	long temp;
+	int ret = 0;
+
+	if (!therm_reset_enabled)
+		return;
+
+	if (!thresh_data) {
+		pr_err("Invalid input\n");
+		return;
+	}
+
+	switch (thresh_data->trip_triggered) {
+	case THERMAL_TRIP_CONFIGURABLE_HI:
+		ret = therm_get_temp(thresh_data->sensor_id,
+				thresh_data->id_type, &temp);
+		if (ret)
+			pr_err("Unable to read TSENS sensor:%d. err:%d\n",
+				thresh_data->sensor_id, ret);
+		msm_thermal_bite(tsens_id_map[thresh_data->sensor_id],
+					temp);
+		break;
+	case THERMAL_TRIP_CONFIGURABLE_LOW:
+		break;
+	default:
+		pr_err("Invalid trip type\n");
+		break;
+	}
+	set_threshold(thresh_data->sensor_id, thresh_data->threshold);
+}
+
 #ifdef CONFIG_SMP
 static void __ref do_core_control(long temp)
 {
@@ -1691,6 +1762,8 @@ static void check_temp(struct work_struct *work)
 	static int limit_init;
 	long temp = 0;
 	int ret = 0;
+
+	do_therm_reset();
 
 	ret = therm_get_temp(msm_thermal_info.sensor_id, THERM_TSENS_ID, &temp);
 	if (ret) {
@@ -2327,6 +2400,10 @@ static void thermal_monitor_init(void)
 		goto init_exit;
 	}
 
+	if (therm_reset_enabled &&
+		!(convert_to_zone_id(&thresh[MSM_THERM_RESET])))
+		therm_set_threshold(&thresh[MSM_THERM_RESET]);
+
 	if ((cx_phase_ctrl_enabled) &&
 		!(convert_to_zone_id(&thresh[MSM_CX_PHASE_CTRL_HOT])))
 		therm_set_threshold(&thresh[MSM_CX_PHASE_CTRL_HOT]);
@@ -2341,9 +2418,11 @@ static void thermal_monitor_init(void)
 		therm_set_threshold(&thresh[MSM_GFX_PHASE_CTRL_WARM]);
 		therm_set_threshold(&thresh[MSM_GFX_PHASE_CTRL_HOT]);
 	}
+
 	if ((ocr_enabled) &&
 		!(convert_to_zone_id(&thresh[MSM_OCR])))
 		therm_set_threshold(&thresh[MSM_OCR]);
+
 	if (vdd_mx_enabled &&
 		!(convert_to_zone_id(&thresh[MSM_VDD_MX_RESTRICTION])))
 		therm_set_threshold(&thresh[MSM_VDD_MX_RESTRICTION]);
@@ -3783,6 +3862,38 @@ probe_cx_exit:
 	return ret;
 }
 
+static int probe_therm_reset(struct device_node *node,
+		struct msm_thermal_data *data,
+		struct platform_device *pdev)
+{
+	char *key = NULL;
+	int ret = 0;
+
+	key = "qcom,therm-reset-temp";
+	ret = of_property_read_u32(node, key, &data->therm_reset_temp_degC);
+	if (ret)
+		goto PROBE_RESET_EXIT;
+
+	ret = init_threshold(MSM_THERM_RESET, MONITOR_ALL_TSENS,
+		data->therm_reset_temp_degC, data->therm_reset_temp_degC - 10,
+		therm_reset_notify);
+	if (ret) {
+		pr_err("Therm reset data structure init failed\n");
+		goto PROBE_RESET_EXIT;
+	}
+
+	therm_reset_enabled = true;
+
+PROBE_RESET_EXIT:
+	if (ret) {
+		dev_info(&pdev->dev,
+		"%s:Failed reading node=%s, key=%s err=%d. KTM continues\n",
+			__func__, node->full_name, key, ret);
+		therm_reset_enabled = false;
+	}
+	return ret;
+}
+
 static int probe_freq_mitigation(struct device_node *node,
 		struct msm_thermal_data *data,
 		struct platform_device *pdev)
@@ -3872,6 +3983,7 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	ret = probe_freq_mitigation(node, &data, pdev);
 	ret = probe_cx_phase_ctrl(node, &data, pdev);
 	ret = probe_gfx_phase_ctrl(node, &data, pdev);
+	ret = probe_therm_reset(node, &data, pdev);
 
 	ret = probe_vdd_mx(node, &data, pdev);
 	if (ret == -EPROBE_DEFER)

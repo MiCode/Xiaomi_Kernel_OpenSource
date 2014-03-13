@@ -66,7 +66,8 @@
 #include	<linux/input/lis3dh.h>
 #include	<linux/module.h>
 #include	<linux/regulator/consumer.h>
-
+#include	<linux/of_gpio.h>
+#include	<linux/sensors.h>
 
 #define	DEBUG	1
 
@@ -219,6 +220,7 @@ struct {
 struct lis3dh_acc_data {
 	struct i2c_client *client;
 	struct lis3dh_acc_platform_data *pdata;
+	struct sensors_classdev cdev;
 
 	struct mutex lock;
 	struct delayed_work input_work;
@@ -245,6 +247,24 @@ struct lis3dh_acc_data {
 #ifdef DEBUG
 	u8 reg_addr;
 #endif
+};
+
+static struct sensors_classdev lis3dh_acc_cdev = {
+	.name = "lis3dh-accel",
+	.vendor = "STMicroelectronics",
+	.version = 1,
+	.handle = SENSORS_ACCELERATION_HANDLE,
+	.type = SENSOR_TYPE_ACCELEROMETER,
+	.max_range = "156.8",
+	.resolution = "0.01",
+	.sensor_power = "0.01",
+	.min_delay = 5000,
+	.delay_msec = 200,
+	.fifo_reserved_event_count = 0,
+	.fifo_max_event_count = 0,
+	.enabled = 0,
+	.sensors_enable = NULL,
+	.sensors_poll_delay = NULL,
 };
 
 struct sensor_regulator {
@@ -493,17 +513,17 @@ static void lis3dh_acc_device_power_off(struct lis3dh_acc_data *acc)
 	if (err < 0)
 		dev_err(&acc->client->dev, "soft power off failed: %d\n", err);
 
-	if (acc->pdata->gpio_int1)
+	if (gpio_is_valid(acc->pdata->gpio_int1))
 		disable_irq_nosync(acc->irq1);
-	if (acc->pdata->gpio_int2)
+	if (gpio_is_valid(acc->pdata->gpio_int2))
 		disable_irq_nosync(acc->irq2);
 
 	lis3dh_acc_config_regulator(acc, false);
 
 	if (acc->hw_initialized) {
-		if (acc->pdata->gpio_int1)
+		if (gpio_is_valid(acc->pdata->gpio_int1))
 			disable_irq_nosync(acc->irq1);
-		if (acc->pdata->gpio_int2)
+		if (gpio_is_valid(acc->pdata->gpio_int2))
 			disable_irq_nosync(acc->irq2);
 		acc->hw_initialized = 0;
 	}
@@ -520,9 +540,9 @@ static int lis3dh_acc_device_power_on(struct lis3dh_acc_data *acc)
 		return err;
 	}
 
-	if (acc->pdata->gpio_int1 >= 0)
+	if (gpio_is_valid(acc->pdata->gpio_int1))
 		enable_irq(acc->irq1);
-	if (acc->pdata->gpio_int2 >= 0)
+	if (gpio_is_valid(acc->pdata->gpio_int2))
 		enable_irq(acc->irq2);
 
 	msleep(20);
@@ -536,9 +556,9 @@ static int lis3dh_acc_device_power_on(struct lis3dh_acc_data *acc)
 	}
 
 	if (acc->hw_initialized) {
-		if (acc->pdata->gpio_int1 >= 0)
+		if (gpio_is_valid(acc->pdata->gpio_int1))
 			enable_irq(acc->irq1);
-		if (acc->pdata->gpio_int2 >= 0)
+		if (gpio_is_valid(acc->pdata->gpio_int2))
 			enable_irq(acc->irq2);
 	}
 	return 0;
@@ -1125,6 +1145,34 @@ static int remove_sysfs_interfaces(struct device *dev)
 	return 0;
 }
 
+static int lis3dh_acc_poll_delay_set(struct sensors_classdev *sensors_cdev,
+	unsigned int delay_msec)
+{
+	struct lis3dh_acc_data *acc = container_of(sensors_cdev,
+		struct lis3dh_acc_data, cdev);
+	int err;
+
+	mutex_lock(&acc->lock);
+	acc->pdata->poll_interval = delay_msec;
+	err = lis3dh_acc_update_odr(acc, delay_msec);
+	mutex_unlock(&acc->lock);
+	return err;
+}
+
+static int lis3dh_acc_enable_set(struct sensors_classdev *sensors_cdev,
+	unsigned int enable)
+{
+	struct lis3dh_acc_data *acc = container_of(sensors_cdev,
+		struct lis3dh_acc_data, cdev);
+	int err;
+
+	if (enable)
+		err = lis3dh_acc_enable(acc);
+	else
+		err = lis3dh_acc_disable(acc);
+	return err;
+}
+
 static void lis3dh_acc_input_work_func(struct work_struct *work)
 {
 	struct lis3dh_acc_data *acc;
@@ -1252,21 +1300,105 @@ static void lis3dh_acc_input_cleanup(struct lis3dh_acc_data *acc)
 	input_free_device(acc->input_dev);
 }
 
+#ifdef CONFIG_OF
+static int lis3dh_parse_dt(struct device *dev,
+			struct lis3dh_acc_platform_data *pdata)
+{
+	struct device_node *np = dev->of_node;
+	u32 temp_val;
+	int rc;
+
+	rc = of_property_read_u32(np, "st,min-interval", &temp_val);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read min-interval\n");
+		return rc;
+	} else {
+		pdata->min_interval = temp_val;
+	}
+
+	rc = of_property_read_u32(np, "st,init-interval", &temp_val);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read init-interval\n");
+		return rc;
+	} else {
+		pdata->poll_interval = temp_val;
+	}
+
+	rc = of_property_read_u32(np, "st,axis-map-x", &temp_val);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read axis-map_x\n");
+		return rc;
+	} else {
+		pdata->axis_map_x = (u8)temp_val;
+	}
+
+	rc = of_property_read_u32(np, "st,axis-map-y", &temp_val);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read axis_map_y\n");
+		return rc;
+	} else {
+		pdata->axis_map_y = (u8)temp_val;
+	}
+
+	rc = of_property_read_u32(np, "st,axis-map-z", &temp_val);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read axis-map-z\n");
+		return rc;
+	} else {
+		pdata->axis_map_z = (u8)temp_val;
+	}
+
+	rc = of_property_read_u32(np, "st,g-range", &temp_val);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read g-range\n");
+		return rc;
+	} else {
+		switch (temp_val) {
+		case 2:
+			pdata->g_range = LIS3DH_ACC_G_2G;
+			break;
+		case 4:
+			pdata->g_range = LIS3DH_ACC_G_4G;
+			break;
+		case 8:
+			pdata->g_range = LIS3DH_ACC_G_8G;
+			break;
+		case 16:
+			pdata->g_range = LIS3DH_ACC_G_16G;
+			break;
+		default:
+			pdata->g_range = LIS3DH_ACC_G_2G;
+			break;
+		}
+	}
+
+	pdata->negate_x = of_property_read_bool(np, "st,negate-x");
+
+	pdata->negate_y = of_property_read_bool(np, "st,negate-y");
+
+	pdata->negate_z = of_property_read_bool(np, "st,negate-z");
+
+	pdata->gpio_int1 = of_get_named_gpio_flags(dev->of_node,
+				"st,gpio-int1", 0, NULL);
+
+	pdata->gpio_int2 = of_get_named_gpio_flags(dev->of_node,
+				"st,gpio-int2", 0, NULL);
+	return 0;
+}
+#else
+static int lis3dh_parse_dt(struct device *dev,
+			struct lis3dh_acc_platform_data *pdata)
+{
+	return -EINVAL;
+}
+#endif
+
 static int lis3dh_acc_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
 
 	struct lis3dh_acc_data *acc;
-
 	int err = -1;
-
-	pr_info("%s: probe start.\n", LIS3DH_ACC_DEV_NAME);
-
-	if (client->dev.platform_data == NULL) {
-		dev_err(&client->dev, "platform data is NULL. exiting.\n");
-		err = -ENODEV;
-		goto exit_check_functionality_failed;
-	}
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		dev_err(&client->dev, "client not i2c capable\n");
@@ -1298,8 +1430,23 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 				err);
 		goto err_mutexunlock;
 	}
+	memset(acc->pdata, 0 , sizeof(*acc->pdata));
 
-	memcpy(acc->pdata, client->dev.platform_data, sizeof(*acc->pdata));
+	if (client->dev.of_node) {
+		err = lis3dh_parse_dt(&client->dev, acc->pdata);
+		if (err) {
+			dev_err(&client->dev, "Failed to parse device tree\n");
+			err = -EINVAL;
+			goto exit_kfree_pdata;
+		}
+	} else if (client->dev.platform_data != NULL) {
+		memcpy(acc->pdata, client->dev.platform_data,
+			sizeof(*acc->pdata));
+	} else {
+		dev_err(&client->dev, "No valid platform data. exiting.\n");
+		err = -ENODEV;
+		goto exit_kfree_pdata;
+	}
 
 	err = lis3dh_acc_validate_pdata(acc);
 	if (err < 0) {
@@ -1316,10 +1463,10 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		}
 	}
 
-	if (acc->pdata->gpio_int1 >= 0)
+	if (gpio_is_valid(acc->pdata->gpio_int1))
 		acc->irq1 = gpio_to_irq(acc->pdata->gpio_int1);
 
-	if (acc->pdata->gpio_int2 >= 0)
+	if (gpio_is_valid(acc->pdata->gpio_int2))
 		acc->irq2 = gpio_to_irq(acc->pdata->gpio_int2);
 
 	memset(acc->resume_state, 0, ARRAY_SIZE(acc->resume_state));
@@ -1377,12 +1524,22 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		goto err_input_cleanup;
 	}
 
+	acc->cdev = lis3dh_acc_cdev;
+	acc->cdev.sensors_enable = lis3dh_acc_enable_set;
+	acc->cdev.sensors_poll_delay = lis3dh_acc_poll_delay_set;
+	err = sensors_classdev_register(&client->dev, &acc->cdev);
+	if (err) {
+		dev_err(&client->dev,
+			"class device create failed: %d\n", err);
+		goto err_remove_sysfs_int;
+	}
+
 	lis3dh_acc_device_power_off(acc);
 
 	/* As default, do not report information */
 	atomic_set(&acc->enabled, 0);
 
-	if (acc->pdata->gpio_int1 >= 0) {
+	if (gpio_is_valid(acc->pdata->gpio_int1)) {
 		INIT_WORK(&acc->irq1_work, lis3dh_acc_irq1_work_func);
 		acc->irq1_work_queue =
 			create_singlethread_workqueue("lis3dh_acc_wq1");
@@ -1390,10 +1547,11 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 			err = -ENOMEM;
 			dev_err(&client->dev,
 					"cannot create work queue1: %d\n", err);
-			goto err_remove_sysfs_int;
+			goto err_unreg_sensor_class;
 		}
 		err = request_irq(acc->irq1, lis3dh_acc_isr1,
-				IRQF_TRIGGER_RISING, "lis3dh_acc_irq1", acc);
+				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+				"lis3dh_acc_irq1", acc);
 		if (err < 0) {
 			dev_err(&client->dev, "request irq1 failed: %d\n", err);
 			goto err_destoyworkqueue1;
@@ -1401,7 +1559,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		disable_irq_nosync(acc->irq1);
 	}
 
-	if (acc->pdata->gpio_int2 >= 0) {
+	if (gpio_is_valid(acc->pdata->gpio_int2)) {
 		INIT_WORK(&acc->irq2_work, lis3dh_acc_irq2_work_func);
 		acc->irq2_work_queue =
 			create_singlethread_workqueue("lis3dh_acc_wq2");
@@ -1412,7 +1570,8 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 			goto err_free_irq1;
 		}
 		err = request_irq(acc->irq2, lis3dh_acc_isr2,
-				IRQF_TRIGGER_RISING, "lis3dh_acc_irq2", acc);
+				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+				"lis3dh_acc_irq2", acc);
 		if (err < 0) {
 			dev_err(&client->dev, "request irq2 failed: %d\n", err);
 			goto err_destoyworkqueue2;
@@ -1427,13 +1586,15 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	return 0;
 
 err_destoyworkqueue2:
-	if (acc->pdata->gpio_int2 >= 0)
+	if (gpio_is_valid(acc->pdata->gpio_int2))
 		destroy_workqueue(acc->irq2_work_queue);
 err_free_irq1:
 	free_irq(acc->irq1, acc);
 err_destoyworkqueue1:
-	if (acc->pdata->gpio_int1 >= 0)
+	if (gpio_is_valid(acc->pdata->gpio_int1))
 		destroy_workqueue(acc->irq1_work_queue);
+err_unreg_sensor_class:
+	sensors_classdev_unregister(&acc->cdev);
 err_remove_sysfs_int:
 	remove_sysfs_interfaces(&client->dev);
 err_input_cleanup:
@@ -1457,18 +1618,19 @@ static int lis3dh_acc_remove(struct i2c_client *client)
 {
 	struct lis3dh_acc_data *acc = i2c_get_clientdata(client);
 
-	if (acc->pdata->gpio_int1 >= 0) {
+	if (gpio_is_valid(acc->pdata->gpio_int1)) {
 		free_irq(acc->irq1, acc);
 		gpio_free(acc->pdata->gpio_int1);
 		destroy_workqueue(acc->irq1_work_queue);
 	}
 
-	if (acc->pdata->gpio_int2 >= 0) {
+	if (gpio_is_valid(acc->pdata->gpio_int2)) {
 		free_irq(acc->irq2, acc);
 		gpio_free(acc->pdata->gpio_int2);
 		destroy_workqueue(acc->irq2_work_queue);
 	}
 
+	sensors_classdev_unregister(&acc->cdev);
 	lis3dh_acc_input_cleanup(acc);
 	lis3dh_acc_device_power_off(acc);
 	remove_sysfs_interfaces(&client->dev);
@@ -1506,12 +1668,18 @@ static int lis3dh_acc_suspend(struct i2c_client *client, pm_message_t mesg)
 static const struct i2c_device_id lis3dh_acc_id[]
 		= { { LIS3DH_ACC_DEV_NAME, 0 }, { }, };
 
+static struct of_device_id lis3dh_acc_match_table[] = {
+	{ .compatible = "st,lis3dh", },
+	{ },
+};
+
 MODULE_DEVICE_TABLE(i2c, lis3dh_acc_id);
 
 static struct i2c_driver lis3dh_acc_driver = {
 	.driver = {
 			.owner = THIS_MODULE,
 			.name = LIS3DH_ACC_DEV_NAME,
+			.of_match_table = lis3dh_acc_match_table,
 		  },
 	.probe = lis3dh_acc_probe,
 	.remove = lis3dh_acc_remove,

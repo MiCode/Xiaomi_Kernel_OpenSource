@@ -37,6 +37,7 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/socinfo.h>
+#include <soc/qcom/sysmon.h>
 
 #include <asm/current.h>
 
@@ -385,12 +386,28 @@ static void notify_each_subsys_device(struct subsys_device **list,
 		unsigned count,
 		enum subsys_notif_type notif, void *data)
 {
+	struct subsys_device *subsys;
+
 	while (count--) {
-		enum subsys_notif_type type = (enum subsys_notif_type)type;
 		struct subsys_device *dev = *list++;
+		struct notif_data notif_data;
+
 		if (!dev)
 			continue;
-		subsys_notif_queue_notification(dev->notify, notif, data);
+
+		mutex_lock(&subsys_list_lock);
+		list_for_each_entry(subsys, &subsys_list, list)
+			if (dev != subsys)
+				sysmon_send_event(subsys->desc->name,
+						dev->desc->name,
+						notif);
+		mutex_unlock(&subsys_list_lock);
+
+		notif_data.crashed = subsys_get_crash_status(dev);
+		notif_data.enable_ramdump = enable_ramdumps;
+
+		subsys_notif_queue_notification(dev->notify, notif,
+								&notif_data);
 	}
 }
 
@@ -672,7 +689,6 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	struct subsys_tracking *track;
 	unsigned count;
 	unsigned long flags;
-	bool force_stop = true;
 
 	/*
 	 * It's OK to not take the registration lock at this point.
@@ -701,14 +717,12 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 
 	pr_debug("[%p]: Starting restart sequence for %s\n", current,
 			desc->name);
-	notify_each_subsys_device(list, count, SUBSYS_BEFORE_SHUTDOWN,
-							(void *)force_stop);
+	notify_each_subsys_device(list, count, SUBSYS_BEFORE_SHUTDOWN, NULL);
 	for_each_subsys_device(list, count, NULL, subsystem_shutdown);
-	notify_each_subsys_device(list, count, SUBSYS_AFTER_SHUTDOWN,
-							(void *)force_stop);
+	notify_each_subsys_device(list, count, SUBSYS_AFTER_SHUTDOWN, NULL);
 
 	notify_each_subsys_device(list, count, SUBSYS_RAMDUMP_NOTIFICATION,
-							  &enable_ramdumps);
+									NULL);
 
 	spin_lock_irqsave(&track->s_lock, flags);
 	track->p_state = SUBSYS_RESTARTING;

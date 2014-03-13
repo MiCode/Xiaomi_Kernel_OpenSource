@@ -60,6 +60,20 @@ static const char *notif_name[SUBSYS_NOTIF_TYPE_COUNT] = {
 	[SUBSYS_AFTER_POWERUP]   = "after_powerup",
 };
 
+struct enum_name_map {
+	int id;
+	const char name[50];
+};
+
+static struct enum_name_map map[SYSMON_NUM_SS] = {
+	{SYSMON_SS_WCNSS, "wcnss"},
+	{SYSMON_SS_MODEM, "modem"},
+	{SYSMON_SS_LPASS, "adsp"},
+	{SYSMON_SS_Q6FW, "modem_fw"},
+	{SYSMON_SS_EXT_MODEM, "external_modem"},
+	{SYSMON_SS_DSPS, "dsps"},
+};
+
 static int sysmon_send_smd(struct sysmon_subsys *ss, const char *tx_buf,
 			   size_t len)
 {
@@ -130,19 +144,29 @@ static int sysmon_send_msg(struct sysmon_subsys *ss, const char *tx_buf,
  *
  * If CONFIG_MSM_SYSMON_COMM is not defined, always return success (0).
  */
-int sysmon_send_event(enum subsys_id dest_ss, const char *event_ss,
+int sysmon_send_event(const char *dest_ss, const char *event_ss,
 		      enum subsys_notif_type notif)
 {
-	struct sysmon_subsys *ss = &subsys[dest_ss];
+
 	char tx_buf[TX_BUF_SIZE];
-	int ret;
+	int ret, i;
+	struct sysmon_subsys *ss = NULL;
+
+	for (i = 0; i < ARRAY_SIZE(map); i++) {
+		if (!strcmp(map[i].name, dest_ss)) {
+			ss = &subsys[map[i].id];
+			break;
+		}
+	}
+
+	if (ss == NULL)
+		return -EINVAL;
 
 	if (ss->dev == NULL)
 		return -ENODEV;
 
-	if (dest_ss < 0 || dest_ss >= SYSMON_NUM_SS ||
-	    notif < 0 || notif >= SUBSYS_NOTIF_TYPE_COUNT ||
-	    event_ss == NULL)
+	if (notif < 0 || notif >= SUBSYS_NOTIF_TYPE_COUNT || event_ss == NULL ||
+						notif_name[notif] == NULL)
 		return -EINVAL;
 
 	snprintf(tx_buf, ARRAY_SIZE(tx_buf), "ssr:%s:%s", event_ss,
