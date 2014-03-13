@@ -141,6 +141,8 @@ config ARCH_MSM8916
 	select MSM_QDSP6V2_CODECS
 	select MSM_AUDIO_QDSP6V2 if SND_SOC
 	select ARM_HAS_SG_CHAIN
+	select MSM_RPM_STATS_LOG
+	select MSM_RPM_LOG
 
 config ARCH_FSM9900
 	bool "FSM9900"
