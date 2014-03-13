@@ -398,7 +398,8 @@ static void handle_session_release_buf_done(enum command_response cmd,
 	struct internal_buf *buf;
 	struct list_head *ptr, *next;
 	struct hal_buffer_info *buffer;
-	u32 address, buf_found = false;
+	u32 buf_found = false;
+	u32 address;
 
 	if (!response || !response->data) {
 		dprintk(VIDC_ERR, "Invalid release_buf_done response\n");
@@ -407,22 +408,22 @@ static void handle_session_release_buf_done(enum command_response cmd,
 
 	inst = (struct msm_vidc_inst *)response->session_id;
 	buffer = (struct hal_buffer_info *) response->data;
-	address = (u32) buffer->buffer_addr;
+	address = buffer->buffer_addr;
 
 	list_for_each_safe(ptr, next, &inst->internalbufs) {
 		buf = list_entry(ptr, struct internal_buf, list);
-		if (address == buf->handle->device_addr) {
-			dprintk(VIDC_DBG, "releasing scratch: 0x%x\n",
-					(u32) buf->handle->device_addr);
-					buf_found = true;
+		if (address == (u32)buf->handle->device_addr) {
+			dprintk(VIDC_DBG, "releasing scratch: 0x%pa\n",
+					&buf->handle->device_addr);
+			buf_found = true;
 		}
 	}
 
 	list_for_each_safe(ptr, next, &inst->persistbufs) {
 		buf = list_entry(ptr, struct internal_buf, list);
-		if (address == (u32) buf->handle->device_addr) {
-			dprintk(VIDC_DBG, "releasing persist: 0x%x\n",
-					(u32) buf->handle->device_addr);
+		if (address == (u32)buf->handle->device_addr) {
+			dprintk(VIDC_DBG, "releasing persist: 0x%pa\n",
+					&buf->handle->device_addr);
 			buf_found = true;
 		}
 	}
@@ -567,7 +568,8 @@ static void handle_session_init_done(enum command_response cmd, void *data)
 			response->data;
 		inst = (struct msm_vidc_inst *)response->session_id;
 		if (!inst || !inst->core || !inst->core->device) {
-			dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
+			dprintk(VIDC_ERR, "%s: invalid parameters (0x%p)\n",
+				__func__, inst);
 			return;
 		}
 
@@ -637,10 +639,10 @@ static void handle_event_change(enum command_response cmd, void *data)
 				u32 *ptr = NULL;
 
 				dprintk(VIDC_DBG,
-					"%s - inst: %p buffer: %p extra: %p\n",
+					"%s - inst: %p buffer: 0x%pa extra: 0x%pa\n",
 					__func__, inst,
-					event_notify->packet_buffer,
-					event_notify->exra_data_buffer);
+					&event_notify->packet_buffer,
+					&event_notify->extra_data_buffer);
 
 				if (inst->state == MSM_VIDC_CORE_INVALID ||
 					inst->core->state ==
@@ -656,7 +658,7 @@ static void handle_event_change(enum command_response cmd, void *data)
 				*/
 				binfo = device_to_uvaddr(inst,
 					&inst->registered_bufs,
-					(u32)event_notify->packet_buffer);
+					event_notify->packet_buffer);
 				if (!binfo) {
 					dprintk(VIDC_ERR,
 						"%s buffer not found in registered list\n",
@@ -828,8 +830,8 @@ void validate_output_buffers(struct msm_vidc_inst *inst)
 		}
 		if (binfo->buffer_ownership != DRIVER) {
 			dprintk(VIDC_ERR,
-					"Failed : This buffer is with FW 0x%lx\n",
-					binfo->handle->device_addr);
+					"Failed : This buffer is with FW 0x%pa\n",
+					&binfo->handle->device_addr);
 			return;
 		}
 		buffers_owned_by_driver++;
@@ -1001,7 +1003,7 @@ static void handle_session_close(enum command_response cmd, void *data)
 }
 
 static struct vb2_buffer *get_vb_from_device_addr(struct buf_queue *bufq,
-		u32 dev_addr)
+		unsigned long dev_addr)
 {
 	struct vb2_buffer *vb = NULL;
 	struct vb2_queue *q = NULL;
@@ -1015,13 +1017,15 @@ static struct vb2_buffer *get_vb_from_device_addr(struct buf_queue *bufq,
 	list_for_each_entry(vb, &q->queued_list, queued_entry) {
 		if (vb->v4l2_planes[0].m.userptr == dev_addr) {
 			found = 1;
+			dprintk(VIDC_DBG, "Found v4l2_buf index : %d\n",
+					vb->v4l2_buf.index);
 			break;
 		}
 	}
 	mutex_unlock(&bufq->lock);
 	if (!found) {
-		dprintk(VIDC_ERR,
-			"Failed to find the buffer in queued list: 0x%x, %d\n",
+		dprintk(VIDC_DBG,
+			"Failed to find buffer in queued list: 0x%lx, qtype = %d\n",
 			dev_addr, q->type);
 		vb = NULL;
 	}
@@ -1039,13 +1043,15 @@ static void handle_ebd(enum command_response cmd, void *data)
 		dprintk(VIDC_ERR, "Invalid response from vidc_hal\n");
 		return;
 	}
-	vb = response->clnt_data;
+
 	inst = (struct msm_vidc_inst *)response->session_id;
 	if (!inst) {
 		dprintk(VIDC_ERR, "%s Invalid response from vidc_hal\n",
 			__func__);
 		return;
 	}
+	vb = get_vb_from_device_addr(&inst->bufq[OUTPUT_PORT],
+				response->clnt_data);
 	if (vb) {
 		vb->v4l2_planes[0].bytesused = response->input_done.filled_len;
 		vb->v4l2_planes[0].data_offset = response->input_done.offset;
@@ -1053,7 +1059,7 @@ static void handle_ebd(enum command_response cmd, void *data)
 			dprintk(VIDC_INFO, "data_offset overflow length\n");
 		if (vb->v4l2_planes[0].bytesused > vb->v4l2_planes[0].length)
 			dprintk(VIDC_INFO, "bytesused overflow length\n");
-		if ((u8 *)vb->v4l2_planes[0].m.userptr !=
+		if (vb->v4l2_planes[0].m.userptr !=
 			response->input_done.packet_buffer)
 			dprintk(VIDC_INFO, "Unexpected buffer address\n");
 		vb->v4l2_buf.flags = 0;
@@ -1080,8 +1086,8 @@ static void handle_ebd(enum command_response cmd, void *data)
 			}
 		}
 		dprintk(VIDC_DBG,
-			"Got ebd from hal: device_addr: 0x%x, alloc: %d, status: 0x%x, pic_type: 0x%x, flags: 0x%x\n",
-			(u32)empty_buf_done->packet_buffer,
+			"Got ebd from hal: device_addr: 0x%pa, alloc: %d, status: 0x%x, pic_type: 0x%x, flags: 0x%x\n",
+			&empty_buf_done->packet_buffer,
 			empty_buf_done->alloc_len, empty_buf_done->status,
 			empty_buf_done->picture_type, empty_buf_done->flags);
 
@@ -1164,7 +1170,7 @@ int buf_ref_put(struct msm_vidc_inst *inst, struct buffer_info *binfo)
 }
 
 static void handle_dynamic_buffer(struct msm_vidc_inst *inst,
-					u32 device_addr, u32 flags)
+		ion_phys_addr_t device_addr, u32 flags)
 {
 	struct buffer_info *binfo = NULL;
 
@@ -1183,19 +1189,19 @@ static void handle_dynamic_buffer(struct msm_vidc_inst *inst,
 		}
 		if (flags & HAL_BUFFERFLAG_READONLY) {
 			dprintk(VIDC_DBG,
-				"FBD fd[0] = %d -> Reference with f/w, addr: 0x%x\n",
-				binfo->fd[0], device_addr);
+				"FBD fd[0] = %d -> Reference with f/w, addr: 0x%pa\n",
+				binfo->fd[0], &device_addr);
 		} else {
 			dprintk(VIDC_DBG,
-				"_F_B_D_ fd[0] = %d -> FBD_ref_released, addr: 0x%x\n",
-				binfo->fd[0], device_addr);
+				"FBD fd[0] = %d -> FBD_ref_released, addr: 0x%pa\n",
+				binfo->fd[0], &device_addr);
 			buf_ref_put(inst, binfo);
 		}
 	}
 }
 
 static int handle_multi_stream_buffers(struct msm_vidc_inst *inst,
-	u32 dev_addr)
+		ion_phys_addr_t dev_addr)
 {
 	struct internal_buf *binfo;
 	struct msm_smem *handle;
@@ -1210,8 +1216,8 @@ static int handle_multi_stream_buffers(struct msm_vidc_inst *inst,
 		if (handle && dev_addr == handle->device_addr) {
 			if (binfo->buffer_ownership == DRIVER) {
 				dprintk(VIDC_ERR,
-					"FW returned same buffer : 0x%x\n",
-					dev_addr);
+					"FW returned same buffer: 0x%pa\n",
+					&dev_addr);
 				break;
 			}
 			binfo->buffer_ownership = DRIVER;
@@ -1221,8 +1227,8 @@ static int handle_multi_stream_buffers(struct msm_vidc_inst *inst,
 	}
 	if (!found)
 		dprintk(VIDC_ERR,
-			"Failed to find output buffer in queued list: 0x%x\n",
-			dev_addr);
+			"Failed to find output buffer in queued list: 0x%pa\n",
+			&dev_addr);
 	mutex_unlock(&inst->lock);
 	return 0;
 }
@@ -1255,13 +1261,13 @@ static void handle_fbd(enum command_response cmd, void *data)
 	buffer_type = msm_comm_get_hal_output_buffer(inst);
 	if (fill_buf_done->buffer_type == buffer_type)
 		vb = get_vb_from_device_addr(&inst->bufq[CAPTURE_PORT],
-			(u32)fill_buf_done->packet_buffer1);
+				fill_buf_done->packet_buffer1);
 	else {
 		if (handle_multi_stream_buffers(inst,
-			(u32)fill_buf_done->packet_buffer1))
+				fill_buf_done->packet_buffer1))
 			dprintk(VIDC_ERR,
-				"Failed : Output buffer not found 0x%x\n",
-				(u32)fill_buf_done->packet_buffer1);
+				"Failed : Output buffer not found 0x%pa\n",
+				&fill_buf_done->packet_buffer1);
 		return;
 	}
 	if (vb) {
@@ -1301,7 +1307,7 @@ static void handle_fbd(enum command_response cmd, void *data)
 			vb->v4l2_planes[extra_idx].data_offset = 0;
 		}
 
-		handle_dynamic_buffer(inst, (u32)fill_buf_done->packet_buffer1,
+		handle_dynamic_buffer(inst, fill_buf_done->packet_buffer1,
 					fill_buf_done->flags1);
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_READONLY)
 			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_FLAG_READONLY;
@@ -1360,8 +1366,8 @@ static void handle_fbd(enum command_response cmd, void *data)
 				vb->v4l2_planes[extra_idx].length);
 		}
 		dprintk(VIDC_DBG,
-		"Got fbd from hal: device_addr: 0x%x, alloc: %d, filled: %d, offset: %d, ts: %lld, flags: 0x%x, crop: %d %d %d %d, pic_type: 0x%x\n",
-		(u32)fill_buf_done->packet_buffer1, fill_buf_done->alloc_len1,
+		"Got fbd from hal: device_addr: 0x%pa, alloc: %d, filled: %d, offset: %d, ts: %lld, flags: 0x%x, crop: %d %d %d %d, pic_type: 0x%x\n",
+		&fill_buf_done->packet_buffer1, fill_buf_done->alloc_len1,
 		fill_buf_done->filled_len1, fill_buf_done->offset1, time_usec,
 		fill_buf_done->flags1, fill_buf_done->start_x_coord,
 		fill_buf_done->start_y_coord, fill_buf_done->frame_width,
@@ -1374,7 +1380,7 @@ static void handle_fbd(enum command_response cmd, void *data)
 	}
 }
 
-static void  handle_seq_hdr_done(enum command_response cmd, void *data)
+static void handle_seq_hdr_done(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_data_done *response = data;
 	struct msm_vidc_inst *inst;
@@ -1387,7 +1393,7 @@ static void  handle_seq_hdr_done(enum command_response cmd, void *data)
 	inst = (struct msm_vidc_inst *)response->session_id;
 	fill_buf_done = (struct vidc_hal_fbd *)&response->output_done;
 	vb = get_vb_from_device_addr(&inst->bufq[CAPTURE_PORT],
-		(u32)fill_buf_done->packet_buffer1);
+				fill_buf_done->packet_buffer1);
 	if (!vb) {
 		dprintk(VIDC_ERR,
 				"Failed to find video buffer for seq_hdr_done\n");
@@ -1735,13 +1741,13 @@ static int msm_comm_session_init(int flipped_state,
 		&inst->completions[SESSION_MSG_INDEX(SESSION_INIT_DONE)]);
 	mutex_lock(&inst->lock);
 	inst->session = call_hfi_op(hdev, session_init, hdev->hfi_device_data,
-			(u32) inst, get_hal_domain(inst->session_type),
+			inst, get_hal_domain(inst->session_type),
 			get_hal_codec_type(fourcc));
 	mutex_unlock(&inst->lock);
 	if (!inst->session) {
 		dprintk(VIDC_ERR,
-			"Failed to call session init for: %d, %d, %d, %d\n",
-			(int)inst->core->device, (int)inst,
+			"Failed to call session init for: %p, %p, %d, %d\n",
+			inst->core->device, inst,
 			inst->session_type, fourcc);
 		goto exit;
 	}
@@ -2099,10 +2105,10 @@ static int set_output_buffers(struct msm_vidc_inst *inst,
 			buffer_info.extradata_addr = handle->device_addr +
 				output_buf->buffer_size;
 			buffer_info.extradata_size = extradata_buf->buffer_size;
-			dprintk(VIDC_DBG, "Output buffer address: %x\n",
-					buffer_info.align_device_addr);
-			dprintk(VIDC_DBG, "Output extradata address: %x\n",
-					buffer_info.extradata_addr);
+			dprintk(VIDC_DBG, "Output buffer address: 0x%pa\n",
+					&buffer_info.align_device_addr);
+			dprintk(VIDC_DBG, "Output extradata address: 0x%pa\n",
+					&buffer_info.extradata_addr);
 			rc = call_hfi_op(hdev, session_set_buffers,
 					(void *) inst->session, &buffer_info);
 			mutex_unlock(&inst->lock);
@@ -2185,8 +2191,8 @@ static int set_scratch_buffers(struct msm_vidc_inst *inst,
 			binfo->buffer_type = buffer_type;
 			buffer_info.num_buffers = 1;
 			buffer_info.align_device_addr = handle->device_addr;
-			dprintk(VIDC_DBG, "Scratch buffer address: %x\n",
-					buffer_info.align_device_addr);
+			dprintk(VIDC_DBG, "Scratch buffer address: 0x%pa\n",
+					&buffer_info.align_device_addr);
 			rc = call_hfi_op(hdev, session_set_buffers,
 				(void *) inst->session, &buffer_info);
 			if (rc) {
@@ -2272,8 +2278,8 @@ static int set_persist_buffers(struct msm_vidc_inst *inst,
 			binfo->buffer_type = buffer_type;
 			buffer_info.num_buffers = 1;
 			buffer_info.align_device_addr = handle->device_addr;
-			dprintk(VIDC_DBG, "Persist buffer address: %x\n",
-					buffer_info.align_device_addr);
+			dprintk(VIDC_DBG, "Persist buffer address: 0x%pa\n",
+					&buffer_info.align_device_addr);
 			rc = call_hfi_op(hdev, session_set_buffers,
 					(void *) inst->session, &buffer_info);
 			if (rc) {
@@ -2468,7 +2474,7 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 		frame_data.device_addr = vb->v4l2_planes[0].m.userptr;
 		frame_data.timestamp = time_usec;
 		frame_data.flags = 0;
-		frame_data.clnt_data = (u32)vb;
+		frame_data.clnt_data = frame_data.device_addr;
 		if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
 			(frame_data.filled_len > frame_data.alloc_len ||
 			frame_data.offset > frame_data.alloc_len)) {
@@ -2529,10 +2535,11 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 				frame_data.flags |= HAL_BUFFERFLAG_EXTRADATA;
 			}
 			dprintk(VIDC_DBG,
-				"Sending etb to hal: device_addr: 0x%x, alloc: %d, filled: %d, offset: %d, ts: %lld, flags = 0x%x\n",
-				frame_data.device_addr, frame_data.alloc_len,
+				"Sending etb to hal: device_addr: 0x%pa, alloc: %d, filled: %d, offset: %d, ts: %lld, flags = 0x%x, v4l2_buf index = %d\n",
+				&frame_data.device_addr, frame_data.alloc_len,
 				frame_data.filled_len, frame_data.offset,
-				frame_data.timestamp, frame_data.flags);
+				frame_data.timestamp, frame_data.flags,
+				vb->v4l2_buf.index);
 			rc = call_hfi_op(hdev, session_etb, (void *)
 					inst->session, &frame_data);
 			if (!rc)
@@ -2556,13 +2563,13 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 					vb->v4l2_planes[extra_idx].length;
 			}
 			dprintk(VIDC_DBG,
-				"Sending ftb to hal: device_addr: 0x%x, alloc: %d, buffer_type: %d, ts: %lld, flags = 0x%x\n",
-				frame_data.device_addr, frame_data.alloc_len,
+				"Sending ftb to hal: device_addr: 0x%pa, alloc: %d, buffer_type: %d, ts: %lld, flags = 0x%x, v4l2_buf index = %d\n",
+				&frame_data.device_addr, frame_data.alloc_len,
 				frame_data.buffer_type, frame_data.timestamp,
-				frame_data.flags);
+				frame_data.flags, vb->v4l2_buf.index);
 			if (atomic_read(&inst->get_seq_hdr_cnt) &&
 			   inst->session_type == MSM_VIDC_ENCODER) {
-				seq_hdr.seq_hdr = (u8 *) vb->v4l2_planes[0].
+				seq_hdr.seq_hdr = vb->v4l2_planes[0].
 					m.userptr;
 				seq_hdr.seq_hdr_len = vb->v4l2_planes[0].length;
 				rc = call_hfi_op(hdev, session_get_seq_hdr,
@@ -2751,8 +2758,8 @@ int msm_comm_release_output_buffers(struct msm_vidc_inst *inst)
 					(void *)inst->session, &buffer_info);
 				if (rc)
 					dprintk(VIDC_WARN,
-						"Rel output buf fail:0x%x, %d\n",
-						buffer_info.align_device_addr,
+						"Rel output buf fail:0x%pa, %d\n",
+						&buffer_info.align_device_addr,
 						buffer_info.buffer_size);
 			}
 			list_del(&buf->list);
@@ -2811,8 +2818,8 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 					(void *)inst->session, &buffer_info);
 				if (rc)
 					dprintk(VIDC_WARN,
-						"Rel scrtch buf fail:0x%x, %d\n",
-						buffer_info.align_device_addr,
+						"Rel scrtch buf fail:0x%pa, %d\n",
+						&buffer_info.align_device_addr,
 						buffer_info.buffer_size);
 				mutex_unlock(&inst->lock);
 				rc = wait_for_sess_signal_receipt(inst,
@@ -2882,8 +2889,8 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 					(void *)inst->session, &buffer_info);
 				if (rc)
 					dprintk(VIDC_WARN,
-						"Rel prst buf fail:0x%x, %d\n",
-						buffer_info.align_device_addr,
+						"Rel prst buf fail:0x%pa, %d\n",
+						&buffer_info.align_device_addr,
 						buffer_info.buffer_size);
 				mutex_unlock(&inst->lock);
 				rc = wait_for_sess_signal_receipt(inst,
@@ -3102,8 +3109,8 @@ void msm_comm_flush_dynamic_buffers(struct msm_vidc_inst *inst)
 				ptr[4] = (u32) binfo->timestamp.tv_usec;
 				ptr[5] = binfo->v4l2_index;
 				dprintk(VIDC_DBG,
-					"released buffer held in driver before issuing flush: 0x%x fd[0]: %d\n",
-					binfo->device_addr[0], binfo->fd[0]);
+					"released buffer held in driver before issuing flush: 0x%pa fd[0]: %d\n",
+					&binfo->device_addr[0], binfo->fd[0]);
 				/*send event to client*/
 				v4l2_event_queue_fh(&inst->event_handler,
 					&buf_event);

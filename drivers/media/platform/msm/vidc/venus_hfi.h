@@ -18,8 +18,8 @@
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
-#include <soc/qcom/ocmem.h>
 #include <linux/msm_iommu_domains.h>
+#include <soc/qcom/ocmem.h>
 #include "vidc_hfi_api.h"
 #include "vidc_hfi_helper.h"
 #include "vidc_hfi_api.h"
@@ -75,11 +75,11 @@ struct hfi_queue_header {
 
 struct hfi_mem_map_table {
 	u32 mem_map_num_entries;
-	u32 *mem_map_table_base_addr;
+	u32 mem_map_table_base_addr;
 };
 
 struct hfi_mem_map {
-	dma_addr_t virtual_addr;
+	ion_phys_addr_t virtual_addr;
 	phys_addr_t physical_addr;
 	u32 size;
 	u32 attr;
@@ -92,7 +92,7 @@ struct hfi_mem_map {
 	VIDC_IFACEQ_MAX_BUF_COUNT * VIDC_IFACE_MAX_PARALLEL_CLNTS)
 
 #define VIDC_IFACEQ_GET_QHDR_START_ADDR(ptr, i)     \
-	(void *)((((u32)ptr) + sizeof(struct hfi_queue_table_header)) + \
+	(void *)((ptr + sizeof(struct hfi_queue_table_header)) + \
 		(i * sizeof(struct hfi_queue_header)))
 
 #define QDSS_SIZE 4096
@@ -123,7 +123,7 @@ enum bus_index {
 };
 
 struct vidc_mem_addr {
-	u8 *align_device_addr;
+	ion_phys_addr_t align_device_addr;
 	u8 *align_virtual_addr;
 	u32 mem_size;
 	struct msm_smem *mem_data;
@@ -138,7 +138,7 @@ struct vidc_iface_q_info {
 
 struct hal_data {
 	u32 irq;
-	u32 device_base_addr;
+	phys_addr_t firmware_base_addr;
 	u8 *register_base_addr;
 };
 
@@ -183,8 +183,8 @@ struct venus_hfi_device {
 	struct workqueue_struct *venus_pm_workq;
 	int spur_count;
 	int reg_count;
-	u32 base_addr;
-	u32 register_base;
+	phys_addr_t firmware_base;
+	phys_addr_t register_base;
 	u32 register_size;
 	u32 irq;
 	struct venus_resources resources;

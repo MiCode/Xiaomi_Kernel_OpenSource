@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,8 +48,8 @@ static u32 get_tz_usage(struct smem_client *client, enum hal_buffer buffer_type)
 
 static int get_device_address(struct smem_client *smem_client,
 		struct ion_handle *hndl, unsigned long align,
-		dma_addr_t *iova, unsigned long *buffer_size,
-		u32 flags, enum hal_buffer buffer_type)
+		ion_phys_addr_t *iova, unsigned long *buffer_size,
+		unsigned long flags, enum hal_buffer buffer_type)
 {
 	int rc = 0;
 	int domain, partition;
@@ -138,11 +138,10 @@ static int ion_user_to_kernel(struct smem_client *client, int fd, u32 offset,
 		struct msm_smem *mem, enum hal_buffer buffer_type)
 {
 	struct ion_handle *hndl;
-	dma_addr_t iova = 0;
+	ion_phys_addr_t iova = 0;
 	unsigned long buffer_size = 0;
-	unsigned long ionflags = 0;
 	int rc = 0;
-	int align = SZ_4K;
+	unsigned long align = SZ_4K;
 
 	hndl = ion_import_dma_buf(client->clnt, fd);
 	if (IS_ERR_OR_NULL(hndl)) {
@@ -152,13 +151,12 @@ static int ion_user_to_kernel(struct smem_client *client, int fd, u32 offset,
 		goto fail_import_fd;
 	}
 	mem->kvaddr = NULL;
-	rc = ion_handle_get_flags(client->clnt, hndl, &ionflags);
+	rc = ion_handle_get_flags(client->clnt, hndl, &mem->flags);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to get ion flags: %d\n", rc);
 		goto fail_device_address;
 	}
 
-	mem->flags = ionflags;
 	mem->buffer_type = buffer_type;
 	if (mem->flags & SMEM_SECURE)
 		align = ALIGN(align, SZ_1M);
@@ -174,10 +172,15 @@ static int ion_user_to_kernel(struct smem_client *client, int fd, u32 offset,
 	mem->smem_priv = hndl;
 	mem->device_addr = iova;
 	mem->size = buffer_size;
+	if ((u32)mem->device_addr != iova) {
+		dprintk(VIDC_ERR, "iova(0x%pa) truncated to 0x%x",
+			&iova, (u32)mem->device_addr);
+		goto fail_device_address;
+	}
 	dprintk(VIDC_DBG,
-		"%s: ion_handle = 0x%p, fd = %d, device_addr = 0x%x, size = %d, kvaddr = 0x%p, buffer_type = %d\n",
-		__func__, mem->smem_priv, fd, (u32)mem->device_addr,
-		mem->size, mem->kvaddr, mem->buffer_type);
+		"%s: ion_handle = 0x%p, fd = %d, device_addr = 0x%pa, size = %zx, kvaddr = 0x%p, buffer_type = %d, flags = 0x%lx\n",
+		__func__, mem->smem_priv, fd, &mem->device_addr, mem->size,
+		mem->kvaddr, mem->buffer_type, mem->flags);
 	return rc;
 fail_device_address:
 	ion_free(client->clnt, hndl);
@@ -190,7 +193,7 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 	int map_kernel)
 {
 	struct ion_handle *hndl;
-	dma_addr_t iova = 0;
+	ion_phys_addr_t iova = 0;
 	unsigned long buffer_size = 0;
 	unsigned long heap_mask = 0;
 	int rc = 0;
@@ -207,7 +210,7 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 		heap_mask = ION_HEAP(ION_IOMMU_HEAP_ID);
 	} else {
 		dprintk(VIDC_DBG,
-			"allocate shared memory from adsp heap size %d align %d\n",
+			"allocate shared memory from adsp heap size %zx align %d\n",
 			size, align);
 		heap_mask = ION_HEAP(ION_ADSP_HEAP_ID);
 	}
@@ -218,7 +221,7 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 	hndl = ion_alloc(client->clnt, size, align, heap_mask, flags);
 	if (IS_ERR_OR_NULL(hndl)) {
 		dprintk(VIDC_ERR,
-		"Failed to allocate shared memory = %p, %d, %d, 0x%x\n",
+		"Failed to allocate shared memory = %p, %zx, %d, 0x%x\n",
 		client, size, align, flags);
 		rc = -ENOMEM;
 		goto fail_shared_mem_alloc;
@@ -235,8 +238,9 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 			rc = -EIO;
 			goto fail_map;
 		}
-	} else
+	} else {
 		mem->kvaddr = NULL;
+	}
 
 	rc = get_device_address(client, hndl, align, &iova, &buffer_size,
 				flags, buffer_type);
@@ -246,11 +250,17 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 		goto fail_device_address;
 	}
 	mem->device_addr = iova;
+	if ((u32)mem->device_addr != iova) {
+		dprintk(VIDC_ERR, "iova(0x%pa) truncated to 0x%x",
+			&iova, (u32)mem->device_addr);
+		goto fail_device_address;
+	}
 	mem->size = size;
 	dprintk(VIDC_DBG,
-		"%s: ion_handle = 0x%p, device_addr = 0x%x, size = %d, kvaddr = 0x%p, buffer_type = %d\n",
-		__func__, mem->smem_priv, (u32)mem->device_addr,
-		mem->size, mem->kvaddr, mem->buffer_type);
+		"%s: ion_handle = 0x%p, device_addr = 0x%pa, size = 0x%zx, kvaddr = 0x%p, buffer_type = 0x%x, flags = 0x%lx\n",
+		__func__, mem->smem_priv, &mem->device_addr,
+		mem->size, mem->kvaddr,
+		mem->buffer_type, mem->flags);
 	return rc;
 fail_device_address:
 	ion_unmap_kernel(client->clnt, hndl);
@@ -265,8 +275,8 @@ static void free_ion_mem(struct smem_client *client, struct msm_smem *mem)
 	int domain, partition, rc;
 
 	dprintk(VIDC_DBG,
-		"%s: ion_handle = 0x%p, device_addr = 0x%x, size = %d, kvaddr = 0x%p, buffer_type = %d\n",
-		__func__, mem->smem_priv, (u32)mem->device_addr,
+		"%s: ion_handle = 0x%p, device_addr = 0x%pa, size = 0x%zx, kvaddr = 0x%p, buffer_type = 0x%x\n",
+		__func__, mem->smem_priv, &mem->device_addr,
 		mem->size, mem->kvaddr, mem->buffer_type);
 	rc = msm_smem_get_domain_partition((void *)client, mem->flags,
 			mem->buffer_type, &domain, &partition);
@@ -442,7 +452,7 @@ struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
 		return NULL;
 	}
 	if (!size) {
-		dprintk(VIDC_ERR, "No need to allocate memory of size: %d\n",
+		dprintk(VIDC_ERR, "No need to allocate memory of size: %zx\n",
 			size);
 		return NULL;
 	}

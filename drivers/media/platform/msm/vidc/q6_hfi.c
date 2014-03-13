@@ -541,7 +541,7 @@ static int q6_hfi_core_release(void *device)
 	return 0;
 }
 
-static void *q6_hfi_session_init(void *device, u32 session_id,
+static void *q6_hfi_session_init(void *device, void *session_id,
 	enum hal_domain session_type, enum hal_video_codec codec_type)
 {
 	struct q6_apr_cmd_sys_session_init_packet apr;
@@ -560,7 +560,7 @@ static void *q6_hfi_session_init(void *device, u32 session_id,
 		dprintk(VIDC_ERR, "new session fail: Out of memory\n");
 		return NULL;
 	}
-	new_session->session_id = (u32) session_id;
+	new_session->session_id = session_id;
 	if (session_type == 1)
 		new_session->is_decoder = 0;
 	else if (session_type == 2)
@@ -569,7 +569,7 @@ static void *q6_hfi_session_init(void *device, u32 session_id,
 
 	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
-	if (create_pkt_cmd_sys_session_init(&apr.pkt, (u32)new_session,
+	if (create_pkt_cmd_sys_session_init(&apr.pkt, new_session,
 					session_type, codec_type)) {
 		dprintk(VIDC_ERR, "session_init: failed to create packet\n");
 		goto err_session_init;
@@ -619,7 +619,7 @@ static int q6_hal_send_session_cmd(void *sess,
 
 	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
-	rc = create_pkt_cmd_session_cmd(&apr.pkt, pkt_type, (u32)session);
+	rc = create_pkt_cmd_session_cmd(&apr.pkt, pkt_type, session);
 	if (rc) {
 		dprintk(VIDC_ERR, "send session cmd: create pkt failed\n");
 		goto err_create_pkt;
@@ -656,7 +656,7 @@ static int q6_hfi_session_clean(void *session)
 		return -EINVAL;
 	}
 	sess_close = session;
-	dprintk(VIDC_DBG, "deleted the session: 0x%x\n",
+	dprintk(VIDC_DBG, "deleted the session: 0x%p\n",
 			sess_close->session_id);
 	mutex_lock(&((struct q6_hfi_device *)
 			sess_close->device)->session_lock);
@@ -688,8 +688,8 @@ static int q6_hfi_session_set_buffers(void *sess,
 
 	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_LARGE_PKT_SIZE);
 
-	rc = create_pkt_cmd_session_set_buffers(&apr->pkt,
-			(u32)session, buffer_info);
+	rc = create_pkt_cmd_session_set_buffers(
+					&apr->pkt, session, buffer_info);
 	if (rc) {
 		dprintk(VIDC_ERR, "set buffers: failed to create packet\n");
 		goto err_create_pkt;
@@ -730,8 +730,8 @@ static int q6_hfi_session_release_buffers(void *sess,
 
 	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_LARGE_PKT_SIZE);
 
-	rc = create_pkt_cmd_session_release_buffers(&apr->pkt,
-					(u32)session, buffer_info);
+	rc = create_pkt_cmd_session_release_buffers(
+					&apr->pkt, session, buffer_info);
 	if (rc) {
 		dprintk(VIDC_ERR, "release buffers: failed to create packet\n");
 		goto err_create_pkt;
@@ -804,16 +804,16 @@ static int q6_hfi_session_etb(void *sess,
 		struct q6_apr_cmd_session_empty_buffer_compressed_packet apr;
 		q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
-		rc = create_pkt_cmd_session_etb_decoder(&apr.pkt,
-					(u32)session, input_frame);
+		rc = create_pkt_cmd_session_etb_decoder(
+						&apr.pkt, session, input_frame);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"Session etb decoder: failed to create pkt\n");
 			goto err_create_pkt;
 		}
 		dprintk(VIDC_DBG, "Q DECODER INPUT BUFFER\n");
-		dprintk(VIDC_DBG, "addr = 0x%x ts = %lld\n",
-			input_frame->device_addr, input_frame->timestamp);
+		dprintk(VIDC_DBG, "addr = 0x%pa ts = %lld\n",
+			&input_frame->device_addr, input_frame->timestamp);
 		rc = apr_send_pkt(dev->apr, (uint32_t *)&apr);
 		if (rc != apr.hdr.pkt_size) {
 			dprintk(VIDC_ERR, "%s: apr_send_pkt failed rc: %d\n",
@@ -826,8 +826,8 @@ static int q6_hfi_session_etb(void *sess,
 		q6_apr_cmd_session_empty_buffer_uncompressed_plane0_packet apr;
 		q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
-		rc =  create_pkt_cmd_session_etb_encoder(&apr.pkt,
-					(u32)session, input_frame);
+		rc =  create_pkt_cmd_session_etb_encoder(
+						&apr.pkt, session, input_frame);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"Session etb encoder: failed to create pkt\n");
@@ -862,7 +862,7 @@ static int q6_hfi_session_ftb(void *sess,
 
 	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
-	rc = create_pkt_cmd_session_ftb(&apr.pkt, (u32)session, output_frame);
+	rc = create_pkt_cmd_session_ftb(&apr.pkt, session, output_frame);
 	if (rc) {
 		dprintk(VIDC_ERR, "Session ftb: failed to create pkt\n");
 		goto err_create_pkt;
@@ -899,8 +899,8 @@ static int q6_hfi_session_parse_seq_hdr(void *sess,
 
 	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_SMALL_PKT_SIZE);
 
-	rc = create_pkt_cmd_session_parse_seq_header(&apr->pkt,
-					(u32)session, seq_hdr);
+	rc = create_pkt_cmd_session_parse_seq_header(
+						&apr->pkt, session, seq_hdr);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Session parse seq hdr: failed to create pkt\n");
@@ -937,8 +937,7 @@ static int q6_hfi_session_get_seq_hdr(void *sess,
 
 	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_SMALL_PKT_SIZE);
 
-	rc = create_pkt_cmd_session_get_seq_hdr(&apr->pkt, (u32)session,
-						seq_hdr);
+	rc = create_pkt_cmd_session_get_seq_hdr(&apr->pkt, session, seq_hdr);
 	if (rc) {
 		dprintk(VIDC_ERR, "Session get seqhdr: failed to create pkt\n");
 		goto err_create_pkt;
@@ -971,7 +970,7 @@ static int q6_hfi_session_get_buf_req(void *sess)
 
 	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
-	rc = create_pkt_cmd_session_get_buf_req(&apr.pkt, (u32)session);
+	rc = create_pkt_cmd_session_get_buf_req(&apr.pkt, session);
 	if (rc) {
 		dprintk(VIDC_ERR, "Session get bufreq: failed to create pkt\n");
 		goto err_create_pkt;
@@ -1003,7 +1002,7 @@ static int q6_hfi_session_flush(void *sess, enum hal_flush flush_mode)
 
 	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));
 
-	rc = create_pkt_cmd_session_flush(&apr.pkt, (u32)session, flush_mode);
+	rc = create_pkt_cmd_session_flush(&apr.pkt, session, flush_mode);
 	if (rc) {
 		dprintk(VIDC_ERR, "Session flush: failed to create pkt\n");
 		goto err_create_pkt;
@@ -1040,8 +1039,8 @@ static int q6_hfi_session_set_property(void *sess,
 
 	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_LARGE_PKT_SIZE);
 
-	rc = create_pkt_cmd_session_set_property(&apr->pkt,
-				(u32)session, ptype, pdata);
+	rc = create_pkt_cmd_session_set_property(
+					&apr->pkt, session, ptype, pdata);
 	if (rc) {
 		dprintk(VIDC_ERR, "set property: failed to create packet\n");
 		goto err_create_pkt;
