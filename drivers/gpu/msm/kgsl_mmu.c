@@ -665,6 +665,7 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 
 	KGSL_STATS_ADD(size, pagetable->stats.mapped,
 		       pagetable->stats.max_mapped);
+	pagetable->stats.entries++;
 
 	spin_unlock(&pagetable->lock);
 	memdesc->priv |= KGSL_MEMDESC_MAPPED;
