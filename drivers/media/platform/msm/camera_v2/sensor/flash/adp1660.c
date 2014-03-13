@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,9 +51,9 @@ static struct msm_camera_i2c_reg_array adp1660_low_array[] = {
 static struct msm_camera_i2c_reg_array adp1660_high_array[] = {
 	{0x02, 0x4F},
 	{0x06, 0x3C},
-	{0x09, 0x28},
-	{0x0f, 0x01},
-	{0x01, 0xBD},
+	{0x09, 0x3C},
+	{0x0f, 0x03},
+	{0x01, 0xBB},
 };
 
 static void __exit msm_flash_adp1660_i2c_remove(void)
@@ -62,12 +62,12 @@ static void __exit msm_flash_adp1660_i2c_remove(void)
 	return;
 }
 
-static const struct of_device_id adp1660_i2c_trigger_dt_match[] = {
-	{.compatible = "qcom,led-flash"},
+static const struct of_device_id adp1660_trigger_dt_match[] = {
+	{.compatible = "qcom,led-flash", .data = &fctrl},
 	{}
 };
 
-MODULE_DEVICE_TABLE(of, adp1660_i2c_trigger_dt_match);
+MODULE_DEVICE_TABLE(of, adp1660_trigger_dt_match);
 
 static const struct i2c_device_id flash_i2c_id[] = {
 	{"qcom,led-flash", (kernel_ulong_t)&fctrl},
@@ -97,14 +97,44 @@ static struct i2c_driver adp1660_i2c_driver = {
 	.driver = {
 		.name = FLASH_NAME,
 		.owner = THIS_MODULE,
-		.of_match_table = adp1660_i2c_trigger_dt_match,
+		.of_match_table = adp1660_trigger_dt_match,
 	},
 };
 
-static int __init msm_flash_adp1660_i2c_add_driver(void)
+static int msm_flash_adp1660_platform_probe(struct platform_device *pdev)
 {
-	CDBG("%s called\n", __func__);
+	const struct of_device_id *match;
+	match = of_match_device(adp1660_trigger_dt_match, &pdev->dev);
+	if (!match)
+		return -EFAULT;
+	return msm_flash_probe(pdev, match->data);
+}
+
+static struct platform_driver adp1660_platform_driver = {
+	.probe = msm_flash_adp1660_platform_probe,
+	.driver = {
+		.name = "qcom,led-flash",
+		.owner = THIS_MODULE,
+		.of_match_table = adp1660_trigger_dt_match,
+	},
+};
+
+static int __init msm_flash_adp1660_init_module(void)
+{
+	int32_t rc = 0;
+	rc = platform_driver_register(&adp1660_platform_driver);
+	if (!rc)
+		return rc;
+	pr_debug("%s:%d rc %d\n", __func__, __LINE__, rc);
 	return i2c_add_driver(&adp1660_i2c_driver);
+}
+
+static void __exit msm_flash_adp1660_exit_module(void)
+{
+	if (fctrl.pdev)
+		platform_driver_unregister(&adp1660_platform_driver);
+	else
+		i2c_del_driver(&adp1660_i2c_driver);
 }
 
 static struct msm_camera_i2c_client adp1660_i2c_client = {
@@ -176,7 +206,7 @@ static struct msm_led_flash_ctrl_t fctrl = {
 };
 
 /*subsys_initcall(msm_flash_i2c_add_driver);*/
-module_init(msm_flash_adp1660_i2c_add_driver);
-module_exit(msm_flash_adp1660_i2c_remove);
+module_init(msm_flash_adp1660_init_module);
+module_exit(msm_flash_adp1660_exit_module);
 MODULE_DESCRIPTION("adp1660 FLASH");
 MODULE_LICENSE("GPL v2");
