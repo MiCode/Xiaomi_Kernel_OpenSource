@@ -317,6 +317,7 @@ int kgsl_devfreq_get_dev_status(struct device *dev,
 		b->mod = device->pwrctrl.bus_mod;
 	}
 
+	kgsl_pwrctrl_busy_time(device, stat->total_time, stat->busy_time);
 	trace_kgsl_pwrstats(device, stat->total_time, &pwrscale->accum_stats);
 	memset(&pwrscale->accum_stats, 0, sizeof(pwrscale->accum_stats));
 
