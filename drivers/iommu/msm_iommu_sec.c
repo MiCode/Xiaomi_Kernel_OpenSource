@@ -414,7 +414,8 @@ fail:
 	return ret;
 }
 
-int msm_iommu_sec_program_iommu(int sec_id, u32 cb_num)
+int msm_iommu_sec_program_iommu(struct msm_iommu_drvdata *drvdata,
+			struct msm_iommu_ctx_drvdata *ctx_drvdata)
 {
 	struct msm_scm_sec_cfg {
 		unsigned int id;
@@ -422,8 +423,14 @@ int msm_iommu_sec_program_iommu(int sec_id, u32 cb_num)
 	} cfg;
 	int ret, scm_ret = 0;
 
-	cfg.id = sec_id;
-	cfg.spare = cb_num;
+	cfg.id = drvdata->sec_id;
+	cfg.spare = ctx_drvdata->num;
+
+	if (drvdata->smmu_local_base) {
+		writel_relaxed(0xFFFFFFFF, drvdata->smmu_local_base +
+						SMMU_INTR_SEL_NS);
+		mb();
+	}
 
 	ret = scm_call(SCM_SVC_MP, IOMMU_SECURE_CFG, &cfg, sizeof(cfg),
 			&scm_ret, sizeof(scm_ret));
@@ -643,8 +650,8 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 			goto fail;
 		}
 
-		ret = msm_iommu_sec_program_iommu(iommu_drvdata->sec_id,
-						ctx_drvdata->num);
+		ret = msm_iommu_sec_program_iommu(iommu_drvdata,
+						ctx_drvdata);
 
 		/* bfb settings are always programmed by HLOS */
 		program_iommu_bfb_settings(iommu_drvdata->base,
