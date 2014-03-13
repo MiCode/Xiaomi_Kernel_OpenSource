@@ -72,7 +72,7 @@
 		qcom,slave-id = <0x6c 0x0 0x0132>;
 		qcom,csiphy-sd-index = <2>;
 		qcom,csid-sd-index = <2>;
-		qcom,mount-angle = <270>;
+		qcom,mount-angle = <0>;
 		qcom,sensor-name = "imx132";
 		cam_vana-supply = <&pma8084_l17>;
 		cam_vdig-supply = <&pma8084_l15>;
@@ -143,7 +143,7 @@
 		reg = <0x01>;
 		qcom,csiphy-sd-index = <2>;
 		qcom,csid-sd-index = <2>;
-		qcom,mount-angle = <270>;
+		qcom,mount-angle = <0>;
 		cam_vana-supply = <&pma8084_l17>;
 		cam_vdig-supply = <&pma8084_l15>;
 		cam_vio-supply = <&pma8084_lvs3>;
