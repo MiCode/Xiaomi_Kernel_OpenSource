@@ -364,14 +364,17 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 				}
 				msleep(100);
 			}
-			if (status_down) {
+			if (status_down)
 				dev_dbg(dev, "shutdown successful\n");
-				goto shutdown_cleanup;
-			} else
+			else
 				dev_err(mdm->dev, "graceful poff ipc fail\n");
 		}
+		/*
+		 * Force a shutdown of the mdm. This is required in order
+		 * to prevent the mdm from immediately powering back on
+		 * after the shutdown
+		 */
 		mdm_power_down(mdm);
-shutdown_cleanup:
 		mdm_update_gpio_configs(mdm, GPIO_UPDATE_BOOTING_CONFIG);
 		gpio_set_value(MDM_GPIO(mdm, AP2MDM_STATUS), 0);
 		esoc_clink_queue_request(ESOC_REQ_SHUTDOWN, esoc);
