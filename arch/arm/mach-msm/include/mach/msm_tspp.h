@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,8 +12,6 @@
 
 #ifndef _MSM_TSPP_H_
 #define _MSM_TSPP_H_
-
-#include <linux/tspp.h> /* tspp_source */
 
 struct msm_tspp_platform_data {
 	int num_gpios;
@@ -29,6 +27,55 @@ struct tspp_data_descriptor {
 	u32 size;          /* size of buffer in bytes */
 	int id;            /* unique identifier */
 	void *user;        /* user-defined data */
+};
+
+enum tspp_key_parity {
+	TSPP_KEY_PARITY_EVEN,
+	TSPP_KEY_PARITY_ODD
+};
+
+struct tspp_key {
+	enum tspp_key_parity parity;
+	int lsb;
+	int msb;
+};
+
+enum tspp_source {
+	TSPP_SOURCE_TSIF0,
+	TSPP_SOURCE_TSIF1,
+	TSPP_SOURCE_MEM,
+	TSPP_SOURCE_NONE = -1
+};
+
+enum tspp_mode {
+	TSPP_MODE_DISABLED,
+	TSPP_MODE_PES,
+	TSPP_MODE_RAW,
+	TSPP_MODE_RAW_NO_SUFFIX
+};
+
+enum tspp_tsif_mode {
+	TSPP_TSIF_MODE_LOOPBACK, /* loopback mode */
+	TSPP_TSIF_MODE_1,        /* without sync */
+	TSPP_TSIF_MODE_2         /* with sync signal */
+};
+
+struct tspp_filter {
+	int pid;
+	int mask;
+	enum tspp_mode mode;
+	unsigned int priority;	/* 0 - 15 */
+	int decrypt;
+	enum tspp_source source;
+};
+
+struct tspp_select_source {
+	enum tspp_source source;
+	enum tspp_tsif_mode mode;
+	int clk_inverse;
+	int data_inverse;
+	int sync_inverse;
+	int enable_inverse;
 };
 
 typedef void (tspp_notifier)(int channel_id, void *user);

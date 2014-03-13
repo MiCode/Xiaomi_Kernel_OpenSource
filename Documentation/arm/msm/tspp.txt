@@ -90,7 +90,7 @@ Driver registers BAM (via SPS driver) and initializes TSIF/TSPP hardware.
 
 Control path:
 -------------
-1. Client opens a TSPP stream and channel
+1. Client opens a TSPP channel and stream
 2. Client notifies the driver of the source stream (TSIF0/TSIF1/Memory)
   - TSPP driver allocates memory for the channel (circular buffer)
   - As the amount of memory varies according to stream bandwidth (which the
@@ -115,9 +115,9 @@ Client                  TSPP Driver                 SPS Driver         Hardware
  |                           | Register BAM              |                   |
  |                           |-------------------------->|                   |
  |                           |                           |                   |
- | open(tspp.5)              |                           |                   |
+ | open_channel(ch_id)       |                           |                   |
  |-------------------------->|                           |                   |
- | ioctl(tspp.5,SOURCE,TSIF0)|                           |                   |
+ | open_stream(ch_id, TSIF0) |                           |                   |
  |-------------------------->|                           |                   |
  |                           | buff[0..N] = alloc()      |                   |
  |                           |---------->                |                   |
@@ -129,7 +129,7 @@ Client                  TSPP Driver                 SPS Driver         Hardware
  |                           | Configure TSIF0           |                   |
  |                           |---------------------------|------------------>|
  |                           |                           |                   |
- | ioctl(tspp.5,FILTER,pid)  |                           |                   |
+ | tspp_add_filter(ch_id, f) |                           |                   |
  |-------------------------->|                           |                   |
  |                           | Configure TSPP filters    |                   |
  |                           |---------------------------|------------------>|
@@ -141,7 +141,7 @@ Client                  TSPP Driver                 SPS Driver         Hardware
  |                           | Transfer(buff[y])         |                   |
  |                           |-------------------------->|                   |
  |                           |                           |                   |
- | read(tspp.5)              |                           |                   |
+ | read from buff[x]         |                           |                   |
  |-------------------------->|                           |                   |
  |                           |                           |                   |
 
@@ -151,41 +151,14 @@ Data path:
 The TSPP driver is not involved in data transfer, other than managing the
 circular buffer pointers when a transfer is complete.  Data loss can occur if
 a client cannot keep up with stream bandwidth.
-The driver does not notify the application if there is data loss.  It is
-assumed that the application will read data when the data is ready, and when
-the application is able.
+The driver does not notify the client if there is data loss.  It is
+assumed that the client will read data when the data is ready, and when
+the client is able.
 
 API
 ===
-int tspp_open_stream(u32 dev, u32 channel, struct tspp_select_source *source);
-int tspp_close_stream(u32 dev, u32 channel);
-int tspp_open_channel(u32 dev, u32 channel);
-int tspp_close_channelu(32 dev, u32 channel);
-int tspp_add_filter(u32 dev, u32 channel, struct tspp_filter *filter);
-int tspp_remove_filter(u32 dev, u32 channel, struct tspp_filter *filter);
-
-Refer to chrdev implementation in kernel/drivers/misc/tspp.c for an example of
-how to use this api.
-
-Each stream is represented by a chrdev device
-16 available devices: /dev/tspp00 - /dev/tspp15
-Each device implements these functions:
-open()
-close()
-read()
-ioctl()
-
-ioctl() contains several sub-functions:
-0: select source
-1: add filter
-2: remove filter
-3: set decryption keys
-4: set initial cbc values (IV)
-5: set system keys
-6: set buffer size
-
-You can refer to include/linux/tspp.h for the details on the structures
-associated with these IOCTL calls.
+Refer to msm_tspp.h for complete listing of the API functions and structures,
+and to driver implementation under drivers/media/platform/msm/broadcast/tspp.c
 
 Design
 ======
@@ -210,10 +183,8 @@ Data path only involves maintaining the circular buffer pointers.
 
 Interface
 =========
-Driver exposes a char device interface to user-space for each channel.
-Control transactions are performed via ioctl on the channel. Data is read as
-any regular char device (blocking and non-blocking).  Please see sequence
-under software description for more info.
+Driver exposes function based interface for other kernel drivers.
+Please see sequence under software description for more info.
 
 Debugfs may be used for debug purposes.  Through debugfs, all of the TSIF
 registers can be accessed under /sys/kernel/debug/tsif0 and tsif1.  The
@@ -237,11 +208,6 @@ config file for the platform.
 Dependencies
 ============
 The TSPP driver depends on the SPS driver to configure BAM hardware.
-
-User space utilities
-====================
-The TSPP test suite can be found in:
-vendor/qcom/proprietary/kernel-tests/tspp
 
 Known Issues
 ============
