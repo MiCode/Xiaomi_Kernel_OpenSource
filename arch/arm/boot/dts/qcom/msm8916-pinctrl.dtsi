@@ -840,5 +840,16 @@
 				bias-pull-down;
 			};
 		};
+
+		gpio_led_pins {
+			qcom,pins = <&gp 8>, <&gp 9>, <&gp 10>;
+			qcom,num-grp-pins = <3>;
+			label = "gpio-led-pins";
+			gpio_led_off: led_off {
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+		};
 	};
 };
