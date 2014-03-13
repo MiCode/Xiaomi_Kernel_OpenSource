@@ -201,9 +201,6 @@ void *smsm_log_ctx;
 #define SMSM_POWER_INFO(x...) do { } while (0)
 #endif
 
-static inline void smd_write_intr(unsigned int val,
-				const void __iomem *addr);
-
 static void smd_fake_irq_handler(unsigned long arg);
 static void smsm_cb_snapshot(uint32_t use_wakeup_source);
 
@@ -218,8 +215,7 @@ static int smd_stream_read_avail(struct smd_channel *ch);
 
 static bool pid_is_on_edge(uint32_t edge_num, unsigned pid);
 
-static inline void smd_write_intr(unsigned int val,
-				const void __iomem *addr)
+static inline void smd_write_intr(unsigned int val, void __iomem *addr)
 {
 	wmb();
 	__raw_writel(val, addr);
