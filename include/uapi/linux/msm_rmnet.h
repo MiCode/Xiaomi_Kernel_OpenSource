@@ -138,9 +138,8 @@ struct QMI_QOS_HDR_S {
 
 /* QMI QoS 8-byte header. */
 struct qmi_qos_hdr8_s {
-	uint8_t   version_flags;
-	uint8_t   reserved[3];
-	uint32_t  flow_id;
+	struct QMI_QOS_HDR_S   hdr;
+	uint8_t                reserved[2];
 } __attribute((__packed__));
 
 #endif /* _UAPI_MSM_RMNET_H_ */
