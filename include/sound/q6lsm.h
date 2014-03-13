@@ -19,6 +19,13 @@
 #include <sound/lsm_params.h>
 #include <mach/qdsp6v2/apr.h>
 
+#define MAX_NUM_CONFIDENCE 20
+
+enum lsm_snd_model_in_use {
+	SND_MODEL_IN_USE_V1 = 1,
+	SND_MODEL_IN_USE_V2 = 2,
+};
+
 typedef void (*lsm_app_cb)(uint32_t opcode, uint32_t token,
 		       uint32_t *payload, void *priv);
 
@@ -32,7 +39,14 @@ struct lsm_sound_model {
 	uint32_t	mem_map_handle;
 };
 
+struct snd_lsm_event_status_v2 {
+	uint16_t status;
+	uint16_t payload_size;
+	uint8_t  confidence_value[0];
+};
+
 struct lsm_client {
+	enum lsm_snd_model_in_use snd_model_ver_inuse;
 	int		session;
 	lsm_app_cb	cb;
 	atomic_t	cmd_state;
@@ -46,9 +60,12 @@ struct lsm_client {
 	uint16_t	connect_to_port;
 	uint16_t	user_sensitivity;
 	uint16_t	kw_sensitivity;
+	uint8_t		num_confidence_levels;
+	uint8_t		*confidence_levels;
 	bool		started;
 	dma_addr_t	lsm_cal_phy_addr;
 	uint32_t	lsm_cal_size;
+	uint16_t	app_id;
 };
 
 struct lsm_stream_cmd_open_tx {
@@ -96,6 +113,13 @@ struct lsm_param_user_detect_sensitivity {
 	uint16_t	reserved;
 } __packed;
 
+struct lsm_param_min_confidence_levels {
+	struct lsm_param_payload_common common;
+	uint8_t		num_confidence_levels;
+	uint8_t		confidence_level[MAX_NUM_CONFIDENCE];
+} __packed;
+
+
 struct lsm_params_payload {
 	struct lsm_param_connect_to_port connect_to_port;
 	struct lsm_param_op_mode	op_mode;
@@ -112,6 +136,30 @@ struct lsm_cmd_set_params {
 	struct lsm_params_payload payload;
 } __packed;
 
+struct lsm_params_payload_v2 {
+	struct lsm_param_connect_to_port	connect_to_port;
+	struct lsm_param_op_mode		op_mode;
+} __packed;
+
+struct lsm_cmd_set_params_conf_v2 {
+	struct apr_hdr  hdr;
+	uint32_t	data_payload_size;
+	uint32_t	data_payload_addr_lsw;
+	uint32_t	data_payload_addr_msw;
+	uint32_t	mem_map_handle;
+	struct lsm_param_min_confidence_levels	conf_payload;
+} __packed;
+
+struct lsm_cmd_set_params_v2 {
+	struct apr_hdr  hdr;
+	uint32_t	data_payload_size;
+	uint32_t	data_payload_addr_lsw;
+	uint32_t	data_payload_addr_msw;
+	uint32_t	mem_map_handle;
+	struct lsm_params_payload_v2	payload;
+} __packed;
+
+
 struct lsm_cmd_reg_snd_model {
 	struct apr_hdr	hdr;
 	uint32_t	model_size;
@@ -122,15 +170,17 @@ struct lsm_cmd_reg_snd_model {
 
 struct lsm_client *q6lsm_client_alloc(lsm_app_cb cb, void *priv);
 void q6lsm_client_free(struct lsm_client *client);
-int q6lsm_open(struct lsm_client *client);
+int q6lsm_open(struct lsm_client *client, uint16_t app_id);
 int q6lsm_start(struct lsm_client *client, bool wait);
 int q6lsm_stop(struct lsm_client *client, bool wait);
 int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len);
 int q6lsm_snd_model_buf_free(struct lsm_client *client);
 int q6lsm_close(struct lsm_client *client);
 int q6lsm_register_sound_model(struct lsm_client *client,
-			       enum lsm_detection_mode mode, u16 minkeyword,
-			       u16 minuser, bool detectfailure);
+			       enum lsm_detection_mode mode,
+			       bool detectfailure);
 int q6lsm_deregister_sound_model(struct lsm_client *client);
+int q6lsm_set_kw_sensitivity_level(struct lsm_client *client,
+				   u16 minkeyword, u16 minuser);
 
 #endif /* __Q6LSM_H__ */
