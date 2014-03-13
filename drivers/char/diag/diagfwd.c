@@ -879,7 +879,8 @@ void encode_rsp_and_send(int buf_length)
 	diag_hdlc_encode(&send, &enc);
 	driver->rsp_write_ptr->buf = rsp_ptr;
 	driver->rsp_write_ptr->length =  (int)(enc.dest - (void *)rsp_ptr);
-	err = diag_write_to_usb(driver->legacy_ch, driver->rsp_write_ptr);
+	/* Set data type as Modem Data as the flow is guaranteed */
+	err = diag_device_write(rsp_ptr, MODEM_DATA, driver->rsp_write_ptr);
 	if (err) {
 		pr_err("diag: In %s, Unable to write to device, err: %d\n",
 			__func__, err);
@@ -2061,6 +2062,7 @@ int diagfwd_write_complete(struct diag_request *diag_write_ptr)
 		found_it = 1;
 		spin_lock_irqsave(&driver->rsp_buf_busy_lock, flags);
 		driver->rsp_buf_busy = 0;
+		driver->rsp_write_ptr->length = 0;
 		spin_unlock_irqrestore(&driver->rsp_buf_busy_lock, flags);
 	}
 
