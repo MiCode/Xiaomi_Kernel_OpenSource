@@ -147,6 +147,7 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define PRONTO_PLL_STATUS_OFFSET		0x1c
 
 #define MSM_PRONTO_MCU_BASE			0xfb080c00
+#define MCU_APB2PHY_STATUS_OFFSET		0xec
 #define MCU_CBR_CCAHB_ERR_OFFSET		0x380
 #define MCU_CBR_CAHB_ERR_OFFSET			0x384
 #define MCU_CBR_CCAHB_TIMEOUT_OFFSET		0x388
@@ -740,6 +741,10 @@ void wcnss_pronto_log_debug_regs(void)
 
 	reg = readl_relaxed(penv->wlan_tx_phy_aborts);
 	pr_err("WLAN_TX_PHY_ABORTS %08x\n", reg);
+
+	reg_addr = penv->pronto_mcu_base + MCU_APB2PHY_STATUS_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_err("MCU_APB2PHY_STATUS %08x\n", reg);
 
 	reg_addr = penv->pronto_mcu_base + MCU_CBR_CCAHB_ERR_OFFSET;
 	reg = readl_relaxed(reg_addr);
