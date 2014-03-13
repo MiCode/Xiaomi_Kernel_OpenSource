@@ -38,6 +38,10 @@ void mdss_check_dsi_ctrl_status(struct work_struct *work, uint32_t interval)
 
 	pstatus_data = container_of(to_delayed_work(work),
 		struct dsi_status_data, check_status);
+	if (!pstatus_data || !(pstatus_data->mfd)) {
+		pr_err("%s: mfd not available\n", __func__);
+		return;
+	}
 
 	pdata = dev_get_platdata(&pstatus_data->mfd->pdev->dev);
 	if (!pdata) {
@@ -55,6 +59,11 @@ void mdss_check_dsi_ctrl_status(struct work_struct *work, uint32_t interval)
 
 	mdp5_data = mfd_to_mdp5_data(pstatus_data->mfd);
 	ctl = mfd_to_ctl(pstatus_data->mfd);
+
+	if (!ctl) {
+		pr_err("%s: Display is off\n", __func__);
+		return;
+	}
 
 	if (ctl->shared_lock)
 		mutex_lock(ctl->shared_lock);
