@@ -3210,7 +3210,7 @@ void usb_bam_set_qdss_core(const char *qdss_core)
 	strlcpy(ctx.qdss_core_name, qdss_core, USB_BAM_MAX_STR_LEN);
 }
 
-int get_bam2bam_connection_info(u8 idx, u32 *usb_bam_handle,
+int get_bam2bam_connection_info(u8 idx, unsigned long *usb_bam_handle,
 	u32 *usb_bam_pipe_idx, u32 *peer_pipe_idx,
 	struct sps_mem_buffer *desc_fifo, struct sps_mem_buffer *data_fifo)
 {

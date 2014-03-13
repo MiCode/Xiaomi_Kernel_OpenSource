@@ -128,7 +128,7 @@ struct tmc_etr_bam_data {
 	struct sps_pipe		*pipe;
 	struct sps_connect	connect;
 	uint32_t		src_pipe_idx;
-	uint32_t		dest;
+	unsigned long		dest;
 	uint32_t		dest_pipe_idx;
 	struct sps_mem_buffer	desc_fifo;
 	struct sps_mem_buffer	data_fifo;

@@ -20,7 +20,7 @@
 struct  usb_qdss_bam_connect_info {
 	u32 usb_bam_pipe_idx;
 	u32 peer_pipe_idx;
-	u32 usb_bam_handle;
+	unsigned long usb_bam_handle;
 	struct sps_mem_buffer *data_fifo;
 };
 
