@@ -13246,7 +13246,7 @@ int i915_enable_plane_reserved_reg_bit_2(struct drm_device *dev, void *data,
 
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return -ENODEV;
-	if (IS_HASWELL(dev)) {
+	if (IS_HASWELL(dev) || INTEL_INFO(dev)->gen >= 8) {
 		/* crtc_id is not for Plane*/
 		drmmode_obj = drm_mode_object_find(dev, rrb->plane,
 				DRM_MODE_OBJECT_PLANE);
