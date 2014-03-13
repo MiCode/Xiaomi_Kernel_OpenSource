@@ -7,6 +7,15 @@ Optional properties:
 	- input-name: input name of the device
 	- autorepeat: Boolean, Enable auto repeat feature of Linux input
 	  subsystem.
+	- pinctrl-names : This should be defined if a target uses pinctrl framework.
+			See "pinctrl" in Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt.
+			It should specify the names of the configs that pinctrl can install in drive
+
+			Following are the pinctrl configs that can be installed:
+			"gpio_ts_active" : Active configuration of pins, this should specify active
+			config defined in pin groups of interrupt and reset gpio.
+			"gpio_ts_suspend" : Disabled configuration of pins, this should specify sleep
+			config defined in pin groups of interrupt and reset gpio.
 
 Each button (key) is represented as a sub-node of "gpio-keys":
 Subnode properties:
@@ -30,6 +39,9 @@ Example nodes:
 			#size-cells = <0>;
 			autorepeat;
 			input-name = "gpio-keys";
+			pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend";
+			pinctrl-0 = <&gpio_key_active>;
+			pinctrl-1 = <&gpio_key_suspend>;
 			button@21 {
 				label = "GPIO Key UP";
 				linux,code = <103>;
