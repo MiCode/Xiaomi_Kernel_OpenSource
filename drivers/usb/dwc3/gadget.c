@@ -1424,6 +1424,7 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
 	/* poll until Link State changes to ON */
 	timeout = jiffies + msecs_to_jiffies(100);
 
+	spin_unlock_irqrestore(&dwc->lock, flags);
 	while (!time_after(jiffies, timeout)) {
 		reg = dwc3_readl(dwc->regs, DWC3_DSTS);
 
@@ -1431,6 +1432,7 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
 		if (DWC3_DSTS_USBLNKST(reg) == DWC3_LINK_STATE_U0)
 			break;
 	}
+	spin_lock_irqsave(&dwc->lock, flags);
 
 	if (DWC3_DSTS_USBLNKST(reg) != DWC3_LINK_STATE_U0) {
 		dev_err(dwc->dev, "failed to send remote wakeup\n");
