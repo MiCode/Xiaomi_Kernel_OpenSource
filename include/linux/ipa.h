@@ -18,6 +18,8 @@
 #include <linux/types.h>
 #include <linux/msm-sps.h>
 
+#define IPA_APPS_MAX_BW_IN_MBPS 200
+
 /**
  * enum ipa_nat_en_type - NAT setting type in IPA end-point
  */

@@ -24,6 +24,7 @@
 #include <linux/platform_device.h>
 #include <linux/rbtree.h>
 #include <linux/uaccess.h>
+#include <linux/interrupt.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
 #include "ipa_i.h"
@@ -1801,6 +1802,65 @@ static int ipa_init_flt_block(void)
 }
 
 /**
+* ipa_suspend_handler() - Handles the suspend interrupt:
+* wakes up the suspended peripheral by requesting its consumer
+* @interrupt:		Interrupt type
+* @private_data:	The client's private data
+* @interrupt_data:	Interrupt specific information data
+*/
+void ipa_suspend_handler(enum ipa_irq_type interrupt,
+				void *private_data,
+				void *interrupt_data)
+{
+	enum ipa_rm_resource_name resource;
+	u32 suspend_data =
+		((struct ipa_tx_suspend_irq_data *)interrupt_data)->endpoints;
+	u32 bmsk = 1;
+	u32 i = 0;
+
+	IPADBG("interrupt=%d, interrupt_data=%u\n", interrupt, suspend_data);
+	for (i = 0; i < IPA_NUM_PIPES; i++) {
+		if ((suspend_data & bmsk) && (ipa_ctx->ep[i].valid)) {
+			resource = ipa_get_rm_resource_from_ep(i);
+			ipa_rm_request_resource_with_timer(resource);
+		}
+		bmsk = bmsk << 1;
+	}
+}
+
+static int apps_cons_release_resource(void)
+{
+	return 0;
+}
+
+static int apps_cons_request_resource(void)
+{
+	return 0;
+}
+
+static int ipa_create_apps_resource(void)
+{
+	struct ipa_rm_create_params apps_cons_create_params;
+	struct ipa_rm_perf_profile profile;
+	int result = 0;
+
+	memset(&apps_cons_create_params, 0,
+				sizeof(apps_cons_create_params));
+	apps_cons_create_params.name = IPA_RM_RESOURCE_APPS_CONS;
+	apps_cons_create_params.request_resource = apps_cons_request_resource;
+	apps_cons_create_params.release_resource = apps_cons_release_resource;
+	result = ipa_rm_create_resource(&apps_cons_create_params);
+	if (result) {
+		IPAERR("ipa_rm_create_resource failed\n");
+		return result;
+	}
+
+	profile.max_supported_bandwidth_mbps = IPA_APPS_MAX_BW_IN_MBPS;
+	ipa_rm_set_perf_profile(IPA_RM_RESOURCE_APPS_CONS, &profile);
+
+	return result;
+}
+/**
 * ipa_init() - Initialize the IPA Driver
 * @resource_p:	contain platform specific values from DST file
 * @ipa_dev:	The basic device structure representing the IPA driver
@@ -2074,7 +2134,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	spin_lock_init(&ipa_ctx->idr_lock);
 
 	mutex_init(&ipa_ctx->ipa_active_clients_lock);
-	ipa_ctx->ipa_active_clients = 0;
+	ipa_ctx->ipa_active_clients = 1;
 
 	/* wlan related member */
 	spin_lock_init(&ipa_ctx->wlan_spinlock);
@@ -2082,9 +2142,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_ctx->wlan_comm_cnt = 0;
 	INIT_LIST_HEAD(&ipa_ctx->wlan_comm_desc_list);
 	memset(&ipa_ctx->wstats, 0, sizeof(struct ipa_wlan_stats));
-	/* enable IPA clocks until the end of the initialization */
-	ipa_inc_client_enable_clks();
-
 	/*
 	 * setup an empty routing table in system memory, this will be used
 	 * to delete a routing table cleanly and safely
@@ -2166,13 +2223,29 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	}
 	IPADBG("IPA resource manager initialized");
 
+	result = ipa_create_apps_resource();
+	if (result) {
+		IPAERR("Failed to create APPS_CONS resource\n");
+		result = -ENODEV;
+		goto fail_create_apps_resource;
+	}
+
 	/*register IPA IRQ handler*/
-	result = ipa_interrupts_init(resource_p->ipa_irq, resource_p->ee,
+	result = ipa_interrupts_init(resource_p->ipa_irq, 0,
 			ipa_dev);
 	if (result) {
 		IPAERR("ipa interrupts initialization failed\n");
 		result = -ENODEV;
-		goto fail_ipa_rm_init;
+		goto fail_ipa_interrupts_init;
+	}
+
+	/*add handler for suspend interrupt*/
+	result = ipa_add_interrupt_handler(IPA_TX_SUSPEND_IRQ,
+			ipa_suspend_handler, true, NULL);
+	if (result) {
+		IPAERR("register handler for suspend interrupt failed\n");
+		result = -ENODEV;
+		goto fail_add_interrupt_handler;
 	}
 
 	if (ipa_ctx->use_ipa_teth_bridge) {
@@ -2181,7 +2254,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		if (result) {
 			IPAERR(":teth_bridge init failed (%d)\n", -result);
 			result = -ENODEV;
-			goto fail_teth_bridge_init;
+			goto fail_add_interrupt_handler;
 		}
 		IPADBG("teth_bridge initialized");
 	}
@@ -2193,7 +2266,11 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 
 	return 0;
 
-fail_teth_bridge_init:
+fail_add_interrupt_handler:
+	free_irq(resource_p->ipa_irq, ipa_dev);
+fail_ipa_interrupts_init:
+	ipa_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
+fail_create_apps_resource:
 	ipa_rm_exit();
 fail_ipa_rm_init:
 	cdev_del(&ipa_ctx->cdev);

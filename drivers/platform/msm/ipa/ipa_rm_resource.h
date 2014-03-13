@@ -122,6 +122,12 @@ int ipa_rm_resource_producer_request(struct ipa_rm_resource_prod *producer);
 
 int ipa_rm_resource_producer_release(struct ipa_rm_resource_prod *producer);
 
+int ipa_rm_resource_consumer_request(struct ipa_rm_resource_cons *consumer,
+				u32 needed_bw);
+
+int ipa_rm_resource_consumer_release(struct ipa_rm_resource_cons *consumer,
+				u32 needed_bw);
+
 int ipa_rm_resource_set_perf_profile(struct ipa_rm_resource *resource,
 				     struct ipa_rm_perf_profile *profile);
 
@@ -137,5 +143,15 @@ int ipa_rm_resource_producer_print_stat(
 		struct ipa_rm_resource *resource,
 		char *buf,
 		int size);
+
+int ipa_rm_resource_consumer_request_work(struct ipa_rm_resource_cons *consumer,
+		enum ipa_rm_resource_state prev_state,
+		u32 needed_bw,
+		bool notify_completion);
+
+int ipa_rm_resource_consumer_release_work(
+		struct ipa_rm_resource_cons *consumer,
+		enum ipa_rm_resource_state prev_state,
+		bool notify_completion);
 
 #endif /* _IPA_RM_RESOURCE_H_ */
