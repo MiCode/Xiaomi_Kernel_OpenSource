@@ -35,6 +35,8 @@
 
 #define USB_BAM_NR_PORTS	4
 
+#define ARRAY_INDEX_FROM_ADDR(base, addr) ((addr) - (base))
+
 enum usb_bam_sm {
 	USB_BAM_SM_INIT = 0,
 	USB_BAM_SM_PLUG_NOTIFIED,
@@ -296,8 +298,7 @@ static void usb_bam_set_inactivity_timer(enum usb_bam bam)
 	 */
 	for (i = 0; i < ctx.max_connections; i++) {
 		pipe_connect = &usb_bam_connections[i];
-		if (pipe_connect->bam_type == bam &&
-		    pipe_connect->enabled) {
+		if (pipe_connect->bam_type == bam && pipe_connect->enabled) {
 			pipe = ctx.usb_bam_sps.sps_pipes[i];
 			break;
 		}
@@ -583,6 +584,7 @@ static int connect_pipe_bam2bam_ipa(u8 idx,
 	pipe_connect->activity_notify = ipa_params->activity_notify;
 	pipe_connect->inactivity_notify = ipa_params->inactivity_notify;
 	pipe_connect->priv = ipa_params->priv;
+	pipe_connect->reset_pipe_after_lpm = ipa_params->reset_pipe_after_lpm;
 
 	/* IPA input parameters */
 	ipa_in_params.client_bam_hdl = usb_handle;
@@ -749,7 +751,7 @@ static int disconnect_pipe(u8 idx)
 
 static bool _usb_bam_resume_core(void)
 {
-	pr_debug("%s: Resuming usb peripheral/host device", __func__);
+	pr_debug("Resuming usb peripheral/host device\n");
 
 	if (usb_device)
 		pm_runtime_resume(usb_device);
@@ -1081,6 +1083,57 @@ int usb_bam_connect(int idx, u32 *bam_pipe_idx)
 	return 0;
 }
 
+/* This function is in expectation that the SPS team expose similar
+ * functionality. As a result, it is written so that when the
+ * function does become available, it'll have the same (expected) API.
+ */
+static int __sps_reset_pipe(struct sps_pipe *pipe, u32 idx)
+{
+	int ret;
+	struct sps_connect *sps_connection =
+		&ctx.usb_bam_sps.sps_connections[idx];
+
+	ret = sps_disconnect(pipe);
+	if (ret) {
+		pr_err("%s: sps_disconnect() failed %d\n", __func__, ret);
+		return ret;
+	}
+
+	ret = sps_connect(pipe, sps_connection);
+	if (ret < 0) {
+		pr_err("%s: sps_connect() failed %d\n", __func__, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static void reset_pipe_for_resume(struct usb_bam_pipe_connect *pipe_connect)
+{
+	int ret;
+	u32 idx = ARRAY_INDEX_FROM_ADDR(usb_bam_connections, pipe_connect);
+	struct sps_pipe *pipe = ctx.usb_bam_sps.sps_pipes[idx];
+
+	if (!pipe_connect->reset_pipe_after_lpm ||
+		pipe_connect->pipe_type != USB_BAM_PIPE_BAM2BAM) {
+		pr_debug("No need to reset pipe %d\n", idx);
+		return;
+	}
+
+	ret = __sps_reset_pipe(pipe, idx);
+	if (ret) {
+		pr_err("%s failed to reset the USB sps pipe\n", __func__);
+		return;
+	}
+
+	ret = ipa_reset_endpoint(pipe_connect->ipa_clnt_hdl);
+	if (ret) {
+		pr_err("%s failed to reset the IPA pipe\n", __func__);
+		return;
+	}
+
+}
+
 /* Stop PROD transfers in case they were started */
 static void stop_prod_transfers(struct usb_bam_pipe_connect *pipe_connect)
 {
@@ -1109,7 +1162,7 @@ static void start_cons_transfers(struct usb_bam_pipe_connect *pipe_connect)
 	if (pipe_connect->start && pipe_connect->cons_stopped) {
 		pr_debug("%s: Enqueue CONS transfer", __func__);
 		pipe_connect->start(pipe_connect->start_stop_param,
-				    PEER_PERIPHERAL_TO_USB);
+					PEER_PERIPHERAL_TO_USB);
 		pipe_connect->cons_stopped = 0;
 	}
 }
@@ -1190,14 +1243,14 @@ static void usb_bam_finish_suspend(enum usb_bam cur_bam)
 		cons_pipe = ctx.usb_bam_sps.sps_pipes[dst_idx];
 
 		pr_debug("pipes_suspended=%d pipes_to_suspend=%d",
-		       info[cur_bam].pipes_suspended,
-		       info[cur_bam].pipes_to_suspend);
+			info[cur_bam].pipes_suspended,
+			info[cur_bam].pipes_to_suspend);
 
 		spin_unlock(&usb_bam_ipa_handshake_info_lock);
 		ret = sps_is_pipe_empty(cons_pipe, &cons_empty);
 		if (ret) {
 			pr_err("%s: sps_is_pipe_empty failed with %d\n",
-			       __func__, ret);
+				__func__, ret);
 			goto no_lpm;
 		}
 
@@ -1215,9 +1268,9 @@ static void usb_bam_finish_suspend(enum usb_bam cur_bam)
 			pr_debug("%s: Suspending pipe\n", __func__);
 			/* ACK on the last pipe */
 			if ((info[cur_bam].pipes_suspended + 1) * 2 ==
-			    ctx.pipes_enabled_per_bam[cur_bam] &&
-			    info[cur_bam].cur_cons_state ==
-			    IPA_RM_RESOURCE_RELEASED) {
+			     ctx.pipes_enabled_per_bam[cur_bam] &&
+			     info[cur_bam].cur_cons_state ==
+			     IPA_RM_RESOURCE_RELEASED) {
 				ipa_rm_notify_completion(
 					IPA_RM_RESOURCE_RELEASED,
 					ipa_rm_resource_cons[cur_bam]);
@@ -1578,7 +1631,7 @@ static void wait_for_prod_release(enum usb_bam cur_bam)
 		pr_err("%s: ipa_rm_request_resource ret =%d", __func__, ret);
 }
 
-static int check_pipes_empty(u8 src_idx, u8 dst_idx)
+static bool check_pipes_empty(u8 src_idx, u8 dst_idx)
 {
 	struct sps_pipe *prod_pipe, *cons_pipe;
 	struct usb_bam_pipe_connect *prod_pipe_connect, *cons_pipe_connect;
@@ -1596,18 +1649,32 @@ static int check_pipes_empty(u8 src_idx, u8 dst_idx)
 	cons_pipe = ctx.usb_bam_sps.sps_pipes[dst_idx];
 	pr_debug("prod_pipe=%p, cons_pipe=%p", prod_pipe, cons_pipe);
 
-	if (!prod_pipe || sps_is_pipe_empty(prod_pipe, &prod_empty) ||
-		!cons_pipe || sps_is_pipe_empty(cons_pipe, &cons_empty)) {
-		pr_err("%s: sps_is_pipe_empty failed with\n", __func__);
-		return 1;
-	}
-	if (!prod_empty || !cons_empty) {
-		pr_err("%s: pipes not empty prod=%d cond=%d", __func__,
-			prod_empty, cons_empty);
-		return 0;
+	if (!cons_pipe || (!prod_pipe &&
+			prod_pipe_connect->pipe_type == USB_BAM_PIPE_BAM2BAM)) {
+		pr_err("Missing a pipe!\n");
+		return false;
 	}
 
-	return 1;
+	if (prod_pipe && sps_is_pipe_empty(prod_pipe, &prod_empty)) {
+		pr_err("sps_is_pipe_empty(prod) failed\n");
+		return false;
+	} else {
+		prod_empty = true;
+	}
+
+	if (sps_is_pipe_empty(cons_pipe, &cons_empty)) {
+		pr_err("sps_is_pipe_empty(cons) failed\n");
+		return false;
+	}
+
+	if (!prod_empty || !cons_empty) {
+		pr_err("pipes not empty prod=%d cond=%d",
+			prod_empty, cons_empty);
+		return false;
+	}
+
+	return true;
+
 }
 
 void usb_bam_suspend(struct usb_bam_connect_ipa_params *ipa_params)
@@ -1763,6 +1830,9 @@ static void usb_bam_finish_resume(struct work_struct *w)
 		idx = suspended - 1;
 		dst_idx = info[cur_bam].resume_dst_idx[idx];
 		pipe_connect = &usb_bam_connections[dst_idx];
+		spin_unlock(&usb_bam_ipa_handshake_info_lock);
+		reset_pipe_for_resume(pipe_connect);
+		spin_lock(&usb_bam_ipa_handshake_info_lock);
 		if (pipe_connect->cons_stopped) {
 			pr_debug("%s: Starting CONS on %d", __func__, dst_idx);
 			start_cons_transfers(pipe_connect);

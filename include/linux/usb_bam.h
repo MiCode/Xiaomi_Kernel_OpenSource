@@ -83,6 +83,7 @@ struct usb_bam_connect_ipa_params {
 	int (*activity_notify)(void *priv);
 	int (*inactivity_notify)(void *priv);
 	bool skip_ep_cfg;
+	bool reset_pipe_after_lpm;
 };
 
 /**
@@ -162,6 +163,7 @@ struct usb_bam_pipe_connect {
 	void (*start)(void *, enum usb_bam_pipe_dir);
 	void (*stop)(void *, enum usb_bam_pipe_dir);
 	void *start_stop_param;
+	bool reset_pipe_after_lpm;
 };
 
 /**
