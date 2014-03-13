@@ -226,7 +226,7 @@ Optional properties:
 				the maximum virtual voltage corner corresponding to the SVS, NORMAL and TURBO corners.
 				The 5 elements in one quintuple are:
 				[0]: => the speed bin of the CPU.
-				[1]: => the PVS version of the CPU.
+				[1]: => the PVS version of the CPU. If device does't have PVS version fuse, set the value to 0.
 				[2]: => the max virtual voltage corner value corresponding to SVS corner for this speed bin.
 				[3]: => the max virtual voltage corner value corresponding to NORMAL corner for this speed bin.
 				[4]: => the max virtual voltage corner value corresponding to TURBO corner for this speed bin.
@@ -252,7 +252,6 @@ Optional properties:
 				[1]: => LSB bit position of the bits;
 				[2]: => the number of bits;
 				[3]: => fuse reading method, 0 for direct reading or 1 for SCM reading.
-				This property is required if qcom,cpr-speed-bin-max-corners is present.
 - qcom,cpr-quot-adjust-scaling-factor-max: The maximum allowed CPR target quotient scaling factor to use when
 				calculating the quotient adjustment for a given virtual voltage corner. It
 				corresponds to 'scaling' in this equation:

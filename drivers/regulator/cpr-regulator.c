@@ -1450,7 +1450,7 @@ static void cpr_parse_pvs_version_fuse(struct cpr_regulator *cpr_vreg,
 		pr_info("[row: %d]: 0x%llx, pvs_version = %d\n",
 				fuse_sel[0], fuse_bits, cpr_vreg->pvs_version);
 	} else {
-		cpr_vreg->pvs_version = UINT_MAX;
+		cpr_vreg->pvs_version = 0;
 	}
 }
 
