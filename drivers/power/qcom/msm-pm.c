@@ -129,6 +129,7 @@ static bool msm_pm_is_L1_writeback(void)
 		      :[ccsidr]"=r" (cache_id)
 		      :[ccselr]"r" (sel)
 		     );
+	return cache_id & BIT(31);
 #elif defined(CONFIG_ARM64)
 	u32 sel = 0;
 	asm volatile("msr csselr_el1, %[ccselr]\n\t"
@@ -137,10 +138,10 @@ static bool msm_pm_is_L1_writeback(void)
 		     :[ccsidr]"=r" (cache_id)
 		     :[ccselr]"r" (sel)
 		    );
+	return cache_id & BIT(30);
 #else
 #error No valid CPU arch selected
 #endif
-	return cache_id & BIT(31);
 }
 
 static enum msm_pm_time_stats_id msm_pm_swfi(bool from_idle)
