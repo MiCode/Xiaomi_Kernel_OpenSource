@@ -446,6 +446,7 @@ static struct ion_secure_cma_buffer_info *__ion_secure_cma_allocate(
 	if (ret) {
 		ret = ion_secure_cma_add_to_pool(sheap, len);
 		if (ret) {
+			mutex_unlock(&sheap->alloc_lock);
 			dev_err(sheap->dev, "Fail to allocate buffer\n");
 			goto err;
 		}
