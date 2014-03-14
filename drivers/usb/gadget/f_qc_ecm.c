@@ -497,12 +497,10 @@ static int ecm_qc_bam_disconnect(struct f_ecm_qc *dev)
 {
 	pr_debug("%s: dev:%p. Disconnect BAM.\n", __func__, dev);
 
+	bam_data_disconnect(&dev->bam_port, 0);
+
 	dev->bam_port.cdev = NULL;
 	dev->bam_port.func = NULL;
-	dev->bam_port.in = NULL;
-	dev->bam_port.out = NULL;
-
-	bam_data_disconnect(&dev->bam_port, 0);
 
 	return 0;
 }
