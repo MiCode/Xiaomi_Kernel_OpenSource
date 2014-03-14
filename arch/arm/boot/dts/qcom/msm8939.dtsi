@@ -137,6 +137,7 @@
 #include "msm8939-smp2p.dtsi"
 #include "msm8939-ipcrouter.dtsi"
 #include "msm8939-ion.dtsi"
+#include "msm-gdsc-8916.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -582,3 +583,32 @@
 		clock-names = "core_clk", "iface_clk";
 	};
 };
+
+&gdsc_venus {
+	status = "okay";
+};
+
+&gdsc_mdss {
+	status = "okay";
+};
+
+&gdsc_jpeg {
+	status = "okay";
+};
+
+&gdsc_vfe {
+	status = "okay";
+};
+
+&gdsc_oxili_gx {
+	status = "okay";
+};
+
+&gdsc_venus_core0 {
+	status = "okay";
+};
+
+&gdsc_venus_core1 {
+	status = "okay";
+};
+
