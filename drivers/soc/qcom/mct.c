@@ -834,6 +834,7 @@ static int mct_probe(struct platform_device *pdev)
 			__func__, node->full_name, key);
 		mct_dcnt = MCT_DEFAULT_DCNT;
 	}
+	mct_boot_enable = true;
 
 deferred_entry:
 	/* probe_deferrable_property will not return any error other than
