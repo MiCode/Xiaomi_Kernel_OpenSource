@@ -302,8 +302,8 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 		return -ENODEV;
 	}
 	jpeg_irq = jpeg_irq_res->start;
-	JPEG_DBG("%s base address: 0x%x, jpeg irq number: %d\n", __func__,
-		jpeg_mem->start, jpeg_irq);
+	JPEG_DBG("%s base address: 0x%lx, jpeg irq number: %d\n", __func__,
+		(unsigned long)jpeg_mem->start, jpeg_irq);
 
 	pgmn_dev->jpeg_bus_client =
 		msm_bus_scale_register_client(&msm_jpeg_bus_client_pdata);
@@ -361,9 +361,8 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 		JPEG_PR_ERR("%s: ioremap failed\n", __func__);
 		goto fail_vbif;
 	}
-
-	JPEG_DBG("%s:%d] jpeg_vbif 0x%x", __func__, __LINE__,
-		(uint32_t)pgmn_dev->jpeg_vbif);
+	JPEG_DBG("%s:%d] jpeg_vbif 0x%lx", __func__, __LINE__,
+		(unsigned long)pgmn_dev->jpeg_vbif);
 
 	rc = msm_jpeg_attach_iommu(pgmn_dev);
 	if (rc < 0)
