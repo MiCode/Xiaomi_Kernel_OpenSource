@@ -483,6 +483,14 @@ Required properties:
 - qcom,msm-snd-card-id : This id is used to recognize the sound card number
 - qcom,msm-codec-type : This property is used to recognize the codec type
   internal or external.
+- qcom,msm-mbhc-hphl-swh: This property is used to distinguish headset HPHL
+switch type on target typically the switch type will be normally open or
+normally close, value for this property 0 for normally close and 1 for
+normally open.
+-  qcom,msm-mbhc-gnd-swh: This property is used to distinguish headset GND
+switch type on target typically the switch type will be normally open or
+normally close, value for this property 0 for normally close and 1 for
+normally open.
 - pinctrl-names : Pincntrl entries to configure the PDM gpio lines accordingly
 - pinctrl-0 : This exoplains the active state of the PDM gpio lines
 - pinctrl-1 : This exoplains the suspend state of the PDM gpio lines
@@ -494,6 +502,8 @@ Example:
 		qcom,model = "msm8x16-snd-card";
 		qcom,msm-snd-card-id = <0>;
 		qcom,msm-codec-type = "internal";
+		qcom,msm-mbhc-hphl-swh = <0>;
+		qcom,msm-mbhc-gnd-swh = <0>;
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"INT_LDO_H", "MCLK",

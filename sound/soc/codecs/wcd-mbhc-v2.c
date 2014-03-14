@@ -12,6 +12,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/slab.h>
+#include <linux/of_gpio.h>
 #include <linux/platform_device.h>
 #include <linux/device.h>
 #include <linux/printk.h>
@@ -701,12 +702,28 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 	struct snd_soc_codec *codec = mbhc->codec;
 
 	pr_debug("%s: enter\n", __func__);
-	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_1, 0xE5);
-	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2, 0x08);
+	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_1, 0xF4);
+	/* enable HS detection */
+	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2, 0xE8);
+	if (mbhc->hphl_swh == TOMBAK_MBHC_NC)
+		/* if Normaly closed switch we need pull down on HPHL */
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2,
+			0x01, 0x01);
+
 	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_DBNC_TIMER, 0x98);
 
 	snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_RX_COM_OCP_CTL,
 			0x10, 0x00);
+	/* enable MBHC clock */
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
+			0x08, 0x08);
+	/* enable the WCD MBHC IRQ's */
+	wcd9xxx_enable_irq(mbhc->intr_ids->mbhc_sw_intr);
+	wcd9xxx_enable_irq(mbhc->intr_ids->mbhc_btn_press_intr);
+	wcd9xxx_enable_irq(mbhc->intr_ids->mbhc_btn_release_intr);
+	wcd9xxx_enable_irq(mbhc->intr_ids->mbhc_hs_ins_rem_intr);
 	wcd9xxx_enable_irq(mbhc->intr_ids->hph_left_ocp);
 	wcd9xxx_enable_irq(mbhc->intr_ids->hph_right_ocp);
 	pr_debug("%s: leave\n", __func__);
@@ -743,16 +760,36 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		      const struct wcd_mbhc_intr *mbhc_cdc_intr_ids,
 		      bool impedance_det_en)
 {
-	int ret;
+	int ret = 0;
+	int hph_swh = 0;
+	int gnd_swh = 0;
+	struct snd_soc_card *card = codec->card;
+	const char *hph_switch = "qcom,msm-mbhc-hphl-swh";
+	const char *gnd_switch = "qcom,msm-mbhc-gnd-swh";
 
 	pr_debug("%s: enter\n", __func__);
 
+	ret = of_property_read_u32(card->dev->of_node, hph_switch, &hph_swh);
+	if (ret) {
+		dev_err(card->dev,
+			"%s: missing %s in dt node\n", __func__, hph_switch);
+		goto err;
+	}
+
+	ret = of_property_read_u32(card->dev->of_node, gnd_switch, &gnd_swh);
+	if (ret) {
+		dev_err(card->dev,
+			"%s: missing %s in dt node\n", __func__, gnd_switch);
+		goto err;
+	}
 	mbhc->in_swch_irq_handler = false;
 	mbhc->current_plug = PLUG_TYPE_NONE;
 	mbhc->is_btn_press = false;
 	mbhc->codec = codec;
 	mbhc->intr_ids = mbhc_cdc_intr_ids;
 	mbhc->impedance_detect = impedance_det_en;
+	mbhc->hphl_swh = hph_swh;
+	mbhc->gnd_swh = gnd_swh;
 
 	if (mbhc->intr_ids == NULL) {
 		pr_err("%s: Interrupt mapping not provided\n", __func__);
@@ -846,6 +883,9 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		goto err_hphr_ocp_irq;
 	}
 	wcd9xxx_disable_irq(mbhc->intr_ids->hph_right_ocp);
+	/* bring the digital block out of reset */
+	snd_soc_update_bits(codec, MSM8X16_WCD_A_DIGITAL_CDC_RST_CTL,
+			0x80, 0x80);
 
 	pr_debug("%s: leave ret %d\n", __func__, ret);
 	return ret;
@@ -862,6 +902,7 @@ err_btn_press_irq:
 	wcd9xxx_free_irq(mbhc->intr_ids->mbhc_sw_intr, mbhc);
 err_mbhc_sw_irq:
 	mutex_destroy(&mbhc->codec_resource_lock);
+err:
 	pr_debug("%s: leave ret %d\n", __func__, ret);
 	return ret;
 }

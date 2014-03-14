@@ -14,6 +14,9 @@
 
 #include <linux/wait.h>
 
+#define TOMBAK_MBHC_NC	0
+#define TOMBAK_MBHC_NO	1
+
 enum wcd_mbhc_plug_type {
 	PLUG_TYPE_INVALID = -1,
 	PLUG_TYPE_NONE,
@@ -51,6 +54,8 @@ struct wcd_mbhc {
 	bool is_btn_press;
 	u8 current_plug;
 	bool in_swch_irq_handler;
+	bool hphl_swh; /*track HPHL switch NC / NO */
+	bool gnd_swh; /*track GND switch NC / NO */
 
 	struct snd_soc_codec *codec;
 
