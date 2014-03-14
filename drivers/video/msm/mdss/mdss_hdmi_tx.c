@@ -3876,6 +3876,7 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 	int rc = 0;
 	struct device_node *of_node = pdev->dev.of_node;
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+	struct mdss_panel_cfg *pan_cfg = NULL;
 
 	if (!of_node) {
 		DEV_ERR("%s: FAILED: of_node not found\n", __func__);
@@ -3898,6 +3899,14 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 		DEV_ERR("%s: FAILED: parsing device tree data. rc=%d\n",
 			__func__, rc);
 		goto failed_dt_data;
+	}
+
+	pan_cfg = mdss_panel_intf_type(MDSS_PANEL_INTF_HDMI);
+	if (IS_ERR(pan_cfg)) {
+		return PTR_ERR(pan_cfg);
+	} else if (pan_cfg) {
+		DEV_DBG("%s: HDMI is primary\n", __func__);
+		hdmi_ctrl->pdata.primary = true;
 	}
 
 	rc = hdmi_tx_init_resource(hdmi_ctrl);
