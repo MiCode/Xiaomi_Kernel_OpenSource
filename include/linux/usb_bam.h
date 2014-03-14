@@ -66,6 +66,7 @@ struct usb_bam_connect_ipa_params {
 	u8 dst_idx;
 	u32 *src_pipe;
 	u32 *dst_pipe;
+	bool keep_ipa_awake;
 	enum usb_bam_pipe_dir dir;
 	/* Parameters for Port Mapper */
 	u32 ipa_cons_ep_idx;

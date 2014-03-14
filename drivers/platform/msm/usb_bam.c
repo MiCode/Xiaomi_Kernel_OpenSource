@@ -527,6 +527,7 @@ static int connect_pipe_sys2bam_ipa(u8 idx,
 	sys_in_params.priv = ipa_params->priv;
 	sys_in_params.notify = ipa_params->notify;
 	sys_in_params.skip_ep_cfg = ipa_params->skip_ep_cfg;
+	sys_in_params.keep_ipa_awake = ipa_params->keep_ipa_awake;
 	memcpy(&sys_in_params.ipa_ep_cfg, &ipa_params->ipa_ep_cfg,
 		   sizeof(struct ipa_ep_cfg));
 
@@ -591,6 +592,7 @@ static int connect_pipe_bam2bam_ipa(u8 idx,
 	ipa_in_params.notify = ipa_params->notify;
 	ipa_in_params.priv = ipa_params->priv;
 	ipa_in_params.skip_ep_cfg = ipa_params->skip_ep_cfg;
+	ipa_in_params.keep_ipa_awake = ipa_params->keep_ipa_awake;
 
 	/* If BAM is using dedicated SPS pipe memory, get it */
 
