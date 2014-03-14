@@ -620,6 +620,144 @@ out_disable:
 	i915_gem_stolen_cleanup_compression(dev);
 }
 
+static void intel_drrs_work_fn(struct work_struct *__work)
+{
+	struct intel_drrs_work *work =
+		container_of(to_delayed_work(__work),
+			     struct intel_drrs_work, work);
+	struct drm_device *dev = work->crtc->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	/* Double check if the dual-display mode is active. */
+	if (dev_priv->drrs.is_clone)
+		return;
+
+	intel_dp_set_drrs_state(work->crtc->dev,
+		dev_priv->drrs.connector->panel.downclock_mode->vrefresh);
+}
+
+static void intel_cancel_drrs_work(struct drm_i915_private *dev_priv)
+{
+	if (dev_priv->drrs.drrs_work == NULL)
+		return;
+
+	cancel_delayed_work_sync(&dev_priv->drrs.drrs_work->work);
+}
+
+static void intel_enable_drrs(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_dp *intel_dp = NULL;
+
+	intel_dp = enc_to_intel_dp(&dev_priv->drrs.connector->encoder->base);
+
+	if (intel_dp == NULL)
+		return;
+
+	intel_cancel_drrs_work(dev_priv);
+
+	if (intel_dp->drrs_state.refresh_rate_type != DRRS_LOW_RR) {
+		dev_priv->drrs.drrs_work->crtc = crtc;
+
+		/* Delay the actual enabling to let pageflipping cease and the
+		 * display to settle before starting DRRS
+		 */
+		schedule_delayed_work(&dev_priv->drrs.drrs_work->work,
+			msecs_to_jiffies(dev_priv->drrs.drrs_work->interval));
+	}
+}
+
+void intel_disable_drrs(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_dp *intel_dp = NULL;
+
+	if (dev_priv->drrs.connector == NULL)
+		return;
+
+	intel_dp = enc_to_intel_dp(&dev_priv->drrs.connector->encoder->base);
+
+	if (intel_dp == NULL)
+		return;
+
+	/* as part of disable DRRS, reset refresh rate to HIGH_RR */
+	if (intel_dp->drrs_state.refresh_rate_type == DRRS_LOW_RR) {
+		intel_cancel_drrs_work(dev_priv);
+		intel_dp_set_drrs_state(dev,
+			dev_priv->drrs.connector->panel.fixed_mode->vrefresh);
+	}
+}
+
+/**
+ * intel_update_drrs - enable/disable DRRS as needed
+ * @dev: the drm_device
+*/
+void intel_update_drrs(struct drm_device *dev)
+{
+	struct drm_crtc *crtc = NULL, *tmp_crtc;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	/* if drrs.connector is NULL, then drrs_init did not get called.
+	 * which means DRRS is not supported.
+	 */
+	if (dev_priv->drrs.connector == NULL)
+		return;
+
+	if (dev_priv->drrs.connector->panel.downclock_mode == NULL)
+		return;
+
+	list_for_each_entry(tmp_crtc, &dev->mode_config.crtc_list, head) {
+		if (tmp_crtc != NULL && intel_crtc_active(tmp_crtc)) {
+			if (crtc) {
+				DRM_DEBUG_KMS(
+				"more than one pipe active, disabling DRRS\n");
+				dev_priv->drrs.is_clone = true;
+				intel_disable_drrs(dev);
+				return;
+			}
+			crtc = tmp_crtc;
+		}
+	}
+
+	if (crtc == NULL) {
+		DRM_DEBUG_KMS("DRRS: crtc not initialized\n");
+		return;
+	}
+
+	dev_priv->drrs.is_clone = false;
+	intel_disable_drrs(dev);
+
+	/* re-enable idleness detection */
+	intel_enable_drrs(crtc);
+}
+
+void intel_init_drrs_idleness_detection(struct drm_device *dev,
+					struct intel_connector *connector)
+{
+	struct intel_drrs_work *work;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if (i915.drrs_interval == 0) {
+		DRM_INFO("DRRS disable by flag\n");
+		return;
+	}
+
+	work = kzalloc(sizeof(struct intel_drrs_work), GFP_KERNEL);
+	if (!work) {
+		DRM_ERROR("Failed to allocate DRRS work structure\n");
+		return;
+	}
+
+	dev_priv->drrs.connector = connector;
+	dev_priv->drrs.is_clone = false;
+
+	work->interval = i915.drrs_interval;
+	INIT_DELAYED_WORK(&work->work, intel_drrs_work_fn);
+
+	dev_priv->drrs.drrs_work = work;
+}
+
 static void i915_pineview_get_mem_freq(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;

@@ -3729,16 +3729,37 @@ intel_dp_connector_destroy(struct drm_connector *connector)
 	kfree(connector);
 }
 
+static void
+intel_dp_drrs_fini(struct drm_i915_private *dev_priv,
+			struct intel_dp *intel_dp)
+{
+	if (intel_dp->drrs_state.type == SEAMLESS_DRRS_SUPPORT) {
+		if (cancel_delayed_work_sync
+			(&dev_priv->drrs.drrs_work->work)) {
+			kfree(dev_priv->drrs.drrs_work);
+			dev_priv->drrs.drrs_work = NULL;
+			dev_priv->drrs.connector = NULL;
+		}
+	}
+}
+
 void intel_dp_encoder_destroy(struct drm_encoder *encoder)
 {
 	struct intel_digital_port *intel_dig_port = enc_to_dig_port(encoder);
 	struct intel_dp *intel_dp = &intel_dig_port->dp;
 	struct drm_device *dev = intel_dp_to_dev(intel_dp);
+	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	drm_dp_aux_unregister(&intel_dp->aux);
 	drm_encoder_cleanup(encoder);
 	if (is_edp(intel_dp)) {
 		cancel_delayed_work_sync(&intel_dp->panel_vdd_work);
+
+		if (dev_priv->drrs.connector &&
+			intel_dp == enc_to_intel_dp(
+				&dev_priv->drrs.connector->encoder->base))
+			intel_dp_drrs_fini(dev_priv, intel_dp);
+
 		drm_modeset_lock(&dev->mode_config.connection_mutex, NULL);
 		edp_panel_vdd_off_sync(intel_dp);
 		drm_modeset_unlock(&dev->mode_config.connection_mutex);
@@ -4132,7 +4153,7 @@ intel_dp_drrs_init(struct intel_digital_port *intel_dig_port,
 		return NULL;
 	}
 
-	dev_priv->drrs.connector = intel_connector;
+	intel_init_drrs_idleness_detection(dev, intel_connector);
 
 	mutex_init(&intel_dp->drrs_state.mutex);
 

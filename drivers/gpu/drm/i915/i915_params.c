@@ -48,6 +48,7 @@ struct i915_params i915 __read_mostly = {
 	.disable_display = 0,
 	.enable_cmd_parser = 0,
 	.disable_vtd_wa = 0,
+	.drrs_interval = 2000,
 };
 
 module_param_named(modeset, i915.modeset, int, 0400);
@@ -156,3 +157,10 @@ MODULE_PARM_DESC(disable_vtd_wa, "Disable all VT-d workarounds (default: false)"
 module_param_named(enable_cmd_parser, i915.enable_cmd_parser, int, 0600);
 MODULE_PARM_DESC(enable_cmd_parser,
 		 "Enable command parsing (1=enabled [default], 0=disabled)");
+
+module_param_named(drrs_interval, i915.drrs_interval, int, 0600);
+MODULE_PARM_DESC(drrs_interval,
+	"DRRS idleness detection interval  (default: 2000 ms)."
+	"If this field is set to 0, then seamless DRRS feature "
+	"based on idleness detection is disabled."
+	"The interval is to be set in milliseconds.");

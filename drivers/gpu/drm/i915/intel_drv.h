@@ -1008,6 +1008,10 @@ void intel_fini_runtime_pm(struct drm_i915_private *dev_priv);
 void ilk_wm_get_hw_state(struct drm_device *dev);
 void __vlv_set_power_well(struct drm_i915_private *dev_priv,
 			  enum punit_power_well power_well_id, bool enable);
+void intel_init_drrs_idleness_detection(struct drm_device *dev,
+		struct intel_connector *connector);
+void intel_update_drrs(struct drm_device *dev);
+void intel_disable_drrs(struct drm_device *dev);
 
 /* intel_sdvo.c */
 bool intel_sdvo_init(struct drm_device *dev, uint32_t sdvo_reg, bool is_sdvob);

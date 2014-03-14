@@ -3135,6 +3135,7 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
 
 	mutex_lock(&dev->struct_mutex);
 	intel_update_fbc(dev);
+	intel_update_drrs(dev);
 	intel_edp_psr_update(dev);
 	mutex_unlock(&dev->struct_mutex);
 
@@ -4316,6 +4317,7 @@ static void intel_crtc_enable_planes(struct drm_crtc *crtc)
 	mutex_lock(&dev->struct_mutex);
 	intel_update_fbc(dev);
 	intel_edp_psr_update(dev);
+	intel_update_drrs(dev);
 	mutex_unlock(&dev->struct_mutex);
 }
 
@@ -4612,6 +4614,7 @@ static void ironlake_crtc_disable(struct drm_crtc *crtc)
 	mutex_lock(&dev->struct_mutex);
 	intel_update_fbc(dev);
 	intel_edp_psr_update(dev);
+	intel_update_drrs(dev);
 	mutex_unlock(&dev->struct_mutex);
 }
 
@@ -4660,6 +4663,7 @@ static void haswell_crtc_disable(struct drm_crtc *crtc)
 	mutex_lock(&dev->struct_mutex);
 	intel_update_fbc(dev);
 	intel_edp_psr_update(dev);
+	intel_update_drrs(dev);
 	mutex_unlock(&dev->struct_mutex);
 }
 
@@ -5043,6 +5047,7 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 		encoder->enable(encoder);
 
 	intel_crtc_enable_planes(crtc);
+	intel_update_drrs(dev);
 
 	drm_crtc_vblank_on(crtc);
 
@@ -5120,6 +5125,7 @@ static void i9xx_crtc_enable(struct drm_crtc *crtc)
 
 	intel_crtc_load_lut(crtc);
 
+	intel_update_drrs(dev);
 	intel_update_watermarks(crtc);
 	intel_enable_pipe(intel_crtc);
 
@@ -5225,6 +5231,7 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	mutex_lock(&dev->struct_mutex);
 	intel_update_fbc(dev);
 	intel_edp_psr_update(dev);
+	intel_update_drrs(dev);
 	mutex_unlock(&dev->struct_mutex);
 }
 
@@ -9578,6 +9585,10 @@ static void intel_unpin_work_fn(struct work_struct *__work)
 	drm_gem_object_unreference(&work->pending_flip_obj->base);
 	drm_gem_object_unreference(&work->old_fb_obj->base);
 
+	/* disable current DRRS work scheduled and restart
+	 * to push work by another x seconds
+	 */
+	intel_update_drrs(dev);
 	intel_update_fbc(dev);
 	mutex_unlock(&dev->struct_mutex);
 
@@ -10098,6 +10109,7 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 		goto cleanup_unpin;
 
 	intel_disable_fbc(dev);
+	intel_disable_drrs(dev);
 	intel_mark_fb_busy(obj, NULL);
 	mutex_unlock(&dev->struct_mutex);
 
@@ -12610,6 +12622,7 @@ void intel_modeset_init(struct drm_device *dev)
 
 	/* Just in case the BIOS is doing something questionable. */
 	intel_disable_fbc(dev);
+	intel_disable_drrs(dev);
 
 	drm_modeset_lock_all(dev);
 	intel_modeset_setup_hw_state(dev, false);
@@ -13117,6 +13130,8 @@ void intel_modeset_cleanup(struct drm_device *dev)
 	}
 
 	intel_disable_fbc(dev);
+
+	intel_disable_drrs(dev);
 
 	intel_disable_gt_powersave(dev);
 

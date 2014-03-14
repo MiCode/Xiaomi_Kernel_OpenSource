@@ -640,6 +640,12 @@ struct i915_fbc {
 
 struct i915_drrs {
 	struct intel_connector *connector;
+	bool is_clone;
+	struct intel_drrs_work {
+		struct delayed_work work;
+		struct drm_crtc *crtc;
+		int interval;
+	} *drrs_work;
 };
 
 struct i915_psr {
@@ -2050,6 +2056,7 @@ struct i915_params {
 	bool reset;
 	bool disable_display;
 	bool disable_vtd_wa;
+	int drrs_interval;
 };
 extern struct i915_params i915 __read_mostly;
 
