@@ -182,7 +182,7 @@
 #define clk_bimc_msmbus_a_clk			0x71d1a499
 #define clk_qdss_clk				0x1492202a
 #define clk_qdss_a_clk				0xdd121669
-#define clk_xo_gcc				0x6ac2a778
+#define clk_xo_clk_src				0x23f5649f
 #define clk_xo_a_clk_src			0x2fdd2c7c
 #define clk_xo_otg_clk				0x79bca5cc
 #define clk_xo_a2				0xeba5a83d

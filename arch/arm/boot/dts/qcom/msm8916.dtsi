@@ -244,7 +244,7 @@
 		vdd_dig-supply = <&pm8916_s1_corner>;
 		vdd_sr2_dig-supply = <&pm8916_s1_corner_ao>;
 		vdd_sr2_pll-supply = <&pm8916_l7_ao>;
-		clocks = <&clock_rpm clk_xo_gcc>,
+		clocks = <&clock_rpm clk_xo_clk_src>,
                          <&clock_rpm clk_xo_a_clk_src>;
 		clock-names = "xo", "xo_a";
 		#clock-cells = <1>;
