@@ -401,7 +401,7 @@
 	pnoc_m_0: pnoc-m-0 {
 		cell-id = <10014>;
 		label = "pnoc-m-0";
-		qcom,connections = <&pnoc_snoc_mas>;
+		qcom,connections = <&pnoc_int_0>;
 		qcom,bus-dev = <&fab_pnoc>;
 		qom,buswidth = <8>;
 	};
@@ -686,7 +686,7 @@
 	};
 
 	mas_spdm: mas-spdm {
-		cell-id = <22>;
+		cell-id = <36>;
 		label = "mas-spdm";
 		qcom,connections = <&pnoc_m_0>;
 		qcom,bus-dev = <&fab_pnoc>;
