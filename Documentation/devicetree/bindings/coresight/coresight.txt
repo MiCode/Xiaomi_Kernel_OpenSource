@@ -18,6 +18,7 @@ Required properties:
 	"arm,coresight-funnel" for coresight funnel devices,
 	"arm,coresight-stm" for coresight stm trace device,
 	"arm,coresight-etm" for coresight etm trace devices,
+	"arm,coresight-etmv4" for coresight etmv4 trace devices,
 	"qcom,coresight-csr" for coresight csr device,
 	"arm,coresight-cti" for coresight cti devices,
 	"qcom,coresight-hwevent" for coresight hardware event devices
@@ -70,6 +71,10 @@ Required properties:
 		compatible : should be "arm,coresight-etm"
 		reg-names  : should be:
 			"etm-base" - physical base address of etm registers
+	- for coresight etmv4 trace devices
+		compatible : should be "arm,coresight-etmv4"
+		reg-names  : should be:
+			"etm-base" - physical base address of etmv4 registers
 	- for coresight csr device:
 		compatible : should be "qcom,coresight-csr"
 		reg-names  : should be:

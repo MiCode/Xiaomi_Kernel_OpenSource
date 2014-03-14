@@ -152,6 +152,25 @@ config CORESIGHT_ETM_PCSAVE_DEFAULT_ENABLE
 
 	  If unsure, say 'N' here to avoid potential power penalty.
 
+config CORESIGHT_ETMV4
+	bool "CoreSight Embedded Trace Macrocell v4 driver"
+	help
+	  This driver provides support for processor tracing which allows
+	  tracing the instructions that the processor is executing on ARMv8
+	  architecture. This is primarily useful for instruction level
+	  tracing.
+
+config CORESIGHT_ETMV4_DEFAULT_ENABLE
+	bool "Turn on ETMV4 tracing by default"
+	depends on CORESIGHT_ETMV4
+	help
+	  Turns on CoreSight ETMV4 tracing (processor tracing) by default.
+	  Otherwise, tracing is disabled by default but can be enabled via
+	  sysfs.
+
+	  If unsure, say 'N' here to avoid potential power and performance
+	  penalty.
+
 config CORESIGHT_AUDIO_ETM
 	bool "Audio processor ETM trace support"
 	help
