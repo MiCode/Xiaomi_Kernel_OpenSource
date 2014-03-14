@@ -552,6 +552,12 @@ struct ufs_hba {
 	struct debugfs_files debugfs_files;
 #endif
 	bool is_sys_suspended;
+	/*
+	 * Set this flag to indicate that UNIT ATTENTION condition should be
+	 * explicitly cleared for Device WLUN before issuing commands like
+	 * START STOP UNIT.
+	 */
+	bool wlun_dev_clr_ua;
 };
 
 /* Returns true if clocks can be gated. Otherwise false */
