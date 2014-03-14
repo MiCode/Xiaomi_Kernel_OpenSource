@@ -1,4 +1,5 @@
-/* Copyright (c) 2002,2008-2011,2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2008-2011,2013-2014 The Linux Foundation.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -115,5 +116,14 @@ KGSL_LOG_CRIT(_dev->dev, _dev->pwr_log, fmt, ##args)
 
 #define KGSL_CORE_ERR(fmt, args...) \
 pr_err("kgsl: %s: " fmt, __func__, ##args)
+
+#define KGSL_CORE_ERR_ONCE(fmt, args...) \
+({ \
+	static bool kgsl_core_err_once; \
+	if (!kgsl_core_err_once) { \
+		kgsl_core_err_once = true; \
+		pr_err("kgsl: %s: " fmt, __func__, ##args); \
+	} \
+})
 
 #endif /* __KGSL_LOG_H */
