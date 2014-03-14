@@ -859,9 +859,14 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				pm_runtime_put_sync(phy->dev);
 				return;
 			} else {
-				/* xHCI increments PM child count as needed */
-				dev_dbg(phy->dev, "a_host state entered. Allow runtime suspend.\n");
-				pm_runtime_put_sync(phy->dev);
+				/*
+				 * delay 1s to allow for xHCI to detect
+				 * just-attached devices before allowing
+				 * runtime suspend
+				 */
+				dev_dbg(phy->dev, "a_host state entered\n");
+				delay = VBUS_REG_CHECK_DELAY;
+				work = 1;
 			}
 		}
 		break;
