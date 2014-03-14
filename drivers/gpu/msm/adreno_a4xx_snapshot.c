@@ -305,26 +305,20 @@ static void *a4xx_snapshot_debugbus(struct kgsl_device *device,
 
 static void a4xx_reset_hlsq(struct kgsl_device *device)
 {
-	unsigned long waittime;
-	unsigned int val;
+	unsigned int val, dummy = 0;
 
 	/* reset cp */
 	kgsl_regwrite(device, A4XX_RBBM_BLOCK_SW_RESET_CMD, 1 << 20);
-	waittime = jiffies + 100;
-	while (time_before(jiffies, waittime))
-		;
+	kgsl_regread(device, A4XX_RBBM_BLOCK_SW_RESET_CMD, &dummy);
 
 	/* reset hlsq */
 	kgsl_regwrite(device, A4XX_RBBM_BLOCK_SW_RESET_CMD, 1 << 25);
-	waittime = jiffies + 100;
-	while (time_before(jiffies, waittime))
-		;
+	kgsl_regread(device, A4XX_RBBM_BLOCK_SW_RESET_CMD, &dummy);
 
 	/* clear reset bits */
 	kgsl_regwrite(device, A4XX_RBBM_BLOCK_SW_RESET_CMD, 0);
-	waittime = jiffies + 100;
-	while (time_before(jiffies, waittime))
-		;
+	kgsl_regread(device, A4XX_RBBM_BLOCK_SW_RESET_CMD, &dummy);
+
 
 	/* set HLSQ_TIMEOUT_THRESHOLD.cycle_timeout_limit_sp to 26 */
 	kgsl_regread(device, A4XX_HLSQ_TIMEOUT_THRESHOLD, &val);
