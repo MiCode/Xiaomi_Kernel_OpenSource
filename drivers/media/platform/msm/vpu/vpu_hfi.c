@@ -329,7 +329,7 @@ static void raw_handle_rx_msgs_q(struct vpu_hfi_rxq_info *rxq)
 
 		/* inform firmware that new space available */
 		if ((qhdr->qhdr_tx_req == 1) && (hdevice->vpu_sub_sys))
-			raw_hfi_int_fire((u32)(hdevice->reg_base));
+			raw_hfi_int_fire(hdevice->reg_base);
 
 		if (!more_data)
 			qhdr->qhdr_rx_req = 1;
@@ -482,7 +482,7 @@ static void raw_handle_rx_msgs_poll(struct vpu_hfi_device *hdevice)
 
 			/* inform firmware that new space available */
 			if ((qhdr->qhdr_tx_req == 1) && (hdevice->vpu_sub_sys))
-				raw_hfi_int_fire((u32)(hdevice->reg_base));
+				raw_hfi_int_fire(hdevice->reg_base);
 
 			if (!more_data)
 				qhdr->qhdr_rx_req = 1;
@@ -514,15 +514,15 @@ static int vpu_hfi_boot(struct vpu_hfi_device *hdevice)
 	}
 
 	/* tell VPU the lower 32 bits of IPC mem phy address */
-	raw_hfi_qtbl_paddr_set((u32)(hdevice->reg_base),
+	raw_hfi_qtbl_paddr_set(hdevice->reg_base,
 			(u32)(hdevice->platform_resouce->mem_base_phy));
 
 	/* enable interrupt to VPU */
-	raw_hfi_int_enable((u32)(hdevice->reg_base));
+	raw_hfi_int_enable(hdevice->reg_base);
 
 	/* wait for VPU FW up (poll status register) */
 	timeout = vpu_pil_timeout / 20;
-	while (!raw_hfi_fw_ready((u32)hdevice->reg_base)) {
+	while (!raw_hfi_fw_ready(hdevice->reg_base)) {
 		if (timeout-- <= 0) {
 			/* FW bootup timed out */
 			pr_err("VPU FW bootup timeout\n");
@@ -538,7 +538,7 @@ static int vpu_hfi_boot(struct vpu_hfi_device *hdevice)
 	 * fire one interrupt, in case there might be data in the IPC queue
 	 * already
 	 */
-	raw_hfi_int_fire((u32)(hdevice->reg_base));
+	raw_hfi_int_fire(hdevice->reg_base);
 	return 0;
 }
 
@@ -586,7 +586,7 @@ irqreturn_t _vpu_hfi_ipc_isr(int irq, void *dev)
 	struct vpu_hfi_device *hdevice = dev;
 
 	/* ack the interrupt before handling it */
-	raw_hfi_int_ack((u32)(hdevice->reg_base));
+	raw_hfi_int_ack(hdevice->reg_base);
 
 	/* lock the qtable before checking the queues */
 	spin_lock(&hdevice->qlock);
@@ -745,7 +745,7 @@ static void program_preset_registers(void)
 				pr_debug("Writing offset 0x%08x value 0x%08x\n",
 					vbif_regs->table[i].reg_offset,
 					vbif_regs->table[i].value);
-				raw_hfi_reg_write((u32)hdevice->vbif_base +
+				raw_hfi_reg_write(hdevice->vbif_base +
 						vbif_regs->table[i].reg_offset,
 						vbif_regs->table[i].value);
 			}
@@ -839,9 +839,9 @@ void vpu_hfi_stop(void)
 	free_irq(hdevice->irq_wd, hdevice);
 
 	if (!hdevice->watchdog_bited) {
-		if (!raw_hfi_fw_halted((u32)hdevice->reg_base)) {
+		if (!raw_hfi_fw_halted(hdevice->reg_base)) {
 			msleep(20);
-			if (!raw_hfi_fw_halted((u32)hdevice->reg_base))
+			if (!raw_hfi_fw_halted(hdevice->reg_base))
 				pr_warn("firmware not halted!\n");
 		}
 	}
@@ -1018,7 +1018,7 @@ int vpu_hfi_write_packet_commit(u32 cid, struct vpu_hfi_packet *packet)
 
 	/* generate interrupt no matter if the TX is successful */
 	if (g_hfi_device.vpu_sub_sys)
-		raw_hfi_int_fire((u32)(g_hfi_device.reg_base));
+		raw_hfi_int_fire(g_hfi_device.reg_base);
 
 	return rc;
 }
@@ -1032,7 +1032,7 @@ int vpu_hfi_write_packet_extra_commit(u32 cid, struct vpu_hfi_packet *packet,
 
 	/* generate interrupt no matter if the TX is successful */
 	if (g_hfi_device.vpu_sub_sys)
-		raw_hfi_int_fire((u32)(g_hfi_device.reg_base));
+		raw_hfi_int_fire(g_hfi_device.reg_base);
 
 	return rc;
 }
@@ -1134,7 +1134,7 @@ int vpu_hfi_read_log_data(u32 cid, char *buf, int buf_size)
 
 		/* inform firmware that new space available */
 		if ((qhdr->qhdr_tx_req == 1) && (hdevice->vpu_sub_sys))
-			raw_hfi_int_fire((u32)(hdevice->reg_base));
+			raw_hfi_int_fire(hdevice->reg_base);
 
 		if (!more_data)
 			qhdr->qhdr_rx_req = 1;
@@ -1232,13 +1232,11 @@ static u32 no_write_csr_regs[] = {
 int vpu_hfi_write_csr_reg(u32 off, u32 val)
 {
 	struct vpu_hfi_device *hdevice = &g_hfi_device;
-	u32 v_base = (u32)(hdevice->reg_base);
 	u32 p_base = (u32)(hdevice->platform_resouce->register_base_phy);
-	u32 write_addr = v_base + off;
-	u32 last_addr = v_base + VPU_CSR_LAST_REG;
+	void __iomem *write_addr = hdevice->reg_base + off;
 	int i;
 
-	if (write_addr > last_addr || write_addr < v_base) {
+	if (off > VPU_CSR_LAST_REG) {
 		pr_err("attempting to write outside of addr range\n");
 		return -EFAULT;
 	}
@@ -1272,25 +1270,22 @@ int vpu_hfi_write_csr_reg(u32 off, u32 val)
 int vpu_hfi_dump_csr_regs(char *buf, size_t buf_size)
 {
 	struct vpu_hfi_device *hdevice = &g_hfi_device;
-	u32 v_base = (u32)(hdevice->reg_base);
 	u32 p_base = (u32)(hdevice->platform_resouce->register_base_phy);
-	u32 last_addr = v_base + VPU_CSR_LAST_REG;
-	u32 addr;
+	u32 off;
 	char temp[32];
 	int i = 0, skip = 0, temp_size = 32;
 
 	strlcpy(buf, "", buf_size);
 
 	/* read one at a time. Print 4 registers per line */
-	for (addr = v_base; addr <= last_addr; addr += sizeof(u32)) {
-		if ((addr % 0x10) == 0) {
-			snprintf(temp, temp_size, "@0x%08x -",
-					(addr - v_base + p_base));
+	for (off = 0; off <= VPU_CSR_LAST_REG; off += sizeof(u32)) {
+		if ((off % 0x10) == 0) {
+			snprintf(temp, temp_size, "@0x%08x -", off + p_base);
 			strlcat(buf, temp, buf_size);
 		}
 
-		if ((addr - v_base) >= restricted_csr_addrs[i].start &&
-			(addr - v_base) <= restricted_csr_addrs[i].end) {
+		if (off >= restricted_csr_addrs[i].start &&
+			off <= restricted_csr_addrs[i].end) {
 			skip = 1;
 			snprintf(temp, temp_size, " xxxxxxxxxx");
 			strlcat(buf, temp, buf_size);
@@ -1301,11 +1296,11 @@ int vpu_hfi_dump_csr_regs(char *buf, size_t buf_size)
 			}
 
 			snprintf(temp, temp_size, " 0x%08x",
-					raw_hfi_reg_read(addr));
+				raw_hfi_reg_read(hdevice->reg_base + off));
 			strlcat(buf, temp, buf_size);
 		}
 
-		if ((addr % 0x10) == 0xc) {
+		if ((off % 0x10) == 0xc) {
 			snprintf(temp, temp_size, "\n");
 			strlcat(buf, temp, buf_size);
 		}
