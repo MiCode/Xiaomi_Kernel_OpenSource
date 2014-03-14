@@ -736,6 +736,8 @@ int wcd_mbhc_start(struct wcd_mbhc *mbhc,
 	int rc = 0;
 
 	pr_debug("%s: enter\n", __func__);
+	/* update the mbhc config */
+	mbhc->mbhc_cfg = mbhc_cfg;
 	rc = wcd_mbhc_initialise(mbhc);
 	pr_debug("%s: leave %d\n", __func__, rc);
 	return rc;
