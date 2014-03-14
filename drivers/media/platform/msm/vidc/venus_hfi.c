@@ -1035,8 +1035,7 @@ static int venus_hfi_halt_axi(struct venus_hfi_device *device)
 	venus_hfi_write_register(device, VENUS_VBIF_AXI_HALT_CTRL0, reg, 0);
 
 	/* Request for AXI bus port halt */
-	rc = readl_poll_timeout(
-			(unsigned long)device->hal_data->register_base_addr
+	rc = readl_poll_timeout(device->hal_data->register_base_addr
 			+ VENUS_VBIF_AXI_HALT_CTRL1,
 			reg, reg & VENUS_VBIF_AXI_HALT_CTRL1_HALT_ACK,
 			POLL_INTERVAL_US,
