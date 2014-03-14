@@ -34,6 +34,12 @@ struct msm_memory_dump {
 
 static struct msm_memory_dump memdump;
 
+uint32_t msm_dump_table_version(void)
+{
+	return MSM_DUMP_TABLE_VERSION;
+}
+EXPORT_SYMBOL(msm_dump_table_version);
+
 static int msm_dump_table_register(struct msm_dump_entry *entry)
 {
 	struct msm_dump_entry *e;

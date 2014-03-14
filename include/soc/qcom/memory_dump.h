@@ -46,6 +46,15 @@ static inline int msm_dump_tbl_register(struct msm_client_dump *entry)
 #endif
 
 
+#if defined(CONFIG_MSM_MEMORY_DUMP) || defined(CONFIG_MSM_MEMORY_DUMP_V2)
+extern uint32_t msm_dump_table_version(void);
+#else
+static inline uint32_t msm_dump_table_version(void)
+{
+	return 0;
+}
+#endif
+
 #define MSM_DUMP_MAKE_VERSION(ma, mi)	((ma << 20) | mi)
 #define MSM_DUMP_MAJOR(val)		(val >> 20)
 #define MSM_DUMP_MINOR(val)		(val & 0xFFFFF)
