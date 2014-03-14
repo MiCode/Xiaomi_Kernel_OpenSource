@@ -199,6 +199,8 @@ struct msm_slim_endp {
 struct msm_slim_qmi {
 	struct qmi_handle		*handle;
 	struct task_struct		*task;
+	struct task_struct		*slave_thread;
+	struct completion		slave_notify;
 	struct kthread_work		kwork;
 	struct kthread_worker		kworker;
 	struct completion		qmi_comp;
@@ -257,7 +259,6 @@ struct msm_slim_ctrl {
 	struct completion	ctrl_up;
 	int			nsats;
 	u32			ver;
-	struct work_struct	slave_notify;
 	struct msm_slim_qmi	qmi;
 	struct msm_slim_pdata	pdata;
 	struct msm_slim_mdm	mdm;
