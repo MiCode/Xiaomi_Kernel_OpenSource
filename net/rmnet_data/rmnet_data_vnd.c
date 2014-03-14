@@ -480,8 +480,6 @@ static void rmnet_vnd_setup(struct net_device *dev)
 	dev_conf = (struct rmnet_vnd_private_s *) netdev_priv(dev);
 	memset(dev_conf, 0, sizeof(struct rmnet_vnd_private_s));
 
-	/* keep the default flags, just add NOARP */
-	dev->flags |= IFF_NOARP;
 	dev->netdev_ops = &rmnet_data_vnd_ops;
 	dev->mtu = RMNET_DATA_DFLT_PACKET_SIZE;
 	dev->needed_headroom = RMNET_DATA_NEEDED_HEADROOM;
