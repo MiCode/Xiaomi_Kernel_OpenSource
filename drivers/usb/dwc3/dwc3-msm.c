@@ -105,6 +105,7 @@ MODULE_PARM_DESC(usb_lpm_override, "Override no_suspend_resume with USB");
 #define SS_CR_PROTOCOL_WRITE_REG    (QSCRATCH_REG_OFFSET + 0x50)
 #define PWR_EVNT_IRQ_STAT_REG    (QSCRATCH_REG_OFFSET + 0x58)
 #define PWR_EVNT_IRQ_MASK_REG    (QSCRATCH_REG_OFFSET + 0x5C)
+#define HS_PHY_CTRL_COMMON_REG	(QSCRATCH_REG_OFFSET + 0xEC)
 
 /* TZ SCM parameters */
 #define DWC3_MSM_RESTORE_SCM_CFG_CMD 0x2

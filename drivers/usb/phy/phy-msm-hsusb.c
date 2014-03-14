@@ -68,6 +68,7 @@ MODULE_PARM_DESC(override_phy_init, "Override HSPHY Init Seq");
 #define FREECLOCK_SEL			BIT(29)
 
 /* HS_PHY_CTRL_COMMON_REG bits used when core_ver >= MSM_CORE_VER_120 */
+#define COMMON_PLLITUNE_1		BIT(18)
 #define COMMON_PLLBTUNE		BIT(15)
 #define COMMON_CLKCORE			BIT(14)
 #define COMMON_VBUSVLDEXTSEL0		BIT(12)
@@ -350,7 +351,11 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 					(OTGDISABLE0 | USB2_SUSPEND_N_SEL |
 					 USB2_SUSPEND_N),
 					(OTGDISABLE0 | USB2_SUSPEND_N_SEL));
-			if (!chg_connected)
+			/*
+			 * Enable PHY retention
+			 * RETENABLEN bit is not available on few platforms.
+			 */
+			if (!chg_connected && !phy->set_pllbtune)
 				/* Enable PHY retention */
 				msm_usb_write_readback(phy->base,
 							HS_PHY_CTRL_REG,
@@ -407,8 +412,16 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 							DPDMHV_INT_MASK, 0);
 		} else {
 			/* Disable PHY retention */
-			msm_usb_write_readback(phy->base, HS_PHY_CTRL_REG,
+			if (phy->set_pllbtune) {
+				msm_usb_write_readback(phy->base,
+						HS_PHY_CTRL_COMMON_REG,
+						COMMON_PLLITUNE_1, 0);
+			} else {
+				msm_usb_write_readback(phy->base,
+						HS_PHY_CTRL_REG,
 						RETENABLEN, RETENABLEN);
+			}
+
 			/* Bring PHY out of suspend */
 			msm_usb_write_readback(phy->base, HS_PHY_CTRL_REG,
 						(OTGDISABLE0 |
