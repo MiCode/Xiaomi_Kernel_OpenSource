@@ -212,6 +212,9 @@ static int boost_migration_notify(struct notifier_block *nb,
 		return NOTIFY_OK;
 	}
 
+	if (!load_based_syncs && (mnd->src_cpu == mnd->dest_cpu))
+		return NOTIFY_OK;
+
 	if (!boost_ms)
 		return NOTIFY_OK;
 
