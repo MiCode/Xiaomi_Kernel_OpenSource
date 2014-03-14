@@ -2503,6 +2503,9 @@ static void dwc3_gadget_usb2_phy_suspend(struct dwc3 *dwc, int suspend)
 {
 	u32			reg;
 
+	if (dwc->hsphy_auto_suspend_disable)
+		return;
+
 	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
 
 	if (suspend)

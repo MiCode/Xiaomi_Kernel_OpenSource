@@ -80,6 +80,9 @@ static void dwc3_otg_set_hsphy_auto_suspend(struct dwc3_otg *dotg, bool susp)
 	struct dwc3 *dwc = dotg->dwc;
 	u32 reg;
 
+	if (dotg->dwc->hsphy_auto_suspend_disable)
+		return;
+
 	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
 	if (susp)
 		reg |= DWC3_GUSB2PHYCFG_SUSPHY;
