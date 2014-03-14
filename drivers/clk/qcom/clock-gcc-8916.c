@@ -233,6 +233,7 @@ static void __iomem *virt_bases[N_BASES];
 
 /* Mux source select values */
 #define xo_source_val			0
+#define xo_a_source_val			0
 #define gpll0_source_val		1
 #define gpll0_aux_source_val		3
 #define gpll1_source_val		1
@@ -362,7 +363,7 @@ static struct pll_clk a53sspll = {
 	},
 	.base = &virt_bases[APCS_PLL_BASE],
 	.c = {
-		.parent = &xo_clk_src.c,
+		.parent = &xo_a_clk_src.c,
 		.dbg_name = "a53sspll",
 		.ops = &clk_ops_sr2_pll,
 		.vdd_class = &vdd_sr2_pll,
@@ -461,7 +462,7 @@ static struct pll_vote_clk gpll2_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_apss_ahb_clk[] = {
-	F(  19200000,	      xo,   1,	  0,	0),
+	F(  19200000,	    xo_a,   1,	  0,	0),
 	F(  50000000,	   gpll0,  16,	  0,	0),
 	F(  100000000,	   gpll0,   8,	  0,	0),
 	F(  133330000,	   gpll0,   6,	  0,	0),
