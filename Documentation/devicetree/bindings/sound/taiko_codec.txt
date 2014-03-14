@@ -88,6 +88,9 @@ Optional properties:
 
  - qcom,cdc-micbias2-headset-only: Boolean. Allow micbias 2 only to headset mic.
 
+ - qcom,cdc-variant: Indicates codec variant, WCD9XXX indicates all codecs till Taiko
+			WCD9330 indicates wcd9330 audio codec
+
 Example:
 
 taiko_codec {
