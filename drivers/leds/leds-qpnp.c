@@ -215,6 +215,26 @@
 
 #define MPP_SOURCE_DTEST1		0x08
 
+#define GPIO_MAX_LEVEL			LED_FULL
+#define LED_GPIO_MODE_CTRL(base)	(base + 0x40)
+#define LED_GPIO_VIN_CTRL(base)		(base + 0x41)
+#define LED_GPIO_EN_CTRL(base)		(base + 0x46)
+
+#define LED_GPIO_VIN_CTRL_DEFAULT	0
+#define LED_GPIO_SOURCE_SEL_DEFAULT	LED_GPIO_MODE_ENABLE
+
+#define LED_GPIO_MODE_MASK		0x3F
+#define LED_GPIO_VIN_MASK		0x0F
+#define LED_GPIO_EN_MASK		0x80
+#define LED_GPIO_SRC_MASK		0x0F
+#define LED_GPIO_MODE_CTRL_MASK		0x30
+
+#define LED_GPIO_MODE_ENABLE	0x01
+#define LED_GPIO_MODE_DISABLE	0x00
+#define LED_GPIO_MODE_OUTPUT		0x10
+#define LED_GPIO_EN_ENABLE		0x80
+#define LED_GPIO_EN_DISABLE		0x00
+
 #define KPDBL_MAX_LEVEL			LED_FULL
 #define KPDBL_ROW_SRC_SEL(base)		(base + 0x40)
 #define KPDBL_ENABLE(base)		(base + 0x46)
@@ -241,6 +261,7 @@ enum qpnp_leds {
 	QPNP_ID_RGB_BLUE,
 	QPNP_ID_LED_MPP,
 	QPNP_ID_KPDBL,
+	QPNP_ID_LED_GPIO,
 	QPNP_ID_MAX,
 };
 
@@ -313,6 +334,10 @@ static u8 mpp_debug_regs[] = {
 
 static u8 kpdbl_debug_regs[] = {
 	0x40, 0x46, 0xb1, 0xb3, 0xb4, 0xe5,
+};
+
+static u8 gpio_debug_regs[] = {
+	0x40, 0x41, 0x42, 0x45, 0x46,
 };
 
 /**
@@ -474,6 +499,20 @@ struct rgb_config_data {
 };
 
 /**
+ *  gpio_config_data - gpio configuration data
+ *  @source_sel - source selection
+ *  @mode_ctrl - mode control
+ *  @vin_ctrl - input control
+ *  @enable - flag indicating LED on or off
+ */
+struct gpio_config_data {
+	u8	source_sel;
+	u8	mode_ctrl;
+	u8	vin_ctrl;
+	bool	enable;
+};
+
+/**
  * struct qpnp_led_data - internal led data structure
  * @led_classdev - led class device
  * @delayed_work - delayed work for turning off the LED
@@ -502,6 +541,7 @@ struct qpnp_led_data {
 	struct kpdbl_config_data	*kpdbl_cfg;
 	struct rgb_config_data	*rgb_cfg;
 	struct mpp_config_data	*mpp_cfg;
+	struct gpio_config_data	*gpio_cfg;
 	int			max_current;
 	bool			default_on;
 	int			turn_off_delay_ms;
@@ -987,6 +1027,69 @@ err_reg_enable:
 		regulator_set_voltage(led->mpp_cfg->mpp_reg, 0,
 							led->mpp_cfg->max_uV);
 	led->mpp_cfg->enable = false;
+
+	return rc;
+}
+
+static int qpnp_gpio_set(struct qpnp_led_data *led)
+{
+	int rc, val;
+
+	if (led->cdev.brightness) {
+		val = (led->gpio_cfg->source_sel & LED_GPIO_SRC_MASK) |
+			(led->gpio_cfg->mode_ctrl & LED_GPIO_MODE_CTRL_MASK);
+
+		rc = qpnp_led_masked_write(led,
+			 LED_GPIO_MODE_CTRL(led->base),
+			 LED_GPIO_MODE_MASK,
+			 val);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+					"Failed to write led mode reg\n");
+			goto err_gpio_reg_write;
+		}
+
+		rc = qpnp_led_masked_write(led,
+			 LED_GPIO_EN_CTRL(led->base),
+			 LED_GPIO_EN_MASK,
+			 LED_GPIO_EN_ENABLE);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+					"Failed to write led enable reg\n");
+			goto err_gpio_reg_write;
+		}
+
+		led->gpio_cfg->enable = true;
+	} else {
+		rc = qpnp_led_masked_write(led,
+				LED_GPIO_MODE_CTRL(led->base),
+				LED_GPIO_MODE_MASK,
+				LED_GPIO_MODE_DISABLE);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+					"Failed to write led mode reg\n");
+			goto err_gpio_reg_write;
+		}
+
+		rc = qpnp_led_masked_write(led,
+				LED_GPIO_EN_CTRL(led->base),
+				LED_GPIO_EN_MASK,
+				LED_GPIO_EN_DISABLE);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+					"Failed to write led enable reg\n");
+			goto err_gpio_reg_write;
+		}
+
+		led->gpio_cfg->enable = false;
+	}
+
+	qpnp_dump_regs(led, gpio_debug_regs, ARRAY_SIZE(gpio_debug_regs));
+
+	return 0;
+
+err_gpio_reg_write:
+	led->gpio_cfg->enable = false;
 
 	return rc;
 }
@@ -1633,6 +1736,13 @@ static void __qpnp_led_work(struct qpnp_led_data *led,
 			dev_err(&led->spmi_dev->dev,
 					"MPP set brightness failed (%d)\n", rc);
 		break;
+	case QPNP_ID_LED_GPIO:
+		rc = qpnp_gpio_set(led);
+		if (rc < 0)
+			dev_err(&led->spmi_dev->dev,
+					"GPIO set brightness failed (%d)\n",
+					rc);
+		break;
 	case QPNP_ID_KPDBL:
 		rc = qpnp_kpdbl_set(led);
 		if (rc < 0)
@@ -1677,6 +1787,9 @@ static int qpnp_led_set_max_brightness(struct qpnp_led_data *led)
 			led->cdev.max_brightness = led->max_current;
 		else
 			led->cdev.max_brightness = MPP_MAX_LEVEL;
+		break;
+	case QPNP_ID_LED_GPIO:
+			led->cdev.max_brightness = led->max_current;
 		break;
 	case QPNP_ID_KPDBL:
 		led->cdev.max_brightness = KPDBL_MAX_LEVEL;
@@ -2723,6 +2836,21 @@ static int qpnp_mpp_init(struct qpnp_led_data *led)
 	return 0;
 }
 
+static int qpnp_gpio_init(struct qpnp_led_data *led)
+{
+	int rc;
+
+	rc = qpnp_led_masked_write(led, LED_GPIO_VIN_CTRL(led->base),
+		LED_GPIO_VIN_MASK, led->gpio_cfg->vin_ctrl);
+	if (rc) {
+		dev_err(&led->spmi_dev->dev,
+			"Failed to write led vin control reg\n");
+		return rc;
+	}
+
+	return 0;
+}
+
 static int qpnp_led_initialize(struct qpnp_led_data *led)
 {
 	int rc = 0;
@@ -2754,6 +2882,12 @@ static int qpnp_led_initialize(struct qpnp_led_data *led)
 		if (rc)
 			dev_err(&led->spmi_dev->dev,
 				"MPP initialize failed(%d)\n", rc);
+		break;
+	case QPNP_ID_LED_GPIO:
+		rc = qpnp_gpio_init(led);
+		if (rc)
+			dev_err(&led->spmi_dev->dev,
+				"GPIO initialize failed(%d)\n", rc);
 		break;
 	case QPNP_ID_KPDBL:
 		rc = qpnp_kpdbl_init(led);
@@ -3477,6 +3611,46 @@ err_config_mpp:
 	return rc;
 }
 
+static int qpnp_get_config_gpio(struct qpnp_led_data *led,
+		struct device_node *node)
+{
+	int rc;
+	u32 val;
+
+	led->gpio_cfg = devm_kzalloc(&led->spmi_dev->dev,
+			sizeof(struct gpio_config_data), GFP_KERNEL);
+	if (!led->gpio_cfg) {
+		dev_err(&led->spmi_dev->dev, "Unable to allocate memory gpio struct\n");
+		return -ENOMEM;
+	}
+
+	led->gpio_cfg->source_sel = LED_GPIO_SOURCE_SEL_DEFAULT;
+	rc = of_property_read_u32(node, "qcom,source-sel", &val);
+	if (!rc)
+		led->gpio_cfg->source_sel = (u8) val;
+	else if (rc != -EINVAL)
+		goto err_config_gpio;
+
+	led->gpio_cfg->mode_ctrl = LED_GPIO_MODE_OUTPUT;
+	rc = of_property_read_u32(node, "qcom,mode-ctrl", &val);
+	if (!rc)
+		led->gpio_cfg->mode_ctrl = (u8) val;
+	else if (rc != -EINVAL)
+		goto err_config_gpio;
+
+	led->gpio_cfg->vin_ctrl = LED_GPIO_VIN_CTRL_DEFAULT;
+	rc = of_property_read_u32(node, "qcom,vin-ctrl", &val);
+	if (!rc)
+		led->gpio_cfg->vin_ctrl = (u8) val;
+	else if (rc != -EINVAL)
+		goto err_config_gpio;
+
+	return 0;
+
+err_config_gpio:
+	return rc;
+}
+
 static int qpnp_leds_probe(struct spmi_device *spmi)
 {
 	struct qpnp_led_data *led, *led_array;
@@ -3587,6 +3761,13 @@ static int qpnp_leds_probe(struct spmi_device *spmi)
 			if (rc < 0) {
 				dev_err(&led->spmi_dev->dev,
 						"Unable to read mpp config data\n");
+				goto fail_id_check;
+			}
+		} else if (strcmp(led_label, "gpio") == 0) {
+			rc = qpnp_get_config_gpio(led, temp);
+			if (rc < 0) {
+				dev_err(&led->spmi_dev->dev,
+						"Unable to read gpio config data\n");
 				goto fail_id_check;
 			}
 		} else if (strncmp(led_label, "kpdbl", sizeof("kpdbl")) == 0) {
