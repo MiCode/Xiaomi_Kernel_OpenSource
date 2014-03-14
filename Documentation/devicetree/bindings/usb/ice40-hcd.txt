@@ -1,0 +1,45 @@
+ICE40 FPGA based SPI-USB bridge
+
+Documentation/devicetree/bindings/spi/spi-bus.txt provides the details
+of the required and optional properties of a SPI slave device node.
+
+The purpose of this document is to provide the additional properties
+that are required to use the ICE40 FPGA based SPI slave device as a
+USB host controller.
+
+Required properties:
+- compatible : should be "lattice,ice40-spi-usb"
+- <supply-name>-supply: handle to the regulator device tree node
+  Required "supply-name" is "core-vcc" and "spi-vcc"
+- reset-gpio: gpio used to assert the bridge chip reset
+- slave-select-gpio: gpio used to select the slave during configuration
+  loading
+- config-done-gpio: gpio used to indicate the configuration status
+- vcc-en-gpio: gpio used to enable the chip power supply
+
+Optional properties:
+- interrupts: IRQ lines used by this controller
+- clk-en-gpio: gpio used to enable the 19.2 MHZ clock to the bridge
+  chip. If it is not present, assume that the clock is available on
+  the bridge chip board.
+- <supply-name>-supply: handle to the regulator device tree node
+  Optional "supply-name" is "gpio" used to power up the gpio bank
+  used by this device
+
+	spi@f9923000 {
+		lattice,spi-usb@3 {
+			compatible = "lattice,ice40-spi-usb";
+			reg = <3>;
+			spi-max-frequency = <50000000>;
+			spi-cpol = <1>;
+			spi-cpha = <1>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <121 0x8>;
+			core-vcc-supply = <&pm8226_l2>;
+			spi-vcc-supply = <&pm8226_l5>;
+			lattice,reset-gpio = <&msmgpio 114 0>;
+			lattice,slave-select-gpio = <&msmgpio 118 0>;
+			lattice,config-done-gpio = <&msmgpio 115 0>;
+			lattice,vcc-en-gpio = <&msmgpio 117 0>;
+		};
+	};

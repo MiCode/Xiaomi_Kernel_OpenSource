@@ -693,3 +693,16 @@ config USB_OCTEON_OHCI
 config USB_OCTEON2_COMMON
 	bool
 	default y if USB_OCTEON_EHCI || USB_OCTEON_OHCI
+
+config USB_ICE40_HCD
+	tristate "ICE40 FPGA based SPI to Inter-Chip USB host controller"
+	depends on USB && SPI
+	help
+	  A driver for ICE40 FPGA based SPI to Inter-Chip USB host
+	  controller. This driver registers as a SPI protocol driver
+	  and interacts with the SPI subsystem on one side and interacts
+	  with the USB core on the other side. Control and Bulk transfers
+	  are supported.
+
+	  To compile this driver a module, choose M here: the module
+	  will be called "ice40-hcd".
