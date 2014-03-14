@@ -26,7 +26,7 @@ struct link_node {
 	int next;
 	struct device *next_dev;
 	struct list_head link;
-	uint32_t free;
+	uint32_t in_use;
 };
 
 /* New types introduced for adhoc topology */
@@ -99,6 +99,8 @@ int msm_bus_update_clks(struct msm_bus_node_device_type *nodedev,
 int msm_bus_commit_data(int *dirty_nodes, int ctx, int num_dirty);
 int msm_bus_update_bw(struct msm_bus_node_device_type *nodedev, int ctx,
 	int64_t add_bw, int **dirty_nodes, int *num_dirty);
+void *msm_bus_realloc_devmem(struct device *dev, void *p, size_t old_size,
+					size_t new_size, gfp_t flags);
 
 extern struct msm_bus_device_node_registration
 	*msm_bus_of_to_pdata(struct platform_device *pdev);

@@ -21,6 +21,7 @@
 #include "msm_bus_adhoc.h"
 
 #define NUM_CL_HANDLES	50
+#define NUM_LNODES	3
 
 struct bus_search_type {
 	struct list_head link;
@@ -91,14 +92,15 @@ static int gen_lnode(struct device *dev,
 
 	if (!cur_dev->num_lnodes) {
 		cur_dev->lnode_list = devm_kzalloc(dev,
-				sizeof(struct link_node), GFP_KERNEL);
+				sizeof(struct link_node) * NUM_LNODES,
+								GFP_KERNEL);
 		lnode = cur_dev->lnode_list;
-		cur_dev->num_lnodes++;
+		cur_dev->num_lnodes = NUM_LNODES;
 		lnode_idx = 0;
 	} else {
 		int i;
 		for (i = 0; i < cur_dev->num_lnodes; i++) {
-			if (cur_dev->lnode_list[i].free)
+			if (!cur_dev->lnode_list[i].in_use)
 				break;
 		}
 
@@ -107,17 +109,27 @@ static int gen_lnode(struct device *dev,
 			lnode_idx = i;
 		} else {
 			struct link_node *realloc_list;
-			cur_dev->num_lnodes++;
-			realloc_list = krealloc(cur_dev->lnode_list,
+			size_t cur_size = sizeof(struct link_node) *
+					cur_dev->num_lnodes;
+
+			cur_dev->num_lnodes += NUM_LNODES;
+			realloc_list = msm_bus_realloc_devmem(
+					dev,
+					cur_dev->lnode_list,
+					cur_size,
 					sizeof(struct link_node) *
 					cur_dev->num_lnodes, GFP_KERNEL);
+
+			if (!realloc_list)
+				goto exit_gen_lnode;
+
 			cur_dev->lnode_list = realloc_list;
-			lnode = &cur_dev->lnode_list[(cur_dev->num_lnodes - 1)];
-			lnode_idx = (cur_dev->num_lnodes - 1);
+			lnode = &cur_dev->lnode_list[i];
+			lnode_idx = i;
 		}
 	}
 
-	lnode->free = 0;
+	lnode->in_use = 1;
 	if (next_hop == cur_dev->node_info->id) {
 		lnode->next = -1;
 		lnode->next_dev = NULL;
@@ -157,7 +169,7 @@ static int remove_lnode(struct msm_bus_node_device_type *cur_dev,
 
 		cur_dev->lnode_list[lnode_idx].next = -1;
 		cur_dev->lnode_list[lnode_idx].next_dev = NULL;
-		cur_dev->lnode_list[lnode_idx].free = 1;
+		cur_dev->lnode_list[lnode_idx].in_use = 0;
 	}
 
 exit_remove_lnode:

@@ -281,6 +281,33 @@ int msm_bus_commit_data(int *dirty_nodes, int ctx, int num_dirty)
 	return ret;
 }
 
+void *msm_bus_realloc_devmem(struct device *dev, void *p, size_t old_size,
+					size_t new_size, gfp_t flags)
+{
+	void *ret;
+	size_t copy_size = old_size;
+
+	if (!new_size) {
+		devm_kfree(dev, p);
+		return ZERO_SIZE_PTR;
+	}
+
+	if (new_size < old_size)
+		copy_size = new_size;
+
+	ret = devm_kzalloc(dev, new_size, flags);
+	if (!ret) {
+		MSM_BUS_ERR("%s: Error Reallocating memory", __func__);
+		goto exit_realloc_devmem;
+	}
+
+	memcpy(ret, p, copy_size);
+	devm_kfree(dev, p);
+exit_realloc_devmem:
+	return ret;
+}
+
+
 static int add_dirty_node(int **dirty_nodes, int id, int *num_dirty)
 {
 	int i;
