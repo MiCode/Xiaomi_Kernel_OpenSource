@@ -513,8 +513,10 @@ static int _smem_log_init(void)
 					     sizeof(uint32_t),
 					     0,
 					     SMEM_ANY_HOST_FLAG);
-	if (!inst[GEN].events || !inst[GEN].idx)
-		pr_info("%s: no log or log_idx allocated\n", __func__);
+	if (IS_ERR_OR_NULL(inst[GEN].events) || IS_ERR_OR_NULL(inst[GEN].idx)) {
+		pr_err("%s: no log or log_idx allocated\n", __func__);
+		return -ENODEV;
+	}
 
 	inst[GEN].num = SMEM_LOG_NUM_ENTRIES;
 	inst[GEN].read_idx = 0;
