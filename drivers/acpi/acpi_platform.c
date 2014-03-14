@@ -131,6 +131,7 @@ int acpi_create_platform_device(struct acpi_device *adev,
 	kfree(resources);
 	return 1;
 }
+EXPORT_SYMBOL_GPL(acpi_create_platform_device);
 
 static struct acpi_scan_handler platform_handler = {
 	.ids = acpi_platform_device_ids,
