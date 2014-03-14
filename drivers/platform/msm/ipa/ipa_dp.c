@@ -922,26 +922,33 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 
 	ep = &ipa_ctx->ep[ipa_ep_idx];
 
+	ipa_inc_client_enable_clks();
+
 	if (ep->valid == 1) {
 		if (sys_in->client != IPA_CLIENT_APPS_LAN_WAN_PROD) {
 			IPAERR("EP already allocated.\n");
-			goto fail_gen;
+			goto fail_and_disable_clocks;
 		} else {
 			if (ipa_cfg_ep_hdr(ipa_ep_idx,
 						&sys_in->ipa_ep_cfg.hdr)) {
 				IPAERR("fail to configure hdr prop of EP.\n");
-				return -EFAULT;
+				result = -EFAULT;
+				goto fail_and_disable_clocks;
 			}
 			if (ipa_cfg_ep_cfg(ipa_ep_idx,
 						&sys_in->ipa_ep_cfg.cfg)) {
 				IPAERR("fail to configure cfg prop of EP.\n");
-				return -EFAULT;
+				result = -EFAULT;
+				goto fail_and_disable_clocks;
 			}
 			IPADBG("client %d (ep: %d) overlay ok sys=%p\n",
 					sys_in->client, ipa_ep_idx, ep->sys);
 			ep->client_notify = sys_in->notify;
 			ep->priv = sys_in->priv;
 			*clnt_hdl = ipa_ep_idx;
+			if (!ep->keep_ipa_awake)
+				ipa_dec_client_disable_clks();
+
 			return 0;
 		}
 	}
@@ -952,7 +959,7 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	if (!ep->sys) {
 		IPAERR("failed to sys ctx for client %d\n", sys_in->client);
 		result = -ENOMEM;
-		goto fail_gen;
+		goto fail_and_disable_clocks;
 	}
 
 	snprintf(buff, IPA_RESOURCE_NAME_MAX, "ipawq%d", sys_in->client);
@@ -975,6 +982,7 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	ep->client = sys_in->client;
 	ep->client_notify = sys_in->notify;
 	ep->priv = sys_in->priv;
+	ep->keep_ipa_awake = sys_in->keep_ipa_awake;
 	ep->avail_fifo_desc =
 		((sys_in->desc_fifo_sz/sizeof(struct sps_iovec))-1);
 	INIT_LIST_HEAD(&ep->sys->head_desc_list);
@@ -1081,6 +1089,9 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	if (!ep->skip_ep_cfg && IPA_CLIENT_IS_PROD(sys_in->client))
 		ipa_install_dflt_flt_rules(ipa_ep_idx);
 
+	if (!ep->keep_ipa_awake)
+		ipa_dec_client_disable_clks();
+
 	ipa_ctx->skip_ep_cfg_shadow[ipa_ep_idx] = ep->skip_ep_cfg;
 	IPADBG("client %d (ep: %d) connected sys=%p\n", sys_in->client,
 			ipa_ep_idx, ep->sys);
@@ -1100,6 +1111,8 @@ fail_gen2:
 fail_wq:
 	kfree(ep->sys);
 	memset(&ipa_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa_ep_context));
+fail_and_disable_clocks:
+	ipa_dec_client_disable_clks();
 fail_gen:
 	return result;
 }
@@ -1120,6 +1133,8 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
+	ipa_inc_client_enable_clks();
+
 	ep = &ipa_ctx->ep[clnt_hdl];
 
 	if (IPA_CLIENT_IS_CONS(ep->client))
@@ -1135,6 +1150,8 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 	kfree(ep->sys);
 	ipa_delete_dflt_flt_rules(clnt_hdl);
 	memset(ep, 0, sizeof(struct ipa_ep_context));
+
+	ipa_dec_client_disable_clks();
 
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
 

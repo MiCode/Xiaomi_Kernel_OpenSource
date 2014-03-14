@@ -223,6 +223,247 @@ static struct msm_bus_scale_pdata ipa_bus_client_pdata_v2_0 = {
 	.name = "ipa",
 };
 
+/**
+ * ipa_get_clients_from_rm_resource() - get IPA clients which are related to an
+ * IPA_RM resource
+ *
+ * @resource: [IN] IPA Resource Manager resource
+ * @clients: [OUT] Empty array which will contain the list of clients. The
+ *         caller must initialize this array.
+ *
+ * Return codes: 0 on success, negative on failure.
+ */
+int ipa_get_clients_from_rm_resource(
+	enum ipa_rm_resource_name resource,
+	struct ipa_client_names *clients)
+{
+	int i = 0;
+
+	if (resource < 0 ||
+	    resource >= IPA_RM_RESOURCE_MAX ||
+	    !clients) {
+		IPAERR("Bad parameters\n");
+		return -EINVAL;
+	}
+
+	switch (resource) {
+	case IPA_RM_RESOURCE_USB_CONS:
+		clients->names[i++] = IPA_CLIENT_USB_CONS;
+		clients->names[i++] = IPA_CLIENT_USB2_CONS;
+		clients->names[i++] = IPA_CLIENT_USB3_CONS;
+		clients->names[i++] = IPA_CLIENT_USB4_CONS;
+		clients->length = i;
+		break;
+	case IPA_RM_RESOURCE_WLAN_CONS:
+		clients->names[i++] = IPA_CLIENT_WLAN1_CONS;
+		clients->names[i++] = IPA_CLIENT_WLAN2_CONS;
+		clients->names[i++] = IPA_CLIENT_WLAN3_CONS;
+		clients->names[i++] = IPA_CLIENT_WLAN4_CONS;
+		clients->length = i;
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+/**
+ * ipa_should_pipe_be_suspended() - returns true when the client's pipe should
+ * be suspended during a power save scenario. False otherwise.
+ *
+ * @client: [IN] IPA client
+ */
+bool ipa_should_pipe_be_suspended(enum ipa_client_type client)
+{
+	struct ipa_ep_context *ep;
+	int ipa_ep_idx;
+
+	ipa_ep_idx = ipa_get_ep_mapping(client);
+	if (ipa_ep_idx == -1) {
+		IPAERR("Invalid client.\n");
+		WARN_ON(1);
+		return false;
+	}
+
+	ep = &ipa_ctx->ep[ipa_ep_idx];
+
+	if (ep->keep_ipa_awake)
+		return false;
+
+	if (client == IPA_CLIENT_USB_CONS   ||
+	    client == IPA_CLIENT_USB2_CONS  ||
+	    client == IPA_CLIENT_USB3_CONS  ||
+	    client == IPA_CLIENT_USB4_CONS  ||
+	    client == IPA_CLIENT_WLAN1_CONS ||
+	    client == IPA_CLIENT_WLAN2_CONS ||
+	    client == IPA_CLIENT_WLAN3_CONS ||
+	    client == IPA_CLIENT_WLAN4_CONS)
+		return true;
+
+	return false;
+}
+
+/**
+ * ipa_suspend_resource_sync() - suspend client endpoints related to the IPA_RM
+ * resource and decrement active clients counter, which may result in clock
+ * gating of IPA clocks.
+ *
+ * @resource: [IN] IPA Resource Manager resource
+ *
+ * Return codes: 0 on success, negative on failure.
+ */
+int ipa_suspend_resource_sync(enum ipa_rm_resource_name resource)
+{
+	struct ipa_client_names clients;
+	int res;
+	int index;
+	struct ipa_ep_cfg_ctrl suspend;
+	enum ipa_client_type client;
+	int ipa_ep_idx;
+	bool pipe_suspended = false;
+
+	memset(&clients, 0, sizeof(clients));
+	res = ipa_get_clients_from_rm_resource(resource, &clients);
+	if (res) {
+		IPAERR("Bad params.\n");
+		return res;
+	}
+
+	for (index = 0; index < clients.length; index++) {
+		client = clients.names[index];
+		ipa_ep_idx = ipa_get_ep_mapping(client);
+		if (ipa_ep_idx == -1) {
+			IPAERR("Invalid client.\n");
+			res = -EINVAL;
+			continue;
+		}
+		if (ipa_should_pipe_be_suspended(client) &&
+		    ipa_ctx->ep[ipa_ep_idx].valid) {
+			/* suspend endpoint */
+			memset(&suspend, 0, sizeof(suspend));
+			suspend.ipa_ep_suspend = true;
+			ipa_cfg_ep_ctrl(ipa_ep_idx, &suspend);
+			pipe_suspended = true;
+		}
+	}
+	/* Sleep ~1 msec */
+	if (pipe_suspended)
+		usleep_range(1000, 2000);
+
+	ipa_dec_client_disable_clks();
+
+	return 0;
+}
+
+/**
+ * ipa_suspend_resource_no_block() - suspend client endpoints related to the
+ * IPA_RM resource and decrement active clients counter. This function is
+ * guaranteed to avoid sleeping.
+ *
+ * @resource: [IN] IPA Resource Manager resource
+ *
+ * Return codes: 0 on success, negative on failure.
+ */
+int ipa_suspend_resource_no_block(enum ipa_rm_resource_name resource)
+{
+	int res;
+	struct ipa_client_names clients;
+	int index;
+	enum ipa_client_type client;
+	struct ipa_ep_cfg_ctrl suspend;
+	int ipa_ep_idx;
+
+	if (mutex_trylock(&ipa_ctx->ipa_active_clients_lock) == 0)
+		return -EPERM;
+	if (ipa_ctx->ipa_active_clients == 1) {
+		res = -EPERM;
+		goto bail;
+	}
+
+	memset(&clients, 0, sizeof(clients));
+	res = ipa_get_clients_from_rm_resource(resource, &clients);
+	if (res) {
+		IPAERR("ipa_get_clients_from_rm_resource() failed, name = %d.\n"
+		       , resource);
+		goto bail;
+	}
+
+	for (index = 0; index < clients.length; index++) {
+		client = clients.names[index];
+		ipa_ep_idx = ipa_get_ep_mapping(client);
+		if (ipa_ep_idx == -1) {
+			IPAERR("Invalid client.\n");
+			res = -EINVAL;
+			continue;
+		}
+		if (ipa_should_pipe_be_suspended(client) &&
+		    ipa_ctx->ep[ipa_ep_idx].valid) {
+			/* suspend endpoint */
+			memset(&suspend, 0, sizeof(suspend));
+			suspend.ipa_ep_suspend = true;
+			ipa_cfg_ep_ctrl(ipa_ep_idx, &suspend);
+		}
+	}
+
+	if (res == 0) {
+		ipa_ctx->ipa_active_clients--;
+		IPADBG("active clients = %d\n", ipa_ctx->ipa_active_clients);
+	}
+bail:
+	mutex_unlock(&ipa_ctx->ipa_active_clients_lock);
+
+	return res;
+}
+
+/**
+ * ipa_resume_resource() - resume client endpoints related to the IPA_RM
+ * resource.
+ *
+ * @resource: [IN] IPA Resource Manager resource
+ *
+ * Return codes: 0 on success, negative on failure.
+ */
+int ipa_resume_resource(enum ipa_rm_resource_name resource)
+{
+
+	struct ipa_client_names clients;
+	int res;
+	int index;
+	struct ipa_ep_cfg_ctrl suspend;
+	enum ipa_client_type client;
+	int ipa_ep_idx;
+
+	memset(&clients, 0, sizeof(clients));
+	res = ipa_get_clients_from_rm_resource(resource, &clients);
+	if (res) {
+		IPAERR("ipa_get_clients_from_rm_resource() failed.\n");
+		return res;
+	}
+
+	for (index = 0; index < clients.length; index++) {
+		client = clients.names[index];
+		ipa_ep_idx = ipa_get_ep_mapping(client);
+		if (ipa_ep_idx == -1) {
+			IPAERR("Invalid client.\n");
+			res = -EINVAL;
+			continue;
+		}
+		if (ipa_should_pipe_be_suspended(client)) {
+			if (ipa_ctx->ep[ipa_ep_idx].valid) {
+				memset(&suspend, 0, sizeof(suspend));
+				suspend.ipa_ep_suspend = false;
+				ipa_cfg_ep_ctrl(ipa_ep_idx, &suspend);
+			} else {
+				ipa_ctx->ep[ipa_ep_idx].resume_on_connect =
+					true;
+			}
+		}
+	}
+
+	return res;
+}
+
 /* read how much SRAM is available for SW use
  * In case of IPAv2.0 this will also supply an offset from
  * which we can start write
@@ -430,7 +671,7 @@ int ipa_get_ep_mapping(enum ipa_client_type client)
 	u8 hw_type_index = IPA_1_1;
 
 	if (client >= IPA_CLIENT_MAX || client < 0) {
-		IPAERR("Bad client number!\n");
+		IPAERR("Bad client number! client =%d\n", client);
 		return -EINVAL;
 	}
 
@@ -442,28 +683,62 @@ int ipa_get_ep_mapping(enum ipa_client_type client)
 EXPORT_SYMBOL(ipa_get_ep_mapping);
 
 /**
- * ipa_get_client_mapping() - provide client mapping
- * @pipe_idx: IPA end-point number
+ * ipa_get_rm_resource_from_ep() - get the IPA_RM resource which is related to
+ * the supplied pipe index.
  *
- * Return value: client mapping
+ * @pipe_idx:
+ *
+ * Return value: IPA_RM resource related to the pipe, -1 if a resource was not
+ * found.
  */
-int ipa_get_client_mapping(int pipe_idx)
+enum ipa_rm_resource_name ipa_get_rm_resource_from_ep(int pipe_idx)
 {
 	int i;
-	u8 hw_type_index = IPA_1_1;
+	int j;
+	enum ipa_client_type client;
+	struct ipa_client_names clients;
+	bool found = false;
 
 	if (pipe_idx >= IPA_CLIENT_MAX || pipe_idx < 0) {
 		IPAERR("Bad pipe index!\n");
 		return -EINVAL;
 	}
 
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0)
-		hw_type_index = IPA_2_0;
+	client = ipa_ctx->ep[pipe_idx].client;
 
-	for (i = 0; i < IPA_CLIENT_MAX; i++)
-		if (ep_mapping[hw_type_index][i] == pipe_idx)
+	for (i = 0; i < IPA_RM_RESOURCE_MAX; i++) {
+		memset(&clients, 0, sizeof(clients));
+		ipa_get_clients_from_rm_resource(i, &clients);
+		for (j = 0; j < clients.length; j++) {
+			if (clients.names[j] == client) {
+				found = true;
+				break;
+			}
+		}
+		if (found)
 			break;
+	}
+
+	if (!found)
+		return -EFAULT;
+
 	return i;
+}
+
+/**
+ * ipa_get_client_mapping() - provide client mapping
+ * @pipe_idx: IPA end-point number
+ *
+ * Return value: client mapping
+ */
+enum ipa_client_type ipa_get_client_mapping(int pipe_idx)
+{
+	if (pipe_idx >= IPA_CLIENT_MAX || pipe_idx < 0) {
+		IPAERR("Bad pipe index!\n");
+		return -EINVAL;
+	}
+
+	return ipa_ctx->ep[pipe_idx].client;
 }
 
 /**

@@ -124,6 +124,12 @@
 	(((start_ofst) + 127) & ~127)
 #define IPA_RT_FLT_HW_RULE_BUF_SIZE	(128)
 
+#define MAX_RESOURCE_TO_CLIENTS (5)
+struct ipa_client_names {
+	enum ipa_client_type names[MAX_RESOURCE_TO_CLIENTS];
+	int length;
+};
+
 /**
  * struct ipa_mem_buffer - IPA memory buffer
  * @base: base
@@ -322,7 +328,6 @@ struct ipa_ep_cfg_status {
  * @data_fifo_pipe_mem_ofst: data FIFO pipe memory offset
  * @desc_fifo_client_allocated: if descriptors FIFO was allocated by a client
  * @data_fifo_client_allocated: if data FIFO was allocated by a client
- * @suspended: valid for B2B pipes, whether IPA EP is suspended
  * @skip_ep_cfg: boolean field that determines if EP should be configured
  *  by IPA driver
  * @keep_ipa_awake: when true, IPA will not be clock gated
@@ -346,13 +351,13 @@ struct ipa_ep_context {
 	u32 data_fifo_pipe_mem_ofst;
 	bool desc_fifo_client_allocated;
 	bool data_fifo_client_allocated;
-	bool suspended;
 	struct ipa_sys_context *sys;
 	u32 avail_fifo_desc;
 	u32 dflt_flt4_rule_hdl;
 	u32 dflt_flt6_rule_hdl;
 	bool skip_ep_cfg;
 	bool keep_ipa_awake;
+	bool resume_on_connect;
 };
 
 enum ipa_sys_pipe_policy {
@@ -818,7 +823,9 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 		bool in_atomic);
 int ipa_get_ep_mapping(enum ipa_client_type client);
-int ipa_get_client_mapping(int pipe_idx);
+enum ipa_client_type ipa_get_client_mapping(int pipe_idx);
+enum ipa_rm_resource_name ipa_get_rm_resource_from_ep(int pipe_idx);
+
 int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			 const struct ipa_rule_attrib *attrib,
 			 u8 **buf,
@@ -854,6 +861,7 @@ struct ipa_context *ipa_get_ctx(void);
 void ipa_enable_clks(void);
 void ipa_disable_clks(void);
 void ipa_inc_client_enable_clks(void);
+int ipa_inc_client_enable_clks_no_block(void);
 void ipa_dec_client_disable_clks(void);
 int ipa_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev);
 int __ipa_del_rt_rule(u32 rule_hdl);
@@ -930,6 +938,9 @@ int ipa_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 
 int ipa_cfg_ep_status(u32 clnt_hdl, const struct ipa_ep_cfg_status *ipa_ep_cfg);
 
-
+int ipa_suspend_resource_no_block(enum ipa_rm_resource_name name);
+int ipa_suspend_resource_sync(enum ipa_rm_resource_name name);
+int ipa_resume_resource(enum ipa_rm_resource_name name);
+bool ipa_should_pipe_be_suspended(enum ipa_client_type client);
 
 #endif /* _IPA_I_H_ */

@@ -1598,6 +1598,33 @@ void ipa_inc_client_enable_clks(void)
 }
 
 /**
+* ipa_inc_client_enable_clks_no_block() - Only increment the number of active
+* clients if no asynchronous actions should be done. Asynchronous actions are
+* locking a mutex and waking up IPA HW.
+*
+* Return codes: 0 for success
+*		-EPERM if an asynchronous action should have been done
+*/
+int ipa_inc_client_enable_clks_no_block(void)
+{
+	int res = 0;
+
+	if (mutex_trylock(&ipa_ctx->ipa_active_clients_lock) == 0)
+		return -EPERM;
+	if (ipa_ctx->ipa_active_clients == 0) {
+		res = -EPERM;
+		goto bail;
+	}
+
+	ipa_ctx->ipa_active_clients++;
+	IPADBG("active clients = %d\n", ipa_ctx->ipa_active_clients);
+bail:
+	mutex_unlock(&ipa_ctx->ipa_active_clients_lock);
+
+	return res;
+}
+
+/**
 * ipa_dec_client_disable_clks() - Decrease active clients counter, and
 * disable ipa clocks if necessary
 *

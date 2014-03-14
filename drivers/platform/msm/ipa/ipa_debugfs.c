@@ -624,7 +624,6 @@ static ssize_t ipa_read_flt(struct file *file, char __user *ubuf, size_t count,
 {
 	int i;
 	int j;
-	int k;
 	struct ipa_flt_tbl *tbl;
 	struct ipa_flt_entry *entry;
 	enum ipa_ip_type ip = (enum ipa_ip_type)file->private_data;
@@ -681,7 +680,6 @@ static ssize_t ipa_read_flt(struct file *file, char __user *ubuf, size_t count,
 				bitmap = entry->rule.attrib.attrib_mask;
 				eq = false;
 			}
-			k = ipa_get_client_mapping(j);
 			pr_info(
 				"ep_idx:%d rule_idx:%d act:%d rt_tbl_idx:%d "
 				"attrib_mask:%08x to_uc:%d, retain_hdr:%d eq:%d ",
