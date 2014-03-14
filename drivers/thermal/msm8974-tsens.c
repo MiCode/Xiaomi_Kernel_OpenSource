@@ -541,31 +541,27 @@ static int tsens_tz_degc_to_code(int degc, int idx)
 static void msm_tsens_get_temp(int sensor_hw_num, unsigned long *temp)
 {
 	unsigned int code;
-	unsigned long sensor_addr, trdy_addr;
+	void __iomem *sensor_addr;
+	void __iomem *trdy_addr;
 	int sensor_sw_id = -EINVAL, rc = 0;
 
 	if (tmdev->tsens_type == TSENS_TYPE2) {
-		trdy_addr = (unsigned long)(uintptr_t)TSENS2_TRDY_ADDR(
-							tmdev->tsens_addr);
-		sensor_addr = (unsigned long)(uintptr_t)TSENS2_SN_STATUS_ADDR(
-							tmdev->tsens_addr);
+		trdy_addr = TSENS2_TRDY_ADDR(tmdev->tsens_addr);
+		sensor_addr = TSENS2_SN_STATUS_ADDR(tmdev->tsens_addr);
 	} else {
-		trdy_addr = (unsigned long)(uintptr_t)TSENS_TRDY_ADDR(
-							tmdev->tsens_addr);
-		sensor_addr = (unsigned long)(uintptr_t)TSENS_S0_STATUS_ADDR(
-							tmdev->tsens_addr);
+		trdy_addr = TSENS_TRDY_ADDR(tmdev->tsens_addr);
+		sensor_addr = TSENS_S0_STATUS_ADDR(tmdev->tsens_addr);
 	}
 
 	if (!tmdev->prev_reading_avail) {
-		while (!((readl_relaxed((uintptr_t)trdy_addr)) &
-					TSENS_TRDY_MASK))
+		while (!((readl_relaxed(trdy_addr)) & TSENS_TRDY_MASK))
 			usleep_range(TSENS_TRDY_RDY_MIN_TIME,
 				TSENS_TRDY_RDY_MAX_TIME);
 		tmdev->prev_reading_avail = true;
 	}
 
-	code = readl_relaxed((uintptr_t)(sensor_addr +
-			(sensor_hw_num << TSENS_STATUS_ADDR_OFFSET)));
+	code = readl_relaxed(sensor_addr +
+			(sensor_hw_num << TSENS_STATUS_ADDR_OFFSET));
 	/* Obtain SW index to map the corresponding thermal zone's
 	 * offset and slope for code to degc conversion. */
 	rc = tsens_get_sw_id_mapping(sensor_hw_num, &sensor_sw_id);
@@ -829,30 +825,26 @@ static void tsens_scheduler_fn(struct work_struct *work)
 	struct tsens_tm_device *tm = container_of(work, struct tsens_tm_device,
 						tsens_work);
 	unsigned int i, status, threshold;
-	unsigned long sensor_status_addr, sensor_status_ctrl_addr;
+	void __iomem *sensor_status_addr;
+	void __iomem *sensor_status_ctrl_addr;
 	int sensor_sw_id = -EINVAL, rc = 0;
 
 	if (tmdev->tsens_type == TSENS_TYPE2)
-		sensor_status_addr =
-			(unsigned long)(uintptr_t)TSENS2_SN_STATUS_ADDR(
-							tmdev->tsens_addr);
+		sensor_status_addr = TSENS2_SN_STATUS_ADDR(tmdev->tsens_addr);
 	else
-		sensor_status_addr = (unsigned long)(uintptr_t)
-					TSENS_S0_STATUS_ADDR(tmdev->tsens_addr);
+		sensor_status_addr = TSENS_S0_STATUS_ADDR(tmdev->tsens_addr);
 
 	sensor_status_ctrl_addr =
-		(unsigned long)(uintptr_t)TSENS_S0_UPPER_LOWER_STATUS_CTRL_ADDR
-							(tmdev->tsens_addr);
+		TSENS_S0_UPPER_LOWER_STATUS_CTRL_ADDR(tmdev->tsens_addr);
 	for (i = 0; i < tm->tsens_num_sensor; i++) {
 		bool upper_thr = false, lower_thr = false;
 		uint32_t addr_offset;
 
 		addr_offset = tm->sensor[i].sensor_hw_num *
 						TSENS_SN_ADDR_OFFSET;
-		status = readl_relaxed((uintptr_t)
-					(sensor_status_addr + addr_offset));
-		threshold = readl_relaxed((uintptr_t)(sensor_status_ctrl_addr +
-								addr_offset));
+		status = readl_relaxed(sensor_status_addr + addr_offset);
+		threshold = readl_relaxed(sensor_status_ctrl_addr +
+								addr_offset);
 		if (status & TSENS_SN_STATUS_UPPER_STATUS) {
 			writel_relaxed(threshold | TSENS_UPPER_STATUS_CLR,
 				TSENS_S0_UPPER_LOWER_STATUS_CTRL_ADDR(
