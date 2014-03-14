@@ -261,6 +261,7 @@ struct etm_drvdata {
 	bool				pcsave_sticky_enable;
 	bool				pcsave_boot_enable;
 	bool				round_robin;
+	struct msm_dump_data		reg_data;
 };
 
 static struct etm_drvdata *etmdrvdata[NR_CPUS];
@@ -2111,6 +2112,7 @@ static int etm_probe(struct platform_device *pdev)
 	static int count;
 	void *baddr;
 	struct msm_client_dump dump;
+	struct msm_dump_entry dump_entry;
 	struct coresight_desc *desc;
 
 	if (coresight_fuse_access_disabled() ||
@@ -2194,19 +2196,36 @@ static int etm_probe(struct platform_device *pdev)
 		drvdata->round_robin = of_property_read_bool(pdev->dev.of_node,
 							"qcom,round-robin");
 
-	baddr = devm_kzalloc(dev, PAGE_SIZE + reg_size, GFP_KERNEL);
-	if (baddr) {
-		*(uint32_t *)(baddr + ETM_REG_DUMP_VER_OFF) = ETM_REG_DUMP_VER;
-		dump.id = MSM_ETM0_REG + drvdata->cpu;
-		dump.start_addr = virt_to_phys(baddr);
-		dump.end_addr = dump.start_addr + PAGE_SIZE + reg_size;
-		ret = msm_dump_tbl_register(&dump);
-		if (ret) {
-			devm_kfree(dev, baddr);
-			dev_err(dev, "ETM REG dump setup failed/unsupported\n");
+	if (MSM_DUMP_MAJOR(msm_dump_table_version()) == 1) {
+		baddr = devm_kzalloc(dev, PAGE_SIZE + reg_size, GFP_KERNEL);
+		if (baddr) {
+			dump.id = MSM_ETM0_REG + drvdata->cpu;
+			dump.start_addr = virt_to_phys(baddr);
+			dump.end_addr = dump.start_addr + PAGE_SIZE + reg_size;
+			ret = msm_dump_tbl_register(&dump);
+			if (ret) {
+				devm_kfree(dev, baddr);
+				dev_err(dev, "ETM REG dump setup failed\n");
+			}
+		} else {
+			dev_err(dev, "ETM REG dump space allocation failed\n");
 		}
 	} else {
-		dev_err(dev, "ETM REG dump space allocation failed\n");
+		baddr = devm_kzalloc(dev, reg_size, GFP_KERNEL);
+		if (baddr) {
+			drvdata->reg_data.addr = virt_to_phys(baddr);
+			drvdata->reg_data.len = reg_size;
+			dump_entry.id = MSM_DUMP_DATA_ETM_REG + drvdata->cpu;
+			dump_entry.addr = virt_to_phys(&drvdata->reg_data);
+			ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS,
+						     &dump_entry);
+			if (ret) {
+				devm_kfree(dev, baddr);
+				dev_err(dev, "ETM REG dump setup failed\n");
+			}
+		} else {
+			dev_err(dev, "ETM REG dump space allocation failed\n");
+		}
 	}
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);

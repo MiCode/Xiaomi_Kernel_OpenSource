@@ -40,6 +40,7 @@
 #define MASK_SIZE		32
 #define SCM_SET_REGSAVE_CMD	0x2
 #define SCM_SVC_SEC_WDOG_DIS	0x7
+#define MAX_CPU_CTX_SIZE	512
 
 static struct workqueue_struct *wdog_wq;
 
@@ -359,38 +360,81 @@ static irqreturn_t wdog_ppi_bark(int irq, void *dev_id)
 static void configure_bark_dump(struct msm_watchdog_data *wdog_dd)
 {
 	int ret;
-	struct msm_client_dump dump_entry;
+	struct msm_client_dump cpu_dump_entry;
+	struct msm_dump_entry dump_entry;
+	struct msm_dump_data *cpu_data;
+	int cpu;
+	void *cpu_buf;
 	struct {
 		unsigned addr;
 		int len;
 	} cmd_buf;
 
-	wdog_dd->scm_regsave = (void *)__get_free_page(GFP_KERNEL);
-	if (wdog_dd->scm_regsave) {
-		cmd_buf.addr = virt_to_phys(wdog_dd->scm_regsave);
-		cmd_buf.len  = PAGE_SIZE;
-		ret = scm_call(SCM_SVC_UTIL, SCM_SET_REGSAVE_CMD,
+	if (MSM_DUMP_MAJOR(msm_dump_table_version()) == 1) {
+		wdog_dd->scm_regsave = (void *)__get_free_page(GFP_KERNEL);
+		if (wdog_dd->scm_regsave) {
+			cmd_buf.addr = virt_to_phys(wdog_dd->scm_regsave);
+			cmd_buf.len  = PAGE_SIZE;
+			ret = scm_call(SCM_SVC_UTIL, SCM_SET_REGSAVE_CMD,
 					&cmd_buf, sizeof(cmd_buf), NULL, 0);
-		if (ret)
-			pr_err("Setting register save address failed.\n"
+			if (ret)
+				pr_err("Setting register save address failed.\n"
 				       "Registers won't be dumped on a dog "
 				       "bite\n");
-		dump_entry.id = MSM_CPU_CTXT;
-		dump_entry.start_addr = virt_to_phys(wdog_dd->scm_regsave);
-		dump_entry.end_addr = dump_entry.start_addr + PAGE_SIZE;
-		ret = msm_dump_tbl_register(&dump_entry);
-		if (ret)
-			pr_err("Setting cpu dump region failed\n"
+			cpu_dump_entry.id = MSM_CPU_CTXT;
+			cpu_dump_entry.start_addr =
+					virt_to_phys(wdog_dd->scm_regsave);
+			cpu_dump_entry.end_addr = cpu_dump_entry.start_addr +
+						  PAGE_SIZE;
+			ret = msm_dump_tbl_register(&cpu_dump_entry);
+			if (ret)
+				pr_err("Setting cpu dump region failed\n"
 				"Registers wont be dumped during cpu hang\n");
-	} else {
-		pr_err("Allocating register save space failed\n"
+		} else {
+			pr_err("Allocating register save space failed\n"
 			       "Registers won't be dumped on a dog bite\n");
-		/*
-		 * No need to bail if allocation fails. Simply don't
-		 * send the command, and the secure side will reset
-		 * without saving registers.
-		 */
+			/*
+			 * No need to bail if allocation fails. Simply don't
+			 * send the command, and the secure side will reset
+			 * without saving registers.
+			 */
+		}
+	} else {
+		cpu_data = kzalloc(sizeof(struct msm_dump_data) *
+				   num_present_cpus(), GFP_KERNEL);
+		if (!cpu_data) {
+			pr_err("cpu dump data structure allocation failed\n");
+			goto out0;
+		}
+		cpu_buf = kzalloc(MAX_CPU_CTX_SIZE * num_present_cpus(),
+				  GFP_KERNEL);
+		if (!cpu_buf) {
+			pr_err("cpu reg context space allocation failed\n");
+			goto out1;
+		}
+
+		for_each_cpu(cpu, cpu_present_mask) {
+			cpu_data[cpu].addr = virt_to_phys(cpu_buf +
+							cpu * MAX_CPU_CTX_SIZE);
+			cpu_data[cpu].len = MAX_CPU_CTX_SIZE;
+			dump_entry.id = MSM_DUMP_DATA_CPU_CTX + cpu;
+			dump_entry.addr = virt_to_phys(&cpu_data[cpu]);
+			ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS,
+						     &dump_entry);
+			/*
+			 * Don't free the buffers in case of error since
+			 * registration may have succeeded for some cpus.
+			 */
+			if (ret)
+				pr_err("cpu %d reg dump setup failed\n", cpu);
+		}
 	}
+
+	return;
+out1:
+	kfree(cpu_data);
+out0:
+	return;
 }
 
 

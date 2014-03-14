@@ -152,7 +152,9 @@ struct tmc_drvdata {
 	bool			reading;
 	bool			aborting;
 	char			*reg_buf;
+	struct msm_dump_data	reg_data;
 	char			*buf;
+	struct msm_dump_data	buf_data;
 	dma_addr_t		paddr;
 	void __iomem		*vaddr;
 	uint32_t		size;
@@ -647,6 +649,12 @@ static void __tmc_reg_dump(struct tmc_drvdata *drvdata)
 		return;
 
 	reg_hdr = drvdata->reg_buf - PAGE_SIZE;
+	if (MSM_DUMP_MAJOR(msm_dump_table_version()) == 1)
+		*(uint32_t *)(reg_hdr + TMC_REG_DUMP_VER_OFF) =
+							TMC_REG_DUMP_VER;
+	else
+		drvdata->reg_data.version = TMC_REG_DUMP_VER;
+
 	reg_buf = (uint32_t *)drvdata->reg_buf;
 
 	reg_buf[1] = tmc_readl(drvdata, TMC_RSZ);
@@ -688,7 +696,11 @@ static void __tmc_reg_dump(struct tmc_drvdata *drvdata)
 	reg_buf[1022] = tmc_readl(drvdata, CORESIGHT_COMPIDR2);
 	reg_buf[1023] = tmc_readl(drvdata, CORESIGHT_COMPIDR3);
 
-	*(uint32_t *)(reg_hdr + TMC_REG_DUMP_MAGIC_OFF) = TMC_REG_DUMP_MAGIC;
+	if (MSM_DUMP_MAJOR(msm_dump_table_version()) == 1)
+		*(uint32_t *)(reg_hdr + TMC_REG_DUMP_MAGIC_OFF) =
+							TMC_REG_DUMP_MAGIC;
+	else
+		drvdata->reg_data.magic = TMC_REG_DUMP_MAGIC;
 }
 
 static void __tmc_etb_dump(struct tmc_drvdata *drvdata)
@@ -699,6 +711,13 @@ static void __tmc_etb_dump(struct tmc_drvdata *drvdata)
 	char *bufp;
 	uint32_t read_data;
 	int i;
+
+	hdr = drvdata->buf - PAGE_SIZE;
+	if (MSM_DUMP_MAJOR(msm_dump_table_version()) == 1)
+		*(uint32_t *)(hdr + TMC_ETFETB_DUMP_VER_OFF) =
+							TMC_ETFETB_DUMP_VER;
+	else
+		drvdata->buf_data.version = TMC_ETFETB_DUMP_VER;
 
 	memwidth = BMVAL(tmc_readl(drvdata, CORESIGHT_DEVID), 8, 10);
 	if (memwidth == TMC_MEM_INTF_WIDTH_32BITS)
@@ -723,9 +742,11 @@ static void __tmc_etb_dump(struct tmc_drvdata *drvdata)
 
 out:
 	if (drvdata->aborting) {
-		hdr = drvdata->buf - PAGE_SIZE;
-		*(uint32_t *)(hdr + TMC_ETFETB_DUMP_MAGIC_OFF) =
+		if (MSM_DUMP_MAJOR(msm_dump_table_version()) == 1)
+			*(uint32_t *)(hdr + TMC_ETFETB_DUMP_MAGIC_OFF) =
 							TMC_ETFETB_DUMP_MAGIC;
+		else
+			drvdata->buf_data.magic = TMC_ETFETB_DUMP_MAGIC;
 	}
 }
 
@@ -1636,6 +1657,7 @@ static int tmc_probe(struct platform_device *pdev)
 	static int count;
 	void *baddr;
 	struct msm_client_dump dump;
+	struct msm_dump_entry dump_entry;
 	struct coresight_cti_data *ctidata;
 	struct coresight_desc *desc;
 
@@ -1716,44 +1738,86 @@ static int tmc_probe(struct platform_device *pdev)
 		if (ret)
 			goto err1;
 	} else {
-		baddr = devm_kzalloc(dev, PAGE_SIZE + drvdata->size,
-				     GFP_KERNEL);
-		if (!baddr)
-			return -ENOMEM;
-		drvdata->buf = baddr + PAGE_SIZE;
-		*(uint32_t *)(baddr + TMC_ETFETB_DUMP_VER_OFF) =
-							TMC_ETFETB_DUMP_VER;
-		dump.id = MSM_TMC_ETFETB + etfetb_count;
-		dump.start_addr = virt_to_phys(baddr);
-		dump.end_addr = dump.start_addr + PAGE_SIZE + drvdata->size;
-		ret = msm_dump_tbl_register(&dump);
-		/*
-		 * Don't free the buffer in case of error since it can still
-		 * be used to provide dump collection via the device node or
-		 * as part of abort.
-		 */
-		if (ret)
-			dev_info(dev, "TMC ETF-ETB dump setup failed\n");
+		if (MSM_DUMP_MAJOR(msm_dump_table_version()) == 1) {
+			baddr = devm_kzalloc(dev, PAGE_SIZE + drvdata->size,
+					     GFP_KERNEL);
+			if (!baddr)
+				return -ENOMEM;
+			drvdata->buf = baddr + PAGE_SIZE;
+
+			dump.id = MSM_TMC_ETFETB + etfetb_count;
+			dump.start_addr = virt_to_phys(baddr);
+			dump.end_addr = dump.start_addr + PAGE_SIZE +
+					drvdata->size;
+			ret = msm_dump_tbl_register(&dump);
+			/*
+			 * Don't free the buffer in case of error since it can
+			 * still be used to provide dump collection via the
+			 * device node or as part of abort.
+			 */
+			if (ret)
+				dev_err(dev, "TMC ETF-ETB dump setup failed\n");
+		} else {
+			drvdata->buf = devm_kzalloc(dev, drvdata->size,
+						    GFP_KERNEL);
+			if (!drvdata->buf)
+				return -ENOMEM;
+
+			drvdata->buf_data.addr = virt_to_phys(drvdata->buf);
+			drvdata->buf_data.len = drvdata->size;
+			dump_entry.id = MSM_DUMP_DATA_TMC_ETF + etfetb_count;
+			dump_entry.addr = virt_to_phys(&drvdata->buf_data);
+			ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS,
+						     &dump_entry);
+			/*
+			 * Don't free the buffer in case of error since it can
+			 * still be used to provide dump collection via the
+			 * device node or as part of abort.
+			 */
+			if (ret)
+				dev_err(dev, "TMC ETF-ETB dump setup failed\n");
+		}
 		etfetb_count++;
 	}
 
-	baddr = devm_kzalloc(dev, PAGE_SIZE + reg_size, GFP_KERNEL);
-	if (baddr) {
-		drvdata->reg_buf = baddr + PAGE_SIZE;
-		*(uint32_t *)(baddr + TMC_REG_DUMP_VER_OFF) = TMC_REG_DUMP_VER;
-		dump.id = MSM_TMC0_REG + count;
-		dump.start_addr = virt_to_phys(baddr);
-		dump.end_addr = dump.start_addr + PAGE_SIZE + reg_size;
-		ret = msm_dump_tbl_register(&dump);
-		/*
-		 * Don't free the buffer in case of error since it can still
-		 * be used to dump registers as part of abort to aid post crash
-		 * parsing.
-		 */
-		if (ret)
-			dev_info(dev, "TMC REG dump setup failed\n");
+	if (MSM_DUMP_MAJOR(msm_dump_table_version()) == 1) {
+		baddr = devm_kzalloc(dev, PAGE_SIZE + reg_size, GFP_KERNEL);
+		if (baddr) {
+			drvdata->reg_buf = baddr + PAGE_SIZE;
+
+			dump.id = MSM_TMC0_REG + count;
+			dump.start_addr = virt_to_phys(baddr);
+			dump.end_addr = dump.start_addr + PAGE_SIZE + reg_size;
+			ret = msm_dump_tbl_register(&dump);
+			/*
+			 * Don't free the buffer in case of error since it can
+			 * still be used to dump registers as part of abort to
+			 * aid post crash parsing.
+			 */
+			if (ret)
+				dev_err(dev, "TMC REG dump setup failed\n");
+		} else {
+			dev_err(dev, "TMC REG dump allocation failed\n");
+		}
 	} else {
-		dev_info(dev, "TMC REG dump space allocation failed\n");
+		drvdata->reg_buf = devm_kzalloc(dev, reg_size, GFP_KERNEL);
+		if (drvdata->reg_buf) {
+			drvdata->reg_data.addr = virt_to_phys(drvdata->reg_buf);
+			drvdata->reg_data.len = reg_size;
+			dump_entry.id = MSM_DUMP_DATA_TMC_REG + count;
+			dump_entry.addr = virt_to_phys(&drvdata->reg_data);
+			ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS,
+						     &dump_entry);
+			/*
+			 * Don't free the buffer in case of error since it can
+			 * still be used to dump registers as part of abort to
+			 * aid post crash parsing.
+			 */
+			if (ret)
+				dev_err(dev, "TMC REG dump setup failed\n");
+		} else {
+			dev_err(dev, "TMC REG dump allocation failed\n");
+		}
 	}
 	count++;
 
