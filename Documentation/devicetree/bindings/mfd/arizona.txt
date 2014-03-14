@@ -114,6 +114,13 @@ Optional properties:
   - wlf,fixed-hpdet-imp : Do not perform any headphone detection, just use
     the fixed value specified here as the headphone impedance.
 
+  - ldo1 : Initial data for the LDO1 regulator, as covered in
+    Documentation/devicetree/bindings/regulator/regulator.txt
+
+  - DCVDD-supply : Power supply, only needs to be specified if DCVDD is being
+    externally supplied. As covered in
+    Documentation/devicetree/bindings/regulator/regulator.txt
+
 Example:
 
 codec: wm5102@1a {
