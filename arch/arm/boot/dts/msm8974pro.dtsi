@@ -1657,6 +1657,7 @@
 };
 
 &mdss_mdp {
+	qcom,max-bandwidth-low-kbps = <2750000>;
 	qcom,vbif-settings = <0x0004 0x00000001>;
 
 	qcom,mdss-wb-off = <0x00011100 0x00011500
