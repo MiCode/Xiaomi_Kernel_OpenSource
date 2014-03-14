@@ -70,7 +70,7 @@ static struct enum_name_map map[SYSMON_NUM_SS] = {
 	{SYSMON_SS_MODEM, "modem"},
 	{SYSMON_SS_LPASS, "adsp"},
 	{SYSMON_SS_Q6FW, "modem_fw"},
-	{SYSMON_SS_EXT_MODEM, "external_modem"},
+	{SYSMON_SS_EXT_MODEM, "esoc0"},
 	{SYSMON_SS_DSPS, "dsps"},
 };
 
