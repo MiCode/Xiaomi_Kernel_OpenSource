@@ -448,7 +448,7 @@
 		reg = <0x0>;
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
-		qcom,mount-angle = <270>;
+		qcom,mount-angle = <90>;
 		qcom,actuator-src = <&actuator0>;
 		qcom,eeprom-src = <&eeprom0>;
 		qcom,led-flash-src = <&led_flash0>;
@@ -479,6 +479,8 @@
 			"CAM_STANDBY",
 			"CAM_VDIG",
 			"CAM_AF_PWDM";
+		qcom,sensor-position = <0>;
+		qcom,sensor-mode = <0>;
 		qcom,cci-master = <0>;
 		status = "ok";
 	};
@@ -516,6 +518,8 @@
 		qcom,gpio-set-tbl-num = <1 1>;
 		qcom,gpio-set-tbl-flags = <0 2>;
 		qcom,gpio-set-tbl-delay = <1000 4000>;
+		qcom,sensor-position = <1>;
+		qcom,sensor-mode = <0>;
 		qcom,cci-master = <0>;
 		status = "ok";
 	};
