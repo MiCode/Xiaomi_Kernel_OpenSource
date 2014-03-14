@@ -372,3 +372,12 @@
 				0x0
 				0x0>;
 };
+
+&fd_iommu {
+	status = "ok";
+	vdd-supply = <&gdsc_fd>;
+	qcom,iommu-enable-halt;
+	clocks = <&clock_mmss clk_fd_axi_clk>,
+		<&clock_mmss clk_fd_ahb_clk>;
+	clock-names = "core_clk", "iface_clk";
+};
