@@ -1335,7 +1335,13 @@ static int msm8x16_wcd_codec_enable_adc(struct snd_soc_dapm_widget *w,
 		msm8x16_wcd_codec_enable_adc_block(codec, 1);
 		snd_soc_update_bits(codec, adc_reg, 1 << init_bit_shift,
 				1 << init_bit_shift);
-		snd_soc_update_bits(codec,
+		if (w->reg == MSM8X16_WCD_A_ANALOG_TX_1_EN)
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_DIGITAL_CDC_CONN_TX1_CTL,
+				0x03, 0x00);
+		else if ((w->reg == MSM8X16_WCD_A_ANALOG_TX_2_EN) ||
+			(w->reg == MSM8X16_WCD_A_ANALOG_TX_3_EN))
+			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_DIGITAL_CDC_CONN_TX2_CTL,
 				0x03, 0x00);
 		usleep_range(CODEC_DELAY_1_MS, CODEC_DELAY_1_1_MS);
@@ -1343,16 +1349,20 @@ static int msm8x16_wcd_codec_enable_adc(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMU:
 		snd_soc_update_bits(codec, adc_reg, 1 << init_bit_shift, 0x00);
 		usleep_range(CODEC_DELAY_1_MS, CODEC_DELAY_1_1_MS);
-		if (w->reg == MSM8X16_WCD_A_ANALOG_TX_2_EN)
-			snd_soc_update_bits(codec, w->reg, 0x60, 0x60);
+		snd_soc_update_bits(codec, w->reg, 0x60, 0x60);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		msm8x16_wcd_codec_enable_adc_block(codec, 0);
-		snd_soc_update_bits(codec,
+		if (w->reg == MSM8X16_WCD_A_ANALOG_TX_1_EN)
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_DIGITAL_CDC_CONN_TX1_CTL,
+				0x03, 0x02);
+		else if ((w->reg == MSM8X16_WCD_A_ANALOG_TX_2_EN) ||
+			(w->reg == MSM8X16_WCD_A_ANALOG_TX_3_EN))
+			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_DIGITAL_CDC_CONN_TX2_CTL,
 				0x03, 0x02);
-		if (w->reg == MSM8X16_WCD_A_ANALOG_TX_2_EN)
-			snd_soc_update_bits(codec, w->reg, 0x60, 0x00);
+		snd_soc_update_bits(codec, w->reg, 0x60, 0x00);
 
 		break;
 	}
