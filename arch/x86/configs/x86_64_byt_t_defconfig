@@ -3104,13 +3104,18 @@ CONFIG_CLKBLD_I8253=y
 # CONFIG_PM_DEVFREQ is not set
 # CONFIG_EXTCON is not set
 # CONFIG_MEMORY is not set
-# CONFIG_IIO is not set
+CONFIG_IIO=m
 # CONFIG_NTB is not set
 # CONFIG_VME_BUS is not set
 # CONFIG_PWM is not set
 # CONFIG_IPACK_BUS is not set
 # CONFIG_RESET_CONTROLLER is not set
 # CONFIG_FMC is not set
+
+#
+# Light sensors
+#
+CONFIG_CM32181=m
 
 #
 # PHY Subsystem
