@@ -1175,9 +1175,9 @@
 			qcom,prio-rd = <0>;
 			qcom,prio-wr = <0>;
 			qcom,mode-thresh = "Fixed";
-			qcom,thresh = <2000000>;
+			qcom,thresh = <2000000 2456000>;
 			qcom,dual-conf;
-			qcom,bimc,bw = <300000>;
+			qcom,bimc,bw = <300000 450000>;
 			qcom,bimc,gp = <5000>;
 			qcom,bimc,thmp = <50>;
 		};
@@ -1195,9 +1195,9 @@
 			qcom,prio-rd = <0>;
 			qcom,prio-wr = <0>;
 			qcom,mode-thresh = "Fixed";
-			qcom,thresh = <2000000>;
+			qcom,thresh = <2000000 2456000>;
 			qcom,dual-conf;
-			qcom,bimc,bw = <300000>;
+			qcom,bimc,bw = <300000 450000>;
 			qcom,bimc,gp = <5000>;
 			qcom,bimc,thmp = <50>;
 		};
