@@ -2211,7 +2211,6 @@ static int msm_hs_check_clock_off(struct uart_port *uport)
 		 */
 		disable_irq(uport->irq);
 	}
-	disable_irq(uport->irq);
 	wake_unlock(&msm_uport->dma_wake_lock);
 
 	spin_unlock_irqrestore(&uport->lock, flags);
@@ -2406,7 +2405,6 @@ void msm_hs_request_clock_on(struct uart_port *uport)
 
 	mutex_lock(&msm_uport->clk_mutex);
 	spin_lock_irqsave(&uport->lock, flags);
-	enable_irq(uport->irq);
 
 	if (msm_uport->clk_state == MSM_HS_CLK_REQUEST_OFF) {
 		/* Pulling RFR line high */
