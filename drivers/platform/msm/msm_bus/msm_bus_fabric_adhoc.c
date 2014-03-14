@@ -614,6 +614,7 @@ static int msm_bus_fabric_init(struct device *dev,
 	fabdev->qos_range = pdata->fabdev->qos_range;
 	fabdev->base_offset = pdata->fabdev->base_offset;
 	fabdev->bus_type = pdata->fabdev->bus_type;
+	fabdev->bypass_qos_prg = pdata->fabdev->bypass_qos_prg;
 	msm_bus_fab_init_noc_ops(node_dev);
 
 	fabdev->qos_base = devm_ioremap(dev,
@@ -685,6 +686,7 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 	node_info->mas_rpm_id = pdata_node_info->mas_rpm_id;
 	node_info->slv_rpm_id = pdata_node_info->slv_rpm_id;
 	node_info->num_connections = pdata_node_info->num_connections;
+	node_info->num_qports = pdata_node_info->num_qports;
 	node_info->buswidth = pdata_node_info->buswidth;
 	node_info->virt_dev = pdata_node_info->virt_dev;
 	node_info->is_fab_dev = pdata_node_info->is_fab_dev;
@@ -715,6 +717,21 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 	memcpy(node_info->connections,
 		pdata_node_info->connections,
 		sizeof(int) * pdata_node_info->num_connections);
+
+	node_info->qport = devm_kzalloc(bus_dev,
+			sizeof(int) * pdata_node_info->num_qports,
+			GFP_KERNEL);
+	if (!node_info->qport) {
+		MSM_BUS_ERR("%s:Bus qport allocation failed\n", __func__);
+		devm_kfree(bus_dev, node_info->dev_connections);
+		devm_kfree(bus_dev, node_info->connections);
+		ret = -ENOMEM;
+		goto exit_copy_node_info;
+	}
+
+	memcpy(node_info->qport,
+		pdata_node_info->qport,
+		sizeof(int) * pdata_node_info->num_qports);
 
 exit_copy_node_info:
 	return ret;
@@ -759,6 +776,7 @@ static struct device *msm_bus_device_init(
 	}
 
 	bus_node->node_info = node_info;
+	bus_node->ap_owned = pdata->ap_owned;
 	bus_dev->platform_data = bus_node;
 
 	if (msm_bus_copy_node_info(pdata, bus_dev) < 0) {
@@ -927,6 +945,8 @@ static int msm_bus_device_probe(struct platform_device *pdev)
 
 	/* Register the arb layer ops */
 	msm_bus_arb_setops_adhoc(&arb_ops);
+	devm_kfree(&pdev->dev, pdata->info);
+	devm_kfree(&pdev->dev, pdata);
 exit_device_probe:
 	return ret;
 }

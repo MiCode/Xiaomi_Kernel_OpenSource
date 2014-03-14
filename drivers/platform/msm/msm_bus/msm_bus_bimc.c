@@ -1802,7 +1802,7 @@ static int msm_bus_bimc_qos_init(struct msm_bus_node_device_type *info,
 		return 0;
 	}
 
-	for (i = 0; i < info->node_info->num_ports; i++) {
+	for (i = 0; i < info->node_info->num_qports; i++) {
 		/* If not in bypass mode, update priority */
 		if (info->node_info->mode != BIMC_QOS_MODE_BYPASS) {
 			msm_bus_bimc_set_qos_prio(qos_base, info->node_info->
@@ -1835,11 +1835,11 @@ static int msm_bus_bimc_set_bw(struct msm_bus_node_device_type *dev,
 	int ret = 0;
 	struct msm_bus_node_info_type *info = dev->node_info;
 
-	if (info && info->num_ports) {
-		bw = msm_bus_div64(info->num_ports,
+	if (info && info->num_qports) {
+		bw = msm_bus_div64(info->num_qports,
 				dev->node_ab.ab[DUAL_CTX]);
 
-		for (i = 0; i < info->num_ports; i++) {
+		for (i = 0; i < info->num_qports; i++) {
 			MSM_BUS_DBG("BIMC: Update mas_bw for ID: %d -> %llu\n",
 				info->id, bw);
 
@@ -1859,9 +1859,6 @@ static int msm_bus_bimc_set_bw(struct msm_bus_node_device_type *dev,
 			msm_bus_bimc_set_qos_bw(qos_base, qos_freq,
 					info->qport[i], &qbw);
 		}
-	} else {
-		ret = -ENODEV;
-		MSM_BUS_ERR("%s: Cannot program BW regs", __func__);
 	}
 	return ret;
 }

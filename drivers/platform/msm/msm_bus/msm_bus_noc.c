@@ -642,8 +642,6 @@ static int msm_bus_noc_qos_init(struct msm_bus_node_device_type *info,
 	int ret = 0;
 	int i;
 
-	prio.read_prio = info->node_info->prio_rd;
-	prio.write_prio = info->node_info->prio_wr;
 	prio.p1 = info->node_info->prio1;
 	prio.p0 = info->node_info->prio0;
 
@@ -653,7 +651,7 @@ static int msm_bus_noc_qos_init(struct msm_bus_node_device_type *info,
 		goto err_qos_init;
 	}
 
-	for (i = 0; i < info->node_info->num_ports; i++) {
+	for (i = 0; i < info->node_info->num_qports; i++) {
 		if (info->node_info->mode != NOC_QOS_MODE_BYPASS) {
 			noc_set_qos_priority(qos_base, qos_off, qos_delta,
 					info->node_info->qport[i], &prio);
@@ -688,13 +686,13 @@ static int msm_bus_noc_set_bw(struct msm_bus_node_device_type *dev,
 	int i;
 	struct msm_bus_node_info_type *info = dev->node_info;
 
-	if (info && info->num_ports) {
+	if (info && info->num_qports) {
 		struct msm_bus_noc_qos_bw qos_bw;
 
-		bw = msm_bus_div64(info->num_ports,
+		bw = msm_bus_div64(info->num_qports,
 				dev->node_ab.ab[DUAL_CTX]);
 
-		for (i = 0; i < info->num_ports; i++) {
+		for (i = 0; i < info->num_qports; i++) {
 			if (!info->qport) {
 				MSM_BUS_DBG("No qos ports to update!\n");
 				break;
@@ -708,9 +706,6 @@ static int msm_bus_noc_set_bw(struct msm_bus_node_device_type *dev,
 			MSM_BUS_DBG("NOC: QoS: Update mas_bw: ws: %u\n",
 				qos_bw.ws);
 		}
-	} else {
-		MSM_BUS_ERR("%s: Can't program the BW regs", __func__);
-		ret = -ENODEV;
 	}
 	return ret;
 }
