@@ -172,7 +172,7 @@ struct kgsl_iommu_register_list {
 struct kgsl_iommu_device {
 	struct device *dev;
 	bool attached;
-	phys_addr_t default_ttbr0;
+	uint64_t default_ttbr0;
 	enum kgsl_iommu_context_id ctx_id;
 	bool clk_enabled;
 	struct kgsl_device *kgsldev;

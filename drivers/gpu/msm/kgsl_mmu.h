@@ -91,7 +91,7 @@ struct kgsl_mmu_ops {
 		(struct kgsl_mmu *mmu, int ctx_id);
 	void (*mmu_disable_clk)
 		(struct kgsl_mmu *mmu, int ctx_id);
-	phys_addr_t (*mmu_get_default_ttbr0)(struct kgsl_mmu *mmu,
+	uint64_t (*mmu_get_default_ttbr0)(struct kgsl_mmu *mmu,
 				unsigned int unit_id,
 				enum kgsl_iommu_context_id ctx_id);
 	unsigned int (*mmu_get_reg_gpuaddr)(struct kgsl_mmu *mmu,
