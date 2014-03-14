@@ -104,6 +104,7 @@
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
 		qcom,actuator-src = <&actuator0>;
+		qcom,mount-angle = <90>;
 		cam_vdig-supply = <&pma8084_l27>;
 		cam_vio-supply = <&pma8084_lvs4>;
 		cam_vana-supply = <&pma8084_l17>;
@@ -125,6 +126,8 @@
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
 					  "CAM_RESET1",
 					  "CAM_STANDBY";
+		qcom,sensor-position = <0>;
+		qcom,sensor-mode = <1>;
 		qcom,cci-master = <0>;
 		status = "ok";
 	};
@@ -153,6 +156,8 @@
 		qcom,gpio-req-tbl-flags = <1 0>;
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK2",
 					  "CAM_XSHUTDOWN";
+		qcom,sensor-position = <1>;
+		qcom,sensor-mode = <1>;
 		qcom,cci-master = <0>;
 		status = "ok";
 	};
