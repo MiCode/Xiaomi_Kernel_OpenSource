@@ -1246,8 +1246,12 @@ static int qca199x_probe(struct i2c_client *client,
 		goto err_free_dev;
 	}
 
-	/* Put device in ULPM */
-	gpio_set_value(platform_data->dis_gpio, 0);
+	/* Guarantee that the NFCC starts in a clean state. */
+	gpio_set_value(platform_data->dis_gpio, 1);/* HPD */
+	usleep(200);
+	gpio_set_value(platform_data->dis_gpio, 0);/* ULPM */
+	usleep(200);
+
 	r = nfcc_hw_check(client, platform_data->reg);
 	if (r) {
 		/* We don't think there is hardware but just in case HPD */
