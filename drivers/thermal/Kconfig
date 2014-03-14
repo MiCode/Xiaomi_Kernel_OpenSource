@@ -236,7 +236,7 @@ config INTEL_BYT_AUX_DTS_THERMAL
 	  MAX temperature.
 
 config INTEL_THERMAL
-	bool
+	tristate "Intel Thermal driver"
 	depends on X86 && ACPI
 	help
 	  Newer laptops and tablets that use ACPI for thermal control
