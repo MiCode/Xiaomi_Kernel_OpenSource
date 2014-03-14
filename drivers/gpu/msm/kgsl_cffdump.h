@@ -140,12 +140,12 @@ static inline int kgsl_cffdump_capture_ib_desc(struct kgsl_device *device,
 
 static inline int kgsl_cff_dump_enable_set(void *data, u64 val)
 {
-	return -EINVAL;
+	return -ENODEV;
 }
 
 static inline int kgsl_cff_dump_enable_get(void *data, u64 *val)
 {
-	return -EINVAL;
+	return -ENODEV;
 }
 
 #endif /* CONFIG_MSM_KGSL_CFF_DUMP */
