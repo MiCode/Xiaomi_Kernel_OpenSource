@@ -18,12 +18,22 @@
 #include <linux/of_address.h>
 #include <soc/qcom/memory_dump.h>
 
-#define DUMP_TABLE_OFFSET	0x14
-#define MSM_DUMP_TABLE_VERSION	MK_TABLE(1, 0)
+#define MSM_DUMP_TABLE_VERSION		MSM_DUMP_MAKE_VERSION(1, 0)
+
+struct msm_dump_table {
+	u32 version;
+	u32 num_entries;
+	struct msm_client_dump client_entries[MAX_NUM_CLIENTS];
+};
+
+struct msm_memory_dump {
+	unsigned long dump_table_phys;
+	struct msm_dump_table *dump_table_ptr;
+};
 
 static struct msm_memory_dump mem_dump_data;
 
-int msm_dump_table_register(struct msm_client_dump *client_entry)
+int msm_dump_tbl_register(struct msm_client_dump *client_entry)
 {
 	struct msm_client_dump *entry;
 	struct msm_dump_table *table = mem_dump_data.dump_table_ptr;
@@ -39,7 +49,7 @@ int msm_dump_table_register(struct msm_client_dump *client_entry)
 	dmac_flush_range(table, table + sizeof(struct msm_dump_table));
 	return 0;
 }
-EXPORT_SYMBOL(msm_dump_table_register);
+EXPORT_SYMBOL(msm_dump_tbl_register);
 
 static int __init init_memory_dump(void)
 {

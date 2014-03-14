@@ -2200,7 +2200,7 @@ static int etm_probe(struct platform_device *pdev)
 		dump.id = MSM_ETM0_REG + drvdata->cpu;
 		dump.start_addr = virt_to_phys(baddr);
 		dump.end_addr = dump.start_addr + PAGE_SIZE + reg_size;
-		ret = msm_dump_table_register(&dump);
+		ret = msm_dump_tbl_register(&dump);
 		if (ret) {
 			devm_kfree(dev, baddr);
 			dev_err(dev, "ETM REG dump setup failed/unsupported\n");

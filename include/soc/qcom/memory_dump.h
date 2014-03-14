@@ -36,27 +36,19 @@ struct msm_client_dump {
 	unsigned long end_addr;
 };
 
-struct msm_dump_table {
-	u32 version;
-	u32 num_entries;
-	struct msm_client_dump client_entries[MAX_NUM_CLIENTS];
-};
-
-struct msm_memory_dump {
-	unsigned long dump_table_phys;
-	struct msm_dump_table *dump_table_ptr;
-};
-
-#define TABLE_MAJOR(val)	(val >> 20)
-#define TABLE_MINOR(val)	(val & 0xFFFFF)
-#define MK_TABLE(ma, mi)	((ma << 20) | mi)
-
-#ifndef CONFIG_MSM_MEMORY_DUMP
-static inline int msm_dump_table_register(struct msm_client_dump *entry)
+#ifdef CONFIG_MSM_MEMORY_DUMP
+extern int msm_dump_tbl_register(struct msm_client_dump *client_entry);
+#else
+static inline int msm_dump_tbl_register(struct msm_client_dump *entry)
 {
 	return -EIO;
 }
-#else
-int msm_dump_table_register(struct msm_client_dump *client_entry);
 #endif
+
+
+#define MSM_DUMP_MAKE_VERSION(ma, mi)	((ma << 20) | mi)
+#define MSM_DUMP_MAJOR(val)		(val >> 20)
+#define MSM_DUMP_MINOR(val)		(val & 0xFFFFF)
+
+
 #endif
