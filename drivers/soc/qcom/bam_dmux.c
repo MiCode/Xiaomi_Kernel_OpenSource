@@ -1848,7 +1848,7 @@ static void disconnect_to_bam(void)
 		memset(rx_desc_mem_buf.base, 0, rx_desc_mem_buf.size);
 		memset(tx_desc_mem_buf.base, 0, tx_desc_mem_buf.size);
 		BAM_DMUX_LOG("%s: device reset\n", __func__);
-		sps_device_reset(a2_device_handle);
+		bam_ops->sps_device_reset_ptr(a2_device_handle);
 	} else {
 		ssr_skipped_disconnect = 1;
 	}
