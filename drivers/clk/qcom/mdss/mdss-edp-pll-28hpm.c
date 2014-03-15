@@ -91,7 +91,7 @@ static int edp_vco_set_rate(struct clk *c, unsigned long vco_rate)
 		MDSS_PLL_REG_W(edp_pll_res->pll_base,
 				EDP_PHY_PLL_UNIPHY_PLL_VCOLPF_CFG, 0x18);
 		MDSS_PLL_REG_W(edp_pll_res->pll_base,
-				EDP_PHY_PLL_UNIPHY_PLL_LKDET_CFG2, 0x05);
+				EDP_PHY_PLL_UNIPHY_PLL_LKDET_CFG2, 0x0d);
 		MDSS_PLL_REG_W(edp_pll_res->pll_base,
 				EDP_PHY_PLL_UNIPHY_PLL_REFCLK_CFG, 0x00);
 		MDSS_PLL_REG_W(edp_pll_res->pll_base,
@@ -113,7 +113,7 @@ static int edp_vco_set_rate(struct clk *c, unsigned long vco_rate)
 		MDSS_PLL_REG_W(edp_pll_res->pll_base,
 				EDP_PHY_PLL_UNIPHY_PLL_SSC_CFG3, 0x00);
 		MDSS_PLL_REG_W(edp_pll_res->pll_base,
-				EDP_PHY_PLL_UNIPHY_PLL_CAL_CFG0, 0x0a);
+				EDP_PHY_PLL_UNIPHY_PLL_CAL_CFG0, 0x12);
 		MDSS_PLL_REG_W(edp_pll_res->pll_base,
 				EDP_PHY_PLL_UNIPHY_PLL_CAL_CFG2, 0x01);
 		MDSS_PLL_REG_W(edp_pll_res->pll_base,
@@ -138,7 +138,7 @@ static int edp_vco_set_rate(struct clk *c, unsigned long vco_rate)
 				EDP_PHY_PLL_UNIPHY_PLL_POSTDIV3_CFG, 0x00);
 	} else if (vco_rate == 1350000000) {
 		MDSS_PLL_REG_W(edp_pll_res->pll_base,
-				EDP_PHY_PLL_UNIPHY_PLL_LKDET_CFG2, 0x05);
+				EDP_PHY_PLL_UNIPHY_PLL_LKDET_CFG2, 0x0d);
 		MDSS_PLL_REG_W(edp_pll_res->pll_base,
 				EDP_PHY_PLL_UNIPHY_PLL_REFCLK_CFG, 0x01);
 		MDSS_PLL_REG_W(edp_pll_res->pll_base,
@@ -160,7 +160,7 @@ static int edp_vco_set_rate(struct clk *c, unsigned long vco_rate)
 		MDSS_PLL_REG_W(edp_pll_res->pll_base,
 				EDP_PHY_PLL_UNIPHY_PLL_SSC_CFG3, 0x00);
 		MDSS_PLL_REG_W(edp_pll_res->pll_base,
-				EDP_PHY_PLL_UNIPHY_PLL_CAL_CFG0, 0x0a);
+				EDP_PHY_PLL_UNIPHY_PLL_CAL_CFG0, 0x12);
 		MDSS_PLL_REG_W(edp_pll_res->pll_base,
 				EDP_PHY_PLL_UNIPHY_PLL_CAL_CFG2, 0x01);
 		MDSS_PLL_REG_W(edp_pll_res->pll_base,
