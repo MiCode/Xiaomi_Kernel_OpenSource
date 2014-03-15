@@ -489,6 +489,17 @@
 			qcom,iface-clk-node = "msm_usb3";
 		};
 
+		mas-pcie-0 {
+			cell-id = <45>;
+			label = "mas-pcie0";
+			qcom,masterp = <19>;
+			qcom,tier = <2>;
+			qcom,mode = "Fixed";
+			qcom,prio1 = <1>;
+			qcom,prio0 = <1>;
+			qcom,hw-sel = "NoC";
+		};
+
 		slv-ampss {
 			cell-id = <520>;
 			label = "slv-ampss";
