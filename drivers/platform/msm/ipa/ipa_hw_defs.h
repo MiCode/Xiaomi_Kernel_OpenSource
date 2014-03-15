@@ -17,23 +17,23 @@
 /* This header defines various HW related data types */
 
 /* immediate command op-codes */
-#define IPA_DECIPH_INIT        (1)
-#define IPA_PPP_FRM_INIT       (2)
-#define IPA_IP_V4_FILTER_INIT  (3)
-#define IPA_IP_V6_FILTER_INIT  (4)
-#define IPA_IP_V4_NAT_INIT     (5)
-#define IPA_IP_V6_NAT_INIT     (6)
-#define IPA_IP_V4_ROUTING_INIT (7)
-#define IPA_IP_V6_ROUTING_INIT (8)
-#define IPA_HDR_INIT_LOCAL     (9)
-#define IPA_HDR_INIT_SYSTEM   (10)
-#define IPA_DECIPH_SETUP      (11)
-#define IPA_INSERT_NAT_RULE   (12)
-#define IPA_DELETE_NAT_RULE   (13)
-#define IPA_NAT_DMA           (14)
-#define IPA_IP_PACKET_TAG     (15)
-#define IPA_IP_PACKET_INIT    (16)
-#define IPA_DMA_SHARED_MEM    (19)
+#define IPA_DECIPH_INIT           (1)
+#define IPA_PPP_FRM_INIT          (2)
+#define IPA_IP_V4_FILTER_INIT     (3)
+#define IPA_IP_V6_FILTER_INIT     (4)
+#define IPA_IP_V4_NAT_INIT        (5)
+#define IPA_IP_V6_NAT_INIT        (6)
+#define IPA_IP_V4_ROUTING_INIT    (7)
+#define IPA_IP_V6_ROUTING_INIT    (8)
+#define IPA_HDR_INIT_LOCAL        (9)
+#define IPA_HDR_INIT_SYSTEM      (10)
+#define IPA_DECIPH_SETUP         (11)
+#define IPA_REGISTER_WRITE       (12)
+#define IPA_NAT_DMA              (14)
+#define IPA_IP_PACKET_TAG        (15)
+#define IPA_IP_PACKET_INIT       (16)
+#define IPA_DMA_SHARED_MEM       (19)
+#define IPA_IP_PACKET_TAG_STATUS (20)
 
 /**
  * struct ipa_flt_rule_hw_hdr - HW header of IPA filter rule
@@ -188,6 +188,22 @@ struct ipa_a5_mux_hdr {
 };
 
 /**
+ * struct ipa_register_write - IPA_REGISTER_WRITE command payload
+ * @rsvd: reserved
+ * @skip_pipeline_clear: 0 to wait until IPA pipeline is clear
+ * @offset: offset from IPA base address
+ * @value: value to write to register
+ * @value_mask: mask specifying which value bits to write to the register
+ */
+struct ipa_register_write {
+	u32 rsvd:15;
+	u32 skip_pipeline_clear:1;
+	u32 offset:16;
+	u32 value:32;
+	u32 value_mask:32;
+};
+
+/**
  * struct ipa_nat_dma - IPA_NAT_DMA command payload
  * @table_index: NAT table index
  * @rsvd1: reserved
@@ -260,6 +276,18 @@ struct ipa_ip_v4_nat_init {
  */
 struct ipa_ip_packet_tag {
 	u32 tag;
+};
+
+/**
+ * struct ipa_ip_packet_tag_status - IPA_IP_PACKET_TAG_STATUS command payload
+ * @rsvd: reserved
+ * @tag_f_1: tag value returned within status
+ * @tag_f_2: tag value returned within status
+ */
+struct ipa_ip_packet_tag_status {
+	u32 rsvd:16;
+	u32 tag_f_1:16;
+	u32 tag_f_2:32;
 };
 
 /*! @brief Struct for the the IPA UL packet status header */

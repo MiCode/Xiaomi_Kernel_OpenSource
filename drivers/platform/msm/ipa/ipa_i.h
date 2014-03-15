@@ -640,6 +640,8 @@ struct ipa_controller;
  * @ip4_flt_tbl_lcl: where ip4 flt tables reside 1-local; 0-system
  * @ip6_flt_tbl_lcl: where ip6 flt tables reside 1-local; 0-system
  * @empty_rt_tbl_mem: empty routing tables memory
+ * @power_mgmt_wq: workqueue for power management
+ * @start_tag_process_again: indicates whether to start tag process again
  * @pipe_mem_pool: pipe memory pool
  * @dma_pool: special purpose DMA pool
  * @ipa_hw_type: type of IPA HW type (e.g. IPA 1.0, IPA 1.1 etc')
@@ -698,6 +700,8 @@ struct ipa_context {
 	struct dma_pool *dma_pool;
 	struct mutex ipa_active_clients_lock;
 	int ipa_active_clients;
+	struct workqueue_struct *power_mgmt_wq;
+	bool start_tag_process_again;
 	u32 clnt_hdl_cmd;
 	u32 clnt_hdl_data_in;
 	u32 clnt_hdl_data_out;
@@ -942,5 +946,8 @@ int ipa_suspend_resource_no_block(enum ipa_rm_resource_name name);
 int ipa_suspend_resource_sync(enum ipa_rm_resource_name name);
 int ipa_resume_resource(enum ipa_rm_resource_name name);
 bool ipa_should_pipe_be_suspended(enum ipa_client_type client);
+int ipa_tag_aggr_force_close(int pipe_num);
+
+
 
 #endif /* _IPA_I_H_ */

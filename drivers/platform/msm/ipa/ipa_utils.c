@@ -25,6 +25,13 @@
 
 #define IPA_V2_0_BW_THRESHOLD_MBPS (800)
 
+/* Max pipes + ICs for TAG process */
+#define IPA_TAG_MAX_DESC (IPA_NUM_PIPES + 6)
+
+#define IPA_TAG_SLEEP_MIN_USEC (1000)
+#define IPA_TAG_SLEEP_MAX_USEC (2000)
+#define IPA_TAG_TIMEOUT (10 * HZ)
+
 static const int ipa_ofst_meq32[] = { IPA_OFFSET_MEQ32_0,
 					IPA_OFFSET_MEQ32_1, -1 };
 static const int ipa_ofst_meq128[] = { IPA_OFFSET_MEQ128_0,
@@ -3356,4 +3363,246 @@ void ipa_id_remove(u32 id)
 	spin_lock(&ipa_ctx->idr_lock);
 	idr_remove(&ipa_ctx->ipa_idr, id);
 	spin_unlock(&ipa_ctx->idr_lock);
+}
+
+static void ipa_tag_free_buf(void *user1, int user2)
+{
+	kfree(user1);
+}
+
+static void ipa_tag_free_skb(void *user1, int user2)
+{
+	dev_kfree_skb_any((struct sk_buff *)user1);
+}
+
+/**
+ * ipa_tag_generate_force_close_desc() - generate descriptors for force close
+ *					 immediate command
+ *
+ * @desc: descriptors for IC
+ * @desc_size: desc array size
+ * @start_pipe: first pipe to close aggregation
+ * @end_pipe: last (non-inclusive) pipe to close aggregation
+ *
+ * Return: number of descriptors written or negative in case of failure
+ */
+static int ipa_tag_generate_force_close_desc(struct ipa_desc desc[],
+	int desc_size, int start_pipe, int end_pipe)
+{
+	int i;
+	u32 aggr_init;
+	int desc_idx = 0;
+	int res;
+	struct ipa_register_write *reg_write_agg_close;
+
+	for (i = start_pipe; i < end_pipe; i++) {
+		aggr_init = ipa_read_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_AGGR_N_OFST_v2_0(i));
+		if (((aggr_init & IPA_ENDP_INIT_AGGR_N_AGGR_EN_BMSK) >>
+			IPA_ENDP_INIT_AGGR_N_AGGR_EN_SHFT) != IPA_ENABLE_AGGR)
+			continue;
+		IPADBG("Force close ep: %d\n", i);
+		if (desc_idx + 1 >= desc_size) {
+			IPAERR("Internal error - no descriptors\n");
+			res = -EFAULT;
+			goto fail_no_desc;
+		}
+
+		reg_write_agg_close = kzalloc(sizeof(*reg_write_agg_close),
+			GFP_KERNEL);
+		if (!reg_write_agg_close) {
+			IPAERR("no mem\n");
+			res = -ENOMEM;
+			goto fail_alloc_reg_write_agg_close;
+		}
+
+		reg_write_agg_close->skip_pipeline_clear = 0;
+		reg_write_agg_close->offset = IPA_ENDP_INIT_AGGR_N_OFST_v2_0(i);
+		reg_write_agg_close->value =
+			(1 & IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_BMSK) <<
+			IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_SHFT;
+		reg_write_agg_close->value_mask =
+			IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_BMSK <<
+			IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_SHFT;
+
+		desc[desc_idx].opcode = IPA_REGISTER_WRITE;
+		desc[desc_idx].pyld = reg_write_agg_close;
+		desc[desc_idx].len = sizeof(*reg_write_agg_close);
+		desc[desc_idx].type = IPA_IMM_CMD_DESC;
+		desc[desc_idx].callback = ipa_tag_free_buf;
+		desc[desc_idx].user1 = reg_write_agg_close;
+		desc_idx++;
+	}
+
+	return desc_idx;
+
+fail_alloc_reg_write_agg_close:
+	for (i = 0; i < desc_idx; i++)
+		kfree(desc[desc_idx].user1);
+fail_no_desc:
+	return res;
+}
+
+/**
+ * ipa_tag_aggr_force_close() - Force close aggregation
+ *
+ * @pipe_num: pipe number or -1 for all pipes
+ */
+int ipa_tag_aggr_force_close(int pipe_num)
+{
+	struct ipa_sys_context *sys;
+	struct ipa_desc *desc;
+	int desc_idx = 0;
+	struct ipa_ip_packet_init *pkt_init;
+	struct ipa_register_write *reg_write_nop;
+	struct ipa_ip_packet_tag_status *status;
+	int i;
+	struct sk_buff *dummy_skb;
+	int res;
+	int start_pipe;
+	int end_pipe;
+	DECLARE_COMPLETION_ONSTACK(comp);
+	void *comp_ptr = &comp;
+
+	if (pipe_num < -1 || pipe_num >= IPA_NUM_PIPES) {
+		IPAERR("Invalid pipe number %d\n", pipe_num);
+		return -EINVAL;
+	}
+
+	if (pipe_num == -1) {
+		start_pipe = 0;
+		end_pipe = IPA_NUM_PIPES;
+	} else {
+		start_pipe = pipe_num;
+		end_pipe = pipe_num + 1;
+	}
+
+	sys = ipa_ctx->ep[ipa_get_ep_mapping(IPA_CLIENT_APPS_CMD_PROD)].sys;
+
+	desc = kzalloc(sizeof(*desc) * IPA_TAG_MAX_DESC, GFP_KERNEL);
+	if (!desc) {
+		IPAERR("no mem\n");
+		res = -ENOMEM;
+		goto fail_alloc_desc;
+	}
+
+	/* IP_PACKET_INIT IC for tag status to be sent to apps */
+	pkt_init = kzalloc(sizeof(*pkt_init), GFP_KERNEL);
+	if (!pkt_init) {
+		IPAERR("no mem\n");
+		res = -ENOMEM;
+		goto fail_alloc_pkt_init;
+	}
+
+	pkt_init->destination_pipe_index =
+		ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
+
+	desc[desc_idx].opcode = IPA_IP_PACKET_INIT;
+	desc[desc_idx].pyld = pkt_init;
+	desc[desc_idx].len = sizeof(*pkt_init);
+	desc[desc_idx].type = IPA_IMM_CMD_DESC;
+	desc[desc_idx].callback = ipa_tag_free_buf;
+	desc[desc_idx].user1 = pkt_init;
+	desc_idx++;
+
+	/* NO-OP IC for ensuring that IPA pipeline is empty */
+	reg_write_nop = kzalloc(sizeof(*reg_write_nop), GFP_KERNEL);
+	if (!reg_write_nop) {
+		IPAERR("no mem\n");
+		res = -ENOMEM;
+		goto fail_free_desc;
+	}
+
+	reg_write_nop->skip_pipeline_clear = 0;
+	reg_write_nop->value_mask = 0x0;
+
+	desc[desc_idx].opcode = IPA_REGISTER_WRITE;
+	desc[desc_idx].pyld = reg_write_nop;
+	desc[desc_idx].len = sizeof(*reg_write_nop);
+	desc[desc_idx].type = IPA_IMM_CMD_DESC;
+	desc[desc_idx].callback = ipa_tag_free_buf;
+	desc[desc_idx].user1 = reg_write_nop;
+	desc_idx++;
+
+	/* status IC */
+	status = kzalloc(sizeof(*status), GFP_KERNEL);
+	if (!status) {
+		IPAERR("no mem\n");
+		res = -ENOMEM;
+		goto fail_free_desc;
+	}
+
+	status->tag_f_2 = IPA_COOKIE;
+
+	desc[desc_idx].opcode = IPA_IP_PACKET_TAG_STATUS;
+	desc[desc_idx].pyld = status;
+	desc[desc_idx].len = sizeof(*status);
+	desc[desc_idx].type = IPA_IMM_CMD_DESC;
+	desc[desc_idx].callback = ipa_tag_free_buf;
+	desc[desc_idx].user1 = status;
+	desc_idx++;
+
+	/* Force close aggregation on all valid pipes with aggregation */
+	res = ipa_tag_generate_force_close_desc(&desc[desc_idx],
+		IPA_TAG_MAX_DESC - desc_idx,
+		start_pipe, end_pipe);
+	if (res < 0) {
+		IPAERR("ipa_tag_generate_force_close_desc failed %d\n", res);
+		goto fail_free_desc;
+	}
+	desc_idx += res;
+
+	/* dummy packet to send to IPA. packet payload is a completion object */
+	dummy_skb = alloc_skb(sizeof(comp), GFP_KERNEL);
+	if (!dummy_skb) {
+		IPAERR("no mem\n");
+		res = -ENOMEM;
+		goto fail_free_desc;
+	}
+
+	memcpy(skb_put(dummy_skb, sizeof(comp_ptr)), &comp_ptr,
+		sizeof(comp_ptr));
+
+	desc[desc_idx].pyld = dummy_skb->data;
+	desc[desc_idx].len = dummy_skb->len;
+	desc[desc_idx].type = IPA_DATA_DESC_SKB;
+	desc[desc_idx].callback = ipa_tag_free_skb;
+	desc[desc_idx].user1 = dummy_skb;
+	desc_idx++;
+
+	/* send all descriptors to IPA with single EOT */
+	res = ipa_send(sys, desc_idx, desc, true);
+	if (res) {
+		IPAERR("fail to send TAG packets %d\n", res);
+		res = -ENOMEM;
+		goto fail_send;
+	}
+	kfree(desc);
+	desc = NULL;
+
+	IPADBG("waiting for TAG response\n");
+	res = wait_for_completion_timeout(&comp, IPA_TAG_TIMEOUT);
+	if (res == 0) {
+		IPAERR("timeout for waiting for TAG response\n");
+		WARN_ON(1);
+		return -ETIME;
+	}
+
+	IPADBG("TAG response arrived!\n");
+
+	/* sleep for short period to ensure IPA wrote all packets to BAM */
+	usleep_range(IPA_TAG_SLEEP_MIN_USEC, IPA_TAG_SLEEP_MAX_USEC);
+
+	return 0;
+
+fail_send:
+	dev_kfree_skb_any(dummy_skb);
+	desc_idx--;
+fail_free_desc:
+	for (i = 0; i < desc_idx; i++)
+		kfree(desc[desc_idx].user1);
+fail_alloc_pkt_init:
+	kfree(desc);
+fail_alloc_desc:
+	return res;
 }
