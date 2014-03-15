@@ -15,7 +15,7 @@
 		label = "kgsl-3d0";
 		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
 		reg = <0x01c00000 0x10000
-		       0x01c20000 0x20000>;
+		       0x01c10000 0x10000>;
 		reg-names = "kgsl_3d0_reg_memory" , "kgsl_3d0_shader_memory";
 		interrupts = <0 33 0>;
 		interrupt-names = "kgsl_3d0_irq";
