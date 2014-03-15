@@ -81,6 +81,8 @@ struct bam_data_ch_info {
 	u32			dst_pipe_idx;
 	u8			src_connection_idx;
 	u8			dst_connection_idx;
+	int			src_bam_idx;
+	int			dst_bam_idx;
 
 	enum function_type			func_type;
 	enum transport_type			trans;
@@ -653,6 +655,10 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 				bam_data_ipa_sys2bam_notify_cb;
 			d->ul_params.teth_priv = d->ipa_params.priv;
 			d->ipa_params.priv = &d->ul_params;
+		} else {
+			d->ipa_params.reset_pipe_after_lpm =
+				(gadget_is_dwc3(gadget) &&
+				 msm_dwc3_reset_ep_after_lpm(gadget));
 		}
 
 		ret = usb_bam_connect_ipa(&d->ipa_params);
@@ -665,18 +671,18 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 		d_port->ipa_consumer_ep = d->ipa_params.ipa_cons_ep_idx;
 
 		if (gadget_is_dwc3(gadget)) {
-			u8 idx;
-
-			idx = usb_bam_get_connection_idx(gadget->name,
-				IPA_P_BAM, USB_TO_PEER_PERIPHERAL,
-				USB_BAM_DEVICE, 0);
-			if (idx < 0) {
+			d->src_bam_idx = usb_bam_get_connection_idx(
+					gadget->name,
+					IPA_P_BAM, USB_TO_PEER_PERIPHERAL,
+					USB_BAM_DEVICE, 0);
+			if (d->src_bam_idx < 0) {
 				pr_err("%s: get_connection_idx failed\n",
 					__func__);
 				return;
 			}
 
-			configure_usb_data_fifo(idx, port->port_usb->out,
+			configure_usb_data_fifo(d->src_bam_idx,
+					port->port_usb->out,
 					d->src_pipe_type);
 		}
 
@@ -699,6 +705,13 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 			d->ipa_params.skip_ep_cfg =
 				rndis_qc_get_skip_ep_config();
 		}
+
+		if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM) {
+			d->ipa_params.reset_pipe_after_lpm =
+				(gadget_is_dwc3(gadget) &&
+				 msm_dwc3_reset_ep_after_lpm(gadget));
+		}
+
 		ret = usb_bam_connect_ipa(&d->ipa_params);
 		if (ret) {
 			pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",
@@ -712,18 +725,18 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 				d_port->ipa_consumer_ep);
 
 		if (gadget_is_dwc3(gadget)) {
-			u8 idx;
-
-			idx = usb_bam_get_connection_idx(gadget->name,
-				IPA_P_BAM, PEER_PERIPHERAL_TO_USB,
-				USB_BAM_DEVICE, 0);
-			if (idx < 0) {
+			d->dst_bam_idx = usb_bam_get_connection_idx(
+					gadget->name,
+					IPA_P_BAM, PEER_PERIPHERAL_TO_USB,
+					USB_BAM_DEVICE, 0);
+			if (d->dst_bam_idx < 0) {
 				pr_err("%s: get_connection_idx failed\n",
 					__func__);
 				return;
 			}
 
-			configure_usb_data_fifo(idx, port->port_usb->in,
+			configure_usb_data_fifo(d->dst_bam_idx,
+					port->port_usb->in,
 					d->dst_pipe_type);
 		}
 
@@ -1204,6 +1217,16 @@ static int bam_data_wake_cb(void *param)
 static void bam_data_start(void *param, enum usb_bam_pipe_dir dir)
 {
 	struct bam_data_port *port = param;
+	struct data_port *d_port = port->port_usb;
+	struct bam_data_ch_info *d = &port->data_ch;
+	struct usb_gadget *gadget;
+
+	if (!d_port || !d_port->cdev || !d_port->cdev->gadget) {
+		pr_err("%s:d_port,cdev or gadget is  NULL\n", __func__);
+		return;
+	}
+
+	gadget = d_port->cdev->gadget;
 
 	if (dir == USB_TO_PEER_PERIPHERAL) {
 		if (port->data_ch.src_pipe_type == USB_BAM_PIPE_BAM2BAM)
@@ -1211,6 +1234,22 @@ static void bam_data_start(void *param, enum usb_bam_pipe_dir dir)
 		else
 			bam_data_start_rx(port);
 	} else {
+		if (gadget_is_dwc3(gadget) &&
+		    msm_dwc3_reset_ep_after_lpm(gadget)) {
+			u8 idx;
+
+			idx = usb_bam_get_connection_idx(gadget->name,
+				IPA_P_BAM, PEER_PERIPHERAL_TO_USB,
+				USB_BAM_DEVICE, 0);
+			if (idx < 0) {
+				pr_err("%s: get_connection_idx failed\n",
+					__func__);
+				return;
+			}
+			configure_data_fifo(idx,
+				port->port_usb->in,
+				d->dst_pipe_type);
+		}
 		bam_data_start_endless_tx(port);
 	}
 
@@ -1293,6 +1332,8 @@ static void bam2bam_data_resume_work(struct work_struct *w)
 	struct bam_data_port *port =
 			container_of(w, struct bam_data_port, resume_w);
 	struct bam_data_ch_info *d = &port->data_ch;
+	struct data_port *d_port = port->port_usb;
+	struct usb_gadget *gadget = d_port->cdev->gadget;
 	int ret;
 
 	pr_debug("%s: resume work started\n", __func__);
@@ -1309,8 +1350,19 @@ static void bam2bam_data_resume_work(struct work_struct *w)
 		return;
 	}
 
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA)
+	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		if (gadget_is_dwc3(gadget) &&
+			msm_dwc3_reset_ep_after_lpm(gadget)) {
+				configure_usb_data_fifo(d->src_bam_idx,
+					port->port_usb->out,
+					d->src_pipe_type);
+				configure_usb_data_fifo(d->dst_bam_idx,
+					port->port_usb->in,
+					d->dst_pipe_type);
+				msm_dwc3_reset_dbm_ep(port->port_usb->in);
+		}
 		usb_bam_resume(&d->ipa_params);
+	}
 }
 
 void u_bam_data_set_max_xfer_size(u32 max_transfer_size)

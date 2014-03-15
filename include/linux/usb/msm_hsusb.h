@@ -615,6 +615,8 @@ int msm_ep_unconfig(struct usb_ep *ep);
 void dwc3_tx_fifo_resize_request(struct usb_ep *ep, bool qdss_enable);
 int msm_data_fifo_config(struct usb_ep *ep, phys_addr_t addr, u32 size,
 	u8 dst_pipe_idx);
+bool msm_dwc3_reset_ep_after_lpm(struct usb_gadget *gadget);
+int msm_dwc3_reset_dbm_ep(struct usb_ep *ep);
 
 void msm_dwc3_restart_usb_session(struct usb_gadget *gadget);
 
@@ -652,5 +654,16 @@ static inline int msm_register_usb_ext_notification(
 {
 	return -ENODEV;
 }
+
+static inline bool msm_dwc3_reset_ep_after_lpm(struct usb_gadget *gadget)
+{
+	return false;
+}
+
+static inline int msm_dwc3_reset_dbm_ep(struct usb_ep *ep)
+{
+	return -ENODEV;
+}
+
 #endif
 #endif
