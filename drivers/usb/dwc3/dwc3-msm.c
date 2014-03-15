@@ -1103,10 +1103,6 @@ static void dwc3_msm_block_reset(struct dwc3_ext_xceiv *xceiv, bool core_reset)
 	/*enable DBM*/
 	dwc3_msm_write_reg_field(mdwc->base, QSCRATCH_GENERAL_CFG,
 		DBM_EN_MASK, 0x1);
-	dbm_event_buffer_config(mdwc->dbm,
-		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRLO(0)),
-		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRHI(0)),
-		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTSIZ(0)));
 	dbm_enable(mdwc->dbm);
 
 }
