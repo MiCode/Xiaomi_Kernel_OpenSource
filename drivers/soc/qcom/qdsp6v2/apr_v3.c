@@ -23,7 +23,7 @@
 
 void apr_set_subsys_state(void)
 {
-	apr_set_modem_state(APR_SUBSYS_UP);
+	apr_set_modem_state(APR_SUBSYS_DOWN);
 }
 
 uint16_t apr_get_data_src(struct apr_hdr *hdr)

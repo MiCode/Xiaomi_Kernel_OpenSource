@@ -2986,9 +2986,17 @@ static int msm8x16_wcd_spmi_probe(struct spmi_device *spmi)
 	struct msm8x16_wcd *msm8x16 = NULL;
 	struct msm8x16_wcd_pdata *pdata;
 	struct resource *wcd_resource;
+	int modem_state;
 
 	dev_dbg(&spmi->dev, "%s(%d):slave ID = 0x%x\n",
 		__func__, __LINE__,  spmi->sid);
+
+	modem_state = apr_get_modem_state();
+	if (modem_state != APR_SUBSYS_LOADED) {
+		dev_dbg(&spmi->dev, "Modem is not loaded yet %d\n",
+				modem_state);
+		return -EPROBE_DEFER;
+	}
 
 	wcd_resource = spmi_get_resource(spmi, NULL, IORESOURCE_MEM, 0);
 	if (!wcd_resource) {
