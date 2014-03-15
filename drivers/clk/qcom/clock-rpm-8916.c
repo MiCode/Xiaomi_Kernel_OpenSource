@@ -119,7 +119,7 @@ static struct mux_clk rpm_debug_mux = {
 
 /* Lookup Table */
 static struct clk_lookup msm_clocks_rpm[] = {
-	CLK_LIST(xo_gcc),
+	CLK_LIST(xo_clk_src),
 	CLK_LIST(xo_a_clk_src),
 	CLK_LIST(xo_otg_clk),
 	CLK_LIST(xo_lpm_clk),
