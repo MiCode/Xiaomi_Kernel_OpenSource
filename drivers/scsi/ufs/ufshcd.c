@@ -5645,6 +5645,18 @@ out:
 	return ret;
 }
 
+static void ufshcd_hba_vreg_set_lpm(struct ufs_hba *hba)
+{
+	if (ufshcd_is_link_off(hba))
+		ufshcd_setup_hba_vreg(hba, false);
+}
+
+static void ufshcd_hba_vreg_set_hpm(struct ufs_hba *hba)
+{
+	if (ufshcd_is_link_off(hba))
+		ufshcd_setup_hba_vreg(hba, true);
+}
+
 /**
  * ufshcd_suspend - helper function for suspend operations
  * @hba: per adapter instance
@@ -5770,7 +5782,8 @@ disable_clks:
 	 * host controller trasanction expected till resume.
 	 */
 	ufshcd_disable_irq(hba);
-
+	/* Put the host controller in low power mode if possible */
+	ufshcd_hba_vreg_set_lpm(hba);
 	goto out;
 
 vops_resume:
@@ -5816,6 +5829,8 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 	hba->pm_op_in_progress = 1;
 	old_link_state = hba->uic_link_state;
+
+	ufshcd_hba_vreg_set_hpm(hba);
 	/* Make sure clocks are enabled before accessing controller */
 	ret = ufshcd_setup_clocks(hba, true);
 	if (ret)
