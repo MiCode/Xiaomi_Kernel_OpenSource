@@ -13,7 +13,6 @@
 #include <linux/slab.h>
 #include "ipa_i.h"
 #include "ipa_rm_i.h"
-#include "ipa_rm_resource.h"
 
 /**
  * ipa_rm_peers_list_get_resource_index() - resource name to index

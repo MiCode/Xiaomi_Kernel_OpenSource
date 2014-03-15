@@ -75,40 +75,94 @@ int ipa_rm_cons_index(enum ipa_rm_resource_name resource_name)
 	return result;
 }
 
-static int ipa_rm_resource_consumer_request(
+int ipa_rm_resource_consumer_release_work(
+		struct ipa_rm_resource_cons *consumer,
+		enum ipa_rm_resource_state prev_state,
+		bool notify_completion)
+{
+	int driver_result;
+
+	IPA_RM_DBG("calling driver CB\n");
+	driver_result = consumer->release_resource();
+	IPA_RM_DBG("driver CB returned with %d\n", driver_result);
+	if (driver_result != 0 && driver_result != -EINPROGRESS) {
+		IPA_RM_ERR("driver CB returned error %d\n", driver_result);
+		consumer->resource.state = prev_state;
+		goto bail;
+	}
+	if (driver_result == 0) {
+		if (notify_completion)
+			ipa_rm_resource_consumer_handle_cb(consumer,
+					IPA_RM_RESOURCE_RELEASED);
+		else
+			consumer->resource.state = IPA_RM_RELEASED;
+	}
+
+	ipa_rm_perf_profile_change(consumer->resource.name);
+bail:
+	return driver_result;
+}
+
+int ipa_rm_resource_consumer_request_work(struct ipa_rm_resource_cons *consumer,
+		enum ipa_rm_resource_state prev_state,
+		u32 prod_needed_bw,
+		bool notify_completion)
+{
+	int driver_result;
+
+	IPA_RM_DBG("calling driver CB\n");
+	driver_result = consumer->request_resource();
+	IPA_RM_DBG("driver CB returned with %d\n", driver_result);
+	if (driver_result == 0) {
+		if (notify_completion) {
+			ipa_rm_resource_consumer_handle_cb(consumer,
+					IPA_RM_RESOURCE_GRANTED);
+		} else {
+			consumer->resource.state = IPA_RM_GRANTED;
+			ipa_rm_perf_profile_change(consumer->resource.name);
+			ipa_resume_resource(consumer->resource.name);
+		}
+	} else if (driver_result != -EINPROGRESS) {
+		consumer->resource.state = prev_state;
+		consumer->resource.needed_bw -= prod_needed_bw;
+		consumer->usage_count--;
+	}
+
+	return driver_result;
+}
+
+int ipa_rm_resource_consumer_request(
 		struct ipa_rm_resource_cons *consumer,
 		u32 prod_needed_bw)
 {
 	int result = 0;
-	int driver_result;
+	enum ipa_rm_resource_state prev_state;
 
 	IPA_RM_DBG("%s state: %d\n",
 			ipa_rm_resource_str(consumer->resource.name),
 			consumer->resource.state);
 
+	prev_state = consumer->resource.state;
 	consumer->resource.needed_bw += prod_needed_bw;
 	switch (consumer->resource.state) {
 	case IPA_RM_RELEASED:
 	case IPA_RM_RELEASE_IN_PROGRESS:
-	{
-		enum ipa_rm_resource_state prev_state =
-						consumer->resource.state;
 		consumer->resource.state = IPA_RM_REQUEST_IN_PROGRESS;
-		IPA_RM_DBG("calling driver CB\n");
-		driver_result = consumer->request_resource();
-		IPA_RM_DBG("driver CB returned with %d\n", driver_result);
-		if (driver_result == 0) {
-			consumer->resource.state = IPA_RM_GRANTED;
-			ipa_rm_perf_profile_change(consumer->resource.name);
-		} else if (driver_result != -EINPROGRESS) {
-			consumer->resource.state = prev_state;
-			consumer->resource.needed_bw -= prod_needed_bw;
-			result = driver_result;
-			goto bail;
+		if (prev_state == IPA_RM_RELEASE_IN_PROGRESS ||
+				ipa_inc_client_enable_clks_no_block() != 0) {
+			IPA_RM_DBG("async resume work for %s\n",
+				ipa_rm_resource_str(consumer->resource.name));
+			ipa_rm_wq_send_resume_cmd(consumer->resource.name,
+						prev_state,
+						prod_needed_bw);
+			result = -EINPROGRESS;
+			break;
 		}
-		result = driver_result;
+		result = ipa_rm_resource_consumer_request_work(consumer,
+						prev_state,
+						prod_needed_bw,
+						false);
 		break;
-	}
 	case IPA_RM_GRANTED:
 		ipa_rm_perf_profile_change(consumer->resource.name);
 		break;
@@ -130,7 +184,7 @@ bail:
 	return result;
 }
 
-static int ipa_rm_resource_consumer_release(
+int ipa_rm_resource_consumer_release(
 		struct ipa_rm_resource_cons *consumer,
 		u32 prod_needed_bw)
 {
@@ -140,6 +194,7 @@ static int ipa_rm_resource_consumer_release(
 	IPA_RM_DBG("%s state: %d\n",
 		ipa_rm_resource_str(consumer->resource.name),
 		consumer->resource.state);
+	save_state = consumer->resource.state;
 	consumer->resource.needed_bw -= prod_needed_bw;
 	switch (consumer->resource.state) {
 	case IPA_RM_RELEASED:
@@ -153,22 +208,20 @@ static int ipa_rm_resource_consumer_release(
 		}
 		consumer->usage_count--;
 		if (consumer->usage_count == 0) {
-			save_state = consumer->resource.state;
 			consumer->resource.state = IPA_RM_RELEASE_IN_PROGRESS;
-			IPA_RM_DBG("calling driver CB\n");
-			result = consumer->release_resource();
-			IPA_RM_DBG("driver CB returned with %d\n",
-				result);
-			if (result != 0 && result != -EINPROGRESS) {
-				IPA_RM_ERR("driver CB returned error %d\n",
-					result);
-				consumer->resource.state = save_state;
+			if (save_state == IPA_RM_REQUEST_IN_PROGRESS ||
+			    ipa_suspend_resource_no_block(
+						consumer->resource.name) != 0) {
+				ipa_rm_wq_send_suspend_cmd(
+						consumer->resource.name,
+						save_state,
+						prod_needed_bw);
+				result = -EINPROGRESS;
 				goto bail;
 			}
-			if (result == 0)
-				consumer->resource.state = IPA_RM_RELEASED;
-			ipa_rm_perf_profile_change(consumer->resource.name);
-
+			result = ipa_rm_resource_consumer_release_work(consumer,
+					save_state, false);
+			goto bail;
 		} else if (consumer->resource.state == IPA_RM_GRANTED) {
 			ipa_rm_perf_profile_change(consumer->resource.name);
 		}
@@ -912,6 +965,7 @@ void ipa_rm_resource_consumer_handle_cb(struct ipa_rm_resource_cons *consumer,
 			goto bail;
 		consumer->resource.state = IPA_RM_GRANTED;
 		ipa_rm_perf_profile_change(consumer->resource.name);
+		ipa_resume_resource(consumer->resource.name);
 		break;
 	case IPA_RM_RELEASE_IN_PROGRESS:
 		if (event == IPA_RM_RESOURCE_GRANTED)

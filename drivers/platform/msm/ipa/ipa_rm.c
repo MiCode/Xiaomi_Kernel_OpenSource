@@ -16,7 +16,6 @@
 #include "ipa_i.h"
 #include "ipa_rm_dependency_graph.h"
 #include "ipa_rm_i.h"
-#include "ipa_rm_resource.h"
 
 static const char *resource_name_to_str[IPA_RM_RESOURCE_MAX] = {
 	__stringify(IPA_RM_RESOURCE_Q6_PROD),
@@ -254,6 +253,82 @@ bail:
 }
 EXPORT_SYMBOL(ipa_rm_request_resource);
 
+void delayed_release_work_func(struct work_struct *work)
+{
+	struct ipa_rm_resource *resource;
+	struct ipa_rm_delayed_release_work_type *rwork = container_of(
+			to_delayed_work(work),
+			struct ipa_rm_delayed_release_work_type,
+			work);
+
+	if (!IPA_RM_RESORCE_IS_CONS(rwork->resource_name)) {
+		IPA_RM_ERR("can be called on CONS only\n");
+		kfree(rwork);
+		return;
+	}
+	spin_lock(&ipa_rm_ctx->ipa_rm_lock);
+	if (ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
+					rwork->resource_name,
+					&resource) != 0) {
+		IPA_RM_ERR("resource does not exists\n");
+		goto bail;
+	}
+
+	ipa_rm_resource_consumer_release(
+		(struct ipa_rm_resource_cons *)resource, rwork->needed_bw);
+
+bail:
+	spin_unlock(&ipa_rm_ctx->ipa_rm_lock);
+	kfree(rwork);
+
+}
+
+/**
+ * ipa_rm_request_resource_with_timer() - requests the specified consumer
+ * resource and releases it after 1 second
+ * @resource_name: name of the requested resource
+ *
+ * Returns: 0 on success, negative on failure
+ */
+int ipa_rm_request_resource_with_timer(enum ipa_rm_resource_name resource_name)
+{
+	struct ipa_rm_resource *resource;
+	struct ipa_rm_delayed_release_work_type *release_work;
+	int result;
+
+	if (!IPA_RM_RESORCE_IS_CONS(resource_name)) {
+		IPA_RM_ERR("can be called on CONS only\n");
+		return -EINVAL;
+	}
+
+	spin_lock(&ipa_rm_ctx->ipa_rm_lock);
+	if (ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
+			resource_name,
+			&resource) != 0) {
+		IPA_RM_ERR("resource does not exists\n");
+		result = -EPERM;
+		goto bail;
+	}
+	result = ipa_rm_resource_consumer_request(
+			(struct ipa_rm_resource_cons *)resource, 0);
+	if (result != 0 && result != -EINPROGRESS) {
+		IPA_RM_ERR("consumer request returned error %d\n", result);
+		result = -EPERM;
+		goto bail;
+	}
+
+	release_work = kzalloc(sizeof(*release_work), GFP_ATOMIC);
+	release_work->resource_name = resource->name;
+	release_work->needed_bw = 0;
+	INIT_DELAYED_WORK(&release_work->work, delayed_release_work_func);
+	schedule_delayed_work(&release_work->work,
+			msecs_to_jiffies(IPA_RM_RELEASE_DELAY_IN_MSEC));
+	result = 0;
+bail:
+	spin_unlock(&ipa_rm_ctx->ipa_rm_lock);
+
+	return result;
+}
 /**
  * ipa_rm_release_resource() - release resource
  * @resource_name: [in] name of the requested resource
@@ -504,6 +579,71 @@ static void ipa_rm_wq_handler(struct work_struct *work)
 	kfree((void *) work);
 }
 
+static void ipa_rm_wq_resume_handler(struct work_struct *work)
+{
+	struct ipa_rm_resource *resource;
+	struct ipa_rm_wq_suspend_resume_work_type *ipa_rm_work =
+			container_of(work,
+			struct ipa_rm_wq_suspend_resume_work_type,
+			work);
+	IPA_RM_DBG("resume work handler: %s",
+		ipa_rm_resource_str(ipa_rm_work->resource_name));
+
+	if (!IPA_RM_RESORCE_IS_CONS(ipa_rm_work->resource_name)) {
+		IPA_RM_ERR("resource is not CONS\n");
+		return;
+	}
+	ipa_inc_client_enable_clks();
+	spin_lock(&ipa_rm_ctx->ipa_rm_lock);
+	if (ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
+					ipa_rm_work->resource_name,
+					&resource) != 0){
+		IPA_RM_ERR("resource does not exists\n");
+		spin_unlock(&ipa_rm_ctx->ipa_rm_lock);
+		ipa_dec_client_disable_clks();
+		goto bail;
+	}
+	ipa_rm_resource_consumer_request_work(
+			(struct ipa_rm_resource_cons *)resource,
+			ipa_rm_work->prev_state, ipa_rm_work->needed_bw, true);
+	spin_unlock(&ipa_rm_ctx->ipa_rm_lock);
+bail:
+	kfree(ipa_rm_work);
+}
+
+
+static void ipa_rm_wq_suspend_handler(struct work_struct *work)
+{
+	struct ipa_rm_resource *resource;
+	struct ipa_rm_wq_suspend_resume_work_type *ipa_rm_work =
+			container_of(work,
+			struct ipa_rm_wq_suspend_resume_work_type,
+			work);
+	IPA_RM_DBG("suspend work handler: %s",
+		ipa_rm_resource_str(ipa_rm_work->resource_name));
+
+	if (!IPA_RM_RESORCE_IS_CONS(ipa_rm_work->resource_name)) {
+		IPA_RM_ERR("resource is not CONS\n");
+		return;
+	}
+	ipa_suspend_resource_sync(ipa_rm_work->resource_name);
+	spin_lock(&ipa_rm_ctx->ipa_rm_lock);
+	if (ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
+					ipa_rm_work->resource_name,
+					&resource) != 0){
+		IPA_RM_ERR("resource does not exists\n");
+		spin_unlock(&ipa_rm_ctx->ipa_rm_lock);
+		return;
+	}
+	ipa_rm_resource_consumer_release_work(
+			(struct ipa_rm_resource_cons *)resource,
+			ipa_rm_work->prev_state,
+			true);
+	spin_unlock(&ipa_rm_ctx->ipa_rm_lock);
+
+	kfree(ipa_rm_work);
+}
+
 /**
  * ipa_rm_wq_send_cmd() - send a command for deferred work
  * @wq_cmd: command that should be executed
@@ -535,6 +675,48 @@ int ipa_rm_wq_send_cmd(enum ipa_rm_wq_cmd wq_cmd,
 	return result;
 }
 
+int ipa_rm_wq_send_suspend_cmd(enum ipa_rm_resource_name resource_name,
+		enum ipa_rm_resource_state prev_state,
+		u32 needed_bw)
+{
+	int result = -ENOMEM;
+	struct ipa_rm_wq_suspend_resume_work_type *work = kzalloc(sizeof(*work),
+			GFP_ATOMIC);
+	if (work) {
+		INIT_WORK((struct work_struct *)work,
+				ipa_rm_wq_suspend_handler);
+		work->resource_name = resource_name;
+		work->prev_state = prev_state;
+		work->needed_bw = needed_bw;
+		result = queue_work(ipa_rm_ctx->ipa_rm_wq,
+				(struct work_struct *)work);
+	} else {
+		IPA_RM_ERR("no mem\n");
+	}
+
+	return result;
+}
+
+int ipa_rm_wq_send_resume_cmd(enum ipa_rm_resource_name resource_name,
+		enum ipa_rm_resource_state prev_state,
+		u32 needed_bw)
+{
+	int result = -ENOMEM;
+	struct ipa_rm_wq_suspend_resume_work_type *work = kzalloc(sizeof(*work),
+			GFP_ATOMIC);
+	if (work) {
+		INIT_WORK((struct work_struct *)work, ipa_rm_wq_resume_handler);
+		work->resource_name = resource_name;
+		work->prev_state = prev_state;
+		work->needed_bw = needed_bw;
+		result = queue_work(ipa_rm_ctx->ipa_rm_wq,
+				(struct work_struct *)work);
+	} else {
+		IPA_RM_ERR("no mem\n");
+	}
+
+	return result;
+}
 /**
  * ipa_rm_initialize() - initialize IPA RM component
  *
