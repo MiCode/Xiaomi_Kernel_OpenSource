@@ -671,11 +671,11 @@ static void __init u300_init_machine(void)
 /* Forward declare this function from the watchdog */
 void coh901327_watchdog_reset(void);
 
-static void u300_restart(char mode, const char *cmd)
+static void u300_restart(enum reboot_mode mode, const char *cmd)
 {
 	switch (mode) {
-	case 's':
-	case 'h':
+	case REBOOT_SOFT:
+	case REBOOT_HARD:
 #ifdef CONFIG_COH901327_WATCHDOG
 		coh901327_watchdog_reset();
 #endif
