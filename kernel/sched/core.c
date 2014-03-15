@@ -1867,9 +1867,19 @@ stat:
 out:
 	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
 
-	if (src_cpu != cpu && task_notify_on_migrate(p))
+	if (src_cpu != cpu && task_notify_on_migrate(p)) {
+		struct migration_notify_data mnd;
+
+		mnd.src_cpu = src_cpu;
+		mnd.dest_cpu = cpu;
+		if (sysctl_sched_ravg_window)
+			mnd.load = div64_u64((u64)p->se.ravg.demand * 100,
+				(u64)(sysctl_sched_ravg_window));
+		else
+			mnd.load = 0;
 		atomic_notifier_call_chain(&migration_notifier_head,
-					   cpu, (void *)(long)src_cpu);
+					   0, (void *)&mnd);
+	}
 	return success;
 }
 
@@ -4957,9 +4967,19 @@ done:
 fail:
 	raw_spin_unlock(&rq->lock);
 	raw_spin_unlock(&p->pi_lock);
-	if (moved && task_notify_on_migrate(p))
+	if (moved && task_notify_on_migrate(p)) {
+		struct migration_notify_data mnd;
+
+		mnd.src_cpu = src_cpu;
+		mnd.dest_cpu = dest_cpu;
+		if (sysctl_sched_ravg_window)
+			mnd.load = div64_u64((u64)p->se.ravg.demand * 100,
+				(u64)(sysctl_sched_ravg_window));
+		else
+			mnd.load = 0;
 		atomic_notifier_call_chain(&migration_notifier_head,
-					   dest_cpu, (void *)(long)src_cpu);
+					   0, (void *)&mnd);
+	}
 	return ret;
 }
 
