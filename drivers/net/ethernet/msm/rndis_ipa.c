@@ -1516,6 +1516,7 @@ static int  rndis_ipa_deregister_properties(char *netdev_name)
 static int rndis_ipa_create_rm_resource(struct rndis_ipa_dev *rndis_ipa_ctx)
 {
 	struct ipa_rm_create_params create_params = {0};
+	struct ipa_rm_perf_profile profile;
 	int result;
 
 	RNDIS_IPA_LOG_ENTRY();
@@ -1530,21 +1531,34 @@ static int rndis_ipa_create_rm_resource(struct rndis_ipa_dev *rndis_ipa_ctx)
 	}
 	RNDIS_IPA_DEBUG("RM client was created");
 
+	profile.max_supported_bandwidth_mbps = IPA_APPS_MAX_BW_IN_MBPS;
+	ipa_rm_set_perf_profile(DRV_RESOURCE_ID, &profile);
+
 	result = ipa_rm_inactivity_timer_init(DRV_RESOURCE_ID,
 			INACTIVITY_MSEC_DELAY);
 	if (result) {
 		RNDIS_IPA_ERROR("Fail on ipa_rm_inactivity_timer_init\n");
 		goto fail_inactivity_timer;
 	}
+
 	RNDIS_IPA_DEBUG("rm_it client was created");
 
 	result = ipa_rm_add_dependency(DRV_RESOURCE_ID,
 				IPA_RM_RESOURCE_USB_CONS);
 
 	if (result)
-		RNDIS_IPA_ERROR("unable to add dependency (%d)\n", result);
+		RNDIS_IPA_ERROR("unable to add RNDIS/USB dependency (%d)\n",
+				result);
 	else
-		RNDIS_IPA_DEBUG("rm dependency was set\n");
+		RNDIS_IPA_DEBUG("RNDIS/USB dependency was set\n");
+
+	result = ipa_rm_add_dependency(IPA_RM_RESOURCE_USB_PROD,
+				IPA_RM_RESOURCE_APPS_CONS);
+	if (result)
+		RNDIS_IPA_ERROR("unable to add USB/APPS dependency (%d)\n",
+				result);
+	else
+		RNDIS_IPA_DEBUG("USB/APPS dependency was set\n");
 
 	RNDIS_IPA_LOG_EXIT();
 
@@ -1574,11 +1588,18 @@ static int rndis_ipa_destory_rm_resource(struct rndis_ipa_dev *rndis_ipa_ctx)
 	result = ipa_rm_delete_dependency(DRV_RESOURCE_ID,
 			IPA_RM_RESOURCE_USB_CONS);
 	if (result) {
-		RNDIS_IPA_ERROR("Fail to delete Apps/USB dependency");
+		RNDIS_IPA_ERROR("Fail to delete RNDIS/USB dependency");
 		goto bail;
 	}
-	RNDIS_IPA_DEBUG("RM dependency was successfully deleted");
+	RNDIS_IPA_DEBUG("RNDIS/USB dependency was successfully deleted");
 
+	result = ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
+					IPA_RM_RESOURCE_APPS_CONS);
+	if (result) {
+		RNDIS_IPA_ERROR("Fail to delete USB/APPS dependency");
+		goto bail;
+	}
+	RNDIS_IPA_DEBUG("USB/APPS dependency was successfully deleted");
 
 	result = ipa_rm_inactivity_timer_destroy(DRV_RESOURCE_ID);
 	if (result) {
