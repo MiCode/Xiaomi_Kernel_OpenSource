@@ -1240,7 +1240,6 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		cell-index = <0>;
-		qcom,not-wakeup; /* Needed until MPM is fully configured. */
 	};
 
 	qcom,msm-imem@8600000 {
