@@ -419,7 +419,8 @@ static void smp2p_ut_remote_spinlock_rpm(struct seq_file *s)
 			/* acquire spinlock */
 			remote_spin_lock_irqsave(smem_spinlock, flags);
 			have_lock = true;
-			writel_relaxed(++data_ptr->apps_lock_count,
+			data_ptr->apps_lock_count++;
+			writel_relaxed(data_ptr->apps_lock_count,
 				&data_ptr->apps_lock_count);
 			writel_relaxed(RPM_CMD_LOCKED, &data_ptr->apps_cmd);
 			/*
