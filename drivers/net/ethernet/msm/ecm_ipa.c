@@ -951,6 +951,7 @@ static void ecm_ipa_rm_notify(void *user_data, enum ipa_rm_event event,
 static int ecm_ipa_create_rm_resource(struct ecm_ipa_dev *ecm_ipa_ctx)
 {
 	struct ipa_rm_create_params create_params = {0};
+	struct ipa_rm_perf_profile profile;
 	int result;
 	ECM_IPA_LOG_ENTRY();
 	create_params.name = IPA_RM_RESOURCE_STD_ECM_PROD;
@@ -963,6 +964,9 @@ static int ecm_ipa_create_rm_resource(struct ecm_ipa_dev *ecm_ipa_ctx)
 	}
 	ECM_IPA_DEBUG("rm client was created");
 
+	profile.max_supported_bandwidth_mbps = IPA_APPS_MAX_BW_IN_MBPS;
+	ipa_rm_set_perf_profile(IPA_RM_RESOURCE_STD_ECM_PROD, &profile);
+
 	result = ipa_rm_inactivity_timer_init(IPA_RM_RESOURCE_STD_ECM_PROD,
 			INACTIVITY_MSEC_DELAY);
 	if (result) {
@@ -974,7 +978,14 @@ static int ecm_ipa_create_rm_resource(struct ecm_ipa_dev *ecm_ipa_ctx)
 	result = ipa_rm_add_dependency(IPA_RM_RESOURCE_STD_ECM_PROD,
 				IPA_RM_RESOURCE_USB_CONS);
 	if (result)
-		ECM_IPA_ERROR("unable to add dependency (%d)\n", result);
+		ECM_IPA_ERROR("unable to add ECM/USB dependency (%d)\n",
+				result);
+
+	result = ipa_rm_add_dependency(IPA_RM_RESOURCE_USB_PROD,
+					IPA_RM_RESOURCE_APPS_CONS);
+	if (result)
+		ECM_IPA_ERROR("unable to add USB/APPS dependency (%d)\n",
+				result);
 
 	ECM_IPA_DEBUG("rm dependency was set\n");
 
@@ -994,6 +1005,8 @@ static void ecm_ipa_destory_rm_resource(struct ecm_ipa_dev *ecm_ipa_ctx)
 
 	ipa_rm_delete_dependency(IPA_RM_RESOURCE_STD_ECM_PROD,
 			IPA_RM_RESOURCE_USB_CONS);
+	ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
+				IPA_RM_RESOURCE_APPS_CONS);
 	ipa_rm_inactivity_timer_destroy(IPA_RM_RESOURCE_STD_ECM_PROD);
 	result = ipa_rm_delete_resource(IPA_RM_RESOURCE_STD_ECM_PROD);
 	if (result)
