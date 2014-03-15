@@ -93,9 +93,7 @@ static DEFINE_CLK_VOTER(bimc_msmbus_a_clk, &bimc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(cnoc_msmbus_clk, &cnoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(cnoc_msmbus_a_clk, &cnoc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_BRANCH_VOTER(cxo_dwc3_clk, &cxo_clk_src.c);
-static DEFINE_CLK_BRANCH_VOTER(cxo_gcc, &cxo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(cxo_lpm_clk, &cxo_clk_src.c);
-static DEFINE_CLK_BRANCH_VOTER(cxo_mmss, &cxo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(cxo_otg_clk, &cxo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(cxo_pil_lpass_clk, &cxo_clk_src.c);
 DEFINE_CLK_RPM_SMD_XO_BUFFER(div_clk1, div_clk1_ao, DIV_CLK1_ID);
@@ -196,9 +194,7 @@ static struct clk_lookup msm_clocks_rpm_plutonium[] = {
 	CLK_LIST(cnoc_msmbus_a_clk),
 	CLK_LIST(cxo_clk_src_ao),
 	CLK_LIST(cxo_dwc3_clk),
-	CLK_LIST(cxo_gcc),
 	CLK_LIST(cxo_lpm_clk),
-	CLK_LIST(cxo_mmss),
 	CLK_LIST(cxo_otg_clk),
 	CLK_LIST(cxo_pil_lpass_clk),
 	CLK_LIST(div_clk1),
