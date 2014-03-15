@@ -440,7 +440,7 @@ skip_regs:
 			a4xx_snapshot_shader_memory,
 			&snap_data->sect_sizes->shader_mem);
 
-	kgsl_regwrite(device, ADRENO_REG_RBBM_CLOCK_CTL,
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL,
 			clock_ctl);
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2,
 			clock_ctl2);
