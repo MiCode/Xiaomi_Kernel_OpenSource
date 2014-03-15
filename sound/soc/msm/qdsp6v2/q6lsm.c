@@ -783,7 +783,7 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len)
 		client->lsm_cal_size = lsm_cal.cal_size;
 		memcpy((client->sound_model.data + pad_zero +
 			client->sound_model.size),
-			(uint32_t *)lsm_cal.cal_kvaddr, len);
+			(uint32_t *)lsm_cal.cal_kvaddr, lsm_cal.cal_size);
 	} else {
 		rc = -EBUSY;
 		goto fail;
