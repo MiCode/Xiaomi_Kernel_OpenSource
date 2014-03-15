@@ -26,6 +26,10 @@
 
 #define TRUE  1
 #define FALSE 0
+
+#define CCI_PINCTRL_STATE_DEFAULT "cci_default"
+#define CCI_PINCTRL_STATE_SLEEP "cci_suspend"
+
 enum cci_i2c_queue_t {
 	QUEUE_0,
 	QUEUE_1,
@@ -115,6 +119,7 @@ enum msm_cci_state_t {
 	CCI_STATE_DISABLED,
 };
 
+
 struct cci_device {
 	struct platform_device *pdev;
 	struct msm_sd_subdev msm_sd;
@@ -137,6 +142,8 @@ struct cci_device {
 	struct gpio *cci_gpio_tbl;
 	uint8_t cci_gpio_tbl_size;
 	uint8_t master_clk_init[MASTER_MAX];
+	struct msm_pinctrl_info cci_pinctrl;
+	uint8_t cci_pinctrl_status;
 };
 
 enum msm_cci_i2c_cmd_type {
