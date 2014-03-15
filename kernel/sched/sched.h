@@ -12,6 +12,7 @@
 
 extern __read_mostly int scheduler_running;
 
+extern unsigned int sysctl_sched_ravg_window;
 /*
  * Convert user-nice values [ -20 ... 0 ... 19 ]
  * to static priority [ MAX_RT_PRIO..MAX_PRIO-1 ],
