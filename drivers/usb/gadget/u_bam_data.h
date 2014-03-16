@@ -25,6 +25,7 @@ struct data_port {
 	struct usb_composite_dev	*cdev;
 	struct usb_function		*func;
 	struct usb_ep			*in;
+	int				rx_buffer_size;
 	struct usb_ep			*out;
 	int                             ipa_consumer_ep;
 	int                             ipa_producer_ep;

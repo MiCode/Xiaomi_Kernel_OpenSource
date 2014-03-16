@@ -177,6 +177,9 @@ static inline unsigned mbim_bitrate(struct usb_gadget *g)
 #define MBIM_NTB_OUT_SIZE_IPA		(0x2000)
 
 #define MBIM_FORMATS_SUPPORTED	USB_CDC_NCM_NTB16_SUPPORTED
+static int mbim_ntb_out_size_sys2bam;
+module_param(mbim_ntb_out_size_sys2bam, int, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(mbim_ntb_out_size_sys2bam, "MBIM OUT SIZE for SYS2BAM Mode");
 
 static struct usb_cdc_ncm_ntb_parameters mbim_ntb_parameters = {
 	.wLength = sizeof mbim_ntb_parameters,
@@ -1727,6 +1730,7 @@ int mbim_bind_config(struct usb_configuration *c, unsigned portno,
 {
 	struct f_mbim	*mbim = NULL;
 	int status = 0;
+	int mbim_out_max_size;
 
 	pr_info("port number %u", portno);
 
@@ -1793,9 +1797,21 @@ int mbim_bind_config(struct usb_configuration *c, unsigned portno,
 		/* For IPA this is proven to give maximum throughput */
 		mbim_ntb_parameters.dwNtbInMaxSize =
 		cpu_to_le32(NTB_DEFAULT_IN_SIZE_IPA);
+		/*
+		 * If mbim_ntb_out_size_sys2bam is set, use that value
+		 * otherwise use default value.
+		 */
+		if (mbim_ntb_out_size_sys2bam)
+			mbim_out_max_size = mbim_ntb_out_size_sys2bam;
+		else
+			mbim_out_max_size = MBIM_NTB_OUT_SIZE_IPA;
+
 		mbim_ntb_parameters.dwNtbOutMaxSize =
-				cpu_to_le32(MBIM_NTB_OUT_SIZE_IPA);
+				cpu_to_le32(mbim_out_max_size);
+		/* update rx buffer size to be used by usb rx request buffer */
+		mbim->bam_port.rx_buffer_size = mbim_out_max_size;
 		mbim_ntb_parameters.wNdpInDivisor = 1;
+		pr_debug("MBIM: dwNtbOutMaxSize:%d\n", mbim_out_max_size);
 	}
 
 	INIT_LIST_HEAD(&mbim->cpkt_req_q);
