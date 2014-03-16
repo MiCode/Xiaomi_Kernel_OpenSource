@@ -31,6 +31,30 @@
 			reg = <0 0x100000>;
 			label = "qsecom_mem";
 		};
+
+		modem_mem: qsecom_region@8800000 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x8800000 0x3d00000>;
+			label = "modem_mem";
+		};
+
+		peripheral_mem: peripheral_region@c500000 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0c500000 0x1300000>;
+			label = "peripheral_mem";
+		};
+
+		external_image_mem: external_image_region@d800000 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0d800000 0x600000>;
+			label = "external_image_mem";
+		};
 	};
 
 	aliases {
@@ -521,11 +545,6 @@
 
 	qcom,bcl {
 		compatible = "qcom,bcl";
-	};
-
-	qcom,msm-mem-hole {
-		compatible = "qcom,msm-mem-hole";
-		qcom,memblock-remove = <0x08800000 0x5600000>; /* Address and Size of Hole */
 	};
 
 	qcom,wdt@f9017000 {
