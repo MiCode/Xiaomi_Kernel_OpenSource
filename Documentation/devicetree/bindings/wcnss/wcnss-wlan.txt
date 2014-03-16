@@ -34,6 +34,9 @@ Optional properties:
 should be performed during boot up.
 - qcom,wlan-rx-buff-count: WLAN RX buffer count is a configurable value,
 using a smaller count for this buffer will reduce the memory usage.
+- qcom,is-pronto-vt: boolean flag to determine the pronto hardware version
+in use. subsequently Pronto and IRIS voltage regulator range is configured
+according to the ponto HW version
 
 Example:
 
@@ -56,6 +59,7 @@ Example:
         gpios = <&msmgpio 36 0>, <&msmgpio 37 0>, <&msmgpio 38 0>,
                 <&msmgpio 39 0>, <&msmgpio 40 0>;
         qcom,has-48mhz-xo;
+        qcom,is-pronto-vt;
         qcom,has-pronto-hw;
         qcom,wcnss-adc_tm = <&pm8226_adc_tm>;
 

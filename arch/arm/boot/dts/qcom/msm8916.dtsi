@@ -1161,6 +1161,7 @@
 		pinctrl-1 = <&wcnss_sleep>;
 
 		qcom,has-autodetect-xo;
+		qcom,is-pronto-vt;
 		qcom,has-pronto-hw;
 	};
 

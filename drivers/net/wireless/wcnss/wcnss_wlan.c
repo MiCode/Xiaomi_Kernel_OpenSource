@@ -2160,9 +2160,13 @@ wcnss_trigger_config(struct platform_device *pdev)
 	int ret;
 	struct qcom_wcnss_opts *pdata;
 	struct resource *res;
+	int is_pronto_vt;
 	int pil_retry = 0;
 	int has_pronto_hw = of_property_read_bool(pdev->dev.of_node,
 							"qcom,has-pronto-hw");
+
+	is_pronto_vt = of_property_read_bool(pdev->dev.of_node,
+							"qcom,is-pronto-vt");
 
 	if (of_property_read_u32(pdev->dev.of_node,
 			"qcom,wlan-rx-buff-count", &penv->wlan_rx_buff_count)) {
@@ -2186,6 +2190,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 	}
 	penv->wcnss_hw_type = (has_pronto_hw) ? WCNSS_PRONTO_HW : WCNSS_RIVA_HW;
 	penv->wlan_config.use_48mhz_xo = has_48mhz_xo;
+	penv->wlan_config.is_pronto_vt = is_pronto_vt;
 
 	if (WCNSS_CONFIG_UNSPECIFIED == has_autodetect_xo && has_pronto_hw) {
 		has_autodetect_xo = of_property_read_bool(pdev->dev.of_node,
