@@ -120,6 +120,7 @@
 #include "msm8916-mdss-pll.dtsi"
 #include "msm8916-iommu-domains.dtsi"
 #include "msm8916-bus.dtsi"
+#include "msm8916-camera.dtsi"
 
 &soc {
 	#address-cells = <1>;
