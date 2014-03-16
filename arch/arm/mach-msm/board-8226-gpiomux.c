@@ -57,6 +57,42 @@ static struct msm_gpiomux_config msm_hsic_configs[] = {
 };
 #endif
 
+static struct gpiomux_setting smsc_hub_act_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting smsc_hub_susp_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct msm_gpiomux_config smsc_hub_configs[] = {
+	{
+		.gpio = 114, /* reset_n */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &smsc_hub_act_cfg,
+			[GPIOMUX_SUSPENDED] = &smsc_hub_susp_cfg,
+		},
+	},
+	{
+		.gpio = 8, /* clk_en */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &smsc_hub_act_cfg,
+			[GPIOMUX_SUSPENDED] = &smsc_hub_susp_cfg,
+		},
+	},
+	{
+		.gpio = 9, /* int_n */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &smsc_hub_act_cfg,
+			[GPIOMUX_SUSPENDED] = &smsc_hub_susp_cfg,
+		},
+	},
+};
+
 #define KS8851_IRQ_GPIO 115
 
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
@@ -940,6 +976,9 @@ void __init msm8226_init_gpiomux(void)
 	}
 	msm_gpiomux_install(msm_hsic_configs, ARRAY_SIZE(msm_hsic_configs));
 #endif
+	if (machine_is_msm8926() && of_board_is_mtp())
+		msm_gpiomux_install(smsc_hub_configs,
+			ARRAY_SIZE(smsc_hub_configs));
 }
 
 static void wcnss_switch_to_gpio(void)
