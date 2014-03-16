@@ -922,6 +922,12 @@ static void rndis_ipa_tx_complete_notify(void *private,
 		return;
 	}
 
+	if (unlikely(rndis_ipa_ctx->state != RNDIS_IPA_CONNECTED_AND_UP)) {
+		RNDIS_IPA_DEBUG("dropping Tx-complete pkt, state=%s",
+			rndis_ipa_state_string(rndis_ipa_ctx->state));
+		goto out;
+	}
+
 	rndis_ipa_ctx->net->stats.tx_packets++;
 	rndis_ipa_ctx->net->stats.tx_bytes += skb->len;
 
@@ -935,6 +941,7 @@ static void rndis_ipa_tx_complete_notify(void *private,
 		RNDIS_IPA_DEBUG("send queue was awaken");
 	}
 
+out:
 	dev_kfree_skb_any(skb);
 
 	return;
@@ -1131,6 +1138,7 @@ int rndis_ipa_pipe_disconnect_notify(void *private)
 {
 	struct rndis_ipa_dev *rndis_ipa_ctx = private;
 	int next_state;
+	int outstanding_dropped_pkts;
 
 	RNDIS_IPA_LOG_ENTRY();
 
@@ -1150,12 +1158,17 @@ int rndis_ipa_pipe_disconnect_notify(void *private)
 	netif_stop_queue(rndis_ipa_ctx->net);
 	RNDIS_IPA_DEBUG("queue stopped\n");
 
+	outstanding_dropped_pkts =
+		atomic_read(&rndis_ipa_ctx->outstanding_pkts);
+
+	rndis_ipa_ctx->net->stats.tx_errors += outstanding_dropped_pkts;
+	atomic_set(&rndis_ipa_ctx->outstanding_pkts, 0);
 
 	rndis_ipa_ctx->state = next_state;
 	RNDIS_IPA_STATE_DEBUG(rndis_ipa_ctx);
 
-	pr_info("RNDIS_IPA NetDev pipes were disconnected (outstanding=%d)",
-		atomic_read(&rndis_ipa_ctx->outstanding_pkts));
+	pr_info("RNDIS_IPA NetDev pipes were disconnected (%d outstanding clr)",
+		outstanding_dropped_pkts);
 
 	RNDIS_IPA_LOG_EXIT();
 
