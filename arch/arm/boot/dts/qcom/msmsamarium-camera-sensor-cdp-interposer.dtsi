@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -135,6 +135,8 @@
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
 					  "CAM_RESET1",
 					  "CAM_STANDBY";
+		qcom,sensor-position = <0>;
+		qcom,sensor-mode = <0>;
 		qcom,cci-master = <0>;
 		status = "ok";
 	};
@@ -165,6 +167,8 @@
 		qcom,gpio-req-tbl-flags = <1 0>;
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK2",
 		                          "CAM_XSHUTDOWN";
+		qcom,sensor-position = <1>;
+		qcom,sensor-mode = <0>;
 		qcom,cci-master = <0>;
 		status = "ok";
       };
