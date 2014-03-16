@@ -28,6 +28,8 @@ Required properties:
 - qcom,wcnss-adc_tm: ADC handle for vbatt notification APIs.
 - pinctrl-<n> : Pinctrl states as described in bindings/pinctrl/pinctrl-bindings.txt
 - pinctrl-names : Names corresponding to the numbered pinctrl states
+- clocks: from common clock binding: handle to xo and rf_clk clocks.
+- clock-names: Names of all the clocks that are accessed by the subsystem
 
 Optional properties:
 - qcom,has-autodetect-xo: boolean flag to determine whether Iris XO auto detect
@@ -66,4 +68,8 @@ Example:
         pinctrl-names = "wcnss_default", "wcnss_sleep";
         pinctrl-0 = <&wcnss_default>;
         pinctrl-1 = <&wcnss_sleep>;
+
+        clocks = <&clock_rpm clk_xo_wlan_clk>,
+                   <&clock_rpm clk_rf_clk2>;
+        clock-names = "xo", "rf_clk";
     };

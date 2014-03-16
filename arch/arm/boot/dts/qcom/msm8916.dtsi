@@ -1160,6 +1160,10 @@
 		pinctrl-0 = <&wcnss_default>;
 		pinctrl-1 = <&wcnss_sleep>;
 
+		clocks = <&clock_rpm clk_xo_wlan_clk>,
+			 <&clock_rpm clk_rf_clk2>;
+		clock-names = "xo", "rf_clk";
+
 		qcom,has-autodetect-xo;
 		qcom,is-pronto-vt;
 		qcom,has-pronto-hw;
