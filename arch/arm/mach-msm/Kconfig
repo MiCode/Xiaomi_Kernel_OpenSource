@@ -15,7 +15,6 @@ config ARCH_MSM8974
 	select MSM_PIL
 	select MSM_SPM_V2
 	select MSM_L2_SPM
-	select MSM_NATIVE_RESTART
 	select MSM_PM if PM
 	select MSM_RPM_SMD
 	select REGULATOR
@@ -47,7 +46,6 @@ config ARCH_APQ8084
 	select MSM_SCM
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_GPIOMUX
-	select MSM_NATIVE_RESTART
 	select MSM_PM if PM
 	select REGULATOR
 	select MSM_QDSP6V2_CODECS
@@ -86,7 +84,6 @@ config ARCH_MPQ8092
 	select GPIO_MSM_V3
 	select ARM_GIC
 	select HAVE_ARM_ARCH_TIMER
-	select MSM_NATIVE_RESTART
 	select CPU_V7
 	select MSM_SCM
 	select MSM_GPIOMUX
@@ -156,7 +153,6 @@ config ARCH_FSM9900
 	select PM_DEVFREQ
 	select MSM_DEVFREQ_CPUBW
 	select MSM_PIL
-	select MSM_NATIVE_RESTART
 	select REGULATOR
 	select ARM_HAS_SG_CHAIN
 	select MSM_RUN_QUEUE_STATS
@@ -176,7 +172,6 @@ config ARCH_MDM9630
 	select REGULATOR
 	select REGULATOR_RPM_SMD
 	select HAVE_ARM_ARCH_TIMER
-	select MSM_NATIVE_RESTART
 	select MSM_SPM_V2
 	select MSM_PM if PM
 	select GPIO_MSM_V3
@@ -206,7 +201,6 @@ config ARCH_MSM8610
 	select GPIO_MSM_V3
 	select MSM_GPIOMUX
 	select HAVE_ARM_ARCH_TIMER
-	select MSM_NATIVE_RESTART
 	select MSM_QDSP6_APRV2
 	select MSM_QDSP6V2_CODECS
 	select QMI_ENCDEC
@@ -247,7 +241,6 @@ config ARCH_MSM8226
 	select GPIO_MSM_V3
 	select MSM_GPIOMUX
 	select HAVE_ARM_ARCH_TIMER
-	select MSM_NATIVE_RESTART
 	select MSM_QDSP6_APRV2
 	select MSM_QDSP6V2_CODECS
 	select QMI_ENCDEC
@@ -292,7 +285,6 @@ config ARCH_MSMSAMARIUM
 	select MSM_GPIOMUX
 	select MSM_SPM_V2
 	select MSM_L2_SPM
-	select MSM_NATIVE_RESTART
 	select MSM_QDSP6_APRV2
 	select MSM_QDSP6V2_CODECS
 	select MSM_PM if PM
@@ -847,9 +839,6 @@ config IOMMU_API
        bool
 
 config MSM_GPIOMUX
-	bool
-
-config MSM_NATIVE_RESTART
 	bool
 
 config MSM_BUS_RPM_MULTI_TIER_ENABLED
