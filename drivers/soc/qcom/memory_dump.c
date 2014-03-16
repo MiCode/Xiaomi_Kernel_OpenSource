@@ -52,7 +52,7 @@ int msm_dump_tbl_register(struct msm_client_dump *client_entry)
 	entry->end_addr = client_entry->end_addr;
 	table->num_entries++;
 	/* flush cache */
-	dmac_flush_range(table, table + sizeof(struct msm_dump_table));
+	dmac_flush_range(table, (void *)table + sizeof(struct msm_dump_table));
 	return 0;
 }
 EXPORT_SYMBOL(msm_dump_tbl_register);
