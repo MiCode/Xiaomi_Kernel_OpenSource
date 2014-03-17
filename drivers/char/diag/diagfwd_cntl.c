@@ -75,9 +75,16 @@ void diag_cntl_stm_notify(struct diag_smd_info *smd_info, int action)
 	if (!smd_info || smd_info->type != SMD_CNTL_TYPE)
 		return;
 
-	if (action == CLEAR_PERIPHERAL_STM_STATE)
+	if (action == CLEAR_PERIPHERAL_STM_STATE) {
 		driver->peripheral_supports_stm[smd_info->peripheral] =
 								DISABLE_STM;
+		/*
+		 * Turn off STM for now until such time as the
+		 * tools can support SSR
+		 */
+		driver->stm_state[smd_info->peripheral] = DISABLE_STM;
+		driver->stm_state_requested[smd_info->peripheral] = DISABLE_STM;
+	}
 }
 
 static void process_stm_feature(struct diag_smd_info *smd_info,
