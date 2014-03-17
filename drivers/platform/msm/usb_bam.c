@@ -214,6 +214,7 @@ static struct usb_bam_pipe_connect *usb_bam_connections;
 static struct usb_bam_ctx_type ctx;
 static struct usb_bam_host_info host_info[MAX_BAMS];
 static struct device *usb_device;
+static bool probe_finished;
 
 static int __usb_bam_register_wake_cb(int idx, int (*callback)(void *user),
 	void *param, bool trigger_cb_per_pipe);
@@ -3255,6 +3256,7 @@ static int usb_bam_probe(struct platform_device *pdev)
 	spin_lock_init(&usb_bam_ipa_handshake_info_lock);
 	usb_bam_ipa_create_resources();
 	spin_lock_init(&usb_bam_lock);
+	probe_finished = true;
 
 	return ret;
 }
@@ -3341,6 +3343,14 @@ EXPORT_SYMBOL(usb_bam_get_connection_idx);
 bool msm_bam_device_lpm_ok(enum usb_bam bam_type)
 {
 	pr_debug("%s: enter bam%s\n", __func__, bam_enable_strings[bam_type]);
+
+	/*
+	 * There is the possibility of a race between the usb_bam_probe()
+	 * function initializing the relevant spinlocks and structures, vs. the
+	 * USB controller's suspend function being invoked by the pm module.
+	 */
+	if (!probe_finished)
+		return 0;
 
 	spin_lock(&usb_bam_ipa_handshake_info_lock);
 	if (info[bam_type].lpm_wait_handshake ||
