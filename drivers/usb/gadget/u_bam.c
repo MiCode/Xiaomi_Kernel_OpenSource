@@ -1068,13 +1068,17 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	struct usb_gadget *gadget = NULL;
 	struct teth_bridge_connect_params connect_params;
 	struct teth_bridge_init_params teth_bridge_params;
-	struct bam_ch_info *d = &port->data_ch;
+	struct bam_ch_info *d;
 	u32 sps_params;
 	int ret;
 	unsigned long flags;
 
-	if (port)
-		dev = port_to_rmnet(port->gr);
+	if (!port) {
+		pr_err("%s: NULL port", __func__);
+		return;
+	}
+	d = &port->data_ch;
+	dev = port_to_rmnet(port->gr);
 
 	if (dev && dev->cdev)
 		gadget = dev->cdev->gadget;
