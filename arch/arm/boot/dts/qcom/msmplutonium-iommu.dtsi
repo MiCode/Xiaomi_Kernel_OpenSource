@@ -256,6 +256,14 @@
 				0x0
 				0x0
 				0x0>;
+
+	qcom,iommu-ctx@fda6f000 {
+		compatible = "qcom,msm-smmu-v1-ctx";
+		reg = <0xfda6f000 0x1000>;
+		interrupts = <0 70 0>;
+		qcom,iommu-ctx-sids = <3>;
+		label = "jpeg_dma";
+	};
 };
 
 &kgsl_iommu {
