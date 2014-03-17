@@ -478,8 +478,6 @@ static struct rcg_clk apss_ahb_clk_src = {
 	.c = {
 		.dbg_name = "apss_ahb_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP3(LOW, 50000000, NOMINAL, 100000000, HIGH,
-				133330000),
 		CLK_INIT(apss_ahb_clk_src.c),
 	},
 };
