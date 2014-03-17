@@ -27,6 +27,7 @@
 #include <linux/uaccess.h>
 #include <linux/debugfs.h>
 #include <linux/pm_runtime.h>
+#include <linux/clk.h>
 #include <linux/regulator/consumer.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
@@ -150,6 +151,8 @@ struct ice40_hcd {
 	struct list_head async_list;
 	struct workqueue_struct *wq;
 	struct work_struct async_work;
+
+	struct clk *xo_clk;
 
 	int reset_gpio;
 	int slave_select_gpio;
@@ -1368,6 +1371,8 @@ static void ice40_spi_power_off(struct ice40_hcd *ihcd)
 		regulator_disable(ihcd->gpio_vcc);
 	if (ihcd->clk_en_gpio)
 		gpio_direction_output(ihcd->clk_en_gpio, 0);
+	if (ihcd->xo_clk)
+		clk_disable_unprepare(ihcd->xo_clk);
 
 	ihcd->powered = false;
 }
@@ -1376,11 +1381,19 @@ static int ice40_spi_power_up(struct ice40_hcd *ihcd)
 {
 	int ret;
 
+	if (ihcd->xo_clk) {
+		ret = clk_prepare_enable(ihcd->xo_clk);
+		if (ret < 0) {
+			pr_err("fail to enable xo clk %d\n", ret);
+			goto out;
+		}
+	}
+
 	if (ihcd->clk_en_gpio) {
 		ret = gpio_direction_output(ihcd->clk_en_gpio, 1);
 		if (ret < 0) {
-			pr_err("fail to enabel clk %d\n", ret);
-			goto out;
+			pr_err("fail to enable clk %d\n", ret);
+			goto disable_xo;
 		}
 	}
 
@@ -1424,6 +1437,9 @@ disable_gpio_vcc:
 disable_clk:
 	if (ihcd->clk_en_gpio)
 		gpio_direction_output(ihcd->clk_en_gpio, 0);
+disable_xo:
+	if (ihcd->xo_clk)
+		clk_disable_unprepare(ihcd->xo_clk);
 out:
 	return ret;
 }
@@ -1596,6 +1612,32 @@ static int ice40_spi_load_fw(struct ice40_hcd *ihcd)
 power_off:
 	ice40_spi_power_off(ihcd);
 out:
+	return ret;
+}
+
+static int ice40_spi_init_clocks(struct ice40_hcd *ihcd)
+{
+	int ret = 0;
+
+	/*
+	 * XO clock is the only supported clock. So no need to parse
+	 * the clock-names string. If there is no clock-names property,
+	 * there will not be XO clock.
+	 *
+	 * This XO clock can be either direct clock or pin control clock.
+	 * if it is pin control clock, clk_en gpio is used to control
+	 * the clock.
+	 */
+	if (!of_get_property(ihcd->spi->dev.of_node, "clock-names", NULL))
+		return 0;
+
+	ihcd->xo_clk = devm_clk_get(&ihcd->spi->dev, "xo");
+	if (IS_ERR(ihcd->xo_clk)) {
+		ret = PTR_ERR(ihcd->xo_clk);
+		if (ret != -EPROBE_DEFER)
+			pr_err("fail to get xo clk %d\n", ret);
+	}
+
 	return ret;
 }
 
@@ -1949,6 +1991,12 @@ static int ice40_spi_probe(struct spi_device *spi)
 	ret = ice40_spi_parse_dt(ihcd);
 	if (ret) {
 		pr_err("fail to parse dt node\n");
+		goto out;
+	}
+
+	ret = ice40_spi_init_clocks(ihcd);
+	if (ret) {
+		pr_err("fail to init clocks\n");
 		goto out;
 	}
 

@@ -19,6 +19,9 @@ Required properties:
 
 Optional properties:
 - interrupts: IRQ lines used by this controller
+- clocks: List of clock phandles.
+- clock-names: List of clock names. Supported clock name string is
+  "xo"
 - clk-en-gpio: gpio used to enable the 19.2 MHZ clock to the bridge
   chip. If it is not present, assume that the clock is available on
   the bridge chip board.
@@ -41,5 +44,8 @@ Optional properties:
 			lattice,slave-select-gpio = <&msmgpio 118 0>;
 			lattice,config-done-gpio = <&msmgpio 115 0>;
 			lattice,vcc-en-gpio = <&msmgpio 117 0>;
+
+			clocks = <&clock_rpm clk_bb_clk2_pin>;
+			clock-names = "xo";
 		};
 	};
