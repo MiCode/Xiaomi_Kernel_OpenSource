@@ -177,7 +177,7 @@ int gen_pool_add_virt(struct gen_pool *pool, u64 virt, phys_addr_t phys,
 	struct gen_pool_chunk *chunk;
 	int nbits = size >> pool->min_alloc_order;
 	int nbytes = sizeof(struct gen_pool_chunk) +
-				(nbits + BITS_PER_BYTE - 1) / BITS_PER_BYTE;
+				BITS_TO_LONGS(nbits) * sizeof(long);
 
 	if (nbytes <= PAGE_SIZE)
 		chunk = kmalloc_node(nbytes, __GFP_ZERO, nid);
@@ -247,7 +247,7 @@ void gen_pool_destroy(struct gen_pool *pool)
 
 		end_bit = (chunk->end_addr - chunk->start_addr) >> order;
 		nbytes = sizeof(struct gen_pool_chunk) +
-				(end_bit + BITS_PER_BYTE - 1) / BITS_PER_BYTE;
+				BITS_TO_LONGS(end_bit) * sizeof(long);
 		bit = find_next_bit(chunk->bits, end_bit, 0);
 		BUG_ON(bit < end_bit);
 
