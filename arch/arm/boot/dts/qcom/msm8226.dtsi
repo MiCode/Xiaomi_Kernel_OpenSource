@@ -1056,7 +1056,7 @@
 		};
 	};
 
-	qcom,venus@fdce0000 {
+	venus_pil: qcom,venus@fdce0000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0xfdce0000 0x4000>;
 
@@ -1077,6 +1077,7 @@
 		qcom,pas-id = <9>;
 		qcom,proxy-timeout-ms = <5000>;
 		qcom,firmware-name = "venus";
+		linux,contiguous-region = <&adsp_venus_mem>;
 	};
 
 	qcom,pronto@fb21b000 {
@@ -1103,13 +1104,14 @@
 
 		/* GPIO output to wcnss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_4_out 0 0>;
+		linux,contiguous-region = <&peripheral_mem>;
 	};
 
 	qcom,iris-fm {
 		compatible = "qcom,iris_fm";
 	};
 
-	qcom,lpass@fe200000 {
+	lpass_pil: qcom,lpass@fe200000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0xfe200000 0x00100>;
 		interrupts = <0 162 1>;
@@ -1134,9 +1136,10 @@
 
 		/* GPIO output to lpass */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
+		linux,contiguous-region = <&adsp_venus_mem>;
 	};
 
-	qcom,mss@fc880000 {
+	modem_pil: qcom,mss@fc880000 {
 		compatible = "qcom,pil-q6v5-mss";
 		reg = <0xfc880000 0x100>,
 		      <0xfd485000 0x400>,
@@ -1165,6 +1168,7 @@
 
 		/* GPIO output to mss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
+		linux,contiguous-region = <&modem_mem>;
 	};
 
 	tsens: tsens@fc4a8000 {
