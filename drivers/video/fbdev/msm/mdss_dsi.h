@@ -150,6 +150,7 @@ enum dsi_lane_map_type {
 extern struct device dsi_dev;
 extern int mdss_dsi_clk_on;
 extern u32 dsi_irq;
+extern struct mdss_dsi_ctrl_pdata *ctrl_list[];
 
 struct dsiphy_pll_divider_config {
 	u32 clk_rate;
@@ -226,11 +227,13 @@ enum {
 	DSI_CTRL_MAX,
 };
 
+/* DSI controller #0 is always treated as a master in broadcast mode */
+#define DSI_CTRL_MASTER		DSI_CTRL_0
+#define DSI_CTRL_SLAVE		DSI_CTRL_1
+
 #define DSI_EV_PLL_UNLOCKED		0x0001
 #define DSI_EV_MDP_FIFO_UNDERFLOW	0x0002
 #define DSI_EV_MDP_BUSY_RELEASE		0x80000000
-
-#define DSI_FLAG_CLOCK_MASTER		0x80000000
 
 struct mdss_dsi_ctrl_pdata {
 	int ndx;	/* panel_num */
@@ -331,9 +334,6 @@ void mdss_dsi_controller_cfg(int enable,
 				struct mdss_panel_data *pdata);
 void mdss_dsi_sw_reset(struct mdss_panel_data *pdata);
 
-struct mdss_dsi_ctrl_pdata *mdss_dsi_ctrl_slave(
-				struct mdss_dsi_ctrl_pdata *ctrl);
-
 irqreturn_t mdss_dsi_isr(int irq, void *ptr);
 void mdss_dsi_irq_handler_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 
@@ -364,4 +364,47 @@ bool __mdss_dsi_clk_enabled(struct mdss_dsi_ctrl_pdata *ctrl);
 int mdss_dsi_panel_init(struct device_node *node,
 		struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		bool cmd_cfg_cont_splash);
+
+static inline bool mdss_dsi_broadcast_mode_enabled(void)
+{
+	return ctrl_list[DSI_CTRL_MASTER]->shared_pdata.broadcast_enable &&
+		ctrl_list[DSI_CTRL_SLAVE] &&
+		ctrl_list[DSI_CTRL_SLAVE]->shared_pdata.broadcast_enable;
+}
+
+static inline struct mdss_dsi_ctrl_pdata *mdss_dsi_get_master_ctrl(void)
+{
+	if (mdss_dsi_broadcast_mode_enabled())
+		return ctrl_list[DSI_CTRL_MASTER];
+	else
+		return NULL;
+}
+
+static inline struct mdss_dsi_ctrl_pdata *mdss_dsi_get_slave_ctrl(void)
+{
+	if (mdss_dsi_broadcast_mode_enabled())
+		return ctrl_list[DSI_CTRL_SLAVE];
+	else
+		return NULL;
+}
+
+static inline bool mdss_dsi_is_master_ctrl(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	return mdss_dsi_broadcast_mode_enabled() &&
+		(ctrl->ndx == DSI_CTRL_MASTER);
+}
+
+static inline bool mdss_dsi_is_slave_ctrl(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	return mdss_dsi_broadcast_mode_enabled() &&
+		(ctrl->ndx == DSI_CTRL_SLAVE);
+}
+
+static inline struct mdss_dsi_ctrl_pdata *mdss_dsi_get_ctrl_by_index(int ndx)
+{
+	if (ndx >= DSI_CTRL_MAX)
+		return NULL;
+
+	return ctrl_list[ndx];
+}
 #endif /* MDSS_DSI_H */

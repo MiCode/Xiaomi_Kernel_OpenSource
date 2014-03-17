@@ -535,26 +535,31 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 	int enable)
 {
 	int rc;
-	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
+	struct mdss_dsi_ctrl_pdata *mctrl = NULL;
 
 	if (&ctrl->mmss_misc_io == NULL) {
 		pr_err("%s: mmss_misc_io is NULL. ULPS not valid\n", __func__);
 		return -EINVAL;
 	}
 
-	if (ctrl->flags & DSI_FLAG_CLOCK_MASTER)
-		sctrl = mdss_dsi_ctrl_slave(ctrl);
+	if (mdss_dsi_is_slave_ctrl(ctrl)) {
+		mctrl = mdss_dsi_get_master_ctrl();
+		if (!mctrl) {
+			pr_err("%s: Unable to get master control\n", __func__);
+			return -EINVAL;
+		}
+	}
 
-	if (sctrl) {
-		pr_debug("%s: configuring ulps (%s) for slave ctrl\n",
-			__func__, (enable ? "on" : "off"));
-		rc = mdss_dsi_ulps_config_sub(sctrl, enable);
+	if (mctrl) {
+		pr_debug("%s: configuring ulps (%s) for master ctrl%d\n",
+			__func__, (enable ? "on" : "off"), ctrl->ndx);
+		rc = mdss_dsi_ulps_config_sub(mctrl, enable);
 		if (rc)
 			return rc;
 	}
 
-	pr_debug("%s: configuring ulps (%s) for master ctrl\n",
-		__func__, (enable ? "on" : "off"));
+	pr_debug("%s: configuring ulps (%s) for ctrl%d\n",
+		__func__, (enable ? "on" : "off"), ctrl->ndx);
 	return mdss_dsi_ulps_config_sub(ctrl, enable);
 }
 
