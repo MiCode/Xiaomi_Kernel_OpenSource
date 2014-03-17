@@ -741,6 +741,7 @@
 
 	qcom,msm-pcm-voice {
 		compatible = "qcom,msm-pcm-voice";
+		qcom,memory-constraint;
 	};
 
 	qcom,msm-stub-codec {
