@@ -8,6 +8,13 @@ Required properties:
 - reg:					offset and length of the register set for the device.
 - reg-names :			names to refer to register sets related to this device
 - interrupts:			IRQ line
+- vdd-supply:			Phandle for vdd regulator device node.
+- avdd-supply:			Phandle for avdd regulator device node.
+- qcom,cs-gpio:			Phandle for cs gpio device node.
+- qcom,te-gpio:			Phandle for te gpio device node.
+- qcom,rst-gpio:		Phandle for rst gpio device node.
+- qcom,ad8-gpio:		Phandle for ad8 gpio device node.
+- qcom,bl-gpio:			Phandle for backlight gpio device node.
 
 Example:
 	qcom,msm_qpic@f9ac0000 {
@@ -15,4 +22,11 @@ Example:
 		reg = <0xf9ac0000 0x24000>;
 		reg-names = "qpic_base";
 		interrupts = <0 251 0>;
+		vdd-supply = <&pm8019_l11>;
+		avdd-supply = <&pm8019_l14>;
+		qcom,cs-gpio = <&msmgpio 21 0>;
+		qcom,te-gpio = <&msmgpio 22 0>;
+		qcom,rst-gpio = <&msmgpio 23 0>;
+		qcom,ad8-gpio = <&msmgpio 20 0>;
+		qcom,bl-gpio = <&msmgpio 84 0>;
 	};
