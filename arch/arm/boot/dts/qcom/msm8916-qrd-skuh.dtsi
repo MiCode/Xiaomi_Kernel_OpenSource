@@ -39,6 +39,16 @@
 			bias-pull-up;
 		};
 	};
+
+	lis3dh_int1_pin {
+		qcom,pins = <&gp 115>;
+		qcom,num-grp-pins = <1>;
+		label = "lis3dh_int_pin";
+		lis3dh_int1_default: int1_default {
+			  drive-strength = <6>;
+			  bias-pull-up;
+		};
+	};
 };
 
 &i2c_0 { /* BLSP1 QUP2 */
@@ -72,6 +82,26 @@
 		avago,als_C = <70>;
 		avago,als_D = <142>;
 		avago,ga_value = <48>;
+	};
+
+	st@18 {
+		compatible = "st,lis3dh";
+		reg = <0x18>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&lis3dh_int1_default>;
+		interrupt-parent = <&msm_gpio>;
+		vdd-supply = <&pm8916_l17>;
+		vddio-supply = <&pm8916_l6>;
+		st,min-interval = <5>;
+		st,init-interval = <200>;
+		st,axis-map-x = <1>;
+		st,axis-map-y = <0>;
+		st,axis-map-z = <2>;
+		st,g-range = <2>;
+		st,gpio-int1 = <&msm_gpio 115 0x2002>;
+		st,negate-x;
+		st,negate-y;
+		st,negate-z;
 	};
 };
 
