@@ -2469,7 +2469,7 @@ static void usb_bam_ack_toggle_cb(void *priv,
 static int __usb_bam_register_wake_cb(int idx, int (*callback)(void *user),
 	void *param, bool trigger_cb_per_pipe)
 {
-	struct sps_pipe *pipe = ctx.usb_bam_sps.sps_pipes[idx];
+	struct sps_pipe *pipe;
 	struct sps_connect *sps_connection;
 	struct usb_bam_pipe_connect *pipe_connect;
 	struct usb_bam_event_info *wake_event_info;
