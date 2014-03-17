@@ -84,11 +84,59 @@
 		};
 	};
 
+	memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		external_image_mem: external_image__region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0x8e200000 0x0 0x0800000>;
+			label = "external_image_mem";
+		};
+
+		modem_adsp_mem: modem_adsp_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0x88800000 0x0 0x05a00000>;
+			label = "modem_adsp_mem";
+		};
+
+		peripheral_mem: pheripheral_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0x8ea00000 0x0 0x0b00000>;
+			label = "peripheral_mem";
+		};
+
+		secure_mem: secure_region@0 {
+			linux,reserve-contiguous-region;
+			reg = <0 0 0 0x6D00000>;
+			label = "secure_mem";
+		};
+
+		qseecom_mem: qseecom_region@0 {
+			linux,reserve-contiguous-region;
+			reg = <0 0 0 0xd00000>;
+			label = "qseecom_mem";
+		};
+
+		audio_mem: audio_region@0 {
+			linux,reserve-contiguous-region;
+			reg = <0 0 0 0x314000>;
+			label = "audio_mem";
+		};
+	};
+
 	soc: soc { };
 };
 
 #include "msm8939-smp2p.dtsi"
 #include "msm8939-ipcrouter.dtsi"
+#include "msm8939-ion.dtsi"
 
 &soc {
 	#address-cells = <1>;
