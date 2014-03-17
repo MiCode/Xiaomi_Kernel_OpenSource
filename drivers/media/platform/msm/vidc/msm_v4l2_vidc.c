@@ -20,7 +20,6 @@
 #include <linux/debugfs.h>
 #include <linux/version.h>
 #include <linux/slab.h>
-#include <mach/board.h>
 #include <linux/qcom_iommu.h>
 #include <linux/msm_iommu_domains.h>
 #include <media/msm_vidc.h>
@@ -304,11 +303,11 @@ static int read_platform_resources(struct msm_vidc_core *core,
 		/* Target supports DT, parse from it */
 		return read_platform_resources_from_dt(&core->resources);
 	} else {
-		/* Legacy board file usage */
-		return read_platform_resources_from_board(
-				&core->resources);
+		dprintk(VIDC_ERR, "pdev node is NULL\n");
+		return -EINVAL;
 	}
 }
+
 static int msm_vidc_initialize_core(struct platform_device *pdev,
 				struct msm_vidc_core *core)
 {
