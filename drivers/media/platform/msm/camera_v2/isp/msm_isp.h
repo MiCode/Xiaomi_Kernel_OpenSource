@@ -44,6 +44,7 @@
 #define VFE_PONG_FLAG 0x0
 
 #define VFE_MAX_CFG_TIMEOUT 3000
+#define VFE_CLK_INFO_MAX 16
 
 struct vfe_device;
 struct msm_vfe_axi_stream;
@@ -415,6 +416,7 @@ struct vfe_device {
 
 	struct regulator *fs_vfe;
 	struct clk *vfe_clk[7];
+	uint32_t num_clk;
 
 	uint32_t bus_perf_client;
 

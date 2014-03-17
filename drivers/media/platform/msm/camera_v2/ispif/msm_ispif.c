@@ -57,6 +57,7 @@ static void msm_ispif_io_dump_reg(struct ispif_device *ispif)
 	msm_camera_io_dump(ispif->base, 0x250);
 }
 
+
 static inline int msm_ispif_is_intf_valid(uint32_t csid_version,
 	uint8_t intf_type)
 {
@@ -64,9 +65,7 @@ static inline int msm_ispif_is_intf_valid(uint32_t csid_version,
 		false : true;
 }
 
-static struct msm_cam_clk_info ispif_8974_ahb_clk_info[] = {
-	{"ispif_ahb_clk", -1},
-};
+static struct msm_cam_clk_info ispif_8974_ahb_clk_info[ISPIF_CLK_INFO_MAX];
 
 static struct msm_cam_clk_info ispif_8974_reset_clk_info[] = {
 	{"csi0_src_clk", INIT_RATE},
@@ -153,6 +152,56 @@ static int msm_ispif_reset_hw(struct ispif_device *ispif)
 	return rc;
 }
 
+int msm_ispif_get_ahb_clk_info(struct ispif_device *ispif_dev,
+	struct platform_device *pdev)
+{
+	uint32_t count;
+	int i, rc;
+	uint32_t rates[ISPIF_CLK_INFO_MAX];
+
+	struct device_node *of_node;
+	of_node = pdev->dev.of_node;
+
+	count = of_property_count_strings(of_node, "qcom,clock-names");
+
+	CDBG("count = %d\n", count);
+	if (count == 0) {
+		pr_err("no clocks found in device tree, count=%d", count);
+		return 0;
+	}
+
+	if (count > ISPIF_CLK_INFO_MAX) {
+		pr_err("invalid count=%d, max is %d\n", count,
+			ISPIF_CLK_INFO_MAX);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < count; i++) {
+		rc = of_property_read_string_index(of_node, "qcom,clock-names",
+				i, &(ispif_8974_ahb_clk_info[i].clk_name));
+		CDBG("clock-names[%d] = %s\n",
+			 i, ispif_8974_ahb_clk_info[i].clk_name);
+		if (rc < 0) {
+			pr_err("%s failed %d\n", __func__, __LINE__);
+			return rc;
+		}
+	}
+	rc = of_property_read_u32_array(of_node, "qcom,clock-rates",
+		rates, count);
+	if (rc < 0) {
+		pr_err("%s failed %d\n", __func__, __LINE__);
+		return rc;
+	}
+	for (i = 0; i < count; i++) {
+		ispif_8974_ahb_clk_info[i].clk_rate =
+			 (rates[i] == 0) ? -1 : rates[i];
+		CDBG("clk_rate[%d] = %ld\n", i,
+			 ispif_8974_ahb_clk_info[i].clk_rate);
+	}
+	ispif_dev->num_clk = count;
+	return 0;
+}
+
 static int msm_ispif_clk_ahb_enable(struct ispif_device *ispif, int enable)
 {
 	int rc = 0;
@@ -162,9 +211,15 @@ static int msm_ispif_clk_ahb_enable(struct ispif_device *ispif, int enable)
 		return 0;
 	}
 
+	rc = msm_ispif_get_ahb_clk_info(ispif, ispif->pdev);
+	if (rc < 0) {
+		pr_err("%s: msm_isp_get_clk_info() failed", __func__);
+			return -EFAULT;
+	}
+
 	rc = msm_cam_clk_enable(&ispif->pdev->dev,
 		ispif_8974_ahb_clk_info, &ispif->ahb_clk,
-		ARRAY_SIZE(ispif_8974_ahb_clk_info), enable);
+		ispif->num_clk, enable);
 	if (rc < 0) {
 		pr_err("%s: cannot enable clock, error = %d",
 			__func__, rc);

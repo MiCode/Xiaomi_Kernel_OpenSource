@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,8 @@
 #include <media/v4l2-subdev.h>
 #include <media/msmb_ispif.h>
 #include "msm_sd.h"
+
+#define ISPIF_CLK_INFO_MAX 16
 
 struct ispif_irq_status {
 	uint32_t ispifIrqStatus0;
@@ -60,5 +62,6 @@ struct ispif_device {
 	struct clk *ahb_clk;
 	struct completion reset_complete[VFE_MAX];
 	uint32_t hw_num_isps;
+	uint32_t num_clk;
 };
 #endif
