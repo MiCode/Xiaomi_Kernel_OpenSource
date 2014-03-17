@@ -83,9 +83,9 @@
  * Higher value allows xhci core to moderate interrupts resulting
  * in fewer interrupts from xhci core. This may result in better
  * overall power consumption during peak throughput. Hence set the
- * default HSIC interrupt moderation to 8000 (or 2ms interval)
+ * default HSIC interrupt moderation to 12000 (or 3ms interval)
  */
-#define MSM_HSIC_INT_MODERATION 8000
+#define MSM_HSIC_INT_MODERATION 12000
 
 static u64 dma_mask = DMA_BIT_MASK(64);
 
