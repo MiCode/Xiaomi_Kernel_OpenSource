@@ -28,6 +28,7 @@
 
 #define BAM2BAM_DATA_N_PORTS	1
 #define BAM_DATA_RX_Q_SIZE	16
+#define BAM_DATA_MUX_RX_REQ_SIZE  2048   /* Must be 1KB aligned */
 #define BAM_DATA_PENDING_LIMIT	220
 
 #define SYS_BAM_RX_PKT_FLOW_CTRL_SUPPORT	1
@@ -49,6 +50,8 @@ static int n_bam2bam_data_ports;
 unsigned int bam_data_rx_q_size = BAM_DATA_RX_Q_SIZE;
 module_param(bam_data_rx_q_size, uint, S_IRUGO | S_IWUSR);
 
+static unsigned int bam_data_mux_rx_req_size = BAM_DATA_MUX_RX_REQ_SIZE;
+module_param(bam_data_mux_rx_req_size, uint, S_IRUGO | S_IWUSR);
 
 #define SPS_PARAMS_SPS_MODE		BIT(5)
 #define SPS_PARAMS_TBE		        BIT(6)
@@ -92,6 +95,7 @@ struct bam_data_ch_info {
 	struct sys2ipa_sw_data	ul_params;
 	struct list_head	rx_idle;
 	struct sk_buff_head	rx_skb_q;
+	struct sk_buff_head	rx_skb_idle;
 	enum usb_bam_pipe_type	src_pipe_type;
 	enum usb_bam_pipe_type	dst_pipe_type;
 	unsigned int		pending_with_bam;
@@ -157,6 +161,65 @@ static int bam_data_alloc_requests(struct usb_ep *ep, struct list_head *head,
 	return 0;
 }
 
+/* This function should be called with port_lock_ul lock taken */
+static struct sk_buff *bam_data_alloc_skb_from_pool(
+	struct bam_data_port *port)
+{
+	struct bam_data_ch_info *d;
+	struct sk_buff *skb;
+
+	if (!port)
+		return NULL;
+	d = &port->data_ch;
+	if (!d)
+		return NULL;
+
+	if (d->rx_skb_idle.qlen == 0) {
+		/*
+		 * In case skb idle pool is empty, we allow to allocate more
+		 * skbs so we dynamically enlarge the pool size when needed.
+		 * Therefore, in steady state this dynamic allocation will
+		 * stop when the pool will arrive to its optimal size.
+		 */
+		pr_debug("%s: allocate skb\n", __func__);
+		skb = alloc_skb(d->rx_buffer_size + BAM_MUX_HDR, GFP_ATOMIC);
+		if (!skb) {
+			pr_err("%s: alloc skb failed\n", __func__);
+			goto alloc_exit;
+		}
+	} else {
+		pr_debug("%s: pull skb from pool\n", __func__);
+		skb = __skb_dequeue(&d->rx_skb_idle);
+	}
+
+alloc_exit:
+	return skb;
+}
+
+static void bam_data_free_skb_to_pool(
+	struct bam_data_port *port,
+	struct sk_buff *skb)
+{
+	struct bam_data_ch_info *d;
+	unsigned long flags;
+
+	if (!port) {
+		dev_kfree_skb_any(skb);
+		return;
+	}
+	d = &port->data_ch;
+	if (!d) {
+		dev_kfree_skb_any(skb);
+		return;
+	}
+
+	spin_lock_irqsave(&port->port_lock_ul, flags);
+	skb->len = 0;
+	skb_reset_tail_pointer(skb);
+	__skb_queue_tail(&d->rx_skb_idle, skb);
+	spin_unlock_irqrestore(&port->port_lock_ul, flags);
+}
+
 static void bam_data_write_done(void *p, struct sk_buff *skb)
 {
 	struct bam_data_port	*port = p;
@@ -166,7 +229,7 @@ static void bam_data_write_done(void *p, struct sk_buff *skb)
 	if (!skb)
 		return;
 
-	dev_kfree_skb_any(skb);
+	bam_data_free_skb_to_pool(port, skb);
 
 	spin_lock_irqsave(&port->port_lock_ul, flags);
 	d->pending_with_bam--;
@@ -233,7 +296,7 @@ static void bam_data_start_rx(struct bam_data_port *port)
 			break;
 
 		req = list_first_entry(&d->rx_idle, struct usb_request, list);
-		skb = alloc_skb(d->rx_buffer_size + BAM_MUX_HDR, GFP_ATOMIC);
+		skb = bam_data_alloc_skb_from_pool(port);
 		if (!skb)
 			break;
 		skb_reserve(skb, BAM_MUX_HDR);
@@ -246,7 +309,10 @@ static void bam_data_start_rx(struct bam_data_port *port)
 		ret = usb_ep_queue(ep, req, GFP_ATOMIC);
 		spin_lock_irqsave(&port->port_lock_ul, flags);
 		if (ret) {
-			dev_kfree_skb_any(skb);
+			spin_unlock_irqrestore(&port->port_lock_ul, flags);
+			bam_data_free_skb_to_pool(port, skb);
+			spin_lock_irqsave(&port->port_lock_ul, flags);
+
 
 			pr_err("%s: rx queue failed %d\n", __func__, ret);
 
@@ -280,14 +346,14 @@ static void bam_data_epout_complete(struct usb_ep *ep, struct usb_request *req)
 	case -ECONNRESET:
 	case -ESHUTDOWN:
 		/* cable disconnection */
-		dev_kfree_skb_any(skb);
+		bam_data_free_skb_to_pool(port, skb);
 		req->buf = 0;
 		usb_ep_free_request(ep, req);
 		return;
 	default:
 		pr_err("%s: %s response error %d, %d/%d\n", __func__,
 			ep->name, status, req->actual, req->length);
-		dev_kfree_skb_any(skb);
+		bam_data_free_skb_to_pool(port, skb);
 		break;
 	}
 
@@ -312,9 +378,9 @@ static void bam_data_epout_complete(struct usb_ep *ep, struct usb_request *req)
 		spin_unlock(&port->port_lock_ul);
 		return;
 	}
-	spin_unlock(&port->port_lock_ul);
 
-	skb = alloc_skb(d->rx_buffer_size + BAM_MUX_HDR, GFP_ATOMIC);
+	skb = bam_data_alloc_skb_from_pool(port);
+	spin_unlock(&port->port_lock_ul);
 	if (!skb) {
 		list_add_tail(&req->list, &d->rx_idle);
 		return;
@@ -327,7 +393,7 @@ static void bam_data_epout_complete(struct usb_ep *ep, struct usb_request *req)
 
 	status = usb_ep_queue(ep, req, GFP_ATOMIC);
 	if (status) {
-		dev_kfree_skb_any(skb);
+		bam_data_free_skb_to_pool(port, skb);
 
 		pr_err("%s: data rx enqueue err %d\n", __func__, status);
 
@@ -401,7 +467,9 @@ static void bam_data_write_toipa(struct work_struct *w)
 		if (ret) {
 			pr_debug("%s: write error:%d\n", __func__, ret);
 			d->pending_with_bam--;
-			dev_kfree_skb_any(skb);
+			spin_unlock_irqrestore(&port->port_lock_ul, flags);
+			bam_data_free_skb_to_pool(port, skb);
+			spin_lock_irqsave(&port->port_lock_ul, flags);
 			break;
 		}
 	}
@@ -935,6 +1003,7 @@ static int bam2bam_data_port_alloc(int portno)
 
 	/* UL workaround requirements */
 	skb_queue_head_init(&d->rx_skb_q);
+	skb_queue_head_init(&d->rx_skb_idle);
 	INIT_LIST_HEAD(&d->rx_idle);
 	INIT_WORK(&d->write_tobam_w, bam_data_write_toipa);
 
