@@ -1811,7 +1811,7 @@ static void pnfs_list_write_lseg_done(struct inode *inode, struct list_head *lis
 	}
 
 	clear_bit_unlock(NFS_INO_LAYOUTCOMMITTING, bitlock);
-	smp_mb__after_clear_bit();
+	smp_mb__after_atomic();
 	wake_up_bit(bitlock, NFS_INO_LAYOUTCOMMITTING);
 }
 
