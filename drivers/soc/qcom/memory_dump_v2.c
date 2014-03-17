@@ -54,7 +54,7 @@ static int msm_dump_table_register(struct msm_dump_entry *entry)
 	e->addr = entry->addr;
 	table->num_entries++;
 
-	dmac_flush_range(table, table + sizeof(struct msm_dump_table));
+	dmac_flush_range(table, (void *)table + sizeof(struct msm_dump_table));
 	return 0;
 }
 
@@ -102,7 +102,7 @@ int msm_dump_data_register(enum msm_dump_table_ids id,
 	e->addr = entry->addr;
 	table->num_entries++;
 
-	dmac_flush_range(table, table + sizeof(struct msm_dump_table));
+	dmac_flush_range(table, (void *)table + sizeof(struct msm_dump_table));
 	return 0;
 }
 EXPORT_SYMBOL(msm_dump_data_register);
