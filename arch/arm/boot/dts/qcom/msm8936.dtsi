@@ -371,7 +371,7 @@
 		#clock-cells = <1>;
 	};
 
-	usb@78d9000 {
+	usb_otg: usb@78d9000 {
 		compatible = "qcom,hsusb-otg";
 
 		reg = <0x78d9000 0x400>;
