@@ -43,6 +43,10 @@
 	status = "disabled";
 };
 
+&qsecom_mem {
+	linux,memory-limit = <0x0>;
+};
+
 &soc {
 	qcom,mss@fc880000 {
 		reg = <0xfc880000 0x100>,
