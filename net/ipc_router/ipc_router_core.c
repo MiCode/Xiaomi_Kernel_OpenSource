@@ -867,6 +867,39 @@ static int post_pkt_to_port(struct msm_ipc_port *port_ptr,
 	return 0;
 }
 
+/**
+ * ipc_router_peek_pkt_size() - Peek into the packet header to get potential packet size
+ * @data: Starting address of the packet which points to router header.
+ *
+ * @returns: potential packet size on success, < 0 on error.
+ *
+ * This function is used by the underlying transport abstraction layer to
+ * peek into the potential packet size of an incoming packet. This information
+ * is used to perform link layer fragmentation and re-assembly
+ */
+int ipc_router_peek_pkt_size(char *data)
+{
+	int size;
+
+	if (!data) {
+		pr_err("%s: NULL PKT\n", __func__);
+		return -EINVAL;
+	}
+
+	/* FUTURE: Calculate optional header len in V2 header*/
+	if (data[0] == IPC_ROUTER_V1)
+		size = ((struct rr_header_v1 *)data)->size +
+			sizeof(struct rr_header_v1);
+	else if (data[0] == IPC_ROUTER_V2)
+		size = ((struct rr_header_v2 *)data)->size +
+			sizeof(struct rr_header_v2);
+	else
+		return -EINVAL;
+
+	size += ALIGN_SIZE(size);
+	return size;
+}
+
 static int post_control_ports(struct rr_packet *pkt)
 {
 	struct msm_ipc_port *port_ptr;
