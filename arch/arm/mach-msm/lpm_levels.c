@@ -545,11 +545,11 @@ static noinline int lpm_cpu_power_select(struct cpuidle_device *dev, int *index)
 			if (!dev->cpu && msm_rpm_waiting_for_ack())
 					break;
 
-		if ((next_wakeup_us >> 10) > pwr->latency_us) {
+		if ((next_wakeup_us >> 10) > pwr->time_overhead_us) {
 			power = pwr->ss_power;
 		} else {
 			power = pwr->ss_power;
-			power -= (pwr->latency_us * pwr->ss_power)
+			power -= (pwr->time_overhead_us * pwr->ss_power)
 					/ next_wakeup_us;
 			power += pwr->energy_overhead / next_wakeup_us;
 		}
