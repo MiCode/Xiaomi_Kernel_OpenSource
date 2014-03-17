@@ -105,20 +105,25 @@ struct msm_ssphy_qmp {
 	struct clk		*phy_com_reset;
 	struct clk		*phy_reset;
 	bool			clk_enabled;
-	bool			suspend_allowed;
+	bool			cable_connected;
+	bool			in_suspend;
 };
 
-static void msm_ssusb_qmp_enable_autonomous(struct msm_ssphy_qmp *phy,
-					  bool detached)
+static inline char *get_cable_status_str(struct msm_ssphy_qmp *phy)
+{
+	return phy->cable_connected ? "connected" : "disconnected";
+}
+
+static void msm_ssusb_qmp_enable_autonomous(struct msm_ssphy_qmp *phy)
 {
 	u8 val;
 
 	dev_dbg(phy->phy.dev, "enabling QMP autonomous mode with cable %s\n",
-			(detached ? "detached" : "attached"));
+			get_cable_status_str(phy));
 	val = readb_relaxed(phy->base + PCIE_USB3_PHY_AUTONOMOUS_MODE_CTRL);
 
 	val |= ARCVR_DTCT_EN;
-	if (!detached) {
+	if (phy->cable_connected) {
 		val |= ALFPS_DTCT_EN;
 		/* Detect detach */
 		val &= ~ARCVR_DTCT_EVENT_SEL;
@@ -411,6 +416,8 @@ deassert_phy_reset:
 deassert_phy_com_reset:
 	clk_reset(phy->phy_com_reset, CLK_RESET_DEASSERT);
 
+	phy->in_suspend = false;
+
 	return ret;
 }
 
@@ -432,30 +439,41 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
 					phy);
 
-	dev_dbg(uphy->dev, "suspend state: current :%d new:%d\n",
-				phy->suspend_allowed, suspend);
+	dev_dbg(uphy->dev, "QMP PHY set_suspend for %s called with cable %s\n",
+			(suspend ? "suspend" : "resume"),
+			get_cable_status_str(phy));
+	/*
+	 * The dwc3 probe function calls set_suspend on both phys. This prevent
+	 * a situation where would try writing to registers without the phy
+	 * init function being called first.
+	 */
+	if (!phy->clk_enabled) {
+		dev_dbg(uphy->dev, "clocks not enabled yet\n");
+		return -EAGAIN;
+	}
 
-	if (!!suspend == phy->suspend_allowed) {
-		pr_debug("USB PHY is already suspended.\n");
+	if (phy->cable_connected && phy->in_suspend && suspend) {
+		dev_dbg(uphy->dev, "%s: USB PHY is already suspended\n",
+			__func__);
 		return 0;
 	}
 
 	if (suspend) {
-		msm_ssusb_qmp_enable_autonomous(phy, false);
-		clk_disable_unprepare(phy->pipe_clk);
+		msm_ssusb_qmp_enable_autonomous(phy);
+		if (!phy->cable_connected)
+			clk_disable_unprepare(phy->pipe_clk);
 		clk_disable_unprepare(phy->cfg_ahb_clk);
 		clk_disable_unprepare(phy->aux_clk);
-		phy->suspend_allowed = true;
-		dev_dbg(uphy->dev, "suspend_allowed=%d\n",
-				phy->suspend_allowed);
+		phy->in_suspend = true;
+		dev_dbg(uphy->dev, "QMP PHY is suspend\n");
 	} else {
 		clk_prepare_enable(phy->aux_clk);
 		clk_prepare_enable(phy->cfg_ahb_clk);
-		clk_prepare_enable(phy->pipe_clk);
-		msm_ssusb_qmp_enable_autonomous(phy, false);
-		phy->suspend_allowed = false;
-		dev_dbg(uphy->dev, "suspend_allowed=%d\n",
-				phy->suspend_allowed);
+		if (!phy->cable_connected)
+			clk_prepare_enable(phy->pipe_clk);
+		msm_ssusb_qmp_enable_autonomous(phy);
+		phy->in_suspend = false;
+		dev_dbg(uphy->dev, "QMP PHY is resumed\n");
 	}
 
 	return 0;
@@ -468,8 +486,8 @@ static int msm_ssphy_qmp_notify_connect(struct usb_phy *uphy,
 					phy);
 
 	dev_dbg(uphy->dev, "QMP phy connect notification\n");
-	phy->suspend_allowed = true;
-	dev_dbg(uphy->dev, "suspend_allowed=%d\n", phy->suspend_allowed);
+	phy->cable_connected = true;
+	dev_dbg(uphy->dev, "cable_connected=%d\n", phy->cable_connected);
 	return 0;
 }
 
@@ -480,9 +498,10 @@ static int msm_ssphy_qmp_notify_disconnect(struct usb_phy *uphy,
 					phy);
 
 	dev_dbg(uphy->dev, "QMP phy disconnect notification\n");
-	phy->suspend_allowed = false;
-	dev_dbg(uphy->dev, "suspend_allowed=%d\n", phy->suspend_allowed);
-	msm_ssusb_qmp_enable_autonomous(phy, true);
+	dev_dbg(uphy->dev, " cable_connected=%d\n", phy->cable_connected);
+	msm_ssusb_qmp_enable_autonomous(phy);
+	phy->cable_connected = false;
+	phy->in_suspend = false;
 	return 0;
 }
 
