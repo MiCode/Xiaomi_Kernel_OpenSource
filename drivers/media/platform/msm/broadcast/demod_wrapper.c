@@ -256,8 +256,7 @@ struct debugfs_entry {
  * from diffrent file descriptors.
  * @ts_bridge_init: flag indicating if ts bridge data was initialized.
  * @num_of_fds: number of performed demod_wrapper_open.
- * @base: base address of demod wrapper block casted to unsigned int.
- * @base_mem: base address of demod wrapper block.
+ * @base: base address of demod wrapper block.
  * @debugfs_dir: the directory of debugfs.
  * @gdsc: the power regulator.
  * @reg_l27: l27 regulator.
@@ -306,8 +305,7 @@ struct demod_wrapper_device {
 	/* general */
 	struct mutex fd_mutex;
 	int num_of_fds;
-	unsigned int base;
-	void __iomem *base_mem;
+	void __iomem *base;
 	struct dentry *debugfs_dir;
 	struct regulator *gdsc;
 	struct regulator *reg_l27;
@@ -741,7 +739,7 @@ static void demod_wrapper_debugfs_exit(void)
  */
 static int activate_forza_atv_path(enum demod_wrapper_pdm_num pdm)
 {
-	unsigned int base = device->base;
+	void __iomem *base = device->base;
 	unsigned int adc_reg_val = 0x00000010;
 	unsigned int pdm_addrs;
 	int rc = 0;
@@ -897,7 +895,7 @@ static int activate_dtv_s_path(
 	enum demod_wrapper_baud_rate_mode baud_rate,
 	enum demod_wrapper_pdm_num pdm)
 {
-	unsigned int base = device->base;
+	void __iomem *base = device->base;
 	unsigned int adc_reg_val = 0x00000000;
 	unsigned int pdm_addrs;
 	int rc = 0;
@@ -1093,7 +1091,7 @@ end:
  */
 static int activate_dtv_t_c_path(enum demod_wrapper_pdm_num pdm)
 {
-	unsigned int base = device->base;
+	void __iomem *base = device->base;
 	unsigned int adc_reg_val = 0x00000001;
 	unsigned int pdm_addrs;
 	unsigned int rc = 0;
@@ -1122,7 +1120,7 @@ static int activate_dtv_t_c_path(enum demod_wrapper_pdm_num pdm)
 	/* adc mux */
 	if (device->path_control[DEMOD_WRAPPER_EXT_ATV])
 		adc_reg_val = 0x00000021;
-	dev_info(device->dev, "First write from %x\n", base + ADC_MUX_SEL);
+	dev_info(device->dev, "First write from %p\n", base + ADC_MUX_SEL);
 	writel_relaxed(adc_reg_val, base + ADC_MUX_SEL);
 	dev_info(device->dev, "After first write\n");
 
@@ -1206,7 +1204,7 @@ end:
  */
 static int activate_ext_atv_path(void)
 {
-	unsigned int base = device->base;
+	void __iomem *base = device->base;
 	unsigned int adc_reg_val = 0x00000020;
 	int rc = 0;
 
@@ -1520,7 +1518,7 @@ end:
 static int init_ts_bridge(enum demod_wrapper_ts_bridge out_config)
 {
 	int res = 0;
-	unsigned int base = device->base;
+	void __iomem *base = device->base;
 	dev_dbg(device->dev, "%s\n", __func__);
 	if (out_config == DEMOD_WRAPPER_TS_PARALLEL) {
 		writel_relaxed(0x00000011, base + BCDEM_REGS_TS_CFG);
@@ -1579,7 +1577,7 @@ static int pm_set_params(unsigned int loop_cntr, unsigned int threshold)
 	int polling_counter = MAX_POLLING;
 	int res = -EFAULT;
 	unsigned int ro_ack_reg;
-	unsigned int base = device->base;
+	void __iomem *base = device->base;
 
 	dev_dbg(device->dev, "%s\n", __func__);
 	writel_relaxed(loop_cntr, base + PM_LOOP_CNTR);
@@ -1617,7 +1615,7 @@ static int pm_get_thrshld_cntr(unsigned int *thrshld_cntr)
 	int polling_counter = MAX_POLLING;
 	int res = -EFAULT;
 	unsigned int s2_valid_reg;
-	unsigned int base = device->base;
+	void __iomem *base = device->base;
 
 	writel_relaxed(0x00000001, base + PM_S2_LCH_VLD);
 	writel_relaxed(0x00000000, base + PM_S2_LCH_VLD);
@@ -1652,7 +1650,7 @@ static int pm_get_power(unsigned int *power)
 	int polling_counter = MAX_POLLING;
 	int res = -EFAULT;
 	unsigned int s3_valid_reg;
-	unsigned int base = device->base;
+	void __iomem *base = device->base;
 
 	writel_relaxed(0x00000001, base + PM_S3_LCH_VLD);
 	writel_relaxed(0x00000000, base + PM_S3_LCH_VLD);
@@ -1800,7 +1798,7 @@ static void demod_wrapper_clock_stop(void)
 
 static void config_adcs(void)
 {
-	unsigned int base = device->base;
+	void __iomem *base = device->base;
 	dev_dbg(device->dev, "%s\n", __func__);
 	writel_relaxed(0x98804100, base + ADC_BBR0_CONFIG); /* SAT 4 */
 	writel_relaxed(0x80804c00, base + ADC_BBR1_CONFIG); /* non SAT 1*/
@@ -2661,9 +2659,8 @@ static int demod_wrapper_map_io_memory(struct platform_device *pdev)
 		return -ENXIO;
 	}
 	/* Map memory physical addresses to kernel space */
-	device->base_mem = ioremap(mem_demw->start,
+	device->base = ioremap(mem_demw->start,
 		resource_size(mem_demw));
-	device->base = (unsigned int)(device->base_mem);
 	if (!device->base) {
 		pr_err("%s: ioremap failed", __func__);
 		return -ENXIO;
@@ -2807,7 +2804,7 @@ static int demod_wrapper_probe(struct platform_device *pdev)
 
 err_create_device:
 	wakeup_source_trash(&device->wakeup_src);
-	iounmap(device->base_mem);
+	iounmap(device->base);
 err_map_io_memory:
 	demod_wrapper_clocks_put();
 
@@ -2826,7 +2823,7 @@ static int demod_wrapper_remove(struct platform_device *pdev)
 
 	wakeup_source_trash(&device->wakeup_src);
 
-	iounmap(device->base_mem);
+	iounmap(device->base);
 
 	demod_wrapper_clocks_put();
 
