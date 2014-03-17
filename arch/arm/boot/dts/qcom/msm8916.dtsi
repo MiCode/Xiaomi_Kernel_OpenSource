@@ -1197,8 +1197,6 @@
 
 	i2c_0: i2c@78b6000 { /* BLSP1 QUP2 */
 		compatible = "qcom,i2c-msm-v2";
-		#address-cells = <1>;
-		#size-cells = <0>;
 		reg-names = "qup_phys_addr", "bam_phys_addr";
 		reg = <0x78b6000 0x600>,
 		      <0x7884000 0x23000>;
@@ -1209,9 +1207,9 @@
 		clock-names = "iface_clk", "core_clk";
 		qcom,clk-freq-out = <100000>;
 		qcom,clk-freq-in  = <19200000>;
-		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&i2c_default>;
-		pinctrl-1 = <&i2c_sleep>;
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_0_active>;
+		pinctrl-1 = <&i2c_0_sleep>;
 		qcom,noise-rjct-scl = <0>;
 		qcom,noise-rjct-sda = <0>;
 		qcom,bam-pipe-idx-cons = <6>;
