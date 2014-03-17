@@ -1,0 +1,65 @@
+/* Copyright (c) 2014, Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	qcom,ion {
+		compatible = "qcom,msm-ion";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,ion-heap@25 {
+			reg = <25>;
+			qcom,ion-heap-type = "SYSTEM";
+		};
+
+		qcom,ion-heap@21 {
+			reg = <21>;
+			qcom,ion-heap-type = "SYSTEM_CONTIG";
+		};
+
+		qcom,ion-heap@8 { /* CP_MM HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <8>;
+			qcom,heap-align = <0x1000>;
+			linux,contiguous-region = <&secure_mem>;
+			qcom,ion-heap-type = "SECURE_DMA";
+		};
+
+		qcom,ion-heap@27 { /* QSEECOM HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <27>;
+			linux,contiguous-region = <&qseecom_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@28 { /* AUDIO HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <28>;
+			linux,contiguous-region = <&audio_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@23 { /* OTHER PIL HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <23>;
+			linux,contiguous-region = <&peripheral_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@26 { /* MODEM HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <26>;
+			linux,contiguous-region = <&modem_adsp_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+	};
+};
