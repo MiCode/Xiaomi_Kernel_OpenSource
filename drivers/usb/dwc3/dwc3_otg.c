@@ -555,8 +555,8 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 		/* Disable charging */
 		if (power_supply_set_online(dotg->psy, false))
 			goto psy_error;
-		/* Set max current limit */
-		if (power_supply_set_current_limit(dotg->psy, 0))
+		/* Set max current limit in uA */
+		if (power_supply_set_current_limit(dotg->psy, 1000*mA))
 			goto psy_error;
 	}
 

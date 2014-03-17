@@ -2511,6 +2511,7 @@ static int get_prop_online(struct qpnp_chg_chip *chip)
 	return qpnp_chg_is_batfet_closed(chip);
 }
 
+#define USB_SUSPEND_UA	2000
 static void
 qpnp_batt_external_power_changed(struct power_supply *psy)
 {
@@ -2534,9 +2535,10 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 
 		chip->prev_usb_max_ma = ret.intval;
 
-		if (ret.intval <= 2 && !chip->use_default_batt_values &&
-						get_prop_batt_present(chip)) {
-			if (ret.intval ==  2)
+		if (ret.intval <= USB_SUSPEND_UA &&
+					!chip->use_default_batt_values &&
+					get_prop_batt_present(chip)) {
+			if (ret.intval == USB_SUSPEND_UA)
 				qpnp_chg_usb_suspend_enable(chip, 1);
 			qpnp_chg_iusbmax_set(chip, QPNP_CHG_I_MAX_MIN_100);
 		} else {

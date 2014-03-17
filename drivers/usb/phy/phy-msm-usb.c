@@ -1406,8 +1406,8 @@ static int msm_otg_notify_power_supply(struct msm_otg *motg, unsigned mA)
 		/* Disable charging */
 		if (power_supply_set_online(psy, false))
 			goto psy_error;
-		/* Set max current limit */
-		if (power_supply_set_current_limit(psy, 0))
+		/* Set max current limit in uA */
+		if (power_supply_set_current_limit(psy, 1000*mA))
 			goto psy_error;
 	} else {
 		if (power_supply_set_online(psy, true))
