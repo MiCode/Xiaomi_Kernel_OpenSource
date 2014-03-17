@@ -14,18 +14,19 @@
  * WWAN Transport Network Driver.
  */
 
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/string.h>
+#include <linux/completion.h>
 #include <linux/errno.h>
+#include <linux/if_arp.h>
 #include <linux/interrupt.h>
 #include <linux/init.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/netdevice.h>
+#include <linux/of_device.h>
+#include <linux/string.h>
 #include <linux/skbuff.h>
-#include <linux/if_arp.h>
-#include <net/pkt_sched.h>
 #include <linux/workqueue.h>
-#include <linux/completion.h>
+#include <net/pkt_sched.h>
 #include <ipa_qmi_service.h>
 
 #define WWAN_METADATA_SHFT 24
@@ -1429,7 +1430,7 @@ static void ipa_rm_notify(void *dev, enum ipa_rm_event event,
 
 
 /**
- * ipa_wwan_init() - Initialized the module and registers as a
+ * ipa_wwan_probe() - Initialized the module and registers as a
  * network interface to the network stack
  *
  * Return codes:
@@ -1437,7 +1438,7 @@ static void ipa_rm_notify(void *dev, enum ipa_rm_event event,
  * -ENOMEM: No memory available
  * -EFAULT: Internal error
  */
-static int __init ipa_wwan_init(void)
+static int ipa_wwan_probe(struct platform_device *pdev)
 {
 	int ret, i;
 	struct net_device *dev;
@@ -1549,9 +1550,8 @@ fail:
 	free_netdev(ipa_netdevs[0]);
 	return ret;
 }
-late_initcall(ipa_wwan_init);
 
-void ipa_wwan_cleanup(void)
+static int ipa_wwan_remove(struct platform_device *pdev)
 {
 	unregister_netdev(ipa_netdevs[0]);
 	ipa_rm_inactivity_timer_destroy(
@@ -1559,7 +1559,36 @@ void ipa_wwan_cleanup(void)
 	free_netdev(ipa_netdevs[0]);
 	ipa_netdevs[0] = NULL;
 	destroy_workqueue(ipa_rm_q6_workqueue);
+	return 0;
 }
 
+static const struct of_device_id rmnet_ipa_dt_match[] = {
+	{.compatible = "qcom,rmnet-ipa"},
+	{},
+};
+MODULE_DEVICE_TABLE(of, rmnet_ipa_dt_match);
+
+static struct platform_driver rmnet_ipa_driver = {
+	.driver = {
+		.name = "rmnet_ipa",
+		.owner = THIS_MODULE,
+		.of_match_table = rmnet_ipa_dt_match,
+	},
+	.probe = ipa_wwan_probe,
+	.remove = ipa_wwan_remove,
+};
+
+static int __init ipa_wwan_init(void)
+{
+	return platform_driver_register(&rmnet_ipa_driver);
+}
+
+static void __exit ipa_wwan_cleanup(void)
+{
+	platform_driver_unregister(&rmnet_ipa_driver);
+}
+
+late_initcall(ipa_wwan_init);
+module_exit(ipa_wwan_cleanup);
 MODULE_DESCRIPTION("WWAN Network Interface");
 MODULE_LICENSE("GPL v2");
