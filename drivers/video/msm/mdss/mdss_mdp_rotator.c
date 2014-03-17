@@ -473,6 +473,13 @@ int mdss_mdp_rotator_setup(struct msm_fb_data_type *mfd,
 			ret = -ENODEV;
 			goto rot_err;
 		}
+
+		if (work_pending(&rot->commit_work)) {
+			mutex_unlock(&rotator_lock);
+			flush_work(&rot->commit_work);
+			mutex_lock(&rotator_lock);
+		}
+
 	} else {
 		pr_err("invalid rotator session id=%x\n", req->id);
 		ret = -EINVAL;
@@ -629,6 +636,12 @@ static int mdss_mdp_rotator_finish(struct mdss_mdp_rotator_session *rot)
 
 	rot_pipe = rot->pipe;
 	if (rot_pipe) {
+		if (work_pending(&rot->commit_work)) {
+			mutex_unlock(&rotator_lock);
+			cancel_work_sync(&rot->commit_work);
+			mutex_lock(&rotator_lock);
+		}
+
 		mdss_mdp_rotator_busy_wait(rot);
 		list_del(&rot->head);
 	}
