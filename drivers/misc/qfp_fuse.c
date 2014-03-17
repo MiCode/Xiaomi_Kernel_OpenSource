@@ -49,8 +49,8 @@
 static const char *blow_supply = "vdd-blow";
 
 struct qfp_priv_t {
-	uint32_t base;
-	uint32_t end;
+	void __iomem *base;
+	uint32_t size;
 	uint32_t blow_status_offset;
 	uint32_t blow_timer;
 	struct mutex lock;
@@ -71,7 +71,7 @@ static struct qfp_priv_t *qfp_priv;
 
 static inline bool is_usr_req_valid(const struct qfp_fuse_req *req)
 {
-	uint32_t size = qfp_priv->end - qfp_priv->base;
+	uint32_t size = qfp_priv->size;
 	uint32_t req_size;
 
 	if (req->size >= (UINT32_MAX / sizeof(uint32_t)))
@@ -411,12 +411,12 @@ static int qfp_fuse_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	qfp_priv->base = (uint32_t)ioremap(res.start, res.size);
+	qfp_priv->base = ioremap(res.start, res.size);
 	if (!qfp_priv->base) {
 		pr_warn("ioremap failed\n");
 		goto err;
 	}
-	qfp_priv->end = qfp_priv->base + res.size;
+	qfp_priv->size = res.size;
 	qfp_priv->blow_status_offset = res.blow_status_offset;
 	qfp_priv->blow_timer = res.blow_timer;
 
@@ -435,7 +435,8 @@ static int qfp_fuse_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err;
 
-	pr_info("Fuse driver base:%x end:%x\n", qfp_priv->base, qfp_priv->end);
+	pr_info("Fuse driver base:%p end:%p\n", qfp_priv->base,
+			qfp_priv->base + qfp_priv->size);
 	return 0;
 
 err:
