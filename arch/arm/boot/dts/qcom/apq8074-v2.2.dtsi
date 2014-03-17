@@ -69,6 +69,23 @@
 	sound {
 		compatible = "qcom,apq8074-audio-taiko";
 	};
+
+	qcom,lpass@fe200000 {
+		linux,contiguous-region = <&adsp_venus_mem>;
+	};
+
+	qcom,mss@fc880000 {
+		linux,contiguous-region = <&alt_peripheral_mem>;
+	};
+
+	qcom,venus@fdce0000 {
+		linux,contiguous-region = <&adsp_venus_mem>;
+	};
+
+	qcom,pronto@fb21b000 {
+		linux,contiguous-region = <&alt_peripheral_mem>;
+	};
+
 };
 
 &qseecom {
