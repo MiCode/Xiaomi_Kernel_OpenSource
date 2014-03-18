@@ -63,6 +63,7 @@ struct synaptics_rmi4_platform_data {
 	bool disable_gpios;
 	bool do_lockdown;
 	bool detect_device;
+	bool modify_reso;
 	unsigned irq_gpio;
 	u32 irq_flags;
 	u32 reset_flags;
