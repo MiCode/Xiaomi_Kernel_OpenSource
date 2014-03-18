@@ -1748,6 +1748,8 @@ int mdss_mdp_pp_init(struct device *dev)
 					&mdss_pp_res->dspp_hist[i].hist_mutex);
 				spin_lock_init(
 					&mdss_pp_res->dspp_hist[i].hist_lock);
+				init_completion(
+					&mdss_pp_res->dspp_hist[i].comp);
 			}
 		}
 	}
@@ -1756,6 +1758,7 @@ int mdss_mdp_pp_init(struct device *dev)
 		for (i = 0; i < mdata->nvig_pipes; i++) {
 			mutex_init(&vig[i].pp_res.hist.hist_mutex);
 			spin_lock_init(&vig[i].pp_res.hist.hist_lock);
+			init_completion(&vig[i].pp_res.hist.comp);
 		}
 		if (!mdata->pp_bus_hdl) {
 			pp_bus_pdata = &mdp_pp_bus_scale_table;
@@ -2958,7 +2961,7 @@ static int pp_histogram_enable(struct pp_hist_col_info *hist_info,
 		goto exit;
 	}
 	hist_info->frame_cnt = req->frame_cnt;
-	init_completion(&hist_info->comp);
+	INIT_COMPLETION(hist_info->comp);
 	hist_info->hist_cnt_read = 0;
 	hist_info->hist_cnt_sent = 0;
 	hist_info->hist_cnt_time = 0;
