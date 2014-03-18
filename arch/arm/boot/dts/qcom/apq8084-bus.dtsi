@@ -299,7 +299,7 @@
 		mas-vpu-proc {
 			cell-id = <53>;
 			label = "mas-qdss-bam";
-			qcom,masterp = <1>;
+			qcom,masterp = <0>;
 			qcom,tier = <2>;
 			qcom,mode = "Fixed";
 			qcom,qport = <1>;
@@ -384,6 +384,19 @@
 			qcom,mode = "Fixed";
 			qcom,qport = <3>;
 			qcom,mas-hw-id = <24>;
+			qcom,hw-sel = "NoC";
+			qcom,prio1 = <1>;
+			qcom,prio0 = <1>;
+		};
+
+		mas-crypto-core2 {
+			cell-id = <97>;
+			label = "mas-crypto-core2";
+			qcom,masterp = <2>;
+			qcom,tier = <2>;
+			qcom,mode = "Fixed";
+			qcom,qport = <9>;
+			qcom,mas-hw-id = <64>;
 			qcom,hw-sel = "NoC";
 			qcom,prio1 = <1>;
 			qcom,prio0 = <1>;
@@ -487,6 +500,20 @@
 			qcom,prio0 = <1>;
 			qcom,hw-sel = "NoC";
 			qcom,iface-clk-node = "msm_usb3";
+		};
+
+		mas-usb3_1 {
+			cell-id = <101>;
+			label = "mas-usb3_1";
+			qcom,masterp = <18>;
+			qcom,tier = <2>;
+			qcom,mode = "Fixed";
+			qcom,qport = <11>;
+			qcom,mas-hw-id = <69>;
+			qcom,prio1 = <1>;
+			qcom,prio0 = <1>;
+			qcom,hw-sel = "NoC";
+			qcom,iface-clk-node = "msm_usb3_1";
 		};
 
 		mas-pcie-0 {
@@ -1038,7 +1065,7 @@
 		slv-spdm-wrapper {
 			cell-id = <633>;
 			label = "slv-spdm-wrapper";
-			qcom,slavep = <14>;
+			qcom,slavep = <12>;
 			qcom,tier = <2>;
 			qcom,buswidth = <8>;
 			qcom,slv-hw-id = <60>;
@@ -1074,7 +1101,7 @@
 		slv-rbcpr-cfg {
 			cell-id = <636>;
 			label = "slv-rbcpr-cfg";
-			qcom,slavep = <22>;
+			qcom,slavep = <19>;
 			qcom,tier = <2>;
 			qcom,buswidth = <8>;
 			qcom,slv-hw-id = <64>;
@@ -1083,7 +1110,7 @@
 		slv-rbcpr-qdss-apu-cfg {
 			cell-id = <637>;
 			label = "slv-rbcpr-qdss-apu-cfg";
-			qcom,slavep = <21>;
+			qcom,slavep = <18>;
 			qcom,tier = <2>;
 			qcom,buswidth = <8>;
 			qcom,slv-hw-id = <65>;
@@ -1122,7 +1149,7 @@
 		slv-cnoc-mnoc-cfg {
 			cell-id = <640>;
 			label = "slv-cnoc-mnoc-cfg";
-			qcom,slavep = <24>;
+			qcom,slavep = <20>;
 			qcom,tier = <2>;
 			qcom,buswidth = <8>;
 			qcom,slv-hw-id = <66>;
@@ -1286,7 +1313,7 @@
 			cell-id = <2048>;
 			label = "fab_mmss_noc";
 			qcom,gateway;
-			qcom,masterp = <2>;
+			qcom,masterp = <4>;
 			qcom,qport = <2>;
 			qcom,buswidth = <16>;
 			qcom,ws = <10000>;

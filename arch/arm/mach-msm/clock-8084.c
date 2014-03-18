@@ -6083,6 +6083,7 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("core_clk", gcc_usb30_master_clk.c, "f9200000.ssusb"),
 	CLK_LOOKUP("iface_clk", gcc_sys_noc_usb3_axi_clk.c, "f9200000.ssusb"),
 	CLK_LOOKUP("iface_clk", gcc_sys_noc_usb3_axi_clk.c, "msm_usb3"),
+	CLK_LOOKUP("iface_clk", gcc_sys_noc_usb3_sec_axi_clk.c, "msm_usb3_1"),
 	CLK_LOOKUP("sleep_clk", gcc_usb30_sleep_clk.c, "f9200000.ssusb"),
 	CLK_LOOKUP("sleep_a_clk", gcc_usb2a_phy_sleep_clk.c, "f9200000.ssusb"),
 	CLK_LOOKUP("utmi_clk",   gcc_usb30_mock_utmi_clk.c, "f9200000.ssusb"),
