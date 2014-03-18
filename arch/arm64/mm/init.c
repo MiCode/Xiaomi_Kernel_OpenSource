@@ -343,11 +343,21 @@ void __init mem_init(void)
 	}
 }
 
+#ifdef CONFIG_STRICT_MEMORY_RWX
+void free_initmem(void)
+{
+	poison_init_mem(__init_data_begin, __init_end - __init_data_begin);
+	free_reserved_area(PAGE_ALIGN((unsigned long)&__init_data_begin),
+				  ((unsigned long)&__init_end) & PAGE_MASK,
+				  0, "unused kernel");
+}
+#else
 void free_initmem(void)
 {
 	poison_init_mem(__init_begin, __init_end - __init_begin);
 	free_initmem_default(0);
 }
+#endif
 
 #ifdef CONFIG_BLK_DEV_INITRD
 

@@ -139,7 +139,12 @@ tsk	.req	x28		// current thread_info
  * Interrupt handling.
  */
 	.macro	irq_handler
+#ifdef CONFIG_STRICT_MEMORY_RWX
+	ldr	x1, =handle_arch_irq
+	ldr	x1, [x1]
+#else
 	ldr	x1, handle_arch_irq
+#endif
 	mov	x0, sp
 	blr	x1
 	.endm
@@ -675,6 +680,10 @@ ENTRY(sys_rt_sigreturn_wrapper)
 	mov	x0, sp
 	b	sys_rt_sigreturn
 ENDPROC(sys_rt_sigreturn_wrapper)
+
+#ifdef CONFIG_STRICT_MEMORY_RWX
+.data
+#endif
 
 ENTRY(handle_arch_irq)
 	.quad	0
