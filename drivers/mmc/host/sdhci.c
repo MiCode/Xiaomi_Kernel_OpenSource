@@ -68,6 +68,12 @@ static inline int sdhci_runtime_pm_put(struct sdhci_host *host)
 }
 #endif
 
+static inline int sdhci_get_async_int_status(struct sdhci_host *host)
+{
+	return (sdhci_readl(host, SDHCI_HOST_CONTROL2) &
+		 SDHCI_CTRL_ASYNC_INT_ENABLE) >> 14;
+}
+
 static void sdhci_dump_state(struct sdhci_host *host)
 {
 	struct mmc_host *mmc = host->mmc;
@@ -1578,6 +1584,33 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
+static void sdhci_cfg_async_intr(struct sdhci_host *host, bool enable)
+{
+	if (!host->async_int_supp)
+		return;
+
+	if (enable)
+		sdhci_writel(host,
+			     sdhci_readl(host, SDHCI_HOST_CONTROL2) |
+			     SDHCI_CTRL_ASYNC_INT_ENABLE,
+			     SDHCI_HOST_CONTROL2);
+	else
+		sdhci_writel(host, sdhci_readl(host, SDHCI_HOST_CONTROL2) &
+			     ~SDHCI_CTRL_ASYNC_INT_ENABLE,
+			     SDHCI_HOST_CONTROL2);
+}
+
+static void sdhci_cfg_irq(struct sdhci_host *host, bool enable)
+{
+	if (enable && !host->irq_enabled) {
+		enable_irq(host->irq);
+		host->irq_enabled = true;
+	} else if (!enable && host->irq_enabled) {
+		disable_irq_nosync(host->irq);
+		host->irq_enabled = false;
+	}
+}
+
 static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 {
 	unsigned long flags;
@@ -1593,9 +1626,26 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		return;
 	}
 
-	if (ios->clock)
+	spin_lock_irqsave(&host->lock, flags);
+	/* lock is being released intermittently below, hence disable irq */
+	sdhci_cfg_irq(host, false);
+	spin_unlock_irqrestore(&host->lock, flags);
+	if (ios->clock) {
 		sdhci_set_clock(host, ios->clock);
-
+		if (host->async_int_supp && sdhci_get_async_int_status(host)) {
+			if (host->disable_sdio_irq_deferred) {
+				pr_debug("%s: %s: disable sdio irq\n",
+					 mmc_hostname(host->mmc), __func__);
+				host->mmc->ops->enable_sdio_irq(host->mmc, 0);
+				host->disable_sdio_irq_deferred = false;
+			}
+			spin_lock_irqsave(&host->lock, flags);
+			sdhci_cfg_async_intr(host, false);
+			spin_unlock_irqrestore(&host->lock, flags);
+			pr_debug("%s: %s: unconfig async intr\n",
+				 mmc_hostname(host->mmc), __func__);
+		}
+	}
 	/*
 	 * The controller clocks may be off during power-up and we may end up
 	 * enabling card clock before giving power to the card. Hence, during
@@ -1621,6 +1671,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 	}
 	spin_lock_irqsave(&host->lock, flags);
 	if (!host->clock) {
+		sdhci_cfg_irq(host, true);
 		spin_unlock_irqrestore(&host->lock, flags);
 		mutex_unlock(&host->ios_mutex);
 		return;
@@ -1780,9 +1831,18 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		if (host->vmmc && vdd_bit != -1)
 			mmc_regulator_set_ocr(host->mmc, host->vmmc, vdd_bit);
 	}
-	if (!ios->clock)
+	if (!ios->clock) {
+		if (host->async_int_supp && host->mmc->card &&
+		    mmc_card_sdio(host->mmc->card)) {
+			sdhci_cfg_async_intr(host, true);
+			pr_debug("%s: %s: config async intr\n",
+				mmc_hostname(host->mmc), __func__);
+		}
 		sdhci_set_clock(host, ios->clock);
-
+	}
+	spin_lock_irqsave(&host->lock, flags);
+	sdhci_cfg_irq(host, true);
+	spin_unlock_irqrestore(&host->lock, flags);
 	mmiowb();
 	mutex_unlock(&host->ios_mutex);
 }
@@ -1861,6 +1921,14 @@ static void sdhci_enable_sdio_irq_nolock(struct sdhci_host *host, int enable)
 {
 	if (host->flags & SDHCI_DEVICE_DEAD)
 		goto out;
+
+	if (!enable && !host->clock) {
+		pr_debug("%s: %s: defered disabling card intr\n",
+			 host->mmc ? mmc_hostname(host->mmc) : "null",
+			 __func__);
+		host->disable_sdio_irq_deferred = true;
+		return;
+	}
 
 	if (enable)
 		host->flags |= SDHCI_SDIO_IRQ_ENABLED;
@@ -2741,6 +2809,17 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	}
 
+	if (!host->clock && host->mmc->card &&
+	    mmc_card_sdio(host->mmc->card)) {
+		/* SDIO async. interrupt is level-sensitive */
+		sdhci_cfg_irq(host, false);
+		pr_debug("%s: got async-irq: clocks: %d gated: %d host-irq[en:1/dis:0]: %d\n",
+			mmc_hostname(host->mmc), host->clock,
+			host->mmc->clk_gated, host->irq_enabled);
+		spin_unlock(&host->lock);
+		mmc_signal_sdio_irq(host->mmc);
+		return IRQ_HANDLED;
+	}
 	intmask = sdhci_readl(host, SDHCI_INT_STATUS);
 
 	if (!intmask || intmask == 0xffffffff) {
@@ -3488,6 +3567,7 @@ int sdhci_add_host(struct sdhci_host *host)
 	if (ret)
 		goto untasklet;
 
+	host->irq_enabled = true;
 	host->vmmc = regulator_get(mmc_dev(mmc), "vmmc");
 	if (IS_ERR(host->vmmc)) {
 		pr_info("%s: no vmmc regulator found\n", mmc_hostname(mmc));
@@ -3531,6 +3611,8 @@ int sdhci_add_host(struct sdhci_host *host)
 					mmc_hostname(mmc), ret);
 	}
 
+	if (caps[0] & SDHCI_ASYNC_INTR)
+		host->async_int_supp = true;
 	mmc_add_host(mmc);
 
 	pr_info("%s: SDHCI controller on %s [%s] using %s\n",
