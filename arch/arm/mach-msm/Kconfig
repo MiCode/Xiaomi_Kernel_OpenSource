@@ -195,6 +195,21 @@ config ARCH_MDM9630
 	select MSM_QDSP6V2_CODECS
 	select MSM_AUDIO_QDSP6V2 if SND_SOC
 
+config ARCH_MSMZIRC
+	bool "MSMZIRC"
+	select ARM_GIC
+	select CPU_V7
+	select REGULATOR
+	select HAVE_ARM_ARCH_TIMER
+	select MSM_SPM_V2
+	select MSM_NOPM
+	select MEMORY_HOLE_CARVEOUT
+	select QMI_ENCDEC
+	select MSM_CORTEX_A7
+	select PINCTRL
+	select PINCTRL_MSM_TLMM_V4
+	select MSM_IRQ
+
 config ARCH_MSM8610
 	bool "MSM8610"
 	select ARM_GIC
@@ -392,6 +407,7 @@ config PHYS_OFFSET
 	default "0x00000000" if ARCH_MSMSAMARIUM
 	default "0x11400000" if ARCH_FSM9900
 	default "0x00000000" if ARCH_MDM9630
+	default "0x80000000" if ARCH_MSMZIRC
 	default "0x00200000" if !MSM_STACKED_MEMORY
 	default "0x10000000"
 
@@ -498,6 +514,14 @@ choice
 		help
 		  Say Y here if you want the debug print routines to direct
 		  their output to the serial port on MSM 8226 devices.
+
+	config DEBUG_MSMZIRC_UART
+		bool "Kernel low-level debugging messages via MSM ZIRC UART"
+		depends on ARCH_MSMZIRC
+		select MSM_HAS_DEBUG_UART_HS_V14
+		help
+		  Say Y here if you want the debug print routines to direct
+		  their output to the serial port on MSM ZIRC devices.
 endchoice
 
 choice
