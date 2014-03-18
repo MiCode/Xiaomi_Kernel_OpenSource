@@ -67,6 +67,14 @@
 	status = "ok";
 };
 
+&pmplutonium_s8 {
+	qcom,bypass-spm;
+};
+
+&pmplutonium_s11 {
+	qcom,bypass-spm;
+};
+
 &usb_otg {
 	status = "ok";
 };
