@@ -2045,14 +2045,9 @@ static bool i2c_msm_qup_slv_holds_bus(struct i2c_msm_ctrl *ctrl)
 {
 	u32 status = readl_relaxed(ctrl->rsrcs.base + QUP_I2C_STATUS);
 
-	bool slv_holds_bus =	!(status & QUP_I2C_SDA) &&
-				(status & QUP_BUS_ACTIVE) &&
-				!(status & QUP_BUS_MASTER);
-	if (slv_holds_bus)
-		dev_info(ctrl->dev,
-			"bus lines held low by a slave detected\n");
-
-	return slv_holds_bus;
+	return  !(status & QUP_I2C_SDA) &&
+		(status & QUP_BUS_ACTIVE) &&
+		!(status & QUP_BUS_MASTER);
 }
 
 /*
@@ -2475,7 +2470,6 @@ static int i2c_msm_qup_init(struct i2c_msm_ctrl *ctrl)
 static bool i2c_msm_qup_do_bus_clear(struct i2c_msm_ctrl *ctrl)
 {
 	int ret;
-	ulong min_sleep_usec;
 	dev_info(ctrl->dev, "Executing bus recovery procedure (9 clk pulse)\n");
 
 	/* call i2c_msm_qup_init() to set core in idle state */
@@ -2483,29 +2477,15 @@ static bool i2c_msm_qup_do_bus_clear(struct i2c_msm_ctrl *ctrl)
 	if (ret)
 		return ret;
 
+	/* call i2c_msm_qup_xfer_init_run_state() to set clock dividers */
+	i2c_msm_qup_xfer_init_run_state(ctrl);
+
 	/* must be in run state for bus clear */
 	ret = i2c_msm_qup_state_set(ctrl, QUP_STATE_RUN);
 	if (ret)
 		return ret;
 
-	/*
-	 * call i2c_msm_qup_xfer_init_run_state() to set clock dividers.
-	 * the dividers are necessary for bus clear.
-	 */
-	i2c_msm_qup_xfer_init_run_state(ctrl);
-
 	writel_relaxed(0x1, ctrl->rsrcs.base + QUP_I2C_MASTER_BUS_CLR);
-
-	/*
-	 * wait for recovery (9 clock pulse cycles) to complete.
-	 * min_time = 9 clock *10  (1000% margin)
-	 * max_time = 10* min_time
-	 */
-	min_sleep_usec =
-	    max_t(ulong, (9 * 10 * USEC_PER_SEC) / ctrl->rsrcs.clk_freq_out, 1);
-
-	usleep_range(min_sleep_usec, min_sleep_usec * 10);
-
 	return 0;
 }
 
@@ -2521,8 +2501,6 @@ static void i2c_msm_qup_teardown(struct i2c_msm_ctrl *ctrl)
 static int i2c_msm_qup_post_xfer(struct i2c_msm_ctrl *ctrl, int err)
 {
 	bool need_reset = false;
-
-	i2c_msm_qup_do_bus_clear(ctrl);
 
 	/* poll until bus is released */
 	if (i2c_msm_qup_poll_bus_active_unset(ctrl)) {
