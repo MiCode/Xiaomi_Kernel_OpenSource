@@ -682,4 +682,14 @@ config INPUT_IDEAPAD_SLIDEBAR
 	  To compile this driver as a module, choose M here: the
 	  module will be called ideapad_slidebar.
 
+config INPUT_BAYTRAIL_BUTTON
+	tristate "Intel Baytrail Buttons"
+	depends on KEYBOARD_GPIO
+	help
+	  Say Y here if you have a Baytrail tablet that is compatible
+	  with Windows ACPI Design Guide.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called baytrail_button.
+
 endif
