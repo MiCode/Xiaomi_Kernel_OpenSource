@@ -347,19 +347,34 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 			 * OTGDISABLE0=1
 			 * USB2_SUSPEND_N_SEL=1, USB2_SUSPEND_N=0
 			 */
+			if (phy->core_ver >= MSM_CORE_VER_120)
+				msm_usb_write_readback(phy->base,
+						HS_PHY_CTRL_COMMON_REG,
+						COMMON_OTGDISABLE0,
+						COMMON_OTGDISABLE0);
+			else
+				msm_usb_write_readback(phy->base,
+						HS_PHY_CTRL_REG,
+						OTGDISABLE0, OTGDISABLE0);
+
 			msm_usb_write_readback(phy->base, HS_PHY_CTRL_REG,
-					(OTGDISABLE0 | USB2_SUSPEND_N_SEL |
-					 USB2_SUSPEND_N),
-					(OTGDISABLE0 | USB2_SUSPEND_N_SEL));
+					(USB2_SUSPEND_N_SEL | USB2_SUSPEND_N),
+					USB2_SUSPEND_N_SEL);
 			/*
 			 * Enable PHY retention
 			 * RETENABLEN bit is not available on few platforms.
 			 */
-			if (!chg_connected && !phy->set_pllbtune)
-				/* Enable PHY retention */
-				msm_usb_write_readback(phy->base,
-							HS_PHY_CTRL_REG,
-							RETENABLEN, 0);
+			if (!chg_connected) {
+				if (phy->set_pllbtune)
+					msm_usb_write_readback(phy->base,
+						HS_PHY_CTRL_COMMON_REG,
+						COMMON_PLLITUNE_1,
+						COMMON_PLLITUNE_1);
+				else
+					msm_usb_write_readback(phy->base,
+						HS_PHY_CTRL_REG,
+						RETENABLEN, 0);
+			}
 		}
 
 		if (!phy->ext_vbus_id)
@@ -412,22 +427,28 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 							DPDMHV_INT_MASK, 0);
 		} else {
 			/* Disable PHY retention */
-			if (phy->set_pllbtune) {
+			if (phy->set_pllbtune)
 				msm_usb_write_readback(phy->base,
 						HS_PHY_CTRL_COMMON_REG,
 						COMMON_PLLITUNE_1, 0);
-			} else {
+			else
 				msm_usb_write_readback(phy->base,
 						HS_PHY_CTRL_REG,
 						RETENABLEN, RETENABLEN);
-			}
 
 			/* Bring PHY out of suspend */
 			msm_usb_write_readback(phy->base, HS_PHY_CTRL_REG,
-						(OTGDISABLE0 |
-						 USB2_SUSPEND_N_SEL |
-						 USB2_SUSPEND_N),
+				(USB2_SUSPEND_N_SEL | USB2_SUSPEND_N), 0);
+
+			if (phy->core_ver >= MSM_CORE_VER_120)
+				msm_usb_write_readback(phy->base,
+						HS_PHY_CTRL_COMMON_REG,
+						COMMON_OTGDISABLE0,
 						0);
+			else
+				msm_usb_write_readback(phy->base,
+						HS_PHY_CTRL_REG,
+						OTGDISABLE0, 0);
 		}
 	}
 
