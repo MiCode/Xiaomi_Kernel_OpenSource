@@ -678,7 +678,8 @@ static int __devinit msm_mpm_dev_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 	ret = devm_request_irq(&pdev->dev, dev->mpm_ipc_irq, msm_mpm_irq,
-			IRQF_TRIGGER_RISING, pdev->name, msm_mpm_irq);
+			IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND, pdev->name,
+			msm_mpm_irq);
 
 	if (ret) {
 		pr_info("%s(): request_irq failed errno: %d\n", __func__, ret);
