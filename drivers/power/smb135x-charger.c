@@ -106,6 +106,13 @@
 
 #define VFLOAT_REG			0x1E
 
+#define VERSION1_REG			0x2A
+#define VERSION1_MASK			SMB135X_MASK(7,	6)
+#define VERSION1_SHIFT			6
+#define VERSION2_REG			0x32
+#define VERSION2_MASK			SMB135X_MASK(1,	0)
+#define VERSION3_REG			0x34
+
 /* Irq Config registers */
 #define IRQ_CFG_REG			0x07
 #define IRQ_BAT_HOT_COLD_HARD_BIT	BIT(7)
@@ -218,9 +225,33 @@ enum {
 };
 
 enum {
-	REV_1 = 1,	/* Rev v1.0 */
-	REV_1_1,	/* Rev v1.1 */
-	REV_1_2,	/* Rev v1.2 */
+	REV_1 = 1,	/* Rev 1.0 */
+	REV_1_1 = 2,	/* Rev 1.1 */
+	REV_2 = 3,		/* Rev 2 */
+	REV_2_1 = 5,	/* Rev 2.1 */
+	REV_MAX,
+};
+
+static char *revision_str[] = {
+	[REV_1] = "rev1",
+	[REV_1_1] = "rev1.1",
+	[REV_2] = "rev2",
+	[REV_2_1] = "rev2.1",
+};
+
+enum {
+	V_SMB1356,
+	V_SMB1357,
+	V_SMB1358,
+	V_SMB1359,
+	V_MAX,
+};
+
+static char *version_str[] = {
+	[V_SMB1356] = "smb1356",
+	[V_SMB1357] = "smb1357",
+	[V_SMB1358] = "smb1358",
+	[V_SMB1359] = "smb1359",
 };
 
 enum {
@@ -251,6 +282,9 @@ struct smb135x_chg {
 	struct device			*dev;
 	struct mutex			read_write_lock;
 
+	u8				revision;
+	int				version;
+
 	bool				chg_enabled;
 
 	bool				usb_present;
@@ -266,6 +300,9 @@ struct smb135x_chg {
 	int				fake_battery_soc;
 	struct dentry			*debug_root;
 	int				usb_current_arr_size;
+	int				*usb_current_table;
+	int				dc_current_arr_size;
+	int				*dc_current_table;
 	u8				irq_cfg_mask[3];
 
 	/* psy */
@@ -399,7 +436,7 @@ out:
 	return rc;
 }
 
-static int read_version(struct smb135x_chg *chip, u8 *version)
+static int read_revision(struct smb135x_chg *chip, u8 *revision)
 {
 	int rc;
 	u8 reg;
@@ -409,7 +446,49 @@ static int read_version(struct smb135x_chg *chip, u8 *version)
 		dev_err(chip->dev, "Couldn't read status 9 rc = %d\n", rc);
 		return rc;
 	}
-	*version = (reg & REV_MASK);
+	*revision = (reg & REV_MASK);
+	return 0;
+}
+
+static int read_version1(struct smb135x_chg *chip, u8 *version)
+{
+	int rc;
+	u8 reg;
+
+	rc = smb135x_read(chip, VERSION1_REG, &reg);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read version 1 rc = %d\n", rc);
+		return rc;
+	}
+	*version = (reg & VERSION1_MASK) >> VERSION1_SHIFT;
+	return 0;
+}
+
+static int read_version2(struct smb135x_chg *chip, u8 *version)
+{
+	int rc;
+	u8 reg;
+
+	rc = smb135x_read(chip, VERSION2_REG, &reg);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read version 2 rc = %d\n", rc);
+		return rc;
+	}
+	*version = (reg & VERSION2_MASK);
+	return 0;
+}
+
+static int read_version3(struct smb135x_chg *chip, u8 *version)
+{
+	int rc;
+	u8 reg;
+
+	rc = smb135x_read(chip, VERSION3_REG, &reg);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read version 3 rc = %d\n", rc);
+		return rc;
+	}
+	*version = reg;
 	return 0;
 }
 
@@ -599,7 +678,42 @@ static int smb135x_enable_volatile_writes(struct smb135x_chg *chip)
 	return rc;
 }
 
-int usb_current_table[] = {
+static int usb_current_table_smb1356[] = {
+	180,
+	240,
+	270,
+	285,
+	300,
+	330,
+	360,
+	390,
+	420,
+	540,
+	570,
+	600,
+	660,
+	720,
+	840,
+	900,
+	960,
+	1080,
+	1110,
+	1128,
+	1146,
+	1170,
+	1182,
+	1200,
+	1230,
+	1260,
+	1380,
+	1440,
+	1560,
+	1620,
+	1680,
+	1800
+};
+
+static int usb_current_table_smb1357_smb1358[] = {
 	300,
 	400,
 	450,
@@ -634,7 +748,70 @@ int usb_current_table[] = {
 	3000
 };
 
-int dc_current_table[] = {
+static int usb_current_table_smb1359[] = {
+	300,
+	400,
+	450,
+	475,
+	500,
+	550,
+	600,
+	650,
+	700,
+	900,
+	950,
+	1000,
+	1100,
+	1200,
+	1400,
+	1450,
+	1500,
+	1600,
+	1800,
+	1850,
+	1880,
+	1910,
+	1930,
+	1950,
+	1970,
+	2000,
+	2050,
+	2100,
+	2300,
+	2400,
+	2500
+};
+
+static int dc_current_table_smb1356[] = {
+	180,
+	240,
+	270,
+	285,
+	300,
+	330,
+	360,
+	390,
+	420,
+	540,
+	570,
+	600,
+	660,
+	720,
+	840,
+	870,
+	900,
+	960,
+	1080,
+	1110,
+	1128,
+	1146,
+	1158,
+	1170,
+	1182,
+	1200,
+};
+
+static int dc_current_table[] = {
 	300,
 	400,
 	450,
@@ -738,7 +915,7 @@ static int smb135x_set_high_usb_chg_current(struct smb135x_chg *chip,
 	u8 usb_cur_val;
 
 	for (i = chip->usb_current_arr_size - 1; i >= 0; i--) {
-		if (current_ma >= usb_current_table[i])
+		if (current_ma >= chip->usb_current_table[i])
 			break;
 	}
 	if (i < 0) {
@@ -849,8 +1026,8 @@ static int smb135x_set_dc_chg_current(struct smb135x_chg *chip,
 	int i, rc;
 	u8 dc_cur_val;
 
-	for (i = ARRAY_SIZE(dc_current_table) - 1; i >= 0; i--) {
-		if (chip->dc_psy_ma >= dc_current_table[i])
+	for (i = chip->dc_current_arr_size - 1; i >= 0; i--) {
+		if (chip->dc_psy_ma >= chip->dc_current_table[i])
 			break;
 	}
 	dc_cur_val = i & DCIN_INPUT_MASK;
@@ -1375,6 +1552,140 @@ struct regulator_ops smb135x_chg_otg_reg_ops = {
 	.disable	= smb135x_chg_otg_regulator_disable,
 	.is_enabled	= smb135x_chg_otg_regulator_is_enable,
 };
+
+#define SMB1356_VERSION3_BIT	BIT(7)
+#define SMB1357_VERSION1_VAL	0x01
+#define SMB1358_VERSION1_VAL	0x02
+#define SMB1359_VERSION1_VAL	0x00
+#define SMB1357_VERSION2_VAL	0x01
+#define SMB1358_VERSION2_VAL	0x02
+#define SMB1359_VERSION2_VAL	0x00
+static int smb135x_chip_version_and_revision(struct smb135x_chg *chip)
+{
+	int rc;
+	u8 version1, version2, version3;
+
+	/* read the revision */
+	rc = read_revision(chip, &chip->revision);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read revision rc = %d\n", rc);
+		return rc;
+	}
+
+	if (chip->revision >= REV_MAX || revision_str[chip->revision] == NULL) {
+		dev_err(chip->dev, "Bad revision found = %d\n", chip->revision);
+		return -EINVAL;
+	}
+
+	/* check if it is smb1356 */
+	rc = read_version3(chip, &version3);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read version3 rc = %d\n", rc);
+		return rc;
+	}
+
+	if (version3 & SMB1356_VERSION3_BIT) {
+		chip->version = V_SMB1356;
+		goto wrkarnd_and_input_current_values;
+	}
+
+	/* check if it is smb1357, smb1358 or smb1359 based on revision */
+	if (chip->revision <= REV_1_1) {
+		rc = read_version1(chip, &version1);
+		if (rc < 0) {
+			dev_err(chip->dev,
+				"Couldn't read version 1 rc = %d\n", rc);
+			return rc;
+		}
+		switch (version1) {
+		case SMB1357_VERSION1_VAL:
+			chip->version = V_SMB1357;
+			break;
+		case SMB1358_VERSION1_VAL:
+			chip->version = V_SMB1358;
+			break;
+		case SMB1359_VERSION1_VAL:
+			chip->version = V_SMB1359;
+			break;
+		default:
+			dev_err(chip->dev,
+				"Unknown version 1 = 0x%02x rc = %d\n",
+				version1, rc);
+			return rc;
+		}
+	} else {
+		rc = read_version2(chip, &version2);
+		if (rc < 0) {
+			dev_err(chip->dev,
+				"Couldn't read version 2 rc = %d\n", rc);
+			return rc;
+		}
+		switch (version2) {
+		case SMB1357_VERSION2_VAL:
+			chip->version = V_SMB1357;
+			break;
+		case SMB1358_VERSION2_VAL:
+			chip->version = V_SMB1358;
+			break;
+		case SMB1359_VERSION2_VAL:
+			chip->version = V_SMB1359;
+			break;
+		default:
+			dev_err(chip->dev,
+					"Unknown version 2 = 0x%02x rc = %d\n",
+					version2, rc);
+			return rc;
+		}
+	}
+
+wrkarnd_and_input_current_values:
+	if (is_usb100_broken(chip))
+		chip->workaround_flags |= WRKARND_USB100_BIT;
+	/*
+	 * Rev v1.0 and v1.1 of SMB135x fails charger type detection
+	 * (apsd) due to interference on the D+/- lines by the USB phy.
+	 * Set the workaround flag to disable charger type reporting
+	 * for this revision.
+	 */
+	if (chip->revision <= REV_1_1)
+		chip->workaround_flags |= WRKARND_APSD_FAIL;
+
+	pr_debug("workaround_flags = %x\n", chip->workaround_flags);
+
+	switch (chip->version) {
+	case V_SMB1356:
+		chip->usb_current_table = usb_current_table_smb1356;
+		chip->usb_current_arr_size
+			= ARRAY_SIZE(usb_current_table_smb1356);
+		chip->dc_current_table = dc_current_table_smb1356;
+		chip->dc_current_arr_size
+			= ARRAY_SIZE(dc_current_table_smb1356);
+		break;
+	case V_SMB1357:
+		chip->usb_current_table = usb_current_table_smb1357_smb1358;
+		chip->usb_current_arr_size
+			= ARRAY_SIZE(usb_current_table_smb1357_smb1358);
+		chip->dc_current_table = dc_current_table;
+		chip->dc_current_arr_size = ARRAY_SIZE(dc_current_table);
+		break;
+	case V_SMB1358:
+		chip->usb_current_table = usb_current_table_smb1357_smb1358;
+		chip->usb_current_arr_size
+			= ARRAY_SIZE(usb_current_table_smb1357_smb1358);
+		chip->dc_current_table = dc_current_table;
+		chip->dc_current_arr_size = ARRAY_SIZE(dc_current_table);
+		break;
+	case V_SMB1359:
+		chip->usb_current_table = usb_current_table_smb1359;
+		chip->usb_current_arr_size
+			= ARRAY_SIZE(usb_current_table_smb1359);
+		chip->dc_current_table = dc_current_table;
+		chip->dc_current_arr_size = ARRAY_SIZE(dc_current_table);
+		break;
+	}
+
+	return 0;
+}
 
 static int smb135x_regulator_init(struct smb135x_chg *chip)
 {
@@ -2337,30 +2648,12 @@ static int smb135x_hw_init(struct smb135x_chg *chip)
 	 * power source detect (APSD) mA ratings
 	 */
 	mask = USE_REGISTER_FOR_CURRENT;
-	if (is_usb100_broken(chip))
-		chip->workaround_flags |= WRKARND_USB100_BIT;
 
 	if (chip->workaround_flags & WRKARND_USB100_BIT)
 		reg = 0;
 	else
 		/* this ignores APSD results */
 		reg = USE_REGISTER_FOR_CURRENT;
-
-	rc = read_version(chip, &reg);
-	if (rc) {
-		dev_err(chip->dev, "Couldn't read chip revision\n");
-		return rc;
-	}
-	/*
-	 * Rev v1.0 and v1.1 of SMB135x fails charger type detection
-	 * (apsd) due to interference on the D+/- lines by the USB phy.
-	 * Set the workaround flag to disable charger type reporting
-	 * for this revision.
-	 */
-	if ((reg == REV_1) || (reg == REV_1_1))
-		chip->workaround_flags |= WRKARND_APSD_FAIL;
-
-	pr_debug("workaround_flags = %x\n", chip->workaround_flags);
 
 	rc = smb135x_masked_write(chip, CMD_INPUT_LIMIT, mask, reg);
 	if (rc < 0) {
@@ -2601,14 +2894,10 @@ static int smb135x_hw_init(struct smb135x_chg *chip)
 }
 
 static struct of_device_id smb135x_match_table[] = {
-	{
-		.compatible = "qcom,smb1357-charger",
-		.data = (void *)ARRAY_SIZE(usb_current_table),
-	},
-	{
-		.compatible = "qcom,smb1359-charger",
-		.data = (void *)ARRAY_SIZE(usb_current_table) - 1,
-	},
+	{ .compatible = "qcom,smb1356-charger", },
+	{ .compatible = "qcom,smb1357-charger", },
+	{ .compatible = "qcom,smb1358-charger", },
+	{ .compatible = "qcom,smb1359-charger", },
 	{ },
 };
 
@@ -2740,7 +3029,7 @@ static int smb135x_charger_probe(struct i2c_client *client,
 	int rc;
 	struct smb135x_chg *chip;
 	struct power_supply *usb_psy;
-	u8 version, reg = 0;
+	u8 reg = 0;
 
 	usb_psy = power_supply_get_by_name("usb");
 	if (!usb_psy) {
@@ -2779,6 +3068,13 @@ static int smb135x_charger_probe(struct i2c_client *client,
 	}
 
 	i2c_set_clientdata(client, chip);
+
+	rc = smb135x_chip_version_and_revision(chip);
+	if (rc) {
+		dev_err(&client->dev,
+			"Couldn't detect version/revision rc=%d\n", rc);
+		return rc;
+	}
 
 	dump_regs(chip);
 
@@ -2961,13 +3257,9 @@ static int smb135x_charger_probe(struct i2c_client *client,
 				rc);
 		}
 
-	version = 0;
-	rc = read_version(chip, &version);
-	if (rc)
-		dev_err(chip->dev, "Couldn't read version rc = %d\n", rc);
-
-	dev_info(chip->dev, "SMB135X version = 0x%x successfully probed batt=%d dc = %d usb = %d\n",
-			version,
+	dev_info(chip->dev, "SMB135X version = %s revision = %s successfully probed batt=%d dc = %d usb = %d\n",
+			version_str[chip->version],
+			revision_str[chip->revision],
 			smb135x_get_prop_batt_present(chip),
 			chip->dc_present, chip->usb_present);
 	return 0;
