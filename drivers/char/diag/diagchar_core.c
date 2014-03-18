@@ -1390,6 +1390,27 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		/* place holder for number of data field */
 		ret += 4;
 
+		spin_lock_irqsave(&driver->rsp_buf_busy_lock, flags);
+		if (driver->rsp_write_ptr->length > 0) {
+			if (copy_to_user(buf+ret,
+			    (void *)&(driver->rsp_write_ptr->length),
+			    sizeof(int)))
+				goto drop_rsp;
+			ret += sizeof(int);
+			if (copy_to_user(buf+ret,
+			    (void *)(driver->rsp_write_ptr->buf),
+			    driver->rsp_write_ptr->length)) {
+				ret -= sizeof(int);
+				goto drop_rsp;
+			}
+			num_data++;
+			ret += driver->rsp_write_ptr->length;
+drop_rsp:
+			driver->rsp_write_ptr->length = 0;
+			driver->rsp_buf_busy = 0;
+		}
+		spin_unlock_irqrestore(&driver->rsp_buf_busy_lock, flags);
+
 		for (i = 0; i < driver->buf_tbl_size; i++) {
 			if (driver->buf_tbl[i].length > 0) {
 #ifdef DIAG_DEBUG
