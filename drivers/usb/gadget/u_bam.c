@@ -697,9 +697,6 @@ static void gbam_start_rx(struct gbam_port *port)
 		}
 	}
 
-	/* If this function was called from resume, send pending skbs to BAM */
-	queue_work(gbam_wq, &d->write_tobam_w);
-
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 }
 
@@ -831,8 +828,10 @@ static void gbam_start(void *param, enum usb_bam_pipe_dir dir)
 	if (dir == USB_TO_PEER_PERIPHERAL) {
 		if (port->data_ch.src_pipe_type == USB_BAM_PIPE_BAM2BAM)
 			gbam_start_endless_rx(port);
-		else
+		else {
 			gbam_start_rx(port);
+			queue_work(gbam_wq, &d->write_tobam_w);
+		}
 	} else {
 		if (gadget_is_dwc3(gadget) &&
 		    msm_dwc3_reset_ep_after_lpm(gadget)) {
