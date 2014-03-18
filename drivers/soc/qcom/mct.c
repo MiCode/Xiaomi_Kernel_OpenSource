@@ -36,7 +36,7 @@
 #define MCT_TYPE_NAME "msm_mct"
 
 static struct kobject *mct_kobj;
-static bool mct_boot_enable, mct_deferred;
+static bool mct_boot_enable, mct_deferred, mct_notify_pmic;
 static uint32_t mct_ulim, mct_dcnt, mct_wr, mct_vxwr, mct_vlswr, mct_vaw;
 
 /*
@@ -304,6 +304,9 @@ static void mct_update_regulator(uint32_t cpu_index)
 	if (!per_cpu(gmct, cpu_index)->mct_regulator)
 		return;
 
+	if (!mct_notify_pmic)
+		return;
+
 	if (enable && !per_cpu(gmct, cpu_index)->mct_reg_enabled)
 		ret = regulator_enable(
 			per_cpu(gmct, cpu_index)->mct_regulator);
@@ -503,6 +506,11 @@ static int mct_enable_show(char *buf, const struct kernel_param *kp)
 	return validate_and_show(MCT_ENABLE, buf);
 }
 
+static struct kernel_param_ops pmic_notify_ops = {
+	.set = param_set_bool,
+	.get = param_get_bool,
+};
+
 static struct kernel_param_ops module_ops = {
 	.set = mct_enable_store,
 	.get = mct_enable_show,
@@ -510,6 +518,9 @@ static struct kernel_param_ops module_ops = {
 
 module_param_cb(enable, &module_ops, &mct_boot_enable, 0644);
 MODULE_PARM_DESC(enable, "Enable maximum current throttling feature");
+
+module_param_cb(notify_pmic, &pmic_notify_ops, &mct_notify_pmic, 0644);
+MODULE_PARM_DESC(enable, "Enable/disable MCT notification to PMIC");
 
 /*
  * MCT device attributes
@@ -835,6 +846,7 @@ static int mct_probe(struct platform_device *pdev)
 		mct_dcnt = MCT_DEFAULT_DCNT;
 	}
 	mct_boot_enable = true;
+	mct_notify_pmic = false;
 
 deferred_entry:
 	/* probe_deferrable_property will not return any error other than
