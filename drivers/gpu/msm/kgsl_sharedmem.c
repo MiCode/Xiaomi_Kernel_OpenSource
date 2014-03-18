@@ -551,7 +551,8 @@ static struct kgsl_memdesc_ops kgsl_coherent_ops = {
 	.free = kgsl_coherent_free,
 };
 
-void kgsl_cache_range_op(struct kgsl_memdesc *memdesc, int op)
+int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, size_t offset,
+			size_t size, unsigned int op)
 {
 	/*
 	 * If the buffer is mapped in the kernel operate on that address
@@ -561,7 +562,16 @@ void kgsl_cache_range_op(struct kgsl_memdesc *memdesc, int op)
 	void *addr = (memdesc->hostptr) ?
 		memdesc->hostptr : (void *) memdesc->useraddr;
 
-	int size = memdesc->size;
+	/* Check that offset+length does not exceed memdesc->size */
+	if ((offset + size) > memdesc->size)
+		return -ERANGE;
+
+	addr = addr + offset;
+
+	/*
+	 * The dmac_xxx_range functions handle addresses and sizes that
+	 * are not aligned to the cacheline size correctly.
+	 */
 
 	if (addr !=  NULL) {
 		switch (op) {
@@ -577,6 +587,8 @@ void kgsl_cache_range_op(struct kgsl_memdesc *memdesc, int op)
 		}
 	}
 	outer_cache_range_op_sg(memdesc->sg, memdesc->sglen, op);
+
+	return 0;
 }
 EXPORT_SYMBOL(kgsl_cache_range_op);
 

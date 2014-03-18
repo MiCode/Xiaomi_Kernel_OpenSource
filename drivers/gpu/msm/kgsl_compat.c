@@ -156,6 +156,8 @@ kgsl_ioctl_gpumem_sync_cache_compat(struct kgsl_device_private *dev_priv,
 	param.gpuaddr = (unsigned long)param32->gpuaddr;
 	param.id = param32->id;
 	param.op = param32->op;
+	param.offset = (size_t)param32->offset;
+	param.length = (size_t)param32->length;
 
 	return kgsl_ioctl_gpumem_sync_cache(dev_priv, cmd, &param);
 }
