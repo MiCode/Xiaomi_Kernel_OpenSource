@@ -1,0 +1,10 @@
+config STRICT_MEMORY_RWX
+	bool "restrict kernel memory permissions as much as possible"
+	help
+	  If this is set, kernel text will be made RX, kernel data and stack
+	  RW, rodata R (otherwise all of the kernel 1-to-1 mapping is
+	  made RWX).
+	  The tradeoff is that several sections are padded to
+	  2M boundaries (because their permissions are different and
+	  splitting the 2M pages into 4K ones causes TLB performance
+	  problems), wasting memory.
