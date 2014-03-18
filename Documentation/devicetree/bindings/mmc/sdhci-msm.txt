@@ -55,6 +55,9 @@ Optional Properties:
 				   no default value that the driver assumes if this property
 				   is not specified. So if this property is not specified,
 				   then SDHC driver will not vote for PM QOS.
+        - qcom,dat1-mpm-int:    specifies MPM interrupt number (e.g. sdhc_2 node below)
+				corresponding to DAT1 line of SDHC (used only if slot has dedicated
+				DAT1 MSM pin (not GPIO))
 
 In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltage).
 	- qcom,<supply>-always-on - specifies whether supply should be kept "on" always.
@@ -165,4 +168,5 @@ Example:
 				<81 512 106496 212992>, /* 208 MB/s */
 				<81 512 2147483647 4294967295>; /* Max. bandwidth */
 		qcom,bus-bw-vectors-bps = <0 13631488 27262976 54525952 109051904 218103808 4294967295>;
+		qcom,dat1-mpm-int = <44>;
 	};
