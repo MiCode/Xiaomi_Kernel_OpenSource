@@ -13,10 +13,10 @@ Required properties:
 
 Optional properties:
  - tx-fifo-resize: determines if the FIFO *has* to be reallocated.
- - host-only-mode: if present then dwc3 should be run in HOST only mode.
- - nominal-elastic-buffer: When set, the nominal elastic buffer setting
+ - snps,host-only-mode: if present then dwc3 should be run in HOST only mode.
+ - snps,nominal-elastic-buffer: When set, the nominal elastic buffer setting
 	is used. By default, the half-full setting is used.
- - core_reset_after_phy_init: If present, PHY reset and initialization is
+ - snps,core-reset-after-phy-init: If present, PHY reset and initialization is
    performed before core reset.
  - snps,hsphy-auto-suspend-disable: If present, auto suspend feature is not enabled with hsusb phy.
 
@@ -29,4 +29,5 @@ dwc3@4a030000 {
 	interrupt-names = "irq", "otg_irq";
 	usb-phy = <&usb2_phy>, <&usb3,phy>;
 	tx-fifo-resize;
+	snps,hsphy-auto-suspend-disable;
 };
