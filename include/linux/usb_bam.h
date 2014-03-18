@@ -16,12 +16,8 @@
 #include <linux/ipa.h>
 #include <linux/usb/msm_hsusb.h>
 
-enum usb_bam {
-	SSUSB_BAM = 0,
-	HSUSB_BAM,
-	HSIC_BAM,
-	MAX_BAMS,
-};
+#define MAX_BAMS	NUM_CTRL	/* Bam per USB controllers */
+
 
 enum usb_bam_mode {
 	USB_BAM_DEVICE = 0,
@@ -138,7 +134,7 @@ struct usb_bam_pipe_connect {
 	u32 pipe_num;
 	enum usb_pipe_mem_type mem_type;
 	enum usb_bam_pipe_dir dir;
-	enum usb_bam bam_type;
+	enum usb_ctrl bam_type;
 	enum usb_bam_mode bam_mode;
 	enum peer_bam peer_bam;
 	enum usb_bam_pipe_type pipe_type;

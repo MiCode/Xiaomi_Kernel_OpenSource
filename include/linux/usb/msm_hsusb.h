@@ -191,6 +191,16 @@ enum usb_vdd_value {
 };
 
 /**
+ * Supported USB controllers
+ */
+enum usb_ctrl {
+	DWC3_CTRL = 0,	/* DWC3 controller */
+	CI_CTRL,	/* ChipIdea controller */
+	HSIC_CTRL,	/* HSIC controller */
+	NUM_CTRL,
+};
+
+/**
  * struct msm_otg_platform_data - platform device data
  *              for msm_otg driver.
  * @phy_init_seq: PHY configuration sequence. val, reg pairs
@@ -579,8 +589,8 @@ struct usb_ext_notification {
 	void *ctxt;
 };
 #ifdef CONFIG_USB_BAM
-bool msm_bam_usb_lpm_ok(void);
-void msm_bam_notify_lpm_resume(void);
+bool msm_bam_usb_lpm_ok(enum usb_ctrl ctrl);
+void msm_bam_notify_lpm_resume(enum usb_ctrl ctrl);
 void msm_bam_set_usb_host_dev(struct device *dev);
 void msm_bam_set_hsic_host_dev(struct device *dev);
 void msm_bam_set_usb_dev(struct device *dev);
@@ -590,8 +600,8 @@ bool msm_bam_hsic_lpm_ok(void);
 void msm_bam_usb_host_notify_on_resume(void);
 void msm_bam_hsic_host_notify_on_resume(void);
 #else
-static inline bool msm_bam_usb_lpm_ok(void) { return true; }
-static inline void msm_bam_notify_lpm_resume(void) {}
+static inline bool msm_bam_usb_lpm_ok(enum usb_ctrl ctrl) { return true; }
+static inline void msm_bam_notify_lpm_resume(enum usb_ctrl ctrl) {}
 static inline void msm_bam_set_usb_host_dev(struct device *dev) {}
 static inline void msm_bam_set_hsic_host_dev(struct device *dev) {}
 static inline void msm_bam_set_usb_dev(struct device *dev) {}

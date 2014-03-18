@@ -889,7 +889,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 		return 0;
 
 	if (motg->pdata->delay_lpm_hndshk_on_disconnect &&
-			!msm_bam_usb_lpm_ok())
+			!msm_bam_usb_lpm_ok(CI_CTRL))
 		return -EBUSY;
 
 	motg->ui_enabled = 0;
@@ -1159,7 +1159,7 @@ static int msm_otg_resume(struct msm_otg *motg)
 		return 0;
 
 	if (motg->pdata->delay_lpm_hndshk_on_disconnect)
-		msm_bam_notify_lpm_resume();
+		msm_bam_notify_lpm_resume(CI_CTRL);
 
 	if (motg->ui_enabled) {
 		motg->ui_enabled = 0;
