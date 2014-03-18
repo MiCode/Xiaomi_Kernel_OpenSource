@@ -595,10 +595,28 @@ static void refill_wl_pool(struct ubi_device *ubi)
 static void refill_wl_user_pool(struct ubi_device *ubi)
 {
 	struct ubi_fm_pool *pool = &ubi->fm_pool;
+	int err;
 
 	return_unused_pool_pebs(ubi, pool);
 
 	for (pool->size = 0; pool->size < pool->max_size; pool->size++) {
+retry:
+		if (!ubi->free.rb_node ||
+		   (ubi->free_count - ubi->beb_rsvd_pebs < 1)) {
+			/* There are no avaliable pebs. Try to free
+			 * PEB by means of synchronous execution of
+			 * pending works.
+			 */
+			if (ubi->works_count == 0)
+				break;
+			spin_unlock(&ubi->wl_lock);
+			err = do_work(ubi);
+			spin_lock(&ubi->wl_lock);
+			if (err < 0)
+				break;
+			goto retry;
+		}
+
 		pool->pebs[pool->size] = __wl_get_peb(ubi);
 		if (pool->pebs[pool->size] < 0)
 			break;
