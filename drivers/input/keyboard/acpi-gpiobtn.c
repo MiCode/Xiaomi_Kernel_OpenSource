@@ -128,5 +128,9 @@ static void __exit gpiobtn_exit(void)
 	platform_driver_unregister(&gpiobtn_plat_drv);
 }
 
-module_init(gpiobtn_init);
+/* The nature of the gpiolib API requires that all GPIO controllers be
+ * initialized before our probe routine so we can query the relevant
+ * gpio_desc objects. */
+late_initcall(gpiobtn_init);
+
 module_exit(gpiobtn_exit);
