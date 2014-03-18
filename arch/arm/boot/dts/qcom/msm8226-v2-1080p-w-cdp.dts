@@ -12,6 +12,7 @@
 
 /dts-v1/;
 #include "msm8226-v2.dtsi"
+#include "msm8226-w-memory.dtsi"
 #include "msm8226-1080p-cdp.dtsi"
 #include "msm8226-camera-sensor-cdp.dtsi"
 
