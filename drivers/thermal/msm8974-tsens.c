@@ -2281,8 +2281,13 @@ static int get_device_tree_data(struct platform_device *pdev)
 	if (!of_match_node(tsens_match, of_node)) {
 		pr_err("Need to read SoC specific fuse map\n");
 		return -ENODEV;
-	} else
+	} else {
 		id = of_match_node(tsens_match, of_node);
+		if (id == NULL) {
+			pr_err("can not find tsens_match of_node\n");
+			return -ENODEV;
+		}
+	}
 
 	tmdev = devm_kzalloc(&pdev->dev,
 			sizeof(struct tsens_tm_device) +
