@@ -32,6 +32,7 @@
 #include "sdhci.h"
 
 #define DRIVER_NAME "sdhci"
+#define SDHCI_SUSPEND_TIMEOUT 300 /* 300 ms */
 
 #define DBG(f, x...) \
 	pr_debug(DRIVER_NAME " [%s()]: " f, __func__,## x)
@@ -2817,7 +2818,13 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 			mmc_hostname(host->mmc), host->clock,
 			host->mmc->clk_gated, host->irq_enabled);
 		spin_unlock(&host->lock);
-		mmc_signal_sdio_irq(host->mmc);
+		/* prevent suspend till the ksdioirqd runs or resume happens */
+		if ((host->mmc->dev_status == DEV_SUSPENDING) ||
+		    (host->mmc->dev_status == DEV_SUSPENDED))
+			pm_wakeup_event(&host->mmc->card->dev,
+					SDHCI_SUSPEND_TIMEOUT);
+		else
+			mmc_signal_sdio_irq(host->mmc);
 		return IRQ_HANDLED;
 	}
 	intmask = sdhci_readl(host, SDHCI_INT_STATUS);
@@ -2915,9 +2922,13 @@ out:
 	/*
 	 * We have to delay this as it calls back into the driver.
 	 */
-	if (cardint)
+	if (cardint) {
+		/* clks are on, but suspend may be in progress */
+		if (host->mmc->dev_status == DEV_SUSPENDING)
+			pm_wakeup_event(&host->mmc->card->dev,
+					SDHCI_SUSPEND_TIMEOUT);
 		mmc_signal_sdio_irq(host->mmc);
-
+	}
 	return result;
 }
 
