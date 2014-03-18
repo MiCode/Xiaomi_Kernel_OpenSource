@@ -1,7 +1,7 @@
 /*
  * u_audio.c -- ALSA audio utilities for Gadget stack
  *
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  * Copyright (C) 2008 Bryan Wu <cooloney@kernel.org>
  * Copyright (C) 2008 Analog Devices, Inc
  *
@@ -528,7 +528,7 @@ try_again:
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 
-	pr_debug("frames = %d, count = %d", (int)frames, count);
+	pr_debug("frames = %d, count = %zd", (int)frames, count);
 
 	result = snd_pcm_lib_read(substream, buf, frames);
 	if (result != frames) {
