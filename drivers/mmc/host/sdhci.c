@@ -71,7 +71,7 @@ static inline int sdhci_runtime_pm_put(struct sdhci_host *host)
 
 static inline int sdhci_get_async_int_status(struct sdhci_host *host)
 {
-	return (sdhci_readl(host, SDHCI_HOST_CONTROL2) &
+	return (sdhci_readw(host, SDHCI_HOST_CONTROL2) &
 		 SDHCI_CTRL_ASYNC_INT_ENABLE) >> 14;
 }
 
@@ -1591,12 +1591,12 @@ static void sdhci_cfg_async_intr(struct sdhci_host *host, bool enable)
 		return;
 
 	if (enable)
-		sdhci_writel(host,
-			     sdhci_readl(host, SDHCI_HOST_CONTROL2) |
+		sdhci_writew(host,
+			     sdhci_readw(host, SDHCI_HOST_CONTROL2) |
 			     SDHCI_CTRL_ASYNC_INT_ENABLE,
 			     SDHCI_HOST_CONTROL2);
 	else
-		sdhci_writel(host, sdhci_readl(host, SDHCI_HOST_CONTROL2) &
+		sdhci_writew(host, sdhci_readw(host, SDHCI_HOST_CONTROL2) &
 			     ~SDHCI_CTRL_ASYNC_INT_ENABLE,
 			     SDHCI_HOST_CONTROL2);
 }
