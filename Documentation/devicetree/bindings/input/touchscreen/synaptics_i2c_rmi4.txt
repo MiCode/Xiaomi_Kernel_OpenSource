@@ -23,6 +23,8 @@ Optional property:
  - synaptics,i2c-pull-up	: specify to indicate pull up is needed
  - synaptics,disable-gpios	: specify to disable gpios in suspend (power saving)
  - synaptics,button-map		: virtual key code mappings to be used
+ - synaptics,modify-reso	: specify to modify X-Y Maximum coordinates from driver.
+				This is used only if the panel-coordinates are defined.
  - synaptics,x-flip		: modify orientation of the x axis
  - synaptics,y-flip		: modify orientation of the y axis
  - synaptics,panel-coords	: touch panel min x, min y, max x and
@@ -80,6 +82,7 @@ Example:
 			synaptics,reset-gpio = <&msmgpio 16 0x00>;
 			synaptics,irq-gpio = <&msmgpio 17 0x00>;
 			synaptics,i2c-pull-up;
+			synaptics,modify-reso;
 			synaptics,detect-device;
 			synaptics,device1 {
 				synaptics,package-id = <3202>;
