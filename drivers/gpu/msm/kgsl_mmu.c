@@ -380,15 +380,11 @@ int kgsl_mmu_init(struct kgsl_device *device)
 	kgsl_sharedmem_set(device, &mmu->setstate_memory, 0, 0,
 				mmu->setstate_memory.size);
 
-	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type) {
-		status = dma_set_coherent_mask(device->dev->parent,
-					DMA_BIT_MASK(sizeof(dma_addr_t)*8));
-		goto done;
-	} else if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type)
+	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type) {
 		mmu->mmu_ops = &iommu_ops;
+		status =  mmu->mmu_ops->mmu_init(mmu);
+	}
 
-	status =  mmu->mmu_ops->mmu_init(mmu);
-done:
 	if (status)
 		kgsl_sharedmem_free(&mmu->setstate_memory);
 	return status;
