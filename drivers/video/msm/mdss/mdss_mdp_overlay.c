@@ -62,6 +62,7 @@ static int mdss_mdp_overlay_free_fb_pipe(struct msm_fb_data_type *mfd);
 static int mdss_mdp_overlay_fb_parse_dt(struct msm_fb_data_type *mfd);
 static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd);
 static int mdss_mdp_overlay_splash_parse_dt(struct msm_fb_data_type *mfd);
+static void __overlay_kickoff_requeue(struct msm_fb_data_type *mfd);
 
 static inline bool is_ov_right_blend(struct mdp_rect *left_blend,
 	struct mdp_rect *right_blend, u32 left_lm_w)
@@ -613,6 +614,10 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 			pipe->is_right_blend = true;
 		}
 	} else if (pipe->is_right_blend) {
+		/*
+		 * pipe used to be right blend need to update mixer
+		 * configuration to remove it as a right blend
+		 */
 		mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_left);
 		mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_right);
 		pipe->is_right_blend = false;
@@ -660,9 +665,11 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 				pipe->src_split_req = true;
 			}
 		} else {
-			if (pipe->src_split_req)
+			if (pipe->src_split_req) {
 				mdss_mdp_mixer_pipe_unstage(pipe,
 					pipe->mixer_right);
+				pipe->mixer_right = NULL;
+			}
 			pipe->src_split_req = false;
 		}
 	}
@@ -943,6 +950,8 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 {
 	struct mdss_mdp_pipe *pipe, *tmp;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
+	bool recovery_mode = false;
 	LIST_HEAD(destroy_pipes);
 
 	mutex_lock(&mfd->lock);
@@ -951,7 +960,27 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 		list_move(&pipe->cleanup_list, &destroy_pipes);
 
 		/* make sure pipe fetch has been halted before freeing buffer */
-		mdss_mdp_pipe_fetch_halt(pipe);
+		if (mdss_mdp_pipe_fetch_halt(pipe)) {
+			/*
+			 * if pipe is not able to halt. Enter recovery mode,
+			 * by un-staging any pipes that are attached to mixer
+			 * so that any freed pipes that are not able to halt
+			 * can be staged in solid fill mode and be reset
+			 * with next vsync
+			 */
+			if (!recovery_mode) {
+				recovery_mode = true;
+				mdss_mdp_mixer_unstage_all(ctl->mixer_left);
+				mdss_mdp_mixer_unstage_all(ctl->mixer_right);
+			}
+			pipe->params_changed++;
+			mdss_mdp_pipe_queue_data(pipe, NULL);
+		}
+	}
+
+	if (recovery_mode) {
+		pr_warn("performing recovery sequence for fb%d\n", mfd->index);
+		__overlay_kickoff_requeue(mfd);
 	}
 
 	__mdss_mdp_overlay_free_list_purge(mfd);
@@ -1144,20 +1173,102 @@ static void mdss_mdp_overlay_update_pm(struct mdss_overlay_private *mdp5_data)
 	activate_event_timer(mdp5_data->cpu_pm_hdl, wakeup_time);
 }
 
-int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
-				struct mdp_display_commit *data)
+static int __overlay_queue_pipes(struct msm_fb_data_type *mfd)
 {
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	struct mdss_mdp_ctl *tmp;
 	int ret = 0;
-	int sd_in_pipe = 0;
 
-	if (!ctl) {
-		pr_warn("kickoff on fb=%d without a ctl attched\n", mfd->index);
-		return ret;
+	list_for_each_entry(pipe, &mdp5_data->pipes_used, used_list) {
+		struct mdss_mdp_data *buf;
+		/*
+		 * When secure display is enabled, if there is a non secure
+		 * display pipe, skip that
+		 */
+		if ((mdp5_data->sd_enabled) &&
+			!(pipe->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION)) {
+			pr_warn("Non secure pipe during secure display: %u: %08X, skip\n",
+					pipe->num, pipe->flags);
+			continue;
+		}
+		/*
+		 * When external is connected and no dedicated wfd is present,
+		 * reprogram DMA pipe before kickoff to clear out any previous
+		 * block mode configuration.
+		 */
+		if ((pipe->type == MDSS_MDP_PIPE_TYPE_DMA) &&
+		    (ctl->shared_lock &&
+		    (ctl->mdata->wfd_mode == MDSS_MDP_WFD_SHARED))) {
+			if (ctl->mdata->mixer_switched) {
+				ret = mdss_mdp_overlay_pipe_setup(mfd,
+					&pipe->req_data, &pipe, NULL);
+				pr_debug("reseting DMA pipe for ctl=%d",
+					 ctl->num);
+			}
+			if (ret) {
+				pr_err("can't reset DMA pipe ret=%d ctl=%d\n",
+					ret, ctl->num);
+				return ret;
+			}
+
+			tmp = mdss_mdp_ctl_mixer_switch(ctl,
+					MDSS_MDP_WB_CTL_TYPE_LINE);
+			if (!tmp)
+				return -EINVAL;
+			pipe->mixer_left = mdss_mdp_mixer_get(tmp,
+					MDSS_MDP_MIXER_MUX_DEFAULT);
+		}
+
+		/* ensure pipes are always reconfigured after power off/on */
+		if (ctl->play_cnt == 0)
+			pipe->params_changed++;
+
+		if (pipe->back_buf.num_planes) {
+			buf = &pipe->back_buf;
+		} else if (!pipe->params_changed) {
+			continue;
+		} else if (pipe->front_buf.num_planes) {
+			buf = &pipe->front_buf;
+		} else {
+			pr_debug("no buf detected pnum=%d use solid fill\n",
+					pipe->num);
+			buf = NULL;
+		}
+
+		ret = mdss_mdp_pipe_queue_data(pipe, buf);
+		if (IS_ERR_VALUE(ret)) {
+			pr_warn("Unable to queue data for pnum=%d\n",
+					pipe->num);
+			mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_left);
+		}
 	}
+
+	return 0;
+}
+
+static void __overlay_kickoff_requeue(struct msm_fb_data_type *mfd)
+{
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
+
+	mdss_mdp_display_commit(ctl, NULL);
+	mdss_mdp_display_wait4comp(ctl);
+
+	__overlay_queue_pipes(mfd);
+
+	mdss_mdp_display_commit(ctl, NULL);
+	mdss_mdp_display_wait4comp(ctl);
+}
+
+int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
+				struct mdp_display_commit *data)
+{
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_mdp_pipe *pipe;
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
+	int ret = 0;
+	int sd_in_pipe = 0;
 
 	if (ctl->shared_lock)
 		mutex_lock(ctl->shared_lock);
@@ -1200,73 +1311,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_right);
 	}
 
-	list_for_each_entry(pipe, &mdp5_data->pipes_used, used_list) {
-		struct mdss_mdp_data *buf;
-		/*
-		 * When secure display is enabled, if there is a non secure
-		 * display pipe, skip that
-		 */
-		if ((mdp5_data->sd_enabled) &&
-			!(pipe->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION)) {
-			pr_warn("Non secure pipe during secure display: %u: %08X, skip\n",
-					pipe->num, pipe->flags);
-			continue;
-		}
-		/*
-		 * When external is connected and no dedicated wfd is present,
-		 * reprogram DMA pipe before kickoff to clear out any previous
-		 * block mode configuration.
-		 */
-		if ((pipe->type == MDSS_MDP_PIPE_TYPE_DMA) &&
-		    (ctl->shared_lock &&
-		    (ctl->mdata->wfd_mode == MDSS_MDP_WFD_SHARED))) {
-			if (ctl->mdata->mixer_switched) {
-				ret = mdss_mdp_overlay_pipe_setup(mfd,
-					&pipe->req_data, &pipe, NULL);
-				pr_debug("reseting DMA pipe for ctl=%d",
-					 ctl->num);
-			}
-			if (ret) {
-				pr_err("can't reset DMA pipe ret=%d ctl=%d\n",
-					ret, ctl->num);
-				mutex_unlock(&mfd->lock);
-				goto commit_fail;
-			}
-
-			tmp = mdss_mdp_ctl_mixer_switch(ctl,
-					MDSS_MDP_WB_CTL_TYPE_LINE);
-			if (!tmp) {
-				mutex_unlock(&mfd->lock);
-				ret = -EINVAL;
-				goto commit_fail;
-			}
-			pipe->mixer_left = mdss_mdp_mixer_get(tmp,
-					MDSS_MDP_MIXER_MUX_DEFAULT);
-		}
-
-		/* ensure pipes are always reconfigured after power off/on */
-		if (ctl->play_cnt == 0)
-			pipe->params_changed++;
-
-		if (pipe->back_buf.num_planes) {
-			buf = &pipe->back_buf;
-		} else if (!pipe->params_changed) {
-			continue;
-		} else if (pipe->front_buf.num_planes) {
-			buf = &pipe->front_buf;
-		} else {
-			pr_debug("no buf detected pnum=%d use solid fill\n",
-					pipe->num);
-			buf = NULL;
-		}
-
-		ret = mdss_mdp_pipe_queue_data(pipe, buf);
-		if (IS_ERR_VALUE(ret)) {
-			pr_warn("Unable to queue data for pnum=%d\n",
-					pipe->num);
-			mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_left);
-		}
-	}
+	ret = __overlay_queue_pipes(mfd);
 
 	if (mfd->panel.type == WRITEBACK_PANEL)
 		ret = mdss_mdp_wb_kickoff(mfd);

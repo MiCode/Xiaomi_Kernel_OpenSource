@@ -2398,6 +2398,33 @@ int mdss_mdp_mixer_pipe_update(struct mdss_mdp_pipe *pipe,
 	return 0;
 }
 
+/**
+ * mdss_mdp_mixer_unstage_all() - Unstage all pipes from mixer
+ * @mixer:	Mixer from which to unstage all pipes
+ *
+ * Unstage any pipes that are currently attached to mixer.
+ *
+ * NOTE: this will not update the pipe structure, and thus a full
+ * deinitialization or reconfiguration of all pipes is expected after this call.
+ */
+void mdss_mdp_mixer_unstage_all(struct mdss_mdp_mixer *mixer)
+{
+	struct mdss_mdp_pipe *tmp;
+	int i;
+
+	if (!mixer)
+		return;
+
+	for (i = 0; i < MAX_PIPES_PER_LM; i++) {
+		tmp = mixer->stage_pipe[i];
+		if (tmp) {
+			mixer->stage_pipe[i] = NULL;
+			mixer->params_changed++;
+			tmp->params_changed++;
+		}
+	}
+}
+
 int mdss_mdp_mixer_pipe_unstage(struct mdss_mdp_pipe *pipe,
 	struct mdss_mdp_mixer *mixer)
 {
@@ -2418,11 +2445,6 @@ int mdss_mdp_mixer_pipe_unstage(struct mdss_mdp_pipe *pipe,
 
 		mixer->params_changed++;
 		mixer->stage_pipe[index] = NULL;
-
-		if (mixer->is_right_mixer)
-			pipe->mixer_right = NULL;
-		else
-			pipe->mixer_left = NULL;
 	}
 
 	return 0;
