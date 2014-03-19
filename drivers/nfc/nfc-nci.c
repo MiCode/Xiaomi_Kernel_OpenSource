@@ -13,6 +13,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/fs.h>
+#include <linux/reboot.h>
 #include <linux/slab.h>
 #include <linux/i2c.h>
 #include <linux/irq.h>
@@ -47,7 +48,7 @@ static struct of_device_id msm_match_table[] = {
 MODULE_DEVICE_TABLE(of, msm_match_table);
 
 #define MAX_BUFFER_SIZE			(780)
-#define PACKET_MAX_LENGTH			(258)
+#define PACKET_MAX_LENGTH		(258)
 /* Read data */
 #define PACKET_HEADER_SIZE_NCI	(4)
 #define PACKET_TYPE_NCI			(16)
@@ -58,7 +59,7 @@ MODULE_DEVICE_TABLE(of, msm_match_table);
 #define NTF_TIMEOUT				(10000)
 #define	CORE_RESET_RSP_GID		(0x60)
 #define	CORE_RESET_OID			(0x00)
-#define CORE_RST_NTF_LENGTH			(0x02)
+#define CORE_RST_NTF_LENGTH		(0x02)
 
 static void clk_req_update(struct work_struct *work);
 
@@ -114,6 +115,8 @@ static struct devicemode	device_mode;
 static int					ftm_raw_write_mode;
 static int					ftm_werr_code;
 
+
+unsigned int	disable_ctrl;
 
 static void qca199x_init_stat(struct qca199x_dev *qca199x_dev)
 {
@@ -606,7 +609,7 @@ int nfc_ioctl_power_states(struct file *filp, unsigned int cmd,
 		if (r < 0)
 			goto err_req;
 		/*
-			Also, set flag for initial NCI write following resetas
+			Also, set flag for initial NCI write following reset as
 			may wish to do some house keeping. Ensure no pending
 			messages in NFCC buffers which may be wrongly
 			construed as response to initial message
@@ -1143,6 +1146,7 @@ static int nfc_parse_dt(struct device *dev, struct qca199x_platform_data *pdata)
 	pdata->dis_gpio = of_get_named_gpio(np, "qcom,dis-gpio", 0);
 	if ((!gpio_is_valid(pdata->dis_gpio)))
 		return -EINVAL;
+	disable_ctrl = pdata->dis_gpio;
 
 	pdata->irq_gpio = of_get_named_gpio(np, "qcom,irq-gpio", 0);
 	if ((!gpio_is_valid(pdata->irq_gpio)))
@@ -1513,17 +1517,42 @@ static struct i2c_driver qca199x = {
 	},
 };
 
+
+static int nfcc_reboot(struct notifier_block *notifier, unsigned long val,
+		      void *v)
+{
+	/* Set DISABLE line HIGH. This will put chip into HPD state for
+	   power saving */
+	gpio_set_value(disable_ctrl, 1);
+	return NOTIFY_OK;
+}
+
+
+static struct notifier_block nfcc_notifier = {
+	.notifier_call	= nfcc_reboot,
+	.next			= NULL,
+	.priority		= 0
+};
+
 /*
  * module load/unload record keeping
  */
 static int __init qca199x_dev_init(void)
 {
+	int ret;
+
+	ret = register_reboot_notifier(&nfcc_notifier);
+	if (ret) {
+		pr_err("cannot register reboot notifier (err=%d)\n", ret);
+		return ret;
+	}
 	return i2c_add_driver(&qca199x);
 }
 module_init(qca199x_dev_init);
 
 static void __exit qca199x_dev_exit(void)
 {
+	unregister_reboot_notifier(&nfcc_notifier);
 	i2c_del_driver(&qca199x);
 }
 module_exit(qca199x_dev_exit);
