@@ -1586,6 +1586,7 @@ void ipa_disable_clks(void)
 	if (msm_bus_scale_client_update_request(ipa_ctx->ipa_bus_hdl, 0))
 		WARN_ON(1);
 }
+
 /**
  * ipa_start_tag_process() - Send TAG packet and wait for it to come back
  *
@@ -1602,10 +1603,7 @@ static void ipa_start_tag_process(struct work_struct *work)
 	int res;
 
 	IPADBG("starting TAG process\n");
-	mutex_lock(&ipa_ctx->ipa_active_clients_lock);
 	ipa_ctx->start_tag_process_again = false;
-	mutex_unlock(&ipa_ctx->ipa_active_clients_lock);
-
 	/* close aggregation frames on all pipes */
 	res = ipa_tag_aggr_force_close(-1);
 	if (res) {
@@ -1613,20 +1611,20 @@ static void ipa_start_tag_process(struct work_struct *work)
 		return;
 	}
 
-	mutex_lock(&ipa_ctx->ipa_active_clients_lock);
-	ipa_ctx->ipa_active_clients--;
-	if (ipa_ctx->ipa_active_clients == 0) {
+	ipa_active_clients_lock();
+	ipa_ctx->ipa_active_clients.cnt--;
+	if (ipa_ctx->ipa_active_clients.cnt == 0) {
 		/* check if during tag process a client used IPA */
 		if (ipa_ctx->start_tag_process_again) {
 			IPADBG("Starting TAG process again\n");
-			ipa_ctx->ipa_active_clients = 1;
-			mutex_unlock(&ipa_ctx->ipa_active_clients_lock);
+			ipa_ctx->ipa_active_clients.cnt = 1;
+			ipa_active_clients_unlock();
 			queue_work(ipa_ctx->power_mgmt_wq, &ipa_tag_work);
 			return;
 		}
 		ipa_disable_clks();
 	}
-	mutex_unlock(&ipa_ctx->ipa_active_clients_lock);
+	ipa_active_clients_unlock();
 
 	IPADBG("TAG process done\n");
 	return;
@@ -1641,12 +1639,12 @@ static void ipa_start_tag_process(struct work_struct *work)
 */
 void ipa_inc_client_enable_clks(void)
 {
-	mutex_lock(&ipa_ctx->ipa_active_clients_lock);
-	ipa_ctx->ipa_active_clients++;
-	IPADBG("active clients = %d\n", ipa_ctx->ipa_active_clients);
-	if (ipa_ctx->ipa_active_clients == 1)
+	ipa_active_clients_lock();
+	ipa_ctx->ipa_active_clients.cnt++;
+	if (ipa_ctx->ipa_active_clients.cnt == 1)
 		ipa_enable_clks();
-	mutex_unlock(&ipa_ctx->ipa_active_clients_lock);
+	IPADBG("active clients = %d\n", ipa_ctx->ipa_active_clients.cnt);
+	ipa_active_clients_unlock();
 }
 
 /**
@@ -1661,17 +1659,18 @@ int ipa_inc_client_enable_clks_no_block(void)
 {
 	int res = 0;
 
-	if (mutex_trylock(&ipa_ctx->ipa_active_clients_lock) == 0)
+	if (ipa_active_clients_trylock() == 0)
 		return -EPERM;
-	if (ipa_ctx->ipa_active_clients == 0) {
+
+	if (ipa_ctx->ipa_active_clients.cnt == 0) {
 		res = -EPERM;
 		goto bail;
 	}
 
-	ipa_ctx->ipa_active_clients++;
-	IPADBG("active clients = %d\n", ipa_ctx->ipa_active_clients);
+	ipa_ctx->ipa_active_clients.cnt++;
+	IPADBG("active clients = %d\n", ipa_ctx->ipa_active_clients.cnt);
 bail:
-	mutex_unlock(&ipa_ctx->ipa_active_clients_lock);
+	ipa_active_clients_unlock();
 
 	return res;
 }
@@ -1689,18 +1688,18 @@ bail:
  */
 void ipa_dec_client_disable_clks(void)
 {
-	mutex_lock(&ipa_ctx->ipa_active_clients_lock);
+	ipa_active_clients_lock();
 	ipa_ctx->start_tag_process_again = true;
-	ipa_ctx->ipa_active_clients--;
-	IPADBG("active clients = %d\n", ipa_ctx->ipa_active_clients);
-	if (ipa_ctx->ipa_active_clients == 0) {
+	ipa_ctx->ipa_active_clients.cnt--;
+	IPADBG("active clients = %d\n", ipa_ctx->ipa_active_clients.cnt);
+	if (ipa_ctx->ipa_active_clients.cnt == 0) {
 		/* when TAG process ends, active clients will be decreased */
-		ipa_ctx->ipa_active_clients = 1;
-		mutex_unlock(&ipa_ctx->ipa_active_clients_lock);
+		ipa_ctx->ipa_active_clients.cnt = 1;
+		ipa_active_clients_unlock();
 		queue_work(ipa_ctx->power_mgmt_wq, &ipa_tag_work);
 		return;
 	}
-	mutex_unlock(&ipa_ctx->ipa_active_clients_lock);
+	ipa_active_clients_unlock();
 }
 
 static int ipa_setup_bam_cfg(const struct ipa_plat_drv_res *res)
@@ -1779,14 +1778,14 @@ int ipa_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 		return 0;
 	}
 
-	mutex_lock(&ipa_ctx->ipa_active_clients_lock);
+	ipa_active_clients_lock();
 	ipa_ctx->curr_ipa_clk_rate = clk_rate;
 	IPADBG("setting clock rate to %u\n", ipa_ctx->curr_ipa_clk_rate);
-	if (ipa_ctx->ipa_active_clients > 0)
+	if (ipa_ctx->ipa_active_clients.cnt > 0)
 		clk_set_rate(ipa_clk, ipa_ctx->curr_ipa_clk_rate);
 	else
 		IPADBG("clocks are gated, not setting rate\n");
-	mutex_unlock(&ipa_ctx->ipa_active_clients_lock);
+	ipa_active_clients_unlock();
 	IPADBG("Done\n");
 	return 0;
 }
@@ -2194,8 +2193,9 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	idr_init(&ipa_ctx->ipa_idr);
 	spin_lock_init(&ipa_ctx->idr_lock);
 
-	mutex_init(&ipa_ctx->ipa_active_clients_lock);
-	ipa_ctx->ipa_active_clients = 1;
+	mutex_init(&ipa_ctx->ipa_active_clients.mutex);
+	spin_lock_init(&ipa_ctx->ipa_active_clients.spinlock);
+	ipa_ctx->ipa_active_clients.cnt = 1;
 
 	/* wlan related member */
 	spin_lock_init(&ipa_ctx->wlan_spinlock);
