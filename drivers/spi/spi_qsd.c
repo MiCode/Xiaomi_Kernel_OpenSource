@@ -854,19 +854,6 @@ msm_spi_bam_process_rx(struct msm_spi *dd, u32 *bytes_to_send, u32 desc_cnt)
 	dd->bam.curr_rx_bytes_recvd += data_xfr_size;
 	*bytes_to_send -= data_xfr_size;
 	dd->bam.bam_rx_len -= data_xfr_size;
-
-	if (!(dd->cur_rx_transfer->len - dd->bam.curr_rx_bytes_recvd)) {
-		struct spi_transfer *t = dd->cur_rx_transfer;
-		struct spi_transfer *next;
-		if (t->transfer_list.next != &dd->cur_msg->transfers) {
-			next = list_entry(t->transfer_list.next,
-					struct spi_transfer,
-					transfer_list);
-			dd->read_buf  = next->rx_buf;
-			dd->cur_rx_transfer = next;
-			dd->bam.curr_rx_bytes_recvd = 0;
-		}
-	}
 	return data_xfr_size;
 }
 
@@ -904,19 +891,6 @@ msm_spi_bam_process_tx(struct msm_spi *dd, u32 *bytes_to_send, u32 desc_cnt)
 	dd->bam.curr_tx_bytes_sent	+= data_xfr_size;
 	*bytes_to_send	-= data_xfr_size;
 	dd->bam.bam_tx_len -= data_xfr_size;
-
-	if (!(dd->cur_tx_transfer->len - dd->bam.curr_tx_bytes_sent)) {
-		struct spi_transfer *t = dd->cur_tx_transfer;
-		struct spi_transfer *next;
-		if (t->transfer_list.next != &dd->cur_msg->transfers) {
-			next = list_entry(t->transfer_list.next,
-					struct spi_transfer,
-					transfer_list);
-			dd->write_buf = next->tx_buf;
-			dd->cur_tx_transfer = next;
-			dd->bam.curr_tx_bytes_sent = 0;
-		}
-	}
 	return data_xfr_size;
 }
 
@@ -939,7 +913,6 @@ msm_spi_bam_begin_transfer(struct msm_spi *dd)
 	u32 cons_desc_cnt = SPI_BAM_MAX_DESC_NUM - 1;
 	u32 byte_count = 0;
 
-
 	rx_bytes_to_recv = min_t(u32, dd->bam.bam_rx_len,
 				SPI_MAX_TRFR_BTWN_RESETS);
 	tx_bytes_to_send = min_t(u32, dd->bam.bam_tx_len,
@@ -958,11 +931,17 @@ msm_spi_bam_begin_transfer(struct msm_spi *dd)
 
 	while ((rx_bytes_to_recv + tx_bytes_to_send) &&
 		((cons_desc_cnt + prod_desc_cnt) > 0)) {
+		struct spi_transfer *t = NULL, *next;
+
 		if (dd->read_buf && (prod_desc_cnt > 0)) {
 			ret = msm_spi_bam_process_rx(dd, &rx_bytes_to_recv,
 							prod_desc_cnt);
 			if (ret < 0)
 				goto xfr_err;
+
+			if (!(dd->cur_rx_transfer->len
+				- dd->bam.curr_rx_bytes_recvd))
+				t = dd->cur_rx_transfer;
 			prod_desc_cnt--;
 		}
 
@@ -971,8 +950,25 @@ msm_spi_bam_begin_transfer(struct msm_spi *dd)
 							cons_desc_cnt);
 			if (ret < 0)
 				goto xfr_err;
+
+			if (!(dd->cur_tx_transfer->len
+				- dd->bam.curr_tx_bytes_sent))
+				t = dd->cur_tx_transfer;
 			cons_desc_cnt--;
 		}
+
+		if (t && (t->transfer_list.next != &dd->cur_msg->transfers)) {
+			next = list_entry(t->transfer_list.next,
+					struct spi_transfer,
+					transfer_list);
+			dd->read_buf  = next->rx_buf;
+			dd->write_buf = next->tx_buf;
+			dd->cur_rx_transfer = next;
+			dd->cur_tx_transfer = next;
+			dd->bam.curr_rx_bytes_recvd = 0;
+			dd->bam.curr_tx_bytes_sent = 0;
+		}
+
 		byte_count += ret;
 	}
 
@@ -1918,9 +1914,12 @@ static void msm_spi_process_transfer(struct msm_spi *dd)
 			goto transfer_end;
 		msm_spi_start_write(dd, read_count);
 	} else if (dd->mode == SPI_BAM_MODE) {
-		if ((msm_spi_bam_begin_transfer(dd)) < 0)
+		if ((msm_spi_bam_begin_transfer(dd)) < 0) {
 			dev_err(dd->dev, "%s: BAM transfer setup failed\n",
 				__func__);
+			dd->cur_msg->status = -EIO;
+			goto transfer_end;
+		}
 	}
 
 	/*
@@ -1960,6 +1959,8 @@ static void msm_spi_process_transfer(struct msm_spi *dd)
 	msm_spi_udelay(dd->xfrs_delay_usec);
 
 transfer_end:
+	if (dd->mode == SPI_BAM_MODE)
+		msm_spi_bam_flush(dd);
 	msm_spi_dma_unmap_buffers(dd);
 	dd->mode = SPI_MODE_NONE;
 
