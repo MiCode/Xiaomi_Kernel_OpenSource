@@ -67,7 +67,7 @@ enum {
 struct msm_ipc_sock {
 	struct sock sk;
 	struct msm_ipc_port *port;
-	void *default_pil;
+	void *default_node_vote_info;
 };
 
 /**
