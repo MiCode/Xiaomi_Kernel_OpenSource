@@ -160,6 +160,11 @@ struct sdhci_host {
  */
 #define SDHCI_QUIRK2_DIVIDE_TOUT_BY_4 (1 << 9)
 
+/*
+ * Some SDHC controllers are unable to handle data-end bit error in
+ * 1-bit mode of SDIO.
+ */
+#define SDHCI_QUIRK2_IGN_DATA_END_BIT_ERROR             (1<<9)
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
 
@@ -252,6 +257,9 @@ struct sdhci_host {
 	struct mutex ios_mutex;
 	enum sdhci_power_policy power_policy;
 
+	bool irq_enabled; /* host irq status flag */
+	bool async_int_supp;  /* async support to rxv int, when clks are off */
+	bool disable_sdio_irq_deferred; /* status of disabling sdio irq */
 	u32 auto_cmd_err_sts;
 	unsigned long private[0] ____cacheline_aligned;
 };
