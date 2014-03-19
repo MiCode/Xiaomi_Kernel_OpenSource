@@ -934,7 +934,8 @@ int32_t qpnp_iadc_calibrate_for_trim(struct qpnp_iadc_chip *iadc,
 	else
 		iadc_offset_ch_batfet_check = false;
 
-	if (iadc_offset_ch_batfet_check || iadc->external_rsense) {
+	if ((iadc_offset_ch_batfet_check && !batfet_closed) ||
+						(iadc->external_rsense)) {
 		/* external offset calculation */
 		rc = qpnp_iadc_configure(iadc, OFFSET_CALIBRATION_CSP_CSN,
 						&raw_data, mode_sel);
