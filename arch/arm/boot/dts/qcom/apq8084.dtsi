@@ -3672,8 +3672,9 @@
 		compatible = "qcom,pil-tz-generic";
 		reg = <0xfde0b000 0x80>;
 
+		vdd-proxy-supply = <&gdsc_vpu>;
 		vdd-supply = <&gdsc_vpu>;
-		proxy-reg-names = "vdd";
+		proxy-reg-names = "vdd-proxy";
 		active-reg-names = "vdd";
 		clock-names = "core_clk", "iface_clk", "bus_clk",
 				"vdp_clk", "vdp_bus_clk", "cxo_clk",
