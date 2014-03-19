@@ -30,7 +30,11 @@ struct q6v5_data {
 	struct clk *core_clk;	   /* CPU core */
 	struct clk *reg_clk;	   /* CPU access registers */
 	struct clk *rom_clk;	   /* Boot ROM */
-	void __iomem *axi_halt_base;
+	void __iomem *axi_halt_base; /* Halt base of q6, mss,
+					nc are in same 4K page */
+	void __iomem *axi_halt_q6;
+	void __iomem *axi_halt_mss;
+	void __iomem *axi_halt_nc;
 	void __iomem *restart_reg;
 	struct regulator *vreg;
 	struct regulator *vreg_cx;

@@ -385,10 +385,55 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 		return drv;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "halt_base");
-	drv->axi_halt_base = devm_ioremap(&pdev->dev, res->start,
-					  resource_size(res));
-	if (!drv->axi_halt_base)
-		return ERR_PTR(-ENOMEM);
+	if (res) {
+		drv->axi_halt_base = devm_ioremap(&pdev->dev, res->start,
+							resource_size(res));
+		if (!drv->axi_halt_base) {
+			dev_err(&pdev->dev, "Failed to map axi_halt_base.\n");
+			return ERR_PTR(-ENOMEM);
+		}
+	}
+
+	if (!drv->axi_halt_base) {
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+								"halt_q6");
+		if (res) {
+			drv->axi_halt_q6 = devm_ioremap(&pdev->dev,
+					res->start, resource_size(res));
+			if (!drv->axi_halt_q6) {
+				dev_err(&pdev->dev, "Failed to map axi_halt_q6.\n");
+				return ERR_PTR(-ENOMEM);
+			}
+		}
+
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+								"halt_modem");
+		if (res) {
+			drv->axi_halt_mss = devm_ioremap(&pdev->dev,
+					res->start, resource_size(res));
+			if (!drv->axi_halt_mss) {
+				dev_err(&pdev->dev, "Failed to map axi_halt_mss.\n");
+				return ERR_PTR(-ENOMEM);
+			}
+		}
+
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+								"halt_nc");
+		if (res) {
+			drv->axi_halt_nc = devm_ioremap(&pdev->dev,
+					res->start, resource_size(res));
+			if (!drv->axi_halt_nc) {
+				dev_err(&pdev->dev, "Failed to map axi_halt_nc.\n");
+				return ERR_PTR(-ENOMEM);
+			}
+		}
+	}
+
+	if (!(drv->axi_halt_base || (drv->axi_halt_q6 && drv->axi_halt_mss
+					&& drv->axi_halt_nc))) {
+		dev_err(&pdev->dev, "halt bases for Q6 are not defined.\n");
+		return ERR_PTR(-EINVAL);
+	}
 
 	drv->qdsp6v55 = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,pil-q6v55-mss");

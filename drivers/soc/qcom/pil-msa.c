@@ -186,6 +186,13 @@ int pil_mss_shutdown(struct pil_desc *pil)
 			drv->axi_halt_base + MSS_NC_HALT_BASE);
 	}
 
+	if (drv->axi_halt_q6)
+		pil_q6v5_halt_axi_port(pil, drv->axi_halt_q6);
+	if (drv->axi_halt_mss)
+		pil_q6v5_halt_axi_port(pil, drv->axi_halt_mss);
+	if (drv->axi_halt_nc)
+		pil_q6v5_halt_axi_port(pil, drv->axi_halt_nc);
+
 	if (drv->restart_reg)
 		writel_relaxed(1, drv->restart_reg);
 
