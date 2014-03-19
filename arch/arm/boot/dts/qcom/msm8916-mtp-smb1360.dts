@@ -19,3 +19,31 @@
 	compatible = "qcom,msm8916-mtp", "qcom,msm8916", "qcom,mtp";
 	qcom,board-id = <8 1>;
 };
+
+&soc {
+	i2c@78b8000 {
+		smb1360_otg_supply: smb1360-chg-fg@14 {
+			compatible = "qcom,smb1360-chg-fg";
+			reg = <0x14>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <62 8>;
+			pinctrl-names = "active", "sleep";
+			pinctrl-0 = <&smb_int_active>;
+			pinctrl-1 = <&smb_int_sleep>;
+			regulator-name = "smb1360_otg_vreg";
+
+			qcom,float-voltage-mv = <4200>;
+			qcom,iterm-ma = <100>;
+			qcom,charging-disabled;
+			qcom,recharge-thresh-mv = <100>;
+		};
+	};
+};
+
+&pm8916_chg {
+	status = "disabled";
+};
+
+&pm8916_bms {
+	status = "disabled";
+};
