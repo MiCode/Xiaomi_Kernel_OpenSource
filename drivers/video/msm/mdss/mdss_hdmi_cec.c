@@ -19,6 +19,7 @@
 
 #define CEC_STATUS_WR_ERROR	BIT(0)
 #define CEC_STATUS_WR_DONE	BIT(1)
+#define CEC_INTR		(BIT(1) | BIT(3) | BIT(7))
 
 /* Reference: HDMI 1.4a Specification section 7.1 */
 #define RETRANSMIT_MAX_NUM	5
@@ -123,7 +124,7 @@ static void hdmi_cec_disable(struct hdmi_cec_ctrl *cec_ctrl)
 
 	/* Disable CEC interrupts */
 	reg_val = DSS_REG_R(io, HDMI_CEC_INT);
-	DSS_REG_W(io, HDMI_CEC_INT, reg_val & !BIT(1) & !BIT(3) & !BIT(7));
+	DSS_REG_W(io, HDMI_CEC_INT, reg_val & ~CEC_INTR);
 
 	spin_lock_irqsave(&cec_ctrl->lock, flags);
 	list_for_each_entry_safe(msg_node, tmp, &cec_ctrl->msg_head, list) {
@@ -147,7 +148,7 @@ static void hdmi_cec_enable(struct hdmi_cec_ctrl *cec_ctrl)
 	INIT_LIST_HEAD(&cec_ctrl->msg_head);
 
 	/* Enable CEC interrupts */
-	DSS_REG_W(io, HDMI_CEC_INT, BIT(1) | BIT(3) | BIT(7));
+	DSS_REG_W(io, HDMI_CEC_INT, CEC_INTR);
 
 	/* Enable Engine */
 	DSS_REG_W(io, HDMI_CEC_CTRL, BIT(0));
