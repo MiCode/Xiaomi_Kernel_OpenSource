@@ -715,6 +715,16 @@
 		qcom,slope = <2901 2846 3200 3200 3200>;
 	};
 
+	clock_gcc: qcom,gcc@fc400000 {
+		compatible = "qcom,gcc-9630";
+		reg = <0xfc400000 0x4000>,
+			<0xf9011000 0x1C>,
+			<0xf9008018 0x28>;
+		reg-names = "cc_base", "meas", "apcs_base";
+		vdd_dig-supply = <&pmd9635_l3_corner>;
+		vdd_dig_ao-supply = <&pmd9635_l3_corner_ao>;
+	};
+
 	qcom,clock-a7@f9010008 {
 		compatible = "qcom,clock-a7-9630";
 		reg = <0xf9010008 0x8>;
