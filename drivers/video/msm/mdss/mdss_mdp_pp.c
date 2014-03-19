@@ -1399,7 +1399,7 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
 {
 	int ret = -EINVAL;
 	char __iomem *base;
-	u32 op_flags, kick_base, col_state;
+	u32 op_flags, kick_base;
 	struct mdss_mdp_pipe *pipe;
 	struct pp_hist_col_info *hist_info;
 	unsigned long flag;
@@ -1435,20 +1435,19 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
 		goto error;
 	}
 
+	mutex_lock(&hist_info->hist_mutex);
+	spin_lock_irqsave(&hist_info->hist_lock, flag);
 	if (hist_info->col_en) {
 		*op |= op_flags;
-		mutex_lock(&hist_info->hist_mutex);
-		spin_lock_irqsave(&hist_info->hist_lock, flag);
-		col_state = hist_info->col_state;
-		if (col_state == HIST_IDLE) {
+		if (hist_info->col_state == HIST_IDLE) {
 			/* Kick off collection */
 			if (is_hist_v1)
 				writel_relaxed(1, base + kick_base);
 			hist_info->col_state = HIST_START;
 		}
-		spin_unlock_irqrestore(&hist_info->hist_lock, flag);
-		mutex_unlock(&hist_info->hist_mutex);
 	}
+	spin_unlock_irqrestore(&hist_info->hist_lock, flag);
+	mutex_unlock(&hist_info->hist_mutex);
 	ret = 0;
 error:
 	return ret;
