@@ -117,6 +117,7 @@ static int					ftm_werr_code;
 
 
 unsigned int	disable_ctrl;
+bool		region2_sent;
 
 static void qca199x_init_stat(struct qca199x_dev *qca199x_dev)
 {
@@ -493,6 +494,12 @@ static ssize_t nfc_write(struct file *filp, const char __user *buf,
 		ret = -EIO;
 	}
 	mutex_unlock(&qca199x_dev->read_mutex);
+
+	/* If we detect a Region2 command prior to power-down */
+	if ((tmp[0] == 0x2F) && (tmp[1] == 0x01) && (tmp[2] == 0x02) &&
+		(tmp[3] == 0x08) && (tmp[4] == 0x00)) {
+		region2_sent = true;
+	}
 
 	return ret;
 }
@@ -1443,6 +1450,10 @@ static int qca199x_probe(struct i2c_client *client,
 	}
 	i2c_set_clientdata(client, qca199x_dev);
 	gpio_set_value(platform_data->dis_gpio, 1);
+
+	/* To keep track if region2 command has been sent to controller */
+	region2_sent = false;
+
 	dev_dbg(&client->dev,
 	"nfc-nci probe: %s, probing qca1990 exited successfully\n",
 		 __func__);
@@ -1521,17 +1532,27 @@ static struct i2c_driver qca199x = {
 static int nfcc_reboot(struct notifier_block *notifier, unsigned long val,
 		      void *v)
 {
-	/* Set DISABLE line HIGH. This will put chip into HPD state for
-	   power saving */
-	gpio_set_value(disable_ctrl, 1);
+	/*
+	 * Set DISABLE=1 *ONLY* if the NFC service has been disabled.
+	 * This will put NFCC into HPD(Hard Power Down) state for power
+	 * saving when powering down(Low Batt. or Power off handset)
+	 * If user requires NFC and CE mode when powered down(PD) the
+	 * middleware puts NFCC into region2 prior to PD. In this case
+	 * we DO NOT HPD chip as this will trash Region2 and CE support
+	 * when handset is PD.
+	 */
+	if (region2_sent == false) {
+		/* HPD the NFCC */
+		gpio_set_value(disable_ctrl, 1);
+	}
 	return NOTIFY_OK;
 }
 
 
 static struct notifier_block nfcc_notifier = {
 	.notifier_call	= nfcc_reboot,
-	.next			= NULL,
-	.priority		= 0
+	.next		= NULL,
+	.priority	= 0
 };
 
 /*
