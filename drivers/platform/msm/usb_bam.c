@@ -2105,7 +2105,7 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	 /* Check if BAM requires RESET before connect and reset first pipe */
 	 spin_lock(&usb_bam_lock);
 	 if ((pdata->reset_on_connect[cur_bam] == true) &&
-	     (ctx.pipes_enabled_per_bam[cur_bam] == 0) && bam2bam) {
+	     (ctx.pipes_enabled_per_bam[cur_bam] == 0)) {
 		spin_unlock(&usb_bam_lock);
 
 		if (cur_bam != HSIC_CTRL)
