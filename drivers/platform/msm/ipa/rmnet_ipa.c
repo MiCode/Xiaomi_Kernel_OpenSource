@@ -1437,6 +1437,7 @@ static void ipa_rm_notify(void *dev, enum ipa_rm_event event,
  * 0: success
  * -ENOMEM: No memory available
  * -EFAULT: Internal error
+ * -ENODEV: IPA driver not loaded
  */
 static int ipa_wwan_probe(struct platform_device *pdev)
 {
@@ -1445,6 +1446,11 @@ static int ipa_wwan_probe(struct platform_device *pdev)
 	struct wwan_private *wwan_ptr;
 	struct ipa_rm_create_params ipa_rm_params;	/* IPA_RM */
 	struct ipa_rm_perf_profile profile;			/* IPA_RM */
+
+	if (!ipa_is_ready()) {
+		IPAWANERR("IPA driver not loaded\n");
+		return -ENODEV;
+	}
 
 	/* start A7 QMI service/client */
 	ret = ipa_qmi_service_init();
