@@ -23,7 +23,7 @@
 			  drive-strength = <16>;
 			  bias-pull-up;
 		};
-		akm_reset: akm_reset {
+		akm_sleep: akm_sleep {
 			   drive-strength = <16>;
 			   bias-pull-down;
 		};
@@ -55,13 +55,14 @@
 	akm@c {
 		compatible = "ak,ak09911";
 		reg = <0x0c>;
-		pinctrl-names = "default","reset";
+		pinctrl-names = "default","sleep";
 		pinctrl-0 = <&akm_default>;
-		pinctrl-1 = <&akm_reset>;
+		pinctrl-1 = <&akm_sleep>;
 		vdd-supply = <&pm8916_l17>;
 		vio-supply = <&pm8916_l6>;
 		akm,layout = <0x0>;
 		akm,gpio_rstn = <&msm_gpio 36 0x0>;
+		akm,auto-report;
 	};
 
 	avago@39 {
