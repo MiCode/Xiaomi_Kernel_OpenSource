@@ -290,6 +290,9 @@ static unsigned long vmap_area_pcpu_hole;
 #define VMALLOC_TO_BIT(addr)	((addr - PAGE_OFFSET) >> PAGE_SHIFT)
 #define BIT_TO_VMALLOC(i)	(PAGE_OFFSET + i * PAGE_SIZE)
 
+unsigned long total_vmalloc_size;
+unsigned long vmalloc_reserved;
+
 DECLARE_BITMAP(possible_areas, VMALLOC_BITMAP_SIZE);
 
 void mark_vmalloc_reserved_area(void *x, unsigned long size)
@@ -297,6 +300,7 @@ void mark_vmalloc_reserved_area(void *x, unsigned long size)
 	unsigned long addr = (unsigned long)x;
 
 	bitmap_set(possible_areas, VMALLOC_TO_BIT(addr), size >> PAGE_SHIFT);
+	vmalloc_reserved += size;
 }
 
 int is_vmalloc_addr(const void *x)
@@ -311,6 +315,12 @@ int is_vmalloc_addr(const void *x)
 
 	return 1;
 }
+
+static void calc_total_vmalloc_size(void)
+{
+	total_vmalloc_size = VMALLOC_END - POSSIBLE_VMALLOC_START -
+		vmalloc_reserved;
+}
 #else
 int is_vmalloc_addr(const void *x)
 {
@@ -318,6 +328,8 @@ int is_vmalloc_addr(const void *x)
 
 	return addr >= VMALLOC_START && addr < VMALLOC_END;
 }
+
+static void calc_total_vmalloc_size(void) { }
 #endif
 EXPORT_SYMBOL(is_vmalloc_addr);
 
@@ -1285,6 +1297,7 @@ void __init vmalloc_init(void)
 
 	vmap_area_pcpu_hole = VMALLOC_END;
 
+	calc_total_vmalloc_size();
 	vmap_initialized = true;
 }
 
