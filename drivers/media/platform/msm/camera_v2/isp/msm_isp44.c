@@ -56,6 +56,8 @@
 static uint8_t stats_pingpong_offset_map[] = {
 	7, 8, 9, 10, 11, 12, 13, 14, 15};
 
+#define SHIFT_BF_SCALE_BIT 1
+#define VFE44_NUM_STATS_COMP 2
 #define VFE44_NUM_STATS_TYPE 9
 #define VFE44_STATS_BASE(idx) \
 	((idx) == STATS_IDX_BF_SCALE ? 0xA0C : (0x168 + 0x18 * (idx-1)))
@@ -1048,15 +1050,65 @@ static void msm_vfe44_stats_cfg_comp_mask(
 	struct vfe_device *vfe_dev,
 	uint32_t stats_mask, uint8_t enable)
 {
-	uint32_t comp_mask;
-	/* BF scale is controlled by BF also */
-	stats_mask = (stats_mask >> 1) & 0xFF;
-	comp_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x44) >> 16;
-	if (enable)
-		comp_mask |= stats_mask;
-	else
-		comp_mask &= ~stats_mask;
-	msm_camera_io_w(comp_mask << 16, vfe_dev->vfe_base + 0x44);
+	uint32_t reg_mask, comp_stats_mask, mask_bf_scale;
+	uint32_t i = 0;
+	atomic_t *stats_comp;
+	struct msm_vfe_stats_shared_data *stats_data = &vfe_dev->stats_data;
+
+	if (vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask >
+			MAX_NUM_STATS_COMP_MASK) {
+		pr_err("%s: num of comp masks %d exceed max %d\n",
+			__func__,
+			vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask,
+			MAX_NUM_STATS_COMP_MASK);
+		return;
+	}
+
+	/* BF scale is controlled by BF also so ignore bit 0 of BF scale */
+	stats_mask = stats_mask & 0x1FF;
+	mask_bf_scale = stats_mask >> SHIFT_BF_SCALE_BIT;
+
+	for (i = 0;
+		i < vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask; i++) {
+		stats_comp = &stats_data->stats_comp_mask[i];
+		reg_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x44);
+		comp_stats_mask = reg_mask & (STATS_COMP_BIT_MASK << (i*8));
+
+		if (enable) {
+			if (comp_stats_mask)
+				continue;
+
+			reg_mask |= (mask_bf_scale << (16 + i*8));
+			atomic_add(stats_mask, stats_comp);
+		} else {
+
+			if (stats_mask & (1 << STATS_IDX_BF_SCALE) &&
+				atomic_read(stats_comp) &
+					(1 << STATS_IDX_BF_SCALE))
+				atomic_sub((1 << STATS_IDX_BF_SCALE),
+					stats_comp);
+
+			/*
+			 * Check if comp mask in reg is valid
+			 * and contains this stat
+			 */
+
+			if (!comp_stats_mask ||
+				!((comp_stats_mask >> (16 + i*8)) &
+					mask_bf_scale))
+				continue;
+
+			atomic_sub(stats_mask, stats_comp);
+			reg_mask &= ~(mask_bf_scale << (16 + i*8));
+		}
+		ISP_DBG("%s: comp_mask: %x atomic stats[0]: %x %x\n",
+			__func__, reg_mask,
+			atomic_read(&stats_data->stats_comp_mask[0]),
+			atomic_read(&stats_data->stats_comp_mask[1]));
+
+		msm_camera_io_w(reg_mask, vfe_dev->vfe_base + 0x44);
+		return;
+	}
 }
 
 static void msm_vfe44_stats_cfg_wm_irq_mask(
@@ -1297,7 +1349,7 @@ static struct msm_vfe_stats_hardware_info msm_vfe44_stats_hw_info = {
 		1 << MSM_ISP_STATS_BF_SCALE,
 	.stats_ping_pong_offset = stats_pingpong_offset_map,
 	.num_stats_type = VFE44_NUM_STATS_TYPE,
-	.num_stats_comp_mask = 2,
+	.num_stats_comp_mask = VFE44_NUM_STATS_COMP,
 };
 
 static struct v4l2_subdev_core_ops msm_vfe44_subdev_core_ops = {
