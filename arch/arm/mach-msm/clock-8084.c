@@ -6520,7 +6520,8 @@ static struct clk_lookup apq_clocks_8084[] = {
 						"fdd00000.qcom,ocmem"),
 	CLK_LOOKUP("core_clk",	oxili_gfx3d_clk.c, "fdb00000.qcom,kgsl-3d0"),
 	CLK_LOOKUP("iface_clk",	oxilicx_ahb_clk.c, "fdb00000.qcom,kgsl-3d0"),
-	CLK_LOOKUP("",	oxili_rbbmtimer_clk.c, ""),
+	CLK_LOOKUP("rbbmtimer_clk", oxili_rbbmtimer_clk.c,
+						"fdb00000.qcom,kgsl-3d0"),
 
 	CLK_LOOKUP("",	venus0_ahb_clk.c,	""),
 	CLK_LOOKUP("",	venus0_axi_clk.c,	""),
