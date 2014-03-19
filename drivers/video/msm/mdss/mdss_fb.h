@@ -134,6 +134,7 @@ struct msm_mdp_interface {
 	int (*splash_fnc) (struct msm_fb_data_type *mfd, int *index, int req);
 	struct msm_sync_pt_data *(*get_sync_fnc)(struct msm_fb_data_type *mfd,
 				const struct mdp_buf_sync *buf_sync);
+	void (*check_dsi_status)(struct work_struct *work, uint32_t interval);
 	void *private1;
 };
 
