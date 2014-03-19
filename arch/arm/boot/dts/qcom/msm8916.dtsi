@@ -1197,7 +1197,7 @@
                       <0x7884000 0x23000>;
                 interrupt-names = "spi_irq", "spi_bam_irq";
                 interrupts = <0 97 0>, <0 238 0>;
-                spi-max-frequency = <19200000>;
+                spi-max-frequency = <50000000>;
                 pinctrl-names = "default", "sleep", "cs0_active", "cs0_sleep";
                 pinctrl-0 = <&spi0_default>;
 		pinctrl-1 = <&spi0_sleep>;
