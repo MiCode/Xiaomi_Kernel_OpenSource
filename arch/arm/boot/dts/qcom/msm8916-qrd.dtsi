@@ -120,7 +120,7 @@
 			1 &intc 0 221 0
 			2 &msm_gpio 38 0>;
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
-	cd-gpios = <&msm_gpio 38 0x1>;
+	cd-gpios = <&msm_gpio 38 0x0>;
 
 	status = "ok";
 };
