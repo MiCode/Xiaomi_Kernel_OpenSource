@@ -449,6 +449,8 @@ static const struct usb_device_id ksb_usb_ids[] = {
 	.driver_info = (unsigned long)&ksb_efs_hsic_dev, },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909E, 3),
 	.driver_info = (unsigned long)&ksb_efs_hsic_dev, },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909F, 2),
+	.driver_info = (unsigned long)&ksb_efs_hsic_dev, },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90A0, 2),
 	.driver_info = (unsigned long)&ksb_efs_hsic_dev, },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90A4, 3),
@@ -666,6 +668,7 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	case 0x909C:
 	case 0x909D:
 	case 0x909E:
+	case 0x909F:
 	case 0x90A4:
 		ksb = __ksb[EFS_HSIC_BRIDGE_INDEX];
 		break;
