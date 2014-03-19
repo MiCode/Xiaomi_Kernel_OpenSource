@@ -871,6 +871,7 @@
 		qcom,sda-gpio = <&msmgpio 10 0>;
 		qcom,scl-gpio = <&msmgpio 11 0>;
 		qcom,master-id = <86>;
+		qcom,clk-ctl-xfer;
 	};
 
 	i2c@f9926000 { /* BLSP-1 QUP-4 */
@@ -887,6 +888,7 @@
 		qcom,sda-gpio = <&msmgpio 29 0>;
 		qcom,scl-gpio = <&msmgpio 30 0>;
 		qcom,master-id = <86>;
+		qcom,clk-ctl-xfer;
 	};
 
 	i2c_2: i2c@f9927000 { /* BLSP1 QUP5 */
