@@ -492,6 +492,7 @@
 				usb-phy = <&hsphy0>, <&ssphy0>;
 				nominal-elastic-buffer;
 				core_reset_after_phy_init;
+				snps,hsphy-auto-suspend-disable;
 		};
         };
 
