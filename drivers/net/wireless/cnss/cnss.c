@@ -97,6 +97,7 @@ static struct cnss_data {
 	int modem_current_status;
 	struct msm_bus_scale_pdata *bus_scale_table;
 	uint32_t bus_client;
+	void *subsys_handle;
 } *penv;
 
 static int cnss_wlan_vreg_set(struct cnss_wlan_vreg_info *vreg_info, bool state)
@@ -943,7 +944,7 @@ static int cnss_probe(struct platform_device *pdev)
 		goto err_notif_modem;
 	}
 
-	subsystem_get(penv->subsysdesc.name);
+	penv->subsys_handle = subsystem_get(penv->subsysdesc.name);
 
 	penv->ramdump_dev = create_ramdump_device(penv->subsysdesc.name,
 				penv->subsysdesc.dev);
@@ -998,6 +999,7 @@ err_get_wlan_res:
 	destroy_ramdump_device(penv->ramdump_dev);
 
 err_ramdump_create:
+	subsystem_put(penv->subsys_handle);
 	subsys_notif_unregister_notifier(penv->modem_notify_handler, &mnb);
 
 err_notif_modem:
