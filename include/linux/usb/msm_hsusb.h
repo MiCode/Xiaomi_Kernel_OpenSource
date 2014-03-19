@@ -556,6 +556,7 @@ struct msm_usb_host_platform_data {
 	bool no_selective_suspend;
 	int resume_gpio;
 	int ext_hub_reset_gpio;
+	bool is_uicc;
 };
 
 /**
