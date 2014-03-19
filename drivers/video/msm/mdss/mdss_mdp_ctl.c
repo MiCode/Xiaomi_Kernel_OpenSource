@@ -303,6 +303,7 @@ static u32 mdss_mdp_perf_calc_pipe_prefill_cmd(struct mdss_mdp_prefill_params
  * @pipe:	Source pipe struct containing updated pipe params
  * @perf:	Structure containing values that should be updated for
  *		performance tuning
+ * @apply_fudge:	Boolean to determine if mdp clock fudge is applicable
  *
  * Function calculates the minimum required performance calculations in order
  * to avoid MDP underflow. The calculations are based on the way MDP
@@ -310,7 +311,8 @@ static u32 mdss_mdp_perf_calc_pipe_prefill_cmd(struct mdss_mdp_prefill_params
  * (MDP clock requirement) based on frame size and scaling requirements.
  */
 int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
-	struct mdss_mdp_perf_params *perf, struct mdss_mdp_img_rect *roi)
+	struct mdss_mdp_perf_params *perf, struct mdss_mdp_img_rect *roi,
+	bool apply_fudge)
 {
 	struct mdss_mdp_mixer *mixer;
 	int fps = DEFAULT_FRAME_RATE;
@@ -384,7 +386,8 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 		perf->bw_overlap = (quota / dst.h) * v_total;
 	}
 
-	perf->mdp_clk_rate = mdss_mdp_clk_fudge_factor(mixer, rate);
+	if (apply_fudge)
+		perf->mdp_clk_rate = mdss_mdp_clk_fudge_factor(mixer, rate);
 
 	prefill_params.smp_bytes = mdss_mdp_smp_get_size(pipe);
 	prefill_params.xres = xres;
@@ -440,6 +443,8 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 	u64 bw_overlap[MDSS_MDP_MAX_STAGE] = { 0 };
 	u32 v_region[MDSS_MDP_MAX_STAGE * 2] = { 0 };
 	u32 prefill_bytes = 0;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	bool apply_fudge = true;
 
 	BUG_ON(num_pipes > MDSS_MDP_MAX_STAGE);
 
@@ -469,13 +474,36 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 	memset(bw_overlap, 0, sizeof(u64) * MDSS_MDP_MAX_STAGE);
 	memset(v_region, 0, sizeof(u32) * MDSS_MDP_MAX_STAGE * 2);
 
+	/*
+	* Apply this logic only for 8x26 to reduce clock rate
+	* for single video playback use case
+	*/
+	if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_101)
+		 && mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
+		u32 npipes = 0;
+		for (i = 0; i < MDSS_MDP_MAX_STAGE; i++) {
+			pipe = mixer->stage_pipe[i];
+			if (pipe) {
+				if (npipes) {
+					apply_fudge = true;
+					break;
+				}
+				npipes++;
+				apply_fudge = !(pipe->src_fmt->is_yuv)
+					|| !(pipe->flags
+					& MDP_SOURCE_ROTATED_90);
+			}
+		}
+	}
+
 	for (i = 0; i < num_pipes; i++) {
 		struct mdss_mdp_perf_params tmp;
 		pipe = pipe_list[i];
 		if (pipe == NULL)
 			continue;
 
-		if (mdss_mdp_perf_calc_pipe(pipe, &tmp, &mixer->roi))
+		if (mdss_mdp_perf_calc_pipe(pipe, &tmp, &mixer->roi,
+			apply_fudge))
 			continue;
 		prefill_bytes += tmp.prefill_bytes;
 		bw_overlap[i] = tmp.bw_overlap;
