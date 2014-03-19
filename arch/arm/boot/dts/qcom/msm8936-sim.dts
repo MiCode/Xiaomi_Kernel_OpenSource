@@ -20,3 +20,8 @@
 	qcom,board-id= <16 0>;
 };
 
+&usb_otg {
+	interrupts = <0 134 0>;
+	interrupt-names = "core_irq";
+};
+
