@@ -31,6 +31,7 @@
 		/* Fudge factors */
 		qcom,mdss-ab-factor = <2 1>;		/* 2 times    */
 		qcom,mdss-ib-factor = <6 5>;		/* 1.2 times  */
+		qcom,mdss-ib-factor-overlap = <3 2>;	/* 1.5 times  */
 		qcom,mdss-clk-factor = <5 4>;		/* 1.25 times */
 
 		qcom,mdss-mdp-reg-offset = <0x00000100>;
