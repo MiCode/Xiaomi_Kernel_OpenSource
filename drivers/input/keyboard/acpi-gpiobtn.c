@@ -55,6 +55,7 @@ static struct gpio_keys_button gpiobtn_keys[] = {
 };
 
 static struct gpio_keys_platform_data gpiobtn_keys_pdata = {
+	.name = "ACPI GPIO Button Array",
 	.buttons = gpiobtn_keys,
 };
 
