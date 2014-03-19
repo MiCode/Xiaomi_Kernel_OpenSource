@@ -306,6 +306,12 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_pinctrl_res pin_res;
 };
 
+struct dsi_status_data {
+	struct notifier_block fb_notifier;
+	struct delayed_work check_status;
+	struct msm_fb_data_type *mfd;
+};
+
 int dsi_panel_device_register(struct device_node *pan_node,
 				struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 

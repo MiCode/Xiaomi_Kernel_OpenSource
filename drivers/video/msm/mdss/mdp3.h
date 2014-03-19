@@ -202,6 +202,8 @@ int mdp3_put_mdp_dsi_clk(void);
 int mdp3_misr_set(struct mdp_misr *misr_req);
 int mdp3_misr_get(struct mdp_misr *misr_resp);
 void mdp3_enable_regulator(int enable);
+void mdp3_check_dsi_ctrl_status(struct work_struct *work,
+				uint32_t interval);
 
 #define MDP3_REG_WRITE(addr, val) writel_relaxed(val, mdp3_res->mdp_base + addr)
 #define MDP3_REG_READ(addr) readl_relaxed(mdp3_res->mdp_base + addr)
