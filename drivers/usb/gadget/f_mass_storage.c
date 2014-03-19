@@ -2782,10 +2782,8 @@ static int create_lun_device(struct fsg_common *common,
 	 * Check if index is non-zero, increment current lun_config
 	 * and cur_lun pointers.
 	 */
-	if (add_lun_index) {
-		lcfg++;
-		curlun++;
-	}
+	lcfg += add_lun_index;
+	curlun += add_lun_index;
 
 	for (i = add_lun_index; i < nluns; ++i, ++curlun, ++lcfg) {
 		curlun->cdrom = !!lcfg->cdrom;

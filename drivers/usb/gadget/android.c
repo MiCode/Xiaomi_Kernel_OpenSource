@@ -2282,7 +2282,7 @@ static void mass_storage_function_enable(struct android_usb_function *f)
 	struct mass_storage_function_config *config = f->config;
 	struct fsg_common *common = config->common;
 	char *lun_type;
-	int i, err;
+	int i, err, prev_nluns;
 	char buf[MAX_LUN_STR_LEN], *b;
 	int number_of_luns = 0;
 	char buf1[5];
@@ -2291,6 +2291,8 @@ static void mass_storage_function_enable(struct android_usb_function *f)
 
 	if (msc_initialized)
 		return;
+
+	prev_nluns = config->fsg.nluns;
 
 	if (lun_info[0] != '\0') {
 		strlcpy(buf, lun_info, sizeof(buf));
@@ -2316,14 +2318,14 @@ static void mass_storage_function_enable(struct android_usb_function *f)
 	}
 
 	pr_debug("fsg.nluns:%d\n", config->fsg.nluns);
-	for (i = 1; i < config->fsg.nluns; i++) {
-		snprintf(lun_name, sizeof(buf), "lun%d", (i-1));
+	for (i = prev_nluns; i < config->fsg.nluns; i++) {
+		snprintf(lun_name, sizeof(buf), "lun%d", (i-prev_nluns));
 		pr_debug("sysfs: LUN name:%s\n", lun_name);
 		err = sysfs_create_link(&f->dev->kobj,
 			&common->luns[i].dev.kobj, lun_name);
 		if (err)
 			pr_err("sysfs file creation failed: lun%d err:%d\n",
-								i, err);
+							(i-prev_nluns), err);
 	}
 
 	msc_initialized = 1;
