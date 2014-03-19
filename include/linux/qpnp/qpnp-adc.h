@@ -1402,6 +1402,22 @@ int32_t qpnp_adc_absolute_rthr(struct qpnp_vadc_chip *dev,
 		struct qpnp_adc_tm_btm_param *param,
 		uint32_t *low_threshold, uint32_t *high_threshold);
 /**
+ * qpnp_adc_smb_btm_rscaler() - Performs reverse calibration on the low/high
+ *		temperature threshold values passed by the client.
+ *		The function maps the temperature to voltage and applies
+ *		ratiometric calibration on the voltage values.
+ * @dev:	Structure device for qpnp vadc
+ * @param:	The input parameters that contain the low/high temperature
+ *		values.
+ * @low_threshold: The low threshold value that needs to be updated with
+ *		the above calibrated voltage value.
+ * @high_threshold: The low threshold value that needs to be updated with
+ *		the above calibrated voltage value.
+ */
+int32_t qpnp_adc_smb_btm_rscaler(struct qpnp_vadc_chip *dev,
+		struct qpnp_adc_tm_btm_param *param,
+		uint32_t *low_threshold, uint32_t *high_threshold);
+/**
  * qpnp_vadc_iadc_sync_request() - Performs Voltage ADC read and
  *		locks the peripheral. When performing simultaneous
  *		voltage and current request the VADC peripheral is
@@ -1546,6 +1562,10 @@ static inline int32_t qpnp_adc_tm_scale_therm_voltage_pu2(
 static inline int32_t qpnp_adc_tm_scale_voltage_therm_pu2(
 				struct qpnp_vadc_chip *dev,
 				uint32_t reg, int64_t *result)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_smb_btm_rscaler(struct qpnp_vadc_chip *dev,
+		struct qpnp_adc_tm_btm_param *param,
+		uint32_t *low_threshold, uint32_t *high_threshold)
 { return -ENXIO; }
 static inline int32_t qpnp_vadc_iadc_sync_request(struct qpnp_vadc_chip *dev,
 				enum qpnp_vadc_channels channel)
