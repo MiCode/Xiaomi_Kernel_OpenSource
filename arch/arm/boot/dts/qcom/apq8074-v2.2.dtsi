@@ -74,9 +74,3 @@
 &qseecom {
 	status = "disabled";
 };
-
-&sdcc3 {
-	qcom,sup-voltages = <2000 2000>;
-	status = "ok";
-};
-

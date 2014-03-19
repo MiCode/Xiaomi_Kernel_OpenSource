@@ -71,11 +71,6 @@
 	status = "disabled";
 };
 
-&sdcc3 {
-	qcom,sup-voltages = <2000 2000>;
-	status = "ok";
-};
-
 &ehci {
 	hsusb_vdd_dig-supply = <&pm8841_s2_corner>;
 	qcom,vdd-voltage-level = <1 2 3 5 7>;

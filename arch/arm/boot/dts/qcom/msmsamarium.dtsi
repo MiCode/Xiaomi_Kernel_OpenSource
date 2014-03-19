@@ -314,30 +314,6 @@
 		reg-names = "rfsa_mdm";
 	};
 
-	sdcc1: qcom,sdcc@f9824000 {
-		cell-index = <1>; /* SDC1 eMMC slot */
-		compatible = "qcom,msm-sdcc";
-		reg = <0xf9824000 0x800>;
-		reg-names = "core_mem";
-		interrupts = <0 123 0>;
-		interrupt-names = "core_irq";
-
-		qcom,bus-width = <8>;
-		status = "disabled";
-	};
-
-	sdcc2: qcom,sdcc@f98a4000 {
-		cell-index = <2>; /* SDC2 SD card slot */
-		compatible = "qcom,msm-sdcc";
-		reg = <0xf98a4000 0x800>;
-		reg-names = "core_mem";
-		interrupts = <0 125 0>;
-		interrupt-names = "core_irq";
-
-		qcom,bus-width = <4>;
-		status = "disabled";
-	};
-
 	sdhc_1: sdhci@f9824900 {
 		compatible = "qcom,sdhci-msm";
 		reg = <0xf9824900 0x1a0>, <0xf9824000 0x800>;

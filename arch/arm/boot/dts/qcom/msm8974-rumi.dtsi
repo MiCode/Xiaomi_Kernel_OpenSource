@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,14 +31,6 @@
 	usb@f9a55000 {
 		status = "disable";
 	};
-
-	qcom,sdcc@f9824000 {
-                qcom,clk-rates = <400000 19200000>;
-        };
-
-        qcom,sdcc@f98a4000 {
-                qcom,clk-rates = <400000 19200000>;
-        };
 
 	qcom,sps@f998000 {
 		status = "disable";
