@@ -953,6 +953,8 @@ int ipa_remove_interrupt_handler(enum ipa_irq_type interrupt);
 
 int ipa_get_ep_mapping(enum ipa_client_type client);
 
+bool ipa_is_ready(void);
+
 #else /* CONFIG_IPA */
 
 /*
@@ -1420,6 +1422,11 @@ static inline int ipa_remove_interrupt_handler(enum ipa_irq_type interrupt)
 static inline int ipa_get_ep_mapping(enum ipa_client_type client)
 {
 	return -EPERM;
+}
+
+static inline bool ipa_is_ready(void)
+{
+	return false;
 }
 #endif /* CONFIG_IPA*/
 
