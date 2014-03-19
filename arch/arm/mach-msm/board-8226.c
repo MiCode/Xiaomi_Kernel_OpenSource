@@ -91,10 +91,7 @@ void __init msm8226_add_drivers(void)
 	rpm_smd_regulator_driver_init();
 	qpnp_regulator_init();
 	spm_regulator_init();
-	if (of_board_is_rumi())
-		msm_clock_init(&msm8226_rumi_clock_init_data);
-	else
-		msm_clock_init(&msm8226_clock_init_data);
+	msm_gcc_8226_init();
 	msm_bus_fabric_init_driver();
 	qup_i2c_init_driver();
 	ncp6335d_regulator_init();

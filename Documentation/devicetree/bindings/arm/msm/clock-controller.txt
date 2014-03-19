@@ -18,7 +18,8 @@ Required properties:
 			memory mapped registers.
 - reg-names:		Names of the bases for the above registers. Currently,
 			there is one expected base: "cc_base". Optional
-			reg-names are "apcs_base" and "meas".
+			reg-names are "apcs_base", "meas", "mmss_base",
+			"lpass_base".
 
 Optional properties:
 - vdd_dig-supply:	The digital logic rail supply.

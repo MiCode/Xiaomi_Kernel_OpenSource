@@ -49,6 +49,10 @@
 	linux,memory-limit = <0x0>;
 };
 
+&clock_gcc {
+	compatible = "qcom,gcc-8226-v2";
+};
+
 &soc {
 	qcom,mss@fc880000 {
 		reg = <0xfc880000 0x100>,
