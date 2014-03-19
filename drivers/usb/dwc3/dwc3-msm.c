@@ -2470,16 +2470,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 					dev_err(&pdev->dev, "irqreq IDINT failed\n");
 					goto disable_ref_clk;
 				}
-
-				local_irq_save(flags);
-				/* Update initial ID state */
-				mdwc->id_state =
-					!!irq_read_line(mdwc->pmic_id_irq);
-				if (mdwc->id_state == DWC3_ID_GROUND)
-					queue_work(system_nrt_wq,
-							&mdwc->id_work);
-				local_irq_restore(flags);
-				enable_irq_wake(mdwc->pmic_id_irq);
 			}
 		}
 
@@ -2699,6 +2689,16 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	pm_runtime_set_active(mdwc->dev);
 	pm_runtime_enable(mdwc->dev);
+
+	/* Update initial ID state */
+	if (mdwc->pmic_id_irq) {
+		local_irq_save(flags);
+		mdwc->id_state = !!irq_read_line(mdwc->pmic_id_irq);
+		if (mdwc->id_state == DWC3_ID_GROUND)
+			queue_work(system_nrt_wq, &mdwc->id_work);
+		local_irq_restore(flags);
+		enable_irq_wake(mdwc->pmic_id_irq);
+	}
 
 	if (of_property_read_bool(node, "qcom,reset_hsphy_sleep_clk_on_init")) {
 		ret = clk_reset(mdwc->hsphy_sleep_clk, CLK_RESET_ASSERT);
