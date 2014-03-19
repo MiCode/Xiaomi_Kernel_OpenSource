@@ -684,14 +684,22 @@
 		compatible = "qcom,coresight-hwevent";
 		reg = <0xfd828018 0x80>,
 		      <0xf9112000 0x80>,
+		      <0xf9112080 0x4>,
+		      <0xf9112084 0x4>,
+		      <0xf9112088 0x14>,
+		      <0xf9112148 0x38>,
 		      <0xfd4ab160 0x80>,
 		      <0xfc401600 0x80>,
 		      <0xfd4ab360 0x80>,
 		      <0xfc596000 0x80>,
+		      <0xfc520000 0x4>,
 		      <0xfc520058 0x80>,
+		      <0xfc528000 0x4>,
 		      <0xfc528058 0x80>;
-		reg-names = "mmss-mux", "apcs-mux", "ppss-mux", "gcc-mux",
-			    "tcsr-mux", "ufs-mux", "pcie0-mux", "pcie1-mux" ;
+		reg-names = "mmss-mux", "apcs-hwev", "apcs-spi", "apcs-ppi",
+			    "apcs-cpu", "apcs-cci", "ppss-mux", "gcc-mux",
+			    "tcsr-mux", "ufs-mux", "pcie0-sysctl", "pcie0-hwev",
+			    "pcie1-sysctl", "pcie1-hwev";
 
 		coresight-id = <44>;
 		coresight-name = "coresight-hwevent";
