@@ -424,7 +424,14 @@ int adreno_perfcounter_get_groupid(struct adreno_device *adreno_dev,
 
 	for (i = 0; i < counters->group_count; ++i) {
 		group = &(counters->groups[i]);
-		if (!strcmp(group->name, name))
+
+		/* make sure there is a name for this group */
+		if (group->name == NULL)
+			continue;
+
+		/* verify name and length */
+		if (strlen(name) == strlen(group->name) &&
+			strcmp(group->name, name) == 0)
 			return i;
 	}
 
