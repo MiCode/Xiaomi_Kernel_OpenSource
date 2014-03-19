@@ -2852,7 +2852,7 @@
 		qcom,firmware-name = "venus";
 	};
 
-	qcom,lpass@fe200000 {
+	pil_lpass: qcom,lpass@fe200000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0xfe200000 0x00100>;
 		interrupts = <0 162 1>;

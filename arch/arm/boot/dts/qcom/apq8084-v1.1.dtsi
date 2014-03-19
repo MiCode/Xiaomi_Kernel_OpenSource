@@ -15,3 +15,8 @@
 / {
 	qcom,msm-id = <178 0x10001>;
 };
+
+&pil_lpass {
+	clock-names = "xo";
+	/delete-property/ active-clock-names;
+};
