@@ -62,8 +62,8 @@ static void ipa_wq_write_done_common(struct ipa_sys_context *sys, u32 cnt)
 	struct ipa_tx_pkt_wrapper *tx_pkt_expected;
 	int i;
 
-	spin_lock_bh(&sys->spinlock);
 	for (i = 0; i < cnt; i++) {
+		spin_lock_bh(&sys->spinlock);
 		if (unlikely(list_empty(&sys->head_desc_list))) {
 			WARN_ON(1);
 			spin_unlock_bh(&sys->spinlock);
@@ -74,16 +74,15 @@ static void ipa_wq_write_done_common(struct ipa_sys_context *sys, u32 cnt)
 						   link);
 		list_del(&tx_pkt_expected->link);
 		sys->len--;
+		spin_unlock_bh(&sys->spinlock);
 		if (!tx_pkt_expected->no_unmap_dma)
 			dma_unmap_single(ipa_ctx->pdev,
 					tx_pkt_expected->mem.phys_base,
 					tx_pkt_expected->mem.size,
 					DMA_TO_DEVICE);
-		spin_unlock_bh(&sys->spinlock);
 		if (tx_pkt_expected->callback)
 			tx_pkt_expected->callback(tx_pkt_expected->user1,
 					tx_pkt_expected->user2);
-		spin_lock_bh(&sys->spinlock);
 		if (tx_pkt_expected->cnt > 1 &&
 				tx_pkt_expected->cnt != IPA_LAST_DESC_CNT)
 			dma_free_coherent(ipa_ctx->pdev,
@@ -92,7 +91,6 @@ static void ipa_wq_write_done_common(struct ipa_sys_context *sys, u32 cnt)
 				tx_pkt_expected->mult.phys_base);
 		kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt_expected);
 	}
-	spin_unlock_bh(&sys->spinlock);
 }
 
 static void ipa_wq_write_done_status(int src_pipe)
