@@ -18,16 +18,17 @@
 #include <linux/uaccess.h>
 #include <linux/mutex.h>
 #include <linux/sched.h>
-#include <linux/msm_audio_acdb.h>
+#include <linux/msm_audio_calibration.h>
 #include <linux/atomic.h>
 #include <linux/msm_audio_ion.h>
 #include <linux/qdsp6v2/rtac.h>
 #include <linux/compat.h>
 #include <sound/q6asm-v2.h>
 #include <sound/q6afe-v2.h>
+#include <sound/q6adm-v2.h>
 #include <sound/apr_audio-v2.h>
 #include "q6voice.h"
-#include "audio_acdb.h"
+#include "msm-pcm-routing-v2.h"
 
 
 /* Max size of payload (buf size - apr header) */
@@ -68,28 +69,12 @@ static struct rtac_apr_data	rtac_voice_apr_data[RTAC_VOICE_MODES];
 
 
 /* ADM info & APR */
-struct rtac_adm_data {
-	uint32_t	topology_id;
-	uint32_t	afe_port;
-	uint32_t	copp;
-	uint32_t	num_of_popp;
-	uint32_t	popp[RTAC_MAX_ACTIVE_POPP];
-};
-
-struct rtac_adm {
-	uint32_t		num_of_dev;
-	struct rtac_adm_data	device[RTAC_MAX_ACTIVE_DEVICES];
-};
-static struct rtac_adm		rtac_adm_data;
-
-
-/* ADM V2 data */
 struct rtac_popp_data {
 	uint32_t	popp;
 	uint32_t	popp_topology;
 };
 
-struct rtac_adm_data_v2 {
+struct rtac_adm_data {
 	uint32_t		topology_id;
 	uint32_t		afe_port;
 	uint32_t		copp;
@@ -97,12 +82,12 @@ struct rtac_adm_data_v2 {
 	struct rtac_popp_data	popp[RTAC_MAX_ACTIVE_POPP];
 };
 
-struct rtac_adm_v2 {
+struct rtac_adm {
 	uint32_t			num_of_dev;
-	struct rtac_adm_data_v2		device[RTAC_MAX_ACTIVE_DEVICES];
+	struct rtac_adm_data		device[RTAC_MAX_ACTIVE_DEVICES];
 };
 
-static struct rtac_adm_v2	rtac_adm_data_v2;
+static struct rtac_adm		rtac_adm_data;
 static u32			*rtac_adm_buffer;
 
 
@@ -360,153 +345,13 @@ done:
 }
 
 
-/* ADM Info V2 */
-static void add_popp_v2(u32 dev_idx, u32 port_id, u32 popp_id)
-{
-	u32 i = 0;
-
-	for (; i < rtac_adm_data_v2.device[dev_idx].num_of_popp; i++)
-		if (rtac_adm_data_v2.device[dev_idx].popp[i].popp == popp_id)
-			goto done;
-
-	if (rtac_adm_data_v2.device[dev_idx].num_of_popp ==
-			RTAC_MAX_ACTIVE_POPP) {
-		pr_err("%s, Max POPP!\n", __func__);
-		goto done;
-	}
-	rtac_adm_data_v2.device[dev_idx].popp[
-		rtac_adm_data_v2.device[dev_idx].num_of_popp].popp = popp_id;
-	rtac_adm_data_v2.device[dev_idx].popp[
-		rtac_adm_data_v2.device[dev_idx].num_of_popp++].popp_topology =
-		get_asm_topology();
-done:
-	return;
-}
-
-static void rtac_add_adm_device_v2(u32 port_id, u32 copp_id, u32 path_id,
-								u32 popp_id)
-{
-	u32 i = 0;
-	pr_debug("%s: port_id = %d, popp_id = %d\n", __func__, port_id,
-		popp_id);
-
-	if (rtac_adm_data_v2.num_of_dev == RTAC_MAX_ACTIVE_DEVICES) {
-		pr_err("%s, Can't add anymore RTAC devices!\n", __func__);
-		goto done;
-	}
-
-	/* Check if device already added */
-	if (rtac_adm_data_v2.num_of_dev != 0) {
-		for (; i < rtac_adm_data_v2.num_of_dev; i++) {
-			if (rtac_adm_data_v2.device[i].afe_port == port_id) {
-				add_popp_v2(i, port_id, popp_id);
-				goto done;
-			}
-			if (rtac_adm_data_v2.device[i].num_of_popp ==
-						RTAC_MAX_ACTIVE_POPP) {
-				pr_err("%s, Max POPP!\n", __func__);
-				goto done;
-			}
-		}
-	}
-
-	/* Add device */
-	rtac_adm_data_v2.num_of_dev++;
-
-	if (path_id == ADM_PATH_PLAYBACK)
-		rtac_adm_data_v2.device[i].topology_id =
-						get_adm_rx_topology();
-	else
-		rtac_adm_data_v2.device[i].topology_id =
-						get_adm_tx_topology();
-	rtac_adm_data_v2.device[i].afe_port = port_id;
-	rtac_adm_data_v2.device[i].copp = copp_id;
-	rtac_adm_data_v2.device[i].popp[
-		rtac_adm_data_v2.device[i].num_of_popp].popp = popp_id;
-	rtac_adm_data_v2.device[i].popp[
-		rtac_adm_data_v2.device[i].num_of_popp++].popp_topology =
-		get_asm_topology();
-done:
-	return;
-}
-
-static void shift_adm_devices_v2(u32 dev_idx)
-{
-	for (; dev_idx < rtac_adm_data_v2.num_of_dev; dev_idx++) {
-		memcpy(&rtac_adm_data_v2.device[dev_idx],
-			&rtac_adm_data_v2.device[dev_idx + 1],
-			sizeof(rtac_adm_data_v2.device[dev_idx]));
-		memset(&rtac_adm_data_v2.device[dev_idx + 1], 0,
-			   sizeof(rtac_adm_data_v2.device[dev_idx]));
-	}
-}
-
-static void shift_popp_v2(u32 copp_idx, u32 popp_idx)
-{
-	for (; popp_idx < rtac_adm_data_v2.device[copp_idx].num_of_popp;
-							popp_idx++) {
-		memcpy(&rtac_adm_data_v2.device[copp_idx].popp[popp_idx].popp,
-			&rtac_adm_data_v2.device[copp_idx].popp[popp_idx + 1].
-			popp, sizeof(uint32_t));
-		memcpy(&rtac_adm_data_v2.device[copp_idx].popp[popp_idx].
-			popp_topology,
-			&rtac_adm_data_v2.device[copp_idx].popp[popp_idx + 1].
-			popp_topology,
-			sizeof(uint32_t));
-		memset(&rtac_adm_data_v2.device[copp_idx].popp[popp_idx + 1].
-			popp, 0, sizeof(uint32_t));
-		memset(&rtac_adm_data_v2.device[copp_idx].popp[popp_idx + 1].
-			popp_topology, 0, sizeof(uint32_t));
-	}
-}
-
-static void rtac_remove_adm_device_v2(u32 port_id)
-{
-	s32 i;
-	pr_debug("%s: port_id = %d\n", __func__, port_id);
-
-	/* look for device */
-	for (i = 0; i < rtac_adm_data_v2.num_of_dev; i++) {
-		if (rtac_adm_data_v2.device[i].afe_port == port_id) {
-			memset(&rtac_adm_data_v2.device[i], 0,
-				   sizeof(rtac_adm_data_v2.device[i]));
-			rtac_adm_data_v2.num_of_dev--;
-
-			if (rtac_adm_data_v2.num_of_dev >= 1) {
-				shift_adm_devices_v2(i);
-				break;
-			}
-		}
-	}
-	return;
-}
-
-static void rtac_remove_popp_from_adm_devices_v2(u32 popp_id)
-{
-	s32 i, j;
-	pr_debug("%s: popp_id = %d\n", __func__, popp_id);
-
-	for (i = 0; i < rtac_adm_data_v2.num_of_dev; i++) {
-		for (j = 0; j < rtac_adm_data_v2.device[i].num_of_popp; j++) {
-			if (rtac_adm_data_v2.device[i].popp[j].popp ==
-								popp_id) {
-				rtac_adm_data_v2.device[i].popp[j].popp = 0;
-				rtac_adm_data_v2.device[i].popp[j].
-					popp_topology = 0;
-				rtac_adm_data_v2.device[i].num_of_popp--;
-				shift_popp_v2(i, j);
-			}
-		}
-	}
-}
-
 /* ADM Info */
 void add_popp(u32 dev_idx, u32 port_id, u32 popp_id)
 {
 	u32 i = 0;
 
 	for (; i < rtac_adm_data.device[dev_idx].num_of_popp; i++)
-		if (rtac_adm_data.device[dev_idx].popp[i] == popp_id)
+		if (rtac_adm_data.device[dev_idx].popp[i].popp == popp_id)
 			goto done;
 
 	if (rtac_adm_data.device[dev_idx].num_of_popp ==
@@ -515,7 +360,10 @@ void add_popp(u32 dev_idx, u32 port_id, u32 popp_id)
 		goto done;
 	}
 	rtac_adm_data.device[dev_idx].popp[
-		rtac_adm_data.device[dev_idx].num_of_popp++] = popp_id;
+		rtac_adm_data.device[dev_idx].num_of_popp].popp = popp_id;
+	rtac_adm_data.device[dev_idx].popp[
+		rtac_adm_data.device[dev_idx].num_of_popp++].popp_topology =
+		q6asm_get_asm_topology();
 done:
 	return;
 }
@@ -527,8 +375,6 @@ void rtac_add_adm_device(u32 port_id, u32 copp_id, u32 path_id, u32 popp_id)
 		popp_id);
 
 	mutex_lock(&rtac_adm_mutex);
-	rtac_add_adm_device_v2(port_id, copp_id, path_id, popp_id);
-
 	if (rtac_adm_data.num_of_dev == RTAC_MAX_ACTIVE_DEVICES) {
 		pr_err("%s, Can't add anymore RTAC devices!\n", __func__);
 		goto done;
@@ -558,7 +404,10 @@ void rtac_add_adm_device(u32 port_id, u32 copp_id, u32 path_id, u32 popp_id)
 	rtac_adm_data.device[i].afe_port = port_id;
 	rtac_adm_data.device[i].copp = copp_id;
 	rtac_adm_data.device[i].popp[
-		rtac_adm_data.device[i].num_of_popp++] = popp_id;
+		rtac_adm_data.device[i].num_of_popp].popp = popp_id;
+	rtac_adm_data.device[i].popp[
+		rtac_adm_data.device[i].num_of_popp++].popp_topology =
+		q6asm_get_asm_topology();
 done:
 	mutex_unlock(&rtac_adm_mutex);
 	return;
@@ -579,11 +428,18 @@ static void shift_popp(u32 copp_idx, u32 popp_idx)
 {
 	for (; popp_idx < rtac_adm_data.device[copp_idx].num_of_popp;
 							popp_idx++) {
-		memcpy(&rtac_adm_data.device[copp_idx].popp[popp_idx],
-			&rtac_adm_data.device[copp_idx].popp[popp_idx + 1],
+		memcpy(&rtac_adm_data.device[copp_idx].popp[popp_idx].popp,
+			&rtac_adm_data.device[copp_idx].popp[popp_idx + 1].
+			popp, sizeof(uint32_t));
+		memcpy(&rtac_adm_data.device[copp_idx].popp[popp_idx].
+			popp_topology,
+			&rtac_adm_data.device[copp_idx].popp[popp_idx + 1].
+			popp_topology,
 			sizeof(uint32_t));
-		memset(&rtac_adm_data.device[copp_idx].popp[popp_idx + 1], 0,
-			sizeof(uint32_t));
+		memset(&rtac_adm_data.device[copp_idx].popp[popp_idx + 1].
+			popp, 0, sizeof(uint32_t));
+		memset(&rtac_adm_data.device[copp_idx].popp[popp_idx + 1].
+			popp_topology, 0, sizeof(uint32_t));
 	}
 }
 
@@ -593,8 +449,6 @@ void rtac_remove_adm_device(u32 port_id, u32 copp_id)
 	pr_debug("%s: port_id = %d\n", __func__, port_id);
 
 	mutex_lock(&rtac_adm_mutex);
-	rtac_remove_adm_device_v2(port_id);
-
 	/* look for device */
 	for (i = 0; i < rtac_adm_data.num_of_dev; i++) {
 		if (rtac_adm_data.device[i].afe_port == port_id &&
@@ -620,28 +474,31 @@ void rtac_remove_popp_from_adm_devices(u32 popp_id)
 	pr_debug("%s: popp_id = %d\n", __func__, popp_id);
 
 	mutex_lock(&rtac_adm_mutex);
-	rtac_remove_popp_from_adm_devices_v2(popp_id);
-
 	for (i = 0; i < rtac_adm_data.num_of_dev; i++) {
 		for (j = 0; j < rtac_adm_data.device[i].num_of_popp; j++) {
-			if (rtac_adm_data.device[i].popp[j] == popp_id) {
-				rtac_adm_data.device[i].popp[j] = 0;
+			if (rtac_adm_data.device[i].popp[j].popp ==
+								popp_id) {
+				rtac_adm_data.device[i].popp[j].popp = 0;
+				rtac_adm_data.device[i].popp[j].
+					popp_topology = 0;
 				rtac_adm_data.device[i].num_of_popp--;
 				shift_popp(i, j);
 			}
 		}
 	}
-
 	mutex_unlock(&rtac_adm_mutex);
 }
+
 
 /* Voice Info */
 static void set_rtac_voice_data(int idx, u32 cvs_handle, u32 cvp_handle,
 					u32 rx_afe_port, u32 tx_afe_port,
 					u32 session_id)
 {
-	rtac_voice_data.voice[idx].tx_topology_id = get_voice_tx_topology();
-	rtac_voice_data.voice[idx].rx_topology_id = get_voice_rx_topology();
+	rtac_voice_data.voice[idx].tx_topology_id =
+		voice_get_topology(CVP_VOC_TX_TOPOLOGY_CAL);
+	rtac_voice_data.voice[idx].rx_topology_id =
+		voice_get_topology(CVP_VOC_RX_TOPOLOGY_CAL);
 	rtac_voice_data.voice[idx].tx_afe_port = tx_afe_port;
 	rtac_voice_data.voice[idx].rx_afe_port = rx_afe_port;
 	rtac_voice_data.voice[idx].cvs_handle = cvs_handle;
@@ -800,6 +657,8 @@ u32 send_adm_apr(void *buf, u32 opcode)
 	u32	copp_id;
 	u32	payload_size;
 	u32	data_size = 0;
+	int	copp_idx;
+	int	port_idx;
 	struct apr_hdr	adm_params;
 	pr_debug("%s\n", __func__);
 
@@ -845,7 +704,7 @@ u32 send_adm_apr(void *buf, u32 opcode)
 		goto done;
 	}
 
-	if (adm_validate_copp_id(copp_id) != 0) {
+	if (adm_get_indexes_from_copp_id(copp_id, &copp_idx, &port_idx) != 0) {
 		pr_err("%s: Copp Id-%d is not active\n", __func__, copp_id);
 		goto done;
 	}
@@ -905,7 +764,7 @@ u32 send_adm_apr(void *buf, u32 opcode)
 	adm_params.dest_svc = APR_SVC_ADM;
 	adm_params.dest_domain = APR_DOMAIN_ADSP;
 	adm_params.dest_port = copp_id;
-	adm_params.token = copp_id;
+	adm_params.token = port_idx << 16 | copp_idx;
 	adm_params.opcode = opcode;
 
 	/* fill for out-of-band */
@@ -1417,17 +1276,6 @@ static long rtac_ioctl_shared(struct file *f,
 		}
 		break;
 	}
-	case AUDIO_GET_RTAC_ADM_INFO_V2: {
-		if (copy_to_user((void *)arg, &rtac_adm_data_v2,
-						sizeof(rtac_adm_data_v2))) {
-			pr_err("%s: copy_to_user failed for AUDIO_GET_RTAC_ADM_INFO_V2\n",
-					__func__);
-			return -EFAULT;
-		} else {
-			result = sizeof(rtac_adm_data_v2);
-		}
-		break;
-	}
 	case AUDIO_GET_RTAC_VOICE_INFO: {
 		if (copy_to_user((void *)arg, &rtac_voice_data,
 						sizeof(rtac_voice_data))) {
@@ -1496,22 +1344,14 @@ static long rtac_ioctl(struct file *f,
 
 #ifdef CONFIG_COMPAT
 
-#define AUDIO_GET_RTAC_ADM_CAL_32 _IOWR(AUDIO_IOCTL_MAGIC, \
-			(AUDIO_MAX_ACDB_IOCTL+3), compat_uptr_t)
-#define AUDIO_SET_RTAC_ADM_CAL_32 _IOWR(AUDIO_IOCTL_MAGIC, \
-			(AUDIO_MAX_ACDB_IOCTL+4), compat_uptr_t)
-#define AUDIO_GET_RTAC_ASM_CAL_32 _IOWR(AUDIO_IOCTL_MAGIC, \
-			(AUDIO_MAX_ACDB_IOCTL+5), compat_uptr_t)
-#define AUDIO_SET_RTAC_ASM_CAL_32 _IOWR(AUDIO_IOCTL_MAGIC, \
-			(AUDIO_MAX_ACDB_IOCTL+6), compat_uptr_t)
-#define AUDIO_GET_RTAC_CVS_CAL_32 _IOWR(AUDIO_IOCTL_MAGIC, \
-			(AUDIO_MAX_ACDB_IOCTL+7), compat_uptr_t)
-#define AUDIO_SET_RTAC_CVS_CAL_32 _IOWR(AUDIO_IOCTL_MAGIC, \
-			(AUDIO_MAX_ACDB_IOCTL+8), compat_uptr_t)
-#define AUDIO_GET_RTAC_CVP_CAL_32 _IOWR(AUDIO_IOCTL_MAGIC, \
-			(AUDIO_MAX_ACDB_IOCTL+9), compat_uptr_t)
-#define AUDIO_SET_RTAC_CVP_CAL_32 _IOWR(AUDIO_IOCTL_MAGIC, \
-			(AUDIO_MAX_ACDB_IOCTL+10), compat_uptr_t)
+#define AUDIO_GET_RTAC_ADM_CAL_32 _IOWR(CAL_IOCTL_MAGIC, 209, compat_uptr_t)
+#define AUDIO_SET_RTAC_ADM_CAL_32 _IOWR(CAL_IOCTL_MAGIC, 210, compat_uptr_t)
+#define AUDIO_GET_RTAC_ASM_CAL_32 _IOWR(CAL_IOCTL_MAGIC, 211, compat_uptr_t)
+#define AUDIO_SET_RTAC_ASM_CAL_32 _IOWR(CAL_IOCTL_MAGIC, 212, compat_uptr_t)
+#define AUDIO_GET_RTAC_CVS_CAL_32 _IOWR(CAL_IOCTL_MAGIC, 213, compat_uptr_t)
+#define AUDIO_SET_RTAC_CVS_CAL_32 _IOWR(CAL_IOCTL_MAGIC, 214, compat_uptr_t)
+#define AUDIO_GET_RTAC_CVP_CAL_32 _IOWR(CAL_IOCTL_MAGIC, 215, compat_uptr_t)
+#define AUDIO_SET_RTAC_CVP_CAL_32 _IOWR(CAL_IOCTL_MAGIC, 216, compat_uptr_t)
 
 static long rtac_compat_ioctl(struct file *f,
 		unsigned int cmd, unsigned long arg)
@@ -1526,7 +1366,6 @@ static long rtac_compat_ioctl(struct file *f,
 
 	switch (cmd) {
 	case AUDIO_GET_RTAC_ADM_INFO:
-	case AUDIO_GET_RTAC_ADM_INFO_V2:
 	case AUDIO_GET_RTAC_VOICE_INFO:
 		result = rtac_ioctl_shared(f, cmd, compat_ptr(arg));
 		break;
@@ -1593,7 +1432,6 @@ static int __init rtac_init(void)
 
 	/* ADM */
 	memset(&rtac_adm_data, 0, sizeof(rtac_adm_data));
-	memset(&rtac_adm_data_v2, 0, sizeof(rtac_adm_data_v2));
 	rtac_adm_apr_data.apr_handle = NULL;
 	atomic_set(&rtac_adm_apr_data.cmd_state, 0);
 	init_waitqueue_head(&rtac_adm_apr_data.cmd_wait);

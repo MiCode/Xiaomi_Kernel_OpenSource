@@ -27,7 +27,6 @@
 #include "wcd_cpe_core.h"
 #include "wcd_cpe_services.h"
 #include "wcd_cmi_api.h"
-#include "../msm/qdsp6v2/audio_acdb.h"
 
 #define CMI_CMD_TIMEOUT (10 * HZ)
 #define WCD_CPE_LSM_MAX_SESSIONS 1
@@ -68,6 +67,12 @@ struct wcd_cmi_afe_port_data {
 	enum afe_port_state port_state;
 	u8 cmd_result;
 	u32 mem_handle;
+};
+
+struct acdb_cal_block {
+	size_t		cal_size;
+	void		*cal_kvaddr;
+	phys_addr_t	cal_paddr;
 };
 
 static struct cpe_lsm_session
@@ -1113,7 +1118,8 @@ static int wcd_cpe_lsm_send_acdb_cal(struct cpe_lsm_session *session)
 	void *inb_msg;
 	int rc = 0;
 
-	rc = get_ulp_lsm_cal(&lsm_cal);
+	/* No calibration available */
+	rc = -ENODEV;
 	if (rc) {
 		pr_err("%s: Fail to obtain acdb cal, err = %d\n",
 			__func__, rc);
@@ -1722,7 +1728,8 @@ static int wcd_cpe_afe_send_acdb_cal(void *core_handle,
 	int rc = 0;
 	bool is_obm_msg;
 
-	rc = get_ulp_afe_cal(&afe_listen_cal);
+	/* No calibration available */
+	rc = -ENODEV;
 	if (IS_ERR_VALUE(rc)) {
 		dev_err(core->dev,
 			"%s: Invalid afe cal for listen, error = %d\n",

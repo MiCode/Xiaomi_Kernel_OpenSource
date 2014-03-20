@@ -19,6 +19,28 @@
 #define AUDIO_POST_CALIBRATION		_IOWR(CAL_IOCTL_MAGIC, \
 							205, void *)
 
+/* For Real-Time Audio Calibration */
+#define AUDIO_GET_RTAC_ADM_INFO		_IOR(CAL_IOCTL_MAGIC, \
+							207, void *)
+#define AUDIO_GET_RTAC_VOICE_INFO	_IOR(CAL_IOCTL_MAGIC, \
+							208, void *)
+#define AUDIO_GET_RTAC_ADM_CAL		_IOWR(CAL_IOCTL_MAGIC, \
+							209, void *)
+#define AUDIO_SET_RTAC_ADM_CAL		_IOWR(CAL_IOCTL_MAGIC, \
+							210, void *)
+#define AUDIO_GET_RTAC_ASM_CAL		_IOWR(CAL_IOCTL_MAGIC, \
+							211, void *)
+#define AUDIO_SET_RTAC_ASM_CAL		_IOWR(CAL_IOCTL_MAGIC, \
+							212, void *)
+#define AUDIO_GET_RTAC_CVS_CAL		_IOWR(CAL_IOCTL_MAGIC, \
+							213, void *)
+#define AUDIO_SET_RTAC_CVS_CAL		_IOWR(CAL_IOCTL_MAGIC, \
+							214, void *)
+#define AUDIO_GET_RTAC_CVP_CAL		_IOWR(CAL_IOCTL_MAGIC, \
+							215, void *)
+#define AUDIO_SET_RTAC_CVP_CAL		_IOWR(CAL_IOCTL_MAGIC, \
+							216, void *)
+
 enum {
 	CVP_VOC_RX_TOPOLOGY_CAL_TYPE = 0,
 	CVP_VOC_TX_TOPOLOGY_CAL_TYPE,
@@ -56,6 +78,8 @@ enum {
 	VOICE_RTAC_APR_CAL_TYPE,
 
 	MAD_CAL_TYPE,
+	ULP_AFE_CAL_TYPE,
+	ULP_LSM_CAL_TYPE,
 
 	MAX_CAL_TYPES,
 };

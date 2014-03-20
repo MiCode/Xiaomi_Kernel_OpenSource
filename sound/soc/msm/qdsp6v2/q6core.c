@@ -22,9 +22,16 @@
 #include <soc/qcom/smd.h>
 #include <soc/qcom/ocmem.h>
 #include "q6core.h"
-#include "audio_acdb.h"
 
 #define TIMEOUT_MS 1000
+
+#define MAX_META_INFO_SIZE 1024
+
+struct meta_info_t {
+	uint32_t nKeyValue;
+	uint32_t nBufferLength;
+	uint8_t *nBuffer;
+};
 
 struct q6core_str {
 	struct apr_svc *core_handle_q;
@@ -169,7 +176,8 @@ int32_t core_set_license(uint32_t key, uint32_t module_id)
 
 	metainfo.nKeyValue = key;
 	metainfo.nBuffer = NULL;
-	rc = get_meta_info_size(metainfo.nKeyValue, &(metainfo.nBufferLength));
+	metainfo.nBufferLength = 0;
+	rc = 0;
 	if (rc != 0 || metainfo.nBufferLength <= 0 ||
 		metainfo.nBufferLength > MAX_META_INFO_SIZE) {
 		pr_err("%s: error getting metainfo size, err:0x%x, size:%d\n",
@@ -183,7 +191,7 @@ int32_t core_set_license(uint32_t key, uint32_t module_id)
 		rc  = -ENOMEM;
 		goto fail_cmd1;
 	}
-	rc = get_meta_info(&metainfo);
+	rc = 1;
 	if (rc) {
 		pr_err("%s: error getting metainfo err:%d\n", __func__, rc);
 		goto fail_cmd2;

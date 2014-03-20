@@ -39,6 +39,9 @@
 #include "q6voice.h"
 #include "q6core.h"
 #include "sound/q6lsm.h"
+#include "audio_cal_utils.h"
+
+static int get_cal_path(int path_type);
 
 #define EC_PORT_ID_PRIMARY_MI2S_TX    1
 #define EC_PORT_ID_SECONDARY_MI2S_TX  2
@@ -46,6 +49,8 @@
 #define EC_PORT_ID_QUATERNARY_MI2S_TX 4
 
 static struct mutex routing_lock;
+
+static struct cal_type_data *cal_data;
 
 static int fm_switch_enable;
 static int fm_pcmrx_switch_enable;
@@ -304,21 +309,84 @@ void msm_pcm_routing_reg_stream_app_type_cfg(int fedai_id, int app_type,
 	fe_dai_app_type_cfg[fedai_id].acdb_dev_id = acdb_dev_id;
 }
 
-int msm_pcm_routing_get_topology(int path_type, int fedai_id)
+
+static struct cal_block_data *msm_routing_find_topology_by_path(int path)
 {
-	int topology_id = 0, app_type = 0, acdb_dev_id = 0;
-	if (path_type == ADM_PATH_PLAYBACK) {
+	struct list_head		*ptr, *next;
+	struct cal_block_data		*cal_block = NULL;
+	pr_debug("%s\n", __func__);
+
+	list_for_each_safe(ptr, next,
+		&cal_data->cal_blocks) {
+
+		cal_block = list_entry(ptr,
+			struct cal_block_data, list);
+
+		if (((struct audio_cal_info_adm_top *)cal_block->cal_info)
+			->path == path) {
+			return cal_block;
+		}
+	}
+	pr_debug("%s: Can't find topology for path %d\n", __func__, path);
+	return NULL;
+}
+
+static struct cal_block_data *msm_routing_find_topology(int path,
+							int app_type,
+							int acdb_id)
+{
+	struct list_head		*ptr, *next;
+	struct cal_block_data		*cal_block = NULL;
+	struct audio_cal_info_adm_top	*cal_info;
+	pr_debug("%s\n", __func__);
+
+	list_for_each_safe(ptr, next,
+		&cal_data->cal_blocks) {
+
+		cal_block = list_entry(ptr,
+			struct cal_block_data, list);
+
+		cal_info = (struct audio_cal_info_adm_top *)
+			cal_block->cal_info;
+		if ((cal_info->path == path)  &&
+			(cal_info->app_type == app_type) &&
+			(cal_info->acdb_id == acdb_id)) {
+			return cal_block;
+		}
+	}
+	pr_debug("%s: Can't find topology for path %d, app %d, acdb_id %d defaulting to search by path\n",
+		__func__, path, app_type, acdb_id);
+	return msm_routing_find_topology_by_path(path);
+}
+
+static int msm_routing_get_adm_topology(int path, int fedai_id)
+{
+	int				topology = NULL_COPP_TOPOLOGY;
+	struct cal_block_data		*cal_block = NULL;
+	int app_type = 0, acdb_dev_id = 0;
+	pr_debug("%s\n", __func__);
+
+	path = get_cal_path(path);
+	if (cal_data == NULL)
+		goto done;
+
+	mutex_lock(&cal_data->lock);
+
+	if (path == RX_DEVICE) {
 		app_type = fe_dai_app_type_cfg[fedai_id].app_type;
 		acdb_dev_id = fe_dai_app_type_cfg[fedai_id].acdb_dev_id;
-		/* Get the topology based on the acdb device id and app type */
-		topology_id = get_adm_rx_topology();
-	} else
-		topology_id = get_adm_tx_topology();
+	}
+	cal_block = msm_routing_find_topology(path, app_type, acdb_dev_id);
+	if (cal_block == NULL)
+		goto unlock;
 
-	if (topology_id  == 0)
-		topology_id = NULL_COPP_TOPOLOGY;
-
-	return topology_id;
+	topology = ((struct audio_cal_info_adm_top *)
+		cal_block->cal_info)->topology;
+unlock:
+	mutex_unlock(&cal_data->lock);
+done:
+	pr_debug("%s: Using topology %d\n", __func__, topology);
+	return topology;
 }
 
 static uint8_t is_be_dai_extproc(int be_dai)
@@ -464,8 +532,8 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 			} else
 				sample_rate = msm_bedais[i].sample_rate;
 
-			topology =
-			msm_pcm_routing_get_topology(path_type, fedai_id);
+			topology = msm_routing_get_adm_topology(path_type,
+								fedai_id);
 			if (msm_bedais[i].port_id == VOICE_RECORD_RX ||
 			    msm_bedais[i].port_id == VOICE_RECORD_TX)
 				topology = NULL_COPP_TOPOLOGY;
@@ -560,11 +628,11 @@ void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type)
 				session_copp_map[fedai_id][session_type][i];
 			fdai = &fe_dai_map[fedai_id][session_type];
 
-			topology =
-			msm_pcm_routing_get_topology(path_type, fedai_id);
 			for (idx = 0; idx < MAX_COPPS_PER_PORT; idx++)
 				if (test_bit(idx, &copp))
 					break;
+			topology = adm_get_topology_for_port_from_copp_id(
+					msm_bedais[i].port_id, idx);
 			adm_close(msm_bedais[i].port_id, fdai->perf_mode, idx);
 			pr_debug("%s:copp:%ld,idx bit fe:%d,type:%d,be:%d\n",
 				 __func__, copp, fedai_id, session_type, i);
@@ -662,7 +730,7 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 			} else
 				sample_rate = msm_bedais[reg].sample_rate;
 
-			topology = msm_pcm_routing_get_topology(path_type, val);
+			topology = msm_routing_get_adm_topology(path_type, val);
 			if (msm_bedais[reg].port_id == VOICE_RECORD_RX ||
 			    msm_bedais[reg].port_id == VOICE_RECORD_TX)
 				topology = NULL_COPP_TOPOLOGY;
@@ -705,7 +773,7 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 			for (idx = 0; idx < MAX_COPPS_PER_PORT; idx++)
 				if (test_bit(idx, &copp))
 					break;
-			topology = msm_pcm_routing_get_topology(path_type, val);
+			topology = msm_routing_get_adm_topology(path_type, val);
 			adm_close(msm_bedais[reg].port_id, fdai->perf_mode,
 				  idx);
 			pr_debug("%s: copp: %ld, reset idx bit fe:%d, type: %d, be:%d\n",
@@ -4881,7 +4949,7 @@ static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 				if (test_bit(idx, &copp))
 					break;
 			fdai->be_srate = bedai->sample_rate;
-			topology = msm_pcm_routing_get_topology(path_type, i);
+			topology = msm_routing_get_adm_topology(path_type, i);
 			adm_close(bedai->port_id, fdai->perf_mode, idx);
 			pr_debug("%s: copp:%ld,idx bit fe:%d, type:%d,be:%d\n",
 				 __func__, copp, i, session_type, be_id);
@@ -4972,7 +5040,8 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 			} else
 				sample_rate = bedai->sample_rate;
 			channels = bedai->channel;
-			topology = msm_pcm_routing_get_topology(path_type, i);
+
+			topology = msm_routing_get_adm_topology(path_type, i);
 			if (bedai->port_id == VOICE_RECORD_RX ||
 			    bedai->port_id == VOICE_RECORD_TX)
 				topology = NULL_COPP_TOPOLOGY;
@@ -5114,15 +5183,92 @@ int msm_routing_check_backend_enabled(int fedai_id)
 	return 0;
 }
 
+static int get_cal_path(int path_type)
+{
+	if (path_type == ADM_PATH_PLAYBACK)
+		return RX_DEVICE;
+	else
+		return TX_DEVICE;
+}
+
+static int msm_routing_set_cal(int32_t cal_type,
+					size_t data_size, void *data)
+{
+	int				ret = 0;
+	pr_debug("%s\n", __func__);
+
+	ret = cal_utils_set_cal(data_size, data, cal_data, 0, NULL);
+	if (ret < 0) {
+		pr_err("%s: cal_utils_set_cal failed, ret = %d, cal type = %d!\n",
+			__func__, ret, cal_type);
+		ret = -EINVAL;
+		goto done;
+	}
+done:
+	return ret;
+}
+
+static bool msm_routing_match_cal_by_path(struct cal_block_data *cal_block,
+					void *data)
+{
+	struct audio_cal_info_adm_top	*block_cal_info = cal_block->cal_info;
+	struct audio_cal_type_adm_top	*user_data = data;
+	pr_debug("%s\n", __func__);
+
+	if (block_cal_info->path == user_data->cal_info.path)
+		return true;
+
+	return false;
+}
+
+static void msm_routing_delete_cal_data(void)
+{
+	pr_debug("%s\n", __func__);
+
+	cal_utils_destroy_cal_types(1, &cal_data);
+
+	return;
+}
+
+static int msm_routing_init_cal_data(void)
+{
+	int				ret = 0;
+	struct cal_type_info		cal_type_info = {
+		{ADM_TOPOLOGY_CAL_TYPE,
+		{NULL, NULL, NULL,
+		msm_routing_set_cal, NULL, NULL} },
+		{NULL, NULL, msm_routing_match_cal_by_path}
+	};
+	pr_debug("%s\n", __func__);
+
+	ret = cal_utils_create_cal_types(1, &cal_data,
+		&cal_type_info);
+	if (ret < 0) {
+		pr_err("%s: could not create cal type!\n",
+			__func__);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	return ret;
+err:
+	msm_routing_delete_cal_data();
+	return ret;
+}
+
 static int __init msm_soc_routing_platform_init(void)
 {
 	mutex_init(&routing_lock);
+	if (msm_routing_init_cal_data())
+		pr_err("%s: could not init cal data!\n", __func__);
+
 	return platform_driver_register(&msm_routing_pcm_driver);
 }
 module_init(msm_soc_routing_platform_init);
 
 static void __exit msm_soc_routing_platform_exit(void)
 {
+	msm_routing_delete_cal_data();
 	platform_driver_unregister(&msm_routing_pcm_driver);
 }
 module_exit(msm_soc_routing_platform_exit);

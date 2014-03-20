@@ -114,6 +114,12 @@ size_t get_cal_info_size(int32_t cal_type)
 	case MAD_CAL_TYPE:
 		size = 0;
 		break;
+	case ULP_AFE_CAL_TYPE:
+		size = sizeof(struct audio_cal_info_afe);
+		break;
+	case ULP_LSM_CAL_TYPE:
+		size = sizeof(struct audio_cal_info_lsm);
+		break;
 	default:
 		pr_err("%s:Invalid cal type %d!",
 			__func__, cal_type);
@@ -215,6 +221,12 @@ size_t get_user_cal_type_size(int32_t cal_type)
 		break;
 	case MAD_CAL_TYPE:
 		size = 0;
+		break;
+	case ULP_AFE_CAL_TYPE:
+		size = sizeof(struct audio_cal_type_afe);
+		break;
+	case ULP_LSM_CAL_TYPE:
+		size = sizeof(struct audio_cal_type_lsm);
 		break;
 	default:
 		pr_err("%s:Invalid cal type %d!",
@@ -326,12 +338,8 @@ static void delete_cal_block(struct cal_block_data *cal_block)
 			cal_block->map_data.ion_handle);
 		cal_block->map_data.ion_client = NULL;
 		cal_block->map_data.ion_handle = NULL;
-	} else if ((cal_block->map_data.map_size > 0) &&
-		(cal_block->cal_data.kvaddr != NULL)) {
-		kfree(cal_block->cal_data.kvaddr);
 	}
 	kfree(cal_block);
-	cal_block = NULL;
 done:
 	return;
 }
@@ -351,7 +359,7 @@ static void destroy_cal_type_data(struct cal_type_data *cal_type)
 		cal_block = list_entry(ptr,
 			struct cal_block_data, list);
 
-		if (cal_type->info.cal_util_callbacks.unmap_cal == NULL) {
+		if (cal_type->info.cal_util_callbacks.unmap_cal != NULL) {
 			ret = cal_type->info.cal_util_callbacks.
 				unmap_cal(cal_type->info.reg.cal_type,
 					cal_block);
@@ -363,10 +371,10 @@ static void destroy_cal_type_data(struct cal_type_data *cal_type)
 			}
 		}
 		delete_cal_block(cal_block);
+		cal_block = NULL;
 	}
 	list_del(&cal_type->cal_blocks);
 	kfree(cal_type);
-	cal_type = NULL;
 done:
 	return;
 }
@@ -390,6 +398,7 @@ void cal_utils_destroy_cal_types(int num_cal_types,
 	for (i = 0; i < num_cal_types; i++) {
 		audio_cal_deregister(1, &cal_type[i]->info.reg);
 		destroy_cal_type_data(cal_type[i]);
+		cal_type[i] = NULL;
 	}
 done:
 	return;
@@ -581,8 +590,7 @@ void cal_utils_clear_cal_block_q6maps(int num_cal_types,
 			cal_block = list_entry(ptr,
 				struct cal_block_data, list);
 
-			if (cal_block->map_data.q6map_handle > 0)
-				cal_block->map_data.q6map_handle = 0;
+			cal_block->map_data.q6map_handle = 0;
 		}
 		mutex_unlock(&cal_type[i]->lock);
 	}

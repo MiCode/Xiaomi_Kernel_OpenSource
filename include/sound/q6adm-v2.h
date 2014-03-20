@@ -45,8 +45,6 @@ int adm_open(int port, int path, int rate, int mode, int topology,
 			   int perf_mode, uint16_t bits_per_sample,
 			   int app_type);
 
-int adm_unmap_cal_blocks(void);
-
 int adm_map_rtac_block(struct rtac_cal_block_data *cal_block);
 
 int adm_unmap_rtac_block(uint32_t *mem_map_handle);
@@ -72,7 +70,9 @@ int adm_get_default_copp_idx(int port_id);
 
 int adm_get_topology_for_port_from_copp_id(int port_id, int copp_id);
 
-int adm_validate_copp_id(int copp_id);
+int adm_get_topology_for_port_copp_idx(int port_id, int copp_idx);
+
+int adm_get_indexes_from_copp_id(int copp_id, int *port_idx, int *copp_idx);
 
 int adm_set_stereo_to_custom_stereo(int port_id, int copp_idx,
 				    unsigned int session_id,
