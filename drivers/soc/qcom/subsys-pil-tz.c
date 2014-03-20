@@ -476,9 +476,12 @@ static int pil_shutdown_trusted(struct pil_desc *pil)
 	rc = pas_shutdown(d->pas_id);
 
 	disable_unprepare_clocks(d->proxy_clks, d->proxy_clk_count);
-	disable_unprepare_clocks(d->clks, d->clk_count);
-
 	disable_regulators(d->proxy_regs, d->proxy_reg_count);
+
+	if (rc)
+		return rc;
+
+	disable_unprepare_clocks(d->clks, d->clk_count);
 	disable_regulators(d->regs, d->reg_count);
 
 	return rc;
