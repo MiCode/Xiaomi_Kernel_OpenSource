@@ -32,6 +32,7 @@
 #define MDP_CLK_DEFAULT_RATE	200000000
 #define PHASE_STEP_SHIFT	21
 #define MAX_MIXER_WIDTH		2048
+#define MAX_LINE_BUFFER_WIDTH	2048
 #define MAX_MIXER_HEIGHT	0xFFFF
 #define MAX_IMG_WIDTH		0x3FFF
 #define MAX_IMG_HEIGHT		0x3FFF
@@ -489,6 +490,17 @@ static inline u32 mdss_mdp_pingpong_read(struct mdss_mdp_mixer *mixer, u32 reg)
 	return readl_relaxed(mixer->pingpong_base + reg);
 }
 
+static inline int mdss_mdp_iommu_dyn_attach_supported(
+	struct mdss_data_type *mdata)
+{
+	return (mdata->mdp_rev >= MDSS_MDP_HW_REV_103);
+}
+
+static inline int mdss_mdp_line_buffer_width(void)
+{
+	return MAX_LINE_BUFFER_WIDTH;
+}
+
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
 int mdss_iommu_attach(struct mdss_data_type *mdata);
 int mdss_iommu_dettach(struct mdss_data_type *mdata);
@@ -522,6 +534,12 @@ int mdss_mdp_overlay_get_buf(struct msm_fb_data_type *mfd,
 			     struct msmfb_data *planes,
 			     int num_planes,
 			     u32 flags);
+int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
+	struct mdp_overlay *req, struct mdss_mdp_pipe **ppipe);
+void mdss_mdp_handoff_cleanup_pipes(struct msm_fb_data_type *mfd,
+							u32 type);
+int mdss_mdp_overlay_release(struct msm_fb_data_type *mfd, int ndx);
+int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd);
 int mdss_mdp_video_addr_setup(struct mdss_data_type *mdata,
 		u32 *offsets,  u32 count);
 int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl);
