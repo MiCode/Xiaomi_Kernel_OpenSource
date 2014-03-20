@@ -858,8 +858,8 @@ static void hfi_process_session_prop_info(msm_vidc_callback callback,
 		callback(SESSION_PROPERTY_INFO, &cmd_done);
 		break;
 	default:
-		dprintk(VIDC_ERR,
-				"hal_process_session_prop_info: unknown_prop_id: %d\n",
+		dprintk(VIDC_DBG,
+				"hal_process_session_prop_info: unknown_prop_id: %x\n",
 				pkt->rg_property_data[0]);
 		break;
 	}
@@ -1320,8 +1320,8 @@ static void hfi_process_sys_property_info(
 		hfi_process_sys_get_prop_image_version(pkt);
 		break;
 	default:
-		dprintk(VIDC_ERR,
-				"hfi_process_sys_property_info: unknown_prop_id: %d\n",
+		dprintk(VIDC_DBG,
+				"hfi_process_sys_property_info: unknown_prop_id: %x\n",
 				pkt->rg_property_data[0]);
 	}
 }
