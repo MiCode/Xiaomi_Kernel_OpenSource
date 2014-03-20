@@ -520,6 +520,7 @@ static void process_rx_w(struct work_struct *work)
 	if (!dev->port_usb)
 		return;
 
+	set_wake_up_idle(true);
 	while ((skb = skb_dequeue(&dev->rx_frames))) {
 		if (status < 0
 				|| ETH_HLEN > skb->len
@@ -541,6 +542,7 @@ static void process_rx_w(struct work_struct *work)
 
 		status = netif_rx_ni(skb);
 	}
+	set_wake_up_idle(false);
 
 	if (netif_running(dev->net))
 		rx_fill(dev, GFP_KERNEL);
