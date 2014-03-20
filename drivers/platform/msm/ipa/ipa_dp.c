@@ -1634,7 +1634,10 @@ begin:
 		IPADBG("STATUS opcode=%d src=%d dst=%d len=%d\n",
 				status->status_opcode, status->endp_src_idx,
 				status->endp_dest_idx, status->pkt_len);
-		if (status->status_opcode != IPA_HW_STATUS_OPCODE_PACKET) {
+		if (status->status_opcode !=
+			IPA_HW_STATUS_OPCODE_DROPPED_PACKET &&
+			status->status_opcode !=
+			IPA_HW_STATUS_OPCODE_PACKET) {
 			IPAERR("unsupported opcode\n");
 			skb_pull(skb, IPA_PKT_STATUS_SIZE);
 			continue;
@@ -1838,7 +1841,10 @@ static int ipa_wan_rx_pyld_hdlr(struct sk_buff *skb,
 		IPADBG("STATUS opcode=%d src=%d dst=%d len=%d\n",
 				status->status_opcode, status->endp_src_idx,
 				status->endp_dest_idx, status->pkt_len);
-		if (status->status_opcode != IPA_HW_STATUS_OPCODE_PACKET) {
+		if (status->status_opcode !=
+			IPA_HW_STATUS_OPCODE_DROPPED_PACKET &&
+			status->status_opcode !=
+			IPA_HW_STATUS_OPCODE_PACKET) {
 			IPAERR("unsupported opcode\n");
 			skb_pull(skb, IPA_PKT_STATUS_SIZE);
 			continue;
