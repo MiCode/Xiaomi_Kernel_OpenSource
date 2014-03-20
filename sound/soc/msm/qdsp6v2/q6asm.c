@@ -768,6 +768,7 @@ void q6asm_audio_client_free(struct audio_client *ac)
 	apr_deregister(ac->apr);
 	ac->apr = NULL;
 	ac->mmap_apr = NULL;
+	rtac_set_asm_handle(ac->session, ac->apr);
 	q6asm_session_free(ac);
 	q6asm_mmap_apr_dereg();
 
