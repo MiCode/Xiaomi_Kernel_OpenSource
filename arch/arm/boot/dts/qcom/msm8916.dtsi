@@ -1144,6 +1144,7 @@
 		clock-names = "xo", "rf_clk";
 
 		qcom,has-autodetect-xo;
+		qcom,wlan-rx-buff-count = <512>;
 		qcom,is-pronto-vt;
 		qcom,has-pronto-hw;
 		qcom,wcnss-adc_tm = <&pm8916_adc_tm>;
