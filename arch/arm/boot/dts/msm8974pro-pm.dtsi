@@ -242,6 +242,7 @@
 			<0xff 109>,  /* ocmem_dm_nonsec_irq */
 			<0xff 126>,  /* bam_irq[0] */
 			<0xff 140>,  /* uart_dm_intr */
+			<0xff 146>,  /* uart_dm_intr: blsp2_uart_2_irq */
 			<0xff 155>,  /* sdcc_irq[0] */
 			<0xff 157>,  /* sdcc_irq[0] */
 			<0xff 159>,  /* sdcc_irq[0] */
