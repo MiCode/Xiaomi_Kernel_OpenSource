@@ -920,7 +920,7 @@
 			};
 			gpio_key_suspend: gpio_key_suspend {
 				drive-strength = <2>;
-				bias-pull-down;
+				bias-disable;
 			};
 		};
 
