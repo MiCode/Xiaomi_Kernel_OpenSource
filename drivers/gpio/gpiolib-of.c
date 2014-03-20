@@ -21,6 +21,7 @@
 #include <linux/of_gpio.h>
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/slab.h>
+#include <linux/err.h>
 
 /* Private data structure for of_gpiochip_find_and_xlate */
 struct gg_data {
@@ -83,7 +84,9 @@ int of_get_named_gpio_flags(struct device_node *np, const char *propname,
 	gpiochip_find(&gg_data, of_gpiochip_find_and_xlate);
 
 	of_node_put(gg_data.gpiospec.np);
-	pr_debug("%s exited with status %d\n", __func__, gg_data.out_gpio);
+	if (IS_ERR_VALUE(gg_data.out_gpio))
+		pr_debug("%s exited with status %d\n", __func__,
+			 gg_data.out_gpio);
 	return gg_data.out_gpio;
 }
 EXPORT_SYMBOL(of_get_named_gpio_flags);
