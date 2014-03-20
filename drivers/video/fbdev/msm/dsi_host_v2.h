@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +25,7 @@
 #define DSI_INTR_CMD_MDP_DONE			BIT(8)
 #define DSI_INTR_CMD_DMA_DONE_MASK		BIT(1)
 #define DSI_INTR_CMD_DMA_DONE			BIT(0)
+#define DSI_INTR_ALL_MASK			0x2220202
 
 #define DSI_BTA_TERM				BIT(1)
 
