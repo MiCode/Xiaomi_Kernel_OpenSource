@@ -464,19 +464,26 @@ static int pil_shutdown_trusted(struct pil_desc *pil)
 	struct pil_tz_data *d = desc_to_data(pil);
 	int rc;
 
+	rc = enable_regulators(pil->dev, d->proxy_regs, d->proxy_reg_count);
+	if (rc)
+		return rc;
+
 	rc = prepare_enable_clocks(pil->dev, d->proxy_clks,
 						d->proxy_clk_count);
 	if (rc)
-		return rc;
+		goto err_clks;
 
 	rc = pas_shutdown(d->pas_id);
 
 	disable_unprepare_clocks(d->proxy_clks, d->proxy_clk_count);
-
 	disable_unprepare_clocks(d->clks, d->clk_count);
 
+	disable_regulators(d->proxy_regs, d->proxy_reg_count);
 	disable_regulators(d->regs, d->reg_count);
 
+	return rc;
+err_clks:
+	disable_regulators(d->proxy_regs, d->proxy_reg_count);
 	return rc;
 }
 
