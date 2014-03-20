@@ -141,6 +141,5 @@ DT_MACHINE_START(MSM8226_DT, "Qualcomm MSM 8226 (Flattened Device Tree)")
 	.dt_compat		= msm8226_dt_match,
 	.reserve		= msm8226_reserve,
 	.init_very_early	= msm8226_early_memory,
-	.restart		= msm_restart,
 	.smp			= &arm_smp_ops,
 MACHINE_END

@@ -119,6 +119,5 @@ DT_MACHINE_START(APQ8084_DT, "Qualcomm APQ 8084 (Flattened Device Tree)")
 	.dt_compat		= apq8084_dt_match,
 	.reserve		= apq8084_reserve,
 	.init_very_early	= apq8084_init_very_early,
-	.restart		= msm_restart,
 	.smp			= &msm8974_smp_ops,
 MACHINE_END

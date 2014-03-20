@@ -183,6 +183,5 @@ DT_MACHINE_START(FSM9900_DT, "Qualcomm FSM 9900 (Flattened Device Tree)")
 	.dt_compat		= fsm9900_dt_match,
 	.reserve		= fsm9900_reserve,
 	.init_very_early	= fsm9900_init_very_early,
-	.restart		= msm_restart,
 	.smp			= &msm8974_smp_ops,
 MACHINE_END

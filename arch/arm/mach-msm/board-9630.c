@@ -96,5 +96,4 @@ DT_MACHINE_START(MDM9630_DT, "Qualcomm MDM 9630 (Flattened Device Tree)")
 	.dt_compat		= mdm9630_dt_match,
 	.reserve		= mdm9630_reserve,
 	.init_very_early	= mdm9630_early_memory,
-	.restart		= msm_restart,
 MACHINE_END
