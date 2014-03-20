@@ -479,7 +479,7 @@ static int msm_vidc_probe(struct platform_device *pdev)
 		mutex_lock(&vidc_driver->lock);
 		vidc_driver->num_cores--;
 		mutex_unlock(&vidc_driver->lock);
-		rc = PTR_ERR(core->device);
+		rc = PTR_ERR(core->device) ?: -EBADHANDLE;
 		if (rc != -EPROBE_DEFER)
 			dprintk(VIDC_ERR, "Failed to create HFI device\n");
 		else
