@@ -2573,8 +2573,7 @@ static void msm_ufs_advertise_quirks(struct ufs_hba *hba)
 		hba->quirks |= (UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
 			      | UFSHCD_QUIRK_BROKEN_INTR_AGGR
 			      | UFSHCD_BROKEN_GEAR_CHANGE_INTO_HS
-			      | UFSHCD_BROKEN_LCC_PROCESSING_ON_HOST
-			      | UFSHCD_BROKEN_LCC_PROCESSING_ON_DEVICE);
+			      | UFSHCD_BROKEN_LCC_PROCESSING_ON_HOST);
 
 		phy->quirks = MSM_UFS_PHY_QUIRK_CFG_RESTORE;
 	}
