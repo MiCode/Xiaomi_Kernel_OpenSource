@@ -1435,6 +1435,7 @@ static struct gpiomux_setting slave_select_setting = {
 	.dir = GPIOMUX_OUT_LOW,
 };
 
+#define CONFIG_LOAD_FREQ_MAX_HZ 25000000
 static int ice40_spi_cache_fw(struct ice40_hcd *ihcd)
 {
 	const struct firmware *fw;
@@ -1479,7 +1480,11 @@ static int ice40_spi_cache_fw(struct ice40_hcd *ihcd)
 	 */
 	ihcd->fmsg_xfr[0].tx_buf = buf;
 	ihcd->fmsg_xfr[0].len = buf_len;
-	ihcd->fmsg_xfr[0].speed_hz = 25000000;
+
+	if (ihcd->spi->max_speed_hz < CONFIG_LOAD_FREQ_MAX_HZ)
+		ihcd->fmsg_xfr[0].speed_hz = ihcd->spi->max_speed_hz;
+	else
+		ihcd->fmsg_xfr[0].speed_hz = CONFIG_LOAD_FREQ_MAX_HZ;
 
 	return 0;
 
