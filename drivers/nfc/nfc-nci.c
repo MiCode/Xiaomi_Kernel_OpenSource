@@ -95,6 +95,14 @@ struct qca199x_dev {
 	struct workqueue_struct *my_wq;
 };
 
+static int nfcc_reboot(struct notifier_block *notifier, unsigned long val,
+		      void *v);
+
+static struct notifier_block nfcc_notifier = {
+	.notifier_call	= nfcc_reboot,
+	.next			= NULL,
+	.priority		= 0
+};
 static int nfc_i2c_write(struct i2c_client *client, u8 *buf, int len);
 static int nfcc_hw_check(struct i2c_client *client, unsigned short curr_addr);
 static int nfcc_initialise(struct i2c_client *client, unsigned short curr_addr);
@@ -1266,6 +1274,13 @@ static int qca199x_probe(struct i2c_client *client,
 		goto err_free_dev;
 	}
 
+	/* Register reboot notifier here */
+	r = register_reboot_notifier(&nfcc_notifier);
+	if (r) {
+		pr_err("cannot register reboot notifier (err=%d)\n", r);
+		goto err_dis_gpio;
+	}
+
 	/* Guarantee that the NFCC starts in a clean state. */
 	gpio_set_value(platform_data->dis_gpio, 1);/* HPD */
 	usleep(200);
@@ -1561,25 +1576,11 @@ static int nfcc_reboot(struct notifier_block *notifier, unsigned long val,
 	return NOTIFY_OK;
 }
 
-
-static struct notifier_block nfcc_notifier = {
-	.notifier_call	= nfcc_reboot,
-	.next		= NULL,
-	.priority	= 0
-};
-
 /*
  * module load/unload record keeping
  */
 static int __init qca199x_dev_init(void)
 {
-	int ret;
-
-	ret = register_reboot_notifier(&nfcc_notifier);
-	if (ret) {
-		pr_err("cannot register reboot notifier (err=%d)\n", ret);
-		return ret;
-	}
 	return i2c_add_driver(&qca199x);
 }
 module_init(qca199x_dev_init);
