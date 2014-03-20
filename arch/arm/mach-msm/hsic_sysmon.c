@@ -411,6 +411,7 @@ static const struct usb_device_id hsic_sysmon_ids[] = {
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909C, 1), .driver_info = 0, },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909D, 1), .driver_info = 0, },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909E, 2), .driver_info = 0, },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909F, 1), .driver_info = 0, },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90A0, 1), .driver_info = 0, },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90A4, 2), .driver_info = 0, },
 
