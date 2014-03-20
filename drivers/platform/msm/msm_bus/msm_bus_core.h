@@ -90,10 +90,12 @@ struct msm_bus_node_info {
 	unsigned int prio_wr;
 	unsigned int prio1;
 	unsigned int prio0;
-	u64 th;
+	unsigned int num_thresh;
+	u64 *th;
+	u64 cur_lim_bw;
 	unsigned int mode_thresh;
 	bool dual_conf;
-	u64 bimc_bw;
+	u64 *bimc_bw;
 	u32 bimc_gp;
 	u32 bimc_thmp;
 	const char *name;
