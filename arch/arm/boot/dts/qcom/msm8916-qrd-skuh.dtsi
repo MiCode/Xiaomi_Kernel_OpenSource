@@ -49,6 +49,23 @@
 			  bias-pull-up;
 		};
 	};
+
+	pmx_tps_gpio_pin {
+		qcom,num-grp-pins = <2>;
+		qcom,pins = <&gp 32>, <&gp 97>;
+		qcom,pin-func = <0>;
+		label = "pmx_tps_operation";
+
+		tps_active: tps_active {
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+
+		tps_suspend: tps_suspend {
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+	};
 };
 
 &i2c_0 { /* BLSP1 QUP2 */
@@ -83,6 +100,16 @@
 		avago,als_C = <70>;
 		avago,als_D = <142>;
 		avago,ga_value = <48>;
+	};
+
+	tps@3e {
+		compatible = "ti,tps65132";
+		reg = <0x3e>;
+		pinctrl-names = "pmx_tps_active","pmx_tps_suspend";
+		pinctrl-0 = <&tps_active>;
+		pinctrl-1 = <&tps_suspend>;
+		ti,enn-gpio = <&msm_gpio 32 0x00>;
+		ti,enp-gpio = <&msm_gpio 97 0x00>;
 	};
 
 	st@18 {
