@@ -407,12 +407,7 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 		 * then power down the mdm and switch gpios to booting
 		 * config
 		 */
-		if (!wait_for_completion_timeout(&mdm->debug_done,
-				msecs_to_jiffies(mdm->dump_timeout_ms))) {
-			dev_err(mdm->dev, "ramdump collection timedout\n");
-			mdm->debug = 0;
-			return -ETIMEDOUT;
-		}
+		wait_for_completion(&mdm->debug_done);
 		if (mdm->debug_fail) {
 			dev_err(mdm->dev, "unable to collect ramdumps\n");
 			mdm->debug = 0;
@@ -507,7 +502,10 @@ static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
 		mdm_toggle_soft_reset(mdm);
 		break;
 	case ESOC_IMG_XFER_FAIL:
-		esoc_clink_evt_notify(ESOC_BOOT_FAIL, esoc);
+		esoc_clink_evt_notify(ESOC_INVALID_STATE, esoc);
+		break;
+	case ESOC_BOOT_FAIL:
+		esoc_clink_evt_notify(ESOC_INVALID_STATE, esoc);
 		break;
 	case ESOC_UPGRADE_AVAILABLE:
 		break;
