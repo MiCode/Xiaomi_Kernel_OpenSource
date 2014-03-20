@@ -922,7 +922,7 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len)
 				__func__, rc);
 			goto fail;
 		}
-	pr_debug("%s: Length = %x\n", __func__, len);
+	pr_debug("%s: Length = %zd\n", __func__, len);
 	client->lsm_cal_phy_addr = (pad_zero +
 				    client->sound_model.phys +
 				    client->sound_model.size);
