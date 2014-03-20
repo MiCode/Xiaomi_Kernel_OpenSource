@@ -91,6 +91,11 @@
 		qcom,direct-connect-irqs = <5>;
 	};
 
+	restart@fc4ab000 {
+		compatible = "qcom,pshold";
+		reg = <0xfc4ab000 0x4>;
+	};
+
 	timer {
 		compatible = "arm,armv7-timer";
 		interrupts = <1 2 0 1 3 0>;
