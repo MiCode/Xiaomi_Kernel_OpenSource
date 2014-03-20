@@ -729,7 +729,7 @@ static ssize_t ipa_read_stats(struct file *file, char __user *ubuf,
 			ipa_ctx->stats.stat_compl,
 			ipa_ctx->stats.aggr_close,
 			ipa_ctx->stats.wan_aggr_close,
-			ipa_ctx->ipa_active_clients,
+			ipa_ctx->ipa_active_clients.cnt,
 			connect);
 		cnt += nbytes;
 
@@ -755,7 +755,7 @@ static ssize_t ipa_read_stats(struct file *file, char __user *ubuf,
 			ipa_ctx->stats.rx_pkts,
 			ipa_ctx->stats.rx_repl_repost,
 			ipa_ctx->stats.rx_q_len,
-			ipa_ctx->ipa_active_clients,
+			ipa_ctx->ipa_active_clients.cnt,
 			connect);
 	cnt += nbytes;
 
