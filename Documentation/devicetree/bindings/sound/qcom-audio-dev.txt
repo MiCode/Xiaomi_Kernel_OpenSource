@@ -197,10 +197,21 @@ Required properties:
                                           is for 16khz
                                           2 - Linear quantization
 
- - qcom,msm-cpudai-auxpcm-slot:           Slot number for multichannel scenario
-                                          The first value is for 8khz mode the
-                                          second is for 16khz
-                                          Value is 1
+ - qcom,msm-cpudai-auxpcm-num-slots:      Number of slots per mode in the
+                                          msm-cpudai-auxpcm-slot-mapping
+                                          array.
+                                          The first value is for 8khz mode, the
+                                          second is for 16khz. Max number of
+                                          slots supported by DSP is 4, anything
+                                          above 4 will be truncated to 4 when
+                                          sent to DSP.
+
+ - qcom,msm-cpudai-auxpcm-slot-mapping:   Array of slot numbers for multi
+                                          slot scenario. The first array
+                                          is for 8khz mode, the second is
+                                          for 16khz. The size of the array
+                                          is determined by the value in
+                                          qcom,msm-cpudai-auxpcm-num-slots
 
  - qcom,msm-cpudai-auxpcm-data:           Data field - 0. The first value is
                                           for 8khz mode, the second is for
@@ -452,7 +463,8 @@ Example:
 		qcom,msm-cpudai-auxpcm-sync = <1>, <1>;
 		qcom,msm-cpudai-auxpcm-frame = <5>, <4>;
 		qcom,msm-cpudai-auxpcm-quant = <2>, <2>;
-		qcom,msm-cpudai-auxpcm-slot = <1>, <1>;
+		qcom,msm-cpudai-auxpcm-num-slots = <4>, <4>;
+		qcom,msm-cpudai-auxpcm-slot-mapping = <1 0 0 0>, <1 3 0 0>;
 		qcom,msm-cpudai-auxpcm-data = <0>, <0>;
 		qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>, <2048000>;
 		qcom,msm-auxpcm-interface = "primary";
