@@ -1208,8 +1208,6 @@ void kgsl_idle_check(struct work_struct *work)
 
 	mutex_lock(&device->mutex);
 
-	kgsl_pwrscale_update(device);
-
 	if (device->state == KGSL_STATE_ACTIVE
 		   || device->state ==  KGSL_STATE_NAP) {
 
@@ -1234,6 +1232,7 @@ void kgsl_idle_check(struct work_struct *work)
 		}
 	}
 
+	kgsl_pwrscale_update(device);
 	mutex_unlock(&device->mutex);
 }
 EXPORT_SYMBOL(kgsl_idle_check);
