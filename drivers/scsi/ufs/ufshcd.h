@@ -514,6 +514,16 @@ struct ufs_hba {
 	 */
 	#define UFSHCD_BROKEN_LCC			  (1 << 9)
 
+	/*
+	 * If UFS device is having issue in processing LCC (Line Control
+	 * Command) coming from UFS host controller then enable this quirk.
+	 * When this quirk is enabled, host controller driver should disable
+	 * the LCC transmission on UFS host controller (by clearing
+	 * TX_LCC_ENABLE attribute of host to 0).
+	 */
+	#define UFSHCD_BROKEN_LCC_PROCESSING_ON_DEVICE	  (1 << 11)
+
+
 	wait_queue_head_t tm_wq;
 	wait_queue_head_t tm_tag_wq;
 	unsigned long tm_condition;
