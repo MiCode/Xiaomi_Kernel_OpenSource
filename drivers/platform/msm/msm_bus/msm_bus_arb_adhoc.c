@@ -380,6 +380,13 @@ static int update_path(int src, int dest, uint64_t req_ib, uint64_t req_bw,
 	while (next_dev) {
 		dev_info = next_dev->platform_data;
 
+		if (curr_idx >= dev_info->num_lnodes) {
+			MSM_BUS_ERR("%s: Invalid lnode Idx %d num lnodes %d",
+			 __func__, curr_idx, dev_info->num_lnodes);
+			ret = -ENXIO;
+			goto exit_update_path;
+		}
+
 		lnode = &dev_info->lnode_list[curr_idx];
 		lnode->lnode_ib[ctx] = req_ib;
 		lnode->lnode_ab[ctx] = req_bw;
@@ -541,8 +548,8 @@ static void unregister_client_adhoc(uint32_t cl)
 	MSM_BUS_DBG("%s: Unregistering client %p", __func__, client);
 
 	for (i = 0; i < pdata->usecase->num_paths; i++) {
-		src = client->pdata->usecase[curr].vectors[0].src;
-		dest = client->pdata->usecase[curr].vectors[0].dst;
+		src = client->pdata->usecase[curr].vectors[i].src;
+		dest = client->pdata->usecase[curr].vectors[i].dst;
 
 		lnode = client->src_pnode[i];
 		cur_clk = client->pdata->usecase[curr].vectors[i].ib;
@@ -649,9 +656,9 @@ static uint32_t register_client_adhoc(struct msm_bus_scale_pdata *pdata)
 		MSM_BUS_ERR("%s: Error allocating pathnode ptr!", __func__);
 		goto exit_register_client;
 	}
+	client->src_pnode = lnode;
 
 	for (i = 0; i < pdata->usecase->num_paths; i++) {
-			client->src_pnode = lnode;
 		src = pdata->usecase->vectors[i].src;
 		dest = pdata->usecase->vectors[i].dst;
 
