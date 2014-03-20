@@ -488,6 +488,24 @@ static int32_t q6usm_callback(struct apr_client_data *data, void *priv)
 	}
 
 	switch (data->opcode) {
+	case RESET_EVENTS: {
+		pr_err("%s: Reset event is received: %d %d\n",
+				__func__,
+				data->reset_event,
+				data->reset_proc);
+
+		opcode = RESET_EVENTS;
+
+		apr_reset(this_mmap.apr);
+		this_mmap.apr = NULL;
+
+		apr_reset(usc->apr);
+		usc->apr = NULL;
+
+		break;
+	}
+
+
 	case USM_DATA_EVENT_READ_DONE: {
 		struct us_port_data *port = &usc->port[OUT];
 
