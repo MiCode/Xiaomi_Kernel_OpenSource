@@ -647,7 +647,8 @@ struct ipa_controller;
  * @ip6_flt_tbl_lcl: where ip6 flt tables reside 1-local; 0-system
  * @empty_rt_tbl_mem: empty routing tables memory
  * @power_mgmt_wq: workqueue for power management
- * @start_tag_process_again: indicates whether to start tag process again
+ * @tag_process_before_gating: indicates whether to start tag process before
+ *  gating IPA clocks
  * @pipe_mem_pool: pipe memory pool
  * @dma_pool: special purpose DMA pool
  * @ipa_active_clients: structure for reference counting connected IPA clients
@@ -707,7 +708,7 @@ struct ipa_context {
 	struct dma_pool *dma_pool;
 	struct ipa_active_clients ipa_active_clients;
 	struct workqueue_struct *power_mgmt_wq;
-	bool start_tag_process_again;
+	bool tag_process_before_gating;
 	u32 clnt_hdl_cmd;
 	u32 clnt_hdl_data_in;
 	u32 clnt_hdl_data_out;
