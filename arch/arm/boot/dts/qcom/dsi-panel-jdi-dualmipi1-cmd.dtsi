@@ -48,7 +48,7 @@
 		qcom,mdss-dsi-lane-3-state;
 		qcom,mdss-dsi-panel-timings = [cd 32 22 00 60 64 26 34 29 03
 									04 00];
-		qcom,mdss-dsi-reset-sequence = <1 20>, <0 200>, <1 20>;
+		qcom,mdss-dsi-reset-sequence = <1 10>, <0 10>, <1 10>;
 		qcom,mdss-dsi-t-clk-post = <0x03>;
 		qcom,mdss-dsi-t-clk-pre = <0x27>;
 		qcom,mdss-dsi-bl-max-level = <4095>;
