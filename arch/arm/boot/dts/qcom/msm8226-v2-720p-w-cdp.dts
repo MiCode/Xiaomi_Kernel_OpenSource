@@ -30,3 +30,11 @@
 	/* cont_splash memory*/
 	qcom,memblock-reserve = <0x04200000 0x64000>;
 };
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_nt35590_qvga_cmd>;
+};
+
+&dsi_nt35590_qvga_cmd {
+	qcom,cont-splash-enabled;
+};
