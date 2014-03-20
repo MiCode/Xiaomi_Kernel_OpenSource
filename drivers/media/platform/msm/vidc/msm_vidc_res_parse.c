@@ -13,7 +13,6 @@
 
 #include <linux/of.h>
 #include <linux/slab.h>
-#include <mach/board.h>
 #include "msm_vidc_resources.h"
 #include "msm_vidc_debug.h"
 #include "msm_vidc_res_parse.h"
@@ -720,46 +719,5 @@ err_load_bus_vectors:
 err_load_reg_table:
 	msm_vidc_free_freq_table(res);
 err_load_freq_table:
-	return rc;
-}
-
-int read_platform_resources_from_board(
-		struct msm_vidc_platform_resources *res)
-{
-	struct resource *kres = NULL;
-	struct platform_device *pdev = res->pdev;
-	struct msm_vidc_v4l2_platform_data *pdata = pdev->dev.platform_data;
-	int c = 0, rc = 0;
-
-	if (!pdata) {
-		dprintk(VIDC_ERR, "Platform data not found\n");
-		return -ENOENT;
-	}
-
-	res->firmware_base = 0x0;
-
-	kres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	res->register_base = kres ? kres->start : -1;
-	res->register_size = kres ? (kres->end + 1 - kres->start) : -1;
-
-	kres = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	res->irq = kres ? kres->start : -1;
-
-	res->load_freq_tbl = devm_kzalloc(&pdev->dev, pdata->num_load_table *
-			sizeof(*res->load_freq_tbl), GFP_KERNEL);
-
-	if (!res->load_freq_tbl) {
-		dprintk(VIDC_ERR, "%s Failed to alloc load_freq_tbl\n",
-				__func__);
-		return -ENOMEM;
-	}
-
-	res->load_freq_tbl_size = pdata->num_load_table;
-	for (c = 0; c > pdata->num_load_table; ++c) {
-		res->load_freq_tbl[c].load = pdata->load_table[c][0];
-		res->load_freq_tbl[c].freq = pdata->load_table[c][1];
-	}
-
-	res->max_load = pdata->max_load;
 	return rc;
 }
