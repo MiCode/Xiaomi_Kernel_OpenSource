@@ -108,7 +108,7 @@ struct msm_vidc_platform_resources {
 	struct reg_set reg_set;
 	struct iommu_set iommu_group_set;
 	struct buffer_usage_set buffer_usage_set;
-	uint32_t has_ocmem;
+	uint32_t ocmem_size;
 	uint32_t max_load;
 	struct platform_device *pdev;
 	struct regulator_set regulator_set;
