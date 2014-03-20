@@ -902,7 +902,7 @@ static int mdss_dsi_dfps_config(struct mdss_panel_data *pdata, int new_fps)
 			vsync_period =
 				mdss_panel_get_vtotal(&pdata->panel_info);
 			hsync_period =
-				mdss_panel_get_htotal(&pdata->panel_info);
+				mdss_panel_get_htotal(&pdata->panel_info, true);
 			current_dsi_v_total =
 				MIPI_INP((ctrl_pdata->ctrl_base) + 0x2C);
 			new_dsi_v_total =
