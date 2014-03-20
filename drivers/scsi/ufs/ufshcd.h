@@ -641,6 +641,17 @@ struct ufs_hba {
 	 */
 	#define UFSHCD_BROKEN_LCC				UFS_BIT(11)
 
+	/*
+	 * If UFS device is having issue in processing LCC (Line Control
+	 * Command) coming from UFS host controller then enable this quirk.
+	 * When this quirk is enabled, host controller driver should disable
+	 * the LCC transmission on UFS host controller (by clearing
+	 * TX_LCC_ENABLE attribute of host to 0).
+	 */
+	#define UFSHCD_BROKEN_LCC_PROCESSING_ON_DEVICE		UFS_BIT(12)
+
+	#define UFSHCD_BROKEN_LCC_PROCESSING_ON_HOST		UFS_BIT(13)
+
 	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
 
 	/* Device deviations from standard UFS device spec. */

@@ -4205,6 +4205,11 @@ static int ufshcd_disable_tx_lcc(struct ufs_hba *hba, bool peer)
 	return err;
 }
 
+static inline int ufshcd_disable_host_tx_lcc(struct ufs_hba *hba)
+{
+	return ufshcd_disable_tx_lcc(hba, false);
+}
+
 static inline int ufshcd_disable_device_tx_lcc(struct ufs_hba *hba)
 {
 	return ufshcd_disable_tx_lcc(hba, true);
@@ -4255,43 +4260,20 @@ link_startup:
 			goto out;
 	} while (ret && retries--);
 
-	if (ret) {
+	if (ret)
 		/* failed to get the link up... retire */
 		goto out;
-	} else if (hba->quirks & UFSHCD_BROKEN_LCC) {
-		ufshcd_dme_set(hba, UIC_ARG_MIB(TX_LCC_ENABLE), 0);
-		ufshcd_dme_set(hba, UIC_ARG_MIB(TX_LCC_ENABLE), 1);
 
-		/*
-		 * Disabling the TX_LCC_ENABLE in the Host and in the Device.
-		 * As disabling operation is done for each lane, the number of
-		 * TX Connected Lanes should be read separately from host and
-		 * from Device and then, apply the disable command on every
-		 * lane, on both, Host and Device
-		 */
-		ufshcd_dme_get(hba,
-			UIC_ARG_MIB(PA_CONNECTEDTXDATALANES), &hc_tx_lanes);
+	if (hba->quirks & UFSHCD_BROKEN_LCC_PROCESSING_ON_HOST) {
+		ret = ufshcd_disable_device_tx_lcc(hba);
+		if (ret)
+			goto out;
+	}
 
-		ufshcd_dme_peer_get(hba,
-				    UIC_ARG_MIB(PA_CONNECTEDTXDATALANES),
-				    &device_tx_lanes);
-
-		for (i = 0; i < hc_tx_lanes; ++i) {
-			err = ufshcd_dme_set(hba,
-				UIC_ARG_MIB_SEL(TX_LCC_ENABLE, i), 0);
-			if (err)
-				dev_err(hba->dev, "%s: Disable TX_LCC_ENABLE (Host) failed, lane = %d, err = %d",
-					__func__, i, err);
-		}
-
-		for (i = 0; i < device_tx_lanes; ++i) {
-			err = ufshcd_dme_peer_set(hba,
-				UIC_ARG_MIB_SEL(TX_LCC_ENABLE, i), 0);
-			if (err)
-				dev_err(hba->dev, "%s: Disable TX_LCC_ENABLE (Device) failed, lane = %d, err = %d",
-					__func__, i, err);
-		}
-
+	if (hba->quirks & UFSHCD_BROKEN_LCC_PROCESSING_ON_DEVICE) {
+		ret = ufshcd_disable_host_tx_lcc(hba);
+		if (ret)
+			goto out;
 	}
 
 	if (link_startup_again) {
