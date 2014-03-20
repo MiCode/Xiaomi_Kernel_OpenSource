@@ -434,7 +434,9 @@ struct tomtom_priv {
 
 	int (*machine_codec_event_cb)(struct snd_soc_codec *codec,
 			enum wcd9xxx_codec_event);
-
+	int (*codec_ext_clk_en_cb)(struct snd_soc_codec *codec,
+			int enable, bool dapm);
+	int (*codec_get_ext_clk_cnt) (void);
 	/*
 	 * list used to save/restore registers at start and
 	 * end of impedance measurement
@@ -2434,6 +2436,50 @@ static int tomtom_codec_enable_adc(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+/* tomtom_codec_internal_rco_ctrl( )
+ * Make sure that BG_CLK_LOCK is not acquired. Exit if acquired to avoid
+ * potential deadlock as ext_clk_en_cb() also tries to acquire the same
+ * lock to enable MCLK for RCO calibration
+ */
+static int tomtom_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
+					  bool enable)
+{
+	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
+
+	if (mutex_is_locked(&tomtom->resmgr.codec_bg_clk_lock)) {
+		dev_err(codec->dev, "%s: BG_CLK already acquired\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	if (enable) {
+		if (wcd9xxx_resmgr_get_clk_type(&tomtom->resmgr) ==
+		    WCD9XXX_CLK_RCO) {
+			WCD9XXX_BG_CLK_LOCK(&tomtom->resmgr);
+			wcd9xxx_resmgr_get_clk_block(&tomtom->resmgr,
+						     WCD9XXX_CLK_RCO);
+			WCD9XXX_BG_CLK_UNLOCK(&tomtom->resmgr);
+		} else {
+			tomtom->codec_ext_clk_en_cb(codec, true, false);
+			WCD9XXX_BG_CLK_LOCK(&tomtom->resmgr);
+			tomtom->resmgr.ext_clk_users =
+					tomtom->codec_get_ext_clk_cnt();
+			wcd9xxx_resmgr_get_clk_block(&tomtom->resmgr,
+						     WCD9XXX_CLK_RCO);
+			WCD9XXX_BG_CLK_UNLOCK(&tomtom->resmgr);
+			tomtom->codec_ext_clk_en_cb(codec, false, false);
+		}
+
+	} else {
+		WCD9XXX_BG_CLK_LOCK(&tomtom->resmgr);
+		wcd9xxx_resmgr_put_clk_block(&tomtom->resmgr,
+					     WCD9XXX_CLK_RCO);
+		WCD9XXX_BG_CLK_UNLOCK(&tomtom->resmgr);
+	}
+
+	return 0;
+}
+
 static int tomtom_codec_enable_aux_pga(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
@@ -2447,8 +2493,10 @@ static int tomtom_codec_enable_aux_pga(struct snd_soc_dapm_widget *w,
 		WCD9XXX_BG_CLK_LOCK(&tomtom->resmgr);
 		wcd9xxx_resmgr_get_bandgap(&tomtom->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
+		WCD9XXX_BG_CLK_UNLOCK(&tomtom->resmgr);
 		/* AUX PGA requires RCO or MCLK */
-		wcd9xxx_resmgr_get_clk_block(&tomtom->resmgr, WCD9XXX_CLK_RCO);
+		tomtom_codec_internal_rco_ctrl(codec, true);
+		WCD9XXX_BG_CLK_LOCK(&tomtom->resmgr);
 		wcd9xxx_resmgr_enable_rx_bias(&tomtom->resmgr, 1);
 		WCD9XXX_BG_CLK_UNLOCK(&tomtom->resmgr);
 		break;
@@ -2456,9 +2504,11 @@ static int tomtom_codec_enable_aux_pga(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMD:
 		WCD9XXX_BG_CLK_LOCK(&tomtom->resmgr);
 		wcd9xxx_resmgr_enable_rx_bias(&tomtom->resmgr, 0);
+		WCD9XXX_BG_CLK_UNLOCK(&tomtom->resmgr);
+		tomtom_codec_internal_rco_ctrl(codec, false);
+		WCD9XXX_BG_CLK_LOCK(&tomtom->resmgr);
 		wcd9xxx_resmgr_put_bandgap(&tomtom->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
-		wcd9xxx_resmgr_put_clk_block(&tomtom->resmgr, WCD9XXX_CLK_RCO);
 		WCD9XXX_BG_CLK_UNLOCK(&tomtom->resmgr);
 		break;
 	}
@@ -3100,13 +3150,11 @@ static int __tomtom_codec_enable_ldo_h(struct snd_soc_dapm_widget *w,
 			WCD9XXX_BG_CLK_LOCK(&priv->resmgr);
 			wcd9xxx_resmgr_get_bandgap(&priv->resmgr,
 						   WCD9XXX_BANDGAP_AUDIO_MODE);
-			wcd9xxx_resmgr_get_clk_block(&priv->resmgr,
-						     WCD9XXX_CLK_RCO);
+			WCD9XXX_BG_CLK_UNLOCK(&priv->resmgr);
+			tomtom_codec_internal_rco_ctrl(codec, true);
 			snd_soc_update_bits(codec, TOMTOM_A_LDO_H_MODE_1,
 					    1 << 7, 1 << 7);
-			wcd9xxx_resmgr_put_clk_block(&priv->resmgr,
-						     WCD9XXX_CLK_RCO);
-			WCD9XXX_BG_CLK_UNLOCK(&priv->resmgr);
+			tomtom_codec_internal_rco_ctrl(codec, false);
 			pr_debug("%s: ldo_h_users %d\n", __func__,
 				 priv->ldo_h_users);
 			/* LDO enable requires 1ms to settle down */
@@ -3115,13 +3163,11 @@ static int __tomtom_codec_enable_ldo_h(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (--priv->ldo_h_users == 0) {
-			WCD9XXX_BG_CLK_LOCK(&priv->resmgr);
-			wcd9xxx_resmgr_get_clk_block(&priv->resmgr,
-						     WCD9XXX_CLK_RCO);
+			tomtom_codec_internal_rco_ctrl(codec, true);
 			snd_soc_update_bits(codec, TOMTOM_A_LDO_H_MODE_1,
 					    1 << 7, 0);
-			wcd9xxx_resmgr_put_clk_block(&priv->resmgr,
-						     WCD9XXX_CLK_RCO);
+			tomtom_codec_internal_rco_ctrl(codec, false);
+			WCD9XXX_BG_CLK_LOCK(&priv->resmgr);
 			wcd9xxx_resmgr_put_bandgap(&priv->resmgr,
 						   WCD9XXX_BANDGAP_AUDIO_MODE);
 			WCD9XXX_BG_CLK_UNLOCK(&priv->resmgr);
@@ -6518,6 +6564,18 @@ void tomtom_event_register(
 	tomtom->machine_codec_event_cb = machine_event_cb;
 }
 EXPORT_SYMBOL(tomtom_event_register);
+
+void tomtom_register_ext_clk_cb(
+	int (*codec_ext_clk_en)(struct snd_soc_codec *codec,
+				int enable, bool dapm),
+	int (*get_ext_clk_cnt) (void),
+	struct snd_soc_codec *codec)
+{
+	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
+	tomtom->codec_ext_clk_en_cb =  codec_ext_clk_en;
+	tomtom->codec_get_ext_clk_cnt = get_ext_clk_cnt;
+}
+EXPORT_SYMBOL(tomtom_register_ext_clk_cb);
 
 static void tomtom_init_slim_slave_cfg(struct snd_soc_codec *codec)
 {

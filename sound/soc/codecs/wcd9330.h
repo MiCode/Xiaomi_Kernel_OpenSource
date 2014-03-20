@@ -111,5 +111,9 @@ extern void tomtom_event_register(
 	int (*machine_event_cb)(struct snd_soc_codec *codec,
 				enum wcd9xxx_codec_event),
 	struct snd_soc_codec *codec);
-
+extern void tomtom_register_ext_clk_cb(
+	int (*codec_ext_clk_en)(struct snd_soc_codec *codec,
+				int enable, bool dapm),
+	int (*get_ext_clk_cnt) (void),
+	struct snd_soc_codec *codec);
 #endif

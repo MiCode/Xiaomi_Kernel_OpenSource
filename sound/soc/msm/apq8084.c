@@ -1649,6 +1649,11 @@ static int apq8084_codec_event_cb(struct snd_soc_codec *codec,
 	}
 }
 
+static int msm_snd_get_ext_clk_cnt(void)
+{
+	return clk_users;
+}
+
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int err;
@@ -1818,10 +1823,14 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		goto out;
 	}
 
-	if (cdc_type)
+	if (cdc_type) {
 		tomtom_event_register(apq8084_codec_event_cb, rtd->codec);
-	else
+		tomtom_register_ext_clk_cb(msm_snd_enable_codec_ext_clk,
+					   msm_snd_get_ext_clk_cnt,
+					   rtd->codec);
+	} else
 		taiko_event_register(apq8084_codec_event_cb, rtd->codec);
+
 	codec_reg_done = true;
 	return 0;
 out:
