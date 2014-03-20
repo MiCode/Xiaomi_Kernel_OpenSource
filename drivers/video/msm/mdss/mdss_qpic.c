@@ -96,8 +96,7 @@ static int msm_qpic_bus_set_vote(u32 vote)
 	return ret;
 }
 
-static void mdss_qpic_pan_display(struct msm_fb_data_type *mfd,
-		struct mdp_overlay *req, int image_len, int *pipe_ndx)
+static void mdss_qpic_pan_display(struct msm_fb_data_type *mfd)
 {
 
 	struct fb_info *fbi;
