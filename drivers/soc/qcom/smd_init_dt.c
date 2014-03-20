@@ -233,7 +233,7 @@ static int msm_smd_probe(struct platform_device *pdev)
 	 * still list the legacy pil-string.  Sanely handle pil-string.
 	 */
 	if (!subsys_name) {
-		pr_warn("Missing required property - label.  Using legacy parsing\n");
+		pr_warn("msm_smd: Missing required property - label. Using legacy parsing\n");
 		key = "qcom,pil-string";
 		subsys_name = of_get_property(node, key, NULL);
 		SMD_DBG("%s: %s = %s", __func__, key, subsys_name);
