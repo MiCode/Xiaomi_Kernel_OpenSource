@@ -983,13 +983,17 @@ Example:
 * APQ8084 ASoC Machine driver
 
 Required properties:
-- compatible : "qcom,apq8084-audio-taiko"
+- compatible : "qcom,apq8084-audio-taiko" or "qcom,apq8084-audio-tomtom"
 - qcom,model : The user-visible name of this sound card.
 - qcom,audio-routing : A list of the connections between audio components.
   Each entry is a pair of strings, the first being the connection's sink,
   the second being the connection's source.
 - qcom,taiko-mclk-clk-freq : Taiko mclk Freq in Hz. currently only 9600000Hz
-				is supported.
+				is supported. This property is required when
+				compatible field is "qcom,apq8084-audio-taiko"
+- qcom,tomtom-mclk-clk-freq : TomTom mclk Freq in Hz. currently only 9600000Hz
+				is supported. This property is required when
+				compatible field is "qcom,apq8084-audio-tomtom"
 - qcom,prim-auxpcm-gpio-clk  : GPIO on which Primary AUXPCM clk signal is coming.
 - qcom,prim-auxpcm-gpio-sync : GPIO on which Primary AUXPCM SYNC signal is coming.
 - qcom,prim-auxpcm-gpio-din  : GPIO on which Primary AUXPCM DIN signal is coming.
