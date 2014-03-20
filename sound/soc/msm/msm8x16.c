@@ -42,6 +42,8 @@
 static int msm_btsco_rate = BTSCO_RATE_8KHZ;
 static int msm_btsco_ch = 1;
 
+static int msm_ter_mi2s_tx_ch = 1;
+
 static int msm_proxy_rx_ch = 2;
 static int msm8x16_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm);
@@ -132,6 +134,7 @@ static const struct snd_soc_dapm_widget msm8x16_dapm_widgets[] = {
 };
 
 static char const *rx_bit_format_text[] = {"S16_LE", "S24_LE"};
+static const char *const ter_mi2s_tx_ch_text[] = {"One", "Two"};
 
 static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				struct snd_pcm_hw_params *params)
@@ -228,6 +231,39 @@ static int msm_proxy_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+static int msm_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+				struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_RATE);
+	struct snd_interval *channels = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	pr_debug("%s(), channel:%d\n", __func__, msm_ter_mi2s_tx_ch);
+	rate->min = rate->max = 48000;
+	channels->min = channels->max = msm_ter_mi2s_tx_ch;
+
+	return 0;
+}
+
+static int msm_ter_mi2s_tx_ch_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_ter_mi2s_tx_ch  = %d\n", __func__,
+		 msm_ter_mi2s_tx_ch);
+	ucontrol->value.integer.value[0] = msm_ter_mi2s_tx_ch - 1;
+	return 0;
+}
+
+static int msm_ter_mi2s_tx_ch_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	msm_ter_mi2s_tx_ch = ucontrol->value.integer.value[0] + 1;
+
+	pr_debug("%s: msm_ter_mi2s_tx_ch = %d\n", __func__, msm_ter_mi2s_tx_ch);
+	return 1;
+}
+
 static int msm_mi2s_snd_hw_params(struct snd_pcm_substream *substream,
 			     struct snd_pcm_hw_params *params)
 {
@@ -307,11 +343,14 @@ static int msm8x16_enable_codec_ext_clk(struct snd_soc_codec *codec,
 
 static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, rx_bit_format_text),
+	SOC_ENUM_SINGLE_EXT(2, ter_mi2s_tx_ch_text),
 };
 
 static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("MI2S_RX Format", msm_snd_enum[0],
 			mi2s_rx_bit_format_get, mi2s_rx_bit_format_put),
+	SOC_ENUM_EXT("MI2S_TX Channels", msm_snd_enum[1],
+			msm_ter_mi2s_tx_ch_get, msm_ter_mi2s_tx_ch_put),
 
 };
 
@@ -685,7 +724,7 @@ static struct snd_soc_dai_link msm8x16_dai[] = {
 		.codec_dai_name = "msm8x16_wcd_i2s_tx1",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_TERTIARY_MI2S_TX,
-		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.be_hw_params_fixup = msm_tx_be_hw_params_fixup,
 		.ops = &msm8x16_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
