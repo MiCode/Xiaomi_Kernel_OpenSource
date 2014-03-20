@@ -173,7 +173,7 @@ int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 		break;
 	}
 
-	h_period = mdss_panel_get_htotal(panel_info);
+	h_period = mdss_panel_get_htotal(panel_info, true);
 	v_period = mdss_panel_get_vtotal(panel_info);
 
 	if ((frame_rate !=

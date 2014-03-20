@@ -421,15 +421,25 @@ static inline int mdss_panel_get_vtotal(struct mdss_panel_info *pinfo)
 /*
  * mdss_panel_get_htotal() - return panel horizontal width
  * @pinfo:	Pointer to panel info containing all panel information
+ * @consider_fbc: true to factor fbc settings, false to ignore.
  *
  * Returns the total width of the panel including any blanking regions
- * which are not visible to user but used for calculations.
+ * which are not visible to user but used for calculations. For certain
+ * usescases where the fbc parameters need to be ignored like bandwidth
+ * calculation, the appropriate flag can be passed.
  */
-static inline int mdss_panel_get_htotal(struct mdss_panel_info *pinfo)
+static inline int mdss_panel_get_htotal(struct mdss_panel_info *pinfo, bool
+		consider_fbc)
 {
-	return pinfo->xres + pinfo->lcdc.h_back_porch +
-			pinfo->lcdc.h_front_porch +
-			pinfo->lcdc.h_pulse_width;
+	int adj_xres = pinfo->xres;
+
+	if (consider_fbc && pinfo->fbc.enabled)
+		adj_xres = mult_frac(pinfo->xres,
+				pinfo->fbc.target_bpp, pinfo->bpp);
+
+	return adj_xres + pinfo->lcdc.h_back_porch +
+		pinfo->lcdc.h_front_porch +
+		pinfo->lcdc.h_pulse_width;
 }
 
 int mdss_register_panel(struct platform_device *pdev,
