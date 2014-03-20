@@ -327,7 +327,8 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x026)
 #define HFI_PROPERTY_PARAM_VENC_DISABLE_RC_TIMESTAMP \
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x027)
-
+#define HFI_PROPERTY_PARAM_VENC_INITIAL_QP	\
+	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x028)
 
 #define HFI_PROPERTY_CONFIG_VENC_COMMON_START				\
 	(HFI_DOMAIN_BASE_VENC + HFI_ARCH_COMMON_OFFSET + 0x6000)
@@ -541,6 +542,13 @@ struct hfi_quantization {
 	u32 qp_p;
 	u32 qp_b;
 	u32 layer_id;
+};
+
+struct hfi_initial_quantization {
+	u32 qp_i;
+	u32 qp_p;
+	u32 qp_b;
+	u32 init_qp_enable;
 };
 
 struct hfi_quantization_range {
