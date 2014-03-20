@@ -1324,7 +1324,7 @@ static int mdss_mdp_ctl_fbc_enable(int enable,
 
 		lossy_mode = ((fbc->lossless_mode_thd) << 16) |
 			((fbc->lossy_mode_thd) << 8) |
-			((fbc->lossy_rgb_thd) << 3) | fbc->lossy_mode_idx;
+			((fbc->lossy_rgb_thd) << 4) | fbc->lossy_mode_idx;
 	}
 
 	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_FBC_MODE, mode);
