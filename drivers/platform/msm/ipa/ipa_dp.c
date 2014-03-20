@@ -1641,31 +1641,29 @@ begin:
 		}
 		IPA_STATS_EXCP_CNT(status->exception,
 				ipa_ctx->stats.rx_excp_pkts);
-		if (status->status_mask & IPA_HW_PKT_STATUS_MASK_TAG_VALID) {
-			struct completion *comp;
-			IPADBG("TAG packet arrived\n");
-			if (status->tag_f_2 != IPA_COOKIE) {
-				IPAERR("TAG arrived with wrong cookie\n");
-				skb_pull(skb, IPA_PKT_STATUS_SIZE);
-				continue;
-			}
-			skb_pull(skb, IPA_PKT_STATUS_SIZE);
-			if (skb->len < sizeof(comp)) {
-				IPAERR("TAG arrived without packet\n");
-				return rc;
-			}
-
-			memcpy(&comp, skb->data, sizeof(comp));
-			skb_pull(skb, sizeof(comp));
-			complete(comp);
-			continue;
-		}
 		if (status->endp_dest_idx >= IPA_NUM_PIPES ||
 			status->endp_src_idx >= IPA_NUM_PIPES ||
 			status->pkt_len > IPA_GENERIC_AGGR_BYTE_LIMIT * 1024) {
 			IPAERR("status fields invalid\n");
 			WARN_ON(1);
 			BUG();
+		}
+		if (status->status_mask & IPA_HW_PKT_STATUS_MASK_TAG_VALID) {
+			struct completion *comp;
+			IPADBG("TAG packet arrived\n");
+			if (status->tag_f_2 == IPA_COOKIE) {
+				skb_pull(skb, IPA_PKT_STATUS_SIZE);
+				if (skb->len < sizeof(comp)) {
+					IPAERR("TAG arrived without packet\n");
+					return rc;
+				}
+				memcpy(&comp, skb->data, sizeof(comp));
+				skb_pull(skb, sizeof(comp));
+				complete(comp);
+				continue;
+			} else {
+				IPADBG("ignoring TAG with wrong cookie\n");
+			}
 		}
 		if (status->pkt_len == 0) {
 			IPADBG("Skip aggr close status\n");
