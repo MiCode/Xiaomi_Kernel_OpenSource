@@ -483,11 +483,13 @@ struct ufs_hba {
 	#define UFSHCD_QUIRK_BROKEN_2_TX_LANES            (1 << 8)
 
 	/*
-	 * If LCC (Line Control Command) are having issue on the host
-	 * controller then enable this quirk. Note that connected UFS device
-	 * should also have workaround to not expect LCC commands from host.
+	 * If UFS host controller is having issue in processing LCC (Line
+	 * Control Command) coming from device then enable this quirk.
+	 * When this quirk is enabled, host controller driver should disable
+	 * the LCC transmission on UFS device (by clearing TX_LCC_ENABLE
+	 * attribute of device to 0).
 	 */
-	#define UFSHCD_BROKEN_LCC			  (1 << 9)
+	#define UFSHCD_BROKEN_LCC_PROCESSING_ON_HOST	  (1 << 9)
 
 	/*
 	 * The attribute PA_RXHSUNTERMCAP specifies whether or not the
@@ -495,6 +497,16 @@ struct ufs_hba {
 	 * attribute to 1 fixes moving to HS gear.
 	 */
 	#define UFSHCD_BROKEN_GEAR_CHANGE_INTO_HS        (1 << 10)
+
+	/*
+	 * If UFS device is having issue in processing LCC (Line Control
+	 * Command) coming from UFS host controller then enable this quirk.
+	 * When this quirk is enabled, host controller driver should disable
+	 * the LCC transmission on UFS host controller (by clearing
+	 * TX_LCC_ENABLE attribute of host to 0).
+	 */
+	#define UFSHCD_BROKEN_LCC_PROCESSING_ON_DEVICE	  (1 << 11)
+
 
 	wait_queue_head_t tm_wq;
 	wait_queue_head_t tm_tag_wq;

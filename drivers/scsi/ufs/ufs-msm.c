@@ -2567,12 +2567,14 @@ static void msm_ufs_advertise_quirks(struct ufs_hba *hba)
 			      | UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
 			      | UFSHCD_QUIRK_BROKEN_2_TX_LANES
 			      | UFSHCD_QUIRK_BROKEN_SUSPEND
-			      | UFSHCD_BROKEN_LCC);
+			      | UFSHCD_BROKEN_LCC_PROCESSING_ON_HOST
+			      | UFSHCD_BROKEN_LCC_PROCESSING_ON_DEVICE);
 	} else if ((major == 0x1) && (minor == 0x001) && (step == 0x0001)) {
 		hba->quirks |= (UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
 			      | UFSHCD_QUIRK_BROKEN_INTR_AGGR
 			      | UFSHCD_BROKEN_GEAR_CHANGE_INTO_HS
-			      | UFSHCD_BROKEN_LCC);
+			      | UFSHCD_BROKEN_LCC_PROCESSING_ON_HOST
+			      | UFSHCD_BROKEN_LCC_PROCESSING_ON_DEVICE);
 
 		phy->quirks = MSM_UFS_PHY_QUIRK_CFG_RESTORE;
 	}
