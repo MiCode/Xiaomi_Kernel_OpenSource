@@ -300,6 +300,7 @@ static int diagchar_close(struct inode *inode, struct file *file)
 		driver->logging_mode = USB_MODE;
 		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN);
 		diagfwd_connect();
+		diag_ws_reset();
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 		diag_clear_hsic_tbl();
 		diagfwd_cancel_hsic(REOPEN_HSIC);
@@ -636,10 +637,9 @@ drop:
 	}
 
 	entry->in_service = 0;
-	mutex_unlock(&entry->write_buf_mutex);
-
 	exit_stat = 0;
 exit:
+	mutex_unlock(&entry->write_buf_mutex);
 	*pret = ret;
 
 	return exit_stat;
@@ -1145,8 +1145,8 @@ static int diagchar_read(struct file *file, char __user *buf, size_t count,
 	int num_data = 0, data_type;
 	int remote_token;
 	int exit_stat;
-	int clear_read_wakelock;
 	unsigned long flags;
+	int copy_data = 0;
 
 	for (i = 0; i < driver->num_clients; i++)
 		if (driver->client_map[i].pid == current->tgid)
@@ -1164,7 +1164,6 @@ static int diagchar_read(struct file *file, char __user *buf, size_t count,
 
 	mutex_lock(&driver->diagchar_mutex);
 
-	clear_read_wakelock = 0;
 	if ((driver->data_ready[index] & USER_SPACE_DATA_TYPE) && (driver->
 					logging_mode == MEMORY_DEVICE_MODE)) {
 		remote_token = 0;
@@ -1225,10 +1224,8 @@ drop:
 				COPY_USER_SPACE_OR_EXIT(buf+ret,
 					*(data->buf_in_1),
 					data->write_ptr_1->length);
-				if (!driver->real_time_mode) {
-					process_lock_on_copy(&data->nrt_lock);
-					clear_read_wakelock++;
-				}
+				diag_ws_on_copy();
+				copy_data = 1;
 				spin_lock_irqsave(&data->in_busy_lock, flags);
 				data->in_busy_1 = 0;
 				spin_unlock_irqrestore(&data->in_busy_lock,
@@ -1243,10 +1240,8 @@ drop:
 				COPY_USER_SPACE_OR_EXIT(buf+ret,
 					*(data->buf_in_2),
 					data->write_ptr_2->length);
-				if (!driver->real_time_mode) {
-					process_lock_on_copy(&data->nrt_lock);
-					clear_read_wakelock++;
-				}
+				diag_ws_on_copy();
+				copy_data = 1;
 				spin_lock_irqsave(&data->in_busy_lock, flags);
 				data->in_busy_2 = 0;
 				spin_unlock_irqrestore(&data->in_busy_lock,
@@ -1434,12 +1429,18 @@ drop:
 		goto exit;
 	}
 exit:
-	if (clear_read_wakelock) {
-		for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++)
-			process_lock_on_copy_complete(
-				&driver->smd_data[i].nrt_lock);
-	}
 	mutex_unlock(&driver->diagchar_mutex);
+	if (copy_data) {
+		/*
+		 * Flush any work that is currently pending on the data
+		 * channels. This will ensure that the next read is not
+		 * missed.
+		 */
+		for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++)
+			flush_workqueue(driver->smd_data[i].wq);
+		wake_up(&driver->smd_wait_q);
+		diag_ws_on_copy_complete();
+	}
 	return ret;
 }
 
