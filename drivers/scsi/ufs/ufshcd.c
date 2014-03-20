@@ -2055,10 +2055,8 @@ static int ufshcd_read_desc_param(struct ufs_hba *hba,
 				      desc_id, desc_index, 0, desc_buf,
 				      &buff_len);
 
-	if (ret || (buff_len < ufs_query_desc_max_size[desc_id]) ||
-	    (desc_buf[QUERY_DESC_LENGTH_OFFSET] !=
-	     ufs_query_desc_max_size[desc_id])
-	    || (desc_buf[QUERY_DESC_DESC_TYPE_OFFSET] != desc_id)) {
+	if (ret || (buff_len != desc_buf[QUERY_DESC_LENGTH_OFFSET]) ||
+			(desc_buf[QUERY_DESC_DESC_TYPE_OFFSET] != desc_id)) {
 		dev_err(hba->dev, "%s: Failed reading descriptor. desc_id %d, param_offset %d, buff_len %d ,index %d, ret %d",
 			__func__, desc_id, param_offset, buff_len,
 			desc_index, ret);
