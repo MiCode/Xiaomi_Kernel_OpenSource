@@ -504,11 +504,11 @@
 	};
 
 	msm_vidc: qcom,vidc@fdc00000 {
-		  compatible = "qcom,msm-vidc";
-		  reg = <0xfdc00000 0xff000>;
-		  interrupts = <0 44 0>;
-		  qcom,hfi = "venus";
-		  qcom,reg-presets = <0x800B0 0x00101001>,
+		compatible = "qcom,msm-vidc";
+		reg = <0xfdc00000 0xff000>;
+		interrupts = <0 44 0>;
+		qcom,hfi = "venus";
+		qcom,reg-presets = <0x800B0 0x00101001>,
 			<0x800B4 0x00101010>,
 			<0x800B8 0x10100010>,
 			<0x800BC 0x00001010>,
@@ -522,15 +522,37 @@
 			<0xe0020 0x5555556>,
 			<0xe0024 0x5555556>,
 			<0x80124 0x3>;
-		  qcom,max-hw-load = <1281600>; /* Full 4k @ 30 + 1080p @ 30 */
-		  qcom,clock-names = "core_clk", "core0_clk", "core1_clk", "iface_clk", "bus_clk",
-			  "mem_clk";
-		  qcom,clock-configs = <0x3 0x0 0x0 0x0 0x0 0x0>;
-		  qcom,load-freq-tbl = <979200 465000000>,
+		qcom,max-hw-load = <1281600>; /* Full 4k @ 30 + 1080p @ 30 */
+		qcom,clock-names = "core_clk", "core0_clk", "core1_clk", "iface_clk", "bus_clk",
+			"mem_clk";
+		qcom,clock-configs = <0x3 0x0 0x0 0x0 0x0 0x0>;
+		qcom,load-freq-tbl = <979200 465000000>,
 			<783360 465000000>,
 			<489600 266670000>,
 			<244800 133330000>;
-	  };
+		qcom,buffer-type-tz-usage-table = <0x241 0x1>,
+			<0x106 0x2>,
+			<0x480 0x3>;
+		qcom,vidc-iommu-domains {
+			qcom,domain-ns {
+				qcom,vidc-domain-phandle = <&venus_domain_ns>;
+				qcom,vidc-partition-buffer-types = <0x7ff>,
+					<0x800>;
+			};
+			qcom,domain-sec-bs {
+				qcom,vidc-domain-phandle = <&venus_domain_sec_bitstream>;
+				qcom,vidc-partition-buffer-types = <0x241>;
+			};
+			qcom,domain-sec-px {
+				qcom,vidc-domain-phandle = <&venus_domain_sec_pixel>;
+				qcom,vidc-partition-buffer-types = <0x106>;
+			};
+			qcom,domain-sec-np {
+				qcom,vidc-domain-phandle = <&venus_domain_sec_non_pixel>;
+				qcom,vidc-partition-buffer-types = <0x480>;
+			};
+		};
+	};
 
 	i2c_4: i2c@f9926000 { /* BLSP1 QUP4 */
 		compatible = "qcom,i2c-msm-v2";
@@ -628,3 +650,4 @@
 #include "msmplutonium-regulator.dtsi"
 #include "msmplutonium-ion.dtsi"
 #include "msmplutonium-iommu.dtsi"
+#include "msmplutonium-iommu-domains.dtsi"
