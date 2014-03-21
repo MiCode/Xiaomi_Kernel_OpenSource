@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,7 +28,7 @@
 		3e 0f];
 	};
 
-	qcom,lpm-levels {
+	lpm_levels: qcom,lpm-levels {
 		compatible = "qcom,lpm-levels";
 		qcom,no-l2-saw;
 		#address-cells = <1>;
@@ -167,6 +167,7 @@
 		reg = <0xfe805664 0x40>;
 		qcom,pc-mode = "tz_l2_ext";
 		qcom,use-sync-timer;
+		qcom,lpm-levels = <&lpm_levels>;
 	};
 
 	qcom,rpm-log@fc19dc00 {
