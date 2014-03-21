@@ -147,15 +147,6 @@ int mode_2_ram_array[GENI_RAM_SIZE] = {
 	0x00041017, 0x00101000, 0x00001200, 0x0008201C, 0x00000000
 };
 
-struct ssbi {
-	struct device		*slave;
-	void __iomem		*base;
-	spinlock_t		lock;
-	enum ssbi_controller_type controller_type;
-	int (*read)(struct ssbi *, u16 addr, u8 *buf, int len);
-	int (*write)(struct ssbi *, u16 addr, u8 *buf, int len);
-};
-
 #define to_ssbi(dev)	platform_get_drvdata(to_platform_device(dev))
 
 static inline u32 ssbi_readl(struct ssbi *ssbi, u32 reg)
@@ -424,7 +415,7 @@ int ssbi_write(struct device *dev, u16 addr, u8 *buf, int len)
 }
 EXPORT_SYMBOL_GPL(ssbi_write);
 
-static void  set_ssbi_mode_2(void __iomem *geni_offset)
+void  set_ssbi_mode_2(void __iomem *geni_offset)
 {
 	int i;
 
@@ -451,7 +442,7 @@ static void  set_ssbi_mode_2(void __iomem *geni_offset)
 			GENI_ARB_CHNL_CONFIG_ADDDR + 4 * i);
 }
 
-static void  set_ssbi_mode_1(void __iomem *geni_offset)
+void  set_ssbi_mode_1(void __iomem *geni_offset)
 {
 	int i;
 
@@ -523,10 +514,8 @@ static int ssbi_probe(struct platform_device *pdev)
 		ssbi->controller_type = MSM_SBI_CTRL_PMIC_ARBITER;
 	else if (strcmp(type, "geni-ssbi-arbiter") == 0) {
 		ssbi->controller_type = FSM_SBI_CTRL_GENI_SSBI_ARBITER;
-		set_ssbi_mode_1(ssbi->base);
 	} else if (strcmp(type, "geni-ssbi2-arbiter") == 0) {
 		ssbi->controller_type = FSM_SBI_CTRL_GENI_SSBI2_ARBITER;
-		set_ssbi_mode_2(ssbi->base);
 	} else {
 		pr_err("Unknown qcom,controller-type\n");
 		ret = -EINVAL;
