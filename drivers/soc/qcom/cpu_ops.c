@@ -92,9 +92,10 @@ static int unclamp_secondary_sim(unsigned int cpu)
 	void __iomem *reg;
 
 	cpu_node = of_get_cpu_node(cpu, NULL);
-	if (!cpu_node)
+	if (!cpu_node) {
 		ret = -ENODEV;
 		goto out_acc;
+	}
 
 	acc_node = of_parse_phandle(cpu_node, "qcom,acc", 0);
 	if (!acc_node) {
