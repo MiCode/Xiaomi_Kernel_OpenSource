@@ -124,7 +124,7 @@ __packed struct qseecom_unload_lib_image_ireq {
 __packed struct qseecom_register_listener_ireq {
 	uint32_t qsee_cmd_id;
 	uint32_t listener_id;
-	void *sb_ptr;
+	uint32_t sb_ptr;
 	uint32_t sb_len;
 };
 
@@ -136,15 +136,15 @@ __packed struct qseecom_unregister_listener_ireq {
 __packed struct qseecom_client_send_data_ireq {
 	uint32_t qsee_cmd_id;
 	uint32_t app_id;
-	void *req_ptr;
+	uint32_t req_ptr;
 	uint32_t req_len;
-	void *rsp_ptr;   /* First 4 bytes should always be the return status */
+	uint32_t rsp_ptr;/* First 4 bytes should be the return status */
 	uint32_t rsp_len;
 };
 
 __packed struct qseecom_reg_log_buf_ireq {
 	uint32_t qsee_cmd_id;
-	unsigned long phy_addr;
+	uint32_t phy_addr;
 	uint32_t len;
 };
 
@@ -176,7 +176,7 @@ __packed struct qseecom_client_send_service_ireq {
 	uint32_t qsee_cmd_id;
 	uint32_t key_type; /* in */
 	unsigned int req_len; /* in */
-	void *rsp_ptr; /* in/out */
+	uint32_t rsp_ptr; /* in/out */
 	unsigned int rsp_len; /* in/out */
 };
 
@@ -224,17 +224,17 @@ __packed struct qseecom_key_max_count_query_irsp {
 __packed struct qseecom_qteec_ireq {
 	uint32_t    qsee_cmd_id;
 	uint32_t    app_id;
-	void	*req_ptr;
+	uint32_t    req_ptr;
 	uint32_t    req_len;
-	void    *resp_ptr;
+	uint32_t    resp_ptr;
 	uint32_t    resp_len;
 };
 
 __packed struct qseecom_client_send_fsm_key_req {
 	uint32_t qsee_cmd_id;
-	void     *req_ptr;
+	uint32_t req_ptr;
 	uint32_t req_len;
-	void     *rsp_ptr;
+	uint32_t rsp_ptr;
 	uint32_t rsp_len;
 };
 
