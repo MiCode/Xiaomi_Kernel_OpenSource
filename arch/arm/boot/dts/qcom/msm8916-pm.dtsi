@@ -307,6 +307,13 @@
 		qcom,sleep-stats-version = <2>;
 	};
 
+	qcom,rpm-master-stats@60150 {
+		compatible = "qcom,rpm-master-stats";
+		reg = <0x60150 0x2030>;
+		qcom,masters = "APSS", "MPSS", "PRONTO";
+		qcom,master-stats-version = <2>;
+		qcom,master-offset = <4096>;
+	};
 	qcom,rpm-rbcpr-stats@0x29daa0  {
 		compatible = "qcom,rpmrbcpr-stats";
 		reg = <0x29daa0 0x1a0000>;
