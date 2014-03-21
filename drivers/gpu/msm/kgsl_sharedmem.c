@@ -592,6 +592,19 @@ int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, size_t offset,
 }
 EXPORT_SYMBOL(kgsl_cache_range_op);
 
+#ifndef CONFIG_ALLOC_BUFFERS_IN_4K_CHUNKS
+static inline int get_page_size(size_t size, unsigned int align)
+{
+	return (align >= ilog2(SZ_64K) && size >= SZ_64K)
+					? SZ_64K : PAGE_SIZE;
+}
+#else
+static inline int get_page_size(size_t size, unsigned int align)
+{
+	return PAGE_SIZE;
+}
+#endif
+
 static int
 _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 			struct kgsl_pagetable *pagetable,
@@ -608,8 +621,8 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 
 	align = (memdesc->flags & KGSL_MEMALIGN_MASK) >> KGSL_MEMALIGN_SHIFT;
 
-	page_size = (align >= ilog2(SZ_64K) && size >= SZ_64K)
-			? SZ_64K : PAGE_SIZE;
+	page_size = get_page_size(size, align);
+
 	/* update align flags for what we actually use */
 	if (page_size != PAGE_SIZE)
 		kgsl_memdesc_set_align(memdesc, ilog2(page_size));
