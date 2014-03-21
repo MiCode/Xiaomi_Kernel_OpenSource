@@ -499,7 +499,8 @@ EXPORT_SYMBOL_GPL(wcd9xxx_rx_vport_validation);
 
 /* This function is called with mutex acquired */
 int wcd9xxx_tx_vport_validation(u32 vtable, u32 port_id,
-				struct wcd9xxx_codec_dai_data *codec_dai)
+				struct wcd9xxx_codec_dai_data *codec_dai,
+				u32 num_codec_dais)
 {
 	struct wcd9xxx_ch *ch;
 	int ret = 0;
@@ -508,18 +509,25 @@ int wcd9xxx_tx_vport_validation(u32 vtable, u32 port_id,
 	pr_debug("%s: vtable 0x%x port_id %u size %d\n", __func__,
 		 vtable, port_id, size);
 	for_each_set_bit(index, (unsigned long *)&vtable, size) {
-		list_for_each_entry(ch,
-				    &codec_dai[index].wcd9xxx_ch_list,
-				    list) {
-			pr_debug("%s: index %u ch->port %u vtable 0x%x\n",
-				 __func__, index, ch->port, vtable);
-			if (ch->port == port_id) {
-				pr_err("%s: TX%u is used by AIF%u_CAP Mixer\n",
-					__func__, port_id + 1,
-					(index + 1)/2);
-				ret = -EINVAL;
-				break;
+		if (index < num_codec_dais) {
+			list_for_each_entry(ch,
+					&codec_dai[index].wcd9xxx_ch_list,
+					list) {
+				pr_debug("%s: index %u ch->port %u vtable 0x%x\n",
+						__func__, index, ch->port,
+						vtable);
+				if (ch->port == port_id) {
+					pr_err("%s: TX%u is used by AIF%u_CAP Mixer\n",
+							__func__, port_id + 1,
+							(index + 1)/2);
+					ret = -EINVAL;
+					break;
+				}
 			}
+		} else {
+			pr_err("%s: Invalid index %d of codec dai",
+					__func__, index);
+			ret = -EINVAL;
 		}
 		if (ret)
 			break;
