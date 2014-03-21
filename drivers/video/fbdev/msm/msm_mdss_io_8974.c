@@ -773,9 +773,9 @@ void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 	/* Regulator ctrl 4 */
 	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x290, pd->regulator[4]);
 
-	/* LDO ctrl 0 */
-	if ((ctrl_pdata->panel_data).panel_info.pdest == DISPLAY_1)
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x00);
+	/* LDO ctrl */
+	if (pd->reg_ldo_mode)
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x25);
 	else
 		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x00);
 
