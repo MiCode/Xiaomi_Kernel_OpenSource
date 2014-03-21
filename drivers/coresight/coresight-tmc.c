@@ -186,6 +186,7 @@ struct tmc_drvdata {
 	char			*byte_cntr_node;
 	uint32_t		mem_size;
 	bool			sticky_enable;
+	bool			sg_enable;
 	enum tmc_etr_mem_type	mem_type;
 };
 
@@ -1465,10 +1466,16 @@ static ssize_t tmc_etr_store_mem_type(struct device *dev,
 	if (sscanf(buf, "%s", str) != 1)
 		return -EINVAL;
 
-	if (!strcmp(str, "contig"))
+	mutex_lock(&drvdata->usb_lock);
+	if (!strcmp(str, "contig")) {
 		drvdata->mem_type = TMC_ETR_MEM_TYPE_CONTIG;
-	else if (!strcmp(str, "sg"))
+	} else if (!strcmp(str, "sg") && drvdata->sg_enable) {
 		drvdata->mem_type = TMC_ETR_MEM_TYPE_SG;
+	} else {
+		mutex_unlock(&drvdata->usb_lock);
+		return -EINVAL;
+	}
+	mutex_unlock(&drvdata->usb_lock);
 
 	return size;
 }
@@ -1768,10 +1775,14 @@ static int tmc_probe(struct platform_device *pdev)
 
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
 		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
-		if (pdev->dev.of_node)
+		if (pdev->dev.of_node) {
+			drvdata->sg_enable = of_property_read_bool
+					     (pdev->dev.of_node,
+					     "qcom,sg-enable");
 			drvdata->byte_cntr_present = !of_property_read_bool
 						     (pdev->dev.of_node,
 						     "qcom,byte-cntr-absent");
+		}
 		ret = tmc_etr_byte_cntr_init(pdev, drvdata);
 		if (ret)
 			goto err0;
