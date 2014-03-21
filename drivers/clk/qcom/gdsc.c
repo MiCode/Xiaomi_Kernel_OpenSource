@@ -51,6 +51,7 @@ struct gdsc {
 	bool			toggle_periph;
 	bool			toggle_logic;
 	bool			resets_asserted;
+	bool			root_en;
 };
 
 static int gdsc_is_enabled(struct regulator_dev *rdev)
@@ -68,6 +69,11 @@ static int gdsc_enable(struct regulator_dev *rdev)
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval;
 	int i, ret;
+
+	if (sc->root_en) {
+		for (i = 0; i < sc->clock_count; i++)
+			clk_prepare_enable(sc->clocks[i]);
+	}
 
 	if (sc->toggle_logic) {
 		regval = readl_relaxed(sc->gdscr);
@@ -145,6 +151,11 @@ static int gdsc_disable(struct regulator_dev *rdev)
 		for (i = sc->clock_count-1; i >= 0; i--)
 			clk_reset(sc->clocks[i], CLK_RESET_ASSERT);
 		sc->resets_asserted = true;
+	}
+
+	if (sc->root_en) {
+		for (i = sc->clock_count-1; i >= 0; i--)
+			clk_disable_unprepare(sc->clocks[i]);
 	}
 
 	return ret;
@@ -279,6 +290,10 @@ static int gdsc_probe(struct platform_device *pdev)
 			sizeof(struct clk *) * sc->clock_count, GFP_KERNEL);
 	if (!sc->clocks)
 		return -ENOMEM;
+
+	sc->root_en = of_property_read_bool(pdev->dev.of_node,
+						"qcom,enable-root-clk");
+
 	for (i = 0; i < sc->clock_count; i++) {
 		const char *clock_name;
 		of_property_read_string_index(pdev->dev.of_node, "clock-names",

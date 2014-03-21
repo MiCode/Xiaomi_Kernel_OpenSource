@@ -23,6 +23,12 @@ Optional properties:
  - qcom,support-hw-trigger: Presence denotes a hardware feature to switch
 			    on/off this regulator based on internal HW signals
 			    to save more power.
+ - qcom,enable-root-clk: Presence denotes that the clocks in the "clocks"
+			property are requried to be enabled before gdsc is
+			turned on and disabled before turning off gdsc. This
+			will be used in susbsystems where reset is synchronous
+			and root clk is active without sw being aware of its
+			state.
 
 Example:
 	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {
