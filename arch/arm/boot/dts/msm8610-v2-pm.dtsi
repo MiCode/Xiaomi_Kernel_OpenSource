@@ -1,4 +1,4 @@
-/* Copyright (c) 2013 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -107,7 +107,7 @@
 		qcom,L2-spm-is-apcs-master;
 	};
 
-	qcom,lpm-levels {
+	lpm_levels: qcom,lpm-levels {
 		compatible = "qcom,lpm-levels";
 		qcom,default-l2-state = "l2_cache_active";
 		#address-cells = <1>;
@@ -308,6 +308,7 @@
 		qcom,pc-resets-timer;
 		qcom,cpus-as-clocks;
 		qcom,synced-clocks;
+		qcom,lpm-levels = <&lpm_levels>;
 	};
 
 	qcom,cpu-sleep-status@f9088008{
