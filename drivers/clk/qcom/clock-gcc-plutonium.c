@@ -74,6 +74,8 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define USB30_MOCK_UTMI_CBCR                             (0x03D0)
 #define USB30_MASTER_CMD_RCGR                            (0x03D4)
 #define USB30_MOCK_UTMI_CMD_RCGR                         (0x03E8)
+#define USB3_PHY_BCR                                     (0x1400)
+#define USB3PHY_PHY_BCR                                  (0x1404)
 #define USB3_PHY_AUX_CBCR                                (0x1408)
 #define USB3_PHY_PIPE_CBCR                               (0x140C)
 #define USB3_PHY_AUX_CMD_RCGR                            (0x1414)
@@ -81,6 +83,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define USB_HS_SYSTEM_CBCR                               (0x0484)
 #define USB_HS_AHB_CBCR                                  (0x0488)
 #define USB_HS_SYSTEM_CMD_RCGR                           (0x0490)
+#define USB2_HS_PHY_BCR                                  (0x04A8)
 #define USB2_HS_PHY_SLEEP_CBCR                           (0x04AC)
 #define USB_PHY_CFG_AHB2PHY_CBCR                         (0x1A84)
 #define SDCC1_APPS_CMD_RCGR                              (0x04D0)
@@ -1210,6 +1213,26 @@ static struct rcg_clk usb_hs_system_clk_src = {
 	},
 };
 
+static struct reset_clk gcc_usb3_phy_reset = {
+	.reset_reg = USB3_PHY_BCR,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_usb3_phy_reset",
+		.ops = &clk_ops_rst,
+		CLK_INIT(gcc_usb3_phy_reset.c),
+	},
+};
+
+static struct reset_clk gcc_usb3phy_phy_reset = {
+	.reset_reg = USB3PHY_PHY_BCR,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_usb3phy_phy_reset",
+		.ops = &clk_ops_rst,
+		CLK_INIT(gcc_usb3phy_phy_reset.c),
+	},
+};
+
 static struct gate_clk gpll0_out_mmsscc = {
 	.en_reg = APCS_CLOCK_BRANCH_ENA_VOTE,
 	.en_mask = BIT(26),
@@ -2203,6 +2226,7 @@ static struct branch_clk gcc_ufs_tx_symbol_1_clk = {
 
 static struct branch_clk gcc_usb2_hs_phy_sleep_clk = {
 	.cbcr_reg = USB2_HS_PHY_SLEEP_CBCR,
+	.bcr_reg = USB2_HS_PHY_BCR,
 	.has_sibling = 1,
 	.base = &virt_base,
 	.c = {
@@ -2509,6 +2533,8 @@ static struct clk_lookup msm_clocks_gcc_plutonium[] = {
 	CLK_LIST(usb30_mock_utmi_clk_src),
 	CLK_LIST(usb3_phy_aux_clk_src),
 	CLK_LIST(usb_hs_system_clk_src),
+	CLK_LIST(gcc_usb3_phy_reset),
+	CLK_LIST(gcc_usb3phy_phy_reset),
 	CLK_LIST(gpll0_out_mmsscc),
 	CLK_LIST(pcie_0_phy_ldo),
 	CLK_LIST(pcie_1_phy_ldo),
