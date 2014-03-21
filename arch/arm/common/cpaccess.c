@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -84,9 +84,10 @@ static void do_read_il2(void *ret)
  */
 static void do_write_il2(void *ret)
 {
-	*(unsigned long *)ret =
-		set_get_l2_indirect_reg(per_cpu(cp_param.il2index, cpu),
+	set_l2_indirect_reg(per_cpu(cp_param.il2index, cpu),
 				per_cpu(cp_param.write_value, cpu));
+	*(unsigned long *)ret =
+		get_l2_indirect_reg(per_cpu(cp_param.il2index, cpu));
 }
 
 /*
