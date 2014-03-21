@@ -811,6 +811,9 @@ static int msm_tlmm_v4_gp_irq_init(int irq, struct msm_pintype_info *pinfo,
 	int num_irqs;
 	struct msm_tlmm_irq_chip *ic = pinfo->irq_chip;
 
+	if (!ic->domain)
+		return 0;
+
 	num_irqs = ic->num_irqs;
 	ic->enabled_irqs = devm_kzalloc(tlmm_dev, sizeof(unsigned long)
 					* BITS_TO_LONGS(num_irqs), GFP_KERNEL);
