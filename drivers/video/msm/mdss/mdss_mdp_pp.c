@@ -3315,7 +3315,8 @@ static int pp_hist_collect(struct mdp_histogram_data *hist,
 					__func__);
 			goto hist_collect_exit;
 		}
-		if (hist_info->col_state != HIST_READY) {
+		if (hist_info->col_state != HIST_READY &&
+				hist_info->col_state != HIST_UNKNOWN) {
 			ret = -ENODATA;
 			hist_info->col_state = HIST_READY;
 			pr_debug("%s: state is not ready: %d",
