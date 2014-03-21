@@ -20,6 +20,7 @@
 
 #include <linux/kernel.h>
 #include <linux/list.h>
+#include <linux/qpnp-revid.h>
 /**
  * enum qpnp_vadc_channels - QPNP AMUX arbiter channels
  */
@@ -1002,14 +1003,21 @@ struct qpnp_adc_drv {
  * @chan_prop - Represent the channel properties of the ADC.
  */
 struct qpnp_adc_amux_properties {
-	uint32_t			amux_channel;
-	uint32_t			decimation;
-	uint32_t			mode_sel;
-	uint32_t			hw_settle_time;
-	uint32_t			fast_avg_setup;
-	enum qpnp_vadc_trigger		trigger_channel;
+	uint32_t				amux_channel;
+	uint32_t				decimation;
+	uint32_t				mode_sel;
+	uint32_t				hw_settle_time;
+	uint32_t				fast_avg_setup;
+	enum qpnp_vadc_trigger			trigger_channel;
 	struct qpnp_vadc_chan_properties	chan_prop[0];
 };
+
+/* SW index's for PMIC type and version used by QPNP VADC and IADC */
+#define QPNP_REV_ID_8941_3_1	1
+#define QPNP_REV_ID_8026_1_0	2
+#define QPNP_REV_ID_8026_2_0	3
+#define QPNP_REV_ID_8110_1_0	4
+#define QPNP_REV_ID_8026_2_1	5
 
 /* Public API */
 #if defined(CONFIG_SENSORS_QPNP_ADC_VOLTAGE)				\
@@ -1369,6 +1377,12 @@ int32_t qpnp_vadc_iadc_sync_complete_request(struct qpnp_vadc_chip *dev,
  */
 int32_t qpnp_vbat_sns_comp_result(struct qpnp_vadc_chip *dev,
 						int64_t *result);
+/**
+ * qpnp_adc_get_revid_version() - Obtain the PMIC number and revision.
+ * @dev:	Structure device node.
+ * returns internal mapped PMIC number and revision id.
+ */
+int qpnp_adc_get_revid_version(struct device *dev);
 #else
 static inline int32_t qpnp_vadc_read(struct qpnp_vadc_chip *dev,
 				uint32_t channel,
@@ -1481,6 +1495,8 @@ static inline int32_t qpnp_vadc_iadc_sync_complete_request(
 { return -ENXIO; }
 static inline int32_t qpnp_vbat_sns_comp_result(struct qpnp_vadc_chip *dev,
 						int64_t *result)
+{ return -ENXIO; }
+static inline int qpnp_adc_get_revid_version(struct device *dev)
 { return -ENXIO; }
 #endif
 

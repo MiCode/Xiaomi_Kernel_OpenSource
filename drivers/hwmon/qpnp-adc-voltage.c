@@ -513,36 +513,14 @@ static int32_t qpnp_vadc_version_check(struct qpnp_vadc_chip *dev)
 #define QPNP_VBAT_COEFF_14	22220000
 #define QPNP_VBAT_COEFF_15	83060000
 
-#define QPNP_VADC_REV_ID_8941_3_1	1
-#define QPNP_VADC_REV_ID_8026_1_0	2
-#define QPNP_VADC_REV_ID_8026_2_0	3
-
-static void qpnp_temp_comp_version_check(struct qpnp_vadc_chip *vadc,
-							int32_t *version)
-{
-	if (vadc->revision_dig_major == 3 &&
-			vadc->revision_ana_minor == 2)
-		*version = QPNP_VADC_REV_ID_8941_3_1;
-	else if (vadc->revision_dig_major == 1 &&
-			vadc->revision_ana_minor == 2)
-		*version = QPNP_VADC_REV_ID_8026_1_0;
-	else if (vadc->revision_dig_major == 2 &&
-			vadc->revision_ana_minor == 2)
-		*version = QPNP_VADC_REV_ID_8026_2_0;
-	else
-		*version = -EINVAL;
-
-	return;
-}
-
 static int32_t qpnp_ocv_comp(int64_t *result,
 			struct qpnp_vadc_chip *vadc, int64_t die_temp)
 {
 	int64_t temp_var = 0;
 	int64_t old = *result;
-	int32_t version;
+	int version;
 
-	qpnp_temp_comp_version_check(vadc, &version);
+	version = qpnp_adc_get_revid_version(vadc->dev);
 	if (version == -EINVAL)
 		return 0;
 
@@ -553,7 +531,7 @@ static int32_t qpnp_ocv_comp(int64_t *result,
 		die_temp = 60000;
 
 	switch (version) {
-	case QPNP_VADC_REV_ID_8941_3_1:
+	case QPNP_REV_ID_8941_3_1:
 		switch (vadc->id) {
 		case COMP_ID_TSMC:
 			temp_var = (((die_temp *
@@ -568,7 +546,7 @@ static int32_t qpnp_ocv_comp(int64_t *result,
 			break;
 		}
 		break;
-	case QPNP_VADC_REV_ID_8026_1_0:
+	case QPNP_REV_ID_8026_1_0:
 		switch (vadc->id) {
 		case COMP_ID_TSMC:
 			temp_var = (((die_temp *
@@ -583,7 +561,8 @@ static int32_t qpnp_ocv_comp(int64_t *result,
 			break;
 		}
 		break;
-	case QPNP_VADC_REV_ID_8026_2_0:
+	case QPNP_REV_ID_8026_2_0:
+	case QPNP_REV_ID_8026_2_1:
 		switch (vadc->id) {
 		case COMP_ID_TSMC:
 			temp_var = ((die_temp - 2500) *
@@ -618,9 +597,9 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result,
 {
 	int64_t temp_var = 0;
 	int64_t old = *result;
-	int32_t version;
+	int version;
 
-	qpnp_temp_comp_version_check(vadc, &version);
+	version = qpnp_adc_get_revid_version(vadc->dev);
 	if (version == -EINVAL)
 		return 0;
 
@@ -632,7 +611,7 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result,
 		die_temp = 60000;
 
 	switch (version) {
-	case QPNP_VADC_REV_ID_8941_3_1:
+	case QPNP_REV_ID_8941_3_1:
 		switch (vadc->id) {
 		case COMP_ID_TSMC:
 			temp_var = (die_temp *
@@ -646,7 +625,7 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result,
 			break;
 		}
 		break;
-	case QPNP_VADC_REV_ID_8026_1_0:
+	case QPNP_REV_ID_8026_1_0:
 		switch (vadc->id) {
 		case COMP_ID_TSMC:
 			temp_var = (((die_temp *
@@ -661,7 +640,8 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result,
 			break;
 		}
 		break;
-	case QPNP_VADC_REV_ID_8026_2_0:
+	case QPNP_REV_ID_8026_2_0:
+	case QPNP_REV_ID_8026_2_1:
 		switch (vadc->id) {
 		case COMP_ID_TSMC:
 			temp_var = ((die_temp - 2500) *
