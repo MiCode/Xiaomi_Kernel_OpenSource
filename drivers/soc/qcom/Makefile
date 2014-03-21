@@ -53,3 +53,4 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
        obj-y += ramdump.o
 endif
 obj-$(CONFIG_MSM_SYSMON_COMM) += sysmon.o
+obj-$(CONFIG_CP_ACCESS64) += cpaccess64.o
