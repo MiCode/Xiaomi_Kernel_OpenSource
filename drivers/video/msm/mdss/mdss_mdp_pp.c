@@ -3022,12 +3022,12 @@ static int pp_histogram_disable(struct pp_hist_col_info *hist_info,
 		ret = -EINVAL;
 		goto exit;
 	}
-	complete_all(&hist_info->comp);
 	spin_lock_irqsave(&hist_info->hist_lock, flag);
 	hist_info->col_en = false;
 	hist_info->col_state = HIST_UNKNOWN;
 	spin_unlock_irqrestore(&hist_info->hist_lock, flag);
 	mdss_mdp_hist_intr_req(&mdata->hist_intr, done_bit, false);
+	complete_all(&hist_info->comp);
 	writel_relaxed(BIT(1), ctl_base);/* cancel */
 	ret = 0;
 exit:
