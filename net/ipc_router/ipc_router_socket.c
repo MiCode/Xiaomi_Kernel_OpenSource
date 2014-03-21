@@ -292,6 +292,7 @@ static int msm_ipc_router_create(struct net *net,
 	sk->sk_rcvtimeo = DEFAULT_RCV_TIMEO;
 
 	msm_ipc_sk(sk)->port = port_ptr;
+	msm_ipc_sk(sk)->default_node_vote_info = NULL;
 
 	return 0;
 }

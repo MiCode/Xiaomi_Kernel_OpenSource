@@ -578,6 +578,8 @@ static void pil_vote_load_worker(struct work_struct *work)
 				__func__, peripheral);
 			vote_info->pil_handle = NULL;
 		}
+	} else {
+		vote_info->pil_handle = NULL;
 	}
 }
 
