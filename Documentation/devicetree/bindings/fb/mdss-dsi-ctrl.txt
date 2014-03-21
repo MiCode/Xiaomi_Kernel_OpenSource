@@ -57,7 +57,7 @@ Optional properties:
 - pinctrl-<0..n>:			Lists phandles each pointing to the pin configuration node within a pin
 					controller. These pin configurations are installed in the pinctrl
 					device node. Refer to pinctrl-bindings.txt
-
+- qcom,regulator-ldo-mode:		Boolean to enable ldo mode for the dsi phy regulator
 
 Example:
         mdss_dsi0: qcom,mdss_dsi@fd922800 {
@@ -74,6 +74,7 @@ Example:
 		qcom,dsi-pref-prim-pan = <&dsi_tosh_720_vid>;
 		qcom,platform-strength-ctrl = [ff 06];
 		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
+		qcom,regulator-ldo-mode;
 		qcom,platform-regulator-settings = [07 09 03 00 20 00 01];
 		qcom,platform-lane-config = [00 00 00 00 00 00 00 01 97
 			00 00 00 00 05 00 00 01 97
