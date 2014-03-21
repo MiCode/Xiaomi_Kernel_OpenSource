@@ -762,7 +762,7 @@ enum snd_soc_dapm_type {
 #define SND_SOC_FW_MAGIC	0x41536F43 /* ASoC */
 
 /* string sizes */
-#define SND_SOC_FW_TEXT_SIZE	32
+#define SND_SOC_FW_TEXT_SIZE	44
 #define SND_SOC_FW_NUM_TEXTS	16
 
 /* ABI version */
