@@ -2890,22 +2890,23 @@ static int pp_histogram_enable(struct pp_hist_col_info *hist_info,
 
 	mutex_lock(&hist_info->hist_mutex);
 	/* check if it is idle */
+	spin_lock_irqsave(&hist_info->hist_lock, flag);
 	if (hist_info->col_en) {
+		spin_unlock_irqrestore(&hist_info->hist_lock, flag);
 		pr_info("%s Hist collection has already been enabled %d",
 			__func__, (u32) ctl_base);
 		ret = -EINVAL;
 		goto exit;
 	}
+	hist_info->read_request = 0;
+	hist_info->col_state = HIST_RESET;
+	hist_info->col_en = true;
+	spin_unlock_irqrestore(&hist_info->hist_lock, flag);
 	hist_info->frame_cnt = req->frame_cnt;
 	INIT_COMPLETION(hist_info->comp);
 	hist_info->hist_cnt_read = 0;
 	hist_info->hist_cnt_sent = 0;
 	hist_info->hist_cnt_time = 0;
-	spin_lock_irqsave(&hist_info->hist_lock, flag);
-	hist_info->read_request = 0;
-	hist_info->col_state = HIST_RESET;
-	hist_info->col_en = true;
-	spin_unlock_irqrestore(&hist_info->hist_lock, flag);
 	mdss_mdp_hist_intr_req(&mdata->hist_intr, 3 << shift_bit, true);
 	writel_relaxed(req->frame_cnt, ctl_base + 8);
 	/* Kick out reset start */
