@@ -54,7 +54,7 @@
 
 		qcom,vdd-mx-corner-map = <1050000 1150000 1287500>;
 		qcom,vdd-mx-vmin-method = <4>;
-		vdd-mx-supply = <&pm8916_l3>;
+		vdd-mx-supply = <&pm8916_l3_ao>;
 		qcom,vdd-mx-vmax = <1287500>;
 
 		mem-acc-supply = <&mem_acc_vreg_corner>;
