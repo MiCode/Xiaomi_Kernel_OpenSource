@@ -26,3 +26,6 @@
 	};
 };
 
+&blsp1_uart2 {
+	status = "ok";
+};
