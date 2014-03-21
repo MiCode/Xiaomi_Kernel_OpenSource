@@ -130,5 +130,6 @@ config ISCSI_IBFT
 
 source "drivers/firmware/google/Kconfig"
 source "drivers/firmware/efi/Kconfig"
+source "drivers/firmware/qcom/Kconfig"
 
 endmenu
