@@ -27,3 +27,10 @@ config ION_MSM
 	depends on ARCH_MSM && ION
 	help
 	  Choose this option if you wish to use ion on an MSM target.
+
+config ALLOC_BUFFERS_IN_4K_CHUNKS
+	bool "Turns off allocation optimization and allocate only 4K pages"
+	depends on ARCH_MSM && ION
+	help
+          Choose this option if you want ION to allocate buffers in
+          only 4KB chunks.
