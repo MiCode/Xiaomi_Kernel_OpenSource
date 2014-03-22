@@ -737,21 +737,41 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 		return rc;
 	}
 
-	if (of_property_read_bool(of_node, "qcom,gpio-vdig") == true) {
-		rc = of_property_read_u32(of_node, "qcom,gpio-vdig", &val);
+	if (of_property_read_bool(of_node, "qcom,gpio-vana") == true) {
+		rc = of_property_read_u32(of_node, "qcom,gpio-vana", &val);
 		if (rc < 0) {
-			pr_err("%s:%d read qcom,gpio-reset failed rc %d\n",
+			pr_err("%s:%d read qcom,gpio-vana failed rc %d\n",
 				__func__, __LINE__, rc);
 			goto ERROR;
 		} else if (val >= gpio_array_size) {
-			pr_err("%s:%d qcom,gpio-reset invalid %d\n",
+			pr_err("%s:%d qcom,gpio-vdig invalid %d\n",
 				__func__, __LINE__, val);
+			rc = -EINVAL;
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VANA] =
+			gpio_array[val];
+		gconf->gpio_num_info->valid[SENSOR_GPIO_VANA] = 1;
+		CDBG("%s qcom,gpio-vana %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VANA]);
+	}
+
+	if (of_property_read_bool(of_node, "qcom,gpio-vdig") == true) {
+		rc = of_property_read_u32(of_node, "qcom,gpio-vdig", &val);
+		if (rc < 0) {
+			pr_err("%s:%d read qcom,gpio-vdig failed rc %d\n",
+				__func__, __LINE__, rc);
+			goto ERROR;
+		} else if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-vdig invalid %d\n",
+				__func__, __LINE__, val);
+			rc = -EINVAL;
 			goto ERROR;
 		}
 		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VDIG] =
 			gpio_array[val];
 		gconf->gpio_num_info->valid[SENSOR_GPIO_VDIG] = 1;
-		CDBG("%s qcom,gpio-reset %d\n", __func__,
+		CDBG("%s qcom,gpio-vdig %d\n", __func__,
 			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VDIG]);
 	}
 
@@ -764,6 +784,7 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 		} else if (val >= gpio_array_size) {
 			pr_err("%s:%d qcom,gpio-reset invalid %d\n",
 				__func__, __LINE__, val);
+			rc = -EINVAL;
 			goto ERROR;
 		}
 		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_RESET] =
@@ -782,12 +803,13 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 		} else if (val >= gpio_array_size) {
 			pr_err("%s:%d qcom,gpio-standby invalid %d\n",
 				__func__, __LINE__, val);
+			rc = -EINVAL;
 			goto ERROR;
 		}
 		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_STANDBY] =
 			gpio_array[val];
 		gconf->gpio_num_info->valid[SENSOR_GPIO_STANDBY] = 1;
-		CDBG("%s qcom,gpio-reset %d\n", __func__,
+		CDBG("%s qcom,gpio-standby %d\n", __func__,
 			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_STANDBY]);
 	}
 
@@ -800,6 +822,7 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 		} else if (val >= gpio_array_size) {
 			pr_err("%s:%d qcom,gpio-flash-en invalid %d\n",
 				__func__, __LINE__, val);
+			rc = -EINVAL;
 			goto ERROR;
 		}
 		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_FL_EN] =
@@ -818,6 +841,7 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 		} else if (val >= gpio_array_size) {
 			pr_err("%s:%d qcom,gpio-flash-now invalid %d\n",
 				__func__, __LINE__, val);
+			rc = -EINVAL;
 			goto ERROR;
 		}
 		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_FL_NOW] =
