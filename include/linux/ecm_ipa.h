@@ -27,6 +27,9 @@ typedef void (*ecm_ipa_callback)(void *priv,
 /*
  * struct ecm_ipa_params - parameters for ecm_ipa initialization API
  *
+ * @device_ready_notify: callback supplied by USB core driver.
+ * This callback shall be called by the Netdev once the device
+ * is ready to recieve data from tethered PC.
  * @ecm_ipa_rx_dp_notify: ecm_ipa will set this callback (out parameter).
  * this callback shall be supplied for ipa_connect upon pipe
  * connection (USB->IPA), once IPA driver receive data packets
@@ -44,6 +47,7 @@ typedef void (*ecm_ipa_callback)(void *priv,
  *  should or should not configure this end-point.
  */
 struct ecm_ipa_params {
+	void (*device_ready_notify)(void);
 	ecm_ipa_callback ecm_ipa_rx_dp_notify;
 	ecm_ipa_callback ecm_ipa_tx_dp_notify;
 	u8 host_ethaddr[ETH_ALEN];
