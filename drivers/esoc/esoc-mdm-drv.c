@@ -157,11 +157,6 @@ static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 			dev_err(&esoc_clink->dev, "cannot exit debug mode\n");
 			return ret;
 		}
-		ret = clink_ops->cmd_exe(ESOC_PWR_OFF, esoc_clink);
-		if (ret) {
-			dev_err(&esoc_clink->dev, "pwr off fail\n");
-			return ret;
-		}
 		mdm_drv->mode = PWR_OFF;
 		ret = clink_ops->cmd_exe(ESOC_PWR_ON, esoc_clink);
 		if (ret) {
