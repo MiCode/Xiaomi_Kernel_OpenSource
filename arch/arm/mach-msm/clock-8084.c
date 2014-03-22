@@ -3916,6 +3916,7 @@ static struct clk_freq_tbl ftbl_camss_vfe_cpp_clk[] = {
 	F_MM(133330000,      gpll0,  4.5, 0, 0),
 	F_MM(266670000,     mmpll0,    3, 0, 0),
 	F_MM(320000000,     mmpll0,  2.5, 0, 0),
+	F_MM(372000000,     mmpll4,  2.5, 0, 0),
 	F_MM(465000000,     mmpll4,    2, 0, 0),
 	F_MM(600000000,      gpll0,    1, 0, 0),
 	F_END
