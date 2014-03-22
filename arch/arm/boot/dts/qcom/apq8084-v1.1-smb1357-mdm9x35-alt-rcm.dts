@@ -58,3 +58,8 @@
 &usb3 {
 	vbus_dwc3-supply = <&smb1357_otg_vreg>;
 };
+
+&cnss {
+	esoc-names = "modem_wlan";
+	esoc-0 = <&mdm1>;
+};

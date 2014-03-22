@@ -69,6 +69,11 @@
 	status = "disabled";
 };
 
+&cnss {
+	esoc-names = "modem_wlan";
+	esoc-0 = <&mdm1>;
+};
+
 &pma8084_gpios {
 	gpio@c000 { /* GPIO 1 */
 		qcom,mode = <1>;

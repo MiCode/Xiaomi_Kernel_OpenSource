@@ -48,3 +48,7 @@
 	status = "ok";
 };
 
+&cnss {
+	esoc-names = "modem_wlan";
+	esoc-0 = <&mdm1>;
+};

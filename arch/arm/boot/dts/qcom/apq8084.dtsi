@@ -3706,7 +3706,7 @@
 		interrupts = <0 1 0>;
 	};
 
-	qcom,cnss@0d400000 {
+	cnss: qcom,cnss@0d400000 {
 		compatible = "qcom,cnss";
 		reg = <0x0d400000 0x200000>;
 		reg-names = "ramdump";
