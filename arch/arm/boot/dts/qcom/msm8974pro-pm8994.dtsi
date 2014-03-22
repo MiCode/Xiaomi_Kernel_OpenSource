@@ -1,0 +1,225 @@
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*
+ * As a general rule, only chipset-specific property overrides should be placed
+ * inside this file. However, device definitions should be placed inside the
+ * msm8974.dtsi / msm8974pro.dtsi file(s).
+ */
+
+#include "msm8974pro.dtsi"
+#include "msm-pm8994.dtsi"
+#include "msm-pmi8994.dtsi"
+#include "msm-pm8994-rpm-regulator.dtsi"
+#include "msm8994-regulator.dtsi"
+
+/ {
+	qcom,msm-id = <194 0x10000>,
+		      <210 0x10000>,
+		      <213 0x10000>,
+		      <216 0x10000>,
+		      <208 0x10000>,
+		      <209 0x10000>,
+		      <211 0x10000>,
+		      <212 0x10000>,
+		      <214 0x10000>,
+		      <215 0x10000>,
+		      <217 0x10000>,
+		      <218 0x10000>;
+};
+
+/*
+ * Override PM8841 and PM8941 resources with proper PM8994 resources for
+ * MSM8994 Interposer.
+ */
+
+&soc {
+	qcom,csid@fda08000  {
+		qcom,mipi-csi-vdd-supply = <&pm8994_l12>;
+	};
+
+	qcom,csid@fda08400 {
+		qcom,mipi-csi-vdd-supply = <&pm8994_l12>;
+	};
+
+	qcom,csid@fda08800 {
+		qcom,mipi-csi-vdd-supply = <&pm8994_l12>;
+	};
+
+	qcom,csid@fda08C00 {
+		qcom,mipi-csi-vdd-supply = <&pm8994_l12>;
+	};
+
+	tpiu@fc318000 {
+		status = "disabled";
+		/delete-property/ vdd-supply;
+		/delete-property/ vdd-io-supply;
+	};
+
+	qcom,mdss_dsi@fd922800 {
+		vddio-supply = <&pm8994_l13>;
+		vdda-supply = <&pm8994_l12>;
+		/delete-property/ qcom,platform-reset-gpio;
+		/delete-property/ vdd-supply;
+	};
+
+	qcom,mdss_dsi@fd922e00 {
+		vddio-supply = <&pm8994_l13>;
+		vdda-supply = <&pm8994_l12>;
+		/delete-property/ qcom,platform-reset-gpio;
+		/delete-property/ vdd-supply;
+	};
+
+	qcom,hdmi_tx@fd922100 {
+		core-vdda-supply = <&pm8994_l12>;
+		core-vcc-supply = <&pm8994_s4>;
+		/delete-property/ hpd-5v-supply;
+	};
+
+	qcom,mdss_edp@fd923400 {
+		vdda-supply = <&pm8994_l12>;
+	};
+
+	usb@f9a55000 {
+		HSUSB_VDDCX-supply = <&pm8994_s2_corner>;
+		HSUSB_1p8-supply = <&pm8994_l6>;
+		HSUSB_3p3-supply = <&pm8994_l24>;
+	};
+
+	slim@fe12f000 {
+		taiko_codec {
+			cdc-vdd-buck-supply = <&pm8994_s1_corner>;
+			cdc-vdd-tx-h-supply = <&pm8994_s4>;
+			cdc-vdd-rx-h-supply = <&pm8994_s4>;
+			cdc-vddpx-1-supply = <&pm8994_s4>;
+			/* TODO: this is supplied by DBU whatever that means */
+			cdc-vdd-a-1p2v-supply = <&pm8994_l1>;
+			cdc-vddcx-1-supply = <&pm8994_l1>;
+			cdc-vddcx-2-supply = <&pm8994_l1>;
+		};
+	};
+
+	qcom,clock-krait@f9016000 {
+		l2-dig-supply = <&pm8994_s1_corner>;
+		/* TODO once RPM reg change adds device below
+		 * hfpll-dig-supply = <&pm8994_s1_corner_ao>;
+		 */
+		/delete-property/ hfpll-dig-supply;
+		/delete-property/ cpu0-supply;
+		/delete-property/ cpu1-supply;
+		/delete-property/ cpu2-supply;
+		/delete-property/ cpu3-supply;
+		hfpll-analog-supply = <&pm8994_l12>;
+	};
+
+	qcom,gcc@fc400000 {
+		compatible = "qcom,gcc-8974pro-ac";
+		vdd_dig-supply = <&pm8994_s1_corner>;
+	};
+
+	qcom,mmsscc@fd8c0000 {
+		vdd_dig-supply = <&pm8994_s1_corner>;
+	};
+
+	qcom,lpasscc@fe000000 {
+		vdd_dig-supply = <&pm8994_s1_corner>;
+	};
+
+	ssusb@f9200000 {
+		/delete-property/ vbus_dwc3-supply;
+		/delete-property/ qcom,misc-ref;
+		/delete-property/ dwc_usb3-adc_tm;
+	};
+
+	ssphy@f92f8800 {
+		vdd-supply = <&pm8994_s1_corner>;
+		vdda18-supply = <&pm8994_l6>;
+		qcom,vbus-valid-override;
+		qcom,deemphasis-value = <26>;
+	};
+
+	hsphy@f92f8800 {
+		vdd-supply = <&pm8994_s1_corner>;
+		vdda18-supply = <&pm8994_l6>;
+		vdda33-supply = <&pm8994_l24>;
+		qcom,vbus-valid-override;
+	};
+
+	qcom,ehci-host@f9a55000 {
+		HSUSB_VDDCX-supply = <&pm8994_s1_corner>;
+		HSUSB_1p8-supply = <&pm8994_l6>;
+		HSUSB_3p3-supply = <&pm8994_l24>;
+	};
+
+	qcom,gdsc@fd8c4024 {
+		parent-supply = <&pmi8994_s2_corner>;
+	};
+
+	qcom,lpass@fe200000 {
+		vdd_cx-supply = <&pm8994_s1_corner>;
+	};
+
+	qcom,mss@fc880000 {
+		vdd_mss-supply = <&pm8994_s7>;
+		vdd_cx-supply = <&pm8994_s1_corner>;
+		vdd_mx-supply = <&pm8994_s2_corner>;
+		vdd_pll-supply = <&pm8994_l12>;
+	};
+
+	qcom,pronto@fb21b000 {
+		vdd_pronto_pll-supply = <&pm8994_l12>;
+	};
+
+	qcom,wcnss-wlan@fb000000 {
+		qcom,pronto-vddmx-supply = <&pm8994_s2_corner>;
+		qcom,pronto-vddcx-supply = <&pm8994_s1_corner>;
+		qcom,pronto-vddpx-supply = <&pm8994_s4>;
+		qcom,iris-vddxo-supply = <&pm8994_l6>;
+		/delete-property/ qcom,iris-vddrfa-supply;
+		/delete-property/ qcom,iris-vddpa-supply;
+		qcom,iris-vdddig-supply = <&pm8994_s4>;
+	};
+
+	qcom,msm-thermal {
+		vdd-dig-supply = <&pm8994_s1_corner>;
+		vdd-gfx-supply = <&pmi8994_s2_corner>;
+		/delete-property/ qcom,pmic-sw-mode-temp;
+		/delete-property/ qcom,pmic-sw-mode-temp-hysteresis;
+		/delete-property/ qcom,pmic-sw-mode-regs;
+	};
+
+	qcom,lpm-resources {
+		qcom,lpm-resources@0 {
+			qcom,name = "vdd-dig";
+			qcom,type = <0x61706d73>;	/* "smpa" */
+			qcom,id = <2>;
+		};
+
+		qcom,lpm-resources@1 {
+			qcom,name = "vdd-mem";
+			qcom,type = <0x61706d73>;	/* "smpa" */
+			qcom,id = <1>;
+		};
+	};
+
+	sound {
+		/delete-property/ qcom,cdc-mclk-gpios;
+	};
+};
+
+&tspp {
+	vdd_cx-supply = <&pm8994_s1_corner>;
+};
+
+&pm8994_s1_corner {
+	qcom,init-smps-mode = <0>;	/* Allow AUTO mode for VDD_CX. */
+};
