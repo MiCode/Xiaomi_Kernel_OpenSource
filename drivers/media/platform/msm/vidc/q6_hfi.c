@@ -1222,7 +1222,7 @@ static int q6_hfi_iommu_attach(struct q6_hfi_device *device)
 		if (IS_ERR_OR_NULL(domain)) {
 			dprintk(VIDC_ERR, "Failed to get domain: %s\n",
 					iommu_map->name);
-			rc = IS_ERR(domain) ? PTR_ERR(domain) : -EINVAL;
+			rc = PTR_ERR(domain) ?: -EINVAL;
 			break;
 		}
 		dprintk(VIDC_DBG, "Attaching domain(id:%d) %p to group %p\n",
@@ -1393,8 +1393,7 @@ int q6_hfi_initialize(struct hfi_device *hdev, u32 device_id,
 	hdev->hfi_device_data = q6_hfi_get_device(device_id, res, callback);
 
 	if (IS_ERR_OR_NULL(hdev->hfi_device_data)) {
-		rc = PTR_ERR(hdev->hfi_device_data);
-		rc = !rc ? -EINVAL : rc;
+		rc = PTR_ERR(hdev->hfi_device_data) ?: -EINVAL;
 		goto err_hfi_init;
 	}
 

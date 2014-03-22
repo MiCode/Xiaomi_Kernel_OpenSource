@@ -277,7 +277,7 @@ static int msm_vidc_load_bus_vectors(struct msm_vidc_platform_resources *res)
 		bus->sessions_supported = configs;
 		bus->pdata = msm_bus_pdata_from_node(pdev, child_node);
 		if (IS_ERR_OR_NULL(bus->pdata)) {
-			rc = PTR_ERR(bus->pdata);
+			rc = PTR_ERR(bus->pdata) ?: -EBADHANDLE;
 			dprintk(VIDC_ERR, "Failed to get bus pdata: %d\n", rc);
 			break;
 		}

@@ -637,7 +637,7 @@ static int venus_hfi_iommu_attach(struct venus_hfi_device *device)
 		if (IS_ERR_OR_NULL(domain)) {
 			dprintk(VIDC_ERR,
 				"Failed to get domain: %s\n", iommu_map->name);
-			rc = PTR_ERR(domain);
+			rc = PTR_ERR(domain) ?: -EINVAL;
 			break;
 		}
 		rc = iommu_attach_group(domain, group);
@@ -2928,7 +2928,7 @@ static inline int venus_hfi_init_clocks(struct msm_vidc_platform_resources *res,
 			if (IS_ERR_OR_NULL(cl->clk)) {
 				dprintk(VIDC_ERR,
 					"Failed to get clock: %s\n", cl->name);
-				rc = PTR_ERR(cl->clk);
+				rc = PTR_ERR(cl->clk) ?: -EINVAL;
 				cl->clk = NULL;
 				goto err_clk_get;
 			}
@@ -3978,8 +3978,7 @@ int venus_hfi_initialize(struct hfi_device *hdev, u32 device_id,
 	hdev->hfi_device_data = venus_hfi_get_device(device_id, res, callback);
 
 	if (IS_ERR_OR_NULL(hdev->hfi_device_data)) {
-		rc = PTR_ERR(hdev->hfi_device_data);
-		rc = !rc ? -EINVAL : rc;
+		rc = PTR_ERR(hdev->hfi_device_data) ?: -EINVAL;
 		goto err_venus_hfi_init;
 	}
 
