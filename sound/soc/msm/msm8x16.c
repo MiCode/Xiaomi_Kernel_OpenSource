@@ -492,8 +492,8 @@ static struct snd_soc_dai_link msm8x16_dai[] = {
 	},
 	/* Hostless PCM purpose */
 	{/* hw:x,5 */
-		.name = "Primary MI2S RX Hostless",
-		.stream_name = "Primary MI2S_RX Hostless Playback",
+		.name = "Primary MI2S_RX Hostless",
+		.stream_name = "Primary MI2S_RX Hostless",
 		.cpu_dai_name = "PRI_MI2S_RX_HOSTLESS",
 		.platform_name	= "msm-pcm-hostless",
 		.dynamic = 1,
@@ -572,8 +572,8 @@ static struct snd_soc_dai_link msm8x16_dai[] = {
 		.codec_name = "snd-soc-dummy",
 	},
 	{/* hw:x,11 */
-		.name = "Tertiary MI2S TX Hostless",
-		.stream_name = "Tertiary MI2S_TX Hostless Capture",
+		.name = "Tertiary MI2S_TX Hostless",
+		.stream_name = "Tertiary MI2S_TX Hostless",
 		.cpu_dai_name = "TERT_MI2S_TX_HOSTLESS",
 		.platform_name  = "msm-pcm-hostless",
 		.dynamic = 1,
