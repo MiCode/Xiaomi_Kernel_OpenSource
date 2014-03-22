@@ -454,6 +454,7 @@
 		qcom,phase-scaling-factor-bits-pos = <14>;
 		qcom,valid-scaling-factor-versions = <1 0 0 0>;
 		qcom,use-phase-scaling-factor;
+		qcom,force-auto-mode;
 
 		krait0_vreg: regulator@f9088000 {
 			compatible = "qcom,krait-regulator";
