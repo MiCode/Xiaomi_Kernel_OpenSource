@@ -21,7 +21,7 @@
 
 &soc {
 	i2c@78b9000 { /* BLSP1 QUP5 */
-		synaptics@20 {
+		synaptics@70 {
 			compatible = "synaptics,rmi4";
 			reg = <0x70>;
 			interrupt-parent = <&msm_gpio>;
