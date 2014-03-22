@@ -85,6 +85,12 @@ int ipa_rm_resource_consumer_release_work(
 	IPA_RM_DBG("calling driver CB\n");
 	driver_result = consumer->release_resource();
 	IPA_RM_DBG("driver CB returned with %d\n", driver_result);
+	/*
+	 * Treat IPA_RM_RELEASE_IN_PROGRESS as IPA_RM_RELEASED
+	 * for CONS which remains in RELEASE_IN_PROGRESS.
+	 */
+	if (driver_result == -EINPROGRESS)
+		driver_result = 0;
 	if (driver_result != 0 && driver_result != -EINPROGRESS) {
 		IPA_RM_ERR("driver CB returned error %d\n", driver_result);
 		consumer->resource.state = prev_state;
