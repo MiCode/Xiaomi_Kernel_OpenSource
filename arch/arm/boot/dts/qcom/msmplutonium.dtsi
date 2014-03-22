@@ -168,6 +168,16 @@
 			<&clock_gcc clk_gcc_blsp1_ahb_clk>;
 	};
 
+	uartblsp1dm1: serial@f991e000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xf991e000 0x1000>;
+		interrupts = <0 108 0>;
+		status = "disabled";
+		clock-names = "core_clk", "iface_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_uart3_apps_clk>,
+			<&clock_gcc clk_gcc_blsp1_ahb_clk>;
+	};
+
 	qcom,sps@f9984000 {
 		compatible = "qcom,msm_sps";
 		reg-names = "bam_mem", "core_mem";
