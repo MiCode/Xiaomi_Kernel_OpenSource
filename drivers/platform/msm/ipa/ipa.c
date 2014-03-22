@@ -1603,7 +1603,6 @@ static void ipa_start_tag_process(struct work_struct *work)
 	int res;
 
 	IPADBG("starting TAG process\n");
-	ipa_ctx->start_tag_process_again = false;
 	/* close aggregation frames on all pipes */
 	res = ipa_tag_aggr_force_close(-1);
 	if (res) {
@@ -1611,20 +1610,7 @@ static void ipa_start_tag_process(struct work_struct *work)
 		return;
 	}
 
-	ipa_active_clients_lock();
-	ipa_ctx->ipa_active_clients.cnt--;
-	if (ipa_ctx->ipa_active_clients.cnt == 0) {
-		/* check if during tag process a client used IPA */
-		if (ipa_ctx->start_tag_process_again) {
-			IPADBG("Starting TAG process again\n");
-			ipa_ctx->ipa_active_clients.cnt = 1;
-			ipa_active_clients_unlock();
-			queue_work(ipa_ctx->power_mgmt_wq, &ipa_tag_work);
-			return;
-		}
-		ipa_disable_clks();
-	}
-	ipa_active_clients_unlock();
+	ipa_dec_client_disable_clks();
 
 	IPADBG("TAG process done\n");
 	return;
@@ -1689,15 +1675,20 @@ bail:
 void ipa_dec_client_disable_clks(void)
 {
 	ipa_active_clients_lock();
-	ipa_ctx->start_tag_process_again = true;
 	ipa_ctx->ipa_active_clients.cnt--;
 	IPADBG("active clients = %d\n", ipa_ctx->ipa_active_clients.cnt);
 	if (ipa_ctx->ipa_active_clients.cnt == 0) {
-		/* when TAG process ends, active clients will be decreased */
-		ipa_ctx->ipa_active_clients.cnt = 1;
-		ipa_active_clients_unlock();
-		queue_work(ipa_ctx->power_mgmt_wq, &ipa_tag_work);
-		return;
+		if (ipa_ctx->tag_process_before_gating) {
+			ipa_ctx->tag_process_before_gating = false;
+			/*
+			 * When TAG process ends, active clients will be
+			 * decreased
+			 */
+			ipa_ctx->ipa_active_clients.cnt = 1;
+			queue_work(ipa_ctx->power_mgmt_wq, &ipa_tag_work);
+		} else {
+			ipa_disable_clks();
+		}
 	}
 	ipa_active_clients_unlock();
 }

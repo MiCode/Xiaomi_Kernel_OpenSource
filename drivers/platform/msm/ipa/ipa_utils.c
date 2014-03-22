@@ -389,6 +389,8 @@ int ipa_suspend_resource_sync(enum ipa_rm_resource_name resource)
 	if (pipe_suspended)
 		usleep_range(1000, 2000);
 
+	/* before gating IPA clocks do TAG process */
+	ipa_ctx->tag_process_before_gating = true;
 	ipa_dec_client_disable_clks();
 
 	return 0;
