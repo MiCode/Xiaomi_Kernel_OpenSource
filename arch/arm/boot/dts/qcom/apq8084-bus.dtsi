@@ -500,6 +500,17 @@
 			qcom,hw-sel = "NoC";
 		};
 
+		mas-pcie-1 {
+			cell-id = <100>;
+			label = "mas-pcie1";
+			qcom,masterp = <20>;
+			qcom,tier = <2>;
+			qcom,mode = "Fixed";
+			qcom,prio1 = <1>;
+			qcom,prio0 = <1>;
+			qcom,hw-sel = "NoC";
+		};
+
 		slv-ampss {
 			cell-id = <520>;
 			label = "slv-ampss";
