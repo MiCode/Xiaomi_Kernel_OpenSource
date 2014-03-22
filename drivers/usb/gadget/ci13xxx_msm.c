@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -345,6 +345,11 @@ int ci13xxx_msm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+void ci13xxx_msm_shutdown(struct platform_device *pdev)
+{
+	ci13xxx_pullup(&_udc->gadget, 0);
+}
+
 void msm_hw_bam_disable(bool bam_disable)
 {
 	u32 val;
@@ -364,6 +369,7 @@ static struct platform_driver ci13xxx_msm_driver = {
 		.name = "msm_hsusb",
 	},
 	.remove = ci13xxx_msm_remove,
+	.shutdown = ci13xxx_msm_shutdown,
 };
 MODULE_ALIAS("platform:msm_hsusb");
 

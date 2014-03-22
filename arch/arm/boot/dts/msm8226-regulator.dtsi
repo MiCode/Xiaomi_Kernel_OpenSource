@@ -78,7 +78,7 @@
 		vdd-apc-supply = <&pm8226_s2>;
 
 		vdd-mx-supply = <&pm8226_l3_ao>;
-		qcom,vdd-mx-vmax = <1350000>;
+		qcom,vdd-mx-vmax = <1337500>;
 		qcom,vdd-mx-vmin-method = <1>;
 
 		qcom,cpr-ref-clk = <19200>;
@@ -109,7 +109,7 @@
 		qcom,cpr-fuse-uplift-sel = <22 53 1 0 0>;
 		qcom,cpr-uplift-voltage = <50000>;
 		qcom,cpr-uplift-quotient = <0 0 120>;
-		qcom,cpr-uplift-max-volt = <1350000>;
+		qcom,cpr-uplift-max-volt = <1330000>;
 		qcom,cpr-uplift-speed-bin = <1>;
 		qcom,speed-bin-fuse-sel = <22 0 3 0>;
 	};
