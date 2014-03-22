@@ -84,6 +84,7 @@
 			qcom,enable-time = <500>;
 			qcom,pull-down-enable = <1>;
 			regulator-always-on;
+			qcom,system-load = <10000>;
 			status = "okay";
 		};
 
@@ -162,6 +163,7 @@
 			regulator-max-microvolt = <1850000>;
 			qcom,enable-time = <500>;
 			qcom,pull-down-enable = <1>;
+			qcom,system-load = <10000>;
 			status = "okay";
 		};
 
