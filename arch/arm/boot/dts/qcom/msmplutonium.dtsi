@@ -571,7 +571,7 @@
 		#clock-cells = <1>;
 	};
 
-	qcom,ocmem@fdd00000 {
+	ocmem: qcom,ocmem@fdd00000 {
 		compatible = "qcom,msm-ocmem";
 		reg = <0xfdd00000 0x2000>,
 			<0xfdd02000 0x2000>,

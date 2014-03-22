@@ -81,3 +81,7 @@
 	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
 	status = "ok";
 };
+
+&ocmem {
+	status = "disabled";
+};
