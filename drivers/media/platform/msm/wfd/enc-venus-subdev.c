@@ -446,6 +446,8 @@ static long venc_close(struct v4l2_subdev *sd, void *arg)
 	if (rc)
 		WFD_MSG_WARN("Failed to close vidc context\n");
 
+	kfree(inst->free_output_indices.bitmap);
+	kfree(inst->free_input_indices.bitmap);
 	kfree(inst);
 	sd->dev_priv = inst = NULL;
 venc_close_fail:
