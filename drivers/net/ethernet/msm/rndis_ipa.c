@@ -720,24 +720,27 @@ int rndis_ipa_pipe_connect_notify(u32 usb_to_ipa_hdl,
 	}
 	RNDIS_IPA_DEBUG("end-points configured\n");
 
+	netif_stop_queue(rndis_ipa_ctx->net);
+	RNDIS_IPA_DEBUG("netif_stop_queue() was called");
+
 	netif_carrier_on(rndis_ipa_ctx->net);
 	if (!netif_carrier_ok(rndis_ipa_ctx->net)) {
 		RNDIS_IPA_ERROR("netif_carrier_ok error\n");
 		result = -EBUSY;
 		goto fail;
 	}
-	RNDIS_IPA_DEBUG("carrier_on notified\n");
+	RNDIS_IPA_DEBUG("netif_carrier_on() was called\n");
+
+	rndis_ipa_ctx->state = next_state;
+	RNDIS_IPA_STATE_DEBUG(rndis_ipa_ctx);
 
 	if (next_state == RNDIS_IPA_CONNECTED_AND_UP) {
 		netif_start_queue(rndis_ipa_ctx->net);
-		RNDIS_IPA_DEBUG("queue started, NETDEV is operational\n");
+		RNDIS_IPA_DEBUG("netif_start_queue() was called\n");
 	}  else {
 		RNDIS_IPA_DEBUG("queue shall be started after open()\n");
 	}
 	pr_info("RNDIS_IPA NetDev pipes were connected");
-
-	rndis_ipa_ctx->state = next_state;
-	RNDIS_IPA_STATE_DEBUG(rndis_ipa_ctx);
 
 	RNDIS_IPA_LOG_EXIT();
 
@@ -773,15 +776,15 @@ static int rndis_ipa_open(struct net_device *net)
 		return -EPERM;
 	}
 
+	rndis_ipa_ctx->state = next_state;
+	RNDIS_IPA_STATE_DEBUG(rndis_ipa_ctx);
+
 	if (next_state == RNDIS_IPA_CONNECTED_AND_UP) {
 		netif_start_queue(net);
 		RNDIS_IPA_DEBUG("queue started\n");
 	} else {
 		RNDIS_IPA_DEBUG("queue shall be started after connect()\n");
 	}
-
-	rndis_ipa_ctx->state = next_state;
-	RNDIS_IPA_STATE_DEBUG(rndis_ipa_ctx);
 
 	pr_info("RNDIS_IPA NetDev was opened");
 
