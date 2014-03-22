@@ -579,7 +579,7 @@ static struct ion_platform_data *msm_ion_parse_dt(struct platform_device *pdev)
 	uint32_t num_heaps = 0;
 	int idx = 0;
 
-	for_each_child_of_node(dt_node, node)
+	for_each_available_child_of_node(dt_node, node)
 		num_heaps++;
 
 	if (!num_heaps)
@@ -598,7 +598,7 @@ static struct ion_platform_data *msm_ion_parse_dt(struct platform_device *pdev)
 	pdata->heaps = heaps;
 	pdata->nr = num_heaps;
 
-	for_each_child_of_node(dt_node, node) {
+	for_each_available_child_of_node(dt_node, node) {
 		new_dev = of_platform_device_create(node, NULL, &pdev->dev);
 		if (!new_dev) {
 			pr_err("Failed to create device %s\n", node->name);
