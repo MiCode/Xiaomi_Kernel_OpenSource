@@ -12,6 +12,7 @@
 
 extern __read_mostly int scheduler_running;
 
+extern unsigned int sysctl_sched_ravg_window;
 /*
  * Convert user-nice values [ -20 ... 0 ... 19 ]
  * to static priority [ MAX_RT_PRIO..MAX_PRIO-1 ],
@@ -479,6 +480,7 @@ struct rq {
 #endif
 
 	int cur_freq, max_freq, min_freq;
+	u64 cumulative_runnable_avg;
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
 	u64 prev_irq_time;
