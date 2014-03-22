@@ -73,6 +73,7 @@
 #include <linux/init_task.h>
 #include <linux/binfmts.h>
 #include <linux/context_tracking.h>
+#include <linux/cpufreq.h>
 
 #include <asm/switch_to.h>
 #include <asm/tlb.h>
@@ -299,6 +300,11 @@ __read_mostly int scheduler_running;
 int sysctl_sched_rt_runtime = 950000;
 
 
+/*
+ * Maximum possible frequency across all cpus. Task demand and cpu
+ * capacity (cpu_power) metrics could be scaled in reference to it.
+ */
+static unsigned int max_possible_freq = 1;
 
 /*
  * __task_rq_lock - lock the rq @p resides on.
@@ -6929,6 +6935,63 @@ void __init sched_init_smp(void)
 }
 #endif /* CONFIG_SMP */
 
+static int cpufreq_notifier_policy(struct notifier_block *nb,
+		unsigned long val, void *data)
+{
+	struct cpufreq_policy *policy = (struct cpufreq_policy *)data;
+	int i;
+
+	if (val != CPUFREQ_NOTIFY)
+		return 0;
+
+	for_each_cpu(i, policy->related_cpus) {
+		cpu_rq(i)->min_freq = policy->min;
+		cpu_rq(i)->max_freq = policy->max;
+	}
+
+	max_possible_freq = max(max_possible_freq, policy->cpuinfo.max_freq);
+
+	return 0;
+}
+
+static int cpufreq_notifier_trans(struct notifier_block *nb,
+		unsigned long val, void *data)
+{
+	struct cpufreq_freqs *freq = (struct cpufreq_freqs *)data;
+	unsigned int cpu = freq->cpu, new_freq = freq->new;
+
+	if (val != CPUFREQ_POSTCHANGE)
+		return 0;
+
+	cpu_rq(cpu)->cur_freq = new_freq;
+
+	return 0;
+}
+
+static struct notifier_block notifier_policy_block = {
+	.notifier_call = cpufreq_notifier_policy
+};
+
+static struct notifier_block notifier_trans_block = {
+	.notifier_call = cpufreq_notifier_trans
+};
+
+static int register_sched_callback(void)
+{
+	int ret;
+
+	ret = cpufreq_register_notifier(&notifier_policy_block,
+						CPUFREQ_POLICY_NOTIFIER);
+
+	if (!ret)
+		ret = cpufreq_register_notifier(&notifier_trans_block,
+						CPUFREQ_TRANSITION_NOTIFIER);
+
+	return 0;
+}
+
+core_initcall(register_sched_callback);
+
 const_debug unsigned int sysctl_timer_migration = 1;
 
 int in_sched_functions(unsigned long addr)
@@ -7069,6 +7132,9 @@ void __init sched_init(void)
 		rq->online = 0;
 		rq->idle_stamp = 0;
 		rq->avg_idle = 2*sysctl_sched_migration_cost;
+		rq->cur_freq = 0;
+		rq->max_freq = 0;
+		rq->min_freq = 0;
 
 		INIT_LIST_HEAD(&rq->cfs_tasks);
 
