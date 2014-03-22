@@ -21,6 +21,8 @@
 #include <linux/iopoll.h>
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/rpm-smd-regulator.h>
+#include <linux/platform_device.h>
+#include <linux/module.h>
 #include <linux/clk/msm-clock-generic.h>
 #include <soc/qcom/clock-local2.h>
 #include <soc/qcom/clock-pll.h>
@@ -28,16 +30,13 @@
 #include <soc/qcom/clock-voter.h>
 #include <soc/qcom/clock-krait.h>
 
-#include <soc/qcom/socinfo.h>
 #include <soc/qcom/rpm-smd.h>
 
-#include "clock.h"
 #include "clock-mdss-8974.h"
 
 enum {
 	GCC_BASE,
 	MMSS_BASE,
-	LPASS_BASE,
 	APCS_BASE,
 	N_BASES,
 };
@@ -46,7 +45,6 @@ static void __iomem *virt_bases[N_BASES];
 
 #define GCC_REG_BASE(x) (void __iomem *)(virt_bases[GCC_BASE] + (x))
 #define MMSS_REG_BASE(x) (void __iomem *)(virt_bases[MMSS_BASE] + (x))
-#define LPASS_REG_BASE(x) (void __iomem *)(virt_bases[LPASS_BASE] + (x))
 #define APCS_REG_BASE(x) (void __iomem *)(virt_bases[APCS_BASE] + (x))
 
 #define GPLL0_MODE                       0x0000
@@ -5606,18 +5604,6 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 		writel_relaxed(regval, MMSS_REG_BASE(MMSS_DEBUG_CLK_CTL));
 		break;
 
-	case LPASS_BASE:
-		writel_relaxed(0, LPASS_REG_BASE(LPASS_DEBUG_CLK_CTL));
-		clk_sel = 0x161;
-		regval = BVAL(11, 0, measure_mux[i].debug_mux);
-		writel_relaxed(regval, LPASS_REG_BASE(LPASS_DEBUG_CLK_CTL));
-
-		/* Activate debug clock output */
-
-		regval |= BIT(20);
-		writel_relaxed(regval, LPASS_REG_BASE(LPASS_DEBUG_CLK_CTL));
-		break;
-
 	case APCS_BASE:
 		clk->multiplier = 4;
 		clk_sel = 0x16A;
@@ -5753,78 +5739,6 @@ static struct measure_clk measure_clk = {
 		CLK_INIT(measure_clk.c),
 	},
 	.multiplier = 1,
-};
-
-
-static struct clk_lookup apq_clocks_8084_rumi[] = {
-	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
-	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991f000.serial", OFF),
-	CLK_DUMMY("core_clk",	SDC1_CLK,	"f9824900.sdhci", OFF),
-	CLK_DUMMY("iface_clk",	SDC1_P_CLK,	"f9824900.sdhci", OFF),
-	CLK_DUMMY("core_clk",	SDC2_CLK,	"f98a4900.sdhci", OFF),
-	CLK_DUMMY("iface_clk",	SDC2_P_CLK,	"f98a4900.sdhci", OFF),
-	CLK_DUMMY("xo",   NULL, "f9200000.ssusb", OFF),
-	CLK_DUMMY("core_clk",   NULL, "f9200000.ssusb", OFF),
-	CLK_DUMMY("iface_clk",  NULL, "f9200000.ssusb", OFF),
-	CLK_DUMMY("sleep_clk",  NULL, "f9200000.ssusb", OFF),
-	CLK_DUMMY("sleep_a_clk",   NULL, "f9200000.ssusb", OFF),
-	CLK_DUMMY("utmi_clk",   NULL, "f9200000.ssusb", OFF),
-	CLK_DUMMY("ref_clk",    NULL, "f9200000.ssusb", OFF),
-	CLK_DUMMY("iface_clk",	gcc_blsp1_ahb_clk.c,	"f9925000.i2c", OFF),
-	CLK_DUMMY("core_clk",	gcc_blsp1_qup3_i2c_apps_clk.c,	"f9925000.i2c",
-									OFF),
-	CLK_DUMMY("mem_iface_clk", gcc_sys_noc_usb3_axi_clk.c,
-						"f9304000.qcom,usbbam", OFF),
-	CLK_DUMMY("mem_clk",	gcc_usb30_master_clk.c,
-						"f9304000.qcom,usbbam", OFF),
-	CLK_DUMMY("mem_iface_clk",	gcc_mmss_bimc_gfx_clk.c,
-				     "fdb00000.qcom,kgsl-3d0", OFF),
-	CLK_DUMMY("iface_clk", gcc_prng_ahb_clk.c,
-					"f9bff000.qcom,msm-rng", OFF),
-	CLK_DUMMY("iface_clk", mdss_ahb_clk.c, "fd900000.qcom,mdss_mdp", OFF),
-	CLK_DUMMY("bus_clk", mdss_axi_clk.c, "fd900000.qcom,mdss_mdp", OFF),
-	CLK_DUMMY("core_clk_src", mdp_clk_src.c, "fd900000.qcom,mdss_mdp", OFF),
-	CLK_DUMMY("byte_clk", mdss_byte0_clk.c, "fd922800.qcom,mdss_dsi", OFF),
-	CLK_DUMMY("byte_clk", mdss_byte1_clk.c, "fd922e00.qcom,mdss_dsi", OFF),
-	CLK_DUMMY("core_clk", mdss_esc0_clk.c, "fd922800.qcom,mdss_dsi", OFF),
-	CLK_DUMMY("core_clk", mdss_esc1_clk.c, "fd922e00.qcom,mdss_dsi", OFF),
-	CLK_DUMMY("iface_clk", mdss_ahb_clk.c, "fd922800.qcom,mdss_dsi", OFF),
-	CLK_DUMMY("iface_clk", mdss_ahb_clk.c, "fd922e00.qcom,mdss_dsi", OFF),
-	CLK_DUMMY("bus_clk", mdss_axi_clk.c, "fd922800.qcom,mdss_dsi", OFF),
-	CLK_DUMMY("bus_clk", mdss_axi_clk.c, "fd922e00.qcom,mdss_dsi", OFF),
-	CLK_DUMMY("pixel_clk", mdss_pclk0_clk.c, "fd922800.qcom,mdss_dsi", OFF),
-	CLK_DUMMY("pixel_clk", mdss_pclk1_clk.c, "fd922e00.qcom,mdss_dsi", OFF),
-	CLK_DUMMY("core_clk", mdss_mdp_clk.c, "fd900000.qcom,mdss_mdp", OFF),
-	CLK_DUMMY("lut_clk", mdss_mdp_lut_clk.c, "fd900000.qcom,mdss_mdp", OFF),
-	CLK_DUMMY("vsync_clk", mdss_vsync_clk.c, "fd900000.qcom,mdss_mdp", OFF),
-	CLK_DUMMY("core_clk",  ocmemgx_core_clk.c, "fdd00000.qcom,ocmem", OFF),
-	CLK_DUMMY("iface_clk",	ocmemcx_ocmemnoc_clk.c,
-						"fdd00000.qcom,ocmem", OFF),
-	CLK_DUMMY("core_clk",	oxili_gfx3d_clk.c,
-				     "fdb00000.qcom,kgsl-3d0", OFF),
-	CLK_DUMMY("iface_clk",	oxilicx_ahb_clk.c,
-				     "fdb00000.qcom,kgsl-3d0", OFF),
-	CLK_DUMMY("iface_clk", NULL, "fda64000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk", NULL, "fda64000.qcom,iommu", OFF),
-	CLK_DUMMY("alt_core_clk", NULL, "fda64000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk", NULL, "fda44000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk", NULL, "fda44000.qcom,iommu", OFF),
-	CLK_DUMMY("alt_core_clk", NULL, "fda44000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk", NULL, "fd928000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk", NULL, "fd928000.qcom,iommu", oFF),
-	CLK_DUMMY("core_clk", NULL, "fdb10000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk", NULL, "fdb10000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk", NULL, "fdc84000.qcom,iommu", OFF),
-	CLK_DUMMY("alt_core_clk", NULL, "fdc84000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk", NULL, "fdc84000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk", NULL, "f9bc4000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk", NULL, "f9bc4000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk", NULL, "fdee4000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk", NULL, "fdee4000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk", NULL, "fe054000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk", NULL, "fe054000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk", NULL, "fe064000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk", NULL, "fe064000.qcom,iommu", OFF),
 };
 
 static struct clk_lookup apq_clocks_8084[] = {
@@ -6689,7 +6603,7 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("qca,tcxo_clk",	rf_clk2_pin.c, "qca1530.1"),
 };
 
-static struct pll_config_regs mmpll0_regs __initdata = {
+static struct pll_config_regs mmpll0_regs  = {
 	.l_reg = (void __iomem *)MMPLL0_PLL_L_VAL,
 	.m_reg = (void __iomem *)MMPLL0_PLL_M_VAL,
 	.n_reg = (void __iomem *)MMPLL0_PLL_N_VAL,
@@ -6700,7 +6614,7 @@ static struct pll_config_regs mmpll0_regs __initdata = {
 };
 
 /* MMPLL0 at 800 MHz, main output enabled. */
-static struct pll_config mmpll0_config __initdata = {
+static struct pll_config mmpll0_config = {
 	.l = 0x29,
 	.m = 0x2,
 	.n = 0x3,
@@ -6717,7 +6631,7 @@ static struct pll_config mmpll0_config __initdata = {
 	.cfg_ctl_val = 0x341600,
 };
 
-static struct pll_config_regs mmpll1_regs __initdata = {
+static struct pll_config_regs mmpll1_regs = {
 	.l_reg = (void __iomem *)MMPLL1_PLL_L_VAL,
 	.m_reg = (void __iomem *)MMPLL1_PLL_M_VAL,
 	.n_reg = (void __iomem *)MMPLL1_PLL_N_VAL,
@@ -6728,7 +6642,7 @@ static struct pll_config_regs mmpll1_regs __initdata = {
 };
 
 /* MMPLL1 at 1167MHz, main output enabled. */
-static struct pll_config mmpll1_config __initdata = {
+static struct pll_config mmpll1_config = {
 	.l = 0x3C,
 	.m = 0x19,
 	.n = 0x20,
@@ -6745,7 +6659,7 @@ static struct pll_config mmpll1_config __initdata = {
 	.cfg_ctl_val = 0x341600,
 };
 
-static struct pll_config_regs mmpll3_regs __initdata = {
+static struct pll_config_regs mmpll3_regs = {
 	.l_reg = (void __iomem *)MMPLL3_PLL_L_VAL,
 	.m_reg = (void __iomem *)MMPLL3_PLL_M_VAL,
 	.n_reg = (void __iomem *)MMPLL3_PLL_N_VAL,
@@ -6756,7 +6670,7 @@ static struct pll_config_regs mmpll3_regs __initdata = {
 };
 
 /* MMPLL3 at 930 MHz, main output enabled. */
-static struct pll_config mmpll3_config __initdata = {
+static struct pll_config mmpll3_config = {
 	.l = 48,
 	.m = 7,
 	.n = 16,
@@ -6773,7 +6687,7 @@ static struct pll_config mmpll3_config __initdata = {
 	.cfg_ctl_val = 0x341600,
 };
 
-static struct pll_config_regs mmpll4_regs __initdata = {
+static struct pll_config_regs mmpll4_regs = {
 	.l_reg = (void __iomem *)MMPLL4_PLL_L_VAL,
 	.m_reg = (void __iomem *)MMPLL4_PLL_M_VAL,
 	.n_reg = (void __iomem *)MMPLL4_PLL_N_VAL,
@@ -6784,7 +6698,7 @@ static struct pll_config_regs mmpll4_regs __initdata = {
 };
 
 /* MMPLL4 at 930 MHz, main output enabled. */
-static struct pll_config mmpll4_config __initdata = {
+static struct pll_config mmpll4_config = {
 	.l = 48,
 	.m = 7,
 	.n = 16,
@@ -6817,7 +6731,7 @@ static void __iomem *local_vote_lpass_clk_list_registers(struct clk *c,
 	return *vclk->base + vclk->cbcr_reg;
 }
 
-static void __init reg_init(void)
+static void reg_init(void)
 {
 	u32 regval;
 
@@ -6837,7 +6751,7 @@ static void __init reg_init(void)
 			GCC_REG_BASE(APCS_CLOCK_BRANCH_ENA_VOTE));
 }
 
-static void __init apq8084_clock_post_init(void)
+static void apq8084_clock_post_init(void)
 {
 
 	clk_set_rate(&axi_clk_src.c, 150000000);
@@ -6863,48 +6777,16 @@ static void __init apq8084_clock_post_init(void)
 	clk_prepare_enable(&xo_a_clk_src.c);
 }
 
-#define GCC_CC_PHYS		0xFC400000
-#define GCC_CC_SIZE		SZ_16K
-
-#define MMSS_CC_PHYS		0xFD8C0000
-#define MMSS_CC_SIZE		SZ_256K
-
-#define LPASS_CC_PHYS		0xFE000000
-#define LPASS_CC_SIZE		SZ_256K
-
-#define APCS_GCC_CC_PHYS	0xF9011000
-#define APCS_GCC_CC_SIZE	SZ_4K
-
-static void __init apq8084_clock_pre_init(void)
+static int apq8084_clock_pre_init(void)
 {
-	int i;
-
-	virt_bases[GCC_BASE] = ioremap(GCC_CC_PHYS, GCC_CC_SIZE);
-	if (!virt_bases[GCC_BASE])
-		panic("clock-8084: Unable to ioremap GCC memory!");
-
-	virt_bases[MMSS_BASE] = ioremap(MMSS_CC_PHYS, MMSS_CC_SIZE);
-	if (!virt_bases[MMSS_BASE])
-		panic("clock-8084: Unable to ioremap MMSS_CC memory!");
-
-	virt_bases[LPASS_BASE] = ioremap(LPASS_CC_PHYS, LPASS_CC_SIZE);
-	if (!virt_bases[LPASS_BASE])
-		panic("clock-8084: Unable to ioremap LPASS_CC memory!");
-
-	virt_bases[APCS_BASE] = ioremap(APCS_GCC_CC_PHYS, APCS_GCC_CC_SIZE);
-	if (!virt_bases[APCS_BASE])
-		panic("clock-8084: Unable to ioremap APCS_GCC_CC memory!");
-
+	int rc;
 	clk_ops_local_pll.enable = sr_hpm_lp_pll_clk_enable;
-
 	clk_ops_vote_lpass = clk_ops_vote;
 	clk_ops_vote_lpass.list_registers = local_vote_lpass_clk_list_registers;
 
-	vdd_dig.regulator[0] = regulator_get(NULL, "vdd_dig");
-	if (IS_ERR(vdd_dig.regulator[0]))
-		panic("clock-8084: Unable to get the vdd_dig regulator!");
-
-	enable_rpm_scaling();
+	rc = enable_rpm_scaling();
+	if (rc)
+		return rc;
 
 	reg_init();
 
@@ -6913,41 +6795,108 @@ static void __init apq8084_clock_pre_init(void)
 	 * lookup table.
 	 */
 	mdss_clk_ctrl_pre_init(&mdss_ahb_clk.c);
+	return 0;
+}
 
-	/*
-	 * Only Support the control of gcc_lpass_mport_axi_clk for v1.1 device
-	 * and above.
-	 */
-	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 1 &&
-		SOCINFO_VERSION_MINOR(socinfo_get_version()) == 0) {
-		for (i = 0; i < ARRAY_SIZE(apq_clocks_8084); i++) {
-			if (!strcmp(apq_clocks_8084[i].clk->dbg_name,
-			"gcc_lpass_mport_axi_clk"))
-				apq_clocks_8084[i].clk = &dummy_clk;
+/* Please note that the order of reg-names is important */
+static int get_memory(struct platform_device *pdev)
+{
+	int i, count;
+	const char *str;
+	struct resource *res;
+	struct device *dev = &pdev->dev;
+
+	count = of_property_count_strings(dev->of_node, "reg-names");
+	if (count != N_BASES) {
+		dev_err(dev, "missing reg-names property, expected %d strings\n",
+				N_BASES);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < count; i++) {
+		of_property_read_string_index(dev->of_node, "reg-names", i,
+						&str);
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, str);
+		if (!res) {
+			dev_err(dev, "Unable to retrieve register base.\n");
+			return -ENOMEM;
+		}
+
+		virt_bases[i] = devm_ioremap(dev, res->start,
+							resource_size(res));
+		if (!virt_bases[i]) {
+			dev_err(dev, "Failed to map in CC registers.\n");
+			return -ENOMEM;
 		}
 	}
+
+	return 0;
 }
 
-static void __init apq8084_rumi_clock_pre_init(void)
+static int get_regulators(struct device *dev)
 {
-	virt_bases[GCC_BASE] = ioremap(GCC_CC_PHYS, GCC_CC_SIZE);
-	if (!virt_bases[GCC_BASE])
-		panic("clock-8084: Unable to ioremap GCC memory!");
+	struct regulator *r;
+	r = vdd_dig.regulator[0] = devm_regulator_get(dev, "vdd_dig");
+	if (IS_ERR(r)) {
+		if (PTR_ERR(r) != -EPROBE_DEFER)
+			dev_err(dev, "Unable to get the vdd_dig regulator!");
+		return PTR_ERR(r);
+	}
 
-	vdd_dig.regulator[0] = regulator_get(NULL, "vdd_dig");
-	if (IS_ERR(vdd_dig.regulator[0]))
-		panic("clock-8084: Unable to get the vdd_dig regulator!");
+	return 0;
 }
 
-struct clock_init_data apq8084_rumi_clock_init_data __initdata = {
-	.table = apq_clocks_8084_rumi,
-	.size = ARRAY_SIZE(apq_clocks_8084_rumi),
-	.pre_init = apq8084_rumi_clock_pre_init,
+static int gcc_probe(struct platform_device *pdev)
+{
+	int rc;
+	struct device *dev = &pdev->dev;
+
+	rc = get_regulators(dev);
+	if (rc)
+		return rc;
+
+	rc = get_memory(pdev);
+	if (rc)
+		return rc;
+
+	if (of_device_is_compatible(dev->of_node, "qcom,gcc-8084"))
+		gcc_lpass_mport_axi_clk.c.ops = &clk_ops_dummy;
+
+	rc = apq8084_clock_pre_init();
+	if (rc)
+		return rc;
+
+	rc =  msm_clock_register(apq_clocks_8084, ARRAY_SIZE(apq_clocks_8084));
+	if (rc)
+		return rc;
+
+	apq8084_clock_post_init();
+
+	dev_info(dev, "Registered clock controller %s\n", dev->of_node->name);
+	return 0;
+}
+
+static struct of_device_id gcc_match_table[] = {
+	{ .compatible = "qcom,gcc-8084" },
+	{ .compatible = "qcom,gcc-8084-v1.1" },
+	{}
 };
 
-struct clock_init_data apq8084_clock_init_data __initdata = {
-	.table = apq_clocks_8084,
-	.size = ARRAY_SIZE(apq_clocks_8084),
-	.pre_init = apq8084_clock_pre_init,
-	.post_init = apq8084_clock_post_init,
+static struct platform_driver gcc_driver = {
+	.probe = gcc_probe,
+	.driver = {
+		.name = "qcom,gcc-8084",
+		.of_match_table = gcc_match_table,
+		.owner = THIS_MODULE,
+	},
 };
+
+static bool initialized;
+int __init msm_gcc_8084_init(void)
+{
+	if (initialized)
+		return true;
+	initialized  = true;
+	return platform_driver_register(&gcc_driver);
+}
+arch_initcall(msm_gcc_8084_init);
