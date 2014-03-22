@@ -65,7 +65,7 @@
 #define IA_ADDR  0x3E080
 #define IA_STAT  0x3E0C0
 #define BCSS_VBIF 0xE0
-#define BCSSADDR ((unsigned int)drv->bcss_regs)
+#define BCSSADDR (drv->bcss_regs)
 #define subsys_to_drv(d) container_of(d, struct venus_data, subsys_desc)
 /* forward declarations */
 static ssize_t demod_read(struct file *, char __user *, size_t, loff_t *);
@@ -130,9 +130,9 @@ struct demod_data {
 	struct device_node *node;
 	u32 bus_perf_client;
 	struct wakeup_source wakeup_src;
-	void *bcss_regs;
-	void *top_bcss;
-	void *ext_ram;
+	void __iomem *bcss_regs;
+	void __iomem *top_bcss;
+	void __iomem *ext_ram;
 	unsigned int read_base;
 	unsigned int write_base;
 	struct mutex mutex;
@@ -316,7 +316,7 @@ static void demod_clock_disable_unprepare(struct device *dev)
 static ssize_t demod_read(struct file *filp, char __user *buf, size_t count,
 			 loff_t *f_pos)
 {
-	unsigned int base = 0;
+	void __iomem *base;
 	struct demod_data *drv = filp->private_data;
 	int rc;
 
@@ -325,7 +325,7 @@ static ssize_t demod_read(struct file *filp, char __user *buf, size_t count,
 		return rc;
 
 	if ((drv->read_base & TOP8) == BASE_EXT) {
-		base = (unsigned int)drv->ext_ram;
+		base = drv->ext_ram;
 	} else {
 		writel_relaxed((drv->read_base & TOP12) >> 20,
 			drv->bcss_regs + NIBLE_PTR);
@@ -420,7 +420,7 @@ static long demod_ioctl(struct file *filp,
 {
 	struct demod_rw rw;
 	struct demod_set_region sr;
-	unsigned int extern_addr = 0;
+	void __iomem *extern_addr = NULL;
 	int rc = 0;
 	struct demod_data *drv = filp->private_data;
 
@@ -442,8 +442,7 @@ static long demod_ioctl(struct file *filp,
 				extern_addr = BCSSADDR +
 					ACCESS_OFFS + (rw.addr & LOW20);
 		} else if ((rw.addr & TOP8) == BASE_EXT) {
-			extern_addr =
-			(unsigned int)drv->ext_ram + (rw.addr & LOW20);
+			extern_addr = drv->ext_ram + (rw.addr & LOW20);
 		}
 		if (extern_addr != 0) {
 			if (rw.dir == 1) {
@@ -515,7 +514,7 @@ static ssize_t demod_write(struct file *filp,
 				const char *buf, size_t count,
 				loff_t *f_pos)
 {
-	unsigned int base;
+	void __iomem *base;
 	struct demod_data *drv = filp->private_data;
 	int rc;
 
@@ -553,8 +552,6 @@ static int msm_demod_probe(struct platform_device *pdev)
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
 		return -ENOMEM;
-	drv->bcss_regs = NULL;
-	drv->ext_ram = NULL;
 	drv->dev = &pdev->dev;
 	platform_set_drvdata(pdev, drv);
 	drv->ref_counter = 0;
@@ -581,8 +578,8 @@ static int msm_demod_probe(struct platform_device *pdev)
 		DRVERR("ioremap failed");
 		return -ENXIO;
 	}
-	DRVDBG("demod BCSS base = 0x%08X\n", BCSSADDR);
-	DRVDBG("top BCSS base = 0x%08X\n", (unsigned int)drv->top_bcss);
+	DRVDBG("demod BCSS base = %p\n", BCSSADDR);
+	DRVDBG("top BCSS base = %p\n", drv->top_bcss);
 
 	drv->gdsc = devm_regulator_get(&pdev->dev, "vdd");
 	if (IS_ERR(drv->gdsc)) {
