@@ -779,6 +779,8 @@ static DEFINE_CLK_BRANCH_VOTER(cxo_dwc3_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(cxo_lpm_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(cxo_pil_lpass_clk, &xo_clk_src.c);
 
+struct clk_ops clk_ops_vote_lpass;
+
 static unsigned int soft_vote_gpll0;
 
 static struct pll_vote_clk gpll0_ao_clk_src = {
@@ -2650,6 +2652,22 @@ static struct branch_clk gcc_lpass_sway_clk = {
 		.dbg_name = "gcc_lpass_sway_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_lpass_sway_clk.c),
+	},
+};
+
+/*
+ * LPASS can vote on this clock using its own register, so model
+ * this clock as local_vote_clk.
+ */
+static struct local_vote_clk gcc_lpass_mport_axi_clk = {
+	.cbcr_reg = LPASS_MPORT_AXI_CBCR,
+	.vote_reg = LPASS_MPORT_AXI_CBCR,
+	.en_mask = BIT(0),
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_lpass_mport_axi_clk",
+		.ops = &clk_ops_vote_lpass,
+		CLK_INIT(gcc_lpass_mport_axi_clk.c),
 	},
 };
 
@@ -5393,6 +5411,7 @@ static struct measure_mux_entry measure_mux[] = {
 	{&gcc_ce2_axi_clk.c,			GCC_BASE, 0x0141},
 	{&gcc_ce2_ahb_clk.c,			GCC_BASE, 0x0142},
 	{&gcc_lpass_q6_axi_clk.c,		GCC_BASE, 0x0160},
+	{&gcc_lpass_mport_axi_clk.c,		GCC_BASE, 0x0162},
 	{&gcc_lpass_sway_clk.c,			GCC_BASE, 0x0163},
 	{&gcc_copss_smmu_axi_clk.c,		GCC_BASE, 0x01e8},
 	{&gcc_copss_smmu_ahb_clk.c,		GCC_BASE, 0x01e9},
@@ -5799,8 +5818,8 @@ static struct clk_lookup apq_clocks_8084[] = {
 									OFF),
 	CLK_DUMMY("iface_clk", lcc_core_smmu_cfg_clk.c, "fe064000.qcom,iommu",
 									OFF),
-	CLK_DUMMY("core_clk",  gcc_lpass_mport_axi_clk.c, "fe064000.qcom,iommu",
-									OFF),
+	CLK_LOOKUP("core_clk",  gcc_lpass_mport_axi_clk.c,
+						"fe064000.qcom,iommu"),
 
 	CLK_LOOKUP("xo",  cxo_pil_lpass_clk.c,      "fe200000.qcom,lpass"),
 	CLK_LOOKUP("xo",  cxo_dwc3_clk.c,           "f9200000.ssusb"),
@@ -6745,6 +6764,22 @@ static struct pll_config mmpll4_config __initdata = {
 	.cfg_ctl_val = 0x341600,
 };
 
+static void __iomem *local_vote_lpass_clk_list_registers(struct clk *c,
+			int n, struct clk_register_data **regs, u32 *size)
+{
+	struct local_vote_clk *vclk = to_local_vote_clk(c);
+	static struct clk_register_data data[] = {
+		{"CBCR", 0x0},
+	};
+
+	if (n)
+		return ERR_PTR(-EINVAL);
+
+	*regs = data;
+	*size = ARRAY_SIZE(data);
+	return *vclk->base + vclk->cbcr_reg;
+}
+
 static void __init reg_init(void)
 {
 	u32 regval;
@@ -6805,6 +6840,8 @@ static void __init apq8084_clock_post_init(void)
 
 static void __init apq8084_clock_pre_init(void)
 {
+	int i;
+
 	virt_bases[GCC_BASE] = ioremap(GCC_CC_PHYS, GCC_CC_SIZE);
 	if (!virt_bases[GCC_BASE])
 		panic("clock-8084: Unable to ioremap GCC memory!");
@@ -6823,6 +6860,9 @@ static void __init apq8084_clock_pre_init(void)
 
 	clk_ops_local_pll.enable = sr_hpm_lp_pll_clk_enable;
 
+	clk_ops_vote_lpass = clk_ops_vote;
+	clk_ops_vote_lpass.list_registers = local_vote_lpass_clk_list_registers;
+
 	vdd_dig.regulator[0] = regulator_get(NULL, "vdd_dig");
 	if (IS_ERR(vdd_dig.regulator[0]))
 		panic("clock-8084: Unable to get the vdd_dig regulator!");
@@ -6836,6 +6876,19 @@ static void __init apq8084_clock_pre_init(void)
 	 * lookup table.
 	 */
 	mdss_clk_ctrl_pre_init(&mdss_ahb_clk.c);
+
+	/*
+	 * Only Support the control of gcc_lpass_mport_axi_clk for v1.1 device
+	 * and above.
+	 */
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 1 &&
+		SOCINFO_VERSION_MINOR(socinfo_get_version()) == 0) {
+		for (i = 0; i < ARRAY_SIZE(apq_clocks_8084); i++) {
+			if (!strcmp(apq_clocks_8084[i].clk->dbg_name,
+			"gcc_lpass_mport_axi_clk"))
+				apq_clocks_8084[i].clk = &dummy_clk;
+		}
+	}
 }
 
 static void __init apq8084_rumi_clock_pre_init(void)
