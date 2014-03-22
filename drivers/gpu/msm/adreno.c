@@ -1613,24 +1613,26 @@ adreno_probe(struct platform_device *pdev)
 	if (is_dt && pdev->dev.of_node) {
 		status = adreno_of_get_pdata(pdev);
 		if (status)
-			goto error_return;
+			return status;
 	}
 
 	device = (struct kgsl_device *)pdev->id_entry->driver_data;
 	adreno_dev = ADRENO_DEVICE(device);
 	device->parentdev = &pdev->dev;
 
-	status = adreno_ringbuffer_init(device);
-	if (status != 0)
-		goto error;
-
 	status = kgsl_device_platform_probe(device);
+	if (status) {
+		device->parentdev = NULL;
+		return status;
+	}
+
+	status = adreno_ringbuffer_init(device);
 	if (status)
-		goto error_close_rb;
+		goto out;
 
 	status = adreno_dispatcher_init(adreno_dev);
 	if (status)
-		goto error_close_device;
+		goto out;
 
 	adreno_debugfs_init(device);
 	adreno_profile_init(device);
@@ -1649,15 +1651,13 @@ adreno_probe(struct platform_device *pdev)
 	if (input_register_handler(&adreno_input_handler))
 		KGSL_DRV_ERR(device, "Unable to register the input handler\n");
 #endif
-	return 0;
+out:
+	if (status) {
+		adreno_ringbuffer_close(&adreno_dev->ringbuffer);
+		kgsl_device_platform_remove(device);
+		device->parentdev = NULL;
+	}
 
-error_close_device:
-	kgsl_device_platform_remove(device);
-error_close_rb:
-	adreno_ringbuffer_close(&adreno_dev->ringbuffer);
-error:
-	device->parentdev = NULL;
-error_return:
 	return status;
 }
 
