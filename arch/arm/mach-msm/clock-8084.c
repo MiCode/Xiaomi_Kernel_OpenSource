@@ -2633,13 +2633,15 @@ static struct branch_clk gcc_gp3_clk = {
 	},
 };
 
-static struct branch_clk gcc_lpass_q6_axi_clk = {
+/* LPASS can vote on this clock, so model this clock as local_vote_clk. */
+static struct local_vote_clk gcc_lpass_q6_axi_clk = {
 	.cbcr_reg = LPASS_Q6_AXI_CBCR,
-	.has_sibling = 1,
+	.vote_reg = LPASS_Q6_AXI_CBCR,
+	.en_mask = BIT(0),
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_lpass_q6_axi_clk",
-		.ops = &clk_ops_branch,
+		.ops = &clk_ops_vote_lpass,
 		CLK_INIT(gcc_lpass_q6_axi_clk.c),
 	},
 };
