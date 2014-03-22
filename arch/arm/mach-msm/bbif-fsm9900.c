@@ -91,7 +91,7 @@ static void reset_msbcal(void)
 {
 	int read_data;
 	int i;
-	unsigned int dac_base = (unsigned int) bbif_base + COMBODAC_CSR;
+	void __iomem *dac_base = bbif_base + COMBODAC_CSR;
 	pr_debug("%s: COMBODAC MSB CAL  Reset Module\n", __func__);
 
 	/*  RESET COMBODAC 0 - 4 */
@@ -127,7 +127,7 @@ static void reset_dccal(void)
 {
 	int read_data;
 	int i;
-	unsigned int dac_base = (unsigned int) bbif_base + COMBODAC_CSR;
+	void __iomem *dac_base = bbif_base + COMBODAC_CSR;
 
 	pr_debug("%s: COMBODAC DCCAL  Reset Module\n", __func__);
 
@@ -167,7 +167,7 @@ static void set_combodac_cfg(int config_type)
 	int wdata = 0;
 	int config_0, config_1;
 	int i;
-	unsigned int dac_base = (unsigned int) bbif_base + COMBODAC_CSR;
+	void __iomem *dac_base = bbif_base + COMBODAC_CSR;
 
 	pr_debug("%s: ComboDAC0-1 Config Module\n", __func__);
 
@@ -238,17 +238,16 @@ static long bbif_ioctl(struct file *file,
 			if (param.offset > BBIF_MAX_OFFSET)
 				return -EFAULT;
 
-			__raw_writel(param.value, (unsigned int)bbif_base +
-				param.offset);
+			__raw_writel(param.value, bbif_base + param.offset);
 			mb();
 		}
 
 	case BBIF_IOCTL_SET_ADC_BW:
 		{
-			unsigned int bbif_adc_base;
+			void __iomem *bbif_adc_base;
 			struct bbif_bw_config param;
 
-			bbif_adc_base = (unsigned int)bbif_base + BBIF_MISC;
+			bbif_adc_base = bbif_base + BBIF_MISC;
 			if (copy_from_user(&param, argp, sizeof(param)))
 				return -EFAULT;
 
@@ -325,7 +324,7 @@ static int bbif_probe(struct platform_device *pdev)
 	struct resource *mem_res;
 	int ret;
 	int i;
-	unsigned int bbif_misc_base;
+	void __iomem *bbif_misc_base;
 
 	pr_debug("%s: Entry\n", __func__);
 
@@ -345,7 +344,7 @@ static int bbif_probe(struct platform_device *pdev)
 	}
 
 	/*ADC config */
-	bbif_misc_base = (unsigned int)bbif_base + BBIF_MISC;
+	bbif_misc_base = bbif_base + BBIF_MISC;
 
 	__raw_writel(SIGMA_DELTA_VAL_0, bbif_misc_base +
 		BBIF_MAP_SIGMA_DELTA_0);

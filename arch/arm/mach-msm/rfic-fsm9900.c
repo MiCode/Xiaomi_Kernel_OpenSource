@@ -387,13 +387,13 @@ static long ftr_ioctl(struct file *file,
 	case RFIC_IOCTL_PDM_WRITE:
 		{
 			struct pdm_write_param param;
-			unsigned int pdmaddr;
+			void __iomem *pdmaddr;
 			u8 value;
 
 			if (copy_from_user(&param, argp, sizeof(param)))
 				return -EFAULT;
 
-			pdmaddr = (unsigned int)pdm_base + param.offset;
+			pdmaddr = pdm_base + param.offset;
 			value = (u8) param.value;
 
 			mutex_lock(&pdev->lock);
