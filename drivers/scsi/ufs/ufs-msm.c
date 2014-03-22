@@ -2876,6 +2876,7 @@ static int msm_ufs_init(struct ufs_hba *hba)
 	}
 
 	hba->caps |= UFSHCD_CAP_CLK_GATING | UFSHCD_CAP_CLK_SCALING;
+	hba->caps |= UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
 	msm_ufs_setup_clocks(hba, true);
 	goto out;
 
