@@ -1402,6 +1402,13 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		}
 	}
 
+	if (!msm_bam_usb_lpm_ok(DWC3_CTRL)) {
+		dev_dbg(mdwc->dev,
+			"%s: IPA handshake not finished, will suspend when done\n",
+			__func__);
+		return -EBUSY;
+	}
+
 	host_ss_active = dwc3_msm_read_reg(mdwc->base, USB3_PORTSC) & PORT_PE;
 	if (mdwc->hs_phy_irq)
 		disable_irq(mdwc->hs_phy_irq);
@@ -1568,6 +1575,8 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	if (resume_from_core_clk_off)
 		usb_phy_set_suspend(mdwc->ss_phy, 0);
 	atomic_set(&mdwc->in_lpm, 0);
+
+	msm_bam_notify_lpm_resume(DWC3_CTRL);
 
 	/* match disable_irq call from isr */
 	if (mdwc->lpm_irq_seen && mdwc->hs_phy_irq) {
