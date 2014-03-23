@@ -1133,9 +1133,10 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	ipa_inc_client_enable_clks();
-
 	ep = &ipa_ctx->ep[clnt_hdl];
+
+	if (!ep->keep_ipa_awake)
+		ipa_inc_client_enable_clks();
 
 	if (IPA_CLIENT_IS_CONS(ep->client))
 		ipa_cleanup_rx(ep->sys);
