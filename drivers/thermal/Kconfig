@@ -238,6 +238,7 @@ config INTEL_BYT_AUX_DTS_THERMAL
 config INTEL_THERMAL
 	tristate "Intel Thermal driver"
 	depends on X86 && ACPI
+	select THERMAL_GOV_USER_SPACE
 	help
 	  Newer laptops and tablets that use ACPI for thermal control
 	  outside the core CPU/SOC for thermal safety reasons.

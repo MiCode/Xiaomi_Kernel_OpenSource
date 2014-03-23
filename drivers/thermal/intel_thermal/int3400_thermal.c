@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/acpi.h>
+#include <linux/thermal.h>
 
 struct art {
 	acpi_handle source;
@@ -60,6 +61,7 @@ static u8* int3400_thermal_uuids[INT3400_THERMAL_MAXIMUM_UUID] = {
 
 struct int3400_thermal_priv {
 	struct acpi_device *adev;
+	struct thermal_zone_device *thermal;
 	int art_count;
 	struct art *arts;
 	int trt_count;
@@ -242,6 +244,22 @@ end:
 	return result;
 }
 
+static int int3400_thermal_get_temp(struct thermal_zone_device *thermal,
+			unsigned long *temp)
+{
+	*temp = 20 * 1000; /* faked temp sensor with 20C */
+	return 0;
+}
+
+static struct thermal_zone_device_ops int3400_thermal_ops = {
+        .get_temp = int3400_thermal_get_temp,
+};
+
+struct thermal_zone_params int3400_thermal_params = {
+	.governor_name = "user_space",
+	.no_hwmon = true,
+};
+
 static int int3400_thermal_probe(struct platform_device *pdev)
 {
 	struct acpi_device *adev = ACPI_COMPANION(&pdev->dev);
@@ -271,7 +289,17 @@ static int int3400_thermal_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, priv);
 
+	priv->thermal = thermal_zone_device_register("INT3400 Thermal", 0, 0,
+						NULL, &int3400_thermal_ops,
+						&int3400_thermal_params, 0, 0);
+	if (IS_ERR(priv->thermal)) {
+		result = PTR_ERR(priv->thermal);
+		goto free_trt;
+	}
+
 	return 0;
+free_trt:
+	kfree(priv->trts);
 free_art:
 	kfree(priv->arts);
 free_priv:
@@ -283,6 +311,7 @@ static int int3400_thermal_remove(struct platform_device *pdev)
 {
 	struct int3400_thermal_priv *priv = platform_get_drvdata(pdev);
 
+	thermal_zone_device_unregister(priv->thermal);
 	kfree(priv->trts);
 	kfree(priv->arts);
 	kfree(priv);
