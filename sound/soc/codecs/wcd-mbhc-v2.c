@@ -702,9 +702,11 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 	struct snd_soc_codec *codec = mbhc->codec;
 
 	pr_debug("%s: enter\n", __func__);
-	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_1, 0xF4);
+	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_1, 0xB4);
 	/* enable HS detection */
 	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2, 0xE8);
+	snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2, 0x18,
+				(mbhc->hphl_swh << 4 | mbhc->gnd_swh << 3));
 	if (mbhc->hphl_swh == TOMBAK_MBHC_NC)
 		/* if Normaly closed switch we need pull down on HPHL */
 		snd_soc_update_bits(codec,
