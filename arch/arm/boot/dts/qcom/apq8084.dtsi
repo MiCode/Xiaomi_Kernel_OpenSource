@@ -70,7 +70,7 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x0f800000 0x0 0x600000>;
+			reg = <0x0 0x0f800000 0x0 0x800000>;
 			label = "external_image_mem";
 		};
         };
