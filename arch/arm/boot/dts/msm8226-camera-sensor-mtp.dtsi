@@ -112,7 +112,7 @@
 		reg = <0x0>;
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
-		qcom,mount-angle = <0>;
+		qcom,mount-angle = <270>;
 		qcom,actuator-src = <&actuator0>;
 		qcom,led-flash-src = <&led_flash0>;
 		cam_vdig-supply = <&pm8226_l5>;
@@ -136,6 +136,8 @@
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
 			"CAM_RESET1",
 			"CAM_STANDBY";
+		qcom,sensor-position = <0>;
+		qcom,sensor-mode = <0>;
 		qcom,cci-master = <0>;
 		status = "ok";
 	};
@@ -166,6 +168,8 @@
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
 			"CAM_RESET",
 			"CAM_STANDBY";
+		qcom,sensor-position = <1>;
+		qcom,sensor-mode = <0>;
 		qcom,cci-master = <0>;
 		status = "ok";
 	};

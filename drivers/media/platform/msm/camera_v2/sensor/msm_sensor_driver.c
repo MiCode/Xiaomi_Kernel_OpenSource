@@ -27,6 +27,8 @@
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 #endif
 
+#define	SENSOR_MAX_MOUNTANGLE (360)
+
 /* Static declaration */
 static struct msm_sensor_ctrl_t *g_sctrl[MAX_CAMERAS];
 
@@ -260,6 +262,58 @@ static int32_t msm_sensor_fill_actuator_subdevid_by_name(
 	return rc;
 }
 
+static int32_t msm_sensor_fill_slave_info_init_params(
+	struct msm_camera_sensor_slave_info *slave_info,
+	struct msm_sensor_info_t *sensor_info)
+{
+	struct msm_sensor_init_params *sensor_init_params;
+	if (!slave_info ||  !sensor_info)
+		return -EINVAL;
+
+	if (!slave_info->is_init_params_valid)
+		return 0;
+
+	sensor_init_params = &slave_info->sensor_init_params;
+	if (INVALID_CAMERA_B != sensor_init_params->position)
+		sensor_info->position =
+			sensor_init_params->position;
+
+	if (SENSOR_MAX_MOUNTANGLE > sensor_init_params->sensor_mount_angle) {
+		sensor_info->sensor_mount_angle =
+			sensor_init_params->sensor_mount_angle;
+		sensor_info->is_mount_angle_valid = 1;
+	}
+
+	if (CAMERA_MODE_INVALID != sensor_init_params->modes_supported)
+		sensor_info->modes_supported =
+			sensor_init_params->modes_supported;
+
+	return 0;
+}
+
+
+static int32_t msm_sensor_validate_slave_info(
+	struct msm_sensor_info_t *sensor_info)
+{
+	if (INVALID_CAMERA_B == sensor_info->position) {
+		sensor_info->position = BACK_CAMERA_B;
+		pr_err("%s Set dafault sensor position%d\n",
+			__func__, __LINE__);
+	}
+	if (CAMERA_MODE_INVALID == sensor_info->modes_supported) {
+		sensor_info->modes_supported = CAMERA_MODE_2D_B;
+		pr_err("%s Set dafault sensor modes_supported%d\n",
+			__func__, __LINE__);
+	}
+	if (SENSOR_MAX_MOUNTANGLE < sensor_info->sensor_mount_angle) {
+		sensor_info->sensor_mount_angle = 0;
+		pr_err("%s Set dafault sensor mount angle%d\n",
+			__func__, __LINE__);
+		sensor_info->is_mount_angle_valid = 1;
+	}
+	return 0;
+}
+
 /* static function definition */
 int32_t msm_sensor_driver_probe(void *setting)
 {
@@ -274,6 +328,7 @@ int32_t msm_sensor_driver_probe(void *setting)
 	struct msm_camera_power_ctrl_t      *power_info = NULL;
 	int c, end;
 	struct msm_sensor_power_setting     power_down_setting_t;
+	unsigned long mount_pos = 0;
 
 	/* Validate input parameters */
 	if (!setting) {
@@ -303,6 +358,13 @@ int32_t msm_sensor_driver_probe(void *setting)
 	CDBG("sensor_id %x", slave_info->sensor_id_info.sensor_id);
 	CDBG("size %d", slave_info->power_setting_array.size);
 	CDBG("size down %d", slave_info->power_setting_array.size_down);
+
+	if (slave_info->is_init_params_valid) {
+		CDBG("position %d",
+			slave_info->sensor_init_params.position);
+		CDBG("mount %d",
+			slave_info->sensor_init_params.sensor_mount_angle);
+	}
 
 	/* Validate camera id */
 	if (slave_info->camera_id >= MAX_CAMERAS) {
@@ -537,6 +599,25 @@ int32_t msm_sensor_driver_probe(void *setting)
 	/* Power down */
 	s_ctrl->func_tbl->sensor_power_down(s_ctrl);
 
+	rc = msm_sensor_fill_slave_info_init_params(
+		slave_info,
+		s_ctrl->sensordata->sensor_info);
+	if (rc < 0) {
+		pr_err("%s Fill slave info failed", slave_info->sensor_name);
+		goto FREE_CAMERA_INFO;
+	}
+	rc = msm_sensor_validate_slave_info(s_ctrl->sensordata->sensor_info);
+	if (rc < 0) {
+		pr_err("%s Validate slave info failed",
+			slave_info->sensor_name);
+		goto FREE_CAMERA_INFO;
+	}
+	/* Update sensor mount angle and position in media entity flag */
+	mount_pos = s_ctrl->sensordata->sensor_info->position << 16;
+	mount_pos = mount_pos | ((s_ctrl->sensordata->sensor_info->
+		sensor_mount_angle / 90) << 8);
+	s_ctrl->msm_sd.sd.entity.flags = mount_pos | MEDIA_ENT_FL_DEFAULT;
+
 	/*Save sensor info*/
 	s_ctrl->sensordata->cam_slave_info = slave_info;
 
@@ -705,6 +786,23 @@ static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl)
 		rc = 0;
 	} else {
 		sensordata->sensor_info->is_mount_angle_valid = 1;
+	}
+
+	rc = of_property_read_u32(of_node, "qcom,sensor-position",
+		&sensordata->sensor_info->position);
+	if (rc < 0) {
+		pr_err("%s:%d Invalid sensor position\n", __func__, __LINE__);
+		sensordata->sensor_info->position = INVALID_CAMERA_B;
+		rc = 0;
+	}
+
+	rc = of_property_read_u32(of_node, "qcom,sensor-mode",
+		&sensordata->sensor_info->modes_supported);
+	if (rc < 0) {
+		pr_err("%s:%d Invalid sensor mode supported\n",
+			__func__, __LINE__);
+		sensordata->sensor_info->modes_supported = CAMERA_MODE_INVALID;
+		rc = 0;
 	}
 
 	/* Get vdd-cx regulator */

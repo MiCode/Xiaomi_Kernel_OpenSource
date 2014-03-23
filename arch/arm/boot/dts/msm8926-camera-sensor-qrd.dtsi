@@ -263,6 +263,8 @@
 		        "CAM_RESET1",
 		        "CAM_STANDBY",
 		        "CAM_AF_PWDM";
+		qcom,sensor-position = <0>;
+		qcom,sensor-mode = <0>;
 		qcom,cci-master = <0>;
 		status = "ok";
 	};
@@ -296,6 +298,8 @@
 				"CAM_RESET",
 				"CAM_STANDBY",
 				"CAM_VDIG";
+		qcom,sensor-position = <1>;
+		qcom,sensor-mode = <0>;
 		qcom,cci-master = <0>;
 		status = "ok";
 	};

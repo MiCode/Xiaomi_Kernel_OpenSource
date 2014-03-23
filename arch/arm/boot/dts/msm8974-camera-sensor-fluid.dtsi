@@ -221,6 +221,8 @@
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
 					  "CAM_RESET1",
 					  "CAM_STANDBY";
+		qcom,sensor-position = <0>;
+		qcom,sensor-mode = <0>;
 		qcom,cci-master = <0>;
 		status = "ok";
 	};
@@ -251,6 +253,8 @@
 		qcom,gpio-req-tbl-flags = <1 0>;
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
 					  "CAM_RESET1";
+		qcom,sensor-position = <1>;
+		qcom,sensor-mode = <0>;
 		qcom,cci-master = <1>;
 		status = "ok";
 	};
@@ -261,6 +265,7 @@
 		reg = <0x2>;
 		qcom,csiphy-sd-index = <2>;
 		qcom,csid-sd-index = <2>;
+		qcom,mount-angle = <90>;
 		qcom,vdd-cx-supply = <&pm8841_s2>;
 		qcom,vdd-cx-name = "qcom,vdd-cx";
 		cam_vdig-supply = <&pm8941_l3>;
