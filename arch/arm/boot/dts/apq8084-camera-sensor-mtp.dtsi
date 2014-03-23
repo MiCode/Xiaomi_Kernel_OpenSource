@@ -126,6 +126,8 @@
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
 					  "CAM_RESET1",
 					  "CAM_STANDBY";
+		qcom,sensor-position = <0>;
+		qcom,sensor-mode = <1>;
 		qcom,cci-master = <0>;
 		status = "ok";
 	};
@@ -153,6 +155,8 @@
 		qcom,gpio-req-tbl-flags = <1 0>;
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK2",
 					  "CAM_XSHUTDOWN";
+		qcom,sensor-position = <1>;
+		qcom,sensor-mode = <1>;
 		qcom,cci-master = <0>;
 		status = "ok";
 	};
