@@ -535,8 +535,11 @@ static void ksb_rx_cb(struct urb *urb)
 				&& urb->status != -EPROTO)
 			pr_err_ratelimited("%s: urb failed with err:%d",
 					ksb->id_info.name, urb->status);
-		ksb_free_data_pkt(pkt);
-		goto done;
+
+		if (!urb->actual_length) {
+			ksb_free_data_pkt(pkt);
+			goto done;
+		}
 	}
 
 	usb_mark_last_busy(ksb->udev);
