@@ -60,6 +60,8 @@ static struct cma_area {
 	struct cma *cma;
 	const char *name;
 	bool to_system;
+	unsigned long alignment;
+	unsigned long limit;
 } cma_areas[MAX_CMA_AREAS];
 static unsigned cma_area_count;
 
@@ -69,6 +71,7 @@ static struct cma_map {
 	struct device *dev;
 } cma_maps[MAX_CMA_AREAS] __initdata;
 static unsigned cma_map_count __initdata;
+static bool allow_memblock_alloc __initdata;
 
 static struct cma *cma_get_area(phys_addr_t base)
 {
@@ -275,6 +278,24 @@ int __init cma_fdt_scan(unsigned long node, const char *uname,
 }
 #endif
 
+int __init __dma_contiguous_reserve_memory(size_t size, size_t alignment,
+					size_t limit, phys_addr_t *base)
+{	phys_addr_t addr;
+
+	if (!allow_memblock_alloc) {
+		*base = 0;
+		return 0;
+	}
+
+	addr = __memblock_alloc_base(size, alignment, limit);
+	if (!addr) {
+		return -ENOMEM;
+	} else {
+		*base = addr;
+		return 0;
+	}
+}
+
 /**
  * dma_contiguous_reserve() - reserve area for contiguous memory handling
  * @limit: End address of the reserved memory (optional, 0 for any).
@@ -288,7 +309,11 @@ int __init cma_fdt_scan(unsigned long node, const char *uname,
 void __init dma_contiguous_reserve(phys_addr_t limit)
 {
 	phys_addr_t sel_size = 0;
+	int i;
 
+#ifdef CONFIG_OF
+	of_scan_flat_dt(cma_fdt_scan, NULL);
+#endif
 	pr_debug("%s(limit %pa)\n", __func__, &limit);
 
 	if (size_cmdline != -1) {
@@ -305,18 +330,47 @@ void __init dma_contiguous_reserve(phys_addr_t limit)
 #endif
 	}
 
+	dma_contiguous_early_removal_fixup();
+	allow_memblock_alloc = true;
+
+	for (i = 0; i < cma_area_count; i++) {
+		if (cma_areas[i].base == 0) {
+			int ret;
+
+			ret = __dma_contiguous_reserve_memory(
+						cma_areas[i].size,
+						cma_areas[i].alignment,
+						cma_areas[i].limit,
+						&cma_areas[i].base);
+			if (ret) {
+				pr_err("CMA: failed to reserve %ld MiB for %s\n",
+				       (unsigned long)cma_areas[i].size / SZ_1M,
+				       cma_areas[i].name);
+				memmove(&cma_areas[i], &cma_areas[i+1],
+				   (cma_area_count - i)*sizeof(cma_areas[i]));
+				cma_area_count--;
+				i--;
+				continue;
+			}
+		}
+
+		pr_info("CMA: reserved %ld MiB at %pa for %s\n",
+			(unsigned long)cma_areas[i].size / SZ_1M,
+			&cma_areas[i].base, cma_areas[i].name);
+	}
+
 	if (sel_size) {
 		phys_addr_t base = 0;
 		pr_debug("%s: reserving %ld MiB for global area\n", __func__,
 			 (unsigned long)sel_size / SZ_1M);
 
 		if (dma_contiguous_reserve_area(sel_size, &base, limit, NULL,
-		    CMA_RESERVE_AREA ? 0 : 1, false) == 0)
+		    CMA_RESERVE_AREA ? 0 : 1, false) == 0) {
+			pr_info("CMA: reserved %ld MiB at %pa for default region\n",
+				(unsigned long)sel_size / SZ_1M, &base);
 			dma_contiguous_def_base = base;
+		}
 	}
-#ifdef CONFIG_OF
-	of_scan_flat_dt(cma_fdt_scan, NULL);
-#endif
 };
 
 /**
@@ -369,20 +423,13 @@ int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t *res_base,
 			goto err;
 		}
 	} else {
-		/*
-		 * Use __memblock_alloc_base() since
-		 * memblock_alloc_base() panic()s.
-		 */
-		phys_addr_t addr = __memblock_alloc_base(size, alignment, limit);
-		if (!addr) {
-			ret = -ENOMEM;
+		ret = __dma_contiguous_reserve_memory(size, alignment, limit,
+							&base);
+		if (ret)
 			goto err;
-		} else {
-			base = addr;
-		}
 	}
 
-	if (remove) {
+	if (base && remove) {
 		if (!to_system) {
 			memblock_free(base, size);
 			memblock_remove(base, size);
@@ -398,15 +445,15 @@ int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t *res_base,
 	cma_areas[cma_area_count].base = base;
 	cma_areas[cma_area_count].size = size;
 	cma_areas[cma_area_count].name = name;
+	cma_areas[cma_area_count].alignment = alignment;
+	cma_areas[cma_area_count].limit = limit;
 	cma_areas[cma_area_count].to_system = to_system;
 	cma_area_count++;
 	*res_base = base;
 
-	pr_info("CMA: reserved %ld MiB at %pa\n", (unsigned long)size / SZ_1M,
-		 &base);
 
 	/* Architecture specific contiguous memory fixup. */
-	if (!remove)
+	if (!remove && base)
 		dma_contiguous_early_fixup(base, size);
 	return 0;
 err:

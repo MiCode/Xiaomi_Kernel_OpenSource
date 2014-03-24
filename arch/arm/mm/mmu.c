@@ -1225,6 +1225,11 @@ void __init sanity_check_meminfo(void)
 	memblock_set_current_limit(arm_lowmem_limit);
 }
 
+void __init dma_contiguous_early_removal_fixup(void)
+{
+	sanity_check_meminfo();
+}
+
 static inline void prepare_page_table(void)
 {
 	unsigned long addr;
