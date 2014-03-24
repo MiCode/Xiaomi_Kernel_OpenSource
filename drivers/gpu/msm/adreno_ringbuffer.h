@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,27 +13,32 @@
 #ifndef __ADRENO_RINGBUFFER_H
 #define __ADRENO_RINGBUFFER_H
 
-/*
- * Adreno ringbuffer sizes in bytes - these are converted to
- * the appropriate log2 values in the code
- */
-
+/* Adreno ringbuffer size in bytes */
 #define KGSL_RB_SIZE (32 * 1024)
+
+/*
+ * A handy macro to convert the RB size to dwords since most ringbuffer
+ * operations happen in dword increments
+ */
+#define KGSL_RB_DWORDS (KGSL_RB_SIZE >> 2)
 
 struct kgsl_device;
 struct kgsl_device_private;
 
+/**
+ * struct adreno_ringbuffer - Definition for an adreno ringbuffer object
+ * @device: KGSL device that owns the ringbuffer object
+ * @flags: Internal control flags for the ringbuffer
+ * @buffer_desc: Pointer to the ringbuffer memory descriptor
+ * @wptr: Local copy of the wptr offset
+ * @global_ts: Current global timestamp for the ringbuffer
+ */
 struct adreno_ringbuffer {
 	struct kgsl_device *device;
 	uint32_t flags;
-
 	struct kgsl_memdesc buffer_desc;
-
-	/*ringbuffer size */
 	unsigned int sizedwords;
-
-	unsigned int wptr; /* write pointer offset in dwords from baseaddr */
-
+	unsigned int wptr;
 	unsigned int global_ts;
 };
 
@@ -98,7 +103,7 @@ static inline int adreno_ringbuffer_count(struct adreno_ringbuffer *rb,
 {
 	if (rb->wptr >= rptr)
 		return rb->wptr - rptr;
-	return rb->wptr + rb->sizedwords - rptr;
+	return rb->wptr + KGSL_RB_DWORDS - rptr;
 }
 
 /* Increment a value by 4 bytes with wrap-around based on size */

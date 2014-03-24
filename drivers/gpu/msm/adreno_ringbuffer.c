@@ -64,7 +64,7 @@ adreno_ringbuffer_waitspace(struct adreno_ringbuffer *rb,
 	/* if wptr ahead, fill the remaining with NOPs */
 	if (wptr_ahead) {
 		/* -1 for header */
-		nopcount = rb->sizedwords - rb->wptr - 1;
+		nopcount = KGSL_RB_DWORDS - rb->wptr - 1;
 
 		cmds = (unsigned int *)rb->buffer_desc.hostptr + rb->wptr;
 		cmds_gpu = rb->buffer_desc.gpuaddr + sizeof(uint)*rb->wptr;
@@ -112,14 +112,14 @@ unsigned int *adreno_ringbuffer_allocspace(struct adreno_ringbuffer *rb,
 	unsigned int *ptr = NULL;
 	int ret = 0;
 	unsigned int rptr;
-	BUG_ON(numcmds >= rb->sizedwords);
+	BUG_ON(numcmds >= KGSL_RB_DWORDS);
 
 	rptr = adreno_get_rptr(rb);
 	/* check for available space */
 	if (rb->wptr >= rptr) {
 		/* wptr ahead or equal to rptr */
 		/* reserve dwords for nop packet */
-		if ((rb->wptr + numcmds) > (rb->sizedwords -
+		if ((rb->wptr + numcmds) > (KGSL_RB_DWORDS -
 				GSL_RB_NOP_SIZEDWORDS))
 			ret = adreno_ringbuffer_waitspace(rb, context,
 							numcmds, 1);
@@ -130,7 +130,7 @@ unsigned int *adreno_ringbuffer_allocspace(struct adreno_ringbuffer *rb,
 							numcmds, 0);
 		/* check for remaining space */
 		/* reserve dwords for nop packet */
-		if (!ret && (rb->wptr + numcmds) > (rb->sizedwords -
+		if (!ret && (rb->wptr + numcmds) > (KGSL_RB_DWORDS -
 				GSL_RB_NOP_SIZEDWORDS))
 			ret = adreno_ringbuffer_waitspace(rb, context,
 							numcmds, 1);
@@ -370,8 +370,7 @@ static void _ringbuffer_setup_common(struct adreno_ringbuffer *rb)
 	struct kgsl_device *device = rb->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	kgsl_sharedmem_set(rb->device, &rb->buffer_desc, 0, 0xAA,
-			   (rb->sizedwords << 2));
+	kgsl_sharedmem_set(rb->device, &rb->buffer_desc, 0, 0xAA, KGSL_RB_SIZE);
 
 	/*
 	 * The size of the ringbuffer in the hardware is the log2
@@ -381,7 +380,7 @@ static void _ringbuffer_setup_common(struct adreno_ringbuffer *rb)
 	 */
 
 	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_CNTL,
-		(ilog2(rb->sizedwords >> 1) & 0x3F) |
+		(ilog2(KGSL_RB_DWORDS >> 1) & 0x3F) |
 		(1 << 27));
 
 	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_BASE,
@@ -556,17 +555,11 @@ int adreno_ringbuffer_init(struct kgsl_device *device)
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 
 	rb->device = device;
-	/*
-	 * It is silly to convert this to words and then back to bytes
-	 * immediately below, but most of the rest of the code deals
-	 * in words, so we might as well only do the math once
-	 */
-	rb->sizedwords = KGSL_RB_SIZE >> 2;
 
 	rb->buffer_desc.flags = KGSL_MEMFLAGS_GPUREADONLY;
 	/* allocate memory for ringbuffer */
 	status = kgsl_allocate_contiguous(device, &rb->buffer_desc,
-		(rb->sizedwords << 2));
+		KGSL_RB_SIZE);
 
 	if (status != 0) {
 		adreno_ringbuffer_close(rb);
