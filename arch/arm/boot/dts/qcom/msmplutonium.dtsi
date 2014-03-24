@@ -124,8 +124,16 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0 0x6c00000 0 0x9000000>;
+			reg = <0 0x06300000 0 0x6500000>;
 			label = "memory_hole";
+		};
+
+		peripheral_mem: peripheral_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0 0x0c800000 0 0x1b00000>;
+			label = "peripheral_mem";
 		};
 	};
 };
