@@ -1119,23 +1119,30 @@ static struct gpiomux_setting gpio_qca1530_config_mpp7 = {
 	.pull = GPIOMUX_PULL_UP,
 };
 
-static struct gpiomux_setting gpio_pcie_clkreq_config = {
-	.func = GPIOMUX_FUNC_2,
-	.drv  = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_UP,
+static struct gpiomux_setting gpio_pcie_clkreq_config[] = {
+	{
+		.func = GPIOMUX_FUNC_2,
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_UP,
+	},
+	{
+		.func = GPIOMUX_FUNC_1,
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_UP,
+	},
 };
 
 static struct msm_gpiomux_config msm_pcie_configs[] __initdata = {
 	{
 		.gpio = 68,    /* PCIE0_CLKREQ_N */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_pcie_clkreq_config,
+			[GPIOMUX_SUSPENDED] = &gpio_pcie_clkreq_config[0],
 		},
 	},
 	{
 		.gpio = 141,    /* PCIE1_CLKREQ_N */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_pcie_clkreq_config,
+			[GPIOMUX_SUSPENDED] = &gpio_pcie_clkreq_config[1],
 		},
 	},
 };
