@@ -192,8 +192,8 @@
 		reg = <0x6d>;
 		qcom,slave-id = <0x20 0x0 0x9724>;
 		qcom,csiphy-sd-index = <1>;
-		qcom,csid-sd-index = <0>;
-		qcom,mount-angle = <90>;
+		qcom,csid-sd-index = <1>;
+		qcom,mount-angle = <270>;
 		qcom,sensor-name = "ov9724";
 		cam_vdig-supply = <&pm8110_l4>;
 		cam_vana-supply = <&pm8110_l19>;
@@ -204,7 +204,7 @@
 		qcom,cam-vreg-max-voltage = <1200000 0 2850000>;
 		qcom,cam-vreg-op-mode = <200000 0 80000>;
 		qcom,gpio-no-mux = <0>;
-		gpios = <&msmgpio 14 0>,
+		gpios = <&msmgpio 13 0>,
 				<&msmgpio 15 0>,
 				<&msmgpio 8 0>;
 		qcom,gpio-reset = <1>;
@@ -218,7 +218,7 @@
 		qcom,gpio-set-tbl-flags = <0 2>;
 		qcom,gpio-set-tbl-delay = <1000 4000>;
 		qcom,csi-lane-assign = <0xe4>;
-		qcom,csi-lane-mask = <0x1>;
+		qcom,csi-lane-mask = <0x3>;
 		qcom,sensor-position = <1>;
 		qcom,sensor-mode = <1>;
 		qcom,cci-master = <0>;
