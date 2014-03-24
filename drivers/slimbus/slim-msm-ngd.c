@@ -1076,7 +1076,7 @@ static int ngd_notify_slaves(void *data)
 		ret = wait_for_completion_timeout(&dev->qmi.slave_notify,
 								HZ);
 		if (!ret) {
-			dev_err(dev->dev, "slave thread wait err:%d", ret);
+			dev_dbg(dev->dev, "slave thread wait err:%d", ret);
 			continue;
 		}
 		/* Probe devices for first notification */
