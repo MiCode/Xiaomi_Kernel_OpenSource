@@ -476,6 +476,13 @@ int msm_camera_config_single_vreg(struct device *dev,
 	int rc = 0;
 	if (config) {
 		CDBG("%s enable %s\n", __func__, cam_vreg->reg_name);
+
+		if (dev == NULL || cam_vreg == NULL ||
+			reg_ptr == NULL || *reg_ptr == NULL) {
+			pr_err("%s: get failed NULL parameter\n", __func__);
+			goto vreg_get_fail;
+		}
+
 		*reg_ptr = regulator_get(dev, cam_vreg->reg_name);
 		if (IS_ERR(*reg_ptr)) {
 			pr_err("%s: %s get failed\n", __func__,
