@@ -902,16 +902,13 @@ static int _gbam_start_io(struct gbam_port *port, bool in)
 		queue_size = bam_mux_rx_q_size;
 		ep_complete = gbam_epout_complete;
 	}
-	ret = gbam_alloc_requests(ep, idle, queue_size, ep_complete,
-			GFP_ATOMIC);
-	if (ret) {
-		pr_err("%s: allocation failed\n", __func__);
-		spin_unlock_irqrestore(spinlock, flags);
-		return ret;
-	}
 	spin_unlock_irqrestore(spinlock, flags);
+	ret = gbam_alloc_requests(ep, idle, queue_size, ep_complete,
+			GFP_KERNEL);
+	if (ret)
+		pr_err("%s: allocation failed\n", __func__);
 
-	return 0;
+	return ret;
 }
 
 static void gbam_start_io(struct gbam_port *port)
@@ -1411,6 +1408,7 @@ static int gbam_data_ch_probe(struct platform_device *pdev)
 	struct bam_ch_info	*d;
 	int			i;
 	unsigned long		flags;
+	bool			do_work = false;
 
 	pr_debug("%s: name:%s\n", __func__, pdev->name);
 
@@ -1426,10 +1424,12 @@ static int gbam_data_ch_probe(struct platform_device *pdev)
 			spin_lock_irqsave(&port->port_lock_ul, flags);
 			spin_lock(&port->port_lock_dl);
 			if (port->port_usb)
-				queue_work(gbam_wq, &port->connect_w);
+				do_work = true;
 			spin_unlock(&port->port_lock_dl);
 			spin_unlock_irqrestore(&port->port_lock_ul, flags);
 
+			if (do_work)
+				queue_work(gbam_wq, &port->connect_w);
 			break;
 		}
 	}
