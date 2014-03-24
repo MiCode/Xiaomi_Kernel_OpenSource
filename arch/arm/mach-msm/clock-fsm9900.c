@@ -2732,8 +2732,8 @@ static struct clk_lookup fsm_clocks_9900[] = {
 
 	CLK_LOOKUP("",	gcc_boot_rom_ahb_clk.c,	""),
 
-	CLK_LOOKUP("pdm2_clk",  gcc_pdm2_clk.c, "f9b10000.qcom,pdm"),
-	CLK_LOOKUP("ahb_clk",   gcc_pdm_ahb_clk.c, "f9b10000.qcom,pdm"),
+	CLK_LOOKUP("pdm2_clk",  gcc_pdm2_clk.c, "fd4a4090.qcom,rfic"),
+	CLK_LOOKUP("ahb_clk",   gcc_pdm_ahb_clk.c, "fd4a4090.qcom,rfic"),
 
 	/* SDCC clocks */
 	CLK_LOOKUP("iface_clk",	gcc_sdcc1_ahb_clk.c,	   "msm_sdcc.1"),
