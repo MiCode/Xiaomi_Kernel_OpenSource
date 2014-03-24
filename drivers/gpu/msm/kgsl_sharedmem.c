@@ -965,6 +965,8 @@ kgsl_sharedmem_readl(const struct kgsl_memdesc *memdesc,
 	WARN_ON(offsetbytes + sizeof(uint32_t) > memdesc->size);
 	if (offsetbytes + sizeof(uint32_t) > memdesc->size)
 		return -ERANGE;
+
+	rmb();
 	src = (uint32_t *)(memdesc->hostptr + offsetbytes);
 	*dst = *src;
 	return 0;
@@ -991,6 +993,9 @@ kgsl_sharedmem_writel(struct kgsl_device *device,
 		src, sizeof(uint32_t));
 	dst = (uint32_t *)(memdesc->hostptr + offsetbytes);
 	*dst = src;
+
+	wmb();
+
 	return 0;
 }
 EXPORT_SYMBOL(kgsl_sharedmem_writel);
