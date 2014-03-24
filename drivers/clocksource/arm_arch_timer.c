@@ -402,12 +402,12 @@ u64 (*arch_timer_read_counter)(void) = arch_counter_get_cntvct_cp15;
 
 static cycle_t arch_counter_read(struct clocksource *cs)
 {
-	return arch_timer_read_counter();
+	return arch_counter_get_cntvct();
 }
 
 static cycle_t arch_counter_read_cc(const struct cyclecounter *cc)
 {
-	return arch_timer_read_counter();
+	return arch_counter_get_cntvct();
 }
 
 u64 arch_counter_get_cntpct(void)

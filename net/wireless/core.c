@@ -941,6 +941,7 @@ static int cfg80211_netdev_notifier_call(struct notifier_block *nb,
 			cfg80211_leave_mesh(rdev, dev);
 			break;
 		case NL80211_IFTYPE_AP:
+		case NL80211_IFTYPE_P2P_GO:
 			cfg80211_stop_ap(rdev, dev);
 			break;
 		default:

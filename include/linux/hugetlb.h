@@ -369,6 +369,17 @@ static inline int hugepage_migration_support(struct hstate *h)
 	return pmd_huge_support() && (huge_page_shift(h) == PMD_SHIFT);
 }
 
+pgoff_t __basepage_index(struct page *page);
+
+/* Return page->index in PAGE_SIZE units */
+static inline pgoff_t basepage_index(struct page *page)
+{
+	if (!PageCompound(page))
+		return page->index;
+
+	return __basepage_index(page);
+}
+
 #else	/* CONFIG_HUGETLB_PAGE */
 struct hstate {};
 #define alloc_huge_page_node(h, nid) NULL
@@ -391,6 +402,12 @@ static inline unsigned int pages_per_huge_page(struct hstate *h)
 #define hstate_index(h) 0
 #define pmd_huge_support()	0
 #define hugepage_migration_support(h)	0
+
+static inline pgoff_t basepage_index(struct page *page)
+{
+	return page->index;
+}
+
 #endif	/* CONFIG_HUGETLB_PAGE */
 
 #endif /* _LINUX_HUGETLB_H */
