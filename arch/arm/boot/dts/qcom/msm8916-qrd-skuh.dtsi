@@ -12,6 +12,7 @@
 
 #include "msm8916-qrd.dtsi"
 #include "dsi-panel-innolux-720p-video.dtsi"
+#include "msm8916-camera-sensor-qrd.dtsi"
 
 &tlmm_pinmux {
 	akm_reset_pin {
