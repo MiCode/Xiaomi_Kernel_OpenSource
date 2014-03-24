@@ -1296,15 +1296,15 @@ adreno_identify_gpu(struct adreno_device *adreno_dev)
 	}
 }
 
-static struct platform_device_id adreno_id_table[] = {
-	{ DEVICE_3D0_NAME, (kernel_ulong_t)&device_3d0.dev, },
+static const struct platform_device_id adreno_id_table[] = {
+	{ DEVICE_3D0_NAME, (unsigned long) &device_3d0, },
 	{},
 };
 
 MODULE_DEVICE_TABLE(platform, adreno_id_table);
 
-static struct of_device_id adreno_match_table[] = {
-	{ .compatible = "qcom,kgsl-3d0", },
+static const struct of_device_id adreno_match_table[] = {
+	{ .compatible = "qcom,kgsl-3d0", .data = &device_3d0 },
 	{}
 };
 
@@ -1475,14 +1475,7 @@ err:
 static int adreno_of_get_pdata(struct platform_device *pdev)
 {
 	struct kgsl_device_platform_data *pdata = NULL;
-	struct kgsl_device *device;
 	int ret = -EINVAL;
-
-	pdev->id_entry = adreno_id_table;
-
-	pdata = pdev->dev.platform_data;
-	if (pdata)
-		return 0;
 
 	if (of_property_read_string(pdev->dev.of_node, "label", &pdev->name)) {
 		KGSL_CORE_ERR("Unable to read 'label'\n");
@@ -1524,11 +1517,6 @@ static int adreno_of_get_pdata(struct platform_device *pdev)
 
 	if (adreno_of_read_property(pdev->dev.of_node, "qcom,clk-map",
 		&pdata->clk_map))
-		goto err;
-
-	device = (struct kgsl_device *)pdev->id_entry->driver_data;
-
-	if (device->id != KGSL_DEVICE_3D0)
 		goto err;
 
 	/* Bus Scale Data */
@@ -1607,25 +1595,35 @@ adreno_ocmem_free(struct adreno_device *adreno_dev)
 }
 #endif
 
-static int 
-adreno_probe(struct platform_device *pdev)
+static inline struct adreno_device *adreno_get_dev(struct platform_device *pdev)
+{
+	const struct of_device_id *of_id =
+		of_match_device(adreno_match_table, &pdev->dev);
+
+	return of_id ? (struct adreno_device *) of_id->data : NULL;
+}
+
+int adreno_probe(struct platform_device *pdev)
 {
 	struct kgsl_device *device;
 	struct adreno_device *adreno_dev;
-	int status = -EINVAL;
-	bool is_dt;
+	int status;
 
-	is_dt = of_match_device(adreno_match_table, &pdev->dev);
+	adreno_dev = adreno_get_dev(pdev);
 
-	if (is_dt && pdev->dev.of_node) {
-		status = adreno_of_get_pdata(pdev);
-		if (status)
-			return status;
+	if (adreno_dev == NULL) {
+		pr_err("adreno: qcom,kgsl-3d0 does not exist in the device tree");
+		return -ENODEV;
 	}
 
-	device = (struct kgsl_device *)pdev->id_entry->driver_data;
-	adreno_dev = ADRENO_DEVICE(device);
+	device = &adreno_dev->dev;
 	device->parentdev = &pdev->dev;
+
+	status = adreno_of_get_pdata(pdev);
+	if (status) {
+		device->parentdev = NULL;
+		return status;
+	}
 
 	status = kgsl_device_platform_probe(device);
 	if (status) {
@@ -1670,11 +1668,14 @@ out:
 
 static int adreno_remove(struct platform_device *pdev)
 {
+	struct adreno_device *adreno_dev = adreno_get_dev(pdev);
 	struct kgsl_device *device;
-	struct adreno_device *adreno_dev;
 
-	device = (struct kgsl_device *)pdev->id_entry->driver_data;
-	adreno_dev = ADRENO_DEVICE(device);
+	if (adreno_dev == NULL)
+		return 0;
+
+	device = &adreno_dev->dev;
+
 #ifdef CONFIG_INPUT
 	input_unregister_handler(&adreno_input_handler);
 #endif
