@@ -344,7 +344,6 @@ static struct of_device_id msm_hs_match_table[] = {
 #define BLSP_UART_CLK_FMAX 63160000
 
 static struct dentry *debug_base;
-static struct msm_hs_port q_uart_port[UARTDM_NR];
 static struct platform_driver msm_serial_hs_platform_driver;
 static struct uart_driver msm_hs_driver;
 static struct uart_ops msm_hs_ops;
@@ -352,6 +351,7 @@ static void msm_hs_start_rx_locked(struct uart_port *uport);
 static void msm_serial_hs_rx_tlet(unsigned long tlet_ptr);
 static void flip_insert_work(struct work_struct *work);
 static void msm_hs_bus_voting(struct msm_hs_port *msm_uport, unsigned int vote);
+static struct msm_hs_port *msm_hs_get_hs_port(int port_index);
 
 #define UARTDM_TO_MSM(uart_port) \
 	container_of((uart_port), struct msm_hs_port, uport)
@@ -453,50 +453,76 @@ static void msm_hs_clock_unvote(struct msm_hs_port *msm_uport)
 	}
 }
 
+/* Check if the uport line number matches with user id stored in pdata.
+ * User id information is stored during initialization. This function
+ * ensues that the same device is selected */
+
+static struct msm_hs_port *get_matching_hs_port(struct platform_device *pdev)
+{
+	struct msm_serial_hs_platform_data *pdata = pdev->dev.platform_data;
+	struct msm_hs_port *msm_uport = msm_hs_get_hs_port(pdev->id);
+
+	if ((!msm_uport) || (msm_uport->uport.line != pdev->id
+	   && msm_uport->uport.line != pdata->userid)) {
+		MSM_HS_ERR("uport line number mismatch!");
+		WARN_ON(1);
+		return NULL;
+	}
+
+	return msm_uport;
+}
+
 static ssize_t show_clock(struct device *dev, struct device_attribute *attr,
 			  char *buf)
 {
 	int state = 1;
+	ssize_t ret = 0;
 	enum msm_hs_clk_states_e clk_state;
 	unsigned long flags;
-
 	struct platform_device *pdev = container_of(dev, struct
 						    platform_device, dev);
-	struct msm_hs_port *msm_uport = &q_uart_port[pdev->id];
+	struct msm_hs_port *msm_uport = get_matching_hs_port(pdev);
 
-	spin_lock_irqsave(&msm_uport->uport.lock, flags);
-	clk_state = msm_uport->clk_state;
-	spin_unlock_irqrestore(&msm_uport->uport.lock, flags);
+	/* This check should not fail */
+	if (msm_uport) {
+		spin_lock_irqsave(&msm_uport->uport.lock, flags);
+		clk_state = msm_uport->clk_state;
+		spin_unlock_irqrestore(&msm_uport->uport.lock, flags);
 
-	if (clk_state <= MSM_HS_CLK_OFF)
-		state = 0;
+		if (clk_state <= MSM_HS_CLK_OFF)
+			state = 0;
+		ret = snprintf(buf, PAGE_SIZE, "%d\n", state);
+	}
 
-	return snprintf(buf, PAGE_SIZE, "%d\n", state);
+	return ret;
 }
 
 static ssize_t set_clock(struct device *dev, struct device_attribute *attr,
 			 const char *buf, size_t count)
 {
 	int state;
+	ssize_t ret = 0;
 	struct platform_device *pdev = container_of(dev, struct
 						    platform_device, dev);
-	struct msm_hs_port *msm_uport = &q_uart_port[pdev->id];
+	struct msm_hs_port *msm_uport = get_matching_hs_port(pdev);
 
-	state = buf[0] - '0';
-	switch (state) {
-	case 0: {
-		msm_hs_request_clock_off(&msm_uport->uport);
-		break;
+	/* This check should not fail */
+	if (msm_uport) {
+		state = buf[0] - '0';
+		switch (state) {
+		case 0:
+			msm_hs_request_clock_off(&msm_uport->uport);
+			ret = count;
+			break;
+		case 1:
+			msm_hs_request_clock_on(&msm_uport->uport);
+			ret = count;
+			break;
+		default:
+			ret = -EINVAL;
+		}
 	}
-	case 1: {
-		msm_hs_request_clock_on(&msm_uport->uport);
-		break;
-	}
-	default: {
-		return -EINVAL;
-	}
-	}
-	return count;
+	return ret;
 }
 
 static DEVICE_ATTR(clock, S_IWUSR | S_IRUGO, show_clock, set_clock);
@@ -742,9 +768,11 @@ static int __devexit msm_hs_remove(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	msm_uport = &q_uart_port[pdev->id];
-	dev = msm_uport->uport.dev;
+	msm_uport = get_matching_hs_port(pdev);
+	if (!msm_uport)
+		return -EINVAL;
 
+	dev = msm_uport->uport.dev;
 	sysfs_remove_file(&pdev->dev.kobj, &dev_attr_clock.attr);
 	debugfs_remove(msm_uport->loopback_dir);
 
@@ -2205,21 +2233,33 @@ static irqreturn_t msm_hs_isr(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
-/*
- * Find UART device port using its port index value.
+/* The following two functions provide interfaces to get the underlying
+ * port structure (struct uart_port or struct msm_hs_port) given
+ * the port index. msm_hs_get_uart port is called by clients.
+ * The function msm_hs_get_hs_port is for internal use
  */
+
 struct uart_port *msm_hs_get_uart_port(int port_index)
 {
-	int i;
+	struct uart_state *state = msm_hs_driver.state + port_index;
 
-	for (i = 0; i < UARTDM_NR; i++) {
-		if (q_uart_port[i].uport.line == port_index)
-			return &q_uart_port[i].uport;
-	}
+	/* The uart_driver structure stores the states in an array.
+	 * Thus the corresponding offset from the drv->state returns
+	 * the state for the uart_port that is requested */
+	if (port_index == state->uart_port->line)
+		return state->uart_port;
 
 	return NULL;
 }
 EXPORT_SYMBOL(msm_hs_get_uart_port);
+
+static struct msm_hs_port *msm_hs_get_hs_port(int port_index)
+{
+	struct uart_port *uport = msm_hs_get_uart_port(port_index);
+	if (uport)
+		return UARTDM_TO_MSM(uport);
+	return NULL;
+}
 
 /* request to turn off uart clock once pending TX is flushed */
 void msm_hs_request_clock_off(struct uart_port *uport) {
@@ -3111,7 +3151,9 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	msm_uport = &q_uart_port[pdev->id];
+	msm_uport = devm_kzalloc(&pdev->dev, sizeof(struct msm_hs_port),
+			GFP_KERNEL);
+	msm_uport->uport.type = PORT_UNKNOWN;
 	uport = &msm_uport->uport;
 	uport->dev = &pdev->dev;
 
@@ -3384,16 +3426,11 @@ unmap_memory:
 static int __init msm_serial_hs_init(void)
 {
 	int ret;
-	int i;
 
 	ipc_msm_hs_log_ctxt = ipc_log_context_create(IPC_MSM_HS_LOG_PAGES,
 							"msm_serial_hs");
 	if (!ipc_msm_hs_log_ctxt)
 		MSM_HS_WARN("%s: error creating logging context", __func__);
-
-	/* Init all UARTS as non-configured */
-	for (i = 0; i < UARTDM_NR; i++)
-		q_uart_port[i].uport.type = PORT_UNKNOWN;
 
 	ret = uart_register_driver(&msm_hs_driver);
 	if (unlikely(ret)) {
@@ -3534,8 +3571,13 @@ static int msm_hs_runtime_resume(struct device *dev)
 {
 	struct platform_device *pdev = container_of(dev, struct
 						    platform_device, dev);
-	struct msm_hs_port *msm_uport = &q_uart_port[pdev->id];
-	msm_hs_request_clock_on(&msm_uport->uport);
+	struct msm_hs_port *msm_uport = get_matching_hs_port(pdev);
+
+	/* This check should not fail
+	 * During probe, we set uport->line to either pdev->id or userid */
+	if (msm_uport)
+		msm_hs_request_clock_on(&msm_uport->uport);
+
 	return 0;
 }
 
@@ -3543,8 +3585,12 @@ static int msm_hs_runtime_suspend(struct device *dev)
 {
 	struct platform_device *pdev = container_of(dev, struct
 						    platform_device, dev);
-	struct msm_hs_port *msm_uport = &q_uart_port[pdev->id];
-	msm_hs_request_clock_off(&msm_uport->uport);
+	struct msm_hs_port *msm_uport = get_matching_hs_port(pdev);
+
+	/* This check should not fail
+	 * During probe, we set uport->line to either pdev->id or userid */
+	if (msm_uport)
+		msm_hs_request_clock_off(&msm_uport->uport);
 	return 0;
 }
 
