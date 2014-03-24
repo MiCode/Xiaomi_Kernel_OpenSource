@@ -269,6 +269,10 @@
 	qcom,platform-bklight-en-gpio = <&msm_gpio 98 0>;
 };
 
+&dsi_jdi_1080_vid {
+       qcom,cont-splash-enabled;
+};
+
 &pm8916_chg {
 	status = "ok";
 };
