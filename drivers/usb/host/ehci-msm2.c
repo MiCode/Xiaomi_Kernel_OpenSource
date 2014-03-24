@@ -46,6 +46,10 @@
 
 #define PDEV_NAME_LEN 20
 
+static bool uicc_card_present;
+module_param(uicc_card_present, bool, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(uicc_card_present, "UICC card inserted");
+
 struct msm_hcd {
 	struct ehci_hcd				ehci;
 	spinlock_t				wakeup_lock;
@@ -295,6 +299,11 @@ static int msm_ehci_config_vddcx(struct msm_hcd *mhcd, int high)
 static void msm_ehci_vbus_power(struct msm_hcd *mhcd, bool on)
 {
 	int ret;
+	const struct msm_usb_host_platform_data *pdata;
+
+	pdata = mhcd->dev->platform_data;
+	if (pdata && pdata->is_uicc)
+		return;
 
 	if (!mhcd->vbus) {
 		pr_err("vbus is NULL.");
@@ -351,6 +360,10 @@ static int msm_ehci_init_vbus(struct msm_hcd *mhcd, int init)
 	int ret = 0;
 
 	pdata = mhcd->dev->platform_data;
+
+	/* For uicc card connection, external vbus is not required */
+	if (pdata && pdata->is_uicc)
+		return 0;
 
 	if (!init) {
 		if (pdata && pdata->dock_connect_irq)
@@ -1323,6 +1336,8 @@ struct msm_usb_host_platform_data *ehci_msm2_dt_to_pdata(
 	pdata->resume_gpio = of_get_named_gpio(node, "qcom,resume-gpio", 0);
 	if (pdata->resume_gpio < 0)
 		pdata->resume_gpio = 0;
+	pdata->is_uicc = of_property_read_bool(node,
+					"qcom,usb2-enable-uicc");
 
 	return pdata;
 }
@@ -1338,6 +1353,14 @@ static int __devinit ehci_msm2_probe(struct platform_device *pdev)
 	int ret;
 
 	dev_dbg(&pdev->dev, "ehci_msm2 probe\n");
+
+	/*
+	 * Fail probe in case of uicc till userspace activates driver through
+	 * sysfs entry.
+	 */
+	if (!uicc_card_present && pdev->dev.of_node && of_property_read_bool(
+				pdev->dev.of_node, "qcom,usb2-enable-uicc"))
+		return -ENODEV;
 
 	if (pdev->dev.of_node) {
 		dev_dbg(&pdev->dev, "device tree enabled\n");

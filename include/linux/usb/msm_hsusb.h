@@ -523,6 +523,7 @@ struct msm_usb_host_platform_data {
 	bool use_sec_phy;
 	bool no_selective_suspend;
 	int resume_gpio;
+	bool is_uicc;
 };
 
 /**
