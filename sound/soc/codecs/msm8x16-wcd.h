@@ -160,6 +160,7 @@ struct msm8x16_wcd {
 
 	int num_irqs;
 	u32 mclk_rate;
+	char __iomem *dig_base;
 };
 
 extern int msm8x16_wcd_mclk_enable(struct snd_soc_codec *codec, int mclk_enable,

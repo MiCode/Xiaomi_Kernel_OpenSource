@@ -59,6 +59,7 @@
 #define TOMBAK_CORE_1_SPMI_ADDR			0xf100
 
 #define CODEC_DT_MAX_PROP_SIZE			40
+#define MSM8X16_DIGITAL_CODEC_REG_SIZE		0x400
 #define MAX_ON_DEMAND_SUPPLY_NAME_LENGTH	64
 #define TOMBAK_MCLK_CLK_9P6MHZ			9600000
 
@@ -207,10 +208,11 @@ static int get_spmi_msm8x16_wcd_device_info(u16 *reg,
 	return rtn;
 }
 
-static int msm8x16_wcd_ahb_write_device(u16 reg, u8 *value, u32 bytes)
+static int msm8x16_wcd_ahb_write_device(struct msm8x16_wcd *msm8x16_wcd,
+					u16 reg, u8 *value, u32 bytes)
 {
 	u32 temp = ((u32)(*value)) & 0x000000FF;
-	u32 offset = (((u32)(reg)) ^ 0x00000200) & 0x00000FFF;
+	u16 offset = (reg ^ 0x0200) & 0x0FFF;
 	bool q6_state = false;
 
 	q6_state = q6core_is_adsp_ready();
@@ -220,14 +222,15 @@ static int msm8x16_wcd_ahb_write_device(u16 reg, u8 *value, u32 bytes)
 	} else
 		pr_debug("%s: DSP is ready %d\n", __func__, q6_state);
 
-	iowrite32(temp, ioremap(MSM8X16_DIGITAL_CODEC_BASE_ADDR + offset, 4));
+	iowrite32(temp, msm8x16_wcd->dig_base + offset);
 	return 0;
 }
 
-static int msm8x16_wcd_ahb_read_device(u16 reg, u32 bytes, u8 *value)
+static int msm8x16_wcd_ahb_read_device(struct msm8x16_wcd *msm8x16_wcd,
+					u16 reg, u32 bytes, u8 *value)
 {
 	u32 temp;
-	u32 offset = (((u32)(reg)) ^ 0x00000200) & 0x00000FFF;
+	u16 offset = (reg ^ 0x0200) & 0x0FFF;
 	bool q6_state = false;
 
 	q6_state = q6core_is_adsp_ready();
@@ -237,8 +240,7 @@ static int msm8x16_wcd_ahb_read_device(u16 reg, u32 bytes, u8 *value)
 	} else
 		pr_debug("%s: DSP is ready %d\n", __func__, q6_state);
 
-	temp = ioread32(ioremap(MSM8X16_DIGITAL_CODEC_BASE_ADDR +
-				      offset, 4));
+	temp = ioread32(msm8x16_wcd->dig_base + offset);
 	*value = (u8)temp;
 	return 0;
 }
@@ -343,12 +345,13 @@ static int __msm8x16_wcd_reg_read(struct snd_soc_codec *codec,
 			pr_debug("%s: MCLK not enabled\n", __func__);
 			atomic_set(&pdata->dis_work_mclk, true);
 			schedule_delayed_work(&pdata->enable_mclk_work, 50);
-			ret = msm8x16_wcd_ahb_read_device(reg, 1, &temp);
+			ret = msm8x16_wcd_ahb_read_device(
+					msm8x16_wcd, reg, 1, &temp);
 			mutex_unlock(&pdata->cdc_mclk_mutex);
 			mutex_unlock(&msm8x16_wcd->io_lock);
 			return temp;
 		}
-		ret = msm8x16_wcd_ahb_read_device(reg, 1, &temp);
+		ret = msm8x16_wcd_ahb_read_device(msm8x16_wcd, reg, 1, &temp);
 	}
 	mutex_unlock(&msm8x16_wcd->io_lock);
 
@@ -392,12 +395,13 @@ static int __msm8x16_wcd_reg_write(struct snd_soc_codec *codec,
 			}
 			atomic_set(&pdata->dis_work_mclk, true);
 			schedule_delayed_work(&pdata->enable_mclk_work, 50);
-			ret = msm8x16_wcd_ahb_write_device(reg, &val, 1);
+			ret = msm8x16_wcd_ahb_write_device(
+						msm8x16_wcd, reg, &val, 1);
 			mutex_unlock(&pdata->cdc_mclk_mutex);
 			mutex_unlock(&msm8x16_wcd->io_lock);
 			return ret;
 		}
-		ret = msm8x16_wcd_ahb_write_device(reg, &val, 1);
+		ret = msm8x16_wcd_ahb_write_device(msm8x16_wcd, reg, &val, 1);
 	}
 	mutex_unlock(&msm8x16_wcd->io_lock);
 
@@ -2932,6 +2936,13 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 
 	/* codec resmgr module init */
 	msm8x16_wcd = codec->control_data;
+	msm8x16_wcd->dig_base = ioremap(MSM8X16_DIGITAL_CODEC_BASE_ADDR,
+				  MSM8X16_DIGITAL_CODEC_REG_SIZE);
+	if (msm8x16_wcd->dig_base == NULL) {
+		dev_err(codec->dev, "%s ioremap failed", __func__);
+		kfree(msm8x16_wcd_priv);
+		return -ENOMEM;
+	}
 	msm8x16_wcd_bringup(codec);
 	msm8x16_wcd_codec_init_reg(codec);
 	msm8x16_wcd_update_reg_defaults(codec);
@@ -2957,6 +2968,8 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 	if (!modem_state_notifier) {
 		dev_err(codec->dev, "Failed to register modem state notifier\n"
 			);
+		iounmap(msm8x16_wcd->dig_base);
+		kfree(msm8x16_wcd_priv);
 		registered_codec = NULL;
 		return -ENOMEM;
 	}
@@ -2965,10 +2978,14 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 
 static int msm8x16_wcd_codec_remove(struct snd_soc_codec *codec)
 {
-	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+	struct msm8x16_wcd_priv *msm8x16_wcd_priv =
+					snd_soc_codec_get_drvdata(codec);
+	struct msm8x16_wcd *msm8x16_wcd;
 
-	msm8x16_wcd->on_demand_list[ON_DEMAND_MICBIAS].supply = NULL;
-	atomic_set(&msm8x16_wcd->on_demand_list[ON_DEMAND_MICBIAS].ref, 0);
+	msm8x16_wcd = codec->control_data;
+	msm8x16_wcd_priv->on_demand_list[ON_DEMAND_MICBIAS].supply = NULL;
+	atomic_set(&msm8x16_wcd_priv->on_demand_list[ON_DEMAND_MICBIAS].ref, 0);
+	iounmap(msm8x16_wcd->dig_base);
 
 	return 0;
 }
@@ -3118,15 +3135,59 @@ static void msm8x16_wcd_disable_supplies(struct msm8x16_wcd *msm8x16,
 
 static int msm8x16_wcd_clk_init(void)
 {
+	void __iomem *vaddr = NULL;
+
 	/* Div-2 */
-	iowrite32(0x3, ioremap(MSM8X16_TOMBAK_LPASS_DIGCODEC_CFG_RCGR, 4));
-	iowrite32(0x0, ioremap(MSM8X16_TOMBAK_LPASS_DIGCODEC_M, 4));
-	iowrite32(0x0, ioremap(MSM8X16_TOMBAK_LPASS_DIGCODEC_N, 4));
-	iowrite32(0x0, ioremap(MSM8X16_TOMBAK_LPASS_DIGCODEC_D, 4));
+	vaddr = ioremap(MSM8X16_TOMBAK_LPASS_DIGCODEC_CFG_RCGR, 4);
+	if (vaddr == NULL) {
+		pr_err("%s: ioremap failed for %x\n",
+			__func__, MSM8X16_TOMBAK_LPASS_DIGCODEC_CFG_RCGR);
+		return -ENOMEM;
+	}
+	iowrite32(0x3, vaddr);
+	iounmap(vaddr);
+	vaddr = ioremap(MSM8X16_TOMBAK_LPASS_DIGCODEC_M, 4);
+	if (vaddr == NULL) {
+		pr_err("%s: ioremap failed for %x\n",
+			__func__, MSM8X16_TOMBAK_LPASS_DIGCODEC_M);
+		return -ENOMEM;
+	}
+	iowrite32(0x0, vaddr);
+	iounmap(vaddr);
+	vaddr = ioremap(MSM8X16_TOMBAK_LPASS_DIGCODEC_N, 4);
+	if (vaddr == NULL) {
+		pr_err("%s: ioremap failed for %x\n",
+			__func__, MSM8X16_TOMBAK_LPASS_DIGCODEC_N);
+		return -ENOMEM;
+	}
+	iowrite32(0x0, vaddr);
+	iounmap(vaddr);
+	vaddr = ioremap(MSM8X16_TOMBAK_LPASS_DIGCODEC_D, 4);
+	if (vaddr == NULL) {
+		pr_err("%s: ioremap failed for %x\n",
+			__func__, MSM8X16_TOMBAK_LPASS_DIGCODEC_D);
+		return -ENOMEM;
+	}
+	iowrite32(0x0, vaddr);
+	iounmap(vaddr);
 	/* Digital codec clock enable */
-	iowrite32(0x1, ioremap(MSM8X16_TOMBAK_LPASS_DIGCODEC_CBCR, 4));
+	vaddr = ioremap(MSM8X16_TOMBAK_LPASS_DIGCODEC_CBCR, 4);
+	if (vaddr == NULL) {
+		pr_err("%s: ioremap failed for %x\n",
+			__func__, MSM8X16_TOMBAK_LPASS_DIGCODEC_CBCR);
+		return -ENOMEM;
+	}
+	iowrite32(0x1, vaddr);
+	iounmap(vaddr);
 	/* Set the update bit to make the settings go through */
-	iowrite32(0x1, ioremap(MSM8X16_TOMBAK_LPASS_DIGCODEC_CMD_RCGR, 4));
+	vaddr = ioremap(MSM8X16_TOMBAK_LPASS_DIGCODEC_CMD_RCGR, 4);
+	if (vaddr == NULL) {
+		pr_err("%s: ioremap failed for %x\n",
+			__func__, MSM8X16_TOMBAK_LPASS_DIGCODEC_CMD_RCGR);
+		return -ENOMEM;
+	}
+	iowrite32(0x1, vaddr);
+	iounmap(vaddr);
 	usleep_range(100, 200);
 	return 0;
 }

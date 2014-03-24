@@ -387,6 +387,7 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	struct msm8916_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 	int ret = 0;
 	int val = 0;
+	void __iomem *vaddr = NULL;
 
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
@@ -396,12 +397,33 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 		 * slave select to invalid state, for machine mode this
 		 * should move to HW, I do not like to do it here
 		 */
-		val = ioread32(ioremap(LPASS_CSR_GP_IO_MUX_SPKR_CTL , 4));
+		vaddr = ioremap(LPASS_CSR_GP_IO_MUX_SPKR_CTL , 4);
+		if (!vaddr) {
+			pr_err("%s ioremap failure for addr %x",
+					__func__, LPASS_CSR_GP_IO_MUX_SPKR_CTL);
+			return -ENOMEM;
+		}
+		val = ioread32(vaddr);
 		val = val | 0x00030300;
-		iowrite32(val, ioremap(LPASS_CSR_GP_IO_MUX_SPKR_CTL , 4));
-		val = ioread32(ioremap(LPASS_CSR_GP_IO_MUX_MIC_CTL , 4));
+		iowrite32(val, vaddr);
+		iounmap(vaddr);
+		vaddr = ioremap(LPASS_CSR_GP_IO_MUX_MIC_CTL , 4);
+		if (!vaddr) {
+			pr_err("%s ioremap failure for addr %x",
+					__func__, LPASS_CSR_GP_IO_MUX_MIC_CTL);
+			return -ENOMEM;
+		}
+		val = ioread32(vaddr);
+		iounmap(vaddr);
 		val = val | 0x00200000;
-		iowrite32(val, ioremap(LPASS_CSR_GP_IO_MUX_MIC_CTL , 4));
+		vaddr = ioremap(LPASS_CSR_GP_IO_MUX_MIC_CTL , 4);
+		if (!vaddr) {
+			pr_err("%s ioremap failure for addr %x",
+					__func__, LPASS_CSR_GP_IO_MUX_MIC_CTL);
+			return -ENOMEM;
+		}
+		iowrite32(val, vaddr);
+		iounmap(vaddr);
 	}
 	ret =  msm8x16_enable_codec_ext_clk(codec, 1, true);
 	if (ret < 0) {
