@@ -1635,6 +1635,10 @@ static int __devexit ehci_msm2_remove(struct platform_device *pdev)
 	if (mhcd->resume_gpio)
 		gpio_free(mhcd->resume_gpio);
 
+	/* If the device was removed no need to call pm_runtime_disable */
+	if (pdev->dev.power.power_state.event != PM_EVENT_INVALID)
+		pm_runtime_disable(&pdev->dev);
+
 	device_init_wakeup(&pdev->dev, 0);
 	pm_runtime_set_suspended(&pdev->dev);
 
