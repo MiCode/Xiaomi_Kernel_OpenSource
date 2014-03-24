@@ -447,6 +447,7 @@ struct ufs_vreg_info {
 	struct ufs_vreg *vcc;
 	struct ufs_vreg *vccq;
 	struct ufs_vreg *vccq2;
+	struct ufs_vreg *vdd_hba;
 };
 
 struct ufs_dev_info {
