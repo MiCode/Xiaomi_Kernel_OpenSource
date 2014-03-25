@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,8 +29,9 @@
 
 	tpiu: tpiu@fc320000 {
 		compatible = "arm,coresight-tpiu";
-		reg = <0xfc320000 0x1000>;
-		reg-names = "tpiu-base";
+		reg = <0xfc320000 0x1000>,
+		      <0xfd512000 0x1000>;
+		reg-names = "tpiu-base", "nidnt-base";
 
 		coresight-id = <1>;
 		coresight-name = "coresight-tpiu";
