@@ -40,7 +40,8 @@ vdd-switch-supply: regulator used to control RF switches.
 vdd-wtr-supply: regulator used to control WTR.
 vdd-ftr1-supply: regulator used to control FTR1.
 vdd-ftr2-supply: regulator used to control FTR2.
-vdd-mtr-supply: regulator used to control MTR.
+vdd-1v8-supply: regulator used to control 1.8V to all RFICs.
+vdd-1v3-supply: regulator used to control 1.3V to all RFICs
 
 Example:
 	qcom,rfic@fd4a4090 {
@@ -50,7 +51,8 @@ Example:
 		vdd-wtr-supply = <&pma8084_l19>;
 		vdd-ftr1-supply = <&pma8084_l23>;
 		vdd-ftr2-supply = <&pma8084_l25>;
-		vdd-mtr-supply = <&pma8084_l26>;
+		vdd-1v8-supply = <&pma8084_l26>;
+		vdd-1v3-supply = <&pma8084_l11>;
 	};
 
 	qcom,pdm@f9b10000 {

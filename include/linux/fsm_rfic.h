@@ -33,6 +33,13 @@ void fsm9900_mtr_init(void);
 #define PDM_DEVICE_NAME			"pdm"
 #define BBIF_DEVICE_NAME		"bbif"
 
+#define LDO11  1
+#define LDO18  2
+#define LDO19  3
+#define LDO23  4
+#define LDO25  5
+#define LDO26  6
+
 /*
  * IOCTL interface
  */
@@ -64,9 +71,10 @@ struct rfic_grfc_param {
 	unsigned int ctrlvalue;
 };
 
-struct pdm_write_param {
-	unsigned int offset;
+struct pdm_param {
+	unsigned int num;
 	unsigned int value;
+	unsigned int enable;
 };
 
 struct bbif_param {
@@ -95,6 +103,12 @@ struct rfic_gpio_param {
 	struct gpio_alt_config *pArray;
 };
 
+struct rfic_wfm_param {
+	unsigned int num;
+	unsigned int offset;
+	 void *pArray;
+};
+
 #define RFIC_IOCTL_MAGIC				'f'
 #define RFIC_IOCTL_READ_REGISTER \
 	_IOC(_IOC_READ, RFIC_IOCTL_MAGIC, 0x01, \
@@ -117,10 +131,13 @@ struct rfic_gpio_param {
 #define RFIC_IOCTL_GET_BOARDID \
 	_IOC(_IOC_READ, RFIC_IOCTL_MAGIC, 0x20, \
 		sizeof(unsigned int *))
-#define RFIC_IOCTL_PDM_READ \
+#define RFIC_IOCTL_SET_BOARDID \
+	_IOC(_IOC_READ, RFIC_IOCTL_MAGIC, 0x21, \
+		sizeof(unsigned int *))
+#define RFIC_IOCTL_GET_PDM \
 	_IOC(_IOC_READ, RFIC_IOCTL_MAGIC, 0x31, \
 		sizeof(unsigned int *))
-#define RFIC_IOCTL_PDM_WRITE \
+#define RFIC_IOCTL_SET_PDM \
 	_IOC(_IOC_WRITE, RFIC_IOCTL_MAGIC, 0x32, \
 		sizeof(struct pdm_write_param *))
 #define BBIF_IOCTL_GET \
@@ -132,4 +149,10 @@ struct rfic_gpio_param {
 #define BBIF_IOCTL_SET_ADC_BW \
 	_IOC(_IOC_WRITE, RFIC_IOCTL_MAGIC, 0x43, \
 		sizeof(struct bbif_bw_param *))
+#define RFIC_IOCTL_SET_LDO \
+	_IOC(_IOC_WRITE, RFIC_IOCTL_MAGIC, 0x50, \
+		sizeof(unsigned int *))
+#define RFIC_IOCTL_SET_WFM \
+	_IOC(_IOC_WRITE, RFIC_IOCTL_MAGIC, 0x51, \
+		sizeof(unsigned int *))
 #endif /* _FSM_RFIC_H_ */

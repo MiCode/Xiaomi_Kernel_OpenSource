@@ -30,6 +30,7 @@
 #define RF_TYPE_16 0x10
 #define RF_TYPE_17 0x11
 #define RF_TYPE_18 0x12
+#define RF_TYPE_19 0x13
 #define RF_TYPE_32 0x20
 #define RF_TYPE_33 0x21
 #define RF_TYPE_48 0x30
