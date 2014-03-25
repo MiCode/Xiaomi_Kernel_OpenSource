@@ -789,7 +789,14 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 	}
 
 	list_for_each_entry_safe(pipe, tmp, &destroy_pipes, cleanup_list) {
-		__mdss_mdp_overlay_free_list_add(mfd, &pipe->front_buf);
+		/*
+		 * in case of secure UI, the buffer needs to be released as
+		 * soon as session is closed.
+		 */
+		if (pipe->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION)
+			mdss_mdp_overlay_free_buf(&pipe->front_buf);
+		else
+			__mdss_mdp_overlay_free_list_add(mfd, &pipe->front_buf);
 		mdss_mdp_overlay_free_buf(&pipe->back_buf);
 		mdss_mdp_pipe_destroy(pipe);
 	}
