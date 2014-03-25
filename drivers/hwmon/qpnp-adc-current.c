@@ -130,7 +130,8 @@
 #define QPNP_RSENSE_MSB_SIGN_CHECK			0x80
 #define QPNP_ADC_COMPLETION_TIMEOUT			HZ
 #define SMBB_BAT_IF_TRIM_CNST_RDS_MASK			0x7
-#define SMBB_BAT_IF_TRIM_CNST_RDS_MASK_CONST		2
+#define SMBB_BAT_IF_TRIM_CNST_RDS_MASK_CONST_0		0
+#define SMBB_BAT_IF_TRIM_CNST_RDS_MASK_CONST_2		2
 #define QPNP_IADC1_USR_TRIM2_ADC_FULLSCALE1_CONST	127
 #define QPNP_IADC_RSENSE_DEFAULT_VALUE			7800000
 #define QPNP_IADC_RSENSE_DEFAULT_TYPEB_GF		9000000
@@ -172,6 +173,7 @@ LIST_HEAD(qpnp_iadc_device_list);
 enum qpnp_iadc_rsense_rds_workaround {
 	QPNP_IADC_RDS_DEFAULT_TYPEA,
 	QPNP_IADC_RDS_DEFAULT_TYPEB,
+	QPNP_IADC_RDS_DEFAULT_TYPEC,
 };
 
 static int32_t qpnp_iadc_read_reg(struct qpnp_iadc_chip *iadc,
@@ -644,6 +646,7 @@ static int qpnp_iadc_rds_trim_update_check(struct qpnp_iadc_chip *iadc)
 {
 	int rc = 0;
 	u8 trim2_val = 0, smbb_batt_trm_data = 0;
+	u8 smbb_batt_trm_cnst_rds = 0;
 
 	if (!iadc->rds_trim_default_check) {
 		pr_debug("No internal rds trim check needed\n");
@@ -663,11 +666,15 @@ static int qpnp_iadc_rds_trim_update_check(struct qpnp_iadc_chip *iadc)
 		return rc;
 	}
 
+	smbb_batt_trm_cnst_rds = smbb_batt_trm_data &
+				SMBB_BAT_IF_TRIM_CNST_RDS_MASK;
+
 	pr_debug("n_trim:0x%x smb_trm:0x%x\n", trim2_val, smbb_batt_trm_data);
 
 	if (iadc->rds_trim_default_type == QPNP_IADC_RDS_DEFAULT_TYPEA) {
-		if (((smbb_batt_trm_data & SMBB_BAT_IF_TRIM_CNST_RDS_MASK) ==
-				SMBB_BAT_IF_TRIM_CNST_RDS_MASK_CONST) &&
+
+		if ((smbb_batt_trm_cnst_rds ==
+				SMBB_BAT_IF_TRIM_CNST_RDS_MASK_CONST_2) &&
 		(trim2_val == QPNP_IADC1_USR_TRIM2_ADC_FULLSCALE1_CONST)) {
 			iadc->rsense_workaround_value =
 					QPNP_IADC_RSENSE_DEFAULT_VALUE;
@@ -675,15 +682,14 @@ static int qpnp_iadc_rds_trim_update_check(struct qpnp_iadc_chip *iadc)
 		}
 	} else if (iadc->rds_trim_default_type ==
 						QPNP_IADC_RDS_DEFAULT_TYPEB) {
-		if (((smbb_batt_trm_data & SMBB_BAT_IF_TRIM_CNST_RDS_MASK) >=
-				SMBB_BAT_IF_TRIM_CNST_RDS_MASK_CONST) &&
+		if ((smbb_batt_trm_cnst_rds >=
+				SMBB_BAT_IF_TRIM_CNST_RDS_MASK_CONST_2) &&
 		(trim2_val == QPNP_IADC1_USR_TRIM2_ADC_FULLSCALE1_CONST)) {
 			iadc->rsense_workaround_value =
 					QPNP_IADC_RSENSE_DEFAULT_VALUE;
 				iadc->default_internal_rsense = true;
-		} else if (((smbb_batt_trm_data &
-			SMBB_BAT_IF_TRIM_CNST_RDS_MASK)
-			< SMBB_BAT_IF_TRIM_CNST_RDS_MASK_CONST) &&
+		} else if ((smbb_batt_trm_cnst_rds <
+				SMBB_BAT_IF_TRIM_CNST_RDS_MASK_CONST_2) &&
 			(trim2_val ==
 				QPNP_IADC1_USR_TRIM2_ADC_FULLSCALE1_CONST)) {
 			if (iadc->iadc_comp.id == COMP_ID_GF) {
@@ -695,6 +701,17 @@ static int qpnp_iadc_rds_trim_update_check(struct qpnp_iadc_chip *iadc)
 					QPNP_IADC_RSENSE_DEFAULT_TYPEB_SMIC;
 				iadc->default_internal_rsense = true;
 			}
+		}
+	} else if (iadc->rds_trim_default_type == QPNP_IADC_RDS_DEFAULT_TYPEC) {
+
+		if ((smbb_batt_trm_cnst_rds >
+				SMBB_BAT_IF_TRIM_CNST_RDS_MASK_CONST_0) &&
+		(smbb_batt_trm_cnst_rds <=
+				SMBB_BAT_IF_TRIM_CNST_RDS_MASK_CONST_2) &&
+		(trim2_val == QPNP_IADC1_USR_TRIM2_ADC_FULLSCALE1_CONST)) {
+			iadc->rsense_workaround_value =
+					QPNP_IADC_RSENSE_DEFAULT_VALUE;
+			iadc->default_internal_rsense = true;
 		}
 	}
 
