@@ -916,18 +916,16 @@
 
 	qcom,rfic@fd4a4090 {
 		compatible = "qcom,rfic";
-		reg = <0xfd4a4090 0x40>;
+		reg = <0xfd4a4090 0x40>,
+			<0x3a000000 0xa00000>,
+			<0xf9b10000 0x8000>;
 		vdd-switch-supply = <&pma8084_l18>;
 		vdd-wtr-supply = <&pma8084_l19>;
 		vdd-ftr1-supply = <&pma8084_l23>;
 		vdd-ftr2-supply = <&pma8084_l25>;
-		vdd-mtr-supply = <&pma8084_l26>;
-	};
+		vdd-1v3-supply = <&pma8084_l11>;
+		vdd-1v8-supply = <&pma8084_l26>;
 
-	qcom,pdm@f9b10000 {
-		compatible = "qcom,rfic";
-		reg = <0xf9b10000 0x8000>;
-                clock-names = "gcc_pdm_ahb_clk", "gcc_pdm2_clk";
 	};
 
 	ssbi1:  qcom,ssbi@f9b18000 {
