@@ -54,9 +54,8 @@ void diag_smux_event(void *priv, int event_type, const void *metadata)
 	case SMUX_READ_DONE:
 		len = ((struct smux_meta_read *)metadata)->len;
 		rx_buf = ((struct smux_meta_read *)metadata)->buffer;
-		driver->write_ptr_mdm->length = len;
-		diag_device_write(driver->buf_in_smux, SMUX_DATA,
-						 driver->write_ptr_mdm);
+		driver->smux_buf_len = len;
+		diag_device_write(driver->buf_in_smux, len, SMUX_DATA, SMUX);
 		break;
 	};
 }
@@ -175,11 +174,6 @@ static int diagfwd_smux_probe(struct platform_device *pdev)
 	 * if (ret)
 	 *	pr_err("diag: error setting SMUX ch option, r = %d\n", ret);
 	 */
-	if (driver->write_ptr_mdm == NULL)
-		driver->write_ptr_mdm = kzalloc(sizeof(struct diag_request),
-								 GFP_KERNEL);
-	if (driver->write_ptr_mdm == NULL)
-		goto err;
 	ret = diagfwd_connect_smux();
 	return ret;
 

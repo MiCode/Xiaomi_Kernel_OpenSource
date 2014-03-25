@@ -131,6 +131,14 @@ module_param(poolsize_mdm_usb, uint, 0);
 static unsigned int itemsize_mdm_dci_write = DIAG_MDM_DCI_BUF_SIZE;
 static unsigned int poolsize_mdm_dci_write = 1;
 module_param(itemsize_mdm_dci_write, uint, 0);
+
+/*
+ * Used for USB structures associated with a remote SMUX
+ * device Don't expose the itemsize since it is constant
+ */
+static unsigned int itemsize_qsc_usb = sizeof(struct diag_request);
+static unsigned int poolsize_qsc_usb = 8;
+module_param(poolsize_qsc_usb, uint, 0);
 #endif
 
 /* This is the max number of user-space clients supported at initialization*/
@@ -146,6 +154,7 @@ int diag_threshold_reg = 750;
 static struct timer_list drain_timer;
 static int timer_in_progress;
 void *buf_hdlc;
+static int buf_hdlc_ctxt;
 
 #define DIAGPKT_MAX_DELAYED_RSP 0xFFFF
 
@@ -198,7 +207,8 @@ void diag_drain_work_fn(struct work_struct *work)
 
 	mutex_lock(&driver->diagchar_mutex);
 	if (buf_hdlc) {
-		err = diag_device_write(buf_hdlc, APPS_DATA, NULL);
+		err = diag_device_write(buf_hdlc, driver->used, APPS_DATA,
+					buf_hdlc_ctxt);
 		if (err)
 			diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
 		buf_hdlc = NULL;
@@ -657,11 +667,11 @@ drop_hsic:
 			remote_token, 4);
 		/* Copy the length of data being passed */
 		COPY_USER_SPACE_OR_EXIT(buf+ret,
-			(driver->write_ptr_mdm->length), 4);
+			(driver->smux_buf_len), 4);
 		/* Copy the actual data being passed */
 		COPY_USER_SPACE_OR_EXIT(buf+ret,
 			*(driver->buf_in_smux),
-			driver->write_ptr_mdm->length);
+			driver->smux_buf_len);
 		pr_debug("diag: SMUX  data copied\n");
 		driver->in_busy_smux = 0;
 	}
@@ -1463,22 +1473,22 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		ret += 4;
 
 		spin_lock_irqsave(&driver->rsp_buf_busy_lock, flags);
-		if (driver->rsp_write_ptr->length > 0) {
+		if (driver->encoded_rsp_len > 0) {
 			if (copy_to_user(buf+ret,
-			    (void *)&(driver->rsp_write_ptr->length),
+			    (void *)&(driver->encoded_rsp_len),
 			    sizeof(int)))
 				goto drop_rsp;
 			ret += sizeof(int);
 			if (copy_to_user(buf+ret,
-			    (void *)(driver->rsp_write_ptr->buf),
-			    driver->rsp_write_ptr->length)) {
+			    (void *)(driver->encoded_rsp_buf),
+			    driver->encoded_rsp_len)) {
 				ret -= sizeof(int);
 				goto drop_rsp;
 			}
 			num_data++;
-			ret += driver->rsp_write_ptr->length;
+			ret += driver->encoded_rsp_len;
 drop_rsp:
-			driver->rsp_write_ptr->length = 0;
+			driver->encoded_rsp_len = 0;
 			driver->rsp_buf_busy = 0;
 		}
 		spin_unlock_irqrestore(&driver->rsp_buf_busy_lock, flags);
@@ -1527,11 +1537,11 @@ drop:
 				num_data++;
 				/*Copy the length of data being passed*/
 				COPY_USER_SPACE_OR_EXIT(buf+ret,
-					(data->write_ptr_1->length), 4);
+					(data->buf_in_1_size), 4);
 				/*Copy the actual data being passed*/
 				COPY_USER_SPACE_OR_EXIT(buf+ret,
 					*(data->buf_in_1),
-					data->write_ptr_1->length);
+					data->buf_in_1_size);
 				spin_lock_irqsave(&data->in_busy_lock, flags);
 				data->in_busy_1 = 0;
 				spin_unlock_irqrestore(&data->in_busy_lock,
@@ -1543,11 +1553,11 @@ drop:
 				num_data++;
 				/*Copy the length of data being passed*/
 				COPY_USER_SPACE_OR_EXIT(buf+ret,
-					(data->write_ptr_2->length), 4);
+					(data->buf_in_2_size), 4);
 				/*Copy the actual data being passed*/
 				COPY_USER_SPACE_OR_EXIT(buf+ret,
 					*(data->buf_in_2),
-					data->write_ptr_2->length);
+					data->buf_in_2_size);
 				spin_lock_irqsave(&data->in_busy_lock, flags);
 				data->in_busy_2 = 0;
 				spin_unlock_irqrestore(&data->in_busy_lock,
@@ -1567,11 +1577,11 @@ drop:
 					num_data++;
 					/*Copy the length of data being passed*/
 					COPY_USER_SPACE_OR_EXIT(buf+ret,
-						(data->write_ptr_1->length), 4);
+						(data->buf_in_1_size), 4);
 					/*Copy the actual data being passed*/
 					COPY_USER_SPACE_OR_EXIT(buf+ret,
 						*(data->buf_in_1),
-						data->write_ptr_1->length);
+						data->buf_in_1_size);
 					data->in_busy_1 = 0;
 				}
 			}
@@ -2134,7 +2144,8 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 		goto fail_free_hdlc;
 	}
 	if (HDLC_OUT_BUF_SIZE - driver->used <= (2*payload_size) + 3) {
-		err = diag_device_write(buf_hdlc, APPS_DATA, NULL);
+		err = diag_device_write(buf_hdlc, driver->used, APPS_DATA,
+					buf_hdlc_ctxt);
 		if (err) {
 			ret = -EIO;
 			goto fail_free_hdlc;
@@ -2158,7 +2169,8 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 	and start aggregation in a newly allocated buffer */
 	if ((uintptr_t)enc.dest >=
 		 (uintptr_t)(buf_hdlc + HDLC_OUT_BUF_SIZE)) {
-		err = diag_device_write(buf_hdlc, APPS_DATA, NULL);
+		err = diag_device_write(buf_hdlc, driver->used, APPS_DATA,
+					buf_hdlc_ctxt);
 		if (err) {
 			ret = -EIO;
 			goto fail_free_hdlc;
@@ -2182,7 +2194,8 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 			((uintptr_t)enc.dest - (uintptr_t)buf_hdlc) :
 						HDLC_OUT_BUF_SIZE;
 	if (pkt_type == DATA_TYPE_RESPONSE) {
-		err = diag_device_write(buf_hdlc, APPS_DATA, NULL);
+		err = diag_device_write(buf_hdlc, driver->used, APPS_DATA,
+					buf_hdlc_ctxt);
 		if (err) {
 			ret = -EIO;
 			goto fail_free_hdlc;
@@ -2613,8 +2626,15 @@ static int __init diagchar_init(void)
 	diagmem_setsize(POOL_TYPE_COPY, itemsize, poolsize);
 	diagmem_setsize(POOL_TYPE_HDLC, itemsize_hdlc, poolsize_hdlc);
 	diagmem_setsize(POOL_TYPE_USER, itemsize_user, poolsize_user);
+	/* Add 1 for responses that are generated exclusively on the Apps */
 	diagmem_setsize(POOL_TYPE_USB_APPS, itemsize_usb_apps,
-			poolsize_usb_apps);
+			poolsize_usb_apps + 1);
+	/*
+	 * Each Data channel has 2 buffers, Cmd Channel has 1 buffer. Make
+	 * sure the poolsize is such that we have atleast 1 entry for USB write
+	 */
+	diagmem_setsize(POOL_TYPE_USB_PERIPHERALS, itemsize_usb_apps,
+			(NUM_SMD_DATA_CHANNELS * 2) + NUM_SMD_CMD_CHANNELS);
 	diagmem_setsize(POOL_TYPE_DCI, itemsize_dci, poolsize_dci);
 	driver->num_clients = max_clients;
 	driver->logging_mode = USB_MODE;
@@ -2623,6 +2643,8 @@ static int __init diagchar_init(void)
 	driver->mask_check = 0;
 	driver->in_busy_pktdata = 0;
 	driver->in_busy_dcipktdata = 0;
+	driver->rsp_buf_ctxt = SET_BUF_CTXT(APPS_DATA, SMD_CMD_TYPE, 1);
+	buf_hdlc_ctxt = SET_BUF_CTXT(APPS_DATA, SMD_DATA_TYPE, 1);
 	mutex_init(&driver->diagchar_mutex);
 	mutex_init(&driver->delayed_rsp_mutex);
 	init_waitqueue_head(&driver->wait_q);
@@ -2653,6 +2675,8 @@ static int __init diagchar_init(void)
 			poolsize_mdm_dci_write);
 	diagmem_setsize(POOL_TYPE_MDM2_DCI_WRITE, itemsize_mdm_dci_write,
 			poolsize_mdm_dci_write);
+	diagmem_setsize(POOL_TYPE_QSC_USB, itemsize_qsc_usb,
+			poolsize_qsc_usb);
 
 	ret = diagfwd_bridge_init(HSIC_DATA_CH);
 	if (ret)
