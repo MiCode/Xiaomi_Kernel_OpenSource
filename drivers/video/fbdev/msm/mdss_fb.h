@@ -199,7 +199,6 @@ struct msm_fb_data_type {
 	u32 bl_updated;
 	u32 bl_level_old;
 	struct mutex bl_lock;
-	struct mutex lock;
 
 	struct platform_device *pdev;
 
