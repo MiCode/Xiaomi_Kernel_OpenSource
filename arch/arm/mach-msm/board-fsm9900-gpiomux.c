@@ -17,6 +17,12 @@
 #include <mach/board.h>
 #include <mach/gpiomux.h>
 
+/*
+ * The drive strength setting for MDIO pins
+ * is different from the others
+ */
+#define MDIO_DRV_8MA	GPIOMUX_DRV_16MA
+
 static struct gpiomux_setting blsp_uart_no_pull_config = {
 	.func = GPIOMUX_FUNC_2,
 	.drv = GPIOMUX_DRV_6MA,
@@ -695,13 +701,13 @@ static struct msm_gpiomux_config fsm_sd_configs[] __initdata = {
 
 static struct gpiomux_setting mdio_clk_config = {
 	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_6MA,
+	.drv = MDIO_DRV_8MA,
 	.pull = GPIOMUX_PULL_UP,
 };
 
 static struct gpiomux_setting mdio_data_config = {
 	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_6MA,
+	.drv = MDIO_DRV_8MA,
 	.pull = GPIOMUX_PULL_UP,
 };
 
