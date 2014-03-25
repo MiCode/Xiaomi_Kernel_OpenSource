@@ -6477,6 +6477,28 @@ out:
 }
 
 #ifdef CONFIG_NO_HZ_COMMON
+
+static int select_lowest_power_cpu(struct cpumask *cpus)
+{
+	int i, cost;
+	int lowest_power_cpu = -1;
+	int lowest_power = INT_MAX;
+
+	if (sysctl_sched_enable_power_aware) {
+		for_each_cpu(i, cpus) {
+			cost = power_cost_at_freq(i, 0);
+			if (cost < lowest_power) {
+				lowest_power_cpu = i;
+				lowest_power = cost;
+			}
+		}
+		BUG_ON(lowest_power_cpu == -1);
+		return lowest_power_cpu;
+	} else {
+		return cpumask_first(cpus);
+	}
+}
+
 /*
  * In CONFIG_NO_HZ_COMMON case, the idle balance kickee will do the
  * rebalancing for all the cpus for whom scheduler ticks are stopped.
@@ -6486,12 +6508,18 @@ static void nohz_idle_balance(int this_cpu, enum cpu_idle_type idle)
 	struct rq *this_rq = cpu_rq(this_cpu);
 	struct rq *rq;
 	int balance_cpu;
+	struct cpumask cpus_to_balance;
 
 	if (idle != CPU_IDLE ||
 	    !test_bit(NOHZ_BALANCE_KICK, nohz_flags(this_cpu)))
 		goto end;
 
-	for_each_cpu(balance_cpu, nohz.idle_cpus_mask) {
+	cpumask_copy(&cpus_to_balance, nohz.idle_cpus_mask);
+
+	while (!cpumask_empty(&cpus_to_balance)) {
+		balance_cpu = select_lowest_power_cpu(&cpus_to_balance);
+
+		cpumask_clear_cpu(balance_cpu, &cpus_to_balance);
 		if (balance_cpu == this_cpu || !idle_cpu(balance_cpu))
 			continue;
 
