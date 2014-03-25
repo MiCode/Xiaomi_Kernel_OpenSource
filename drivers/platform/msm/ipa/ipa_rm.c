@@ -325,6 +325,10 @@ int ipa_rm_request_resource_with_timer(enum ipa_rm_resource_name resource_name)
 	}
 
 	release_work = kzalloc(sizeof(*release_work), GFP_ATOMIC);
+	if (!release_work) {
+		result = -ENOMEM;
+		goto bail;
+	}
 	release_work->resource_name = resource->name;
 	release_work->needed_bw = 0;
 	INIT_DELAYED_WORK(&release_work->work, delayed_release_work_func);
@@ -552,7 +556,7 @@ static void ipa_rm_wq_handler(struct work_struct *work)
 	case IPA_RM_WQ_NOTIFY_PROD:
 		if (!IPA_RM_RESORCE_IS_PROD(ipa_rm_work->resource_name)) {
 			IPA_RM_ERR("resource is not PROD\n");
-			return;
+			goto free_work;
 		}
 		spin_lock_irqsave(&ipa_rm_ctx->ipa_rm_lock, flags);
 		if (ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
@@ -560,7 +564,7 @@ static void ipa_rm_wq_handler(struct work_struct *work)
 						&resource) != 0){
 			IPA_RM_ERR("resource does not exists\n");
 			spin_unlock_irqrestore(&ipa_rm_ctx->ipa_rm_lock, flags);
-			return;
+			goto free_work;
 		}
 		ipa_rm_resource_producer_notify_clients(
 				(struct ipa_rm_resource_prod *)resource,
@@ -577,7 +581,7 @@ static void ipa_rm_wq_handler(struct work_struct *work)
 						&resource) != 0){
 			IPA_RM_ERR("resource does not exists\n");
 			spin_unlock_irqrestore(&ipa_rm_ctx->ipa_rm_lock, flags);
-			return;
+			goto free_work;
 		}
 		ipa_rm_resource_consumer_handle_cb(
 				(struct ipa_rm_resource_cons *)resource,
@@ -588,6 +592,7 @@ static void ipa_rm_wq_handler(struct work_struct *work)
 		break;
 	}
 
+free_work:
 	kfree((void *) work);
 }
 

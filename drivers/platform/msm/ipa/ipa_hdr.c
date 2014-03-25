@@ -263,7 +263,7 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 					   GFP_KERNEL);
 		if (!offset) {
 			IPAERR("failed to alloc hdr offset object\n");
-			goto ofst_alloc_fail;
+			goto bad_hdr_len;
 		}
 		INIT_LIST_HEAD(&offset->link);
 		/*
@@ -300,8 +300,6 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 
 	return 0;
 
-ofst_alloc_fail:
-	kmem_cache_free(ipa_ctx->hdr_offset_cache, offset);
 bad_hdr_len:
 	entry->cookie = 0;
 	kmem_cache_free(ipa_ctx->hdr_cache, entry);

@@ -1986,7 +1986,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	struct sps_bam_props bam_props = { 0 };
 	struct ipa_flt_tbl *flt_tbl;
 	struct ipa_rt_tbl_set *rset;
-	struct ipa_controller *ctrl;
 
 	IPADBG("IPA Driver initialization started\n");
 
@@ -2008,20 +2007,19 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_ctx->aggregation_byte_limit = 1;
 	ipa_ctx->aggregation_time_limit = 0;
 
-	ctrl = kzalloc(sizeof(*ctrl), GFP_KERNEL);
-	if (!ctrl) {
+	ipa_ctx->ctrl = kzalloc(sizeof(*ipa_ctx->ctrl), GFP_KERNEL);
+	if (!ipa_ctx->ctrl) {
 		IPAERR("memory allocation error for ctrl\n");
 		result = -ENOMEM;
 		goto fail_mem_ctrl;
 	}
-	result = ipa_controller_static_bind(ctrl,
+	result = ipa_controller_static_bind(ipa_ctx->ctrl,
 			ipa_ctx->ipa_hw_type);
 	if (result) {
 		IPAERR("fail to static bind IPA ctrl.\n");
 		result = -EFAULT;
 		goto fail_bind;
 	}
-	ipa_ctx->ctrl = ctrl;
 
 	IPADBG("hdr_lcl=%u ip4_rt=%u ip6_rt=%u ip4_flt=%u ip6_flt=%u\n",
 	       ipa_ctx->hdr_tbl_lcl, ipa_ctx->ip4_rt_tbl_lcl,
@@ -2067,7 +2065,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	}
 	IPADBG("IPA HW initialization sequence completed");
 
-	ctrl->ipa_sram_read_settings();
+	ipa_ctx->ctrl->ipa_sram_read_settings();
 	IPADBG("SRAM, size: 0x%x, restricted bytes: 0x%x\n",
 		ipa_ctx->smem_sz, ipa_ctx->smem_restricted_bytes);
 

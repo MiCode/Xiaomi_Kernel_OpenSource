@@ -740,7 +740,7 @@ enum ipa_rm_resource_name ipa_get_rm_resource_from_ep(int pipe_idx)
 	struct ipa_client_names clients;
 	bool found = false;
 
-	if (pipe_idx >= IPA_CLIENT_MAX || pipe_idx < 0) {
+	if (pipe_idx >= IPA_NUM_PIPES || pipe_idx < 0) {
 		IPAERR("Bad pipe index!\n");
 		return -EINVAL;
 	}
@@ -774,7 +774,7 @@ enum ipa_rm_resource_name ipa_get_rm_resource_from_ep(int pipe_idx)
  */
 enum ipa_client_type ipa_get_client_mapping(int pipe_idx)
 {
-	if (pipe_idx >= IPA_CLIENT_MAX || pipe_idx < 0) {
+	if (pipe_idx >= IPA_NUM_PIPES || pipe_idx < 0) {
 		IPAERR("Bad pipe index!\n");
 		return -EINVAL;
 	}
@@ -2299,7 +2299,7 @@ int ipa_cfg_ep_ctrl(u32 clnt_hdl, const struct ipa_ep_cfg_ctrl *ep_ctrl)
 {
 	u32 reg_val = 0;
 
-	if (clnt_hdl >= IPA_NUM_PIPES || clnt_hdl < 0 || ep_ctrl == NULL) {
+	if (clnt_hdl >= IPA_NUM_PIPES || ep_ctrl == NULL) {
 		IPAERR("bad parm, clnt_hdl = %d\n", clnt_hdl);
 		return -EINVAL;
 	}
@@ -2742,7 +2742,7 @@ void _ipa_cfg_ep_holb_v2_0(u32 pipe_number,
  */
 int ipa_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ep_holb)
 {
-	if (clnt_hdl >= IPA_NUM_PIPES || clnt_hdl < 0 ||
+	if (clnt_hdl >= IPA_NUM_PIPES ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0 || ep_holb == NULL ||
 	    ep_holb->tmr_val > 511 || ep_holb->en > 1) {
 		IPAERR("bad parm.\n");

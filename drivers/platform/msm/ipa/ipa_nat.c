@@ -234,11 +234,21 @@ int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 	u32 offset = 0;
 
 	IPADBG("\n");
-	if (init->tbl_index < 0 || init->table_entries <= 0) {
+	if (init->table_entries == 0) {
 		IPADBG("Table index or entries is zero\n");
 		result = -EPERM;
 		goto bail;
 	}
+
+	if (init->ipv4_rules_offset >= ipa_ctx->nat_mem.size ||
+	    init->index_offset >= ipa_ctx->nat_mem.size ||
+	    init->expn_rules_offset >= ipa_ctx->nat_mem.size ||
+	    init->index_expn_offset >= ipa_ctx->nat_mem.size) {
+		IPAERR("Table rules offset are not valid\n");
+		result = -EPERM;
+		goto bail;
+	}
+
 	cmd = kmalloc(size, GFP_KERNEL);
 	if (!cmd) {
 		IPAERR("Failed to alloc immediate command object\n");
@@ -477,7 +487,7 @@ int ipa_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
 	int result;
 
 	IPADBG("\n");
-	if (del->table_index < 0 || del->public_ip_addr == 0) {
+	if (del->public_ip_addr == 0) {
 		IPADBG("Bad Parameter\n");
 		result = -EPERM;
 		goto bail;

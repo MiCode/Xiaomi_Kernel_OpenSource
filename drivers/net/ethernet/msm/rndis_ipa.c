@@ -1516,6 +1516,7 @@ static int rndis_ipa_hdrs_destroy(struct rndis_ipa_dev *rndis_ipa_ctx)
 	else
 		RNDIS_IPA_DEBUG("hdrs deletion done\n");
 
+	kfree(del_hdr);
 	return result;
 }
 

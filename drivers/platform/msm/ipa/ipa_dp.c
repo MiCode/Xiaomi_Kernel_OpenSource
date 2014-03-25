@@ -583,8 +583,11 @@ static void ipa_sps_irq_cmd_ack(void *user1, int user2)
 {
 	struct ipa_desc *desc = (struct ipa_desc *)user1;
 
-	if (!desc)
+	if (!desc) {
+		IPAERR("desc is NULL\n");
 		WARN_ON(1);
+		return;
+	}
 	IPADBG("got ack for cmd=%d\n", desc->opcode);
 	complete(&desc->xfer_done);
 }
@@ -917,9 +920,12 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	dma_addr_t dma_addr;
 	char buff[IPA_RESOURCE_NAME_MAX];
 
-	if (sys_in == NULL || clnt_hdl == NULL ||
-	    sys_in->client >= IPA_CLIENT_MAX ||
-			sys_in->desc_fifo_sz == 0) {
+	if (sys_in == NULL || clnt_hdl == NULL) {
+		IPAERR("NULL args\n");
+		goto fail_gen;
+	}
+
+	if (sys_in->client >= IPA_CLIENT_MAX || sys_in->desc_fifo_sz == 0) {
 		IPAERR("bad parm client:%d fifo_sz:%d\n",
 			sys_in->client, sys_in->desc_fifo_sz);
 		goto fail_gen;
