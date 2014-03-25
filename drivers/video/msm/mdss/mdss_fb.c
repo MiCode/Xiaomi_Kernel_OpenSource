@@ -491,7 +491,6 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->mdp = *mdp_instance;
 	INIT_LIST_HEAD(&mfd->proc_list);
 
-	mutex_init(&mfd->lock);
 	mutex_init(&mfd->bl_lock);
 
 	fbi_list[fbi_list_index++] = fbi;
