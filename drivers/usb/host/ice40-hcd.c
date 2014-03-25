@@ -1507,6 +1507,8 @@ out:
 static int ice40_spi_load_fw(struct ice40_hcd *ihcd)
 {
 	int ret, i;
+	struct pinctrl *p;
+	char pin_state[16];
 
 	ret = gpio_direction_output(ihcd->reset_gpio, 0);
 	if (ret  < 0) {
@@ -1564,6 +1566,17 @@ static int ice40_spi_load_fw(struct ice40_hcd *ihcd)
 
 	gpio_direction_output(ihcd->slave_select_gpio, 1);
 	gpio_free(ihcd->slave_select_gpio);
+
+	snprintf(pin_state, sizeof(pin_state), "cs%d_sleep",
+			ihcd->spi->chip_select);
+	p = pinctrl_get_select(ihcd->spi->master->dev.parent, pin_state);
+	if (IS_ERR(p)) {
+		ret = PTR_ERR(p);
+		pr_err("fail to select cs sleep state\n");
+		spi_bus_unlock(ihcd->spi->master);
+		goto power_off;
+	}
+	pinctrl_put(p);
 
 	ret = spi_sync_locked(ihcd->spi, ihcd->fmsg);
 
