@@ -208,23 +208,31 @@ static int bbif_release(struct inode *inode, struct file *file)
 static long bbif_ioctl(struct file *file,
 	unsigned int cmd, unsigned long arg)
 {
-	unsigned int __user *argp = (unsigned int __user *) arg;
+	void __iomem *argp = (void __iomem *) arg;
+	void __iomem *bbif_adc_base;
+	bbif_adc_base = bbif_base + BBIF_MISC;
 
 	switch (cmd) {
 	case BBIF_IOCTL_GET:
 		{
 			struct bbif_param param;
 
-			if (copy_from_user(&param, argp, sizeof(param)))
+			if (copy_from_user(&param, argp, sizeof(param))) {
+				pr_err("%s: copy_from_user error\n", __func__);
 				return -EFAULT;
+			}
 
-			if (param.offset > BBIF_MAX_OFFSET)
+			if (param.offset > BBIF_MAX_OFFSET) {
+				pr_err("%s: Exceeds max offset\n", __func__);
 				return -EFAULT;
+			}
 
-			param.value = __raw_readl(bbif_base + param.offset);
+			param.value = __raw_readl(bbif_adc_base + param.offset);
 
-			if (copy_to_user(argp, &param, sizeof(param)))
+			if (copy_to_user(argp, &param, sizeof(param))) {
+				pr_err("%s: copy_to_user error\n", __func__);
 				return -EFAULT;
+			}
 		}
 		break;
 
@@ -232,27 +240,35 @@ static long bbif_ioctl(struct file *file,
 		{
 			struct bbif_param param;
 
-			if (copy_from_user(&param, argp, sizeof(param)))
+			if (copy_from_user(&param, argp, sizeof(param))) {
+				pr_err("%s: copy_from_user error\n", __func__);
 				return -EFAULT;
+			}
 
-			if (param.offset > BBIF_MAX_OFFSET)
+			if (param.offset > BBIF_MAX_OFFSET) {
+				pr_err("%s: Exceeds max offset\n", __func__);
 				return -EFAULT;
+			}
 
-			__raw_writel(param.value, bbif_base + param.offset);
+			__raw_writel(param.value, bbif_adc_base +
+					param.offset);
 			mb();
 		}
+		break;
 
 	case BBIF_IOCTL_SET_ADC_BW:
 		{
-			void __iomem *bbif_adc_base;
 			struct bbif_bw_config param;
 
-			bbif_adc_base = bbif_base + BBIF_MISC;
-			if (copy_from_user(&param, argp, sizeof(param)))
+			if (copy_from_user(&param, argp, sizeof(param))) {
+				pr_err("%s: copy_from_user error\n", __func__);
 				return -EFAULT;
+			}
 
-			if (param.adc_number > BBIF_MAX_ADC)
+			if (param.adc_number > BBIF_MAX_ADC) {
+				pr_err("%s: Exceeds max offset\n", __func__);
 				return -EFAULT;
+			}
 
 			__raw_writel(param.bbrx_test1, bbif_adc_base +
 				BBIF_BBRX_TEST1_BASE + param.adc_number*4);
@@ -263,8 +279,10 @@ static long bbif_ioctl(struct file *file,
 			__raw_writel(param.bbrx_config, bbif_adc_base +
 				BBIF_BBRX_CONFIG_BASE + param.adc_number*4);
 		}
+		break;
 
 	default:
+		pr_err("%s: Invalid IOCTL\n", __func__);
 		return -EINVAL;
 	}
 
