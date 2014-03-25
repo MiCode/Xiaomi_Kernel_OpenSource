@@ -45,6 +45,11 @@ static struct notifier_block rmnet_dev_notifier = {
 
 #define RMNET_NL_MSG_SIZE(Y) (sizeof(((struct rmnet_nl_msg_s *)0)->Y))
 
+struct rmnet_free_vnd_work {
+	struct work_struct work;
+	int vnd_id;
+};
+
 /* ***************** Init and Cleanup *************************************** */
 
 #ifdef RMNET_KERNEL_PRE_3_8
@@ -966,6 +971,36 @@ int rmnet_free_vnd(int id)
 	return rmnet_vnd_free_dev(id);
 }
 
+static void _rmnet_free_vnd_later(struct work_struct *work)
+{
+	struct rmnet_free_vnd_work *fwork;
+	fwork = (struct rmnet_free_vnd_work *) work;
+	rmnet_free_vnd(fwork->vnd_id);
+	kfree(work);
+}
+
+/**
+ * rmnet_free_vnd_later() - Schedule a work item to free virtual network device
+ * @id:       RmNet virtual device node id
+ *
+ * Schedule the VND to be freed at a later time. We need to do this if the
+ * rtnl lock is already held as to prevent a deadlock.
+ */
+static void rmnet_free_vnd_later(int id)
+{
+	struct rmnet_free_vnd_work *work;
+	LOGL("(%d);", id);
+	work = (struct rmnet_free_vnd_work *)
+		kmalloc(sizeof(struct rmnet_free_vnd_work), GFP_KERNEL);
+	if (!work) {
+		LOGH("Failed to queue removal of VND:%d", id);
+		return;
+	}
+	INIT_WORK((struct work_struct *)work, _rmnet_free_vnd_later);
+	work->vnd_id = id;
+	schedule_work((struct work_struct *)work);
+}
+
 /**
  * rmnet_force_unassociate_device() - Force a device to unassociate
  * @dev:       Device to unassociate
@@ -976,6 +1011,8 @@ int rmnet_free_vnd(int id)
 static void rmnet_force_unassociate_device(struct net_device *dev)
 {
 	int i;
+	struct net_device *vndev;
+	struct rmnet_logical_ep_conf_s *cfg;
 
 	if (!dev)
 		BUG();
@@ -985,6 +1022,27 @@ static void rmnet_force_unassociate_device(struct net_device *dev)
 		return;
 	}
 
+	/* Check the VNDs for offending mappings */
+	for (i = 0; i < RMNET_DATA_MAX_VND; i++) {
+		vndev = rmnet_vnd_get_by_id(i);
+		if (!vndev) {
+			LOGL("VND %d not in use; skipping", i);
+			continue;
+		}
+		cfg = rmnet_vnd_get_le_config(vndev);
+		if (!cfg) {
+			LOGH("Got NULL config from VND %d", i);
+			BUG();
+			continue;
+		}
+		if (cfg->refcount && (cfg->egress_dev == dev)) {
+			rmnet_unset_logical_endpoint_config(vndev,
+						  RMNET_LOCAL_LOGICAL_ENDPOINT);
+			rmnet_free_vnd_later(i);
+		}
+	}
+
+	/* Clear on the mappings on the phys ep */
 	rmnet_unset_logical_endpoint_config(dev, RMNET_LOCAL_LOGICAL_ENDPOINT);
 	for (i = 0; i < RMNET_DATA_MAX_LOGICAL_EP; i++)
 		rmnet_unset_logical_endpoint_config(dev, i);
