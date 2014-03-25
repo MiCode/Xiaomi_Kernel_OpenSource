@@ -13,7 +13,7 @@
 #include "skeleton64.dtsi"
 
 / {
-	model = "Qualcomm FSM9900";
+	model = "Qualcomm Technologies, Inc. FSM9900";
 	compatible = "qcom,fsm9900";
 	interrupt-parent = <&intc>;
 

@@ -111,7 +111,8 @@ static const char *msmsamarium_dt_match[] __initconst = {
 	NULL
 };
 
-DT_MACHINE_START(MSMSAMARIUM_DT, "Qualcomm MSM Samarium(Flattened Device Tree)")
+DT_MACHINE_START(MSMSAMARIUM_DT,
+	"Qualcomm Technologies, Inc. MSM Samarium(Flattened Device Tree)")
 	.map_io			= msmsamarium_map_io,
 	.init_machine		= msmsamarium_init,
 	.dt_compat		= msmsamarium_dt_match,

@@ -18,7 +18,7 @@
 #include "msm8916-pinctrl.dtsi"
 
 / {
-	model = "Qualcomm MSM8916 RUMI";
+	model = "Qualcomm Technologies, Inc. MSM8916 RUMI";
 	compatible = "qcom,msm8916-rumi", "qcom,msm8916", "qcom,rumi";
 	qcom,board-id= <15 0>;
 };

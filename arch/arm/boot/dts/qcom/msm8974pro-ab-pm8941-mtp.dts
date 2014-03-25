@@ -16,7 +16,7 @@
 #include "msm8974-mtp.dtsi"
 
 / {
-	model = "Qualcomm MSM 8974Pro-AA/AB MTP";
+	model = "Qualcomm Technologies, Inc. MSM 8974Pro-AA/AB MTP";
 	compatible = "qcom,msm8974-mtp", "qcom,msm8974", "qcom,mtp";
 	qcom,board-id = <8 0>;
 };

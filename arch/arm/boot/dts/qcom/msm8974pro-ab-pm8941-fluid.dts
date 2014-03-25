@@ -16,7 +16,7 @@
 #include "msm8974-fluid.dtsi"
 
 / {
-	model = "Qualcomm MSM 8974Pro-AA/AB FLUID";
+	model = "Qualcomm Technologies, Inc. MSM 8974Pro-AA/AB FLUID";
 	compatible = "qcom,msm8974-fluid", "qcom,msm8974", "qcom,fluid";
 	qcom,board-id = <3 0>;
 };

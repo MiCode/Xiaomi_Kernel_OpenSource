@@ -17,7 +17,7 @@
 #include "apq8084-mtp.dtsi"
 
 / {
-	model = "Qualcomm APQ 8084 v1.0, Old Pwr Grid, SMB1357 MDM9x35 MTP";
+	model = "Qualcomm Technologies, Inc. APQ 8084 v1.0, Old Pwr Grid, SMB1357 MDM9x35 MTP";
 	compatible = "qcom,apq8084-mtp", "qcom,apq8084", "qcom,mtp";
 	qcom,board-id = <8 3>;
 };

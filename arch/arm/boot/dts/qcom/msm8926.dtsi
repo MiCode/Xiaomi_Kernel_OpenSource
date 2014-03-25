@@ -20,7 +20,7 @@
 #include "msm8226-v2-pm.dtsi"
 
 / {
-	model = "Qualcomm MSM 8926";
+	model = "Qualcomm Technologies, Inc. MSM 8926";
 	compatible = "qcom,msm8926";
 
 	memory {

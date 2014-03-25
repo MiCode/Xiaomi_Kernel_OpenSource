@@ -16,7 +16,7 @@
 #include "msm-pmi8962.dtsi"
 
 / {
-	model = "Qualcomm MSM SAMARIUM SIM";
+	model = "Qualcomm Technologies, Inc. MSM SAMARIUM SIM";
 	compatible = "qcom,msmsamarium-sim", "qcom,msmsamarium", "qcom,sim";
 	qcom,board-id = <16 0>;
 };

@@ -13,7 +13,7 @@
 #include "skeleton.dtsi"
 
 / {
-	model = "Qualcomm MSM SAMARIUM";
+	model = "Qualcomm Technologies, Inc. MSM SAMARIUM";
 	compatible = "qcom,msmsamarium";
 	qcom,msm-id = <195 0>,
 		      <196 0>;

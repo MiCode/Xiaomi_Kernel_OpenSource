@@ -15,7 +15,7 @@
 #include "mdm9630.dtsi"
 
 / {
-	model = "Qualcomm MDM 9630 SIM";
+	model = "Qualcomm Technologies, Inc. MDM 9630 SIM";
 	compatible = "qcom,mdm9630-sim", "qcom,mdm9630", "qcom,sim";
 	qcom,board-id = <16 0>;
 };

@@ -14,7 +14,7 @@
 #include <dt-bindings/clock/msm-clocks-plutonium.h>
 
 / {
-	model = "Qualcomm MSM plutonium";
+	model = "Qualcomm Technologies, Inc. MSM plutonium";
 	compatible = "qcom,msmplutonium";
 	qcom,msm-id = <207 0x0>;
 	interrupt-parent = <&intc>;

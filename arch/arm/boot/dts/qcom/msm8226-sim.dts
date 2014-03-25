@@ -14,7 +14,7 @@
 #include "msm8226.dtsi"
 
 / {
-	model = "Qualcomm MSM 8226 Simulator";
+	model = "Qualcomm Technologies, Inc. MSM 8226 Simulator";
 	compatible = "qcom,msm8226-sim", "qcom,msm8226", "qcom,sim";
 	qcom,msm-id = <145 16 0>,
 		      <158 16 0>,

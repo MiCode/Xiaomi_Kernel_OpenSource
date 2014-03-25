@@ -13,7 +13,7 @@
 #include "skeleton.dtsi"
 
 / {
-	model = "Qualcomm MSM 8610";
+	model = "Qualcomm Technologies, Inc. MSM 8610";
 	compatible = "qcom,msm8610";
 	qcom,msm-id = <147 0>,
 		      <165 0>,

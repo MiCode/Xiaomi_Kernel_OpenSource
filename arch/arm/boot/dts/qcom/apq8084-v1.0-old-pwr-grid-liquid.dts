@@ -18,7 +18,7 @@
 #include "apq8084-camera-sensor-liquid.dtsi"
 
 / {
-	model = "Qualcomm APQ 8084 v1.0 Old Pwr Grid LIQUID";
+	model = "Qualcomm Technologies, Inc. APQ 8084 v1.0 Old Pwr Grid LIQUID";
 	compatible = "qcom,apq8084-liquid", "qcom,apq8084", "qcom,liquid";
 	qcom,board-id = <9 0>;
 };

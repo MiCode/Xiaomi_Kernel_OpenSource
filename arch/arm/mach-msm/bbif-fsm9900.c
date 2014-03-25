@@ -423,7 +423,7 @@ void __exit bbif_exit(void)
 }
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Qualcomm fsm9900 BBIF driver");
+MODULE_DESCRIPTION("Qualcomm Technologies, Inc. fsm9900 BBIF driver");
 
 module_init(bbif_init);
 module_exit(bbif_exit);

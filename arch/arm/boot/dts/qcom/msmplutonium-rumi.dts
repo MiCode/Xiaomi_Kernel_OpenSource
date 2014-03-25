@@ -18,7 +18,7 @@
 #include "msmplutonium.dtsi"
 #include "msmplutonium-pinctrl.dtsi"
 / {
-	model = "Qualcomm Technologies, Inc. MSM plutonium RUMI";
+	model = "Qualcomm Technologies, Inc. Technologies, Inc. MSM plutonium RUMI";
 	compatible = "qcom,msmplutonium-rumi", "qcom,msmplutonium", "qcom,rumi";
 	qcom,board-id = <15 0>;
 };

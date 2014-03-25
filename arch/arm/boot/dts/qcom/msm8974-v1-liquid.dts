@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,7 @@
 #include "msm8974-liquid.dtsi"
 
 / {
-	model = "Qualcomm MSM 8974 LIQUID";
+	model = "Qualcomm Technologies, Inc. MSM 8974 LIQUID";
 	compatible = "qcom,msm8974-liquid", "qcom,msm8974", "qcom,liquid";
 	qcom,msm-id = <126 9 0>,
 		      <185 9 0>,

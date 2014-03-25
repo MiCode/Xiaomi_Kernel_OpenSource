@@ -15,7 +15,7 @@
 #include "msm8936.dtsi"
 
 / {
-	model = "Qualcomm MSM8936 Simulator";
+	model = "Qualcomm Technologies, Inc. MSM8936 Simulator";
 	compatible = "qcom,msm8936-sim", "qcom,msm8936", "qcom,sim";
 	qcom,board-id= <16 0>;
 };

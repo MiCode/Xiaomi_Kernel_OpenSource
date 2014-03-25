@@ -143,7 +143,8 @@ static const char *msm8974_dt_match[] __initconst = {
 	NULL
 };
 
-DT_MACHINE_START(MSM8974_DT, "Qualcomm MSM 8974 (Flattened Device Tree)")
+DT_MACHINE_START(MSM8974_DT,
+		"Qualcomm Technologies, Inc. MSM 8974 (Flattened Device Tree)")
 	.map_io			= msm8974_map_io,
 	.init_machine		= msm8974_init,
 	.dt_compat		= msm8974_dt_match,

@@ -18,7 +18,7 @@
 #include "msm8916-pinctrl.dtsi"
 
 / {
-	model = "Qualcomm MSM8916 Simulator";
+	model = "Qualcomm Technologies, Inc. MSM8916 Simulator";
 	compatible = "qcom,msm8916-sim", "qcom,msm8916", "qcom,sim";
 	qcom,board-id= <16 0>;
 };

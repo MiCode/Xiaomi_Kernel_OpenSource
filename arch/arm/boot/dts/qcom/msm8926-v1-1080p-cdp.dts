@@ -17,7 +17,7 @@
 #include "msm8226-camera-sensor-cdp.dtsi"
 
 / {
-	model = "Qualcomm MSM 8926 CDP";
+	model = "Qualcomm Technologies, Inc. MSM 8926 CDP";
 	compatible = "qcom,msm8926-cdp", "qcom,msm8926", "qcom,cdp";
 	qcom,board-id = <1 2>;
 };

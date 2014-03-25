@@ -890,7 +890,7 @@ void __exit ftr_exit(void)
 
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Qualcomm fsm9900 RFIC driver");
+MODULE_DESCRIPTION("Qualcomm Technologies, Inc. fsm9900 RFIC driver");
 
 module_init(ftr_init);
 module_exit(ftr_exit);
