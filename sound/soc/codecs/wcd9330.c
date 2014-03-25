@@ -3468,6 +3468,14 @@ static int tomtom_hphl_dac_event(struct snd_soc_dapm_widget *w,
 			dev_dbg(codec->dev, "%s: Failed to get mbhc impedance %d\n",
 						__func__, ret);
 		break;
+	case SND_SOC_DAPM_POST_PMU:
+		snd_soc_update_bits(codec, TOMTOM_A_CDC_RX1_B3_CTL, 0xBC, 0x94);
+		snd_soc_update_bits(codec, TOMTOM_A_CDC_RX1_B4_CTL, 0x30, 0x10);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		snd_soc_update_bits(codec, TOMTOM_A_CDC_RX1_B3_CTL, 0xBC, 0x00);
+		snd_soc_update_bits(codec, TOMTOM_A_CDC_RX1_B4_CTL, 0x30, 0x00);
+		break;
 	case SND_SOC_DAPM_POST_PMD:
 		break;
 	}
@@ -3495,6 +3503,14 @@ static int tomtom_hphr_dac_event(struct snd_soc_dapm_widget *w,
 						WCD9XXX_CLSAB_STATE_HPHR,
 						WCD9XXX_CLSAB_REQ_ENABLE);
 		}
+		break;
+	case SND_SOC_DAPM_POST_PMU:
+		snd_soc_update_bits(codec, TOMTOM_A_CDC_RX2_B3_CTL, 0xBC, 0x94);
+		snd_soc_update_bits(codec, TOMTOM_A_CDC_RX2_B4_CTL, 0x30, 0x10);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		snd_soc_update_bits(codec, TOMTOM_A_CDC_RX2_B3_CTL, 0xBC, 0x00);
+		snd_soc_update_bits(codec, TOMTOM_A_CDC_RX2_B4_CTL, 0x30, 0x00);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		snd_soc_update_bits(codec, w->reg, 0x40, 0x00);
@@ -5799,7 +5815,8 @@ static const struct snd_soc_dapm_widget tomtom_dapm_widgets[] = {
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MIXER_E("HPHL DAC", TOMTOM_A_RX_HPH_L_DAC_CTL, 7, 0,
 		hphl_switch, ARRAY_SIZE(hphl_switch), tomtom_hphl_dac_event,
-		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_PGA_E("HPHR", TOMTOM_A_RX_HPH_CNP_EN, 4, 0, NULL, 0,
 		tomtom_hph_pa_event, SND_SOC_DAPM_PRE_PMU |
@@ -5807,7 +5824,8 @@ static const struct snd_soc_dapm_widget tomtom_dapm_widgets[] = {
 
 	SND_SOC_DAPM_DAC_E("HPHR DAC", NULL, TOMTOM_A_RX_HPH_R_DAC_CTL, 7, 0,
 		tomtom_hphr_dac_event,
-		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 
 	/* Speaker */
 	SND_SOC_DAPM_OUTPUT("LINEOUT1"),
