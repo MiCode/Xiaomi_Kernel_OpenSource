@@ -105,22 +105,22 @@ int interpolate_scalingfactor(struct sf_lut *sf_lut, int row_entry, int pc)
 		pr_debug("pc %d greater than known pc ranges for sfd\n", pc);
 		row1 = 0;
 		row2 = 0;
-	}
-	if (pc < sf_lut->percent[rows - 1]) {
+	} else if (pc < sf_lut->percent[rows - 1]) {
 		pr_debug("pc %d less than known pc ranges for sf\n", pc);
 		row1 = rows - 1;
 		row2 = rows - 1;
-	}
-	for (i = 0; i < rows; i++) {
-		if (pc == sf_lut->percent[i]) {
-			row1 = i;
-			row2 = i;
-			break;
-		}
-		if (pc > sf_lut->percent[i]) {
-			row1 = i - 1;
-			row2 = i;
-			break;
+	} else {
+		for (i = 0; i < rows; i++) {
+			if (pc == sf_lut->percent[i]) {
+				row1 = i;
+				row2 = i;
+				break;
+			}
+			if (pc > sf_lut->percent[i]) {
+				row1 = i - 1;
+				row2 = i;
+				break;
+			}
 		}
 	}
 
@@ -180,22 +180,22 @@ int interpolate_ocv(struct pc_temp_ocv_lut *pc_temp_ocv,
 		pr_debug("pc %d greater than known pc ranges for sfd\n", pc);
 		row1 = 0;
 		row2 = 0;
-	}
-	if (pc < pc_temp_ocv->percent[rows - 1]) {
+	} else if (pc < pc_temp_ocv->percent[rows - 1]) {
 		pr_debug("pc %d less than known pc ranges for sf\n", pc);
 		row1 = rows - 1;
 		row2 = rows - 1;
-	}
-	for (i = 0; i < rows; i++) {
-		if (pc == pc_temp_ocv->percent[i]) {
-			row1 = i;
-			row2 = i;
-			break;
-		}
-		if (pc > pc_temp_ocv->percent[i]) {
-			row1 = i - 1;
-			row2 = i;
-			break;
+	} else {
+		for (i = 0; i < rows; i++) {
+			if (pc == pc_temp_ocv->percent[i]) {
+				row1 = i;
+				row2 = i;
+				break;
+			}
+			if (pc > pc_temp_ocv->percent[i]) {
+				row1 = i - 1;
+				row2 = i;
+				break;
+			}
 		}
 	}
 
