@@ -424,7 +424,7 @@
 			qcom,adc-vdd-reference = <1800>;
 			qcom,iadc-vadc = <&pm8226_vadc>;
 			qcom,iadc-poll-eoc;
-			qcom,use-default-rds-trim = <0>;
+			qcom,use-default-rds-trim = <2>;
 			qcom,pmic-revid = <&pm8226_revid>;
 
 			chan@0 {
