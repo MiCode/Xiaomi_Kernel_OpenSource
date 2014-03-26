@@ -34,6 +34,11 @@ static struct workqueue_struct *grmnet_ctrl_wq;
 
 u8 online_clients;
 
+#define OFFLINE_UL_Q_LIMIT	1000
+
+static unsigned int offline_ul_ctrl_pkt_q_limit = OFFLINE_UL_Q_LIMIT;
+module_param(offline_ul_ctrl_pkt_q_limit, uint, S_IRUGO | S_IWUSR);
+
 #define SMD_CH_MAX_LEN	20
 #define CH_OPENED	0
 #define CH_READY	1
@@ -56,6 +61,7 @@ struct smd_ch_info {
 	struct rmnet_ctrl_port	*port;
 
 	int			cbits_tomodem;
+	unsigned int		offline_pkt_for_modem;
 	/* stats */
 	unsigned long		to_modem;
 	unsigned long		to_host;
@@ -241,9 +247,16 @@ grmnet_ctrl_smd_send_cpkt_tomodem(u8 portno,
 	spin_lock_irqsave(&port->port_lock, flags);
 	c = &port->ctrl_ch;
 
-	/* drop cpkt if ch is not open */
+	/* queue cpkt if ch is not open, would be sent once ch is opened */
 	if (!test_bit(CH_OPENED, &c->flags)) {
-		free_rmnet_ctrl_pkt(cpkt);
+		if (c->offline_pkt_for_modem <= offline_ul_ctrl_pkt_q_limit) {
+			list_add_tail(&cpkt->list, &c->tx_q);
+			c->offline_pkt_for_modem++;
+		} else {
+			free_rmnet_ctrl_pkt(cpkt);
+			pr_debug("%s: Dropping SMD CTRL packet: limit %u\n",
+					__func__, c->offline_pkt_for_modem);
+		}
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		return 0;
 	}
@@ -341,6 +354,11 @@ static void grmnet_ctrl_smd_notify(void *p, unsigned event)
 		if (port && port->port_usb && port->port_usb->connect)
 			port->port_usb->connect(port->port_usb);
 
+		/* Send data to modem incase already received over USB */
+		if (smd_write_avail(c->ch))
+			queue_work(grmnet_ctrl_wq, &c->write_w);
+		/* As channel is now OPEN, no limit on pending ctrl packets */
+		c->offline_pkt_for_modem = 0;
 		break;
 	case SMD_EVENT_CLOSE:
 		clear_bit(CH_OPENED, &c->flags);
@@ -498,6 +516,7 @@ void gsmd_ctrl_disconnect(struct grmnet *gr, u8 port_num)
 		list_del(&cpkt->list);
 		free_rmnet_ctrl_pkt(cpkt);
 	}
+	c->offline_pkt_for_modem = 0;
 
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
