@@ -20,3 +20,8 @@
 	compatible = "qcom,msm8226-mtp", "qcom,msm8226", "qcom,mtp";
 	qcom,board-id = <8 4>;
 };
+
+&mdss_fb0 {
+	/* cont_splash memory*/
+	qcom,memblock-reserve = <0x04200000 0x64000>;
+};
