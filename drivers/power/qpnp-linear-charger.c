@@ -50,7 +50,8 @@
 #define CHG_VIN_MIN_REG				0x47
 #define CHG_CTRL_REG				0x49
 #define CHG_ENABLE				BIT(7)
-#define CHG_EN_MASK				BIT(7)
+#define CHG_FORCE_BATT_ON			BIT(0)
+#define CHG_EN_MASK				(BIT(7) | BIT(0))
 #define CHG_FAILED_REG				0x4A
 #define CHG_FAILED_BIT				BIT(7)
 #define CHG_VBAT_WEAK_REG			0x52
@@ -442,17 +443,14 @@ static int qpnp_lbc_charger_enable(struct qpnp_lbc_chip *chip, int reason,
 	if (!!chip->charger_disabled == !!disabled)
 		goto skip;
 
-	reg_val = !!disabled ? 0 : CHG_ENABLE;
+	reg_val = !!disabled ? CHG_FORCE_BATT_ON : CHG_ENABLE;
 	rc = qpnp_lbc_masked_write(chip, chip->chgr_base + CHG_CTRL_REG,
 				CHG_EN_MASK, reg_val);
 	if (rc) {
 		pr_err("Failed to %s charger rc=%d\n",
 				reg_val ? "enable" : "disable", rc);
 		return rc;
-	} else {
-		power_supply_set_online(chip->usb_psy, !disabled);
 	}
-
 skip:
 	chip->charger_disabled = disabled;
 	return rc;
