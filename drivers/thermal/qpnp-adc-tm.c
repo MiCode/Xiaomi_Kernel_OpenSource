@@ -286,6 +286,7 @@ static struct qpnp_adc_tm_reverse_scale_fn adc_tm_rscale_fn[] = {
 	[SCALE_RBATT_THERM] = {qpnp_adc_btm_scaler},
 	[SCALE_R_USB_ID] = {qpnp_adc_usb_scaler},
 	[SCALE_RPMIC_THERM] = {qpnp_adc_scale_millidegc_pmic_voltage_thr},
+	[SCALE_R_SMB_BATT_THERM] = {qpnp_adc_smb_btm_rscaler},
 	[SCALE_R_ABSOLUTE] = {qpnp_adc_absolute_rthr},
 };
 
