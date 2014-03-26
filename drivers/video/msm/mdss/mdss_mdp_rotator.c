@@ -226,7 +226,7 @@ static int __mdss_mdp_rotator_to_pipe(struct mdss_mdp_rotator_session *rot,
 
 	ret = mdss_mdp_smp_reserve(pipe);
 	if (ret) {
-		pr_err("unable to mdss_mdp_smp_reserve rot data\n");
+		pr_debug("unable to mdss_mdp_smp_reserve rot data\n");
 		return ret;
 	}
 
