@@ -191,6 +191,7 @@ struct dwc3_msm {
 	bool ext_chg_active;
 	struct completion ext_chg_wait;
 	unsigned int scm_dev_id;
+	bool reset_hsphy_sleep_clk;
 	bool suspend_resume_no_support;
 };
 
@@ -1365,6 +1366,28 @@ static void dwc3_start_chg_det(struct dwc3_charger *charger, bool start)
 	queue_delayed_work(system_nrt_wq, &mdwc->chg_work, 0);
 }
 
+static int dwc3_hsphy_reset(struct dwc3_msm *mdwc)
+{
+	int ret;
+
+	/* Reset hsusb phy */
+	ret = clk_reset(mdwc->hsphy_sleep_clk, CLK_RESET_ASSERT);
+	if (ret) {
+		dev_err(mdwc->dev, "hsphy_sleep_clk assert failed\n");
+		goto reset_hsphy_exit;
+	}
+
+	usleep_range(1000, 1200);
+	ret = clk_reset(mdwc->hsphy_sleep_clk, CLK_RESET_DEASSERT);
+	if (ret) {
+		dev_err(mdwc->dev, "hsphy_sleep_clk reset deassert failed\n");
+		goto reset_hsphy_exit;
+	}
+
+reset_hsphy_exit:
+	return ret;
+}
+
 static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 {
 	int ret, i;
@@ -1566,6 +1589,14 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
 		      dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) &
 								0x7FFFFFFF);
+		/* Reset HSPHY */
+		if (mdwc->reset_hsphy_sleep_clk) {
+			ret = dwc3_hsphy_reset(mdwc);
+			if (ret) {
+				dev_err(mdwc->dev, "hsphy reset failed\n");
+				return ret;
+			}
+		}
 
 		ret = dwc3_msm_restore_sec_config(mdwc->scm_dev_id);
 		if (ret)
@@ -2709,21 +2740,13 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		enable_irq_wake(mdwc->pmic_id_irq);
 	}
 
-	if (of_property_read_bool(node, "qcom,reset_hsphy_sleep_clk_on_init")) {
-		ret = clk_reset(mdwc->hsphy_sleep_clk, CLK_RESET_ASSERT);
+	mdwc->reset_hsphy_sleep_clk = of_property_read_bool(node,
+					"qcom,reset_hsphy_sleep_clk_on_init");
+	if (mdwc->reset_hsphy_sleep_clk) {
+		ret = dwc3_hsphy_reset(mdwc);
 		if (ret) {
-			dev_err(&pdev->dev,
-				"hsphy_sleep_clk assert failed\n");
-			return ret;
-		}
-
-		usleep_range(1000, 1200);
-
-		ret = clk_reset(mdwc->hsphy_sleep_clk, CLK_RESET_DEASSERT);
-		if (ret) {
-			dev_err(&pdev->dev,
-				"hsphy_sleep_clk reset deassert failed\n");
-			return ret;
+			dev_err(&pdev->dev, "hsphy_sleep_clk reset failed\n");
+			goto put_dwc3;
 		}
 	}
 
