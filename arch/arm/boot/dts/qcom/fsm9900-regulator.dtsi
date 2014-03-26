@@ -143,7 +143,6 @@
 			regulator-max-microvolt = <1300000>;
 			qcom,enable-time = <500>;
 			qcom,pull-down-enable = <1>;
-			regulator-always-on;
 			status = "okay";
 		};
 
