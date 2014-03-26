@@ -35,8 +35,8 @@
 #define IPV6_HDR_NAME "rndis_eth_ipv6"
 #define IPA_TO_USB_CLIENT IPA_CLIENT_USB_CONS
 #define INACTIVITY_MSEC_DELAY 1000
-#define DEFAULT_OUTSTANDING_HIGH 64
-#define DEFAULT_OUTSTANDING_LOW 32
+#define DEFAULT_OUTSTANDING_HIGH 8
+#define DEFAULT_OUTSTANDING_LOW 4
 #define DEBUGFS_TEMP_BUF_SIZE 4
 #define RNDIS_IPA_PKT_TYPE 0x00000001
 #define RNDIS_IPA_DFLT_RT_HDL 0
@@ -831,8 +831,9 @@ static netdev_tx_t rndis_ipa_start_xmit(struct sk_buff *skb,
 
 	net->trans_start = jiffies;
 
-	RNDIS_IPA_DEBUG("packet Tx, len=%d, skb->protocol=%d\n",
-		skb->len, skb->protocol);
+	RNDIS_IPA_DEBUG("Tx, len=%d, skb->protocol=%d, outstanding=%d\n",
+		skb->len, skb->protocol,
+		atomic_read(&rndis_ipa_ctx->outstanding_pkts));
 
 	if (unlikely(netif_queue_stopped(net))) {
 		RNDIS_IPA_ERROR("interface queue is stopped\n");
@@ -917,8 +918,9 @@ static void rndis_ipa_tx_complete_notify(void *private,
 
 	NULL_CHECK_NO_RETVAL(private);
 
-	RNDIS_IPA_DEBUG("packet Tx-complete, len=%d, skb->protocol=%d",
-		skb->len, skb->protocol);
+	RNDIS_IPA_DEBUG("Tx-complete, len=%d, skb->prot=%d, outstanding=%d\n",
+		skb->len, skb->protocol,
+		atomic_read(&rndis_ipa_ctx->outstanding_pkts));
 
 	if (unlikely((evt != IPA_WRITE_DONE))) {
 		RNDIS_IPA_ERROR("unsupported event on TX call-back\n");
@@ -940,7 +942,7 @@ static void rndis_ipa_tx_complete_notify(void *private,
 					(rndis_ipa_ctx->outstanding_low)) {
 		RNDIS_IPA_DEBUG("outstanding low boundary reached (%d)",
 				rndis_ipa_ctx->outstanding_low);
-		netif_wake_queue(rndis_ipa_ctx->net);
+		netif_start_queue(rndis_ipa_ctx->net);
 		RNDIS_IPA_DEBUG("send queue was awaken");
 	}
 
@@ -1048,7 +1050,7 @@ static void rndis_ipa_packet_receive_notify(void *private,
 	struct rndis_ipa_dev *rndis_ipa_ctx = private;
 	int result;
 
-	RNDIS_IPA_DEBUG("packet Rx, len=%d",
+	RNDIS_IPA_DEBUG("packet Rx, len=%d\n",
 		skb->len);
 
 	if (unlikely(rndis_ipa_ctx->rx_dump_enable))
