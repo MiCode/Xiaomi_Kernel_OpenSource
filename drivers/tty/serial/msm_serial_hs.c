@@ -318,6 +318,7 @@ unsigned int regmap_blsp[UART_DM_LAST] = {
 		[UART_DM_TXFS] = 0x4c,
 		[UART_DM_RXFS] = 0x50,
 		[UART_DM_RX_TRANS_CTRL] = 0xcc,
+		[UART_DM_BCR] = 0xc8,
 };
 
 static struct of_device_id msm_hs_match_table[] = {
@@ -2654,7 +2655,11 @@ static int msm_hs_startup(struct uart_port *uport)
 		}
 	}
 
-	msm_hs_write(uport, UARTDM_BCR_ADDR, 0x003F);
+	data = (UARTDM_BCR_TX_BREAK_DISABLE | UARTDM_BCR_STALE_IRQ_EMPTY |
+		UARTDM_BCR_RX_DMRX_LOW_EN | UARTDM_BCR_RX_STAL_IRQ_DMRX_EQL |
+		UARTDM_BCR_RX_DMRX_1BYTE_RES_EN);
+	msm_hs_write(uport, UART_DM_BCR, data);
+
 	/* Set auto RFR Level */
 	data = msm_hs_read(uport, UART_DM_MR1);
 	data &= ~UARTDM_MR1_AUTO_RFR_LEVEL1_BMSK;
