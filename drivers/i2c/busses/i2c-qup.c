@@ -143,6 +143,11 @@ enum msm_i2c_state {
 #define QUP_OUT_FIFO_NOT_EMPTY		0x10
 #define I2C_GPIOS_DT_CNT		(2)		/* sda and scl */
 
+/* Register:QUP_I2C_MASTER_CLK_CTL field setters */
+#define QUP_I2C_SCL_NOISE_REJECTION(reg_val, noise_rej_val) \
+		(((reg_val) & ~(0x3 << 24)) | (((noise_rej_val) & 0x3) << 24))
+#define QUP_I2C_SDA_NOISE_REJECTION(reg_val, noise_rej_val) \
+		(((reg_val) & ~(0x3 << 26)) | (((noise_rej_val) & 0x3) << 26))
 static char const * const i2c_rsrcs[] = {"i2c_clk", "i2c_sda"};
 
 static struct gpiomux_setting recovery_config = {
@@ -1061,6 +1066,10 @@ qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 				/ dev->pdata->clk_freq) / 2) - 3;
 		hs_div = 3;
 		dev->clk_ctl = ((hs_div & 0x7) << 8) | (fs_div & 0xff);
+		dev->clk_ctl = QUP_I2C_SCL_NOISE_REJECTION(
+				dev->clk_ctl, dev->pdata->noise_rjct_scl);
+		dev->clk_ctl = QUP_I2C_SDA_NOISE_REJECTION(
+				dev->clk_ctl, dev->pdata->noise_rjct_sda);
 		fifo_reg = readl_relaxed(dev->base + QUP_IO_MODE);
 		if (fifo_reg & 0x3)
 			dev->out_blk_sz = (fifo_reg & 0x3) * 16;
@@ -1386,7 +1395,9 @@ int msm_i2c_rsrcs_dt_to_pdata_map(struct platform_device *pdev,
 	{"qcom,scl-gpio",      gpios,               DT_OPTIONAL,  DT_GPIO, -1},
 	{"qcom,sda-gpio",      gpios + 1,           DT_OPTIONAL,  DT_GPIO, -1},
 	{"qcom,clk-ctl-xfer", &pdata->clk_ctl_xfer, DT_OPTIONAL,  DT_BOOL, -1},
-	{NULL,                 NULL,                0,            0,        0},
+	{"qcom,noise-rjct-scl", &pdata->noise_rjct_scl, DT_OPTIONAL, DT_U32, 0},
+	{"qcom,noise-rjct-sda", &pdata->noise_rjct_sda, DT_OPTIONAL, DT_U32, 0},
+	{NULL,                                    NULL,           0,      0, 0},
 	};
 
 	for (itr = map; itr->dt_name ; ++itr) {

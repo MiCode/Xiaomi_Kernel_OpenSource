@@ -19,27 +19,31 @@ Required properties:
  - qcom,i2c-bus-freq : desired I2C bus clock frequency is Hz
 
 Optional property:
- - qcom,i2c-src-freq : Frequency of the source clocking this bus in Hz.
-		      Divider value is set based on soruce-frequency and
-		      desired I2C bus frequency. If this value is not
-		      provided, the source clock is assumed to be running
-		      at 19.2 MHz.
- - qcom,scl-gpio     : I2C clock GPIO number. Required for execution of bus
-		      recovery procedure.
- - qcom,sda-gpio     : I2C data  GPIO number. Required for execution of bus
-		      recovery procedure.
- - qcom,active-only  : Vote for core clock when the application processor goes
-		      to active state and remove that vote when it goes to idle
-		      state. This flag may improve service time of first i2c
-		      request at the expense of power consumption. When this
-		      entry is not present, voting is done by the runtime-pm
-		      callbacks.
- - qcom,master-id    : Master endpoint number used for voting on clocks using
-		      bus-scaling driver.
- - qcom,clk-ctl-xfer : When present, the clocks's state (prepare_enable/
-		      unprepare_disable) is controlled by i2c-transaction's
-		      begining and ending. When missing, the clock's state
-		      is controlled by runtime-pm events.
+ - qcom,noise-rjct-scl : Number of low samples on clock line to consider it low.
+		       Range of values is 0-3. When missing default to 0.
+ - qcom,noise-rjct-sda : Number of low samples on data  line to consider it low.
+		       Range of values is 0-3. When missing default to 0.
+ - qcom,i2c-src-freq   : Frequency of the source clocking this bus in Hz.
+		       Divider value is set based on soruce-frequency and
+		       desired I2C bus frequency. If this value is not
+		       provided, the source clock is assumed to be running
+		       at 19.2 MHz.
+ - qcom,scl-gpio       : I2C clock GPIO number. Required for execution of bus
+		       recovery procedure.
+ - qcom,sda-gpio       : I2C data  GPIO number. Required for execution of bus
+		       recovery procedure.
+ - qcom,active-only    : Vote for core clock when the application processor goes
+		       to active state and remove that vote when it goes to idle
+		       state. This flag may improve service time of first i2c
+		       request at the expense of power consumption. When this
+		       entry is not present, voting is done by the runtime-pm
+		       callbacks.
+ - qcom,master-id      : Master endpoint number used for voting on clocks using
+		       bus-scaling driver.
+ - qcom,clk-ctl-xfer   : When present, the clocks's state (prepare_enable/
+		       unprepare_disable) is controlled by i2c-transaction's
+		       begining and ending. When missing, the clock's state
+		       is controlled by runtime-pm events.
 
 Example:
 	i2c_3: i2c@f9966000 {
@@ -48,6 +52,8 @@ Example:
 		reg = <0xf9966000 0x1000>;
 		reg-names = "qup_phys_addr";
 		interrupts = <0 104 0>;
+		qcom,noise-rjct-scl = <1>;
+		qcom,noise-rjct-sda = <1>;
 		interrupt-names = "qup_err_intr";
 		qcom,i2c-bus-freq = <100000>;
 		qcom,i2c-src-freq = <24000000>;
