@@ -459,7 +459,8 @@ static void gbam_data_write_tobam(struct work_struct *w)
 	}
 
 	while (d->pending_with_bam < bam_pending_limit &&
-	       usb_bam_get_prod_granted(d->dst_connection_idx)) {
+			(d->trans != USB_GADGET_XPORT_BAM2BAM_IPA ||
+			usb_bam_get_prod_granted(d->dst_connection_idx))) {
 		skb =  __skb_dequeue(&d->rx_skb_q);
 		if (!skb)
 			break;
@@ -575,7 +576,8 @@ gbam_epout_complete(struct usb_ep *ep, struct usb_request *req)
 
 	if (queue) {
 		__skb_queue_tail(&d->rx_skb_q, skb);
-		if (!usb_bam_get_prod_granted(d->dst_connection_idx)) {
+		if ((d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) &&
+			!usb_bam_get_prod_granted(d->dst_connection_idx)) {
 			list_add_tail(&req->list, &d->rx_idle);
 			spin_unlock(&port->port_lock_ul);
 			return;
