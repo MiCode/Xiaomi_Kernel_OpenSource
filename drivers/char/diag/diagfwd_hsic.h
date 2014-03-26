@@ -23,9 +23,6 @@
 #define HSIC_DATA_TYPE		0
 #define HSIC_DCI_TYPE		1
 
-/* The Maximum request size is 2k + DCI header + footer (6 bytes) */
-#define WRITE_HSIC_BUF_SIZE_DCI	(2048+6)
-
 int diagfwd_write_complete_hsic(struct diag_request *, int index);
 int diagfwd_cancel_hsic(int reopen);
 void diag_read_usb_hsic_work_fn(struct work_struct *work);
@@ -68,14 +65,7 @@ struct diag_hsic_dev {
 	int in_busy_hsic_read_on_device;
 	int in_busy_hsic_write;
 	struct work_struct diag_read_hsic_work;
-	int count_hsic_pool;
-	int count_hsic_write_pool;
-	unsigned int poolsize_hsic;
 	unsigned int poolsize_hsic_write;
-	unsigned int itemsize_hsic;
-	unsigned int itemsize_hsic_write;
-	mempool_t *diag_hsic_pool;
-	mempool_t *diag_hsic_write_pool;
 	int num_hsic_buf_tbl_entries;
 	struct diag_write_device *hsic_buf_tbl;
 	spinlock_t hsic_spinlock;
@@ -94,14 +84,6 @@ struct diag_hsic_dci_dev {
 	int hsic_suspend;
 	int in_busy_hsic_write;
 	struct work_struct diag_read_hsic_work;
-	int count_hsic_pool;
-	int count_hsic_write_pool;
-	unsigned int poolsize_hsic;
-	unsigned int poolsize_hsic_write;
-	unsigned int itemsize_hsic;
-	unsigned int itemsize_hsic_write;
-	mempool_t *diag_hsic_pool;
-	mempool_t *diag_hsic_write_pool;
 	unsigned char *data;
 	unsigned char *data_buf;
 	uint32_t data_len;

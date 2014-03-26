@@ -24,6 +24,7 @@
 #define DEBUG_BUF_SIZE	4096
 static struct dentry *diag_dbgfs_dent;
 static int diag_dbgfs_table_index;
+static int diag_dbgfs_mempool_index;
 static int diag_dbgfs_finished;
 static int diag_dbgfs_dci_data_index;
 static int diag_dbgfs_dci_finished;
@@ -476,76 +477,23 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 	return ret;
 }
 
-#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-static ssize_t diag_dbgfs_read_mempool(struct file *file, char __user *ubuf,
-						size_t count, loff_t *ppos)
-{
-	char *buf = NULL;
-	int ret = 0, i = 0;
-	unsigned int buf_size;
-	buf = kzalloc(sizeof(char) * DEBUG_BUF_SIZE, GFP_KERNEL);
-	if (ZERO_OR_NULL_PTR(buf)) {
-		pr_err("diag: %s, Error allocating memory\n", __func__);
-		return -ENOMEM;
-	}
-	buf_size = ksize(buf);
-
-	ret = scnprintf(buf, buf_size,
-		"POOL_TYPE_COPY: [0x%p : 0x%p] count = %d\n"
-		"POOL_TYPE_HDLC: [0x%p : 0x%p] count = %d\n"
-		"POOL_TYPE_USER: [0x%p : 0x%p] count = %d\n"
-		"POOL_TYPE_WRITE_STRUCT: [0x%p : 0x%p] count = %d\n"
-		"POOL_TYPE_DCI: [0x%p : 0x%p] count = %d\n",
-		driver->diagpool,
-		diag_pools_array[POOL_COPY_IDX],
-		driver->count,
-		driver->diag_hdlc_pool,
-		diag_pools_array[POOL_HDLC_IDX],
-		driver->count_hdlc_pool,
-		driver->diag_user_pool,
-		diag_pools_array[POOL_USER_IDX],
-		driver->count_user_pool,
-		driver->diag_write_struct_pool,
-		diag_pools_array[POOL_WRITE_STRUCT_IDX],
-		driver->count_write_struct_pool,
-		driver->diag_dci_pool,
-		diag_pools_array[POOL_DCI_IDX],
-		driver->count_dci_pool);
-
-	for (i = 0; i < MAX_HSIC_DATA_CH; i++) {
-		if (!diag_hsic[i].hsic_inited)
-			continue;
-		ret += scnprintf(buf+ret, buf_size-ret,
-				"POOL_TYPE_HSIC_%d: [0x%p : 0x%p] count = %d\n",
-				i+1,
-				diag_hsic[i].diag_hsic_pool,
-				diag_pools_array[POOL_HSIC_IDX + i],
-				diag_hsic[i].count_hsic_pool);
-	}
-
-	for (i = 0; i < MAX_HSIC_DATA_CH; i++) {
-		if (!diag_hsic[i].hsic_inited)
-			continue;
-		ret += scnprintf(buf+ret, buf_size-ret,
-				"POOL_TYPE_HSIC_%d_WRITE: [0x%p : 0x%p] count = %d\n",
-				i+1,
-				diag_hsic[i].diag_hsic_write_pool,
-				diag_pools_array[POOL_HSIC_WRITE_IDX + i],
-				diag_hsic[i].count_hsic_write_pool);
-	}
-
-	ret = simple_read_from_buffer(ubuf, count, ppos, buf, ret);
-
-	kfree(buf);
-	return ret;
-}
-#else
 static ssize_t diag_dbgfs_read_mempool(struct file *file, char __user *ubuf,
 						size_t count, loff_t *ppos)
 {
 	char *buf = NULL;
 	int ret = 0;
+	int i = 0;
 	unsigned int buf_size;
+	unsigned int bytes_remaining = 0;
+	unsigned int bytes_written = 0;
+	unsigned int bytes_in_buffer = 0;
+	struct diag_mempool_t *mempool = NULL;
+
+	if (diag_dbgfs_mempool_index >= NUM_MEMORY_POOLS) {
+		/* Done. Reset to prepare for future requests */
+		diag_dbgfs_mempool_index = 0;
+		return 0;
+	}
 
 	buf = kzalloc(sizeof(char) * DEBUG_BUF_SIZE, GFP_KERNEL);
 	if (ZERO_OR_NULL_PTR(buf)) {
@@ -554,34 +502,45 @@ static ssize_t diag_dbgfs_read_mempool(struct file *file, char __user *ubuf,
 	}
 
 	buf_size = ksize(buf);
-	ret = scnprintf(buf, buf_size,
-		"POOL_TYPE_COPY: [0x%p : 0x%p] count = %d\n"
-		"POOL_TYPE_HDLC: [0x%p : 0x%p] count = %d\n"
-		"POOL_TYPE_USER: [0x%p : 0x%p] count = %d\n"
-		"POOL_TYPE_WRITE_STRUCT: [0x%p : 0x%p] count = %d\n"
-		"POOL_TYPE_DCI: [0x%p : 0x%p] count = %d\n",
-		driver->diagpool,
-		diag_pools_array[POOL_COPY_IDX],
-		driver->count,
-		driver->diag_hdlc_pool,
-		diag_pools_array[POOL_HDLC_IDX],
-		driver->count_hdlc_pool,
-		driver->diag_user_pool,
-		diag_pools_array[POOL_USER_IDX],
-		driver->count_user_pool,
-		driver->diag_write_struct_pool,
-		diag_pools_array[POOL_WRITE_STRUCT_IDX],
-		driver->count_write_struct_pool,
-		driver->diag_dci_pool,
-		diag_pools_array[POOL_DCI_IDX],
-		driver->count_dci_pool);
+	bytes_remaining = buf_size;
+	bytes_written = scnprintf(buf+bytes_in_buffer, bytes_remaining,
+			"%-24s\t"
+			"%-10s\t"
+			"%-5s\t"
+			"%-5s\t"
+			"%-5s\n",
+			"POOL", "HANDLE", "COUNT", "SIZE", "ITEMSIZE");
+	bytes_in_buffer += bytes_written;
+	bytes_remaining = buf_size - bytes_in_buffer;
 
-	ret = simple_read_from_buffer(ubuf, count, ppos, buf, ret);
+	for (i = diag_dbgfs_mempool_index; i < NUM_MEMORY_POOLS; i++) {
+		mempool = &diag_mempools[i];
+		bytes_written = scnprintf(buf+bytes_in_buffer, bytes_remaining,
+			"%-24s\t"
+			"%-10p\t"
+			"%-5d\t"
+			"%-5d\t"
+			"%-5d\n",
+			mempool->name,
+			mempool->pool,
+			mempool->count,
+			mempool->poolsize,
+			mempool->itemsize);
+		bytes_in_buffer += bytes_written;
+
+		/* Check if there is room to add another table entry */
+		bytes_remaining = buf_size - bytes_in_buffer;
+
+		if (bytes_remaining < bytes_written)
+			break;
+	}
+	diag_dbgfs_mempool_index = i+1;
+	*ppos = 0;
+	ret = simple_read_from_buffer(ubuf, count, ppos, buf, bytes_in_buffer);
 
 	kfree(buf);
 	return ret;
 }
-#endif
 
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
@@ -650,10 +609,6 @@ static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 			"hsic_suspend: %d\n"
 			"in_busy_hsic_read_on_device: %d\n"
 			"in_busy_hsic_write: %d\n"
-			"count_hsic_pool: %d\n"
-			"count_hsic_write_pool: %d\n"
-			"diag_hsic_pool: %p\n"
-			"diag_hsic_write_pool: %p\n"
 			"HSIC write_len: %d\n"
 			"num_hsic_buf_tbl_entries: %d\n"
 			"HSIC usb_connected: %d\n"
@@ -668,10 +623,6 @@ static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 			diag_hsic[i].hsic_suspend,
 			diag_hsic[i].in_busy_hsic_read_on_device,
 			diag_hsic[i].in_busy_hsic_write,
-			diag_hsic[i].count_hsic_pool,
-			diag_hsic[i].count_hsic_write_pool,
-			diag_hsic[i].diag_hsic_pool,
-			diag_hsic[i].diag_hsic_write_pool,
 			diag_bridge[i].write_len,
 			diag_hsic[i].num_hsic_buf_tbl_entries,
 			diag_bridge[i].usb_connected,
@@ -748,10 +699,6 @@ static ssize_t diag_dbgfs_read_bridge_dci(struct file *file, char __user *ubuf,
 			"hsic_opened: %d\n"
 			"hsic_suspend: %d\n"
 			"in_busy_hsic_write: %d\n"
-			"count_hsic_pool: %d\n"
-			"count_hsic_write_pool: %d\n"
-			"diag_hsic_pool: %p\n"
-			"diag_hsic_write_pool: %p\n"
 			"data: %p\n"
 			"data_buf: %p\n"
 			"data_len: %d\n"
@@ -764,10 +711,6 @@ static ssize_t diag_dbgfs_read_bridge_dci(struct file *file, char __user *ubuf,
 			diag_hsic_dci[i].hsic_device_opened,
 			diag_hsic_dci[i].hsic_suspend,
 			diag_hsic_dci[i].in_busy_hsic_write,
-			diag_hsic_dci[i].count_hsic_pool,
-			diag_hsic_dci[i].count_hsic_write_pool,
-			diag_hsic_dci[i].diag_hsic_pool,
-			diag_hsic_dci[i].diag_hsic_write_pool,
 			diag_hsic_dci[i].data,
 			diag_hsic_dci[i].data_buf,
 			diag_hsic_dci[i].data_len,
@@ -885,6 +828,7 @@ int diag_debugfs_init(void)
 #endif
 
 	diag_dbgfs_table_index = 0;
+	diag_dbgfs_mempool_index = 0;
 	diag_dbgfs_finished = 0;
 	diag_dbgfs_dci_data_index = 0;
 	diag_dbgfs_dci_finished = 0;

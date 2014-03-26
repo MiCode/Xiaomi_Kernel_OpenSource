@@ -919,7 +919,7 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 		if (data_type == APPS_DATA) {
 			driver->write_ptr_svc = (struct diag_request *)
 			(diagmem_alloc(driver, sizeof(struct diag_request),
-				 POOL_TYPE_WRITE_STRUCT));
+				 POOL_TYPE_USB_APPS));
 			if (driver->write_ptr_svc) {
 				driver->write_ptr_svc->length = driver->used;
 				driver->write_ptr_svc->buf = buf;
@@ -930,7 +930,7 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 					diagmem_free(driver,
 						     (unsigned char *)driver->
 						     write_ptr_svc,
-						     POOL_TYPE_WRITE_STRUCT);
+						     POOL_TYPE_USB_APPS);
 				}
 			} else {
 				err = -ENOMEM;
@@ -957,7 +957,7 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 						diagmem_alloc(driver,
 						sizeof(struct diag_request),
 							index +
-							POOL_TYPE_HSIC_WRITE);
+							POOL_TYPE_MDM_USB);
 				if (write_ptr_mdm) {
 					write_ptr_mdm->buf = buf;
 					write_ptr_mdm->length =
@@ -970,7 +970,7 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 						diagmem_free(driver,
 							write_ptr_mdm,
 							index +
-							POOL_TYPE_HSIC_WRITE);
+							POOL_TYPE_MDM_USB);
 						pr_err_ratelimited("diag: HSIC write failure, err: %d, ch %d\n",
 							err, index);
 					}
@@ -1684,7 +1684,7 @@ int diagfwd_write_complete(struct diag_request *diag_write_ptr)
 		diagmem_free(driver, (unsigned char *)buf,
 						POOL_TYPE_HDLC);
 		diagmem_free(driver, (unsigned char *)diag_write_ptr,
-						POOL_TYPE_WRITE_STRUCT);
+						POOL_TYPE_USB_APPS);
 	}
 	return 0;
 }
