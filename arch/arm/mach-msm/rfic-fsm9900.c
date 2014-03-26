@@ -49,8 +49,7 @@
  * FTR8700, WTR1605  RFIC
  */
 
-#define RFIC_MTR_DEVICE_NUM		5
-#define RFIC_DEVICE_NUM			9
+#define RFIC_DEVICE_NUM			8
 #define RFIC_GRFC_REG_NUM		6
 
 #define ANY_BUS				0x0
@@ -83,6 +82,7 @@
 uint8_t rfbid;
 void __iomem *grfc_base;
 void __iomem *pdm_base;
+void __iomem *wf_base;
 /*
  * Device private information per device node
  */
@@ -111,6 +111,45 @@ int nDev;
  */
 
 static int ftr_find_id(int minor);
+
+static int rf_regulator_init(struct platform_device *pdev, char *reg_name,
+		int opt_mode)
+{
+	int ret;
+	struct regulator *vreg_ldo;
+
+	vreg_ldo = regulator_get(&pdev->dev, reg_name);
+	if (IS_ERR(vreg_ldo)) {
+		pr_err("%s: vreg get %s failed (%ld)\n",
+			__func__, reg_name, PTR_ERR(vreg_ldo));
+		return PTR_ERR(vreg_ldo);
+	}
+
+	if (opt_mode) {
+		ret = regulator_set_optimum_mode(vreg_ldo, 250000);
+		if (ret < 0) {
+			pr_err("%s: unable to set optimum mode for %s\n",
+				__func__, reg_name);
+			return PTR_ERR(vreg_ldo);
+		}
+	}
+	ret = regulator_enable(vreg_ldo);
+	if (ret) {
+		pr_err("%s: unable to enable %s voltage\n", __func__, reg_name);
+		return PTR_ERR(vreg_ldo);
+	}
+
+	return 0;
+}
+
+static ssize_t rfb_id_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	return snprintf(buf, sizeof(int), "%d\n", (int)rfbid);
+}
+
+static DEVICE_ATTR(rfboard_id, S_IRUGO, rfb_id_show, NULL);
+
 
 static int ftr_open(struct inode *inode, struct file *file)
 {
@@ -165,7 +204,7 @@ static long ftr_ioctl(struct file *file,
 
 		    mutex_lock(&pdev->lock);
 
-		    if (((pdfi->ftrid == 2) || (pdfi->ftrid == 3))
+		    if (((pdfi->ftrid == 1) || (pdfi->ftrid == 2))
 				&& (rfbid < RF_TYPE_48)) {
 			__raw_writel(
 				pdev->busselect[RFIC_FTR_GET_BUS(rficaddr)],
@@ -201,7 +240,7 @@ static long ftr_ioctl(struct file *file,
 
 		    mutex_lock(&pdev->lock);
 
-		    if (((pdfi->ftrid == 2) || (pdfi->ftrid == 3))
+		    if (((pdfi->ftrid == 1) || (pdfi->ftrid == 2))
 				&& (rfbid < RF_TYPE_48)) {
 			__raw_writel(
 				pdev->busselect[RFIC_FTR_GET_BUS(rficaddr)],
@@ -233,7 +272,7 @@ static long ftr_ioctl(struct file *file,
 
 			mutex_lock(&pdev->lock);
 
-			if (((pdfi->ftrid == 2) || (pdfi->ftrid == 3))
+			if (((pdfi->ftrid == 1) || (pdfi->ftrid == 2))
 				&& (rfbid < RF_TYPE_48)) {
 				__raw_writel(
 				pdev->busselect[RFIC_FTR_GET_BUS(rficaddr)],
@@ -352,6 +391,88 @@ static long ftr_ioctl(struct file *file,
 		}
 		break;
 
+	case RFIC_IOCTL_SET_WFM:
+		{
+			struct rfic_wfm_param param;
+
+			if (pdfi->ftrid != 0)
+				return -EINVAL;
+
+			if (copy_from_user(&param, argp, sizeof(param)))
+				return -EFAULT;
+
+			if (param.offset + param.num > 0xA00000)
+				return -EINVAL;
+
+			if (copy_from_user(wf_base + param.offset,
+					param.pArray, param.num))
+				return -EFAULT;
+		}
+		break;
+
+	case RFIC_IOCTL_SET_LDO:
+		{
+			unsigned int ldo;
+
+			if (pdfi->ftrid != 0) {
+				pr_err("%s: Invalid id %d\n", __func__,
+					pdfi->ftrid);
+				return -EINVAL;
+			}
+
+			if (get_user(ldo, argp)) {
+				pr_err("%s: Invalid ldo %d\n", __func__, ldo);
+				return -EFAULT;
+			}
+
+			switch (ldo) {
+			case LDO11:
+				if (rf_regulator_init(to_platform_device
+					(pdev->dev), "vdd-1v3", 0) != 0)
+					pr_err("%s: LDO11 fail\n", __func__);
+					break;
+			case LDO18:
+				if (rf_regulator_init(to_platform_device
+					(pdev->dev), "vdd-switch", 0) != 0)
+					pr_err("%s: LDO18 fail\n", __func__);
+					break;
+			case LDO19:
+				if (rf_regulator_init(to_platform_device
+					(pdev->dev), "vdd-wtr", 0) != 0)
+					pr_err("%s: LDO19 fail\n", __func__);
+					break;
+			case LDO23:
+				if (rf_regulator_init(to_platform_device
+					(pdev->dev), "vdd-ftr1", 1) != 0)
+					pr_err("%s: LDO23 fail\n", __func__);
+					break;
+			case LDO25:
+				if (rf_regulator_init(to_platform_device
+					(pdev->dev), "vdd-ftr2", 1) != 0)
+					pr_err("%s: LDO25 fail\n", __func__);
+					break;
+			case LDO26:
+				if (rf_regulator_init(to_platform_device
+					(pdev->dev), "vdd-1v8", 0) != 0)
+					pr_err("%s: LDO26 fail\n", __func__);
+					break;
+			default:
+					pr_err("%s: Unknown LDO\n", __func__);
+					break;
+			}
+		}
+		break;
+
+	case RFIC_IOCTL_SET_BOARDID:
+		{
+			if (pdfi->ftrid != 0)
+				return -EINVAL;
+
+			if (get_user(rfbid, argp))
+				return -EFAULT;
+		}
+		break;
+
 	case RFIC_IOCTL_GET_BOARDID:
 		{
 			if (pdfi->ftrid != 0)
@@ -362,49 +483,74 @@ static long ftr_ioctl(struct file *file,
 		}
 		break;
 
-	case RFIC_IOCTL_PDM_READ:
+	case RFIC_IOCTL_GET_PDM:
 		{
-			unsigned int pdmaddr;
-			u32 value = 0;
+			struct pdm_param param;
+			void __iomem *pdmaddr;
+			int num;
 
-			if (get_user(pdmaddr, argp))
+			if (copy_from_user(&param, argp, sizeof(param))) {
+				pr_err("%s: CFU\n", __func__);
 				return -EFAULT;
+			}
+
+			if ((pdfi->ftrid != 0)  || (param.num > 5)) {
+				pr_err("%s: ftrid %d num =%d\n", __func__,
+					pdfi->ftrid, param.num);
+				return -EINVAL;
+			}
 
 			mutex_lock(&pdev->lock);
 
-			if (pdfi->ftrid == 1)
-				value = __raw_readl(pdm_base + pdmaddr);
+			if (param.num > 2)
+				num = param.num + 1;
+			else
+				num = param.num;
+
+			pdmaddr = pdm_base + PDM_1_1_CTL * num;
+			param.enable = __raw_readl(pdmaddr);
+			param.value = __raw_readl(pdmaddr + 4);
 
 			mutex_unlock(&pdev->lock);
 
-			if (put_user(value, argp))
+			if (copy_to_user(argp, &param, sizeof(param))) {
+				pr_err("%s: CTU\n", __func__);
 				return -EFAULT;
-
+			}
 			return 0;
 		}
 		break;
 
-	case RFIC_IOCTL_PDM_WRITE:
+	case RFIC_IOCTL_SET_PDM:
 		{
-			struct pdm_write_param param;
+			struct pdm_param param;
 			void __iomem *pdmaddr;
-			u8 value;
+			u16 value;
+			int num;
 
-			if (copy_from_user(&param, argp, sizeof(param)))
+			if (copy_from_user(&param, argp, sizeof(param))) {
+				pr_err("%s: CFU\n", __func__);
 				return -EFAULT;
+			}
 
-			pdmaddr = pdm_base + param.offset;
-			value = (u8) param.value;
+			if ((pdfi->ftrid != 0)  || (param.num > 5)) {
+				pr_err("%s: Invalid id or num\n", __func__);
+				return -EINVAL;
+			}
 
 			mutex_lock(&pdev->lock);
 
-			if (pdfi->ftrid == 1) {
-				__raw_writel(value, pdmaddr);
-				mb();
-			}
+			if (param.num > 2)
+				num = param.num + 1;
+			else
+				num = param.num;
 
+			value = (u16) param.value;
+			pdmaddr = pdm_base + PDM_1_1_CTL * num;
+			__raw_writel(param.enable, pdmaddr);
+			if (param.enable)
+				__raw_writel(value, pdmaddr + 4);
 			mutex_unlock(&pdev->lock);
-
 			return 0;
 		}
 		break;
@@ -457,11 +603,6 @@ struct miscdevice ftr_misc_dev[RFIC_DEVICE_NUM] = {
 	},
 	{
 		.minor = MISC_DYNAMIC_MINOR,
-		.name = PDM_DEVICE_NAME,
-		.fops = &ftr_fops,
-	},
-	{
-		.minor = MISC_DYNAMIC_MINOR,
 		.name = RFIC_FTR_DEVICE_NAME "0",
 		.fops = &ftr_fops,
 	},
@@ -497,15 +638,10 @@ struct miscdevice ftr_misc_dev[RFIC_DEVICE_NUM] = {
 	},
 };
 
-struct miscdevice mtr_misc_dev[RFIC_MTR_DEVICE_NUM] = {
+struct miscdevice mtr_misc_dev[RFIC_DEVICE_NUM] = {
 	{
 		.minor = MISC_DYNAMIC_MINOR,
 		.name = GRFC_DEVICE_NAME,
-		.fops = &ftr_fops,
-	},
-	{
-		.minor = MISC_DYNAMIC_MINOR,
-		.name = PDM_DEVICE_NAME,
 		.fops = &ftr_fops,
 	},
 	{
@@ -520,6 +656,26 @@ struct miscdevice mtr_misc_dev[RFIC_MTR_DEVICE_NUM] = {
 	},
 	{
 		.minor = MISC_DYNAMIC_MINOR,
+		.name = RFIC_MTR_DEVICE_NAME "2",
+		.fops = &ftr_fops,
+	},
+	{
+		.minor = MISC_DYNAMIC_MINOR,
+		.name = RFIC_MTR_DEVICE_NAME "3",
+		.fops = &ftr_fops,
+	},
+	{
+		.minor = MISC_DYNAMIC_MINOR,
+		.name = RFIC_WTR_DEVICE_NAME "1-rx",
+		.fops = &ftr_fops,
+	},
+	{
+		.minor = MISC_DYNAMIC_MINOR,
+		.name = RFIC_WTR_DEVICE_NAME "1-tx",
+		.fops = &ftr_fops,
+	},
+	{
+		.minor = MISC_DYNAMIC_MINOR,
 		.name = RFIC_WGR_DEVICE_NAME,
 		.fops = &ftr_fops,
 	},
@@ -529,103 +685,91 @@ int ftr_find_id(int minor)
 {
 	int i;
 
-	for (i = 0; i < RFIC_DEVICE_NUM; ++i)
-		if (ftr_misc_dev[i].minor == minor)
-			break;
+	if (rfbid < RF_TYPE_48) {
+		for (i = 0; i < RFIC_DEVICE_NUM; ++i)
+			if (ftr_misc_dev[i].minor == minor)
+				break;
+	} else {
+		for (i = 0; i < RFIC_DEVICE_NUM; ++i)
+			if (mtr_misc_dev[i].minor == minor)
+				break;
+	}
 
 	return i;
 }
 
-static ssize_t rfb_id_show(struct device *dev, struct device_attribute *attr,
-		char *buf)
-{
-	return snprintf(buf, sizeof(int), "%d\n", (int)rfbid);
-}
-
-static DEVICE_ATTR(rfboard_id, S_IRUGO, rfb_id_show, NULL);
-
 static int ftr_regulator_init(struct platform_device *pdev)
 {
 	int ret;
-	struct regulator *vreg_ldo18, *vreg_ldo23, *vreg_ldo25;
 
-	vreg_ldo23 = regulator_get(&pdev->dev, "vdd-ftr1");
-	if (IS_ERR(vreg_ldo23)) {
-		pr_err("%s: vreg get l23-reg failed (%ld)\n",
-			__func__, PTR_ERR(vreg_ldo23));
-		return PTR_ERR(vreg_ldo23);
-	}
-
-	ret = regulator_set_optimum_mode(vreg_ldo23, 250000);
-	if (ret < 0) {
-		pr_err("%s: unable to set optimum mode for ldo23\n", __func__);
-		return PTR_ERR(vreg_ldo23);
-	}
-
-	ret = regulator_enable(vreg_ldo23);
-	if (ret) {
-		pr_err("%s: unable to enable ldo23 voltage\n", __func__);
-		return PTR_ERR(vreg_ldo23);
-	}
-
-	vreg_ldo25 = regulator_get(&pdev->dev, "vdd-ftr2");
-	if (IS_ERR(vreg_ldo25)) {
-		pr_err("%s: vreg get l25-reg failed (%ld)\n",
-			__func__, PTR_ERR(vreg_ldo25));
-		return PTR_ERR(vreg_ldo25);
-	}
-
-	ret = regulator_set_optimum_mode(vreg_ldo25, 250000);
-	if (ret < 0) {
-		pr_err("%s: unable to set optimum mode for ldo25\n", __func__);
-		return PTR_ERR(vreg_ldo25);
-	}
-
-	ret = regulator_enable(vreg_ldo25);
-	if (ret) {
-		pr_err("%s: unable to enable ldo25 voltage\n", __func__);
-		return PTR_ERR(vreg_ldo25);
-	}
-
-	vreg_ldo18 = regulator_get(&pdev->dev, "vdd-switch");
-	if (IS_ERR(vreg_ldo18)) {
-		pr_err("%s: vreg get l18-reg failed (%ld)\n",
-			__func__, PTR_ERR(vreg_ldo18));
-		return PTR_ERR(vreg_ldo18);
-	}
-
-	ret = regulator_enable(vreg_ldo18);
-	if (ret) {
-		pr_err("%s: unable to enable ldo18 voltage\n", __func__);
-		return PTR_ERR(vreg_ldo18);
-	}
+	ret = (rf_regulator_init(pdev, "vdd-1v8", 0));
+		if (ret)
+			return ret;
+	ret = (rf_regulator_init(pdev, "vdd-1v3", 0));
+		if (ret)
+			return ret;
+	ret = (rf_regulator_init(pdev, "vdd-ftr1", 1));
+		if (ret)
+			return ret;
+	ret = (rf_regulator_init(pdev, "vdd-ftr2", 1));
+		if (ret)
+			return ret;
+	ret = (rf_regulator_init(pdev, "vdd-switch", 0));
+		if (ret)
+			return ret;
+	ret = (rf_regulator_init(pdev, "vdd-wtr", 0));
+		if (ret)
+			return ret;
 
 	return 0;
 }
 
-static int wtr_regulator_init(struct platform_device *pdev)
+static int glu_regulator_init(struct platform_device *pdev)
 {
 	int ret;
-	struct regulator *vreg_ldo19;
 
-	vreg_ldo19 = regulator_get(&pdev->dev, "vdd-wtr");
-	if (IS_ERR(vreg_ldo19)) {
-		pr_err("%s: vreg get l19-reg failed (%ld)\n",
-			__func__, PTR_ERR(vreg_ldo19));
-		return PTR_ERR(vreg_ldo19);
-	}
-
-	ret = regulator_enable(vreg_ldo19);
-	if (ret) {
-		pr_err("%s: unable to enable ldo19 voltage\n", __func__);
-		return PTR_ERR(vreg_ldo19);
-	}
+	ret = (rf_regulator_init(pdev, "vdd-1v3", 0));
+		if (ret)
+			return ret;
+	ret = (rf_regulator_init(pdev, "vdd-ftr1", 1));
+		if (ret)
+			return ret;
+	ret = (rf_regulator_init(pdev, "vdd-ftr2", 1));
+		if (ret)
+			return ret;
+	ret = (rf_regulator_init(pdev, "vdd-switch", 0));
+		if (ret)
+			return ret;
 
 	return 0;
 }
 
-static int mantaray_regulator_init(struct platform_device *pdev)
+static int mtr_regulator_init(struct platform_device *pdev)
 {
+	int ret;
+
+	ret = (rf_regulator_init(pdev, "vdd-ftr1", 1));
+		if (ret)
+			return ret;
+
+	ret = (rf_regulator_init(pdev, "vdd-ftr2", 1));
+		if (ret)
+			return ret;
+
+	udelay(150);
+
+	ret = (rf_regulator_init(pdev, "vdd-1v3", 0));
+		if (ret)
+			return ret;
+
+	udelay(100);
+
+	ret = (rf_regulator_init(pdev, "vdd-1v8", 0));
+		if (ret)
+			return ret;
+	ret = (rf_regulator_init(pdev, "vdd-switch", 0));
+		if (ret)
+			return ret;
 
 	return 0;
 }
@@ -641,14 +785,10 @@ static void pdm_enable(void)
 
 void pdm_mtr_enable(void)
 {
-	__raw_writel(PDM_OE, pdm_base + PDM_1_2_CTL);
-	__raw_writel(0xb200, pdm_base + PDM_1_2_CTL + 4);
 	__raw_writel(PDM_OE, pdm_base + PDM_2_0_CTL);
 	__raw_writel(0xb200, pdm_base + PDM_2_0_CTL + 4);
 	__raw_writel(PDM_OE, pdm_base + PDM_2_1_CTL);
 	__raw_writel(0xb2, pdm_base + PDM_2_1_CTL + 4);
-	__raw_writel(PDM_OE, pdm_base + PDM_2_2_CTL);
-	__raw_writel(0xb200, pdm_base + PDM_2_2_CTL + 4);
 }
 
 
@@ -674,22 +814,23 @@ static int ftr_probe(struct platform_device *pdev)
 
 	if (!nDev) {
 		rfbid = rf_interface_id();
-		rfbid = rfbid & RF_TYPE_48;
+		if ((rfbid != 0xff) && (rfbid != 0))
+			rfbid = rfbid & RF_TYPE_48;
+
 		pr_info("%s: RF Board Type 0x%x\n", __func__, rfbid);
 
 		switch (rfbid) {
 		case RF_TYPE_16:
 			ftr_regulator_init(pdev);
-			wtr_regulator_init(pdev);
 			break;
 		case RF_TYPE_32:
-			ftr_regulator_init(pdev);
+			glu_regulator_init(pdev);
 			break;
 		case RF_TYPE_48:
-			mantaray_regulator_init(pdev);
+			mtr_regulator_init(pdev);
 			break;
 		default:
-			pr_warn("%s:Regulators may not be turned ON %d\n",
+			pr_warn("%s:Regulators not turned ON %d\n",
 					__func__, rfbid);
 		}
 
@@ -702,7 +843,11 @@ static int ftr_probe(struct platform_device *pdev)
 			break;
 		case RF_TYPE_17:
 		case RF_TYPE_18:
+		case RF_TYPE_19:
 			fsm9900_rfic_init();
+			break;
+		case RF_TYPE_49:
+			fsm9900_mtr_init();
 			break;
 		default:
 			pr_warn("%s:GPIOs not configured %d\n",
@@ -715,16 +860,24 @@ static int ftr_probe(struct platform_device *pdev)
 			mutex_unlock(&rficlock);
 			return PTR_ERR(grfc_base);
 		}
-		ret = device_create_file(&pdev->dev, &dev_attr_rfboard_id);
-		WARN_ON(ret);
 
-	} else if ((nDev == 1) && (rfbid > RF_TYPE_48)) {
-		mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+		wf_base = devm_ioremap_resource(&pdev->dev, mem_res);
+		if (IS_ERR(wf_base)) {
+			mutex_unlock(&rficlock);
+			return PTR_ERR(wf_base);
+		}
+
+		mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
 		pdm_base = devm_ioremap_resource(&pdev->dev, mem_res);
 		if (IS_ERR(pdm_base)) {
 			mutex_unlock(&rficlock);
 			return PTR_ERR(pdm_base);
 		}
+
+		ret = device_create_file(&pdev->dev, &dev_attr_rfboard_id);
+		WARN_ON(ret);
+
 		pdm_clk = clk_get(&pdev->dev, "ahb_clk");
 		if (IS_ERR(pdm_clk)) {
 			pdm_clk = NULL;
@@ -747,43 +900,43 @@ static int ftr_probe(struct platform_device *pdev)
 			clk_enable(pdm_clk);
 		}
 
-		pdm_mtr_enable();
-		pr_info("%s: MTR PDM Enabled\n", __func__);
-	} else if ((nDev == 1) && (rfbid > RF_TYPE_16) &&
-			(rfbid < RF_TYPE_32)) {
-		mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-		pdm_base = devm_ioremap_resource(&pdev->dev, mem_res);
-		if (IS_ERR(pdm_base)) {
-			mutex_unlock(&rficlock);
-			return PTR_ERR(pdm_base);
-		}
-
-		pdm_clk = clk_get(&pdev->dev, "ahb_clk");
-		if (IS_ERR(pdm_clk)) {
-			pdm_clk = NULL;
-			pr_err("%s: AHB CLK is  NULL\n", __func__);
+		if ((rfbid > RF_TYPE_48) && (rfbid != 0xff)) {
+			pdm_mtr_enable();
+			pr_info("%s: MTR PDM Enabled\n", __func__);
+		} else if ((rfbid > RF_TYPE_16) && (rfbid < RF_TYPE_32)) {
+			pdm_enable();
+			pr_info("%s: PDM Enabled\n", __func__);
 		} else {
-			clk_prepare(pdm_clk);
-			clk_enable(pdm_clk);
+			pr_warn("%s:PDMs not configured %d\n",
+					__func__, rfbid);
 		}
 
-		pdm_clk = clk_get(&pdev->dev, "pdm2_clk");
-		if (IS_ERR(pdm_clk)) {
-			pdm_clk = NULL;
-			pr_err("%s: PDM2 CLK is  NULL\n", __func__);
-		} else {
-			clk_prepare(pdm_clk);
-			clk_enable(pdm_clk);
-		}
-
-		pdm_enable();
-		pr_info("%s: PDM Enabled\n", __func__);
 	}
 
 	ptr = ftr_dev_info + nDev;
 	ptr->dev = &pdev->dev;
 
-	if (((rfbid & RF_TYPE_16) || ((rfbid & RF_TYPE_32))) && (nDev == 2)) {
+	if ((nDev >= 1)  && (nDev <= 7)) {
+		struct ssbi *ssbi =
+		platform_get_drvdata(to_platform_device(pdev->dev.parent));
+		if ((rfbid > RF_TYPE_48) && (nDev <= 4)) {
+			ssbi->controller_type =
+				FSM_SBI_CTRL_GENI_SSBI2_ARBITER;
+			set_ssbi_mode_2(ssbi->base);
+			pr_debug("%s: SSBI2 = 0x%x\n", __func__,
+				ssbi->controller_type);
+		} else {
+			ssbi->controller_type =
+				FSM_SBI_CTRL_GENI_SSBI_ARBITER;
+			set_ssbi_mode_1(ssbi->base);
+			pr_debug("%s: SSBI1 = 0x%x\n", __func__,
+				ssbi->controller_type);
+		}
+		platform_set_drvdata(to_platform_device(pdev->dev.parent),
+				ssbi);
+	}
+
+	if ((rfbid > RF_TYPE_16) && (rfbid < RF_TYPE_48) && (nDev == 1)) {
 		ssbi_write(pdev->dev.parent, 0xff, &version, 1);
 		ssbi_read(pdev->dev.parent, 0x2, &version, 1);
 		pr_info("%s: FTR1 Version = %02x\n", __func__, version);
@@ -796,8 +949,8 @@ static int ftr_probe(struct platform_device *pdev)
 		ptr->busselect[TX2_BUS] = 0x00001000;
 		ptr->busselect[MISC_BUS] = 0x00000800;
 		ptr->busselect[RX_BUS] = 0x00001800;
-	} else if (((rfbid & RF_TYPE_16) || ((rfbid & RF_TYPE_32))) &&
-		(nDev == 3)) {
+	} else if ((rfbid > RF_TYPE_16) && (rfbid < RF_TYPE_48) &&
+		(nDev == 2)) {
 		ssbi_write(pdev->dev.parent, 0xff, &version, 1);
 		ssbi_read(pdev->dev.parent, 0x2, &version, 1);
 		pr_info("%s: FTR2 Version = %02x\n", __func__, version);
@@ -833,7 +986,7 @@ static int ftr_probe(struct platform_device *pdev)
 	}
 
 	nDev++;
-	pr_info("%s: num_of_ssbi_devices = %d\n", __func__, nDev);
+	pr_debug("%s: num_of_ssbi_devices = %d\n", __func__, nDev);
 	mutex_unlock(&rficlock);
 
 	return of_platform_populate(np, NULL, NULL, &pdev->dev);
@@ -848,7 +1001,7 @@ static int ftr_remove(struct platform_device *pdev)
 		for (i = 0; i < RFIC_DEVICE_NUM; ++i)
 			misc_deregister(ftr_misc_dev + i);
 	} else {
-		for (i = 0; i < RFIC_MTR_DEVICE_NUM; ++i)
+		for (i = 0; i < RFIC_DEVICE_NUM; ++i)
 			misc_deregister(mtr_misc_dev + i);
 	}
 	return 0;
