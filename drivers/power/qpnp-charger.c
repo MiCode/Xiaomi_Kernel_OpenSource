@@ -117,6 +117,7 @@
 #define CHGR_COMP_OVR1				0xEE
 #define USB_SPARE				0xDF
 #define DC_COMP_OVR1				0xE9
+#define USB_CHGPTH_CTL				0x40
 
 #define REG_OFFSET_PERP_SUBTYPE			0x05
 
@@ -164,6 +165,7 @@
 #define OCP_THR_900_MA			0x02
 #define OCP_THR_500_MA			0x01
 #define OCP_THR_200_MA			0x00
+#define DC_HIGHER_PRIORITY		BIT(7)
 
 /* Interrupt definitions */
 /* smbb_chg_interrupts */
@@ -667,6 +669,25 @@ qpnp_chg_is_usb_chg_plugged_in(struct qpnp_chg_chip *chip)
 	pr_debug("chgr usb sts 0x%x\n", usb_chgpth_rt_sts);
 
 	return (usb_chgpth_rt_sts & USBIN_VALID_IRQ) ? 1 : 0;
+}
+
+static bool
+qpnp_is_dc_higher_prio(struct qpnp_chg_chip *chip)
+{
+	int rc;
+	u8 usb_ctl;
+
+	if (!chip->type == SMBB)
+		return false;
+
+	rc = qpnp_chg_read(chip, &usb_ctl,
+			chip->usb_chgpth_base + USB_CHGPTH_CTL, 1);
+	if (rc) {
+		pr_err("failed to read usb ctl rc=%d\n", rc);
+		return 0;
+	}
+
+	return !!(usb_ctl & DC_HIGHER_PRIORITY);
 }
 
 static bool
@@ -1577,7 +1598,10 @@ qpnp_chg_regulator_batfet_set(struct qpnp_chg_chip *chip, bool enable)
 	return rc;
 }
 
+#define USB_WALL_THRESHOLD_MA	500
 #define ENUM_T_STOP_BIT		BIT(0)
+#define USB_5V_UV	5000000
+#define USB_9V_UV	9000000
 static irqreturn_t
 qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 {
@@ -1622,6 +1646,10 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 				qpnp_chg_set_appropriate_vddmax(chip);
 				chip->chg_done = false;
 			}
+
+			if (!qpnp_is_dc_higher_prio(chip))
+				qpnp_chg_idcmax_set(chip, chip->maxinput_dc_ma);
+
 			qpnp_chg_usb_suspend_enable(chip, 0);
 			qpnp_chg_iusbmax_set(chip, QPNP_CHG_I_MAX_MIN_100);
 			chip->prev_usb_max_ma = -EINVAL;
@@ -1799,6 +1827,23 @@ qpnp_chg_dc_dcin_valid_irq_handler(int irq, void *_chip)
 				msecs_to_jiffies(EOC_CHECK_PERIOD_MS));
 			schedule_work(&chip->soc_check_work);
 		}
+
+		if (qpnp_is_dc_higher_prio(chip)) {
+			pr_debug("dc has higher priority\n");
+			if (dc_present) {
+				qpnp_chg_iusbmax_set(chip,
+						QPNP_CHG_I_MAX_MIN_100);
+				power_supply_set_voltage_limit(chip->usb_psy,
+						USB_5V_UV);
+			} else {
+				chip->aicl_settled = false;
+				qpnp_chg_iusbmax_set(chip,
+						USB_WALL_THRESHOLD_MA);
+				power_supply_set_voltage_limit(chip->usb_psy,
+						USB_9V_UV);
+			}
+		}
+
 		pr_debug("psy changed dc_psy\n");
 		power_supply_changed(&chip->dc_psy);
 		pr_debug("psy changed batt_psy\n");
@@ -2166,8 +2211,7 @@ module_param(charger_monitor, int, 0644);
 static int ext_ovp_present;
 module_param(ext_ovp_present, int, 0444);
 
-#define USB_WALL_THRESHOLD_MA	500
-#define OVP_USB_WALL_THRESHOLD_MA	200
+#define OVP_USB_WALL_TRSH_MA	200
 static int
 qpnp_power_get_property_mains(struct power_supply *psy,
 				  enum power_supply_property psp,
@@ -2539,15 +2583,23 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 			qpnp_chg_iusbmax_set(chip, QPNP_CHG_I_MAX_MIN_100);
 		} else {
 			qpnp_chg_usb_suspend_enable(chip, 0);
-			if (((ret.intval / 1000) > USB_WALL_THRESHOLD_MA)
+			if (qpnp_is_dc_higher_prio(chip)
+				&& qpnp_chg_is_dc_chg_plugged_in(chip)) {
+					pr_debug("dc has higher priority\n");
+					qpnp_chg_iusbmax_set(chip,
+							QPNP_CHG_I_MAX_MIN_100);
+			} else if (((ret.intval / 1000) > USB_WALL_THRESHOLD_MA)
 					&& (charger_monitor ||
 					!chip->charger_monitor_checked)) {
-				if (!ext_ovp_present)
-					qpnp_chg_iusbmax_set(chip,
-						USB_WALL_THRESHOLD_MA);
-				else
-					qpnp_chg_iusbmax_set(chip,
-						OVP_USB_WALL_THRESHOLD_MA);
+					if (!qpnp_is_dc_higher_prio(chip))
+						qpnp_chg_idcmax_set(chip,
+							QPNP_CHG_I_MAX_MIN_100);
+					if (!ext_ovp_present)
+						qpnp_chg_iusbmax_set(chip,
+							USB_WALL_THRESHOLD_MA);
+					else
+						qpnp_chg_iusbmax_set(chip,
+							OVP_USB_WALL_TRSH_MA);
 			} else {
 				qpnp_chg_iusbmax_set(chip, ret.intval / 1000);
 			}
@@ -3992,14 +4044,19 @@ qpnp_batt_power_set_property(struct power_supply *psy,
 		qpnp_batt_system_temp_level_set(chip, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
-		if (qpnp_chg_is_usb_chg_plugged_in(chip))
+		if (qpnp_chg_is_usb_chg_plugged_in(chip) &&
+			!(qpnp_is_dc_higher_prio(chip)
+			&& qpnp_chg_is_dc_chg_plugged_in(chip)))
 			qpnp_chg_iusbmax_set(chip, val->intval / 1000);
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_TRIM:
 		qpnp_chg_iusb_trim_set(chip, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED:
-		qpnp_chg_input_current_settled(chip);
+		if (val->intval)
+			qpnp_chg_input_current_settled(chip);
+		else
+			chip->aicl_settled = false;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN:
 		qpnp_chg_vinmin_set(chip, val->intval / 1000);
