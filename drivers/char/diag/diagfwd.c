@@ -837,7 +837,7 @@ void encode_rsp_and_send(int buf_length)
 	if (!rsp_ptr)
 		return;
 
-	if (buf_length > APPS_BUF_SIZE || buf_length <= 0) {
+	if (buf_length > APPS_BUF_SIZE || buf_length < 0) {
 		pr_err("diag: In %s, invalid len %d, permissible len %d\n",
 					__func__, buf_length, APPS_BUF_SIZE);
 		return;
