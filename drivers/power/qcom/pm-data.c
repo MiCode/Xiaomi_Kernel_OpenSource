@@ -235,12 +235,12 @@ static ssize_t msm_pm_mode_attr_show(
 			msm_pm_mode_attr_labels[MSM_PM_MODE_ATTR_SUSPEND])) {
 			u32 arg = mode->suspend_enabled;
 			kp.arg = &arg;
-			ret = param_get_ulong(buf, &kp);
+			ret = param_get_int(buf, &kp);
 		} else if (!strcmp(attr->attr.name,
 			msm_pm_mode_attr_labels[MSM_PM_MODE_ATTR_IDLE])) {
 			u32 arg = mode->idle_enabled;
 			kp.arg = &arg;
-			ret = param_get_ulong(buf, &kp);
+			ret = param_get_int(buf, &kp);
 		}
 
 		break;
