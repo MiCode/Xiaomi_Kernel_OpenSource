@@ -13,6 +13,7 @@
 
 #include <linux/spinlock.h>
 #include <linux/module.h>
+#include <linux/msm_rtb.h>
 #include <asm/cputype.h>
 
 DEFINE_RAW_SPINLOCK(l2_access_lock);
@@ -23,6 +24,7 @@ void set_l2_indirect_reg(u32 reg_addr, u32 val)
 
 	raw_spin_lock_irqsave(&l2_access_lock, flags);
 	mb();
+	uncached_logk(LOGK_L2CPWRITE, (void *)reg_addr);
 	asm volatile ("mcr     p15, 3, %[l2cpselr], c15, c0, 6\n\t"
 		      "isb\n\t"
 		      "mcr     p15, 3, %[l2cpdr],   c15, c0, 7\n\t"
@@ -40,6 +42,7 @@ u32 get_l2_indirect_reg(u32 reg_addr)
 	unsigned long flags;
 
 	raw_spin_lock_irqsave(&l2_access_lock, flags);
+	uncached_logk(LOGK_L2CPREAD, (void *)reg_addr);
 	asm volatile ("mcr     p15, 3, %[l2cpselr], c15, c0, 6\n\t"
 		      "isb\n\t"
 		      "mrc     p15, 3, %[l2cpdr],   c15, c0, 7\n\t"
