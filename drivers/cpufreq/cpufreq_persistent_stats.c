@@ -378,7 +378,7 @@ static struct kobj_attribute reset_attr =
 	__ATTR(reset, 0220, NULL, store_reset);
 
 static struct kobj_attribute enable_attr =
-	__ATTR(enable, S_IRUGO|S_IWUGO, show_enabled, store_enable);
+	__ATTR(enable, S_IRUGO|S_IWUSR, show_enabled, store_enable);
 
 static int create_persistent_stats_groups(void)
 {
