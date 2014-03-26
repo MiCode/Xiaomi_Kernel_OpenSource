@@ -321,7 +321,7 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 				ctrl_pdata, ctrl_pdata->ndx);
 
 	if (pdata->panel_info.type == MIPI_CMD_PANEL)
-		mdss_dsi_clk_ctrl(ctrl_pdata, 1);
+		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 
 	/* disable DSI controller */
 	mdss_dsi_controller_cfg(0, pdata);
@@ -329,7 +329,7 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 	/* disable DSI phy */
 	mdss_dsi_phy_disable(ctrl_pdata);
 
-	mdss_dsi_clk_ctrl(ctrl_pdata, 0);
+	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
 
 	ret = mdss_dsi_panel_power_on(pdata, 0);
 	if (ret) {
@@ -465,14 +465,14 @@ static int mdss_dsi_ulps_config_sub(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 			goto error;
 		}
 
-		if (__mdss_dsi_clk_enabled(ctrl_pdata)) {
+		if (__mdss_dsi_clk_enabled(ctrl_pdata, DSI_LINK_CLKS)) {
 			pr_err("%s: cannot enter ulps mode if dsi clocks are on\n",
 				__func__);
 			ret = -EPERM;
 			goto error;
 		}
 
-		mdss_dsi_clk_ctrl(ctrl_pdata, 1);
+		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 		/*
 		 * ULPS Entry Request.
 		 * Wait for a short duration to ensure that the lanes
@@ -492,7 +492,7 @@ static int mdss_dsi_ulps_config_sub(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		mdss_dsi_controller_cfg(0, pdata);
 
 		lane_status = MIPI_INP(ctrl_pdata->ctrl_base + 0xA8),
-		mdss_dsi_clk_ctrl(ctrl_pdata, 0);
+		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
 		ctrl_pdata->ulps = true;
 	} else if (ctrl_pdata->ulps) {
 		mdss_dsi_phy_init(pdata);
@@ -595,7 +595,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 		return ret;
 	}
 
-	ret = mdss_dsi_bus_clk_start(ctrl_pdata);
+	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_BUS_CLKS, 1);
 	if (ret) {
 		pr_err("%s: failed to enable bus clocks. rc=%d\n", __func__,
 			ret);
@@ -612,9 +612,9 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 
 	mdss_dsi_phy_sw_reset((ctrl_pdata->ctrl_base));
 	mdss_dsi_phy_init(pdata);
-	mdss_dsi_bus_clk_stop(ctrl_pdata);
+	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_BUS_CLKS, 0);
 
-	mdss_dsi_clk_ctrl(ctrl_pdata, 1);
+	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 
 	__mdss_dsi_ctrl_setup(pdata);
 	mdss_dsi_sw_reset(pdata);
@@ -640,7 +640,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	}
 
 	if (pdata->panel_info.type == MIPI_CMD_PANEL)
-		mdss_dsi_clk_ctrl(ctrl_pdata, 0);
+		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
 
 	pr_debug("%s-:\n", __func__);
 	return 0;
@@ -899,8 +899,8 @@ static int mdss_dsi_dfps_config(struct mdss_panel_data *pdata, int new_fps)
 				MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004,
 								dsi_ctrl);
 				mdss_dsi_controller_cfg(true, pdata);
-				mdss_dsi_clk_ctrl(ctrl_pdata, 0);
-				mdss_dsi_clk_ctrl(ctrl_pdata, 1);
+				mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
+				mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 				dsi_ctrl |= 0x2;
 				MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004,
 								dsi_ctrl);
@@ -1564,7 +1564,7 @@ int dsi_panel_device_register(struct device_node *pan_node,
 			return rc;
 		}
 
-		mdss_dsi_clk_ctrl(ctrl_pdata, 1);
+		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 		ctrl_pdata->ctrl_state |=
 			(CTRL_STATE_PANEL_INIT | CTRL_STATE_MDP_ACTIVE);
 	} else {
