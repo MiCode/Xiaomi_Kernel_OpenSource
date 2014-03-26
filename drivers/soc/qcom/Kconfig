@@ -89,6 +89,14 @@ config MSM_CPUSS_DUMP
 	 the entities if corruption is suspected.
 	 If unsure, say N
 
+config MSM_DDR_HEALTH
+	bool "MSM DDR Health Driver"
+	default n
+	help
+	  This option enables a driver which allocates DDR buffer of requested
+	  size and sends it's locatoin to RPM sub system. RPM subsystem can
+	  make use of this buffer to monitor DDR health.
+
 config MSM_WATCHDOG_V2
 	bool "MSM Watchdog Support"
 	help
