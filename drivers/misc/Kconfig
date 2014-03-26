@@ -612,6 +612,16 @@ config TI_DRV2667
 	  To compile this driver as a module, choose M here: the
 	  module will be called ti_drv2667.
 
+config TI_TPS65132
+	tristate "TPS65132 support +/- driven TFT-LCD panels up to 10V"
+	depends on I2C
+	help
+	  TI TPS65132 is designed to support positive/negative driven
+	  voltage up to 10V at least
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called tps65132.
+
 config APQ8084_DOCKING_STATION
 	tristate "QTI APQ8084 Docking Station USB/Ethernet support"
 	depends on OF_GPIO
