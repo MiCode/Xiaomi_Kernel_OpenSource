@@ -125,6 +125,18 @@ config IOMMU_NON_SECURE
 
          If unsure, say N here.
 
+config IOMMU_FORCE_4K_MAPPINGS
+	bool "Turns off mapping optimization and map only 4K pages"
+	depends on MSM_IOMMU
+        help
+         Say Y here if you want the IOMMU driver to map buffers with
+         4KB mapping only. With this, we don't get performance gains
+         by optimizing mapping. This is a debug feature and should be
+         used only when we want to profile the performance in the
+         worst case scenario.
+
+         If unsure, say N here.
+
 # AMD IOMMU support
 config AMD_IOMMU
 	bool "AMD IOMMU support"
