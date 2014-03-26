@@ -35,7 +35,7 @@
 		qcom,num-grp-pins = <1>;
 		label = "apds9930-irq";
 		apds9930_default: apds9930_default {
-			drive-strenghth = <6>;
+			drive-strength = <6>;
 			bias-pull-up;
 		};
 	};
