@@ -21,6 +21,7 @@
 #include "adreno.h"
 #include "adreno_ringbuffer.h"
 #include "adreno_trace.h"
+#include "kgsl_sharedmem.h"
 
 #define CMDQUEUE_NEXT(_i, _s) (((_i) + 1) % (_s))
 
@@ -770,7 +771,8 @@ static void mark_guilty_context(struct kgsl_device *device, unsigned int id)
  * passed in then zero the size which effectively skips it when it is submitted
  * in the ringbuffer.
  */
-static void cmdbatch_skip_ib(struct kgsl_cmdbatch *cmdbatch, unsigned int base)
+static void cmdbatch_skip_ib(struct kgsl_cmdbatch *cmdbatch,
+				unsigned int base)
 {
 	int i;
 
@@ -781,6 +783,48 @@ static void cmdbatch_skip_ib(struct kgsl_cmdbatch *cmdbatch, unsigned int base)
 				return;
 		}
 	}
+}
+
+static void cmdbatch_skip_cmd(struct kgsl_cmdbatch *cmdbatch,
+	struct kgsl_cmdbatch **replay, int count)
+{
+	struct adreno_context *drawctxt = ADRENO_CONTEXT(cmdbatch->context);
+	int i;
+
+	/*
+	 * SKIPCMD policy: next IB issued for this context is tentative
+	 * if it fails we assume that GFT failed and if it succeeds
+	 * we mark GFT as a success.
+	 *
+	 * Find next commandbatch for the faulting context
+	 * If commandbatch is found
+	 * a) store the current commandbatch fault_policy in context's next
+	 *    commandbatch fault_policy
+	 * b) force preamble for next commandbatch
+	 */
+	for (i = 1; i < count; i++) {
+		if (replay[i]->context->id == cmdbatch->context->id) {
+			replay[i]->fault_policy = replay[0]->fault_policy;
+			set_bit(CMDBATCH_FLAG_FORCE_PREAMBLE, &replay[i]->priv);
+			set_bit(KGSL_FT_SKIPCMD, &replay[i]->fault_recovery);
+			break;
+		}
+	}
+
+	/*
+	 * If we did not find the next cmd then
+	 * a) set a flag for next command issued in this context
+	 * b) store the fault_policy, this fault_policy becomes the policy of
+	 *    next command issued in this context
+	 */
+	if ((i == count) && drawctxt) {
+		set_bit(ADRENO_CONTEXT_SKIP_CMD, &drawctxt->priv);
+		drawctxt->fault_policy = replay[0]->fault_policy;
+	}
+
+	/* set the flags to skip this cmdbatch */
+	set_bit(CMDBATCH_FLAG_SKIP, &cmdbatch->priv);
+	cmdbatch->fault_recovery = 0;
 }
 
 static void cmdbatch_skip_frame(struct kgsl_cmdbatch *cmdbatch,
@@ -923,6 +967,18 @@ static void adreno_fault_header(struct kgsl_device *device,
 		"gpu fault ctx %d ts %d status %8.8X rb %4.4x/%4.4x ib1 %8.8x/%4.4x ib2 %8.8x/%4.4x\n",
 		cmdbatch->context->id, cmdbatch->timestamp, status,
 		rptr, wptr, ib1base, ib1sz, ib2base, ib2sz);
+}
+
+void adreno_fault_skipcmd_detached(struct kgsl_device *device,
+				 struct adreno_context *drawctxt,
+				 struct kgsl_cmdbatch *cmdbatch)
+{
+	if (test_bit(ADRENO_CONTEXT_SKIP_CMD, &drawctxt->priv) &&
+			kgsl_context_detached(&drawctxt->base)) {
+		pr_fault(device, cmdbatch, "gpu %s ctx %d\n",
+			 "detached", cmdbatch->context->id);
+		clear_bit(ADRENO_CONTEXT_SKIP_CMD, &drawctxt->priv);
+	}
 }
 
 static int dispatcher_do_fault(struct kgsl_device *device)
@@ -1150,6 +1206,16 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 				replay[i]->context->id == cmdbatch->context->id)
 				cmdbatch_skip_ib(replay[i], base);
 		}
+
+		goto replay;
+	}
+
+	/* Skip the faulted command batch submission */
+	if (test_and_clear_bit(KGSL_FT_SKIPCMD, &cmdbatch->fault_policy)) {
+		trace_adreno_cmdbatch_recovery(cmdbatch, BIT(KGSL_FT_SKIPCMD));
+
+		/* Skip faulting command batch */
+		cmdbatch_skip_cmd(cmdbatch, replay, count);
 
 		goto replay;
 	}

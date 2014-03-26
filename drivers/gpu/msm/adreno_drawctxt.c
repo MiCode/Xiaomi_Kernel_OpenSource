@@ -530,6 +530,13 @@ int adreno_drawctxt_detach(struct kgsl_context *context)
 		mutex_unlock(&drawctxt->mutex);
 
 		/*
+		 * If the context is deteached while we are waiting for
+		 * the next command in GFT SKIP CMD, print the context
+		 * detached status here.
+		 */
+		adreno_fault_skipcmd_detached(device, drawctxt, cmdbatch);
+
+		/*
 		 * Don't hold the drawctxt mutex while the cmdbatch is being
 		 * destroyed because the cmdbatch destroy takes the device
 		 * mutex and the world falls in on itself
