@@ -62,6 +62,7 @@ Example:
                 <&msmgpio 39 0>, <&msmgpio 40 0>;
         qcom,has-48mhz-xo;
         qcom,is-pronto-vt;
+        qcom,wlan-rx-buff-count = <512>;
         qcom,has-pronto-hw;
         qcom,wcnss-adc_tm = <&pm8226_adc_tm>;
 
