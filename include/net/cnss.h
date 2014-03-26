@@ -33,6 +33,7 @@ struct cnss_fw_files {
 	char board_data[CNSS_MAX_FILE_NAME];
 	char otp_data[CNSS_MAX_FILE_NAME];
 	char utf_file[CNSS_MAX_FILE_NAME];
+	char utf_board_data[CNSS_MAX_FILE_NAME];
 };
 
 struct cnss_wlan_driver {
