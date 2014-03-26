@@ -248,13 +248,8 @@ fail:
 int msm_iommu_pagetable_map(struct msm_iommu_pt *pt, unsigned long va,
 			phys_addr_t pa, size_t len, int prot)
 {
-	u32 *fl_pte;
-	u32 fl_offset;
-	u32 *sl_table;
-	u32 *sl_pte;
-	u32 sl_offset;
-	unsigned int pgprot;
-	int ret = 0;
+	int ret;
+	struct scatterlist sg;
 
 	if (len != SZ_16M && len != SZ_1M &&
 	    len != SZ_64K && len != SZ_4K) {
@@ -263,68 +258,11 @@ int msm_iommu_pagetable_map(struct msm_iommu_pt *pt, unsigned long va,
 		goto fail;
 	}
 
-	if (!pt->fl_table) {
-		pr_debug("Null page table\n");
-		ret = -EINVAL;
-		goto fail;
-	}
+	sg_init_table(&sg, 1);
+	sg_dma_address(&sg) = pa;
+	sg.length = len;
 
-	pgprot = __get_pgprot(prot, len);
-	if (!pgprot) {
-		ret = -EINVAL;
-		goto fail;
-	}
-
-	fl_offset = FL_OFFSET(va);		/* Upper 12 bits */
-	fl_pte = pt->fl_table + fl_offset;	/* int pointers, 4 bytes */
-
-	if (len == SZ_16M) {
-		ret = fl_16m(fl_pte, pa, pgprot);
-		if (ret)
-			goto fail;
-		clean_pte(fl_pte, fl_pte + 16, pt->redirect);
-	}
-
-	if (len == SZ_1M) {
-		ret = fl_1m(fl_pte, pa, pgprot);
-		if (ret)
-			goto fail;
-		clean_pte(fl_pte, fl_pte + 1, pt->redirect);
-	}
-
-	/* Need a 2nd level table */
-	if (len == SZ_4K || len == SZ_64K) {
-
-		if (*fl_pte == 0) {
-			if (make_second_level(pt, fl_pte) == NULL) {
-				ret = -ENOMEM;
-				goto fail;
-			}
-		}
-
-		if (!(*fl_pte & FL_TYPE_TABLE)) {
-			ret = -EBUSY;
-			goto fail;
-		}
-	}
-
-	sl_table = (u32 *) __va(((*fl_pte) & FL_BASE_MASK));
-	sl_offset = SL_OFFSET(va);
-	sl_pte = sl_table + sl_offset;
-
-	if (len == SZ_4K) {
-		ret = sl_4k(sl_pte, pa, pgprot);
-		if (ret)
-			goto fail;
-		clean_pte(sl_pte, sl_pte + 1, pt->redirect);
-	}
-
-	if (len == SZ_64K) {
-		ret = sl_64k(sl_pte, pa, pgprot);
-		if (ret)
-			goto fail;
-		clean_pte(sl_pte, sl_pte + 16, pt->redirect);
-	}
+	ret = msm_iommu_pagetable_map_range(pt, va, &sg, len, prot);
 
 fail:
 	return ret;
