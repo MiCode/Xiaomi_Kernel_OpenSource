@@ -15,6 +15,7 @@
 #include <asm/mach/arch.h>
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
+#include "board-dt.h"
 
 static void __init msmzirc_map_io(void)
 {
@@ -26,8 +27,14 @@ static const char *msmzirc_dt_match[] __initconst = {
 	NULL
 };
 
+static void __init msmzirc_init(void)
+{
+	board_dt_populate(NULL);
+}
+
 DT_MACHINE_START(MSMZIRC_DT,
 		 "Qualcomm Technologies, Inc. MSM ZIRC (Flattened Device Tree)")
+	.init_machine		= msmzirc_init,
 	.dt_compat		= msmzirc_dt_match,
 	.map_io			= msmzirc_map_io,
 MACHINE_END
