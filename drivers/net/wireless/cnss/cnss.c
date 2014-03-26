@@ -25,6 +25,7 @@
 #include <linux/pm_wakeup.h>
 #include <linux/sched.h>
 #include <linux/pm_qos.h>
+#include <linux/esoc_client.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/ramdump.h>
@@ -56,8 +57,6 @@
 
 #define POWER_ON_DELAY		2000
 #define WLAN_ENABLE_DELAY	10000
-
-#define MODEM_NAME		"esoc0"
 
 struct cnss_wlan_gpio_info {
 	char *name;
@@ -98,6 +97,7 @@ static struct cnss_data {
 	struct msm_bus_scale_pdata *bus_scale_table;
 	uint32_t bus_client;
 	void *subsys_handle;
+	struct esoc_desc *esoc_desc;
 } *penv;
 
 static int cnss_wlan_vreg_set(struct cnss_wlan_vreg_info *vreg_info, bool state)
@@ -497,7 +497,7 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver)
 		}
 	}
 
-	if (pdev && wdrv->modem_status)
+	if (penv->esoc_desc && pdev && wdrv->modem_status)
 		wdrv->modem_status(pdev, penv->modem_current_status);
 
 	return ret;
@@ -913,6 +913,9 @@ static struct notifier_block mnb = {
 static int cnss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	struct esoc_desc *desc;
+	const char *client_desc;
+	struct device *dev = &pdev->dev;
 
 	if (penv)
 		return -ENODEV;
@@ -922,6 +925,22 @@ static int cnss_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	penv->pldev = pdev;
+
+	penv->esoc_desc = NULL;
+	ret = of_property_read_string_index(dev->of_node, "esoc-names", 0,
+					    &client_desc);
+	if (ret) {
+		pr_debug("%s: esoc-names is not defined in DT, SKIP\n",
+			 __func__);
+	} else {
+		desc = devm_register_esoc_client(dev, client_desc);
+		if (IS_ERR_OR_NULL(desc)) {
+			ret = PTR_RET(desc);
+			pr_err("%s: can't find esoc desc\n", __func__);
+			goto err_esoc_reg;
+		}
+		penv->esoc_desc = desc;
+	}
 
 	penv->subsysdesc.name = "AR6320";
 	penv->subsysdesc.owner = THIS_MODULE;
@@ -937,11 +956,15 @@ static int cnss_probe(struct platform_device *pdev)
 	}
 
 	penv->modem_current_status = 0;
-	penv->modem_notify_handler =
-		subsys_notif_register_notifier(MODEM_NAME, &mnb);
-	if (IS_ERR(penv->modem_notify_handler)) {
-		ret = PTR_ERR(penv->modem_notify_handler);
-		goto err_notif_modem;
+
+	if (penv->esoc_desc) {
+		penv->modem_notify_handler =
+			subsys_notif_register_notifier(penv->esoc_desc->name,
+						       &mnb);
+		if (IS_ERR(penv->modem_notify_handler)) {
+			ret = PTR_ERR(penv->modem_notify_handler);
+			goto err_notif_modem;
+		}
 	}
 
 	penv->subsys_handle = subsystem_get(penv->subsysdesc.name);
@@ -1000,12 +1023,18 @@ err_get_wlan_res:
 
 err_ramdump_create:
 	subsystem_put(penv->subsys_handle);
-	subsys_notif_unregister_notifier(penv->modem_notify_handler, &mnb);
+	if (penv->esoc_desc)
+		subsys_notif_unregister_notifier
+			(penv->modem_notify_handler, &mnb);
 
 err_notif_modem:
 	subsys_unregister(penv->subsys);
 
 err_subsys_reg:
+	if (penv->esoc_desc)
+		devm_unregister_esoc_client(&pdev->dev, penv->esoc_desc);
+
+err_esoc_reg:
 	penv = NULL;
 
 	return ret;
@@ -1054,9 +1083,14 @@ static int __init cnss_initialize(void)
 
 static void __exit cnss_exit(void)
 {
+	struct platform_device *pdev = penv->pldev;
 	if (penv->ramdump_dev)
 		destroy_ramdump_device(penv->ramdump_dev);
-	subsys_notif_unregister_notifier(penv->modem_notify_handler, &mnb);
+	if (penv->esoc_desc) {
+		subsys_notif_unregister_notifier(penv->modem_notify_handler,
+						 &mnb);
+		devm_unregister_esoc_client(&pdev->dev, penv->esoc_desc);
+	}
 	subsys_unregister(penv->subsys);
 	platform_driver_unregister(&cnss_driver);
 }
