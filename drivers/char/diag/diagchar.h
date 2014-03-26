@@ -363,6 +363,9 @@ struct diagchar_dev {
 	int stm_state[NUM_STM_PROCESSORS];
 	/* Whether or not the peripheral supports STM */
 	int peripheral_supports_stm[NUM_SMD_CONTROL_CHANNELS];
+	/* Delayed response Variables */
+	uint16_t delayed_rsp_id;
+	struct mutex delayed_rsp_mutex;
 	/* DCI related variables */
 	struct list_head dci_req_list;
 	struct list_head dci_client_list;

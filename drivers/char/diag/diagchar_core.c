@@ -90,27 +90,31 @@ module_param(itemsize, uint, 0);
 module_param(poolsize, uint, 0);
 module_param(max_clients, uint, 0);
 
-/* delayed_rsp_id 0 represents no delay in the response. Any other number
-    means that the diag packet has a delayed response. */
-static uint16_t delayed_rsp_id = 1;
-
 #define DIAGPKT_MAX_DELAYED_RSP 0xFFFF
 
-/* returns the next delayed rsp id - rollsover the id if wrapping is
-   enabled. */
-uint16_t diagpkt_next_delayed_rsp_id(uint16_t rspid)
+/*
+ * Returns the next delayed rsp id. If wrapping is enabled,
+ * wraps the delayed rsp id to DIAGPKT_MAX_DELAYED_RSP.
+ */
+static uint16_t diag_get_next_delayed_rsp_id(void)
 {
-	if (rspid < DIAGPKT_MAX_DELAYED_RSP)
-		rspid++;
+	uint16_t rsp_id = 0;
+
+	mutex_lock(&driver->delayed_rsp_mutex);
+	rsp_id = driver->delayed_rsp_id;
+	if (rsp_id < DIAGPKT_MAX_DELAYED_RSP)
+		rsp_id++;
 	else {
 		if (wrap_enabled) {
-			rspid = 1;
+			rsp_id = 1;
 			wrap_count++;
 		} else
-			rspid = DIAGPKT_MAX_DELAYED_RSP;
+			rsp_id = DIAGPKT_MAX_DELAYED_RSP;
 	}
-	delayed_rsp_id = rspid;
-	return delayed_rsp_id;
+	driver->delayed_rsp_id = rsp_id;
+	mutex_unlock(&driver->delayed_rsp_mutex);
+
+	return rsp_id;
 }
 
 #define COPY_USER_SPACE_OR_EXIT(buf, data, length)		\
@@ -825,36 +829,6 @@ void diag_cmp_logging_modes_diagfwd_bridge(int old_mode, int new_mode)
 }
 #endif
 
-static int diag_ioctl_get_delay_rsp_id(
-				struct diagpkt_delay_params *delay_params)
-{
-	int result = -EINVAL;
-	int interim_size = 0;
-	uint16_t interim_rsp_id;
-
-	if ((delay_params->rsp_ptr) &&
-		(delay_params->size == sizeof(delayed_rsp_id)) &&
-		(delay_params->num_bytes_ptr)) {
-
-			interim_rsp_id = diagpkt_next_delayed_rsp_id(
-								delayed_rsp_id);
-
-			if (copy_to_user((void __user *)delay_params->rsp_ptr,
-				&interim_rsp_id, sizeof(uint16_t)))
-				return -EFAULT;
-
-			interim_size = sizeof(delayed_rsp_id);
-			if (copy_to_user(
-				(void __user *)delay_params->num_bytes_ptr,
-				&interim_size, sizeof(int)))
-				return -EFAULT;
-
-			result = 0;
-	}
-
-	return result;
-}
-
 static int diag_switch_logging(int requested_mode)
 {
 	int success = -EINVAL;
@@ -1147,12 +1121,6 @@ static int diag_ioctl_dci_support(unsigned long ioarg)
 
 #ifdef CONFIG_COMPAT
 
-struct diagpkt_delay_params_compat {
-	compat_uptr_t rsp_ptr;
-	int size;
-	compat_uptr_t num_bytes_ptr;
-};
-
 struct bindpkt_params_per_process_compat {
 	/* Name of the synchronization object associated with this proc */
 	char sync_obj_name[MAX_SYNC_OBJ_NAME_SIZE];
@@ -1166,11 +1134,10 @@ long diagchar_compat_ioctl(struct file *filp,
 	int result = -EINVAL;
 	int req_logging_mode = 0;
 	int client_id = 0;
+	uint16_t delayed_rsp_id = 0;
 	uint16_t remote_dev;
 	struct bindpkt_params_per_process pkt_params;
 	struct bindpkt_params_per_process_compat pkt_params_compat;
-	struct diagpkt_delay_params_compat delay_params_compat;
-	struct diagpkt_delay_params delay_params;
 	struct diag_dci_client_tbl *dci_client = NULL;
 
 	switch (iocmd) {
@@ -1188,15 +1155,12 @@ long diagchar_compat_ioctl(struct file *filp,
 		result = diag_command_reg(&pkt_params);
 		break;
 	case DIAG_IOCTL_GET_DELAYED_RSP_ID:
-		if (copy_from_user(&delay_params_compat, (void __user *)ioarg,
-			sizeof(struct diagpkt_delay_params_compat)))
-			return -EFAULT;
-		delay_params.rsp_ptr =
-			(void *)(uintptr_t)delay_params_compat.rsp_ptr;
-		delay_params.size = delay_params_compat.size;
-		delay_params.num_bytes_ptr =
-			(int *)(uintptr_t)delay_params_compat.num_bytes_ptr;
-		result = diag_ioctl_get_delay_rsp_id(&delay_params);
+		delayed_rsp_id = diag_get_next_delayed_rsp_id();
+		if (copy_to_user((void __user *)ioarg, &delayed_rsp_id,
+				 sizeof(uint16_t)))
+			result = -EFAULT;
+		else
+			result = 0;
 		break;
 	case DIAG_IOCTL_DCI_REG:
 		result = diag_ioctl_dci_reg(ioarg);
@@ -1268,9 +1232,9 @@ long diagchar_ioctl(struct file *filp,
 	int result = -EINVAL;
 	int req_logging_mode = 0;
 	int client_id = 0;
+	uint16_t delayed_rsp_id;
 	uint16_t remote_dev;
 	struct bindpkt_params_per_process pkt_params;
-	struct diagpkt_delay_params delay_params;
 	struct diag_dci_client_tbl *dci_client = NULL;
 
 	switch (iocmd) {
@@ -1282,10 +1246,12 @@ long diagchar_ioctl(struct file *filp,
 		result = diag_command_reg(&pkt_params);
 		break;
 	case DIAG_IOCTL_GET_DELAYED_RSP_ID:
-		if (copy_from_user(&delay_params, (void __user *)ioarg,
-			sizeof(struct diagpkt_delay_params)))
-			return -EFAULT;
-		result = diag_ioctl_get_delay_rsp_id(&delay_params);
+		delayed_rsp_id = diag_get_next_delayed_rsp_id();
+		if (copy_to_user((void __user *)ioarg, &delayed_rsp_id,
+				 sizeof(uint16_t)))
+			result = -EFAULT;
+		else
+			result = 0;
 		break;
 	case DIAG_IOCTL_DCI_REG:
 		result = diag_ioctl_dci_reg(ioarg);
@@ -2344,6 +2310,7 @@ static int __init diagchar_init(void)
 
 	driver->used = 0;
 	timer_in_progress = 0;
+	driver->delayed_rsp_id = 0;
 	driver->debug_flag = 1;
 	driver->dci_state = DIAG_DCI_NO_ERROR;
 	setup_timer(&drain_timer, drain_timer_func, 1234);
@@ -2365,6 +2332,7 @@ static int __init diagchar_init(void)
 	driver->in_busy_pktdata = 0;
 	driver->in_busy_dcipktdata = 0;
 	mutex_init(&driver->diagchar_mutex);
+	mutex_init(&driver->delayed_rsp_mutex);
 	init_waitqueue_head(&driver->wait_q);
 	init_waitqueue_head(&driver->smd_wait_q);
 	INIT_WORK(&(driver->diag_drain_work), diag_drain_work_fn);
