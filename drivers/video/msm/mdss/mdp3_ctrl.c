@@ -962,11 +962,18 @@ static int mdp3_overlay_queue_buffer(struct msm_fb_data_type *mfd,
 	struct mdp3_session_data *mdp3_session = mfd->mdp.private1;
 	struct msmfb_data *img = &req->data;
 	struct mdp3_img_data data;
+	struct mdp3_dma *dma = mdp3_session->dma;
 
 	rc = mdp3_get_img(img, &data, MDP3_CLIENT_DMA_P);
 	if (rc) {
 		pr_err("fail to get overlay buffer\n");
 		return rc;
+	}
+
+	if (data.len < dma->source_config.stride * dma->source_config.height) {
+		pr_err("buf length is smaller than required by dma configuration\n");
+		mdp3_put_img(&data, MDP3_CLIENT_DMA_P);
+		return -EINVAL;
 	}
 
 	rc = mdp3_bufq_push(&mdp3_session->bufq_in, &data);
@@ -988,6 +995,12 @@ static int mdp3_overlay_play(struct msm_fb_data_type *mfd,
 		req->id, req->data.memory_id);
 
 	mutex_lock(&mdp3_session->lock);
+
+	if (mdp3_session->overlay.id == MSMFB_NEW_REQUEST) {
+		pr_err("overlay play without overlay set first\n");
+		mutex_unlock(&mdp3_session->lock);
+		return -EINVAL;
+	}
 
 	if (mfd->panel_power_on)
 		rc = mdp3_overlay_queue_buffer(mfd, req);
