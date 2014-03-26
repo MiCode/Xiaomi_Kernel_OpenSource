@@ -31,6 +31,7 @@
 /* Interrupt offsets */
 #define INT_RT_STS_REG				0x10
 #define FAST_CHG_ON_IRQ                         BIT(5)
+#define OVERTEMP_ON_IRQ				BIT(4)
 #define BAT_TEMP_OK_IRQ                         BIT(1)
 #define BATT_PRES_IRQ                           BIT(0)
 
@@ -1788,6 +1789,33 @@ static irqreturn_t qpnp_lbc_vbatdet_lo_irq_handler(int irq, void *_chip)
 	return IRQ_HANDLED;
 }
 
+static int qpnp_lbc_is_overtemp(struct qpnp_lbc_chip *chip)
+{
+	u8 reg_val;
+	int rc;
+
+	rc = qpnp_lbc_read(chip, chip->usb_chgpth_base + INT_RT_STS_REG,
+				&reg_val, 1);
+	if (rc) {
+		pr_err("Failed to read interrupt status rc=%d\n", rc);
+		return rc;
+	}
+
+	pr_debug("OVERTEMP rt status %x\n", reg_val);
+	return (reg_val & OVERTEMP_ON_IRQ) ? 1 : 0;
+}
+
+static irqreturn_t qpnp_lbc_usb_overtemp_irq_handler(int irq, void *_chip)
+{
+	struct qpnp_lbc_chip *chip = _chip;
+	int overtemp = qpnp_lbc_is_overtemp(chip);
+
+	pr_warn_ratelimited("charger %s temperature limit !!!\n",
+					overtemp ? "exceeds" : "within");
+
+	return IRQ_HANDLED;
+}
+
 #define SPMI_REQUEST_IRQ(chip, idx, rc, irq_name, threaded, flags, wake)\
 do {									\
 	if (rc)								\
@@ -1853,6 +1881,9 @@ static int qpnp_lbc_request_irqs(struct qpnp_lbc_chip *chip)
 
 	SPMI_REQUEST_IRQ(chip, USBIN_VALID, rc, usbin_valid, 0,
 			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING, 1);
+
+	SPMI_REQUEST_IRQ(chip, USB_OVER_TEMP, rc, usb_overtemp, 0,
+			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING, 0);
 
 	return 0;
 }
