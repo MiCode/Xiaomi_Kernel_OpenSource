@@ -291,6 +291,7 @@ static void ksb_tomdm_work(struct work_struct *w)
 
 		urb = usb_alloc_urb(0, GFP_KERNEL);
 		if (!urb) {
+			dbg_log_event(ksb, "TX_URB_MEM_FAIL", -ENOMEM, 0);
 			pr_err_ratelimited("%s: unable to allocate urb",
 					ksb->id_info.name);
 			ksb_free_data_pkt(pkt);
@@ -299,6 +300,7 @@ static void ksb_tomdm_work(struct work_struct *w)
 
 		ret = usb_autopm_get_interface(ksb->ifc);
 		if (ret < 0 && ret != -EAGAIN && ret != -EACCES) {
+			dbg_log_event(ksb, "TX_URB_AUTOPM_FAIL", ret, 0);
 			pr_err_ratelimited("%s: autopm_get failed:%d",
 					ksb->id_info.name, ret);
 			usb_free_urb(urb);
@@ -365,6 +367,8 @@ static ssize_t ksb_fs_write(struct file *fp, const char __user *buf,
 	spin_unlock_irqrestore(&ksb->lock, flags);
 
 	queue_work(ksb->wq, &ksb->to_mdm_work);
+
+	dbg_log_event(ksb, "KS_WRITE", count, 0);
 
 	return count;
 }
