@@ -8494,8 +8494,8 @@ static int nl80211_crit_protocol_stop(struct sk_buff *skb,
 static int nl80211_vendor_cmd(struct sk_buff *skb, struct genl_info *info)
 {
 	struct cfg80211_registered_device *rdev = info->user_ptr[0];
-	struct net_device *dev = info->user_ptr[1];
-	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	struct wireless_dev *wdev =
+		__cfg80211_wdev_from_attrs(genl_info_net(info), info->attrs);
 	int i, err;
 	u32 vid, subcmd;
 
@@ -8549,8 +8549,12 @@ static int nl80211_vendor_cmd(struct sk_buff *skb, struct genl_info *info)
 			len = nla_len(info->attrs[NL80211_ATTR_VENDOR_DATA]);
 		}
 
-		return rdev->wiphy.vendor_commands[i].doit(&rdev->wiphy, wdev,
+		rdev->cur_cmd_info = info;
+		err = rdev->wiphy.vendor_commands[i].doit(&rdev->wiphy, wdev,
 							   data, len);
+		rdev->cur_cmd_info = NULL;
+
+		return err;
 	}
 
 	return -EOPNOTSUPP;
@@ -8567,8 +8571,8 @@ struct sk_buff *__cfg80211_alloc_reply_skb(struct wiphy *wiphy,
 		return NULL;
 
 	return __cfg80211_alloc_vendor_skb(rdev, approxlen,
-					   0,
-					   0,
+					   rdev->cur_cmd_info->snd_portid,
+					   rdev->cur_cmd_info->snd_seq,
 					   cmd, attr, NULL, GFP_KERNEL);
 }
 EXPORT_SYMBOL(__cfg80211_alloc_reply_skb);
@@ -9351,7 +9355,8 @@ static struct genl_ops nl80211_ops[] = {
 		.doit = nl80211_vendor_cmd,
 		.policy = nl80211_policy,
 		.flags = GENL_ADMIN_PERM,
-		.internal_flags = NL80211_FLAG_NEED_RTNL,
+		.internal_flags = NL80211_FLAG_NEED_WIPHY |
+				  NL80211_FLAG_NEED_RTNL,
 	},
 	{
 		.cmd = NL80211_CMD_SET_QOS_MAP,
