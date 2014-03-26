@@ -533,9 +533,6 @@ struct msm_mhl_platform_data {
  *       unprepare_disable) is controlled by i2c-transaction's begining and
  *       ending. When false, the clock's state is controlled by runtime-pm
  *       events.
- * @active_only when set, votes when system active and removes the vote when
- *       system goes idle (optimises for performance). When unset, voting using
- *       runtime pm (optimizes for power).
  * @master_id master id number of the i2c core or its wrapper (BLSP/GSBI).
  *       When zero, clock path voting is disabled.
  */
@@ -553,7 +550,6 @@ struct msm_i2c_platform_data {
 	int use_gsbi_shared_mode;
 	int keep_ahb_clk_on;
 	void (*msm_i2c_config_gpio)(int iface, int config_type);
-	bool active_only;
 	uint32_t master_id;
 };
 
