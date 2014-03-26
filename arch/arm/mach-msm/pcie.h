@@ -196,6 +196,7 @@ struct msm_pcie_dev_t {
 	DECLARE_BITMAP(msi_irq_in_use, PCIE_MSI_NR_IRQS);
 	uint32_t                     msi_gicm_addr;
 	uint32_t                     msi_gicm_base;
+	bool                         use_msi;
 
 	enum msm_pcie_link_status    link_status;
 	bool                         user_suspend;
