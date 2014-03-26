@@ -1813,10 +1813,15 @@ static int msm_vidc_load_resources(int flipped_state,
 	}
 
 	core = inst->core;
-	if (inst->state == MSM_VIDC_CORE_INVALID ||
-			core->state == VIDC_CORE_INVALID) {
+	if (core->state == VIDC_CORE_INVALID) {
 		dprintk(VIDC_ERR,
 				"Core is in bad state can't do load res\n");
+		return -EINVAL;
+	}
+
+	if (inst->state == MSM_VIDC_CORE_INVALID) {
+		dprintk(VIDC_ERR,
+				"Instance is in invalid state can't do load res\n");
 		return -EINVAL;
 	}
 
