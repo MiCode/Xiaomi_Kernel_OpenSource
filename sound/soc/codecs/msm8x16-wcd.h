@@ -35,7 +35,7 @@
 #define MSM8X16_CODEC_NAME "msm8x16_wcd_codec"
 
 #define MSM8X16_WCD_IS_DIGITAL_REG(reg) \
-	(((reg >= 0x400) && (reg <= 0x6FF)) ? 1 : 0)
+	(((reg >= 0x200) && (reg <= 0x4FF)) ? 1 : 0)
 #define MSM8X16_WCD_IS_TOMBAK_REG(reg) \
 	(((reg >= 0x000) && (reg <= 0x1FF)) ? 1 : 0)
 extern const u8 msm8x16_wcd_reg_readable[MSM8X16_WCD_CACHE_SIZE];

@@ -206,7 +206,7 @@ static int get_spmi_msm8x16_wcd_device_info(u16 *reg,
 static int msm8x16_wcd_ahb_write_device(u16 reg, u8 *value, u32 bytes)
 {
 	u32 temp = ((u32)(*value)) & 0x000000FF;
-	u32 offset = (((u32)(reg)) ^ 0x00000400) & 0x00000FFF;
+	u32 offset = (((u32)(reg)) ^ 0x00000200) & 0x00000FFF;
 	bool q6_state = false;
 
 	q6_state = q6core_is_adsp_ready();
@@ -224,7 +224,7 @@ static int msm8x16_wcd_ahb_write_device(u16 reg, u8 *value, u32 bytes)
 static int msm8x16_wcd_ahb_read_device(u16 reg, u32 bytes, u8 *value)
 {
 	u32 temp;
-	u32 offset = (((u32)(reg)) ^ 0x00000400) & 0x00000FFF;
+	u32 offset = (((u32)(reg)) ^ 0x00000200) & 0x00000FFF;
 	bool q6_state = false;
 
 	q6_state = q6core_is_adsp_ready();
