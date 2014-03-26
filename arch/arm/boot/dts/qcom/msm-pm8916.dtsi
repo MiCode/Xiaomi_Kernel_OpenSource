@@ -244,9 +244,11 @@
 
 			qcom,usb-chgpth@1300 {
 				reg = <0x1300 0x100>;
-				interrupts =	<0 0x13 0x2>,
+				interrupts =	<0 0x13 0x4>,
+						<0 0x13 0x2>,
 						<0 0x13 0x1>;
-				interrupt-names =	"chg-gone",
+				interrupt-names =	"usb-over-temp",
+							"chg-gone",
 							"usbin-valid";
 			};
 
