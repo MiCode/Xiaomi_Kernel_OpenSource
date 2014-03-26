@@ -2577,8 +2577,7 @@ static ssize_t _ft_hang_intr_status_store(struct device *dev,
 		switch (device->state) {
 		case KGSL_STATE_NAP:
 		case KGSL_STATE_SLEEP:
-			kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_ON,
-					device->state);
+			kgsl_pwrctrl_wake(device, 0);
 		case KGSL_STATE_ACTIVE:
 			adreno_dev->gpudev->irq_control(adreno_dev, 1);
 		/*
