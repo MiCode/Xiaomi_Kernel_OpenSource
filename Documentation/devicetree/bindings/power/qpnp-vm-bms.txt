@@ -61,6 +61,8 @@ Parent node required properties:
 			reporting volage based SOC and does not use the VMBMS
 			algorithm for SOC calculation.
 - qcom,bms-vadc: Corresponding VADC device's phandle.
+- qcom,bms-adc_tm: Corresponding ADC_TM device's phandle to set recurring
+                        measurements and receive notifications for vbatt.
 
 Parent node Optional properties
 - qcom,s1-sample-interval-ms: The sampling rate in ms of the accumulator in state
@@ -131,6 +133,7 @@ pm8916_bms: qcom,qpnp-vm-bms {
 	qcom,volatge-soc-timeout-ms = <60000>;
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,bms-vadc = <&pm8916_vadc>;
+	qcom,bms-adc_tm = <&pm8916_adc_tm>;
 
 	qcom,batt-pres-status@1208 {
 		reg = <0x1208 0x1>;
