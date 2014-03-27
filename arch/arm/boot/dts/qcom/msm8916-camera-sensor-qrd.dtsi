@@ -94,7 +94,7 @@
 				"CAM_VANA";
 		qcom,sensor-position = <1>;
 		qcom,sensor-mode = <0>;
-		qcom,cci-master = <1>;
+		qcom,cci-master = <0>;
 		status = "ok";
 		clocks = <&clock_gcc clk_mclk1_clk_src>,
 				<&clock_gcc clk_gcc_camss_mclk1_clk>;
