@@ -7,6 +7,7 @@ Required properties:
     - 0, 1, 2, 3
 - compatible :
     - "qcom,camera-led-flash"
+    - "ti,lm3642"
 - reg : offset and length of the register set for the device.
     for the flash operating in compatible mode.
 - gpios : should contain phandle to gpio controller node and array of
