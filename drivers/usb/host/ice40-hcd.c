@@ -143,7 +143,6 @@ struct ice40_hcd {
 	u8 devnum;
 	u32 port_flags;
 	u8 ctrl0;
-	u8 wblen0;
 
 	enum ice40_ep_phase ep0_state;
 	struct usb_hcd *hcd;
@@ -195,7 +194,9 @@ struct ice40_hcd {
 
 	struct spi_message *out_msg;
 	struct spi_transfer *out_xfr; /* size 2 */
-	u8 *out_buf; /* size 1 for writing WBUF0 */
+	u8 *out_tx_buf0; /* Max Size 134 when we write both FIFO */
+	u8 *out_tx_buf1; /* size 3 for reading XFR status */
+	u8 *out_rx_buf1; /* size 3 for reading XFR status */
 };
 
 #define FIRMWARE_LOAD_RETRIES 3
@@ -342,7 +343,6 @@ static int ice40_reset(struct usb_hcd *hcd)
 	ihcd->devnum = 0;
 	ice40_spi_reg_write(ihcd, 0, FADDR_REG);
 
-	ihcd->wblen0 = ~0;
 	/*
 	 * Read the line state. This driver is loaded after the
 	 * UICC card insertion. So the line state should indicate
@@ -651,9 +651,11 @@ static int ice40_xfer_out(struct ice40_hcd *ihcd, struct urb *urb)
 	u8 epnum = usb_pipeendpoint(urb->pipe);
 	bool is_out = usb_pipeout(urb->pipe);
 	struct ice40_ep *iep = ep->hcpriv;
-	u8 cmd, status, len, t;
+	u8 cmd, status, len, t, nlen;
 	void *buf;
-	int ret;
+	int ret, buf_num = 0;
+	bool first = true;
+	u32 actual_len = urb->actual_length;
 
 	if (epnum == 0 && ihcd->ep0_state == STATUS_PHASE) {
 		len = 0;
@@ -667,85 +669,151 @@ static int ice40_xfer_out(struct ice40_hcd *ihcd, struct urb *urb)
 
 	/*
 	 * OUT transaction Handling:
-	 * - If we need to send data, write the data to WBUF Fifo
-	 * - Program the WBLEN register
-	 * - Program HCMD register to initiate the OUT transaction.
-	 * - poll for completion by reading XFRST register.
-	 * - Interpret the result.
+	 * Here we use double buffering and also do the whole transfer as
+	 * single SPI message. As part of a message we will push the data
+	 * already placed in buffer, put data (if available) in another buffer
+	 * for next message and read status to check whether data we pushed was
+	 * successfully transferred.
+	 * Follwing is the sequence of steps for different stages of transfer
+	 * First : (a),(c),(b),(c),(d),(e)
+	 * Normal: (a),(b),(c),(d),(e)
+	 * Last:   (a),(b),(d),(e)
+	 * (a) Program the WBLEN register
+	 * (b) Program HCMD register to initiate the OUT transaction.
+	 * (c) If we need to send data, write the data to WBUF Fifo
+	 * (d) poll for completion by reading XFRST register.
+	 * (e) Interpret the result.
 	 */
 
+	while (1) {
+		/*
+		 * len indicates size of data will be pushed from buffer as
+		 * part of out transaction
+		 * nlen indicates the data we need to put in the buffer for
+		 * next transfer
+		 */
 
-	if (!len)
-		goto no_data;
+		if (len == 64)
+			nlen = min_t(u32, maxpacket,
+					total_len - (urb->actual_length + 64));
+		else
+			nlen = 0;
 
-	ihcd->out_buf[0] = WRITE_CMD(WBUF0_REG);
+		if (!len) {
+			/*
+			 * If length is zero we dont need to write any data in
+			 * buffers. We need to program HCMD to initiate a OUT
+			 * tranfer and update WBLEN
+			 */
 
-	ihcd->out_xfr[1].tx_buf = buf;
-	ihcd->out_xfr[1].len = len;
+			cmd = HCMD_PT(1) | HCMD_TOGV(t) |
+				HCMD_BSEL(buf_num) | HCMD_EP(epnum);
+			ihcd->out_tx_buf0[0] = WRITE_CMD(WBLEN_REG);
+			ihcd->out_tx_buf0[1] = 0;
+			ihcd->out_tx_buf0[2] = WRITE_CMD(HCMD_REG);
+			ihcd->out_tx_buf0[3] = cmd;
+			/* 4 (HCMD, WBLEN write) */
+			ihcd->out_xfr[0].len = 4;
+		} else {
+			if (first) {
+				first = false;
+				cmd = HCMD_PT(1) | HCMD_TOGV(t) |
+					HCMD_BSEL(buf_num) | HCMD_EP(epnum);
+				ihcd->out_tx_buf0[0] = WRITE_CMD(WBLEN_REG);
+				ihcd->out_tx_buf0[1] = len;
+				ihcd->out_tx_buf0[2] = WRITE_CMD(WBUF0_REG);
+				memcpy(&ihcd->out_tx_buf0[3], buf, len);
+				ihcd->out_tx_buf0[67] = WRITE_CMD(HCMD_REG);
+				ihcd->out_tx_buf0[68] = cmd;
+				ihcd->out_tx_buf0[69] = WRITE_CMD(WBUF1_REG);
+				memcpy(&ihcd->out_tx_buf0[70], buf + len, nlen);
+				/* 2*65(wbuf0/1)+4(HCMD, WBLEN write) */
+				ihcd->out_xfr[0].len = 134;
+			} else {
+				cmd = HCMD_PT(1) | HCMD_TOGV(t)
+					| HCMD_BSEL(buf_num) | HCMD_EP(epnum);
+				ihcd->out_tx_buf0[0] = WRITE_CMD(WBLEN_REG);
+				ihcd->out_tx_buf0[1] = len;
+				ihcd->out_tx_buf0[2] = WRITE_CMD(HCMD_REG);
+				ihcd->out_tx_buf0[3] = cmd;
+				if (buf_num)
+					ihcd->out_tx_buf0[4] =
+						WRITE_CMD(WBUF0_REG);
+				else
+					ihcd->out_tx_buf0[4] =
+						WRITE_CMD(WBUF1_REG);
+				memcpy(&ihcd->out_tx_buf0[5], buf + len, nlen);
+				/* 65(wbuf) + 4 (HCMD, WBLEN write) */
+				ihcd->out_xfr[0].len = 69;
+			}
+		}
 
-	ret = spi_sync(ihcd->spi, ihcd->out_msg);
-	if (ret < 0) {
-		pr_err("SPI transaction failed\n");
-		status = ret = -EIO;
-		goto out;
-	}
-
-no_data:
-	/*
-	 * Cache the WBLEN register and update it only if it
-	 * is changed from the previous value.
-	 */
-	if (len != ihcd->wblen0) {
-		ice40_spi_reg_write(ihcd, len, WBLEN_REG);
-		ihcd->wblen0 = len;
-	}
-
-	cmd = HCMD_PT(1) | HCMD_TOGV(t) | HCMD_BSEL(0) | HCMD_EP(epnum);
-	ice40_spi_reg_write(ihcd, cmd, HCMD_REG);
-
-	status = ice40_poll_xfer(ihcd, 1000);
+		/* Prepare transfer 1 which is to POLL for status */
+		ihcd->out_tx_buf1[0] = READ_CMD(XFRST_REG);
+		ret = spi_sync(ihcd->spi, ihcd->out_msg);
+		if (ret < 0) {
+			pr_err("SPI transaction failed\n");
+			status = ret = -EIO;
+			break;
+		}
+		status = ihcd->out_rx_buf1[2];
+		if (XFR_MASK(status) == XFR_BUSY)
+			status = ice40_poll_xfer(ihcd, 900);
 check_status:
-	switch (XFR_MASK(status)) {
-	case XFR_SUCCESS:
-		usb_dotoggle(udev, epnum, is_out);
-		urb->actual_length += len;
-		iep->xcat_err = 0;
-		if (!len || (urb->actual_length == total_len))
-			ret = 0; /* URB completed */
-		else
-			ret = -EINPROGRESS; /* pending */
-		break;
-	case XFR_NAK:
-		iep->xcat_err = 0;
-		ret = -EINPROGRESS;
-		break;
-	case XFR_PKTERR:
-	case XFR_PIDERR:
-	case XFR_WRONGPID:
-	case XFR_CRCERR:
-	case XFR_TIMEOUT:
-		if (++iep->xcat_err < 8)
+		switch (XFR_MASK(status)) {
+		case XFR_SUCCESS:
+			usb_dotoggle(udev, epnum, is_out);
+			urb->actual_length += len;
+			iep->xcat_err = 0;
+			if (!len || (urb->actual_length == total_len))
+				ret = 0; /* URB completed */
+			else
+				ret = -EINPROGRESS; /* pending */
+			break;
+		case XFR_NAK:
+			iep->xcat_err = 0;
 			ret = -EINPROGRESS;
-		else
-			ret = -EPROTO;
-		break;
-	case XFR_STALL:
-		status = ice40_poll_xfer(ihcd, 900);
-		/* Check if a fake STALL is reported */
-		if (XFR_MASK(status) != XFR_STALL)
-			goto check_status;
-		ret = -EPIPE;
-		break;
-	case XFR_BADLEN:
-		ret = -EOVERFLOW;
-		break;
-	default:
-		pr_err("transaction timed out\n");
-		ret = -EIO;
+			break;
+		case XFR_PKTERR:
+		case XFR_PIDERR:
+		case XFR_WRONGPID:
+		case XFR_CRCERR:
+		case XFR_TIMEOUT:
+			if (++iep->xcat_err < 8)
+				ret = -EINPROGRESS;
+			else
+				ret = -EPROTO;
+			break;
+		case XFR_STALL:
+			status = ice40_poll_xfer(ihcd, 900);
+			/* Check if a fake STALL is reported */
+			if (XFR_MASK(status) != XFR_STALL)
+				goto check_status;
+			ret = -EPIPE;
+			break;
+		case XFR_BADLEN:
+			ret = -EOVERFLOW;
+			break;
+		default:
+			pr_err("transaction timed out\n");
+			ret = -EIO;
+		}
+		/*
+		 * If we got ACK and there is still data remaining to be
+		 * pushed, update len, buf, t, buf_num
+		 */
+		if (XFR_SUCCESS == XFR_MASK(status) && ret == -EINPROGRESS) {
+			len = min_t(u32, maxpacket,
+					total_len - urb->actual_length);
+			buf = urb->transfer_buffer + urb->actual_length;
+			t = usb_gettoggle(udev, epnum, is_out);
+			buf_num = buf_num ? 0 : 1;
+		} else {
+			break; /* End while loop if ack is not recievied */
+		}
 	}
-
-out:
-	trace_ice40_out(epnum, xfr_status_string(status), len, ret);
+	trace_ice40_out(epnum, xfr_status_string(status),
+			urb->actual_length - actual_len, ret);
 	return ret;
 }
 
@@ -1265,7 +1333,6 @@ static int ice40_bus_resume(struct usb_hcd *hcd)
 	}
 
 	ice40_spi_reg_write(ihcd, ihcd->devnum, FADDR_REG);
-	ihcd->wblen0 = ~0;
 
 	/*
 	 * Program the bridge chip to drive resume signaling. The SOFs
@@ -1935,11 +2002,20 @@ static int ice40_spi_init_xfrs(struct ice40_hcd *ihcd)
 	ret = ice40_spi_init_one_xfr(ihcd, DATA_OUT_XFR);
 	if (ret < 0)
 		goto out;
-	ihcd->out_buf = devm_kzalloc(&ihcd->spi->dev, 1, GFP_KERNEL);
-	if (!ihcd->out_buf)
+	ihcd->out_tx_buf0 = devm_kzalloc(&ihcd->spi->dev, 134, GFP_KERNEL);
+	if (!ihcd->out_tx_buf0)
 		goto out;
-	ihcd->out_xfr[0].tx_buf = ihcd->out_buf;
-	ihcd->out_xfr[0].len = 1;
+	ihcd->out_tx_buf1 = devm_kzalloc(&ihcd->spi->dev, 3, GFP_KERNEL);
+	if (!ihcd->out_tx_buf1)
+		goto out;
+	ihcd->out_rx_buf1 = devm_kzalloc(&ihcd->spi->dev, 3, GFP_KERNEL);
+	if (!ihcd->out_rx_buf1)
+		goto out;
+	ihcd->out_xfr[0].tx_buf = ihcd->out_tx_buf0;
+	ihcd->out_xfr[0].delay_usecs = 1;
+	ihcd->out_xfr[1].tx_buf = ihcd->out_tx_buf1;
+	ihcd->out_xfr[1].rx_buf = ihcd->out_rx_buf1;
+	ihcd->out_xfr[1].len = 3;
 
 	return 0;
 
