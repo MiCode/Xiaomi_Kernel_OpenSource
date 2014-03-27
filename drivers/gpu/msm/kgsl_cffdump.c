@@ -631,20 +631,20 @@ int kgsl_cff_dump_enable_set(void *data, u64 val)
 			}
 		}
 		if (!device->cff_dump_enable) {
-			mutex_lock(&device->mutex);
+			kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 			device->cff_dump_enable = 1;
 			ret = kgsl_open_device(device);
 			if (!ret)
 				ret = kgsl_active_count_get(device);
 			if (ret)
 				device->cff_dump_enable = 0;
-			mutex_unlock(&device->mutex);
+			kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 		}
 	} else if (device->cff_dump_enable && !val) {
-		mutex_lock(&device->mutex);
+		kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 		ret = kgsl_close_device(device);
 		device->cff_dump_enable = 0;
-		mutex_unlock(&device->mutex);
+		kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 	}
 done:
 	mutex_unlock(&kgsl_driver.devlock);
