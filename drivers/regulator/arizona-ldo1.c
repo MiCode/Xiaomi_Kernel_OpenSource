@@ -273,9 +273,11 @@ static int arizona_ldo1_probe(struct platform_device *pdev)
 	config.driver_data = ldo1;
 	config.regmap = arizona->regmap;
 
-	ret = arizona_ldo1_of_get_pdata(arizona, &config);
-	if (ret < 0)
-		return ret;
+	if (!dev_get_platdata(arizona->dev)) {
+		ret = arizona_ldo1_of_get_pdata(arizona, &config);
+		if (ret < 0)
+			return ret;
+	}
 
 	config.ena_gpio = arizona->pdata.ldoena;
 
@@ -299,7 +301,8 @@ static int arizona_ldo1_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	arizona_ldo1_of_put_pdata(&config);
+	if (!dev_get_platdata(arizona->dev))
+		arizona_ldo1_of_put_pdata(&config);
 
 	platform_set_drvdata(pdev, ldo1);
 
