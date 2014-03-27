@@ -176,3 +176,16 @@ void __init msm_map_msmsamarium_io(void)
 	iotable_init(msmsamarium_io_desc, ARRAY_SIZE(msmsamarium_io_desc));
 }
 #endif /* CONFIG_ARCH_MSMSAMARIUM */
+
+#ifdef CONFIG_ARCH_MSMZIRC
+static struct map_desc msmzirc_io_desc[] __initdata = {
+#ifdef CONFIG_DEBUG_MSMZIRC_UART
+	MSM_DEVICE(DEBUG_UART),
+#endif
+};
+
+void __init msm_map_msmzirc_io(void)
+{
+	iotable_init(msmzirc_io_desc, ARRAY_SIZE(msmzirc_io_desc));
+}
+#endif /* CONFIG_ARCH_MSMZIRC */
