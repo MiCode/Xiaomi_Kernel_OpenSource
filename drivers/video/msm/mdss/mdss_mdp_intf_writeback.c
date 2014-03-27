@@ -575,8 +575,6 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 
 int mdss_mdp_writeback_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 {
-	int ret = 0;
-
 	if (ctl->shared_lock && !mutex_is_locked(ctl->shared_lock)) {
 		pr_err("shared mutex is not locked before commit on ctl=%d\n",
 			ctl->num);
@@ -590,10 +588,5 @@ int mdss_mdp_writeback_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 			ctl->mixer_right->params_changed++;
 	}
 
-	ret = mdss_mdp_display_commit(ctl, arg);
-
-	if (!IS_ERR_VALUE(ret))
-		mdss_mdp_display_wait4comp(ctl);
-
-	return ret;
+	return mdss_mdp_display_commit(ctl, arg);
 }

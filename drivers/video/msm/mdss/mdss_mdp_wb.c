@@ -642,6 +642,7 @@ int mdss_mdp_wb_kickoff(struct msm_fb_data_type *mfd)
 		pr_err("error on commit ctl=%d\n", ctl->num);
 		goto kickoff_fail;
 	}
+	mdss_mdp_display_wait4comp(ctl);
 
 	if (wb && node) {
 		mutex_lock(&wb->lock);
