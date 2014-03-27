@@ -35,6 +35,11 @@
 		status = "ok";
 	};
 
+	uim0: qcom,uim@f995d000 {
+		status = "ok";
+		qcom,uim-1v8;
+	};
+
 	qcom,wdt@f9017000 {
 		status = "disabled";
 	};
