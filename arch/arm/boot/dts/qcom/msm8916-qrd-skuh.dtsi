@@ -96,12 +96,11 @@
 		vddio-supply = <&pm8916_l6>;
 		st,min-interval = <5>;
 		st,init-interval = <200>;
-		st,axis-map-x = <1>;
-		st,axis-map-y = <0>;
+		st,axis-map-x = <0>;
+		st,axis-map-y = <1>;
 		st,axis-map-z = <2>;
 		st,g-range = <2>;
 		st,gpio-int1 = <&msm_gpio 115 0x2002>;
-		st,negate-x;
 		st,negate-y;
 		st,negate-z;
 	};
