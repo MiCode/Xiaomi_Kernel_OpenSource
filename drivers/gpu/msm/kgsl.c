@@ -436,6 +436,7 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 {
 	int ret = 0, id;
 	struct kgsl_device *device = dev_priv->device;
+	char name[64];
 
 	idr_preload(GFP_KERNEL);
 	write_lock(&device->context_lock);
@@ -474,7 +475,8 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 	if (ret)
 		goto fail_free_id;
 
-	kgsl_add_event_group(&context->events, context);
+	snprintf(name, sizeof(name), "context-%d", id);
+	kgsl_add_event_group(&context->events, context, name);
 
 	return 0;
 fail_free_id:
@@ -4258,8 +4260,8 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 	device->events_wq = create_workqueue("kgsl-events");
 
-	kgsl_add_event_group(&device->global_events, NULL);
-	kgsl_add_event_group(&device->iommu_events, NULL);
+	kgsl_add_event_group(&device->global_events, NULL, "global");
+	kgsl_add_event_group(&device->iommu_events, NULL, "iommu");
 
 	/* Initalize the snapshot engine */
 	kgsl_device_snapshot_init(device);
