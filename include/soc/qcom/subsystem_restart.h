@@ -71,10 +71,14 @@ struct subsys_desc {
  * struct notif_data - additional notif information
  * @crashed: indicates if subsystem has crashed
  * @enable_ramdump: ramdumps disabled if set to 0
+ * @no_auth: set if subsystem does not use PIL to bring it out of reset
+ * @pdev: subsystem platform device pointer
  */
 struct notif_data {
 	bool crashed;
 	int enable_ramdump;
+	bool no_auth;
+	struct platform_device *pdev;
 };
 
 #if defined(CONFIG_MSM_SUBSYSTEM_RESTART)
