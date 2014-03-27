@@ -1,15 +1,80 @@
 * Battery Current Limit
 
-This Battery Current Limit device, provides an interface to detect and notify
+This Battery Current Limit(BCL) device, provides an interface to detect and notify
 interested applications when the SOC is drawing current in excess of the limits
 specified.
+The BCL driver has another operation mode, where it monitors the battery
+current sensor via ADC TM hardware called BTM. The newer devices support
+a BTM hardware configuration, which can measure the battery current and voltage.
+This ADC hardware is capable of sampling the sensor every 1 msec and interrupts
+the BCL driver, which in turn mitigates the CPU frequency based on the
+current load thresholds. The BCL drivers operation mode is decided based
+on the parameters given in the device tree. In this BTM operation mode, BCL
+driver provides sysfs entries to configure the thresholds, ADC polling
+timer interval and other operational parameters.
 
 The device tree parameters for bcl are:
 
 Required parameters:
 - compatible: Must be "qcom,bcl"
 
+Optional parameters:
+- qcom,bcl-enable : If this property is defined, BCL functionality will
+		be enabled from boot. The mode of operation, will be based
+		on the properties defined in the device tree.
+- qcom,ibat-vadc = <&vadc_phandle>: A phandle to the VADC device. The BTM mode
+		of operation requires this property to be defined if and only
+		if qcom,ibat-threshold-adc_tm and qcom,ibat-monitor are defined.
+		Error in any of these properties will disable BTM mode of operation
+		and will fall back to the available current monitor mode.
+- qcom,ibat-threshold-adc_tm = <&vadc_tm_phandle>: A phandle to the ADC TM
+		device. BCL registers with the hardware monitor for this TM
+		device to be able to set thresholds and get threshold
+		notifications. The BTM mode of operation requires this property
+		to be defined if and only if qcom,ibat-vadc and qcom,ibat-monitor
+		are defined. Error in any of these properties will disable BTM
+		mode of operation and will fall back to the available current
+		monitor mode.
+
+Optional nodes:
+- qcom,ibat-monitor: This optional node defines all the parameters for the
+		battery current monitoring. The BTM mode of operation requires
+		all the below properties to be defined with valid values. Also,
+		this node should be defined if and only if qcom,ibat-vadc and
+		qcom,ibat-threshold-adc_tm are defined. Error in any of these
+		properties will disable BTM mode of operation and will fall
+		back to the available current monitor mode.
+	* high-threshold-uamp: The battery current, in microampere, after which
+		the BCL driver should cap the maximum frequency.
+	* low-threshold-uamp: The battery current, in microampere, below which
+		the BCL driver should clear the CPU frequency mitigation.
+	* mitigation-freq-khz: The maximum frequency value the BCL driver
+		should mitigate the CPUS's with. This frequency shouldn't be
+		less than the minimum frequency request that the kernel thermal
+		monitor driver places during vdd restriction.
+	* ibat-channel: The ADC hardware's channel number.
+	* uv-to-ua-numerator: The conversion parameter required for converting
+		the voltage measure from ADC hardware to current value.
+	* uv-to-ua-denominator: The conversion parameter required for
+		converting the voltage measure from ADC hardware to current.
+		The microvolt to microampere (or vice-versa) conversion uses
+		the below conversion formulae.
+		ua = (uv * uv-to-ua-numerator) / uv-to-ua-denominator
+	* adc-interval-usec: The polling interval, in microseconds, for the ADC
+		hardware.
+
 Example:
 	qcom,bcl {
 		compatible = "qcom,bcl";
+		qcom,ibat-vadc = <&pma8084_vadc>;
+		qcom,ibat-threshold-adc_tm = <&pma8084_adc_tm>;
+		qcom,ibat-monitor {
+			high-threshold-uamp = <1500>;
+			low-threshold-uamp = <500>;
+			mitigation-freq-khz = <1958400>;
+			ibat-channel = <0x15>;
+			adc-interval-usec = <3900>;
+			uv-to-ua-numerator = <2>;
+			uv-to-ua-denominator = <1>;
+		};
 	};
