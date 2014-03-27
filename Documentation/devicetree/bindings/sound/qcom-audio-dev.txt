@@ -1091,3 +1091,16 @@ sound {
 	pinctrl-2 = <&pmx_pri_mi2s_sleep &pmx_quad_mi2s_active>;
 	pinctrl-3 = <&pmx_pri_mi2s_sleep &pmx_quad_mi2s_sleep>;
 };
+
+* MSMPLUTONIUM ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,msmplutonium-audio-tomtom"
+- qcom,model : The user-visible name of this sound card.
+
+Example:
+
+	sound {
+		compatible = "qcom,msmplutonium-asoc-snd";
+		qcom,model = "msmplutonium-tomtom-snd-card";
+	};
