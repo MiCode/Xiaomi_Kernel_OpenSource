@@ -173,6 +173,14 @@ int msm_flash_led_release(struct msm_led_flash_ctrl_t *fctrl)
 		pr_err("%s: request gpio failed\n", __func__);
 		return rc;
 	}
+
+	/* CCI deInit */
+	if (fctrl->flash_device_type == MSM_CAMERA_PLATFORM_DEVICE) {
+		rc = fctrl->flash_i2c_client->i2c_func_tbl->i2c_util(
+			fctrl->flash_i2c_client, MSM_CCI_RELEASE);
+		if (rc < 0)
+			pr_err("cci_deinit failed\n");
+	}
 	return 0;
 }
 
