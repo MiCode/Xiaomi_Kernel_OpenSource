@@ -505,7 +505,7 @@ static struct msm8x16_wcd_pdata *msm8x16_wcd_populate_dt_pdata(
 
 	BUG_ON(static_cnt <= 0 || ond_cnt < 0);
 	if ((static_cnt + ond_cnt) > ARRAY_SIZE(pdata->regulator)) {
-		dev_err(dev, "%s: Num of supplies %u > max supported %u\n",
+		dev_err(dev, "%s: Num of supplies %u > max supported %zd\n",
 			__func__, static_cnt, ARRAY_SIZE(pdata->regulator));
 		ret = -EINVAL;
 		goto err;
@@ -3040,8 +3040,8 @@ static int msm8x16_wcd_spmi_probe(struct spmi_device *spmi)
 	}
 
 
-	dev_dbg(&spmi->dev, "%s(%d):start addr = 0x%x\n",
-		__func__, __LINE__,  wcd_resource->start);
+	dev_dbg(&spmi->dev, "%s(%d):start addr = 0x%pa\n",
+		__func__, __LINE__,  &wcd_resource->start);
 
 	if (wcd_resource->start != TOMBAK_CORE_0_SPMI_ADDR)
 		goto rtn;
