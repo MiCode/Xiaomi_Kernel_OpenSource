@@ -370,15 +370,6 @@ struct msm_spi {
 	struct pinctrl		*pinctrl;
 	struct pinctrl_state	*pins_active;
 	struct pinctrl_state	*pins_sleep;
-	struct pinctrl_state	 *pins_cs_active[SPI_NUM_CHIPSELECTS];
-	struct pinctrl_state	 *pins_cs_sleep[SPI_NUM_CHIPSELECTS];
-};
-
-static const char *pinctrl_cs_pin_name[][SPI_NUM_CHIPSELECTS] = {
-	{"cs0_active", "cs0_sleep"},
-	{"cs1_active", "cs1_sleep"},
-	{"cs2_active", "cs2_sleep"},
-	{"cs3_active", "cs3_sleep"},
 };
 
 /* Forward declaration */
