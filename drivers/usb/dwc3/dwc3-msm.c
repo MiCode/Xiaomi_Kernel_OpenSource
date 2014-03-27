@@ -192,6 +192,7 @@ struct dwc3_msm {
 	struct completion ext_chg_wait;
 	unsigned int scm_dev_id;
 	bool suspend_resume_no_support;
+	bool disable_power_collapse;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -1450,7 +1451,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	wmb();
 
 	/* remove vote for controller power collapse */
-	if (!host_bus_suspend)
+	if (!host_bus_suspend && !mdwc->disable_power_collapse)
 		dwc3_msm_config_gdsc(mdwc, 0);
 
 	clk_disable_unprepare(mdwc->iface_clk);
@@ -1533,7 +1534,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	}
 
 	/* add vote for controller power collapse */
-	if (!host_bus_suspend)
+	if (!host_bus_suspend && !mdwc->disable_power_collapse)
 		dwc3_msm_config_gdsc(mdwc, 1);
 
 	clk_prepare_enable(mdwc->utmi_clk);
@@ -2427,6 +2428,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	mdwc->suspend_resume_no_support = of_property_read_bool(node,
 				"qcom,no-suspend-resume");
+
+	mdwc->disable_power_collapse = of_property_read_bool(node,
+				"qcom,no-power-collapse");
 	/*
 	 * DWC3 has separate IRQ line for OTG events (ID/BSV) and for
 	 * DP and DM linestate transitions during low power mode.
