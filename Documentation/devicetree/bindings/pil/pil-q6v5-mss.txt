@@ -11,7 +11,10 @@ Required properties:
 - reg:		      Pairs of physical base addresses and region sizes of
 		      memory mapped registers.
 - reg-names:	      Names of the bases for the above registers. "qdsp6_base",
-		      "halt_base", "rmb_base", and "restart_reg" are expected.
+		      "rmb_base", and "restart_reg" are expected.
+		      If "halt_base" is in same 4K pages this register then
+		      this will be defined else "halt_q6", "halt_modem",
+		      "halt_nc" is required.
 - interrupts:         The modem watchdog interrupt
 - vdd_cx-supply:      Reference to the regulator that supplies the vdd_cx domain.
 - vdd_mx-supply:      Reference to the regulator that supplies the memory rail.
