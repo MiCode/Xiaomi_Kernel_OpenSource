@@ -730,7 +730,7 @@
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
 		qcom,apps-ch-pipes = <0x60000000>;
 		qcom,ea-pc = <0xb0>;
-		qcom,slim-mdm;
+		qcom,slim-mdm = "esoc0";
 
 		audio_slimslave {
 			compatible = "qcom,audio-slimslave";

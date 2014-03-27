@@ -54,11 +54,11 @@ Optional property:
 		 are to be used, so that application processor can query
 		 logical address of the ported generic device to be used.
 		 Other than PC, fields of EA are same across platforms.
- -qcom,slim-mdm: This value indicates presence of slimbus component on
+ - qcom,slim-mdm: This value provides the identifier of slimbus component on
 		 external mdm. This property enables the slimbus driver to
-		 receive subsytem restart notification from mdm and follow
-		 appropriate steps to ensure communication on the bus can be
-		 resumed after mdm-restart.
+		 register and receive subsytem restart notification from mdm
+		 and follow appropriate steps to ensure communication on the bus
+		 can be resumed after mdm-restart.
 Example:
 	slim@fe12f000 {
 		cell-index = <1>;
