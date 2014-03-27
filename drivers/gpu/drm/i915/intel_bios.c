@@ -723,6 +723,12 @@ static u8 *goto_next_sequence(u8 *data, int *size)
 
 			data += 3;
 			break;
+		case MIPI_SEQ_ELEM_I2C:
+			/* skip by this element payload size */
+			data += 6;
+			len = *data;
+			data += len + 1;
+			break;
 		default:
 			DRM_ERROR("Unknown element\n");
 			return NULL;
@@ -867,7 +873,7 @@ parse_mipi(struct drm_i915_private *dev_priv, struct bdb_header *bdb)
 			dev_priv->vbt.dsi.sequence[seq_id] = data;
 			DRM_DEBUG_DRIVER("Found mipi sequence - %d\n", seq_id);
 		} else {
-			DRM_ERROR("undefined sequence\n");
+			DRM_ERROR("undefined sequence - %d\n", seq_id);
 			goto err;
 		}
 
