@@ -437,7 +437,7 @@
 				"xo";
 	};
 
-	android_usb@086000c8 {
+	android_usb: android_usb@086000c8 {
 		compatible = "qcom,android-usb";
 		reg = <0x086000c8 0xc8>;
 		qcom,android-usb-swfi-latency = <1>;
