@@ -40,18 +40,21 @@
 				<&msm_gpio 35 0>,
 				<&msm_gpio 34 0>,
 				<&msm_gpio 114 0>,
-				<&msm_gpio 110 0>;
+				<&msm_gpio 110 0>,
+				<&msm_gpio 120 0>;
 		qcom,gpio-reset = <1>;
 		qcom,gpio-standby = <2>;
 		qcom,gpio-vdig = <3>;
 		qcom,gpio-vana = <4>;
-		qcom,gpio-req-tbl-num = <0 1 2 3 4>;
-		qcom,gpio-req-tbl-flags = <1 0 0 0 0>;
+		qcom,gpio-af-pwdm = <5>;
+		qcom,gpio-req-tbl-num = <0 1 2 3 4 5>;
+		qcom,gpio-req-tbl-flags = <1 0 0 0 0 0>;
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
 				"CAM_RESET1",
 				"CAM_STANDBY",
 				"CAM_VDIG",
-				"CAM_VANA";
+				"CAM_VANA",
+				"CAM_AF_PWDM";
 		qcom,sensor-position = <0>;
 		qcom,sensor-mode = <0>;
 		qcom,cci-master = <0>;
