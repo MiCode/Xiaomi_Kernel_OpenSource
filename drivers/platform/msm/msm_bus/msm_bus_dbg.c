@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2012, 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +25,9 @@
 #include <linux/msm-bus-board.h>
 #include <linux/msm-bus.h>
 #include "msm_bus_core.h"
+
+#define CREATE_TRACE_POINTS
+#include <mach/trace_msm_bus.h>
 
 #define MAX_BUFF_SIZE 4096
 #define FILL_LIMIT 128
@@ -405,6 +408,14 @@ static int msm_bus_dbg_fill_cl_buffer(const struct msm_bus_scale_pdata *pdata,
 		i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "%llu  ",
 			pdata->usecase[index].vectors[j].ib);
 	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "\n");
+
+	for (j = 0; j < pdata->usecase->num_paths; j++)
+		trace_bus_update_request((int)ts.tv_sec, (int)ts.tv_nsec,
+		pdata->name, index,
+		pdata->usecase[index].vectors[j].src,
+		pdata->usecase[index].vectors[j].dst,
+		pdata->usecase[index].vectors[j].ab,
+		pdata->usecase[index].vectors[j].ib);
 
 	cldata->size = i;
 	return i;
