@@ -1983,6 +1983,7 @@ static ssize_t mxt_secure_touch_enable_store(struct device *dev,
 				    const char *buf, size_t count)
 {
 	struct mxt_data *data = dev_get_drvdata(dev);
+	struct device *adapter = data->client->adapter->dev.parent;
 	unsigned long value;
 	int err = 0;
 
@@ -2000,7 +2001,7 @@ static ssize_t mxt_secure_touch_enable_store(struct device *dev,
 		if (atomic_read(&data->st_enabled) == 0)
 			break;
 
-		pm_runtime_put(data->client->adapter->dev.parent);
+		pm_runtime_put(adapter);
 		atomic_set(&data->st_enabled, 0);
 		mxt_secure_touch_notify(data);
 		mxt_interrupt(data->client->irq, data);
@@ -2012,7 +2013,7 @@ static ssize_t mxt_secure_touch_enable_store(struct device *dev,
 			break;
 		}
 
-		if (pm_runtime_get(data->client->adapter->dev.parent) < 0) {
+		if (pm_runtime_get_sync(adapter) < 0) {
 			dev_err(&data->client->dev, "pm_runtime_get failed\n");
 			err = -EIO;
 			break;
