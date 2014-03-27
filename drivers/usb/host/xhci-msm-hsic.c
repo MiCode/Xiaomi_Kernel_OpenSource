@@ -28,6 +28,7 @@
 #include <linux/msm-bus.h>
 #include <mach/rpm-regulator.h>
 #include <mach/msm_iomap.h>
+#include <linux/debugfs.h>
 
 #include "xhci.h"
 
@@ -131,7 +132,6 @@ struct mxhci_hsic_hcd {
 
 #define SYNOPSIS_DWC3_VENDOR	0x5533
 
-
 static struct dbg_data dbg_hsic = {
 	.ctrl_idx = 0,
 	.ctrl_lck = __RW_LOCK_UNLOCKED(clck),
@@ -143,6 +143,11 @@ static struct dbg_data dbg_hsic = {
 	.outep_log_mask = 1
 };
 
+static inline void dbg_inc(unsigned *idx)
+{
+	*idx = (*idx + 1) & (DBG_MAX_MSG-1);
+}
+
 /* xhci dbg logging */
 module_param_named(enable_payload_log,
 			dbg_hsic.log_payload, uint, S_IRUGO | S_IWUSR);
@@ -153,6 +158,106 @@ module_param_named(ep_addr_rxdbg_mask,
 			dbg_hsic.inep_log_mask, uint, S_IRUGO | S_IWUSR);
 module_param_named(ep_addr_txdbg_mask,
 			dbg_hsic.outep_log_mask, uint, S_IRUGO | S_IWUSR);
+
+static int mxhci_hsic_data_events_show(struct seq_file *s, void *unused)
+{
+	unsigned long	flags;
+	unsigned	i;
+
+	read_lock_irqsave(&dbg_hsic.data_lck, flags);
+
+	i = dbg_hsic.data_idx;
+	for (dbg_inc(&i); i != dbg_hsic.data_idx; dbg_inc(&i)) {
+		if (!strnlen(dbg_hsic.data_buf[i], DBG_MSG_LEN))
+			continue;
+		seq_printf(s, "%s\n", dbg_hsic.data_buf[i]);
+	}
+
+	read_unlock_irqrestore(&dbg_hsic.data_lck, flags);
+
+	return 0;
+}
+
+static int mxhci_hsic_data_events_open(struct inode *inode, struct file *f)
+{
+	return single_open(f, mxhci_hsic_data_events_show, inode->i_private);
+}
+
+const struct file_operations mxhci_hsic_dbg_data_fops = {
+	.open = mxhci_hsic_data_events_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static int mxhci_hsic_ctrl_events_show(struct seq_file *s, void *unused)
+{
+	unsigned long	flags;
+	unsigned	i;
+
+	read_lock_irqsave(&dbg_hsic.ctrl_lck, flags);
+
+	i = dbg_hsic.ctrl_idx;
+	for (dbg_inc(&i); i != dbg_hsic.ctrl_idx; dbg_inc(&i)) {
+		if (!strnlen(dbg_hsic.ctrl_buf[i], DBG_MSG_LEN))
+			continue;
+		seq_printf(s, "%s\n", dbg_hsic.ctrl_buf[i]);
+	}
+
+	read_unlock_irqrestore(&dbg_hsic.ctrl_lck, flags);
+
+	return 0;
+}
+
+static int mxhci_hsic_ctrl_events_open(struct inode *inode, struct file *f)
+{
+	return single_open(f, mxhci_hsic_ctrl_events_show, inode->i_private);
+}
+
+const struct file_operations mxhci_hsic_dbg_ctrl_fops = {
+	.open = mxhci_hsic_ctrl_events_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static struct dentry *xhci_msm_hsic_dbg_dent;
+static int mxhci_hsic_debugfs_init(void)
+{
+	struct dentry *xhci_msm_hsic_dentry;
+
+	xhci_msm_hsic_dbg_dent = debugfs_create_dir("xhci_msm_hsic_dbg", NULL);
+
+	if (!xhci_msm_hsic_dbg_dent || IS_ERR(xhci_msm_hsic_dbg_dent))
+		return -ENODEV;
+
+	xhci_msm_hsic_dentry = debugfs_create_file("show_ctrl_events",
+						S_IRUGO,
+						xhci_msm_hsic_dbg_dent, 0,
+						&mxhci_hsic_dbg_ctrl_fops);
+
+	if (!xhci_msm_hsic_dentry) {
+		debugfs_remove_recursive(xhci_msm_hsic_dbg_dent);
+		return -ENODEV;
+	}
+
+	xhci_msm_hsic_dentry = debugfs_create_file("show_data_events",
+						S_IRUGO,
+						xhci_msm_hsic_dbg_dent, 0,
+						&mxhci_hsic_dbg_data_fops);
+
+	if (!xhci_msm_hsic_dentry) {
+		debugfs_remove_recursive(xhci_msm_hsic_dbg_dent);
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
+static void mxhci_hsic_debugfs_cleanup(void)
+{
+	debugfs_remove_recursive(xhci_msm_hsic_dbg_dent);
+}
 
 static void xhci_hsic_log_urb(struct urb *urb, char *event, unsigned extra)
 {
@@ -1275,6 +1380,9 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 
 	dev_dbg(&pdev->dev, "%s: Probe complete\n", __func__);
 
+	ret = mxhci_hsic_debugfs_init();
+	if (ret)
+		dev_dbg(&pdev->dev, "debugfs is not availabile\n");
 	return 0;
 
 delete_wq:
@@ -1328,6 +1436,7 @@ static int mxhci_hsic_remove(struct platform_device *pdev)
 
 	device_remove_file(&pdev->dev, &dev_attr_config_imod);
 	device_remove_file(&pdev->dev, &dev_attr_host_ready);
+	mxhci_hsic_debugfs_cleanup();
 
 	/* If the device was removed no need to call pm_runtime_disable */
 	if (pdev->dev.power.power_state.event != PM_EVENT_INVALID)
