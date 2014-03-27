@@ -250,6 +250,7 @@ config SND_SOC_MSM8X16
 	select SND_SOC_MSM_HOSTLESS_PCM
 	select SND_SOC_MSM8X16_WCD
 	select SND_DYNAMIC_MINORS
+	select QTI_PP
 	help
 	 To add support for SoC audio on MSM8X16.
 	 This will enable sound soc drivers which
