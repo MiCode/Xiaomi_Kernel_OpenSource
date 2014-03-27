@@ -1417,19 +1417,39 @@ static struct snd_soc_dai_driver msm_dai_q6_fm_tx_dai = {
 	.remove = msm_dai_q6_dai_remove,
 };
 
-static struct snd_soc_dai_driver msm_dai_q6_voice_playback_tx_dai = {
-	.playback = {
-		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
-		SNDRV_PCM_RATE_16000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,
-		.channels_min = 1,
-		.channels_max = 2,
-		.rate_min =     8000,
-		.rate_max =     48000,
+static struct snd_soc_dai_driver msm_dai_q6_voc_playback_dai[] = {
+	{
+		.playback = {
+			.stream_name = "Voice Farend Playback",
+			.aif_name = "VOICE_PLAYBACK_TX",
+			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+				 SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min =     8000,
+			.rate_max =     48000,
+		},
+		.ops = &msm_dai_q6_ops,
+		.probe = msm_dai_q6_dai_probe,
+		.remove = msm_dai_q6_dai_remove,
 	},
-	.ops = &msm_dai_q6_ops,
-	.probe = msm_dai_q6_dai_probe,
-	.remove = msm_dai_q6_dai_remove,
+	{
+		.playback = {
+			.stream_name = "Voice2 Farend Playback",
+			.aif_name = "VOICE2_PLAYBACK_TX",
+			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+				 SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min =     8000,
+			.rate_max =     48000,
+		},
+		.ops = &msm_dai_q6_ops,
+		.probe = msm_dai_q6_dai_probe,
+		.remove = msm_dai_q6_dai_remove,
+	},
 };
 
 static struct snd_soc_dai_driver msm_dai_q6_incall_record_dai[] = {
@@ -2849,9 +2869,26 @@ register_afe_capture:
 			__func__, stream_name);
 		break;
 	case VOICE_PLAYBACK_TX:
+		strlcpy(stream_name, "Voice Farend Playback", 80);
+		goto register_voice_playback;
 	case VOICE2_PLAYBACK_TX:
-		rc = snd_soc_register_component(&pdev->dev, &msm_dai_q6_component,
-		&msm_dai_q6_voice_playback_tx_dai, 1);
+		strlcpy(stream_name, "Voice2 Farend Playback", 80);
+register_voice_playback:
+		rc = -ENODEV;
+		len = strnlen(stream_name , 80);
+		for (i = 0; i < ARRAY_SIZE(msm_dai_q6_voc_playback_dai); i++) {
+			if (msm_dai_q6_voc_playback_dai[i].playback.stream_name
+			    && !strcmp(stream_name,
+			 msm_dai_q6_voc_playback_dai[i].playback.stream_name)) {
+				rc = snd_soc_register_component(&pdev->dev,
+					&msm_dai_q6_component,
+					&msm_dai_q6_voc_playback_dai[i], 1);
+				break;
+			}
+		}
+		if (rc)
+			pr_err("%s Device not found stream name %s\n",
+			       __func__, stream_name);
 		break;
 	case VOICE_RECORD_RX:
 		strlcpy(stream_name, "Voice Downlink Capture", 80);
