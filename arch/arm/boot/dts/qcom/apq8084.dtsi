@@ -3102,6 +3102,17 @@
 
 	qcom,bcl {
 		compatible = "qcom,bcl";
+		qcom,ibat-vadc = <&pma8084_vadc>;
+		qcom,ibat-threshold-adc_tm = <&pma8084_adc_tm>;
+		qcom,ibat-monitor {
+			high-threshold-uamp = <3000000>;
+			low-threshold-uamp = <1000000>;
+			mitigation-freq-khz = <1958400>;
+			ibat-channel = <0x15>;
+			adc-interval-usec = <3900>;
+			uv-to-ua-numerator = <2>;
+			uv-to-ua-denominator = <1>;
+		};
 	};
 
 	qcom,msm-mct {
@@ -3867,6 +3878,18 @@
 		qcom,fast-avg-setup = <3>;
 		qcom,btm-channel-number = <0x70>;
 		qcom,thermal-node;
+	};
+
+	chan@15 {
+		label = "mpp6_div1";
+		reg = <0x15>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+		qcom,btm-channel-number = <0x78>;
 	};
 };
 
