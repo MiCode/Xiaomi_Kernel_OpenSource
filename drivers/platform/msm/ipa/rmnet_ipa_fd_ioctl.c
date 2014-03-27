@@ -18,7 +18,7 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/rmnet_ipa_fd_ioctl.h>
-#include <ipa_qmi_service.h>
+#include "ipa_qmi_service.h"
 
 #define DRIVER_NAME "wwan_ioctl"
 
