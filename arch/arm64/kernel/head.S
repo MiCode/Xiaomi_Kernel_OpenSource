@@ -207,7 +207,11 @@ CPU_LE(	movk	x0, #0x30d0, lsl #16	)	// Clear EE and E0E on LE systems
 	msr	vttbr_el2, xzr
 
 	/* Hypervisor stub */
+#ifndef CONFIG_STRICT_MEMORY_RWX
 	adr	x0, __hyp_stub_vectors
+#else
+	ldr	x0, =__hyp_stub_vectors
+#endif
 	msr	vbar_el2, x0
 
 	/* spsr */
