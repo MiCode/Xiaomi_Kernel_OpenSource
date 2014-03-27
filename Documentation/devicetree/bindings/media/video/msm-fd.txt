@@ -1,0 +1,52 @@
+* Qualcomm MSM FD
+
+Face detection hardware block.
+The Face Detection Hardware Block will offload processing
+on the host and also reduce power consumption.
+Supports:
+Front and back camera face detection concurrently.
+Sizes: QVGA, VGA, WQVGA, WVGA at 20 pix minimum face size.
+
+Required properties:
+
+- compatible:
+    - "qcom,face-detection"
+- reg: offset and length of the register set for the device.
+- reg-names: should specify relevant names to each reg property defined.
+    - "fd_core" - FD CORE hardware register set.
+    - "fd_misc" - FD MISC hardware register set.
+    - "fd_vbif" - FD VBIF hardware register set.
+- interrupts: should contain the fd interrupts.
+- interrupt-names: should specify relevant names to each interrupts
+  property defined.
+- vdd-supply: phandle to GDSC regulator controlling face detection hw.
+- clocks: list of entries each of which contains:
+    - phandle to the clock controller.
+    - macro containing clock's name in hardware.
+- clock-names: should specify relevant names to each clocks
+  property defined.
+
+Optional properties:
+
+- clock-rates: should specify clock rates in Hz to each clocks
+  property defined.
+
+Example:
+
+    qcom,fd@fd878000 {
+        compatible = "qcom,face-detection";
+        reg = <0xfd878000 0x800>,
+              <0xfd87c000 0x800>,
+              <0xfd860000 0x1000>;
+        reg-names = "fd_core", "fd_misc", "fd_vbif";
+        interrupts = <0 316 0>;
+        interrupt-names = "fd";
+        vdd-supply = <&gdsc_fd>;
+        clocks = <&clock_mmss clk_fd_core_clk>,
+                 <&clock_mmss clk_fd_ahb_clk>,
+                 <&clock_mmss clk_fd_axi_clk>,
+                 <&clock_mmss clk_fd_core_uar_clk>;
+        clock-names = "fd_core_clk", "fd_core_uar_clk",
+                      "fd_axi_clk", "fd_ahb_clk";
+        clock-rates = <400 400 334 80 240>;
+    };
