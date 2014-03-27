@@ -52,10 +52,10 @@
 		qcom,cpr-voltage-floor = <1050000 1050000 1162500>;
 		vdd-apc-supply = <&pm8916_s2>;
 
-		qcom,vdd-mx-corner-map = <1050000 1150000 1287500>;
+		qcom,vdd-mx-corner-map = <1050000 1150000 1337500>;
 		qcom,vdd-mx-vmin-method = <4>;
 		vdd-mx-supply = <&pm8916_l3_ao>;
-		qcom,vdd-mx-vmax = <1287500>;
+		qcom,vdd-mx-vmax = <1337500>;
 
 		mem-acc-supply = <&mem_acc_vreg_corner>;
 
@@ -165,7 +165,7 @@
 		status = "okay";
 		pm8916_l3: regulator-l3 {
 			regulator-min-microvolt = <750000>;
-			regulator-max-microvolt = <1287500>;
+			regulator-max-microvolt = <1337500>;
 			status = "okay";
 		};
 
@@ -174,7 +174,7 @@
 			regulator-name = "8916_l3_ao";
 			qcom,set = <1>;
 			regulator-min-microvolt = <750000>;
-			regulator-max-microvolt = <1287500>;
+			regulator-max-microvolt = <1337500>;
 		};
 
 		pm8916_l3_so: regulator-l3-so {
@@ -182,7 +182,7 @@
 			regulator-name = "8916_l3_so";
 			qcom,set = <2>;
 			regulator-min-microvolt = <750000>;
-			regulator-max-microvolt = <1287500>;
+			regulator-max-microvolt = <1337500>;
 			qcom,init-voltage = <750000>;
 		};
 	};
