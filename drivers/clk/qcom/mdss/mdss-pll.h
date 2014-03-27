@@ -21,10 +21,16 @@
 #define MDSS_PLL_REG_R(base, offset)		readl_relaxed((base) + (offset))
 
 enum {
-	MDSS_DSI_PLL,
+	MDSS_DSI_PLL_LPM,
+	MDSS_DSI_PLL_HPM,
 	MDSS_EDP_PLL,
 	MDSS_HDMI_PLL,
 	MDSS_UNKNOWN_PLL,
+};
+
+enum {
+	MDSS_PLL_TARGET_8974,
+	MDSS_PLL_TARGET_8916,
 };
 
 struct mdss_pll_resources {
@@ -44,6 +50,15 @@ struct mdss_pll_resources {
 
 	/* dsi/edp/hmdi pll interface type */
 	u32		pll_interface_type;
+
+	/*
+	 * Target ID. Used in pll_register API for valid target check before
+	 * registering the PLL clocks.
+	 */
+	u32		target_id;
+
+	/* HW recommended delay during configuration of vco clock rate */
+	u32		vco_delay;
 
 	/*
 	 * Keep track to resource status to avoid updating same status for the
