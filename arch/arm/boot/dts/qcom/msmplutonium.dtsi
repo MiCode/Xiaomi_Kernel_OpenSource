@@ -391,6 +391,8 @@
 			reg = <0xfc594000 0x2500>;
 			interrupts = <0 265 0>;
 			ufs-phy = <&ufsphy1>;
+			vdd-hba-supply = <&gdsc_ufs>;
+			vdd-hba-fixed-regulator;
 			vcc-supply = <&pmplutonium_l20>;
 			vccq-supply = <&pmplutonium_l31>;
 			vccq2-supply = <&pmplutonium_s4>;
