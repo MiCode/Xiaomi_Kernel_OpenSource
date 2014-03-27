@@ -318,7 +318,7 @@ static int msm_lsm_ioctl(struct snd_pcm_substream *substream,
 		if (copy_from_user(&session_data, (void *)arg,
 				   sizeof(struct snd_lsm_session_data))) {
 			err = -EFAULT;
-			pr_err("%s: copy from user failed, size %d\n",
+			pr_err("%s: copy from user failed, size %zd\n",
 			       __func__, sizeof(struct snd_lsm_session_data));
 			break;
 		}
