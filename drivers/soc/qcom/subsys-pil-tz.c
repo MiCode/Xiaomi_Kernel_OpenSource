@@ -528,6 +528,9 @@ static int pil_make_proxy_vote(struct pil_desc *pil)
 	struct pil_tz_data *d = desc_to_data(pil);
 	int rc;
 
+	if (d->subsys_desc.no_auth)
+		return 0;
+
 	rc = enable_regulators(pil->dev, d->proxy_regs, d->proxy_reg_count);
 	if (rc)
 		return rc;
@@ -558,6 +561,9 @@ static void pil_remove_proxy_vote(struct pil_desc *pil)
 {
 	struct pil_tz_data *d = desc_to_data(pil);
 
+	if (d->subsys_desc.no_auth)
+		return;
+
 	if (d->bus_client)
 		msm_bus_scale_client_update_request(d->bus_client, 0);
 
@@ -579,6 +585,9 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 	dma_addr_t mdata_phys;
 	int ret;
 	DEFINE_DMA_ATTRS(attrs);
+
+	if (d->subsys_desc.no_auth)
+		return 0;
 
 	ret = scm_pas_enable_bw();
 	if (ret)
@@ -620,6 +629,9 @@ static int pil_mem_setup_trusted(struct pil_desc *pil, phys_addr_t addr,
 	u32 scm_ret = 0;
 	int ret;
 
+	if (d->subsys_desc.no_auth)
+		return 0;
+
 	request.proc = d->pas_id;
 	request.start_addr = addr;
 	request.len = size;
@@ -635,8 +647,12 @@ static int pil_auth_and_reset(struct pil_desc *pil)
 {
 	struct pil_tz_data *d = desc_to_data(pil);
 	int rc;
-	u32 proc = d->pas_id, scm_ret = 0;
+	u32 proc, scm_ret = 0;
 
+	if (d->subsys_desc.no_auth)
+		return 0;
+
+	proc = d->pas_id;
 	rc = enable_regulators(pil->dev, d->regs, d->reg_count);
 	if (rc)
 		return rc;
@@ -667,9 +683,13 @@ err_clks:
 static int pil_shutdown_trusted(struct pil_desc *pil)
 {
 	struct pil_tz_data *d = desc_to_data(pil);
-	u32 proc = d->pas_id, scm_ret = 0;
+	u32 proc, scm_ret = 0;
 	int rc;
 
+	if (d->subsys_desc.no_auth)
+		return 0;
+
+	proc = d->pas_id;
 	rc = enable_regulators(pil->dev, d->proxy_regs, d->proxy_reg_count);
 	if (rc)
 		return rc;
@@ -845,11 +865,8 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 	if (rc)
 		return -ENOENT;
 
-	rc = of_property_read_u32(pdev->dev.of_node, "qcom,pas-id", &d->pas_id);
-	if (rc) {
-		dev_err(&pdev->dev, "Failed to find the pas_id.\n");
-		return rc;
-	}
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,pil-no-auth"))
+		d->subsys_desc.no_auth = true;
 
 	rc = of_property_read_string(pdev->dev.of_node, "qcom,firmware-name",
 				      &d->desc.name);
@@ -879,7 +896,15 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 	if (!rc)
 		d->desc.proxy_timeout = proxy_timeout;
 
-	scm_pas_init(MSM_BUS_MASTER_CRYPTO_CORE0);
+	if (!d->subsys_desc.no_auth) {
+		rc = of_property_read_u32(pdev->dev.of_node, "qcom,pas-id",
+								&d->pas_id);
+		if (rc) {
+			dev_err(&pdev->dev, "Failed to find the pas_id.\n");
+			return rc;
+		}
+		scm_pas_init(MSM_BUS_MASTER_CRYPTO_CORE0);
+	}
 
 	rc = pil_desc_init(&d->desc);
 	if (rc)
