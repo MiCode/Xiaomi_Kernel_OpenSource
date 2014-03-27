@@ -183,16 +183,15 @@ static struct sk_buff *bam_data_alloc_skb_from_pool(
 		 */
 		pr_debug("%s: allocate skb\n", __func__);
 		skb = alloc_skb(d->rx_buffer_size + BAM_MUX_HDR, GFP_ATOMIC);
-		if (!skb) {
+		if (!skb)
 			pr_err("%s: alloc skb failed\n", __func__);
-			goto alloc_exit;
-		}
+		else
+			skb_reserve(skb, BAM_MUX_HDR);
 	} else {
 		pr_debug("%s: pull skb from pool\n", __func__);
 		skb = __skb_dequeue(&d->rx_skb_idle);
 	}
 
-alloc_exit:
 	return skb;
 }
 
@@ -299,8 +298,6 @@ static void bam_data_start_rx(struct bam_data_port *port)
 		skb = bam_data_alloc_skb_from_pool(port);
 		if (!skb)
 			break;
-		skb_reserve(skb, BAM_MUX_HDR);
-
 		list_del(&req->list);
 		req->buf = skb->data;
 		req->length = d->rx_buffer_size;
@@ -382,8 +379,6 @@ static void bam_data_epout_complete(struct usb_ep *ep, struct usb_request *req)
 		list_add_tail(&req->list, &d->rx_idle);
 		return;
 	}
-	skb_reserve(skb, BAM_MUX_HDR);
-
 	req->buf = skb->data;
 	req->length = d->rx_buffer_size;
 	req->context = skb;
