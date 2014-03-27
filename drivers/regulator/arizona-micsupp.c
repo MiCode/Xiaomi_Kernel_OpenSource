@@ -281,9 +281,11 @@ static int arizona_micsupp_probe(struct platform_device *pdev)
 	config.driver_data = micsupp;
 	config.regmap = arizona->regmap;
 
-	ret = arizona_micsupp_of_get_pdata(arizona, &config);
-	if (ret < 0)
-		return ret;
+	if (!dev_get_platdata(arizona->dev)) {
+		ret = arizona_micsupp_of_get_pdata(arizona, &config);
+		if (ret < 0)
+			return ret;
+	}
 
 	if (arizona->pdata.micvdd)
 		config.init_data = arizona->pdata.micvdd;
@@ -304,7 +306,8 @@ static int arizona_micsupp_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	arizona_micsupp_of_put_pdata(&config);
+	if (!dev_get_platdata(arizona->dev))
+		arizona_micsupp_of_put_pdata(&config);
 
 	platform_set_drvdata(pdev, micsupp);
 
