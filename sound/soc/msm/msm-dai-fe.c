@@ -714,6 +714,21 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 		.probe = fe_dai_probe,
 	},
 	{
+		.capture = {
+			.stream_name = "Quaternary MI2S_TX Hostless Capture",
+			.aif_name = "QUAT_MI2S_UL_HL",
+			.rates = SNDRV_PCM_RATE_8000_48000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min = 8000,
+			.rate_max = 48000,
+		},
+		.ops = &msm_fe_dai_ops,
+		.name = "QUAT_MI2S_TX_HOSTLESS",
+		.probe = fe_dai_probe,
+	},
+	{
 		.playback = {
 			.stream_name = "Voice2 Playback",
 			.aif_name = "VOICE2_DL",
