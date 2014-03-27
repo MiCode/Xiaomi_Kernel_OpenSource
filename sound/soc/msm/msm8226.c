@@ -2274,8 +2274,7 @@ static int msm8226_asoc_machine_probe(struct platform_device *pdev)
 			sizeof(struct msm8226_asoc_mach_data), GFP_KERNEL);
 	if (!pdata) {
 		dev_err(&pdev->dev, "Can't allocate msm8226_asoc_mach_data\n");
-		ret = -ENOMEM;
-		goto err;
+		return -ENOMEM;
 	}
 
 	card = populate_snd_card_dailinks(&pdev->dev);
