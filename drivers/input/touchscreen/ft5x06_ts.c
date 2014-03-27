@@ -69,7 +69,6 @@
 #define FT_REG_THGROUP		0x80
 #define FT_REG_ECC		0xCC
 #define FT_REG_RESET_FW		0x07
-#define FT_REG_FW_MAJ_VER	0xB1
 #define FT_REG_FW_MIN_VER	0xB2
 #define FT_REG_FW_SUB_MIN_VER	0xB3
 
@@ -289,7 +288,7 @@ static void ft5x06_update_fw_ver(struct ft5x06_ts_data *data)
 	u8 reg_addr;
 	int err;
 
-	reg_addr = FT_REG_FW_MAJ_VER;
+	reg_addr = FT_REG_FW_VER;
 	err = ft5x06_i2c_read(client, &reg_addr, 1, &data->fw_ver[0], 1);
 	if (err < 0)
 		dev_err(&client->dev, "fw major version read failed");
@@ -893,6 +892,11 @@ static int ft5x06_fw_upgrade(struct device *dev, bool force)
 	u8 fw_file_maj, fw_file_min, fw_file_sub_min;
 	bool fw_upgrade = false;
 
+	if (data->suspended) {
+		dev_err(dev, "Device is in suspend state: Exit FW upgrade\n");
+		return -EBUSY;
+	}
+
 	rc = request_firmware(&fw, data->fw_name, dev);
 	if (rc < 0) {
 		dev_err(dev, "Request firmware failed - %s (%d)\n",
@@ -915,17 +919,10 @@ static int ft5x06_fw_upgrade(struct device *dev, bool force)
 	dev_info(dev, "New firmware: %d.%d.%d", fw_file_maj,
 				fw_file_min, fw_file_sub_min);
 
-	if (force) {
+	if (force)
 		fw_upgrade = true;
-	} else if (data->fw_ver[0] == fw_file_maj) {
-			if (data->fw_ver[1] < fw_file_min)
-				fw_upgrade = true;
-			else if (data->fw_ver[2] < fw_file_sub_min)
-				fw_upgrade = true;
-			else
-				dev_info(dev, "No need to upgrade\n");
-	} else
-		dev_info(dev, "Firmware versions do not match\n");
+	else if (data->fw_ver[0] < fw_file_maj)
+		fw_upgrade = true;
 
 	if (!fw_upgrade) {
 		dev_info(dev, "Exiting fw upgrade...\n");
