@@ -15,6 +15,11 @@
 
 #define MAX_DSI_PLL_EN_SEQS	10
 
+#define DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG		(0x0020)
+#define DSI_PHY_PLL_UNIPHY_PLL_LKDET_CFG2	(0x0064)
+#define DSI_PHY_PLL_UNIPHY_PLL_TEST_CFG		(0x0068)
+#define DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG1		(0x0070)
+
 struct lpfr_cfg {
 	unsigned long vco_rate;
 	u32 r;
@@ -35,6 +40,31 @@ struct dsi_pll_vco_clk {
 			(struct mdss_pll_resources *dsi_pll_Res);
 };
 
-int dsi_pll_clock_register(struct platform_device *pdev,
+static inline struct dsi_pll_vco_clk *to_vco_clk(struct clk *clk)
+{
+	return container_of(clk, struct dsi_pll_vco_clk, c);
+}
+
+int dsi_pll_clock_register_hpm(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res);
+int dsi_pll_clock_register_lpm(struct platform_device *pdev,
+				struct mdss_pll_resources *pll_res);
+
+int set_byte_mux_sel(struct mux_clk *clk, int sel);
+int get_byte_mux_sel(struct mux_clk *clk);
+int dsi_pll_div_prepare(struct clk *c);
+int dsi_pll_mux_prepare(struct clk *c);
+int fixed_4div_set_div(struct div_clk *clk, int div);
+int fixed_4div_get_div(struct div_clk *clk);
+int digital_set_div(struct div_clk *clk, int div);
+int digital_get_div(struct div_clk *clk);
+int analog_set_div(struct div_clk *clk, int div);
+int analog_get_div(struct div_clk *clk);
+int dsi_pll_lock_status(struct mdss_pll_resources *dsi_pll_res);
+int vco_set_rate(struct dsi_pll_vco_clk *vco, unsigned long rate);
+unsigned long vco_get_rate(struct clk *c);
+long vco_round_rate(struct clk *c, unsigned long rate);
+enum handoff vco_handoff(struct clk *c);
+int vco_prepare(struct clk *c);
+void vco_unprepare(struct clk *c);
 #endif
