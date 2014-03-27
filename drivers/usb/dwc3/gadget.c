@@ -38,6 +38,8 @@
 #include "debug.h"
 #include "io.h"
 
+static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc);
+
 /**
  * dwc3_gadget_set_test_mode - Enables USB2 Test Modes
  * @dwc: pointer to our context structure
@@ -1439,6 +1441,14 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
 		ret = -EINVAL;
 	}
 
+	/*
+	 * According to DWC3 databook, the controller does not
+	 * trigger a wakeup event when remote-wakeup is used.
+	 * Hence, after remote-wakeup sequence is complete, and
+	 * the device is back at U0 state, it is required that
+	 * the resume sequence is initiated by SW.
+	 */
+	dwc3_gadget_wakeup_interrupt(dwc);
 out:
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
