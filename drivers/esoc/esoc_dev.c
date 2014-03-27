@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -80,7 +80,7 @@ static struct esoc_udev *get_free_esoc_udev(struct esoc_clink *esoc_clink)
 							esoc_clink->name);
 		goto req_fifo_fail;
 	}
-	err = kfifo_alloc(&esoc_udev->req_fifo, (sizeof(u32)) * ESOC_MAX_EVT,
+	err = kfifo_alloc(&esoc_udev->evt_fifo, (sizeof(u32)) * ESOC_MAX_EVT,
 								GFP_KERNEL);
 	if (err) {
 		pr_err("unable to allocate evt fifo for %s\n",
