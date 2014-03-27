@@ -24,14 +24,15 @@
 
 #include <linux/msm-bus-board.h>
 #include <linux/msm-bus.h>
+#include <linux/dma-mapping.h>
 
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/ramdump.h>
+#include <soc/qcom/scm.h>
 
 #include <soc/qcom/smem.h>
 
 #include "peripheral-loader.h"
-#include "scm-pas.h"
 
 #define XO_FREQ			19200000
 #define PROXY_TIMEOUT_MS	10000
@@ -93,6 +94,154 @@ struct pil_tz_data {
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
 };
+
+enum scm_cmd {
+	PAS_INIT_IMAGE_CMD = 1,
+	PAS_MEM_SETUP_CMD,
+	PAS_AUTH_AND_RESET_CMD = 5,
+	PAS_SHUTDOWN_CMD,
+};
+
+enum pas_id {
+	PAS_MODEM,
+	PAS_Q6,
+	PAS_DSPS,
+	PAS_TZAPPS,
+	PAS_MODEM_SW,
+	PAS_MODEM_FW,
+	PAS_WCNSS,
+	PAS_SECAPP,
+	PAS_GSS,
+	PAS_VIDC,
+	PAS_VPU,
+	PAS_BCSS,
+};
+
+enum scm_clock_ids {
+	BUS_CLK = 0,
+	CORE_CLK,
+	IFACE_CLK,
+	CORE_CLK_SRC,
+	NUM_CLKS
+};
+
+static const char * const scm_clock_names[NUM_CLKS] = {
+	[BUS_CLK]      = "bus_clk",
+	[CORE_CLK]     = "core_clk",
+	[IFACE_CLK]    = "iface_clk",
+	[CORE_CLK_SRC] = "core_clk_src",
+};
+
+static struct clk *scm_clocks[NUM_CLKS];
+
+static struct msm_bus_paths scm_pas_bw_tbl[] = {
+	{
+		.vectors = (struct msm_bus_vectors[]){
+			{
+				.src = MSM_BUS_MASTER_SPS,
+				.dst = MSM_BUS_SLAVE_EBI_CH0,
+			},
+		},
+		.num_paths = 1,
+	},
+	{
+		.vectors = (struct msm_bus_vectors[]){
+			{
+				.src = MSM_BUS_MASTER_SPS,
+				.dst = MSM_BUS_SLAVE_EBI_CH0,
+				.ib = 492 * 8 * 1000000UL,
+				.ab = 492 * 8 *  100000UL,
+			},
+		},
+		.num_paths = 1,
+	},
+};
+
+static struct msm_bus_scale_pdata scm_pas_bus_pdata = {
+	.usecase = scm_pas_bw_tbl,
+	.num_usecases = ARRAY_SIZE(scm_pas_bw_tbl),
+	.name = "scm_pas",
+};
+
+static uint32_t scm_perf_client;
+static int scm_pas_bw_count;
+static DEFINE_MUTEX(scm_pas_bw_mutex);
+
+static int scm_pas_enable_bw(void)
+{
+	int ret = 0, i;
+
+	if (!scm_perf_client)
+		return -EINVAL;
+
+	mutex_lock(&scm_pas_bw_mutex);
+	if (!scm_pas_bw_count) {
+		ret = msm_bus_scale_client_update_request(scm_perf_client, 1);
+		if (ret)
+			goto err_bus;
+		scm_pas_bw_count++;
+	}
+	for (i = 0; i < NUM_CLKS; i++)
+		if (clk_prepare_enable(scm_clocks[i]))
+			goto err_clk;
+
+	mutex_unlock(&scm_pas_bw_mutex);
+	return ret;
+
+err_clk:
+	pr_err("scm-pas: clk prepare_enable failed (%s)\n", scm_clock_names[i]);
+	for (i--; i >= 0; i--)
+		clk_disable_unprepare(scm_clocks[i]);
+
+err_bus:
+	pr_err("scm-pas; Bandwidth request failed (%d)\n", ret);
+	msm_bus_scale_client_update_request(scm_perf_client, 0);
+
+	mutex_unlock(&scm_pas_bw_mutex);
+	return ret;
+}
+
+static void scm_pas_disable_bw(void)
+{
+	int i;
+	mutex_lock(&scm_pas_bw_mutex);
+	if (scm_pas_bw_count-- == 1)
+		msm_bus_scale_client_update_request(scm_perf_client, 0);
+
+	for (i = NUM_CLKS - 1; i >= 0; i--)
+		clk_disable_unprepare(scm_clocks[i]);
+	mutex_unlock(&scm_pas_bw_mutex);
+}
+
+static void scm_pas_init(enum msm_bus_fabric_master_type id)
+{
+	int i, rate;
+	static int is_inited;
+
+	if (is_inited)
+		return;
+
+	for (i = 0; i < NUM_CLKS; i++) {
+		scm_clocks[i] = clk_get_sys("scm", scm_clock_names[i]);
+		if (IS_ERR(scm_clocks[i]))
+			scm_clocks[i] = NULL;
+	}
+
+	/* Fail silently if this clock is not supported */
+	rate = clk_round_rate(scm_clocks[CORE_CLK_SRC], 1);
+	clk_set_rate(scm_clocks[CORE_CLK_SRC], rate);
+
+	scm_pas_bw_tbl[0].vectors[0].src = id;
+	scm_pas_bw_tbl[1].vectors[0].src = id;
+
+	clk_set_rate(scm_clocks[BUS_CLK], 64000000);
+
+	scm_perf_client = msm_bus_scale_register_client(&scm_pas_bus_pdata);
+	if (!scm_perf_client)
+		pr_warn("scm-pas: Unable to register bus client\n");
+
+	is_inited = 1;
+}
 
 static int of_read_clocks(struct device *dev, struct clk ***clks_ref,
 			  const char *propname)
@@ -421,22 +570,72 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 		const u8 *metadata, size_t size)
 {
 	struct pil_tz_data *d = desc_to_data(pil);
+	struct pas_init_image_req {
+		u32	proc;
+		u32	image_addr;
+	} request;
+	u32 scm_ret = 0;
+	void *mdata_buf;
+	dma_addr_t mdata_phys;
+	int ret;
+	DEFINE_DMA_ATTRS(attrs);
 
-	return pas_init_image(d->pas_id, metadata, size);
+	ret = scm_pas_enable_bw();
+	if (ret)
+		return ret;
+
+	dma_set_attr(DMA_ATTR_STRONGLY_ORDERED, &attrs);
+	mdata_buf = dma_alloc_attrs(NULL, size, &mdata_phys, GFP_KERNEL,
+					&attrs);
+	if (!mdata_buf) {
+		pr_err("scm-pas: Allocation for metadata failed.\n");
+		scm_pas_disable_bw();
+		return -ENOMEM;
+	}
+
+	memcpy(mdata_buf, metadata, size);
+
+	request.proc = d->pas_id;
+	request.image_addr = mdata_phys;
+
+	ret = scm_call(SCM_SVC_PIL, PAS_INIT_IMAGE_CMD, &request,
+			sizeof(request), &scm_ret, sizeof(scm_ret));
+
+	dma_free_attrs(NULL, size, mdata_buf, mdata_phys, &attrs);
+	scm_pas_disable_bw();
+	if (ret)
+		return ret;
+	return scm_ret;
 }
 
 static int pil_mem_setup_trusted(struct pil_desc *pil, phys_addr_t addr,
 			       size_t size)
 {
 	struct pil_tz_data *d = desc_to_data(pil);
+	struct pas_init_image_req {
+		u32	proc;
+		u32	start_addr;
+		u32	len;
+	} request;
+	u32 scm_ret = 0;
+	int ret;
 
-	return pas_mem_setup(d->pas_id, addr, size);
+	request.proc = d->pas_id;
+	request.start_addr = addr;
+	request.len = size;
+
+	ret = scm_call(SCM_SVC_PIL, PAS_MEM_SETUP_CMD, &request,
+			sizeof(request), &scm_ret, sizeof(scm_ret));
+	if (ret)
+		return ret;
+	return scm_ret;
 }
 
 static int pil_auth_and_reset(struct pil_desc *pil)
 {
 	struct pil_tz_data *d = desc_to_data(pil);
 	int rc;
+	u32 proc = d->pas_id, scm_ret = 0;
 
 	rc = enable_regulators(pil->dev, d->regs, d->reg_count);
 	if (rc)
@@ -446,11 +645,17 @@ static int pil_auth_and_reset(struct pil_desc *pil)
 	if (rc)
 		goto err_clks;
 
-	rc = pas_auth_and_reset(d->pas_id);
+	rc = scm_pas_enable_bw();
 	if (rc)
 		goto err_reset;
 
-	return 0;
+	rc = scm_call(SCM_SVC_PIL, PAS_AUTH_AND_RESET_CMD, &proc,
+			sizeof(proc), &scm_ret, sizeof(scm_ret));
+	scm_pas_disable_bw();
+	if (rc)
+		goto err_reset;
+
+	return scm_ret;
 err_reset:
 	disable_unprepare_clocks(d->clks, d->clk_count);
 err_clks:
@@ -462,6 +667,7 @@ err_clks:
 static int pil_shutdown_trusted(struct pil_desc *pil)
 {
 	struct pil_tz_data *d = desc_to_data(pil);
+	u32 proc = d->pas_id, scm_ret = 0;
 	int rc;
 
 	rc = enable_regulators(pil->dev, d->proxy_regs, d->proxy_reg_count);
@@ -473,7 +679,8 @@ static int pil_shutdown_trusted(struct pil_desc *pil)
 	if (rc)
 		goto err_clks;
 
-	rc = pas_shutdown(d->pas_id);
+	rc = scm_call(SCM_SVC_PIL, PAS_SHUTDOWN_CMD, &proc, sizeof(proc),
+			&scm_ret, sizeof(scm_ret));
 
 	disable_unprepare_clocks(d->proxy_clks, d->proxy_clk_count);
 	disable_regulators(d->proxy_regs, d->proxy_reg_count);
@@ -484,7 +691,7 @@ static int pil_shutdown_trusted(struct pil_desc *pil)
 	disable_unprepare_clocks(d->clks, d->clk_count);
 	disable_regulators(d->regs, d->reg_count);
 
-	return rc;
+	return scm_ret;
 err_clks:
 	disable_regulators(d->proxy_regs, d->proxy_reg_count);
 	return rc;
