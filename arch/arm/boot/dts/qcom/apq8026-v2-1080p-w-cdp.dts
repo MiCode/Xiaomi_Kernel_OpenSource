@@ -15,6 +15,7 @@
 #include "apq8026-v2.dtsi"
 #include "msm8226-w-memory.dtsi"
 #include "msm8226-1080p-cdp.dtsi"
+#include "msm8x26w-gpu.dts"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ 8026v2W CDP";
