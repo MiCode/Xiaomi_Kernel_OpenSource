@@ -219,8 +219,11 @@ static void kgsl_sync_timeline_value_str(struct sync_timeline *sync_timeline,
 		(struct kgsl_sync_timeline *) sync_timeline;
 	unsigned int timestamp_retired = kgsl_sync_get_timestamp(ktimeline,
 		KGSL_TIMESTAMP_RETIRED);
-	snprintf(str, size, "%u retired:%u", ktimeline->last_timestamp,
-		timestamp_retired);
+	unsigned int timestamp_queued = kgsl_sync_get_timestamp(ktimeline,
+		KGSL_TIMESTAMP_QUEUED);
+	snprintf(str, size, "%u queued:%u retired:%u",
+		ktimeline->last_timestamp,
+		timestamp_queued, timestamp_retired);
 }
 
 static void kgsl_sync_pt_value_str(struct sync_pt *sync_pt,
