@@ -64,6 +64,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,apq8084")
 #define early_machine_is_mdm9630()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mdm9630")
+#define early_machine_is_msmzirc()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmzirc")
 #define early_machine_is_fsm9900()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,fsm9900")
 #define early_machine_is_msmsamarium()	\
@@ -144,6 +146,7 @@ enum msm_cpu {
 	MSM_CPU_9630,
 	FSM_CPU_9900,
 	MSM_CPU_SAMARIUM,
+	MSM_CPU_ZIRC,
 };
 
 enum pmic_model {
