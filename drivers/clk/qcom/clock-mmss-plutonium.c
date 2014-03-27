@@ -53,6 +53,17 @@ static void __iomem *virt_base;
 
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
+static int vdd_mmpll4_levels[] = {
+	RPM_REGULATOR_CORNER_NONE,		      0,
+	RPM_REGULATOR_CORNER_SVS_SOC,		1800000,
+	RPM_REGULATOR_CORNER_SVS_SOC,		1800000,
+	RPM_REGULATOR_CORNER_NORMAL,		1800000,
+	RPM_REGULATOR_CORNER_SUPER_TURBO,	1800000,
+};
+
+static DEFINE_VDD_REGULATORS(vdd_mmpll4, VDD_DIG_NUM, 2, vdd_mmpll4_levels,
+			     NULL);
+
 #define GP1_CBCR                                         (0x1900)
 #define GP1_CMD_RCGR                                     (0x1904)
 #define MMPLL0_MODE                                      (0x0000)
@@ -217,7 +228,8 @@ static struct pll_vote_clk mmpll0 = {
 		.parent = &mmsscc_xo.c,
 		.dbg_name = "mmpll0",
 		.ops = &clk_ops_pll_vote,
-		VDD_DIG_FMAX_MAP2(LOWER, 400000000, NOMINAL, 800000000),
+		VDD_DIG_FMAX_MAP3(LOWER, 400000000, LOW, 400000000,
+				  NOMINAL, 800000000),
 		CLK_INIT(mmpll0.c),
 	},
 };
@@ -234,7 +246,8 @@ static struct alpha_pll_clk mmpll4 = {
 		.rate = 930000000,
 		.dbg_name = "mmpll4",
 		.ops = &clk_ops_fixed_alpha_pll,
-		VDD_DIG_FMAX_MAP2(LOWER, 650000000, NOMINAL, 1300000000),
+		VDD_MMPLL4_FMAX_MAP3(LOWER, 650000000, LOW, 650000000,
+				     NOMINAL, 1300000000),
 		CLK_INIT(mmpll4.c),
 	},
 };
@@ -251,7 +264,8 @@ static struct pll_vote_clk mmpll1 = {
 		.parent = &mmsscc_xo.c,
 		.dbg_name = "mmpll1",
 		.ops = &clk_ops_pll_vote,
-		VDD_DIG_FMAX_MAP2(LOWER, 650000000, NOMINAL, 1300000000),
+		VDD_DIG_FMAX_MAP3(LOWER, 650000000, LOW, 650000000,
+				  NOMINAL, 1300000000),
 		CLK_INIT(mmpll1.c),
 	},
 };
@@ -268,7 +282,8 @@ static struct alpha_pll_clk mmpll3 = {
 		.rate = 930000000,
 		.dbg_name = "mmpll3",
 		.ops = &clk_ops_fixed_alpha_pll,
-		VDD_DIG_FMAX_MAP2(LOWER, 650000000, NOMINAL, 1300000000),
+		VDD_DIG_FMAX_MAP3(LOWER, 650000000, LOW, 650000000,
+				  NOMINAL, 1300000000),
 		CLK_INIT(mmpll3.c),
 	},
 };
@@ -310,7 +325,8 @@ static struct alpha_pll_clk mmpll5 = {
 		.rate = 960000000,
 		.dbg_name = "mmpll5",
 		.ops = &clk_ops_fixed_alpha_pll,
-		VDD_DIG_FMAX_MAP2(LOWER, 650000000, NOMINAL, 1300000000),
+		VDD_DIG_FMAX_MAP3(LOWER, 650000000, LOW, 650000000,
+				  NOMINAL, 1300000000),
 		CLK_INIT(mmpll5.c),
 	},
 };
@@ -2242,6 +2258,7 @@ int msm_mmsscc_plutonium_probe(struct platform_device *pdev)
 	struct resource *res;
 	int rc;
 	struct clk *tmp;
+	struct regulator *reg;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cc_base");
 	if (!res) {
@@ -2254,23 +2271,39 @@ int msm_mmsscc_plutonium_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	vdd_dig.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_dig");
-	if (IS_ERR(vdd_dig.regulator[0])) {
-		if (!(PTR_ERR(vdd_dig.regulator[0]) == -EPROBE_DEFER))
+	reg = vdd_dig.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_dig");
+	if (IS_ERR(reg)) {
+		if (PTR_ERR(reg) != -EPROBE_DEFER)
 			dev_err(&pdev->dev, "Unable to get vdd_dig regulator!");
-		return PTR_ERR(vdd_dig.regulator[0]);
+		return PTR_ERR(reg);
+	}
+
+	reg = vdd_mmpll4.regulator[0] = devm_regulator_get(&pdev->dev,
+							   "mmpll4_dig");
+	if (IS_ERR(reg)) {
+		if (PTR_ERR(reg) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Unable to get mmpll4_dig regulator!");
+		return PTR_ERR(reg);
+	}
+
+	reg = vdd_mmpll4.regulator[1] = devm_regulator_get(&pdev->dev,
+							   "mmpll4_analog");
+	if (IS_ERR(reg)) {
+		if (PTR_ERR(reg) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Unable to get mmpll4_analog regulator!");
+		return PTR_ERR(reg);
 	}
 
 	tmp = mmsscc_xo.c.parent = devm_clk_get(&pdev->dev, "xo");
 	if (IS_ERR(tmp)) {
-		if (!(PTR_ERR(tmp) == -EPROBE_DEFER))
+		if (PTR_ERR(tmp) != -EPROBE_DEFER)
 			dev_err(&pdev->dev, "Unable to get xo clock!");
 		return PTR_ERR(tmp);
 	}
 
 	tmp = mmsscc_gpll0.c.parent = devm_clk_get(&pdev->dev, "gpll0");
 	if (IS_ERR(tmp)) {
-		if (!(PTR_ERR(tmp) == -EPROBE_DEFER))
+		if (PTR_ERR(tmp) != -EPROBE_DEFER)
 			dev_err(&pdev->dev, "Unable to get gpll0 clock!");
 		return PTR_ERR(tmp);
 	}
@@ -2278,7 +2311,7 @@ int msm_mmsscc_plutonium_probe(struct platform_device *pdev)
 	tmp = mmsscc_mmssnoc_ahb.c.parent =
 				devm_clk_get(&pdev->dev, "mmssnoc_ahb");
 	if (IS_ERR(tmp)) {
-		if (!(PTR_ERR(tmp) == -EPROBE_DEFER))
+		if (PTR_ERR(tmp) != -EPROBE_DEFER)
 			dev_err(&pdev->dev, "Unable to get MMSSNOC AHB clock!");
 		return PTR_ERR(tmp);
 	}

@@ -21,6 +21,12 @@ Required properties:
 
 Optional properties:
 - vdd_dig-supply:	The digital logic rail supply.
+- <pll>_dig-supply:	Some PLLs might have separate digital supply on some
+			targets. These properties will be provided on those
+			targets for specific PLLs.
+- <pll>_analog-supply:	Some PLLs might have separate analog supply on some
+			targets. These properties will be provided on those
+			targets for specific PLLs.
 - #clock_cells:		If this device will also be providing controllable
 			clocks, the clock_cells property needs to be specified.
 			This will allow the common clock device tree framework

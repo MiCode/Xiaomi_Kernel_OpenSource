@@ -49,6 +49,15 @@
 	},					\
 	.num_fmax = VDD_DIG_NUM
 
+#define VDD_MMPLL4_FMAX_MAP3(l1, f1, l2, f2, l3, f3) \
+	.vdd_class = &vdd_mmpll4,		\
+	.fmax = (unsigned long[VDD_DIG_NUM]) {	\
+		[VDD_DIG_##l1] = (f1),		\
+		[VDD_DIG_##l2] = (f2),		\
+		[VDD_DIG_##l3] = (f3),		\
+	},					\
+	.num_fmax = VDD_DIG_NUM
+
 enum vdd_dig_levels {
 	VDD_DIG_NONE,
 	VDD_DIG_LOWER,		/* SVS2 */
