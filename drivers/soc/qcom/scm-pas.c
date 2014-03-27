@@ -152,6 +152,7 @@ int pas_init_image(enum pas_id id, const u8 *metadata, size_t size)
 					&attrs);
 	if (!mdata_buf) {
 		pr_err("Allocation for metadata failed.\n");
+		scm_pas_disable_bw();
 		return -ENOMEM;
 	}
 
