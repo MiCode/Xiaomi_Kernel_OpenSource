@@ -660,7 +660,7 @@ static ssize_t snapshot_show(struct file *filep, struct kobject *kobj,
 		return 0;
 
 	/* Get the mutex to keep things from changing while we are dumping */
-	mutex_lock(&device->mutex);
+	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 
 	obj_itr_init(&itr, buf, off, count);
 
@@ -699,7 +699,7 @@ static ssize_t snapshot_show(struct file *filep, struct kobject *kobj,
 	}
 
 done:
-	mutex_unlock(&device->mutex);
+	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 
 	return itr.write;
 }
@@ -731,12 +731,12 @@ static ssize_t trigger_store(struct kgsl_device *device, const char *buf,
 	size_t count)
 {
 	if (device && count > 0) {
-		mutex_lock(&device->mutex);
+		kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 		if (!kgsl_active_count_get(device)) {
 				kgsl_device_snapshot(device, 0);
 				kgsl_active_count_put(device);
 		}
-		mutex_unlock(&device->mutex);
+		kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 	}
 
 	return count;

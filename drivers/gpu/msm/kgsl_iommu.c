@@ -1778,16 +1778,8 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 		return ret;
 	}
 
-	/*
-	 * Check to see if the current thread already holds the device mutex.
-	 * If it does not, then take the device mutex which is required for
-	 * flushing the tlb
-	 */
-	if (!mutex_is_locked(&device->mutex) ||
-		device->mutex.owner != current) {
-		mutex_lock(&device->mutex);
+	if (kgsl_mutex_lock(&device->mutex, &device->mutex_owner))
 		lock_taken = 1;
-	}
 
 	/*
 	 * Flush the tlb only if the iommu device is attached and the pagetable
@@ -1800,7 +1792,7 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 		kgsl_iommu_default_setstate(pt->mmu, KGSL_MMUFLAGS_TLBFLUSH);
 
 	if (lock_taken)
-		mutex_unlock(&device->mutex);
+		kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 
 	return ret;
 }
