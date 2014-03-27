@@ -35,7 +35,7 @@ static unsigned long backtrace_flag;
 
 void arch_trigger_all_cpu_backtrace(void)
 {
-	int i;
+	int i, this_cpu;
 
 	if (test_and_set_bit(0, &backtrace_flag))
 		/*
@@ -46,8 +46,23 @@ void arch_trigger_all_cpu_backtrace(void)
 
 	cpumask_copy(to_cpumask(backtrace_mask), cpu_online_mask);
 
-	printk(KERN_INFO "sending NMI to all CPUs:\n");
-	apic->send_IPI_all(NMI_VECTOR);
+	if (in_nmi()) {
+		/*
+		 * If already running in NMI context, the current CPU cannot
+		 * respond to NMI as NMIs cannot be nested. Also, running in
+		 * NMI context guarantees that preemption is disabled so we
+		 * can safely call send_IPI_allbutself and smp_processor_id.
+		 */
+		this_cpu = smp_processor_id();
+		printk(KERN_INFO "sending NMI to other CPUs from CPU %d:\n",
+			this_cpu);
+		apic->send_IPI_allbutself(NMI_VECTOR);
+		dump_stack();
+		cpumask_clear_cpu(this_cpu, to_cpumask(backtrace_mask));
+	} else {
+		printk(KERN_INFO "sending NMI to all CPUs:\n");
+		apic->send_IPI_all(NMI_VECTOR);
+	}
 
 	/* Wait for up to 10 seconds for all CPUs to do the backtrace */
 	for (i = 0; i < 10 * 1000; i++) {
@@ -55,6 +70,11 @@ void arch_trigger_all_cpu_backtrace(void)
 			break;
 		mdelay(1);
 	}
+	if (cpumask_empty(to_cpumask(backtrace_mask)))
+		printk(KERN_INFO "All CPUs responded to NMI.\n");
+	else
+		for_each_cpu(i, to_cpumask(backtrace_mask))
+			printk(KERN_INFO "CPU %d did not respond to NMI.\n", i);
 
 	clear_bit(0, &backtrace_flag);
 	smp_mb__after_clear_bit();
