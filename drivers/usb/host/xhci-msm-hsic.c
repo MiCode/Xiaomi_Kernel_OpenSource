@@ -131,24 +131,28 @@ struct mxhci_hsic_hcd {
 
 #define SYNOPSIS_DWC3_VENDOR	0x5533
 
-/* xhci dbg logging */
-static unsigned int enable_payload_log = 1;
-module_param(enable_payload_log, uint, S_IRUGO | S_IWUSR);
-static unsigned int enable_dbg_log = 1;
-module_param(enable_dbg_log, uint, S_IRUGO | S_IWUSR);
-
-/* select EPs to log events using this parameter; by default set to ep0 */
-static unsigned int ep_addr_rxdbg_mask = 1;
-module_param(ep_addr_rxdbg_mask, uint, S_IRUGO | S_IWUSR);
-static unsigned int ep_addr_txdbg_mask = 1;
-module_param(ep_addr_txdbg_mask, uint, S_IRUGO | S_IWUSR);
 
 static struct dbg_data dbg_hsic = {
 	.ctrl_idx = 0,
 	.ctrl_lck = __RW_LOCK_UNLOCKED(clck),
 	.data_idx = 0,
-	.data_lck = __RW_LOCK_UNLOCKED(dlck)
+	.data_lck = __RW_LOCK_UNLOCKED(dlck),
+	.log_payload = 1,
+	.log_events = 1,
+	.inep_log_mask = 1,
+	.outep_log_mask = 1
 };
+
+/* xhci dbg logging */
+module_param_named(enable_payload_log,
+			dbg_hsic.log_payload, uint, S_IRUGO | S_IWUSR);
+module_param_named(enable_dbg_log,
+			dbg_hsic.log_events, uint, S_IRUGO | S_IWUSR);
+/* select EPs to log events using this parameter; by default set to ep0 */
+module_param_named(ep_addr_rxdbg_mask,
+			dbg_hsic.inep_log_mask, uint, S_IRUGO | S_IWUSR);
+module_param_named(ep_addr_txdbg_mask,
+			dbg_hsic.outep_log_mask, uint, S_IRUGO | S_IWUSR);
 
 static void xhci_hsic_log_urb(struct urb *urb, char *event, unsigned extra)
 {
@@ -1017,12 +1021,6 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 	driver = &mxhci_hsic_hc_driver;
 
 	pdev->dev.dma_mask = &dma_mask;
-
-	/* dbg log event settings */
-	dbg_hsic.log_events =  enable_dbg_log;
-	dbg_hsic.log_payload = enable_payload_log;
-	dbg_hsic.inep_log_mask = ep_addr_rxdbg_mask;
-	dbg_hsic.outep_log_mask = ep_addr_rxdbg_mask;
 
 	/* usb2.0 root hub */
 	driver->hcd_priv_size =	sizeof(struct mxhci_hsic_hcd);
