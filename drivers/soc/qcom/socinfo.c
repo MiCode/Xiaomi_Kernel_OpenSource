@@ -47,6 +47,7 @@ enum {
 	HW_PLATFORM_FLUID   = 3,
 	HW_PLATFORM_SVLTE_FFA	= 4,
 	HW_PLATFORM_SVLTE_SURF	= 5,
+	HW_PLATFORM_MTP_MDM = 7,
 	HW_PLATFORM_MTP  = 8,
 	HW_PLATFORM_LIQUID  = 9,
 	/* Dragonboard platform id is assigned as 10 in CDT */
@@ -66,6 +67,7 @@ const char *hw_platform[] = {
 	[HW_PLATFORM_FLUID] = "Fluid",
 	[HW_PLATFORM_SVLTE_FFA] = "SVLTE_FFA",
 	[HW_PLATFORM_SVLTE_SURF] = "SLVTE_SURF",
+	[HW_PLATFORM_MTP_MDM] = "MDM_MTP_NO_DISPLAY",
 	[HW_PLATFORM_MTP] = "MTP",
 	[HW_PLATFORM_LIQUID] = "Liquid",
 	[HW_PLATFORM_DRAGON] = "Dragon",
