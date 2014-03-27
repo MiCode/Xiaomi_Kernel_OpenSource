@@ -1,0 +1,33 @@
+* User Identification Module (UIM)
+
+UIM provides an interface for UIM applications to communicate with UIM
+cards in the UIM slots.
+
+Required properties:
+- compatible:	Must be "qcom,uim"
+- reg :	Offset and length of the register regions for the device
+- interrupts :	Interrupt numbers used by this controller
+
+Optional properties:
+- qcom,uim-1v8:	This property specifies that operation voltage
+			of UIM interface is 1.8V.
+- qcom,uim-clk-gpio:	This property specifies the GPIO number for
+			UIM clock signal.
+- qcom,uim-data-gpio:	This property specifies the.GPIO number for
+			UIM data signal.
+- qcom,uim-card-detect-gpio: This property specifies the GPIO number
+			for UIM card detect signal.
+- qcom,uim-reset-gpio:	This property specifies the GPIO number for
+			UIM reset signal.
+
+Example:
+	uim@f995d000 {
+		compatible = "qcom,uim";
+		reg = <0xf995d000 0x1000>;
+		interrupts = <0 101 0>;
+		qcom,uim-1v8;
+		qcom,uim-data-gpio = <&msmgpio 24 0>;
+		qcom,uim-clk-gpio = <&msmgpio 25 0>;
+		qcom,uim-reset-gpio = <&msmgpio 26 0>;
+		qcom,uim-card-detect-gpio = <&msmgpio 27 0>;
+	};
