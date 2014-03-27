@@ -670,7 +670,7 @@ static int msm_csiphy_get_clk_info(struct csiphy_device *csiphy_dev,
 	struct device_node *of_node;
 	of_node = pdev->dev.of_node;
 
-	count = of_property_count_strings(of_node, "qcom,clock-names");
+	count = of_property_count_strings(of_node, "clock-names");
 	csiphy_dev->num_clk = count;
 
 	CDBG("%s: count = %d\n", __func__, count);
@@ -687,7 +687,7 @@ static int msm_csiphy_get_clk_info(struct csiphy_device *csiphy_dev,
 	}
 
 	for (i = 0; i < count; i++) {
-		rc = of_property_read_string_index(of_node, "qcom,clock-names",
+		rc = of_property_read_string_index(of_node, "clock-names",
 				i, &(csiphy_clk_info[i].clk_name));
 		CDBG("%s: clock-names[%d] = %s\n", __func__,
 			i, csiphy_clk_info[i].clk_name);
