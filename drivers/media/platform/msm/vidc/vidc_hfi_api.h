@@ -201,6 +201,7 @@ enum hal_property {
 	HAL_PARAM_VENC_HIER_P_MAX_ENH_LAYERS,
 	HAL_PARAM_VENC_DISABLE_RC_TIMESTAMP,
 	HAL_PARAM_VENC_ENABLE_INITIAL_QP,
+	HAL_PARAM_VENC_SEARCH_RANGE,
 };
 
 enum hal_domain {
@@ -852,6 +853,13 @@ struct hal_h264_vui_bitstream_restrc {
 
 struct hal_preserve_text_quality {
 	u32 enable;
+};
+
+struct hal_vc1e_perf_cfg_type {
+	struct {
+		u32 x_subsampled;
+		u32 y_subsampled;
+	} i_frame, p_frame, b_frame;
 };
 
 enum vidc_resource_id {
