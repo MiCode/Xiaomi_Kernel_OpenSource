@@ -155,7 +155,6 @@ struct tmc_drvdata {
 	struct class		*byte_cntr_class;
 	struct clk		*clk;
 	spinlock_t		spinlock;
-	bool			reset_flush_race;
 	struct coresight_cti	*cti_flush;
 	struct coresight_cti	*cti_reset;
 	struct mutex		read_lock;
@@ -778,7 +777,7 @@ static int tmc_enable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 	mutex_lock(&drvdata->usb_lock);
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETB) {
 		coresight_cti_map_trigout(drvdata->cti_flush, 1, 0);
-		coresight_cti_map_trigin(drvdata->cti_reset, 0, 0);
+		coresight_cti_map_trigin(drvdata->cti_reset, 2, 0);
 	} else if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
 		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
 
@@ -801,12 +800,10 @@ static int tmc_enable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 				goto err0;
 
 			tmc_etr_byte_cntr_start(drvdata);
-			if (!drvdata->reset_flush_race) {
-				coresight_cti_map_trigout(drvdata->cti_flush,
-							  3, 0);
-				coresight_cti_map_trigin(drvdata->cti_reset,
-							 2, 0);
-			}
+			coresight_cti_map_trigout(drvdata->cti_flush,
+						  3, 0);
+			coresight_cti_map_trigin(drvdata->cti_reset,
+						 2, 0);
 		} else if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
 			drvdata->usbch = usb_qdss_open("qdss", drvdata,
 						       usb_notifier);
@@ -819,7 +816,7 @@ static int tmc_enable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 	} else {
 		if (mode == TMC_MODE_CIRCULAR_BUFFER) {
 			coresight_cti_map_trigout(drvdata->cti_flush, 1, 0);
-			coresight_cti_map_trigin(drvdata->cti_reset, 0, 0);
+			coresight_cti_map_trigin(drvdata->cti_reset, 2, 0);
 		}
 	}
 
@@ -1128,24 +1125,22 @@ static void tmc_disable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETB) {
-		coresight_cti_unmap_trigin(drvdata->cti_reset, 0, 0);
+		coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
 		coresight_cti_unmap_trigout(drvdata->cti_flush, 1, 0);
 	} else if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
 		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
 			tmc_etr_byte_cntr_stop(drvdata);
-			if (!drvdata->reset_flush_race) {
-				coresight_cti_unmap_trigin(drvdata->cti_reset,
-							   2, 0);
-				coresight_cti_unmap_trigout(drvdata->cti_flush,
-							    3, 0);
-			}
+			coresight_cti_unmap_trigin(drvdata->cti_reset,
+						   2, 0);
+			coresight_cti_unmap_trigout(drvdata->cti_flush,
+						    3, 0);
 		} else if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
 			tmc_etr_bam_disable(drvdata);
 			usb_qdss_close(drvdata->usbch);
 		}
 	} else {
 		if (mode == TMC_MODE_CIRCULAR_BUFFER) {
-			coresight_cti_unmap_trigin(drvdata->cti_reset, 0, 0);
+			coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
 			coresight_cti_unmap_trigout(drvdata->cti_flush, 1, 0);
 		}
 	}
@@ -1837,10 +1832,8 @@ static ssize_t tmc_etr_store_out_mode(struct device *dev,
 		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
-		if (!drvdata->reset_flush_race) {
-			coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
-			coresight_cti_map_trigin(drvdata->cti_reset, 2, 0);
-		}
+		coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
+		coresight_cti_map_trigin(drvdata->cti_reset, 2, 0);
 
 		tmc_etr_bam_disable(drvdata);
 		usb_qdss_close(drvdata->usbch);
@@ -1862,10 +1855,8 @@ static ssize_t tmc_etr_store_out_mode(struct device *dev,
 		drvdata->out_mode = TMC_ETR_OUT_MODE_USB;
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
-		if (!drvdata->reset_flush_race) {
-			coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
-			coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
-		}
+		coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
+		coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
 
 		drvdata->usbch = usb_qdss_open("qdss", drvdata,
 					       usb_notifier);
@@ -2402,10 +2393,6 @@ static int tmc_probe(struct platform_device *pdev)
 	count++;
 
 	if (pdev->dev.of_node) {
-		drvdata->reset_flush_race = of_property_read_bool(
-						pdev->dev.of_node,
-						"qcom,reset-flush-race");
-
 		ctidata = of_get_coresight_cti_data(dev, pdev->dev.of_node);
 		if (IS_ERR(ctidata)) {
 			dev_err(dev, "invalid cti data\n");
