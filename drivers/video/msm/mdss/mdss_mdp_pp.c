@@ -4811,6 +4811,7 @@ static int is_valid_calib_addr(void *addr, u32 operation)
 	if ((unsigned int)addr % 4) {
 		ret = 0;
 	} else if (ptr == (mdss_res->mdp_base + MDSS_MDP_REG_HW_VERSION) ||
+	    ptr == (mdss_res->mdp_base + MDSS_REG_HW_VERSION) ||
 	    ptr == (mdss_res->mdp_base + MDSS_MDP_REG_DISP_INTF_SEL)) {
 		ret = MDP_PP_OPS_READ;
 	/* IGC DSPP range */
