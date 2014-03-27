@@ -73,6 +73,7 @@ static bool hdcp_feature_on = true;
 #define MSM_HDMI_AUDIO_CHANNEL_8	8
 
 #define NUM_MODES_AVI 20
+#define AVI_MAX_DATA_BYTES 13
 
 /* AVI Infoframe data byte 3, bit 7 (msb) represents ITC bit */
 #define SET_ITC_BIT(byte)  (byte = (byte | BIT(7)))
@@ -168,47 +169,84 @@ const char *hdmi_pm_name(enum hdmi_tx_power_module_type module)
 	}
 } /* hdmi_pm_name */
 
-static u8 hdmi_tx_avi_iframe_lut[][NUM_MODES_AVI] = {
-	{0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,
-	 0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,	0x10,
-	 0x10,	0x10}, /*00*/
-	{0x18,	0x18,	0x28,	0x28,	0x28,	0x28,	0x28,	0x28,	0x28,
-	 0x28,	0x28,	0x28,	0x28,	0x18,	0x28,	0x18,	0x28,	0x28,
-	 0x28,	0x28}, /*01*/
-	{0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,
-	 0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,
-	 0x00,	0x00}, /*02*/
-	{0x02,	0x06,	0x11,	0x15,	0x04,	0x13,	0x10,	0x05,	0x1F,
-	 0x14,	0x20,	0x22,	0x21,	0x01,	0x03,	0x11,	0x00,	0x00,
-	 0x00,	0x00}, /*03*/
-	{0x00,	0x01,	0x00,	0x01,	0x00,	0x00,	0x00,	0x00,	0x00,
-	 0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,
-	 0x00,	0x00}, /*04*/
-	{0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,
-	 0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,
-	 0x00,	0x00}, /*05*/
-	{0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,
-	 0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,
-	 0x00,	0x00}, /*06*/
-	{0xE1,	0xE1,	0x41,	0x41,	0xD1,	0xd1,	0x39,	0x39,	0x39,
-	 0x39,	0x39,	0x39,	0x39,	0xe1,	0xE1,	0x41,	0x71,	0x71,
-	 0x71,	0x71}, /*07*/
-	{0x01,	0x01,	0x02,	0x02,	0x02,	0x02,	0x04,	0x04,	0x04,
-	 0x04,	0x04,	0x04,	0x04,	0x01,	0x01,	0x02,	0x08,	0x08,
-	 0x08,	0x08}, /*08*/
-	{0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,
-	 0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,
-	 0x00,	0x00}, /*09*/
-	{0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,
-	 0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,	0x00,
-	 0x00,	0x00}, /*10*/
-	{0xD1,	0xD1,	0xD1,	0xD1,	0x01,	0x01,	0x81,	0x81,	0x81,
-	 0x81,	0x81,	0x81,	0x81,	0x81,	0xD1,	0xD1,	0x01,	0x01,
-	 0x01,	0x01}, /*11*/
-	{0x02,	0x02,	0x02,	0x02,	0x05,	0x05,	0x07,	0x07,	0x07,
-	 0x07,	0x07,	0x07,	0x07,	0x02,	0x02,	0x02,	0x0F,	0x0F,
-	 0x0F,	0x10}  /*12*/
-};
+/*
+ * 13 Bytes of AVI infoframe data wrt each resolution
+ * Data Byte 01: 0 Y1 Y0 A0 B1 B0 S1 S0
+ * Data Byte 02: C1 C0 M1 M0 R3 R2 R1 R0
+ * Data Byte 03: ITC EC2 EC1 EC0 Q1 Q0 SC1 SC0
+ * Data Byte 04: 0 VIC6 VIC5 VIC4 VIC3 VIC2 VIC1 VIC0
+ * Data Byte 05: 0 0 0 0 PR3 PR2 PR1 PR0
+ * Data Byte 06: LSB Line No of End of Top Bar
+ * Data Byte 07: MSB Line No of End of Top Bar
+ * Data Byte 08: LSB Line No of Start of Bottom Bar
+ * Data Byte 09: MSB Line No of Start of Bottom Bar
+ * Data Byte 10: LSB Pixel Number of End of Left Bar
+ * Data Byte 11: MSB Pixel Number of End of Left Bar
+ * Data Byte 12: LSB Pixel Number of Start of Right Bar
+ * Data Byte 13: MSB Pixel Number of Start of Right Bar
+ */
+static u8 hdmi_tx_avi_iframe_lut[HDMI_EVFRMT_END + 1][AVI_MAX_DATA_BYTES] = {
+	[HDMI_VFRMT_720x480p60_4_3] = {
+		0x10, 0x18, 0x00, 0x02, 0x00, 0x00, 0x00,
+		0xE1, 0x01, 0x00, 0x00, 0xD1, 0x02},
+	[HDMI_VFRMT_720x480i60_16_9] = {
+		0x10, 0x18, 0x00, 0x07, 0x01, 0x00, 0x00,
+		0xE1, 0x01, 0x00, 0x00, 0xD1, 0x02},
+	[HDMI_VFRMT_720x576p50_16_9] = {
+		0x10, 0x28, 0x00, 0x12, 0x00, 0x00, 0x00,
+		0x41, 0x02, 0x00, 0x00, 0xD1, 0x02},
+	[HDMI_VFRMT_720x576i50_16_9] = {
+		0x10, 0x28, 0x00, 0x16, 0x01, 0x00, 0x00,
+		0x41, 0x02, 0x00, 0x00, 0xD1, 0x02},
+	[HDMI_VFRMT_1280x720p60_16_9] = {
+		0x10, 0x28, 0x00, 0x04, 0x00, 0x00, 0x00,
+		0xD1, 0x02, 0x00, 0x00, 0x01, 0x05},
+	[HDMI_VFRMT_1280x720p50_16_9] = {
+		0x10, 0x28, 0x00, 0x13, 0x00, 0x00, 0x00,
+		0xD1, 0x02, 0x00, 0x00, 0x01, 0x05},
+	[HDMI_VFRMT_1920x1080p60_16_9] = {
+		0x10, 0x28, 0x00, 0x10, 0x00, 0x00, 0x00,
+		0x39, 0x04, 0x00, 0x00, 0x81, 0x07},
+	[HDMI_VFRMT_1920x1080i60_16_9] = {
+		0x10, 0x28, 0x00, 0x05, 0x00, 0x00, 0x00,
+		0x39, 0x04, 0x00, 0x00, 0x81, 0x07},
+	[HDMI_VFRMT_1920x1080p50_16_9] = {
+		0x10, 0x28, 0x00, 0x1F, 0x00, 0x00, 0x00,
+		0x39, 0x04, 0x00, 0x00, 0x81, 0x07},
+	[HDMI_VFRMT_1920x1080i50_16_9] = {
+		0x10, 0x28, 0x00, 0x14, 0x00, 0x00, 0x00,
+		0x39, 0x04, 0x00, 0x00, 0x81, 0x07},
+	[HDMI_VFRMT_1920x1080p24_16_9] = {
+		0x10, 0x28, 0x00, 0x20, 0x00, 0x00, 0x00,
+		0x39, 0x04, 0x00, 0x00, 0x81, 0x07},
+	[HDMI_VFRMT_1920x1080p30_16_9] = {
+		0x10, 0x28, 0x00, 0x22, 0x00, 0x00, 0x00,
+		0x39, 0x04, 0x00, 0x00, 0x81, 0x07},
+	[HDMI_VFRMT_1920x1080p30_16_9] = {
+		0x10, 0x28, 0x00, 0x21, 0x00, 0x00, 0x00,
+		0x39, 0x04, 0x00, 0x00, 0x81, 0x07},
+	[HDMI_VFRMT_640x480p60_4_3] = {
+		0x10, 0x18, 0x00, 0x01, 0x00, 0x00, 0x00,
+		0xE1, 0x01, 0x00, 0x00, 0x81, 0x02},
+	[HDMI_VFRMT_720x480p60_16_9] = {
+		0x10, 0x28, 0x00, 0x03, 0x00, 0x00, 0x00,
+		0xE1, 0x01, 0x00, 0x00, 0xD1, 0x02},
+	[HDMI_VFRMT_720x576p50_4_3] = {
+		0x10, 0x18, 0x00, 0x11, 0x00, 0x00, 0x00,
+		0x41, 0x02, 0x00, 0x00, 0xD1, 0x02},
+	[HDMI_VFRMT_3840x2160p30_16_9] = {
+		0x10, 0x28, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x71, 0x08, 0x00, 0x00, 0x01, 0x0F},
+	[HDMI_VFRMT_3840x2160p25_16_9] = {
+		0x10, 0x28, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x71, 0x08, 0x00, 0x00, 0x01, 0x0F},
+	[HDMI_VFRMT_3840x2160p24_16_9] = {
+		0x10, 0x28, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x71, 0x08, 0x00, 0x00, 0x01, 0x0F},
+	[HDMI_VFRMT_4096x2160p24_16_9] = {
+		0x10, 0x28, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x71, 0x08, 0x00, 0x00, 0x01, 0x10}
+}; /* hdmi_tx_avi_iframe_lut */
 
 /* Audio constants lookup table for hdmi_tx_audio_acr_setup */
 /* Valid Pixel-Clock rates: 25.2MHz, 27MHz, 27.03MHz, 74.25MHz, 148.5MHz */
@@ -805,8 +843,8 @@ static ssize_t hdmi_tx_sysfs_wta_avi_itc(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
 	ssize_t ret = strnlen(buf, PAGE_SIZE);
-	u8 *avi_byte3 = hdmi_tx_avi_iframe_lut[2];
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+	u8 data_byte_3 = 0x02;
 	int loop = 0, itc = 0, rc = 0;
 
 	hdmi_ctrl = hdmi_tx_get_drvdata_from_sysfs_dev(dev);
@@ -831,10 +869,11 @@ static ssize_t hdmi_tx_sysfs_wta_avi_itc(struct device *dev,
 		return -ERESTARTSYS;
 
 	for (loop = 0; loop < NUM_MODES_AVI; loop++) {
+		u8 *avi_infoframe = hdmi_tx_avi_iframe_lut[loop];
 		if (itc)
-			SET_ITC_BIT(avi_byte3[loop]);
+			SET_ITC_BIT(avi_infoframe[data_byte_3]);
 		else
-			CLR_ITC_BIT(avi_byte3[loop]);
+			CLR_ITC_BIT(avi_infoframe[data_byte_3]);
 	}
 
 	mutex_unlock(&hdmi_ctrl->lut_lock);
@@ -846,7 +885,7 @@ static ssize_t hdmi_tx_sysfs_wta_avi_cn_bits(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
 	ssize_t ret = strnlen(buf, PAGE_SIZE);
-	u8 *avi_byte5 = hdmi_tx_avi_iframe_lut[4];
+	u8 data_byte_5 = 0x04;
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
 	int loop = 0, cn_bits = 0, rc = 0;
 
@@ -872,8 +911,10 @@ static ssize_t hdmi_tx_sysfs_wta_avi_cn_bits(struct device *dev,
 	if (mutex_lock_interruptible(&hdmi_ctrl->lut_lock))
 		return -ERESTARTSYS;
 
-	for (loop = 0; loop < NUM_MODES_AVI; loop++)
-		CONFIG_CN_BITS(cn_bits, avi_byte5[loop]);
+	for (loop = 0; loop < NUM_MODES_AVI; loop++) {
+		u8 *avi_infoframe = hdmi_tx_avi_iframe_lut[loop];
+		CONFIG_CN_BITS(cn_bits, avi_infoframe[data_byte_5]);
+	}
 
 	mutex_unlock(&hdmi_ctrl->lut_lock);
 
@@ -1419,11 +1460,13 @@ static int hdmi_tx_video_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 
 static void hdmi_tx_set_avi_infoframe(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	int i, mode = 0;
-	u8 avi_iframe[16]; /* two header + length + 13 data */
+	int i;
+	/* two header + length + AVI_MAX_DATA_BYTES */
+	u8 avi_iframe[AVI_MAX_DATA_BYTES + 3];
 	u8 checksum;
 	u32 sum, regVal;
 	struct dss_io_data *io = NULL;
+	u32 vic = hdmi_ctrl->video_resolution;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -1436,110 +1479,35 @@ static void hdmi_tx_set_avi_infoframe(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return;
 	}
 
-	switch (hdmi_ctrl->video_resolution) {
-	case HDMI_VFRMT_720x480p60_4_3:
-		mode = 0;
-		break;
-	case HDMI_VFRMT_720x480i60_16_9:
-		mode = 1;
-		break;
-	case HDMI_VFRMT_720x576p50_16_9:
-		mode = 2;
-		break;
-	case HDMI_VFRMT_720x576i50_16_9:
-		mode = 3;
-		break;
-	case HDMI_VFRMT_1280x720p60_16_9:
-		mode = 4;
-		break;
-	case HDMI_VFRMT_1280x720p50_16_9:
-		mode = 5;
-		break;
-	case HDMI_VFRMT_1920x1080p60_16_9:
-		mode = 6;
-		break;
-	case HDMI_VFRMT_1920x1080i60_16_9:
-		mode = 7;
-		break;
-	case HDMI_VFRMT_1920x1080p50_16_9:
-		mode = 8;
-		break;
-	case HDMI_VFRMT_1920x1080i50_16_9:
-		mode = 9;
-		break;
-	case HDMI_VFRMT_1920x1080p24_16_9:
-		mode = 10;
-		break;
-	case HDMI_VFRMT_1920x1080p30_16_9:
-		mode = 11;
-		break;
-	case HDMI_VFRMT_1920x1080p25_16_9:
-		mode = 12;
-		break;
-	case HDMI_VFRMT_640x480p60_4_3:
-		mode = 13;
-		break;
-	case HDMI_VFRMT_720x480p60_16_9:
-		mode = 14;
-		break;
-	case HDMI_VFRMT_720x576p50_4_3:
-		mode = 15;
-		break;
-	case HDMI_VFRMT_3840x2160p30_16_9:
-		mode = 16;
-		break;
-	case HDMI_VFRMT_3840x2160p25_16_9:
-		mode = 17;
-		break;
-	case HDMI_VFRMT_3840x2160p24_16_9:
-		mode = 18;
-		break;
-	case HDMI_VFRMT_4096x2160p24_16_9:
-		mode = 19;
-		break;
-	default:
-		DEV_INFO("%s: mode %d not supported\n", __func__,
-			hdmi_ctrl->video_resolution);
-		return;
-	}
+	/*
+	 * InfoFrame Type Code:
+	 * 0x00 - Reserved
+	 * 0x01 - Vendor Specific
+	 * 0x02 - Auxiliary Video Information
+	 * 0x03 - Source Product Description
+	 * 0x04 - AUDIO
+	 * 0x05 - MPEG Source
+	 * 0x06 - NTSC VBI
+	 * 0x07 - 0xFF - Reserved
+	 *
+	 * Select Type = 02
+	 */
+	avi_iframe[0] = 0x02;
 
-	/* InfoFrame Type = 82 */
-	avi_iframe[0]  = 0x82;
 	/* Version = 2 */
-	avi_iframe[1]  = 2;
-	/* Length of AVI InfoFrame = 13 */
-	avi_iframe[2]  = 13;
+	avi_iframe[1] = 0x02;
 
-	/* Data Byte 01: 0 Y1 Y0 A0 B1 B0 S1 S0 */
-	avi_iframe[3]  = hdmi_tx_avi_iframe_lut[0][mode];
+	/* Length of AVI InfoFrame data */
+	avi_iframe[2] = AVI_MAX_DATA_BYTES;
+
+	/* copy AVI_MAX_DATA_BYTES of AVI infoframe data wrt VIC */
+	memcpy(avi_iframe + 3,
+		hdmi_tx_avi_iframe_lut[vic],
+		sizeof(hdmi_tx_avi_iframe_lut[vic]));
+
 	avi_iframe[3] |= hdmi_edid_get_sink_scaninfo(
 		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID],
 		hdmi_ctrl->video_resolution);
-
-	/* Data Byte 02: C1 C0 M1 M0 R3 R2 R1 R0 */
-	avi_iframe[4]  = hdmi_tx_avi_iframe_lut[1][mode];
-	/* Data Byte 03: ITC EC2 EC1 EC0 Q1 Q0 SC1 SC0 */
-	avi_iframe[5]  = hdmi_tx_avi_iframe_lut[2][mode];
-	/* Data Byte 04: 0 VIC6 VIC5 VIC4 VIC3 VIC2 VIC1 VIC0 */
-	avi_iframe[6]  = hdmi_tx_avi_iframe_lut[3][mode];
-	/* Data Byte 05: 0 0 0 0 PR3 PR2 PR1 PR0 */
-	avi_iframe[7]  = hdmi_tx_avi_iframe_lut[4][mode];
-	/* Data Byte 06: LSB Line No of End of Top Bar */
-	avi_iframe[8]  = hdmi_tx_avi_iframe_lut[5][mode];
-	/* Data Byte 07: MSB Line No of End of Top Bar */
-	avi_iframe[9]  = hdmi_tx_avi_iframe_lut[6][mode];
-	/* Data Byte 08: LSB Line No of Start of Bottom Bar */
-	avi_iframe[10] = hdmi_tx_avi_iframe_lut[7][mode];
-	/* Data Byte 09: MSB Line No of Start of Bottom Bar */
-	avi_iframe[11] = hdmi_tx_avi_iframe_lut[8][mode];
-	/* Data Byte 10: LSB Pixel Number of End of Left Bar */
-	avi_iframe[12] = hdmi_tx_avi_iframe_lut[9][mode];
-	/* Data Byte 11: MSB Pixel Number of End of Left Bar */
-	avi_iframe[13] = hdmi_tx_avi_iframe_lut[10][mode];
-	/* Data Byte 12: LSB Pixel Number of Start of Right Bar */
-	avi_iframe[14] = hdmi_tx_avi_iframe_lut[11][mode];
-	/* Data Byte 13: MSB Pixel Number of Start of Right Bar */
-	avi_iframe[15] = hdmi_tx_avi_iframe_lut[12][mode];
 
 	sum = 0;
 	for (i = 0; i < 16; i++)
