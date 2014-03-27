@@ -119,7 +119,6 @@ enum msm_cci_state_t {
 	CCI_STATE_DISABLED,
 };
 
-
 struct cci_device {
 	struct platform_device *pdev;
 	struct msm_sd_subdev msm_sd;
