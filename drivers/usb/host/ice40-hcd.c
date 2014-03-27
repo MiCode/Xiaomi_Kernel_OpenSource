@@ -1884,6 +1884,13 @@ static ssize_t ice40_dbg_cmd_write(struct file *file, const char __user *ubuf,
 		ihcd->port_flags |= (USB_PORT_STAT_C_CONNECTION << 16);
 		ihcd->pcd_pending = true;
 		usb_hcd_poll_rh_status(ihcd->hcd);
+	} else if (!strcmp(buf, "config_test")) {
+		ice40_spi_power_off(ihcd);
+		ret = ice40_spi_load_fw(ihcd);
+		if (ret) {
+			pr_err("config load failed\n");
+			goto out;
+		}
 	} else {
 		ret = -EINVAL;
 		goto out;
