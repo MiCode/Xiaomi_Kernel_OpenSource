@@ -217,6 +217,25 @@
 			};
 		};
 
+		ice40-spi-usb-pins {
+			qcom,pins = <&gp 0>, <&gp 1>, <&gp 3>, <&gp 114>;
+			qcom,num-grp-pins = <4>;
+			qcom,pin-func = <0>;
+			label = "ice40-spi-usb-pins";
+
+			/* active state */
+			ice40_default: default {
+				drive-strength = <8>;
+				bias-disable;
+			};
+
+			/* sleep state */
+			ice40_sleep: sleep {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 
 		pmx_i2c_0 {
 			/* CLK, DATA */
