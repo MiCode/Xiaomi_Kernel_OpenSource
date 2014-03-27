@@ -596,46 +596,6 @@ static int bam_data_peer_reset_cb(void *param)
 	return 0;
 }
 
-static void disable_data_ep(struct bam_data_port *port)
-{
-	struct bam_data_ch_info *d = &port->data_ch;
-
-	if (!port->port_usb)
-		return;
-
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		port->port_usb->ipa_consumer_ep = -1;
-		port->port_usb->ipa_producer_ep = -1;
-	}
-
-	if (port->port_usb->in && port->port_usb->in->driver_data) {
-		/* disable endpoints */
-		usb_ep_disable(port->port_usb->out);
-		usb_ep_disable(port->port_usb->in);
-
-		/*
-		 * Set endless flag to false as USB Endpoint
-		 * is already disable.
-		 */
-		if (d->trans == USB_GADGET_XPORT_BAM2BAM ||
-			d->trans == USB_GADGET_XPORT_BAM2BAM_IPA ||
-			d->trans == USB_GADGET_XPORT_BAM) {
-
-			if (d->dst_pipe_type == USB_BAM_PIPE_BAM2BAM)
-				port->port_usb->in->endless = false;
-
-			if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM)
-				port->port_usb->out->endless = false;
-		}
-
-		port->port_usb->in->driver_data = NULL;
-		port->port_usb->out->driver_data = NULL;
-
-		port->port_usb = NULL;
-	}
-}
-
-
 static void bam2bam_data_disconnect_work(struct work_struct *w)
 {
 	struct bam_data_port *port =
@@ -648,8 +608,6 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
 		pr_info("%s: Already disconnected. Bailing out.\n", __func__);
 		return;
 	}
-
-	disable_data_ep(port);
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM)
@@ -1095,11 +1053,41 @@ void bam_data_disconnect(struct data_port *gr, u8 port_num)
 	}
 
 	d = &port->data_ch;
+	if (port->port_usb) {
+		if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+			port->port_usb->ipa_consumer_ep = -1;
+			port->port_usb->ipa_producer_ep = -1;
+		}
+		if (port->port_usb->in && port->port_usb->in->driver_data) {
+			/* disable endpoints */
+			usb_ep_disable(port->port_usb->out);
+			usb_ep_disable(port->port_usb->in);
+
+			/*
+			 * Set endless flag to false as USB Endpoint
+			 * is already disable.
+			 */
+			if (d->trans == USB_GADGET_XPORT_BAM2BAM ||
+				d->trans == USB_GADGET_XPORT_BAM2BAM_IPA ||
+				d->trans == USB_GADGET_XPORT_BAM) {
+
+				if (d->dst_pipe_type == USB_BAM_PIPE_BAM2BAM)
+					port->port_usb->in->endless = false;
+
+				if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM)
+					port->port_usb->out->endless = false;
+			}
+
+			port->port_usb->in->driver_data = NULL;
+			port->port_usb->out->driver_data = NULL;
+
+			port->port_usb = NULL;
+		}
+	}
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		queue_work(bam_data_wq, &port->disconnect_w);
 	} else {
-		disable_data_ep(port);
 		if (usb_bam_client_ready(false))
 			pr_err("%s: usb_bam_client_ready failed\n",
 				__func__);
