@@ -1922,10 +1922,17 @@ static int qpnp_lbc_get_irqs(struct qpnp_lbc_chip *chip, u8 subtype,
 	return 0;
 }
 
-/* Get initial state of charger */
+/* Get/Set initial state of charger */
 static void determine_initial_status(struct qpnp_lbc_chip *chip)
 {
-	qpnp_lbc_usbin_valid_irq_handler(chip->irqs[USBIN_VALID].irq, chip);
+	chip->usb_present = qpnp_lbc_is_usb_chg_plugged_in(chip);
+	power_supply_set_present(chip->usb_psy, chip->usb_present);
+	/*
+	 * Set USB psy online to avoid userspace from shutting down if battery
+	 * capacity is at zero and no chargers online.
+	 */
+	if (chip->usb_present)
+		power_supply_set_online(chip->usb_psy, 1);
 }
 
 static int qpnp_lbc_probe(struct spmi_device *spmi)
@@ -2128,7 +2135,7 @@ static int qpnp_lbc_probe(struct spmi_device *spmi)
 		goto unregister_batt;
 	}
 
-	/* Get charger's initial status */
+	/* Get/Set charger's initial status */
 	determine_initial_status(chip);
 
 	rc = qpnp_lbc_request_irqs(chip);
