@@ -1114,16 +1114,24 @@ test_latter_request(struct request_queue *q, struct request *rq)
 	return list_entry(rq->queuelist.next, struct request, queuelist);
 }
 
-static int test_init_queue(struct request_queue *q)
+static int test_init_queue(struct request_queue *q, struct elevator_type *e)
 {
 	struct blk_dev_test_type *__bdt;
+	struct elevator_queue *eq;
+
+	eq = elevator_alloc(q, e);
+	if (!eq)
+		return -ENOMEM;
 
 	ptd = kmalloc_node(sizeof(struct test_data), GFP_KERNEL,
 			     q->node);
 	if (!ptd) {
 		pr_err("%s: failed to allocate test data", __func__);
+		kobject_put(&eq->kobj);
 		return -ENOMEM;
 	}
+	eq->elevator_data = ptd;
+
 	memset((void *)ptd, 0, sizeof(struct test_data));
 	INIT_LIST_HEAD(&ptd->queue);
 	INIT_LIST_HEAD(&ptd->test_queue);
@@ -1146,7 +1154,9 @@ static int test_init_queue(struct request_queue *q)
 	list_for_each_entry(__bdt, &blk_dev_test_list, list)
 		__bdt->init_fn();
 
-	q->elevator->elevator_data = ptd;
+	spin_lock_irq(q->queue_lock);
+	q->elevator = eq;
+	spin_unlock_irq(q->queue_lock);
 
 	return 0;
 }
