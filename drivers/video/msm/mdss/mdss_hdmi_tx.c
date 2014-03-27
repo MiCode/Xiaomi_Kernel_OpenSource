@@ -21,7 +21,6 @@
 #include <linux/of_platform.h>
 #include <linux/types.h>
 #include <linux/msm_hdmi.h>
-#include <mach/msm_hdmi_audio_codec.h>
 
 #define REG_DUMP 0
 
