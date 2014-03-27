@@ -15,7 +15,7 @@
 #include "mpq8092.dtsi"
 
 / {
-	model = "Qualcomm MPQ8092 Simulator";
+	model = "Qualcomm Technologies, Inc. MPQ8092 Simulator";
 	compatible = "qcom,mpq8092-sim", "qcom,mpq8092", "qcom,sim";
 	qcom,board-id = <16 0>;
 

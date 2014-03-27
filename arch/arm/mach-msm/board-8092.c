@@ -182,7 +182,8 @@ static const char *mpq8092_dt_match[] __initconst = {
 	NULL
 };
 
-DT_MACHINE_START(MSM8092_DT, "Qualcomm MSM 8092 (Flattened Device Tree)")
+DT_MACHINE_START(MSM8092_DT,
+		"Qualcomm Technologies, Inc. MSM 8092 (Flattened Device Tree)")
 	.map_io			= mpq8092_map_io,
 	.init_machine		= mpq8092_init,
 	.dt_compat		= mpq8092_dt_match,

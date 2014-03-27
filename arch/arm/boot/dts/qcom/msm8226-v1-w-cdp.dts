@@ -15,7 +15,7 @@
 #include "msm8226-720p-cdp.dtsi"
 
 / {
-	model = "Qualcomm MSM 8226W CDP";
+	model = "Qualcomm Technologies, Inc. MSM 8226W CDP";
 	compatible = "qcom,msm8226-cdp", "qcom,msm8226", "qcom,cdp";
 	qcom,board-id = <1 4>;
 };

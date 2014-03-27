@@ -104,7 +104,8 @@ static const char *msm8610_dt_match[] __initconst = {
 	NULL
 };
 
-DT_MACHINE_START(MSM8610_DT, "Qualcomm MSM 8610 (Flattened Device Tree)")
+DT_MACHINE_START(MSM8610_DT,
+		"Qualcomm Technologies, Inc. MSM 8610 (Flattened Device Tree)")
 	.map_io			= msm_map_msm8610_io,
 	.init_machine		= msm8610_init,
 	.dt_compat		= msm8610_dt_match,

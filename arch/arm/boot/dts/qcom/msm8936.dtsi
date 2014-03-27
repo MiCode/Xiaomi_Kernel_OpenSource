@@ -14,7 +14,7 @@
 #include <dt-bindings/clock/msm-clocks-8916.h>
 
 / {
-	model = "Qualcomm MSM8936";
+	model = "Qualcomm Technologies, Inc. MSM8936";
 	compatible = "qcom,msm8936";
 	qcom,msm-id = <233 0>;
 	interrupt-parent = <&intc>;

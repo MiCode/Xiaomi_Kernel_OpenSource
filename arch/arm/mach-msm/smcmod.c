@@ -824,7 +824,7 @@ static void __exit smcmod_exit(void)
 	misc_deregister(&smcmod_misc_dev);
 }
 
-MODULE_DESCRIPTION("Qualcomm SMC Module");
+MODULE_DESCRIPTION("Qualcomm Technologies, Inc. SMC Module");
 MODULE_LICENSE("GPL v2");
 
 module_init(smcmod_init);

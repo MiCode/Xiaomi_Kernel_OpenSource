@@ -17,7 +17,7 @@
 #include "apq8084-camera-sensor-liquid.dtsi"
 
 / {
-	model = "Qualcomm APQ 8084 v1.1 LIQUID";
+	model = "Qualcomm Technologies, Inc. APQ 8084 v1.1 LIQUID";
 	compatible = "qcom,apq8084-liquid", "qcom,apq8084", "qcom,liquid";
 	qcom,board-id = <0x00010109 0>;
 };

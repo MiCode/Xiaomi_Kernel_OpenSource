@@ -3,7 +3,7 @@
 #include "skeleton.dtsi"
 
 / {
-	model = "Qualcomm MSM8660 SURF";
+	model = "Qualcomm Technologies, Inc. MSM8660 SURF";
 	compatible = "qcom,msm8660-surf", "qcom,msm8660", "qcom,surf";
 	interrupt-parent = <&intc>;
 

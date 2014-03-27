@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +21,7 @@
 #include "msmsamarium-camera-sensor-cdp-interposer.dtsi"
 
 / {
-        model = "Qualcomm MSM 8974Pro-ac SAMARIUM Interposer CDP / MTP";
+        model = "Qualcomm Technologies, Inc. MSM 8974Pro-ac SAMARIUM Interposer CDP / MTP";
         compatible = "qcom,msm8974-cdp", "qcom,msm8974", "qcom,cdp";
         qcom,board-id = <1 8>, <8 8>;
 };

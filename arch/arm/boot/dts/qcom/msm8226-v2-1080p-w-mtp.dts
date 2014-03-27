@@ -16,7 +16,7 @@
 #include "msm8226-camera-sensor-mtp.dtsi"
 
 / {
-	model = "Qualcomm MSM 8226v2W MTP";
+	model = "Qualcomm Technologies, Inc. MSM 8226v2W MTP";
 	compatible = "qcom,msm8226-mtp", "qcom,msm8226", "qcom,mtp";
 	qcom,board-id = <8 4>;
 };

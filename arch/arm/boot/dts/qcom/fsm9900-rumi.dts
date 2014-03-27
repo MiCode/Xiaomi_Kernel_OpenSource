@@ -15,7 +15,7 @@
 #include "fsm9900.dtsi"
 
 / {
-	model = "Qualcomm FSM9900 Rumi";
+	model = "Qualcomm Technologies, Inc. FSM9900 Rumi";
 	compatible = "qcom,fsm9900-rumi", "qcom,fsm9900", "qcom,rumi";
 	qcom,msm-id = <188 15 0>;
 

@@ -13,7 +13,7 @@
 #include "skeleton.dtsi"
 
 / {
-	model = "Qualcomm MSM 8226";
+	model = "Qualcomm Technologies, Inc. MSM 8226";
 	compatible = "qcom,msm8226";
 	interrupt-parent = <&intc>;
 

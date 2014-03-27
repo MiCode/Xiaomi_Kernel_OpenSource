@@ -15,7 +15,7 @@
 #include "msm8226-qrd.dtsi"
 
 / {
-	model = "Qualcomm MSM 8926 QRD";
+	model = "Qualcomm Technologies, Inc. MSM 8926 QRD";
 	compatible = "qcom,msm8926-qrd", "qcom,msm8926", "qcom,qrd";
 	qcom,board-id = <11 0>;
 };

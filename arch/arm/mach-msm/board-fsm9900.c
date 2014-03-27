@@ -177,7 +177,8 @@ static const char *fsm9900_dt_match[] __initconst = {
 	NULL
 };
 
-DT_MACHINE_START(FSM9900_DT, "Qualcomm FSM 9900 (Flattened Device Tree)")
+DT_MACHINE_START(FSM9900_DT,
+		"Qualcomm Technologies, Inc. FSM 9900 (Flattened Device Tree)")
 	.map_io			= fsm9900_map_io,
 	.init_machine		= fsm9900_init,
 	.dt_compat		= fsm9900_dt_match,

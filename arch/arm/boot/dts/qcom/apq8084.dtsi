@@ -14,7 +14,7 @@
 #include <dt-bindings/clock/msm-clocks-krait.h>
 
 / {
-	model = "Qualcomm APQ 8084";
+	model = "Qualcomm Technologies, Inc. APQ 8084";
 	compatible = "qcom,apq8084";
 	qcom,msm-id = <178 0x10000>;
 	interrupt-parent = <&intc>;

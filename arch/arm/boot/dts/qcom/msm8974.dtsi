@@ -14,7 +14,7 @@
 #include <dt-bindings/clock/msm-clocks-8974.h>
 
 / {
-	model = "Qualcomm MSM 8974";
+	model = "Qualcomm Technologies, Inc. MSM 8974";
 	compatible = "qcom,msm8974";
 	interrupt-parent = <&intc>;
 

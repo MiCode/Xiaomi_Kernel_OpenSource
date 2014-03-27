@@ -89,7 +89,8 @@ static const char *msm8936_dt_match[] __initconst = {
 	NULL
 };
 
-DT_MACHINE_START(MSM8916_DT, "Qualcomm MSM 8916 (Flattened Device Tree)")
+DT_MACHINE_START(MSM8916_DT,
+		"Qualcomm Technologies, Inc. MSM 8916 (Flattened Device Tree)")
 	.map_io = msm8916_map_io,
 	.init_machine = msm8916_init,
 	.dt_compat = msm8916_dt_match,
@@ -98,7 +99,8 @@ DT_MACHINE_START(MSM8916_DT, "Qualcomm MSM 8916 (Flattened Device Tree)")
 	.smp = &msm8916_smp_ops,
 MACHINE_END
 
-DT_MACHINE_START(MSM8936_DT, "Qualcomm MSM 8936 (Flattened Device Tree)")
+DT_MACHINE_START(MSM8936_DT,
+		"Qualcomm Technologies, Inc. MSM 8936 (Flattened Device Tree)")
 	.map_io = msm8916_map_io,
 	.init_machine = msm8916_init,
 	.dt_compat = msm8936_dt_match,

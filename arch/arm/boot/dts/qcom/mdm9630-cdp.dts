@@ -18,7 +18,7 @@
 #include "qpic-panel-ili-qvga.dtsi"
 
 / {
-	model = "Qualcomm MDM 9630 CDP";
+	model = "Qualcomm Technologies, Inc. MDM 9630 CDP";
 	compatible = "qcom,mdm9630-cdp", "qcom,mdm9630", "qcom,cdp";
 	qcom,board-id = <1 0>;
 };

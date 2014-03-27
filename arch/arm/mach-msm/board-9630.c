@@ -90,7 +90,8 @@ static const char *mdm9630_dt_match[] __initconst = {
 	NULL
 };
 
-DT_MACHINE_START(MDM9630_DT, "Qualcomm MDM 9630 (Flattened Device Tree)")
+DT_MACHINE_START(MDM9630_DT,
+		"Qualcomm Technologies, Inc. MDM 9630 (Flattened Device Tree)")
 	.map_io			= mdm9630_map_io,
 	.init_machine		= mdm9630_init,
 	.dt_compat		= mdm9630_dt_match,

@@ -15,7 +15,7 @@
 #include "fsm9900.dtsi"
 
 / {
-	model = "Qualcomm FSM9900 Simulator";
+	model = "Qualcomm Technologies, Inc. FSM9900 Simulator";
 	compatible = "qcom,fsm9900-sim", "qcom,fsm9900", "qcom,sim";
 	qcom,msm-id = <188 16 0>;
 

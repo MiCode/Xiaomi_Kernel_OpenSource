@@ -113,7 +113,8 @@ static const char *apq8084_dt_match[] __initconst = {
 	NULL
 };
 
-DT_MACHINE_START(APQ8084_DT, "Qualcomm APQ 8084 (Flattened Device Tree)")
+DT_MACHINE_START(APQ8084_DT,
+		"Qualcomm Technologies, Inc. APQ 8084 (Flattened Device Tree)")
 	.map_io			= apq8084_map_io,
 	.init_machine		= apq8084_init,
 	.dt_compat		= apq8084_dt_match,
