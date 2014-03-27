@@ -725,9 +725,9 @@ static void msm_pcm_routing_process_voice(u16 reg, u16 val, int set)
 
 			if (voc_get_route_flag(session_id, RX_PATH) &&
 			   voc_get_route_flag(session_id, TX_PATH))
-				voc_enable_cvp(session_id);
+				voc_enable_device(session_id);
 		} else {
-			voc_disable_cvp(session_id);
+			voc_disable_device(session_id);
 		}
 	} else {
 		voc_set_route_flag(session_id, TX_PATH, set);
@@ -736,9 +736,9 @@ static void msm_pcm_routing_process_voice(u16 reg, u16 val, int set)
 				msm_bedais[reg].port_id, DEV_TX);
 			if (voc_get_route_flag(session_id, RX_PATH) &&
 			   voc_get_route_flag(session_id, TX_PATH))
-				voc_enable_cvp(session_id);
+				voc_enable_device(session_id);
 		} else {
-			voc_disable_cvp(session_id);
+			voc_disable_device(session_id);
 		}
 	}
 }
