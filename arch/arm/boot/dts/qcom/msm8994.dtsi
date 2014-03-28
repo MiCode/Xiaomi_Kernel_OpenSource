@@ -817,6 +817,29 @@
 		#clock-cells = <1>;
 	};
 
+	qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names = "cpu0_clk", "cpu1_clk", "cpu2_clk",
+				"cpu3_clk", "cpu4_clk", "cpu5_clk",
+				"cpu6_clk", "cpu7_clk";
+		clocks = <&clock_gcc clk_a53_clk>,
+			 <&clock_gcc clk_a53_clk>,
+			 <&clock_gcc clk_a53_clk>,
+			 <&clock_gcc clk_a53_clk>,
+			 <&clock_gcc clk_a57_clk>,
+			 <&clock_gcc clk_a57_clk>,
+			 <&clock_gcc clk_a57_clk>,
+			 <&clock_gcc clk_a57_clk>;
+
+		qcom,cpufreq-table =
+			<  249600  1144 >,
+			<  300000  1144 >,
+			<  422400  2288 >,
+			<  652800  3051 >,
+			<  729600  5996 >,
+			<  883200  5996 >;
+	};
+
 	ocmem: qcom,ocmem@fdd00000 {
 		compatible = "qcom,msm-ocmem";
 		reg = <0xfdd00000 0x2000>,
