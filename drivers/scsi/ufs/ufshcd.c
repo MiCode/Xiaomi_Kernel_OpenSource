@@ -747,10 +747,10 @@ int ufshcd_hold(struct ufs_hba *hba, bool async)
 
 	if (!ufshcd_is_clkgating_allowed(hba))
 		goto out;
-start:
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->clk_gating.active_reqs++;
 
+start:
 	switch (hba->clk_gating.state) {
 	case CLKS_ON:
 		break;
@@ -787,6 +787,7 @@ start:
 			spin_unlock_irqrestore(hba->host->host_lock, flags);
 			flush_work(&hba->clk_gating.ungate_work);
 			/* Make sure state is CLKS_ON before returning */
+			spin_lock_irqsave(hba->host->host_lock, flags);
 			goto start;
 		}
 	default:
