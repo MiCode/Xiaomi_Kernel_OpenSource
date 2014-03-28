@@ -15,6 +15,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/usb/phy.h>
 
 #include "xhci.h"
 
@@ -51,6 +52,20 @@ static void xhci_plat_quirks(struct device *dev, struct xhci_hcd *xhci)
 static int xhci_plat_setup(struct usb_hcd *hcd)
 {
 	return xhci_gen_setup(hcd, xhci_plat_quirks);
+}
+
+static void xhci_plat_phy_autosuspend(struct usb_hcd *hcd,
+						int enable_autosuspend)
+{
+	struct device		*dev = hcd->self.controller;
+	struct usb_phy		*phy = hcd->phy;
+
+	if (!phy || !phy->set_phy_autosuspend)
+		return;
+
+	usb_phy_set_autosuspend(phy, dev, enable_autosuspend);
+
+	return;
 }
 
 static const struct hc_driver xhci_plat_xhci_driver = {
@@ -100,6 +115,7 @@ static const struct hc_driver xhci_plat_xhci_driver = {
 	.hub_status_data =	xhci_hub_status_data,
 	.bus_suspend =		xhci_bus_suspend,
 	.bus_resume =		xhci_bus_resume,
+	.set_autosuspend =	xhci_plat_phy_autosuspend,
 };
 
 static int xhci_plat_probe(struct platform_device *pdev)
@@ -110,6 +126,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	struct usb_hcd		*hcd;
 	int			ret;
 	int			irq;
+	struct usb_phy		*phy;
 
 	if (usb_disabled())
 		return -ENODEV;
@@ -159,6 +176,8 @@ static int xhci_plat_probe(struct platform_device *pdev)
 
 	/* USB 2.0 roothub is stored in the platform_device now. */
 	hcd = dev_get_drvdata(&pdev->dev);
+	phy = devm_usb_get_phy_by_phandle(pdev->dev.parent, "usb-phy", 0);
+	hcd->phy = phy;
 	xhci = hcd_to_xhci(hcd);
 	xhci->shared_hcd = usb_create_shared_hcd(driver, &pdev->dev,
 			dev_name(&pdev->dev), hcd);
@@ -168,6 +187,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	}
 
 	hcd_to_bus(xhci->shared_hcd)->skip_resume = true;
+	xhci->shared_hcd->phy = phy;
 	/*
 	 * Set the xHCI pointer before xhci_plat_setup() (aka hcd_driver.reset)
 	 * is called by usb_add_hcd().
