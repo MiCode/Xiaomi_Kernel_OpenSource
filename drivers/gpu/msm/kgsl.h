@@ -107,7 +107,6 @@ struct kgsl_driver {
 		unsigned int coherent_max;
 		unsigned int mapped;
 		unsigned int mapped_max;
-		unsigned int histogram[16];
 	} stats;
 	unsigned int full_cache_threshold;
 };
