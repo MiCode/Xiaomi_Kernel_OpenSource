@@ -27,4 +27,9 @@ struct xt_socket_mtinfo3 {
 			   | XT_SOCKET_NOWILDCARD \
 			   | XT_SOCKET_RESTORESKMARK)
 
+struct sock *xt_socket_get4_sk(const struct sk_buff *skb,
+			       struct xt_action_param *par);
+struct sock *xt_socket_get6_sk(const struct sk_buff *skb,
+			       struct xt_action_param *par);
+
 #endif /* _XT_SOCKET_H */
