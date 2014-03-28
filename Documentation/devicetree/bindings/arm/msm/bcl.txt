@@ -4,7 +4,7 @@ This Battery Current Limit(BCL) device, provides an interface to detect and noti
 interested applications when the SOC is drawing current in excess of the limits
 specified.
 The BCL driver has another operation mode, where it monitors the battery
-current sensor via ADC TM hardware called BTM. The newer devices support
+current and voltage via ADC TM hardware called BTM. The newer devices support
 a BTM hardware configuration, which can measure the battery current and voltage.
 This ADC hardware is capable of sampling the sensor every 1 msec and interrupts
 the BCL driver, which in turn mitigates the CPU frequency based on the
@@ -52,7 +52,7 @@ Optional nodes:
 		should mitigate the CPUS's with. This frequency shouldn't be
 		less than the minimum frequency request that the kernel thermal
 		monitor driver places during vdd restriction.
-	* ibat-channel: The ADC hardware's channel number.
+	* ibat-channel: The ADC hardware's Ibat channel number.
 	* uv-to-ua-numerator: The conversion parameter required for converting
 		the voltage measure from ADC hardware to current value.
 	* uv-to-ua-denominator: The conversion parameter required for
@@ -62,6 +62,14 @@ Optional nodes:
 		ua = (uv * uv-to-ua-numerator) / uv-to-ua-denominator
 	* adc-interval-usec: The polling interval, in microseconds, for the ADC
 		hardware.
+	* vph-channel: The ADC hardware's Vph channel number.
+	* vph-high-threshold-uv: The battery voltage threshold above which the
+		BCL driver clears the previously applied mitigation, disables
+		the battery current monitoring, and starts monitoring for low
+		battery voltage.
+	* vph-low-threshold-uv: The battery voltage threshold below which the
+		BCL driver starts monitoring the battery current thresholds and
+		mitigates the CPU on the event of high load.
 
 Example:
 	qcom,bcl {
@@ -76,5 +84,8 @@ Example:
 			adc-interval-usec = <3900>;
 			uv-to-ua-numerator = <2>;
 			uv-to-ua-denominator = <1>;
+			vph-channel = <0x07>;
+			vph-high-threshold-uv = <3700000>;
+			vph-low-threshold-uv = <3500000>;
 		};
 	};
