@@ -52,7 +52,7 @@
 #define KGSL_STATE_NAP		0x00000004
 #define KGSL_STATE_SLEEP	0x00000008
 #define KGSL_STATE_SUSPEND	0x00000010
-#define KGSL_STATE_HUNG		0x00000020
+#define KGSL_STATE_AWARE	0x00000020
 #define KGSL_STATE_SLUMBER	0x00000080
 
 #define KGSL_GRAPHICS_MEMORY_LOW_WATERMARK  0x1000000
@@ -662,6 +662,15 @@ static inline int kgsl_create_device_workqueue(struct kgsl_device *device)
 		return -EINVAL;
 	}
 	return 0;
+}
+
+static inline int kgsl_state_is_awake(struct kgsl_device *device)
+{
+	if (device->state == KGSL_STATE_ACTIVE ||
+		device->state == KGSL_STATE_AWARE)
+		return true;
+	else
+		return false;
 }
 
 int kgsl_readtimestamp(struct kgsl_device *device, void *priv,

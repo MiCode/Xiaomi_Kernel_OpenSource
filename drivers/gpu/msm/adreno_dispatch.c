@@ -172,7 +172,7 @@ static inline bool _isidle(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int ts, i;
 
-	if (!kgsl_pwrctrl_isenabled(device))
+	if (!kgsl_state_is_awake(device))
 		goto ret;
 
 	/* If GPU HW status is not idle then return false */
@@ -1618,9 +1618,14 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 		 * For certain faults like h/w fault the interrupts are
 		 * turned off, re-enable here
 		 */
-		if (kgsl_pwrctrl_isenabled(device))
-			kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
-		return 0;
+		mutex_lock(&device->mutex);
+		if (device->state == KGSL_STATE_AWARE)
+			ret = kgsl_pwrctrl_change_state(device,
+				KGSL_STATE_ACTIVE);
+		else
+			ret = 0;
+		mutex_unlock(&device->mutex);
+		return ret;
 	}
 
 	/* Turn off all the timers */
