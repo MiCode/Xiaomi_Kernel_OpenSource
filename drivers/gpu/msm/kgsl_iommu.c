@@ -477,6 +477,8 @@ static void kgsl_iommu_disable_clk(struct kgsl_mmu *mmu, int ctx_id)
 			 */
 			iommu_drvdata = dev_get_drvdata(
 					iommu_unit->dev[j].dev->parent);
+			if (iommu->gtcu_iface_clk)
+				clk_disable_unprepare(iommu->gtcu_iface_clk);
 			if (iommu_drvdata->aclk)
 				clk_disable_unprepare(iommu_drvdata->aclk);
 			if (iommu_drvdata->clk)
@@ -592,6 +594,11 @@ static int kgsl_iommu_enable_clk(struct kgsl_mmu *mmu,
 							iommu_drvdata->pclk);
 					goto done;
 				}
+			}
+			if (iommu->gtcu_iface_clk) {
+				ret = clk_prepare_enable(iommu->gtcu_iface_clk);
+				if (ret)
+					goto done;
 			}
 			atomic_inc(&iommu_unit->dev[j].clk_enable_count);
 		}
@@ -1359,6 +1366,8 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	 */
 	int status = 0;
 	struct kgsl_iommu *iommu;
+	struct platform_device *pdev = container_of(mmu->device->parentdev,
+						struct platform_device, dev);
 
 	atomic_set(&mmu->fault, 0);
 	iommu = kzalloc(sizeof(struct kgsl_iommu), GFP_KERNEL);
@@ -1381,6 +1390,11 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	mmu->pt_per_process = KGSL_MMU_USE_PER_PROCESS_PT &&
 				(msm_soc_version_supports_iommu_v0() ||
 				 iommu->iommu_units[0].iommu_halt_enable);
+
+	if (mmu->pt_per_process &&
+		of_property_match_string(pdev->dev.of_node, "clock-names",
+						"gtcu_iface_clk") >= 0)
+		iommu->gtcu_iface_clk = clk_get(&pdev->dev, "gtcu_iface_clk");
 
 	/*
 	 * For IOMMU per-process pagetables, the allocatable range

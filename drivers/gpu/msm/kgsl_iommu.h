@@ -221,6 +221,7 @@ struct kgsl_iommu_unit {
  * @sync_lock_offset - The page offset within a page at which the sync
  * variables are located
  * @sync_lock_initialized: True if the sync_lock feature is enabled
+ * @gtcu_iface_clk: The gTCU AHB Clock connected to SMMU
  */
 struct kgsl_iommu {
 	struct kgsl_iommu_unit iommu_units[KGSL_IOMMU_MAX_UNITS];
@@ -233,6 +234,7 @@ struct kgsl_iommu {
 	struct kgsl_memdesc sync_lock_desc;
 	unsigned int sync_lock_offset;
 	bool sync_lock_initialized;
+	struct clk *gtcu_iface_clk;
 };
 
 /*
