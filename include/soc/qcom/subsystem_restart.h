@@ -147,4 +147,5 @@ static inline void notify_proxy_vote(struct device *device) { }
 static inline void notify_proxy_unvote(struct device *device) { }
 #endif /* CONFIG_MSM_SUBSYSTEM_RESTART */
 
+u32 wcnss_rf_read_reg(u32 rf_reg_addr);
 #endif

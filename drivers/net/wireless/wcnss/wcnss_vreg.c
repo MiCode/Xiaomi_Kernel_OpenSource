@@ -24,8 +24,6 @@
 #include <linux/list.h>
 #include <linux/slab.h>
 #include <linux/clk.h>
-#include <mach/msm_xo.h>
-#include <mach/msm_iomap.h>
 
 
 static void __iomem *msm_wcnss_base;
