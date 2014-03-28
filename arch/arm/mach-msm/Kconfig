@@ -869,15 +869,6 @@ config MSM_BUS_RPM_MULTI_TIER_ENABLED
 	bool "RPM Multi-tiering Configuration"
 	depends on MSM_BUS_SCALING
 
-config MSM_DLOAD_MODE
-	bool "Enable download mode on crashes"
-	default n
-	help
-		This makes the SoC enter download mode when it resets
-		due to a kernel panic. Note that this doesn't by itself
-		make the kernel reboot on a kernel panic - that must be
-		enabled via another mechanism.
-
 config MSM_STANDALONE_POWER_COLLAPSE
        bool "Enable standalone power collapse"
        default n
