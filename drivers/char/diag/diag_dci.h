@@ -159,6 +159,13 @@ struct diag_log_event_stats {
 	int is_set;
 } __packed;
 
+struct diag_dci_pkt_rsp_header_t {
+	int type;
+	int length;
+	uint8_t delete_flag;
+	int uid;
+} __packed;
+
 struct diag_dci_pkt_header_t {
 	uint8_t start;
 	uint8_t version;
