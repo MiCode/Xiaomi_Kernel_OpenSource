@@ -32,10 +32,12 @@ Optional properties:
 - qcom,use-default-rds-trim : Add this property to check if certain conditions are to be checked
 			      reading the SMBB_BAT_IF_CNST_RDS, IADC_RDS trim register and
 			      manufacturer type. Check the driver for conditions that each of the type.
-			      0 : Select this type to read the IADC and SMBB trim register and
+			      0 : Select the TypeA to read the IADC and SMBB trim register and
 				  apply the default RSENSE if conditions are met.
-			      1 : Select this type to read the IADC, SMBB trim register and
+			      1 : Select the TypeB to read the IADC, SMBB trim register and
 				  manufacturer type and apply the default RSENSE if conditions are met.
+			      2 : Select the TypeC to read the IADC, SMBB trim register and
+				  apply the default RSENSE if conditions are met.
 
 Channel node
 NOTE: Atleast one Channel node is required.
