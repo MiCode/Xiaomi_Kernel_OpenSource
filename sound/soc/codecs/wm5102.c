@@ -965,6 +965,16 @@ ARIZONA_MIXER_ENUMS(DSP1R, ARIZONA_DSP1RMIX_INPUT_1_SOURCE);
 
 ARIZONA_DSP_AUX_ENUMS(DSP1, ARIZONA_DSP1AUX1MIX_INPUT_1_SOURCE);
 
+static const char * const wm5102_dsp_output_texts[] = {
+	"None",
+	"DSP1",
+};
+
+static const SOC_ENUM_SINGLE_DECL(wm5102_dsp_output_enum, 0, 0, wm5102_dsp_output_texts);
+
+static const struct snd_kcontrol_new wm5102_dsp_output_mux =
+	SOC_DAPM_ENUM_VIRT("DSP Virtual Output Mux", wm5102_dsp_output_enum);
+
 static const char *wm5102_aec_loopback_texts[] = {
 	"HPOUT1L", "HPOUT1R", "HPOUT2L", "HPOUT2R", "EPOUT",
 	"SPKOUTL", "SPKOUTR", "SPKDAT1L", "SPKDAT1R",
@@ -1216,6 +1226,9 @@ SND_SOC_DAPM_AIF_IN("SLIMRX8", NULL, 0,
 
 ARIZONA_DSP_WIDGETS(DSP1, "DSP1"),
 
+SND_SOC_DAPM_VIRT_MUX_E("DSP Virtual Output Mux", SND_SOC_NOPM, 0, 0,
+			&wm5102_dsp_output_mux, 0, 0),
+
 SND_SOC_DAPM_VALUE_MUX("AEC Loopback", ARIZONA_DAC_AEC_CONTROL_1,
 		       ARIZONA_AEC_LOOPBACK_ENA_SHIFT, 0,
 		       &wm5102_aec_loopback_mux),
@@ -1313,6 +1326,8 @@ ARIZONA_MUX_WIDGETS(ISRC2INT1, "ISRC2INT1"),
 ARIZONA_MUX_WIDGETS(ISRC2INT2, "ISRC2INT2"),
 
 WM_ADSP2("DSP1", 0),
+
+SND_SOC_DAPM_OUTPUT("DSP Virtual Output"),
 
 SND_SOC_DAPM_OUTPUT("HPOUT1L"),
 SND_SOC_DAPM_OUTPUT("HPOUT1R"),
@@ -1584,6 +1599,10 @@ static const struct snd_soc_dapm_route wm5102_dapm_routes[] = {
 	ARIZONA_MUX_ROUTES("ISRC2DEC2", "ISRC2DEC2"),
 
 	ARIZONA_DSP_ROUTES("DSP1"),
+
+	{ "DSP Virtual Output", NULL, "DSP Virtual Output Mux" },
+	{ "DSP Virtual Output Mux", "DSP1", "DSP1" },
+	{ "DSP Virtual Output", NULL, "SYSCLK" },
 
 	{ "AEC Loopback", "HPOUT1L", "OUT1L" },
 	{ "AEC Loopback", "HPOUT1R", "OUT1R" },
