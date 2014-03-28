@@ -453,6 +453,9 @@ static enum msm_cpu cpu_of_id[] = {
 	[237] = MSM_CPU_ZIRC,
 	[238] = MSM_CPU_ZIRC,
 
+	/* PLUTONIUM ID */
+	[207] = MSM_CPU_PLUTONIUM,
+
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	   considered as unknown CPU. */
@@ -910,6 +913,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_msmzirc()) {
 		dummy_socinfo.id = 238;
 		strlcpy(dummy_socinfo.build_id, "msmzirc - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_msmplutonium()) {
+		dummy_socinfo.id = 207;
+		strlcpy(dummy_socinfo.build_id, "msmplutonium - ",
 			sizeof(dummy_socinfo.build_id));
 	}
 
