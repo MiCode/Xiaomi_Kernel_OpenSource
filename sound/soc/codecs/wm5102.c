@@ -1786,9 +1786,21 @@ static struct snd_soc_dai_driver wm5102_dai[] = {
 	},
 };
 
+static irqreturn_t adsp2_irq(int irq, void *data)
+{
+	struct wm5102_priv *wm5102 = data;
+
+	if (wm5102->core.arizona->pdata.ez2ctrl_trigger &&
+	    wm5102->core.adsp[0].fw_id == 0x5f003)
+		wm5102->core.arizona->pdata.ez2ctrl_trigger();
+
+	return IRQ_HANDLED;
+}
+
 static int wm5102_codec_probe(struct snd_soc_codec *codec)
 {
 	struct wm5102_priv *priv = snd_soc_codec_get_drvdata(codec);
+	struct arizona *arizona = priv->core.arizona;
 	int ret;
 
 	codec->control_data = priv->core.arizona->regmap;
@@ -1807,6 +1819,29 @@ static int wm5102_codec_probe(struct snd_soc_codec *codec)
 	snd_soc_dapm_disable_pin(&codec->dapm, "HAPTICS");
 
 	priv->core.arizona->dapm = &codec->dapm;
+
+	ret = arizona_request_irq(arizona, ARIZONA_IRQ_DSP_IRQ1,
+				  "ADSP2 interrupt 1", adsp2_irq, priv);
+	if (ret != 0) {
+		dev_err(arizona->dev, "Failed to request DSP IRQ: %d\n", ret);
+		return ret;
+	}
+
+	ret = irq_set_irq_wake(arizona->irq, 1);
+	if (ret)
+		dev_err(arizona->dev,
+			"Failed to set DSP IRQ to wake source: %d\n",
+			ret);
+
+	snd_soc_dapm_enable_pin(&codec->dapm, "DRC1 Signal Activity");
+	ret = regmap_update_bits(arizona->regmap, ARIZONA_IRQ2_STATUS_3_MASK,
+				 ARIZONA_IM_DRC1_SIG_DET_EINT2, 0);
+	if (ret != 0) {
+		dev_err(arizona->dev,
+			"Failed to unmask DRC1 IRQ for DSP: %d\n",
+			ret);
+		return ret;
+	}
 
 	return 0;
 }
