@@ -1126,5 +1126,17 @@
 				bias-pull-up;		/* PULL UP */
 			};
 		};
+
+		button_backlight_pin {
+			qcom,pins = <&gp 119>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "button-backlight-pin";
+			button_backlight_off: button_backlight_off {
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+		};
 	};
 };
