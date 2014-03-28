@@ -70,9 +70,10 @@ static void retire_events(struct kgsl_device *device,
 
 	_kgsl_context_get(context);
 
+	spin_lock(&group->lock);
+
 	kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED, &timestamp);
 
-	spin_lock(&group->lock);
 	/*
 	 * If no timestamps have been retired since the last time we were here
 	 * then we can avoid going through this loop
@@ -207,6 +208,8 @@ int kgsl_add_event(struct kgsl_device *device, struct kgsl_event_group *group,
 
 	trace_kgsl_register_event(KGSL_CONTEXT_ID(context), timestamp, func);
 
+	spin_lock(&group->lock);
+
 	/*
 	 * Check to see if the requested timestamp has already retired.  If so,
 	 * schedule the callback right away
@@ -216,13 +219,13 @@ int kgsl_add_event(struct kgsl_device *device, struct kgsl_event_group *group,
 	if (timestamp_cmp(retired, timestamp) >= 0) {
 		event->result = KGSL_EVENT_RETIRED;
 		queue_work(device->events_wq, &event->work);
-
+		spin_unlock(&group->lock);
 		return 0;
 	}
 
 	/* Add the event to the group list */
-	spin_lock(&group->lock);
 	list_add_tail(&event->node, &group->events);
+
 	spin_unlock(&group->lock);
 
 	return 0;
