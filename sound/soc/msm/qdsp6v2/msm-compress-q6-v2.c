@@ -167,6 +167,10 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 
 	pr_debug("%s: volume_l %d volume_r %d\n",
 		__func__, volume_l, volume_r);
+	if (!cstream || !cstream->runtime) {
+		pr_err("%s: session not active\n", __func__);
+		return -EPERM;
+	}
 	prtd = cstream->runtime->private_data;
 	if (prtd && prtd->audio_client) {
 		if (volume_l != volume_r) {
@@ -709,6 +713,7 @@ static int msm_compr_open(struct snd_compr_stream *cstream)
 		 kzalloc(sizeof(struct msm_compr_audio_effects), GFP_KERNEL);
 	if (!pdata->audio_effects[rtd->dai_link->be_id]) {
 		pr_err("%s: Could not allocate memory for effects\n", __func__);
+		pdata->cstream[rtd->dai_link->be_id] = NULL;
 		kfree(prtd);
 		return -ENOMEM;
 	}
@@ -717,6 +722,8 @@ static int msm_compr_open(struct snd_compr_stream *cstream)
 	if (!pdata->dec_params[rtd->dai_link->be_id]) {
 		pr_err("%s: Could not allocate memory for dec params\n",
 			__func__);
+		kfree(pdata->audio_effects[rtd->dai_link->be_id]);
+		pdata->cstream[rtd->dai_link->be_id] = NULL;
 		kfree(prtd);
 		return -ENOMEM;
 	}
@@ -726,6 +733,7 @@ static int msm_compr_open(struct snd_compr_stream *cstream)
 		pr_err("%s: Could not allocate memory for client\n", __func__);
 		kfree(pdata->audio_effects[rtd->dai_link->be_id]);
 		kfree(pdata->dec_params[rtd->dai_link->be_id]);
+		pdata->cstream[rtd->dai_link->be_id] = NULL;
 		kfree(prtd);
 		return -ENOMEM;
 	}
