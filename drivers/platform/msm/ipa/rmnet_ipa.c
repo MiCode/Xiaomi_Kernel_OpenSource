@@ -27,7 +27,7 @@
 #include <linux/skbuff.h>
 #include <linux/workqueue.h>
 #include <net/pkt_sched.h>
-#include <ipa_qmi_service.h>
+#include "ipa_qmi_service.h"
 
 #define WWAN_METADATA_SHFT 24
 #define WWAN_METADATA_MASK 0xFF000000
