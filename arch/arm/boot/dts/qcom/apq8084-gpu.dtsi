@@ -27,7 +27,12 @@
 
 		qcom,idle-timeout = <8>; //<HZ/12>
 		qcom,strtstp-sleepwake;
-		qcom,clk-map = <0x00000006>; //KGSL_CLK_CORE | KGSL_CLK_IFACE
+
+		/*
+		 * Clocks = KGSL_CLK_CORE | KGSL_CLK_IFACE |
+		 * KGSL_CLK_RBBMTIMER
+		 */
+		qcom,clk-map = <0x00000086>;
 
 		/* Bus Scale Settings */
 		qcom,bus-control;

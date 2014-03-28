@@ -25,10 +25,12 @@
 
 #define KGSL_PWR_ON	0xFFFF
 
-#define KGSL_MAX_CLKS 6
+#define KGSL_MAX_CLKS 7
 
 /* Only two supported levels, min & max */
 #define KGSL_CONSTRAINT_PWR_MAXLEVELS 2
+
+#define KGSL_RBBMTIMER_CLK_FREQ	19200000
 
 struct platform_device;
 
