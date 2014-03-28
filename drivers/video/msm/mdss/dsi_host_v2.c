@@ -203,6 +203,13 @@ irqreturn_t msm_dsi_isr_handler(int irq, void *ptr)
 	struct mdss_dsi_ctrl_pdata *ctrl =
 		(struct mdss_dsi_ctrl_pdata *)ptr;
 
+	spin_lock(&ctrl->mdp_lock);
+
+	if (ctrl->dsi_irq_mask == 0) {
+		spin_unlock(&ctrl->mdp_lock);
+		return IRQ_HANDLED;
+	}
+
 	isr = MIPI_INP(dsi_host_private->dsi_base + DSI_INT_CTRL);
 	MIPI_OUTP(dsi_host_private->dsi_base + DSI_INT_CTRL, isr);
 
@@ -213,21 +220,19 @@ irqreturn_t msm_dsi_isr_handler(int irq, void *ptr)
 		msm_dsi_error(dsi_host_private->dsi_base);
 	}
 
-	spin_lock(&ctrl->mdp_lock);
-
 	if (isr & DSI_INTR_VIDEO_DONE)
 		complete(&ctrl->video_comp);
 
 	if (isr & DSI_INTR_CMD_DMA_DONE)
 		complete(&ctrl->dma_comp);
 
-	spin_unlock(&ctrl->mdp_lock);
-
 	if (isr & DSI_INTR_BTA_DONE)
 		complete(&ctrl->bta_comp);
 
 	if (isr & DSI_INTR_CMD_MDP_DONE)
 		complete(&ctrl->mdp_comp);
+
+	spin_unlock(&ctrl->mdp_lock);
 
 	return IRQ_HANDLED;
 }
@@ -236,6 +241,13 @@ int msm_dsi_irq_init(struct device *dev, int irq_no,
 			struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	int ret;
+	u32 isr;
+
+	msm_dsi_ahb_ctrl(1);
+	isr = MIPI_INP(dsi_host_private->dsi_base + DSI_INT_CTRL);
+	isr &= ~DSI_INTR_ALL_MASK;
+	MIPI_OUTP(dsi_host_private->dsi_base + DSI_INT_CTRL, isr);
+	msm_dsi_ahb_ctrl(0);
 
 	ret = devm_request_irq(dev, irq_no, msm_dsi_isr_handler,
 				IRQF_DISABLED, "DSI", ctrl);
@@ -1510,14 +1522,6 @@ static int __devinit msm_dsi_probe(struct platform_device *pdev)
 							__func__, __LINE__);
 		rc = -ENODEV;
 		goto error_irq_resource;
-	} else {
-		rc = msm_dsi_irq_init(&pdev->dev, mdss_dsi_mres->start,
-					ctrl_pdata);
-		if (rc) {
-			dev_err(&pdev->dev, "%s: failed to init irq, rc=%d\n",
-								__func__, rc);
-			goto error_irq_resource;
-		}
 	}
 
 	rc = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
@@ -1579,6 +1583,14 @@ static int __devinit msm_dsi_probe(struct platform_device *pdev)
 	msm_dsi_debug_init();
 
 	msm_dsi_ctrl_init(ctrl_pdata);
+
+	rc = msm_dsi_irq_init(&pdev->dev, mdss_dsi_mres->start,
+					   ctrl_pdata);
+	if (rc) {
+		dev_err(&pdev->dev, "%s: failed to init irq, rc=%d\n",
+			__func__, rc);
+		goto error_device_register;
+	}
 
 	rc = dsi_panel_device_register_v2(pdev, ctrl_pdata);
 	if (rc) {
