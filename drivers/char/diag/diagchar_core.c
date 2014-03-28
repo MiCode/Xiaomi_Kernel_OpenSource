@@ -1085,7 +1085,7 @@ static int diag_ioctl_get_real_time(unsigned long ioarg)
 				usleep_range(10000, 10100);
 		} else {
 			if (rt_query.proc < 0 ||
-					rt_query.proc > DIAG_NUM_PROC) {
+					rt_query.proc >= DIAG_NUM_PROC) {
 				pr_err("diag: Invalid proc %d in %s\n",
 				       rt_query.proc, __func__);
 				return -EINVAL;
