@@ -339,16 +339,6 @@ static int kgsl_page_alloc_vmfault(struct kgsl_memdesc *memdesc,
 	return VM_FAULT_SIGBUS;
 }
 
-static int kgsl_page_alloc_vmflags(struct kgsl_memdesc *memdesc)
-{
-	return VM_IO | VM_DONTEXPAND;
-}
-
-static int kgsl_contiguous_vmflags(struct kgsl_memdesc *memdesc)
-{
-	return VM_IO | VM_PFNMAP | VM_DONTEXPAND;
-}
-
 /*
  * kgsl_page_alloc_unmap_kernel() - Unmap the memory in memdesc
  *
@@ -484,7 +474,7 @@ static void kgsl_cma_coherent_free(struct kgsl_memdesc *memdesc)
 /* Global - also used by kgsl_drm.c */
 static struct kgsl_memdesc_ops kgsl_page_alloc_ops = {
 	.free = kgsl_page_alloc_free,
-	.vmflags = kgsl_page_alloc_vmflags,
+	.vmflags = VM_IO | VM_DONTEXPAND,
 	.vmfault = kgsl_page_alloc_vmfault,
 	.map_kernel = kgsl_page_alloc_map_kernel,
 	.unmap_kernel = kgsl_page_alloc_unmap_kernel,
@@ -493,7 +483,7 @@ static struct kgsl_memdesc_ops kgsl_page_alloc_ops = {
 /* CMA ops - used during NOMMU mode */
 static struct kgsl_memdesc_ops kgsl_cma_ops = {
 	.free = kgsl_cma_coherent_free,
-	.vmflags = kgsl_contiguous_vmflags,
+	.vmflags = VM_IO | VM_PFNMAP | VM_DONTEXPAND,
 	.vmfault = kgsl_contiguous_vmfault,
 };
 
