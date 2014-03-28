@@ -2602,7 +2602,6 @@ static struct clk_lookup msm_clocks_gcc_plutonium[] = {
 	CLK_LIST(gcc_usb_hs_ahb_clk),
 	CLK_LIST(gcc_usb_hs_system_clk),
 	CLK_LIST(gcc_usb_phy_cfg_ahb2phy_clk),
-	CLK_LIST(gcc_debug_mux),
 };
 
 static int msm_gcc_plutonium_probe(struct platform_device *pdev)
