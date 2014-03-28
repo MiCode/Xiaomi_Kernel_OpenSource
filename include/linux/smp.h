@@ -23,6 +23,7 @@ struct call_single_data {
 	};
 	smp_call_func_t func;
 	void *info;
+	int cpu;
 	u16 flags;
 };
 
