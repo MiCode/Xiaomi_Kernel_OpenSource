@@ -3112,6 +3112,9 @@
 			adc-interval-usec = <3900>;
 			uv-to-ua-numerator = <2>;
 			uv-to-ua-denominator = <1>;
+			vph-channel = <0x07>;
+			vph-high-threshold-uv = <3890000>;
+			vph-low-threshold-uv = <3690000>;
 			thermal-handle = <&msm_thermal_freq>;
 		};
 	};
