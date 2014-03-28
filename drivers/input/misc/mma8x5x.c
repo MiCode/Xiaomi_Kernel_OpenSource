@@ -502,9 +502,12 @@ static void mma8x5x_dev_poll(struct work_struct *work)
 {
 	struct mma8x5x_data *pdata = container_of((struct delayed_work *)work,
 				struct mma8x5x_data, dwork);
-	mma8x5x_report_data(pdata);
-	schedule_delayed_work(&pdata->dwork,
-				msecs_to_jiffies(pdata->poll_delay));
+
+	if ((pdata->active & MMA_STATE_MASK) == MMA_ACTIVED) {
+		mma8x5x_report_data(pdata);
+		schedule_delayed_work(&pdata->dwork,
+					msecs_to_jiffies(pdata->poll_delay));
+	}
 }
 
 static irqreturn_t mma8x5x_interrupt(int vec, void *data)
@@ -580,9 +583,6 @@ static int mma8x5x_enable_set(struct sensors_classdev *sensors_cdev,
 		}
 	} else if (enable == 0) {
 		if (pdata->active == MMA_ACTIVED) {
-			if (!pdata->use_int)
-				cancel_delayed_work_sync(&pdata->dwork);
-
 			val = i2c_smbus_read_byte_data(client,
 					MMA8X5X_CTRL_REG1);
 			if (val < 0) {
@@ -597,7 +597,10 @@ static int mma8x5x_enable_set(struct sensors_classdev *sensors_cdev,
 				dev_err(&client->dev, "change device state failed!");
 				goto err_failed;
 			}
-
+			/*
+			 * Set standby state,
+			 * polling work queue will stop after next call.
+			 */
 			pdata->active = MMA_STANDBY;
 			dev_dbg(&client->dev, "%s:mma enable setting inactive.\n",
 					__func__);
