@@ -267,6 +267,12 @@ Required properties:
 
  - elemental-addr:                         slimbus slave enumeration address.
 
+* msm-cpe-lsm
+
+Required properties:
+
+ - compatible : "qcom,msm-cpe-lsm"
+
 Example:
 
 	qcom,msm-pcm {

@@ -79,6 +79,10 @@ obj-$(CONFIG_SND_SOC_APQ8084) += snd-soc-apq8084.o
 snd-soc-msmsamarium-objs := msmsamarium.o
 obj-$(CONFIG_SND_SOC_MSMSAMARIUM) += snd-soc-msmsamarium.o
 
+#for CPE drivers
+snd-soc-cpe-objs := msm-cpe-lsm.o
+obj-$(CONFIG_SND_SOC_CPE) += snd-soc-cpe.o
+
 #for mdm9630 sound card driver
 snd-soc-mdm9630-objs := mdm9630.o
 obj-$(CONFIG_SND_SOC_MDM9630) += snd-soc-mdm9630.o
