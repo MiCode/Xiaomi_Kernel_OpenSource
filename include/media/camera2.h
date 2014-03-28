@@ -53,6 +53,7 @@ struct msm_pinctrl_info {
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *gpio_state_active;
 	struct pinctrl_state *gpio_state_suspend;
+	bool use_pinctrl
 };
 
 struct msm_cam_clk_setting {

@@ -849,6 +849,25 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_FL_NOW]);
 	}
 
+	if (of_property_read_bool(of_node, "qcom,gpio-flash-reset") == true) {
+		rc = of_property_read_u32(of_node,
+				"qcom,gpio-flash-reset", &val);
+		if (rc < 0) {
+			pr_err("%s:%dread qcom,gpio-flash-reset failed rc %d\n",
+				__func__, __LINE__, rc);
+			goto ERROR;
+		} else if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-flash-reset invalid %d\n",
+				__func__, __LINE__, val);
+			rc = -EINVAL;
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_FL_RESET] =
+			gpio_array[val];
+		gconf->gpio_num_info->valid[SENSOR_GPIO_FL_RESET] = 1;
+		CDBG("%s qcom,gpio-flash-reset %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_FL_RESET]);
+	}
 	return rc;
 
 ERROR:
@@ -1033,6 +1052,7 @@ int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 	} else {
 		ctrl->cam_pinctrl_status = 1;
 	}
+
 	rc = msm_camera_request_gpio_table(
 		ctrl->gpio_conf->cam_gpio_req_tbl,
 		ctrl->gpio_conf->cam_gpio_req_tbl_size, 1);
