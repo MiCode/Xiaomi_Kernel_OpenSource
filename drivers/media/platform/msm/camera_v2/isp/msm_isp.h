@@ -272,8 +272,10 @@ struct msm_vfe_axi_stream {
 	uint32_t stream_id;
 	uint32_t bufq_handle;
 	uint32_t bufq_scratch_handle;
+	uint32_t controllable_output;
 	uint32_t stream_handle;
 	uint32_t request_frm_num;
+	uint32_t ping_pong_addr_set[2];
 	uint8_t buf_divert;
 	enum msm_vfe_axi_stream_type stream_type;
 	uint32_t vt_enable;
