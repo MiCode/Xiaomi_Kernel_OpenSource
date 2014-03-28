@@ -487,6 +487,7 @@
 						<61 512 0 0>,
 						<61 512 240000 960000>;
 		qcom,reset_hsphy_sleep_clk_on_init;
+		qcom,no-power-collapse;
 
 		dwc3@f9200000 {
 				compatible = "synopsys,dwc3";
