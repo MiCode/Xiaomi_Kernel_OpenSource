@@ -117,6 +117,8 @@ static uint16_t diag_get_next_delayed_rsp_id(void)
 	return rsp_id;
 }
 
+static int diag_switch_logging(int requested_mode);
+
 #define COPY_USER_SPACE_OR_EXIT(buf, data, length)		\
 do {								\
 	if ((count < ret+length) || (copy_to_user(buf,		\
@@ -161,6 +163,20 @@ void check_drain_timer(void)
 	if (!timer_in_progress) {
 		timer_in_progress = 1;
 		ret = mod_timer(&drain_timer, jiffies + msecs_to_jiffies(500));
+	}
+}
+
+static void diag_clear_local_tbl(void)
+{
+	int i;
+
+	for (i = 0; i < driver->buf_tbl_size; i++) {
+		if (driver->buf_tbl[i].buf) {
+			diagmem_free(driver, (unsigned char *)
+				     driver->buf_tbl[i].buf, POOL_TYPE_HDLC);
+			driver->buf_tbl[i].buf = 0;
+		}
+		driver->buf_tbl[i].length = 0;
 	}
 }
 
@@ -311,15 +327,9 @@ static int diagchar_close(struct inode *inode, struct file *file)
 #ifdef CONFIG_DIAG_OVER_USB
 	/* If the SD logging process exits, change logging to USB mode */
 	if (driver->logging_process_id == current->tgid) {
-		driver->logging_mode = USB_MODE;
 		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN,
 				      ALL_PROC);
-		diagfwd_connect();
-#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-		diag_clear_hsic_tbl();
-		diagfwd_cancel_hsic(REOPEN_HSIC);
-		diagfwd_connect_bridge(0);
-#endif
+		diag_switch_logging(USB_MODE);
 	}
 #endif /* DIAG over USB */
 	/* Delete the pkt response table entry for the exiting process */
@@ -793,6 +803,7 @@ void diag_cmp_logging_modes_diagfwd_bridge(int old_mode, int new_mode)
 	if (old_mode == MEMORY_DEVICE_MODE && new_mode
 					== NO_LOGGING_MODE) {
 		diagfwd_disconnect_bridge(0);
+		diag_clear_local_tbl();
 		diag_clear_hsic_tbl();
 	} else if (old_mode == NO_LOGGING_MODE && new_mode
 					== MEMORY_DEVICE_MODE) {
@@ -817,6 +828,7 @@ void diag_cmp_logging_modes_diagfwd_bridge(int old_mode, int new_mode)
 		diagfwd_connect_bridge(0);
 	} else if (old_mode == MEMORY_DEVICE_MODE && new_mode
 					== USB_MODE) {
+		diag_clear_local_tbl();
 		diag_clear_hsic_tbl();
 		diagfwd_cancel_hsic(REOPEN_HSIC);
 		diagfwd_connect_bridge(0);
@@ -856,10 +868,12 @@ static int diag_switch_logging(int requested_mode)
 		return 0;
 	}
 
-	diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_UP, ALL_PROC);
 	if (requested_mode != MEMORY_DEVICE_MODE)
 		diag_update_real_time_vote(DIAG_PROC_MEMORY_DEVICE,
 					   MODE_REALTIME, ALL_PROC);
+	else
+		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_UP,
+				      ALL_PROC);
 
 	if (!(requested_mode == MEMORY_DEVICE_MODE &&
 					driver->logging_mode == USB_MODE))
@@ -871,6 +885,7 @@ static int diag_switch_logging(int requested_mode)
 	driver->logging_mode = requested_mode;
 
 	if (driver->logging_mode == MEMORY_DEVICE_MODE) {
+		diag_clear_local_tbl();
 		diag_clear_hsic_tbl();
 		driver->mask_check = 1;
 		if (driver->socket_process) {
@@ -896,13 +911,13 @@ static int diag_switch_logging(int requested_mode)
 	if (driver->logging_mode == UART_MODE ||
 				driver->logging_mode == SOCKET_MODE ||
 				driver->logging_mode == CALLBACK_MODE) {
+		diag_clear_local_tbl();
 		diag_clear_hsic_tbl();
 		driver->mask_check = 0;
 		driver->logging_mode = MEMORY_DEVICE_MODE;
 	}
 
 	driver->logging_process_id = current->tgid;
-	mutex_unlock(&driver->diagchar_mutex);
 
 	if (temp == MEMORY_DEVICE_MODE && driver->logging_mode
 						== NO_LOGGING_MODE) {
@@ -936,6 +951,7 @@ static int diag_switch_logging(int requested_mode)
 		diag_cmp_logging_modes_diagfwd_bridge(temp,
 						driver->logging_mode);
 	}
+	mutex_unlock(&driver->diagchar_mutex);
 	success = 1;
 	return success;
 }
