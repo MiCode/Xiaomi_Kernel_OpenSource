@@ -85,6 +85,8 @@ struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
 #define HIST_V2_INTR_BIT_MASK		0xF33000
 #define HIST_V1_INTR_BIT_MASK		0X333333
 #define HIST_WAIT_TIMEOUT(frame) ((75 * HZ * (frame)) / 1000)
+#define HIST_KICKOFF_WAIT_FRACTION 4
+
 /* hist collect state */
 enum {
 	HIST_UNKNOWN,
@@ -1447,6 +1449,7 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
 			if (is_hist_v1)
 				writel_relaxed(1, base + kick_base);
 			hist_info->col_state = HIST_START;
+			complete(&hist_info->first_kick);
 		}
 	}
 	spin_unlock_irqrestore(&hist_info->hist_lock, flag);
@@ -1914,6 +1917,7 @@ int mdss_mdp_pp_init(struct device *dev)
 						mdss_mdp_get_dspp_addr_off(i) +
 						MDSS_MDP_REG_DSPP_HIST_CTL_BASE;
 					init_completion(&hist[i].comp);
+					init_completion(&hist[i].first_kick);
 				}
 				if (mdata->nmixers_intf == 4)
 					hist[3].intr_shift = 22;
@@ -1931,6 +1935,7 @@ int mdss_mdp_pp_init(struct device *dev)
 			vig[i].pp_res.hist.base = vig[i].base +
 				MDSS_MDP_REG_VIG_HIST_CTL_BASE;
 			init_completion(&vig[i].pp_res.hist.comp);
+			init_completion(&vig[i].pp_res.hist.first_kick);
 		}
 		if (!mdata->pp_bus_hdl) {
 			pp_bus_pdata = &mdp_pp_bus_scale_table;
@@ -3160,6 +3165,7 @@ static int pp_hist_enable(struct pp_hist_col_info *hist_info,
 	spin_unlock_irqrestore(&hist_info->hist_lock, flag);
 	hist_info->frame_cnt = req->frame_cnt;
 	INIT_COMPLETION(hist_info->comp);
+	INIT_COMPLETION(hist_info->first_kick);
 	hist_info->hist_cnt_read = 0;
 	hist_info->hist_cnt_sent = 0;
 	hist_info->hist_cnt_time = 0;
@@ -3292,6 +3298,7 @@ static int pp_hist_disable(struct pp_hist_col_info *hist_info)
 	mdss_mdp_hist_intr_req(&mdata->hist_intr,
 				intr_mask << hist_info->intr_shift, false);
 	complete_all(&hist_info->comp);
+	complete_all(&hist_info->first_kick);
 	/* if hist v2, make sure HW is unlocked */
 	if (is_hist_v2)
 		writel_relaxed(0, hist_info->base);
@@ -3523,7 +3530,7 @@ static int pp_hist_collect(struct mdp_histogram_data *hist,
 				struct pp_hist_col_info *hist_info,
 				char __iomem *ctl_base, u32 expect_sum)
 {
-	int wait_ret, ret = 0;
+	int kick_ret, wait_ret, ret = 0;
 	u32 timeout, sum;
 	char __iomem *v_base;
 	unsigned long flag;
@@ -3554,12 +3561,26 @@ static int pp_hist_collect(struct mdp_histogram_data *hist,
 			pipe = container_of(res, struct mdss_mdp_pipe, pp_res);
 			pipe->params_changed++;
 		}
-		wait_ret = wait_for_completion_killable_timeout(
+		kick_ret = wait_for_completion_killable_timeout(
+				&(hist_info->first_kick), timeout /
+					HIST_KICKOFF_WAIT_FRACTION);
+		if (kick_ret != 0)
+			wait_ret = wait_for_completion_killable_timeout(
 				&(hist_info->comp), timeout);
 
 		mutex_lock(&hist_info->hist_mutex);
 		spin_lock_irqsave(&hist_info->hist_lock, flag);
-		if (wait_ret == 0) {
+		if (kick_ret == 0) {
+			ret = -ENODATA;
+			pr_debug("histogram kickoff not done yet");
+			spin_unlock_irqrestore(&hist_info->hist_lock, flag);
+			goto hist_collect_exit;
+		} else if (kick_ret < 0) {
+			ret = -EINTR;
+			pr_debug("histogram first kickoff interrupted");
+			spin_unlock_irqrestore(&hist_info->hist_lock, flag);
+			goto hist_collect_exit;
+		} else if (wait_ret == 0) {
 			ret = -ETIMEDOUT;
 			pr_debug("bin collection timedout, state %d",
 					hist_info->col_state);
