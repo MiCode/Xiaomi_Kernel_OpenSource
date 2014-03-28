@@ -179,6 +179,7 @@ struct mdss_dsi_phy_ctrl {
 	char bistctrl[6];
 	uint32_t pll[21];
 	char lanecfg[45];
+	bool reg_ldo_mode;
 };
 
 struct mipi_panel_info {
