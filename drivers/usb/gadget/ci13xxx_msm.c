@@ -62,11 +62,27 @@ static void ci13xxx_msm_disconnect(void)
 	struct ci13xxx *udc = _udc;
 	struct usb_phy *phy = udc->transceiver;
 
-	if (phy && (phy->flags & ENABLE_DP_MANUAL_PULLUP))
+	if (phy && (phy->flags & ENABLE_DP_MANUAL_PULLUP)) {
+		u32 temp;
+
 		usb_phy_io_write(phy,
 				ULPI_MISC_A_VBUSVLDEXT |
 				ULPI_MISC_A_VBUSVLDEXTSEL,
 				ULPI_CLR(ULPI_MISC_A));
+
+		/* Notify LINK of VBUS LOW */
+		temp = readl_relaxed(USB_USBCMD);
+		temp &= ~USBCMD_SESS_VLD_CTRL;
+		writel_relaxed(temp, USB_USBCMD);
+
+		/*
+		 * Add memory barrier as it is must to complete
+		 * above USB PHY and Link register writes before
+		 * moving ahead with USB peripheral mode enumeration,
+		 * otherwise USB peripheral mode may not work.
+		 */
+		mb();
+	}
 }
 
 /* Link power management will reduce power consumption by
