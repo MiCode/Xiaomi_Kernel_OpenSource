@@ -899,16 +899,15 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	iommu_drvdata->asid[ctx_drvdata->asid - 1]--;
 	ctx_drvdata->asid = -1;
 
-	iommu_halt(iommu_drvdata);
-
 	__reset_context(iommu_drvdata->cb_base, ctx_drvdata->num);
 
 	/*
 	 * Only reset the M2V tables on the very last detach */
-	if (!is_secure && iommu_drvdata->ctx_attach_count == 1)
+	if (!is_secure && iommu_drvdata->ctx_attach_count == 1) {
+		iommu_halt(iommu_drvdata);
 		__release_smg(iommu_drvdata->base);
-
-	iommu_resume(iommu_drvdata);
+		iommu_resume(iommu_drvdata);
+	}
 
 	__disable_clocks(iommu_drvdata);
 
