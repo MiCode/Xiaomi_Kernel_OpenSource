@@ -84,11 +84,17 @@ static void ipa_wq_write_done_common(struct ipa_sys_context *sys, u32 cnt)
 			tx_pkt_expected->callback(tx_pkt_expected->user1,
 					tx_pkt_expected->user2);
 		if (tx_pkt_expected->cnt > 1 &&
-				tx_pkt_expected->cnt != IPA_LAST_DESC_CNT)
-			dma_free_coherent(ipa_ctx->pdev,
-				tx_pkt_expected->mult.size,
-				tx_pkt_expected->mult.base,
-				tx_pkt_expected->mult.phys_base);
+				tx_pkt_expected->cnt != IPA_LAST_DESC_CNT) {
+			if (tx_pkt_expected->cnt == IPA_NUM_DESC_PER_SW_TX)
+				dma_pool_free(ipa_ctx->dma_pool,
+					tx_pkt_expected->mult.base,
+					tx_pkt_expected->mult.phys_base);
+			else
+				dma_free_coherent(ipa_ctx->pdev,
+					tx_pkt_expected->mult.size,
+					tx_pkt_expected->mult.base,
+					tx_pkt_expected->mult.phys_base);
+		}
 		kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt_expected);
 	}
 }
@@ -405,8 +411,12 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 	if (unlikely(!in_atomic))
 		mem_flag = GFP_KERNEL;
 
-	transfer.iovec = dma_alloc_coherent(ipa_ctx->pdev, size, &dma_addr,
-			mem_flag);
+	if (num_desc == IPA_NUM_DESC_PER_SW_TX)
+		transfer.iovec = dma_pool_alloc(ipa_ctx->dma_pool, mem_flag,
+				&dma_addr);
+	else
+		transfer.iovec = dma_alloc_coherent(ipa_ctx->pdev, size,
+				&dma_addr, mem_flag);
 	transfer.iovec_phys = dma_addr;
 	transfer.iovec_count = num_desc;
 	spin_lock_bh(&sys->spinlock);
@@ -547,9 +557,14 @@ failure:
 		/* last desc failed */
 		if (fail_dma_wrap)
 			kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
-	if (transfer.iovec_phys)
-		dma_free_coherent(ipa_ctx->pdev, size, transfer.iovec,
+	if (transfer.iovec_phys) {
+		if (num_desc == IPA_NUM_DESC_PER_SW_TX)
+			dma_pool_free(ipa_ctx->dma_pool, transfer.iovec,
+					transfer.iovec_phys);
+		else
+			dma_free_coherent(ipa_ctx->pdev, size, transfer.iovec,
 				transfer.iovec_phys);
+	}
 failure_coherent:
 	spin_unlock_bh(&sys->spinlock);
 	return -EFAULT;
