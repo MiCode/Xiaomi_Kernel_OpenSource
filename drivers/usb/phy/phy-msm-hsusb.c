@@ -438,7 +438,7 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 
 			/* Bring PHY out of suspend */
 			msm_usb_write_readback(phy->base, HS_PHY_CTRL_REG,
-				(USB2_SUSPEND_N_SEL | USB2_SUSPEND_N), 0);
+					USB2_SUSPEND_N_SEL, 0);
 
 			if (phy->core_ver >= MSM_CORE_VER_120)
 				msm_usb_write_readback(phy->base,
