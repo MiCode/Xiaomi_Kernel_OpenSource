@@ -15,7 +15,7 @@
 #include "msm8916-cdp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM 8916 CDP";
+	model = "Qualcomm Technologies, Inc. MSM 8916 SMB1360 CDP";
 	compatible = "qcom,msm8916-cdp", "qcom,msm8916", "qcom,cdp";
 	qcom,board-id = <1 1>;
 };
