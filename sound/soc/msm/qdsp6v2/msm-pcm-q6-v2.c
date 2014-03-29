@@ -896,34 +896,120 @@ static int msm_pcm_chmap_ctl_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
+static int msm_pcm_add_chmap_controls(struct snd_soc_pcm_runtime *rtd)
 {
-	struct snd_card *card = rtd->card->snd_card;
 	struct snd_pcm *pcm = rtd->pcm;
 	struct snd_pcm_chmap *chmap_info;
 	struct snd_kcontrol *kctl;
 	char device_num[12];
 	int i, ret = 0;
 
-	if (!card->dev->coherent_dma_mask)
-		card->dev->coherent_dma_mask = DMA_BIT_MASK(32);
-
 	pr_debug("%s, Channel map cntrl add\n", __func__);
 	ret = snd_pcm_add_chmap_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
 				     snd_pcm_std_chmaps,
 				     PCM_FORMAT_MAX_NUM_CHANNEL, 0,
 				     &chmap_info);
-	if (ret < 0)
+	if (ret < 0) {
+		pr_err("%s, channel map cntrl add failed\n", __func__);
 		return ret;
+	}
 	kctl = chmap_info->kctl;
 	for (i = 0; i < kctl->count; i++)
 		kctl->vd[i].access |= SNDRV_CTL_ELEM_ACCESS_WRITE;
 	snprintf(device_num, sizeof(device_num), "%d", pcm->device);
 	strlcat(kctl->id.name, device_num, sizeof(kctl->id.name));
-	pr_debug("%s, Overwriting channel map control name to: %s",
+	pr_debug("%s, Overwriting channel map control name to: %s\n",
 		__func__, kctl->id.name);
 	kctl->put = msm_pcm_chmap_ctl_put;
 	kctl->get = msm_pcm_chmap_ctl_get;
+	return 0;
+}
+
+static int msm_pcm_app_type_cfg_ctl_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	u64 fe_id = kcontrol->private_value;
+	int app_type;
+	int acdb_dev_id;
+
+	pr_debug("%s: fe_id- %llu\n", __func__, fe_id);
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s Received out of bounds fe_id %llu\n",
+			__func__, fe_id);
+		return -EINVAL;
+	}
+
+	app_type = ucontrol->value.integer.value[0];
+	acdb_dev_id = ucontrol->value.integer.value[1];
+	pr_debug("%s: app_type- %d\n", __func__, app_type);
+	pr_debug("%s: acdb_dev_id- %d\n", __func__, acdb_dev_id);
+	msm_pcm_routing_reg_stream_app_type_cfg(fe_id, app_type, acdb_dev_id);
+
+	return 0;
+}
+
+static int msm_pcm_app_type_cfg_ctl_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+
+static int msm_pcm_add_app_type_controls(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_pcm *pcm = rtd->pcm;
+	struct snd_pcm_usr *app_type_info;
+	struct snd_kcontrol *kctl;
+	const char *mixer_ctl_name	= "Audio Stream";
+	const char *deviceNo		= "NN";
+	const char *suffix		= "App Type Cfg";
+	int ctl_len, ret = 0;
+
+	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1 +
+		  strlen(suffix) + 1;
+	pr_debug("%s, App type cntrl add\n", __func__);
+	ret = snd_pcm_add_usr_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
+				   NULL, 1, ctl_len, rtd->dai_link->be_id,
+				   &app_type_info);
+	if (ret < 0) {
+		pr_err("%s, app type cntrl add failed:%d\n", __func__, ret);
+		return ret;
+	}
+	kctl = app_type_info->kctl;
+	snprintf(kctl->id.name, ctl_len, "%s %d %s", mixer_ctl_name,
+		 rtd->pcm->device, suffix);
+	kctl = app_type_info->kctl;
+	kctl->put = msm_pcm_app_type_cfg_ctl_put;
+	kctl->get = msm_pcm_app_type_cfg_ctl_get;
+
+	return 0;
+}
+
+static int msm_pcm_add_controls(struct snd_soc_pcm_runtime *rtd)
+{
+	int ret = 0;
+	pr_debug("%s\n", __func__);
+	ret = msm_pcm_add_chmap_controls(rtd);
+	if (ret)
+		pr_err("%s: pcm add controls failed:%d\n", __func__, ret);
+	ret = msm_pcm_add_app_type_controls(rtd);
+	if (ret)
+		pr_err("%s: pcm add app type controls failed:%d\n",
+			__func__, ret);
+	return ret;
+}
+
+static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_card *card = rtd->card->snd_card;
+	int ret = 0;
+
+	if (!card->dev->coherent_dma_mask)
+		card->dev->coherent_dma_mask = DMA_BIT_MASK(32);
+
+	ret = msm_pcm_add_controls(rtd);
+	if (ret)
+		pr_err("%s, kctl add failed:%d\n", __func__, ret);
+
 	return ret;
 }
 
