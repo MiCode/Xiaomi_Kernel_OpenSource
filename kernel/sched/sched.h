@@ -481,12 +481,14 @@ struct rq {
 	u64 avg_idle;
 #endif
 
+#ifdef CONFIG_SCHED_FREQ_INPUT
 	/*
 	 * max_freq = user or thermal defined maximum
 	 * max_possible_freq = maximum supported by hardware
 	 */
 	unsigned int cur_freq, max_freq, min_freq, max_possible_freq;
 	u64 cumulative_runnable_avg;
+#endif
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
 	u64 prev_irq_time;
@@ -659,6 +661,8 @@ extern int group_balance_cpu(struct sched_group *sg);
 #include "stats.h"
 #include "auto_group.h"
 
+#ifdef CONFIG_SCHED_FREQ_INPUT
+
 extern unsigned int sched_ravg_window;
 extern unsigned int max_possible_freq;
 extern unsigned int min_max_freq;
@@ -677,6 +681,24 @@ dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 	rq->cumulative_runnable_avg -= p->ravg.demand;
 	BUG_ON((s64)rq->cumulative_runnable_avg < 0);
 }
+
+#else	/* CONFIG_SCHED_FREQ_INPUT */
+
+static inline int pct_task_load(struct task_struct *p) { return 0; }
+
+static inline void
+inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
+{
+}
+
+static inline void
+dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
+{
+}
+
+static inline void init_new_task_load(struct task_struct *p) { }
+
+#endif	/* CONFIG_SCHED_FREQ_INPUT */
 
 #ifdef CONFIG_CGROUP_SCHED
 
