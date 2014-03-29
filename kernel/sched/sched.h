@@ -28,9 +28,6 @@ extern atomic_long_t calc_load_tasks;
 extern long calc_load_fold_active(struct rq *this_rq);
 extern void update_cpu_load_active(struct rq *this_rq);
 
-extern unsigned int max_possible_freq;
-extern unsigned int min_max_freq;
-
 /*
  * Helpers for converting nanosecond timing to jiffy resolution
  */
@@ -828,6 +825,8 @@ static inline void sched_ttwu_pending(void) { }
 #include "auto_group.h"
 
 extern unsigned int sched_ravg_window;
+extern unsigned int max_possible_freq;
+extern unsigned int min_max_freq;
 extern unsigned int pct_task_load(struct task_struct *p);
 extern void init_new_task_load(struct task_struct *p);
 
