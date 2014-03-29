@@ -408,6 +408,9 @@ static int dwc3_ep0_handle_feature(struct dwc3 *dwc,
 
 		switch (wValue) {
 		case USB_DEVICE_REMOTE_WAKEUP:
+			pr_debug("%s(): remote wakeup :%s\n", __func__,
+				(set ? "enabled" : "disabled"));
+			dwc->gadget.remote_wakeup = set;
 			break;
 		/*
 		 * 9.4.1 says only only for SS, in AddressState only for

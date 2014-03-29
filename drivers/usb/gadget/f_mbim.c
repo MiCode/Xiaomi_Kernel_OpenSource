@@ -1498,7 +1498,10 @@ static void mbim_suspend(struct usb_function *f)
 
 	pr_info("mbim suspended\n");
 
-	if (mbim->cdev->gadget->remote_wakeup) {
+	pr_debug("%s(): remote_wakeup:%d\n:", __func__,
+			mbim->cdev->gadget->remote_wakeup);
+	if (mbim->cdev->gadget->remote_wakeup ||
+			(mbim->cdev->gadget->speed == USB_SPEED_SUPER)) {
 		bam_data_suspend(MBIM_ACTIVE_PORT);
 	} else {
 		/*
@@ -1520,7 +1523,8 @@ static void mbim_resume(struct usb_function *f)
 
 	pr_info("mbim resumed\n");
 
-	if (mbim->cdev->gadget->remote_wakeup) {
+	if (mbim->cdev->gadget->remote_wakeup ||
+			(mbim->cdev->gadget->speed == USB_SPEED_SUPER)) {
 		bam_data_resume(MBIM_ACTIVE_PORT);
 	} else {
 		/* Restore endpoint descriptors info. */

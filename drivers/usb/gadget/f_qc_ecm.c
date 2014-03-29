@@ -768,7 +768,10 @@ static void ecm_qc_suspend(struct usb_function *f)
 		return;
 	}
 
-	if (f->config->cdev->gadget->remote_wakeup) {
+	pr_debug("%s(): remote_wakeup:%d\n:", __func__,
+			f->config->cdev->gadget->remote_wakeup);
+	if (f->config->cdev->gadget->remote_wakeup ||
+			(f->config->cdev->gadget->speed == USB_SPEED_SUPER)) {
 		bam_data_suspend(ECM_QC_ACTIVE_PORT);
 	} else {
 		/*
@@ -796,7 +799,8 @@ static void ecm_qc_resume(struct usb_function *f)
 		return;
 	}
 
-	if (f->config->cdev->gadget->remote_wakeup) {
+	if (f->config->cdev->gadget->remote_wakeup ||
+			(f->config->cdev->gadget->speed == USB_SPEED_SUPER)) {
 		bam_data_resume(ECM_QC_ACTIVE_PORT);
 	} else {
 		/* Restore endpoint descriptors info. */
