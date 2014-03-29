@@ -1,0 +1,82 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm8226-ion.dtsi"
+
+/ {
+	memory {
+		secure_mem: secure_region@0 {
+			linux,reserve-contiguous-region;
+			reg = <0 0x6D00000>;
+			label = "secure_mem";
+		};
+
+		adsp_mem: adsp_region@0 {
+			linux,reserve-contiguous-region;
+			reg = <0 0x2a00000>;
+			label = "adsp_mem";
+		};
+
+		qsecom_mem: qsecom_region@0 {
+			linux,reserve-contiguous-region;
+			reg = <0 0xd00000>;
+			label = "qsecom_mem";
+		};
+
+		fb_mem: fb_region@0 {
+			linux,reserve-contiguous-region;
+			reg = <0 0x800000>;
+			label = "fb_mem";
+		};
+
+		audio_mem: audio_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			reg = <0 0x314000>;
+			label = "audio_mem";
+		};
+
+		modem_mem: modem_region@8400000 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x08400000 0x4000000>;
+			label = "modem_mem";
+		};
+
+		peripheral_mem: peripheral_region@d200000 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0d200000 0xa00000>;
+			label = "peripheral_mem";
+		};
+
+		adsp_venus_mem: adsp_venus_region@dc00000 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0dc00000 0x1900000>;
+			label = "adsp_venus_mem";
+		};
+
+		external_image_mem: external_image_region@fa00000 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0xfa00000 0x500000>;
+			label = "external_image_mem";
+
+		};
+	};
+};
+

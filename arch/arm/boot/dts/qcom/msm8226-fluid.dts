@@ -12,6 +12,7 @@
 
 /dts-v1/;
 #include "msm8226.dtsi"
+#include "msm8226-memory.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8226 FLUID";
