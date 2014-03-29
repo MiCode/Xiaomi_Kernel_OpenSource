@@ -291,6 +291,9 @@
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
 			"CAM_RESET1",
 			"CAM_STANDBY";
+		qcom,sensor-position = <0>;
+		qcom,sensor-mode = <0>;
+		qcom,cci-master = <0>;
 		status = "ok";
 	};
 
@@ -320,6 +323,9 @@
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
 			"CAM_RESET",
 			"CAM_STANDBY";
+		qcom,sensor-position = <1>;
+		qcom,sensor-mode = <0>;
+		qcom,cci-master = <0>;
 		status = "ok";
 	};
 
