@@ -40,7 +40,7 @@
 #include <mach/board.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
-#include <mach/qseecomi.h>
+#include <soc/qcom/qseecomi.h>
 #include <asm/cacheflush.h>
 #include "qseecom_legacy.h"
 #include "qseecom_kernel.h"
