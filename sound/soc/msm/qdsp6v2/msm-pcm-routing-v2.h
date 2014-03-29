@@ -186,6 +186,7 @@ struct msm_pcm_routing_bdai_data {
 struct msm_pcm_routing_fdai_data {
 	u16 be_srate; /* track prior backend sample rate for flushing purpose */
 	int strm_id; /* ASM stream ID */
+	int perf_mode;
 	struct msm_pcm_routing_evt event_info;
 };
 
@@ -205,14 +206,14 @@ struct msm_pcm_stream_app_type_cfg {
  * dspst_id:  DSP audio stream ID
  * stream_type: playback or capture
  */
-void msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode, int dspst_id,
-	int stream_type);
+int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode, int dspst_id,
+				   int stream_type);
 void msm_pcm_routing_reg_psthr_stream(int fedai_id, int dspst_id,
 		int stream_type);
 
-void msm_pcm_routing_reg_phy_stream_v2(int fedai_id, bool perf_mode,
-				       int dspst_id, int stream_type,
-				       struct msm_pcm_routing_evt event_info);
+int msm_pcm_routing_reg_phy_stream_v2(int fedai_id, bool perf_mode,
+				      int dspst_id, int stream_type,
+				      struct msm_pcm_routing_evt event_info);
 
 void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type);
 
@@ -227,8 +228,7 @@ uint32_t get_adm_tx_topology(void);
 void msm_pcm_routing_get_bedai_info(int be_idx,
 				    struct msm_pcm_routing_bdai_data *bedai);
 void msm_pcm_routing_get_fedai_info(int fe_idx, int sess_type,
-				    struct msm_pcm_routing_fdai_data *fe_dai,
-				    int *fe_perf_mode);
+				    struct msm_pcm_routing_fdai_data *fe_dai);
 void msm_pcm_routing_acquire_lock(void);
 void msm_pcm_routing_release_lock(void);
 

@@ -70,11 +70,9 @@ static void msm_qti_pp_send_eq_values_(int eq_idx)
 {
 	int result;
 	struct msm_pcm_routing_fdai_data fe_dai;
-	int fe_dai_perf_mode;
 	struct audio_client *ac = NULL;
 
-	msm_pcm_routing_get_fedai_info(eq_idx, SESSION_TYPE_RX, &fe_dai,
-				       &fe_dai_perf_mode);
+	msm_pcm_routing_get_fedai_info(eq_idx, SESSION_TYPE_RX, &fe_dai);
 	ac = q6asm_get_audio_client(fe_dai.strm_id);
 
 	if (ac == NULL) {
@@ -227,7 +225,7 @@ void msm_qti_pp_send_eq_values(int fedai_id)
 }
 
 /* CUSTOM MIXING */
-int msm_qti_pp_send_stereo_to_custom_stereo_cmd(int port_id,
+int msm_qti_pp_send_stereo_to_custom_stereo_cmd(int port_id, int copp_idx,
 						unsigned int session_id,
 						uint16_t op_FL_ip_FL_weight,
 						uint16_t op_FL_ip_FR_weight,
@@ -286,6 +284,7 @@ int msm_qti_pp_send_stereo_to_custom_stereo_cmd(int port_id,
 	avail_length = avail_length - (4 * sizeof(uint16_t));
 	if (params_length) {
 		rc = adm_set_stereo_to_custom_stereo(port_id,
+						     copp_idx,
 						     session_id,
 						     params_value,
 						     params_length);
@@ -309,7 +308,7 @@ static int msm_qti_pp_get_rms_value_control(struct snd_kcontrol *kcontrol,
 					    struct snd_ctl_elem_value *ucontrol)
 {
 	int rc = 0;
-	int be_idx = 0;
+	int be_idx = 0, copp_idx;
 	char *param_value;
 	int *update_param_value;
 	uint32_t param_length = sizeof(uint32_t);
@@ -327,11 +326,19 @@ static int msm_qti_pp_get_rms_value_control(struct snd_kcontrol *kcontrol,
 			break;
 	}
 	if ((be_idx >= MSM_BACKEND_DAI_MAX) || !msm_bedai.active) {
-		pr_err("%s, back not active to query rms\n", __func__);
+		pr_err("%s, back not active to query rms be_idx:%d\n",
+			__func__, be_idx);
 		rc = -EINVAL;
 		goto get_rms_value_err;
 	}
-	rc = adm_get_params(SLIMBUS_0_TX,
+	copp_idx = adm_get_default_copp_idx(SLIMBUS_0_TX);
+	if ((copp_idx < 0) || (copp_idx > MAX_COPPS_PER_PORT)) {
+		pr_err("%s, no active copp to query rms copp_idx:%d\n",
+			__func__ , copp_idx);
+		rc = -EINVAL;
+		goto get_rms_value_err;
+	}
+	rc = adm_get_params(SLIMBUS_0_TX, copp_idx,
 			RMS_MODULEID_APPI_PASSTHRU,
 			RMS_PARAM_FIRST_SAMPLE,
 			param_length + param_payload_len,

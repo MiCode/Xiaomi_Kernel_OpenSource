@@ -574,12 +574,8 @@ void rtac_add_adm_device(u32 port_id, u32 copp_id, u32 path_id, u32 popp_id)
 	/* Add device */
 	rtac_adm_data.num_of_dev++;
 
-	if (path_id == ADM_PATH_PLAYBACK)
-		rtac_adm_data.device[i].topology_id =
-						get_adm_rx_topology();
-	else
-		rtac_adm_data.device[i].topology_id =
-						get_adm_tx_topology();
+	rtac_adm_data.device[i].topology_id =
+		adm_get_topology_for_port_from_copp_id(port_id, copp_id);
 	rtac_adm_data.device[i].afe_port = port_id;
 	rtac_adm_data.device[i].copp = copp_id;
 	rtac_adm_data.device[i].popp[
@@ -822,7 +818,6 @@ u32 send_adm_apr(void *buf, u32 opcode)
 	s32	result;
 	u32	user_buf_size = 0;
 	u32	bytes_returned = 0;
-	u32	port_index = 0;
 	u32	copp_id;
 	u32	payload_size;
 	u32	data_size = 0;
@@ -871,15 +866,8 @@ u32 send_adm_apr(void *buf, u32 opcode)
 		goto done;
 	}
 
-	for (port_index = 0; port_index < AFE_MAX_PORTS; port_index++) {
-		if (adm_get_copp_id(port_index) == copp_id)
-			break;
-		if (adm_get_lowlatency_copp_id(port_index) == copp_id)
-			break;
-	}
-	if (port_index >= AFE_MAX_PORTS) {
-		pr_err("%s: Could not find port index for copp = %d\n",
-		       __func__, copp_id);
+	if (adm_validate_copp_id(copp_id) != 0) {
+		pr_err("%s: Copp Id-%d is not active\n", __func__, copp_id);
 		goto done;
 	}
 
@@ -956,8 +944,7 @@ u32 send_adm_apr(void *buf, u32 opcode)
 	result = apr_send_pkt(rtac_adm_apr_data.apr_handle,
 					(uint32_t *)rtac_adm_buffer);
 	if (result < 0) {
-		pr_err("%s: Set params failed port = %d, copp = %d\n",
-			__func__, port_index, copp_id);
+		pr_err("%s: Set params failed copp = %d\n", __func__, copp_id);
 		goto err;
 	}
 	/* Wait for the callback */
@@ -966,8 +953,8 @@ u32 send_adm_apr(void *buf, u32 opcode)
 		msecs_to_jiffies(TIMEOUT_MS));
 	mutex_unlock(&rtac_adm_apr_mutex);
 	if (!result) {
-		pr_err("%s: Set params timed out port = %d, copp = %d\n",
-			__func__, port_index, copp_id);
+		pr_err("%s: Set params timed out copp = %d\n", __func__,
+			copp_id);
 		goto done;
 	}
 	if (atomic_read(&rtac_common.apr_err_code)) {
