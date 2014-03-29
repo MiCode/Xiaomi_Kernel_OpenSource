@@ -653,6 +653,43 @@ static int mdm9630_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Neg");
 	snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Pos");
 	snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Neg");
+
+	snd_soc_dapm_ignore_suspend(dapm, "Lineout_1 amp");
+	snd_soc_dapm_ignore_suspend(dapm, "Lineout_3 amp");
+	snd_soc_dapm_ignore_suspend(dapm, "Lineout_2 amp");
+	snd_soc_dapm_ignore_suspend(dapm, "Lineout_4 amp");
+	snd_soc_dapm_ignore_suspend(dapm, "SPK_ultrasound amp");
+	snd_soc_dapm_ignore_suspend(dapm, "Handset Mic");
+	snd_soc_dapm_ignore_suspend(dapm, "Headset Mic");
+	snd_soc_dapm_ignore_suspend(dapm, "ANCRight Headset Mic");
+	snd_soc_dapm_ignore_suspend(dapm, "ANCLeft Headset Mic");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic1");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic2");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic3");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic4");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic5");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic6");
+
+	snd_soc_dapm_ignore_suspend(dapm, "EAR");
+	snd_soc_dapm_ignore_suspend(dapm, "HEADPHONE");
+	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT1");
+	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT2");
+	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT3");
+	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT4");
+	snd_soc_dapm_ignore_suspend(dapm, "SPK_OUT");
+	snd_soc_dapm_ignore_suspend(dapm, "ANC HEADPHONE");
+	snd_soc_dapm_ignore_suspend(dapm, "ANC EAR");
+	snd_soc_dapm_ignore_suspend(dapm, "AMIC1");
+	snd_soc_dapm_ignore_suspend(dapm, "AMIC2");
+	snd_soc_dapm_ignore_suspend(dapm, "AMIC3");
+	snd_soc_dapm_ignore_suspend(dapm, "AMIC4");
+	snd_soc_dapm_ignore_suspend(dapm, "DMIC1");
+	snd_soc_dapm_ignore_suspend(dapm, "DMIC2");
+	snd_soc_dapm_ignore_suspend(dapm, "DMIC3");
+	snd_soc_dapm_ignore_suspend(dapm, "DMIC4");
+	snd_soc_dapm_ignore_suspend(dapm, "DMIC5");
+	snd_soc_dapm_ignore_suspend(dapm, "DMIC6");
+
 	snd_soc_dapm_sync(dapm);
 
 	mbhc_cfg.calibration = def_taiko_mbhc_cal();
@@ -892,6 +929,7 @@ static struct snd_soc_dai_link mdm9630_dai[] = {
 		.be_hw_params_fixup = &mdm9630_mi2s_rx_be_hw_params_fixup,
 		.ops = &mdm9630_mi2s_be_ops,
 		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_PRI_MI2S_TX,
@@ -905,6 +943,7 @@ static struct snd_soc_dai_link mdm9630_dai[] = {
 		.be_hw_params_fixup = &mdm9630_mi2s_tx_be_hw_params_fixup,
 		.ops = &mdm9630_mi2s_be_ops,
 		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_AFE_PCM_RX,
@@ -915,6 +954,7 @@ static struct snd_soc_dai_link mdm9630_dai[] = {
 		.codec_dai_name = "msm-stub-rx",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_AFE_PCM_RX,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_AFE_PCM_TX,
@@ -925,6 +965,7 @@ static struct snd_soc_dai_link mdm9630_dai[] = {
 		.codec_dai_name = "msm-stub-tx",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_AFE_PCM_TX,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_AUXPCM_RX,
@@ -939,6 +980,7 @@ static struct snd_soc_dai_link mdm9630_dai[] = {
 		.ops = &mdm9630_auxpcm_be_ops,
 		.ignore_pmdown_time = 1,
 		/* this dainlink has playback support */
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_AUXPCM_TX,
@@ -951,6 +993,7 @@ static struct snd_soc_dai_link mdm9630_dai[] = {
 		.be_id = MSM_BACKEND_DAI_AUXPCM_TX,
 		.be_hw_params_fixup = mdm9630_auxpcm_be_params_fixup,
 		.ops = &mdm9630_auxpcm_be_ops,
+		.ignore_suspend = 1,
 	},
 	/* Incall Record Uplink BACK END DAI Link */
 	{
