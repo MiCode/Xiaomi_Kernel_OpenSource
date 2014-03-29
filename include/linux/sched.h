@@ -1001,11 +1001,6 @@ struct ravg {
 
 struct sched_entity {
 	struct load_weight	load;		/* for load-balancing */
-	/*
-	 * Todo : Move ravg to 'struct task_struct', as this is common for both
-	 * real-time and non-realtime tasks
-	 */
-	struct ravg		ravg;
 	struct rb_node		run_node;
 	struct list_head	group_node;
 	unsigned int		on_rq;
@@ -1084,6 +1079,7 @@ struct task_struct {
 	const struct sched_class *sched_class;
 	struct sched_entity se;
 	struct sched_rt_entity rt;
+	struct ravg ravg;
 #ifdef CONFIG_CGROUP_SCHED
 	struct task_group *sched_task_group;
 #endif
