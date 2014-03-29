@@ -13,7 +13,9 @@
 #include <linux/io.h>
 #include <linux/list.h>
 #include <linux/types.h>
-#include <mach/board.h>
+#include <linux/stat.h>
+#include <linux/slab.h>
+#include <linux/device.h>
 
 #include "mdss_hdmi_cec.h"
 
