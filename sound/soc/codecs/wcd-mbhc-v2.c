@@ -113,9 +113,25 @@ static void wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 	struct snd_soc_codec *codec = mbhc->codec;
 	u16 impedance_l, impedance_r;
 	u16 impedance_l_fixed;
+	s16 reg0, reg1;
 
 	pr_debug("%s: enter\n", __func__);
+
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
+	reg0 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MASTER_BIAS_CTL);
+	reg1 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MICB_1_EN);
+	/* enable master bias */
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MASTER_BIAS_CTL,
+			0x30, 0x30);
+	/* enable mic bias */
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MICB_1_EN,
+			0x06, 0x04);
+	/* disable FSM */
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
+			0x80, 0x00);
 	/* Enable ZDET_L_MEAS_EN */
 	snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
@@ -134,13 +150,16 @@ static void wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
 			0x04, 0x00);
 
-	if (impedance_l)
+	if (impedance_l > 1)
 		goto exit;
 
 	/*
 	 * As the result is 0 impedance is < 200 use
 	 * RAMP to measure impedance further.
 	 */
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
+			0xFF, 0x00);
 
 	/* Enable RAMP_L , RAMP_R & ZDET_CHG*/
 	snd_soc_update_bits(codec,
@@ -241,6 +260,16 @@ static void wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 			0x02, 0x00);
 
 exit:
+	/*
+	 * Enable the FSM and button source back for
+	 * button detection.
+	 */
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
+			0xFF, 0xB0);
+	/* write back Master Bias and mic_bias registers */
+	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MICB_1_EN, reg1);
+	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MASTER_BIAS_CTL, reg0);
 	*zl = impedance_l;
 	*zr = impedance_r;
 	pr_debug("%s: RL %d milliohm, RR %d milliohm\n", __func__, *zl, *zr);
@@ -372,7 +401,7 @@ static void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
 static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 {
 	struct snd_soc_codec *codec = mbhc->codec;
-	long timeout = msecs_to_jiffies(20);   /* 20ms */
+	long timeout = msecs_to_jiffies(50);   /* 50ms */
 	enum wcd_mbhc_plug_type plug_type;
 	int timeout_result;
 	u16 result1, result2;
@@ -380,7 +409,7 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 	pr_debug("%s: enter\n", __func__);
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
 	/*
-	 * Wait for 20msec for FSM to complete its task.
+	 * Wait for 50msec for FSM to complete its task.
 	 * wakeup if btn pres intr occurs
 	 */
 	mbhc->is_btn_press = false;
@@ -439,16 +468,54 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 			0x20, (!detection_type << 5));
 
 	if ((mbhc->current_plug == PLUG_TYPE_NONE) && detection_type) {
-		/* Enable HW FSM */
+		/* Enable Tx2 RBias */
+		snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_MICB_1_INT_RBIAS,
+				0x10, 0x10);
+		/* Remove pull down on MIC BIAS2 */
+		snd_soc_update_bits(codec,
+				 MSM8X16_WCD_A_ANALOG_MICB_2_EN,
+				0x20, 0x00);
+		/*
+		 * Set button ref values actually the values
+		 * should be taken from the config data through
+		 * ACDB
+		 */
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_BTN0_ZDETL_CTL,
+				0xFC, 0x08);
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_BTN1_ZDETM_CTL,
+				0xFC, 0x10);
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_BTN2_ZDETH_CTL,
+				0xFC, 0x18);
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_BTN3_CTL,
+				0xFC, 0x24);
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_BTN4_CTL,
+				0xFC, 0x2C);
+		/* Enable HW FSM and current source */
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
-				0x80, 0x80);
+				0xB0, 0xB0);
+		/*
+		 * Calculate the trim value for each device used
+		 * till is comes in production by hardware team.
+		 */
+		snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_SEC_ACCESS,
+				0xA5, 0xA5);
+		snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_TRIM_CTRL2,
+				0xFF, 0x30);
 		wcd_mbhc_detect_plug_type(mbhc);
 	} else if ((mbhc->current_plug != PLUG_TYPE_NONE) && !detection_type) {
 		/* Disable HW FSM */
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
-				0x80, 0x00);
+				0xB0, 0x00);
 		if (mbhc->current_plug == PLUG_TYPE_HEADPHONE) {
 			wcd_mbhc_report_plug(mbhc, 0, SND_JACK_HEADPHONE);
 		} else if (mbhc->current_plug == PLUG_TYPE_GND_MIC_SWAP) {
@@ -887,7 +954,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		goto err_hphr_ocp_irq;
 	}
 	wcd9xxx_disable_irq(mbhc->intr_ids->hph_right_ocp);
-	/* bring the digital block out of reset */
+	/* Bring the digital block out of reset */
 	snd_soc_update_bits(codec, MSM8X16_WCD_A_DIGITAL_CDC_RST_CTL,
 			0x80, 0x80);
 
