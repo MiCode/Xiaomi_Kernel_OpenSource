@@ -1755,6 +1755,13 @@ __read_mostly unsigned int min_sched_ravg_window = 10000000;
 /* Max window size (in ns) = 1s */
 __read_mostly unsigned int max_sched_ravg_window = 1000000000;
 
+#define WINDOW_STATS_USE_RECENT        0
+#define WINDOW_STATS_USE_MAX   1
+#define WINDOW_STATS_USE_AVG   2
+
+__read_mostly unsigned int sysctl_sched_window_stats_policy =
+	WINDOW_STATS_USE_AVG;
+
 /*
  * Called when new window is starting for a task, to record cpu usage over
  * recently concluded window(s). Normally 'samples' should be 1. It can be > 1
@@ -1766,7 +1773,8 @@ update_history(struct rq *rq, struct task_struct *p, u32 runtime, int samples)
 {
 	u32 *hist = &p->ravg.sum_history[0];
 	int ridx, widx;
-	u32 sum = 0, avg;
+	u32 max = 0, avg, demand;
+	u64 sum = 0;
 
 	/* Ignore windows where task had no activity */
 	if (!runtime)
@@ -1778,11 +1786,15 @@ update_history(struct rq *rq, struct task_struct *p, u32 runtime, int samples)
 	for (; ridx >= 0; --widx, --ridx) {
 		hist[widx] = hist[ridx];
 		sum += hist[widx];
+		if (hist[widx] > max)
+			max = hist[widx];
 	}
 
 	for (widx = 0; widx < samples && widx < RAVG_HIST_SIZE; widx++) {
 		hist[widx] = runtime;
 		sum += hist[widx];
+		if (hist[widx] > max)
+			max = hist[widx];
 	}
 
 	p->ravg.sum = 0;
@@ -1791,9 +1803,16 @@ update_history(struct rq *rq, struct task_struct *p, u32 runtime, int samples)
 		BUG_ON((s64)rq->cumulative_runnable_avg < 0);
 	}
 
-	avg = sum / RAVG_HIST_SIZE;
+	avg = div64_u64(sum, RAVG_HIST_SIZE);
 
-	p->ravg.demand = max(avg, runtime);
+	if (sysctl_sched_window_stats_policy == WINDOW_STATS_USE_RECENT)
+		demand = runtime;
+	else if (sysctl_sched_window_stats_policy == WINDOW_STATS_USE_MAX)
+		demand = max;
+	else
+		demand = max(avg, runtime);
+
+	p->ravg.demand = demand;
 
 	if (p->on_rq)
 		rq->cumulative_runnable_avg += p->ravg.demand;
@@ -1837,8 +1856,10 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int update_sum)
 			delta = now - p->ravg.mark_start;
 			BUG_ON(delta < 0);
 
-			if (unlikely(cur_freq > max_possible_freq))
-				cur_freq = max_possible_freq;
+			if (unlikely(cur_freq > max_possible_freq ||
+				     (cur_freq == rq->max_freq &&
+				      rq->max_freq < rq->max_possible_freq)))
+				cur_freq = rq->max_possible_freq;
 
 			delta = div64_u64(delta  * cur_freq,
 							max_possible_freq);
