@@ -15,7 +15,7 @@
 #include "msm8916-mtp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM 8916 MTP";
+	model = "Qualcomm Technologies, Inc. MSM 8916 SMB1360 MTP";
 	compatible = "qcom,msm8916-mtp", "qcom,msm8916", "qcom,mtp";
 	qcom,board-id = <8 1>;
 };
