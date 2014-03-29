@@ -12,9 +12,6 @@
 
 extern __read_mostly int scheduler_running;
 
-extern unsigned int max_possible_freq;
-extern unsigned int min_max_freq;
-
 /*
  * Convert user-nice values [ -20 ... 0 ... 19 ]
  * to static priority [ MAX_RT_PRIO..MAX_PRIO-1 ],
@@ -663,6 +660,8 @@ extern int group_balance_cpu(struct sched_group *sg);
 #include "auto_group.h"
 
 extern unsigned int sched_ravg_window;
+extern unsigned int max_possible_freq;
+extern unsigned int min_max_freq;
 extern unsigned int pct_task_load(struct task_struct *p);
 extern void init_new_task_load(struct task_struct *p);
 
