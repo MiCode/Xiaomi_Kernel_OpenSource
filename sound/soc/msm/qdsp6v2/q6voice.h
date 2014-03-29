@@ -1474,6 +1474,7 @@ struct common_data {
 	struct voice_data voice[MAX_VOC_SESSIONS];
 
 	bool srvcc_rec_flag;
+	bool is_destroy_cvd;
 };
 
 struct voice_session_itr {
@@ -1601,5 +1602,6 @@ int voc_set_ext_ec_ref(uint16_t port_id, bool state);
 int voc_update_amr_vocoder_rate(uint32_t session_id);
 int voc_disable_device(uint32_t session_id);
 int voc_enable_device(uint32_t session_id);
+void voc_set_destroy_cvd_flag(bool is_destroy_cvd);
 
 #endif
