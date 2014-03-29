@@ -1532,6 +1532,11 @@
 		/* GPIO output to wcnss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_4_out 0 0>;
 	};
+
+	cpu-pmu {
+		compatible = "arm,armv8-pmuv3";
+		interrupts = <1 7 0xf00>;
+	};
 };
 
 &gdsc_venus {
