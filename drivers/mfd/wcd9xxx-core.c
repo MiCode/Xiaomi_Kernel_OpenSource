@@ -633,7 +633,7 @@ static const struct intr_data intr_tbl_v3[] = {
 	{WCD9XXX_IRQ_HPH_R_PA_STARTUP, false},
 	{WCD9320_IRQ_EAR_PA_STARTUP, false},
 	{WCD9330_IRQ_SVASS_ERR_EXCEPTION, false},
-	{WCD9330_IRQ_SVASS_ENGINE, false},
+	{WCD9330_IRQ_SVASS_ENGINE, true},
 	{WCD9330_IRQ_MAD_AUDIO, false},
 	{WCD9330_IRQ_MAD_BEACON, false},
 	{WCD9330_IRQ_MAD_ULTRASOUND, false},
