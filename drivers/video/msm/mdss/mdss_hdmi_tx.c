@@ -165,29 +165,29 @@ static inline void hdmi_tx_set_audio_switch_node(struct hdmi_tx_ctrl *hdmi_ctrl,
 static int hdmi_tx_audio_setup(struct hdmi_tx_ctrl *hdmi_ctrl);
 static void hdmi_tx_en_encryption(struct hdmi_tx_ctrl *hdmi_ctrl, u32 on);
 
-struct mdss_hw hdmi_tx_hw = {
+static struct mdss_hw hdmi_tx_hw = {
 	.hw_ndx = MDSS_HW_HDMI,
 	.ptr = NULL,
 	.irq_handler = hdmi_tx_isr,
 };
 
-struct dss_gpio hpd_gpio_config[] = {
+static struct dss_gpio hpd_gpio_config[] = {
 	{0, 1, COMPATIBLE_NAME "-hpd"},
 	{0, 1, COMPATIBLE_NAME "-mux-en"},
 	{0, 0, COMPATIBLE_NAME "-mux-sel"},
 	{0, 1, COMPATIBLE_NAME "-mux-lpm"}
 };
 
-struct dss_gpio ddc_gpio_config[] = {
+static struct dss_gpio ddc_gpio_config[] = {
 	{0, 1, COMPATIBLE_NAME "-ddc-mux-sel"},
 	{0, 1, COMPATIBLE_NAME "-ddc-clk"},
 	{0, 1, COMPATIBLE_NAME "-ddc-data"}
 };
 
-struct dss_gpio core_gpio_config[] = {
+static struct dss_gpio core_gpio_config[] = {
 };
 
-struct dss_gpio cec_gpio_config[] = {
+static struct dss_gpio cec_gpio_config[] = {
 	{0, 1, COMPATIBLE_NAME "-cec"}
 };
 
@@ -391,7 +391,7 @@ static bool hdmi_tx_is_cea_format(int mode)
 	return cea_fmt;
 }
 
-const char *hdmi_tx_pm_name(enum hdmi_tx_power_module_type module)
+static const char *hdmi_tx_pm_name(enum hdmi_tx_power_module_type module)
 {
 	switch (module) {
 	case HDMI_TX_HPD_PM:	return "HDMI_TX_HPD_PM";
@@ -495,7 +495,7 @@ static inline u32 hdmi_tx_is_dvi_mode(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 static void hdmi_tx_wait_for_audio_engine(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	u32 status = 0;
+	u64 status = 0;
 	u32 wait_for_vote = 50;
 	struct dss_io_data *io = NULL;
 
@@ -1058,7 +1058,7 @@ static int hdmi_tx_config_avmute(struct hdmi_tx_ctrl *hdmi_ctrl, int set)
 	return 0;
 } /* hdmi_tx_config_avmute */
 
-void hdmi_tx_hdcp_cb(void *ptr, enum hdmi_hdcp_state status)
+static void hdmi_tx_hdcp_cb(void *ptr, enum hdmi_hdcp_state status)
 {
 	int rc = 0;
 	struct hdmi_tx_ctrl *hdmi_ctrl = (struct hdmi_tx_ctrl *)ptr;
@@ -3208,7 +3208,7 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 
 			timeout = wait_for_completion_timeout(
 				&hdmi_ctrl->hpd_done, HZ/10);
-			if (!timeout & !hdmi_ctrl->hpd_state) {
+			if (!timeout && !hdmi_ctrl->hpd_state) {
 				DEV_INFO("%s: cable removed during suspend\n",
 					__func__);
 				hdmi_tx_send_cable_notification(hdmi_ctrl, 0);
@@ -3362,8 +3362,8 @@ static int hdmi_tx_init_resource(struct hdmi_tx_ctrl *hdmi_ctrl)
 				hdmi_tx_io_name(i));
 			goto error;
 		}
-		DEV_INFO("%s: '%s': start = 0x%x, len=0x%x\n", __func__,
-			hdmi_tx_io_name(i), (u32)pdata->io[i].base,
+		DEV_INFO("%s: '%s': start = 0x%p, len=0x%x\n", __func__,
+			hdmi_tx_io_name(i), pdata->io[i].base,
 			pdata->io[i].len);
 	}
 

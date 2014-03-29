@@ -12,7 +12,7 @@
  */
 
 #include <linux/io.h>
-#include <mach/board.h>
+#include <linux/delay.h>
 #include "mdss_hdmi_util.h"
 
 static struct msm_hdmi_mode_timing_info
@@ -129,7 +129,7 @@ void hdmi_setup_video_mode_lut(void)
 		hdmi_supported_video_mode_lut, MSM_HDMI_MODES_DVI);
 } /* hdmi_setup_video_mode_lut */
 
-const char *hdmi_get_single_video_3d_fmt_2string(u32 format)
+static const char *hdmi_get_single_video_3d_fmt_2string(u32 format)
 {
 	switch (format) {
 	case TOP_AND_BOTTOM:	return "TAB";
