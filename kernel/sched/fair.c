@@ -2295,6 +2295,9 @@ static u32 __compute_runnable_contrib(u64 n)
 	return contrib + runnable_avg_yN_sum[n];
 }
 
+static void add_to_scaled_stat(int cpu, struct sched_avg *sa, u64 delta);
+static inline void decay_scaled_stat(struct sched_avg *sa, u64 periods);
+
 /*
  * We can represent the historical contribution to runnable average as the
  * coefficients of a geometric series.  To do this we sub-divide our runnable
@@ -2323,7 +2326,7 @@ static u32 __compute_runnable_contrib(u64 n)
  *   load_avg = u_0` + y*(u_0 + u_1*y + u_2*y^2 + ... )
  *            = u_0 + u_1*y + u_2*y^2 + ... [re-labeling u_i --> u_{i+1}]
  */
-static __always_inline int __update_entity_runnable_avg(u64 now,
+static __always_inline int __update_entity_runnable_avg(int cpu, u64 now,
 							struct sched_avg *sa,
 							int runnable)
 {
@@ -2362,8 +2365,10 @@ static __always_inline int __update_entity_runnable_avg(u64 now,
 		 * period and accrue it.
 		 */
 		delta_w = 1024 - delta_w;
-		if (runnable)
+		if (runnable) {
 			sa->runnable_avg_sum += delta_w;
+			add_to_scaled_stat(cpu, sa, delta_w);
+		}
 		sa->runnable_avg_period += delta_w;
 
 		delta -= delta_w;
@@ -2374,19 +2379,24 @@ static __always_inline int __update_entity_runnable_avg(u64 now,
 
 		sa->runnable_avg_sum = decay_load(sa->runnable_avg_sum,
 						  periods + 1);
+		decay_scaled_stat(sa, periods + 1);
 		sa->runnable_avg_period = decay_load(sa->runnable_avg_period,
 						     periods + 1);
 
 		/* Efficiently calculate \sum (1..n_period) 1024*y^i */
 		runnable_contrib = __compute_runnable_contrib(periods);
-		if (runnable)
+		if (runnable) {
 			sa->runnable_avg_sum += runnable_contrib;
+			add_to_scaled_stat(cpu, sa, runnable_contrib);
+		}
 		sa->runnable_avg_period += runnable_contrib;
 	}
 
 	/* Remainder of delta accrued against u_0` */
-	if (runnable)
+	if (runnable) {
 		sa->runnable_avg_sum += delta;
+		add_to_scaled_stat(cpu, sa, delta);
+	}
 	sa->runnable_avg_period += delta;
 
 	return decayed;
@@ -2492,7 +2502,8 @@ static inline void __update_group_entity_contrib(struct sched_entity *se)
 
 static inline void update_rq_runnable_avg(struct rq *rq, int runnable)
 {
-	__update_entity_runnable_avg(rq_clock_task(rq), &rq->avg, runnable);
+	__update_entity_runnable_avg(cpu_of(rq), rq_clock_task(rq),
+				 &rq->avg, runnable);
 	__update_tg_runnable_avg(&rq->avg, &rq->cfs);
 }
 #else /* CONFIG_FAIR_GROUP_SCHED */
@@ -2547,17 +2558,25 @@ static inline void update_entity_load_avg(struct sched_entity *se,
 	struct cfs_rq *cfs_rq = cfs_rq_of(se);
 	long contrib_delta;
 	u64 now;
+	int cpu = cpu_of(rq_of(cfs_rq));
+	int decayed;
 
 	/*
 	 * For a group entity we need to use their owned cfs_rq_clock_task() in
 	 * case they are the parent of a throttled hierarchy.
 	 */
-	if (entity_is_task(se))
+	if (entity_is_task(se)) {
 		now = cfs_rq_clock_task(cfs_rq);
-	else
+		if (se->on_rq)
+			dec_cumulative_runnable_avg(rq_of(cfs_rq), task_of(se));
+	} else
 		now = cfs_rq_clock_task(group_cfs_rq(se));
 
-	if (!__update_entity_runnable_avg(now, &se->avg, se->on_rq))
+	decayed = __update_entity_runnable_avg(cpu, now, &se->avg, se->on_rq);
+	if (entity_is_task(se) && se->on_rq)
+		inc_cumulative_runnable_avg(rq_of(cfs_rq), task_of(se));
+
+	if (!decayed)
 		return;
 
 	contrib_delta = __update_entity_load_avg_contrib(se);
@@ -2743,6 +2762,45 @@ void init_new_task_load(struct task_struct *p)
 	p->ravg.mark_start		= wallclock;
 	for (i = 0; i < RAVG_HIST_SIZE; ++i)
 		p->ravg.sum_history[i] = 0;
+}
+
+/*
+ * Add scaled version of 'delta' to runnable_avg_sum_scaled
+ * 'delta' is scaled in reference to "best" cpu
+ */
+static inline void
+add_to_scaled_stat(int cpu, struct sched_avg *sa, u64 delta)
+{
+	struct rq *rq = cpu_rq(cpu);
+	int cur_freq = rq->cur_freq, max_freq = rq->max_freq;
+	int cpu_max_possible_freq = rq->max_possible_freq;
+	u64 scaled_delta;
+
+	if (unlikely(cur_freq > max_possible_freq ||
+		     (cur_freq == max_freq &&
+		      max_freq < cpu_max_possible_freq)))
+		cur_freq = max_possible_freq;
+
+	scaled_delta = div64_u64(delta * cur_freq, max_possible_freq);
+	sa->runnable_avg_sum_scaled += scaled_delta;
+}
+
+static inline void decay_scaled_stat(struct sched_avg *sa, u64 periods)
+{
+	sa->runnable_avg_sum_scaled =
+		decay_load(sa->runnable_avg_sum_scaled,
+			   periods);
+}
+
+#else  /* CONFIG_SCHED_FREQ_INPUT */
+
+static inline void
+add_to_scaled_stat(int cpu, struct sched_avg *sa, u64 delta)
+{
+}
+
+static inline void decay_scaled_stat(struct sched_avg *sa, u64 periods)
+{
 }
 
 #endif /* CONFIG_SCHED_FREQ_INPUT */
