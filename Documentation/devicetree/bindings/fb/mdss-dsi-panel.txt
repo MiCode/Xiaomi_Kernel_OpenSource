@@ -60,6 +60,19 @@ Required properties:
 					byte 5, 6: 16 bits length in network byte order
 					byte 7 and beyond: number byte of payload
 
+Note, if a short DCS packet(i.e packet with Byte 0:dcs data type as 05) mentioned in
+qcom,mdss-dsi-on-command/qcom,mdss-dsi-off-command stream fails to transmit,
+then 3 options can be tried.
+	1. Send the packet as a long packet instead
+				Byte 0: dcs data type = 05 (DCS short Packet)
+				Byte 0: dcs data type = 29 (DCS long Packet)
+	2. Send the packet in one burst by prepending with the next packet in packet stream
+				Byte 1 = 01 (indicates this is an individual packet)
+				Byte 1 = 00 (indicates this will be appended to the next
+					     individual packet in the packet stream)
+	3. Prepend a NULL packet to the short packet and send both in one burst instead of
+	   combining multiple short packets and sending them in one burst.
+
 Optional properties:
 - qcom,mdss-dsi-panel-name:		A string used as a descriptive name of the panel
 - qcom,cont-splash-enabled:		Boolean used to enable continuous splash mode.
