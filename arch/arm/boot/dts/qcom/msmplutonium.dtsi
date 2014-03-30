@@ -511,10 +511,10 @@
 		interrupts = <0 134 0 0 140 0>;
 		interrupt-names = "core_irq", "async_irq";
 
-		HSUSB_VDDCX-supply = <&pmplutonium_s2>;
+		HSUSB_VDDCX-supply = <&pmplutonium_s2_corner>;
 		HSUSB_1p8-supply = <&pmplutonium_l6>;
 		HSUSB_3p3-supply = <&pmplutonium_l24>;
-		qcom,vdd-voltage-level = <0 1100000 1287500>;
+		qcom,vdd-voltage-level = <1 5 7>;
 
 		clocks = <&clock_gcc clk_gcc_usb_hs_system_clk>,
 			<&clock_gcc  clk_gcc_usb_hs_ahb_clk>,
@@ -923,6 +923,7 @@
 	parent-supply = <&pmiplutonium_s2_corner>;
 };
 
+#include "msm-pmplutonium-rpm-regulator.dtsi"
 #include "msm-pmplutonium.dtsi"
 #include "msm-pmiplutonium.dtsi"
 #include "msmplutonium-regulator.dtsi"
