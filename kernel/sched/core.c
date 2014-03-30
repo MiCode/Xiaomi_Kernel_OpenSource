@@ -1449,6 +1449,7 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int update_sum)
 
 		if (update_sum) {
 			unsigned int cur_freq = rq->cur_freq;
+			int sf;
 
 			delta = now - p->ravg.mark_start;
 			BUG_ON(delta < 0);
@@ -1460,6 +1461,9 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int update_sum)
 
 			delta = div64_u64(delta  * cur_freq,
 							max_possible_freq);
+			sf = (rq->efficiency * 1024) / max_possible_efficiency;
+			delta *= sf;
+			delta >>= 10;
 			p->ravg.sum += delta;
 			WARN_ON(p->ravg.sum > window_size);
 		}

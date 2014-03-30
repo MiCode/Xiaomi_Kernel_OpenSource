@@ -1678,6 +1678,7 @@ add_to_scaled_stat(int cpu, struct sched_avg *sa, u64 delta)
 	int cur_freq = rq->cur_freq, max_freq = rq->max_freq;
 	int cpu_max_possible_freq = rq->max_possible_freq;
 	u64 scaled_delta;
+	int sf;
 
 	if (unlikely(cur_freq > max_possible_freq ||
 		     (cur_freq == max_freq &&
@@ -1685,6 +1686,9 @@ add_to_scaled_stat(int cpu, struct sched_avg *sa, u64 delta)
 		cur_freq = max_possible_freq;
 
 	scaled_delta = div64_u64(delta * cur_freq, max_possible_freq);
+	sf = (rq->efficiency * 1024) / max_possible_efficiency;
+	scaled_delta *= sf;
+	scaled_delta >>= 10;
 	sa->runnable_avg_sum_scaled += scaled_delta;
 }
 
