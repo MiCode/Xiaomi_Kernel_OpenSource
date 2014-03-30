@@ -992,6 +992,9 @@ struct sched_avg {
 	 * choices of y < 1-2^(-32)*1024.
 	 */
 	u32 runnable_avg_sum, runnable_avg_period;
+#ifdef CONFIG_SCHED_FREQ_INPUT
+	u32 runnable_avg_sum_scaled;
+#endif
 	u64 last_runnable_update;
 	s64 decay_count;
 	unsigned long load_avg_contrib;
