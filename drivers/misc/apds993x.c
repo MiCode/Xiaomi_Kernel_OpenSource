@@ -2292,15 +2292,6 @@ static int apds993x_probe(struct i2c_client *client,
 
 	mutex_init(&data->update_lock);
 
-	err = request_irq(data->irq, apds993x_interrupt, IRQF_TRIGGER_FALLING,
-			   	APDS993X_DRV_NAME, (void *)client);
-	if (err < 0) {
-		pr_err("%s: Could not allocate APDS993X_INT !\n", __func__);
-		goto exit_kfree;
-	}
-
-	irq_set_irq_wake(client->irq, 1);
-
 	INIT_DELAYED_WORK(&data->dwork, apds993x_work_handler);
 
 #ifdef ALS_POLLING_ENABLED
@@ -2313,6 +2304,15 @@ static int apds993x_probe(struct i2c_client *client,
 		pr_err("%s: Failed to init apds993x\n", __func__);
 		goto exit_kfree;
 	}
+
+	err = request_irq(data->irq, apds993x_interrupt, IRQF_TRIGGER_FALLING,
+				APDS993X_DRV_NAME, (void *)client);
+	if (err < 0) {
+		pr_err("%s: Could not allocate APDS993X_INT !\n", __func__);
+		goto exit_kfree;
+	}
+
+	irq_set_irq_wake(client->irq, 1);
 
 	/* Register to Input Device */
 	data->input_dev_als = input_allocate_device();
