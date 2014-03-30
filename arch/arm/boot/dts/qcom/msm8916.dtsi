@@ -81,12 +81,28 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 
-		removed_regions: removed_regions@0 {
-                        linux,reserve-contiguous-region;
+		external_image_mem: external_image__region@0 {
+			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x88800000 0x0 0x06e00000>;
-			label = "removed_regions";
+			reg = <0x0 0x8e200000 0x0 0x0900000>;
+			label = "external_image_mem";
+		};
+
+		modem_adsp_mem: modem_adsp_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0x88800000 0x0 0x05a00000>;
+			label = "modem_adsp_mem";
+		};
+
+		peripheral_mem: pheripheral_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0x8eb00000 0x0 0x0b00000>;
+			label = "peripheral_mem";
 		};
 
 		secure_mem: secure_region@0 {
