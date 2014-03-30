@@ -11,6 +11,7 @@
  */
 
 #include "skeleton.dtsi"
+#include <dt-bindings/clock/msm-clocks-krait.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM SAMARIUM";
@@ -405,7 +406,7 @@
 		qcom,master-id = <86>;
 	};
 
-	qcom,clock-krait@f9016000 {
+	clock_krait: qcom,clock-krait@f9016000 {
 		compatible = "qcom,clock-krait-8974";
 		reg = <0xf9016000 0x20>,
 			<0xf908a000 0x20>,
@@ -425,6 +426,7 @@
 		hfpll-dig-supply = <&pma8084_s2_corner_ao>;
 		hfpll-analog-supply = <&pma8084_l12_ao>;
 		qcom,hfpll-config-val = <0x7805C665>;
+		#clock-cells = <1>;
 
 		qcom,l2-fmax =
 			<          0 0			 >,
@@ -1071,9 +1073,15 @@
 			< 4066 /* 533 MHz */ >;
 	};
 
-	qcom,msm-cpufreq@0 {
-		reg = <0 4>;
+	qcom,msm-cpufreq {
 		compatible = "qcom,msm-cpufreq";
+		clock-names = "l2_clk", "cpu0_clk", "cpu1_clk", "cpu2_clk",
+				"cpu3_clk";
+		clocks = <&clock_krait clk_l2_clk>,
+			 <&clock_krait clk_krait0_clk>,
+			 <&clock_krait clk_krait1_clk>,
+			 <&clock_krait clk_krait2_clk>,
+			 <&clock_krait clk_krait3_clk>;
 		qcom,cpufreq-table =
 			<  300000  300000  572 >,
 			<  384000  384000  572 >,

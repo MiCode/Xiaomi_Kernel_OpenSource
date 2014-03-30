@@ -306,6 +306,13 @@
 		ranges;
 		reg = <0xfe805664 0x40>;
 		qcom,use-sync-timer;
+		clock-names = "l2_clk", "cpu0_clk", "cpu1_clk", "cpu2_clk",
+				"cpu3_clk";
+		clocks = <&clock_krait clk_l2_clk>,
+			 <&clock_krait clk_krait0_clk>,
+			 <&clock_krait clk_krait1_clk>,
+			 <&clock_krait clk_krait2_clk>,
+			 <&clock_krait clk_krait3_clk>;
 	};
 
 	qcom,cpu-sleep-status@f9088008 {
