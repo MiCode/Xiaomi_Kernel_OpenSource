@@ -21,6 +21,176 @@
 			compatible = "qcom,qpnp-revid";
 			reg = <0x100 0x100>;
 		};
+
+		pmplutonium_gpios: gpios {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-pin";
+			gpio-controller;
+			#gpio-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			label = "pmplutonium-gpio";
+
+			gpio@c000 {
+				reg = <0xc000 0x100>;
+				qcom,pin-num = <1>;
+			};
+
+			gpio@c100 {
+				reg = <0xc100 0x100>;
+				qcom,pin-num = <2>;
+			};
+
+			gpio@c200 {
+				reg = <0xc200 0x100>;
+				qcom,pin-num = <3>;
+			};
+
+			gpio@c300 {
+				reg = <0xc300 0x100>;
+				qcom,pin-num = <4>;
+			};
+
+			gpio@c400 {
+				reg = <0xc400 0x100>;
+				qcom,pin-num = <5>;
+			};
+
+			gpio@c500 {
+				reg = <0xc500 0x100>;
+				qcom,pin-num = <6>;
+			};
+
+			gpio@c600 {
+				reg = <0xc600 0x100>;
+				qcom,pin-num = <7>;
+			};
+
+			gpio@c700 {
+				reg = <0xc700 0x100>;
+				qcom,pin-num = <8>;
+			};
+
+			gpio@c800 {
+				reg = <0xc800 0x100>;
+				qcom,pin-num = <9>;
+			};
+
+			gpio@c900 {
+				reg = <0xc900 0x100>;
+				qcom,pin-num = <10>;
+			};
+
+			gpio@ca00 {
+				reg = <0xca00 0x100>;
+				qcom,pin-num = <11>;
+			};
+
+			gpio@cb00 {
+				reg = <0xcb00 0x100>;
+				qcom,pin-num = <12>;
+			};
+
+			gpio@cc00 {
+				reg = <0xcc00 0x100>;
+				qcom,pin-num = <13>;
+			};
+
+			gpio@cd00 {
+				reg = <0xcd00 0x100>;
+				qcom,pin-num = <14>;
+			};
+
+			gpio@ce00 {
+				reg = <0xce00 0x100>;
+				qcom,pin-num = <15>;
+			};
+
+			gpio@cf00 {
+				reg = <0xcf00 0x100>;
+				qcom,pin-num = <16>;
+			};
+
+			gpio@d000 {
+				reg = <0xd000 0x100>;
+				qcom,pin-num = <17>;
+			};
+
+			gpio@d100 {
+				reg = <0xd100 0x100>;
+				qcom,pin-num = <18>;
+			};
+
+			gpio@d200 {
+				reg = <0xd200 0x100>;
+				qcom,pin-num = <19>;
+			};
+
+			gpio@d300 {
+				reg = <0xd300 0x100>;
+				qcom,pin-num = <20>;
+			};
+
+			gpio@d400 {
+				reg = <0xd400 0x100>;
+				qcom,pin-num = <21>;
+			};
+
+			gpio@d500 {
+				reg = <0xd500 0x100>;
+				qcom,pin-num = <22>;
+			};
+		};
+
+		pmplutonium_mpps: mpps {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-pin";
+			gpio-controller;
+			#gpio-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			label = "pmplutonium-mpp";
+
+			mpp@a000 {
+				reg = <0xa000 0x100>;
+				qcom,pin-num = <1>;
+			};
+
+			mpp@a100 {
+				reg = <0xa100 0x100>;
+				qcom,pin-num = <2>;
+			};
+
+			mpp@a200 {
+				reg = <0xa200 0x100>;
+				qcom,pin-num = <3>;
+			};
+
+			mpp@a300 {
+				reg = <0xa300 0x100>;
+				qcom,pin-num = <4>;
+			};
+
+			mpp@a400 {
+				reg = <0xa400 0x100>;
+				qcom,pin-num = <5>;
+			};
+
+			mpp@a500 {
+				reg = <0xa500 0x100>;
+				qcom,pin-num = <6>;
+			};
+
+			mpp@a600 {
+				reg = <0xa600 0x100>;
+				qcom,pin-num = <7>;
+			};
+
+			mpp@a700 {
+				reg = <0xa700 0x100>;
+				qcom,pin-num = <8>;
+			};
+		};
 	};
 
 	qcom,pmplutonium@1 {
