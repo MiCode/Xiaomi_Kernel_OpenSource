@@ -310,6 +310,64 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= proc_dointvec,
 	},
 #endif
+#ifdef CONFIG_SCHED_HMP
+	{
+		.procname	= "sched_enable_hmp_task_placement",
+		.data		= &sysctl_sched_enable_hmp_task_placement,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec,
+	},
+	{
+		.procname	= "sched_small_task",
+		.data		= &sysctl_sched_small_task_pct,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= sched_hmp_proc_update_handler,
+	},
+	{
+		.procname	= "sched_mostly_idle_load",
+		.data		= &sysctl_sched_mostly_idle_load_pct,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= sched_hmp_proc_update_handler,
+	},
+	{
+		.procname	= "sched_mostly_idle_nr_run",
+		.data		= &sysctl_sched_mostly_idle_nr_run,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec,
+	},
+	{
+		.procname	= "sched_upmigrate",
+		.data		= &sysctl_sched_upmigrate_pct,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= sched_hmp_proc_update_handler,
+	},
+	{
+		.procname	= "sched_downmigrate",
+		.data		= &sysctl_sched_downmigrate_pct,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= sched_hmp_proc_update_handler,
+	},
+	{
+		.procname	= "sched_upmigrate_min_nice",
+		.data		= &sysctl_sched_upmigrate_min_nice,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec,
+	},
+	{
+		.procname	= "sched_init_task_load",
+		.data		= &sysctl_sched_init_task_load_pct,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= sched_hmp_proc_update_handler,
+	},
+#endif	/* CONFIG_SCHED_HMP */
 #ifdef CONFIG_SCHED_DEBUG
 	{
 		.procname	= "sched_min_granularity_ns",

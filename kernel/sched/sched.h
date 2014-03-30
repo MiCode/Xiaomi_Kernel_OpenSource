@@ -664,19 +664,26 @@ extern int group_balance_cpu(struct sched_group *sg);
 #include "stats.h"
 #include "auto_group.h"
 
+extern void init_new_task_load(struct task_struct *p);
+
 #if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
 
 extern unsigned int sched_ravg_window;
 extern unsigned int max_possible_freq;
 extern unsigned int min_max_freq;
 extern unsigned int pct_task_load(struct task_struct *p);
-extern void init_new_task_load(struct task_struct *p);
 extern unsigned int max_possible_efficiency;
 extern unsigned int min_possible_efficiency;
 extern unsigned int max_capacity;
 extern unsigned int min_capacity;
 extern unsigned long capacity_scale_cpu_efficiency(int cpu);
 extern unsigned long capacity_scale_cpu_freq(int cpu);
+extern unsigned int sched_mostly_idle_load;
+extern unsigned int sched_small_task;
+extern unsigned int sched_upmigrate;
+extern unsigned int sched_downmigrate;
+extern unsigned int sched_init_task_load_pelt;
+extern unsigned int sched_init_task_load_windows;
 
 static inline void
 inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
@@ -705,8 +712,6 @@ dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 {
 }
 
-static inline void init_new_task_load(struct task_struct *p) { }
-
 static inline unsigned long capacity_scale_cpu_efficiency(int cpu)
 {
 	return SCHED_LOAD_SCALE;
@@ -718,6 +723,16 @@ static inline unsigned long capacity_scale_cpu_freq(int cpu)
 }
 
 #endif	/* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
+
+#ifdef CONFIG_SCHED_HMP
+
+extern void set_hmp_defaults(void);
+
+#else /* CONFIG_SCHED_HMP */
+
+static inline void set_hmp_defaults(void) { }
+
+#endif /* CONFIG_SCHED_HMP */
 
 #ifdef CONFIG_CGROUP_SCHED
 

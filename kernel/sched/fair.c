@@ -1219,6 +1219,317 @@ static u32 __compute_runnable_contrib(u64 n)
 static void add_to_scaled_stat(int cpu, struct sched_avg *sa, u64 delta);
 static inline void decay_scaled_stat(struct sched_avg *sa, u64 periods);
 
+#if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
+
+/* Initial task load. Newly created tasks are assigned this load. */
+unsigned int __read_mostly sched_init_task_load_pelt;
+unsigned int __read_mostly sched_init_task_load_windows;
+unsigned int __read_mostly sysctl_sched_init_task_load_pct = 100;
+
+static inline unsigned int task_load(struct task_struct *p)
+{
+	return p->se.avg.runnable_avg_sum_scaled;
+}
+
+static inline unsigned int max_task_load(void)
+{
+	return LOAD_AVG_MAX;
+}
+
+#endif /* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
+
+#ifdef CONFIG_SCHED_HMP
+
+/* Use this knob to turn on or off HMP-aware task placement logic */
+unsigned int __read_mostly sysctl_sched_enable_hmp_task_placement = 1;
+
+/*
+ * A cpu is considered practically idle, if:
+ *
+ *	rq->nr_running <= sysctl_sched_mostly_idle_nr_run &&
+ *	rq->cumulative_runnable_avg <= sched_mostly_idle_load
+ */
+unsigned int __read_mostly sysctl_sched_mostly_idle_nr_run = 3;
+
+/*
+ * Conversion of *_pct to absolute form is based on max_task_load().
+ *
+ * For example:
+ *	sched_mostly_idle_load =
+ *	(sysctl_sched_mostly_idle_load_pct * max_task_load()) / 100;
+ */
+unsigned int __read_mostly sched_mostly_idle_load;
+unsigned int __read_mostly sysctl_sched_mostly_idle_load_pct = 20;
+
+/*
+ * Tasks whose bandwidth consumption on a cpu is less than
+ * sched_small_task are considered as small tasks.
+ */
+unsigned int __read_mostly sched_small_task;
+unsigned int __read_mostly sysctl_sched_small_task_pct = 10;
+
+/*
+ * Tasks whose bandwidth consumption on a cpu is more than
+ * sched_upmigrate are considered "big" tasks. Big tasks will be
+ * considered for "up" migration, i.e migrating to a cpu with better
+ * capacity.
+ */
+unsigned int __read_mostly sched_upmigrate;
+unsigned int __read_mostly sysctl_sched_upmigrate_pct = 80;
+
+/*
+ * Big tasks, once migrated, will need to drop their bandwidth
+ * consumption to less than sched_downmigrate before they are "down"
+ * migrated.
+ */
+unsigned int __read_mostly sched_downmigrate;
+unsigned int __read_mostly sysctl_sched_downmigrate_pct = 60;
+
+/*
+ * Tasks whose nice value is > sysctl_sched_upmigrate_min_nice are never
+ * considered as "big" tasks.
+ */
+int __read_mostly sysctl_sched_upmigrate_min_nice = 15;
+
+static inline int available_cpu_capacity(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	return rq->capacity;
+}
+
+#define pct_to_real(tunable)	\
+		(div64_u64((u64)tunable * (u64)max_task_load(), 100))
+
+void set_hmp_defaults(void)
+{
+	sched_mostly_idle_load =
+		pct_to_real(sysctl_sched_mostly_idle_load_pct);
+
+	sched_small_task =
+		pct_to_real(sysctl_sched_small_task_pct);
+
+	sched_upmigrate =
+		pct_to_real(sysctl_sched_upmigrate_pct);
+
+	sched_downmigrate =
+		pct_to_real(sysctl_sched_downmigrate_pct);
+
+	sched_init_task_load_pelt =
+		div64_u64((u64)sysctl_sched_init_task_load_pct *
+			  (u64)LOAD_AVG_MAX, 100);
+
+	sched_init_task_load_windows =
+		div64_u64((u64)sysctl_sched_init_task_load_pct *
+			  (u64)sched_ravg_window, 100);
+}
+
+/*
+ * 'load' is in reference to "best cpu" at its best frequency.
+ * Scale that in reference to a given cpu, accounting for how bad it is
+ * in reference to "best cpu".
+ */
+static u64 scale_task_load(u64 task_load, int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	task_load *= (u64)rq->load_scale_factor;
+	task_load /= 1024;
+
+	return task_load;
+}
+
+/* Is a task "big" on its current cpu */
+static inline int is_big_task(struct task_struct *p)
+{
+	unsigned int load = task_load(p);
+
+	load = scale_task_load(load, task_cpu(p));
+
+	return load > sched_upmigrate;
+}
+
+/* Is a task "small" on its current cpu */
+static inline int is_small_task(struct task_struct *p)
+{
+	unsigned int load = task_load(p);
+
+	load = scale_task_load(load, task_cpu(p));
+
+	return load < sched_small_task;
+}
+
+/*
+ * Task will fit on a cpu if it's bandwidth consumption on that cpu
+ * will be less than sched_upmigrate. A big task that was previously
+ * "up" migrated will be considered fitting on "little" cpu if its
+ * bandwidth consumption on "little" cpu will be less than
+ * sched_downmigrate. This will help avoid frequenty migrations for
+ * tasks with load close to the upmigrate threshold
+ */
+static int task_will_fit(struct task_struct *p, int cpu)
+{
+	unsigned int load;
+	int prev_cpu = task_cpu(p);
+	struct rq *prev_rq = cpu_rq(prev_cpu);
+	struct rq *rq = cpu_rq(cpu);
+	int upmigrate = sched_upmigrate;
+	int nice = TASK_NICE(p);
+
+	/* Todo: Provide cgroup-based control as well? */
+	if (nice > sysctl_sched_upmigrate_min_nice ||
+			 rq->capacity == max_capacity)
+		return 1;
+
+	load = scale_task_load(task_load(p), cpu);
+
+	if (prev_rq->capacity > rq->capacity)
+		upmigrate = sched_downmigrate;
+
+	if (load < upmigrate)
+		return 1;
+
+	return 0;
+}
+
+/* Return cost of running a task on given cpu */
+static inline int power_cost(struct task_struct *p, int cpu)
+{
+	/* Todo: account cluster cost etc */
+	return cpu_rq(cpu)->capacity;
+}
+
+static inline int mostly_idle_cpu(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+	u64 total_load;
+
+	total_load = scale_task_load(rq->cumulative_runnable_avg, cpu);
+
+	return (total_load <= sched_mostly_idle_load
+		&& rq->nr_running <= sysctl_sched_mostly_idle_nr_run);
+}
+
+/* return cheapest cpu that can fit this task */
+static int select_best_cpu(struct task_struct *p, int target)
+{
+	int i, best_cpu = -1;
+	int prev_cpu = task_cpu(p);
+	int cpu_cost, min_cost = INT_MAX;
+	int small_task = is_small_task(p);
+
+	/* provide bias for prev_cpu */
+	if (!small_task && mostly_idle_cpu(prev_cpu) &&
+	    task_will_fit(p, prev_cpu)) {
+		best_cpu = prev_cpu;
+		min_cost = power_cost(p, prev_cpu);
+	}
+
+	/* Todo : Optimize this loop */
+	for_each_cpu_and(i, tsk_cpus_allowed(p), cpu_online_mask) {
+		if (!small_task && !mostly_idle_cpu(i))
+			continue;
+
+		if (!task_will_fit(p, i))
+			continue;
+
+		/* Prefer lowest cost cpu that can accommodate task */
+		cpu_cost = power_cost(p, i);
+		/* Assume power_cost() returns same number for two
+		 * cpus that are nearly same in their power
+		 * rating.
+		 */
+		if (cpu_cost < min_cost) {
+			min_cost = cpu_cost;
+			best_cpu = i;
+		}
+	}
+
+	if (best_cpu < 0)
+		best_cpu = prev_cpu;
+
+	return best_cpu;
+}
+
+/*
+ * Convert percentage value into absolute form. This will avoid div() operation
+ * in fast path, to convert task load in percentage scale.
+ */
+int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
+		void __user *buffer, size_t *lenp,
+		loff_t *ppos)
+{
+	int ret;
+	unsigned int *data = (unsigned int *)table->data;
+	unsigned int old_val = *data;
+
+	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+	if (ret || !write)
+		return ret;
+
+	if ((sysctl_sched_downmigrate_pct >
+		sysctl_sched_upmigrate_pct) || *data > 100) {
+			*data = old_val;
+			return -EINVAL;
+	}
+
+	set_hmp_defaults();
+
+	return 0;
+
+}
+
+#else	/* CONFIG_SCHED_HMP */
+
+static inline int select_best_cpu(struct task_struct *p, int target)
+{
+	return 0;
+}
+
+#endif	/* CONFIG_SCHED_HMP */
+
+#if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
+
+void init_new_task_load(struct task_struct *p)
+{
+	int i;
+	u64 wallclock = sched_clock();
+
+	p->se.avg.decay_count	= 0;
+	p->ravg.sum		= 0;
+	p->ravg.window_start	= wallclock;
+	p->ravg.mark_start	= wallclock;
+
+	for (i = 0; i < RAVG_HIST_SIZE; ++i)
+		p->ravg.sum_history[i] = sched_init_task_load_windows;
+	p->se.avg.runnable_avg_period =
+		sysctl_sched_init_task_load_pct ? LOAD_AVG_MAX : 0;
+	p->se.avg.runnable_avg_sum = sched_init_task_load_pelt;
+	p->se.avg.runnable_avg_sum_scaled = sched_init_task_load_pelt;
+	p->ravg.demand = sched_init_task_load_windows;
+}
+
+#else /* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
+
+#if defined(CONFIG_SMP) && defined(CONFIG_FAIR_GROUP_SCHED)
+
+void init_new_task_load(struct task_struct *p)
+{
+	p->se.avg.decay_count = 0;
+	p->se.avg.runnable_avg_period = 0;
+	p->se.avg.runnable_avg_sum = 0;
+}
+
+#else	/* CONFIG_SMP && CONFIG_FAIR_GROUP_SCHED */
+
+void init_new_task_load(struct task_struct *p)
+{
+}
+
+#endif	/* CONFIG_SMP && CONFIG_FAIR_GROUP_SCHED */
+
+#endif /* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
+
 /*
  * We can represent the historical contribution to runnable average as the
  * coefficients of a geometric series.  To do this we sub-divide our runnable
@@ -1634,16 +1945,6 @@ static inline void update_cfs_rq_blocked_load(struct cfs_rq *cfs_rq,
 
 #if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
 
-static inline unsigned int task_load(struct task_struct *p)
-{
-	return p->ravg.demand;
-}
-
-static inline unsigned int max_task_load(void)
-{
-	return sched_ravg_window;
-}
-
 /* Return task demand in percentage scale */
 unsigned int pct_task_load(struct task_struct *p)
 {
@@ -1652,19 +1953,6 @@ unsigned int pct_task_load(struct task_struct *p)
 	load = div64_u64((u64)task_load(p) * 100, (u64)max_task_load());
 
 	return load;
-}
-
-void init_new_task_load(struct task_struct *p)
-{
-	int i;
-	u64 wallclock = sched_clock();
-
-	p->ravg.sum			= 0;
-	p->ravg.demand			= 0;
-	p->ravg.window_start		= wallclock;
-	p->ravg.mark_start		= wallclock;
-	for (i = 0; i < RAVG_HIST_SIZE; ++i)
-		p->ravg.sum_history[i] = 0;
 }
 
 /*
@@ -3474,6 +3762,9 @@ select_task_rq_fair(struct task_struct *p, int sd_flag, int wake_flags)
 
 	if (p->nr_cpus_allowed == 1)
 		return prev_cpu;
+
+	if (sysctl_sched_enable_hmp_task_placement)
+		return select_best_cpu(p, prev_cpu);
 
 	if (sd_flag & SD_BALANCE_WAKE) {
 		if (cpumask_test_cpu(cpu, tsk_cpus_allowed(p)))

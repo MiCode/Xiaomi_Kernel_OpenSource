@@ -39,6 +39,25 @@ extern unsigned int sysctl_sched_wake_to_idle;
 extern unsigned int sysctl_sched_wakeup_load_threshold;
 extern unsigned int sysctl_sched_window_stats_policy;
 
+#if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
+extern unsigned int sysctl_sched_init_task_load_pct;
+#endif
+
+#ifdef CONFIG_SCHED_HMP
+extern unsigned int sysctl_sched_enable_hmp_task_placement;
+extern unsigned int sysctl_sched_mostly_idle_nr_run;
+extern unsigned int sysctl_sched_mostly_idle_load_pct;
+extern unsigned int sysctl_sched_small_task_pct;
+extern unsigned int sysctl_sched_upmigrate_pct;
+extern unsigned int sysctl_sched_downmigrate_pct;
+extern int sysctl_sched_upmigrate_min_nice;
+
+#else /* CONFIG_SCHED_HMP */
+
+#define sysctl_sched_enable_hmp_task_placement 0
+
+#endif /* CONFIG_SCHED_HMP */
+
 enum sched_tunable_scaling {
 	SCHED_TUNABLESCALING_NONE,
 	SCHED_TUNABLESCALING_LOG,
@@ -65,6 +84,10 @@ int sched_proc_update_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *length,
 		loff_t *ppos);
 #endif
+
+extern int sched_hmp_proc_update_handler(struct ctl_table *table,
+		int write, void __user *buffer, size_t *lenp, loff_t *ppos);
+
 #ifdef CONFIG_SCHED_DEBUG
 static inline unsigned int get_sysctl_timer_migration(void)
 {
