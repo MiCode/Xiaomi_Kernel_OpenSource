@@ -68,6 +68,11 @@ TRACE_EVENT(sched_enq_deq_task,
 		__field(unsigned int,	nr_running		)
 		__field(unsigned long,	cpu_load		)
 		__field(unsigned int,	rt_nr_running		)
+#ifdef CONFIG_SCHED_FREQ_INPUT
+		__field(unsigned int,	sum_scaled		)
+		__field(unsigned int,	period			)
+		__field(unsigned int,	demand			)
+#endif
 	),
 
 	TP_fast_assign(
@@ -79,13 +84,26 @@ TRACE_EVENT(sched_enq_deq_task,
 		__entry->nr_running	= task_rq(p)->nr_running;
 		__entry->cpu_load	= task_rq(p)->cpu_load[0];
 		__entry->rt_nr_running	= task_rq(p)->rt.rt_nr_running;
+#ifdef CONFIG_SCHED_FREQ_INPUT
+		__entry->sum_scaled	= p->se.avg.runnable_avg_sum_scaled;
+		__entry->period		= p->se.avg.runnable_avg_period;
+		__entry->demand		= p->ravg.demand;
+#endif
 	),
 
-	TP_printk("cpu=%d %s comm=%s pid=%d prio=%d nr_running=%u cpu_load=%lu rt_nr_running=%u",
-			__entry->cpu, __entry->enqueue ? "enqueue" : "dequeue",
+	TP_printk("cpu=%d %s comm=%s pid=%d prio=%d nr_running=%u cpu_load=%lu rt_nr_running=%u"
+#ifdef CONFIG_SCHED_FREQ_INPUT
+		 "sum_scaled=%u period=%u demand=%u"
+#endif
+			, __entry->cpu,
+			__entry->enqueue ? "enqueue" : "dequeue",
 			__entry->comm, __entry->pid,
 			__entry->prio, __entry->nr_running,
-			__entry->cpu_load, __entry->rt_nr_running)
+			__entry->cpu_load, __entry->rt_nr_running
+#ifdef CONFIG_SCHED_FREQ_INPUT
+			, __entry->sum_scaled, __entry->period, __entry->demand
+#endif
+			)
 );
 
 /*
