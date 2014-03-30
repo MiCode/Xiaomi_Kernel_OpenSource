@@ -4412,7 +4412,7 @@ static inline int get_sd_load_idx(struct sched_domain *sd,
 
 static unsigned long default_scale_freq_power(struct sched_domain *sd, int cpu)
 {
-	return SCHED_POWER_SCALE;
+	return capacity_scale_cpu_freq(cpu);
 }
 
 unsigned long __weak arch_scale_freq_power(struct sched_domain *sd, int cpu)
@@ -4480,6 +4480,9 @@ static void update_cpu_power(struct sched_domain *sd, int cpu)
 	}
 
 	sdg->sgp->power_orig = power;
+
+	power *= capacity_scale_cpu_efficiency(cpu);
+	power >>= SCHED_POWER_SHIFT;
 
 	if (sched_feat(ARCH_POWER))
 		power *= arch_scale_freq_power(sd, cpu);
