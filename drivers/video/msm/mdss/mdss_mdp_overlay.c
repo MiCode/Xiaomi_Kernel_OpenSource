@@ -1330,8 +1330,13 @@ static void mdss_mdp_overlay_force_dma_cleanup(struct mdss_data_type *mdata)
 
 	for (i = 0; i < mdata->ndma_pipes; i++) {
 		pipe = mdata->dma_pipes + i;
-		if (atomic_read(&pipe->ref_cnt) && pipe->mfd)
-			mdss_mdp_overlay_force_cleanup(pipe->mfd);
+
+		if (!mdss_mdp_pipe_map(pipe)) {
+			struct msm_fb_data_type *mfd = pipe->mfd;
+			mdss_mdp_pipe_unmap(pipe);
+			if (mfd)
+				mdss_mdp_overlay_force_cleanup(mfd);
+		}
 	}
 }
 
