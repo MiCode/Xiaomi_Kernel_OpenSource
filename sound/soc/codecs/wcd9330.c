@@ -4308,6 +4308,9 @@ static int tomtom_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 	if (reg == TOMTOM_A_MBHC_INSERT_DET_STATUS)
 		return 1;
 
+	if (reg == TOMTOM_A_RX_HPH_CNP_EN)
+		return 1;
+
 	if (((reg >= TOMTOM_A_CDC_SPKR_CLIPDET_VAL0 &&
 	    reg <= TOMTOM_A_CDC_SPKR_CLIPDET_VAL7)) ||
 	    ((reg >= TOMTOM_A_CDC_SPKR2_CLIPDET_VAL0) &&
