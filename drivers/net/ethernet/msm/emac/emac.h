@@ -292,7 +292,7 @@ struct emac_hw {
 #define EMAC_ACTIVE_TXQ         0
 
 #define EMAC_MAX_RX_QUEUES      4
-#define EMAC_DEF_RX_QUEUES      4
+#define EMAC_DEF_RX_QUEUES      1
 
 #define EMAC_MIN_TX_DESCS       128
 #define EMAC_MIN_RX_DESCS       128
