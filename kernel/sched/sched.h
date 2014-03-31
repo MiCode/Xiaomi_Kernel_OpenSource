@@ -727,10 +727,12 @@ static inline unsigned long capacity_scale_cpu_freq(int cpu)
 
 #ifdef CONFIG_SCHED_HMP
 
+extern void check_for_migration(struct rq *rq, struct task_struct *p);
 extern void set_hmp_defaults(void);
 
 #else /* CONFIG_SCHED_HMP */
 
+static inline void check_for_migration(struct rq *rq, struct task_struct *p) { }
 static inline void set_hmp_defaults(void) { }
 
 #endif /* CONFIG_SCHED_HMP */

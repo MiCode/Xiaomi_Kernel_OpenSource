@@ -223,6 +223,9 @@ calc_delta_mine(unsigned long delta_exec, unsigned long weight,
 	return (unsigned long)min(tmp, (u64)(unsigned long)LONG_MAX);
 }
 
+#ifdef CONFIG_SMP
+static int active_load_balance_cpu_stop(void *data);
+#endif
 
 const struct sched_class fair_sched_class;
 
@@ -1508,6 +1511,56 @@ static inline int find_new_hmp_ilb(int call_cpu)
 	rcu_read_unlock();
 
 	return best_cpu;
+}
+
+/*
+ * Check if a task is on the "wrong" cpu (i.e its current cpu is not the ideal
+ * cpu as per its demand or priority)
+ */
+static inline int migration_needed(struct rq *rq, struct task_struct *p)
+{
+	int nice = TASK_NICE(p);
+
+	/* Todo: cgroup-based control? */
+	if (nice > sysctl_sched_upmigrate_min_nice &&
+		rq->capacity > min_capacity)
+			return 1;
+
+	return !task_will_fit(p, cpu_of(rq));
+}
+
+/*
+ * cpu-bound tasks will not go through select_best_cpu() and hence can be stuck
+ * on the wrong cpu. Check if any such tasks need to be "force-migrated"
+ *
+ * Todo: Effect this via changes to nohz_balancer_kick() and load balance?
+ */
+void check_for_migration(struct rq *rq, struct task_struct *p)
+{
+	int cpu = cpu_of(rq), new_cpu = cpu;
+	unsigned long flags;
+	int active_balance = 0;
+
+	if (migration_needed(rq, p))
+		new_cpu = select_best_cpu(p, cpu);
+
+	if (new_cpu == cpu)
+		return;
+
+	/* Invoke active balance to force migrate currently running task */
+	raw_spin_lock_irqsave(&rq->lock, flags);
+	if (!rq->active_balance) {
+		rq->active_balance = 1;
+		rq->push_cpu = new_cpu;
+		get_task_struct(p);
+		rq->push_task = p;
+		active_balance = 1;
+	}
+	raw_spin_unlock_irqrestore(&rq->lock, flags);
+
+	if (active_balance)
+		stop_one_cpu_nowait(cpu, active_load_balance_cpu_stop, rq,
+					&rq->active_balance_work);
 }
 
 #else	/* CONFIG_SCHED_HMP */
@@ -5484,8 +5537,6 @@ static int need_active_balance(struct lb_env *env)
 
 	return unlikely(sd->nr_balance_failed > sd->cache_nice_tries+2);
 }
-
-static int active_load_balance_cpu_stop(void *data);
 
 /*
  * Check this_cpu to ensure it is balanced within domain. Attempt to move
