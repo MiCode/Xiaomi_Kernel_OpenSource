@@ -704,6 +704,10 @@ static inline int ufshcd_dme_peer_get(struct ufs_hba *hba,
 
 int ufshcd_read_device_desc(struct ufs_hba *hba, u8 *buf, u32 size);
 
+#define ASCII_STD true
+#define UTF16_STD false
+int ufshcd_read_string_desc(struct ufs_hba *hba, int desc_index, u8 *buf,
+				u32 size, bool ascii);
 /* variant specific ops structures */
 #ifdef CONFIG_SCSI_UFS_MSM
 extern const struct ufs_hba_variant_ops ufs_hba_msm_vops;
