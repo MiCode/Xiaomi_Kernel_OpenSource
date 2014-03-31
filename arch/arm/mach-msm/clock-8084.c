@@ -6483,12 +6483,12 @@ static struct clk_lookup apq_clocks_8084[] = {
 						"fda04000.qcom,cpp"),
 	/* Camera Sensor Clocks */
 	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "0.qcom,camera"),
-	CLK_LOOKUP("",	mclk1_clk_src.c,	""),
-	CLK_LOOKUP("cam_src_clk",	mclk2_clk_src.c, "1.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk",	mclk1_clk_src.c, "1.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk",	mclk2_clk_src.c, "2.qcom,camera"),
 	CLK_LOOKUP("",	mclk3_clk_src.c,	""),
 	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "0.qcom,camera"),
-	CLK_LOOKUP("",	camss_mclk1_clk.c,	""),
-	CLK_LOOKUP("cam_clk", camss_mclk2_clk.c, "1.qcom,camera"),
+	CLK_LOOKUP("cam_clk",	camss_mclk1_clk.c, "1.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_mclk2_clk.c, "2.qcom,camera"),
 	CLK_LOOKUP("",	camss_mclk3_clk.c,	""),
 
 	CLK_LOOKUP("iface_clk", mdss_ahb_clk.c, "fd900000.qcom,mdss_mdp"),
