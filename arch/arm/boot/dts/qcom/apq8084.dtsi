@@ -90,6 +90,7 @@
 #include "apq8084-pinctrl.dtsi"
 #include "apq8084-camera.dtsi"
 #include "apq8084-ipcrouter.dtsi"
+#include "msm-rdbg.dtsi"
 
 &soc {
 	#address-cells = <1>;
