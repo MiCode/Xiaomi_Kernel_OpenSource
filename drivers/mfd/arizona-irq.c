@@ -203,7 +203,15 @@ int arizona_irq_init(struct arizona *arizona)
 	case WM8280:
 	case WM5110:
 		aod = &florida_aod;
-		irq = &florida_irq;
+
+		switch (arizona->rev) {
+		case 0 ... 2:
+			irq = &florida_irq;
+			break;
+		default:
+			irq = &florida_revd_irq;
+			break;
+		}
 
 		ctrlif_error = false;
 		break;

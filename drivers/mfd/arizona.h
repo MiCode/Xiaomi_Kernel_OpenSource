@@ -38,6 +38,7 @@ extern const struct regmap_irq_chip wm5102_irq;
 
 extern const struct regmap_irq_chip florida_aod;
 extern const struct regmap_irq_chip florida_irq;
+extern const struct regmap_irq_chip florida_revd_irq;
 
 extern const struct regmap_irq_chip wm8997_aod;
 extern const struct regmap_irq_chip wm8997_irq;
