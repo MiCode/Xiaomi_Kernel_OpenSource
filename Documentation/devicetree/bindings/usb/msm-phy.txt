@@ -32,6 +32,8 @@ Optional properties:
  - qcom,primary-phy: If present, indicates this is a secondary PHY and is
    dependent on the primary PHY referenced by this phandle.
  - qcom,set-pllbtune: If present, PLL tune is required in PHY initialization.
+ - qcom,num_ports: Indicates the number of ports that supported by the HS PHY.
+   If omitted, defaults to 1
 
 Example:
 	hsphy@f9200000 {
@@ -41,6 +43,7 @@ Example:
 		vdd-supply = <&pm8841_s2_corner>;
 		vdda18-supply = <&pm8941_l6>;
 		vdda33-supply = <&pm8941_l24>;
+		qcom,num_of_ports = <3>;
 		qcom,vdd-voltage-level = <1 5 7>;
 	};
 
