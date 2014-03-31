@@ -1056,7 +1056,7 @@ ecm_qc_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 
 	status = ecm_qc_bam_setup();
 	if (status) {
-		pr_err("bam setup failed");
+		pr_err("bam setup failed\n");
 		return status;
 	}
 
@@ -1093,7 +1093,7 @@ ecm_qc_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 		return -ENOMEM;
 
 	ecm->xport = str_to_xport(xport_name);
-	pr_debug("set xport = %d", ecm->xport);
+	pr_debug("set xport = %d\n", ecm->xport);
 
 	/* export host's Ethernet address in CDC format */
 	if (ecm->xport == USB_GADGET_XPORT_BAM2BAM_IPA) {
@@ -1128,7 +1128,7 @@ ecm_qc_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 
 	status = usb_add_function(c, &ecm->port.func);
 	if (status) {
-		pr_err("failed to add function");
+		pr_err("failed to add function\n");
 		ecm_qc_string_defs[1].s = NULL;
 		kfree(ecm);
 		return status;
@@ -1141,11 +1141,11 @@ ecm_qc_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 			ipa_params.host_ethaddr, ipa_params.device_ethaddr);
 	status = ecm_ipa_init(&ipa_params);
 	if (status) {
-		pr_err("failed to initialize ecm_ipa");
+		pr_err("failed to initialize ecm_ipa\n");
 		ecm_qc_string_defs[1].s = NULL;
 		kfree(ecm);
 	} else {
-		pr_debug("ecm_ipa successful created");
+		pr_debug("ecm_ipa successful created\n");
 	}
 
 	return status;

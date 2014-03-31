@@ -305,7 +305,7 @@ static int rmnet_gport_setup(void)
 
 	pr_debug("%s: bam ports: %u bam2bam ports: %u data hsic ports: %u data hsuart ports: %u"
 		" smd ports: %u ctrl hsic ports: %u ctrl hsuart ports: %u"
-	" nr_rmnet_ports: %u\n",
+		" nr_rmnet_ports: %u\n",
 		__func__, no_data_bam_ports, no_data_bam2bam_ports,
 		no_data_hsic_ports, no_data_hsuart_ports, no_ctrl_smd_ports,
 		no_ctrl_hsic_ports, no_ctrl_hsuart_ports, nr_rmnet_ports);
@@ -1048,7 +1048,7 @@ frmnet_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 			| USB_CDC_GET_ENCAPSULATED_RESPONSE:
 		pr_debug("%s: USB_CDC_GET_ENCAPSULATED_RESPONSE\n", __func__);
 		if (w_value) {
-			pr_err("%s: invalid w_value = %04x",
+			pr_err("%s: invalid w_value = %04x\n",
 				   __func__ , w_value);
 			goto invalid;
 		} else {
@@ -1119,7 +1119,7 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 	pr_debug("%s: start binding\n", __func__);
 	dev->ifc_id = usb_interface_id(c, f);
 	if (dev->ifc_id < 0) {
-		pr_err("%s: unable to allocate ifc id, err:%d",
+		pr_err("%s: unable to allocate ifc id, err:%d\n",
 				__func__, dev->ifc_id);
 		return dev->ifc_id;
 	}
@@ -1251,7 +1251,7 @@ static int frmnet_bind_config(struct usb_configuration *c, unsigned portno)
 	pr_debug("%s: usb config:%p\n", __func__, c);
 
 	if (portno >= nr_rmnet_ports) {
-		pr_err("%s: supporting ports#%u port_id:%u", __func__,
+		pr_err("%s: supporting ports#%u port_id:%u\n", __func__,
 				nr_rmnet_ports, portno);
 		return -ENODEV;
 	}
