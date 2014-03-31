@@ -215,6 +215,40 @@ TRACE_EVENT(mdp_cmd_wait_pingpong,
 			__entry->kickoff_cnt)
 );
 
+TRACE_EVENT(tracing_mark_write,
+	TP_PROTO(int pid, const char *name, bool trace_begin),
+	TP_ARGS(pid, name, trace_begin),
+	TP_STRUCT__entry(
+			__field(int, pid)
+			__string(trace_name, name)
+			__field(bool, trace_begin)
+	),
+	TP_fast_assign(
+			__entry->pid = pid;
+			__assign_str(trace_name, name);
+			__entry->trace_begin = trace_begin;
+	),
+	TP_printk("%s|%d|%s", __entry->trace_begin ? "B" : "E",
+		__entry->pid, __get_str(trace_name))
+);
+
+TRACE_EVENT(mdp_trace_counter,
+	TP_PROTO(int pid, char *name, int value),
+	TP_ARGS(pid, name, value),
+	TP_STRUCT__entry(
+			__field(int, pid)
+			__string(counter_name, name)
+			__field(int, value)
+	),
+	TP_fast_assign(
+			__entry->pid = current->tgid;
+			__assign_str(counter_name, name);
+			__entry->value = value;
+	),
+	TP_printk("%d|%s|%d", __entry->pid,
+			__get_str(counter_name), __entry->value)
+);
+
 #endif /* if !defined(TRACE_MDSS_MDP_H) || defined(TRACE_HEADER_MULTI_READ) */
 
 /* This part must be outside protection */
