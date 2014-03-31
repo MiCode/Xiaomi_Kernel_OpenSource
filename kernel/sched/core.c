@@ -2783,6 +2783,7 @@ void scheduler_tick(void)
 	trigger_load_balance(rq);
 #endif
 	rq_last_tick_reset(rq);
+	check_for_migration(rq, curr);
 }
 
 #ifdef CONFIG_NO_HZ_FULL
