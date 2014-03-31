@@ -1836,10 +1836,8 @@ static int msm_vidc_load_resources(int flipped_state,
 			num_mbs_per_sec, core->resources.max_load);
 		msm_vidc_print_running_insts(core);
 		inst->state = MSM_VIDC_CORE_INVALID;
-		msm_vidc_queue_v4l2_event(inst,
-					V4L2_EVENT_MSM_VIDC_HW_OVERLOAD);
 		msm_comm_kill_session(inst);
-		return -ENOMEM;
+		return -EBUSY;
 	}
 
 	hdev = core->device;
