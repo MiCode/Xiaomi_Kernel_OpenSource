@@ -311,11 +311,21 @@ struct msm_isp_buf_request {
 	enum msm_isp_buf_type buf_type;
 };
 
+struct msm_isp_qbuf_plane {
+	uint32_t addr;
+	uint32_t offset;
+};
+
+struct msm_isp_qbuf_buffer {
+	struct msm_isp_qbuf_plane planes[MAX_PLANES_PER_STREAM];
+	uint32_t num_planes;
+};
+
 struct msm_isp_qbuf_info {
 	uint32_t handle;
 	int32_t buf_idx;
 	/*Only used for prepare buffer*/
-	struct v4l2_buffer buffer;
+	struct msm_isp_qbuf_buffer buffer;
 	/*Only used for diverted buffer*/
 	uint32_t dirty_buf;
 };
