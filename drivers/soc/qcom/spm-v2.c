@@ -294,6 +294,7 @@ int msm_spm_drv_set_low_power_mode(struct msm_spm_driver_data *dev,
 			pr_info("%s: reg %02x = 0x%08x\n", __func__,
 				dev->reg_offsets[i], dev->reg_shadow[i]);
 	}
+	msm_spm_drv_load_shadow(dev, MSM_SPM_REG_SAW2_SPM_STS);
 
 	return 0;
 }
