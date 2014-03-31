@@ -135,8 +135,7 @@ enum {
 enum msm_i2c_state {
 	MSM_I2C_PM_ACTIVE,
 	MSM_I2C_PM_SUSPENDED,
-	MSM_I2C_SYS_SUSPENDING,
-	MSM_I2C_SYS_SUSPENDED,
+	MSM_I2C_PM_SYS_SUSPENDED,
 };
 #define QUP_MAX_CLK_STATE_RETRIES	300
 #define DEFAULT_CLK_RATE		(19200000)
@@ -562,11 +561,6 @@ static void i2c_qup_pm_resume_clk(struct qup_i2c_dev *dev)
 
 static void i2c_qup_suspend(struct qup_i2c_dev *dev)
 {
-	if (dev->pwr_state != MSM_I2C_PM_ACTIVE) {
-		dev_err(dev->dev, "attempt to suspend when not active\n");
-		return;
-	}
-
 	if (!dev->pdata->clk_ctl_xfer)
 		i2c_qup_pm_suspend_clk(dev);
 
@@ -575,11 +569,32 @@ static void i2c_qup_suspend(struct qup_i2c_dev *dev)
 	i2c_qup_gpio_free(dev);
 }
 
+static void i2c_qup_sys_suspend(struct qup_i2c_dev *dev)
+{
+	enum msm_i2c_state prev_pwr_state = dev->pwr_state;
+
+	/* wait for ongoing transfer to complete */
+	mutex_lock(&dev->mlock);
+	dev->pwr_state = MSM_I2C_PM_SYS_SUSPENDED;
+	mutex_unlock(&dev->mlock);
+
+	if (prev_pwr_state == MSM_I2C_PM_ACTIVE) {
+		i2c_qup_suspend(dev);
+		/*
+		 * Synchronize runtime-pm and system-pm states:
+		 * at this point we are already suspended. However, the
+		 * runtime-PM framework still thinks that we are active.
+		 * The three calls below let the runtime-PM know that we are
+		 * suspended already without re-invoking the suspend callback
+		 */
+		pm_runtime_disable(dev->dev);
+		pm_runtime_set_suspended(dev->dev);
+		pm_runtime_enable(dev->dev);
+	}
+}
+
 static void i2c_qup_resume(struct qup_i2c_dev *dev)
 {
-	if (dev->pwr_state == MSM_I2C_PM_ACTIVE)
-		return;
-
 	i2c_qup_gpio_request(dev);
 
 	i2c_qup_clk_path_postponed_register(dev);
@@ -984,9 +999,9 @@ qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 	 * we are in suspended state
 	 */
 	mutex_lock(&dev->mlock);
-	if (dev->pwr_state >= MSM_I2C_SYS_SUSPENDING) {
+	if (dev->pwr_state == MSM_I2C_PM_SYS_SUSPENDED) {
 		dev_err(dev->dev,
-			"xfer not allowed when systems is suspendeding. slv-addr:0x%x\n",
+			"xfer not allowed when systems is suspended. slv-addr:0x%x\n",
 			msgs->addr);
 		mutex_unlock(&dev->mlock);
 		return -EIO;
@@ -1711,12 +1726,7 @@ qup_i2c_remove(struct platform_device *pdev)
 {
 	struct qup_i2c_dev *dev = platform_get_drvdata(pdev);
 
-	/* Grab mutex to ensure ongoing transaction is over */
-	mutex_lock(&dev->mlock);
-	dev->pwr_state = MSM_I2C_SYS_SUSPENDING;
-	mutex_unlock(&dev->mlock);
-	i2c_qup_suspend(dev);
-	dev->pwr_state = MSM_I2C_SYS_SUSPENDED;
+	i2c_qup_sys_suspend(dev);
 	mutex_destroy(&dev->mlock);
 	platform_set_drvdata(pdev, NULL);
 	if (dev->num_irqs == 3) {
@@ -1775,26 +1785,8 @@ static int i2c_qup_pm_suspend_sys_noirq(struct device *device)
 	struct platform_device *pdev = to_platform_device(device);
 	struct qup_i2c_dev *dev = platform_get_drvdata(pdev);
 
-	if (dev->pwr_state == MSM_I2C_PM_ACTIVE) {
-		dev_dbg(device, "system suspend\n");
-		i2c_qup_suspend(dev);
-		/*
-		 * Synchronize runtime-pm and system-pm states:
-		 * at this point we are already suspended. However, the
-		 * runtime-PM framework still thinks that we are active.
-		 * The three calls below let the runtime-PM know that we are
-		 * suspended already without re-invoking the suspend callback
-		 */
-		pm_runtime_disable(device);
-		pm_runtime_set_suspended(device);
-		pm_runtime_enable(device);
-	}
-	/*
-	 * Conceptually, here we are in runtime-suspended state and
-	 * transitioning to sys-suspend state (in reality both suspends are the
-	 * same).
-	 */
-	dev->pwr_state = MSM_I2C_SYS_SUSPENDED;
+	i2c_qup_sys_suspend(dev);
+	dev_dbg(device, "system suspend\n");
 	return 0;
 }
 
