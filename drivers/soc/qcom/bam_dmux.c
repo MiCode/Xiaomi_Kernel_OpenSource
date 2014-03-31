@@ -30,6 +30,7 @@
 #include <linux/ipc_logging.h>
 #include <linux/srcu.h>
 #include <linux/msm-sps.h>
+#include <linux/sizes.h>
 #include <soc/qcom/bam_dmux.h>
 #include <soc/qcom/smsm.h>
 #include <soc/qcom/subsystem_restart.h>
@@ -197,6 +198,10 @@ static bool satellite_mode;
 static uint32_t num_buffers;
 static unsigned long long last_rx_pkt_timestamp;
 static struct device *dma_dev;
+static bool dynamic_mtu_enabled;
+static uint16_t ul_mtu = DEFAULT_BUFFER_SIZE;
+static uint16_t dl_mtu = DEFAULT_BUFFER_SIZE;
+static uint16_t buffer_size = DEFAULT_BUFFER_SIZE;
 
 static struct bam_ch_info bam_ch[BAM_DMUX_NUM_CHANNELS];
 static int bam_mux_initialized;
@@ -216,6 +221,7 @@ static void bam_mux_write_done(struct work_struct *work);
 static void handle_bam_mux_cmd(struct work_struct *work);
 static void rx_timer_work_func(struct work_struct *work);
 static void queue_rx_work_func(struct work_struct *work);
+static int ssrestart_check(void);
 
 static DECLARE_WORK(rx_timer_work, rx_timer_work_func);
 static DECLARE_WORK(queue_rx_work, queue_rx_work_func);
@@ -386,9 +392,11 @@ static void __queue_rx(gfp_t alloc_flags)
 	struct rx_pkt_info *info;
 	int ret;
 	int rx_len_cached;
+	uint16_t current_buffer_size;
 
 	mutex_lock(&bam_rx_pool_mutexlock);
 	rx_len_cached = bam_rx_pool_len;
+	current_buffer_size = buffer_size;
 	mutex_unlock(&bam_rx_pool_mutexlock);
 
 	while (bam_connection_is_active && rx_len_cached < num_buffers) {
@@ -404,9 +412,11 @@ static void __queue_rx(gfp_t alloc_flags)
 			goto fail;
 		}
 
+		info->len = current_buffer_size;
+
 		INIT_WORK(&info->work, handle_bam_mux_cmd);
 
-		info->skb = __dev_alloc_skb(BUFFER_SIZE, alloc_flags);
+		info->skb = __dev_alloc_skb(info->len, alloc_flags);
 		if (info->skb == NULL) {
 			DMUX_LOG_KERR(
 				"%s: unable to alloc skb w/ flags %x, will retry later\n",
@@ -414,9 +424,9 @@ static void __queue_rx(gfp_t alloc_flags)
 								alloc_flags);
 			goto fail_info;
 		}
-		ptr = skb_put(info->skb, BUFFER_SIZE);
+		ptr = skb_put(info->skb, info->len);
 
-		info->dma_address = dma_map_single(dma_dev, ptr, BUFFER_SIZE,
+		info->dma_address = dma_map_single(dma_dev, ptr, info->len,
 							bam_ops->dma_from);
 		if (info->dma_address == 0 || info->dma_address == ~0) {
 			DMUX_LOG_KERR("%s: dma_map_single failure %p for %p\n",
@@ -427,8 +437,9 @@ static void __queue_rx(gfp_t alloc_flags)
 		mutex_lock(&bam_rx_pool_mutexlock);
 		list_add_tail(&info->list_node, &bam_rx_pool);
 		rx_len_cached = ++bam_rx_pool_len;
+		current_buffer_size = buffer_size;
 		ret = bam_ops->sps_transfer_one_ptr(bam_rx_pipe,
-				info->dma_address, BUFFER_SIZE, info, 0);
+				info->dma_address, info->len, info, 0);
 		if (ret) {
 			list_del(&info->list_node);
 			rx_len_cached = --bam_rx_pool_len;
@@ -437,7 +448,7 @@ static void __queue_rx(gfp_t alloc_flags)
 				__func__, ret);
 
 			dma_unmap_single(dma_dev, info->dma_address,
-						BUFFER_SIZE,
+						info->len,
 						bam_ops->dma_from);
 
 			goto fail_skb;
@@ -480,6 +491,36 @@ static void queue_rx_work_func(struct work_struct *work)
 	__queue_rx(GFP_KERNEL);
 }
 
+/**
+ * process_dynamic_mtu() - Process the dynamic MTU signal bit from data cmds
+ * @current_state:	State of the dynamic MTU signal bit for the current
+ *			data command packet.
+ */
+static void process_dynamic_mtu(bool current_state)
+{
+	static bool old_state;
+
+	if (!dynamic_mtu_enabled)
+		return;
+
+	if (old_state == current_state)
+		return;
+
+	mutex_lock(&bam_rx_pool_mutexlock);
+	if (current_state) {
+		buffer_size = dl_mtu;
+		BAM_DMUX_LOG("%s: switching to large mtu %x\n", __func__,
+									dl_mtu);
+	} else {
+		buffer_size = DEFAULT_BUFFER_SIZE;
+		BAM_DMUX_LOG("%s: switching to reg mtu %x\n", __func__,
+							DEFAULT_BUFFER_SIZE);
+	}
+	mutex_unlock(&bam_rx_pool_mutexlock);
+
+	old_state = current_state;
+}
+
 static void bam_mux_process_data(struct sk_buff *rx_skb)
 {
 	unsigned long flags;
@@ -487,6 +528,8 @@ static void bam_mux_process_data(struct sk_buff *rx_skb)
 	unsigned long event_data;
 
 	rx_hdr = (struct bam_mux_hdr *)rx_skb->data;
+
+	process_dynamic_mtu(rx_hdr->signal & DYNAMIC_MTU_MASK);
 
 	rx_skb->data = (unsigned char *)(rx_hdr + 1);
 	skb_set_tail_pointer(rx_skb, rx_hdr->pkt_len);
@@ -507,6 +550,64 @@ static void bam_mux_process_data(struct sk_buff *rx_skb)
 	queue_rx();
 }
 
+/**
+ * set_ul_mtu() - Converts the MTU code received from the remote side in the
+ *		  open cmd into a byte value.
+ * @mtu_code:	MTU size code to translate.
+ * @reset:	Reset the MTU.
+ */
+static void set_ul_mtu(int mtu_code, bool reset)
+{
+	static bool first = true;
+
+	if (reset) {
+		first = true;
+		ul_mtu = DEFAULT_BUFFER_SIZE;
+		return;
+	}
+
+	switch (mtu_code) {
+	case 0:
+		if (ul_mtu != SZ_2K && !first) {
+			BAM_DMUX_LOG("%s: bad request for 2k, ul_mtu is %d\n",
+							__func__, ul_mtu);
+			ssrestart_check();
+		}
+		ul_mtu = SZ_2K;
+		break;
+	case 1:
+		if (ul_mtu != SZ_4K && !first) {
+			BAM_DMUX_LOG("%s: bad request for 4k, ul_mtu is %d\n",
+							__func__, ul_mtu);
+			ssrestart_check();
+		}
+		ul_mtu = SZ_4K;
+		break;
+	case 2:
+		if (ul_mtu != SZ_8K && !first) {
+			BAM_DMUX_LOG("%s: bad request for 8k, ul_mtu is %d\n",
+							__func__, ul_mtu);
+			ssrestart_check();
+		}
+		ul_mtu = SZ_8K;
+		break;
+	case 3:
+		if (ul_mtu != SZ_16K && !first) {
+			BAM_DMUX_LOG("%s: bad request for 16k, ul_mtu is %d\n",
+							__func__, ul_mtu);
+			ssrestart_check();
+		}
+		ul_mtu = SZ_16K;
+		break;
+	default:
+		BAM_DMUX_LOG("%s: bad request %d\n", __func__, mtu_code);
+		ssrestart_check();
+		break;
+	}
+
+	first = false;
+}
+
 static inline void handle_bam_mux_cmd_open(struct bam_mux_hdr *rx_hdr)
 {
 	unsigned long flags;
@@ -519,6 +620,13 @@ static inline void handle_bam_mux_cmd_open(struct bam_mux_hdr *rx_hdr)
 		mutex_unlock(&bam_pdev_mutexlock);
 		queue_rx();
 		return;
+	}
+	if (rx_hdr->signal & DYNAMIC_MTU_MASK) {
+		dynamic_mtu_enabled = true;
+		set_ul_mtu((rx_hdr->signal & MTU_SIZE_MASK) >> MTU_SIZE_SHIFT,
+									false);
+	} else {
+		set_ul_mtu(0, false);
 	}
 	spin_lock_irqsave(&bam_ch[rx_hdr->ch_id].lock, flags);
 	bam_ch[rx_hdr->ch_id].status |= BAM_CH_REMOTE_OPEN;
@@ -538,35 +646,36 @@ static void handle_bam_mux_cmd(struct work_struct *work)
 	struct bam_mux_hdr *rx_hdr;
 	struct rx_pkt_info *info;
 	struct sk_buff *rx_skb;
+	uint16_t sps_size;
 
 	info = container_of(work, struct rx_pkt_info, work);
 	rx_skb = info->skb;
-	dma_unmap_single(dma_dev, info->dma_address, BUFFER_SIZE,
+	dma_unmap_single(dma_dev, info->dma_address, info->len,
 			bam_ops->dma_from);
+	sps_size = info->sps_size;
 	kfree(info);
 
 	rx_hdr = (struct bam_mux_hdr *)rx_skb->data;
 
 	DBG_INC_READ_CNT(sizeof(struct bam_mux_hdr));
-	DBG("%s: magic %x reserved %d cmd %d pad %d ch %d len %d\n", __func__,
-			rx_hdr->magic_num, rx_hdr->reserved, rx_hdr->cmd,
+	DBG("%s: magic %x signal %x cmd %d pad %d ch %d len %d\n", __func__,
+			rx_hdr->magic_num, rx_hdr->signal, rx_hdr->cmd,
 			rx_hdr->pad_len, rx_hdr->ch_id, rx_hdr->pkt_len);
 	if (rx_hdr->magic_num != BAM_MUX_HDR_MAGIC_NO) {
-		DMUX_LOG_KERR("%s: dropping invalid hdr. magic %x"
-			" reserved %d cmd %d"
-			" pad %d ch %d len %d\n", __func__,
-			rx_hdr->magic_num, rx_hdr->reserved, rx_hdr->cmd,
-			rx_hdr->pad_len, rx_hdr->ch_id, rx_hdr->pkt_len);
+		DMUX_LOG_KERR(
+			"%s: dropping invalid hdr. magic %x signal %x cmd %d pad %d ch %d len %d\n",
+			__func__, rx_hdr->magic_num, rx_hdr->signal,
+			rx_hdr->cmd, rx_hdr->pad_len, rx_hdr->ch_id,
+			rx_hdr->pkt_len);
 		dev_kfree_skb_any(rx_skb);
 		queue_rx();
 		return;
 	}
 
 	if (rx_hdr->ch_id >= BAM_DMUX_NUM_CHANNELS) {
-		DMUX_LOG_KERR("%s: dropping invalid LCID %d"
-			" reserved %d cmd %d"
-			" pad %d ch %d len %d\n", __func__,
-			rx_hdr->ch_id, rx_hdr->reserved, rx_hdr->cmd,
+		DMUX_LOG_KERR(
+			"%s: dropping invalid LCID %d signal %x cmd %d pad %d ch %d len %d\n",
+			__func__, rx_hdr->ch_id, rx_hdr->signal, rx_hdr->cmd,
 			rx_hdr->pad_len, rx_hdr->ch_id, rx_hdr->pkt_len);
 		dev_kfree_skb_any(rx_skb);
 		queue_rx();
@@ -575,6 +684,8 @@ static void handle_bam_mux_cmd(struct work_struct *work)
 
 	switch (rx_hdr->cmd) {
 	case BAM_MUX_HDR_CMD_DATA:
+		if (rx_hdr->pkt_len == 0xffff)
+			rx_hdr->pkt_len = sps_size;
 		DBG_INC_READ_CNT(rx_hdr->pkt_len);
 		bam_mux_process_data(rx_skb);
 		break;
@@ -620,9 +731,9 @@ static void handle_bam_mux_cmd(struct work_struct *work)
 		queue_rx();
 		break;
 	default:
-		DMUX_LOG_KERR("%s: dropping invalid hdr. magic %x"
-			   " reserved %d cmd %d pad %d ch %d len %d\n",
-			__func__, rx_hdr->magic_num, rx_hdr->reserved,
+		DMUX_LOG_KERR(
+			"%s: dropping invalid hdr. magic %x signal %x cmd %d pad %d ch %d len %d\n",
+			__func__, rx_hdr->magic_num, rx_hdr->signal,
 			rx_hdr->cmd, rx_hdr->pad_len, rx_hdr->ch_id,
 			rx_hdr->pkt_len);
 		dev_kfree_skb_any(rx_skb);
@@ -815,7 +926,7 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 	   hdr is fine, padding is tricky */
 	hdr->magic_num = BAM_MUX_HDR_MAGIC_NO;
 	hdr->cmd = BAM_MUX_HDR_CMD_DATA;
-	hdr->reserved = 0;
+	hdr->signal = 0;
 	hdr->ch_id = id;
 	hdr->pkt_len = skb->len - sizeof(struct bam_mux_hdr);
 	if (skb->len & 0x3)
@@ -882,6 +993,64 @@ write_fail:
 	return -ENOMEM;
 }
 
+/**
+ * create_open_signal() - Generate a proper signal field for outgoing open cmds
+ *
+ * A properly constructed signal field of the mux header for opem commands semt
+ * to the remote side depend on what has been locally configured, and what has
+ * been received from the remote side.  The byte value to code translations
+ * must match the valid values in set_rx_buffer_ring_pool() and set_dl_mtu().
+ *
+ * Return: A properly constructed signal field for an outgoing mux open command.
+ */
+static uint8_t create_open_signal(void)
+{
+	uint8_t signal = 0;
+	uint8_t buff_count = 0;
+	uint8_t dl_size = 0;
+
+	if (!dynamic_mtu_enabled)
+		return signal;
+
+	signal = DYNAMIC_MTU_MASK;
+
+	switch (num_buffers) {
+	case SZ_256:
+		buff_count = 3;
+		break;
+	case SZ_128:
+		buff_count = 2;
+		break;
+	case SZ_64:
+		buff_count = 1;
+		break;
+	case SZ_32:
+		buff_count = 0;
+		break;
+	}
+
+	signal |= buff_count << DL_POOL_SIZE_SHIFT;
+
+	switch (dl_mtu) {
+	case SZ_16K:
+		dl_size = 3;
+		break;
+	case SZ_8K:
+		dl_size = 2;
+		break;
+	case SZ_4K:
+		dl_size = 1;
+		break;
+	case SZ_2K:
+		dl_size = 0;
+		break;
+	}
+
+	signal |= dl_size << MTU_SIZE_SHIFT;
+
+	return signal;
+}
+
 int msm_bam_dmux_open(uint32_t id, void *priv,
 			void (*notify)(void *, int, unsigned long))
 {
@@ -929,6 +1098,8 @@ int msm_bam_dmux_open(uint32_t id, void *priv,
 	bam_ch[id].use_wm = 0;
 	spin_unlock_irqrestore(&bam_ch[id].lock, flags);
 
+	notify(priv, BAM_DMUX_TRANSMIT_SIZE, ul_mtu);
+
 	read_lock(&ul_wakeup_lock);
 	if (!bam_is_connected) {
 		read_unlock(&ul_wakeup_lock);
@@ -943,7 +1114,7 @@ int msm_bam_dmux_open(uint32_t id, void *priv,
 
 	hdr->magic_num = BAM_MUX_HDR_MAGIC_NO;
 	hdr->cmd = BAM_MUX_HDR_CMD_OPEN;
-	hdr->reserved = 0;
+	hdr->signal = create_open_signal();
 	hdr->ch_id = id;
 	hdr->pkt_len = 0;
 	hdr->pad_len = 0;
@@ -998,7 +1169,7 @@ int msm_bam_dmux_close(uint32_t id)
 	}
 	hdr->magic_num = BAM_MUX_HDR_MAGIC_NO;
 	hdr->cmd = BAM_MUX_HDR_CMD_CLOSE;
-	hdr->reserved = 0;
+	hdr->signal = 0;
 	hdr->ch_id = id;
 	hdr->pkt_len = 0;
 	hdr->pad_len = 0;
@@ -1125,6 +1296,7 @@ static void rx_switch_to_interrupt_mode(void)
 		list_del(&info->list_node);
 		--bam_rx_pool_len;
 		mutex_unlock(&bam_rx_pool_mutexlock);
+		info->sps_size = iov.size;
 		handle_bam_mux_cmd(&info->work);
 	}
 	return;
@@ -1214,6 +1386,7 @@ static void rx_timer_work_func(struct work_struct *work)
 			list_del(&info->list_node);
 			--bam_rx_pool_len;
 			mutex_unlock(&bam_rx_pool_mutexlock);
+			info->sps_size = iov.size;
 			handle_bam_mux_cmd(&info->work);
 		}
 
@@ -1637,12 +1810,13 @@ static int ssrestart_check(void)
 	int ret = 0;
 
 	if (in_global_reset) {
-		DMUX_LOG_KERR("%s: modem timeout: already in SSR\n",
+		DMUX_LOG_KERR("%s: already in SSR\n",
 			__func__);
 		return 1;
 	}
 
-	DMUX_LOG_KERR("%s: modem timeout: BAM DMUX disabled for SSR\n",
+	DMUX_LOG_KERR(
+		"%s: fatal modem interaction: BAM DMUX disabled for SSR\n",
 								__func__);
 	in_global_reset = 1;
 	ret = subsystem_restart("modem");
@@ -1859,7 +2033,7 @@ static void disconnect_to_bam(void)
 		node = bam_rx_pool.next;
 		list_del(node);
 		info = container_of(node, struct rx_pkt_info, list_node);
-		dma_unmap_single(dma_dev, info->dma_address, BUFFER_SIZE,
+		dma_unmap_single(dma_dev, info->dma_address, info->len,
 							bam_ops->dma_from);
 		dev_kfree_skb_any(info->skb);
 		kfree(info);
@@ -1998,6 +2172,9 @@ static int restart_notifier_cb(struct notifier_block *this,
 	ul_powerdown_finish();
 	a2_pc_disabled = 0;
 	a2_pc_disabled_wakelock_skipped = 0;
+	process_dynamic_mtu(false);
+	set_ul_mtu(0, true);
+	dynamic_mtu_enabled = false;
 
 	/* Cleanup Channel States */
 	mutex_lock(&bam_pdev_mutexlock);
@@ -2328,11 +2505,71 @@ void msm_bam_dmux_reinit(void)
 }
 EXPORT_SYMBOL(msm_bam_dmux_reinit);
 
+/**
+ * set_rx_buffer_ring_pool() - Configure the size of the rx ring pool to a
+ *			       supported value.
+ * @requested_buffs:	Desired pool size.
+ *
+ * The requested size will be reduced to the largest supported size.  The
+ * supported sizes must match the values in create_open_signal() for proper
+ * signal field construction in that function.
+ */
+static void set_rx_buffer_ring_pool(int requested_buffs)
+{
+	if (requested_buffs >= SZ_256) {
+		num_buffers = SZ_256;
+		return;
+	}
+
+	if (requested_buffs >= SZ_128) {
+		num_buffers = SZ_128;
+		return;
+	}
+
+	if (requested_buffs >= SZ_64) {
+		num_buffers = SZ_64;
+		return;
+	}
+
+	num_buffers = SZ_32;
+}
+
+/**
+ * set_dl_mtu() - Configure the non-default MTU to a supported value.
+ * @requested_mtu:	Desired MTU size.
+ *
+ * Sets the dynamic receive MTU which can be enabled via negotiation with the
+ * remote side.  Until the dynamic MTU is enabled, the default MTU will be used.
+ * The requested size will be reduced to the largest supported size.  The
+ * supported sizes must match the values in create_open_signal() for proper
+ * signal field construction in that function.
+ */
+static void set_dl_mtu(int requested_mtu)
+{
+	if (requested_mtu >= SZ_16K) {
+		dl_mtu = SZ_16K;
+		return;
+	}
+
+	if (requested_mtu >= SZ_8K) {
+		dl_mtu = SZ_8K;
+		return;
+	}
+
+	if (requested_mtu >= SZ_4K) {
+		dl_mtu = SZ_4K;
+		return;
+	}
+
+	dl_mtu = SZ_2K;
+}
+
 static int bam_dmux_probe(struct platform_device *pdev)
 {
 	int rc;
 	struct resource *r;
 	void *subsys_h;
+	uint32_t requested_dl_mtu;
 
 	DBG("%s probe called\n", __func__);
 	if (bam_mux_initialized)
@@ -2363,18 +2600,34 @@ static int bam_dmux_probe(struct platform_device *pdev)
 			num_buffers = DEFAULT_NUM_BUFFERS;
 		}
 
-		DBG("%s: base:%p size:%x irq:%d satellite:%d num_buffs:%d\n",
+		set_rx_buffer_ring_pool(num_buffers);
+
+		rc = of_property_read_u32(pdev->dev.of_node,
+						"qcom,max-rx-mtu",
+						&requested_dl_mtu);
+		if (rc) {
+			DBG("%s: falling back to dl_mtu default, rc:%d\n",
+							__func__, rc);
+			requested_dl_mtu = 0;
+		}
+
+		set_dl_mtu(requested_dl_mtu);
+
+		BAM_DMUX_LOG(
+			"%s: base:%p size:%x irq:%d satellite:%d num_buffs:%d dl_mtu:%x\n",
 						__func__,
 						(void *)(uintptr_t)a2_phys_base,
 						a2_phys_size,
 						a2_bam_irq,
 						satellite_mode,
-						num_buffers);
+						num_buffers,
+						dl_mtu);
 	} else { /* fallback to default init data */
 		a2_phys_base = A2_PHYS_BASE;
 		a2_phys_size = A2_PHYS_SIZE;
 		a2_bam_irq = A2_BAM_IRQ;
 		num_buffers = DEFAULT_NUM_BUFFERS;
+		set_rx_buffer_ring_pool(num_buffers);
 	}
 
 	dma_dev = &pdev->dev;
