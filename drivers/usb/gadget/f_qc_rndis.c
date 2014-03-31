@@ -1027,7 +1027,7 @@ rndis_qc_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct f_rndis_qc		*rndis = func_to_rndis_qc(f);
 
-	pr_debug("rndis_qc_unbind: free");
+	pr_debug("rndis_qc_unbind: free\n");
 	bam_data_destroy(0);
 	rndis_deregister(rndis->config);
 	rndis_exit();
@@ -1143,7 +1143,7 @@ rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 	if (rndis->xport == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		gether_qc_get_macs(rndis_ipa_params.device_ethaddr,
 				rndis_ipa_params.host_ethaddr);
-		pr_debug("setting host_ethaddr=%pM, device_ethaddr=%pM",
+		pr_debug("setting host_ethaddr=%pM, device_ethaddr=%pM\n",
 			rndis_ipa_params.host_ethaddr,
 			rndis_ipa_params.device_ethaddr);
 		rndis_ipa_supported = true;
@@ -1246,7 +1246,7 @@ static int rndis_qc_release_dev(struct inode *ip, struct file *fp)
 {
 	struct f_rndis_qc	*rndis = fp->private_data;
 
-	pr_info("Close rndis QC file");
+	pr_info("Close rndis QC file\n");
 	rndis_qc_unlock(&rndis->open_excl);
 
 	return 0;
@@ -1257,7 +1257,7 @@ static long rndis_qc_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 	struct f_rndis_qc	*rndis = fp->private_data;
 	int ret = 0;
 
-	pr_info("Received command %d", cmd);
+	pr_info("Received command %d\n", cmd);
 
 	if (rndis_qc_lock(&rndis->ioctl_excl))
 		return -EBUSY;
@@ -1268,10 +1268,10 @@ static long rndis_qc_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 					&rndis->max_pkt_per_xfer,
 					sizeof(rndis->max_pkt_per_xfer));
 		if (ret) {
-			pr_err("copying to user space failed");
+			pr_err("copying to user space failed\n");
 			ret = -EFAULT;
 		}
-		pr_info("Sent max packets per xfer %d",
+		pr_info("Sent max packets per xfer %d\n",
 				rndis->max_pkt_per_xfer);
 		break;
 	case RNDIS_QC_GET_MAX_PKT_SIZE:
@@ -1279,14 +1279,14 @@ static long rndis_qc_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 					&rndis->max_pkt_size,
 					sizeof(rndis->max_pkt_size));
 		if (ret) {
-			pr_err("copying to user space failed");
+			pr_err("copying to user space failed\n");
 			ret = -EFAULT;
 		}
-		pr_debug("Sent max packet size %d",
+		pr_debug("Sent max packet size %d\n",
 				rndis->max_pkt_size);
 		break;
 	default:
-		pr_err("Unsupported IOCTL");
+		pr_err("Unsupported IOCTL\n");
 		ret = -EINVAL;
 	}
 
@@ -1316,14 +1316,14 @@ static int rndis_qc_init(void)
 
 	ret = misc_register(&rndis_qc_device);
 	if (ret)
-		pr_err("rndis QC driver failed to register");
+		pr_err("rndis QC driver failed to register\n");
 
 	return ret;
 }
 
 static void rndis_qc_cleanup(void)
 {
-	pr_info("rndis QC cleanup");
+	pr_info("rndis QC cleanup\n");
 
 	misc_deregister(&rndis_qc_device);
 	_rndis_qc = NULL;
