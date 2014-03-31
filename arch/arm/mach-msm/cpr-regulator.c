@@ -96,6 +96,8 @@
 /* RBCPR Result status Register */
 #define REG_RBCPR_RESULT_0		0xA0
 
+#define RBCPR_RESULT0_BUSY_SHIFT	19
+#define RBCPR_RESULT0_BUSY_MASK		BIT(RBCPR_RESULT0_BUSY_SHIFT)
 #define RBCPR_RESULT0_ERROR_STEPS_SHIFT	2
 #define RBCPR_RESULT0_ERROR_STEPS_BITS	4
 #define RBCPR_RESULT0_ERROR_STEPS_MASK	((1<<RBCPR_RESULT0_ERROR_STEPS_BITS)-1)
@@ -386,6 +388,22 @@ static void cpr_ctl_disable(struct cpr_regulator *cpr_vreg)
 	cpr_write(cpr_vreg, REG_RBIF_CONT_ACK_CMD, 1);
 	cpr_write(cpr_vreg, REG_RBIF_CONT_NACK_CMD, 1);
 	cpr_ctl_modify(cpr_vreg, RBCPR_CTL_LOOP_EN, 0);
+}
+
+static bool cpr_ctl_is_enabled(struct cpr_regulator *cpr_vreg)
+{
+	u32 reg_val;
+
+	reg_val = cpr_read(cpr_vreg, REG_RBCPR_CTL);
+	return reg_val & RBCPR_CTL_LOOP_EN;
+}
+
+static bool cpr_ctl_is_busy(struct cpr_regulator *cpr_vreg)
+{
+	u32 reg_val;
+
+	reg_val = cpr_read(cpr_vreg, REG_RBCPR_RESULT_0);
+	return reg_val & RBCPR_RESULT0_BUSY_MASK;
 }
 
 static void cpr_corner_save(struct cpr_regulator *cpr_vreg, int corner)
@@ -732,7 +750,13 @@ static irqreturn_t cpr_irq_handler(int irq, void *dev)
 
 	cpr_debug_irq("IRQ_STATUS = 0x%02X\n", reg_val);
 
-	if (!cpr_is_allowed(cpr_vreg)) {
+	if (!cpr_ctl_is_enabled(cpr_vreg)) {
+		cpr_debug_irq("CPR is disabled\n");
+		goto _exit;
+	} else if (cpr_ctl_is_busy(cpr_vreg)) {
+		cpr_debug_irq("CPR measurement is not ready\n");
+		goto _exit;
+	} else if (!cpr_is_allowed(cpr_vreg)) {
 		reg_val = cpr_read(cpr_vreg, REG_RBCPR_CTL);
 		pr_err("Interrupt broken? RBCPR_CTL = 0x%02X\n", reg_val);
 		goto _exit;
@@ -897,7 +921,6 @@ static int cpr_suspend(struct cpr_regulator *cpr_vreg)
 	mutex_lock(&cpr_vreg->cpr_mutex);
 
 	cpr_ctl_disable(cpr_vreg);
-	disable_irq(cpr_vreg->cpr_irq);
 
 	cpr_irq_clr(cpr_vreg);
 
@@ -917,7 +940,6 @@ static int cpr_resume(struct cpr_regulator *cpr_vreg)
 	cpr_vreg->is_cpr_suspended = false;
 	cpr_irq_clr(cpr_vreg);
 
-	enable_irq(cpr_vreg->cpr_irq);
 	cpr_ctl_enable(cpr_vreg, cpr_vreg->corner);
 
 	mutex_unlock(&cpr_vreg->cpr_mutex);
