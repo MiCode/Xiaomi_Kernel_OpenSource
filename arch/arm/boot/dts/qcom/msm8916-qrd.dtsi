@@ -36,7 +36,6 @@
                         synaptics,panel-coords = <0 0 720 1369>;
 			synaptics,irq-gpio = <&msm_gpio 13 0x2008>;
 			synaptics,reset-gpio = <&msm_gpio 12 0x0>;
-			synaptics,fw-image-name = "PR1587068-s3207_8916_qrd_00430000.img";
 			synaptics,i2c-pull-up;
 			synaptics,power-down;
 			synaptics,disable-gpios;
