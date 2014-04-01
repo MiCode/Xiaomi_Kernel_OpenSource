@@ -1557,6 +1557,8 @@ struct i915_execbuffer_params {
 	struct drm_i915_gem_request     *request;
 };
 
+struct i915_scheduler;
+
 struct drm_i915_private {
 	struct drm_device *dev;
 	struct kmem_cache *slab;
@@ -1883,6 +1885,8 @@ struct drm_i915_private {
 	struct i915_dri1_state dri1;
 	/* Old ums support infrastructure, same warning applies. */
 	struct i915_ums_state ums;
+
+	struct i915_scheduler *scheduler;
 
 	/* Abstract the submission mechanism (legacy ringbuffer or execlists) away */
 	struct {

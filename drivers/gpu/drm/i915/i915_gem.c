@@ -38,6 +38,7 @@
 #include <linux/swap.h>
 #include <linux/pci.h>
 #include <linux/dma-buf.h>
+#include "i915_scheduler.h"
 
 static void i915_gem_object_flush_gtt_write_domain(struct drm_i915_gem_object *obj);
 static void i915_gem_object_flush_cpu_write_domain(struct drm_i915_gem_object *obj,
@@ -5124,6 +5125,10 @@ i915_gem_init_hw(struct drm_device *dev)
 	}
 
 	i915_gem_init_swizzling(dev);
+
+	ret = i915_scheduler_init(dev);
+	if (ret)
+		return ret;
 
 	ret = dev_priv->gt.init_rings(dev);
 	if (ret)
