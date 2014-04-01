@@ -36,5 +36,6 @@ int rmnet_vnd_add_tc_flow(uint32_t id, uint32_t map_flow, uint32_t tc_flow);
 int rmnet_vnd_del_tc_flow(uint32_t id, uint32_t map_flow, uint32_t tc_flow);
 int rmnet_vnd_init(void);
 void rmnet_vnd_exit(void);
+struct net_device *rmnet_vnd_get_by_id(int id);
 
 #endif /* _RMNET_DATA_VND_H_ */
