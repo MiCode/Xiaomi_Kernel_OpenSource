@@ -1539,6 +1539,53 @@ static ssize_t serial_xport_names_show(struct device *dev,
 {
 	return snprintf(buf, PAGE_SIZE, "%s\n", serial_xport_names);
 }
+static ssize_t serial_modem_is_connected_show(
+		struct device *device, struct device_attribute *attr,
+		char *buff)
+{
+	unsigned int is_connected = gserial_is_connected();
+
+	return snprintf(buff, PAGE_SIZE, "%u\n", is_connected);
+}
+
+static ssize_t dun_w_softap_enable_show(
+		struct device *device, struct device_attribute *attr,
+		char *buff)
+{
+	unsigned int dun_w_softap_enable = gserial_is_dun_w_softap_enabled();
+
+	return snprintf(buff, PAGE_SIZE, "%u\n", dun_w_softap_enable);
+}
+
+static ssize_t dun_w_softap_enable_store(
+		struct device *device, struct device_attribute *attr,
+		const char *buff, size_t size)
+{
+	unsigned int dun_w_softap_enable;
+
+	sscanf(buff, "%u", &dun_w_softap_enable);
+
+	gserial_dun_w_softap_enable(dun_w_softap_enable);
+
+	return size;
+}
+
+static ssize_t dun_w_softap_active_show(
+		struct device *device, struct device_attribute *attr,
+		char *buff)
+{
+	unsigned int dun_w_softap_active = gserial_is_dun_w_softap_active();
+
+	return snprintf(buff, PAGE_SIZE, "%u\n", dun_w_softap_active);
+}
+
+static DEVICE_ATTR(is_connected_flag, S_IRUGO, serial_modem_is_connected_show,
+		NULL);
+static DEVICE_ATTR(dun_w_softap_enable, S_IRUGO | S_IWUSR,
+	dun_w_softap_enable_show, dun_w_softap_enable_store);
+static DEVICE_ATTR(dun_w_softap_active, S_IRUGO, dun_w_softap_active_show,
+		NULL);
+
 
 static DEVICE_ATTR(transports, S_IWUSR, NULL, serial_transports_store);
 static struct device_attribute dev_attr_serial_xport_names =
@@ -1549,6 +1596,9 @@ static struct device_attribute dev_attr_serial_xport_names =
 static struct device_attribute *serial_function_attributes[] = {
 					&dev_attr_transports,
 					&dev_attr_serial_xport_names,
+					&dev_attr_is_connected_flag,
+					&dev_attr_dun_w_softap_enable,
+					&dev_attr_dun_w_softap_active,
 					NULL };
 
 static int serial_function_init(struct android_usb_function *f,
