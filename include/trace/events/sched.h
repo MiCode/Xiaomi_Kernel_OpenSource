@@ -8,6 +8,8 @@
 #include <linux/tracepoint.h>
 #include <linux/binfmts.h>
 
+struct rq;
+
 /*
  * Tracepoint for calling kthread_stop, performed to end a kthread:
  */
@@ -105,6 +107,85 @@ TRACE_EVENT(sched_enq_deq_task,
 #endif
 			)
 );
+
+#ifdef CONFIG_SCHED_HMP
+
+TRACE_EVENT(sched_task_load,
+
+	TP_PROTO(struct task_struct *p),
+
+	TP_ARGS(p),
+
+	TP_STRUCT__entry(
+		__array(	char,	comm,	TASK_COMM_LEN	)
+		__field(	pid_t,	pid			)
+		__field(unsigned int,	sum			)
+		__field(unsigned int,	sum_scaled		)
+		__field(unsigned int,	period			)
+		__field(unsigned int,	demand			)
+	),
+
+	TP_fast_assign(
+		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
+		__entry->pid		= p->pid;
+		__entry->sum		= p->se.avg.runnable_avg_sum;
+		__entry->sum_scaled	= p->se.avg.runnable_avg_sum_scaled;
+		__entry->period		= p->se.avg.runnable_avg_period;
+		__entry->demand		= p->ravg.demand;
+	),
+
+	TP_printk("%d (%s): sum=%u, sum_scaled=%u, period=%u demand=%u",
+		__entry->pid, __entry->comm, __entry->sum,
+		__entry->sum_scaled, __entry->period, __entry->demand)
+);
+
+TRACE_EVENT(sched_cpu_load,
+
+	TP_PROTO(struct rq *rq, int idle, int mostly_idle,
+						unsigned int power_cost),
+
+	TP_ARGS(rq, idle, mostly_idle, power_cost),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, cpu			)
+		__field(unsigned int, idle			)
+		__field(unsigned int, mostly_idle		)
+		__field(unsigned int, nr_running		)
+		__field(unsigned int, nr_big_tasks		)
+		__field(unsigned int, nr_small_tasks		)
+		__field(unsigned int, load_scale_factor		)
+		__field(unsigned int, capacity			)
+		__field(	 u64,  cumulative_runnable_avg	)
+		__field(unsigned int, cur_freq			)
+		__field(unsigned int, max_freq			)
+		__field(unsigned int, power_cost		)
+	),
+
+	TP_fast_assign(
+		__entry->cpu			= rq->cpu;
+		__entry->idle			= idle;
+		__entry->mostly_idle		= mostly_idle;
+		__entry->nr_running		= rq->nr_running;
+		__entry->nr_big_tasks		= rq->nr_big_tasks;
+		__entry->nr_small_tasks		= rq->nr_small_tasks;
+		__entry->load_scale_factor	= rq->load_scale_factor;
+		__entry->capacity		= rq->capacity;
+		__entry->cumulative_runnable_avg = rq->cumulative_runnable_avg;
+		__entry->cur_freq		= rq->cur_freq;
+		__entry->max_freq		= rq->max_freq;
+		__entry->power_cost		= power_cost;
+	),
+
+	TP_printk("cpu %u idle %d mostly_idle %d nr_run %u nr_big %u nr_small %u lsf %u capacity %u cr_avg %llu fcur %u fmax %u power_cost %u",
+	__entry->cpu, __entry->idle, __entry->mostly_idle, __entry->nr_running,
+	__entry->nr_big_tasks, __entry->nr_small_tasks,
+	__entry->load_scale_factor, __entry->capacity,
+	__entry->cumulative_runnable_avg, __entry->cur_freq, __entry->max_freq,
+	__entry->power_cost)
+);
+
+#endif	/* CONFIG_SCHED_HMP */
+
 
 /*
  * Tracepoint for waking up a task:
