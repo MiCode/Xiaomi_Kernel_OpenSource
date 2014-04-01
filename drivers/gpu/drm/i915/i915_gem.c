@@ -2875,49 +2875,48 @@ void i915_gem_complete_requests_ring(struct intel_engine_cs *ring,
 void
 i915_gem_retire_requests_ring(struct intel_engine_cs *ring)
 {
+	struct drm_i915_gem_object *obj, *obj_next;
+	struct drm_i915_gem_request *req, *req_next;
+	LIST_HEAD(deferred_request_free);
+	unsigned long flags;
+
 	if (list_empty(&ring->request_list))
 		return;
 
 	WARN_ON(i915_verify_lists(ring->dev));
 
-	/* Move any buffers on the active list that are no longer referenced
-	 * by the ringbuffer to the flushing/inactive lists as appropriate,
-	 * before we free the context associated with the requests.
+	/* Note that request entries might be out of order due to rescheduling
+	 * and pre-emption. Thus both lists must be processed in their entirety
+	 * rather than stopping at the first non-complete entry.
 	 */
-	while (!list_empty(&ring->active_list)) {
-		struct drm_i915_gem_object *obj;
 
-		obj = list_first_entry(&ring->active_list,
-				      struct drm_i915_gem_object,
-				      ring_list);
+	list_for_each_entry_safe(req, req_next, &ring->request_list, list) {
+		if (!i915_gem_request_completed(req))
+			continue;
 
-		if (!i915_gem_request_completed(obj->last_read_req))
-			break;
-
-		i915_gem_object_move_to_inactive(obj);
-	}
-
-
-	while (!list_empty(&ring->request_list)) {
-		struct drm_i915_gem_request *request;
-
-		request = list_first_entry(&ring->request_list,
-					   struct drm_i915_gem_request,
-					   list);
-
-		if (!i915_gem_request_completed(request))
-			break;
-
-		trace_i915_gem_request_retire(request);
+		trace_i915_gem_request_retire(req);
 
 		/* We know the GPU must have read the request to have
 		 * sent us the seqno + interrupt, so use the position
 		 * of tail of the request to update the last known position
 		 * of the GPU head.
 		 */
-		request->ringbuf->last_retired_head = request->tail;
+		req->ringbuf->last_retired_head = req->tail;
 
-		i915_gem_free_request(request);
+		spin_lock_irqsave(&ring->reqlist_lock, flags);
+		list_move_tail(&req->list, &deferred_request_free);
+		spin_unlock_irqrestore(&ring->reqlist_lock, flags);
+	}
+
+	/* Move any buffers on the active list that are no longer referenced
+	 * by the ringbuffer to the flushing/inactive lists as appropriate,
+	 * before we free the context associated with the requests.
+	 */
+	list_for_each_entry_safe(obj, obj_next, &ring->active_list, ring_list) {
+		if (!i915_gem_request_completed(obj->last_read_req))
+			continue;
+
+		i915_gem_object_move_to_inactive(obj);
 	}
 
 	if (unlikely(ring->trace_irq_req &&
@@ -2926,23 +2925,30 @@ i915_gem_retire_requests_ring(struct intel_engine_cs *ring)
 		i915_gem_request_assign(&ring->trace_irq_req, NULL);
 	}
 
+	/* Finish processing active list before freeing request */
+	while (!list_empty(&deferred_request_free)) {
+		req = list_first_entry(&deferred_request_free,
+				       struct drm_i915_gem_request,
+				       list);
+
+		i915_gem_free_request(req);
+	}
+
 	while (!list_empty(&ring->delayed_free_list)) {
-		struct drm_i915_gem_request *request;
-		unsigned long flags;
 		uint32_t count;
 
-		request = list_first_entry(&ring->delayed_free_list,
-					   struct drm_i915_gem_request,
-					   delay_free_list);
+		req = list_first_entry(&ring->delayed_free_list,
+				       struct drm_i915_gem_request,
+				       delay_free_list);
 
-		spin_lock_irqsave(&request->ring->reqlist_lock, flags);
-		list_del(&request->delay_free_list);
-		count = request->delay_free_count;
-		request->delay_free_count = 0;
-		spin_unlock_irqrestore(&request->ring->reqlist_lock, flags);
+		spin_lock_irqsave(&req->ring->reqlist_lock, flags);
+		list_del(&req->delay_free_list);
+		count = req->delay_free_count;
+		req->delay_free_count = 0;
+		spin_unlock_irqrestore(&req->ring->reqlist_lock, flags);
 
 		while (count-- > 0)
-			i915_gem_request_unreference(request);
+			i915_gem_request_unreference(req);
 	}
 
 	WARN_ON(i915_verify_lists(ring->dev));
