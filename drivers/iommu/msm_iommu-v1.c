@@ -1058,7 +1058,7 @@ static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 				 struct msm_iommu_ctx_drvdata, attached_elm);
 	iommu_drvdata = dev_get_drvdata(ctx_drvdata->pdev->dev.parent);
 
-	if (iommu_drvdata->no_atos_support) {
+	if (iommu_drvdata->model == MMU_500) {
 		ret = msm_iommu_iova_to_phys_soft(domain, va);
 		mutex_unlock(&msm_iommu_lock);
 		return ret;
