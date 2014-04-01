@@ -2773,6 +2773,7 @@
 		vdda33-supply = <&pma8084_l24>;
 		qcom,vdd-voltage-level = <0 900000 1050000>;
 		qcom,ext-vbus-id;
+		qcom,num-ports = <3>;
 		qcom,primary-phy = <&hsphy0>;
 		status = "disabled";
 	};
