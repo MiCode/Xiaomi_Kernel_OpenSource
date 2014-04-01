@@ -373,6 +373,8 @@ static inline u32 intel_ring_get_tail(struct intel_ringbuffer *ringbuf)
 	return ringbuf->tail;
 }
 
+int i915_write_active_seqno(struct intel_engine_cs *ring, u32 seqno);
+
 static inline u32 intel_ring_get_seqno(struct intel_engine_cs *ring)
 {
 	BUG_ON(ring->outstanding_lazy_seqno == 0);

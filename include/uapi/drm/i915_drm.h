@@ -842,7 +842,7 @@ struct drm_i915_gem_execbuffer2 {
 struct drm_i915_gem_syncpt_driver_data {
 	__u32 value;
 	__u32 cycle;
-	__u64 flags;
+	__u64 ring_mask;
 };
 
 struct drm_i915_gem_pin {

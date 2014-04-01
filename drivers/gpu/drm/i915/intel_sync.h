@@ -67,20 +67,10 @@ int i915_sync_timeline_create(struct drm_device *dev,
 void i915_sync_timeline_destroy(struct intel_engine_cs *ring);
 
 void i915_sync_reset_timelines(struct drm_i915_private *dev_priv);
-void *i915_sync_prepare_request(struct drm_i915_gem_execbuffer2 *args,
-				struct intel_engine_cs *ring, u32 seqno);
-void *gen8_sync_prepare_request(struct drm_i915_gem_execbuffer2 *args,
-				struct intel_ringbuffer *ringbuf,
-				u32 seqno);
-int i915_sync_finish_request(void *handle,
-				struct drm_i915_gem_execbuffer2 *args,
-				struct intel_engine_cs *ring);
-int gen8_sync_finish_request(void *handle,
-			     struct drm_i915_gem_execbuffer2 *args,
-			     struct intel_ringbuffer *ringbuf);
-void i915_sync_cancel_request(void *handle,
-			      struct drm_i915_gem_execbuffer2 *args,
-			      struct intel_engine_cs *ring);
+
+int i915_sync_create_fence(struct intel_engine_cs *ring, u32 seqno,
+			   int *fd_out, u64 ring_mask);
+
 void i915_sync_timeline_advance(struct intel_engine_cs *ring);
 void i915_sync_hung_ring(struct intel_engine_cs *ring);
 
@@ -106,44 +96,10 @@ void i915_sync_reset_timelines(struct drm_i915_private *dev_priv)
 
 }
 
-static inline
-void *i915_sync_prepare_request(struct drm_i915_gem_execbuffer2 *args,
-				struct intel_engine_cs *ring, u32 seqno)
+static int i915_sync_create_fence(struct intel_engine_cs *ring, u32 seqno,
+				  int *fd_out)
 {
-	return NULL;
-}
-
-static inline
-void *gen8_sync_prepare_request(struct drm_i915_gem_execbuffer2 *args,
-				struct intel_engine_cs *ring,
-				struct intel_context *ctx, u32 seqno)
-{
-	return NULL;
-}
-
-static inline
-int i915_sync_finish_request(void *handle,
-				struct drm_i915_gem_execbuffer2 *args,
-				struct intel_engine_cs *ring)
-{
-	return 0;
-}
-
-static inline
-int gen8_sync_finish_request(void *handle,
-				struct drm_i915_gem_execbuffer2 *args,
-				struct intel_engine_cs *ring,
-				struct intel_context *ctx)
-{
-	return 0;
-}
-
-static inline
-void i915_sync_cancel_request(void *handle,
-				struct drm_i915_gem_execbuffer2 *args,
-				struct intel_engine_cs *ring)
-{
-
+	return 0
 }
 
 static inline

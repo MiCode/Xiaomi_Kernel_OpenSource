@@ -99,7 +99,7 @@ static int i915_sync_fill_driver_data(struct sync_pt *sync_pt,
 
 static
 struct sync_pt *i915_sync_pt_create(struct i915_sync_timeline *obj,
-					u32 value, u32 cycle, u64 flags)
+				    u32 value, u32 cycle, u64 ring_mask)
 {
 	struct i915_sync_pt *pt;
 	struct intel_engine_cs *ring;
@@ -119,7 +119,7 @@ struct sync_pt *i915_sync_pt_create(struct i915_sync_timeline *obj,
 	if (pt) {
 		pt->pvt.value = value;
 		pt->pvt.cycle = cycle;
-		pt->pvt.flags = flags & I915_EXEC_RING_MASK;
+		pt->pvt.ring_mask = ring_mask;
 	} else
 		ring->irq_put(ring);
 
@@ -135,7 +135,7 @@ static struct sync_pt *i915_sync_pt_dup(struct sync_pt *sync_pt)
 		(struct i915_sync_timeline *)sync_pt->parent;
 
 	new_pt = (struct sync_pt *)i915_sync_pt_create(obj, pt->pvt.value,
-					pt->pvt.cycle, pt->pvt.flags);
+					pt->pvt.cycle, pt->pvt.ring_mask);
 	return new_pt;
 }
 
@@ -217,135 +217,23 @@ void i915_sync_reset_timelines(struct drm_i915_private *dev_priv)
 	}
 }
 
-static int i915_write_active_seqno(struct intel_engine_cs *ring, u32 seqno)
+int i915_sync_create_fence(struct intel_engine_cs *ring, u32 seqno,
+			   int *fd_out, u64 ring_mask)
 {
-	int ret;
-
-	ret = intel_ring_begin(ring, 4);
-	if (ret)
-		return ret;
-
-	intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
-	intel_ring_emit(ring, I915_GEM_ACTIVE_SEQNO_INDEX <<
-			MI_STORE_DWORD_INDEX_SHIFT);
-	intel_ring_emit(ring, seqno);
-	intel_ring_emit(ring, MI_NOOP);
-	intel_ring_advance(ring);
-
-	return 0;
-}
-
-void *i915_sync_prepare_request(struct drm_i915_gem_execbuffer2 *args,
-				struct intel_engine_cs *ring, u32 seqno)
-{
-	int ret;
 	struct sync_pt *pt;
-
-	BUG_ON(!ring->timeline);
-
-	/* Write the current seqno to the HWS page so that
-	 * we can identify the cause of any hangs.
-	 */
-	ret = i915_write_active_seqno(ring, seqno);
-	if (ret) {
-		DRM_DEBUG_DRIVER("Failed to store seqno for %d (%d)\n",
-				 ring->id, ret);
-		return ERR_PTR(ret);
-	}
-
-	/* Fence was not requested, nothing more to do. */
-	if (!(args->flags & I915_EXEC_REQUEST_FENCE))
-		return NULL;
-
-	/* Caller has requested a sync fence.
-	 * User interrupts will be enabled to make sure that
-	 * the timeline is signalled on completion.
-	 */
-	pt = i915_sync_pt_create(ring->timeline, seqno,
-				 ring->timeline->pvt.cycle,
-				 args->flags);
-	if (!pt)
-		DRM_DEBUG_DRIVER("Failed to create sync point for %d/%u\n",
-					ring->id, seqno);
-
-	return (void *)pt;
-}
-
-static int gen8_write_active_seqno(struct intel_ringbuffer *ringbuf, u32 seqno)
-{
-	int ret;
-	struct intel_engine_cs *ring = ringbuf->ring;
-
-	ret = intel_logical_ring_begin(ringbuf, 4);
-	if (ret)
-		return ret;
-
-	intel_logical_ring_emit(ringbuf, MI_STORE_DWORD_INDEX);
-	intel_logical_ring_emit(ringbuf,
-				(ring->status_page.gfx_addr +
-				 (I915_GEM_ACTIVE_SEQNO_INDEX <<
-				  MI_STORE_DWORD_INDEX_SHIFT)));
-	intel_logical_ring_emit(ringbuf, seqno);
-	intel_logical_ring_emit(ringbuf, MI_NOOP);
-	intel_logical_ring_advance(ringbuf);
-
-	return 0;
-}
-
-void *gen8_sync_prepare_request(struct drm_i915_gem_execbuffer2 *args,
-				struct intel_ringbuffer *ringbuf,
-				u32 seqno)
-{
-	int ret;
-	struct sync_pt *pt;
-	struct intel_engine_cs *ring = ringbuf->ring;
-
-	BUG_ON(!ring->timeline);
-
-	/* Write the current seqno to the HWS page so that
-	 * we can identify the cause of any hangs.
-	 */
-	ret = gen8_write_active_seqno(ringbuf, seqno);
-	if (ret) {
-		DRM_DEBUG_DRIVER("Failed to store seqno for %d (%d)\n",
-				 ring->id, ret);
-		return ERR_PTR(ret);
-	}
-
-	/* Fence was not requested, nothing more to do. */
-	if (!(args->flags & I915_EXEC_REQUEST_FENCE))
-		return NULL;
-
-	/* Caller has requested a sync fence.
-	 * User interrupts will be enabled to make sure that
-	 * the timeline is signalled on completion.
-	 */
-	pt = i915_sync_pt_create(ring->timeline, seqno,
-				 ring->timeline->pvt.cycle,
-				 args->flags);
-	if (!pt)
-		DRM_DEBUG_DRIVER("Failed to create sync point for %d/%u\n",
-					ring->id, seqno);
-
-	return (void *)pt;
-}
-
-int i915_sync_finish_request(void *handle,
-				struct drm_i915_gem_execbuffer2 *args,
-				struct intel_engine_cs *ring)
-{
-	struct sync_pt *pt = (struct sync_pt *)handle;
-	int err;
-	int fd = -1;
+	int fd = -1, err;
 	struct sync_fence *fence;
 
-	/* Clear the active seqno. */
-	if (i915_write_active_seqno(ring, 0))
-		DRM_DEBUG_DRIVER("Failed to clear seqno for %d\n", ring->id);
+	BUG_ON(!ring->timeline);
 
-	/* Fence was not requested, nothing more to do. */
-	if (!pt)
-		return 0;
+	pt = i915_sync_pt_create(ring->timeline, seqno,
+				 ring->timeline->pvt.cycle,
+				 ring_mask);
+	if (!pt) {
+		DRM_DEBUG_DRIVER("Failed to create sync point for %d/%u\n",
+					ring->id, seqno);
+		return -ENOMEM;
+	}
 
 	fd = get_unused_fd();
 	if (fd < 0) {
@@ -355,84 +243,19 @@ int i915_sync_finish_request(void *handle,
 	}
 
 	fence = sync_fence_create("I915", pt);
-	if (!fence) {
-		DRM_DEBUG_DRIVER("Fence creation failed\n");
-		err = -ENOMEM;
-		goto err_fd;
-	}
-
-	sync_fence_install(fence, fd);
-
-	/* Return the fence through the rsvd2 field */
-	args->rsvd2 = (__u64)fd;
-
-	return 0;
-
-err_fd:
-	put_unused_fd(fd);
-	fd = err;
-err:
-	args->rsvd2 = (__u64)fd;
-
-	return err;
-}
-
-int gen8_sync_finish_request(void *handle,
-			     struct drm_i915_gem_execbuffer2 *args,
-			     struct intel_ringbuffer *ringbuf)
-{
-	struct sync_pt *pt = (struct sync_pt *)handle;
-	int err;
-	int fd = -1;
-	struct sync_fence *fence;
-	struct intel_engine_cs *ring = ringbuf->ring;
-
-	/* Clear the active seqno. */
-	if (gen8_write_active_seqno(ringbuf, 0))
-		DRM_DEBUG_DRIVER("Failed to clear seqno for %d\n", ring->id);
-
-	/* Fence was not requested, nothing more to do. */
-	if (!pt)
+	if (fence) {
+		sync_fence_install(fence, fd);
+		*fd_out = fd;
 		return 0;
-
-	fd = get_unused_fd();
-	if (fd < 0) {
-		DRM_DEBUG_DRIVER("Unable to get file descriptor for fence\n");
-		err = fd;
-		goto err;
 	}
 
-	fence = sync_fence_create("I915", pt);
-	if (!fence) {
-		DRM_DEBUG_DRIVER("Fence creation failed\n");
-		err = -ENOMEM;
-		goto err_fd;
-	}
-
-	sync_fence_install(fence, fd);
-
-	/* Return the fence through the rsvd2 field */
-	args->rsvd2 = (__u64)fd;
-
-	return 0;
-
-err_fd:
+	DRM_DEBUG_DRIVER("Fence creation failed\n");
+	err = -ENOMEM;
 	put_unused_fd(fd);
-	fd = err;
 err:
-	args->rsvd2 = (__u64)fd;
-
+	sync_pt_free(pt);
+	*fd_out = -1;
 	return err;
-}
-
-void i915_sync_cancel_request(void *handle,
-				struct drm_i915_gem_execbuffer2 *args,
-				struct intel_engine_cs *ring)
-{
-	struct sync_pt *pt = (struct sync_pt *)handle;
-
-	if (pt && !IS_ERR(pt))
-		sync_pt_free(pt);
 }
 
 void i915_sync_timeline_advance(struct intel_engine_cs *ring)

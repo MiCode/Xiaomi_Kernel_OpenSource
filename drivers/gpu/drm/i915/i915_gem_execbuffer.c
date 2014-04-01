@@ -26,13 +26,14 @@
  *
  */
 
+#include <linux/dma_remapping.h>
+#include <linux/syscalls.h>
 #include <drm/drmP.h>
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
 #include "i915_trace.h"
 #include "intel_sync.h"
 #include "intel_drv.h"
-#include <linux/dma_remapping.h>
 
 #define  __EXEC_OBJECT_HAS_PIN (1<<31)
 #define  __EXEC_OBJECT_HAS_FENCE (1<<30)
@@ -1053,10 +1054,9 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 	u32 instp_mask;
 	int i, ret = 0;
 	u32 seqno;
-	int sync_err = 0;
-	void *handle = NULL;
 	void *priv_data = NULL;
 	u32 priv_length = 0;
+	int fd_fence_complete = -1;
 
 	if (args->num_cliprects != 0) {
 		if (INTEL_INFO(dev)->gen <= 4) {
@@ -1122,12 +1122,6 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 		goto error;
 
 	seqno = ring->outstanding_lazy_seqno;
-	handle = i915_sync_prepare_request(args, ring, seqno);
-	if (handle && IS_ERR(handle)) {
-		ret = PTR_ERR(handle);
-		if (ret)
-			goto error;
-	}
 
 	ret = i915_gem_execbuffer_move_to_gpu(ring, vmas);
 	if (ret)
@@ -1195,6 +1189,53 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 			goto error;
 	}
 
+#ifdef CONFIG_SYNC
+	if (args->flags & I915_EXEC_WAIT_FENCE) {
+		/* Validate the fence wait parameter but don't do the wait until
+		 * a scheduler arrives. Otherwise the entire universe stalls. */
+		int fd_fence_wait = (int) args->rsvd2;
+
+		if (fd_fence_wait < 0) {
+			DRM_ERROR("Wait fence for ring %d has invalid id %d\n",
+				  (int) ring->id, fd_fence_wait);
+		} else {
+			struct sync_fence *fence_wait;
+
+			fence_wait = sync_fence_fdget(fd_fence_wait);
+			if (fence_wait == NULL)
+				DRM_ERROR("Invalid wait fence %d\n",
+					  fd_fence_wait);
+		}
+	}
+#endif
+
+	if (args->flags & I915_EXEC_REQUEST_FENCE) {
+		/* Caller has requested a sync fence.
+		 * User interrupts will be enabled to make sure that
+		 * the timeline is signalled on completion. */
+		ret = i915_sync_create_fence(ring, seqno,
+					     &fd_fence_complete,
+					     args->flags & I915_EXEC_RING_MASK);
+		if (ret) {
+			DRM_ERROR("Fence creation failed for ring %d\n",
+				  ring->id);
+			args->rsvd2 = (__u64) -1;
+			goto error;
+		}
+
+		/* Return the fence through the rsvd2 field */
+		args->rsvd2 = (__u64) fd_fence_complete;
+	}
+
+	/* Flag this seqno as being active on the ring so the watchdog
+	 * code knows where to look if things go wrong. */
+	ret = i915_write_active_seqno(ring, seqno);
+	if (ret) {
+		DRM_DEBUG_DRIVER("Failed to store seqno for %d (%d)\n",
+				 ring->id, ret);
+		goto error;
+	}
+
 	exec_len = args->batch_len;
 	if (cliprects) {
 		/* Non-NULL cliprects only possible for Gen <= 4 */
@@ -1221,7 +1262,10 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 			goto error;
 	}
 
-	sync_err = i915_sync_finish_request(handle, args, ring);
+	/* Clear the active seqno again */
+	ret = i915_write_active_seqno(ring, 0);
+	if (ret)
+		goto error;
 
 	trace_i915_gem_ring_dispatch(ring, intel_ring_get_seqno(ring), flags);
 
@@ -1244,11 +1288,14 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 	}
 
 error:
-	if (ret || sync_err)
-		i915_sync_cancel_request(handle, args, ring);
-
 	kfree(cliprects);
 	kfree(priv_data);
+
+	if (ret && fd_fence_complete != -1) {
+		sys_close(fd_fence_complete);
+		args->rsvd2 = (__u64) -1;
+	}
+
 	return ret;
 }
 

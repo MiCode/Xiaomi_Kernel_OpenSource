@@ -132,6 +132,7 @@
  *
  */
 
+#include <linux/syscalls.h>
 #include <drm/drmP.h>
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
@@ -600,6 +601,28 @@ static int logical_ring_alloc_seqno(struct intel_engine_cs *ring,
 	return i915_gem_get_seqno(ring->dev, &ring->outstanding_lazy_seqno);
 }
 
+static int logical_ring_write_active_seqno(struct intel_ringbuffer *ringbuf,
+					   u32 seqno)
+{
+	int ret;
+	struct intel_engine_cs *ring = ringbuf->ring;
+
+	ret = intel_logical_ring_begin(ringbuf, 4);
+	if (ret)
+		return ret;
+
+	intel_logical_ring_emit(ringbuf, MI_STORE_DWORD_INDEX);
+	intel_logical_ring_emit(ringbuf,
+				(ring->status_page.gfx_addr +
+				 (I915_GEM_ACTIVE_SEQNO_INDEX <<
+				  MI_STORE_DWORD_INDEX_SHIFT)));
+	intel_logical_ring_emit(ringbuf, seqno);
+	intel_logical_ring_emit(ringbuf, MI_NOOP);
+	intel_logical_ring_advance(ringbuf);
+
+	return 0;
+}
+
 static int execlists_move_to_gpu(struct intel_ringbuffer *ringbuf,
 				 struct list_head *vmas)
 {
@@ -662,7 +685,7 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 	u32 instp_mask;
 	int ret;
 	u32 seqno;
-	void *handle = NULL;
+	int fd_fence_complete = -1;
 
 	instp_mode = args->flags & I915_EXEC_CONSTANTS_MASK;
 	instp_mask = I915_EXEC_CONSTANTS_MASK;
@@ -711,12 +734,6 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 	}
 
 	seqno = ring->outstanding_lazy_seqno;
-	handle = gen8_sync_prepare_request(args, ringbuf, seqno);
-	if (handle && IS_ERR(handle)) {
-		ret = PTR_ERR(handle);
-		if (ret)
-			return ret;
-	}
 
 	ret = execlists_move_to_gpu(ringbuf, vmas);
 	if (ret)
@@ -737,18 +754,75 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 		dev_priv->relative_constants_mode = instp_mode;
 	}
 
+#ifdef CONFIG_SYNC
+	if (args->flags & I915_EXEC_WAIT_FENCE) {
+		/* Validate the fence wait parameter but don't do the wait until
+		 * a scheduler arrives. Otherwise the entire universe stalls. */
+		int fd_fence_wait = (int) args->rsvd2;
+
+		if (fd_fence_wait < 0) {
+			DRM_ERROR("Wait fence for ring %d has invalid id %d\n",
+				  (int) ring->id, fd_fence_wait);
+		} else {
+			struct sync_fence *fence_wait;
+
+			fence_wait = sync_fence_fdget(fd_fence_wait);
+			if (fence_wait == NULL)
+				DRM_ERROR("Invalid wait fence %d\n",
+					  fd_fence_wait);
+		}
+	}
+#endif
+
+	if (args->flags & I915_EXEC_REQUEST_FENCE) {
+		/* Caller has requested a sync fence.
+		 * User interrupts will be enabled to make sure that
+		 * the timeline is signalled on completion. */
+		ret = i915_sync_create_fence(ring, seqno,
+					     &fd_fence_complete,
+					     args->flags & I915_EXEC_RING_MASK);
+		if (ret) {
+			DRM_ERROR("Fence creation failed for ring %d\n",
+				  ring->id);
+			args->rsvd2 = (__u64) -1;
+			return ret;
+		}
+
+		/* Return the fence through the rsvd2 field */
+		args->rsvd2 = (__u64) fd_fence_complete;
+	}
+
+	/* Flag this seqno as being active on the ring so the watchdog
+	 * code knows where to look if things go wrong. */
+	ret = logical_ring_write_active_seqno(ringbuf, seqno);
+	if (ret) {
+		DRM_DEBUG_DRIVER("Failed to store seqno for %d (%d)\n",
+				 ring->id, ret);
+		goto error;
+	}
+
 	ret = ring->emit_bb_start(ringbuf, exec_start, flags);
 	if (ret)
-		return ret;
+		goto error;
 
-	ret = gen8_sync_finish_request(handle, args, ringbuf);
+	/* Clear the active seqno again */
+	ret = logical_ring_write_active_seqno(ringbuf, 0);
 	if (ret)
-		i915_sync_cancel_request(handle, args, ring);
+		goto error;
 
 	i915_gem_execbuffer_move_to_active(vmas, ring);
 	i915_gem_execbuffer_retire_commands(dev, file, ring, batch_obj);
 
 	return 0;
+
+error:
+	if (fd_fence_complete != -1)
+		sys_close(fd_fence_complete);
+
+	if (args->flags & I915_EXEC_REQUEST_FENCE)
+		args->rsvd2 = (__u64) -1;
+
+	return ret;
 }
 
 void intel_logical_ring_stop(struct intel_engine_cs *ring)

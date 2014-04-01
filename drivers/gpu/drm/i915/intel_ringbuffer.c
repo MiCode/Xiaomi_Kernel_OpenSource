@@ -1716,6 +1716,26 @@ void intel_cleanup_ring_buffer(struct intel_engine_cs *ring)
 	ring->buffer = NULL;
 }
 
+/* Write a specific seqno value to the HWS page so that
+ * we can identify the cause of any hangs. */
+int i915_write_active_seqno(struct intel_engine_cs *ring, u32 seqno)
+{
+	int ret;
+
+	ret = intel_ring_begin(ring, 4);
+	if (ret)
+		return ret;
+
+	intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
+	intel_ring_emit(ring, I915_GEM_ACTIVE_SEQNO_INDEX <<
+			MI_STORE_DWORD_INDEX_SHIFT);
+	intel_ring_emit(ring, seqno);
+	intel_ring_emit(ring, MI_NOOP);
+	intel_ring_advance(ring);
+
+	return 0;
+}
+
 static int intel_ring_wait_request(struct intel_engine_cs *ring, int n)
 {
 	struct intel_ringbuffer *ringbuf = ring->buffer;
