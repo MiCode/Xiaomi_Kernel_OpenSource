@@ -1837,12 +1837,11 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 	mdp3_interface->kickoff_fnc = mdp3_ctrl_display_commit_kickoff;
 	mdp3_interface->lut_update = mdp3_ctrl_lut_update;
 
-	mdp3_session = kmalloc(sizeof(struct mdp3_session_data), GFP_KERNEL);
+	mdp3_session = kzalloc(sizeof(struct mdp3_session_data), GFP_KERNEL);
 	if (!mdp3_session) {
 		pr_err("fail to allocate mdp3 private data structure");
 		return -ENOMEM;
 	}
-	memset(mdp3_session, 0, sizeof(struct mdp3_session_data));
 	mutex_init(&mdp3_session->lock);
 	INIT_WORK(&mdp3_session->clk_off_work, mdp3_dispatch_clk_off);
 	INIT_WORK(&mdp3_session->dma_done_work, mdp3_dispatch_dma_done);

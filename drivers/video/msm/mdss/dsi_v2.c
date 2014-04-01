@@ -540,7 +540,7 @@ void dsi_register_interface(struct dsi_interface *intf)
 
 int dsi_buf_alloc(struct dsi_buf *dp, int size)
 {
-	dp->start = kmalloc(size, GFP_KERNEL);
+	dp->start = kzalloc(size, GFP_KERNEL);
 	if (dp->start == NULL) {
 		pr_err("%s:%u\n", __func__, __LINE__);
 		return -ENOMEM;
