@@ -805,7 +805,7 @@ static int venus_hfi_vote_buses(void *dev, struct vidc_bus_vote_data *data,
 		 * There's no clean way presently to check which buses are
 		 * associated with ocmem. So do a crude check for the bus name,
 		 * which relies on the buses being named appropriately. */
-		if (device->resources.ocmem.buf && strnstr(bus->pdata->name,
+		if (!device->resources.ocmem.buf && strnstr(bus->pdata->name,
 					"ocmem", strlen(bus->pdata->name))) {
 			dprintk(VIDC_DBG, "Skipping voting for %s (no ocmem)\n",
 					bus->pdata->name);
