@@ -14,6 +14,65 @@
 
 #include <soc/qcom/spm.h>
 
+enum {
+	MSM_SPM_REG_SAW2_CFG,
+	MSM_SPM_REG_SAW2_AVS_CTL,
+	MSM_SPM_REG_SAW2_AVS_HYSTERESIS,
+	MSM_SPM_REG_SAW2_SPM_CTL,
+	MSM_SPM_REG_SAW2_PMIC_DLY,
+	MSM_SPM_REG_SAW2_AVS_LIMIT,
+	MSM_SPM_REG_SAW2_AVS_DLY,
+	MSM_SPM_REG_SAW2_SPM_DLY,
+	MSM_SPM_REG_SAW2_PMIC_DATA_0,
+	MSM_SPM_REG_SAW2_PMIC_DATA_1,
+	MSM_SPM_REG_SAW2_PMIC_DATA_2,
+	MSM_SPM_REG_SAW2_PMIC_DATA_3,
+	MSM_SPM_REG_SAW2_PMIC_DATA_4,
+	MSM_SPM_REG_SAW2_PMIC_DATA_5,
+	MSM_SPM_REG_SAW2_PMIC_DATA_6,
+	MSM_SPM_REG_SAW2_PMIC_DATA_7,
+	MSM_SPM_REG_SAW2_RST,
+
+	MSM_SPM_REG_NR_INITIALIZE = MSM_SPM_REG_SAW2_RST,
+
+	MSM_SPM_REG_SAW2_ID,
+	MSM_SPM_REG_SAW2_SECURE,
+	MSM_SPM_REG_SAW2_STS0,
+	MSM_SPM_REG_SAW2_STS1,
+	MSM_SPM_REG_SAW2_STS2,
+	MSM_SPM_REG_SAW2_VCTL,
+	MSM_SPM_REG_SAW2_SEQ_ENTRY,
+	MSM_SPM_REG_SAW2_SPM_STS,
+	MSM_SPM_REG_SAW2_AVS_STS,
+	MSM_SPM_REG_SAW2_PMIC_STS,
+	MSM_SPM_REG_SAW2_VERSION,
+
+	MSM_SPM_REG_NR,
+};
+
+struct msm_spm_seq_entry {
+	uint32_t mode;
+	uint8_t *cmd;
+	bool  notify_rpm;
+};
+
+struct msm_spm_platform_data {
+	void __iomem *reg_base_addr;
+	uint32_t reg_init_values[MSM_SPM_REG_NR_INITIALIZE];
+
+	uint32_t ver_reg;
+	uint32_t vctl_port;
+	uint32_t phase_port;
+	uint32_t pfm_port;
+
+	uint8_t awake_vlevel;
+	uint32_t vctl_timeout_us;
+	uint32_t avs_timeout_us;
+
+	uint32_t num_modes;
+	struct msm_spm_seq_entry *modes;
+};
+
 enum msm_spm_pmic_port {
 	MSM_SPM_PMIC_VCTL_PORT,
 	MSM_SPM_PMIC_PHASE_PORT,
@@ -51,4 +110,8 @@ int msm_spm_drv_set_spm_enable(struct msm_spm_driver_data *dev,
 		bool enable);
 int msm_spm_drv_set_pmic_data(struct msm_spm_driver_data *dev,
 		enum msm_spm_pmic_port port, unsigned int data);
+
+void msm_spm_reinit(void);
+int msm_spm_init(struct msm_spm_platform_data *data, int nr_devs);
+
 #endif
