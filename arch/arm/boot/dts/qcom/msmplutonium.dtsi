@@ -533,6 +533,33 @@
 		reg = <0xfe87f0c8 0xc8>;
 	};
 
+	qcom,venus@fdce0000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0xfdce0000 0x4000>;
+
+		vdd-supply = <&gdsc_venus>;
+		proxy-reg-names = "vdd";
+		clock-names = "core_clk", "iface_clk",
+			      "bus_clk", "mem_clk";
+		proxy-clock-names = "core_clk", "iface_clk",
+				    "bus_clk", "mem_clk";
+
+		clocks = <&clock_mmss clk_venus0_vcodec0_clk>,
+			<&clock_mmss clk_venus0_ahb_clk>,
+			<&clock_mmss clk_venus0_axi_clk>,
+			<&clock_mmss clk_venus0_ocmemnoc_clk>;
+
+		qcom,msm-bus,name = "pil-venus";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<63 512 0 0>,
+				<63 512 0 304000>;
+		qcom,pas-id = <9>;
+		qcom,proxy-timeout-ms = <5000>;
+		qcom,firmware-name = "venus";
+	};
+
 	clock_rpm: qcom,rpmcc@fc401880 {
 		compatible = "qcom,rpmcc-plutonium";
 		reg = <0xfc401880 0x4>;
