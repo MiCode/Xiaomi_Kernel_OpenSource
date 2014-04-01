@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,32 +96,21 @@ static int cti_verify_channel_bound(int ch)
 	return 0;
 }
 
-static int cti_enable(struct cti_drvdata *drvdata)
+static void cti_enable(struct cti_drvdata *drvdata)
 {
-	int ret;
-
-	ret = clk_prepare_enable(drvdata->clk);
-	if (ret)
-		return ret;
-
 	CTI_UNLOCK(drvdata);
 
 	cti_writel(drvdata, 0x1, CTICONTROL);
 
 	CTI_LOCK(drvdata);
-	return 0;
 }
 
-static int __cti_map_trigin(struct cti_drvdata *drvdata, int trig, int ch)
+static void __cti_map_trigin(struct cti_drvdata *drvdata, int trig, int ch)
 {
 	uint32_t ctien;
-	int ret;
 
-	if (drvdata->refcnt == 0) {
-		ret = cti_enable(drvdata);
-		if (ret)
-			return ret;
-	}
+	if (drvdata->refcnt == 0)
+		cti_enable(drvdata);
 
 	CTI_UNLOCK(drvdata);
 
@@ -133,10 +122,8 @@ static int __cti_map_trigin(struct cti_drvdata *drvdata, int trig, int ch)
 	CTI_LOCK(drvdata);
 
 	drvdata->refcnt++;
-	return 0;
 out:
 	CTI_LOCK(drvdata);
-	return 0;
 }
 
 int coresight_cti_map_trigin(struct coresight_cti *cti, int trig, int ch)
@@ -155,23 +142,25 @@ int coresight_cti_map_trigin(struct coresight_cti *cti, int trig, int ch)
 
 	drvdata = to_cti_drvdata(cti);
 
+	ret = clk_prepare_enable(drvdata->clk);
+	if (ret)
+		return ret;
+
 	mutex_lock(&drvdata->mutex);
-	ret = __cti_map_trigin(drvdata, trig, ch);
+	__cti_map_trigin(drvdata, trig, ch);
 	mutex_unlock(&drvdata->mutex);
-	return ret;
+
+	clk_disable_unprepare(drvdata->clk);
+	return 0;
 }
 EXPORT_SYMBOL(coresight_cti_map_trigin);
 
-static int __cti_map_trigout(struct cti_drvdata *drvdata, int trig, int ch)
+static void __cti_map_trigout(struct cti_drvdata *drvdata, int trig, int ch)
 {
 	uint32_t ctien;
-	int ret;
 
-	if (drvdata->refcnt == 0) {
-		ret = cti_enable(drvdata);
-		if (ret)
-			return ret;
-	}
+	if (drvdata->refcnt == 0)
+		cti_enable(drvdata);
 
 	CTI_UNLOCK(drvdata);
 
@@ -183,10 +172,8 @@ static int __cti_map_trigout(struct cti_drvdata *drvdata, int trig, int ch)
 	CTI_LOCK(drvdata);
 
 	drvdata->refcnt++;
-	return 0;
 out:
 	CTI_LOCK(drvdata);
-	return 0;
 }
 
 int coresight_cti_map_trigout(struct coresight_cti *cti, int trig, int ch)
@@ -205,10 +192,16 @@ int coresight_cti_map_trigout(struct coresight_cti *cti, int trig, int ch)
 
 	drvdata = to_cti_drvdata(cti);
 
+	ret = clk_prepare_enable(drvdata->clk);
+	if (ret)
+		return ret;
+
 	mutex_lock(&drvdata->mutex);
-	ret = __cti_map_trigout(drvdata, trig, ch);
+	__cti_map_trigout(drvdata, trig, ch);
 	mutex_unlock(&drvdata->mutex);
-	return ret;
+
+	clk_disable_unprepare(drvdata->clk);
+	return 0;
 }
 EXPORT_SYMBOL(coresight_cti_map_trigout);
 
@@ -223,8 +216,6 @@ static void cti_disable(struct cti_drvdata *drvdata)
 	cti_writel(drvdata, 0x0, CTICONTROL);
 
 	CTI_LOCK(drvdata);
-
-	clk_disable_unprepare(drvdata->clk);
 }
 
 static void __cti_unmap_trigin(struct cti_drvdata *drvdata, int trig, int ch)
@@ -262,10 +253,14 @@ void coresight_cti_unmap_trigin(struct coresight_cti *cti, int trig, int ch)
 
 	drvdata = to_cti_drvdata(cti);
 
+	if (clk_prepare_enable(drvdata->clk))
+		return;
+
 	mutex_lock(&drvdata->mutex);
 	__cti_unmap_trigin(drvdata, trig, ch);
 	mutex_unlock(&drvdata->mutex);
 
+	clk_disable_unprepare(drvdata->clk);
 }
 EXPORT_SYMBOL(coresight_cti_unmap_trigin);
 
@@ -304,9 +299,14 @@ void coresight_cti_unmap_trigout(struct coresight_cti *cti, int trig, int ch)
 
 	drvdata = to_cti_drvdata(cti);
 
+	if (clk_prepare_enable(drvdata->clk))
+		return;
+
 	mutex_lock(&drvdata->mutex);
 	__cti_unmap_trigout(drvdata, trig, ch);
 	mutex_unlock(&drvdata->mutex);
+
+	clk_disable_unprepare(drvdata->clk);
 }
 EXPORT_SYMBOL(coresight_cti_unmap_trigout);
 
@@ -339,9 +339,14 @@ void coresight_cti_reset(struct coresight_cti *cti)
 
 	drvdata = to_cti_drvdata(cti);
 
+	if (clk_prepare_enable(drvdata->clk))
+		return;
+
 	mutex_lock(&drvdata->mutex);
 	__cti_reset(drvdata);
 	mutex_unlock(&drvdata->mutex);
+
+	clk_disable_unprepare(drvdata->clk);
 }
 EXPORT_SYMBOL(coresight_cti_reset);
 
@@ -372,9 +377,15 @@ int coresight_cti_set_trig(struct coresight_cti *cti, int ch)
 
 	drvdata = to_cti_drvdata(cti);
 
+	ret = clk_prepare_enable(drvdata->clk);
+	if (ret)
+		return ret;
+
 	mutex_lock(&drvdata->mutex);
 	ret = __cti_set_trig(drvdata, ch);
 	mutex_unlock(&drvdata->mutex);
+
+	clk_disable_unprepare(drvdata->clk);
 	return ret;
 }
 EXPORT_SYMBOL(coresight_cti_set_trig);
@@ -402,9 +413,14 @@ void coresight_cti_clear_trig(struct coresight_cti *cti, int ch)
 
 	drvdata = to_cti_drvdata(cti);
 
+	if (clk_prepare_enable(drvdata->clk))
+		return;
+
 	mutex_lock(&drvdata->mutex);
 	__cti_clear_trig(drvdata, ch);
 	mutex_unlock(&drvdata->mutex);
+
+	clk_disable_unprepare(drvdata->clk);
 }
 EXPORT_SYMBOL(coresight_cti_clear_trig);
 
@@ -435,9 +451,15 @@ int coresight_cti_pulse_trig(struct coresight_cti *cti, int ch)
 
 	drvdata = to_cti_drvdata(cti);
 
+	ret = clk_prepare_enable(drvdata->clk);
+	if (ret)
+		return ret;
+
 	mutex_lock(&drvdata->mutex);
 	ret = __cti_pulse_trig(drvdata, ch);
 	mutex_unlock(&drvdata->mutex);
+
+	clk_disable_unprepare(drvdata->clk);
 	return ret;
 }
 EXPORT_SYMBOL(coresight_cti_pulse_trig);
@@ -472,9 +494,15 @@ int coresight_cti_enable_gate(struct coresight_cti *cti, int ch)
 
 	drvdata = to_cti_drvdata(cti);
 
+	ret = clk_prepare_enable(drvdata->clk);
+	if (ret)
+		return ret;
+
 	mutex_lock(&drvdata->mutex);
 	ret = __cti_enable_gate(drvdata, ch);
 	mutex_unlock(&drvdata->mutex);
+
+	clk_disable_unprepare(drvdata->clk);
 	return ret;
 }
 EXPORT_SYMBOL(coresight_cti_enable_gate);
@@ -505,9 +533,14 @@ void coresight_cti_disable_gate(struct coresight_cti *cti, int ch)
 
 	drvdata = to_cti_drvdata(cti);
 
+	if (clk_prepare_enable(drvdata->clk))
+		return;
+
 	mutex_lock(&drvdata->mutex);
 	__cti_disable_gate(drvdata, ch);
 	mutex_unlock(&drvdata->mutex);
+
+	clk_disable_unprepare(drvdata->clk);
 }
 EXPORT_SYMBOL(coresight_cti_disable_gate);
 
@@ -543,7 +576,10 @@ static ssize_t cti_show_trigin(struct device *dev,
 
 	mutex_lock(&cti_lock);
 	if (!drvdata->refcnt)
-		goto err;
+		goto err0;
+
+	if (clk_prepare_enable(drvdata->clk))
+		goto err0;
 
 	for (trig = 0; trig < CTI_MAX_TRIGGERS; trig++) {
 		ctien = cti_readl(drvdata, CTIINEN(trig));
@@ -557,13 +593,15 @@ static ssize_t cti_show_trigin(struct device *dev,
 						  1, " %#lx %#lx,", trig, ch);
 				if (size >= PAGE_SIZE - 2) {
 					dev_err(dev, "show buffer full\n");
-					goto err;
+					goto err1;
 				}
 
 			}
 		}
 	}
-err:
+err1:
+	clk_disable_unprepare(drvdata->clk);
+err0:
 	size += scnprintf(&buf[size], 2, "\n");
 	mutex_unlock(&cti_lock);
 	return size;
@@ -580,7 +618,10 @@ static ssize_t cti_show_trigout(struct device *dev,
 
 	mutex_lock(&cti_lock);
 	if (!drvdata->refcnt)
-		goto err;
+		goto err0;
+
+	if (clk_prepare_enable(drvdata->clk))
+		goto err0;
 
 	for (trig = 0; trig < CTI_MAX_TRIGGERS; trig++) {
 		ctien = cti_readl(drvdata, CTIOUTEN(trig));
@@ -594,13 +635,15 @@ static ssize_t cti_show_trigout(struct device *dev,
 						  1, " %#lx %#lx,", trig, ch);
 				if (size >= PAGE_SIZE - 2) {
 					dev_err(dev, "show buffer full\n");
-					goto err;
+					goto err1;
 				}
 
 			}
 		}
 	}
-err:
+err1:
+	clk_disable_unprepare(drvdata->clk);
+err0:
 	size += scnprintf(&buf[size], 2, "\n");
 	mutex_unlock(&cti_lock);
 	return size;
@@ -705,7 +748,10 @@ static ssize_t cti_show_trig(struct device *dev, struct device_attribute *attr,
 
 	mutex_lock(&cti_lock);
 	if (!drvdata->refcnt)
-		goto err;
+		goto err0;
+
+	if (clk_prepare_enable(drvdata->clk))
+		goto err0;
 
 	ctiset = cti_readl(drvdata, CTIAPPSET);
 	for (ch = 0; ch < CTI_MAX_CHANNELS; ch++) {
@@ -718,12 +764,14 @@ static ssize_t cti_show_trig(struct device *dev, struct device_attribute *attr,
 					  1, " %#lx,", ch);
 			if (size >= PAGE_SIZE - 2) {
 				dev_err(dev, "show buffer full\n");
-				goto err;
+				goto err1;
 			}
 
 		}
 	}
-err:
+err1:
+	clk_disable_unprepare(drvdata->clk);
+err0:
 	size += scnprintf(&buf[size], 2, "\n");
 	mutex_unlock(&cti_lock);
 	return size;
@@ -794,7 +842,10 @@ static ssize_t cti_show_gate(struct device *dev, struct device_attribute *attr,
 
 	mutex_lock(&cti_lock);
 	if (!drvdata->refcnt)
-		goto err;
+		goto err0;
+
+	if (clk_prepare_enable(drvdata->clk))
+		goto err0;
 
 	ctigate = cti_readl(drvdata, CTIGATE);
 	for (ch = 0; ch < CTI_MAX_CHANNELS; ch++) {
@@ -807,12 +858,14 @@ static ssize_t cti_show_gate(struct device *dev, struct device_attribute *attr,
 					  1, " %#lx,", ch);
 			if (size >= PAGE_SIZE - 2) {
 				dev_err(dev, "show buffer full\n");
-				goto err;
+				goto err1;
 			}
 
 		}
 	}
-err:
+err1:
+	clk_disable_unprepare(drvdata->clk);
+err0:
 	size += scnprintf(&buf[size], 2, "\n");
 	mutex_unlock(&cti_lock);
 	return size;
