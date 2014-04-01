@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -207,8 +207,7 @@ static irqreturn_t msm_slim_interrupt(int irq, void *d)
 		 * signalling completion/exiting ISR
 		 */
 		mb();
-		if (dev->wr_comp)
-			complete(dev->wr_comp);
+		msm_slim_manage_tx_msgq(dev, false, NULL);
 	}
 	if (stat & MGR_INT_RX_MSG_RCVD) {
 		u32 rx_buf[10];
@@ -372,8 +371,7 @@ static int msm_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 		}
 	}
 	txn->rl--;
-	pbuf = msm_get_msg_buf(dev, txn->rl);
-	dev->wr_comp = NULL;
+	pbuf = msm_get_msg_buf(dev, txn->rl, &done);
 	dev->err = 0;
 
 	if (txn->dt == SLIM_MSG_DEST_ENUMADDR) {
@@ -438,11 +436,8 @@ static int msm_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	if (txn->mt == SLIM_MSG_MT_CORE &&
 		mc == SLIM_MSG_MC_BEGIN_RECONFIGURATION)
 		dev->reconf_busy = true;
-	dev->wr_comp = &done;
 	msm_send_msg_buf(dev, pbuf, txn->rl, MGR_TX_MSG);
 	timeout = wait_for_completion_timeout(&done, HZ);
-	if (!timeout)
-		dev->wr_comp = NULL;
 	if (mc == SLIM_MSG_MC_RECONFIGURE_NOW) {
 		if ((txn->mc == (SLIM_MSG_MC_RECONFIGURE_NOW |
 					SLIM_MSG_CLK_PAUSE_SEQ_FLG)) &&
@@ -505,7 +500,9 @@ static int msm_set_laddr(struct slim_controller *ctrl, const u8 *ea,
 retry_laddr:
 	init_completion(&done);
 	mutex_lock(&dev->tx_lock);
-	buf = msm_get_msg_buf(dev, 9);
+	buf = msm_get_msg_buf(dev, 9, &done);
+	if (buf == NULL)
+		return -ENOMEM;
 	buf[0] = SLIM_MSG_ASM_FIRST_WORD(9, SLIM_MSG_MT_CORE,
 					SLIM_MSG_MC_ASSIGN_LOGICAL_ADDRESS,
 					SLIM_MSG_DEST_LOGICALADDR,
@@ -513,7 +510,6 @@ retry_laddr:
 	buf[1] = ea[3] | (ea[2] << 8) | (ea[1] << 16) | (ea[0] << 24);
 	buf[2] = laddr;
 
-	dev->wr_comp = &done;
 	ret = msm_send_msg_buf(dev, buf, 9, MGR_TX_MSG);
 	timeout = wait_for_completion_timeout(&done, HZ);
 	if (!timeout)
@@ -521,7 +517,6 @@ retry_laddr:
 	if (dev->err) {
 		ret = dev->err;
 		dev->err = 0;
-		dev->wr_comp = NULL;
 	}
 	mutex_unlock(&dev->tx_lock);
 	if (ret) {
@@ -1183,6 +1178,10 @@ static int msm_slim_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto err_get_res_failed;
 	}
+	dev->wr_comp = kzalloc(sizeof(struct completion *) * MSM_TX_BUFS,
+				GFP_KERNEL);
+	if (!dev->wr_comp)
+		return -ENOMEM;
 	dev->dev = &pdev->dev;
 	platform_set_drvdata(pdev, dev);
 	slim_set_ctrldata(&dev->ctrl, dev);
@@ -1271,7 +1270,8 @@ static int msm_slim_probe(struct platform_device *pdev)
 	dev->ctrl.dev.parent = &pdev->dev;
 	dev->ctrl.dev.of_node = pdev->dev.of_node;
 
-	ret = request_irq(dev->irq, msm_slim_interrupt, IRQF_TRIGGER_HIGH,
+	ret = request_threaded_irq(dev->irq, NULL, msm_slim_interrupt,
+				IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
 				"msm_slim_irq", dev);
 	if (ret) {
 		dev_err(&pdev->dev, "request IRQ failed\n");
@@ -1400,6 +1400,7 @@ err_of_init_failed:
 err_ioremap_bam_failed:
 	iounmap(dev->base);
 err_ioremap_failed:
+	kfree(dev->wr_comp);
 	kfree(dev);
 err_get_res_failed:
 	release_mem_region(bam_mem->start, resource_size(bam_mem));
@@ -1437,6 +1438,7 @@ static int msm_slim_remove(struct platform_device *pdev)
 	kthread_stop(dev->rx_msgq_thread);
 	iounmap(dev->bam.base);
 	iounmap(dev->base);
+	kfree(dev->wr_comp);
 	kfree(dev);
 	bam_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"slimbus_bam_physical");
