@@ -196,6 +196,13 @@ static int __init parse_cluster(struct device_node *cluster, int depth)
 	return 0;
 }
 
+static DEFINE_PER_CPU(unsigned long, cpu_efficiency) = SCHED_CAPACITY_SCALE;
+
+unsigned long arch_get_cpu_efficiency(int cpu)
+{
+	return per_cpu(cpu_efficiency, cpu);
+}
+
 #ifdef CONFIG_OF
 struct cpu_efficiency {
 	const char *compatible;
@@ -286,6 +293,8 @@ static int __init parse_dt_topology(void)
 
 		if (cpu_eff->compatible == NULL)
 			continue;
+
+		per_cpu(cpu_efficiency, cpu) = cpu_eff->efficiency;
 
 		rate = of_get_property(cn, "clock-frequency", &len);
 		if (!rate || len != 4) {
