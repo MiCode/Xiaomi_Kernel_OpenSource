@@ -20,6 +20,9 @@
 #include <linux/qpnp/clkdiv.h>
 #include <linux/io.h>
 #include <linux/module.h>
+#include <linux/timer.h>
+#include <linux/workqueue.h>
+#include <linux/sched.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -44,6 +47,7 @@ static int msm_btsco_ch = 1;
 static int msm_ter_mi2s_tx_ch = 1;
 
 static int msm_proxy_rx_ch = 2;
+
 static int msm8x16_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm);
 
@@ -74,17 +78,6 @@ static struct afe_clk_cfg mi2s_tx_clk = {
 	0,
 };
 
-struct msm8916_asoc_mach_data {
-	int codec_type;
-};
-
-static struct afe_digital_clk_cfg digital_cdc_clk = {
-	AFE_API_VERSION_I2S_CONFIG,
-	9600000,
-	5,  /* Digital Codec root */
-	0,
-};
-
 struct cdc_pdm_pinctrl_info {
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *cdc_pdm_sus;
@@ -93,8 +86,6 @@ struct cdc_pdm_pinctrl_info {
 
 static struct cdc_pdm_pinctrl_info pinctrl_info;
 
-static atomic_t mclk_rsc_ref;
-static struct mutex cdc_mclk_mutex;
 static int mi2s_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 
 static inline int param_is_mask(int p)
@@ -313,30 +304,38 @@ static int msm8x16_enable_codec_ext_clk(struct snd_soc_codec *codec,
 					int enable, bool dapm)
 {
 	int ret = 0;
+	struct msm8916_asoc_mach_data *pdata = NULL;
 
-	mutex_lock(&cdc_mclk_mutex);
-
-	pr_debug("%s: enable = %d  codec name %s enable %d mclk ref counter %d\n",
+	pdata = snd_soc_card_get_drvdata(codec->card);
+	mutex_lock(&pdata->cdc_mclk_mutex);
+	pr_err("%s: enable = %d  codec name %s enable %d mclk ref counter %d\n",
 		   __func__, enable, codec->name, enable,
-		   atomic_read(&mclk_rsc_ref));
+		   atomic_read(&pdata->mclk_rsc_ref));
 	if (enable) {
-		if (atomic_inc_return(&mclk_rsc_ref) == 1) {
-			digital_cdc_clk.clk_val = 9600000;
+		if (atomic_inc_return(&pdata->mclk_rsc_ref) == 1) {
+			pdata->digital_cdc_clk.clk_val = 9600000;
 			afe_set_digital_codec_core_clock(
 					AFE_PORT_ID_PRIMARY_MI2S_RX,
-					&digital_cdc_clk);
+					&pdata->digital_cdc_clk);
 			msm8x16_wcd_mclk_enable(codec, 1, dapm);
+			cancel_delayed_work_sync(&pdata->enable_mclk_work);
 		}
 	} else {
-		if (atomic_dec_return(&mclk_rsc_ref) == 0) {
-			digital_cdc_clk.clk_val = 0;
+		if (atomic_dec_return(&pdata->mclk_rsc_ref) == 0) {
+			pdata->digital_cdc_clk.clk_val = 0;
 			msm8x16_wcd_mclk_enable(codec, 0, dapm);
 			afe_set_digital_codec_core_clock(
 					AFE_PORT_ID_PRIMARY_MI2S_RX,
-					&digital_cdc_clk);
+					&pdata->digital_cdc_clk);
+			if (atomic_read(&pdata->dis_work_mclk) == true) {
+				pr_debug("add work in disable of %s\n",
+						__func__);
+				schedule_delayed_work(
+					&pdata->enable_mclk_work, 10);
+			}
 		}
 	}
-	mutex_unlock(&cdc_mclk_mutex);
+	mutex_unlock(&pdata->cdc_mclk_mutex);
 	return ret;
 }
 
@@ -357,19 +356,14 @@ static int msm8x16_mclk_event(struct snd_soc_dapm_widget *w,
 			      struct snd_kcontrol *kcontrol, int event)
 {
 	pr_debug("%s: event = %d\n", __func__, event);
-	switch (event) {
-	case SND_SOC_DAPM_PRE_PMU:
-		return msm8x16_enable_codec_ext_clk(w->codec, 1, true);
-	case SND_SOC_DAPM_POST_PMD:
-		return msm8x16_enable_codec_ext_clk(w->codec, 0, true);
-	default:
-		return -EINVAL;
-	}
+	return 0;
 }
 
 static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 {
 	int ret;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_codec *codec = rtd->codec;
 
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
@@ -379,6 +373,9 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 		pr_err("%s:clock disable failed\n", __func__);
 	pinctrl_select_state(pinctrl_info.pinctrl,
 				pinctrl_info.cdc_pdm_sus);
+	ret = msm8x16_enable_codec_ext_clk(codec, 0, true);
+	if (ret < 0)
+		pr_err("failed to disable the mclk\n");
 }
 
 static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
@@ -386,6 +383,7 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_card *card = rtd->card;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_codec *codec = rtd->codec;
 	struct msm8916_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 	int ret = 0;
 	int val = 0;
@@ -404,6 +402,11 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 		val = ioread32(ioremap(LPASS_CSR_GP_IO_MUX_MIC_CTL , 4));
 		val = val | 0x00200000;
 		iowrite32(val, ioremap(LPASS_CSR_GP_IO_MUX_MIC_CTL , 4));
+	}
+	ret =  msm8x16_enable_codec_ext_clk(codec, 1, true);
+	if (ret < 0) {
+		pr_err("failed to enable mclk\n");
+		return ret;
 	}
 
 	ret = pinctrl_select_state(pinctrl_info.pinctrl,
@@ -900,6 +903,32 @@ static int cdc_pdm_get_pinctrl(struct platform_device *pdev)
 	return 0;
 }
 
+void enable_mclk(struct work_struct *work)
+{
+	struct msm8916_asoc_mach_data *pdata = NULL;
+	struct delayed_work *dwork;
+	int ret = 0;
+
+	pr_info("%s:\n", __func__);
+	dwork = to_delayed_work(work);
+	pdata = container_of(dwork, struct msm8916_asoc_mach_data,
+				enable_mclk_work);
+	if (atomic_read(&pdata->mclk_rsc_ref) == 0) {
+		if (atomic_read(&pdata->dis_work_mclk) == true) {
+			pr_debug("clock enabled now disable\n");
+			mutex_lock(&pdata->cdc_mclk_mutex);
+			pdata->digital_cdc_clk.clk_val = 0;
+			ret = afe_set_digital_codec_core_clock(
+					AFE_PORT_ID_PRIMARY_MI2S_RX,
+					&pdata->digital_cdc_clk);
+			if (ret < 0)
+				pr_err("failed to disable the MCLK\n");
+			atomic_set(&pdata->dis_work_mclk, false);
+			mutex_unlock(&pdata->cdc_mclk_mutex);
+		}
+	}
+}
+
 static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card;
@@ -949,7 +978,12 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "default codec configured\n");
 		pdata->codec_type = 0;
 	}
-
+	/* initialize the mclk */
+	pdata->digital_cdc_clk.i2s_cfg_minor_version =
+					AFE_API_VERSION_I2S_CONFIG;
+	pdata->digital_cdc_clk.clk_val = 9600000;
+	pdata->digital_cdc_clk.clk_root = 5;
+	pdata->digital_cdc_clk.reserved = 0;
 	ret = cdc_pdm_get_pinctrl(pdev);
 	if (ret < 0) {
 		pr_err("failed to get the pdm gpios\n");
@@ -965,6 +999,7 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 	card->dev = &pdev->dev;
 	platform_set_drvdata(pdev, card);
 	snd_soc_card_set_drvdata(card, pdata);
+	pdata->snd_card_on = false;
 	ret = snd_soc_of_parse_card_name(card, "qcom,model");
 	if (ret)
 		goto err;
@@ -980,8 +1015,12 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 			ret);
 		goto err;
 	}
-	mutex_init(&cdc_mclk_mutex);
-	atomic_set(&mclk_rsc_ref, 0);
+	/* initialize timer */
+	INIT_DELAYED_WORK(&pdata->enable_mclk_work, enable_mclk);
+	pdata->snd_card_on = true;
+	mutex_init(&pdata->cdc_mclk_mutex);
+	atomic_set(&pdata->mclk_rsc_ref, 0);
+	atomic_set(&pdata->dis_work_mclk, false);
 	return 0;
 err:
 	devm_kfree(&pdev->dev, pdata);
@@ -991,9 +1030,10 @@ err:
 static int msm8x16_asoc_machine_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
+	struct msm8916_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
 	snd_soc_unregister_card(card);
-	mutex_destroy(&cdc_mclk_mutex);
+	mutex_destroy(&pdata->cdc_mclk_mutex);
 	return 0;
 }
 

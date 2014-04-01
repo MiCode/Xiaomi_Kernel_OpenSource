@@ -29,6 +29,9 @@
 #include <linux/regulator/consumer.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
 #include <linux/qdsp6v2/apr.h>
+#include <linux/timer.h>
+#include <linux/workqueue.h>
+#include <linux/sched.h>
 #include <sound/q6afe-v2.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -215,8 +218,7 @@ static int msm8x16_wcd_ahb_write_device(u16 reg, u8 *value, u32 bytes)
 		pr_debug("%s: q6 not ready %d\n", __func__, q6_state);
 		return 0;
 	} else
-		pr_debug("%s: DSP is ready q6_state = %d\n",
-					__func__, q6_state);
+		pr_debug("%s: DSP is ready %d\n", __func__, q6_state);
 
 	iowrite32(temp, ioremap(MSM8X16_DIGITAL_CODEC_BASE_ADDR + offset, 4));
 	return 0;
@@ -312,18 +314,42 @@ int msm8x16_wcd_spmi_write(unsigned short reg, int bytes, void *src)
 	return msm8x16_wcd_spmi_write_device(reg, src, bytes);
 }
 
-static int __msm8x16_wcd_reg_read(struct msm8x16_wcd *msm8x16_wcd,
+static int __msm8x16_wcd_reg_read(struct snd_soc_codec *codec,
 				unsigned short reg)
 {
 	int ret = -EINVAL;
 	u8 temp;
+	struct msm8x16_wcd *msm8x16_wcd = codec->control_data;
+	struct msm8916_asoc_mach_data *pdata = NULL;
 
 	pr_debug("%s reg = %x\n", __func__, reg);
 	mutex_lock(&msm8x16_wcd->io_lock);
+	pdata = snd_soc_card_get_drvdata(codec->card);
 	if (MSM8X16_WCD_IS_TOMBAK_REG(reg))
 		ret = msm8x16_wcd_spmi_read(reg, 1, &temp);
-	else if (MSM8X16_WCD_IS_DIGITAL_REG(reg))
+	else if (MSM8X16_WCD_IS_DIGITAL_REG(reg)) {
+		if ((atomic_read(&pdata->mclk_rsc_ref) == 0) &&
+			(pdata->snd_card_on == true) &&
+			(atomic_read(&pdata->dis_work_mclk) == false)) {
+			mutex_lock(&pdata->cdc_mclk_mutex);
+			pdata->digital_cdc_clk.clk_val = 9600000;
+			ret = afe_set_digital_codec_core_clock(
+					AFE_PORT_ID_PRIMARY_MI2S_RX,
+					&pdata->digital_cdc_clk);
+			if (ret < 0) {
+				pr_err("failed to enable the MCLK\n");
+				return 0;
+			}
+			pr_debug("%s: MCLK not enabled\n", __func__);
+			atomic_set(&pdata->dis_work_mclk, true);
+			schedule_delayed_work(&pdata->enable_mclk_work, 50);
+			ret = msm8x16_wcd_ahb_read_device(reg, 1, &temp);
+			mutex_unlock(&pdata->cdc_mclk_mutex);
+			mutex_unlock(&msm8x16_wcd->io_lock);
+			return temp;
+		}
 		ret = msm8x16_wcd_ahb_read_device(reg, 1, &temp);
+	}
 	mutex_unlock(&msm8x16_wcd->io_lock);
 
 	if (ret < 0) {
@@ -339,16 +365,40 @@ static int __msm8x16_wcd_reg_read(struct msm8x16_wcd *msm8x16_wcd,
 	return temp;
 }
 
-static int __msm8x16_wcd_reg_write(struct msm8x16_wcd *msm8x16_wcd,
+static int __msm8x16_wcd_reg_write(struct snd_soc_codec *codec,
 			unsigned short reg, u8 val)
 {
 	int ret = -EINVAL;
+	struct msm8x16_wcd *msm8x16_wcd = codec->control_data;
+	struct msm8916_asoc_mach_data *pdata = NULL;
 
 	mutex_lock(&msm8x16_wcd->io_lock);
+	pdata = snd_soc_card_get_drvdata(codec->card);
 	if (MSM8X16_WCD_IS_TOMBAK_REG(reg))
 		ret = msm8x16_wcd_spmi_write(reg, 1, &val);
-	else if (MSM8X16_WCD_IS_DIGITAL_REG(reg))
+	else if (MSM8X16_WCD_IS_DIGITAL_REG(reg)) {
+		if ((atomic_read(&pdata->mclk_rsc_ref) == 0) &&
+			(pdata->snd_card_on == true) &&
+			(atomic_read(&pdata->dis_work_mclk) == false)) {
+			pr_debug("MCLK not enabled %s:\n", __func__);
+			mutex_lock(&pdata->cdc_mclk_mutex);
+			pdata->digital_cdc_clk.clk_val = 9600000;
+			ret = afe_set_digital_codec_core_clock(
+					AFE_PORT_ID_PRIMARY_MI2S_RX,
+					&pdata->digital_cdc_clk);
+			if (ret < 0) {
+				pr_err("failed to enable the MCLK\n");
+				return 0;
+			}
+			atomic_set(&pdata->dis_work_mclk, true);
+			schedule_delayed_work(&pdata->enable_mclk_work, 50);
+			ret = msm8x16_wcd_ahb_write_device(reg, &val, 1);
+			mutex_unlock(&pdata->cdc_mclk_mutex);
+			mutex_unlock(&msm8x16_wcd->io_lock);
+			return ret;
+		}
 		ret = msm8x16_wcd_ahb_write_device(reg, &val, 1);
+	}
 	mutex_unlock(&msm8x16_wcd->io_lock);
 
 	return ret;
@@ -387,7 +437,7 @@ static int msm8x16_wcd_write(struct snd_soc_codec *codec, unsigned int reg,
 			dev_err(codec->dev, "Cache write to %x failed: %d\n",
 				reg, ret);
 	}
-	return __msm8x16_wcd_reg_write(codec->control_data, reg, (u8)value);
+	return __msm8x16_wcd_reg_write(codec, reg, (u8)value);
 }
 
 static unsigned int msm8x16_wcd_read(struct snd_soc_codec *codec,
@@ -414,7 +464,7 @@ static unsigned int msm8x16_wcd_read(struct snd_soc_codec *codec,
 			dev_err(codec->dev, "Cache read from %x failed: %d\n",
 				reg, ret);
 	}
-	val = __msm8x16_wcd_reg_read(codec->control_data, reg);
+	val = __msm8x16_wcd_reg_read(codec, reg);
 	dev_dbg(codec->dev, "%s: Read from reg 0x%x val 0x%x\n",
 					__func__, reg, val);
 	return val;
