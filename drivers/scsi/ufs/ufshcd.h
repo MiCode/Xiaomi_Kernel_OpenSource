@@ -68,6 +68,7 @@
 
 #include "ufs.h"
 #include "ufshci.h"
+#include "ufs_quirks.h"
 
 #define UFSHCD "ufshcd"
 #define UFSHCD_DRIVER_VERSION "0.2"
@@ -487,6 +488,9 @@ struct ufs_hba {
 	unsigned long tm_slots_in_use;
 
 	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
+
+	/* Device deviations from standard UFS device spec. */
+	unsigned int dev_quirks;
 
 	/* Interrupt aggregation support is broken */
 	#define UFSHCD_QUIRK_BROKEN_INTR_AGGR		(1<<0)
