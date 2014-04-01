@@ -18,6 +18,7 @@
 #include "diagfwd.h"
 #include "diagfwd_bridge.h"
 #include "diagfwd_hsic.h"
+#include "diagfwd_smux.h"
 #include "diagmem.h"
 #include "diag_dci.h"
 
@@ -576,13 +577,17 @@ static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 	bytes_written = scnprintf(buf+bytes_in_buffer, bytes_remaining,
 		"Values for SMUX instance: 0\n"
 		"smux ch: %d\n"
+		"smux read_buf: %p\n"
+		"smux read_len: %d\n"
 		"smux enabled %d\n"
 		"smux in busy %d\n"
 		"smux connected %d\n\n",
-		driver->lcid,
-		driver->diag_smux_enabled,
-		driver->in_busy_smux,
-		driver->smux_connected);
+		diag_smux->lcid,
+		diag_smux->read_buf,
+		diag_smux->read_len,
+		diag_smux->enabled,
+		diag_smux->in_busy,
+		diag_smux->connected);
 
 	bytes_in_buffer += bytes_written;
 	bytes_remaining = buf_size - bytes_in_buffer;

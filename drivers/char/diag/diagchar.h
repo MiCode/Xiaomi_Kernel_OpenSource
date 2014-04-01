@@ -462,13 +462,6 @@ struct diagchar_dev {
 	/* common for all bridges */
 	struct work_struct diag_connect_work;
 	struct work_struct diag_disconnect_work;
-	/* SGLTE variables */
-	int lcid;
-	unsigned char *buf_in_smux;
-	int smux_buf_len;
-	int in_busy_smux;
-	int diag_smux_enabled;
-	int smux_connected;
 #endif
 };
 
