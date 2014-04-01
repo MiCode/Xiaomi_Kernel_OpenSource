@@ -67,10 +67,9 @@ int mdss_dsi_clk_init(struct platform_device *pdev,
 	if (ctrl->panel_data.panel_info.type == MIPI_CMD_PANEL) {
 		ctrl->mmss_misc_ahb_clk = clk_get(dev, "core_mmss_clk");
 		if (IS_ERR(ctrl->mmss_misc_ahb_clk)) {
-			rc = PTR_ERR(ctrl->mmss_misc_ahb_clk);
-			pr_err("%s: Unable to get mmss misc ahb clk. rc=%d\n",
-				__func__, rc);
-			goto mdss_dsi_clk_err;
+			ctrl->mmss_misc_ahb_clk = NULL;
+			pr_info("%s: Unable to get mmss misc ahb clk\n",
+				__func__);
 		}
 	}
 
