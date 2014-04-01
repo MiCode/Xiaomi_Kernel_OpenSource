@@ -14,6 +14,7 @@
 /dts-v1/;
 #include "apq8026-v2.dtsi"
 #include "msm8226-w-memory.dtsi"
+#include "msm8226-w-qseecom.dtsi"
 #include "msm8226-720p-mtp.dtsi"
 #include "msm8x26w-gpu.dts"
 
