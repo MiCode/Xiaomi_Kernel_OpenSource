@@ -3736,6 +3736,7 @@
 		reg-names = "ramdump";
 		wlan-en-gpio = <&msmgpio 82 0>;
 		vdd-wlan-supply = <&wlan_vreg>;
+		qcom,notify-modem-status;
 
 		qcom,msm-bus,name = "msm-cnss";
 		qcom,msm-bus,num-cases = <4>;
