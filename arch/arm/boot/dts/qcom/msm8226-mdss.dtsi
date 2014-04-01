@@ -78,7 +78,13 @@
 				     <0x0D8 0x00000707>,
 				     <0x124 0x00000003>;
 		qcom,mdp-settings = <0x02E0 0x000000A5>,
-				    <0x02E4 0x00000055>;
+				    <0x02E4 0x00000055>,
+				    <0x03AC 0xC0000CCC>,
+				    <0x03B4 0xC0000000>,
+				    <0x03BC 0x00C00C00>,
+				    <0x04A8 0x0CCCC000>,
+				    <0x04B0 0xC0000000>,
+				    <0x04B8 0xC0000000>;
 
 		/* buffer parameters to calculate prefill bandwidth */
 		qcom,mdss-prefill-outstanding-buffer-bytes = <1024>;
