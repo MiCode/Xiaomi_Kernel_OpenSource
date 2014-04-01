@@ -572,6 +572,9 @@ static void sched_show_numa(struct task_struct *p, struct seq_file *m)
 void proc_sched_show_task(struct task_struct *p, struct seq_file *m)
 {
 	unsigned long nr_switches;
+	unsigned int load_avg;
+
+	load_avg = pct_task_load(p);
 
 	SEQ_printf(m, "%s (%d, #threads: %d)\n", p->comm, task_pid_nr(p),
 						get_nr_threads(p));
@@ -623,6 +626,11 @@ void proc_sched_show_task(struct task_struct *p, struct seq_file *m)
 	P(se.statistics.nr_wakeups_idle);
 
 #if defined(CONFIG_SMP) && defined(CONFIG_FAIR_GROUP_SCHED)
+	__P(load_avg);
+#if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
+	P(ravg.demand);
+	P(se.avg.runnable_avg_sum_scaled);
+#endif
 	P(se.avg.runnable_avg_sum);
 	P(se.avg.runnable_avg_period);
 #endif
