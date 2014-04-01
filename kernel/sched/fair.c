@@ -1454,6 +1454,68 @@ static int select_best_cpu(struct task_struct *p, int target)
 	return best_cpu;
 }
 
+void inc_nr_big_small_task(struct rq *rq, struct task_struct *p)
+{
+	if (!task_will_fit(p, cpu_of(rq)))
+		rq->nr_big_tasks++;
+	else if (is_small_task(p))
+		rq->nr_small_tasks++;
+}
+
+void dec_nr_big_small_task(struct rq *rq, struct task_struct *p)
+{
+	if (!task_will_fit(p, cpu_of(rq)))
+		rq->nr_big_tasks--;
+	else if (is_small_task(p))
+		rq->nr_small_tasks--;
+
+	BUG_ON(rq->nr_big_tasks < 0 || rq->nr_small_tasks < 0);
+}
+
+/*
+ * Walk runqueue of cpu and re-initialize 'nr_big_tasks' and 'nr_small_tasks'
+ * counters.
+ */
+static inline void fixup_nr_big_small_task(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+	struct task_struct *p;
+
+	rq->nr_big_tasks = 0;
+	rq->nr_small_tasks = 0;
+	list_for_each_entry(p, &rq->cfs_tasks, se.group_node)
+		inc_nr_big_small_task(rq, p);
+}
+
+/* Disable interrupts and grab runqueue lock of all cpus listed in @cpus */
+void pre_big_small_task_count_change(void)
+{
+	int i;
+
+	local_irq_disable();
+
+	for_each_online_cpu(i)
+		raw_spin_lock(&cpu_rq(i)->lock);
+}
+
+/*
+ * Reinitialize 'nr_big_tasks' and 'nr_small_tasks' counters on all affected
+ * cpus
+ */
+void post_big_small_task_count_change(void)
+{
+	int i;
+
+	/* Assumes local_irq_disable() keeps online cpumap stable */
+	for_each_online_cpu(i)
+		fixup_nr_big_small_task(i);
+
+	for_each_online_cpu(i)
+		raw_spin_unlock(&cpu_rq(i)->lock);
+
+	local_irq_enable();
+}
+
 /*
  * Convert percentage value into absolute form. This will avoid div() operation
  * in fast path, to convert task load in percentage scale.
@@ -1476,10 +1538,27 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 			return -EINVAL;
 	}
 
+	/*
+	 * Big/Small task tunable change will need to re-classify tasks on
+	 * runqueue as big and small and set their counters appropriately.
+	 * sysctl interface affects secondary variables (*_pct), which is then
+	 * "atomically" carried over to the primary variables. Atomic change
+	 * includes taking runqueue lock of all online cpus and re-initiatizing
+	 * their big/small counter values based on changed criteria.
+	 */
+	if ((*data != old_val) &&
+		(data == &sysctl_sched_upmigrate_pct ||
+		data == &sysctl_sched_small_task_pct))
+			pre_big_small_task_count_change();
+
 	set_hmp_defaults();
 
-	return 0;
+	if ((*data != old_val) &&
+		(data == &sysctl_sched_upmigrate_pct ||
+		data == &sysctl_sched_small_task_pct))
+			post_big_small_task_count_change();
 
+	return 0;
 }
 
 static inline int find_new_hmp_ilb(int call_cpu)
@@ -1887,14 +1966,18 @@ static inline void update_entity_load_avg(struct sched_entity *se,
 	 */
 	if (entity_is_task(se)) {
 		now = cfs_rq_clock_task(cfs_rq);
-		if (se->on_rq)
+		if (se->on_rq) {
 			dec_cumulative_runnable_avg(rq_of(cfs_rq), task_of(se));
+			dec_nr_big_small_task(rq_of(cfs_rq), task_of(se));
+		}
 	} else
 		now = cfs_rq_clock_task(group_cfs_rq(se));
 
 	decayed = __update_entity_runnable_avg(cpu, now, &se->avg, se->on_rq);
-	if (entity_is_task(se) && se->on_rq)
+	if (entity_is_task(se) && se->on_rq) {
 		inc_cumulative_runnable_avg(rq_of(cfs_rq), task_of(se));
+		inc_nr_big_small_task(rq_of(cfs_rq), task_of(se));
+	}
 
 	if (!decayed)
 		return;
@@ -3369,6 +3452,7 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	if (!se) {
 		update_rq_runnable_avg(rq, rq->nr_running);
 		inc_nr_running(rq);
+		inc_nr_big_small_task(rq, p);
 	}
 	hrtick_update(rq);
 }
@@ -3430,6 +3514,7 @@ static void dequeue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	if (!se) {
 		dec_nr_running(rq);
 		update_rq_runnable_avg(rq, 1);
+		dec_nr_big_small_task(rq, p);
 	}
 	hrtick_update(rq);
 }
