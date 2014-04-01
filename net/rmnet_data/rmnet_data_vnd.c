@@ -541,10 +541,10 @@ int rmnet_vnd_init(void)
  *
  * Return:
  *      - 0 if successful
- *      - -EINVAL if id is out of range, or id already in use
- *      - -EINVAL if net_device allocation failed
- *      - -EINVAL if prefix does not fit in buffer
- *      - return code of register_netdevice() on other errors
+ *      - RMNET_CONFIG_BAD_ARGUMENTS if id is out of range or prefix is too long
+ *      - RMNET_CONFIG_DEVICE_IN_USE if id already in use
+ *      - RMNET_CONFIG_NOMEM if net_device allocation failed
+ *      - RMNET_CONFIG_UNKNOWN_ERROR if register_netdevice() fails
  */
 int rmnet_vnd_create_dev(int id, struct net_device **new_device,
 			 const char *prefix)
@@ -553,9 +553,14 @@ int rmnet_vnd_create_dev(int id, struct net_device **new_device,
 	char dev_prefix[IFNAMSIZ];
 	int p, rc = 0;
 
-	if (id < 0 || id >= RMNET_DATA_MAX_VND || rmnet_devices[id] != 0) {
+	if (id < 0 || id > RMNET_DATA_MAX_VND) {
 		*new_device = 0;
-		return -EINVAL;
+		return RMNET_CONFIG_BAD_ARGUMENTS;
+	}
+
+	if (rmnet_devices[id] != 0) {
+		*new_device = 0;
+		return RMNET_CONFIG_DEVICE_IN_USE;
 	}
 
 	if (!prefix)
@@ -565,8 +570,8 @@ int rmnet_vnd_create_dev(int id, struct net_device **new_device,
 		p = scnprintf(dev_prefix, IFNAMSIZ, "%s%%d",
 			  prefix);
 	if (p >= (IFNAMSIZ-1)) {
-		LOGE("Specified prefix (%d) longer than IFNAMSIZ", p);
-		return -EINVAL;
+		LOGE("Specified prefix longer than IFNAMSIZ");
+		return RMNET_CONFIG_BAD_ARGUMENTS;
 	}
 
 	dev = alloc_netdev(sizeof(struct rmnet_vnd_private_s),
@@ -575,7 +580,7 @@ int rmnet_vnd_create_dev(int id, struct net_device **new_device,
 	if (!dev) {
 		LOGE("Failed to to allocate netdev for id %d", id);
 		*new_device = 0;
-		return -EINVAL;
+		return RMNET_CONFIG_NOMEM;
 	}
 
 	rc = register_netdevice(dev);
@@ -583,6 +588,7 @@ int rmnet_vnd_create_dev(int id, struct net_device **new_device,
 		LOGE("Failed to to register netdev [%s]", dev->name);
 		free_netdev(dev);
 		*new_device = 0;
+		return RMNET_CONFIG_UNKNOWN_ERROR;
 	} else {
 		rmnet_devices[id] = dev;
 		*new_device = dev;
