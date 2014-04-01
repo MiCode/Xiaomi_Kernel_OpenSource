@@ -101,15 +101,13 @@ static irqreturn_t ngd_slim_interrupt(int irq, void *d)
 								dev->err);
 		/* Guarantee that error interrupts are cleared */
 		mb();
-		if (dev->wr_comp)
-			complete(dev->wr_comp);
+		msm_slim_manage_tx_msgq(dev, false, NULL);
 
 	} else if (stat & NGD_INT_TX_MSG_SENT) {
 		writel_relaxed(NGD_INT_TX_MSG_SENT, ngd + NGD_INT_CLR);
 		/* Make sure interrupt is cleared */
 		mb();
-		if (dev->wr_comp)
-			complete(dev->wr_comp);
+		msm_slim_manage_tx_msgq(dev, false, NULL);
 	}
 	if (stat & NGD_INT_RX_MSG_RCVD) {
 		u32 rx_buf[10];
@@ -286,6 +284,7 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	u16 txn_mc = txn->mc;
 	u8 wbuf[SLIM_MSGQ_BUF_LEN];
 	bool report_sat = false;
+	bool sync_wr = true;
 
 	if (txn->mc == SLIM_USR_MC_REPORT_SATELLITE &&
 		txn->mt == SLIM_MSG_MT_SRC_REFERRED_USER)
@@ -439,7 +438,25 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 		txn->rl = txn->len + 4;
 	}
 	txn->rl--;
-	pbuf = msm_get_msg_buf(dev, txn->rl);
+
+	if (txn->mt == SLIM_MSG_MT_CORE && txn->comp &&
+		dev->use_tx_msgqs == MSM_MSGQ_ENABLED &&
+		(txn_mc != SLIM_MSG_MC_REQUEST_INFORMATION &&
+		 txn_mc != SLIM_MSG_MC_REQUEST_VALUE &&
+		 txn_mc != SLIM_MSG_MC_REQUEST_CHANGE_VALUE &&
+		 txn_mc != SLIM_MSG_MC_REQUEST_CLEAR_INFORMATION)) {
+		sync_wr = false;
+		pbuf = msm_get_msg_buf(dev, txn->rl, txn->comp);
+	} else if (txn->mt == SLIM_MSG_MT_DEST_REFERRED_USER &&
+			dev->use_tx_msgqs == MSM_MSGQ_ENABLED &&
+			txn->mc == SLIM_USR_MC_REPEAT_CHANGE_VALUE &&
+			txn->comp) {
+		sync_wr = false;
+		pbuf = msm_get_msg_buf(dev, txn->rl, txn->comp);
+	} else {
+		pbuf = msm_get_msg_buf(dev, txn->rl, &tx_sent);
+	}
+
 	if (!pbuf) {
 		SLIM_ERR(dev, "Message buffer unavailable\n");
 		ret = -ENOMEM;
@@ -510,10 +527,9 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	 */
 	txn_mc = txn->mc;
 	txn_mt = txn->mt;
-	dev->wr_comp = &tx_sent;
 	ret = msm_send_msg_buf(dev, pbuf, txn->rl,
 			NGD_BASE(dev->ctrl.nr, dev->ver) + NGD_TX_MSG);
-	if (!ret) {
+	if (!ret && sync_wr) {
 		int timeout = wait_for_completion_timeout(&tx_sent, HZ);
 		if (!timeout) {
 			ret = -ETIMEDOUT;
@@ -529,7 +545,6 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 			ret = dev->err;
 		}
 	}
-	dev->wr_comp = NULL;
 	if (ret) {
 		u32 conf, stat, rx_msgq, int_stat, int_en, int_clr;
 		void __iomem *ngd = dev->base + NGD_BASE(dev->ctrl.nr,
@@ -1296,6 +1311,10 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "no memory for MSM slimbus controller\n");
 		return PTR_ERR(dev);
 	}
+	dev->wr_comp = kzalloc(sizeof(struct completion *) * MSM_TX_BUFS,
+				GFP_KERNEL);
+	if (!dev->wr_comp)
+		return -ENOMEM;
 	dev->dev = &pdev->dev;
 	platform_set_drvdata(pdev, dev);
 	slim_set_ctrldata(&dev->ctrl, dev);
@@ -1379,6 +1398,7 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 	init_completion(&dev->reconf);
 	init_completion(&dev->ctrl_up);
 	mutex_init(&dev->tx_lock);
+	mutex_init(&dev->tx_buf_lock);
 	spin_lock_init(&dev->rx_lock);
 	dev->ee = 1;
 	dev->irq = irq->start;
@@ -1406,8 +1426,9 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 	dev->ctrl.dev.of_node = pdev->dev.of_node;
 	dev->state = MSM_CTRL_DOWN;
 
-	ret = request_irq(dev->irq, ngd_slim_interrupt,
-			IRQF_TRIGGER_HIGH, "ngd_slim_irq", dev);
+	ret = request_threaded_irq(dev->irq, NULL,
+			ngd_slim_interrupt,
+			IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "ngd_slim_irq", dev);
 
 	if (ret) {
 		dev_err(&pdev->dev, "request IRQ failed\n");
@@ -1470,6 +1491,7 @@ err_ioremap_failed:
 	if (dev->sysfs_created)
 		sysfs_remove_file(&dev->dev->kobj,
 				&dev_attr_debug_mask.attr);
+	kfree(dev->wr_comp);
 	kfree(dev);
 	return ret;
 }
@@ -1492,6 +1514,7 @@ static int __devexit ngd_slim_remove(struct platform_device *pdev)
 	kthread_stop(dev->rx_msgq_thread);
 	iounmap(dev->bam.base);
 	iounmap(dev->base);
+	kfree(dev->wr_comp);
 	kfree(dev);
 	return 0;
 }
