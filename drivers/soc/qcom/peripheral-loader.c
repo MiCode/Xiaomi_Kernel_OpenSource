@@ -461,7 +461,8 @@ static int pil_setup_region(struct pil_priv *priv, const struct pil_mdt *mdt)
 	}
 
 	if (priv->info) {
-		writeq(priv->region_start, &priv->info->start);
+		__iowrite32_copy(&priv->info->start, &priv->region_start,
+					sizeof(priv->region_start) / 4);
 		writel_relaxed(priv->region_end - priv->region_start,
 				&priv->info->size);
 	}
@@ -517,9 +518,11 @@ static void pil_release_mmap(struct pil_desc *desc)
 {
 	struct pil_priv *priv = desc->priv;
 	struct pil_seg *p, *tmp;
+	u64 zero = 0ULL;
 
 	if (priv->info) {
-		writeq(0, &priv->info->start);
+		__iowrite32_copy(&priv->info->start, &zero,
+					sizeof(zero) / 4);
 		writel_relaxed(0, &priv->info->size);
 	}
 
