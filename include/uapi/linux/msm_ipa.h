@@ -164,6 +164,12 @@ enum ipa_client_type {
 	(client) == IPA_CLIENT_USB3_CONS || \
 	(client) == IPA_CLIENT_USB4_CONS)
 
+#define IPA_CLIENT_IS_WLAN_CONS(client) \
+	((client) == IPA_CLIENT_WLAN1_CONS || \
+	(client) == IPA_CLIENT_WLAN2_CONS || \
+	(client) == IPA_CLIENT_WLAN3_CONS || \
+	(client) == IPA_CLIENT_WLAN4_CONS)
+
 /**
  * enum ipa_ip_type - Address family: IPv4 or IPv6
  */

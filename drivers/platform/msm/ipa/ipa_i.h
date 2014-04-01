@@ -356,13 +356,15 @@ struct ipa_ep_context {
 	u32 data_fifo_pipe_mem_ofst;
 	bool desc_fifo_client_allocated;
 	bool data_fifo_client_allocated;
-	struct ipa_sys_context *sys;
 	u32 avail_fifo_desc;
 	u32 dflt_flt4_rule_hdl;
 	u32 dflt_flt6_rule_hdl;
 	bool skip_ep_cfg;
 	bool keep_ipa_awake;
 	bool resume_on_connect;
+
+	/* sys MUST be the last element of this struct */
+	struct ipa_sys_context *sys;
 };
 
 enum ipa_sys_pipe_policy {
@@ -382,11 +384,8 @@ enum ipa_sys_pipe_policy {
  * IPA context specific to the system-bam pipes a.k.a LAN IN/OUT and WAN
  */
 struct ipa_sys_context {
-	struct list_head head_desc_list;
 	u32 len;
-	spinlock_t spinlock;
 	struct sps_register_event event;
-	struct ipa_ep_context *ep;
 	atomic_t curr_polling_state;
 	struct delayed_work switch_to_intr_work;
 	enum ipa_sys_pipe_policy policy;
@@ -395,7 +394,6 @@ struct ipa_sys_context {
 	void (*free_skb)(struct sk_buff *skb);
 	u32 rx_buff_sz;
 	u32 rx_pool_sz;
-	struct workqueue_struct *wq;
 	struct sk_buff *prev_skb;
 	unsigned int len_rem;
 	unsigned int len_pad;
@@ -404,6 +402,13 @@ struct ipa_sys_context {
 	void (*sps_callback)(struct sps_event_notify *notify);
 	enum sps_option sps_option;
 	struct delayed_work replenish_rx_work;
+
+	/* ordering is important - mutable fields go above */
+	struct ipa_ep_context *ep;
+	struct list_head head_desc_list;
+	spinlock_t spinlock;
+	struct workqueue_struct *wq;
+	/* ordering is important - other immutable fields go below */
 };
 
 /**
