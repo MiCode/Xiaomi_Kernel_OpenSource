@@ -1022,7 +1022,8 @@ retry:
 		}
 	} while (++phase < 16);
 
-	if ((tuned_phase_cnt == NUM_TUNING_PHASES) && mmc_card_mmc(card)) {
+	if ((tuned_phase_cnt == NUM_TUNING_PHASES) &&
+			card && mmc_card_mmc(card)) {
 		/*
 		 * If all phases pass then its a problem. So change the card's
 		 * drive type to a different value, if supported and repeat
