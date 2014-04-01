@@ -2718,15 +2718,16 @@ static struct clk_lookup fsm_clocks_9900[] = {
 	CLK_LOOKUP("core_clk",	gcc_blsp1_qup2_i2c_apps_clk.c, "f9924000.i2c"),
 
 	/* BLSP2  clocks. Only the valid configs are present in the table */
-	CLK_LOOKUP("iface_clk", gcc_blsp2_ahb_clk.c, "f995d000.uim"),
+	CLK_LOOKUP("iface_clk", gcc_blsp2_ahb_clk.c, "f995d000.qcom,uim"),
 	CLK_LOOKUP("iface_clk", gcc_blsp2_ahb_clk.c, "f9960000.serial"),
 	CLK_LOOKUP("iface_clk",	gcc_blsp2_ahb_clk.c, "f9966000.i2c"),
 	CLK_LOOKUP("core_clk",	gcc_blsp2_qup4_i2c_apps_clk.c, "f9966000.i2c"),
-	CLK_LOOKUP("core_clk",	gcc_blsp2_uart1_apps_clk.c, "f995d000.uim"),
+	CLK_LOOKUP("core_clk",	gcc_blsp2_uart1_apps_clk.c,
+						"f995d000.qcom,uim"),
 	CLK_LOOKUP("core_clk",	gcc_blsp2_uart4_apps_clk.c, "f9960000.serial"),
 
 	/* BLSP SIM clock */
-	CLK_LOOKUP("sim_clk", blsp_sim_clk_src.c, "f995d000.uim"),
+	CLK_LOOKUP("sim_clk", blsp_sim_clk_src.c, "f995d000.qcom,uim"),
 
 	CLK_LOOKUP("iface_clk", gcc_prng_ahb_clk.c, "f9bff000.qcom,msm-rng"),
 
