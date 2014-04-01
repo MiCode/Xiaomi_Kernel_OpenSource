@@ -732,14 +732,12 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 			d->ipa_params.ipa_ep_cfg.mode.mode = IPA_BASIC;
 			d->ipa_params.skip_ep_cfg =
 				teth_bridge_params.skip_ep_cfg;
-			d->ipa_params.keep_ipa_awake = true;
 		}
 		d->ipa_params.dir = USB_TO_PEER_PERIPHERAL;
 		if (d->func_type == USB_FUNC_ECM) {
 			d->ipa_params.notify = ecm_qc_get_ipa_rx_cb();
 			d->ipa_params.priv = ecm_qc_get_ipa_priv();
 			d->ipa_params.skip_ep_cfg = ecm_qc_get_skip_ep_config();
-			d->ipa_params.keep_ipa_awake = true;
 		}
 
 		if (d->func_type == USB_FUNC_RNDIS) {
@@ -747,7 +745,6 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 			d->ipa_params.priv = rndis_qc_get_ipa_priv();
 			d->ipa_params.skip_ep_cfg =
 				rndis_qc_get_skip_ep_config();
-			d->ipa_params.keep_ipa_awake = true;
 		}
 
 		/* Support for UL using system-to-IPA */
