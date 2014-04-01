@@ -38,9 +38,11 @@
 			<&clock_gcc clk_gcc_oxili_ahb_clk>,
 			<&clock_gcc clk_gcc_oxili_gmem_clk>,
 			<&clock_gcc clk_gcc_bimc_gfx_clk>,
-			<&clock_gcc clk_gcc_bimc_gpu_clk>;
+			<&clock_gcc clk_gcc_bimc_gpu_clk>,
+			<&clock_gcc clk_gcc_gtcu_ahb_clk>;
 		clock-names = "core_clk", "iface_clk", "mem_clk",
-				"mem_iface_clk", "alt_mem_iface_clk";
+				"mem_iface_clk", "alt_mem_iface_clk",
+				"gtcu_iface_clk";
 
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "grp3d";
