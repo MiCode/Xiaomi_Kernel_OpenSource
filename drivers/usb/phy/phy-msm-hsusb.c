@@ -341,8 +341,10 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 				if (phy->core_ver >= MSM_CORE_VER_120)
 					msm_usb_write_readback(phy->base,
 							ALT_INTERRUPT_EN_REG(i),
-							LINESTATE_INTEN,
-							LINESTATE_INTEN);
+							(LINESTATE_INTEN |
+							DPINTEN | DMINTEN),
+							(LINESTATE_INTEN |
+							DPINTEN | DMINTEN));
 				else
 					msm_usb_write_readback(phy->base,
 							ALT_INTERRUPT_EN_REG(i),
@@ -428,7 +430,7 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 					0);
 			if (host) {
 				/* Clear interrupt latch register */
-				writel_relaxed(0x0,
+				writel_relaxed(ALT_INTERRUPT_MASK,
 					phy->base + HS_PHY_IRQ_STAT_REG(i));
 				/* Disable DP and DM HV interrupt */
 				if (phy->core_ver >= MSM_CORE_VER_120)
