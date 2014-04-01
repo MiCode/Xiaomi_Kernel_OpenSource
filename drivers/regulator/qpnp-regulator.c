@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -104,6 +104,7 @@ enum qpnp_regulator_subtype {
 	QPNP_REGULATOR_SUBTYPE_OTG		= 0x11,
 	QPNP_REGULATOR_SUBTYPE_5V_BOOST		= 0x01,
 	QPNP_REGULATOR_SUBTYPE_FTS_CTL		= 0x08,
+	QPNP_REGULATOR_SUBTYPE_FTS2p5_CTL	= 0x09,
 	QPNP_REGULATOR_SUBTYPE_BB_2A		= 0x01,
 	QPNP_REGULATOR_SUBTYPE_ULT_HF_CTL1	= 0x0D,
 	QPNP_REGULATOR_SUBTYPE_ULT_HF_CTL2	= 0x0E,
@@ -356,6 +357,11 @@ static struct qpnp_voltage_range ftsmps_ranges[] = {
 	VOLTAGE_RANGE(1,       0, 1280000, 2040000, 2040000, 10000),
 };
 
+static struct qpnp_voltage_range ftsmps2p5_ranges[] = {
+	VOLTAGE_RANGE(0,   80000,  350000, 1355000, 1355000,  5000),
+	VOLTAGE_RANGE(1,  160000, 1360000, 2200000, 2200000, 10000),
+};
+
 static struct qpnp_voltage_range boost_ranges[] = {
 	VOLTAGE_RANGE(0, 4000000, 4000000, 5550000, 5550000, 50000),
 };
@@ -393,6 +399,8 @@ static struct qpnp_voltage_set_points ln_ldo_set_points
 static struct qpnp_voltage_set_points smps_set_points = SET_POINTS(smps_ranges);
 static struct qpnp_voltage_set_points ftsmps_set_points
 					= SET_POINTS(ftsmps_ranges);
+static struct qpnp_voltage_set_points ftsmps2p5_set_points
+					= SET_POINTS(ftsmps2p5_ranges);
 static struct qpnp_voltage_set_points boost_set_points
 					= SET_POINTS(boost_ranges);
 static struct qpnp_voltage_set_points boost_byp_set_points
@@ -415,6 +423,7 @@ static struct qpnp_voltage_set_points *all_set_points[] = {
 	&ln_ldo_set_points,
 	&smps_set_points,
 	&ftsmps_set_points,
+	&ftsmps2p5_set_points,
 	&boost_set_points,
 	&boost_byp_set_points,
 	&ult_lo_smps_set_points,
@@ -1427,6 +1436,8 @@ static const struct qpnp_regulator_mapping supported_regulators[] = {
 	QPNP_VREG_MAP(VS,    OTG,      0, INF, VS,     vs,     none,        0),
 	QPNP_VREG_MAP(BOOST, 5V_BOOST, 0, INF, BOOST,  boost,  boost,       0),
 	QPNP_VREG_MAP(FTS,   FTS_CTL,  0, INF, FTSMPS, ftsmps, ftsmps, 100000),
+	QPNP_VREG_MAP(FTS, FTS2p5_CTL, 0, INF, FTSMPS, ftsmps, ftsmps2p5,
+								       100000),
 	QPNP_VREG_MAP(BOOST_BYP, BB_2A, 0, INF, BOOST_BYP, boost, boost_byp, 0),
 	QPNP_VREG_MAP(ULT_BUCK, ULT_HF_CTL1, 0, INF, ULT_LO_SMPS, ult_lo_smps,
 							ult_lo_smps,   100000),
