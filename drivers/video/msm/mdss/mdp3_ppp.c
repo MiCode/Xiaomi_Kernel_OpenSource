@@ -1215,7 +1215,7 @@ int mdp3_ppp_res_init(struct msm_fb_data_type *mfd)
 	const char timeline_name[] = "mdp3_ppp";
 	ppp_stat = kzalloc(sizeof(struct ppp_status), GFP_KERNEL);
 	if (!ppp_stat) {
-		pr_err("%s: kmalloc failed\n", __func__);
+		pr_err("%s: kzalloc failed\n", __func__);
 		return -ENOMEM;
 	}
 
