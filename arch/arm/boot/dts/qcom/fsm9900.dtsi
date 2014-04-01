@@ -169,6 +169,17 @@
 		status = "disabled";
 	};
 
+	qcom,uim@f995d000 { /* BLSP2_UART1 */
+		compatible = "qcom,uim";
+		reg = <0xf995d000 0x1000>;
+		interrupts = <0 101 0>;
+		status = "disabled";
+		qcom,uim-data-gpio = <&msmgpio 24 0>;
+		qcom,uim-clk-gpio = <&msmgpio 25 0>;
+		qcom,uim-reset-gpio = <&msmgpio 26 0>;
+		qcom,uim-card-detect-gpio = <&msmgpio 27 0>;
+	};
+
 	qcom,smem@1c100000 {
 		compatible = "qcom,smem";
 		reg = <0x1c100000 0x200000>,
