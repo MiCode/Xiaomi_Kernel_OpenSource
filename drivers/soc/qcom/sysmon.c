@@ -133,7 +133,7 @@ static int sysmon_send_msg(struct sysmon_subsys *ss, const char *tx_buf,
 
 /**
  * sysmon_send_event() - Notify a subsystem of another's state change
- * @dest_ss:	ID of subsystem the notification should be sent to
+ * @dest_ss:	String name of the subsystem the notification should be sent to
  * @event_ss:	String name of the subsystem that generated the notification
  * @notif:	ID of the notification type (ex. SUBSYS_BEFORE_SHUTDOWN)
  *
