@@ -1168,7 +1168,6 @@ static void gbam2bam_connect_work(struct work_struct *w)
 		}
 		d->ipa_params.ipa_ep_cfg.mode.mode = IPA_BASIC;
 		d->ipa_params.skip_ep_cfg = teth_bridge_params.skip_ep_cfg;
-		d->ipa_params.keep_ipa_awake = false;
 		d->ipa_params.dir = USB_TO_PEER_PERIPHERAL;
 		ret = usb_bam_connect_ipa(&d->ipa_params);
 		if (ret) {
