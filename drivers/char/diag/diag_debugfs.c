@@ -21,11 +21,13 @@
 #include "diagfwd_smux.h"
 #include "diagmem.h"
 #include "diag_dci.h"
+#include "diag_usb.h"
 
 #define DEBUG_BUF_SIZE	4096
 static struct dentry *diag_dbgfs_dent;
 static int diag_dbgfs_table_index;
 static int diag_dbgfs_mempool_index;
+static int diag_dbgfs_usbinfo_index;
 static int diag_dbgfs_finished;
 static int diag_dbgfs_dci_data_index;
 static int diag_dbgfs_dci_finished;
@@ -526,14 +528,6 @@ static ssize_t diag_dbgfs_read_workpending(struct file *file,
 						diag_notify_update_smd_work)),
 		work_pending(&(driver->smd_dci[SENSORS_DATA].
 						diag_notify_update_smd_work)));
-
-#ifdef CONFIG_DIAG_OVER_USB
-	ret += scnprintf(buf+ret, buf_size-ret,
-		"diag_proc_hdlc_work: %d\n"
-		"diag_read_work: %d\n",
-		work_pending(&(driver->diag_proc_hdlc_work)),
-		work_pending(&(driver->diag_read_work)));
-#endif
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, ret);
 
 	kfree(buf);
@@ -675,6 +669,79 @@ static ssize_t diag_dbgfs_read_mempool(struct file *file, char __user *ubuf,
 	return ret;
 }
 
+static ssize_t diag_dbgfs_read_usbinfo(struct file *file, char __user *ubuf,
+				       size_t count, loff_t *ppos)
+{
+	char *buf = NULL;
+	int ret = 0;
+	int i = 0;
+	unsigned int buf_size;
+	unsigned int bytes_remaining = 0;
+	unsigned int bytes_written = 0;
+	unsigned int bytes_in_buffer = 0;
+	struct diag_usb_info *usb_info = NULL;
+
+	if (diag_dbgfs_usbinfo_index >= NUM_DIAG_USB_DEV) {
+		/* Done. Reset to prepare for future requests */
+		diag_dbgfs_usbinfo_index = 0;
+		return 0;
+	}
+
+	buf = kzalloc(sizeof(char) * DEBUG_BUF_SIZE, GFP_KERNEL);
+	if (ZERO_OR_NULL_PTR(buf)) {
+		pr_err("diag: %s, Error allocating memory\n", __func__);
+		return -ENOMEM;
+	}
+
+	buf_size = ksize(buf);
+	bytes_remaining = buf_size;
+	for (i = diag_dbgfs_usbinfo_index; i < NUM_DIAG_USB_DEV; i++) {
+		usb_info = &diag_usb[i];
+		if (!usb_info->enabled)
+			continue;
+		bytes_written = scnprintf(buf+bytes_in_buffer, bytes_remaining,
+			"id: %d\n"
+			"name: %s\n"
+			"hdl: %p\n"
+			"connected: %d\n"
+			"enabled: %d\n"
+			"mempool: %s\n"
+			"read pending: %d\n"
+			"read count: %lu\n"
+			"write count: %lu\n"
+			"read work pending: %d\n"
+			"read done work pending: %d\n"
+			"connect work pending: %d\n"
+			"disconnect work pending: %d\n\n",
+			usb_info->id,
+			usb_info->name,
+			usb_info->hdl,
+			usb_info->connected,
+			usb_info->enabled,
+			DIAG_MEMPOOL_GET_NAME(usb_info->mempool),
+			usb_info->read_pending,
+			usb_info->read_cnt,
+			usb_info->write_cnt,
+			work_pending(&usb_info->read_work),
+			work_pending(&usb_info->read_done_work),
+			work_pending(&usb_info->connect_work),
+			work_pending(&usb_info->disconnect_work));
+		bytes_in_buffer += bytes_written;
+
+		/* Check if there is room to add another table entry */
+		bytes_remaining = buf_size - bytes_in_buffer;
+
+		if (bytes_remaining < bytes_written)
+			break;
+	}
+	diag_dbgfs_usbinfo_index = i+1;
+	*ppos = 0;
+	ret = simple_read_from_buffer(ubuf, count, ppos, buf, bytes_in_buffer);
+
+	kfree(buf);
+	return ret;
+}
+
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 				    size_t count, loff_t *ppos)
@@ -724,13 +791,6 @@ static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 	bytes_in_buffer += bytes_written;
 	bytes_remaining = buf_size - bytes_in_buffer;
 
-	bytes_written = scnprintf(buf+bytes_in_buffer, bytes_remaining,
-		"HSIC diag_disconnect_work: %d\n",
-		work_pending(&(driver->diag_disconnect_work)));
-
-	bytes_in_buffer += bytes_written;
-	bytes_remaining = buf_size - bytes_in_buffer;
-
 	for (i = 0; i < MAX_HSIC_DATA_CH; i++) {
 		if (diag_hsic[i].hsic_inited) {
 			/* Check if there is room to add another HSIC entry */
@@ -746,12 +806,9 @@ static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 			"hsic_suspend: %d\n"
 			"in_busy_hsic_read_on_device: %d\n"
 			"in_busy_hsic_write: %d\n"
-			"HSIC write_len: %d\n"
 			"num_hsic_buf_tbl_entries: %d\n"
 			"HSIC usb_connected: %d\n"
-			"HSIC diag_read_work: %d\n"
-			"diag_read_hsic_work: %d\n"
-			"diag_usb_read_complete_work: %d\n\n",
+			"diag_read_hsic_work: %d\n\n",
 			i,
 			diag_hsic[i].hsic_ch,
 			diag_hsic[i].hsic_inited,
@@ -760,12 +817,9 @@ static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 			diag_hsic[i].hsic_suspend,
 			diag_hsic[i].in_busy_hsic_read_on_device,
 			diag_hsic[i].in_busy_hsic_write,
-			diag_bridge[i].write_len,
 			diag_hsic[i].num_hsic_buf_tbl_entries,
 			diag_bridge[i].usb_connected,
-			work_pending(&(diag_bridge[i].diag_read_work)),
-			work_pending(&(diag_hsic[i].diag_read_hsic_work)),
-			work_pending(&(diag_bridge[i].usb_read_complete_work)));
+			work_pending(&(diag_hsic[i].diag_read_hsic_work)));
 			if (bytes_written > bytes_hsic_inited)
 				bytes_hsic_inited = bytes_written;
 		} else {
@@ -906,6 +960,10 @@ const struct file_operations diag_dbgfs_mempool_ops = {
 	.read = diag_dbgfs_read_mempool,
 };
 
+const struct file_operations diag_dbgfs_usbinfo_ops = {
+	.read = diag_dbgfs_read_usbinfo,
+};
+
 const struct file_operations diag_dbgfs_dcistats_ops = {
 	.read = diag_dbgfs_read_dcistats,
 };
@@ -942,6 +1000,11 @@ int diag_debugfs_init(void)
 	if (!entry)
 		goto err;
 
+	entry = debugfs_create_file("usbinfo", 0444, diag_dbgfs_dent, 0,
+				    &diag_dbgfs_usbinfo_ops);
+	if (!entry)
+		goto err;
+
 	entry = debugfs_create_file("dci_stats", 0444, diag_dbgfs_dent, 0,
 				    &diag_dbgfs_dcistats_ops);
 	if (!entry)
@@ -966,6 +1029,7 @@ int diag_debugfs_init(void)
 
 	diag_dbgfs_table_index = 0;
 	diag_dbgfs_mempool_index = 0;
+	diag_dbgfs_usbinfo_index = 0;
 	diag_dbgfs_finished = 0;
 	diag_dbgfs_dci_data_index = 0;
 	diag_dbgfs_dci_finished = 0;

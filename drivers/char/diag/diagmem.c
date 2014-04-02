@@ -61,14 +61,6 @@ struct diag_mempool_t diag_mempools[NUM_MEMORY_POOLS] = {
 		.count = 0
 	},
 	{
-		.id = POOL_TYPE_USB_PERIPHERALS,
-		.name = "POOL_USB_PERIPHERALS",
-		.pool = NULL,
-		.itemsize = 0,
-		.poolsize = 0,
-		.count = 0
-	},
-	{
 		.id = POOL_TYPE_DCI,
 		.name = "POOL_DCI",
 		.pool = NULL,

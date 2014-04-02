@@ -403,14 +403,12 @@ struct diagchar_dev {
 	struct diag_smd_info smd_dci_cmd[NUM_SMD_DCI_CMD_CHANNELS];
 	int rcvd_feature_mask[NUM_SMD_CONTROL_CHANNELS];
 	int separate_cmdrsp[NUM_SMD_CONTROL_CHANNELS];
-	unsigned char *usb_buf_out;
 	uint8_t peripheral_feature[NUM_SMD_CONTROL_CHANNELS][FEATURE_MASK_LEN];
 	uint8_t mask_centralization[NUM_SMD_CONTROL_CHANNELS];
 	unsigned char *apps_rsp_buf;
 	unsigned char *user_space_data_buf;
 	/* buffer for updating mask to peripherals */
 	unsigned char *buf_feature_mask_update;
-	int read_len_legacy;
 	struct mutex diag_hdlc_mutex;
 	unsigned char *hdlc_buf;
 	unsigned hdlc_count;
@@ -426,14 +424,8 @@ struct diagchar_dev {
 	struct workqueue_struct *diag_real_time_wq;
 #ifdef CONFIG_DIAG_OVER_USB
 	int usb_connected;
-	struct usb_diag_ch *legacy_ch;
-	struct work_struct diag_proc_hdlc_work;
-	struct work_struct diag_read_work;
-	struct work_struct diag_usb_connect_work;
-	struct work_struct diag_usb_disconnect_work;
 #endif
 	struct workqueue_struct *diag_wq;
-	struct workqueue_struct *diag_usb_wq;
 	struct work_struct diag_drain_work;
 	struct workqueue_struct *diag_cntl_wq;
 	uint8_t log_on_demand_support;
@@ -443,7 +435,6 @@ struct diagchar_dev {
 	uint8_t *dci_pkt_buf; /* For Apps DCI packets */
 	uint32_t dci_pkt_length;
 	int in_busy_dcipktdata;
-	struct diag_request *usb_read_ptr;
 	int logging_mode;
 	int mask_check;
 	int logging_process_id;
@@ -465,11 +456,6 @@ struct diagchar_dev {
 	uint16_t num_event_id[NUM_SMD_CONTROL_CHANNELS];
 	uint32_t num_equip_id[NUM_SMD_CONTROL_CHANNELS];
 	uint32_t max_ssid_count[NUM_SMD_CONTROL_CHANNELS];
-#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-	/* common for all bridges */
-	struct work_struct diag_connect_work;
-	struct work_struct diag_disconnect_work;
-#endif
 };
 
 extern struct diag_bridge_dev *diag_bridge;

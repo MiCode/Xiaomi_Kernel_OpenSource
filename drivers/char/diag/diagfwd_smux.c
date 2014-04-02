@@ -21,6 +21,8 @@
 #include "diagfwd_smux.h"
 #include "diagfwd_hsic.h"
 #include "diagfwd_bridge.h"
+#include "diagmem.h"
+#include "diag_usb.h"
 
 struct diag_smux_info *diag_smux;
 
@@ -34,9 +36,7 @@ void diag_smux_event(void *priv, int event_type, const void *metadata)
 		pr_info("diag: SMUX_CONNECTED received\n");
 		diag_smux->connected = 1;
 		diag_smux->in_busy = 0;
-		/* read data from USB MDM channel & Initiate first write */
-		queue_work(diag_bridge[SMUX].wq,
-			   &diag_bridge[SMUX].diag_read_work);
+		diag_usb_queue_read(DIAG_USB_QSC);
 		break;
 	case SMUX_DISCONNECTED:
 		diag_smux->connected = 0;
@@ -69,12 +69,6 @@ int diagfwd_write_complete_smux(void)
 	return 0;
 }
 
-int diagfwd_read_complete_smux(void)
-{
-	queue_work(diag_bridge[SMUX].wq, &diag_bridge[SMUX].diag_read_work);
-	return 0;
-}
-
 int diag_get_rx_buffer(void *priv, void **pkt_priv, void **buffer, int size)
 {
 	if (!diag_smux->in_busy) {
@@ -87,36 +81,6 @@ int diag_get_rx_buffer(void *priv, void **pkt_priv, void **buffer, int size)
 		return -EAGAIN;
 	}
 	return 0;
-}
-
-void diag_usb_read_complete_smux_fn(struct work_struct *w)
-{
-	diagfwd_read_complete_bridge(diag_bridge[SMUX].usb_read_ptr);
-}
-
-void diag_read_usb_smux_work_fn(struct work_struct *work)
-{
-	int ret;
-
-	if (diag_smux->enabled) {
-		if (diag_smux->lcid && diag_bridge[SMUX].usb_buf_out &&
-			(diag_bridge[SMUX].read_len > 0) &&
-				diag_smux->connected) {
-			ret = msm_smux_write(diag_smux->lcid, NULL,
-			      diag_bridge[SMUX].usb_buf_out,
-				 diag_bridge[SMUX].read_len);
-			if (ret)
-				pr_err("diag: writing to SMUX ch, r = %d, lcid = %d\n",
-						 ret, diag_smux->lcid);
-		}
-		diag_bridge[SMUX].usb_read_ptr->buf =
-					 diag_bridge[SMUX].usb_buf_out;
-		diag_bridge[SMUX].usb_read_ptr->length = USB_MAX_OUT_BUF;
-		diag_bridge[SMUX].usb_read_ptr->context = (void *)SMUX;
-		usb_diag_read(diag_bridge[SMUX].ch,
-					 diag_bridge[SMUX].usb_read_ptr);
-		return;
-	}
 }
 
 static int diagfwd_smux_runtime_suspend(struct device *dev)
@@ -153,8 +117,6 @@ int diagfwd_connect_smux(void)
 			return ret;
 		}
 	}
-	/* Poll USB channel to check for data*/
-	queue_work(diag_bridge[SMUX].wq, &(diag_bridge[SMUX].diag_read_work));
 	return ret;
 }
 

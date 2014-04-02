@@ -28,11 +28,8 @@ struct diag_smux_info {
 
 extern struct diag_smux_info *diag_smux;
 
-int diagfwd_read_complete_smux(void);
 int diagfwd_write_complete_smux(void);
 int diagfwd_connect_smux(void);
-void diag_usb_read_complete_smux_fn(struct work_struct *w);
-void diag_read_usb_smux_work_fn(struct work_struct *work);
 extern struct platform_driver msm_diagfwd_smux_driver;
 
 #endif
