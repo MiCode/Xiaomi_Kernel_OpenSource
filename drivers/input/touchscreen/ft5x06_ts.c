@@ -205,6 +205,9 @@ struct ft5x06_ts_data {
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	struct early_suspend early_suspend;
 #endif
+	struct pinctrl *ts_pinctrl;
+	struct pinctrl_state *gpio_state_active;
+	struct pinctrl_state *gpio_state_suspend;
 };
 
 static int ft5x06_i2c_read(struct i2c_client *client, char *writebuf,
@@ -481,6 +484,71 @@ pwr_deinit:
 	return 0;
 }
 
+static int ft5x06_ts_pinctrl_init(struct ft5x06_ts_data *ft5x06_data)
+{
+	int retval;
+
+	/* Get pinctrl if target uses pinctrl */
+	ft5x06_data->ts_pinctrl = devm_pinctrl_get(&(ft5x06_data->client->dev));
+	if (IS_ERR_OR_NULL(ft5x06_data->ts_pinctrl)) {
+		dev_dbg(&ft5x06_data->client->dev,
+			"Target does not use pinctrl\n");
+		retval = PTR_ERR(ft5x06_data->ts_pinctrl);
+		ft5x06_data->ts_pinctrl = NULL;
+		return retval;
+	}
+
+	ft5x06_data->gpio_state_active
+		= pinctrl_lookup_state(ft5x06_data->ts_pinctrl,
+			"pmx_ts_active");
+	if (IS_ERR_OR_NULL(ft5x06_data->gpio_state_active)) {
+		dev_dbg(&ft5x06_data->client->dev,
+			"Can not get ts default pinstate\n");
+		retval = PTR_ERR(ft5x06_data->gpio_state_active);
+		ft5x06_data->ts_pinctrl = NULL;
+		return retval;
+	}
+
+	ft5x06_data->gpio_state_suspend
+		= pinctrl_lookup_state(ft5x06_data->ts_pinctrl,
+			"pmx_ts_suspend");
+	if (IS_ERR_OR_NULL(ft5x06_data->gpio_state_suspend)) {
+		dev_err(&ft5x06_data->client->dev,
+			"Can not get ts sleep pinstate\n");
+		retval = PTR_ERR(ft5x06_data->gpio_state_suspend);
+		ft5x06_data->ts_pinctrl = NULL;
+		return retval;
+	}
+
+	return 0;
+}
+
+static int ft5x06_ts_pinctrl_select(struct ft5x06_ts_data *ft5x06_data,
+						bool on)
+{
+	struct pinctrl_state *pins_state;
+	int ret;
+
+	pins_state = on ? ft5x06_data->gpio_state_active
+		: ft5x06_data->gpio_state_suspend;
+	if (!IS_ERR_OR_NULL(pins_state)) {
+		ret = pinctrl_select_state(ft5x06_data->ts_pinctrl, pins_state);
+		if (ret) {
+			dev_err(&ft5x06_data->client->dev,
+				"can not set %s pins\n",
+				on ? "pmx_ts_active" : "pmx_ts_suspend");
+			return ret;
+		}
+	} else {
+		dev_err(&ft5x06_data->client->dev,
+			"not a valid '%s' pinstate\n",
+				on ? "pmx_ts_active" : "pmx_ts_suspend");
+	}
+
+	return 0;
+}
+
+
 #ifdef CONFIG_PM
 static int ft5x06_ts_suspend(struct device *dev)
 {
@@ -496,6 +564,11 @@ static int ft5x06_ts_suspend(struct device *dev)
 	if (data->suspended) {
 		dev_info(dev, "Already in suspend state\n");
 		return 0;
+	}
+	if (data->ts_pinctrl) {
+		err = ft5x06_ts_pinctrl_select(data, false);
+		if (err < 0)
+			dev_err(dev, "Cannot get idle pinctrl state\n");
 	}
 
 	disable_irq(data->client->irq);
@@ -564,6 +637,11 @@ static int ft5x06_ts_resume(struct device *dev)
 			dev_err(dev, "power on failed");
 			return err;
 		}
+	}
+	if (data->ts_pinctrl) {
+		err = ft5x06_ts_pinctrl_select(data, true);
+		if (err < 0)
+			dev_err(dev, "Cannot get default pinctrl state\n");
 	}
 
 	if (gpio_is_valid(data->pdata->reset_gpio)) {
@@ -1507,6 +1585,13 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 		}
 	}
 
+	err = ft5x06_ts_pinctrl_init(data);
+	if (!err && data->ts_pinctrl) {
+		err = ft5x06_ts_pinctrl_select(data, true);
+		if (err < 0)
+			goto pwr_off;
+	}
+
 	if (gpio_is_valid(pdata->irq_gpio)) {
 		err = gpio_request(pdata->irq_gpio, "ft5x06_irq_gpio");
 		if (err) {
@@ -1685,9 +1770,19 @@ irq_free:
 free_reset_gpio:
 	if (gpio_is_valid(pdata->reset_gpio))
 		gpio_free(pdata->reset_gpio);
+	if (data->ts_pinctrl) {
+		err = ft5x06_ts_pinctrl_select(data, false);
+		if (err < 0)
+			pr_err("Cannot get idle pinctrl state\n");
+	}
 free_irq_gpio:
 	if (gpio_is_valid(pdata->irq_gpio))
 		gpio_free(pdata->irq_gpio);
+	if (data->ts_pinctrl) {
+		err = ft5x06_ts_pinctrl_select(data, false);
+		if (err < 0)
+			pr_err("Cannot get idle pinctrl state\n");
+	}
 pwr_off:
 	if (pdata->power_on)
 		pdata->power_on(false);
@@ -1709,6 +1804,7 @@ free_inputdev:
 static int ft5x06_ts_remove(struct i2c_client *client)
 {
 	struct ft5x06_ts_data *data = i2c_get_clientdata(client);
+	int retval;
 
 	debugfs_remove_recursive(data->dir);
 	device_remove_file(&client->dev, &dev_attr_force_update_fw);
@@ -1728,6 +1824,12 @@ static int ft5x06_ts_remove(struct i2c_client *client)
 
 	if (gpio_is_valid(data->pdata->irq_gpio))
 		gpio_free(data->pdata->irq_gpio);
+
+	if (data->ts_pinctrl) {
+		retval = ft5x06_ts_pinctrl_select(data, false);
+		if (retval < 0)
+			pr_err("Cannot get idle pinctrl state\n");
+	}
 
 	if (data->pdata->power_on)
 		data->pdata->power_on(false);
