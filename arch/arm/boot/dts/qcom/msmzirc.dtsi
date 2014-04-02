@@ -171,3 +171,5 @@
 		status = "disabled";
 	};
 };
+
+/include/ "msmzirc-regulator.dtsi"
