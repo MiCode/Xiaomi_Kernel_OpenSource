@@ -34,6 +34,11 @@ enum msm_jpeg_state {
 	MSM_JPEG_IDLE
 };
 
+enum msm_jpeg_core_type {
+	MSM_JPEG_CORE_CODEC,
+	MSM_JPEG_CORE_DMA
+};
+
 struct msm_jpeg_q {
 	char const	*name;
 	struct list_head  q;
@@ -108,6 +113,7 @@ struct msm_jpeg_device {
 	uint32_t jpeg_bus_client;
 	uint32_t num_clk;
 	enum msm_jpeg_state state;
+	enum msm_jpeg_core_type core_type;
 };
 
 int __msm_jpeg_open(struct msm_jpeg_device *pgmn_dev);

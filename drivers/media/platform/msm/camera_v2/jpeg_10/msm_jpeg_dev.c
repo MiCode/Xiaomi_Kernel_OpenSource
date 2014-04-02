@@ -17,6 +17,7 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
 #include <linux/device.h>
@@ -158,11 +159,32 @@ static const struct v4l2_subdev_ops msm_jpeg_subdev_ops = {
 	.core = &msm_jpeg_subdev_core_ops,
 };
 
+struct msm_jpeg_priv_data {
+	enum msm_jpeg_core_type core_type;
+};
+
+static const struct msm_jpeg_priv_data msm_jpeg_priv_data_jpg = {
+	.core_type = MSM_JPEG_CORE_CODEC
+};
+static const struct msm_jpeg_priv_data msm_jpeg_priv_data_dma = {
+	.core_type = MSM_JPEG_CORE_DMA
+};
+
+static const struct of_device_id msm_jpeg_dt_match[] = {
+	{.compatible = "qcom,jpeg", .data = &msm_jpeg_priv_data_jpg},
+	{.compatible = "qcom,jpeg_dma", .data = &msm_jpeg_priv_data_dma},
+	{}
+};
+
+MODULE_DEVICE_TABLE(of, msm_jpeg_dt_match);
+
 static int msm_jpeg_init_dev(struct platform_device *pdev)
 {
 	int rc = -1;
 	struct device *dev;
 	struct msm_jpeg_device *msm_jpeg_device_p;
+	const struct of_device_id *device_id;
+	const struct msm_jpeg_priv_data *priv_data;
 	char devname[DEV_NAME_LEN];
 
 	msm_jpeg_device_p = kzalloc(sizeof(struct msm_jpeg_device), GFP_ATOMIC);
@@ -172,6 +194,10 @@ static int msm_jpeg_init_dev(struct platform_device *pdev)
 	}
 
 	msm_jpeg_device_p->pdev = pdev;
+
+	device_id = of_match_device(msm_jpeg_dt_match, &pdev->dev);
+	priv_data = device_id->data;
+	msm_jpeg_device_p->core_type = priv_data->core_type;
 
 	if (pdev->dev.of_node)
 		of_property_read_u32((&pdev->dev)->of_node, "cell-index",
@@ -282,13 +308,6 @@ static int __msm_jpeg_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-static const struct of_device_id msm_jpeg_dt_match[] = {
-			{.compatible = "qcom,jpeg"},
-			{},
-};
-
-MODULE_DEVICE_TABLE(of, msm_jpeg_dt_match);
 
 static struct platform_driver msm_jpeg_driver = {
 	.probe	= __msm_jpeg_probe,
