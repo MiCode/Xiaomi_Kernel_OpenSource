@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +30,7 @@
 		qcom,mdss-dsi-h-back-porch = <164>;
 		qcom,mdss-dsi-h-pulse-width = <8>;
 		qcom,mdss-dsi-h-sync-skew = <0>;
-		qcom,mdss-dsi-v-back-porch = <1>;
+		qcom,mdss-dsi-v-back-porch = <11>;
 		qcom,mdss-dsi-v-front-porch = <6>;
 		qcom,mdss-dsi-v-pulse-width = <1>;
 		qcom,mdss-dsi-h-left-border = <0>;
@@ -504,7 +504,9 @@
 					29 01 00 00 00 00 02 6A 60
 					29 01 00 00 00 00 02 FF 00
 					29 01 00 00 78 00 02 29 00
-					29 01 00 00 78 00 02 53 2C];
+					29 01 00 00 78 00 02 53 2C
+					29 01 00 00 00 00 02 FF 00
+					29 01 00 00 00 00 06 3B 03 06 03 02 02];
 		qcom,mdss-dsi-off-command = [05 01 00 00 32 00 02 28 00
 					05 01 00 00 78 00 02 10 00];
 		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
