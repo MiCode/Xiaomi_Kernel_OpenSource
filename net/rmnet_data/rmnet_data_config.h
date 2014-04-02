@@ -69,6 +69,14 @@ int _rmnet_unset_logical_endpoint_config(struct net_device *dev,
 					 int config_id);
 int rmnet_unset_logical_endpoint_config(struct net_device *dev,
 					int config_id);
+int _rmnet_get_logical_endpoint_config(struct net_device *dev,
+				       int config_id,
+				      struct rmnet_logical_ep_conf_s *epconfig);
+int rmnet_get_logical_endpoint_config(struct net_device *dev,
+				      int config_id,
+				      uint8_t *rmnet_mode,
+				      uint8_t *egress_dev_name,
+				      size_t egress_dev_name_size);
 void rmnet_config_netlink_msg_handler (struct sk_buff *skb);
 int rmnet_config_notify_cb(struct notifier_block *nb,
 				  unsigned long event, void *data);
