@@ -128,7 +128,7 @@ static int secure_buffer_change_table(struct sg_table *table,
 				enum cp_mem_usage usage,
 				int lock)
 {
-	int i;
+	int i, j;
 	int ret = -EINVAL;
 	unsigned long *chunk_list;
 	struct scatterlist *sg;
@@ -154,8 +154,8 @@ static int secure_buffer_change_table(struct sg_table *table,
 			return -ENOMEM;
 
 		chunk_list_phys = virt_to_phys(chunk_list);
-		for (i = 0; i < nchunks; i++)
-			chunk_list[i] = base + i * V2_CHUNK_SIZE;
+		for (j = 0; j < nchunks; j++)
+			chunk_list[j] = base + j * V2_CHUNK_SIZE;
 
 		/*
 		 * Flush the chunk list before sending the memory to the
