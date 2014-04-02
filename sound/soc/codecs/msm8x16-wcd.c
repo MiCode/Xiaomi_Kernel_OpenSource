@@ -2892,7 +2892,7 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 				on_demand_supply_name[ON_DEMAND_MICBIAS]);
 	atomic_set(&msm8x16_wcd_priv->on_demand_list[ON_DEMAND_MICBIAS].ref, 0);
 
-	wcd_mbhc_init(&msm8x16_wcd_priv->mbhc, codec, &intr_ids, false);
+	wcd_mbhc_init(&msm8x16_wcd_priv->mbhc, codec, &intr_ids, true);
 
 	msm8x16_wcd_priv->mclk_enabled = false;
 	msm8x16_wcd_priv->clock_active = false;
