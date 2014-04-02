@@ -135,7 +135,7 @@ static int secure_buffer_change_table(struct sg_table *table,
 
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		int nchunks;
-		int size = sg_dma_len(sg);
+		int size = sg->length;
 		int chunk_list_len;
 		phys_addr_t chunk_list_phys;
 

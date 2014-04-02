@@ -983,7 +983,7 @@ struct sg_table *ion_create_chunked_sg_table(phys_addr_t buffer_base,
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		dma_addr_t addr = buffer_base + i * chunk_size;
 		sg_dma_address(sg) = addr;
-		sg_dma_len(sg) = chunk_size;
+		sg->length = chunk_size;
 	}
 
 	return table;
