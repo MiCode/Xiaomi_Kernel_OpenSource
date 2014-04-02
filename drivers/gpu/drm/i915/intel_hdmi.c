@@ -1048,6 +1048,20 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 		intel_encoder->type = INTEL_OUTPUT_HDMI;
 	}
 
+	if (IS_ENABLED(CONFIG_SWITCH)) {
+		struct intel_connector *intel_connector =
+				to_intel_connector(connector);
+		if (intel_connector->hotplug_switch.name &&
+                    *intel_connector->hotplug_switch.name) {
+			if (status == connector_status_connected)
+				switch_set_state(
+					&intel_connector->hotplug_switch, 1);
+			else
+				switch_set_state(
+					&intel_connector->hotplug_switch, 0);
+		}
+	}
+
 	intel_display_power_put(dev_priv, power_domain);
 
 	return status;
@@ -1445,6 +1459,12 @@ static void chv_hdmi_pre_enable(struct intel_encoder *encoder)
 
 static void intel_hdmi_destroy(struct drm_connector *connector)
 {
+	if (IS_ENABLED(CONFIG_SWITCH)) {
+		struct intel_connector *intel_connector =
+				to_intel_connector(connector);
+		switch_dev_unregister(&intel_connector->hotplug_switch);
+		kfree(intel_connector->hotplug_switch.name);
+	}
 	drm_connector_cleanup(connector);
 	kfree(connector);
 }
@@ -1545,6 +1565,20 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 
 	intel_connector_attach_encoder(intel_connector, intel_encoder);
 	drm_connector_register(connector);
+
+	if (IS_ENABLED(CONFIG_SWITCH)) {
+		intel_connector->hotplug_switch.name =
+			kasprintf(GFP_KERNEL, "hdmi_%c", 'a' + port);
+		if (!intel_connector->hotplug_switch.name) {
+			DRM_ERROR("%s failed to allocate memory", __func__);
+			kfree(intel_connector);
+			kfree(intel_dig_port);
+			return;
+		}
+	}
+
+	if (IS_ENABLED(CONFIG_SWITCH))
+		switch_dev_register(&intel_connector->hotplug_switch);
 
 	/* For G4X desktop chip, PEG_BAND_GAP_DATA 3:0 must first be written
 	 * 0xd.  Failure to do so will result in spurious interrupts being
