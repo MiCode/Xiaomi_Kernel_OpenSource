@@ -20,26 +20,6 @@
 	qcom,board-id = <8 0>;
 };
 
-&qcom_tzlog {
-	status = "okay";
-};
-
-&qcom_rng {
-	status = "okay";
-};
-
-&qcom_crypto {
-	status = "okay";
-};
-
-&qcom_cedev {
-	status = "okay";
-};
-
-&qcom_seecom {
-	status = "okay";
-};
-
 &tlmm_pinmux {
 	apds9930_int_pin {
 		qcom,pins = <&gp 113>;
