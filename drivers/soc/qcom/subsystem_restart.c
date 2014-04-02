@@ -391,10 +391,13 @@ static void notify_each_subsys_device(struct subsys_device **list,
 	while (count--) {
 		struct subsys_device *dev = *list++;
 		struct notif_data notif_data;
+		struct platform_device *pdev;
 
 		if (!dev)
 			continue;
 
+		pdev = container_of(dev->desc->dev, struct platform_device,
+									dev);
 		mutex_lock(&subsys_list_lock);
 		list_for_each_entry(subsys, &subsys_list, list)
 			if (dev != subsys)
@@ -405,6 +408,8 @@ static void notify_each_subsys_device(struct subsys_device **list,
 
 		notif_data.crashed = subsys_get_crash_status(dev);
 		notif_data.enable_ramdump = enable_ramdumps;
+		notif_data.no_auth = dev->desc->no_auth;
+		notif_data.pdev = pdev;
 
 		subsys_notif_queue_notification(dev->notify, notif,
 								&notif_data);
