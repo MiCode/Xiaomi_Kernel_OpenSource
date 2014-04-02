@@ -29,7 +29,6 @@
 #include <linux/bitops.h>
 #include <linux/export.h>
 #include <linux/kexec.h>
-#include <linux/debugfs.h>
 #include <linux/irq.h>
 #include <linux/memblock.h>
 #include <linux/of.h>

@@ -163,4 +163,3 @@ static int __init export_flat_device_tree(void)
 	return 0;
 }
 device_initcall(export_flat_device_tree);
-#endif
