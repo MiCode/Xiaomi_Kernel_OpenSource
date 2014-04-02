@@ -41,6 +41,13 @@ int         i915_scheduler_priority_bump(struct i915_scheduler *scheduler,
 				struct i915_scheduler_queue_entry *target,
 				uint32_t bump);
 
+bool i915_scheduler_is_enabled(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	return dev_priv->scheduler != NULL;
+}
+
 int i915_scheduler_init(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;

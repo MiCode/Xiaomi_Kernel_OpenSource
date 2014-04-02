@@ -33,6 +33,7 @@
 #include "i915_trace.h"
 #include "intel_sync.h"
 #include "intel_drv.h"
+#include "i915_scheduler.h"
 
 bool
 intel_ring_initialized(struct intel_engine_cs *ring)
@@ -1483,6 +1484,9 @@ gen6_ring_sync(struct intel_engine_cs *waiter,
 		  MI_SEMAPHORE_REGISTER;
 	u32 wait_mbox = signaller->semaphore.mbox.wait[waiter->id];
 	int ret;
+
+	/* Arithmetic on sequence numbers is unreliable with a scheduler. */
+	BUG_ON(i915_scheduler_is_enabled(signaller->dev));
 
 	/* Throughout all of the GEM code, seqno passed implies our current
 	 * seqno is >= the last seqno executed. However for hardware the

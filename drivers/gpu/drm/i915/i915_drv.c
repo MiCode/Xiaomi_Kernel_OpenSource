@@ -34,6 +34,7 @@
 #include "i915_trace.h"
 #include "intel_drv.h"
 #include "intel_lrc_tdr.h"
+#include "i915_scheduler.h"
 
 #include <linux/console.h>
 #include <linux/module.h>
@@ -514,6 +515,14 @@ void intel_detect_stepping(struct drm_device *dev)
 
 bool i915_semaphore_is_enabled(struct drm_device *dev)
 {
+	/* Hardware semaphores are not compatible with the scheduler due to the
+	 * seqno values being potentially out of order. However, semaphores are
+	 * also not required as the scheduler will handle interring dependencies
+	 * and try do so in a way that does not cause dead time on the hardware.
+	 */
+	if (i915_scheduler_is_enabled(dev))
+		return 0;
+
 	if (INTEL_INFO(dev)->gen < 6)
 		return false;
 

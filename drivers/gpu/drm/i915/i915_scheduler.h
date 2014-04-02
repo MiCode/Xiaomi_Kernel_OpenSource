@@ -83,6 +83,7 @@ enum {
 	i915_sf_submitting          = (1 << 1),
 };
 
+bool        i915_scheduler_is_enabled(struct drm_device *dev);
 int         i915_scheduler_init(struct drm_device *dev);
 int         i915_scheduler_queue_execbuffer(struct i915_scheduler_queue_entry *qe);
 int         i915_scheduler_handle_irq(struct intel_engine_cs *ring);
