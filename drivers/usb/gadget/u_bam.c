@@ -1156,6 +1156,7 @@ static void gbam2bam_connect_work(struct work_struct *w)
 				teth_bridge_params.usb_notify_cb;
 			d->ipa_params.notify = gbam_ipa_sys2bam_notify_cb;
 			d->ipa_params.priv = &d->ul_params;
+			d->ipa_params.reset_pipe_after_lpm = false;
 
 		} else {
 			d->ipa_params.notify =
@@ -1194,10 +1195,13 @@ static void gbam2bam_connect_work(struct work_struct *w)
 		if (d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
 			d->ipa_params.notify = d->ul_params.teth_cb;
 			d->ipa_params.priv = d->ul_params.teth_priv;
+		}
+		if (d->dst_pipe_type == USB_BAM_PIPE_BAM2BAM)
 			d->ipa_params.reset_pipe_after_lpm =
 				(gadget_is_dwc3(gadget) &&
 				 msm_dwc3_reset_ep_after_lpm(gadget));
-		}
+		else
+			d->ipa_params.reset_pipe_after_lpm = false;
 		d->ipa_params.dir = PEER_PERIPHERAL_TO_USB;
 		ret = usb_bam_connect_ipa(&d->ipa_params);
 		if (ret) {

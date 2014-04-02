@@ -754,6 +754,7 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 				bam_data_ipa_sys2bam_notify_cb;
 			d->ul_params.teth_priv = d->ipa_params.priv;
 			d->ipa_params.priv = &d->ul_params;
+			d->ipa_params.reset_pipe_after_lpm = false;
 		} else {
 			d->ipa_params.reset_pipe_after_lpm =
 				(gadget_is_dwc3(gadget) &&
@@ -805,10 +806,12 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 				rndis_qc_get_skip_ep_config();
 		}
 
-		if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM) {
+		if (d->dst_pipe_type == USB_BAM_PIPE_BAM2BAM) {
 			d->ipa_params.reset_pipe_after_lpm =
 				(gadget_is_dwc3(gadget) &&
 				 msm_dwc3_reset_ep_after_lpm(gadget));
+		} else {
+			d->ipa_params.reset_pipe_after_lpm = false;
 		}
 
 		ret = usb_bam_connect_ipa(&d->ipa_params);
