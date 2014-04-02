@@ -225,12 +225,11 @@ void msm_bam_set_hsic_host_dev(struct device *dev)
 	if (dev) {
 		/* Hold the device until allowing lpm */
 		info[HSIC_CTRL].in_lpm = false;
-		pr_debug("%s: Getting hsic device %x\n", __func__,
-			(int)dev);
+		pr_debug("%s: Getting hsic device %p\n", __func__, dev);
 		pm_runtime_get(dev);
 	} else if (host_info[HSIC_CTRL].dev) {
-		pr_debug("%s: Putting hsic device %x\n", __func__,
-			(int)host_info[HSIC_CTRL].dev);
+		pr_debug("%s: Putting hsic device %p\n", __func__,
+			host_info[HSIC_CTRL].dev);
 		/* Just free previous device*/
 		info[HSIC_CTRL].in_lpm = true;
 		pm_runtime_put(host_info[HSIC_CTRL].dev);
@@ -772,8 +771,8 @@ static bool _hsic_host_bam_resume_core(void)
 
 	/* Exit from "full suspend" in case of hsic host */
 	if (host_info[HSIC_CTRL].dev && info[HSIC_CTRL].in_lpm) {
-		pr_debug("%s: Getting hsic device %x\n", __func__,
-			(int)host_info[HSIC_CTRL].dev);
+		pr_debug("%s: Getting hsic device %p\n", __func__,
+			host_info[HSIC_CTRL].dev);
 		pm_runtime_get(host_info[HSIC_CTRL].dev);
 		info[HSIC_CTRL].in_lpm = false;
 		return true;
@@ -825,8 +824,8 @@ static void _hsic_host_bam_suspend_core(void)
 	pr_debug("%s: enter\n", __func__);
 
 	if (host_info[HSIC_CTRL].dev && !info[HSIC_CTRL].in_lpm) {
-		pr_debug("%s: Putting hsic host device %x\n", __func__,
-			(int)host_info[HSIC_CTRL].dev);
+		pr_debug("%s: Putting hsic host device %p\n", __func__,
+			host_info[HSIC_CTRL].dev);
 		pm_runtime_put(host_info[HSIC_CTRL].dev);
 		info[HSIC_CTRL].in_lpm = true;
 	}
@@ -1988,8 +1987,8 @@ bool msm_bam_host_lpm_ok(enum usb_ctrl bam_type)
 		    ctx.is_bam_inactivity[bam_type] && info[bam_type].in_lpm) {
 
 			/* HSIC host will go now to lpm */
-			pr_debug("%s: vote for suspend hsic %x\n",
-				__func__, (int)host_info[bam_type].dev);
+			pr_debug("%s: vote for suspend hsic %p\n",
+				__func__, host_info[bam_type].dev);
 
 			for (i = 0; i < ctx.max_connections; i++) {
 				pipe_iter =
@@ -2315,8 +2314,8 @@ static void usb_bam_work(struct work_struct *w)
 			    pipe_iter->dir ==
 				PEER_PERIPHERAL_TO_USB &&
 				pipe_iter->enabled) {
-				pr_debug("%s: Register wakeup on pipe %x\n",
-					__func__, (int)pipe_iter);
+				pr_debug("%s: Register wakeup on pipe %p\n",
+					__func__, pipe_iter);
 				__usb_bam_register_wake_cb(i,
 					pipe_iter->activity_notify,
 					pipe_iter->priv,
