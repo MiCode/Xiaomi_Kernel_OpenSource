@@ -4612,6 +4612,8 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	if (ret)
 		goto out;
 
+	ufs_advertise_fixup_device(hba);
+
 	if (!hba->is_init_prefetch) {
 		ret = ufshcd_get_device_ref_clk(hba);
 		if (ret) {
