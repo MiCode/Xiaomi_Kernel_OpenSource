@@ -341,6 +341,9 @@ static int msm_iommu_probe(struct platform_device *pdev)
 
 	drvdata->glb_base = drvdata->base;
 
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,msm-mmu-500"))
+		drvdata->model = MMU_500;
+
 	if (of_get_property(pdev->dev.of_node, "vdd-supply", NULL)) {
 
 		drvdata->gdsc = devm_regulator_get(&pdev->dev, "vdd");
@@ -379,9 +382,6 @@ static int msm_iommu_probe(struct platform_device *pdev)
 			return PTR_ERR(drvdata->aiclk);
 	}
 
-	drvdata->no_atos_support = of_property_read_bool(pdev->dev.of_node,
-						"qcom,no-atos-support");
-
 	if (!of_property_read_u32(pdev->dev.of_node,
 				"qcom,cb-base-offset",
 				&temp))
@@ -408,8 +408,9 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	dev_info(&pdev->dev, "device %s mapped at %p, with %d ctx banks\n",
-		drvdata->name, drvdata->base, drvdata->ncb);
+	dev_info(&pdev->dev,
+		"device %s (model: %d) mapped at %p, with %d ctx banks\n",
+		drvdata->name, drvdata->model, drvdata->base, drvdata->ncb);
 
 	platform_set_drvdata(pdev, drvdata);
 

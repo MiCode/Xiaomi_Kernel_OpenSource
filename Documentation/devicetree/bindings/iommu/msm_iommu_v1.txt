@@ -3,6 +3,8 @@
 Required properties:
 - compatible : one of:
 	- "qcom,msm-smmu-v1"
+	- "qcom,msm-smmu-v2"
+	- "qcom,msm-mmu-500"
 - reg : - offset and length of the register set for the device.
 	- Optional offset and length for clock register for additional clock that
 	needs to be turned on for access to this IOMMU.
@@ -31,7 +33,6 @@ Optional properties:
 - qcom,iommu-pmu-ncounters: Number of PMU counters per group.
 - qcom,iommu-pmu-event-classes: List of event classes supported.
 - Bus scaling properties: See msm_bus.txt
-- qcom,no-atos-support: boolean indicating that IOMMU doesn't have ATS support
 - qcom,cb-base-offset: context bank 0's base address from global base address
 
 - List of sub nodes, one for each of the translation context banks supported.
