@@ -4402,10 +4402,7 @@ static void pp_ad_init_write(struct mdss_mdp_ad *ad_hw, struct mdss_ad_info *ad,
 			frame_end = 0xFFFF;
 			procs_start = 0x0;
 			procs_end = 0xFFFF;
-			if (split_mode)
-				tile_ctrl = 0x0;
-			else
-				tile_ctrl = 0x1;
+			tile_ctrl = 0x0;
 		}
 
 
