@@ -975,3 +975,69 @@ bool i915_scheduler_is_request_tracked(struct drm_i915_gem_request *req,
 
 	return true;
 }
+
+int i915_scheduler_closefile(struct drm_device *dev, struct drm_file *file)
+{
+	struct i915_scheduler_queue_entry  *node;
+	struct drm_i915_private            *dev_priv = dev->dev_private;
+	struct i915_scheduler              *scheduler = dev_priv->scheduler;
+	struct drm_i915_gem_request        *req;
+	struct intel_engine_cs  *ring;
+	int                     i, ret;
+	unsigned long           flags;
+	bool                    found;
+
+	if (!scheduler)
+		return 0;
+
+	for_each_ring(ring, dev_priv, i) {
+		do {
+			spin_lock_irqsave(&scheduler->lock, flags);
+
+			found = false;
+			list_for_each_entry(node, &scheduler->node_queue[ring->id], link) {
+				if (I915_SQS_IS_COMPLETE(node))
+					continue;
+
+				if (node->params.file != file)
+					continue;
+
+				found = true;
+				req = node->params.request;
+				i915_gem_request_reference(req);
+				break;
+			}
+
+			spin_unlock_irqrestore(&scheduler->lock, flags);
+
+			if (found) {
+				do {
+					mutex_lock(&dev->struct_mutex);
+					ret = i915_wait_request(req);
+					mutex_unlock(&dev->struct_mutex);
+					if (ret == -EAGAIN)
+						msleep(20);
+				} while (ret == -EAGAIN);
+
+				mutex_lock(&dev->struct_mutex);
+				i915_gem_request_unreference(req);
+				mutex_unlock(&dev->struct_mutex);
+			}
+		} while (found);
+	}
+
+	spin_lock_irqsave(&scheduler->lock, flags);
+	for_each_ring(ring, dev_priv, i) {
+		list_for_each_entry(node, &scheduler->node_queue[ring->id], link) {
+			if (node->params.file != file)
+				continue;
+
+			WARN_ON(!I915_SQS_IS_COMPLETE(node));
+
+			node->params.file = NULL;
+		}
+	}
+	spin_unlock_irqrestore(&scheduler->lock, flags);
+
+	return 0;
+}

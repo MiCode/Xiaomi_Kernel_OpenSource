@@ -45,6 +45,7 @@
 #include <linux/vga_switcheroo.h>
 #include <linux/slab.h>
 #include <acpi/video.h>
+#include "i915_scheduler.h"
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
 #include <linux/oom.h>
@@ -2110,6 +2111,8 @@ void i915_driver_lastclose(struct drm_device * dev)
 
 void i915_driver_preclose(struct drm_device *dev, struct drm_file *file)
 {
+	i915_scheduler_closefile(dev, file);
+
 	mutex_lock(&dev->struct_mutex);
 	i915_gem_context_close(dev, file);
 	i915_gem_release(dev, file);
