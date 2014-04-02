@@ -1040,6 +1040,109 @@ const struct file_operations dwc3_gadget_dbg_data_fops = {
 	.release		= single_release,
 };
 
+static ssize_t dwc3_store_int_events(struct file *file,
+			const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	int clear_stats, i;
+	unsigned long flags;
+	struct seq_file *s = file->private_data;
+	struct dwc3 *dwc = s->private;
+	struct dwc3_ep *dep;
+
+	if (ubuf == NULL) {
+		pr_err("[%s] EINVAL\n", __func__);
+		goto done;
+	}
+
+	if (sscanf(ubuf, "%u", &clear_stats) != 1 || clear_stats != 0) {
+		pr_err("Wrong value. To clear stats, enter value as 0.\n");
+		goto done;
+	}
+
+	spin_lock_irqsave(&dwc->lock, flags);
+
+	pr_debug("%s(): clearing debug interrupt buffers\n", __func__);
+	for (i = 0; i < DWC3_ENDPOINTS_NUM; i++) {
+		dep = dwc->eps[i];
+		memset(&dep->dbg_ep_events, 0, sizeof(dep->dbg_ep_events));
+	}
+	memset(&dwc->dbg_gadget_events, 0, sizeof(dwc->dbg_gadget_events));
+
+	spin_unlock_irqrestore(&dwc->lock, flags);
+
+done:
+	return count;
+}
+
+static int dwc3_gadget_int_events_show(struct seq_file *s, void *unused)
+{
+	unsigned long   flags;
+	struct dwc3 *dwc = s->private;
+	struct dwc3_gadget_events *dbg_gadget_events;
+	struct dwc3_ep *dep;
+	int i;
+
+	spin_lock_irqsave(&dwc->lock, flags);
+	dbg_gadget_events = &dwc->dbg_gadget_events;
+
+	for (i = 0; i < DWC3_ENDPOINTS_NUM; i++) {
+		dep = dwc->eps[i];
+
+		if (dep == NULL)
+			continue;
+
+		seq_printf(s, "\n\n===== dbg_ep_events for EP(%d) =====\n", i);
+		seq_printf(s, "xfercomplete:%u\n xfernotready:%u\n",
+				dep->dbg_ep_events.xfercomplete,
+				dep->dbg_ep_events.xfernotready);
+		seq_printf(s, "control_data:%u\n control_status:%u\n",
+				dep->dbg_ep_events.control_data,
+				dep->dbg_ep_events.control_status);
+		seq_printf(s, "xferinprogress:%u\n rxtxfifoevent:%u\n",
+				dep->dbg_ep_events.xferinprogress,
+				dep->dbg_ep_events.rxtxfifoevent);
+		seq_printf(s, "streamevent:%u\n epcmdcomplt:%u\n",
+				dep->dbg_ep_events.streamevent,
+				dep->dbg_ep_events.epcmdcomplete);
+		seq_printf(s, "cmdcmplt:%u\n unknown:%u\n",
+				dep->dbg_ep_events.cmdcmplt,
+				dep->dbg_ep_events.unknown_event);
+	}
+
+	seq_puts(s, "\n=== dbg_gadget events ==\n");
+	seq_printf(s, "disconnect:%u\n reset:%u\n",
+		dbg_gadget_events->disconnect, dbg_gadget_events->reset);
+	seq_printf(s, "connect:%u\n wakeup:%u\n",
+		dbg_gadget_events->connect, dbg_gadget_events->wakeup);
+	seq_printf(s, "link_status_change:%u\n eopf:%u\n",
+		dbg_gadget_events->link_status_change, dbg_gadget_events->eopf);
+	seq_printf(s, "sof:%u\n suspend:%u\n",
+		dbg_gadget_events->sof, dbg_gadget_events->suspend);
+	seq_printf(s, "erratic_error:%u\n overflow:%u\n",
+		dbg_gadget_events->erratic_error,
+		dbg_gadget_events->overflow);
+	seq_printf(s, "vendor_dev_test_lmp:%u\n cmdcmplt:%u\n",
+		dbg_gadget_events->vendor_dev_test_lmp,
+		dbg_gadget_events->cmdcmplt);
+	seq_printf(s, "unknown_event:%u\n", dbg_gadget_events->unknown_event);
+
+	spin_unlock_irqrestore(&dwc->lock, flags);
+	return 0;
+}
+
+static int dwc3_gadget_events_open(struct inode *inode, struct file *f)
+{
+	return single_open(f, dwc3_gadget_int_events_show, inode->i_private);
+}
+
+const struct file_operations dwc3_gadget_dbg_events_fops = {
+	.open		= dwc3_gadget_events_open,
+	.read		= seq_read,
+	.write		= dwc3_store_int_events,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
 int dwc3_debugfs_init(struct dwc3 *dwc)
 {
 	struct dentry		*root;
@@ -1123,6 +1226,14 @@ int dwc3_debugfs_init(struct dwc3 *dwc)
 		ret = -ENOMEM;
 		goto err1;
 	}
+
+	file = debugfs_create_file("int_events", S_IRUGO | S_IWUSR, root,
+			dwc, &dwc3_gadget_dbg_events_fops);
+	if (!file) {
+		ret = -ENOMEM;
+		goto err1;
+	}
+
 	return 0;
 
 err1:
