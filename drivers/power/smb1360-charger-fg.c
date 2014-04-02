@@ -177,6 +177,7 @@
 
 enum {
 	WRKRND_FG_CONFIG_FAIL = BIT(0),
+	WRKRND_BATT_DET_FAIL = BIT(1),
 };
 
 enum {
@@ -1067,6 +1068,14 @@ static int chg_inhibit_handler(struct smb1360_chip *chip, u8 rt_stat)
 
 static int min_soc_handler(struct smb1360_chip *chip, u8 rt_stat)
 {
+	/*
+	 * Avoid holding a wake_source if there is no battery
+	 * or if the SMB rev. has a battery detection issue
+	 */
+	if (!chip->batt_present ||
+			(chip->workaround_flags & WRKRND_BATT_DET_FAIL))
+		return 0;
+
 	if (rt_stat) {
 		pr_debug("Below minimum SOC, holding wake_source\n");
 		pm_stay_awake(chip->dev);
@@ -2006,10 +2015,13 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 	 *
 	 * The REV_1 of the chip does not allow access to
 	 * FG config registers (20-2FH). Set the workaround flag.
+	 * Also, the battery detection does not work when the DCIN is absent,
+	 * add a workaround flag for it.
 	*/
 
 	if (chip->revision == SMB1360_REV_1)
-		chip->workaround_flags |= WRKRND_FG_CONFIG_FAIL;
+		chip->workaround_flags |=
+			WRKRND_FG_CONFIG_FAIL | WRKRND_BATT_DET_FAIL;
 
 	smb1360_fg_config(chip);
 
@@ -2150,6 +2162,10 @@ static int smb1360_probe(struct i2c_client *client,
 		pr_err("Failed to detect SMB1360, device may be absent\n");
 		return -ENODEV;
 	}
+
+	rc = read_revision(chip, &chip->revision);
+	if (rc)
+		dev_err(chip->dev, "Couldn't read revision rc = %d\n", rc);
 
 	rc = smb_parse_dt(chip);
 	if (rc < 0) {
@@ -2297,10 +2313,6 @@ static int smb1360_probe(struct i2c_client *client,
 				"Couldn't create count debug file rc = %d\n",
 				rc);
 	}
-
-	rc = read_revision(chip, &chip->revision);
-	if (rc)
-		dev_err(chip->dev, "Couldn't read revision rc = %d\n", rc);
 
 	dev_info(chip->dev, "SMB1360 revision=0x%x probe success! batt=%d usb=%d soc=%d\n",
 			chip->revision,
