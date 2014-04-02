@@ -51,18 +51,17 @@
 
 enum vdd_dig_levels {
 	VDD_DIG_NONE,
-	VDD_DIG_SVS2,		/* SVS2 */
+	VDD_DIG_LOWER,		/* SVS2 */
 	VDD_DIG_LOW,		/* SVS */
 	VDD_DIG_NOMINAL,	/* NOMINAL */
 	VDD_DIG_HIGH,		/* Turbo */
 	VDD_DIG_NUM
 };
 
-/* TODO: Put in real SVS2 corner */
 static int vdd_corner[] = {
 	RPM_REGULATOR_CORNER_NONE,		/* VDD_DIG_NONE */
+	RPM_REGULATOR_CORNER_SVS_SOC,		/* SVS2 is remapped to SVS */
 	RPM_REGULATOR_CORNER_SVS_SOC,		/* VDD_DIG_SVS */
-	RPM_REGULATOR_CORNER_SVS_SOC,		/* SVS2 place holder */
 	RPM_REGULATOR_CORNER_NORMAL,		/* VDD_DIG_NOMINAL */
 	RPM_REGULATOR_CORNER_SUPER_TURBO,	/* VDD_DIG_TURBO */
 };
