@@ -1851,7 +1851,7 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 			}
 		}
 	} else  if (chip->iterm_disabled) {
-		rc = smb1360_masked_write(chip, CFG_BATT_CHG_REG,
+		rc = smb1360_masked_write(chip, CFG_CHG_MISC_REG,
 						CHG_CURR_TERM_DIS_BIT,
 						CHG_CURR_TERM_DIS_BIT);
 		if (rc) {
