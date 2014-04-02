@@ -65,6 +65,11 @@ static void check_dsi_ctrl_status(struct work_struct *work)
 		return;
 	}
 
+	if (!pdsi_status->mfd) {
+		pr_err("%s: FB data not available\n", __func__);
+		return;
+	}
+
 	pdata = dev_get_platdata(&pdsi_status->mfd->pdev->dev);
 	if (!pdata) {
 		pr_err("%s: Panel data not available\n", __func__);
@@ -151,10 +156,13 @@ static int fb_event_callback(struct notifier_block *self,
 	struct fb_event *evdata = data;
 	struct dsi_status_data *pdata = container_of(self,
 				struct dsi_status_data, fb_notifier);
-	pdata->mfd = evdata->info->par;
 
 	if (event == FB_EVENT_BLANK && evdata) {
 		int *blank = evdata->data;
+		struct dsi_status_data *pdata = container_of(self,
+				struct dsi_status_data, fb_notifier);
+		pdata->mfd = evdata->info->par;
+
 		switch (*blank) {
 		case FB_BLANK_UNBLANK:
 			schedule_delayed_work(&pdata->check_status,
