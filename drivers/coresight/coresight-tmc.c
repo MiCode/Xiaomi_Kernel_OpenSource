@@ -1550,6 +1550,77 @@ static int tmc_etr_byte_cntr_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
+static void tmc_etr_sg_read_pos(struct tmc_drvdata *drvdata, loff_t *ppos,
+				size_t bytes, bool noirq, size_t *len,
+				char **bufpp)
+{
+	uint32_t rwp, i = 0;
+	uint32_t blk_num, sg_tbl_num, blk_num_loc, read_off;
+	uint32_t *virt_pte, *virt_st_tbl;
+	void *virt_blk;
+	phys_addr_t phys_pte;
+	int total_ents = DIV_ROUND_UP(drvdata->size, PAGE_SIZE);
+	int ents_per_pg = PAGE_SIZE/sizeof(uint32_t);
+
+	if (*len == 0)
+		return;
+
+	blk_num = *ppos / PAGE_SIZE;
+	read_off = *ppos % PAGE_SIZE;
+
+	virt_st_tbl = (uint32_t *)drvdata->vaddr;
+
+	/* Compute table index and block entry index within that table */
+	if (blk_num && (blk_num == (total_ents - 1)) &&
+	    !(blk_num % (ents_per_pg - 1))) {
+		sg_tbl_num = blk_num / ents_per_pg;
+		blk_num_loc = ents_per_pg - 1;
+	} else {
+		sg_tbl_num = blk_num / (ents_per_pg - 1);
+		blk_num_loc = blk_num % (ents_per_pg - 1);
+	}
+
+	for (i = 0; i < sg_tbl_num; i++) {
+		virt_pte = virt_st_tbl + (ents_per_pg - 1);
+		phys_pte = TMC_ETR_SG_ENT_TO_BLK(*virt_pte);
+		virt_st_tbl = (uint32_t *)phys_to_virt(phys_pte);
+	}
+
+	virt_pte = virt_st_tbl + blk_num_loc;
+	phys_pte = TMC_ETR_SG_ENT_TO_BLK(*virt_pte);
+	virt_blk = phys_to_virt(phys_pte);
+
+	*bufpp = virt_blk + read_off;
+
+	if (noirq) {
+		rwp = tmc_readl(drvdata, TMC_RWP);
+		tmc_etr_sg_rwp_pos(drvdata, rwp);
+		if (drvdata->sg_blk_num == blk_num &&
+		    rwp >= (phys_pte + read_off))
+			*len = rwp - phys_pte - read_off;
+		else if (drvdata->sg_blk_num > blk_num)
+			*len = PAGE_SIZE - read_off;
+		else
+			*len = bytes;
+	} else {
+
+		if (*len > (PAGE_SIZE - read_off))
+			*len = PAGE_SIZE - read_off;
+
+		if (*len >= (bytes - ((uint32_t)*ppos % bytes)))
+			*len = bytes - ((uint32_t)*ppos % bytes);
+
+		if ((*len + (uint32_t)*ppos) % bytes == 0)
+			atomic_dec(&drvdata->byte_cntr_irq_cnt);
+	}
+
+	/*
+	 * Invalidate cache range before reading. This will make sure that CPU
+	 * reads latest contents from DDR
+	 */
+	dmac_inv_range((void *)(*bufpp), (void *)(*bufpp) + *len);
+}
+
 static void tmc_etr_read_bytes(struct tmc_drvdata *drvdata, loff_t *ppos,
 			       size_t bytes, size_t *len)
 {
@@ -1603,13 +1674,21 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *file, char __user *data,
 			/* Read the last 'block' of data which might be needed
 			 * to be read partially. If already read, return 0
 			 */
-			len = tmc_etr_flush_bytes(drvdata, ppos, bytes);
+			if (drvdata->memtype == TMC_ETR_MEM_TYPE_CONTIG)
+				len = tmc_etr_flush_bytes(drvdata, ppos, bytes);
+			else
+				tmc_etr_sg_read_pos(drvdata, ppos, bytes,
+						    true, &len, &bufp);
 			if (!len)
 				goto read_err0;
 		} else {
 			/* Keep reading until you reach the last block of data
 			 */
-			tmc_etr_read_bytes(drvdata, ppos, bytes, &len);
+			if (drvdata->memtype == TMC_ETR_MEM_TYPE_CONTIG)
+				tmc_etr_read_bytes(drvdata, ppos, bytes, &len);
+			else
+				tmc_etr_sg_read_pos(drvdata, ppos, bytes,
+						    false, &len, &bufp);
 		}
 	} else {
 		if (!atomic_read(&drvdata->byte_cntr_irq_cnt)) {
@@ -1632,15 +1711,24 @@ static ssize_t tmc_etr_byte_cntr_read(struct file *file, char __user *data,
 		}
 		if (!drvdata->byte_cntr_enable &&
 		    !atomic_read(&drvdata->byte_cntr_irq_cnt)) {
-			len = tmc_etr_flush_bytes(drvdata, ppos, bytes);
+			if (drvdata->memtype == TMC_ETR_MEM_TYPE_CONTIG)
+				len = tmc_etr_flush_bytes(drvdata, ppos, bytes);
+			else
+				tmc_etr_sg_read_pos(drvdata, ppos, bytes,
+						    true, &len, &bufp);
 			if (!len) {
 				ret = 0;
 				goto read_err0;
 			}
 		} else {
-			tmc_etr_read_bytes(drvdata, ppos, bytes, &len);
+			if (drvdata->memtype == TMC_ETR_MEM_TYPE_CONTIG)
+				tmc_etr_read_bytes(drvdata, ppos, bytes, &len);
+			else
+				tmc_etr_sg_read_pos(drvdata, ppos, bytes,
+						    false, &len, &bufp);
 		}
 	}
+
 	if (copy_to_user(data, bufp, len)) {
 		mutex_unlock(&drvdata->byte_cntr_lock);
 		dev_dbg(drvdata->dev, "%s: copy_to_user failed\n", __func__);
