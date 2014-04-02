@@ -393,7 +393,7 @@ static int bcl_config_vph_adc(struct bcl_context *bcl,
 	bcl->btm_vph_adc_param.low_thr = bcl->btm_vph_low_thresh;
 	bcl->btm_vph_adc_param.high_thr = bcl->btm_vph_high_thresh;
 	bcl->btm_vph_adc_param.timer_interval =
-			adc_timer_val_usec[ADC_MEAS1_INTERVAL_4S];
+			adc_timer_val_usec[ADC_MEAS1_INTERVAL_3P9MS];
 	bcl->btm_vph_adc_param.btm_ctx = bcl;
 	bcl->btm_vph_adc_param.threshold_notification = bcl_vph_notification;
 	bcl->btm_vph_adc_param.channel = bcl->btm_vph_chan;
