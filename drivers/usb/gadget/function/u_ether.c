@@ -674,8 +674,8 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	int			retval;
 	struct usb_request	*req = NULL;
 	unsigned long		flags;
-	struct usb_ep		*in;
-	u16			cdc_filter;
+	struct usb_ep		*in = NULL;
+	u16			cdc_filter = 0;
 	bool			multi_pkt_xfer = false;
 
 	spin_lock_irqsave(&dev->lock, flags);
@@ -683,9 +683,6 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		in = dev->port_usb->in_ep;
 		cdc_filter = dev->port_usb->cdc_filter;
 		multi_pkt_xfer = dev->port_usb->multi_pkt_xfer;
-	} else {
-		in = NULL;
-		cdc_filter = 0;
 	}
 	spin_unlock_irqrestore(&dev->lock, flags);
 
@@ -693,18 +690,6 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		dev_kfree_skb_any(skb);
 		return NETDEV_TX_OK;
 	}
-
-	/* Allocate memory for tx_reqs to support multi packet transfer */
-	spin_lock_irqsave(&dev->req_lock, flags);
-	if (multi_pkt_xfer && !dev->tx_req_bufsize) {
-		retval = alloc_tx_buffer(dev);
-		if (retval < 0) {
-			spin_unlock_irqrestore(&dev->req_lock, flags);
-			return -ENOMEM;
-		}
-	}
-
-	spin_unlock_irqrestore(&dev->req_lock, flags);
 
 	/* apply outgoing CDC or RNDIS filters */
 	if (skb && !is_promisc(cdc_filter)) {
@@ -728,7 +713,40 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		/* ignores USB_CDC_PACKET_TYPE_DIRECTED */
 	}
 
+	/*
+	 * no buffer copies needed, unless the network stack did it
+	 * or the hardware can't use skb buffers.
+	 * or there's not enough space for extra headers we need
+	 */
+	spin_lock_irqsave(&dev->lock, flags);
+	if (dev->wrap && dev->port_usb)
+		skb = dev->wrap(dev->port_usb, skb);
+	spin_unlock_irqrestore(&dev->lock, flags);
+
+	if (!skb) {
+		if (dev->port_usb && dev->port_usb->supports_multi_frame) {
+			/*
+			 * Multi frame CDC protocols may store the frame for
+			 * later which is not a dropped frame.
+			 */
+		} else {
+			dev->net->stats.tx_dropped++;
+		}
+
+		/* no error code for dropped packets */
+		return NETDEV_TX_OK;
+	}
+
+	/* Allocate memory for tx_reqs to support multi packet transfer */
 	spin_lock_irqsave(&dev->req_lock, flags);
+	if (multi_pkt_xfer && !dev->tx_req_bufsize) {
+		retval = alloc_tx_buffer(dev);
+		if (retval < 0) {
+			spin_unlock_irqrestore(&dev->req_lock, flags);
+			return -ENOMEM;
+		}
+	}
+
 	/*
 	 * this freelist can be empty if an interrupt triggered disconnect()
 	 * and reconfigured the gadget (shutting down this queue) after the
@@ -752,31 +770,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		dev->tx_throttle++;
 		netif_stop_queue(net);
 	}
-	spin_unlock_irqrestore(&dev->req_lock, flags);
 
-	/* no buffer copies needed, unless the network stack did it
-	 * or the hardware can't use skb buffers.
-	 * or there's not enough space for extra headers we need
-	 */
-	if (dev->wrap) {
-		unsigned long	flags;
-
-		spin_lock_irqsave(&dev->lock, flags);
-		if (dev->port_usb)
-			skb = dev->wrap(dev->port_usb, skb);
-		spin_unlock_irqrestore(&dev->lock, flags);
-		if (!skb) {
-			/* Multi frame CDC protocols may store the frame for
-			 * later which is not a dropped frame.
-			 */
-			if (dev->port_usb &&
-					dev->port_usb->supports_multi_frame)
-				goto multiframe;
-			goto drop;
-		}
-	}
-
-	spin_lock_irqsave(&dev->req_lock, flags);
 	dev->tx_skb_hold_count++;
 	spin_unlock_irqrestore(&dev->req_lock, flags);
 
@@ -857,9 +851,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 			dev_kfree_skb_any(skb);
 		else
 			req->length = 0;
-drop:
 		dev->net->stats.tx_dropped++;
-multiframe:
 		spin_lock_irqsave(&dev->req_lock, flags);
 		if (list_empty(&dev->tx_reqs))
 			netif_start_queue(net);
