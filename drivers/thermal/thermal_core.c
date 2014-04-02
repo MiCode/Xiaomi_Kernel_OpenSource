@@ -326,6 +326,20 @@ int thermal_sensor_trip(struct thermal_zone_device *tz,
 }
 EXPORT_SYMBOL(thermal_sensor_trip);
 
+int sensor_get_temp(uint32_t sensor_id, long *temp)
+{
+	struct sensor_info *sensor = get_sensor(sensor_id);
+	int ret = 0;
+
+	if (!sensor)
+		return -ENODEV;
+
+	ret = sensor->tz->ops->get_temp(sensor->tz, temp);
+
+	return ret;
+}
+EXPORT_SYMBOL(sensor_get_temp);
+
 int sensor_activate_trip(uint32_t sensor_id,
 	struct sensor_threshold *threshold, bool enable)
 {
