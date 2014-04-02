@@ -22,7 +22,6 @@
 
 #define SMP_MB_SIZE		(mdss_res->smp_mb_size)
 #define SMP_MB_CNT		(mdss_res->smp_mb_cnt)
-#define SMP_ENTRIES_PER_MB	(SMP_MB_SIZE / 16)
 #define SMP_MB_ENTRY_SIZE	16
 #define MAX_BPP 4
 
@@ -161,31 +160,47 @@ u32 mdss_mdp_smp_get_size(struct mdss_mdp_pipe *pipe)
 
 static void mdss_mdp_smp_set_wm_levels(struct mdss_mdp_pipe *pipe, int mb_cnt)
 {
-	u32 fetch_size, val, wm[3];
+	u32 useable_space, val, wm[3];
 
-	fetch_size = mb_cnt * SMP_MB_SIZE;
+	useable_space = mb_cnt * SMP_MB_SIZE;
 
 	/*
-	 * when doing hflip, one line is reserved to be consumed down the
-	 * pipeline. This line will always be marked as full even if it doesn't
-	 * have any data. In order to generate proper priority levels ignore
-	 * this region while setting up watermark levels
+	 * when source format is macrotile then useable space within total
+	 * allocated SMP space is limited to src_w * bpp * nlines. Unlike
+	 * linear format, any extra space left over is not filled.
 	 */
-	if (pipe->flags & MDP_FLIP_LR) {
+	if (pipe->src_fmt->tile) {
+		useable_space = pipe->src.w * pipe->src_fmt->bpp;
+	} else if (pipe->flags & MDP_FLIP_LR) {
+		/*
+		 * when doing hflip, one line is reserved to be consumed down
+		 * the pipeline. This line will always be marked as full even
+		 * if it doesn't have any data. In order to generate proper
+		 * priority levels ignore this region while setting up
+		 * watermark levels
+		 */
 		u8 bpp = pipe->src_fmt->is_yuv ? 1 :
 			pipe->src_fmt->bpp;
-		fetch_size -= (pipe->src.w * bpp);
+		useable_space -= (pipe->src.w * bpp);
 	}
 
-	/* 1/4 of SMP pool that is being fetched */
-	val = (fetch_size / SMP_MB_ENTRY_SIZE) >> 2;
+	if (pipe->src_fmt->tile) {
+		val = useable_space / SMP_MB_ENTRY_SIZE;
 
-	wm[0] = val;
-	wm[1] = wm[0] + val;
-	wm[2] = wm[1] + val;
+		wm[0] = (val * 5) / 8;
+		wm[1] = (val * 6) / 8;
+		wm[2] = (val * 7) / 8;
+	} else {
+		/* 1/4 of SMP pool that is being fetched */
+		val = (useable_space / SMP_MB_ENTRY_SIZE) >> 2;
 
-	pr_debug("pnum=%d fetch_size=%u watermarks %u,%u,%u\n", pipe->num,
-			fetch_size, wm[0], wm[1], wm[2]);
+		wm[0] = val;
+		wm[1] = wm[0] + val;
+		wm[2] = wm[1] + val;
+	}
+
+	pr_debug("pnum=%d useable_space=%u watermarks %u,%u,%u\n", pipe->num,
+			useable_space, wm[0], wm[1], wm[2]);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_REQPRIO_FIFO_WM_0, wm[0]);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_REQPRIO_FIFO_WM_1, wm[1]);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_REQPRIO_FIFO_WM_2, wm[2]);
