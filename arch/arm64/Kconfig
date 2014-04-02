@@ -539,8 +539,6 @@ endif
 
 source "drivers/cpuidle/Kconfig"
 
-source "drivers/cpufreq/Kconfig"
-
 endmenu
 
 source "net/Kconfig"
