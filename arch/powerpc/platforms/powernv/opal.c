@@ -50,9 +50,9 @@ int __init early_init_dt_scan_opal(unsigned long node,
 	opal.base = of_read_number(basep, basesz/4);
 	opal.entry = of_read_number(entryp, entrysz/4);
 
-	pr_debug("OPAL Base  = 0x%llx (basep=%p basesz=%ld)\n",
+	pr_debug("OPAL Base  = 0x%llx (basep=%p basesz=%d)\n",
 		 opal.base, basep, basesz);
-	pr_debug("OPAL Entry = 0x%llx (entryp=%p basesz=%ld)\n",
+	pr_debug("OPAL Entry = 0x%llx (entryp=%p basesz=%d)\n",
 		 opal.entry, entryp, entrysz);
 
 	powerpc_firmware_features |= FW_FEATURE_OPAL;
