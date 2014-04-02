@@ -54,6 +54,9 @@
  */
 #define NUM_WCD9XXX_REG_RET	9
 
+#define SLIM_USR_MC_REPEAT_CHANGE_VALUE 0x0
+#define SLIM_REPEAT_WRITE_MAX_SLICE 16
+
 struct wcd9xxx_i2c {
 	struct i2c_client *client;
 	struct i2c_msg xfer_msg[2];
@@ -263,6 +266,79 @@ static int wcd9xxx_slim_read_device(struct wcd9xxx *wcd9xxx, unsigned short reg,
 
 	return ret;
 }
+
+static int wcd9xxx_slim_get_allowed_slice(struct wcd9xxx *wcd9xxx,
+					  int bytes)
+{
+	int allowed_sz = bytes;
+
+	if (likely(bytes == SLIM_REPEAT_WRITE_MAX_SLICE))
+		allowed_sz = 16;
+	else if (bytes >= 12)
+		allowed_sz = 12;
+	else if (bytes >= 8)
+		allowed_sz = 8;
+	else if (bytes >= 6)
+		allowed_sz = 6;
+	else if (bytes >= 4)
+		allowed_sz = 4;
+	else
+		allowed_sz = bytes;
+
+	return allowed_sz;
+}
+
+/*
+ * wcd9xxx_slim_write_repeat: Write the same register with multiple values
+ * @wcd9xxx: handle to wcd core
+ * @reg: register to be written
+ * @bytes: number of bytes to be written to reg
+ * @src: buffer with data content to be written to reg
+ * This API will write reg with bytes from src in a single slimbus
+ * transaction. All values from 1 to 16 are supported by this API.
+ */
+
+int wcd9xxx_slim_write_repeat(struct wcd9xxx *wcd9xxx, unsigned short reg,
+			      int bytes, void *src)
+{
+	int ret = 0, bytes_to_write = bytes, bytes_allowed;
+	struct slim_ele_access slim_msg;
+
+	slim_msg.start_offset = WCD9XXX_REGISTER_START_OFFSET + reg;
+	slim_msg.comp = NULL;
+
+	if (unlikely(bytes > SLIM_REPEAT_WRITE_MAX_SLICE)) {
+		dev_err(wcd9xxx->dev, "%s: size %d not supported\n",
+			__func__, bytes);
+		return -EINVAL;
+	}
+
+	while (bytes_to_write > 0) {
+		bytes_allowed = wcd9xxx_slim_get_allowed_slice(wcd9xxx,
+				       bytes_to_write);
+
+		slim_msg.num_bytes = bytes_allowed;
+		mutex_lock(&wcd9xxx->xfer_lock);
+		ret = slim_user_msg(wcd9xxx->slim, wcd9xxx->slim->laddr,
+				    SLIM_MSG_MT_DEST_REFERRED_USER,
+				    SLIM_USR_MC_REPEAT_CHANGE_VALUE,
+				    &slim_msg, src, bytes_allowed);
+		mutex_unlock(&wcd9xxx->xfer_lock);
+
+		if (ret) {
+			dev_err(wcd9xxx->dev, "%s: failed, ret = %d\n",
+				__func__, ret);
+			break;
+		}
+
+		bytes_to_write = bytes_to_write - bytes_allowed;
+		src = ((u8 *)src) + bytes_allowed;
+	};
+
+	return ret;
+}
+EXPORT_SYMBOL(wcd9xxx_slim_write_repeat);
+
 /* Interface specifies whether the write is to the interface or general
  * registers.
  */
