@@ -862,10 +862,7 @@ i915_gem_execbuffer_move_to_gpu(struct intel_engine_cs *ring,
 	if (flush_domains & I915_GEM_DOMAIN_GTT)
 		wmb();
 
-	/* Unconditionally invalidate gpu caches and ensure that we do flush
-	 * any residual writes from the previous batch.
-	 */
-	return intel_ring_invalidate_all_caches(ring);
+	return 0;
 }
 
 static bool
@@ -1119,30 +1116,6 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 		}
 	}
 
-	/* Start watchdog timer */
-	if (args->flags & I915_EXEC_ENABLE_WATCHDOG) {
-		if (!intel_ring_supports_watchdog(ring)) {
-			DRM_ERROR("%s does NOT support watchdog timeout!\n",
-					ring->name);
-			ret = -EINVAL;
-			goto error;
-		}
-
-		ret = intel_ring_start_watchdog(ring);
-		if (ret)
-			goto error;
-
-		watchdog_running = 1;
-	}
-
-	ret = i915_gem_execbuffer_move_to_gpu(ring, vmas);
-	if (ret)
-		goto error;
-
-	ret = i915_switch_context(ring, ctx);
-	if (ret)
-		goto error;
-
 	instp_mode = args->flags & I915_EXEC_CONSTANTS_MASK;
 	instp_mask = I915_EXEC_CONSTANTS_MASK;
 	switch (instp_mode) {
@@ -1179,6 +1152,45 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 		ret = -EINVAL;
 		goto error;
 	}
+
+	ret = i915_gem_execbuffer_move_to_gpu(ring, vmas);
+	if (ret)
+		goto error;
+
+	i915_gem_execbuffer_move_to_active(vmas, ring);
+
+	/* To be split into two functions here... */
+
+	intel_runtime_pm_get(dev_priv);
+
+	/* Start watchdog timer */
+	if (args->flags & I915_EXEC_ENABLE_WATCHDOG) {
+		if (!intel_ring_supports_watchdog(ring)) {
+			DRM_ERROR("%s does NOT support watchdog timeout!\n",
+					ring->name);
+			ret = -EINVAL;
+			goto error;
+		}
+
+		ret = intel_ring_start_watchdog(ring);
+		if (ret)
+			goto error;
+
+		watchdog_running = 1;
+	}
+
+	/*
+	 * Unconditionally invalidate gpu caches and ensure that we do flush
+	 * any residual writes from the previous batch.
+	 */
+	ret = intel_ring_invalidate_all_caches(ring);
+	if (ret)
+		goto error;
+
+	/* Switch to the correct context for the batch */
+	ret = i915_switch_context(ring, ctx);
+	if (ret)
+		goto error;
 
 	if (ring == &dev_priv->ring[RCS] &&
 			instp_mode != dev_priv->relative_constants_mode) {
@@ -1248,7 +1260,6 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 
 	trace_i915_gem_ring_dispatch(intel_ring_get_request(ring), dispatch_flags);
 
-	i915_gem_execbuffer_move_to_active(vmas, ring);
 	i915_gem_execbuffer_retire_commands(dev, file, ring, batch_obj);
 
 	/* For VLV, modify RC6 promotion timer upon hitting Media workload only
@@ -1267,6 +1278,12 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 	}
 
 error:
+	/*
+	 * intel_gpu_busy should also get a ref, so it will free when the device
+	 * is really idle.
+	 */
+	intel_runtime_pm_put(dev_priv);
+
 	kfree(cliprects);
 
 	return ret;
@@ -1334,7 +1351,6 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	struct intel_engine_cs *ring;
 	struct intel_context *ctx;
 	struct i915_address_space *vm;
-
 	const u32 ctx_id = i915_execbuffer2_get_context_id(*args);
 	u64 exec_start = args->batch_start_offset;
 	u32 dispatch_flags;
@@ -1387,8 +1403,6 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 		DRM_DEBUG("execbuf with %d buffers\n", args->buffer_count);
 		return -EINVAL;
 	}
-
-	intel_runtime_pm_get(dev_priv);
 
 	ret = i915_mutex_lock_interruptible(dev);
 	if (ret)
@@ -1571,10 +1585,6 @@ err:
 	mutex_unlock(&dev->struct_mutex);
 
 pre_mutex_err:
-	/* intel_gpu_busy should also get a ref, so it will free when the device
-	 * is really idle. */
-	intel_runtime_pm_put(dev_priv);
-
 	if (ret) {
 		if (fd_fence_complete != -1)
 			sys_close(fd_fence_complete);

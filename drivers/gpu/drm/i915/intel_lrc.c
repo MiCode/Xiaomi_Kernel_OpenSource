@@ -1267,10 +1267,7 @@ static int execlists_move_to_gpu(struct intel_ringbuffer *ringbuf,
 	if (flush_domains & I915_GEM_DOMAIN_GTT)
 		wmb();
 
-	/* Unconditionally invalidate gpu caches and ensure that we do flush
-	 * any residual writes from the previous batch.
-	 */
-	return logical_ring_invalidate_all_caches(ringbuf);
+	return 0;
 }
 
 static int
@@ -1390,6 +1387,10 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 	if (ret)
 		goto error;
 
+	i915_gem_execbuffer_move_to_active(vmas, ring);
+
+	/* To be split into two functions here... */
+
 	/* Start watchdog timer */
 	if (args->flags & I915_EXEC_ENABLE_WATCHDOG) {
 		if (!intel_ring_supports_watchdog(ring)) {
@@ -1405,6 +1406,14 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 
 		watchdog_running = 1;
 	}
+
+	/*
+	 * Unconditionally invalidate gpu caches and ensure that we do flush
+	 * any residual writes from the previous batch.
+	 */
+	ret = logical_ring_invalidate_all_caches(ringbuf);
+	if (ret)
+		return ret;
 
 	if (ring == &dev_priv->ring[RCS] &&
 	    instp_mode != dev_priv->relative_constants_mode) {
@@ -1459,7 +1468,6 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 
 	trace_i915_gem_ring_dispatch(intel_ring_get_request(ring), dispatch_flags);
 
-	i915_gem_execbuffer_move_to_active(vmas, ring);
 	i915_gem_execbuffer_retire_commands(dev, file, ring, batch_obj);
 
 	return 0;
