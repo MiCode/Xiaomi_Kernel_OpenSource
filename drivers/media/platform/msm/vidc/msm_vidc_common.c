@@ -1070,7 +1070,6 @@ static void handle_ebd(enum command_response cmd, void *data)
 		if (vb->v4l2_planes[0].m.userptr !=
 			response->input_done.packet_buffer)
 			dprintk(VIDC_INFO, "Unexpected buffer address\n");
-		vb->v4l2_buf.flags = 0;
 		empty_buf_done = (struct vidc_hal_ebd *)&response->input_done;
 		if (empty_buf_done) {
 			if (empty_buf_done->status == VIDC_ERR_NOT_SUPPORTED) {
