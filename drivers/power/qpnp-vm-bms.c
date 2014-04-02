@@ -1988,7 +1988,7 @@ static int bms_load_hw_defaults(struct qpnp_bms_chip *chip)
 	return 0;
 }
 
-static int vm_bms_read(struct file *file, char __user *buf, size_t count,
+static ssize_t vm_bms_read(struct file *file, char __user *buf, size_t count,
 			  loff_t *ppos)
 {
 	int rc;
