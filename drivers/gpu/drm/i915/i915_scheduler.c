@@ -120,6 +120,9 @@ int i915_scheduler_queue_execbuffer(struct i915_scheduler_queue_entry *qe)
 	node->stamp  = stamp;
 	i915_gem_request_reference(node->params.request);
 
+	BUG_ON(node->params.request->scheduler_qe);
+	node->params.request->scheduler_qe = node;
+
 	/*
 	 * Verify that the batch buffer itself is included in the object list.
 	 */
@@ -516,6 +519,7 @@ int i915_scheduler_remove(struct intel_engine_cs *ring)
 			i915_gem_execbuff_release_batch_obj(node->params.batch_obj);
 
 		/* Free everything that is owned by the node: */
+		node->params.request->scheduler_qe = NULL;
 		i915_gem_request_unreference(node->params.request);
 		kfree(node->params.cliprects);
 		kfree(node->dep_list);
@@ -943,4 +947,24 @@ int i915_scheduler_remove_dependent(struct i915_scheduler *scheduler,
 	}
 
 	return 0;
+}
+
+bool i915_scheduler_is_request_tracked(struct drm_i915_gem_request *req,
+				       bool *completed, bool *busy)
+{
+	struct drm_i915_private *dev_priv = req->ring->dev->dev_private;
+	struct i915_scheduler   *scheduler = dev_priv->scheduler;
+
+	if (!scheduler)
+		return false;
+
+	if (req->scheduler_qe == NULL)
+		return false;
+
+	if (completed)
+		*completed = I915_SQS_IS_COMPLETE(req->scheduler_qe);
+	if (busy)
+		*busy      = I915_SQS_IS_QUEUED(req->scheduler_qe);
+
+	return true;
 }

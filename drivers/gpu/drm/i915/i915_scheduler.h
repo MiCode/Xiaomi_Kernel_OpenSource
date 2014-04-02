@@ -86,5 +86,7 @@ enum {
 int         i915_scheduler_init(struct drm_device *dev);
 int         i915_scheduler_queue_execbuffer(struct i915_scheduler_queue_entry *qe);
 int         i915_scheduler_handle_irq(struct intel_engine_cs *ring);
+bool        i915_scheduler_is_request_tracked(struct drm_i915_gem_request *req,
+					      bool *completed, bool *busy);
 
 #endif  /* _I915_SCHEDULER_H_ */

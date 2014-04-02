@@ -2859,6 +2859,12 @@ void i915_gem_complete_requests_ring(struct intel_engine_cs *ring,
 		if (req->complete)
 			continue;
 
+		if (i915_scheduler_is_request_tracked(req, &req->complete, NULL)) {
+			if (req->complete)
+				trace_i915_gem_request_complete(req);
+			continue;
+		}
+
 		if (i915_seqno_passed(seqno, req->seqno)) {
 			req->complete = true;
 			trace_i915_gem_request_complete(req);

@@ -2151,6 +2151,8 @@ struct drm_i915_gem_request {
 	struct list_head delay_free_list;
 	uint32_t delay_free_count;
 
+	struct i915_scheduler_queue_entry	*scheduler_qe;
+
 	uint32_t uniq;
 };
 
