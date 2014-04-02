@@ -16,7 +16,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. MSM8936";
 	compatible = "qcom,msm8936";
-	qcom,msm-id = <233 0>;
+	qcom,msm-id = <239 0>, <241 0>;
 	interrupt-parent = <&intc>;
 	aliases {
 		/* smdtty devices */
@@ -35,8 +35,8 @@
 	soc: soc { };
 };
 
-#include "msm8936-smp2p.dtsi"
-#include "msm8936-ipcrouter.dtsi"
+#include "msm8939-smp2p.dtsi"
+#include "msm8939-ipcrouter.dtsi"
 
 &soc {
 	#address-cells = <1>;
