@@ -36,8 +36,8 @@ dtb-$(CONFIG_ARCH_MSM8916) += msm8916-sim.dtb \
 	msm8916-mtp-smb1360.dtb \
 	msm8916-qrd-skuh.dtb \
 	msm8916-qrd-skui.dtb \
-	msm8936-sim.dtb \
-	msm8936-rumi.dtb
+	msm8939-sim.dtb \
+	msm8939-rumi.dtb
 dtb-$(CONFIG_ARCH_MSM8226) += msm8226-sim.dtb \
 	msm8226-fluid.dtb \
 	msm8226-v1-cdp.dtb \
