@@ -129,7 +129,8 @@ static int battery_data_release(struct inode *inode, struct file *file)
 static const struct file_operations battery_data_fops = {
 	.owner = THIS_MODULE,
 	.open = battery_data_open,
-	.unlocked_ioctl	= battery_data_ioctl,
+	.unlocked_ioctl = battery_data_ioctl,
+	.compat_ioctl = battery_data_ioctl,
 	.release = battery_data_release,
 };
 
