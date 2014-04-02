@@ -128,6 +128,114 @@
 			qcom,adc-vdd-reference = <1800>;
 			qcom,vadc-poll-eoc;
 		};
+
+		qcom,qpnp-smbcharger {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-smbcharger";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			qcom,iterm-ma = <100>;
+			qcom,float-voltage-mv = <4200>;
+			qcom,resume-delta-mv = <100>;
+			qcom,bmd-pin-src = "bpd_thm_id";
+			qcom,dc-psy-type = "Mains";
+			qcom,dc-psy-ma = <1500>;
+			qcom,bms-psy-name = "bms";
+			qcom,thermal-mitigation = <1500 700 600 0>;
+			qcom,charging-disabled;
+
+			qcom,chgr@1000 {
+				reg = <0x1000 0x100>;
+				interrupts =	<0x2 0x10 0x0>,
+						<0x2 0x10 0x1>,
+						<0x2 0x10 0x2>,
+						<0x2 0x10 0x3>,
+						<0x2 0x10 0x4>,
+						<0x2 0x10 0x5>,
+						<0x2 0x10 0x6>,
+						<0x2 0x10 0x7>;
+
+				interrupt-names =	"chg-error",
+							"chg-inhibit",
+							"chg-prechg-sft",
+							"chg-complete-chg-sft",
+							"chg-p2f-thr",
+							"chg-rechg-thr",
+							"chg-taper-thr",
+							"chg-tcc-thr";
+			};
+
+			qcom,otg@1100 {
+				reg = <0x1100 0x100>;
+			};
+
+			qcom,bat-if@1200 {
+				reg = <0x1200 0x100>;
+				interrupts =	<0x2 0x12 0x0>,
+						<0x2 0x12 0x1>,
+						<0x2 0x12 0x2>,
+						<0x2 0x12 0x3>,
+						<0x2 0x12 0x4>,
+						<0x2 0x12 0x5>,
+						<0x2 0x12 0x6>,
+						<0x2 0x12 0x7>;
+
+				interrupt-names =	"batt-hot",
+							"batt-warm",
+							"batt-cold",
+							"batt-cool",
+							"batt-ov",
+							"batt-low",
+							"batt-missing",
+							"batt-term-missing";
+			};
+
+			qcom,usb-chgpth@1300 {
+				reg = <0x1300 0x100>;
+				interrupts =	<0x2 0x13 0x0>,
+						<0x2 0x13 0x1>,
+						<0x2 0x13 0x2>,
+						<0x2 0x13 0x3>,
+						<0x2 0x13 0x4>,
+						<0x2 0x13 0x5>,
+						<0x2 0x13 0x6>;
+
+				interrupt-names =	"usbin-uv",
+							"usbin-ov",
+							"usbin-src-det",
+							"otg-fail",
+							"otg-oc",
+							"aicl-done",
+							"usbid-change";
+			};
+
+			qcom,dc-chgpth@1400 {
+				reg = <0x1400 0x100>;
+				interrupts =	<0x2 0x14 0x0>,
+						<0x2 0x14 0x1>;
+
+				interrupt-names =	"dcin-uv",
+							"dcin-ov";
+			};
+
+			qcom,chgr-misc@1600 {
+				reg = <0x1600 0x100>;
+				interrupts =	<0x2 0x16 0x0>,
+						<0x2 0x16 0x1>,
+						<0x2 0x16 0x2>,
+						<0x2 0x16 0x3>,
+						<0x2 0x16 0x4>,
+						<0x2 0x16 0x5>;
+
+				interrupt-names =	"power-ok",
+							"temp-shutdown",
+							"safety-timeout",
+							"flash-fail",
+							"otst2",
+							"otst3";
+			};
+		};
 	};
 
 	qcom,pm8994@3 {
