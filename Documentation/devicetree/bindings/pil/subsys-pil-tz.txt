@@ -12,6 +12,8 @@ Required properties:
 Optional properties:
 - reg:		      Pairs of physical base addresses and region sizes of
 		      memory mapped registers.
+- reg-names:	      Names of the bases for the above registers. Not required for
+		      PIL usage. Ex. "wrapper_base", "vbif_base".
 - interrupts:	      Subsystem to Apps watchdog bite interrupt.
 - vdd_'reg'-supply:   Reference to the regulator that supplies the corresponding
 		      'reg' domain.
