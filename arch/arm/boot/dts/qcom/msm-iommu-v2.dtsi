@@ -12,7 +12,7 @@
 
 &soc {
 	gfx_iommu: qcom,iommu@1f00000 {
-		compatible = "qcom,msm-smmu-v2";
+		compatible = "qcom,msm-smmu-v2", "qcom,msm-mmu-500";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -46,7 +46,7 @@
 	};
 
 	apps_iommu: qcom,iommu@1e00000 {
-		compatible = "qcom,msm-smmu-v2";
+		compatible = "qcom,msm-smmu-v2", "qcom,msm-mmu-500";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
