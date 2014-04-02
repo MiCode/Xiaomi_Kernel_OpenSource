@@ -563,10 +563,8 @@ static void __init early_reserve_mem(void)
 	reserve_map = (u64 *)(((unsigned long)initial_boot_params) +
 					initial_boot_params->off_mem_rsvmap);
 
-	/* before we do anything, lets reserve the dt blob */
-	self_base = __pa((unsigned long)initial_boot_params);
-	self_size = initial_boot_params->totalsize;
-	memblock_reserve(self_base, self_size);
+	/* Look for the new "reserved-regions" property in the DT */
+	early_reserve_mem_dt();
 
 #ifdef CONFIG_BLK_DEV_INITRD
 	/* then reserve the initrd, if any */
@@ -590,23 +588,12 @@ static void __init early_reserve_mem(void)
 			size_32 = *(reserve_map_32++);
 			if (size_32 == 0)
 				break;
-			/* skip if the reservation is for the blob */
-			if (base_32 == self_base && size_32 == self_size)
-				continue;
 			DBG("reserving: %x -> %x\n", base_32, size_32);
 			memblock_reserve(base_32, size_32);
 		}
 		return;
 	}
 #endif
-	while (1) {
-		base = *(reserve_map++);
-		size = *(reserve_map++);
-		if (size == 0)
-			break;
-		DBG("reserving: %llx -> %llx\n", base, size);
-		memblock_reserve(base, size);
-	}
 }
 
 void __init early_init_devtree(void *params)
