@@ -42,7 +42,8 @@
 #define RECHG_MV_SHIFT			5
 
 #define CFG_BATT_CHG_ICL_REG		0x05
-#define	AC_INPUT_ICL_PIN		BIT(7)
+#define AC_INPUT_ICL_PIN_BIT		BIT(7)
+#define AC_INPUT_PIN_HIGH_BIT		BIT(6)
 #define INPUT_CURR_LIM_MASK		SMB1360_MASK(3, 0)
 
 #define CFG_GLITCH_FLT_REG		0x06
@@ -108,9 +109,9 @@
 
 #define CMD_IL_REG			0x41
 #define USB_CTRL_MASK			SMB1360_MASK(1 , 0)
-#define USB_100_BIT			0x00
-#define USB_500_BIT			0x01
-#define USB_AC_BIT			0x11
+#define USB_100_BIT			0x01
+#define USB_500_BIT			0x00
+#define USB_AC_BIT			0x02
 
 #define CMD_CHG_REG			0x42
 #define CMD_CHG_EN			BIT(1)
@@ -1805,7 +1806,9 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 
 	/* USB/AC pin settings */
 	rc = smb1360_masked_write(chip, CFG_BATT_CHG_ICL_REG,
-					AC_INPUT_ICL_PIN, 0);
+					AC_INPUT_ICL_PIN_BIT
+					| AC_INPUT_PIN_HIGH_BIT,
+					AC_INPUT_PIN_HIGH_BIT);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't set CFG_BATT_CHG_ICL_REG rc=%d\n",
 				rc);
@@ -1816,7 +1819,7 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 	rc = smb1360_masked_write(chip, CFG_GLITCH_FLT_REG,
 			AICL_ENABLED_BIT, AICL_ENABLED_BIT);
 	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't set CFG_BATT_CHG_ICL_REG rc=%d\n",
+		dev_err(chip->dev, "Couldn't set CFG_GLITCH_FLT_REG rc=%d\n",
 				rc);
 		return rc;
 	}
