@@ -1486,6 +1486,8 @@ static int msm8x16_wcd_codec_enable_dig_clk(struct snd_soc_dapm_widget *w,
 			event, w->name);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		if (w->shift == 2)
+			snd_soc_update_bits(codec, w->reg, 0x80, 0x80);
 		if (msm8x16_wcd->spk_boost_set) {
 			snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
@@ -1503,8 +1505,6 @@ static int msm8x16_wcd_codec_enable_dig_clk(struct snd_soc_dapm_widget *w,
 					MSM8X16_WCD_A_ANALOG_CURRENT_LIMIT,
 					0x03, 0x03);
 		} else {
-			if (w->shift == 2)
-				snd_soc_update_bits(codec, w->reg, 0x80, 0x80);
 			snd_soc_update_bits(codec, w->reg, 1<<w->shift,
 					1<<w->shift);
 		}
@@ -1527,8 +1527,6 @@ static int msm8x16_wcd_codec_enable_dig_clk(struct snd_soc_dapm_widget *w,
 					MSM8X16_WCD_A_ANALOG_PERPH_RESET_CTL3,
 					0x07, 0x0);
 		} else {
-			if (w->shift == 2)
-				snd_soc_update_bits(codec, w->reg, 0x80, 0x00);
 			snd_soc_update_bits(codec, w->reg, 1<<w->shift, 0x00);
 		}
 		break;
@@ -1803,7 +1801,6 @@ static int msm8x16_wcd_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 						 int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
 
 	dev_dbg(codec->dev, "%s %d %s\n", __func__, event, w->name);
 
@@ -1821,10 +1818,6 @@ static int msm8x16_wcd_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 				  snd_soc_read(codec,
 				  rx_digital_gain_reg[w->shift])
 				  );
-		if (msm8x16_wcd->spk_boost_set)
-			snd_soc_update_bits(codec,
-					MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
-					0x80, 0x80);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		snd_soc_update_bits(codec,
@@ -1833,10 +1826,6 @@ static int msm8x16_wcd_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_CDC_CLK_RX_RESET_CTL,
 			1 << w->shift, 0x0);
-		if (msm8x16_wcd->spk_boost_set)
-			snd_soc_update_bits(codec,
-					MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
-					0x80, 0x00);
 	}
 	return 0;
 }
