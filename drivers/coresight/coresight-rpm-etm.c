@@ -24,6 +24,15 @@
 #include <linux/coresight.h>
 #include "coresight-qmi.h"
 
+#ifdef CONFIG_CORESIGHT_RPM_ETM_DEFAULT_ENABLE
+static int boot_enable = 1;
+#else
+static int boot_enable;
+#endif
+module_param_named(
+	boot_enable, boot_enable, int, S_IRUGO
+);
+
 struct rpm_etm_drvdata {
 	struct device			*dev;
 	struct coresight_device		*csdev;
@@ -292,6 +301,10 @@ static int rpm_etm_probe(struct platform_device *pdev)
 		goto err1;
 	}
 	dev_info(dev, "RPM ETM initialized\n");
+
+	if (boot_enable)
+		coresight_enable(drvdata->csdev);
+
 	return 0;
 err1:
 	qmi_svc_event_notifier_unregister(CORESIGHT_QMI_SVC_ID,
