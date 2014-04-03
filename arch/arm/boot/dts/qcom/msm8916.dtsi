@@ -357,14 +357,39 @@
 		qcom,pipe-attr-ee;
 	};
 
-	blsp1_uart1: serial@78af000 {
-		compatible = "qcom,msm-lsuart-v14";
-		reg = <0x78af000 0x200>;
-		interrupts = <0 107 0>;
-		status = "disabled";
+	blsp1_uart1: uart@78af000 {
+		compatible = "qcom,msm-hsuart-v14";
+		reg = <0x78af000 0x200>,
+		      <0x7884000 0x23000>;
+		reg-names = "core_mem", "bam_mem";
+		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&blsp1_uart1>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 107 0
+				1 &intc 0 238 0
+				2 &msm_gpio 1 0>;
+
+		qcom,bam-tx-ep-pipe-index = <0>;
+		qcom,bam-rx-ep-pipe-index = <1>;
+		qcom,master-id = <86>;
+
 		clocks = <&clock_gcc clk_gcc_blsp1_uart1_apps_clk>,
 			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
 		clock-names = "core_clk", "iface_clk";
+
+		qcom,msm-bus,name = "blsp1_uart1";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<86 512 0 0>,
+				<86 512 500 800>;
+		pinctrl-names = "sleep", "default";
+		pinctrl-0 = <&hsuart_sleep>;
+		pinctrl-1 = <&hsuart_active>;
+		status = "disabled";
 	};
 
 	blsp1_uart2: serial@78b0000 {

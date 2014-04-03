@@ -57,6 +57,30 @@
 			};
 		};
 
+		blsp1_uart1_active {
+			qcom,pins = <&gp 0>, <&gp 1>, <&gp 2>, <&gp 3>;
+			qcom,num-grp-pins = <4>;
+			qcom,pin-func = <2>;
+		        label = "blsp1_uart1_active";
+
+			hsuart_active: default {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		blsp1_uart1_sleep {
+			qcom,pins = <&gp 0>, <&gp 1>, <&gp 2>, <&gp 3>;
+			qcom,num-grp-pins = <4>;
+			qcom,pin-func = <0>;
+		        label = "blsp1_uart1_sleep";
+
+			hsuart_sleep: sleep {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		sdhc2_cd_pin {
 			qcom,pins = <&gp 38>;
 			qcom,num-grp-pins = <1>;

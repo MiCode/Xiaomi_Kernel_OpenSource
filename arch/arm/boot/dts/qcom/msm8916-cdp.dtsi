@@ -147,6 +147,10 @@
 	};
 };
 
+&blsp1_uart1 {
+	status = "ok";
+};
+
 &sdhc_1 {
 	vdd-supply = <&pm8916_l8>;
 	qcom,vdd-voltage-level = <2900000 2900000>;
