@@ -119,6 +119,7 @@ struct spm_vreg {
 	int				step_rate;
 	enum qpnp_regulator_uniq_type	regulator_type;
 	u32				cpu_num;
+	bool				bypass_spm;
 };
 
 static int qpnp_fts2_set_mode(struct spm_vreg *vreg, u8 mode)
@@ -138,6 +139,7 @@ static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 {
 	struct spm_vreg *vreg = rdev_get_drvdata(rdev);
 	int rc;
+	u8 reg;
 
 	if (vreg->vlevel == vreg->last_set_vlevel)
 		return 0;
@@ -151,10 +153,26 @@ static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 			return rc;
 	}
 
-	rc = msm_spm_set_vdd(vreg->cpu_num, vreg->vlevel);
-	if (rc) {
-		pr_err("%s: msm_spm_set_vdd failed %d\n", vreg->rdesc.name, rc);
-		return rc;
+	if (likely(!vreg->bypass_spm)) {
+		/* Set voltage control register via SPM. */
+		rc = msm_spm_set_vdd(vreg->cpu_num, vreg->vlevel);
+		if (rc) {
+			pr_err("%s: msm_spm_set_vdd failed %d\n",
+				vreg->rdesc.name, rc);
+			return rc;
+		}
+	} else {
+		/* Set voltage control register via SPMI. */
+		reg = vreg->vlevel;
+		rc = spmi_ext_register_writel(vreg->spmi_dev->ctrl,
+			vreg->spmi_dev->sid,
+			vreg->spmi_base_addr + QPNP_SMPS_REG_VOLTAGE_SETPOINT,
+			&reg, 1);
+		if (rc) {
+			pr_err("%s: spmi_ext_register_writel failed %d\n",
+				vreg->rdesc.name, rc);
+			return rc;
+		}
 	}
 
 	if (vreg->uV > vreg->last_set_uV) {
@@ -476,6 +494,7 @@ static int spm_regulator_probe(struct spmi_device *spmi)
 	struct regulator_init_data *init_data;
 	struct spm_vreg *vreg;
 	struct resource *res;
+	bool bypass_spm;
 	int rc;
 
 	if (!node) {
@@ -483,12 +502,15 @@ static int spm_regulator_probe(struct spmi_device *spmi)
 		return -ENODEV;
 	}
 
-	rc = msm_spm_probe_done();
-	if (rc) {
-		if (rc != -EPROBE_DEFER)
-			dev_err(&spmi->dev, "%s: spm unavailable, rc=%d\n",
-				__func__, rc);
-		return rc;
+	bypass_spm = of_property_read_bool(node, "qcom,bypass-spm");
+	if (!bypass_spm) {
+		rc = msm_spm_probe_done();
+		if (rc) {
+			if (rc != -EPROBE_DEFER)
+				dev_err(&spmi->dev, "%s: spm unavailable, rc=%d\n",
+					__func__, rc);
+			return rc;
+		}
 	}
 
 	vreg = devm_kzalloc(&spmi->dev, sizeof(*vreg), GFP_KERNEL);
@@ -497,6 +519,7 @@ static int spm_regulator_probe(struct spmi_device *spmi)
 		return -ENOMEM;
 	}
 	vreg->spmi_dev = spmi;
+	vreg->bypass_spm = bypass_spm;
 
 	res = spmi_get_resource(spmi, NULL, IORESOURCE_MEM, 0);
 	if (!res) {

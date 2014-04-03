@@ -20,6 +20,9 @@ Optional properties:
 		    in whatever mode hardware or bootloaders set it to.
 - qcom,cpu-num:    Specifies which CPU this regulator powers.  This property is
 		    not need when the SPM regulator is shared between all CPUs.
+- qcom,bypass-spm: Boolean flag which indicates that voltage control should not
+		    be managed by an SPM.  Instead, the voltage should be
+		    controlled via SPMI.
 
 All properties specified within the core regulator framework can also be used.
 These bindings can be found in regulator.txt.
