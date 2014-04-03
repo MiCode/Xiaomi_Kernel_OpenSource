@@ -167,8 +167,9 @@ static int boost_mig_sync_thread(void *data)
 		if (ret)
 			continue;
 
-		req_freq = max((dest_policy.max * s->task_load) / 100,
-							src_policy.cur);
+		req_freq = load_based_syncs ?
+			(dest_policy.cpuinfo.max_freq * s->task_load) / 100 :
+							src_policy.cur;
 
 		if (req_freq <= dest_policy.cpuinfo.min_freq) {
 			pr_debug("No sync. Sync Freq:%u\n", req_freq);
