@@ -294,7 +294,7 @@
 	qcom,charging-disabled;
 	vbus_dwc3-supply = <0>;
 	dwc3@f9200000 {
-		host-only-mode;
+		snps,host-only-mode;
 	};
 };
 

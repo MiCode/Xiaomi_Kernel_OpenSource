@@ -2642,7 +2642,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		goto put_psupply;
 	}
 
-	host_mode = of_property_read_bool(dwc3_node, "host-only-mode");
+	host_mode = of_property_read_bool(dwc3_node, "snps,host-only-mode");
 	if (host_mode && of_get_property(pdev->dev.of_node, "vbus_dwc3-supply",
 									NULL)) {
 		mdwc->vbus_otg = devm_regulator_get(&pdev->dev, "vbus_dwc3");

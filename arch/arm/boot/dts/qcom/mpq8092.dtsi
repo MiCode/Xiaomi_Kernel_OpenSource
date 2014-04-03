@@ -823,7 +823,7 @@
 			interrupt-names = "irq", "otg_irq";
 			usb-phy = <&hsphy>, <&ssphy>;
 			tx-fifo-resize;
-			host-only-mode;
+			snps,host-only-mode;
 		};
 	};
 
