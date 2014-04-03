@@ -15,6 +15,7 @@
 #include "msm8226-w-memory.dtsi"
 #include "msm8226-720p-mtp.dtsi"
 #include "msm8226-camera-sensor-mtp.dtsi"
+#include "msm8x26w-gpu.dts"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8226v2W MTP";
