@@ -251,7 +251,10 @@ struct msm_hs_port {
 	int rx_count_callback;
 	bool rx_bam_inprogress;
 	wait_queue_head_t bam_disconnect_wait;
-
+	bool use_pinctrl;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *gpio_state_active;
+	struct pinctrl_state *gpio_state_suspend;
 };
 
 static struct of_device_id msm_hs_match_table[] = {
@@ -2206,8 +2209,19 @@ static int msm_hs_config_uart_gpios(struct uart_port *uport)
 	const struct msm_serial_hs_platform_data *pdata =
 					pdev->dev.platform_data;
 	int ret = 0;
+	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 
-	if (pdata) {
+	if (!IS_ERR_OR_NULL(msm_uport->pinctrl)) {
+		MSM_HS_DBG("%s(): Using Pinctrl", __func__);
+		msm_uport->use_pinctrl = true;
+		ret = pinctrl_select_state(msm_uport->pinctrl,
+				msm_uport->gpio_state_active);
+		if (ret)
+			MSM_HS_ERR("%s(): Failed to pinctrl set_state",
+				__func__);
+		return ret;
+	} else if (pdata) {
+		/* Fall back to using gpio lib */
 		if (gpio_is_valid(pdata->uart_tx_gpio)) {
 			ret = gpio_request(pdata->uart_tx_gpio,
 							"UART_TX_GPIO");
@@ -2264,6 +2278,49 @@ uart_tx_unconfig:
 		gpio_free(pdata->uart_tx_gpio);
 exit_uart_config:
 	return ret;
+}
+
+
+static void msm_hs_get_pinctrl_configs(struct uart_port *uport)
+{
+	struct pinctrl_state *set_state;
+	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
+
+	msm_uport->pinctrl = devm_pinctrl_get(uport->dev);
+	if (IS_ERR_OR_NULL(msm_uport->pinctrl)) {
+		MSM_HS_INFO("%s(): Pinctrl not defined", __func__);
+	} else {
+		MSM_HS_DBG("%s(): Using Pinctrl", __func__);
+		msm_uport->use_pinctrl = true;
+
+		set_state = pinctrl_lookup_state(msm_uport->pinctrl,
+						"hsuart_active");
+		if (IS_ERR_OR_NULL(set_state)) {
+			dev_err(uport->dev,
+				"pinctrl lookup failed for hsuart_active");
+			goto pinctrl_fail;
+		}
+
+		MSM_HS_DBG("%s(): Pinctrl state active %p\n", __func__,
+			set_state);
+		msm_uport->gpio_state_active = set_state;
+
+		set_state = pinctrl_lookup_state(msm_uport->pinctrl,
+						"hsuart_sleep");
+		if (IS_ERR_OR_NULL(set_state)) {
+			dev_err(uport->dev,
+				"pinctrl lookup failed for hsuart_sleep");
+			goto pinctrl_fail;
+		}
+
+		MSM_HS_DBG("%s(): Pinctrl state sleep %p\n", __func__,
+			set_state);
+		msm_uport->gpio_state_suspend = set_state;
+		return;
+	}
+pinctrl_fail:
+	msm_uport->pinctrl = NULL;
+	return;
 }
 
 /* Called when port is opened */
@@ -2846,6 +2903,7 @@ static int msm_hs_probe(struct platform_device *pdev)
 	if (pdev->dev.of_node)
 		msm_uport->uart_type = BLSP_HSUART;
 
+	msm_hs_get_pinctrl_configs(uport);
 	/* Get required resources for BAM HSUART */
 	core_resource = platform_get_resource_byname(pdev,
 				IORESOURCE_MEM, "core_mem");
@@ -3164,12 +3222,20 @@ static int msm_hs_runtime_resume(struct device *dev)
 	struct platform_device *pdev = container_of(dev, struct
 						    platform_device, dev);
 	struct msm_hs_port *msm_uport = get_matching_hs_port(pdev);
+	int ret;
 
 	/* This check should not fail
 	 * During probe, we set uport->line to either pdev->id or userid */
-	if (msm_uport)
+	if (msm_uport) {
 		msm_hs_request_clock_on(&msm_uport->uport);
-
+		if (msm_uport->use_pinctrl) {
+			ret = pinctrl_select_state(msm_uport->pinctrl,
+						msm_uport->gpio_state_active);
+			if (ret)
+				MSM_HS_ERR("%s(): error select active state",
+					__func__);
+		}
+	}
 	return 0;
 }
 
@@ -3178,11 +3244,20 @@ static int msm_hs_runtime_suspend(struct device *dev)
 	struct platform_device *pdev = container_of(dev, struct
 						    platform_device, dev);
 	struct msm_hs_port *msm_uport = get_matching_hs_port(pdev);
+	int ret;
 
 	/* This check should not fail
 	 * During probe, we set uport->line to either pdev->id or userid */
-	if (msm_uport)
+	if (msm_uport) {
 		msm_hs_request_clock_off(&msm_uport->uport);
+		if (msm_uport->use_pinctrl) {
+			ret = pinctrl_select_state(msm_uport->pinctrl,
+						msm_uport->gpio_state_suspend);
+			if (ret)
+				MSM_HS_ERR("%s(): error select suspend state",
+					__func__);
+		}
+	}
 	return 0;
 }
 
