@@ -1082,6 +1082,11 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	if (dev && dev->cdev)
 		gadget = dev->cdev->gadget;
 
+	if (!gadget) {
+		pr_err("%s: NULL gadget\n", __func__);
+		return;
+	}
+
 	spin_lock_irqsave(&port->port_lock_ul, flags);
 	spin_lock(&port->port_lock_dl);
 	if (!port->port_usb) {
@@ -1131,6 +1136,9 @@ static void gbam2bam_connect_work(struct work_struct *w)
 			return;
 		}
 	} else if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+
+		d->ipa_params.usb_connection_speed = gadget->speed;
+
 		if (usb_bam_get_pipe_type(d->ipa_params.src_idx,
 				&d->src_pipe_type) ||
 			usb_bam_get_pipe_type(d->ipa_params.dst_idx,

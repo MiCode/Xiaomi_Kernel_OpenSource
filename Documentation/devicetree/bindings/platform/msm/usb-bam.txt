@@ -87,6 +87,10 @@ Optional properties :
 - qcom,usb-bam-override-threshold: If present then the default 512 byte threshold
 		is overriden. This threshold configures the threshold value for Read/Write
 		event generation by the BAM towards another BAM.
+- qcom,usb-bam-max-mbps-highspeed: max mbps in high speed connection
+            for either rx or tx direction.
+- qcom,usb-bam-max-mbps-superspeed: max mbps in super speed connection
+            for either rx or tx direction.
 
 Example USB BAM controller device node:
 
@@ -99,6 +103,8 @@ Example USB BAM controller device node:
 		qcom,usb-bam-num-pipes = <16>;
 		qcom,ignore-core-reset-ack;
 		qcom,disable-clk-gating;
+		qcom,usb-bam-max-mbps-highspeed = <400>;
+		qcom,usb-bam-max-mbps-superspeed = <3600>;
 
 		qcom,pipe0 {
 			label = "hsusb-ipa-out-0";

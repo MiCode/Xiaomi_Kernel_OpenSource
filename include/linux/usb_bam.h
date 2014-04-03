@@ -57,6 +57,34 @@ enum usb_bam_pipe_type {
 	USB_BAM_MAX_PIPE_TYPES,
 };
 
+/**
+* struct usb_bam_connect_ipa_params: Connect Bam pipe to IPA peer infromation.
+* @ src_idx: Source pipe index in usb bam pipes lists.
+* @ dst_idx: Destination pipe index in usb bam pipes lists.
+* @ src_pipe: The source pipe index in the sps level.
+* @ dst_pipe: The destination pipe index in the sps level.
+* @ keep_ipa_awake: When true, IPA will not be clock gated.
+* @ ipa_cons_ep_idx: The pipe index on the IPA peer bam side, consumer.
+* @ ipa_prod_ep_idx: The pipe index on the IPA peer bam side, producer.
+* @ prod_clnt_hdl: Producer client handle returned by IPA driver
+* @ cons_clnt_hdl: Consumer client handle returned by IPA driver
+* @ src_client: Source IPA client type.
+* @ dst_client: Destination IPA client type.
+* @ ipa_ep_cfg: Configuration of IPA end-point (see struct ipa_ep_cfg)
+* @priv: Callback cookie to the notify event.
+* @notify: Callback on data path event by IPA (see enum ipa_dp_evt_type)
+*	 This call back gets back the priv cookie.
+*	 for Bam2Bam mode, this callback is in the tethering bridge.
+* @ activity_notify: Callback to be notified on and data being pushed into the
+*		 USB consumer pipe.
+* @ inactivity_notify: Callback to be notified on inactivity of all the current
+*		   open pipes between the USB bam and its peer.
+* @ skip_ep_cfg: boolean field that determines if Apps-processor
+*	            should or should not confiugre this end-point.
+*	            (Please see struct teth_bridge_init_params)
+* @ reset_pipe_after_lpm: bool to indicate if IPA should reset pipe after LPM.
+* @ usb_connection_speed: The actual speed the USB core currently works at.
+*/
 struct usb_bam_connect_ipa_params {
 	u8 src_idx;
 	u8 dst_idx;
@@ -81,6 +109,7 @@ struct usb_bam_connect_ipa_params {
 	int (*inactivity_notify)(void *priv);
 	bool skip_ep_cfg;
 	bool reset_pipe_after_lpm;
+	enum usb_device_speed usb_connection_speed;
 };
 
 /**
@@ -177,6 +206,10 @@ struct usb_bam_pipe_connect {
  * @disable_clk_gating: Disable clock gating
  * @override_threshold: Override the default threshold value for Read/Write
  *                         event generation by the BAM towards another BAM.
+ * @max_mbps_highspeed: Maximum Mbits per seconds that the USB core
+ *		can work at in bam2bam mode when connected to HS host.
+ * @max_mbps_superspeed: Maximum Mbits per seconds that the USB core
+ *		can work at in bam2bam mode when connected to SS host.
  */
 struct msm_usb_bam_platform_data {
 	struct usb_bam_pipe_connect *connections;
@@ -187,6 +220,8 @@ struct msm_usb_bam_platform_data {
 	bool reset_on_connect[MAX_BAMS];
 	bool disable_clk_gating;
 	u32 override_threshold;
+	u32 max_mbps_highspeed;
+	u32 max_mbps_superspeed;
 };
 
 #ifdef CONFIG_USB_BAM
