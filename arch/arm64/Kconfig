@@ -134,6 +134,8 @@ config ARCH_MSM
 	select SOC_BUS
 	select ARCH_HAS_CPUFREQ
 	select CPU_FREQ_MSM
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_CPUBW
 	help
 	  This enables support for the ARMv8 based Qualcomm chipsets.
 
