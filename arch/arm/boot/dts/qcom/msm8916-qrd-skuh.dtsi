@@ -206,3 +206,11 @@
 	status = "ok";
 	qcom,battery-data = <&qrd_batterydata>;
 };
+
+&sdhc_2 {
+	qcom,vdd-always-on;
+	qcom,vdd-lpm-sup;
+
+	qcom,vdd-current-level = <9000 400000>;
+};
+
