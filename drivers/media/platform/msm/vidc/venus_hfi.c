@@ -544,7 +544,7 @@ static void venus_hfi_write_register(struct venus_hfi_device *device, u32 reg,
 		value -= HFI_SIM_FW_BIAS;
 	}
 
-	base_addr = device->hal_data->register_base_addr;
+	base_addr = device->hal_data->register_base;
 	dprintk(VIDC_DBG, "Base addr: 0x%p, written to: 0x%x, Value: 0x%x...\n",
 		base_addr, hwiosymaddr, value);
 	base_addr += hwiosymaddr;
@@ -565,7 +565,7 @@ static int venus_hfi_read_register(struct venus_hfi_device *device, u32 reg)
 			"HFI Read register failed : Clocks are OFF\n");
 		return -EINVAL;
 	}
-	base_addr = device->hal_data->register_base_addr;
+	base_addr = device->hal_data->register_base;
 
 	rc = readl_relaxed(base_addr + reg);
 	rmb();
@@ -1035,7 +1035,7 @@ static int venus_hfi_halt_axi(struct venus_hfi_device *device)
 	venus_hfi_write_register(device, VENUS_VBIF_AXI_HALT_CTRL0, reg, 0);
 
 	/* Request for AXI bus port halt */
-	rc = readl_poll_timeout(device->hal_data->register_base_addr
+	rc = readl_poll_timeout(device->hal_data->register_base
 			+ VENUS_VBIF_AXI_HALT_CTRL1,
 			reg, reg & VENUS_VBIF_AXI_HALT_CTRL1_HALT_ACK,
 			POLL_INTERVAL_US,
@@ -1795,8 +1795,8 @@ static int venus_hfi_core_init(void *device)
 		}
 
 		dprintk(VIDC_DBG, "Dev_Virt: 0x%pa, Reg_Virt: 0x%p\n",
-			&dev->hal_data->firmware_base_addr,
-			dev->hal_data->register_base_addr);
+			&dev->hal_data->firmware_base,
+			dev->hal_data->register_base);
 
 		rc = venus_hfi_interface_queues_init(dev);
 		if (rc) {
@@ -2561,30 +2561,30 @@ static int venus_hfi_check_core_registered(
 				struct venus_hfi_device, list);
 			if (device && device->hal_data->irq == irq &&
 				(CONTAINS(device->hal_data->
-						firmware_base_addr,
+						firmware_base,
 						FIRMWARE_SIZE, fw_addr) ||
 				CONTAINS(fw_addr, FIRMWARE_SIZE,
 						device->hal_data->
-						firmware_base_addr) ||
+						firmware_base) ||
 				CONTAINS(device->hal_data->
-						register_base_addr,
+						register_base,
 						reg_size, reg_addr) ||
 				CONTAINS(reg_addr, reg_size,
 						device->hal_data->
-						register_base_addr) ||
+						register_base) ||
 				OVERLAPS(device->hal_data->
-						register_base_addr,
+						register_base,
 						reg_size, reg_addr, reg_size) ||
 				OVERLAPS(reg_addr, reg_size,
 						device->hal_data->
-						register_base_addr, reg_size) ||
+						register_base, reg_size) ||
 				OVERLAPS(device->hal_data->
-						firmware_base_addr,
+						firmware_base,
 						FIRMWARE_SIZE, fw_addr,
 						FIRMWARE_SIZE) ||
 				OVERLAPS(fw_addr, FIRMWARE_SIZE,
 						device->hal_data->
-						firmware_base_addr,
+						firmware_base,
 						FIRMWARE_SIZE))) {
 				return 0;
 			} else {
@@ -2836,15 +2836,10 @@ static int venus_hfi_init_regs_and_interrupts(
 	struct hal_data *hal = NULL;
 	int rc = 0;
 
-	device->firmware_base = res->firmware_base;
-	device->register_base = res->register_base;
-	device->register_size = res->register_size;
-	device->irq = res->irq;
-
 	rc = venus_hfi_check_core_registered(hal_ctxt,
-			device->firmware_base,
-			(u8 *)(unsigned long)device->register_base,
-			device->register_size, device->irq);
+			res->firmware_base,
+			(u8 *)(unsigned long)res->register_base,
+			res->register_size, res->irq);
 	if (!rc) {
 		dprintk(VIDC_ERR, "Core present/Already added\n");
 		rc = -EEXIST;
@@ -2859,29 +2854,30 @@ static int venus_hfi_init_regs_and_interrupts(
 		rc = -ENOMEM;
 		goto err_core_init;
 	}
-	hal->irq = device->irq;
-	hal->firmware_base_addr = device->firmware_base;
-	hal->register_base_addr = ioremap_nocache(device->register_base,
-			(unsigned long)device->register_size);
-	if (!hal->register_base_addr) {
+	hal->irq = res->irq;
+	hal->firmware_base = res->firmware_base;
+	hal->register_base = ioremap_nocache(res->register_base,
+			(unsigned long)res->register_size);
+	hal->register_size = res->register_size;
+	if (!hal->register_base) {
 		dprintk(VIDC_ERR,
 			"could not map reg addr 0x%pa of size %d\n",
-			&device->register_base, device->register_size);
+			&res->register_base, res->register_size);
 		goto error_irq_fail;
 	}
 
 	device->hal_data = hal;
-	rc = request_irq(device->irq, venus_hfi_isr, IRQF_TRIGGER_HIGH,
+	rc = request_irq(res->irq, venus_hfi_isr, IRQF_TRIGGER_HIGH,
 			"msm_vidc", device);
 	if (unlikely(rc)) {
 		dprintk(VIDC_ERR, "() :request_irq failed\n");
 		goto error_irq_fail;
 	}
-	disable_irq_nosync(device->irq);
+	disable_irq_nosync(res->irq);
 	dprintk(VIDC_INFO,
 		"firmware_base = 0x%pa, register_base = 0x%pa, register_size = %d\n",
-		&device->firmware_base, &device->register_base,
-		device->register_size);
+		&res->firmware_base, &res->register_base,
+		res->register_size);
 	return rc;
 
 error_irq_fail:
@@ -3707,29 +3703,29 @@ static int venus_hfi_get_fw_info(void *dev, enum fw_info info)
 
 	switch (info) {
 	case FW_BASE_ADDRESS:
-		rc = (u32)device->firmware_base;
-		if ((phys_addr_t)rc != device->firmware_base) {
+		rc = (u32)device->hal_data->firmware_base;
+		if ((phys_addr_t)rc != device->hal_data->firmware_base) {
 			dprintk(VIDC_INFO,
 				"%s: firmware_base (0x%pa) truncated to 0x%x",
-				__func__, &device->firmware_base, rc);
+				__func__, &device->hal_data->firmware_base, rc);
 		}
 		break;
 
 	case FW_REGISTER_BASE:
-		rc = (u32)device->register_base;
-		if ((phys_addr_t)rc != device->register_base) {
+		rc = (u32)device->res->register_base;
+		if ((phys_addr_t)rc != device->res->register_base) {
 			dprintk(VIDC_INFO,
 				"%s: register_base (0x%pa) truncated to 0x%x",
-				__func__, &device->register_base, rc);
+				__func__, &device->res->register_base, rc);
 		}
 		break;
 
 	case FW_REGISTER_SIZE:
-		rc = device->register_size;
+		rc = device->hal_data->register_size;
 		break;
 
 	case FW_IRQ:
-		rc = device->irq;
+		rc = device->hal_data->irq;
 		break;
 
 	default:
