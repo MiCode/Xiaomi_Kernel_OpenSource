@@ -232,6 +232,8 @@ Optional properties :
   turnaround timeout is observed on enabling streaming. Hence it is required
   to see these errors and number of erros on enabling this at USB level to make
   final decision to enable this feature or not.
+- qcom,android-usb-cdrom : if this property is present then device creates
+  a new LUN as CD-ROM.
 - qcom,android-usb-uicc-nluns : Number of mass storage LUNs (8 bits) required
   for the UICC card.
 Example Android USB device node :
