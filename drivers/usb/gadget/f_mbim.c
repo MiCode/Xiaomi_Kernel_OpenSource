@@ -1709,7 +1709,6 @@ static void mbim_unbind(struct usb_configuration *c, struct usb_function *f)
 	struct f_mbim	*mbim = func_to_mbim(f);
 
 	pr_debug("unbinding mbim\n");
-	bam_data_destroy(mbim->port_num);
 
 	if (gadget_is_superspeed(c->cdev->gadget))
 		usb_free_descriptors(f->ss_descriptors);
@@ -1722,6 +1721,7 @@ static void mbim_unbind(struct usb_configuration *c, struct usb_function *f)
 	usb_ep_free_request(mbim->not_port.notify, mbim->not_port.notify_req);
 
 	mbim_ext_config_desc.function.subCompatibleID[0] = 0;
+	bam_work_destroy();
 }
 
 /**
