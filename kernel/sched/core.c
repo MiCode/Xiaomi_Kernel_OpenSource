@@ -1344,10 +1344,10 @@ static void ttwu_activate(struct rq *rq, struct task_struct *p, int en_flags)
 __read_mostly unsigned int sched_ravg_window = 10000000;
 
 /* Min window size (in ns) = 10ms */
-__read_mostly unsigned int min_sched_ravg_window = 10000000;
+#define MIN_SCHED_RAVG_WINDOW 10000000
 
 /* Max window size (in ns) = 1s */
-__read_mostly unsigned int max_sched_ravg_window = 1000000000;
+#define MAX_SCHED_RAVG_WINDOW 1000000000
 
 #define WINDOW_STATS_USE_RECENT        0
 #define WINDOW_STATS_USE_MAX   1
@@ -1355,6 +1355,9 @@ __read_mostly unsigned int max_sched_ravg_window = 1000000000;
 
 __read_mostly unsigned int sysctl_sched_window_stats_policy =
 	WINDOW_STATS_USE_AVG;
+
+/* 1 -> use PELT based load stats, 0 -> use window-based load stats */
+unsigned int __read_mostly sched_use_pelt = 1;
 
 unsigned int max_possible_efficiency = 1024;
 unsigned int min_possible_efficiency = 1024;
@@ -1424,6 +1427,9 @@ static int __init set_sched_ravg_window(char *str)
 {
 	get_option(&str, &sched_ravg_window);
 
+	sched_use_pelt = (sched_ravg_window < MIN_SCHED_RAVG_WINDOW ||
+				sched_ravg_window > MAX_SCHED_RAVG_WINDOW);
+
 	return 0;
 }
 
@@ -1435,7 +1441,7 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int update_sum)
 	int new_window;
 	u64 wallclock = sched_clock();
 
-	if (is_idle_task(p) || (sched_ravg_window < min_sched_ravg_window))
+	if (is_idle_task(p) || sched_use_pelt)
 		return;
 
 	do {

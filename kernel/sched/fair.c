@@ -1231,12 +1231,18 @@ unsigned int __read_mostly sysctl_sched_init_task_load_pct = 100;
 
 static inline unsigned int task_load(struct task_struct *p)
 {
-	return p->se.avg.runnable_avg_sum_scaled;
+	if (sched_use_pelt)
+		return p->se.avg.runnable_avg_sum_scaled;
+
+	return p->ravg.demand;
 }
 
 static inline unsigned int max_task_load(void)
 {
-	return LOAD_AVG_MAX;
+	if (sched_use_pelt)
+		return LOAD_AVG_MAX;
+
+	return sched_ravg_window;
 }
 
 #endif /* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */

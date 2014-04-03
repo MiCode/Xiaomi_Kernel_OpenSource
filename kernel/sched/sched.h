@@ -674,6 +674,7 @@ extern void init_new_task_load(struct task_struct *p);
 #if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
 
 extern unsigned int sched_ravg_window;
+extern unsigned int sched_use_pelt;
 extern unsigned int max_possible_freq;
 extern unsigned int min_max_freq;
 extern unsigned int pct_task_load(struct task_struct *p);
@@ -693,13 +694,21 @@ extern unsigned int sched_init_task_load_windows;
 static inline void
 inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 {
-	rq->cumulative_runnable_avg += p->ravg.demand;
+	if (sched_use_pelt)
+		rq->cumulative_runnable_avg +=
+				p->se.avg.runnable_avg_sum_scaled;
+	else
+		rq->cumulative_runnable_avg += p->ravg.demand;
 }
 
 static inline void
 dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 {
-	rq->cumulative_runnable_avg -= p->ravg.demand;
+	if (sched_use_pelt)
+		rq->cumulative_runnable_avg -=
+				p->se.avg.runnable_avg_sum_scaled;
+	else
+		rq->cumulative_runnable_avg -= p->ravg.demand;
 	BUG_ON((s64)rq->cumulative_runnable_avg < 0);
 }
 
