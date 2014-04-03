@@ -1229,6 +1229,16 @@ struct i915_gem_mm {
 	unsigned long retire_work_timestamp;
 
 	/**
+	 * New scheme is to get an interrupt after every work packet
+	 * in order to allow the low latency scheduling of pending
+	 * packets. The idea behind adding new packets to a pending
+	 * queue rather than directly into the hardware ring buffer
+	 * is to allow high priority packets to over take low priority
+	 * ones.
+	 */
+	struct work_struct scheduler_work;
+
+	/**
 	 * When we detect an idle GPU, we want to turn on
 	 * powersaving features. So once we see that there
 	 * are no more requests outstanding and no more

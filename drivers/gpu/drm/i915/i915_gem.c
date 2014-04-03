@@ -5377,6 +5377,8 @@ i915_gem_load(struct drm_device *dev)
 			  i915_gem_retire_work_handler);
 	INIT_DELAYED_WORK(&dev_priv->mm.idle_work,
 			  i915_gem_idle_work_handler);
+	INIT_WORK(&dev_priv->mm.scheduler_work,
+				i915_gem_scheduler_work_handler);
 	init_waitqueue_head(&dev_priv->gpu_error.reset_queue);
 
 	/* On GEN3 we really need to make sure the ARB C3 LP bit is set */

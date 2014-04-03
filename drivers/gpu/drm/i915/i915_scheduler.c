@@ -407,12 +407,12 @@ int i915_scheduler_handle_irq(struct intel_engine_cs *ring)
 	i915_scheduler_seqno_complete(ring, seqno);
 	spin_unlock_irqrestore(&scheduler->lock, flags);
 
-	/* XXX: Need to also call i915_scheduler_remove() via work handler. */
+	queue_work(dev_priv->wq, &dev_priv->mm.scheduler_work);
 
 	return 0;
 }
 
-int i915_scheduler_remove(struct intel_engine_cs *ring)
+static int i915_scheduler_remove(struct intel_engine_cs *ring)
 {
 	struct drm_i915_private *dev_priv = ring->dev->dev_private;
 	struct i915_scheduler   *scheduler = dev_priv->scheduler;
@@ -536,6 +536,25 @@ int i915_scheduler_remove(struct intel_engine_cs *ring)
 	return ret;
 }
 
+void i915_gem_scheduler_work_handler(struct work_struct *work)
+{
+	struct intel_engine_cs  *ring;
+	struct drm_i915_private *dev_priv;
+	struct drm_device       *dev;
+	int                     i;
+
+	dev_priv = container_of(work, struct drm_i915_private, mm.scheduler_work);
+	dev = dev_priv->dev;
+
+	mutex_lock(&dev->struct_mutex);
+
+	for_each_ring(ring, dev_priv, i) {
+		i915_scheduler_remove(ring);
+	}
+
+	mutex_unlock(&dev->struct_mutex);
+}
+
 void i915_scheduler_priority_bump_clear(struct i915_scheduler *scheduler)
 {
 	struct i915_scheduler_queue_entry *node;
@@ -645,9 +664,11 @@ static void i915_scheduler_wait_fence_signaled(struct sync_fence *fence,
 					    i915_waiter->dev->dev_private : NULL;
 
 	/*
-	 * XXX: The callback is executed at interrupt time, thus it can not
-	 * call _submit() directly. It must go via a delayed work handler.
+	 * NB: The callback is executed at interrupt time, thus it can not
+	 * call _submit() directly. It must go via the delayed work handler.
 	 */
+	if (dev_priv)
+		queue_work(dev_priv->wq, &dev_priv->mm.scheduler_work);
 
 	kfree(waiter);
 }

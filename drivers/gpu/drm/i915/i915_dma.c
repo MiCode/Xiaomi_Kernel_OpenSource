@@ -1988,6 +1988,9 @@ int i915_driver_unload(struct drm_device *dev)
 	WARN_ON(unregister_oom_notifier(&dev_priv->mm.oom_notifier));
 	unregister_shrinker(&dev_priv->mm.shrinker);
 
+	/* Cancel the scheduler work handler, which should be idle now. */
+	cancel_work_sync(&dev_priv->mm.scheduler_work);
+
 	io_mapping_free(dev_priv->gtt.mappable);
 	arch_phys_wc_del(dev_priv->gtt.mtrr);
 
