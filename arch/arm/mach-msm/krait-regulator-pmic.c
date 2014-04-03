@@ -61,6 +61,7 @@
 #define GANG_EN_BIT		BIT(7)
 
 #define REG_PWM_CL		0x60
+#define REG_SEC_ACCESS		0xD0
 
 struct krait_vreg_pmic_chip {
 	struct spmi_device	*spmi;
@@ -115,6 +116,29 @@ static int write_byte(struct spmi_device *spmi, u16 addr, u8 *val)
 	int rc;
 
 	rc = spmi_ext_register_writel(spmi->ctrl, spmi->sid, addr, val, 1);
+	if (rc) {
+		pr_err("SPMI write failed [%d,0x%04x] val = 0x%02x rc=%d\n",
+						spmi->sid, addr, *val, rc);
+		return rc;
+	}
+	return 0;
+}
+
+static int write_secure_byte(struct spmi_device *spmi, u16 base,
+							u16 addr, u8 *val)
+{
+	int rc;
+	u8 sec_val = 0xA5;
+
+	rc = spmi_ext_register_writel(spmi->ctrl, spmi->sid,
+					base + REG_SEC_ACCESS, &sec_val, 1);
+	if (rc) {
+		pr_err("SPMI write failed [%d,0x%04x] val = 0x%02x rc=%d\n",
+				spmi->sid, base + REG_SEC_ACCESS, sec_val, rc);
+		return rc;
+	}
+	rc = spmi_ext_register_writel(spmi->ctrl, spmi->sid,
+					base + addr, val, 1);
 	if (rc) {
 		pr_err("SPMI write failed [%d,0x%04x] val = 0x%02x rc=%d\n",
 						spmi->sid, addr, *val, rc);
@@ -234,8 +258,8 @@ int krait_pmic_post_pfm_entry(void)
 		return 0;
 
 	setpoint = (I_PFM_MA - IOFFSET_MA) / ISTEP_MA;
-	rc = write_byte(the_chip->spmi,
-			the_chip->ps_base + REG_PWM_CL, &setpoint);
+	rc = write_secure_byte(the_chip->spmi,
+			the_chip->ps_base, REG_PWM_CL, &setpoint);
 	pr_debug("wrote 0x%02x->[%d 0x%04x] rc = %d\n", setpoint,
 			the_chip->spmi->sid,
 			the_chip->ps_base + REG_PWM_CL, rc);
@@ -267,8 +291,8 @@ int krait_pmic_post_pwm_entry(void)
 	udelay(50);
 	setpoint = (I_PWM_MA - IOFFSET_MA) / ISTEP_MA;
 
-	rc = write_byte(the_chip->spmi,
-			the_chip->ps_base + REG_PWM_CL, &setpoint);
+	rc = write_secure_byte(the_chip->spmi,
+			the_chip->ps_base, REG_PWM_CL, &setpoint);
 	pr_debug("wrote 0x%02x->[%d 0x%04x] rc = %d\n", setpoint,
 			the_chip->spmi->sid,
 			the_chip->ps_base + REG_PWM_CL, rc);
