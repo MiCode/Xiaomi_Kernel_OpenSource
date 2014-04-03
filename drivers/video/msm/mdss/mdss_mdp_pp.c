@@ -5109,6 +5109,8 @@ static int is_valid_calib_addr(void *addr, u32 operation)
 
 	if ((uintptr_t) addr % 4) {
 		ret = 0;
+	} else if (ptr == mdss_res->mdss_base + MDSS_REG_HW_VERSION) {
+		ret = MDP_PP_OPS_READ;
 	} else if (ptr == (mdss_res->mdp_base + MDSS_MDP_REG_HW_VERSION) ||
 	    ptr == (mdss_res->mdp_base + MDSS_MDP_REG_DISP_INTF_SEL)) {
 		ret = MDP_PP_OPS_READ;
@@ -5163,7 +5165,7 @@ int mdss_mdp_calib_config(struct mdp_calib_config_data *cfg, u32 *copyback)
 
 	/* Calib addrs are always offsets from the MDSS base */
 	ptr = (void *)((unsigned int) cfg->addr) +
-		((uintptr_t) mdss_res->mdp_base);
+		((uintptr_t) mdss_res->mdss_base);
 	if (is_valid_calib_addr(ptr, cfg->ops))
 		ret = 0;
 	else
