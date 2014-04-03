@@ -18,6 +18,7 @@
 #include <linux/types.h>
 #include <linux/acpi.h>
 #include <linux/thermal.h>
+#include <linux/platform_device.h>
 
 #define INT3403_TYPE_SENSOR		0x03
 #define INT3403_PERF_CHANGED_EVENT	0x80
@@ -126,8 +127,10 @@ static struct thermal_zone_device_ops tzone_ops = {
 	.get_trip_hyst =  sys_get_trip_hyst,
 };
 
-static void acpi_thermal_notify(struct acpi_device *device, u32 event)
+static void acpi_thermal_notify(acpi_handle handle,
+		u32 event, void *data)
 {
+	struct acpi_device *device = data;
 	struct int3403_sensor *obj;
 
 	if (!device)
@@ -149,8 +152,9 @@ static void acpi_thermal_notify(struct acpi_device *device, u32 event)
 	}
 }
 
-static int acpi_int3403_add(struct acpi_device *device)
+static int acpi_int3403_add(struct platform_device *pdev)
 {
+	struct acpi_device *device = ACPI_COMPANION(&(pdev->dev));
 	int result = 0;
 	unsigned long long ptyp;
 	acpi_status status;
@@ -184,26 +188,41 @@ static int acpi_int3403_add(struct acpi_device *device)
 		obj->thresholds = devm_kzalloc(&device->dev,
 					sizeof(*obj->thresholds) * trip_cnt,
 					GFP_KERNEL);
-		if (!obj->thresholds)
-			return -ENOMEM;
+		if (!obj->thresholds) {
+			result = -ENOMEM;
+			goto err_free_obj;
+		}
 		trip_mask = BIT(trip_cnt) - 1;
 	}
+
 	obj->tzone = thermal_zone_device_register(acpi_device_bid(device),
 				trip_cnt, trip_mask, device, &tzone_ops,
 				NULL, 0, 0);
 	if (IS_ERR(obj->tzone)) {
 		result = PTR_ERR(obj->tzone);
-		return result;
+		obj->tzone = NULL;
+		goto err_free_obj;
 	}
 
-	strcpy(acpi_device_name(device), "INT3403");
-	strcpy(acpi_device_class(device), ACPI_INT3403_CLASS);
+	result = acpi_install_notify_handler(device->handle,
+			ACPI_DEVICE_NOTIFY, acpi_thermal_notify,
+			(void *)device);
+	if (result)
+		goto err_free_obj;
 
 	return 0;
+
+ err_free_obj:
+	if (obj->tzone)
+		thermal_zone_device_unregister(obj->tzone);
+	kfree(obj->thresholds);
+	kfree(obj);
+	return result;
 }
 
-static int acpi_int3403_remove(struct acpi_device *device)
+static int acpi_int3403_remove(struct platform_device *pdev)
 {
+	struct acpi_device *device = ACPI_COMPANION(&pdev->dev);
 	struct int3403_sensor *obj;
 
 	obj = acpi_driver_data(device);
@@ -219,18 +238,17 @@ static const struct acpi_device_id int3403_device_ids[] = {
 };
 MODULE_DEVICE_TABLE(acpi, int3403_device_ids);
 
-static struct acpi_driver acpi_int3403_driver = {
-	.name = "INT3403",
-	.class = ACPI_INT3403_CLASS,
-	.ids = int3403_device_ids,
-	.ops = {
-		.add = acpi_int3403_add,
-		.remove = acpi_int3403_remove,
-		.notify = acpi_thermal_notify,
-		},
+static struct platform_driver acpi_int3403_driver = {
+	.probe = acpi_int3403_add,
+	.remove = acpi_int3403_remove,
+	.driver = {
+		.name = "INT3403",
+		.owner  = THIS_MODULE,
+		.acpi_match_table = int3403_device_ids,
+	},
 };
 
-module_acpi_driver(acpi_int3403_driver);
+module_platform_driver(acpi_int3403_driver);
 
 MODULE_AUTHOR("Srinivas Pandruvada <srinivas.pandruvada@linux.intel.com>");
 MODULE_LICENSE("GPL v2");
