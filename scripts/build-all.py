@@ -36,6 +36,8 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
+import Queue
 
 version = 'build-all.py, version 1.99'
 
@@ -72,7 +74,15 @@ def check_build():
             else:
                 raise
 
+def build_threads():
+    """Determine the number of build threads requested by the user"""
+    if all_options.load_average:
+        return all_options.load_average
+    return all_options.jobs or 1
+
 failed_targets = []
+
+BuildResult = namedtuple('BuildResult', ['status', 'messages'])
 
 class BuildSequence(namedtuple('BuildSequence', ['log_name', 'short_name', 'steps'])):
 
@@ -80,23 +90,25 @@ class BuildSequence(namedtuple('BuildSequence', ['log_name', 'short_name', 'step
         self.width = width
 
     def __enter__(self):
-        print "Building:", self.short_name
         self.log = open(self.log_name, 'w')
     def __exit__(self, type, value, traceback):
         self.log.close()
 
     def run(self):
         self.status = None
+        messages = ["Building: " + self.short_name]
         def printer(line):
             text = "[%-*s] %s" % (self.width, self.short_name, line)
-            print text
+            messages.append(text)
             self.log.write(text)
             self.log.write('\n')
         for step in self.steps:
             st = step.run(printer)
             if st:
-                self.status = st
+                self.status = BuildResult(self.short_name, messages)
                 break
+        if not self.status:
+            self.status = BuildResult(None, messages)
 
 class BuildTracker:
     """Manages all of the steps necessary to perform a build.  The
@@ -106,6 +118,7 @@ class BuildTracker:
 
     def __init__(self):
         self.sequence = []
+        self.lock = threading.Lock()
 
     def add_sequence(self, log_name, short_name, steps):
         self.sequence.append(BuildSequence(log_name, short_name, steps))
@@ -119,15 +132,41 @@ class BuildTracker:
     def __repr__(self):
         return "BuildTracker(%s)" % self.sequence
 
+    def run_child(self, seq):
+        seq.set_width(self.longest)
+        tok = self.build_tokens.get()
+        with self.lock:
+            print "Building:", seq.short_name
+        with seq:
+            seq.run()
+            self.results.put(seq.status)
+        self.build_tokens.put(tok)
+
     def run(self):
-        longest = self.longest_name()
+        self.longest = self.longest_name()
+        self.results = Queue.Queue()
+        children = []
         errors = []
+        self.build_tokens = Queue.Queue()
+        nthreads = build_threads()
+        print "Building with", nthreads, "threads"
+        for i in range(nthreads):
+            self.build_tokens.put(True)
         for seq in self.sequence:
-            seq.set_width(longest)
-            with seq:
-                seq.run()
-                if seq.status:
-                    errors.append(seq.short_name)
+            child = threading.Thread(target=self.run_child, args=[seq])
+            children.append(child)
+            child.start()
+        for child in children:
+            stats = self.results.get()
+            if all_options.verbose:
+                with self.lock:
+                    for line in stats.messages:
+                        print line
+                    sys.stdout.flush()
+            if stats.status:
+                errors.append(stats.status)
+        for child in children:
+            child.join()
         if errors:
             fail("\n  ".join(["Failed targets:"] + errors))
 
@@ -174,7 +213,6 @@ class ExecStep:
         outp("exec: %s" % (" ".join(self.cmd),))
         with open('/dev/null', 'r') as devnull:
             proc = subprocess.Popen(self.cmd, stdin=devnull,
-                    bufsize=0,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     **self.kwargs)
@@ -288,6 +326,14 @@ def scan_configs():
 
 def build_many(targets):
     print "Building %d target(s)" % len(targets)
+
+    # If we are requesting multiple builds, divide down the job number
+    # to construct the make_command, giving it a floor of 2, so there
+    # is still some parallelism.
+    if all_options.jobs and all_options.jobs > 1:
+        j = max(all_options.jobs / len(targets), 2)
+        make_command.append("-j" + str(j))
+
     tracker = BuildTracker()
     for target in targets:
         if all_options.updateconfigs:
@@ -352,11 +398,6 @@ def main():
         make_command = ["oldconfig"]
     elif options.make_target:
         make_command = options.make_target
-
-    if options.jobs:
-        make_command.append("-j%d" % options.jobs)
-    if options.load_average:
-        make_command.append("-l%d" % options.load_average)
 
     if args == ['all']:
         build_many(configs)
