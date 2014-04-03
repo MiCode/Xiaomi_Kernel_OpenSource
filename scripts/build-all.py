@@ -28,6 +28,7 @@
 
 # Build the kernel for all targets using the Android build environment.
 
+from collections import namedtuple
 import glob
 from optparse import OptionParser
 import os
@@ -73,44 +74,122 @@ def check_build():
 
 failed_targets = []
 
-class LogRunner:
-    def __init__(self, logname, make_env):
-        self.logname = logname
-        self.fd = open(logname, 'w')
-        self.make_env = make_env
+class BuildSequence(namedtuple('BuildSequence', ['log_name', 'short_name', 'steps'])):
 
-    def run(self, args):
-        devnull = open('/dev/null', 'r')
-        proc = subprocess.Popen(args, stdin=devnull,
-                env=self.make_env,
-                bufsize=0,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT)
-        count = 0
-        # for line in proc.stdout:
-        rawfd = proc.stdout.fileno()
-        while True:
-            line = os.read(rawfd, 1024)
-            if not line:
+    def set_width(self, width):
+        self.width = width
+
+    def __enter__(self):
+        print "Building:", self.short_name
+        self.log = open(self.log_name, 'w')
+    def __exit__(self, type, value, traceback):
+        self.log.close()
+
+    def run(self):
+        self.status = None
+        def printer(line):
+            text = "[%-*s] %s" % (self.width, self.short_name, line)
+            print text
+            self.log.write(text)
+            self.log.write('\n')
+        for step in self.steps:
+            st = step.run(printer)
+            if st:
+                self.status = st
                 break
-            self.fd.write(line)
-            self.fd.flush()
-            if all_options.verbose:
-                sys.stdout.write(line)
-                sys.stdout.flush()
-            else:
-                for i in range(line.count('\n')):
-                    count += 1
-                    if count == 64:
-                        count = 0
-                        print
-                    sys.stdout.write('.')
-                sys.stdout.flush()
-        print
-        result = proc.wait()
 
-        self.fd.flush()
-        return result
+class BuildTracker:
+    """Manages all of the steps necessary to perform a build.  The
+    build consists of one or more sequences of steps.  The different
+    sequences can be processed independently, while the steps within a
+    sequence must be done in order."""
+
+    def __init__(self):
+        self.sequence = []
+
+    def add_sequence(self, log_name, short_name, steps):
+        self.sequence.append(BuildSequence(log_name, short_name, steps))
+
+    def longest_name(self):
+        longest = 0
+        for seq in self.sequence:
+            longest = max(longest, len(seq.short_name))
+        return longest
+
+    def __repr__(self):
+        return "BuildTracker(%s)" % self.sequence
+
+    def run(self):
+        longest = self.longest_name()
+        errors = []
+        for seq in self.sequence:
+            seq.set_width(longest)
+            with seq:
+                seq.run()
+                if seq.status:
+                    errors.append(seq.short_name)
+        if errors:
+            fail("\n  ".join(["Failed targets:"] + errors))
+
+class PrintStep:
+    """A step that just prints a message"""
+    def __init__(self, message):
+        self.message = message
+
+    def run(self, outp):
+        outp(self.message)
+
+class MkdirStep:
+    """A step that makes a directory"""
+    def __init__(self, direc):
+        self.direc = direc
+
+    def run(self, outp):
+        outp("mkdir %s" % self.direc)
+        os.mkdir(self.direc)
+
+class RmtreeStep:
+    def __init__(self, direc):
+        self.direc = direc
+
+    def run(self, outp):
+        outp("rmtree %s" % self.direc)
+        shutil.rmtree(self.direc, ignore_errors=True)
+
+class CopyfileStep:
+    def __init__(self, src, dest):
+        self.src = src
+        self.dest = dest
+
+    def run(self, outp):
+        outp("cp %s %s" % (self.src, self.dest))
+        shutil.copyfile(self.src, self.dest)
+
+class ExecStep:
+    def __init__(self, cmd, **kwargs):
+        self.cmd = cmd
+        self.kwargs = kwargs
+
+    def run(self, outp):
+        outp("exec: %s" % (" ".join(self.cmd),))
+        with open('/dev/null', 'r') as devnull:
+            proc = subprocess.Popen(self.cmd, stdin=devnull,
+                    bufsize=0,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    **self.kwargs)
+            stdout = proc.stdout
+            while True:
+                line = stdout.readline()
+                if not line:
+                    break
+                line = line.rstrip('\n')
+                outp(line)
+            result = proc.wait()
+            if result != 0:
+                return ('error', result)
+            else:
+                return None
 
 class Builder():
 
@@ -132,27 +211,27 @@ class Builder():
         else:
             self.make_env['ARCH'] = 'arm'
         self.make_env['KCONFIG_NOTIMESTAMP'] = 'true'
+        self.log_name = "%s/log-%s.log" % (build_dir, self.name)
 
     def build(self):
+        steps = []
         dest_dir = os.path.join(build_dir, self.name)
         log_name = "%s/log-%s.log" % (build_dir, self.name)
-        print 'Building %s in %s log %s' % (self.name, dest_dir, log_name)
+        steps.append(PrintStep('Building %s in %s log %s' %
+            (self.name, dest_dir, log_name)))
         if not os.path.isdir(dest_dir):
-            os.mkdir(dest_dir)
+            steps.append(MkdirStep(dest_dir))
         defconfig = self.defconfig
         dotconfig = '%s/.config' % dest_dir
         savedefconfig = '%s/defconfig' % dest_dir
-        # shutil.copyfile(defconfig, dotconfig)  # Not really right.
 
         staging_dir = 'install_staging'
         modi_dir = '%s' % staging_dir
         hdri_dir = '%s/usr' % staging_dir
-        shutil.rmtree(os.path.join(dest_dir, staging_dir), ignore_errors=True)
+        steps.append(RmtreeStep(os.path.join(dest_dir, staging_dir)))
 
-        with open('/dev/null', 'r') as devnull:
-            subprocess.check_call(['make', 'O=%s' % dest_dir,
-                self.confname], env=self.make_env,
-                stdin=devnull)
+        steps.append(ExecStep(['make', 'O=%s' % dest_dir,
+            self.confname], env=self.make_env))
 
         if not all_options.updateconfigs:
             # Build targets can be dependent upon the completion of
@@ -167,24 +246,16 @@ class Builder():
                     cmd_line.append(c)
                 else:
                     build_targets.append(c)
-            build = LogRunner(log_name, self.make_env)
             for t in build_targets:
-                result = build.run(cmd_line + [t])
-                if result != 0:
-                    if all_options.keep_going:
-                        failed_targets.append(target)
-                        fail_or_error = error
-                    else:
-                        fail_or_error = fail
-                    fail_or_error("Failed to build %s, see %s" %
-                            (t, build.logname))
+                steps.append(ExecStep(cmd_line + [t], env=self.make_env))
 
         # Copy the defconfig back.
         if all_options.configs or all_options.updateconfigs:
-            with open('/dev/null', 'r') as devnull:
-                subprocess.check_call(['make', 'O=%s' % dest_dir,
-                    'savedefconfig'], env=self.make_env, stdin=devnull)
-            shutil.copyfile(savedefconfig, defconfig)
+            steps.append(ExecStep(['make', 'O=%s' % dest_dir,
+                'savedefconfig'], env=self.make_env))
+            steps.append(CopyfileStep(savedefconfig, defconfig))
+
+        return steps
 
 def update_config(file, str):
     print 'Updating %s with \'%s\'\n' % (file, str)
@@ -217,13 +288,13 @@ def scan_configs():
 
 def build_many(targets):
     print "Building %d target(s)" % len(targets)
+    tracker = BuildTracker()
     for target in targets:
         if all_options.updateconfigs:
             update_config(target.defconfig, all_options.updateconfigs)
-        target.build()
-    if failed_targets:
-        fail("\n  ".join(["Failed targets:"] +
-            [target.name for target in failed_targets]))
+        steps = target.build()
+        tracker.add_sequence(target.log_name, target.name, steps)
+    tracker.run()
 
 def main():
     global make_command
