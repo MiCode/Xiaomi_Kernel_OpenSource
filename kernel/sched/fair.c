@@ -1661,6 +1661,33 @@ static inline int find_new_hmp_ilb(int call_cpu)
 }
 
 /*
+ * For the current task's CPU, we don't check whether there are
+ * multiple tasks. Just see if running the task on another CPU is
+ * lower power than running only this task on the current CPU. This is
+ * not the most accurate model, but we should be load balanced most of
+ * the time anyway. */
+static int lower_power_cpu_available(struct task_struct *p, int cpu)
+{
+	int i;
+	int lowest_power_cpu = task_cpu(p);
+	int lowest_power = power_cost(p, task_cpu(p));
+
+	/* Is a lower-powered idle CPU available which will fit this task? */
+	for_each_cpu_and(i, tsk_cpus_allowed(p), cpu_online_mask) {
+		if (idle_cpu(i) && task_will_fit(p, i)) {
+			int idle_power_cost = power_cost(p, i);
+			if (idle_power_cost < lowest_power) {
+				lowest_power_cpu = i;
+				lowest_power = idle_power_cost;
+			}
+		}
+	}
+
+	return (lowest_power_cpu != task_cpu(p));
+}
+
+
+/*
  * Check if a task is on the "wrong" cpu (i.e its current cpu is not the ideal
  * cpu as per its demand or priority)
  */
@@ -1673,7 +1700,14 @@ static inline int migration_needed(struct rq *rq, struct task_struct *p)
 		rq->capacity > min_capacity)
 			return 1;
 
-	return !task_will_fit(p, cpu_of(rq));
+	if (!task_will_fit(p, cpu_of(rq)))
+		return 1;
+
+	if (sysctl_sched_enable_power_aware &&
+	    lower_power_cpu_available(p, cpu_of(rq)))
+		return 1;
+
+	return 0;
 }
 
 /*
