@@ -2031,6 +2031,50 @@ void msm_bam_hsic_host_notify_on_resume(void)
 	_msm_bam_host_notify_on_resume(HSIC_CTRL);
 }
 
+static int usb_bam_set_ipa_perf(enum usb_ctrl cur_bam,
+			      enum usb_bam_pipe_dir dir,
+			      enum usb_device_speed usb_connection_speed)
+{
+	int ret;
+	struct ipa_rm_perf_profile ipa_rm_perf_prof;
+	struct msm_usb_bam_platform_data *pdata =
+					ctx.usb_bam_pdev->dev.platform_data;
+
+	if (usb_connection_speed == USB_SPEED_SUPER)
+		ipa_rm_perf_prof.max_supported_bandwidth_mbps =
+			pdata->max_mbps_superspeed;
+	else
+		/* Bam2Bam is supported only for SS and HS (HW limitation) */
+		ipa_rm_perf_prof.max_supported_bandwidth_mbps =
+			pdata->max_mbps_highspeed;
+
+	/*
+	 * Having a max mbps property in dtsi file is a must
+	 * for target with IPA capability.
+	 */
+	if (!ipa_rm_perf_prof.max_supported_bandwidth_mbps) {
+		pr_err("%s: Max mbps is required for speed %d\n", __func__,
+			usb_connection_speed);
+		return -EINVAL;
+	}
+
+	if (dir == USB_TO_PEER_PERIPHERAL) {
+		pr_debug("%s: vote ipa_perf resource=%d perf=%d mbps\n",
+			__func__, ipa_rm_resource_prod[cur_bam],
+			ipa_rm_perf_prof.max_supported_bandwidth_mbps);
+		ret = ipa_rm_set_perf_profile(ipa_rm_resource_prod[cur_bam],
+					&ipa_rm_perf_prof);
+	} else {
+		pr_debug("%s: vote ipa_perf resource=%d perf=%d mbps\n",
+			__func__, ipa_rm_resource_cons[cur_bam],
+			ipa_rm_perf_prof.max_supported_bandwidth_mbps);
+		ret = ipa_rm_set_perf_profile(ipa_rm_resource_cons[cur_bam],
+					&ipa_rm_perf_prof);
+	}
+
+	return ret;
+}
+
 int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 {
 	u8 idx;
@@ -2061,13 +2105,6 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 		return -EINVAL;
 	}
 	pipe_connect = &usb_bam_connections[idx];
-	cur_bam = pipe_connect->bam_type;
-	cur_mode = pipe_connect->bam_mode;
-	bam2bam = (pdata->connections[idx].pipe_type ==
-			USB_BAM_PIPE_BAM2BAM);
-
-	/* Set the BAM mode (host/device) according to connected pipe */
-	info[cur_bam].cur_bam_mode = pipe_connect->bam_mode;
 
 	if (pipe_connect->enabled) {
 		pr_err("%s: connection %d was already established\n",
@@ -2075,7 +2112,23 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 		return 0;
 	}
 
+	ret = usb_bam_set_ipa_perf(pipe_connect->bam_type, ipa_params->dir,
+			     ipa_params->usb_connection_speed);
+	if (ret) {
+		pr_err("%s: call to usb_bam_set_ipa_perf failed %d\n",
+			__func__, ret);
+		return ret;
+	}
+
 	pr_debug("%s: enter", __func__);
+
+	cur_bam = pipe_connect->bam_type;
+	cur_mode = pipe_connect->bam_mode;
+	bam2bam = (pdata->connections[idx].pipe_type ==
+			USB_BAM_PIPE_BAM2BAM);
+
+	/* Set the BAM mode (host/device) according to connected pipe */
+	info[cur_bam].cur_bam_mode = pipe_connect->bam_mode;
 
 	if (cur_mode == USB_BAM_DEVICE) {
 		mutex_lock(&info[cur_bam].suspend_resume_mutex);
@@ -2799,6 +2852,16 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 		pr_err("Invalid usb bam num pipes property\n");
 		return NULL;
 	}
+
+	rc = of_property_read_u32(node, "qcom,usb-bam-max-mbps-highspeed",
+		&pdata->max_mbps_highspeed);
+	if (rc)
+		pdata->max_mbps_highspeed = 0;
+
+	rc = of_property_read_u32(node, "qcom,usb-bam-max-mbps-superspeed",
+		&pdata->max_mbps_superspeed);
+	if (rc)
+		pdata->max_mbps_superspeed = 0;
 
 	rc = of_property_read_u32(node, "qcom,usb-bam-fifo-baseaddr",
 			&addr);

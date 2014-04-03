@@ -659,7 +659,7 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	struct teth_bridge_init_params teth_bridge_params;
 	struct bam_data_ch_info *d = &port->data_ch;
 	struct data_port	*d_port = port->port_usb;
-	struct usb_gadget	*gadget = d_port->cdev->gadget;
+	struct usb_gadget	*gadget = NULL;
 	u32			sps_params;
 	int			ret;
 	unsigned long		flags;
@@ -668,6 +668,14 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 
 	if (port->is_connected) {
 		pr_info("%s: Already connected. Bailing out.\n", __func__);
+		return;
+	}
+
+	if (d_port && d_port->cdev)
+		gadget = d_port->cdev->gadget;
+
+	if (!gadget) {
+		pr_err("%s: NULL gadget\n", __func__);
 		return;
 	}
 
@@ -710,6 +718,8 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	d->tx_req->no_interrupt = 1;
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+
+		d->ipa_params.usb_connection_speed = gadget->speed;
 
 		if (d->dst_pipe_type != USB_BAM_PIPE_BAM2BAM) {
 			pr_err("%s: no software preparation for DL not using bam2bam\n",
