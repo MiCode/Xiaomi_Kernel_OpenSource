@@ -71,6 +71,7 @@
 #define BATT_PRES_MASK				BIT(7)
 #define BAT_IF_TEMP_STATUS_REG			0x09
 #define BATT_TEMP_HOT_MASK			BIT(6)
+#define BATT_TEMP_COLD_MASK			LBC_MASK(7, 6)
 #define BATT_TEMP_OK_MASK			BIT(7)
 #define BAT_IF_VREF_BAT_THM_CTRL_REG		0x4A
 #define VREF_BATT_THERM_FORCE_ON		LBC_MASK(7, 6)
@@ -798,12 +799,16 @@ static int get_prop_batt_health(struct qpnp_lbc_chip *chip)
 		return POWER_SUPPLY_HEALTH_UNKNOWN;
 	}
 
-	if (BATT_TEMP_OK_MASK & reg_val)
-		return POWER_SUPPLY_HEALTH_GOOD;
 	if (BATT_TEMP_HOT_MASK & reg_val)
 		return POWER_SUPPLY_HEALTH_OVERHEAT;
-	else
+	if (!(BATT_TEMP_COLD_MASK & reg_val))
 		return POWER_SUPPLY_HEALTH_COLD;
+	if (chip->bat_is_cool)
+		return POWER_SUPPLY_HEALTH_COOL;
+	if (chip->bat_is_warm)
+		return POWER_SUPPLY_HEALTH_WARM;
+
+	return POWER_SUPPLY_HEALTH_GOOD;
 }
 
 static int get_prop_charge_type(struct qpnp_lbc_chip *chip)
