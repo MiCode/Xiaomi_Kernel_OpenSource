@@ -1148,6 +1148,19 @@ static void subsys_char_device_remove(struct subsys_device *subsys_dev)
 	unregister_chrdev_region(subsys_dev->dev_no, 1);
 }
 
+static void subsys_remove_restart_order(struct device_node *device)
+{
+	struct subsys_soc_restart_order *order;
+	int i;
+
+	mutex_lock(&ssr_order_mutex);
+	list_for_each_entry(order, &ssr_order_list, list)
+		for (i = 0; i < order->count; i++)
+			if (order->device_ptrs[i] == device)
+				order->subsys_ptrs[i] = NULL;
+	mutex_unlock(&ssr_order_mutex);
+}
+
 static struct subsys_soc_restart_order *ssr_parse_restart_orders(struct
 							subsys_desc * desc)
 {
@@ -1452,6 +1465,7 @@ EXPORT_SYMBOL(subsys_register);
 void subsys_unregister(struct subsys_device *subsys)
 {
 	struct subsys_device *subsys_dev, *tmp;
+	struct device_node *device = subsys->desc->dev->of_node;
 
 	if (IS_ERR_OR_NULL(subsys))
 		return;
@@ -1462,6 +1476,9 @@ void subsys_unregister(struct subsys_device *subsys)
 			if (subsys_dev == subsys)
 				list_del(&subsys->list);
 		mutex_unlock(&subsys_list_lock);
+
+		if (device)
+			subsys_remove_restart_order(device);
 		mutex_lock(&subsys->track.lock);
 		WARN_ON(subsys->count);
 		device_unregister(&subsys->dev);
