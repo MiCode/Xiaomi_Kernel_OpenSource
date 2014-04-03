@@ -9,7 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#define pr_fmt(fmt) "%s: " fmt, __func__
+#define pr_fmt(fmt) "SMB:%s: " fmt, __func__
 
 #include <linux/i2c.h>
 #include <linux/debugfs.h>
@@ -146,10 +146,11 @@
 
 #define IRQ_D_REG			0x53
 #define IRQ_E_REG			0x54
+#define IRQ_E_USBIN_UV_BIT		BIT(0)
+
 #define IRQ_F_REG			0x55
 
 #define IRQ_G_REG			0x56
-#define IRQ_G_USBIN_UV_BIT		BIT(0)
 
 #define IRQ_H_REG			0x57
 #define IRQ_I_REG			0x58
@@ -1674,12 +1675,12 @@ static int determine_initial_status(struct smb1360_chip *chip)
 	if (reg & IRQ_A_COLD_SOFT_BIT)
 		chip->batt_cool = true;
 
-	rc = smb1360_read(chip, IRQ_G_REG, &reg);
+	rc = smb1360_read(chip, IRQ_E_REG, &reg);
 	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't read irq G rc = %d\n", rc);
+		dev_err(chip->dev, "Couldn't read irq E rc = %d\n", rc);
 		return rc;
 	}
-	chip->usb_present = (reg & IRQ_G_USBIN_UV_BIT) ? false : true;
+	chip->usb_present = (reg & IRQ_E_USBIN_UV_BIT) ? false : true;
 	power_supply_set_present(chip->usb_psy, chip->usb_present);
 
 	return 0;
