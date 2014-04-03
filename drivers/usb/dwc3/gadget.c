@@ -1522,7 +1522,6 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
 	int			ret = 0;
 
 	u8			link_state;
-	u8			speed;
 
 	spin_lock_irqsave(&dwc->lock, flags);
 
@@ -1533,13 +1532,6 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
 	 * We can check that via USB Link State bits in DSTS register.
 	 */
 	reg = dwc3_readl(dwc->regs, DWC3_DSTS);
-
-	speed = reg & DWC3_DSTS_CONNECTSPD;
-	if (speed == DWC3_DSTS_SUPERSPEED) {
-		dev_dbg(dwc->dev, "no wakeup on SuperSpeed\n");
-		ret = -EINVAL;
-		goto out;
-	}
 
 	link_state = DWC3_DSTS_USBLNKST(reg);
 
