@@ -185,6 +185,8 @@ Optional properties:
 					horizontal back porch (HBP) blanking period.
 - qcom,mdss-dsi-hsa-power-mode:		Boolean to determine DSI lane state during
 					horizontal sync active (HSA) mode.
+- qcom,mdss-dsi-last-line-interleave	Boolean to determine if last line
+					interleave flag needs to be enabled.
 - qcom,mdss-dsi-bllp-eof-power-mode:	Boolean to determine DSI lane state during
 					blanking low power period (BLLP) EOF mode.
 - qcom,mdss-dsi-bllp-power-mode:	Boolean to determine DSI lane state during
@@ -362,6 +364,7 @@ Example:
 		qcom,mdss-dsi-hsa-power-mode;
 		qcom,mdss-dsi-bllp-eof-power-mode;
 		qcom,mdss-dsi-bllp-power-mode;
+		qcom,mdss-dsi-last-line-interleave;
 		qcom,mdss-dsi-traffic-mode = <0>;
 		qcom,mdss-dsi-virtual-channel-id = <0>;
 		qcom,mdss-dsi-color-order = <0>;
