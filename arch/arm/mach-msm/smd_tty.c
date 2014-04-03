@@ -28,6 +28,7 @@
 #include <linux/tty.h>
 #include <linux/tty_driver.h>
 #include <linux/tty_flip.h>
+#include <linux/suspend.h>
 
 #include <mach/msm_smd.h>
 #include <mach/subsystem_restart.h>
@@ -40,6 +41,7 @@
 #define MAX_SMD_TTYS 37
 #define MAX_TTY_BUF_SIZE 2048
 #define TTY_PUSH_WS_DELAY 500
+#define TTY_PUSH_WS_POST_SUSPEND_DELAY 100
 #define MAX_RA_WAKE_LOCK_NAME_LEN 32
 #define SMD_TTY_PROBE_WAIT_TIMEOUT 3000
 #define SMD_TTY_LOG_PAGES 2
@@ -62,6 +64,10 @@ static void *smd_tty_log_ctx;
 
 static struct delayed_work smd_tty_probe_work;
 static int smd_tty_probe_done;
+
+static bool smd_tty_in_suspend;
+static bool smd_tty_read_in_suspend;
+static struct wakeup_source read_in_suspend_ws;
 
 /**
  * struct smd_tty_info - context for an individual SMD TTY device
@@ -296,6 +302,9 @@ static void smd_tty_read(unsigned long param)
 		 * userspace clients.
 		 */
 		__pm_wakeup_event(&info->pending_ws, TTY_PUSH_WS_DELAY);
+
+		 if (smd_tty_in_suspend)
+			smd_tty_read_in_suspend = true;
 
 		tty_flip_buffer_push(tty);
 	}
@@ -696,6 +705,32 @@ static int smd_tty_dummy_probe(struct platform_device *pdev)
 	return -ENODEV;
 }
 
+static int smd_tty_pm_notifier(struct notifier_block *nb,
+				unsigned long event, void *unused)
+{
+	switch (event) {
+	case PM_SUSPEND_PREPARE:
+		smd_tty_read_in_suspend = false;
+		smd_tty_in_suspend = true;
+	break;
+
+	case PM_POST_SUSPEND:
+		smd_tty_in_suspend = false;
+		if (smd_tty_read_in_suspend) {
+			smd_tty_read_in_suspend = false;
+			__pm_wakeup_event(&read_in_suspend_ws,
+				TTY_PUSH_WS_POST_SUSPEND_DELAY);
+		}
+	break;
+	}
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block smd_tty_pm_nb = {
+	.notifier_call = smd_tty_pm_notifier,
+	.priority = 0,
+};
+
 /**
  * smd_tty_log_init()- Init function for IPC logging
  *
@@ -836,6 +871,11 @@ static int smd_tty_core_init(void)
 		}
 	}
 	INIT_DELAYED_WORK(&loopback_work, loopback_probe_worker);
+
+	ret = register_pm_notifier(&smd_tty_pm_nb);
+	if (ret)
+		pr_err("%s: power state notif error %d\n", __func__, ret);
+
 	return 0;
 
 out:
@@ -917,6 +957,10 @@ static int smd_tty_devicetree_init(struct platform_device *pdev)
 		}
 	}
 	INIT_DELAYED_WORK(&loopback_work, loopback_probe_worker);
+
+	ret = register_pm_notifier(&smd_tty_pm_nb);
+	if (ret)
+		pr_err("%s: power state notif error %d\n", __func__, ret);
 
 	return 0;
 
@@ -1002,6 +1046,7 @@ static int __init smd_tty_init(void)
 	schedule_delayed_work(&smd_tty_probe_work,
 				msecs_to_jiffies(SMD_TTY_PROBE_WAIT_TIMEOUT));
 
+	wakeup_source_init(&read_in_suspend_ws, "SMDTTY_READ_IN_SUSPEND");
 	return 0;
 }
 
