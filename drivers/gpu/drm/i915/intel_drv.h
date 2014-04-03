@@ -110,6 +110,9 @@
 #define INTEL_DSI_VIDEO_MODE	0
 #define INTEL_DSI_COMMAND_MODE	1
 
+#define INTEL_PLANE_STATE_ENABLED true
+#define INTEL_PLANE_STATE_DISABLED false
+
 struct intel_framebuffer {
 	struct drm_framebuffer base;
 	struct drm_i915_gem_object *obj;
@@ -460,6 +463,8 @@ struct intel_plane {
 	unsigned int crtc_w, crtc_h;
 	uint32_t src_x, src_y;
 	uint32_t src_w, src_h;
+	int last_pixel_size;
+	bool last_plane_state;
 
 	/* Since we need to change the watermarks before/after
 	 * enabling/disabling the planes, we need to store the parameters here
