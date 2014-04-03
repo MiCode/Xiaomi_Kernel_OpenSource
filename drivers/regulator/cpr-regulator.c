@@ -299,6 +299,60 @@ static u64 cpr_read_efuse_row(struct cpr_regulator *cpr_vreg, u32 row_num,
 	return efuse_bits;
 }
 
+/**
+ * cpr_read_efuse_param() - read a parameter from one or two eFuse rows
+ * @cpr_vreg:	Pointer to cpr_regulator struct for this regulator.
+ * @row_start:	Fuse row number to start reading from.
+ * @bit_start:	The LSB of the parameter to read from the fuse.
+ * @bit_len:	The length of the parameter in bits.
+ * @use_tz_api:	Flag to indicate if an SCM call should be used to read the fuse.
+ *
+ * This function reads a parameter of specified offset and bit size out of one
+ * or two consecutive eFuse rows.  This allows for the reading of parameters
+ * that happen to be split between two eFuse rows.
+ *
+ * Returns the fuse parameter on success or 0 on failure.
+ */
+static u64 cpr_read_efuse_param(struct cpr_regulator *cpr_vreg, int row_start,
+		int bit_start, int bit_len, bool use_tz_api)
+{
+	u64 fuse[2];
+	u64 param = 0;
+	int bits_first, bits_second;
+
+	if (bit_start < 0) {
+		pr_err("Invalid LSB = %d specified\n", bit_start);
+		return 0;
+	}
+
+	if (bit_len < 0 || bit_len > 64) {
+		pr_err("Invalid bit length = %d specified\n", bit_len);
+		return 0;
+	}
+
+	/* Allow bit indexing to start beyond the end of the start row. */
+	if (bit_start >= 64) {
+		row_start += bit_start >> 6; /* equivalent to bit_start / 64 */
+		bit_start &= 0x3F;
+	}
+
+	fuse[0] = cpr_read_efuse_row(cpr_vreg, row_start, use_tz_api);
+
+	if (bit_start == 0 && bit_len == 64) {
+		param = fuse[0];
+	} else if (bit_start + bit_len <= 64) {
+		param = (fuse[0] >> bit_start) & ((1 << bit_len) - 1);
+	} else {
+		fuse[1] = cpr_read_efuse_row(cpr_vreg, row_start + 1,
+						use_tz_api);
+		bits_first = 64 - bit_start;
+		bits_second = bit_len - bits_first;
+		param = (fuse[0] >> bit_start) & ((1 << bits_first) - 1);
+		param |= (fuse[1] & ((1 << bits_second) - 1)) << bits_first;
+	}
+
+	return param;
+}
 
 static bool cpr_is_allowed(struct cpr_regulator *cpr_vreg)
 {
@@ -1168,12 +1222,10 @@ static int cpr_pvs_per_corner_init(struct device_node *of_node,
 	}
 	tmp = fuse_sel;
 	for (i = CPR_FUSE_CORNER_SVS; i < CPR_FUSE_CORNER_MAX; i++) {
-		efuse_bits = cpr_read_efuse_row(cpr_vreg, fuse_sel[0],
-							fuse_sel[3]);
-		sign = (efuse_bits >> fuse_sel[1]) & (1 << (fuse_sel[2] - 1));
-		sign = ((sign == 0) ? 1 : -1);
-		steps = (efuse_bits >> fuse_sel[1]) &
-			((1 << (fuse_sel[2] - 1)) - 1);
+		efuse_bits = cpr_read_efuse_param(cpr_vreg, fuse_sel[0],
+					fuse_sel[1], fuse_sel[2], fuse_sel[3]);
+		sign = (efuse_bits & (1 << (fuse_sel[2] - 1))) ? -1 : 1;
+		steps = efuse_bits & ((1 << (fuse_sel[2] - 1)) - 1);
 		pr_debug("corner %d: sign = %d, steps = %d\n", i, sign, steps);
 		cpr_vreg->pvs_corner_v[i] = cpr_vreg->ceiling_volt[i] +
 					sign * steps * step_size_uv;
@@ -1702,7 +1754,6 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 	u32 bp_cpr_disable, bp_scheme;
 	int bp_target_quot[CPR_FUSE_CORNER_MAX];
 	int bp_ro_sel[CPR_FUSE_CORNER_MAX];
-	u32 ro_sel, val;
 	u64 fuse_bits, fuse_bits_2;
 	u32 quot_adjust[CPR_FUSE_CORNER_MAX];
 	u32 target_quot_size[CPR_FUSE_CORNER_MAX] = {
@@ -1856,14 +1907,17 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 	}
 
 	for (i = CPR_FUSE_CORNER_SVS; i < CPR_FUSE_CORNER_MAX; i++) {
-		ro_sel = (fuse_bits >> bp_ro_sel[i])
-				& CPR_FUSE_RO_SEL_BITS_MASK;
-		val = (fuse_bits >> bp_target_quot[i])
-				& ((1 << target_quot_size[i]) - 1);
-		cpr_vreg->cpr_fuse_target_quot[i] = val;
-		cpr_vreg->cpr_fuse_ro_sel[i] = ro_sel;
-		pr_info("Corner[%d]: ro_sel = %d, target quot = %d\n",
-			i, ro_sel, val);
+		cpr_vreg->cpr_fuse_ro_sel[i]
+			= cpr_read_efuse_param(cpr_vreg, cpr_fuse_row[0],
+				bp_ro_sel[i], CPR_FUSE_RO_SEL_BITS,
+				cpr_fuse_row[1]);
+		cpr_vreg->cpr_fuse_target_quot[i]
+			= cpr_read_efuse_param(cpr_vreg, cpr_fuse_row[0],
+				bp_target_quot[i], target_quot_size[i],
+				cpr_fuse_row[1]);
+		pr_info("Corner[%d]: ro_sel = %d, target quot = %d\n", i,
+			cpr_vreg->cpr_fuse_ro_sel[i],
+			cpr_vreg->cpr_fuse_target_quot[i]);
 	}
 
 	rc = of_property_read_u32_array(of_node, "qcom,cpr-quotient-adjustment",
