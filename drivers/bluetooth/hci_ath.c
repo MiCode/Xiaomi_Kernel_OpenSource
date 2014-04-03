@@ -46,7 +46,7 @@
 
 #include "hci_uart.h"
 #ifdef CONFIG_SERIAL_MSM_HS
-#include <mach/msm_serial_hs.h>
+#include <linux/platform_data/msm_serial_hs.h>
 #endif
 
 static int enableuartsleep = 1;
