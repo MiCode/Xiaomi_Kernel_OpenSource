@@ -127,6 +127,7 @@ struct qseecom_send_svc_cmd_req {
 
 enum qseecom_key_management_usage_type {
 	QSEOS_KM_USAGE_DISK_ENCRYPTION = 0x01,
+	QSEOS_KM_USAGE_FILE_ENCRYPTION = 0x02,
 	QSEOS_KM_USAGE_MAX
 };
 
