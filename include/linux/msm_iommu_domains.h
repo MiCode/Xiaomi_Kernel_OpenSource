@@ -215,6 +215,16 @@ static inline int msm_unregister_domain(struct iommu_domain *domain)
 {
 	return -ENODEV;
 }
+
+static inline struct iommu_domain *msm_iommu_domain_find(const char *name)
+{
+	return NULL;
+}
+
+static inline int msm_iommu_domain_no_find(const char *name)
+{
+	return -ENODEV;
+}
 #endif
 
 #endif
