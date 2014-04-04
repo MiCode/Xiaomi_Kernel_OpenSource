@@ -158,12 +158,12 @@ struct sst_pdata {
 	u32 lpe_size;
 	u32 pcicfg_base;
 	u32 pcicfg_size;
+	u32 fw_base;
+	u32 fw_size;
 	int irq;
 
 	/* Firmware */
-	const char *fw_filename;
-	u32 fw_base;
-	u32 fw_size;
+	const struct firmware *fw;
 
 	/* DMA */
 	u32 dma_base;
@@ -200,12 +200,15 @@ u64 sst_dsp_shim_read64_unlocked(struct sst_dsp *sst, u32 offset);
 int sst_dsp_shim_update_bits64_unlocked(struct sst_dsp *sst, u32 offset,
 					u64 mask, u64 value);
 
-/* Size optimised DRAM/IRAM memcpy */
-void sst_dsp_write(struct sst_dsp *sst, void *src, u32 dest_offset,
-	size_t bytes);
-void sst_dsp_bzero(struct sst_dsp *sst, u32 src_offset, size_t bytes);
-void sst_dsp_read(struct sst_dsp *sst, void *dest, u32 src_offset,
-	size_t bytes);
+/* Internal generic low-level SST IO functions - can be overidden */
+void sst_shim32_write(void __iomem *addr, u32 offset, u32 value);
+u32 sst_shim32_read(void __iomem *addr, u32 offset);
+void sst_shim32_write64(void __iomem *addr, u32 offset, u64 value);
+u64 sst_shim32_read64(void __iomem *addr, u32 offset);
+void sst_memcpy_toio_32(struct sst_dsp *sst,
+			void __iomem *dest, void *src, size_t bytes);
+void sst_memcpy_fromio_32(struct sst_dsp *sst,
+			  void *dest, void __iomem *src, size_t bytes);
 
 /* DSP reset & boot */
 void sst_dsp_reset(struct sst_dsp *sst);
@@ -214,7 +217,6 @@ int sst_dsp_boot(struct sst_dsp *sst);
 /* Msg IO */
 void sst_dsp_ipc_msg_tx(struct sst_dsp *dsp, u32 msg);
 u32 sst_dsp_ipc_msg_rx(struct sst_dsp *dsp);
-void *sst_dsp_get_thread_context(struct sst_dsp *sst);
 
 /* Mailbox management */
 int sst_dsp_mailbox_init(struct sst_dsp *dsp, u32 inbox_offset,
@@ -224,12 +226,6 @@ void sst_dsp_inbox_read(struct sst_dsp *dsp, void *message, size_t bytes);
 void sst_dsp_outbox_write(struct sst_dsp *dsp, void *message, size_t bytes);
 void sst_dsp_outbox_read(struct sst_dsp *dsp, void *message, size_t bytes);
 void sst_dsp_mailbox_dump(struct sst_dsp *dsp, size_t bytes);
-
-/* DMA FW maangement */
-int sst_dsp_dma_copy(struct sst_dsp *sst, dma_addr_t src_addr,
-	dma_addr_t dstn_addr, size_t size);
-int sst_dsp_dma_get_channel(struct sst_dsp *dsp, int chan_id);
-void sst_dsp_dma_put_channel(struct sst_dsp *dsp);
 
 /* Debug */
 void sst_dsp_dump(struct sst_dsp *sst);

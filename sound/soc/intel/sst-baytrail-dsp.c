@@ -12,6 +12,7 @@
  * more details.
  */
 
+#include <linux/acpi.h>
 #include <linux/delay.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
@@ -47,7 +48,7 @@ struct dma_block_info {
 };
 
 struct fw_header {
-	unsigned char signature[SST_BYT_FW_SIGNATURE_SIZE]; /* FW signature */
+	unsigned char signature[SST_BYT_FW_SIGNATURE_SIZE];
 	u32 file_size; /* size of fw minus this header */
 	u32 modules; /*  # of modules */
 	u32 file_format; /* version of header format */
@@ -55,66 +56,12 @@ struct fw_header {
 };
 
 struct sst_byt_fw_module_header {
-	unsigned char signature[SST_BYT_FW_SIGNATURE_SIZE]; /* module signature */
+	unsigned char signature[SST_BYT_FW_SIGNATURE_SIZE];
 	u32 mod_size; /* size of module */
 	u32 blocks; /* # of blocks */
 	u32 type; /* codec type, pp lib */
 	u32 entry_point;
 };
-
-/* Internal Generic SST IO functions - can be overidden */
-void shim_write(void __iomem *addr, u32 offset, u32 value)
-{
-	writel(value, addr + offset);
-}
-
-u32 shim_read(void __iomem *addr, u32 offset)
-{
-	return readl(addr + offset);
-}
-
-void shim_write64(void __iomem *addr, u32 offset, u64 value)
-{
-	memcpy_toio(addr + offset, &value, sizeof(value));
-}
-
-u64 shim_read64(void __iomem *addr, u32 offset)
-{
-	u64 val;
-
-	memcpy_fromio(&val, addr + offset, sizeof(val));
-	return val;
-}
-
-static inline void _sst_memcpy_toio_32(volatile u32 __iomem *dest,
-	u32 *src, size_t bytes)
-{
-	int i, words = bytes >> 2;
-
-	for (i = 0; i < words; i++)
-		writel(src[i], dest + i);
-}
-
-static inline void _sst_memcpy_fromio_32(u32 *dest,
-	const volatile __iomem u32 *src, size_t bytes)
-{
-	int i, words = bytes >> 2;
-
-	for (i = 0; i < words; i++)
-		dest[i] = readl(src + i);
-}
-
-void sst_memcpy_toio_32(struct sst_dsp *sst,
-	void __iomem *dest, void *src, size_t bytes)
-{
-	_sst_memcpy_toio_32(dest, src, bytes);
-}
-
-void sst_memcpy_fromio_32(struct sst_dsp *sst, void *dest,
-	void __iomem *src, size_t bytes)
-{
-	_sst_memcpy_fromio_32(dest, src, bytes);
-}
 
 static int sst_byt_parse_module(struct sst_dsp *dsp, struct sst_fw *fw,
 				struct sst_byt_fw_module_header *module)
@@ -216,7 +163,7 @@ static int sst_byt_parse_fw_image(struct sst_fw *sst_fw)
 	return 0;
 }
 
-static void sst_byt_dump_shim(struct sst_dsp *sst)
+void sst_byt_dump_shim(struct sst_dsp *sst)
 {
 	int i;
 	u64 reg;
@@ -245,6 +192,7 @@ static irqreturn_t sst_byt_irq(int irq, void *context)
 	spin_lock(&sst->spinlock);
 
 	isrx = sst_dsp_shim_read64_unlocked(sst, SST_ISRX);
+
 	if (isrx & SST_ISRX_DONE) {
 		/* ADSP has processed the message request from IA */
 		sst_dsp_shim_update_bits64_unlocked(sst, SST_IPCX,
@@ -268,6 +216,13 @@ static void sst_byt_boot(struct sst_dsp *sst)
 {
 	int tries = 10;
 
+	/*
+	 * save the physical address of extended firmware block in the first
+	 * 4 bytes of the mailbox
+	 */
+	memcpy_toio(sst->addr.lpe + SST_BYT_MAILBOX_OFFSET,
+	       &sst->pdata->fw_base, sizeof(u32));
+
 	/* release stall and wait to unstall */
 	sst_dsp_shim_update_bits64(sst, SST_CSR, SST_BYT_CSR_STALL, 0x0);
 	while (tries--) {
@@ -284,11 +239,19 @@ static void sst_byt_boot(struct sst_dsp *sst)
 
 static void sst_byt_reset(struct sst_dsp *sst)
 {
-	/* put DSP into reset, set reset vector and stall */
+	/* set reset vector and stall */
 	sst_dsp_shim_update_bits64(sst, SST_CSR,
-		SST_BYT_CSR_RST | SST_BYT_CSR_VECTOR_SEL | SST_BYT_CSR_STALL,
-		SST_BYT_CSR_RST | SST_BYT_CSR_VECTOR_SEL | SST_BYT_CSR_STALL);
+		SST_BYT_CSR_VECTOR_SEL | SST_BYT_CSR_STALL,
+		SST_BYT_CSR_VECTOR_SEL | SST_BYT_CSR_STALL);
 
+	udelay(10);
+
+	/* put DSP into reset */
+	sst_dsp_shim_update_bits64(sst, SST_CSR,
+		SST_BYT_CSR_RST, SST_BYT_CSR_RST);
+
+	/* dummy read to make sure clock is ungated */
+	sst_dsp_shim_read64_unlocked(sst, SST_IPCD);
 	udelay(10);
 
 	/* take DSP out of reset and keep stalled for FW loading */
@@ -343,6 +306,31 @@ static int sst_byt_resource_map(struct sst_dsp *sst, struct sst_pdata *pdata)
 	return 0;
 }
 
+static int byt_enable_shim(struct sst_dsp *sst)
+{
+	/* enable shim - do dummy read */
+	writel(0, sst->addr.pci_cfg + 0x84);
+	dev_err(sst->dev, "PMCS read 0x%x\n", readl(sst->addr.pci_cfg + 0x84));
+
+	/* make sure that ADSP shim is enabled */
+	mdelay(11);
+
+	/* enable Interrupt from both sides */
+	sst_dsp_shim_update_bits64(sst, SST_IMRX, 0x3, 0x0);
+	sst_dsp_shim_update_bits64(sst, SST_IMRD, 0x3, 0x0);
+
+	sst_dsp_shim_update_bits64(sst, 0x10, 0x20, 0x0); // unMask SSP2
+	sst_dsp_shim_update_bits64(sst, 0x78, 0x7, 0x5); // 200MHz
+
+	sst_byt_dump_shim(sst);
+	return 0;
+}
+
+int sst_byt_d0(struct sst_dsp *sst)
+{
+	return byt_enable_shim(sst);
+}
+
 static int sst_byt_init(struct sst_dsp *sst, struct sst_pdata *pdata)
 {
 	const struct sst_adsp_memregion *region;
@@ -371,12 +359,7 @@ static int sst_byt_init(struct sst_dsp *sst, struct sst_pdata *pdata)
 		return ret;
 	}
 
-	/*
-	 * save the physical address of extended firmware block in the first
-	 * 4 bytes of the mailbox
-	 */
-	memcpy(sst->addr.lpe + SST_BYT_MAILBOX_OFFSET,
-	       &pdata->fw_base, sizeof(u32));
+	sst_byt_d0(sst);
 
 	ret = dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(32));
 	if (ret)
@@ -386,7 +369,7 @@ static int sst_byt_init(struct sst_dsp *sst, struct sst_pdata *pdata)
 	sst_dsp_shim_update_bits64(sst, SST_IMRX, 0x3, 0x0);
 	sst_dsp_shim_update_bits64(sst, SST_IMRD, 0x3, 0x0);
 
-	/* register the DSP memory blocks - ideally we should get this from ACPI */
+	/* register DSP memory blocks - ideally we should get this from ACPI */
 	for (i = 0; i < region_count; i++) {
 		offset = region[i].start;
 		size = (region[i].end - region[i].start) / region[i].blocks;
@@ -413,14 +396,15 @@ static void sst_byt_free(struct sst_dsp *sst)
 struct sst_ops sst_byt_ops = {
 	.reset = sst_byt_reset,
 	.boot = sst_byt_boot,
-	.write = shim_write,
-	.read = shim_read,
-	.write64 = shim_write64,
-	.read64 = shim_read64,
+	.write = sst_shim32_write,
+	.read = sst_shim32_read,
+	.write64 = sst_shim32_write64,
+	.read64 = sst_shim32_read64,
 	.ram_read = sst_memcpy_fromio_32,
 	.ram_write = sst_memcpy_toio_32,
 	.irq_handler = sst_byt_irq,
 	.init = sst_byt_init,
 	.free = sst_byt_free,
 	.parse_fw = sst_byt_parse_fw_image,
+	.dump = sst_byt_dump_shim,
 };

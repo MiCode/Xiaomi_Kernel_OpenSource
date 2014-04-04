@@ -41,8 +41,10 @@ struct sst_ops {
 	u64 (*read64)(void __iomem *addr, u32 offset);
 
 	/* DSP I/DRAM IO */
-	void (*ram_read)(struct sst_dsp *sst, void *dest, void *src, size_t bytes);
-	void (*ram_write)(struct sst_dsp *sst, void *dest, void *src, size_t bytes);
+	void (*ram_read)(struct sst_dsp *sst, void  *dest, void __iomem *src,
+		size_t bytes);
+	void (*ram_write)(struct sst_dsp *sst, void __iomem *dest, void *src,
+		size_t bytes);
 
 	void (*dump)(struct sst_dsp *);
 
@@ -258,11 +260,31 @@ struct sst_dsp {
 	bool fw_use_dma;
 };
 
+/* Size optimised DRAM/IRAM memcpy */
+static inline void sst_dsp_write(struct sst_dsp *sst, void *src,
+	u32 dest_offset, size_t bytes)
+{
+	sst->ops->ram_write(sst, sst->addr.lpe + dest_offset, src, bytes);
+}
+
+static inline void sst_dsp_read(struct sst_dsp *sst, void *dest,
+	u32 src_offset, size_t bytes)
+{
+	sst->ops->ram_read(sst, dest, sst->addr.lpe + src_offset, bytes);
+}
+
+static inline void *sst_dsp_get_thread_context(struct sst_dsp *sst)
+{
+	return sst->thread_context;
+}
+
 /* Create/Free FW files - can contain multiple modules */
 struct sst_fw *sst_fw_new(struct sst_dsp *dsp,
 	const struct firmware *fw, void *private);
 void sst_fw_free(struct sst_fw *sst_fw);
 void sst_fw_free_all(struct sst_dsp *dsp);
+int sst_fw_reload(struct sst_fw *sst_fw);
+void sst_fw_unload(struct sst_fw *sst_fw);
 
 /* Create/Free firmware modules */
 struct sst_module *sst_module_new(struct sst_fw *sst_fw,
@@ -278,15 +300,12 @@ struct sst_module *sst_module_get_from_id(struct sst_dsp *dsp, u32 id);
 struct sst_module *sst_mem_block_alloc_scratch(struct sst_dsp *dsp);
 void sst_mem_block_free_scratch(struct sst_dsp *dsp,
 	struct sst_module *scratch);
+int sst_block_module_remove(struct sst_module *module);
 
 /* Register the DSPs memory blocks - would be nice to read from ACPI */
 struct sst_mem_block *sst_mem_block_register(struct sst_dsp *dsp, u32 offset,
 	u32 size, enum sst_mem_type type, struct sst_block_ops *ops, u32 index,
 	void *private);
 void sst_mem_block_unregister_all(struct sst_dsp *dsp);
-
-/* DMA */
-int sst_dma_new(struct sst_dsp *sst);
-void sst_dma_free(struct sst_dma *dma);
 
 #endif

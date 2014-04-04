@@ -33,16 +33,10 @@
 #include "sst-dsp-priv.h"
 #include "sst-dsp.h"
 
-/*
- * Dont build in the compressed support as it's not required for base FW.
- * We also have to fix an issue on module removal with compressed.
- */
-#define HSW_COMPR	0
-
 #define HSW_PCM_COUNT		6
 #define HSW_VOLUME_MAX		0x7FFFFFFF	/* 0dB */
 
-/* TODO: to be replaced with windows table */
+/* simple volume table */
 static const u32 volume_map[] = {
 	HSW_VOLUME_MAX >> 30,
 	HSW_VOLUME_MAX >> 29,
@@ -135,6 +129,7 @@ static inline unsigned int hsw_ipc_to_mixer(u32 value)
 		if (volume_map[i] >= value)
 			return i;
 	}
+
 	return i - 1;
 }
 
@@ -153,8 +148,10 @@ static int hsw_stream_volume_put(struct snd_kcontrol *kcontrol,
 	mutex_lock(&pcm_data->mutex);
 
 	if (!pcm_data->stream) {
-		pcm_data->volume[0] = hsw_mixer_to_ipc(ucontrol->value.integer.value[0]);
-		pcm_data->volume[1] = hsw_mixer_to_ipc(ucontrol->value.integer.value[1]);
+		pcm_data->volume[0] =
+			hsw_mixer_to_ipc(ucontrol->value.integer.value[0]);
+		pcm_data->volume[1] =
+			hsw_mixer_to_ipc(ucontrol->value.integer.value[1]);
 		mutex_unlock(&pcm_data->mutex);
 		return 0;
 	}
@@ -189,8 +186,10 @@ static int hsw_stream_volume_get(struct snd_kcontrol *kcontrol,
 	mutex_lock(&pcm_data->mutex);
 
 	if (!pcm_data->stream) {
-		ucontrol->value.integer.value[0] = hsw_ipc_to_mixer(pcm_data->volume[0]);
-		ucontrol->value.integer.value[1] = hsw_ipc_to_mixer(pcm_data->volume[1]);
+		ucontrol->value.integer.value[0] =
+			hsw_ipc_to_mixer(pcm_data->volume[0]);
+		ucontrol->value.integer.value[1] =
+			hsw_ipc_to_mixer(pcm_data->volume[1]);
 		mutex_unlock(&pcm_data->mutex);
 		return 0;
 	}
@@ -324,15 +323,13 @@ static int hsw_pcm_hw_params(struct snd_pcm_substream *substream,
 	u8 channels;
 	int ret;
 
-	dev_dbg(rtd->dev, "PCM: hw_params, pcm_data %p\n", pcm_data);
-
 	/* stream direction */
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		path_id = SST_HSW_STREAM_PATH_SSP0_OUT;
 	else
 		path_id = SST_HSW_STREAM_PATH_SSP0_IN;
 
-	/* stream type depends on DAI ID */
+	/* DSP stream type depends on DAI ID */
 	switch (rtd->cpu_dai->id) {
 	case 0:
 		stream_type = SST_HSW_STREAM_TYPE_SYSTEM;
@@ -354,109 +351,67 @@ static int hsw_pcm_hw_params(struct snd_pcm_substream *substream,
 		module_id = SST_HSW_MODULE_PCM_CAPTURE;
 		break;
 	default:
-		dev_err(rtd->dev, "invalid DAI ID %d\n", rtd->cpu_dai->id);
+		dev_err(rtd->dev, "error: invalid DAI ID %d\n",
+			rtd->cpu_dai->id);
 		return -EINVAL;
 	};
 
 	ret = sst_hsw_stream_format(hsw, pcm_data->stream,
-		path_id, stream_type,
-		SST_HSW_STREAM_FORMAT_PCM_FORMAT);
+		path_id, stream_type, SST_HSW_STREAM_FORMAT_PCM_FORMAT);
 	if (ret < 0) {
-		dev_err(rtd->dev, "failed to set stream format %d\n", ret);
+		dev_err(rtd->dev, "error: failed to set format %d\n", ret);
 		return ret;
 	}
 
-	switch (params_rate(params)) {
-	case 8000:
-		rate = SST_HSW_FS_8000HZ;
-		break;
-	case 11025:
-		rate = SST_HSW_FS_11025HZ;
-		break;
-	case 12000:
-		rate = SST_HSW_FS_12000HZ;
-		break;
-	case 16000:
-		rate = SST_HSW_FS_16000HZ;
-		break;
-	case 22050:
-		rate = SST_HSW_FS_22050HZ;
-		break;
-	case 24000:
-		rate = SST_HSW_FS_24000HZ;
-		break;
-	case 32000:
-		rate = SST_HSW_FS_32000HZ;
-		break;
-	case 44100:
-		rate = SST_HSW_FS_44100HZ;
-		break;
-	case 48000:
-		rate = SST_HSW_FS_48000HZ;
-		break;
-	case 64000:
-		rate = SST_HSW_FS_64000HZ;
-		break;
-	case 88200:
-		rate = SST_HSW_FS_88200HZ;
-		break;
-	case 96000:
-		rate = SST_HSW_FS_96000HZ;
-		break;
-	case 128000:
-		rate = SST_HSW_FS_128000HZ;
-		break;
-	case 176400:
-		rate = SST_HSW_FS_176400HZ;
-		break;
-	case 192000:
-		rate = SST_HSW_FS_192000HZ;
-		break;
-	default:
-		dev_err(rtd->dev, "invalid rate %d\n", params_rate(params));
-		return -EINVAL;
-	}
-
+	rate = params_rate(params);
 	ret = sst_hsw_stream_set_rate(hsw, pcm_data->stream, rate);
 	if (ret < 0) {
-		dev_err(rtd->dev, "could not set rate %d\n", params_rate(params));
+		dev_err(rtd->dev, "error: could not set rate %d\n", rate);
 		return ret;
 	}
 
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_S16_LE:
 		bits = SST_HSW_DEPTH_16BIT;
+		sst_hsw_stream_set_valid(hsw, pcm_data->stream, 16);
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 		bits = SST_HSW_DEPTH_24BIT;
-		break;
-	case SNDRV_PCM_FORMAT_S8:
-		bits = SST_HSW_DEPTH_8BIT;
-		break;
-	case SNDRV_PCM_FORMAT_S32_LE:
-		bits = SST_HSW_DEPTH_32BIT;
+		sst_hsw_stream_set_valid(hsw, pcm_data->stream, 32);
 		break;
 	default:
-		dev_err(rtd->dev, "invalid format %d\n", params_format(params));
+		dev_err(rtd->dev, "error: invalid format %d\n",
+			params_format(params));
 		return -EINVAL;
 	}
 
 	ret = sst_hsw_stream_set_bits(hsw, pcm_data->stream, bits);
 	if (ret < 0) {
-		dev_err(rtd->dev, "could not set formats %d\n", params_rate(params));
+		dev_err(rtd->dev, "error: could not set bits %d\n", bits);
 		return ret;
 	}
 
-	channels = (u8)(params_channels(params) & 0xF);
+	/* we only support stereo atm */
+	channels = params_channels(params);
+	if (channels != 2) {
+		dev_err(rtd->dev, "error: invalid channels %d\n", channels);
+		return -EINVAL;
+	}
+
+	map = create_channel_map(SST_HSW_CHANNEL_CONFIG_STEREO);
+	sst_hsw_stream_set_map_config(hsw, pcm_data->stream,
+			map, SST_HSW_CHANNEL_CONFIG_STEREO);
+
 	ret = sst_hsw_stream_set_channels(hsw, pcm_data->stream, channels);
 	if (ret < 0) {
-		dev_err(rtd->dev, "could not set channels %d\n", params_rate(params));
+		dev_err(rtd->dev, "error: could not set channels %d\n",
+			channels);
 		return ret;
 	}
 
 	ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
 	if (ret < 0) {
-		dev_err(rtd->dev, "could not allocate %d bytes for PCM %d\n",
+		dev_err(rtd->dev, "error: could not allocate %d bytes for PCM %d\n",
 			params_buffer_bytes(params), ret);
 		return ret;
 	}
@@ -466,12 +421,8 @@ static int hsw_pcm_hw_params(struct snd_pcm_substream *substream,
 	if (ret < 0)
 		return ret;
 
-	// TODO leave these hard coded atm
-	map = create_channel_map(SST_HSW_CHANNEL_CONFIG_STEREO);
-	sst_hsw_stream_set_map_config(hsw, pcm_data->stream,
-			map, SST_HSW_CHANNEL_CONFIG_STEREO);
-	sst_hsw_stream_set_style(hsw, pcm_data->stream, SST_HSW_INTERLEAVING_PER_CHANNEL);
-	sst_hsw_stream_set_valid(hsw, pcm_data->stream, 16);
+	sst_hsw_stream_set_style(hsw, pcm_data->stream,
+		SST_HSW_INTERLEAVING_PER_CHANNEL);
 
 	if (runtime->dma_bytes % PAGE_SIZE)
 		pages = (runtime->dma_bytes / PAGE_SIZE) + 1;
@@ -483,7 +434,7 @@ static int hsw_pcm_hw_params(struct snd_pcm_substream *substream,
 		pages, runtime->dma_bytes, 0,
 		(u32)(virt_to_phys(runtime->dma_area) >> PAGE_SHIFT));
 	if (ret < 0) {
-		dev_err(rtd->dev, "PCM: failed to set DMA buffer %d\n", ret);
+		dev_err(rtd->dev, "error: failed to set DMA buffer %d\n", ret);
 		return ret;
 	}
 
@@ -491,11 +442,11 @@ static int hsw_pcm_hw_params(struct snd_pcm_substream *substream,
 
 	module_data = sst_module_get_from_id(dsp, module_id);
 	if (module_data == NULL) {
-		dev_err(rtd->dev, "PCM: failed to get module config\n");
+		dev_err(rtd->dev, "error: failed to get module config\n");
 		return -EINVAL;
 	}
 
-	/* TODO: validate module parameters for allocate stream */
+	/* we use hardcoded memory offsets atm, will be updated for new FW */
 	if (stream_type == SST_HSW_STREAM_TYPE_CAPTURE) {
 		sst_hsw_stream_set_module_info(hsw, pcm_data->stream,
 			SST_HSW_MODULE_PCM_CAPTURE, module_data->entry);
@@ -520,24 +471,20 @@ static int hsw_pcm_hw_params(struct snd_pcm_substream *substream,
 
 	ret = sst_hsw_stream_commit(hsw, pcm_data->stream);
 	if (ret < 0) {
-		dev_err(rtd->dev, "PCM: failed stream commit %d\n", ret);
+		dev_err(rtd->dev, "error: failed to commit stream %d\n", ret);
 		return ret;
 	}
 
 	ret = sst_hsw_stream_pause(hsw, pcm_data->stream, 1);
 	if (ret < 0)
-		dev_err(rtd->dev, "PCM: failed to pause %d after commit\n", ret);
+		dev_err(rtd->dev, "error: failed to pause %d\n", ret);
 
 	return 0;
 }
 
 static int hsw_pcm_hw_free(struct snd_pcm_substream *substream)
 {
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-
-	dev_dbg(rtd->dev, "PCM: hw_free\n");
 	snd_pcm_lib_free_pages(substream);
-
 	return 0;
 }
 
@@ -548,8 +495,6 @@ static int hsw_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		snd_soc_platform_get_drvdata(rtd->platform);
 	struct hsw_pcm_data *pcm_data = snd_soc_pcm_get_drvdata(rtd);
 	struct sst_hsw *hsw = pdata->hsw;
-
-	dev_dbg(rtd->dev, "PCM: trigger %d\n", cmd);
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
@@ -610,12 +555,11 @@ static int hsw_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct hsw_priv_data *pdata =
 		snd_soc_platform_get_drvdata(rtd->platform);
-	struct hsw_pcm_data *pcm_data = snd_soc_pcm_get_drvdata(rtd);
+	struct hsw_pcm_data *pcm_data;
 	struct sst_hsw *hsw = pdata->hsw;
 
-	dev_dbg(rtd->dev, "PCM: open\n");
-
 	pcm_data = &pdata->pcm[rtd->cpu_dai->id];
+
 	mutex_lock(&pcm_data->mutex);
 
 	snd_soc_pcm_set_drvdata(rtd, pcm_data);
@@ -626,12 +570,12 @@ static int hsw_pcm_open(struct snd_pcm_substream *substream)
 	pcm_data->stream = sst_hsw_stream_new(hsw, rtd->cpu_dai->id,
 		hsw_notify_pointer, pcm_data);
 	if (pcm_data->stream == NULL) {
-		dev_err(rtd->dev, "failed to create stream\n");
+		dev_err(rtd->dev, "error: failed to create stream\n");
 		mutex_unlock(&pcm_data->mutex);
 		return -EINVAL;
 	}
 
-	/* Set previous save volume */
+	/* Set previous saved volume */
 	sst_hsw_stream_set_volume(hsw, pcm_data->stream, 0,
 			0, pcm_data->volume[0]);
 	sst_hsw_stream_set_volume(hsw, pcm_data->stream, 0,
@@ -650,18 +594,16 @@ static int hsw_pcm_close(struct snd_pcm_substream *substream)
 	struct sst_hsw *hsw = pdata->hsw;
 	int ret;
 
-	dev_dbg(rtd->dev, "PCM: close\n");
-
 	mutex_lock(&pcm_data->mutex);
 	ret = sst_hsw_stream_reset(hsw, pcm_data->stream);
 	if (ret < 0) {
-		dev_dbg(rtd->dev, "Reset stream fail!!!\n");
+		dev_dbg(rtd->dev, "error: reset stream failed %d\n", ret);
 		goto out;
 	}
 
 	ret = sst_hsw_stream_free(hsw, pcm_data->stream);
 	if (ret < 0) {
-		dev_dbg(rtd->dev, "Free stream fail!!!\n");
+		dev_dbg(rtd->dev, "error: free stream failed %d\n", ret);
 		goto out;
 	}
 	pcm_data->stream = NULL;
@@ -669,15 +611,6 @@ static int hsw_pcm_close(struct snd_pcm_substream *substream)
 out:
 	mutex_unlock(&pcm_data->mutex);
 	return ret;
-}
-
-static int hsw_pcm_mmap(struct snd_pcm_substream *substream,
-	struct vm_area_struct *vma)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-
-	dev_dbg(rtd->dev, "PCM: mmap\n");
-	return snd_pcm_lib_default_mmap(substream, vma);
 }
 
 static struct snd_pcm_ops hsw_pcm_ops = {
@@ -688,7 +621,7 @@ static struct snd_pcm_ops hsw_pcm_ops = {
 	.hw_free	= hsw_pcm_hw_free,
 	.trigger	= hsw_pcm_trigger,
 	.pointer	= hsw_pcm_pointer,
-	.mmap		= hsw_pcm_mmap,
+	.mmap		= snd_pcm_lib_default_mmap,
 };
 
 static void hsw_pcm_free(struct snd_pcm *pcm)
@@ -738,11 +671,8 @@ static struct snd_soc_dai_driver hsw_dais[] = {
 		},
 	},
 	{
-		/* PCM and compressed */
+		/* PCM */
 		.name  = "Offload0 Pin",
-#if HSW_COMPR
-		.compress_dai = 1,
-#endif
 		.playback = {
 			.stream_name = "Offload0 Playback",
 			.channels_min = 2,
@@ -752,11 +682,8 @@ static struct snd_soc_dai_driver hsw_dais[] = {
 		},
 	},
 	{
-		/* PCM and compressed */
+		/* PCM */
 		.name  = "Offload1 Pin",
-#if HSW_COMPR
-		.compress_dai = 1,
-#endif
 		.playback = {
 			.stream_name = "Offload1 Playback",
 			.channels_min = 2,
@@ -872,360 +799,10 @@ static int hsw_pcm_remove(struct snd_soc_platform *platform)
 	return 0;
 }
 
-#if HSW_COMPR
-
-static u32 hsw_compr_notify_pointer(struct sst_hsw_stream *stream, void *data)
-{
-	struct hsw_pcm_data *pcm_data = data;
-	struct snd_compr_stream *cstream = pcm_data->cstream;
-
-	if (cstream)
-		snd_compr_fragment_elapsed(cstream);
-
-	return 0;
-}
-
-static int hsw_compr_open(struct snd_compr_stream *cstream)
-{
-	struct snd_compr_runtime *runtime = cstream->runtime;
-	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
-	struct hsw_priv_data *pdata =
-		snd_soc_platform_get_drvdata(rtd->platform);
-	struct hsw_pcm_data *pcm_data;
-	struct sst_hsw *hsw = pdata->hsw;
-
-	dev_dbg(rtd->dev, "compr: open\n");
-
-	pcm_data = &pdata->pcm[rtd->cpu_dai->id];
-
-	mutex_lock(&pcm_data->mutex);
-	pcm_data->cstream = cstream;
-	pcm_data->wpos = 0;
-
-	pcm_data->stream = sst_hsw_stream_new(hsw, rtd->cpu_dai->id,
-		 hsw_compr_notify_pointer, pcm_data);
-	if (pcm_data->stream == NULL) {
-		dev_err(rtd->dev, "failed to create stream\n");
-		mutex_unlock(&pcm_data->mutex);
-		return -EINVAL;
-	}
-
-	runtime->private_data = pcm_data;
-
-	mutex_unlock(&pcm_data->mutex);
-	return 0;
-}
-
-static int hsw_compr_free(struct snd_compr_stream *cstream)
-{
-	struct snd_compr_runtime *runtime = cstream->runtime;
-	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
-	struct hsw_priv_data *pdata =
-		snd_soc_platform_get_drvdata(rtd->platform);
-	struct hsw_pcm_data *pcm_data = runtime->private_data;
-	struct sst_hsw *hsw = pdata->hsw;
-	int ret;
-
-	dev_dbg(rtd->dev, "compr: close\n");
-
-	mutex_lock(&pcm_data->mutex);
-
-	ret = sst_hsw_stream_reset(hsw, pcm_data->stream);
-	if (ret < 0) {
-		dev_dbg(rtd->dev, "Reset stream fail!!!\n");
-		goto out;
-	}
-
-	ret = sst_hsw_stream_free(hsw, pcm_data->stream);
-	if (ret < 0) {
-		dev_dbg(rtd->dev, "Free stream fail!!!\n");
-		goto out;
-	}
-	pcm_data->stream = NULL;
-
-out:
-	mutex_unlock(&pcm_data->mutex);
-	return ret;
-}
-
-static int hsw_compr_set_params(struct snd_compr_stream *cstream,
-	struct snd_compr_params *params)
-{
-	struct snd_compr_runtime *runtime = cstream->runtime;
-	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
-	struct hsw_priv_data *pdata =
-		snd_soc_platform_get_drvdata(rtd->platform);
-	struct hsw_pcm_data *pcm_data = runtime->private_data;
-	struct sst_hsw *hsw = pdata->hsw;
-	enum sst_hsw_stream_path_id path_id;
-	enum sst_hsw_stream_format format;
-	enum sample_frequency rate;
-	u32 map;
-	int ret, pages, depth = SST_HSW_DEPTH_INVALID, bits = 0;
-
-	dev_dbg(rtd->dev, "compr: hw_params, pcm_data %p\n", pcm_data);
-
-	/* stream direction -- hard coded atm */
-	path_id = SST_HSW_STREAM_PATH_SSP0_OUT;
-
-	/* compressed rate */
-	switch (params->codec.sample_rate) {
-	case SNDRV_PCM_RATE_44100:
-		rate = SST_HSW_FS_44100HZ;
-		break;
-	case SNDRV_PCM_RATE_48000:
-		rate = SST_HSW_FS_48000HZ;
-		break;
-	default:
-		dev_err(rtd->dev, "invalid rate %d\n",
-			params->codec.sample_rate);
-		return -EINVAL;
-	}
-
-	/* stream format - hard code rate atm */
-	switch (params->codec.id) {
-	case SND_AUDIOCODEC_MP3:
-		format = SST_HSW_STREAM_FORMAT_MP3_FORMAT;
-		break;
-	case SND_AUDIOCODEC_AAC:
-		format = SST_HSW_STREAM_FORMAT_AAC_FORMAT;
-		break;
-	case SND_AUDIOCODEC_PCM:
-		format = SST_HSW_STREAM_FORMAT_PCM_FORMAT;
-		depth = SST_HSW_DEPTH_16BIT;
-		bits = 16;
-		break;
-	default:
-		dev_err(rtd->dev, "invalid compressed format %d\n",
-			params->codec.id);
-		return -EINVAL;
-	}
-	ret = sst_hsw_stream_format(hsw, pcm_data->stream,
-		path_id, SST_HSW_STREAM_TYPE_RENDER, format);
-	if (ret < 0) {
-		dev_err(rtd->dev, "failed to set stream format %d\n", ret);
-		return ret;
-	}
-
-	/* set rate */
-	ret = sst_hsw_stream_set_rate(hsw, pcm_data->stream, rate);
-	if (ret < 0) {
-		dev_err(rtd->dev, "could not set rate %d\n", rate);
-		return ret;
-	}
-
-	/* set to stereo - TODO hardcoded */
-	ret = sst_hsw_stream_set_channels(hsw, pcm_data->stream, 2);
-	if (ret < 0) {
-		dev_err(rtd->dev, "could not set channels %d\n", 2);
-		return ret;
-	}
-
-	ret = create_adsp_page_table(pdata, rtd, runtime->buffer,
-		runtime->buffer_size, rtd->cpu_dai->id, SNDRV_PCM_STREAM_PLAYBACK);
-	if (ret < 0)
-		return ret;
-
-	ret = sst_hsw_stream_set_bits(hsw, pcm_data->stream, bits);
-	if (ret < 0) {
-		dev_err(rtd->dev, "could not set bits %d\n", bits);
-		return ret;
-	}
-
-	// TODO leave these hard coded atm
-	map = create_channel_map(SST_HSW_CHANNEL_CONFIG_STEREO);
-	sst_hsw_stream_set_map_config(hsw, pcm_data->stream,
-			map, SST_HSW_CHANNEL_CONFIG_STEREO);
-
-	sst_hsw_stream_set_style(hsw, pcm_data->stream, SST_HSW_INTERLEAVING_PER_CHANNEL);
-	sst_hsw_stream_set_valid(hsw, pcm_data->stream, depth);
-
-	if (runtime->buffer_size % PAGE_SIZE)
-		pages = (runtime->buffer_size / PAGE_SIZE) + 1;
-	else
-		pages = runtime->buffer_size / PAGE_SIZE;
-
-	ret = sst_hsw_stream_buffer(hsw, pcm_data->stream,
-		virt_to_phys(pdata->pcm_pg[rtd->cpu_dai->id][SNDRV_PCM_STREAM_PLAYBACK]),
-		pages, runtime->buffer_size, 0,
-		(u32)(virt_to_phys(runtime->buffer) >> PAGE_SHIFT));
-	if (ret < 0) {
-		dev_err(rtd->dev, "compr: failed to set DMA buffer %d\n", ret);
-		return ret;
-	}
-
-	ret = sst_hsw_stream_commit(hsw, pcm_data->stream);
-	if (ret < 0) {
-		dev_err(rtd->dev, "compr: failed stream commit %d\n", ret);
-		return ret;
-	}
-
-	ret = sst_hsw_stream_pause(hsw, pcm_data->stream, 1);
-	if (ret < 0)
-		dev_err(rtd->dev, "compr: failed to pause %d after commit\n", ret);
-
-	/* Set previous save volume */
-	sst_hsw_stream_set_volume(hsw, pcm_data->stream, 0,
-			0, pcm_data->volume[0]);
-	sst_hsw_stream_set_volume(hsw, pcm_data->stream, 0,
-			1, pcm_data->volume[1]);
-
-	return 0;
-}
-
-static int hsw_compr_trigger(struct snd_compr_stream *cstream, int cmd)
-{
-	struct snd_compr_runtime *runtime = cstream->runtime;
-	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
-	struct hsw_priv_data *pdata =
-		snd_soc_platform_get_drvdata(rtd->platform);
-	struct hsw_pcm_data *pcm_data = runtime->private_data;
-	struct sst_hsw *hsw = pdata->hsw;
-
-	dev_dbg(rtd->dev, "compr: trigger %d\n", cmd);
-
-	switch (cmd) {
-	case SNDRV_PCM_TRIGGER_START:
-	case SNDRV_PCM_TRIGGER_RESUME:
-	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		sst_hsw_stream_resume(hsw, pcm_data->stream, 0);
-		break;
-	case SNDRV_PCM_TRIGGER_STOP:
-	case SNDRV_PCM_TRIGGER_SUSPEND:
-	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		sst_hsw_stream_pause(hsw, pcm_data->stream, 0);
-		break;
-	default:
-		break;
-	}
-
-	return 0;
-}
-
-static int hsw_compr_pointer(struct snd_compr_stream *cstream,
-					struct snd_compr_tstamp *tstamp)
-{
-	struct snd_compr_runtime *runtime = cstream->runtime;
-	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
-	struct hsw_priv_data *pdata =
-		snd_soc_platform_get_drvdata(rtd->platform);
-	struct hsw_pcm_data *pcm_data = runtime->private_data;
-	struct sst_hsw *hsw = pdata->hsw;
-	u32 bytes;
-
-	bytes =	sst_hsw_get_dsp_position(hsw, pcm_data->stream);
-	tstamp->pcm_io_frames = bytes * 4; // TODO: hardcoded
-	tstamp->copied_total += bytes;
-	tstamp->byte_offset = tstamp->copied_total %
-				 (u32)cstream->runtime->buffer_size;
-
-	dev_info(rtd->dev, "DSP pointer byte offset 0x%x dsp at frame 0x%zu\n",
-		tstamp->byte_offset, tstamp->pcm_io_frames);
-
-	return 0;
-}
-
-static int hsw_compr_ack(struct snd_compr_stream *cstream, size_t bytes)
-{
-	struct snd_compr_runtime *runtime = cstream->runtime;
-	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
-	struct hsw_priv_data *pdata =
-		snd_soc_platform_get_drvdata(rtd->platform);
-	struct hsw_pcm_data *pcm_data = runtime->private_data;
-	struct sst_hsw *hsw = pdata->hsw;
-	int ret;
-	u32 pos;
-
-	pcm_data->wpos += bytes;
-	pos = pcm_data->wpos % (u32)cstream->runtime->buffer_size;
-
-	ret = sst_hsw_stream_set_write_position(hsw, pcm_data->stream, 0, pos);
-	if (ret < 0)
-		dev_err(rtd->dev, "compr: failed to set write position to %d\n", ret);
-
-	return ret;
-}
-
-static int hsw_compr_get_caps(struct snd_compr_stream *cstream,
-					struct snd_compr_caps *caps)
-{
-	caps->num_codecs = 3;
-	caps->min_fragment_size = PAGE_SIZE;
-	caps->max_fragment_size = PAGE_SIZE * 1024;
-	caps->min_fragments = 2;
-	caps->max_fragments = 1024;
-	caps->codecs[0] = SND_AUDIOCODEC_MP3;
-	caps->codecs[1] = SND_AUDIOCODEC_AAC;
-	caps->codecs[2] = SND_AUDIOCODEC_PCM;
-
-	return 0;
-}
-
-static int hsw_compr_get_codec_caps(struct snd_compr_stream *cstream,
-					struct snd_compr_codec_caps *codec)
-{
-	switch (codec->codec) {
-	case SND_AUDIOCODEC_MP3:
-		codec->num_descriptors = 3;
-		codec->descriptor[0].max_ch = 2;
-		codec->descriptor[0].sample_rates = SNDRV_PCM_RATE_8000_48000;
-		codec->descriptor[0].bit_rate[0] = 320; /* 320kbps */
-		codec->descriptor[0].bit_rate[1] = 192;
-		codec->descriptor[0].num_bitrates = 2;
-		codec->descriptor[0].profiles = 0;
-		codec->descriptor[0].modes = SND_AUDIOCHANMODE_MP3_STEREO;
-		codec->descriptor[0].formats = 0;
-		break;
-	case SND_AUDIOCODEC_AAC:
-		codec->num_descriptors = 3;
-		codec->descriptor[1].max_ch = 2;
-		codec->descriptor[1].sample_rates = SNDRV_PCM_RATE_8000_48000;
-		codec->descriptor[1].bit_rate[0] = 320; /* 320kbps */
-		codec->descriptor[1].bit_rate[1] = 192;
-		codec->descriptor[1].num_bitrates = 2;
-		codec->descriptor[1].profiles = 0;
-		codec->descriptor[1].modes = 0;
-		codec->descriptor[1].formats =
-			(SND_AUDIOSTREAMFORMAT_MP4ADTS |
-				SND_AUDIOSTREAMFORMAT_RAW);
-		break;
-	case SND_AUDIOCODEC_PCM:
-		codec->num_descriptors = 3;
-		codec->descriptor[2].max_ch = 2;
-		codec->descriptor[2].sample_rates = SNDRV_PCM_RATE_8000_48000;
-		codec->descriptor[2].bit_rate[0] = 320; /* 320kbps */
-		codec->descriptor[2].bit_rate[1] = 192;
-		codec->descriptor[2].num_bitrates = 0;
-		codec->descriptor[2].profiles = 0;
-		codec->descriptor[2].modes = 0;
-		codec->descriptor[2].formats = 0;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-static struct snd_compr_ops hsw_compr_ops = {
-	.open = hsw_compr_open,
-	.free = hsw_compr_free,
-	.set_params = hsw_compr_set_params,
-	.trigger = hsw_compr_trigger,
-	.pointer = hsw_compr_pointer,
-	.get_caps = hsw_compr_get_caps,
-	.get_codec_caps = hsw_compr_get_codec_caps,
-	.ack = hsw_compr_ack,
-};
-#endif
-
 static struct snd_soc_platform_driver hsw_soc_platform = {
 	.probe		= hsw_pcm_probe,
 	.remove		= hsw_pcm_remove,
 	.ops		= &hsw_pcm_ops,
-#if HSW_COMPR
-	.compr_ops	= &hsw_compr_ops,
-#endif
 	.pcm_new	= hsw_pcm_new,
 	.pcm_free	= hsw_pcm_free,
 	.controls	= hsw_volume_controls,

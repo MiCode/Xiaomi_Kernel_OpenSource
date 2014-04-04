@@ -84,61 +84,6 @@ struct fw_module_header {
 
 static void hsw_free(struct sst_dsp *sst);
 
-/* Internal Generic SST IO functions - can be overidden */
-static void shim_write(void __iomem *addr, u32 offset, u32 value)
-{
-	writel(value, addr + offset);
-}
-
-static u32 shim_read(void __iomem *addr, u32 offset)
-{
-	return readl(addr + offset);
-}
-
-static void shim_write64(void __iomem *addr, u32 offset, u64 value)
-{
-	memcpy_toio(addr + offset, &value, sizeof(value));
-}
-
-static u64 shim_read64(void __iomem *addr, u32 offset)
-{
-	u64 val;
-
-	memcpy_fromio(&val, addr + offset, sizeof(val));
-	return val;
-}
-
-/* Internal Generic SST memcpy functions - can be overidden */
-static inline void _sst_memcpy_toio_32(volatile u32 __iomem *dest,
-	u32 *src, size_t bytes)
-{
-	int i, words = bytes >> 2;
-
-	for (i = 0; i < words; i++)
-		writel(src[i], dest + i);
-}
-
-static inline void _sst_memcpy_fromio_32(u32 *dest,
-	const volatile __iomem u32 *src, size_t bytes)
-{
-	int i, words = bytes >> 2;
-
-	for (i = 0; i < words; i++)
-		dest[i] = readl(src + i);
-}
-
-void sst_memcpy_toio_32(struct sst_dsp *sst,
-	void __iomem *dest, void *src, size_t bytes)
-{
-	_sst_memcpy_toio_32(dest, src, bytes);
-}
-
-void sst_memcpy_fromio_32(struct sst_dsp *sst, void *dest,
-	void __iomem *src, size_t bytes)
-{
-	_sst_memcpy_fromio_32(dest, src, bytes);
-}
-
 static int hsw_parse_module(struct sst_dsp *dsp, struct sst_fw *fw,
 	struct fw_module_header *module)
 {
@@ -558,11 +503,11 @@ static void hsw_free(struct sst_dsp *sst)
 
 struct sst_ops haswell_ops = {
 	.reset = hsw_reset,
-        .boot = hsw_boot,
-        .write = shim_write,
-        .read = shim_read,
-        .write64 = shim_write64,
-        .read64 = shim_read64,
+	.boot = hsw_boot,
+	.write = sst_shim32_write,
+	.read = sst_shim32_read,
+	.write64 = sst_shim32_write64,
+	.read64 = sst_shim32_read64,
 	.ram_read = sst_memcpy_fromio_32,
 	.ram_write = sst_memcpy_toio_32,
 	.irq_handler = hsw_irq,

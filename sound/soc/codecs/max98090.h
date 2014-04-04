@@ -1532,6 +1532,7 @@ struct max98090_priv {
 	int irq;
 	int jack_state;
 	struct delayed_work jack_work;
+	struct work_struct pll_work;
 	struct snd_soc_jack *jack;
 	unsigned int dai_fmt;
 	int tdm_slots;
@@ -1541,6 +1542,7 @@ struct max98090_priv {
 	unsigned int pa2en;
 	unsigned int extmic_mux;
 	unsigned int sidetone;
+	bool master;
 };
 
 int max98090_mic_detect(struct snd_soc_codec *codec,

@@ -78,7 +78,7 @@
 #define IPC_LOG_ID_MASK		(0xf << IPC_LOG_ID_SHIFT)
 #define IPC_LOG_ID(x)		(x << IPC_LOG_ID_SHIFT)
 
-/* IPC message timeout (msecs) TODO: get better value */
+/* IPC message timeout (msecs) */
 #define IPC_TIMEOUT_MSECS	300
 #define IPC_BOOT_MSECS		200
 #define IPC_MSG_WAIT		0
@@ -91,40 +91,43 @@
 #define IPC_EMPTY_LIST_SIZE	8
 #define IPC_MAX_STREAMS		4
 
+/* Mailbox */
+#define IPC_MAX_MAILBOX_BYTES	256
+
 /* Global Message - Types and Replies */
 enum ipc_glb_type {
-	IPC_GLB_GET_FW_VERSION = 0,		/**< Retrieves firmware version */
-	IPC_GLB_PERFORMANCE_MONITOR = 1, /**< Performance monitoring actions */
-	IPC_GLB_ALLOCATE_STREAM = 3,		/**< Request to allocate new stream */
-	IPC_GLB_FREE_STREAM = 4,			/**< Request to free stream */
-	IPC_GLB_GET_FW_CAPABILITIES = 5,		/**< Retrieves firmware capabilities */
-	IPC_GLB_STREAM_MESSAGE = 6,		/**< Message directed to stream or its stages */
-	/** Request to store firmware context during D0->D3 transition */
+	IPC_GLB_GET_FW_VERSION = 0,		/* Retrieves firmware version */
+	IPC_GLB_PERFORMANCE_MONITOR = 1,	/* Performance monitoring actions */
+	IPC_GLB_ALLOCATE_STREAM = 3,		/* Request to allocate new stream */
+	IPC_GLB_FREE_STREAM = 4,		/* Request to free stream */
+	IPC_GLB_GET_FW_CAPABILITIES = 5,	/* Retrieves firmware capabilities */
+	IPC_GLB_STREAM_MESSAGE = 6,		/* Message directed to stream or its stages */
+	/* Request to store firmware context during D0->D3 transition */
 	IPC_GLB_REQUEST_DUMP = 7,
-	/** Request to restore firmware context during D3->D0 transition */
+	/* Request to restore firmware context during D3->D0 transition */
 	IPC_GLB_RESTORE_CONTEXT = 8,
-	IPC_GLB_GET_DEVICE_FORMATS = 9,		/**< TODO: Add description */
-	IPC_GLB_SET_DEVICE_FORMATS = 10,		/**< TODO: Add description */
+	IPC_GLB_GET_DEVICE_FORMATS = 9,		/* Set device format */
+	IPC_GLB_SET_DEVICE_FORMATS = 10,	/* Get device format */
 	IPC_GLB_SHORT_REPLY = 11,
 	IPC_GLB_ENTER_DX_STATE = 12,
-	IPC_GLB_GET_MIXER_STREAM_INFO = 13,	/** < Request mixer stream params */
+	IPC_GLB_GET_MIXER_STREAM_INFO = 13,	/* Request mixer stream params */
 	IPC_GLB_DEBUG_LOG_MESSAGE = 14,		/* Message to or from the debug logger. */
-	IPC_GLB_REQUEST_TRANSFER = 16, /** < Request Transfer for host */
-	IPC_GLB_MAX_IPC_MESSAGE_TYPE = 17,	/**< Maximum message number */
+	IPC_GLB_REQUEST_TRANSFER = 16, 		/* < Request Transfer for host */
+	IPC_GLB_MAX_IPC_MESSAGE_TYPE = 17,	/* Maximum message number */
 };
 
 enum ipc_glb_reply {
-	IPC_GLB_REPLY_SUCCESS = 0,		/**< The operation was successful. */
-	IPC_GLB_REPLY_ERROR_INVALID_PARAM = 1,	/**< Invalid parameter was passed. */
-	IPC_GLB_REPLY_UNKNOWN_MESSAGE_TYPE = 2,		/**< Uknown message type was resceived. */
-	IPC_GLB_REPLY_OUT_OF_RESOURCES = 3,	/**< No resources to satisfy the request. */
-	IPC_GLB_REPLY_BUSY = 4,				/**< The system or resource is busy. */
-	IPC_GLB_REPLY_PENDING = 5,		/**< The action was scheduled for processing.  */
-	IPC_GLB_REPLY_FAILURE = 6,		/**< Critical error happened. */
-	IPC_GLB_REPLY_INVALID_REQUEST = 7,	/**< Request can not be completed. */
-	IPC_GLB_REPLY_STAGE_UNINITIALIZED = 8,	/**< Processing stage was uninitialized. */
-	IPC_GLB_REPLY_NOT_FOUND = 9,		/**< Required resource can not be found. */
-	IPC_GLB_REPLY_SOURCE_NOT_STARTED = 10,	/**< Source was not started. */
+	IPC_GLB_REPLY_SUCCESS = 0,		/* The operation was successful. */
+	IPC_GLB_REPLY_ERROR_INVALID_PARAM = 1,	/* Invalid parameter was passed. */
+	IPC_GLB_REPLY_UNKNOWN_MESSAGE_TYPE = 2,	/* Uknown message type was resceived. */
+	IPC_GLB_REPLY_OUT_OF_RESOURCES = 3,	/* No resources to satisfy the request. */
+	IPC_GLB_REPLY_BUSY = 4,			/* The system or resource is busy. */
+	IPC_GLB_REPLY_PENDING = 5,		/* The action was scheduled for processing.  */
+	IPC_GLB_REPLY_FAILURE = 6,		/* Critical error happened. */
+	IPC_GLB_REPLY_INVALID_REQUEST = 7,	/* Request can not be completed. */
+	IPC_GLB_REPLY_STAGE_UNINITIALIZED = 8,	/* Processing stage was uninitialized. */
+	IPC_GLB_REPLY_NOT_FOUND = 9,		/* Required resource can not be found. */
+	IPC_GLB_REPLY_SOURCE_NOT_STARTED = 10,	/* Source was not started. */
 };
 
 /* Stream Message - Types */
@@ -176,12 +179,12 @@ enum ipc_debug_operation {
 
 /* Firmware Ready */
 struct sst_hsw_ipc_fw_ready {
-	uint32_t inbox_offset;
-	uint32_t outbox_offset;
-	uint32_t inbox_size;
-	uint32_t outbox_size;
-	uint32_t fw_info_size;
-	uint8_t fw_info[1];
+	u32 inbox_offset;
+	u32 outbox_offset;
+	u32 inbox_size;
+	u32 outbox_size;
+	u32 fw_info_size;
+	u8 fw_info[1];
 } __attribute__((packed));
 
 struct ipc_message {
@@ -189,9 +192,9 @@ struct ipc_message {
 	u32 header;
 
 	/* direction wrt host CPU */
-	char tx_data[256];
+	char tx_data[IPC_MAX_MAILBOX_BYTES];
 	size_t tx_size;
-	char rx_data[256];
+	char rx_data[IPC_MAX_MAILBOX_BYTES];
 	size_t rx_size;
 
 	wait_queue_head_t waitq;
@@ -258,7 +261,7 @@ struct sst_hsw_log_stream {
 	u32 reader_pos;
 
 	/* fw log config */
-	uint32_t config[SST_HSW_FW_LOG_CONFIG_DWORDS];
+	u32 config[SST_HSW_FW_LOG_CONFIG_DWORDS];
 
 	struct sst_hsw *hsw;
 };
@@ -280,7 +283,7 @@ struct sst_hsw {
 
 	/* global mixer */
 	struct sst_hsw_ipc_stream_info_reply mixer_info;
-	enum sst_hsw_ipc_volume_curve_type curve_type;
+	enum sst_hsw_volume_curve curve_type;
 	u32 curve_duration;
 	u32 mute[SST_HSW_NO_CHANNELS];
 	u32 mute_volume[SST_HSW_NO_CHANNELS];
@@ -432,7 +435,8 @@ static struct ipc_message *msg_get_empty(struct sst_hsw *hsw)
 	struct ipc_message *msg = NULL;
 
 	if (!list_empty(&hsw->empty_list)) {
-		msg = list_first_entry(&hsw->empty_list, struct ipc_message, list);
+		msg = list_first_entry(&hsw->empty_list, struct ipc_message,
+			list);
 		list_del(&msg->list);
 	}
 
@@ -473,7 +477,7 @@ static void ipc_tx_msgs(struct kthread_work *work)
 }
 
 /* locks held by caller */
-static inline void tx_msg_reply_complete(struct sst_hsw *hsw, struct ipc_message *msg)
+static void tx_msg_reply_complete(struct sst_hsw *hsw, struct ipc_message *msg)
 {
 	msg->complete = true;
 	trace_ipc_reply("completed", msg->header);
@@ -523,7 +527,7 @@ static int ipc_tx_message(struct sst_hsw *hsw, u32 header, void *tx_data,
 
 	msg = msg_get_empty(hsw);
 	if (msg == NULL) {
-		spin_unlock(&hsw->dsp->spinlock);
+		spin_unlock_irqrestore(&hsw->dsp->spinlock, flags);
 		return -EBUSY;
 	}
 
@@ -569,7 +573,8 @@ static void hsw_fw_ready(struct sst_hsw *hsw, u32 header)
 
 	offset = (header & 0x1FFFFFFF) << 3;
 
-	dev_dbg(hsw->dev, "ipc: DSP is ready 0x%8.8x offset %d\n", header, offset);
+	dev_dbg(hsw->dev, "ipc: DSP is ready 0x%8.8x offset %d\n",
+		header, offset);
 
 	/* copy data from the DSP FW ready offset */
 	sst_dsp_read(hsw->dsp, &fw_ready, offset, sizeof(fw_ready));
@@ -600,7 +605,7 @@ static void hsw_notification_work(struct work_struct *work)
 
 	switch (reason) {
 	case IPC_STG_GLITCH:
-		trace_ipc_notification("DSP stream glitch",
+		trace_ipc_notification("DSP stream under/overrun",
 			stream->reply.stream_hw_id);
 		sst_dsp_inbox_read(hsw->dsp, glitch, sizeof(*glitch));
 
@@ -612,14 +617,15 @@ static void hsw_notification_work(struct work_struct *work)
 	case IPC_POSITION_CHANGED:
 		trace_ipc_notification("DSP stream position changed for",
 			stream->reply.stream_hw_id);
-		sst_dsp_inbox_read(hsw->dsp, pos, sizeof(&pos));
+		sst_dsp_inbox_read(hsw->dsp, pos, sizeof(pos));
 
 		if (stream->notify_position)
 			stream->notify_position(stream, stream->pdata);
 
 		break;
 	default:
-		dev_err(hsw->dev, "unknown notification 0x%x\n", stream->header);
+		dev_err(hsw->dev, "error: unknown notification 0x%x\n",
+			stream->header);
 		break;
 	}
 
@@ -631,26 +637,6 @@ static void hsw_notification_work(struct work_struct *work)
 	sst_dsp_shim_update_bits_unlocked(hsw->dsp, SST_IMRX, SST_IMRX_BUSY, 0);
 }
 
-static void hsw_log_notification_work(struct work_struct *work)
-{
-	struct sst_hsw_log_stream *stream = container_of(work,
-	struct sst_hsw_log_stream, notify_work);
-	struct sst_hsw *hsw = stream->hsw;
-	u32 header;
-	int ret;
-
-	header = IPC_GLB_TYPE(IPC_GLB_DEBUG_LOG_MESSAGE);
-	header |= IPC_LOG_OP_TYPE(IPC_DEBUG_NOTIFY_LOG_DUMP);
-	header |= IPC_LOG_ID(SST_HSW_GLOBAL_LOG);
-	ret = ipc_tx_message_nowait(hsw, header,
-		&stream->curr_pos, sizeof(stream->curr_pos));
-	if (ret < 0)
-		dev_err(hsw->dev,
-			"ipc: send ipc to notify fw log position failed\n");
-
-	wake_up_interruptible(&stream->readers_wait_q);
-}
-
 static struct ipc_message *reply_find_msg(struct sst_hsw *hsw, u32 header)
 {
 	struct ipc_message *msg;
@@ -659,7 +645,7 @@ static struct ipc_message *reply_find_msg(struct sst_hsw *hsw, u32 header)
 	header &= ~(IPC_STATUS_MASK | IPC_GLB_REPLY_MASK);
 
 	if (list_empty(&hsw->rx_list)) {
-		dev_err(hsw->dev, "ipc: rx list is empty but received 0x%x\n",
+		dev_err(hsw->dev, "error: rx list empty but received 0x%x\n",
 			header);
 		return NULL;
 	}
@@ -690,11 +676,13 @@ static void hsw_stream_update(struct sst_hsw *hsw, struct ipc_message *msg)
 		break;
 	case IPC_STR_PAUSE:
 		stream->running = false;
-		trace_ipc_notification("stream paused", stream->reply.stream_hw_id);
+		trace_ipc_notification("stream paused",
+			stream->reply.stream_hw_id);
 		break;
 	case IPC_STR_RESUME:
 		stream->running = true;
-		trace_ipc_notification("stream running", stream->reply.stream_hw_id);
+		trace_ipc_notification("stream running",
+			stream->reply.stream_hw_id);
 		break;
 	}
 }
@@ -705,10 +693,11 @@ static int hsw_process_reply(struct sst_hsw *hsw, u32 header)
 	u32 reply = msg_get_global_reply(header);
 
 	trace_ipc_reply("processing -->", header);
+
 	msg = reply_find_msg(hsw, header);
 	if (msg == NULL) {
-		trace_ipc_error("can't find message for header", header);
-		return 1;
+		trace_ipc_error("error: can't find message header", header);
+		return -EIO;
 	}
 
 	/* first process the header */
@@ -721,52 +710,54 @@ static int hsw_process_reply(struct sst_hsw *hsw, u32 header)
 	case IPC_GLB_REPLY_SUCCESS:
 		if (msg->pending) {
 			trace_ipc_pending_reply("completed", header);
-			sst_dsp_inbox_read(hsw->dsp, msg->rx_data, msg->rx_size);
+			sst_dsp_inbox_read(hsw->dsp, msg->rx_data,
+				msg->rx_size);
 			hsw->pending = false;
 		} else {
 			/* copy data from the DSP */
-			sst_dsp_outbox_read(hsw->dsp, msg->rx_data, msg->rx_size);
+			sst_dsp_outbox_read(hsw->dsp, msg->rx_data,
+				msg->rx_size);
 		}
 		break;
 	/* these will be rare - but useful for debug */
 	case IPC_GLB_REPLY_UNKNOWN_MESSAGE_TYPE:
-		trace_ipc_error("unknown message type", header);
+		trace_ipc_error("error: unknown message type", header);
 		msg->errno = -EBADMSG;
 		break;
 	case IPC_GLB_REPLY_OUT_OF_RESOURCES:
-		trace_ipc_error("out of resources", header);
+		trace_ipc_error("error: out of resources", header);
 		msg->errno = -ENOMEM;
 		break;
 	case IPC_GLB_REPLY_BUSY:
-		trace_ipc_error("reply busy", header);
+		trace_ipc_error("error: reply busy", header);
 		msg->errno = -EBUSY;
 		break;
 	case IPC_GLB_REPLY_FAILURE:
-		trace_ipc_error("reply failure", header);
+		trace_ipc_error("error: reply failure", header);
 		msg->errno = -EINVAL;
 		break;
 	case IPC_GLB_REPLY_STAGE_UNINITIALIZED:
-		trace_ipc_error("stage uninitialized", header);
+		trace_ipc_error("error: stage uninitialized", header);
 		msg->errno = -EINVAL;
 		break;
 	case IPC_GLB_REPLY_NOT_FOUND:
-		trace_ipc_error("reply not found", header);
+		trace_ipc_error("error: reply not found", header);
 		msg->errno = -EINVAL;
 		break;
 	case IPC_GLB_REPLY_SOURCE_NOT_STARTED:
-		trace_ipc_error("source not started", header);
+		trace_ipc_error("error: source not started", header);
 		msg->errno = -EINVAL;
 		break;
 	case IPC_GLB_REPLY_INVALID_REQUEST:
-		trace_ipc_error("invalid request", header);
+		trace_ipc_error("error: invalid request", header);
 		msg->errno = -EINVAL;
 		break;
 	case IPC_GLB_REPLY_ERROR_INVALID_PARAM:
-		trace_ipc_error("invalid parameter", header);
+		trace_ipc_error("error: invalid parameter", header);
 		msg->errno = -EINVAL;
 		break;
 	default:
-		trace_ipc_error("unknown reply", header);
+		trace_ipc_error("error: unknown reply", header);
 		msg->errno = -EINVAL;
 		break;
 	}
@@ -799,7 +790,8 @@ static int hsw_stream_message(struct sst_hsw *hsw, u32 header)
 
 	switch (stream_msg) {
 	case IPC_STR_STAGE_MESSAGE:
-		dev_err(hsw->dev, "ipc: stage msg not implemented 0x%8.8x\n", header);
+		dev_err(hsw->dev, "error: stage msg not implemented 0x%8.8x\n",
+			header);
 		break;
 	case IPC_STR_NOTIFICATION:
 		schedule_work(&stream->notify_work);
@@ -821,7 +813,7 @@ static int hsw_log_message(struct sst_hsw *hsw, u32 header)
 
 	if (operation != IPC_DEBUG_REQUEST_LOG_DUMP) {
 		dev_err(hsw->dev,
-			"ipc: FW log msg not implemented 0x%8.8x\n", header);
+			"error: log msg not implemented 0x%8.8x\n", header);
 		return 0;
 	}
 
@@ -866,7 +858,7 @@ static int hsw_process_notification(struct sst_hsw *hsw)
 	case IPC_GLB_MAX_IPC_MESSAGE_TYPE:
 	case IPC_GLB_RESTORE_CONTEXT:
 	case IPC_GLB_SHORT_REPLY:
-		dev_err(hsw->dev, "ipc: error received message type %d header 0x%x not supported\n",
+		dev_err(hsw->dev, "error: message type %d header 0x%x\n",
 			type, header);
 		break;
 	case IPC_GLB_STREAM_MESSAGE:
@@ -876,7 +868,7 @@ static int hsw_process_notification(struct sst_hsw *hsw)
 		handled = hsw_log_message(hsw, header);
 		break;
 	default:
-		dev_err(hsw->dev, "ipc: error received unexpected type %d hdr 0x%8.8x\n",
+		dev_err(hsw->dev, "error: unexpected type %d hdr 0x%8.8x\n",
 			type, header);
 		break;
 	}
@@ -903,8 +895,8 @@ static irqreturn_t hsw_irq_thread(int irq, void *context)
 		/* Handle Immediate reply from DSP Core */
 		handled = hsw_process_reply(hsw, ipcx);
 
-		if (handled) {
-			/* clear DONE bit - tell DSP we have completed the operation */
+		if (handled > 0) {
+			/* clear DONE bit - tell DSP we have completed */
 			sst_dsp_shim_update_bits_unlocked(sst, SST_IPCX,
 				SST_IPCX_DONE, 0);
 
@@ -920,8 +912,8 @@ static irqreturn_t hsw_irq_thread(int irq, void *context)
 		/* Handle Notification and Delayed reply from DSP Core */
 		handled = hsw_process_notification(hsw);
 
-		/* clear BUSY bit and set DONE bit - tell DSP we can accept new messages */
-		if (handled) {
+		/* clear BUSY bit and set DONE bit - accept new messages */
+		if (handled > 0) {
 			sst_dsp_shim_update_bits_unlocked(sst, SST_IPCD,
 				SST_IPCD_BUSY | SST_IPCD_DONE, SST_IPCD_DONE);
 
@@ -947,7 +939,7 @@ int sst_hsw_fw_get_version(struct sst_hsw *hsw,
 	ret = ipc_tx_message_wait(hsw, IPC_GLB_TYPE(IPC_GLB_GET_FW_VERSION),
 		NULL, 0, version, sizeof(*version));
 	if (ret < 0)
-		dev_err(hsw->dev, "ipc: get version failed\n");
+		dev_err(hsw->dev, "error: get version failed\n");
 
 	return ret;
 }
@@ -965,7 +957,7 @@ int sst_hsw_stream_mute(struct sst_hsw *hsw, struct sst_hsw_stream *stream,
 
 	ret = sst_hsw_stream_set_volume(hsw, stream, stage_id, channel, 0);
 	if (ret < 0) {
-		dev_err(hsw->dev, "failed to unmute stream %d channel %d\n",
+		dev_err(hsw->dev, "error: can't unmute stream %d channel %d\n",
 			stream->reply.stream_hw_id, channel);
 		return ret;
 	}
@@ -984,7 +976,7 @@ int sst_hsw_stream_unmute(struct sst_hsw *hsw, struct sst_hsw_stream *stream,
 	ret = sst_hsw_stream_set_volume(hsw, stream, stage_id, channel,
 		stream->mute_volume[channel]);
 	if (ret < 0) {
-		dev_err(hsw->dev, "failed to unmute stream %d channel %d\n",
+		dev_err(hsw->dev, "error: can't unmute stream %d channel %d\n",
 			stream->reply.stream_hw_id, channel);
 		return ret;
 	}
@@ -1004,8 +996,9 @@ int sst_hsw_stream_get_volume(struct sst_hsw *hsw, struct sst_hsw_stream *stream
 	return 0;
 }
 
-int sst_hsw_stream_set_volume_curve(struct sst_hsw *hsw, struct sst_hsw_stream *stream,
-	 u64 curve_duration, enum sst_hsw_volume_curve curve)
+int sst_hsw_stream_set_volume_curve(struct sst_hsw *hsw,
+	struct sst_hsw_stream *stream, u64 curve_duration,
+	enum sst_hsw_volume_curve curve)
 {
 	/* curve duration in steps of 100ns */
 	stream->vol_req.curve_duration = curve_duration;
@@ -1015,8 +1008,8 @@ int sst_hsw_stream_set_volume_curve(struct sst_hsw *hsw, struct sst_hsw_stream *
 }
 
 /* stream volume */
-int sst_hsw_stream_set_volume(struct sst_hsw *hsw, struct sst_hsw_stream *stream,
-	u32 stage_id, u32 channel, u32 volume)
+int sst_hsw_stream_set_volume(struct sst_hsw *hsw,
+	struct sst_hsw_stream *stream, u32 stage_id, u32 channel, u32 volume)
 {
 	struct sst_hsw_ipc_volume_req *req;
 	u32 header;
@@ -1044,7 +1037,7 @@ int sst_hsw_stream_set_volume(struct sst_hsw *hsw, struct sst_hsw_stream *stream
 
 	ret = ipc_tx_message_wait(hsw, header, req, sizeof(*req), NULL, 0);
 	if (ret < 0) {
-		dev_err(hsw->dev, "ipc: set stream volume failed\n");
+		dev_err(hsw->dev, "error: set stream volume failed\n");
 		return ret;
 	}
 
@@ -1062,7 +1055,7 @@ int sst_hsw_mixer_mute(struct sst_hsw *hsw, u32 stage_id, u32 channel)
 
 	ret = sst_hsw_mixer_set_volume(hsw, stage_id, channel, 0);
 	if (ret < 0) {
-		dev_err(hsw->dev, "failed to unmute mixer channel %d\n",
+		dev_err(hsw->dev, "error: failed to unmute mixer channel %d\n",
 			channel);
 		return ret;
 	}
@@ -1075,15 +1068,15 @@ int sst_hsw_mixer_unmute(struct sst_hsw *hsw, u32 stage_id, u32 channel)
 {
 	int ret;
 
-	hsw->mute[channel] = 0;
 	ret = sst_hsw_mixer_set_volume(hsw, stage_id, channel,
 		hsw->mixer_info.volume_register_address[channel]);
 	if (ret < 0) {
-		dev_err(hsw->dev, "failed to unmute mixer channel %d\n",
+		dev_err(hsw->dev, "error: failed to unmute mixer channel %d\n",
 			channel);
 		return ret;
 	}
 
+	hsw->mute[channel] = 0;
 	return 0;
 }
 
@@ -1094,7 +1087,8 @@ int sst_hsw_mixer_get_volume(struct sst_hsw *hsw, u32 stage_id, u32 channel,
 		return -EINVAL;
 
 	sst_dsp_read(hsw->dsp, volume,
-		hsw->mixer_info.volume_register_address[channel], sizeof(*volume));
+		hsw->mixer_info.volume_register_address[channel],
+		sizeof(*volume));
 
 	return 0;
 }
@@ -1119,8 +1113,7 @@ int sst_hsw_mixer_set_volume(struct sst_hsw *hsw, u32 stage_id, u32 channel,
 
 	trace_ipc_request("set mixer volume", volume);
 
-	/* set both at same time */
-	// TODO: mute not required as in db scale
+	/* set both at same time ? */
 	if (channel == 2) {
 		if (hsw->mute[0] && hsw->mute[1]) {
 			hsw->mute_volume[0] = hsw->mute_volume[1] = volume;
@@ -1132,6 +1125,7 @@ int sst_hsw_mixer_set_volume(struct sst_hsw *hsw, u32 stage_id, u32 channel,
 		else
 			req.channel = 0xffffffff;
 	} else {
+		/* set only 1 channel */
 		if (hsw->mute[channel]) {
 			hsw->mute_volume[channel] = volume;
 			return 0;
@@ -1151,14 +1145,14 @@ int sst_hsw_mixer_set_volume(struct sst_hsw *hsw, u32 stage_id, u32 channel,
 
 	ret = ipc_tx_message_wait(hsw, header, &req, sizeof(req), NULL, 0);
 	if (ret < 0) {
-		dev_err(hsw->dev, "ipc: set mixer volume failed\n");
+		dev_err(hsw->dev, "error: set mixer volume failed\n");
 		return ret;
 	}
 
 	return 0;
 }
 
-/* Stream API - TODO: rework mutexes, get ID from struct HSW */
+/* Stream API */
 struct sst_hsw_stream *sst_hsw_stream_new(struct sst_hsw *hsw, int id,
 	u32 (*notify_position)(struct sst_hsw_stream *stream, void *data),
 	void *data)
@@ -1198,7 +1192,7 @@ int sst_hsw_stream_free(struct sst_hsw *hsw, struct sst_hsw_stream *stream)
 	ret = ipc_tx_message_wait(hsw, header, &stream->free_req,
 		sizeof(stream->free_req), NULL, 0);
 	if (ret < 0) {
-		dev_err(hsw->dev, "ipc: free stream %d failed\n",
+		dev_err(hsw->dev, "error: free stream %d failed\n",
 			stream->free_req.stream_id);
 		return -EAGAIN;
 	}
@@ -1212,45 +1206,80 @@ out:
 	return ret;
 }
 
-int sst_hsw_stream_set_bits(struct sst_hsw *hsw, struct sst_hsw_stream *stream,
-	enum bitdepth bits)
+int sst_hsw_stream_set_bits(struct sst_hsw *hsw,
+	struct sst_hsw_stream *stream, enum sst_hsw_bitdepth bits)
 {
+	if (stream->commited) {
+		dev_err(hsw->dev, "error: stream committed for set bits\n");
+		return -EINVAL;
+	}
+
 	stream->request.format.bitdepth = bits;
 	return 0;
 }
 
-int sst_hsw_stream_set_channels(struct sst_hsw *hsw, struct sst_hsw_stream *stream,
-	u8 channels)
+int sst_hsw_stream_set_channels(struct sst_hsw *hsw,
+	struct sst_hsw_stream *stream, int channels)
 {
+	if (stream->commited) {
+		dev_err(hsw->dev, "error: stream committed for set channels\n");
+		return -EINVAL;
+	}
+
+	/* stereo is only supported atm */
+	if (channels != 2)
+		return -EINVAL;
+
 	stream->request.format.ch_num = channels;
 	return 0;
 }
 
-int sst_hsw_stream_set_rate(struct sst_hsw *hsw, struct sst_hsw_stream *stream,
-	enum sample_frequency rate)
+int sst_hsw_stream_set_rate(struct sst_hsw *hsw,
+	struct sst_hsw_stream *stream, int rate)
 {
+	if (stream->commited) {
+		dev_err(hsw->dev, "error: stream committed for set rate\n");
+		return -EINVAL;
+	}
+
 	stream->request.format.frequency = rate;
 	return 0;
 }
 
-int sst_hsw_stream_set_map_config(struct sst_hsw *hsw, struct sst_hsw_stream *stream,
-	u32 map, enum sst_hsw_channel_config config)
+int sst_hsw_stream_set_map_config(struct sst_hsw *hsw,
+	struct sst_hsw_stream *stream, u32 map,
+	enum sst_hsw_channel_config config)
 {
+	if (stream->commited) {
+		dev_err(hsw->dev, "error: stream committed for set map\n");
+		return -EINVAL;
+	}
+
 	stream->request.format.map = map;
 	stream->request.format.config = config;
 	return 0;
 }
 
-int sst_hsw_stream_set_style(struct sst_hsw *hsw, struct sst_hsw_stream *stream,
-	enum sst_hsw_interleaving style)
+int sst_hsw_stream_set_style(struct sst_hsw *hsw,
+	struct sst_hsw_stream *stream, enum sst_hsw_interleaving style)
 {
+	if (stream->commited) {
+		dev_err(hsw->dev, "error: stream committed for set style\n");
+		return -EINVAL;
+	}
+
 	stream->request.format.style = style;
 	return 0;
 }
 
-int sst_hsw_stream_set_valid(struct sst_hsw *hsw, struct sst_hsw_stream *stream,
-	u32 bits)
+int sst_hsw_stream_set_valid(struct sst_hsw *hsw,
+	struct sst_hsw_stream *stream, u32 bits)
 {
+	if (stream->commited) {
+		dev_err(hsw->dev, "error: stream committed for set valid bits\n");
+		return -EINVAL;
+	}
+
 	stream->request.format.valid_bit = bits;
 	return 0;
 }
@@ -1261,6 +1290,11 @@ int sst_hsw_stream_format(struct sst_hsw *hsw, struct sst_hsw_stream *stream,
 	enum sst_hsw_stream_type stream_type,
 	enum sst_hsw_stream_format format_id)
 {
+	if (stream->commited) {
+		dev_err(hsw->dev, "error: stream committed for set format\n");
+		return -EINVAL;
+	}
+
 	stream->request.path_id = path_id;
 	stream->request.stream_type = stream_type;
 	stream->request.format_id = format_id;
@@ -1274,6 +1308,11 @@ int sst_hsw_stream_buffer(struct sst_hsw *hsw, struct sst_hsw_stream *stream,
 	u32 ring_pt_address, u32 num_pages,
 	u32 ring_size, u32 ring_offset, u32 ring_first_pfn)
 {
+	if (stream->commited) {
+		dev_err(hsw->dev, "error: stream committed for buffer\n");
+		return -EINVAL;
+	}
+
 	stream->request.ringinfo.ring_pt_address = ring_pt_address;
 	stream->request.ringinfo.num_pages = num_pages;
 	stream->request.ringinfo.ring_size = ring_size;
@@ -1291,6 +1330,12 @@ int sst_hsw_stream_set_module_info(struct sst_hsw *hsw,
 {
 	struct sst_hsw_module_map *map = &stream->request.map;
 
+	if (stream->commited) {
+		dev_err(hsw->dev, "error: stream committed for set module\n");
+		return -EINVAL;
+	}
+
+	/* only support initial module atm */
 	map->module_entries_count = 1;
 	map->module_entries[0].module_id = module_id;
 	map->module_entries[0].entry_point = entry_point;
@@ -1301,6 +1346,11 @@ int sst_hsw_stream_set_module_info(struct sst_hsw *hsw,
 int sst_hsw_stream_set_pmemory_info(struct sst_hsw *hsw,
 	struct sst_hsw_stream *stream, u32 offset, u32 size)
 {
+	if (stream->commited) {
+		dev_err(hsw->dev, "error: stream committed for set pmem\n");
+		return -EINVAL;
+	}
+
 	stream->request.persistent_mem.offset = offset;
 	stream->request.persistent_mem.size = size;
 
@@ -1310,6 +1360,11 @@ int sst_hsw_stream_set_pmemory_info(struct sst_hsw *hsw,
 int sst_hsw_stream_set_smemory_info(struct sst_hsw *hsw,
 	struct sst_hsw_stream *stream, u32 offset, u32 size)
 {
+	if (stream->commited) {
+		dev_err(hsw->dev, "error: stream committed for set smem\n");
+		return -EINVAL;
+	}
+
 	stream->request.scratch_mem.offset = offset;
 	stream->request.scratch_mem.size = size;
 
@@ -1330,7 +1385,7 @@ int sst_hsw_stream_commit(struct sst_hsw *hsw, struct sst_hsw_stream *stream)
 	ret = ipc_tx_message_wait(hsw, header, str_req, sizeof(*str_req),
 		reply, sizeof(*reply));
 	if (ret < 0) {
-		dev_err(hsw->dev, "ipc: error stream commit failed\n");
+		dev_err(hsw->dev, "error: stream commit failed\n");
 		return ret;
 	}
 
@@ -1340,44 +1395,48 @@ int sst_hsw_stream_commit(struct sst_hsw *hsw, struct sst_hsw_stream *stream)
 	return 0;
 }
 
-/* Stream Information */
-int sst_hsw_stream_get_hw_id(struct sst_hsw *hsw, struct sst_hsw_stream *stream)
+/* Stream Information - these calls could be inline but we want the IPC
+ ABI to be opaque to client PCM drivers to cope with any future ABI changes */
+int sst_hsw_stream_get_hw_id(struct sst_hsw *hsw,
+	struct sst_hsw_stream *stream)
 {
 	return stream->reply.stream_hw_id;
 }
 
-int sst_hsw_stream_get_mixer_id(struct sst_hsw *hsw, struct sst_hsw_stream *stream)
+int sst_hsw_stream_get_mixer_id(struct sst_hsw *hsw,
+	struct sst_hsw_stream *stream)
 {
 	return stream->reply.mixer_hw_id;
 }
 
-int sst_hsw_stream_get_read_reg(struct sst_hsw *hsw, struct sst_hsw_stream *stream,
-	 u32 *reg)
+u32 sst_hsw_stream_get_read_reg(struct sst_hsw *hsw,
+	struct sst_hsw_stream *stream)
 {
-	*reg = stream->reply.read_position_register_address;
-	return 0;
+	return stream->reply.read_position_register_address;
 }
 
-int sst_hsw_stream_get_pointer_reg(struct sst_hsw *hsw, struct sst_hsw_stream *stream,
-	 u32 *reg)
+u32 sst_hsw_stream_get_pointer_reg(struct sst_hsw *hsw,
+	struct sst_hsw_stream *stream)
 {
-	*reg = stream->reply.presentation_position_register_address;
-	return 0;
+	return stream->reply.presentation_position_register_address;
 }
 
-/* These info are from Mixer stream info reply */
-int sst_hsw_stream_get_peak_reg(struct sst_hsw *hsw, struct sst_hsw_stream *stream,
-	 u32 channel, u32 *reg)
+u32 sst_hsw_stream_get_peak_reg(struct sst_hsw *hsw,
+	struct sst_hsw_stream *stream, u32 channel)
 {
-	*reg = stream->reply.peak_meter_register_address[channel];
-	return 0;
+	if (channel >= 2)
+		return 0;
+
+	return stream->reply.peak_meter_register_address[channel];
 }
 
-int sst_hsw_stream_get_vol_reg(struct sst_hsw *hsw, struct sst_hsw_stream *stream,
-	u32 channel, u32 *reg)
+u32 sst_hsw_stream_get_vol_reg(struct sst_hsw *hsw,
+	struct sst_hsw_stream *stream, u32 channel)
 {
-	*reg = stream->reply.volume_register_address[channel];
-	return 0;
+	if (channel >= 2)
+		return 0;
+
+	return stream->reply.volume_register_address[channel];
 }
 
 int sst_hsw_mixer_get_info(struct sst_hsw *hsw)
@@ -1393,7 +1452,7 @@ int sst_hsw_mixer_get_info(struct sst_hsw *hsw)
 
 	ret = ipc_tx_message_wait(hsw, header, NULL, 0, reply, sizeof(*reply));
 	if (ret < 0) {
-		dev_err(hsw->dev, "ipc: get stream info failed\n");
+		dev_err(hsw->dev, "error: get stream info failed\n");
 		return ret;
 	}
 
@@ -1418,7 +1477,8 @@ static int sst_hsw_stream_operations(struct sst_hsw *hsw, int type,
 }
 
 /* Stream ALSA trigger operations */
-int sst_hsw_stream_pause(struct sst_hsw *hsw, struct sst_hsw_stream *stream, int wait)
+int sst_hsw_stream_pause(struct sst_hsw *hsw, struct sst_hsw_stream *stream,
+	int wait)
 {
 	int ret;
 
@@ -1427,21 +1487,23 @@ int sst_hsw_stream_pause(struct sst_hsw *hsw, struct sst_hsw_stream *stream, int
 	ret = sst_hsw_stream_operations(hsw, IPC_STR_PAUSE,
 		stream->reply.stream_hw_id, wait);
 	if (ret < 0)
-		dev_err(hsw->dev, "ipc: error failed to pause stream %d\n",
+		dev_err(hsw->dev, "error: failed to pause stream %d\n",
 			stream->reply.stream_hw_id);
 
 	return ret;
 }
 
-int sst_hsw_stream_resume(struct sst_hsw *hsw, struct sst_hsw_stream *stream, int wait)
+int sst_hsw_stream_resume(struct sst_hsw *hsw, struct sst_hsw_stream *stream,
+	int wait)
 {
 	int ret;
 
 	trace_ipc_request("stream resume", stream->reply.stream_hw_id);
 
-	ret = sst_hsw_stream_operations(hsw, IPC_STR_RESUME, stream->reply.stream_hw_id, wait);
+	ret = sst_hsw_stream_operations(hsw, IPC_STR_RESUME,
+		stream->reply.stream_hw_id, wait);
 	if (ret < 0)
-		dev_err(hsw->dev, "ipc: error failed to resume stream %d\n",
+		dev_err(hsw->dev, "error: failed to resume stream %d\n",
 			stream->reply.stream_hw_id);
 
 	return ret;
@@ -1459,28 +1521,30 @@ int sst_hsw_stream_reset(struct sst_hsw *hsw, struct sst_hsw_stream *stream)
 	while (stream->running && tries--)
 		msleep(1);
 	if (!tries) {
-		dev_err(hsw->dev, "ipc: can't reset stream %d still running\n",
+		dev_err(hsw->dev, "error: reset stream %d still running\n",
 			stream->reply.stream_hw_id);
 		return -EINVAL;
 	}
 
 	trace_ipc_request("stream reset", stream->reply.stream_hw_id);
 
-	ret = sst_hsw_stream_operations(hsw, IPC_STR_RESET, stream->reply.stream_hw_id, 1);
+	ret = sst_hsw_stream_operations(hsw, IPC_STR_RESET,
+		stream->reply.stream_hw_id, 1);
 	if (ret < 0)
-		dev_err(hsw->dev, "ipc: error failed to reset stream %d\n",
+		dev_err(hsw->dev, "error: failed to reset stream %d\n",
 			stream->reply.stream_hw_id);
 	return ret;
 }
 
 /* Stream pointer positions */
-int sst_hsw_get_dsp_position(struct sst_hsw *hsw, struct sst_hsw_stream *stream)
+int sst_hsw_get_dsp_position(struct sst_hsw *hsw,
+	struct sst_hsw_stream *stream)
 {
 	return stream->rpos.position;
 }
 
-int sst_hsw_stream_set_write_position(struct sst_hsw *hsw, struct sst_hsw_stream *stream,
-	u32 stage_id, u32 position)
+int sst_hsw_stream_set_write_position(struct sst_hsw *hsw,
+	struct sst_hsw_stream *stream, u32 stage_id, u32 position)
 {
 	u32 header;
 	int ret;
@@ -1494,15 +1558,16 @@ int sst_hsw_stream_set_write_position(struct sst_hsw *hsw, struct sst_hsw_stream
 	header |= (stage_id << IPC_STG_ID_SHIFT);
 	stream->wpos.position = position;
 
-	ret = ipc_tx_message_nowait(hsw, header, &stream->wpos, sizeof(stream->wpos));
+	ret = ipc_tx_message_nowait(hsw, header, &stream->wpos,
+		sizeof(stream->wpos));
 	if (ret < 0)
-		dev_err(hsw->dev, "ipc: error stream %d set position %d failed\n",
+		dev_err(hsw->dev, "error: stream %d set position %d failed\n",
 			stream->reply.stream_hw_id, position);
 
 	return ret;
 }
 
-/* HW port config */
+/* physical BE config */
 int sst_hsw_device_set_config(struct sst_hsw *hsw,
 	enum sst_hsw_device_id dev, enum sst_hsw_device_mclk mclk,
 	enum sst_hsw_device_mode mode, u32 clock_divider)
@@ -1522,32 +1587,14 @@ int sst_hsw_device_set_config(struct sst_hsw *hsw,
 
 	header = IPC_GLB_TYPE(IPC_GLB_SET_DEVICE_FORMATS);
 
-	ret = ipc_tx_message_wait(hsw, header, &config, sizeof(config), NULL, 0);
+	ret = ipc_tx_message_wait(hsw, header, &config, sizeof(config),
+		NULL, 0);
 	if (ret < 0)
-		dev_err(hsw->dev, "ipc: error set device formats failed\n");
+		dev_err(hsw->dev, "error: set device formats failed\n");
 
 	return ret;
 }
-EXPORT_SYMBOL(sst_hsw_device_set_config);
-
-void sst_hsw_dx_state_dump(struct sst_hsw *hsw)
-{
-	u32 item, size, offset, source;
-	int ret;
-
-	trace_ipc_request("PM state dump. Items #", SST_HSW_MAX_DX_REGIONS);
-
-	for (item = 0; item < SST_HSW_MAX_DX_REGIONS; item++) {
-		ret = sst_hsw_dx_get_state(hsw, item, &offset, &size, &source);
-		if (ret < 0) {
-			dev_err(hsw->dev, "ipc: failed to get dx state item %d\n",
-				item);
-			return;
-		}
-		dev_dbg(hsw->dev, " Item[%d] offset[%x] - size[%x] - source[%x]\n",
-				item, offset, size, source);
-	}
-}
+EXPORT_SYMBOL_GPL(sst_hsw_device_set_config);
 
 /* DX Config */
 int sst_hsw_dx_set_state(struct sst_hsw *hsw,
@@ -1599,301 +1646,6 @@ int sst_hsw_dx_get_state(struct sst_hsw *hsw, u32 item,
 	return 0;
 }
 
-static int fw_log_open_data(struct inode *inode, struct file *file)
-{
-	struct sst_hsw_log_stream *log_stream = inode->i_private;
-	struct sst_hsw_ipc_debug_log_enable_req req;
-	u32 header;
-	int ret;
-
-	file->private_data = inode->i_private;
-
-	req.ringinfo.ring_pt_address = virt_to_phys(log_stream->ring_descr);
-	req.ringinfo.num_pages = log_stream->pages;
-	req.ringinfo.ring_size = log_stream->size;
-	req.ringinfo.ring_offset = 0;
-	req.ringinfo.ring_first_pfn = virt_to_phys(log_stream->dma_area);
-	memcpy(req.config, log_stream->config, sizeof(log_stream->config));
-
-	header = IPC_GLB_TYPE(IPC_GLB_DEBUG_LOG_MESSAGE);
-	header |= IPC_LOG_OP_TYPE(IPC_DEBUG_ENABLE_LOG);
-	header |= IPC_LOG_ID(SST_HSW_GLOBAL_LOG);
-
-	dev_info(log_stream->hsw->dev, "send ipc to enable fw log\n");
-
-	ret = ipc_tx_message_wait(log_stream->hsw, header, &req, sizeof(req), NULL, 0);
-	if (ret < 0) {
-		dev_err(log_stream->hsw->dev, "ipc: enable fw log failed\n");
-		return ret;
-	}
-
-	return 0;
-}
-
-static int fw_log_release(struct inode *inode, struct file *file)
-{
-	struct sst_hsw_log_stream *log_stream = inode->i_private;
-	u32 header;
-	int ret;
-
-	header = IPC_GLB_TYPE(IPC_GLB_DEBUG_LOG_MESSAGE);
-	header |= IPC_LOG_OP_TYPE(IPC_DEBUG_DISABLE_LOG);
-	header |= IPC_LOG_ID(SST_HSW_GLOBAL_LOG);
-
-	dev_info(log_stream->hsw->dev, "send ipc to disable fw log\n");
-
-	ret = ipc_tx_message_nowait(log_stream->hsw, header, NULL, 0);
-	if (ret < 0) {
-		dev_err(log_stream->hsw->dev, "ipc: disable fw log failed, returned %d\n", ret);
-		return ret;
-	}
-
-	return 0;
-}
-
-static ssize_t fw_log_copy_to_user(struct sst_hsw_log_stream *log_stream,
-					char __user *user_buf, size_t count)
-{
-	/* check for reader buffer wrap */
-	if (log_stream->reader_pos + count > log_stream->size) {
-		size_t size = log_stream->size - log_stream->reader_pos;
-
-		/* wrap */
-		if (copy_to_user(user_buf,
-			log_stream->dma_area + log_stream->reader_pos, size))
-			return -EFAULT;
-
-		if (copy_to_user(user_buf + size,
-			log_stream->dma_area, count - size))
-			return -EFAULT;
-
-		log_stream->reader_pos = count - size;
-
-		return count;
-
-	} else {
-		/* no wrap */
-		if (copy_to_user(user_buf,
-			log_stream->dma_area + log_stream->reader_pos, count))
-			return -EFAULT;
-
-		log_stream->reader_pos += count;
-
-		return count;
-	}
-}
-
-static ssize_t fw_log_read_data(struct file *file, char __user *user_buf,
-					size_t count, loff_t *ppos)
-{
-	struct sst_hsw_log_stream *log_stream = file->private_data;
-	size_t bytes;
-	ssize_t ret = 0;
-
-	do {
-		mutex_lock(&log_stream->rw_mutex);
-
-		if (log_stream->last_pos < log_stream->curr_pos) {
-			if (log_stream->reader_pos < log_stream->last_pos
-			|| log_stream->reader_pos > log_stream->curr_pos)
-
-				log_stream->reader_pos = log_stream->last_pos;
-		} else {
-			if (log_stream->reader_pos < log_stream->last_pos
-			&& log_stream->reader_pos > log_stream->curr_pos)
-
-				log_stream->reader_pos = log_stream->last_pos;
-		}
-
-		if (log_stream->curr_pos >= log_stream->reader_pos) {
-			bytes = log_stream->curr_pos - log_stream->reader_pos;
-		} else {
-			bytes = log_stream->curr_pos + log_stream->size -
-				log_stream->reader_pos;
-		}
-		mutex_unlock(&log_stream->rw_mutex);
-
-		if (bytes > count)
-			bytes = count;
-
-		if (bytes > 0) {
-			ret = fw_log_copy_to_user(log_stream, user_buf, bytes);
-			break;
-		}
-
-		if (file->f_flags & O_NONBLOCK) {
-			ret = -EAGAIN;
-			break;
-		}
-
-		if (wait_event_interruptible(log_stream->readers_wait_q,
-			log_stream->curr_pos != log_stream->reader_pos)) {
-			ret = -ERESTARTSYS;
-			break;
-		}
-
-	} while (1);
-
-	return ret;
-}
-
-static const struct file_operations fw_log_fops = {
-	.open = fw_log_open_data,
-	.read = fw_log_read_data,
-	.release = fw_log_release,
-};
-
-static int fw_log_config_open(struct inode *inode, struct file *file)
-{
-	file->private_data = inode->i_private;
-	return 0;
-}
-
-static ssize_t fw_log_config_read(struct file *file, char __user *buffer,
-						size_t count, loff_t *ppos)
-{
-	struct sst_hsw_log_stream *log_stream = file->private_data;
-	int max_size = sizeof(log_stream->config);
-
-	if (*ppos >= max_size)
-		return 0;
-	if (*ppos + count > max_size)
-		count = max_size - *ppos;
-
-	if (copy_to_user(buffer, log_stream->config + *ppos, count))
-		return -EFAULT;
-
-	*ppos += count;
-
-	return count;
-}
-
-static ssize_t fw_log_config_write(struct file *file, const char __user *buffer,
-						size_t count, loff_t *ppos)
-{
-	struct sst_hsw_log_stream *log_stream = file->private_data;
-	struct sst_hsw_ipc_debug_log_enable_req req;
-	u32 header;
-	int max_size = sizeof(log_stream->config);
-	int ret;
-
-	if (*ppos >= max_size)
-		return 0;
-	if (*ppos + count > max_size)
-		count = max_size - *ppos;
-
-	if (copy_from_user(log_stream->config + *ppos, buffer, count))
-		return -EFAULT;
-
-	*ppos += count;
-
-	req.ringinfo.ring_pt_address = virt_to_phys(log_stream->ring_descr);
-	req.ringinfo.num_pages = log_stream->pages;
-	req.ringinfo.ring_size = log_stream->size;
-	req.ringinfo.ring_offset = 0;
-	req.ringinfo.ring_first_pfn = virt_to_phys(log_stream->dma_area);
-	memcpy(req.config, log_stream->config, sizeof(log_stream->config));
-
-	header = IPC_GLB_TYPE(IPC_GLB_DEBUG_LOG_MESSAGE);
-	header |= IPC_LOG_OP_TYPE(IPC_DEBUG_ENABLE_LOG);
-	header |= IPC_LOG_ID(SST_HSW_GLOBAL_LOG);
-
-	dev_info(log_stream->hsw->dev, "send ipc to configure fw log\n");
-
-	ret = ipc_tx_message_nowait(log_stream->hsw, header, &req, sizeof(req));
-	if (ret < 0) {
-		dev_err(log_stream->hsw->dev, "ipc: setting config fw log failed\n");
-		return ret;
-	}
-
-	return count;
-}
-
-static const struct file_operations fw_log_config_fops = {
-	.open = fw_log_config_open,
-	.read = fw_log_config_read,
-	.write = fw_log_config_write,
-};
-
-/* debug control - sysFS */
-int sst_hsw_dbg_enable(struct sst_hsw *hsw, struct dentry *debugfs_card_root)
-{
-	struct sst_hsw_log_stream *log_stream = &hsw->log_stream;
-	int i;
-
-	memset(log_stream->config, 0xFF, sizeof(log_stream->config));
-	log_stream->size = 32 * PAGE_SIZE;
-	log_stream->hsw = hsw;
-
-	log_stream->dma_area = dma_alloc_coherent(log_stream->hsw->dev,
-		log_stream->size, &log_stream->dma_addr, GFP_KERNEL);
-	dev_info(log_stream->hsw->dev,
-		"alloc dma buffer: area=%p, addr=%p, size=%d\n",
-		(void *)log_stream->dma_area,
-		(void *)log_stream->dma_addr,
-		log_stream->size);
-
-	if (!log_stream->dma_area) {
-		dev_err(log_stream->hsw->dev, "alloc dma buffer failed\n");
-		return -EINVAL;
-	}
-
-	log_stream->ring_descr = kzalloc(PAGE_SIZE, GFP_DMA);
-	if (!log_stream->ring_descr) {
-		dev_err(log_stream->hsw->dev, "alloc ring descriptor failed\n");
-		return -EINVAL;
-	}
-
-	if (log_stream->size % PAGE_SIZE)
-		log_stream->pages = (log_stream->size / PAGE_SIZE) + 1;
-	else
-		log_stream->pages = log_stream->size / PAGE_SIZE;
-
-	dev_info(log_stream->hsw->dev,
-		"generating page table for %p size 0x%x pages %d\n",
-		log_stream->dma_area, log_stream->size, log_stream->pages);
-
-	for (i = 0; i < log_stream->pages; i++) {
-		u32 idx = (((i << 2) + i)) >> 1;
-		u32 pfn = (virt_to_phys(log_stream->dma_area + i * PAGE_SIZE))
-				>> PAGE_SHIFT;
-		u32 *pg_table;
-
-		pg_table = (u32 *)(log_stream->ring_descr + idx);
-
-		if (i & 1)
-			*pg_table |= (pfn << 4);
-		else
-			*pg_table |= pfn;
-	}
-
-	INIT_WORK(&log_stream->notify_work, hsw_log_notification_work);
-	init_waitqueue_head(&log_stream->readers_wait_q);
-	mutex_init(&log_stream->rw_mutex);
-
-	if (!debugfs_create_file("fw_log", 0444, debugfs_card_root,
-			&hsw->log_stream, &fw_log_fops))
-		pr_warn("ASoC: Failed to create fw_log debugfs file\n");
-
-	if (!debugfs_create_file("fw_log_config", 0644, debugfs_card_root,
-			&hsw->log_stream, &fw_log_config_fops))
-		pr_warn("ASoC: Failed to create fw_log_config debugfs file\n");
-
-	return 0;
-}
-EXPORT_SYMBOL(sst_hsw_dbg_enable);
-
-int sst_hsw_dbg_disable(struct sst_hsw *hsw, struct sst_hsw_stream *stream, u32 log_id)
-{
-	return 0;
-}
-
-int sst_hsw_dbg_log_dump(struct sst_hsw *hsw, struct sst_hsw_stream *stream, u32 log_id,
-	struct sst_hsw_ipc_debug_log_reply *reply)
-{
-	return 0;
-}
-
 static int msg_empty_list_init(struct sst_hsw *hsw)
 {
 	int i;
@@ -1932,7 +1684,6 @@ int sst_hsw_dsp_init(struct device *dev, struct sst_pdata *pdata)
 	struct sst_hsw_ipc_fw_version version;
 	struct sst_hsw *hsw;
 	struct sst_fw *hsw_sst_fw;
-	const struct firmware *fw;
 	int ret;
 
 	dev_dbg(dev, "initialising Audio DSP IPC\n");
@@ -1960,7 +1711,7 @@ int sst_hsw_dsp_init(struct device *dev, struct sst_pdata *pdata)
 					   dev_name(hsw->dev));
 	if (IS_ERR(hsw->tx_thread)) {
 		ret = PTR_ERR(hsw->tx_thread);
-		dev_err(hsw->dev, "error failed to create message TX task\n");
+		dev_err(hsw->dev, "error: failed to create message TX task\n");
 		goto list_err;
 	}
 	init_kthread_work(&hsw->kwork, ipc_tx_msgs);
@@ -1974,18 +1725,11 @@ int sst_hsw_dsp_init(struct device *dev, struct sst_pdata *pdata)
 		goto list_err;
 	}
 
-	/* load DSP FW */
-	ret = request_firmware(&fw, pdata->fw_filename, dev);
-	if (ret < 0) {
-		dev_err(dev, "request firmware %s failed %d\n",
-			pdata->fw_filename, ret);
-		goto fw_err;
-	}
-
 	/* keep the DSP in reset state for base FW loading */
 	sst_dsp_reset(hsw->dsp);
 
-	hsw_sst_fw = sst_fw_new(hsw->dsp, fw, hsw);
+	hsw_sst_fw = sst_fw_new(hsw->dsp, pdata->fw, hsw);
+
 	if (hsw_sst_fw == NULL) {
 		ret = -ENODEV;
 		dev_err(dev, "error: failed to load firmware\n");
@@ -1998,7 +1742,7 @@ int sst_hsw_dsp_init(struct device *dev, struct sst_pdata *pdata)
 		msecs_to_jiffies(IPC_BOOT_MSECS));
 	if (ret == 0) {
 		ret = -EIO;
-		dev_err(hsw->dev, "ipc: error DSP boot timeout\n");
+		dev_err(hsw->dev, "error: ADSP boot timeout\n");
 		goto boot_err;
 	}
 
@@ -2010,7 +1754,7 @@ int sst_hsw_dsp_init(struct device *dev, struct sst_pdata *pdata)
 	/* get the globalmixer */
 	ret = sst_hsw_mixer_get_info(hsw);
 	if (ret < 0) {
-		dev_err(hsw->dev, "failed to get stream info\n");
+		dev_err(hsw->dev, "error: failed to get stream info\n");
 		goto boot_err;
 	}
 
@@ -2026,7 +1770,7 @@ fw_err:
 list_err:
 	return ret;
 }
-EXPORT_SYMBOL(sst_hsw_dsp_init);
+EXPORT_SYMBOL_GPL(sst_hsw_dsp_init);
 
 void sst_hsw_dsp_free(struct device *dev, struct sst_pdata *pdata)
 {
@@ -2038,4 +1782,4 @@ void sst_hsw_dsp_free(struct device *dev, struct sst_pdata *pdata)
 	kfree(hsw->scratch);
 	kfree(hsw->msg);
 }
-EXPORT_SYMBOL(sst_hsw_dsp_free);
+EXPORT_SYMBOL_GPL(sst_hsw_dsp_free);
