@@ -319,6 +319,12 @@
 		};
 	};
 
+        rpm_bus: qcom,rpm-smd {
+                compatible = "qcom,rpm-smd";
+                rpm-channel-name = "rpm_requests";
+                rpm-channel-type = <15>; /* SMD_APPS_RPM */
+        };
+
 	qcom,bam_dmux@4044000 {
 		compatible = "qcom,bam_dmux";
 		reg = <0x4044000 0x19000>;
