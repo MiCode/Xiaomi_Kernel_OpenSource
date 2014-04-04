@@ -302,7 +302,8 @@ Optional properties:
 - qcom,mdss-dsi-tx-eot-append:		Boolean used to enable appending end of transmission packets.
 - qcom,ulps-enabled:			Boolean to enable support for Ultra Low Power State (ULPS) mode.
 - qcom,panel-roi-alignment:		Specifies the panel ROI alignment restrictions on its
-					left, top, width and height values
+					left, top, width, height alignments and minimum width and
+					height values
 
 Note, if a given optional qcom,* binding is not present, then the driver will configure
 the default values specified.
@@ -407,6 +408,6 @@ Example:
 		mdss-dsi-rx-eot-ignore;
 		mdss-dsi-tx-eot-append;
 		qcom,ulps-enabled;
-		qcom,panel-roi-alignment = <4 4 2 2>;
+		qcom,panel-roi-alignment = <4 4 2 2 20 20>;
 	};
 };
