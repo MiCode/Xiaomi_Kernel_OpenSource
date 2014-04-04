@@ -325,6 +325,8 @@ struct mdss_panel_info {
 	u32 width_pix_align;
 	u32 ystart_pix_align;
 	u32 height_pix_align;
+	u32 min_width;
+	u32 min_height;
 
 	u32 cont_splash_enabled;
 	u32 partial_update_enabled;
