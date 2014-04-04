@@ -404,8 +404,6 @@ struct lpm_cluster *parse_cluster(struct device_node *node,
 			list_add(&child->list, &c->child);
 			cpumask_or(&c->child_cpus, &c->child_cpus,
 					&child->child_cpus);
-			cpumask_or(&c->num_powered, &c->num_powered,
-					&child->num_powered);
 			continue;
 		}
 
@@ -418,9 +416,6 @@ struct lpm_cluster *parse_cluster(struct device_node *node,
 			 */
 			if (get_cpumask_for_node(node, &c->child_cpus))
 				goto failed_parse_cluster;
-
-			cpumask_and(&c->num_powered, &c->child_cpus,
-					cpu_online_mask);
 
 			if (parse_cpu_levels(n, c))
 				goto failed_parse_cluster;

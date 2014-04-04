@@ -76,7 +76,6 @@ struct lpm_cluster {
 	spinlock_t sync_lock;
 	struct cpumask child_cpus;
 	struct cpumask num_childs_in_sync;
-	struct cpumask num_powered;
 	struct lpm_cluster *parent;
 	bool no_saw_devices;
 };
