@@ -474,6 +474,8 @@ int a4xx_perfcounter_enable_vbif(struct kgsl_device *device,
 			countable & A4XX_VBIF_PERF_CNT_SEL_MASK);
 	/* enable reg is 8 DWORDS before select reg */
 	kgsl_regwrite(device, reg->select - A4XX_VBIF_PERF_EN_REG_SEL_OFF, 1);
+	/* reset the saved value field */
+	counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF].regs[counter].value = 0;
 	return 0;
 }
 
@@ -493,7 +495,9 @@ uint64_t a4xx_perfcounter_read_vbif(struct kgsl_device *device,
 	kgsl_regread(device, reg->offset, &lo);
 	kgsl_regread(device, reg->offset_hi, &hi);
 
-	return (((uint64_t) hi) << 32) | lo;
+	return ((((uint64_t) hi) << 32) | lo)
+		+ counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF]
+				.regs[counter].value;
 }
 
 int a4xx_perfcounter_enable_vbif_pwr(struct kgsl_device *device,
@@ -517,6 +521,9 @@ int a4xx_perfcounter_enable_vbif_pwr(struct kgsl_device *device,
 	kgsl_regwrite(device, reg->select + A4XX_VBIF_PERF_PWR_CLR_REG_EN_OFF,
 			0);
 	kgsl_regwrite(device, reg->select, 1);
+	/* reset the saved value field */
+	counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF_PWR]
+				.regs[counter].value = 0;
 	return 0;
 }
 
@@ -536,7 +543,9 @@ uint64_t a4xx_perfcounter_read_vbif_pwr(struct kgsl_device *device,
 	kgsl_regread(device, reg->offset, &lo);
 	kgsl_regread(device, reg->offset_hi, &hi);
 
-	return (((uint64_t) hi) << 32) | lo;
+	return ((((uint64_t) hi) << 32) | lo)
+		+ counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF_PWR]
+						.regs[counter].value;
 }
 
 static void a4xx_err_callback(struct adreno_device *adreno_dev, int bit)
