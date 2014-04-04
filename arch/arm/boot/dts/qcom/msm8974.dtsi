@@ -2392,6 +2392,12 @@
 		interrupts = <0 1 0>;
 	};
 
+	bimc_sharedmem {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0xfc380000 0x00100000>;
+		reg-names = "bimc";
+	};
+
 	qcom,perfmap@fc330000 {
 		compatible = "qcom,perfmap";
 		reg = <0xfc330000 0x3000>;
