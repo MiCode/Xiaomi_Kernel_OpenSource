@@ -217,7 +217,7 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 	unsigned int rptr, *rbptr, ibbase;
 	phys_addr_t ptbase;
-	int index, size, i;
+	int index, i;
 	int parse_ibs = 0, ib_parse_start;
 
 	/* Get the physical address of the MMU pagetable */
@@ -242,7 +242,7 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 		index--;
 
 		if (index < 0) {
-			index = rb->sizedwords - 3;
+			index = KGSL_RB_DWORDS - 3;
 
 			/* We wrapped without finding what we wanted */
 			if (index < rb->wptr) {
@@ -266,7 +266,7 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 		index--;
 
 		if (index < 0) {
-			index = rb->sizedwords - 2;
+			index = KGSL_RB_DWORDS - 2;
 
 			/*
 			 * Wrapped without finding the context switch. This is
@@ -298,9 +298,7 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 	 * process
 	 */
 
-	size = (rb->sizedwords << 2);
-
-	if (remain < size + sizeof(*header)) {
+	if (remain < KGSL_RB_SIZE + sizeof(*header)) {
 		KGSL_DRV_ERR(device,
 			"snapshot: Not enough memory for the rb section");
 		return 0;
@@ -310,8 +308,8 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 	header->start = rb->wptr;
 	header->end = rb->wptr;
 	header->wptr = rb->wptr;
-	header->rbsize = rb->sizedwords;
-	header->count = rb->sizedwords;
+	header->rbsize = KGSL_RB_DWORDS;
+	header->count = KGSL_RB_DWORDS;
 
 	/*
 	 * Loop through the RB, copying the data and looking for indirect
@@ -319,7 +317,7 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 	 */
 
 	index = rb->wptr;
-	for (i = 0; i < rb->sizedwords; i++) {
+	for (i = 0; i < KGSL_RB_DWORDS; i++) {
 		*data = rbptr[index];
 
 		/*
@@ -357,14 +355,14 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 
 		index = index + 1;
 
-		if (index == rb->sizedwords)
+		if (index == KGSL_RB_DWORDS)
 			index = 0;
 
 		data++;
 	}
 
 	/* Return the size of the section */
-	return size + sizeof(*header);
+	return KGSL_RB_SIZE + sizeof(*header);
 }
 
 static int snapshot_capture_mem_list(struct kgsl_device *device, void *snapshot,
