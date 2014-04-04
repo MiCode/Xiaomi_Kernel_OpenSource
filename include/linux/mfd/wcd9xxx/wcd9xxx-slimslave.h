@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -112,5 +112,6 @@ int wcd9xxx_disconnect_port(struct wcd9xxx *wcd9xxx,
 int wcd9xxx_rx_vport_validation(u32 port_id,
 				struct list_head *codec_dai_list);
 int wcd9xxx_tx_vport_validation(u32 vtable, u32 port_id,
-				struct wcd9xxx_codec_dai_data *codec_dai);
+				struct wcd9xxx_codec_dai_data *codec_dai,
+				u32 num_codec_dais);
 #endif /* __WCD9310_SLIMSLAVE_H_ */
