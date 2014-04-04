@@ -16,8 +16,8 @@
 
 &ad_hoc_bus {
 	compatible = "qcom,msm-bus-device";
-	reg = <0x580000 0x62000>,
-		<0x400000 0x14000>,
+	reg = <0x580000 0x14000>,
+		<0x400000 0x62000>,
 		<0x500000 0x11000>;
 	reg-names = "snoc-base", "bimc-base", "pnoc-base";
 
@@ -25,7 +25,6 @@
 		cell-id = <1024>;
 		label = "fab-snoc";
 		qcom,fab-dev;
-		qcom,bypass-qos-prg;
 		qcom,base-name = "snoc-base";
 		qcom,base-offset = <0x7000>;
 		qcom,qos-off = <0x1000>;
@@ -39,7 +38,6 @@
 		cell-id = <0>;
 		label = "fab-bimc";
 		qcom,fab-dev;
-		qcom,bypass-qos-prg;
 		qcom,base-name = "bimc-base";
 		qcom,bus-type = <2>;
 		clock-names = "bus_clk", "bus_a_clk";
@@ -51,7 +49,6 @@
 		cell-id = <4096>;
 		label = "fab-pnoc";
 		qcom,fab-dev;
-		qcom,bypass-qos-prg;
 		qcom,base-name = "pnoc-base";
 		qcom,base-offset = <0x7000>;
 		qcom,qos-delta = <0x1000>;
@@ -88,7 +85,7 @@
 		cell-id = <29>;
 		label = "mas-vfe";
 		qcom,ap-owned;
-		qcom,qport = <10>;
+		qcom,qport = <9>;
 		qcom,connections = <&mm_int_1 &mm_int_2>;
 		qcom,bus-dev = <&fab_snoc>;
 		qcom,qos-mode = "bypass";
@@ -100,7 +97,7 @@
 		label = "mas-mdp";
 		qcom,ap-owned;
 		qcom,connections = <&mm_int_0 &mm_int_2>;
-		qcom,qport = <1>;
+		qcom,qport = <7>;
 		qcom,bus-dev = <&fab_snoc>;
 		qcom,qos-mode = "bypass";
 		qcom,buswidth = <16>;
@@ -109,13 +106,14 @@
 	mas_qdss_bam: mas-qdss-bam {
 		cell-id = <53>;
 		label = "mas-qdss-bam";
-		qcom,ap-owned;
 		qcom,connections = <&qdss_int>;
-		qcom,qport = <12>;
+		qcom,qport = <11>;
 		qcom,bus-dev = <&fab_snoc>;
-		qcom,qos-mode = "bypass";
 		qom,buswidth = <4>;
-		qcom,mas-rpm-id = <20>;
+		qcom,ap-owned;
+		qcom,qos-mode = "fixed";
+		qcom,prio1 = <1>;
+		qcom,prio0 = <1>;
 	};
 
 	mas_snoc_cfg: mas-snoc-cfg {
@@ -131,14 +129,14 @@
 	mas_qdss_etr: mas-qdss-etr {
 		cell-id = <60>;
 		label = "mas-qdss-etr";
-		qcom,ap-owned;
 		qcom,connections = <&qdss_int>;
-		qcom,qport = <12>;
+		qcom,qport = <10>;
 		qcom,bus-dev = <&fab_snoc>;
 		qcom,qos-mode = "fixed";
 		qcom,prio1 = <1>;
 		qcom,prio0 = <1>;
 		qom,buswidth = <8>;
+		qcom,ap-owned;
 	};
 
 	mm_int_0: mm-int-0 {
@@ -317,6 +315,37 @@
 		qcom,qport = <0>;
 		qcom,bus-dev = <&fab_bimc>;
 		qcom,qos-mode = "fixed";
+		qcom,prio-lvl = <0>;
+		qcom,prio-rd = <0>;
+		qcom,prio-wr = <0>;
+		qom,buswidth = <8>;
+	};
+
+	mas_tcu0: mas-tcu0 {
+		cell-id = <104>;
+		label = "mas-tcu0";
+		qcom,ap-owned;
+		qcom,connections = <&slv_ebi_ch0 &bimc_snoc_mas &slv_apps_l2>;
+		qcom,qport = <5>;
+		qcom,bus-dev = <&fab_bimc>;
+		qcom,qos-mode = "fixed";
+		qcom,prio-lvl = <2>;
+		qcom,prio-rd = <2>;
+		qcom,prio-wr = <2>;
+		qom,buswidth = <8>;
+	};
+
+	mas_tcu1: mas-tcu1 {
+		cell-id = <105>;
+		label = "mas-tcu1";
+		qcom,ap-owned;
+		qcom,connections = <&slv_ebi_ch0 &bimc_snoc_mas &slv_apps_l2>;
+		qcom,qport = <6>;
+		qcom,bus-dev = <&fab_bimc>;
+		qcom,qos-mode = "fixed";
+		qcom,prio-lvl = <2>;
+		qcom,prio-rd = <2>;
+		qcom,prio-wr = <2>;
 		qom,buswidth = <8>;
 	};
 
@@ -325,9 +354,12 @@
 		label = "mas-gfx";
 		qcom,ap-owned;
 		qcom,connections = <&slv_ebi_ch0 &bimc_snoc_mas &slv_apps_l2>;
-		qcom,qport = <0>;
+		qcom,qport = <2>;
 		qcom,bus-dev = <&fab_bimc>;
 		qcom,qos-mode = "fixed";
+		qcom,prio-lvl = <0>;
+		qcom,prio-rd = <0>;
+		qcom,prio-wr = <0>;
 		qom,buswidth = <8>;
 	};
 
