@@ -56,3 +56,39 @@
 
 	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
 };
+
+&tlmm_pinmux {
+	apds9930_int_pin {
+		qcom,pins = <&gp 113>;
+		qcom,pin-func = <0>;
+		qcom,num-grp-pins = <1>;
+		label = "apds9930-irq";
+		apds9930_default: apds9930_default {
+			drive-strength = <6>;
+			bias-pull-up;
+		};
+	};
+};
+
+&i2c_0 { /* BLSP1 QUP2 */
+	avago@39 { /* Ambient light and proximity sensor */
+		compatible = "avago,apds9930";
+		reg = <0x39>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&apds9930_default>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <113 0x2>;
+		vdd-supply = <&pm8916_l17>;
+		vio-supply = <&pm8916_l6>;
+		avago,irq-gpio = <&msm_gpio 113 0x2>;
+		avago,ps_threshold = <600>;
+		avago,ps_hysteresis_threshold = <500>;
+		avago,ps_pulse = <8>;
+		avago,ps_pgain = <0>;
+		avago,als_B = <223>;
+		avago,als_C = <70>;
+		avago,als_D = <142>;
+		avago,ga_value = <48>;
+	};
+};
+
