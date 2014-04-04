@@ -111,7 +111,7 @@ void msm_pcie_config_msi_controller(struct msm_pcie_dev_t *dev)
 {
 	int i;
 
-	PCIE_DBG("\n");
+	PCIE_DBG("RC%d\n", dev->rc_idx);
 
 	/* program MSI controller and enable all interrupts */
 	writel_relaxed(MSM_PCIE_MSI_PHY, dev->dm_core + PCIE20_MSI_CTRL_ADDR);
@@ -143,7 +143,7 @@ void msm_pcie_destroy_irq(unsigned int irq, struct msm_pcie_dev_t *pcie_dev)
 		pos = irq - irq_find_mapping(dev->irq_domain, 0);
 	}
 
-	PCIE_DBG("\n");
+	PCIE_DBG("RC%d\n", dev->rc_idx);
 
 	if (!dev->msi_gicm_addr)
 		dynamic_irq_cleanup(irq);
@@ -199,7 +199,7 @@ static int msm_pcie_create_irq(struct msm_pcie_dev_t *dev)
 {
 	int irq, pos;
 
-	PCIE_DBG("\n");
+	PCIE_DBG("RC%d\n", dev->rc_idx);
 
 again:
 	pos = find_first_zero_bit(dev->msi_irq_in_use, PCIE_MSI_NR_IRQS);
@@ -228,7 +228,7 @@ static int arch_setup_msi_irq_default(struct pci_dev *pdev,
 	struct msi_msg msg;
 	struct msm_pcie_dev_t *dev = PCIE_BUS_PRIV_DATA(pdev);
 
-	PCIE_DBG("\n");
+	PCIE_DBG("RC%d\n", dev->rc_idx);
 
 	irq = msm_pcie_create_irq(dev);
 
@@ -254,7 +254,7 @@ static int msm_pcie_create_irq_qgic(struct msm_pcie_dev_t *dev)
 {
 	int irq, pos;
 
-	PCIE_DBG("\n");
+	PCIE_DBG("RC%d\n", dev->rc_idx);
 
 again:
 	pos = find_first_zero_bit(dev->msi_irq_in_use, PCIE_MSI_NR_IRQS);
@@ -271,7 +271,8 @@ again:
 
 	irq = dev->msi_gicm_base + pos;
 	if (!irq) {
-		pr_err("PCIe: failed to create QGIC MSI IRQ.\n");
+		pr_err("PCIe: RC%d failed to create QGIC MSI IRQ.\n",
+			dev->rc_idx);
 		return -EINVAL;
 	}
 
@@ -285,7 +286,7 @@ static int arch_setup_msi_irq_qgic(struct pci_dev *pdev,
 	struct msi_msg msg;
 	struct msm_pcie_dev_t *dev = PCIE_BUS_PRIV_DATA(pdev);
 
-	PCIE_DBG("\n");
+	PCIE_DBG("RC%d\n", dev->rc_idx);
 
 	for (index = 0; index < nvec; index++) {
 		irq = msm_pcie_create_irq_qgic(dev);
@@ -314,7 +315,7 @@ int arch_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
 {
 	struct msm_pcie_dev_t *dev = PCIE_BUS_PRIV_DATA(pdev);
 
-	PCIE_DBG("\n");
+	PCIE_DBG("RC%d\n", dev->rc_idx);
 
 	if (dev->msi_gicm_addr)
 		return arch_setup_msi_irq_qgic(pdev, desc, 1);
@@ -344,7 +345,7 @@ int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
 	int ret;
 	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev);
 
-	PCIE_DBG("\n");
+	PCIE_DBG("RC%d\n", pcie_dev->rc_idx);
 
 	if (type != PCI_CAP_ID_MSI || nvec > 32)
 		return -ENOSPC;
@@ -374,6 +375,7 @@ int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
 static int msm_pcie_msi_map(struct irq_domain *domain, unsigned int irq,
 	   irq_hw_number_t hwirq)
 {
+	PCIE_DBG("\n");
 	irq_set_chip_and_handler (irq, &pcie_msi_chip, handle_simple_irq);
 	irq_set_chip_data(irq, domain->host_data);
 	set_irq_flags(irq, IRQF_VALID);
@@ -390,7 +392,7 @@ int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 	int msi_start =  0;
 	struct device *pdev = &dev->pdev->dev;
 
-	PCIE_DBG("\n");
+	PCIE_DBG("RC%d\n", dev->rc_idx);
 
 	wakeup_source_init(&dev->ws, "pcie_wakeup_source");
 
@@ -399,7 +401,8 @@ int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 		dev->irq[MSM_PCIE_INT_MSI].num, handle_msi_irq,
 		IRQF_TRIGGER_RISING, dev->irq[MSM_PCIE_INT_MSI].name, dev);
 	if (rc) {
-		pr_err("PCIe: Unable to request MSI interrupt\n");
+		pr_err("PCIe: RC%d: Unable to request MSI interrupt\n",
+			dev->rc_idx);
 		return rc;
 	}
 
@@ -408,7 +411,8 @@ int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 			dev->wake_n, handle_wake_irq, IRQF_TRIGGER_FALLING,
 			 "msm_pcie_wake", dev);
 	if (rc) {
-		pr_err("PCIe: Unable to request wake interrupt\n");
+		pr_err("PCIe: RC%d: Unable to request wake interrupt\n",
+			dev->rc_idx);
 		return rc;
 	}
 
@@ -416,7 +420,8 @@ int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 
 	rc = enable_irq_wake(dev->wake_n);
 	if (rc) {
-		pr_err("PCIe: Unable to enable wake interrupt\n");
+		pr_err("PCIe: RC%d: Unable to enable wake interrupt\n",
+			dev->rc_idx);
 		return rc;
 	}
 
@@ -426,7 +431,8 @@ int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 			PCIE_MSI_NR_IRQS, &msm_pcie_msi_ops, dev);
 
 		if (!dev->irq_domain) {
-			pr_err("PCIe: Unable to initialize irq domain\n");
+			pr_err("PCIe: RC%d: Unable to initialize irq domain\n",
+				dev->rc_idx);
 			disable_irq(dev->wake_n);
 			return PTR_ERR(dev->irq_domain);
 		}
@@ -439,7 +445,7 @@ int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 
 void msm_pcie_irq_deinit(struct msm_pcie_dev_t *dev)
 {
-	PCIE_DBG("\n");
+	PCIE_DBG("RC%d\n", dev->rc_idx);
 
 	wakeup_source_trash(&dev->ws);
 	disable_irq(dev->wake_n);
