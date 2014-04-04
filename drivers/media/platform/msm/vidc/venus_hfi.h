@@ -159,6 +159,11 @@ struct venus_resources {
 	struct on_chip_mem ocmem;
 };
 
+enum venus_hfi_state {
+	VENUS_STATE_DEINIT = 1,
+	VENUS_STATE_INIT,
+};
+
 struct venus_hfi_device {
 	struct list_head list;
 	struct list_head sess_head;
@@ -186,6 +191,7 @@ struct venus_hfi_device {
 	int reg_count;
 	struct venus_resources resources;
 	struct msm_vidc_platform_resources *res;
+	enum venus_hfi_state state;
 };
 
 void venus_hfi_delete_device(void *device);
