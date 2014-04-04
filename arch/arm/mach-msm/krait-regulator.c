@@ -420,7 +420,8 @@ static int get_coeff_total(struct krait_power_vreg *from)
 	return coeff_total;
 }
 
-static int set_pmic_gang_phases(struct pmic_gang_vreg *pvreg, int phase_count)
+static int set_pmic_gang_phases(struct pmic_gang_vreg *pvreg,
+		struct krait_power_vreg *from, int phase_count)
 {
 	pr_debug("programming phase_count = %d\n", phase_count);
 	if (pvreg->use_phase_switching)
@@ -428,7 +429,8 @@ static int set_pmic_gang_phases(struct pmic_gang_vreg *pvreg, int phase_count)
 		 * note the PMIC sets the phase count to one more than
 		 * the value in the register - hence subtract 1 from it
 		 */
-		return msm_spm_apcs_set_phase(phase_count - 1);
+		return msm_spm_apcs_set_phase(from->cpu_num,
+						phase_count - 1);
 	else
 		return 0;
 }
@@ -506,7 +508,8 @@ static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 				&& n_online == 1
 				&& krait_pmic_is_ready()) {
 			if (!pvreg->pfm_mode) {
-				rc = msm_spm_enable_fts_lpm(PMIC_FTS_MODE_PFM);
+				rc = msm_spm_enable_fts_lpm(from->cpu_num,
+							PMIC_FTS_MODE_PFM);
 				if (rc) {
 					pr_err("%s PFM en failed load_t %d rc = %d\n",
 						from->name, load_total, rc);
@@ -520,7 +523,8 @@ static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 
 		/* coeff is high switch to PWM mode before changing phases */
 		if (pvreg->pfm_mode) {
-			rc = msm_spm_enable_fts_lpm(PMIC_FTS_MODE_PWM);
+			rc = msm_spm_enable_fts_lpm(from->cpu_num,
+						PMIC_FTS_MODE_PWM);
 			if (rc) {
 				pr_err("%s PFM exit failed load %d rc = %d\n",
 					from->name, coeff_total, rc);
@@ -550,7 +554,8 @@ static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 	if (phase_count != pvreg->pmic_phase_count) {
 		if (pvreg->force_auto_mode && phase_count > 1) {
 			/* Disable Auto Mode prior to setting phase count > 1 */
-			rc = msm_spm_enable_fts_lpm(PMIC_FTS_MODE_PWM);
+			rc = msm_spm_enable_fts_lpm(from->cpu_num,
+						PMIC_FTS_MODE_PWM);
 			if (rc) {
 				dev_err(&from->rdev->dev,
 					"failed to force PWM, rc=%d\n", rc);
@@ -567,7 +572,7 @@ static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 				from->name, phase_count, rc);
 			}
 		}
-		rc = set_pmic_gang_phases(pvreg, phase_count);
+		rc = set_pmic_gang_phases(pvreg, from, phase_count);
 		if (rc < 0) {
 			pr_err("%s failed set phase %d rc = %d\n",
 				from->name, phase_count, rc);
@@ -586,7 +591,8 @@ static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 
 		if (pvreg->force_auto_mode && phase_count == 1) {
 			/* Enable Auto Mode after setting phase count = 1 */
-			rc = msm_spm_enable_fts_lpm(PMIC_FTS_MODE_AUTO);
+			rc = msm_spm_enable_fts_lpm(from->cpu_num,
+						PMIC_FTS_MODE_AUTO);
 			if (rc) {
 				dev_err(&from->rdev->dev,
 					"failed to force AUTO, rc=%d\n", rc);
