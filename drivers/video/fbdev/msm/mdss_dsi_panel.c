@@ -751,11 +751,11 @@ static void mdss_dsi_parse_roi_alignment(struct device_node *np,
 		struct mdss_panel_info *pinfo)
 {
 	int len = 0;
-	u32 value[4];
+	u32 value[6];
 	struct property *data;
 	data = of_find_property(np, "qcom,panel-roi-alignment", &len);
 	len /= sizeof(u32);
-	if (!data || (len != 4)) {
+	if (!data || (len != 6)) {
 		pr_debug("%s: Panel roi alignment not found", __func__);
 	} else {
 		int rc = of_property_read_u32_array(np,
@@ -768,11 +768,15 @@ static void mdss_dsi_parse_roi_alignment(struct device_node *np,
 			pinfo->width_pix_align = value[1];
 			pinfo->ystart_pix_align = value[2];
 			pinfo->height_pix_align = value[3];
+			pinfo->min_width = value[4];
+			pinfo->min_height = value[5];
 		}
 
-		pr_debug("%s: coordinate rules: [%d, %d, %d, %d]", __func__,
-			pinfo->xstart_pix_align, pinfo->width_pix_align,
-			pinfo->ystart_pix_align, pinfo->height_pix_align);
+		pr_debug("%s: ROI alignment: [%d, %d, %d, %d, %d, %d]",
+				__func__, pinfo->xstart_pix_align,
+				pinfo->width_pix_align, pinfo->ystart_pix_align,
+				pinfo->height_pix_align, pinfo->min_width,
+				pinfo->min_height);
 	}
 }
 
