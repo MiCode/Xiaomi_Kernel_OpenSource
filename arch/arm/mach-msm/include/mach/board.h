@@ -535,6 +535,10 @@ struct msm_mhl_platform_data {
  *       events.
  * @master_id master id number of the i2c core or its wrapper (BLSP/GSBI).
  *       When zero, clock path voting is disabled.
+ * @noise_rjct_sda Number of low samples on data line to consider it low.
+ *       Range of values is 0-3. When missing default to 0.
+ * @noise_rjct_scl Number of low samples on clock line to consider it low.
+ *       Range of values is 0-3. When missing default to 0.
  */
 struct msm_i2c_platform_data {
 	int clk_freq;
@@ -547,6 +551,8 @@ struct msm_i2c_platform_data {
 	int aux_clk;
 	int aux_dat;
 	int src_clk_rate;
+	int noise_rjct_sda;
+	int noise_rjct_scl;
 	int use_gsbi_shared_mode;
 	int keep_ahb_clk_on;
 	void (*msm_i2c_config_gpio)(int iface, int config_type);
