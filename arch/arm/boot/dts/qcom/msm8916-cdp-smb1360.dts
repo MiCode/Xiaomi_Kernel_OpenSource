@@ -45,5 +45,6 @@
 };
 
 &pm8916_bms {
-	status = "disabled";
+	status = "ok";
+	qcom,disable-bms;
 };
