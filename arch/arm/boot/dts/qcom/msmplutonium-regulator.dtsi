@@ -13,23 +13,6 @@
 /* Stub regulators */
 
 / {
-	/* PMplutonium S8 = VDD_APC0 supply */
-	pmplutonium_s8: regulator-pmplutonium-s8 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmplutonium-s8";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <725000>;
-		regulator-max-microvolt = <1115000>;
-	};
-
-	pmplutonium_s9: regulator-pmplutonium-s9 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmplutonium-s9";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <725000>;
-		regulator-max-microvolt = <1115000>;
-	};
-
 	pmiplutonium_boost: regulator-pmiplutonium-boost {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmiplutonium-boost";
@@ -460,6 +443,34 @@
 	};
 };
 
+/* SPM controlled regulators: */
+&spmi_bus {
+	qcom,pmplutonium@1 {
+		/* PMplutonium S8 = VDD_APC0 supply */
+		pmplutonium_s8: spm-regulator@2900 {
+			compatible = "qcom,spm-regulator";
+			reg = <0x2900 0x100>;
+			regulator-name = "pmplutonium_s8";
+			regulator-min-microvolt = <725000>;
+			regulator-max-microvolt = <1115000>;
+			qcom,cpu-num = <0>;
+		};
+
+		/*
+		 * PMplutonium S9 + S10 + S11 = 3 phase VDD_APC1 supply
+		 * S11 is the gang leader.
+		 */
+		pmplutonium_s11: spm-regulator@3200 {
+			compatible = "qcom,spm-regulator";
+			reg = <0x3200 0x100>;
+			regulator-name = "pmplutonium_s11";
+			regulator-min-microvolt = <725000>;
+			regulator-max-microvolt = <1115000>;
+			qcom,cpu-num = <4>;
+		};
+	};
+};
+
 /* CPR controlled regulators */
 &soc {
 	apc0_vreg_corner: regulator@f9019000 {
@@ -516,7 +527,7 @@
 
 		qcom,cpr-voltage-ceiling = <900000 1000000 1115000>;
 		qcom,cpr-voltage-floor =   <725000  840000  940000>;
-		vdd-apc-supply = <&pmplutonium_s9>;
+		vdd-apc-supply = <&pmplutonium_s11>;
 
 		qcom,vdd-mx-corner-map = <4 5 7>;
 		qcom,vdd-mx-vmax = <7>;
