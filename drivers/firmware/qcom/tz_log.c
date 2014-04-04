@@ -557,7 +557,7 @@ static void tzdbg_register_qsee_log_buf(void)
 	/* scm response */
 	struct qseecom_command_scm_resp resp = {};
 	ion_phys_addr_t pa = 0;
-	uint32_t len;
+	size_t len;
 	int ret = 0;
 
 	/* Create ION msm client */
@@ -583,7 +583,7 @@ static void tzdbg_register_qsee_log_buf(void)
 	}
 
 	req.qsee_cmd_id = QSEOS_REGISTER_LOG_BUF_COMMAND;
-	req.phy_addr = pa;
+	req.phy_addr = (uint32_t)pa;
 	req.len = len;
 
 	/*  SCM_CALL  to register the log buffer */
