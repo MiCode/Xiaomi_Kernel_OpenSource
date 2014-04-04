@@ -289,6 +289,9 @@ static inline void msm_bus_dbg_commit_data(const char *fabname,
 #ifdef CONFIG_CORESIGHT
 int msmbus_coresight_init(struct platform_device *pdev);
 void msmbus_coresight_remove(struct platform_device *pdev);
+int msmbus_coresight_init_adhoc(struct platform_device *pdev,
+		struct device_node *of_node);
+void msmbus_coresight_remove_adhoc(struct platform_device *pdev);
 #else
 static inline int msmbus_coresight_init(struct platform_device *pdev)
 {
@@ -296,6 +299,16 @@ static inline int msmbus_coresight_init(struct platform_device *pdev)
 }
 
 static inline void msmbus_coresight_remove(struct platform_device *pdev)
+{
+}
+
+static inline int msmbus_coresight_init_adhoc(struct platform_device *pdev,
+		struct device_node *of_node)
+{
+	return 0;
+}
+
+static inline void msmbus_coresight_remove_adhoc(struct platform_device *pdev)
 {
 }
 #endif

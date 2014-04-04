@@ -310,6 +310,10 @@ static unsigned int get_bus_node_device_data(
 			dev_err(&pdev->dev,
 				"Failed to get bus clk for bus%d ctx%d",
 				 node_device->node_info->id, ACTIVE_CTX);
+		if (msmbus_coresight_init_adhoc(pdev, dev_node))
+			dev_warn(&pdev->dev,
+				 "Coresight support absent for bus: %d\n",
+				  node_device->node_info->id);
 	}
 	return 0;
 }
