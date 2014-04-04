@@ -199,5 +199,12 @@ static const struct adreno_gpulist {
 		.gmem_size = (SZ_1M + SZ_512K),
 		.sync_lock_pm4_ver = NO_VER,
 		.sync_lock_pfp_ver = NO_VER,
+		.pm4_jt_idx = 0x901,
+		.pm4_jt_addr = 0x300,
+		.pfp_jt_idx = 0x401,
+		.pfp_jt_addr = 0x400,
+		.pm4_bstrp_size = 0x06,
+		.pfp_bstrp_size = 0x28,
+		.pfp_bstrp_ver = 0x4ff091,
 	},
 };
