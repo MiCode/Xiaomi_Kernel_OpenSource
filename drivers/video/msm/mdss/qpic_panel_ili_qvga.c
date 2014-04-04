@@ -29,34 +29,7 @@
 #include "mdss_qpic.h"
 #include "mdss_qpic_panel.h"
 
-enum {
-	OP_ILI9341_TEARING_EFFECT_LINE_ON = OP_SIZE_PAIR(0x35, 1),
-	OP_ILI9341_INTERFACE_CONTROL = OP_SIZE_PAIR(0xf6, 3),
-	OP_ILI9341_WRITE_CTRL_DISPLAY  = OP_SIZE_PAIR(0x53, 1),
-	OP_ILI9341_POWER_CONTROL_A  = OP_SIZE_PAIR(0xcb, 5),
-	OP_ILI9341_POWER_CONTROL_B  = OP_SIZE_PAIR(0xcf, 3),
-	OP_ILI9341_DRIVER_TIMING_CONTROL_A  = OP_SIZE_PAIR(0xe8, 3),
-	OP_ILI9341_DRIVER_TIMING_CONTROL_B  = OP_SIZE_PAIR(0xea, 3),
-	OP_ILI9341_POWER_ON_SEQUENCE_CONTROL  = OP_SIZE_PAIR(0xed, 4),
-	OP_ILI9341_PUMP_RATIO_CONTROL  = OP_SIZE_PAIR(0xf7, 1),
-	OP_ILI9341_POWER_CONTROL_1  = OP_SIZE_PAIR(0xc0, 1),
-	OP_ILI9341_POWER_CONTROL_2  = OP_SIZE_PAIR(0xc1, 1),
-	OP_ILI9341_VCOM_CONTROL_1  = OP_SIZE_PAIR(0xc5, 2),
-	OP_ILI9341_VCOM_CONTROL_2  = OP_SIZE_PAIR(0xc7, 1),
-	OP_ILI9341_MEMORY_ACCESS_CONTROL  = OP_SIZE_PAIR(0x36, 1),
-	OP_ILI9341_FRAME_RATE_CONTROL  = OP_SIZE_PAIR(0xb1, 2),
-	OP_ILI9341_DISPLAY_FUNCTION_CONTROL = OP_SIZE_PAIR(0xb6, 4),
-	OP_ILI9341_ENABLE_3G = OP_SIZE_PAIR(0xf2, 1),
-	OP_ILI9341_COLMOD_PIXEL_FORMAT_SET = OP_SIZE_PAIR(0x3a, 1),
-	OP_ILI9341_GAMMA_SET = OP_SIZE_PAIR(0x26, 1),
-	OP_ILI9341_POSITIVE_GAMMA_CORRECTION = OP_SIZE_PAIR(0xe0, 15),
-	OP_ILI9341_NEGATIVE_GAMMA_CORRECTION = OP_SIZE_PAIR(0xe1, 15),
-	OP_ILI9341_READ_DISPLAY_ID = OP_SIZE_PAIR(0x04, 4),
-	OP_ILI9341_READ_DISPLAY_POWER_MODE = OP_SIZE_PAIR(0x0a, 2),
-	OP_ILI9341_READ_DISPLAY_MADCTL = OP_SIZE_PAIR(0x0b, 2),
-};
-
-static int ili9341_init(struct qpic_panel_io_desc *panel_io)
+static int panel_io_init(struct qpic_panel_io_desc *panel_io)
 {
 	int rc;
 	if (panel_io->vdd_vreg) {
@@ -78,7 +51,7 @@ static int ili9341_init(struct qpic_panel_io_desc *panel_io)
 	return 0;
 }
 
-void ili9341_off(struct qpic_panel_io_desc *qpic_panel_io)
+static void panel_io_off(struct qpic_panel_io_desc *qpic_panel_io)
 {
 	if (qpic_panel_io->ad8_gpio)
 		gpio_free(qpic_panel_io->ad8_gpio);
@@ -96,7 +69,12 @@ void ili9341_off(struct qpic_panel_io_desc *qpic_panel_io)
 		regulator_disable(qpic_panel_io->avdd_vreg);
 }
 
-static int ili9341_panel_power_on(struct qpic_panel_io_desc *qpic_panel_io)
+void ili9341_off(struct qpic_panel_io_desc *qpic_panel_io)
+{
+	panel_io_off(qpic_panel_io);
+}
+
+static int panel_io_on(struct qpic_panel_io_desc *qpic_panel_io)
 {
 	int rc;
 	if (qpic_panel_io->vdd_vreg) {
@@ -148,66 +126,68 @@ static int ili9341_panel_power_on(struct qpic_panel_io_desc *qpic_panel_io)
 	msleep(20);
 	return 0;
 power_on_error:
-	ili9341_off(qpic_panel_io);
+	panel_io_off(qpic_panel_io);
 	return -EINVAL;
 }
 
 int ili9341_on(struct qpic_panel_io_desc *qpic_panel_io)
 {
-	u32 param[20];
+	u8 param[4];
 	int ret;
 	if (!qpic_panel_io->init) {
-		ili9341_init(qpic_panel_io);
+		panel_io_init(qpic_panel_io);
 		qpic_panel_io->init = true;
 	}
-	ret = ili9341_panel_power_on(qpic_panel_io);
+	ret = panel_io_on(qpic_panel_io);
 	if (ret)
 		return ret;
-	qpic_panel_set_cmd_only(OP_SOFT_RESET);
+	qpic_send_pkt(OP_SOFT_RESET, NULL, 0);
 	/* wait for 120 ms after reset as panel spec suggests */
 	msleep(120);
-	qpic_panel_set_cmd_only(OP_SET_DISPLAY_OFF);
+	qpic_send_pkt(OP_SET_DISPLAY_OFF, NULL, 0);
 	/* wait for 20 ms after disply off */
 	msleep(20);
 
 	/* set memory access control */
-	param[0] = ((0x48)<<0) | ((0x00)<<8) | ((0x00)<<16) | ((0x00U)<<24U);
-	qpic_send_panel_cmd(OP_ILI9341_MEMORY_ACCESS_CONTROL, param, 0);
+	param[0] = 0x48;
+	qpic_send_pkt(OP_SET_ADDRESS_MODE, param, 1);
 	/* wait for 20 ms after command sent as panel spec suggests */
 	msleep(20);
 
-	/* set COLMOD: Pixel Format Set */
-	param[0] = ((0x66)<<0) | ((0x00)<<8) | ((0x00)<<16) | ((0x00U)<<24U);
-	qpic_send_panel_cmd(OP_ILI9341_COLMOD_PIXEL_FORMAT_SET, param, 0);
+	param[0] = 0x66;
+	qpic_send_pkt(OP_SET_PIXEL_FORMAT, param, 1);
 	/* wait for 20 ms after command sent as panel spec suggests */
 	msleep(20);
 
 	/* set interface */
-	param[0] = ((0x01)<<0) | ((0x00)<<8) | ((0x00)<<16) | ((0x00U)<<24U);
-	qpic_send_panel_cmd(OP_ILI9341_INTERFACE_CONTROL, &param[0], 0);
+	param[0] = 1;
+	param[1] = 0;
+	param[2] = 0;
+	qpic_send_pkt(OP_ILI9341_INTERFACE_CONTROL, param, 3);
 	/* wait for 20 ms after command sent */
 	msleep(20);
 
 	/* exit sleep mode */
-	qpic_panel_set_cmd_only(OP_EXIT_SLEEP_MODE);
+	qpic_send_pkt(OP_EXIT_SLEEP_MODE, NULL, 0);
 	/* wait for 20 ms after command sent as panel spec suggests */
 	msleep(20);
 
 	/* normal mode */
-	qpic_panel_set_cmd_only(OP_ENTER_NORMAL_MODE);
+	qpic_send_pkt(OP_ENTER_NORMAL_MODE, NULL, 0);
 	/* wait for 20 ms after command sent as panel spec suggests */
 	msleep(20);
 
 	/* display on */
-	qpic_panel_set_cmd_only(OP_SET_DISPLAY_ON);
+	qpic_send_pkt(OP_SET_DISPLAY_ON, NULL, 0);
 	/* wait for 20 ms after command sent as panel spec suggests */
 	msleep(20);
 
-	/* tearing effect  */
-	param[0] = ((0x00)<<0) | ((0x00)<<8) | ((0x00)<<16) | ((0x00U)<<24U);
-	qpic_send_panel_cmd(OP_ILI9341_TEARING_EFFECT_LINE_ON, param, 0);
-	/* wait for 20 ms after command sent as panel spec suggests */
-	msleep(20);
+	param[0] = 0;
+	qpic_send_pkt(OP_ILI9341_TEARING_EFFECT_LINE_ON, param, 1);
+
+	/* test */
+	param[0] = qpic_read_data(OP_GET_PIXEL_FORMAT, 1);
+	pr_debug("Pixel format =%x", param[0]);
 
 	return 0;
 }

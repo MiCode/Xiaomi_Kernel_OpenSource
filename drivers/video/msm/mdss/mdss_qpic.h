@@ -48,8 +48,8 @@
 #define QPIC_MAX_CMD_BUF_SIZE				512
 
 int mdss_qpic_init(void);
-int qpic_flush_buffer(u32 cmd, u32 len, u32 *param, u32 is_cmd);
-
+int qpic_send_pkt(u32 cmd, u8 *param, u32 len);
+u32 qpic_read_data(u32 cmd_index, u32 size);
 u32 msm_qpic_get_bam_hdl(struct sps_bam_props *bam);
 int mdss_qpic_panel_on(struct mdss_panel_data *pdata,
 	struct qpic_panel_io_desc *panel_io);
@@ -83,6 +83,8 @@ struct qpic_data_type {
 	u32 irq_requested;
 	struct mdss_panel_data *panel_data;
 	struct qpic_panel_io_desc panel_io;
+	u32 bus_handle;
+	struct completion fifo_eof_comp;
 };
 
 u32 qpic_send_frame(
