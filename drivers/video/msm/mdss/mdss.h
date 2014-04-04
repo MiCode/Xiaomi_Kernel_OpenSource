@@ -216,7 +216,7 @@ int mdss_register_irq(struct mdss_hw *hw);
 void mdss_enable_irq(struct mdss_hw *hw);
 void mdss_disable_irq(struct mdss_hw *hw);
 void mdss_disable_irq_nosync(struct mdss_hw *hw);
-void mdss_bus_bandwidth_ctrl(int enable);
+int mdss_bus_bandwidth_ctrl(int enable);
 
 static inline struct ion_client *mdss_get_ionclient(void)
 {
