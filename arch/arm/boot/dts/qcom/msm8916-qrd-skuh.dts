@@ -17,5 +17,5 @@
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8916 QRD SKUH";
 	compatible = "qcom,msm8916-qrd-skuh", "qcom,msm8916-qrd", "qcom,msm8916", "qcom,qrd";
-	qcom,board-id = <11 0> , <11 4>;
+	qcom,board-id = <0x1000b 0> , <0x1000b 4>;
 };
