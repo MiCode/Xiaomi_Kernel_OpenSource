@@ -653,8 +653,9 @@ static int msm_bus_noc_qos_init(struct msm_bus_node_device_type *info,
 
 	for (i = 0; i < info->node_info->num_qports; i++) {
 		if (info->node_info->mode != NOC_QOS_MODE_BYPASS) {
-			noc_set_qos_priority(qos_base, qos_off, qos_delta,
-					info->node_info->qport[i], &prio);
+			noc_set_qos_priority(qos_base, qos_off,
+					info->node_info->qport[i], qos_delta,
+					&prio);
 
 			if (info->node_info->mode != NOC_QOS_MODE_FIXED) {
 				struct msm_bus_noc_qos_bw qbw;
@@ -670,7 +671,7 @@ static int msm_bus_noc_qos_init(struct msm_bus_node_device_type *info,
 
 		noc_set_qos_mode(qos_base, qos_off, info->node_info->qport[i],
 				qos_delta, info->node_info->mode,
-				info->node_info->mode);
+				(1 << info->node_info->mode));
 	}
 err_qos_init:
 	return ret;

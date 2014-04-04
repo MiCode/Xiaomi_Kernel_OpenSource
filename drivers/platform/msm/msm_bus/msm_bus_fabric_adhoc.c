@@ -591,6 +591,9 @@ static int msm_bus_dev_init_qos(struct device *dev, void *data)
 			if (node_dev->ap_owned &&
 				(node_dev->node_info->mode) != -1) {
 
+				if (bus_node_info->fabdev->bypass_qos_prg)
+					goto exit_init_qos;
+
 				msm_bus_qos_enable_clk(node_dev);
 				bus_node_info->fabdev->noc_ops.qos_init(
 					node_dev,
@@ -640,6 +643,7 @@ static int msm_bus_fabric_init(struct device *dev,
 	fabdev->pqos_base = pdata->fabdev->pqos_base;
 	fabdev->qos_range = pdata->fabdev->qos_range;
 	fabdev->base_offset = pdata->fabdev->base_offset;
+	fabdev->qos_off = pdata->fabdev->qos_off;
 	fabdev->bus_type = pdata->fabdev->bus_type;
 	fabdev->bypass_qos_prg = pdata->fabdev->bypass_qos_prg;
 	msm_bus_fab_init_noc_ops(node_dev);
@@ -720,6 +724,9 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 	node_info->mode = pdata_node_info->mode;
 	node_info->prio1 = pdata_node_info->prio1;
 	node_info->prio0 = pdata_node_info->prio0;
+	node_info->prio_lvl = pdata_node_info->prio_lvl;
+	node_info->prio_rd = pdata_node_info->prio_rd;
+	node_info->prio_wr = pdata_node_info->prio_wr;
 
 	node_info->dev_connections = devm_kzalloc(bus_dev,
 			sizeof(struct device *) *
