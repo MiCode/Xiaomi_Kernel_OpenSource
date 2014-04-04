@@ -94,6 +94,9 @@ Parent node Optional properties
 - qcom,use-voltage-soc : A boolean that controls whether BMS will use
 			voltage-based SoC instead of a coulomb counter based
 			one. Voltage-based SoC will not guarantee linearity.
+- qcom,disable-bms :	Bool property to disable the VMBMS hardware module.
+			Enable this property if BMS is not supported or an external
+			fuel gauge is used.
 
 qcom,batt-pres-status node required properties:
 - reg : offset and length of the PMIC LBC battery interface BATT_PRES_STATUS
