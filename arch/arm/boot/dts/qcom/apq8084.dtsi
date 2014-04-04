@@ -868,6 +868,8 @@
 		reg = <0xf9925000 0x1000>;
 		interrupt-names = "qup_err_intr";
 		interrupts = <0 97 0>;
+		qcom,noise-rjct-scl = <1>;
+		qcom,noise-rjct-sda = <1>;
 		qcom,i2c-bus-freq = <100000>;
 		qcom,i2c-src-freq = <50000000>;
 		qcom,sda-gpio = <&msmgpio 10 0>;
@@ -884,6 +886,8 @@
 		#size-cells = <0>;
 		reg-names = "qup_phys_addr";
 		interrupts = <0 98 0>;
+		qcom,noise-rjct-scl = <0>;
+		qcom,noise-rjct-sda = <0>;
 		interrupt-names = "qup_err_intr";
 		qcom,i2c-bus-freq = <400000>;
 		qcom,i2c-src-freq = <19200000>;
@@ -902,6 +906,8 @@
 		reg = <0xf9927000 0x1000>;
 		interrupt-names = "qup_err_intr";
 		interrupts = <0 99 0>;
+		qcom,noise-rjct-scl = <0>;
+		qcom,noise-rjct-sda = <0>;
 		qcom,i2c-bus-freq = <100000>;
 		qcom,i2c-src-freq = <19200000>;
 		qcom,sda-gpio = <&msmgpio 41 0>;
@@ -918,6 +924,8 @@
 		reg = <0xf9966000 0x1000>;
 		interrupt-names = "qup_err_intr";
 		interrupts = <0 104 0>;
+		qcom,noise-rjct-scl = <0>;
+		qcom,noise-rjct-sda = <0>;
 		qcom,i2c-bus-freq = <100000>;
 		qcom,i2c-src-freq = <50000000>;
 		qcom,sda-gpio = <&msmgpio 61 0>;
