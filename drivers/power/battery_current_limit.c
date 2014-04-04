@@ -888,8 +888,7 @@ static ssize_t freq_max_store(struct device *dev,
 	ret = convert_to_int(buf, &val);
 	if (ret)
 		return ret;
-	gbcl->btm_freq_max = (val >= BTM_8084_FREQ_MITIG_LIMIT) ?
-				val : BTM_8084_FREQ_MITIG_LIMIT;
+	gbcl->btm_freq_max = max_t(uint32_t, val, gbcl->btm_freq_limit);
 
 	return count;
 }
@@ -1139,6 +1138,34 @@ static int bcl_resume(struct device *dev)
 	return 0;
 }
 
+static void get_vdd_rstr_freq(struct bcl_context *bcl,
+				struct device_node *ibat_node)
+{
+	int ret = 0;
+	struct device_node *phandle = NULL;
+	char *key = NULL;
+
+	key = "thermal-handle";
+	phandle = of_parse_phandle(ibat_node, key, 0);
+	if (!phandle) {
+		pr_err("Thermal handle not present\n");
+		ret = -ENODEV;
+		goto vdd_rstr_exit;
+	}
+	key = "qcom,levels";
+	ret = of_property_read_u32_index(phandle, key, 0,
+					&bcl->btm_freq_limit);
+	if (ret) {
+		pr_err("Error reading property %s. ret:%d\n", key, ret);
+		goto vdd_rstr_exit;
+	}
+
+vdd_rstr_exit:
+	if (ret)
+		bcl->btm_freq_limit = BTM_8084_FREQ_MITIG_LIMIT;
+	return;
+}
+
 static int probe_btm_properties(struct bcl_context *bcl)
 {
 	int ret = 0, curr_ua = 0;
@@ -1181,8 +1208,6 @@ static int probe_btm_properties(struct bcl_context *bcl)
 	ret = of_property_read_u32(ibat_node, key, &bcl->btm_freq_max);
 	if (ret < 0)
 		goto btm_probe_exit;
-	bcl->btm_freq_max = (bcl->btm_freq_max >= BTM_8084_FREQ_MITIG_LIMIT) ?
-				bcl->btm_freq_max : BTM_8084_FREQ_MITIG_LIMIT;
 
 	key = "ibat-channel";
 	ret = of_property_read_u32(ibat_node, key, &bcl->btm_ibat_chan);
@@ -1223,6 +1248,8 @@ static int probe_btm_properties(struct bcl_context *bcl)
 		ret = PTR_ERR(bcl->btm_vadc_dev);
 		goto btm_probe_exit;
 	}
+	get_vdd_rstr_freq(bcl, ibat_node);
+	bcl->btm_freq_max = max(bcl->btm_freq_max, bcl->btm_freq_limit);
 
 	bcl->btm_mode = BCL_MONITOR_DISABLED;
 	bcl->bcl_monitor_type = BCL_IBAT_MONITOR_TYPE;
