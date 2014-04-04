@@ -40,14 +40,14 @@
 
 static int mdss_qpic_probe(struct platform_device *pdev);
 static int mdss_qpic_remove(struct platform_device *pdev);
+static void qpic_interrupt_en(u32 en);
 
 struct qpic_data_type *qpic_res;
 
-/* for tuning */
+/* for debugging */
 static u32 use_bam = true;
-static u32 use_irq;
+static u32 use_irq = true;
 static u32 use_vsync;
-static u32 bus_handle;
 
 static const struct of_device_id mdss_qpic_dt_match[] = {
 	{ .compatible = "qcom,mdss_qpic",},
@@ -79,6 +79,8 @@ int qpic_off(struct msm_fb_data_type *mfd)
 {
 	int ret;
 	ret = mdss_qpic_panel_off(qpic_res->panel_data, &qpic_res->panel_io);
+	if (use_irq)
+		qpic_interrupt_en(false);
 	return ret;
 }
 
@@ -86,13 +88,13 @@ static int msm_qpic_bus_set_vote(u32 vote)
 {
 	int ret;
 
-	if (!bus_handle)
+	if (!qpic_res->bus_handle)
 		return 0;
-	ret = msm_bus_scale_client_update_request(bus_handle,
+	ret = msm_bus_scale_client_update_request(qpic_res->bus_handle,
 			vote);
 	if (ret)
 		pr_err("msm_bus_scale_client_update_request() failed, bus_handle=0x%x, vote=%d, err=%d\n",
-			bus_handle, vote, ret);
+			qpic_res->bus_handle, vote, ret);
 	return ret;
 }
 
@@ -119,13 +121,16 @@ static void mdss_qpic_pan_display(struct msm_fb_data_type *mfd)
 		       offset, fbi->fix.smem_len);
 		return;
 	}
-	fb_offset = (u32)fbi->fix.smem_start + offset;
+	if (use_bam)
+		fb_offset = (u32)fbi->fix.smem_start + offset;
+	else
+		fb_offset = (u32)mfd->fbi->screen_base + offset;
 
 	msm_qpic_bus_set_vote(1);
 	mdss_qpic_panel_on(qpic_res->panel_data, &qpic_res->panel_io);
 	size = fbi->var.xres * fbi->var.yres * bpp;
 
-	qpic_send_frame(0, 0, fbi->var.xres, fbi->var.yres,
+	qpic_send_frame(0, 0, fbi->var.xres - 1, fbi->var.yres - 1,
 		(u32 *)fb_offset, size);
 	msm_qpic_bus_set_vote(0);
 }
@@ -328,7 +333,8 @@ void mdss_qpic_reset(void)
 	QPIC_OUTP(QPIC_REG_QPIC_LCDC_RESET, 1 << 0);
 	/* wait 100 us after reset as suggested by hw */
 	usleep_range(100, 100);
-	time_end = (u32)ktime_to_ms(ktime_get()) + QPIC_MAX_VSYNC_WAIT_TIME;
+	time_end = (u32)ktime_to_ms(ktime_get()) +
+		QPIC_MAX_VSYNC_WAIT_TIME;
 	while (((QPIC_INP(QPIC_REG_QPIC_LCDC_STTS) & (1 << 8)) == 0)) {
 		if ((u32)ktime_to_ms(ktime_get()) > time_end) {
 			pr_err("%s reset not finished", __func__);
@@ -339,15 +345,14 @@ void mdss_qpic_reset(void)
 	}
 }
 
-void qpic_interrupt_en(u32 en)
+static void qpic_interrupt_en(u32 en)
 {
 	QPIC_OUTP(QPIC_REG_QPIC_LCDC_IRQ_CLR, 0xff);
 	if (en) {
 		if (!qpic_res->irq_ena) {
+			init_completion(&qpic_res->fifo_eof_comp);
 			qpic_res->irq_ena = true;
 			enable_irq(qpic_res->irq);
-			QPIC_OUTP(QPIC_REG_QPIC_LCDC_IRQ_EN,
-				(1 << 0) | (1 << 2));
 		}
 	} else {
 		QPIC_OUTP(QPIC_REG_QPIC_LCDC_IRQ_EN, 0);
@@ -361,20 +366,25 @@ static irqreturn_t qpic_irq_handler(int irq, void *ptr)
 	u32 data;
 	data = QPIC_INP(QPIC_REG_QPIC_LCDC_IRQ_STTS);
 	QPIC_OUTP(QPIC_REG_QPIC_LCDC_IRQ_CLR, 0xff);
-	return 0;
+	QPIC_OUTP(QPIC_REG_QPIC_LCDC_IRQ_EN, 0);
+
+	if (data & ((1 << 2) | (1 << 4)))
+		complete(&qpic_res->fifo_eof_comp);
+	return IRQ_HANDLED;
 }
 
-int qpic_flush_buffer_bam(u32 cmd, u32 len, u32 *param, u32 is_cmd)
+static int qpic_send_pkt_bam(u32 cmd, u32 len, u8 *param)
 {
 	int  ret = 0;
 	u32 phys_addr, cfg2, block_len , flags;
-	if (is_cmd) {
+
+	if ((cmd != OP_WRITE_MEMORY_START) &&
+		(cmd != OP_WRITE_MEMORY_CONTINUE)) {
 		memcpy((u8 *)qpic_res->cmd_buf_virt, param, len);
 		phys_addr = qpic_res->cmd_buf_phys;
 	} else {
 		phys_addr = (u32)param;
 	}
-
 	cfg2 = QPIC_INP(QPIC_REG_QPIC_LCDC_CFG2);
 	cfg2 &= ~0xFF;
 	cfg2 |= cmd;
@@ -405,32 +415,51 @@ int qpic_flush_buffer_bam(u32 cmd, u32 len, u32 *param, u32 is_cmd)
 	return ret;
 }
 
-int qpic_flush_buffer_sw(u32 cmd, u32 len, u32 *param, u32 is_cmd)
+void qpic_dump_reg(void)
 {
-	u32 bytes_left, space, data, cfg2, time_end;
-	int i, ret = 0;
-	if ((len <= (sizeof(u32) * 4)) && (is_cmd)) {
-		len >>= 2;/* len in dwords */
-		data = 0;
-		for (i = 0; i < len; i++)
-			data |= param[i] << (8 * i);
-		QPIC_OUTP(QPIC_REG_QPIC_LCDC_CMD_DATA_CYCLE_CNT, len);
-		QPIC_OUTP(QPIC_REG_LCD_DEVICE_CMD0 + (4 * cmd), data);
-		return 0;
-	}
-	if ((len & 0x1) != 0) {
-		pr_err("%s: number of bytes needs be even", __func__);
-		len = (len + 1) & (~0x1);
-	}
-	QPIC_OUTP(QPIC_REG_QPIC_LCDC_IRQ_CLR, 0xff);
-	cfg2 = QPIC_INP(QPIC_REG_QPIC_LCDC_CFG2);
-	cfg2 |= (1 << 24); /* transparent mode */
-	cfg2 &= ~0xFF;
-	cfg2 |= cmd;
-	QPIC_OUTP(QPIC_REG_QPIC_LCDC_CFG2, cfg2);
-	QPIC_OUTP(QPIC_REG_QPIC_LCDC_FIFO_SOF, 0x0);
-	bytes_left = len;
-	while (bytes_left > 0) {
+	pr_info("%s\n", __func__);
+	pr_info("QPIC_REG_QPIC_LCDC_CTRL = %x\n",
+		QPIC_INP(QPIC_REG_QPIC_LCDC_CTRL));
+	pr_info("QPIC_REG_QPIC_LCDC_CMD_DATA_CYCLE_CNT = %x\n",
+		QPIC_INP(QPIC_REG_QPIC_LCDC_CMD_DATA_CYCLE_CNT));
+	pr_info("QPIC_REG_QPIC_LCDC_CFG0 = %x\n",
+		QPIC_INP(QPIC_REG_QPIC_LCDC_CFG0));
+	pr_info("QPIC_REG_QPIC_LCDC_CFG1 = %x\n",
+		QPIC_INP(QPIC_REG_QPIC_LCDC_CFG1));
+	pr_info("QPIC_REG_QPIC_LCDC_CFG2 = %x\n",
+		QPIC_INP(QPIC_REG_QPIC_LCDC_CFG2));
+	pr_info("QPIC_REG_QPIC_LCDC_IRQ_EN = %x\n",
+		QPIC_INP(QPIC_REG_QPIC_LCDC_IRQ_EN));
+	pr_info("QPIC_REG_QPIC_LCDC_IRQ_STTS = %x\n",
+		QPIC_INP(QPIC_REG_QPIC_LCDC_IRQ_STTS));
+	pr_info("QPIC_REG_QPIC_LCDC_STTS = %x\n",
+		QPIC_INP(QPIC_REG_QPIC_LCDC_STTS));
+	pr_info("QPIC_REG_QPIC_LCDC_FIFO_SOF = %x\n",
+		QPIC_INP(QPIC_REG_QPIC_LCDC_FIFO_SOF));
+}
+
+static int qpic_wait_for_fifo(void)
+{
+	u32 data, time_end;
+	int ret = 0;
+
+	if (use_irq) {
+		data = QPIC_INP(QPIC_REG_QPIC_LCDC_STTS);
+		data &= 0x3F;
+		if (data == 0)
+			return ret;
+		INIT_COMPLETION(qpic_res->fifo_eof_comp);
+		QPIC_OUTP(QPIC_REG_QPIC_LCDC_IRQ_EN, (1 << 4));
+		ret = wait_for_completion_timeout(&qpic_res->fifo_eof_comp,
+				msecs_to_jiffies(QPIC_MAX_VSYNC_WAIT_TIME));
+		if (ret > 0) {
+			ret = 0;
+		} else {
+			pr_err("%s timeout %x\n", __func__, ret);
+			ret = -ETIMEDOUT;
+		}
+		QPIC_OUTP(QPIC_REG_QPIC_LCDC_IRQ_EN, 0);
+	} else {
 		time_end = (u32)ktime_to_ms(ktime_get()) +
 			QPIC_MAX_VSYNC_WAIT_TIME;
 		while (1) {
@@ -443,17 +472,98 @@ int qpic_flush_buffer_sw(u32 cmd, u32 len, u32 *param, u32 is_cmd)
 			if (ktime_to_ms(ktime_get()) > time_end) {
 				pr_err("%s time out", __func__);
 				ret = -EBUSY;
-				goto exit_send_cmd_sw;
+				break;
 			}
 		}
-		space = (16 - data);
+	}
+	return ret;
+}
+
+static int qpic_wait_for_eof(void)
+{
+	u32 data, time_end;
+	int ret = 0;
+	if (use_irq) {
+		data = QPIC_INP(QPIC_REG_QPIC_LCDC_IRQ_STTS);
+		if (data & (1 << 2))
+			return ret;
+		INIT_COMPLETION(qpic_res->fifo_eof_comp);
+		QPIC_OUTP(QPIC_REG_QPIC_LCDC_IRQ_EN, (1 << 2));
+		ret = wait_for_completion_timeout(&qpic_res->fifo_eof_comp,
+				msecs_to_jiffies(QPIC_MAX_VSYNC_WAIT_TIME));
+		if (ret > 0) {
+			ret = 0;
+		} else {
+			pr_err("%s timeout %x\n", __func__, ret);
+			ret = -ETIMEDOUT;
+		}
+		QPIC_OUTP(QPIC_REG_QPIC_LCDC_IRQ_EN, 0);
+	} else {
+		time_end = (u32)ktime_to_ms(ktime_get()) +
+			QPIC_MAX_VSYNC_WAIT_TIME;
+		while (1) {
+			data = QPIC_INP(QPIC_REG_QPIC_LCDC_IRQ_STTS);
+			if (data & (1 << 2))
+				break;
+			/* yield 10 us for next polling by experiment*/
+			usleep_range(10, 10);
+			if (ktime_to_ms(ktime_get()) > time_end) {
+				pr_err("%s wait for eof time out\n", __func__);
+				qpic_dump_reg();
+				ret = -EBUSY;
+				break;
+			}
+		}
+	}
+	return ret;
+}
+
+static int qpic_send_pkt_sw(u32 cmd, u32 len, u8 *param)
+{
+	u32 bytes_left, space, data, cfg2;
+	int i, ret = 0;
+	if (len <= 4) {
+		len = (len + 3) / 4; /* len in dwords */
+		data = 0;
+		for (i = 0; i < len; i++)
+			data |= (u32)param[i] << (8 * i);
+		QPIC_OUTP(QPIC_REG_QPIC_LCDC_CMD_DATA_CYCLE_CNT, len);
+		QPIC_OUTP(QPIC_REG_LCD_DEVICE_CMD0 + (4 * cmd), data);
+		return 0;
+	}
+
+	if ((len & 0x1) != 0) {
+		pr_debug("%s: number of bytes needs be even", __func__);
+		len = (len + 1) & (~0x1);
+	}
+	QPIC_OUTP(QPIC_REG_QPIC_LCDC_IRQ_CLR, 0xff);
+	QPIC_OUTP(QPIC_REG_QPIC_LCDC_CMD_DATA_CYCLE_CNT, 0);
+	cfg2 = QPIC_INP(QPIC_REG_QPIC_LCDC_CFG2);
+	if ((cmd != OP_WRITE_MEMORY_START) &&
+		(cmd != OP_WRITE_MEMORY_CONTINUE))
+		cfg2 |= (1 << 24); /* transparent mode */
+	else
+		cfg2 &= ~(1 << 24);
+
+	cfg2 &= ~0xFF;
+	cfg2 |= cmd;
+	QPIC_OUTP(QPIC_REG_QPIC_LCDC_CFG2, cfg2);
+	QPIC_OUTP(QPIC_REG_QPIC_LCDC_FIFO_SOF, 0x0);
+	bytes_left = len;
+
+	while (bytes_left > 0) {
+		ret = qpic_wait_for_fifo();
+		if (ret)
+			goto exit_send_cmd_sw;
+
+		space = 16;
 
 		while ((space > 0) && (bytes_left > 0)) {
 			/* write to fifo */
 			if (bytes_left >= 4) {
 				QPIC_OUTP(QPIC_REG_QPIC_LCDC_FIFO_DATA_PORT0,
-					param[0]);
-				param++;
+					*(u32 *)param);
+				param += 4;
 				bytes_left -= 4;
 				space--;
 			} else if (bytes_left == 2) {
@@ -465,36 +575,20 @@ int qpic_flush_buffer_sw(u32 cmd, u32 len, u32 *param, u32 is_cmd)
 	}
 	/* finished */
 	QPIC_OUTP(QPIC_REG_QPIC_LCDC_FIFO_EOF, 0x0);
-
-	time_end = (u32)ktime_to_ms(ktime_get()) + QPIC_MAX_VSYNC_WAIT_TIME;
-	while (1) {
-		data = QPIC_INP(QPIC_REG_QPIC_LCDC_IRQ_STTS);
-		if (data & (1 << 2))
-			break;
-		/* yield 10 us for next polling by experiment*/
-		usleep_range(10, 10);
-		if (ktime_to_ms(ktime_get()) > time_end) {
-			pr_err("%s wait for eof time out", __func__);
-			ret = -EBUSY;
-			goto exit_send_cmd_sw;
-		}
-	}
+	ret = qpic_wait_for_eof();
 exit_send_cmd_sw:
 	cfg2 &= ~(1 << 24);
 	QPIC_OUTP(QPIC_REG_QPIC_LCDC_CFG2, cfg2);
 	return ret;
 }
 
-int qpic_flush_buffer(u32 cmd, u32 len, u32 *param, u32 is_cmd)
+int qpic_send_pkt(u32 cmd, u8 *param, u32 len)
 {
-	if (use_bam) {
-		if (is_cmd)
-			return qpic_flush_buffer_sw(cmd, len, param, is_cmd);
-		else
-			return qpic_flush_buffer_bam(cmd, len, param, is_cmd);
-	} else {
-		return qpic_flush_buffer_sw(cmd, len, param, is_cmd);
-	}
+	if (!use_bam || ((cmd != OP_WRITE_MEMORY_CONTINUE) &&
+		(cmd != OP_WRITE_MEMORY_START)))
+		return qpic_send_pkt_sw(cmd, len, param);
+	else
+		return qpic_send_pkt_bam(cmd, len, param);
 }
 
 int mdss_qpic_init(void)
@@ -514,18 +608,21 @@ int mdss_qpic_init(void)
 	data |= (1 << 9); /* threshold */
 	QPIC_OUTP(QPIC_REG_QPIC_LCDC_CTRL, data);
 
-	if (use_irq && qpic_res->irq_requested) {
+	if (use_irq && (!qpic_res->irq_requested)) {
 		ret = devm_request_irq(&qpic_res->pdev->dev,
 			qpic_res->irq, qpic_irq_handler,
 			0x0, "QPIC", qpic_res);
 		if (ret) {
 			pr_err("qpic request_irq() failed!\n");
 			use_irq = false;
+		} else {
+			disable_irq(qpic_res->irq);
 		}
 		qpic_res->irq_requested = true;
 	}
 
 	qpic_interrupt_en(use_irq);
+
 	QPIC_OUTP(QPIC_REG_QPIC_LCDC_CFG0, 0x02108501);
 	data = QPIC_INP(QPIC_REG_QPIC_LCDC_CFG2);
 	data &= ~(0xFFF);
@@ -549,6 +646,16 @@ int mdss_qpic_init(void)
 	return ret;
 }
 
+u32 qpic_read_data(u32 cmd_index, u32 size)
+{
+	u32 data = 0;
+	if (size <= 4) {
+		QPIC_OUTP(QPIC_REG_QPIC_LCDC_CMD_DATA_CYCLE_CNT, size);
+		data = QPIC_INP(QPIC_REG_LCD_DEVICE_CMD0 + (cmd_index * 4));
+	}
+	return data;
+}
+
 static int msm_qpic_bus_register(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -559,9 +666,9 @@ static int msm_qpic_bus_register(struct platform_device *pdev)
 		pr_err("msm_bus_cl_get_pdata failed\n");
 		return -EINVAL;
 	}
-	bus_handle =
+	qpic_res->bus_handle =
 		msm_bus_scale_register_client(use_cases);
-	if (!bus_handle) {
+	if (!qpic_res->bus_handle) {
 		ret = -EINVAL;
 		pr_err("msm_bus_scale_register_client failed\n");
 	}
@@ -645,8 +752,9 @@ probe_done:
 
 static int mdss_qpic_remove(struct platform_device *pdev)
 {
-	if (bus_handle)
-		msm_bus_scale_unregister_client(bus_handle);
+	if (qpic_res->bus_handle)
+		msm_bus_scale_unregister_client(qpic_res->bus_handle);
+	qpic_res->bus_handle = 0;
 	return 0;
 }
 
