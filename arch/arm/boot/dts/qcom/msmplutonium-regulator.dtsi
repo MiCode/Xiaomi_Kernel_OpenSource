@@ -459,3 +459,92 @@
 		};
 	};
 };
+
+/* CPR controlled regulators */
+&soc {
+	apc0_vreg_corner: regulator@f9019000 {
+		compatible = "qcom,cpr-regulator";
+		reg = <0xf9019000 0x1000>, <0xf900d064 4>, <0xfc4bc000 0x1000>;
+		reg-names = "rbcpr", "rbcpr_clk", "efuse_addr";
+		interrupts = <0 16 0>;
+		regulator-name = "apc0_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <3>;
+
+		qcom,cpr-voltage-ceiling = <900000 1000000 1115000>;
+		qcom,cpr-voltage-floor =   <725000  840000  940000>;
+		vdd-apc-supply = <&pmplutonium_s8>;
+
+		qcom,vdd-mx-corner-map = <4 5 7>;
+		qcom,vdd-mx-vmax = <7>;
+		qcom,vdd-mx-vmin-method = <4>;
+		vdd-mx-supply = <&pmplutonium_s2_corner>;
+
+		qcom,cpr-ref-clk = <19200>;
+		qcom,cpr-timer-delay = <5000>;
+		qcom,cpr-timer-cons-up = <0>;
+		qcom,cpr-timer-cons-down = <2>;
+		qcom,cpr-irq-line = <0>;
+		qcom,cpr-step-quotient = <15>;
+		qcom,cpr-up-threshold = <0>;
+		qcom,cpr-down-threshold = <5>;
+		qcom,cpr-idle-clocks = <5>;
+		qcom,cpr-gcnt-time = <1>;
+		qcom,vdd-apc-step-up-limit = <1>;
+		qcom,vdd-apc-step-down-limit = <1>;
+		qcom,cpr-apc-volt-step = <5000>;
+
+		qcom,cpr-fuse-row = <137 0>;
+		qcom,cpr-fuse-target-quot = <31 42 53>;
+		qcom,cpr-fuse-target-quot-size = <11 11 11>;
+		qcom,cpr-fuse-ro-sel = <82 82 82>;
+		qcom,cpr-fuse-init-voltage =
+					<138  0 6 0>,
+					<138  6 6 0>,
+					<138 12 6 0>;
+		qcom,cpr-init-voltage-step = <10000>;
+	};
+
+	apc1_vreg_corner: regulator@f901a000 {
+		compatible = "qcom,cpr-regulator";
+		reg = <0xf901a000 0x1000>, <0xf900f064 4>, <0xfc4bc000 0x1000>;
+		reg-names = "rbcpr", "rbcpr_clk", "efuse_addr";
+		interrupts = <0 19 0>;
+		regulator-name = "apc1_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <3>;
+
+		qcom,cpr-voltage-ceiling = <900000 1000000 1115000>;
+		qcom,cpr-voltage-floor =   <725000  840000  940000>;
+		vdd-apc-supply = <&pmplutonium_s9>;
+
+		qcom,vdd-mx-corner-map = <4 5 7>;
+		qcom,vdd-mx-vmax = <7>;
+		qcom,vdd-mx-vmin-method = <4>;
+		vdd-mx-supply = <&pmplutonium_s2_corner>;
+
+		qcom,cpr-ref-clk = <19200>;
+		qcom,cpr-timer-delay = <5000>;
+		qcom,cpr-timer-cons-up = <0>;
+		qcom,cpr-timer-cons-down = <2>;
+		qcom,cpr-irq-line = <0>;
+		qcom,cpr-step-quotient = <15>;
+		qcom,cpr-up-threshold = <0>;
+		qcom,cpr-down-threshold = <5>;
+		qcom,cpr-idle-clocks = <5>;
+		qcom,cpr-gcnt-time = <1>;
+		qcom,vdd-apc-step-up-limit = <1>;
+		qcom,vdd-apc-step-down-limit = <1>;
+		qcom,cpr-apc-volt-step = <5000>;
+
+		qcom,cpr-fuse-row = <138 0>;
+		qcom,cpr-fuse-target-quot = <21 32 43>;
+		qcom,cpr-fuse-target-quot-size = <11 11 11>;
+		qcom,cpr-fuse-ro-sel = <72 72 72>;
+		qcom,cpr-fuse-init-voltage =
+					<138 54 6 0>,
+					<138 60 6 0>,
+					<139  2 6 0>;
+		qcom,cpr-init-voltage-step = <10000>;
+	};
+};
