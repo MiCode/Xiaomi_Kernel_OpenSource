@@ -14,6 +14,11 @@ Optional properties:
 			"cpuX_clk" for every CPU that's present.
 			"l2_clk" when an async cache/CCI is present.
 
+Optional properties:
+- qcom,governor-per-policy:	This property denotes that governor tunables
+				should be associated with each cpufreq policy
+				group instead of being global.
+
 Example:
 	qcom,msm-cpufreq@0 {
 		regs = <0 4>

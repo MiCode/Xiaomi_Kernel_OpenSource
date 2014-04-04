@@ -446,6 +446,10 @@ static int __init msm_cpufreq_probe(struct platform_device *pdev)
 		cpufreq_frequency_table_get_attr(freq_table, cpu);
 	}
 
+	/* Use per-policy governor tunable for some targets */
+	if (of_property_read_bool(dev->of_node, "qcom,governor-per-policy"))
+		msm_cpufreq_driver.flags |= CPUFREQ_HAVE_GOVERNOR_PER_POLICY;
+
 	return 0;
 }
 
