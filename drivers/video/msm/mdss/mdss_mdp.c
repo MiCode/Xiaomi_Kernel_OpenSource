@@ -624,18 +624,29 @@ unsigned long mdss_mdp_get_clk_rate(u32 clk_idx)
  * Function place bus bandwidth request to allocate saved bandwidth
  * if enabled or free bus bandwidth allocation if disabled.
  * Bus bandwidth is required by mdp.For dsi, it only requires to send
- * dcs coammnd.
+ * dcs coammnd. It returns error if bandwidth request fails.
  */
-void mdss_bus_bandwidth_ctrl(int enable)
+int mdss_bus_bandwidth_ctrl(int enable)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	static int bus_bw_cnt;
 	int changed = 0;
+	int rc = 0;
 
 	mutex_lock(&bus_bw_lock);
 	if (enable) {
-		if (bus_bw_cnt == 0)
+		if (bus_bw_cnt == 0) {
 			changed++;
+			if (!mdata->handoff_pending) {
+				rc = mdss_iommu_attach(mdata);
+				if (rc) {
+					pr_err("iommu attach failed rc=%d\n",
+									rc);
+					goto end;
+				}
+			}
+		}
+
 		bus_bw_cnt++;
 	} else {
 		if (bus_bw_cnt) {
@@ -660,12 +671,12 @@ void mdss_bus_bandwidth_ctrl(int enable)
 			pm_runtime_get_sync(&mdata->pdev->dev);
 			msm_bus_scale_client_update_request(
 				mdata->bus_hdl, mdata->curr_bw_uc_idx);
-			if (!mdata->handoff_pending)
-				mdss_iommu_attach(mdata);
 		}
 	}
 
+end:
 	mutex_unlock(&bus_bw_lock);
+	return rc;
 }
 EXPORT_SYMBOL(mdss_bus_bandwidth_ctrl);
 
@@ -673,7 +684,7 @@ void mdss_mdp_clk_ctrl(int enable, int isr)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	static int mdp_clk_cnt;
-	int changed = 0;
+	int changed = 0, rc;
 
 	mutex_lock(&mdp_clk_lock);
 	if (enable) {
@@ -706,7 +717,9 @@ void mdss_mdp_clk_ctrl(int enable, int isr)
 		if (mdata->vsync_ena)
 			mdss_mdp_clk_update(MDSS_CLK_MDP_VSYNC, enable);
 
-		mdss_bus_bandwidth_ctrl(enable);
+		rc = mdss_bus_bandwidth_ctrl(enable);
+		if (rc)
+			pr_err("bus bandwidth control failed rc=%d", rc);
 
 		if (!enable)
 			pm_runtime_put(&mdata->pdev->dev);
@@ -791,15 +804,14 @@ int mdss_iommu_attach(struct mdss_data_type *mdata)
 {
 	struct iommu_domain *domain;
 	struct mdss_iommu_map_type *iomap;
-	int i;
+	int i, rc = 0;
 
 	mutex_lock(&mdp_iommu_lock);
 	MDSS_XLOG(mdata->iommu_attached);
 
 	if (mdata->iommu_attached) {
 		pr_debug("mdp iommu already attached\n");
-		mutex_unlock(&mdp_iommu_lock);
-		return 0;
+		goto end;
 	}
 
 	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
@@ -811,13 +823,23 @@ int mdss_iommu_attach(struct mdss_data_type *mdata)
 				iomap->client_name, iomap->ctx_name);
 			continue;
 		}
-		iommu_attach_device(domain, iomap->ctx);
+
+		rc = iommu_attach_device(domain, iomap->ctx);
+		if (rc) {
+			WARN(1, "mdp::iommu device attach failed rc:%d\n", rc);
+			for (i--; i >= 0; i--) {
+				iomap = mdata->iommu_map + i;
+				iommu_detach_device(domain, iomap->ctx);
+			}
+			goto end;
+		}
 	}
 
 	mdata->iommu_attached = true;
+end:
 	mutex_unlock(&mdp_iommu_lock);
 
-	return 0;
+	return rc;
 }
 
 int mdss_iommu_dettach(struct mdss_data_type *mdata)
