@@ -35,7 +35,7 @@
  */
 #define NUM_PP2S_SYSFS_REG_NODES 1
 
-#define NUM_WC_SYSFS_REG_NODES 6
+#define NUM_WC_SYSFS_REG_NODES 7
 
 #define ATTR_PTR_SIZE sizeof(struct attribute *)
 
@@ -70,7 +70,7 @@
 /*
  * The difference (in seconds) between the unix and gps epochs...
  */
-#define UNIX_EPOCH_TO_GPS_EPOCH_GAP 315964819
+#define UNIX_EPOCH_TO_GPS_EPOCH_GAP 315964800
 
 /*
  * These macros assist with creating sysfs attributes...
@@ -127,6 +127,8 @@ struct wc_sysfs_t {
 	u32                    clockcnt_reg;
 	struct kobj_attribute  kobj_attr_snapshot_reg;
 	u32                    snapshot_reg;
+	struct kobj_attribute  kobj_attr_reset_time;
+	u32                    reset_time;
 };
 
 /*
@@ -137,6 +139,7 @@ static struct pp2s_sysfs_t      pp2s_sysfs;
 static struct workqueue_struct *workqueue;
 static struct work_struct       bottom_work;
 static struct wc_sysfs_t        wc_sysfs;
+static int                      time_is_set = -1;
 
 /*
  * The following will be set to point at the two regions where the
@@ -211,10 +214,9 @@ static void gps_to_unix_time(
 	nsecs <<= 4;
 
 	/*
-	 * Convert PP2S pules to seconds and add that in. NOTE: The first
-	 * pulse ignored, since it's the epoch...
+	 * Convert PP2S pulses to seconds and add that in.
 	 */
-	secs += ((pulses - 1) * 2);
+	secs += (pulses * 2);
 
 	/*
 	 * Now convert the free running clock into seconds and nanoseconds
@@ -452,6 +454,40 @@ static ssize_t write_snapshot_reg(
 
 /*
  * The sysfs routine which is called when an application issues a read
+ * on the reset_time sysfs node...
+ */
+static ssize_t read_reset_time(
+	struct kobject        *kobj,
+	struct kobj_attribute *attr,
+	char                  *buf)
+{
+	LOG_DRVR_DEBUG("Entering %s\n", __func__);
+
+	return scnprintf(buf,
+			 PAGE_SIZE,
+			 "linux time is %s",
+			 (time_is_set > 0) ? "set" : "not set");
+}
+
+/*
+ * The sysfs routine which is called when an application issues a
+ * write on the reset_time sysfs node...
+ */
+static ssize_t write_reset_time(
+	struct kobject        *kobj,
+	struct kobj_attribute *attr,
+	const char            *buf,
+	size_t                 count)
+{
+	LOG_DRVR_DEBUG("Entering %s\n", __func__);
+
+	time_is_set = -1;
+
+	return 1;
+}
+
+/*
+ * The sysfs routine which is called when an application issues a read
  * on the pp2s_cnt sysfs node...
  */
 static ssize_t read_pp2s_cnt(
@@ -472,8 +508,6 @@ static ssize_t read_pp2s_cnt(
 static void pp2s_intr_bottom(
 	struct work_struct *work)
 {
-	static int done = -1;
-
 	LOG_DRVR_DEBUG("Entering %s\n", __func__);
 
 	/*
@@ -482,11 +516,11 @@ static void pp2s_intr_bottom(
 	 * point, it is required to take GPS time, convert it to unix
 	 * time, and to set it in the kernel, hence...
 	 */
-	if (done <= 0) {
+	if (time_is_set <= 0) {
 		struct timespec ts;
 		gps_to_unix_time(&ts);
-		done = !do_settimeofday(&ts);
-		if (!done)
+		time_is_set = !do_settimeofday(&ts);
+		if (!time_is_set)
 			LOG_DRVR_ERR("do_settimeofday() failed\n");
 	}
 
@@ -706,6 +740,7 @@ static int wc_probe(
 	MAKE_RW_ATTR(pulsecnt_reg, &wc_sysfs, 3);
 	MAKE_RW_ATTR(clockcnt_reg, &wc_sysfs, 4);
 	MAKE_RW_ATTR(snapshot_reg, &wc_sysfs, 5);
+	MAKE_RW_ATTR(reset_time,   &wc_sysfs, 6);
 
 	/*
 	 * Create sysfs group...
