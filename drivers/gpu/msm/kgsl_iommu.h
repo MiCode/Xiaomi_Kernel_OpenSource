@@ -281,17 +281,15 @@ static inline int _kgsl_msm_checks_iommu_v2(void)
 #endif
 
 #if !defined(CONFIG_MSM_IOMMU_V0) && defined(CONFIG_OF)
+static int soc_supports_v2 = -1;
 static inline int kgsl_msm_supports_iommu_v2(void)
 {
-	static int soc_supports_v2 = -1;
-
 	if (soc_supports_v2 != -1)
 		return soc_supports_v2;
-	if (_kgsl_msm_checks_iommu_v2()) {
-		soc_supports_v2 = 1;
-		return 1;
-	}
-	return 0;
+
+	soc_supports_v2 = _kgsl_msm_checks_iommu_v2();
+
+	return soc_supports_v2;
 }
 #else
 static inline int kgsl_msm_supports_iommu_v2(void)
