@@ -58,6 +58,7 @@ struct mux_clk {
 	int		num_rec_parents;
 	struct clk	*safe_parent;
 	int		safe_sel;
+	unsigned long	safe_freq;
 	struct clk_mux_ops *ops;
 
 	/* Fields not used by helper function. */

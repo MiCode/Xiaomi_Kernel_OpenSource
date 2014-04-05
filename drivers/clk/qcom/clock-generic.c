@@ -114,6 +114,19 @@ static int mux_set_rate(struct clk *c, unsigned long rate)
 	 */
 	if (mux->safe_sel >= 0) {
 		/*
+		 * The safe parent might be a clock with multiple sources;
+		 * to select the "safe" source, set a safe frequency.
+		 */
+		if (mux->safe_freq) {
+			rc = clk_set_rate(mux->safe_parent, mux->safe_freq);
+			if (rc) {
+				pr_err("Failed to set safe rate on %s\n",
+					mux->safe_parent->dbg_name);
+				return rc;
+			}
+		}
+
+		/*
 		 * Some mux implementations might switch to/from a low power
 		 * parent as part of their disable/enable ops. Grab the
 		 * enable lock to avoid racing with these implementations.
