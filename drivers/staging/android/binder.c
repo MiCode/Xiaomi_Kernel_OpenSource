@@ -142,7 +142,6 @@ module_param_call(stop_on_user_error, binder_set_stop_on_user_error,
 	} while (0)
 
 #define align_helper(ptr)	    ALIGN(ptr, sizeof(void *))
-#define deref_helper(ptr)	    (*(typeof(size_t *))ptr)
 
 enum binder_stat_types {
 	BINDER_STAT_PROC,
@@ -1235,7 +1234,7 @@ static void binder_transaction_buffer_release(struct binder_proc *proc,
 					      struct binder_buffer *buffer,
 					      size_t *failed_at)
 {
-	void *offp, *off_end;
+	size_t *offp, *off_end;
 	int debug_id = buffer->debug_id;
 
 	binder_debug(BINDER_DEBUG_TRANSACTION,
@@ -1251,16 +1250,16 @@ static void binder_transaction_buffer_release(struct binder_proc *proc,
 		off_end = failed_at;
 	else
 		off_end = (void *)offp + buffer->offsets_size;
-	for (; offp < off_end; offp += sizeof(size_t)) {
+	for (; offp < off_end; offp++) {
 		struct flat_binder_object *fp;
-		if (deref_helper(offp) > buffer->data_size - sizeof(*fp) ||
+		if (*offp > buffer->data_size - sizeof(*fp) ||
 		    buffer->data_size < sizeof(*fp) ||
-		    !IS_ALIGNED(deref_helper(offp), sizeof(u32))) {
+		    !IS_ALIGNED(*offp, sizeof(u32))) {
 			pr_err("transaction release %d bad offset %zd, size %zd\n",
-			 debug_id, deref_helper(offp), buffer->data_size);
+			 debug_id, *offp, buffer->data_size);
 			continue;
 		}
-		fp = (struct flat_binder_object *)(buffer->data + deref_helper(offp));
+		fp = (struct flat_binder_object *)(buffer->data + *offp);
 		switch (fp->type) {
 		case BINDER_TYPE_BINDER:
 		case BINDER_TYPE_WEAK_BINDER: {
@@ -1310,7 +1309,7 @@ static void binder_transaction(struct binder_proc *proc,
 {
 	struct binder_transaction *t;
 	struct binder_work *tcomplete;
-	void *offp, *off_end;
+	size_t *offp, *off_end;
 	struct binder_proc *target_proc;
 	struct binder_thread *target_thread = NULL;
 	struct binder_node *target_node = NULL;
@@ -1504,17 +1503,17 @@ static void binder_transaction(struct binder_proc *proc,
 		goto err_bad_offset;
 	}
 	off_end = (void *)offp + tr->offsets_size;
-	for (; offp < off_end; offp += sizeof(size_t)) {
+	for (; offp < off_end; offp++) {
 		struct flat_binder_object *fp;
-		if (deref_helper(offp) > t->buffer->data_size - sizeof(*fp) ||
+		if (*offp > t->buffer->data_size - sizeof(*fp) ||
 		    t->buffer->data_size < sizeof(*fp) ||
-		    !IS_ALIGNED(deref_helper(offp), sizeof(u32))) {
+		    !IS_ALIGNED(*offp, sizeof(u32))) {
 			binder_user_error("%d:%d got transaction with invalid offset, %zd\n",
-					proc->pid, thread->pid, deref_helper(offp));
+					proc->pid, thread->pid, *offp);
 			return_error = BR_FAILED_REPLY;
 			goto err_bad_offset;
 		}
-		fp = (struct flat_binder_object *)(t->buffer->data + deref_helper(offp));
+		fp = (struct flat_binder_object *)(t->buffer->data + *offp);
 		switch (fp->type) {
 		case BINDER_TYPE_BINDER:
 		case BINDER_TYPE_WEAK_BINDER: {
