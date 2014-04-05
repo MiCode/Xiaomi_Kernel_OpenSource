@@ -14,6 +14,7 @@
 #include <linux/sched.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
+#include <linux/vmalloc.h>
 #include <linux/stddef.h>
 #include <linux/unistd.h>
 #include <linux/user.h>
@@ -325,6 +326,11 @@ static void show_data(unsigned long addr, int nbytes, const char *name)
 	 */
 	if (addr < PAGE_OFFSET || addr > -256UL)
 		return;
+	if (is_vmalloc_addr((void *)addr)) {
+		struct vm_struct *area = find_vm_area((void *)addr);
+		if (area && area->flags & VM_IOREMAP)
+			return;
+	}
 
 	printk("\n%s: %#lx:\n", name, addr);
 
