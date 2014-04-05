@@ -14,6 +14,7 @@
 #include <linux/sched.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
+#include <linux/vmalloc.h>
 #include <linux/stddef.h>
 #include <linux/unistd.h>
 #include <linux/user.h>
@@ -353,10 +354,12 @@ static void show_data(unsigned long addr, int nbytes, const char *name)
 	u32	*p;
 
 	/*
-	 * don't attempt to dump non-kernel addresses or
-	 * values that are probably just small negative numbers
+	 * don't attempt to dump non-kernel addresses, values that are probably
+	 * just small negative numbers, or vmalloc addresses that may point to
+	 * memory-mapped peripherals
 	 */
-	if (addr < PAGE_OFFSET || addr > -256UL)
+	if (addr < PAGE_OFFSET || addr > -256UL ||
+	    is_vmalloc_addr((void *)addr))
 		return;
 
 	printk("\n%s: %#lx:\n", name, addr);
