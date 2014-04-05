@@ -1225,7 +1225,7 @@ static int ice40_bus_resume(struct usb_hcd *hcd)
 {
 	struct ice40_hcd *ihcd = hcd_to_ihcd(hcd);
 	u8 ctrl0;
-	int ret;
+	int ret, i;
 
 	pm_stay_awake(&ihcd->spi->dev);
 	trace_ice40_bus_resume(0); /* start */
@@ -1234,7 +1234,18 @@ static int ice40_bus_resume(struct usb_hcd *hcd)
 	 * Re-program the previous settings. For now we need to
 	 * update the device address only.
 	 */
-	ice40_spi_load_fw(ihcd);
+
+	for (i = 0; i < 3; i++) {
+		ret = ice40_spi_load_fw(ihcd);
+		if (!ret)
+			break;
+	}
+
+	if (ret) {
+		pr_err("Load firmware failed with ret: %d\n", ret);
+		return ret;
+	}
+
 	ice40_spi_reg_write(ihcd, ihcd->devnum, FADDR_REG);
 	ihcd->wblen0 = ~0;
 
@@ -1492,7 +1503,7 @@ out:
 static int ice40_spi_load_fw(struct ice40_hcd *ihcd)
 {
 	int ret, i;
-	struct gpiomux_setting old_setting;
+	struct gpiomux_setting active_old_setting, suspend_old_setting;
 
 	ret = gpio_direction_output(ihcd->reset_gpio, 0);
 	if (ret  < 0) {
@@ -1514,21 +1525,38 @@ static int ice40_spi_load_fw(struct ice40_hcd *ihcd)
 	 * We temporarily override the chip select config to
 	 * drive it low. The SPI bus needs to be locked down during
 	 * this period to avoid other slave data going to our
-	 * bridge chip.
-	 *
+	 * bridge chip. Disable the SPI runtime suspend for exclusive
+	 * chip select access.
 	 */
+	pm_runtime_get_sync(ihcd->spi->master->dev.parent);
+
 	spi_bus_lock(ihcd->spi->master);
 
 	ret = msm_gpiomux_write(ihcd->slave_select_gpio, GPIOMUX_SUSPENDED,
-			&slave_select_setting, &old_setting);
+			&slave_select_setting, &suspend_old_setting);
 	if (ret < 0) {
-		pr_err("fail to select the slave %d\n", ret);
+		pr_err("fail to override suspend setting and select slave %d\n",
+				ret);
+		spi_bus_unlock(ihcd->spi->master);
+		pm_runtime_put_noidle(ihcd->spi->master->dev.parent);
+		goto out;
+	}
+
+	ret = msm_gpiomux_write(ihcd->slave_select_gpio, GPIOMUX_ACTIVE,
+			&slave_select_setting, &active_old_setting);
+	if (ret < 0) {
+		pr_err("fail to override active setting and select slave %d\n",
+				ret);
+		spi_bus_unlock(ihcd->spi->master);
+		pm_runtime_put_noidle(ihcd->spi->master->dev.parent);
 		goto out;
 	}
 
 	ret = ice40_spi_power_up(ihcd);
 	if (ret < 0) {
 		pr_err("fail to power up the chip\n");
+		spi_bus_unlock(ihcd->spi->master);
+		pm_runtime_put_noidle(ihcd->spi->master->dev.parent);
 		goto out;
 	}
 
@@ -1540,11 +1568,24 @@ static int ice40_spi_load_fw(struct ice40_hcd *ihcd)
 	usleep_range(1200, 1250);
 
 	ret = msm_gpiomux_write(ihcd->slave_select_gpio, GPIOMUX_SUSPENDED,
-			&old_setting, NULL);
+			&suspend_old_setting, NULL);
 	if (ret < 0) {
-		pr_err("fail to de-select the slave %d\n", ret);
+		pr_err("fail to rewrite suspend setting %d\n", ret);
+		spi_bus_unlock(ihcd->spi->master);
+		pm_runtime_put_noidle(ihcd->spi->master->dev.parent);
 		goto power_off;
 	}
+
+	ret = msm_gpiomux_write(ihcd->slave_select_gpio, GPIOMUX_ACTIVE,
+			&active_old_setting, NULL);
+	if (ret < 0) {
+		pr_err("fail to rewrite active setting %d\n", ret);
+		spi_bus_unlock(ihcd->spi->master);
+		pm_runtime_put_noidle(ihcd->spi->master->dev.parent);
+		goto power_off;
+	}
+
+	pm_runtime_put_noidle(ihcd->spi->master->dev.parent);
 
 	ret = spi_sync_locked(ihcd->spi, ihcd->fmsg);
 
@@ -1884,6 +1925,13 @@ static ssize_t ice40_dbg_cmd_write(struct file *file, const char __user *ubuf,
 		ihcd->port_flags |= (USB_PORT_STAT_C_CONNECTION << 16);
 		ihcd->pcd_pending = true;
 		usb_hcd_poll_rh_status(ihcd->hcd);
+	} else if (!strcmp(buf, "config_test")) {
+		ice40_spi_power_off(ihcd);
+		ret = ice40_spi_load_fw(ihcd);
+		if (ret) {
+			pr_err("config load failed\n");
+			goto out;
+		}
 	} else {
 		ret = -EINVAL;
 		goto out;

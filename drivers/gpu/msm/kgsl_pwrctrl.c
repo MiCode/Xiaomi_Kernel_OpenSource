@@ -1124,8 +1124,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 					 pwr->pwrlevels[pwr->active_pwrlevel].
 						bus_freq);
 
-	/* Set the CPU latency to 501usec to allow low latency PC modes */
-	pwr->pm_qos_latency = 501;
+	pwr->pm_qos_latency = pdata->pm_qos_latency;
 
 	pm_runtime_enable(device->parentdev);
 
