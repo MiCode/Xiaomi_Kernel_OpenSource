@@ -127,7 +127,7 @@ static int mdss_fb_notify_update(struct msm_fb_data_type *mfd,
 		ret = 1;
 	} else if (notify == NOTIFY_UPDATE_START) {
 		INIT_COMPLETION(mfd->update.comp);
-		ret = wait_for_completion_timeout(
+		ret = wait_for_completion_interruptible_timeout(
 						&mfd->update.comp, 4 * HZ);
 		to_user = (unsigned int)mfd->update.value;
 		if (mfd->update.type == NOTIFY_TYPE_SUSPEND) {
@@ -136,13 +136,13 @@ static int mdss_fb_notify_update(struct msm_fb_data_type *mfd,
 		}
 	} else if (notify == NOTIFY_UPDATE_STOP) {
 		INIT_COMPLETION(mfd->no_update.comp);
-		ret = wait_for_completion_timeout(
+		ret = wait_for_completion_interruptible_timeout(
 						&mfd->no_update.comp, 4 * HZ);
 		to_user = (unsigned int)mfd->no_update.value;
 	} else {
 		if (mfd->panel_power_on) {
 			INIT_COMPLETION(mfd->power_off_comp);
-			ret = wait_for_completion_timeout(
+			ret = wait_for_completion_interruptible_timeout(
 						&mfd->power_off_comp, 1 * HZ);
 		}
 	}

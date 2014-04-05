@@ -1562,7 +1562,7 @@ static int qseecom_receive_req(struct qseecom_dev_handle *data)
 		if (wait_event_freezable(this_lstnr->rcv_req_wq,
 				__qseecom_listener_has_rcvd_req(data,
 				this_lstnr))) {
-			pr_warning("Interrupted: exiting Listener Service = %d\n",
+			pr_debug("Interrupted: exiting Listener Service = %d\n",
 						(uint32_t)data->listener.id);
 			/* woken up for different reason */
 			return -ERESTARTSYS;
@@ -3278,7 +3278,7 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		ret = qseecom_receive_req(data);
 		atomic_dec(&data->ioctl_count);
 		wake_up_all(&data->abort_wq);
-		if (ret)
+		if (ret && (ret != -ERESTARTSYS))
 			pr_err("failed qseecom_receive_req: %d\n", ret);
 		break;
 	}

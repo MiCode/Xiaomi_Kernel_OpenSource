@@ -418,7 +418,7 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 
 static inline int mdss_mdp_perf_is_overlap(u32 y00, u32 y01, u32 y10, u32 y11)
 {
-	return (y10 < y00 && y11 >= y01) || (y10 >= y00 && y10 <= y01);
+	return (y10 < y00 && y11 >= y01) || (y10 >= y00 && y10 < y01);
 }
 
 static inline int cmpu32(const void *a, const void *b)
@@ -499,7 +499,7 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 		pr_debug("v_region[%d]%d\n", i, v_region[i]);
 		if (v_region[i] == v_region[i-1])
 			continue;
-		y0 = (v_region[i-1]) ? v_region[i-1] + 1 : 0;
+		y0 = v_region[i-1];
 		y1 = v_region[i];
 		for (j = 0; j < num_pipes; j++) {
 			if (!bw_overlap[j])
@@ -622,9 +622,6 @@ static void __mdss_mdp_perf_calc_ctl_helper(struct mdss_mdp_ctl *ctl,
 	}
 
 	perf->bw_ctl = max(perf->bw_prefill, perf->bw_overlap);
-
-	if (ctl->is_video_mode)
-		perf->bw_ctl = IB_FUDGE_FACTOR(perf->bw_ctl);
 }
 
 int mdss_mdp_perf_bw_check(struct mdss_mdp_ctl *ctl,
@@ -666,6 +663,9 @@ static void mdss_mdp_perf_calc_ctl(struct mdss_mdp_ctl *ctl,
 	__mdss_mdp_perf_calc_ctl_helper(ctl, perf,
 			left_plist, (left_plist ? MDSS_MDP_MAX_STAGE : 0),
 			right_plist, (right_plist ? MDSS_MDP_MAX_STAGE : 0));
+
+	if (ctl->is_video_mode)
+		perf->bw_ctl = IB_FUDGE_FACTOR(perf->bw_ctl);
 
 	pr_debug("ctl=%d clk_rate=%u\n", ctl->num, perf->mdp_clk_rate);
 	pr_debug("bw_overlap=%llu bw_prefill=%llu prefill_byptes=%d\n",
