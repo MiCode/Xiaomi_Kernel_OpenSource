@@ -2473,10 +2473,6 @@ static struct branch_clk gcc_usb_phy_cfg_ahb2phy_clk = {
 	},
 };
 
-DEFINE_CLK_DUMMY(cci_clk, 150000000);
-DEFINE_CLK_DUMMY(a53_clk, 250000000);
-DEFINE_CLK_DUMMY(a57_clk, 250000000);
-
 static struct mux_clk gcc_debug_mux;
 static struct clk_ops clk_ops_debug_mux;
 static struct clk_mux_ops gcc_debug_mux_ops;
@@ -2777,9 +2773,6 @@ static struct clk_lookup msm_clocks_gcc_8994[] = {
 	CLK_LIST(gcc_usb_hs_ahb_clk),
 	CLK_LIST(gcc_usb_hs_system_clk),
 	CLK_LIST(gcc_usb_phy_cfg_ahb2phy_clk),
-	CLK_LIST(cci_clk),
-	CLK_LIST(a53_clk),
-	CLK_LIST(a57_clk),
 };
 
 static int msm_gcc_8994_probe(struct platform_device *pdev)
