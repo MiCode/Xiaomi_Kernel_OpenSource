@@ -2,6 +2,17 @@
 
 if ARCH_MSM
 
+config CP_ACCESS64
+	depends on ARM64
+        tristate "CP 64-bit register access tool"
+        help
+          Provide support for AARCH64 CP register access using /sys
+          interface. Read and write to CP registers from userspace
+          through sysfs interface. A sys file (cp_rw) will be created under
+          /sys/devices/cpaccess/cpaccess0.
+
+          If unsure, say N.
+
 config MSM_BAM_DMUX
 	bool "BAM Data Mux Driver"
 	depends on SPS
