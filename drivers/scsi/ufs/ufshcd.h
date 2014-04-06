@@ -510,56 +510,13 @@ struct ufs_hba {
 
 	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
 
-	#define UFSHCD_QUIRK_BROKEN_2_TX_LANES            (1 << 8)
-
-	/*
-	 * If LCC (Line Control Command) are having issue on the host
-	 * controller then enable this quirk. Note that connected UFS device
-	 * should also have workaround to not expect LCC commands from host.
-	 */
-	#define UFSHCD_BROKEN_LCC			  (1 << 9)
-
-	/*
-	 * If UFS device is having issue in processing LCC (Line Control
-	 * Command) coming from UFS host controller then enable this quirk.
-	 * When this quirk is enabled, host controller driver should disable
-	 * the LCC transmission on UFS host controller (by clearing
-	 * TX_LCC_ENABLE attribute of host to 0).
-	 */
-	#define UFSHCD_BROKEN_LCC_PROCESSING_ON_DEVICE	  (1 << 11)
-
+	/* Device deviations from standard UFS device spec. */
+	unsigned int dev_quirks;
 
 	wait_queue_head_t tm_wq;
 	wait_queue_head_t tm_tag_wq;
 	unsigned long tm_condition;
 	unsigned long tm_slots_in_use;
-
-	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
-
-	/* Device deviations from standard UFS device spec. */
-	unsigned int dev_quirks;
-
-	/* Interrupt aggregation support is broken */
-	#define UFSHCD_QUIRK_BROKEN_INTR_AGGR		(1<<0)
-
-	/* HIBERN8 support is broken */
-	#define UFSHCD_QUIRK_BROKEN_HIBERN8		(1<<1)
-
-	/*
-	 * UFS controller version register (VER) wrongly advertise the version
-	 * as v1.0 though controller implementation is as per UFSHCI v1.1
-	 * specification.
-	 */
-	#define UFSHCD_QUIRK_BROKEN_VER_REG_1_1		(1<<2)
-
-	/* UFSHC advertises 64-bit not supported even though it supports */
-	#define UFSHCD_QUIRK_BROKEN_CAP_64_BIT_0        (1 << 3)
-
-	/*
-	 * delay before each dme command is required as the unipro
-	 * layer has shown instabilities
-	 */
-	#define UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS        (1 << 7)
 
 	struct uic_command *active_uic_cmd;
 	struct mutex uic_cmd_mutex;
