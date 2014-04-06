@@ -38,7 +38,9 @@
 #define VFE40_8916_VERSION 0x10030000
 
 #define VFE40_BURST_LEN 1
+#define VFE40_BURST_LEN_8916_VERSION 2
 #define VFE40_STATS_BURST_LEN 1
+#define VFE40_STATS_BURST_LEN_8916_VERSION 2
 #define VFE40_UB_SIZE 1536
 #define VFE40_EQUAL_SLICE_UB 190
 #define VFE40_WM_BASE(idx) (0x6C + 0x24 * idx)
@@ -925,7 +927,13 @@ static void msm_vfe40_axi_cfg_wm_reg(
 	uint8_t plane_idx)
 {
 	uint32_t val;
+	uint32_t burst_len;
 	uint32_t wm_base = VFE40_WM_BASE(stream_info->wm[plane_idx]);
+
+	if (vfe_dev->vfe_hw_version == VFE40_8916_VERSION)
+		burst_len = VFE40_BURST_LEN_8916_VERSION;
+	else
+		burst_len = VFE40_BURST_LEN;
 
 	if (!stream_info->frame_based) {
 		msm_camera_io_w(0x0, vfe_dev->vfe_base + wm_base);
@@ -946,7 +954,7 @@ static void msm_vfe40_axi_cfg_wm_reg(
 				plane_idx].output_stride) << 16 |
 			(stream_info->plane_cfg[
 				plane_idx].output_height - 1) << 4 |
-			VFE40_BURST_LEN;
+			burst_len;
 		msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x18);
 	} else {
 		msm_camera_io_w(0x2, vfe_dev->vfe_base + wm_base);
@@ -956,7 +964,7 @@ static void msm_vfe40_axi_cfg_wm_reg(
 				plane_idx].output_width) << 16 |
 			(stream_info->plane_cfg[
 				plane_idx].output_height - 1) << 4 |
-			VFE40_BURST_LEN;
+			burst_len;
 		msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x18);
 	}
 
@@ -1302,6 +1310,7 @@ static void msm_vfe40_stats_cfg_ub(struct vfe_device *vfe_dev)
 {
 	int i;
 	uint32_t ub_offset = VFE40_UB_SIZE;
+	uint32_t stats_burst_len;
 	uint32_t ub_size[VFE40_NUM_STATS_TYPE] = {
 		64, /*MSM_ISP_STATS_BE*/
 		128, /*MSM_ISP_STATS_BG*/
@@ -1313,9 +1322,14 @@ static void msm_vfe40_stats_cfg_ub(struct vfe_device *vfe_dev)
 		16, /*MSM_ISP_STATS_BHIST*/
 	};
 
+	if (vfe_dev->vfe_hw_version == VFE40_8916_VERSION)
+		stats_burst_len = VFE40_STATS_BURST_LEN_8916_VERSION;
+	else
+		stats_burst_len = VFE40_STATS_BURST_LEN;
+
 	for (i = 0; i < VFE40_NUM_STATS_TYPE; i++) {
 		ub_offset -= ub_size[i];
-		msm_camera_io_w(VFE40_STATS_BURST_LEN << 30 |
+		msm_camera_io_w(stats_burst_len << 30 |
 			ub_offset << 16 | (ub_size[i] - 1),
 			vfe_dev->vfe_base + VFE40_STATS_BASE(i) + 0xC);
 	}
