@@ -444,47 +444,14 @@ struct ufs_hba {
 	unsigned int irq;
 	bool is_irq_enabled;
 
-	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
-
-	/* Device deviations from standard UFS device spec. */
-	unsigned int dev_quirks;
-
 	/* Interrupt aggregation support is broken */
-	#define UFSHCD_QUIRK_BROKEN_INTR_AGGR		(1<<0)
-
-	/* HIBERN8 support is broken */
-	#define UFSHCD_QUIRK_BROKEN_HIBERN8		(1<<1)
-
-	/*
-	 * UFS controller version register (VER) wrongly advertise the version
-	 * as v1.0 though controller implementation is as per UFSHCI v1.1
-	 * specification.
-	 */
-	#define UFSHCD_QUIRK_BROKEN_VER_REG_1_1		(1<<2)
-
-	/* UFSHC advertises 64-bit not supported even though it supports */
-	#define UFSHCD_QUIRK_BROKEN_CAP_64_BIT_0        (1 << 3)
-
-	/* Command queueing for the UFS device is broken, allowing the
-	 * controller to have a single command at a time for the device */
-	#define UFSHCD_QUIRK_BROKEN_DEVICE_Q_CMND        (1 << 4)
-
-	/*
-	 * Power mode switch is broken, the power mode will be default
-	 * to PWM-G1 or the one set by bootloader.
-	 */
-	#define UFSHCD_QUIRK_BROKEN_PWR_MODE_CHANGE      (1 << 5)
-
-	/* runtime pm or system suspend/resume is broken */
-	#define UFSHCD_QUIRK_BROKEN_SUSPEND              (1 << 6)
+	#define UFSHCD_QUIRK_BROKEN_INTR_AGGR			UFS_BIT(0)
 
 	/*
 	 * delay before each dme command is required as the unipro
 	 * layer has shown instabilities
 	 */
-	#define UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS        (1 << 7)
-
-	#define UFSHCD_QUIRK_BROKEN_2_TX_LANES            (1 << 8)
+	#define UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS		UFS_BIT(1)
 
 	/*
 	 * If UFS host controller is having issue in processing LCC (Line
@@ -493,24 +460,19 @@ struct ufs_hba {
 	 * the LCC transmission on UFS device (by clearing TX_LCC_ENABLE
 	 * attribute of device to 0).
 	 */
-	#define UFSHCD_BROKEN_LCC_PROCESSING_ON_HOST	  (1 << 9)
+	#define UFSHCD_QUIRK_BROKEN_LCC				UFS_BIT(2)
 
 	/*
 	 * The attribute PA_RXHSUNTERMCAP specifies whether or not the
 	 * inbound Link supports unterminated line in HS mode. Setting this
 	 * attribute to 1 fixes moving to HS gear.
 	 */
-	#define UFSHCD_BROKEN_GEAR_CHANGE_INTO_HS        (1 << 10)
+	#define UFSHCD_QUIRK_BROKEN_PA_RXHSUNTERMCAP		UFS_BIT(3)
 
-	/*
-	 * If UFS device is having issue in processing LCC (Line Control
-	 * Command) coming from UFS host controller then enable this quirk.
-	 * When this quirk is enabled, host controller driver should disable
-	 * the LCC transmission on UFS host controller (by clearing
-	 * TX_LCC_ENABLE attribute of host to 0).
-	 */
-	#define UFSHCD_BROKEN_LCC_PROCESSING_ON_DEVICE	  (1 << 11)
+	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
 
+	/* Device deviations from standard UFS device spec. */
+	unsigned int dev_quirks;
 
 	wait_queue_head_t tm_wq;
 	wait_queue_head_t tm_tag_wq;
@@ -583,10 +545,7 @@ static inline bool ufshcd_is_clkgating_allowed(struct ufs_hba *hba)
 }
 static inline bool ufshcd_can_hibern8_during_gating(struct ufs_hba *hba)
 {
-	if (!(hba->quirks & UFSHCD_QUIRK_BROKEN_HIBERN8))
-		return hba->caps & UFSHCD_CAP_HIBERN8_WITH_CLK_GATING;
-	else
-		return false;
+	return hba->caps & UFSHCD_CAP_HIBERN8_WITH_CLK_GATING;
 }
 static inline int ufshcd_is_clkscaling_enabled(struct ufs_hba *hba)
 {
