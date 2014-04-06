@@ -1892,9 +1892,6 @@ static inline void ufshcd_hba_capabilities(struct ufs_hba *hba)
 	hba->nutrs = (hba->capabilities & MASK_TRANSFER_REQUESTS_SLOTS) + 1;
 	hba->nutmrs =
 	((hba->capabilities & MASK_TASK_MANAGEMENT_REQUEST_SLOTS) >> 16) + 1;
-
-	if (hba->quirks & UFSHCD_QUIRK_BROKEN_CAP_64_BIT_0)
-		hba->capabilities |= MASK_64_ADDRESSING_SUPPORT;
 }
 
 /**
@@ -4264,18 +4261,6 @@ link_startup:
 		/* failed to get the link up... retire */
 		goto out;
 
-	if (hba->quirks & UFSHCD_BROKEN_LCC_PROCESSING_ON_HOST) {
-		ret = ufshcd_disable_device_tx_lcc(hba);
-		if (ret)
-			goto out;
-	}
-
-	if (hba->quirks & UFSHCD_BROKEN_LCC_PROCESSING_ON_DEVICE) {
-		ret = ufshcd_disable_host_tx_lcc(hba);
-		if (ret)
-			goto out;
-	}
-
 	if (link_startup_again) {
 		link_startup_again = false;
 		retries = DME_LINKSTARTUP_RETRIES;
@@ -4288,6 +4273,12 @@ link_startup:
 
 	if (hba->quirks & UFSHCD_QUIRK_BROKEN_LCC) {
 		ret = ufshcd_disable_device_tx_lcc(hba);
+		if (ret)
+			goto out;
+	}
+
+	if (hba->dev_quirks & UFS_DEVICE_QUIRK_BROKEN_LCC) {
+		ret = ufshcd_disable_host_tx_lcc(hba);
 		if (ret)
 			goto out;
 	}
@@ -8236,9 +8227,6 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 
 	/* Get UFS version supported by the controller */
 	hba->ufs_version = ufshcd_get_ufs_version(hba);
-	if ((hba->quirks & UFSHCD_QUIRK_BROKEN_VER_REG_1_1) &&
-	    (hba->ufs_version == UFSHCI_VERSION_10))
-		hba->ufs_version = UFSHCI_VERSION_11;
 
 	if ((hba->ufs_version != UFSHCI_VERSION_10) &&
 	    (hba->ufs_version != UFSHCI_VERSION_11) &&
