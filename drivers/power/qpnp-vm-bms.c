@@ -1011,6 +1011,9 @@ static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 	calculate_delta_time(&last_change_sec, &time_since_last_change_sec);
 
 	charging = is_battery_charging(chip);
+
+	pr_debug("charging=%d last_soc=%d last_soc_unbound=%d\n",
+		charging, chip->last_soc, chip->last_soc_unbound);
 	/*
 	 * account for charge time - limit it to SOC_CATCHUP_SEC to
 	 * avoid overflows when charging continues for extended periods
@@ -1082,11 +1085,11 @@ static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 	if (chip->last_soc != soc && !chip->last_soc_unbound)
 		chip->last_soc_change_sec = last_change_sec;
 
+	chip->last_soc = bound_soc(soc);
+
 	pr_debug("last_soc=%d calculated_soc=%d soc=%d time_since_last_change=%d\n",
 			chip->last_soc, chip->calculated_soc,
 			soc, time_since_last_change_sec);
-
-	chip->last_soc = bound_soc(soc);
 
 	/*
 	 * Backup the actual ocv (last_ocv_uv) and not the
@@ -1179,12 +1182,12 @@ static int report_eoc(struct qpnp_bms_chip *chip)
 	return rc;
 }
 
-#define OCV_EOC_MARGIN		25000
 static void check_eoc_condition(struct qpnp_bms_chip *chip)
 {
 	/*
-	 * Store the OCV value at 100. If the new ocv is with in
-	 * the OCV_EOC_MARGIN of ocv_at_100 report 100% SOC.
+	 * Store the OCV value at 100. If the new ocv is greater than
+	 * ocv_at_100 (battery settles), update ocv_at_100. Else
+	 * if the SOC drops, reset ocv_at_100.
 	 */
 	if (chip->ocv_at_100 == -EINVAL) {
 		if (chip->calculated_soc == 100) {
@@ -1194,13 +1197,14 @@ static void check_eoc_condition(struct qpnp_bms_chip *chip)
 				report_eoc(chip);
 		}
 	} else {
-		pr_debug("last_ocv_uv=%d ocv_at_100=%d\n",
-			chip->last_ocv_uv, chip->ocv_at_100);
-		if ((chip->last_ocv_uv + OCV_EOC_MARGIN) >= chip->ocv_at_100) {
+		if (chip->last_ocv_uv >= chip->ocv_at_100) {
+			pr_debug("new_ocv(%d) > ocv_at_100(%d) maintaining SOC to 100\n",
+					chip->last_ocv_uv, chip->ocv_at_100);
+			chip->ocv_at_100 = chip->last_ocv_uv;
 			chip->calculated_soc = 100;
-			pr_debug("last_ocv_uv within ocv_at_100 margin\n");
-		} else {
-			pr_debug("last_ocv_uv dropped below ocv_at_100 margin\n");
+		} else if (chip->calculated_soc != 100) {
+			pr_debug("SOC dropped (%d) discarding ocv_at_100\n",
+							chip->calculated_soc);
 			chip->ocv_at_100 = -EINVAL;
 		}
 	}
@@ -1310,6 +1314,7 @@ static void monitor_soc_work(struct work_struct *work)
 				if (chip->calculated_soc == 100)
 					/* update last_soc immediately */
 					report_vm_bms_soc(chip);
+
 				check_eoc_condition(chip);
 				pr_debug("update bms_psy\n");
 				power_supply_changed(&chip->bms_psy);
