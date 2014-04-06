@@ -57,6 +57,15 @@ struct ufs_card_fix {
 				.quirk = (_quirk),	 \
 		}
 
+/*
+ * If UFS device is having issue in processing LCC (Line Control
+ * Command) coming from UFS host controller then enable this quirk.
+ * When this quirk is enabled, host controller driver should disable
+ * the LCC transmission on UFS host controller (by clearing
+ * TX_LCC_ENABLE attribute of host to 0).
+ */
+#define UFS_DEVICE_QUIRK_BROKEN_LCC		UFS_BIT(0)
+
 struct ufs_hba;
 void ufs_advertise_fixup_device(struct ufs_hba *hba);
 #endif /* UFS_QUIRKS_H_ */
