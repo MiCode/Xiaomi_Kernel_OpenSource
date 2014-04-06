@@ -415,9 +415,13 @@ static dma_addr_t msm_nand_dma_map(struct device *dev, void *addr, size_t size,
 	if (virt_addr_valid(addr))
 		page = virt_to_page(addr);
 	else {
-		if (WARN_ON(size + offset > PAGE_SIZE))
-			return ~0;
 		page = vmalloc_to_page(addr);
+		if (!page) {
+			pr_err("%s: invalid addr 0x%lx\n",
+				   __func__, (unsigned long)addr);
+			WARN_ON(1);
+			return ~0;
+		}
 	}
 	return dma_map_page(dev, page, offset, size, dir);
 }
