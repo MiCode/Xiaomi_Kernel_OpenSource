@@ -52,6 +52,7 @@ struct debug_log {
 
 struct mdss_debug_data {
 	struct dentry *root;
+	struct dentry *perf;
 	struct list_head base_list;
 	struct debug_log logd;
 };
