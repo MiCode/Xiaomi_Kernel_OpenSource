@@ -406,6 +406,73 @@ static const struct file_operations mdss_factor_fops = {
 	.write = mdss_debug_factor_write,
 };
 
+static ssize_t mdss_debug_perf_mode_write(struct file *file,
+		    const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	struct mdss_perf_tune *perf_tune = file->private_data;
+	struct mdss_data_type *mdata = mdss_res;
+	int perf_mode = 0;
+	char buf[10];
+
+	if (!perf_tune)
+		return -EFAULT;
+
+	if (count >= sizeof(buf))
+		return -EFAULT;
+
+	if (copy_from_user(buf, user_buf, count))
+		return -EFAULT;
+
+	if (sscanf(buf, "%d", &perf_mode) != 1)
+		return -EFAULT;
+
+	if (perf_mode) {
+		/* run the driver with max clk and BW vote */
+		mdata->perf_tune.min_mdp_clk = mdata->max_mdp_clk_rate;
+		mdata->perf_tune.min_bus_vote = (u64)mdata->max_bw_high*1000;
+	} else {
+		/* reset the perf tune params to 0 */
+		mdata->perf_tune.min_mdp_clk = 0;
+		mdata->perf_tune.min_bus_vote = 0;
+	}
+	return count;
+}
+
+static ssize_t mdss_debug_perf_mode_read(struct file *file,
+			char __user *buff, size_t count, loff_t *ppos)
+{
+	struct mdss_perf_tune *perf_tune = file->private_data;
+	int len = 0;
+	char buf[40];
+
+	if (!perf_tune)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;	/* the end */
+
+	buf[count] = 0;
+
+	len = snprintf(buf, sizeof(buf), "min_mdp_clk %lu min_bus_vote %llu\n",
+	perf_tune->min_mdp_clk, perf_tune->min_bus_vote);
+	if (len < 0)
+		return 0;
+
+	if (copy_to_user(buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;   /* increase offset */
+
+	return len;
+}
+
+
+static const struct file_operations mdss_perf_mode_fops = {
+	.open = simple_open,
+	.read = mdss_debug_perf_mode_read,
+	.write = mdss_debug_perf_mode_write,
+};
+
 static int mdss_debugfs_cleanup(struct mdss_debug_data *mdd)
 {
 	struct mdss_debug_base *base, *tmp;
@@ -455,6 +522,9 @@ static int mdss_debugfs_perf_init(struct mdss_debug_data *mdd,
 
 	debugfs_create_u32("threshold_pipe", 0644, mdd->perf,
 		(u32 *)&mdata->max_bw_per_pipe);
+
+	debugfs_create_file("perf_mode", 0644, mdd->perf,
+		(u32 *)&mdata->perf_tune, &mdss_perf_mode_fops);
 
 	return 0;
 }
