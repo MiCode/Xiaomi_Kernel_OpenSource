@@ -283,6 +283,11 @@
 	status = "ok";
 };
 
+&pm8916_bms {
+	status = "ok";
+	qcom,disable-bms;
+};
+
 &spmi_bus {
 	qcom,pm8916@0 {
 		qcom,leds@a100 {
