@@ -939,6 +939,7 @@ static inline void mdss_mdp_ctl_perf_update_bus(struct mdss_mdp_ctl *ctl)
 	bus_ib_quota = max(bw_sum_of_intfs, mdata->perf_tune.min_bus_vote);
 	bus_ab_quota = apply_fudge_factor(bus_ib_quota,
 		&mdss_res->ab_factor);
+	trace_mdp_perf_update_bus(bus_ab_quota, bus_ib_quota);
 	mdss_mdp_bus_scale_set_quota(bus_ab_quota, bus_ib_quota);
 	pr_debug("ab=%llu ib=%llu\n", bus_ab_quota, bus_ib_quota);
 }
@@ -980,6 +981,7 @@ void mdss_mdp_ctl_perf_release_bw(struct mdss_mdp_ctl *ctl)
 
 	/*Release the bandwidth only if there are no transactions pending*/
 	if (!transaction_status) {
+		trace_mdp_cmd_release_bw(ctl->num);
 		ctl->cur_perf.bw_ctl = 0;
 		ctl->new_perf.bw_ctl = 0;
 		pr_debug("Release BW ctl=%d\n", ctl->num);
