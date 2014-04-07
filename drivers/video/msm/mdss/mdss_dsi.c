@@ -1082,7 +1082,7 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		rc = mdss_dsi_ctl_partial_update(pdata);
 		break;
 	case MDSS_EVENT_DSI_ULPS_CTRL:
-		rc = mdss_dsi_ulps_config(ctrl_pdata, (int)arg);
+		rc = mdss_dsi_ulps_config(ctrl_pdata, (int)(unsigned long) arg);
 		break;
 	default:
 		pr_debug("%s: unhandled event=%d\n", __func__, event);

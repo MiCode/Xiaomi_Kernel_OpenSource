@@ -19,6 +19,7 @@
 #include <linux/module.h>
 #include <linux/uaccess.h>
 #include <linux/iommu.h>
+#include <linux/switch.h>
 
 #include <linux/qcom_iommu.h>
 #include <linux/msm_iommu_domains.h>

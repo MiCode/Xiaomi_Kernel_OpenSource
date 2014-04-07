@@ -16,7 +16,6 @@
 
 #include <linux/list.h>
 #include <linux/mdss_io_util.h>
-#include <mach/scm-io.h>
 #include <linux/irqreturn.h>
 #include <linux/pinctrl/consumer.h>
 
