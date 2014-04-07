@@ -1607,6 +1607,7 @@ static int mdp3_overlay_prepare(struct msm_fb_data_type *mfd,
 {
 	struct mdp_overlay_list ovlist;
 	struct mdp3_session_data *mdp3_session = mfd->mdp.private1;
+	struct mdp_overlay *req_list;
 	struct mdp_overlay *req;
 	int rc;
 
@@ -1623,12 +1624,15 @@ static int mdp3_overlay_prepare(struct msm_fb_data_type *mfd,
 		return -EINVAL;
 	}
 
-	if (copy_from_user(req, ovlist.overlay_list[0], sizeof(*req)))
+	if (copy_from_user(&req_list, ovlist.overlay_list, sizeof(struct mdp_overlay*)))
+		return -EFAULT;
+
+	if (copy_from_user(req, req_list, sizeof(*req)))
 		return -EFAULT;
 
 	rc = mdp3_overlay_set(mfd, req);
 	if (!IS_ERR_VALUE(rc)) {
-		if (copy_to_user(ovlist.overlay_list[0], req, sizeof(*req)))
+		if (copy_to_user(req_list, req, sizeof(*req)))
 			return -EFAULT;
 	}
 
