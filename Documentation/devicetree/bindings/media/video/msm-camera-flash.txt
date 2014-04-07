@@ -16,6 +16,7 @@ Required properties:
     qcom,gpio-req-tbl-num property (in the same order)
 - qcom,gpio-req-tbl-label : should contain name of gpios present in
     qcom,gpio-req-tbl-num property (in the same order)
+- qcom,gpio-flash-reset : should contain index to gpio used by flash's "flash reset" pin.
 - qcom,gpio-flash-en : should contain index to gpio used by flash's "flash enable" pin.
 - qcom,gpio-flash-now : should contain index to gpio used by flash's "flash now" pin.
 - label : should contain unique flash name to differentiate from other flash
@@ -51,6 +52,8 @@ qcom,led-flash@60 {
 		qcom,cci-master = <0>;
 		gpios = <&msmgpio 23 0>,
 			<&msmgpio 24 0>;
+			<&msmgpio 25 0>;
+		qcom,gpio-flash-reset = <0>;
 		qcom,gpio-flash-en = <0>;
 		qcom,gpio-flash-now = <1>;
 		qcom,gpio-req-tbl-num = <0 1>;

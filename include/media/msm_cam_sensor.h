@@ -107,6 +107,7 @@ enum msm_sensor_power_seq_gpio_t {
 	SENSOR_GPIO_VAF,
 	SENSOR_GPIO_FL_EN,
 	SENSOR_GPIO_FL_NOW,
+	SENSOR_GPIO_FL_RESET,
 	SENSOR_GPIO_MAX,
 };
 
@@ -537,7 +538,7 @@ struct reg_settings_t {
 struct region_params_t {
 	/* [0] = ForwardDirection Macro boundary
 	   [1] = ReverseDirection Inf boundary
-        */
+	*/
 	uint16_t step_bound[2];
 	uint16_t code_per_step;
 };
