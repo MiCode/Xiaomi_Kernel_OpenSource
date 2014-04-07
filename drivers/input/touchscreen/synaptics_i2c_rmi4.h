@@ -163,6 +163,8 @@ struct synaptics_rmi4_device_info {
 	unsigned char config_id[3];
 	struct mutex support_fn_list_mutex;
 	struct list_head support_fn_list;
+	unsigned int package_id;
+	unsigned int package_id_rev;
 };
 
 /*
