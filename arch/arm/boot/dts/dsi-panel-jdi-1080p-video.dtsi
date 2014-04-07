@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,8 +30,8 @@
 		qcom,mdss-dsi-h-back-porch = <64>;
 		qcom,mdss-dsi-h-pulse-width = <16>;
 		qcom,mdss-dsi-h-sync-skew = <0>;
-		qcom,mdss-dsi-v-back-porch = <4>;
-		qcom,mdss-dsi-v-front-porch = <3>;
+		qcom,mdss-dsi-v-back-porch = <16>;
+		qcom,mdss-dsi-v-front-porch = <4>;
 		qcom,mdss-dsi-v-pulse-width = <1>;
 		qcom,mdss-dsi-h-left-border = <0>;
 		qcom,mdss-dsi-h-right-border = <0>;
@@ -57,7 +57,7 @@
 		qcom,mdss-dsi-lane-1-state;
 		qcom,mdss-dsi-lane-2-state;
 		qcom,mdss-dsi-lane-3-state;
-		qcom,mdss-dsi-panel-timings = [e1 37 25 00 67 6b 2a 3a 59 03 04 00];
+		qcom,mdss-dsi-panel-timings = [e7 36 24 00 66 6a 2a 3a 2d 03 04 00];
 		qcom,mdss-dsi-t-clk-post = <0x04>;
 		qcom,mdss-dsi-t-clk-pre = <0x1b>;
 		qcom,mdss-dsi-bl-min-level = <1>;
