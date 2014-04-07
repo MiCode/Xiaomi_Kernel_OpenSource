@@ -77,7 +77,7 @@
 		qcom,vbif-settings = <0x004 0x00000001>,
 				     <0x0d8 0x00000707>,
 				     <0x124 0x00000003>;
-		qcom,mdp-settings = <0x11e0 0x000000a5>,
+		qcom,mdp-settings = <0x11e0 0x000000aa>,
 				    <0x11e4 0x00000055>;
 
 		/* buffer parameters to calculate prefill bandwidth */
