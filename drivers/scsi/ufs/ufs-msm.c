@@ -2479,10 +2479,7 @@ static int msm_ufs_pwr_change_notify(struct ufs_hba *hba,
 
 	switch (status) {
 	case PRE_CHANGE:
-		if (hba->quirks & UFSHCD_QUIRK_BROKEN_2_TX_LANES)
-			ufs_msm_cap.tx_lanes = 1;
-		else
-			ufs_msm_cap.tx_lanes = UFS_MSM_LIMIT_NUM_LANES_TX;
+		ufs_msm_cap.tx_lanes = UFS_MSM_LIMIT_NUM_LANES_TX;
 
 		ufs_msm_cap.rx_lanes = UFS_MSM_LIMIT_NUM_LANES_RX;
 		ufs_msm_cap.hs_rx_gear = UFS_MSM_LIMIT_HSGEAR_RX;
@@ -2555,25 +2552,11 @@ static void msm_ufs_advertise_quirks(struct ufs_hba *hba)
 
 	msm_ufs_get_controller_revision(hba, &major, &minor, &step);
 
-	/*
-	 * Interrupt aggregation and HIBERN8 on UFS HW controller revision 1.1.0
-	 * is broken.
-	 */
-	if ((major == 0x1) && (minor == 0x001) && (step == 0x0000)) {
-		hba->quirks |= (UFSHCD_QUIRK_BROKEN_INTR_AGGR
-			      | UFSHCD_QUIRK_BROKEN_HIBERN8
-			      | UFSHCD_QUIRK_BROKEN_VER_REG_1_1
-			      | UFSHCD_QUIRK_BROKEN_CAP_64_BIT_0
-			      | UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
-			      | UFSHCD_QUIRK_BROKEN_2_TX_LANES
-			      | UFSHCD_QUIRK_BROKEN_SUSPEND
-			      | UFSHCD_BROKEN_LCC_PROCESSING_ON_HOST
-			      | UFSHCD_BROKEN_LCC_PROCESSING_ON_DEVICE);
-	} else if ((major == 0x1) && (minor == 0x001) && (step == 0x0001)) {
+	if ((major == 0x1) && (minor == 0x001) && (step == 0x0001)) {
 		hba->quirks |= (UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
 			      | UFSHCD_QUIRK_BROKEN_INTR_AGGR
-			      | UFSHCD_BROKEN_GEAR_CHANGE_INTO_HS
-			      | UFSHCD_BROKEN_LCC_PROCESSING_ON_HOST);
+			      | UFSHCD_QUIRK_BROKEN_PA_RXHSUNTERMCAP
+			      | UFSHCD_QUIRK_BROKEN_LCC);
 
 		phy->quirks = MSM_UFS_PHY_QUIRK_CFG_RESTORE;
 	}
@@ -2851,30 +2834,6 @@ static int msm_ufs_init(struct ufs_hba *hba)
 		goto out_disable_phy;
 
 	msm_ufs_advertise_quirks(hba);
-	if (hba->quirks & UFSHCD_QUIRK_BROKEN_SUSPEND) {
-		/*
-		 * During suspend keep the device and the link active
-		 * but shut-off the system clocks.
-		 */
-		hba->rpm_lvl = UFS_PM_LVL_0;
-		hba->spm_lvl = UFS_PM_LVL_0;
-
-	} else if (hba->quirks & UFSHCD_QUIRK_BROKEN_HIBERN8) {
-		/*
-		 * During runtime suspend, keep link active but put device in
-		 * sleep state.
-		 * During system suspend, power off both link and device.
-		 */
-		hba->rpm_lvl = UFS_PM_LVL_2;
-		hba->spm_lvl = UFS_PM_LVL_4;
-	} else {
-		/*
-		 * During runtime & system suspend, put link in Hibern8 and
-		 * device in sleep.
-		 */
-		hba->rpm_lvl = UFS_PM_LVL_3;
-		hba->spm_lvl = UFS_PM_LVL_3;
-	}
 
 	hba->caps |= UFSHCD_CAP_CLK_GATING | UFSHCD_CAP_CLK_SCALING;
 	hba->caps |= UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
