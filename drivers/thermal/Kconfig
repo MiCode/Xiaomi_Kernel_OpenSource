@@ -207,19 +207,6 @@ config X86_PKG_TEMP_THERMAL
 	  two trip points which can be set by user to get notifications via thermal
 	  notification methods.
 
-config INTEL_BYT_AUX_DTS_THERMAL
-	tristate "Intel Baytrail Auxiliary DTS thermal driver"
-	depends on X86
-	select IOSF_MBI
-	help
-	  Enable this to register Intel Baytrail platform digital temperature
-	  sensor (DTS). Two DTSs are provided in Baytrail are in addition to
-	  core DTSs. Each DTS will have its own thermal zone. There are
-	  two trip points.One of the trip point can be set by user to get
-	  notifications via thermal notification methods.The other trip is
-	  a critical trip point, which was set by the driver based on the TJ
-	  MAX temperature.
-
 config INTEL_THERMAL
 	tristate "Intel Thermal driver"
 	depends on X86 && ACPI
@@ -236,6 +223,20 @@ config INTEL_PMIC_THERMAL
 	help
 	  Select this if the PMIC controls the ADC channels for system temperature
 	  measurements and alerts.
+
+config INTEL_SOC_DTS_THERMAL
+	tristate "Intel SoCs DTS thermal driver"
+	depends on X86
+	select IOSF_MBI
+	help
+	  Enable this to register Intel SoCs (e.g. Bay Trail) platform digital
+	  temperature sensor (DTS). These SoCs have two additional DTSs in
+	  addition to DTSs on CPU cores. Each DTS will be registered as a
+	  thermal zone. There are two trip points. One of the trip point can
+	  be set by user mode programs to get notifications via Linux thermal
+	  notification methods.The other trip is a critical trip point, which
+	  was set by the driver based on the TJ MAX temperature.
+
 
 menu "Texas Instruments thermal drivers"
 source "drivers/thermal/ti-soc-thermal/Kconfig"
