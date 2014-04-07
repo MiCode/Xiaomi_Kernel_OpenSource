@@ -1136,10 +1136,6 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 		watchdog_running = 1;
 	}
 
-	ret = intel_ring_alloc_request(ring);
-	if (ret)
-		goto error;
-
 #ifdef CONFIG_SYNC
 	if (args->flags & I915_EXEC_WAIT_FENCE) {
 		/* Validate the fence wait parameter but don't do the wait until
@@ -1387,7 +1383,7 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	u64 exec_start = args->batch_start_offset;
 	u32 dispatch_flags;
 	int ret;
-	bool need_relocs;
+	bool need_relocs, batch_pinned = false;
 
 	if (!i915_gem_check_execbuffer(args))
 		return -EINVAL;
@@ -1545,23 +1541,30 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 		if (ret)
 			goto err;
 
+		batch_pinned = true;
 		exec_start += i915_gem_obj_ggtt_offset(batch_obj);
 	} else
 		exec_start += i915_gem_obj_offset(batch_obj, vm);
+
+	/* Allocate a request for this batch buffer nice and early. */
+	ret = dev_priv->gt.alloc_request(ring, ctx);
+	if (ret)
+		goto err;
 
 	ret = dev_priv->gt.do_execbuf(dev, file, ring, ctx, args,
 				      &eb->vmas, batch_obj, exec_start,
 				      dispatch_flags);
 
+err:
 	/*
 	 * FIXME: We crucially rely upon the active tracking for the (ppgtt)
 	 * batch vma for correctness. For less ugly and less fragility this
 	 * needs to be adjusted to also track the ggtt batch vma properly as
 	 * active.
 	 */
-	if (dispatch_flags & I915_DISPATCH_SECURE)
+	if (batch_pinned)
 		i915_gem_object_ggtt_unpin(batch_obj);
-err:
+
 	/* the request owns the ref now */
 	i915_gem_context_unreference(ctx);
 	eb_destroy(eb);

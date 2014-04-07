@@ -205,8 +205,6 @@ enum {
 };
 #define GEN8_CTX_ID_SHIFT 32
 
-static int logical_ring_alloc_request(struct intel_engine_cs *ring,
-				      struct intel_context *ctx);
 static int intel_lr_context_pin(struct intel_engine_cs *ring,
 		struct intel_context *ctx);
 
@@ -1389,10 +1387,6 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 		return -EINVAL;
 	}
 
-	ret = logical_ring_alloc_request(ring, ringbuf->FIXME_lrc_ctx);
-	if (ret)
-		return ret;
-
 #ifdef CONFIG_SYNC
 	if (args->flags & I915_EXEC_WAIT_FENCE) {
 		/* Validate the fence wait parameter but don't do the wait until
@@ -1654,8 +1648,8 @@ void intel_lr_context_unpin(struct intel_engine_cs *ring,
 	}
 }
 
-static int logical_ring_alloc_request(struct intel_engine_cs *ring,
-				      struct intel_context *ctx)
+int intel_logical_ring_alloc_request(struct intel_engine_cs *ring,
+				     struct intel_context *ctx)
 {
 	struct drm_i915_gem_request *request;
 	struct drm_i915_private *dev_private = ring->dev->dev_private;
@@ -1857,7 +1851,7 @@ int intel_logical_ring_begin(struct intel_ringbuffer *ringbuf, int num_dwords)
 		return ret;
 
 	/* Preallocate the olr before touching the ring */
-	ret = logical_ring_alloc_request(ring, ringbuf->FIXME_lrc_ctx);
+	ret = intel_logical_ring_alloc_request(ring, ringbuf->FIXME_lrc_ctx);
 	if (ret)
 		return ret;
 

@@ -2469,7 +2469,7 @@ int intel_ring_idle(struct intel_engine_cs *ring)
 }
 
 int
-intel_ring_alloc_request(struct intel_engine_cs *ring)
+intel_ring_alloc_request(struct intel_engine_cs *ring, struct intel_context *ctx)
 {
 	int ret;
 	struct drm_i915_gem_request *request;
@@ -2534,7 +2534,7 @@ int intel_ring_begin(struct intel_engine_cs *ring,
 		return ret;
 
 	/* Preallocate the olr before touching the ring */
-	ret = intel_ring_alloc_request(ring);
+	ret = intel_ring_alloc_request(ring, NULL);
 	if (ret)
 		return ret;
 

@@ -1868,6 +1868,8 @@ struct drm_i915_private {
 
 	/* Abstract the submission mechanism (legacy ringbuffer or execlists) away */
 	struct {
+		int (*alloc_request)(struct intel_engine_cs *ring,
+				     struct intel_context *ctx);
 		int (*do_execbuf)(struct drm_device *dev, struct drm_file *file,
 				  struct intel_engine_cs *ring,
 				  struct intel_context *ctx,
