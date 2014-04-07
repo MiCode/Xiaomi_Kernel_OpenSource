@@ -533,6 +533,7 @@
 
 		qcom,l1ss-supported;
 		qcom,n-fts = <0x50>;
+		qcom,ep-latency = <10>;
 
 		qcom,msi-gicm-addr = <0xf9040040>;
 		qcom,msi-gicm-base = <0x160>;
