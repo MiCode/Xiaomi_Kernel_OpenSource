@@ -31,5 +31,6 @@ extern void paging_init(void);
 extern void setup_mm_for_reboot(void);
 extern void __iomem *early_io_map(phys_addr_t phys, unsigned long virt);
 extern void mem_text_write_kernel_word(u32 *addr, u32 word);
+extern void init_mem_pgprot(void);
 
 #endif
