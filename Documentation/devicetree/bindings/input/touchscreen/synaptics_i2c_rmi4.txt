@@ -33,6 +33,24 @@ Optional property:
  - synaptics,fw-image-name	: name of firmware .img file in /etc/firmware
  - synaptics,power-down		: fully power down regulators in suspend
  - synaptics,do-lockdown	: perform one time lockdown procedure
+ - synaptics,detect-device 	: Define this property when two Synaptics Touchscreen controllers
+				need to be supported without changing the DT. In this case, all
+				such devices are placed as child nodes of Synaptics touchscreen
+				node. Following are the properties that can be defined inside
+				these child nodes:
+				- synaptics-package-id
+				- synaptics,panel-coords
+				- synaptics-display-coords
+				- synaptics,button-map
+
+Optional properties inside child node:
+These properties are defined only when synaptics,detect-device property is defined in DT.
+- synaptics,package-id		: Specifies the Package Id of touch controller.
+- synaptics,panel-coords	: Specifies the Touch panel min x, min y, max x and max y
+				resolution.
+- synaptics,display-coords	: Specifies the display min x, min y, max x and max y
+				resolution.
+- synaptics,button-map		: virtual key code mappings to be used.
 
 Example:
 	i2c@f9927000 { /* BLSP1 QUP5 */
@@ -56,13 +74,21 @@ Example:
 			interrupts = <17 0x2>;
 			vdd-supply = <&pm8226_l19>;
 			vcc_i2c-supply = <&pm8226_lvs1>;
-
 			pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
 			pinctrl-0 = <&ts_int_active &ts_reset_active>;
 			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 			synaptics,reset-gpio = <&msmgpio 16 0x00>;
 			synaptics,irq-gpio = <&msmgpio 17 0x00>;
-			synaptics,button-map = [8B 66 9E];
 			synaptics,i2c-pull-up;
+			synaptics,detect-device;
+			synaptics,device1 {
+				synaptics,package-id = <3202>;
+				synaptics,button-map = <139 172 158>;
+			};
+			synaptics,device2 {
+				synaptics,package-id = <3408>;
+				synaptics,display-coords = <0 0 1079 1919>;
+				synaptics,panel-coords = <0 0 1079 2084>;
+			};
 		};
 	};
