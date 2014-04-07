@@ -238,12 +238,12 @@
 		reg = <0xfd4c0000 0x29000>,
 		      <0xfd4c4000 0x15820>;
 		reg-names = "ipa-base", "bam-base";
-		interrupts = <0 302 0>,
-		             <0 303 0>;
+		interrupts = <0 301 0>,
+		             <0 300 0>;
 		interrupt-names = "ipa-irq", "bam-irq";
 		qcom,ipa-hw-ver = <3>; /* IPA core version = IPAv2.0 */
 		qcom,ipa-hw-mode = <0>; /* IPA hw type = Normal */
-		qcom,ee = <0>;
+		qcom,ee = <2>;
 		clock-names = "core_clk";
 		clocks = <&clock_rpm clk_ipa_clk>;
 	};
