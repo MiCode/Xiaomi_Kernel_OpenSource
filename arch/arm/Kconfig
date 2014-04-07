@@ -117,7 +117,7 @@ config HAVE_TCM
 config HAVE_PROC_CPU
 	bool
 
-config NO_IOPORT
+config NO_IOPORT_MAP
 	bool
 
 config EISA
@@ -413,7 +413,7 @@ config ARCH_EBSA110
 	select ISA
 	select NEED_MACH_IO_H
 	select NEED_MACH_MEMORY_H
-	select NO_IOPORT
+	select NO_IOPORT_MAP
 	help
 	  This is an evaluation board for the StrongARM processor available
 	  from Digital. It has limited hardware on-board, including an
@@ -678,7 +678,7 @@ config ARCH_SHMOBILE
 	select MIGHT_HAVE_CACHE_L2X0
 	select MULTI_IRQ_HANDLER
 	select NEED_MACH_MEMORY_H
-	select NO_IOPORT
+	select NO_IOPORT_MAP
 	select PINCTRL if ARCH_WANT_OPTIONAL_GPIOLIB
 	select PM_GENERIC_DOMAINS if PM
 	select SPARSE_IRQ
@@ -697,7 +697,7 @@ config ARCH_RPC
 	select ISA_DMA_API
 	select NEED_MACH_IO_H
 	select NEED_MACH_MEMORY_H
-	select NO_IOPORT
+	select NO_IOPORT_MAP
 	select VIRT_TO_BUS
 	help
 	  On the Acorn Risc-PC, Linux can support the internal IDE disk and
@@ -756,7 +756,7 @@ config ARCH_S3C64XX
 	select HAVE_S3C2410_WATCHDOG if WATCHDOG
 	select HAVE_TCM
 	select NEED_MACH_GPIO_H
-	select NO_IOPORT
+	select NO_IOPORT_MAP
 	select PLAT_SAMSUNG
 	select S3C_DEV_NAND
 	select S3C_GPIO_TRACK
