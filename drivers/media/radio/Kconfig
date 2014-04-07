@@ -518,4 +518,11 @@ config RADIO_IRIS_TRANSPORT
           To compile this driver as a module, choose M here: the
           module will be called radio-iris-transport.
 
+config RADIO_SILABS
+        tristate "SILABS FM"
+        depends on I2C && VIDEO_V4L2
+        ---help---
+          Say Y here if you want to use the SiLabs' FM chip
+          with I2C as transport.
+
 endif # RADIO_ADAPTERS
