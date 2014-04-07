@@ -1530,15 +1530,19 @@ static int ice40_spi_load_fw(struct ice40_hcd *ihcd)
 	 * We temporarily override the chip select config to
 	 * drive it low. The SPI bus needs to be locked down during
 	 * this period to avoid other slave data going to our
-	 * bridge chip.
+	 * bridge chip. Disable the SPI runtime suspend for
+	 * exclusive chip select access.
 	 *
 	 */
+	pm_runtime_get_sync(ihcd->spi->master->dev.parent);
+
 	spi_bus_lock(ihcd->spi->master);
 
 	ret = gpio_request(ihcd->slave_select_gpio, "ice40_spi_cs");
 	if (ret < 0) {
 		pr_err("fail to request slave select gpio %d\n", ret);
 		spi_bus_unlock(ihcd->spi->master);
+		pm_runtime_put_noidle(ihcd->spi->master->dev.parent);
 		goto out;
 	}
 
@@ -1547,6 +1551,7 @@ static int ice40_spi_load_fw(struct ice40_hcd *ihcd)
 		pr_err("fail to drive slave select gpio %d\n", ret);
 		gpio_free(ihcd->slave_select_gpio);
 		spi_bus_unlock(ihcd->spi->master);
+		pm_runtime_put_noidle(ihcd->spi->master->dev.parent);
 		goto out;
 	}
 
@@ -1555,6 +1560,7 @@ static int ice40_spi_load_fw(struct ice40_hcd *ihcd)
 		pr_err("fail to power up the chip\n");
 		gpio_free(ihcd->slave_select_gpio);
 		spi_bus_unlock(ihcd->spi->master);
+		pm_runtime_put_noidle(ihcd->spi->master->dev.parent);
 		goto out;
 	}
 
@@ -1574,9 +1580,11 @@ static int ice40_spi_load_fw(struct ice40_hcd *ihcd)
 		ret = PTR_ERR(p);
 		pr_err("fail to select cs sleep state\n");
 		spi_bus_unlock(ihcd->spi->master);
+		pm_runtime_put_noidle(ihcd->spi->master->dev.parent);
 		goto power_off;
 	}
 	pinctrl_put(p);
+	pm_runtime_put_noidle(ihcd->spi->master->dev.parent);
 
 	ret = spi_sync_locked(ihcd->spi, ihcd->fmsg);
 
