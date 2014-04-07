@@ -169,6 +169,8 @@ struct cpr_regulator {
 	/* Process voltage variables */
 	u32		pvs_bin;
 	u32		speed_bin;
+	u32		pvs_version;
+
 	/* APC voltage regulator */
 	struct regulator	*vdd_apc;
 
@@ -1291,14 +1293,48 @@ static int cpr_voltage_uplift_wa_inc_quot(struct cpr_regulator *cpr_vreg,
 	return rc;
 }
 
-static int cpr_get_of_corner_mappings(struct cpr_regulator *cpr_vreg,
+static void cpr_parse_pvs_version_fuse(struct cpr_regulator *cpr_vreg,
+				struct device_node *of_node)
+{
+	int rc;
+	u64 fuse_bits;
+	u32 fuse_sel[4];
+
+	rc = of_property_read_u32_array(of_node,
+			"qcom,pvs-version-fuse-sel", fuse_sel, 4);
+	if (!rc) {
+		fuse_bits = cpr_read_efuse_row(cpr_vreg,
+				fuse_sel[0], fuse_sel[3]);
+		cpr_vreg->pvs_version = (fuse_bits >> fuse_sel[1]) &
+			((1 << fuse_sel[2]) - 1);
+		pr_info("[row: %d]: 0x%llx, pvs_version = %d\n",
+				fuse_sel[0], fuse_bits, cpr_vreg->pvs_version);
+	} else {
+		cpr_vreg->pvs_version = UINT_MAX;
+	}
+}
+
+/*
+ * cpr_get_corner_quot_adjustment() -- get the quot_adjust for each corner.
+ *
+ * Get the corner to fuse corner (SVS/NORMAL/TURBO) mappings and corner to
+ * APC clock frequency mappings from device tree.
+ * Calculate the quotient adjustment scaling factor for those corners mapping
+ * to the TURBO fuse corner.
+ * Calculate the quotient adjustment for each corner which map to the TURBO
+ * fuse corner.
+ */
+static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 					struct device *dev)
 {
 	int rc = 0;
-	int i, size, stripe_size;
+	int i, size;
 	struct property *prop;
-	u32 *tmp;
 	bool corners_mapped;
+	u32 *tmp, *freq_mappings = NULL;
+	u32 scaling, max_factor;
+	u32 corner, turbo_corner = 0, normal_corner = 0, svs_corner = 0;
+	u32 freq_turbo, freq_normal, freq_corner;
 
 	prop = of_find_property(dev->of_node, "qcom,cpr-corner-map", NULL);
 
@@ -1313,81 +1349,182 @@ static int cpr_get_of_corner_mappings(struct cpr_regulator *cpr_vreg,
 	cpr_vreg->corner_map = devm_kzalloc(dev, sizeof(int) * (size + 1),
 					GFP_KERNEL);
 	if (!cpr_vreg->corner_map) {
-		pr_err("Can't allocate cpr_vreg->corner_map memory\n");
+		pr_err("Can't allocate memory for cpr_vreg->corner_map\n");
 		return -ENOMEM;
 	}
 	cpr_vreg->num_corners = size;
 
+	cpr_vreg->quot_adjust = devm_kzalloc(dev,
+			sizeof(u32) * (cpr_vreg->num_corners + 1),
+			GFP_KERNEL);
+	if (!cpr_vreg->quot_adjust) {
+		pr_err("Can't allocate memory for cpr_vreg->quot_adjust\n");
+		return -ENOMEM;
+	}
+
 	if (!corners_mapped) {
 		for (i = CPR_FUSE_CORNER_SVS; i < CPR_FUSE_CORNER_MAX; i++)
 			cpr_vreg->corner_map[i] = i;
+		return 0;
 	} else {
 		rc = of_property_read_u32_array(dev->of_node,
 			"qcom,cpr-corner-map", &cpr_vreg->corner_map[1], size);
 
 		if (rc) {
-			pr_err("qcom,cpr-corner-map missing, rc = %d", rc);
+			pr_err("qcom,cpr-corner-map missing, rc = %d\n", rc);
 			return rc;
 		}
 	}
 
-	cpr_vreg->quot_adjust = devm_kzalloc(dev,
-			sizeof(int) * (cpr_vreg->num_corners + 1),
-			GFP_KERNEL);
-	if (!cpr_vreg->quot_adjust) {
-		pr_err("Can't allocate cpr_vreg->quot_adjust memory\n");
+	prop = of_find_property(dev->of_node,
+			"qcom,cpr-speed-bin-max-corners", NULL);
+	if (!prop) {
+		cpr_debug("qcom,cpr-speed-bin-max-corner missing\n");
+		return 0;
+	}
+
+	size = prop->length / sizeof(u32);
+	tmp = kzalloc(size * sizeof(u32), GFP_KERNEL);
+	if (!tmp) {
+		pr_err("memory alloc failed\n");
 		return -ENOMEM;
 	}
-
-	prop = of_find_property(dev->of_node, "qcom,cpr-quot-adjust-table",
-				NULL);
-
-	if (prop) {
-		if (!corners_mapped) {
-			pr_err("qcom,cpr-corner-map missing\n");
-			return -EINVAL;
-		}
-
-		size = prop->length / sizeof(u32);
-		tmp = kzalloc(sizeof(u32) * size, GFP_KERNEL);
-		if (!tmp)
-			return -ENOMEM;
-
-		rc = of_property_read_u32_array(dev->of_node,
-				"qcom,cpr-quot-adjust-table", tmp, size);
-		if (rc) {
-			pr_err("qcom,cpr-quot-adjust-table missing, rc = %d",
-				rc);
-			kfree(tmp);
-			return rc;
-		}
-
-		stripe_size = sizeof(struct quot_adjust_info) / sizeof(int);
-
-		if ((size % stripe_size) != 0) {
-			pr_err("qcom,cpr-quot-adjust-table data is not correct");
-			kfree(tmp);
-			return -EINVAL;
-		}
-
-		for (i = 0; i < size; i += stripe_size) {
-			if (tmp[i] == cpr_vreg->speed_bin) {
-				if (tmp[i + 1] >= 1 &&
-					tmp[i + 1] <=
-					cpr_vreg->num_corners) {
-					cpr_vreg->quot_adjust[tmp[i + 1]] =
-					tmp[i + 2];
-				} else {
-					pr_err("qcom,cpr-quot-adjust-table data is not correct");
-					kfree(tmp);
-					return -EINVAL;
-				}
-			}
-		}
-
+	rc = of_property_read_u32_array(dev->of_node,
+		"qcom,cpr-speed-bin-max-corners", tmp, size);
+	if (rc < 0) {
 		kfree(tmp);
+		pr_err("get cpr-speed-bin-max-corners failed, rc = %d\n", rc);
+		return rc;
 	}
 
+	cpr_parse_pvs_version_fuse(cpr_vreg, dev->of_node);
+
+	/*
+	 * According to speed_bin && pvs_version, get the maximum
+	 * corner corresponding to SVS/NORMAL/TURBO fuse corner.
+	 */
+	for (i = 0; i < size; i += 5) {
+		if (tmp[i] == cpr_vreg->speed_bin &&
+			tmp[i + 1] == cpr_vreg->pvs_version) {
+			svs_corner = tmp[i + 2];
+			normal_corner = tmp[i + 3];
+			turbo_corner = tmp[i + 4];
+			break;
+		}
+	}
+	kfree(tmp);
+	/*
+	 * Return success if the virtual corner values read from
+	 * qcom,cpr-speed-bin-max-corners property are incorrect,
+	 * which make sure the driver could continue run without
+	 * error.
+	 */
+	if (turbo_corner <= normal_corner ||
+			turbo_corner > cpr_vreg->num_corners) {
+		cpr_debug("turbo:%d should be larger than normal:%d\n",
+				turbo_corner, normal_corner);
+		return 0;
+	}
+
+	prop = of_find_property(dev->of_node,
+			"qcom,cpr-corner-frequency-map", NULL);
+	if (!prop) {
+		cpr_debug("qcom,cpr-corner-frequency-map missing\n");
+		return 0;
+	}
+
+	size = prop->length / sizeof(u32);
+	tmp = kzalloc(sizeof(u32) * size, GFP_KERNEL);
+	if (!tmp) {
+		pr_err("memory alloc failed\n");
+		return -ENOMEM;
+	}
+	rc = of_property_read_u32_array(dev->of_node,
+		"qcom,cpr-corner-frequency-map", tmp, size);
+	if (rc < 0) {
+		pr_err("get cpr-corner-frequency-map failed, rc = %d\n", rc);
+		kfree(tmp);
+		return rc;
+	}
+	freq_mappings = kzalloc(sizeof(u32) * (cpr_vreg->num_corners + 1),
+			GFP_KERNEL);
+	if (!freq_mappings) {
+		pr_err("memory alloc for freq_mappings failed!\n");
+		kfree(tmp);
+		return -ENOMEM;
+	}
+	for (i = 0; i < size; i += 2) {
+		corner = tmp[i];
+		if ((corner < 1) || (corner > cpr_vreg->num_corners)) {
+			pr_err("corner should be in 1~%d range: %d\n",
+					cpr_vreg->num_corners, corner);
+			continue;
+		}
+		freq_mappings[corner] = tmp[i + 1];
+		cpr_debug("Frequency at virtual corner %d is %d Hz.\n",
+				corner, freq_mappings[corner]);
+	}
+	kfree(tmp);
+
+	rc = of_property_read_u32(dev->of_node,
+		"qcom,cpr-quot-adjust-scaling-factor-max",
+		&max_factor);
+	if (rc < 0) {
+		cpr_debug("get cpr-quot-adjust-scaling-factor-max failed\n");
+		kfree(freq_mappings);
+		return 0;
+	}
+
+	/*
+	 * Get the quot adjust scaling factor, according to:
+	 * scaling =
+	 * min(1000 * (QUOT(fused @turbo) - QUOT(fused @normal)) /
+	 * (freq_turbo - freq_normal), max_factor)
+	 *
+	 * @QUOT(fused @turbo): quotient read from fuse for TURBO fuse corner;
+	 * @QUOT(fused @normal): quotient read from fuse for NORMAL fuse corner;
+	 * @freq_turbo: MHz, max frequency running at TURBO fuse corner;
+	 * @freq_normal: MHz, max frequency running at NORMAL fuse corner.
+	 */
+
+	freq_turbo = freq_mappings[turbo_corner];
+	freq_normal = freq_mappings[normal_corner];
+	if (freq_normal == 0 || freq_turbo <= freq_normal) {
+		pr_err("freq_turbo: %d should larger than freq_normal: %d\n",
+				freq_turbo, freq_normal);
+		kfree(freq_mappings);
+		return -EINVAL;
+	}
+	freq_turbo /= 1000000;	/* MHz */
+	freq_normal /= 1000000;
+	scaling = 1000 *
+		(cpr_vreg->cpr_fuse_target_quot[CPR_FUSE_CORNER_TURBO] -
+		cpr_vreg->cpr_fuse_target_quot[CPR_FUSE_CORNER_NORMAL]) /
+		(freq_turbo - freq_normal);
+	scaling = min(scaling, max_factor);
+	pr_info("quotient adjustment scaling factor: %d.%03d\n",
+			scaling / 1000, scaling % 1000);
+
+	/*
+	 * Walk through the corners mapped to the TURBO fuse corner and
+	 * calculate the quotient adjustment for each one using the following
+	 * formula:
+	 * quot_adjust = (freq_turbo - freq_corner) * scaling / 1000
+	 *
+	 * @freq_turbo: MHz, max frequency running at TURBO fuse corner;
+	 * @freq_corner: MHz, frequency running at a corner.
+	 */
+	for (i = turbo_corner; i > normal_corner; i--) {
+		freq_corner = freq_mappings[i] / 1000000; /* MHz */
+		if (freq_corner > 0) {
+			cpr_vreg->quot_adjust[i] =
+				scaling * (freq_turbo - freq_corner) / 1000;
+		}
+		pr_info("adjusted quotient[%d] = %d\n", i,
+			(cpr_vreg->cpr_fuse_target_quot[cpr_vreg->corner_map[i]]
+				- cpr_vreg->quot_adjust[i]));
+	}
+	kfree(freq_mappings);
 	return 0;
 }
 
@@ -1531,7 +1668,7 @@ static int __devinit cpr_init_cpr_efuse(struct platform_device *pdev,
 		}
 	}
 
-	rc = cpr_get_of_corner_mappings(cpr_vreg, &pdev->dev);
+	rc = cpr_get_corner_quot_adjustment(cpr_vreg, &pdev->dev);
 	if (rc)
 		return rc;
 
