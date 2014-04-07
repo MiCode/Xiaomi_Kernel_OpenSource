@@ -1285,26 +1285,6 @@
 		qcom,num-locks = <8>;
 	};
 
-	qcom,qseecom@d980000 {
-		compatible = "qcom,qseecom";
-		reg = <0xd980000 0x256000>;
-		reg-names = "secapp-region";
-		qcom,disk-encrypt-pipe-pair = <2>;
-		qcom,hlos-ce-hw-instance = <0>;
-		qcom,qsee-ce-hw-instance = <0>;
-		qcom,msm-bus,name = "qseecom-noc";
-		qcom,msm-bus,num-cases = <4>;
-		qcom,msm-bus,active-only = <0>;
-		qcom,msm-bus,num-paths = <1>;
-		qcom,support-bus-scaling;
-		qcom,support-fde;
-		qcom,msm-bus,vectors-KBps =
-				<55 512 0 0>,
-				<55 512 0 0>,
-				<55 512 120000 1200000>,
-				<55 512 393600 3936000>;
-	};
-
 	qcom,qcrypto@fd404000 {
 		compatible = "qcom,qcrypto";
                 reg  =  <0xfd400000 0x20000>,

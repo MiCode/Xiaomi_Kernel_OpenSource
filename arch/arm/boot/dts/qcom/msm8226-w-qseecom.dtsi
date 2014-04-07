@@ -10,29 +10,27 @@
  * GNU General Public License for more details.
  */
 
-
-/dts-v1/;
-#include "apq8026-v2.dtsi"
-#include "msm8226-w-memory.dtsi"
-#include "msm8226-w-qseecom.dtsi"
-#include "msm8226-720p-cdp.dtsi"
-#include "msm8x26w-gpu.dts"
-
 / {
-	model = "Qualcomm Technologies, Inc. APQ 8026v2W CDP";
-	compatible = "qcom,apq8026-cdp", "qcom,apq8026", "qcom,cdp";
-	qcom,board-id = <1 4>;
+
+	qcom,qseecom@3280000 {
+		compatible = "qcom,qseecom";
+		reg = <0x3280000 0x40000>;
+		reg-names = "secapp-region";
+		qcom,disk-encrypt-pipe-pair = <256>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,msm-bus,name = "qseecom-noc";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,support-bus-scaling;
+		qcom,support-fde;
+		qcom,msm-bus,vectors-KBps =
+				<55 512 0 0>,
+				<55 512 0 0>,
+				<55 512 120000 1200000>,
+				<55 512 393600 3936000>;
+	};
+
 };
 
-&mdss_fb0 {
-	/* cont_splash memory*/
-	qcom,memblock-reserve = <0x04200000 0x64000>;
-};
-
-&mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_nt35590_qvga_cmd>;
-};
-
-&dsi_nt35590_qvga_cmd {
-	qcom,cont-splash-enabled;
-};
