@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,6 +44,20 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_oxili_gx";
 		reg = <0x185901c 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_venus_core0: qcom,gdsc@184c028 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_venus_core0";
+		reg = <0x184c028 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_venus_core1: qcom,gdsc@184c030 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_venus_core1";
+		reg = <0x184c030 0x4>;
 		status = "disabled";
 	};
 };
