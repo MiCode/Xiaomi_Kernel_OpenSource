@@ -2009,7 +2009,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		goto fail_bind;
 	}
 
-	ipa_ctx->enable_clock_scaling = 0;
+	ipa_ctx->enable_clock_scaling = 1;
 	ipa_ctx->curr_ipa_clk_rate = ipa_ctx->ctrl->ipa_clk_rate_hi;
 
 	/* enable IPA clocks explicitly to allow the initialization */
