@@ -149,6 +149,7 @@ struct bms_dt_cfg {
 	int				cfg_s2_sample_count;
 	int				cfg_s1_fifo_length;
 	int				cfg_s2_fifo_length;
+	int				cfg_disable_bms;
 };
 
 struct qpnp_bms_chip {
@@ -2524,6 +2525,8 @@ static int parse_bms_dt_properties(struct qpnp_bms_chip *chip)
 			chip->spmi->dev.of_node, "qcom,report-charger-eoc");
 	chip->dt.cfg_force_s2_in_charging = of_property_read_bool(
 			chip->spmi->dev.of_node, "qcom,force-s2-in-charging");
+	chip->dt.cfg_disable_bms = of_property_read_bool(
+			chip->spmi->dev.of_node, "qcom,disable-bms");
 
 	pr_debug("v_cutoff_uv=%d, max_v=%d\n", chip->dt.cfg_v_cutoff_uv,
 					chip->dt.cfg_max_voltage_uv);
@@ -2533,10 +2536,11 @@ static int parse_bms_dt_properties(struct qpnp_bms_chip *chip)
 	pr_debug("ignore_shutdown_soc=%d, use_voltage_soc=%d\n",
 				chip->dt.cfg_ignore_shutdown_soc,
 				chip->dt.cfg_use_voltage_soc);
-	pr_debug("force-s3-on-suspend=%d report-charger-eoc=%d force-s2-in-charging=%d\n",
+	pr_debug("force-s3-on-suspend=%d report-charger-eoc=%d force-s2-in-charging=%d disable-bms=%d\n",
 			chip->dt.cfg_force_s3_on_suspend,
 			chip->dt.cfg_report_charger_eoc,
-			chip->dt.cfg_force_s2_in_charging);
+			chip->dt.cfg_force_s2_in_charging,
+			chip->dt.cfg_disable_bms);
 
 	return 0;
 }
@@ -2602,7 +2606,6 @@ static int qpnp_vm_bms_probe(struct spmi_device *spmi)
 {
 	struct qpnp_bms_chip *chip;
 	int rc, vbatt = 0;
-	u8 reg = 0;
 
 	chip = devm_kzalloc(&spmi->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip) {
@@ -2635,18 +2638,13 @@ static int qpnp_vm_bms_probe(struct spmi_device *spmi)
 		return rc;
 	}
 
-	if (chip->chg_pres_addr) {
-		/* check if we have an external charger */
-		rc = qpnp_read_wrapper(chip, &reg, chip->chg_pres_addr, 1);
-		if (rc) {
-			pr_err("Error reading chg_pres register rc=%d\n", rc);
-			return rc;
-		}
-		if (!(reg & QPNP_CHARGER_PRESENT)) {
-			pr_info("External charger, VM BMS not supported\n");
-			devm_kfree(&spmi->dev, chip);
-			return 0;
-		}
+	if (chip->dt.cfg_disable_bms) {
+		pr_info("VMBMS disabled (disable-bms = 1)\n");
+		rc = qpnp_masked_write_base(chip, chip->base + EN_CTL_REG,
+							BMS_EN_BIT, 0);
+		if (rc)
+			pr_err("Unable to disable VMBMS rc=%d\n", rc);
+		return -ENODEV;
 	}
 
 	rc = qpnp_read_wrapper(chip, chip->revision,
