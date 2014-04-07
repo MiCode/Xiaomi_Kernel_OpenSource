@@ -1035,7 +1035,7 @@ static int voice_destroy_mvm_cvs_session(struct voice_data *v)
 		}
 
 		/* Destroy MVM. */
-		pr_debug("MVM destroy session\n");
+		pr_debug("%s: MVM destroy session\n", __func__);
 
 		mvm_destroy.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 						      APR_HDR_LEN(APR_HDR_SIZE),
@@ -3440,6 +3440,18 @@ fail:
 	return -EINVAL;
 }
 
+static void voc_update_session_params(struct voice_data *v)
+{
+	/* reset LCH mode */
+	v->lch_mode = 0;
+
+	/* clear mute setting */
+	v->dev_rx.dev_mute =  common.default_mute_val;
+	v->dev_tx.dev_mute =  common.default_mute_val;
+	v->stream_rx.stream_mute = common.default_mute_val;
+	v->stream_tx.stream_mute = common.default_mute_val;
+}
+
 static int voice_destroy_vocproc(struct voice_data *v)
 {
 	struct mvm_detach_vocproc_cmd mvm_d_vocproc_cmd;
@@ -3486,21 +3498,13 @@ static int voice_destroy_vocproc(struct voice_data *v)
 				 __func__, common.srvcc_rec_flag);
 		}
 	}
+
 	/* send stop voice cmd */
 	voice_send_stop_voice_cmd(v);
 
 	/* send stop dtmf detecton cmd */
 	if (v->dtmf_rx_detect_en)
 		voice_send_dtmf_rx_detection_cmd(v, 0);
-
-	/* reset LCH mode */
-	v->lch_mode = 0;
-
-	/* clear mute setting */
-	v->dev_rx.dev_mute =  common.default_mute_val;
-	v->dev_tx.dev_mute =  common.default_mute_val;
-	v->stream_rx.stream_mute = common.default_mute_val;
-	v->stream_tx.stream_mute = common.default_mute_val;
 
 	/* detach VOCPROC and wait for response from mvm */
 	mvm_d_vocproc_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -4324,6 +4328,68 @@ fail:
 	return ret;
 }
 
+static int voice_lch_setup_vocproc(struct voice_data *v)
+{
+	int ret = 0;
+
+	ret = voice_setup_vocproc(v);
+	if (ret < 0) {
+		pr_err("%s: setup vocproc failed %d\n", __func__, ret);
+		goto done;
+	}
+
+	ret = voice_send_vol_step_cmd(v);
+	if (ret < 0)
+		pr_err("%s: voice volume failed %d\n", __func__, ret);
+
+	ret = voice_send_stream_mute_cmd(v,
+				VSS_IVOLUME_DIRECTION_TX,
+				v->stream_tx.stream_mute,
+				v->stream_tx.stream_mute_ramp_duration_ms);
+	if (ret < 0)
+		pr_err("%s: voice mute failed %d\n", __func__, ret);
+
+	ret = voice_send_start_voice_cmd(v);
+	if (ret < 0) {
+		pr_err("%s: start voice failed %d\n", __func__, ret);
+		goto done;
+	}
+
+	v->voc_state = VOC_RUN;
+done:
+	return ret;
+}
+
+static int voc_lch_ops(struct voice_data *v, enum voice_lch_mode lch_mode)
+{
+	int ret = 0;
+
+	switch (lch_mode) {
+	case VOICE_LCH_START:
+
+		ret = voice_destroy_vocproc(v);
+		if (ret < 0)
+			pr_err("%s:destroy vocproc failed %d\n",
+				__func__, ret);
+		break;
+	case VOICE_LCH_STOP:
+
+		ret = voice_lch_setup_vocproc(v);
+		if (ret < 0) {
+			pr_err("%s:setup vocproc failed %d\n",
+				__func__, ret);
+			goto done;
+		}
+		break;
+	default:
+		pr_err("%s: Invalid LCH mode: %d\n",
+			__func__, v->lch_mode);
+		break;
+	}
+done:
+	return ret;
+}
+
 int voc_start_playback(uint32_t set, uint16_t port_id)
 {
 	int ret = 0;
@@ -4843,8 +4909,10 @@ int voc_end_voice_call(uint32_t session_id)
 		ret = voice_destroy_vocproc(v);
 		if (ret < 0)
 			pr_err("%s:  destroy voice failed\n", __func__);
-		voice_destroy_mvm_cvs_session(v);
 
+		voc_update_session_params(v);
+
+		voice_destroy_mvm_cvs_session(v);
 		v->voc_state = VOC_RELEASE;
 	} else {
 		pr_err("%s: Error: End voice called in state %d\n",
@@ -5035,19 +5103,31 @@ int voc_set_lch(uint32_t session_id, enum voice_lch_mode lch_mode)
 	v->lch_mode = lch_mode;
 	mutex_unlock(&v->lock);
 
-	ret = voc_disable_cvp(session_id);
-	if (ret < 0) {
-		pr_err("%s: voc_disable_cvp failed ret=%d\n", __func__, ret);
+	/* destroy vocproc session during local call hold for memory constraint
+	 * devices and recreate vocproc during local call unhold
+	 */
+	if (common.is_destroy_cvd) {
+		ret = voc_lch_ops(v, v->lch_mode);
+		if (ret < 0) {
+			pr_err("%s: lch ops failed %d for low memory device\n",
+				__func__, ret);
+			goto done;
+		}
+	} else {
+		ret = voc_disable_cvp(session_id);
+		if (ret < 0) {
+			pr_err("%s: voc_disable_cvp failed ret=%d\n",
+				__func__, ret);
+			goto done;
+		}
 
-		goto done;
-	}
-
-	/* Mute and topology_none will be set as part of voc_enable_cvp() */
-	ret = voc_enable_cvp(session_id);
-	if (ret < 0) {
-		pr_err("%s: voc_enable_cvp failed ret=%d\n", __func__, ret);
-
-		goto done;
+		/* Mute and topology_none are set during vocproc enable */
+		ret = voc_enable_cvp(session_id);
+		if (ret < 0) {
+			pr_err("%s: voc_enable_cvp failed ret=%d\n",
+				 __func__, ret);
+			goto done;
+		}
 	}
 
 done:
