@@ -111,7 +111,7 @@ struct zram {
 	 */
 	u64 disksize;	/* bytes */
 	spinlock_t slot_free_lock;
-
+	int max_comp_streams;
 	struct zram_stats stats;
 };
 #endif
