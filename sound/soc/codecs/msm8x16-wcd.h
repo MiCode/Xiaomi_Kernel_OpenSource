@@ -14,6 +14,7 @@
 
 #include <sound/soc.h>
 #include <sound/jack.h>
+#include <sound/q6afe-v2.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
 #include "wcd-mbhc-v2.h"
 
@@ -116,6 +117,16 @@ struct msm8x16_wcd_regulator {
 	struct regulator *regulator;
 };
 
+struct msm8916_asoc_mach_data {
+	int codec_type;
+	int snd_card_on;
+	atomic_t mclk_rsc_ref;
+	atomic_t dis_work_mclk;
+	struct mutex cdc_mclk_mutex;
+	struct delayed_work enable_mclk_work;
+	struct afe_digital_clk_cfg digital_cdc_clk;
+};
+
 struct msm8x16_wcd_pdata {
 	int irq;
 	int irq_base;
@@ -137,9 +148,9 @@ struct msm8x16_wcd {
 	u8 version;
 
 	int reset_gpio;
-	int (*read_dev)(struct msm8x16_wcd *msm8x16,
+	int (*read_dev)(struct snd_soc_codec *codec,
 			unsigned short reg);
-	int (*write_dev)(struct msm8x16_wcd *msm8x16,
+	int (*write_dev)(struct snd_soc_codec *codec,
 			 unsigned short reg, u8 val);
 
 	u32 num_of_supplies;
