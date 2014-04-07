@@ -4,6 +4,7 @@
  * Copyright (C) 2003 Al Borchers (alborchers@steinerpoint.com)
  * Copyright (C) 2008 by David Brownell
  * Copyright (C) 2008 by Nokia Corporation
+ * Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * This software is distributed under the terms of the GNU General
  * Public License ("GPL") as published by the Free Software Foundation,
@@ -14,8 +15,13 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/device.h>
+#include <linux/miscdevice.h>
+#include <linux/uaccess.h>
+#include <linux/fs.h>
+#include <linux/usb/composite.h>
 
 #include "usb_gadget_xport.h"
+
 #include "u_serial.h"
 #include "gadget_chips.h"
 
@@ -28,7 +34,22 @@
  * CDC ACM driver.  However, for many purposes it's just as functional
  * if you can arrange appropriate host side drivers.
  */
+
+#define GSERIAL_IOCTL_MAGIC		'G'
+#define GSERIAL_SET_XPORT_TYPE		_IOW(GSERIAL_IOCTL_MAGIC, 0, u32)
+#define GSERIAL_SMD_WRITE		_IOW(GSERIAL_IOCTL_MAGIC, 1, \
+					struct ioctl_smd_write_arg_type)
+
+#define GSERIAL_SET_XPORT_TYPE_TTY 0
+#define GSERIAL_SET_XPORT_TYPE_SMD 1
+
+#define GSERIAL_BUF_LEN  256
 #define GSERIAL_NO_PORTS 3
+
+struct ioctl_smd_write_arg_type {
+	char		*buf;
+	unsigned int	size;
+};
 
 struct f_gser {
 	struct gserial			port;
@@ -37,6 +58,9 @@ struct f_gser {
 
 	u8				online;
 	enum transport_type		transport;
+
+	atomic_t			ioctl_excl;
+	atomic_t			open_excl;
 
 #ifdef CONFIG_MODEM_SUPPORT
 	u8				pending;
@@ -63,6 +87,7 @@ struct f_gser {
 #endif
 };
 
+
 static unsigned int no_tty_ports;
 static unsigned int no_smd_ports;
 static unsigned int no_hsic_sports;
@@ -74,7 +99,30 @@ static struct port_info {
 	enum transport_type	transport;
 	unsigned		port_num;
 	unsigned char		client_port_num;
+	struct f_gser		*gser_ptr;
 } gserial_ports[GSERIAL_NO_PORTS];
+
+static int gser_open_dev(struct inode *ip, struct file *fp);
+static int gser_release_dev(struct inode *ip, struct file *fp);
+static long gser_ioctl(struct file *fp, unsigned cmd, unsigned long arg);
+static void gser_ioctl_set_transport(struct f_gser *gser,
+				unsigned int transport);
+
+
+static const struct file_operations gser_fops = {
+	.owner = THIS_MODULE,
+	.open = gser_open_dev,
+	.release = gser_release_dev,
+	.unlocked_ioctl = gser_ioctl,
+};
+
+static struct miscdevice gser_device = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "android_serial_device",
+	.fops = &gser_fops,
+};
+
+static int registered;
 
 static inline struct f_gser *func_to_gser(struct usb_function *f)
 {
@@ -412,11 +460,11 @@ static int gport_disconnect(struct f_gser *gser)
 {
 	unsigned port_num;
 
+	port_num = gserial_ports[gser->port_num].client_port_num;
+
 	pr_debug("%s: transport: %s f_gser: %p gserial: %p port_num: %d\n",
 			__func__, xport_to_str(gser->transport),
 			gser, &gser->port, gser->port_num);
-
-	port_num = gserial_ports[gser->port_num].client_port_num;
 
 	switch (gser->transport) {
 	case USB_GADGET_XPORT_TTY:
@@ -857,6 +905,9 @@ static int gser_bind(struct usb_configuration *c, struct usb_function *f)
 			gser_ss_function);
 	if (status)
 		goto fail;
+
+	gserial_ports[gser->port_num].gser_ptr = gser;
+
 	DBG(cdev, "generic ttyGS%d: %s speed IN/%s OUT/%s\n",
 			gser->port_num,
 			gadget_is_superspeed(c->cdev->gadget) ? "super" :
@@ -978,19 +1029,41 @@ static void gser_free(struct usb_function *f)
 	struct f_gser *serial;
 
 	serial = func_to_gser(f);
+	pr_debug("%s: port %d", __func__, serial->port_num);
+
+	gserial_ports[serial->port_num].gser_ptr = NULL;
 	kfree(serial);
 	gser_next_free_port--;
 }
 
 static void gser_unbind(struct usb_configuration *c, struct usb_function *f)
 {
-#ifdef CONFIG_MODEM_SUPPORT
 	struct f_gser *gser = func_to_gser(f);
-#endif
+
 	usb_free_all_descriptors(f);
 #ifdef CONFIG_MODEM_SUPPORT
 	gs_free_req(gser->notify, gser->notify_req);
 #endif
+
+	gserial_ports[gser->port_num].gser_ptr = NULL;
+}
+
+static int gser_init(void)
+{
+	int ret;
+
+	pr_debug("%s: initialize serial function instance", __func__);
+
+	if (registered)
+		return 0;
+
+	ret = misc_register(&gser_device);
+	if (ret)
+		pr_err("Serial driver failed to register");
+	else
+		registered = 1;
+
+	return ret;
 }
 
 struct usb_function *gser_alloc(struct usb_function_instance *fi)
@@ -1039,6 +1112,8 @@ struct usb_function *gser_alloc(struct usb_function_instance *fi)
 	gser->port.disconnect = gser_disconnect;
 	gser->port.send_break = gser_send_break;
 #endif
+	gserial_ports[gser->port_num].gser_ptr = gser;
+	gser_init();
 
 	return &gser->port.func;
 }
@@ -1096,3 +1171,188 @@ int gserial_init_port(int port_num, const char *name,
 
 	return ret;
 }
+
+static inline int gser_device_lock(atomic_t *excl)
+{
+	if (atomic_inc_return(excl) == 1) {
+		return 0;
+	} else {
+		atomic_dec(excl);
+		return -EBUSY;
+	}
+}
+
+static inline void gser_device_unlock(atomic_t *excl)
+{
+	atomic_dec(excl);
+}
+
+static int gser_open_dev(struct inode *ip, struct file *fp)
+{
+	struct f_gser *gser = gserial_ports[0].gser_ptr;
+
+	pr_debug("%s: Open serial device", __func__);
+
+	if (!gser) {
+		pr_err("%s: Serial device not created yet", __func__);
+		return -ENODEV;
+	}
+
+	if (gser_device_lock(&gser->open_excl)) {
+		pr_err("%s: Already opened", __func__);
+		return -EBUSY;
+	}
+
+	fp->private_data = gser;
+	pr_debug("%s: Serial device opened", __func__);
+
+	return 0;
+}
+
+static int gser_release_dev(struct inode *ip, struct file *fp)
+{
+	struct f_gser *gser = fp->private_data;
+
+	pr_debug("%s: Close serial device", __func__);
+
+	if (!gser) {
+		pr_err("Serial device not created yet\n");
+		return -ENODEV;
+	}
+
+	gser_device_unlock(&gser->open_excl);
+
+	return 0;
+}
+
+static void gser_ioctl_set_transport(struct f_gser *gser,
+	unsigned int transport)
+{
+	int ret;
+	enum transport_type new_transport;
+	const struct usb_endpoint_descriptor *ep_in_desc_backup;
+	const struct usb_endpoint_descriptor *ep_out_desc_backup;
+
+	if (transport == GSERIAL_SET_XPORT_TYPE_TTY) {
+		new_transport = USB_GADGET_XPORT_TTY;
+		pr_debug("%s: Switching modem transport to TTY.", __func__);
+	} else if (transport == GSERIAL_SET_XPORT_TYPE_SMD) {
+		new_transport = USB_GADGET_XPORT_SMD;
+		pr_debug("%s: Switching modem transport to SMD.", __func__);
+	} else {
+		pr_err("%s: Wrong transport type %d", __func__, transport);
+		return;
+	}
+
+	if (gser->transport == new_transport) {
+		pr_debug("%s: Modem transport aready set to this type.",
+			__func__);
+		return;
+	}
+
+	ep_in_desc_backup  = gser->port.in->desc;
+	ep_out_desc_backup = gser->port.out->desc;
+	gport_disconnect(gser);
+	if (new_transport == USB_GADGET_XPORT_TTY) {
+		ret = gserial_alloc_line(
+			&gserial_ports[gser->port_num].client_port_num);
+		if (ret)
+			pr_debug("%s: Unable to alloc TTY line", __func__);
+	}
+
+	gser->port.in->desc  = ep_in_desc_backup;
+	gser->port.out->desc = ep_out_desc_backup;
+	gser->transport = new_transport;
+	gport_connect(gser);
+	pr_debug("%s: Modem transport switch is complete.", __func__);
+
+}
+
+static long gser_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
+{
+	int ret = 0;
+	int count;
+	int xport_type;
+	int smd_port_num;
+	char smd_write_buf[GSERIAL_BUF_LEN];
+	struct ioctl_smd_write_arg_type smd_write_arg;
+	struct f_gser *gser;
+	void __user *argp = (void __user *)arg;
+
+	if (!fp || !fp->private_data) {
+		pr_err("%s: Invalid file handle", __func__);
+		return -EBADFD;
+	}
+
+	gser = fp->private_data;
+	pr_debug("Received command %d", cmd);
+
+	if (gser_device_lock(&gser->ioctl_excl))
+		return -EBUSY;
+
+	switch (cmd) {
+	case GSERIAL_SET_XPORT_TYPE:
+		if (copy_from_user(&xport_type, argp, sizeof(xport_type))) {
+			pr_err("%s: failed to copy IOCTL set transport type",
+				__func__);
+			ret = -EFAULT;
+			break;
+		}
+
+		gser_ioctl_set_transport(gser, xport_type);
+		break;
+
+	case GSERIAL_SMD_WRITE:
+		if (gser->transport != USB_GADGET_XPORT_SMD) {
+			pr_err("%s: ERR: Got SMD WR cmd when not in SMD mode",
+				__func__);
+
+			break;
+		}
+
+		pr_debug("%s: Copy GSERIAL_SMD_WRITE IOCTL command argument",
+			__func__);
+		if (copy_from_user(&smd_write_arg, argp,
+			sizeof(smd_write_arg))) {
+			ret = -EFAULT;
+
+			pr_err("%s: failed to copy IOCTL GSERIAL_SMD_WRITE arg",
+				__func__);
+
+			break;
+		}
+		smd_port_num =
+			gserial_ports[gser->port_num].client_port_num;
+
+		pr_debug("%s: Copying %d bytes from user buffer to local\n",
+			__func__, smd_write_arg.size);
+
+		if (copy_from_user(smd_write_buf, smd_write_arg.buf,
+			smd_write_arg.size)) {
+
+			pr_err("%s: failed to copy buf for GSERIAL_SMD_WRITE",
+				__func__);
+
+			ret = -EFAULT;
+			break;
+		}
+
+		pr_debug("%s: Writing %d bytes to SMD channel\n",
+			__func__, smd_write_arg.size);
+
+		count = gsmd_write(smd_port_num, smd_write_buf,
+			smd_write_arg.size);
+
+		if (count != smd_write_arg.size)
+			ret = -EFAULT;
+
+		break;
+	default:
+		pr_err("Unsupported IOCTL");
+		ret = -EINVAL;
+	}
+
+	gser_device_unlock(&gser->ioctl_excl);
+	return ret;
+}
+
