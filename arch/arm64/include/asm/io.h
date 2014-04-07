@@ -23,11 +23,12 @@
 
 #include <linux/types.h>
 #include <linux/blk_types.h>
+#include <linux/msm_rtb.h>
 
 #include <asm/byteorder.h>
 #include <asm/barrier.h>
 #include <asm/pgtable.h>
-#include <linux/msm_rtb.h>
+#include <asm/early_ioremap.h>
 
 #include <xen/xen.h>
 
