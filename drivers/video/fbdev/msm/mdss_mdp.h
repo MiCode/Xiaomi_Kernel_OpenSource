@@ -186,6 +186,9 @@ struct mdss_mdp_ctl {
 
 	struct mdss_panel_data *panel_data;
 	struct mdss_mdp_vsync_handler vsync_handler;
+	struct mdss_mdp_vsync_handler recover_underrun_handler;
+	struct work_struct recover_work;
+	struct work_struct remove_underrun_handler;
 
 	struct mdss_mdp_img_rect roi;
 	struct mdss_mdp_img_rect roi_bkup;
