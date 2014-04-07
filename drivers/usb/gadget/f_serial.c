@@ -100,6 +100,7 @@ static struct port_info {
 	unsigned		port_num;
 	unsigned char		client_port_num;
 	struct f_gser		*gser_ptr;
+	bool			dun_w_softap_enable;
 } gserial_ports[GSERIAL_NO_PORTS];
 
 static int gser_open_dev(struct inode *ip, struct file *fp);
@@ -1170,6 +1171,37 @@ int gserial_init_port(int port_num, const char *name,
 	nr_ports++;
 
 	return ret;
+}
+
+
+bool gserial_is_connected(void)
+{
+	if (gserial_ports[0].gser_ptr != NULL)
+		return gserial_ports[0].gser_ptr->online;
+	return 0;
+}
+
+bool gserial_is_dun_w_softap_enabled(void)
+{
+	if (gserial_ports[0].gser_ptr != NULL)
+		return gserial_ports[0].dun_w_softap_enable;
+	return 0;
+}
+
+void gserial_dun_w_softap_enable(bool enable)
+{
+	pr_debug("android_usb: Setting dun_w_softap_enable to %u.",
+		enable);
+
+	gserial_ports[0].dun_w_softap_enable = enable;
+}
+
+bool gserial_is_dun_w_softap_active(void)
+{
+	if (gserial_ports[0].gser_ptr != NULL)
+		return gserial_ports[0].dun_w_softap_enable &&
+			gserial_ports[0].gser_ptr->online;
+	return 0;
 }
 
 static inline int gser_device_lock(atomic_t *excl)
