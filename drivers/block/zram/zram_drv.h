@@ -113,5 +113,6 @@ struct zram {
 	spinlock_t slot_free_lock;
 	int max_comp_streams;
 	struct zram_stats stats;
+	char compressor[10];
 };
 #endif
