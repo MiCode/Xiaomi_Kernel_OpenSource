@@ -43,8 +43,12 @@
 			"MIC BIAS2 External", "ANCLeft Headset Mic",
 			"DMIC1", "MIC BIAS1 External",
 			"MIC BIAS1 External", "Digital Mic1",
+			"DMIC2", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Digital Mic2",
 			"DMIC3", "MIC BIAS3 External",
-			"MIC BIAS3 External", "Digital Mic3";
+			"MIC BIAS3 External", "Digital Mic3",
+			"DMIC4", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Digital Mic4";
 
 		qcom,hdmi-audio-rx;
 		qcom,cdc-micbias2-headset-only;
