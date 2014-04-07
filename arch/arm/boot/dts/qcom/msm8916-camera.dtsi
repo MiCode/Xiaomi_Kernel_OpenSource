@@ -28,14 +28,15 @@
 			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
 			<&clock_gcc clk_csi0phytimer_clk_src>,
 			<&clock_gcc clk_gcc_camss_csi0phytimer_clk>,
-			<&clock_gcc clk_camss_ahb_clk_src>;
+			<&clock_gcc clk_camss_ahb_clk_src>,
+			<&clock_gcc clk_gcc_camss_csi0phy_clk>;
 		clock-names = "camss_top_ahb_clk", "ispif_ahb_clk",
 			"csiphy_timer_src_clk", "csiphy_timer_clk",
-			"camss_ahb_clk";
+			"camss_ahb_clk", "csi_phy_clk";
 		qcom,clock-names = "camss_top_ahb_clk", "ispif_ahb_clk",
 			"csiphy_timer_src_clk", "csiphy_timer_clk",
-			"camss_ahb_clk";
-		qcom,clock-rates = <0 0 200000000 0 0>;
+			"camss_ahb_clk", "csi_phy_clk";
+		qcom,clock-rates = <0 0 200000000 0 0 0>;
 	};
 
 	qcom,csiphy@1b0b000 {
@@ -50,14 +51,15 @@
 			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
 			<&clock_gcc clk_csi1phytimer_clk_src>,
 			<&clock_gcc clk_gcc_camss_csi1phytimer_clk>,
-			<&clock_gcc clk_camss_ahb_clk_src>;
+			<&clock_gcc clk_camss_ahb_clk_src>,
+			<&clock_gcc clk_gcc_camss_csi1phy_clk>;
 		clock-names = "camss_top_ahb_clk", "ispif_ahb_clk",
 			"csiphy_timer_src_clk", "csiphy_timer_clk",
-			"camss_ahb_clk";
+			"camss_ahb_clk",  "csi_phy_clk";
 		qcom,clock-names = "camss_top_ahb_clk", "ispif_ahb_clk",
 			"csiphy_timer_src_clk", "csiphy_timer_clk",
-			"camss_ahb_clk";
-		qcom,clock-rates = <0 0 200000000 0 0>;
+			"camss_ahb_clk",  "csi_phy_clk";
+		qcom,clock-rates = <0 0 200000000 0 0 0>;
 	};
 
 	qcom,csid@1b08000  {
@@ -70,23 +72,22 @@
 		qcom,csi-vdd-voltage = <1200000>;
 		qcom,mipi-csi-vdd-supply = <&pm8916_l2>;
 		clocks = <&clock_gcc clk_gcc_camss_top_ahb_clk>,
-			 <&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
-			 <&clock_gcc clk_gcc_camss_csi0_ahb_clk>,
-			 <&clock_gcc clk_csi0_clk_src>,
-			 <&clock_gcc clk_gcc_camss_csi0_clk>,
-			 <&clock_gcc clk_gcc_camss_csi0phy_clk>,
-			 <&clock_gcc clk_gcc_camss_csi0pix_clk>,
-			 <&clock_gcc clk_gcc_camss_csi0rdi_clk>,
-             <&clock_gcc clk_gcc_camss_ahb_clk>;
+			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
+			<&clock_gcc clk_gcc_camss_csi0_ahb_clk>,
+			<&clock_gcc clk_csi0_clk_src>,
+			<&clock_gcc clk_gcc_camss_csi0_clk>,
+			<&clock_gcc clk_gcc_camss_csi0pix_clk>,
+			<&clock_gcc clk_gcc_camss_csi0rdi_clk>,
+			<&clock_gcc clk_gcc_camss_ahb_clk>;
 		clock-names = "camss_top_ahb_clk",
 			"ispif_ahb_clk", "csi_ahb_clk", "csi_src_clk",
-			"csi_clk", "csi_phy_clk", "csi_pix_clk",
+			"csi_clk",  "csi_pix_clk",
 			"csi_rdi_clk", "camss_ahb_clk";
 		qcom,clock-names = "camss_top_ahb_clk",
 			"ispif_ahb_clk", "csi_ahb_clk", "csi_src_clk",
-			"csi_clk", "csi_phy_clk", "csi_pix_clk",
+			"csi_clk", "csi_pix_clk",
 			"csi_rdi_clk", "camss_ahb_clk";
-		qcom,clock-rates = <0 0 0 200000000 0 0 0 0 0>;
+		qcom,clock-rates = <0 0 0 200000000 0 0 0 0>;
      };
 
 	qcom,csid@1b08400 {
@@ -103,19 +104,18 @@
 			<&clock_gcc clk_gcc_camss_csi1_ahb_clk>,
 			<&clock_gcc clk_csi1_clk_src>,
 			<&clock_gcc clk_gcc_camss_csi1_clk>,
-			<&clock_gcc clk_gcc_camss_csi1phy_clk>,
 			<&clock_gcc clk_gcc_camss_csi1pix_clk>,
 			<&clock_gcc clk_gcc_camss_csi1rdi_clk>,
-             <&clock_gcc clk_gcc_camss_ahb_clk>;
+			<&clock_gcc clk_gcc_camss_ahb_clk>;
 		clock-names = "camss_top_ahb_clk",
 			"ispif_ahb_clk", "csi_ahb_clk", "csi_src_clk",
-			"csi_clk", "csi_phy_clk", "csi_pix_clk",
+			"csi_clk", "csi_pix_clk",
 			"csi_rdi_clk", "camss_ahb_clk";
 		qcom,clock-names = "camss_top_ahb_clk",
 			"ispif_ahb_clk", "csi_ahb_clk", "csi_src_clk",
-			"csi_clk", "csi_phy_clk", "csi_pix_clk",
+			"csi_clk", "csi_pix_clk",
 			"csi_rdi_clk", "camss_ahb_clk";
-		qcom,clock-rates = <0 0 0 200000000 0 0 0 0 0>;
+		qcom,clock-rates = <0 0 0 200000000 0 0 0 0>;
 
 	};
 
