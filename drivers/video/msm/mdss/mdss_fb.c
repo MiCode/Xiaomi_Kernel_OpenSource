@@ -34,6 +34,7 @@
 #include <linux/msm_mdp.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/of_platform.h>
 #include <linux/proc_fs.h>
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
@@ -46,11 +47,8 @@
 #include <linux/file.h>
 #include <linux/kthread.h>
 
-#include <mach/board.h>
-#include <mach/memory.h>
 #include <linux/qcom_iommu.h>
 #include <linux/msm_iommu_domains.h>
-#include <mach/msm_memtypes.h>
 
 #include "mdss_fb.h"
 
@@ -58,6 +56,10 @@
 #define MDSS_FB_NUM 3
 #else
 #define MDSS_FB_NUM 2
+#endif
+
+#ifndef EXPORT_COMPAT
+#define EXPORT_COMPAT(x)
 #endif
 
 #define MAX_FBI_LIST 32
@@ -1145,7 +1147,7 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd)
 		goto fb_mmap_failed;
 	}
 
-	pr_debug("alloc 0x%xB vaddr = %p (%pa iova) for fb%d\n", size, vaddr,
+	pr_debug("alloc 0x%zuB vaddr = %p (%pa iova) for fb%d\n", size, vaddr,
 			&mfd->iova, mfd->index);
 
 	mfd->fbi->screen_base = (char *) vaddr;

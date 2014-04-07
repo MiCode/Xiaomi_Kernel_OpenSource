@@ -41,14 +41,10 @@
 #include <linux/uaccess.h>
 #include <linux/clk/msm-clk.h>
 
-#include <mach/board.h>
-#include <mach/hardware.h>
-#include <linux/msm-bus.h>
-#include <linux/msm-bus-board.h>
 #include <linux/qcom_iommu.h>
 #include <linux/msm_iommu_domains.h>
-#include <mach/memory.h>
-#include <mach/msm_memtypes.h>
+#include <linux/msm-bus.h>
+#include <linux/msm-bus-board.h>
 
 #include "mdss.h"
 #include "mdss_fb.h"
@@ -1654,14 +1650,14 @@ static void mdss_mdp_parse_dt_pipe_sw_reset(struct platform_device *pdev,
 static int  mdss_mdp_parse_dt_pipe_clk_ctrl(struct platform_device *pdev,
 	char *prop_name, struct mdss_mdp_pipe *pipe_list, u32 npipes)
 {
-	int rc = 0;
+	int rc = 0, temp;
 	size_t len;
 	const u32 *arr;
 
-	arr = of_get_property(pdev->dev.of_node, prop_name, (int *) &len);
+	arr = of_get_property(pdev->dev.of_node, prop_name, &temp);
 	if (arr) {
 		int i, j;
-
+		len = (size_t) temp;
 		len /= sizeof(u32);
 		for (i = 0, j = 0; i < len; j++) {
 			struct mdss_mdp_pipe *pipe = NULL;
