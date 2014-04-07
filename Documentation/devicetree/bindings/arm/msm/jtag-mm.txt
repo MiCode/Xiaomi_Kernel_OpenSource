@@ -1,0 +1,23 @@
+* JTAG-MM
+
+The jtag-mm entry specifies the memory mapped addresses for the debug and ETM
+registers. The jtag-mm driver uses these to save and restore the registers
+using memory mapped access during power collapse so as to retain their state
+accross power collapse. This is necessary in case cp14 access to the registers
+is not permitted.
+
+Required Properties:
+compatible: component name used for driver matching, should be:
+	"qcom,jtag-mm"  - for jtag-mm device
+	"qcom,jtagv8-mm" - for jtagv8-mm device supporting ARMv8 targets
+reg: physical base address and length of the register set
+reg-names: should be "etm-base" for etm register set and "debug-base" for debug
+	register set.
+
+Example:
+jtag_mm: jtagmm@fc332000 {
+	compatible = "qcom,jtag-mm";
+	reg = <0xfc332000 0x1000>,
+		<0xfc333000 0x1000>;
+	reg-names = "etm-base","debug-base";
+	};
