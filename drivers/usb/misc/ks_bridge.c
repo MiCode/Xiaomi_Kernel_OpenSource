@@ -29,6 +29,7 @@
 #include <linux/cdev.h>
 #include <linux/list.h>
 #include <linux/wait.h>
+#include <linux/poll.h>
 
 #define DRIVER_DESC	"USB host ks bridge driver"
 #define DRIVER_VERSION	"1.0"
@@ -395,6 +396,27 @@ static int ksb_fs_open(struct inode *ip, struct file *fp)
 	return 0;
 }
 
+static unsigned int ksb_fs_poll(struct file *file, poll_table *wait)
+{
+	struct ks_bridge	*ksb = file->private_data;
+	unsigned long		flags;
+	int			ret = 0;
+
+	if (!test_bit(USB_DEV_CONNECTED, &ksb->flags))
+		return POLLERR;
+
+	poll_wait(file, &ksb->ks_wait_q, wait);
+	if (!test_bit(USB_DEV_CONNECTED, &ksb->flags))
+		return POLLERR;
+
+	spin_lock_irqsave(&ksb->lock, flags);
+	if (!list_empty(&ksb->to_ks_list))
+		ret = POLLIN | POLLRDNORM;
+	spin_unlock_irqrestore(&ksb->lock, flags);
+
+	return ret;
+}
+
 static int ksb_fs_release(struct inode *ip, struct file *fp)
 {
 	struct ks_bridge	*ksb = fp->private_data;
@@ -414,6 +436,7 @@ static const struct file_operations ksb_fops = {
 	.write = ksb_fs_write,
 	.open = ksb_fs_open,
 	.release = ksb_fs_release,
+	.poll = ksb_fs_poll,
 };
 
 static struct ksb_dev_info ksb_fboot_dev[] = {
