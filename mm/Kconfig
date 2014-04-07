@@ -537,3 +537,6 @@ config BALANCE_ANON_FILE_RECLAIM
 	  equally.
 	  Swapping anonymous pages out to memory can be efficient enough to justify
 	  treating anonymous and file backed pages equally.
+
+config GENERIC_EARLY_IOREMAP
+	bool
