@@ -17,6 +17,14 @@ tree structure.  The format of the entry is:
 where platform_id and subtype_id are the numeric values for the platform and
 subtype of the current hardware.
 
+The "subtype_id" cell is a 32-bit integer whose bit values are defined as follows:
+    bits 31-16 = Reserved bits
+    bits 15-8  = DDR Size. For devices with DDR Size as 512MB the value is 0x1, default value as 0x0
+    bits 7-0   = Platform Subtype
+
+In the event that a given device tree is applicable to all hardware versions
+matching a given Platform Type / Subtype ID, the major/minior platform version
+fields in the board_id property shall both be specified as 0xff.
 
 Modern format:
 The cell layout of the qcom,board-id property is as follows:
@@ -28,7 +36,11 @@ where board_id is a 32-bit integer whose bit values are defined as follows:
     bits 23-16 = Platform Version (Major)
     bits 15-8  = Platform Version (Minor)
     bits  7-0  = Platform Type ID
-and the 'reserved' cell shall have the value 0
+
+and the 'reserved' cell is a 32-bit integer whose bit values are defined as follows:
+    bits 31-16 = Reserved bits
+    bits 15-8  = DDR Size. For devices with DDR Size as 512MB the value is 0x1, default value as 0x0
+    bits 7-0   = Platform Subtype
 
 In the event that a given device tree is applicable to all hardware versions
 matching a given Platform Type / Subtype ID, the major/minior platform version
@@ -38,3 +50,4 @@ Example:
    qcom,board-id = <15 0>;
    qcom,board-id = <0x01040708, 0>;
    qcom,board-id = <0x01ffff08, 0>;
+   qcom,board-id = <8, 0x100>;
