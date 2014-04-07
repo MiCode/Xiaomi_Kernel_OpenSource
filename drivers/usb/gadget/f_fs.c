@@ -788,6 +788,12 @@ first_try:
 				goto error;
 			}
 
+			/* Don't wait on write if device is offline */
+			if (!read) {
+				ret = -EINTR;
+				goto error;
+			}
+
 			if (wait_event_interruptible(epfile->wait,
 						     (ep = epfile->ep))) {
 				ret = -EINTR;
