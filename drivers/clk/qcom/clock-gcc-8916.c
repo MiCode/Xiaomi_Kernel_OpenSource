@@ -2597,9 +2597,7 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(gp1_clk_src),
 	CLK_LIST(gp2_clk_src),
 	CLK_LIST(gp3_clk_src),
-	CLK_LIST(byte0_clk_src),
 	CLK_LIST(esc0_clk_src),
-	CLK_LIST(pclk0_clk_src),
 	CLK_LIST(vsync_clk_src),
 	CLK_LIST(pdm2_clk_src),
 	CLK_LIST(sdcc1_apps_clk_src),
@@ -2895,6 +2893,8 @@ late_initcall(msm_clock_debug_init);
 
 /* MDSS DSI_PHY_PLL */
 static struct clk_lookup msm_clocks_gcc_mdss[] = {
+	CLK_LIST(byte0_clk_src),
+	CLK_LIST(pclk0_clk_src),
 	CLK_LIST(gcc_mdss_pclk0_clk),
 	CLK_LIST(gcc_mdss_byte0_clk),
 };
