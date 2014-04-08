@@ -591,8 +591,6 @@ static int pp2s_probe(
 		goto perr0;
 	}
 
-	enable_irq(pp2s_irq);
-
 	/*
 	 * Create the sysfs obj...
 	 */
