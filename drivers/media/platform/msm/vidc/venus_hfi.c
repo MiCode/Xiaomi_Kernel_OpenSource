@@ -1015,6 +1015,15 @@ static int __alloc_ocmem(void *dev, unsigned long size, bool locked)
 			dprintk(VIDC_ERR, "Failed to set ocmem: %d\n", rc);
 			goto ocmem_set_failed;
 		}
+
+		rc = venus_hfi_vote_buses(device, device->bus_load,
+				device->res->bus_set.count);
+		if (rc) {
+			dprintk(VIDC_ERR,
+					"Failed to scale buses after setting ocmem: %d\n",
+					rc);
+			goto ocmem_set_failed;
+		}
 	} else
 		dprintk(VIDC_DBG,
 			"OCMEM is enough. reqd: %lu, available: %lu\n",
