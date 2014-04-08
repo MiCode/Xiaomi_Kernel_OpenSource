@@ -1371,7 +1371,7 @@ static int mdss_mdp_overlay_release(struct msm_fb_data_type *mfd, int ndx)
 				continue;
 			}
 
-			unset_ndx |= ndx;
+			unset_ndx |= pipe->ndx;
 
 			pipe->pid = 0;
 			destroy_pipe = pipe->play_cnt == 0;
