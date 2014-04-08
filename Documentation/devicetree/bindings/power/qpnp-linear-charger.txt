@@ -86,6 +86,11 @@ Parent node optional properties:
 					BPD and disables BTC. Declare this node
 					only if you are using an external charger
 					and not the PMIC internal LBC.
+- qcom,disable-follow-on-reset		If specified charger ignores PMIC
+					reset signal.
+					This should not be enabled for real
+					world software. To be enabled only
+					for testing.
 
 Sub node required structure:
 - A qcom,charger node must be a child of an SPMI node that has specified
