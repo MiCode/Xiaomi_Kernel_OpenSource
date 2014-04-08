@@ -187,12 +187,13 @@ static int msm_ipc_router_smd_remote_write(void *data,
 		if (smd_xprtp->ss_reset) {
 			spin_unlock_irqrestore(&smd_xprtp->ss_reset_lock,
 						flags);
-			pr_err("%s: %s chnl reset\n", __func__, xprt->name);
+			IPC_RTR_ERR("%s: %s chnl reset\n",
+					__func__, xprt->name);
 			return -ENETRESET;
 		}
 		spin_unlock_irqrestore(&smd_xprtp->ss_reset_lock, flags);
 		if (num_retries >= 5) {
-			pr_err("%s: Error %d @smd_write_start for %s\n",
+			IPC_RTR_ERR("%s: Error %d @smd_write_start for %s\n",
 				__func__, ret, xprt->name);
 			return ret;
 		}
@@ -215,7 +216,7 @@ static int msm_ipc_router_smd_remote_write(void *data,
 			if (smd_xprtp->ss_reset) {
 				spin_unlock_irqrestore(
 					&smd_xprtp->ss_reset_lock, flags);
-				pr_err("%s: %s chnl reset\n",
+				IPC_RTR_ERR("%s: %s chnl reset\n",
 					__func__, xprt->name);
 				return -ENETRESET;
 			}
@@ -275,7 +276,7 @@ static void smd_xprt_read_data(struct work_struct *work)
 		if (smd_xprtp->in_pkt)
 			release_pkt(smd_xprtp->in_pkt);
 		smd_xprtp->is_partial_in_pkt = 0;
-		pr_err("%s: %s channel reset\n",
+		IPC_RTR_ERR("%s: %s channel reset\n",
 			__func__, smd_xprtp->xprt.name);
 		return;
 	}
@@ -290,7 +291,7 @@ static void smd_xprt_read_data(struct work_struct *work)
 			smd_xprtp->in_pkt = kzalloc(sizeof(struct rr_packet),
 						    GFP_KERNEL);
 			if (!smd_xprtp->in_pkt) {
-				pr_err("%s: Couldn't alloc rr_packet\n",
+				IPC_RTR_ERR("%s: Couldn't alloc rr_packet\n",
 					__func__);
 				return;
 			}
@@ -299,7 +300,8 @@ static void smd_xprt_read_data(struct work_struct *work)
 				kmalloc(sizeof(struct sk_buff_head),
 					GFP_KERNEL);
 			if (!smd_xprtp->in_pkt->pkt_fragment_q) {
-				pr_err("%s: Couldn't alloc pkt_fragment_q\n",
+				IPC_RTR_ERR(
+				"%s: Couldn't alloc pkt_fragment_q\n",
 					__func__);
 				kfree(smd_xprtp->in_pkt);
 				return;
@@ -334,7 +336,7 @@ static void smd_xprt_read_data(struct work_struct *work)
 		data = skb_put(ipc_rtr_pkt, sz);
 		sz_read = smd_read(smd_xprtp->channel, data, sz);
 		if (sz_read != sz) {
-			pr_err("%s: Couldn't read %s completely\n",
+			IPC_RTR_ERR("%s: Couldn't read %s completely\n",
 				__func__, smd_xprtp->xprt.name);
 			kfree_skb(ipc_rtr_pkt);
 			release_pkt(smd_xprtp->in_pkt);
@@ -419,7 +421,8 @@ static void msm_ipc_router_smd_remote_notify(void *_dev, unsigned event)
 		xprt_work = kmalloc(sizeof(struct msm_ipc_router_smd_xprt_work),
 				    GFP_ATOMIC);
 		if (!xprt_work) {
-			pr_err("%s: Couldn't notify %d event to IPC Router\n",
+			IPC_RTR_ERR(
+			"%s: Couldn't notify %d event to IPC Router\n",
 				__func__, event);
 			return;
 		}
@@ -436,7 +439,8 @@ static void msm_ipc_router_smd_remote_notify(void *_dev, unsigned event)
 		xprt_work = kmalloc(sizeof(struct msm_ipc_router_smd_xprt_work),
 				    GFP_ATOMIC);
 		if (!xprt_work) {
-			pr_err("%s: Couldn't notify %d event to IPC Router\n",
+			IPC_RTR_ERR(
+			"%s: Couldn't notify %d event to IPC Router\n",
 				__func__, event);
 			return;
 		}
@@ -456,7 +460,7 @@ static void *msm_ipc_load_subsystem(uint32_t edge)
 	if (!IS_ERR_OR_NULL(peripheral)) {
 		pil = subsystem_get(peripheral);
 		if (IS_ERR(pil)) {
-			pr_err("%s: Failed to load %s\n",
+			IPC_RTR_ERR("%s: Failed to load %s\n",
 				__func__, peripheral);
 			pil = NULL;
 		}
@@ -507,19 +511,20 @@ static int msm_ipc_router_smd_remote_probe(struct platform_device *pdev)
 
 	smd_xprtp = find_smd_xprt_list(pdev);
 	if (!smd_xprtp) {
-		pr_err("%s No device with name %s\n", __func__, pdev->name);
+		IPC_RTR_ERR("%s No device with name %s\n",
+					__func__, pdev->name);
 		return -EPROBE_DEFER;
 	}
 	if (strcmp(pdev->name, smd_xprtp->ch_name)
 			|| (pdev->id != smd_xprtp->edge)) {
-		pr_err("%s wrong item name:%s edge:%d\n",
+		IPC_RTR_ERR("%s wrong item name:%s edge:%d\n",
 				__func__, smd_xprtp->ch_name, smd_xprtp->edge);
 		return -ENODEV;
 	}
 	smd_xprtp->smd_xprt_wq =
 		create_singlethread_workqueue(pdev->name);
 	if (!smd_xprtp->smd_xprt_wq) {
-		pr_err("%s: WQ creation failed for %s\n",
+		IPC_RTR_ERR("%s: WQ creation failed for %s\n",
 			__func__, pdev->name);
 		return -EFAULT;
 	}
@@ -532,7 +537,7 @@ static int msm_ipc_router_smd_remote_probe(struct platform_device *pdev)
 				    smd_xprtp,
 				    msm_ipc_router_smd_remote_notify);
 	if (rc < 0) {
-		pr_err("%s: Channel open failed for %s\n",
+		IPC_RTR_ERR("%s: Channel open failed for %s\n",
 			__func__, smd_xprtp->ch_name);
 		if (smd_xprtp->pil) {
 			subsystem_put(smd_xprtp->pil);
@@ -574,7 +579,7 @@ static void pil_vote_load_worker(struct work_struct *work)
 	if (!IS_ERR_OR_NULL(peripheral) && !strcmp(peripheral, "modem")) {
 		vote_info->pil_handle = subsystem_get(peripheral);
 		if (IS_ERR(vote_info->pil_handle)) {
-			pr_err("%s: Failed to load %s\n",
+			IPC_RTR_ERR("%s: Failed to load %s\n",
 				__func__, peripheral);
 			vote_info->pil_handle = NULL;
 		}
@@ -684,12 +689,13 @@ static int msm_ipc_router_smd_driver_register(
 
 		ret = platform_driver_register(&smd_xprtp->driver);
 		if (ret) {
-			pr_err("%s: Failed to register platform driver [%s]\n",
+			IPC_RTR_ERR(
+			"%s: Failed to register platform driver [%s]\n",
 						__func__, smd_xprtp->ch_name);
 			return ret;
 		}
 	} else {
-		pr_err("%s Already driver registered %s\n",
+		IPC_RTR_ERR("%s Already driver registered %s\n",
 					__func__, smd_xprtp->ch_name);
 	}
 	return 0;
@@ -712,7 +718,7 @@ static int msm_ipc_router_smd_config_init(
 
 	smd_xprtp = kzalloc(sizeof(struct msm_ipc_router_smd_xprt), GFP_KERNEL);
 	if (IS_ERR_OR_NULL(smd_xprtp)) {
-		pr_err("%s: kzalloc() failed for smd_xprtp id:%s\n",
+		IPC_RTR_ERR("%s: kzalloc() failed for smd_xprtp id:%s\n",
 				__func__, smd_xprt_config->ch_name);
 		return -ENOMEM;
 	}
@@ -809,7 +815,7 @@ static int parse_devicetree(struct device_node *node,
 	return 0;
 
 error:
-	pr_err("%s: missing key: %s\n", __func__, key);
+	IPC_RTR_ERR("%s: missing key: %s\n", __func__, key);
 	return -ENODEV;
 }
 
@@ -837,13 +843,14 @@ static int msm_ipc_router_smd_xprt_probe(struct platform_device *pdev)
 			ret = parse_devicetree(pdev->dev.of_node,
 							&smd_xprt_config);
 			if (ret) {
-				pr_err(" failed to parse device tree\n");
+				IPC_RTR_ERR("%s: Failed to parse device tree\n",
+								__func__);
 				return ret;
 			}
 
 			ret = msm_ipc_router_smd_config_init(&smd_xprt_config);
 			if (ret) {
-				pr_err("%s init failed\n", __func__);
+				IPC_RTR_ERR("%s init failed\n", __func__);
 				return ret;
 			}
 		}
@@ -872,7 +879,7 @@ static void ipc_router_smd_xprt_probe_worker(struct work_struct *work)
 		for (i = 0; i < ARRAY_SIZE(smd_xprt_cfg); i++) {
 			ret = msm_ipc_router_smd_config_init(&smd_xprt_cfg[i]);
 			if (ret)
-				pr_err(" %s init failed config idx %d\n",
+				IPC_RTR_ERR(" %s init failed config idx %d\n",
 							__func__, i);
 		}
 		mutex_lock(&smd_remote_xprt_list_lock_lha1);
@@ -900,7 +907,8 @@ static int __init msm_ipc_router_smd_xprt_init(void)
 
 	rc = platform_driver_register(&msm_ipc_router_smd_xprt_driver);
 	if (rc) {
-		pr_err("%s: msm_ipc_router_smd_xprt_driver register failed %d\n",
+		IPC_RTR_ERR(
+		"%s: msm_ipc_router_smd_xprt_driver register failed %d\n",
 								__func__, rc);
 		return rc;
 	}

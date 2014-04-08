@@ -215,34 +215,34 @@ static int msm_ipc_router_hsic_remote_write(void *data,
 	int ret;
 
 	if (!pkt || pkt->length != len || !xprt) {
-		pr_err("%s: Invalid input parameters\n", __func__);
+		IPC_RTR_ERR("%s: Invalid input parameters\n", __func__);
 		return -EINVAL;
 	}
 
 	hsic_xprtp = container_of(xprt, struct msm_ipc_router_hsic_xprt, xprt);
 	mutex_lock(&hsic_xprtp->ss_reset_lock);
 	if (hsic_xprtp->ss_reset) {
-		pr_err("%s: Trying to write on a reset link\n", __func__);
+		IPC_RTR_ERR("%s: Trying to write on a reset link\n", __func__);
 		mutex_unlock(&hsic_xprtp->ss_reset_lock);
 		return -ENETRESET;
 	}
 
 	if (!hsic_xprtp->pdev) {
-		pr_err("%s: Trying to write on a closed link\n", __func__);
+		IPC_RTR_ERR("%s: Trying to write on a closed link\n", __func__);
 		mutex_unlock(&hsic_xprtp->ss_reset_lock);
 		return -ENODEV;
 	}
 
 	pdata = hsic_xprtp->pdev->dev.platform_data;
 	if (!pdata || !pdata->write) {
-		pr_err("%s on a uninitialized link\n", __func__);
+		IPC_RTR_ERR("%s on a uninitialized link\n", __func__);
 		mutex_unlock(&hsic_xprtp->ss_reset_lock);
 		return -EFAULT;
 	}
 
 	skb = skb_peek(pkt->pkt_fragment_q);
 	if (!skb) {
-		pr_err("%s SKB is NULL\n", __func__);
+		IPC_RTR_ERR("%s SKB is NULL\n", __func__);
 		mutex_unlock(&hsic_xprtp->ss_reset_lock);
 		return -EINVAL;
 	}
@@ -314,7 +314,8 @@ static void hsic_xprt_read_data(struct work_struct *work)
 						     GFP_KERNEL);
 			if (hsic_xprtp->in_pkt)
 				break;
-			pr_err("%s: packet allocation failure\n", __func__);
+			IPC_RTR_ERR("%s: packet allocation failure\n",
+								__func__);
 			msleep(100);
 		}
 		while (!hsic_xprtp->in_pkt->pkt_fragment_q) {
@@ -323,7 +324,7 @@ static void hsic_xprt_read_data(struct work_struct *work)
 					GFP_KERNEL);
 			if (hsic_xprtp->in_pkt->pkt_fragment_q)
 				break;
-			pr_err("%s: Couldn't alloc pkt_fragment_q\n",
+			IPC_RTR_ERR("%s: Couldn't alloc pkt_fragment_q\n",
 				__func__);
 			msleep(100);
 		}
@@ -334,13 +335,13 @@ static void hsic_xprt_read_data(struct work_struct *work)
 			skb = alloc_skb(pdata->max_read_size, GFP_KERNEL);
 			if (skb)
 				break;
-			pr_err("%s: Couldn't alloc SKB\n", __func__);
+			IPC_RTR_ERR("%s: Couldn't alloc SKB\n", __func__);
 			msleep(100);
 		}
 		pkt_size = pdata->read(hsic_xprtp->pdev, skb->data,
 					pdata->max_read_size);
 		if (pkt_size < 0) {
-			pr_err("%s: Error %d @ read operation\n",
+			IPC_RTR_ERR("%s: Error %d @ read operation\n",
 				__func__, pkt_size);
 			kfree_skb(skb);
 			kfree(hsic_xprtp->in_pkt->pkt_fragment_q);
@@ -390,7 +391,8 @@ static int msm_ipc_router_hsic_remote_remove(struct platform_device *pdev)
 
 	hsic_xprtp = find_hsic_xprt_list(pdev->name);
 	if (!hsic_xprtp) {
-		pr_err("%s No device with name %s\n", __func__, pdev->name);
+		IPC_RTR_ERR("%s No device with name %s\n",
+					__func__, pdev->name);
 		return -ENODEV;
 	}
 
@@ -430,27 +432,29 @@ static int msm_ipc_router_hsic_remote_probe(struct platform_device *pdev)
 	pdata = pdev->dev.platform_data;
 	if (!pdata || !pdata->open || !pdata->read ||
 	    !pdata->write || !pdata->close) {
-		pr_err("%s: pdata or pdata->operations is NULL\n", __func__);
+		IPC_RTR_ERR("%s: pdata or pdata->operations is NULL\n",
+								__func__);
 		return -EINVAL;
 	}
 
 	hsic_xprtp = find_hsic_xprt_list(pdev->name);
 	if (!hsic_xprtp) {
-		pr_err("%s No device with name %s\n", __func__, pdev->name);
+		IPC_RTR_ERR("%s No device with name %s\n",
+						__func__, pdev->name);
 		return -ENODEV;
 	}
 
 	hsic_xprtp->hsic_xprt_wq =
 		create_singlethread_workqueue(pdev->name);
 	if (!hsic_xprtp->hsic_xprt_wq) {
-		pr_err("%s: WQ creation failed for %s\n",
+		IPC_RTR_ERR("%s: WQ creation failed for %s\n",
 			__func__, pdev->name);
 		return -EFAULT;
 	}
 
 	rc = pdata->open(pdev);
 	if (rc < 0) {
-		pr_err("%s: Channel open failed for %s.%d\n",
+		IPC_RTR_ERR("%s: Channel open failed for %s.%d\n",
 			__func__, pdev->name, pdev->id);
 		destroy_workqueue(hsic_xprtp->hsic_xprt_wq);
 		return rc;
@@ -495,12 +499,13 @@ static int msm_ipc_router_hsic_driver_register(
 
 		ret = platform_driver_register(&hsic_xprtp->driver);
 		if (ret) {
-			pr_err("%s: Failed to register platform driver[%s]\n",
+			IPC_RTR_ERR(
+			"%s: Failed to register platform driver[%s]\n",
 					__func__, hsic_xprtp->ch_name);
 			return ret;
 		}
 	} else {
-		pr_err("%s Already driver registered %s\n",
+		IPC_RTR_ERR("%s Already driver registered %s\n",
 					__func__, hsic_xprtp->ch_name);
 	}
 
@@ -525,7 +530,7 @@ static int msm_ipc_router_hsic_config_init(
 	hsic_xprtp = kzalloc(sizeof(struct msm_ipc_router_hsic_xprt),
 							GFP_KERNEL);
 	if (IS_ERR_OR_NULL(hsic_xprtp)) {
-		pr_err("%s: kzalloc() failed for hsic_xprtp id:%s\n",
+		IPC_RTR_ERR("%s: kzalloc() failed for hsic_xprtp id:%s\n",
 				__func__, hsic_xprt_config->ch_name);
 		return -ENOMEM;
 	}
@@ -611,7 +616,7 @@ static int parse_devicetree(struct device_node *node,
 	return 0;
 
 error:
-	pr_err("%s: missing key: %s\n", __func__, key);
+	IPC_RTR_ERR("%s: missing key: %s\n", __func__, key);
 	return -ENODEV;
 }
 
@@ -638,14 +643,15 @@ static int msm_ipc_router_hsic_xprt_probe(
 		ret = parse_devicetree(pdev->dev.of_node,
 						&hsic_xprt_config);
 		if (ret) {
-			pr_err(" failed to parse device tree\n");
+			IPC_RTR_ERR("%s: Failed to parse device tree\n",
+								__func__);
 			return ret;
 		}
 
 		ret = msm_ipc_router_hsic_config_init(
 						&hsic_xprt_config);
 		if (ret) {
-			pr_err(" %s init failed\n", __func__);
+			IPC_RTR_ERR(" %s init failed\n", __func__);
 			return ret;
 		}
 	}
@@ -674,7 +680,7 @@ static void ipc_router_hsic_xprt_probe_worker(struct work_struct *work)
 			ret = msm_ipc_router_hsic_config_init(
 							&hsic_xprt_cfg[i]);
 			if (ret)
-				pr_err(" %s init failed config idx %d\n",
+				IPC_RTR_ERR(" %s init failed config idx %d\n",
 								__func__, i);
 		}
 		mutex_lock(&hsic_remote_xprt_list_lock_lha1);
@@ -702,7 +708,8 @@ static int __init msm_ipc_router_hsic_xprt_init(void)
 
 	rc = platform_driver_register(&msm_ipc_router_hsic_xprt_driver);
 	if (rc) {
-		pr_err("%s: msm_ipc_router_hsic_xprt_driver register failed %d\n",
+		IPC_RTR_ERR(
+		"%s: msm_ipc_router_hsic_xprt_driver register failed %d\n",
 								__func__, rc);
 		return rc;
 	}
