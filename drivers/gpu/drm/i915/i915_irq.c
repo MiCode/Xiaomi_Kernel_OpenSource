@@ -39,6 +39,7 @@
 #include "intel_sync.h"
 #include "intel_drv.h"
 #include "intel_lrc_tdr.h"
+#include "i915_scheduler.h"
 
 static const u32 hpd_ibx[] = {
 	[HPD_CRT] = SDE_CRT_HOTPLUG,
@@ -1270,6 +1271,8 @@ static void notify_ring(struct drm_device *dev,
 
 	ring->last_irq_seqno = ring->get_seqno(ring, false);
 	trace_i915_gem_request_notify(ring);
+
+	i915_scheduler_handle_irq(ring);
 
 	i915_gem_complete_requests_ring(ring, false);
 
