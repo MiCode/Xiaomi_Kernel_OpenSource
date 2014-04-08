@@ -602,28 +602,23 @@ int adreno_ringbuffer_init(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 
+	rb->global_ts = 0;
 	rb->device = device;
 
-	rb->buffer_desc.flags = KGSL_MEMFLAGS_GPUREADONLY;
-	/* allocate memory for ringbuffer */
-	status = kgsl_allocate_contiguous(device, &rb->buffer_desc,
-		KGSL_RB_SIZE);
+	status = kgsl_allocate_global(device, &rb->buffer_desc,
+		KGSL_RB_SIZE, KGSL_MEMFLAGS_GPUREADONLY);
 
-	if (status != 0) {
+	if (status)
 		adreno_ringbuffer_close(rb);
-		return status;
-	}
 
-	rb->global_ts = 0;
-
-	return 0;
+	return status;
 }
 
 void adreno_ringbuffer_close(struct adreno_ringbuffer *rb)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(rb->device);
 
-	kgsl_sharedmem_free(&rb->buffer_desc);
+	kgsl_free_global(&rb->buffer_desc);
 
 	kfree(adreno_dev->pfp_fw);
 	kfree(adreno_dev->pm4_fw);

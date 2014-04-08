@@ -124,10 +124,6 @@ struct kgsl_functable {
 	int (*issueibcmds) (struct kgsl_device_private *dev_priv,
 		struct kgsl_context *context, struct kgsl_cmdbatch *cmdbatch,
 		uint32_t *timestamps);
-	int (*setup_pt)(struct kgsl_device *device,
-		struct kgsl_pagetable *pagetable);
-	void (*cleanup_pt)(struct kgsl_device *device,
-		struct kgsl_pagetable *pagetable);
 	void (*power_stats)(struct kgsl_device *device,
 		struct kgsl_power_stats *stats);
 	unsigned int (*gpuid)(struct kgsl_device *device, unsigned int *chipid);
