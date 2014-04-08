@@ -1415,11 +1415,13 @@
 	qcom,mss@4080000 {
 		compatible = "qcom,pil-q6v56-mss";
 		reg = <0x04080000 0x100>,
-		      <0x0194F000 0x3000>,
 		      <0x04020000 0x040>,
-		      <0x01810000 0x004>;
-		reg-names = "qdsp6_base", "halt_base", "rmb_base",
-			    "restart_reg";
+		      <0x01810000 0x004>,
+		      <0x0194f000 0x010>,
+		      <0x01950000 0x008>,
+		      <0x01951000 0x008>;
+		reg-names = "qdsp6_base", "rmb_base", "restart_reg",
+				"halt_q6", "halt_modem", "halt_nc";
 
 		interrupts = <0 24 1>;
 		vdd_cx-supply = <&pm8916_s1_corner>;
