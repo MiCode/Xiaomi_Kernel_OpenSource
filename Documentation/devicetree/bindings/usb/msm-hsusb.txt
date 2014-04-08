@@ -112,6 +112,7 @@ Optional properties :
 	vdd min.
 - qcom,usbin-vadc: Corresponding vadc device's phandle to read usbin voltage using VADC.
 	This will be used to get value of usb power supply's VOLTAGE_NOW property.
+- qcom,usbid-gpio: This corresponds to gpio which is used for USB ID detection.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
@@ -151,6 +152,7 @@ Example HSUSB OTG controller device node :
 		qcom,hsusb-otg-rw-during-lpm-workaround = <1>;
 		qcom,disable-retention-with-vdd-min;
 		qcom,usbin-vadc = <&pm8226_vadc>;
+		qcom,usbid-gpio = <&msm_gpio 110 0>;
 	};
 
 MSM HSUSB EHCI controller
