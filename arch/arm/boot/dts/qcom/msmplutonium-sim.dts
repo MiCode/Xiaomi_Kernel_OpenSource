@@ -17,6 +17,7 @@
 
 #include "msmplutonium.dtsi"
 #include "msmplutonium-pinctrl.dtsi"
+#include "msmplutonium-bus.dtsi"
 / {
 	model = "Qualcomm Technologies, Inc. MSM plutonium SIM";
 	compatible = "qcom,msmplutonium-sim", "qcom,msmplutonium", "qcom,sim";
