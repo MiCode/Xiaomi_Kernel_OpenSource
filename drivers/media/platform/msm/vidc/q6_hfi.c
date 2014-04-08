@@ -554,6 +554,10 @@ static void *q6_hfi_session_init(void *device, u32 session_id,
 
 	new_session = (struct hal_session *)
 		kzalloc(sizeof(struct hal_session), GFP_KERNEL);
+	if (!new_session) {
+		dprintk(VIDC_ERR, "new session fail: Out of memory\n");
+		return NULL;
+	}
 	new_session->session_id = (u32) session_id;
 	if (session_type == 1)
 		new_session->is_decoder = 0;
