@@ -1147,9 +1147,6 @@ static int soc_fw_dapm_widget_create(struct soc_fw *sfw,
 			ret = -ENOMEM;
 			goto hdr_err;
 		}
-		ret = soc_fw_widget_load(sfw, &widget);
-		if (ret < 0)
-			goto hdr_err;
 		break;
 	case SOC_CONTROL_TYPE_ENUM:
 	case SOC_CONTROL_TYPE_ENUM_EXT:
@@ -1162,9 +1159,6 @@ static int soc_fw_dapm_widget_create(struct soc_fw *sfw,
 			ret = -ENOMEM;
 			goto hdr_err;
 		}
-		ret = soc_fw_widget_load(sfw, &widget);
-		if (ret < 0)
-			goto hdr_err;
 		break;
 	default:
 		dev_err(sfw->dev, "ASoC: invalid widget control type %d:%d:%d\n",
@@ -1176,6 +1170,10 @@ static int soc_fw_dapm_widget_create(struct soc_fw *sfw,
 	}
 
 widget:
+	ret = soc_fw_widget_load(sfw, &widget);
+		if (ret < 0)
+			goto hdr_err;
+
 	ret = snd_soc_dapm_new_controls(dapm, &widget, 1);
 	if (ret < 0) {
 		dev_err(sfw->dev, "ASoC: failed to create widget %s controls\n",
