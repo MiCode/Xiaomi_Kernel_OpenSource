@@ -5766,7 +5766,17 @@ static struct regulator *tapan_codec_find_regulator(
 	const char *name)
 {
 	int i;
-	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
+	struct wcd9xxx *core = NULL;
+
+	if (codec == NULL) {
+		dev_err(codec->dev, "%s: codec not initialized\n", __func__);
+		return NULL;
+	}
+	core = dev_get_drvdata(codec->dev->parent);
+	if (core == NULL) {
+		dev_err(codec->dev, "%s: core not initialized\n", __func__);
+		return NULL;
+	}
 
 	for (i = 0; i < core->num_of_supplies; i++) {
 		if (core->supplies[i].supply &&
