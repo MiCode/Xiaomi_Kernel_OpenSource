@@ -319,6 +319,7 @@ struct mdp3_video_intf_cfg {
 	int hsync_polarity;
 	int vsync_polarity;
 	int de_polarity;
+	int underflow_color;
 };
 
 struct mdp3_dsi_cmd_intf_cfg {
