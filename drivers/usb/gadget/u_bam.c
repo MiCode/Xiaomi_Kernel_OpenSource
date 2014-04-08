@@ -244,6 +244,8 @@ static struct sk_buff *gbam_alloc_skb_from_pool(struct gbam_port *port)
 	} else {
 		pr_debug("%s: pull skb from pool\n", __func__);
 		skb = __skb_dequeue(&d->rx_skb_idle);
+		if (skb_headroom(skb) < BAM_MUX_HDR)
+			skb_reserve(skb, BAM_MUX_HDR);
 	}
 
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
