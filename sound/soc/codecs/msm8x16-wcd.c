@@ -754,6 +754,27 @@ static int msm8x16_wcd_pa_gain_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm8x16_wcd_spk_boost_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+
+	if (msm8x16_wcd->spk_boost_set == false) {
+		ucontrol->value.integer.value[0] = 0;
+	} else if (msm8x16_wcd->spk_boost_set == true) {
+		ucontrol->value.integer.value[0] = 1;
+	} else  {
+		dev_err(codec->dev, "%s: ERROR: Unsupported Speaker Boost = %d\n",
+			__func__, msm8x16_wcd->spk_boost_set);
+		return -EINVAL;
+	}
+
+	dev_dbg(codec->dev, "%s: msm8x16_wcd->spk_boost_set = %d\n", __func__,
+			msm8x16_wcd->spk_boost_set);
+	return 0;
+}
+
 static int msm8x16_wcd_spk_boost_set(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -1013,7 +1034,7 @@ static const struct snd_kcontrol_new msm8x16_wcd_snd_controls[] = {
 		msm8x16_wcd_pa_gain_get, msm8x16_wcd_pa_gain_put),
 
 	SOC_ENUM_EXT("Speaker Boost", msm8x16_wcd_spk_boost_ctl_enum[0],
-		NULL, msm8x16_wcd_spk_boost_set),
+		msm8x16_wcd_spk_boost_get, msm8x16_wcd_spk_boost_set),
 
 	SOC_SINGLE_SX_TLV("RX1 Digital Volume",
 			  MSM8X16_WCD_A_CDC_RX1_VOL_CTL_B2_CTL,
@@ -1045,8 +1066,8 @@ static const struct snd_kcontrol_new msm8x16_wcd_snd_controls[] = {
 			  MSM8X16_WCD_A_CDC_IIR1_GAIN_B4_CTL,
 			0,  -84,	40, digital_gain),
 
-	SOC_SINGLE("MICBIAS1 CAPLESS Switch",
-		   MSM8X16_WCD_A_ANALOG_MICB_1_EN, 6, 1, 1),
+	SOC_SINGLE("MICBIAS CAPLESS Switch",
+		   MSM8X16_WCD_A_ANALOG_MICB_1_EN, 6, 1, 0),
 
 	SOC_ENUM("TX1 HPF cut off", cf_dec1_enum),
 	SOC_ENUM("TX2 HPF cut off", cf_dec2_enum),
@@ -1664,7 +1685,7 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		if (strnstr(w->name, internal1_text, 30)) {
-			snd_soc_update_bits(codec, micb_int_reg, 0x80, 0x80);
+			snd_soc_update_bits(codec, micb_int_reg, 0x40, 0x40);
 		} else if (strnstr(w->name, internal2_text, 30)) {
 			snd_soc_update_bits(codec, micb_int_reg, 0x10, 0x10);
 			snd_soc_update_bits(codec, w->reg, 0x20, 0x00);
@@ -1672,15 +1693,11 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec, micb_int_reg, 0x2, 0x2);
 		}
 		snd_soc_update_bits(codec,
-				MSM8X16_WCD_A_ANALOG_MICB_1_EN, 0x45, 0x44);
+				MSM8X16_WCD_A_ANALOG_MICB_1_EN, 0x05, 0x04);
 
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		usleep_range(20000, 20100);
-		if (strnstr(w->name, internal1_text, 30))
-			snd_soc_update_bits(codec, micb_int_reg, 0x40, 0x0);
-		else if (strnstr(w->name, internal2_text, 30))
-			snd_soc_update_bits(codec, micb_int_reg, 0x08, 0x0);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (strnstr(w->name, internal1_text, 30)) {
