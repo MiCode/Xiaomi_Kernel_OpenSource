@@ -1195,13 +1195,19 @@ static acpi_status acpi_i2c_add_device(acpi_handle handle, u32 level,
 			continue;
 		info.addr = rcs_info.addrs[i].addr;
 		info.flags = rcs_info.addrs[i].flags;
-		snprintf(info.type, sizeof(info.type), "%s:%02x",
-						dev_name(&adev->dev),
-						info.addr);
-		info.comp_addrs = kmemdup(rcs_info.addrs,
+		/* If there is only address, keep current info.type */
+		if (rcs_info.count > 1) {
+			snprintf(info.type, sizeof(info.type), "%s:%02x",
+					dev_name(&adev->dev),
+					info.addr);
+			info.comp_addrs = kmemdup(rcs_info.addrs,
 					rcs_info.count *
 					sizeof(struct i2c_comp_address),
 					GFP_KERNEL);
+		} else
+			strlcpy(info.type, dev_name(&adev->dev),
+					sizeof(info.type));
+
 		i2c_client = i2c_new_device(adapter, &info);
 		if (!i2c_client) {
 			if (!i)
