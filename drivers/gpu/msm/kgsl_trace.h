@@ -78,9 +78,11 @@ TRACE_EVENT(kgsl_issueibcmds,
 		__entry->timestamp,
 		__entry->flags,
 		__entry->flags ? __print_flags(__entry->flags, "|",
-			{ KGSL_CONTEXT_SAVE_GMEM, "SAVE_GMEM" },
-			{ KGSL_CONTEXT_SUBMIT_IB_LIST, "IB_LIST" },
-			{ KGSL_CONTEXT_CTX_SWITCH, "CTX_SWITCH" })
+			{ KGSL_CMDBATCH_SUBMIT_IB_LIST, "IB_LIST" },
+			{ KGSL_CMDBATCH_CTX_SWITCH, "CTX_SWITCH" },
+			{ KGSL_CMDBATCH_SYNC, "SYNC" },
+			{ KGSL_CMDBATCH_END_OF_FRAME, "EOF" },
+			{ KGSL_CMDBATCH_PWR_CONSTRAINT, "PWR_CONSTRAINT" })
 			: "None",
 		__entry->result,
 		__print_symbolic(__entry->drawctxt_type,
@@ -690,9 +692,12 @@ TRACE_EVENT(kgsl_context_create,
 		__get_str(device_name), __entry->id, __entry->flags,
 		__entry->flags ? __print_flags(__entry->flags, "|",
 			{ KGSL_CONTEXT_NO_GMEM_ALLOC , "NO_GMEM_ALLOC" },
+			{ KGSL_CONTEXT_CTX_SWITCH, "CTX_SWITCH" },
 			{ KGSL_CONTEXT_PREAMBLE, "PREAMBLE" },
-			{ KGSL_CONTEXT_TRASH_STATE, "TRASH_STATE" },
-			{ KGSL_CONTEXT_PER_CONTEXT_TS, "PER_CONTEXT_TS" })
+			{ KGSL_CONTEXT_PER_CONTEXT_TS, "PER_CONTEXT_TS" },
+			{ KGSL_CONTEXT_USER_GENERATED_TS, "USER_GENERATED_TS" },
+			{ KGSL_CONTEXT_NO_FAULT_TOLERANCE, "NO_GFT" },
+			{ KGSL_CONTEXT_PWR_CONSTRAINT, "PWR_CONSTRAINT" })
 			: "None",
 		(__entry->flags & KGSL_CONTEXT_PRIORITY_MASK) >>
 			KGSL_CONTEXT_PRIORITY_SHIFT
