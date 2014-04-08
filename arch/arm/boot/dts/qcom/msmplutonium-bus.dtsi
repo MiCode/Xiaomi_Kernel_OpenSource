@@ -185,7 +185,7 @@
 
 		/* mnoc Devices */
 		mas_cnoc_mnoc_mmss_cfg: mas-cnoc-mnoc-mmss-cfg {
-			cell-id = <MSM_BUS_SLAVE_CNOC_MNOC_MMSS_CFG>;
+			cell-id = <MSM_BUS_MASTER_CNOC_MNOC_MMSS_CFG>;
 			label = "mas-cnoc-mnoc-mmss-cfg";
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,buswidth = <16>;
@@ -199,7 +199,7 @@
 
 
 		mas_cnoc_mnoc_cfg: mas-cnoc-mnoc-cfg {
-			cell-id = <MSM_BUS_SLAVE_CNOC_MNOC_CFG>;
+			cell-id = <MSM_BUS_MASTER_CNOC_MNOC_CFG>;
 			label = "mas-cnoc-mnoc-cfg";
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,buswidth = <16>;
@@ -320,7 +320,7 @@
 
 
 		slv_ocmem_cfg: slv-ocmem-cfg {
-			cell-id = <MSM_BUS_SLAVE_CPR_XPU_CFG>;
+			cell-id = <MSM_BUS_SLAVE_OCMEM_CFG>;
 			label = "slv-ocmem-cfg";
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,buswidth = <16>;
@@ -429,7 +429,7 @@
 
 
 		slv_srvc_mnoc: slv-srvc-mnoc {
-			cell-id = <MSM_BUS_SLAVE_CNOC_MNOC_CFG>;
+			cell-id = <MSM_BUS_SLAVE_SRVC_MNOC>;
 			label = "slv-srvc-mnoc";
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,buswidth = <16>;
@@ -562,7 +562,7 @@
 
 
 		mas_pcie_0: mas-pcie-0 {
-			cell-id = <MSM_BUS_MASTER_PCIE_0>;
+			cell-id = <MSM_BUS_MASTER_PCIE>;
 			label = "mas-pcie-0";
 			qcom,bus-dev = <&fab_snoc>;
 			qcom,buswidth = <8>;
@@ -611,7 +611,7 @@
 
 
 		mas_usb3: mas-usb3 {
-			cell-id = <MSM_BUS_SLAVE_USB3>;
+			cell-id = <MSM_BUS_MASTER_USB3>;
 			label = "mas-usb3";
 			qcom,bus-dev = <&fab_snoc>;
 			qcom,buswidth = <8>;
@@ -860,7 +860,7 @@
 
 
 		mas_pnoc_cfg: mas-pnoc-cfg {
-			cell-id = <MSM_BUS_SLAVE_PNOC_CFG>;
+			cell-id = <MSM_BUS_MASTER_PNOC_CFG>;
 			label = "mas-pnoc-cfg";
 			qcom,bus-dev = <&fab_pnoc>;
 			qcom,buswidth = <8>;
@@ -923,7 +923,7 @@
 			qcom,bus-dev = <&fab_pnoc>;
 			qcom,buswidth = <8>;
 			qcom,connections = <&slv_bam_dma &slv_sdcc_1 &slv_sdcc_3
-				&slv_blsp_2 &slv_sdcc_2 &slv_sdcc_4 &slv_tsif
+				&slv_sdcc_2 &slv_sdcc_4
 				&slv_blsp_2 &slv_blsp_1 &slv_tsif &slv_usb_hs
 				&slv_pdm &slv_prng>;
 			qcom,mas-rpm-id = <ICBID_MASTER_SNOC_PNOC>;
