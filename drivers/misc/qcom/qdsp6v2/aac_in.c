@@ -20,6 +20,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
 #include <linux/msm_audio_aac.h>
+#include <linux/compat.h>
 #include <asm/atomic.h>
 #include <asm/ioctls.h>
 #include "audio_utils.h"
@@ -33,9 +34,7 @@
 
 #define AAC_FORMAT_ADTS 65535
 
-/* ------------------- device --------------------- */
-static long aac_in_ioctl(struct file *file,
-				unsigned int cmd, unsigned long arg)
+static long aac_in_ioctl_shared(struct file *file, unsigned int cmd, void *arg)
 {
 	struct q6audio_in  *audio = file->private_data;
 	int rc = 0;
@@ -150,52 +149,61 @@ static long aac_in_ioctl(struct file *file,
 		break;
 	}
 	case AUDIO_GET_AAC_ENC_CONFIG: {
-		struct msm_audio_aac_enc_config cfg;
+		struct msm_audio_aac_enc_config *cfg;
 		struct msm_audio_aac_enc_config *enc_cfg;
-		memset(&cfg, 0, sizeof(cfg));
+
+		cfg = (struct msm_audio_aac_enc_config *)arg;
+		if (cfg == NULL) {
+			pr_err("%s: NULL config pointer for %s\n",
+			__func__, "AUDIO_GET_AAC_CONFIG");
+			rc = -EINVAL;
+			break;
+		}
+		memset(cfg, 0, sizeof(*cfg));
 		enc_cfg = audio->enc_cfg;
 		if (enc_cfg->channels == CH_MODE_MONO)
-			cfg.channels = 1;
+			cfg->channels = 1;
 		else
-			cfg.channels = 2;
-		cfg.sample_rate = enc_cfg->sample_rate;
-		cfg.bit_rate = enc_cfg->bit_rate;
+			cfg->channels = 2;
 
+		cfg->sample_rate = enc_cfg->sample_rate;
+		cfg->bit_rate = enc_cfg->bit_rate;
 		switch (enc_cfg->stream_format) {
 		case 0x00:
-			cfg.stream_format = AUDIO_AAC_FORMAT_ADTS;
+			cfg->stream_format = AUDIO_AAC_FORMAT_ADTS;
 			break;
 		case 0x01:
-			cfg.stream_format = AUDIO_AAC_FORMAT_LOAS;
+			cfg->stream_format = AUDIO_AAC_FORMAT_LOAS;
 			break;
 		case 0x02:
-			cfg.stream_format = AUDIO_AAC_FORMAT_ADIF;
+			cfg->stream_format = AUDIO_AAC_FORMAT_ADIF;
 			break;
 		default:
 		case 0x03:
-			cfg.stream_format = AUDIO_AAC_FORMAT_RAW;
+			cfg->stream_format = AUDIO_AAC_FORMAT_RAW;
 		}
-
 		pr_debug("%s:session id %d: Get-aac-cfg: format=%d sr=%d"
 			"bitrate=%d\n", __func__, audio->ac->session,
-			cfg.stream_format, cfg.sample_rate, cfg.bit_rate);
-		if (copy_to_user((void *)arg, &cfg, sizeof(cfg)))
-			rc = -EFAULT;
+			cfg->stream_format, cfg->sample_rate, cfg->bit_rate);
 		break;
 	}
 	case AUDIO_SET_AAC_ENC_CONFIG: {
-		struct msm_audio_aac_enc_config cfg;
+		struct msm_audio_aac_enc_config *cfg;
 		struct msm_audio_aac_enc_config *enc_cfg;
 		uint32_t min_bitrate, max_bitrate;
-		enc_cfg = audio->enc_cfg;
-		if (copy_from_user(&cfg, (void *)arg, sizeof(cfg))) {
-			rc = -EFAULT;
+
+		cfg = (struct msm_audio_aac_enc_config *)arg;
+		if (cfg == NULL) {
+			pr_err("%s: NULL config pointer for %s\n",
+			"AUDIO_SET_AAC_ENC_CONFIG", __func__);
+			rc = -EINVAL;
 			break;
 		}
+		enc_cfg = audio->enc_cfg;
 		pr_debug("%s:session id %d: Set-aac-cfg: stream=%d\n", __func__,
-					audio->ac->session, cfg.stream_format);
+			audio->ac->session, cfg->stream_format);
 
-		switch (cfg.stream_format) {
+		switch (cfg->stream_format) {
 		case AUDIO_AAC_FORMAT_ADTS:
 			enc_cfg->stream_format = 0x00;
 			break;
@@ -211,46 +219,47 @@ static long aac_in_ioctl(struct file *file,
 		default:
 			pr_err("%s:session id %d: unsupported AAC format %d\n",
 				__func__, audio->ac->session,
-				cfg.stream_format);
+				cfg->stream_format);
 			rc = -EINVAL;
 			break;
 		}
 
-		if (cfg.channels == 1) {
-			cfg.channels = CH_MODE_MONO;
-		} else if (cfg.channels == 2) {
-			cfg.channels = CH_MODE_STEREO;
+		if (cfg->channels == 1) {
+			cfg->channels = CH_MODE_MONO;
+		} else if (cfg->channels == 2) {
+			cfg->channels = CH_MODE_STEREO;
 		} else {
 			rc = -EINVAL;
 			break;
 		}
-		if ((cfg.sample_rate < 8000) || (cfg.sample_rate > 48000)) {
-			pr_err("%s: ERROR in setting samplerate = %d\n",
-				__func__, cfg.sample_rate);
+
+		min_bitrate = ((cfg->sample_rate)*(cfg->channels))/2;
+		if (min_bitrate < 24000)
+			min_bitrate = 24000;
+		max_bitrate = 6*(cfg->sample_rate)*(cfg->channels);
+		if (max_bitrate > 192000)
+			max_bitrate = 192000;
+		if ((cfg->bit_rate < min_bitrate) ||
+			(cfg->bit_rate > max_bitrate)) {
+			pr_err("%s: bitrate permissible: max=%d, min=%d\n",
+				__func__, max_bitrate, min_bitrate);
+			pr_err("%s: ERROR in setting bitrate = %d\n",
+				__func__, cfg->bit_rate);
 			rc = -EINVAL;
 			break;
 		}
 		/* For aac-lc, min_bit_rate = min(24Kbps, 0.5*SR*num_chan);
 		max_bi_rate = min(192Kbps, 6*SR*num_chan);
 		min_sample_rate = 8000Hz, max_rate=48000 */
-		min_bitrate = ((cfg.sample_rate)*(cfg.channels))/2;
-		if (min_bitrate < 24000)
-			min_bitrate = 24000;
-		max_bitrate = 6*(cfg.sample_rate)*(cfg.channels);
-		if (max_bitrate > 192000)
-			max_bitrate = 192000;
-		if ((cfg.bit_rate < min_bitrate) ||
-					(cfg.bit_rate > max_bitrate)) {
-			pr_err("%s: bitrate permissible: max=%d, min=%d\n",
-				__func__, max_bitrate, min_bitrate);
+		if ((cfg->bit_rate < 24000) || (cfg->bit_rate > 192000)) {
 			pr_err("%s: ERROR in setting bitrate = %d\n",
-				__func__, cfg.bit_rate);
+				__func__, cfg->bit_rate);
 			rc = -EINVAL;
 			break;
 		}
-		enc_cfg->sample_rate = cfg.sample_rate;
-		enc_cfg->channels = cfg.channels;
-		enc_cfg->bit_rate = cfg.bit_rate;
+		enc_cfg->sample_rate = cfg->sample_rate;
+		enc_cfg->channels = cfg->channels;
+		enc_cfg->bit_rate = cfg->bit_rate;
 		pr_debug("%s:session id %d: Set-aac-cfg:SR= 0x%x ch=0x%x"
 			"bitrate=0x%x, format(adts/raw) = %d\n",
 			__func__, audio->ac->session, enc_cfg->sample_rate,
@@ -258,32 +267,25 @@ static long aac_in_ioctl(struct file *file,
 			enc_cfg->stream_format);
 		break;
 	}
-	case AUDIO_GET_AAC_CONFIG: {
-		if (copy_to_user((void *)arg, &audio->codec_cfg,
-				 sizeof(struct msm_audio_aac_config))) {
-			rc = -EFAULT;
-			break;
-		}
-		break;
-	}
 	case AUDIO_SET_AAC_CONFIG: {
-		struct msm_audio_aac_config aac_cfg;
+		struct msm_audio_aac_config *aac_cfg;
 		struct msm_audio_aac_config *audio_aac_cfg;
 		struct msm_audio_aac_enc_config *enc_cfg;
 		enc_cfg = audio->enc_cfg;
 		audio_aac_cfg = audio->codec_cfg;
+		aac_cfg = (struct msm_audio_aac_config *)arg;
 
-		if (copy_from_user(&aac_cfg, (void *)arg,
-				 sizeof(struct msm_audio_aac_config))) {
-			rc = -EFAULT;
+		if (aac_cfg == NULL) {
+			pr_err("%s: NULL config pointer %s\n",
+				__func__, "AUDIO_SET_AAC_CONFIG");
+			rc = -EINVAL;
 			break;
 		}
-		pr_debug("%s:session id %d: AUDIO_SET_AAC_CONFIG: sbr_flag = %d"
-				 " sbr_ps_flag = %d\n", __func__,
-				 audio->ac->session, aac_cfg.sbr_on_flag,
-				 aac_cfg.sbr_ps_on_flag);
-		audio_aac_cfg->sbr_on_flag = aac_cfg.sbr_on_flag;
-		audio_aac_cfg->sbr_ps_on_flag = aac_cfg.sbr_ps_on_flag;
+		pr_debug("%s:session id %d: AUDIO_SET_AAC_CONFIG: sbr_flag = %d sbr_ps_flag = %d\n",
+			 __func__, audio->ac->session, aac_cfg->sbr_on_flag,
+			 aac_cfg->sbr_ps_on_flag);
+		audio_aac_cfg->sbr_on_flag = aac_cfg->sbr_on_flag;
+		audio_aac_cfg->sbr_ps_on_flag = aac_cfg->sbr_ps_on_flag;
 		if ((audio_aac_cfg->sbr_on_flag == 1) ||
 			 (audio_aac_cfg->sbr_ps_on_flag == 1)) {
 			if (enc_cfg->sample_rate < 24000) {
@@ -296,10 +298,246 @@ static long aac_in_ioctl(struct file *file,
 		break;
 	}
 	default:
+		pr_err("%s: Unknown ioctl cmd = %d", __func__, cmd);
 		rc = -EINVAL;
 	}
 	return rc;
 }
+
+static long aac_in_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	struct q6audio_in  *audio = file->private_data;
+	int rc = 0;
+
+	switch (cmd) {
+	case AUDIO_START:
+	case AUDIO_STOP: {
+		rc = aac_in_ioctl_shared(file, cmd, NULL);
+		break;
+	}
+	case AUDIO_GET_AAC_ENC_CONFIG: {
+		struct msm_audio_aac_enc_config cfg;
+		rc = aac_in_ioctl_shared(file, cmd, &cfg);
+		if (rc) {
+			pr_err("%s:AUDIO_GET_AAC_ENC_CONFIG failed. rc=%d\n",
+				__func__, rc);
+			break;
+		}
+		if (copy_to_user((void *)arg, &cfg, sizeof(cfg))) {
+			pr_err("%s: copy_to_user for AUDIO_GET_AAC_ENC_CONFIG failed\n",
+				__func__);
+			rc = -EFAULT;
+		}
+		break;
+	}
+	case AUDIO_SET_AAC_ENC_CONFIG: {
+		struct msm_audio_aac_enc_config cfg;
+		if (copy_from_user(&cfg, (void *)arg, sizeof(cfg))) {
+			pr_err("%s: copy_from_user for AUDIO_SET_AAC_ENC_CONFIG failed\n",
+				__func__);
+			rc = -EFAULT;
+			break;
+		}
+		rc = aac_in_ioctl_shared(file, cmd, &cfg);
+		if (rc)
+			pr_err("%s:AUDIO_SET_AAC_ENC_CONFIG failed. rc=%d\n",
+				__func__, rc);
+		break;
+	}
+	case AUDIO_GET_AAC_CONFIG: {
+		if (copy_to_user((void *)arg, &audio->codec_cfg,
+				 sizeof(struct msm_audio_aac_config))) {
+			pr_err("%s: copy_to_user for AUDIO_GET_AAC_CONFIG failed\n",
+				__func__);
+			rc = -EFAULT;
+			break;
+		}
+		break;
+	}
+	case AUDIO_SET_AAC_CONFIG: {
+		struct msm_audio_aac_config aac_cfg;
+		if (copy_from_user(&aac_cfg, (void *)arg,
+				 sizeof(struct msm_audio_aac_config))) {
+			pr_err("%s: copy_to_user for AUDIO_SET_CONFIG failed\n",
+				__func__);
+			rc = -EFAULT;
+			break;
+		}
+		rc = aac_in_ioctl_shared(file, cmd, &aac_cfg);
+		if (rc)
+			pr_err("%s:AUDIO_SET_AAC_CONFIG failed. rc=%d\n",
+				__func__, rc);
+		break;
+	}
+	default:
+		pr_err("%s: Unknown ioctl cmd=%d\n", __func__, cmd);
+		rc = -EINVAL;
+	}
+	return rc;
+}
+
+#ifdef CONFIG_COMPAT
+struct msm_audio_aac_enc_config32 {
+	u32 channels;
+	u32 sample_rate;
+	u32 bit_rate;
+	u32 stream_format;
+};
+
+struct msm_audio_aac_config32 {
+	s16 format;
+	u16 audio_object;
+	u16 ep_config;       /* 0 ~ 3 useful only obj = ERLC */
+	u16 aac_section_data_resilience_flag;
+	u16 aac_scalefactor_data_resilience_flag;
+	u16 aac_spectral_data_resilience_flag;
+	u16 sbr_on_flag;
+	u16 sbr_ps_on_flag;
+	u16 dual_mono_mode;
+	u16 channel_configuration;
+	u16 sample_rate;
+};
+
+enum {
+	AUDIO_SET_AAC_CONFIG_32 = _IOW(AUDIO_IOCTL_MAGIC,
+	  (AUDIO_MAX_COMMON_IOCTL_NUM+0), struct msm_audio_aac_config32),
+	AUDIO_GET_AAC_CONFIG_32 = _IOR(AUDIO_IOCTL_MAGIC,
+	  (AUDIO_MAX_COMMON_IOCTL_NUM+1), struct msm_audio_aac_config32),
+	AUDIO_SET_AAC_ENC_CONFIG_32 = _IOW(AUDIO_IOCTL_MAGIC,
+	  (AUDIO_MAX_COMMON_IOCTL_NUM+3), struct msm_audio_aac_enc_config32),
+	AUDIO_GET_AAC_ENC_CONFIG_32 = _IOR(AUDIO_IOCTL_MAGIC,
+	  (AUDIO_MAX_COMMON_IOCTL_NUM+4), struct msm_audio_aac_enc_config32)
+};
+
+static long aac_in_compat_ioctl(struct file *file, unsigned int cmd,
+				unsigned long arg)
+{
+	struct q6audio_in  *audio = file->private_data;
+	int rc = 0;
+
+	switch (cmd) {
+	case AUDIO_START:
+	case AUDIO_STOP: {
+		rc = aac_in_ioctl_shared(file, cmd, NULL);
+		break;
+	}
+	case AUDIO_GET_AAC_ENC_CONFIG_32: {
+		struct msm_audio_aac_enc_config cfg;
+		struct msm_audio_aac_enc_config32 cfg_32;
+
+		cmd = AUDIO_GET_AAC_ENC_CONFIG;
+		rc = aac_in_ioctl_shared(file, cmd, &cfg);
+		if (rc) {
+			pr_err("%s:AUDIO_GET_AAC_ENC_CONFIG_32 failed. Rc= %d\n",
+				__func__, rc);
+			break;
+		}
+		cfg_32.channels = cfg.channels;
+		cfg_32.sample_rate = cfg.sample_rate;
+		cfg_32.bit_rate = cfg.bit_rate;
+		cfg_32.stream_format = cfg.stream_format;
+		if (copy_to_user((void *)arg, &cfg_32, sizeof(cfg_32))) {
+			pr_err("%s: copy_to_user for AUDIO_GET_AAC_ENC_CONFIG_32 failed\n",
+				__func__);
+			rc = -EFAULT;
+		}
+		break;
+	}
+	case AUDIO_SET_AAC_ENC_CONFIG_32: {
+		struct msm_audio_aac_enc_config cfg;
+		struct msm_audio_aac_enc_config32 cfg_32;
+		if (copy_from_user(&cfg_32, (void *)arg, sizeof(cfg_32))) {
+			pr_err("%s: copy_from_user for AUDIO_GET_AAC_ENC_CONFIG_32 failed\n",
+				__func__);
+			rc = -EFAULT;
+			break;
+		}
+		cfg.channels = cfg_32.channels;
+		cfg.sample_rate = cfg_32.sample_rate;
+		cfg.bit_rate = cfg_32.bit_rate;
+		cfg.stream_format = cfg_32.stream_format;
+		/* The command should be converted from 32 bit to normal
+		 * before the shared ioctl is called as shared ioctl
+		 * can process only normal commands */
+		cmd = AUDIO_SET_AAC_ENC_CONFIG;
+		rc = aac_in_ioctl_shared(file, cmd, &cfg);
+		if (rc)
+			pr_err("%s:AUDIO_SET_AAC_ENC_CONFIG_32 failed. rc=%d\n",
+				__func__, rc);
+		break;
+	}
+	case AUDIO_GET_AAC_CONFIG_32: {
+		struct msm_audio_aac_config *aac_config;
+		struct msm_audio_aac_config32 aac_config_32;
+
+		aac_config = (struct msm_audio_aac_config *)audio->codec_cfg;
+		aac_config_32.format = aac_config->format;
+		aac_config_32.audio_object = aac_config->audio_object;
+		aac_config_32.ep_config = aac_config->ep_config;
+		aac_config_32.aac_section_data_resilience_flag =
+			aac_config->aac_section_data_resilience_flag;
+		aac_config_32.aac_scalefactor_data_resilience_flag =
+			aac_config->aac_scalefactor_data_resilience_flag;
+		aac_config_32.aac_spectral_data_resilience_flag =
+			aac_config->aac_spectral_data_resilience_flag;
+		aac_config_32.sbr_on_flag = aac_config->sbr_on_flag;
+		aac_config_32.sbr_ps_on_flag = aac_config->sbr_ps_on_flag;
+		aac_config_32.dual_mono_mode = aac_config->dual_mono_mode;
+		aac_config_32.channel_configuration =
+				aac_config->channel_configuration;
+		aac_config_32.sample_rate = aac_config->sample_rate;
+
+		if (copy_to_user((void *)arg, &aac_config_32,
+				 sizeof(aac_config_32))) {
+			pr_err("%s: copy_to_user for AUDIO_GET_AAC_CONFIG_32 failed\n",
+				__func__);
+			rc = -EFAULT;
+			break;
+		}
+		break;
+	}
+	case AUDIO_SET_AAC_CONFIG_32: {
+		struct msm_audio_aac_config aac_cfg;
+		struct msm_audio_aac_config32 aac_cfg_32;
+		if (copy_from_user(&aac_cfg_32, (void *)arg,
+					sizeof(aac_cfg_32))) {
+			pr_err("%s: copy_from_user for AUDIO_SET_AAC_CONFIG_32 failed\n",
+				__func__);
+			rc = -EFAULT;
+			break;
+		}
+		aac_cfg.format = aac_cfg_32.format;
+		aac_cfg.audio_object = aac_cfg_32.audio_object;
+		aac_cfg.ep_config = aac_cfg_32.ep_config;
+		aac_cfg.aac_section_data_resilience_flag =
+			aac_cfg_32.aac_section_data_resilience_flag;
+		aac_cfg.aac_scalefactor_data_resilience_flag =
+			aac_cfg_32.aac_scalefactor_data_resilience_flag;
+		aac_cfg.aac_spectral_data_resilience_flag =
+			aac_cfg_32.aac_spectral_data_resilience_flag;
+		aac_cfg.sbr_on_flag = aac_cfg_32.sbr_on_flag;
+		aac_cfg.sbr_ps_on_flag = aac_cfg_32.sbr_ps_on_flag;
+		aac_cfg.dual_mono_mode = aac_cfg_32.dual_mono_mode;
+		aac_cfg.channel_configuration =
+				aac_cfg_32.channel_configuration;
+		aac_cfg.sample_rate = aac_cfg_32.sample_rate;
+
+		cmd = AUDIO_SET_AAC_CONFIG;
+		rc = aac_in_ioctl_shared(file, cmd, &aac_cfg);
+		if (rc)
+			pr_err("%s:AUDIO_SET_AAC_CONFIG failed. Rc= %d\n",
+				__func__, rc);
+		break;
+	}
+	default:
+		pr_err("%s: Unknown ioctl cmd = %d\n", __func__, cmd);
+		rc = -EINVAL;
+	}
+	return rc;
+}
+#else
+#define aac_in_compat_ioctl NULL
+#endif
 
 static int aac_in_open(struct inode *inode, struct file *file)
 {
@@ -426,6 +664,7 @@ static int aac_in_open(struct inode *inode, struct file *file)
 	audio->opened = 1;
 	atomic_set(&audio->in_count, PCM_BUF_COUNT);
 	atomic_set(&audio->out_count, 0x00);
+	audio->enc_compat_ioctl = aac_in_compat_ioctl;
 	audio->enc_ioctl = aac_in_ioctl;
 	file->private_data = audio;
 
@@ -446,6 +685,7 @@ static const struct file_operations audio_in_fops = {
 	.read		= audio_in_read,
 	.write		= audio_in_write,
 	.unlocked_ioctl	= audio_in_ioctl,
+	.compat_ioctl	= audio_in_compat_ioctl
 };
 
 struct miscdevice audio_aac_in_misc = {

@@ -27,9 +27,12 @@
 #define AUDIO_START        _IOW(AUDIO_IOCTL_MAGIC, 0, unsigned)
 #define AUDIO_STOP         _IOW(AUDIO_IOCTL_MAGIC, 1, unsigned)
 #define AUDIO_FLUSH        _IOW(AUDIO_IOCTL_MAGIC, 2, unsigned)
-#define AUDIO_GET_CONFIG   _IOR(AUDIO_IOCTL_MAGIC, 3, unsigned)
-#define AUDIO_SET_CONFIG   _IOW(AUDIO_IOCTL_MAGIC, 4, unsigned)
-#define AUDIO_GET_STATS    _IOR(AUDIO_IOCTL_MAGIC, 5, unsigned)
+#define AUDIO_GET_CONFIG   _IOR(AUDIO_IOCTL_MAGIC, 3, \
+		struct msm_audio_config)
+#define AUDIO_SET_CONFIG   _IOW(AUDIO_IOCTL_MAGIC, 4, \
+		struct msm_audio_config)
+#define AUDIO_GET_STATS    _IOR(AUDIO_IOCTL_MAGIC, 5, \
+		struct msm_audio_stats)
 #define AUDIO_ENABLE_AUDPP _IOW(AUDIO_IOCTL_MAGIC, 6, unsigned)
 #define AUDIO_SET_ADRC     _IOW(AUDIO_IOCTL_MAGIC, 7, unsigned)
 #define AUDIO_SET_EQ       _IOW(AUDIO_IOCTL_MAGIC, 8, unsigned)
@@ -37,12 +40,15 @@
 #define AUDIO_SET_VOLUME   _IOW(AUDIO_IOCTL_MAGIC, 10, unsigned)
 #define AUDIO_PAUSE        _IOW(AUDIO_IOCTL_MAGIC, 11, unsigned)
 #define AUDIO_PLAY_DTMF    _IOW(AUDIO_IOCTL_MAGIC, 12, unsigned)
-#define AUDIO_GET_EVENT    _IOR(AUDIO_IOCTL_MAGIC, 13, unsigned)
+#define AUDIO_GET_EVENT    _IOR(AUDIO_IOCTL_MAGIC, 13, \
+		struct msm_audio_event)
 #define AUDIO_ABORT_GET_EVENT _IOW(AUDIO_IOCTL_MAGIC, 14, unsigned)
 #define AUDIO_REGISTER_PMEM _IOW(AUDIO_IOCTL_MAGIC, 15, unsigned)
 #define AUDIO_DEREGISTER_PMEM _IOW(AUDIO_IOCTL_MAGIC, 16, unsigned)
-#define AUDIO_ASYNC_WRITE _IOW(AUDIO_IOCTL_MAGIC, 17, unsigned)
-#define AUDIO_ASYNC_READ _IOW(AUDIO_IOCTL_MAGIC, 18, unsigned)
+#define AUDIO_ASYNC_WRITE _IOW(AUDIO_IOCTL_MAGIC, 17, \
+		struct msm_audio_aio_buf)
+#define AUDIO_ASYNC_READ _IOW(AUDIO_IOCTL_MAGIC, 18, \
+		struct msm_audio_aio_buf)
 #define AUDIO_SET_INCALL _IOW(AUDIO_IOCTL_MAGIC, 19, struct msm_voicerec_mode)
 #define AUDIO_GET_NUM_SND_DEVICE _IOR(AUDIO_IOCTL_MAGIC, 20, unsigned)
 #define AUDIO_GET_SND_DEVICES _IOWR(AUDIO_IOCTL_MAGIC, 21, \
@@ -94,8 +100,10 @@
 #define AUDIO_GET_ACDB_BLK _IOW(AUDIO_IOCTL_MAGIC, 96,  \
 					struct msm_acdb_cmd_device)
 
-#define AUDIO_REGISTER_ION _IOW(AUDIO_IOCTL_MAGIC, 97, unsigned)
-#define AUDIO_DEREGISTER_ION _IOW(AUDIO_IOCTL_MAGIC, 98, unsigned)
+#define AUDIO_REGISTER_ION _IOW(AUDIO_IOCTL_MAGIC, 97, \
+		struct msm_audio_ion_info)
+#define AUDIO_DEREGISTER_ION _IOW(AUDIO_IOCTL_MAGIC, 98, \
+		struct msm_audio_ion_info)
 
 #define	AUDIO_MAX_COMMON_IOCTL_NUM	100
 

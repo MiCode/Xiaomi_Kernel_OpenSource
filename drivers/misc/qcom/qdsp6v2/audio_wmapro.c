@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -17,6 +17,7 @@
 
 #include <linux/types.h>
 #include <linux/msm_audio_wmapro.h>
+#include <linux/compat.h>
 #include "audio_utils_aio.h"
 
 #ifdef CONFIG_DEBUG_FS
@@ -26,7 +27,8 @@ static const struct file_operations audio_wmapro_debug_fops = {
 };
 #endif
 
-static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+static long audio_ioctl_shared(struct file *file, unsigned int cmd,
+						void *arg)
 {
 	struct q6audio_aio *audio = file->private_data;
 	int rc = 0;
@@ -97,8 +99,7 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				wmapro_config->validbitspersample;
 		} else {
 			pr_err("%s:AUDIO_START failed: bitspersample = %d\n",
-				__func__,
-				wmapro_config->validbitspersample);
+				__func__, wmapro_config->validbitspersample);
 			rc = -EINVAL;
 			break;
 		}
@@ -137,9 +138,25 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			audio->stopped = 0;
 		break;
 	}
+	default:
+		pr_err("%s: Unkown ioctl cmd %d\n", __func__, cmd);
+		rc = -EINVAL;
+		break;
+	}
+	return rc;
+}
+
+static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	struct q6audio_aio *audio = file->private_data;
+	int rc = 0;
+
+	switch (cmd) {
 	case AUDIO_GET_WMAPRO_CONFIG: {
 		if (copy_to_user((void *)arg, audio->codec_cfg,
 			 sizeof(struct msm_audio_wmapro_config))) {
+			pr_err("%s: copy_to_user for AUDIO_GET_WMAPRO_CONFIG failed\n",
+				__func__);
 			rc = -EFAULT;
 		}
 		break;
@@ -147,19 +164,138 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case AUDIO_SET_WMAPRO_CONFIG: {
 		if (copy_from_user(audio->codec_cfg, (void *)arg,
 			sizeof(struct msm_audio_wmapro_config))) {
+			pr_err("%s: copy_from_user for AUDIO_SET_WMAPRO_CONFIG_V2 failed\n",
+				__func__);
 			rc = -EFAULT;
 			break;
 		}
 		break;
 	}
-	default:
+	case AUDIO_START: {
+		rc = audio_ioctl_shared(file, cmd, (void *)arg);
+		break;
+	}
+	default: {
 		pr_debug("%s[%p]: Calling utils ioctl\n", __func__, audio);
 		rc = audio->codec_ioctl(file, cmd, arg);
 		if (rc)
 			pr_err("Failed in utils_ioctl: %d\n", rc);
+		break;
+	}
 	}
 	return rc;
 }
+
+#ifdef CONFIG_COMPAT
+
+struct msm_audio_wmapro_config32 {
+	u16 armdatareqthr;
+	u8  validbitspersample;
+	u8  numchannels;
+	u16 formattag;
+	u16 samplingrate;
+	u16 avgbytespersecond;
+	u16 asfpacketlength;
+	u16 channelmask;
+	u16 encodeopt;
+	u16 advancedencodeopt;
+	u32 advancedencodeopt2;
+};
+
+enum {
+	AUDIO_GET_WMAPRO_CONFIG_32 = _IOR(AUDIO_IOCTL_MAGIC,
+	  (AUDIO_MAX_COMMON_IOCTL_NUM+0), struct msm_audio_wmapro_config32),
+	AUDIO_SET_WMAPRO_CONFIG_32 = _IOW(AUDIO_IOCTL_MAGIC,
+	  (AUDIO_MAX_COMMON_IOCTL_NUM+1), struct msm_audio_wmapro_config32)
+};
+
+static long audio_compat_ioctl(struct file *file, unsigned int cmd,
+					unsigned long arg)
+{
+	struct q6audio_aio *audio = file->private_data;
+	int rc = 0;
+
+	switch (cmd) {
+	case AUDIO_GET_WMAPRO_CONFIG_32: {
+		struct msm_audio_wmapro_config *wmapro_config;
+		struct msm_audio_wmapro_config32 wmapro_config_32;
+
+		wmapro_config =
+			(struct msm_audio_wmapro_config *)audio->codec_cfg;
+		wmapro_config_32.armdatareqthr = wmapro_config->armdatareqthr;
+		wmapro_config_32.validbitspersample =
+					wmapro_config->validbitspersample;
+		wmapro_config_32.numchannels = wmapro_config->numchannels;
+		wmapro_config_32.formattag = wmapro_config->formattag;
+		wmapro_config_32.samplingrate = wmapro_config->samplingrate;
+		wmapro_config_32.avgbytespersecond =
+					wmapro_config->avgbytespersecond;
+		wmapro_config_32.asfpacketlength =
+					wmapro_config->asfpacketlength;
+		wmapro_config_32.channelmask = wmapro_config->channelmask;
+		wmapro_config_32.encodeopt = wmapro_config->encodeopt;
+		wmapro_config_32.advancedencodeopt =
+					wmapro_config->advancedencodeopt;
+		wmapro_config_32.advancedencodeopt2 =
+					wmapro_config->advancedencodeopt2;
+
+		if (copy_to_user((void *)arg, &wmapro_config_32,
+			 sizeof(struct msm_audio_wmapro_config32))) {
+			pr_err("%s: copy_to_user for AUDIO_GET_WMAPRO_CONFIG_V2_32 failed\n",
+				__func__);
+			rc = -EFAULT;
+		}
+		break;
+	}
+	case AUDIO_SET_WMAPRO_CONFIG_32: {
+		struct msm_audio_wmapro_config *wmapro_config;
+		struct msm_audio_wmapro_config32 wmapro_config_32;
+
+		if (copy_from_user(&wmapro_config_32, (void *)arg,
+			sizeof(struct msm_audio_wmapro_config32))) {
+			pr_err(
+				"%s: copy_from_user for AUDIO_SET_WMAPRO_CONFG_V2_32 failed\n",
+				__func__);
+			rc = -EFAULT;
+			break;
+		}
+		wmapro_config =
+			(struct msm_audio_wmapro_config *)audio->codec_cfg;
+		wmapro_config->armdatareqthr = wmapro_config_32.armdatareqthr;
+		wmapro_config->validbitspersample =
+					wmapro_config_32.validbitspersample;
+		wmapro_config->numchannels = wmapro_config_32.numchannels;
+		wmapro_config->formattag = wmapro_config_32.formattag;
+		wmapro_config->samplingrate = wmapro_config_32.samplingrate;
+		wmapro_config->avgbytespersecond =
+					wmapro_config_32.avgbytespersecond;
+		wmapro_config->asfpacketlength =
+					wmapro_config_32.asfpacketlength;
+		wmapro_config->channelmask = wmapro_config_32.channelmask;
+		wmapro_config->encodeopt = wmapro_config_32.encodeopt;
+		wmapro_config->advancedencodeopt =
+					wmapro_config_32.advancedencodeopt;
+		wmapro_config->advancedencodeopt2 =
+					wmapro_config_32.advancedencodeopt2;
+		break;
+	}
+	case AUDIO_START: {
+		rc = audio_ioctl_shared(file, cmd, (void *)arg);
+		break;
+	}
+	default: {
+		pr_debug("%s[%p]: Calling utils ioctl\n", __func__, audio);
+		rc = audio->codec_compat_ioctl(file, cmd, arg);
+		if (rc)
+			pr_err("Failed in utils_ioctl: %d\n", rc);
+		break;
+	}
+	}
+	return rc;
+}
+#else
+#define audio_compat_ioctl NULL
+#endif
 
 static int audio_open(struct inode *inode, struct file *file)
 {
@@ -257,6 +393,7 @@ static const struct file_operations audio_wmapro_fops = {
 	.release = audio_aio_release,
 	.unlocked_ioctl = audio_ioctl,
 	.fsync = audio_aio_fsync,
+	.compat_ioctl = audio_compat_ioctl
 };
 
 struct miscdevice audio_wmapro_misc = {
