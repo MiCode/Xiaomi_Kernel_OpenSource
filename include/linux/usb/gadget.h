@@ -46,6 +46,11 @@ struct usb_ep;
  *     by adding a zero length packet as needed;
  * @short_not_ok: When reading data, makes short packets be
  *     treated as errors (queue stops advancing till cleanup).
+ * @dma_pre_mapped: Tells the USB core driver whether this request should be
+ *	DMA-mapped before it is queued to the USB HW. When set to true, it means
+ *	that the request has already been mapped in advance and therefore the
+ *	USB core driver does NOT need to do DMA-mapping when the request is
+ *	queued to the USB HW.
  * @complete: Function called when request completes, so this request and
  *	its buffer may be re-used.  The function will always be called with
  *	interrupts disabled, and it must not sleep.
@@ -102,6 +107,7 @@ struct usb_request {
 	unsigned		no_interrupt:1;
 	unsigned		zero:1;
 	unsigned		short_not_ok:1;
+	unsigned		dma_pre_mapped:1;
 
 	void			(*complete)(struct usb_ep *ep,
 					struct usb_request *req);
