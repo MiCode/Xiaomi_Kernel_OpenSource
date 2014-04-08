@@ -91,7 +91,7 @@ static long msm_isp_subdev_fops_ioctl(struct file *file, unsigned int cmd,
 
 static struct v4l2_file_operations msm_isp_v4l2_subdev_fops = {
 #ifdef CONFIG_COMPAT
-	.compat_ioctl = msm_isp_subdev_fops_ioctl,
+	.compat_ioctl32 = msm_isp_subdev_fops_ioctl,
 #endif
 	.unlocked_ioctl = msm_isp_subdev_fops_ioctl
 };

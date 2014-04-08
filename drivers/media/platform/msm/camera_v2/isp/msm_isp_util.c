@@ -358,7 +358,7 @@ static int msm_isp_get_max_clk_rate(struct vfe_device *vfe_dev, long *rate)
 
 	clk_idx = vfe_dev->hw_info->vfe_clk_idx;
 	if (clk_idx >= ARRAY_SIZE(vfe_dev->vfe_clk)) {
-		pr_err("%s:%d failed: clk_idx %d max array size %d\n",
+		pr_err("%s:%d failed: clk_idx %d max array size %zu\n",
 			__func__, __LINE__, clk_idx,
 			ARRAY_SIZE(vfe_dev->vfe_clk));
 		return -EINVAL;
