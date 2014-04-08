@@ -3330,8 +3330,11 @@ static int pp_hist_collect(struct mdp_histogram_data *hist,
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 		sum = pp_hist_read(v_base, hist_info);
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
-		if (expect_sum && sum != expect_sum)
+		if (expect_sum && sum != expect_sum) {
+			pr_debug("hist error: bin sum incorrect! (%d/%d)\n",
+				sum, expect_sum);
 			ret = -ENODATA;
+		}
 	} else {
 		spin_unlock_irqrestore(&hist_info->hist_lock, flag);
 	}
@@ -3398,6 +3401,9 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 				temp_ret = ret;
 			ret = pp_hist_collect(hist, hists[i], ctl_base,
 								exp_sum);
+			if (ret)
+				pr_debug("hist error: dspp[%d] collect %d\n",
+					dspp_num, ret);
 		}
 		for (i = 0; i < hist_cnt; i++) {
 			/* reset read requests and re-intialize completions */
@@ -3495,6 +3501,10 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 				temp_ret = ret;
 			ret = pp_hist_collect(hist, hist_info, ctl_base,
 								exp_sum);
+			if (ret)
+				pr_debug("hist error: pipe[%d] collect: %d\n",
+					pipe->num, ret);
+
 			mdss_mdp_pipe_unmap(pipe);
 		}
 		for (i = pipe_num; i < MDSS_PP_ARG_NUM; i++) {
