@@ -65,6 +65,7 @@
 #define FT_REG_ID		0xA3
 #define FT_REG_PMODE		0xA5
 #define FT_REG_FW_VER		0xA6
+#define FT_REG_FW_VENDOR_ID	0xA8
 #define FT_REG_POINT_RATE	0x88
 #define FT_REG_THGROUP		0x80
 #define FT_REG_ECC		0xCC
@@ -114,6 +115,7 @@
 #define FT_FW_FILE_MAJ_VER(x)	((x)->data[(x)->size - 2])
 #define FT_FW_FILE_MIN_VER(x)	0
 #define FT_FW_FILE_SUB_MIN_VER(x) 0
+#define FT_FW_FILE_VENDOR_ID(x)	((x)->data[(x)->size - 1])
 
 #define FT_FW_CHECK(x)		\
 	(((x)->data[(x)->size - 8] ^ (x)->data[(x)->size - 6]) == 0xFF \
@@ -200,6 +202,7 @@ struct ft5x06_ts_data {
 	u8 *tch_data;
 	u32 tch_data_len;
 	u8 fw_ver[3];
+	u8 fw_vendor_id;
 #if defined(CONFIG_FB)
 	struct notifier_block fb_notif;
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
@@ -280,6 +283,18 @@ static int ft5x0x_write_reg(struct i2c_client *client, u8 addr, const u8 val)
 static int ft5x0x_read_reg(struct i2c_client *client, u8 addr, u8 *val)
 {
 	return ft5x06_i2c_read(client, &addr, 1, val, 1);
+}
+
+static void ft5x06_update_fw_vendor_id(struct ft5x06_ts_data *data)
+{
+	struct i2c_client *client = data->client;
+	u8 reg_addr;
+	int err;
+
+	reg_addr = FT_REG_FW_VENDOR_ID;
+	err = ft5x06_i2c_read(client, &reg_addr, 1, &data->fw_vendor_id, 1);
+	if (err < 0)
+		dev_err(&client->dev, "fw vendor id read failed");
 }
 
 static void ft5x06_update_fw_ver(struct ft5x06_ts_data *data)
@@ -889,7 +904,7 @@ static int ft5x06_fw_upgrade(struct device *dev, bool force)
 	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
 	const struct firmware *fw = NULL;
 	int rc;
-	u8 fw_file_maj, fw_file_min, fw_file_sub_min;
+	u8 fw_file_maj, fw_file_min, fw_file_sub_min, fw_file_vendor_id;
 	bool fw_upgrade = false;
 
 	if (data->suspended) {
@@ -913,6 +928,7 @@ static int ft5x06_fw_upgrade(struct device *dev, bool force)
 	fw_file_maj = FT_FW_FILE_MAJ_VER(fw);
 	fw_file_min = FT_FW_FILE_MIN_VER(fw);
 	fw_file_sub_min = FT_FW_FILE_SUB_MIN_VER(fw);
+	fw_file_vendor_id = FT_FW_FILE_VENDOR_ID(fw);
 
 	dev_info(dev, "Current firmware: %d.%d.%d", data->fw_ver[0],
 				data->fw_ver[1], data->fw_ver[2]);
@@ -921,7 +937,8 @@ static int ft5x06_fw_upgrade(struct device *dev, bool force)
 
 	if (force)
 		fw_upgrade = true;
-	else if (data->fw_ver[0] < fw_file_maj)
+	else if ((data->fw_ver[0] < fw_file_maj) &&
+		data->fw_vendor_id == fw_file_vendor_id)
 		fw_upgrade = true;
 
 	if (!fw_upgrade) {
@@ -1647,6 +1664,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	dev_dbg(&client->dev, "touch threshold = %d\n", reg_value * 4);
 
 	ft5x06_update_fw_ver(data);
+	ft5x06_update_fw_vendor_id(data);
 
 	FT_STORE_TS_INFO(data->ts_info, data->family_id, data->pdata->name,
 			data->pdata->num_max_touches, data->pdata->group_id,
