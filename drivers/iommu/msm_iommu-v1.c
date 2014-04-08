@@ -408,16 +408,11 @@ fail:
 /*
  * May only be called for non-secure iommus
  */
-static void __reset_iommu(struct msm_iommu_drvdata *iommu_drvdata)
+static void __reset_iommu(void __iomem *base)
 {
 	int i, smt_size;
-	void __iomem *base = iommu_drvdata->base;
 
-	/* SMMU_ACR is an implementation defined register.
-	 * Resetting is not required for some implementation.
-	 */
-	if (iommu_drvdata->model != MMU_500)
-		SET_ACR(base, 0);
+	SET_ACR(base, 0);
 	SET_CR2(base, 0);
 	SET_GFAR(base, 0);
 	SET_GFSRRESTORE(base, 0);
@@ -430,27 +425,17 @@ static void __reset_iommu(struct msm_iommu_drvdata *iommu_drvdata)
 	mb();
 }
 
-static void __reset_iommu_secure(struct msm_iommu_drvdata *iommu_drvdata)
+static void __reset_iommu_secure(void __iomem *base)
 {
-	void __iomem *base = iommu_drvdata->base;
-
-	if (iommu_drvdata->model != MMU_500)
-		SET_NSACR(base, 0);
+	SET_NSACR(base, 0);
 	SET_NSCR2(base, 0);
 	SET_NSGFAR(base, 0);
 	SET_NSGFSRRESTORE(base, 0);
 	mb();
 }
 
-static void __program_iommu_secure(struct msm_iommu_drvdata *iommu_drvdata)
+static void __program_iommu_secure(void __iomem *base)
 {
-	void __iomem *base = iommu_drvdata->base;
-
-	if (iommu_drvdata->model == MMU_500) {
-		SET_NSACR_SMTNMC_BPTLBEN(base, 1);
-		SET_NSACR_MMUDIS_BPTLBEN(base, 1);
-		SET_NSACR_S2CR_BPTLBEN(base, 1);
-	}
 	SET_NSCR0_SMCFCFG(base, 1);
 	SET_NSCR0_USFCFG(base, 1);
 	SET_NSCR0_STALLD(base, 1);
@@ -466,16 +451,11 @@ static void __program_iommu_secure(struct msm_iommu_drvdata *iommu_drvdata)
  */
 static void __program_iommu(struct msm_iommu_drvdata *drvdata)
 {
-	__reset_iommu(drvdata);
+	__reset_iommu(drvdata->base);
 
 	if (!msm_iommu_get_scm_call_avail())
-		__reset_iommu_secure(drvdata);
+		__reset_iommu_secure(drvdata->base);
 
-	if (drvdata->model == MMU_500) {
-		SET_ACR_SMTNMC_BPTLBEN(drvdata->base, 1);
-		SET_ACR_MMUDIS_BPTLBEN(drvdata->base, 1);
-		SET_ACR_S2CR_BPTLBEN(drvdata->base, 1);
-	}
 	SET_CR0_SMCFCFG(drvdata->base, 1);
 	SET_CR0_USFCFG(drvdata->base, 1);
 	SET_CR0_STALLD(drvdata->base, 1);
@@ -486,7 +466,7 @@ static void __program_iommu(struct msm_iommu_drvdata *drvdata)
 	SET_CR0_CLIENTPD(drvdata->base, 0);
 
 	if (!msm_iommu_get_scm_call_avail())
-		__program_iommu_secure(drvdata);
+		__program_iommu_secure(drvdata->base);
 
 	if (drvdata->smmu_local_base)
 		writel_relaxed(0xFFFFFFFF, drvdata->smmu_local_base +
@@ -507,16 +487,9 @@ void program_iommu_bfb_settings(void __iomem *base,
 	mb(); /* Make sure writes complete before returning */
 }
 
-static void __reset_context(struct msm_iommu_drvdata *iommu_drvdata, int ctx)
+static void __reset_context(void __iomem *base, int ctx)
 {
-	void __iomem *base = iommu_drvdata->cb_base;
-
-	/* Don't set ACTLR to zero because if context bank is in
-	 * bypass mode (say after iommu_detach), still this ACTLR
-	 * value matters for micro-TLB caching.
-	 */
-	if (iommu_drvdata->model != MMU_500)
-		SET_ACTLR(base, ctx, 0);
+	SET_ACTLR(base, ctx, 0);
 	SET_FAR(base, ctx, 0);
 	SET_FSRRESTORE(base, ctx, 0);
 	SET_NMRR(base, ctx, 0);
@@ -696,7 +669,7 @@ static void __program_context(struct msm_iommu_drvdata *iommu_drvdata,
 	unsigned int ctx = ctx_drvdata->num;
 	phys_addr_t pgtable = __pa(priv->pt.fl_table);
 
-	__reset_context(iommu_drvdata, ctx);
+	__reset_context(cb_base, ctx);
 	msm_iommu_setup_ctx(cb_base, ctx);
 
 	if (priv->pt.redirect)
@@ -710,12 +683,10 @@ static void __program_context(struct msm_iommu_drvdata *iommu_drvdata,
 	/* Enable context fault interrupt */
 	SET_CB_SCTLR_CFIE(cb_base, ctx, 1);
 
-	if (iommu_drvdata->model != MMU_500) {
-		/* Redirect all cacheable requests to L2 slave port. */
-		SET_CB_ACTLR_BPRCISH(cb_base, ctx, 1);
-		SET_CB_ACTLR_BPRCOSH(cb_base, ctx, 1);
-		SET_CB_ACTLR_BPRCNSH(cb_base, ctx, 1);
-	}
+	/* Redirect all cacheable requests to L2 slave port. */
+	SET_CB_ACTLR_BPRCISH(cb_base, ctx, 1);
+	SET_CB_ACTLR_BPRCOSH(cb_base, ctx, 1);
+	SET_CB_ACTLR_BPRCNSH(cb_base, ctx, 1);
 
 	/* Enable private ASID namespace */
 	SET_CB_SCTLR_ASIDPNE(cb_base, ctx, 1);
@@ -928,7 +899,7 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	iommu_drvdata->asid[ctx_drvdata->asid - 1]--;
 	ctx_drvdata->asid = -1;
 
-	__reset_context(iommu_drvdata, ctx_drvdata->num);
+	__reset_context(iommu_drvdata->cb_base, ctx_drvdata->num);
 
 	/*
 	 * Only reset the M2V tables on the very last detach */
