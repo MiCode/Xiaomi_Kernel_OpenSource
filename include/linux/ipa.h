@@ -821,6 +821,8 @@ int ipa_add_flt_rule(struct ipa_ioc_add_flt_rule *rules);
 
 int ipa_del_flt_rule(struct ipa_ioc_del_flt_rule *hdls);
 
+int ipa_mdfy_flt_rule(struct ipa_ioc_mdfy_flt_rule *rules);
+
 int ipa_commit_flt(enum ipa_ip_type ip);
 
 int ipa_reset_flt(enum ipa_ip_type ip);
@@ -1139,6 +1141,11 @@ static inline int ipa_add_flt_rule(struct ipa_ioc_add_flt_rule *rules)
 }
 
 static inline int ipa_del_flt_rule(struct ipa_ioc_del_flt_rule *hdls)
+{
+	return -EPERM;
+}
+
+static inline int ipa_mdfy_flt_rule(struct ipa_ioc_mdfy_flt_rule *rules)
 {
 	return -EPERM;
 }

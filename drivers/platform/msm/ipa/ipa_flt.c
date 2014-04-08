@@ -18,6 +18,7 @@
 #define IPA_FLT_TABLE_INDEX_NOT_FOUND		(-1)
 #define IPA_FLT_STATUS_OF_ADD_FAILED		(-1)
 #define IPA_FLT_STATUS_OF_DEL_FAILED		(-1)
+#define IPA_FLT_STATUS_OF_MDFY_FAILED		(-1)
 
 static int ipa_generate_hw_rule_from_eq(
 		const struct ipa_ipfltri_rule_eq *attrib, u8 **buf)
@@ -1068,6 +1069,65 @@ static int __ipa_del_flt_rule(u32 rule_hdl)
 	return 0;
 }
 
+static int __ipa_mdfy_flt_rule(struct ipa_flt_rule_mdfy *frule,
+		enum ipa_ip_type ip)
+{
+	struct ipa_flt_entry *entry;
+	struct ipa_rt_tbl *rt_tbl = NULL;
+
+	entry = ipa_id_find(frule->rule_hdl);
+	if (entry == NULL) {
+		IPAERR("lookup failed\n");
+		goto error;
+	}
+
+	if (entry->cookie != IPA_COOKIE) {
+		IPAERR("bad params\n");
+		goto error;
+	}
+
+	if (entry->rt_tbl)
+		entry->rt_tbl->ref_cnt--;
+
+	if (frule->rule.action != IPA_PASS_TO_EXCEPTION) {
+		if (!frule->rule.eq_attrib_type) {
+			if (!frule->rule.rt_tbl_hdl) {
+				IPAERR("invalid RT tbl\n");
+				goto error;
+			}
+
+			rt_tbl = ipa_id_find(frule->rule.rt_tbl_hdl);
+			if (rt_tbl == NULL) {
+				IPAERR("RT tbl not found\n");
+				goto error;
+			}
+
+			if (rt_tbl->cookie != IPA_COOKIE) {
+				IPAERR("RT table cookie is invalid\n");
+				goto error;
+			}
+		} else {
+			if (frule->rule.rt_tbl_idx > ((ip == IPA_IP_v4) ?
+					IPA_v2_V4_MODEM_RT_INDEX_HI :
+					IPA_v2_V6_MODEM_RT_INDEX_HI)) {
+				IPAERR("invalid RT tbl\n");
+				goto error;
+			}
+		}
+	}
+
+	entry->rule = frule->rule;
+	entry->rt_tbl = rt_tbl;
+	if (entry->rt_tbl)
+		entry->rt_tbl->ref_cnt++;
+	entry->hw_len = 0;
+
+	return 0;
+
+error:
+	return -EPERM;
+}
+
 static int __ipa_add_global_flt_rule(enum ipa_ip_type ip,
 		const struct ipa_flt_rule *rule, u8 add_rear, u32 *rule_hdl)
 {
@@ -1206,6 +1266,49 @@ bail:
 	return result;
 }
 EXPORT_SYMBOL(ipa_del_flt_rule);
+
+/**
+ * ipa_mdfy_flt_rule() - Modify the specified filtering rules in SW and optionally
+ * commit to IPA HW
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_mdfy_flt_rule(struct ipa_ioc_mdfy_flt_rule *hdls)
+{
+	int i;
+	int result;
+
+	if (hdls == NULL || hdls->num_rules == 0 || hdls->ip >= IPA_IP_MAX) {
+		IPAERR("bad parm\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ipa_ctx->lock);
+	for (i = 0; i < hdls->num_rules; i++) {
+		if (__ipa_mdfy_flt_rule(&hdls->rules[i], hdls->ip)) {
+			IPAERR("failed to mdfy rt rule %i\n", i);
+			hdls->rules[i].status = IPA_FLT_STATUS_OF_MDFY_FAILED;
+		} else {
+			hdls->rules[i].status = 0;
+		}
+	}
+
+	if (hdls->commit)
+		if (ipa_ctx->ctrl->ipa_commit_flt(hdls->ip)) {
+			mutex_unlock(&ipa_ctx->lock);
+			result = -EPERM;
+			goto bail;
+		}
+	result = 0;
+bail:
+	mutex_unlock(&ipa_ctx->lock);
+
+	return result;
+}
+EXPORT_SYMBOL(ipa_mdfy_flt_rule);
+
 
 /**
  * ipa_commit_flt() - Commit the current SW filtering table of specified type to
