@@ -167,6 +167,31 @@
 	pinctrl-1 = <&mdss_dsi_suspend>;
 
 	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
+
+	vsp-supply = <&tps65132_pos>;
+	vsn-supply = <&tps65132_neg>;
+	qcom,platform-supply-entry4 {
+		qcom,supply-name = "vsp";
+		qcom,supply-min-voltage = <5400000>;
+		qcom,supply-max-voltage = <5400000>;
+		qcom,supply-enable-load = <200>;
+		qcom,supply-disable-load = <0>;
+		qcom,supply-pre-on-sleep = <0>;
+		qcom,supply-post-on-sleep = <0>;
+		qcom,supply-pre-off-sleep = <0>;
+		qcom,supply-post-off-sleep = <0>;
+	};
+	qcom,platform-supply-entry5 {
+		qcom,supply-name = "vsn";
+		qcom,supply-min-voltage = <5400000>;
+		qcom,supply-max-voltage = <5400000>;
+		qcom,supply-enable-load = <40>;
+		qcom,supply-disable-load = <0>;
+		qcom,supply-pre-on-sleep = <0>;
+		qcom,supply-post-on-sleep = <0>;
+		qcom,supply-pre-off-sleep = <0>;
+		qcom,supply-post-off-sleep = <0>;
+	};
 };
 
 &soc {
