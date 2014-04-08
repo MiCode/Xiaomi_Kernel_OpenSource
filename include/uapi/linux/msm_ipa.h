@@ -474,6 +474,8 @@ struct ipa_rt_rule {
  * @status:	out paramerer, status of header add operation,
  *		0 for success,
  *		-1 for failure
+ * @is_eth2_ofst_valid: is eth2_ofst field valid?
+ * @eth2_ofst: offset to start of Ethernet-II/802.3 header
  */
 struct ipa_hdr_add {
 	char name[IPA_RESOURCE_NAME_MAX];
@@ -482,6 +484,8 @@ struct ipa_hdr_add {
 	uint8_t is_partial;
 	uint32_t hdr_hdl;
 	int status;
+	uint8_t is_eth2_ofst_valid;
+	uint16_t eth2_ofst;
 };
 
 /**
@@ -508,12 +512,16 @@ struct ipa_ioc_add_hdr {
  *	valid only when ioctl return val is non-negative
  * @is_partial:	out parameter, indicates whether specified header is partial
  *		valid only when ioctl return val is non-negative
+ * @is_eth2_ofst_valid: is eth2_ofst field valid?
+ * @eth2_ofst: offset to start of Ethernet-II/802.3 header
  */
 struct ipa_ioc_copy_hdr {
 	char name[IPA_RESOURCE_NAME_MAX];
 	uint8_t hdr[IPA_HDR_MAX_SIZE];
 	uint8_t hdr_len;
 	uint8_t is_partial;
+	uint8_t is_eth2_ofst_valid;
+	uint16_t eth2_ofst;
 };
 
 /**

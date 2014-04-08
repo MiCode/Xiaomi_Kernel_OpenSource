@@ -203,6 +203,8 @@ struct ipa_rt_tbl {
  * @offset_entry: entry's offset
  * @cookie: cookie used for validity check
  * @ref_cnt: reference counter of raouting table
+ * @is_eth2_ofst_valid: is eth2_ofst field valid?
+ * @eth2_ofst: offset to start of Ethernet-II/802.3 header
  */
 struct ipa_hdr_entry {
 	struct list_head link;
@@ -214,6 +216,8 @@ struct ipa_hdr_entry {
 	u32 cookie;
 	u32 ref_cnt;
 	int id;
+	u8 is_eth2_ofst_valid;
+	u16 eth2_ofst;
 };
 
 /**
