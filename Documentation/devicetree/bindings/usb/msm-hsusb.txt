@@ -196,12 +196,15 @@ Optional properties :
   turnaround timeout is observed on enabling streaming. Hence it is required
   to see these errors and number of erros on enabling this at USB level to make
   final decision to enable this feature or not.
+- qcom,android-usb-uicc-nluns : Number of mass storage LUNs required for
+  the UICC card.
 Example Android USB device node :
 	android_usb@fc42b0c8 {
 		compatible = "qcom,android-usb";
 		reg = <0xfc42b0c8 0xc8>;
 		qcom,android-usb-swfi-latency = <1>;
 		qcom,streaming-func = "rndis","mtp";
+		qcom,android-usb-uicc-nluns = <1>;
 	};
 
 
