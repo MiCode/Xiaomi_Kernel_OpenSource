@@ -1308,44 +1308,39 @@ gen8_logical_disable_protected_mem(struct intel_ringbuffer *ringbuf)
  *
  * Return: non-zero if the submission fails.
  */
-int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
-			       struct intel_engine_cs *ring,
-			       struct intel_context *ctx,
+int intel_execlists_submission(struct i915_execbuffer_params *params,
 			       struct drm_i915_gem_execbuffer2 *args,
-			       struct list_head *vmas,
-			       struct drm_i915_gem_object *batch_obj,
-			       u64 exec_start, u32 dispatch_flags)
+			       struct list_head *vmas)
 {
+	struct drm_device       *dev = params->dev;
+	struct intel_engine_cs  *ring = params->ring;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_ringbuffer *ringbuf = ctx->engine[ring->id].ringbuf;
-	int instp_mode;
-	u32 instp_mask;
+	struct intel_ringbuffer *ringbuf = params->ctx->engine[ring->id].ringbuf;
 	int ret;
-	bool watchdog_running = 0;
 
-	instp_mode = args->flags & I915_EXEC_CONSTANTS_MASK;
-	instp_mask = I915_EXEC_CONSTANTS_MASK;
-	switch (instp_mode) {
+	params->instp_mode = args->flags & I915_EXEC_CONSTANTS_MASK;
+	params->instp_mask = I915_EXEC_CONSTANTS_MASK;
+	switch (params->instp_mode) {
 	case I915_EXEC_CONSTANTS_REL_GENERAL:
 	case I915_EXEC_CONSTANTS_ABSOLUTE:
 	case I915_EXEC_CONSTANTS_REL_SURFACE:
-		if (instp_mode != 0 && ring != &dev_priv->ring[RCS]) {
+		if (params->instp_mode != 0 && ring != &dev_priv->ring[RCS]) {
 			DRM_DEBUG("non-0 rel constants mode on non-RCS\n");
 			return -EINVAL;
 		}
 
-		if (instp_mode != dev_priv->relative_constants_mode) {
-			if (instp_mode == I915_EXEC_CONSTANTS_REL_SURFACE) {
+		if (params->instp_mode != dev_priv->relative_constants_mode) {
+			if (params->instp_mode == I915_EXEC_CONSTANTS_REL_SURFACE) {
 				DRM_DEBUG("rel surface constants mode invalid on gen5+\n");
 				return -EINVAL;
 			}
 
 			/* The HW changed the meaning on this bit on gen6 */
-			instp_mask &= ~I915_EXEC_CONSTANTS_REL_SURFACE;
+			params->instp_mask &= ~I915_EXEC_CONSTANTS_REL_SURFACE;
 		}
 		break;
 	default:
-		DRM_DEBUG("execbuf with unknown constants: %d\n", instp_mode);
+		DRM_DEBUG("execbuf with unknown constants: %d\n", params->instp_mode);
 		return -EINVAL;
 	}
 
@@ -1365,7 +1360,7 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 		}
 
 		if (priv_data == 0xffffffff)
-			dispatch_flags |= I915_DISPATCH_LAUNCH_CB2;
+			params->dispatch_flags |= I915_DISPATCH_LAUNCH_CB2;
 	} else {
 		if (args->DR4 == 0xffffffff) {
 			DRM_DEBUG("UXA submitting garbage DR4, fixing up\n");
@@ -1385,14 +1380,42 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 
 	ret = execlists_move_to_gpu(ringbuf, vmas);
 	if (ret)
-		goto error;
+		return ret;
 
 	i915_gem_execbuffer_move_to_active(vmas, ring);
 
-	/* To be split into two functions here... */
+	ret = dev_priv->gt.do_execfinal(params);
+	if (ret)
+		return ret;
+
+	/*
+	 * Free everything that was stored in the QE structure (until the
+	 * scheduler arrives and does it instead):
+	 */
+	if (params->dispatch_flags & I915_DISPATCH_SECURE)
+		i915_gem_execbuff_release_batch_obj(params->batch_obj);
+
+	return 0;
+}
+
+/*
+ * This is the main function for adding a batch to the ring.
+ * It is called from the scheduler, with the struct_mutex already held.
+ */
+int intel_execlists_submission_final(struct i915_execbuffer_params *params)
+{
+	struct drm_i915_private *dev_priv = params->dev->dev_private;
+	struct intel_engine_cs  *ring = params->ring;
+	struct intel_ringbuffer *ringbuf = params->ctx->engine[ring->id].ringbuf;
+	u64 exec_start;
+	int ret;
+	bool watchdog_running = 0;
+
+	/* The mutex must be acquired before calling this function */
+	BUG_ON(!mutex_is_locked(&params->dev->struct_mutex));
 
 	/* Start watchdog timer */
-	if (args->flags & I915_EXEC_ENABLE_WATCHDOG) {
+	if (params->args_flags & I915_EXEC_ENABLE_WATCHDOG) {
 		if (!intel_ring_supports_watchdog(ring)) {
 			DRM_ERROR("%s does NOT support watchdog timeout!\n",
 					ring->name);
@@ -1413,10 +1436,10 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 	 */
 	ret = logical_ring_invalidate_all_caches(ringbuf);
 	if (ret)
-		return ret;
+		goto error;
 
 	if (ring == &dev_priv->ring[RCS] &&
-	    instp_mode != dev_priv->relative_constants_mode) {
+	    params->instp_mode != dev_priv->relative_constants_mode) {
 		ret = intel_logical_ring_begin(ringbuf, 4);
 		if (ret)
 			goto error;
@@ -1424,14 +1447,14 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 		intel_logical_ring_emit(ringbuf, MI_NOOP);
 		intel_logical_ring_emit(ringbuf, MI_LOAD_REGISTER_IMM(1));
 		intel_logical_ring_emit(ringbuf, INSTPM);
-		intel_logical_ring_emit(ringbuf, instp_mask << 16 | instp_mode);
+		intel_logical_ring_emit(ringbuf, params->instp_mask << 16 | params->instp_mode);
 		intel_logical_ring_advance(ringbuf);
 
-		dev_priv->relative_constants_mode = instp_mode;
+		dev_priv->relative_constants_mode = params->instp_mode;
 	}
 
-	if (IS_GEN8(dev) && ring == &dev_priv->ring[RCS])
-		i915_program_perfmon(dev, ringbuf, ctx);
+	if (IS_GEN8(params->dev) && ring == &dev_priv->ring[RCS])
+		i915_program_perfmon(params->dev, ringbuf, params->ctx);
 
 	/* Flag this request as being active on the ring so the watchdog
 	 * code knows where to look if things go wrong. */
@@ -1443,12 +1466,15 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 		goto error;
 	}
 
-	ret = ring->emit_bb_start(ringbuf, exec_start, dispatch_flags);
+	exec_start = params->batch_obj_vm_offset +
+		     params->args_batch_start_offset;
+
+	ret = ring->emit_bb_start(ringbuf, exec_start, params->dispatch_flags);
 	if (ret)
 		goto error;
 
 	/* Send pipe control with protected memory disable if requested */
-	if (dispatch_flags & I915_DISPATCH_LAUNCH_CB2) {
+	if (params->dispatch_flags & I915_DISPATCH_LAUNCH_CB2) {
 		ret = gen8_logical_disable_protected_mem(ringbuf);
 		if (ret)
 			goto error;
@@ -1466,9 +1492,9 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 			return ret;
 	}
 
-	trace_i915_gem_ring_dispatch(intel_ring_get_request(ring), dispatch_flags);
+	trace_i915_gem_ring_dispatch(intel_ring_get_request(ring), params->dispatch_flags);
 
-	i915_gem_execbuffer_retire_commands(dev, file, ring, batch_obj);
+	i915_gem_execbuffer_retire_commands(params->dev, params->file, ring, params->batch_obj);
 
 	return 0;
 

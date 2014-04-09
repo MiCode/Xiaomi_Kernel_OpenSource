@@ -1036,21 +1036,14 @@ i915_reset_gen7_sol_offsets(struct drm_device *dev,
 }
 
 int
-i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
-			       struct intel_engine_cs *ring,
-			       struct intel_context *ctx,
+i915_gem_ringbuffer_submission(struct i915_execbuffer_params *params,
 			       struct drm_i915_gem_execbuffer2 *args,
-			       struct list_head *vmas,
-			       struct drm_i915_gem_object *batch_obj,
-			       u64 exec_start, u32 dispatch_flags)
+			       struct list_head *vmas)
 {
-	struct drm_clip_rect *cliprects = NULL;
+	struct drm_device *dev = params->dev;
+	struct intel_engine_cs *ring = params->ring;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u64 exec_len;
-	int instp_mode;
-	u32 instp_mask;
-	int i, ret = 0;
-	bool watchdog_running = 0;
+	int ret = 0;
 
 	if (args->num_cliprects != 0) {
 		if (INTEL_INFO(dev)->gen <= 4) {
@@ -1061,24 +1054,24 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 				return -EINVAL;
 			}
 
-			if (args->num_cliprects > 
-					UINT_MAX / sizeof(*cliprects)) {
+			if (args->num_cliprects >
+					UINT_MAX / sizeof(*params->cliprects)) {
 				DRM_DEBUG("execbuf with %u cliprects\n",
 					  args->num_cliprects);
 				return -EINVAL;
 			}
 
-			cliprects = kcalloc(args->num_cliprects,
-					    sizeof(*cliprects),
+			params->cliprects = kcalloc(args->num_cliprects,
+					    sizeof(*params->cliprects),
 					    GFP_KERNEL);
-			if (cliprects == NULL) {
+			if (params->cliprects == NULL) {
 				ret = -ENOMEM;
 				goto error;
 			}
 
-			if (copy_from_user(cliprects,
+			if (copy_from_user(params->cliprects,
 				    to_user_ptr(args->cliprects_ptr),
-				    sizeof(*cliprects)*args->num_cliprects)) {
+				    sizeof(*params->cliprects)*args->num_cliprects)) {
 				ret = -EFAULT;
 				goto error;
 			}
@@ -1102,7 +1095,7 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 			}
 
 			if (priv_data == 0xffffffff)
-				dispatch_flags |= I915_DISPATCH_LAUNCH_CB2;
+				params->dispatch_flags |= I915_DISPATCH_LAUNCH_CB2;
 		}
 	} else {
 		if (args->DR4 == 0xffffffff) {
@@ -1116,19 +1109,19 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 		}
 	}
 
-	instp_mode = args->flags & I915_EXEC_CONSTANTS_MASK;
-	instp_mask = I915_EXEC_CONSTANTS_MASK;
-	switch (instp_mode) {
+	params->instp_mode = args->flags & I915_EXEC_CONSTANTS_MASK;
+	params->instp_mask = I915_EXEC_CONSTANTS_MASK;
+	switch (params->instp_mode) {
 	case I915_EXEC_CONSTANTS_REL_GENERAL:
 	case I915_EXEC_CONSTANTS_ABSOLUTE:
 	case I915_EXEC_CONSTANTS_REL_SURFACE:
-		if (instp_mode != 0 && ring != &dev_priv->ring[RCS]) {
+		if (params->instp_mode != 0 && ring != &dev_priv->ring[RCS]) {
 			DRM_DEBUG("non-0 rel constants mode on non-RCS\n");
 			ret = -EINVAL;
 			goto error;
 		}
 
-		if (instp_mode != dev_priv->relative_constants_mode) {
+		if (params->instp_mode != dev_priv->relative_constants_mode) {
 			if (INTEL_INFO(dev)->gen < 4) {
 				DRM_DEBUG("no rel constants on pre-gen4\n");
 				ret = -EINVAL;
@@ -1136,7 +1129,7 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 			}
 
 			if (INTEL_INFO(dev)->gen > 5 &&
-			    instp_mode == I915_EXEC_CONSTANTS_REL_SURFACE) {
+			    params->instp_mode == I915_EXEC_CONSTANTS_REL_SURFACE) {
 				DRM_DEBUG("rel surface constants mode invalid on gen5+\n");
 				ret = -EINVAL;
 				goto error;
@@ -1144,11 +1137,11 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 
 			/* The HW changed the meaning on this bit on gen6 */
 			if (INTEL_INFO(dev)->gen >= 6)
-				instp_mask &= ~I915_EXEC_CONSTANTS_REL_SURFACE;
+				params->instp_mask &= ~I915_EXEC_CONSTANTS_REL_SURFACE;
 		}
 		break;
 	default:
-		DRM_DEBUG("execbuf with unknown constants: %d\n", instp_mode);
+		DRM_DEBUG("execbuf with unknown constants: %d\n", params->instp_mode);
 		ret = -EINVAL;
 		goto error;
 	}
@@ -1159,12 +1152,49 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 
 	i915_gem_execbuffer_move_to_active(vmas, ring);
 
-	/* To be split into two functions here... */
+	ret = dev_priv->gt.do_execfinal(params);
+	if (ret)
+		goto error;
+
+	/*
+	 * Free everything that was stored in the QE structure (until the
+	 * scheduler arrives and does it instead):
+	 */
+	kfree(params->cliprects);
+	if (params->dispatch_flags & I915_DISPATCH_SECURE)
+		i915_gem_execbuff_release_batch_obj(params->batch_obj);
+
+	return 0;
+
+error:
+	kfree(params->cliprects);
+	return ret;
+}
+
+/*
+ * This is the main function for adding a batch to the ring.
+ * It is called from the scheduler, with the struct_mutex already held.
+ */
+int i915_gem_ringbuffer_submission_final(struct i915_execbuffer_params *params)
+{
+	struct drm_i915_private *dev_priv = params->dev->dev_private;
+	struct intel_engine_cs  *ring = params->ring;
+	u64 exec_start, exec_len;
+	int ret, i;
+	bool watchdog_running = 0;
+
+	/* The mutex must be acquired before calling this function */
+	BUG_ON(!mutex_is_locked(&params->dev->struct_mutex));
+
+	if (dev_priv->ums.mm_suspended) {
+		ret = -EBUSY;
+		goto early_error;
+	}
 
 	intel_runtime_pm_get(dev_priv);
 
 	/* Start watchdog timer */
-	if (args->flags & I915_EXEC_ENABLE_WATCHDOG) {
+	if (params->args_flags & I915_EXEC_ENABLE_WATCHDOG) {
 		if (!intel_ring_supports_watchdog(ring)) {
 			DRM_ERROR("%s does NOT support watchdog timeout!\n",
 					ring->name);
@@ -1188,12 +1218,12 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 		goto error;
 
 	/* Switch to the correct context for the batch */
-	ret = i915_switch_context(ring, ctx);
+	ret = i915_switch_context(ring, params->ctx);
 	if (ret)
 		goto error;
 
 	if (ring == &dev_priv->ring[RCS] &&
-			instp_mode != dev_priv->relative_constants_mode) {
+			params->instp_mode != dev_priv->relative_constants_mode) {
 		ret = intel_ring_begin(ring, 4);
 		if (ret)
 			goto error;
@@ -1201,14 +1231,14 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 		intel_ring_emit(ring, MI_NOOP);
 		intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
 		intel_ring_emit(ring, INSTPM);
-		intel_ring_emit(ring, instp_mask << 16 | instp_mode);
+		intel_ring_emit(ring, params->instp_mask << 16 | params->instp_mode);
 		intel_ring_advance(ring);
 
-		dev_priv->relative_constants_mode = instp_mode;
+		dev_priv->relative_constants_mode = params->instp_mode;
 	}
 
-	if (args->flags & I915_EXEC_GEN7_SOL_RESET) {
-		ret = i915_reset_gen7_sol_offsets(dev, ring);
+	if (params->args_flags & I915_EXEC_GEN7_SOL_RESET) {
+		ret = i915_reset_gen7_sol_offsets(params->dev, ring);
 		if (ret)
 			goto error;
 	}
@@ -1222,18 +1252,21 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 		goto error;
 	}
 
-	exec_len = args->batch_len;
-	if (cliprects) {
+	exec_len   = params->args_batch_len;
+	exec_start = params->batch_obj_vm_offset +
+		     params->args_batch_start_offset;
+
+	if (params->cliprects) {
 		/* Non-NULL cliprects only possible for Gen <= 4 */
-		for (i = 0; i < args->num_cliprects; i++) {
-			ret = i915_emit_box(dev, &cliprects[i],
-					    args->DR1, args->DR4);
+		for (i = 0; i < params->args_num_cliprects; i++) {
+			ret = i915_emit_box(params->dev, &params->cliprects[i],
+					    params->args_DR1, params->args_DR4);
 			if (ret)
 				goto error;
 
 			ret = ring->dispatch_execbuffer(ring,
 							exec_start, exec_len,
-							dispatch_flags);
+							params->dispatch_flags);
 			if (ret)
 				goto error;
 		}
@@ -1241,7 +1274,7 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 		/* Execution path for all Gen >= 5 */
 		ret = ring->dispatch_execbuffer(ring,
 						exec_start, exec_len,
-						dispatch_flags);
+						params->dispatch_flags);
 		if (ret)
 			goto error;
 	}
@@ -1258,15 +1291,16 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 			goto error;
 	}
 
-	trace_i915_gem_ring_dispatch(intel_ring_get_request(ring), dispatch_flags);
+	trace_i915_gem_ring_dispatch(intel_ring_get_request(ring), params->dispatch_flags);
 
-	i915_gem_execbuffer_retire_commands(dev, file, ring, batch_obj);
+	i915_gem_execbuffer_retire_commands(params->dev, params->file, ring,
+					    params->batch_obj);
 
 	/* For VLV, modify RC6 promotion timer upon hitting Media workload only
 	   This will help in better power savings with media scenarios.
 	*/
-	if (((args->flags & I915_EXEC_RING_MASK) == I915_EXEC_BSD) &&
-		IS_VALLEYVIEW(dev) && dev_priv->rps.enabled) {
+	if (((params->args_flags & I915_EXEC_RING_MASK) == I915_EXEC_BSD) &&
+		IS_VALLEYVIEW(params->dev) && dev_priv->rps.enabled) {
 
 		vlv_modify_rc6_promotion_timer(dev_priv, true);
 
@@ -1284,8 +1318,7 @@ error:
 	 */
 	intel_runtime_pm_put(dev_priv);
 
-	kfree(cliprects);
-
+early_error:
 	return ret;
 }
 
@@ -1351,8 +1384,9 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	struct intel_engine_cs *ring;
 	struct intel_context *ctx;
 	struct i915_address_space *vm;
+	struct i915_execbuffer_params params_master; /* XXX: will be removed later */
+	struct i915_execbuffer_params *params = &params_master;
 	const u32 ctx_id = i915_execbuffer2_get_context_id(*args);
-	u64 exec_start = args->batch_start_offset;
 	u32 dispatch_flags;
 	int ret;
 	bool need_relocs, batch_pinned = false;
@@ -1427,6 +1461,8 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 		vm = &ctx->ppgtt->base;
 	else
 		vm = &dev_priv->gtt.base;
+
+	memset(&params_master, 0x00, sizeof(params_master));
 
 	eb = eb_create(args);
 	if (eb == NULL) {
@@ -1513,31 +1549,39 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 			goto err;
 
 		batch_pinned = true;
-		exec_start += i915_gem_obj_ggtt_offset(batch_obj);
+		params->batch_obj_vm_offset = i915_gem_obj_ggtt_offset(batch_obj);
 	} else
-		exec_start += i915_gem_obj_offset(batch_obj, vm);
+		params->batch_obj_vm_offset = i915_gem_obj_offset(batch_obj, vm);
 
 	/* Allocate a request for this batch buffer nice and early. */
 	ret = dev_priv->gt.alloc_request(ring, ctx);
 	if (ret)
 		goto err;
 
+	/* Save assorted stuff away to pass through to *_submission_final() */
+	params->dev                     = dev;
+	params->file                    = file;
+	params->ring                    = ring;
+	params->dispatch_flags          = dispatch_flags;
+	params->args_flags              = args->flags;
+	params->args_batch_start_offset = args->batch_start_offset;
+	params->args_batch_len          = args->batch_len;
+	params->args_num_cliprects      = args->num_cliprects;
+	params->args_DR1                = args->DR1;
+	params->args_DR4                = args->DR4;
+	params->batch_obj               = batch_obj;
+	params->ctx                     = ctx;
+
 #ifdef CONFIG_SYNC
 	if (args->flags & I915_EXEC_WAIT_FENCE) {
-		/*
-		 * Validate the fence wait parameter but don't do the wait until
-		 * a scheduler arrives. Otherwise the entire universe stalls.
-		 */
 		int fd_fence_wait = (int) args->rsvd2;
 
 		if (fd_fence_wait < 0) {
 			DRM_ERROR("Wait fence for ring %d has invalid id %d\n",
 				  (int) ring->id, fd_fence_wait);
 		} else {
-			struct sync_fence *fence_wait;
-
-			fence_wait = sync_fence_fdget(fd_fence_wait);
-			if (fence_wait == NULL)
+			params->fence_wait = sync_fence_fdget(fd_fence_wait);
+			if (params->fence_wait == NULL)
 				DRM_ERROR("Invalid wait fence %d\n",
 					  fd_fence_wait);
 		}
@@ -1564,36 +1608,55 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 		args->rsvd2 = (__u64) fd_fence_complete;
 	}
 
-	ret = dev_priv->gt.do_execbuf(dev, file, ring, ctx, args,
-				      &eb->vmas, batch_obj, exec_start,
-				      dispatch_flags);
-
-err:
-	/*
-	 * FIXME: We crucially rely upon the active tracking for the (ppgtt)
-	 * batch vma for correctness. For less ugly and less fragility this
-	 * needs to be adjusted to also track the ggtt batch vma properly as
-	 * active.
-	 */
-	if (batch_pinned)
-		i915_gem_object_ggtt_unpin(batch_obj);
+	ret = dev_priv->gt.do_execbuf(params, args, &eb->vmas);
+	if (ret)
+		goto err;
 
 	/* the request owns the ref now */
+	i915_gem_context_unreference(ctx);
+
+	/*
+	 * The eb list is no longer required. The scheduler has extracted all
+	 * the information than needs to persist.
+	 */
+	eb_destroy(eb);
+
+	/*
+	 * Don't clean up everything that is now saved away in the queue.
+	 * Just unlock and return immediately.
+	 */
+	mutex_unlock(&dev->struct_mutex);
+
+	return ret;
+
+err:
+	if (batch_pinned)
+		i915_gem_execbuff_release_batch_obj(batch_obj);
+
 	i915_gem_context_unreference(ctx);
 	eb_destroy(eb);
 
 	mutex_unlock(&dev->struct_mutex);
 
 pre_mutex_err:
-	if (ret) {
-		if (fd_fence_complete != -1)
-			sys_close(fd_fence_complete);
+	if (fd_fence_complete != -1)
+		sys_close(fd_fence_complete);
 
-		if (args->flags & I915_EXEC_REQUEST_FENCE)
-			args->rsvd2 = (__u64) -1;
-	}
+	if (args->flags & I915_EXEC_REQUEST_FENCE)
+		args->rsvd2 = (__u64) -1;
 
 	return ret;
+}
+
+void i915_gem_execbuff_release_batch_obj(struct drm_i915_gem_object *batch_obj)
+{
+	/*
+	 * FIXME: We crucially rely upon the active tracking for the (ppgtt)
+	 * batch vma for correctness. For less ugly and less fragility this
+	 * needs to be adjusted to also track the ggtt batch vma properly as
+	 * active.
+	 */
+	i915_gem_object_ggtt_unpin(batch_obj);
 }
 
 /*

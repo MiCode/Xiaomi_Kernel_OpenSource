@@ -1539,6 +1539,26 @@ struct i915_workarounds {
 	u32 count;
 };
 
+struct i915_execbuffer_params {
+	struct drm_device               *dev;
+	struct drm_file                 *file;
+	uint32_t                        dispatch_flags;
+	uint32_t                        args_flags;
+	uint32_t                        args_batch_start_offset;
+	uint32_t                        args_batch_len;
+	uint32_t                        args_num_cliprects;
+	uint32_t                        args_DR1;
+	uint32_t                        args_DR4;
+	uint32_t                        batch_obj_vm_offset;
+	struct intel_engine_cs          *ring;
+	struct drm_i915_gem_object      *batch_obj;
+	struct drm_clip_rect            *cliprects;
+	struct sync_fence               *fence_wait;
+	uint32_t                        instp_mask;
+	int                             instp_mode;
+	struct intel_context            *ctx;
+};
+
 struct drm_i915_private {
 	struct drm_device *dev;
 	struct kmem_cache *slab;
@@ -1870,13 +1890,10 @@ struct drm_i915_private {
 	struct {
 		int (*alloc_request)(struct intel_engine_cs *ring,
 				     struct intel_context *ctx);
-		int (*do_execbuf)(struct drm_device *dev, struct drm_file *file,
-				  struct intel_engine_cs *ring,
-				  struct intel_context *ctx,
+		int (*do_execbuf)(struct i915_execbuffer_params *params,
 				  struct drm_i915_gem_execbuffer2 *args,
-				  struct list_head *vmas,
-				  struct drm_i915_gem_object *batch_obj,
-				  u64 exec_start, u32 flags);
+				  struct list_head *vmas);
+		int (*do_execfinal)(struct i915_execbuffer_params *params);
 		int (*init_rings)(struct drm_device *dev);
 		void (*cleanup_ring)(struct intel_engine_cs *ring);
 		void (*stop_ring)(struct intel_engine_cs *ring);
@@ -2530,14 +2547,11 @@ void i915_gem_execbuffer_retire_commands(struct drm_device *dev,
 					 struct drm_file *file,
 					 struct intel_engine_cs *ring,
 					 struct drm_i915_gem_object *obj);
-int i915_gem_ringbuffer_submission(struct drm_device *dev,
-				   struct drm_file *file,
-				   struct intel_engine_cs *ring,
-				   struct intel_context *ctx,
+void i915_gem_execbuff_release_batch_obj(struct drm_i915_gem_object *batch_obj);
+int i915_gem_ringbuffer_submission(struct i915_execbuffer_params *qe,
 				   struct drm_i915_gem_execbuffer2 *args,
-				   struct list_head *vmas,
-				   struct drm_i915_gem_object *batch_obj,
-				   u64 exec_start, u32 flags);
+				   struct list_head *vmas);
+int i915_gem_ringbuffer_submission_final(struct i915_execbuffer_params *params);
 int i915_gem_execbuffer(struct drm_device *dev, void *data,
 			struct drm_file *file_priv);
 int i915_gem_execbuffer2(struct drm_device *dev, void *data,
