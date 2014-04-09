@@ -22,7 +22,9 @@
 
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
+#include "mdss_debug.h"
 
+static void mdss_mdp_xlog_mixer_reg(struct mdss_mdp_ctl *ctl);
 static inline u64 fudge_factor(u64 val, u32 numer, u32 denom)
 {
 	u64 result = (val * (u64)numer);
@@ -2500,6 +2502,9 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 	if (ctl->wait_pingpong)
 		ctl->wait_pingpong(ctl, NULL);
 
+	ctl->roi_bkup.w = ctl->roi.w;
+	ctl->roi_bkup.h = ctl->roi.h;
+
 	if (ctl->mfd && ctl->mfd->dcm_state != DTM_ENTER)
 		/* postprocessing setup, including dspp */
 		mdss_mdp_pp_setup_locked(ctl);
@@ -2511,6 +2516,8 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 	}
 	wmb();
 	ctl->flush_bits = 0;
+
+	mdss_mdp_xlog_mixer_reg(ctl);
 
 	if (ctl->display_fnc)
 		ret = ctl->display_fnc(ctl, arg); /* kickoff */
@@ -2676,4 +2683,19 @@ int mdss_mdp_mixer_handoff(struct mdss_mdp_ctl *ctl, u32 num,
 	}
 
 	return rc;
+}
+
+static void mdss_mdp_xlog_mixer_reg(struct mdss_mdp_ctl *ctl)
+{
+	int i, off;
+	u32 data[MDSS_MDP_INTF_MAX_LAYERMIXER];
+
+	for (i = 0; i < MDSS_MDP_INTF_MAX_LAYERMIXER; i++) {
+		off =  MDSS_MDP_REG_CTL_LAYER(i);
+		data[i] = mdss_mdp_ctl_read(ctl, off);
+	}
+	MDSS_XLOG(data[MDSS_MDP_INTF_LAYERMIXER0],
+		data[MDSS_MDP_INTF_LAYERMIXER1],
+		data[MDSS_MDP_INTF_LAYERMIXER2],
+		data[MDSS_MDP_INTF_LAYERMIXER3], off);
 }
