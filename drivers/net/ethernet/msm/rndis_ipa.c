@@ -1299,6 +1299,8 @@ static void rndis_ipa_prepare_header_insertion(int eth_type,
 	memcpy(eth_hdr->h_source, src_mac, ETH_ALEN);
 	eth_hdr->h_proto = htons(eth_type);
 	add_hdr->hdr_len += ETH_HLEN;
+	add_hdr->is_eth2_ofst_valid = true;
+	add_hdr->eth2_ofst = sizeof(rndis_template_hdr);
 }
 
 /**
