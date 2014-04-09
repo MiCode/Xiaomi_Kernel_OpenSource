@@ -125,6 +125,10 @@ struct usb_phy {
 
 	/* reset the PHY clocks */
 	int	(*reset)(struct usb_phy *x);
+
+	/* To enable/disable phy autosuspend feature */
+	int	(*set_phy_autosuspend)(struct usb_phy *x, struct device *dev,
+				int enable_autosuspend);
 };
 
 /**
@@ -296,6 +300,16 @@ usb_phy_set_suspend(struct usb_phy *x, int suspend)
 {
 	if (x && x->set_suspend != NULL)
 		return x->set_suspend(x, suspend);
+	else
+		return 0;
+}
+
+static inline int
+usb_phy_set_autosuspend(struct usb_phy *x, struct device *dev,
+						int enable_autosuspend)
+{
+	if (x && x->set_phy_autosuspend != NULL)
+		return x->set_phy_autosuspend(x, dev, enable_autosuspend);
 	else
 		return 0;
 }
