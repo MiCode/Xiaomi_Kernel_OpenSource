@@ -34,6 +34,7 @@
 #include "i915_trace.h"
 #include "intel_sync.h"
 #include "intel_drv.h"
+#include "i915_scheduler.h"
 
 #define  __EXEC_OBJECT_HAS_PIN (1<<31)
 #define  __EXEC_OBJECT_HAS_FENCE (1<<30)
@@ -1040,6 +1041,7 @@ i915_gem_ringbuffer_submission(struct i915_execbuffer_params *params,
 			       struct drm_i915_gem_execbuffer2 *args,
 			       struct list_head *vmas)
 {
+	struct i915_scheduler_queue_entry *qe;
 	struct drm_device *dev = params->dev;
 	struct intel_engine_cs *ring = params->ring;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -1156,17 +1158,10 @@ i915_gem_ringbuffer_submission(struct i915_execbuffer_params *params,
 	 * of the work in progress which in turn would be a Bad Thing). */
 	WARN_ON(ring->outstanding_lazy_request != params->request);
 
-	ret = dev_priv->gt.do_execfinal(params);
+	qe = container_of(params, typeof(*qe), params);
+	ret = i915_scheduler_queue_execbuffer(qe);
 	if (ret)
 		goto error;
-
-	/*
-	 * Free everything that was stored in the QE structure (until the
-	 * scheduler arrives and does it instead):
-	 */
-	kfree(params->cliprects);
-	if (params->dispatch_flags & I915_DISPATCH_SECURE)
-		i915_gem_execbuff_release_batch_obj(params->batch_obj);
 
 	return 0;
 
@@ -1392,8 +1387,8 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	struct intel_engine_cs *ring;
 	struct intel_context *ctx;
 	struct i915_address_space *vm;
-	struct i915_execbuffer_params params_master; /* XXX: will be removed later */
-	struct i915_execbuffer_params *params = &params_master;
+	struct i915_scheduler_queue_entry qe;
+	struct i915_execbuffer_params *params = &qe.params;
 	const u32 ctx_id = i915_execbuffer2_get_context_id(*args);
 	u32 dispatch_flags;
 	int ret;
@@ -1484,7 +1479,7 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	else
 		vm = &dev_priv->gtt.base;
 
-	memset(&params_master, 0x00, sizeof(params_master));
+	memset(&qe, 0x00, sizeof(qe));
 
 	eb = eb_create(args);
 	if (eb == NULL) {
