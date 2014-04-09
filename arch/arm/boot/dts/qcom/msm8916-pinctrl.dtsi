@@ -167,6 +167,17 @@
 			};
 		};
 
+		usb-id-pin {
+			qcom,pins = <&gp 110>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "usb-id-pin";
+			usbid_default: default {
+				drive-strength = <8>;
+				bias-pull-up;
+			};
+		};
+
 		spi0_active {
 			/* MOSI, MISO, CLK */
 			qcom,pins = <&gp 8>, <&gp 9>, <&gp 11>;
