@@ -1391,7 +1391,7 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	struct i915_execbuffer_params *params = &qe.params;
 	const u32 ctx_id = i915_execbuffer2_get_context_id(*args);
 	u32 dispatch_flags;
-	int ret;
+	int ret, i;
 	bool need_relocs, batch_pinned = false;
 	int fd_fence_complete = -1;
 
@@ -1487,6 +1487,14 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 		mutex_unlock(&dev->struct_mutex);
 		ret = -ENOMEM;
 		goto pre_mutex_err;
+	}
+
+	qe.saved_objects = kzalloc(
+			sizeof(*qe.saved_objects) * args->buffer_count,
+			GFP_KERNEL);
+	if (!qe.saved_objects) {
+		ret = -ENOMEM;
+		goto err;
 	}
 
 	/* Look up object handles */
@@ -1588,7 +1596,26 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	params->args_DR1                = args->DR1;
 	params->args_DR4                = args->DR4;
 	params->batch_obj               = batch_obj;
-	params->ctx                     = ctx;
+
+	/*
+	 * Save away the list of objects used by this batch buffer for the
+	 * purpose of tracking inter-buffer dependencies.
+	 */
+	for (i = 0; i < args->buffer_count; i++) {
+		/*
+		 * NB: 'drm_gem_object_lookup()' increments the object's
+		 * reference count and so must be matched by a
+		 * 'drm_gem_object_unreference' call.
+		 */
+		qe.saved_objects[i].obj =
+			to_intel_bo(drm_gem_object_lookup(dev, file,
+							  exec[i].handle));
+	}
+	qe.num_objs = i;
+
+	/* Lock and save the context object as well. */
+	i915_gem_context_reference(ctx);
+	params->ctx = ctx;
 
 #ifdef CONFIG_SYNC
 	if (args->flags & I915_EXEC_WAIT_FENCE) {
@@ -1653,6 +1680,23 @@ err:
 
 	i915_gem_context_unreference(ctx);
 	eb_destroy(eb);
+
+	if (qe.saved_objects) {
+		/* Need to release the objects: */
+		for (i = 0; i < qe.num_objs; i++) {
+			if (!qe.saved_objects[i].obj)
+				continue;
+
+			drm_gem_object_unreference(
+					&qe.saved_objects[i].obj->base);
+		}
+
+		kfree(qe.saved_objects);
+
+		/* Context too */
+		if (params->ctx)
+			i915_gem_context_unreference(params->ctx);
+	}
 
 	mutex_unlock(&dev->struct_mutex);
 

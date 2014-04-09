@@ -102,7 +102,23 @@ int i915_scheduler_queue_execbuffer(struct i915_scheduler_queue_entry *qe)
 		ret = dev_priv->gt.do_execfinal(&qe->params);
 		scheduler->flags[qe->params.ring->id] &= ~i915_sf_submitting;
 
-		/* Free everything that is owned by the QE structure: */
+		/* Need to release the objects: */
+		for (i = 0; i < qe->num_objs; i++) {
+			if (!qe->saved_objects[i].obj)
+				continue;
+
+			drm_gem_object_unreference(&qe->saved_objects[i].obj->base);
+		}
+
+		kfree(qe->saved_objects);
+		qe->saved_objects = NULL;
+		qe->num_objs = 0;
+
+		/* Free the context object too: */
+		if (qe->params.ctx)
+			i915_gem_context_unreference(qe->params.ctx);
+
+		/* And anything else owned by the QE structure: */
 		kfree(qe->params.cliprects);
 		if (qe->params.dispatch_flags & I915_DISPATCH_SECURE)
 			i915_gem_execbuff_release_batch_obj(qe->params.batch_obj);
@@ -421,7 +437,7 @@ static int i915_scheduler_remove(struct intel_engine_cs *ring)
 	int                 flying = 0, queued = 0;
 	int                 ret = 0;
 	bool                do_submit;
-	uint32_t            min_seqno;
+	uint32_t            i, min_seqno;
 	struct list_head    remove;
 
 	if (list_empty(&scheduler->node_queue[ring->id]))
@@ -525,7 +541,18 @@ static int i915_scheduler_remove(struct intel_engine_cs *ring)
 		if (node->params.dispatch_flags & I915_DISPATCH_SECURE)
 			i915_gem_execbuff_release_batch_obj(node->params.batch_obj);
 
-		/* Free everything that is owned by the node: */
+		/* Release the locked buffers: */
+		for (i = 0; i < node->num_objs; i++) {
+			drm_gem_object_unreference(
+					    &node->saved_objects[i].obj->base);
+		}
+		kfree(node->saved_objects);
+
+		/* Context too: */
+		if (node->params.ctx)
+			i915_gem_context_unreference(node->params.ctx);
+
+		/* And anything else owned by the node: */
 		node->params.request->scheduler_qe = NULL;
 		i915_gem_request_unreference(node->params.request);
 		kfree(node->params.cliprects);
