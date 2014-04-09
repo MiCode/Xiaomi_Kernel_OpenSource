@@ -77,7 +77,7 @@ struct logger_log {
  * pstore is cleaned.
  */
 
-static ulong logger_pstore_size = 1500;
+static ulong logger_pstore_size = 1024;
 module_param_named(pstore_size, logger_pstore_size, ulong, 0600);
 MODULE_PARM_DESC(pstore_size,
 		"maximum bytes of pstore dump for each log buffer");

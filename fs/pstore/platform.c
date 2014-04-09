@@ -49,7 +49,7 @@ MODULE_PARM_DESC(update_ms, "milliseconds before pstore updates its content "
 		 "enabling this option is not safe, it may lead to further "
 		 "corruption on Oopses)");
 
-static ulong pstore_extra_size = 8000;
+static ulong pstore_extra_size = 1024;
 module_param_named(extra_size, pstore_extra_size, ulong, 0600);
 MODULE_PARM_DESC(extra_size, "maximum of dumped extra data (beside kmsg)");
 
@@ -84,7 +84,7 @@ static char *big_oops_buf;
 static size_t big_oops_buf_sz;
 
 /* How much of the console log to snapshot */
-static unsigned long kmsg_bytes = 10240;
+static unsigned long kmsg_bytes = 4096;
 
 void pstore_set_kmsg_bytes(int bytes)
 {
