@@ -171,6 +171,7 @@
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
+	vdd-cx-supply = <&pma8084_s2_corner>;
 };
 
 &mdss_hdmi_tx {
