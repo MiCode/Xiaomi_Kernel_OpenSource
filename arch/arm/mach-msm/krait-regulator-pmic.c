@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,13 +53,14 @@
 #define REG_PHASE_CTL		0x52
 #define BALANCE_EN_BIT		BIT(7)
 
+#define REG_SS_CTL		0x60
 #define REG_VS_CTL		0x61
 #define VS_CTL_VAL		0x82
 
 #define REG_GANG_CTL2		0xC1
 #define GANG_EN_BIT		BIT(7)
 
-#define REG_PWM_CL			0x60
+#define REG_PWM_CL		0x60
 
 struct krait_vreg_pmic_chip {
 	struct spmi_device	*spmi;
@@ -69,6 +70,9 @@ struct krait_vreg_pmic_chip {
 	u8			ctrl_dig_major;
 	u8			ctrl_dig_minor;
 	u32			unexpected_config;
+	u8			orig_ss_ctl;
+	u8			wrkarnd_ss_ctl;
+	bool			is_ss_same_as_vs_ctl;
 	struct dentry		*dent;
 };
 
@@ -119,6 +123,62 @@ static int write_byte(struct spmi_device *spmi, u16 addr, u8 *val)
 	return 0;
 }
 
+/**
+ * krait_pmic_pre_disable - workarounds after enabling
+ *
+ * Context: Can be called in atomic context
+ *
+ * Returns: 0 on success, error code on failure
+ */
+int krait_pmic_pre_disable(void)
+{
+	int rc = 0;
+
+	if (the_chip == NULL) {
+		pr_debug("krait_regulator_pmic not ready yet\n");
+		return 0;
+	}
+
+	if (the_chip->is_ss_same_as_vs_ctl == true) {
+		the_chip->is_ss_same_as_vs_ctl = false;
+		rc = write_byte(the_chip->spmi,
+				the_chip->ctrl_base + REG_SS_CTL,
+				&the_chip->orig_ss_ctl);
+		pr_debug("wrote 0x%02x->[%d 0x%04x] rc = %d\n",
+				the_chip->orig_ss_ctl, the_chip->spmi->sid,
+				the_chip->ctrl_base + REG_SS_CTL, rc);
+	}
+	return rc;
+}
+
+/**
+ * krait_pmic_pre_multiphase_enable - workarounds after enabling
+ *
+ * Context: Can be called in atomic context
+ *
+ * Returns: 0 on success, error code on failure
+ */
+int krait_pmic_pre_multiphase_enable(void)
+{
+	int rc = 0;
+
+	if (the_chip == NULL) {
+		pr_debug("krait_regulator_pmic not ready yet\n");
+		return 0;
+	}
+
+	if (the_chip->is_ss_same_as_vs_ctl == false) {
+		the_chip->is_ss_same_as_vs_ctl = true;
+		rc = write_byte(the_chip->spmi,
+				the_chip->ctrl_base + REG_SS_CTL,
+				&the_chip->wrkarnd_ss_ctl);
+		pr_debug("wrote 0x%02x->[%d 0x%04x] rc = %d\n",
+				the_chip->wrkarnd_ss_ctl, the_chip->spmi->sid,
+				the_chip->ctrl_base + REG_SS_CTL, rc);
+	}
+	return rc;
+}
+
 #define ISTEP_MA			500
 #define IOFFSET_MA			1000
 #define OVERSHOOT_DIG_MAJOR		1
@@ -144,7 +204,7 @@ static bool v_overshoot_fixed(void)
 bool krait_pmic_is_ready(void)
 {
 	if (the_chip == NULL) {
-		pr_debug("kait_regulator_pmic not ready yet\n");
+		pr_debug("krait_regulator_pmic not ready yet\n");
 		return false;
 	}
 	return true;
@@ -166,7 +226,7 @@ int krait_pmic_post_pfm_entry(void)
 	int rc;
 
 	if (the_chip == NULL) {
-		pr_debug("kait_regulator_pmic not ready yet\n");
+		pr_debug("krait_regulator_pmic not ready yet\n");
 		return -ENXIO;
 	}
 
@@ -197,7 +257,7 @@ int krait_pmic_post_pwm_entry(void)
 	int rc;
 
 	if (the_chip == NULL) {
-		pr_debug("kait_regulator_pmic not ready yet\n");
+		pr_debug("krait_regulator_pmic not ready yet\n");
 		return -ENXIO;
 	}
 
@@ -347,6 +407,7 @@ static int gang_configuration_check(struct krait_vreg_pmic_chip *chip)
 	return 0;
 }
 
+#define REG_SS_CTL_MASK		0x0F
 static int krait_vreg_pmic_probe(struct spmi_device *spmi)
 {
 	u8 type, subtype;
@@ -425,6 +486,16 @@ static int krait_vreg_pmic_probe(struct spmi_device *spmi)
 			chip->ctrl_dig_minor, rc);
 	if (rc)
 		return rc;
+
+	READ_BYTE(chip, chip->ctrl_base + REG_SS_CTL, chip->orig_ss_ctl, rc);
+	if (rc)
+		return rc;
+
+	READ_BYTE(chip, chip->ctrl_base + REG_VS_CTL, chip->wrkarnd_ss_ctl, rc);
+	if (rc)
+		return rc;
+
+	chip->wrkarnd_ss_ctl &= REG_SS_CTL_MASK;
 
 	gang_configuration_check(chip);
 

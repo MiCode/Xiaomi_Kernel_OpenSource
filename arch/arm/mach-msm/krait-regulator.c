@@ -480,7 +480,7 @@ static bool enable_phase_management(struct pmic_gang_vreg *pvreg)
 #define TWO_PHASE_COEFF		2000000
 
 #define PWM_SETTLING_TIME_US		50
-#define PHASE_SETTLING_TIME_US		50
+#define PHASE_SETTLING_TIME_US		100
 static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 				int coeff_total)
 {
@@ -560,6 +560,13 @@ static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 			mb();
 		}
 
+		if (phase_count >= 2) {
+			rc = krait_pmic_pre_multiphase_enable();
+			if (rc < 0) {
+				pr_err("%s failed to run pre multiphase steps %d rc = %d\n",
+				from->name, phase_count, rc);
+			}
+		}
 		rc = set_pmic_gang_phases(pvreg, phase_count);
 		if (rc < 0) {
 			pr_err("%s failed set phase %d rc = %d\n",
