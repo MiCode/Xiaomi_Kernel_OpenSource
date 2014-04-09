@@ -91,6 +91,10 @@ static int gdsc_enable(struct regulator_dev *rdev)
 		if (ret) {
 			dev_err(&rdev->dev, "%s enable timed out: 0x%x\n",
 				sc->rdesc.name, regval);
+			udelay(TIMEOUT_US);
+			regval = readl_relaxed(sc->gdscr);
+			dev_err(&rdev->dev, "%s final state: 0x%x (%d us after timeout)\n",
+				sc->rdesc.name, regval, TIMEOUT_US);
 			return ret;
 		}
 	} else {
