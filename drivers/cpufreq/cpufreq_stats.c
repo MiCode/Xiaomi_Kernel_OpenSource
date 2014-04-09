@@ -77,6 +77,10 @@ static int cpufreq_stats_update(unsigned int cpu)
 	spin_lock(&cpufreq_stats_lock);
 	stat = per_cpu(cpufreq_stats_table, cpu);
 	all_stat = per_cpu(all_cpufreq_stats, cpu);
+	if (!stat) {
+		spin_unlock(&cpufreq_stats_lock);
+		return 0;
+	}
 	if (stat->time_in_state) {
 		stat->time_in_state[stat->last_index] +=
 			cur_time - stat->last_time;
@@ -133,6 +137,7 @@ static ssize_t show_all_time_in_state(struct kobject *kobj,
 	ssize_t len = 0;
 	unsigned int i, cpu, freq, index;
 	struct all_cpufreq_stats *all_stat;
+	struct cpufreq_policy *policy;
 
 	len += scnprintf(buf + len, PAGE_SIZE - len, "freq\t\t");
 	for_each_possible_cpu(cpu) {
@@ -147,15 +152,20 @@ static ssize_t show_all_time_in_state(struct kobject *kobj,
 		freq = all_freq_table->freq_table[i];
 		len += scnprintf(buf + len, PAGE_SIZE - len, "\n%u\t\t", freq);
 		for_each_possible_cpu(cpu) {
-			all_stat = per_cpu(all_cpufreq_stats, cpu);
+			policy = cpufreq_cpu_get(cpu);
+			if (policy == NULL)
+				continue;
+			all_stat = per_cpu(all_cpufreq_stats, policy->cpu);
 			index = get_index_all_cpufreq_stat(all_stat, freq);
 			if (index != -1) {
 				len += scnprintf(buf + len, PAGE_SIZE - len,
 					"%llu\t\t", (unsigned long long)
 					cputime64_to_clock_t(all_stat->time_in_state[index]));
-				continue;
+			} else {
+				len += scnprintf(buf + len, PAGE_SIZE - len,
+						"N/A\t\t");
 			}
-			len += scnprintf(buf + len, PAGE_SIZE - len, "N/A\t\t");
+			cpufreq_cpu_put(policy);
 		}
 	}
 
@@ -360,6 +370,13 @@ error_get_fail:
 	return ret;
 }
 
+static int compare_for_sort(const void *lhs_ptr, const void *rhs_ptr)
+{
+	unsigned int lhs = *(const unsigned int *)(lhs_ptr);
+	unsigned int rhs = *(const unsigned int *)(rhs_ptr);
+	return (lhs - rhs);
+}
+
 static bool check_all_freq_table(unsigned int freq)
 {
 	int i;
@@ -399,6 +416,7 @@ static void cpufreq_allstats_create(unsigned int cpu)
 	unsigned int alloc_size, count = 0;
 	struct cpufreq_frequency_table *table = cpufreq_frequency_get_table(cpu);
 	struct all_cpufreq_stats *all_stat;
+	bool sort_needed = false;
 
 	if (!table)
 		return;
@@ -429,16 +447,23 @@ static void cpufreq_allstats_create(unsigned int cpu)
 	all_stat->freq_table = (unsigned int *)
 		(all_stat->time_in_state + count);
 
+	spin_lock(&cpufreq_stats_lock);
 	for (i = 0; table[i].frequency != CPUFREQ_TABLE_END; i++) {
 		unsigned int freq = table[i].frequency;
 		if (freq == CPUFREQ_ENTRY_INVALID)
 			continue;
 		all_stat->freq_table[j++] = freq;
-		if (all_freq_table && !check_all_freq_table(freq))
+		if (all_freq_table && !check_all_freq_table(freq)) {
 			add_all_freq_table(freq);
+			sort_needed = true;
+		}
 	}
+	if (sort_needed)
+		sort(all_freq_table->freq_table, all_freq_table->table_size,
+				sizeof(unsigned int), &compare_for_sort, NULL);
 	all_stat->state_num = j;
 	per_cpu(all_cpufreq_stats, cpu) = all_stat;
+	spin_unlock(&cpufreq_stats_lock);
 }
 
 static int cpufreq_stat_notifier_policy(struct notifier_block *nb,
@@ -453,6 +478,10 @@ static int cpufreq_stat_notifier_policy(struct notifier_block *nb,
 	table = cpufreq_frequency_get_table(cpu);
 	if (!table)
 		return 0;
+
+	if (!per_cpu(all_cpufreq_stats, cpu))
+		cpufreq_allstats_create(cpu);
+
 	ret = cpufreq_stats_create_table(policy, table);
 	if (ret)
 		return ret;
@@ -509,6 +538,9 @@ static int cpufreq_stats_create_table_cpu(unsigned int cpu)
 	if (!table)
 		goto out;
 
+	if (!per_cpu(all_cpufreq_stats, cpu))
+		cpufreq_allstats_create(cpu);
+
 	ret = cpufreq_stats_create_table(policy, table);
 
 out:
@@ -557,17 +589,6 @@ static struct notifier_block notifier_trans_block = {
 	.notifier_call = cpufreq_stat_notifier_trans
 };
 
-static int compare_for_sort(const void *lhs_ptr, const void *rhs_ptr)
-{
-	unsigned int lhs = *(const unsigned int *)(lhs_ptr);
-	unsigned int rhs = *(const unsigned int *)(rhs_ptr);
-	if (lhs < rhs)
-		return -1;
-	if (lhs > rhs)
-		return 1;
-	return 0;
-}
-
 static int __init cpufreq_stats_init(void)
 {
 	int ret;
@@ -593,12 +614,6 @@ static int __init cpufreq_stats_init(void)
 	}
 
 	create_all_freq_table();
-	for_each_possible_cpu(cpu) {
-		cpufreq_allstats_create(cpu);
-	}
-	if (all_freq_table && all_freq_table->freq_table)
-		sort(all_freq_table->freq_table, all_freq_table->table_size,
-				sizeof(unsigned int), &compare_for_sort, NULL);
 	ret = sysfs_create_file(cpufreq_global_kobject,
 			&_attr_all_time_in_state.attr);
 	if (ret)
