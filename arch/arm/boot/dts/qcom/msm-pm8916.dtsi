@@ -274,6 +274,7 @@
 			qcom,calculate-soc-ms = <20000>;
 			qcom,volatge-soc-timeout-ms = <60000>;
 			qcom,low-voltage-threshold = <3420000>;
+			qcom,s3-ocv-tolerence-uv = <1200>;
 			qcom,bms-vadc = <&pm8916_vadc>;
 
 			qcom,force-s3-on-suspend;
