@@ -23,6 +23,7 @@
 
 /* IOMMU V2 AHB base is fixed */
 #define KGSL_IOMMU_V2_AHB_BASE		0xA000
+#define KGSL_IOMMU_V2_AHB_BASE_A405  0x48000
 /* IOMMU_V2 AHB base points to ContextBank1 */
 #define KGSL_IOMMU_CTX_AHB_OFFSET_V2   0
 
