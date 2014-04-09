@@ -479,6 +479,8 @@ static int force_fsm_state(struct qpnp_bms_chip *chip, u8 state)
 		pr_err("Unable to write reg=%x rc=%d\n", MODE_CTL_REG, rc);
 		return rc;
 	}
+	/* delay for the FSM state to take affect in hardware */
+	usleep_range(100, 110);
 
 	pr_debug("force_mode=%d  mode_cntl_reg=%x\n", state, mode_ctl);
 
@@ -497,6 +499,8 @@ static int set_auto_fsm_state(struct qpnp_bms_chip *chip)
 					MODE_CTL_REG, rc);
 		return rc;
 	}
+	/* delay for the FSM state to take affect in hardware */
+	usleep_range(100, 110);
 
 	pr_debug("mode_cntl_reg=%x\n", mode_ctl);
 
@@ -1904,8 +1908,10 @@ static int bms_load_hw_defaults(struct qpnp_bms_chip *chip)
 		rc = qpnp_masked_write_base(chip,
 			chip->base + S1_ACC_CNT_REG,
 				ACC_CNT_MASK, val);
-		pr_err("Unable to write s1 sample count rc=%d\n", rc);
-		return rc;
+		if (rc) {
+			pr_err("Unable to write s1 sample count rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	/* S2 accumulator threshold */
@@ -1916,8 +1922,10 @@ static int bms_load_hw_defaults(struct qpnp_bms_chip *chip)
 		rc = qpnp_masked_write_base(chip,
 			chip->base + S2_ACC_CNT_REG,
 				ACC_CNT_MASK, val);
-		pr_err("Unable to write s2 sample count rc=%d\n", rc);
-		return rc;
+		if (rc) {
+			pr_err("Unable to write s2 sample count rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	if (chip->dt.cfg_s1_sample_interval_ms >= 0 &&
@@ -1925,8 +1933,10 @@ static int bms_load_hw_defaults(struct qpnp_bms_chip *chip)
 		val = chip->dt.cfg_s1_sample_interval_ms / 10;
 		rc = qpnp_write_wrapper(chip, &val,
 				chip->base + S1_SAMPLE_INTVL_REG, 1);
-		pr_err("Unable to write s1 sample inteval rc=%d\n", rc);
-		return rc;
+		if (rc) {
+			pr_err("Unable to write s1 sample inteval rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	if (chip->dt.cfg_s2_sample_interval_ms >= 0 &&
@@ -1934,8 +1944,10 @@ static int bms_load_hw_defaults(struct qpnp_bms_chip *chip)
 		val = chip->dt.cfg_s2_sample_interval_ms / 10;
 		rc = qpnp_write_wrapper(chip, &val,
 				chip->base + S2_SAMPLE_INTVL_REG, 1);
-		pr_err("Unable to write s2 sample inteval rc=%d\n", rc);
-		return rc;
+		if (rc) {
+			pr_err("Unable to write s2 sample inteval rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	if (chip->dt.cfg_s1_fifo_length >= 0 &&
@@ -1943,8 +1955,10 @@ static int bms_load_hw_defaults(struct qpnp_bms_chip *chip)
 		rc = qpnp_masked_write_base(chip, chip->base + FIFO_LENGTH_REG,
 					S1_FIFO_LENGTH_MASK,
 					chip->dt.cfg_s1_fifo_length);
-		pr_err("Unable to write s1 fifo length rc=%d\n", rc);
-		return rc;
+		if (rc) {
+			pr_err("Unable to write s1 fifo length rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	if (chip->dt.cfg_s2_fifo_length >= 0 &&
@@ -1953,8 +1967,10 @@ static int bms_load_hw_defaults(struct qpnp_bms_chip *chip)
 			FIFO_LENGTH_REG, S2_FIFO_LENGTH_MASK,
 			chip->dt.cfg_s2_fifo_length
 				<< S2_FIFO_LENGTH_SHIFT);
-		pr_err("Unable to write s2 fifo length rc=%d\n", rc);
-		return rc;
+		if (rc) {
+			pr_err("Unable to write s2 fifo length rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	/* read S1/S2 sample interval */
@@ -2904,6 +2920,8 @@ static int bms_suspend(struct device *dev)
 
 static int bms_resume(struct device *dev)
 {
+	int rc, monitor_soc_delay = 0;
+	unsigned long tm_now_sec;
 	struct qpnp_bms_chip *chip = dev_get_drvdata(dev);
 
 	if (!chip->charging_while_suspended) {
@@ -2922,9 +2940,19 @@ static int bms_resume(struct device *dev)
 		enable_irq_wake(chip->fsm_state_change_irq.irq);
 	}
 
-	/* start the soc_monitor */
-	bms_stay_awake(&chip->vbms_soc_wake_source);
-	schedule_delayed_work(&chip->monitor_soc_work, 0);
+	/* Start monitor_soc_work based on when it last executed */
+	rc = get_current_time(&tm_now_sec);
+	if (rc) {
+		pr_err("Could not read current time: %d\n", rc);
+	} else {
+		monitor_soc_delay = get_calculation_delay_ms(chip) -
+			((tm_now_sec - chip->tm_sec) * 1000);
+		monitor_soc_delay = max(0, monitor_soc_delay);
+	}
+	pr_debug("monitor_soc_delay_sec=%d tm_now_sec=%ld chip->tm_sec=%ld\n",
+			monitor_soc_delay / 1000, tm_now_sec, chip->tm_sec);
+	schedule_delayed_work(&chip->monitor_soc_work,
+				msecs_to_jiffies(monitor_soc_delay));
 
 	return 0;
 }
