@@ -165,6 +165,7 @@ struct ice40_hcd {
 	struct regulator *spi_vcc;
 	struct regulator *gpio_vcc;
 	bool powered;
+	bool clocked;
 
 	struct dentry *dbg_root;
 	bool pcd_pending;
@@ -197,6 +198,8 @@ struct ice40_hcd {
 	struct spi_transfer *out_xfr; /* size 2 */
 	u8 *out_buf; /* size 1 for writing WBUF0 */
 };
+
+#define FIRMWARE_LOAD_RETRIES 3
 
 static char fw_name[16] = "ice40.bin";
 module_param_string(fw, fw_name, sizeof(fw_name), S_IRUGO | S_IWUSR);
@@ -1191,6 +1194,7 @@ error:
 	return ret;
 }
 
+static void ice40_spi_clock_disable(struct ice40_hcd *ihcd);
 static void ice40_spi_power_off(struct ice40_hcd *ihcd);
 static int ice40_bus_suspend(struct usb_hcd *hcd)
 {
@@ -1218,6 +1222,7 @@ static int ice40_bus_suspend(struct usb_hcd *hcd)
 	 * current.
 	 */
 	ice40_spi_power_off(ihcd);
+	ice40_spi_clock_disable(ihcd);
 
 	trace_ice40_bus_suspend(1); /* successful */
 	pm_relax(&ihcd->spi->dev);
@@ -1239,7 +1244,7 @@ static int ice40_bus_resume(struct usb_hcd *hcd)
 	 * update the device address only.
 	 */
 
-	for (i = 0; i < 3; i++) {
+	for (i = 0; i < FIRMWARE_LOAD_RETRIES; i++) {
 		ret = ice40_spi_load_fw(ihcd);
 		if (!ret)
 			break;
@@ -1371,27 +1376,25 @@ out:
 	return ret;
 }
 
-static void ice40_spi_power_off(struct ice40_hcd *ihcd)
+static void ice40_spi_clock_disable(struct ice40_hcd *ihcd)
 {
-	if (!ihcd->powered)
+	if (!ihcd->clocked)
 		return;
 
-	gpio_direction_output(ihcd->vcc_en_gpio, 0);
-	regulator_disable(ihcd->core_vcc);
-	regulator_disable(ihcd->spi_vcc);
-	if (ihcd->gpio_vcc)
-		regulator_disable(ihcd->gpio_vcc);
 	if (ihcd->clk_en_gpio)
 		gpio_direction_output(ihcd->clk_en_gpio, 0);
 	if (ihcd->xo_clk)
 		clk_disable_unprepare(ihcd->xo_clk);
 
-	ihcd->powered = false;
+	ihcd->clocked = false;
 }
 
-static int ice40_spi_power_up(struct ice40_hcd *ihcd)
+static int ice40_spi_clock_enable(struct ice40_hcd *ihcd)
 {
-	int ret;
+	int ret = 0;
+
+	if (ihcd->clocked)
+		goto out;
 
 	if (ihcd->xo_clk) {
 		ret = clk_prepare_enable(ihcd->xo_clk);
@@ -1404,16 +1407,48 @@ static int ice40_spi_power_up(struct ice40_hcd *ihcd)
 	if (ihcd->clk_en_gpio) {
 		ret = gpio_direction_output(ihcd->clk_en_gpio, 1);
 		if (ret < 0) {
-			pr_err("fail to enable clk %d\n", ret);
+			pr_err("fail to assert clk-en %d\n", ret);
 			goto disable_xo;
 		}
 	}
+
+	ihcd->clocked = true;
+
+	return 0;
+
+disable_xo:
+	if (ihcd->xo_clk)
+		clk_disable_unprepare(ihcd->xo_clk);
+out:
+	return ret;
+}
+
+static void ice40_spi_power_off(struct ice40_hcd *ihcd)
+{
+	if (!ihcd->powered)
+		return;
+
+	gpio_direction_output(ihcd->vcc_en_gpio, 0);
+	regulator_disable(ihcd->core_vcc);
+	regulator_disable(ihcd->spi_vcc);
+	if (ihcd->gpio_vcc)
+		regulator_disable(ihcd->gpio_vcc);
+
+	ihcd->powered = false;
+}
+
+static int ice40_spi_power_up(struct ice40_hcd *ihcd)
+{
+	int ret = 0;
+
+	if (ihcd->powered)
+		goto out;
 
 	if (ihcd->gpio_vcc) {
 		ret = regulator_enable(ihcd->gpio_vcc); /* 1.8 V */
 		if (ret < 0) {
 			pr_err("fail to enable gpio vcc\n");
-			goto disable_clk;
+			goto out;
 		}
 	}
 
@@ -1446,12 +1481,6 @@ disable_spi_vcc:
 disable_gpio_vcc:
 	if (ihcd->gpio_vcc)
 		regulator_disable(ihcd->gpio_vcc);
-disable_clk:
-	if (ihcd->clk_en_gpio)
-		gpio_direction_output(ihcd->clk_en_gpio, 0);
-disable_xo:
-	if (ihcd->xo_clk)
-		clk_disable_unprepare(ihcd->xo_clk);
 out:
 	return ret;
 }
@@ -1621,24 +1650,51 @@ static int ice40_spi_load_fw(struct ice40_hcd *ihcd)
 		goto power_off;
 	}
 
-	ret = gpio_direction_output(ihcd->reset_gpio, 1);
-	if (ret  < 0) {
-		pr_err("fail to assert reset %d\n", ret);
+	ret = ice40_spi_clock_enable(ihcd);
+	if (ret < 0) {
+		pr_err("fail to enable clocks %d\n", ret);
 		goto power_off;
 	}
-	udelay(50);
+
+	/*
+	 * As per the data book, the bridge chip exits the
+	 * reset state by sampling the falling edge of the
+	 * reset line. Hence assert the reset from 0 to 1
+	 * with 100 usec pulse width twice.
+	 */
+	ret = gpio_direction_output(ihcd->reset_gpio, 1);
+	if (ret  < 0) {
+		pr_err("fail to de-assert reset %d\n", ret);
+		goto clocks_off;
+	}
+	udelay(100);
+	ret = gpio_direction_output(ihcd->reset_gpio, 0);
+	if (ret  < 0) {
+		pr_err("fail to assert reset %d\n", ret);
+		goto clocks_off;
+	}
+	udelay(100);
+	ret = gpio_direction_output(ihcd->reset_gpio, 1);
+	if (ret  < 0) {
+		pr_err("fail to de-assert reset %d\n", ret);
+		goto clocks_off;
+	}
+	udelay(100);
 
 	ret = ice40_spi_reg_read(ihcd, XFRST_REG);
 	pr_debug("XFRST val is %x\n", ret);
 	if (!(ret & PLLOK)) {
 		pr_err("The PLL2 is not synchronized\n");
-		goto power_off;
+		ret = -ENODEV;
+		goto clocks_off;
 	}
 
 	pr_info("Firmware load success\n");
 
 	return 0;
 
+clocks_off:
+	ice40_spi_clock_disable(ihcd);
 power_off:
 	ice40_spi_power_off(ihcd);
 out:
@@ -1970,6 +2026,7 @@ static ssize_t ice40_dbg_cmd_write(struct file *file, const char __user *ubuf,
 		usb_hcd_poll_rh_status(ihcd->hcd);
 	} else if (!strcmp(buf, "config_test")) {
 		ice40_spi_power_off(ihcd);
+		ice40_spi_clock_disable(ihcd);
 		ret = ice40_spi_load_fw(ihcd);
 		if (ret) {
 			pr_err("config load failed\n");
@@ -2022,7 +2079,7 @@ out:
 static int ice40_spi_probe(struct spi_device *spi)
 {
 	struct ice40_hcd *ihcd;
-	int ret;
+	int ret, i;
 
 	ihcd = devm_kzalloc(&spi->dev, sizeof(*ihcd), GFP_KERNEL);
 	if (!ihcd) {
@@ -2089,7 +2146,11 @@ static int ice40_spi_probe(struct spi_device *spi)
 		goto destroy_wq;
 	}
 
-	ret = ice40_spi_load_fw(ihcd);
+	for (i = 0; i < FIRMWARE_LOAD_RETRIES; i++) {
+		ret = ice40_spi_load_fw(ihcd);
+		if (!ret)
+			break;
+	}
 	if (ret) {
 		pr_err("fail to load fw %d\n", ret);
 		goto destroy_wq;
@@ -2099,7 +2160,7 @@ static int ice40_spi_probe(struct spi_device *spi)
 	if (!ihcd->hcd) {
 		pr_err("fail to alloc hcd\n");
 		ret = -ENOMEM;
-		goto power_off;
+		goto destroy_wq;
 	}
 	*((struct ice40_hcd **) ihcd->hcd->hcd_priv) = ihcd;
 
@@ -2138,8 +2199,6 @@ static int ice40_spi_probe(struct spi_device *spi)
 
 put_hcd:
 	usb_put_hcd(ihcd->hcd);
-power_off:
-	ice40_spi_power_off(ihcd);
 destroy_wq:
 	destroy_workqueue(ihcd->wq);
 destroy_mutex:
@@ -2162,6 +2221,7 @@ static int ice40_spi_remove(struct spi_device *spi)
 	usb_put_hcd(hcd);
 	destroy_workqueue(ihcd->wq);
 	ice40_spi_power_off(ihcd);
+	ice40_spi_clock_disable(ihcd);
 
 	s = pinctrl_lookup_state(ihcd->pinctrl, PINCTRL_STATE_SLEEP);
 	if (!IS_ERR(s))
