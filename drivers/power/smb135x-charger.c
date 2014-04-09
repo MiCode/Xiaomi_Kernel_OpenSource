@@ -2016,11 +2016,6 @@ static int src_detect_handler(struct smb135x_chg *chip, u8 rt_stat)
 
 	pr_debug("chip->usb_present = %d usb_present = %d\n",
 			chip->usb_present, usb_present);
-	if (chip->usb_present && !usb_present) {
-		/* USB removed */
-		chip->usb_present = usb_present;
-		handle_usb_removal(chip);
-	}
 
 	if (!chip->usb_present && usb_present) {
 		/* USB inserted */
