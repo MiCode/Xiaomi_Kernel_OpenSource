@@ -590,7 +590,7 @@ static long msm_vfe40_reset_hardware(struct vfe_device *vfe_dev)
 {
 	init_completion(&vfe_dev->reset_complete);
 	msm_camera_io_w_mb(0x1FF, vfe_dev->vfe_base + 0xC);
-	return wait_for_completion_interruptible_timeout(
+	return wait_for_completion_timeout(
 		&vfe_dev->reset_complete, msecs_to_jiffies(50));
 }
 
