@@ -30,7 +30,10 @@ Required properties
 - qcom,mdss-pipe-vig-clk-ctrl-off: Array of offsets describing clk control
 				offsets for dynamic clock gating. 1st value
 				in the array represents offset of the control
-				register. 2nd value represents bit offset within
+				register. The offsets are calculated from
+				"mdp_phys" + mdp-reg-offset that are defined
+				in reg property and mdss-mdp-reg-offset respectively.
+				2nd value represents bit offset within
 				control register and 3rd value represents bit
 				offset within status register. Number of tuples
 				defined should match the number of offsets
@@ -53,7 +56,10 @@ Required properties
 - qcom,mdss-pipe-rgb-clk-ctrl-off: Array of offsets describing clk control
 				offsets for dynamic clock gating. 1st value
 				in the array represents offset of the control
-				register. 2nd value represents bit offset within
+				register. The offsets are calculated from
+				"mdp_phys" + mdp-reg-offset that are defined
+				in reg property and mdss-mdp-reg-offset respectively.
+				2nd value represents bit offset within
 				control register and 3rd value represents bit
 				offset within status register. Number of tuples
 				defined should match the number of offsets
@@ -76,7 +82,10 @@ Required properties
 - qcom,mdss-pipe-dma-clk-ctrl-off: Array of offsets describing clk control
 				offsets for dynamic clock gating. 1st value
 				in the array represents offset of the control
-				register. 2nd value represents bit offset within
+				register. The offsets are calculated from
+				"mdp_phys" + mdp-reg-offset that are defined
+				in reg property and mdss-mdp-reg-offset respectively.
+				2nd value represents bit offset within
 				control register and 3rd value represents bit
 				offset within status register. Number of tuples
 				defined should match the number of offsets
