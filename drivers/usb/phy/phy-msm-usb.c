@@ -2571,6 +2571,11 @@ static void msm_otg_init_sm(struct msm_otg *motg)
 					set_bit(ID, &motg->inputs);
 				else
 					clear_bit(ID, &motg->inputs);
+			} else if (motg->ext_id_irq) {
+				if (gpio_get_value(pdata->usb_id_gpio))
+					set_bit(ID, &motg->inputs);
+				else
+					clear_bit(ID, &motg->inputs);
 			}
 			/*
 			 * VBUS initial state is reported after PMIC
@@ -3481,20 +3486,26 @@ static void msm_otg_set_vbus_state(int online)
 		queue_work(system_nrt_wq, &motg->sm_work);
 }
 
-static void msm_pmic_id_status_w(struct work_struct *w)
+static void msm_id_status_w(struct work_struct *w)
 {
 	struct msm_otg *motg = container_of(w, struct msm_otg,
-						pmic_id_status_work.work);
+						id_status_work.work);
 	int work = 0;
+	int id_state = 0;
 
-	if (msm_otg_read_pmic_id_state(motg)) {
+	if (motg->pdata->pmic_id_irq)
+		id_state = msm_otg_read_pmic_id_state(motg);
+	else if (motg->ext_id_irq)
+		id_state = gpio_get_value(motg->pdata->usb_id_gpio);
+
+	if (id_state) {
 		if (!test_and_set_bit(ID, &motg->inputs)) {
-			pr_debug("PMIC: ID set\n");
+			pr_debug("ID set\n");
 			work = 1;
 		}
 	} else {
 		if (test_and_clear_bit(ID, &motg->inputs)) {
-			pr_debug("PMIC: ID clear\n");
+			pr_debug("ID clear\n");
 			set_bit(A_BUS_REQ, &motg->inputs);
 			work = 1;
 		}
@@ -3509,8 +3520,8 @@ static void msm_pmic_id_status_w(struct work_struct *w)
 
 }
 
-#define MSM_PMIC_ID_STATUS_DELAY	5 /* 5msec */
-static irqreturn_t msm_pmic_id_irq(int irq, void *data)
+#define MSM_ID_STATUS_DELAY	5 /* 5msec */
+static irqreturn_t msm_id_irq(int irq, void *data)
 {
 	struct msm_otg *motg = data;
 
@@ -3522,8 +3533,8 @@ static irqreturn_t msm_pmic_id_irq(int irq, void *data)
 
 	if (!aca_id_turned_on)
 		/*schedule delayed work for 5msec for ID line state to settle*/
-		queue_delayed_work(system_nrt_wq, &motg->pmic_id_status_work,
-				msecs_to_jiffies(MSM_PMIC_ID_STATUS_DELAY));
+		queue_delayed_work(system_nrt_wq, &motg->id_status_work,
+				msecs_to_jiffies(MSM_ID_STATUS_DELAY));
 
 	return IRQ_HANDLED;
 }
@@ -4376,6 +4387,10 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 	if (pdata->pmic_id_irq < 0)
 		pdata->pmic_id_irq = 0;
 
+	pdata->usb_id_gpio = of_get_named_gpio(node, "qcom,usbid-gpio", 0);
+	if (pdata->usb_id_gpio < 0)
+		pr_debug("usb_id_gpio is not available\n");
+
 	pdata->l1_supported = of_property_read_bool(node,
 				"qcom,hsusb-l1-supported");
 	pdata->enable_ahb2ahb_bypass = of_property_read_bool(node,
@@ -4404,6 +4419,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 	struct usb_phy *phy;
 	struct msm_otg_platform_data *pdata;
 	void __iomem *tcsr;
+	int id_irq = 0;
 
 	dev_info(&pdev->dev, "msm_otg probe\n");
 
@@ -4714,7 +4730,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 	msm_otg_init_timer(motg);
 	INIT_WORK(&motg->sm_work, msm_otg_sm_work);
 	INIT_DELAYED_WORK(&motg->chg_work, msm_chg_detect_work);
-	INIT_DELAYED_WORK(&motg->pmic_id_status_work, msm_pmic_id_status_w);
+	INIT_DELAYED_WORK(&motg->id_status_work, msm_id_status_w);
 	INIT_DELAYED_WORK(&motg->suspend_work, msm_otg_suspend_work);
 	setup_timer(&motg->id_timer, msm_otg_id_timer_func,
 				(unsigned long) motg);
@@ -4770,19 +4786,36 @@ static int msm_otg_probe(struct platform_device *pdev)
 
 	if (motg->pdata->mode == USB_OTG &&
 		motg->pdata->otg_control == OTG_PMIC_CONTROL) {
-		if (motg->pdata->pmic_id_irq) {
-			ret = request_irq(motg->pdata->pmic_id_irq,
-						msm_pmic_id_irq,
-						IRQF_TRIGGER_RISING |
-						IRQF_TRIGGER_FALLING,
-						"msm_otg", motg);
+
+		if (gpio_is_valid(motg->pdata->usb_id_gpio)) {
+			/* usb_id_gpio request */
+			ret = gpio_request(motg->pdata->usb_id_gpio,
+							"USB_ID_GPIO");
+			if (ret < 0) {
+				dev_err(&pdev->dev, "gpio req failed for id\n");
+				motg->pdata->usb_id_gpio = 0;
+				goto remove_phy;
+			}
+			/* usb_id_gpio to irq */
+			id_irq = gpio_to_irq(motg->pdata->usb_id_gpio);
+			motg->ext_id_irq = id_irq;
+		} else if (motg->pdata->pmic_id_irq) {
+			id_irq = motg->pdata->pmic_id_irq;
+		}
+
+		if (id_irq) {
+			ret = request_irq(id_irq,
+					  msm_id_irq,
+					  IRQF_TRIGGER_RISING |
+					  IRQF_TRIGGER_FALLING,
+					  "msm_otg", motg);
 			if (ret) {
-				dev_err(&pdev->dev, "request irq failed for PMIC ID\n");
+				dev_err(&pdev->dev, "request irq failed for ID\n");
 				goto remove_phy;
 			}
 		} else {
 			ret = -ENODEV;
-			dev_err(&pdev->dev, "PMIC IRQ for ID notifications doesn't exist\n");
+			dev_err(&pdev->dev, "ID IRQ doesn't exist\n");
 			goto remove_phy;
 		}
 	}
@@ -4958,7 +4991,7 @@ static int msm_otg_remove(struct platform_device *pdev)
 	msm_otg_mhl_register_callback(motg, NULL);
 	msm_otg_debugfs_cleanup();
 	cancel_delayed_work_sync(&motg->chg_work);
-	cancel_delayed_work_sync(&motg->pmic_id_status_work);
+	cancel_delayed_work_sync(&motg->id_status_work);
 	cancel_delayed_work_sync(&motg->suspend_work);
 	cancel_work_sync(&motg->sm_work);
 
