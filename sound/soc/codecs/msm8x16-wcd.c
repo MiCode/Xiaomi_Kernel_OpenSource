@@ -2837,16 +2837,11 @@ static int modem_state_callback(struct notifier_block *nb, unsigned long value,
 {
 	bool timedout;
 	unsigned long timeout;
-	static bool booted_once;
 
 	if (value == SUBSYS_BEFORE_SHUTDOWN)
 		msm8x16_wcd_device_down(registered_codec);
 	else if (value == SUBSYS_AFTER_POWERUP) {
 
-		if (!booted_once) {
-			booted_once = true;
-			return NOTIFY_OK;
-		}
 		dev_dbg(registered_codec->dev,
 			"ADSP is about to power up. bring up codec\n");
 
