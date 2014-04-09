@@ -252,7 +252,6 @@ struct kgsl_device {
 	int open_count;
 
 	struct mutex mutex;
-	atomic64_t mutex_owner;
 	uint32_t state;
 	uint32_t requested_state;
 
@@ -742,24 +741,5 @@ static inline int kgsl_sysfs_store(const char *buf, unsigned int *ptr)
 		*ptr = val;
 
 	return 0;
-}
-
-static inline int kgsl_mutex_lock(struct mutex *mutex, atomic64_t *owner)
-{
-
-	if (atomic64_read(owner) != (long)current) {
-		mutex_lock(mutex);
-		atomic64_set(owner, (long)current);
-		/* Barrier to make sure owner is updated */
-		smp_wmb();
-		return 1;
-	}
-	return 0;
-}
-
-static inline void kgsl_mutex_unlock(struct mutex *mutex, atomic64_t *owner)
-{
-	atomic64_set(owner, 0);
-	mutex_unlock(mutex);
 }
 #endif  /* __KGSL_DEVICE_H */
