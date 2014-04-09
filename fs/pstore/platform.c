@@ -289,6 +289,17 @@ static void pstore_dump(struct kmsg_dumper *dumper,
 	unsigned long	flags_extra;
 	struct pstore_extra_dumper *extra_dumper;
 
+	/* Don't use pstore space for non-fatal events */
+	if (reason != KMSG_DUMP_PANIC && reason != KMSG_DUMP_EMERG)
+		return;
+
+	/*
+	 * Only dump the first instance of an event, ignore nested
+	 * crashes and similar.
+	 */
+	if (oopscount > 0)
+		return;
+
 	why = get_reason_str(reason);
 
 	if (pstore_cannot_block_path(reason)) {
