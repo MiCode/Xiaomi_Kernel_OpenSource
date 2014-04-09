@@ -309,6 +309,19 @@ int silabs_fm_power_cfg(int on)
 			return rc;
 		}
 	} else {
+		rc = fm_configure_gpios(on);
+		if (rc < 0) {
+			FMDERR("fm_power gpio config failed");
+			return rc;
+		}
+
+		/* If pinctrl is supported, select suspend state */
+		if (device_data->fm_pinctrl) {
+			rc = silabs_fm_pinctrl_select(false);
+			if (rc)
+				FMDERR("%s: error setting suspend pin state\n",
+								__func__);
+		}
 		/* Turn OFF sequence */
 		vreg = device_data->dreg;
 		if (!vreg)
@@ -364,19 +377,6 @@ int silabs_fm_power_cfg(int on)
 			}
 		}
 
-		rc = fm_configure_gpios(on);
-		if (rc < 0) {
-			pr_err("fm_power gpio config failed");
-			return rc;
-		}
-
-		/* If pinctrl is supported, select suspend state */
-		if (device_data->fm_pinctrl) {
-			rc = silabs_fm_pinctrl_select(false);
-			if (rc)
-				FMDERR("%s: error setting suspend pin state\n",
-					__func__);
-		}
 	}
 	return rc;
 }

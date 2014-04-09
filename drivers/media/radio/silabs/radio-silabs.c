@@ -78,6 +78,8 @@ struct silabs_fm_device {
 	/* work queue */
 	struct workqueue_struct *wqueue;
 	struct workqueue_struct *wqueue_scan;
+	struct workqueue_struct *wqueue_rds;
+	struct work_struct rds_worker;
 	struct delayed_work work;
 	struct delayed_work work_scan;
 	/* wait queue for blocking event read */
@@ -88,6 +90,19 @@ struct silabs_fm_device {
 	int tuned_freq_khz;
 	int dwell_time;
 	int search_on;
+	u16 pi; /* PI of tuned channel */
+	u8 pty; /* programe type of the tuned channel */
+	u16 block[NO_OF_RDS_BLKS];
+	u8 rt_display[MAX_RT_LEN];   /* RT that will be displayed */
+	u8 rt_tmp0[MAX_RT_LEN]; /* high probability RT */
+	u8 rt_tmp1[MAX_RT_LEN]; /* low probability RT */
+	u8 rt_cnt[MAX_RT_LEN];  /* high probability RT's hit count */
+	u8 rt_flag;          /* A/B flag of RT */
+	u8 valid_rt_flg;     /* validity of A/B flag */
+	u8 ps_display[MAX_PS_LEN];    /* PS that will be displayed */
+	u8 ps_tmp0[MAX_PS_LEN]; /* high probability PS */
+	u8 ps_tmp1[MAX_PS_LEN]; /* low probability PS */
+	u8 ps_cnt[MAX_PS_LEN];  /* high probability PS's hit count */
 };
 
 static struct silabs_fm_device *g_radio;
@@ -412,7 +427,321 @@ static int silabs_search(struct silabs_fm_device *radio, bool on)
 	return retval;
 }
 
-/* to enable, disable interrupts.*/
+void get_rds_status(struct silabs_fm_device *radio)
+{
+	int retval = 0;
+
+	mutex_lock(&radio->lock);
+	memset(radio->write_buf, 0, WRITE_REG_NUM);
+	radio->cmd = FM_RDS_STATUS_CMD;
+	radio->write_buf[0] = FM_RDS_STATUS_CMD;
+	radio->write_buf[1] |= FM_RDS_STATUS_IN_INTACK;
+
+	retval = send_cmd(radio, RDS_CMD_LEN);
+	if (retval < 0) {
+		FMDERR("In %s, Get RDS failed %d\n", __func__, retval);
+		mutex_unlock(&radio->lock);
+		return;
+	}
+
+	memset(radio->read_buf, 0, sizeof(radio->read_buf));
+
+	retval = silabs_fm_i2c_read(radio->read_buf, RDS_RSP_LEN);
+
+	if (retval < 0) {
+		FMDERR("In %s, failed to read the resp from soc %d\n",
+							__func__, retval);
+		mutex_unlock(&radio->lock);
+		return;
+	} else {
+		FMDBG("In %s, successfully read the response from soc\n",
+								__func__);
+	}
+	mutex_unlock(&radio->lock);
+
+	radio->block[0] = ((u16)radio->read_buf[MSB_OF_BLK_0] << 8) |
+					(u16)radio->read_buf[LSB_OF_BLK_0];
+	radio->block[1] = ((u16)radio->read_buf[MSB_OF_BLK_1] << 8) |
+					(u16)radio->read_buf[LSB_OF_BLK_1];
+	radio->block[2] = ((u16)radio->read_buf[MSB_OF_BLK_2] << 8) |
+					(u16)radio->read_buf[LSB_OF_BLK_2];
+	radio->block[3] = ((u16)radio->read_buf[MSB_OF_BLK_3] << 8) |
+					(u16)radio->read_buf[LSB_OF_BLK_3];
+}
+
+static void pi_handler(struct silabs_fm_device *radio, u16 current_pi)
+{
+	if (radio->pi != current_pi) {
+		FMDBG("PI code of radio->block[0] = %x\n", current_pi);
+		radio->pi = current_pi;
+	} else {
+		FMDBG(" Received same PI code\n");
+	}
+}
+
+static void pty_handler(struct silabs_fm_device *radio, u8 current_pty)
+{
+	if (radio->pty != current_pty) {
+		FMDBG("PTY code of radio->block[1] = %x\n", current_pty);
+		radio->pty = current_pty;
+	} else {
+		FMDBG("PTY repeated\n");
+	}
+}
+
+static void update_ps(struct silabs_fm_device *radio, u8 addr, u8 ps)
+{
+	u8 i;
+	u8 ps_txt_chg = 0;
+	u8 ps_cmplt = 1;
+	char *data;
+	struct kfifo *data_b;
+
+	if (radio->ps_tmp0[addr] == ps) {
+		if (radio->ps_cnt[addr] < PS_VALIDATE_LIMIT) {
+			radio->ps_cnt[addr]++;
+		} else {
+			radio->ps_cnt[addr] = PS_VALIDATE_LIMIT;
+			radio->ps_tmp1[addr] = ps;
+		}
+	} else if (radio->ps_tmp1[addr] == ps) {
+		if (radio->ps_cnt[addr] >= PS_VALIDATE_LIMIT) {
+			ps_txt_chg = 1;
+			radio->ps_cnt[addr] = PS_VALIDATE_LIMIT + 1;
+		} else {
+			radio->ps_cnt[addr] = PS_VALIDATE_LIMIT;
+		}
+		radio->ps_tmp1[addr] = radio->ps_tmp0[addr];
+		radio->ps_tmp0[addr] = ps;
+	} else if (!radio->ps_cnt[addr]) {
+		radio->ps_tmp0[addr] = ps;
+		radio->ps_cnt[addr] = 1;
+	} else {
+		radio->ps_tmp1[addr] = ps;
+	}
+
+	if (ps_txt_chg) {
+		for (i = 0; i < MAX_PS_LEN; i++) {
+			if (radio->ps_cnt[i] > 1)
+				radio->ps_cnt[i]--;
+		}
+	}
+
+	for (i = 0; i < MAX_PS_LEN; i++) {
+		if (radio->ps_cnt[i] < PS_VALIDATE_LIMIT) {
+			ps_cmplt = 0;
+			return;
+		}
+	}
+
+	if (ps_cmplt) {
+		for (i = 0; (i < MAX_PS_LEN) &&
+			(radio->ps_display[i] == radio->ps_tmp0[i]); i++)
+				;
+		if (i == MAX_PS_LEN) {
+			FMDBG("Same PS string repeated\n");
+			return;
+		}
+
+		for (i = 0; i < MAX_PS_LEN; i++)
+			radio->ps_display[i] = radio->ps_tmp0[i];
+
+		data = kmalloc(PS_EVT_DATA_LEN, GFP_ATOMIC);
+		if (data != NULL) {
+			data[0] = NO_OF_PS;
+			data[1] = radio->pty;
+			data[2] = (radio->pi >> 8) & 0xFF;
+			data[3] = (radio->pi & 0xFF);
+			data[4] = 0;
+			memcpy(data + OFFSET_OF_PS,
+					radio->ps_tmp0, MAX_PS_LEN);
+			data_b = &radio->data_buf[SILABS_FM_BUF_PS_RDS];
+			kfifo_in_locked(data_b, data, PS_EVT_DATA_LEN,
+					&radio->buf_lock[SILABS_FM_BUF_PS_RDS]);
+			FMDBG("Q the PS event\n");
+			silabs_fm_q_event(radio, SILABS_EVT_NEW_PS_RDS);
+			kfree(data);
+		} else {
+			FMDERR("Memory allocation failed for PTY\n");
+		}
+	}
+}
+
+static void display_rt(struct silabs_fm_device *radio)
+{
+	u8 len = 0, i = 0;
+	char *data;
+	struct kfifo *data_b;
+	u8 rt_cmplt = 1;
+
+	for (i = 0; i < MAX_RT_LEN; i++) {
+		if (radio->rt_cnt[i] < RT_VALIDATE_LIMIT) {
+			rt_cmplt = 0;
+			return;
+		}
+		if (radio->rt_tmp0[i] == END_OF_RT)
+			break;
+	}
+
+	if (rt_cmplt) {
+		while ((radio->rt_tmp0[len] != END_OF_RT) && (len < MAX_RT_LEN))
+			len++;
+
+		for (i = 0; (i < len) &&
+			(radio->rt_display[i] == radio->rt_tmp0[i]); i++)
+				;
+		if (i == len) {
+			FMDBG("Same RT string repeated\n");
+			return;
+		}
+		for (i = 0; i < len; i++)
+			radio->rt_display[i] = radio->rt_tmp0[i];
+		data = kmalloc(len + OFFSET_OF_RT, GFP_ATOMIC);
+		if (data != NULL) {
+			data[0] = len; /* len of RT */
+			data[1] = radio->pty;
+			data[2] = (radio->pi >> 8) & 0xFF;
+			data[3] = (radio->pi & 0xFF);
+			data[4] = radio->rt_flag;
+			memcpy(data + OFFSET_OF_RT, radio->rt_display, len);
+			data_b = &radio->data_buf[SILABS_FM_BUF_RT_RDS];
+			kfifo_in_locked(data_b, data, OFFSET_OF_RT + len,
+				&radio->buf_lock[SILABS_FM_BUF_RT_RDS]);
+			FMDBG("Q the RT event\n");
+			silabs_fm_q_event(radio, SILABS_EVT_NEW_RT_RDS);
+			kfree(data);
+		} else {
+			FMDERR("Memory allocation failed for PTY\n");
+		}
+	}
+}
+
+static void rt_handler(struct silabs_fm_device *radio, u8 ab_flg,
+					u8 cnt, u8 addr, u8 *rt)
+{
+	u8 i;
+	u8 rt_txt_chg = 0;
+
+	if (ab_flg != radio->rt_flag && radio->valid_rt_flg) {
+		for (i = 0; i < sizeof(radio->rt_cnt); i++) {
+			if (!radio->rt_tmp0[i]) {
+				radio->rt_tmp0[i] = ' ';
+				radio->rt_cnt[i]++;
+			}
+		}
+		memset(radio->rt_cnt, 0, sizeof(radio->rt_cnt));
+		memset(radio->rt_tmp0, 0, sizeof(radio->rt_tmp0));
+		memset(radio->rt_tmp1, 0, sizeof(radio->rt_tmp1));
+	}
+
+	radio->rt_flag = ab_flg;
+	radio->valid_rt_flg = 1;
+
+	for (i = 0; i < cnt; i++) {
+		if (radio->rt_tmp0[addr+i] == rt[i]) {
+			if (radio->rt_cnt[addr+i] < RT_VALIDATE_LIMIT) {
+				radio->rt_cnt[addr+i]++;
+			} else {
+				radio->rt_cnt[addr+i] = RT_VALIDATE_LIMIT;
+				radio->rt_tmp1[addr+i] = rt[i];
+			}
+		} else if (radio->rt_tmp1[addr+i] == rt[i]) {
+			if (radio->rt_cnt[addr+i] >= RT_VALIDATE_LIMIT) {
+				rt_txt_chg = 1;
+				radio->rt_cnt[addr+i] = RT_VALIDATE_LIMIT + 1;
+			} else {
+				radio->rt_cnt[addr+i] = RT_VALIDATE_LIMIT;
+			}
+			radio->rt_tmp1[addr+i] = radio->rt_tmp0[addr+i];
+			radio->rt_tmp0[addr+i] = rt[i];
+		} else if (!radio->rt_cnt[addr+i]) {
+			radio->rt_tmp0[addr+i] = rt[i];
+			radio->rt_cnt[addr+i] = 1;
+		} else {
+			radio->rt_tmp1[addr+i] = rt[i];
+		}
+	}
+
+	if (rt_txt_chg) {
+		for (i = 0; i < MAX_RT_LEN; i++) {
+			if (radio->rt_cnt[i] > 1)
+				radio->rt_cnt[i]--;
+		}
+	}
+	display_rt(radio);
+}
+
+/* When RDS interrupt is received, read and process RDS data. */
+void rds_handler(struct work_struct *worker)
+{
+	struct silabs_fm_device *radio;
+	u8  rt_blks[NO_OF_RDS_BLKS];
+	u8 grp_type;
+	u8 addr;
+	u8 ab_flg;
+
+	radio = container_of(worker, struct silabs_fm_device, rds_worker);
+
+	if (!radio) {
+		FMDERR("%s:radio is null\n", __func__);
+		return;
+	}
+
+	FMDBG("Entered rds_handler\n");
+
+	get_rds_status(radio);
+
+	pi_handler(radio, radio->block[0]);
+
+	grp_type = radio->block[1] >> OFFSET_OF_GRP_TYP;
+
+	FMDBG("grp_type = %d\n", grp_type);
+
+	if (grp_type & 0x01)
+		pi_handler(radio, radio->block[2]);
+
+	pty_handler(radio, (radio->block[1] >> OFFSET_OF_PTY) & 0x1f);
+
+	switch (grp_type) {
+	case RDS_TYPE_0A:
+		/*  fall through */
+	case RDS_TYPE_0B:
+		addr = (radio->block[1] & 0x3) * 2;
+		FMDBG("RDS is PS\n");
+		update_ps(radio, addr+0, radio->block[3] >> 8);
+		update_ps(radio, addr+1, radio->block[3] & 0xff);
+		break;
+	case RDS_TYPE_2A:
+		FMDBG("RDS is RT 2A group\n");
+		rt_blks[0] = (u8)(radio->block[2] >> 8);
+		rt_blks[1] = (u8)(radio->block[2] & 0xFF);
+		rt_blks[2] = (u8)(radio->block[3] >> 8);
+		rt_blks[3] = (u8)(radio->block[3] & 0xFF);
+		addr = (radio->block[1] & 0xf) * 4;
+		ab_flg = (radio->block[1] & 0x0010) >> 4;
+		rt_handler(radio, ab_flg, CNT_FOR_2A_GRP_RT, addr, rt_blks);
+		break;
+	case RDS_TYPE_2B:
+		FMDBG("RDS is RT 2B group\n");
+		rt_blks[0] = (u8)(radio->block[3] >> 8);
+		rt_blks[1] = (u8)(radio->block[3] & 0xFF);
+		rt_blks[2] = 0;
+		rt_blks[3] = 0;
+		addr = (radio->block[1] & 0xf) * 2;
+		ab_flg = (radio->block[1] & 0x0010) >> 4;
+		radio->rt_tmp0[MAX_LEN_2B_GRP_RT] = END_OF_RT;
+		radio->rt_tmp1[MAX_LEN_2B_GRP_RT] = END_OF_RT;
+		radio->rt_cnt[MAX_LEN_2B_GRP_RT] = RT_VALIDATE_LIMIT;
+		rt_handler(radio, ab_flg, CNT_FOR_2B_GRP_RT, addr, rt_blks);
+		break;
+	default:
+		FMDERR("Not handling the group type %d\n", grp_type);
+		break;
+	}
+	return;
+}
+
+/* to enable, disable interrupts. */
 static int configure_interrupts(struct silabs_fm_device *radio, u8 val)
 {
 	int retval = 0;
@@ -471,6 +800,20 @@ static int get_int_status(struct silabs_fm_device *radio)
 	mutex_unlock(&radio->lock);
 
 	return retval;
+}
+
+static void reset_rds(struct silabs_fm_device *radio)
+{
+	/* reset PS bufferes */
+	memset(radio->ps_display, 0, sizeof(radio->ps_display));
+	memset(radio->ps_tmp0, 0, sizeof(radio->ps_tmp0));
+	memset(radio->ps_cnt, 0, sizeof(radio->ps_cnt));
+
+	/* reset RT buffers */
+	memset(radio->rt_display, 0, sizeof(radio->rt_display));
+	memset(radio->rt_tmp0, 0, sizeof(radio->rt_tmp0));
+	memset(radio->rt_tmp1, 0, sizeof(radio->rt_tmp1));
+	memset(radio->rt_cnt, 0, sizeof(radio->rt_cnt));
 }
 
 static int initialize_recv(struct silabs_fm_device *radio)
@@ -534,6 +877,7 @@ static int enable(struct silabs_fm_device *radio)
 
 	/* initialize with default configuration */
 	retval = initialize_recv(radio);
+	reset_rds(radio); /* Clear the existing RDS data */
 	if (retval >= 0) {
 		if (radio->mode == FM_RECV_TURNING_ON) {
 			FMDBG("In %s, posting SILABS_EVT_RADIO_READY event\n",
@@ -770,7 +1114,11 @@ static void silabs_interrupts_handler(struct silabs_fm_device *radio)
 	FMDBG("%s: successfully read the resp from soc, status byte is %x\n",
 		  __func__, radio->read_buf[0]);
 
-
+	if (radio->read_buf[0] & RDS_INT_BIT_MASK) {
+		FMDERR("RDS interrupt received\n");
+		schedule_work(&radio->rds_worker);
+		return;
+	}
 	if (radio->read_buf[0] & STC_INT_BIT_MASK) {
 		FMDBG("%s: STC bit set for cmd %x\n", __func__, radio->cmd);
 		if (radio->seek_tune_status == TUNE_PENDING) {
@@ -778,7 +1126,6 @@ static void silabs_interrupts_handler(struct silabs_fm_device *radio)
 				__func__);
 			silabs_fm_q_event(radio, SILABS_EVT_TUNE_SUCC);
 			radio->seek_tune_status = NO_SEEK_TUNE_PENDING;
-
 		} else if (radio->seek_tune_status == SEEK_PENDING) {
 			FMDBG("%s: posting SILABS_EVT_SEEK_COMPLETE event\n",
 				__func__);
@@ -797,10 +1144,8 @@ static void silabs_interrupts_handler(struct silabs_fm_device *radio)
 			FMDBG("In %s, signalling scan thread\n", __func__);
 			complete(&radio->sync_req_done);
 		}
-
-		return;
+		reset_rds(radio); /* Clear the existing RDS data */
 	}
-
 	return;
 }
 
@@ -820,8 +1165,12 @@ static void silabs_fm_disable_irq(struct silabs_fm_device *radio)
 	irq = radio->irq;
 	disable_irq_wake(irq);
 	free_irq(irq, radio);
+	cancel_work_sync(&radio->rds_worker);
+	flush_workqueue(radio->wqueue_rds);
 	cancel_delayed_work_sync(&radio->work);
 	flush_workqueue(radio->wqueue);
+	cancel_delayed_work_sync(&radio->work_scan);
+	flush_workqueue(radio->wqueue_scan);
 }
 
 static irqreturn_t silabs_fm_isr(int irq, void *dev_id)
@@ -886,6 +1235,7 @@ static int silabs_fm_fops_open(struct file *file)
 
 	INIT_DELAYED_WORK(&radio->work, read_int_stat);
 	INIT_DELAYED_WORK(&radio->work_scan, silabs_scan);
+	INIT_WORK(&radio->rds_worker, rds_handler);
 
 	init_completion(&radio->sync_req_done);
 	if (!atomic_dec_and_test(&radio->users)) {
@@ -1240,6 +1590,14 @@ static int silabs_fm_vidioc_s_ctrl(struct file *file, void *priv,
 				goto end;
 			}
 		} else if (ctrl->value == FM_OFF) {
+			retval = configure_interrupts(radio,
+						DISABLE_ALL_INTERRUPTS);
+			if (retval < 0)
+				FMDERR("configure_interrupts failed %d\n",
+				retval);
+			flush_workqueue(radio->wqueue);
+			cancel_work_sync(&radio->rds_worker);
+			flush_workqueue(radio->wqueue_rds);
 			radio->mode = FM_TURNING_OFF;
 			retval = disable(radio);
 			if (retval < 0) {
@@ -1323,14 +1681,24 @@ static int silabs_fm_vidioc_s_ctrl(struct file *file, void *priv,
 		return retval;
 		break;
 	case V4L2_CID_PRIVATE_SILABS_RDSGROUP_MASK:
-		retval = set_property(radio, FM_RDS_INT_SOURCE_PROP, 0x07);
+		retval = set_property(radio, FM_RDS_INT_SOURCE_PROP, 0x01);
+		if (retval < 0) {
+			FMDERR("In %s, FM_RDS_INT_SOURCE_PROP failed %d\n",
+				__func__, retval);
+			goto end;
+		}
 		break;
 	case V4L2_CID_PRIVATE_SILABS_RDSD_BUF:
-		retval = set_property(radio, FM_RDS_INT_FIFO_COUNT_PROP, 0x01);
+		retval = set_property(radio, FM_RDS_INT_FIFO_COUNT_PROP, 0x10);
 		break;
 	case V4L2_CID_PRIVATE_SILABS_RDSGROUP_PROC:
 		/* Enabled all with uncorrectable */
 		retval = set_property(radio, FM_RDS_CONFIG_PROP, 0xFF01);
+		if (retval < 0) {
+			FMDERR("In %s, FM_RDS_CONFIG_PROP failed %d\n",
+				__func__, retval);
+			goto end;
+		}
 		break;
 	case V4L2_CID_PRIVATE_SILABS_LP_MODE:
 		FMDBG("In %s, V4L2_CID_PRIVATE_SILABS_LP_MODE, val is %d\n",
@@ -1727,6 +2095,7 @@ static int silabs_fm_probe(struct platform_device *pdev)
 	radio->dev = &pdev->dev;
 	radio->wqueue = NULL;
 	radio->wqueue_scan = NULL;
+	radio->wqueue_rds = NULL;
 
 	/* video device allocation */
 	radio->videodev = video_device_alloc();
@@ -1798,6 +2167,12 @@ static int silabs_fm_probe(struct platform_device *pdev)
 		retval = -ENOMEM;
 		goto err_wqueue_scan;
 	}
+	radio->wqueue_rds  = create_singlethread_workqueue("sifmradiords");
+
+	if (!radio->wqueue_rds) {
+		retval = -ENOMEM;
+		goto err_wqueue_rds;
+	}
 
 	/* register video device */
 	retval = video_register_device(radio->videodev,
@@ -1811,6 +2186,8 @@ static int silabs_fm_probe(struct platform_device *pdev)
 	return 0;
 
 err_all:
+	destroy_workqueue(radio->wqueue_rds);
+err_wqueue_rds:
 	destroy_workqueue(radio->wqueue_scan);
 err_wqueue_scan:
 	destroy_workqueue(radio->wqueue);
@@ -1837,6 +2214,7 @@ static int silabs_fm_remove(struct platform_device *pdev)
 	/* disable irq */
 	destroy_workqueue(radio->wqueue);
 	destroy_workqueue(radio->wqueue_scan);
+	destroy_workqueue(radio->wqueue_rds);
 
 	video_unregister_device(radio->videodev);
 
