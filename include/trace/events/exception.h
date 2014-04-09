@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,6 +61,27 @@ TRACE_EVENT(undef_instr,
 	),
 
 	TP_printk("pc:%p", __entry->prog_cnt)
+);
+
+TRACE_EVENT(unhandled_abort,
+
+	TP_PROTO(struct pt_regs *regs, unsigned long addr, unsigned int fsr),
+
+	TP_ARGS(regs, addr, fsr),
+
+	TP_STRUCT__entry(
+		__field(struct pt_regs *, regs)
+		__field(unsigned long, addr)
+		__field(unsigned int, fsr)
+	),
+
+	TP_fast_assign(
+		__entry->regs	= regs;
+		__entry->addr	= addr;
+		__entry->fsr	= fsr;
+	),
+
+	TP_printk("addr:%lu, fsr:%u", __entry->addr, __entry->fsr)
 );
 
 #endif
