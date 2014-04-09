@@ -66,6 +66,8 @@
 #define ACC_DATA_SD_CLR_BIT		BIT(1)
 #define ACC_CNT_SD_CLR_BIT		BIT(0)
 
+#define S3_OCV_TOL_CTL_REG		0x44
+
 #define EN_CTL_REG			0x46
 #define BMS_EN_BIT			BIT(7)
 
@@ -96,6 +98,8 @@
 #define QPNP_CHARGER_PRESENT		BIT(7)
 
 /* Constants */
+#define OCV_TOL_LSB_UV			300
+#define MAX_OCV_TOL_THRESHOLD		(OCV_TOL_LSB_UV * 0xFF)
 #define MAX_SAMPLE_COUNT		256
 #define MAX_SAMPLE_INTERVAL		2550
 #define BMS_READ_TIMEOUT		3000
@@ -150,6 +154,7 @@ struct bms_dt_cfg {
 	int				cfg_s1_fifo_length;
 	int				cfg_s2_fifo_length;
 	int				cfg_disable_bms;
+	int				cfg_s3_ocv_tol_uv;
 };
 
 struct qpnp_bms_chip {
@@ -1900,6 +1905,19 @@ static int bms_load_hw_defaults(struct qpnp_bms_chip *chip)
 	u8 val, interval[2], count[2];
 	int rc;
 
+	/* S3 OCV tolerence threshold */
+	if (chip->dt.cfg_s3_ocv_tol_uv >= 0 &&
+		chip->dt.cfg_s3_ocv_tol_uv <= MAX_OCV_TOL_THRESHOLD) {
+		val = chip->dt.cfg_s3_ocv_tol_uv / OCV_TOL_LSB_UV;
+		rc = qpnp_masked_write_base(chip,
+			chip->base + S3_OCV_TOL_CTL_REG, 0xFF, val);
+		if (rc) {
+			pr_err("Unable to write s3_ocv_tol_threshold rc=%d\n",
+									rc);
+			return rc;
+		}
+	}
+
 	/* S1 accumulator threshold */
 	if (chip->dt.cfg_s1_sample_count >= 1 &&
 		chip->dt.cfg_s1_sample_count <= MAX_SAMPLE_COUNT) {
@@ -2530,6 +2548,7 @@ static int parse_bms_dt_properties(struct qpnp_bms_chip *chip)
 	SPMI_PROP_READ_OPTIONAL(cfg_s2_sample_count, "s2-sample-count", rc);
 	SPMI_PROP_READ_OPTIONAL(cfg_s1_fifo_length, "s1-fifo-length", rc);
 	SPMI_PROP_READ_OPTIONAL(cfg_s2_fifo_length, "s2-fifo-length", rc);
+	SPMI_PROP_READ_OPTIONAL(cfg_s3_ocv_tol_uv, "s3-ocv-tolerence-uv", rc);
 
 	chip->dt.cfg_ignore_shutdown_soc = of_property_read_bool(
 			chip->spmi->dev.of_node, "qcom,ignore-shutdown-soc");
