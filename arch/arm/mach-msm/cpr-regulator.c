@@ -183,6 +183,9 @@ struct cpr_regulator {
 	int			vdd_mx_vmin;
 	int			vdd_mx_corner_map[CPR_FUSE_CORNER_MAX];
 
+	/* mem-acc regulator */
+	struct regulator	*mem_acc_vreg;
+
 	/* CPR parameters */
 	u64		cpr_fuse_bits;
 	bool		cpr_fuse_disable;
@@ -557,15 +560,15 @@ static int cpr_scale_voltage(struct cpr_regulator *cpr_vreg, int corner,
 			     int new_apc_volt, enum voltage_change_dir dir)
 {
 	int rc = 0, vdd_mx_vmin = 0;
+	int fuse_corner = cpr_vreg->corner_map[corner];
 
-	/* No MX scaling if no vdd_mx */
-	if (cpr_vreg->vdd_mx == NULL)
-		dir = NO_CHANGE;
-
-	if (dir != NO_CHANGE) {
-		/* Determine the vdd_mx voltage */
+	/* Determine the vdd_mx voltage */
+	if (dir != NO_CHANGE && cpr_vreg->vdd_mx != NULL)
 		vdd_mx_vmin = cpr_mx_get(cpr_vreg, corner, new_apc_volt);
-	}
+
+	if (cpr_vreg->mem_acc_vreg && dir == DOWN)
+		rc = regulator_set_voltage(cpr_vreg->mem_acc_vreg,
+					fuse_corner, fuse_corner);
 
 	if (vdd_mx_vmin && dir == UP) {
 		if (vdd_mx_vmin != cpr_vreg->vdd_mx_vmin)
@@ -574,6 +577,10 @@ static int cpr_scale_voltage(struct cpr_regulator *cpr_vreg, int corner,
 
 	if (!rc)
 		rc = cpr_apc_set(cpr_vreg, new_apc_volt);
+
+	if (!rc && cpr_vreg->mem_acc_vreg && dir == UP)
+		rc = regulator_set_voltage(cpr_vreg->mem_acc_vreg,
+					fuse_corner, fuse_corner);
 
 	if (!rc && vdd_mx_vmin && dir == DOWN) {
 		if (vdd_mx_vmin != cpr_vreg->vdd_mx_vmin)
@@ -2014,6 +2021,25 @@ static int __devinit cpr_voltage_plan_init(struct platform_device *pdev,
 	return 0;
 }
 
+static int cpr_mem_acc_init(struct platform_device *pdev,
+				struct cpr_regulator *cpr_vreg)
+{
+	int rc;
+
+	if (of_property_read_bool(pdev->dev.of_node, "mem-acc-supply")) {
+		cpr_vreg->mem_acc_vreg = devm_regulator_get(&pdev->dev,
+							"mem-acc");
+		if (IS_ERR_OR_NULL(cpr_vreg->mem_acc_vreg)) {
+			rc = PTR_RET(cpr_vreg->mem_acc_vreg);
+			if (rc != -EPROBE_DEFER)
+				pr_err("devm_regulator_get: mem-acc: rc=%d\n",
+				       rc);
+			return rc;
+		}
+	}
+	return 0;
+}
+
 static int __devinit cpr_regulator_probe(struct platform_device *pdev)
 {
 	struct cpr_regulator *cpr_vreg;
@@ -2042,6 +2068,12 @@ static int __devinit cpr_regulator_probe(struct platform_device *pdev)
 	if (!cpr_vreg) {
 		pr_err("Can't allocate cpr_regulator memory\n");
 		return -ENOMEM;
+	}
+
+	rc = cpr_mem_acc_init(pdev, cpr_vreg);
+	if (rc) {
+		pr_err("mem_acc intialization error rc=%d\n", rc);
+		return rc;
 	}
 
 	rc = cpr_efuse_init(pdev, cpr_vreg);
