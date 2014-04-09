@@ -73,6 +73,9 @@
 #include <dhd_pno.h>
 #endif
 
+#ifdef CONFIG_COMPAT
+#include <linux/compat.h>
+#endif
 #ifdef DHDTCPACK_SUPPRESS
 #include <dhd_ip.h>
 #endif /* DHDTCPACK_SUPPRESS */
@@ -2777,17 +2780,40 @@ dhd_ioctl_entry(struct net_device *net, struct ifreq *ifr, int cmd)
 
 	memset(&ioc, 0, sizeof(ioc));
 
-	/* Copy the ioc control structure part of ioctl request */
-	if (copy_from_user(&ioc, ifr->ifr_data, sizeof(wl_ioctl_t))) {
-		bcmerror = BCME_BADADDR;
-		goto done;
-	}
+#ifdef CONFIG_COMPAT
+	if (is_compat_task()) {
+		compat_wl_ioctl_t compat_ioc;
+		if (copy_from_user(&compat_ioc, ifr->ifr_data, sizeof(compat_wl_ioctl_t))) {
+			bcmerror = BCME_BADADDR;
+			goto done;
+		}
+		ioc.cmd = compat_ioc.cmd;
+		ioc.buf = compat_ptr(compat_ioc.buf);
+		ioc.len = compat_ioc.len;
+		ioc.set = compat_ioc.set;
+		ioc.used = compat_ioc.used;
+		ioc.needed = compat_ioc.needed;
+		/* To differentiate between wl and dhd read 4 more byes */
+		if ((copy_from_user(&ioc.driver, (char *)ifr->ifr_data + sizeof(compat_wl_ioctl_t),
+			sizeof(uint)) != 0)) {
+			bcmerror = BCME_BADADDR;
+			goto done;
+		}
+	} else
+#endif /* CONFIG_COMPAT */
+	{
+		/* Copy the ioc control structure part of ioctl request */
+		if (copy_from_user(&ioc, ifr->ifr_data, sizeof(wl_ioctl_t))) {
+			bcmerror = BCME_BADADDR;
+			goto done;
+		}
 
-	/* To differentiate between wl and dhd read 4 more byes */
-	if ((copy_from_user(&ioc.driver, (char *)ifr->ifr_data + sizeof(wl_ioctl_t),
-		sizeof(uint)) != 0)) {
-		bcmerror = BCME_BADADDR;
-		goto done;
+		/* To differentiate between wl and dhd read 4 more byes */
+		if ((copy_from_user(&ioc.driver, (char *)ifr->ifr_data + sizeof(wl_ioctl_t),
+			sizeof(uint)) != 0)) {
+			bcmerror = BCME_BADADDR;
+			goto done;
+		}
 	}
 
 	if (!capable(CAP_NET_ADMIN)) {
