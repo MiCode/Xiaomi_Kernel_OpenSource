@@ -101,8 +101,8 @@
 		st,axis-map-z = <2>;
 		st,g-range = <2>;
 		st,gpio-int1 = <&msm_gpio 115 0x2002>;
+		st,negate-x;
 		st,negate-y;
-		st,negate-z;
 	};
 };
 
