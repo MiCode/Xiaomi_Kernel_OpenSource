@@ -4146,10 +4146,9 @@ static int qseecom_resume(struct platform_device *pdev)
 
 	if (qseecom.cumulative_mode != INACTIVE) {
 		ret = msm_bus_scale_client_update_request(
-			qseecom.qsee_perf_client, qseecom.cumulative_mode);
+			qseecom.qsee_perf_client, mode);
 		if (ret)
-			pr_err("Fail to scale up bus to %d\n",
-				qseecom.cumulative_mode);
+			pr_err("Fail to scale up bus to %d\n", mode);
 	}
 
 	mutex_lock(&clk_access_lock);
