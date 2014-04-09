@@ -198,6 +198,7 @@ struct qpnp_bms_chip {
 	u8				shutdown_soc;
 	u16				last_ocv_raw;
 	u32				shutdown_ocv;
+	bool				suspend_data_valid;
 
 	struct bms_battery_data		*batt_data;
 	struct bms_dt_cfg		dt;
@@ -212,6 +213,7 @@ struct qpnp_bms_chip {
 	struct mutex			bms_data_mutex;
 	struct mutex			bms_device_mutex;
 	struct mutex			last_soc_mutex;
+	struct mutex			state_change_mutex;
 	struct class			*bms_class;
 	struct device			*bms_device;
 	struct cdev			bms_cdev;
@@ -619,16 +621,16 @@ static int get_fifo_length(struct qpnp_bms_chip *chip,
 	return 0;
 }
 
-static int update_fsm_state(struct qpnp_bms_chip *chip)
+static int get_fsm_state(struct qpnp_bms_chip *chip, u8 *state)
 {
-	u8 val = 0;
 	int rc;
 
 	/*
 	 * To read the STATUS1 register, write a value(any) to this register,
 	 * wait for 10ms and then read the register.
 	 */
-	rc = qpnp_write_wrapper(chip, &val, chip->base + STATUS1_REG, 1);
+	*state = 0;
+	rc = qpnp_write_wrapper(chip, state, chip->base + STATUS1_REG, 1);
 	if (rc) {
 		pr_err("Unable to write STATUS1_REG rc=%d\n", rc);
 		return rc;
@@ -636,16 +638,33 @@ static int update_fsm_state(struct qpnp_bms_chip *chip)
 	usleep_range(10000, 11000);
 
 	/* read the current FSM state */
-	rc = qpnp_read_wrapper(chip, &val, chip->base + STATUS1_REG, 1);
+	rc = qpnp_read_wrapper(chip, state, chip->base + STATUS1_REG, 1);
 	if (rc) {
 		pr_err("Unable to read STATUS1_REG rc=%d\n", rc);
 		return rc;
 	}
-	val = (val & FSM_STATE_MASK) >> FSM_STATE_SHIFT;
+	*state = (*state & FSM_STATE_MASK) >> FSM_STATE_SHIFT;
 
-	chip->current_fsm_state = val;
+	return rc;
+}
 
-	return 0;
+static int update_fsm_state(struct qpnp_bms_chip *chip)
+{
+	u8 state = 0;
+	int rc;
+
+	mutex_lock(&chip->state_change_mutex);
+	rc = get_fsm_state(chip, &state);
+	if (rc) {
+		pr_err("Unable to get fsm_state rc=%d\n", rc);
+		goto fail_fsm;
+	}
+
+	chip->current_fsm_state = state;
+
+fail_fsm:
+	mutex_unlock(&chip->state_change_mutex);
+	return rc;
 }
 
 static int lookup_soc_ocv(struct qpnp_bms_chip *chip, int ocv_uv, int batt_temp)
@@ -897,7 +916,9 @@ static void charging_began(struct qpnp_bms_chip *chip)
 
 	if (chip->dt.cfg_force_s2_in_charging) {
 		pr_debug("Forcing S2 state\n");
+		mutex_lock(&chip->state_change_mutex);
 		force_fsm_state(chip, S2_STATE);
+		mutex_unlock(&chip->state_change_mutex);
 	}
 }
 
@@ -917,7 +938,9 @@ static void charging_ended(struct qpnp_bms_chip *chip)
 
 	if (chip->dt.cfg_force_s2_in_charging) {
 		pr_debug("Unforcing S2 state, setting AUTO\n");
+		mutex_lock(&chip->state_change_mutex);
 		set_auto_fsm_state(chip);
+		mutex_unlock(&chip->state_change_mutex);
 	}
 
 	/*
@@ -1692,6 +1715,11 @@ static irqreturn_t bms_fifo_update_done_irq_handler(int irq, void *_chip)
 
 	mutex_lock(&chip->bms_data_mutex);
 
+	if (chip->suspend_data_valid) {
+		pr_debug("Suspend data not processed yet\n");
+		goto fail_fifo;
+	}
+
 	rc = calib_vadc(chip);
 	if (rc)
 		pr_err("Unable to calibrate vadc rc=%d\n", rc);
@@ -1745,6 +1773,11 @@ static irqreturn_t bms_fsm_state_change_irq_handler(int irq, void *_chip)
 	pr_debug("fsm_state_changed triggered\n");
 
 	mutex_lock(&chip->bms_data_mutex);
+
+	if (chip->suspend_data_valid) {
+		pr_debug("Suspend data not processed yet\n");
+		goto fail_state;
+	}
 
 	rc = calib_vadc(chip);
 	if (rc)
@@ -2718,6 +2751,7 @@ static int qpnp_vm_bms_probe(struct spmi_device *spmi)
 	mutex_init(&chip->bms_data_mutex);
 	mutex_init(&chip->bms_device_mutex);
 	mutex_init(&chip->last_soc_mutex);
+	mutex_init(&chip->state_change_mutex);
 	init_waitqueue_head(&chip->bms_wait_q);
 
 	/* read battery-id and select the battery profile */
@@ -2863,45 +2897,16 @@ static int qpnp_vm_bms_remove(struct spmi_device *spmi)
 	return 0;
 }
 
-static void process_suspended_data(struct qpnp_bms_chip *chip)
+static void process_suspend_data(struct qpnp_bms_chip *chip)
 {
-	int rc, batt_temp = 0;
-	int old_ocv = 0;
-	bool update_data = false;
-
-	rc = get_batt_therm(chip, &batt_temp);
-	if (rc < 0) {
-		pr_err("Unable to read batt temp, using default=%d\n",
-						BMS_DEFAULT_TEMP);
-		batt_temp = BMS_DEFAULT_TEMP;
-	}
+	int rc;
 
 	mutex_lock(&chip->bms_data_mutex);
-	/*
-	 * We can only get a h/w OCV update when the sleep_b
-	 * is low, which is possible only when APPS is suspended.
-	 * So check for an OCV update only in bms_resume
-	 */
-	old_ocv = chip->last_ocv_uv;
-	rc = read_and_update_ocv(chip, batt_temp, false);
-	if (rc)
-		pr_err("Unable to read/upadate OCV rc=%d\n", rc);
 
-	if (old_ocv != chip->last_ocv_uv) {
-		update_data = true;
-		chip->calculated_soc = lookup_soc_ocv(chip,
-				chip->last_ocv_uv, batt_temp);
-		pr_debug("New OCV in sleep - sleep_new_soc=%d\n",
-					chip->calculated_soc);
-		chip->last_soc_unbound = true;
-		chip->voltage_soc_uv = chip->last_ocv_uv;
-		pr_debug("update bms_psy\n");
-		power_supply_changed(&chip->bms_psy);
-	}
+	chip->suspend_data_valid = false;
 
 	memset(&chip->bms_data, 0, sizeof(chip->bms_data));
 
-	/* Check if there is data to be sent */
 	rc = read_and_populate_fifo_data(chip);
 	if (rc)
 		pr_err("Unable to read FIFO data rc=%d\n", rc);
@@ -2914,15 +2919,56 @@ static void process_suspended_data(struct qpnp_bms_chip *chip)
 	if (rc)
 		pr_err("Unable to clear FIFO/ACC data rc=%d\n", rc);
 
-	rc = update_fsm_state(chip);
+	if (chip->bms_data.num_fifo || chip->bms_data.acc_count) {
+		pr_debug("suspend data valid\n");
+		chip->suspend_data_valid = true;
+	}
+
+	mutex_unlock(&chip->bms_data_mutex);
+}
+
+static void process_resume_data(struct qpnp_bms_chip *chip)
+{
+	int rc, batt_temp = 0;
+	int old_ocv = 0;
+	bool ocv_updated = false;
+
+	rc = get_batt_therm(chip, &batt_temp);
+	if (rc < 0) {
+		pr_err("Unable to read batt temp, using default=%d\n",
+						BMS_DEFAULT_TEMP);
+		batt_temp = BMS_DEFAULT_TEMP;
+	}
+
+	mutex_lock(&chip->bms_data_mutex);
+	/*
+	 * We can get a h/w OCV update when the sleep_b
+	 * is low, which is possible when APPS is suspended.
+	 * So check for an OCV update only in bms_resume
+	 */
+	old_ocv = chip->last_ocv_uv;
+	rc = read_and_update_ocv(chip, batt_temp, false);
 	if (rc)
-		pr_err("Unable to read FSM state rc=%d\n", rc);
+		pr_err("Unable to read/upadate OCV rc=%d\n", rc);
 
-	if (chip->bms_data.num_fifo || chip->bms_data.acc_count)
-		update_data = true;
+	if (old_ocv != chip->last_ocv_uv) {
+		ocv_updated = true;
+		/* new OCV, clear suspended data */
+		chip->suspend_data_valid = false;
+		memset(&chip->bms_data, 0, sizeof(chip->bms_data));
+		chip->calculated_soc = lookup_soc_ocv(chip,
+				chip->last_ocv_uv, batt_temp);
+		pr_debug("OCV in sleep SOC=%d\n", chip->calculated_soc);
+		chip->last_soc_unbound = true;
+		chip->voltage_soc_uv = chip->last_ocv_uv;
+		pr_debug("update bms_psy\n");
+		power_supply_changed(&chip->bms_psy);
+	}
 
-	if (update_data) {
+	if (ocv_updated || chip->suspend_data_valid) {
 		/* there is data to be sent */
+		pr_debug("ocv_updated=%d suspend_data_valid=%d\n",
+				ocv_updated, chip->suspend_data_valid);
 		chip->bms_data.seq_num = chip->seq_num++;
 		dump_bms_data(__func__, chip);
 
@@ -2932,6 +2978,7 @@ static void process_suspended_data(struct qpnp_bms_chip *chip)
 			pm_stay_awake(chip->dev);
 
 	}
+	chip->suspend_data_valid = false;
 	mutex_unlock(&chip->bms_data_mutex);
 }
 
@@ -2944,7 +2991,11 @@ static int bms_suspend(struct device *dev)
 	if (!chip->charging_while_suspended) {
 		if (chip->dt.cfg_force_s3_on_suspend) {
 			pr_debug("Forcing S3 state\n");
+			mutex_lock(&chip->state_change_mutex);
 			force_fsm_state(chip, S3_STATE);
+			mutex_unlock(&chip->state_change_mutex);
+			/* Store accumulated data if any */
+			process_suspend_data(chip);
 		}
 	}
 
@@ -2955,24 +3006,32 @@ static int bms_suspend(struct device *dev)
 
 static int bms_resume(struct device *dev)
 {
+	u8 state = 0;
 	int rc, monitor_soc_delay = 0;
 	unsigned long tm_now_sec;
 	struct qpnp_bms_chip *chip = dev_get_drvdata(dev);
 
 	if (!chip->charging_while_suspended) {
 		if (chip->dt.cfg_force_s3_on_suspend) {
-			pr_debug("Unforcing S3 state, setting AUTO state\n");
-			set_auto_fsm_state(chip);
+			/*
+			 * Update the state only if it is in S3. There is
+			 * a possibility of being in S2 if we resumed on
+			 * a charger insertion
+			 */
+			mutex_lock(&chip->state_change_mutex);
+			get_fsm_state(chip, &state);
+			if (state == S3_STATE) {
+				pr_debug("Unforcing S3 state, setting AUTO state\n");
+				set_auto_fsm_state(chip);
+			}
+			mutex_unlock(&chip->state_change_mutex);
+			/*
+			 * if we were charging while suspended, we will
+			 * be woken up by the fifo done interrupt and no
+			 * additional processing is needed.
+			 */
+			process_resume_data(chip);
 		}
-		/*
-		 * if we were charging while suspended, we will
-		 * be woken up by the fifo done interrupt and no
-		 * additional processing is needed
-		 */
-		process_suspended_data(chip);
-
-		enable_bms_irq(&chip->fsm_state_change_irq);
-		enable_irq_wake(chip->fsm_state_change_irq.irq);
 	}
 
 	/* Start monitor_soc_work based on when it last executed */
