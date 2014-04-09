@@ -404,7 +404,7 @@ z180_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 	unsigned int numibs;
 	struct kgsl_ibdesc *ibdesc;
 
-	mutex_lock(&device->mutex);
+	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 
 	result = kgsl_active_count_get(device);
 	if (result)
@@ -518,7 +518,7 @@ error:
 
 	kgsl_active_count_put(device);
 error_active_count:
-	mutex_unlock(&device->mutex);
+	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 
 	return (int)result;
 }
@@ -866,9 +866,9 @@ static int z180_waittimestamp(struct kgsl_device *device,
 
 	status = kgsl_active_count_get(device);
 	if (!status) {
-		mutex_unlock(&device->mutex);
+		kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 		status = z180_wait(device, context, timestamp, msecs);
-		mutex_lock(&device->mutex);
+		kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 		kgsl_active_count_put(device);
 	}
 
