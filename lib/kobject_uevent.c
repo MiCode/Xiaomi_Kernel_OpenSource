@@ -24,6 +24,7 @@
 #include <linux/socket.h>
 #include <linux/skbuff.h>
 #include <linux/netlink.h>
+#include <linux/suspend.h>
 #include <net/sock.h>
 #include <net/net_namespace.h>
 
@@ -40,6 +41,21 @@ static LIST_HEAD(uevent_sock_list);
 
 /* This lock protects uevent_seqnum and uevent_sock_list */
 static DEFINE_MUTEX(uevent_sock_mutex);
+
+#ifdef CONFIG_PM_SLEEP
+struct uevent_buffered {
+	struct kobject *kobj;
+	struct kobj_uevent_env *env;
+	const char *action;
+	char *devpath;
+	char *subsys;
+	struct list_head buffer_list;
+};
+
+static DEFINE_MUTEX(uevent_buffer_mutex);
+static bool uevent_buffer;
+static LIST_HEAD(uevent_buffer_list);
+#endif
 
 /* the strings here must match the enum in include/linux/kobject.h */
 static const char *kobject_actions[] = {
@@ -124,6 +140,89 @@ static int kobj_usermode_filter(struct kobject *kobj)
 	return 0;
 }
 
+static int kobject_deliver_uevent(struct kobject *kobj,
+				  struct kobj_uevent_env *env,
+				  const char *action_string,
+				  const char *devpath,
+				  const char *subsystem)
+{
+	int retval, i;
+#ifdef CONFIG_NET
+	struct uevent_sock *ue_sk;
+#endif
+
+	mutex_lock(&uevent_sock_mutex);
+	/* we will send an event, so request a new sequence number */
+	retval = add_uevent_var(env, "SEQNUM=%llu",
+				 (unsigned long long) ++uevent_seqnum);
+	if (retval) {
+		mutex_unlock(&uevent_sock_mutex);
+		return -1;
+	}
+
+#if defined(CONFIG_NET)
+	/* send netlink message */
+	list_for_each_entry(ue_sk, &uevent_sock_list, list) {
+		struct sock *uevent_sock = ue_sk->sk;
+		struct sk_buff *skb;
+		size_t len;
+
+		if (!netlink_has_listeners(uevent_sock, 1))
+			continue;
+
+		/* allocate message with the maximum possible size */
+		len = strlen(action_string) + strlen(devpath) + 2;
+		skb = alloc_skb(len + env->buflen, GFP_KERNEL);
+		if (skb) {
+			char *scratch;
+
+			/* add header */
+			scratch = skb_put(skb, len);
+			sprintf(scratch, "%s@%s", action_string, devpath);
+
+			/* copy keys to our continuous event payload buffer */
+			for (i = 0; i < env->envp_idx; i++) {
+				len = strlen(env->envp[i]) + 1;
+				scratch = skb_put(skb, len);
+				strcpy(scratch, env->envp[i]);
+			}
+
+			NETLINK_CB(skb).dst_group = 1;
+			retval = netlink_broadcast_filtered(uevent_sock, skb,
+							    0, 1, GFP_KERNEL,
+							    kobj_bcast_filter,
+							    kobj);
+			/* ENOBUFS should be handled in userspace */
+			if (retval == -ENOBUFS || retval == -ESRCH)
+				retval = 0;
+		} else
+			retval = -ENOMEM;
+	}
+#endif
+	mutex_unlock(&uevent_sock_mutex);
+
+	/* call uevent_helper, usually only enabled during early boot */
+	if (uevent_helper[0] && !kobj_usermode_filter(kobj)) {
+		char *argv[3];
+
+		argv[0] = uevent_helper;
+		argv[1] = (char *) subsystem;
+		argv[2] = NULL;
+		retval = add_uevent_var(env, "HOME=/");
+		if (retval)
+			return -1;
+		retval = add_uevent_var(env,
+					"PATH=/sbin:/bin:/user/sbin:/usr/bin");
+		if (retval)
+			return -1;
+
+		retval = call_usermodehelper(argv[0], argv,
+					     env->envp, UMH_WAIT_EXEC);
+	}
+
+	return 0;
+}
+
 /**
  * kobject_uevent_env - send an uevent with environmental data
  *
@@ -146,9 +245,6 @@ int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
 	const struct kset_uevent_ops *uevent_ops;
 	int i = 0;
 	int retval = 0;
-#ifdef CONFIG_NET
-	struct uevent_sock *ue_sk;
-#endif
 
 	pr_debug("kobject: '%s' (%p): %s\n",
 		 kobject_name(kobj), kobj, __func__);
@@ -250,73 +346,48 @@ int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
 	else if (action == KOBJ_REMOVE)
 		kobj->state_remove_uevent_sent = 1;
 
-	mutex_lock(&uevent_sock_mutex);
-	/* we will send an event, so request a new sequence number */
-	retval = add_uevent_var(env, "SEQNUM=%llu", (unsigned long long)++uevent_seqnum);
-	if (retval) {
-		mutex_unlock(&uevent_sock_mutex);
-		goto exit;
-	}
+#ifdef CONFIG_PM_SLEEP
+	/*
+	 * Delivery of skb's to userspace processes waiting via
+	 * EPOLLWAKEUP will abort suspend.  Buffer events emitted when
+	 * there is no unfrozen userspace to receive them.
+	 */
+	mutex_lock(&uevent_buffer_mutex);
+	if (uevent_buffer) {
+		struct uevent_buffered *ub;
+		ub = kmalloc(sizeof(*ub), GFP_KERNEL);
+		if (!ub) {
+			mutex_unlock(&uevent_buffer_mutex);
+			goto exit;
+		}
 
-#if defined(CONFIG_NET)
-	/* send netlink message */
-	list_for_each_entry(ue_sk, &uevent_sock_list, list) {
-		struct sock *uevent_sock = ue_sk->sk;
-		struct sk_buff *skb;
-		size_t len;
+		ub->kobj = kobj;
+		ub->env = env;
+		ub->action = action_string;
+		ub->devpath = kstrdup(devpath, GFP_KERNEL);
+		ub->subsys = kstrdup(subsystem, GFP_KERNEL);
 
-		if (!netlink_has_listeners(uevent_sock, 1))
-			continue;
-
-		/* allocate message with the maximum possible size */
-		len = strlen(action_string) + strlen(devpath) + 2;
-		skb = alloc_skb(len + env->buflen, GFP_KERNEL);
-		if (skb) {
-			char *scratch;
-
-			/* add header */
-			scratch = skb_put(skb, len);
-			sprintf(scratch, "%s@%s", action_string, devpath);
-
-			/* copy keys to our continuous event payload buffer */
-			for (i = 0; i < env->envp_idx; i++) {
-				len = strlen(env->envp[i]) + 1;
-				scratch = skb_put(skb, len);
-				strcpy(scratch, env->envp[i]);
-			}
-
-			NETLINK_CB(skb).dst_group = 1;
-			retval = netlink_broadcast_filtered(uevent_sock, skb,
-							    0, 1, GFP_KERNEL,
-							    kobj_bcast_filter,
-							    kobj);
-			/* ENOBUFS should be handled in userspace */
-			if (retval == -ENOBUFS || retval == -ESRCH)
-				retval = 0;
-		} else
+		if (!ub->devpath || !ub->subsys) {
+			kfree(ub->devpath);
+			/* kfree(ub->action);  not free'd as action_string is on the stack */
+			kfree(ub->subsys);
+			kfree(ub);
 			retval = -ENOMEM;
+			mutex_unlock(&uevent_buffer_mutex);
+			goto exit;
+		}
+
+		kobject_get(kobj);
+		list_add(&ub->buffer_list, &uevent_buffer_list);
+		env = NULL;
 	}
+	mutex_unlock(&uevent_buffer_mutex);
 #endif
-	mutex_unlock(&uevent_sock_mutex);
 
-	/* call uevent_helper, usually only enabled during early boot */
-	if (uevent_helper[0] && !kobj_usermode_filter(kobj)) {
-		char *argv [3];
-
-		argv [0] = uevent_helper;
-		argv [1] = (char *)subsystem;
-		argv [2] = NULL;
-		retval = add_uevent_var(env, "HOME=/");
-		if (retval)
+	if (env)
+		if (kobject_deliver_uevent(kobj, env, action_string, devpath,
+					   subsystem))
 			goto exit;
-		retval = add_uevent_var(env,
-					"PATH=/sbin:/bin:/usr/sbin:/usr/bin");
-		if (retval)
-			goto exit;
-
-		retval = call_usermodehelper(argv[0], argv,
-					     env->envp, UMH_WAIT_EXEC);
-	}
 
 exit:
 	kfree(devpath);
@@ -421,6 +492,34 @@ found:
 	kfree(ue_sk);
 }
 
+#ifdef CONFIG_PM_SLEEP
+int uevent_buffer_pm_notify(struct notifier_block *nb,
+			    unsigned long action, void *data)
+{
+	mutex_lock(&uevent_buffer_mutex);
+	if (action == PM_SUSPEND_PREPARE) {
+		uevent_buffer = true;
+	} else if (action == PM_POST_SUSPEND) {
+		struct uevent_buffered *ub, *tmp;
+		list_for_each_entry_safe(ub, tmp, &uevent_buffer_list,
+					 buffer_list) {
+			kobject_deliver_uevent(ub->kobj, ub->env, ub->action,
+					       ub->devpath, ub->subsys);
+			list_del(&ub->buffer_list);
+			kobject_put(ub->kobj);
+			kfree(ub->env);
+			kfree(ub->devpath);
+			kfree(ub->subsys);
+			kfree(ub);
+		}
+
+		uevent_buffer = false;
+	}
+	mutex_unlock(&uevent_buffer_mutex);
+	return 0;
+}
+#endif
+
 static struct pernet_operations uevent_net_ops = {
 	.init	= uevent_net_init,
 	.exit	= uevent_net_exit,
@@ -428,6 +527,9 @@ static struct pernet_operations uevent_net_ops = {
 
 static int __init kobject_uevent_init(void)
 {
+#ifdef CONFIG_PM_SLEEP
+	pm_notifier(uevent_buffer_pm_notify, 0);
+#endif
 	return register_pernet_subsys(&uevent_net_ops);
 }
 
