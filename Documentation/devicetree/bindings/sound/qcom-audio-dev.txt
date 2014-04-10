@@ -1036,7 +1036,7 @@ Optional properties:
 - pinctrl-states: the names of the pinctrl states that used by the driver to
 	configure the TLMM pins. The allowed states are subset of the following
 	list: pmx-pri-mi2s-active, pmx-pri-quad-mi2s-active, pmx-quad-mi2s-active,
-	 pmx-pri-quad-mi2s-sleep.
+	 pmx-pri-quad-mi2s-sleep, pmx-quad-mi2s-sleep.
 - pinctrl-#: a list of pinctrl phandles for the different pinctrl states. Refer
 	to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt" for the
 	pinctrl handles definitions. Each pinctrl-# corresponds to the respective
