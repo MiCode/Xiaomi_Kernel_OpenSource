@@ -1723,10 +1723,15 @@ out:
 		}
 	case -EAGAIN:
 		/*
-		 * EAGAIN means the gpu is hung and we'll wait for the error
-		 * handler to reset everything when re-faulting in
+		 * EAGAIN can mean the gpu is hung and we'll have to wait for
+		 * the error handler to reset everything when re-faulting in
 		 * i915_mutex_lock_interruptible.
+		 *
+		 * It can also indicate various other nonfatal errors for which
+		 * the best response is to give other threads a chance to run,
+		 * and then retry the failing operation in its entirety.
 		 */
+		/*FALLTHRU*/
 	case 0:
 	case -ERESTARTSYS:
 	case -EINTR:
