@@ -21,11 +21,11 @@ Parent node required properties:
 - qcom,ibatsafe-ma:			Safety battery current setting
 
 Parent node optional properties:
-- qcom,vbatweak-mv:			Weak battery voltage threshold in mV,
+- qcom,vbatweak-uv:			Weak battery voltage threshold in uV,
 					above which fast charging can start.
 					The supported voltage range is from
-					2370mV to 3610mV with a step size of
-					40mV.
+					3000000uV to 3581250uV with a step
+					size of 18750000 uV.
 - qcom,charging-disabled:		Set this property to disable charging
 					by default.
 - qcom,use-default-batt-values:		Set this flag to force reporting of
@@ -135,7 +135,7 @@ Example:
 		qcom,vddsafe-mv = <4200>;
 		qcom,vinmin-mv = <4200>;
 		qcom,ibatsafe-ma = <1440>;
-		qcom,vbatweak-mv = <3200>;
+		qcom,vbatweak-uv = <3200>;
 		qcom,thermal-mitigation = <1500 700 600 325>;
 		qcom,cool-bat-decidegc = <100>;
 		qcom,warm-bat-decidegc = <450>;
