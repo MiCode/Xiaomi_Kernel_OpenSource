@@ -393,8 +393,13 @@ static int mma8x5x_delay2odr(u32 delay_ms)
 
 static int mma8x5x_device_set_odr(struct i2c_client *client, u32 delay_ms)
 {
+	struct mma8x5x_data *pdata = i2c_get_clientdata(client);
 	int result;
 	u8 val;
+
+	/* set ODR is only required for interrupt mode */
+	if (!pdata->use_int)
+		return 0;
 
 	result = mma8x5x_delay2odr(delay_ms);
 	if (result < 0)
