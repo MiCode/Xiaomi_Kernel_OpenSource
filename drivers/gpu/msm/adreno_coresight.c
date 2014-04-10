@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -117,12 +117,12 @@ static ssize_t coresight_read_reg(struct kgsl_device *device,
 {
 	unsigned int regval = 0;
 
-	mutex_lock(&device->mutex);
+	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 	if (!kgsl_active_count_get(device)) {
 		kgsl_regread(device, offset, &regval);
 		kgsl_active_count_put(device);
 	}
-	mutex_unlock(&device->mutex);
+	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 	return snprintf(buf, PAGE_SIZE, "0x%X", regval);
 }
 
