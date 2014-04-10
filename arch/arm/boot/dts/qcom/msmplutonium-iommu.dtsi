@@ -330,6 +330,18 @@
 				0x0
 				0x8
 				0x10>;
+
+	qcom,iommu-ctx@fdb18000 {
+		qcom,iommu-ctx-sids = <0 1>;
+	};
+
+	qcom,iommu-ctx@fdb19000 {
+		qcom,iommu-ctx-sids = <2>;
+	};
+
+	qcom,iommu-ctx@fdb1a000 {
+		qcom,iommu-ctx-sids = <>;
+	};
 };
 
 &vfe_iommu {
