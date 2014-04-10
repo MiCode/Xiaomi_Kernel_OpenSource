@@ -315,6 +315,9 @@ int ecm_ipa_init(struct ecm_ipa_params *params)
 	netif_carrier_off(net);
 	ECM_IPA_DEBUG("set carrier off\n");
 
+	netif_stop_queue(ecm_ipa_ctx->net);
+	ECM_IPA_DEBUG("netif_stop_queue() was called");
+
 	result = register_netdev(net);
 	if (result) {
 		ECM_IPA_ERROR("register_netdev failed: %d\n", result);
