@@ -781,17 +781,27 @@
 	mas_pnoc_sdcc_1: mas-pnoc-sdcc-1 {
 		cell-id = <78>;
 		label = "mas-pnoc-sdcc-1";
+		qcom,qport = <7>;
+		qcom,ap-owned;
 		qcom,connections = <&pnoc_int_1>;
 		qcom,bus-dev = <&fab_pnoc>;
 		qcom,buswidth = <8>;
+		qcom,qos-mode = "fixed";
+		qcom,prio1 = <1>;
+		qcom,prio0 = <1>;
 	};
 
 	mas_pnoc_sdcc_2: mas-pnoc-sdcc-2 {
 		cell-id = <81>;
 		label = "mas-pnoc-sdcc-2";
+		qcom,qport = <8>;
+		qcom,ap-owned;
 		qcom,connections = <&pnoc_int_1>;
 		qcom,bus-dev = <&fab_pnoc>;
 		qcom,buswidth = <8>;
+		qcom,qos-mode = "fixed";
+		qcom,prio1 = <1>;
+		qcom,prio0 = <1>;
 	};
 
 	pnoc_snoc_mas: pnoc-snoc-mas {
