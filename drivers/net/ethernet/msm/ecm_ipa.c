@@ -29,6 +29,8 @@
 #define DEFAULT_OUTSTANDING_HIGH 64
 #define DEFAULT_OUTSTANDING_LOW 32
 #define DEBUGFS_TEMP_BUF_SIZE 4
+#define TX_TIMEOUT (5 * HZ)
+
 
 #define ECM_IPA_DEBUG(fmt, args...) \
 	pr_debug("ctx:%s: "\
@@ -145,6 +147,7 @@ static void ecm_ipa_packet_receive_notify(void *priv,
 		enum ipa_dp_evt_type evt, unsigned long data);
 static void ecm_ipa_tx_complete_notify(void *priv,
 		enum ipa_dp_evt_type evt, unsigned long data);
+static void ecm_ipa_tx_timeout(struct net_device *net);
 static int ecm_ipa_stop(struct net_device *net);
 static void ecm_ipa_enable_data_path(struct ecm_ipa_dev *ecm_ipa_ctx);
 static int ecm_ipa_rules_cfg(struct ecm_ipa_dev *ecm_ipa_ctx,
@@ -154,6 +157,7 @@ static int ecm_ipa_register_properties(void);
 static void ecm_ipa_deregister_properties(void);
 static void ecm_ipa_rm_notify(void *user_data, enum ipa_rm_event event,
 		unsigned long data);
+static struct net_device_stats *ecm_ipa_get_stats(struct net_device *net);
 static int ecm_ipa_create_rm_resource(struct ecm_ipa_dev *ecm_ipa_ctx);
 static void ecm_ipa_destory_rm_resource(struct ecm_ipa_dev *ecm_ipa_ctx);
 static bool rx_filter(struct sk_buff *skb);
@@ -190,6 +194,8 @@ static const struct net_device_ops ecm_ipa_netdev_ops = {
 	.ndo_stop		= ecm_ipa_stop,
 	.ndo_start_xmit = ecm_ipa_start_xmit,
 	.ndo_set_mac_address = eth_mac_addr,
+	.ndo_tx_timeout = ecm_ipa_tx_timeout,
+	.ndo_get_stats = ecm_ipa_get_stats,
 };
 
 const struct file_operations ecm_ipa_debugfs_dma_ops = {
@@ -271,6 +277,7 @@ int ecm_ipa_init(struct ecm_ipa_params *params)
 	atomic_set(&ecm_ipa_ctx->outstanding_pkts, 0);
 	snprintf(net->name, sizeof(net->name), "%s%%d", "ecm");
 	net->netdev_ops = &ecm_ipa_netdev_ops;
+	net->watchdog_timeo = TX_TIMEOUT;
 	ECM_IPA_DEBUG("internal data structures were intialized\n");
 
 	if (!params->device_ready_notify)
@@ -522,6 +529,8 @@ static netdev_tx_t ecm_ipa_start_xmit(struct sk_buff *skb,
 	netdev_tx_t status = NETDEV_TX_BUSY;
 	struct ecm_ipa_dev *ecm_ipa_ctx = netdev_priv(net);
 
+	net->trans_start = jiffies;
+
 	ECM_IPA_DEBUG("packet Tx, len=%d, skb->protocol=%d\n",
 		skb->len, skb->protocol);
 
@@ -564,8 +573,7 @@ static netdev_tx_t ecm_ipa_start_xmit(struct sk_buff *skb,
 	}
 
 	atomic_inc(&ecm_ipa_ctx->outstanding_pkts);
-	net->stats.tx_packets++;
-	net->stats.tx_bytes += skb->len;
+
 	status = NETDEV_TX_OK;
 	goto out;
 
@@ -998,6 +1006,12 @@ static void ecm_ipa_rm_notify(void *user_data, enum ipa_rm_event event,
 	ECM_IPA_LOG_EXIT();
 }
 
+static struct net_device_stats *ecm_ipa_get_stats(struct net_device *net)
+{
+	return &net->stats;
+}
+
+
 static int ecm_ipa_create_rm_resource(struct ecm_ipa_dev *ecm_ipa_ctx)
 {
 	struct ipa_rm_create_params create_params = {0};
@@ -1144,6 +1158,9 @@ static void ecm_ipa_tx_complete_notify(void *priv,
 		goto out;
 	}
 
+	ecm_ipa_ctx->net->stats.tx_packets++;
+	ecm_ipa_ctx->net->stats.tx_bytes += skb->len;
+
 	atomic_dec(&ecm_ipa_ctx->outstanding_pkts);
 	if (netif_queue_stopped(ecm_ipa_ctx->net) &&
 		atomic_read(&ecm_ipa_ctx->outstanding_pkts) <
@@ -1157,6 +1174,18 @@ out:
 	dev_kfree_skb_any(skb);
 	return;
 }
+
+static void ecm_ipa_tx_timeout(struct net_device *net)
+{
+	struct ecm_ipa_dev *ecm_ipa_ctx = netdev_priv(net);
+
+	ECM_IPA_ERROR("possible IPA stall was detected, %d outstanding",
+		atomic_read(&ecm_ipa_ctx->outstanding_pkts));
+
+	net->stats.tx_errors++;
+	ipa_bam_reg_dump();
+}
+
 
 static int ecm_ipa_debugfs_atomic_open(struct inode *inode, struct file *file)
 {
