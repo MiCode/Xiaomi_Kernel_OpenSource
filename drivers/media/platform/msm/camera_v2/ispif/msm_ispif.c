@@ -194,7 +194,7 @@ int msm_ispif_get_ahb_clk_info(struct ispif_device *ispif_dev,
 	}
 	for (i = 0; i < count; i++) {
 		ispif_8974_ahb_clk_info[i].clk_rate =
-			 (rates[i] == 0) ? -1 : rates[i];
+			 (rates[i] == 0) ? (long)-1 : rates[i];
 		CDBG("clk_rate[%d] = %ld\n", i,
 			 ispif_8974_ahb_clk_info[i].clk_rate);
 	}
