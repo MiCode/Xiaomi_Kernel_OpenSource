@@ -2568,10 +2568,11 @@ int mdss_mdp_display_wait4comp(struct mdss_mdp_ctl *ctl)
 	if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_103)) {
 		reg_data = mdss_mdp_ctl_read(ctl, MDSS_MDP_REG_CTL_FLUSH);
 		flush_data = readl_relaxed(mdata->mdp_base + AHB_CLK_OFFSET);
-		if ((reg_data != ctl->flush_reg_data) &&
-						 (flush_data & BIT(28))) {
+		if ((flush_data & BIT(28)) &&
+		    !(ctl->flush_reg_data & reg_data)) {
+
 			flush_data &= ~(BIT(28));
-			writel_relaxed(reg_data,
+			writel_relaxed(flush_data,
 					 mdata->mdp_base + AHB_CLK_OFFSET);
 			ctl->flush_reg_data = 0;
 		}
