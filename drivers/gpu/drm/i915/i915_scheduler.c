@@ -98,6 +98,8 @@ int i915_scheduler_queue_execbuffer(struct i915_scheduler_queue_entry *qe)
 
 		qe->scheduler_index = scheduler->index++;
 
+		trace_i915_scheduler_queue(qe->params.ring, qe);
+
 		scheduler->flags[qe->params.ring->id] |= i915_sf_submitting;
 		ret = dev_priv->gt.do_execfinal(&qe->params);
 		scheduler->flags[qe->params.ring->id] &= ~i915_sf_submitting;
@@ -237,6 +239,9 @@ int i915_scheduler_queue_execbuffer(struct i915_scheduler_queue_entry *qe)
 		not_flying = i915_scheduler_count_flying(scheduler, ring) <
 							 scheduler->min_flying;
 
+	trace_i915_scheduler_queue(ring, node);
+	trace_i915_scheduler_node_state_change(ring, node);
+
 	spin_unlock_irqrestore(&scheduler->lock, flags);
 
 	if (not_flying)
@@ -263,6 +268,9 @@ int i915_scheduler_fly_node(struct i915_scheduler_queue_entry *node)
 	list_add(&node->link, &scheduler->node_queue[ring->id]);
 
 	node->status = i915_sqs_flying;
+
+	trace_i915_scheduler_fly(ring, node);
+	trace_i915_scheduler_node_state_change(ring, node);
 
 	if (!(scheduler->flags[ring->id] & i915_sf_interrupts_enabled)) {
 		bool    success = true;
@@ -328,6 +336,8 @@ static void i915_scheduler_node_requeue(struct i915_scheduler_queue_entry *node)
 	BUG_ON(!I915_SQS_IS_FLYING(node));
 
 	node->status = i915_sqs_queued;
+	trace_i915_scheduler_unfly(node->params.ring, node);
+	trace_i915_scheduler_node_state_change(node->params.ring, node);
 }
 
 /* Give up on a popped node completely. For example, because it is causing the
@@ -338,6 +348,8 @@ static void i915_scheduler_node_kill(struct i915_scheduler_queue_entry *node)
 	BUG_ON(!I915_SQS_IS_FLYING(node));
 
 	node->status = i915_sqs_dead;
+	trace_i915_scheduler_unfly(node->params.ring, node);
+	trace_i915_scheduler_node_state_change(node->params.ring, node);
 }
 
 /* Abandon a queued node completely. For example because the driver is being
@@ -349,6 +361,7 @@ static void i915_scheduler_node_kill_queued(struct i915_scheduler_queue_entry *n
 	BUG_ON(!I915_SQS_IS_QUEUED(node));
 
 	node->status = i915_sqs_dead;
+	trace_i915_scheduler_node_state_change(node->params.ring, node);
 }
 
 /* The system is toast. Terminate all nodes with extreme prejudice. */
@@ -411,12 +424,16 @@ static void i915_scheduler_seqno_complete(struct intel_engine_cs *ring, uint32_t
 	 * if a completed entry is found then there is no need to scan further.
 	 */
 	list_for_each_entry(node, &scheduler->node_queue[ring->id], link) {
-		if (I915_SQS_IS_COMPLETE(node))
+		if (I915_SQS_IS_COMPLETE(node)) {
+			trace_i915_scheduler_landing(ring, seqno, node);
 			return;
+		}
 
 		if (seqno == node->params.request->seqno)
 			break;
 	}
+
+	trace_i915_scheduler_landing(ring, seqno, node);
 
 	/*
 	 * NB: Lots of extra seqnos get added to the ring to track things
@@ -439,6 +456,7 @@ static void i915_scheduler_seqno_complete(struct intel_engine_cs *ring, uint32_t
 
 		/* Node was in flight so mark it as complete. */
 		node->status = i915_sqs_complete;
+		trace_i915_scheduler_node_state_change(ring, node);
 		got_changes = true;
 	}
 
@@ -460,6 +478,8 @@ int i915_scheduler_handle_irq(struct intel_engine_cs *ring)
 	uint32_t            seqno;
 
 	seqno = ring->get_seqno(ring, false);
+
+	trace_i915_scheduler_irq(ring, seqno);
 
 	if (i915.scheduler_override & i915_so_direct_submit)
 		return 0;
@@ -573,6 +593,8 @@ static int i915_scheduler_remove(struct intel_engine_cs *ring)
 	/* Launch more packets now? */
 	do_submit = (queued > 0) && (flying < scheduler->min_flying);
 
+	trace_i915_scheduler_remove(ring, min_seqno, do_submit);
+
 	spin_unlock_irqrestore(&scheduler->lock, flags);
 
 	if (do_submit)
@@ -581,6 +603,8 @@ static int i915_scheduler_remove(struct intel_engine_cs *ring)
 	while (!list_empty(&remove)) {
 		node = list_first_entry(&remove, typeof(*node), link);
 		list_del(&node->link);
+
+		trace_i915_scheduler_destroy(ring, node);
 
 #ifdef CONFIG_SYNC
 		if (node->params.fence_wait)
@@ -957,6 +981,8 @@ static int i915_scheduler_pop_from_queue_locked(struct intel_engine_cs *ring,
 		INIT_LIST_HEAD(&best->link);
 		best->status  = i915_sqs_popped;
 
+		trace_i915_scheduler_node_state_change(ring, best);
+
 		ret = 0;
 	} else {
 		/* Can only get here if:
@@ -1013,6 +1039,8 @@ static int i915_scheduler_pop_from_queue_locked(struct intel_engine_cs *ring,
 		BUG_ON(true);
 #endif
 	}
+
+	trace_i915_scheduler_pop_from_queue(ring, best);
 
 	*pop_node = best;
 	return ret;

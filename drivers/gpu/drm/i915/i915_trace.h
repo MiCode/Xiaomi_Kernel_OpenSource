@@ -9,6 +9,7 @@
 #include "i915_drv.h"
 #include "intel_drv.h"
 #include "intel_ringbuffer.h"
+#include "i915_scheduler.h"
 
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM i915
@@ -602,6 +603,199 @@ TRACE_EVENT(intel_gpu_freq_change,
 			   ),
 
 	    TP_printk("new_freq=%u", __entry->freq)
+);
+
+TRACE_EVENT(i915_scheduler_queue,
+	    TP_PROTO(struct intel_engine_cs *ring,
+		     struct i915_scheduler_queue_entry *node),
+	    TP_ARGS(ring, node),
+
+	    TP_STRUCT__entry(
+			     __field(u32, ring)
+			     __field(u32, seqno)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->ring      = ring->id;
+			   __entry->seqno     = node ? node->params.request->seqno : 0;
+			   ),
+
+	    TP_printk("ring=%d, seqno=%d",
+		      __entry->ring, __entry->seqno)
+);
+
+TRACE_EVENT(i915_scheduler_fly,
+	    TP_PROTO(struct intel_engine_cs *ring,
+		     struct i915_scheduler_queue_entry *node),
+	    TP_ARGS(ring, node),
+
+	    TP_STRUCT__entry(
+			     __field(u32, ring)
+			     __field(u32, seqno)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->ring      = ring->id;
+			   __entry->seqno     = node ? node->params.request->seqno : 0;
+			   ),
+
+	    TP_printk("ring=%d, seqno=%d",
+		      __entry->ring, __entry->seqno)
+);
+
+TRACE_EVENT(i915_scheduler_unfly,
+	    TP_PROTO(struct intel_engine_cs *ring,
+		     struct i915_scheduler_queue_entry *node),
+	    TP_ARGS(ring, node),
+
+	    TP_STRUCT__entry(
+			     __field(u32, ring)
+			     __field(u32, seqno)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->ring      = ring->id;
+			   __entry->seqno     = node ? node->params.request->seqno : 0;
+			   ),
+
+	    TP_printk("ring=%d, seqno=%d",
+		      __entry->ring, __entry->seqno)
+);
+
+TRACE_EVENT(i915_scheduler_landing,
+	    TP_PROTO(struct intel_engine_cs *ring, u32 seqno,
+		     struct i915_scheduler_queue_entry *node),
+	    TP_ARGS(ring, seqno, node),
+
+	    TP_STRUCT__entry(
+			     __field(u32, ring)
+			     __field(u32, seqno)
+			     __field(u32, status)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->ring   = ring->id;
+			   __entry->seqno  = seqno;
+			   __entry->status = node ? node->status : ~0U;
+			   ),
+
+	    TP_printk("ring=%d, seqno=%d, status=%d",
+		      __entry->ring, __entry->seqno, __entry->status)
+);
+
+TRACE_EVENT(i915_scheduler_remove,
+	    TP_PROTO(struct intel_engine_cs *ring,
+		     u32 min_seqno, bool do_submit),
+	    TP_ARGS(ring, min_seqno, do_submit),
+
+	    TP_STRUCT__entry(
+			     __field(u32, ring)
+			     __field(u32, min_seqno)
+			     __field(bool, do_submit)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->ring      = ring->id;
+			   __entry->min_seqno = min_seqno;
+			   __entry->do_submit = do_submit;
+			   ),
+
+	    TP_printk("ring=%d, min_seqno = %d, do_submit=%d",
+		      __entry->ring, __entry->min_seqno, __entry->do_submit)
+);
+
+TRACE_EVENT(i915_scheduler_destroy,
+	    TP_PROTO(struct intel_engine_cs *ring,
+		     struct i915_scheduler_queue_entry *node),
+	    TP_ARGS(ring, node),
+
+	    TP_STRUCT__entry(
+			     __field(u32, ring)
+			     __field(u32, seqno)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->ring      = ring->id;
+			   __entry->seqno     = node ? node->params.request->seqno : 0;
+			   ),
+
+	    TP_printk("ring=%d, seqno=%d",
+		      __entry->ring, __entry->seqno)
+);
+
+TRACE_EVENT(i915_scheduler_pop_from_queue,
+	    TP_PROTO(struct intel_engine_cs *ring,
+		     struct i915_scheduler_queue_entry *node),
+	    TP_ARGS(ring, node),
+
+	    TP_STRUCT__entry(
+			     __field(u32, ring)
+			     __field(u32, seqno)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->ring   = ring->id;
+			   __entry->seqno  = node ? node->params.request->seqno : 0;
+			   ),
+
+	    TP_printk("ring=%d, seqno=%d",
+		      __entry->ring, __entry->seqno)
+);
+
+TRACE_EVENT(i915_scheduler_node_state_change,
+	    TP_PROTO(struct intel_engine_cs *ring,
+		     struct i915_scheduler_queue_entry *node),
+	    TP_ARGS(ring, node),
+
+	    TP_STRUCT__entry(
+			     __field(u32, ring)
+			     __field(u32, seqno)
+			     __field(u32, status)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->ring   = ring->id;
+			   __entry->seqno  = node->params.request->seqno;
+			   __entry->status = node->status;
+			   ),
+
+	    TP_printk("ring=%d, seqno=%d, status=%d",
+		      __entry->ring, __entry->seqno, __entry->status)
+);
+
+TRACE_EVENT(i915_scheduler_irq,
+	    TP_PROTO(struct intel_engine_cs *ring, uint32_t seqno),
+	    TP_ARGS(ring, seqno),
+
+	    TP_STRUCT__entry(
+			     __field(u32, ring)
+			     __field(u32, seqno)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->ring   = ring->id;
+			   __entry->seqno  = seqno;
+			   ),
+
+	    TP_printk("ring=%d, seqno=%d", __entry->ring, __entry->seqno)
+);
+
+TRACE_EVENT(i915_gem_ring_queue,
+	    TP_PROTO(struct intel_engine_cs *ring,
+		     struct i915_execbuffer_params *params),
+	    TP_ARGS(ring, params),
+
+	    TP_STRUCT__entry(
+			     __field(u32, ring)
+			     __field(u32, seqno)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->ring   = ring->id;
+			   __entry->seqno  = params->request->seqno;
+			   ),
+
+	    TP_printk("ring=%d, seqno=%d", __entry->ring, __entry->seqno)
 );
 
 #endif /* _I915_TRACE_H_ */
