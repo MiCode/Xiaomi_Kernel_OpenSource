@@ -30,7 +30,7 @@
 #include "qdsp6v2/msm-pcm-routing-v2.h"
 #include "qdsp6v2/q6core.h"
 
-#define DRV_NAME "msmplutonium-asoc-snd"
+#define DRV_NAME "msm8994-asoc-snd"
 
 struct msm_auxpcm_gpio {
 	unsigned gpio_no;
@@ -44,7 +44,7 @@ struct msm_auxpcm_ctrl {
 	void __iomem *mux;
 };
 
-struct msmplutonium_asoc_mach_data {
+struct msm8994_asoc_mach_data {
 	struct msm_auxpcm_ctrl *pri_auxpcm_ctrl;
 };
 
@@ -140,7 +140,7 @@ static int msm_slim_0_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
-static int msmplutonium_snd_startup(struct snd_pcm_substream *substream)
+static int msm8994_snd_startup(struct snd_pcm_substream *substream)
 {
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
@@ -177,25 +177,25 @@ static int msm_snd_hw_params(struct snd_pcm_substream *substream,
 	return ret;
 }
 
-static void msmplutonium_snd_shudown(struct snd_pcm_substream *substream)
+static void msm8994_snd_shudown(struct snd_pcm_substream *substream)
 {
 	pr_debug("%s(): substream = %s stream = %d\n", __func__,
 		 substream->name, substream->stream);
 
 }
 
-static struct snd_soc_ops msmplutonium_be_ops = {
-	.startup = msmplutonium_snd_startup,
+static struct snd_soc_ops msm8994_be_ops = {
+	.startup = msm8994_snd_startup,
 	.hw_params = msm_snd_hw_params,
-	.shutdown = msmplutonium_snd_shudown,
+	.shutdown = msm8994_snd_shudown,
 };
 
 
 /* Digital audio interface glue - connects codec <---> CPU */
-static struct snd_soc_dai_link msmplutonium_common_dai_links[] = {
+static struct snd_soc_dai_link msm8994_common_dai_links[] = {
 	/* FrontEnd DAI Links */
 	{
-		.name = "MSMplutonium Media1",
+		.name = "MSM8994 Media1",
 		.stream_name = "MultiMedia1",
 		.cpu_dai_name	= "MultiMedia1",
 		.platform_name  = "msm-pcm-dsp.0",
@@ -251,7 +251,7 @@ static struct snd_soc_dai_link msmplutonium_common_dai_links[] = {
 		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
 		.ignore_pmdown_time = 1, /* dai link has playback support */
 		.ignore_suspend = 1,
-		.ops = &msmplutonium_be_ops,
+		.ops = &msm8994_be_ops,
 	},
 	{
 		.name = LPASS_BE_SLIMBUS_0_TX,
@@ -264,22 +264,22 @@ static struct snd_soc_dai_link msmplutonium_common_dai_links[] = {
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_TX,
 		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
 		.ignore_suspend = 1,
-		.ops = &msmplutonium_be_ops,
+		.ops = &msm8994_be_ops,
 	},
 
 
 };
 
-struct snd_soc_card snd_soc_card_msmplutonium = {
-	.name		= "msmplutonium-tomtom-snd-card",
+struct snd_soc_card snd_soc_card_msm8994 = {
+	.name		= "msm8994-tomtom-snd-card",
 };
 
 
 
-static int msmplutonium_asoc_machine_probe(struct platform_device *pdev)
+static int msm8994_asoc_machine_probe(struct platform_device *pdev)
 {
-	struct snd_soc_card *card = &snd_soc_card_msmplutonium;
-	struct msmplutonium_asoc_mach_data *pdata;
+	struct snd_soc_card *card = &snd_soc_card_msm8994;
+	struct msm8994_asoc_mach_data *pdata;
 	int ret;
 	if (!pdev->dev.of_node) {
 		dev_err(&pdev->dev, "No platform supplied from device tree\n");
@@ -287,9 +287,9 @@ static int msmplutonium_asoc_machine_probe(struct platform_device *pdev)
 	}
 
 	pdata = devm_kzalloc(&pdev->dev,
-			sizeof(struct msmplutonium_asoc_mach_data), GFP_KERNEL);
+			sizeof(struct msm8994_asoc_mach_data), GFP_KERNEL);
 	if (!pdata) {
-		dev_err(&pdev->dev, "Can't allocate msmplutonium_asoc_mach_data\n");
+		dev_err(&pdev->dev, "Can't allocate msm8994_asoc_mach_data\n");
 		return -ENOMEM;
 	}
 
@@ -301,8 +301,8 @@ static int msmplutonium_asoc_machine_probe(struct platform_device *pdev)
 	if (ret)
 		goto err;
 
-	card->dai_link	= msmplutonium_common_dai_links;
-	card->num_links	= ARRAY_SIZE(msmplutonium_common_dai_links);
+	card->dai_link	= msm8994_common_dai_links;
+	card->num_links	= ARRAY_SIZE(msm8994_common_dai_links);
 
 	ret = snd_soc_register_card(card);
 	if (ret) {
@@ -317,31 +317,31 @@ err:
 	return ret;
 }
 
-static int msmplutonium_asoc_machine_remove(struct platform_device *pdev)
+static int msm8994_asoc_machine_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 	snd_soc_unregister_card(card);
 	return 0;
 }
 
-static const struct of_device_id msmplutonium_asoc_machine_of_match[]  = {
-	{ .compatible = "qcom,msmplutonium-asoc-snd", },
+static const struct of_device_id msm8994_asoc_machine_of_match[]  = {
+	{ .compatible = "qcom,msm8994-asoc-snd", },
 	{},
 };
 
-static struct platform_driver msmplutonium_asoc_machine_driver = {
+static struct platform_driver msm8994_asoc_machine_driver = {
 	.driver = {
 		.name = DRV_NAME,
 		.owner = THIS_MODULE,
 		.pm = &snd_soc_pm_ops,
-		.of_match_table = msmplutonium_asoc_machine_of_match,
+		.of_match_table = msm8994_asoc_machine_of_match,
 	},
-	.probe = msmplutonium_asoc_machine_probe,
-	.remove = msmplutonium_asoc_machine_remove,
+	.probe = msm8994_asoc_machine_probe,
+	.remove = msm8994_asoc_machine_remove,
 };
-module_platform_driver(msmplutonium_asoc_machine_driver);
+module_platform_driver(msm8994_asoc_machine_driver);
 
 MODULE_DESCRIPTION("ALSA SoC msm");
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("platform:" DRV_NAME);
-MODULE_DEVICE_TABLE(of, msmplutonium_asoc_machine_of_match);
+MODULE_DEVICE_TABLE(of, msm8994_asoc_machine_of_match);

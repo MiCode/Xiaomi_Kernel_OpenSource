@@ -11,25 +11,25 @@
  */
 
 &spmi_bus {
-	qcom,pmplutonium@0 {
+	qcom,pm8994@0 {
 		spmi-slave-container;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		reg = <0x0>;
 
-		pmplutonium_revid: qcom,revid@100 {
+		pm8994_revid: qcom,revid@100 {
 			compatible = "qcom,qpnp-revid";
 			reg = <0x100 0x100>;
 		};
 
-		pmplutonium_gpios: gpios {
+		pm8994_gpios: gpios {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-pin";
 			gpio-controller;
 			#gpio-cells = <2>;
 			#address-cells = <1>;
 			#size-cells = <1>;
-			label = "pmplutonium-gpio";
+			label = "pm8994-gpio";
 
 			gpio@c000 {
 				reg = <0xc000 0x100>;
@@ -142,14 +142,14 @@
 			};
 		};
 
-		pmplutonium_mpps: mpps {
+		pm8994_mpps: mpps {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-pin";
 			gpio-controller;
 			#gpio-cells = <2>;
 			#address-cells = <1>;
 			#size-cells = <1>;
-			label = "pmplutonium-mpp";
+			label = "pm8994-mpp";
 
 			mpp@a000 {
 				reg = <0xa000 0x100>;
@@ -192,7 +192,7 @@
 			};
 		};
 
-		pmplutonium_vadc: vadc@3100 {
+		pm8994_vadc: vadc@3100 {
 			compatible = "qcom,qpnp-vadc";
 			reg = <0x3100 0x100>;
 			#address-cells = <1>;
@@ -237,7 +237,7 @@
 			};
 		};
 
-		pmplutonium_adc_tm: vadc@3400 {
+		pm8994_adc_tm: vadc@3400 {
 			compatible = "qcom,qpnp-adc-tm";
 			reg = <0x3400 0x100>;
 			#address-cells = <1>;
@@ -250,11 +250,11 @@
 						"low-thr-en-set";
 			qcom,adc-bit-resolution = <15>;
 			qcom,adc-vdd-reference = <1800>;
-			qcom,adc_tm-vadc = <&pmplutonium_vadc>;
+			qcom,adc_tm-vadc = <&pm8994_vadc>;
 		};
 	};
 
-	qcom,pmplutonium@1 {
+	qcom,pm8994@1 {
 		spmi-slave-container;
 		#address-cells = <1>;
 		#size-cells = <1>;

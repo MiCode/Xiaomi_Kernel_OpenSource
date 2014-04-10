@@ -18,13 +18,13 @@
 #include <linux/platform_device.h>
 #include <linux/clk/msm-clk-provider.h>
 #include <linux/clk/msm-clock-generic.h>
-#include <dt-bindings/clock/msm-clocks-plutonium.h>
+#include <dt-bindings/clock/msm-clocks-8994.h>
 #include <soc/qcom/clock-alpha-pll.h>
 #include <soc/qcom/clock-pll.h>
 #include <soc/qcom/clock-local2.h>
 #include <soc/qcom/clock-voter.h>
 
-#include "vdd-level-plutonium.h"
+#include "vdd-level-8994.h"
 
 static void __iomem *virt_base;
 
@@ -2209,7 +2209,7 @@ static struct mux_clk mmss_debug_mux = {
 	},
 };
 
-static struct clk_lookup msm_clocks_mmss_plutonium[] = {
+static struct clk_lookup msm_clocks_mmss_8994[] = {
 	CLK_LIST(mmsscc_xo),
 	CLK_LIST(mmsscc_gpll0),
 	CLK_LIST(mmsscc_mmssnoc_ahb),
@@ -2433,7 +2433,7 @@ static struct pll_config mmpll4_config  = {
 	.main_output_mask = BIT(0),
 };
 
-int msm_mmsscc_plutonium_probe(struct platform_device *pdev)
+int msm_mmsscc_8994_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	int rc;
@@ -2501,8 +2501,8 @@ int msm_mmsscc_plutonium_probe(struct platform_device *pdev)
 	configure_sr_hpm_lp_pll(&mmpll3_config, &mmpll3_regs, 0);
 	configure_sr_hpm_lp_pll(&mmpll4_config, &mmpll4_regs, 0);
 
-	rc = of_msm_clock_register(pdev->dev.of_node, msm_clocks_mmss_plutonium,
-				   ARRAY_SIZE(msm_clocks_mmss_plutonium));
+	rc = of_msm_clock_register(pdev->dev.of_node, msm_clocks_mmss_8994,
+				   ARRAY_SIZE(msm_clocks_mmss_8994));
 	if (rc)
 		return rc;
 
@@ -2512,26 +2512,26 @@ int msm_mmsscc_plutonium_probe(struct platform_device *pdev)
 }
 
 static struct of_device_id msm_clock_mmss_match_table[] = {
-	{ .compatible = "qcom,mmsscc-plutonium" },
+	{ .compatible = "qcom,mmsscc-8994" },
 	{}
 };
 
 static struct platform_driver msm_clock_mmss_driver = {
-	.probe = msm_mmsscc_plutonium_probe,
+	.probe = msm_mmsscc_8994_probe,
 	.driver = {
-		.name = "qcom,mmsscc-plutonium",
+		.name = "qcom,mmsscc-8994",
 		.of_match_table = msm_clock_mmss_match_table,
 		.owner = THIS_MODULE,
 	},
 };
 
-int __init msm_mmsscc_plutonium_init(void)
+int __init msm_mmsscc_8994_init(void)
 {
 	return platform_driver_register(&msm_clock_mmss_driver);
 }
-arch_initcall(msm_mmsscc_plutonium_init);
+arch_initcall(msm_mmsscc_8994_init);
 
-static struct clk_lookup msm_clocks_mdss_plutonium[] = {
+static struct clk_lookup msm_clocks_mdss_8994[] = {
 	CLK_LIST(pclk0_clk_src),
 	CLK_LIST(pclk1_clk_src),
 	CLK_LIST(byte0_clk_src),
@@ -2563,7 +2563,7 @@ static int msm_mdss_get_ext_clk(struct device *dev, const char *con,
 	return 0;
 }
 
-int msm_mmsscc_mdss_plutonium_probe(struct platform_device *pdev)
+int msm_mmsscc_mdss_8994_probe(struct platform_device *pdev)
 {
 	int rc;
 
@@ -2592,8 +2592,8 @@ int msm_mmsscc_mdss_plutonium_probe(struct platform_device *pdev)
 	if (rc)
 		return rc;
 
-	rc = of_msm_clock_register(pdev->dev.of_node, msm_clocks_mdss_plutonium,
-				   ARRAY_SIZE(msm_clocks_mdss_plutonium));
+	rc = of_msm_clock_register(pdev->dev.of_node, msm_clocks_mdss_8994,
+				   ARRAY_SIZE(msm_clocks_mdss_8994));
 	if (rc)
 		return rc;
 
@@ -2603,22 +2603,22 @@ int msm_mmsscc_mdss_plutonium_probe(struct platform_device *pdev)
 }
 
 static struct of_device_id msm_clock_mdss_match_table[] = {
-	{ .compatible = "qcom,mmsscc-mdss-plutonium" },
+	{ .compatible = "qcom,mmsscc-mdss-8994" },
 	{}
 };
 
 static struct platform_driver msm_clock_mdss_driver = {
-	.probe = msm_mmsscc_mdss_plutonium_probe,
+	.probe = msm_mmsscc_mdss_8994_probe,
 	.driver = {
-		.name = "qcom,mmsscc-mdss-plutonium",
+		.name = "qcom,mmsscc-mdss-8994",
 		.of_match_table = msm_clock_mdss_match_table,
 		.owner = THIS_MODULE,
 	},
 };
 
-int __init msm_mmsscc_mdss_plutonium_init(void)
+int __init msm_mmsscc_mdss_8994_init(void)
 {
 	return platform_driver_register(&msm_clock_mdss_driver);
 }
-arch_initcall(msm_mmsscc_mdss_plutonium_init);
+arch_initcall(msm_mmsscc_mdss_8994_init);
 

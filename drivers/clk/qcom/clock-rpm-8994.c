@@ -25,7 +25,7 @@
 #include <soc/qcom/clock-local2.h>
 #include <soc/qcom/rpm-smd.h>
 
-#include <dt-bindings/clock/msm-clocks-plutonium.h>
+#include <dt-bindings/clock/msm-clocks-8994.h>
 
 #define RPM_MISC_CLK_TYPE	0x306b6c63
 #define RPM_BUS_CLK_TYPE	0x316b6c63
@@ -164,7 +164,7 @@ static struct mux_clk rpm_debug_mux = {
 	},
 };
 
-static struct clk_lookup msm_clocks_rpm_plutonium[] = {
+static struct clk_lookup msm_clocks_rpm_8994[] = {
 	CLK_LIST(cxo_clk_src),
 	CLK_LIST(pnoc_clk),
 	CLK_LIST(ocmemgx_clk),
@@ -243,7 +243,7 @@ static struct clk_lookup msm_clocks_rpm_plutonium[] = {
 	CLK_LIST(rpm_debug_mux),
 };
 
-static int msm_rpmcc_plutonium_probe(struct platform_device *pdev)
+static int msm_rpmcc_8994_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	int ret;
@@ -263,8 +263,8 @@ static int msm_rpmcc_plutonium_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	ret = of_msm_clock_register(pdev->dev.of_node, msm_clocks_rpm_plutonium,
-				    ARRAY_SIZE(msm_clocks_rpm_plutonium));
+	ret = of_msm_clock_register(pdev->dev.of_node, msm_clocks_rpm_8994,
+				    ARRAY_SIZE(msm_clocks_rpm_8994));
 	if (ret)
 		return ret;
 
@@ -287,21 +287,21 @@ static int msm_rpmcc_plutonium_probe(struct platform_device *pdev)
 }
 
 static struct of_device_id msm_clock_rpm_match_table[] = {
-	{ .compatible = "qcom,rpmcc-plutonium" },
+	{ .compatible = "qcom,rpmcc-8994" },
 	{}
 };
 
 static struct platform_driver msm_clock_rpm_driver = {
-	.probe = msm_rpmcc_plutonium_probe,
+	.probe = msm_rpmcc_8994_probe,
 	.driver = {
-		.name = "qcom,rpmcc-plutonium",
+		.name = "qcom,rpmcc-8994",
 		.of_match_table = msm_clock_rpm_match_table,
 		.owner = THIS_MODULE,
 	},
 };
 
-int __init msm_rpmcc_plutonium_init(void)
+int __init msm_rpmcc_8994_init(void)
 {
 	return platform_driver_register(&msm_clock_rpm_driver);
 }
-arch_initcall(msm_rpmcc_plutonium_init);
+arch_initcall(msm_rpmcc_8994_init);

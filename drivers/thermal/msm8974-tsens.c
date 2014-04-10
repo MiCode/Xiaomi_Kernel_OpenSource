@@ -2580,7 +2580,7 @@ static struct of_device_id tsens_match[] = {
 	{	.compatible = "qcom,msm8936-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_8936,
 	},
-	{	.compatible = "qcom,msmplutonium-tsens",
+	{	.compatible = "qcom,msm8994-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_PLUTO,
 	},
 	{}

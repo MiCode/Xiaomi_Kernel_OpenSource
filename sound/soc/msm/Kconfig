@@ -270,16 +270,16 @@ config SND_SOC_MDM9630
 	help
 	 To add support for SoC audio on MDM9630 boards.
 
-config SND_SOC_MSMPLUTONIUM
-	tristate "SoC Machine driver for MSMPLUTONIUM boards"
-	depends on ARCH_MSMPLUTONIUM
+config SND_SOC_MSM8994
+	tristate "SoC Machine driver for MSM8994 boards"
+	depends on ARCH_MSM8994
 	select SND_SOC_QDSP6V2
 	select SND_SOC_MSM_STUB
 	select SND_SOC_MSM_HOSTLESS_PCM
 	select SND_DYNAMIC_MINORS
 	select MSM_QDSP6_APRV2
 	help
-	 To add support for SoC audio on MSMPLUTONIUM.
+	 To add support for SoC audio on MSM8994.
 	 This will enable sound soc drivers which
 	 interfaces with DSP, also it will enable
 	 the machine drivers and the corresponding

@@ -1105,15 +1105,15 @@ sound {
 	pinctrl-3 = <&pmx_pri_mi2s_sleep &pmx_quad_mi2s_sleep>;
 };
 
-* MSMPLUTONIUM ASoC Machine driver
+* MSM8994 ASoC Machine driver
 
 Required properties:
-- compatible : "qcom,msmplutonium-audio-tomtom"
+- compatible : "qcom,msm8994-audio-tomtom"
 - qcom,model : The user-visible name of this sound card.
 
 Example:
 
 	sound {
-		compatible = "qcom,msmplutonium-asoc-snd";
-		qcom,model = "msmplutonium-tomtom-snd-card";
+		compatible = "qcom,msm8994-asoc-snd";
+		qcom,model = "msm8994-tomtom-snd-card";
 	};

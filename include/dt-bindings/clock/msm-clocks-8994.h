@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MSM_CLOCKS_PLUTONIUM_H
-#define __MSM_CLOCKS_PLUTONIUM_H
+#ifndef __MSM_CLOCKS_8994_H
+#define __MSM_CLOCKS_8994_H
 
 /* clock_rpm controlled clocks */
 #define clk_cxo_clk_src 0x79e95308

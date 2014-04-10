@@ -15,12 +15,12 @@
 
 /memreserve/ 0x06000000 0x00001000;
 
-#include "msmplutonium.dtsi"
-#include "msmplutonium-pinctrl.dtsi"
-#include "msmplutonium-bus.dtsi"
+#include "msm8994.dtsi"
+#include "msm8994-pinctrl.dtsi"
+#include "msm8994-bus.dtsi"
 / {
-	model = "Qualcomm Technologies, Inc. MSM plutonium SIM";
-	compatible = "qcom,msmplutonium-sim", "qcom,msmplutonium", "qcom,sim";
+	model = "Qualcomm Technologies, Inc. MSM 8994 SIM";
+	compatible = "qcom,msm8994-sim", "qcom,msm8994", "qcom,sim";
 	qcom,board-id = <16 0>;
 };
 
@@ -31,11 +31,11 @@
 };
 
 &sdhc_1 {
-	vdd-supply = <&pmplutonium_l20>;
+	vdd-supply = <&pm8994_l20>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
 	qcom,vdd-current-level = <200 570000>;
 
-	vdd-io-supply = <&pmplutonium_s4>;
+	vdd-io-supply = <&pm8994_s4>;
 	qcom,vdd-io-always-on;
 	qcom,vdd-io-voltage-level = <1800000 1800000>;
 	qcom,vdd-io-current-level = <200 325000>;
@@ -51,11 +51,11 @@
 };
 
 &sdhc_2 {
-	vdd-supply = <&pmplutonium_l21>;
+	vdd-supply = <&pm8994_l21>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
 	qcom,vdd-current-level = <200 800000>;
 
-	vdd-io-supply = <&pmplutonium_l13>;
+	vdd-io-supply = <&pm8994_l13>;
 	qcom,vdd-io-voltage-level = <1800000 2950000>;
 	qcom,vdd-io-current-level = <200 22000>;
 
@@ -68,11 +68,11 @@
 	status = "ok";
 };
 
-&pmplutonium_s8 {
+&pm8994_s8 {
 	qcom,bypass-spm;
 };
 
-&pmplutonium_s11 {
+&pm8994_s11 {
 	qcom,bypass-spm;
 };
 
@@ -88,7 +88,7 @@
 	status = "ok";
 };
 
-&pmplutonium_gpios {
+&pm8994_gpios {
 	gpio@c000 { /* GPIO 1 */
 	};
 
@@ -156,7 +156,7 @@
 	};
 };
 
-&pmiplutonium_gpios {
+&pmi8994_gpios {
 	gpio@c000 { /* GPIO 1 */
 	};
 
@@ -188,7 +188,7 @@
 	};
 };
 
-&pmplutonium_mpps {
+&pm8994_mpps {
 	mpp@a000 { /* MPP 1 */
 		status = "disabled";
 	};
@@ -215,7 +215,7 @@
 	};
 };
 
-&pmiplutonium_mpps {
+&pmi8994_mpps {
 	mpp@a000 { /* MPP 1 */
 	};
 
