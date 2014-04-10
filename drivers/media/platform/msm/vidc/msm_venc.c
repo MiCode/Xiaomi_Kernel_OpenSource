@@ -2403,15 +2403,6 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	return rc;
 }
 
-static struct v4l2_ctrl *get_cluster_from_id(int id)
-{
-	int c;
-	for (c = 0; c < ARRAY_SIZE(msm_venc_ctrls); ++c)
-		if (msm_venc_ctrls[c].id == id)
-			return (struct v4l2_ctrl *)msm_venc_ctrls[c].priv;
-	return NULL;
-}
-
 static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 	struct v4l2_ext_controls *ctrl)
 {
@@ -2420,7 +2411,6 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 	struct hfi_device *hdev;
 	struct hal_ltrmode ltrmode;
 	struct hal_vc1e_perf_cfg_type search_range = { {0} };
-	struct v4l2_ctrl *cluster;
 	u32 property_id = 0;
 	void *pdata = NULL;
 	struct msm_vidc_core_capability *cap = NULL;
@@ -2428,14 +2418,6 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 
 	if (!inst || !inst->core || !inst->core->device || !ctrl) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
-		return -EINVAL;
-	}
-
-	cluster = get_cluster_from_id(ctrl->controls[0].id);
-
-	if (!cluster) {
-		dprintk(VIDC_ERR, "Invalid Ctrl returned for id: %x\n",
-			ctrl->controls[0].id);
 		return -EINVAL;
 	}
 
@@ -3248,17 +3230,18 @@ int msm_venc_streamoff(struct msm_vidc_inst *inst, enum v4l2_buf_type i)
 	return rc;
 }
 
-static struct v4l2_ctrl **get_super_cluster(int *size)
+static struct v4l2_ctrl **get_super_cluster(struct msm_vidc_inst *inst,
+				int *size)
 {
 	int c = 0, sz = 0;
 	struct v4l2_ctrl **cluster = kmalloc(sizeof(struct v4l2_ctrl *) *
 			NUM_CTRLS, GFP_KERNEL);
 
-	if (!size || !cluster)
+	if (!size || !cluster || !inst)
 		return NULL;
 
 	for (c = 0; c < NUM_CTRLS; c++)
-		cluster[sz++] = msm_venc_ctrls[c].priv;
+		cluster[sz++] =  inst->ctrls[c];
 
 	*size = sz;
 	return cluster;
@@ -3266,11 +3249,22 @@ static struct v4l2_ctrl **get_super_cluster(int *size)
 
 int msm_venc_ctrl_init(struct msm_vidc_inst *inst)
 {
-
 	int idx = 0;
 	struct v4l2_ctrl_config ctrl_cfg = {0};
 	int ret_val = 0;
 	int cluster_size = 0;
+
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s - invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	inst->ctrls = kzalloc(sizeof(struct v4l2_ctrl *) * NUM_CTRLS,
+				GFP_KERNEL);
+	if (!inst->ctrls) {
+		dprintk(VIDC_ERR, "%s - failed to allocate ctrl\n", __func__);
+		return -ENOMEM;
+	}
 
 	ret_val = v4l2_ctrl_handler_init(&inst->ctrl_handler, NUM_CTRLS);
 	if (ret_val) {
@@ -3326,11 +3320,11 @@ int msm_venc_ctrl_init(struct msm_vidc_inst *inst)
 			return ret_val;
 		}
 
-		msm_venc_ctrls[idx].priv = ctrl;
+		inst->ctrls[idx] = ctrl;
 	}
 
 	/* Construct a super cluster of all controls */
-	inst->cluster = get_super_cluster(&cluster_size);
+	inst->cluster = get_super_cluster(inst, &cluster_size);
 	if (!inst->cluster || !cluster_size) {
 		dprintk(VIDC_WARN,
 				"Failed to setup super cluster\n");
@@ -3344,6 +3338,7 @@ int msm_venc_ctrl_init(struct msm_vidc_inst *inst)
 
 int msm_venc_ctrl_deinit(struct msm_vidc_inst *inst)
 {
+	kfree(inst->ctrls);
 	kfree(inst->cluster);
 	v4l2_ctrl_handler_free(&inst->ctrl_handler);
 
