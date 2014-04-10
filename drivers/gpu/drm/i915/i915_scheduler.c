@@ -582,6 +582,57 @@ void i915_gem_scheduler_work_handler(struct work_struct *work)
 	mutex_unlock(&dev->struct_mutex);
 }
 
+int i915_scheduler_flush_request(struct drm_i915_gem_request *req,
+				 bool is_locked)
+{
+	struct drm_i915_private            *dev_priv;
+	struct i915_scheduler              *scheduler;
+	unsigned long       flags;
+	int                 flush_count;
+	uint32_t            ring_id;
+
+	if (!req)
+		return -EINVAL;
+
+	dev_priv  = req->ring->dev->dev_private;
+	scheduler = dev_priv->scheduler;
+
+	if (!scheduler)
+		return 0;
+
+	if (!req->scheduler_qe)
+		return 0;
+
+	if (!I915_SQS_IS_QUEUED(req->scheduler_qe))
+		return 0;
+
+	ring_id = req->ring->id;
+	if (is_locked && (scheduler->flags[ring_id] & i915_sf_submitting)) {
+		/* Scheduler is busy already submitting another batch,
+		 * come back later rather than going recursive... */
+		return -EAGAIN;
+	}
+
+	if (list_empty(&scheduler->node_queue[ring_id]))
+		return 0;
+
+	spin_lock_irqsave(&scheduler->lock, flags);
+
+	i915_scheduler_priority_bump_clear(scheduler);
+
+	flush_count = i915_scheduler_priority_bump(scheduler,
+			    req->scheduler_qe, scheduler->priority_level_max);
+
+	spin_unlock_irqrestore(&scheduler->lock, flags);
+
+	if (flush_count) {
+		DRM_DEBUG_DRIVER("<%s> Bumped %d entries\n", req->ring->name, flush_count);
+		flush_count = i915_scheduler_submit_max_priority(req->ring, is_locked);
+	}
+
+	return flush_count;
+}
+
 void i915_scheduler_priority_bump_clear(struct i915_scheduler *scheduler)
 {
 	struct i915_scheduler_queue_entry *node;

@@ -10409,7 +10409,7 @@ static int intel_postpone_flip(struct drm_i915_gem_object *obj)
 	else {
 		if (!__wait_request(obj->last_write_req,
 			atomic_read(&dev_priv->gpu_error.reset_counter), true,
-			NULL, NULL))
+			NULL, NULL, true))
 			return 0;
 	}
 

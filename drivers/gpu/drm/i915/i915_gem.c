@@ -1211,7 +1211,8 @@ int __wait_request(struct drm_i915_gem_request *req,
 			  unsigned reset_counter,
 			  bool interruptible,
 			  struct timespec *timeout,
-			  struct drm_i915_file_private *file_priv)
+			  struct drm_i915_file_private *file_priv,
+			  bool is_locked)
 {
 	struct intel_engine_cs *ring = i915_gem_request_get_ring(req);
 	struct drm_device *dev = ring->dev;
@@ -1223,7 +1224,9 @@ int __wait_request(struct drm_i915_gem_request *req,
 	unsigned long timeout_expire;
 	int ret = 0;
 	int gem_wedged;
+	bool    busy;
 
+	might_sleep();
 	WARN(dev_priv->pm.irqs_disabled, "IRQs disabled\n");
 
 	if (i915_gem_request_completed(req))
@@ -1272,6 +1275,22 @@ int __wait_request(struct drm_i915_gem_request *req,
 			else
 				ret = -EAGAIN;
 			break;
+		}
+
+		if (is_locked) {
+			/* If this request is being processed by the scheduler
+			 * then it is unsafe to sleep with the mutex lock held
+			 * as the scheduler may require the lock in order to
+			 * progress the request. */
+			if (i915_scheduler_is_request_tracked(req, NULL, &busy)) {
+				if (busy) {
+					ret = -EAGAIN;
+					break;
+				}
+			}
+
+			/* If the request is not tracked by the scheduler then the
+			 * regular test can be done. */
 		}
 
 		if (i915_gem_request_completed(req)) {
@@ -1343,6 +1362,10 @@ i915_wait_request(struct drm_i915_gem_request *req)
 
 	BUG_ON(!mutex_is_locked(&dev->struct_mutex));
 
+	ret = I915_SCHEDULER_FLUSH_REQUEST(req, true);
+	if (ret < 0)
+		return ret;
+
 	ret = i915_gem_wedged(dev, interruptible);
 	if (ret)
 		return ret;
@@ -1354,7 +1377,7 @@ i915_wait_request(struct drm_i915_gem_request *req)
 	i915_gem_request_reference(req);
 	ret = __wait_request(req,
 			     atomic_read(&dev_priv->gpu_error.reset_counter),
-			     interruptible, NULL, NULL);
+			     interruptible, NULL, NULL, true);
 	i915_gem_request_unreference(req);
 	return ret;
 }
@@ -1432,7 +1455,7 @@ i915_gem_object_wait_rendering__nonblocking(struct drm_i915_gem_object *obj,
 	reset_counter = atomic_read(&dev_priv->gpu_error.reset_counter);
 	i915_gem_request_reference(req);
 	mutex_unlock(&dev->struct_mutex);
-	ret = __wait_request(req, reset_counter, true, NULL, file_priv);
+	ret = __wait_request(req, reset_counter, true, NULL, file_priv, false);
 	mutex_lock(&dev->struct_mutex);
 	i915_gem_request_unreference(req);
 	if (ret)
@@ -3127,7 +3150,7 @@ i915_gem_wait_ioctl(struct drm_device *dev, void *data, struct drm_file *file)
 	i915_gem_request_reference(req);
 	mutex_unlock(&dev->struct_mutex);
 
-	ret = __wait_request(req, reset_counter, true, timeout, file->driver_priv);
+	ret = __wait_request(req, reset_counter, true, timeout, file->driver_priv, false);
 	if (timeout)
 		args->timeout_ns = timespec_to_ns(timeout);
 
@@ -4344,7 +4367,7 @@ i915_gem_ring_throttle(struct drm_device *dev, struct drm_file *file)
 	if (i915_gem_wedged(dev, 1) != 0)
 		return -EIO;
 
-	ret = __wait_request(target, reset_counter, true, NULL, NULL);
+	ret = __wait_request(target, reset_counter, true, NULL, NULL, false);
 	if (ret == 0)
 		queue_retire_work(dev_priv, 0);
 
