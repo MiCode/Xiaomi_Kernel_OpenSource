@@ -53,6 +53,10 @@
 	};
 };
 
+&android_usb {
+	qcom,android-usb-cdrom;
+};
+
 &blsp1_uart2 {
 	status = "ok";
 	pinctrl-names = "default";

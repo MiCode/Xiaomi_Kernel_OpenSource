@@ -159,6 +159,10 @@
 	};
 };
 
+&android_usb {
+	qcom,android-usb-cdrom;
+};
+
 &sdhc_1 {
 	vdd-supply = <&pm8226_l17>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
