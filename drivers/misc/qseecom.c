@@ -4408,7 +4408,7 @@ static int qseecom_probe(struct platform_device *pdev)
 		if (qseecom.support_pfe) {
 			if (of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,file-encrypt-pipe-pair",
-				&qseecom.ce_info.disk_encrypt_pipe)) {
+				&qseecom.ce_info.file_encrypt_pipe)) {
 				pr_err("Fail to get PFE pipe information.\n");
 				rc = -EINVAL;
 				goto exit_destroy_ion_client;
