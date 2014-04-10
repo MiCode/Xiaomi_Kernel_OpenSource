@@ -3934,6 +3934,45 @@ DEFINE_SIMPLE_ATTRIBUTE(i915_cur_freq_fops,
 			i915_cur_freq_get, i915_cur_freq_set,
 			"%llu\n");
 
+static int i915_rps_disable_boost_get(void *data, u64 *val)
+{
+	struct drm_device *dev = data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if (INTEL_INFO(dev)->gen < 6)
+		return -ENODEV;
+
+	*val = dev_priv->rps.debugfs_disable_boost;
+
+	return 0;
+}
+
+static int i915_rps_disable_boost_set(void *data, u64 val)
+{
+	struct drm_device *dev = data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int ret;
+
+	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
+
+	DRM_DEBUG_DRIVER("Setting RPS disable Boost-Idle mode to %s\n",
+				 val ? "on" : "off");
+
+	ret = mutex_lock_interruptible(&dev_priv->rps.hw_lock);
+	if (ret)
+		return ret;
+
+	dev_priv->rps.debugfs_disable_boost = val;
+
+	mutex_unlock(&dev_priv->rps.hw_lock);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(i915_rps_disable_boost_fops,
+		i915_rps_disable_boost_get, i915_rps_disable_boost_set,
+			"%llu\n");
+
 static int i915_rps_manual_get(void *data, u64 *val)
 {
 	struct drm_device *dev = data;
@@ -4247,6 +4286,7 @@ static const struct i915_debugfs_files {
 	{"i915_min_freq", &i915_min_freq_fops},
 	{"i915_cur_freq", &i915_cur_freq_fops},
 	{"i915_rps_manual", &i915_rps_manual_fops},
+	{"i915_rps_disable_boost", &i915_rps_disable_boost_fops},
 	{"i915_rc6_disable", &i915_rc6_disable_fops},
 	{"i915_ips_disable", &i915_ips_disable_fops},
 	{"i915_fbc_disable", &i915_fbc_disable_fops},

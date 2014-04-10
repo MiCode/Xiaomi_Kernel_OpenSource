@@ -928,6 +928,7 @@ struct intel_gen6_power_mgmt {
 	enum { LOW_POWER, BETWEEN, HIGH_POWER } power;
 
 	bool manual_mode;
+	bool debugfs_disable_boost;
 	bool enabled;
 
 	u32 rc6_mask;
