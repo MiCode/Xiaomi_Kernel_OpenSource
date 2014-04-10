@@ -14,7 +14,6 @@
 #include "msm_cci.h"
 #include "msm_camera_io_util.h"
 
-#define CONFIG_MSMB_CAMERA_DEBUG
 
 #undef CDBG
 #ifdef CONFIG_MSMB_CAMERA_DEBUG

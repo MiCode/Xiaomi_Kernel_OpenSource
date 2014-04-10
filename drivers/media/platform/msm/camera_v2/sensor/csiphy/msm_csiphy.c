@@ -16,7 +16,6 @@
 #include <linux/of.h>
 #include <linux/module.h>
 #include <linux/irqreturn.h>
-#include <mach/vreg.h>
 #include "msm_csiphy.h"
 #include "msm_sd.h"
 #include "msm_camera_io_util.h"
@@ -45,6 +44,7 @@
 #define CDBG(fmt, args...) do { } while (0)
 #endif
 static struct msm_cam_clk_info csiphy_clk_info[CSIPHY_NUM_CLK_MAX];
+static struct v4l2_file_operations msm_csiphy_v4l2_subdev_fops;
 
 static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 	struct msm_camera_csiphy_params *csiphy_params)
@@ -567,7 +567,6 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 }
 
 #endif
-
 static int32_t msm_csiphy_cmd(struct csiphy_device *csiphy_dev, void *arg)
 {
 	int rc = 0;
@@ -648,6 +647,35 @@ static long msm_csiphy_subdev_ioctl(struct v4l2_subdev *sd,
 	CDBG("%s:%d\n", __func__, __LINE__);
 	return rc;
 }
+
+#ifdef CONFIG_COMPAT
+static long msm_csiphy_subdev_do_ioctl(
+	struct file *file, unsigned int cmd, void *arg)
+{
+	struct video_device *vdev = video_devdata(file);
+	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
+	struct csiphy_cfg_data32 *u32 =
+		(struct csiphy_cfg_data32 *)arg;
+	struct csiphy_cfg_data csiphy_data;
+
+	switch (cmd) {
+	case VIDIOC_MSM_CSIPHY_IO_CFG32:
+		cmd = VIDIOC_MSM_CSIPHY_IO_CFG;
+		csiphy_data.cfgtype = u32->cfgtype;
+		csiphy_data.cfg.csiphy_params =
+			compat_ptr(u32->cfg.csiphy_params);
+		return msm_csiphy_subdev_ioctl(sd, cmd, &csiphy_data);
+	default:
+		return msm_csiphy_subdev_ioctl(sd, cmd, arg);
+	}
+}
+
+static long msm_csiphy_subdev_fops_ioctl(struct file *file, unsigned int cmd,
+	unsigned long arg)
+{
+	return video_usercopy(file, cmd, arg, msm_csiphy_subdev_do_ioctl);
+}
+#endif
 
 static const struct v4l2_subdev_internal_ops msm_csiphy_internal_ops;
 
@@ -826,6 +854,13 @@ static int csiphy_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	msm_csiphy_v4l2_subdev_fops = v4l2_subdev_fops;
+#ifdef CONFIG_COMPAT
+	msm_csiphy_v4l2_subdev_fops.compat_ioctl32 =
+		msm_csiphy_subdev_fops_ioctl;
+#endif
+	new_csiphy_dev->msm_sd.sd.devnode->fops =
+		&msm_csiphy_v4l2_subdev_fops;
 	new_csiphy_dev->csiphy_state = CSIPHY_POWER_DOWN;
 	return 0;
 

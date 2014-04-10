@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#include <mach/gpiomux.h>
 #include "msm_camera_dt_util.h"
 #include "msm_camera_io_util.h"
 #include "msm_camera_i2c_mux.h"
@@ -1020,10 +1019,6 @@ int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 	}
 	if (ctrl->gpio_conf->cam_gpiomux_conf_tbl != NULL) {
 		pr_err("%s:%d mux install\n", __func__, __LINE__);
-		msm_gpiomux_install(
-			(struct msm_gpiomux_config *)
-			ctrl->gpio_conf->cam_gpiomux_conf_tbl,
-			ctrl->gpio_conf->cam_gpiomux_conf_tbl_size);
 	}
 	ret = msm_camera_pinctrl_init(ctrl);
 	if (ret < 0) {

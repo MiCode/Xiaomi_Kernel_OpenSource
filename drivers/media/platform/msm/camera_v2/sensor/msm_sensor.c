@@ -9,14 +9,12 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include <mach/gpiomux.h>
 #include "msm_sensor.h"
 #include "msm_sd.h"
 #include "camera.h"
 #include "msm_cci.h"
 #include "msm_camera_io_util.h"
 #include "msm_camera_i2c_mux.h"
-#include <mach/rpm-regulator.h>
 #include <linux/regulator/rpm-smd-regulator.h>
 #include <linux/regulator/consumer.h>
 
@@ -28,6 +26,7 @@
 #define CDBG(fmt, args...) do { } while (0)
 #endif
 
+static struct v4l2_file_operations msm_sensor_v4l2_subdev_fops;
 static int32_t msm_camera_get_power_settimgs_from_sensor_lib(
 	struct msm_camera_power_ctrl_t *power_info,
 	struct msm_sensor_power_setting_array *power_setting_array)
@@ -533,6 +532,7 @@ static int msm_sensor_get_af_status(struct msm_sensor_ctrl_t *s_ctrl,
 static long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int cmd, void *arg)
 {
+	int rc = 0;
 	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(sd);
 	void __user *argp = (void __user *)arg;
 	if (!s_ctrl) {
@@ -541,7 +541,13 @@ static long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 	}
 	switch (cmd) {
 	case VIDIOC_MSM_SENSOR_CFG:
-		return s_ctrl->func_tbl->sensor_config(s_ctrl, argp);
+#ifdef CONFIG_COMPAT
+		if (is_compat_task())
+			rc = s_ctrl->func_tbl->sensor_config32(s_ctrl, argp);
+		else
+#endif
+			rc = s_ctrl->func_tbl->sensor_config(s_ctrl, argp);
+		return rc;
 	case VIDIOC_MSM_SENSOR_GET_AF_STATUS:
 		return msm_sensor_get_af_status(s_ctrl, argp);
 	case VIDIOC_MSM_SENSOR_RELEASE:
@@ -553,6 +559,257 @@ static long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 		return -ENOIOCTLCMD;
 	}
 }
+
+#ifdef CONFIG_COMPAT
+static long msm_sensor_subdev_do_ioctl(
+	struct file *file, unsigned int cmd, void *arg)
+{
+	int rc = 0;
+	struct video_device *vdev = video_devdata(file);
+	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
+	struct sensorb_cfg_data32 *u32 =
+		(struct sensorb_cfg_data32 *)arg;
+	struct sensorb_cfg_data sensor_data;
+	switch (cmd) {
+	case VIDIOC_MSM_SENSOR_CFG32:
+		cmd = VIDIOC_MSM_SENSOR_CFG;
+		switch (u32->cfgtype) {
+		case CFG_WRITE_I2C_ARRAY:
+		case CFG_SET_SLAVE_INFO:
+		case CFG_SLAVE_READ_I2C:
+		case CFG_SLAVE_WRITE_I2C_ARRAY:
+		case CFG_WRITE_I2C_SEQ_ARRAY:
+		case CFG_SET_STOP_STREAM_SETTING:
+		default:
+			rc = msm_sensor_subdev_ioctl(sd, cmd, arg);
+			return rc;
+		}
+	default:
+		return msm_sensor_subdev_ioctl(sd, cmd, arg);
+	}
+}
+
+long msm_sensor_subdev_fops_ioctl(struct file *file,
+	unsigned int cmd, unsigned long arg)
+{
+	return video_usercopy(file, cmd, arg, msm_sensor_subdev_do_ioctl);
+}
+
+static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
+	void __user *argp)
+{
+	struct sensorb_cfg_data32 *cdata = (struct sensorb_cfg_data32 *)argp;
+	int32_t rc = 0;
+	int32_t i = 0;
+	mutex_lock(s_ctrl->msm_sensor_mutex);
+	CDBG("%s:%d %s cfgtype = %d\n", __func__, __LINE__,
+		s_ctrl->sensordata->sensor_name, cdata->cfgtype);
+	switch (cdata->cfgtype) {
+	case CFG_GET_SENSOR_INFO:
+		memcpy(cdata->cfg.sensor_info.sensor_name,
+			s_ctrl->sensordata->sensor_name,
+			sizeof(cdata->cfg.sensor_info.sensor_name));
+		cdata->cfg.sensor_info.session_id =
+			s_ctrl->sensordata->sensor_info->session_id;
+		for (i = 0; i < SUB_MODULE_MAX; i++)
+			cdata->cfg.sensor_info.subdev_id[i] =
+				s_ctrl->sensordata->sensor_info->subdev_id[i];
+		cdata->cfg.sensor_info.is_mount_angle_valid =
+			s_ctrl->sensordata->sensor_info->is_mount_angle_valid;
+		cdata->cfg.sensor_info.sensor_mount_angle =
+			s_ctrl->sensordata->sensor_info->sensor_mount_angle;
+		cdata->cfg.sensor_info.position =
+			s_ctrl->sensordata->sensor_info->position;
+		cdata->cfg.sensor_info.modes_supported =
+			s_ctrl->sensordata->sensor_info->modes_supported;
+		CDBG("%s:%d sensor name %s\n", __func__, __LINE__,
+			cdata->cfg.sensor_info.sensor_name);
+		CDBG("%s:%d session id %d\n", __func__, __LINE__,
+			cdata->cfg.sensor_info.session_id);
+		for (i = 0; i < SUB_MODULE_MAX; i++)
+			CDBG("%s:%d subdev_id[%d] %d\n", __func__, __LINE__, i,
+				cdata->cfg.sensor_info.subdev_id[i]);
+		CDBG("%s:%d mount angle valid %d value %d\n", __func__,
+			__LINE__, cdata->cfg.sensor_info.is_mount_angle_valid,
+			cdata->cfg.sensor_info.sensor_mount_angle);
+
+		break;
+	case CFG_GET_SENSOR_INIT_PARAMS:
+		cdata->cfg.sensor_init_params.modes_supported =
+			s_ctrl->sensordata->sensor_info->modes_supported;
+		cdata->cfg.sensor_init_params.position =
+			s_ctrl->sensordata->sensor_info->position;
+		cdata->cfg.sensor_init_params.sensor_mount_angle =
+			s_ctrl->sensordata->sensor_info->sensor_mount_angle;
+		CDBG("%s:%d init params mode %d pos %d mount %d\n", __func__,
+			__LINE__,
+			cdata->cfg.sensor_init_params.modes_supported,
+			cdata->cfg.sensor_init_params.position,
+			cdata->cfg.sensor_init_params.sensor_mount_angle);
+		break;
+	case CFG_WRITE_I2C_ARRAY: {
+		struct msm_camera_i2c_reg_setting32 conf_array32;
+		struct msm_camera_i2c_reg_setting conf_array;
+		struct msm_camera_i2c_reg_array *reg_setting = NULL;
+
+		if (s_ctrl->sensor_state != MSM_SENSOR_POWER_UP) {
+			pr_err("%s:%d failed: invalid state %d\n", __func__,
+				__LINE__, s_ctrl->sensor_state);
+			rc = -EFAULT;
+			break;
+		}
+
+		if (copy_from_user(&conf_array32,
+			(void *)compat_ptr(cdata->cfg.setting),
+			sizeof(struct msm_camera_i2c_reg_setting32))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+
+		conf_array.addr_type = conf_array32.addr_type;
+		conf_array.data_type = conf_array32.data_type;
+		conf_array.delay = conf_array32.delay;
+		conf_array.size = conf_array32.size;
+		conf_array.reg_setting = compat_ptr(conf_array32.reg_setting);
+
+		if (!conf_array.size) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+
+		reg_setting = kzalloc(conf_array.size *
+			(sizeof(struct msm_camera_i2c_reg_array)), GFP_KERNEL);
+		if (!reg_setting) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(reg_setting,
+			(void *)(conf_array.reg_setting),
+			conf_array.size *
+			sizeof(struct msm_camera_i2c_reg_array))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			kfree(reg_setting);
+			rc = -EFAULT;
+			break;
+		}
+
+		conf_array.reg_setting = reg_setting;
+
+		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
+			i2c_write_table(s_ctrl->sensor_i2c_client,
+			&conf_array);
+		kfree(reg_setting);
+		break;
+	}
+	case CFG_POWER_UP:
+		if (s_ctrl->sensor_state != MSM_SENSOR_POWER_DOWN) {
+			pr_err("%s:%d failed: invalid state %d\n", __func__,
+				__LINE__, s_ctrl->sensor_state);
+			rc = -EFAULT;
+			break;
+		}
+		if (s_ctrl->func_tbl->sensor_power_up) {
+			if (s_ctrl->sensordata->misc_regulator)
+				msm_sensor_misc_regulator(s_ctrl, 1);
+
+			rc = s_ctrl->func_tbl->sensor_power_up(s_ctrl);
+			if (rc < 0) {
+				pr_err("%s:%d failed rc %d\n", __func__,
+					__LINE__, rc);
+				break;
+			}
+			s_ctrl->sensor_state = MSM_SENSOR_POWER_UP;
+			pr_err("%s:%d sensor state %d\n", __func__, __LINE__,
+				s_ctrl->sensor_state);
+		} else {
+			rc = -EFAULT;
+		}
+		break;
+	case CFG_POWER_DOWN:
+		kfree(s_ctrl->stop_setting.reg_setting);
+		s_ctrl->stop_setting.reg_setting = NULL;
+		if (s_ctrl->sensor_state != MSM_SENSOR_POWER_UP) {
+			pr_err("%s:%d failed: invalid state %d\n", __func__,
+				__LINE__, s_ctrl->sensor_state);
+			rc = -EFAULT;
+			break;
+		}
+		if (s_ctrl->func_tbl->sensor_power_down) {
+			if (s_ctrl->sensordata->misc_regulator)
+				msm_sensor_misc_regulator(s_ctrl, 0);
+
+			rc = s_ctrl->func_tbl->sensor_power_down(s_ctrl);
+			if (rc < 0) {
+				pr_err("%s:%d failed rc %d\n", __func__,
+					__LINE__, rc);
+				break;
+			}
+			s_ctrl->sensor_state = MSM_SENSOR_POWER_DOWN;
+			pr_err("%s:%d sensor state %d\n", __func__, __LINE__,
+				s_ctrl->sensor_state);
+		} else {
+			rc = -EFAULT;
+		}
+		break;
+	case CFG_SET_STOP_STREAM_SETTING: {
+		struct msm_camera_i2c_reg_setting32 stop_setting32;
+		struct msm_camera_i2c_reg_setting *stop_setting =
+			&s_ctrl->stop_setting;
+		struct msm_camera_i2c_reg_array *reg_setting = NULL;
+		if (copy_from_user(&stop_setting32,
+				(void *)compat_ptr((cdata->cfg.setting)),
+			sizeof(struct msm_camera_i2c_reg_setting32))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+
+		stop_setting->addr_type = stop_setting32.addr_type;
+		stop_setting->data_type = stop_setting32.data_type;
+		stop_setting->delay = stop_setting32.delay;
+		stop_setting->size = stop_setting32.size;
+
+		reg_setting = compat_ptr(stop_setting32.reg_setting);
+
+		if (!stop_setting->size) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+		stop_setting->reg_setting = kzalloc(stop_setting->size *
+			(sizeof(struct msm_camera_i2c_reg_array)), GFP_KERNEL);
+		if (!stop_setting->reg_setting) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(stop_setting->reg_setting,
+			(void *)reg_setting,
+			stop_setting->size *
+			sizeof(struct msm_camera_i2c_reg_array))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			kfree(stop_setting->reg_setting);
+			stop_setting->reg_setting = NULL;
+			stop_setting->size = 0;
+			rc = -EFAULT;
+			break;
+		}
+		break;
+	}
+
+	default:
+		rc = -EFAULT;
+		break;
+	}
+
+	mutex_unlock(s_ctrl->msm_sensor_mutex);
+
+	return rc;
+}
+#endif
 
 int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 {
@@ -1098,6 +1355,9 @@ static struct v4l2_subdev_ops msm_sensor_subdev_ops = {
 
 static struct msm_sensor_fn_t msm_sensor_func_tbl = {
 	.sensor_config = msm_sensor_config,
+#ifdef CONFIG_COMPAT
+	.sensor_config32 = msm_sensor_config32,
+#endif
 	.sensor_power_up = msm_sensor_power_up,
 	.sensor_power_down = msm_sensor_power_down,
 	.sensor_match_id = msm_sensor_match_id,
@@ -1213,6 +1473,14 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev,
 	s_ctrl->sensordata->sensor_info->session_id = session_id;
 	s_ctrl->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x3;
 	msm_sd_register(&s_ctrl->msm_sd);
+	msm_sensor_v4l2_subdev_fops = v4l2_subdev_fops;
+#ifdef CONFIG_COMPAT
+	msm_sensor_v4l2_subdev_fops.compat_ioctl32 =
+		msm_sensor_subdev_fops_ioctl;
+#endif
+	s_ctrl->msm_sd.sd.devnode->fops =
+		&msm_sensor_v4l2_subdev_fops;
+
 	CDBG("%s:%d\n", __func__, __LINE__);
 
 	s_ctrl->func_tbl->sensor_power_down(s_ctrl);
