@@ -65,6 +65,9 @@ struct i915_scheduler_queue_entry {
 	uint32_t                            scheduler_index;
 };
 
+#define I915_SCHEDULER_FLUSH_ALL(ring, locked)                              \
+	i915_scheduler_flush(ring, locked)
+
 #define I915_SCHEDULER_FLUSH_REQUEST(req, locked)                           \
 	i915_scheduler_flush_request(req, locked)
 
@@ -93,6 +96,7 @@ int         i915_scheduler_closefile(struct drm_device *dev,
 int         i915_scheduler_queue_execbuffer(struct i915_scheduler_queue_entry *qe);
 int         i915_scheduler_handle_irq(struct intel_engine_cs *ring);
 void        i915_gem_scheduler_work_handler(struct work_struct *work);
+int         i915_scheduler_flush(struct intel_engine_cs *ring, bool is_locked);
 int         i915_scheduler_flush_request(struct drm_i915_gem_request *req,
 					 bool is_locked);
 bool        i915_scheduler_is_request_tracked(struct drm_i915_gem_request *req,

@@ -633,6 +633,51 @@ int i915_scheduler_flush_request(struct drm_i915_gem_request *req,
 	return flush_count;
 }
 
+int i915_scheduler_flush(struct intel_engine_cs *ring, bool is_locked)
+{
+	struct i915_scheduler_queue_entry *node;
+	struct drm_i915_private           *dev_priv;
+	struct i915_scheduler             *scheduler;
+	unsigned long       flags;
+	bool        found;
+	int         ret;
+	uint32_t    count = 0;
+
+	if (!ring)
+		return -EINVAL;
+
+	dev_priv  = ring->dev->dev_private;
+	scheduler = dev_priv->scheduler;
+
+	if (!scheduler)
+		return 0;
+
+	BUG_ON(is_locked && (scheduler->flags[ring->id] & i915_sf_submitting));
+
+	do {
+		found = false;
+		spin_lock_irqsave(&scheduler->lock, flags);
+		list_for_each_entry(node, &scheduler->node_queue[ring->id], link) {
+			if (!I915_SQS_IS_QUEUED(node))
+				continue;
+
+			found = true;
+			break;
+		}
+		spin_unlock_irqrestore(&scheduler->lock, flags);
+
+		if (found) {
+			ret = i915_scheduler_submit(ring, is_locked);
+			if (ret < 0)
+				return ret;
+
+			count += ret;
+		}
+	} while (found);
+
+	return count;
+}
+
 void i915_scheduler_priority_bump_clear(struct i915_scheduler *scheduler)
 {
 	struct i915_scheduler_queue_entry *node;

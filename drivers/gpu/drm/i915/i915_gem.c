@@ -3321,6 +3321,10 @@ int i915_gpu_idle(struct drm_device *dev)
 
 	/* Flush everything onto the inactive list. */
 	for_each_ring(ring, dev_priv, i) {
+		ret = I915_SCHEDULER_FLUSH_ALL(ring, true);
+		if (ret < 0)
+			return ret;
+
 		if (!i915.enable_execlists) {
 			ret = i915_switch_context(ring, ring->default_context);
 			if (ret)
@@ -4348,11 +4352,22 @@ i915_gem_ring_throttle(struct drm_device *dev, struct drm_file *file)
 	unsigned long recent_enough = jiffies - msecs_to_jiffies(20);
 	struct drm_i915_gem_request *request, *target = NULL;
 	unsigned reset_counter;
-	int ret;
+	int i, ret;
+	struct intel_engine_cs *ring;
 
 	ret = i915_gem_wait_for_error(dev, &dev_priv->gpu_error);
 	if (ret)
 		return ret;
+
+	for_each_ring(ring, dev_priv, i) {
+		/* Need a mechanism to flush out scheduler entries that were
+		 * submitted more than 'recent_enough' time ago as well! In the
+		 * meantime, just flush everything out to ensure that entries
+		 * can not sit around indefinitely. */
+		ret = I915_SCHEDULER_FLUSH_ALL(ring, false);
+		if (ret < 0)
+			return ret;
+	}
 
 	spin_lock(&file_priv->mm.lock);
 	list_for_each_entry(request, &file_priv->mm.request_list, client_list) {
