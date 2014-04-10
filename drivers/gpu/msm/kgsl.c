@@ -611,61 +611,9 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 	KGSL_PWR_WARN(device, "suspend start\n");
 
 	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
-	kgsl_pwrctrl_request_state(device, KGSL_STATE_SUSPEND);
-
-	/* Tell the device to drain the submission queue */
-	device->ftbl->drain(device);
-
-	/* Wait for the active count to hit zero */
-	status = kgsl_active_count_wait(device, 0);
-	if (status)
-		goto end;
-
-	/*
-	 * An interrupt could have snuck in and requested NAP in
-	 * the meantime, make sure we're on the SUSPEND path.
-	 */
-	kgsl_pwrctrl_request_state(device, KGSL_STATE_SUSPEND);
-
-	/* Don't let the timer wake us during suspended sleep. */
-	del_timer_sync(&device->idle_timer);
-	switch (device->state) {
-		case KGSL_STATE_INIT:
-			break;
-		case KGSL_STATE_ACTIVE:
-		case KGSL_STATE_NAP:
-		case KGSL_STATE_SLEEP:
-			/* make sure power is on to stop the device */
-			kgsl_pwrctrl_enable(device);
-			/* Get the completion ready to be waited upon. */
-			INIT_COMPLETION(device->hwaccess_gate);
-			device->ftbl->suspend_context(device);
-			device->ftbl->stop(device);
-			pm_qos_update_request(&device->pwrctrl.pm_qos_req_dma,
-						PM_QOS_DEFAULT_VALUE);
-			kgsl_pwrctrl_set_state(device, KGSL_STATE_SUSPEND);
-			break;
-		case KGSL_STATE_SLUMBER:
-			INIT_COMPLETION(device->hwaccess_gate);
-			kgsl_pwrctrl_set_state(device, KGSL_STATE_SUSPEND);
-			break;
-		default:
-			KGSL_PWR_ERR(device, "suspend fail, device %d\n",
-					device->id);
-			goto end;
-	}
-	kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
-	kgsl_pwrscale_sleep(device);
-	status = 0;
-
-end:
-	if (status) {
-		/* On failure, re-resume normal activity */
-		if (device->ftbl->resume)
-			device->ftbl->resume(device);
-	}
-
+	status = kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
 	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+
 	KGSL_PWR_WARN(device, "suspend end\n");
 	return status;
 }
@@ -678,8 +626,7 @@ static int kgsl_resume_device(struct kgsl_device *device)
 	KGSL_PWR_WARN(device, "resume start\n");
 	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 	if (device->state == KGSL_STATE_SUSPEND) {
-		kgsl_pwrctrl_set_state(device, KGSL_STATE_SLUMBER);
-		complete_all(&device->hwaccess_gate);
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 	} else if (device->state != KGSL_STATE_INIT) {
 		/*
 		 * This is an error situation,so wait for the device
@@ -689,16 +636,10 @@ static int kgsl_resume_device(struct kgsl_device *device)
 		 */
 		if (device->state == KGSL_STATE_ACTIVE)
 			device->ftbl->idle(device);
-		kgsl_pwrctrl_request_state(device, KGSL_STATE_SLUMBER);
-		kgsl_pwrctrl_sleep(device);
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 		KGSL_PWR_ERR(device,
 			"resume invoked without a suspend\n");
 	}
-	kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
-
-	/* Call the GPU specific resume function */
-	if (device->ftbl->resume)
-		device->ftbl->resume(device);
 
 	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 	KGSL_PWR_WARN(device, "resume end\n");
@@ -915,7 +856,7 @@ static int kgsl_close_device(struct kgsl_device *device)
 		/* Force power on to do the stop */
 		kgsl_pwrctrl_enable(device);
 		result = device->ftbl->stop(device);
-		kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
 	}
 	return result;
 
@@ -1017,7 +958,7 @@ static int kgsl_open_device(struct kgsl_device *device)
 		 * we start suspend or FT.
 		 */
 		complete_all(&device->hwaccess_gate);
-		kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
 		kgsl_active_count_put(device);
 	}
 	device->open_count++;
@@ -1089,7 +1030,7 @@ err_stop:
 		/* make sure power is on to stop the device */
 		kgsl_pwrctrl_enable(device);
 		device->ftbl->stop(device);
-		kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
 		atomic_dec(&device->active_cnt);
 	}
 err_freedevpriv:
