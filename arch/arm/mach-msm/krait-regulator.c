@@ -32,8 +32,8 @@
 #include <linux/cpu.h>
 #include <soc/qcom/spm.h>
 #include <soc/qcom/pm.h>
+#include <soc/qcom/krait-regulator-pmic.h>
 #include <mach/msm_iomap.h>
-#include "krait-regulator-pmic.h"
 
 /*
  *                   supply
