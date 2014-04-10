@@ -110,6 +110,15 @@ config S5K3L1YX
 		snapshot config = 4000 * 3000 at 20 fps,
 		hfr video at 60, 90 and 120 fps.
 
+config IMX214
+	bool "Sensor IMX214 (BAYER 13M)"
+	depends on MSMB_CAMERA
+	---help---
+		Sony 13 MP Bayer Sensor with auto focus, uses
+		4 mipi lanes, preview config = 4208 x 3120 at 30 fps,
+		snapshot config = 4208 x 3120 at 30 fps,
+		Video HDR support.
+
 config IMX135
 	bool "Sensor IMX135 (BAYER 12M)"
 	depends on MSMB_CAMERA
