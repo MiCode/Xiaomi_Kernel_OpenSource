@@ -101,7 +101,11 @@ int rmnet_config_init(void)
  */
 void rmnet_config_exit(void)
 {
+	int rc;
 	netlink_kernel_release(nl_socket_handle);
+	rc = unregister_netdevice_notifier(&rmnet_dev_notifier);
+	if (rc != 0)
+		LOGE("Failed to unregister device notifier; rc=%d", rc);
 }
 
 /* ***************** Helper Functions *************************************** */
@@ -1132,6 +1136,7 @@ static void rmnet_force_unassociate_device(struct net_device *dev)
 	int i;
 	struct net_device *vndev;
 	struct rmnet_logical_ep_conf_s *cfg;
+	ASSERT_RTNL();
 
 	if (!dev)
 		BUG();
@@ -1180,7 +1185,7 @@ static void rmnet_force_unassociate_device(struct net_device *dev)
 int rmnet_config_notify_cb(struct notifier_block *nb,
 				  unsigned long event, void *data)
 {
-	struct net_device *dev = data;
+	struct net_device *dev = (struct net_device *)data;
 
 	if (!dev)
 		BUG();
