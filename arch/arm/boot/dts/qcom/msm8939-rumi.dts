@@ -17,7 +17,7 @@
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8939 RUMI";
-	compatible = "qcom,msm8936-rumi", "qcom,msm8936", "qcom,rumi";
+	compatible = "qcom,msm8939-rumi", "qcom,msm8939", "qcom,rumi";
 	qcom,board-id= <15 0>;
 };
 
