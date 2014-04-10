@@ -52,8 +52,10 @@ Optional properties :
 - qcom,usb-dbm : phandle for the DBM device
 - qcom,usbin-vadc: Corresponding vadc device's phandle to read usbin voltage using VADC.
 	This will be used to get value of usb power supply's VOLTAGE_NOW property,
-- qcom,no-power-collapse: If present, the USB core will not perform power collapse
-
+- qcom,power-collapse-on-cable-disconnect: If present, USB core will perform
+	power collapse when cable is disconencted.
+- qcom,por-after-power-collapse: If present, a partial POR sequence will be performed
+  when recovering from power collapse.
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
   This sub node is required property for device node. The properties of this subnode
