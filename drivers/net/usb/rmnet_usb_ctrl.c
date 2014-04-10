@@ -479,7 +479,12 @@ static int rmnet_usb_ctrl_write_cmd(struct rmnet_ctrl_udev *dev, u8 req,
 	if (ret < 0)
 		dev->tx_ctrl_err_cnt++;
 
-	usb_autopm_put_interface(dev->intf);
+	/* if we are here after device disconnect
+	 * usb_unbind_interface() takes care of
+	 * residual pm_autopm_get_interface_* calls
+	 */
+	if (test_bit(RMNET_CTRL_DEV_READY, &dev->status))
+		usb_autopm_put_interface(dev->intf);
 
 	return ret;
 }
