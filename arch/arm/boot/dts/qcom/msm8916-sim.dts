@@ -16,6 +16,7 @@
 
 #include "msm8916.dtsi"
 #include "msm8916-pinctrl.dtsi"
+#include "msm8916-camera-sensor-cdp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8916 Simulator";

@@ -130,6 +130,8 @@
 #include "msm8916-ion.dtsi"
 #include "msm8916-coresight.dtsi"
 #include "msm8916-smp2p.dtsi"
+#include "msm8916-pinctrl.dtsi"
+#include "msm8916-camera.dtsi"
 #include "msm8916-ipcrouter.dtsi"
 #include "msm-gdsc-8916.dtsi"
 #include "msm8916-iommu.dtsi"
