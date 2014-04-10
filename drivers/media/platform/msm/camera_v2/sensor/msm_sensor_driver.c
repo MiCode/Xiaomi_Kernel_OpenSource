@@ -267,6 +267,46 @@ static int32_t msm_sensor_fill_actuator_subdevid_by_name(
 	return rc;
 }
 
+static int32_t msm_sensor_fill_ois_subdevid_by_name(
+				struct msm_sensor_ctrl_t *s_ctrl)
+{
+	int32_t rc = 0;
+	struct device_node *src_node = NULL;
+	uint32_t val = 0;
+	int32_t *ois_subdev_id;
+	struct  msm_sensor_info_t *sensor_info;
+	struct device_node *of_node = s_ctrl->of_node;
+
+	if (!of_node)
+		return -EINVAL;
+
+	sensor_info = s_ctrl->sensordata->sensor_info;
+	ois_subdev_id = &sensor_info->subdev_id[SUB_MODULE_OIS];
+	/*
+	 * string for ois name is valid, set sudev id to -1
+	 * and try to found new id
+	 */
+	*ois_subdev_id = -1;
+
+	src_node = of_parse_phandle(of_node, "qcom,ois-src", 0);
+	if (!src_node) {
+		CDBG("%s:%d src_node NULL\n", __func__, __LINE__);
+	} else {
+		rc = of_property_read_u32(src_node, "cell-index", &val);
+		CDBG("%s qcom,ois cell index %d, rc %d\n", __func__,
+			val, rc);
+		if (rc < 0) {
+			pr_err("%s failed %d\n", __func__, __LINE__);
+			return -EINVAL;
+		}
+		*ois_subdev_id = val;
+		of_node_put(src_node);
+		src_node = NULL;
+	}
+
+	return rc;
+}
+
 static int32_t msm_sensor_fill_slave_info_init_params(
 	struct msm_camera_sensor_slave_info *slave_info,
 	struct msm_sensor_info_t *sensor_info)
@@ -698,7 +738,6 @@ int32_t msm_sensor_driver_probe(void *setting)
 	s_ctrl->sensordata->sensor_name = slave_info->sensor_name;
 	s_ctrl->sensordata->eeprom_name = slave_info->eeprom_name;
 	s_ctrl->sensordata->actuator_name = slave_info->actuator_name;
-
 	/*
 	 * Update eeporm subdevice Id by input eeprom name
 	 */
@@ -711,6 +750,12 @@ int32_t msm_sensor_driver_probe(void *setting)
 	 * Update actuator subdevice Id by input actuator name
 	 */
 	rc = msm_sensor_fill_actuator_subdevid_by_name(s_ctrl);
+	if (rc < 0) {
+		pr_err("%s failed %d\n", __func__, __LINE__);
+		goto FREE_CAMERA_INFO;
+	}
+
+	rc = msm_sensor_fill_ois_subdevid_by_name(s_ctrl);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		goto FREE_CAMERA_INFO;

@@ -162,6 +162,8 @@ Optional properties:
 - qcom,vdd-cx-name : should contain names of cx regulator
 - qcom,eeprom-src : if eeprom memory is supported by this sensor, this
    property should contain phandle of respective eeprom nodes
+- qcom,ois-src : if optical image stabilization is supported by this sensor,
+   this property should contain phandle of respective ois node
 
 * Qualcomm MSM ACTUATOR
 
@@ -189,6 +191,33 @@ Optional properties:
    required from the regulators mentioned in the qcom,cam-vreg-name property
    (in the same order).
 - cam_vaf-supply : should contain regulator from which AF voltage is supplied
+
+* Qualcomm MSM OIS
+
+Required properties:
+- cell-index : should contain unique identifier to differentiate
+    between multiple ois drivers
+- reg : should contain i2c slave address of the ois and length of
+    data field which is 0x0
+- compatible :
+    - "qcom,ois"
+- qcom,cci-master : should contain i2c master id to be used for this camera
+    sensor
+    - 0 -> MASTER 0
+    - 1 -> MASTER 1
+
+Optional properties:
+- qcom,cam-vreg-name : should contain names of all regulators needed by this
+    ois
+    - "cam_vaf"
+- qcom,cam-vreg-min-voltage : should contain minimum voltage level in mcrovolts
+   for regulators mentioned in qcom,cam-vreg-name property (in the same order)
+- qcom,cam-vreg-max-voltage : should contain maximum voltage level in mcrovolts
+   for regulators mentioned in qcom,cam-vreg-name property (in the same order)
+- qcom,cam-vreg-op-mode : should contain the maximum current in microamps
+   required from the regulators mentioned in the qcom,cam-vreg-name property
+   (in the same order).
+- cam_vaf-supply : should contain regulator from which ois voltage is supplied
 
 Example:
 
