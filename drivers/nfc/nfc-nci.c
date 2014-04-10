@@ -27,6 +27,8 @@
 #include <linux/of_device.h>
 #include <linux/regulator/consumer.h>
 #include "nfc-nci.h"
+#include <linux/dma-mapping.h>
+#include <linux/dmapool.h>
 
 struct qca199x_platform_data {
 	unsigned int irq_gpio;
@@ -45,8 +47,7 @@ static struct of_device_id msm_match_table[] = {
 };
 
 MODULE_DEVICE_TABLE(of, msm_match_table);
-
-#define MAX_BUFFER_SIZE			(780)
+#define MAX_BUFFER_SIZE			(320)
 #define PACKET_MAX_LENGTH		(258)
 /* Read data */
 #define PACKET_HEADER_SIZE_NCI	(4)
@@ -92,6 +93,9 @@ struct qca199x_dev {
 	bool			clk_run;
 	struct work_struct	msm_clock_controll_work;
 	struct workqueue_struct *my_wq;
+	struct dma_pool *nfc_dma_pool;
+	dma_addr_t dma_handle_physical_addr;
+	void *dma_virtual_addr;
 };
 
 static int nfcc_reboot(struct notifier_block *notifier, unsigned long val,
@@ -246,7 +250,8 @@ static ssize_t nfc_read(struct file *filp, char __user *buf,
 					size_t count, loff_t *offset)
 {
 	struct qca199x_dev *qca199x_dev = filp->private_data;
-	unsigned char tmp[MAX_BUFFER_SIZE], rd_byte;
+	unsigned char rd_byte;
+	unsigned char *tmp = NULL;
 	unsigned char len[PAYLOAD_HEADER_LENGTH];
 	int total, length, ret;
 	int ftm_rerr_code;
@@ -258,7 +263,9 @@ static ssize_t nfc_read(struct file *filp, char __user *buf,
 		count = MAX_BUFFER_SIZE;
 
 	mutex_lock(&qca199x_dev->read_mutex);
-	memset(tmp, 0, sizeof(tmp));
+
+	tmp = qca199x_dev->dma_virtual_addr;
+	memset(tmp, 0, MAX_BUFFER_SIZE);
 	memset(len, 0, sizeof(len));
 	dmode = device_mode.handle_flavour;
 	/* FTM-RAW-I2C RD/WR MODE - Special Case */
@@ -1232,6 +1239,32 @@ static int qca199x_probe(struct i2c_client *client,
 	}
 	qca199x_dev->client = client;
 
+	/* if coherent_dma_mask not set by the device, set it to ULONG_MAX */
+	if (client->dev.coherent_dma_mask == 0)
+		client->dev.coherent_dma_mask = ULONG_MAX;
+
+	qca199x_dev->nfc_dma_pool = NULL;
+	qca199x_dev->dma_virtual_addr = NULL;
+
+	qca199x_dev->nfc_dma_pool = dma_pool_create("NFC-DMA", &client->dev,
+						MAX_BUFFER_SIZE, 64, 4096);
+	if (!qca199x_dev->nfc_dma_pool) {
+		dev_err(&client->dev,
+		"nfc-nci probe: failed to allocate memory for dma_pool\n");
+		r = -ENOMEM;
+		goto err_free_dev;
+	}
+
+	qca199x_dev->dma_virtual_addr = dma_pool_alloc(
+				qca199x_dev->nfc_dma_pool, GFP_KERNEL,
+				&qca199x_dev->dma_handle_physical_addr);
+	if (!qca199x_dev->dma_virtual_addr) {
+		dev_err(&client->dev,
+		"nfc-nci probe: failed to allocate coherent memory for i2c dma buffer\n");
+		r = -ENOMEM;
+		goto err_free_dev;
+	}
+
 	/*
 	 * To be efficient we need to test whether nfcc hardware is physically
 	 * present before attempting further hardware initialisation.
@@ -1489,7 +1522,22 @@ err_irq:
 err_dis_gpio:
 	gpio_free(platform_data->dis_gpio);
 err_free_dev:
+	if (!qca199x_dev->dma_virtual_addr) {
+		dma_pool_free(qca199x_dev->nfc_dma_pool,
+				qca199x_dev->dma_virtual_addr,
+				qca199x_dev->dma_handle_physical_addr);
+
+		qca199x_dev->dma_virtual_addr = NULL;
+	}
+
+	if (!qca199x_dev->nfc_dma_pool) {
+		dma_pool_destroy(qca199x_dev->nfc_dma_pool);
+		qca199x_dev->nfc_dma_pool = NULL;
+	}
+
+
 	kfree(qca199x_dev);
+
 	return r;
 }
 
@@ -1509,8 +1557,21 @@ static int qca199x_remove(struct i2c_client *client)
 	gpio_free(qca199x_dev->dis_gpio);
 	if (strcmp(qca199x_dev->clk_src_name, "GPCLK2"))
 		gpio_free(qca199x_dev->clkreq_gpio);
-	kfree(qca199x_dev);
 
+	if (!qca199x_dev->dma_virtual_addr) {
+		dma_pool_free(qca199x_dev->nfc_dma_pool,
+			qca199x_dev->dma_virtual_addr,
+			qca199x_dev->dma_handle_physical_addr);
+
+		qca199x_dev->dma_virtual_addr = NULL;
+	}
+
+	if (!qca199x_dev->nfc_dma_pool) {
+		dma_pool_destroy(qca199x_dev->nfc_dma_pool);
+		qca199x_dev->nfc_dma_pool = NULL;
+	}
+
+	kfree(qca199x_dev);
 	return 0;
 }
 
