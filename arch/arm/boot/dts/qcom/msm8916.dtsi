@@ -122,6 +122,13 @@
 			reg = <0 0 0 0x314000>;
 			label = "audio_mem";
 		};
+
+		cont_splash_mem: splash_region@83000000 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			reg = <0x0 0x83000000 0x0 0x1200000>;
+			label = "cont_splash_mem";
+		};
 	};
 
 	soc: soc { };
