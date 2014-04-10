@@ -832,12 +832,16 @@ static int ecm_ipa_rules_cfg(struct ecm_ipa_dev *ecm_ipa_ctx,
 	eth_ipv4->h_proto = htons(ETH_P_IP);
 	ipv4_hdr->hdr_len = ETH_HLEN;
 	ipv4_hdr->is_partial = 0;
+	ipv4_hdr->is_eth2_ofst_valid = true;
+	ipv4_hdr->eth2_ofst = 0;
 	strlcpy(ipv6_hdr->name, ECM_IPA_IPV6_HDR_NAME, IPA_RESOURCE_NAME_MAX);
 	memcpy(eth_ipv6->h_dest, dst_mac, ETH_ALEN);
 	memcpy(eth_ipv6->h_source, src_mac, ETH_ALEN);
 	eth_ipv6->h_proto = htons(ETH_P_IPV6);
 	ipv6_hdr->hdr_len = ETH_HLEN;
 	ipv6_hdr->is_partial = 0;
+	ipv6_hdr->is_eth2_ofst_valid = true;
+	ipv6_hdr->eth2_ofst = 0;
 	hdrs->commit = 1;
 	hdrs->num_hdrs = 2;
 	result = ipa_add_hdr(hdrs);
