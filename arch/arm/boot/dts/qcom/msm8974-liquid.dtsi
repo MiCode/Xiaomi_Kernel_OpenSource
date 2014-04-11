@@ -410,55 +410,6 @@
 				<85 512 0 0>,
 				<85 512 40000 160000>;
 	};
-
-        wlan0: qca,wlan {
-                compatible = "qca,ar6004-hsic";
-                qcom,msm-bus,name = "wlan";
-                qca,wifi-chip-pwd-supply = <&ath_chip_pwd_l>;
-                qca,wifi-vddpa-supply = <&pm8941_l19>;
-                qca,wifi-vddio-supply = <&pm8941_l10>;
-                qcom,msm-bus,num-cases = <5>;
-                qcom,msm-bus,active-only = <0>;
-                qcom,msm-bus,num-paths = <1>;
-                qcom,msm-bus,vectors-KBps =
-                        <85 512 0 0>,
-                        <85 512 40000 160000>,
-                        <85 512 40000 320000>,
-                        <85 512 40000 480000>,
-                        <85 512 40000 800000>;
-        };
-
-        wlan_sdio:qca,wlan_sdio {
-                compatible = "qca,ar6004-sdio";
-                qcom,msm-bus,name = "wlan_sdio";
-                qca,wifi-chip-pwd-supply = <&ath_chip_pwd_l>;
-        };
-
-	qcom,pronto@fb21b000 {
-		status = "disabled";
-	};
-
-	qcom,iris-fm {
-		status = "disabled";
-	};
-
-	qcom,wcnss-wlan@fb000000 {
-		status = "disabled";
-	};
-
-	qcom,smd-wcnss {
-		status = "disabled";
-	};
-
-	qcom,smsm-wcnss {
-		status = "disabled";
-	};
-};
-
-&pm8941_l19 {
-	regulator-min-microvolt = <3300000>;
-	regulator-max-microvolt = <3300000>;
-	qcom,init-voltage = <3300000>;
 };
 
 &pm8941_l10 {
