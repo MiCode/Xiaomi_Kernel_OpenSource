@@ -123,10 +123,13 @@ int inv_mpu6050_probe_trigger(struct iio_dev *indio_dev)
 		ret = -ENOMEM;
 		goto error_ret;
 	}
-	ret = request_irq(st->client->irq, &iio_trigger_generic_data_rdy_poll,
-				IRQF_TRIGGER_RISING,
+
+	ret = request_threaded_irq(st->client->irq, inv_mpu6050_irq_handler,
+				inv_mpu6050_read_fifo,
+				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
 				"inv_mpu",
-				st->trig);
+				indio_dev
+				);
 	if (ret)
 		goto error_free_trig;
 	st->trig->dev.parent = &st->client->dev;

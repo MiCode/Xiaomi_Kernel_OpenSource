@@ -99,8 +99,7 @@ static void inv_clear_kfifo(struct inv_mpu6050_state *st)
  */
 irqreturn_t inv_mpu6050_irq_handler(int irq, void *p)
 {
-	struct iio_poll_func *pf = p;
-	struct iio_dev *indio_dev = pf->indio_dev;
+	struct iio_dev *indio_dev = p;
 	struct inv_mpu6050_state *st = iio_priv(indio_dev);
 	s64 timestamp;
 
@@ -116,8 +115,7 @@ irqreturn_t inv_mpu6050_irq_handler(int irq, void *p)
  */
 irqreturn_t inv_mpu6050_read_fifo(int irq, void *p)
 {
-	struct iio_poll_func *pf = p;
-	struct iio_dev *indio_dev = pf->indio_dev;
+	struct iio_dev *indio_dev = p;
 	struct inv_mpu6050_state *st = iio_priv(indio_dev);
 	size_t bytes_per_datum;
 	int result;
