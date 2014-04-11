@@ -112,6 +112,8 @@ struct mxhci_hsic_hcd {
 	struct workqueue_struct	*wq;
 
 	bool			wakeup_irq_enabled;
+	bool			xhci_remove_flag;
+	bool			phy_in_lpm_flag;
 	int			strobe;
 	int			data;
 	int			host_ready;
@@ -123,7 +125,7 @@ struct mxhci_hsic_hcd {
 	unsigned int		vdd_high_vol_level;
 	unsigned int		in_lpm;
 	unsigned int		pm_usage_cnt;
-	struct completion	phy_in_lpm;
+	wait_queue_head_t	phy_in_lpm_wq;
 
 	uint32_t		wakeup_int_cnt;
 	uint32_t		pwr_evt_irq_inlpm;
@@ -706,8 +708,10 @@ static irqreturn_t mxhci_hsic_pwr_event_irq(int irq, void *data)
 		mb();
 
 		/* this can be spurious interrupt if in_lpm is true */
-		if (!in_lpm)
-			complete(&mxhci->phy_in_lpm);
+		if (!in_lpm) {
+			mxhci->phy_in_lpm_flag = true;
+			wake_up(&mxhci->phy_in_lpm_wq);
+		}
 
 	} else if (stat & LPM_OUT_L2_IRQ_STAT) {
 		xhci_dbg_log_event(&dbg_hsic, NULL, "LPM_OUT_L2_IRQ", stat);
@@ -748,15 +752,18 @@ static int mxhci_hsic_bus_suspend(struct usb_hcd *hcd)
 
 	xhci_dbg_log_event(&dbg_hsic, NULL, "mxhci_hsic_bus_suspend", 0);
 
-	init_completion(&mxhci->phy_in_lpm);
+	mxhci->phy_in_lpm_flag = false;
 
 	ret = xhci_bus_suspend(hcd);
 	if (ret)
 		return ret;
 
 	/* make sure HSIC phy is in LPM */
-	ret = wait_for_completion_timeout(&mxhci->phy_in_lpm,
+	ret = wait_event_interruptible_timeout(mxhci->phy_in_lpm_wq,
+			(mxhci->phy_in_lpm_flag == true) ||
+			(mxhci->xhci_remove_flag == true),
 			msecs_to_jiffies(PHY_LPM_WAIT_TIMEOUT_MS));
+
 	if (!ret) {
 		dev_dbg(mxhci->dev, "IN_L2_IRQ timeout\n");
 		xhci_dbg_log_event(&dbg_hsic, NULL, "IN_L2_IRQ timeout",
@@ -1158,6 +1165,7 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 
 	mxhci = hcd_to_hsic(hcd);
 	mxhci->dev = &pdev->dev;
+	mxhci->xhci_remove_flag = false;
 
 	/* Get pinctrl if target uses pinctrl */
 	mxhci->hsic_pinctrl = devm_pinctrl_get(&pdev->dev);
@@ -1366,7 +1374,7 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 	/* Enable HSIC PHY */
 	mxhci_hsic_ulpi_write(mxhci, 0x01, MSM_HSIC_CFG_SET);
 
-	init_completion(&mxhci->phy_in_lpm);
+	init_waitqueue_head(&mxhci->phy_in_lpm_wq);
 
 	device_init_wakeup(&pdev->dev, 1);
 	pm_stay_awake(mxhci->dev);
@@ -1422,7 +1430,9 @@ static int mxhci_hsic_remove(struct platform_device *pdev)
 
 	xhci_dbg_log_event(&dbg_hsic, NULL,  "mxhci_hsic_remove", 0);
 
-	complete(&mxhci->phy_in_lpm);
+	mxhci->xhci_remove_flag = true;
+	wake_up(&mxhci->phy_in_lpm_wq);
+
 
 	/* disable STROBE_PAD_CTL */
 	reg = readl_relaxed(TLMM_GPIO_HSIC_STROBE_PAD_CTL);
