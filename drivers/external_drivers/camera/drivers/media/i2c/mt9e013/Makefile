@@ -1,0 +1,2 @@
+obj-$(CONFIG_VIDEO_MT9E013) += mt9e013.o
+EXTRA_CFLAGS := -Werror
