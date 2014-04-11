@@ -768,6 +768,10 @@
 		compatible = "qcom,msm-voice-svc";
 	};
 
+	qcom,msm-pcm-loopback {
+		compatible = "qcom,msm-pcm-loopback";
+	};
+
 	qcom,msm-dai-mi2s {
 		compatible = "qcom,msm-dai-mi2s";
 		qcom,msm-dai-q6-mi2s-prim {
