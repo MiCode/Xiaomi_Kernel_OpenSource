@@ -1828,7 +1828,9 @@ static int msm_spi_transfer_one_message(struct spi_master *master,
 				tr->speed_hz, tr->bits_per_word,
 				tr->tx_buf, tr->rx_buf);
 			status_error = -EINVAL;
-			goto out;
+			msg->status = status_error;
+			spi_finalize_current_message(master);
+			return 0;
 		}
 	}
 
@@ -1871,7 +1873,6 @@ static int msm_spi_transfer_one_message(struct spi_master *master,
 	if (dd->suspended)
 		wake_up_interruptible(&dd->continue_suspend);
 
-out:
 	dd->cur_msg->status = status_error;
 	spi_finalize_current_message(master);
 	return 0;
