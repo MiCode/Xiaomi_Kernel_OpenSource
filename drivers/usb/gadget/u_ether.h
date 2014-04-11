@@ -56,7 +56,8 @@ struct gether {
 	u32				fixed_in_len;
 
 	unsigned			ul_max_pkts_per_xfer;
-	unsigned			dl_max_pkts_per_xfer;
+	uint32_t			dl_max_pkts_per_xfer;
+	uint32_t			dl_max_xfer_size;
 	bool				multi_pkt_xfer;
 	bool				rx_trigger_enabled;
 	bool				rx_triggered;
@@ -107,6 +108,8 @@ void gether_cleanup(struct eth_dev *dev);
 struct net_device *gether_connect(struct gether *);
 void gether_disconnect(struct gether *);
 int gether_up(struct gether *);
+void gether_update_dl_max_pkts_per_xfer(struct gether *link, uint32_t n);
+void gether_update_dl_max_xfer_size(struct gether *link, uint32_t s);
 
 /* Some controllers can't support CDC Ethernet (ECM) ... */
 static inline bool can_support_ecm(struct usb_gadget *gadget)
