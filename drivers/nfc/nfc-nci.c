@@ -27,7 +27,6 @@
 #include <linux/of_device.h>
 #include <linux/regulator/consumer.h>
 #include "nfc-nci.h"
-#include <mach/gpiomux.h>
 
 struct qca199x_platform_data {
 	unsigned int irq_gpio;
@@ -62,7 +61,6 @@ MODULE_DEVICE_TABLE(of, msm_match_table);
 #define CORE_RST_NTF_LENGTH		(0x02)
 #define WAKE_TIMEOUT			(10000)
 
-static void clk_req_update(struct work_struct *work);
 
 struct qca199x_dev {
 	wait_queue_head_t read_wq;
@@ -227,54 +225,6 @@ static irqreturn_t qca199x_dev_irq_handler_clk_req(int irq, void *dev_id)
 	queue_work(qca199x_dev->my_wq, &qca199x_dev->msm_clock_controll_work);
 
 	return IRQ_HANDLED;
-}
-
-
-static struct gpiomux_setting nfc_clk_on = {
-	.func = GPIOMUX_FUNC_2,
-	.drv  = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-static struct gpiomux_setting nfc_clk_on_suspend = {
-	.func = GPIOMUX_FUNC_2,
-	.drv  = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_DOWN,
-};
-static struct gpiomux_setting nfc_clk_off = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv  = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_DOWN,
-};
-
-static void clk_req_update(struct work_struct *work)
-{
-	struct	i2c_client *client;
-	struct	qca199x_dev *qca199x_dev;
-	int		gpio_clk_req_level = 0;
-
-	qca199x_dev =	container_of(work, struct qca199x_dev,
-			msm_clock_controll_work);
-	client =	qca199x_dev->client;
-
-	/* Read status level of CLK_REQ from NFC Controller, QCA199_x */
-	gpio_clk_req_level = gpio_get_value(qca199x_dev->irq_gpio_clk_req);
-	if (gpio_clk_req_level == 1) {
-		if (qca199x_dev->clk_run == false) {
-			msm_gpiomux_write(qca199x_dev->clk_src_gpio,
-				GPIOMUX_ACTIVE, &nfc_clk_on, NULL);
-			msm_gpiomux_write(qca199x_dev->clk_src_gpio,
-				GPIOMUX_SUSPENDED, &nfc_clk_on_suspend, NULL);
-			qca199x_dev->clk_run = true;
-			}
-	} else{
-		if (qca199x_dev->clk_run == true) {
-			msm_gpiomux_write(qca199x_dev->clk_src_gpio,
-				GPIOMUX_ACTIVE, &nfc_clk_off, NULL);
-			msm_gpiomux_write(qca199x_dev->clk_src_gpio,
-				GPIOMUX_SUSPENDED, &nfc_clk_off, NULL);
-			qca199x_dev->clk_run = false;
-		}
-	}
 }
 
 /*
@@ -1504,15 +1454,6 @@ static int qca199x_probe(struct i2c_client *client,
 		}
 		qca199x_dev->irq_enabled_clk_req = true;
 		qca199x_disable_irq_clk_req(qca199x_dev);
-
-
-		qca199x_dev->my_wq =
-			create_singlethread_workqueue("qca1990x_CLK_REQ_queue");
-		if (!qca199x_dev->my_wq)
-			goto err_create_workq;
-
-		INIT_WORK(&qca199x_dev->msm_clock_controll_work,
-			clk_req_update);
 	}
 	i2c_set_clientdata(client, qca199x_dev);
 	gpio_set_value(platform_data->dis_gpio, 1);
@@ -1525,11 +1466,6 @@ static int qca199x_probe(struct i2c_client *client,
 		 __func__);
 	return 0;
 
-err_create_workq:
-	dev_err(&client->dev,
-	"nfc-nci probe: %s, work_queue creation failure\n",
-		 __func__);
-	free_irq(client->irq, qca199x_dev);
 err_nfcc_not_present:
 err_request_irq_failed:
 	misc_deregister(&qca199x_dev->qca199x_device);
