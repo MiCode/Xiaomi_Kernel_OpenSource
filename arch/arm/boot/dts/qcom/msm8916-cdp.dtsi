@@ -253,6 +253,14 @@
 
 };
 
+&dsi_nt35590_720_vid {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
+	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
+
+};
+
 &pmx_mdss {
 	qcom,num-grp-pins = <3>;
 	qcom,pins = <&gp 97>, <&gp 25>, <&gp 98>;
