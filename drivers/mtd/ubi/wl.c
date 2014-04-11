@@ -449,7 +449,7 @@ static struct ubi_wl_entry *find_anchor_wl_entry(struct rb_root *root)
 	return victim;
 }
 
-static int anchor_pebs_avalible(struct rb_root *root)
+static int anchor_pebs_avalible(struct rb_root *root, int rd_threshold)
 {
 	struct rb_node *p;
 	struct ubi_wl_entry *e;
@@ -560,6 +560,12 @@ static void return_unused_pool_pebs(struct ubi_device *ubi,
 
 	for (i = pool->used; i < pool->size; i++) {
 		e = ubi->lookuptbl[pool->pebs[i]];
+		/* If given PEB pending to be scrubbed - remove it */
+		if (ubi_in_wl_tree(e, &ubi->scrub)) {
+			ubi_err("PEB %d was pending scrubb", e->pnum);
+			self_check_in_wl_tree(ubi, e, &ubi->scrub);
+			rb_erase(&e->u.rb, &ubi->scrub);
+		}
 		wl_tree_add(e, &ubi->free);
 		ubi->free_count++;
 	}
@@ -937,6 +943,13 @@ static int schedule_erase(struct ubi_device *ubi, struct ubi_wl_entry *e,
 	wl_wrk->lnum = lnum;
 	wl_wrk->torture = torture;
 
+	/* If given PEB pending to be scrubbed - remove it */
+	if (ubi_in_wl_tree(e, &ubi->scrub)) {
+		self_check_in_wl_tree(ubi, e, &ubi->scrub);
+		rb_erase(&e->u.rb, &ubi->scrub);
+		ubi_msg("PEB %d was pending scrubb",
+				e->pnum);
+	}
 	schedule_ubi_work(ubi, wl_wrk);
 	return 0;
 }
@@ -965,6 +978,14 @@ static int do_sync_erase(struct ubi_device *ubi, struct ubi_wl_entry *e,
 	wl_wrk->vol_id = vol_id;
 	wl_wrk->lnum = lnum;
 	wl_wrk->torture = torture;
+
+	/* If given PEB pending to be scrubbed - remove it */
+	if (ubi_in_wl_tree(e, &ubi->scrub)) {
+		self_check_in_wl_tree(ubi, e, &ubi->scrub);
+		rb_erase(&e->u.rb, &ubi->scrub);
+		ubi_msg("PEB %d was pending scrubb",
+				e->pnum);
+	}
 
 	return erase_worker(ubi, wl_wrk, 0);
 }
@@ -1070,7 +1091,7 @@ static int wear_leveling_worker(struct ubi_device *ubi, struct ubi_work *wrk,
 #ifdef CONFIG_MTD_UBI_FASTMAP
 	/* Check whether we need to produce an anchor PEB */
 	if (!anchor)
-		anchor = !anchor_pebs_avalible(&ubi->free);
+		anchor = !anchor_pebs_avalible(&ubi->free, ubi->rd_threshold);
 
 	if (anchor) {
 		e1 = find_anchor_wl_entry(&ubi->used);
@@ -1631,6 +1652,8 @@ retry:
 		} else if (ubi_in_wl_tree(e, &ubi->scrub)) {
 			self_check_in_wl_tree(ubi, e, &ubi->scrub);
 			rb_erase(&e->u.rb, &ubi->scrub);
+			ubi_msg("PEB %d was pending scrubb",
+				e->pnum);
 		} else if (ubi_in_wl_tree(e, &ubi->erroneous)) {
 			self_check_in_wl_tree(ubi, e, &ubi->erroneous);
 			rb_erase(&e->u.rb, &ubi->erroneous);
@@ -1674,8 +1697,6 @@ int ubi_wl_scrub_peb(struct ubi_device *ubi, int pnum)
 {
 	struct ubi_wl_entry *e;
 
-	ubi_msg("schedule PEB %d for scrubbing", pnum);
-
 retry:
 	spin_lock(&ubi->wl_lock);
 	e = ubi->lookuptbl[pnum];
@@ -1713,6 +1734,7 @@ retry:
 		}
 	}
 
+	ubi_msg("schedule PEB %d for scrubbing", pnum);
 	wl_tree_add(e, &ubi->scrub);
 	spin_unlock(&ubi->wl_lock);
 
@@ -1906,7 +1928,9 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 	struct ubi_ainf_volume *av;
 	struct ubi_ainf_peb *aeb, *tmp;
 	struct ubi_wl_entry *e;
+	struct timeval tv;
 
+	do_gettimeofday(&tv);
 	ubi->used = ubi->erroneous = ubi->free = ubi->scrub = RB_ROOT;
 	spin_lock_init(&ubi->wl_lock);
 	mutex_init(&ubi->move_mutex);
@@ -1989,8 +2013,17 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 		ubi_assert(e->ec >= 0);
 		ubi_assert(!ubi_is_fm_block(ubi, e->pnum));
 
-		wl_tree_add(e, &ubi->free);
-		ubi->free_count++;
+		/* Check last erase timestamp (in days) */
+		if (e->last_erase_time + ubi->dt_threshold <
+			(tv.tv_sec / NUM_SEC_IN_DAY)) {
+			if (schedule_erase(ubi, e, aeb->vol_id, aeb->lnum, 0)) {
+				kmem_cache_free(ubi_wl_entry_slab, e);
+				goto out_free;
+			}
+		} else {
+			wl_tree_add(e, &ubi->free);
+			ubi->free_count++;
+		}
 
 		ubi->lookuptbl[e->pnum] = e;
 
@@ -2021,6 +2054,17 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 			e->last_erase_time = aeb->last_erase_time;
 			ubi->lookuptbl[e->pnum] = e;
 
+			/*
+			 * Verify last erase timestamp
+			 * (in days) and read counter
+			 */
+			if (e->last_erase_time + ubi->dt_threshold <
+				(tv.tv_sec / NUM_SEC_IN_DAY) ||
+				e->rc > ubi->rd_threshold) {
+				ubi_msg("scrub PEB %d rc = %d",
+				       e->pnum, e->rc);
+				aeb->scrub = 1;
+			}
 			if (!aeb->scrub) {
 				dbg_wl("add PEB %d EC %d to the used tree",
 				       e->pnum, e->ec);
