@@ -55,14 +55,6 @@
 
 	soc: soc { };
 
-	memory {
-		fb_mem: fb_region {
-			linux,reserve-contiguous-region;
-			reg = <0 0x1800000>;
-			label = "fb_mem";
-			linux,memory-limit = <0xffffffff>;
-		};
-	};
 };
 
 #include "mpq8092-iommu.dtsi"

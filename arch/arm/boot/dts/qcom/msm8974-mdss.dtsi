@@ -104,7 +104,6 @@
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
 			qcom,memblock-reserve = <0x03200000 0x01E00000>;
-			linux,contiguous-region = <&fb_mem>;
 		};
 
 		mdss_fb1: qcom,mdss_fb_external {

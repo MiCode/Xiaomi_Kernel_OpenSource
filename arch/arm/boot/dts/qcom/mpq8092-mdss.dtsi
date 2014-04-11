@@ -91,7 +91,6 @@
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
-			linux,contiguous-region = <&fb_mem>;
 		};
 
 		mdss_fb1: qcom,mdss_fb_wfd {
