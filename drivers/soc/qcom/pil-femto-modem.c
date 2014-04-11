@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -122,7 +122,7 @@ struct femto_modem_data {
 #define POLL_INTERVAL_US		50
 #define TIMEOUT_US			1000000
 
-static void *pil_femto_modem_map_fw_mem(phys_addr_t paddr, size_t size)
+static void *pil_femto_modem_map_fw_mem(phys_addr_t paddr, size_t size, void *d)
 {
 	/* Due to certain memory areas on the platform requiring 32-bit wide
 	 * accesses, we must cache the firmware to avoid bus errors.
