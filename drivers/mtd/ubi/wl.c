@@ -291,14 +291,14 @@ static int produce_free_peb(struct ubi_device *ubi)
 }
 
 /**
- * in_wl_tree - check if wear-leveling entry is present in a WL RB-tree.
+ * ubi_in_wl_tree - check if wear-leveling entry is present in a WL RB-tree.
  * @e: the wear-leveling entry to check
  * @root: the root of the tree
  *
  * This function returns non-zero if @e is in the @root RB-tree and zero if it
  * is not.
  */
-static int in_wl_tree(struct ubi_wl_entry *e, struct rb_root *root)
+int ubi_in_wl_tree(struct ubi_wl_entry *e, struct rb_root *root)
 {
 	struct rb_node *p;
 
@@ -1625,13 +1625,13 @@ retry:
 		spin_unlock(&ubi->wl_lock);
 		return 0;
 	} else {
-		if (in_wl_tree(e, &ubi->used)) {
+		if (ubi_in_wl_tree(e, &ubi->used)) {
 			self_check_in_wl_tree(ubi, e, &ubi->used);
 			rb_erase(&e->u.rb, &ubi->used);
-		} else if (in_wl_tree(e, &ubi->scrub)) {
+		} else if (ubi_in_wl_tree(e, &ubi->scrub)) {
 			self_check_in_wl_tree(ubi, e, &ubi->scrub);
 			rb_erase(&e->u.rb, &ubi->scrub);
-		} else if (in_wl_tree(e, &ubi->erroneous)) {
+		} else if (ubi_in_wl_tree(e, &ubi->erroneous)) {
 			self_check_in_wl_tree(ubi, e, &ubi->erroneous);
 			rb_erase(&e->u.rb, &ubi->erroneous);
 			ubi->erroneous_peb_count -= 1;
@@ -1679,8 +1679,8 @@ int ubi_wl_scrub_peb(struct ubi_device *ubi, int pnum)
 retry:
 	spin_lock(&ubi->wl_lock);
 	e = ubi->lookuptbl[pnum];
-	if (e == ubi->move_from || in_wl_tree(e, &ubi->scrub) ||
-				   in_wl_tree(e, &ubi->erroneous)) {
+	if (e == ubi->move_from || ubi_in_wl_tree(e, &ubi->scrub) ||
+				   ubi_in_wl_tree(e, &ubi->erroneous)) {
 		spin_unlock(&ubi->wl_lock);
 		return 0;
 	}
@@ -1698,7 +1698,7 @@ retry:
 		goto retry;
 	}
 
-	if (in_wl_tree(e, &ubi->used)) {
+	if (ubi_in_wl_tree(e, &ubi->used)) {
 		self_check_in_wl_tree(ubi, e, &ubi->used);
 		rb_erase(&e->u.rb, &ubi->used);
 	} else {
@@ -2168,7 +2168,7 @@ static int self_check_in_wl_tree(const struct ubi_device *ubi,
 	if (!ubi_dbg_chk_gen(ubi))
 		return 0;
 
-	if (in_wl_tree(e, root))
+	if (ubi_in_wl_tree(e, root))
 		return 0;
 
 	ubi_err("self-check failed for PEB %d, EC %d, RB-tree %p ",
