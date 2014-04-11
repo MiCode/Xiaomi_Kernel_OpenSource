@@ -1028,7 +1028,6 @@ rndis_qc_unbind(struct usb_configuration *c, struct usb_function *f)
 	struct f_rndis_qc		*rndis = func_to_rndis_qc(f);
 
 	pr_debug("rndis_qc_unbind: free\n");
-	bam_data_destroy(0);
 	rndis_deregister(rndis->config);
 	rndis_exit();
 
@@ -1045,6 +1044,7 @@ rndis_qc_unbind(struct usb_configuration *c, struct usb_function *f)
 	}
 
 	kfree(rndis);
+	bam_work_destroy();
 }
 
 bool is_rndis_ipa_supported(void)

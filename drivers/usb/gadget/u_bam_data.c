@@ -134,6 +134,7 @@ static struct rndis_data_ch_info rndis_data;
 
 static void bam2bam_data_suspend_work(struct work_struct *w);
 static void bam2bam_data_resume_work(struct work_struct *w);
+static void bam2bam_data_port_free(int portno);
 
 /*----- sys2bam towards the IPA (UL workaround) --------------- */
 
@@ -618,10 +619,16 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
 		}
 
 		ret = usb_bam_disconnect_ipa(&d->ipa_params);
-		if (ret)
+		if (!ret) {
+			pr_debug("%s(): freeing bam2bam_data_port\n", __func__);
+			bam2bam_data_port_free(0);
+		} else {
 			pr_err("usb_bam_disconnect_ipa failed: err:%d\n", ret);
+		}
+
 		if (d->func_type == USB_FUNC_MBIM)
 			teth_bridge_disconnect(d->ipa_params.src_client);
+
 	}
 
 	port->is_connected = false;
@@ -968,14 +975,17 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 
 static void bam2bam_data_port_free(int portno)
 {
-	if (bam2bam_data_ports[portno] == NULL) {
+	struct bam_data_port *port = bam2bam_data_ports[portno];
+
+	if (port == NULL) {
 		pr_debug("port %d already free\n", portno);
 		return;
 	}
 
-	if (--bam2bam_data_ports[portno]->ref_count == 0) {
-		kfree(bam2bam_data_ports[portno]);
-		bam2bam_data_ports[portno] = NULL;
+	if (--port->ref_count == 0) {
+		kfree(port);
+		port = NULL;
+		n_bam2bam_data_ports--;
 		pr_debug("freed port %d\n", portno);
 	}
 }
@@ -1236,6 +1246,13 @@ int bam_data_destroy(unsigned int no_bam2bam_port)
 	bam_data_wq = NULL;
 
 	return 0;
+}
+
+void bam_work_destroy(void)
+{
+	if (bam_data_wq)
+		destroy_workqueue(bam_data_wq);
+	bam_data_wq = NULL;
 }
 
 int bam_data_setup(unsigned int no_bam2bam_port)
