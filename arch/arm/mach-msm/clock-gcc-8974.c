@@ -2263,8 +2263,9 @@ static struct mux_clk gcc_debug_mux = {
 	.priv = &debug_mux_priv,
 	.ops = &gcc_debug_mux_ops,
 	.offset = GCC_DEBUG_CLK_CTL_REG,
-	.en_mask = BIT(16),
 	.mask = 0x1FF,
+	.en_offset = GCC_DEBUG_CLK_CTL_REG,
+	.en_mask = BIT(16),
 	.base = &virt_bases[GCC_BASE],
 	MUX_REC_SRC_LIST(
 		&kpss_debug_clk.c,
