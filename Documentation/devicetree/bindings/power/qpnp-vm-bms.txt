@@ -97,6 +97,8 @@ Parent node Optional properties
 - qcom,disable-bms :	Bool property to disable the VMBMS hardware module.
 			Enable this property if BMS is not supported or an external
 			fuel gauge is used.
+- qcom,s3-ocv-tolerence-uv : The S3 state OCV tolerence threshold in uV. The
+			LSB value is 300uV and maximum value is 76500uV.
 
 qcom,batt-pres-status node required properties:
 - reg : offset and length of the PMIC LBC battery interface BATT_PRES_STATUS
@@ -123,6 +125,7 @@ pm8916_bms: qcom,qpnp-vm-bms {
 	qcom,low-voltage-calculate-soc-ms = <1000>;
 	qcom,low-soc-calculate-soc-ms = <5000>;
 	qcom,calculate-soc-ms = <20000>;
+	qcom,s3-ocv-tolerence-uv = <1200>;
 	qcom,volatge-soc-timeout-ms = <60000>;
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,bms-vadc = <&pm8916_vadc>;
