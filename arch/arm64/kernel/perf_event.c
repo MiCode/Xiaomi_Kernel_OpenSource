@@ -385,7 +385,7 @@ armpmu_release_hardware(struct arm_pmu *armpmu)
 	if (irq <= 0)
 		return;
 
-	if (irq_is_per_cpu(irq)) {
+	if (irq_is_percpu(irq)) {
 		on_each_cpu(armpmu_disable_percpu_irq, &irq, 1);
 		free_percpu_irq(irq, &cpu_hw_events);
 	} else {
@@ -430,7 +430,7 @@ armpmu_reserve_hardware(struct arm_pmu *armpmu)
 		return -ENODEV;
 	}
 
-	if (irq_is_per_cpu(irq)) {
+	if (irq_is_percpu(irq)) {
 		err = request_percpu_irq(irq, armpmu->handle_irq,
 				"arm-pmu", &cpu_hw_events);
 
