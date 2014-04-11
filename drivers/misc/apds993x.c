@@ -318,6 +318,8 @@ static int apds993x_coe_d = 0;
 static int apds993x_set_als_poll_delay(struct i2c_client *client, unsigned int val);
 #endif
 
+static int sensor_regulator_power_on(struct apds993x_data *data, bool on);
+
 /*
  * Management functions
  */
@@ -1910,6 +1912,14 @@ static int apds993x_suspend(struct device *dev)
 	data = dev_get_drvdata(dev);
 	pdata = data->platform_data;
 
+	if (data->irq)
+		disable_irq(data->irq);
+
+	cancel_delayed_work_sync(&data->dwork);
+#ifdef ALS_POLLING_ENABLED
+	cancel_delayed_work_sync(&data->als_dwork);
+#endif
+
 	if (pdata->power_on)
 		pdata->power_on(false);
 
@@ -1927,6 +1937,15 @@ static int apds993x_resume(struct device *dev)
 	if (pdata->power_on)
 		pdata->power_on(true);
 
+	if (data->enable_ps_sensor)
+		apds993x_ps_set_enable(&data->ps_cdev, 1);
+
+	if (data->enable_als_sensor)
+		apds993x_als_set_enable(&data->als_cdev, 1);
+
+	if (data->irq)
+		enable_irq(data->irq);
+
 	return 0;
 }
 
@@ -1935,20 +1954,21 @@ static int sensor_regulator_configure(struct apds993x_data *data, bool on)
 	int rc;
 
 	if (!on) {
+		rc = sensor_regulator_power_on(data, on);
+		if (rc)
+			return rc;
+
 		if (regulator_count_voltages(data->vdd) > 0)
 			regulator_set_voltage(data->vdd, 0,
 				APDS993X_VDD_MAX_UV);
 
 		regulator_put(data->vdd);
-		regulator_disable(data->vdd);
 
 		if (regulator_count_voltages(data->vio) > 0)
 			regulator_set_voltage(data->vio, 0,
 				APDS993X_VIO_MAX_UV);
 
 		regulator_put(data->vio);
-		regulator_disable(data->vio);
-
 	} else {
 		data->vdd = regulator_get(&data->client->dev, "vdd");
 		if (IS_ERR(data->vdd)) {
@@ -1969,13 +1989,6 @@ static int sensor_regulator_configure(struct apds993x_data *data, bool on)
 			}
 		}
 
-		rc = regulator_enable(data->vdd);
-		if (rc) {
-			dev_err(&data->client->dev,
-				"Regulator enable vdd failed. rc=%d\n", rc);
-			goto reg_vdd_put;
-		}
-
 		data->vio = regulator_get(&data->client->dev, "vio");
 		if (IS_ERR(data->vio)) {
 			rc = PTR_ERR(data->vio);
@@ -1993,12 +2006,9 @@ static int sensor_regulator_configure(struct apds993x_data *data, bool on)
 				goto reg_vio_put;
 			}
 		}
-		rc = regulator_enable(data->vio);
-		if (rc) {
-			dev_err(&data->client->dev,
-				"Regulator enable vio failed. rc=%d\n", rc);
+		rc = sensor_regulator_power_on(data, on);
+		if (rc)
 			goto reg_vio_put;
-		}
 	}
 
 	return 0;
@@ -2012,7 +2022,6 @@ reg_vdd_put:
 	regulator_put(data->vdd);
 	return rc;
 }
-
 
 static int sensor_regulator_power_on(struct apds993x_data *data, bool on)
 {
