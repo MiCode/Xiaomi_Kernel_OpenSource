@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -265,8 +265,8 @@ static int msm_vb2_buf_done(struct vb2_buffer *vb, int session_id,
 				break;
 		}
 		if (vb2_buf != vb) {
-			pr_err("%s:%d VB buffer is INVALID vb=%x, ses_id=%d, str_id=%d\n",
-				__func__, __LINE__, (unsigned int)vb,
+			pr_err("%s:%d VB buffer is INVALID vb=%p, ses_id=%d, str_id=%d\n",
+				__func__, __LINE__, vb,
 				session_id, stream_id);
 			rc = -EINVAL;
 			goto out;

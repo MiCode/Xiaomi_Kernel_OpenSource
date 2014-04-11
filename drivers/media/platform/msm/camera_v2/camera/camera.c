@@ -477,7 +477,7 @@ static int camera_v4l2_fh_open(struct file *filep)
 	/* stream_id = open id */
 	stream_id = atomic_read(&pvdev->opened);
 	sp->stream_id = find_first_zero_bit(
-		&stream_id, MSM_CAMERA_STREAM_CNT_BITS);
+		(const unsigned long *)&stream_id, MSM_CAMERA_STREAM_CNT_BITS);
 	pr_debug("%s: Found stream_id=%d\n", __func__, sp->stream_id);
 
 	v4l2_fh_init(&sp->fh, pvdev->vdev);
@@ -571,7 +571,7 @@ static int camera_v4l2_open(struct file *filep)
 		}
 
 		rc = msm_create_command_ack_q(pvdev->vdev->num,
-			find_first_zero_bit(&opn_idx,
+			find_first_zero_bit((const unsigned long *)&opn_idx,
 				MSM_CAMERA_STREAM_CNT_BITS));
 		if (rc < 0) {
 			pr_err("%s : creation of command_ack queue failed\n",
@@ -597,7 +597,7 @@ static int camera_v4l2_open(struct file *filep)
 		}
 	} else {
 		rc = msm_create_command_ack_q(pvdev->vdev->num,
-			find_first_zero_bit(&opn_idx,
+			find_first_zero_bit((const unsigned long *)&opn_idx,
 				MSM_CAMERA_STREAM_CNT_BITS));
 		if (rc < 0) {
 			pr_err("%s : creation of command_ack queue failed Line %d rc %d\n",
@@ -605,9 +605,8 @@ static int camera_v4l2_open(struct file *filep)
 			goto session_fail;
 		}
 	}
-	pr_debug("%s: Open stream_id=%d\n", __func__,
-		   find_first_zero_bit(&opn_idx, MSM_CAMERA_STREAM_CNT_BITS));
-	idx |= (1 << find_first_zero_bit(&opn_idx, MSM_CAMERA_STREAM_CNT_BITS));
+	idx |= (1 << find_first_zero_bit((const unsigned long *)&opn_idx,
+				MSM_CAMERA_STREAM_CNT_BITS));
 	atomic_cmpxchg(&pvdev->opened, opn_idx, idx);
 	return rc;
 

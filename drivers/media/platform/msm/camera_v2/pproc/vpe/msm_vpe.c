@@ -57,7 +57,7 @@ static void vpe_mem_dump(const char * const name, const void * const addr,
 	p_str = line_str;
 	for (i = 0; i < size/4; i++) {
 		if (i % 4 == 0) {
-			snprintf(p_str, 12, "%08x: ", (u32) p);
+			snprintf(p_str, 12, "%p: ", p);
 			p_str += 10;
 		}
 		data = *p++;
@@ -1219,7 +1219,7 @@ static long msm_vpe_subdev_ioctl(struct v4l2_subdev *sd,
 		struct msm_vpe_transaction_setup_cfg *cfg;
 		VPE_DBG("VIDIOC_MSM_VPE_TRANSACTION_SETUP\n");
 		if (sizeof(*cfg) != ioctl_ptr->len) {
-			pr_err("%s: size mismatch cmd=%d, len=%d, expected=%d",
+			pr_err("%s: size mismatch cmd=%d, len=%d, expected=%zu",
 				__func__, cmd, ioctl_ptr->len,
 				sizeof(*cfg));
 			rc = -EINVAL;

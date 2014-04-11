@@ -109,8 +109,8 @@ static void msm_buf_mngr_sd_shutdown(struct msm_buf_mngr_device *buf_mngr_dev)
 	if (!list_empty(&buf_mngr_dev->buf_qhead)) {
 		list_for_each_entry_safe(bufs,
 			save, &buf_mngr_dev->buf_qhead, entry) {
-			pr_err("%s: Error delete invalid bufs =%x, ses_id=%d, str_id=%d, idx=%d\n",
-				__func__, (unsigned int)bufs, bufs->session_id,
+			pr_err("%s: Error delete invalid bufs =%lx, ses_id=%d, str_id=%d, idx=%d\n",
+				__func__, (unsigned long)bufs, bufs->session_id,
 				bufs->stream_id, bufs->vb2_buf->v4l2_buf.index);
 			list_del_init(&bufs->entry);
 			kfree(bufs);
