@@ -889,6 +889,12 @@ static void charging_began(struct qpnp_bms_chip *chip)
 
 	mutex_unlock(&chip->last_soc_mutex);
 
+	/*
+	 * Enable the state change irq to handle state
+	 * changes while charging
+	 */
+	enable_bms_irq(&chip->fsm_state_change_irq);
+
 	if (chip->dt.cfg_force_s2_in_charging) {
 		pr_debug("Forcing S2 state\n");
 		force_fsm_state(chip, S2_STATE);
@@ -913,6 +919,12 @@ static void charging_ended(struct qpnp_bms_chip *chip)
 		pr_debug("Unforcing S2 state, setting AUTO\n");
 		set_auto_fsm_state(chip);
 	}
+
+	/*
+	 * Disable the state change IRQ to ignore state
+	 * changes while we are not charging
+	 */
+	disable_bms_irq(&chip->fsm_state_change_irq);
 }
 
 static int estimate_ocv(struct qpnp_bms_chip *chip)
@@ -2155,12 +2167,16 @@ static int bms_request_irqs(struct qpnp_bms_chip *chip)
 	SPMI_REQUEST_IRQ(chip, rc, fifo_update_done);
 	if (rc < 0)
 		return rc;
+
 	SPMI_REQUEST_IRQ(chip, rc, fsm_state_change);
 	if (rc < 0)
 		return rc;
-
+	/*
+	 * Disable the state change IRQ here, it will
+	 * be enabled based on the charging status
+	 */
+	disable_bms_irq(&chip->fsm_state_change_irq);
 	enable_irq_wake(chip->fifo_update_done_irq.irq);
-	enable_irq_wake(chip->fsm_state_change_irq.irq);
 
 	return 0;
 }
@@ -2722,6 +2738,14 @@ static int qpnp_vm_bms_probe(struct spmi_device *spmi)
 
 	bms_init_defaults(chip);
 	bms_load_hw_defaults(chip);
+
+	rc = bms_request_irqs(chip);
+	if (rc) {
+		pr_err("error requesting bms irqs, rc = %d\n", rc);
+		return rc;
+	}
+
+	battery_insertion_check(chip);
 	battery_status_check(chip);
 
 	/* character device to pass data to the userspace */
@@ -2757,12 +2781,6 @@ static int qpnp_vm_bms_probe(struct spmi_device *spmi)
 	if (rc) {
 		pr_err("error reading vbat_sns adc channel=%d, rc=%d\n",
 							VBAT_SNS, rc);
-		goto fail_get_vtg;
-	}
-
-	rc = bms_request_irqs(chip);
-	if (rc) {
-		pr_err("error requesting bms irqs, rc = %d\n", rc);
 		goto fail_get_vtg;
 	}
 
@@ -2919,13 +2937,6 @@ static int bms_suspend(struct device *dev)
 	chip->charging_while_suspended = is_battery_charging(chip);
 
 	if (!chip->charging_while_suspended) {
-		/*
-		 * if we are not charging disable state
-		 * change IRQ to avoid S1->S3 oscillations
-		 */
-		disable_irq_wake(chip->fsm_state_change_irq.irq);
-		disable_bms_irq(&chip->fsm_state_change_irq);
-
 		if (chip->dt.cfg_force_s3_on_suspend) {
 			pr_debug("Forcing S3 state\n");
 			force_fsm_state(chip, S3_STATE);
