@@ -194,6 +194,10 @@
 	};
 };
 
+&dsi_innolux_720p_video {
+	qcom,cont-splash-enabled;
+};
+
 &soc {
 	spi_0 {
 		status = "disabled";
