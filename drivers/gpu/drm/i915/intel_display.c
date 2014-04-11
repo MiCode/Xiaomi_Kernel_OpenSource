@@ -2800,6 +2800,57 @@ static int hsw_set_pixelformat(struct drm_crtc *crtc, u32 pixel_format)
 	return 0;
 }
 
+/* Set Pixel format for ValleyView */
+static int vlv_set_pixelformat(struct drm_crtc *crtc, u32 pixel_format)
+{
+	u32 dspcntr, reg;
+	struct drm_device *dev = crtc->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+
+	reg = DSPCNTR(intel_crtc->pipe);
+	dspcntr = I915_READ(reg);
+	DRM_DEBUG_DRIVER("pixel format = %d\n", pixel_format);
+	/* Mask out pixel format bits in case we change it */
+	dspcntr &= ~DISPPLANE_PIXFORMAT_MASK;
+
+	switch (pixel_format) {
+	case DRM_FORMAT_C8:
+		dspcntr |= DISPPLANE_8BPP;
+		break;
+	case DRM_FORMAT_XRGB1555:
+	case DRM_FORMAT_ARGB1555:
+		dspcntr |= DISPPLANE_BGRX555;
+		break;
+	case DRM_FORMAT_RGB565:
+		dspcntr |= DISPPLANE_BGRX565;
+		break;
+	case DRM_FORMAT_XRGB8888:
+	case DRM_FORMAT_ARGB8888:
+		dspcntr |= DISPPLANE_BGRX888;
+		break;
+	case DRM_FORMAT_XBGR8888:
+	case DRM_FORMAT_ABGR8888:
+		dspcntr |= DISPPLANE_RGBX888;
+		break;
+	case DRM_FORMAT_XRGB2101010:
+	case DRM_FORMAT_ARGB2101010:
+		dspcntr |= DISPPLANE_BGRX101010;
+		break;
+	case DRM_FORMAT_XBGR2101010:
+	case DRM_FORMAT_ABGR2101010:
+		dspcntr |= DISPPLANE_RGBX101010;
+		break;
+	default:
+		DRM_ERROR("Unsupported pixel format 0x%08x\n", pixel_format);
+		return -EINVAL;
+	}
+
+	I915_WRITE(reg, dspcntr);
+	return 0;
+}
+
+
 /* This sets the params using MI commands */
 static int hsw_update_plane(struct drm_crtc *crtc,
 				struct drm_framebuffer *fb, int x, int y)
@@ -9941,7 +9992,7 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 
 	/* Can't change pixel format via MI display flips. */
 	if (fb->pixel_format != crtc->primary->fb->pixel_format) {
-		if (IS_HASWELL(dev))
+		if (IS_HASWELL(dev) || IS_VALLEYVIEW(dev))
 			DRM_DEBUG_DRIVER(" Allow dynamic pixel format\n");
 		else
 			return -EINVAL;
@@ -9951,7 +10002,7 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	 * TILEOFF/LINOFF registers can't be changed via MI display flips.
 	 * Note that pitch changes could also affect these register.
 	 */
-	if ((IS_HASWELL(dev)) &&
+	if ((IS_HASWELL(dev) || IS_VALLEYVIEW(dev)) &&
 		((obj->tiling_mode !=
 		to_intel_framebuffer(crtc->primary->fb)->obj->tiling_mode) ||
 		(fb->offsets[0] != crtc->primary->fb->offsets[0]) ||
@@ -9960,8 +10011,12 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 				crtc->primary->fb->pitches[0], crtc->primary->fb->offsets[0]);
 			DRM_DEBUG_DRIVER(" input fb: pitch = %d offset = %d\n",
 				fb->pitches[0], fb->offsets[0]);
+		if (IS_HASWELL(dev)) {
 			if (hsw_update_plane(crtc, fb, 0, 0))
 				DRM_ERROR("Failed to update plane\n");
+		} else if (IS_VALLEYVIEW(dev)) {
+			DRM_DEBUG_DRIVER(" Allow dynamic pixel format\n");
+		}
 	}
 
 	if (INTEL_INFO(dev)->gen > 3 &&
@@ -10099,6 +10154,18 @@ static int intel_crtc_set_pixel_format(struct drm_crtc *crtc,
 		}
 
 		return hsw_set_pixelformat(crtc, fb->pixel_format);
+	} else if (IS_VALLEYVIEW(dev)) {
+
+		obj = to_intel_framebuffer(fb)->obj;
+		if (obj == NULL)
+			return -EINVAL;
+
+		if (list_empty(&obj->vma_list)) {
+			DRM_ERROR("empty list in object\n");
+			return -EINVAL;
+		}
+
+		return vlv_set_pixelformat(crtc, fb->pixel_format);
 	} else {
 		DRM_ERROR("Pixel format change not allowed.\n");
 		return -EINVAL;
