@@ -1579,7 +1579,7 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 	struct msm_camera_v4l2_ioctl_t *ioctl_ptr = arg;
 	int rc = 0;
 
-	if (ioctl_ptr == NULL) {
+	if ((ioctl_ptr == NULL) || (ioctl_ptr->ioctl_ptr == NULL)) {
 		pr_err("ioctl_ptr is null\n");
 		return -EINVAL;
 	}
