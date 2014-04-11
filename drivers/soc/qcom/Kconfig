@@ -75,6 +75,17 @@ config MSM_JTAG_MM
 	  If unsure, say 'N' here to avoid potential power, performance and
 	  memory penalty.
 
+config MSM_JTAGV8
+	bool "Debug and ETM trace support across power collapse for ARMv8"
+	help
+	  Enables support for debugging (specifically breakpoints) and ETM
+	  processor tracing across power collapse both for JTag and OS hosted
+	  software running on ARMv8 target. Enabling this will ensure debug
+	  and ETM registers are saved and restored across power collapse.
+
+	  If unsure, say 'N' here to avoid potential power, performance and
+	  memory penalty.
+
 config MSM_QMI_INTERFACE
 	depends on IPC_ROUTER
 	depends on QMI_ENCDEC
