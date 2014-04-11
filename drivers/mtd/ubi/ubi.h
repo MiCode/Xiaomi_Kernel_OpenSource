@@ -96,12 +96,25 @@
 #define UBI_RD_THRESHOLD 100000
 
 /*
+ * This is the default read counter to be assigned to blocks lacking
+ * read counter value on attach. The value was choosen as mean between
+ * just_erased_block (rc = 0) and needs_scrubbibg_block
+ * (rc = UBI_RD_THRESHOLD). On the one hand we don't want to miss
+ * blocks that needs scrubbing but on the other, we dont want to
+ * abuse scrubbing.
+ */
+#define UBI_DEF_RD_THRESHOLD (UBI_RD_THRESHOLD / 2)
+
+/*
  * This parameter defines the maximun interval (in days) between two
  * erasures of an eraseblock. When this interval is reached, UBI starts
  * performing wear leveling by means of moving data from eraseblock with
  * low erase  counter to eraseblocks with high erase counter.
  */
 #define UBI_DT_THRESHOLD 120
+
+/* Used when calculaing the lats erase timestamp of a PEB */
+#define NUM_SEC_IN_DAY (60*60*24)
 
 /*
  * The UBI debugfs directory name pattern and maximum name length (3 for "ubi"
@@ -710,6 +723,11 @@ struct ubi_ainf_volume {
  * @ec_sum: a temporary variable used when calculating @mean_ec
  * @ec_count: a temporary variable used when calculating @mean_ec
  * @aeb_slab_cache: slab cache for &struct ubi_ainf_peb objects
+ * @mean_last_erase_time: mean late erase timestamp value
+ * @last_erase_time_sum: temporary variable, used to calculate
+ *				@mean_last_erase_time
+ * @last_erase_time_count: temporary variable, used to calculate
+ *				@mean_last_erase_time
  *
  * This data structure contains the result of attaching an MTD device and may
  * be used by other UBI sub-systems to build final UBI data structures, further
@@ -736,6 +754,9 @@ struct ubi_attach_info {
 	uint64_t ec_sum;
 	int ec_count;
 	struct kmem_cache *aeb_slab_cache;
+	long long  mean_last_erase_time;
+	long long last_erase_time_sum;
+	int last_erase_time_count;
 };
 
 /**
@@ -776,7 +797,8 @@ extern struct blocking_notifier_head ubi_notifiers;
 
 /* attach.c */
 int ubi_add_to_av(struct ubi_device *ubi, struct ubi_attach_info *ai, int pnum,
-		  int ec, const struct ubi_vid_hdr *vid_hdr, int bitflips);
+		  int ec, long last_erase_time, long rc,
+		  const struct ubi_vid_hdr *vid_hdr, int bitflips);
 struct ubi_ainf_volume *ubi_find_av(const struct ubi_attach_info *ai,
 				    int vol_id);
 void ubi_remove_av(struct ubi_attach_info *ai, struct ubi_ainf_volume *av);

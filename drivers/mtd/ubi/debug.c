@@ -1,5 +1,8 @@
 /*
  * Copyright (c) International Business Machines Corp., 2006
+ * Copyright (c) 2014, Linux Foundation. All rights reserved.
+ * Linux Foundation chooses to take subject only to the GPLv2
+ * license terms, and distributes only under these terms.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -47,6 +50,14 @@ void ubi_dump_flash(struct ubi_device *ubi, int pnum, int offset, int len)
 			err, len, pnum, offset, read);
 		goto out;
 	}
+	if (ubi->lookuptbl) {
+		if (ubi->lookuptbl[pnum]->rc < UBI_MAX_READCOUNTER)
+			ubi->lookuptbl[pnum]->rc++;
+		else
+			ubi_err("read counter overflow at PEB %d, RC %d",
+					pnum, ubi->lookuptbl[pnum]->rc);
+	} else
+		ubi_err("Can't update RC. No lookuptbl");
 
 	ubi_msg("dumping %d bytes of data from PEB %d, offset %d",
 		len, pnum, offset);
