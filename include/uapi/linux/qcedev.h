@@ -237,5 +237,5 @@ struct	qcedev_sha_op_req {
 #define QCEDEV_IOCTL_UNLOCK_CE	\
 	_IO(QCEDEV_IOC_MAGIC, 8)
 #define QCEDEV_IOCTL_GET_CMAC_REQ	\
-	_IOWR(QCEDEV_IOC_MAGIC, 9, struct qcedev_cipher_op_req)
+	_IOWR(QCEDEV_IOC_MAGIC, 9, struct qcedev_sha_op_req)
 #endif /* _UAPI_QCEDEV__H */
