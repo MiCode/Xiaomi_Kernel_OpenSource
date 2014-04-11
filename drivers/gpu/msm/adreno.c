@@ -1639,6 +1639,11 @@ static int adreno_init(struct kgsl_device *device)
 	if (test_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv))
 		return 0;
 
+	/* Identify the specific GPU */
+	adreno_identify_gpu(adreno_dev);
+
+	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+
 	/* Power up the device */
 	ret = kgsl_pwrctrl_enable(device);
 	if (ret)
@@ -1646,11 +1651,6 @@ static int adreno_init(struct kgsl_device *device)
 
 	/* Make a high priority workqueue for starting the GPU */
 	adreno_wq = alloc_workqueue("adreno", 0, 1);
-
-	/* Identify the specific GPU */
-	adreno_identify_gpu(adreno_dev);
-
-	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	/* Initialize coresight for the target */
 	adreno_coresight_init(device);
@@ -2604,6 +2604,10 @@ bool adreno_hw_isidle(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
+	if (gpudev->is_sptp_idle)
+		if (!gpudev->is_sptp_idle(adreno_dev))
+			return false;
+
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS,
 		&reg_rbbm_status);
 
@@ -3105,6 +3109,30 @@ static unsigned int adreno_gpuid(struct kgsl_device *device,
 	return (0x0003 << 16) | ADRENO_GPUREV(adreno_dev);
 }
 
+static void adreno_enable_pc(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
+	if (gpudev->enable_pc)
+		gpudev->enable_pc(adreno_dev);
+}
+
+static void adreno_disable_pc(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
+	if (gpudev->disable_pc)
+		gpudev->disable_pc(adreno_dev);
+}
+
+static void adreno_regulator_enable(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
+	if (gpudev->regulator_enable)
+		gpudev->regulator_enable(adreno_dev);
+}
+
 static const struct kgsl_functable adreno_functable = {
 	/* Mandatory functions */
 	.regread = adreno_regread,
@@ -3136,6 +3164,10 @@ static const struct kgsl_functable adreno_functable = {
 	.setproperty_compat = adreno_setproperty_compat,
 	.drawctxt_sched = adreno_drawctxt_sched,
 	.resume = adreno_dispatcher_start,
+	.enable_pc = adreno_enable_pc,
+	.disable_pc = adreno_disable_pc,
+	.regulator_enable = adreno_regulator_enable,
+
 };
 
 static struct platform_driver adreno_platform_driver = {

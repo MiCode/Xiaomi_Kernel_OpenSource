@@ -19,6 +19,7 @@
 #include "adreno_profile.h"
 #include "kgsl_iommu.h"
 #include <linux/stat.h>
+#include <linux/delay.h>
 
 #ifdef CONFIG_MSM_OCMEM
 #include <soc/qcom/ocmem.h>
@@ -598,6 +599,10 @@ struct adreno_gpudev {
 	void (*perfcounter_write)(struct adreno_device *adreno_dev,
 		unsigned int group, unsigned int counter);
 	void (*soft_reset)(struct adreno_device *device);
+	bool (*is_sptp_idle)(struct adreno_device *);
+	void (*enable_pc)(struct adreno_device *);
+	void (*disable_pc)(struct adreno_device *);
+	void (*regulator_enable)(struct adreno_device *);
 };
 
 #define FT_DETECT_REGS_COUNT 14

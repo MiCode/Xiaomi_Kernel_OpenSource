@@ -265,6 +265,26 @@ TRACE_EVENT(adreno_gpu_fault,
 		__entry->ib2base, __entry->ib2size)
 );
 
+TRACE_EVENT(adreno_sp_tp,
+
+	TP_PROTO(unsigned long ip),
+
+	TP_ARGS(ip),
+
+	TP_STRUCT__entry(
+		__field(unsigned long, ip)
+	),
+
+	TP_fast_assign(
+		__entry->ip = ip;
+	),
+
+	TP_printk(
+		"func=%pf", (void *) __entry->ip
+	)
+);
+
+
 #endif /* _ADRENO_TRACE_H */
 
 /* This part must be outside protection */
