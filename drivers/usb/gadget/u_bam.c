@@ -922,7 +922,9 @@ static void gbam_start_io(struct gbam_port *port)
 
 	if (_gbam_start_io(port, false)) {
 		spin_lock_irqsave(&port->port_lock_dl, flags);
-		gbam_free_requests(port->port_usb->in, &port->data_ch.rx_idle);
+		if (port->port_usb)
+			gbam_free_requests(port->port_usb->in,
+				&port->data_ch.tx_idle);
 		spin_unlock_irqrestore(&port->port_lock_dl, flags);
 		return;
 	}
