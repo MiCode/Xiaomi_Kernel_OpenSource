@@ -612,3 +612,4 @@
 	status = "okay";
 };
 
+#include "msm8939-regulator.dtsi"
