@@ -10,8 +10,9 @@ the compatible string to indicate the revision.
 
 Required properties:
 - compatible:		Must be one of "qcom,gcc-<target>",
-			"qcom,mmsscc-<target>", "qcom,cc-debug-<target>" or
-			"qcom,lpasscc-<target>" or qcom,gcc-mdss-<target>.
+			"qcom,mmsscc-<target>", "qcom,debugcc-<target>",
+			"qcom,lpasscc-<target>", "qcom,gcc-mdss-<target>"
+			or "qcom,mmsscc-mdss-<target>".
 			<target> is the name of the Qualcomm SoC.
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.
