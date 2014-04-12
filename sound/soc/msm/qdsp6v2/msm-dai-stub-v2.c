@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,11 @@ enum {
 	STUB_TX,
 	STUB_1_RX,
 	STUB_1_TX,
+	STUB_DTMF_TX,
+	STUB_HOST_RX_CAPTURE_TX,
+	STUB_HOST_RX_PLAYBACK_RX,
+	STUB_HOST_TX_CAPTURE_TX,
+	STUB_HOST_TX_PLAYBACK_RX,
 };
 
 static int msm_dai_stub_set_channel_map(struct snd_soc_dai *dai,
@@ -133,6 +138,93 @@ static struct snd_soc_dai_driver msm_dai_stub_dai_tx[] = {
 	}
 };
 
+static struct snd_soc_dai_driver msm_dai_stub_dtmf_tx_dai = {
+	.capture = {
+		.stream_name = "DTMF TX",
+		.aif_name = "STUB_DTMF_TX",
+		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+			 SNDRV_PCM_RATE_16000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.channels_min = 1,
+		.channels_max = 2,
+		.rate_min = 8000,
+		.rate_max = 48000,
+	},
+	.ops = &msm_dai_stub_ops,
+	.probe = &msm_dai_stub_dai_probe,
+	.remove = &msm_dai_stub_dai_remove,
+};
+
+static struct snd_soc_dai_driver msm_dai_stub_host_capture_tx_dai[] = {
+	{
+		.capture = {
+			.stream_name = "CS-VOICE HOST RX CAPTURE",
+			.aif_name = "STUB_HOST_RX_CAPTURE_TX",
+			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+				SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min = 8000,
+			.rate_max = 48000,
+		},
+		.ops = &msm_dai_stub_ops,
+		.probe = &msm_dai_stub_dai_probe,
+		.remove = &msm_dai_stub_dai_remove,
+	},
+	{
+		.capture = {
+			.stream_name = "CS-VOICE HOST TX CAPTURE",
+			.aif_name = "STUB_HOST_TX_CAPTURE_TX",
+			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+				SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min = 8000,
+			.rate_max = 48000,
+		},
+		.ops = &msm_dai_stub_ops,
+		.probe = &msm_dai_stub_dai_probe,
+		.remove = &msm_dai_stub_dai_remove,
+	},
+};
+
+static struct snd_soc_dai_driver msm_dai_stub_host_playback_rx_dai[] = {
+	{
+		.playback = {
+			.stream_name = "CS-VOICE HOST RX PLAYBACK",
+			.aif_name = "STUB_HOST_RX_PLAYBACK_RX",
+			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+				 SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min = 8000,
+			.rate_max = 48000,
+		},
+		.ops = &msm_dai_stub_ops,
+		.probe = &msm_dai_stub_dai_probe,
+		.remove = &msm_dai_stub_dai_remove,
+	},
+	{
+		.playback = {
+			.stream_name = "CS-VOICE HOST TX PLAYBACK",
+			.aif_name = "STUB_HOST_TX_PLAYBACK_RX",
+			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+				 SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min = 8000,
+			.rate_max = 48000,
+		},
+		.ops = &msm_dai_stub_ops,
+		.probe = &msm_dai_stub_dai_probe,
+		.remove = &msm_dai_stub_dai_remove,
+	},
+};
+
 static const struct snd_soc_component_driver msm_dai_stub_component = {
 	.name		= "msm-dai-stub-dev",
 };
@@ -167,6 +259,31 @@ static int msm_dai_stub_dev_probe(struct platform_device *pdev)
 	case STUB_1_TX:
 		rc = snd_soc_register_component(&pdev->dev,
 			&msm_dai_stub_component, &msm_dai_stub_dai_tx[1], 1);
+		break;
+	case STUB_DTMF_TX:
+		rc = snd_soc_register_component(&pdev->dev,
+			&msm_dai_stub_component,
+			&msm_dai_stub_dtmf_tx_dai, 1);
+		break;
+	case STUB_HOST_RX_CAPTURE_TX:
+		rc = snd_soc_register_component(&pdev->dev,
+			&msm_dai_stub_component,
+			&msm_dai_stub_host_capture_tx_dai[0], 1);
+		break;
+	case STUB_HOST_TX_CAPTURE_TX:
+		rc = snd_soc_register_component(&pdev->dev,
+			&msm_dai_stub_component,
+			&msm_dai_stub_host_capture_tx_dai[1], 1);
+		break;
+	case STUB_HOST_RX_PLAYBACK_RX:
+		rc = snd_soc_register_component(&pdev->dev,
+			&msm_dai_stub_component,
+			&msm_dai_stub_host_playback_rx_dai[0], 1);
+		break;
+	case STUB_HOST_TX_PLAYBACK_RX:
+		rc = snd_soc_register_component(&pdev->dev,
+			&msm_dai_stub_component,
+			&msm_dai_stub_host_playback_rx_dai[1], 1);
 		break;
 	}
 
