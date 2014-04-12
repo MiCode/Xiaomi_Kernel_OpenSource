@@ -32,12 +32,21 @@
 
 	tpiu: tpiu@820000 {
 		compatible = "arm,coresight-tpiu";
-		reg = <0x820000 0x1000>;
-		reg-names = "tpiu-base";
+		reg = <0x820000 0x1000>,
+		      <0x1100000 0xb0000>;
+		reg-names = "tpiu-base", "nidnt-base";
 
 		coresight-id = <1>;
 		coresight-name = "coresight-tpiu";
 		coresight-nr-inports = <1>;
+
+		qcom,nidnt;
+		qcom,nidnthw;
+		nidnt-gpio = <38>;
+		nidnt-gpio-polarity = <1>;
+
+		interrupts = <0 82 0>;
+		interrupt-names = "nidnt-irq";
 
 		vdd-supply = <&pm8916_l11>;
 		qcom,vdd-voltage-level = <2800000 2950000>;
@@ -59,9 +68,9 @@
 		coresight-id = <2>;
 		coresight-name = "coresight-replicator";
 		coresight-nr-inports = <1>;
-		coresight-outports = <0>;
+		coresight-outports = <0 1>;
 		coresight-child-list = <&tmc_etr &tpiu>;
-		coresight-child-ports = <0>;
+		coresight-child-ports = <0 0>;
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
