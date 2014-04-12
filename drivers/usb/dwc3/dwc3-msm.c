@@ -893,7 +893,6 @@ bool msm_dwc3_reset_ep_after_lpm(struct usb_gadget *gadget)
 }
 EXPORT_SYMBOL(msm_dwc3_reset_ep_after_lpm);
 
-
 /*
  * Config Global Distributed Switch Controller (GDSC)
  * to support controller power collapse
@@ -1473,7 +1472,8 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	if (host_bus_suspend) {
 		dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
 			dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) |
-								0x00000140);
+						DWC3_GUSB2PHYCFG_ENBLSLPM |
+						DWC3_GUSB2PHYCFG_SUSPHY);
 	}
 
 	usb_phy_set_suspend(mdwc->hs_phy, 1);
@@ -1585,12 +1585,12 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		/* Reset UTMI HSPHY interface */
 		dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
 			dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) |
-								 0x80000000);
+						DWC3_GUSB2PHYCFG_PHYSOFTRST);
 		/* 10usec delay required before de-asserting PHY RESET */
 		udelay(10);
 		dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
 		      dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) &
-								0x7FFFFFFF);
+						~DWC3_GUSB2PHYCFG_PHYSOFTRST);
 		/* Reset HSPHY */
 		if (mdwc->reset_hsphy_sleep_clk) {
 			ret = dwc3_hsphy_reset(mdwc);
