@@ -160,6 +160,11 @@ Optional properties:
 	       component
 - qcom,sg-enable : indicates whether scatter gather feature is supported for TMC
 		   ETR configuration.
+- qcom,nidnthw : indicates NIDnT hardware sensing support present. Used for tpiu
+	         component
+- nidnt-gpio : specifies gpio for NIDnT hardware detection
+- nidnt-gpio-polarity : specifies gpio polarity for NIDnT hardware detection
+
 Examples:
 
 1. Sinks
@@ -189,6 +194,11 @@ Examples:
 		coresight-id = <1>;
 		coresight-name = "coresight-tpiu";
 		coresight-nr-inports = <1>;
+
+		qcom,nidnt;
+		qcom,nidnthw;
+		nidnt-gpio = <38>;
+		nidnt-gpio-polarity = <1>;
 
 		vdd-supply = <&pm8941_l21>;
 
