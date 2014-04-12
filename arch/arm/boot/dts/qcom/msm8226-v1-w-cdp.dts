@@ -35,3 +35,9 @@
 &dsi_nt35590_qvga_cmd {
 	qcom,cont-splash-enabled;
 };
+
+&soc {
+	qcom,mss@fc880000 {
+		status = "disabled";
+	};
+};
