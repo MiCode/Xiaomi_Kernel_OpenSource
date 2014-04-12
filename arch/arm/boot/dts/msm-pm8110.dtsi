@@ -337,6 +337,10 @@
 			qcom,bms-iadc = <&pm8110_iadc>;
 			qcom,bms-adc_tm = <&pm8110_adc_tm>;
 
+			qcom,batt-pres-status@1208 {
+				reg = <0x1208 0x1>;
+			};
+
 			qcom,bms-iadc@3800 {
 				reg = <0x3800 0x100>;
 			};
