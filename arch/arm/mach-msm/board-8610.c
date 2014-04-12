@@ -53,11 +53,6 @@ static struct of_dev_auxdata msm8610_auxdata_lookup[] __initdata = {
 	{}
 };
 
-static void __init msm8610_early_memory(void)
-{
-	of_scan_flat_dt(dt_scan_for_memory_hole, NULL);
-}
-
 static void __init msm8610_reserve(void)
 {
 	of_scan_flat_dt(dt_scan_for_memory_reserve, NULL);
@@ -110,6 +105,5 @@ DT_MACHINE_START(MSM8610_DT,
 	.init_machine		= msm8610_init,
 	.dt_compat		= msm8610_dt_match,
 	.reserve		= msm8610_reserve,
-	.init_very_early	= msm8610_early_memory,
 	.smp			= &arm_smp_ops,
 MACHINE_END
