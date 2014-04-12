@@ -1097,14 +1097,6 @@ static struct v4l2_file_operations msm_ispif_v4l2_subdev_fops;
 static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
 {
-#ifdef CONFIG_COMPAT
-	void __user *up;
-	if (is_compat_task()) {
-		up = (void __user *)compat_ptr((unsigned long)arg);
-		arg = up;
-	}
-#endif
-
 	switch (cmd) {
 	case VIDIOC_MSM_ISPIF_CFG:
 		return msm_ispif_cmd(sd, arg);
@@ -1269,7 +1261,7 @@ static int ispif_probe(struct platform_device *pdev)
 #ifdef CONFIG_COMPAT
 	msm_ispif_v4l2_subdev_fops.compat_ioctl32 = msm_ispif_subdev_fops_ioctl;
 #endif
-
+	ispif->msm_sd.sd.devnode->fops = &msm_ispif_v4l2_subdev_fops;
 	ispif->pdev = pdev;
 	ispif->ispif_state = ISPIF_POWER_DOWN;
 	ispif->open_cnt = 0;
