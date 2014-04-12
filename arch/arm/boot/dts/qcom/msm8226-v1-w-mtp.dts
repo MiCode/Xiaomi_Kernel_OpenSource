@@ -48,3 +48,7 @@
 		status = "disabled";
 	};
 };
+
+&pm8x26_rtc {
+	qcom,qpnp-rtc-write = <1>;
+};
