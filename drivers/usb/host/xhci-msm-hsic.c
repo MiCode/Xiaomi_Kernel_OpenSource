@@ -114,6 +114,7 @@ struct mxhci_hsic_hcd {
 	bool			wakeup_irq_enabled;
 	bool			xhci_remove_flag;
 	bool			phy_in_lpm_flag;
+	bool			xhci_shutdown_flag;
 	int			strobe;
 	int			data;
 	int			host_ready;
@@ -761,7 +762,8 @@ static int mxhci_hsic_bus_suspend(struct usb_hcd *hcd)
 	/* make sure HSIC phy is in LPM */
 	ret = wait_event_interruptible_timeout(mxhci->phy_in_lpm_wq,
 			(mxhci->phy_in_lpm_flag == true) ||
-			(mxhci->xhci_remove_flag == true),
+			(mxhci->xhci_remove_flag == true) ||
+			(mxhci->xhci_shutdown_flag == true),
 			msecs_to_jiffies(PHY_LPM_WAIT_TIMEOUT_MS));
 
 	if (!ret) {
@@ -952,6 +954,19 @@ static void mxhci_hsic_set_autosuspend_delay(struct usb_device *dev)
 		pm_runtime_set_autosuspend_delay(&dev->dev, 200);
 }
 
+void mxhci_hsic_shutdown(struct usb_hcd *hcd)
+{
+	struct mxhci_hsic_hcd *mxhci = hcd_to_hsic(hcd->primary_hcd);
+
+	if (!usb_hcd_is_primary_hcd(hcd))
+		return;
+
+	xhci_dbg_log_event(&dbg_hsic, NULL,  "mxhci_hsic_shutdown", 0);
+	mxhci->xhci_shutdown_flag = true;
+	wake_up(&mxhci->phy_in_lpm_wq);
+	if (!mxhci->in_lpm)
+		xhci_shutdown(hcd);
+}
 
 static struct hc_driver mxhci_hsic_hc_driver = {
 	.description =		"xhci-hcd",
@@ -969,7 +984,7 @@ static struct hc_driver mxhci_hsic_hc_driver = {
 	.reset =		mxhci_hsic_plat_setup,
 	.start =		xhci_run,
 	.stop =			xhci_stop,
-	.shutdown =		xhci_shutdown,
+	.shutdown =		mxhci_hsic_shutdown,
 
 	/*
 	 * managing i/o requests and associated device resources
@@ -1166,6 +1181,7 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 	mxhci = hcd_to_hsic(hcd);
 	mxhci->dev = &pdev->dev;
 	mxhci->xhci_remove_flag = false;
+	mxhci->xhci_shutdown_flag = false;
 
 	/* Get pinctrl if target uses pinctrl */
 	mxhci->hsic_pinctrl = devm_pinctrl_get(&pdev->dev);
@@ -1595,6 +1611,7 @@ MODULE_DEVICE_TABLE(of, of_mxhci_hsic_matach);
 static struct platform_driver mxhci_hsic_driver = {
 	.probe	= mxhci_hsic_probe,
 	.remove	= mxhci_hsic_remove,
+	.shutdown = usb_hcd_platform_shutdown,
 	.driver	= {
 		.owner  = THIS_MODULE,
 		.name = "xhci_msm_hsic",
