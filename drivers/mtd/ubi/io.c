@@ -1,6 +1,9 @@
 /*
  * Copyright (c) International Business Machines Corp., 2006
  * Copyright (c) Nokia Corporation, 2006, 2007
+ * Copyright (c) 2014, Linux Foundation. All rights reserved.
+ * Linux Foundation chooses to take subject only to the GPLv2
+ * license terms, and distributes only under these terms.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -204,6 +207,14 @@ retry:
 		}
 	} else {
 		ubi_assert(len == read);
+		if (ubi->lookuptbl && ubi->lookuptbl[pnum]) {
+			if (ubi->lookuptbl[pnum]->rc <
+				UBI_MAX_READCOUNTER)
+				ubi->lookuptbl[pnum]->rc++;
+			else
+				ubi_err("read counter overflow at PEB %d, RC %d",
+					pnum, ubi->lookuptbl[pnum]->rc);
+		}
 
 		if (ubi_dbg_is_bitflip(ubi)) {
 			dbg_gen("bit-flip (emulated)");
@@ -1337,6 +1348,15 @@ static int self_check_write(struct ubi_device *ubi, const void *buf, int pnum,
 	if (err && !mtd_is_bitflip(err))
 		goto out_free;
 
+	if (ubi->lookuptbl && ubi->lookuptbl[pnum]) {
+		if (ubi->lookuptbl[pnum]->rc < UBI_MAX_READCOUNTER)
+			ubi->lookuptbl[pnum]->rc++;
+		else
+			ubi_err("read counter overflow at PEB %d, RC %d",
+					pnum, ubi->lookuptbl[pnum]->rc);
+	} else
+		ubi_err("Can't update RC. No lookuptbl");
+
 	for (i = 0; i < len; i++) {
 		uint8_t c = ((uint8_t *)buf)[i];
 		uint8_t c1 = ((uint8_t *)buf1)[i];
@@ -1403,6 +1423,14 @@ int ubi_self_check_all_ff(struct ubi_device *ubi, int pnum, int offset, int len)
 			err, len, pnum, offset, read);
 		goto error;
 	}
+	if (ubi->lookuptbl && ubi->lookuptbl[pnum]) {
+		if (ubi->lookuptbl[pnum]->rc < UBI_MAX_READCOUNTER)
+			ubi->lookuptbl[pnum]->rc++;
+		else
+			ubi_err("read counter overflow at PEB %d, RC %d",
+					pnum, ubi->lookuptbl[pnum]->rc);
+	} else
+		ubi_err("Can't update RC. No lookuptbl");
 
 	err = ubi_check_pattern(buf, 0xFF, len);
 	if (err == 0) {
