@@ -29,8 +29,9 @@
 
 	tpiu: tpiu@fc320000 {
 		compatible = "arm,coresight-tpiu";
-		reg = <0xfc320000 0x1000>;
-		reg-names = "tpiu-base";
+		reg = <0xfc320000 0x1000>,
+		      <0xfd512000 0x1000>;
+		reg-names = "tpiu-base", "nidnt-base";
 
 		coresight-id = <1>;
 		coresight-name = "coresight-tpiu";
