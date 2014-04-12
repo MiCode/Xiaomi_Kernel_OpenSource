@@ -63,6 +63,7 @@
 #define MAX_ABS_MT_TOUCH_MAJOR 15
 
 #define F01_STD_QUERY_LEN 21
+#define F01_PACKAGE_ID_OFFSET 17
 #define F01_BUID_ID_OFFSET 18
 #define F11_STD_QUERY_LEN 9
 #define F11_STD_CTRL_LEN 10
@@ -1367,12 +1368,58 @@ static irqreturn_t synaptics_rmi4_irq(int irq, void *data)
 }
 
 #ifdef CONFIG_OF
+static int synaptics_rmi4_get_button_map(struct device *dev, char *name,
+				struct synaptics_rmi4_platform_data *rmi4_pdata,
+				struct device_node *np)
+{
+	struct property *prop;
+	int rc, i;
+	u32 temp_val, num_buttons;
+	u32 button_map[MAX_NUMBER_OF_BUTTONS];
+
+	prop = of_find_property(np, "synaptics,button-map", NULL);
+	if (prop) {
+		num_buttons = prop->length / sizeof(temp_val);
+
+		rmi4_pdata->capacitance_button_map = devm_kzalloc(dev,
+				sizeof(*rmi4_pdata->capacitance_button_map),
+				GFP_KERNEL);
+		if (!rmi4_pdata->capacitance_button_map)
+			return -ENOMEM;
+
+		rmi4_pdata->capacitance_button_map->map = devm_kzalloc(dev,
+			sizeof(*rmi4_pdata->capacitance_button_map->map) *
+			MAX_NUMBER_OF_BUTTONS, GFP_KERNEL);
+		if (!rmi4_pdata->capacitance_button_map->map)
+			return -ENOMEM;
+
+		if (num_buttons <= MAX_NUMBER_OF_BUTTONS) {
+			rc = of_property_read_u32_array(np,
+					"synaptics,button-map", button_map,
+					num_buttons);
+			if (rc) {
+				dev_err(dev, "Unable to read key codes\n");
+				return rc;
+			}
+			for (i = 0; i < num_buttons; i++)
+				rmi4_pdata->capacitance_button_map->map[i] =
+					button_map[i];
+			rmi4_pdata->capacitance_button_map->nbuttons =
+				num_buttons;
+		} else {
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
 static int synaptics_rmi4_get_dt_coords(struct device *dev, char *name,
-				struct synaptics_rmi4_platform_data *pdata)
+				struct synaptics_rmi4_platform_data *pdata,
+				struct device_node *node)
 {
 	u32 coords[RMI4_COORDS_ARR_SIZE];
 	struct property *prop;
-	struct device_node *np = dev->of_node;
+	struct device_node *np = (node == NULL) ? (dev->of_node) : (node);
 	int coords_size, rc;
 
 	prop = of_find_property(np, name, NULL);
@@ -1411,10 +1458,57 @@ static int synaptics_rmi4_get_dt_coords(struct device *dev, char *name,
 	return 0;
 }
 
+static int synaptics_rmi4_parse_dt_children(struct device *dev,
+		struct synaptics_rmi4_platform_data *rmi4_pdata,
+		struct synaptics_rmi4_data *rmi4_data)
+{
+	struct synaptics_rmi4_device_info *rmi = &(rmi4_data->rmi4_mod_info);
+	struct device_node *node = dev->of_node, *child;
+	int rc;
+
+	for_each_child_of_node(node, child) {
+		rc = of_property_read_u32(child, "synaptics,package-id",
+				&rmi4_pdata->package_id);
+		if (rc && (rc != -EINVAL)) {
+			dev_err(dev, "Unable to read package_id\n");
+			return rc;
+		} else if (rc == -EINVAL) {
+			rmi4_pdata->package_id = 0x00;
+		}
+
+		if (rmi4_pdata->package_id) {
+			if (rmi4_pdata->package_id != rmi->package_id) {
+				dev_err(dev,
+					"%s: Synaptics package id don't match %d %d\n",
+					__func__,
+					rmi4_pdata->package_id,
+					rmi->package_id);
+
+				continue;
+			}
+		}
+
+		rc = synaptics_rmi4_get_dt_coords(dev,
+				"synaptics,display-coords",
+				rmi4_pdata,
+				child);
+		if (rc && (rc != -EINVAL))
+			return rc;
+
+		rc = synaptics_rmi4_get_dt_coords(dev, "synaptics,panel-coords",
+				rmi4_pdata, child);
+		if (rc && (rc != -EINVAL))
+			return rc;
+
+		break;
+	}
+	return 0;
+}
+
 static int synaptics_rmi4_parse_dt(struct device *dev,
 				struct synaptics_rmi4_platform_data *rmi4_pdata)
 {
-	struct device_node *np = dev->of_node;
+	struct device_node *np = dev->of_node, *child;
 	struct property *prop;
 	u32 temp_val, num_buttons;
 	u32 button_map[MAX_NUMBER_OF_BUTTONS];
@@ -1432,12 +1526,12 @@ static int synaptics_rmi4_parse_dt(struct device *dev,
 			"synaptics,do-lockdown");
 
 	rc = synaptics_rmi4_get_dt_coords(dev, "synaptics,display-coords",
-				rmi4_pdata);
+			rmi4_pdata, NULL);
 	if (rc && (rc != -EINVAL))
 		return rc;
 
 	rc = synaptics_rmi4_get_dt_coords(dev, "synaptics,panel-coords",
-				rmi4_pdata);
+			rmi4_pdata, NULL);
 	if (rc && (rc != -EINVAL))
 		return rc;
 
@@ -1462,6 +1556,12 @@ static int synaptics_rmi4_parse_dt(struct device *dev,
 			"synaptics,reset-gpio", 0, &rmi4_pdata->reset_flags);
 	rmi4_pdata->irq_gpio = of_get_named_gpio_flags(np,
 			"synaptics,irq-gpio", 0, &rmi4_pdata->irq_flags);
+
+	rmi4_pdata->detect_device = of_property_read_bool(np,
+					"synaptics,detect-device");
+
+	if (rmi4_pdata->detect_device)
+		goto parse_button_map_for_children;
 
 	prop = of_find_property(np, "synaptics,button-map", NULL);
 	if (prop) {
@@ -1494,6 +1594,17 @@ static int synaptics_rmi4_parse_dt(struct device *dev,
 				num_buttons;
 		} else {
 			return -EINVAL;
+		}
+	}
+	return 0;
+
+parse_button_map_for_children:
+	for_each_child_of_node(np, child) {
+		rc = synaptics_rmi4_get_button_map(dev, "synaptics,button-map",
+				rmi4_pdata, child);
+		if (rc < 0) {
+			dev_err(dev, "Unable to read key codes\n");
+			return rc;
 		}
 	}
 	return 0;
@@ -2023,6 +2134,7 @@ static int synaptics_rmi4_query_device_info(
 	int retval;
 	unsigned char f01_query[F01_STD_QUERY_LEN];
 	struct synaptics_rmi4_device_info *rmi = &(rmi4_data->rmi4_mod_info);
+	unsigned char pkg_id[4];
 
 	retval = synaptics_rmi4_i2c_read(rmi4_data,
 			rmi4_data->f01_query_base_addr,
@@ -2053,6 +2165,20 @@ static int synaptics_rmi4_query_device_info(
 				"%s: Non-Synaptics device found, manufacturer ID = %d\n",
 				__func__, rmi->manufacturer_id);
 	}
+
+	retval = synaptics_rmi4_i2c_read(rmi4_data,
+			rmi4_data->f01_query_base_addr + F01_PACKAGE_ID_OFFSET,
+			pkg_id,
+			sizeof(pkg_id));
+	if (retval < 0) {
+		dev_err(&rmi4_data->i2c_client->dev,
+				"%s: Failed to read device package id (code %d)\n",
+				__func__, retval);
+		return retval;
+	}
+
+	rmi->package_id = (pkg_id[1] << 8) | pkg_id[0];
+	rmi->package_id_rev = (pkg_id[3] << 8) | pkg_id[2];
 
 	retval = synaptics_rmi4_i2c_read(rmi4_data,
 			rmi4_data->f01_query_base_addr + F01_BUID_ID_OFFSET,
@@ -2998,6 +3124,15 @@ static int synaptics_rmi4_probe(struct i2c_client *client,
 				"%s: Failed to query device\n",
 				__func__);
 		goto err_free_gpios;
+	}
+
+	if (platform_data->detect_device) {
+		retval = synaptics_rmi4_parse_dt_children(&client->dev,
+				platform_data, rmi4_data);
+		if (retval < 0)
+			dev_err(&client->dev,
+				"%s: Failed to parse device tree property\n",
+					__func__);
 	}
 
 	if (rmi4_data->board->disp_maxx)
