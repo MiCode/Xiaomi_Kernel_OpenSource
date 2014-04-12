@@ -13,7 +13,7 @@
 #include "msm-iommu-v1.dtsi"
 
 &soc {
-	mdp_iommu_plutonium: qcom,iommu@fd9cc000 {
+	mdp_iommu_8994: qcom,iommu@fd9cc000 {
 		compatible = "qcom,msm-smmu-v1";
 		#address-cells = <1>;
 		#size-cells = <1>;

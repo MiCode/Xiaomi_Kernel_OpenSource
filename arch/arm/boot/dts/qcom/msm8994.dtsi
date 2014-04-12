@@ -11,11 +11,11 @@
  */
 
 #include "skeleton64.dtsi"
-#include <dt-bindings/clock/msm-clocks-plutonium.h>
+#include <dt-bindings/clock/msm-clocks-8994.h>
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM plutonium";
-	compatible = "qcom,msmplutonium";
+	model = "Qualcomm Technologies, Inc. MSM 8994";
+	compatible = "qcom,msm8994";
 	qcom,msm-id = <207 0x0>;
 	interrupt-parent = <&intc>;
 
@@ -139,9 +139,9 @@
 };
 
 #include "msm-gdsc.dtsi"
-#include "msmplutonium-smp2p.dtsi"
-#include "msmplutonium-ipcrouter.dtsi"
-#include "msmplutonium-coresight.dtsi"
+#include "msm8994-smp2p.dtsi"
+#include "msm8994-ipcrouter.dtsi"
+#include "msm8994-coresight.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -379,8 +379,8 @@
 	ufsphy1: ufsphy@fc597000 {
 			compatible = "qcom,ufsphy";
 			reg = <0xfc597000 0xda8>;
-			vdda-phy-supply = <&pmplutonium_l28>;
-			vdda-pll-supply = <&pmplutonium_l12>;
+			vdda-phy-supply = <&pm8994_l28>;
+			vdda-pll-supply = <&pm8994_l12>;
 			vdda-phy-max-microamp = <45000>;
 			vdda-pll-max-microamp = <100>;
 			clock-names = "ref_clk_src", "ref_clk_parent", "ref_clk", "tx_iface_clk",
@@ -401,9 +401,9 @@
 			ufs-phy = <&ufsphy1>;
 			vdd-hba-supply = <&gdsc_ufs>;
 			vdd-hba-fixed-regulator;
-			vcc-supply = <&pmplutonium_l20>;
-			vccq-supply = <&pmplutonium_l31>;
-			vccq2-supply = <&pmplutonium_s4>;
+			vcc-supply = <&pm8994_l20>;
+			vccq-supply = <&pm8994_l31>;
+			vccq2-supply = <&pm8994_s4>;
 			vcc-max-microamp = <750000>;
 			vccq-max-microamp = <50000>;
 			vccq2-max-microamp = <750000>;
@@ -531,9 +531,9 @@
 		interrupts = <0 134 0 0 140 0>;
 		interrupt-names = "core_irq", "async_irq";
 
-		HSUSB_VDDCX-supply = <&pmplutonium_s2_corner>;
-		HSUSB_1p8-supply = <&pmplutonium_l6>;
-		HSUSB_3p3-supply = <&pmplutonium_l24>;
+		HSUSB_VDDCX-supply = <&pm8994_s2_corner>;
+		HSUSB_1p8-supply = <&pm8994_l6>;
+		HSUSB_3p3-supply = <&pm8994_l24>;
 		qcom,vdd-voltage-level = <1 5 7>;
 
 		clocks = <&clock_gcc clk_gcc_usb_hs_system_clk>,
@@ -581,17 +581,17 @@
 	};
 
 	clock_rpm: qcom,rpmcc@fc401880 {
-		compatible = "qcom,rpmcc-plutonium";
+		compatible = "qcom,rpmcc-8994";
 		reg = <0xfc401880 0x4>;
 		reg-names = "cc_base";
 		#clock-cells = <1>;
 	};
 
 	clock_gcc: qcom,gcc@fc400000 {
-		compatible = "qcom,gcc-plutonium";
+		compatible = "qcom,gcc-8994";
 		reg = <0xfc400000 0x2000>;
 		reg-names = "cc_base";
-		vdd_dig-supply = <&pmplutonium_s1_corner>;
+		vdd_dig-supply = <&pm8994_s1_corner>;
 		clock-names = "xo", "xo_a_clk";
 		clocks = <&clock_rpm clk_cxo_clk_src>,
 		         <&clock_rpm clk_cxo_clk_src_ao>;
@@ -599,12 +599,12 @@
 	};
 
 	clock_mmss: qcom,mmsscc@fd8c0000 {
-		compatible = "qcom,mmsscc-plutonium";
+		compatible = "qcom,mmsscc-8994";
 		reg = <0xfd8c0000 0x5200>;
 		reg-names = "cc_base";
-		vdd_dig-supply = <&pmplutonium_s1_corner>;
-		mmpll4_dig-supply = <&pmplutonium_s1_corner>;
-		mmpll4_analog-supply = <&pmplutonium_l12>;
+		vdd_dig-supply = <&pm8994_s1_corner>;
+		mmpll4_dig-supply = <&pm8994_s1_corner>;
+		mmpll4_analog-supply = <&pm8994_l12>;
 		clock-names = "xo", "gpll0", "mmssnoc_ahb";
 		clocks = <&clock_rpm clk_cxo_clk_src>,
 		         <&clock_gcc clk_gpll0_out_mmsscc>,
@@ -613,15 +613,15 @@
 	};
 
 	clock_mdss: qcom,mmsscc-mdss@fd8c0000 {
-		compatible = "qcom,mmsscc-mdss-plutonium";
+		compatible = "qcom,mmsscc-mdss-8994";
 		reg = <0xfd8c0000 0x5200>;
 		reg-names = "cc_base";
-		vdd_dig-supply = <&pmplutonium_s1_corner>;
+		vdd_dig-supply = <&pm8994_s1_corner>;
 		#clock-cells = <1>;
 	};
 
 	clock_debug: qcom,cc-debug@fc401880 {
-		compatible = "qcom,cc-debug-plutonium";
+		compatible = "qcom,cc-debug-8994";
 		reg = <0xfc401880 0x4>;
 		reg-names = "cc_base";
 		clock-names = "debug_mmss_clk", "debug_rpm_clk";
@@ -740,8 +740,8 @@
 	};
 
 	sound {
-		compatible = "qcom,msmplutonium-asoc-snd";
-		qcom,model = "msmplutonium-tomtom-snd-card";
+		compatible = "qcom,msm8994-asoc-snd";
+		qcom,model = "msm8994-tomtom-snd-card";
 	};
 
 	qcom,msm-audio-ion {
@@ -927,7 +927,7 @@
 	};
 
 	tsens: tsens@fc4a8000 {
-		compatible = "qcom,msmplutonium-tsens";
+		compatible = "qcom,msm8994-tsens";
 		reg = <0xfc4a8000 0x2000>,
 		      <0xfc4bc000 0x1000>;
 		reg-names = "tsens_physical", "tsens_eeprom_physical";
@@ -999,18 +999,18 @@
 
 &gdsc_oxili_gx {
 	status = "ok";
-	parent-supply = <&pmiplutonium_s2_corner>;
+	parent-supply = <&pmi8994_s2_corner>;
 };
 
-#include "msm-pmplutonium-rpm-regulator.dtsi"
-#include "msm-pmplutonium.dtsi"
-#include "msm-pmiplutonium.dtsi"
-#include "msmplutonium-regulator.dtsi"
-#include "msmplutonium-ion.dtsi"
-#include "msmplutonium-iommu.dtsi"
-#include "msmplutonium-iommu-domains.dtsi"
+#include "msm-pm8994-rpm-regulator.dtsi"
+#include "msm-pm8994.dtsi"
+#include "msm-pmi8994.dtsi"
+#include "msm8994-regulator.dtsi"
+#include "msm8994-ion.dtsi"
+#include "msm8994-iommu.dtsi"
+#include "msm8994-iommu-domains.dtsi"
 
-&pmplutonium_vadc {
+&pm8994_vadc {
 	chan@5 {
 		label = "vcoin";
 		reg = <5>;
@@ -1089,7 +1089,7 @@
 	};
 };
 
-&pmplutonium_adc_tm {
+&pm8994_adc_tm {
 	chan@73 {
 		label = "msm_therm";
 		reg = <0x73>;
@@ -1156,7 +1156,7 @@
 	};
 };
 
-&pmiplutonium_vadc {
+&pmi8994_vadc {
 	chan@0 {
 		label = "usbin";
 		reg = <0>;

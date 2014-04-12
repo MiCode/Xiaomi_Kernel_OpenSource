@@ -13,10 +13,10 @@ obj-$(CONFIG_DEBUG_FS)		+= clock-debug.o
 obj-$(CONFIG_ARCH_MSM8916)	+= clock-rpm-8916.o
 obj-$(CONFIG_ARCH_MSM8916)	+= clock-gcc-8916.o
 
-# MSMPLUTONIUM
-obj-$(CONFIG_ARCH_MSMPLUTONIUM)	+= clock-rpm-plutonium.o
-obj-$(CONFIG_ARCH_MSMPLUTONIUM)	+= clock-gcc-plutonium.o
-obj-$(CONFIG_ARCH_MSMPLUTONIUM)	+= clock-mmss-plutonium.o
+# MSM8994
+obj-$(CONFIG_ARCH_MSM8994)	+= clock-rpm-8994.o
+obj-$(CONFIG_ARCH_MSM8994)	+= clock-gcc-8994.o
+obj-$(CONFIG_ARCH_MSM8994)	+= clock-mmss-8994.o
 
 # ACPU clock
 obj-$(CONFIG_ARCH_MSM8610)	+= clock-a7.o
