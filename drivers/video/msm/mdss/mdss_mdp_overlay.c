@@ -462,6 +462,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	struct mdp_histogram_start_req hist;
 	int ret;
 	u32 bwc_enabled;
+	u32 rot90;
 	bool is_vig_needed = false;
 	u32 left_lm_w = left_lm_w_from_mfd(mfd);
 
@@ -495,10 +496,14 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	}
 
 	bwc_enabled = req->flags & MDP_BWC_EN;
-	if (bwc_enabled || ((req->flags & MDP_SOURCE_ROTATED_90)
-		&& ((mdata->mdp_rev < MDSS_MDP_HW_REV_102) || !fmt->is_yuv))) {
+	rot90 = req->flags & MDP_SOURCE_ROTATED_90;
+
+	/*
+	 * Always set yuv rotator output to pseudo planar.
+	 */
+	if (bwc_enabled || rot90) {
 		req->src.format =
-			mdss_mdp_get_rotator_dst_format(req->src.format, 1,
+			mdss_mdp_get_rotator_dst_format(req->src.format, rot90,
 				bwc_enabled);
 		fmt = mdss_mdp_get_format_params(req->src.format);
 		if (!fmt) {
