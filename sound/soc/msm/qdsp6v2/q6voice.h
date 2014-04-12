@@ -1408,6 +1408,8 @@ struct voice_data {
 
 	struct mutex lock;
 
+	bool disable_topology;
+
 	uint16_t sidetone_gain;
 	uint8_t tty_mode;
 	/* slowtalk enable value */
@@ -1603,5 +1605,6 @@ int voc_update_amr_vocoder_rate(uint32_t session_id);
 int voc_disable_device(uint32_t session_id);
 int voc_enable_device(uint32_t session_id);
 void voc_set_destroy_cvd_flag(bool is_destroy_cvd);
+int voc_disable_topology(uint32_t session_id, uint32_t disable);
 
 #endif
