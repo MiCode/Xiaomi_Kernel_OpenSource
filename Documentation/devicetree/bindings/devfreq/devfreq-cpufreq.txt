@@ -1,0 +1,46 @@
+Devfreq CPUfreq governor
+
+devfreq-cpufreq is a parent device that contains one or more child devices.
+Each child device provides CPU frequency to device frequency mapping for a
+specific device. Examples of devices that could use this are: DDR, cache and
+CCI.
+
+Parent device name shall be "devfreq-cpufreq".
+
+Required child device properties:
+- cpu-to-dev-map:	A list of tuples where each tuple consists of a
+			CPU frequency (KHz) and the corresponding device
+			frequency. CPU frequencies not listed in the table
+			will use the device frequency that corresponds to the
+			next rounded up CPU frequency.
+- target-dev:		Phandle to device that this mapping applies to.
+
+Example:
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+			target-dev = <&cpubw>;
+			cpu-to-dev-map =
+				<  300000  1144 >,
+				<  422400  2288 >,
+				<  652800  3051 >,
+				<  883200  5996 >,
+				< 1190400  8056 >,
+				< 1497600 10101 >,
+				< 1728000 12145 >,
+				< 2649600 16250 >;
+		};
+
+		cache-cpufreq {
+			target-dev = <&cache>;
+			cpu-to-dev-map =
+				<  300000  300000 >,
+				<  422400  422400 >,
+				<  652800  499200 >,
+				<  883200  576000 >,
+				<  960000  960000 >,
+				< 1497600 1036800 >,
+				< 1574400 1574400 >,
+				< 1728000 1651200 >,
+				< 2649600 1728000 >;
+		};
+	};
