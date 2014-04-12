@@ -1,0 +1,80 @@
+TPS65132 Voltage Regulators
+
+Required properties:
+  - compatible:		Must be "ti,tps65132"
+  - reg:		I2C slave address
+
+Required nodes:
+  - regulators: 	A node that contains child nodes for each regulator in the
+			device. Each sub-node is identified using the node's name.
+			Supported regulator sub-node names: pos-boost and neg-boost
+
+Optional properties:
+  - vin-supply:		The phandle of the parent regulator that supplies the power to
+			the chip
+  - i2c-pwr-supply:	The power supply for i2c bus pull-up resistors
+  - pinctrl-names:	The state name of the pin configuration. Only
+			support: "default"
+  - pinctrl-0:		The phandles of the pin configuration node in
+			pinctrl for EN-pins.
+			For details of pinctrl properties, please refer to:
+			"Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
+
+Regulator child node required properties:
+  - regulator-name:	A string used as a descriptive name for the regulator
+  - regulator-min-microvolt:
+  - regulator-max-microvolt:
+			The smallest and largest voltage that regulator can
+			support.
+			The supported values for regulator-min-microvolts and
+			regulator-max-microvolt are 4000000 to 6000000 uV in
+			100000 uV steps.
+  - ti,en-gpio:		The gpio pin used for enabling the regulator output
+
+Regulator child node optional properties:
+  - ti,discharge-enable:A boolean flag to indicated if the regulator will
+			be actively discharged to ground when it is disabled
+  - ti,current-limit: 	Regulator output current limit in microamps
+			 Supported values:
+			    for pos-boost: 200000 only
+			    for neg-boost: 40000 or 80000
+			 If this property is not specified, then the current
+			 limit for positive boost regulator is 200000uA and
+			 for negative boost regulator is 40000uA.
+  - ti,enable-time:	Time in us to delay after enabling the regulator. If
+			this property is not present, a default value 800
+			microseconds delay will be applied.
+  - regulator-always-on:
+  - regulator-boot-on:
+			These properties are defined in core regulator framework. These
+			bindings can be found in regulator.txt.
+
+Example:
+
+tps65132@3e {
+	compatible = "ti,tps65132";
+	reg = <0x3e>;
+	i2c-pwr-supply = <&pm8916_l6>;
+
+	regulators {
+		tps65132_pos: pos-boost {
+			regulator-name  = "tps65132_pos";
+			regulator-min-microvolt = <5400000>;
+			regulator-max-microvolt = <5400000>;
+			ti,discharge-enable;
+			ti,enable-time = <800>;
+			ti,current-limit = <200000>;
+			ti,en-gpio = <&msm_gpio 97 0>;
+		};
+
+		tps65132_neg: neg-boost {
+			regulator-name = "tps65132_neg";
+			regulator-min-microvolt = <5400000>;
+			regulator-max-microvolt = <5400000>;
+			ti,discharge-enable;
+			ti,enable-time = <800>;
+			ti,current-limit = <40000>;
+			ti,en-gpio = <&msm_gpio 32 0>;
+		};
+	};
+};
