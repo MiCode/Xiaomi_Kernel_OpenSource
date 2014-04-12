@@ -581,8 +581,42 @@ static int32_t msm_sensor_get_power_settings(void *setting,
 	return rc;
 }
 
+static void msm_sensor_fill_sensor_info(struct msm_sensor_ctrl_t *s_ctrl,
+	struct msm_sensor_info_t *sensor_info, char *entity_name)
+{
+	uint32_t i;
+
+	if (!s_ctrl || !sensor_info) {
+		pr_err("%s:failed\n", __func__);
+		return;
+	}
+
+	strlcpy(sensor_info->sensor_name, s_ctrl->sensordata->sensor_name,
+		MAX_SENSOR_NAME);
+
+	sensor_info->session_id = s_ctrl->sensordata->sensor_info->session_id;
+
+	s_ctrl->sensordata->sensor_info->subdev_id[SUB_MODULE_SENSOR] =
+		s_ctrl->sensordata->sensor_info->session_id;
+	for (i = 0; i < SUB_MODULE_MAX; i++)
+		sensor_info->subdev_id[i] =
+			s_ctrl->sensordata->sensor_info->subdev_id[i];
+
+	sensor_info->is_mount_angle_valid =
+		s_ctrl->sensordata->sensor_info->is_mount_angle_valid;
+	sensor_info->sensor_mount_angle =
+		s_ctrl->sensordata->sensor_info->sensor_mount_angle;
+	sensor_info->modes_supported =
+		s_ctrl->sensordata->sensor_info->modes_supported;
+	sensor_info->position =
+		s_ctrl->sensordata->sensor_info->position;
+
+	strlcpy(entity_name, s_ctrl->msm_sd.sd.entity.name, MAX_SENSOR_NAME);
+}
+
 /* static function definition */
-int32_t msm_sensor_driver_probe(void *setting)
+int32_t msm_sensor_driver_probe(void *setting,
+	struct msm_sensor_info_t *probed_info, char *entity_name)
 {
 	int32_t                              rc = 0;
 	struct msm_sensor_ctrl_t            *s_ctrl = NULL;
@@ -701,7 +735,19 @@ int32_t msm_sensor_driver_probe(void *setting)
 		 * and probe already succeeded for that sensor. Ignore this
 		 * probe
 		 */
-		pr_err("slot %d has some other sensor", slave_info->camera_id);
+		if (slave_info->sensor_id_info.sensor_id ==
+			s_ctrl->sensordata->cam_slave_info->
+				sensor_id_info.sensor_id) {
+			pr_err("slot%d: sensor id%d already probed\n",
+				slave_info->camera_id,
+				s_ctrl->sensordata->cam_slave_info->
+					sensor_id_info.sensor_id);
+			msm_sensor_fill_sensor_info(s_ctrl,
+				probed_info, entity_name);
+		} else
+			pr_err("slot %d has some other sensor\n",
+				slave_info->camera_id);
+
 		rc = 0;
 		goto free_slave_info;
 	}
@@ -866,6 +912,8 @@ int32_t msm_sensor_driver_probe(void *setting)
 
 	/*Save sensor info*/
 	s_ctrl->sensordata->cam_slave_info = slave_info;
+
+	msm_sensor_fill_sensor_info(s_ctrl, probed_info, entity_name);
 
 	return rc;
 
