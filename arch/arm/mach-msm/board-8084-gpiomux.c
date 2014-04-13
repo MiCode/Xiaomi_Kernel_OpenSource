@@ -833,7 +833,7 @@ static struct gpiomux_setting gpio_suspend_config[] = {
 static struct gpiomux_setting cam_settings[] = {
 	{
 		.func = GPIOMUX_FUNC_1, /*active 1*/ /* 0 */
-		.drv = GPIOMUX_DRV_2MA,
+		.drv = GPIOMUX_DRV_6MA,
 		.pull = GPIOMUX_PULL_NONE,
 	},
 
