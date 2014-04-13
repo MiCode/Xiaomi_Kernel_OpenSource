@@ -162,12 +162,20 @@ static int bam_data_alloc_requests(struct usb_ep *ep, struct list_head *head,
 	return 0;
 }
 
+static inline dma_addr_t bam_data_get_dma_from_skb(struct sk_buff *skb)
+{
+	return *((dma_addr_t *)(skb->cb));
+}
+
 /* This function should be called with port_lock_ul lock taken */
 static struct sk_buff *bam_data_alloc_skb_from_pool(
 	struct bam_data_port *port)
 {
 	struct bam_data_ch_info *d;
-	struct sk_buff *skb;
+	struct sk_buff *skb = NULL;
+	dma_addr_t      skb_buf_dma_addr;
+	struct data_port  *data_port;
+	struct usb_gadget *gadget;
 
 	if (!port)
 		return NULL;
@@ -184,15 +192,40 @@ static struct sk_buff *bam_data_alloc_skb_from_pool(
 		 */
 		pr_debug("%s: allocate skb\n", __func__);
 		skb = alloc_skb(d->rx_buffer_size + BAM_MUX_HDR, GFP_ATOMIC);
-		if (!skb)
+		if (!skb) {
 			pr_err("%s: alloc skb failed\n", __func__);
-		else
-			skb_reserve(skb, BAM_MUX_HDR);
+			goto alloc_exit;
+		}
+
+		skb_reserve(skb, BAM_MUX_HDR);
+
+		data_port = port->port_usb;
+		if (data_port && data_port->cdev && data_port->cdev->gadget) {
+			gadget = data_port->cdev->gadget;
+
+			skb_buf_dma_addr =
+				dma_map_single(&gadget->dev, skb->data,
+					d->rx_buffer_size, DMA_BIDIRECTIONAL);
+
+			if (dma_mapping_error(&gadget->dev, skb_buf_dma_addr)) {
+				pr_err("%s: Could not DMA map SKB buffer\n",
+					__func__);
+				skb_buf_dma_addr = DMA_ERROR_CODE;
+			}
+		} else {
+			pr_err("%s: Could not DMA map SKB buffer\n", __func__);
+			skb_buf_dma_addr = DMA_ERROR_CODE;
+		}
+
+		memcpy(skb->cb, &skb_buf_dma_addr,
+			sizeof(skb_buf_dma_addr));
+
 	} else {
 		pr_debug("%s: pull skb from pool\n", __func__);
 		skb = __skb_dequeue(&d->rx_skb_idle);
 	}
 
+alloc_exit:
 	return skb;
 }
 
@@ -301,7 +334,14 @@ static void bam_data_start_rx(struct bam_data_port *port)
 			break;
 		list_del(&req->list);
 		req->buf = skb->data;
+		req->dma = bam_data_get_dma_from_skb(skb);
 		req->length = d->rx_buffer_size;
+
+		if (req->dma != DMA_ERROR_CODE)
+			req->dma_pre_mapped = true;
+		else
+			req->dma_pre_mapped = false;
+
 		req->context = skb;
 		spin_unlock_irqrestore(&port->port_lock_ul, flags);
 		ret = usb_ep_queue(ep, req, GFP_ATOMIC);
@@ -381,7 +421,14 @@ static void bam_data_epout_complete(struct usb_ep *ep, struct usb_request *req)
 		return;
 	}
 	req->buf = skb->data;
+	req->dma = bam_data_get_dma_from_skb(skb);
 	req->length = d->rx_buffer_size;
+
+	if (req->dma != DMA_ERROR_CODE)
+		req->dma_pre_mapped = true;
+	else
+		req->dma_pre_mapped = false;
+
 	req->context = skb;
 
 	status = usb_ep_queue(ep, req, GFP_ATOMIC);
@@ -433,6 +480,8 @@ static void bam_data_write_toipa(struct work_struct *w)
 	int			ret;
 	int			qlen;
 	unsigned long		flags;
+	dma_addr_t		skb_dma_addr;
+	struct ipa_tx_meta	ipa_meta = {0x0};
 
 	d = container_of(w, struct bam_data_ch_info, write_tobam_w);
 	port = d->port;
@@ -455,7 +504,15 @@ static void bam_data_write_toipa(struct work_struct *w)
 				port, d, d->pending_with_bam, port->port_num);
 
 		spin_unlock_irqrestore(&port->port_lock_ul, flags);
-		ret = ipa_tx_dp(IPA_CLIENT_USB_PROD, skb, NULL);
+
+		skb_dma_addr = bam_data_get_dma_from_skb(skb);
+		if (skb_dma_addr != DMA_ERROR_CODE) {
+			ipa_meta.dma_address = skb_dma_addr;
+			ipa_meta.dma_address_valid = true;
+		}
+
+		ret = ipa_tx_dp(IPA_CLIENT_USB_PROD, skb, &ipa_meta);
+
 		spin_lock_irqsave(&port->port_lock_ul, flags);
 		if (ret) {
 			pr_debug("%s: write error:%d\n", __func__, ret);
