@@ -3489,12 +3489,11 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mdp5_interface->get_sync_fnc = mdss_mdp_rotator_sync_pt_get;
 	mdp5_interface->splash_fnc = mdss_mdp_overlay_splash_image;
 
-	mdp5_data = kmalloc(sizeof(struct mdss_overlay_private), GFP_KERNEL);
+	mdp5_data = kzalloc(sizeof(struct mdss_overlay_private), GFP_KERNEL);
 	if (!mdp5_data) {
 		pr_err("fail to allocate mdp5 private data structure");
 		return -ENOMEM;
 	}
-	memset(mdp5_data, 0, sizeof(struct mdss_overlay_private));
 
 	INIT_LIST_HEAD(&mdp5_data->pipes_used);
 	INIT_LIST_HEAD(&mdp5_data->pipes_cleanup);
