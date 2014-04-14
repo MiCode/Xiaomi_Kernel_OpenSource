@@ -126,7 +126,7 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 	bool on);
 int kgsl_pwrctrl_init_sysfs(struct kgsl_device *device);
 void kgsl_pwrctrl_uninit_sysfs(struct kgsl_device *device);
-void kgsl_pwrctrl_enable(struct kgsl_device *device);
+int kgsl_pwrctrl_enable(struct kgsl_device *device);
 void kgsl_pwrctrl_disable(struct kgsl_device *device);
 bool kgsl_pwrctrl_isenabled(struct kgsl_device *device);
 int kgsl_pwrctrl_change_state(struct kgsl_device *device, int state);

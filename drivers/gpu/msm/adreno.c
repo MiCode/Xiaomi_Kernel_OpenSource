@@ -1698,9 +1698,6 @@ static int adreno_init(struct kgsl_device *device)
 	int i;
 	int ret;
 
-	/* Make a high priority workqueue for starting the GPU */
-	adreno_wq = alloc_workqueue("adreno", 0, 1);
-
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
 	/*
 	 * initialization only needs to be done once initially until
@@ -1710,8 +1707,12 @@ static int adreno_init(struct kgsl_device *device)
 		return 0;
 
 	/* Power up the device */
-	kgsl_pwrctrl_enable(device);
+	ret = kgsl_pwrctrl_enable(device);
+	if (ret)
+		return ret;
 
+	/* Make a high priority workqueue for starting the GPU */
+	adreno_wq = alloc_workqueue("adreno", 0, 1);
 
 	/* Identify the specific GPU */
 	adreno_identify_gpu(adreno_dev);
@@ -1825,7 +1826,9 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	adreno_clear_gpu_fault(adreno_dev);
 
 	/* Power up the device */
-	kgsl_pwrctrl_enable(device);
+	status = kgsl_pwrctrl_enable(device);
+	if (status)
+		goto error_rail_off;
 
 	/* Set the bit to indicate that we've just powered on */
 	set_bit(ADRENO_DEVICE_PWRON, &adreno_dev->priv);
@@ -1887,6 +1890,7 @@ error_mmu_off:
 
 error_clk_off:
 	kgsl_pwrctrl_disable(device);
+error_rail_off:
 	/* set the state back to original state */
 	kgsl_pwrctrl_change_state(device, state);
 
