@@ -246,6 +246,8 @@ Optional properties:
 - qcom,mdss-has-wfd-blk: Boolean property to indicate the presence of dedicated
 			writeback wfd block in MDSS as opposed to writeback
 			block that is shared between rotator and wfd.
+- qcom,mdss-no-lut-read: 	Boolean property to indicate reading of LUT is
+				not supported.
 - qcom,mdss-smp-mb-per-pipe:	Maximum number of shared memory pool blocks
 				restricted for a source surface pipe. If this
 				property is not specified, no such restriction
@@ -387,6 +389,7 @@ Example:
 		qcom,mdss-has-bwc;
 		qcom,mdss-has-decimation;
 		qcom,mdss-has-wfd-blk;
+		qcom,mdss-no-lut-read;
 
 		qcom,mdss-pipe-vig-clk-ctrl-offsets = <0x3AC 0 0>,
 						      <0x3B4 0 0>,
