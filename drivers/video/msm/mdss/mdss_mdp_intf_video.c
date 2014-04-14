@@ -849,3 +849,11 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 
 	return 0;
 }
+
+void *mdss_mdp_get_intf_base_addr(struct mdss_data_type *mdata,
+		u32 interface_id)
+{
+	struct mdss_mdp_video_ctx *ctx;
+	ctx = ((struct mdss_mdp_video_ctx *) mdata->video_intf) + interface_id;
+	return (void *)(ctx->base);
+}
