@@ -205,7 +205,7 @@ static char *pm_batt_supplied_to[] = {
  *				irqs)
  * @cfg_max_voltage_mv:		the max volts the batt should be charged up to
  * @cfg_min_voltage_mv:		VIN_MIN configuration
- * @cfg_batt_weak_voltage_mv:	weak battery voltage threshold
+ * @cfg_batt_weak_voltage_uv:	weak battery voltage threshold
  * @cfg_warm_bat_chg_ma:	warm battery maximum charge current in mA
  * @cfg_cool_bat_chg_ma:	cool battery maximum charge current in mA
  * @cfg_safe_voltage_mv:	safe voltage to which battery can charge
@@ -262,7 +262,7 @@ struct qpnp_lbc_chip {
 	unsigned int			cfg_max_voltage_mv;
 	unsigned int			cfg_min_voltage_mv;
 	unsigned int			cfg_charger_detect_eoc;
-	unsigned int			cfg_batt_weak_voltage_mv;
+	unsigned int			cfg_batt_weak_voltage_uv;
 	unsigned int			cfg_warm_bat_mv;
 	unsigned int			cfg_cool_bat_mv;
 	unsigned int			cfg_hot_batt_p;
@@ -510,23 +510,22 @@ static int qpnp_lbc_bat_if_configure_btc(struct qpnp_lbc_chip *chip)
 	return rc;
 }
 
-#define QPNP_LBC_VBATWEAK_MIN_MV        2370
-#define QPNP_LBC_VBATWEAK_MAX_MV        3610
-#define QPNP_LBC_VBATWEAK_STEP_MV       40
+#define QPNP_LBC_VBATWEAK_MIN_UV        3000000
+#define QPNP_LBC_VBATWEAK_MAX_UV        3581250
+#define QPNP_LBC_VBATWEAK_STEP_UV       18750
 static int qpnp_lbc_vbatweak_set(struct qpnp_lbc_chip *chip, int voltage)
 {
 	u8 reg_val;
 	int rc;
 
-	if (voltage < QPNP_LBC_VBATWEAK_MIN_MV ||
-			voltage > QPNP_LBC_VBATWEAK_MAX_MV) {
-		pr_err("VBAT_WEAK outside range voltage=%d\n", voltage);
+	if (voltage < QPNP_LBC_VBATWEAK_MIN_UV ||
+			voltage > QPNP_LBC_VBATWEAK_MAX_UV) {
 		rc = -EINVAL;
 	} else {
-		reg_val = (voltage - QPNP_LBC_VBATWEAK_MIN_MV) /
-					QPNP_LBC_VBATWEAK_STEP_MV;
+		reg_val = (voltage - QPNP_LBC_VBATWEAK_MIN_UV) /
+					QPNP_LBC_VBATWEAK_STEP_UV;
 		pr_debug("VBAT_WEAK=%d setting %02x\n",
-				chip->cfg_batt_weak_voltage_mv, reg_val);
+				chip->cfg_batt_weak_voltage_uv, reg_val);
 		rc = qpnp_lbc_write(chip, chip->chgr_base + CHG_VBAT_WEAK_REG,
 					&reg_val, 1);
 		if (rc)
@@ -594,12 +593,8 @@ static void qpnp_lbc_set_appropriate_vddmax(struct qpnp_lbc_chip *chip)
 }
 
 #define QPNP_LBC_VINMIN_MIN_MV		4200
-#define QPNP_LBC_VINMIN_HIGH_MIN_MV	5600
-#define QPNP_LBC_VINMIN_HIGH_MIN_VAL	0x2B
-#define QPNP_LBC_VINMIN_MAX_MV		9600
-#define QPNP_LBC_VINMIN_STEP_MV		50
-#define QPNP_LBC_VINMIN_STEP_HIGH_MV	200
-#define QPNP_LBC_VINMIN_MIN_VAL		0x10
+#define QPNP_LBC_VINMIN_MAX_MV		5037
+#define QPNP_LBC_VINMIN_STEP_MV		27
 static int qpnp_lbc_vinmin_set(struct qpnp_lbc_chip *chip, int voltage)
 {
 	u8 reg_val;
@@ -610,16 +605,8 @@ static int qpnp_lbc_vinmin_set(struct qpnp_lbc_chip *chip, int voltage)
 		pr_err("bad mV=%d asked to set\n", voltage);
 		return -EINVAL;
 	}
-	if (voltage >= QPNP_LBC_VINMIN_HIGH_MIN_MV) {
-		reg_val = QPNP_LBC_VINMIN_HIGH_MIN_VAL;
-		reg_val += (voltage - QPNP_LBC_VINMIN_HIGH_MIN_MV)
-			/ QPNP_LBC_VINMIN_STEP_HIGH_MV;
-	} else {
-		reg_val = QPNP_LBC_VINMIN_MIN_VAL;
-		reg_val += (voltage - QPNP_LBC_VINMIN_MIN_MV)
-			/ QPNP_LBC_VINMIN_STEP_MV;
-	}
 
+	reg_val = (voltage - QPNP_LBC_VINMIN_MIN_MV) / QPNP_LBC_VINMIN_STEP_MV;
 	pr_debug("VIN_MIN=%d setting %02x\n", voltage, reg_val);
 	rc = qpnp_lbc_write(chip, chip->chgr_base + CHG_VIN_MIN_REG,
 				&reg_val, 1);
@@ -1354,7 +1341,7 @@ static int qpnp_lbc_chg_init(struct qpnp_lbc_chip *chip)
 	int rc;
 	u8 reg_val;
 
-	qpnp_lbc_vbatweak_set(chip, chip->cfg_batt_weak_voltage_mv);
+	qpnp_lbc_vbatweak_set(chip, chip->cfg_batt_weak_voltage_uv);
 	rc = qpnp_lbc_vinmin_set(chip, chip->cfg_min_voltage_mv);
 	if (rc) {
 		pr_err("Failed  to set  vin_min rc=%d\n", rc);
@@ -1524,7 +1511,7 @@ static int qpnp_charger_read_dt_props(struct qpnp_lbc_chip *chip)
 	OF_PROP_READ(chip, cfg_cool_bat_decidegc, "cool-bat-decidegc", rc, 1);
 	OF_PROP_READ(chip, cfg_hot_batt_p, "batt-hot-percentage", rc, 1);
 	OF_PROP_READ(chip, cfg_cold_batt_p, "batt-cold-percentage", rc, 1);
-	OF_PROP_READ(chip, cfg_batt_weak_voltage_mv, "vbatweak-mv", rc, 1);
+	OF_PROP_READ(chip, cfg_batt_weak_voltage_uv, "vbatweak-uv", rc, 1);
 	OF_PROP_READ(chip, cfg_charger_detect_eoc, "charger-detect-eoc", rc,
 			1);
 	OF_PROP_READ(chip, cfg_soc_resume_limit, "resume-soc", rc, 1);
