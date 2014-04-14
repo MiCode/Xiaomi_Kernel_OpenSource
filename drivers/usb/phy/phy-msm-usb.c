@@ -878,12 +878,17 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	struct usb_phy *phy = &motg->phy;
 	struct usb_bus *bus = phy->otg->host;
 	struct msm_otg_platform_data *pdata = motg->pdata;
-	int cnt = 0;
+	int cnt;
 	bool host_bus_suspend, device_bus_suspend, dcp, prop_charger;
 	bool floated_charger, sm_work_busy;
-	u32 phy_ctrl_val = 0, cmd_val;
+	u32 phy_ctrl_val, cmd_val;
 	u32 portsc, config2;
 	u32 func_ctrl;
+	int phcd_retry_cnt = 0;
+
+phcd_retry:
+	cnt = 0;
+	phy_ctrl_val = 0;
 
 	if (atomic_read(&motg->in_lpm))
 		return 0;
@@ -986,10 +991,14 @@ static int msm_otg_suspend(struct msm_otg *motg)
 
 	if (cnt >= PHY_SUSPEND_TIMEOUT_USEC) {
 		dev_err(phy->dev, "Unable to suspend PHY\n");
+		motg->reset_counter = 0;
 		msm_otg_reset(phy);
 		motg->ui_enabled = 1;
 		enable_irq(motg->irq);
-		return -ETIMEDOUT;
+		if (phcd_retry_cnt++ < 3)
+			goto phcd_retry;
+		else
+			return -EBUSY;
 	}
 
 	/*
