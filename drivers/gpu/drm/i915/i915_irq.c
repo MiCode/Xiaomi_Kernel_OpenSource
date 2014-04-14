@@ -1194,6 +1194,9 @@ static void i915_hotplug_work_func(struct work_struct *work)
 				changed = true;
 		}
 	}
+
+	/* Encoder hotplug fn is supposed to use this, now clear it */
+	dev_priv->hotplug_status = 0;
 	mutex_unlock(&mode_config->mutex);
 
 	if (changed)
@@ -2157,6 +2160,13 @@ static void i9xx_hpd_irq_handler(struct drm_device *dev)
 
 			/* Ignore short pulse interrupts */
 			if (!(hotplug_trigger & HPD_SHORT_PULSE)) {
+
+				/*
+				 * Few display's cant set the status for long
+				 * time. Lets save this status for future
+				 * references like in bottom halves
+				 */
+				dev_priv->hotplug_status = hotplug_status;
 				intel_hpd_irq_handler(dev, hotplug_trigger,
 							hpd_status_i915);
 			}
