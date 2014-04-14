@@ -1228,6 +1228,29 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	/* process any profiling results that are available into the log_buf */
 	adreno_profile_process_results(device);
 
+	/*
+	 * If SKIP CMD flag is set for current context
+	 * a) set SKIPCMD as fault_recovery for current commandbatch
+	 * b) store context's commandbatch fault_policy in current
+	 *    commandbatch fault_policy and clear context's commandbatch
+	 *    fault_policy
+	 * c) force preamble for commandbatch
+	 */
+	if (test_bit(ADRENO_CONTEXT_SKIP_CMD, &drawctxt->priv) &&
+		(!test_bit(CMDBATCH_FLAG_SKIP, &cmdbatch->priv))) {
+
+		set_bit(KGSL_FT_SKIPCMD, &cmdbatch->fault_recovery);
+		cmdbatch->fault_policy = drawctxt->fault_policy;
+		set_bit(CMDBATCH_FLAG_FORCE_PREAMBLE, &cmdbatch->priv);
+
+		/* if context is detached print fault recovery */
+		adreno_fault_skipcmd_detached(device, drawctxt, cmdbatch);
+
+		/* clear the drawctxt flags */
+		clear_bit(ADRENO_CONTEXT_SKIP_CMD, &drawctxt->priv);
+		drawctxt->fault_policy = 0;
+	}
+
 	/*When preamble is enabled, the preamble buffer with state restoration
 	commands are stored in the first node of the IB chain. We can skip that
 	if a context switch hasn't occured */
