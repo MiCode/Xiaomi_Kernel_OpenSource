@@ -158,7 +158,3 @@
 &qcom_seecom {
 	status = "okay";
 };
-
-&pm8916_chg {
-	/delete-property/ qcom,charging-disabled;
-};
