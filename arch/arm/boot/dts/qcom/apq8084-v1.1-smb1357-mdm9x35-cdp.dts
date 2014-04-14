@@ -64,3 +64,21 @@
 	esoc-names = "modem_wlan";
 	esoc-0 = <&mdm1>;
 };
+
+&soc {
+	sound-9330 {
+		pinctrl-names = "pmx-quad-mi2s-sleep",
+				"pmx-quad-mi2s-active";
+		pinctrl-0 = <&quad_mi2s_sleep>;
+		pinctrl-1 = <&quad_mi2s_active>;
+	};
+
+	qcom,msm-dai-mi2s {
+		qcom,msm-dai-q6-mi2s-quat {
+			compatible = "qcom,msm-dai-q6-mi2s";
+			qcom,msm-dai-q6-mi2s-dev-id = <3>;
+			qcom,msm-mi2s-tx-lines = <1>;
+			qcom,msm-mi2s-rx-lines = <2>;
+		};
+	};
+};
