@@ -51,7 +51,8 @@
 };
 
 &pm8916_chg {
-	status = "disabled";
+	status = "ok";
+	qcom,use-external-charger;
 };
 
 &pm8916_bms {
