@@ -486,6 +486,7 @@ static int mdss_dsi_ulps_config_sub(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 	struct mipi_panel_info *pinfo = NULL;
 	u32 lane_status = 0;
 	u32 active_lanes = 0;
+	u32 regval = 0;
 
 	if (!ctrl_pdata) {
 		pr_err("%s: invalid input\n", __func__);
@@ -554,11 +555,27 @@ static int mdss_dsi_ulps_config_sub(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		}
 
 		/* Enable MMSS DSI Clamps */
-		MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14, 0x3FF);
-		MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14, 0x83FF);
+		if (ctrl_pdata->ndx == DSI_CTRL_0) {
+			regval = MIPI_INP(ctrl_pdata->mmss_misc_io.base + 0x14);
+			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14,
+				regval | 0x3FF);
+			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14,
+				regval | 0x83FF);
+		} else if (ctrl_pdata->ndx == DSI_CTRL_1) {
+			regval = MIPI_INP(ctrl_pdata->mmss_misc_io.base + 0x14);
+			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14,
+				regval | 0x3FF0000);
+			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14,
+				regval | 0x83FF0000);
+		}
 
 		wmb();
 
+		/*
+		 * This register write ensures that DSI PHY will not be
+		 * reset when mdss ahb clock reset is asserted while coming
+		 * out of power collapse
+		 */
 		MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x108, 0x1);
 		/* disable DSI controller */
 		mdss_dsi_controller_cfg(0, pdata);
@@ -593,8 +610,15 @@ static int mdss_dsi_ulps_config_sub(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		usleep(100);
 
 		/* Disable MMSS DSI Clamps */
-		MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14, 0x3FF);
-		MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14, 0x0);
+		if (ctrl_pdata->ndx == DSI_CTRL_0) {
+			regval = MIPI_INP(ctrl_pdata->mmss_misc_io.base + 0x14);
+			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14,
+				regval & ~0x83FF);
+		} else if (ctrl_pdata->ndx == DSI_CTRL_1) {
+			regval = MIPI_INP(ctrl_pdata->mmss_misc_io.base + 0x14);
+			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14,
+				regval & ~0x83FF0000);
+		}
 
 		ret = mdss_dsi_clk_ctrl(ctrl_pdata, DSI_LINK_CLKS, 1);
 		if (ret) {
@@ -636,31 +660,72 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 {
 	int rc;
 	struct mdss_dsi_ctrl_pdata *mctrl = NULL;
+	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
 
 	if (&ctrl->mmss_misc_io == NULL) {
 		pr_err("%s: mmss_misc_io is NULL. ULPS not valid\n", __func__);
 		return -EINVAL;
 	}
 
+	if (mdss_dsi_is_master_ctrl(ctrl)) {
+		if (enable) {
+			pr_debug("%s: skipping enable for master ctrl%d\n",
+				__func__, ctrl->ndx);
+			rc = 0;
+			goto error;
+		} else {
+			sctrl = mdss_dsi_get_slave_ctrl();
+			if (!sctrl) {
+				pr_err("%s: Unable to get slave control\n",
+					__func__);
+				rc = -EINVAL;
+				goto error;
+			}
+		}
+	}
+
 	if (mdss_dsi_is_slave_ctrl(ctrl)) {
-		mctrl = mdss_dsi_get_master_ctrl();
-		if (!mctrl) {
-			pr_err("%s: Unable to get master control\n", __func__);
-			return -EINVAL;
+		if (enable) {
+			mctrl = mdss_dsi_get_master_ctrl();
+			if (!mctrl) {
+				pr_err("%s: Unable to get master control\n",
+					__func__);
+				rc = -EINVAL;
+				goto error;
+			}
+		} else {
+			pr_debug("%s: skipping disable for slave ctrl%d\n",
+				__func__, ctrl->ndx);
+			rc = 0;
+			goto error;
 		}
 	}
 
 	if (mctrl) {
 		pr_debug("%s: configuring ulps (%s) for master ctrl%d\n",
-			__func__, (enable ? "on" : "off"), ctrl->ndx);
+			__func__, (enable ? "on" : "off"), mctrl->ndx);
 		rc = mdss_dsi_ulps_config_sub(mctrl, enable);
 		if (rc)
-			return rc;
+			goto error;
 	}
 
 	pr_debug("%s: configuring ulps (%s) for ctrl%d\n",
 		__func__, (enable ? "on" : "off"), ctrl->ndx);
-	return mdss_dsi_ulps_config_sub(ctrl, enable);
+	rc = mdss_dsi_ulps_config_sub(ctrl, enable);
+	if (rc)
+		goto error;
+
+	if (sctrl) {
+		pr_debug("%s: configuring ulps (%s) for slave ctrl%d\n",
+			__func__, (enable ? "on" : "off"), sctrl->ndx);
+		rc = mdss_dsi_ulps_config_sub(sctrl, enable);
+	}
+
+error:
+	if (rc)
+		pr_err("%s: Failed to configure ulps (%s) for ctrl%d\n",
+			__func__, (enable ? "on" : "off"), ctrl->ndx);
+	return rc;
 }
 
 int mdss_dsi_on(struct mdss_panel_data *pdata)
