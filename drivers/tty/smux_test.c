@@ -1,6 +1,6 @@
 /* drivers/tty/smux_test.c
  *
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -2018,13 +2018,6 @@ static int smux_ut_local_get_rx_buff_retry_auto(char *buf, int max)
 			if (failed)
 				break;
 
-			if (!try_rx_retry_wm &&
-					cb_data.event_rx_retry_high_wm) {
-				/* RX high watermark hit */
-				try_rx_retry_wm = try + 1;
-				break;
-			}
-
 			while (cb_data.event_write_done <= try) {
 				UT_ASSERT_INT(
 					(int)wait_for_completion_timeout(
@@ -2034,6 +2027,13 @@ static int smux_ut_local_get_rx_buff_retry_auto(char *buf, int max)
 			}
 			if (failed)
 				break;
+
+			if (!try_rx_retry_wm &&
+					cb_data.event_rx_retry_high_wm) {
+				/* RX high watermark hit */
+				try_rx_retry_wm = try + 1;
+				break;
+			}
 		}
 		if (failed)
 			break;
