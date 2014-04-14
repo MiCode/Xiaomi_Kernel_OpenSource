@@ -210,6 +210,9 @@ static struct msm_gpiomux_config msm_lcd_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &lcd_en_sus_cfg,
 		},
 	},
+};
+
+static struct msm_gpiomux_config msm_lcd_te_configs[] __initdata = {
 	{
 		.gpio = 12,
 		.settings = {
@@ -760,6 +763,8 @@ void __init msm8610_init_gpiomux(void)
 			ARRAY_SIZE(wcnss_5wire_interface));
 	msm_gpiomux_install_nowrite(msm_lcd_configs,
 				ARRAY_SIZE(msm_lcd_configs));
+	msm_gpiomux_install(msm_lcd_te_configs,
+				ARRAY_SIZE(msm_lcd_te_configs));
 	msm_gpiomux_install(msm_keypad_configs,
 				ARRAY_SIZE(msm_keypad_configs));
 	msm_gpiomux_install(msm_sensor_configs, ARRAY_SIZE(msm_sensor_configs));

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,10 +47,6 @@ void dsi_ctrl_config_deinit(struct platform_device *pdev,
 
 int dsi_ctrl_config_init(struct platform_device *pdev,
 				struct mdss_dsi_ctrl_pdata *ctrl_pdata);
-
-int dsi_ctrl_gpio_request(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
-
-void dsi_ctrl_gpio_free(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 
 struct mdss_panel_cfg *mdp3_panel_intf_type(int intf_val);
 
