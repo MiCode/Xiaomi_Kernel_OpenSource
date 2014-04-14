@@ -513,6 +513,10 @@ int inet6_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 		return addrconf_del_ifaddr(net, (void __user *) arg);
 	case SIOCSIFDSTADDR:
 		return addrconf_set_dstaddr(net, (void __user *) arg);
+	case SIOCKILLADDR:
+		if (!capable(CAP_NET_ADMIN))
+			return -EACCES;
+		return 0;
 	default:
 		if (!sk->sk_prot->ioctl)
 			return -ENOIOCTLCMD;
