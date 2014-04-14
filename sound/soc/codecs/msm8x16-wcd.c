@@ -320,7 +320,7 @@ static int __msm8x16_wcd_reg_read(struct snd_soc_codec *codec,
 				unsigned short reg)
 {
 	int ret = -EINVAL;
-	u8 temp;
+	u8 temp = 0;
 	struct msm8x16_wcd *msm8x16_wcd = codec->control_data;
 	struct msm8916_asoc_mach_data *pdata = NULL;
 
@@ -340,13 +340,14 @@ static int __msm8x16_wcd_reg_read(struct snd_soc_codec *codec,
 					&pdata->digital_cdc_clk);
 			if (ret < 0) {
 				pr_err("failed to enable the MCLK\n");
-				return 0;
+				goto err;
 			}
 			pr_debug("%s: MCLK not enabled\n", __func__);
 			atomic_set(&pdata->dis_work_mclk, true);
 			schedule_delayed_work(&pdata->enable_mclk_work, 50);
 			ret = msm8x16_wcd_ahb_read_device(
 					msm8x16_wcd, reg, 1, &temp);
+err:
 			mutex_unlock(&pdata->cdc_mclk_mutex);
 			mutex_unlock(&msm8x16_wcd->io_lock);
 			return temp;
@@ -391,12 +392,14 @@ static int __msm8x16_wcd_reg_write(struct snd_soc_codec *codec,
 					&pdata->digital_cdc_clk);
 			if (ret < 0) {
 				pr_err("failed to enable the MCLK\n");
-				return 0;
+				ret = 0;
+				goto err;
 			}
 			atomic_set(&pdata->dis_work_mclk, true);
 			schedule_delayed_work(&pdata->enable_mclk_work, 50);
 			ret = msm8x16_wcd_ahb_write_device(
 						msm8x16_wcd, reg, &val, 1);
+err:
 			mutex_unlock(&pdata->cdc_mclk_mutex);
 			mutex_unlock(&msm8x16_wcd->io_lock);
 			return ret;
