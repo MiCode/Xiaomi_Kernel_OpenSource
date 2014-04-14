@@ -927,10 +927,6 @@ static struct ion_heap *msm_ion_heap_create(struct ion_platform_heap *heap_data)
 
 	switch ((int)heap_data->type) {
 #ifdef CONFIG_CMA
-	case ION_HEAP_TYPE_DMA:
-		heap = ion_cma_heap_create(heap_data);
-		break;
-
 	case ION_HEAP_TYPE_SECURE_DMA:
 		heap = ion_secure_cma_heap_create(heap_data);
 		break;
@@ -963,9 +959,6 @@ static void msm_ion_heap_destroy(struct ion_heap *heap)
 
 	switch ((int)heap->type) {
 #ifdef CONFIG_CMA
-	case ION_HEAP_TYPE_DMA:
-		ion_cma_heap_destroy(heap);
-		break;
 	case ION_HEAP_TYPE_SECURE_DMA:
 		ion_secure_cma_heap_destroy(heap);
 		break;
