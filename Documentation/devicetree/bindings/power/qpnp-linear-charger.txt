@@ -80,6 +80,12 @@ Parent node optional properties:
 					If not specified charger driver
 					depends on BMSfor end-of-charge
 					detection.
+- qcom,use-external-charger		If specifed the LBC module will
+					be disabled and the driver will not
+					register. It also enables BID for
+					BPD and disables BTC. Declare this node
+					only if you are using an external charger
+					and not the PMIC internal LBC.
 
 Sub node required structure:
 - A qcom,charger node must be a child of an SPMI node that has specified
