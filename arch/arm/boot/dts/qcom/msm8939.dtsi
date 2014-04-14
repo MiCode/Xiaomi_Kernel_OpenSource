@@ -673,6 +673,10 @@
 		qcom,therm-reset-temp = <115>;
 	};
 
+	qcom,bcl {
+		compatible = "qcom,bcl";
+	};
+
 	slim_msm: slim@77c0000 {
 		cell-index = <1>;
 		compatible = "qcom,slim-ngd";
