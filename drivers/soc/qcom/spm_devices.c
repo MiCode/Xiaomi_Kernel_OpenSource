@@ -38,6 +38,7 @@ struct msm_spm_device {
 	struct msm_spm_power_modes *modes;
 	uint32_t num_modes;
 	uint32_t cpu_vdd;
+	void __iomem *q2s_reg;
 };
 
 struct msm_spm_vdd_info {
@@ -159,6 +160,39 @@ unsigned int msm_spm_get_vdd(unsigned int cpu)
 }
 EXPORT_SYMBOL(msm_spm_get_vdd);
 
+static void msm_spm_config_q2s(struct msm_spm_device *dev, unsigned int mode)
+{
+	uint32_t spm_legacy_mode = 0;
+	uint32_t qchannel_ignore = 0;
+	uint32_t val = 0;
+
+	if (!dev->q2s_reg)
+		return;
+
+	switch (mode) {
+	case MSM_SPM_MODE_DISABLED:
+	case MSM_SPM_MODE_CLOCK_GATING:
+		qchannel_ignore = 1;
+		spm_legacy_mode = 0;
+		break;
+	case MSM_SPM_MODE_RETENTION:
+		qchannel_ignore = 0;
+		spm_legacy_mode = 0;
+		break;
+	case MSM_SPM_MODE_GDHS:
+	case MSM_SPM_MODE_POWER_COLLAPSE:
+		qchannel_ignore = 1;
+		spm_legacy_mode = 1;
+		break;
+	default:
+		break;
+	}
+
+	val = spm_legacy_mode << 2 | qchannel_ignore << 1;
+	__raw_writel(val, dev->q2s_reg);
+	mb();
+}
+
 static int msm_spm_dev_set_low_power_mode(struct msm_spm_device *dev,
 		unsigned int mode, bool notify_rpm)
 {
@@ -187,6 +221,9 @@ static int msm_spm_dev_set_low_power_mode(struct msm_spm_device *dev,
 		ret = msm_spm_drv_set_low_power_mode(&dev->reg_data,
 					start_addr, pc_mode);
 	}
+
+	msm_spm_config_q2s(dev, mode);
+
 	return ret;
 }
 
@@ -486,6 +523,7 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	if (!ret)
 		spm_data.vctl_timeout_us = val;
 
+	/* SAW start address */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		goto fail;
@@ -511,6 +549,18 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	dev = msm_spm_get_device(pdev);
 	if (!dev)
 		return -EINVAL;
+
+	/* Q2S (QChannel-2-SPM) register */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (res) {
+		dev->q2s_reg = devm_ioremap(&pdev->dev, res->start,
+						resource_size(res));
+		if (!dev->q2s_reg) {
+			pr_err("%s(): Unable to iomap Q2S register\n",
+					__func__);
+			return -EADDRNOTAVAIL;
+		}
+	}
 
 	/* optional */
 	if (dev == msm_spm_l2_device) {
