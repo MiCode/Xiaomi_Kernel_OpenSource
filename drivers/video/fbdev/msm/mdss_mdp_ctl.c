@@ -1815,15 +1815,7 @@ int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg)
 	return rc;
 }
 
-/*
- * mdss_mdp_ctl_restore() - restore mdp ctl path
- * @ctl: mdp controller.
- *
- * This function is called whenever MDP comes out of a power collapse as
- * a result of a screen update when DSI ULPS mode is enabled. It restores
- * the MDP controller's software state to the hardware registers.
- */
-void mdss_mdp_ctl_restore(struct mdss_mdp_ctl *ctl)
+static void mdss_mdp_ctl_restore_sub(struct mdss_mdp_ctl *ctl)
 {
 	u32 temp;
 
@@ -1834,6 +1826,26 @@ void mdss_mdp_ctl_restore(struct mdss_mdp_ctl *ctl)
 	writel_relaxed(temp, ctl->mdata->mdp_base +
 		MDSS_MDP_REG_DISP_INTF_SEL);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+}
+
+/*
+ * mdss_mdp_ctl_restore() - restore mdp ctl path
+ * @ctl: mdp controller.
+ *
+ * This function is called whenever MDP comes out of a power collapse as
+ * a result of a screen update when DSI ULPS mode is enabled. It restores
+ * the MDP controller's software state to the hardware registers.
+ */
+void mdss_mdp_ctl_restore(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_mdp_ctl *sctl;
+
+	sctl = mdss_mdp_get_split_ctl(ctl);
+	mdss_mdp_ctl_restore_sub(ctl);
+	if (sctl) {
+		mdss_mdp_ctl_restore_sub(sctl);
+		mdss_mdp_ctl_split_display_enable(1, ctl, sctl);
+	}
 }
 
 static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl, bool handoff)
