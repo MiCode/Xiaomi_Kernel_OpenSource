@@ -464,6 +464,13 @@ config X86_INTEL_MID
 	  Intel MID platforms are based on an Intel processor and chipset which
 	  consume less power than most of the x86 derivatives.
 
+config GMIN_INTEL_MID
+       bool "G-Min minimal INTEL_MID support"
+       ---help---
+         Select Y to build a kernel capable of booting on G-Min
+         enabled devices without the full INTEL_MID/SFI firmware
+         stack.
+
 config X86_INTEL_LPSS
 	bool "Intel Low Power Subsystem Support"
 	depends on ACPI
