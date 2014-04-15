@@ -252,6 +252,23 @@
 			qcom,adc-vdd-reference = <1800>;
 			qcom,adc_tm-vadc = <&pm8994_vadc>;
 		};
+
+		qcom,pm8994_rtc {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-rtc";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,qpnp-rtc-write = <0>;
+			qcom,qpnp-rtc-alarm-pwrup = <0>;
+
+			qcom,pm8994_rtc_rw@6000 {
+				reg = <0x6000 0x100>;
+			};
+			qcom,pm8994_rtc_alarm@6100 {
+				reg = <0x6100 0x100>;
+				interrupts = <0x0 0x61 0x1>;
+			};
+		};
 	};
 
 	qcom,pm8994@1 {
