@@ -59,6 +59,67 @@ static const struct platform_device_id msm_vfe_dev_id[] = {
 };
 
 static struct msm_isp_buf_mgr vfe_buf_mgr;
+
+#ifdef CONFIG_COMPAT
+struct msm_isp_event_data32 {
+	struct compat_timeval timestamp;
+	struct compat_timeval mono_timestamp;
+	enum msm_vfe_input_src input_intf;
+	uint32_t frame_id;
+	union {
+		struct msm_isp_stats_event stats;
+		struct msm_isp_buf_event buf_done;
+	} u;
+};
+static long msm_isp_dqevent(struct file *file, struct v4l2_fh *vfh, void *arg)
+{
+	long rc;
+	if (is_compat_task()) {
+		struct msm_isp_event_data32 *event_data32;
+		struct msm_isp_event_data  *event_data;
+		struct v4l2_event isp_event;
+		struct v4l2_event *isp_event_user;
+
+		memset(&isp_event, 0, sizeof(isp_event));
+		rc = v4l2_event_dequeue(vfh, &isp_event,
+				file->f_flags & O_NONBLOCK);
+		if (rc)
+			return rc;
+		event_data = (struct msm_isp_event_data *)
+				isp_event.u.data;
+		isp_event_user = (struct v4l2_event *)arg;
+		memcpy(isp_event_user, &isp_event,
+				sizeof(*isp_event_user));
+		event_data32 = (struct msm_isp_event_data32 *)
+			isp_event_user->u.data;
+		memset(event_data32, 0,
+				sizeof(struct msm_isp_event_data32));
+		event_data32->timestamp.tv_sec =
+				event_data->timestamp.tv_sec;
+		event_data32->timestamp.tv_usec =
+				event_data->timestamp.tv_usec;
+		event_data32->mono_timestamp.tv_sec =
+				event_data->mono_timestamp.tv_sec;
+		event_data32->mono_timestamp.tv_usec =
+				event_data->mono_timestamp.tv_usec;
+		event_data32->input_intf = event_data->input_intf;
+		event_data32->frame_id = event_data->frame_id;
+		memcpy(&(event_data32->u), &(event_data->u),
+					sizeof(event_data32->u));
+	} else {
+		rc = v4l2_event_dequeue(vfh, arg,
+				file->f_flags & O_NONBLOCK);
+	}
+	return rc;
+}
+#else
+static long msm_isp_dqevent(struct file *file, struct v4l2_fh *vfh, void *arg)
+{
+	return v4l2_event_dequeue(vfh, arg,
+			file->f_flags & O_NONBLOCK);
+}
+#endif
+
 static long msm_isp_subdev_do_ioctl(
 	struct file *file, unsigned int cmd, void *arg)
 {
@@ -67,11 +128,12 @@ static long msm_isp_subdev_do_ioctl(
 	struct v4l2_fh *vfh = file->private_data;
 
 	switch (cmd) {
-	case VIDIOC_DQEVENT:
+	case VIDIOC_DQEVENT: {
 		if (!(sd->flags & V4L2_SUBDEV_FL_HAS_EVENTS))
 			return -ENOIOCTLCMD;
-
-		return v4l2_event_dequeue(vfh, arg, file->f_flags & O_NONBLOCK);
+		return msm_isp_dqevent(file, vfh, arg);
+	}
+	break;
 	case VIDIOC_SUBSCRIBE_EVENT:
 		return v4l2_subdev_call(sd, core, subscribe_event, vfh, arg);
 
