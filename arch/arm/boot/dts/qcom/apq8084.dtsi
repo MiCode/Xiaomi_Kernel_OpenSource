@@ -3115,6 +3115,7 @@
 			adc-interval-usec = <3900>;
 			uv-to-ua-numerator = <2>;
 			uv-to-ua-denominator = <1>;
+			thermal-handle = <&msm_thermal_freq>;
 		};
 	};
 
@@ -3183,7 +3184,7 @@
 			qcom,min-level = <1>; /* No Request */
 		};
 
-		qcom,vdd-apps-rstr{
+		msm_thermal_freq: qcom,vdd-apps-rstr{
 			qcom,vdd-rstr-reg = "vdd-apps";
 			qcom,levels = <1958400 2150400 2150400>;
 			qcom,freq-req;
