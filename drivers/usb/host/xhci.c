@@ -1386,6 +1386,8 @@ int xhci_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 		ep->stop_cmd_timer.expires = jiffies +
 			XHCI_STOP_EP_CMD_TIMEOUT * HZ;
 		add_timer(&ep->stop_cmd_timer);
+		if (hcd->driver->set_autosuspend)
+			hcd->driver->set_autosuspend(hcd, 0);
 		xhci_queue_stop_endpoint(xhci, urb->dev->slot_id, ep_index, 0);
 		xhci_ring_cmd_db(xhci);
 	}
