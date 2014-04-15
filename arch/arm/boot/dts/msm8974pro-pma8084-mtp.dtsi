@@ -200,9 +200,12 @@
 	};
 
 	gpio@c700 { /* GPIO 8 */
-		/* Unused */
-		qcom,mode = <0>;		/* Digital input */
-		qcom,pull = <0>;		/* Pull up 30 uA */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <0>;		/* Do not invert the output */
+		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8V */
+		qcom,src-sel = <2>;		/* Special function 1=LPG 3 */
+		qcom,out-strength = <3>;	/* High drive Strength*/
 		qcom,master-en = <1>;
 	};
 
