@@ -2535,7 +2535,7 @@
 			< 2265600000  950000  726 >;
 	};
 
-	qcom,cpubw {
+	cpubw: qcom,cpubw {
 		compatible = "qcom,cpubw";
 		qcom,cpu-mem-ports = <1 512>;
 		qcom,bw-tbl =
@@ -2558,6 +2558,21 @@
 		compatible = "qcom,kraitbw-l2pm";
 		interrupts = <0 1 1>;
 		qcom,bytes-per-beat = <16>;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+			target-dev = <&cpubw>;
+			cpu-to-dev-map =
+				<  300000  1144 >,
+				<  422400  2288 >,
+				<  652800  3051 >,
+				<  883200  5996 >,
+				< 1190400  8056 >,
+				< 1497600 10101 >,
+				< 1728000 12145 >,
+				< 2649600 16250 >;
+		};
 	};
 
 	qcom,msm-cpufreq {

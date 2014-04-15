@@ -129,7 +129,7 @@ config MSM_DEVFREQ_CPUBW
 	select DEVFREQ_GOV_PERFORMANCE
 	select DEVFREQ_GOV_POWERSAVE
 	select DEVFREQ_GOV_USERSPACE
-	select DEVFREQ_GOV_MSM_CPUFREQ
+	select DEVFREQ_GOV_CPUFREQ
 	default n
 	help
 	  Different devfreq governors use this devfreq device to make CPU to
