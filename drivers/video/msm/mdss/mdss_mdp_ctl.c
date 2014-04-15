@@ -2566,6 +2566,7 @@ int mdss_mdp_display_wait4comp(struct mdss_mdp_ctl *ctl)
 	mdss_mdp_ctl_perf_update(ctl, 0);
 
 	if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_103)) {
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 		reg_data = mdss_mdp_ctl_read(ctl, MDSS_MDP_REG_CTL_FLUSH);
 		flush_data = readl_relaxed(mdata->mdp_base + AHB_CLK_OFFSET);
 		if ((flush_data & BIT(28)) &&
@@ -2576,6 +2577,7 @@ int mdss_mdp_display_wait4comp(struct mdss_mdp_ctl *ctl)
 					 mdata->mdp_base + AHB_CLK_OFFSET);
 			ctl->flush_reg_data = 0;
 		}
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	}
 
 	mutex_unlock(&ctl->lock);
