@@ -115,6 +115,19 @@
 			avago,als-D = <142>;
 			avago,ga-value = <48>;
 		};
+
+		akm@c {
+			compatible = "ak,ak8963";
+			reg = <0x0c>;
+			pinctrl-names = "ak8963_default";
+			pinctrl-0 = <&ak8963_default>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <69 0x2>;
+			vdd-supply = <&pm8916_l17>;
+			vio-supply = <&pm8916_l6>;
+			ak,layout = <0x0>;
+			ak,auto-report;
+		};
 	};
 
 	sound {
