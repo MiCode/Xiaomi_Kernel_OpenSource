@@ -1666,7 +1666,8 @@ static void cleanup_rmt_server(struct msm_ipc_router_xprt_info *xprt_info,
 	ctl.srv.instance = server->name.instance;
 	ctl.srv.node_id = rport_ptr->node_id;
 	ctl.srv.port_id = rport_ptr->port_id;
-	relay_ctl_msg(xprt_info, &ctl);
+	if (xprt_info)
+		relay_ctl_msg(xprt_info, &ctl);
 	broadcast_ctl_msg_locally(&ctl);
 	msm_ipc_router_destroy_server(server,
 			rport_ptr->node_id, rport_ptr->port_id);
