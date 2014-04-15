@@ -210,3 +210,7 @@
 		status = "ok";
 	};
 };
+
+&dsi_generic_720p_cmd {
+	qcom,mdss-dsi-bl-pmic-bank-select = <3>;
+};
