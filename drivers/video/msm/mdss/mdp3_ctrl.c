@@ -330,7 +330,7 @@ static int mdp3_ctrl_clk_enable(struct msm_fb_data_type *mfd, int enable)
 				(!enable && session->clk_on == 1)) {
 		rc = panel->event_handler(panel,
 			MDSS_EVENT_PANEL_CLK_CTRL, (void *)enable);
-		rc |= mdp3_clk_enable(enable, 1);
+		rc |= mdp3_res_update(enable, 1, MDP3_CLIENT_DMA_P);
 	} else {
 		pr_debug("enable = %d, clk_on=%d\n", enable, session->clk_on);
 	}
@@ -366,24 +366,15 @@ static int mdp3_ctrl_res_req_clk(struct msm_fb_data_type *mfd, int status)
 		mdp3_clk_set_rate(MDP3_CLK_VSYNC, MDP_VSYNC_CLK_RATE,
 				MDP3_CLIENT_DMA_P);
 
-		rc = mdp3_clk_prepare();
-		if (rc) {
-			pr_err("mdp3 clk prepare fail\n");
-			return rc;
-		}
-
-		rc = mdp3_clk_enable(1, 1);
+		rc = mdp3_res_update(1, 1, MDP3_CLIENT_DMA_P);
 		if (rc) {
 			pr_err("mdp3 clk enable fail\n");
-			mdp3_clk_unprepare();
 			return rc;
 		}
 	} else {
-		rc = mdp3_clk_enable(0, 1);
+		rc = mdp3_res_update(0, 1, MDP3_CLIENT_DMA_P);
 		if (rc)
 			pr_err("mdp3 clk disable fail\n");
-		else
-			mdp3_clk_unprepare();
 	}
 	return rc;
 }
@@ -580,12 +571,6 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 	mdp3_ctrl_notifier_register(mdp3_session,
 		&mdp3_session->mfd->mdp_sync_pt_data.notifier);
 
-	rc = mdp3_iommu_enable(MDP3_CLIENT_DMA_P);
-	if (rc) {
-		pr_err("fail to attach MDP DMA SMMU\n");
-		goto on_error;
-	}
-
 	/* request bus bandwidth before DSI DMA traffic */
 	rc = mdp3_ctrl_res_req_bus(mfd, 1);
 	if (rc) {
@@ -608,8 +593,6 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 		goto on_error;
 	}
 
-	mdp3_irq_register();
-
 	rc = mdp3_ctrl_dma_init(mfd, mdp3_session->dma);
 	if (rc) {
 		pr_err("dma init failed\n");
@@ -627,7 +610,6 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 		pr_err("display interface init failed\n");
 		goto on_error;
 	}
-
 	mdp3_session->clk_on = 1;
 
 	mdp3_session->first_commit = true;
@@ -679,7 +661,7 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 
 	pr_debug("mdp3_ctrl_off stop clock\n");
 	if (mdp3_session->clk_on) {
-		rc = mdp3_clk_enable(0, 1);
+		rc = mdp3_res_update(0, 1, MDP3_CLIENT_DMA_P);
 		if (rc)
 			pr_err("mdp clock resource release failed\n");
 
@@ -690,16 +672,6 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 		if (rc)
 			pr_err("fail to turn off the panel\n");
 	}
-	mdp3_clk_unprepare();
-
-	pr_debug("mdp3_ctrl_off release bus\n");
-	rc = mdp3_ctrl_res_req_bus(mfd, 0);
-	if (rc)
-		pr_err("mdp bus resource release failed\n");
-
-	rc = mdp3_iommu_disable(MDP3_CLIENT_DMA_P);
-	if (rc)
-		pr_err("fail to dettach MDP DMA SMMU\n");
 
 	mdp3_ctrl_notifier_unregister(mdp3_session,
 		&mdp3_session->mfd->mdp_sync_pt_data.notifier);
@@ -1273,7 +1245,7 @@ static int mdp3_histogram_start(struct mdp3_session_data *session,
 		return -EBUSY;
 	}
 
-	mdp3_clk_enable(1, 0);
+	mdp3_res_update(1, 0, MDP3_CLIENT_DMA_P);
 	ret = session->dma->histo_op(session->dma, MDP3_DMA_HISTO_OP_RESET);
 	if (ret) {
 		pr_err("mdp3_histogram_start reset error\n");
@@ -1299,7 +1271,7 @@ static int mdp3_histogram_start(struct mdp3_session_data *session,
 	session->histo_status = 1;
 
 histogram_start_err:
-	mdp3_clk_enable(0, 0);
+	mdp3_res_update(0, 0, MDP3_CLIENT_DMA_P);
 	mutex_unlock(&session->histo_lock);
 	return ret;
 }
