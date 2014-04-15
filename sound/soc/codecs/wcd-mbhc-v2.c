@@ -441,6 +441,7 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 		if (!result1 && !(swap_res & 0x04)) {
 			plug_type = PLUG_TYPE_GND_MIC_SWAP;
 			pr_debug("%s: Cross connection identified", __func__);
+			goto eu_us_switch;
 		} else {
 			pr_debug("%s: No Cross connection found", __func__);
 		}
@@ -468,6 +469,25 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 			goto exit;
 		}
 	}
+
+eu_us_switch:
+	if (plug_type == PLUG_TYPE_GND_MIC_SWAP) {
+		pr_debug("%s: cross connection found\n", __func__);
+		if (mbhc->mbhc_cfg->swap_gnd_mic) {
+			pr_debug("%s: US_EU gpio present, flip switch\n",
+				__func__);
+			if (mbhc->mbhc_cfg->swap_gnd_mic(codec))
+				plug_type = PLUG_TYPE_HEADSET;
+		}
+		/* Disable micbias and schmitt trigger */
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2,
+			0x6, 0x0);
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MICB_2_EN,
+			0x80, 0x00);
+	}
+
 	pr_debug("%s: Valid plug found, plug type is %d\n",
 			 __func__, plug_type);
 	wcd_mbhc_find_plug_and_report(mbhc, plug_type);

@@ -119,6 +119,7 @@ struct msm8x16_wcd_regulator {
 
 struct msm8916_asoc_mach_data {
 	int codec_type;
+	int us_euro_gpio;
 	atomic_t mclk_rsc_ref;
 	atomic_t dis_work_mclk;
 	struct mutex cdc_mclk_mutex;
