@@ -132,6 +132,15 @@ config CORESIGHT_ETM
 	  tracing the instructions that the processor is executing. This is
 	  primarily useful for instruction level tracing.
 
+config CORESIGHT_ETM_DEFAULT_RESET
+	bool "Reset ETM by default"
+	depends on CORESIGHT_ETM
+	help
+	  Reset CoreSight ETM tracing (processor tracing) parameters by
+	  default. This configures ETM parameters to reset values instead
+	  of preconfigured values on bootup. Otherwise, ETM parameters take
+          preconfigured values by default but these can be reset via sysfs.
+
 config CORESIGHT_ETM_DEFAULT_ENABLE
 	bool "Turn on ETM tracing by default"
 	depends on CORESIGHT_ETM
@@ -159,6 +168,15 @@ config CORESIGHT_ETMV4
 	  tracing the instructions that the processor is executing on ARMv8
 	  architecture. This is primarily useful for instruction level
 	  tracing.
+
+config CORESIGHT_ETMV4_DEFAULT_RESET
+	bool "Reset ETMV4 by default"
+	depends on CORESIGHT_ETMV4
+	help
+	  Reset CoreSight ETMV4 tracing (processor tracing) parameters by
+	  default. This configures ETMV4 parameters to reset values instead
+	  of preconfigured values on bootup. Otherwise, ETMV4 parameters take
+          preconfigured values by default but these can be reset via sysfs.
 
 config CORESIGHT_ETMV4_DEFAULT_ENABLE
 	bool "Turn on ETMV4 tracing by default"
