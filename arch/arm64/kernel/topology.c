@@ -194,11 +194,11 @@ struct cpu_efficiency {
  * Table of relative efficiency of each processors
  * The efficiency value must fit in 20bit and the final
  * cpu_scale value must be in the range
- *   0 < cpu_scale < 3*SCHED_POWER_SCALE/2
+ *   0 < cpu_scale < 3*SCHED_CAPACITY_SCALE/2
  * in order to return at most 1 when DIV_ROUND_CLOSEST
  * is used to compute the capacity of a CPU.
  * Processors that are not defined in the table,
- * use the default SCHED_POWER_SCALE value for cpu_scale.
+ * use the default SCHED_CAPACITY_SCALE value for cpu_scale.
  */
 static const struct cpu_efficiency table_efficiency[] = {
 	{ "arm,cortex-a57", 3891 },
@@ -210,6 +210,13 @@ static unsigned long *__cpu_capacity;
 #define cpu_capacity(cpu)	__cpu_capacity[cpu]
 
 static unsigned long middle_capacity = 1;
+
+static DEFINE_PER_CPU(unsigned long, cpu_efficiency) = SCHED_CAPACITY_SCALE;
+
+unsigned long arch_get_cpu_efficiency(int cpu)
+{
+	return per_cpu(cpu_efficiency, cpu);
+}
 
 /*
  * Iterate all CPUs' descriptor in DT and compute the efficiency
@@ -290,6 +297,8 @@ static void __init parse_dt_cpu_power(void)
 			continue;
 		}
 
+		per_cpu(cpu_efficiency, cpu) = cpu_eff->efficiency;
+
 		rate = of_get_property(cn, "clock-frequency", &len);
 		if (!rate || len != 4) {
 			pr_err("%s: Missing clock-frequency property\n",
@@ -314,17 +323,17 @@ static void __init parse_dt_cpu_power(void)
 	 * cpu_scale because all CPUs have the same capacity. Otherwise, we
 	 * compute a middle_capacity factor that will ensure that the capacity
 	 * of an 'average' CPU of the system will be as close as possible to
-	 * SCHED_POWER_SCALE, which is the default value, but with the
+	 * SCHED_CAPACITY_SCALE, which is the default value, but with the
 	 * constraint explained near table_efficiency[].
 	 */
 	if (min_capacity == max_capacity)
 		return;
 	else if (4 * max_capacity < (3 * (max_capacity + min_capacity)))
 		middle_capacity = (min_capacity + max_capacity)
-				>> (SCHED_POWER_SHIFT+1);
+				>> (SCHED_CAPACITY_SHIFT+1);
 	else
 		middle_capacity = ((max_capacity / 3)
-				>> (SCHED_POWER_SHIFT-1)) + 1;
+				>> (SCHED_CAPACITY_SHIFT-1)) + 1;
 }
 
 /*
@@ -438,7 +447,7 @@ static void __init reset_cpu_power(void)
 	unsigned int cpu;
 
 	for_each_possible_cpu(cpu)
-		set_power_scale(cpu, SCHED_POWER_SCALE);
+		set_power_scale(cpu, SCHED_CAPACITY_SCALE);
 }
 
 void __init init_cpu_topology(void)
