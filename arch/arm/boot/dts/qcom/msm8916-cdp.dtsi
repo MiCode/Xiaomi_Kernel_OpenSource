@@ -274,11 +274,16 @@
 	qcom,pins = <&gp 97>, <&gp 25>, <&gp 98>;
 };
 
+&pmx_mdss_te {
+	qcom,num-grp-pins = <1>;
+	qcom,pins = <&gp 24>;
+};
+
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_jdi_1080_vid>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
-	pinctrl-0 = <&mdss_dsi_active>;
-	pinctrl-1 = <&mdss_dsi_suspend>;
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 
 	qcom,platform-enable-gpio = <&msm_gpio 97 0>;
 	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
