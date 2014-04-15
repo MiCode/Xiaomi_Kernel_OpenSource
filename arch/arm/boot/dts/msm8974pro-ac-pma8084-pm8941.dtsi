@@ -74,6 +74,54 @@
 		qcom,auto-mode-enable = <0>;
 		status = "okay";
 	};
+
+	pwm@b100 {
+		status = "disabled";
+	};
+
+	pwm@b200 {
+		status = "disabled";
+	};
+
+	pwm@b300 {
+		status = "disabled";
+	};
+
+	pwm@b400 {
+		status = "disabled";
+	};
+
+	pwm@b500 {
+		status = "disabled";
+	};
+
+	pwm@b600 {
+		status = "disabled";
+	};
+
+	pwm@b700 {
+		status = "disabled";
+	};
+
+	pwm@b800 {
+		status = "disabled";
+	};
+
+	pwm@e400 {
+		status = "disabled";
+	};
+
+	pwm@e500 {
+		status = "disabled";
+	};
+
+	pwm@e600 {
+		status = "disabled";
+	};
+
+	pwm@e700 {
+		status = "disabled";
+	};
 };
 
 &pma8084_mvs1 {
