@@ -279,7 +279,6 @@ config MSM_MEMORY_DUMP_V2
 
 config MSM_COMMON_LOG
 	bool "MSM Common Log Support"
-	depends on MSM_MEMORY_DUMP
 	help
 	 Use this to export symbols of some log address and variables
 	 that need to parse crash dump files to a memory dump table. This
