@@ -196,7 +196,6 @@ static const struct regulator_init_data arizona_micsupp_ext_default = {
 	.num_consumer_supplies = 1,
 };
 
-#ifdef CONFIG_OF
 static int arizona_micsupp_of_get_pdata(struct arizona *arizona,
 					struct regulator_config *config)
 {
@@ -222,22 +221,6 @@ static int arizona_micsupp_of_get_pdata(struct arizona *arizona,
 
 	return 0;
 }
-
-static void arizona_micsupp_of_put_pdata(struct regulator_config *config)
-{
-	of_node_put(config->of_node);
-}
-#else
-static inline int arizona_micsupp_of_get_pdata(struct arizona *arizona,
-					       struct regulator_config *config)
-{
-	return 0;
-}
-
-static inline void arizona_micsupp_of_put_pdata(struct regulator_config *config)
-{
-}
-#endif
 
 static int arizona_micsupp_probe(struct platform_device *pdev)
 {
@@ -281,10 +264,12 @@ static int arizona_micsupp_probe(struct platform_device *pdev)
 	config.driver_data = micsupp;
 	config.regmap = arizona->regmap;
 
-	if (!dev_get_platdata(arizona->dev)) {
-		ret = arizona_micsupp_of_get_pdata(arizona, &config);
-		if (ret < 0)
-			return ret;
+	if (IS_ENABLED(CONFIG_OF)) {
+		if (!dev_get_platdata(arizona->dev)) {
+			ret = arizona_micsupp_of_get_pdata(arizona, &config);
+			if (ret < 0)
+				return ret;
+		}
 	}
 
 	if (arizona->pdata.micvdd)
@@ -306,8 +291,7 @@ static int arizona_micsupp_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	if (!dev_get_platdata(arizona->dev))
-		arizona_micsupp_of_put_pdata(&config);
+	of_node_put(config.of_node);
 
 	platform_set_drvdata(pdev, micsupp);
 
