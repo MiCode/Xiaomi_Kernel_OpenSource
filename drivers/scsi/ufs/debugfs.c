@@ -31,6 +31,15 @@ struct desc_field_offset {
 	enum field_width width_byte;
 };
 
+#define UFS_ERR_STATS_PRINT(file, error_index, string, error_seen)	\
+	do {								\
+		if (err_stats[error_index]) {				\
+			seq_printf(file, string,			\
+					err_stats[error_index]);	\
+			error_seen = true;				\
+		}							\
+	} while (0)
+
 #ifdef CONFIG_UFS_FAULT_INJECTION
 
 #define INJECT_COMMAND_HANG (0x0)
@@ -288,7 +297,111 @@ static const struct file_operations ufsdbg_tag_stats_fops = {
 	.write		= ufsdbg_tag_stats_write,
 };
 
-static int ufshcd_init_tag_statistics(struct ufs_hba *hba)
+static int ufsdbg_err_stats_show(struct seq_file *file, void *data)
+{
+	struct ufs_hba *hba = (struct ufs_hba *)file->private;
+	int *err_stats;
+	unsigned long flags;
+	bool error_seen = false;
+
+	if (!hba)
+		goto exit;
+
+	err_stats = hba->ufs_stats.err_stats;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+
+	seq_puts(file, "\n==UFS errors that caused controller reset==\n");
+
+	UFS_ERR_STATS_PRINT(file, UFS_ERR_HIBERN8_EXIT,
+			"controller reset due to hibern8 exit error:\t %d\n",
+			error_seen);
+
+	UFS_ERR_STATS_PRINT(file, UFS_ERR_VOPS_SUSPEND,
+			"controller reset due to vops suspend error:\t\t %d\n",
+			error_seen);
+
+	UFS_ERR_STATS_PRINT(file, UFS_ERR_EH,
+			"controller reset due to error handling:\t\t %d\n",
+			error_seen);
+
+	UFS_ERR_STATS_PRINT(file, UFS_ERR_CLEAR_PEND_XFER_TM,
+			"controller reset due to clear xfer/tm regs:\t\t %d\n",
+			error_seen);
+
+	UFS_ERR_STATS_PRINT(file, UFS_ERR_INT_FATAL_ERRORS,
+			"controller reset due to fatal interrupt:\t %d\n",
+			error_seen);
+
+	UFS_ERR_STATS_PRINT(file, UFS_ERR_INT_UIC_ERROR,
+			"controller reset due to uic interrupt error:\t %d\n",
+			error_seen);
+
+	if (error_seen)
+		error_seen = false;
+	else
+		seq_puts(file,
+			"so far, no errors that caused controller reset\n\n");
+
+	seq_puts(file, "\n\n==UFS other errors==\n");
+
+	UFS_ERR_STATS_PRINT(file, UFS_ERR_HIBERN8_ENTER,
+			"hibern8 enter:\t\t %d\n", error_seen);
+
+	UFS_ERR_STATS_PRINT(file, UFS_ERR_RESUME,
+			"resume error:\t\t %d\n", error_seen);
+
+	UFS_ERR_STATS_PRINT(file, UFS_ERR_SUSPEND,
+			"suspend error:\t\t %d\n", error_seen);
+
+	UFS_ERR_STATS_PRINT(file, UFS_ERR_LINKSTARTUP,
+			"linkstartup error:\t\t %d\n", error_seen);
+
+	UFS_ERR_STATS_PRINT(file, UFS_ERR_POWER_MODE_CHANGE,
+			"power change error:\t %d\n", error_seen);
+
+	UFS_ERR_STATS_PRINT(file, UFS_ERR_TASK_ABORT,
+			"abort callback:\t\t %d\n\n", error_seen);
+
+	if (!error_seen)
+		seq_puts(file,
+		"so far, no other UFS related errors\n\n");
+
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+exit:
+	return 0;
+}
+
+static int ufsdbg_err_stats_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ufsdbg_err_stats_show, inode->i_private);
+}
+
+static ssize_t ufsdbg_err_stats_write(struct file *filp,
+				      const char __user *ubuf, size_t cnt,
+				       loff_t *ppos)
+{
+	struct ufs_hba *hba = filp->f_mapping->host->i_private;
+	struct ufs_stats *ufs_stats;
+	unsigned long flags;
+
+	ufs_stats = &hba->ufs_stats;
+	spin_lock_irqsave(hba->host->host_lock, flags);
+
+	pr_debug("%s: Resetting UFS error statistics", __func__);
+	memset(ufs_stats->err_stats, 0, sizeof(hba->ufs_stats.err_stats));
+
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	return cnt;
+}
+
+static const struct file_operations ufsdbg_err_stats_fops = {
+	.open		= ufsdbg_err_stats_open,
+	.read		= seq_read,
+	.write		= ufsdbg_err_stats_write,
+};
+
+static int ufshcd_init_statistics(struct ufs_hba *hba)
 {
 	struct ufs_stats *stats = &hba->ufs_stats;
 	int ret = 0;
@@ -307,6 +420,8 @@ static int ufshcd_init_tag_statistics(struct ufs_hba *hba)
 
 	for (i = 1; i < hba->nutrs; i++)
 		stats->tag_stats[i] = &stats->tag_stats[0][i * TS_NUM_STATS];
+
+	memset(stats->err_stats, 0, sizeof(hba->ufs_stats.err_stats));
 
 	goto exit;
 
@@ -515,8 +630,18 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 		goto err;
 	}
 
-	if (ufshcd_init_tag_statistics(hba)) {
-		dev_err(hba->dev, "%s: Error initializing tag stats",
+	hba->debugfs_files.err_stats =
+		debugfs_create_file("err_stats", S_IRUSR,
+					   hba->debugfs_files.debugfs_root, hba,
+					   &ufsdbg_err_stats_fops);
+	if (!hba->debugfs_files.err_stats) {
+		dev_err(hba->dev, "%s:  NULL err stats file, exiting",
+			__func__);
+		goto err;
+	}
+
+	if (ufshcd_init_statistics(hba)) {
+		dev_err(hba->dev, "%s: Error initializing statistics",
 			__func__);
 		goto err;
 	}
