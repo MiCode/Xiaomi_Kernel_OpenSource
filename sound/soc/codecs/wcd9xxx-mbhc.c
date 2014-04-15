@@ -3441,7 +3441,8 @@ void wcd9xxx_update_z(struct wcd9xxx_mbhc *mbhc)
  * wcd9xxx_update_rel_threshold : update mbhc release upper bound threshold
  *				  to ceilmv + buffer
  */
-static int wcd9xxx_update_rel_threshold(struct wcd9xxx_mbhc *mbhc, int ceilmv)
+static int wcd9xxx_update_rel_threshold(struct wcd9xxx_mbhc *mbhc, int ceilmv,
+					bool vddio)
 {
 	u16 v_brh, v_b1_hu;
 	int mv;
@@ -3451,6 +3452,8 @@ static int wcd9xxx_update_rel_threshold(struct wcd9xxx_mbhc *mbhc, int ceilmv)
 
 	btn_det = WCD9XXX_MBHC_CAL_BTN_DET_PTR(calibration);
 	mv = ceilmv + btn_det->v_btn_press_delta_cic;
+	if (vddio)
+		mv = scale_v_micb_vddio(mbhc, mv, true);
 	pr_debug("%s: reprogram vb1hu/vbrh to %dmv\n", __func__, mv);
 
 	if (mbhc->mbhc_state != MBHC_STATE_POTENTIAL_RECOVERY) {
@@ -3651,7 +3654,7 @@ irqreturn_t wcd9xxx_dce_handler(int irq, void *data)
 						       MBHC_BTN_DET_V_BTN_HIGH);
 		WARN_ON(btn >= btn_det->num_btn);
 		/* reprogram release threshold to catch voltage ramp up early */
-		wcd9xxx_update_rel_threshold(mbhc, v_btn_high[btn]);
+		wcd9xxx_update_rel_threshold(mbhc, v_btn_high[btn], vddio);
 
 		mask = wcd9xxx_get_button_mask(btn);
 		mbhc->buttons_pressed |= mask;
