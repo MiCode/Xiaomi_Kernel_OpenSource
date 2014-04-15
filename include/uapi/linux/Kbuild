@@ -329,6 +329,7 @@ header-y += nubus.h
 header-y += nvram.h
 header-y += omap3isp.h
 header-y += omapfb.h
+header-y += oneshot_sync.h
 header-y += oom.h
 header-y += openvswitch.h
 header-y += packet_diag.h

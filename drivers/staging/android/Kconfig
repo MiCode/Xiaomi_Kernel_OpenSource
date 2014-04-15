@@ -116,6 +116,15 @@ config SW_SYNC_USER
 	  *WARNING* improper use of this can result in deadlocking kernel
 	  drivers from userspace.
 
+config ONESHOT_SYNC
+	bool "One shot sync objects"
+	depends on SYNC
+	help
+	  This sync driver provides a way to create sync objects that may
+	  be signaled by userspace. Unlike other sync objects, the
+	  sync objects created by this driver may be signaled in any order
+	  without changing the state of other sync objects on the timeline.
+
 source "drivers/staging/android/ion/Kconfig"
 
 endif # if ANDROID
