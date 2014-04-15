@@ -330,10 +330,8 @@ static int __msm8x16_wcd_reg_read(struct snd_soc_codec *codec,
 	if (MSM8X16_WCD_IS_TOMBAK_REG(reg))
 		ret = msm8x16_wcd_spmi_read(reg, 1, &temp);
 	else if (MSM8X16_WCD_IS_DIGITAL_REG(reg)) {
-		if ((atomic_read(&pdata->mclk_rsc_ref) == 0) &&
-			(pdata->snd_card_on == true) &&
-			(atomic_read(&pdata->dis_work_mclk) == false)) {
-			mutex_lock(&pdata->cdc_mclk_mutex);
+		mutex_lock(&pdata->cdc_mclk_mutex);
+		if (atomic_read(&pdata->dis_work_mclk) == false) {
 			pdata->digital_cdc_clk.clk_val = 9600000;
 			ret = afe_set_digital_codec_core_clock(
 					AFE_PORT_ID_PRIMARY_MI2S_RX,
@@ -343,16 +341,17 @@ static int __msm8x16_wcd_reg_read(struct snd_soc_codec *codec,
 				goto err;
 			}
 			pr_debug("%s: MCLK not enabled\n", __func__);
-			atomic_set(&pdata->dis_work_mclk, true);
-			schedule_delayed_work(&pdata->enable_mclk_work, 50);
 			ret = msm8x16_wcd_ahb_read_device(
 					msm8x16_wcd, reg, 1, &temp);
+			atomic_set(&pdata->dis_work_mclk, true);
+			schedule_delayed_work(&pdata->enable_mclk_work, 50);
 err:
 			mutex_unlock(&pdata->cdc_mclk_mutex);
 			mutex_unlock(&msm8x16_wcd->io_lock);
 			return temp;
 		}
 		ret = msm8x16_wcd_ahb_read_device(msm8x16_wcd, reg, 1, &temp);
+		mutex_unlock(&pdata->cdc_mclk_mutex);
 	}
 	mutex_unlock(&msm8x16_wcd->io_lock);
 
@@ -381,11 +380,9 @@ static int __msm8x16_wcd_reg_write(struct snd_soc_codec *codec,
 	if (MSM8X16_WCD_IS_TOMBAK_REG(reg))
 		ret = msm8x16_wcd_spmi_write(reg, 1, &val);
 	else if (MSM8X16_WCD_IS_DIGITAL_REG(reg)) {
-		if ((atomic_read(&pdata->mclk_rsc_ref) == 0) &&
-			(pdata->snd_card_on == true) &&
-			(atomic_read(&pdata->dis_work_mclk) == false)) {
+		mutex_lock(&pdata->cdc_mclk_mutex);
+		if (atomic_read(&pdata->dis_work_mclk) == false) {
 			pr_debug("MCLK not enabled %s:\n", __func__);
-			mutex_lock(&pdata->cdc_mclk_mutex);
 			pdata->digital_cdc_clk.clk_val = 9600000;
 			ret = afe_set_digital_codec_core_clock(
 					AFE_PORT_ID_PRIMARY_MI2S_RX,
@@ -395,16 +392,17 @@ static int __msm8x16_wcd_reg_write(struct snd_soc_codec *codec,
 				ret = 0;
 				goto err;
 			}
-			atomic_set(&pdata->dis_work_mclk, true);
-			schedule_delayed_work(&pdata->enable_mclk_work, 50);
 			ret = msm8x16_wcd_ahb_write_device(
 						msm8x16_wcd, reg, &val, 1);
+			atomic_set(&pdata->dis_work_mclk, true);
+			schedule_delayed_work(&pdata->enable_mclk_work, 50);
 err:
 			mutex_unlock(&pdata->cdc_mclk_mutex);
 			mutex_unlock(&msm8x16_wcd->io_lock);
 			return ret;
 		}
 		ret = msm8x16_wcd_ahb_write_device(msm8x16_wcd, reg, &val, 1);
+		mutex_unlock(&pdata->cdc_mclk_mutex);
 	}
 	mutex_unlock(&msm8x16_wcd->io_lock);
 
