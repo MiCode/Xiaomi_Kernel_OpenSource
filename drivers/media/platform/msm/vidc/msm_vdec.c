@@ -759,7 +759,7 @@ int msm_vdec_release_buf(struct msm_vidc_inst *inst,
 {
 	int rc = 0;
 	struct vidc_buffer_addr_info buffer_info;
-	struct msm_vidc_core *core = inst->core;
+	struct msm_vidc_core *core;
 	int extra_idx = 0;
 	int i;
 	struct hfi_device *hdev;
@@ -768,7 +768,7 @@ int msm_vdec_release_buf(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
-
+	core = inst->core;
 	hdev = inst->core->device;
 
 	if (inst->state == MSM_VIDC_CORE_INVALID ||
@@ -1619,12 +1619,13 @@ static void msm_vdec_buf_queue(struct vb2_buffer *vb)
 int msm_vdec_cmd(struct msm_vidc_inst *inst, struct v4l2_decoder_cmd *dec)
 {
 	int rc = 0;
-	struct msm_vidc_core *core = inst->core;
+	struct msm_vidc_core *core;
 
 	if (!dec || !inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s invalid params\n", __func__);
 		return -EINVAL;
 	}
+	core = inst->core;
 	switch (dec->cmd) {
 	case V4L2_DEC_QCOM_CMD_FLUSH:
 		if (core->state != VIDC_CORE_INVALID &&
