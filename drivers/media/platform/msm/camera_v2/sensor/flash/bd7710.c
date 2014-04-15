@@ -41,10 +41,13 @@ static struct msm_camera_i2c_reg_array bd7710_release_array[] = {
 };
 
 static struct msm_camera_i2c_reg_array bd7710_low_array[] = {
+	{0x05, 0x25},
+	{0x00, 0x38},
+	{0x02, 0x40},
 };
 
 static struct msm_camera_i2c_reg_array bd7710_high_array[] = {
-	{0x05, 0x24},
+	{0x05, 0x25},
 	{0x02, 0xBF},
 };
 
