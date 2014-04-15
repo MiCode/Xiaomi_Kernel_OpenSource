@@ -66,6 +66,22 @@
 	};
 };
 
+&soc {
+	mem_acc_vreg_corner: regulator@fd4aa044 {
+		compatible = "qcom,mem-acc-regulator";
+		reg = <0xfd4aa048 0x4>, <0xfd4aa044 0x4>, <0xfd4af000 0x4>;
+		reg-names = "acc-en", "acc-sel-l1", "acc-sel-l2";
+		regulator-name = "mem_acc_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <3>;
+
+		qcom,acc-en-bit-pos = <0>;
+		qcom,acc-sel-l1-bit-pos = <0>;
+		qcom,acc-sel-l2-bit-pos = <0>;
+		qcom,corner-acc-map = <0 1 3>;
+	};
+};
+
 &pm8226_l3 {
 	regulator-max-microvolt = <1287500>;
 };
@@ -90,4 +106,5 @@
 	qcom,vdd-mx-vmax = <1287500>;
 	qcom,vdd-mx-vmin-method = <4>;
 	qcom,vdd-mx-corner-map = <1050000 1150000 1280000>;
+	mem-acc-supply = <&mem_acc_vreg_corner>;
 };
