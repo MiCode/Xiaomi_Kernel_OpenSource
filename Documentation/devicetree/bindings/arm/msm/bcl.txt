@@ -70,6 +70,12 @@ Optional nodes:
 	* vph-low-threshold-uv: The battery voltage threshold below which the
 		BCL driver starts monitoring the battery current thresholds and
 		mitigates the CPU on the event of high load.
+	* thermal-handle = <&phandle_to_vdd_apps>: phandle to the "qcom,msm_thermal"
+		vdd restriction property, "qcom,vdd-apps-rstr". This phandle is
+		used by BCL driver to get the minimum frequency request that the
+		thermal driver places during vdd restriction. This frequency
+		value will be the lowest max frequency value the BCL driver can
+		request.
 
 Example:
 	qcom,bcl {
@@ -87,5 +93,6 @@ Example:
 			vph-channel = <0x07>;
 			vph-high-threshold-uv = <3700000>;
 			vph-low-threshold-uv = <3500000>;
+			thermal-handle = <&msm_thermal_freq>;
 		};
 	};
