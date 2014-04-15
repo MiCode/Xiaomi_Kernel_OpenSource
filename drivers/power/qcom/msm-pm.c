@@ -120,13 +120,13 @@ static bool msm_pm_is_L1_writeback(void)
 #endif
 }
 
-static enum msm_pm_time_stats_id msm_pm_swfi(bool from_idle)
+static bool msm_pm_swfi(bool from_idle)
 {
 	msm_arch_idle();
-	return MSM_PM_STAT_IDLE_WFI;
+	return true;
 }
 
-static enum msm_pm_time_stats_id msm_pm_retention(bool from_idle)
+static bool msm_pm_retention(bool from_idle)
 {
 	int ret = 0;
 	unsigned int cpu = smp_processor_id();
@@ -157,7 +157,7 @@ static enum msm_pm_time_stats_id msm_pm_retention(bool from_idle)
 	cpumask_clear_cpu(cpu, &retention_cpus);
 bailout:
 	spin_unlock(&retention_lock);
-	return MSM_PM_STAT_RETENTION;
+	return true;
 }
 
 static inline void msm_pc_inc_debug_count(uint32_t cpu,
@@ -269,7 +269,7 @@ static bool __ref msm_pm_spm_power_collapse(
 	return collapsed;
 }
 
-static enum msm_pm_time_stats_id msm_pm_power_collapse_standalone(
+static bool msm_pm_power_collapse_standalone(
 		bool from_idle)
 {
 	unsigned int cpu = smp_processor_id();
@@ -285,8 +285,7 @@ static enum msm_pm_time_stats_id msm_pm_power_collapse_standalone(
 
 	avs_set_avsdscr(avsdscr);
 	avs_set_avscsr(avscsr);
-	return collapsed ? MSM_PM_STAT_IDLE_STANDALONE_POWER_COLLAPSE :
-		MSM_PM_STAT_IDLE_FAILED_STANDALONE_POWER_COLLAPSE;
+	return collapsed;
 }
 
 static int ramp_down_last_cpu(int cpu)
@@ -329,7 +328,7 @@ static int ramp_up_first_cpu(int cpu, int saved_rate)
 	return rc;
 }
 
-static enum msm_pm_time_stats_id msm_pm_power_collapse(bool from_idle)
+static bool msm_pm_power_collapse(bool from_idle)
 {
 	unsigned int cpu = smp_processor_id();
 	unsigned long saved_acpuclk_rate = 0;
@@ -372,8 +371,7 @@ static enum msm_pm_time_stats_id msm_pm_power_collapse(bool from_idle)
 
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: return\n", cpu, __func__);
-	return collapsed ? MSM_PM_STAT_IDLE_POWER_COLLAPSE :
-		MSM_PM_STAT_IDLE_FAILED_POWER_COLLAPSE;
+	return collapsed;
 }
 /******************************************************************************
  * External Idle/Suspend Functions
@@ -429,7 +427,7 @@ static inline void msm_pm_ftrace_lpm_exit(unsigned int cpu,
 	}
 }
 
-static enum msm_pm_time_stats_id (*execute[MSM_PM_SLEEP_MODE_NR])(bool idle) = {
+static bool (*execute[MSM_PM_SLEEP_MODE_NR])(bool idle) = {
 	[MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT] = msm_pm_swfi,
 	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE] =
 		msm_pm_power_collapse_standalone,
@@ -449,10 +447,9 @@ static enum msm_pm_time_stats_id (*execute[MSM_PM_SLEEP_MODE_NR])(bool idle) = {
  * low power is to be executed.
  *
  */
-void msm_cpu_pm_enter_sleep(enum msm_pm_sleep_mode mode, bool from_idle)
+bool msm_cpu_pm_enter_sleep(enum msm_pm_sleep_mode mode, bool from_idle)
 {
-	int64_t time = 0;
-	enum msm_pm_time_stats_id exit_stat = 0;
+	bool exit_stat = false;
 	unsigned int cpu = smp_processor_id();
 
 	if ((!from_idle  && cpu_online(cpu))
@@ -460,17 +457,10 @@ void msm_cpu_pm_enter_sleep(enum msm_pm_sleep_mode mode, bool from_idle)
 		pr_info("CPU%u:%s mode:%d during %s\n", cpu, __func__,
 				mode, from_idle ? "idle" : "suspend");
 
-	if (from_idle)
-		time = sched_clock();
-
 	if (execute[mode])
 		exit_stat = execute[mode](from_idle);
 
-	if (from_idle) {
-		time = sched_clock() - time;
-		if (exit_stat >= 0)
-			msm_pm_add_stat(exit_stat, time);
-	}
+	return exit_stat;
 }
 
 /**
@@ -675,23 +665,6 @@ static struct platform_driver msm_cpu_pm_snoc_client_driver = {
 	},
 };
 
-static int msm_pm_init(void)
-{
-	enum msm_pm_time_stats_id enable_stats[] = {
-		MSM_PM_STAT_IDLE_WFI,
-		MSM_PM_STAT_RETENTION,
-		MSM_PM_STAT_IDLE_STANDALONE_POWER_COLLAPSE,
-		MSM_PM_STAT_IDLE_FAILED_STANDALONE_POWER_COLLAPSE,
-		MSM_PM_STAT_IDLE_POWER_COLLAPSE,
-		MSM_PM_STAT_IDLE_FAILED_POWER_COLLAPSE,
-		MSM_PM_STAT_SUSPEND,
-	};
-	msm_pm_mode_sysfs_add(KBUILD_MODNAME);
-	msm_pm_add_stats(enable_stats, ARRAY_SIZE(enable_stats));
-
-	return 0;
-}
-
 struct msm_pc_debug_counters_buffer {
 	void __iomem *reg;
 	u32 len;
@@ -868,7 +841,7 @@ static int msm_cpu_pm_probe(struct platform_device *pdev)
 		}
 	}
 
-	msm_pm_init();
+	msm_pm_mode_sysfs_add(KBUILD_MODNAME);
 	if (pdev->dev.of_node)
 		of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
 
