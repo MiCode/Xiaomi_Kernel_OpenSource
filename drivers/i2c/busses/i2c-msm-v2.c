@@ -1242,8 +1242,6 @@ static void i2c_msm_fifo_write_xfer_buf(struct i2c_msm_ctrl *ctrl)
 						buf->len);
 		if (len < buf->len)
 			dev_err(ctrl->dev, "error on xfering buf with FIFO\n");
-
-		buf->prcsed_bc = len;
 	}
 }
 
@@ -1422,13 +1420,6 @@ static int i2c_msm_bam_xfer_prepare(struct i2c_msm_ctrl *ctrl)
 				.len = buf->out_tag.len,
 			},
 		};
-		/*
-		 * Bytes have not been sent yet, but have been processed.
-		 * Need to update the processed byte count in order to keep the
-		 * i2c_msm_xfer_next_buf() algorithm satisfied
-		 */
-		buf->prcsed_bc = buf->len;
-
 		++bam->buf_arr_cnt;
 		--rem_buf_cnt;
 	}
@@ -2661,114 +2652,108 @@ static u16 i2c_msm_slv_rd_wr_addr(u16 slv_addr, bool is_rx)
 	return (slv_addr << 1) | (is_rx ? 0x1 : 0x0);
 }
 
+/*
+ * @return true when the current transfer's buffer points to the last message
+ *    of the user's request.
+ */
 static bool i2c_msm_xfer_msg_is_last(struct i2c_msm_ctrl *ctrl)
 {
 	return ctrl->xfer.cur_buf.msg_idx >= (ctrl->xfer.msg_cnt - 1);
 }
 
 /*
- * i2c_msm_xfer_next_msg:  chooses and sets the next buf and creates tags
- *
- * @return false when no more messages
- *
- * Should not be called directly. This function is an internal part of
- * i2c_msm_xfer_next_buf()
+ * @return true when the current transfer's buffer points to the last
+ *    transferable buffer (size =< ver.max_buf_size) of the last message of the
+ *    user's request.
  */
-static bool i2c_msm_xfer_next_msg(struct i2c_msm_ctrl *ctrl)
+static bool i2c_msm_xfer_buf_is_last(struct i2c_msm_ctrl *ctrl)
 {
 	struct i2c_msm_xfer_buf *cur_buf = &ctrl->xfer.cur_buf;
-	struct i2c_msg          *cur_msg = ctrl->xfer.msgs + cur_buf->msg_idx;
-	struct i2c_msg          *prv_msg;
-	bool is_last_msg  = i2c_msm_xfer_msg_is_last(ctrl);
-	bool is_first_msg = !cur_buf->msg_idx;
-	bool is_hs        = i2c_msm_xfer_is_high_speed(ctrl);
-	bool start_req;
-	u16  slv_addr;
+	struct i2c_msg *cur_msg = ctrl->xfer.msgs + cur_buf->msg_idx;
 
-	if (cur_buf->is_init) {
-		if (is_last_msg) {
-			return false;
-		} else {
-			++cur_buf->msg_idx;
-			++cur_msg;
-			is_last_msg  = i2c_msm_xfer_msg_is_last(ctrl);
-			is_first_msg = false;
-		}
-	} else {
-		cur_buf->is_init = true;
-	}
-	/* prv_msg is only valid when !is_first_msg */
-	prv_msg = cur_msg - 1;
+	return i2c_msm_xfer_msg_is_last(ctrl) &&
+		((cur_buf->byte_idx + ctrl->ver.max_buf_size) > cur_msg->len);
+}
 
-	/* its a new message, byte indexes should be zero */
-	cur_buf->byte_idx  = 0;
-	cur_buf->prcsed_bc = 0;
+static void i2c_msm_xfer_create_cur_tag(struct i2c_msm_ctrl *ctrl,
+								bool start_req)
+{
+	struct i2c_msm_xfer_buf *cur_buf = &ctrl->xfer.cur_buf;
 
-	cur_buf->is_last  = is_last_msg;
-	cur_buf->len      = cur_msg->len;
-	cur_buf->is_rx    = (cur_msg->flags & I2C_M_RD);
-	/*
-	 * workaround! due to HW issue, a stop is issued after every read, thus
-	 *     after every read a start is required.
-	 */
-	start_req         = (is_first_msg || (prv_msg->flags & I2C_M_RD) ||
-			    (cur_msg->addr != prv_msg->addr) ||
-			    ((cur_msg->flags & I2C_M_RD) !=
-					(prv_msg->flags & I2C_M_RD)));
-	slv_addr          = i2c_msm_slv_rd_wr_addr(cur_msg->addr,
-							cur_buf->is_rx);
-
-	cur_buf->out_tag = i2c_msm_tag_create(is_hs, start_req, is_last_msg,
-				cur_buf->is_rx, cur_buf->len, slv_addr);
+	cur_buf->out_tag = i2c_msm_tag_create(
+					i2c_msm_xfer_is_high_speed(ctrl),
+					start_req, cur_buf->is_last,
+					cur_buf->is_rx, cur_buf->len,
+					cur_buf->slv_addr);
 
 	cur_buf->in_tag.len = cur_buf->is_rx ? ctrl->ver.buf_ovrhd_bc : 0;
-
-	if (ctrl->dbgfs.dbg_lvl >= MSM_DBG) {
-		char str[I2C_MSM_REG_2_STR_BUF_SZ];
-
-		i2c_msm_dbg_tag_to_str(&cur_buf->out_tag, str, sizeof(str));
-		dev_info(ctrl->dev,
-			"msg[%d] first:0x%x last:0x%x new_adr:0x%x inp:0x%x "
-			"len:%zu adr:0x%x tag:%s\n",
-			cur_buf->msg_idx, is_first_msg, is_last_msg,
-			start_req, cur_buf->is_rx, cur_buf->len, slv_addr,
-			str);
-	}
-
-	return  true;
 }
 
 /*
  * i2c_msm_xfer_next_buf: support cases when msg.len > 256 bytes
  *
  * @return true when next buffer exist, or false when no such buffer
- *
- * This function is a wrapper to i2c_msm_xfer_next_msg().
- * i2c_msm_xfer_next_msg() is sufficient for msg.len <= 256. This function
- * handle cases when msg.len > 256 bytes by splitting the msg to buffers.
  */
 static bool i2c_msm_xfer_next_buf(struct i2c_msm_ctrl *ctrl)
 {
-	bool ret;
 	struct i2c_msm_xfer_buf *cur_buf = &ctrl->xfer.cur_buf;
+	struct i2c_msg          *cur_msg = ctrl->xfer.msgs + cur_buf->msg_idx;
+	bool is_first_msg = !cur_buf->msg_idx;
+	size_t bc_rem     = cur_msg->len - cur_buf->prcsed_bc;
+	bool start_req;
+	struct i2c_msg *prv_msg;
 
-	if (cur_buf->is_init) {
-		struct i2c_msg *cur_msg = ctrl->xfer.msgs +
-						ctrl->xfer.cur_buf.msg_idx;
-		if (cur_msg->len > 0xFF) {
-			dev_info(ctrl->dev, "Unsupported message len:%d\n",
-								cur_msg->len);
-			i2c_msm_dbg_xfer_dump(ctrl);
-			return false;
+	if (cur_buf->is_init && cur_buf->prcsed_bc && bc_rem) {
+		/* not the first buffer in a message */
+		cur_buf->byte_idx = cur_buf->prcsed_bc;
+		cur_buf->is_last  = i2c_msm_xfer_buf_is_last(ctrl);
+		cur_buf->len    = min_t(size_t, bc_rem, ctrl->ver.max_buf_size);
+		cur_buf->prcsed_bc += cur_buf->len;
+
+		/*
+		 * workaround! due to HW issue, a stop is issued after every
+		 * read. Once we here we know that this is not the first
+		 * buffer of the current message. And if the current message
+		 * is Rx then the previous buffers was Rx as well.
+		 */
+		i2c_msm_xfer_create_cur_tag(ctrl, cur_buf->is_rx);
+	} else {
+		/* first buffer in a new message */
+		if (cur_buf->is_init) {
+			if (i2c_msm_xfer_msg_is_last(ctrl)) {
+				return false;
+			} else {
+				++cur_buf->msg_idx;
+				++cur_msg;
+				is_first_msg = false;
+			}
+		} else {
+			cur_buf->is_init = true;
 		}
+		cur_buf->byte_idx  = 0;
+		cur_buf->is_last   = i2c_msm_xfer_buf_is_last(ctrl);
+		cur_buf->len       = min_t(size_t, cur_msg->len,
+							ctrl->ver.max_buf_size);
+		cur_buf->is_rx     = (cur_msg->flags & I2C_M_RD);
+		cur_buf->prcsed_bc = cur_buf->len;
+
+		/* prv_msg is only valid when !is_first_msg */
+		prv_msg = cur_msg - 1;
+		/*
+		 * workaround! due to HW issue, a stop is issued after every
+		 * read,after every read a start is required.
+		 */
+		start_req = (is_first_msg || (prv_msg->flags & I2C_M_RD) ||
+			    (cur_msg->addr != prv_msg->addr)             ||
+			    ((cur_msg->flags & I2C_M_RD) !=
+						(prv_msg->flags & I2C_M_RD)));
+		cur_buf->slv_addr = i2c_msm_slv_rd_wr_addr(cur_msg->addr,
+								cur_buf->is_rx);
+		i2c_msm_xfer_create_cur_tag(ctrl, start_req);
 	}
-
-	ret = i2c_msm_xfer_next_msg(ctrl);
-	if (ret)
-		i2c_msm_prof_evnt_add(ctrl, MSM_DBG, i2c_msm_prof_dump_next_buf,
+	i2c_msm_prof_evnt_add(ctrl, MSM_DBG, i2c_msm_prof_dump_next_buf,
 					cur_buf->msg_idx, cur_buf->byte_idx, 0);
-
-	return ret;
+	return  true;
 }
 
 /*
@@ -2779,7 +2764,6 @@ static void i2c_msm_xfer_scan(struct i2c_msm_ctrl *ctrl)
 	struct i2c_msm_xfer     *xfer      = &ctrl->xfer;
 	struct i2c_msm_xfer_buf  first_buf = ctrl->xfer.cur_buf;
 	struct i2c_msm_xfer_buf *cur_buf   = &ctrl->xfer.cur_buf;
-	int msg_num = 0;
 
 	while (i2c_msm_xfer_next_buf(ctrl)) {
 
@@ -2793,17 +2777,8 @@ static void i2c_msm_xfer_scan(struct i2c_msm_ctrl *ctrl)
 
 		if (cur_buf->is_last)
 			xfer->last_is_rx = cur_buf->is_rx;
-
-		if (ctrl->dbgfs.dbg_lvl >= MSM_DBG) {
-			struct i2c_msg *msg = xfer->msgs + cur_buf->msg_idx;
-
-			dev_info(ctrl->dev,
-				"msg[%02d] len:%d is_rx:0x%x addr:0x%x\n",
-				msg_num, msg->len, cur_buf->is_rx, msg->addr);
-			++msg_num;
-		}
 	}
-	ctrl->xfer.cur_buf = first_buf;
+	ctrl->xfer.cur_buf  = first_buf;
 }
 
 static int
