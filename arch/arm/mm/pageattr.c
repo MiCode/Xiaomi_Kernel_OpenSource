@@ -56,7 +56,8 @@ static int change_memory_common(unsigned long addr, int numpages,
 	if (!size)
 		return 0;
 
-	if (!in_range(start, size, MODULES_VADDR, MODULES_END) &&
+	if (!IS_ENABLED(CONFIG_FORCE_PAGES) &&
+	    !in_range(start, size, MODULES_VADDR, MODULES_END) &&
 	    !in_range(start, size, VMALLOC_START, VMALLOC_END))
 		return -EINVAL;
 
