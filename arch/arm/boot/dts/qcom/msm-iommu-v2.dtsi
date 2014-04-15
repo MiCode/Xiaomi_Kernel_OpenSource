@@ -133,8 +133,8 @@
 			compatible = "qcom,msm-smmu-v2-ctx";
 			qcom,secure-context;
 			reg = <0x1e32000 0x1000>;
-			interrupts = <0 70 0>;
-			qcom,iommu-ctx-sids = <0x0>;
+			interrupts = <0 70 0>, <0 70 0>;
+			qcom,iommu-ctx-sids = <0xc01>;
 			label = "mdp_1";
 		};
 
@@ -142,8 +142,8 @@
 			compatible = "qcom,msm-smmu-v2-ctx";
 			qcom,secure-context;
 			reg = <0x1e33000 0x1000>;
-			interrupts = <0 70 0>;
-			qcom,iommu-ctx-sids = <0x0>;
+			interrupts = <0 70 0>, <0 70 0>;
+			qcom,iommu-ctx-sids = <0x880 0x881 0x882 0x883 0x884>;
 			label = "venus_sec_pixel";
 		};
 
@@ -151,8 +151,8 @@
 			compatible = "qcom,msm-smmu-v2-ctx";
 			qcom,secure-context;
 			reg = <0x1e34000 0x1000>;
-			interrupts = <0 70 0>;
-			qcom,iommu-ctx-sids = <0x0>;
+			interrupts = <0 70 0>, <0 70 0>;
+			qcom,iommu-ctx-sids = <0x885>;
 			label = "venus_sec_bitstream";
 		};
 
@@ -160,8 +160,8 @@
 			compatible = "qcom,msm-smmu-v2-ctx";
 			qcom,secure-context;
 			reg = <0x1e35000 0x1000>;
-			interrupts = <0 70 0>;
-			qcom,iommu-ctx-sids = <0x0>;
+			interrupts = <0 70 0>, <0 70 0>;
+			qcom,iommu-ctx-sids = <0x887 0x8a0>;
 			label = "venus_sec_non_pixel";
 		};
 
@@ -169,8 +169,8 @@
 			compatible = "qcom,msm-smmu-v2-ctx";
 			qcom,secure-context;
 			reg = <0x1e36000 0x1000>;
-			interrupts = <0 70 0>;
-			qcom,iommu-ctx-sids = <0x0>;
+			interrupts = <0 70 0>, <0 70 0>;
+			qcom,iommu-ctx-sids = <0x8c0 0x8c6>;
 			label = "venus_fw";
 		};
 
