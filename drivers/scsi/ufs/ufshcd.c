@@ -48,6 +48,13 @@
 #include "debugfs.h"
 
 #ifdef CONFIG_DEBUG_FS
+
+#define UFSHCD_UPDATE_ERROR_STATS(hba, type)	\
+	do {					\
+		if (type < UFS_ERR_MAX)	\
+			hba->ufs_stats.err_stats[type]++;	\
+	} while (0)
+
 #define UFSHCD_UPDATE_TAG_STATS(hba, tag)			\
 	do {							\
 		struct request *rq = hba->lrb[task_tag].cmd ?	\
@@ -91,6 +98,7 @@
 #define UFSHCD_UPDATE_TAG_STATS_COMPLETION(hba, cmd)
 #define UFSDBG_ADD_DEBUGFS(hba)
 #define UFSDBG_REMOVE_DEBUGFS(hba)
+#define UFSHCD_UPDATE_ERROR_STATS(hba, type)
 
 #endif
 
@@ -3767,6 +3775,7 @@ static int __ufshcd_uic_hibern8_enter(struct ufs_hba *hba)
 			     ktime_to_us(ktime_sub(ktime_get(), start)), ret);
 
 	if (ret) {
+		UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_HIBERN8_ENTER);
 		dev_err(hba->dev, "%s: hibern8 enter failed. ret = %d\n",
 			__func__, ret);
 
@@ -3810,6 +3819,7 @@ static int ufshcd_uic_hibern8_exit(struct ufs_hba *hba)
 			     ktime_to_us(ktime_sub(ktime_get(), start)), ret);
 
 	if (ret) {
+		UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_HIBERN8_EXIT);
 		dev_err(hba->dev, "%s: hibern8 exit failed. ret = %d\n",
 			__func__, ret);
 		ret = ufshcd_link_recovery(hba);
@@ -3954,6 +3964,7 @@ static int ufshcd_change_power_mode(struct ufs_hba *hba,
 			| pwr_mode->pwr_tx);
 
 	if (ret) {
+		UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_POWER_MODE_CHANGE);
 		dev_err(hba->dev,
 			"%s: power mode change failed %d\n", __func__, ret);
 	} else {
@@ -4240,9 +4251,12 @@ link_startup:
 		ufshcd_vops_link_startup_notify(hba, PRE_CHANGE);
 
 		ret = ufshcd_dme_link_startup(hba);
+		if (ret)
+			UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_LINKSTARTUP);
 
 		/* check if device is detected by inter-connect layer */
 		if (!ret && !ufshcd_is_device_present(hba)) {
+			UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_LINKSTARTUP);
 			dev_err(hba->dev, "%s: Device not present\n", __func__);
 			ret = -ENXIO;
 			goto out;
@@ -5200,8 +5214,17 @@ static void ufshcd_err_handler(struct work_struct *work)
 	    ((hba->saved_err & UIC_ERROR) &&
 	    (hba->saved_uic_err & (UFSHCD_UIC_DL_PA_INIT_ERROR |
 				   UFSHCD_UIC_DL_NAC_RECEIVED_ERROR |
-				   UFSHCD_UIC_DL_TCx_REPLAY_ERROR))))
+				   UFSHCD_UIC_DL_TCx_REPLAY_ERROR)))) {
 		needs_reset = true;
+
+		if (hba->saved_err & INT_FATAL_ERRORS)
+			UFSHCD_UPDATE_ERROR_STATS(hba,
+						  UFS_ERR_INT_FATAL_ERRORS);
+
+		if (hba->saved_err & UIC_ERROR)
+			UFSHCD_UPDATE_ERROR_STATS(hba,
+						  UFS_ERR_INT_UIC_ERROR);
+	}
 
 	/*
 	 * if host reset is required then skip clearing the pending
@@ -5235,8 +5258,13 @@ lock_skip_pending_xfer_clear:
 	/* Complete the requests that are cleared by s/w */
 	ufshcd_complete_requests(hba);
 
-	if (err_xfer || err_tm)
+	if (err_xfer || err_tm) {
 		needs_reset = true;
+
+		if (err_xfer || err_tm)
+			UFSHCD_UPDATE_ERROR_STATS(hba,
+						  UFS_ERR_CLEAR_PEND_XFER_TM);
+	}
 
 skip_pending_xfer_clear:
 	/* Fatal errors need reset */
@@ -5687,6 +5715,9 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 	hba = shost_priv(host);
 	tag = cmd->request->tag;
 	lrbp = &hba->lrb[tag];
+
+	UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_TASK_ABORT);
+
 	if (!ufshcd_valid_tag(hba, tag)) {
 		dev_err(hba->dev,
 			"%s: invalid command tag %d: cmd=0x%p, cmd->request=0x%p",
@@ -5938,6 +5969,7 @@ static int ufshcd_eh_host_reset_handler(struct scsi_cmnd *cmd)
 	ufshcd_set_eh_in_progress(hba);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
+	UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_EH);
 	err = ufshcd_reset_and_restore(hba);
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
@@ -7682,10 +7714,12 @@ set_link_active:
 	if (hba->clk_scaling.is_allowed)
 		ufshcd_resume_clkscaling(hba);
 	ufshcd_vreg_set_hpm(hba);
-	if (ufshcd_is_link_hibern8(hba) && !ufshcd_uic_hibern8_exit(hba))
+	if (ufshcd_is_link_hibern8(hba) && !ufshcd_uic_hibern8_exit(hba)) {
 		ufshcd_set_link_active(hba);
-	else if (ufshcd_is_link_off(hba))
+	} else if (ufshcd_is_link_off(hba)) {
+		UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_VOPS_SUSPEND);
 		ufshcd_host_reset_and_restore(hba);
+	}
 set_dev_active:
 	if (!ufshcd_set_dev_pwr_mode(hba, UFS_ACTIVE_PWR_MODE))
 		ufshcd_disable_auto_bkops(hba);
@@ -7696,6 +7730,10 @@ enable_gating:
 	ufshcd_release(hba);
 out:
 	hba->pm_op_in_progress = 0;
+
+	if (ret)
+		UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_SUSPEND);
+
 	return ret;
 }
 
@@ -7794,6 +7832,10 @@ disable_irq_and_vops_clks:
 	ufshcd_setup_clocks(hba, false);
 out:
 	hba->pm_op_in_progress = 0;
+
+	if (ret)
+		UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_RESUME);
+
 	return ret;
 }
 
