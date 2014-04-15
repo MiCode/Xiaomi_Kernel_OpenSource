@@ -70,6 +70,14 @@ enum bcl_monitor_type {
 	BCL_MONITOR_TYPE_MAX,
 };
 
+enum bcl_adc_monitor_mode {
+	BCL_MONITOR_DISABLED,
+	BCL_VPH_MONITOR_MODE,
+	BCL_IBAT_MONITOR_MODE,
+	BCL_IBAT_HIGH_LOAD_MODE,
+	BCL_MONITOR_MODE_MAX,
+};
+
 static const char *bcl_type[BCL_MONITOR_TYPE_MAX] = {"bcl", "btm"};
 int adc_timer_val_usec[] = {
 	[ADC_MEAS1_INTERVAL_0MS] = 0,
@@ -127,23 +135,39 @@ struct bcl_context {
 	/* The max CPU frequency the BTM restricts during high load */
 	uint32_t btm_freq_max;
 	/* Indicates whether there is a high load */
-	bool btm_high_load;
+	enum bcl_adc_monitor_mode btm_mode;
 	/* battery current high load clr threshold */
 	int btm_low_threshold_uv;
 	/* battery current high load threshold */
 	int btm_high_threshold_uv;
 	/* ADC battery current polling timer interval */
 	enum qpnp_adc_meas_timer_1 btm_adc_interval;
-	/* ADC config parameters */
+	/* Ibat ADC config parameters */
 	struct qpnp_adc_tm_chip *btm_adc_tm_dev;
 	struct qpnp_vadc_chip *btm_vadc_dev;
 	int btm_ibat_chan;
-	struct qpnp_adc_tm_btm_param btm_adc_param;
+	struct qpnp_adc_tm_btm_param btm_ibat_adc_param;
 	uint32_t btm_uv_to_ua_numerator;
 	uint32_t btm_uv_to_ua_denominator;
+	/* Vph ADC config parameters */
+	int btm_vph_chan;
+	uint32_t btm_vph_high_thresh;
+	uint32_t btm_vph_low_thresh;
+	struct qpnp_adc_tm_btm_param btm_vph_adc_param;
+	/* Low temp min freq limit requested by thermal */
+	uint32_t btm_freq_limit;
+};
+
+enum bcl_threshold_state {
+	BCL_LOW_THRESHOLD = 0,
+	BCL_HIGH_THRESHOLD,
+	BCL_THRESHOLD_DISABLED,
 };
 
 static struct bcl_context *gbcl;
+static enum bcl_threshold_state bcl_vph_state = BCL_THRESHOLD_DISABLED,
+		bcl_ibat_state = BCL_THRESHOLD_DISABLED;
+static DEFINE_MUTEX(bcl_notify_mutex);
 
 static int bcl_cpufreq_callback(struct notifier_block *nfb,
 		unsigned long event, void *data)
@@ -152,7 +176,8 @@ static int bcl_cpufreq_callback(struct notifier_block *nfb,
 
 	switch (event) {
 	case CPUFREQ_INCOMPATIBLE:
-		if (gbcl->btm_high_load) {
+		if (bcl_vph_state == BCL_LOW_THRESHOLD
+			&& bcl_ibat_state == BCL_HIGH_THRESHOLD) {
 			pr_debug("Requesting Max freq:%d for CPU%d\n",
 				gbcl->btm_freq_max, policy->cpu);
 			cpufreq_verify_within_limits(policy, 0,
@@ -291,9 +316,104 @@ static void bcl_iavail_work(struct work_struct *work)
 	}
 }
 
+static void bcl_ibat_notify(enum bcl_threshold_state thresh_type)
+{
+	bcl_ibat_state = thresh_type;
+	update_cpu_freq();
+}
+
+static void bcl_vph_notify(enum bcl_threshold_state thresh_type)
+{
+	bcl_vph_state = thresh_type;
+	update_cpu_freq();
+}
+
+int bcl_voltage_notify(bool is_high_thresh)
+{
+	int ret = 0;
+
+	if (!gbcl) {
+		pr_err("BCL Driver not configured\n");
+		return -EINVAL;
+	}
+	if (gbcl->bcl_mode == BCL_DEVICE_ENABLED) {
+		pr_err("BCL Driver is enabled\n");
+		return -EINVAL;
+	}
+
+	bcl_vph_notify((is_high_thresh) ? BCL_HIGH_THRESHOLD
+			: BCL_LOW_THRESHOLD);
+	return ret;
+}
+EXPORT_SYMBOL(bcl_voltage_notify);
+
+int bcl_current_notify(bool is_high_thresh)
+{
+	int ret = 0;
+
+	if (!gbcl) {
+		pr_err("BCL Driver not configured\n");
+		return -EINVAL;
+	}
+	if (gbcl->bcl_mode == BCL_DEVICE_ENABLED) {
+		pr_err("BCL Driver is enabled\n");
+		return -EINVAL;
+	}
+
+	bcl_ibat_notify((is_high_thresh) ? BCL_HIGH_THRESHOLD
+			: BCL_LOW_THRESHOLD);
+	return ret;
+}
+EXPORT_SYMBOL(bcl_current_notify);
+
 static void bcl_ibat_notification(enum qpnp_tm_state state, void *ctx);
-static int bcl_config_btm(struct bcl_context *bcl,
+static void bcl_vph_notification(enum qpnp_tm_state state, void *ctx);
+static int bcl_config_ibat_adc(struct bcl_context *bcl,
 			enum bcl_iavail_threshold_type thresh_type);
+static int bcl_config_vph_adc(struct bcl_context *bcl,
+			enum bcl_iavail_threshold_type thresh_type)
+{
+	int ret = 0;
+
+	if (bcl->bcl_mode == BCL_DEVICE_DISABLED
+		|| bcl->bcl_monitor_type != BCL_IBAT_MONITOR_TYPE)
+		return -EINVAL;
+
+	switch (thresh_type) {
+	case BCL_HIGH_THRESHOLD_TYPE:
+		bcl->btm_vph_adc_param.state_request = ADC_TM_HIGH_THR_ENABLE;
+		break;
+	case BCL_LOW_THRESHOLD_TYPE:
+		bcl->btm_vph_adc_param.state_request = ADC_TM_LOW_THR_ENABLE;
+		break;
+	default:
+		pr_err("Invalid threshold type:%d\n", thresh_type);
+		return -EINVAL;
+	}
+	bcl->btm_vph_adc_param.low_thr = bcl->btm_vph_low_thresh;
+	bcl->btm_vph_adc_param.high_thr = bcl->btm_vph_high_thresh;
+	bcl->btm_vph_adc_param.timer_interval =
+			adc_timer_val_usec[ADC_MEAS1_INTERVAL_4S];
+	bcl->btm_vph_adc_param.btm_ctx = bcl;
+	bcl->btm_vph_adc_param.threshold_notification = bcl_vph_notification;
+	bcl->btm_vph_adc_param.channel = bcl->btm_vph_chan;
+
+	ret = qpnp_adc_tm_channel_measure(bcl->btm_adc_tm_dev,
+			&bcl->btm_vph_adc_param);
+	if (ret < 0)
+		pr_err("Error configuring BTM for Vph. ret:%d\n", ret);
+	else
+		pr_debug("Vph config. poll:%d high_uv:%d(%s) low_uv:%d(%s)\n",
+		    bcl->btm_vph_adc_param.timer_interval,
+		    bcl->btm_vph_adc_param.high_thr,
+		    (bcl->btm_vph_adc_param.state_request ==
+			ADC_TM_HIGH_THR_ENABLE) ? "enabled" : "disabled",
+		    bcl->btm_vph_adc_param.low_thr,
+		    (bcl->btm_vph_adc_param.state_request ==
+			ADC_TM_LOW_THR_ENABLE) ? "enabled" : "disabled");
+
+	return ret;
+}
 
 static int current_to_voltage(struct bcl_context *bcl, int ua)
 {
@@ -328,13 +448,141 @@ static int uSec_to_adc_time(struct bcl_context *bcl, int us)
 	return i;
 }
 
+static int vph_disable(void)
+{
+	int ret = 0;
+
+	ret = qpnp_adc_tm_disable_chan_meas(gbcl->btm_adc_tm_dev,
+			&gbcl->btm_vph_adc_param);
+	if (ret) {
+		pr_err("Error disabling ADC. err:%d\n", ret);
+		gbcl->bcl_mode = BCL_DEVICE_ENABLED;
+		gbcl->btm_mode = BCL_VPH_MONITOR_MODE;
+		goto vph_disable_exit;
+	}
+	bcl_vph_notify(BCL_THRESHOLD_DISABLED);
+	gbcl->btm_mode = BCL_MONITOR_DISABLED;
+
+vph_disable_exit:
+	return ret;
+}
+
+static int ibat_disable(void)
+{
+	int ret = 0;
+
+	ret = qpnp_adc_tm_disable_chan_meas(gbcl->btm_adc_tm_dev,
+			&gbcl->btm_ibat_adc_param);
+	if (ret) {
+		pr_err("Error disabling ADC. err:%d\n", ret);
+		gbcl->bcl_mode = BCL_DEVICE_ENABLED;
+		gbcl->btm_mode = BCL_IBAT_MONITOR_MODE;
+		goto ibat_disable_exit;
+	}
+	bcl_ibat_notify(BCL_THRESHOLD_DISABLED);
+
+ibat_disable_exit:
+	return ret;
+}
+
+static void ibat_mode_set(enum bcl_device_mode mode)
+{
+	int ret = 0;
+
+	if (mode == BCL_DEVICE_ENABLED) {
+		gbcl->btm_mode = BCL_VPH_MONITOR_MODE;
+		ret = bcl_config_vph_adc(gbcl, BCL_LOW_THRESHOLD_TYPE);
+		if (ret) {
+			pr_err("Vph config error. ret:%d\n", ret);
+			gbcl->bcl_mode = BCL_DEVICE_DISABLED;
+			gbcl->btm_mode = BCL_MONITOR_DISABLED;
+			return;
+		}
+	} else {
+		switch (gbcl->btm_mode) {
+		case BCL_IBAT_MONITOR_MODE:
+		case BCL_IBAT_HIGH_LOAD_MODE:
+			ret = ibat_disable();
+			if (ret)
+				return;
+			ret = vph_disable();
+			if (ret)
+				return;
+			break;
+		case BCL_VPH_MONITOR_MODE:
+			ret = vph_disable();
+			if (ret)
+				return;
+			break;
+		case BCL_MONITOR_DISABLED:
+		default:
+			break;
+		}
+		gbcl->btm_mode = BCL_MONITOR_DISABLED;
+	}
+
+	return;
+}
+
+static void bcl_vph_notification(enum qpnp_tm_state state, void *ctx)
+{
+	struct bcl_context *bcl = ctx;
+	int ret = 0;
+
+	mutex_lock(&bcl_notify_mutex);
+	if (bcl->btm_mode == BCL_MONITOR_DISABLED)
+		goto unlock_and_exit;
+
+	switch (state) {
+	case ADC_TM_LOW_STATE:
+		if (bcl->btm_mode != BCL_VPH_MONITOR_MODE) {
+			pr_err("Low thresh received with invalid btm mode:%d\n",
+				bcl->btm_mode);
+			ibat_mode_set(BCL_DEVICE_DISABLED);
+			goto unlock_and_exit;
+		}
+		pr_debug("Initiating Ibat current monitoring\n");
+		bcl_vph_notify(BCL_LOW_THRESHOLD);
+		bcl_config_ibat_adc(gbcl, BCL_HIGH_THRESHOLD_TYPE);
+		bcl_config_vph_adc(gbcl, BCL_HIGH_THRESHOLD_TYPE);
+		bcl->btm_mode = BCL_IBAT_MONITOR_MODE;
+		break;
+	case ADC_TM_HIGH_STATE:
+		if (bcl->btm_mode != BCL_IBAT_MONITOR_MODE
+			&& bcl->btm_mode != BCL_IBAT_HIGH_LOAD_MODE) {
+			pr_err("High thresh received with invalid btm mode:%d\n"
+				, bcl->btm_mode);
+			ibat_mode_set(BCL_DEVICE_DISABLED);
+			goto unlock_and_exit;
+		}
+		pr_debug("Exiting Ibat current monitoring\n");
+		bcl->btm_mode = BCL_VPH_MONITOR_MODE;
+		ret = ibat_disable();
+		if (ret) {
+			pr_err("Error disabling ibat ADC. err:%d\n", ret);
+			goto unlock_and_exit;
+		}
+		bcl_vph_notify(BCL_HIGH_THRESHOLD);
+		bcl_config_vph_adc(gbcl, BCL_LOW_THRESHOLD_TYPE);
+		break;
+	default:
+		goto set_thresh;
+	}
+unlock_and_exit:
+	mutex_unlock(&bcl_notify_mutex);
+	return;
+
+set_thresh:
+	mutex_unlock(&bcl_notify_mutex);
+	bcl_config_vph_adc(gbcl, BCL_HIGH_THRESHOLD_TYPE);
+	return;
+}
+
 /*
  * Set BCL mode
  */
 static void bcl_mode_set(enum bcl_device_mode mode)
 {
-	int ret = 0;
-
 	if (!gbcl)
 		return;
 	if (gbcl->bcl_mode == mode)
@@ -349,35 +597,7 @@ static void bcl_mode_set(enum bcl_device_mode mode)
 			cancel_delayed_work_sync(&(gbcl->bcl_iavail_work));
 		break;
 	case BCL_IBAT_MONITOR_TYPE:
-		if (mode == BCL_DEVICE_ENABLED) {
-			gbcl->btm_high_load = false;
-			ret = cpufreq_register_notifier(&bcl_cpufreq_notifier,
-				CPUFREQ_POLICY_NOTIFIER);
-			if (ret < 0) {
-				pr_err("Err with cpufreq register err:%d\n",
-						ret);
-				gbcl->bcl_mode = BCL_DEVICE_DISABLED;
-				return;
-			}
-			bcl_config_btm(gbcl, BCL_HIGH_THRESHOLD_TYPE);
-		} else {
-			ret = qpnp_adc_tm_disable_chan_meas(
-				gbcl->btm_adc_tm_dev, &gbcl->btm_adc_param);
-			if (ret) {
-				pr_err("Error disabling ADC. err:%d\n", ret);
-				gbcl->bcl_mode = BCL_DEVICE_ENABLED;
-				return;
-			}
-			gbcl->btm_high_load = false;
-			update_cpu_freq();
-			ret = cpufreq_unregister_notifier(&bcl_cpufreq_notifier,
-				CPUFREQ_POLICY_NOTIFIER);
-			if (ret < 0) {
-				pr_err("Err with cpufreq unregister err:%d\n",
-						ret);
-				return;
-			}
-		}
+		ibat_mode_set(mode);
 		break;
 	default:
 		pr_err("Invalid monitor type:%d\n", gbcl->bcl_monitor_type);
@@ -392,18 +612,28 @@ static ssize_t \
 name##_show(struct device *dev, struct device_attribute *attr, char *buf) \
 { \
 	if (gbcl) \
-		return snprintf(buf, PAGE_SIZE, format, gbcl->variable); \
+		return snprintf(buf, PAGE_SIZE, format, variable); \
 	else \
 		return  -EPERM; \
 }
 
-show_bcl(type, bcl_type, "%s\n")
-show_bcl(vbat, bcl_vbat_mv, "%d\n")
-show_bcl(rbat, bcl_rbat_mohm, "%d\n")
-show_bcl(iavail, bcl_iavail, "%d\n")
-show_bcl(vbat_min, bcl_vbat_min, "%d\n");
-show_bcl(poll_interval, bcl_poll_interval_msec, "%d\n")
-show_bcl(high_load_state, btm_high_load, "%d\n")
+show_bcl(type, gbcl->bcl_type, "%s\n")
+show_bcl(vbat, gbcl->bcl_vbat_mv, "%d\n")
+show_bcl(rbat, gbcl->bcl_rbat_mohm, "%d\n")
+show_bcl(iavail, gbcl->bcl_iavail, "%d\n")
+show_bcl(vbat_min, gbcl->bcl_vbat_min, "%d\n")
+show_bcl(poll_interval, gbcl->bcl_poll_interval_msec, "%d\n")
+show_bcl(high_ua, voltage_to_current(gbcl, gbcl->btm_high_threshold_uv),
+		"%d\n")
+show_bcl(low_ua, voltage_to_current(gbcl, gbcl->btm_low_threshold_uv), "%d\n")
+show_bcl(adc_interval_us, adc_time_to_uSec(gbcl, gbcl->btm_adc_interval),
+		"%d\n")
+show_bcl(freq_max, gbcl->btm_freq_max, "%u\n")
+show_bcl(vph_high, gbcl->btm_vph_high_thresh, "%d\n")
+show_bcl(vph_low, gbcl->btm_vph_low_thresh, "%d\n")
+show_bcl(freq_limit, gbcl->btm_freq_limit, "%u\n")
+show_bcl(vph_state, bcl_vph_state, "%d\n")
+show_bcl(ibat_state, bcl_ibat_state, "%d\n")
 
 static ssize_t
 mode_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -597,14 +827,25 @@ static ssize_t iavail_high_threshold_value_store(struct device *dev,
 	return count;
 }
 
-static ssize_t high_ua_show(struct device *dev,
-			struct device_attribute *attr, char *buf)
+static int convert_to_int(const char *buf, int *val)
 {
+	int ret = 0;
+
 	if (!gbcl)
 		return -EPERM;
+	if (gbcl->bcl_mode != BCL_DEVICE_DISABLED) {
+		pr_err("BCL is not disabled\n");
+			return -EINVAL;
+	}
 
-	return snprintf(buf, PAGE_SIZE, "%d\n",
-		voltage_to_current(gbcl, gbcl->btm_high_threshold_uv));
+	ret = kstrtoint(buf, 10, val);
+	if (ret || (*val < 0)) {
+		pr_err("Invalid high threshold %s val:%d ret:%d\n", buf, *val,
+			ret);
+			return -EINVAL;
+	}
+
+	return ret;
 }
 
 static ssize_t high_ua_store(struct device *dev,
@@ -614,34 +855,12 @@ static ssize_t high_ua_store(struct device *dev,
 	int val = 0;
 	int ret = 0;
 
-	if (!gbcl)
-		return -EPERM;
-	if (gbcl->bcl_mode != BCL_DEVICE_DISABLED) {
-		pr_err("BCL is not disabled\n");
-		return -EINVAL;
-	}
-
-	ret = kstrtoint(buf, 10, &val);
-
-	if (ret || (val < 0)) {
-		pr_err("Invalid high threshold %s val:%d ret:%d\n", buf,
-			val, ret);
-		return -EINVAL;
-	}
-
+	ret = convert_to_int(buf, &val);
+	if (ret)
+		return ret;
 	gbcl->btm_high_threshold_uv = current_to_voltage(gbcl, val);
 
 	return count;
-}
-
-static ssize_t low_ua_show(struct device *dev,
-			struct device_attribute *attr, char *buf)
-{
-	if (!gbcl)
-		return -EPERM;
-
-	return snprintf(buf, PAGE_SIZE, "%d\n",
-		voltage_to_current(gbcl, gbcl->btm_low_threshold_uv));
 }
 
 static ssize_t low_ua_store(struct device *dev,
@@ -651,42 +870,12 @@ static ssize_t low_ua_store(struct device *dev,
 	int val = 0;
 	int ret = 0;
 
-	if (!gbcl)
-		return -EPERM;
-	if (gbcl->bcl_mode != BCL_DEVICE_DISABLED) {
-		pr_err("BCL is not disabled\n");
-		return -EINVAL;
-	}
-
-	ret = kstrtoint(buf, 10, &val);
-	if (ret || (val < 0)) {
-		pr_err("Invalid low threshold %s val:%d ret:%d\n", buf,
-			val, ret);
-		return -EINVAL;
-	}
-
+	ret = convert_to_int(buf, &val);
+	if (ret)
+		return ret;
 	gbcl->btm_low_threshold_uv = current_to_voltage(gbcl, val);
 
 	return count;
-}
-
-static ssize_t adc_interval_us_show(struct device *dev,
-			struct device_attribute *attr, char *buf)
-{
-	if (!gbcl)
-		return -EPERM;
-
-	return snprintf(buf, PAGE_SIZE, "%d\n",
-			adc_time_to_uSec(gbcl, gbcl->btm_adc_interval));
-}
-
-static ssize_t freq_max_show(struct device *dev,
-			struct device_attribute *attr, char *buf)
-{
-	if (!gbcl)
-		return -EPERM;
-
-	return snprintf(buf, PAGE_SIZE, "%d\n", gbcl->btm_freq_max);
 }
 
 static ssize_t freq_max_store(struct device *dev,
@@ -696,20 +885,41 @@ static ssize_t freq_max_store(struct device *dev,
 	int val = 0;
 	int ret = 0;
 
-	if (!gbcl)
-		return -EPERM;
-	if (gbcl->bcl_mode != BCL_DEVICE_DISABLED) {
-		pr_err("BCL is not disabled\n");
-		return -EINVAL;
-	}
-
-	ret = kstrtoint(buf, 10, &val);
-	if (ret || (val < 0)) {
-		pr_err("Incorrect value %s val:%d. ret:%d\n", buf, val, ret);
-		return -EINVAL;
-	}
+	ret = convert_to_int(buf, &val);
+	if (ret)
+		return ret;
 	gbcl->btm_freq_max = (val >= BTM_8084_FREQ_MITIG_LIMIT) ?
 				val : BTM_8084_FREQ_MITIG_LIMIT;
+
+	return count;
+}
+
+static ssize_t vph_low_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	int val = 0;
+	int ret = 0;
+
+	ret = convert_to_int(buf, &val);
+	if (ret)
+		return ret;
+	gbcl->btm_vph_low_thresh = val;
+
+	return count;
+}
+
+static ssize_t vph_high_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	int val = 0;
+	int ret = 0;
+
+	ret = convert_to_int(buf, &val);
+	if (ret)
+		return ret;
+	gbcl->btm_vph_high_thresh = val;
 
 	return count;
 }
@@ -743,14 +953,15 @@ static struct device_attribute bcl_dev_attr[] = {
 static struct device_attribute btm_dev_attr[] = {
 	__ATTR(type, 0444, type_show, NULL),
 	__ATTR(mode, 0644, mode_show, mode_store),
-	__ATTR(high_load_state, 0444, high_load_state_show, NULL),
+	__ATTR(vph_state, 0444, vph_state_show, NULL),
+	__ATTR(ibat_state, 0444, ibat_state_show, NULL),
 	__ATTR(high_threshold_ua, 0644, high_ua_show, high_ua_store),
 	__ATTR(low_threshold_ua, 0644, low_ua_show, low_ua_store),
-	__ATTR(adc_interval_us, 0444,
-		adc_interval_us_show, NULL),
-	__ATTR(freq_max, 0644,
-		freq_max_show,
-		freq_max_store),
+	__ATTR(adc_interval_us, 0444, adc_interval_us_show, NULL),
+	__ATTR(freq_max, 0644, freq_max_show, freq_max_store),
+	__ATTR(vph_high_thresh_uv, 0644, vph_high_show, vph_high_store),
+	__ATTR(vph_low_thresh_uv, 0644, vph_low_show, vph_low_store),
+	__ATTR(thermal_freq_limit, 0444, freq_limit_show, NULL),
 };
 
 static int create_bcl_sysfs(struct bcl_context *bcl)
@@ -806,46 +1017,46 @@ static void remove_bcl_sysfs(struct bcl_context *bcl)
 	return;
 }
 
-static int bcl_config_btm(struct bcl_context *bcl,
+static int bcl_config_ibat_adc(struct bcl_context *bcl,
 		enum bcl_iavail_threshold_type thresh_type)
 {
 	int ret = 0;
 
-	if (bcl->bcl_mode == BCL_DEVICE_DISABLED ||
-		bcl->bcl_monitor_type != BCL_IBAT_MONITOR_TYPE ||
-		bcl->btm_ibat_chan == -EINVAL)
+	if (bcl->bcl_mode == BCL_DEVICE_DISABLED
+		|| bcl->bcl_monitor_type != BCL_IBAT_MONITOR_TYPE)
 		return -EINVAL;
 
 	switch (thresh_type) {
 	case BCL_HIGH_THRESHOLD_TYPE:
-		bcl->btm_adc_param.state_request = ADC_TM_HIGH_THR_ENABLE;
+		bcl->btm_ibat_adc_param.state_request = ADC_TM_HIGH_THR_ENABLE;
 		break;
 	case BCL_LOW_THRESHOLD_TYPE:
-		bcl->btm_adc_param.state_request = ADC_TM_LOW_THR_ENABLE;
+		bcl->btm_ibat_adc_param.state_request = ADC_TM_LOW_THR_ENABLE;
 		break;
 	default:
 		pr_err("Invalid threshold type:%d\n", thresh_type);
 		return -EINVAL;
 	}
-	bcl->btm_adc_param.low_thr = bcl->btm_low_threshold_uv;
-	bcl->btm_adc_param.high_thr = bcl->btm_high_threshold_uv;
-	bcl->btm_adc_param.timer_interval = bcl->btm_adc_interval;
-	bcl->btm_adc_param.btm_ctx = bcl;
-	bcl->btm_adc_param.threshold_notification = bcl_ibat_notification;
-	bcl->btm_adc_param.channel = bcl->btm_ibat_chan;
+
+	bcl->btm_ibat_adc_param.low_thr = bcl->btm_low_threshold_uv;
+	bcl->btm_ibat_adc_param.high_thr = bcl->btm_high_threshold_uv;
+	bcl->btm_ibat_adc_param.timer_interval = bcl->btm_adc_interval;
+	bcl->btm_ibat_adc_param.btm_ctx = bcl;
+	bcl->btm_ibat_adc_param.threshold_notification = bcl_ibat_notification;
+	bcl->btm_ibat_adc_param.channel = bcl->btm_ibat_chan;
 
 	ret = qpnp_adc_tm_channel_measure(bcl->btm_adc_tm_dev,
-			&bcl->btm_adc_param);
+			&bcl->btm_ibat_adc_param);
 	if (ret < 0)
 		pr_err("Error configuring BTM. ret:%d\n", ret);
 	else
 		pr_debug("BTM config. poll:%d high_uv:%d(%s) low_uv:%d(%s)\n",
 		    bcl->btm_adc_interval,
-		    bcl->btm_adc_param.high_thr,
-		    (bcl->btm_adc_param.state_request ==
+		    bcl->btm_ibat_adc_param.high_thr,
+		    (bcl->btm_ibat_adc_param.state_request ==
 			ADC_TM_HIGH_THR_ENABLE) ? "enabled" : "disabled",
-		    bcl->btm_adc_param.low_thr,
-		    (bcl->btm_adc_param.state_request ==
+		    bcl->btm_ibat_adc_param.low_thr,
+		    (bcl->btm_ibat_adc_param.state_request ==
 			ADC_TM_LOW_THR_ENABLE) ? "enabled" : "disabled");
 	return ret;
 }
@@ -855,20 +1066,40 @@ static void bcl_ibat_notification(enum qpnp_tm_state state, void *ctx)
 	struct bcl_context *bcl = ctx;
 	int ret = 0;
 
-	if (bcl->btm_high_load && state == ADC_TM_LOW_STATE) {
-		pr_debug("low load enter\n");
-		bcl->btm_high_load = false;
-		update_cpu_freq();
-	} else if (!bcl->btm_high_load && state == ADC_TM_HIGH_STATE) {
-		pr_debug("high load enter\n");
-		bcl->btm_high_load = true;
-		update_cpu_freq();
+	mutex_lock(&bcl_notify_mutex);
+	if (bcl->btm_mode == BCL_MONITOR_DISABLED ||
+		bcl->btm_mode == BCL_VPH_MONITOR_MODE)
+		goto unlock_and_return;
+
+	switch (state) {
+	case ADC_TM_LOW_STATE:
+		if (bcl->btm_mode != BCL_IBAT_HIGH_LOAD_MODE)
+			goto set_ibat_threshold;
+		pr_debug("ibat low load enter\n");
+		bcl->btm_mode = BCL_IBAT_MONITOR_MODE;
+		bcl_ibat_notify(BCL_LOW_THRESHOLD);
+		break;
+	case ADC_TM_HIGH_STATE:
+		if (bcl->btm_mode != BCL_IBAT_MONITOR_MODE)
+			goto set_ibat_threshold;
+		pr_debug("ibat high load enter\n");
+		bcl->btm_mode = BCL_IBAT_HIGH_LOAD_MODE;
+		bcl_ibat_notify(BCL_HIGH_THRESHOLD);
+		break;
+	default:
+		pr_err("Invalid threshold state:%d\n", state);
+		bcl_config_ibat_adc(bcl, BCL_HIGH_THRESHOLD_TYPE);
+		goto unlock_and_return;
 	}
-	ret = bcl_config_btm(bcl, (state == ADC_TM_LOW_STATE) ?
+
+set_ibat_threshold:
+	ret = bcl_config_ibat_adc(bcl, (state == ADC_TM_LOW_STATE) ?
 		BCL_HIGH_THRESHOLD_TYPE : BCL_LOW_THRESHOLD_TYPE);
 	if (ret < 0)
 		pr_err("Error configuring %s thresh. err:%d\n",
 			(state == ADC_TM_LOW_STATE) ? "high" : "low", ret);
+unlock_and_return:
+	mutex_unlock(&bcl_notify_mutex);
 }
 
 static int bcl_suspend(struct device *dev)
@@ -878,11 +1109,20 @@ static int bcl_suspend(struct device *dev)
 
 	if (bcl->bcl_monitor_type == BCL_IBAT_MONITOR_TYPE &&
 		bcl->bcl_mode == BCL_DEVICE_ENABLED) {
-		ret = qpnp_adc_tm_disable_chan_meas(
-			bcl->btm_adc_tm_dev, &bcl->btm_adc_param);
-		if (ret < 0)
-			pr_err("Error disabling btm. ret = %d\n", ret);
-		bcl->btm_high_load = false;
+		switch (bcl->btm_mode) {
+		case BCL_IBAT_MONITOR_MODE:
+		case BCL_IBAT_HIGH_LOAD_MODE:
+			ret = ibat_disable();
+			if (!ret)
+				vph_disable();
+			break;
+		case BCL_VPH_MONITOR_MODE:
+			vph_disable();
+			break;
+		case BCL_MONITOR_DISABLED:
+		default:
+			break;
+		}
 	}
 	return 0;
 }
@@ -893,8 +1133,8 @@ static int bcl_resume(struct device *dev)
 
 	if (bcl->bcl_monitor_type == BCL_IBAT_MONITOR_TYPE &&
 		bcl->bcl_mode == BCL_DEVICE_ENABLED) {
-		bcl->btm_high_load = false;
-		bcl_config_btm(bcl, BCL_HIGH_THRESHOLD_TYPE);
+		bcl->btm_mode = BCL_VPH_MONITOR_MODE;
+		bcl_config_vph_adc(bcl, BCL_LOW_THRESHOLD_TYPE);
 	}
 	return 0;
 }
@@ -955,6 +1195,21 @@ static int probe_btm_properties(struct bcl_context *bcl)
 		goto btm_probe_exit;
 	bcl->btm_adc_interval = uSec_to_adc_time(bcl, adc_interval_us);
 
+	key = "vph-channel";
+	ret = of_property_read_u32(ibat_node, key, &bcl->btm_vph_chan);
+	if (ret < 0)
+		goto btm_probe_exit;
+
+	key = "vph-high-threshold-uv";
+	ret = of_property_read_u32(ibat_node, key, &bcl->btm_vph_high_thresh);
+	if (ret < 0)
+		goto btm_probe_exit;
+
+	key = "vph-low-threshold-uv";
+	ret = of_property_read_u32(ibat_node, key, &bcl->btm_vph_low_thresh);
+	if (ret < 0)
+		goto btm_probe_exit;
+
 	key = "ibat-threshold";
 	bcl->btm_adc_tm_dev = qpnp_get_adc_tm(bcl->dev, key);
 	if (IS_ERR(bcl->btm_adc_tm_dev)) {
@@ -969,10 +1224,15 @@ static int probe_btm_properties(struct bcl_context *bcl)
 		goto btm_probe_exit;
 	}
 
-	bcl->btm_high_load = false;
+	bcl->btm_mode = BCL_MONITOR_DISABLED;
 	bcl->bcl_monitor_type = BCL_IBAT_MONITOR_TYPE;
 	snprintf(bcl->bcl_type, BCL_NAME_LENGTH, "%s",
 			bcl_type[BCL_IBAT_MONITOR_TYPE]);
+	ret = cpufreq_register_notifier(&bcl_cpufreq_notifier,
+			CPUFREQ_POLICY_NOTIFIER);
+	if (ret)
+		pr_err("Error with cpufreq register. err:%d\n", ret);
+
 btm_probe_exit:
 	if (ret && ret != -EPROBE_DEFER)
 		dev_info(bcl->dev, "%s:%s Error reading key:%s. ret = %d\n",
