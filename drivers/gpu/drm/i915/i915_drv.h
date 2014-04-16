@@ -2232,6 +2232,8 @@ struct drm_i915_file_private {
 	struct bin_attribute *obj_attr;
 
 	struct drm_i915_perfmon_file perfmon;
+
+	u32 scheduler_queue_length;
 };
 
 /*

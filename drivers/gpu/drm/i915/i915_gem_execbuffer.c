@@ -1795,6 +1795,10 @@ i915_gem_execbuffer(struct drm_device *dev, void *data,
 		return -EINVAL;
 	}
 
+	/* Throttle batch requests per device file */
+	if (i915_scheduler_file_queue_is_full(file))
+		return -EAGAIN;
+
 	/* Copy in the exec list from userland */
 	exec_list = drm_malloc_ab(sizeof(*exec_list), args->buffer_count);
 	exec2_list = drm_malloc_ab(sizeof(*exec2_list), args->buffer_count);
@@ -1882,6 +1886,10 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 		DRM_DEBUG("dirty rvsd2 field\n");
 		return -EINVAL;
 	}
+
+	/* Throttle batch requests per device file */
+	if (i915_scheduler_file_queue_is_full(file))
+		return -EAGAIN;
 
 	exec2_list = kmalloc(sizeof(*exec2_list)*args->buffer_count,
 			     GFP_TEMPORARY | __GFP_NOWARN | __GFP_NORETRY);

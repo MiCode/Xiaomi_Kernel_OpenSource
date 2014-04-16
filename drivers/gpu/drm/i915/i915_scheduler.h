@@ -86,6 +86,7 @@ struct i915_scheduler {
 	uint32_t            priority_level_max;
 	uint32_t            priority_level_preempt;
 	uint32_t            min_flying;
+	uint32_t            file_queue_max;
 };
 
 /* Flag bits for i915_scheduler::flags */
@@ -114,5 +115,6 @@ int         i915_scheduler_flush_request(struct drm_i915_gem_request *req,
 					 bool is_locked);
 bool        i915_scheduler_is_request_tracked(struct drm_i915_gem_request *req,
 					      bool *completed, bool *busy);
+bool        i915_scheduler_file_queue_is_full(struct drm_file *file);
 
 #endif  /* _I915_SCHEDULER_H_ */
