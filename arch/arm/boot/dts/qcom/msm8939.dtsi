@@ -140,6 +140,7 @@
 #include "msm8939-ipcrouter.dtsi"
 #include "msm8939-ion.dtsi"
 #include "msm-gdsc-8916.dtsi"
+#include "msm8939-iommu.dtsi"
 
 &soc {
 	#address-cells = <1>;
