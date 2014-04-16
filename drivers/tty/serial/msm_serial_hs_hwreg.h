@@ -1,6 +1,6 @@
 /* drivers/serial/msm_serial_hs_hwreg.h
  *
- * Copyright (c) 2007-2009, 2012-2013,The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2009, 2012-2014,The Linux Foundation. All rights reserved.
  * 
  * All source code in this file is licensed under the following license
  * except where indicated.
@@ -61,28 +61,27 @@ enum msm_hsl_regs {
 };
 
 enum msm_hs_regs {
-	UART_DM_MR1,
-	UART_DM_MR2,
-	UART_DM_IMR,
-	UART_DM_SR,
-	UART_DM_CR,
-	UART_DM_CSR,
-	UART_DM_IPR,
-	UART_DM_ISR,
-	UART_DM_RX_TOTAL_SNAP,
-	UART_DM_RFWR,
-	UART_DM_TFWR,
-	UART_DM_RF,
-	UART_DM_TF,
-	UART_DM_MISR,
-	UART_DM_DMRX,
-	UART_DM_NCF_TX,
-	UART_DM_DMEN,
-	UART_DM_TXFS,
-	UART_DM_RXFS,
-	UART_DM_RX_TRANS_CTRL,
-	UART_DM_BCR,
-	UART_DM_LAST,
+	UART_DM_MR1 = 0x0,
+	UART_DM_MR2 = 0x4,
+	UART_DM_IMR = 0xb0,
+	UART_DM_SR = 0xa4,
+	UART_DM_CR = 0xa8,
+	UART_DM_CSR = 0xa0,
+	UART_DM_IPR = 0x18,
+	UART_DM_ISR = 0xb4,
+	UART_DM_RX_TOTAL_SNAP = 0xbc,
+	UART_DM_TFWR = 0x1c,
+	UART_DM_RFWR = 0x20,
+	UART_DM_RF = 0x140,
+	UART_DM_TF = 0x100,
+	UART_DM_MISR = 0xac,
+	UART_DM_DMRX = 0x34,
+	UART_DM_NCF_TX = 0x40,
+	UART_DM_DMEN = 0x3c,
+	UART_DM_TXFS = 0x4c,
+	UART_DM_RXFS = 0x50,
+	UART_DM_RX_TRANS_CTRL = 0xcc,
+	UART_DM_BCR = 0xc8,
 };
 
 #define UARTDM_MR1_ADDR 0x0
