@@ -98,15 +98,7 @@
 	status = "disabled";
 };
 
-&pm8916_vadc {
-	status = "disabled";
-};
-
 &pm8916_tz {
-	status = "disabled";
-};
-
-&pm8916_adc_tm {
 	status = "disabled";
 };
 
