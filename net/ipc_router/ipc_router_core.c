@@ -2018,12 +2018,21 @@ static int process_rmv_server_msg(struct msm_ipc_router_xprt_info *xprt_info,
 			union rr_control_msg *msg, struct rr_packet *pkt)
 {
 	struct msm_ipc_server *server;
+	struct msm_ipc_router_remote_port *rport_ptr;
 
 	RR("o REMOVE_SERVER service=%08x:%d\n",
 	    msg->srv.service, msg->srv.instance);
 	down_write(&server_list_lock_lha2);
 	server = msm_ipc_router_lookup_server(msg->srv.service,
 			msg->srv.instance, msg->srv.node_id, msg->srv.port_id);
+
+	down_write(&routing_table_lock_lha3);
+	rport_ptr = msm_ipc_router_lookup_remote_port(msg->srv.node_id,
+						      msg->srv.port_id);
+	if (rport_ptr && rport_ptr->server == server)
+		rport_ptr->server = NULL;
+	up_write(&routing_table_lock_lha3);
+
 	if (server) {
 		msm_ipc_router_destroy_server(server, msg->srv.node_id,
 					      msg->srv.port_id);
@@ -2045,12 +2054,17 @@ static int process_rmv_client_msg(struct msm_ipc_router_xprt_info *xprt_info,
 	struct msm_ipc_router_remote_port *rport_ptr;
 
 	RR("o REMOVE_CLIENT id=%d:%08x\n", msg->cli.node_id, msg->cli.port_id);
+	down_write(&server_list_lock_lha2);
 	down_write(&routing_table_lock_lha3);
 	rport_ptr = msm_ipc_router_lookup_remote_port(msg->cli.node_id,
 						      msg->cli.port_id);
-	if (rport_ptr)
+	if (rport_ptr) {
+		if (rport_ptr->server)
+			cleanup_rmt_server(NULL, rport_ptr);
 		msm_ipc_router_destroy_remote_port(rport_ptr);
+	}
 	up_write(&routing_table_lock_lha3);
+	up_write(&server_list_lock_lha2);
 
 	relay_ctl_msg(xprt_info, msg);
 	post_control_ports(pkt);
