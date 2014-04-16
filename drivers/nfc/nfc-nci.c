@@ -29,6 +29,9 @@
 #include "nfc-nci.h"
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
+#ifdef CONFIG_COMPAT
+#include <linux/compat.h>
+#endif
 
 struct qca199x_platform_data {
 	unsigned int irq_gpio;
@@ -818,12 +821,41 @@ int nfc_ioctl_kernel_logging(unsigned long arg,  struct file *filp)
 	return retval;
 }
 
-static long nfc_ioctl(struct file *pfile, unsigned int cmd, unsigned long arg)
+#ifdef CONFIG_COMPAT
+static long nfc_compat_ioctl(struct file *pfile, unsigned int cmd,
+				unsigned long arg)
+{
+	long r = 0;
+	arg = (compat_u64)arg;
+	switch (cmd) {
+	case NFC_SET_PWR:
+		nfc_ioctl_power_states(pfile, cmd, arg);
+		break;
+	case NFCC_MODE:
+		nfc_ioctl_nfcc_mode(pfile, cmd, arg);
+		break;
+	case NFCC_VERSION:
+		r = nfc_ioctl_nfcc_version(pfile, cmd, arg);
+		break;
+	case NFC_KERNEL_LOGGING_MODE:
+		nfc_ioctl_kernel_logging(arg, pfile);
+		break;
+	case SET_RX_BLOCK:
+		break;
+	case SET_EMULATOR_TEST_POINT:
+		break;
+	default:
+		r = -ENOTTY;
+	}
+	return r;
+}
+#endif
+
+static long nfc_ioctl(struct file *pfile, unsigned int cmd,
+			unsigned long arg)
 {
 	int r = 0;
-
 	switch (cmd) {
-
 	case NFC_SET_PWR:
 		nfc_ioctl_power_states(pfile, cmd, arg);
 		break;
@@ -853,7 +885,10 @@ static const struct file_operations nfc_dev_fops = {
 	.read  = nfc_read,
 	.write = nfc_write,
 	.open = nfc_open,
-	.unlocked_ioctl = nfc_ioctl
+	.unlocked_ioctl = nfc_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = nfc_compat_ioctl
+#endif
 };
 
 void dumpqca1990(struct i2c_client *client)
