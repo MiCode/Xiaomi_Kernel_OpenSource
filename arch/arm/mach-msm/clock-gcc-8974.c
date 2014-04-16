@@ -2358,7 +2358,7 @@ static struct mux_clk gcc_debug_mux = {
 	.c = {
 		.dbg_name = "gcc_debug_mux",
 		.ops = &clk_ops_debug_mux,
-		.flags = CLKFLAG_NO_RATE_CACHE,
+		.flags = CLKFLAG_NO_RATE_CACHE | CLKFLAG_MEASURE,
 		CLK_INIT(gcc_debug_mux.c),
 	},
 };
