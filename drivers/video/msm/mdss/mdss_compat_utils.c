@@ -111,7 +111,9 @@ static int mdss_fb_compat_buf_sync(struct fb_info *info, unsigned int cmd,
 	if (get_user(data, &buf_sync32->acq_fen_fd) ||
 	    put_user(compat_ptr(data), &buf_sync->acq_fen_fd) ||
 	    get_user(data, &buf_sync32->rel_fen_fd) ||
-	    put_user(compat_ptr(data), &buf_sync->rel_fen_fd))
+	    put_user(compat_ptr(data), &buf_sync->rel_fen_fd) ||
+	    get_user(data, &buf_sync32->retire_fen_fd) ||
+	    put_user(compat_ptr(data), &buf_sync->retire_fen_fd))
 		return -EFAULT;
 
 	ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) buf_sync);
