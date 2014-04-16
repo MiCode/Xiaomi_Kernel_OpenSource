@@ -838,9 +838,9 @@ void validate_output_buffers(struct msm_vidc_inst *inst)
 			return;
 		}
 		if (binfo->buffer_ownership != DRIVER) {
-			dprintk(VIDC_ERR,
-					"Failed : This buffer is with FW 0x%pa\n",
-					&binfo->handle->device_addr);
+			dprintk(VIDC_DBG,
+				"This buffer is with FW 0x%pa\n",
+				&binfo->handle->device_addr);
 			return;
 		}
 		buffers_owned_by_driver++;
@@ -853,16 +853,73 @@ void validate_output_buffers(struct msm_vidc_inst *inst)
 
 	return;
 }
+
+int msm_comm_queue_output_buffers(struct msm_vidc_inst *inst)
+{
+	struct internal_buf *binfo;
+	struct hfi_device *hdev;
+	struct msm_smem *handle;
+	struct vidc_frame_data frame_data = {0};
+	struct hal_buffer_requirements *output_buf;
+	int rc = 0;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	hdev = inst->core->device;
+
+	output_buf = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
+	if (!output_buf) {
+		dprintk(VIDC_DBG,
+			"This output buffer not required, buffer_type: %x\n",
+			HAL_BUFFER_OUTPUT);
+		return 0;
+	}
+	dprintk(VIDC_DBG,
+		"output: num = %d, size = %d\n",
+		output_buf->buffer_count_actual,
+		output_buf->buffer_size);
+
+	list_for_each_entry(binfo, &inst->outputbufs, list) {
+		if (binfo->buffer_ownership != DRIVER)
+			continue;
+		handle = binfo->handle;
+		frame_data.alloc_len = output_buf->buffer_size;
+		frame_data.filled_len = 0;
+		frame_data.offset = 0;
+		frame_data.device_addr = handle->device_addr;
+		frame_data.flags = 0;
+		frame_data.extradata_addr = handle->device_addr +
+		output_buf->buffer_size;
+		frame_data.buffer_type = HAL_BUFFER_OUTPUT;
+		rc = call_hfi_op(hdev, session_ftb,
+			(void *) inst->session, &frame_data);
+		binfo->buffer_ownership = FIRMWARE;
+	}
+	return 0;
+}
+
 static void handle_session_flush(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
+	int rc;
 	if (response) {
 		inst = (struct msm_vidc_inst *)response->session_id;
 		if (msm_comm_get_stream_output_mode(inst) ==
 			HAL_VIDEO_DECODER_SECONDARY) {
 			mutex_lock(&inst->lock);
 			validate_output_buffers(inst);
+			if (!inst->in_reconfig) {
+				rc = msm_comm_queue_output_buffers(inst);
+				if (rc) {
+					dprintk(VIDC_ERR,
+						"Failed to queue output buffers: %d\n",
+						rc);
+				}
+			}
 			mutex_unlock(&inst->lock);
 		}
 		msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_FLUSH_DONE);
