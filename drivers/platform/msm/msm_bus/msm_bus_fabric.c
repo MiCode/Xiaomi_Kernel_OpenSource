@@ -22,31 +22,9 @@
 #include "msm_bus_core.h"
 
 enum {
-	SLAVE_NODE,
-	MASTER_NODE,
-	CLK_NODE,
-};
-
-enum {
 	DISABLE,
 	ENABLE,
 };
-
-struct msm_bus_fabric {
-	struct msm_bus_fabric_device fabdev;
-	int ahb;
-	void *cdata[NUM_CTX];
-	bool arb_dirty;
-	bool clk_dirty;
-	struct radix_tree_root fab_tree;
-	int num_nodes;
-	struct list_head gateways;
-	struct msm_bus_inode_info info;
-	struct msm_bus_fabric_registration *pdata;
-	void *hw_data;
-};
-#define to_msm_bus_fabric(d) container_of(d, \
-	struct msm_bus_fabric, d)
 
 /**
  * msm_bus_fabric_add_node() - Add a node to the fabric structure
@@ -81,6 +59,21 @@ static int msm_bus_fabric_add_node(struct msm_bus_fabric *fabric,
 		info->nodeclk[ctx].dirty = false;
 	}
 
+	if (info->node_info->nr_lim) {
+		int iid = msm_bus_board_get_iid(info->node_info->id);
+		struct msm_bus_fabric_device *fabdev =
+			msm_bus_get_fabric_device(GET_FABID(iid));
+
+		if (!fabdev)
+			BUG_ON(1);
+
+		radix_tree_tag_set(&fabric->fab_tree,
+			info->node_info->priv_id, MASTER_NODE);
+
+		fabdev->num_nr_lim++;
+		MSM_BUS_ERR("%s: Adding %d There are %d nodes", __func__,
+				info->node_info->id, fabdev->num_nr_lim);
+	}
 out:
 	return status;
 }
@@ -512,6 +505,50 @@ out:
 	return status;
 }
 
+static void msm_bus_fabric_config_limiter(
+	struct msm_bus_fabric_device *fabdev,
+	struct msm_bus_inode_info *info)
+{
+	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
+	long rounded_rate, cur_rate;
+
+	if (fabdev->hw_algo.config_limiter == NULL)
+		return;
+
+	/* Enable clocks before accessing QoS registers */
+	if (fabric->info.nodeclk[DUAL_CTX].clk) {
+		if (fabric->info.nodeclk[DUAL_CTX].rate == 0) {
+			cur_rate = clk_get_rate(
+					fabric->info.nodeclk[DUAL_CTX].clk);
+			rounded_rate = clk_round_rate(
+					fabric->info.nodeclk[DUAL_CTX].clk,
+					cur_rate ? cur_rate : 1);
+		if (clk_set_rate(fabric->info.nodeclk[DUAL_CTX].clk,
+				rounded_rate))
+			MSM_BUS_ERR("Error: clk: en: Node: %d rate: %ld",
+				fabric->fabdev.id, rounded_rate);
+
+		clk_prepare_enable(fabric->info.nodeclk[DUAL_CTX].clk);
+		}
+	}
+
+	if (info->iface_clk.clk)
+		clk_prepare_enable(info->iface_clk.clk);
+
+	fabdev->hw_algo.config_limiter(fabric->pdata, info);
+
+	/* Disable clocks after accessing QoS registers */
+	if (fabric->info.nodeclk[DUAL_CTX].clk &&
+			fabric->info.nodeclk[DUAL_CTX].rate == 0)
+		clk_disable_unprepare(fabric->info.nodeclk[DUAL_CTX].clk);
+
+	if (info->iface_clk.clk) {
+		MSM_BUS_DBG("Commented: Will disable clock for info: %d\n",
+			info->node_info->priv_id);
+		clk_disable_unprepare(info->iface_clk.clk);
+	}
+}
+
 static void msm_bus_fabric_config_master(
 	struct msm_bus_fabric_device *fabdev,
 	struct msm_bus_inode_info *info, uint64_t req_clk, uint64_t req_bw)
@@ -712,6 +749,7 @@ static struct msm_bus_fab_algorithm msm_bus_algo = {
 	.find_gw_node = msm_bus_fabric_find_gw_node,
 	.get_gw_list = msm_bus_fabric_get_gw_list,
 	.config_master = msm_bus_fabric_config_master,
+	.config_limiter = msm_bus_fabric_config_limiter,
 };
 
 static int msm_bus_fabric_hw_init(struct msm_bus_fabric_registration *pdata,
@@ -787,6 +825,8 @@ static int msm_bus_fabric_probe(struct platform_device *pdev)
 	}
 
 	fabric->fabdev.name = pdata->name;
+	fabric->fabdev.nr_lim_thresh = pdata->nr_lim_thresh;
+	fabric->fabdev.eff_fact = pdata->eff_fact;
 	fabric->fabdev.algo = &msm_bus_algo;
 	fabric->info.node_info->priv_id = fabric->fabdev.id;
 	fabric->info.node_info->id = fabric->fabdev.id;

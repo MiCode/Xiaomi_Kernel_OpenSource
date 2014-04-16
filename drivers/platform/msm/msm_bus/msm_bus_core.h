@@ -59,6 +59,14 @@ struct msm_bus_arb_ops {
 	void (*unregister_client)(uint32_t cl);
 };
 
+enum {
+	SLAVE_NODE,
+	MASTER_NODE,
+	CLK_NODE,
+	NR_LIM_NODE,
+};
+
+
 extern struct bus_type msm_bus_type;
 extern struct msm_bus_arb_ops arb_ops;
 extern void msm_bus_arb_setops_legacy(struct msm_bus_arb_ops *arb_ops);
@@ -96,8 +104,12 @@ struct msm_bus_node_info {
 	unsigned int mode_thresh;
 	bool dual_conf;
 	u64 *bimc_bw;
+	bool nr_lim;
+	u32 ff;
+	bool rt_mas;
 	u32 bimc_gp;
 	u32 bimc_thmp;
+	u64 floor_bw;
 	const char *name;
 };
 
@@ -130,6 +142,8 @@ struct msm_bus_inode_info {
 	struct msm_bus_node_info *node_info;
 	uint64_t max_bw;
 	uint64_t max_clk;
+	uint64_t cur_lim_bw;
+	uint64_t cur_prg_bw;
 	struct msm_bus_link_info link_info;
 	int num_pnodes;
 	struct path_node *pnode;
@@ -167,6 +181,8 @@ struct msm_bus_hw_algorithm {
 	void (*config_master)(struct msm_bus_fabric_registration *fab_pdata,
 		struct msm_bus_inode_info *info,
 		uint64_t req_clk, uint64_t req_bw);
+	void (*config_limiter)(struct msm_bus_fabric_registration *fab_pdata,
+		struct msm_bus_inode_info *info);
 };
 
 struct msm_bus_fabric_device {
@@ -177,9 +193,28 @@ struct msm_bus_fabric_device {
 	const struct msm_bus_board_algorithm *board_algo;
 	struct msm_bus_hw_algorithm hw_algo;
 	int visited;
+	int num_nr_lim;
+	u64 nr_lim_thresh;
+	u32 eff_fact;
 };
 #define to_msm_bus_fabric_device(d) container_of(d, \
 		struct msm_bus_fabric_device, d)
+
+struct msm_bus_fabric {
+	struct msm_bus_fabric_device fabdev;
+	int ahb;
+	void *cdata[NUM_CTX];
+	bool arb_dirty;
+	bool clk_dirty;
+	struct radix_tree_root fab_tree;
+	int num_nodes;
+	struct list_head gateways;
+	struct msm_bus_inode_info info;
+	struct msm_bus_fabric_registration *pdata;
+	void *hw_data;
+};
+#define to_msm_bus_fabric(d) container_of(d, \
+	struct msm_bus_fabric, d)
 
 
 struct msm_bus_fab_algorithm {
@@ -202,6 +237,8 @@ struct msm_bus_fab_algorithm {
 	void (*config_master)(struct msm_bus_fabric_device *fabdev,
 		struct msm_bus_inode_info *info, uint64_t req_clk,
 		uint64_t req_bw);
+	void (*config_limiter)(struct msm_bus_fabric_device *fabdev,
+		struct msm_bus_inode_info *info);
 };
 
 struct msm_bus_board_algorithm {
