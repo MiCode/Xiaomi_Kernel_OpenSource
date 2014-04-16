@@ -1116,6 +1116,8 @@ phcd_retry:
 
 		if (motg->pdata->pmic_id_irq)
 			enable_irq_wake(motg->pdata->pmic_id_irq);
+		if (motg->ext_id_irq)
+			enable_irq_wake(motg->ext_id_irq);
 		if (pdata->otg_control == OTG_PHY_CONTROL &&
 			pdata->mpm_otgsessvld_int)
 			msm_mpm_set_pin_wake(pdata->mpm_otgsessvld_int, 1);
@@ -1299,6 +1301,8 @@ skip_phy_resume:
 
 		if (motg->pdata->pmic_id_irq)
 			disable_irq_wake(motg->pdata->pmic_id_irq);
+		if (motg->ext_id_irq)
+			disable_irq_wake(motg->ext_id_irq);
 		if (pdata->otg_control == OTG_PHY_CONTROL &&
 			pdata->mpm_otgsessvld_int)
 			msm_mpm_set_pin_wake(pdata->mpm_otgsessvld_int, 0);
