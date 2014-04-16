@@ -1475,18 +1475,22 @@ int adm_open(int port_id, int path, int rate, int channel_mode,
 		rtac_set_adm_handle(this_adm.apr);
 	}
 
-	if (perf_mode == ULTRA_LOW_LATENCY_PCM_MODE)
+	if (perf_mode == ULTRA_LOW_LATENCY_PCM_MODE) {
 		flags = ADM_ULTRA_LOW_LATENCY_DEVICE_SESSION;
-	else if (perf_mode == LOW_LATENCY_PCM_MODE)
+		topology = NULL_COPP_TOPOLOGY;
+		rate = ULL_SUPPORTED_SAMPLE_RATE;
+	} else if (perf_mode == LOW_LATENCY_PCM_MODE) {
 		flags = ADM_LOW_LATENCY_DEVICE_SESSION;
-	else
+		if ((topology == DOLBY_ADM_COPP_TOPOLOGY_ID) ||
+		    (topology == SRS_TRUMEDIA_TOPOLOGY_ID))
+			topology = DEFAULT_COPP_TOPOLOGY;
+	} else
 		flags = ADM_LEGACY_DEVICE_SESSION;
 
 	if ((topology == VPM_TX_SM_ECNS_COPP_TOPOLOGY) ||
-	    (topology == VPM_TX_DM_FLUENCE_COPP_TOPOLOGY))
+	    (topology == VPM_TX_DM_FLUENCE_COPP_TOPOLOGY) ||
+	    (topology == VPM_TX_DM_RFECNS_COPP_TOPOLOGY))
 		rate = 16000;
-	if (perf_mode == ULTRA_LOW_LATENCY_PCM_MODE)
-		rate = ULL_SUPPORTED_SAMPLE_RATE;
 
 	copp_idx = adm_get_idx_if_copp_exists(port_idx, topology, perf_mode,
 						rate, bit_width, app_type);
@@ -1538,16 +1542,6 @@ int adm_open(int port_id, int path, int rate, int channel_mode,
 		}
 
 		open.topology_id = topology;
-		if ((open.topology_id == VPM_TX_SM_ECNS_COPP_TOPOLOGY) ||
-			(open.topology_id == VPM_TX_DM_FLUENCE_COPP_TOPOLOGY) ||
-			(open.topology_id == VPM_TX_DM_RFECNS_COPP_TOPOLOGY))
-				rate = 16000;
-
-		if (perf_mode == ULTRA_LOW_LATENCY_PCM_MODE) {
-			open.topology_id = NULL_COPP_TOPOLOGY;
-			rate = ULL_SUPPORTED_SAMPLE_RATE;
-		}
-
 		open.dev_num_channel = channel_mode & 0x00FF;
 		open.bit_width = bit_width;
 		WARN_ON((perf_mode == ULTRA_LOW_LATENCY_PCM_MODE) &&
