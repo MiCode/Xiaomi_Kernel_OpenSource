@@ -1726,6 +1726,46 @@ static int  mdss_mdp_parse_dt_pipe_clk_ctrl(struct platform_device *pdev,
 	return rc;
 }
 
+static void mdss_mdp_parse_dt_pipe_panic_ctrl(struct platform_device *pdev,
+	char *prop_name, struct mdss_mdp_pipe *pipe_list, u32 npipes)
+{
+	int rc = 0;
+	int i, j;
+	size_t len;
+	const u32 *arr;
+	struct mdss_mdp_pipe *pipe = NULL;
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+
+	arr = of_get_property(pdev->dev.of_node, prop_name, (int *) &len);
+	if (arr) {
+		len /= sizeof(u32);
+		for (i = 0, j = 0; i < len; j++) {
+			if (j >= npipes) {
+				pr_err("invalid panic ctrl enries for prop: %s\n",
+					prop_name);
+				goto error;
+			}
+
+			pipe = &pipe_list[j];
+			pipe->panic_ctrl_ndx = be32_to_cpu(arr[i++]);
+		}
+		if (j != npipes) {
+			pr_err("%s: %d entries found. required %d\n",
+				prop_name, j, npipes);
+			rc = -EINVAL;
+			goto error;
+		}
+	} else {
+		pr_debug("panic ctrl enabled but property '%s' not found\n",
+								prop_name);
+		rc = -EINVAL;
+	}
+
+error:
+	if (rc)
+		mdata->has_panic_ctrl = false;
+}
+
 static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 {
 	u32 npipes, dma_off;
@@ -1952,6 +1992,20 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 		mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
 			"qcom,mdss-pipe-dma-sw-reset-map", mdata->dma_pipes,
 			mdata->ndma_pipes);
+	}
+
+	mdata->has_panic_ctrl = of_property_read_bool(pdev->dev.of_node,
+		"qcom,mdss-has-panic-ctrl");
+	if (mdata->has_panic_ctrl) {
+		mdss_mdp_parse_dt_pipe_panic_ctrl(pdev,
+			"qcom,mdss-pipe-vig-panic-ctrl-offsets",
+				mdata->vig_pipes, mdata->nvig_pipes);
+		mdss_mdp_parse_dt_pipe_panic_ctrl(pdev,
+			"qcom,mdss-pipe-rgb-panic-ctrl-offsets",
+				mdata->rgb_pipes, mdata->nrgb_pipes);
+		mdss_mdp_parse_dt_pipe_panic_ctrl(pdev,
+			"qcom,mdss-pipe-dma-panic-ctrl-offsets",
+				mdata->dma_pipes, mdata->ndma_pipes);
 	}
 
 	goto parse_done;

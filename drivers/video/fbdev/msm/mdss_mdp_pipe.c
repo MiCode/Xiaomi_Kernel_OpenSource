@@ -53,6 +53,27 @@ static inline u32 mdss_mdp_pipe_read(struct mdss_mdp_pipe *pipe, u32 reg)
 	return readl_relaxed(pipe->base + reg);
 }
 
+int mdss_mdp_pipe_panic_signal_ctrl(struct mdss_mdp_pipe *pipe, bool enable)
+{
+	uint32_t panic_robust_ctrl;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (!mdata->has_panic_ctrl)
+		goto end;
+
+	panic_robust_ctrl = readl_relaxed(mdata->mdp_base +
+			MMSS_MDP_PANIC_ROBUST_CTRL);
+	if (enable)
+		panic_robust_ctrl |= BIT(pipe->panic_ctrl_ndx);
+	else
+		panic_robust_ctrl &= ~BIT(pipe->panic_ctrl_ndx);
+	writel_relaxed(panic_robust_ctrl,
+				mdata->mdp_base + MMSS_MDP_PANIC_ROBUST_CTRL);
+
+end:
+	return 0;
+}
+
 static u32 mdss_mdp_smp_mmb_reserve(struct mdss_mdp_pipe_smp_map *smp_map,
 	size_t n)
 {
@@ -609,6 +630,9 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 		return NULL;
 	}
 
+	if (pipe && mdss_mdp_pipe_panic_signal_ctrl(pipe, false))
+		return NULL;
+
 	if (pipe && mdss_mdp_pipe_is_sw_reset_available(mdata)) {
 		force_off_mask =
 			BIT(pipe->clk_ctrl.bit_off + CLK_FORCE_OFF_OFFSET);
@@ -759,15 +783,17 @@ static void mdss_mdp_pipe_free(struct kref *kref)
 
 	pr_debug("ndx=%x pnum=%d\n", pipe->ndx, pipe->num);
 
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	mdss_mdp_pipe_panic_signal_ctrl(pipe, false);
+
 	if (pipe->play_cnt) {
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 		mdss_mdp_pipe_fetch_halt(pipe);
 		mdss_mdp_pipe_sspp_term(pipe);
 		mdss_mdp_smp_free(pipe);
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	} else {
 		mdss_mdp_smp_unreserve(pipe);
 	}
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 
 	pipe->flags = 0;
 	pipe->is_right_blend = false;
@@ -1380,6 +1406,9 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 		if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG)
 			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_VIG_OP_MODE,
 			opmode);
+
+		if (mdss_mdp_panic_signal_supported(mdata, pipe))
+			mdss_mdp_pipe_panic_signal_ctrl(pipe, true);
 	}
 
 	if ((pipe->flags & MDP_VPU_PIPE) && (src_data == NULL ||
