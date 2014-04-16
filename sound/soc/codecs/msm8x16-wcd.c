@@ -3134,69 +3134,9 @@ static void msm8x16_wcd_disable_supplies(struct msm8x16_wcd *msm8x16,
 	kfree(msm8x16->supplies);
 }
 
-static int msm8x16_wcd_clk_init(void)
-{
-	void __iomem *vaddr = NULL;
-
-	/* Div-2 */
-	vaddr = ioremap(MSM8X16_TOMBAK_LPASS_DIGCODEC_CFG_RCGR, 4);
-	if (vaddr == NULL) {
-		pr_err("%s: ioremap failed for %x\n",
-			__func__, MSM8X16_TOMBAK_LPASS_DIGCODEC_CFG_RCGR);
-		return -ENOMEM;
-	}
-	iowrite32(0x3, vaddr);
-	iounmap(vaddr);
-	vaddr = ioremap(MSM8X16_TOMBAK_LPASS_DIGCODEC_M, 4);
-	if (vaddr == NULL) {
-		pr_err("%s: ioremap failed for %x\n",
-			__func__, MSM8X16_TOMBAK_LPASS_DIGCODEC_M);
-		return -ENOMEM;
-	}
-	iowrite32(0x0, vaddr);
-	iounmap(vaddr);
-	vaddr = ioremap(MSM8X16_TOMBAK_LPASS_DIGCODEC_N, 4);
-	if (vaddr == NULL) {
-		pr_err("%s: ioremap failed for %x\n",
-			__func__, MSM8X16_TOMBAK_LPASS_DIGCODEC_N);
-		return -ENOMEM;
-	}
-	iowrite32(0x0, vaddr);
-	iounmap(vaddr);
-	vaddr = ioremap(MSM8X16_TOMBAK_LPASS_DIGCODEC_D, 4);
-	if (vaddr == NULL) {
-		pr_err("%s: ioremap failed for %x\n",
-			__func__, MSM8X16_TOMBAK_LPASS_DIGCODEC_D);
-		return -ENOMEM;
-	}
-	iowrite32(0x0, vaddr);
-	iounmap(vaddr);
-	/* Digital codec clock enable */
-	vaddr = ioremap(MSM8X16_TOMBAK_LPASS_DIGCODEC_CBCR, 4);
-	if (vaddr == NULL) {
-		pr_err("%s: ioremap failed for %x\n",
-			__func__, MSM8X16_TOMBAK_LPASS_DIGCODEC_CBCR);
-		return -ENOMEM;
-	}
-	iowrite32(0x1, vaddr);
-	iounmap(vaddr);
-	/* Set the update bit to make the settings go through */
-	vaddr = ioremap(MSM8X16_TOMBAK_LPASS_DIGCODEC_CMD_RCGR, 4);
-	if (vaddr == NULL) {
-		pr_err("%s: ioremap failed for %x\n",
-			__func__, MSM8X16_TOMBAK_LPASS_DIGCODEC_CMD_RCGR);
-		return -ENOMEM;
-	}
-	iowrite32(0x1, vaddr);
-	iounmap(vaddr);
-	usleep_range(100, 200);
-	return 0;
-}
-
 static int msm8x16_wcd_device_init(struct msm8x16_wcd *msm8x16)
 {
 	mutex_init(&msm8x16->io_lock);
-	msm8x16_wcd_clk_init();
 	return 0;
 }
 
