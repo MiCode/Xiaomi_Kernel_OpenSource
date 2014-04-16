@@ -1026,8 +1026,6 @@ static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 	unsigned long last_change_sec;
 	bool charging;
 
-	mutex_lock(&chip->last_soc_mutex);
-
 	soc = chip->calculated_soc;
 
 	last_change_sec = chip->last_soc_change_sec;
@@ -1127,8 +1125,6 @@ static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 
 	pr_debug("Reported SOC=%d\n", chip->last_soc);
 
-	mutex_unlock(&chip->last_soc_mutex);
-
 	return chip->last_soc;
 }
 
@@ -1136,10 +1132,14 @@ static int report_state_of_charge(struct qpnp_bms_chip *chip)
 {
 	int soc;
 
+	mutex_lock(&chip->last_soc_mutex);
+
 	if (chip->dt.cfg_use_voltage_soc)
 		soc = report_voltage_based_soc(chip);
 	else
 		soc = report_vm_bms_soc(chip);
+
+	mutex_unlock(&chip->last_soc_mutex);
 
 	return soc;
 }
@@ -1286,6 +1286,8 @@ static void monitor_soc_work(struct work_struct *work)
 
 	calculate_delta_time(&chip->tm_sec, &chip->delta_time_s);
 
+	mutex_lock(&chip->last_soc_mutex);
+
 	pr_debug("elapsed_time=%d\n", chip->delta_time_s);
 	if (chip->delta_time_s * 1000 >
 		chip->dt.cfg_calculate_soc_ms * SLEEP_RECALC_INTERVAL) {
@@ -1297,11 +1299,9 @@ static void monitor_soc_work(struct work_struct *work)
 	if (!is_battery_present(chip)) {
 		/* if battery is not preset report 100% SOC */
 		pr_debug("battery gone, reporting 100\n");
-		mutex_lock(&chip->last_soc_mutex);
 		chip->last_soc_invalid = true;
 		chip->last_soc = -EINVAL;
 		new_soc = 100;
-		mutex_unlock(&chip->last_soc_mutex);
 	} else {
 		rc = get_battery_voltage(chip, &vbat_uv);
 		if (rc < 0) {
@@ -1321,7 +1321,6 @@ static void monitor_soc_work(struct work_struct *work)
 				batt_temp = BMS_DEFAULT_TEMP;
 			}
 
-			mutex_lock(&chip->last_soc_mutex);
 			if (chip->last_soc_invalid) {
 				chip->last_soc_invalid = false;
 				chip->last_soc = -EINVAL;
@@ -1332,7 +1331,6 @@ static void monitor_soc_work(struct work_struct *work)
 				pr_debug("SOC changed! new_soc=%d prev_soc=%d\n",
 						new_soc, chip->calculated_soc);
 				chip->calculated_soc = new_soc;
-				mutex_unlock(&chip->last_soc_mutex);
 
 				if (chip->calculated_soc == 100)
 					/* update last_soc immediately */
@@ -1342,11 +1340,12 @@ static void monitor_soc_work(struct work_struct *work)
 				pr_debug("update bms_psy\n");
 				power_supply_changed(&chip->bms_psy);
 			} else {
-				mutex_unlock(&chip->last_soc_mutex);
 				report_vm_bms_soc(chip);
 			}
 		}
 	}
+
+	mutex_unlock(&chip->last_soc_mutex);
 
 	schedule_delayed_work(&chip->monitor_soc_work,
 			msecs_to_jiffies(get_calculation_delay_ms(chip)));
