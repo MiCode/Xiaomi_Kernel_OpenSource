@@ -67,7 +67,7 @@
 			pinctrl-0 = <&nfc_int_active &nfc_disable_active>;
 			pinctrl-1 = <&nfc_int_suspend &nfc_disable_suspend>;
 			qcom,clk-gpio = <&pm8916_gpios 2 0>;
-			clocks = <&clock_rpm clk_bb_clk2>;
+			clocks = <&clock_rpm clk_bb_clk2_pin>;
 			clock-names = "ref_clk";
 		};
 	};
