@@ -1478,7 +1478,7 @@ unsigned int a3xx_irq_pending(struct adreno_device *adreno_dev)
 
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS, &status);
 
-	return (status & A3XX_INT_MASK) ? 1 : 0;
+	return (status & adreno_dev->gpudev->irq->mask) ? 1 : 0;
 }
 
 static unsigned int counter_delta(struct adreno_device *adreno_dev,
