@@ -140,6 +140,7 @@ config ARCH_MSM8916
 	select ARM_HAS_SG_CHAIN
 	select MSM_RPM_STATS_LOG
 	select MSM_RPM_LOG
+	select MSM_JTAGV8 if CORESIGHT_ETMV4
 
 config ARCH_FSM9900
 	bool "FSM9900"
