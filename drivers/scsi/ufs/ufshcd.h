@@ -129,6 +129,25 @@ enum uic_link_state {
 #define ufshcd_set_link_hibern8(hba) ((hba)->uic_link_state = \
 				    UIC_LINK_HIBERN8_STATE)
 
+enum {
+	/* errors which require the host controller reset for recovery */
+	UFS_ERR_HIBERN8_EXIT,
+	UFS_ERR_VOPS_SUSPEND,
+	UFS_ERR_EH,
+	UFS_ERR_CLEAR_PEND_XFER_TM,
+	UFS_ERR_INT_FATAL_ERRORS,
+	UFS_ERR_INT_UIC_ERROR,
+
+	/* other errors */
+	UFS_ERR_HIBERN8_ENTER,
+	UFS_ERR_RESUME,
+	UFS_ERR_SUSPEND,
+	UFS_ERR_LINKSTARTUP,
+	UFS_ERR_POWER_MODE_CHANGE,
+	UFS_ERR_TASK_ABORT,
+	UFS_ERR_MAX,
+};
+
 /*
  * UFS Power management levels.
  * Each level is in increasing order of power savings.
@@ -212,11 +231,13 @@ struct ufs_stats {
 	bool enabled;
 	u64 **tag_stats;
 	int q_depth;
+	int err_stats[UFS_ERR_MAX];
 };
 
 struct debugfs_files {
 	struct dentry *debugfs_root;
 	struct dentry *tag_stats;
+	struct dentry *err_stats;
 	struct dentry *show_hba;
 	struct dentry *host_regs;
 	struct dentry *dump_dev_desc;
