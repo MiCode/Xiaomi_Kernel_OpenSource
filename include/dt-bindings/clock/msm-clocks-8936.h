@@ -33,7 +33,9 @@
 #define clk_gpll4_out_main                      0xdca8db2a
 #define clk_gpll6				0xa8c1bffa
 #define clk_gpll6_out_main			0x27b8b7be
-#define clk_a53sspll				0xf761da94
+#define clk_a53ss_c0_pll			0xf761da94
+#define clk_a53ss_c1_pll			0xfbc57bbd
+#define clk_a53ss_cci_pll			0x17d32f1e
 #define clk_apss_ahb_clk_src			0x36f8495f
 #define clk_blsp1_qup1_i2c_apps_clk_src		0x17f78f5e
 #define clk_blsp1_qup1_spi_apps_clk_src		0xf534c4fa

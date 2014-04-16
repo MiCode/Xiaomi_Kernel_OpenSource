@@ -19,7 +19,8 @@ Required properties:
 - reg-names:		Names of the bases for the above registers. Currently,
 			there is one expected base: "cc_base". Optional
 			reg-names are "apcs_base", "meas", "mmss_base",
-			"lpass_base".
+			"lpass_base", "apcs_c0_base", "apcs_c1_base",
+			"apcs_cci_base".
 
 Optional properties:
 - vdd_dig-supply:	The digital logic rail supply.
