@@ -34,6 +34,11 @@ qcom,ahb:		A boolean flag indicating whether the bus is ahb type.
 qcom,virt:		A boolean property indicating this is a virtual bus.
 reg:			Register space of the bus device. Not required in case
 			the bus is virtual.
+qom,nr-lim-thresh	The threshold below which to apply throttling of non
+			real time masters.
+qcom,eff-fact		The DDR effeciency factor to be assumed. This only
+			comes into play for buses that connect to the DDR.
+
 
 The following properties are optional as collecting data via coresight might
 not be supported for every bus. The documentation for coresight properties
@@ -121,7 +126,15 @@ qcom,thresh:		Beyond this threshold frequency, the mode usage is
 			making the decision to switch QoS modes and applying the
 			corresponding qcom,bimc,bw limitig bw as needed.
 			This is specified in KBytes/s.
-
+qcom,rt-mas:		Indicates if a master node is a realtime master with
+			hard deadlines.
+qcom,nr-lim:		Indicates that this is non-real time master which can
+			be throttled in case of concurrent scenarios.
+qcom,floor-bw:		Represents the floor bandwidth below which this master
+			cannot be throttled. This floor bandwidth is specified in
+			KBytes/s.
+qcom,ff:		The fudge factor used by clients when voting for
+			bandwidth from the node.
 
 
 
