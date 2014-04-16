@@ -78,6 +78,7 @@
 #define VREF_BAT_THM_ENABLED_FSM		BIT(7)
 #define BAT_IF_BPD_CTRL_REG			0x48
 #define BATT_BPD_CTRL_SEL_MASK			LBC_MASK(1, 0)
+#define BATT_BPD_OFFMODE_EN			BIT(3)
 #define BATT_THM_EN				BIT(1)
 #define BATT_ID_EN				BIT(0)
 #define BAT_IF_BTC_CTRL				0x49
@@ -256,6 +257,7 @@ struct qpnp_lbc_chip {
 	bool				cfg_btc_disabled;
 	bool				cfg_use_fake_battery;
 	bool				fastchg_on;
+	bool				cfg_use_external_charger;
 	unsigned int			cfg_warm_bat_chg_ma;
 	unsigned int			cfg_cool_bat_chg_ma;
 	unsigned int			cfg_safe_voltage_mv;
@@ -1578,6 +1580,9 @@ static int qpnp_charger_read_dt_props(struct qpnp_lbc_chip *chip)
 	if (chip->cfg_use_fake_battery)
 		chip->cfg_charging_disabled = true;
 
+	chip->cfg_use_external_charger = of_property_read_bool(
+			chip->spmi->dev.of_node, "qcom,use-external-charger");
+
 	if (of_find_property(chip->spmi->dev.of_node,
 					"qcom,thermal-mitigation",
 					&chip->cfg_thermal_levels)) {
@@ -1808,6 +1813,24 @@ static irqreturn_t qpnp_lbc_usb_overtemp_irq_handler(int irq, void *_chip)
 	return IRQ_HANDLED;
 }
 
+static int qpnp_disable_lbc_charger(struct qpnp_lbc_chip *chip)
+{
+	int rc;
+	u8 reg;
+
+	reg = CHG_FORCE_BATT_ON;
+	rc = qpnp_lbc_masked_write(chip, chip->chgr_base + CHG_CTRL_REG,
+							CHG_EN_MASK, reg);
+	/* disable BTC */
+	rc |= qpnp_lbc_masked_write(chip, chip->bat_if_base + BAT_IF_BTC_CTRL,
+							BTC_COMP_EN_MASK, 0);
+	/* Enable BID and disable THM based BPD */
+	reg = BATT_ID_EN | BATT_BPD_OFFMODE_EN;
+	rc |= qpnp_lbc_write(chip, chip->bat_if_base + BAT_IF_BPD_CTRL_REG,
+								&reg, 1);
+	return rc;
+}
+
 #define SPMI_REQUEST_IRQ(chip, idx, rc, irq_name, threaded, flags, wake)\
 do {									\
 	if (rc)								\
@@ -1929,7 +1952,7 @@ static void determine_initial_status(struct qpnp_lbc_chip *chip)
 
 static int qpnp_lbc_probe(struct spmi_device *spmi)
 {
-	u8 subtype, reg_val;
+	u8 subtype;
 	struct qpnp_lbc_chip *chip;
 	struct resource *resource;
 	struct spmi_resource *spmi_resource;
@@ -1992,27 +2015,7 @@ static int qpnp_lbc_probe(struct spmi_device *spmi)
 		switch (subtype) {
 		case LBC_CHGR_SUBTYPE:
 			chip->chgr_base = resource->start;
-			/* Check option pin */
-			rc = qpnp_lbc_read(chip,
-					chip->chgr_base + CHG_OPTION_REG,
-					&reg_val, 1);
-			if (rc) {
-				pr_err("CHG_OPTION read failed rc=%d\n", rc);
-				goto fail_chg_enable;
-			}
 
-			if (!(CHG_OPTION_MASK & reg_val)) {
-				pr_info("External charger used disable LBC\n");
-				rc = qpnp_lbc_masked_write(chip,
-						chip->chgr_base + CHG_CTRL_REG,
-						CHG_EN_MASK, 0);
-				if (rc)
-					pr_err("Failed to disable LBC rc=%d\n",
-							rc);
-				else
-					rc = -EINVAL;
-				goto fail_chg_enable;
-			}
 			/* Get Charger peripheral irq numbers */
 			rc = qpnp_lbc_get_irqs(chip, subtype, spmi_resource);
 			if (rc) {
@@ -2053,6 +2056,14 @@ static int qpnp_lbc_probe(struct spmi_device *spmi)
 			pr_err("Invalid peripheral subtype=0x%x\n", subtype);
 			rc = -EINVAL;
 		}
+	}
+
+	if (chip->cfg_use_external_charger) {
+		pr_warn("Disabling Linear Charger (e-external-charger = 1)\n");
+		rc = qpnp_disable_lbc_charger(chip);
+		if (rc)
+			pr_err("Unable to disable charger rc=%d\n", rc);
+		return -ENODEV;
 	}
 
 	/* Initialize h/w */
