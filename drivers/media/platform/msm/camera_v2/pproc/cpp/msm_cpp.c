@@ -2305,7 +2305,7 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	if (copy_to_user((void __user *)up, &up32_ioctl, sizeof(up32_ioctl)))
 		return -EFAULT;
 
-	return 0;
+	return rc;
 }
 #endif
 
