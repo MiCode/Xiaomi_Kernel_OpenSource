@@ -803,6 +803,76 @@ static int msm8x16_wcd_spk_boost_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm8x16_wcd_adc_volume_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	u8 adc_volume;
+
+	adc_volume = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_TX_1_EN);
+	adc_volume = (adc_volume >> 3) & 0xF;
+	if (adc_volume == 0x00) {
+		ucontrol->value.integer.value[0] = 0;
+	} else if (adc_volume == 0x02) {
+		ucontrol->value.integer.value[0] = 1;
+	} else if (adc_volume == 0x04) {
+		ucontrol->value.integer.value[0] = 2;
+	} else if (adc_volume == 0x06) {
+		ucontrol->value.integer.value[0] = 3;
+	} else if (adc_volume == 0x07) {
+		ucontrol->value.integer.value[0] = 4;
+	} else if (adc_volume == 0x08) {
+		ucontrol->value.integer.value[0] = 5;
+	} else {
+		dev_err(codec->dev, "%s: ERROR: Unsupported adc volume = %d\n",
+			__func__, adc_volume);
+		return -EINVAL;
+	}
+
+	dev_dbg(codec->dev, "%s: adc volume = %d\n", __func__,
+			adc_volume);
+	return 0;
+}
+
+static int msm8x16_wcd_adc_volume_set(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	u8 adc_volume;
+
+	dev_dbg(codec->dev, "%s: ucontrol->value.integer.value[0] = %ld\n",
+		__func__, ucontrol->value.integer.value[0]);
+
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		adc_volume = 0x00;
+		break;
+	case 1:
+		adc_volume = 0x02;
+		break;
+	case 2:
+		adc_volume = 0x04;
+		break;
+	case 3:
+		adc_volume = 0x06;
+		break;
+	case 4:
+		adc_volume = 0x07;
+		break;
+	case 5:
+		adc_volume = 0x08;
+		break;
+	default:
+		return -EINVAL;
+	}
+	adc_volume = (adc_volume << 3);
+	snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_TX_1_EN,
+			0x78, adc_volume);
+	dev_dbg(codec->dev, "%s: adc_volume = %d\n",
+		__func__, adc_volume);
+	return 0;
+}
+
 static int msm8x16_wcd_get_iir_enable_audio_mixer(
 					struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
@@ -1012,6 +1082,13 @@ static const struct soc_enum msm8x16_wcd_spk_boost_ctl_enum[] = {
 		SOC_ENUM_SINGLE_EXT(2, msm8x16_wcd_spk_boost_ctrl_text),
 };
 
+static const char * const msm8x16_wcd_adc_volume_ctrl_text[] = {
+		"G_0_DB", "G_6_DB", "G_12_DB", "G_18_DB",
+		"G_21_DB", "G_24_DB"};
+static const struct soc_enum msm8x16_wcd_adc_volume_ctl_enum[] = {
+		SOC_ENUM_SINGLE_EXT(6, msm8x16_wcd_adc_volume_ctrl_text),
+};
+
 /*cut of frequency for high pass filter*/
 static const char * const cf_text[] = {
 	"MIN_3DB_4Hz", "MIN_3DB_75Hz", "MIN_3DB_150Hz"
@@ -1039,6 +1116,9 @@ static const struct snd_kcontrol_new msm8x16_wcd_snd_controls[] = {
 
 	SOC_ENUM_EXT("Speaker Boost", msm8x16_wcd_spk_boost_ctl_enum[0],
 		msm8x16_wcd_spk_boost_get, msm8x16_wcd_spk_boost_set),
+
+	SOC_ENUM_EXT("ADC Volume", msm8x16_wcd_adc_volume_ctl_enum[0],
+		msm8x16_wcd_adc_volume_get, msm8x16_wcd_adc_volume_set),
 
 	SOC_SINGLE_SX_TLV("RX1 Digital Volume",
 			  MSM8X16_WCD_A_CDC_RX1_VOL_CTL_B2_CTL,
