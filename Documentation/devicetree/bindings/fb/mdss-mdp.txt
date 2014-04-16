@@ -301,6 +301,12 @@ Optional properties:
 				used to reduce the pending writes limit dynamically
 				and can be tuned to match performance requirements
 				depending upon system state.
+- qcom,mdss-clk-levels:		This array indicates the mdp core clock level selection
+				array. Core clock is calculated for each frame and
+				hence depending upon calculated value, clock rate
+				will be rounded up to the next level according to
+				this table. Order of entries need to be ordered in
+				ascending order.
 
 Fudge Factors:			Fudge factors are used to boost demand for
 				resources like bus bandswidth, clk rate etc. to
@@ -405,6 +411,9 @@ Example:
 		qcom,mdss-ab-factor = <2 1>;		/* 2 times    */
 		qcom,mdss-ib-factor = <3 2>;		/* 1.5 times  */
 		qcom,mdss-clk-factor = <5 4>;		/* 1.25 times */
+
+		/* Clock levels */
+		qcom,mdss-clk-levels = <92310000, 177780000, 200000000>;
 
 		qcom,max-bandwidth-low-kbps = <2300000>;
 		qcom,max-bandwidth-high-kbps = <3000000>;
