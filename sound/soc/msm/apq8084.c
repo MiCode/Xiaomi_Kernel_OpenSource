@@ -2200,6 +2200,13 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		tomtom_register_ext_clk_cb(msm_snd_enable_codec_ext_clk,
 					   msm_snd_get_ext_clk_cnt,
 					   rtd->codec);
+		err = tomtom_enable_cpe(rtd->codec);
+		if (IS_ERR_VALUE(err)) {
+			pr_err("%s: Failed to enable cpe, err = 0x%x\n",
+				__func__, err);
+			/* Don't fail card registraion if CPE failed */
+			err = 0;
+		}
 	} else
 		taiko_event_register(apq8084_codec_event_cb, rtd->codec);
 
@@ -3660,6 +3667,23 @@ static struct snd_soc_dai_link apq8084_hdmi_dai_link[] = {
 	},
 };
 
+static struct snd_soc_dai_link apq8084_cpe_lsm_dailink[] = {
+	/* CPE LSM FE */
+	{
+		.name = "CPE Listen service",
+		.stream_name = "CPE Listen Audio Service",
+		.cpu_dai_name = "CPE_LSM_NOHOST",
+		.platform_name = "msm-cpe-lsm",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST },
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "tomtom_mad1",
+		.codec_name = "tomtom_codec",
+	},
+};
+
 static struct snd_soc_dai_link apq8084_taiko_dai_links[
 		 ARRAY_SIZE(apq8084_common_dai_links) +
 		 ARRAY_SIZE(apq8084_taiko_fe_dai_links) +
@@ -3672,7 +3696,8 @@ static struct snd_soc_dai_link apq8084_tomtom_dai_links[
 		 ARRAY_SIZE(apq8084_tomtom_fe_dai_links) +
 		 ARRAY_SIZE(apq8084_common_be_dai_links) +
 		 ARRAY_SIZE(apq8084_tomtom_be_dai_links) +
-		 ARRAY_SIZE(apq8084_hdmi_dai_link)];
+		 ARRAY_SIZE(apq8084_hdmi_dai_link) +
+		 ARRAY_SIZE(apq8084_cpe_lsm_dailink)];
 
 struct snd_soc_card snd_soc_card_tomtom_apq8084 = {
 	.name		= "apq8084-tomtom-snd-card",
@@ -3892,6 +3917,12 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		len_4 += ARRAY_SIZE(apq8084_hdmi_dai_link);
 	} else {
 		dev_dbg(dev, "%s(): No hdmi audio support\n", __func__);
+	}
+
+	if (!strcmp(match->data, "tomtom_codec")) {
+		memcpy(dailink + len_4, apq8084_cpe_lsm_dailink,
+		       sizeof(apq8084_cpe_lsm_dailink));
+		len_4 += ARRAY_SIZE(apq8084_cpe_lsm_dailink);
 	}
 
 	card->dai_link = dailink;

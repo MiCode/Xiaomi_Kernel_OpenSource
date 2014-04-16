@@ -796,6 +796,20 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 		.probe = fe_dai_probe,
 	},
 	{
+		.capture = {
+			.stream_name = "CPE Listen Audio capture",
+			.aif_name = "CPE_LSM_UL_HL",
+			.rates = SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 1,
+			.rate_min = 16000,
+			.rate_max = 16000,
+		},
+		.ops = &msm_fe_dai_ops,
+		.name = "CPE_LSM_NOHOST",
+	},
+	{
 		.playback = {
 			.stream_name = "VOLTE_STUB Playback",
 			.aif_name = "VOLTE_STUB_DL",
