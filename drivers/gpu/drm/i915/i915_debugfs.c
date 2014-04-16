@@ -40,6 +40,7 @@
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
 #include "intel_clrmgr.h"
+#include "i915_scheduler.h"
 
 enum {
 	ACTIVE_LIST,
@@ -1009,6 +1010,114 @@ static int i915_rstdby_delays(struct seq_file *m, void *unused)
 
 	return 0;
 }
+
+static int
+i915_scheduler_priority_max_get(void *data, u64 *val)
+{
+	struct drm_device       *dev       = data;
+	struct drm_i915_private *dev_priv  = dev->dev_private;
+	struct i915_scheduler   *scheduler = dev_priv->scheduler;
+
+	*val = (u64) scheduler->priority_level_max;
+	return 0;
+}
+
+static int
+i915_scheduler_priority_max_set(void *data, u64 val)
+{
+	struct drm_device       *dev       = data;
+	struct drm_i915_private *dev_priv  = dev->dev_private;
+	struct i915_scheduler   *scheduler = dev_priv->scheduler;
+
+	scheduler->priority_level_max = (u32) val;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(i915_scheduler_priority_max_fops,
+			i915_scheduler_priority_max_get,
+			i915_scheduler_priority_max_set,
+			"0x%llx\n");
+
+static int
+i915_scheduler_priority_preempt_get(void *data, u64 *val)
+{
+	struct drm_device       *dev       = data;
+	struct drm_i915_private *dev_priv  = dev->dev_private;
+	struct i915_scheduler   *scheduler = dev_priv->scheduler;
+
+	*val = (u64) scheduler->priority_level_preempt;
+	return 0;
+}
+
+static int
+i915_scheduler_priority_preempt_set(void *data, u64 val)
+{
+	struct drm_device       *dev       = data;
+	struct drm_i915_private *dev_priv  = dev->dev_private;
+	struct i915_scheduler   *scheduler = dev_priv->scheduler;
+
+	scheduler->priority_level_preempt = (u32) val;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(i915_scheduler_priority_preempt_fops,
+			i915_scheduler_priority_preempt_get,
+			i915_scheduler_priority_preempt_set,
+			"0x%llx\n");
+
+static int
+i915_scheduler_min_flying_get(void *data, u64 *val)
+{
+	struct drm_device       *dev       = data;
+	struct drm_i915_private *dev_priv  = dev->dev_private;
+	struct i915_scheduler   *scheduler = dev_priv->scheduler;
+
+	*val = (u64) scheduler->min_flying;
+	return 0;
+}
+
+static int
+i915_scheduler_min_flying_set(void *data, u64 val)
+{
+	struct drm_device       *dev       = data;
+	struct drm_i915_private *dev_priv  = dev->dev_private;
+	struct i915_scheduler   *scheduler = dev_priv->scheduler;
+
+	scheduler->min_flying = (u32) val;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(i915_scheduler_min_flying_fops,
+			i915_scheduler_min_flying_get,
+			i915_scheduler_min_flying_set,
+			"0x%llx\n");
+
+static int
+i915_scheduler_file_queue_max_get(void *data, u64 *val)
+{
+	struct drm_device       *dev       = data;
+	struct drm_i915_private *dev_priv  = dev->dev_private;
+	struct i915_scheduler   *scheduler = dev_priv->scheduler;
+
+	*val = (u64) scheduler->file_queue_max;
+	return 0;
+}
+
+static int
+i915_scheduler_file_queue_max_set(void *data, u64 val)
+{
+	struct drm_device       *dev       = data;
+	struct drm_i915_private *dev_priv  = dev->dev_private;
+	struct i915_scheduler   *scheduler = dev_priv->scheduler;
+
+	scheduler->file_queue_max = (u32) val;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(i915_scheduler_file_queue_max_fops,
+			i915_scheduler_file_queue_max_get,
+			i915_scheduler_file_queue_max_set,
+			"0x%llx\n");
 
 static int i915_frequency_info(struct seq_file *m, void *unused)
 {
@@ -4821,6 +4930,10 @@ static const struct i915_debugfs_files {
 	{"i915_ring_hangcheck", &i915_ring_hangcheck_fops},
 	{"i915_error_state", &i915_error_state_fops},
 	{"i915_next_seqno", &i915_next_seqno_fops},
+	{"i915_scheduler_priority_max", &i915_scheduler_priority_max_fops},
+	{"i915_scheduler_priority_preempt", &i915_scheduler_priority_preempt_fops},
+	{"i915_scheduler_min_flying", &i915_scheduler_min_flying_fops},
+	{"i915_scheduler_file_queue_max", &i915_scheduler_file_queue_max_fops},
 	{"i915_display_crc_ctl", &i915_display_crc_ctl_fops},
 	{"i915_pri_wm_latency", &i915_pri_wm_latency_fops},
 	{"i915_spr_wm_latency", &i915_spr_wm_latency_fops},
