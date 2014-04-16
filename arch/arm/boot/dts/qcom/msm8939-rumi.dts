@@ -73,3 +73,63 @@
 
 	status = "disabled";
 };
+
+&pm8916_revid {
+	status = "disabled";
+};
+
+&pm8916_pon {
+	status = "disabled";
+};
+
+&pm8916_mpps {
+	status = "disabled";
+};
+
+&pm8916_gpios {
+	status = "disabled";
+};
+
+&pm8916_rtc {
+	status = "disabled";
+};
+
+&pm8916_vadc {
+	status = "disabled";
+};
+
+&pm8916_tz {
+	status = "disabled";
+};
+
+&pm8916_adc_tm {
+	status = "disabled";
+};
+
+&pm8916_chg {
+	status = "disabled";
+};
+
+&pm8916_bms {
+	status = "disabled";
+};
+
+&pm8916_leds {
+	status = "disabled";
+};
+
+&pm8916_pwm {
+	status = "disabled";
+};
+
+&pm8916_vib {
+	status = "disabled";
+};
+
+&pm8916_tombak_dig {
+	status = "disabled";
+};
+
+&pm8916_tombak_analog {
+	status = "disabled";
+};

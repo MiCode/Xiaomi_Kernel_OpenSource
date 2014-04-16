@@ -23,7 +23,7 @@
 			reg = <0x100 0x100>;
 		};
 
-		qcom,power-on@800 {
+		pm8916_pon: qcom,power-on@800 {
 			compatible = "qcom,qpnp-power-on";
 			reg = <0x800 0x100>;
 			interrupts = <0x0 0x8 0x0>,
@@ -105,7 +105,7 @@
 			};
 		};
 
-		qcom,pm8916_rtc {
+		pm8916_rtc: qcom,pm8916_rtc {
                         spmi-dev-container;
                         compatible = "qcom,qpnp-rtc";
                         #address-cells = <1>;
@@ -167,7 +167,7 @@
 			};
 		};
 
-		qcom,temp-alarm@2400 {
+		pm8916_tz: qcom,temp-alarm@2400 {
 			compatible = "qcom,qpnp-temp-alarm";
 			reg = <0x2400 0x100>;
 			interrupts = <0x0 0x24 0x0>;
@@ -305,7 +305,7 @@
 			};
 		};
 
-		qcom,leds@a100 {
+		pm8916_leds: qcom,leds@a100 {
 			compatible = "qcom,leds-qpnp";
 			reg = <0xa100 0x100>;
 			label = "mpp";
@@ -524,7 +524,7 @@
 			status = "disabled";
 		};
 
-		pwm@bc00 {
+		pm8916_pwm: pwm@bc00 {
 			compatible = "qcom,qpnp-pwm";
 			reg = <0xbc00 0x100>;
 			reg-names = "qpnp-lpg-channel-base";
@@ -532,14 +532,14 @@
 			qcom,supported-sizes = <6>, <9>;
 		};
 
-		qcom,vibrator@c000 {
+		pm8916_vib: qcom,vibrator@c000 {
 			compatible = "qcom,qpnp-vibrator";
 			reg = <0xc000 0x100>;
 			label = "vibrator";
 			status = "disabled";
 		};
 
-		msm8x16_wcd_codec@f000{
+		pm8916_tombak_dig: msm8x16_wcd_codec@f000{
 			compatible = "qcom,wcd-spmi";
 			reg = <0xf000 0x100>;
 			interrupt-parent = <&spmi_bus>;
@@ -589,7 +589,8 @@
 
 			qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias";
 		};
-		msm8x16_wcd_codec@f100{
+
+		pm8916_tombak_analog: msm8x16_wcd_codec@f100{
 			compatible = "qcom,wcd-spmi";
 			reg = <0xf100 0x100>;
 			interrupt-parent = <&spmi_bus>;

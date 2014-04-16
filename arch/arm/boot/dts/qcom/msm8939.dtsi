@@ -693,3 +693,4 @@
 };
 
 #include "msm8939-regulator.dtsi"
+#include "msm-pm8916.dtsi"
