@@ -215,7 +215,6 @@
 			qcom,batt-cold-percentage = <85>;
 			qcom,tchg-mins = <152>;
 			qcom,resume-soc = <99>;
-			qcom,charging-disabled;
 			qcom,chg-vadc = <&pm8916_vadc>;
 			qcom,chg-adc_tm = <&pm8916_adc_tm>;
 

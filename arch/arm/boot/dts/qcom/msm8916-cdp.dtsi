@@ -332,6 +332,7 @@
 
 &pm8916_chg {
 	status = "ok";
+	qcom,charging-disabled;
 };
 
 &pm8916_bms {
