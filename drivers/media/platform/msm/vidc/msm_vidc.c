@@ -1262,7 +1262,6 @@ void *msm_vidc_open(int core_id, int session_type)
 	INIT_LIST_HEAD(&inst->pendingq);
 	INIT_LIST_HEAD(&inst->internalbufs);
 	INIT_LIST_HEAD(&inst->persistbufs);
-	INIT_LIST_HEAD(&inst->ctrl_clusters);
 	INIT_LIST_HEAD(&inst->registered_bufs);
 	INIT_LIST_HEAD(&inst->outputbufs);
 	INIT_LIST_HEAD(&inst->pending_getpropq);
