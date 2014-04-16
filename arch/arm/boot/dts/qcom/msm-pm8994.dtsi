@@ -22,6 +22,16 @@
 			reg = <0x100 0x100>;
 		};
 
+		qcom,temp-alarm@2400 {
+			compatible = "qcom,qpnp-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x0 0x24 0x0>;
+			label = "pm8994_tz";
+			qcom,channel-num = <8>;
+			qcom,threshold-set = <0>;
+			qcom,temp_alarm-vadc = <&pm8994_vadc>;
+		};
+
 		pm8994_gpios: gpios {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-pin";
