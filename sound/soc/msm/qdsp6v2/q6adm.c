@@ -1138,7 +1138,7 @@ static int send_adm_cal_block(int port_id, int copp_idx,
 				atomic_read(&this_adm.mem_map_cal_index)]);
 	adm_params.payload_size = aud_cal->cal_size;
 
-	atomic_set(&this_adm.copp.stat[port_id][copp_idx], 0);
+	atomic_set(&this_adm.copp.stat[port_idx][copp_idx], 0);
 	pr_debug("%s: Sending SET_PARAMS payload = 0x%x, size = %d\n",
 		__func__, adm_params.payload_addr_lsw,
 		adm_params.payload_size);
