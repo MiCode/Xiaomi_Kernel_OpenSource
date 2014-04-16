@@ -510,6 +510,7 @@ static void ipi_cpu_stop(unsigned int cpu)
 
 	set_cpu_online(cpu, false);
 
+	flush_cache_all();
 	local_fiq_disable();
 	local_irq_disable();
 
