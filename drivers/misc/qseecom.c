@@ -1508,6 +1508,13 @@ static int qseecom_send_modfd_cmd(struct qseecom_dev_handle *data,
 		pr_err("response buffer address not within shared bufffer\n");
 		return -EINVAL;
 	}
+
+	if (req.cmd_req_len == 0 || req.cmd_req_len > data->client.sb_length ||
+		req.resp_len > data->client.sb_length) {
+		pr_err("cmd or response buffer length not valid\n");
+		return -EINVAL;
+	}
+
 	send_cmd_req.cmd_req_buf = req.cmd_req_buf;
 	send_cmd_req.cmd_req_len = req.cmd_req_len;
 	send_cmd_req.resp_buf = req.resp_buf;
@@ -4146,10 +4153,9 @@ static int qseecom_resume(struct platform_device *pdev)
 
 	if (qseecom.cumulative_mode != INACTIVE) {
 		ret = msm_bus_scale_client_update_request(
-			qseecom.qsee_perf_client, qseecom.cumulative_mode);
+			qseecom.qsee_perf_client, mode);
 		if (ret)
-			pr_err("Fail to scale up bus to %d\n",
-				qseecom.cumulative_mode);
+			pr_err("Fail to scale up bus to %d\n", mode);
 	}
 
 	mutex_lock(&clk_access_lock);

@@ -30,21 +30,6 @@
 #define GROUP_BYTES 4
 #define ROW_BYTES 16
 #define MAX_VSYNC_COUNT 0xFFFFFFF
-struct mdss_debug_data {
-	struct dentry *root;
-	struct list_head base_list;
-};
-
-struct mdss_debug_base {
-	struct mdss_debug_data *mdd;
-	void __iomem *base;
-	size_t off;
-	size_t cnt;
-	size_t max_offset;
-	char *buf;
-	size_t buf_len;
-	struct list_head head;
-};
 
 static int mdss_debug_base_open(struct inode *inode, struct file *file)
 {
@@ -265,12 +250,14 @@ int mdss_debug_register_base(const char *name, void __iomem *base,
 	if (!dbg)
 		return -ENOMEM;
 
+	if (name)
+		strlcpy(dbg->name, name, sizeof(dbg->name));
 	dbg->base = base;
 	dbg->max_offset = max_offset;
 	dbg->off = 0;
 	dbg->cnt = DEFAULT_BASE_REG_CNT;
 
-	if (name)
+	if (name && strcmp(name, "mdp"))
 		prefix_len = snprintf(dn, sizeof(dn), "%s_", name);
 
 	strlcpy(dn + prefix_len, "off", sizeof(dn) - prefix_len);
@@ -395,6 +382,11 @@ int mdss_debugfs_init(struct mdss_data_type *mdata)
 	debugfs_create_u32("min_mdp_clk", 0644, mdd->root,
 			(u32 *)&mdata->min_mdp_clk);
 
+	if (mdss_create_xlog_debug(mdd)) {
+		mdss_debugfs_cleanup(mdd);
+		return -ENODEV;
+	}
+
 	mdata->debug_inf.debug_data = mdd;
 
 	return 0;
@@ -408,6 +400,29 @@ int mdss_debugfs_remove(struct mdss_data_type *mdata)
 	mdata->debug_inf.debug_data = NULL;
 
 	return 0;
+}
+
+void mdss_dump_reg(char __iomem *base, int len)
+{
+	char *addr;
+	u32 x0, x4, x8, xc;
+	int i;
+
+	addr = base;
+	if (len % 16)
+		len += 16;
+	len /= 16;
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	for (i = 0; i < len; i++) {
+		x0 = readl_relaxed(addr+0x0);
+		x4 = readl_relaxed(addr+0x4);
+		x8 = readl_relaxed(addr+0x8);
+		xc = readl_relaxed(addr+0xc);
+		pr_info("%p : %08x %08x %08x %08x\n", addr, x0, x4, x8, xc);
+		addr += 16;
+	}
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 }
 
 int vsync_count;
