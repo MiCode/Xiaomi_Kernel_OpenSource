@@ -26,13 +26,6 @@
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 	};
 
-	memory {
-		fb_mem: fb_region@0 {
-			linux,reserve-contiguous-region;
-			reg = <0 0x1400000>;
-			label = "fb_mem";
-		};
-	};
 };
 
 #include "msm-gdsc.dtsi"

@@ -37,13 +37,6 @@
 			label = "qseecom_mem";
                 };
 
-		fb_mem: fb_region@0 {
-			linux,reserve-contiguous-region;
-			reg = <0 0 0 0x1000000>;
-			label = "fb_mem";
-			linux,memory-limit = <0xffffffff>;
-		};
-
 		secure_mem: secure_region@0 {
 			linux,reserve-contiguous-region;
 			reg = <0 0 0 0xfc00000>;
