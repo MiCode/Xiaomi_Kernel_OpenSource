@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2014, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -609,8 +609,14 @@ int clock_debug_register(struct clk_lookup *table, size_t size)
 	clk_table->num_clocks = size;
 
 	if (IS_ERR_OR_NULL(measure)) {
-		measure = clk_get_sys("debug", "measure");
-		if (!IS_ERR(measure)) {
+		for (i = 0; i < size; i++) {
+			if (table[i].clk->flags & CLKFLAG_MEASURE) {
+				measure = table[i].clk;
+				break;
+			}
+		}
+
+		if (!IS_ERR_OR_NULL(measure)) {
 			mutex_lock(&clk_list_lock);
 			list_for_each_entry(clk_table_tmp, &clk_list, node) {
 			for (i = 0; i < clk_table_tmp->num_clocks; i++)
