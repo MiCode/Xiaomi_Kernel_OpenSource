@@ -16,6 +16,10 @@
 #include <linux/mempool.h>
 #include <linux/mutex.h>
 #include <asm/atomic.h>
+#include <linux/slab.h>
+#include <linux/of.h>
+#include <linux/kmemleak.h>
+
 #include "diagchar.h"
 #include "diagfwd_bridge.h"
 #include "diagfwd_hsic.h"
@@ -37,6 +41,7 @@ void *diagmem_alloc(struct diagchar_dev *driver, int size, int pool_type)
 				atomic_add(1, (atomic_t *)&driver->count);
 				buf = mempool_alloc(driver->diagpool,
 								 GFP_ATOMIC);
+				kmemleak_not_leak(buf);
 			}
 		}
 	} else if (pool_type == POOL_TYPE_HDLC) {
@@ -47,6 +52,7 @@ void *diagmem_alloc(struct diagchar_dev *driver, int size, int pool_type)
 					 (atomic_t *)&driver->count_hdlc_pool);
 				buf = mempool_alloc(driver->diag_hdlc_pool,
 								 GFP_ATOMIC);
+				kmemleak_not_leak(buf);
 			}
 		}
 	} else if (pool_type == POOL_TYPE_USER) {
@@ -57,6 +63,7 @@ void *diagmem_alloc(struct diagchar_dev *driver, int size, int pool_type)
 					(atomic_t *)&driver->count_user_pool);
 				buf = mempool_alloc(driver->diag_user_pool,
 					GFP_ATOMIC);
+				kmemleak_not_leak(buf);
 			}
 		}
 	} else if (pool_type == POOL_TYPE_WRITE_STRUCT) {
@@ -68,6 +75,7 @@ void *diagmem_alloc(struct diagchar_dev *driver, int size, int pool_type)
 				 (atomic_t *)&driver->count_write_struct_pool);
 				buf = mempool_alloc(
 				driver->diag_write_struct_pool, GFP_ATOMIC);
+				kmemleak_not_leak(buf);
 			}
 		}
 	} else if (pool_type == POOL_TYPE_DCI) {
@@ -78,6 +86,7 @@ void *diagmem_alloc(struct diagchar_dev *driver, int size, int pool_type)
 					(atomic_t *)&driver->count_dci_pool);
 				buf = mempool_alloc(driver->diag_dci_pool,
 								GFP_ATOMIC);
+				kmemleak_not_leak(buf);
 			}
 		}
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
@@ -93,6 +102,7 @@ void *diagmem_alloc(struct diagchar_dev *driver, int size, int pool_type)
 				buf = mempool_alloc(
 					diag_hsic[index].diag_hsic_pool,
 					GFP_ATOMIC);
+				kmemleak_not_leak(buf);
 			}
 		}
 	} else if (pool_type == POOL_TYPE_HSIC_WRITE ||
@@ -108,6 +118,7 @@ void *diagmem_alloc(struct diagchar_dev *driver, int size, int pool_type)
 				buf = mempool_alloc(
 					diag_hsic[index].diag_hsic_write_pool,
 					GFP_ATOMIC);
+				kmemleak_not_leak(buf);
 			}
 		}
 	} else if (pool_type == POOL_TYPE_HSIC_DCI ||
@@ -122,6 +133,7 @@ void *diagmem_alloc(struct diagchar_dev *driver, int size, int pool_type)
 				buf = mempool_alloc(
 					diag_hsic_dci[index].diag_hsic_pool,
 					GFP_ATOMIC);
+				kmemleak_not_leak(buf);
 			}
 		}
 	} else if (pool_type == POOL_TYPE_HSIC_DCI_WRITE ||
@@ -137,6 +149,7 @@ void *diagmem_alloc(struct diagchar_dev *driver, int size, int pool_type)
 				buf = mempool_alloc(
 				      diag_hsic_dci[index].diag_hsic_write_pool,
 				      GFP_ATOMIC);
+				kmemleak_not_leak(buf);
 			}
 		}
 #endif
