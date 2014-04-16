@@ -778,12 +778,12 @@ int msm_clock_register(struct clk_lookup *table, size_t size)
 	 * Detect and preserve initial clock state until clock_late_init() or
 	 * a driver explicitly changes it, whichever is first.
 	 */
-	for (n = 0; n < size; n++)
+	for (n = 0; n < size; n++) {
 		__handoff_clk(table[n].clk);
+		clock_debug_register(table[n].clk);
+	}
 
 	clkdev_add_table(table, size);
-
-	clock_debug_register(table, size);
 
 	mutex_unlock(&msm_clock_init_lock);
 

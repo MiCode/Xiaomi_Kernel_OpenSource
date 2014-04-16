@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2014, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -175,6 +175,7 @@ struct clk {
 
 	struct list_head children;
 	struct list_head siblings;
+	struct list_head list;
 
 	unsigned count;
 	spinlock_t lock;
@@ -188,7 +189,8 @@ struct clk {
 	.lock = __SPIN_LOCK_UNLOCKED((name).lock), \
 	.prepare_lock = __MUTEX_INITIALIZER((name).prepare_lock), \
 	.children = LIST_HEAD_INIT((name).children), \
-	.siblings = LIST_HEAD_INIT((name).siblings)
+	.siblings = LIST_HEAD_INIT((name).siblings), \
+	.list = LIST_HEAD_INIT((name).list)
 
 int vote_vdd_level(struct clk_vdd_class *vdd_class, int level);
 int unvote_vdd_level(struct clk_vdd_class *vdd_class, int level);
