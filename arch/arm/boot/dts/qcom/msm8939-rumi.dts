@@ -133,3 +133,23 @@
 &pm8916_tombak_analog {
 	status = "disabled";
 };
+
+&qcom_tzlog {
+	status = "okay";
+};
+
+&qcom_rng {
+	status = "okay";
+};
+
+&qcom_crypto {
+	status = "okay";
+};
+
+&qcom_cedev {
+	status = "okay";
+};
+
+&qcom_seecom {
+	status = "okay";
+};
