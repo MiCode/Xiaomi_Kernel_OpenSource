@@ -278,6 +278,11 @@
 	qcom,battery-data = <&qrd_batterydata>;
 };
 
+&sdc2_cd_on {
+	/delete-property/ bias-pull-up;
+	bias-disable;
+};
+
 &sdhc_2 {
 	qcom,vdd-always-on;
 	qcom,vdd-lpm-sup;
