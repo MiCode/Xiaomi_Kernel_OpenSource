@@ -103,7 +103,7 @@ struct branch_clk {
 	const u32 bcr_reg;
 	int has_sibling;
 	u32 cur_div;
-	const u32 max_div;
+	u32 max_div;
 	const u32 halt_check;
 	void *const __iomem *base;
 };
