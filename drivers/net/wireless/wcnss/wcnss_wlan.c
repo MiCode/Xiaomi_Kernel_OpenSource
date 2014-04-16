@@ -2517,6 +2517,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 	} while (pil_retry++ < WCNSS_MAX_PIL_RETRY && IS_ERR(penv->pil));
 
 	if (pil_retry >= WCNSS_MAX_PIL_RETRY) {
+		wcnss_reset_intr();
 		penv->pil = NULL;
 		goto fail_ioremap2;
 	}
