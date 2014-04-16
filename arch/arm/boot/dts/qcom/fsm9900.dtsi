@@ -645,15 +645,20 @@
 		compatible = "qcom,msm-thermal";
 		qcom,sensor-id = <3>;
 		qcom,poll-ms = <250>;
-		qcom,limit-temp = <90>;
+		qcom,limit-temp = <85>;
 		qcom,temp-hysteresis = <10>;
 		qcom,freq-step = <2>;
 		qcom,freq-control-mask = <0xf>;
-		qcom,core-limit-temp = <115>;
+		qcom,therm-reset-temp = <115>;
+		qcom,core-limit-temp = <110>;
 		qcom,core-temp-hysteresis = <10>;
 		qcom,core-control-mask = <0xe>;
-		qcom,hotplug-temp = <115>;
+		qcom,hotplug-temp = <110>;
 		qcom,hotplug-temp-hysteresis = <20>;
+		qcom,freq-mitigation-temp = <110>;
+		qcom,freq-mitigation-temp-hysteresis = <20>;
+		qcom,freq-mitigation-value = <883200>;
+		qcom,freq-mitigation-control-mask = <0x01>;
 		qcom,cpu-sensors = "tsens_tz_sensor3", "tsens_tz_sensor4",
 				"tsens_tz_sensor5", "tsens_tz_sensor6";
 	};
@@ -855,7 +860,7 @@
 			< 1958400000  950000  569 >;
 
 		/*   1.8GHz   */
-		qcom,speed1-pvs0-bin-v0 =
+		qcom,speed4-pvs0-bin-v0 =
 			<          0       0    0 >,
 			<  300000000  850000   75 >,
 			<  422400000  870000  105 >,
@@ -869,7 +874,7 @@
 			< 1651200000 1030000  467 >,
 			< 1804800000 1050000  518 >;
 
-		qcom,speed1-pvs1-bin-v0 =
+		qcom,speed4-pvs1-bin-v0 =
 			<          0       0    0 >,
 			<  300000000  850000   75 >,
 			<  422400000  850000  105 >,
@@ -883,7 +888,7 @@
 			< 1651200000 1005000  467 >,
 			< 1804800000 1025000  518 >;
 
-		qcom,speed1-pvs2-bin-v0 =
+		qcom,speed4-pvs2-bin-v0 =
 			<          0       0    0 >,
 			<  300000000  800000   75 >,
 			<  422400000  820000  105 >,
@@ -897,7 +902,7 @@
 			< 1651200000  980000  467 >,
 			< 1804800000 1000000  518 >;
 
-		qcom,speed1-pvs3-bin-v0 =
+		qcom,speed4-pvs3-bin-v0 =
 			<          0       0    0 >,
 			<  300000000  800000   75 >,
 			<  422400000  800000  105 >,
@@ -911,7 +916,7 @@
 			< 1651200000  955000  467 >,
 			< 1804800000  975000  518 >;
 
-		qcom,speed1-pvs4-bin-v0 =
+		qcom,speed4-pvs4-bin-v0 =
 			<          0       0    0 >,
 			<  300000000  775000   75 >,
 			<  422400000  775000  105 >,
