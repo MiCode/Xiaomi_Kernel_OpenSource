@@ -1592,7 +1592,7 @@ static void ttwu_queue(struct task_struct *p, int cpu)
 	raw_spin_unlock(&rq->lock);
 }
 
-__read_mostly unsigned int sysctl_sched_wakeup_load_threshold = 60;
+__read_mostly unsigned int sysctl_sched_wakeup_load_threshold = 110;
 /**
  * try_to_wake_up - wake up a thread
  * @p: the thread to be awakened
