@@ -573,8 +573,8 @@
 
 	qcom,sps@fe204000 {
 		compatible = "qcom,msm_sps";
-		reg = <0xfe204000 0x15000>,
-			<0xfe223000 0xb000>;
+		reg = <0xfe204000 0x1f000>,
+			<0xfe223000 0x10000>;
 		reg-names = "bam_mem", "core_mem";
 		interrupts = <0 94 0>;
 	};
