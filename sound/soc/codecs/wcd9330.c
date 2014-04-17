@@ -3316,7 +3316,7 @@ static int tomtom_codec_enable_anc(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		filename = "wcd9330/wcd9330_anc.bin";
+		filename = "wcd9320/wcd9320_anc.bin";
 
 		ret = request_firmware(&fw, filename, codec->dev);
 		if (ret != 0) {
