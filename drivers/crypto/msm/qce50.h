@@ -107,10 +107,10 @@ struct qce_cmdlistptr_ops {
 	struct qce_cmdlist_info aead_hmac_sha1_cbc_aes_256;
 	struct qce_cmdlist_info aead_hmac_sha1_cbc_des;
 	struct qce_cmdlist_info aead_hmac_sha1_cbc_3des;
-	struct qce_cmdlist_info aead_hmac_sha1_ecb_aes_128;
-	struct qce_cmdlist_info aead_hmac_sha1_ecb_aes_256;
-	struct qce_cmdlist_info aead_hmac_sha1_ecb_des;
-	struct qce_cmdlist_info aead_hmac_sha1_ecb_3des;
+	struct qce_cmdlist_info aead_hmac_sha256_cbc_aes_128;
+	struct qce_cmdlist_info aead_hmac_sha256_cbc_aes_256;
+	struct qce_cmdlist_info aead_hmac_sha256_cbc_des;
+	struct qce_cmdlist_info aead_hmac_sha256_cbc_3des;
 	struct qce_cmdlist_info aead_aes_128_ccm;
 	struct qce_cmdlist_info aead_aes_256_ccm;
 	struct qce_cmdlist_info f8_kasumi;
