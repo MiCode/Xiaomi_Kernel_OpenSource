@@ -42,6 +42,9 @@
 #include <asm/cacheflush.h>
 #include "lpm-levels.h"
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/trace_msm_low_power.h>
+
 #define SCLK_HZ (32768)
 #define SCM_HANDOFF_LOCK_ID "S:7"
 static remote_spinlock_t scm_handoff_lock;
@@ -438,6 +441,10 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 	update_debug_pc_event(CLUSTER_ENTER, idx,
 			cluster->num_childs_in_sync.bits[0],
 			cluster->child_cpus.bits[0], from_idle);
+	trace_cluster_enter(cluster->cluster_name, idx,
+			cluster->num_childs_in_sync.bits[0],
+			cluster->child_cpus.bits[0], from_idle);
+
 
 	for (i = 0; i < cluster->ndevices; i++) {
 		ret = cluster->lpm_dev[i].set_mode(&cluster->lpm_dev[i],
@@ -565,6 +572,9 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 	update_debug_pc_event(CLUSTER_EXIT, cluster->last_level,
 			cluster->num_childs_in_sync.bits[0],
 			cluster->child_cpus.bits[0], from_idle);
+	trace_cluster_exit(cluster->cluster_name, cluster->last_level,
+			cluster->num_childs_in_sync.bits[0],
+			cluster->child_cpus.bits[0], from_idle);
 
 	last_level = cluster->last_level;
 	cluster->last_level = cluster->default_level;
@@ -630,9 +640,11 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	cpu_prepare(cluster, idx, true);
 
 	cluster_prepare(cluster, cpumask, idx, true);
+	trace_cpu_idle_enter(idx);
 	lpm_stats_cpu_enter(idx);
 	success = msm_cpu_pm_enter_sleep(cluster->cpu->levels[idx].mode, true);
 	lpm_stats_cpu_exit(idx, success);
+	trace_cpu_idle_exit(idx, success);
 	cluster_unprepare(cluster, cpumask, idx, true);
 	cpu_unprepare(cluster, idx, true);
 
@@ -986,6 +998,7 @@ enum msm_pm_l2_scm_flag lpm_cpu_pre_pc_cb(unsigned int cpu)
 unlock_and_return:
 	update_debug_pc_event(PRE_PC_CB, retflag, 0xdeadbeef, 0xdeadbeef,
 			0xdeadbeef);
+	trace_pre_pc_cb(retflag);
 	remote_spin_lock_rlock_id(&scm_handoff_lock,
 				  REMOTE_SPINLOCK_TID_START + cpu);
 
