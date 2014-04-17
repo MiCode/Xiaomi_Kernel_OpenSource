@@ -24,6 +24,7 @@
 		coresight-id = <0>;
 		coresight-name = "coresight-tmc-etr";
 		coresight-nr-inports = <1>;
+		coresight-ctis = <&cti0 &cti8>;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
@@ -59,6 +60,7 @@
 		coresight-child-list = <&replicator>;
 		coresight-child-ports = <0>;
 		coresight-default-sink;
+		coresight-ctis = <&cti0 &cti8>;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
@@ -149,6 +151,174 @@
 		coresight-nr-inports = <0>;
 
 		qcom,blk-size = <1>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti0: cti@810000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x810000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <10>;
+		coresight-name = "coresight-cti0";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti1: cti@811000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x811000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <11>;
+		coresight-name = "coresight-cti1";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti2: cti@812000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x812000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <12>;
+		coresight-name = "coresight-cti2";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti3: cti@813000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x813000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <13>;
+		coresight-name = "coresight-cti3";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti4: cti@814000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x814000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <14>;
+		coresight-name = "coresight-cti4";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti5: cti@815000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x815000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <15>;
+		coresight-name = "coresight-cti5";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti6: cti@816000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x816000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <16>;
+		coresight-name = "coresight-cti6";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti7: cti@817000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x817000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <17>;
+		coresight-name = "coresight-cti7";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti8: cti@818000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x818000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <18>;
+		coresight-name = "coresight-cti8";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti_cpu0: cti@843000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x843000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <19>;
+		coresight-name = "coresight-cti-cpu0";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti_modem_cpu0: cti@838000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x838000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <20>;
+		coresight-name = "coresight-cti-modem-cpu0";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti_rpm_cpu0: cti@83c000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x83c000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <21>;
+		coresight-name = "coresight-cti-rpm-cpu0";
+		coresight-nr-inports = <0>;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
