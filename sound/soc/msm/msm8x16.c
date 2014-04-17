@@ -307,36 +307,38 @@ static int msm8x16_enable_codec_ext_clk(struct snd_soc_codec *codec,
 	struct msm8916_asoc_mach_data *pdata = NULL;
 
 	pdata = snd_soc_card_get_drvdata(codec->card);
-	mutex_lock(&pdata->cdc_mclk_mutex);
-	pr_debug("%s: enable = %d  codec name %s enable %d mclk ref counter %d\n",
-		   __func__, enable, codec->name, enable,
+	pr_debug("%s: codec name %s enable %d mclk ref counter %d\n",
+		   __func__, codec->name, enable,
 		   atomic_read(&pdata->mclk_rsc_ref));
 	if (enable) {
 		if (atomic_inc_return(&pdata->mclk_rsc_ref) == 1) {
-			pdata->digital_cdc_clk.clk_val = 9600000;
-			afe_set_digital_codec_core_clock(
-					AFE_PORT_ID_PRIMARY_MI2S_RX,
-					&pdata->digital_cdc_clk);
+			mutex_lock(&pdata->cdc_mclk_mutex);
+			if (atomic_read(&pdata->dis_work_mclk) == true) {
+				cancel_delayed_work_sync(
+					&pdata->enable_mclk_work);
+			} else {
+				pdata->digital_cdc_clk.clk_val = 9600000;
+				afe_set_digital_codec_core_clock(
+						AFE_PORT_ID_PRIMARY_MI2S_RX,
+						&pdata->digital_cdc_clk);
+				atomic_set(&pdata->dis_work_mclk, true);
+			}
+			mutex_unlock(&pdata->cdc_mclk_mutex);
 			msm8x16_wcd_mclk_enable(codec, 1, dapm);
-			cancel_delayed_work_sync(&pdata->enable_mclk_work);
 		}
 	} else {
-		if ((atomic_read(&pdata->mclk_rsc_ref) - 1) == 0) {
+		if (atomic_dec_return(&pdata->mclk_rsc_ref) == 0) {
+			mutex_lock(&pdata->cdc_mclk_mutex);
+			cancel_delayed_work_sync(&pdata->enable_mclk_work);
 			pdata->digital_cdc_clk.clk_val = 0;
-			msm8x16_wcd_mclk_enable(codec, 0, dapm);
 			afe_set_digital_codec_core_clock(
 					AFE_PORT_ID_PRIMARY_MI2S_RX,
 					&pdata->digital_cdc_clk);
-			if (atomic_read(&pdata->dis_work_mclk) == true) {
-				pr_debug("add work in disable of %s\n",
-						__func__);
-				schedule_delayed_work(
-					&pdata->enable_mclk_work, 10);
-			}
+			atomic_set(&pdata->dis_work_mclk, false);
+			mutex_unlock(&pdata->cdc_mclk_mutex);
+			msm8x16_wcd_mclk_enable(codec, 0, dapm);
 		}
-		atomic_dec(&pdata->mclk_rsc_ref);
 	}
-	mutex_unlock(&pdata->cdc_mclk_mutex);
 	return ret;
 }
 
@@ -978,24 +980,22 @@ void enable_mclk(struct work_struct *work)
 	struct delayed_work *dwork;
 	int ret = 0;
 
-	pr_info("%s:\n", __func__);
+	pr_debug("%s:\n", __func__);
 	dwork = to_delayed_work(work);
 	pdata = container_of(dwork, struct msm8916_asoc_mach_data,
 				enable_mclk_work);
-	if (atomic_read(&pdata->mclk_rsc_ref) == 0) {
-		if (atomic_read(&pdata->dis_work_mclk) == true) {
-			pr_debug("clock enabled now disable\n");
-			mutex_lock(&pdata->cdc_mclk_mutex);
-			pdata->digital_cdc_clk.clk_val = 0;
-			ret = afe_set_digital_codec_core_clock(
-					AFE_PORT_ID_PRIMARY_MI2S_RX,
-					&pdata->digital_cdc_clk);
-			if (ret < 0)
-				pr_err("failed to disable the MCLK\n");
-			atomic_set(&pdata->dis_work_mclk, false);
-			mutex_unlock(&pdata->cdc_mclk_mutex);
-		}
+	mutex_lock(&pdata->cdc_mclk_mutex);
+	if (atomic_read(&pdata->dis_work_mclk) == true) {
+		pr_debug("clock enabled now disable\n");
+		pdata->digital_cdc_clk.clk_val = 0;
+		ret = afe_set_digital_codec_core_clock(
+				AFE_PORT_ID_PRIMARY_MI2S_RX,
+				&pdata->digital_cdc_clk);
+		if (ret < 0)
+			pr_err("failed to disable the MCLK\n");
+		atomic_set(&pdata->dis_work_mclk, false);
 	}
+	mutex_unlock(&pdata->cdc_mclk_mutex);
 }
 
 static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
@@ -1068,10 +1068,14 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 	card->dev = &pdev->dev;
 	platform_set_drvdata(pdev, card);
 	snd_soc_card_set_drvdata(card, pdata);
-	pdata->snd_card_on = false;
 	ret = snd_soc_of_parse_card_name(card, "qcom,model");
 	if (ret)
 		goto err;
+	/* initialize timer */
+	INIT_DELAYED_WORK(&pdata->enable_mclk_work, enable_mclk);
+	mutex_init(&pdata->cdc_mclk_mutex);
+	atomic_set(&pdata->mclk_rsc_ref, 0);
+	atomic_set(&pdata->dis_work_mclk, false);
 
 	ret = snd_soc_of_parse_audio_routing(card,
 			"qcom,audio-routing");
@@ -1084,12 +1088,6 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 			ret);
 		goto err;
 	}
-	/* initialize timer */
-	INIT_DELAYED_WORK(&pdata->enable_mclk_work, enable_mclk);
-	pdata->snd_card_on = true;
-	mutex_init(&pdata->cdc_mclk_mutex);
-	atomic_set(&pdata->mclk_rsc_ref, 0);
-	atomic_set(&pdata->dis_work_mclk, false);
 	return 0;
 err:
 	devm_kfree(&pdev->dev, pdata);
