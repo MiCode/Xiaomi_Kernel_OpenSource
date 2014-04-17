@@ -91,10 +91,12 @@ do {									\
 
 #define TMC_ETFETB_DUMP_MAGIC_OFF	(0)
 #define TMC_ETFETB_DUMP_MAGIC		(0x5D1DB1BF)
+#define TMC_ETFETB_DUMP_MAGIC_V2	(0x42445953)
 #define TMC_ETFETB_DUMP_VER_OFF		(4)
 #define TMC_ETFETB_DUMP_VER		(1)
 #define TMC_REG_DUMP_MAGIC_OFF		(0)
 #define TMC_REG_DUMP_MAGIC		(0x5D1DB1BF)
+#define TMC_REG_DUMP_MAGIC_V2		(0x42445953)
 #define TMC_REG_DUMP_VER_OFF		(4)
 #define TMC_REG_DUMP_VER		(1)
 
@@ -935,7 +937,7 @@ static void __tmc_reg_dump(struct tmc_drvdata *drvdata)
 		*(uint32_t *)(reg_hdr + TMC_REG_DUMP_MAGIC_OFF) =
 							TMC_REG_DUMP_MAGIC;
 	else
-		drvdata->reg_data.magic = TMC_REG_DUMP_MAGIC;
+		drvdata->reg_data.magic = TMC_REG_DUMP_MAGIC_V2;
 }
 
 static void __tmc_etb_dump(struct tmc_drvdata *drvdata)
@@ -981,7 +983,7 @@ out:
 			*(uint32_t *)(hdr + TMC_ETFETB_DUMP_MAGIC_OFF) =
 							TMC_ETFETB_DUMP_MAGIC;
 		else
-			drvdata->buf_data.magic = TMC_ETFETB_DUMP_MAGIC;
+			drvdata->buf_data.magic = TMC_ETFETB_DUMP_MAGIC_V2;
 	}
 }
 
