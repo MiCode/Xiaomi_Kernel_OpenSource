@@ -115,4 +115,14 @@
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
+
+	fuse: fuse@5e01c {
+		compatible = "arm,coresight-fuse-v2";
+		reg = <0x5e01c 0x8>;
+		reg-names = "fuse-base";
+
+		coresight-id = <22>;
+		coresight-name = "coresight-fuse-v2";
+		coresight-nr-inports = <0>;
+	};
 };
