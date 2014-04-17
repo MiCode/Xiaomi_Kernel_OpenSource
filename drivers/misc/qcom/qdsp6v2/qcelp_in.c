@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/msm_audio_qcp.h>
 #include <linux/atomic.h>
+#include <linux/compat.h>
 #include <asm/ioctls.h>
 #include "audio_utils.h"
 
@@ -30,8 +31,7 @@
 /* Maximum 10 frames in buffer with meta */
 #define FRAME_SIZE		(1 + ((35+sizeof(struct meta_out_dsp)) * 10))
 
-/* ------------------- device --------------------- */
-static long qcelp_in_ioctl(struct file *file,
+static long qcelp_in_ioctl_shared(struct file *file,
 				unsigned int cmd, unsigned long arg)
 {
 	struct q6audio_in  *audio = file->private_data;
@@ -109,38 +109,34 @@ static long qcelp_in_ioctl(struct file *file,
 		}
 		break;
 	}
-	case AUDIO_GET_QCELP_ENC_CONFIG: {
-		if (copy_to_user((void *)arg, audio->enc_cfg,
-			sizeof(struct msm_audio_qcelp_enc_config)))
-			rc = -EFAULT;
-		break;
-	}
 	case AUDIO_SET_QCELP_ENC_CONFIG: {
-		struct msm_audio_qcelp_enc_config cfg;
+		struct msm_audio_qcelp_enc_config *cfg;
 		struct msm_audio_qcelp_enc_config *enc_cfg;
 		enc_cfg = audio->enc_cfg;
-		if (copy_from_user(&cfg, (void *) arg,
-				sizeof(struct msm_audio_qcelp_enc_config))) {
-			rc = -EFAULT;
+
+		cfg = (struct msm_audio_qcelp_enc_config *)arg;
+		if (cfg == NULL) {
+			pr_err("%s: NULL config pointer\n", __func__);
+			rc = -EINVAL;
 			break;
 		}
-
-		if (cfg.min_bit_rate > 4 ||
-			 cfg.min_bit_rate < 1) {
+		if (cfg->min_bit_rate > 4 ||
+			 cfg->min_bit_rate < 1) {
 			pr_err("%s:session id %d: invalid min bitrate\n",
 					__func__, audio->ac->session);
 			rc = -EINVAL;
 			break;
 		}
-		if (cfg.max_bit_rate > 4 ||
-			 cfg.max_bit_rate < 1) {
+		if (cfg->max_bit_rate > 4 ||
+			 cfg->max_bit_rate < 1) {
 			pr_err("%s:session id %d: invalid max bitrate\n",
 					__func__, audio->ac->session);
 			rc = -EINVAL;
 			break;
 		}
-		enc_cfg->min_bit_rate = cfg.min_bit_rate;
-		enc_cfg->max_bit_rate = cfg.max_bit_rate;
+		enc_cfg->cdma_rate = cfg->cdma_rate;
+		enc_cfg->min_bit_rate = cfg->min_bit_rate;
+		enc_cfg->max_bit_rate = cfg->max_bit_rate;
 		pr_debug("%s:session id %d: min_bit_rate= 0x%x max_bit_rate=0x%x\n",
 			__func__,
 			audio->ac->session, enc_cfg->min_bit_rate,
@@ -148,10 +144,128 @@ static long qcelp_in_ioctl(struct file *file,
 		break;
 	}
 	default:
+		pr_err("%s: Unknown ioctl cmd = %d", __func__, cmd);
 		rc = -EINVAL;
 	}
 	return rc;
 }
+
+static long qcelp_in_ioctl(struct file *file,
+				unsigned int cmd, unsigned long arg)
+{
+	struct q6audio_in  *audio = file->private_data;
+	int rc = 0;
+
+	switch (cmd) {
+	case AUDIO_START:
+	case AUDIO_STOP: {
+		rc = qcelp_in_ioctl_shared(file, cmd, arg);
+		break;
+	}
+	case AUDIO_GET_QCELP_ENC_CONFIG: {
+		if (copy_to_user((void *)arg, audio->enc_cfg,
+			sizeof(struct msm_audio_qcelp_enc_config))) {
+			pr_err(
+				"%s: copy_to_user for AUDIO_GET_QCELP_ENC_CONFIG failed",
+				__func__);
+			rc = -EFAULT;
+		}
+		break;
+	}
+	case AUDIO_SET_QCELP_ENC_CONFIG: {
+		struct msm_audio_qcelp_enc_config cfg;
+		if (copy_from_user(&cfg, (void *) arg,
+				sizeof(cfg))) {
+			pr_err(
+				"%s: copy_from_user for AUDIO_SET_QCELP_ENC_CONFIG failed",
+				__func__);
+			rc = -EFAULT;
+			break;
+		}
+		rc = qcelp_in_ioctl_shared(file, cmd, (unsigned long)&cfg);
+		if (rc)
+			pr_err("%s:AUDIO_SET_QCELP_ENC_CONFIG failed. Rc= %d\n",
+				__func__, rc);
+		break;
+	}
+	default:
+		pr_err("%s: Unknown ioctl cmd = %d", __func__, cmd);
+		rc = -EINVAL;
+	}
+	return rc;
+}
+
+#ifdef CONFIG_COMPAT
+struct msm_audio_qcelp_enc_config32 {
+	u32 cdma_rate;
+	u32 min_bit_rate;
+	u32 max_bit_rate;
+};
+
+enum {
+	AUDIO_SET_QCELP_ENC_CONFIG_32 = _IOW(AUDIO_IOCTL_MAGIC,
+		0, struct msm_audio_qcelp_enc_config32),
+	AUDIO_GET_QCELP_ENC_CONFIG_32 = _IOR(AUDIO_IOCTL_MAGIC,
+		1, struct msm_audio_qcelp_enc_config32)
+};
+
+static long qcelp_in_compat_ioctl(struct file *file,
+				unsigned int cmd, unsigned long arg)
+{
+	struct q6audio_in  *audio = file->private_data;
+	int rc = 0;
+
+	switch (cmd) {
+	case AUDIO_START:
+	case AUDIO_STOP: {
+		rc = qcelp_in_ioctl_shared(file, cmd, arg);
+		break;
+	}
+	case AUDIO_GET_QCELP_ENC_CONFIG_32: {
+		struct msm_audio_qcelp_enc_config32 cfg_32;
+		struct msm_audio_qcelp_enc_config *enc_cfg;
+
+		enc_cfg = (struct msm_audio_qcelp_enc_config *)audio->enc_cfg;
+		cfg_32.cdma_rate = enc_cfg->cdma_rate;
+		cfg_32.min_bit_rate = enc_cfg->min_bit_rate;
+		cfg_32.max_bit_rate = enc_cfg->max_bit_rate;
+		if (copy_to_user((void *)arg, &cfg_32,
+			sizeof(cfg_32))) {
+			pr_err("%s: copy_to_user for AUDIO_GET_QCELP_ENC_CONFIG_32 failed\n",
+				__func__);
+			rc = -EFAULT;
+}
+		break;
+	}
+	case AUDIO_SET_QCELP_ENC_CONFIG_32: {
+		struct msm_audio_qcelp_enc_config32 cfg_32;
+		struct msm_audio_qcelp_enc_config cfg;
+		if (copy_from_user(&cfg_32, (void *) arg,
+				sizeof(cfg_32))) {
+			pr_err("%s: copy_from_user for AUDIO_SET_QCELP_ENC_CONFIG_32 failed\n",
+				__func__);
+			rc = -EFAULT;
+			break;
+		}
+		cfg.cdma_rate = cfg_32.cdma_rate;
+		cfg.min_bit_rate = cfg_32.min_bit_rate;
+		cfg.max_bit_rate = cfg_32.max_bit_rate;
+		cmd = AUDIO_SET_QCELP_ENC_CONFIG;
+		rc = qcelp_in_ioctl_shared(file, cmd, (unsigned long)&cfg);
+		if (rc)
+			pr_err("%s:AUDIO_SET_QCELP_ENC_CONFIG failed. rc= %d\n",
+				__func__, rc);
+		break;
+	}
+	default:
+		pr_err("%s: Unknown ioctl cmd = %d", __func__, cmd);
+		rc = -EINVAL;
+	}
+	return rc;
+}
+#else
+#define qcelp_in_compat_ioctl NULL
+#endif
 
 static int qcelp_in_open(struct inode *inode, struct file *file)
 {
@@ -256,6 +370,7 @@ static int qcelp_in_open(struct inode *inode, struct file *file)
 	audio->opened = 1;
 	atomic_set(&audio->in_count, PCM_BUF_COUNT);
 	atomic_set(&audio->out_count, 0x00);
+	audio->enc_compat_ioctl = qcelp_in_compat_ioctl;
 	audio->enc_ioctl = qcelp_in_ioctl;
 	file->private_data = audio;
 
@@ -275,6 +390,7 @@ static const struct file_operations audio_in_fops = {
 	.read		= audio_in_read,
 	.write		= audio_in_write,
 	.unlocked_ioctl	= audio_in_ioctl,
+	.compat_ioctl   = audio_in_compat_ioctl
 };
 
 struct miscdevice audio_qcelp_in_misc = {

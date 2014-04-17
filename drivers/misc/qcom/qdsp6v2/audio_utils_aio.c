@@ -25,6 +25,7 @@
 #include <asm/ioctls.h>
 #include <linux/debugfs.h>
 #include <linux/msm_audio_ion.h>
+#include <linux/compat.h>
 #include "audio_utils_aio.h"
 #ifdef CONFIG_USE_DEV_CTRL_VOLUME
 #include <linux/qdsp6v2/audio_dev_ctl.h>
@@ -70,6 +71,14 @@ ssize_t audio_aio_debug_read(struct file *file, char __user *buf,
 }
 #endif
 
+static long audio_aio_ioctl(struct file *file, unsigned int cmd,
+				unsigned long arg);
+#ifdef CONFIG_COMPAT
+static long audio_aio_compat_ioctl(struct file *file, unsigned int cmd,
+				unsigned long arg);
+#else
+#define audio_aio_compat_ioctl NULL
+#endif
 int insert_eos_buf(struct q6audio_aio *audio,
 		struct audio_aio_buffer_node *buf_node)
 {
@@ -140,11 +149,11 @@ static int audio_aio_ion_lookup_vaddr(struct q6audio_aio *audio, void *addr,
 	return *region ? 0 : -1;
 }
 
-static unsigned long audio_aio_ion_fixup(struct q6audio_aio *audio, void *addr,
+static phys_addr_t audio_aio_ion_fixup(struct q6audio_aio *audio, void *addr,
 				unsigned long len, int ref_up, void **kvaddr)
 {
 	struct audio_aio_ion_region *region;
-	unsigned long paddr;
+	phys_addr_t paddr;
 	int ret;
 
 	ret = audio_aio_ion_lookup_vaddr(audio, addr, len, &region);
@@ -675,19 +684,15 @@ static int audio_aio_events_pending(struct q6audio_aio *audio)
 	return empty || audio->event_abort;
 }
 
-static long audio_aio_process_event_req(struct q6audio_aio *audio,
-					void __user *arg)
+static long audio_aio_process_event_req_common(struct q6audio_aio *audio,
+					struct msm_audio_event *usr_evt)
 {
 	long rc;
-	struct msm_audio_event usr_evt;
 	struct audio_aio_event *drv_evt = NULL;
 	int timeout;
 	unsigned long flags;
 
-	if (copy_from_user(&usr_evt, arg, sizeof(struct msm_audio_event)))
-		return -EFAULT;
-
-	timeout = (int)usr_evt.timeout_ms;
+	timeout = usr_evt->timeout_ms;
 
 	if (timeout > 0) {
 		rc = wait_event_interruptible_timeout(audio->event_wait,
@@ -718,8 +723,8 @@ static long audio_aio_process_event_req(struct q6audio_aio *audio,
 		list_del(&drv_evt->list);
 	}
 	if (drv_evt) {
-		usr_evt.event_type = drv_evt->event_type;
-		usr_evt.event_payload = drv_evt->payload;
+		usr_evt->event_type = drv_evt->event_type;
+		usr_evt->event_payload = drv_evt->payload;
 		list_add_tail(&drv_evt->list, &audio->free_event_queue);
 	} else {
 		pr_err("%s[%p]:Unexpected path\n", __func__, audio);
@@ -753,11 +758,133 @@ static long audio_aio_process_event_req(struct q6audio_aio *audio,
 		audio_aio_flush(audio);
 	}
 
-	if (copy_to_user(arg, &usr_evt, sizeof(usr_evt)))
-		rc = -EFAULT;
-
 	return rc;
 }
+
+static long audio_aio_process_event_req(struct q6audio_aio *audio,
+					void __user *arg)
+{
+	long rc;
+	struct msm_audio_event usr_evt;
+
+	if (copy_from_user(&usr_evt, arg, sizeof(struct msm_audio_event))) {
+		pr_err("%s: copy_from_user failed\n", __func__);
+		return -EFAULT;
+	}
+
+	rc = audio_aio_process_event_req_common(audio, &usr_evt);
+
+	if (copy_to_user(arg, &usr_evt, sizeof(usr_evt))) {
+		pr_err("%s: copy_to_user failed\n", __func__);
+		rc = -EFAULT;
+	}
+	return rc;
+}
+
+#ifdef CONFIG_COMPAT
+
+struct msm_audio_aio_buf32 {
+	compat_uptr_t buf_addr;
+	u32 buf_len;
+	u32 data_len;
+	compat_uptr_t private_data;
+	u16 mfield_sz; /*only useful for data has meta field */
+};
+
+struct msm_audio_bitstream_info32 {
+	u32 codec_type;
+	u32 chan_info;
+	u32 sample_rate;
+	u32 bit_stream_info;
+	u32 bit_rate;
+	u32 unused[3];
+};
+
+struct msm_audio_bitstream_error_info32 {
+	u32 dec_id;
+	u32 err_msg_indicator;
+	u32 err_type;
+};
+
+union msm_audio_event_payload32 {
+	struct msm_audio_aio_buf32 aio_buf;
+	struct msm_audio_bitstream_info32 stream_info;
+	struct msm_audio_bitstream_error_info32 error_info;
+	s32 reserved;
+};
+
+struct msm_audio_event32 {
+	s32 event_type;
+	s32 timeout_ms;
+	union msm_audio_event_payload32 event_payload;
+};
+
+static long audio_aio_process_event_req_compat(struct q6audio_aio *audio,
+					void __user *arg)
+{
+	long rc;
+	struct msm_audio_event32 usr_evt_32;
+	struct msm_audio_event usr_evt;
+
+	if (copy_from_user(&usr_evt_32, arg,
+				sizeof(struct msm_audio_event32))) {
+		pr_err("%s: copy_from_user failed\n", __func__);
+		return -EFAULT;
+	}
+	usr_evt.timeout_ms = usr_evt_32.timeout_ms;
+
+	rc = audio_aio_process_event_req_common(audio, &usr_evt);
+
+	usr_evt_32.event_type = usr_evt.event_type;
+	switch (usr_evt_32.event_type) {
+	case AUDIO_EVENT_SUSPEND:
+	case AUDIO_EVENT_RESUME:
+	case AUDIO_EVENT_WRITE_DONE:
+	case AUDIO_EVENT_READ_DONE:
+		usr_evt_32.event_payload.aio_buf.buf_addr =
+			ptr_to_compat(usr_evt.event_payload.aio_buf.buf_addr);
+		usr_evt_32.event_payload.aio_buf.buf_len =
+			usr_evt.event_payload.aio_buf.buf_len;
+		usr_evt_32.event_payload.aio_buf.data_len =
+			usr_evt.event_payload.aio_buf.data_len;
+		usr_evt_32.event_payload.aio_buf.private_data =
+		ptr_to_compat(usr_evt.event_payload.aio_buf.private_data);
+		usr_evt_32.event_payload.aio_buf.mfield_sz =
+			usr_evt.event_payload.aio_buf.mfield_sz;
+		break;
+	case AUDIO_EVENT_STREAM_INFO:
+		usr_evt_32.event_payload.stream_info.codec_type =
+			usr_evt.event_payload.stream_info.codec_type;
+		usr_evt_32.event_payload.stream_info.chan_info =
+			usr_evt.event_payload.stream_info.chan_info;
+		usr_evt_32.event_payload.stream_info.sample_rate =
+			usr_evt.event_payload.stream_info.sample_rate;
+		usr_evt_32.event_payload.stream_info.bit_stream_info =
+			usr_evt.event_payload.stream_info.bit_stream_info;
+		usr_evt_32.event_payload.stream_info.bit_rate =
+			usr_evt.event_payload.stream_info.bit_rate;
+		break;
+	case AUDIO_EVENT_BITSTREAM_ERROR_INFO:
+		usr_evt_32.event_payload.error_info.dec_id =
+			usr_evt.event_payload.error_info.dec_id;
+		usr_evt_32.event_payload.error_info.err_msg_indicator =
+			usr_evt.event_payload.error_info.err_msg_indicator;
+		usr_evt_32.event_payload.error_info.err_type =
+			usr_evt.event_payload.error_info.err_type;
+		break;
+	default:
+		pr_err("%s: unknown audio event type = %d",
+			__func__, usr_evt_32.event_type);
+		rc = -EINVAL;
+		return rc;
+	}
+	if (copy_to_user(arg, &usr_evt_32, sizeof(usr_evt_32))) {
+		pr_err("%s: copy_to_user failed\n", __func__);
+		rc = -EFAULT;
+	}
+	return rc;
+}
+#endif
 
 static int audio_aio_ion_check(struct q6audio_aio *audio,
 				void *vaddr, unsigned long len)
@@ -984,22 +1111,10 @@ static void audio_aio_async_read(struct q6audio_aio *audio,
 		pr_err("%s[%p]:failed\n", __func__, audio);
 }
 
-static int audio_aio_buf_add(struct q6audio_aio *audio, unsigned dir,
-				void __user *arg)
+static int audio_aio_buf_add_shared(struct q6audio_aio *audio, u32 dir,
+				struct audio_aio_buffer_node *buf_node)
 {
 	unsigned long flags;
-	struct audio_aio_buffer_node *buf_node;
-
-
-	buf_node = kzalloc(sizeof(*buf_node), GFP_KERNEL);
-
-	if (!buf_node)
-		return -ENOMEM;
-
-	if (copy_from_user(&buf_node->buf, arg, sizeof(buf_node->buf))) {
-		kfree(buf_node);
-		return -EFAULT;
-	}
 
 	pr_debug("%s[%p]:node %p dir %x buf_addr %p buf_len %d data_len %d\n",
 		 __func__, audio, buf_node, dir, buf_node->buf.buf_addr,
@@ -1081,6 +1196,57 @@ static int audio_aio_buf_add(struct q6audio_aio *audio, unsigned dir,
 	}
 	return 0;
 }
+#ifdef CONFIG_COMPAT
+static int audio_aio_buf_add_compat(struct q6audio_aio *audio, u32 dir,
+				void __user *arg)
+{
+	struct audio_aio_buffer_node *buf_node;
+	struct msm_audio_aio_buf32 aio_buf_32;
+
+	buf_node = kzalloc(sizeof(*buf_node), GFP_KERNEL);
+
+	if (!buf_node) {
+		pr_err("%s: Buffer node alloc failed\n", __func__);
+		return -ENOMEM;
+	}
+
+
+	if (copy_from_user(&aio_buf_32, arg, sizeof(aio_buf_32))) {
+		kfree(buf_node);
+		pr_err("%s: copy_from_user failed\n", __func__);
+		return -EFAULT;
+	}
+
+	buf_node->buf.buf_addr = compat_ptr(aio_buf_32.buf_addr);
+	buf_node->buf.buf_len = aio_buf_32.buf_len;
+	buf_node->buf.data_len = aio_buf_32.data_len;
+	buf_node->buf.private_data = compat_ptr(aio_buf_32.private_data);
+	buf_node->buf.mfield_sz = aio_buf_32.mfield_sz;
+
+	return audio_aio_buf_add_shared(audio, dir, buf_node);
+}
+#endif
+
+static int audio_aio_buf_add(struct q6audio_aio *audio, u32 dir,
+				void __user *arg)
+{
+	struct audio_aio_buffer_node *buf_node;
+
+	buf_node = kzalloc(sizeof(*buf_node), GFP_KERNEL);
+
+	if (!buf_node) {
+		pr_err("%s: Buffer node alloc failed\n", __func__);
+		return -ENOMEM;
+	}
+
+	if (copy_from_user(&buf_node->buf, arg, sizeof(buf_node->buf))) {
+		kfree(buf_node);
+		pr_err("%s: copy_from_user failed\n", __func__);
+		return -EFAULT;
+	}
+
+	return audio_aio_buf_add_shared(audio, dir, buf_node);
+}
 
 void audio_aio_ioport_reset(struct q6audio_aio *audio)
 {
@@ -1149,7 +1315,7 @@ int audio_aio_open(struct q6audio_aio *audio, struct file *file)
 	audio->opened = 1;
 	file->private_data = audio;
 	audio->codec_ioctl = audio_aio_ioctl;
-
+	audio->codec_compat_ioctl = audio_aio_compat_ioctl;
 	for (i = 0; i < AUDIO_EVENT_NUM; i++) {
 		e_node = kmalloc(sizeof(struct audio_aio_event), GFP_KERNEL);
 		if (e_node)
@@ -1189,64 +1355,16 @@ fail:
 	return rc;
 }
 
-long audio_aio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+static long audio_aio_shared_ioctl(struct file *file, unsigned int cmd,
+			unsigned long arg)
 {
 	struct q6audio_aio *audio = file->private_data;
 	int rc = 0;
 
 	switch (cmd) {
-	case AUDIO_GET_STATS: {
-		struct msm_audio_stats stats;
-		uint64_t timestamp;
-		memset(&stats, 0, sizeof(struct msm_audio_stats));
-		stats.byte_count = atomic_read(&audio->in_bytes);
-		stats.sample_count = atomic_read(&audio->in_samples);
-		rc = q6asm_get_session_time(audio->ac, &timestamp);
-		if (rc >= 0)
-			memcpy(&stats.unused[0], &timestamp, sizeof(timestamp));
-		else
-			pr_debug("Error while getting timestamp\n");
-		if (copy_to_user((void *)arg, &stats, sizeof(stats)))
-			rc = -EFAULT;
-		break;
-	}
-	case AUDIO_GET_EVENT: {
-		pr_debug("%s[%p]:AUDIO_GET_EVENT\n", __func__, audio);
-		if (mutex_trylock(&audio->get_event_lock)) {
-			rc = audio_aio_process_event_req(audio,
-						(void __user *)arg);
-			mutex_unlock(&audio->get_event_lock);
-		} else
-			rc = -EBUSY;
-		break;
-	}
 	case AUDIO_ABORT_GET_EVENT: {
 		audio->event_abort = 1;
 		wake_up(&audio->event_wait);
-		break;
-	}
-	case AUDIO_ASYNC_WRITE: {
-		mutex_lock(&audio->write_lock);
-		if (audio->drv_status & ADRV_STATUS_FSYNC)
-			rc = -EBUSY;
-		else {
-			if (audio->enabled)
-				rc = audio_aio_buf_add(audio, 1,
-						(void __user *)arg);
-			else
-				rc = -EPERM;
-		}
-		mutex_unlock(&audio->write_lock);
-		break;
-	}
-	case AUDIO_ASYNC_READ: {
-		mutex_lock(&audio->read_lock);
-		if ((audio->feedback) && (audio->enabled))
-			rc = audio_aio_buf_add(audio, 0,
-					(void __user *)arg);
-		else
-			rc = -EPERM;
-		mutex_unlock(&audio->read_lock);
 		break;
 	}
 	case AUDIO_OUTPORT_FLUSH: {
@@ -1342,28 +1460,93 @@ long audio_aio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		mutex_unlock(&audio->lock);
 		break;
 	}
-	case AUDIO_REGISTER_ION: {
-		struct msm_audio_ion_info info;
-		pr_debug("%s[%p]:AUDIO_REGISTER_ION\n", __func__, audio);
+	case AUDIO_GET_SESSION_ID: {
 		mutex_lock(&audio->lock);
-		if (copy_from_user(&info, (void *)arg, sizeof(info)))
+		if (copy_to_user((void *)arg, &audio->ac->session,
+			sizeof(u16))) {
+			pr_err("%s: copy_to_user for AUDIO_GET_SESSION_ID failed\n",
+				__func__);
 			rc = -EFAULT;
-		else
-			rc = audio_aio_ion_add(audio, &info);
+		}
 		mutex_unlock(&audio->lock);
 		break;
 	}
-	case AUDIO_DEREGISTER_ION: {
-		struct msm_audio_ion_info info;
-		mutex_lock(&audio->lock);
-		pr_debug("%s[%p]:AUDIO_DEREGISTER_ION\n", __func__, audio);
-		if (copy_from_user(&info, (void *)arg, sizeof(info)))
-			rc = -EFAULT;
+	default:
+		pr_err("%s: Unknown ioctl cmd = %d", __func__, cmd);
+		rc =  -EINVAL;
+	}
+	return rc;
+
+
+}
+
+static long audio_aio_ioctl(struct file *file, unsigned int cmd,
+				unsigned long arg)
+{
+	struct q6audio_aio *audio = file->private_data;
+	int rc = 0;
+
+	switch (cmd) {
+	case AUDIO_ABORT_GET_EVENT:
+	case AUDIO_OUTPORT_FLUSH:
+	case AUDIO_STOP:
+	case AUDIO_PAUSE:
+	case AUDIO_FLUSH:
+		rc = audio_aio_shared_ioctl(file, cmd, arg);
+		break;
+	case AUDIO_GET_STATS: {
+		struct msm_audio_stats stats;
+		uint64_t timestamp;
+		memset(&stats, 0, sizeof(struct msm_audio_stats));
+		stats.byte_count = atomic_read(&audio->in_bytes);
+		stats.sample_count = atomic_read(&audio->in_samples);
+		rc = q6asm_get_session_time(audio->ac, &timestamp);
+		if (rc >= 0)
+			memcpy(&stats.unused[0], &timestamp, sizeof(timestamp));
 		else
-			rc = audio_aio_ion_remove(audio, &info);
-		mutex_unlock(&audio->lock);
+			pr_debug("Error while getting timestamp\n");
+		if (copy_to_user((void *)arg, &stats, sizeof(stats))) {
+			pr_err("%s: copy_frm_user for AUDIO_GET_STATS failed\n",
+				__func__);
+			rc = -EFAULT;
+		}
 		break;
 	}
+	case AUDIO_GET_EVENT: {
+		pr_debug("%s[%p]:AUDIO_GET_EVENT\n", __func__, audio);
+		if (mutex_trylock(&audio->get_event_lock)) {
+			rc = audio_aio_process_event_req(audio,
+						(void __user *)arg);
+			mutex_unlock(&audio->get_event_lock);
+		} else
+			rc = -EBUSY;
+		break;
+	}
+	case AUDIO_ASYNC_WRITE: {
+		mutex_lock(&audio->write_lock);
+		if (audio->drv_status & ADRV_STATUS_FSYNC)
+			rc = -EBUSY;
+		else {
+			if (audio->enabled)
+				rc = audio_aio_buf_add(audio, 1,
+						(void __user *)arg);
+			else
+				rc = -EPERM;
+		}
+		mutex_unlock(&audio->write_lock);
+		break;
+	}
+	case AUDIO_ASYNC_READ: {
+		mutex_lock(&audio->read_lock);
+		if ((audio->feedback) && (audio->enabled))
+			rc = audio_aio_buf_add(audio, 0,
+					(void __user *)arg);
+		else
+			rc = -EPERM;
+		mutex_unlock(&audio->read_lock);
+		break;
+	}
+
 	case AUDIO_GET_STREAM_CONFIG: {
 		struct msm_audio_stream_config cfg;
 		mutex_lock(&audio->lock);
@@ -1372,8 +1555,12 @@ long audio_aio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		cfg.buffer_count = audio->str_cfg.buffer_count;
 		pr_debug("%s[%p]:GET STREAM CFG %d %d\n",
 			__func__, audio, cfg.buffer_size, cfg.buffer_count);
-		if (copy_to_user((void *)arg, &cfg, sizeof(cfg)))
+		if (copy_to_user((void *)arg, &cfg, sizeof(cfg))) {
+			pr_err(
+				"%s: copy_to_user for AUDIO_GET_STREAM_CONFIG failed\n",
+				__func__);
 			rc = -EFAULT;
+		}
 		mutex_unlock(&audio->lock);
 		break;
 	}
@@ -1382,6 +1569,9 @@ long audio_aio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		pr_debug("%s[%p]:SET STREAM CONFIG\n", __func__, audio);
 		mutex_lock(&audio->lock);
 		if (copy_from_user(&cfg, (void *)arg, sizeof(cfg))) {
+			pr_err(
+				"%s: copy_from_user for AUDIO_SET_STREAM_CONFIG failed\n",
+				__func__);
 			rc = -EFAULT;
 			mutex_unlock(&audio->lock);
 			break;
@@ -1395,8 +1585,12 @@ long audio_aio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case AUDIO_GET_CONFIG: {
 		struct msm_audio_config cfg;
 		mutex_lock(&audio->lock);
-		if (copy_to_user((void *)arg, &audio->pcm_cfg, sizeof(cfg)))
+		if (copy_to_user((void *)arg, &audio->pcm_cfg, sizeof(cfg))) {
+			pr_err(
+				"%s: copy_to_user for AUDIO_GET_CONFIG failed\n",
+				__func__);
 			rc = -EFAULT;
+		}
 		mutex_unlock(&audio->lock);
 		break;
 	}
@@ -1405,6 +1599,9 @@ long audio_aio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		pr_err("%s[%p]:AUDIO_SET_CONFIG\n", __func__, audio);
 		mutex_lock(&audio->lock);
 		if (copy_from_user(&config, (void *)arg, sizeof(config))) {
+			pr_err(
+				"%s: copy_from_user for AUDIO_SET_CONFIG failed\n",
+				__func__);
 			rc = -EFAULT;
 			mutex_unlock(&audio->lock);
 			break;
@@ -1435,6 +1632,9 @@ long audio_aio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		struct msm_audio_buf_cfg  cfg;
 		mutex_lock(&audio->lock);
 		if (copy_from_user(&cfg, (void *)arg, sizeof(cfg))) {
+			pr_err(
+				"%s: copy_from_user for AUDIO_GET_BUF CONFIG failed\n",
+				__func__);
 			rc = -EFAULT;
 			mutex_unlock(&audio->lock);
 			break;
@@ -1461,22 +1661,365 @@ long audio_aio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 		mutex_lock(&audio->lock);
 		if (copy_to_user((void *)arg, &audio->buf_cfg,
-			sizeof(struct msm_audio_buf_cfg)))
-			rc = -EFAULT;
-		mutex_unlock(&audio->lock);
-		break;
-	}
-	case AUDIO_GET_SESSION_ID: {
-		mutex_lock(&audio->lock);
-		if (copy_to_user((void *)arg, &audio->ac->session,
-			sizeof(unsigned short))) {
+			sizeof(struct msm_audio_buf_cfg))) {
+			pr_err(
+				"%s: copy_to_user for AUDIO_GET_BUF_CONFIG failed\n",
+				__func__);
 			rc = -EFAULT;
 		}
 		mutex_unlock(&audio->lock);
 		break;
 	}
+	case AUDIO_REGISTER_ION: {
+		struct msm_audio_ion_info info;
+		pr_debug("%s[%p]:AUDIO_REGISTER_ION\n", __func__, audio);
+		mutex_lock(&audio->lock);
+		if (copy_from_user(&info, (void *)arg, sizeof(info))) {
+			pr_err(
+				"%s: copy_from_user for AUDIO_REGISTER_ION failed\n",
+				__func__);
+			rc = -EFAULT;
+		} else {
+			rc = audio_aio_ion_add(audio, &info);
+		}
+		mutex_unlock(&audio->lock);
+		break;
+	}
+	case AUDIO_DEREGISTER_ION: {
+		struct msm_audio_ion_info info;
+		mutex_lock(&audio->lock);
+		pr_debug("%s[%p]:AUDIO_DEREGISTER_ION\n", __func__, audio);
+		if (copy_from_user(&info, (void *)arg, sizeof(info))) {
+			pr_err(
+				"%s: copy_from_user for AUDIO_DEREGISTER_ION failed\n",
+				__func__);
+			rc = -EFAULT;
+		} else {
+			rc = audio_aio_ion_remove(audio, &info);
+		}
+		mutex_unlock(&audio->lock);
+		break;
+	}
 	default:
+		pr_err("%s: Unknown ioctl cmd = %d", __func__, cmd);
 		rc =  -EINVAL;
 	}
 	return rc;
 }
+
+#ifdef CONFIG_COMPAT
+struct msm_audio_stream_config32 {
+	u32 buffer_size;
+	u32 buffer_count;
+};
+
+struct msm_audio_stats32 {
+	u32 byte_count;
+	u32 sample_count;
+	u32 unused[2];
+};
+
+struct msm_audio_config32 {
+	u32 buffer_size;
+	u32 buffer_count;
+	u32 channel_count;
+	u32 sample_rate;
+	u32 type;
+	u32 meta_field;
+	u32 bits;
+	u32 unused[3];
+};
+
+struct msm_audio_buf_cfg32 {
+	u32 meta_info_enable;
+	u32 frames_per_buf;
+};
+
+struct msm_audio_ion_info32 {
+	int fd;
+	compat_uptr_t vaddr;
+};
+
+enum {
+	AUDIO_GET_CONFIG_32 = _IOR(AUDIO_IOCTL_MAGIC, 3,
+			struct msm_audio_config32),
+	AUDIO_SET_CONFIG_32 = _IOW(AUDIO_IOCTL_MAGIC, 4,
+			struct msm_audio_config32),
+	AUDIO_GET_STATS_32 = _IOR(AUDIO_IOCTL_MAGIC, 5,
+			struct msm_audio_stats32),
+	AUDIO_GET_EVENT_32 = _IOR(AUDIO_IOCTL_MAGIC, 13,
+			struct msm_audio_event32),
+	AUDIO_ASYNC_WRITE_32 = _IOW(AUDIO_IOCTL_MAGIC, 17,
+			struct msm_audio_aio_buf32),
+	AUDIO_ASYNC_READ_32 = _IOW(AUDIO_IOCTL_MAGIC, 18,
+			struct msm_audio_aio_buf32),
+	AUDIO_SET_STREAM_CONFIG_32 = _IOW(AUDIO_IOCTL_MAGIC, 80,
+			struct msm_audio_stream_config32),
+	AUDIO_GET_STREAM_CONFIG_32 = _IOR(AUDIO_IOCTL_MAGIC, 81,
+			struct msm_audio_stream_config32),
+	AUDIO_GET_BUF_CFG_32 = _IOW(AUDIO_IOCTL_MAGIC, 93,
+			struct msm_audio_buf_cfg32),
+	AUDIO_SET_BUF_CFG_32 = _IOW(AUDIO_IOCTL_MAGIC, 94,
+			struct msm_audio_buf_cfg32),
+	AUDIO_REGISTER_ION_32 = _IOW(AUDIO_IOCTL_MAGIC, 97,
+			struct msm_audio_ion_info32),
+	AUDIO_DEREGISTER_ION_32 = _IOW(AUDIO_IOCTL_MAGIC, 98,
+			struct msm_audio_ion_info32),
+};
+
+static long audio_aio_compat_ioctl(struct file *file, unsigned int cmd,
+			unsigned long arg)
+{
+	struct q6audio_aio *audio = file->private_data;
+	int rc = 0;
+
+	switch (cmd) {
+	case AUDIO_ABORT_GET_EVENT:
+	case AUDIO_OUTPORT_FLUSH:
+	case AUDIO_STOP:
+	case AUDIO_PAUSE:
+	case AUDIO_FLUSH:
+		rc = audio_aio_shared_ioctl(file, cmd, arg);
+		break;
+	case AUDIO_GET_STATS_32: {
+		struct msm_audio_stats32 stats;
+		uint64_t timestamp;
+		memset(&stats, 0, sizeof(struct msm_audio_stats32));
+		stats.byte_count = atomic_read(&audio->in_bytes);
+		stats.sample_count = atomic_read(&audio->in_samples);
+		rc = q6asm_get_session_time(audio->ac, &timestamp);
+		if (rc >= 0)
+			memcpy(&stats.unused[0], &timestamp, sizeof(timestamp));
+		else
+			pr_debug("Error while getting timestamp\n");
+		if (copy_to_user((void *)arg, &stats, sizeof(stats))) {
+			pr_err(
+				"%s: copy_to_user for AUDIO_GET_STATS_32 failed\n",
+				__func__);
+			rc = -EFAULT;
+		}
+		break;
+	}
+	case AUDIO_GET_EVENT_32: {
+		pr_debug("%s[%p]:AUDIO_GET_EVENT\n", __func__, audio);
+		if (mutex_trylock(&audio->get_event_lock)) {
+			rc = audio_aio_process_event_req_compat(audio,
+						(void __user *)arg);
+			mutex_unlock(&audio->get_event_lock);
+		} else
+			rc = -EBUSY;
+		break;
+	}
+	case AUDIO_ASYNC_WRITE_32: {
+		mutex_lock(&audio->write_lock);
+		if (audio->drv_status & ADRV_STATUS_FSYNC)
+			rc = -EBUSY;
+		else {
+			if (audio->enabled)
+				rc = audio_aio_buf_add_compat(audio, 1,
+						(void __user *)arg);
+			else
+				rc = -EPERM;
+		}
+		mutex_unlock(&audio->write_lock);
+		break;
+	}
+	case AUDIO_ASYNC_READ_32: {
+		mutex_lock(&audio->read_lock);
+		if ((audio->feedback) && (audio->enabled))
+			rc = audio_aio_buf_add_compat(audio, 0,
+					(void __user *)arg);
+		else
+			rc = -EPERM;
+		mutex_unlock(&audio->read_lock);
+		break;
+	}
+
+	case AUDIO_GET_STREAM_CONFIG_32: {
+		struct msm_audio_stream_config32 cfg;
+		mutex_lock(&audio->lock);
+		memset(&cfg, 0, sizeof(cfg));
+		cfg.buffer_size = audio->str_cfg.buffer_size;
+		cfg.buffer_count = audio->str_cfg.buffer_count;
+		pr_debug("%s[%p]:GET STREAM CFG %d %d\n",
+			__func__, audio, cfg.buffer_size, cfg.buffer_count);
+		if (copy_to_user((void *)arg, &cfg, sizeof(cfg))) {
+			pr_err("%s: copy_to_user for AUDIO_GET_STREAM_CONFIG_32 failed\n",
+				__func__);
+			rc = -EFAULT;
+		}
+		mutex_unlock(&audio->lock);
+		break;
+	}
+	case AUDIO_SET_STREAM_CONFIG_32: {
+		struct msm_audio_stream_config32 cfg_32;
+		struct msm_audio_stream_config cfg;
+		pr_debug("%s[%p]:SET STREAM CONFIG\n", __func__, audio);
+		mutex_lock(&audio->lock);
+		if (copy_from_user(&cfg_32, (void *)arg, sizeof(cfg_32))) {
+			pr_err("%s: copy_from_user for AUDIO_SET_STREAM_CONFIG_32 failed\n",
+				__func__);
+			rc = -EFAULT;
+			mutex_unlock(&audio->lock);
+			break;
+		}
+		cfg.buffer_size = cfg_32.buffer_size;
+		cfg.buffer_count = cfg_32.buffer_count;
+
+		audio->str_cfg.buffer_size = FRAME_SIZE;
+		audio->str_cfg.buffer_count = FRAME_NUM;
+		rc = 0;
+		mutex_unlock(&audio->lock);
+		break;
+	}
+	case AUDIO_GET_CONFIG_32: {
+		struct msm_audio_config32 cfg_32;
+		mutex_lock(&audio->lock);
+		cfg_32.buffer_size = audio->pcm_cfg.buffer_size;
+		cfg_32.buffer_count = audio->pcm_cfg.buffer_count;
+		cfg_32.channel_count = audio->pcm_cfg.channel_count;
+		cfg_32.sample_rate = audio->pcm_cfg.sample_rate;
+		cfg_32.type = audio->pcm_cfg.type;
+		cfg_32.meta_field = audio->pcm_cfg.meta_field;
+		cfg_32.bits = audio->pcm_cfg.bits;
+
+		if (copy_to_user((void *)arg, &cfg_32, sizeof(cfg_32))) {
+			pr_err("%s: copy_to_user for AUDIO_GET_CONFIG_32 failed\n",
+				__func__);
+			rc = -EFAULT;
+		}
+		mutex_unlock(&audio->lock);
+		break;
+	}
+	case AUDIO_SET_CONFIG_32: {
+		struct msm_audio_config config;
+		struct msm_audio_config32 config_32;
+		mutex_lock(&audio->lock);
+
+		if (audio->feedback != NON_TUNNEL_MODE) {
+			pr_err("%s[%p]:Not sufficient permission to change the playback mode\n",
+				 __func__, audio);
+			rc = -EACCES;
+			mutex_unlock(&audio->lock);
+			break;
+		}
+		pr_err("%s[%p]:AUDIO_SET_CONFIG\n", __func__, audio);
+		if (copy_from_user(&config_32, (void *)arg,
+					sizeof(config_32))) {
+			pr_err("%s: copy_from_user for AUDIO_SET_CONFIG_32 failed\n",
+				__func__);
+			rc = -EFAULT;
+			mutex_unlock(&audio->lock);
+			break;
+		}
+		config.buffer_size = config_32.buffer_size;
+		config.buffer_count = config_32.buffer_count;
+		config.channel_count = config_32.channel_count;
+		config.sample_rate = config_32.sample_rate;
+		config.type = config_32.type;
+		config.meta_field = config_32.meta_field;
+		config.bits = config_32.bits;
+
+		if ((config.buffer_count > PCM_BUF_COUNT) ||
+			(config.buffer_count == 1))
+			config.buffer_count = PCM_BUF_COUNT;
+
+		if (config.buffer_size < PCM_BUFSZ_MIN)
+			config.buffer_size = PCM_BUFSZ_MIN;
+
+		audio->pcm_cfg.buffer_count = config.buffer_count;
+		audio->pcm_cfg.buffer_size = config.buffer_size;
+		audio->pcm_cfg.channel_count = config.channel_count;
+		audio->pcm_cfg.sample_rate = config.sample_rate;
+		rc = 0;
+		mutex_unlock(&audio->lock);
+		break;
+	}
+	case AUDIO_SET_BUF_CFG_32: {
+		struct msm_audio_buf_cfg cfg;
+		struct msm_audio_buf_cfg32 cfg_32;
+		mutex_lock(&audio->lock);
+		if (copy_from_user(&cfg, (void *)arg, sizeof(cfg))) {
+			pr_err("%s: copy_from_user for AUDIO_SET_CONFIG_32 failed\n",
+				__func__);
+			rc = -EFAULT;
+			mutex_unlock(&audio->lock);
+			break;
+		}
+		cfg.meta_info_enable = cfg_32.meta_info_enable;
+		cfg.frames_per_buf = cfg_32.frames_per_buf;
+
+		if ((audio->feedback == NON_TUNNEL_MODE) &&
+			!cfg.meta_info_enable) {
+			rc = -EFAULT;
+			mutex_unlock(&audio->lock);
+			break;
+		}
+
+		audio->buf_cfg.meta_info_enable = cfg.meta_info_enable;
+		pr_debug("%s[%p]:session id %d: Set-buf-cfg: meta[%d]",
+				__func__, audio,
+				audio->ac->session, cfg.meta_info_enable);
+		mutex_unlock(&audio->lock);
+		break;
+	}
+	case AUDIO_GET_BUF_CFG_32: {
+		struct msm_audio_buf_cfg32 cfg_32;
+		pr_debug("%s[%p]:session id %d: Get-buf-cfg: meta[%d] framesperbuf[%d]\n",
+			 __func__, audio,
+			audio->ac->session, audio->buf_cfg.meta_info_enable,
+			audio->buf_cfg.frames_per_buf);
+
+		mutex_lock(&audio->lock);
+		cfg_32.meta_info_enable = audio->buf_cfg.meta_info_enable;
+		cfg_32.frames_per_buf = audio->buf_cfg.frames_per_buf;
+		if (copy_to_user((void *)arg, &cfg_32,
+			sizeof(struct msm_audio_buf_cfg32))) {
+			pr_err("%s: copy_to_user for AUDIO_GET_BUF_CFG_32 failed\n",
+				__func__);
+			rc = -EFAULT;
+		}
+		mutex_unlock(&audio->lock);
+		break;
+	}
+	case AUDIO_REGISTER_ION_32: {
+		struct msm_audio_ion_info32 info_32;
+		struct msm_audio_ion_info info;
+		pr_debug("%s[%p]:AUDIO_REGISTER_ION\n", __func__, audio);
+		mutex_lock(&audio->lock);
+		if (copy_from_user(&info_32, (void *)arg, sizeof(info_32))) {
+			pr_err("%s: copy_from_user for AUDIO_REGISTER_ION_32 failed\n",
+				__func__);
+			rc = -EFAULT;
+		} else {
+			info.fd = info_32.fd;
+			info.vaddr = compat_ptr(info_32.vaddr);
+			rc = audio_aio_ion_add(audio, &info);
+		}
+		mutex_unlock(&audio->lock);
+		break;
+	}
+	case AUDIO_DEREGISTER_ION_32: {
+		struct msm_audio_ion_info32 info_32;
+		struct msm_audio_ion_info info;
+		mutex_lock(&audio->lock);
+		pr_debug("%s[%p]:AUDIO_DEREGISTER_ION\n", __func__, audio);
+		if (copy_from_user(&info_32, (void *)arg, sizeof(info_32))) {
+			pr_err("%s: copy_from_user for	AUDIO_DEREGISTER_ION_32 failed\n",
+				__func__);
+			rc = -EFAULT;
+		} else {
+			info.fd = info_32.fd;
+			info.vaddr = compat_ptr(info_32.vaddr);
+			rc = audio_aio_ion_remove(audio, &info);
+		}
+		mutex_unlock(&audio->lock);
+		break;
+	}
+	default:
+		pr_err("%s: Unknown ioctl cmd = %d", __func__, cmd);
+		rc =  -EINVAL;
+	}
+	return rc;
+}
+#endif

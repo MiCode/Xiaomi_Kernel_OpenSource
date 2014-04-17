@@ -4,18 +4,18 @@
 #include <linux/msm_audio.h>
 
 #define AUDIO_SET_AAC_CONFIG  _IOW(AUDIO_IOCTL_MAGIC, \
-  (AUDIO_MAX_COMMON_IOCTL_NUM+0), unsigned)
+	(AUDIO_MAX_COMMON_IOCTL_NUM+0), struct msm_audio_aac_config)
 #define AUDIO_GET_AAC_CONFIG  _IOR(AUDIO_IOCTL_MAGIC, \
-  (AUDIO_MAX_COMMON_IOCTL_NUM+1), unsigned)
+	(AUDIO_MAX_COMMON_IOCTL_NUM+1), struct msm_audio_aac_config)
 
 #define AUDIO_SET_AAC_ENC_CONFIG  _IOW(AUDIO_IOCTL_MAGIC, \
-  (AUDIO_MAX_COMMON_IOCTL_NUM+3), struct msm_audio_aac_enc_config)
+	(AUDIO_MAX_COMMON_IOCTL_NUM+3), struct msm_audio_aac_enc_config)
 
 #define AUDIO_GET_AAC_ENC_CONFIG  _IOR(AUDIO_IOCTL_MAGIC, \
-  (AUDIO_MAX_COMMON_IOCTL_NUM+4), struct msm_audio_aac_enc_config)
+	(AUDIO_MAX_COMMON_IOCTL_NUM+4), struct msm_audio_aac_enc_config)
 
 #define AUDIO_SET_AAC_MIX_CONFIG  _IOR(AUDIO_IOCTL_MAGIC, \
-(AUDIO_MAX_COMMON_IOCTL_NUM+5), unsigned)
+	(AUDIO_MAX_COMMON_IOCTL_NUM+5), uint32_t)
 
 #define AUDIO_AAC_FORMAT_ADTS		-1
 #define	AUDIO_AAC_FORMAT_RAW		0x0000

@@ -16,6 +16,7 @@
  */
 
 #include <linux/msm_audio_aac.h>
+#include <linux/compat.h>
 #include <soc/qcom/socinfo.h>
 #include "audio_utils_aio.h"
 
@@ -32,7 +33,8 @@ static const struct file_operations audio_aac_debug_fops = {
 };
 #endif
 
-static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+static long audio_ioctl_shared(struct file *file, unsigned int cmd,
+						void *arg)
 {
 	struct q6audio_aio *audio = file->private_data;
 	int rc = 0;
@@ -131,86 +133,263 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			audio->stopped = 0;
 		break;
 	}
+	case AUDIO_SET_AAC_CONFIG: {
+		struct msm_audio_aac_config *aac_config;
+		uint16_t sce_left = 1, sce_right = 2;
+
+		if (arg == NULL) {
+			pr_err("%s: NULL config pointer\n", __func__);
+			rc = -EINVAL;
+			break;
+		}
+		memcpy(audio->codec_cfg, arg,
+				sizeof(struct msm_audio_aac_config));
+		aac_config = audio->codec_cfg;
+		if (aac_config->dual_mono_mode >
+		    AUDIO_AAC_DUAL_MONO_PL_SR) {
+			pr_err("%s:AUDIO_SET_AAC_CONFIG: Invalid dual_mono mode =%d\n",
+				 __func__, aac_config->dual_mono_mode);
+		} else {
+			/* convert the data from user into sce_left
+			 * and sce_right based on the definitions
+			 */
+			pr_debug("%s: AUDIO_SET_AAC_CONFIG: modify dual_mono mode =%d\n",
+				 __func__, aac_config->dual_mono_mode);
+			switch (aac_config->dual_mono_mode) {
+			case AUDIO_AAC_DUAL_MONO_PL_PR:
+				sce_left = 1;
+				sce_right = 1;
+				break;
+			case AUDIO_AAC_DUAL_MONO_SL_SR:
+				sce_left = 2;
+				sce_right = 2;
+				break;
+			case AUDIO_AAC_DUAL_MONO_SL_PR:
+				sce_left = 2;
+				sce_right = 1;
+				break;
+			case AUDIO_AAC_DUAL_MONO_PL_SR:
+			default:
+				sce_left = 1;
+				sce_right = 2;
+				break;
+			}
+			rc = q6asm_cfg_dual_mono_aac(audio->ac,
+						sce_left, sce_right);
+			if (rc < 0)
+				pr_err("%s: asm cmd dualmono failed rc=%d\n",
+							 __func__, rc);
+		}			break;
+		break;
+	}
+	case AUDIO_SET_AAC_MIX_CONFIG:	{
+		u32 *mix_coeff = (u32 *)arg;
+		if (!arg) {
+			pr_err("%s: Invalid param for %s\n",
+				__func__, "AUDIO_SET_AAC_MIX_CONFIG");
+			rc = -EINVAL;
+			break;
+		}
+		pr_debug("%s, AUDIO_SET_AAC_MIX_CONFIG", __func__);
+		pr_debug("%s, value of coeff = %d",
+					__func__, *mix_coeff);
+		q6asm_cfg_aac_sel_mix_coef(audio->ac, *mix_coeff);
+		if (rc < 0)
+			pr_err("%s asm aac_sel_mix_coef failed rc=%d\n",
+				 __func__, rc);
+		break;
+	}
+	default:
+		pr_err("%s: Unknown ioctl cmd = %d", __func__, cmd);
+		rc = -EINVAL;
+		break;
+	}
+	return rc;
+}
+
+static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	struct q6audio_aio *audio = file->private_data;
+	int rc = 0;
+
+	switch (cmd) {
+	case AUDIO_START: {
+		rc = audio_ioctl_shared(file, cmd, (void *)arg);
+		break;
+	}
 	case AUDIO_GET_AAC_CONFIG: {
 		if (copy_to_user((void *)arg, audio->codec_cfg,
 			sizeof(struct msm_audio_aac_config))) {
+			pr_err("%s: copy_to_user for AUDIO_GET_AAC_CONFIG failed\n"
+				, __func__);
 			rc = -EFAULT;
 			break;
 		}
 		break;
 	}
 	case AUDIO_SET_AAC_CONFIG: {
-		struct msm_audio_aac_config *aac_config;
-		if (copy_from_user(audio->codec_cfg, (void *)arg,
-			sizeof(struct msm_audio_aac_config))) {
+		struct msm_audio_aac_config aac_config;
+		if (copy_from_user(&aac_config, (void *)arg,
+			sizeof(aac_config))) {
+			pr_err("%s: copy_from_user for AUDIO_SET_AAC_CONFIG failed\n"
+				, __func__);
 			rc = -EFAULT;
-		} else {
-			uint16_t sce_left = 1, sce_right = 2;
-			aac_config = audio->codec_cfg;
-			if (aac_config->dual_mono_mode >
-			    AUDIO_AAC_DUAL_MONO_PL_SR) {
-				pr_err("%s:AUDIO_SET_AAC_CONFIG: Invalid dual_mono mode =%d\n",
-					 __func__, aac_config->dual_mono_mode);
-			} else {
-				/* convert the data from user into sce_left
-				 * and sce_right based on the definitions
-				 */
-				pr_debug("%s: AUDIO_SET_AAC_CONFIG: modify dual_mono mode =%d\n",
-					 __func__, aac_config->dual_mono_mode);
-				switch (aac_config->dual_mono_mode) {
-				case AUDIO_AAC_DUAL_MONO_PL_PR:
-					sce_left = 1;
-					sce_right = 1;
-					break;
-				case AUDIO_AAC_DUAL_MONO_SL_SR:
-					sce_left = 2;
-					sce_right = 2;
-					break;
-				case AUDIO_AAC_DUAL_MONO_SL_PR:
-					sce_left = 2;
-					sce_right = 1;
-					break;
-				case AUDIO_AAC_DUAL_MONO_PL_SR:
-				default:
-					sce_left = 1;
-					sce_right = 2;
-					break;
-				}
-				rc = q6asm_cfg_dual_mono_aac(audio->ac,
-							sce_left, sce_right);
-				if (rc < 0)
-					pr_err("%s: asm cmd dualmono failed rc=%d\n",
-								 __func__, rc);
-			}			break;
 		}
+		rc = audio_ioctl_shared(file, cmd, &aac_config);
+		if (rc)
+			pr_err("%s:AUDIO_SET_AAC_CONFIG failed. Rc= %d\n",
+				__func__, rc);
 		break;
 	}
 	case AUDIO_SET_AAC_MIX_CONFIG:	{
+		u32 mix_config;
 		pr_debug("%s, AUDIO_SET_AAC_MIX_CONFIG", __func__);
-		if (copy_from_user(audio->codec_cfg, (void *)arg,
-			sizeof(unsigned long))) {
+		if (copy_from_user(&mix_config, (void *)arg,
+			sizeof(u32))) {
+			pr_err("%s: copy_from_user for AUDIO_SET_AAC_MIX_CONFIG failed\n",
+				__func__);
 			rc = -EFAULT;
 			break;
-		} else {
-			unsigned long *mix_coeff =
-					(unsigned long *)audio->codec_cfg;
-			pr_debug("%s, value of coeff = %lu",
-						__func__, *mix_coeff);
-			q6asm_cfg_aac_sel_mix_coef(audio->ac, *mix_coeff);
-			if (rc < 0)
-				pr_err("%s asm aac_sel_mix_coef failed rc=%d\n",
-								 __func__, rc);
-			break;
 		}
+		rc = audio_ioctl_shared(file, cmd, &mix_config);
+		if (rc)
+			pr_err("%s:AUDIO_SET_AAC_CONFIG failed. Rc= %d\n",
+			__func__, rc);
 		break;
 	}
-	default:
+	default: {
 		pr_debug("Calling utils ioctl\n");
 		rc = audio->codec_ioctl(file, cmd, arg);
+	}
 	}
 	return rc;
 }
 
+#ifdef CONFIG_COMPAT
+struct msm_audio_aac_config32 {
+	s16 format;
+	u16 audio_object;
+	u16 ep_config;  /* 0 ~ 3 useful only obj = ERLC */
+	u16 aac_section_data_resilience_flag;
+	u16 aac_scalefactor_data_resilience_flag;
+	u16 aac_spectral_data_resilience_flag;
+	u16 sbr_on_flag;
+	u16 sbr_ps_on_flag;
+	u16 dual_mono_mode;
+	u16 channel_configuration;
+	u16 sample_rate;
+};
+
+enum {
+	AUDIO_SET_AAC_CONFIG_32 = _IOW(AUDIO_IOCTL_MAGIC,
+		(AUDIO_MAX_COMMON_IOCTL_NUM+0), struct msm_audio_aac_config32),
+	AUDIO_GET_AAC_CONFIG_32 = _IOR(AUDIO_IOCTL_MAGIC,
+		(AUDIO_MAX_COMMON_IOCTL_NUM+1), struct msm_audio_aac_config32),
+};
+
+static long audio_compat_ioctl(struct file *file, unsigned int cmd,
+							unsigned long arg)
+{
+	struct q6audio_aio *audio = file->private_data;
+	int rc = 0;
+
+	switch (cmd) {
+	case AUDIO_START: {
+		rc = audio_ioctl_shared(file, cmd, (void *)arg);
+		break;
+	}
+	case AUDIO_GET_AAC_CONFIG_32: {
+		struct msm_audio_aac_config *aac_config;
+		struct msm_audio_aac_config32 aac_config_32;
+
+		aac_config = (struct msm_audio_aac_config *)audio->codec_cfg;
+		aac_config_32.format = aac_config->format;
+		aac_config_32.audio_object = aac_config->audio_object;
+		aac_config_32.ep_config = aac_config->ep_config;
+		aac_config_32.aac_section_data_resilience_flag =
+			aac_config->aac_section_data_resilience_flag;
+		aac_config_32.aac_scalefactor_data_resilience_flag =
+			aac_config->aac_scalefactor_data_resilience_flag;
+		aac_config_32.aac_spectral_data_resilience_flag =
+			aac_config->aac_spectral_data_resilience_flag;
+		aac_config_32.sbr_on_flag = aac_config->sbr_on_flag;
+		aac_config_32.sbr_ps_on_flag = aac_config->sbr_ps_on_flag;
+		aac_config_32.dual_mono_mode = aac_config->dual_mono_mode;
+		aac_config_32.channel_configuration =
+			aac_config->channel_configuration;
+		aac_config_32.sample_rate = aac_config->sample_rate;
+
+		if (copy_to_user((void *)arg, &aac_config_32,
+			sizeof(aac_config_32))) {
+			pr_err("%s: copy_to_user for AUDIO_GET_AAC_CONFIG_32 failed\n",
+				__func__);
+			rc = -EFAULT;
+			break;
+		}
+		break;
+	}
+	case AUDIO_SET_AAC_CONFIG_32: {
+		struct msm_audio_aac_config aac_config;
+		struct msm_audio_aac_config32 aac_config_32;
+		pr_debug("%s: AUDIO_SET_AAC_CONFIG\n", __func__);
+
+		if (copy_from_user(&aac_config_32, (void *)arg,
+			sizeof(aac_config_32))) {
+			pr_err(
+				"%s: copy_from_user for AUDIO_SET_AAC_CONFIG_32 failed",
+				__func__);
+			rc = -EFAULT;
+			break;
+		}
+		aac_config.format = aac_config_32.format;
+		aac_config.audio_object = aac_config_32.audio_object;
+		aac_config.ep_config = aac_config_32.ep_config;
+		aac_config.aac_section_data_resilience_flag =
+			aac_config_32.aac_section_data_resilience_flag;
+		aac_config.aac_scalefactor_data_resilience_flag =
+			aac_config_32.aac_scalefactor_data_resilience_flag;
+		aac_config.aac_spectral_data_resilience_flag =
+			aac_config_32.aac_spectral_data_resilience_flag;
+		aac_config.sbr_on_flag = aac_config_32.sbr_on_flag;
+		aac_config.sbr_ps_on_flag = aac_config_32.sbr_ps_on_flag;
+		aac_config.dual_mono_mode = aac_config_32.dual_mono_mode;
+		aac_config.channel_configuration =
+				aac_config_32.channel_configuration;
+		aac_config.sample_rate = aac_config_32.sample_rate;
+
+		cmd = AUDIO_SET_AAC_CONFIG;
+		rc = audio_ioctl_shared(file, cmd, &aac_config);
+		if (rc)
+			pr_err("%s:AUDIO_SET_AAC_CONFIG failed. rc= %d\n",
+				__func__, rc);
+		break;
+	}
+	case AUDIO_SET_AAC_MIX_CONFIG: {
+		u32 mix_config;
+		pr_debug("%s, AUDIO_SET_AAC_MIX_CONFIG\n", __func__);
+		if (copy_from_user(&mix_config, (void *)arg,
+			sizeof(u32))) {
+			pr_err("%s: copy_from_user for AUDIO_SET_AAC_MIX_CONFIG failed\n"
+				, __func__);
+			rc = -EFAULT;
+			break;
+		}
+		rc = audio_ioctl_shared(file, cmd, &mix_config);
+		if (rc)
+			pr_err("%s:AUDIO_SET_AAC_CONFIG failed. Rc= %d\n",
+				__func__, rc);
+		break;
+	}
+	default: {
+		pr_debug("Calling utils ioctl\n");
+		rc = audio->codec_compat_ioctl(file, cmd, arg);
+	}
+	}
+	return rc;
+}
+#else
+#define audio_compat_ioctl NULL
+#endif
 
 static int audio_open(struct inode *inode, struct file *file)
 {
@@ -312,6 +491,7 @@ static const struct file_operations audio_aac_fops = {
 	.release = audio_aio_release,
 	.unlocked_ioctl = audio_ioctl,
 	.fsync = audio_aio_fsync,
+	.compat_ioctl = audio_compat_ioctl
 };
 
 struct miscdevice audio_multiaac_misc = {

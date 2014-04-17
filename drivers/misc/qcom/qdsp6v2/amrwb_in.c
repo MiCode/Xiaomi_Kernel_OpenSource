@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, 2014 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/wait.h>
+#include <linux/compat.h>
 #include <asm/atomic.h>
 #include <asm/ioctls.h>
 #include "audio_utils.h"
@@ -29,9 +30,8 @@
 /* Maximum 10 frames in buffer with meta */
 #define FRAME_SIZE		(1 + ((61+sizeof(struct meta_out_dsp)) * 10))
 
-/* ------------------- device --------------------- */
-static long amrwb_in_ioctl(struct file *file,
-				unsigned int cmd, unsigned long arg)
+static long amrwb_in_ioctl_shared(struct file *file,
+				  unsigned int cmd, void *arg)
 {
 	struct q6audio_in  *audio = file->private_data;
 	int rc = 0;
@@ -105,22 +105,19 @@ static long amrwb_in_ioctl(struct file *file,
 		}
 		break;
 	}
-	case AUDIO_GET_AMRWB_ENC_CONFIG: {
-		if (copy_to_user((void *)arg, audio->enc_cfg,
-			sizeof(struct msm_audio_amrwb_enc_config)))
-			rc = -EFAULT;
-		break;
-	}
 	case AUDIO_SET_AMRWB_ENC_CONFIG: {
-		struct msm_audio_amrwb_enc_config cfg;
+		struct msm_audio_amrwb_enc_config *cfg;
 		struct msm_audio_amrwb_enc_config *enc_cfg;
 		enc_cfg = audio->enc_cfg;
-		if (copy_from_user(&cfg, (void *) arg,
-				sizeof(struct msm_audio_amrwb_enc_config))) {
-			rc = -EFAULT;
+		cfg = (struct msm_audio_amrwb_enc_config *)arg;
+		if (cfg == NULL) {
+			pr_err("%s: NULL config pointer for %s\n",
+					__func__, "AUDIO_SET_AMRWB_ENC_CONFIG");
+			rc = -EINVAL;
 			break;
 		}
-		if (cfg.band_mode > 8) {
+
+		if (cfg->band_mode > 8) {
 			pr_err("%s:session id %d: invalid band mode\n",
 				__func__, audio->ac->session);
 			rc = -EINVAL;
@@ -129,8 +126,8 @@ static long amrwb_in_ioctl(struct file *file,
 		/* ToDo: AMR WB encoder accepts values between 0-8
 		   while openmax provides value between 9-17
 		   as per spec */
-		enc_cfg->band_mode = cfg.band_mode;
-		enc_cfg->dtx_enable = (cfg.dtx_enable ? 1 : 0);
+		enc_cfg->band_mode = cfg->band_mode;
+		enc_cfg->dtx_enable = (cfg->dtx_enable ? 1 : 0);
 		/* Currently DSP does not support different frameformat */
 		enc_cfg->frame_format = 0;
 		pr_debug("%s:session id %d: band_mode = 0x%x dtx_enable=0x%x\n",
@@ -139,10 +136,125 @@ static long amrwb_in_ioctl(struct file *file,
 		break;
 	}
 	default:
+		pr_err("%s: Unknown ioctl cmd = %d", __func__, cmd);
 		rc = -EINVAL;
 	}
 	return rc;
 }
+
+static long amrwb_in_ioctl(struct file *file,
+				  unsigned int cmd, unsigned long arg)
+{
+	struct q6audio_in  *audio = file->private_data;
+	int rc = 0;
+
+	switch (cmd) {
+	case AUDIO_START:
+	case AUDIO_STOP: {
+		rc = amrwb_in_ioctl_shared(file, cmd, NULL);
+		break;
+	}
+	case AUDIO_GET_AMRWB_ENC_CONFIG: {
+		if (copy_to_user((void *)arg, audio->enc_cfg,
+				sizeof(struct msm_audio_amrwb_enc_config)))
+			pr_err("%s: copy_to_user for AUDIO_GET_AMRWB_ENC_CONFIG failed\n",
+				__func__);
+			rc = -EFAULT;
+		break;
+	}
+	case AUDIO_SET_AMRWB_ENC_CONFIG: {
+		struct msm_audio_amrwb_enc_config cfg;
+		if (copy_from_user(&cfg, (void *) arg,
+				sizeof(cfg))) {
+			pr_err("%s: copy_from_user for AUDIO_SET_AMRWB_ENC_CONFIG failed\n",
+				__func__);
+			rc = -EFAULT;
+			break;
+		}
+		rc = amrwb_in_ioctl_shared(file, cmd, &cfg);
+		if (rc)
+			pr_err("%s:AUDIO_SET_AAC_ENC_CONFIG failed. rc=%d\n",
+				__func__, rc);
+		break;
+	}
+	default:
+		pr_err("%s: Unknown ioctl cmd = %d", __func__, cmd);
+		rc = -EINVAL;
+	}
+	return rc;
+}
+
+#ifdef CONFIG_COMPAT
+struct msm_audio_amrwb_enc_config_32 {
+	u32 band_mode;
+	u32 dtx_enable;
+	u32 frame_format;
+};
+
+enum {
+	AUDIO_GET_AMRWB_ENC_CONFIG_32 = _IOW(AUDIO_IOCTL_MAGIC,
+		(AUDIO_MAX_COMMON_IOCTL_NUM+0),
+		struct msm_audio_amrwb_enc_config_32),
+	AUDIO_SET_AMRWB_ENC_CONFIG_32 = _IOR(AUDIO_IOCTL_MAGIC,
+		(AUDIO_MAX_COMMON_IOCTL_NUM+1),
+		struct msm_audio_amrwb_enc_config_32)
+};
+
+static long amrwb_in_compat_ioctl(struct file *file,
+				  unsigned int cmd, unsigned long arg)
+{
+	struct q6audio_in  *audio = file->private_data;
+	int rc = 0;
+
+	switch (cmd) {
+	case AUDIO_START:
+	case AUDIO_STOP: {
+		rc = amrwb_in_ioctl_shared(file, cmd, NULL);
+		break;
+	}
+	case AUDIO_GET_AMRWB_ENC_CONFIG_32: {
+		struct msm_audio_amrwb_enc_config *amrwb_config;
+		struct msm_audio_amrwb_enc_config_32 amrwb_config_32;
+
+		amrwb_config =
+		(struct msm_audio_amrwb_enc_config *)audio->enc_cfg;
+		amrwb_config_32.band_mode = amrwb_config->band_mode;
+		amrwb_config_32.dtx_enable = amrwb_config->dtx_enable;
+		amrwb_config_32.frame_format = amrwb_config->frame_format;
+
+		if (copy_to_user((void *)arg, &amrwb_config_32,
+			sizeof(struct msm_audio_amrwb_enc_config_32))) {
+			pr_err("%s: copy_to_user for AUDIO_GET_AMRWB_ENC_CONFIG_32 failed\n",
+				__func__);
+			rc = -EFAULT;
+		}
+		break;
+	}
+	case AUDIO_SET_AMRWB_ENC_CONFIG_32: {
+		struct msm_audio_amrwb_enc_config cfg_32;
+		if (copy_from_user(&cfg_32, (void *) arg,
+				sizeof(cfg_32))) {
+			pr_err("%s: copy_from_user for AUDIO_SET_AMRWB_ENC_CONFIG_32 failed\n",
+				__func__);
+			rc = -EFAULT;
+			break;
+		}
+		cmd = AUDIO_SET_AMRWB_ENC_CONFIG;
+		rc = amrwb_in_ioctl_shared(file, cmd, &cfg_32);
+		if (rc)
+			pr_err("%s:AUDIO_SET_AAC_ENC_CONFIG failed. rc=%d\n",
+				__func__, rc);
+		break;
+	}
+	default:
+		pr_err("%s: Unknown ioctl cmd = %d", __func__, cmd);
+		rc = -EINVAL;
+	}
+	return rc;
+}
+#else
+#define amrwb_in_compat_ioctl NULL
+#endif
 
 static int amrwb_in_open(struct inode *inode, struct file *file)
 {
@@ -247,6 +359,7 @@ static int amrwb_in_open(struct inode *inode, struct file *file)
 	audio->opened = 1;
 	atomic_set(&audio->in_count, PCM_BUF_COUNT);
 	atomic_set(&audio->out_count, 0x00);
+	audio->enc_compat_ioctl = amrwb_in_compat_ioctl;
 	audio->enc_ioctl = amrwb_in_ioctl;
 	file->private_data = audio;
 
@@ -266,6 +379,7 @@ static const struct file_operations audio_in_fops = {
 	.read		= audio_in_read,
 	.write		= audio_in_write,
 	.unlocked_ioctl	= audio_in_ioctl,
+	.compat_ioctl   = audio_in_compat_ioctl
 };
 
 struct miscdevice audio_amrwb_in_misc = {

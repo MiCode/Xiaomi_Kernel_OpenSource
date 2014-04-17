@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -129,7 +129,7 @@ void extract_meta_out_info(struct q6audio_aio *audio,
 		else
 			memset(&buf_node->meta_info.meta_in,
 			0, sizeof(struct dec_meta_in));
-		pr_debug("%s[%p]:i/p: msw_ts 0x%lx lsw_ts 0x%lx nflags 0x%8x\n",
+		pr_debug("%s[%p]:i/p: msw_ts 0x%d lsw_ts 0x%d nflags 0x%8x\n",
 			__func__, audio,
 			buf_node->meta_info.meta_in.ntimestamp.highpart,
 			buf_node->meta_info.meta_in.ntimestamp.lowpart,
@@ -144,7 +144,7 @@ void extract_meta_out_info(struct q6audio_aio *audio,
 				meta_data->meta_out_dsp[0].lsw_ts;
 		meta_data->meta_out_dsp[0].lsw_ts = temp;
 
-		pr_debug("%s[%p]:o/p: msw_ts 0x%8x lsw_ts 0x%8x nflags 0x%8x, num_frames = %d\n",
+		pr_debug("%s[%p]:o/p: msw_ts 0x%d lsw_ts 0x%d nflags 0x%8x, num_frames = %d\n",
 		__func__, audio,
 		((struct dec_meta_out *)buf_node->kvaddr)->\
 			meta_out_dsp[0].msw_ts,
