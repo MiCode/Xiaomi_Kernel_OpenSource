@@ -256,8 +256,8 @@ static struct alpha_pll_clk mmpll4 = {
 		.rate = 930000000,
 		.dbg_name = "mmpll4",
 		.ops = &clk_ops_fixed_alpha_pll,
-		VDD_MMPLL4_FMAX_MAP3(LOWER, 650000000, LOW, 650000000,
-				     NOMINAL, 1300000000),
+		VDD_MMPLL4_FMAX_MAP3(LOWER, 625000000, LOW, 625000000,
+				     NOMINAL, 1250000000),
 		CLK_INIT(mmpll4.c),
 	},
 };
@@ -273,12 +273,12 @@ static struct alpha_pll_clk mmpll1 = {
 	.fsm_en_mask = BIT(1),
 	.enable_config = 0x1,
 	.c = {
-		.rate = 1167000000,
+		.rate = 726000000,
 		.parent = &mmsscc_xo.c,
 		.dbg_name = "mmpll1",
 		.ops = &clk_ops_fixed_alpha_pll,
-		VDD_DIG_FMAX_MAP3(LOWER, 650000000, LOW, 650000000,
-				  NOMINAL, 1300000000),
+		VDD_DIG_FMAX_MAP3(LOWER, 600000000, LOW, 600000000,
+				  NOMINAL, 1200000000),
 		CLK_INIT(mmpll1.c),
 	},
 };
@@ -296,8 +296,8 @@ static struct alpha_pll_clk mmpll3 = {
 		.rate = 930000000,
 		.dbg_name = "mmpll3",
 		.ops = &clk_ops_fixed_alpha_pll,
-		VDD_DIG_FMAX_MAP3(LOWER, 650000000, LOW, 650000000,
-				  NOMINAL, 1300000000),
+		VDD_DIG_FMAX_MAP3(LOWER, 600000000, LOW, 600000000,
+				  NOMINAL, 1200000000),
 		CLK_INIT(mmpll3.c),
 	},
 };
@@ -308,8 +308,8 @@ static struct clk_freq_tbl ftbl_axi_clk_src[] = {
 	F_MM(  75000000,     mmsscc_gpll0,    8,    0,     0),
 	F_MM( 100000000,     mmsscc_gpll0,    6,    0,     0),
 	F_MM( 150000000,     mmsscc_gpll0,    4,    0,     0),
-	F_MM( 333430000,  mmpll1_out_main,  3.5,    0,     0),
-	F_MM( 466800000,  mmpll1_out_main,  2.5,    0,     0),
+	F_MM( 300000000,     mmsscc_gpll0,    2,    0,     0),
+	F_MM( 363000000,  mmpll1_out_main,    2,    0,     0),
 	F_END
 };
 
@@ -323,7 +323,7 @@ static struct rcg_clk axi_clk_src = {
 		.dbg_name = "axi_clk_src",
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP4(LOWER, 75000000, LOW, 150000000,
-				  NOMINAL, 333430000, HIGH, 466800000),
+				  NOMINAL, 300000000, HIGH, 363000000),
 		CLK_INIT(axi_clk_src.c),
 	},
 };
@@ -340,8 +340,8 @@ static struct alpha_pll_clk mmpll5 = {
 		.rate = 960000000,
 		.dbg_name = "mmpll5",
 		.ops = &clk_ops_fixed_alpha_pll,
-		VDD_DIG_FMAX_MAP3(LOWER, 650000000, LOW, 650000000,
-				  NOMINAL, 1300000000),
+		VDD_DIG_FMAX_MAP3(LOWER, 600000000, LOW, 600000000,
+				  NOMINAL, 1200000000),
 		CLK_INIT(mmpll5.c),
 	},
 };
@@ -349,7 +349,7 @@ DEFINE_EXT_CLK(mmpll5_out_main, &mmpll5.c);
 
 static struct clk_freq_tbl ftbl_csi0_clk_src[] = {
 	F_MM( 100000000,     mmsscc_gpll0,    6,    0,     0),
-	F_MM( 266670000,  mmpll0_out_main,    3,    0,     0),
+	F_MM( 240000000,     mmsscc_gpll0,  2.5,    0,     0),
 	F_END
 };
 
@@ -362,8 +362,8 @@ static struct rcg_clk csi0_clk_src = {
 	.c = {
 		.dbg_name = "csi0_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP3(LOWER, 50000000, LOW, 100000000,
-				  NOMINAL, 266670000),
+		VDD_DIG_FMAX_MAP4(LOWER, 50000000, LOW, 100000000,
+				  NOMINAL, 240000000, HIGH, 266670000),
 		CLK_INIT(csi0_clk_src.c),
 	},
 };
@@ -373,7 +373,7 @@ static struct clk_freq_tbl ftbl_vcodec0_clk_src[] = {
 	F_MM( 100000000,     mmsscc_gpll0,    6,    0,     0),
 	F_MM( 133330000,     mmsscc_gpll0,  4.5,    0,     0),
 	F_MM( 200000000,  mmpll0_out_main,    4,    0,     0),
-	F_MM( 266670000,  mmpll0_out_main,    3,    0,     0),
+	F_MM( 240000000,     mmsscc_gpll0,  2.5,    0,     0),
 	F_MM( 465000000,  mmpll3_out_main,    2,    0,     0),
 	F_END
 };
@@ -388,14 +388,14 @@ static struct rcg_clk vcodec0_clk_src = {
 		.dbg_name = "vcodec0_clk_src",
 		.ops = &clk_ops_rcg_mnd,
 		VDD_DIG_FMAX_MAP4(LOWER, 66670000, LOW, 133330000,
-				  NOMINAL, 266670000, HIGH, 510000000),
+				  NOMINAL, 240000000, HIGH, 465000000),
 		CLK_INIT(vcodec0_clk_src.c),
 	},
 };
 
 static struct clk_freq_tbl ftbl_csi1_clk_src[] = {
 	F_MM( 100000000,     mmsscc_gpll0,    6,    0,     0),
-	F_MM( 266670000,  mmpll0_out_main,    3,    0,     0),
+	F_MM( 240000000,     mmsscc_gpll0,  2.5,    0,     0),
 	F_END
 };
 
@@ -408,15 +408,15 @@ static struct rcg_clk csi1_clk_src = {
 	.c = {
 		.dbg_name = "csi1_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP3(LOWER, 50000000, LOW, 100000000,
-				  NOMINAL, 266670000),
+		VDD_DIG_FMAX_MAP4(LOWER, 50000000, LOW, 100000000,
+				  NOMINAL, 240000000, HIGH, 266670000),
 		CLK_INIT(csi1_clk_src.c),
 	},
 };
 
 static struct clk_freq_tbl ftbl_csi2_clk_src[] = {
 	F_MM( 100000000,     mmsscc_gpll0,    6,    0,     0),
-	F_MM( 266670000,  mmpll0_out_main,    3,    0,     0),
+	F_MM( 240000000,     mmsscc_gpll0,  2.5,    0,     0),
 	F_END
 };
 
@@ -429,15 +429,15 @@ static struct rcg_clk csi2_clk_src = {
 	.c = {
 		.dbg_name = "csi2_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP3(LOWER, 50000000, LOW, 100000000,
-				  NOMINAL, 266670000),
+		VDD_DIG_FMAX_MAP4(LOWER, 50000000, LOW, 100000000,
+				  NOMINAL, 240000000, HIGH, 266670000),
 		CLK_INIT(csi2_clk_src.c),
 	},
 };
 
 static struct clk_freq_tbl ftbl_csi3_clk_src[] = {
 	F_MM( 100000000,     mmsscc_gpll0,    6,    0,     0),
-	F_MM( 266670000,  mmpll0_out_main,    3,    0,     0),
+	F_MM( 240000000,     mmsscc_gpll0,  2.5,    0,     0),
 	F_END
 };
 
@@ -450,8 +450,8 @@ static struct rcg_clk csi3_clk_src = {
 	.c = {
 		.dbg_name = "csi3_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP3(LOWER, 50000000, LOW, 100000000,
-				  NOMINAL, 266670000),
+		VDD_DIG_FMAX_MAP4(LOWER, 50000000, LOW, 100000000,
+				  NOMINAL, 240000000, HIGH, 266670000),
 		CLK_INIT(csi3_clk_src.c),
 	},
 };
@@ -461,8 +461,8 @@ static struct clk_freq_tbl ftbl_vfe0_clk_src[] = {
 	F_MM( 100000000,     mmsscc_gpll0,    6,    0,     0),
 	F_MM( 200000000,     mmsscc_gpll0,    3,    0,     0),
 	F_MM( 320000000,  mmpll0_out_main,  2.5,    0,     0),
-	F_MM( 465000000,  mmpll4_out_main,    2,    0,     0),
-	F_MM( 600000000,     mmsscc_gpll0,    1,    0,     0),
+	F_MM( 400000000,  mmpll0_out_main,    2,    0,     0),
+	F_MM( 533330000,  mmpll0_out_main,  1.5,    0,     0),
 	F_END
 };
 
@@ -476,7 +476,7 @@ static struct rcg_clk vfe0_clk_src = {
 		.dbg_name = "vfe0_clk_src",
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP4(LOWER, 100000000, LOW, 200000000,
-				  NOMINAL, 465000000, HIGH, 600000000),
+				  NOMINAL, 400000000, HIGH, 533330000),
 		CLK_INIT(vfe0_clk_src.c),
 	},
 };
@@ -486,8 +486,8 @@ static struct clk_freq_tbl ftbl_vfe1_clk_src[] = {
 	F_MM( 100000000,     mmsscc_gpll0,    6,    0,     0),
 	F_MM( 200000000,     mmsscc_gpll0,    3,    0,     0),
 	F_MM( 320000000,  mmpll0_out_main,  2.5,    0,     0),
-	F_MM( 465000000,  mmpll4_out_main,    2,    0,     0),
-	F_MM( 600000000,     mmsscc_gpll0,    1,    0,     0),
+	F_MM( 400000000,  mmpll0_out_main,    2,    0,     0),
+	F_MM( 533330000,  mmpll0_out_main,  1.5,    0,     0),
 	F_END
 };
 
@@ -501,7 +501,7 @@ static struct rcg_clk vfe1_clk_src = {
 		.dbg_name = "vfe1_clk_src",
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP4(LOWER, 100000000, LOW, 200000000,
-				  NOMINAL, 465000000, HIGH, 600000000),
+				  NOMINAL, 400000000, HIGH, 533330000),
 		CLK_INIT(vfe1_clk_src.c),
 	},
 };
@@ -511,7 +511,7 @@ static struct clk_freq_tbl ftbl_cpp_clk_src[] = {
 	F_MM( 200000000,     mmsscc_gpll0,    3,    0,     0),
 	F_MM( 320000000,  mmpll0_out_main,  2.5,    0,     0),
 	F_MM( 465000000,  mmpll4_out_main,    2,    0,     0),
-	F_MM( 620000000,  mmpll4_out_main,  1.5,    0,     0),
+	F_MM( 600000000,     mmsscc_gpll0,    1,    0,     0),
 	F_END
 };
 
@@ -525,7 +525,7 @@ static struct rcg_clk cpp_clk_src = {
 		.dbg_name = "cpp_clk_src",
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP4(LOWER, 100000000, LOW, 200000000,
-				  NOMINAL, 465000000, HIGH, 620000000),
+				  NOMINAL, 465000000, HIGH, 600000000),
 		CLK_INIT(cpp_clk_src.c),
 	},
 };
@@ -604,6 +604,7 @@ static struct rcg_clk csi2phytimer_clk_src = {
 static struct clk_freq_tbl ftbl_fd_core_clk_src[] = {
 	F_MM(  60000000,     mmsscc_gpll0,   10,    0,     0),
 	F_MM( 200000000,     mmsscc_gpll0,    3,    0,     0),
+	F_MM( 320000000,  mmpll0_out_main,  2.5,    0,     0),
 	F_MM( 400000000,  mmpll0_out_main,    2,    0,     0),
 	F_END
 };
@@ -617,16 +618,18 @@ static struct rcg_clk fd_core_clk_src = {
 	.c = {
 		.dbg_name = "fd_core_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP3(LOWER, 60000000, LOW, 200000000,
-				  NOMINAL, 400000000),
+		VDD_DIG_FMAX_MAP4(LOWER, 60000000, LOW, 200000000,
+				  NOMINAL, 320000000, HIGH, 400000000),
 		CLK_INIT(fd_core_clk_src.c),
 	},
 };
 
 static struct clk_freq_tbl ftbl_mdp_clk_src[] = {
 	F_MM(  85710000,     mmsscc_gpll0,    7,    0,     0),
+	F_MM( 100000000,     mmsscc_gpll0,    6,    0,     0),
+	F_MM( 150000000,     mmsscc_gpll0,    4,    0,     0),
 	F_MM( 171430000,     mmsscc_gpll0,  3.5,    0,     0),
-	F_MM( 250000000,     mmsscc_gpll0,    4,    0,     0),
+	F_MM( 200000000,     mmsscc_gpll0,    3,    0,     0),
 	F_MM( 320000000,  mmpll0_out_main,  2.5,    0,     0),
 	F_MM( 400000000,  mmpll0_out_main,    2,    0,     0),
 	F_END
@@ -694,8 +697,8 @@ static struct clk_freq_tbl ftbl_ocmemnoc_clk_src[] = {
 	F_MM(  75000000,     mmsscc_gpll0,    8,    0,     0),
 	F_MM( 100000000,     mmsscc_gpll0,    6,    0,     0),
 	F_MM( 150000000,     mmsscc_gpll0,    4,    0,     0),
-	F_MM( 320000000,  mmpll0_out_main,  2.5,    0,     0),
-	F_MM( 400000000,  mmpll0_out_main,    2,    0,     0),
+	F_MM( 228570000,  mmpll0_out_main,  3.5,    0,     0),
+	F_MM( 266670000,  mmpll0_out_main,    3,    0,     0),
 	F_END
 };
 
@@ -709,7 +712,7 @@ static struct rcg_clk ocmemnoc_clk_src = {
 		.dbg_name = "ocmemnoc_clk_src",
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP4(LOWER, 75000000, LOW, 150000000,
-				  NOMINAL, 320000000, HIGH, 400000000),
+				  NOMINAL, 228570000, HIGH, 266670000),
 		CLK_INIT(ocmemnoc_clk_src.c),
 	},
 };
