@@ -126,7 +126,7 @@ static int rf_regulator_init(struct platform_device *pdev, char *reg_name,
 	}
 
 	if (opt_mode) {
-		ret = regulator_set_optimum_mode(vreg_ldo, 250000);
+		ret = regulator_set_optimum_mode(vreg_ldo, 325000);
 		if (ret < 0) {
 			pr_err("%s: unable to set optimum mode for %s\n",
 				__func__, reg_name);
@@ -453,7 +453,7 @@ static long ftr_ioctl(struct file *file,
 					break;
 			case LDO26:
 				if (rf_regulator_init(to_platform_device
-					(pdev->dev), "vdd-1v8", 0) != 0)
+					(pdev->dev), "vdd-1v8", 1) != 0)
 					pr_err("%s: LDO26 fail\n", __func__);
 					break;
 			default:
@@ -702,7 +702,7 @@ static int ftr_regulator_init(struct platform_device *pdev)
 {
 	int ret;
 
-	ret = (rf_regulator_init(pdev, "vdd-1v8", 0));
+	ret = (rf_regulator_init(pdev, "vdd-1v8", 1));
 		if (ret)
 			return ret;
 	ret = (rf_regulator_init(pdev, "vdd-1v3", 0));
@@ -748,6 +748,12 @@ static int mtr_regulator_init(struct platform_device *pdev)
 {
 	int ret;
 
+	ret = (rf_regulator_init(pdev, "vdd-1v8", 1));
+		if (ret)
+			return ret;
+
+	udelay(500); /* Power-up sequence as per Mray spec */
+
 	ret = (rf_regulator_init(pdev, "vdd-ftr1", 1));
 		if (ret)
 			return ret;
@@ -756,17 +762,12 @@ static int mtr_regulator_init(struct platform_device *pdev)
 		if (ret)
 			return ret;
 
-	udelay(150);
+	udelay(500); /* Power-up sequence as per Mray spec */
 
 	ret = (rf_regulator_init(pdev, "vdd-1v3", 0));
 		if (ret)
 			return ret;
 
-	udelay(100);
-
-	ret = (rf_regulator_init(pdev, "vdd-1v8", 0));
-		if (ret)
-			return ret;
 	ret = (rf_regulator_init(pdev, "vdd-switch", 0));
 		if (ret)
 			return ret;
@@ -817,8 +818,6 @@ static int ftr_probe(struct platform_device *pdev)
 		if ((rfbid != 0xff) && (rfbid != 0))
 			rfbid = rfbid & RF_TYPE_48;
 
-		pr_info("%s: RF Board Type 0x%x\n", __func__, rfbid);
-
 		switch (rfbid) {
 		case RF_TYPE_16:
 			ftr_regulator_init(pdev);
@@ -836,23 +835,6 @@ static int ftr_probe(struct platform_device *pdev)
 
 		rfbid = rf_interface_id();
 		pr_info("%s: RF Board Id 0x%x\n", __func__, rfbid);
-
-		switch (rfbid) {
-		case RF_TYPE_33:
-			fsm9900_gluon_init();
-			break;
-		case RF_TYPE_17:
-		case RF_TYPE_18:
-		case RF_TYPE_19:
-			fsm9900_rfic_init();
-			break;
-		case RF_TYPE_49:
-			fsm9900_mtr_init();
-			break;
-		default:
-			pr_warn("%s:GPIOs not configured %d\n",
-					__func__, rfbid);
-		}
 
 		mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 		grfc_base = devm_ioremap_resource(&pdev->dev, mem_res);
@@ -901,11 +883,16 @@ static int ftr_probe(struct platform_device *pdev)
 		}
 
 		if ((rfbid > RF_TYPE_48) && (rfbid != 0xff)) {
+			fsm9900_mtr_init();
 			pdm_mtr_enable();
 			pr_info("%s: MTR PDM Enabled\n", __func__);
 		} else if ((rfbid > RF_TYPE_16) && (rfbid < RF_TYPE_32)) {
+			fsm9900_rfic_init();
 			pdm_enable();
 			pr_info("%s: PDM Enabled\n", __func__);
+		} else if ((rfbid > RF_TYPE_32) && (rfbid < RF_TYPE_48)) {
+			fsm9900_gluon_init();
+			pr_info("%s: Gluon Enabled\n", __func__);
 		} else {
 			pr_warn("%s:PDMs not configured %d\n",
 					__func__, rfbid);
