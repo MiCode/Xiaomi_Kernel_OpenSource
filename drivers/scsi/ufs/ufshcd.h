@@ -291,6 +291,11 @@ struct ufs_pa_layer_attr {
 	u32 hs_rate;
 };
 
+struct ufs_pwr_mode_info {
+	bool is_valid;
+	struct ufs_pa_layer_attr info;
+};
+
 /**
  * struct ufs_hba_variant_ops - variant specific callbacks
  * @name: variant name
@@ -423,6 +428,8 @@ struct ufs_init_prefetch {
  * @auto_bkops_enabled: to track whether bkops is enabled in device
  * @vreg_info: UFS device voltage regulator information
  * @clk_list_head: UFS host controller clocks list node head
+ * @pwr_info: holds current power mode
+ * @max_pwr_info: keeps the device max valid pwm
  * @ufs_stats: ufshcd statistics to be used via debugfs
  * @debugfs_files: debugfs files associated with the ufs stats
  */
@@ -536,6 +543,8 @@ struct ufs_hba {
 	struct list_head clk_list_head;
 
 	struct ufs_pa_layer_attr pwr_info;
+	struct ufs_pwr_mode_info max_pwr_info;
+
 	struct ufs_clk_gating clk_gating;
 	/* Control to enable/disable host capabilities */
 	u32 caps;

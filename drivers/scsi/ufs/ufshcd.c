@@ -278,6 +278,8 @@ static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on);
 static int ufshcd_uic_hibern8_exit(struct ufs_hba *hba);
 static int ufshcd_uic_hibern8_enter(struct ufs_hba *hba);
 static int ufshcd_host_reset_and_restore(struct ufs_hba *hba);
+static int ufshcd_config_pwr_mode(struct ufs_hba *hba,
+		struct ufs_pa_layer_attr *desired_pwr_mode);
 
 static inline void ufshcd_enable_irq(struct ufs_hba *hba)
 {
@@ -2743,30 +2745,31 @@ static void ufshcd_init_pwr_info(struct ufs_hba *hba)
 }
 
 /**
- * ufshcd_config_max_pwr_mode - Set & Change power mode with
- *	maximum capability attribute information.
- * @hba: per adapter instance
- *
- * Returns 0 on success, non-zero value on failure
+ * ufshcd_get_max_pwr_mode - reads the max power mode negotiated with device
+ * @hba: per-adapter instance
  */
-static int ufshcd_config_max_pwr_mode(struct ufs_hba *hba)
+static int ufshcd_get_max_pwr_mode(struct ufs_hba *hba)
 {
-	enum {RX = 0, TX = 1};
-	u32 lanes[] = {1, 1};
-	u32 gear[] = {1, 1};
-	u8 pwr[] = {FASTAUTO_MODE, FASTAUTO_MODE};
-	struct ufs_pa_layer_attr dev_max_params = { 0 };
-	struct ufs_pa_layer_attr dev_required_params = { 0 };
-	u32 hs_rate = PA_HS_MODE_B;
-	int ret;
+	struct ufs_pa_layer_attr *pwr_info = &hba->max_pwr_info.info;
+
+	if (hba->max_pwr_info.is_valid)
+		return 0;
+
+	pwr_info->pwr_tx = FASTAUTO_MODE;
+	pwr_info->pwr_rx = FASTAUTO_MODE;
+	pwr_info->hs_rate = PA_HS_MODE_B;
 
 	/* Get the connected lane count */
-	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_CONNECTEDRXDATALANES), &lanes[RX]);
-	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_CONNECTEDTXDATALANES), &lanes[TX]);
+	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_CONNECTEDRXDATALANES),
+			&pwr_info->lane_rx);
+	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_CONNECTEDTXDATALANES),
+			&pwr_info->lane_tx);
 
-	if (!lanes[RX] || !lanes[TX]) {
+	if (!pwr_info->lane_rx || !pwr_info->lane_tx) {
 		dev_err(hba->dev, "%s: invalid connected lanes value. rx=%d, tx=%d\n",
-				__func__, lanes[RX], lanes[TX]);
+				__func__,
+				pwr_info->lane_rx,
+				pwr_info->lane_tx);
 		return -EINVAL;
 	}
 
@@ -2775,52 +2778,51 @@ static int ufshcd_config_max_pwr_mode(struct ufs_hba *hba)
 	 * If a zero value, it means there is no HSGEAR capability.
 	 * Then, get the maximum gears of PWM speed.
 	 */
-	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_MAXRXHSGEAR), &gear[RX]);
-	if (!gear[RX]) {
-		ufshcd_dme_get(hba, UIC_ARG_MIB(PA_MAXRXPWMGEAR), &gear[RX]);
-		if (!gear[RX]) {
-			dev_err(hba->dev, "%s: invalid rx gear read = %d\n",
-				__func__, gear[RX]);
+	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_MAXRXHSGEAR), &pwr_info->gear_rx);
+	if (!pwr_info->gear_rx) {
+		ufshcd_dme_get(hba, UIC_ARG_MIB(PA_MAXRXPWMGEAR),
+				&pwr_info->gear_rx);
+		if (!pwr_info->gear_rx) {
+			dev_err(hba->dev, "%s: invalid max pwm rx gear read = %d\n",
+				__func__, pwr_info->gear_rx);
 			return -EINVAL;
 		}
-		pwr[RX] = SLOWAUTO_MODE;
+		pwr_info->pwr_rx = SLOWAUTO_MODE;
 	}
 
-	ufshcd_dme_peer_get(hba, UIC_ARG_MIB(PA_MAXRXHSGEAR), &gear[TX]);
-	if (!gear[TX]) {
+	ufshcd_dme_peer_get(hba, UIC_ARG_MIB(PA_MAXRXHSGEAR),
+			&pwr_info->gear_tx);
+	if (!pwr_info->gear_tx) {
 		ufshcd_dme_peer_get(hba, UIC_ARG_MIB(PA_MAXRXPWMGEAR),
-				    &gear[TX]);
-		if (!gear[TX]) {
-			dev_err(hba->dev, "%s: invalid tx gear read = %d\n",
-				__func__, gear[TX]);
+				&pwr_info->gear_tx);
+		if (!pwr_info->gear_tx) {
+			dev_err(hba->dev, "%s: invalid max pwm tx gear read = %d\n",
+				__func__, pwr_info->gear_tx);
 			return -EINVAL;
 		}
-		pwr[TX] = SLOWAUTO_MODE;
+		pwr_info->pwr_tx = SLOWAUTO_MODE;
 	}
 
-	if (hba->vops->pwr_change_notify) {
+	hba->max_pwr_info.is_valid = true;
+	return 0;
+}
 
-		/* storing the device max capabilities */
-		dev_max_params.gear_rx = gear[RX];
-		dev_max_params.gear_tx = gear[TX];
-		dev_max_params.lane_rx = lanes[RX];
-		dev_max_params.lane_tx = lanes[TX];
-		dev_max_params.pwr_rx = pwr[RX];
-		dev_max_params.pwr_tx = pwr[TX];
-		dev_max_params.hs_rate = hs_rate;
+/**
+ * ufshcd_config_pwr_mode - configure a new power mode
+ * @hba: per-adapter instance
+ * @desired_pwr_mode: desired power configuration
+ */
+static int ufshcd_config_pwr_mode(struct ufs_hba *hba,
+		struct ufs_pa_layer_attr *desired_pwr_mode)
+{
+	struct ufs_pa_layer_attr final_params = { 0 };
+	int ret;
 
+	if (hba->vops->pwr_change_notify)
 		hba->vops->pwr_change_notify(hba,
-		     PRE_CHANGE, &dev_max_params, &dev_required_params);
-
-		/* restoring the min-max preferences to configure the device */
-		gear[RX] = dev_required_params.gear_rx;
-		gear[TX] = dev_required_params.gear_tx;
-		lanes[RX] = dev_required_params.lane_rx;
-		lanes[TX] = dev_required_params.lane_tx;
-		pwr[RX] = dev_required_params.pwr_rx;
-		pwr[TX] = dev_required_params.pwr_tx;
-		hs_rate = dev_required_params.hs_rate;
-	}
+		     PRE_CHANGE, desired_pwr_mode, &final_params);
+	else
+		memcpy(&final_params, desired_pwr_mode, sizeof(final_params));
 
 	/*
 	 * Configure attributes for power mode change with below.
@@ -2828,26 +2830,34 @@ static int ufshcd_config_max_pwr_mode(struct ufs_hba *hba)
 	 * - PA_TXGEAR, PA_ACTIVETXDATALANES, PA_TXTERMINATION,
 	 * - PA_HSSERIES
 	 */
-	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_RXGEAR), gear[RX]);
-	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_ACTIVERXDATALANES), lanes[RX]);
-	if (pwr[RX] == FASTAUTO_MODE || pwr[RX] == FAST_MODE)
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_RXGEAR), final_params.gear_rx);
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_ACTIVERXDATALANES),
+			final_params.lane_rx);
+	if (final_params.pwr_rx == FASTAUTO_MODE ||
+			final_params.pwr_rx == FAST_MODE)
 		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_RXTERMINATION), TRUE);
 	else
 		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_RXTERMINATION), FALSE);
 
-	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TXGEAR), gear[TX]);
-	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_ACTIVETXDATALANES), lanes[TX]);
-	if (pwr[TX] == FASTAUTO_MODE || pwr[TX] == FAST_MODE)
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TXGEAR), final_params.gear_tx);
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_ACTIVETXDATALANES),
+			final_params.lane_tx);
+	if (final_params.pwr_tx == FASTAUTO_MODE ||
+			final_params.pwr_tx == FAST_MODE)
 		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TXTERMINATION), TRUE);
 	else
 		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TXTERMINATION), FALSE);
 
-	if ((pwr[RX] == FASTAUTO_MODE || pwr[TX] == FASTAUTO_MODE ||
-	     pwr[RX] == FAST_MODE || pwr[TX] == FAST_MODE) &&
-	     hs_rate == PA_HS_MODE_B)
-		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_HSSERIES), hs_rate);
+	if ((final_params.pwr_rx == FASTAUTO_MODE ||
+			final_params.pwr_tx == FASTAUTO_MODE ||
+			final_params.pwr_rx == FAST_MODE ||
+			final_params.pwr_tx == FAST_MODE) &&
+			final_params.hs_rate == PA_HS_MODE_B)
+		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_HSSERIES),
+				final_params.hs_rate);
 
-	ret = ufshcd_uic_change_pwr_mode(hba, pwr[RX] << 4 | pwr[TX]);
+	ret = ufshcd_uic_change_pwr_mode(hba, final_params.pwr_rx << 4
+			| final_params.pwr_tx);
 	if (ret) {
 		UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_POWER_MODE_CHANGE);
 		dev_err(hba->dev,
@@ -2855,15 +2865,9 @@ static int ufshcd_config_max_pwr_mode(struct ufs_hba *hba)
 	} else {
 		if (hba->vops->pwr_change_notify)
 			hba->vops->pwr_change_notify(hba,
-				POST_CHANGE, NULL, &dev_required_params);
+				POST_CHANGE, NULL, &final_params);
 
-		hba->pwr_info.gear_rx = gear[RX];
-		hba->pwr_info.gear_tx = gear[TX];
-		hba->pwr_info.lane_rx = lanes[RX];
-		hba->pwr_info.lane_tx = lanes[TX];
-		hba->pwr_info.pwr_rx = pwr[RX];
-		hba->pwr_info.pwr_tx = pwr[TX];
-		hba->pwr_info.hs_rate = hs_rate;
+		memcpy(&hba->pwr_info, &final_params, sizeof(final_params));
 	}
 
 	ufshcd_print_pwr_info(hba);
@@ -4720,10 +4724,16 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	hba->ufshcd_state = UFSHCD_STATE_OPERATIONAL;
 	hba->wlun_dev_clr_ua = true;
 
-	if (ufshcd_config_max_pwr_mode(hba))
+	if (ufshcd_get_max_pwr_mode(hba)) {
 		dev_err(hba->dev,
-			"%s: Failed configuring max supported power mode\n",
+			"%s: Failed getting max supported power mode\n",
 			__func__);
+	} else {
+		ret = ufshcd_config_pwr_mode(hba, &hba->max_pwr_info.info);
+		if (ret)
+			dev_err(hba->dev, "%s: Failed setting power mode, err = %d\n",
+					__func__, ret);
+	}
 
 	/*
 	 * If we are in error handling context or in power management callbacks
@@ -6305,6 +6315,8 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	host->unique_id = host->host_no;
 	host->max_cmd_len = MAX_CDB_SIZE;
 	host->report_wlus = 1;
+
+	hba->max_pwr_info.is_valid = false;
 
 	/* Initailize wait queue for task management */
 	init_waitqueue_head(&hba->tm_wq);
