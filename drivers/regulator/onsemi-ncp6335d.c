@@ -665,7 +665,7 @@ int __init ncp6335d_regulator_init(void)
 	return i2c_add_driver(&ncp6335d_regulator_driver);
 }
 EXPORT_SYMBOL(ncp6335d_regulator_init);
-subsys_initcall(ncp6335d_regulator_init);
+arch_initcall(ncp6335d_regulator_init);
 
 static void __exit ncp6335d_regulator_exit(void)
 {
