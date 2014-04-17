@@ -131,9 +131,6 @@ static void byt_serial_setup(struct uart_8250_port *up)
 	struct uart_port *p = &up->port;
 
 	p->set_termios = byt_set_termios;
-
-	/* WORKAROUND => Force DMA disabled */
-	up->dma = NULL;
 }
 
 static inline int dw8250_modify_msr(struct uart_port *p, int offset, int value)
