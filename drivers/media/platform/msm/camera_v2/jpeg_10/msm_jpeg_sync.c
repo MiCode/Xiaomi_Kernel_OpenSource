@@ -314,8 +314,8 @@ int msm_jpeg_evt_get(struct msm_jpeg_device *pgmn_dev,
 	ctrl_cmd.type = buf_p->vbuf.type;
 	kfree(buf_p);
 
-	JPEG_DBG("%s:%d] 0x%08x %d\n", __func__, __LINE__,
-		(int) ctrl_cmd.value, ctrl_cmd.len);
+	JPEG_DBG("%s:%d] 0x%08lx %d\n", __func__, __LINE__,
+		(unsigned long) ctrl_cmd.value, ctrl_cmd.len);
 
 	if (copy_to_user(to, &ctrl_cmd, sizeof(ctrl_cmd))) {
 		JPEG_PR_ERR("%s:%d]\n", __func__, __LINE__);
@@ -416,8 +416,8 @@ int msm_jpeg_output_get(struct msm_jpeg_device *pgmn_dev, void __user *to)
 		pgmn_dev->domain_num);
 	kfree(buf_p);
 
-	JPEG_DBG("%s:%d] 0x%08x %d\n", __func__, __LINE__,
-		(int) buf_cmd.vaddr, buf_cmd.y_len);
+	JPEG_DBG("%s:%d] 0x%08lx %d\n", __func__, __LINE__,
+		(unsigned long) buf_cmd.vaddr, buf_cmd.y_len);
 
 	if (copy_to_user(to, &buf_cmd, sizeof(buf_cmd))) {
 		JPEG_PR_ERR("%s:%d]", __func__, __LINE__);
@@ -453,9 +453,9 @@ int msm_jpeg_output_buf_enqueue(struct msm_jpeg_device *pgmn_dev,
 		return -EFAULT;
 	}
 
-	JPEG_DBG("%s:%d] vaddr = 0x%08x y_len = %d\n, fd = %d",
-		__func__, __LINE__, (int) buf_cmd.vaddr, buf_cmd.y_len,
-		buf_cmd.fd);
+	JPEG_DBG("%s:%d] vaddr = 0x%08lx y_len = %d\n, fd = %d",
+		__func__, __LINE__, (unsigned long) buf_cmd.vaddr,
+		buf_cmd.y_len, buf_cmd.fd);
 
 	buf_p->y_buffer_addr = msm_jpeg_platform_v2p(pgmn_dev, buf_cmd.fd,
 		buf_cmd.y_len + buf_cmd.cbcr_len + buf_cmd.pln2_len,
@@ -551,8 +551,8 @@ int msm_jpeg_input_get(struct msm_jpeg_device *pgmn_dev, void __user *to)
 		pgmn_dev->domain_num);
 	kfree(buf_p);
 
-	JPEG_DBG("%s:%d] 0x%08x %d\n", __func__, __LINE__,
-		(int) buf_cmd.vaddr, buf_cmd.y_len);
+	JPEG_DBG("%s:%d] 0x%08lx %d\n", __func__, __LINE__,
+		(unsigned long) buf_cmd.vaddr, buf_cmd.y_len);
 
 	if (copy_to_user(to, &buf_cmd, sizeof(buf_cmd))) {
 		JPEG_PR_ERR("%s:%d]\n", __func__, __LINE__);
@@ -587,8 +587,8 @@ int msm_jpeg_input_buf_enqueue(struct msm_jpeg_device *pgmn_dev,
 		return -EFAULT;
 	}
 
-	JPEG_DBG("%s:%d] 0x%08x %d\n", __func__, __LINE__,
-		(int) buf_cmd.vaddr, buf_cmd.y_len);
+	JPEG_DBG("%s:%d] 0x%08lx %d\n", __func__, __LINE__,
+		(unsigned long) buf_cmd.vaddr, buf_cmd.y_len);
 
 	buf_p->y_buffer_addr    = msm_jpeg_platform_v2p(pgmn_dev, buf_cmd.fd,
 		buf_cmd.y_len + buf_cmd.cbcr_len +
@@ -748,9 +748,10 @@ int msm_jpeg_ioctl_hw_cmd(struct msm_jpeg_device *pgmn_dev,
 
 	is_copy_to_user = msm_jpeg_hw_exec_cmds(&hw_cmd, 1,
 		pgmn_dev->res_size, pgmn_dev->base);
-	JPEG_DBG("%s:%d] type %d, n %d, offset %d, mask %x, data %x,pdata %x\n",
+	JPEG_DBG(
+	"%s:%d] type %d, n %d, offset %d, mask %x, data %x, pdata %lx\n",
 		__func__, __LINE__, hw_cmd.type, hw_cmd.n, hw_cmd.offset,
-		hw_cmd.mask, hw_cmd.data, (int) hw_cmd.pdata);
+		hw_cmd.mask, hw_cmd.data, (unsigned long) hw_cmd.pdata);
 
 	if (is_copy_to_user >= 0) {
 		if (copy_to_user(arg, &hw_cmd, sizeof(hw_cmd))) {
@@ -1157,9 +1158,9 @@ int msm_jpeg_ioctl_hw_cmd32(struct msm_jpeg_device *pgmn_dev,
 
 	is_copy_to_user = msm_jpeg_hw_exec_cmds(&hw_cmd, 1,
 			pgmn_dev->res_size, pgmn_dev->base);
-	JPEG_DBG("%s:%d] type %d, n %d, offset %d, mask %x, data %x pdata %x\n",
+	JPEG_DBG("%s:%d] type %d, n %d, offst %d, mask %x, data %x pdata %lx\n",
 		__func__, __LINE__, hw_cmd.type, hw_cmd.n, hw_cmd.offset,
-		hw_cmd.mask, hw_cmd.data, (int) hw_cmd.pdata);
+		hw_cmd.mask, hw_cmd.data, (unsigned long) hw_cmd.pdata);
 
 	if (is_copy_to_user >= 0) {
 		if (msm_jpeg_put_hw_cmd32(arg, &hw_cmd, 1)) {
@@ -1486,8 +1487,8 @@ int __msm_jpeg_init(struct msm_jpeg_device *pgmn_dev)
 	for (i = 0; i < pgmn_dev->iommu_cnt; i++) {
 		pgmn_dev->iommu_ctx_arr[i] = msm_iommu_get_ctx(iommu_name[j]);
 		JPEG_DBG("%s:%d] name %s", __func__, __LINE__, iommu_name[j]);
-		JPEG_DBG("%s:%d] ctx 0x%x", __func__, __LINE__,
-			(uint32_t)pgmn_dev->iommu_ctx_arr[i]);
+		JPEG_DBG("%s:%d] ctx 0x%lx", __func__, __LINE__,
+			(unsigned long)pgmn_dev->iommu_ctx_arr[i]);
 		if (!pgmn_dev->iommu_ctx_arr[i]) {
 			JPEG_PR_ERR("%s: No iommu fw context found\n",
 					__func__);
@@ -1503,8 +1504,8 @@ int __msm_jpeg_init(struct msm_jpeg_device *pgmn_dev)
 		goto error;
 	}
 	pgmn_dev->domain = msm_get_iommu_domain(pgmn_dev->domain_num);
-	JPEG_DBG("%s:%d] dom 0x%x", __func__, __LINE__,
-					(uint32_t)pgmn_dev->domain);
+	JPEG_DBG("%s:%d] dom 0x%lx", __func__, __LINE__,
+					(unsigned long)pgmn_dev->domain);
 	if (!pgmn_dev->domain) {
 		JPEG_PR_ERR("%s: cannot find domain\n", __func__);
 		goto error;
