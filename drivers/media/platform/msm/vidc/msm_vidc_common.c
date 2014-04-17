@@ -981,27 +981,27 @@ static void handle_session_error(enum command_response cmd, void *data)
 	msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_SYS_ERROR);
 }
 
-struct sys_err_handler_data {
+struct sys_err_helper_data {
 	struct msm_vidc_core *core;
 	struct delayed_work work;
 };
 
 
-void hw_sys_error_handler(struct work_struct *work)
+void hw_sys_error_helper(struct work_struct *work)
 {
 	struct msm_vidc_core *core = NULL;
 	struct hfi_device *hdev = NULL;
-	struct sys_err_handler_data *handler = NULL;
+	struct sys_err_helper_data *data = NULL;
 	int rc = 0;
 
-	handler = container_of(work, struct sys_err_handler_data, work.work);
-	if (!handler || !handler->core || !handler->core->device) {
+	data = container_of(work, struct sys_err_helper_data, work.work);
+	if (!data || !data->core || !data->core->device) {
 		dprintk(VIDC_ERR, "%s - invalid work or core handle\n",
 				__func__);
 		goto exit;
 	}
 
-	core = handler->core;
+	core = data->core;
 	hdev = core->device;
 
 	mutex_lock(&core->sync_lock);
@@ -1027,15 +1027,15 @@ void hw_sys_error_handler(struct work_struct *work)
 	mutex_unlock(&core->sync_lock);
 
 exit:
-	/* free sys error handler, allocated in handle_sys_err */
-	kfree(handler);
+	/* free sys error data, allocated in handle_sys_err */
+	kfree(data);
 }
 
 static void handle_sys_error(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_core *core = NULL;
-	struct sys_err_handler_data *handler = NULL;
+	struct sys_err_helper_data *handler = NULL;
 	struct hfi_device *hdev = NULL;
 	struct msm_vidc_inst *inst = NULL;
 	int rc = 0;
@@ -1097,7 +1097,7 @@ static void handle_sys_error(enum command_response cmd, void *data)
 		return;
 	}
 	handler->core = core;
-	INIT_DELAYED_WORK(&handler->work, hw_sys_error_handler);
+	INIT_DELAYED_WORK(&handler->work, hw_sys_error_helper);
 
 	/*
 	* Sleep for 5 sec to ensure venus has completed any
@@ -3665,33 +3665,78 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	return rc;
 }
 
-static void msm_comm_generate_session_error(struct msm_vidc_inst *inst)
+struct generate_error_data {
+	struct msm_vidc_inst *inst;
+	enum command_response error_type;
+	struct work_struct work;
+};
+
+static void generate_error_helper(struct work_struct *work)
 {
-	enum command_response cmd = SESSION_ERROR;
 	struct msm_vidc_cb_cmd_done response = {0};
+	void (*error_handler)(enum command_response, void *) = NULL;
+	struct generate_error_data *data =
+		container_of(work, struct generate_error_data, work);
+
+	if (!data || !data->inst) {
+		dprintk(VIDC_ERR, "%s: invalid data\n", __func__);
+		goto exit;
+	}
+
+	switch (data->error_type) {
+	case SESSION_ERROR:
+		error_handler = handle_session_error;
+		break;
+	case SYS_ERROR:
+		error_handler = handle_sys_error;
+		break;
+	default:
+		dprintk(VIDC_ERR, "%d isn't a type of error.\n",
+				data->error_type);
+		goto exit;
+	}
+
+	response.session_id = data->inst;
+	error_handler(data->error_type, (void *)&response);
+exit:
+	kfree(data);
+}
+
+static int msm_comm_generate_error(struct msm_vidc_inst *inst,
+		enum command_response error_type)
+{
+	struct generate_error_data *error_data;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid input parameters\n", __func__);
-		return;
+		return -EINVAL;
 	}
 
-	response.session_id = inst;
-	handle_session_error(cmd, (void *)&response);
+
+	/* All the error handlers are meant to be called asynchronously. As
+	 * a result the locking mechanism is set up in a way that calling it
+	 * synchronously in the forward path will result in deadlocks. So,
+	 * call the error handler async via a wq */
+	error_data = kzalloc(sizeof(*error_data), GFP_KERNEL);
+	if (!error_data)
+		return -ENOMEM;
+
+	error_data->inst = inst;
+	error_data->error_type = error_type;
+	INIT_WORK(&error_data->work, generate_error_helper);
+	schedule_work(&error_data->work);
+
+	return 0;
+}
+
+static void msm_comm_generate_session_error(struct msm_vidc_inst *inst)
+{
+	msm_comm_generate_error(inst, SESSION_ERROR);
 }
 
 static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst)
 {
-	struct msm_vidc_core *core;
-	enum command_response cmd = SYS_ERROR;
-	struct msm_vidc_cb_cmd_done response  = {0};
-	if (!inst || !inst->core) {
-		dprintk(VIDC_ERR, "%s: invalid input parameters\n", __func__);
-		return;
-	}
-	core = inst->core;
-	response.device_id = (u32) core->id;
-	handle_sys_error(cmd, (void *) &response);
-
+	msm_comm_generate_error(inst, SYS_ERROR);
 }
 
 int msm_comm_kill_session(struct msm_vidc_inst *inst)
@@ -3711,7 +3756,7 @@ int msm_comm_kill_session(struct msm_vidc_inst *inst)
 	 * the session send session_abort to firmware to clean up and release
 	 * the session, else just kill the session inside the driver.
 	 */
-	if (inst->state >= MSM_VIDC_OPEN_DONE ||
+	if (inst->state >= MSM_VIDC_OPEN_DONE &&
 			inst->state < MSM_VIDC_CLOSE_DONE) {
 		struct hfi_device *hdev = inst->core->device;
 		int abort_completion = SESSION_MSG_INDEX(SESSION_ABORT_DONE);
