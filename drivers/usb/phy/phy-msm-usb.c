@@ -2827,7 +2827,12 @@ static void msm_otg_sm_work(struct work_struct *w)
 			 */
 			pm_runtime_mark_last_busy(otg->phy->dev);
 			pm_runtime_autosuspend(otg->phy->dev);
-			motg->pm_done = 1;
+			/*
+			 * Set pm_done to true as part of USB disconnect
+			 * only when USB is in low power mode.
+			 */
+			if (atomic_read(&motg->in_lpm))
+				motg->pm_done = 1;
 		}
 		break;
 	case OTG_STATE_B_SRP_INIT:
