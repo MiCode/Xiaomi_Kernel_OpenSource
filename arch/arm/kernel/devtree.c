@@ -26,23 +26,6 @@
 #include <asm/mach/arch.h>
 #include <asm/mach-types.h>
 
-void __init early_init_dt_add_memory_arch(u64 base, u64 size)
-{
-#ifndef CONFIG_ARM_LPAE
-	if (base > ((phys_addr_t)~0)) {
-		pr_crit("Ignoring memory at 0x%08llx due to lack of LPAE support\n",
-			base);
-		return;
-	}
-
-	if (size > ((phys_addr_t)~0))
-		size = ((phys_addr_t)~0);
-
-	/* arm_add_memory() already checks for the case of base + size > 4GB */
-#endif
-	arm_add_memory(base, size);
-}
-
 void * __init early_init_dt_alloc_memory_arch(u64 size, u64 align)
 {
 	return alloc_bootmem_align(size, align);
