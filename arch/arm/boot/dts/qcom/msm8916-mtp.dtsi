@@ -91,9 +91,14 @@
 			"AMIC2", "MIC BIAS Internal2",
 			"AMIC3", "MIC BIAS External";
 		pinctrl-names = "cdc_pdm_lines_act",
-				"cdc_pdm_lines_sus";
+				"cdc_pdm_lines_sus",
+				"cross_conn_det_act",
+				"cross_conn_det_sus";
 		pinctrl-0 = <&cdc_pdm_lines_act>;
 		pinctrl-1 = <&cdc_pdm_lines_sus>;
+		pinctrl-2 = <&cross_conn_det_act>;
+		pinctrl-3 = <&cross_conn_det_sus>;
+		qcom,cdc-us-euro-gpios = <&msm_gpio 120 0>;
 	};
 };
 

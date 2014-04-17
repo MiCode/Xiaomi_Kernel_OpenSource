@@ -45,6 +45,20 @@
 				bias-disable;
 			};
 		};
+		cross-conn-det {
+			qcom,pins = <&gp 120>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "cross-conn-det-sw";
+			cross_conn_det_act: lines_on {
+				drive-strength = <8>;
+				bias-pull-none;
+			};
+			cross_conn_det_sus: lines_off {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
 		pmx-uartconsole {
 			qcom,pins = <&gp 4>, <&gp 5>;
 			qcom,num-grp-pins = <2>;
