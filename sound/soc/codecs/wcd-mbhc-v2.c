@@ -685,7 +685,7 @@ irqreturn_t wcd_mbhc_btn_press_handler(int irq, void *data)
 	struct wcd_mbhc *mbhc = data;
 	struct snd_soc_codec *codec = mbhc->codec;
 	u16 result1;
-	u16 mask;
+	int mask;
 
 	pr_debug("%s: enter\n", __func__);
 	WCD_MBHC_RSC_LOCK(mbhc);
