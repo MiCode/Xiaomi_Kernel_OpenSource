@@ -46,9 +46,10 @@
 		charger@2b {
 			compatible = "summit,smb350-charger";
 			reg = <0x2b>; /* 0x56/0x57 */
-			summit,stat-gpio = <&pm8941_gpios 30 0x00>;
+			interrupt-parent = <&spmi_bus>;
+			interrupts = <0x0 0xdd 0x0>;	/* PM8941 GPIO 30 */
 			summit,chg-en-n-gpio = <&pm8941_gpios 10 0x00>;
-			summit,chg-susp-n-gpio = <&pm8941_gpios 13 0x00>;
+			summit,chg-shdn-n-gpio = <&pm8941_gpios 13 0x00>;
 			summit,chg-current-ma = <1600>;
 			summit,term-current-ma = <300>;
 		};
