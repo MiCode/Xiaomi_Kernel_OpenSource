@@ -289,6 +289,94 @@
 		qcom,rtb-size = <0x100000>;
 	};
 
+	jtag_mm0: jtagmm@fb840000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0xfb840000 0x1000>,
+		      <0xfb810000 0x1000>;
+		reg-names = "etm-base","debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	jtag_mm1: jtagmm@fb940000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0xfb940000 0x1000>,
+		      <0xfb910000 0x1000>;
+		reg-names = "etm-base","debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	jtag_mm2: jtagmm@fba40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0xfba40000 0x1000>,
+		      <0xfba10000 0x1000>;
+		reg-names = "etm-base","debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	jtag_mm3: jtagmm@fbb40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0xfbb40000 0x1000>,
+		      <0xfbb10000 0x1000>;
+		reg-names = "etm-base","debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	jtag_mm4: jtagmm@fbc40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0xfbc40000 0x1000>,
+		      <0xfbc10000 0x1000>;
+		reg-names = "etm-base","debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	jtag_mm5: jtagmm@fbd40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0xfbd40000 0x1000>,
+		      <0xfbd10000 0x1000>;
+		reg-names = "etm-base","debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	jtag_mm6: jtagmm@fbe40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0xfbe40000 0x1000>,
+		      <0xfbe10000 0x1000>;
+		reg-names = "etm-base","debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	jtag_mm7: jtagmm@fbf40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0xfbf40000 0x1000>,
+		      <0xfbf10000 0x1000>;
+		reg-names = "etm-base","debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
 	rpm_bus: qcom,rpm-smd {
 		compatible = "qcom,rpm-smd";
 		rpm-channel-name = "rpm_requests";
