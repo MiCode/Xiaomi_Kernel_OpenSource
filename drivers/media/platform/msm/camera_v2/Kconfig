@@ -128,15 +128,6 @@ config IMX134
 		HFR @60fps and @120fps
 		Video HDR support.
 
-config OV2720
-	bool "Sensor OV2720 (BAYER 2M)"
-	depends on MSMB_CAMERA
-	---help---
-		OmniVision 2 MP Bayer Sensor, supports 2 mipi lanes,
-		preview and snapshot config at 1932 * 1092 at 30 fps,
-		hfr video at 60, 90 and 120 fps. This sensor driver does
-		not support auto focus.
-
 config OV9724
 	bool "Sensor OV9724 (BAYER 2M)"
 	depends on MSMB_CAMERA
