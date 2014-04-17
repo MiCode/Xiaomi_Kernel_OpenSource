@@ -1041,7 +1041,7 @@ static void bam2bam_data_port_free(int portno)
 
 	if (--port->ref_count == 0) {
 		kfree(port);
-		port = NULL;
+		bam2bam_data_ports[portno] = NULL;
 		n_bam2bam_data_ports--;
 		pr_debug("freed port %d\n", portno);
 	}
