@@ -3473,11 +3473,6 @@ static struct pll_clk mmpll4_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_mmss_axi_clk[] = {
-	F_MM( 19200000,    xo,     1,   0,   0),
-	F_MM( 37500000,  gpll0,    16,   0,   0),
-	F_MM( 50000000,  gpll0,    12,   0,   0),
-	F_MM( 75000000,  gpll0,     8,   0,   0),
-	F_MM(100000000,  gpll0,     6,   0,   0),
 	F_MM(150000000,  gpll0,     4,   0,   0),
 	F_MM(333430000, mmpll1,   3.5,   0,   0),
 	F_MM(400000000, mmpll0,     2,   0,   0),
