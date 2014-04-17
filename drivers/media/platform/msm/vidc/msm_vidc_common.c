@@ -1150,7 +1150,8 @@ static struct vb2_buffer *get_vb_from_device_addr(struct buf_queue *bufq,
 	q = &bufq->vb2_bufq;
 	mutex_lock(&bufq->lock);
 	list_for_each_entry(vb, &q->queued_list, queued_entry) {
-		if (vb->v4l2_planes[0].m.userptr == dev_addr) {
+		if (vb->v4l2_planes[0].m.userptr == dev_addr &&
+			vb->state == VB2_BUF_STATE_ACTIVE) {
 			found = 1;
 			dprintk(VIDC_DBG, "Found v4l2_buf index : %d\n",
 					vb->v4l2_buf.index);
