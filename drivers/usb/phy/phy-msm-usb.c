@@ -1156,6 +1156,7 @@ static int msm_otg_resume(struct msm_otg *motg)
 {
 	struct usb_phy *phy = &motg->phy;
 	struct usb_bus *bus = phy->otg->host;
+	struct usb_hcd *hcd = bus_to_hcd(phy->otg->host);
 	struct msm_otg_platform_data *pdata = motg->pdata;
 	int cnt = 0;
 	unsigned temp;
@@ -1329,6 +1330,9 @@ skip_phy_resume:
 	/* If ASYNC IRQ is present then keep it enabled only during LPM */
 	if (motg->async_irq)
 		disable_irq(motg->async_irq);
+
+	if (motg->host_bus_suspend)
+		usb_hcd_resume_root_hub(hcd);
 
 	dev_info(phy->dev, "USB exited from low power mode\n");
 
