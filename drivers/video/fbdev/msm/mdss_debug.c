@@ -647,9 +647,35 @@ static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id,
 		return NULL;
 	}
 
-	pr_debug("MDP Module Offset of MISR_CTRL = 0x%d MISR SIG = 0x%d intf_base 0x%p\n",
-			map->ctrl_reg, map->value_reg, intf_base);
+	pr_debug("MISR Module(%d) CTRL(0x%x) SIG(0x%x) intf_base(0x%p)\n",
+			block_id, map->ctrl_reg, map->value_reg, intf_base);
 	return map;
+}
+
+/*
+ * switch_mdp_misr_offset() - Update MDP MISR register offset for MDSS
+ * Hardware Revision 103.
+ * @map: mdss_mdp_misr_map
+ * @mdp_rev: MDSS Hardware Revision
+ * @block_id: Logical MISR Block ID
+ *
+ * Return: true when MDSS Revision is 103 else false.
+ */
+static bool switch_mdp_misr_offset(struct mdss_mdp_misr_map *map, u32 mdp_rev,
+					u32 block_id)
+{
+	bool use_mdp_up_misr = false;
+
+	if ((IS_MDSS_MAJOR_MINOR_SAME(mdp_rev, MDSS_MDP_HW_REV_103)) &&
+		(block_id == DISPLAY_MISR_MDP)) {
+		/* Use Upper pipe MISR for Layer Mixer CRC */
+		map->ctrl_reg = MDSS_MDP_UP_MISR_CTRL_MDP;
+		map->value_reg = MDSS_MDP_UP_MISR_SIGN_MDP;
+		use_mdp_up_misr = true;
+	}
+	pr_debug("MISR Module(%d) Offset of MISR_CTRL = 0x%x MISR_SIG = 0x%x\n",
+			block_id, map->ctrl_reg, map->value_reg);
+	return use_mdp_up_misr;
 }
 
 int mdss_misr_set(struct mdss_data_type *mdata,
@@ -661,8 +687,11 @@ int mdss_misr_set(struct mdss_data_type *mdata,
 	u32 config = 0, val = 0;
 	u32 mixer_num = 0;
 	bool is_valid_wb_mixer = true;
+	bool use_mdp_up_misr = false;
 
 	map = mdss_misr_get_map(req->block_id, ctl, mdata);
+	use_mdp_up_misr = switch_mdp_misr_offset(map, mdata->mdp_rev,
+				req->block_id);
 	if (!map) {
 		pr_err("Invalid MISR Block=%d\n", req->block_id);
 		return -EINVAL;
@@ -693,17 +722,25 @@ int mdss_misr_set(struct mdss_data_type *mdata,
 			is_valid_wb_mixer = false;
 			break;
 		}
-		if (is_valid_wb_mixer &&
-				(mdata->mdp_rev < MDSS_MDP_HW_REV_106))
-			writel_relaxed(val, (mdata->mdp_base +
-						MDSS_MDP_LP_MISR_SEL));
+		if ((is_valid_wb_mixer) &&
+			(mdata->mdp_rev < MDSS_MDP_HW_REV_106)) {
+			if (use_mdp_up_misr)
+				writel_relaxed((val +
+					MDSS_MDP_UP_MISR_LMIX_SEL_OFFSET),
+					(mdata->mdp_base +
+					 MDSS_MDP_UP_MISR_SEL));
+			else
+				writel_relaxed(val,
+					(mdata->mdp_base +
+					MDSS_MDP_LP_MISR_SEL));
+		}
 	}
 	vsync_count = 0;
 	map->crc_op_mode = req->crc_op_mode;
-	config = (MDSS_MDP_LP_MISR_CTRL_FRAME_COUNT_MASK & req->frame_count) |
-			(MDSS_MDP_LP_MISR_CTRL_ENABLE);
+	config = (MDSS_MDP_MISR_CTRL_FRAME_COUNT_MASK & req->frame_count) |
+			(MDSS_MDP_MISR_CTRL_ENABLE);
 
-	writel_relaxed(MDSS_MDP_LP_MISR_CTRL_STATUS_CLEAR,
+	writel_relaxed(MDSS_MDP_MISR_CTRL_STATUS_CLEAR,
 			mdata->mdp_base + map->ctrl_reg);
 	/* ensure clear is done */
 	wmb();
@@ -737,6 +774,7 @@ int mdss_misr_get(struct mdss_data_type *mdata,
 	int i;
 
 	map = mdss_misr_get_map(resp->block_id, ctl, mdata);
+	switch_mdp_misr_offset(map, mdata->mdp_rev, resp->block_id);
 	if (!map) {
 		pr_err("Invalid MISR Block=%d\n", resp->block_id);
 		return -EINVAL;
@@ -748,7 +786,7 @@ int mdss_misr_get(struct mdss_data_type *mdata,
 	case MISR_OP_SFM:
 	case MISR_OP_MFM:
 		ret = readl_poll_timeout(mdata->mdp_base + map->ctrl_reg,
-				status, status & MDSS_MDP_LP_MISR_CTRL_STATUS,
+				status, status & MDSS_MDP_MISR_CTRL_STATUS,
 				MISR_POLL_SLEEP, MISR_POLL_TIMEOUT);
 		if (ret == 0) {
 			resp->crc_value[0] = readl_relaxed(mdata->mdp_base +
@@ -760,7 +798,7 @@ int mdss_misr_get(struct mdss_data_type *mdata,
 			mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_START, 1);
 			ret = readl_poll_timeout(mdata->mdp_base +
 					map->ctrl_reg, status,
-					status & MDSS_MDP_LP_MISR_CTRL_STATUS,
+					status & MDSS_MDP_MISR_CTRL_STATUS,
 					MISR_POLL_SLEEP, MISR_POLL_TIMEOUT);
 			if (ret == 0) {
 				resp->crc_value[0] =
@@ -809,11 +847,12 @@ void mdss_misr_crc_collect(struct mdss_data_type *mdata, int block_id)
 	bool crc_stored = false;
 
 	map = mdss_misr_get_map(block_id, NULL, mdata);
+	switch_mdp_misr_offset(map, mdata->mdp_rev, block_id);
 	if (!map || (map->crc_op_mode != MISR_OP_BM))
 		return;
 
 	status = readl_relaxed(mdata->mdp_base + map->ctrl_reg);
-	if (MDSS_MDP_LP_MISR_CTRL_STATUS & status) {
+	if (MDSS_MDP_MISR_CTRL_STATUS & status) {
 		crc = readl_relaxed(mdata->mdp_base + map->value_reg);
 		if (map->use_ping) {
 			if (map->is_ping_full) {
@@ -853,7 +892,7 @@ void mdss_misr_crc_collect(struct mdss_data_type *mdata, int block_id)
 			pr_err("CRC(%d) Not saved\n", crc);
 		}
 
-		writel_relaxed(MDSS_MDP_LP_MISR_CTRL_STATUS_CLEAR,
+		writel_relaxed(MDSS_MDP_MISR_CTRL_STATUS_CLEAR,
 				mdata->mdp_base + map->ctrl_reg);
 		writel_relaxed(MISR_CRC_BATCH_CFG,
 				mdata->mdp_base + map->ctrl_reg);
