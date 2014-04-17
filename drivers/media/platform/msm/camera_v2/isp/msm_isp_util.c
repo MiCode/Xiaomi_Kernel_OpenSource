@@ -96,26 +96,6 @@ static void msm_isp_print_fourcc_error(const char *origin,
 	return;
 }
 
-#ifdef CONFIG_COMPAT
-struct msm_vfe_cfg_cmd2_32 {
-	uint16_t num_cfg;
-	uint16_t cmd_len;
-	compat_caddr_t cfg_data;
-	compat_caddr_t cfg_cmd;
-};
-
-struct msm_vfe_cfg_cmd_list_32 {
-	struct msm_vfe_cfg_cmd2_32   cfg_cmd;
-	compat_caddr_t               *next;
-	uint32_t                     next_size;
-};
-
-#define VIDIOC_MSM_VFE_REG_CFG_COMPAT \
-	_IOWR('V', BASE_VIDIOC_PRIVATE, struct msm_vfe_cfg_cmd2_32)
-#define VIDIOC_MSM_VFE_REG_LIST_CFG_COMPAT \
-	_IOWR('V', BASE_VIDIOC_PRIVATE+14, struct msm_vfe_cfg_cmd_list_32)
-#endif /* CONFIG_COMPAT */
-
 int msm_isp_init_bandwidth_mgr(enum msm_isp_hw_client client)
 {
 	int rc = 0;
@@ -471,6 +451,133 @@ int msm_isp_cfg_input(struct vfe_device *vfe_dev, void *arg)
 	return rc;
 }
 
+static int msm_isp_proc_cmd_list_unlocked(struct vfe_device *vfe_dev, void *arg)
+{
+	int rc = 0;
+	struct msm_vfe_cfg_cmd_list *proc_cmd =
+		(struct msm_vfe_cfg_cmd_list *)arg;
+	struct msm_vfe_cfg_cmd_list cmd, cmd_next;
+
+	if (!vfe_dev || !arg) {
+		pr_err("%s:%d failed: vfe_dev %p arg %p", __func__, __LINE__,
+			vfe_dev, arg);
+		return -EINVAL;
+	}
+
+	rc = msm_isp_proc_cmd(vfe_dev, &proc_cmd->cfg_cmd);
+	if (rc < 0)
+		pr_err("%s:%d failed: rc %d", __func__, __LINE__, rc);
+
+	cmd = *proc_cmd;
+
+	while (cmd.next) {
+		if (cmd.next_size != sizeof(struct msm_vfe_cfg_cmd_list)) {
+			pr_err("%s:%d failed: next size %u != expected %zu\n",
+				__func__, __LINE__, cmd.next_size,
+				sizeof(struct msm_vfe_cfg_cmd_list));
+			break;
+		}
+		if (copy_from_user(&cmd_next, (void __user *)cmd.next,
+			sizeof(struct msm_vfe_cfg_cmd_list))) {
+			rc = -EFAULT;
+			continue;
+		}
+
+		rc = msm_isp_proc_cmd(vfe_dev, &cmd_next.cfg_cmd);
+		if (rc < 0)
+			pr_err("%s:%d failed: rc %d", __func__, __LINE__, rc);
+
+		cmd = cmd_next;
+	}
+	return rc;
+}
+
+#ifdef CONFIG_COMPAT
+struct msm_vfe_cfg_cmd2_32 {
+	uint16_t num_cfg;
+	uint16_t cmd_len;
+	compat_caddr_t cfg_data;
+	compat_caddr_t cfg_cmd;
+};
+
+struct msm_vfe_cfg_cmd_list_32 {
+	struct msm_vfe_cfg_cmd2_32   cfg_cmd;
+	compat_caddr_t               next;
+	uint32_t                     next_size;
+};
+
+#define VIDIOC_MSM_VFE_REG_CFG_COMPAT \
+	_IOWR('V', BASE_VIDIOC_PRIVATE, struct msm_vfe_cfg_cmd2_32)
+#define VIDIOC_MSM_VFE_REG_LIST_CFG_COMPAT \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+14, struct msm_vfe_cfg_cmd_list_32)
+
+static void msm_isp_compat_to_proc_cmd(struct msm_vfe_cfg_cmd2 *proc_cmd,
+	struct msm_vfe_cfg_cmd2_32 *proc_cmd_ptr32)
+{
+	proc_cmd->num_cfg = proc_cmd_ptr32->num_cfg;
+	proc_cmd->cmd_len = proc_cmd_ptr32->cmd_len;
+	proc_cmd->cfg_data = compat_ptr(proc_cmd_ptr32->cfg_data);
+	proc_cmd->cfg_cmd = compat_ptr(proc_cmd_ptr32->cfg_cmd);
+}
+
+static int msm_isp_proc_cmd_list_compat(struct vfe_device *vfe_dev, void *arg)
+{
+	int rc = 0;
+	struct msm_vfe_cfg_cmd_list_32 *proc_cmd =
+		(struct msm_vfe_cfg_cmd_list_32 *)arg;
+	struct msm_vfe_cfg_cmd_list_32 cmd, cmd_next;
+	struct msm_vfe_cfg_cmd2 current_cmd;
+
+	if (!vfe_dev || !arg) {
+		pr_err("%s:%d failed: vfe_dev %p arg %p", __func__, __LINE__,
+			vfe_dev, arg);
+		return -EINVAL;
+	}
+	msm_isp_compat_to_proc_cmd(&current_cmd, &proc_cmd->cfg_cmd);
+	rc = msm_isp_proc_cmd(vfe_dev, &current_cmd);
+	if (rc < 0)
+		pr_err("%s:%d failed: rc %d", __func__, __LINE__, rc);
+
+	cmd = *proc_cmd;
+
+	while (NULL != compat_ptr(cmd.next)) {
+		if (cmd.next_size != sizeof(struct msm_vfe_cfg_cmd_list_32)) {
+			pr_err("%s:%d failed: next size %u != expected %zu\n",
+				__func__, __LINE__, cmd.next_size,
+				sizeof(struct msm_vfe_cfg_cmd_list));
+			break;
+		}
+		if (copy_from_user(&cmd_next, compat_ptr(cmd.next),
+			sizeof(struct msm_vfe_cfg_cmd_list))) {
+			rc = -EFAULT;
+			continue;
+		}
+
+		msm_isp_compat_to_proc_cmd(&current_cmd, &cmd_next.cfg_cmd);
+		rc = msm_isp_proc_cmd(vfe_dev, &current_cmd);
+		if (rc < 0)
+			pr_err("%s:%d failed: rc %d", __func__, __LINE__, rc);
+
+		cmd = cmd_next;
+	}
+	return rc;
+}
+
+static int msm_isp_proc_cmd_list(struct vfe_device *vfe_dev, void *arg)
+{
+	if (is_compat_task())
+		return msm_isp_proc_cmd_list_compat(vfe_dev, arg);
+	else
+		return msm_isp_proc_cmd_list_unlocked(vfe_dev, arg);
+}
+#else /* CONFIG_COMPAT */
+static int msm_isp_proc_cmd_list(struct vfe_device *vfe_dev, void *arg)
+{
+	return msm_isp_proc_cmd_list_unlocked(vfe_dev, arg);
+}
+#endif /* CONFIG_COMPAT */
+
+
 static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
 {
@@ -562,119 +669,17 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	return rc;
 }
 
-static int msm_isp_proc_cmd_list_unlocked(struct vfe_device *vfe_dev, void *arg)
-{
-	int rc = 0;
-	struct msm_vfe_cfg_cmd_list *proc_cmd =
-		(struct msm_vfe_cfg_cmd_list *)arg;
-	struct msm_vfe_cfg_cmd_list cmd, cmd_next;
-
-	if (!vfe_dev || !arg) {
-		pr_err("%s:%d failed: vfe_dev %p arg %p", __func__, __LINE__,
-			vfe_dev, arg);
-		return -EINVAL;
-	}
-
-	rc = msm_isp_proc_cmd(vfe_dev, &proc_cmd->cfg_cmd);
-	if (rc < 0)
-		pr_err("%s:%d failed: rc %d", __func__, __LINE__, rc);
-
-	cmd = *proc_cmd;
-
-	while (cmd.next) {
-		if (cmd.next_size != sizeof(struct msm_vfe_cfg_cmd_list)) {
-			pr_err("%s:%d failed: next size %u != expected %zu\n",
-				__func__, __LINE__, cmd.next_size,
-				sizeof(struct msm_vfe_cfg_cmd_list));
-			break;
-		}
-		if (copy_from_user(&cmd_next, (void __user *)cmd.next,
-			sizeof(struct msm_vfe_cfg_cmd_list))) {
-			rc = -EFAULT;
-			continue;
-		}
-
-		rc = msm_isp_proc_cmd(vfe_dev, &cmd_next.cfg_cmd);
-		if (rc < 0)
-			pr_err("%s:%d failed: rc %d", __func__, __LINE__, rc);
-
-		cmd = cmd_next;
-	}
-	return rc;
-}
-
 
 #ifdef CONFIG_COMPAT
-static void msm_isp_compat_to_proc_cmd(struct msm_vfe_cfg_cmd2 *proc_cmd,
-	struct msm_vfe_cfg_cmd2_32 *proc_cmd_ptr32)
-{
-	proc_cmd->num_cfg = proc_cmd_ptr32->num_cfg;
-	proc_cmd->cmd_len = proc_cmd_ptr32->cmd_len;
-	proc_cmd->cfg_data = compat_ptr(proc_cmd_ptr32->cfg_data);
-	proc_cmd->cfg_cmd = compat_ptr(proc_cmd_ptr32->cfg_cmd);
-}
-
-static int msm_isp_proc_cmd_list_compat(struct vfe_device *vfe_dev, void *arg)
-{
-	int rc = 0;
-	struct msm_vfe_cfg_cmd_list_32 *proc_cmd =
-		(struct msm_vfe_cfg_cmd_list_32 *)arg;
-	struct msm_vfe_cfg_cmd_list_32 cmd, cmd_next;
-	struct msm_vfe_cfg_cmd2 current_cmd;
-
-	if (!vfe_dev || !arg) {
-		pr_err("%s:%d failed: vfe_dev %p arg %p", __func__, __LINE__,
-			vfe_dev, arg);
-		return -EINVAL;
-	}
-	msm_isp_compat_to_proc_cmd(&current_cmd, &arg->cfg_cmd);
-	rc = msm_isp_proc_cmd(vfe_dev, &current_cmd);
-	if (rc < 0)
-		pr_err("%s:%d failed: rc %d", __func__, __LINE__, rc);
-
-	cmd = *proc_cmd;
-
-	while (compat_ptr(cmd.next)) {
-		if (cmd.next_size != sizeof(struct msm_vfe_cfg_cmd_list_32)) {
-			pr_err("%s:%d failed: next size %u != expected %zu\n",
-				__func__, __LINE__, cmd.next_size,
-				sizeof(struct msm_vfe_cfg_cmd_list));
-			break;
-		}
-		if (copy_from_user(&cmd_next, compat_ptr(cmd.next),
-			sizeof(struct msm_vfe_cfg_cmd_list))) {
-			rc = -EFAULT;
-			continue;
-		}
-
-		msm_isp_compat_to_proc_cmd(&current_cmd, &cmd_next.cfg_cmd);
-		rc = msm_isp_proc_cmd(vfe_dev, &current_cmd);
-		if (rc < 0)
-			pr_err("%s:%d failed: rc %d", __func__, __LINE__, rc);
-
-		cmd = cmd_next;
-	}
-	return rc;
-}
-
-static int msm_isp_proc_cmd_list(struct vfe_device *vfe_dev, void *arg)
-{
-	if (is_compat_task())
-		return msm_isp_proc_cmd_list_compat(vfe_dev, arg);
-	else
-		return msm_isp_proc_cmd_list_unlocked(vfe_dev, arg);
-}
-
 static long msm_isp_ioctl_compat(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
 {
+	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
 	long rc = 0;
 
 	switch (cmd) {
 	case VIDIOC_MSM_VFE_REG_CFG_COMPAT: {
-		struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
 		struct msm_vfe_cfg_cmd2 proc_cmd;
-		struct msm_vfe_cfg_cmd2_32 *proc_cmd_ptr32;
 		mutex_lock(&vfe_dev->realtime_mutex);
 		msm_isp_compat_to_proc_cmd(&proc_cmd,
 			(struct msm_vfe_cfg_cmd2_32 *) arg);
@@ -701,11 +706,6 @@ long msm_isp_ioctl(struct v4l2_subdev *sd,
 	return msm_isp_ioctl_compat(sd, cmd, arg);
 }
 #else /* CONFIG_COMPAT */
-int msm_isp_proc_cmd_list(struct vfe_device *vfe_dev, void *arg)
-{
-	return msm_isp_proc_cmd_list_unlocked(vfe_dev, arg);
-}
-
 long msm_isp_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
 {
