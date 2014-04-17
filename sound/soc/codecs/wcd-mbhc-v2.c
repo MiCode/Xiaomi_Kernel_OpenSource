@@ -424,12 +424,38 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 
 	if (!timeout_result) {
 		pr_debug("%s No btn press interrupt\n", __func__);
+		/*
+		 * Check if there is any cross connection,
+		 * Micbias and schmitt trigger (HPHL-HPHR)
+		 * needs to be enabled.
+		 */
+		snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_MICB_2_EN,
+				0x80, 0x80);
+		snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2,
+				0x6, 0x2);
+		/* Update result2 read value with cross connection bit */
+		result2 = snd_soc_read(codec,
+				MSM8X16_WCD_A_ANALOG_MBHC_ZDET_ELECT_RESULT);
+		if (!result1 && (result2 & 0x04)) {
+			plug_type = PLUG_TYPE_GND_MIC_SWAP;
+			pr_debug("%s: Cross connection identified", __func__);
+		} else {
+			pr_debug("%s: No Cross connection found", __func__);
+		}
+
+		/* Disable micbias and schmitt trigger */
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2,
+			0x6, 0x0);
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MICB_2_EN,
+			0x80, 0x00);
 		if (!result1 && !result2)
 			plug_type = PLUG_TYPE_HEADSET;
 		else if (!result1 && (result2 & 0x01))
 			plug_type = PLUG_TYPE_HIGH_HPH;
-		else if (!result1 && (result2 & 0x04))
-			plug_type = PLUG_TYPE_GND_MIC_SWAP;
 		else {
 			plug_type = PLUG_TYPE_INVALID;
 			goto exit;
