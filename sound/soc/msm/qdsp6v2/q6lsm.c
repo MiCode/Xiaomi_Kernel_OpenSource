@@ -1169,7 +1169,7 @@ static int q6lsm_init_cal_data(void)
 		{LSM_CAL_TYPE,
 		{q6lsm_alloc_cal, q6lsm_dealloc_cal, NULL,
 		q6lsm_set_cal, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_ion_map}
+		{NULL, NULL, cal_utils_match_buf_num}
 	};
 	pr_debug("%s:\n", __func__);
 

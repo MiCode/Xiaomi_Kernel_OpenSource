@@ -5622,21 +5622,21 @@ static int q6asm_init_cal_data(void)
 		{{ASM_TOPOLOGY_CAL_TYPE,
 		{NULL, NULL, NULL,
 		q6asm_set_cal, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_only_block} },
+		{NULL, NULL, cal_utils_match_buf_num} },
 
 		{{ASM_CUST_TOPOLOGY_CAL_TYPE,
 		{q6asm_alloc_cal, q6asm_dealloc_cal, NULL,
 		q6asm_set_cal, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_ion_map} },
+		{NULL, NULL, cal_utils_match_buf_num} },
 
 		{{ASM_AUDSTRM_CAL_TYPE,
 		{q6asm_alloc_cal, q6asm_dealloc_cal, NULL,
 		q6asm_set_cal, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_ion_map} },
+		{NULL, NULL, cal_utils_match_buf_num} },
 
 		{{ASM_RTAC_APR_CAL_TYPE,
 		{NULL, NULL, NULL, NULL, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_only_block} }
+		{NULL, NULL, cal_utils_match_buf_num} }
 	};
 	pr_debug("%s\n", __func__);
 

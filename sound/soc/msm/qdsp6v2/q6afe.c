@@ -4092,19 +4092,6 @@ done:
 	return ret;
 }
 
-static bool afe_match_hw_delay_by_path(struct cal_block_data *cal_block,
-							void *user_data)
-{
-	struct audio_cal_info_hw_delay	*block_cal_info = cal_block->cal_info;
-	struct audio_cal_type_hw_delay	*data = user_data;
-	pr_debug("%s:\n", __func__);
-
-	if (block_cal_info->path == data->cal_info.path)
-		return true;
-
-	return false;
-}
-
 static int afe_map_cal_data(int32_t cal_type,
 				struct cal_block_data *cal_block)
 {
@@ -4188,34 +4175,34 @@ static int afe_init_cal_data(void)
 		{afe_alloc_cal, afe_dealloc_cal, NULL,
 		afe_set_cal, NULL, NULL} },
 		{afe_map_cal_data, afe_unmap_cal_data,
-		cal_utils_match_ion_map} },
+		cal_utils_match_buf_num} },
 
 		{{AFE_COMMON_TX_CAL_TYPE,
 		{afe_alloc_cal, afe_dealloc_cal, NULL,
 		afe_set_cal, NULL, NULL} },
 		{afe_map_cal_data, afe_unmap_cal_data,
-		cal_utils_match_ion_map} },
+		cal_utils_match_buf_num} },
 
 		{{AFE_AANC_CAL_TYPE,
 		{afe_alloc_cal, afe_dealloc_cal, NULL,
 		afe_set_cal, NULL, NULL} },
 		{afe_map_cal_data, afe_unmap_cal_data,
-		cal_utils_match_ion_map} },
+		cal_utils_match_buf_num} },
 
 		{{AFE_FB_SPKR_PROT_CAL_TYPE,
 		{NULL, NULL, NULL, afe_set_cal_fb_spkr_prot,
 		afe_get_cal_fb_spkr_prot, NULL} },
-		{NULL, NULL, cal_utils_match_only_block} },
+		{NULL, NULL, cal_utils_match_buf_num} },
 
 		{{AFE_HW_DELAY_CAL_TYPE,
 		{NULL, NULL, NULL,
 		afe_set_cal, NULL, NULL} },
-		{NULL, NULL, afe_match_hw_delay_by_path} },
+		{NULL, NULL, cal_utils_match_buf_num} },
 
 		{{AFE_SIDETONE_CAL_TYPE,
 		{NULL, NULL, NULL,
 		afe_set_cal, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_only_block} }
+		{NULL, NULL, cal_utils_match_buf_num} }
 	};
 	pr_debug("%s:\n", __func__);
 

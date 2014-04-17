@@ -5246,19 +5246,6 @@ done:
 	return ret;
 }
 
-static bool msm_routing_match_cal_by_path(struct cal_block_data *cal_block,
-					void *data)
-{
-	struct audio_cal_info_adm_top	*block_cal_info = cal_block->cal_info;
-	struct audio_cal_type_adm_top	*user_data = data;
-	pr_debug("%s\n", __func__);
-
-	if (block_cal_info->path == user_data->cal_info.path)
-		return true;
-
-	return false;
-}
-
 static void msm_routing_delete_cal_data(void)
 {
 	pr_debug("%s\n", __func__);
@@ -5275,7 +5262,7 @@ static int msm_routing_init_cal_data(void)
 		{ADM_TOPOLOGY_CAL_TYPE,
 		{NULL, NULL, NULL,
 		msm_routing_set_cal, NULL, NULL} },
-		{NULL, NULL, msm_routing_match_cal_by_path}
+		{NULL, NULL, cal_utils_match_buf_num}
 	};
 	pr_debug("%s\n", __func__);
 

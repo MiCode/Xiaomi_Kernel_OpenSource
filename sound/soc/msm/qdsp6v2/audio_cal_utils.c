@@ -430,26 +430,17 @@ done:
 	return cal_block;
 }
 
-bool cal_utils_match_only_block(struct cal_block_data *cal_block,
-					void *user_data)
-{
-	return true;
-}
-
-
-bool cal_utils_match_ion_map(struct cal_block_data *cal_block,
+bool cal_utils_match_buf_num(struct cal_block_data *cal_block,
 					void *user_data)
 {
 	bool ret = false;
 	struct audio_cal_type_basic	*data = user_data;
 
-	if (cal_block->map_data.ion_map_handle ==
-		data->cal_data.mem_handle)
+	if (cal_block->buffer_number == data->cal_hdr.buffer_number)
 		ret = true;
 
 	return ret;
 }
-
 
 static struct cal_block_data *get_matching_cal_block(
 					struct cal_type_data *cal_type,
@@ -471,8 +462,6 @@ static struct cal_block_data *get_matching_cal_block(
 
 	return NULL;
 }
-
-
 
 static int cal_block_ion_alloc(struct cal_block_data *cal_block)
 {
@@ -503,13 +492,16 @@ done:
 }
 
 static struct cal_block_data *create_cal_block(struct cal_type_data *cal_type,
-				struct audio_cal_data *cal_data,
+				struct audio_cal_type_basic *basic_cal,
 				size_t client_info_size, void *client_info)
 {
 	struct cal_block_data	*cal_block = NULL;
 
 	if (cal_type == NULL) {
 		pr_err("%s: cal_type is NULL!\n", __func__);
+		goto done;
+	} else if (basic_cal == NULL) {
+		pr_err("%s: basic_cal is NULL!\n", __func__);
 		goto done;
 	}
 
@@ -523,14 +515,13 @@ static struct cal_block_data *create_cal_block(struct cal_type_data *cal_type,
 	memset(cal_block, 0, sizeof(*cal_block));
 	INIT_LIST_HEAD(&cal_block->list);
 	list_add_tail(&cal_block->list, &cal_type->cal_blocks);
-	if (cal_data != NULL) {
-		cal_block->map_data.ion_map_handle = cal_data->mem_handle;
-		if (cal_data->mem_handle > 0) {
-			if (cal_block_ion_alloc(cal_block)) {
-				pr_err("%s: cal_block_ion_alloc failed!\n",
-					__func__);
-				goto err;
-			}
+
+	cal_block->map_data.ion_map_handle = basic_cal->cal_data.mem_handle;
+	if (basic_cal->cal_data.mem_handle > 0) {
+		if (cal_block_ion_alloc(cal_block)) {
+			pr_err("%s: cal_block_ion_alloc failed!\n",
+				__func__);
+			goto err;
 		}
 	}
 	if (client_info_size > 0) {
@@ -554,8 +545,10 @@ static struct cal_block_data *create_cal_block(struct cal_type_data *cal_type,
 			__func__);
 		goto err;
 	}
-	pr_debug("%s: created block for cal type %d, map handle %d, map size %zd paddr 0x%pa!\n",
+	cal_block->buffer_number = basic_cal->cal_hdr.buffer_number;
+	pr_debug("%s: created block for cal type %d, buf num %d, map handle %d, map size %zd paddr 0x%pa!\n",
 		__func__, cal_type->info.reg.cal_type,
+		cal_block->buffer_number,
 		cal_block->map_data.ion_map_handle,
 		cal_block->map_data.map_size,
 		&cal_block->cal_data.paddr);
@@ -725,7 +718,7 @@ int cal_utils_alloc_cal(size_t data_size, void *data,
 			goto err;
 	} else {
 		cal_block = create_cal_block(cal_type,
-			&alloc_data->cal_data,
+			(struct audio_cal_type_basic *)alloc_data,
 			client_info_size, client_info);
 		if (cal_block == NULL) {
 			pr_err("%s: create_cal_block failed for %d!\n",
@@ -842,7 +835,7 @@ int cal_utils_set_cal(size_t data_size, void *data,
 		} else {
 			cal_block = create_cal_block(
 				cal_type,
-				&basic_data->cal_data,
+				basic_data,
 				client_info_size, client_info);
 			if (cal_block == NULL) {
 				pr_err("%s: create_cal_block failed for cal type %d!\n",
