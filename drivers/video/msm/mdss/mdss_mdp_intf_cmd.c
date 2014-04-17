@@ -382,6 +382,7 @@ static void clk_ctrl_work(struct work_struct *work)
 static void __mdss_mdp_cmd_ulps_work(struct work_struct *work)
 {
 	struct delayed_work *dw = to_delayed_work(work);
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_mdp_cmd_ctx *ctx =
 		container_of(dw, struct mdss_mdp_cmd_ctx, ulps_work);
 
@@ -406,8 +407,11 @@ static void __mdss_mdp_cmd_ulps_work(struct work_struct *work)
 	if (!mdss_mdp_ctl_intf_event(ctx->ctl, MDSS_EVENT_DSI_ULPS_CTRL,
 		(void *)1)) {
 		ctx->ulps = true;
-		ctx->ctl->play_cnt = 0;
-		mdss_mdp_footswitch_ctrl_ulps(0, &ctx->ctl->mfd->pdev->dev);
+		if (mdata->idle_pc_enabled) {
+			ctx->ctl->play_cnt = 0;
+			mdss_mdp_footswitch_ctrl_idle_pc(0,
+				&ctx->ctl->mfd->pdev->dev);
+		}
 	}
 }
 
