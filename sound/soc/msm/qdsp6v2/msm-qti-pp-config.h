@@ -17,27 +17,23 @@
 #ifdef CONFIG_QTI_PP
 
 void msm_qti_pp_send_eq_values(int fedai_id);
-int msm_qti_pp_send_stereo_to_custom_stereo_cmd(int port_id, int copp_idx,
-						unsigned int session_id,
-						uint16_t op_FL_ip_FL_weight,
-						uint16_t op_FL_ip_FR_weight,
-						uint16_t op_FR_ip_FL_weight,
-						uint16_t op_FR_ip_FR_weight);
+int msm_qti_pp_send_stereo_to_custom_stereo_cmd(int port_id,
+				     unsigned int session_id,
+				     uint16_t op_FL_ip_FL_weight,
+				     uint16_t op_FL_ip_FR_weight,
+				     uint16_t op_FR_ip_FL_weight,
+				     uint16_t op_FR_ip_FR_weight);
 void msm_qti_pp_add_controls(struct snd_soc_platform *platform);
 
 #else
 
 void msm_qti_pp_send_eq_values(int fedai_id) { }
-int msm_qti_pp_send_stereo_to_custom_stereo_cmd(int port_id, int copp_idx,
-						unsigned int session_id,
-						uint16_t op_FL_ip_FL_weight,
-						uint16_t op_FL_ip_FR_weight,
-						uint16_t op_FR_ip_FL_weight,
-						uint16_t op_FR_ip_FR_weight)
-{
-	return 0;
-}
-
+int msm_qti_pp_send_stereo_to_custom_stereo_cmd(int port_id,
+				     unsigned int session_id,
+				     uint16_t op_FL_ip_FL_weight,
+				     uint16_t op_FL_ip_FR_weight,
+				     uint16_t op_FR_ip_FL_weight,
+				     uint16_t op_FR_ip_FR_weight) { return 0; }
 void msm_qti_pp_add_controls(struct snd_soc_platform *platform) { }
 
 #endif
