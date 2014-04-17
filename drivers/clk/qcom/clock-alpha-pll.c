@@ -36,25 +36,19 @@
 #define PLL_OUTCTRL  0x1
 
 /*
- * Even though 40 bits are present, only the upper 16 bits are
- * signfigant due to the natural randomness in the XO clock
+ * Even though 40 bits are present, use only 32 for ease of calculation.
  */
 #define ALPHA_REG_BITWIDTH 40
-#define ALPHA_BITWIDTH 16
+#define ALPHA_BITWIDTH 32
 
-static unsigned long compute_rate(u64 parent_rate,
-				u32 l_val, u64 a_val)
+static unsigned long compute_rate(struct alpha_pll_clk *pll,
+				u32 l_val, u32 a_val)
 {
-	unsigned long rate;
+	u64 rate, parent_rate;
 
-	/*
-	 * assuming parent_rate < 2^25, we need a_val < 2^39 to avoid
-	 * overflow when multipling below.
-	 */
-	a_val = a_val >> 1;
+	parent_rate = clk_get_rate(pll->c.parent);
 	rate = parent_rate * l_val;
-	rate += (unsigned long)((parent_rate * a_val) >>
-				(ALPHA_REG_BITWIDTH - 1));
+	rate += (parent_rate * a_val) >> ALPHA_BITWIDTH;
 	return rate;
 }
 
@@ -139,7 +133,7 @@ static u32 find_vco(struct alpha_pll_clk *pll, unsigned long rate)
 static unsigned long __calc_values(struct alpha_pll_clk *pll,
 		unsigned long rate, int *l_val, u64 *a_val, bool round_up)
 {
-	u64 parent_rate;
+	u32 parent_rate;
 	u64 remainder;
 	u64 quotient;
 	unsigned long freq_hz;
@@ -154,17 +148,15 @@ static unsigned long __calc_values(struct alpha_pll_clk *pll,
 		return rate;
 	}
 
-	/* Upper 16 bits of Alpha */
+	/* Upper ALPHA_BITWIDTH bits of Alpha */
 	quotient = remainder << ALPHA_BITWIDTH;
 	remainder = do_div(quotient, parent_rate);
 
 	if (remainder && round_up)
 		quotient++;
 
-	/* Convert to 40 bit format */
-	*a_val = quotient << (ALPHA_REG_BITWIDTH - ALPHA_BITWIDTH);
-
-	freq_hz = compute_rate(parent_rate, *l_val, *a_val);
+	*a_val = quotient;
+	freq_hz = compute_rate(pll, *l_val, *a_val);
 	return freq_hz;
 }
 
@@ -185,7 +177,7 @@ static int alpha_pll_set_rate(struct clk *c, unsigned long rate)
 	struct alpha_pll_clk *pll = to_alpha_pll_clk(c);
 	struct alpha_pll_masks *masks = pll->masks;
 	unsigned long flags, freq_hz;
-	u32 a_upper, a_lower, regval, l_val, vco_val;
+	u32 regval, l_val, vco_val;
 	u64 a_val;
 
 	freq_hz = round_rate_up(pll, rate, &l_val, &a_val);
@@ -209,12 +201,10 @@ static int alpha_pll_set_rate(struct clk *c, unsigned long rate)
 	if (c->count)
 		alpha_pll_disable(c);
 
-	a_upper = (a_val >> 32) & 0xFF;
-	a_lower = (a_val & 0xFFFFFFFF);
+	a_val = a_val << (ALPHA_REG_BITWIDTH - ALPHA_BITWIDTH);
 
 	writel_relaxed(l_val, L_REG(pll));
-	writel_relaxed(a_lower, A_REG(pll));
-	writel_relaxed(a_upper, A_REG(pll) + 0x4);
+	__iowrite32_copy(A_REG(pll), &a_val, 2);
 
 	if (masks->vco_mask) {
 		regval = readl_relaxed(VCO_REG(pll));
@@ -278,11 +268,12 @@ static void update_vco_tbl(struct alpha_pll_clk *pll)
 	}
 }
 
+
 static enum handoff alpha_pll_handoff(struct clk *c)
 {
 	struct alpha_pll_clk *pll = to_alpha_pll_clk(c);
 	struct alpha_pll_masks *masks = pll->masks;
-	u64 parent_rate, a_val;
+	u64 a_val;
 	u32 alpha_en, l_val;
 
 	update_vco_tbl(pll);
@@ -290,18 +281,19 @@ static enum handoff alpha_pll_handoff(struct clk *c)
 	if (!is_locked(pll))
 		return HANDOFF_DISABLED_CLK;
 
+	l_val = readl_relaxed(L_REG(pll));
+	/* read u64 in two steps to satisfy alignment constraint */
+	a_val = readl_relaxed(A_REG(pll) + 0x4);
+	a_val = a_val << 32 | readl_relaxed(A_REG(pll));
+	/* get upper 32 bits */
+	a_val = a_val >> (ALPHA_REG_BITWIDTH - ALPHA_BITWIDTH);
+
 	alpha_en = readl_relaxed(ALPHA_EN_REG(pll));
 	alpha_en &= masks->alpha_en_mask;
-
-	l_val = readl_relaxed(L_REG(pll));
-	a_val = readl_relaxed(A_REG(pll));
-	a_val |= ((u64)readl_relaxed(A_REG(pll) + 0x4)) << 32;
-
 	if (!alpha_en)
 		a_val = 0;
 
-	parent_rate = clk_get_rate(c->parent);
-	c->rate = compute_rate(parent_rate, l_val, a_val);
+	c->rate = compute_rate(pll, l_val, a_val);
 
 	return HANDOFF_ENABLED_CLK;
 }
