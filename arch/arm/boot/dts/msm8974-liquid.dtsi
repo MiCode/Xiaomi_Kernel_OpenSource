@@ -380,34 +380,47 @@
 		qcom,prim-auxpcm-gpio-set = "prim-gpio-tert";
 	};
 
-	hsic_host: hsic@f9a00000 {
-		compatible = "qcom,hsic-host";
-		reg = <0xf9a00000 0x400>;
-		#address-cells = <0>;
-	        interrupt-parent = <&hsic_host>;
-		interrupts = <0 1 2>;
-		#interrupt-cells = <1>;
-		interrupt-map-mask = <0xffffffff>;
-		interrupt-map = <0 &intc 0 136 0
-	                1 &intc 0 148 0
-	                2 &msmgpio 144 0x8>;
-		interrupt-names = "core_irq", "async_irq", "wakeup";
-		hsic_vdd_dig-supply = <&pm8841_s2_corner>;
-		HSIC_GDSC-supply = <&gdsc_usb_hsic>;
-		hsic,strobe-gpio = <&msmgpio 144 0x00>;
-		hsic,data-gpio = <&msmgpio 145 0x00>;
-		hsic,ignore-cal-pad-config;
-		hsic,strobe-pad-offset = <0x2050>;
-		hsic,data-pad-offset = <0x2054>;
-		qcom,phy-susp-sof-workaround;
-		hsic,vdd-voltage-level = <1 5 7>;
+	hsic_hub {
+		compatible = "qcom,hsic-smsc-hub";
+		smsc,model-id = <3503>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		smsc,reset-gpio = <&pm8941_gpios 8 0x00>;
+		smsc,refclk-gpio = <&pm8941_gpios 16 0x00>;
+		smsc,int-gpio = <&msmgpio 50 0x00>;
+		hub_int-supply = <&pm8941_l10>;
+		hub_vbus-supply = <&ext_5v>;
 
-		qcom,msm-bus,name = "hsic";
-		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,num-paths = <1>;
-		qcom,msm-bus,vectors-KBps =
-				<85 512 0 0>,
-				<85 512 40000 160000>;
+		hsic_host: hsic@f9a00000 {
+			compatible = "qcom,hsic-host";
+			reg = <0xf9a00000 0x400>;
+			#address-cells = <0>;
+			interrupt-parent = <&hsic_host>;
+			interrupts = <0 1 2>;
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0xffffffff>;
+			interrupt-map = <0 &intc 0 136 0
+			        1 &intc 0 148 0
+		                2 &msmgpio 144 0x8>;
+			interrupt-names = "core_irq", "async_irq", "wakeup";
+			hsic_vdd_dig-supply = <&pm8841_s2_corner>;
+			HSIC_GDSC-supply = <&gdsc_usb_hsic>;
+			hsic,strobe-gpio = <&msmgpio 144 0x00>;
+			hsic,data-gpio = <&msmgpio 145 0x00>;
+			hsic,ignore-cal-pad-config;
+			hsic,strobe-pad-offset = <0x2050>;
+			hsic,data-pad-offset = <0x2054>;
+			qcom,phy-susp-sof-workaround;
+			hsic,vdd-voltage-level = <1 5 7>;
+
+			qcom,msm-bus,name = "hsic";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+					<85 512 0 0>,
+					<85 512 40000 160000>;
+		};
 	};
 
         wlan0: qca,wlan {
