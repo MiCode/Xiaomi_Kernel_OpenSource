@@ -1273,8 +1273,6 @@ static int mpu6050_parse_dt(struct device *dev,
 
 	pdata->gpio_en = of_get_named_gpio_flags(dev->of_node,
 				"invn,gpio-en", 0, NULL);
-	if (!gpio_is_valid(pdata->gpio_en))
-		return -EINVAL;
 
 	pdata->use_int = of_property_read_bool(dev->of_node,
 				"invn,use-interrupt");
