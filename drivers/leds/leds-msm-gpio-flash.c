@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,8 @@
 #include <linux/gpio.h>
 #include <linux/of.h>
 #include <linux/printk.h>
+#include <linux/list.h>
+#include <linux/pinctrl/consumer.h>
 
 #define LED_GPIO_FLASH_DRIVER_NAME	"qcom,leds-gpio-flash"
 #define LED_TRIGGER_DEFAULT		"none"
@@ -29,7 +31,10 @@ struct led_gpio_flash_data {
 	int flash_now;
 	int brightness;
 	struct led_classdev cdev;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *gpio_state_default;
 };
+
 
 static struct of_device_id led_gpio_flash_of_match[] = {
 	{.compatible = LED_GPIO_FLASH_DRIVER_NAME,},
@@ -47,7 +52,7 @@ static void led_gpio_brightness_set(struct led_classdev *led_cdev,
 	int flash_en = 0, flash_now = 0;
 
 	if (brightness > LED_HALF) {
-		flash_en = 0;
+		flash_en = 1;
 		flash_now = 1;
 	} else if (brightness > LED_OFF) {
 		flash_en = 1;
@@ -69,7 +74,6 @@ static void led_gpio_brightness_set(struct led_classdev *led_cdev,
 		       flash_led->flash_now);
 		goto err;
 	}
-
 	flash_led->brightness = brightness;
 err:
 	return;
@@ -89,7 +93,6 @@ int led_gpio_flash_probe(struct platform_device *pdev)
 	const char *temp_str;
 	struct led_gpio_flash_data *flash_led = NULL;
 	struct device_node *node = pdev->dev.of_node;
-
 	flash_led = devm_kzalloc(&pdev->dev, sizeof(struct led_gpio_flash_data),
 				 GFP_KERNEL);
 	if (flash_led == NULL) {
@@ -103,8 +106,25 @@ int led_gpio_flash_probe(struct platform_device *pdev)
 	if (!rc)
 		flash_led->cdev.default_trigger = temp_str;
 
-	flash_led->flash_en = of_get_named_gpio(node, "qcom,flash-en", 0);
+	flash_led->pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR(flash_led->pinctrl)) {
+		pr_err("%s:failed to get pinctrl\n", __func__);
+		return PTR_ERR(flash_led->pinctrl);
+	}
 
+	flash_led->gpio_state_default = pinctrl_lookup_state(flash_led->pinctrl,
+		"ocp8110_default");
+	if (IS_ERR(flash_led->gpio_state_default)) {
+		pr_err("%s:can not get active pinstate\n", __func__);
+		return -EINVAL;
+	}
+
+	rc = pinctrl_select_state(flash_led->pinctrl,
+		flash_led->gpio_state_default);
+	if (rc)
+		pr_err("%s:set state failed!\n", __func__);
+
+	flash_led->flash_en = of_get_named_gpio(node, "qcom,flash-en", 0);
 	if (flash_led->flash_en < 0) {
 		dev_err(&pdev->dev,
 			"Looking up %s property in node %s failed. rc =  %d\n",
@@ -133,17 +153,9 @@ int led_gpio_flash_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 				"%s: Failed to request gpio %d,rc = %d\n",
 				__func__, flash_led->flash_now, rc);
-
 			goto error;
 		}
 	}
-
-	gpio_tlmm_config(GPIO_CFG(flash_led->flash_en, 0,
-				  GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
-				  GPIO_CFG_2MA), GPIO_CFG_ENABLE);
-	gpio_tlmm_config(GPIO_CFG(flash_led->flash_now, 0,
-				  GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
-				  GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 
 	rc = of_property_read_string(node, "linux,name", &flash_led->cdev.name);
 	if (rc) {
@@ -163,6 +175,7 @@ int led_gpio_flash_probe(struct platform_device *pdev)
 			__func__, rc);
 		goto error;
 	}
+	pr_err("%s:probe successfully!\n", __func__);
 	return 0;
 
 error:
