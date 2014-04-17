@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -572,25 +572,23 @@ static int qmi_decode_struct_elem(struct elem_info *ei_array, void *buf_dst,
 	int i, rc, decoded_bytes = 0;
 	struct elem_info *temp_ei = ei_array;
 
-	if (dec_level > 2 && !tlv_len) {
-		tlv_len = qmi_calc_max_msg_len(temp_ei->ei_array, dec_level);
-		tlv_len = tlv_len * elem_len;
-	}
-
-	for (i = 0; i < elem_len; i++) {
+	for (i = 0; i < elem_len && decoded_bytes < tlv_len; i++) {
 		rc = _qmi_kernel_decode(temp_ei->ei_array, buf_dst, buf_src,
-					(tlv_len/elem_len), dec_level);
+					(tlv_len - decoded_bytes), dec_level);
 		if (rc < 0)
 			return rc;
-		if (rc != (tlv_len/elem_len)) {
-			pr_err("%s: Fault in decoding\n", __func__);
-			return -EFAULT;
-		}
 		buf_src = buf_src + rc;
 		buf_dst = buf_dst + temp_ei->elem_size;
 		decoded_bytes += rc;
 	}
 
+	if ((dec_level <= 2 && decoded_bytes != tlv_len) ||
+	    (dec_level > 2 && (i < elem_len || decoded_bytes > tlv_len))) {
+		pr_err("%s: Fault in decoding: dl(%d), db(%d), tl(%d), i(%d), el(%d)\n",
+			__func__, dec_level, decoded_bytes, tlv_len,
+			i, elem_len);
+		return -EFAULT;
+	}
 	return decoded_bytes;
 }
 
@@ -648,7 +646,7 @@ static int _qmi_kernel_decode(struct elem_info *ei_array,
 
 	QMI_DECODE_LOG_MSG(in_buf, in_buf_len);
 	while (decoded_bytes < in_buf_len) {
-		if (dec_level > 2 && temp_ei->data_type == QMI_EOTI)
+		if (dec_level >= 2 && temp_ei->data_type == QMI_EOTI)
 			return decoded_bytes;
 
 		if (dec_level == 1) {
@@ -663,6 +661,12 @@ static int _qmi_kernel_decode(struct elem_info *ei_array,
 				pr_err("%s: Inval element info\n", __func__);
 				return -EINVAL;
 			}
+		} else {
+			/*
+			 * No length information for elements in nested
+			 * structures. So use remaining decodable buffer space.
+			 */
+			tlv_len = in_buf_len - decoded_bytes;
 		}
 
 		buf_dst = out_c_struct + temp_ei->offset;
@@ -680,8 +684,7 @@ static int _qmi_kernel_decode(struct elem_info *ei_array,
 			memcpy(buf_dst, &data_len_value, sizeof(uint32_t));
 			temp_ei = temp_ei + 1;
 			buf_dst = out_c_struct + temp_ei->offset;
-			if (dec_level == 1 && tlv_len)
-				tlv_len -= data_len_sz;
+			tlv_len -= data_len_sz;
 			UPDATE_DECODE_VARIABLES(buf_src, decoded_bytes, rc);
 		}
 
