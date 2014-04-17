@@ -159,8 +159,6 @@
 };
 
 &mdss_dsi0 {
-	qcom,regulator-ldo-mode;
-	qcom,platform-regulator-settings = [02 09 03 00 20 00 01];
 	qcom,dsi-pref-prim-pan = <&dsi_innolux_720p_video>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active>;
