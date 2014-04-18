@@ -233,3 +233,7 @@
 	qcom,use-non-secure-pil;
 	qcom,fw-bias = <0xf500000>;
 };
+
+&blsp1_uart2 {
+	status = "ok";
+};
