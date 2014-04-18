@@ -41,6 +41,7 @@ static char *descriptions =
 	"16 msm: perf: tracectr: Initialize cnts after hotplug\n"
 	"17 Perf: Reset pmu after hotplug\n"
 	"18 ARM: dts: msm: add perf-events support for msm8916\n"
+	"19 Perf: Enable pmuv3 on 32 bit kernel\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
