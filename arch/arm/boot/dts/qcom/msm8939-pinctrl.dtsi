@@ -151,5 +151,22 @@
 				drive-strength = <2>; /* 2 MA */
 			};
 		};
+		pmx_i2c_0 {
+			/* CLK, DATA */
+			qcom,pins = <&gp 7>, <&gp 6>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <3>;
+			label = "pmx_i2c_0";
+
+			i2c_0_active: i2c_0_active {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable;         /* No PULL */
+			};
+
+			i2c_0_sleep: i2c_0_sleep {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable;	      /* No PULL */
+			};
+		};
 	};
 };
