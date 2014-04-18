@@ -308,7 +308,7 @@ static int msm8x16_enable_codec_ext_clk(struct snd_soc_codec *codec,
 
 	pdata = snd_soc_card_get_drvdata(codec->card);
 	mutex_lock(&pdata->cdc_mclk_mutex);
-	pr_err("%s: enable = %d  codec name %s enable %d mclk ref counter %d\n",
+	pr_debug("%s: enable = %d  codec name %s enable %d mclk ref counter %d\n",
 		   __func__, enable, codec->name, enable,
 		   atomic_read(&pdata->mclk_rsc_ref));
 	if (enable) {
@@ -321,7 +321,7 @@ static int msm8x16_enable_codec_ext_clk(struct snd_soc_codec *codec,
 			cancel_delayed_work_sync(&pdata->enable_mclk_work);
 		}
 	} else {
-		if (atomic_dec_return(&pdata->mclk_rsc_ref) == 0) {
+		if ((atomic_read(&pdata->mclk_rsc_ref) - 1) == 0) {
 			pdata->digital_cdc_clk.clk_val = 0;
 			msm8x16_wcd_mclk_enable(codec, 0, dapm);
 			afe_set_digital_codec_core_clock(
@@ -334,6 +334,7 @@ static int msm8x16_enable_codec_ext_clk(struct snd_soc_codec *codec,
 					&pdata->enable_mclk_work, 10);
 			}
 		}
+		atomic_dec(&pdata->mclk_rsc_ref);
 	}
 	mutex_unlock(&pdata->cdc_mclk_mutex);
 	return ret;
