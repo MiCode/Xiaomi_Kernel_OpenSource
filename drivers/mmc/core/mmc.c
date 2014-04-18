@@ -2063,8 +2063,38 @@ static int mmc_sleepawake(struct mmc_host *host, bool sleep)
 {
 	struct mmc_command cmd = {0};
 	struct mmc_card *card = host->card;
-	unsigned int timeout_ms = DIV_ROUND_UP(card->ext_csd.sa_timeout, 10000);
+	unsigned int timeout_ms;
 	int err;
+
+	if (!card) {
+		pr_err("%s: %s: invalid card\n", mmc_hostname(host), __func__);
+		return -EINVAL;
+	}
+
+	timeout_ms = DIV_ROUND_UP(card->ext_csd.sa_timeout, 10000);
+	if (card->ext_csd.rev >= 3 &&
+		card->part_curr == EXT_CSD_PART_CONFIG_ACC_RPMB) {
+		u8 part_config = card->ext_csd.part_config;
+
+		/*
+		 * If the last access before suspend is RPMB access, then
+		 * switch to default part config so that sleep command CMD5
+		 * and deselect CMD7 can be sent to the card.
+		 */
+		part_config &= ~EXT_CSD_PART_CONFIG_ACC_MASK;
+		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+				 EXT_CSD_PART_CONFIG,
+				 part_config,
+				 card->ext_csd.part_time);
+		if (err) {
+			pr_err("%s: %s: failed to switch to default part config %x\n",
+				mmc_hostname(host), __func__, part_config);
+			return err;
+		}
+		card->ext_csd.part_config = part_config;
+		card->part_curr = card->ext_csd.part_config &
+				  EXT_CSD_PART_CONFIG_ACC_MASK;
+	}
 
 	if (sleep) {
 		err = mmc_deselect_cards(host);
