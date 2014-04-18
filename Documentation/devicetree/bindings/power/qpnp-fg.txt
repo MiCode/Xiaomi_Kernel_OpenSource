@@ -1,0 +1,80 @@
+QTI's QPNP PMIC Fuel Gauge Device
+
+QPNP PMIC FG provides interface to clients to read properties related
+to the battery. Its main function is to retrieve the State of Charge (SOC),
+a 0-100 percentage representing the amount of charge left in the battery.
+
+There are two required peripherals in the FG driver, both implemented as
+subnodes in the example. These peripherals must not be disabled if the FG
+device is to enabled:
+
+- qcom,fg-soc : The main FG device. Supports battery fuel gauge controls and
+		sensors.
+
+Optionally ADC nodes can be added
+- qcom,fg-adc-vbat : A subnode with a register address for the FG_ADC_USR
+		peripheral which is used mainly for battery current limiting (BCL).
+		This node maps out the VBAT reading register which allows to have
+		a +/- 32 mV accurate reading of VBAT.
+- qcom,fg-adc-ibat : A subnode with a register address for the FG_ADC_USR
+		peripheral which is used mainly for battery current limiting (BCL).
+		This node maps out the IBAT current reading register which allows
+		to have a +/- 32 mA accurate reading of IBAT.
+
+Parent node required properties:
+- compatible : should be "qcom,qpnp-fg" for the FG driver.
+
+qcom,fg-soc node required properties:
+- reg : offset and length of the PMIC peripheral register map.
+- interrupts : the interrupt mappings.
+		The format should be
+		<slave-id peripheral-id interrupt-number>.
+- interrupt-names : names for the mapped fg soc interrupts
+		The following interrupts are required:
+		0: high-soc
+		1: low-soc
+		2: full-soc
+		3: empty-soc
+		4: delta-soc
+		5: first-est-done
+		6: sw-fallbk-ocv
+		7: sw-fallbk-new-battrt-sts
+
+Example:
+pmi8994_fg: qcom,fg {
+	spmi-dev-container;
+	compatible = "qcom,qpnp-fg";
+	#address-cells = <1>;
+	#size-cells = <1>;
+	status = "disabled";
+
+	qcom,fg-soc@4000 {
+		reg = <0x4000 0x100>;
+		interrupts =	<0x2 0x40 0x0>,
+				<0x2 0x40 0x1>,
+				<0x2 0x40 0x2>,
+				<0x2 0x40 0x3>,
+				<0x2 0x40 0x4>,
+				<0x2 0x40 0x5>,
+				<0x2 0x40 0x6>,
+				<0x2 0x40 0x7>;
+
+		interrupt-names =	"high-soc",
+					"low-soc",
+					"full-soc",
+					"empty-soc",
+					"delta-soc",
+					"first-est-done",
+					"sw-fallbk-ocv",
+					"sw-fallbk-new-battrt-sts",
+					"fg-soc-irq-count";
+	};
+
+	qcom,fg-adc-vbat@4254 {
+		reg = <0x4254 0x1>;
+	};
+
+	qcom,fg-adc-ibat@4255 {
+		reg = <0x4255 0x1>;
+	};
+};
