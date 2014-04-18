@@ -1556,15 +1556,17 @@ static int mdss_mdp_ctl_setup_wfd(struct mdss_mdp_ctl *ctl)
 struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 				       struct msm_fb_data_type *mfd)
 {
-	struct mdss_mdp_ctl *ctl;
 	int ret = 0;
-
+	struct mdss_mdp_ctl *ctl;
 	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+
 	ctl = mdss_mdp_ctl_alloc(mdata, MDSS_MDP_CTL0);
 	if (!ctl) {
 		pr_err("unable to allocate ctl\n");
 		return ERR_PTR(-ENOMEM);
 	}
+
 	ctl->mfd = mfd;
 	ctl->panel_data = pdata;
 	ctl->is_video_mode = false;
@@ -1580,18 +1582,22 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 	case MIPI_VIDEO_PANEL:
 		ctl->is_video_mode = true;
 		if (pdata->panel_info.pdest == DISPLAY_1)
-			ctl->intf_num = MDSS_MDP_INTF1;
+			ctl->intf_num = mdp5_data->mixer_swap ? MDSS_MDP_INTF2 :
+				MDSS_MDP_INTF1;
 		else
-			ctl->intf_num = MDSS_MDP_INTF2;
+			ctl->intf_num = mdp5_data->mixer_swap ? MDSS_MDP_INTF1 :
+				MDSS_MDP_INTF2;
 		ctl->intf_type = MDSS_INTF_DSI;
 		ctl->opmode = MDSS_MDP_CTL_OP_VIDEO_MODE;
 		ctl->start_fnc = mdss_mdp_video_start;
 		break;
 	case MIPI_CMD_PANEL:
 		if (pdata->panel_info.pdest == DISPLAY_1)
-			ctl->intf_num = MDSS_MDP_INTF1;
+			ctl->intf_num = mdp5_data->mixer_swap ? MDSS_MDP_INTF2 :
+				MDSS_MDP_INTF1;
 		else
-			ctl->intf_num = MDSS_MDP_INTF2;
+			ctl->intf_num = mdp5_data->mixer_swap ? MDSS_MDP_INTF1 :
+				MDSS_MDP_INTF2;
 		ctl->intf_type = MDSS_INTF_DSI;
 		ctl->opmode = MDSS_MDP_CTL_OP_CMD_MODE;
 		ctl->start_fnc = mdss_mdp_cmd_start;
@@ -2372,32 +2378,19 @@ int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata,
 struct mdss_mdp_mixer *mdss_mdp_mixer_get(struct mdss_mdp_ctl *ctl, int mux)
 {
 	struct mdss_mdp_mixer *mixer = NULL;
-	struct mdss_overlay_private *mdp5_data = NULL;
-	bool is_mixer_swapped = false;
 
 	if (!ctl) {
 		pr_err("ctl not initialized\n");
 		return NULL;
 	}
 
-	if (ctl->mfd) {
-		mdp5_data = mfd_to_mdp5_data(ctl->mfd);
-		if (!mdp5_data) {
-			pr_err("mdp5_data not initialized\n");
-			return NULL;
-		}
-		is_mixer_swapped = mdp5_data->mixer_swap;
-	}
-
 	switch (mux) {
 	case MDSS_MDP_MIXER_MUX_DEFAULT:
 	case MDSS_MDP_MIXER_MUX_LEFT:
-		mixer = is_mixer_swapped ?
-			ctl->mixer_right : ctl->mixer_left;
+		mixer = ctl->mixer_left;
 		break;
 	case MDSS_MDP_MIXER_MUX_RIGHT:
-		mixer = is_mixer_swapped ?
-			ctl->mixer_left : ctl->mixer_right;
+		mixer = ctl->mixer_right;
 		break;
 	}
 
