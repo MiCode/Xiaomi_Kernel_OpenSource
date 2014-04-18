@@ -33,6 +33,10 @@
 		qcom,mdss-ib-factor = <2 1>;		/* 2 times  */
 		qcom,mdss-clk-factor = <5 4>;		/* 1.25 times */
 
+		/* Clock levels */
+		qcom,mdss-clk-levels = <92310000 100000000
+				    133330000 177780000 200000000>;
+
 		qcom,mdss-mdp-reg-offset = <0x00000100>;
 		qcom,max-bandwidth-low-kbps = <1100000>;
 		qcom,max-bandwidth-high-kbps = <1660000>;
