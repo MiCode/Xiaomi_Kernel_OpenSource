@@ -2385,6 +2385,23 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 	if (rc)
 		pr_debug("max bandwidth (per pipe) property not specified\n");
 
+	mdata->nclk_lvl = mdss_mdp_parse_dt_prop_len(pdev,
+					"qcom,mdss-clk-levels");
+
+	if (mdata->nclk_lvl) {
+		mdata->clock_levels = kzalloc(sizeof(u32) * mdata->nclk_lvl,
+							GFP_KERNEL);
+		if (!mdata->clock_levels) {
+			pr_err("no mem assigned for mdata clock_levels\n");
+			return -ENOMEM;
+		}
+
+		rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-clk-levels",
+			mdata->clock_levels, mdata->nclk_lvl);
+		if (rc)
+			pr_debug("clock levels not found\n");
+	}
+
 	return 0;
 }
 
