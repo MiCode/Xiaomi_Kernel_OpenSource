@@ -274,6 +274,16 @@
 			qcom,fg-adc-ibat@4255 {
 				reg = <0x4255 0x1>;
 			};
+
+			qcom,fg-memif@4400 {
+				status = "okay";
+				reg = <0x4400 0x100>;
+				interrupts =	<0x2 0x44 0x0>,
+						<0x2 0x44 0x1>;
+
+				interrupt-names =	"mem-avail",
+							"data-rcvry-sug";
+			};
 		};
 	};
 

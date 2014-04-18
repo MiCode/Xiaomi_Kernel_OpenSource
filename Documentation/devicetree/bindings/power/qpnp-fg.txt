@@ -24,6 +24,12 @@ Optionally ADC nodes can be added
 Parent node required properties:
 - compatible : should be "qcom,qpnp-fg" for the FG driver.
 
+Parent node optional properties:
+- qcom,warm-bat-decidegc:		Warm battery temperature in decidegC.
+- qcom,cool-bat-decidegc:		Cool battery temperature in decidegC.
+- qcom,hot-bat-decidegc:		Hot battery temperature in decidegC.
+- qcom,cold-bat-decidegc:		Cold battery temperature in decidegC.
+
 qcom,fg-soc node required properties:
 - reg : offset and length of the PMIC peripheral register map.
 - interrupts : the interrupt mappings.
@@ -39,6 +45,15 @@ qcom,fg-soc node required properties:
 		5: first-est-done
 		6: sw-fallbk-ocv
 		7: sw-fallbk-new-battrt-sts
+
+qcom,fg-memif node required properties:
+- reg : offset and length of the PMIC peripheral register map.
+- interrupts : the interrupt mappings.
+		The format should be
+		<slave-id peripheral-id interrupt-number>.
+- interrupt-names : names for the mapped fg adc interrupts
+		The following interrupts are required:
+		0: mem-avail
 
 Example:
 pmi8994_fg: qcom,fg {
@@ -76,5 +91,14 @@ pmi8994_fg: qcom,fg {
 
 	qcom,fg-adc-ibat@4255 {
 		reg = <0x4255 0x1>;
+	};
+
+	qcom,fg-memif@4400 {
+		reg = <0x4400 0x100>;
+		interrupts =	<0x2 0x44 0x0>,
+				<0x2 0x44 0x1>;
+
+		interrupt-names =	"mem-avail",
+					"data-rcvry-sug";
 	};
 };
