@@ -52,6 +52,12 @@ struct acdb_data {
 	/* LSM Cal */
 	struct acdb_cal_block		lsm_cal;
 
+	/* ULP Listen AFE cal */
+	struct acdb_cal_block		ulp_lsm_cal;
+
+	/* ULP Listen LSM cal */
+	struct acdb_cal_block		ulp_afe_cal;
+
 	/* AudProc Cal */
 	uint32_t			asm_topology;
 	uint32_t			adm_topology[MAX_AUDPROC_TYPES];
@@ -315,6 +321,97 @@ static int store_aanc_cal(struct cal_block *cal_block)
 done:
 	return result;
 }
+
+static int store_ulp_afe_cal(struct cal_block *cal_block)
+{
+	int rc = 0;
+
+	if (cal_block->cal_offset > acdb_data.mem_len) {
+		pr_err("%s: offset %d is > mem_len %llu\n",
+			__func__, cal_block->cal_offset,
+			acdb_data.mem_len);
+		rc = -EINVAL;
+		goto done;
+	}
+
+	pr_debug("%s: cal_size = %u, cal_offset = %u\n",
+		__func__, cal_block->cal_size,
+		cal_block->cal_offset);
+
+	acdb_data.ulp_afe_cal.cal_size = cal_block->cal_size;
+	acdb_data.ulp_afe_cal.cal_paddr =
+		cal_block->cal_offset + acdb_data.paddr;
+	acdb_data.ulp_afe_cal.cal_kvaddr =
+		cal_block->cal_offset + (u8 *)acdb_data.kvaddr;
+
+done:
+	return rc;
+}
+
+int get_ulp_afe_cal(struct acdb_cal_block *cal_block)
+{
+	int rc = 0;
+
+	if (cal_block == NULL) {
+		pr_err("ACDB=> NULL pointer sent to %s\n", __func__);
+		rc = -EINVAL;
+		goto done;
+	}
+
+	cal_block->cal_size = acdb_data.ulp_afe_cal.cal_size;
+	cal_block->cal_paddr = acdb_data.ulp_afe_cal.cal_paddr;
+	cal_block->cal_kvaddr = acdb_data.ulp_afe_cal.cal_kvaddr;
+
+done:
+	return rc;
+}
+EXPORT_SYMBOL(get_ulp_afe_cal);
+
+
+static int store_ulp_lsm_cal(struct cal_block *cal_block)
+{
+	int rc = 0;
+
+	if (cal_block->cal_offset > acdb_data.mem_len) {
+		pr_err("%s: offset %d is > mem_len %llu\n",
+			__func__, cal_block->cal_offset,
+			acdb_data.mem_len);
+		rc = -EINVAL;
+		goto done;
+	}
+
+	pr_debug("%s: cal_size = %u, cal_offset = %u\n",
+		__func__, cal_block->cal_size,
+		cal_block->cal_offset);
+
+	acdb_data.ulp_lsm_cal.cal_size = cal_block->cal_size;
+	acdb_data.ulp_lsm_cal.cal_paddr =
+		cal_block->cal_offset + acdb_data.paddr;
+	acdb_data.ulp_lsm_cal.cal_kvaddr =
+		cal_block->cal_offset + (u8 *)acdb_data.kvaddr;
+
+done:
+	return rc;
+}
+
+int get_ulp_lsm_cal(struct acdb_cal_block *cal_block)
+{
+	int rc = 0;
+
+	if (cal_block == NULL) {
+		pr_err("ACDB=> NULL pointer sent to %s\n", __func__);
+		rc = -EINVAL;
+		goto done;
+	}
+
+	cal_block->cal_size = acdb_data.ulp_lsm_cal.cal_size;
+	cal_block->cal_paddr = acdb_data.ulp_lsm_cal.cal_paddr;
+	cal_block->cal_kvaddr = acdb_data.ulp_lsm_cal.cal_kvaddr;
+
+done:
+	return rc;
+}
+EXPORT_SYMBOL(get_ulp_lsm_cal);
 
 int get_lsm_cal(struct acdb_cal_block *cal_block)
 {
@@ -1469,6 +1566,12 @@ static long acdb_ioctl(struct file *f,
 		goto done;
 	case AUDIO_SET_AANC_CAL:
 		result = store_aanc_cal((struct cal_block *)data);
+		goto done;
+	case AUDIO_LISTEN_SET_ULP_LSM_CAL:
+		result = store_ulp_lsm_cal((struct cal_block *) data);
+		goto done;
+	case AUDIO_LISTEN_SET_ULP_AFE_CAL:
+		result = store_ulp_afe_cal((struct cal_block *) data);
 		goto done;
 	default:
 		pr_err("ACDB=> ACDB ioctl not found!\n");
