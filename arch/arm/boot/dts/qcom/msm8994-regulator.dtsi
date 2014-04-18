@@ -10,17 +10,6 @@
  * GNU General Public License for more details.
  */
 
-/* Stub regulators */
-
-/ {
-	pmi8994_boost: regulator-pmi8994-boost {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmi8994-boost";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
-	};
-};
-
 &rpm_bus {
 	/* PM8994 S1 + S6 = 2 phase VDD_CX supply */
 	rpm-regulator-smpa1 {
@@ -460,6 +449,13 @@
 			regulator-max-microvolt = <7>;
 			qcom,use-voltage-floor-corner;
 			qcom,always-send-voltage;
+		};
+	};
+
+	rpm-regulator-bstb {
+		status = "okay";
+		pmi8994_boost: regulator-bst {
+			status = "okay";
 		};
 	};
 };
