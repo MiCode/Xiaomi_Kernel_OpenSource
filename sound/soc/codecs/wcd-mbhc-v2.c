@@ -404,7 +404,7 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 	long timeout = msecs_to_jiffies(50);   /* 50ms */
 	enum wcd_mbhc_plug_type plug_type;
 	int timeout_result;
-	u16 result1, result2;
+	u16 result1, result2, swap_res;
 
 	pr_debug("%s: enter\n", __func__);
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
@@ -435,10 +435,10 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2,
 				0x6, 0x2);
-		/* Update result2 read value with cross connection bit */
-		result2 = snd_soc_read(codec,
+		/* read reg MBHC_RESULT_2 value with cross connection bit */
+		swap_res = snd_soc_read(codec,
 				MSM8X16_WCD_A_ANALOG_MBHC_ZDET_ELECT_RESULT);
-		if (!result1 && (result2 & 0x04)) {
+		if (!result1 && !(swap_res & 0x04)) {
 			plug_type = PLUG_TYPE_GND_MIC_SWAP;
 			pr_debug("%s: Cross connection identified", __func__);
 		} else {
