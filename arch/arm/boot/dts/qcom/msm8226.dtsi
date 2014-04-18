@@ -973,6 +973,20 @@
 		qcom,scl-gpio = <&msmgpio 19 0>;
 	};
 
+	clock_gcc: qcom,gcc@fc400000 {
+		compatible = "qcom,gcc-8226";
+		reg = <0xfc400000 0x4000>,
+			<0xfd8c0000 0x40000>,
+			<0xfe000000 0x40000>,
+			<0xf9011000 0x1000>,
+			<0xf9016000 0x40>;
+		reg-names = "cc_base", "mmss_base", "lpass_base",
+				"meas", "apcs_base";
+		vdd_dig-supply = <&pm8226_s1_corner>;
+		vdd_sr2_pll-supply = <&pm8226_l8_ao>;
+		vdd_sr2_dig-supply = <&pm8226_s1_corner_ao>;
+	};
+
 	qcom,clock-a7@f9011050 {
 		compatible = "qcom,clock-a7-8226";
 		reg = <0xf9011050 0x8>;
