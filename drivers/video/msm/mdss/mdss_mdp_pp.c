@@ -3246,9 +3246,10 @@ int mdss_mdp_hist_start(struct mdp_histogram_start_req *req)
 			pipe = mdss_mdp_pipe_get(mdata, BIT(i));
 			if (IS_ERR_OR_NULL(pipe))
 				continue;
-			if (!pipe || pipe->num > MDSS_MDP_SSPP_VIG2) {
+			if (pipe->num > MDSS_MDP_SSPP_VIG2) {
 				ret = -EINVAL;
 				pr_warn("Invalid Hist pipe (%d)", i);
+				mdss_mdp_pipe_unmap(pipe);
 				goto hist_stop_clk;
 			}
 			hist_info = &pipe->pp_res.hist;
@@ -3346,8 +3347,11 @@ int mdss_mdp_hist_stop(u32 block)
 			if (!PP_ARG(i, block))
 				continue;
 			pipe = mdss_mdp_pipe_get(mdata, BIT(i));
-			if (IS_ERR_OR_NULL(pipe) ||
-					pipe->num > MDSS_MDP_SSPP_VIG2) {
+			if (IS_ERR_OR_NULL(pipe)) {
+				pr_warn("Invalid Hist pipe (%d)", i);
+				continue;
+			} else if (pipe->num > MDSS_MDP_SSPP_VIG2) {
+				mdss_mdp_pipe_unmap(pipe);
 				pr_warn("Invalid Hist pipe (%d)", i);
 				continue;
 			}
@@ -3743,8 +3747,11 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 				continue;
 			pipe_cnt++;
 			pipe = mdss_mdp_pipe_get(mdata, BIT(i));
-			if (IS_ERR_OR_NULL(pipe) ||
-					pipe->num > MDSS_MDP_SSPP_VIG2) {
+			if (IS_ERR_OR_NULL(pipe)) {
+				pr_warn("Invalid Hist pipe (%d)", i);
+				continue;
+			} else if (pipe->num > MDSS_MDP_SSPP_VIG2) {
+				mdss_mdp_pipe_unmap(pipe);
 				pr_warn("Invalid Hist pipe (%d)", i);
 				continue;
 			}
@@ -3752,14 +3759,18 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 			spin_lock_irqsave(&hist_info->hist_lock, flag);
 			hist_info->read_request = 1;
 			spin_unlock_irqrestore(&hist_info->hist_lock, flag);
+			mdss_mdp_pipe_unmap(pipe);
 		}
 		for (i = pipe_num; i < MDSS_PP_ARG_NUM; i++) {
 			if (!PP_ARG(i, hist->block))
 				continue;
 			pipe_cnt++;
 			pipe = mdss_mdp_pipe_get(mdata, BIT(i));
-			if (IS_ERR_OR_NULL(pipe) ||
-					pipe->num > MDSS_MDP_SSPP_VIG2) {
+			if (IS_ERR_OR_NULL(pipe)) {
+				pr_warn("Invalid Hist pipe (%d)", i);
+				continue;
+			} else if (pipe->num > MDSS_MDP_SSPP_VIG2) {
+				mdss_mdp_pipe_unmap(pipe);
 				pr_warn("Invalid Hist pipe (%d)", i);
 				continue;
 			}
@@ -3781,8 +3792,11 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 				continue;
 			pipe_cnt++;
 			pipe = mdss_mdp_pipe_get(mdata, BIT(i));
-			if (IS_ERR_OR_NULL(pipe) ||
-					pipe->num > MDSS_MDP_SSPP_VIG2) {
+			if (IS_ERR_OR_NULL(pipe)) {
+				pr_warn("Invalid Hist pipe (%d)", i);
+				continue;
+			} else if (pipe->num > MDSS_MDP_SSPP_VIG2) {
+				mdss_mdp_pipe_unmap(pipe);
 				pr_warn("Invalid Hist pipe (%d)", i);
 				continue;
 			}
@@ -3791,6 +3805,7 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 			hist_info->read_request = 0;
 			INIT_COMPLETION(hist_info->comp);
 			spin_unlock_irqrestore(&hist_info->hist_lock, flag);
+			mdss_mdp_pipe_unmap(pipe);
 		}
 		if (ret || temp_ret) {
 			ret = ret ? ret : temp_ret;
@@ -3816,6 +3831,10 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 				if (!PP_ARG(i, hist->block))
 					continue;
 				pipe = mdss_mdp_pipe_get(mdata, BIT(i));
+				if (IS_ERR_OR_NULL(pipe)) {
+					pr_warn("Invalid Hist pipe (%d)", i);
+					continue;
+				}
 				hist_info  = &pipe->pp_res.hist;
 				off = HIST_V_SIZE * i;
 				mutex_lock(&hist_info->hist_mutex);

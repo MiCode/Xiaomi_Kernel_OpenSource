@@ -1818,6 +1818,7 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd,
 	if (is_mdss_iommu_attached()) {
 		if (!mfd->iova) {
 			pr_err("mfd iova is zero\n");
+			mdss_mdp_pipe_unmap(pipe);
 			goto attach_err;
 		}
 		buf->p[0].addr = mfd->iova;
