@@ -935,6 +935,11 @@
 		qcom,sensors = <16>;
 		qcom,slope = <2901 2846 3200 3200 3200 3200 3200 3200 3200 3200 3200 3200 3200 3200 3200 3200>;
 	};
+
+	qcom_tzlog: tz-log@fe87f720 {
+		compatible = "qcom,tz-log";
+		reg = <0xfe87f720 0x1000>;
+	};
 };
 
 &gdsc_usb30 {
