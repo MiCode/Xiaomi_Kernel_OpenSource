@@ -167,8 +167,8 @@ static int msm_snd_hw_params(struct snd_pcm_substream *substream,
 			pr_err("%s: RX failed to set cpu chan map error %d\n",
 			__func__, ret);
 	} else {
-		ret = snd_soc_dai_set_channel_map(cpu_dai, 0, 0,
-		 msm_slim_0_tx_ch, tx_ch);
+		ret = snd_soc_dai_set_channel_map(cpu_dai,
+			msm_slim_0_tx_ch, tx_ch, 0, 0);
 		if (ret < 0)
 			pr_err("%s: TX failed to set cpu chan map error %d\n",
 			__func__, ret);
