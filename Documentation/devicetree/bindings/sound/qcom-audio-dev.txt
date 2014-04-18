@@ -504,9 +504,17 @@ normally open.
 switch type on target typically the switch type will be normally open or
 normally close, value for this property 0 for normally close and 1 for
 normally open.
-- pinctrl-names : Pincntrl entries to configure the PDM gpio lines accordingly
-- pinctrl-0 : This exoplains the active state of the PDM gpio lines
-- pinctrl-1 : This exoplains the suspend state of the PDM gpio lines
+- pinctrl-names : Pincntrl entries to configure the PDM gpio lines and
+		  cross connection switch gpio accordingly
+- pinctrl-0 : This explains the active state of the PDM gpio lines
+- pinctrl-1 : This explains the suspend state of the PDM gpio lines
+- pinctrl-2 : This explains the active state of the cross connection
+	      gpio lines
+- pinctrl-3 : This explains the suspend state of the cross connection
+              gpio lines
+
+Optional Properties:
+- qcom,us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
 
 Example:
 
@@ -517,6 +525,7 @@ Example:
 		qcom,msm-codec-type = "internal";
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
+		qcom,cdc-us-euro-gpios = <&msmgpio 120 0>;
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"INT_LDO_H", "MCLK",
@@ -527,9 +536,13 @@ Example:
 			"AMIC2", "MIC BIAS Internal2",
 			"AMIC3", "MIC BIAS External";
 		pinctrl-names = "cdc_pdm_lines_act",
-				"cdc_pdm_lines_sus";
+				"cdc_pdm_lines_sus",
+				"cross_conn_det_act",
+				"cross_conn_det_sus";
 		pinctrl-0 = <&cdc_pdm_lines_act>;
 		pinctrl-1 = <&cdc_pdm_lines_sus>;
+		pinctrl-2 = <&cross_conn_det_act>;
+		pinctrl-3 = <&cross_conn_det_sus>;
 	};
 
 * MSM8974 ASoC Machine driver

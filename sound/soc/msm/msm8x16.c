@@ -56,6 +56,7 @@ static struct wcd_mbhc_config mbhc_cfg = {
 	.calibration = NULL,
 	.detect_extn_cable = true,
 	.mono_stero_detection = false,
+	.swap_gnd_mic = NULL,
 };
 
 static struct afe_clk_cfg mi2s_rx_clk = {
@@ -82,6 +83,8 @@ struct cdc_pdm_pinctrl_info {
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *cdc_pdm_sus;
 	struct pinctrl_state *cdc_pdm_act;
+	struct pinctrl_state *cross_conn_det_sus;
+	struct pinctrl_state *cross_conn_det_act;
 };
 
 static struct cdc_pdm_pinctrl_info pinctrl_info;
@@ -970,7 +973,29 @@ static int cdc_pdm_get_pinctrl(struct platform_device *pdev)
 		pr_err("%s: Failed to disable the TLMM pins\n", __func__);
 		return -EIO;
 	}
+	/* get pinctrl handle for cross det pin*/
+	pinctrl_info.cross_conn_det_sus = pinctrl_lookup_state(pinctrl,
+							"cross_conn_det_sus");
+	if (IS_ERR(pinctrl_info.cross_conn_det_sus)) {
+		pr_err("%s: Unable to get pinctrl disable state handle\n",
+								__func__);
+		return -EINVAL;
+	}
 
+	pinctrl_info.cross_conn_det_act = pinctrl_lookup_state(pinctrl,
+							"cross_conn_det_act");
+	if (IS_ERR(pinctrl_info.cross_conn_det_act)) {
+		pr_err("%s: Unable to get pinctrl active state handle\n",
+								 __func__);
+		return -EINVAL;
+	}
+	/* Reset cross conn det pins to default state*/
+	ret = pinctrl_select_state(pinctrl_info.pinctrl,
+					pinctrl_info.cross_conn_det_sus);
+	if (ret != 0) {
+		pr_err("%s: Failed to disable cross conn det pins\n", __func__);
+		return -EIO;
+	}
 	return 0;
 }
 
@@ -996,6 +1021,50 @@ void enable_mclk(struct work_struct *work)
 		atomic_set(&pdata->dis_work_mclk, false);
 	}
 	mutex_unlock(&pdata->cdc_mclk_mutex);
+}
+
+static bool msm8x16_swap_gnd_mic(struct snd_soc_codec *codec)
+{
+	struct snd_soc_card *card = codec->card;
+	struct msm8916_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	int value, ret;
+
+	if (!gpio_is_valid(pdata->us_euro_gpio)) {
+		pr_debug("%s: Invalid gpio: %d", __func__, pdata->us_euro_gpio);
+		return false;
+	}
+	ret = pinctrl_select_state(pinctrl_info.pinctrl,
+				pinctrl_info.cross_conn_det_act);
+	if (ret < 0) {
+		pr_err("failed to configure the gpio\n");
+		return ret;
+	}
+	value = gpio_get_value_cansleep(pdata->us_euro_gpio);
+	gpio_direction_output(pdata->us_euro_gpio, !value);
+	pr_debug("%s: swap select switch %d to %d\n", __func__, value, !value);
+	ret = pinctrl_select_state(pinctrl_info.pinctrl,
+				pinctrl_info.cross_conn_det_sus);
+	if (ret < 0) {
+		pr_err("failed to configure the gpio\n");
+		return ret;
+	}
+
+	return true;
+}
+
+static void msm8x16_setup_hs_jack(struct platform_device *pdev,
+			struct msm8916_asoc_mach_data *pdata)
+{
+	pdata->us_euro_gpio = of_get_named_gpio(pdev->dev.of_node,
+					"qcom,cdc-us-euro-gpios", 0);
+	if (pdata->us_euro_gpio < 0) {
+		dev_dbg(&pdev->dev,
+			"property %s in node %s not found %d\n",
+			"qcom,cdc-us-euro-gpios", pdev->dev.of_node->full_name,
+			pdata->us_euro_gpio);
+	} else {
+		mbhc_cfg.swap_gnd_mic = msm8x16_swap_gnd_mic;
+	}
 }
 
 static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
@@ -1064,6 +1133,8 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 	card = &bear_cards[pdev->id];
+
+	msm8x16_setup_hs_jack(pdev, pdata);
 
 	card->dev = &pdev->dev;
 	platform_set_drvdata(pdev, card);

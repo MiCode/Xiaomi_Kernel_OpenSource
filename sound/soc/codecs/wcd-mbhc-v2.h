@@ -31,6 +31,7 @@ struct wcd_mbhc_config {
 	void *calibration;
 	bool detect_extn_cable;
 	bool mono_stero_detection;
+	bool (*swap_gnd_mic) (struct snd_soc_codec *codec);
 };
 
 struct wcd_mbhc_intr {
