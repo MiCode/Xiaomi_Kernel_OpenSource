@@ -279,6 +279,7 @@ header-y += msm_audio.h
 header-y += msm_audio_aac.h
 header-y += msm_audio_ac3.h
 header-y += msm_audio_acdb.h
+header-y += msm_audio_calibration.h
 header-y += msm_audio_wma.h
 header-y += msm_audio_wmapro.h
 header-y += msm_audio_mvs.h
