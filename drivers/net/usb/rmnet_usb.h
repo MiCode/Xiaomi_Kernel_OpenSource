@@ -109,6 +109,7 @@ struct rmnet_ctrl_dev {
 	unsigned long		status;
 
 	bool			claimed;
+	bool			poll_err;
 
 	unsigned int		mdm_wait_timeout;
 

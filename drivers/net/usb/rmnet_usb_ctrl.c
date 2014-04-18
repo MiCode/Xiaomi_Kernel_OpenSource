@@ -489,10 +489,24 @@ static int rmnet_usb_ctrl_write_cmd(struct rmnet_ctrl_udev *dev, u8 req,
 	return ret;
 }
 
+static void rmnet_usb_ctrl_free_rx_list(struct rmnet_ctrl_dev *dev)
+{
+	unsigned long flag;
+	struct ctrl_pkt_list_elem *list_elem = NULL;
+
+	spin_lock_irqsave(&dev->rx_lock, flag);
+	while (!list_empty(&dev->rx_list)) {
+		list_elem = list_first_entry(&dev->rx_list,
+				struct ctrl_pkt_list_elem, list);
+		list_del(&list_elem->list);
+		kfree(list_elem->cpkt.data);
+		kfree(list_elem);
+	}
+	spin_unlock_irqrestore(&dev->rx_lock, flag);
+}
+
 static int rmnet_ctl_open(struct inode *inode, struct file *file)
 {
-	struct ctrl_pkt_list_elem	*list_elem = NULL;
-	unsigned long			flag;
 	int				retval = 0;
 	struct rmnet_ctrl_dev		*dev =
 		container_of(inode->i_cdev, struct rmnet_ctrl_dev, cdev);
@@ -528,17 +542,7 @@ static int rmnet_ctl_open(struct inode *inode, struct file *file)
 	}
 
 	/* clear stale data if device close called but channel was ready */
-	spin_lock_irqsave(&dev->rx_lock, flag);
-	while (!list_empty(&dev->rx_list)) {
-		list_elem = list_first_entry(
-				&dev->rx_list,
-				struct ctrl_pkt_list_elem,
-				list);
-		list_del(&list_elem->list);
-		kfree(list_elem->cpkt.data);
-		kfree(list_elem);
-	}
-	spin_unlock_irqrestore(&dev->rx_lock, flag);
+	rmnet_usb_ctrl_free_rx_list(dev);
 
 	set_bit(RMNET_CTRL_DEV_OPEN, &dev->status);
 
@@ -552,27 +556,13 @@ already_opened:
 
 static int rmnet_ctl_release(struct inode *inode, struct file *file)
 {
-	struct ctrl_pkt_list_elem	*list_elem = NULL;
 	struct rmnet_ctrl_dev		*dev;
-	unsigned long			flag;
 
 	dev = file->private_data;
 	if (!dev)
 		return -ENODEV;
 
 	DBG("%s Called on %s device\n", __func__, dev->name);
-
-	spin_lock_irqsave(&dev->rx_lock, flag);
-	while (!list_empty(&dev->rx_list)) {
-		list_elem = list_first_entry(
-				&dev->rx_list,
-				struct ctrl_pkt_list_elem,
-				list);
-		list_del(&list_elem->list);
-		kfree(list_elem->cpkt.data);
-		kfree(list_elem);
-	}
-	spin_unlock_irqrestore(&dev->rx_lock, flag);
 
 	clear_bit(RMNET_CTRL_DEV_OPEN, &dev->status);
 
@@ -585,20 +575,27 @@ static unsigned int rmnet_ctl_poll(struct file *file, poll_table *wait)
 {
 	unsigned int		mask = 0;
 	struct rmnet_ctrl_dev	*dev;
+	unsigned long		flags;
 
 	dev = file->private_data;
 	if (!dev)
 		return POLLERR;
 
 	poll_wait(file, &dev->read_wait_queue, wait);
-	if (!test_bit(RMNET_CTRL_DEV_READY, &dev->cudev->status)) {
-		dev_dbg(dev->devicep, "%s: Device not connected\n",
-			__func__);
+	if (!dev->poll_err &&
+			!test_bit(RMNET_CTRL_DEV_READY, &dev->cudev->status)) {
+		dev_dbg(dev->devicep, "%s: Device not connected\n", __func__);
+		dev->poll_err = true;
 		return POLLERR;
 	}
 
+	if (dev->poll_err)
+		dev->poll_err = false;
+
+	spin_lock_irqsave(&dev->rx_lock, flags);
 	if (!list_empty(&dev->rx_list))
 		mask |= POLLIN | POLLRDNORM;
+	spin_unlock_irqrestore(&dev->rx_lock, flags);
 
 	return mask;
 }
@@ -931,6 +928,7 @@ void rmnet_usb_ctrl_disconnect(struct rmnet_ctrl_udev *dev)
 	if (test_bit(RMNET_CTRL_DEV_MUX_EN, &dev->status)) {
 		for (n = 0; n < insts_per_dev; n++) {
 			cdev = &ctrl_devs[dev->rdev_num][n];
+			rmnet_usb_ctrl_free_rx_list(cdev);
 			wake_up(&cdev->read_wait_queue);
 			mutex_lock(&cdev->dev_lock);
 			cdev->cbits_tolocal = ~ACM_CTRL_CD;
@@ -940,6 +938,7 @@ void rmnet_usb_ctrl_disconnect(struct rmnet_ctrl_udev *dev)
 	} else {
 		cdev = &ctrl_devs[dev->rdev_num][dev->ctrldev_id];
 		cdev->claimed = false;
+		rmnet_usb_ctrl_free_rx_list(cdev);
 		wake_up(&cdev->read_wait_queue);
 		mutex_lock(&cdev->dev_lock);
 		cdev->cbits_tolocal = ~ACM_CTRL_CD;
