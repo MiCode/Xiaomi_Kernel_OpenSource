@@ -125,8 +125,6 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	struct mm_struct *mm = &init_mm;
 	unsigned int cpu = smp_processor_id();
 
-	printk("CPU%u: Booted secondary processor\n", cpu);
-
 	/*
 	 * All kernel threads share the same mm context; grab a
 	 * reference and switch to it.
@@ -134,6 +132,9 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	atomic_inc(&mm->mm_count);
 	current->active_mm = mm;
 	cpumask_set_cpu(cpu, mm_cpumask(mm));
+
+	set_my_cpu_offset(per_cpu_offset(smp_processor_id()));
+	printk("CPU%u: Booted secondary processor\n", cpu);
 
 	/*
 	 * TTBR0 is only used for the identity mapping at this stage. Make it
@@ -162,7 +163,6 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	complete(&cpu_running);
 
 	local_irq_enable();
-	local_fiq_enable();
 	local_async_enable();
 
 	/*
@@ -283,6 +283,7 @@ void __init smp_cpus_done(unsigned int max_cpus)
 
 void __init smp_prepare_boot_cpu(void)
 {
+	set_my_cpu_offset(per_cpu_offset(smp_processor_id()));
 }
 
 static void (*smp_cross_call)(const struct cpumask *, unsigned int);
@@ -511,7 +512,6 @@ static void ipi_cpu_stop(unsigned int cpu)
 	set_cpu_online(cpu, false);
 
 	flush_cache_all();
-	local_fiq_disable();
 	local_irq_disable();
 
 	while (1)
