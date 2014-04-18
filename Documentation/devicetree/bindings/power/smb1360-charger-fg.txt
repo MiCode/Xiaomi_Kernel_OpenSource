@@ -15,6 +15,12 @@ Optional Properties:
 
 - interrupts			This indicates the IRQ number of the GPIO
 				connected to the STAT pin.
+- pinctrl-names:		The state name of the pin configuration. Only
+				support: "default".
+- pinctrl-0:			The phandle of the pin configuration node in
+				pinctrl for smb_int_pin.
+				For details of pinctrl properties, please refer to:
+				"Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
 - qcom,float-voltage-mv	 	Float Voltage in mV - the maximum voltage up to which
 				the battery is charged. Supported range 3460V to 4360V
 - qcom,charging-timeout		Maximum duration in minutes that a single charge
@@ -57,6 +63,8 @@ Example:
 			reg = <0x1b>;
 			interrupt-parent = <&spmi_bus>;
 			interrupts = <0x00 0xcd 0>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&smb_int_default>;
 			qcom,float-voltage-mv = <4200>;
 			qcom,iterm-ma = <100>;
 			qcom,charging-disabled;
