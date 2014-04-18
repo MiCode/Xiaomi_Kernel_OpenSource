@@ -10,6 +10,9 @@
  * GNU General Public License for more details.
  */
 
+#include "mdm9630-display.dtsi"
+#include "qpic-panel-ili-qvga.dtsi"
+
 &soc {
 };
 
