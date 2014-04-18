@@ -486,13 +486,48 @@ static struct mdss_mdp_misr_map {
 	},
 };
 
-static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id)
+static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id,
+		struct mdss_mdp_ctl *ctl, struct mdss_data_type *mdata)
 {
 	struct mdss_mdp_misr_map *map;
+	struct mdss_mdp_mixer *mixer;
+	char *ctrl_reg = NULL, *value_reg = NULL;
+	char *intf_base = NULL;
 
 	if (block_id > DISPLAY_MISR_MDP) {
 		pr_err("MISR Block id (%d) out of range\n", block_id);
 		return NULL;
+	}
+
+	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_106) {
+		/* Use updated MDP Interface MISR Block address offset */
+		if (block_id == DISPLAY_MISR_MDP) {
+			if (ctl) {
+				mixer = mdss_mdp_mixer_get(ctl,
+					MDSS_MDP_MIXER_MUX_DEFAULT);
+				ctrl_reg = mdata->mixer_wb[mixer->num].base +
+					MDSS_MDP_LAYER_MIXER_MISR_CTRL;
+				value_reg = mdata->mixer_wb[mixer->num].base +
+					MDSS_MDP_LAYER_MIXER_MISR_SIGNATURE;
+			}
+		} else {
+			if (block_id <= DISPLAY_MISR_HDMI) {
+				intf_base = (char *)mdss_mdp_get_intf_base_addr(
+						mdata, block_id);
+				ctrl_reg = intf_base + MDSS_MDP_INTF_MISR_CTRL;
+				value_reg = intf_base +
+					MDSS_MDP_INTF_MISR_SIGNATURE;
+			}
+			/* For msm8916, additional offset of 0x10 is required */
+			if (mdata->mdp_rev == MDSS_MDP_HW_REV_106) {
+				ctrl_reg += 0x10;
+				value_reg += 0x10;
+			}
+		}
+		mdss_mdp_misr_table[block_id].ctrl_reg = (u32)(ctrl_reg -
+							mdata->mdp_base);
+		mdss_mdp_misr_table[block_id].value_reg = (u32)(value_reg -
+							mdata->mdp_base);
 	}
 
 	map = mdss_mdp_misr_table + block_id;
@@ -501,6 +536,8 @@ static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id)
 		return NULL;
 	}
 
+	pr_debug("MDP Module Offset of MISR_CTRL = 0x%d MISR SIG = 0x%d intf_base 0x%p\n",
+			map->ctrl_reg, map->value_reg, intf_base);
 	return map;
 }
 
@@ -513,11 +550,13 @@ int mdss_misr_set(struct mdss_data_type *mdata,
 	u32 config = 0, val = 0;
 	u32 mixer_num = 0;
 	bool is_valid_wb_mixer = true;
-	map = mdss_misr_get_map(req->block_id);
+
+	map = mdss_misr_get_map(req->block_id, ctl, mdata);
 	if (!map) {
 		pr_err("Invalid MISR Block=%d\n", req->block_id);
 		return -EINVAL;
 	}
+
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 	if (req->block_id == DISPLAY_MISR_MDP) {
 		mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_DEFAULT);
@@ -543,9 +582,10 @@ int mdss_misr_set(struct mdss_data_type *mdata,
 			is_valid_wb_mixer = false;
 			break;
 		}
-		if (is_valid_wb_mixer)
-			writel_relaxed(val,
-				mdata->mdp_base + MDSS_MDP_LP_MISR_SEL);
+		if (is_valid_wb_mixer &&
+				(mdata->mdp_rev < MDSS_MDP_HW_REV_106))
+			writel_relaxed(val, (mdata->mdp_base +
+						MDSS_MDP_LP_MISR_SEL));
 	}
 	vsync_count = 0;
 	map->crc_op_mode = req->crc_op_mode;
@@ -580,15 +620,18 @@ int mdss_misr_get(struct mdss_data_type *mdata,
 			struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_misr_map *map;
+	struct mdss_mdp_mixer *mixer;
 	u32 status;
 	int ret = -1;
 	int i;
 
-	map = mdss_misr_get_map(resp->block_id);
+	map = mdss_misr_get_map(resp->block_id, ctl, mdata);
 	if (!map) {
 		pr_err("Invalid MISR Block=%d\n", resp->block_id);
 		return -EINVAL;
 	}
+	mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_DEFAULT);
+
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 	switch (map->crc_op_mode) {
 	case MISR_OP_SFM:
@@ -654,7 +697,7 @@ void mdss_misr_crc_collect(struct mdss_data_type *mdata, int block_id)
 	u32 crc = 0x0BAD0BAD;
 	bool crc_stored = false;
 
-	map = mdss_misr_get_map(block_id);
+	map = mdss_misr_get_map(block_id, NULL, mdata);
 	if (!map || (map->crc_op_mode != MISR_OP_BM))
 		return;
 
