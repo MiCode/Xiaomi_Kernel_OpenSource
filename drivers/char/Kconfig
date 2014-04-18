@@ -657,7 +657,6 @@ config CSDIO_DEVICE_ID
 
 config MSM_RDBG
         tristate "Qualcomm Remote debug driver"
-        depends on MSM_AUDIO_QDSP6
         help
           Implements a shared memory based transport mechanism that allows
           for a debugger running on a host PC to communicate with a remote
