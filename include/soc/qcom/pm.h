@@ -61,8 +61,6 @@ struct msm_pm_sleep_status_data {
 	uint32_t mask;
 };
 
-int msm_pm_mode_sysfs_add(const char *);
-
 /**
  * lpm_cpu_pre_pc_cb(): API to get the L2 flag to pass to TZ
  *

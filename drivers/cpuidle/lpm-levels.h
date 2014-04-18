@@ -40,6 +40,14 @@ struct lpm_cpu {
 	struct lpm_cluster *parent;
 };
 
+struct lpm_level_avail {
+	bool idle_enabled;
+	bool suspend_enabled;
+	struct kobject *kobj;
+	struct kobj_attribute idle_enabled_attr;
+	struct kobj_attribute suspend_enabled_attr;
+};
+
 struct lpm_cluster_level {
 	const char *level_name;
 	int *mode;			/* SPM mode to enter */
@@ -47,9 +55,9 @@ struct lpm_cluster_level {
 	struct cpumask num_cpu_votes;
 	struct power_params pwr;
 	bool notify_rpm;
-	bool available;
 	bool sync_level;
 	bool last_core_only;
+	struct lpm_level_avail available;
 };
 
 struct low_power_ops {
@@ -87,3 +95,11 @@ int set_cci_mode(struct low_power_ops *ops, int mode, bool notify_rpm);
 struct lpm_cluster *lpm_of_parse_cluster(struct platform_device *pdev);
 void free_cluster_node(struct lpm_cluster *cluster);
 void cluster_dt_walkthrough(struct lpm_cluster *cluster);
+
+int create_cluster_lvl_nodes(struct lpm_cluster *p, struct kobject *kobj);
+bool lpm_cpu_mode_allow(unsigned int cpu,
+		unsigned int mode, bool from_idle);
+bool lpm_cluster_mode_allow(struct lpm_cluster *cluster,
+		unsigned int mode, bool from_idle);
+
+extern struct lpm_cluster *lpm_root_node;

@@ -15,11 +15,244 @@
 #include <linux/slab.h>
 #include <linux/of.h>
 #include <linux/err.h>
+#include <linux/sysfs.h>
 #include <linux/device.h>
 #include <linux/platform_device.h>
+#include <linux/moduleparam.h>
 #include "lpm-levels.h"
 
+enum lpm_type {
+	IDLE = 0,
+	SUSPEND,
+	LPM_TYPE_NR
+};
+
+struct lpm_type_str {
+	enum lpm_type type;
+	char *str;
+};
+
+static const struct lpm_type_str lpm_types[] = {
+	{IDLE, "idle_enabled"},
+	{SUSPEND, "suspend_enabled"},
+};
+
+static struct lpm_level_avail *cpu_level_available[NR_CPUS];
 static struct platform_device *lpm_pdev;
+
+static void *get_avail_val(struct kobject *kobj, struct kobj_attribute *attr)
+{
+	void *arg = NULL;
+	struct lpm_level_avail *avail = NULL;
+
+	if (!strcmp(attr->attr.name, lpm_types[IDLE].str)) {
+		avail = container_of(attr, struct lpm_level_avail,
+					idle_enabled_attr);
+		arg = (void *) &avail->idle_enabled;
+	} else if (!strcmp(attr->attr.name, lpm_types[SUSPEND].str)) {
+		avail = container_of(attr, struct lpm_level_avail,
+					suspend_enabled_attr);
+		arg = (void *) &avail->suspend_enabled;
+	}
+
+	return arg;
+}
+
+ssize_t lpm_enable_show(struct kobject *kobj, struct kobj_attribute *attr,
+				char *buf)
+{
+	int ret = 0;
+	struct kernel_param kp;
+
+	kp.arg = get_avail_val(kobj, attr);
+	ret = param_get_bool(buf, &kp);
+	if (ret > 0) {
+		strlcat(buf, "\n", PAGE_SIZE);
+		ret++;
+	}
+
+	return ret;
+}
+
+ssize_t lpm_enable_store(struct kobject *kobj, struct kobj_attribute *attr,
+				const char *buf, size_t len)
+{
+	int ret = 0;
+	struct kernel_param kp;
+
+	kp.arg = get_avail_val(kobj, attr);
+	ret = param_set_bool(buf, &kp);
+
+	return ret ? ret : len;
+}
+
+static int create_lvl_avail_nodes(const char *name,
+			struct kobject *parent, struct lpm_level_avail *avail)
+{
+	struct attribute_group *attr_group = NULL;
+	struct attribute **attr = NULL;
+	struct kobject *kobj = NULL;
+	int ret = 0;
+
+	kobj = kobject_create_and_add(name, parent);
+	if (!kobj)
+		return -ENOMEM;
+
+	attr_group = devm_kzalloc(&lpm_pdev->dev, sizeof(*attr_group),
+					GFP_KERNEL);
+	if (!attr_group) {
+		ret = -ENOMEM;
+		goto failed;
+	}
+
+	attr = devm_kzalloc(&lpm_pdev->dev,
+		sizeof(*attr) * (LPM_TYPE_NR + 1), GFP_KERNEL);
+	if (!attr) {
+		ret = -ENOMEM;
+		goto failed;
+	}
+
+	avail->idle_enabled_attr.attr.name = lpm_types[IDLE].str;
+	avail->idle_enabled_attr.attr.mode = 0644;
+	avail->idle_enabled_attr.show = lpm_enable_show;
+	avail->idle_enabled_attr.store = lpm_enable_store;
+
+	avail->suspend_enabled_attr.attr.name = lpm_types[SUSPEND].str;
+	avail->suspend_enabled_attr.attr.mode = 0644;
+	avail->suspend_enabled_attr.show = lpm_enable_show;
+	avail->suspend_enabled_attr.store = lpm_enable_store;
+
+	attr[0] = &avail->idle_enabled_attr.attr;
+	attr[1] = &avail->suspend_enabled_attr.attr;
+	attr[2] = NULL;
+	attr_group->attrs = attr;
+
+	ret = sysfs_create_group(kobj, attr_group);
+	if (ret) {
+		ret = -ENOMEM;
+		goto failed;
+	}
+
+	avail->idle_enabled = true;
+	avail->suspend_enabled = true;
+	avail->kobj = kobj;
+
+	return ret;
+
+failed:
+	kobject_put(kobj);
+	return ret;
+}
+
+static int create_cpu_lvl_nodes(struct lpm_cluster *p, struct kobject *parent)
+{
+	int cpu;
+	int i, j;
+	struct kobject **cpu_kobj = NULL;
+	struct lpm_level_avail *level_list = NULL;
+	char cpu_name[20] = {0};
+	int ret = 0;
+
+	cpu_kobj = devm_kzalloc(&lpm_pdev->dev, sizeof(*cpu_kobj) *
+			cpumask_weight(&p->child_cpus), GFP_KERNEL);
+	if (!cpu_kobj)
+		return -ENOMEM;
+
+	for_each_cpu(cpu, &p->child_cpus) {
+		snprintf(cpu_name, sizeof(cpu_name), "cpu%d", cpu);
+		cpu_kobj[cpu] = kobject_create_and_add(cpu_name, parent);
+		if (!cpu_kobj[cpu])
+			return -ENOMEM;
+
+		level_list = devm_kzalloc(&lpm_pdev->dev,
+				MSM_PM_SLEEP_MODE_NR * sizeof(*level_list),
+				GFP_KERNEL);
+		if (!level_list)
+			return -ENOMEM;
+
+		for (i = 0; i < MSM_PM_SLEEP_MODE_NR; i++) {
+			for (j = 0; j < p->cpu->nlevels; j++)
+				if (p->cpu->levels[j].mode == i)
+					break;
+			if (j == p->cpu->nlevels) {
+				/* Level not defined in DT */
+				level_list[i].idle_enabled = false;
+				level_list[i].suspend_enabled = false;
+				continue;
+			}
+
+			ret = create_lvl_avail_nodes(p->cpu->levels[j].name,
+						cpu_kobj[cpu], &level_list[i]);
+			if (ret)
+				return ret;
+		}
+
+		cpu_level_available[cpu] = level_list;
+	}
+
+	return 0;
+
+}
+
+int create_cluster_lvl_nodes(struct lpm_cluster *p, struct kobject *kobj)
+{
+	int ret = 0;
+	struct lpm_cluster *child = NULL;
+	int i;
+	struct kobject *cluster_kobj = NULL;
+
+	if (!p)
+		return -ENODEV;
+
+	cluster_kobj = kobject_create_and_add(p->cluster_name, kobj);
+	if (!cluster_kobj)
+		return -ENOMEM;
+
+	for (i = 0; i < p->nlevels; i++) {
+		ret = create_lvl_avail_nodes(p->levels[i].level_name,
+				cluster_kobj, &p->levels[i].available);
+		if (ret)
+			return ret;
+	}
+
+	list_for_each_entry(child, &p->child, list) {
+		ret = create_cluster_lvl_nodes(child, cluster_kobj);
+		if (ret)
+			return ret;
+	}
+
+	if (p->cpu) {
+		ret = create_cpu_lvl_nodes(p, cluster_kobj);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+bool lpm_cpu_mode_allow(unsigned int cpu,
+		unsigned int mode, bool from_idle)
+{
+	struct lpm_level_avail *avail = cpu_level_available[cpu];
+
+	if (!lpm_pdev || !avail)
+		return !from_idle;
+
+	return !!(from_idle ? avail[mode].idle_enabled :
+				avail[mode].suspend_enabled);
+}
+
+bool lpm_cluster_mode_allow(struct lpm_cluster *cluster,
+		unsigned int mode, bool from_idle)
+{
+	struct lpm_level_avail *avail = &cluster->levels[mode].available;
+
+	if (!lpm_pdev || !avail)
+		return false;
+
+	return !!(from_idle ? avail->idle_enabled :
+				avail->suspend_enabled);
+}
 
 static int parse_cluster_params(struct device_node *node, struct lpm_cluster *c)
 {
@@ -194,7 +427,6 @@ static int parse_cluster_level(struct device_node *node,
 			cluster->min_child_level = level->min_child_level;
 	}
 
-	level->available = true;
 	level->notify_rpm = of_property_read_bool(node, "qcom,notify-rpm");
 	level->last_core_only = of_property_read_bool(node,
 					"qcom,last-core-only");
