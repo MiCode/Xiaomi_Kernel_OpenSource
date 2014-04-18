@@ -15,6 +15,7 @@
  * Based on arch/arm64/kernel/smp_spin_table.c
  */
 
+#include <linux/bitops.h>
 #include <linux/cpu.h>
 #include <linux/cpumask.h>
 #include <linux/delay.h>
@@ -39,14 +40,14 @@
 
 static DEFINE_RAW_SPINLOCK(boot_lock);
 
+DEFINE_PER_CPU(int, cold_boot_done);
+
 static int cold_boot_flags[] = {
 	0,
 	SCM_FLAG_COLDBOOT_CPU1,
 	SCM_FLAG_COLDBOOT_CPU2,
 	SCM_FLAG_COLDBOOT_CPU3,
 };
-
-DEFINE_PER_CPU(int, cold_boot_done);
 
 static void write_pen_release(u64 val)
 {
@@ -190,12 +191,32 @@ static int __init msm_cpu_init(struct device_node *dn, unsigned int cpu)
 
 static int __init msm_cpu_prepare(unsigned int cpu)
 {
+	u64 mpidr_el1 = cpu_logical_map(cpu);
 
-	if (scm_set_boot_addr(virt_to_phys(secondary_holding_pen),
-				cold_boot_flags[cpu])) {
-		pr_warn("Failed to set CPU %u boot address\n", cpu);
-		return -ENOSYS;
+	if (scm_is_mc_boot_available()) {
+
+		if (mpidr_el1 & ~MPIDR_HWID_BITMASK) {
+			pr_err("CPU%d:Failed to set boot address\n", cpu);
+			return -ENOSYS;
+		}
+
+		if (scm_set_boot_addr_mc(virt_to_phys(secondary_holding_pen),
+				BIT(MPIDR_AFFINITY_LEVEL(mpidr_el1, 0)),
+				BIT(MPIDR_AFFINITY_LEVEL(mpidr_el1, 1)),
+				BIT(MPIDR_AFFINITY_LEVEL(mpidr_el1, 2)),
+				SCM_FLAG_COLDBOOT_MC)) {
+			pr_warn("CPU%d:Failed to set boot address\n", cpu);
+			return -ENOSYS;
+		}
+
+	} else {
+		if (scm_set_boot_addr(virt_to_phys(secondary_holding_pen),
+			cold_boot_flags[cpu])) {
+			pr_warn("Failed to set CPU %u boot address\n", cpu);
+			return -ENOSYS;
+		}
 	}
+
 	return 0;
 }
 
