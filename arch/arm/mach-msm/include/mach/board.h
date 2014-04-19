@@ -700,5 +700,4 @@ int smd_debugfs_init(void);
 static inline int smd_debugfs_init(void) { return 0; }
 #endif
 
-u32 wcnss_rf_read_reg(u32 rf_reg_addr);
 #endif
