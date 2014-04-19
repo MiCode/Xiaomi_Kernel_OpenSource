@@ -87,6 +87,8 @@
 #define CMI_OBM_FLAG_IN_BAND	0
 #define CMI_OBM_FLAG_OUT_BAND	1
 
+#define CMI_SHMEM_ALLOC_FAILED 0xff
+
 /*
  * Future Service ID's can be added one line
  * before the CMI_CPE_SERVICE_ID_MAX
