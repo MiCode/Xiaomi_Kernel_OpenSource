@@ -12,7 +12,7 @@ Required properties:
 - reg-names:		Names of the bases for the above registers. Expected
 			bases are:
 			"hfpll_l2_clk", "hfpll0_clk", ... "hfpllN_clk", "efuse",
-			"meas"
+			"efuse_svs", "meas"
 - cpuX-supply:		The regulator powering the CPUX.
 - l2-dig-supply:	The regulator powering the L2 digital logic.
 - hfpll-dig-supply:	The regulator powering the HFPLL digital domains.
@@ -44,6 +44,8 @@ Optional properties:
 			bits in the user control register.
 - qcom,pvs-config-ver:
 			The version of the data in qcom,speedX-pvsY-bin-vZ.
+- qcom,svs-fmax:
+			The max frequency for the SVS voltage for Krait.
 
 Example:
 	qcom,clock-krait@f9016000 {
@@ -53,10 +55,11 @@ Example:
 			<0xf909a000 0x20>,
 			<0xf90aa000 0x20>,
 			<0xf90ba000 0x20>,
+			<0xfc4b8458 0x04>,
 			<0xfc4b80b0 0x08>;
 		reg-names = "hfpll_l2_clk", "hfpll0_clk",
 				"hfpll1_clk", "hfpll2_clk",
-				"hfpll3_clk", "efuse";
+				"hfpll3_clk", "efuse", "efuse_svs";
 		cpu0-supply = <&krait0_vreg>;
 		cpu1-supply = <&krait1_vreg>;
 		cpu2-supply = <&krait2_vreg>;
@@ -69,6 +72,8 @@ Example:
 			<  576000000 4 /* svs_soc */	>,
 			< 1036800000 5 /* normal */	>,
 			< 1728000000 7 /* super_turbo */>;
+
+		qcom,svs-fmax = <883200000>;
 
 		qcom,avs-tbl =
 			<  300000000 0xfa70054 >,
