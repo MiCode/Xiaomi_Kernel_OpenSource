@@ -973,29 +973,6 @@ static int cdc_pdm_get_pinctrl(struct platform_device *pdev)
 		pr_err("%s: Failed to disable the TLMM pins\n", __func__);
 		return -EIO;
 	}
-	/* get pinctrl handle for cross det pin*/
-	pinctrl_info.cross_conn_det_sus = pinctrl_lookup_state(pinctrl,
-							"cross_conn_det_sus");
-	if (IS_ERR(pinctrl_info.cross_conn_det_sus)) {
-		pr_err("%s: Unable to get pinctrl disable state handle\n",
-								__func__);
-		return -EINVAL;
-	}
-
-	pinctrl_info.cross_conn_det_act = pinctrl_lookup_state(pinctrl,
-							"cross_conn_det_act");
-	if (IS_ERR(pinctrl_info.cross_conn_det_act)) {
-		pr_err("%s: Unable to get pinctrl active state handle\n",
-								 __func__);
-		return -EINVAL;
-	}
-	/* Reset cross conn det pins to default state*/
-	ret = pinctrl_select_state(pinctrl_info.pinctrl,
-					pinctrl_info.cross_conn_det_sus);
-	if (ret != 0) {
-		pr_err("%s: Failed to disable cross conn det pins\n", __func__);
-		return -EIO;
-	}
 	return 0;
 }
 
@@ -1052,9 +1029,11 @@ static bool msm8x16_swap_gnd_mic(struct snd_soc_codec *codec)
 	return true;
 }
 
-static void msm8x16_setup_hs_jack(struct platform_device *pdev,
+static int msm8x16_setup_hs_jack(struct platform_device *pdev,
 			struct msm8916_asoc_mach_data *pdata)
 {
+	struct pinctrl *pinctrl;
+
 	pdata->us_euro_gpio = of_get_named_gpio(pdev->dev.of_node,
 					"qcom,cdc-us-euro-gpios", 0);
 	if (pdata->us_euro_gpio < 0) {
@@ -1064,7 +1043,34 @@ static void msm8x16_setup_hs_jack(struct platform_device *pdev,
 			pdata->us_euro_gpio);
 	} else {
 		mbhc_cfg.swap_gnd_mic = msm8x16_swap_gnd_mic;
+		if (!gpio_is_valid(pdata->us_euro_gpio)) {
+			pr_debug("%s: Invalid gpio: %d", __func__,
+						pdata->us_euro_gpio);
+			return -EINVAL;
+		}
+		pinctrl = devm_pinctrl_get(&pdev->dev);
+		if (IS_ERR(pinctrl)) {
+			pr_err("%s: Unable to get pinctrl handle\n", __func__);
+			return -EINVAL;
+		}
+		pinctrl_info.pinctrl = pinctrl;
+		/* get pinctrl handle for cross det pin*/
+		pinctrl_info.cross_conn_det_sus = pinctrl_lookup_state(pinctrl,
+							"cross_conn_det_sus");
+		if (IS_ERR(pinctrl_info.cross_conn_det_sus)) {
+			pr_err("%s: Unable to get pinctrl disable handle\n",
+								  __func__);
+			return -EINVAL;
+		}
+		pinctrl_info.cross_conn_det_act = pinctrl_lookup_state(pinctrl,
+							"cross_conn_det_act");
+		if (IS_ERR(pinctrl_info.cross_conn_det_act)) {
+			pr_err("%s: Unable to get pinctrl active handle\n",
+								 __func__);
+			return -EINVAL;
+		}
 	}
+	return 0;
 }
 
 static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
@@ -1127,15 +1133,15 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 		pr_err("failed to get the pdm gpios\n");
 		goto err;
 	}
+
+	msm8x16_setup_hs_jack(pdev, pdata);
+
 	if (pdev->id >= MAX_SND_CARDS) {
 		dev_err(&pdev->dev, "Sound Card parsed is wrong\n");
 		ret = -EINVAL;
 		goto err;
 	}
 	card = &bear_cards[pdev->id];
-
-	msm8x16_setup_hs_jack(pdev, pdata);
-
 	card->dev = &pdev->dev;
 	platform_set_drvdata(pdev, card);
 	snd_soc_card_set_drvdata(card, pdata);
