@@ -243,6 +243,7 @@
 	sound {
 		qcom,model = "msm8974-taiko-fluid-snd-card";
 		qcom,audio-routing =
+			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
 			"LDO_H", "MCLK",
 			"AMIC1", "MIC BIAS1 Internal1",
