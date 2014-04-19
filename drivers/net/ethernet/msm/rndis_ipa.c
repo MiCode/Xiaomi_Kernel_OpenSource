@@ -942,7 +942,7 @@ static void rndis_ipa_tx_complete_notify(void *private,
 					(rndis_ipa_ctx->outstanding_low)) {
 		RNDIS_IPA_DEBUG("outstanding low boundary reached (%d)",
 				rndis_ipa_ctx->outstanding_low);
-		netif_start_queue(rndis_ipa_ctx->net);
+		netif_wake_queue(rndis_ipa_ctx->net);
 		RNDIS_IPA_DEBUG("send queue was awaken");
 	}
 
