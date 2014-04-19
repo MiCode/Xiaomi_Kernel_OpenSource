@@ -3907,8 +3907,6 @@ static int qpnp_leds_remove(struct spmi_device *spmi)
 		if (led_array[i].id != QPNP_ID_FLASH1_LED0 &&
 				led_array[i].id != QPNP_ID_FLASH1_LED1)
 			mutex_destroy(&led_array[i].lock);
-		else if (led_array[i].id == QPNP_ID_FLASH1_LED0)
-			mutex_destroy(&flash_lock);
 
 		led_classdev_unregister(&led_array[i].cdev);
 		switch (led_array[i].id) {
