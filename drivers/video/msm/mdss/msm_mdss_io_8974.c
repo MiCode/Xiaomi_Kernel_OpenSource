@@ -509,22 +509,37 @@ static int mdss_dsi_clk_ctrl_sub(struct mdss_dsi_ctrl_pdata *ctrl,
 	u8 clk_type, int enable)
 {
 	int rc = 0;
+	struct mdss_panel_data *pdata;
 
 	if (!ctrl) {
 		pr_err("%s: Invalid arg\n", __func__);
 		return -EINVAL;
 	}
 
+	pdata = &ctrl->panel_data;
+
 	pr_debug("%s: ndx=%d clk_type=%08x enable=%d\n", __func__,
 		ctrl->ndx, clk_type, enable);
 
 	if (enable) {
 		if (clk_type & DSI_BUS_CLKS) {
+			/* enable mdss gdsc */
+			pr_debug("%s: Enable MDP FS\n", __func__);
+			rc = msm_dss_enable_vreg(
+				ctrl->power_data[DSI_CORE_PM].vreg_config,
+				ctrl->power_data[DSI_CORE_PM].num_vreg, 1);
+			if (rc) {
+				pr_err("%s: failed to enable vregs for %s\n",
+					__func__,
+					__mdss_dsi_pm_name(DSI_CORE_PM));
+				goto error;
+			}
+
 			rc = mdss_dsi_bus_clk_start(ctrl);
 			if (rc) {
 				pr_err("Failed to start bus clocks. rc=%d\n",
 					rc);
-				goto error;
+				goto error_vreg;
 			}
 		}
 		if (clk_type & DSI_LINK_CLKS) {
@@ -532,18 +547,61 @@ static int mdss_dsi_clk_ctrl_sub(struct mdss_dsi_ctrl_pdata *ctrl,
 			if (rc) {
 				pr_err("Failed to start link clocks. rc=%d\n",
 					rc);
-				if (clk_type & DSI_BUS_CLKS)
-					mdss_dsi_bus_clk_stop(ctrl);
-				goto error;
+				goto error_link_clk_start;
+			}
+			/* Disable ULPS, if enabled */
+			if (ctrl->ulps) {
+				rc = mdss_dsi_ulps_config(ctrl, 0);
+				if (rc) {
+					pr_err("Failed to exit ulps. rc=%d\n",
+						rc);
+					goto error_ulps_exit;
+				}
 			}
 		}
 	} else {
-		if (clk_type & DSI_LINK_CLKS)
+		if (clk_type & DSI_LINK_CLKS) {
+			/*
+			 * If ULPS feature is enabled, enter ULPS first.
+			 * No need to enable ULPS when turning off clocks
+			 * while blanking the panel.
+			 */
+			if ((mdss_dsi_ulps_feature_enabled(pdata)) &&
+				(pdata->panel_info.panel_power_on))
+				mdss_dsi_ulps_config(ctrl, 1);
 			mdss_dsi_link_clk_stop(ctrl);
-		if (clk_type & DSI_BUS_CLKS)
+		}
+		if (clk_type & DSI_BUS_CLKS) {
 			mdss_dsi_bus_clk_stop(ctrl);
+
+			/* disable mdss gdsc */
+			pr_debug("%s: Disable MDP FS\n", __func__);
+			rc = msm_dss_enable_vreg(
+				ctrl->power_data[DSI_CORE_PM].vreg_config,
+				ctrl->power_data[DSI_CORE_PM].num_vreg, 0);
+			if (rc) {
+				pr_warn("%s: failed to disable vregs for %s\n",
+					__func__,
+					__mdss_dsi_pm_name(DSI_CORE_PM));
+				rc = 0;
+			}
+		}
 	}
 
+	return rc;
+
+error_ulps_exit:
+	mdss_dsi_link_clk_stop(ctrl);
+error_link_clk_start:
+	if (clk_type & DSI_BUS_CLKS)
+		mdss_dsi_bus_clk_stop(ctrl);
+error_vreg:
+	if ((clk_type & DSI_BUS_CLKS) &&
+		(msm_dss_enable_vreg(ctrl->power_data[DSI_CORE_PM].vreg_config,
+			ctrl->power_data[DSI_CORE_PM].num_vreg, 0))) {
+		pr_warn("%s: failed to disable vregs for %s\n", __func__,
+			__mdss_dsi_pm_name(DSI_CORE_PM));
+	}
 error:
 	return rc;
 }
@@ -569,7 +627,8 @@ int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 	u8 clk_type, int enable)
 {
 	int rc = 0;
-	int changed = 0, m_changed = 0;
+	int link_changed = 0, bus_changed = 0;
+	int m_link_changed = 0, m_bus_changed = 0;
 	struct mdss_dsi_ctrl_pdata *mctrl = NULL;
 
 	if (!ctrl) {
@@ -588,62 +647,78 @@ int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 			pr_warn("%s: Unable to get master control\n", __func__);
 	}
 
-	pr_debug("%s++: ndx=%d clk_type=%d bus_clk_cnt=%d link_clk_cnt=%d",
+	pr_debug("%s++: ndx=%d clk_type=%d bus_clk_cnt=%d link_clk_cnt=%d\n",
 		__func__, ctrl->ndx, clk_type, ctrl->bus_clk_cnt,
 		ctrl->link_clk_cnt);
-	pr_debug("%s++: mctrl=%s m_bus_clk_cnt=%d m_link_clk_cnt=%d\n, enable=%d\n",
+	pr_debug("%s++: mctrl=%s m_bus_clk_cnt=%d m_link_clk_cnt=%d, enable=%d\n",
 		__func__, mctrl ? "yes" : "no", mctrl ? mctrl->bus_clk_cnt : -1,
 		mctrl ? mctrl->link_clk_cnt : -1, enable);
 
 	mutex_lock(&dsi_clk_lock);
+
 	if (clk_type & DSI_BUS_CLKS) {
-		changed = __mdss_dsi_update_clk_cnt(&ctrl->bus_clk_cnt,
+		bus_changed = __mdss_dsi_update_clk_cnt(&ctrl->bus_clk_cnt,
 			enable);
-		if (changed && mctrl)
-			m_changed = __mdss_dsi_update_clk_cnt(
+		if (bus_changed && mctrl)
+			m_bus_changed = __mdss_dsi_update_clk_cnt(
 				&mctrl->bus_clk_cnt, enable);
 	}
 
 	if (clk_type & DSI_LINK_CLKS) {
-		changed += __mdss_dsi_update_clk_cnt(&ctrl->link_clk_cnt,
+		link_changed = __mdss_dsi_update_clk_cnt(&ctrl->link_clk_cnt,
 			enable);
-		if (changed && mctrl)
-			m_changed += __mdss_dsi_update_clk_cnt(
+		if (link_changed && mctrl)
+			m_link_changed = __mdss_dsi_update_clk_cnt(
 				&mctrl->link_clk_cnt, enable);
 	}
 
-	if (changed) {
-		if (enable && m_changed) {
-			rc = mdss_dsi_clk_ctrl_sub(mctrl, clk_type, enable);
-			if (rc) {
-				pr_err("Failed to start mctrl clocks. rc=%d\n",
-					rc);
-				goto error_mctrl_start;
-			}
-		}
+	if (!link_changed && !bus_changed)
+		goto no_error; /* clk cnts updated, nothing else needed */
 
-		rc = mdss_dsi_clk_ctrl_sub(ctrl, clk_type, enable);
+	/*
+	 * If updating link clock, need to make sure that the bus
+	 * clocks are enabled
+	 */
+	if (link_changed && (!bus_changed && !ctrl->bus_clk_cnt)) {
+		pr_err("%s: Trying to enable link clks w/o enabling bus clks for ctrl%d",
+			__func__, mctrl->ndx);
+		goto error_mctrl_start;
+	}
+
+	if (m_link_changed && (!m_bus_changed && !mctrl->bus_clk_cnt)) {
+		pr_err("%s: Trying to enable link clks w/o enabling bus clks for ctrl%d",
+			__func__, ctrl->ndx);
+		goto error_mctrl_start;
+	}
+
+	if (enable && (m_bus_changed || m_link_changed)) {
+		rc = mdss_dsi_clk_ctrl_sub(mctrl, clk_type, enable);
 		if (rc) {
-			pr_err("Failed to %s ctrl clocks. rc=%d\n",
-				(enable ? "start" : "stop"), rc);
-			goto error_ctrl;
-		}
-
-		if (!enable && m_changed) {
-			rc = mdss_dsi_clk_ctrl_sub(mctrl, clk_type, enable);
-			if (rc) {
-				pr_err("Failed to stop mctrl clocks. rc=%d\n",
-					rc);
-				goto error_mctrl_stop;
-			}
+			pr_err("Failed to start mctrl clocks. rc=%d\n", rc);
+			goto error_mctrl_start;
 		}
 	}
+
+	if (!enable && (m_bus_changed || m_link_changed)) {
+		rc = mdss_dsi_clk_ctrl_sub(mctrl, clk_type, enable);
+		if (rc) {
+			pr_err("Failed to stop mctrl clocks. rc=%d\n", rc);
+			goto error_mctrl_stop;
+		}
+	}
+	rc = mdss_dsi_clk_ctrl_sub(ctrl, clk_type, enable);
+	if (rc) {
+		pr_err("Failed to %s ctrl clocks. rc=%d\n",
+			(enable ? "start" : "stop"), rc);
+		goto error_ctrl;
+	}
+
 	goto no_error;
 
 error_mctrl_stop:
 	mdss_dsi_clk_ctrl_sub(ctrl, clk_type, enable ? 0 : 1);
 error_ctrl:
-	if (enable && m_changed)
+	if (enable && (m_bus_changed || m_link_changed))
 		mdss_dsi_clk_ctrl_sub(mctrl, clk_type, 0);
 error_mctrl_start:
 	if (clk_type & DSI_BUS_CLKS) {
@@ -661,12 +736,13 @@ error_mctrl_start:
 
 no_error:
 	mutex_unlock(&dsi_clk_lock);
-	pr_debug("%s++: ndx=%d clk_type=%d bus_clk_cnt=%d link_clk_cnt=%d changed=%d",
+	pr_debug("%s--: ndx=%d clk_type=%d bus_clk_cnt=%d link_clk_cnt=%d changed=%d\n",
 		__func__, ctrl->ndx, clk_type, ctrl->bus_clk_cnt,
-		ctrl->link_clk_cnt, changed);
-	pr_debug("%s++: mctrl=%s m_bus_clk_cnt=%d m_link_clk_cnt=%d\n, m_changed=%d, enable=%d\n",
+		ctrl->link_clk_cnt, link_changed && bus_changed);
+	pr_debug("%s--: mctrl=%s m_bus_clk_cnt=%d m_link_clk_cnt=%d, m_changed=%d, enable=%d\n",
 		__func__, mctrl ? "yes" : "no", mctrl ? mctrl->bus_clk_cnt : -1,
-		mctrl ? mctrl->link_clk_cnt : -1, m_changed, enable);
+		mctrl ? mctrl->link_clk_cnt : -1,
+		m_link_changed && m_bus_changed, enable);
 
 	return rc;
 }

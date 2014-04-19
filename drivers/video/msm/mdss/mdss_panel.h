@@ -135,11 +135,6 @@ struct mdss_panel_recovery {
  * @MDSS_EVENT_DSI_CMDLIST_KOFF: acquire dsi_mdp_busy lock before kickoff.
  * @MDSS_EVENT_ENABLE_PARTIAL_ROI: Event to update ROI of the panel.
  * @MDSS_EVENT_DSI_STREAM_SIZE: Event to update DSI controller's stream size
- * @MDSS_EVENT_DSI_ULPS_CTRL:	Event to configure Ultra Lower Power Saving
- *				mode for the DSI data and clock lanes. The
- *				event arguments can have one of these values:
- *				- 0: Disable ULPS mode
- *				- 1: Enable ULPS mode
  * @MDSS_EVENT_DSI_DYNAMIC_SWITCH: Event to update the dsi driver structures
  *				based on the dsi mode passed as argument.
  *				- 0: update to video mode
@@ -163,7 +158,6 @@ enum mdss_intf_events {
 	MDSS_EVENT_DSI_CMDLIST_KOFF,
 	MDSS_EVENT_ENABLE_PARTIAL_ROI,
 	MDSS_EVENT_DSI_STREAM_SIZE,
-	MDSS_EVENT_DSI_ULPS_CTRL,
 	MDSS_EVENT_DSI_DYNAMIC_SWITCH,
 };
 
