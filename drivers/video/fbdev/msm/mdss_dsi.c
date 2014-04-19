@@ -76,19 +76,21 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 				panel_data);
 	pr_debug("%s: enable=%d\n", __func__, enable);
 
-	if (pdata->panel_info.dynamic_switch_pending) {
-		/*
-		 * Current implementation of dynamic mode switch
-		 * relies on the GDSC to be disabled while switching.
-		 */
-		msm_dss_enable_vreg(
-			ctrl_pdata->power_data[DSI_CORE_PM].vreg_config,
-			ctrl_pdata->power_data[DSI_CORE_PM].num_vreg, enable);
+	/*
+	 * If a dynamic mode switch is pending, the regulators should not
+	 * be turned off or on.
+	 */
+	if (pdata->panel_info.dynamic_switch_pending)
 		return 0;
-	}
 
 	if (enable) {
 		for (i = 0; i < DSI_MAX_PM; i++) {
+			/*
+			 * Core power module will be enabled when the
+			 * clocks are enabled
+			 */
+			if (DSI_CORE_PM == i)
+				continue;
 			ret = msm_dss_enable_vreg(
 				ctrl_pdata->power_data[i].vreg_config,
 				ctrl_pdata->power_data[i].num_vreg, 1);
@@ -121,6 +123,12 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 			pr_debug("reset disable: pinctrl not enabled\n");
 
 		for (i = DSI_MAX_PM - 1; i >= 0; i--) {
+			/*
+			 * Core power module will be disabled when the
+			 * clocks are disabled
+			 */
+			if (DSI_CORE_PM == i)
+				continue;
 			ret = msm_dss_enable_vreg(
 				ctrl_pdata->power_data[i].vreg_config,
 				ctrl_pdata->power_data[i].num_vreg, 0);
@@ -483,24 +491,22 @@ static void __mdss_dsi_ctrl_setup(struct mdss_panel_data *pdata)
 	}
 }
 
-static inline bool __mdss_dsi_ulps_feature_enabled(
-	struct mdss_panel_data *pdata)
-{
-	return pdata->panel_info.ulps_feature_enabled;
-}
-
-static int mdss_dsi_ulps_config_sub(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
-	int enable)
+int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata, int enable)
 {
 	int ret = 0;
 	struct mdss_panel_data *pdata = NULL;
-	struct mipi_panel_info *pinfo = NULL;
-	u32 lane_status = 0;
-	u32 active_lanes = 0;
-	u32 regval = 0;
+	struct mdss_panel_info *pinfo;
+	struct mipi_panel_info *mipi;
+	u32 lane_status = 0, regval;
+	u32 active_lanes = 0, clamp_reg;
 
 	if (!ctrl_pdata) {
 		pr_err("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	if (&ctrl_pdata->mmss_misc_io == NULL) {
+		pr_err("%s: mmss_misc_io is NULL. ULPS not valid\n", __func__);
 		return -EINVAL;
 	}
 
@@ -509,59 +515,69 @@ static int mdss_dsi_ulps_config_sub(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		pr_err("%s: Invalid panel data\n", __func__);
 		return -EINVAL;
 	}
-	pinfo = &pdata->panel_info.mipi;
+	pinfo = &pdata->panel_info;
+	mipi = &pinfo->mipi;
 
-	if (!__mdss_dsi_ulps_feature_enabled(pdata)) {
+	if (!mdss_dsi_ulps_feature_enabled(pdata)) {
 		pr_debug("%s: ULPS feature not supported. enable=%d\n",
 			__func__, enable);
 		return -ENOTSUPP;
 	}
 
+	/*
+	 * No need to enter ULPS when transitioning from splash screen to
+	 * boot animation since it is expected that the clocks would be turned
+	 * right back on.
+	 */
+	if (pinfo->cont_splash_enabled) {
+		pr_debug("%s: skip ULPS config with splash screen enabled\n",
+			__func__);
+		return 0;
+	}
+
+	/* clock lane will always be programmed for ulps and will be clamped */
+	active_lanes = BIT(4);
+	clamp_reg = BIT(8) | BIT(9);
+	/*
+	 * make a note of all active data lanes for which ulps entry/exit
+	 * as well as DSI clamps are needed
+	 */
+	if (mipi->data_lane0) {
+		active_lanes |= BIT(0);
+		clamp_reg |= (BIT(0) | BIT(1));
+	}
+	if (mipi->data_lane1) {
+		active_lanes |= BIT(1);
+		clamp_reg |= (BIT(2) | BIT(3));
+	}
+	if (mipi->data_lane2) {
+		active_lanes |= BIT(2);
+		clamp_reg |= (BIT(4) | BIT(5));
+	}
+	if (mipi->data_lane3) {
+		active_lanes |= BIT(3);
+		clamp_reg |= (BIT(6) | BIT(7));
+	}
+
+	pr_debug("%s: configuring ulps (%s) for ctrl%d, active lanes=0x%08x\n",
+		__func__, (enable ? "on" : "off"), ctrl_pdata->ndx,
+		active_lanes);
+
 	if (enable && !ctrl_pdata->ulps) {
-		/* No need to configure ULPS mode when entering suspend state */
-		if (!pdata->panel_info.panel_power_on) {
-			pr_err("%s: panel off. returning\n", __func__);
-			goto error;
-		}
-
-		if (__mdss_dsi_clk_enabled(ctrl_pdata, DSI_LINK_CLKS)) {
-			pr_err("%s: cannot enter ulps mode if dsi clocks are on\n",
-				__func__);
-			ret = -EPERM;
-			goto error;
-		}
-
-		ret = mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
-		if (ret) {
-			pr_err("%s: Failed to enable clocks. rc=%d\n",
-				__func__, ret);
-			goto error;
-		}
-
 		/*
 		 * ULPS Entry Request.
 		 * Wait for a short duration to ensure that the lanes
 		 * enter ULP state.
 		 */
-		MIPI_OUTP(ctrl_pdata->ctrl_base + 0x0AC, 0x01F);
+		MIPI_OUTP(ctrl_pdata->ctrl_base + 0x0AC, active_lanes);
 		usleep(100);
 
 		/* Check to make sure that all active data lanes are in ULPS */
-		if (pinfo->data_lane3)
-			active_lanes |= BIT(11);
-		if (pinfo->data_lane2)
-			active_lanes |= BIT(10);
-		if (pinfo->data_lane1)
-			active_lanes |= BIT(9);
-		if (pinfo->data_lane0)
-			active_lanes |= BIT(8);
-		active_lanes |= BIT(12); /* clock lane */
 		lane_status = MIPI_INP(ctrl_pdata->ctrl_base + 0xA8);
-		if (lane_status & active_lanes) {
-			pr_err("%s: ULPS entry req failed. Lane status=0x%08x\n",
-				__func__, lane_status);
+		if (lane_status & (active_lanes << 8)) {
+			pr_err("%s: ULPS entry req failed for ctrl%d. Lane status=0x%08x\n",
+				__func__, ctrl_pdata->ndx, lane_status);
 			ret = -EINVAL;
-			mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
 			goto error;
 		}
 
@@ -569,15 +585,15 @@ static int mdss_dsi_ulps_config_sub(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		if (ctrl_pdata->ndx == DSI_CTRL_0) {
 			regval = MIPI_INP(ctrl_pdata->mmss_misc_io.base + 0x14);
 			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14,
-				regval | 0x3FF);
+				regval | clamp_reg);
 			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14,
-				regval | 0x83FF);
+				regval | (clamp_reg | BIT(15)));
 		} else if (ctrl_pdata->ndx == DSI_CTRL_1) {
 			regval = MIPI_INP(ctrl_pdata->mmss_misc_io.base + 0x14);
 			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14,
-				regval | 0x3FF0000);
+				regval | (clamp_reg << 16));
 			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14,
-				regval | 0x83FF0000);
+				regval | ((clamp_reg << 16) | BIT(31)));
 		}
 
 		wmb();
@@ -588,19 +604,8 @@ static int mdss_dsi_ulps_config_sub(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		 * out of power collapse
 		 */
 		MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x108, 0x1);
-		/* disable DSI controller */
-		mdss_dsi_controller_cfg(0, pdata);
-
-		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
 		ctrl_pdata->ulps = true;
 	} else if (ctrl_pdata->ulps) {
-		ret = mdss_dsi_clk_ctrl(ctrl_pdata, DSI_BUS_CLKS, 1);
-		if (ret) {
-			pr_err("%s: Failed to enable bus clocks. rc=%d\n",
-				__func__, ret);
-			goto error;
-		}
-
 		MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x108, 0x0);
 		mdss_dsi_phy_init(pdata);
 
@@ -617,33 +622,26 @@ static int mdss_dsi_ulps_config_sub(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		 * Wait for a short duration to ensure that the lanes
 		 * enter ULP state.
 		 */
-		MIPI_OUTP(ctrl_pdata->ctrl_base + 0x0AC, 0x01F);
+		MIPI_OUTP(ctrl_pdata->ctrl_base + 0x0AC, active_lanes);
 		usleep(100);
 
 		/* Disable MMSS DSI Clamps */
 		if (ctrl_pdata->ndx == DSI_CTRL_0) {
 			regval = MIPI_INP(ctrl_pdata->mmss_misc_io.base + 0x14);
 			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14,
-				regval & ~0x83FF);
+				regval & ~(clamp_reg | BIT(15)));
 		} else if (ctrl_pdata->ndx == DSI_CTRL_1) {
 			regval = MIPI_INP(ctrl_pdata->mmss_misc_io.base + 0x14);
 			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14,
-				regval & ~0x83FF0000);
+				regval & ~((clamp_reg << 16) | BIT(31)));
 		}
 
-		ret = mdss_dsi_clk_ctrl(ctrl_pdata, DSI_LINK_CLKS, 1);
-		if (ret) {
-			pr_err("%s: Failed to enable link clocks. rc=%d\n",
-				__func__, ret);
-			mdss_dsi_clk_ctrl(ctrl_pdata, DSI_BUS_CLKS, 0);
-			goto error;
-		}
 
 		/*
 		 * ULPS Exit Request
 		 * Hardware requirement is to wait for at least 1ms
 		 */
-		MIPI_OUTP(ctrl_pdata->ctrl_base + 0x0AC, 0x1F00);
+		MIPI_OUTP(ctrl_pdata->ctrl_base + 0x0AC, active_lanes << 8);
 		usleep(1000);
 		MIPI_OUTP(ctrl_pdata->ctrl_base + 0x0AC, 0x0);
 
@@ -654,8 +652,6 @@ static int mdss_dsi_ulps_config_sub(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		usleep(100);
 
 		lane_status = MIPI_INP(ctrl_pdata->ctrl_base + 0xA8);
-		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_LINK_CLKS, 0);
-		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_BUS_CLKS, 0);
 		ctrl_pdata->ulps = false;
 	}
 
@@ -690,78 +686,6 @@ static int mdss_dsi_update_panel_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 	pinfo->cont_splash_enabled = 0;
 
 	return ret;
-}
-static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
-	int enable)
-{
-	int rc;
-	struct mdss_dsi_ctrl_pdata *mctrl = NULL;
-	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
-
-	if (&ctrl->mmss_misc_io == NULL) {
-		pr_err("%s: mmss_misc_io is NULL. ULPS not valid\n", __func__);
-		return -EINVAL;
-	}
-
-	if (mdss_dsi_is_master_ctrl(ctrl)) {
-		if (enable) {
-			pr_debug("%s: skipping enable for master ctrl%d\n",
-				__func__, ctrl->ndx);
-			rc = 0;
-			goto error;
-		} else {
-			sctrl = mdss_dsi_get_slave_ctrl();
-			if (!sctrl) {
-				pr_err("%s: Unable to get slave control\n",
-					__func__);
-				rc = -EINVAL;
-				goto error;
-			}
-		}
-	}
-
-	if (mdss_dsi_is_slave_ctrl(ctrl)) {
-		if (enable) {
-			mctrl = mdss_dsi_get_master_ctrl();
-			if (!mctrl) {
-				pr_err("%s: Unable to get master control\n",
-					__func__);
-				rc = -EINVAL;
-				goto error;
-			}
-		} else {
-			pr_debug("%s: skipping disable for slave ctrl%d\n",
-				__func__, ctrl->ndx);
-			rc = 0;
-			goto error;
-		}
-	}
-
-	if (mctrl) {
-		pr_debug("%s: configuring ulps (%s) for master ctrl%d\n",
-			__func__, (enable ? "on" : "off"), mctrl->ndx);
-		rc = mdss_dsi_ulps_config_sub(mctrl, enable);
-		if (rc)
-			goto error;
-	}
-
-	pr_debug("%s: configuring ulps (%s) for ctrl%d\n",
-		__func__, (enable ? "on" : "off"), ctrl->ndx);
-	rc = mdss_dsi_ulps_config_sub(ctrl, enable);
-	if (rc)
-		goto error;
-
-	if (sctrl) {
-		pr_debug("%s: configuring ulps (%s) for slave ctrl%d\n",
-			__func__, (enable ? "on" : "off"), sctrl->ndx);
-		rc = mdss_dsi_ulps_config_sub(sctrl, enable);
-	}
-
-error:
-	if (rc)
-		pr_err("%s: Failed to configure ulps (%s) for ctrl%d\n",
-			__func__, (enable ? "on" : "off"), ctrl->ndx);
-	return rc;
 }
 
 int mdss_dsi_on(struct mdss_panel_data *pdata)
@@ -920,13 +844,15 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 				panel_data);
 	mipi  = &pdata->panel_info.mipi;
 
+	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
+
 	if (!(ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT)) {
 		if (!pdata->panel_info.dynamic_switch_pending) {
 			ret = ctrl_pdata->on(pdata);
 			if (ret) {
 				pr_err("%s: unable to initialize the panel\n",
 							__func__);
-				return ret;
+				goto error;
 			}
 		}
 		ctrl_pdata->ctrl_state |= CTRL_STATE_PANEL_INIT;
@@ -936,6 +862,8 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 		mipi->vsync_enable && mipi->hw_vsync_mode)
 		mdss_dsi_set_tear_on(ctrl_pdata);
 
+error:
+	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
 	pr_debug("%s-:\n", __func__);
 
 	return ret;
@@ -958,16 +886,7 @@ static int mdss_dsi_blank(struct mdss_panel_data *pdata)
 				panel_data);
 	mipi = &pdata->panel_info.mipi;
 
-	if (__mdss_dsi_ulps_feature_enabled(pdata) &&
-		(ctrl_pdata->ulps)) {
-		/* Disable ULPS mode before blanking the panel */
-		ret = mdss_dsi_ulps_config(ctrl_pdata, 0);
-		if (ret) {
-			pr_err("%s: failed to exit ULPS mode. rc=%d\n",
-				__func__, ret);
-			return ret;
-		}
-	}
+	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 
 	if (pdata->panel_info.type == MIPI_VIDEO_PANEL &&
 			ctrl_pdata->off_cmds.link_state == DSI_LP_MODE) {
@@ -997,12 +916,14 @@ static int mdss_dsi_blank(struct mdss_panel_data *pdata)
 			ret = ctrl_pdata->off(pdata);
 			if (ret) {
 				pr_err("%s: Panel OFF failed\n", __func__);
-				return ret;
+				goto error;
 			}
 		}
 		ctrl_pdata->ctrl_state &= ~CTRL_STATE_PANEL_INIT;
 	}
 
+error:
+	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
 	pr_debug("%s-:End\n", __func__);
 	return ret;
 }
@@ -1269,9 +1190,6 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		break;
 	case MDSS_EVENT_DSI_STREAM_SIZE:
 		rc = mdss_dsi_set_stream_size(pdata);
-		break;
-	case MDSS_EVENT_DSI_ULPS_CTRL:
-		rc = mdss_dsi_ulps_config(ctrl_pdata, (int)(unsigned long) arg);
 		break;
 	case MDSS_EVENT_DSI_DYNAMIC_SWITCH:
 		rc = mdss_dsi_update_panel_config(ctrl_pdata,
