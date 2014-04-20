@@ -210,6 +210,7 @@
 			label = "red";
 			linux,default-trigger = "battery-charging";
 			default-state = "off";
+			retain-state-suspended;
 		};
 
 		green {
@@ -217,6 +218,7 @@
 			label = "green";
 			linux,default-trigger = "battery-full";
 			default-state = "off";
+			retain-state-suspended;
 		};
 
 		blue {

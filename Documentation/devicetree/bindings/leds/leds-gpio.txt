@@ -21,6 +21,7 @@ LED sub-node properties:
   on).  The "keep" setting will keep the LED at whatever its current
   state is, without producing a glitch.  The default is off if this
   property is not present.
+- retain-state-suspended: (optional) Retain the LED status on suspending.
 
 Examples:
 
