@@ -865,10 +865,18 @@ first_try:
 		if (unlikely(ret < 0)) {
 			/* nop */
 		} else if (unlikely(wait_for_completion_interruptible(&done))) {
+			spin_lock_irq(&epfile->ffs->eps_lock);
+			if (ep->ep)
+				usb_ep_dequeue(ep->ep, req);
+			spin_unlock_irq(&epfile->ffs->eps_lock);
 			ret = -EINTR;
-			usb_ep_dequeue(ep->ep, req);
 		} else {
-			ret = ep->status;
+			spin_lock_irq(&epfile->ffs->eps_lock);
+			if (ep->ep)
+				ret = ep->status;
+			else
+				ret = -ENODEV;
+			spin_unlock_irq(&epfile->ffs->eps_lock);
 			if (read && ret > 0) {
 				if (ret > len)
 					ret = -EOVERFLOW;
