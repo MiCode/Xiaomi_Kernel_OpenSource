@@ -9,6 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/firmware.h>
@@ -2986,7 +2987,8 @@ static void wcd9xxx_onoff_ext_mclk(struct wcd9xxx_mbhc *mbhc, bool on)
 	 * therefore wcd9xxx_onoff_ext_mclk caller SHOULDN'T hold
 	 * WCD9XXX_BCL_LOCK when it calls wcd9xxx_onoff_ext_mclk()
 	 */
-	 mbhc->mbhc_cfg->mclk_cb_fn(mbhc->codec, on, false);
+	if (mbhc->mbhc_cfg->mclk_cb_fn)
+		mbhc->mbhc_cfg->mclk_cb_fn(mbhc->codec, on, false);
 }
 
 /*
