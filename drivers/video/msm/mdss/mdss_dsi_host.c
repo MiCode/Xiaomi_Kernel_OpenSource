@@ -1352,11 +1352,11 @@ static int dsi_event_thread(void *data)
 		}
 
 		if (todo & DSI_EV_MDP_BUSY_RELEASE) {
-			spin_lock(&ctrl->mdp_lock);
+			spin_lock_irqsave(&ctrl->mdp_lock, flag);
 			ctrl->mdp_busy = false;
 			mdss_dsi_disable_irq_nosync(ctrl, DSI_MDP_TERM);
 			complete(&ctrl->mdp_comp);
-			spin_unlock(&ctrl->mdp_lock);
+			spin_unlock_irqrestore(&ctrl->mdp_lock, flag);
 
 			/* enable dsi error interrupt */
 			mdss_dsi_err_intr_ctrl(ctrl, DSI_INTR_ERROR_MASK, 1);
