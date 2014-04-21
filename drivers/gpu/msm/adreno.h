@@ -43,6 +43,7 @@
 
 /* Adreno core features */
 #define ADRENO_USES_OCMEM BIT(0)
+#define IOMMU_FLUSH_TLB_ON_MAP BIT(1)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0
