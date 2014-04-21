@@ -21,3 +21,7 @@
 	compatible = "qcom,msm8926-mtp", "qcom,msm8926", "qcom,mtp";
 	qcom,board-id = <8 0>;
 };
+
+&sdc2_clk_on {
+	drive-strength = <16>; /* 16 MA */
+};
