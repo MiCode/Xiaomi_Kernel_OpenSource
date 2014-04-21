@@ -518,6 +518,7 @@ void *adreno_snapshot(struct kgsl_device *device, void *snapshot, int *remain,
 	int i;
 	uint32_t ibbase, ibsize;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	phys_addr_t ptbase;
 
 	/* Reset the list of objects */
@@ -588,9 +589,8 @@ void *adreno_snapshot(struct kgsl_device *device, void *snapshot, int *remain,
 		snapshot = dump_object(device, i, snapshot, remain);
 
 	/* Add GPU specific sections - registers mainly, but other stuff too */
-	if (adreno_dev->gpudev->snapshot)
-		snapshot = adreno_dev->gpudev->snapshot(adreno_dev, snapshot,
-			remain, hang);
+	if (gpudev->snapshot)
+		snapshot = gpudev->snapshot(adreno_dev, snapshot, remain, hang);
 
 	if (snapshot_frozen_objsize)
 		KGSL_DRV_ERR(device, "GPU snapshot froze %dKb of GPU buffers\n",

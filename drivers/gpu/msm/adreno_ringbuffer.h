@@ -94,9 +94,9 @@ unsigned int *adreno_ringbuffer_allocspace(struct adreno_ringbuffer *rb,
 						struct adreno_context *context,
 						unsigned int numcmds);
 
-int adreno_ringbuffer_read_pfp_ucode(struct kgsl_device *device);
+void adreno_ringbuffer_read_pfp_ucode(struct kgsl_device *device);
 
-int adreno_ringbuffer_read_pm4_ucode(struct kgsl_device *device);
+void adreno_ringbuffer_read_pm4_ucode(struct kgsl_device *device);
 
 static inline int adreno_ringbuffer_count(struct adreno_ringbuffer *rb,
 	unsigned int rptr)
