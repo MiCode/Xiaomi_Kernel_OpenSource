@@ -68,10 +68,9 @@ void adreno_profile_close(struct kgsl_device *device);
 int adreno_profile_process_results(struct kgsl_device *device);
 void adreno_profile_preib_processing(struct kgsl_device *device,
 		struct adreno_context *drawctxt, unsigned int *cmd_flags,
-		unsigned int **rbptr, unsigned int *cmds_gpu);
+		unsigned int **rbptr);
 void adreno_profile_postib_processing(struct kgsl_device *device,
-		unsigned int *cmd_flags, unsigned int **rbptr,
-		unsigned int *cmds_gpu);
+		unsigned int *cmd_flags, unsigned int **rbptr);
 #else
 static inline void adreno_profile_init(struct kgsl_device *device) { }
 static inline void adreno_profile_close(struct kgsl_device *device) { }
