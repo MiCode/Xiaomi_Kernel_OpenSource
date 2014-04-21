@@ -725,8 +725,8 @@
 			qcom,smd-edge = <0>;
 			qcom,smd-irq-offset = <0x0>;
 			qcom,smd-irq-bitmask = <0x1000>;
-			qcom,pil-string = "modem";
 			interrupts = <0 25 1>;
+			label = "modem";
 		};
 
 		qcom,smsm-modem {
@@ -742,8 +742,8 @@
 			qcom,smd-edge = <6>;
 			qcom,smd-irq-offset = <0x0>;
 			qcom,smd-irq-bitmask = <0x20000>;
-			qcom,pil-string = "wcnss";
 			interrupts = <0 142 1>;
+			label = "wcnss";
 		};
 
 		qcom,smsm-wcnss {
@@ -760,7 +760,9 @@
 			qcom,smd-irq-offset = <0x0>;
 			qcom,smd-irq-bitmask = <0x1>;
 			interrupts = <0 168 1>;
+			label = "rpm";
 			qcom,irq-no-suspend;
+			qcom,not-loadable;
 		};
 	};
 
