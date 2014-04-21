@@ -22,4 +22,6 @@
 	qcom,board-id = <8 0>;
 };
 
-
+&sdc2_clk_on {
+	drive-strength = <12>; /* 12 MA */
+};
