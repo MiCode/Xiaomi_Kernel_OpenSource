@@ -20,6 +20,8 @@
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/rpm-smd-regulator.h>
+#include <linux/platform_device.h>
+#include <linux/module.h>
 #include <linux/iopoll.h>
 #include <linux/clk/msm-clk.h>
 #include <soc/qcom/clock-alpha-pll.h>
@@ -28,14 +30,8 @@
 #include <soc/qcom/clock-rpm.h>
 #include <soc/qcom/clock-voter.h>
 
-#include <soc/qcom/socinfo.h>
-
-#include "clock.h"
-
 enum {
 	GCC_BASE,
-	LPASS_BASE,
-	APCS_GLB_BASE,
 	APCS_GCC_BASE,
 	APCS_ACC_BASE,
 	N_BASES,
@@ -2197,7 +2193,7 @@ static struct clk_lookup msm_clocks_9630[] = {
 	CLK_LOOKUP("", qpic_a_clk.c, ""),
 };
 
-static void __init reg_init(void)
+static void reg_init(void)
 {
 	u32 regval;
 
@@ -2211,7 +2207,7 @@ static void __init reg_init(void)
 	writel_relaxed(regval, GCC_REG_BASE(APCS_CLOCK_BRANCH_ENA_VOTE));
 }
 
-static void __init mdm9630_clock_post_init(void)
+static void mdm9630_clock_post_init(void)
 {
 	/*
 	 * Hold an active set vote for CXO; this is because CXO is expected
@@ -2226,59 +2222,117 @@ static void __init mdm9630_clock_post_init(void)
 	clk_prepare_enable(&pnoc_keepalive_a_clk.c);
 }
 
-#define GCC_CC_PHYS		0xFC400000
-#define GCC_CC_SIZE		SZ_8K
-
-#define LPASS_CC_PHYS		0xFE000000
-#define LPASS_CC_SIZE		SZ_256K
-
-#define APCS_GLB_PHYS		0xF9010000
-#define APCS_GLB_SIZE		0x38
-
-#define APCS_GCC_PHYS		0xF9011000
-#define APCS_GCC_SIZE		0x1C
-
-#define APCS_ACC_PHYS		0xF9008018
-#define APCS_ACC_SIZE		0x28
-
-static void __init mdm9630_clock_pre_init(void)
+static int mdm9630_clock_pre_init(void)
 {
-	virt_bases[GCC_BASE] = ioremap(GCC_CC_PHYS, GCC_CC_SIZE);
-	if (!virt_bases[GCC_BASE])
-		panic("clock-9630: Unable to ioremap GCC memory!");
-
-	virt_bases[LPASS_BASE] = ioremap(LPASS_CC_PHYS, LPASS_CC_SIZE);
-	if (!virt_bases[LPASS_BASE])
-		panic("clock-8226: Unable to ioremap LPASS_CC memory!");
-
-	virt_bases[APCS_GLB_BASE] = ioremap(APCS_GLB_PHYS, APCS_GLB_SIZE);
-	if (!virt_bases[APCS_GLB_BASE])
-		panic("clock-9630: Unable to ioremap APCS_GLB memory!");
-
-	virt_bases[APCS_GCC_BASE] = ioremap(APCS_GCC_PHYS, APCS_GCC_SIZE);
-	if (!virt_bases[APCS_GCC_BASE])
-		panic("clock-9630: Unable to ioremap APCS_GCC memory!");
-
-	virt_bases[APCS_ACC_BASE] = ioremap(APCS_ACC_PHYS, APCS_ACC_SIZE);
-	if (!virt_bases[APCS_ACC_BASE])
-		panic("clock-9630: Unable to ioremap APCS_PLL memory!");
-
-	vdd_dig.regulator[0] = regulator_get(NULL, "vdd_dig");
-	if (IS_ERR(vdd_dig.regulator[0]))
-		panic("clock-9630: Unable to get the vdd_dig regulator!");
-
-	vdd_dig_ao.regulator[0] = regulator_get(NULL, "vdd_dig_ao");
-	if (IS_ERR(vdd_dig_ao.regulator[0]))
-		panic("clock-9630: Unable to get the vdd_dig_ao regulator!");
-
-	enable_rpm_scaling();
+	int rc;
+	rc = enable_rpm_scaling();
+	if (rc)
+		return rc;
 
 	reg_init();
+	return 0;
 }
 
-struct clock_init_data mdm9630_clock_init_data __initdata = {
-	.table = msm_clocks_9630,
-	.size = ARRAY_SIZE(msm_clocks_9630),
-	.pre_init = mdm9630_clock_pre_init,
-	.post_init = mdm9630_clock_post_init,
+/* Please note that the order of reg-names is important */
+static int get_memory(struct platform_device *pdev)
+{
+	int i, count;
+	const char *str;
+	struct resource *res;
+	struct device *dev = &pdev->dev;
+
+	count = of_property_count_strings(dev->of_node, "reg-names");
+	if (count != N_BASES) {
+		dev_err(dev, "missing reg-names property, expected %d strings\n",
+				N_BASES);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < count; i++) {
+		of_property_read_string_index(dev->of_node, "reg-names", i,
+						&str);
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, str);
+		if (!res) {
+			dev_err(dev, "Unable to retrieve register base.\n");
+			return -ENOMEM;
+		}
+
+		virt_bases[i] = devm_ioremap(dev, res->start,
+							resource_size(res));
+		if (!virt_bases[i]) {
+			dev_err(dev, "Failed to map in CC registers.\n");
+			return -ENOMEM;
+		}
+	}
+
+	return 0;
+}
+
+static int get_regulators(struct device *dev)
+{
+	struct regulator *r;
+
+	r = vdd_dig.regulator[0] = devm_regulator_get(dev, "vdd_dig");
+	if (IS_ERR(r)) {
+		if (PTR_ERR(r) != -EPROBE_DEFER)
+			dev_err(dev, "Unable to get the vdd_dig regulator!");
+		return PTR_ERR(r);
+	}
+
+	r = vdd_dig_ao.regulator[0] = devm_regulator_get(dev, "vdd_dig_ao");
+	if (IS_ERR(r)) {
+		if (PTR_ERR(r) != -EPROBE_DEFER)
+			dev_err(dev, "Unable to get the vdd_dig_ao regulator!");
+		return PTR_ERR(r);
+	}
+	return 0;
+}
+
+static int gcc_probe(struct platform_device *pdev)
+{
+	int rc;
+	struct device *dev = &pdev->dev;
+
+	rc = get_regulators(dev);
+	if (rc)
+		return rc;
+
+	rc = get_memory(pdev);
+	if (rc)
+		return rc;
+
+	rc = mdm9630_clock_pre_init();
+	if (rc)
+		return rc;
+
+	rc =  msm_clock_register(msm_clocks_9630, ARRAY_SIZE(msm_clocks_9630));
+	if (rc)
+		return rc;
+
+	mdm9630_clock_post_init();
+	return 0;
+}
+
+static struct of_device_id gcc_match_table[] = {
+	{ .compatible = "qcom,gcc-9630" },
+	{}
 };
+
+static struct platform_driver gcc_driver = {
+	.probe = gcc_probe,
+	.driver = {
+		.name = "qcom,gcc-9630",
+		.of_match_table = gcc_match_table,
+		.owner = THIS_MODULE,
+	},
+};
+
+static bool initialized;
+int __init msm_gcc_9630_init(void)
+{
+	if (initialized)
+		return true;
+	initialized  = true;
+	return platform_driver_register(&gcc_driver);
+}
+arch_initcall(msm_gcc_9630_init);

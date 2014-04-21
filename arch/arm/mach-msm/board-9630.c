@@ -51,7 +51,6 @@ void __init mdm9630_add_drivers(void)
 	msm_rpm_driver_init();
 	rpm_smd_regulator_driver_init();
 	msm_spm_device_init();
-	msm_clock_init(&mdm9630_clock_init_data);
 }
 
 void __init mdm9630_reserve(void)
