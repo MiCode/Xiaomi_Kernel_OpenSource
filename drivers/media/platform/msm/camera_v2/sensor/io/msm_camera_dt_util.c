@@ -828,7 +828,8 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 		gconf->gpio_num_info->valid[SENSOR_GPIO_AF_PWDM] = 1;
 		CDBG("%s qcom,gpio-af-pwdm %d\n", __func__,
 			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_AF_PWDM]);
-	}
+	} else
+		rc = 0;
 
 	if (of_property_read_bool(of_node, "qcom,gpio-flash-en") == true) {
 		rc = of_property_read_u32(of_node, "qcom,gpio-flash-en", &val);
