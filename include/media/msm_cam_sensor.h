@@ -480,8 +480,8 @@ enum msm_actuator_cfg_type_t {
 	CFG_GET_ACTUATOR_INFO,
 	CFG_SET_ACTUATOR_INFO,
 	CFG_SET_DEFAULT_FOCUS,
-	CFG_SET_POSITION,
 	CFG_MOVE_FOCUS,
+	CFG_SET_POSITION,
 };
 
 enum actuator_type {
