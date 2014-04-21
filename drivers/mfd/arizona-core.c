@@ -620,26 +620,22 @@ int arizona_of_get_type(struct device *dev)
 }
 EXPORT_SYMBOL_GPL(arizona_of_get_type);
 
-int arizona_of_get_named_gpio(struct arizona *arizona,
-			      const char *prop, bool mandatory,
-			      int *gpio)
+int arizona_of_get_named_gpio(struct arizona *arizona, const char *prop,
+			      bool mandatory)
 {
-	int ret;
+	int gpio;
 
-	ret = of_get_named_gpio(arizona->dev->of_node, prop, 0);
-	*gpio = ret;
+	gpio = of_get_named_gpio(arizona->dev->of_node, prop, 0);
 
-	if (ret >= 0)
-		return ret;
+	if (gpio < 0) {
+		if (mandatory)
+			dev_err(arizona->dev,
+				"Mandatory DT gpio %s missing/malformed: %d\n",
+				prop, gpio);
+		gpio = 0;
+	}
 
-	*gpio = 0;
-
-	if (mandatory)
-		dev_err(arizona->dev,
-			"Mandatory DT gpio %s missing/malformed: %d\n",
-			prop, ret);
-
-	return ret;
+	return gpio;
 }
 EXPORT_SYMBOL_GPL(arizona_of_get_named_gpio);
 
@@ -846,7 +842,7 @@ static int arizona_of_get_core_pdata(struct arizona *arizona)
 {
 	struct arizona_pdata *pdata = &arizona->pdata;
 
-	arizona_of_get_named_gpio(arizona, "wlf,reset", true, &pdata->reset);
+	pdata->reset = arizona_of_get_named_gpio(arizona, "wlf,reset", true);
 
 	arizona_of_get_micd_ranges(arizona, "wlf,micd-ranges");
 	arizona_of_get_micd_configs(arizona, "wlf,micd-configs");

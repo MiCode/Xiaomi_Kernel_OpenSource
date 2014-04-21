@@ -1348,8 +1348,9 @@ static int arizona_extcon_get_pdata(struct arizona *arizona)
 	arizona_of_read_u32(arizona, "wlf,micd-detect-debounce", false,
 			    &pdata->micd_detect_debounce);
 
-	arizona_of_get_named_gpio(arizona, "wlf,micd-pol-gpio", false,
-				  &pdata->micd_pol_gpio);
+	pdata->micd_pol_gpio = arizona_of_get_named_gpio(arizona,
+							 "wlf,micd-pol-gpio",
+							 false);
 
 	arizona_of_read_u32(arizona, "wlf,micd-bias-start-time", false,
 			    &pdata->micd_bias_start_time);

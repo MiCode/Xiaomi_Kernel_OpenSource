@@ -130,7 +130,7 @@ int florida_patch(struct arizona *arizona);
 int wm8997_patch(struct arizona *arizona);
 
 extern int arizona_of_get_named_gpio(struct arizona *arizona, const char *prop,
-				     bool mandatory, int *gpio);
+				     bool mandatory);
 extern int arizona_of_read_u32_array(struct arizona *arizona, const char *prop,
 				     bool mandatory, u32 *data, size_t num);
 extern int arizona_of_read_u32(struct arizona *arizona, const char* prop,
