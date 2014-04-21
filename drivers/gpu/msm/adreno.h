@@ -226,7 +226,7 @@ struct adreno_gpu_core {
 struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
 	unsigned long priv;
-	unsigned int chip_id;
+	unsigned int chipid;
 	unsigned long gmem_base;
 	unsigned long gmem_size;
 	const struct adreno_gpu_core *gpucore;
@@ -781,13 +781,13 @@ static inline int adreno_is_a330(struct adreno_device *adreno_dev)
 static inline int adreno_is_a330v2(struct adreno_device *adreno_dev)
 {
 	return ((ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A330) &&
-		(ADRENO_CHIPID_PATCH(adreno_dev->chip_id) > 0));
+		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) > 0));
 }
 
 static inline int adreno_is_a330v21(struct adreno_device *adreno_dev)
 {
 	return ((ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A330) &&
-		(ADRENO_CHIPID_PATCH(adreno_dev->chip_id) > 0xF));
+		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) > 0xF));
 }
 
 static inline int adreno_is_a4xx(struct adreno_device *adreno_dev)
