@@ -420,6 +420,7 @@ struct intel_crtc {
 	bool primary_alpha;
 	bool sprite0_alpha;
 	bool sprite1_alpha;
+	uint32_t last_pixel_size;
 
 	/* reset counter value when the last flip was submitted */
 	unsigned int reset_counter;

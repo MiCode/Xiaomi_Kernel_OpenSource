@@ -1545,6 +1545,7 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 			/* Enable for non-VLV if required */
 			if (IS_VALLEYVIEW(dev)) {
 				intel_crtc->primary_enabled = false;
+				intel_crtc->last_pixel_size = 0;
 				intel_pre_disable_primary(crtc);
 			}
 		}

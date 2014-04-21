@@ -2633,7 +2633,9 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	intel_fb = to_intel_framebuffer(fb);
 	obj = intel_fb->obj;
 
-	intel_update_watermarks(crtc);
+	if (intel_crtc->last_pixel_size < pixel_size)
+		intel_update_watermarks(crtc);
+
 
 #ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
 	if (IS_VALLEYVIEW(dev) && intel_pipe_has_type(crtc,
@@ -3059,7 +3061,6 @@ intel_pipe_set_base_atomic(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 	intel_increase_pllclock(crtc);
 
 	dev_priv->display.update_primary_plane(crtc, fb, x, y);
-
 	return 0;
 }
 
@@ -12209,6 +12210,7 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	intel_crtc->primary_alpha = true;
 	intel_crtc->sprite0_alpha = true;
 	intel_crtc->sprite1_alpha = true;
+	intel_crtc->last_pixel_size = 0;
 	intel_crtc->rotate180 = false;
 	/* Flag for wake from sleep */
 	dev_priv->is_resuming = false;
