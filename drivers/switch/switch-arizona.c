@@ -278,6 +278,96 @@ static void arizona_extcon_pulse_micbias(struct arizona_extcon_info *info)
 	}
 }
 
+static int arizona_micd_read(struct arizona_extcon_info *info)
+{
+	struct arizona *arizona = info->arizona;
+	unsigned int val = 0;
+	int ret, i;
+
+	if (info->detecting && arizona->pdata.micd_software_compare) {
+		bool micd_ena;
+		unsigned int micd_ena_bit;
+
+		/* Must disable MICD before we read the ADCVAL */
+		ret = regmap_update_bits_check(arizona->regmap,
+					       ARIZONA_MIC_DETECT_1,
+					       ARIZONA_MICD_ENA, 0,
+					       &micd_ena);
+		if (ret != 0) {
+			dev_err(arizona->dev,
+				"Failed to disable MICD: %d\n",
+				ret);
+			return ret;
+		}
+
+		ret = regmap_read(arizona->regmap, ARIZONA_MIC_DETECT_4, &val);
+		if (ret != 0) {
+			dev_err(arizona->dev,
+				"Failed to read MICDET_ADCVAL: %d\n",
+				ret);
+			return ret;
+		}
+
+		dev_dbg(arizona->dev, "MICDET_ADCVAL: 0x%x\n", val);
+
+		val &= ARIZONA_MICDET_ADCVAL_MASK;
+		if (val < ARRAY_SIZE(arizona_micd_levels))
+			val = arizona_micd_levels[val];
+		else
+			val = INT_MAX;
+
+		if (val <= QUICK_HEADPHONE_MAX_OHM)
+			val = ARIZONA_MICD_STS | ARIZONA_MICD_LVL_0;
+		else if (val <= MICROPHONE_MIN_OHM)
+			val = ARIZONA_MICD_STS | ARIZONA_MICD_LVL_1;
+		else if (val <= MICROPHONE_MAX_OHM)
+			val = ARIZONA_MICD_STS | ARIZONA_MICD_LVL_8;
+		else
+			val = ARIZONA_MICD_LVL_8;
+
+		if (micd_ena)
+			micd_ena_bit = ARIZONA_MICD_ENA;
+		else
+			micd_ena_bit = 0;
+
+		ret = regmap_update_bits(arizona->regmap, ARIZONA_MIC_DETECT_1,
+					 ARIZONA_MICD_ENA, micd_ena_bit);
+		if (ret != 0) {
+			dev_err(arizona->dev,
+				"Failed to restore MICD: %d\n",
+				ret);
+			return ret;
+		}
+
+		return val;
+	}
+
+	for (i = 0; i < 10 && !(val & MICD_LVL_0_TO_8); i++) {
+		ret = regmap_read(arizona->regmap, ARIZONA_MIC_DETECT_3, &val);
+		if (ret != 0) {
+			dev_err(arizona->dev,
+				"Failed to read MICDET: %d\n",
+				ret);
+			return ret;
+		}
+
+		dev_dbg(arizona->dev, "MICDET: 0x%x\n", val);
+
+		if (!(val & ARIZONA_MICD_VALID)) {
+			dev_warn(arizona->dev,
+				 "Microphone detection state invalid\n");
+			return -EINVAL;
+		}
+	}
+
+	if (i == 10 && !(val & MICD_LVL_0_TO_8)) {
+		dev_err(arizona->dev, "Failed to get valid MICDET value\n");
+		return -EINVAL;
+	}
+
+	return val;
+}
+
 static void arizona_start_mic(struct arizona_extcon_info *info)
 {
 	struct arizona *arizona = info->arizona;
@@ -951,59 +1041,11 @@ static void arizona_micd_detect(struct work_struct *work)
 		return;
 	}
 
-	if (info->detecting && arizona->pdata.micd_software_compare) {
-		/* Must disable MICD before we read the ADCVAL */
-		regmap_update_bits(arizona->regmap, ARIZONA_MIC_DETECT_1,
-				   ARIZONA_MICD_ENA, 0);
-		ret = regmap_read(arizona->regmap, ARIZONA_MIC_DETECT_4, &val);
-		if (ret != 0) {
-			dev_err(arizona->dev,
-				"Failed to read MICDET_ADCVAL: %d\n",
-				ret);
-			mutex_unlock(&info->lock);
-			return;
-		}
+	ret = arizona_micd_read(info);
+	if (ret < 0)
+		goto handled;
 
-		dev_dbg(arizona->dev, "MICDET_ADCVAL: %x\n", val);
-
-		val &= ARIZONA_MICDET_ADCVAL_MASK;
-		if (val < ARRAY_SIZE(arizona_micd_levels))
-			val = arizona_micd_levels[val];
-		else
-			val = INT_MAX;
-
-		if (val <= QUICK_HEADPHONE_MAX_OHM)
-			val = ARIZONA_MICD_STS | ARIZONA_MICD_LVL_0;
-		else if (val <= MICROPHONE_MIN_OHM)
-			val = ARIZONA_MICD_STS | ARIZONA_MICD_LVL_1;
-		else if (val <= MICROPHONE_MAX_OHM)
-			val = ARIZONA_MICD_STS | ARIZONA_MICD_LVL_8;
-		else
-			val = ARIZONA_MICD_LVL_8;
-	}
-
-	for (i = 0; i < 10 && !(val & MICD_LVL_0_TO_8); i++) {
-		ret = regmap_read(arizona->regmap, ARIZONA_MIC_DETECT_3, &val);
-		if (ret != 0) {
-			dev_err(arizona->dev, "Failed to read MICDET: %d\n", ret);
-			mutex_unlock(&info->lock);
-			return;
-		}
-
-		dev_dbg(arizona->dev, "MICDET: %x\n", val);
-
-		if (!(val & ARIZONA_MICD_VALID)) {
-			dev_warn(arizona->dev, "Microphone detection state invalid\n");
-			mutex_unlock(&info->lock);
-			return;
-		}
-	}
-
-	if (i == 10 && !(val & MICD_LVL_0_TO_8)) {
-		dev_err(arizona->dev, "Failed to get valid MICDET value\n");
-		mutex_unlock(&info->lock);
-		return;
-	}
+	val = ret;
 
 	/* Due to jack detect this should never happen */
 	if (!(val & ARIZONA_MICD_STS)) {
@@ -1112,12 +1154,6 @@ static void arizona_micd_detect(struct work_struct *work)
 
 handled:
 	if (info->detecting) {
-		if (arizona->pdata.micd_software_compare)
-			regmap_update_bits(arizona->regmap,
-					   ARIZONA_MIC_DETECT_1,
-					   ARIZONA_MICD_ENA,
-					   ARIZONA_MICD_ENA);
-
 		schedule_delayed_work(&info->micd_timeout_work,
 				      msecs_to_jiffies(info->micd_timeout));
 	}
