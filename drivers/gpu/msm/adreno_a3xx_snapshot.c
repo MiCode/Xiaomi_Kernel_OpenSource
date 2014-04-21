@@ -50,6 +50,7 @@ static int a3xx_snapshot_shader_memory(struct kgsl_device *device,
 	void *snapshot, int remain, void *priv)
 {
 	struct kgsl_snapshot_debug *header = snapshot;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int i;
 	unsigned int *data = snapshot + sizeof(*header);
 	unsigned int shader_read_len = SHADER_MEMORY_SIZE;
@@ -78,9 +79,15 @@ static int a3xx_snapshot_shader_memory(struct kgsl_device *device,
 	}
 
 	/* Now, dump shader memory to snapshot */
-	for (i = 0; i < shader_read_len; i++)
-		adreno_shadermem_regread(device, i, &data[i]);
 
+	/* Skip shader memory dump for a306 */
+	if (adreno_is_a306(adreno_dev)) {
+		KGSL_DRV_ERR(device,
+		"Skipping shader memory dump for a306\n");
+	} else {
+		for (i = 0; i < shader_read_len; i++)
+			adreno_shadermem_regread(device, i, &data[i]);
+	}
 
 	return DEBUG_SECTION_SZ(shader_read_len);
 }
