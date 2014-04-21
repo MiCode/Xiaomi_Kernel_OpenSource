@@ -935,7 +935,7 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 
 	kgsl_process_private_put(private);
 
-	pm_runtime_put(device->parentdev);
+	pm_runtime_put(&device->pdev->dev);
 	return result;
 }
 
@@ -990,7 +990,7 @@ static int kgsl_open(struct inode *inodep, struct file *filep)
 		return -EBUSY;
 	}
 
-	result = pm_runtime_get_sync(device->parentdev);
+	result = pm_runtime_get_sync(&device->pdev->dev);
 	if (result < 0) {
 		KGSL_DRV_ERR(device,
 			"Runtime PM: Unable to wake up the device, rc = %d\n",
@@ -1044,7 +1044,7 @@ err_freedevpriv:
 	filep->private_data = NULL;
 	kfree(dev_priv);
 err_pmruntime:
-	pm_runtime_put(device->parentdev);
+	pm_runtime_put(&device->pdev->dev);
 	return result;
 }
 
@@ -4113,7 +4113,7 @@ static int _register_device(struct kgsl_device *device)
 	/* Create the device */
 	dev = MKDEV(MAJOR(kgsl_driver.major), minor);
 	device->dev = device_create(kgsl_driver.class,
-				    device->parentdev,
+				    &device->pdev->dev,
 				    dev, device,
 				    device->name);
 
@@ -4126,7 +4126,7 @@ static int _register_device(struct kgsl_device *device)
 		return ret;
 	}
 
-	dev_set_drvdata(device->parentdev, device);
+	dev_set_drvdata(&device->pdev->dev, device);
 	return 0;
 }
 
@@ -4135,8 +4135,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	int result;
 	int status = -EINVAL;
 	struct resource *res;
-	struct platform_device *pdev =
-		container_of(device->parentdev, struct platform_device, dev);
 
 	status = _register_device(device);
 	if (status)
@@ -4150,7 +4148,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 		goto error;
 
 	/* Get starting physical address of device registers */
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+	res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
 					   device->iomemname);
 	if (res == NULL) {
 		KGSL_DRV_ERR(device, "platform_get_resource_byname failed\n");
@@ -4173,7 +4171,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	 * and shader memory length
 	 */
 	if (device->shadermemname != NULL) {
-		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+		res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
 						device->shadermemname);
 
 		if (res == NULL) {
@@ -4211,7 +4209,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	}
 	/*acquire interrupt */
 	device->pwrctrl.interrupt_num =
-		platform_get_irq_byname(pdev, device->pwrctrl.irq_name);
+		platform_get_irq_byname(device->pdev, device->pwrctrl.irq_name);
 
 	if (device->pwrctrl.interrupt_num <= 0) {
 		KGSL_DRV_ERR(device, "platform_get_irq_byname failed: %d\n",
@@ -4237,7 +4235,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 	rwlock_init(&device->context_lock);
 
-	result = kgsl_drm_init(pdev);
+	result = kgsl_drm_init(device->pdev);
 	if (result)
 		goto error_pwrctrl_close;
 
@@ -4254,7 +4252,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	}
 
 	/* Check to see if our device can perform DMA correctly */
-	status = dma_set_coherent_mask(&pdev->dev, KGSL_DMA_BIT_MASK);
+	status = dma_set_coherent_mask(&device->pdev->dev, KGSL_DMA_BIT_MASK);
 	if (status)
 		goto error_close_mmu;
 

@@ -733,7 +733,7 @@ kgsl_sharedmem_alloc_coherent(struct kgsl_device *device,
 
 	memdesc->size = size;
 	memdesc->ops = &kgsl_coherent_ops;
-	memdesc->dev = device->parentdev;
+	memdesc->dev = &device->pdev->dev;
 
 	memdesc->hostptr = dma_alloc_coherent(memdesc->dev, size,
 					&memdesc->physaddr, GFP_KERNEL);

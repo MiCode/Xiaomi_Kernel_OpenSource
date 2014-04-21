@@ -1132,26 +1132,24 @@ static unsigned int kgsl_iommu_sync_unlock(struct kgsl_mmu *mmu,
  */
 static int kgsl_get_iommu_ctxt(struct kgsl_mmu *mmu)
 {
-	struct platform_device *pdev =
-		container_of(mmu->device->parentdev, struct platform_device,
-				dev);
-	struct kgsl_device_platform_data *pdata_dev = pdev->dev.platform_data;
+	struct kgsl_device_platform_data *pdata =
+		dev_get_platdata(&mmu->device->pdev->dev);
 	struct kgsl_iommu *iommu = mmu->device->mmu.priv;
 	int i, ret = 0;
 
 	/* Go through the IOMMU data and get all the context devices */
-	if (KGSL_IOMMU_MAX_UNITS < pdata_dev->iommu_count) {
+	if (KGSL_IOMMU_MAX_UNITS < pdata->iommu_count) {
 		KGSL_CORE_ERR("Too many IOMMU units defined\n");
 		ret = -EINVAL;
 		goto  done;
 	}
 
-	for (i = 0; i < pdata_dev->iommu_count; i++) {
-		ret = _get_iommu_ctxs(mmu, &pdata_dev->iommu_data[i], i);
+	for (i = 0; i < pdata->iommu_count; i++) {
+		ret = _get_iommu_ctxs(mmu, &pdata->iommu_data[i], i);
 		if (ret)
 			break;
 	}
-	iommu->unit_count = pdata_dev->iommu_count;
+	iommu->unit_count = pdata->iommu_count;
 done:
 	return ret;
 }
@@ -1165,16 +1163,14 @@ done:
  */
 static int kgsl_set_register_map(struct kgsl_mmu *mmu)
 {
-	struct platform_device *pdev =
-		container_of(mmu->device->parentdev, struct platform_device,
-				dev);
-	struct kgsl_device_platform_data *pdata_dev = pdev->dev.platform_data;
+	struct kgsl_device_platform_data *pdata =
+		dev_get_platdata(&mmu->device->pdev->dev);
 	struct kgsl_iommu *iommu = mmu->device->mmu.priv;
 	struct kgsl_iommu_unit *iommu_unit;
 	int i = 0, ret = 0;
 
-	for (; i < pdata_dev->iommu_count; i++) {
-		struct kgsl_device_iommu_data data = pdata_dev->iommu_data[i];
+	for (; i < pdata->iommu_count; i++) {
+		struct kgsl_device_iommu_data data = pdata->iommu_data[i];
 		iommu_unit = &iommu->iommu_units[i];
 		/* set up the IOMMU register map for the given IOMMU unit */
 		if (!data.physstart || !data.physend) {
@@ -1212,7 +1208,7 @@ static int kgsl_set_register_map(struct kgsl_mmu *mmu)
 			iommu_unit->ahb_base =
 				data.physstart - mmu->device->reg_phys;
 	}
-	iommu->unit_count = pdata_dev->iommu_count;
+	iommu->unit_count = pdata->iommu_count;
 	return ret;
 err:
 	/* Unmap any mapped IOMMU regions */
@@ -1327,8 +1323,7 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	 */
 	int status = 0;
 	struct kgsl_iommu *iommu;
-	struct platform_device *pdev = container_of(mmu->device->parentdev,
-						struct platform_device, dev);
+	struct platform_device *pdev = mmu->device->pdev;
 
 	atomic_set(&mmu->fault, 0);
 	iommu = kzalloc(sizeof(struct kgsl_iommu), GFP_KERNEL);
