@@ -815,9 +815,9 @@ kgsl_sharedmem_writel(struct kgsl_device *device,
 	WARN_ON(offsetbytes + sizeof(uint32_t) > memdesc->size);
 	if (offsetbytes + sizeof(uint32_t) > memdesc->size)
 		return -ERANGE;
-	kgsl_cffdump_setmem(device,
+	kgsl_cffdump_write(device,
 		memdesc->gpuaddr + offsetbytes,
-		src, sizeof(uint32_t));
+		src);
 	dst = (uint32_t *)(memdesc->hostptr + offsetbytes);
 	*dst = src;
 
@@ -835,7 +835,7 @@ kgsl_sharedmem_set(struct kgsl_device *device,
 	BUG_ON(memdesc == NULL || memdesc->hostptr == NULL);
 	BUG_ON(offsetbytes + sizebytes > memdesc->size);
 
-	kgsl_cffdump_setmem(device,
+	kgsl_cffdump_memset(device,
 		memdesc->gpuaddr + offsetbytes, value,
 		sizebytes);
 	memset(memdesc->hostptr + offsetbytes, value, sizebytes);

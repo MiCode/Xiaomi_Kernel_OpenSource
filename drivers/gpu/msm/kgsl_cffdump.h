@@ -29,11 +29,13 @@ void kgsl_cffdump_init(void);
 void kgsl_cffdump_destroy(void);
 void kgsl_cffdump_open(struct kgsl_device *device);
 void kgsl_cffdump_close(struct kgsl_device *device);
+void kgsl_cffdump_memcpy(struct kgsl_device *device, unsigned int gpuaddr,
+		unsigned int *ptr, size_t sizebytes);
 void kgsl_cffdump_syncmem(struct kgsl_device *,
 	struct kgsl_memdesc *memdesc, uint physaddr, size_t sizebytes,
 	bool clean_cache);
-void kgsl_cffdump_setmem(struct kgsl_device *device, uint addr,
-			uint value, uint sizebytes);
+void kgsl_cffdump_memset(struct kgsl_device *device, uint addr,
+			unsigned char value, size_t sizebytes);
 void kgsl_cffdump_regwrite(struct kgsl_device *device, uint addr,
 	uint value);
 void kgsl_cffdump_regpoll(struct kgsl_device *device, uint addr,
@@ -55,6 +57,18 @@ int kgsl_cff_dump_enable_get(void *data, u64 *val);
 int kgsl_cffdump_capture_ib_desc(struct kgsl_device *device,
 				struct kgsl_context *context,
 				struct kgsl_cmdbatch *cmdbatch);
+
+void kgsl_cffdump_printline(int id, uint opcode, uint op1, uint op2,
+	uint op3, uint op4, uint op5);
+
+static inline void kgsl_cffdump_write(struct kgsl_device *device,
+		unsigned int gpuaddr, unsigned int value)
+{
+	if (!device || !device->cff_dump_enable)
+		return;
+
+	kgsl_cffdump_printline(-1, CFF_OP_WRITE_MEM, gpuaddr, value, 0, 0, 0);
+}
 
 #else
 
@@ -78,6 +92,18 @@ static inline void kgsl_cffdump_close(struct kgsl_device *device)
 	return;
 }
 
+static inline void kgsl_cffdump_write(struct kgsl_device *device,
+		unsigned int gpuaddr, unsigned int value)
+{
+	return;
+}
+
+static inline void kgsl_cffdump_memcpy(struct kgsl_device *device,
+		unsigned int gupaddr, unsigned int *ptr, size_t sizebytes)
+{
+	return;
+}
+
 static inline void kgsl_cffdump_syncmem(struct kgsl_device *device,
 		struct kgsl_memdesc *memdesc, uint physaddr, size_t sizebytes,
 		bool clean_cache)
@@ -85,8 +111,8 @@ static inline void kgsl_cffdump_syncmem(struct kgsl_device *device,
 	return;
 }
 
-static inline void kgsl_cffdump_setmem(struct kgsl_device *device, uint addr,
-		uint value, uint sizebytes)
+static inline void kgsl_cffdump_memset(struct kgsl_device *device, uint addr,
+		unsigned char ch, size_t sizebytes)
 {
 	return;
 }
