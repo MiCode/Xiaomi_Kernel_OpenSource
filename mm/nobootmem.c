@@ -65,7 +65,7 @@ static void * __init __alloc_memory_core_early(int nid, u64 size, u64 align,
  * down, but we are still initializing the system.  Pages are given directly
  * to the page allocator, no bootmem metadata is updated because it is gone.
  */
-void __init free_bootmem_late(unsigned long addr, unsigned long size)
+void free_bootmem_late(unsigned long addr, unsigned long size)
 {
 	unsigned long cursor, end;
 
