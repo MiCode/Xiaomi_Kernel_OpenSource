@@ -26,7 +26,7 @@
 			reg = <0x70>;
 			interrupt-parent = <&msm_gpio>;
 			interrupts = <13 0x2008>;
-			vdd-supply = <&pm8916_l17>;
+			vdd-supply = <&vdd_vreg>;
 			vcc_i2c-supply = <&pm8916_l16>;
 			/* pins used by touchscreen */
 			pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
@@ -40,6 +40,12 @@
 			synaptics,power-down;
 			synaptics,disable-gpios;
 		};
+	};
+
+	vdd_vreg: vdd_vreg {
+		compatible = "regulator-fixed";
+		status = "ok";
+		regulator-name = "vdd_vreg";
 	};
 
 	gen-vkeys {
