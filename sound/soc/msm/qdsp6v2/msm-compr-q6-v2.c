@@ -368,11 +368,67 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct compr_audio *compr = runtime->private_data;
+	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct msm_audio *prtd = &compr->prtd;
+	struct snd_pcm_hw_params *params;
 	struct asm_aac_cfg aac_cfg;
+	uint16_t bits_per_sample = 16;
 	int ret;
 
-	pr_debug("compressed stream prepare\n");
+	struct asm_softpause_params softpause = {
+		.enable = SOFT_PAUSE_ENABLE,
+		.period = SOFT_PAUSE_PERIOD,
+		.step = SOFT_PAUSE_STEP,
+		.rampingcurve = SOFT_PAUSE_CURVE_LINEAR,
+	};
+	struct asm_softvolume_params softvol = {
+		.period = SOFT_VOLUME_PERIOD,
+		.step = SOFT_VOLUME_STEP,
+		.rampingcurve = SOFT_VOLUME_CURVE_LINEAR,
+	};
+
+	pr_debug("%s\n", __func__);
+
+	params = &soc_prtd->dpcm[substream->stream].hw_params;
+	if (runtime->format == SNDRV_PCM_FORMAT_S24_LE)
+		bits_per_sample = 24;
+
+	ret = q6asm_open_write_v2(prtd->audio_client,
+			compr->codec, bits_per_sample);
+	if (ret < 0) {
+		pr_err("%s: Session out open failed\n",
+				__func__);
+		return -ENOMEM;
+	}
+	msm_pcm_routing_reg_phy_stream(
+			soc_prtd->dai_link->be_id,
+			prtd->audio_client->perf_mode,
+			prtd->session_id,
+			substream->stream);
+	/*
+	 * the number of channels are required to call volume api
+	 * accoridngly. So, get channels from hw params
+	 */
+	if ((params_channels(params) > 0) &&
+			(params_periods(params) <= runtime->hw.channels_max))
+		prtd->channel_mode = params_channels(params);
+
+	ret = q6asm_set_softpause(prtd->audio_client, &softpause);
+	if (ret < 0)
+		pr_err("%s: Send SoftPause Param failed ret=%d\n",
+				__func__, ret);
+	ret = q6asm_set_softvolume(prtd->audio_client, &softvol);
+	if (ret < 0)
+		pr_err("%s: Send SoftVolume Param failed ret=%d\n",
+				__func__, ret);
+
+	ret = q6asm_set_io_mode(prtd->audio_client,
+			(COMPRESSED_IO | ASYNC_IO_MODE));
+	if (ret < 0) {
+		pr_err("%s: Set IO mode failed\n", __func__);
+		return -ENOMEM;
+	}
+
 	prtd->pcm_size = snd_pcm_lib_buffer_bytes(substream);
 	prtd->pcm_count = snd_pcm_lib_period_bytes(substream);
 	prtd->pcm_irq_pos = 0;
@@ -437,12 +493,67 @@ static int msm_compr_capture_prepare(struct snd_pcm_substream *substream)
 	struct msm_audio *prtd = &compr->prtd;
 	struct audio_buffer *buf = prtd->audio_client->port[OUT].buf;
 	struct snd_codec *codec = &compr->info.codec_param.codec;
+	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct audio_aio_read_param read_param;
+	uint16_t bits_per_sample = 16;
 	int ret = 0;
 	int i;
+
 	prtd->pcm_size = snd_pcm_lib_buffer_bytes(substream);
 	prtd->pcm_count = snd_pcm_lib_period_bytes(substream);
 	prtd->pcm_irq_pos = 0;
+
+	if (runtime->format == SNDRV_PCM_FORMAT_S24_LE)
+		bits_per_sample = 24;
+
+	if (!msm_compr_capture_codecs(
+				compr->info.codec_param.codec.id)) {
+		/*
+		 * request codec invalid or not supported,
+		 * use default compress format
+		 */
+		compr->info.codec_param.codec.id =
+			SND_AUDIOCODEC_AMRWB;
+	}
+	switch (compr->info.codec_param.codec.id) {
+	case SND_AUDIOCODEC_AMRWB:
+		pr_debug("q6asm_open_read(FORMAT_AMRWB)\n");
+		ret = q6asm_open_read(prtd->audio_client,
+				FORMAT_AMRWB);
+		if (ret < 0) {
+			pr_err("%s: compressed Session out open failed\n",
+					__func__);
+			return -ENOMEM;
+		}
+		pr_debug("msm_pcm_routing_reg_phy_stream\n");
+		msm_pcm_routing_reg_phy_stream(
+				soc_prtd->dai_link->be_id,
+				prtd->audio_client->perf_mode,
+				prtd->session_id, substream->stream);
+		break;
+	default:
+		pr_debug("q6asm_open_read_compressed(COMPRESSED_META_DATA_MODE)\n");
+		/*
+		   ret = q6asm_open_read_compressed(prtd->audio_client,
+		   MAX_NUM_FRAMES_PER_BUFFER,
+		   COMPRESSED_META_DATA_MODE);
+		 */
+			ret = -EINVAL;
+			break;
+	}
+
+	if (ret < 0) {
+		pr_err("%s: compressed Session out open failed\n",
+				__func__);
+		return -ENOMEM;
+	}
+
+	ret = q6asm_set_io_mode(prtd->audio_client,
+		(COMPRESSED_IO | ASYNC_IO_MODE));
+		if (ret < 0) {
+			pr_err("%s: Set IO mode failed\n", __func__);
+				return -ENOMEM;
+		}
 
 	if (!msm_compr_capture_codecs(codec->id)) {
 		/*
@@ -757,6 +868,7 @@ static int msm_compr_close(struct snd_pcm_substream *substream)
 		ret = msm_compr_capture_close(substream);
 	return ret;
 }
+
 static int msm_compr_prepare(struct snd_pcm_substream *substream)
 {
 	int ret = 0;
@@ -810,114 +922,16 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 				struct snd_pcm_hw_params *params)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct compr_audio *compr = runtime->private_data;
 	struct msm_audio *prtd = &compr->prtd;
 	struct snd_dma_buffer *dma_buf = &substream->dma_buffer;
 	struct audio_buffer *buf;
 	int dir, ret;
-	uint16_t bits_per_sample = 16;
 
-	struct asm_softpause_params softpause = {
-		.enable = SOFT_PAUSE_ENABLE,
-		.period = SOFT_PAUSE_PERIOD,
-		.step = SOFT_PAUSE_STEP,
-		.rampingcurve = SOFT_PAUSE_CURVE_LINEAR,
-	};
-	struct asm_softvolume_params softvol = {
-		.period = SOFT_VOLUME_PERIOD,
-		.step = SOFT_VOLUME_STEP,
-		.rampingcurve = SOFT_VOLUME_CURVE_LINEAR,
-	};
-
-	pr_debug("%s\n", __func__);
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		dir = IN;
 	else
 		dir = OUT;
-
-	if (runtime->format == SNDRV_PCM_FORMAT_S24_LE)
-		bits_per_sample = 24;
-
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		ret = q6asm_open_write_v2(prtd->audio_client,
-				compr->codec, bits_per_sample);
-		if (ret < 0) {
-			pr_err("%s: Session out open failed\n",
-				__func__);
-			return -ENOMEM;
-		}
-		msm_pcm_routing_reg_phy_stream(
-			soc_prtd->dai_link->be_id,
-			prtd->audio_client->perf_mode,
-			prtd->session_id,
-			substream->stream);
-		/*
-		 * the number of channels are required to call volume api
-		 * accoridngly. So, get channels from hw params
-		 */
-		if ((params_channels(params) > 0) &&
-		    (params_periods(params) <= runtime->hw.channels_max))
-			prtd->channel_mode = params_channels(params);
-
-		ret = q6asm_set_softpause(prtd->audio_client, &softpause);
-		if (ret < 0)
-			pr_err("%s: Send SoftPause Param failed ret=%d\n",
-				__func__, ret);
-		ret = q6asm_set_softvolume(prtd->audio_client, &softvol);
-		if (ret < 0)
-			pr_err("%s: Send SoftVolume Param failed ret=%d\n",
-				__func__, ret);
-	} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-		if (!msm_compr_capture_codecs(
-			compr->info.codec_param.codec.id)) {
-			/*
-			 * request codec invalid or not supported,
-			 * use default compress format
-			 */
-			compr->info.codec_param.codec.id =
-				SND_AUDIOCODEC_AMRWB;
-		}
-		switch (compr->info.codec_param.codec.id) {
-		case SND_AUDIOCODEC_AMRWB:
-			pr_debug("q6asm_open_read(FORMAT_AMRWB)\n");
-			ret = q6asm_open_read(prtd->audio_client,
-				FORMAT_AMRWB);
-			if (ret < 0) {
-				pr_err("%s: compressed Session out open failed\n",
-					__func__);
-				return -ENOMEM;
-			}
-			pr_debug("msm_pcm_routing_reg_phy_stream\n");
-			msm_pcm_routing_reg_phy_stream(
-					soc_prtd->dai_link->be_id,
-					prtd->audio_client->perf_mode,
-					prtd->session_id, substream->stream);
-			break;
-		default:
-			pr_debug("q6asm_open_read_compressed(COMPRESSED_META_DATA_MODE)\n");
-			/*
-			ret = q6asm_open_read_compressed(prtd->audio_client,
-				MAX_NUM_FRAMES_PER_BUFFER,
-				COMPRESSED_META_DATA_MODE);
-			*/
-			ret = -EINVAL;
-			break;
-		}
-
-		if (ret < 0) {
-			pr_err("%s: compressed Session out open failed\n",
-				__func__);
-			return -ENOMEM;
-		}
-	}
-
-	ret = q6asm_set_io_mode(prtd->audio_client,
-					(COMPRESSED_IO | ASYNC_IO_MODE));
-	if (ret < 0) {
-		pr_err("%s: Set IO mode failed\n", __func__);
-		return -ENOMEM;
-	}
 	/* Modifying kernel hardware params based on userspace config */
 	if (params_periods(params) > 0 &&
 		(params_periods(params) != runtime->hw.periods_max)) {
