@@ -25,7 +25,11 @@
 #define SYNAPTICS_DSX_DRIVER_VERSION 0x2001
 
 #include <linux/version.h>
-#ifdef CONFIG_HAS_EARLYSUSPEND
+
+#if defined(CONFIG_FB)
+#include <linux/notifier.h>
+#include <linux/fb.h>
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
 #include <linux/earlysuspend.h>
 #endif
 
@@ -81,6 +85,8 @@
 #define MASK_3BIT 0x07
 #define MASK_2BIT 0x03
 #define MASK_1BIT 0x01
+
+#define SYNA_FW_NAME_MAX_LEN	50
 
 enum exp_fn {
 	RMI_DEV = 0,
@@ -225,7 +231,9 @@ struct synaptics_rmi4_data {
 	struct regulator *regulator_avdd;
 	struct mutex rmi4_reset_mutex;
 	struct mutex rmi4_io_ctrl_mutex;
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#if defined(CONFIG_FB)
+	struct notifier_block fb_notif;
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
 	struct early_suspend early_suspend;
 #endif
 	unsigned char current_page;
@@ -257,6 +265,12 @@ struct synaptics_rmi4_data {
 	bool staying_awake;
 	int (*irq_enable)(struct synaptics_rmi4_data *rmi4_data, bool enable);
 	int (*reset_device)(struct synaptics_rmi4_data *rmi4_data);
+
+	struct pinctrl *ts_pinctrl;
+	struct pinctrl_state *gpio_state_active;
+	struct pinctrl_state *gpio_state_suspend;
+	char fw_name[SYNA_FW_NAME_MAX_LEN];
+	bool suspended;
 };
 
 struct synaptics_dsx_bus_access {

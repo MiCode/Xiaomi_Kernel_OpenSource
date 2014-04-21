@@ -17,6 +17,20 @@ Optional property:
  - synaptics,x-flip		: modify orientation of the x axis
  - synaptics,y-flip		: modify orientation of the y axis
  - synaptics,reset-delay-ms	: reset delay for controller (ms), default 100
+ - synaptics,panel-coords	: touch panel min x, min y, max x and
+					max y resolution
+ - synaptics,display-coords	: display min x, min y, max x and
+					max y resolution
+ - synaptics,fw-name		: name of firmware .img file in /etc/firmware
+ - synaptics,disable-gpios	: specify this to disable gpios in suspend
+ - pinctrl-names		: This should be defined if a target uses pinctrl framework.
+			See "pinctrl" in Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt.
+			It should specify the names of the configs that pinctrl can install in driver.
+			Following are the pinctrl configs that can be installed:
+			"pmx_ts_active" : Active configuration of pins, this should specify active
+			config defined in pin groups of interrupt and reset gpio.
+			"pmx_ts_suspend" : Disabled configuration of pins, this should specify sleep
+			config defined in pin groups of interrupt and reset gpio.
 
 Example:
 	i2c@f9927000 {
@@ -33,5 +47,11 @@ Example:
 			synaptics,reset-delay-ms = <100>;
 			synaptics,x-flip;
 			synaptics,y-flip;
+			synaptics,disable-gpios;
+			synaptics,fw-name = "PR1610974.img";
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+
 		};
 	};

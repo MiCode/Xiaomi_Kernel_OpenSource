@@ -27,7 +27,6 @@
 #include <linux/input/synaptics_dsx_v2.h>
 #include "synaptics_dsx_core.h"
 
-#define FW_IMAGE_NAME "synaptics/startup_fw_update.img"
 #define DO_STARTUP_FW_UPDATE
 #define STARTUP_FW_UPDATE_DELAY_MS 1000 /* ms */
 #define FORCE_UPDATE false
@@ -133,6 +132,9 @@ static ssize_t fwu_sysfs_bl_config_block_count_show(struct device *dev,
 		struct device_attribute *attr, char *buf);
 
 static ssize_t fwu_sysfs_disp_config_block_count_show(struct device *dev,
+		struct device_attribute *attr, char *buf);
+
+static ssize_t fwu_sysfs_config_id_show(struct device *dev,
 		struct device_attribute *attr, char *buf);
 
 enum bl_version {
@@ -284,6 +286,7 @@ static struct bin_attribute dev_attr_data = {
 	.write = fwu_sysfs_store_image,
 };
 
+
 static struct device_attribute attrs[] = {
 	__ATTR(doreflash, S_IWUGO,
 			synaptics_rmi4_show_error,
@@ -297,7 +300,7 @@ static struct device_attribute attrs[] = {
 	__ATTR(configarea, S_IWUGO,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_config_area_store),
-	__ATTR(imagename, S_IWUGO,
+	__ATTR(fw_name, S_IWUGO,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_image_name_store),
 	__ATTR(imagesize, S_IWUGO,
@@ -320,6 +323,9 @@ static struct device_attribute attrs[] = {
 			synaptics_rmi4_store_error),
 	__ATTR(dispconfigblockcount, S_IRUGO,
 			fwu_sysfs_disp_config_block_count_show,
+			synaptics_rmi4_store_error),
+	__ATTR(config_id, S_IRUGO,
+			fwu_sysfs_config_id_show,
 			synaptics_rmi4_store_error),
 };
 
@@ -854,6 +860,8 @@ static int fwu_write_blocks(unsigned char *block_ptr, unsigned short block_cnt,
 		}
 
 		block_ptr += fwu->block_size;
+		dev_info(rmi4_data->pdev->dev.parent,
+			"updated %d/%d blocks\n", block_num, block_cnt);
 	}
 
 	return 0;
@@ -1316,7 +1324,6 @@ static int fwu_start_reflash(void)
 	if (fwu->ext_data_source) {
 		fw_image = fwu->ext_data_source;
 	} else {
-		strncpy(fwu->image_name, FW_IMAGE_NAME, MAX_IMAGE_NAME_LEN);
 		dev_dbg(rmi4_data->pdev->dev.parent,
 				"%s: Requesting firmware image %s\n",
 				__func__, fwu->image_name);
@@ -1592,7 +1599,8 @@ static ssize_t fwu_sysfs_config_area_store(struct device *dev,
 static ssize_t fwu_sysfs_image_name_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
-	memcpy(fwu->image_name, buf, count);
+	if (sscanf(buf, "%s", fwu->image_name) != 1)
+		return -EINVAL;
 
 	return count;
 }
@@ -1659,6 +1667,29 @@ static ssize_t fwu_sysfs_disp_config_block_count_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%u\n", fwu->disp_config_block_count);
 }
 
+static ssize_t fwu_sysfs_config_id_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct synaptics_rmi4_data *rmi4_data = fwu->rmi4_data;
+	unsigned char config_id[4];
+	int retval;
+
+	/* device config id */
+	retval = synaptics_rmi4_reg_read(rmi4_data,
+				fwu->f34_fd.ctrl_base_addr,
+				config_id,
+				sizeof(config_id));
+	if (retval < 0) {
+		dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Failed to read device config ID\n",
+				__func__);
+		return retval;
+	}
+
+	return snprintf(buf, PAGE_SIZE, "%d.%d.%d.%d\n",
+		config_id[0], config_id[1], config_id[2], config_id[3]);
+}
+
 static void synaptics_rmi4_fwu_attn(struct synaptics_rmi4_data *rmi4_data,
 		unsigned char intr_mask)
 {
@@ -1686,14 +1717,7 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 		goto exit;
 	}
 
-	fwu->image_name = kzalloc(MAX_IMAGE_NAME_LEN, GFP_KERNEL);
-	if (!fwu->image_name) {
-		dev_err(rmi4_data->pdev->dev.parent,
-				"%s: Failed to alloc mem for image name\n",
-				__func__);
-		retval = -ENOMEM;
-		goto exit_free_fwu;
-	}
+	fwu->image_name = rmi4_data->fw_name;
 
 	fwu->rmi4_data = rmi4_data;
 
@@ -1710,12 +1734,12 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 				"%s: Reflash for LTS not currently supported\n",
 				__func__);
 		retval = -ENODEV;
-		goto exit_free_mem;
+		goto exit_free_fwu;
 	}
 
 	retval = fwu_scan_pdt();
 	if (retval < 0)
-		goto exit_free_mem;
+		goto exit_free_fwu;
 
 	fwu->productinfo1 = rmi4_data->rmi4_mod_info.product_info[0];
 	fwu->productinfo2 = rmi4_data->rmi4_mod_info.product_info[1];
@@ -1732,7 +1756,7 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 
 	retval = fwu_read_f34_queries();
 	if (retval < 0)
-		goto exit_free_mem;
+		goto exit_free_fwu;
 
 	fwu->force_update = FORCE_UPDATE;
 	fwu->do_lockdown = DO_LOCKDOWN;
@@ -1744,7 +1768,7 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 		dev_err(rmi4_data->pdev->dev.parent,
 				"%s: Failed to create sysfs bin file\n",
 				__func__);
-		goto exit_free_mem;
+		goto exit_free_fwu;
 	}
 
 	for (attr_count = 0; attr_count < ARRAY_SIZE(attrs); attr_count++) {
@@ -1777,9 +1801,6 @@ exit_remove_attrs:
 
 	sysfs_remove_bin_file(&rmi4_data->input_dev->dev.kobj, &dev_attr_data);
 
-exit_free_mem:
-	kfree(fwu->image_name);
-
 exit_free_fwu:
 	kfree(fwu);
 	fwu = NULL;
@@ -1803,7 +1824,6 @@ static void synaptics_rmi4_fwu_remove(struct synaptics_rmi4_data *rmi4_data)
 	sysfs_remove_bin_file(&rmi4_data->input_dev->dev.kobj, &dev_attr_data);
 
 	kfree(fwu->read_config_buf);
-	kfree(fwu->image_name);
 	kfree(fwu);
 	fwu = NULL;
 
