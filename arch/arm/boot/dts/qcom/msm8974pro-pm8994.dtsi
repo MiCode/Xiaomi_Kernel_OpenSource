@@ -141,8 +141,9 @@
 	};
 
 	ssphy@f92f8800 {
-		vdd-supply = <&pm8994_s1_corner>;
+		vdd-supply = <&pm8994_l28>;
 		vdda18-supply = <&pm8994_l6>;
+		qcom,vdd-voltage-level = <675000 950000 1050000>;
 		qcom,vbus-valid-override;
 		qcom,deemphasis-value = <26>;
 	};
