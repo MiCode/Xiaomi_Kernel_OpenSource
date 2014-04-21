@@ -19,6 +19,7 @@
 #include "kgsl_sharedmem.h"
 #include "kgsl_cffdump.h"
 #include "a3xx_reg.h"
+#include "adreno_a3xx.h"
 #include "adreno_a4xx.h"
 #include "a4xx_reg.h"
 #include "adreno_a3xx_trace.h"
@@ -2214,10 +2215,6 @@ void a3xx_soft_reset(struct adreno_device *adreno_dev)
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, &reg);
 	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 0);
 }
-
-/* Defined in adreno_a3xx_snapshot.c */
-void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
-	int *remain, int hang);
 
 /* Register offset defines for A3XX */
 static unsigned int a3xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {

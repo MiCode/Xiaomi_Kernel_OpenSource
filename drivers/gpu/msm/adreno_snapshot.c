@@ -29,7 +29,7 @@
 #define SNAPSHOT_OBJ_TYPE_IB 0
 
 /* Keep track of how many bytes are frozen after a snapshot and tell the user */
-static int snapshot_frozen_objsize;
+static size_t snapshot_frozen_objsize;
 
 static struct kgsl_snapshot_obj {
 	int type;
@@ -208,8 +208,8 @@ done:
 }
 
 /* Snapshot the ringbuffer memory */
-static int snapshot_rb(struct kgsl_device *device, void *snapshot,
-	int remain, void *priv)
+static size_t snapshot_rb(struct kgsl_device *device, void *snapshot,
+	size_t remain, void *priv)
 {
 	struct kgsl_snapshot_rb *header = snapshot;
 	unsigned int *data = snapshot + sizeof(*header);
@@ -365,8 +365,8 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 	return KGSL_RB_SIZE + sizeof(*header);
 }
 
-static int snapshot_capture_mem_list(struct kgsl_device *device, void *snapshot,
-			int remain, void *priv)
+static size_t snapshot_capture_mem_list(struct kgsl_device *device,
+		void *snapshot, size_t remain, void *priv)
 {
 	struct kgsl_snapshot_replay_mem_list *header = snapshot;
 	struct kgsl_process_private *private = NULL;
@@ -427,8 +427,8 @@ static int snapshot_capture_mem_list(struct kgsl_device *device, void *snapshot,
 }
 
 /* Snapshot the memory for an indirect buffer */
-static int snapshot_ib(struct kgsl_device *device, void *snapshot,
-	int remain, void *priv)
+static size_t snapshot_ib(struct kgsl_device *device, void *snapshot,
+	size_t remain, void *priv)
 {
 	struct kgsl_snapshot_ib *header = snapshot;
 	struct kgsl_snapshot_obj *obj = priv;
@@ -479,14 +479,13 @@ static int snapshot_ib(struct kgsl_device *device, void *snapshot,
 }
 
 /* Dump another item on the current pending list */
-static void *dump_object(struct kgsl_device *device, int obj, void *snapshot,
-	int *remain)
+static void dump_object(struct kgsl_device *device, int obj,
+		struct kgsl_snapshot *snapshot)
 {
 	switch (objbuf[obj].type) {
 	case SNAPSHOT_OBJ_TYPE_IB:
-		snapshot = kgsl_snapshot_add_section(device,
-			KGSL_SNAPSHOT_SECTION_IB, snapshot, remain,
-			snapshot_ib, &objbuf[obj]);
+		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_IB,
+			snapshot, snapshot_ib, &objbuf[obj]);
 		if (objbuf[obj].entry) {
 			kgsl_memdesc_unmap(&(objbuf[obj].entry->memdesc));
 			kgsl_mem_entry_put(objbuf[obj].entry);
@@ -498,22 +497,16 @@ static void *dump_object(struct kgsl_device *device, int obj, void *snapshot,
 			objbuf[obj].type);
 		break;
 	}
-
-	return snapshot;
 }
 
 /* adreno_snapshot - Snapshot the Adreno GPU state
  * @device - KGSL device to snapshot
- * @snapshot - Pointer to the start of memory to write into
- * @remain - A pointer to how many bytes of memory are remaining in the snapshot
- * @hang - set if this snapshot was automatically triggered by a GPU hang
+ * @snapshot - Pointer to the snapshot instance
  * This is a hook function called by kgsl_snapshot to snapshot the
  * Adreno specific information for the GPU snapshot.  In turn, this function
  * calls the GPU specific snapshot function to get core specific information.
  */
-
-void *adreno_snapshot(struct kgsl_device *device, void *snapshot, int *remain,
-		int hang)
+void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot)
 {
 	int i;
 	uint32_t ibbase, ibsize;
@@ -530,16 +523,15 @@ void *adreno_snapshot(struct kgsl_device *device, void *snapshot, int *remain,
 	ptbase = kgsl_mmu_get_current_ptbase(&device->mmu);
 
 	/* Dump the ringbuffer */
-	snapshot = kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_RB,
-		snapshot, remain, snapshot_rb, NULL);
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_RB, snapshot,
+			snapshot_rb, NULL);
 
 	/*
 	 * Add a section that lists (gpuaddr, size, memtype) tuples of the
 	 * hanging process
 	 */
-	snapshot = kgsl_snapshot_add_section(device,
-			KGSL_SNAPSHOT_SECTION_MEMLIST, snapshot, remain,
-			snapshot_capture_mem_list, NULL);
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_MEMLIST,
+			snapshot, snapshot_capture_mem_list, NULL);
 	/*
 	 * Make sure that the last IB1 that was being executed is dumped.
 	 * Since this was the last IB1 that was processed, we should have
@@ -586,14 +578,15 @@ void *adreno_snapshot(struct kgsl_device *device, void *snapshot, int *remain,
 	 * are parsed, more objects might be found, and objbufptr will increase
 	 */
 	for (i = 0; i < objbufptr; i++)
-		snapshot = dump_object(device, i, snapshot, remain);
+		dump_object(device, i, snapshot);
 
 	/* Add GPU specific sections - registers mainly, but other stuff too */
 	if (gpudev->snapshot)
-		snapshot = gpudev->snapshot(adreno_dev, snapshot, remain, hang);
+		gpudev->snapshot(adreno_dev, snapshot);
 
 	if (snapshot_frozen_objsize)
-		KGSL_DRV_ERR(device, "GPU snapshot froze %dKb of GPU buffers\n",
+		KGSL_DRV_ERR(device,
+			"GPU snapshot froze %zdKb of GPU buffers\n",
 			snapshot_frozen_objsize / 1024);
 
 	/*
@@ -602,6 +595,4 @@ void *adreno_snapshot(struct kgsl_device *device, void *snapshot, int *remain,
 	 * memory
 	 */
 	queue_work(device->work_queue, &device->snapshot_obj_ws);
-
-	return snapshot;
 }

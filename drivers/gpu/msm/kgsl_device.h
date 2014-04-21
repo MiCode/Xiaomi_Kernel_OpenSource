@@ -24,6 +24,8 @@
 #include "kgsl_pwrctrl.h"
 #include "kgsl_log.h"
 #include "kgsl_pwrscale.h"
+#include "kgsl_snapshot.h"
+
 #include <linux/sync.h>
 
 #define KGSL_TIMEOUT_NONE           0
@@ -86,6 +88,9 @@ enum kgsl_event_results {
 #define KGSL_CONTEXT_ID(_context) \
 	((_context != NULL) ? (_context)->id : KGSL_MEMSTORE_GLOBAL)
 
+/* Allocate 512K for the snapshot static region*/
+#define KGSL_SNAPSHOT_MEMSIZE (512 * 1024)
+
 struct kgsl_device;
 struct platform_device;
 struct kgsl_device_private;
@@ -93,6 +98,7 @@ struct kgsl_context;
 struct kgsl_power_stats;
 struct kgsl_event;
 struct kgsl_cmdbatch;
+struct kgsl_snapshot;
 
 struct kgsl_functable {
 	/* Mandatory functions - these functions must be implemented
@@ -127,8 +133,8 @@ struct kgsl_functable {
 	void (*power_stats)(struct kgsl_device *device,
 		struct kgsl_power_stats *stats);
 	unsigned int (*gpuid)(struct kgsl_device *device, unsigned int *chipid);
-	void * (*snapshot)(struct kgsl_device *device, void *snapshot,
-		int *remain, int hang);
+	void (*snapshot)(struct kgsl_device *device,
+		struct kgsl_snapshot *snapshot);
 	irqreturn_t (*irq_handler)(struct kgsl_device *device);
 	int (*drain)(struct kgsl_device *device);
 	/* Optional functions - these functions are not mandatory.  The
@@ -336,14 +342,14 @@ struct kgsl_device {
 	struct idr context_idr;
 	rwlock_t context_lock;
 
-	void *snapshot;		/* Pointer to the snapshot memory region */
-	int snapshot_maxsize;   /* Max size of the snapshot region */
-	int snapshot_size;      /* Current size of the snapshot region */
-	u32 snapshot_timestamp;	/* Timestamp of the last valid snapshot */
+	struct {
+		void *ptr;
+		size_t size;
+	} snapshot_memory;
+
+	struct kgsl_snapshot *snapshot;
+
 	u32 snapshot_faultcount;	/* Total number of faults since boot */
-	int snapshot_frozen;	/* 1 if the snapshot output is frozen until
-				   it gets read by the user.  This avoids
-				   losing the output on multiple hangs  */
 	struct kobject snapshot_kobj;
 
 	/*
@@ -499,6 +505,26 @@ struct kgsl_device_private {
 	struct kgsl_process_private *process_priv;
 };
 
+/**
+ * struct kgsl_snapshot - details for a specific snapshot instance
+ * @start: Pointer to the start of the static snapshot region
+ * @size: Size of the current snapshot instance
+ * @ptr: Pointer to the next block of memory to write to during snapshotting
+ * @remain: Bytes left in the snapshot region
+ * @timestamp: Timestamp of the snapshot instance (in seconds since boot)
+ * @mempool: Pointer to the memory pool for storing memory objects
+ * @mempool_size: Size of the memory pool
+ */
+struct kgsl_snapshot {
+	void *start;
+	size_t size;
+	void *ptr;
+	size_t remain;
+	unsigned long timestamp;
+	void *mempool;
+	size_t mempool_size;
+};
+
 struct kgsl_device *kgsl_get_device(int dev_idx);
 
 static inline void kgsl_process_add_stats(struct kgsl_process_private *priv,
@@ -599,7 +625,7 @@ void kgsl_device_platform_remove(struct kgsl_device *device);
 const char *kgsl_pwrstate_to_str(unsigned int state);
 
 int kgsl_device_snapshot_init(struct kgsl_device *device);
-int kgsl_device_snapshot(struct kgsl_device *device, int hang);
+int kgsl_device_snapshot(struct kgsl_device *device);
 void kgsl_device_snapshot_close(struct kgsl_device *device);
 void kgsl_snapshot_save_frozen_objs(struct work_struct *work);
 
@@ -838,4 +864,63 @@ static inline void kgsl_mutex_unlock(struct mutex *mutex, atomic64_t *owner)
 	atomic64_set(owner, 0);
 	mutex_unlock(mutex);
 }
+
+/*
+ * A helper macro to print out "not enough memory functions" - this
+ * makes it easy to standardize the messages as well as cut down on
+ * the number of strings in the binary
+ */
+#define SNAPSHOT_ERR_NOMEM(_d, _s) \
+	KGSL_DRV_ERR((_d), \
+	"snapshot: not enough snapshot memory for section %s\n", (_s))
+
+/**
+ * struct kgsl_snapshot_registers - list of registers to snapshot
+ * @regs: Pointer to an array of register ranges
+ * @count: Number of entries in the array
+ */
+struct kgsl_snapshot_registers {
+	unsigned int *regs;
+	int count;
+	int dump;
+	unsigned int *snap_addr;
+};
+
+/**
+ * struct kgsl_snapshot_registers_list - list of register lists
+ * @registers: Pointer to an array of register lists
+ * @count: Number of entries in the array
+ */
+struct kgsl_snapshot_registers_list {
+	struct kgsl_snapshot_registers *registers;
+	int count;
+};
+
+size_t kgsl_snapshot_dump_regs(struct kgsl_device *device, void *snapshot,
+	size_t remain, void *priv);
+
+void kgsl_snapshot_indexed_registers(struct kgsl_device *device,
+	struct kgsl_snapshot *snapshot, unsigned int index,
+	unsigned int data, unsigned int start, unsigned int count);
+
+int kgsl_snapshot_get_object(struct kgsl_device *device, phys_addr_t ptbase,
+	unsigned int gpuaddr, unsigned int size, unsigned int type);
+
+int kgsl_snapshot_have_object(struct kgsl_device *device, phys_addr_t ptbase,
+	unsigned int gpuaddr, unsigned int size);
+
+struct adreno_ib_object_list;
+
+int kgsl_snapshot_add_ib_obj_list(struct kgsl_device *device,
+	phys_addr_t ptbase,
+	struct adreno_ib_object_list *ib_obj_list);
+
+void kgsl_snapshot_dump_skipped_regs(struct kgsl_device *device,
+	struct kgsl_snapshot_registers_list *list);
+
+void kgsl_snapshot_add_section(struct kgsl_device *device, u16 id,
+	struct kgsl_snapshot *snapshot,
+	size_t (*func)(struct kgsl_device *, void *, size_t, void *),
+	void *priv);
+
 #endif  /* __KGSL_DEVICE_H */
