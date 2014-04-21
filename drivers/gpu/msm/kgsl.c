@@ -595,6 +595,12 @@ static struct kgsl_device *kgsl_get_minor(int minor)
 	return ret;
 }
 
+/**
+ * kgsl_check_timestamp() - return true if the specified timestamp is retired
+ * @device: Pointer to the KGSL device to check
+ * @context: Pointer to the context for the timestamp
+ * @timestamp: The timestamp to compare
+ */
 int kgsl_check_timestamp(struct kgsl_device *device,
 	struct kgsl_context *context, unsigned int timestamp)
 {
