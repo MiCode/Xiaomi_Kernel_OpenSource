@@ -268,6 +268,11 @@
 			qcom,adc_tm-vadc = <&pm8994_vadc>;
 		};
 
+		pm8994_coincell: qcom,coincell@2800 {
+			compatible = "qcom,qpnp-coincell";
+			reg = <0x2800 0x100>;
+		};
+
 		qcom,pm8994_rtc {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-rtc";
