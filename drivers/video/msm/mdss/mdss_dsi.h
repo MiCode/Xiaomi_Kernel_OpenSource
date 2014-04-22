@@ -98,6 +98,7 @@ enum dsi_lane_map_type {
 };
 
 enum dsi_pm_type {
+	DSI_CORE_PM,
 	DSI_CTRL_PM,
 	DSI_PANEL_PM,
 	DSI_MAX_PM
@@ -377,6 +378,7 @@ int mdss_dsi_panel_init(struct device_node *node,
 static inline const char *__mdss_dsi_pm_name(enum dsi_pm_type module)
 {
 	switch (module) {
+	case DSI_CORE_PM:	return "DSI_CORE_PM";
 	case DSI_CTRL_PM:	return "DSI_CTRL_PM";
 	case DSI_PANEL_PM:	return "PANEL_PM";
 	default:		return "???";
@@ -387,6 +389,7 @@ static inline const char *__mdss_dsi_pm_supply_node_name(
 	enum dsi_pm_type module)
 {
 	switch (module) {
+	case DSI_CORE_PM:	return "qcom,core-supply-entries";
 	case DSI_CTRL_PM:	return "qcom,ctrl-supply-entries";
 	case DSI_PANEL_PM:	return "qcom,panel-supply-entries";
 	default:		return "???";
