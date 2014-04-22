@@ -96,6 +96,8 @@ static const struct snd_soc_fw_kcontrol_ops io_ops[] = {
 		snd_soc_bytes_put, snd_soc_bytes_info},
 	{SOC_CONTROL_IO_BOOL_EXT, NULL,
 		NULL, snd_ctl_boolean_mono_info},
+	{SOC_CONTROL_IO_BYTES_EXT, NULL,
+		NULL, snd_soc_info_bytes_ext},
 	{SOC_CONTROL_IO_RANGE, snd_soc_get_volsw_range,
 		snd_soc_put_volsw_range, snd_soc_info_volsw_range},
 	{SOC_CONTROL_IO_VOLSW_XR_SX, snd_soc_get_xr_sx,
@@ -136,6 +138,18 @@ static inline void soc_fw_list_add_mixer(struct soc_fw *sfw,
 		BUG();
 }
 
+static inline void soc_fw_list_add_bytes(struct soc_fw *sfw,
+	struct soc_bytes_ext *sb)
+{
+	if (sfw->codec)
+		list_add(&sb->list, &sfw->codec->dbytes);
+	else if (sfw->platform)
+		list_add(&sb->list, &sfw->platform->dbytes);
+	else if (sfw->card)
+		list_add(&sb->list, &sfw->card->dbytes);
+	else
+		dev_err(sfw->dev, "Cannot add dbytes no valid type\n");
+}
 static inline struct snd_soc_dapm_context *soc_fw_dapm_get(struct soc_fw *sfw)
 {
 	if (sfw->codec)
@@ -411,6 +425,95 @@ static inline void soc_fw_free_tlv(struct soc_fw *sfw,
 	kfree(kc->tlv.p);
 }
 
+static int soc_fw_dbytes_create(struct soc_fw *sfw, unsigned int count,
+	size_t size)
+{
+	struct snd_soc_fw_bytes_ext *be;
+	struct soc_bytes_ext  *sbe;
+	struct snd_kcontrol_new kc;
+	int i, err, ext;
+
+	if (soc_fw_check_control_count(sfw,
+		sizeof(struct snd_soc_fw_bytes_ext), count, size)) {
+		dev_err(sfw->dev, "Asoc: Invalid count %d for byte control\n",
+				count);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < count; i++) {
+		be = (struct snd_soc_fw_bytes_ext *)sfw->pos;
+
+		/* validate kcontrol */
+		if (strnlen(be->hdr.name, SND_SOC_FW_TEXT_SIZE) ==
+			SND_SOC_FW_TEXT_SIZE)
+			return -EINVAL;
+
+		sbe = kzalloc(sizeof(*sbe) + be->pvt_data_len, GFP_KERNEL);
+		if (!sbe)
+			return -ENOMEM;
+
+		sfw->pos += (sizeof(struct snd_soc_fw_bytes_ext) + be->pvt_data_len);
+
+		dev_dbg(sfw->dev,
+			"ASoC: adding bytes kcontrol %s with access 0x%x\n",
+			be->hdr.name, be->hdr.access);
+
+		memset(&kc, 0, sizeof(kc));
+		kc.name = be->hdr.name;
+		kc.private_value = (long)sbe;
+		kc.iface = SNDRV_CTL_ELEM_IFACE_MIXER;
+		kc.access = be->hdr.access;
+
+		sbe->max = be->max;
+
+		if (be->pvt_data_len)
+			soc_fw_init_pvt_data(sfw, be->hdr.index, (unsigned long)sbe, (unsigned long)be);
+
+		INIT_LIST_HEAD(&sbe->list);
+
+		/* map standard io handlers and check for external handlers */
+		ext = soc_fw_kcontrol_bind_io(be->hdr.index, &kc, io_ops,
+			ARRAY_SIZE(io_ops));
+
+		if (ext) {
+			/* none exist, so now try and map ext handlers */
+			ext = soc_fw_kcontrol_bind_io(be->hdr.index, &kc,
+				sfw->io_ops, sfw->io_ops_count);
+			if (ext) {
+				dev_err(sfw->dev,
+					"ASoC: no complete mixer IO handler for %s type (g,p,i) %d:%d:%d\n",
+					be->hdr.name,
+					SOC_CONTROL_GET_ID_GET(be->hdr.index),
+					SOC_CONTROL_GET_ID_PUT(be->hdr.index),
+					SOC_CONTROL_GET_ID_INFO(be->hdr.index));
+				kfree(sbe);
+				continue;
+			}
+
+			err = soc_fw_init_kcontrol(sfw, &kc);
+			if (err < 0) {
+				dev_err(sfw->dev, "ASoC: failed to init %s\n",
+					be->hdr.name);
+				kfree(sbe);
+				continue;
+			}
+		}
+
+		/* register control here */
+		err = soc_fw_add_kcontrol(sfw, &kc, &sbe->dcontrol);
+		if (err < 0) {
+			dev_err(sfw->dev, "ASoC: failed to add %s\n", be->hdr.name);
+			kfree(sbe);
+			continue;
+		}
+		/* This needs to  be change to a widget which would not work
+		 * unless we made changes to snd_soc_code, snd_soc_platform as
+		 * that has only enumns and mixer everywhere that list is used*/
+		soc_fw_list_add_bytes(sfw, sbe);
+	}
+	return 0;
+
+}
 static int soc_fw_dmixer_create(struct soc_fw *sfw, unsigned int count,
 	size_t size)
 {
@@ -695,6 +798,9 @@ static int soc_fw_kcontrol_load(struct soc_fw *sfw, struct snd_soc_fw_hdr *hdr)
 		case SOC_DAPM_TYPE_ENUM_DOUBLE:
 		case SOC_DAPM_TYPE_ENUM_EXT:
 			soc_fw_denum_create(sfw, 1, hdr->size);
+			break;
+		case SOC_CONTROL_TYPE_BYTES_EXT:
+			soc_fw_dbytes_create(sfw, 1, hdr->size);
 			break;
 		default:
 			dev_err(sfw->dev, "ASoC: invalid control type %d:%d:%d count %d\n",
@@ -1502,6 +1608,7 @@ void snd_soc_fw_dcontrols_remove_codec(struct snd_soc_codec *codec,
 {
 	struct soc_mixer_control *sm, *next_sm;
 	struct soc_enum *se, *next_se;
+	struct soc_bytes_ext *sb, *next_sb;
 	struct snd_card *card = codec->card->snd_card;
 	const unsigned int *p = NULL;
 	int i;
@@ -1532,6 +1639,16 @@ void snd_soc_fw_dcontrols_remove_codec(struct snd_soc_codec *codec,
 			kfree(se->dtexts[i]);
 		kfree(se);
 	}
+
+	list_for_each_entry_safe(sb, next_sb, &codec->dbytes, list) {
+
+		if (sm->index != index)
+			continue;
+
+		snd_ctl_remove(card, sb->dcontrol);
+		list_del(&sb->list);
+		kfree(sb);
+	}
 }
 EXPORT_SYMBOL_GPL(snd_soc_fw_dcontrols_remove_codec);
 
@@ -1541,6 +1658,7 @@ void snd_soc_fw_dcontrols_remove_platform(struct snd_soc_platform *platform,
 {
 	struct soc_mixer_control *sm, *next_sm;
 	struct soc_enum *se, *next_se;
+	struct soc_bytes_ext *sb, *next_sb;
 	struct snd_card *card = platform->card->snd_card;
 	const unsigned int *p = NULL;
 	int i;
@@ -1571,6 +1689,16 @@ void snd_soc_fw_dcontrols_remove_platform(struct snd_soc_platform *platform,
 			kfree(se->dtexts[i]);
 		kfree(se);
 	}
+
+	list_for_each_entry_safe(sb, next_sb, &platform->dbytes, list) {
+
+		if (sm->index != index)
+			continue;
+
+		snd_ctl_remove(card, sb->dcontrol);
+		list_del(&sb->list);
+		kfree(sb);
+	}
 }
 EXPORT_SYMBOL_GPL(snd_soc_fw_dcontrols_remove_platform);
 
@@ -1580,6 +1708,7 @@ void snd_soc_fw_dcontrols_remove_card(struct snd_soc_card *soc_card,
 {
 	struct soc_mixer_control *sm, *next_sm;
 	struct soc_enum *se, *next_se;
+	struct soc_bytes_ext *sb, *next_sb;
 	struct snd_card *card = soc_card->snd_card;
 	const unsigned int *p = NULL;
 	int i;
@@ -1609,6 +1738,16 @@ void snd_soc_fw_dcontrols_remove_card(struct snd_soc_card *soc_card,
 		for (i = 0; i < se->items; i++)
 			kfree(se->dtexts[i]);
 		kfree(se);
+	}
+
+	list_for_each_entry_safe(sb, next_sb, &soc_card->dbytes, list) {
+
+		if (sm->index != index)
+			continue;
+
+		snd_ctl_remove(card, sb->dcontrol);
+		list_del(&sb->list);
+		kfree(sb);
 	}
 }
 EXPORT_SYMBOL_GPL(snd_soc_fw_dcontrols_remove_card);

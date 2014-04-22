@@ -328,6 +328,7 @@
 #define SOC_CONTROL_TYPE_BOOL_EXT	9
 #define SOC_CONTROL_TYPE_RANGE		10
 #define SOC_CONTROL_TYPE_STROBE		11
+#define SOC_CONTROL_TYPE_BYTES_EXT	12
 
 /* compound control IDs */
 #define SOC_CONTROL_IO_VOLSW \
@@ -374,7 +375,10 @@
 	SOC_CONTROL_ID(SOC_CONTROL_TYPE_STROBE, \
 		SOC_CONTROL_TYPE_STROBE, \
 		SOC_CONTROL_TYPE_STROBE)
-
+#define SOC_CONTROL_IO_BYTES_EXT \
+	SOC_CONTROL_ID(SOC_CONTROL_TYPE_EXT, \
+		SOC_CONTROL_TYPE_EXT, \
+		SOC_CONTROL_TYPE_BYTES_EXT)
 /* widget has no PM register bit */
 #define SND_SOC_NOPM	-1
 
@@ -841,6 +845,14 @@ struct snd_soc_fw_enum_control {
 	__le32 values[SND_SOC_FW_NUM_TEXTS * SND_SOC_FW_TEXT_SIZE / 4];
 } __attribute__((packed));
 
+
+struct snd_soc_fw_bytes_ext {
+	struct snd_soc_fw_control_hdr hdr;
+	__s32 max;
+	__le32 reserved[12]; /* Reserved for future use */
+	__le32 pvt_data_len;
+	char pvt_data[0];
+} __attribute__((packed));
 /*
  * kcontrol Header
  */
