@@ -456,6 +456,9 @@ static enum msm_cpu cpu_of_id[] = {
 	/* 8936 IDs */
 	[233] = MSM_CPU_8936,
 
+	/* 8939 IDs */
+	[239] = MSM_CPU_8939,
+
 	/* ZIRC IDs */
 	[234] = MSM_CPU_ZIRC,
 	[235] = MSM_CPU_ZIRC,
@@ -935,6 +938,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_msm8916()) {
 		dummy_socinfo.id = 206;
 		strlcpy(dummy_socinfo.build_id, "msm8916 - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_msm8939()) {
+		dummy_socinfo.id = 239;
+		strlcpy(dummy_socinfo.build_id, "msm8939 - ",
 			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_msm8936()) {
 		dummy_socinfo.id = 233;
