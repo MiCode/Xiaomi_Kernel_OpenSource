@@ -167,5 +167,9 @@
 		qcom,mdss-dsi-reset-sequence = <1 20>, <0 2>, <1 20>;
 		qcom,mdss-pan-physical-width-dimension = <52>;
 		qcom,mdss-pan-physical-height-dimension = <86>;
+		qcom,mdss-tear-check-rd-ptr-trigger-intr = <0x5>;
+		qcom,mdss-tear-check-sync-threshold-start = <0x2>;
+		qcom,mdss-tear-check-sync-threshold-continue = <0x4>;
+		qcom,mdss-tear-check-start-pos = <0x18>;
 	};
 };
