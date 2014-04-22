@@ -1220,6 +1220,10 @@
 		clock-names = "core_clk";
 		clocks = <&clock_rpm clk_ce1_clk>;
 	};
+
+	qcom,bcl {
+		compatible = "qcom,bcl";
+	};
 };
 
 &gdsc_usb30 {
