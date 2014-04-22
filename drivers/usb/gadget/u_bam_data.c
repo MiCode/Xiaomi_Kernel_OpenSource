@@ -114,7 +114,6 @@ struct bam_data_port {
 	bool                            is_connected;
 	unsigned			port_num;
 	spinlock_t			port_lock_ul;
-	unsigned int                    ref_count;
 	struct data_port		*port_usb;
 	struct bam_data_ch_info		data_ch;
 
@@ -134,7 +133,6 @@ static struct rndis_data_ch_info rndis_data;
 
 static void bam2bam_data_suspend_work(struct work_struct *w);
 static void bam2bam_data_resume_work(struct work_struct *w);
-static void bam2bam_data_port_free(int portno);
 
 /*----- sys2bam towards the IPA (UL workaround) --------------- */
 
@@ -676,12 +674,8 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
 		}
 
 		ret = usb_bam_disconnect_ipa(&d->ipa_params);
-		if (!ret) {
-			pr_debug("%s(): freeing bam2bam_data_port\n", __func__);
-			bam2bam_data_port_free(0);
-		} else {
+		if (ret)
 			pr_err("usb_bam_disconnect_ipa failed: err:%d\n", ret);
-		}
 
 		if (d->func_type == USB_FUNC_MBIM)
 			teth_bridge_disconnect(d->ipa_params.src_client);
@@ -1030,33 +1024,13 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	pr_debug("Connect workqueue done (port %p)", port);
 }
 
-static void bam2bam_data_port_free(int portno)
-{
-	struct bam_data_port *port = bam2bam_data_ports[portno];
-
-	if (port == NULL) {
-		pr_debug("port %d already free\n", portno);
-		return;
-	}
-
-	if (--port->ref_count == 0) {
-		kfree(port);
-		bam2bam_data_ports[portno] = NULL;
-		n_bam2bam_data_ports--;
-		pr_debug("freed port %d\n", portno);
-	}
-}
-
 static int bam2bam_data_port_alloc(int portno)
 {
-	struct bam_data_port	*port = NULL;
-	struct bam_data_ch_info	*d = NULL;
+	struct bam_data_port    *port = NULL;
 
 	if (bam2bam_data_ports[portno] != NULL) {
-		pr_debug("port %d already allocated. incremeting ref_count\n",
-				portno);
-		bam2bam_data_ports[portno]->ref_count++;
-		goto done;
+		pr_debug("port %d already allocated.\n", portno);
+		return 0;
 	}
 
 	port = kzalloc(sizeof(struct bam_data_port), GFP_KERNEL);
@@ -1065,8 +1039,18 @@ static int bam2bam_data_port_alloc(int portno)
 		return -ENOMEM;
 	}
 
+	bam2bam_data_ports[portno] = port;
+	return 0;
+}
+int bam2bam_data_port_select(int portno)
+{
+	struct bam_data_port	*port = NULL;
+	struct bam_data_ch_info	*d = NULL;
+
+	pr_debug("Inside: portno:%d\n", portno);
+
+	port = bam2bam_data_ports[portno];
 	port->port_num  = portno;
-	port->ref_count = 1;
 	port->is_connected = false;
 
 	spin_lock_init(&port->port_lock_ul);
@@ -1090,7 +1074,6 @@ static int bam2bam_data_port_alloc(int portno)
 
 	rndis_disconn_w = &port->disconnect_w;
 
-done:
 	pr_debug("port:%p portno:%d\n", port, portno);
 
 	return 0;
@@ -1188,7 +1171,6 @@ int bam_data_connect(struct data_port *gr, u8 port_num,
 	unsigned long		flags;
 
 	pr_debug("dev:%p port#%d\n", gr, port_num);
-
 	if (port_num >= n_bam2bam_data_ports) {
 		pr_err("invalid portno#%d\n", port_num);
 		return -ENODEV;
@@ -1288,30 +1270,6 @@ exit:
 	return ret;
 }
 
-int bam_data_destroy(unsigned int no_bam2bam_port)
-{
-	struct bam_data_ch_info	*d;
-	struct bam_data_port	*port;
-
-	port = bam2bam_data_ports[no_bam2bam_port];
-	d = &port->data_ch;
-
-	pr_debug("bam_data_destroy: Freeing ports\n");
-	bam2bam_data_port_free(no_bam2bam_port);
-	if (bam_data_wq)
-		destroy_workqueue(bam_data_wq);
-	bam_data_wq = NULL;
-
-	return 0;
-}
-
-void bam_work_destroy(void)
-{
-	if (bam_data_wq)
-		destroy_workqueue(bam_data_wq);
-	bam_data_wq = NULL;
-}
-
 int bam_data_setup(unsigned int no_bam2bam_port)
 {
 	int	i;
@@ -1324,18 +1282,6 @@ int bam_data_setup(unsigned int no_bam2bam_port)
 		return -EINVAL;
 	}
 
-	if (bam_data_wq) {
-		pr_debug("bam_data is already setup");
-		return 0;
-	}
-
-	bam_data_wq = alloc_workqueue("k_bam_data",
-				      WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
-	if (!bam_data_wq) {
-		pr_err("Failed to create workqueue\n");
-		return -ENOMEM;
-	}
-
 	for (i = 0; i < no_bam2bam_port; i++) {
 		n_bam2bam_data_ports++;
 		ret = bam2bam_data_port_alloc(i);
@@ -1346,12 +1292,32 @@ int bam_data_setup(unsigned int no_bam2bam_port)
 		}
 	}
 
+	pr_debug("n_bam2bam_data_ports:%d\n", n_bam2bam_data_ports);
+
+	if (bam_data_wq) {
+		pr_debug("bam_data is already setup.");
+		return 0;
+	}
+
+	bam_data_wq = alloc_workqueue("k_bam_data",
+				WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
+	if (!bam_data_wq) {
+		pr_err("Failed to create workqueue\n");
+		ret = -ENOMEM;
+		goto free_bam_ports;
+	}
+
 	return 0;
 
 free_bam_ports:
-	for (i = 0; i < n_bam2bam_data_ports; i++)
-		bam2bam_data_port_free(i);
-	destroy_workqueue(bam_data_wq);
+	for (i = 0; i < n_bam2bam_data_ports; i++) {
+		kfree(bam2bam_data_ports[i]);
+		bam2bam_data_ports[i] = NULL;
+		if (bam_data_wq) {
+			destroy_workqueue(bam_data_wq);
+			bam_data_wq = NULL;
+		}
+	}
 
 	return ret;
 }
@@ -1442,28 +1408,27 @@ static void bam_data_stop(void *param, enum usb_bam_pipe_dir dir)
 void bam_data_suspend(u8 port_num)
 {
 	struct bam_data_port	*port;
-	struct bam_data_ch_info *d;
-
-	port = bam2bam_data_ports[port_num];
-	d = &port->data_ch;
 
 	pr_debug("%s: suspended port %d\n", __func__, port_num);
 
-	queue_work(bam_data_wq, &port->suspend_w);
+	port = bam2bam_data_ports[port_num];
+	if (port)
+		queue_work(bam_data_wq, &port->suspend_w);
+	else
+		pr_err("%s(): Port is NULL.\n", __func__);
 }
 
 void bam_data_resume(u8 port_num)
 {
-
 	struct bam_data_port	*port;
-	struct bam_data_ch_info *d;
-
-	port = bam2bam_data_ports[port_num];
-	d = &port->data_ch;
 
 	pr_debug("%s: resumed port %d\n", __func__, port_num);
 
-	queue_work(bam_data_wq, &port->resume_w);
+	port = bam2bam_data_ports[port_num];
+	if (port)
+		queue_work(bam_data_wq, &port->resume_w);
+	else
+		pr_err("%s(): Port is NULL.\n", __func__);
 }
 
 static void bam2bam_data_suspend_work(struct work_struct *w)

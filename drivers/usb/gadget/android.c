@@ -1057,6 +1057,14 @@ static int ecm_function_init(struct android_usb_function *f,
 	return 0;
 }
 
+static int ecm_qc_function_init(struct android_usb_function *f,
+				struct usb_composite_dev *cdev)
+{
+	f->config = kzalloc(sizeof(struct ecm_function_config), GFP_KERNEL);
+	if (!f->config)
+		return -ENOMEM;
+	return ecm_qc_init();
+}
 static void ecm_function_cleanup(struct android_usb_function *f)
 {
 	kfree(f->config);
@@ -1154,7 +1162,7 @@ static struct device_attribute *ecm_function_attributes[] = {
 
 static struct android_usb_function ecm_qc_function = {
 	.name		= "ecm_qc",
-	.init		= ecm_function_init,
+	.init		= ecm_qc_function_init,
 	.cleanup	= ecm_function_cleanup,
 	.bind_config	= ecm_qc_function_bind_config,
 	.unbind_config	= ecm_qc_function_unbind_config,

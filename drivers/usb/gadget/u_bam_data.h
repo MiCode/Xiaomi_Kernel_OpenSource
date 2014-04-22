@@ -31,6 +31,8 @@ struct data_port {
 	int                             ipa_producer_ep;
 };
 
+int bam2bam_data_port_select(int portno);
+
 void bam_data_disconnect(struct data_port *gr, u8 port_num);
 
 int bam_data_connect(struct data_port *gr, u8 port_num,
