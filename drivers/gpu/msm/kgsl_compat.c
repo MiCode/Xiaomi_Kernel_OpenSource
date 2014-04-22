@@ -376,18 +376,27 @@ int kgsl_cmdbatch_create_compat(struct kgsl_device *device, unsigned int flags,
 	int ret = 0, i;
 
 	if (!(flags & KGSL_CMDBATCH_SYNC)) {
-		for (i = 0; i < numcmds; i++) {
-			struct kgsl_ibdesc_compat cmdbatch_ibdesc;
-			if (copy_from_user(&cmdbatch_ibdesc,
-				cmdlist + (sizeof(struct kgsl_ibdesc_compat)*i),
-				sizeof(struct kgsl_ibdesc_compat)))
-				return -EFAULT;
+		struct kgsl_ibdesc_compat ibdesc32;
+		struct kgsl_ibdesc ibdesc;
+		void __user *uptr = cmdlist;
 
-			cmdbatch->ibdesc[i].gpuaddr = (unsigned long)
-						cmdbatch_ibdesc.gpuaddr;
-			cmdbatch->ibdesc[i].sizedwords = (size_t)
-						cmdbatch_ibdesc.sizedwords;
-			cmdbatch->ibdesc[i].ctrl = cmdbatch_ibdesc.ctrl;
+		for (i = 0; i < numcmds; i++) {
+			memset(&ibdesc32, 0, sizeof(ibdesc32));
+
+			if (copy_from_user(&ibdesc32, uptr, sizeof(ibdesc32))) {
+				ret = -EFAULT;
+				goto done;
+			}
+
+			ibdesc.gpuaddr = (unsigned long)ibdesc32.gpuaddr;
+			ibdesc.sizedwords = (size_t)ibdesc32.sizedwords;
+			ibdesc.ctrl = (unsigned int)ibdesc32.ctrl;
+
+			ret = kgsl_cmdbatch_add_memobj(cmdbatch, &ibdesc);
+			if (ret)
+				goto done;
+
+			uptr += sizeof(ibdesc32);
 		}
 	}
 	if (synclist && numsyncs) {
@@ -395,7 +404,6 @@ int kgsl_cmdbatch_create_compat(struct kgsl_device *device, unsigned int flags,
 		struct kgsl_cmd_syncpoint_compat sync32;
 		struct kgsl_cmd_syncpoint sync;
 		void __user *uptr = synclist;
-		int i;
 
 		for (i = 0; i < numsyncs; i++) {
 			memset(&sync32, 0, sizeof(sync32));
@@ -413,5 +421,7 @@ int kgsl_cmdbatch_create_compat(struct kgsl_device *device, unsigned int flags,
 			uptr += sizeof(sync32);
 		}
 	}
+
+done:
 	return ret;
 }
