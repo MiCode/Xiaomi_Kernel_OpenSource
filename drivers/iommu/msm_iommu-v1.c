@@ -1299,6 +1299,9 @@ irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)
 	unsigned int fsr;
 	int ret;
 
+	phys_addr_t pagetable_phys;
+	u64 faulty_iova = 0;
+
 	mutex_lock(&msm_iommu_lock);
 
 	BUG_ON(!pdev);
@@ -1333,11 +1336,14 @@ irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)
 		if (!ctx_drvdata->attached_domain) {
 			pr_err("Bad domain in interrupt handler\n");
 			ret = -ENOSYS;
-		} else
+		} else {
+			faulty_iova =
+				GET_FAR(drvdata->cb_base, ctx_drvdata->num);
 			ret = report_iommu_fault(ctx_drvdata->attached_domain,
 				&ctx_drvdata->pdev->dev,
-				GET_FAR(drvdata->cb_base, ctx_drvdata->num), 0);
+				faulty_iova, 0);
 
+		}
 		if (ret == -ENOSYS) {
 			pr_err("Unexpected IOMMU page fault!\n");
 			pr_err("name = %s\n", drvdata->name);
@@ -1346,6 +1352,14 @@ irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)
 			pr_err("Interesting registers:\n");
 			__print_ctx_regs(drvdata->cb_base,
 					ctx_drvdata->num, fsr);
+
+			if (ctx_drvdata->attached_domain) {
+				pagetable_phys = msm_iommu_iova_to_phys_soft(
+					ctx_drvdata->attached_domain,
+					faulty_iova);
+				pr_err("Page table in DDR shows PA = %x\n",
+					(unsigned int) pagetable_phys);
+			}
 		}
 
 		if (ret != -EBUSY)
