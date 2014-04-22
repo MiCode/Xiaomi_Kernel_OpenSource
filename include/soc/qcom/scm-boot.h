@@ -44,13 +44,13 @@ static inline int scm_set_boot_addr(phys_addr_t addr, unsigned int flags)
 	WARN_ONCE(1, "CONFIG_MSM_SCM disabled, SCM call will fail silently\n");
 	return 0;
 }
-int scm_set_boot_addr_mc(phys_addr_t addr, u32 aff0,
+static inline int scm_set_boot_addr_mc(phys_addr_t addr, u32 aff0,
 		u32 aff1, u32 aff2, u32 flags)
 {
 	WARN_ONCE(1, "CONFIG_MSM_SCM disabled, SCM call will fail silently\n");
 	return 0;
 }
-int scm_set_warm_boot_addr_mc_for_all(phys_addr_t addr)
+static inline int scm_set_warm_boot_addr_mc_for_all(phys_addr_t addr)
 {
 	WARN_ONCE(1, "CONFIG_MSM_SCM disabled, SCM call will fail silently\n");
 	return 0;
