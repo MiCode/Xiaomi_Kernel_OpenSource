@@ -735,25 +735,6 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 
 	seqno = ring->outstanding_lazy_seqno;
 
-	ret = execlists_move_to_gpu(ringbuf, vmas);
-	if (ret)
-		return ret;
-
-	if (ring == &dev_priv->ring[RCS] &&
-	    instp_mode != dev_priv->relative_constants_mode) {
-		ret = intel_logical_ring_begin(ringbuf, 4);
-		if (ret)
-			return ret;
-
-		intel_logical_ring_emit(ringbuf, MI_NOOP);
-		intel_logical_ring_emit(ringbuf, MI_LOAD_REGISTER_IMM(1));
-		intel_logical_ring_emit(ringbuf, INSTPM);
-		intel_logical_ring_emit(ringbuf, instp_mask << 16 | instp_mode);
-		intel_logical_ring_advance(ringbuf);
-
-		dev_priv->relative_constants_mode = instp_mode;
-	}
-
 #ifdef CONFIG_SYNC
 	if (args->flags & I915_EXEC_WAIT_FENCE) {
 		/* Validate the fence wait parameter but don't do the wait until
@@ -790,6 +771,25 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 
 		/* Return the fence through the rsvd2 field */
 		args->rsvd2 = (__u64) fd_fence_complete;
+	}
+
+	ret = execlists_move_to_gpu(ringbuf, vmas);
+	if (ret)
+		goto error;
+
+	if (ring == &dev_priv->ring[RCS] &&
+	    instp_mode != dev_priv->relative_constants_mode) {
+		ret = intel_logical_ring_begin(ringbuf, 4);
+		if (ret)
+			goto error;
+
+		intel_logical_ring_emit(ringbuf, MI_NOOP);
+		intel_logical_ring_emit(ringbuf, MI_LOAD_REGISTER_IMM(1));
+		intel_logical_ring_emit(ringbuf, INSTPM);
+		intel_logical_ring_emit(ringbuf, instp_mask << 16 | instp_mode);
+		intel_logical_ring_advance(ringbuf);
+
+		dev_priv->relative_constants_mode = instp_mode;
 	}
 
 	/* Flag this seqno as being active on the ring so the watchdog
