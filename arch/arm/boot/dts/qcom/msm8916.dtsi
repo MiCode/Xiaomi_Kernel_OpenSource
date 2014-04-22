@@ -1303,7 +1303,6 @@
 			core-vcc-supply = <&pm8916_l2>;
 			spi-vcc-supply = <&pm8916_l5>;
 			lattice,reset-gpio = <&msm_gpio 3 0>;
-			lattice,slave-select-gpio = <&msm_gpio 10 0>;
 			lattice,config-done-gpio = <&msm_gpio 1 0>;
 			lattice,vcc-en-gpio = <&msm_gpio 114 0>;
 			lattice,clk-en-gpio = <&msm_gpio 0 0>;

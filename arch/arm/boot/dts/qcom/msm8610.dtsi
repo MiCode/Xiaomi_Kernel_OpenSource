@@ -646,7 +646,6 @@
 			spi-vcc-supply = <&pm8110_l6>;
 			gpio-supply = <&pm8110_l22>;
 			lattice,reset-gpio = <&msmgpio 95 0>;
-			lattice,slave-select-gpio = <&msmgpio 85 0>;
 			lattice,config-done-gpio = <&msmgpio 94 0>;
 			lattice,vcc-en-gpio = <&msmgpio 96 0>;
 		};
