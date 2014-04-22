@@ -52,6 +52,12 @@ Optional properties:
 					with the supply entry index. For a detailed description of
 					fields in the supply entry, refer to the qcom,ctrl-supply-entries
 					binding above.
+- qcom,core-supply-entries:		A node that lists the elements of the supply used to
+					power the DSI core. There can be more than one instance
+					of this binding, in which case the entry would be appended
+					with the supply entry index. For a detailed description of
+					fields in the supply entry, refer to the qcom,ctrl-supply-entries
+					binding above.
 - qcom,platform-enable-gpio:		Specifies the panel lcd/display enable gpio.
 - qcom,platform-reset-gpio:		Specifies the panel reset gpio.
 - qcom,platform-te-gpio:		Specifies the gpio used for TE.
@@ -97,6 +103,24 @@ Example:
 		qcom,platform-enable-gpio = <&msmgpio 58 1>;
 		qcom,platform-bklight-en-gpio = <&msmgpio 86 0>;
 		qcom,platform-mode-gpio = <&msmgpio 7 0>;
+
+		qcom,core-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,core-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+				qcom,supply-pre-on-sleep = <0>;
+				qcom,supply-post-on-sleep = <0>;
+				qcom,supply-pre-off-sleep = <0>;
+				qcom,supply-post-off-sleep = <0>;
+			};
+		};
 
 		qcom,ctrl-supply-entries {
 			#address-cells = <1>;
