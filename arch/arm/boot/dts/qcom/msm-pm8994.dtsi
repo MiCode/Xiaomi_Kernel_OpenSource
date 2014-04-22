@@ -11,11 +11,16 @@
  */
 
 &spmi_bus {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	interrupt-controller;
+	#interrupt-cells = <3>;
+
 	qcom,pm8994@0 {
 		spmi-slave-container;
+		reg = <0x0>;
 		#address-cells = <1>;
 		#size-cells = <1>;
-		reg = <0x0>;
 
 		pm8994_revid: qcom,revid@100 {
 			compatible = "qcom,qpnp-revid";
@@ -283,9 +288,9 @@
 
 	qcom,pm8994@1 {
 		spmi-slave-container;
+		reg = <0x1>;
 		#address-cells = <1>;
 		#size-cells = <1>;
-		reg = <0x1>;
 	};
 
 };
