@@ -804,7 +804,13 @@ static int venus_hfi_vote_buses(void *dev, struct vidc_bus_vote_data *data,
 			continue;
 		}
 
-		bus_vector = venus_hfi_get_bus_vector(device, bus, load);
+		/* Annoying little hack here: if the bus vector is 0, it
+		 * actually means "unvote".  However if the client is calling
+		 * vote_bus, it's probably not very nice to unvote the buses.
+		 * So pick up the lowest bandwidth table and use that instead.
+		 * If client wants to unvote, it'll call venus_hfi_unvote\
+		 * _buses */
+		bus_vector = venus_hfi_get_bus_vector(device, bus, load) ?: 1;
 		rc = msm_bus_scale_client_update_request(bus->priv, bus_vector);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed voting for bus %s @ %d: %d\n",
