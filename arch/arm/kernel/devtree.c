@@ -174,10 +174,14 @@ void __init arm_dt_init_cpu_maps(void)
 	 * a reg property, the DT CPU list can be considered valid and the
 	 * logical map created in smp_setup_processor_id() can be overridden
 	 */
-	for (i = 0; i < cpuidx; i++) {
-		set_cpu_possible(i, true);
-		cpu_logical_map(i) = tmp_map[i];
-		pr_debug("cpu logical map 0x%x\n", cpu_logical_map(i));
+	for (i = 0; i < nr_cpu_ids; i++) {
+		if (i < cpuidx) {
+			set_cpu_possible(i, true);
+			cpu_logical_map(i) = tmp_map[i];
+			pr_debug("cpu logical map 0x%x\n", cpu_logical_map(i));
+		} else {
+			set_cpu_possible(i, false);
+		}
 	}
 }
 
