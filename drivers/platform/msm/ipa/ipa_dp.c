@@ -98,41 +98,6 @@ static void ipa_wq_write_done_common(struct ipa_sys_context *sys, u32 cnt)
 	}
 }
 
-static void ipa_purge_tx_list(struct ipa_sys_context *sys)
-{
-	struct ipa_tx_pkt_wrapper *tx_pkt_expected;
-	struct list_head free_list;
-
-	INIT_LIST_HEAD(&free_list);
-
-	spin_lock_bh(&sys->spinlock);
-	list_splice_tail_init(&sys->head_desc_list, &free_list);
-	sys->len = 0;
-	spin_unlock_bh(&sys->spinlock);
-
-	while (!list_empty(&free_list)) {
-		tx_pkt_expected = list_first_entry(&free_list,
-						   struct ipa_tx_pkt_wrapper,
-						   link);
-		list_del(&tx_pkt_expected->link);
-		if (!tx_pkt_expected->no_unmap_dma)
-			dma_unmap_single(ipa_ctx->pdev,
-					tx_pkt_expected->mem.phys_base,
-					tx_pkt_expected->mem.size,
-					DMA_TO_DEVICE);
-		if (tx_pkt_expected->callback)
-			tx_pkt_expected->callback(tx_pkt_expected->user1,
-					tx_pkt_expected->user2);
-		if (tx_pkt_expected->cnt > 1 &&
-				tx_pkt_expected->cnt != IPA_LAST_DESC_CNT)
-			dma_free_coherent(ipa_ctx->pdev,
-				tx_pkt_expected->mult.size,
-				tx_pkt_expected->mult.base,
-				tx_pkt_expected->mult.phys_base);
-		kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt_expected);
-	}
-}
-
 static void ipa_wq_write_done_status(int src_pipe)
 {
 	struct ipa_tx_pkt_wrapper *tx_pkt_expected;
@@ -1190,15 +1155,17 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 	ipa_disable_data_path(clnt_hdl);
 	ep->valid = 0;
 
-	do {
-		spin_lock_bh(&ep->sys->spinlock);
-		empty = list_empty(&ep->sys->head_desc_list);
-		spin_unlock_bh(&ep->sys->spinlock);
-		if (!empty)
-			usleep(100);
-		else
-			break;
-	} while (1);
+	if (IPA_CLIENT_IS_PROD(ep->client)) {
+		do {
+			spin_lock_bh(&ep->sys->spinlock);
+			empty = list_empty(&ep->sys->head_desc_list);
+			spin_unlock_bh(&ep->sys->spinlock);
+			if (!empty)
+				usleep(100);
+			else
+				break;
+		} while (1);
+	}
 
 	flush_workqueue(ep->sys->wq);
 	sps_disconnect(ep->ep_hdl);
@@ -1208,8 +1175,6 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 	sps_free_endpoint(ep->ep_hdl);
 	if (IPA_CLIENT_IS_CONS(ep->client))
 		ipa_cleanup_rx(ep->sys);
-	else
-		ipa_purge_tx_list(ep->sys);
 
 	ipa_delete_dflt_flt_rules(clnt_hdl);
 
