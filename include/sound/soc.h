@@ -861,6 +861,9 @@ struct soc_mixer_control {
 	struct list_head list;
 	struct snd_kcontrol *dcontrol;
 	int index;
+
+	unsigned int pvt_data_len;
+	char *pvt_data;
 };
 
 struct soc_bytes {

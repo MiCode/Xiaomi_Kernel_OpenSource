@@ -428,14 +428,15 @@ static int soc_fw_dmixer_create(struct soc_fw *sfw, unsigned int count,
 
 	for (i = 0; i < count; i++) {
 		mc = (struct snd_soc_fw_mixer_control *)sfw->pos;
-		sfw->pos += sizeof(struct snd_soc_fw_mixer_control);
+		sfw->pos += (sizeof(struct snd_soc_fw_mixer_control) + mc->pvt_data_len);
+
 
 		/* validate kcontrol */
 		if (strnlen(mc->hdr.name, SND_SOC_FW_TEXT_SIZE) ==
 			SND_SOC_FW_TEXT_SIZE)
 			return -EINVAL;
 
-		sm = kzalloc(sizeof(*sm), GFP_KERNEL);
+		sm = kzalloc(sizeof(*sm) + mc->pvt_data_len, GFP_KERNEL);
 		if (!sm)
 			return -ENOMEM;
 
@@ -458,6 +459,9 @@ static int soc_fw_dmixer_create(struct soc_fw *sfw, unsigned int count,
 		sm->invert = mc->invert;
 		sm->platform_max = mc->platform_max;
 		sm->index = sfw->index;
+		if (mc->pvt_data_len)
+			soc_fw_init_pvt_data(sfw, mc->hdr.index, (unsigned long)sm, (unsigned long)mc);
+
 		INIT_LIST_HEAD(&sm->list);
 
 		/* map standard io handlers and check for external handlers */
@@ -774,12 +778,13 @@ static struct snd_kcontrol_new *soc_fw_dapm_widget_dmixer_create(struct soc_fw *
 		return NULL;
 
 	for (i = 0; i < num_kcontrols; i++) {
-		sm = kzalloc(sizeof(*sm), GFP_KERNEL);
+		mc = (struct snd_soc_fw_mixer_control *)sfw->pos;
+		sm = kzalloc(sizeof(*sm) + mc->pvt_data_len, GFP_KERNEL);
 		if (!sm)
 			goto err;
 
 		mc = (struct snd_soc_fw_mixer_control *)sfw->pos;
-		sfw->pos += sizeof(struct snd_soc_fw_mixer_control);
+		sfw->pos += (sizeof(struct snd_soc_fw_mixer_control) + mc->pvt_data_len);
 
 		/* validate kcontrol */
 		if (strnlen(mc->hdr.name, SND_SOC_FW_TEXT_SIZE) ==
@@ -803,6 +808,10 @@ static struct snd_kcontrol_new *soc_fw_dapm_widget_dmixer_create(struct soc_fw *
 		sm->invert = mc->invert;
 		sm->platform_max = mc->platform_max;
 		sm->index = sfw->index;
+
+		if (mc->pvt_data_len)
+			soc_fw_init_pvt_data(sfw, mc->hdr.index, (unsigned long)sm, (unsigned long)mc);
+
 		INIT_LIST_HEAD(&sm->list);
 
 		/* map standard io handlers and check for external handlers */
