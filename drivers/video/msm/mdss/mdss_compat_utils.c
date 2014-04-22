@@ -537,9 +537,9 @@ static int __to_user_igc_lut_data(
 			sizeof(uint32_t)))
 		return -EFAULT;
 
-	if (get_user(data, &igc_lut->c0_c1_data) ||
+	if (get_user(data, (unsigned long *) &igc_lut->c0_c1_data) ||
 	    put_user((compat_caddr_t) data, &igc_lut32->c0_c1_data) ||
-	    get_user(data, &igc_lut->c2_data) ||
+	    get_user(data, (unsigned long *) &igc_lut->c2_data) ||
 	    put_user((compat_caddr_t) data, &igc_lut32->c2_data))
 		return -EFAULT;
 
@@ -768,7 +768,7 @@ static int __to_user_hist_lut_data(
 			sizeof(uint32_t)))
 		return -EFAULT;
 
-	if (get_user(data, &hist_lut->data) ||
+	if (get_user(data, (unsigned long *) &hist_lut->data) ||
 	    put_user((compat_caddr_t) data, &hist_lut32->data))
 		return -EFAULT;
 
@@ -894,7 +894,7 @@ static int __to_user_qseed_cfg(
 			sizeof(uint32_t)))
 		return -EFAULT;
 
-	if (get_user(data, &qseed_data->data) ||
+	if (get_user(data, (unsigned long *) &qseed_data->data) ||
 	    put_user((compat_caddr_t) data, &qseed_data32->data))
 		return -EFAULT;
 
@@ -1156,9 +1156,9 @@ static int __to_user_pa_v2_data(
 			sizeof(uint32_t)))
 		return -EFAULT;
 
-	if (get_user(data, &pa_v2_data->six_zone_curve_p0) ||
+	if (get_user(data, (unsigned long *) &pa_v2_data->six_zone_curve_p0) ||
 	    put_user((compat_caddr_t) data, &pa_v2_data32->six_zone_curve_p0) ||
-	    get_user(data, &pa_v2_data->six_zone_curve_p1) ||
+	    get_user(data, (unsigned long *) &pa_v2_data->six_zone_curve_p1) ||
 	    put_user((compat_caddr_t) data, &pa_v2_data32->six_zone_curve_p1))
 		return -EFAULT;
 
@@ -1326,19 +1326,19 @@ static int __to_user_gamut_cfg_data(
 		return 0;
 
 	for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
-		if (get_user(data, &gamut_cfg->r_tbl[i]) ||
+		if (get_user(data, (unsigned long *) &gamut_cfg->r_tbl[i]) ||
 		    put_user((compat_caddr_t)data, &gamut_cfg32->r_tbl[i]))
 			return -EFAULT;
 	}
 
 	for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
-		if (get_user(data, &gamut_cfg->g_tbl[i]) ||
+		if (get_user(data, (unsigned long *) &gamut_cfg->g_tbl[i]) ||
 		    put_user((compat_caddr_t)data, &gamut_cfg32->g_tbl[i]))
 			return -EFAULT;
 	}
 
 	for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
-		if (get_user(data, &gamut_cfg->b_tbl[i]) ||
+		if (get_user(data, (unsigned long *) &gamut_cfg->b_tbl[i]) ||
 		    put_user((compat_caddr_t)data, &gamut_cfg32->g_tbl[i]))
 			return -EFAULT;
 	}
@@ -1683,7 +1683,7 @@ static int __to_user_calib_config_buffer(
 			sizeof(uint32_t)))
 		return -EFAULT;
 
-	if (get_user(data, &calib_buffer->buffer) ||
+	if (get_user(data, (unsigned long *) &calib_buffer->buffer) ||
 	    put_user((compat_caddr_t) data, &calib_buffer32->buffer))
 		return -EFAULT;
 
@@ -2165,13 +2165,13 @@ static int __to_user_hist_data(
 			sizeof(uint8_t)))
 		return -EFAULT;
 
-	if (get_user(data, &hist_data->c0) ||
+	if (get_user(data, (unsigned long *) &hist_data->c0) ||
 	    put_user((compat_caddr_t) data, &hist_data32->c0) ||
-	    get_user(data, &hist_data->c1) ||
+	    get_user(data, (unsigned long *) &hist_data->c1) ||
 	    put_user((compat_caddr_t) data, &hist_data32->c1) ||
-	    get_user(data, &hist_data->c2) ||
+	    get_user(data, (unsigned long *) &hist_data->c2) ||
 	    put_user((compat_caddr_t) data, &hist_data32->c2) ||
-	    get_user(data, &hist_data->extra_info) ||
+	    get_user(data, (unsigned long *) &hist_data->extra_info) ||
 	    put_user((compat_caddr_t) data, &hist_data32->extra_info))
 		return -EFAULT;
 
