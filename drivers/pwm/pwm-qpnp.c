@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1227,6 +1227,7 @@ static int qpnp_pwm_config(struct pwm_chip *pwm_chip,
 	int rc;
 	unsigned long flags;
 	struct qpnp_pwm_chip *chip = qpnp_pwm_from_pwm_chip(pwm_chip);
+	int prev_period_us = chip->pwm_config.pwm_period;
 
 	if ((unsigned)period_ns < PM_PWM_PERIOD_MIN * NSEC_PER_USEC) {
 		pr_err("Invalid pwm handle or parameters\n");
@@ -1235,7 +1236,8 @@ static int qpnp_pwm_config(struct pwm_chip *pwm_chip,
 
 	spin_lock_irqsave(&chip->lpg_lock, flags);
 
-	if (pwm->period != period_ns) {
+	if (prev_period_us > INT_MAX / NSEC_PER_USEC ||
+			prev_period_us * NSEC_PER_USEC != period_ns) {
 		qpnp_lpg_calc_period(LVL_NSEC, period_ns, chip);
 		qpnp_lpg_save_period(chip);
 		pwm->period = period_ns;
