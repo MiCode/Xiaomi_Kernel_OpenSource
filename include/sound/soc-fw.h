@@ -55,6 +55,9 @@ struct snd_soc_fw_codec_ops {
 	int (*vendor_load)(struct snd_soc_codec *, struct snd_soc_fw_hdr *);
 	int (*vendor_unload)(struct snd_soc_codec *, struct snd_soc_fw_hdr *);
 
+
+	int (*pvt_load)(struct snd_soc_codec *, u32, unsigned long, unsigned long);
+
 	/* completion - called at completion of firmware loading */
 	void (*complete)(struct snd_soc_codec *);
 
@@ -77,6 +80,8 @@ struct snd_soc_fw_platform_ops {
 	/* callback to handle vendor data */
 	int (*vendor_load)(struct snd_soc_platform *, struct snd_soc_fw_hdr *);
 	int (*vendor_unload)(struct snd_soc_platform *, struct snd_soc_fw_hdr *);
+
+	int (*pvt_load)(struct snd_soc_platform *, u32, unsigned long, unsigned long);
 
 	/* completion - called at completion of firmware loading */
 	void (*complete)(struct snd_soc_platform *);
@@ -101,6 +106,8 @@ struct snd_soc_fw_card_ops {
 	/* callback to handle vendor data */
 	int (*vendor_load)(struct snd_soc_card *, struct snd_soc_fw_hdr *);
 	int (*vendor_unload)(struct snd_soc_card *, struct snd_soc_fw_hdr *);
+
+	int (*pvt_load)(struct snd_soc_card *, u32, unsigned long, unsigned long);
 
 	/* completion */
 	void (*complete)(struct snd_soc_card *);

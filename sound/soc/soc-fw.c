@@ -362,6 +362,23 @@ static int soc_fw_init_kcontrol(struct soc_fw *sfw, struct snd_kcontrol_new *k)
 	return 0;
 }
 
+/* optionally pass private data to be habdled by component driver. */
+static int soc_fw_init_pvt_data(struct soc_fw *sfw, u32 io_type, unsigned long sm,
+			unsigned long mc)
+{
+	if (sfw->codec && sfw->codec_ops && sfw->codec_ops->pvt_load)
+		return sfw->codec_ops->pvt_load(sfw->codec, io_type, sm, mc);
+
+	if (sfw->platform && sfw->platform_ops && sfw->platform_ops->pvt_load)
+		return sfw->platform_ops->pvt_load(sfw->platform, io_type, sm, mc);
+
+	if (sfw->card && sfw->card_ops && sfw->card_ops->pvt_load)
+		return sfw->card_ops->pvt_load(sfw->card, io_type, sm, mc);
+
+	dev_dbg(sfw->dev, "ASoC: no handler specified for pvt data copy\n");
+	return 0;
+}
+
 static int soc_fw_create_tlv(struct soc_fw *sfw, struct snd_kcontrol_new *kc,
 	u32 tlv_size)
 {
