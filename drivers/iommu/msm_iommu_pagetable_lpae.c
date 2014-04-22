@@ -24,6 +24,7 @@
 #define NUM_FL_PTE      4   /* First level */
 #define NUM_SL_PTE      512 /* Second level */
 #define NUM_TL_PTE      512 /* Third level */
+#define GUARD_PTE       2
 
 #define PTE_SIZE	8
 
@@ -191,7 +192,7 @@ static inline u64 *make_second_level_tbl(s32 redirect, u64 *fl_pte)
 		goto fail;
 	}
 	memset(sl, 0, SZ_4K);
-	clean_pte(sl, sl + NUM_SL_PTE, redirect);
+	clean_pte(sl, sl + NUM_SL_PTE + GUARD_PTE, redirect);
 
 	/* Leave APTable bits 0 to let next level decide access permissinons */
 	*fl_pte = (((phys_addr_t)__pa(sl)) & FLSL_BASE_MASK) | FLSL_TYPE_TABLE;
@@ -209,7 +210,7 @@ static inline u64 *make_third_level_tbl(s32 redirect, u64 *sl_pte)
 		goto fail;
 	}
 	memset(tl, 0, SZ_4K);
-	clean_pte(tl, tl + NUM_TL_PTE, redirect);
+	clean_pte(tl, tl + NUM_TL_PTE + GUARD_PTE, redirect);
 
 	/* Leave APTable bits 0 to let next level decide access permissions */
 	*sl_pte = (((phys_addr_t)__pa(tl)) & FLSL_BASE_MASK) | FLSL_TYPE_TABLE;

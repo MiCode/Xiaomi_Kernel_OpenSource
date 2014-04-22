@@ -26,6 +26,7 @@
 
 #define NUM_FL_PTE      4096
 #define NUM_SL_PTE      256
+#define GUARD_PTE       2
 #define NUM_TEX_CLASS   8
 
 /* First-level page table bits */
@@ -173,7 +174,7 @@ static u32 *make_second_level(struct msm_iommu_pt *pt,
 		goto fail;
 	}
 	memset(sl, 0, SZ_4K);
-	clean_pte(sl, sl + NUM_SL_PTE, pt->redirect);
+	clean_pte(sl, sl + NUM_SL_PTE + GUARD_PTE, pt->redirect);
 
 	*fl_pte = ((((int)__pa(sl)) & FL_BASE_MASK) | \
 			FL_TYPE_TABLE);
