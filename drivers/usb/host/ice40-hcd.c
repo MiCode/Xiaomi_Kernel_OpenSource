@@ -156,7 +156,6 @@ struct ice40_hcd {
 
 	struct pinctrl *pinctrl;
 	int reset_gpio;
-	int slave_select_gpio;
 	int config_done_gpio;
 	int vcc_en_gpio;
 	int clk_en_gpio;
@@ -1341,14 +1340,6 @@ static int ice40_spi_parse_dt(struct ice40_hcd *ihcd)
 		goto out;
 	}
 
-	ihcd->slave_select_gpio = of_get_named_gpio(node,
-				"lattice,slave-select-gpio", 0);
-	if (ihcd->slave_select_gpio < 0) {
-		pr_err("slave select gpio is missing\n");
-		ret = ihcd->slave_select_gpio;
-		goto out;
-	}
-
 	ihcd->config_done_gpio = of_get_named_gpio(node,
 				"lattice,config-done-gpio", 0);
 	if (ihcd->config_done_gpio < 0) {
@@ -1547,8 +1538,6 @@ out:
 static int ice40_spi_load_fw(struct ice40_hcd *ihcd)
 {
 	int ret, i;
-	struct pinctrl *p;
-	char pin_state[16];
 
 	ret = gpio_direction_output(ihcd->reset_gpio, 0);
 	if (ret  < 0) {
@@ -1566,30 +1555,30 @@ static int ice40_spi_load_fw(struct ice40_hcd *ihcd)
 	 * The bridge chip samples the chip select signal during
 	 * power-up. If it is low, it enters SPI slave mode and
 	 * accepts the configuration data from us. The chip
-	 * select signal is managed by the SPI controller driver.
-	 * We temporarily override the chip select config to
-	 * drive it low. The SPI bus needs to be locked down during
-	 * this period to avoid other slave data going to our
-	 * bridge chip. Disable the SPI runtime suspend for
-	 * exclusive chip select access.
+	 * select signal is managed by the SPI controller driver
+	 * as it is part of the SPI protocol.
+	 *
+	 * Call spi_setup() with inverted active cs setting before
+	 * the powering up the bridge chip. The SPI controller drives
+	 * the chip select low as the slave is idle and bridge chip
+	 * enters slave mode. Call spi_setup() with correct active
+	 * cs setting after the bridge is powered up and before
+	 * starting the transfers.
+	 *
+	 * The SPI bus needs to be locked down during this period to
+	 * avoid other slave data going to our bridge chip. Disable the
+	 * SPI runtime suspend to keep the spi controller active to drive
+	 * the chip select correctly.
 	 *
 	 */
 	pm_runtime_get_sync(ihcd->spi->master->dev.parent);
 
 	spi_bus_lock(ihcd->spi->master);
 
-	ret = gpio_request(ihcd->slave_select_gpio, "ice40_spi_cs");
-	if (ret < 0) {
-		pr_err("fail to request slave select gpio %d\n", ret);
-		spi_bus_unlock(ihcd->spi->master);
-		pm_runtime_put_noidle(ihcd->spi->master->dev.parent);
-		goto out;
-	}
-
-	ret = gpio_direction_output(ihcd->slave_select_gpio, 0);
-	if (ret < 0) {
-		pr_err("fail to drive slave select gpio %d\n", ret);
-		gpio_free(ihcd->slave_select_gpio);
+	ihcd->spi->mode |= SPI_CS_HIGH;
+	ret = spi_setup(ihcd->spi);
+	if (ret) {
+		pr_err("fail to setup SPI with high cs setting %d\n", ret);
 		spi_bus_unlock(ihcd->spi->master);
 		pm_runtime_put_noidle(ihcd->spi->master->dev.parent);
 		goto out;
@@ -1598,7 +1587,6 @@ static int ice40_spi_load_fw(struct ice40_hcd *ihcd)
 	ret = ice40_spi_power_up(ihcd);
 	if (ret < 0) {
 		pr_err("fail to power up the chip\n");
-		gpio_free(ihcd->slave_select_gpio);
 		spi_bus_unlock(ihcd->spi->master);
 		pm_runtime_put_noidle(ihcd->spi->master->dev.parent);
 		goto out;
@@ -1610,20 +1598,14 @@ static int ice40_spi_load_fw(struct ice40_hcd *ihcd)
 	 */
 	usleep_range(1200, 1250);
 
-	gpio_direction_output(ihcd->slave_select_gpio, 1);
-	gpio_free(ihcd->slave_select_gpio);
-
-	snprintf(pin_state, sizeof(pin_state), "cs%d_sleep",
-			ihcd->spi->chip_select);
-	p = pinctrl_get_select(ihcd->spi->master->dev.parent, pin_state);
-	if (IS_ERR(p)) {
-		ret = PTR_ERR(p);
-		pr_err("fail to select cs sleep state\n");
+	ihcd->spi->mode &= ~SPI_CS_HIGH;
+	ret = spi_setup(ihcd->spi);
+	if (ret) {
+		pr_err("fail to setup SPI with low cs setting %d\n", ret);
 		spi_bus_unlock(ihcd->spi->master);
 		pm_runtime_put_noidle(ihcd->spi->master->dev.parent);
-		goto power_off;
 	}
-	pinctrl_put(p);
+
 	pm_runtime_put_noidle(ihcd->spi->master->dev.parent);
 
 	ret = spi_sync_locked(ihcd->spi, ihcd->fmsg);

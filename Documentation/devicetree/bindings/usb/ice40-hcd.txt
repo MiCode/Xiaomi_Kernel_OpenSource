@@ -12,8 +12,6 @@ Required properties:
 - <supply-name>-supply: handle to the regulator device tree node
   Required "supply-name" is "core-vcc" and "spi-vcc"
 - reset-gpio: gpio used to assert the bridge chip reset
-- slave-select-gpio: gpio used to select the slave during configuration
-  loading
 - config-done-gpio: gpio used to indicate the configuration status
 - vcc-en-gpio: gpio used to enable the chip power supply
 - pinctrl-names : List of pin configuration strings. "default" and "sleep"
@@ -45,7 +43,6 @@ Optional properties:
 			core-vcc-supply = <&pm8226_l2>;
 			spi-vcc-supply = <&pm8226_l5>;
 			lattice,reset-gpio = <&msmgpio 114 0>;
-			lattice,slave-select-gpio = <&msmgpio 118 0>;
 			lattice,config-done-gpio = <&msmgpio 115 0>;
 			lattice,vcc-en-gpio = <&msmgpio 117 0>;
 
