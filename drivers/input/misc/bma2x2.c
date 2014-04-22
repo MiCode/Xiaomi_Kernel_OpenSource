@@ -32,6 +32,7 @@
 #include <asm/mach/irq.h>
 #include <linux/regulator/consumer.h>
 #include <linux/of_gpio.h>
+#include <linux/sensors.h>
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
@@ -60,7 +61,7 @@
 #define ISR_INFO(dev, fmt, arg...)
 #endif
 
-#define SENSOR_NAME                 "bma2x2"
+#define SENSOR_NAME                 "accelerometer"
 #define ABSMIN                      -512
 #define ABSMAX                      512
 #define SLOPE_THRESHOLD_VALUE       32
@@ -72,11 +73,13 @@
 #define SLOPE_X_INDEX               5
 #define SLOPE_Y_INDEX               6
 #define SLOPE_Z_INDEX               7
+#define BMA2X2_MIN_DELAY            1
 #define BMA2X2_MAX_DELAY            200
-#define BMA2X2_RANGE_SET            3  /* +/- 2G */
+#define BMA2X2_RANGE_SET            3 /* +/- 2G */
+#define BMA2X2_RANGE_SHIFT          4 /* shift 4 bits for 2G */
 #define BMA2X2_BW_SET               12 /* 125HZ  */
 
-#define I2C_RETRY_DELAY()	    usleep_range(1000, 2000)
+#define I2C_RETRY_DELAY()           usleep_range(1000, 2000)
 /* wait 2ms for calibration ready */
 #define WAIT_CAL_READY()            usleep_range(2000, 2500)
 /* >3ms wait device ready */
@@ -1365,6 +1368,11 @@ static const struct interrupt_map_t int_map[] = {
 #define BMA2x2_VIO_MIN_UV       1500000
 #define BMA2x2_VIO_MAX_UV       3400000
 
+/* Polling delay in msecs */
+#define POLL_INTERVAL_MIN_MS	1
+#define POLL_INTERVAL_MAX_MS	10000
+#define POLL_DEFAULT_INTERVAL_MS 200
+
 struct bma2x2_type_map_t {
 
 	/*! bma2x2 sensor chip id */
@@ -1435,6 +1443,7 @@ struct bma2x2_platform_data {
 
 struct bma2x2_data {
 	struct i2c_client *bma2x2_client;
+	struct sensors_classdev cdev;
 	atomic_t delay;
 	atomic_t enable;
 	atomic_t selftest_result;
@@ -1496,6 +1505,23 @@ static int bma2x2_set_fifo_mode(struct i2c_client *client, u8 fifo_mode);
 static int bma2x2_normal_to_suspend(struct bma2x2_data *bma2x2,
 				unsigned char data1, unsigned char data2);
 
+static struct sensors_classdev sensors_cdev = {
+		.name = "bma2x2-accel",
+		.vendor = "bosch",
+		.version = 1,
+		.handle = SENSORS_ACCELERATION_HANDLE,
+		.type = SENSOR_TYPE_ACCELEROMETER,
+		.max_range = "156.8",	/* 16g */
+		.resolution = "0.156",	/* 15.63mg */
+		.sensor_power = "0.13",	/* typical value */
+		.min_delay = POLL_INTERVAL_MIN_MS * 1000, /* in microseconds */
+		.fifo_reserved_event_count = 0,
+		.fifo_max_event_count = 0,
+		.enabled = 0,
+		.delay_msec = POLL_DEFAULT_INTERVAL_MS, /* in millisecond */
+		.sensors_enable = NULL,
+		.sensors_poll_delay = NULL,
+};
 
 /*Remapping for BMA2X2*/
 
@@ -4785,6 +4811,9 @@ static int bma2x2_read_accel_xyz(struct i2c_client *client,
 #endif
 
 	bma2x2_remap_sensor_data(acc, client_data);
+	acc->x = acc->x << BMA2X2_RANGE_SHIFT;
+	acc->y = acc->y << BMA2X2_RANGE_SHIFT;
+	acc->z = acc->z << BMA2X2_RANGE_SHIFT;
 	return comres;
 }
 
@@ -5085,6 +5114,32 @@ static ssize_t bma2x2_enable_store(struct device *dev,
 
 	return count;
 }
+
+static int bma2x2_cdev_enable(struct sensors_classdev *sensors_cdev,
+				unsigned int enable)
+{
+	struct bma2x2_data *data = container_of(sensors_cdev,
+					struct bma2x2_data, cdev);
+
+	bma2x2_set_enable(&data->bma2x2_client->dev, enable);
+	return 0;
+}
+
+static int bma2x2_cdev_poll_delay(struct sensors_classdev *sensors_cdev,
+				unsigned int delay_ms)
+{
+	struct bma2x2_data *data = container_of(sensors_cdev,
+					struct bma2x2_data, cdev);
+
+	if (delay_ms < BMA2X2_MIN_DELAY)
+		delay_ms = BMA2X2_MIN_DELAY;
+	if (delay_ms > BMA2X2_MAX_DELAY)
+		delay_ms = BMA2X2_MAX_DELAY;
+	atomic_set(&data->delay, (unsigned int) delay_ms);
+
+	return 0;
+}
+
 static ssize_t bma2x2_fast_calibration_x_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -7041,10 +7096,25 @@ static int bma2x2_probe(struct i2c_client *client,
 			(unsigned long)data);
 #endif
 
+	data->cdev = sensors_cdev;
+	data->cdev.min_delay = POLL_INTERVAL_MIN_MS * 1000;
+	data->cdev.delay_msec = pdata->poll_interval;
+	data->cdev.sensors_enable = bma2x2_cdev_enable;
+	data->cdev.sensors_poll_delay = bma2x2_cdev_poll_delay;
+	err = sensors_classdev_register(&client->dev, &data->cdev);
+	if (err) {
+		dev_err(&client->dev, "create class device file failed!\n");
+		err = -EINVAL;
+		goto remove_bst_acc_sysfs_exit;
+	}
+
 	dev_notice(&client->dev, "BMA2x2 driver probe successfully");
 
 	return 0;
 
+remove_bst_acc_sysfs_exit:
+	sysfs_remove_group(&data->bst_acc->dev.kobj,
+			&bma2x2_attribute_group);
 bst_free_exit:
 	bst_unregister_device(dev_acc);
 
@@ -7138,7 +7208,7 @@ static int bma2x2_remove(struct i2c_client *client)
 {
 	struct bma2x2_data *data = i2c_get_clientdata(client);
 
-	bma2x2_set_enable(&client->dev, 0);
+	sensors_classdev_unregister(&data->cdev);
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&data->early_suspend);
 #endif
@@ -7164,6 +7234,7 @@ static int bma2x2_remove(struct i2c_client *client)
 		input_free_device(data->input);
 	}
 
+	bma2x2_set_enable(&client->dev, 0);
 	bma2x2_power_ctl(data, false);
 	bma2x2_power_deinit(data);
 	i2c_set_clientdata(client, NULL);
