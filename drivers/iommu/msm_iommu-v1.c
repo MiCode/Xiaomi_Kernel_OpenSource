@@ -1223,18 +1223,29 @@ void print_ctx_regs(struct msm_iommu_context_reg regs[])
 				dump_regs_tbl[iter].name);
 }
 
-static void __print_ctx_regs(void __iomem *base, int ctx, unsigned int fsr)
+static void __print_ctx_regs(struct msm_iommu_drvdata *drvdata, int ctx,
+					unsigned int fsr)
 {
+	void __iomem *base = drvdata->base;
+	void __iomem *cb_base = drvdata->cb_base;
+	bool is_secure = drvdata->sec_id != -1;
+
 	struct msm_iommu_context_reg regs[MAX_DUMP_REGS];
 	unsigned int i;
+	memset(regs, 0, sizeof(regs));
 
 	for (i = DUMP_REG_FIRST; i < MAX_DUMP_REGS; ++i) {
 		struct msm_iommu_context_reg *r = &regs[i];
 		unsigned long regaddr = dump_regs_tbl[i].reg_offset;
+		if (is_secure &&
+			dump_regs_tbl[i].dump_reg_type != DRT_CTX_REG) {
+			r->valid = 0;
+			continue;
+		}
 		r->valid = 1;
 		switch (dump_regs_tbl[i].dump_reg_type) {
 		case DRT_CTX_REG:
-			r->val = GET_CTX_REG(regaddr, base, ctx);
+			r->val = GET_CTX_REG(regaddr, cb_base, ctx);
 			break;
 		case DRT_GLOBAL_REG:
 			r->val = GET_GLOBAL_REG(regaddr, base);
@@ -1379,7 +1390,7 @@ irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)
 			pr_err("context = %s (%d)\n", ctx_drvdata->name,
 							ctx_drvdata->num);
 			pr_err("Interesting registers:\n");
-			__print_ctx_regs(drvdata->cb_base,
+			__print_ctx_regs(drvdata,
 					ctx_drvdata->num, fsr);
 
 			if (ctx_drvdata->attached_domain) {
