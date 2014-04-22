@@ -1429,7 +1429,7 @@ struct bma2x2_platform_data {
 	int poll_interval;
 	int gpio_int1;
 	int gpio_int2;
-	u8 place;
+	s8 place;
 	bool use_int;
 };
 
@@ -6665,6 +6665,42 @@ static int bma2x2_parse_dt(struct device *dev,
 }
 #endif
 
+#ifdef CONFIG_DOUBLE_TAP
+static void bma2x2_double_tap_disable(struct bma2x2_data *data)
+{
+	if (data->g_sensor_dev_doubletap) {
+		sysfs_remove_group(&data->g_sensor_dev_doubletap->kobj,
+			&bma2x2_double_tap_attribute_group);
+		device_destroy(data->g_sensor_dev_doubletap);
+		class_destroy(data->g_sensor_class_doubletap);
+	}
+	return;
+}
+#else
+static void bma2x2_double_tap_disable(struct bma2x2_data *data)
+{
+	return;
+}
+#endif
+
+#ifdef CONFIG_SIG_MOTION
+static void bma2x2_sig_motion_disable(struct bma2x2_data *data)
+{
+	if (data->g_sensor_dev) {
+		sysfs_remove_group(&data->g_sensor_dev->kobj,
+			&bma2x2_sig_motion_attribute_group);
+		device_destroy(data->g_sensor_dev);
+		class_destroy(data->g_sensor_class);
+	}
+	return;
+}
+#else
+static void bma2x2_sig_motion_disable(struct bma2x2_data *data)
+{
+	return;
+}
+#endif
+
 static int bma2x2_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
@@ -6823,14 +6859,19 @@ static int bma2x2_probe(struct i2c_client *client,
 	atomic_set(&data->enable, 0);
 
 	dev = input_allocate_device();
-	if (!dev)
-		return -ENOMEM;
+	if (!dev) {
+		dev_err(&client->dev,
+			"Cannot allocate input device\n");
+		err = -ENOMEM;
+		goto free_irq_exit;
+	}
 
 	dev_interrupt = input_allocate_device();
 	if (!dev_interrupt) {
-		kfree(data);
-		input_free_device(dev); /*free the successful dev and return*/
-		return -ENOMEM;
+		dev_err(&client->dev,
+			"Cannot allocate input interrupt device\n");
+		err = -ENOMEM;
+		goto free_input_dev_exit;
 	}
 
 	/* only value events reported */
@@ -6843,8 +6884,11 @@ static int bma2x2_probe(struct i2c_client *client,
 
 	input_set_drvdata(dev, data);
 	err = input_register_device(dev);
-	if (err < 0)
-		goto err_register_input_device;
+	if (err < 0) {
+		dev_err(&client->dev,
+			"Cannot register input device\n");
+		goto free_input_interrupt_dev_exit;
+	}
 
 	/* all interrupt generated events are moved to interrupt input devices*/
 	dev_interrupt->name = "bma_interrupt";
@@ -6868,8 +6912,11 @@ static int bma2x2_probe(struct i2c_client *client,
 	input_set_drvdata(dev_interrupt, data);
 
 	err = input_register_device(dev_interrupt);
-	if (err < 0)
-		goto err_register_input_device_interrupt;
+	if (err < 0) {
+		dev_err(&client->dev,
+			"Cannot register input interrupt device\n");
+		goto unregister_input_dev_exit;
+	}
 
 	data->dev_interrupt = dev_interrupt;
 	data->input = dev;
@@ -6880,7 +6927,7 @@ static int bma2x2_probe(struct i2c_client *client,
 		err = PTR_ERR(data->g_sensor_class);
 		data->g_sensor_class = NULL;
 		dev_err(&client->dev, "could not allocate g_sensor_class\n");
-		goto err_create_class;
+		goto unregister_input_interrupt_dev_exit;
 	}
 
 	data->g_sensor_dev = device_create(data->g_sensor_class,
@@ -6890,15 +6937,18 @@ static int bma2x2_probe(struct i2c_client *client,
 		data->g_sensor_dev = NULL;
 
 		dev_err(&client->dev, "could not allocate g_sensor_dev\n");
-		goto err_create_g_sensor_device;
+		goto destroy_g_sensor_class_exit;
 	}
 
 	dev_set_drvdata(data->g_sensor_dev, data);
 
 	err = sysfs_create_group(&data->g_sensor_dev->kobj,
 			&bma2x2_sig_motion_attribute_group);
-	if (err < 0)
-		goto error_sysfs;
+	if (err < 0) {
+		dev_err(&client->dev,
+			"could not create sysfs for sig motion sensor\n");
+		goto free_g_sensor_dev_exit;
+	}
 #endif
 
 #ifdef CONFIG_DOUBLE_TAP
@@ -6908,7 +6958,7 @@ static int bma2x2_probe(struct i2c_client *client,
 		err = PTR_ERR(data->g_sensor_class_doubletap);
 		data->g_sensor_class_doubletap = NULL;
 		dev_err(&client->dev, "could not allocate g_sensor_class_doubletap\n");
-		goto err_create_class;
+		goto remove_sig_motion_sysfs_exit;
 	}
 
 	data->g_sensor_dev_doubletap = device_create(
@@ -6919,41 +6969,55 @@ static int bma2x2_probe(struct i2c_client *client,
 		data->g_sensor_dev_doubletap = NULL;
 
 		dev_err(&client->dev, "could not allocate g_sensor_dev_doubletap\n");
-		goto err_create_g_sensor_device_double_tap;
+		goto destroy_dtap_class_exit;
 	}
 
 	dev_set_drvdata(data->g_sensor_dev_doubletap, data);
 
 	err = sysfs_create_group(&data->g_sensor_dev_doubletap->kobj,
 			&bma2x2_double_tap_attribute_group);
-	if (err < 0)
-		goto error_sysfs;
+	if (err < 0) {
+		dev_err(&client->dev,
+			"could not create sysfs for double tap sensor\n");
+		goto destroy_dtap_dev_exit;
+	}
 #endif
 
 	err = sysfs_create_group(&data->input->dev.kobj,
 			&bma2x2_attribute_group);
-	if (err < 0)
-		goto error_sysfs;
+	if (err < 0) {
+		dev_err(&client->dev,
+			"Cannot create sysfs for bma2x2\n");
+		goto remove_dtap_sysfs_exit;
+	}
 
 	dev_acc = bst_allocate_device();
 	if (!dev_acc) {
+		dev_err(&client->dev,
+			"Cannot allocate bst device\n");
 		err = -ENOMEM;
-		goto error_sysfs;
+		goto remove_bma2x2_sysfs_exit;
 	}
 	dev_acc->name = ACC_NAME;
 
 	bst_set_drvdata(dev_acc, data);
 
 	err = bst_register_device(dev_acc);
-	if (err < 0)
+	if (err < 0) {
+		dev_err(&client->dev,
+			"Cannot register bst device\n");
 		goto bst_free_acc_exit;
+	}
 
 	data->bst_acc = dev_acc;
 	err = sysfs_create_group(&data->bst_acc->dev.kobj,
 			&bma2x2_attribute_group);
 
-	if (err < 0)
+	if (err < 0) {
+		dev_err(&client->dev,
+			"Cannot create sysfs for bst_acc.\n");
 		goto bst_free_exit;
+	}
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	data->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
@@ -6987,31 +7051,40 @@ bst_free_exit:
 bst_free_acc_exit:
 	bst_free_device(dev_acc);
 
-error_sysfs:
-	input_unregister_device(data->input);
-
+remove_bma2x2_sysfs_exit:
+	sysfs_remove_group(&data->input->dev.kobj,
+			&bma2x2_attribute_group);
+remove_dtap_sysfs_exit:
 #ifdef CONFIG_DOUBLE_TAP
-err_create_g_sensor_device_double_tap:
+sysfs_remove_group(&data->g_sensor_dev_doubletap->kobj,
+			&bma2x2_double_tap_attribute_group);
+destroy_dtap_dev_exit:
+	device_destroy(data->g_sensor_dev_doubletap);
+destroy_dtap_class_exit:
 	class_destroy(data->g_sensor_class_doubletap);
+remove_sig_motion_sysfs_exit:
 #endif
 
 #ifdef CONFIG_SIG_MOTION
-err_create_g_sensor_device:
+sysfs_remove_group(&data->g_sensor_dev->kobj,
+		&bma2x2_sig_motion_attribute_group);
+free_g_sensor_dev_exit:
+	device_destroy(data->g_sensor_dev);
+destroy_g_sensor_class_exit:
 	class_destroy(data->g_sensor_class);
 #endif
 
 #if defined(CONFIG_SIG_MOTION) || defined(CONFIG_DOUBLE_TAP)
-err_create_class:
-	input_unregister_device(data->dev_interrupt);
+unregister_input_interrupt_dev_exit:
 #endif
-
-err_register_input_device_interrupt:
+	input_unregister_device(dev_interrupt);
+unregister_input_dev_exit:
+	input_unregister_device(dev);
+free_input_interrupt_dev_exit:
 	input_free_device(dev_interrupt);
-	input_unregister_device(data->input);
-
-err_register_input_device:
+free_input_dev_exit:
 	input_free_device(dev);
-
+free_irq_exit:
 disable_power_exit:
 	bma2x2_power_ctl(data, false);
 deinit_power_exit:
@@ -7069,8 +7142,34 @@ static int bma2x2_remove(struct i2c_client *client)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&data->early_suspend);
 #endif
-	sysfs_remove_group(&data->input->dev.kobj, &bma2x2_attribute_group);
-	input_unregister_device(data->input);
+
+	if (data->bst_acc) {
+		bst_unregister_device(data->bst_acc);
+		bst_free_device(data->bst_acc);
+	}
+
+	bma2x2_double_tap_disable(data);
+
+	bma2x2_sig_motion_disable(data);
+
+	if (data->dev_interrupt) {
+		input_unregister_device(data->dev_interrupt);
+		input_free_device(data->dev_interrupt);
+	}
+
+	if (data->input) {
+		sysfs_remove_group(&data->input->dev.kobj,
+				&bma2x2_attribute_group);
+		input_unregister_device(data->input);
+		input_free_device(data->input);
+	}
+
+	bma2x2_power_ctl(data, false);
+	bma2x2_power_deinit(data);
+	i2c_set_clientdata(client, NULL);
+	if (data->pdata && (client->dev.of_node))
+		devm_kfree(&client->dev, data->pdata);
+	data->pdata = NULL;
 
 	kfree(data);
 
