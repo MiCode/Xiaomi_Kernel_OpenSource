@@ -125,6 +125,8 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 			i++) {
 			if (!(stats_irq_mask & (1 << i)))
 				continue;
+
+			stats_irq_mask &= ~(1 << i);
 			stream_info = &vfe_dev->stats_data.stream_info[i];
 			done_buf = NULL;
 			msm_isp_stats_cfg_ping_pong_address(vfe_dev,
@@ -156,7 +158,6 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 						1 << stream_info->stats_type;
 				}
 			}
-			stats_irq_mask &= ~(1 << i);
 		}
 
 		if (comp_stats_type_mask) {
