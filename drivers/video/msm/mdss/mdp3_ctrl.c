@@ -506,6 +506,7 @@ static int mdp3_ctrl_dma_init(struct msm_fb_data_type *mfd,
 	int vbp, vfp, vspw;
 	int vtotal, vporch;
 	struct mdp3_notification dma_done_callback;
+	struct mdp3_tear_check te;
 
 	vbp = panel_info->lcdc.v_back_porch;
 	vfp = panel_info->lcdc.v_front_porch;
@@ -537,12 +538,28 @@ static int mdp3_ctrl_dma_init(struct msm_fb_data_type *mfd,
 					(MDP3_DMA_OUTPUT_COMP_BITS_8 << 2)|
 					MDP3_DMA_OUTPUT_COMP_BITS_8;
 
+	te.frame_rate = panel_info->mipi.frame_rate;
+	te.hw_vsync_mode = panel_info->mipi.hw_vsync_mode;
+	te.tear_check_en = panel_info->te.tear_check_en;
+	te.sync_cfg_height = panel_info->te.sync_cfg_height;
+	te.vsync_init_val = panel_info->te.vsync_init_val;
+	te.sync_threshold_start = panel_info->te.sync_threshold_start;
+	te.sync_threshold_continue = panel_info->te.sync_threshold_continue;
+	te.start_pos = panel_info->te.start_pos;
+	te.rd_ptr_irq = panel_info->te.rd_ptr_irq;
+	te.refx100 = panel_info->te.refx100;
+
 	if (dma->dma_config)
 		rc = dma->dma_config(dma, &sourceConfig, &outputConfig);
 	else
 		rc = -EINVAL;
 
 	if (outputConfig.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
+		if (dma->dma_sync_config)
+			rc = dma->dma_sync_config(dma,
+					&sourceConfig, &te);
+		else
+			rc = -EINVAL;
 		dma_done_callback.handler = dma_done_notify_handler;
 		dma_done_callback.arg = mfd->mdp.private1;
 		dma->dma_done_notifier(dma, &dma_done_callback);
