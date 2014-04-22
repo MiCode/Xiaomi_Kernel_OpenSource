@@ -90,11 +90,11 @@ struct kgsl_mmu_ops {
 			(struct kgsl_mmu *mmu);
 	void (*mmu_disable_clk_on_ts)
 		(struct kgsl_mmu *mmu,
-		uint32_t ts, int ctx_id);
-	int (*mmu_enable_clk)
-		(struct kgsl_mmu *mmu, int ctx_id);
+		uint32_t ts, int unit);
+	void (*mmu_enable_clk)
+		(struct kgsl_mmu *mmu, int unit);
 	void (*mmu_disable_clk)
-		(struct kgsl_mmu *mmu, int ctx_id);
+		(struct kgsl_mmu *mmu, int unit);
 	uint64_t (*mmu_get_default_ttbr0)(struct kgsl_mmu *mmu,
 				unsigned int unit_id,
 				enum kgsl_iommu_context_id ctx_id);
@@ -261,27 +261,25 @@ static inline phys_addr_t kgsl_mmu_get_default_ttbr0(struct kgsl_mmu *mmu,
 		return 0;
 }
 
-static inline int kgsl_mmu_enable_clk(struct kgsl_mmu *mmu,
-					int ctx_id)
+static inline void kgsl_mmu_enable_clk(struct kgsl_mmu *mmu, int unit)
 {
 	if (mmu->mmu_ops && mmu->mmu_ops->mmu_enable_clk)
-		return mmu->mmu_ops->mmu_enable_clk(mmu, ctx_id);
+		mmu->mmu_ops->mmu_enable_clk(mmu, unit);
 	else
-		return 0;
+		return;
 }
 
-static inline void kgsl_mmu_disable_clk(struct kgsl_mmu *mmu, int ctx_id)
+static inline void kgsl_mmu_disable_clk(struct kgsl_mmu *mmu, int unit)
 {
 	if (mmu->mmu_ops && mmu->mmu_ops->mmu_disable_clk)
-		mmu->mmu_ops->mmu_disable_clk(mmu, ctx_id);
+		mmu->mmu_ops->mmu_disable_clk(mmu, unit);
 }
 
 static inline void kgsl_mmu_disable_clk_on_ts(struct kgsl_mmu *mmu,
-						unsigned int ts,
-						int ctx_id)
+						unsigned int ts, int unit)
 {
 	if (mmu->mmu_ops && mmu->mmu_ops->mmu_disable_clk_on_ts)
-		mmu->mmu_ops->mmu_disable_clk_on_ts(mmu, ts, ctx_id);
+		mmu->mmu_ops->mmu_disable_clk_on_ts(mmu, ts, unit);
 }
 
 static inline unsigned int kgsl_mmu_get_reg_gpuaddr(struct kgsl_mmu *mmu,
