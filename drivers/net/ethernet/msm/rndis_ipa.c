@@ -180,6 +180,9 @@ struct rndis_loopback_pipe {
  * @state: current state of the driver
  * @host_ethaddr: holds the tethered PC ethernet address
  * @device_ethaddr: holds the device ethernet address
+ * @device_ready_notify: callback supplied by USB core driver
+ * This callback shall be called by the Netdev once the Netdev internal
+ * state is changed to RNDIS_IPA_CONNECTED_AND_UP
  */
 struct rndis_ipa_dev {
 	struct net_device *net;
@@ -207,6 +210,7 @@ struct rndis_ipa_dev {
 	enum rndis_ipa_state state;
 	u8 host_ethaddr[ETH_ALEN];
 	u8 device_ethaddr[ETH_ALEN];
+	void (*device_ready_notify)(void);
 };
 
 /**
@@ -232,6 +236,7 @@ static void rndis_ipa_tx_complete_notify(void *private,
 		enum ipa_dp_evt_type evt, unsigned long data);
 static void rndis_ipa_tx_timeout(struct net_device *net);
 static int rndis_ipa_stop(struct net_device *net);
+static void rndis_ipa_enable_data_path(struct rndis_ipa_dev *rndis_ipa_ctx);
 static void rndis_encapsulate_skb(struct sk_buff *skb);
 static void rndis_ipa_prepare_header_insertion(int eth_type,
 		const char *hdr_name, struct ipa_hdr_add *add_hdr,
@@ -555,6 +560,10 @@ int rndis_ipa_init(struct ipa_usb_init_params *params)
 		sizeof(rndis_ipa_ctx->host_ethaddr));
 	RNDIS_IPA_DEBUG("internal data structures were set\n");
 
+	if (!params->device_ready_notify)
+		RNDIS_IPA_DEBUG("device_ready_notify() was not supplied");
+	rndis_ipa_ctx->device_ready_notify = params->device_ready_notify;
+
 	snprintf(net->name, sizeof(net->name), "%s%%d", NETDEV_NAME);
 	RNDIS_IPA_DEBUG("Setting network interface driver name to: %s\n",
 		net->name);
@@ -734,12 +743,11 @@ int rndis_ipa_pipe_connect_notify(u32 usb_to_ipa_hdl,
 	rndis_ipa_ctx->state = next_state;
 	RNDIS_IPA_STATE_DEBUG(rndis_ipa_ctx);
 
-	if (next_state == RNDIS_IPA_CONNECTED_AND_UP) {
-		netif_start_queue(rndis_ipa_ctx->net);
-		RNDIS_IPA_DEBUG("netif_start_queue() was called\n");
-	}  else {
+	if (next_state == RNDIS_IPA_CONNECTED_AND_UP)
+		rndis_ipa_enable_data_path(rndis_ipa_ctx);
+	else
 		RNDIS_IPA_DEBUG("queue shall be started after open()\n");
-	}
+
 	pr_info("RNDIS_IPA NetDev pipes were connected");
 
 	RNDIS_IPA_LOG_EXIT();
@@ -779,12 +787,11 @@ static int rndis_ipa_open(struct net_device *net)
 	rndis_ipa_ctx->state = next_state;
 	RNDIS_IPA_STATE_DEBUG(rndis_ipa_ctx);
 
-	if (next_state == RNDIS_IPA_CONNECTED_AND_UP) {
-		netif_start_queue(net);
-		RNDIS_IPA_DEBUG("queue started\n");
-	} else {
+
+	if (next_state == RNDIS_IPA_CONNECTED_AND_UP)
+		rndis_ipa_enable_data_path(rndis_ipa_ctx);
+	else
 		RNDIS_IPA_DEBUG("queue shall be started after connect()\n");
-	}
 
 	pr_info("RNDIS_IPA NetDev was opened");
 
@@ -1262,6 +1269,19 @@ void rndis_ipa_cleanup(void *private)
 	return;
 }
 EXPORT_SYMBOL(rndis_ipa_cleanup);
+
+static void rndis_ipa_enable_data_path(struct rndis_ipa_dev *rndis_ipa_ctx)
+{
+	if (rndis_ipa_ctx->device_ready_notify) {
+		rndis_ipa_ctx->device_ready_notify();
+		RNDIS_IPA_DEBUG("USB device_ready_notify() was called\n");
+	} else {
+		RNDIS_IPA_DEBUG("device_ready_notify() not supplied\n");
+	}
+
+	netif_start_queue(rndis_ipa_ctx->net);
+	RNDIS_IPA_DEBUG("netif_start_queue() was called\n");
+}
 
 /**
  * rndis_ipa_prepare_header_insertion() - prepare the header insertion request
