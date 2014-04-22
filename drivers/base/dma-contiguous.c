@@ -352,6 +352,8 @@ void __init dma_contiguous_reserve(phys_addr_t limit)
 				i--;
 				continue;
 			}
+			dma_contiguous_early_fixup(cma_areas[i].base,
+							cma_areas[i].size);
 		}
 
 		pr_info("CMA: reserved %ld MiB at %pa for %s\n",
