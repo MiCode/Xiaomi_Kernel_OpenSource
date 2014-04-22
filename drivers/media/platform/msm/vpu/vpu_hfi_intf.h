@@ -44,8 +44,8 @@ struct hfi_queue_table_header {
 #define VPU_MAX_QUEUE_NUM		(VPU_MAX_TXQ_NUM + VPU_MAX_RXQ_NUM)
 
 /* qhdr_q_size in bytes */
-#define VPU_SYS_QUEUE_SIZE		SZ_1K
-#define VPU_SESSION_QUEUE_SIZE		SZ_2K
+#define VPU_SYS_QUEUE_SIZE		SZ_16K
+#define VPU_SESSION_QUEUE_SIZE		SZ_32K
 #define VPU_LOGGING_QUEUE_SIZE		SZ_64K
 
 #define TX_Q_IDX_TO_Q_ID(idx)		(VPU_SYSTEM_CMD_QUEUE_ID + (idx * 2))
