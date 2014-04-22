@@ -1221,6 +1221,16 @@
 		clocks = <&clock_rpm clk_ce1_clk>;
 	};
 
+	qcom,msm-thermal {
+		compatible = "qcom,msm-thermal";
+		qcom,sensor-id = <7>;
+		qcom,poll-ms = <250>;
+		qcom,limit-temp = <1000>;
+		qcom,temp-hysteresis = <10>;
+		qcom,therm-reset-temp = <115>;
+		qcom,freq-step = <2>;
+	};
+
 	qcom,bcl {
 		compatible = "qcom,bcl";
 	};
