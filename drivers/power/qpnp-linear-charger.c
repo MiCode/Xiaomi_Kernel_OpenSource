@@ -875,6 +875,12 @@ static int get_prop_capacity(struct qpnp_lbc_chip *chip)
 		battery_status = get_prop_batt_status(chip);
 		charger_in = qpnp_lbc_is_usb_chg_plugged_in(chip);
 
+		/* reset chg_done flag if capacity not 100% */
+		if (ret.intval < 100 && chip->chg_done) {
+			chip->chg_done = false;
+			power_supply_changed(&chip->batt_psy);
+		}
+
 		if (battery_status != POWER_SUPPLY_STATUS_CHARGING
 				&& charger_in
 				&& !chip->cfg_charging_disabled
