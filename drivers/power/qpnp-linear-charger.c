@@ -61,6 +61,7 @@
 #define CHG_TCHG_MAX_EN_REG			0x60
 #define CHG_TCHG_MAX_REG			0x61
 #define CHG_WDOG_EN_REG				0x65
+#define CHG_PERPH_RESET_CTRL3_REG		0xDA
 #define CHG_COMP_OVR1				0xEE
 #define CHG_VBAT_DET_OVR_MASK			LBC_MASK(1, 0)
 #define OVERRIDE_0				0x2
@@ -226,6 +227,7 @@ static char *pm_batt_supplied_to[] = {
  * @cfg_tchg_mins:		maximum allowed software initiated charge time
  * @chg_failed_count:		counter to maintained number of times charging
  *				failed
+ * @cfg_disable_follow_on_reset	charger ignore PMIC reset signal
  * @cfg_bpd_detection:		battery present detection mechanism selection
  * @cfg_thermal_levels:		amount of thermal mitigation levels
  * @cfg_thermal_mitigation:	thermal mitigation level values
@@ -275,6 +277,7 @@ struct qpnp_lbc_chip {
 	unsigned int			cfg_safe_current;
 	unsigned int			cfg_tchg_mins;
 	unsigned int			chg_failed_count;
+	unsigned int			cfg_disable_follow_on_reset;
 	int				cfg_bpd_detection;
 	int				cfg_warm_bat_decidegc;
 	int				cfg_cool_bat_decidegc;
@@ -1582,6 +1585,11 @@ static int qpnp_charger_read_dt_props(struct qpnp_lbc_chip *chip)
 			of_property_read_bool(chip->spmi->dev.of_node,
 					"qcom,use-default-batt-values");
 
+	/* Get peripheral reset configuration property */
+	chip->cfg_disable_follow_on_reset =
+			of_property_read_bool(chip->spmi->dev.of_node,
+					"qcom,disable-follow-on-reset");
+
 	/* Disable charging when faking battery values */
 	if (chip->cfg_use_fake_battery)
 		chip->cfg_charging_disabled = true;
@@ -1946,6 +1954,9 @@ static int qpnp_lbc_get_irqs(struct qpnp_lbc_chip *chip, u8 subtype,
 /* Get/Set initial state of charger */
 static void determine_initial_status(struct qpnp_lbc_chip *chip)
 {
+	u8 reg_val;
+	int rc;
+
 	chip->usb_present = qpnp_lbc_is_usb_chg_plugged_in(chip);
 	power_supply_set_present(chip->usb_psy, chip->usb_present);
 	/*
@@ -1954,6 +1965,20 @@ static void determine_initial_status(struct qpnp_lbc_chip *chip)
 	 */
 	if (chip->usb_present)
 		power_supply_set_online(chip->usb_psy, 1);
+
+	/*
+	 * Configure peripheral reset control
+	 * This is a workaround only for SLT testing.
+	 */
+	if (chip->cfg_disable_follow_on_reset) {
+		reg_val = 0x0;
+		rc = __qpnp_lbc_secure_write(chip->spmi, chip->chgr_base,
+				CHG_PERPH_RESET_CTRL3_REG, &reg_val, 1);
+		if (rc)
+			pr_err("Failed to configure PERPH_CTRL3 rc=%d\n", rc);
+		else
+			pr_warn("Charger is not following PMIC reset\n");
+	}
 }
 
 static int qpnp_lbc_probe(struct spmi_device *spmi)
