@@ -81,7 +81,7 @@ static struct clk_pair clks[KGSL_MAX_CLKS] = {
 static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 					int requested_state);
 static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state);
-static void kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state);
+static int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state);
 static void kgsl_pwrctrl_set_state(struct kgsl_device *device,
 				unsigned int state);
 static void kgsl_pwrctrl_request_state(struct kgsl_device *device,
@@ -875,12 +875,14 @@ static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 	}
 }
 
-static void kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state)
+static int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	int status_gpu = 0;
+	int status_cx = 0;
 
 	if (test_bit(KGSL_PWRFLAGS_POWER_ON, &pwr->ctrl_flags))
-		return;
+		return 0;
 
 	if (state == KGSL_PWRFLAGS_OFF) {
 		if (test_and_clear_bit(KGSL_PWRFLAGS_POWER_ON,
@@ -894,25 +896,39 @@ static void kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state)
 	} else if (state == KGSL_PWRFLAGS_ON) {
 		if (!test_and_set_bit(KGSL_PWRFLAGS_POWER_ON,
 			&pwr->power_flags)) {
-			trace_kgsl_rail(device, state);
 			if (pwr->gpu_reg) {
-				int status = regulator_enable(pwr->gpu_reg);
-				if (status)
+				status_gpu = regulator_enable(pwr->gpu_reg);
+				if (status_gpu)
 					KGSL_DRV_ERR(device,
 							"core regulator_enable "
 							"failed: %d\n",
-							status);
+							status_gpu);
 			}
 			if (pwr->gpu_cx) {
-				int status = regulator_enable(pwr->gpu_cx);
-				if (status)
+				status_cx = regulator_enable(pwr->gpu_cx);
+				if (status_cx)
 					KGSL_DRV_ERR(device,
 							"cx regulator_enable "
 							"failed: %d\n",
-							status);
+							status_cx);
 			}
+			if (status_gpu || status_cx) {
+				/*
+				 * If only one rail succeeded, disable it
+				 * before we bail out.
+				 */
+				if (pwr->gpu_reg && !status_gpu)
+					regulator_disable(pwr->gpu_reg);
+				if (pwr->gpu_cx && !status_cx)
+					regulator_disable(pwr->gpu_cx);
+				clear_bit(KGSL_PWRFLAGS_POWER_ON,
+					&pwr->power_flags);
+			} else
+				trace_kgsl_rail(device, state);
 		}
 	}
+
+	return status_gpu || status_cx;
 }
 
 void kgsl_pwrctrl_irq(struct kgsl_device *device, int state)
@@ -1465,10 +1481,11 @@ int kgsl_pwrctrl_change_state(struct kgsl_device *device, int state)
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_change_state);
 
-void kgsl_pwrctrl_enable(struct kgsl_device *device)
+int kgsl_pwrctrl_enable(struct kgsl_device *device)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int level;
+	int status;
 
 	if (pwr->wakeup_maxpwrlevel) {
 		level = pwr->max_pwrlevel;
@@ -1480,9 +1497,13 @@ void kgsl_pwrctrl_enable(struct kgsl_device *device)
 		kgsl_pwrctrl_pwrlevel_change(device, level);
 
 	/* Order pwrrail/clk sequence based upon platform */
-	kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_ON);
+	status = kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_ON);
+	if (status)
+		return status;
 	kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_ON, KGSL_STATE_ACTIVE);
 	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_ON);
+
+	return status;
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_enable);
 
