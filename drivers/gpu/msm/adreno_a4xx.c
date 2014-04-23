@@ -709,6 +709,16 @@ uint64_t a4xx_perfcounter_read_vbif_pwr(struct adreno_device *adreno_dev,
 						.regs[counter].value;
 }
 
+uint64_t a4xx_alwayson_counter_read(struct adreno_device *adreno_dev)
+{
+	unsigned int lo, hi;
+
+	kgsl_regread(&adreno_dev->dev, A4XX_RBBM_ALWAYSON_COUNTER_LO, &lo);
+	kgsl_regread(&adreno_dev->dev, A4XX_RBBM_ALWAYSON_COUNTER_HI, &hi);
+
+	return (((uint64_t) hi) << 32) | lo;
+}
+
 static void a4xx_err_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
