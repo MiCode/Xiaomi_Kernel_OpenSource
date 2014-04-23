@@ -45,7 +45,7 @@
 #define VFE44_BURST_LEN 3
 #define VFE44_STATS_BURST_LEN 2
 #define VFE44_UB_SIZE 2048
-#define VFE44_EQUAL_SLICE_UB 228
+#define MSM_ISP44_TOTAL_IMAGE_UB 1528
 #define VFE44_WM_BASE(idx) (0x6C + 0x24 * idx)
 #define VFE44_RDI_BASE(idx) (0x2E8 + 0x4 * idx)
 #define VFE44_XBAR_BASE(idx) (0x58 + 0x4 * (idx / 2))
@@ -897,8 +897,6 @@ static void msm_vfe44_axi_clear_wm_xbar_reg(
 		vfe_dev->vfe_base + VFE44_XBAR_BASE(wm));
 }
 
-#define MSM_ISP44_TOTAL_WM_UB 1203
-
 static void msm_vfe44_cfg_axi_ub_equal_default(
 	struct vfe_device *vfe_dev)
 {
@@ -918,7 +916,7 @@ static void msm_vfe44_cfg_axi_ub_equal_default(
 			total_image_size += axi_data->wm_image_size[i];
 		}
 	}
-	prop_size = MSM_ISP44_TOTAL_WM_UB -
+	prop_size = MSM_ISP44_TOTAL_IMAGE_UB -
 		axi_data->hw_info->min_wm_ub * num_used_wms;
 	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
 		if (axi_data->free_wm[i]) {
@@ -941,10 +939,12 @@ static void msm_vfe44_cfg_axi_ub_equal_slicing(
 	int i;
 	uint32_t ub_offset = 0;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+	uint32_t ub_equal_slice = MSM_ISP44_TOTAL_IMAGE_UB /
+		axi_data->hw_info->num_wm;
 	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
-		msm_camera_io_w(ub_offset << 16 | (VFE44_EQUAL_SLICE_UB - 1),
+		msm_camera_io_w(ub_offset << 16 | (ub_equal_slice - 1),
 			vfe_dev->vfe_base + VFE44_WM_BASE(i) + 0x10);
-		ub_offset += VFE44_EQUAL_SLICE_UB;
+		ub_offset += ub_equal_slice;
 	}
 }
 
@@ -1333,11 +1333,11 @@ static void msm_vfe44_get_error_mask(
 }
 
 static struct msm_vfe_axi_hardware_info msm_vfe44_axi_hw_info = {
-	.num_wm = 5,
+	.num_wm = 6,
 	.num_comp_mask = 3,
 	.num_rdi = 3,
 	.num_rdi_master = 3,
-	.min_wm_ub = 64,
+	.min_wm_ub = 96,
 };
 
 static struct msm_vfe_stats_hardware_info msm_vfe44_stats_hw_info = {
