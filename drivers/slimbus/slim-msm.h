@@ -216,6 +216,7 @@ struct msm_slim_qmi {
 struct msm_slim_mdm {
 	struct notifier_block nb;
 	void *ssr;
+	enum msm_ctrl_state state;
 };
 
 struct msm_slim_pdata {
