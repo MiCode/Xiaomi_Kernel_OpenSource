@@ -2603,8 +2603,16 @@ int msm_venc_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				buff_req_buffer->buffer_size : 0;
 		}
 		for (i = 0; i < fmt->num_planes; ++i) {
-			inst->bufq[CAPTURE_PORT].vb2_bufq.plane_sizes[i] =
-			f->fmt.pix_mp.plane_fmt[i].sizeimage;
+			if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+				inst->bufq[OUTPUT_PORT].vb2_bufq.
+				plane_sizes[i] =
+				f->fmt.pix_mp.plane_fmt[i].sizeimage;
+			} else if (f->type ==
+				V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+				inst->bufq[CAPTURE_PORT].vb2_bufq.
+				plane_sizes[i] =
+				f->fmt.pix_mp.plane_fmt[i].sizeimage;
+			}
 		}
 	} else {
 		dprintk(VIDC_ERR,
