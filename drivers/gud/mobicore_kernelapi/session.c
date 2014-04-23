@@ -19,6 +19,10 @@ struct bulk_buffer_descriptor *bulk_buffer_descriptor_create(
 	struct bulk_buffer_descriptor *desc;
 
 	desc = kzalloc(sizeof(*desc), GFP_KERNEL);
+	if (desc == NULL) {
+		MCDRV_DBG_ERROR(mc_kapi, "Allocation failure");
+		return NULL;
+	}
 	desc->virt_addr = virt_addr;
 	desc->len = len;
 	desc->handle = handle;
@@ -33,6 +37,10 @@ struct session *session_create(
 	struct session *session;
 
 	session = kzalloc(sizeof(*session), GFP_KERNEL);
+	if (session == NULL) {
+		MCDRV_DBG_ERROR(mc_kapi, "Allocation failure");
+		return NULL;
+	}
 	session->session_id = session_id;
 	session->instance = instance;
 	session->notification_connection = connection;
@@ -132,6 +140,10 @@ struct bulk_buffer_descriptor *session_add_bulk_buf(struct session *session,
 			bulk_buffer_descriptor_create(buf, len,
 						      handle,
 						      (void *)l2_table_phys);
+		if (bulk_buf_descr == NULL) {
+			mobicore_unmap_vmem(session->instance, handle);
+			break;
+		}
 
 		/* Add to vector of descriptors */
 		list_add_tail(&(bulk_buf_descr->list),
