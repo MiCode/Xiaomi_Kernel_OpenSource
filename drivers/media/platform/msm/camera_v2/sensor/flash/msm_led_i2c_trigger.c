@@ -154,8 +154,6 @@ int msm_flash_led_init(struct msm_led_flash_ctrl_t *fctrl)
 		if (rc < 0)
 			pr_err("cci_init failed\n");
 	}
-
-	msm_flash_pinctrl_init(fctrl);
 	rc = msm_camera_request_gpio_table(
 		power_info->gpio_conf->cam_gpio_req_tbl,
 		power_info->gpio_conf->cam_gpio_req_tbl_size, 1);
@@ -621,6 +619,8 @@ int msm_flash_i2c_probe(struct i2c_client *client,
 		pr_err("%s failed line %d\n", __func__, __LINE__);
 		return rc;
 	}
+
+        msm_flash_pinctrl_init(fctrl);
 	if (fctrl->flash_i2c_client != NULL) {
 		fctrl->flash_i2c_client->client = client;
 		if (fctrl->flashdata->slave_info->sensor_slave_addr)
@@ -674,6 +674,7 @@ int msm_flash_probe(struct platform_device *pdev,
 		return rc;
 	}
 
+        msm_flash_pinctrl_init(fctrl);
 	/* Assign name for sub device */
 	snprintf(fctrl->msm_sd.sd.name, sizeof(fctrl->msm_sd.sd.name),
 			"%s", fctrl->flashdata->sensor_name);
