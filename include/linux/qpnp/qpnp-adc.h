@@ -1018,6 +1018,7 @@ struct qpnp_adc_amux_properties {
 #define QPNP_REV_ID_8026_2_0	3
 #define QPNP_REV_ID_8110_1_0	4
 #define QPNP_REV_ID_8026_2_1	5
+#define QPNP_REV_ID_8110_2_0	6
 
 /* Public API */
 #if defined(CONFIG_SENSORS_QPNP_ADC_VOLTAGE)				\
@@ -1374,9 +1375,10 @@ int32_t qpnp_vadc_iadc_sync_complete_request(struct qpnp_vadc_chip *dev,
  * qpnp_vadc_sns_comp_result() - Compensate vbatt readings based on temperature
  * @dev:	Structure device for qpnp vadc
  * @result:	Voltage in uV that needs compensation.
+ * @is_pon_ocv: Whether the reading is from a power on OCV or not
  */
 int32_t qpnp_vbat_sns_comp_result(struct qpnp_vadc_chip *dev,
-						int64_t *result);
+					int64_t *result, bool is_pon_ocv);
 /**
  * qpnp_adc_get_revid_version() - Obtain the PMIC number and revision.
  * @dev:	Structure device node.
