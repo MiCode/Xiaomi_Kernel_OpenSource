@@ -153,6 +153,9 @@ struct mdss_data_type {
 	u32 max_bw_low;
 	u32 max_bw_high;
 	u32 max_bw_per_pipe;
+	u32 *vbif_rt_qos;
+	u32 *vbif_nrt_qos;
+	u32 npriority_lvl;
 
 	struct mdss_fudge_factor ab_factor;
 	struct mdss_fudge_factor ib_factor;
