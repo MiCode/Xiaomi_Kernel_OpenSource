@@ -229,7 +229,8 @@ int ipa_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev)
 		ipa_interrupt_to_cb[idx].private_data = NULL;
 	}
 
-	ipa_interrupt_wq = create_workqueue(INTERRUPT_WORKQUEUE_NAME);
+	ipa_interrupt_wq = create_singlethread_workqueue(
+			INTERRUPT_WORKQUEUE_NAME);
 	if (!ipa_interrupt_wq) {
 		IPAERR("workqueue creation failed\n");
 		return -ENOMEM;
