@@ -1591,3 +1591,43 @@ static void *local_vote_clk_dt_parser(struct device *dev,
 	return msmclk_generic_clk_init(dev, np, &vote_clk->c);
 }
 MSMCLK_PARSER(local_vote_clk_dt_parser, "qcom,local-vote-clk", 0);
+
+static void *gate_clk_dt_parser(struct device *dev, struct device_node *np)
+{
+	struct gate_clk *gate_clk;
+	struct msmclk_data *drv;
+	u32 en_bit, rc;
+
+	gate_clk = devm_kzalloc(dev, sizeof(*gate_clk), GFP_KERNEL);
+	if (!gate_clk) {
+		dt_err(np, "memory alloc failure\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	drv = msmclk_parse_phandle(dev, np->parent->phandle);
+	if (IS_ERR_OR_NULL(drv))
+		return ERR_CAST(drv);
+	gate_clk->base = &drv->base;
+
+	rc = of_property_read_u32(np, "qcom,en-offset", &gate_clk->en_reg);
+	if (rc) {
+		dt_err(np, "missing qcom,en-offset dt property\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	rc = of_property_read_u32(np, "qcom,en-bit", &en_bit);
+	if (rc) {
+		dt_err(np, "missing qcom,en-bit dt property\n");
+		return ERR_PTR(-EINVAL);
+	}
+	gate_clk->en_mask = BIT(en_bit);
+
+	/* Optional Property */
+	rc = of_property_read_u32(np, "qcom,delay", &gate_clk->delay_us);
+	if (rc)
+		gate_clk->delay_us = 0;
+
+	gate_clk->c.ops = &clk_ops_gate;
+	return msmclk_generic_clk_init(dev, np, &gate_clk->c);
+}
+MSMCLK_PARSER(gate_clk_dt_parser, "qcom,gate-clk", 0);

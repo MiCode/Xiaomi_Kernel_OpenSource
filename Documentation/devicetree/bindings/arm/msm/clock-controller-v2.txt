@@ -284,3 +284,29 @@ gcc_bam_dma_ahb_clk: gcc_bam_dma_ahb_clk {
 	qcom,en-bit = <12>;
 	qcom,parent = <&pnoc_clk>;
 };
+
+*****************************************************************************
+
+"qcom,gate-clk"
+
+A simple clock which can only turn on or off.
+
+Required Properties:
+- compatible:		"qcom,gate-clk"
+- qcom,en-offset:	Register offset from the region described in parent
+			clock controller.
+- qcom,en-bit:		Bit used to enable the clock
+
+Recommended Properties:
+- qcom,parent:		See "General Optional Properties"
+
+Optional Properties:
+- qcom,delay:		Delay(us) to use before/after turning on/off the clock.
+
+mmss_gpll0_clk_src: mmss_gpll0_clk_src {
+	compatible = "qcom,gate-clk";
+	qcom,en-offset = <GCC_APCS_CLOCK_BRANCH_ENA_VOTE>;
+	qcom,en-bit = <26>;
+	qcom,parent = <&gpll0>;
+	qcom,delay = <1>;
+};
