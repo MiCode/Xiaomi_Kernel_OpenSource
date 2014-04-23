@@ -1502,10 +1502,13 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	dcp = ((mdwc->charger.chg_type == DWC3_DCP_CHARGER) ||
 	      (mdwc->charger.chg_type == DWC3_PROPRIETARY_CHARGER) ||
 	      (mdwc->charger.chg_type == DWC3_FLOATED_CHARGER));
-	if (dcp)
+	if (dcp) {
 		mdwc->hs_phy->flags |= PHY_CHARGER_CONNECTED;
-	else
+		mdwc->ss_phy->flags |= PHY_CHARGER_CONNECTED;
+	} else {
 		mdwc->hs_phy->flags &= ~PHY_CHARGER_CONNECTED;
+		mdwc->ss_phy->flags &= ~PHY_CHARGER_CONNECTED;
+	}
 
 	host_bus_suspend = (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM);
 	can_suspend_ssphy = !(host_bus_suspend && host_ss_active);
@@ -1611,10 +1614,13 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	dcp = ((mdwc->charger.chg_type == DWC3_DCP_CHARGER) ||
 	      (mdwc->charger.chg_type == DWC3_PROPRIETARY_CHARGER) ||
 	      (mdwc->charger.chg_type == DWC3_FLOATED_CHARGER));
-	if (dcp)
+	if (dcp) {
 		mdwc->hs_phy->flags |= PHY_CHARGER_CONNECTED;
-	else
+		mdwc->ss_phy->flags |= PHY_CHARGER_CONNECTED;
+	} else {
 		mdwc->hs_phy->flags &= ~PHY_CHARGER_CONNECTED;
+		mdwc->ss_phy->flags &= ~PHY_CHARGER_CONNECTED;
+	}
 
 	host_bus_suspend = (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM);
 
@@ -1934,10 +1940,13 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_SCOPE:
 		mdwc->scope = val->intval;
-		if (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM)
+		if (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM) {
 			mdwc->hs_phy->flags |= PHY_HOST_MODE;
-		else
+			mdwc->ss_phy->flags |= PHY_HOST_MODE;
+		} else {
 			mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
+			mdwc->ss_phy->flags &= ~PHY_HOST_MODE;
+		}
 		break;
 	/* Process PMIC notification in PRESENT prop */
 	case POWER_SUPPLY_PROP_PRESENT:
@@ -2857,6 +2866,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "No OTG, DWC3 running in host only mode\n");
 		mdwc->scope = POWER_SUPPLY_SCOPE_SYSTEM;
 		mdwc->hs_phy->flags |= PHY_HOST_MODE;
+		mdwc->ss_phy->flags |= PHY_HOST_MODE;
 	} else {
 		dev_err(&pdev->dev, "DWC3 device-only mode not supported\n");
 		ret = -ENODEV;

@@ -107,6 +107,7 @@ struct msm_ssphy_qmp {
 	bool			clk_enabled;
 	bool			cable_connected;
 	bool			in_suspend;
+	bool			ext_vbus_id;
 };
 
 static inline char *get_cable_status_str(struct msm_ssphy_qmp *phy)
@@ -427,6 +428,47 @@ static int msm_ssphy_qmp_set_params(struct usb_phy *uphy)
 	return 0;
 }
 
+static int msm_ssphy_power_enable(struct msm_ssphy_qmp *phy, bool on)
+{
+	bool host = phy->phy.flags & PHY_HOST_MODE;
+	bool chg_connected = phy->phy.flags & PHY_CHARGER_CONNECTED;
+	int ret = 0;
+
+	/*
+	 * Turn off the phy's LDOs when cable is disconnected for device mode
+	 * with external vbus_id indication.
+	 */
+	if (!host && !chg_connected && phy->ext_vbus_id &&
+		!phy->cable_connected) {
+		if (on) {
+			ret = regulator_enable(phy->vdd);
+			if (ret)
+				dev_err(phy->phy.dev,
+					"regulator_enable(phy->vdd) failed, ret=%d",
+					ret);
+
+			ret = msm_ssusb_qmp_ldo_enable(phy, 1);
+			if (ret)
+				dev_err(phy->phy.dev,
+				"msm_ssusb_qmp_ldo_enable(1) failed, ret=%d\n",
+				ret);
+		} else {
+			ret = msm_ssusb_qmp_ldo_enable(phy, 0);
+			if (ret)
+				dev_err(phy->phy.dev,
+					"msm_ssusb_qmp_ldo_enable(0) failed, ret=%d\n",
+					ret);
+
+			ret = regulator_disable(phy->vdd);
+			if (ret)
+				dev_err(phy->phy.dev, "regulator_disable(phy->vdd) failed, ret=%d",
+					ret);
+		}
+	}
+
+	return ret;
+}
+
 /**
  * Performs QMP PHY suspend/resume functionality.
  *
@@ -465,8 +507,10 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 		clk_disable_unprepare(phy->cfg_ahb_clk);
 		clk_disable_unprepare(phy->aux_clk);
 		phy->in_suspend = true;
+		msm_ssphy_power_enable(phy, 0);
 		dev_dbg(uphy->dev, "QMP PHY is suspend\n");
 	} else {
+		msm_ssphy_power_enable(phy, 1);
 		clk_prepare_enable(phy->aux_clk);
 		clk_prepare_enable(phy->cfg_ahb_clk);
 		if (!phy->cable_connected)
@@ -535,6 +579,9 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		dev_err(dev, "error reading qcom,vdd-voltage-level property\n");
 		return ret;
 	}
+
+	phy->ext_vbus_id =
+		of_property_read_bool(dev->of_node, "qcom,ext-vbus-id");
 
 	phy->vdd = devm_regulator_get(dev, "vdd");
 	if (IS_ERR(phy->vdd)) {
