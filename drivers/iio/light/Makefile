@@ -15,3 +15,4 @@ obj-$(CONFIG_SENSORS_TSL2563)	+= tsl2563.o
 obj-$(CONFIG_TCS3472)		+= tcs3472.o
 obj-$(CONFIG_TSL4531)		+= tsl4531.o
 obj-$(CONFIG_VCNL4000)		+= vcnl4000.o
+obj-$(CONFIG_JSA1212)		+= jsa1212.o
