@@ -11,7 +11,8 @@ Required properties:
 - reg:		      Pairs of physical base addresses and region sizes of
 		      memory mapped registers.
 - reg-names:	      Names of the bases for the above registers. "qdsp6_base",
-		      "rmb_base", and "restart_reg" are expected.
+		      "rmb_base", "restart_reg" or "restart_reg_sec"(optional
+		      for secure mode) are expected.
 		      If "halt_base" is in same 4K pages this register then
 		      this will be defined else "halt_q6", "halt_modem",
 		      "halt_nc" is required.
