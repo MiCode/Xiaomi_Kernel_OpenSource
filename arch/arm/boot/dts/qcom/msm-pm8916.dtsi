@@ -207,12 +207,11 @@
 			qcom,cool-bat-decidegc = <100>;
 			qcom,warm-bat-decidegc = <450>;
 			qcom,cool-bat-mv = <4100>;
+			qcom,warm-bat-mv = <4100>;
 			qcom,ibatmax-warm-ma = <360>;
 			qcom,ibatmax-cool-ma = <360>;
-			qcom,warm-bat-degc = <45>;
-			qcom,warm-bat-mv = <4100>;
-			qcom,batt-hot-percentage = <25>;
-			qcom,batt-cold-percentage = <85>;
+			qcom,batt-hot-percentage = <35>;
+			qcom,batt-cold-percentage = <70>;
 			qcom,tchg-mins = <152>;
 			qcom,resume-soc = <99>;
 			qcom,chg-vadc = <&pm8916_vadc>;
