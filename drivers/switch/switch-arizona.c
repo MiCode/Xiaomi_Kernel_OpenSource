@@ -39,11 +39,12 @@
 
 #define ARIZONA_MAX_MICD_RANGE 8
 
-#define ARIZONA_ACCDET_MODE_MIC 0
-#define ARIZONA_ACCDET_MODE_HPL 1
-#define ARIZONA_ACCDET_MODE_HPR 2
-#define ARIZONA_ACCDET_MODE_HPM 4
-#define ARIZONA_ACCDET_MODE_ADC 7
+#define ARIZONA_ACCDET_MODE_MIC     0
+#define ARIZONA_ACCDET_MODE_HPL     1
+#define ARIZONA_ACCDET_MODE_HPR     2
+#define ARIZONA_ACCDET_MODE_HPM     4
+#define ARIZONA_ACCDET_MODE_ADC     7
+#define ARIZONA_ACCDET_MODE_INVALID 8
 
 #define ARIZONA_HPDET_MAX 10000
 
@@ -67,6 +68,8 @@ enum {
 
 	MICD_LVL_0_TO_8 = MICD_LVL_0_TO_7 | ARIZONA_MICD_LVL_8,
 };
+
+struct arizona_jd_state;
 
 struct arizona_extcon_info {
 	struct device *dev;
@@ -111,6 +114,9 @@ struct arizona_extcon_info {
 	int hpdet_ip;
 
 	struct switch_dev edev;
+
+	const struct arizona_jd_state *state;
+	struct delayed_work state_timeout_work;
 };
 
 static const struct arizona_micd_config micd_default_modes[] = {
@@ -151,6 +157,93 @@ static ssize_t arizona_extcon_show(struct device *dev,
 DEVICE_ATTR(hp_impedance, S_IRUGO, arizona_extcon_show, NULL);
 
 static void arizona_start_hpdet_acc_id(struct arizona_extcon_info *info);
+
+struct arizona_jd_state {
+	int mode;
+
+	int (*start)(struct arizona_extcon_info *);
+	void (*restart)(struct arizona_extcon_info *);
+	int (*reading)(struct arizona_extcon_info *, int);
+	void (*stop)(struct arizona_extcon_info *);
+
+	int (*timeout_ms)(struct arizona_extcon_info *);
+	void (*timeout)(struct arizona_extcon_info *);
+};
+
+static int arizona_jds_get_mode(struct arizona_extcon_info *info)
+{
+	int mode = ARIZONA_ACCDET_MODE_INVALID;
+
+	if (info->state)
+		mode = info->state->mode;
+
+	return mode;
+}
+
+static int arizona_jds_set_state(struct arizona_extcon_info *info,
+				 const struct arizona_jd_state *new_state)
+{
+	int ret = 0;
+
+	if (new_state != info->state) {
+		if (info->state)
+			info->state->stop(info);
+
+		info->state = new_state;
+
+		if (info->state) {
+			ret = info->state->start(info);
+			if (ret < 0)
+				info->state = NULL;
+		}
+	}
+
+	return ret;
+}
+
+static void arizona_jds_reading(struct arizona_extcon_info *info, int val)
+{
+	int ret;
+
+	ret = info->state->reading(info, val);
+
+	if (ret == -EAGAIN && info->state->restart)
+		info->state->restart(info);
+}
+
+static inline bool arizona_jds_cancel_timeout(struct arizona_extcon_info *info)
+{
+	return cancel_delayed_work_sync(&info->state_timeout_work);
+}
+
+static void arizona_jds_start_timeout(struct arizona_extcon_info *info)
+{
+	const struct arizona_jd_state *state = info->state;
+
+	if (!state)
+		return;
+
+	if (state->timeout_ms && state->timeout) {
+		int ms = state->timeout_ms(info);
+
+		schedule_delayed_work(&info->state_timeout_work,
+				      msecs_to_jiffies(ms));
+	}
+}
+
+static void arizona_jds_timeout_work(struct work_struct *work)
+{
+	struct arizona_extcon_info *info =
+		container_of(work, struct arizona_extcon_info,
+			     state_timeout_work.work);
+
+	mutex_lock(&info->lock);
+
+	info->state->timeout(info);
+	arizona_jds_start_timeout(info);
+
+	mutex_unlock(&info->lock);
+}
 
 static void arizona_extcon_do_magic(struct arizona_extcon_info *info,
 				    unsigned int magic)
