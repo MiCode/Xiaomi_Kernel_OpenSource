@@ -549,6 +549,10 @@ static int lpm_cpu_power_select(struct cpuidle_device *dev, int *index)
 			|| (MSM_PM_SLEEP_MODE_POWER_COLLAPSE == mode))
 			if (!dev->cpu && msm_rpm_waiting_for_ack())
 				break;
+		if ((MSM_PM_SLEEP_MODE_POWER_COLLAPSE == mode)
+			&& (num_online_cpus() > 1)
+			&& !sys_state.allow_synched_levels)
+			continue;
 
 		lvl_latency_us = pwr_params->latency_us;
 
