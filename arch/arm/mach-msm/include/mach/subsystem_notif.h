@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011, 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +25,7 @@ enum subsys_notif_type {
 	SUBSYS_BEFORE_POWERUP,
 	SUBSYS_AFTER_POWERUP,
 	SUBSYS_RAMDUMP_NOTIFICATION,
+	SUBSYS_POWERUP_FAILURE,
 	SUBSYS_NOTIF_TYPE_COUNT
 };
 
