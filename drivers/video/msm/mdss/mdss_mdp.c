@@ -2283,6 +2283,57 @@ static int mdss_mdp_parse_dt_prefill(struct platform_device *pdev)
 	return 0;
 }
 
+static void mdss_mdp_parse_vbif_qos(struct platform_device *pdev)
+{
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+	int rc;
+
+	mdata->npriority_lvl = mdss_mdp_parse_dt_prop_len(pdev,
+			"qcom,mdss-vbif-qos-rt-setting");
+	if (mdata->npriority_lvl == MDSS_VBIF_QOS_REMAP_ENTRIES) {
+		mdata->vbif_rt_qos = kzalloc(sizeof(u32) *
+				mdata->npriority_lvl, GFP_KERNEL);
+		if (!mdata->vbif_rt_qos) {
+			pr_err("no memory for real time qos_priority\n");
+			return;
+		}
+
+		rc = mdss_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-vbif-qos-rt-setting",
+				mdata->vbif_rt_qos, mdata->npriority_lvl);
+		if (rc) {
+			pr_debug("rt setting not found\n");
+			return;
+		}
+	} else {
+		mdata->npriority_lvl = 0;
+		pr_debug("Invalid or no vbif qos rt setting\n");
+		return;
+	}
+
+	mdata->npriority_lvl = mdss_mdp_parse_dt_prop_len(pdev,
+			"qcom,mdss-vbif-qos-nrt-setting");
+	if (mdata->npriority_lvl == MDSS_VBIF_QOS_REMAP_ENTRIES) {
+		mdata->vbif_nrt_qos = kzalloc(sizeof(u32) *
+				mdata->npriority_lvl, GFP_KERNEL);
+		if (!mdata->vbif_nrt_qos) {
+			pr_err("no memory for non real time qos_priority\n");
+			return;
+		}
+
+		rc = mdss_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-vbif-qos-nrt-setting", mdata->vbif_nrt_qos,
+				mdata->npriority_lvl);
+		if (rc) {
+			pr_debug("nrt setting not found\n");
+			return;
+		}
+	} else {
+		mdata->npriority_lvl = 0;
+		pr_debug("Invalid or no vbif qos nrt seting\n");
+	}
+}
+
 static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 {
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
@@ -2401,6 +2452,8 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 		if (rc)
 			pr_debug("clock levels not found\n");
 	}
+
+	mdss_mdp_parse_vbif_qos(pdev);
 
 	return 0;
 }
