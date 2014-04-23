@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1011,6 +1011,13 @@ int qpnp_adc_get_revid_version(struct device *dev)
 		(revid_data->pmic_type == PM8941_V3P1_TYPE) &&
 		(revid_data->pmic_subtype == PM8941_V3P1_SUBTYPE))
 			return QPNP_REV_ID_8941_3_1;
+	else if ((revid_data->rev1 == PM8226_V2P2_REV1) &&
+		(revid_data->rev2 == PM8226_V2P2_REV2) &&
+		(revid_data->rev3 == PM8226_V2P2_REV3) &&
+		(revid_data->rev4 == PM8226_V2P2_REV4) &&
+		(revid_data->pmic_type == PM8226_V2P2_TYPE) &&
+		(revid_data->pmic_subtype == PM8226_V2P2_SUBTYPE))
+			return QPNP_REV_ID_8026_2_2;
 	else if ((revid_data->rev1 == PM8226_V2P1_REV1) &&
 		(revid_data->rev2 == PM8226_V2P1_REV2) &&
 		(revid_data->rev3 == PM8226_V2P1_REV3) &&

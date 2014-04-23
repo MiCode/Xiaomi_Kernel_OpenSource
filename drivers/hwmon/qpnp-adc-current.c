@@ -435,6 +435,8 @@ static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_chip *iadc,
 		}
 		break;
 	case QPNP_REV_ID_8026_2_1:
+	case QPNP_REV_ID_8026_2_2:
+		/* pm8026 rev 2.1 and 2.2 */
 		switch (iadc->iadc_comp.id) {
 		case COMP_ID_GF:
 			if (!iadc->iadc_comp.ext_rsense) {
