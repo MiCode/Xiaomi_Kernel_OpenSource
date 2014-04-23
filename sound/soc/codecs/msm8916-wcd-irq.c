@@ -36,7 +36,7 @@
 #define BYTE_BIT_MASK(nr) (1UL << ((nr) % BITS_PER_BYTE))
 #define BIT_BYTE(nr) ((nr) / BITS_PER_BYTE)
 
-static irqreturn_t wcd9xxx_irq_handler(int linux_irq, void *data);
+static irqreturn_t wcd9xxx_spmi_irq_handler(int linux_irq, void *data);
 char *irq_names[MAX_NUM_IRQS] = {
 	"spk_cnp_int",
 	"spk_clip_int",
@@ -71,13 +71,13 @@ int order[MAX_NUM_IRQS] = {
 	MSM8X16_WCD_IRQ_HPHL_CNP,
 };
 
-enum wcd9xxx_pm_state {
+enum wcd9xxx_spmi_pm_state {
 	WCD9XXX_PM_SLEEPABLE,
 	WCD9XXX_PM_AWAKE,
 	WCD9XXX_PM_ASLEEP,
 };
 
-struct wcd9xxx_map {
+struct wcd9xxx_spmi_map {
 	uint8_t handled[NUM_IRQ_REGS];
 	uint8_t mask[NUM_IRQ_REGS];
 	int linuxirq[MAX_NUM_IRQS];
@@ -85,7 +85,7 @@ struct wcd9xxx_map {
 	struct spmi_device *spmi[NUM_IRQ_REGS];
 	struct snd_soc_codec *codec;
 
-	enum wcd9xxx_pm_state pm_state;
+	enum wcd9xxx_spmi_pm_state pm_state;
 	struct mutex pm_lock;
 	/* pm_wq notifies change of pm_state */
 	wait_queue_head_t pm_wq;
@@ -93,9 +93,9 @@ struct wcd9xxx_map {
 	int wlock_holders;
 };
 
-struct wcd9xxx_map map;
+struct wcd9xxx_spmi_map map;
 
-void wcd9xxx_enable_irq(int irq)
+void wcd9xxx_spmi_enable_irq(int irq)
 {
 	map.mask[BIT_BYTE(irq)] &=
 		~(BYTE_BIT_MASK(irq));
@@ -110,7 +110,7 @@ void wcd9xxx_enable_irq(int irq)
 				(0x01 << (irq - 8)), (0x01 << (irq - 8)));
 }
 
-void wcd9xxx_disable_irq(int irq)
+void wcd9xxx_spmi_disable_irq(int irq)
 {
 	map.mask[BIT_BYTE(irq)] |=
 		(BYTE_BIT_MASK(irq));
@@ -126,7 +126,7 @@ void wcd9xxx_disable_irq(int irq)
 				(0x01 << (irq - 8)), 0x00);
 }
 
-int wcd9xxx_request_irq(int irq, irq_handler_t handler,
+int wcd9xxx_spmi_request_irq(int irq, irq_handler_t handler,
 			const char *name, void *priv)
 {
 	int rc;
@@ -135,7 +135,7 @@ int wcd9xxx_request_irq(int irq, irq_handler_t handler,
 				    irq_names[irq]);
 	rc = devm_request_threaded_irq(&map.spmi[BIT_BYTE(irq)]->dev,
 				map.linuxirq[irq], NULL,
-				wcd9xxx_irq_handler,
+				wcd9xxx_spmi_irq_handler,
 				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING
 				| IRQF_ONESHOT,
 				name, priv);
@@ -152,7 +152,7 @@ int wcd9xxx_request_irq(int irq, irq_handler_t handler,
 	return 0;
 }
 
-int wcd9xxx_free_irq(int irq, void *priv)
+int wcd9xxx_spmi_free_irq(int irq, void *priv)
 {
 	devm_free_irq(&map.spmi[BIT_BYTE(irq)]->dev, map.linuxirq[irq],
 						priv);
@@ -176,12 +176,12 @@ static int get_order_irq(int  i)
 	return order[i];
 }
 
-static irqreturn_t wcd9xxx_irq_handler(int linux_irq, void *data)
+static irqreturn_t wcd9xxx_spmi_irq_handler(int linux_irq, void *data)
 {
 	int irq, i, j;
 	u8 status[NUM_IRQ_REGS] = {0};
 
-	if (unlikely(wcd9xxx_lock_sleep() == false)) {
+	if (unlikely(wcd9xxx_spmi_lock_sleep() == false)) {
 		pr_err("Failed to hold suspend\n");
 		return IRQ_NONE;
 	}
@@ -208,16 +208,16 @@ static irqreturn_t wcd9xxx_irq_handler(int linux_irq, void *data)
 		}
 	}
 	map.handled[BIT_BYTE(irq)] &= ~BYTE_BIT_MASK(irq);
-	wcd9xxx_unlock_sleep();
+	wcd9xxx_spmi_unlock_sleep();
 
 	return IRQ_HANDLED;
 }
 
-enum wcd9xxx_pm_state wcd9xxx_pm_cmpxchg(
-		enum wcd9xxx_pm_state o,
-		enum wcd9xxx_pm_state n)
+enum wcd9xxx_spmi_pm_state wcd9xxx_spmi_pm_cmpxchg(
+		enum wcd9xxx_spmi_pm_state o,
+		enum wcd9xxx_spmi_pm_state n)
 {
-	enum wcd9xxx_pm_state old;
+	enum wcd9xxx_spmi_pm_state old;
 	mutex_lock(&map.pm_lock);
 	old = map.pm_state;
 	if (old == o)
@@ -225,7 +225,7 @@ enum wcd9xxx_pm_state wcd9xxx_pm_cmpxchg(
 	mutex_unlock(&map.pm_lock);
 	return old;
 }
-EXPORT_SYMBOL(wcd9xxx_pm_cmpxchg);
+EXPORT_SYMBOL(wcd9xxx_spmi_pm_cmpxchg);
 
 int wcd9xxx_spmi_suspend(pm_message_t pmesg)
 {
@@ -252,7 +252,7 @@ int wcd9xxx_spmi_suspend(pm_message_t pmesg)
 			 map.wlock_holders);
 		mutex_unlock(&map.pm_lock);
 		if (!(wait_event_timeout(map.pm_wq,
-					 wcd9xxx_pm_cmpxchg(
+					 wcd9xxx_spmi_pm_cmpxchg(
 							WCD9XXX_PM_SLEEPABLE,
 							WCD9XXX_PM_ASLEEP) ==
 							WCD9XXX_PM_SLEEPABLE,
@@ -301,13 +301,13 @@ int wcd9xxx_spmi_resume()
 }
 EXPORT_SYMBOL(wcd9xxx_spmi_resume);
 
-bool wcd9xxx_lock_sleep()
+bool wcd9xxx_spmi_lock_sleep()
 {
 	/*
-	 * wcd9xxx_{lock/unlock}_sleep will be called by wcd9xxx_irq_thread
+	 * wcd9xxx_spmi_{lock/unlock}_sleep will be called by wcd9xxx_spmi_irq_thread
 	 * and its subroutines only motly.
-	 * but btn0_lpress_fn is not wcd9xxx_irq_thread's subroutine and
-	 * It can race with wcd9xxx_irq_thread.
+	 * but btn0_lpress_fn is not wcd9xxx_spmi_irq_thread's subroutine and
+	 * It can race with wcd9xxx_spmi_irq_thread.
 	 * So need to embrace wlock_holders with mutex.
 	 *
 	 * If system didn't resume, we can simply return false so codec driver's
@@ -324,11 +324,11 @@ bool wcd9xxx_lock_sleep()
 	mutex_unlock(&map.pm_lock);
 
 	if (!wait_event_timeout(map.pm_wq,
-				((wcd9xxx_pm_cmpxchg(
+				((wcd9xxx_spmi_pm_cmpxchg(
 					WCD9XXX_PM_SLEEPABLE,
 					WCD9XXX_PM_AWAKE)) ==
 					WCD9XXX_PM_SLEEPABLE ||
-					(wcd9xxx_pm_cmpxchg(
+					(wcd9xxx_spmi_pm_cmpxchg(
 						 WCD9XXX_PM_SLEEPABLE,
 						 WCD9XXX_PM_AWAKE) ==
 						 WCD9XXX_PM_AWAKE)),
@@ -338,22 +338,22 @@ bool wcd9xxx_lock_sleep()
 			__func__,
 			WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS, map.pm_state,
 			map.wlock_holders);
-		wcd9xxx_unlock_sleep();
+		wcd9xxx_spmi_unlock_sleep();
 		return false;
 	}
 	wake_up_all(&map.pm_wq);
 	return true;
 }
-EXPORT_SYMBOL(wcd9xxx_lock_sleep);
+EXPORT_SYMBOL(wcd9xxx_spmi_lock_sleep);
 
-void wcd9xxx_unlock_sleep()
+void wcd9xxx_spmi_unlock_sleep()
 {
 	mutex_lock(&map.pm_lock);
 	if (--map.wlock_holders == 0) {
 		pr_debug("%s: releasing wake lock pm_state %d -> %d\n",
 			 __func__, map.pm_state, WCD9XXX_PM_SLEEPABLE);
 		/*
-		 * if wcd9xxx_lock_sleep failed, pm_state would be still
+		 * if wcd9xxx_spmi_lock_sleep failed, pm_state would be still
 		 * WCD9XXX_PM_ASLEEP, don't overwrite
 		 */
 		if (likely(map.pm_state == WCD9XXX_PM_AWAKE))
@@ -364,7 +364,7 @@ void wcd9xxx_unlock_sleep()
 	mutex_unlock(&map.pm_lock);
 	wake_up_all(&map.pm_wq);
 }
-EXPORT_SYMBOL(wcd9xxx_unlock_sleep);
+EXPORT_SYMBOL(wcd9xxx_spmi_unlock_sleep);
 
 void wcd9xxx_spmi_set_codec(struct snd_soc_codec *codec)
 {
