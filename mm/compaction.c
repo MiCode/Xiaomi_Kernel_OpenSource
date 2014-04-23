@@ -310,6 +310,8 @@ static unsigned long isolate_freepages_block(struct compact_control *cc,
 isolate_fail:
 		if (strict)
 			break;
+		else
+			continue;
 
 	}
 
