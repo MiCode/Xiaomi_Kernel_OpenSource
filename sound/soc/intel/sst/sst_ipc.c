@@ -691,6 +691,19 @@ void sst_process_reply_mrfld(struct ipc_post *msg)
 	/* if it is a large message, the payload contains the size to
 	 * copy from mailbox */
 	if (msg_high.part.large) {
+
+		if (!msg_low) {
+			pr_err("payload size is 0 for large message\n");
+			pr_err("IPC header %#x has %#x payload\n",
+					msg_high.full, msg_low);
+
+			sst_wake_up_block(sst_drv_ctx, msg_high.part.result,
+					msg_high.part.drv_id,
+					msg_high.part.msg_id, NULL, 0);
+			WARN_ON(1);
+			return;
+		}
+
 		data = kzalloc(msg_low, GFP_KERNEL);
 		if (!data)
 			goto end;
