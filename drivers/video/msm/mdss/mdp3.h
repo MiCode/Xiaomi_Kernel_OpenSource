@@ -164,6 +164,7 @@ struct mdp3_hw_resource {
 
 	bool batfet_required;
 	struct regulator *batfet;
+	struct regulator *vdd_cx;
 };
 
 struct mdp3_img_data {
@@ -207,6 +208,7 @@ void mdp3_batfet_ctrl(int enable);
 
 int mdp3_misr_set(struct mdp_misr *misr_req);
 int mdp3_misr_get(struct mdp_misr *misr_resp);
+void mdp3_enable_regulator(int enable);
 
 #define MDP3_REG_WRITE(addr, val) writel_relaxed(val, mdp3_res->mdp_base + addr)
 #define MDP3_REG_READ(addr) readl_relaxed(mdp3_res->mdp_base + addr)
