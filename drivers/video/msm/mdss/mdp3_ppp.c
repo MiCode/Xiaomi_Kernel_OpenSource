@@ -865,17 +865,17 @@ int mdp3_ppp_start_blit(struct msm_fb_data_type *mfd,
 
 	if (req->flags & MDP_ROT_90) {
 		if (((req->dst_rect.h == 1) && ((req->src_rect.w != 1) ||
-			(req->dst_rect.w != req->src_rect.h))) ||
+			(req->dst_rect.w == req->src_rect.h))) ||
 			((req->dst_rect.w == 1) && ((req->src_rect.h != 1) ||
-			(req->dst_rect.h != req->src_rect.w)))) {
+			(req->dst_rect.h == req->src_rect.w)))) {
 			pr_err("mdp_ppp: error scaling when size is 1!\n");
 			return -EINVAL;
 		}
 	} else {
 		if (((req->dst_rect.w == 1) && ((req->src_rect.w != 1) ||
-			(req->dst_rect.h != req->src_rect.h))) ||
+			(req->dst_rect.h == req->src_rect.h))) ||
 			((req->dst_rect.h == 1) && ((req->src_rect.h != 1) ||
-			(req->dst_rect.w != req->src_rect.w)))) {
+			(req->dst_rect.w == req->src_rect.w)))) {
 			pr_err("mdp_ppp: error scaling when size is 1!\n");
 			return -EINVAL;
 		}
