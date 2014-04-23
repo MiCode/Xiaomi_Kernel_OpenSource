@@ -1695,6 +1695,7 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 	struct device_node *of_node = pdev->dev.of_node;
 	int i, rc = 0;
 	bool redundant = false, scheme_fuse_valid = false;
+	bool disable_fuse_valid = false;
 	u32 cpr_fuse_redun_sel[5];
 	char *targ_quot_str, *ro_sel_str;
 	u32 cpr_fuse_row[2];
@@ -1762,6 +1763,7 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 			CPR_PROP_READ_U32(of_node,
 					  "cpr-fuse-redun-bp-cpr-disable",
 					  &bp_cpr_disable, rc);
+			disable_fuse_valid = true;
 			if (of_find_property(of_node,
 					"qcom,cpr-fuse-redun-bp-scheme",
 					NULL)) {
@@ -1777,8 +1779,13 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 			u32 temp_row[2];
 
 			/* Use original fuse if no optional property */
-			CPR_PROP_READ_U32(of_node, "cpr-fuse-bp-cpr-disable",
-					  &bp_cpr_disable, rc);
+			if (of_property_read_bool(of_node,
+					"qcom,cpr-fuse-bp-cpr-disable")) {
+				CPR_PROP_READ_U32(of_node,
+					"cpr-fuse-bp-cpr-disable",
+					&bp_cpr_disable, rc);
+				disable_fuse_valid = true;
+			}
 			if (of_find_property(of_node,
 					"qcom,cpr-fuse-bp-scheme",
 					NULL)) {
@@ -1799,8 +1806,12 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 				temp_row[0], fuse_bits_2);
 		}
 	} else {
-		CPR_PROP_READ_U32(of_node, "cpr-fuse-bp-cpr-disable",
-				  &bp_cpr_disable, rc);
+		if (of_property_read_bool(of_node,
+					"qcom,cpr-fuse-bp-cpr-disable")) {
+			CPR_PROP_READ_U32(of_node,
+				"cpr-fuse-bp-cpr-disable", &bp_cpr_disable, rc);
+			disable_fuse_valid = true;
+		}
 		if (of_find_property(of_node, "qcom,cpr-fuse-bp-scheme",
 							NULL)) {
 			CPR_PROP_READ_U32(of_node, "cpr-fuse-bp-scheme",
@@ -1812,15 +1823,19 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 		fuse_bits_2 = fuse_bits;
 	}
 
-	cpr_vreg->cpr_fuse_disable = (fuse_bits_2 >> bp_cpr_disable) & 0x01;
+	if (disable_fuse_valid) {
+		cpr_vreg->cpr_fuse_disable =
+					(fuse_bits_2 >> bp_cpr_disable) & 0x01;
+		pr_info("disable = %d\n", cpr_vreg->cpr_fuse_disable);
+	} else {
+		cpr_vreg->cpr_fuse_disable = false;
+	}
+
 	if (scheme_fuse_valid) {
 		cpr_vreg->cpr_fuse_local = (fuse_bits_2 >> bp_scheme) & 0x01;
-		pr_info("disable = %d, local = %d\n",
-				cpr_vreg->cpr_fuse_disable,
-				cpr_vreg->cpr_fuse_local);
+		pr_info("local = %d\n", cpr_vreg->cpr_fuse_local);
 	} else {
 		cpr_vreg->cpr_fuse_local = true;
-		pr_info("disable = %d\n", cpr_vreg->cpr_fuse_disable);
 	}
 
 	for (i = CPR_FUSE_CORNER_SVS; i < CPR_FUSE_CORNER_MAX; i++) {
