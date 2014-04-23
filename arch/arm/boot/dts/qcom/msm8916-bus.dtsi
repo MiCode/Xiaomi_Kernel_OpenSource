@@ -415,6 +415,7 @@
 		cell-id = <512>;
 		label = "slv-ebi-ch0";
 		qcom,bus-dev = <&fab_bimc>;
+		qcom,slv-rpm-id = <0>;
 		qom,buswidth = <8>;
 	};
 
