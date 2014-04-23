@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2203,6 +2203,20 @@ pcc_config_exit:
 	return ret;
 }
 
+static void pp_read_igc_lut_cached(struct mdp_igc_lut_data *cfg)
+{
+	int i;
+	u32 disp_num;
+
+	disp_num = cfg->block - MDP_LOGICAL_BLOCK_DISP_0;
+	for (i = 0; i < IGC_LUT_ENTRIES; i++) {
+		cfg->c0_c1_data[i] =
+			mdss_pp_res->igc_disp_cfg[disp_num].c0_c1_data[i];
+		cfg->c2_data[i] =
+			mdss_pp_res->igc_disp_cfg[disp_num].c2_data[i];
+	}
+}
+
 static void pp_read_igc_lut(struct mdp_igc_lut_data *cfg,
 				char __iomem *addr, u32 blk_idx)
 {
@@ -2323,7 +2337,10 @@ int mdss_mdp_igc_lut_config(struct mdp_igc_lut_data *config,
 			&mdss_pp_res->igc_lut_c0c1[disp_num][0];
 		local_cfg.c2_data =
 			&mdss_pp_res->igc_lut_c2[disp_num][0];
-		pp_read_igc_lut(&local_cfg, igc_addr, dspp_num);
+		if (mdata->has_no_lut_read)
+			pp_read_igc_lut_cached(&local_cfg);
+		else
+			pp_read_igc_lut(&local_cfg, igc_addr, dspp_num);
 		if (copy_to_user(config->c0_c1_data, local_cfg.c0_c1_data,
 			config->len * sizeof(u32))) {
 			ret = -EFAULT;
@@ -2470,6 +2487,41 @@ static int pp_read_argc_lut(struct mdp_pgc_lut_data *config, char __iomem *addr)
 	return ret;
 }
 
+static int pp_read_argc_lut_cached(struct mdp_pgc_lut_data *config)
+{
+	int i;
+	u32 disp_num;
+	struct mdp_pgc_lut_data *pgc_ptr;
+
+	disp_num = PP_BLOCK(config->block) - MDP_LOGICAL_BLOCK_DISP_0;
+	switch (PP_LOCAT(config->block)) {
+	case MDSS_PP_LM_CFG:
+		pgc_ptr = &mdss_pp_res->argc_disp_cfg[disp_num];
+		break;
+	case MDSS_PP_DSPP_CFG:
+		pgc_ptr = &mdss_pp_res->pgc_disp_cfg[disp_num];
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	for (i = 0; i < GC_LUT_SEGMENTS; i++) {
+		config->r_data[i].x_start = pgc_ptr->r_data[i].x_start;
+		config->r_data[i].slope   = pgc_ptr->r_data[i].slope;
+		config->r_data[i].offset  = pgc_ptr->r_data[i].offset;
+
+		config->g_data[i].x_start = pgc_ptr->g_data[i].x_start;
+		config->g_data[i].slope   = pgc_ptr->g_data[i].slope;
+		config->g_data[i].offset  = pgc_ptr->g_data[i].offset;
+
+		config->b_data[i].x_start = pgc_ptr->b_data[i].x_start;
+		config->b_data[i].slope   = pgc_ptr->b_data[i].slope;
+		config->b_data[i].offset  = pgc_ptr->b_data[i].offset;
+	}
+
+	return 0;
+}
+
 /* Note: Assumes that its inputs have been checked by calling function */
 static void pp_update_hist_lut(char __iomem *addr,
 				struct mdp_hist_lut_data *cfg)
@@ -2493,6 +2545,10 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config,
 	struct mdp_pgc_lut_data *pgc_ptr;
 	u32 tbl_size, r_size, g_size, b_size;
 	char __iomem *argc_addr = 0;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (mdata == NULL)
+		return -EPERM;
 
 	if ((PP_BLOCK(config->block) < MDP_LOGICAL_BLOCK_DISP_0) ||
 		(PP_BLOCK(config->block) >= MDP_BLOCK_MAX))
@@ -2545,21 +2601,31 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config,
 			&mdss_pp_res->gc_lut_g[disp_num][0];
 		local_cfg.b_data =
 			&mdss_pp_res->gc_lut_b[disp_num][0];
-		pp_read_argc_lut(&local_cfg, argc_addr);
-		if (copy_to_user(config->r_data,
-			&mdss_pp_res->gc_lut_r[disp_num][0], tbl_size)) {
+		if (mdata->has_no_lut_read)
+			pp_read_argc_lut_cached(&local_cfg);
+		else
+			pp_read_argc_lut(&local_cfg, argc_addr);
+
+		if ((tbl_size != local_cfg.num_r_stages *
+			sizeof(struct mdp_ar_gc_lut_data)) ||
+			(copy_to_user(config->r_data, local_cfg.r_data,
+				tbl_size))) {
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 			ret = -EFAULT;
 			goto argc_config_exit;
 		}
-		if (copy_to_user(config->g_data,
-			&mdss_pp_res->gc_lut_g[disp_num][0], tbl_size)) {
+		if ((tbl_size != local_cfg.num_g_stages *
+			sizeof(struct mdp_ar_gc_lut_data)) ||
+			(copy_to_user(config->g_data, local_cfg.g_data,
+				tbl_size))) {
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 			ret = -EFAULT;
 			goto argc_config_exit;
 		}
-		if (copy_to_user(config->b_data,
-			&mdss_pp_res->gc_lut_b[disp_num][0], tbl_size)) {
+		if ((tbl_size != local_cfg.num_b_stages *
+			sizeof(struct mdp_ar_gc_lut_data)) ||
+			(copy_to_user(config->b_data, local_cfg.b_data,
+				tbl_size))) {
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 			ret = -EFAULT;
 			goto argc_config_exit;
