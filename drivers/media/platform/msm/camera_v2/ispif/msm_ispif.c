@@ -218,7 +218,7 @@ static int msm_ispif_clk_ahb_enable(struct ispif_device *ispif, int enable)
 	}
 
 	rc = msm_cam_clk_enable(&ispif->pdev->dev,
-		ispif_8974_ahb_clk_info, &ispif->ahb_clk,
+		ispif_8974_ahb_clk_info, ispif->ahb_clk,
 		ispif->num_clk, enable);
 	if (rc < 0) {
 		pr_err("%s: cannot enable clock, error = %d",
