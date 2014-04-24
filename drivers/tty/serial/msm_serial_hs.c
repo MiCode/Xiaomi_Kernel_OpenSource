@@ -2524,6 +2524,7 @@ static int uartdm_init_port(struct uart_port *uport)
 
 	INIT_DELAYED_WORK(&rx->flip_insert_work, flip_insert_work);
 
+	return ret;
 free_pool:
 	dma_pool_destroy(msm_uport->rx.pool);
 
