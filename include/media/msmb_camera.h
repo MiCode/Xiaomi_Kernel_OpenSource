@@ -168,4 +168,13 @@ struct msm_v4l2_format_data {
 /* Bayer hist stats */
 #define MSM_V4L2_PIX_FMT_STATS_BHST v4l2_fourcc('B', 'H', 'S', 'T')
 
+enum smmu_attach_mode {
+	NON_SECURE_MODE,
+	SECURE_MODE,
+};
+
+struct msm_camera_smmu_attach_type {
+	enum smmu_attach_mode attach;
+};
+
 #endif /* __LINUX_MSMB_CAMERA_H */
