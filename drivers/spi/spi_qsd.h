@@ -300,9 +300,6 @@ struct msm_spi {
 	struct device           *dev;
 	spinlock_t               queue_lock;
 	struct mutex             core_lock;
-	struct list_head         queue;
-	struct workqueue_struct *workqueue;
-	struct work_struct       work_data;
 	struct spi_message      *cur_msg;
 	struct spi_transfer     *cur_transfer;
 	struct completion        transfer_complete;
