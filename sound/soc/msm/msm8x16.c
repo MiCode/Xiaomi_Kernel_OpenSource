@@ -1124,6 +1124,7 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "external codec is configured\n");
 		pdata->codec_type = 1;
 	} else {
+		bear_cards[pdev->id].name = dev_name(&pdev->dev);
 		dev_info(&pdev->dev, "default codec configured\n");
 		pdata->codec_type = 0;
 	}
