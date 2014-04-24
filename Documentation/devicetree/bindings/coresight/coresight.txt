@@ -124,8 +124,6 @@ Optional properties:
 - qcom,memory-size : size of coherent memory to be allocated for tmc-etr buffer
 - qcom,round-robin : indicates if per core etms are allowed round-robin access
 		     by the funnel
-- qcom,reset-flush-race : indicates if a race exists between flushing and ddr
-			  being put into self-refresh during watchdog reset
 - qcom,write-64bit : only 64bit data writes supported by stm
 - <supply-name>-supply: phandle to the regulator device tree node. The required
 			<supply-name> is "vdd" for SD card and "vdd-io" for SD
