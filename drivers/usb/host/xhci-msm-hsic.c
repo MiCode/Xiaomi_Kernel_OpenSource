@@ -1446,10 +1446,6 @@ static int mxhci_hsic_remove(struct platform_device *pdev)
 
 	xhci_dbg_log_event(&dbg_hsic, NULL,  "mxhci_hsic_remove", 0);
 
-	mxhci->xhci_remove_flag = true;
-	wake_up(&mxhci->phy_in_lpm_wq);
-
-
 	/* disable STROBE_PAD_CTL */
 	reg = readl_relaxed(TLMM_GPIO_HSIC_STROBE_PAD_CTL);
 	writel_relaxed(reg & 0xfdffffff, TLMM_GPIO_HSIC_STROBE_PAD_CTL);
@@ -1464,16 +1460,21 @@ static int mxhci_hsic_remove(struct platform_device *pdev)
 	device_remove_file(&pdev->dev, &dev_attr_host_ready);
 	mxhci_hsic_debugfs_cleanup();
 
+	mxhci->xhci_remove_flag = true;
+	wake_up(&mxhci->phy_in_lpm_wq);
+
+	pm_runtime_get_sync(mxhci->dev);
 	/* If the device was removed no need to call pm_runtime_disable */
 	if (pdev->dev.power.power_state.event != PM_EVENT_INVALID)
 		pm_runtime_disable(&pdev->dev);
 
 	pm_runtime_set_suspended(&pdev->dev);
-
 	usb_remove_hcd(xhci->shared_hcd);
 	usb_put_hcd(xhci->shared_hcd);
 
 	usb_remove_hcd(hcd);
+
+	pm_runtime_put_noidle(mxhci->dev);
 
 	if (mxhci->wakeup_irq_enabled)
 		disable_irq_wake(mxhci->wakeup_irq);
