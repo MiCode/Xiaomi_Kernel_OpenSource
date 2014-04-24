@@ -75,7 +75,7 @@ static struct msm_sensor_power_setting ov5645_power_setting[] = {
 	{
 		.seq_type = SENSOR_CLK,
 		.seq_val = SENSOR_CAM_MCLK,
-		.config_val = 24000000,
+		.config_val = 23880000,
 		.delay = 10,
 	},
 	{
