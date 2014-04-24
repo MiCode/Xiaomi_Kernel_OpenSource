@@ -254,8 +254,32 @@ static int vfe_probe(struct platform_device *pdev)
 		kfree(vfe_dev);
 		return -EINVAL;
 	}
+	/* create secure context banks*/
+	if (vfe_dev->hw_info->num_iommu_secure_ctx) {
+		/*secure vfe layout*/
+		struct msm_iova_layout vfe_secure_layout = {
+			.partitions = &vfe_partition,
+			.npartitions = 1,
+			.client_name = "vfe_secure",
+			.domain_flags = 0,
+			.is_secure = MSM_IOMMU_DOMAIN_SECURE,
+		};
+		rc = msm_isp_create_secure_domain(vfe_dev->buf_mgr,
+			&vfe_secure_layout);
+		if (rc < 0) {
+			pr_err("%s: fail to create secure domain\n", __func__);
+			msm_sd_unregister(&vfe_dev->subdev);
+			kfree(vfe_dev);
+			return -EINVAL;
+		}
+	}
+
 	vfe_dev->buf_mgr->ops->register_ctx(vfe_dev->buf_mgr,
-		&vfe_dev->iommu_ctx[0], vfe_dev->hw_info->num_iommu_ctx);
+		&vfe_dev->iommu_ctx[0], &vfe_dev->iommu_secure_ctx[0],
+		vfe_dev->hw_info->num_iommu_ctx,
+		vfe_dev->hw_info->num_iommu_secure_ctx);
+
+	vfe_dev->buf_mgr->init_done = 1;
 	vfe_dev->vfe_open_cnt = 0;
 end:
 	return rc;
