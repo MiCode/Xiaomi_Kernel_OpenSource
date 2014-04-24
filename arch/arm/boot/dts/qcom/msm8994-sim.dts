@@ -88,6 +88,10 @@
 	status = "ok";
 };
 
+&qcom_tzlog {
+	status = "okay";
+};
+
 &pm8994_gpios {
 	gpio@c000 { /* GPIO 1 */
 	};
