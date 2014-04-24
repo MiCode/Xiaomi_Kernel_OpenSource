@@ -12,6 +12,7 @@
 
 #include "msm8916-qrd.dtsi"
 #include "dsi-panel-otm8019a-fwvga-video.dtsi"
+#include "msm8916-camera-sensor-qrd-skui.dtsi"
 
 &soc {
 	i2c@78b9000 { /* BLSP1 QUP5 */
@@ -59,6 +60,17 @@
 		qcom,panel-maxy = <946>;
 		qcom,key-codes = <139 172 158>;
 		qcom,y-offset = <0>;
+	};
+
+	flash_ocp8110:flashlight {
+		compatible = "qcom,leds-gpio-flash";
+		status = "okay";
+		pinctrl-names = "ocp8110_default";
+		pinctrl-0 = <&ocp8110_default>;
+		qcom,flash-en = <&msm_gpio 31 0>;
+		qcom,flash-now = <&msm_gpio 32 0>;
+		linux,name = "flashlight";
+		linux,default-trigger = "flashlight-trigger";
 	};
 
 	gpio-leds {
@@ -128,6 +140,17 @@
 };
 
 &tlmm_pinmux {
+	ocp8110_pins {
+		qcom,pins = <&gp 31>, <&gp 32>;
+		qcom,num-grp-pins = <2>;
+		qcom,pin-func = <0>;
+		label = "ocp8110_pins";
+		ocp8110_default: en_default {
+			  drive-strength = <2>;
+			  bias-pull-down;
+		};
+	};
+
 	apds9930_int_pin {
 		qcom,pins = <&gp 113>;
 		qcom,pin-func = <0>;
