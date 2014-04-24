@@ -1,6 +1,6 @@
 obj-$(CONFIG_IOMMU_API) += iommu.o
 obj-$(CONFIG_OF_IOMMU)	+= of_iommu.o
-obj-$(CONFIG_MSM_IOMMU) += msm_iommu.o msm_iommu_domains.o
+obj-$(CONFIG_MSM_IOMMU) += msm_iommu.o msm_iommu_domains.o msm_iommu_mapping.o
 obj-$(CONFIG_MSM_IOMMU_V0) += msm_iommu-v0.o msm_iommu_dev-v0.o
 obj-$(CONFIG_MSM_IOMMU_V1) += msm_iommu-v1.o msm_iommu_dev-v1.o msm_iommu_sec.o
 obj-$(CONFIG_MSM_IOMMU_PMON) += msm_iommu_perfmon.o
