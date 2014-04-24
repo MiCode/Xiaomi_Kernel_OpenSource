@@ -114,9 +114,13 @@ static inline void msm_vidc_free_regulator_table(
 		struct regulator_info *rinfo =
 			&res->regulator_set.regulator_tbl[c];
 
+		kfree(rinfo->name);
 		rinfo->name = NULL;
 	}
 
+	/* The regulator table is one the few allocs that aren't managed, hence
+	 * free it manually */
+	kfree(res->regulator_set.regulator_tbl);
 	res->regulator_set.regulator_tbl = NULL;
 	res->regulator_set.count = 0;
 }
