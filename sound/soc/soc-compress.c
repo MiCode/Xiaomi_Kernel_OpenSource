@@ -468,13 +468,47 @@ err:
 	return ret;
 }
 
+static void dpcm_be_hw_params_prepare(void *data)
+{
+	struct snd_compr_stream *cstream = data;
+	struct snd_soc_pcm_runtime *fe = cstream->private_data;
+	struct snd_soc_pcm_runtime *be = cstream->be;
+	int stream, ret;
+
+	if (cstream->direction == SND_COMPRESS_PLAYBACK)
+		stream = SNDRV_PCM_STREAM_PLAYBACK;
+	else
+		stream = SNDRV_PCM_STREAM_CAPTURE;
+
+	ret = dpcm_fe_dai_hw_params_be(fe, be,
+		    &fe->dpcm[stream].hw_params, stream);
+	if (ret < 0) {
+		fe->err_ops = ret;
+		return;
+	}
+
+	ret = dpcm_fe_dai_prepare_be(fe, be, stream);
+	if (ret < 0) {
+		fe->err_ops = ret;
+		return;
+	}
+}
+
+static void dpcm_be_hw_params_prepare_async(void *data, async_cookie_t cookie)
+{
+	dpcm_be_hw_params_prepare(data);
+}
+
 static int soc_compr_set_params_fe(struct snd_compr_stream *cstream,
 					struct snd_compr_params *params)
 {
 	struct snd_soc_pcm_runtime *fe = cstream->private_data;
 	struct snd_pcm_substream *fe_substream = fe->pcm->streams[0].substream;
 	struct snd_soc_platform *platform = fe->platform;
-	int ret = 0, stream;
+	struct snd_soc_pcm_runtime *be_list[DPCM_MAX_BE_USERS];
+	struct snd_soc_dpcm *dpcm;
+	int ret = 0, stream, i, j = 0;
+	ASYNC_DOMAIN_EXCLUSIVE(async_domain);
 
 	if (cstream->direction == SND_COMPRESS_PLAYBACK)
 		stream = SNDRV_PCM_STREAM_PLAYBACK;
@@ -483,37 +517,90 @@ static int soc_compr_set_params_fe(struct snd_compr_stream *cstream,
 
 	mutex_lock_nested(&fe->card->mutex, SND_SOC_CARD_CLASS_RUNTIME);
 
-	/* first we call set_params for the platform driver
-	 * this should configure the soc side
-	 * if the machine has compressed ops then we call that as well
-	 * expectation is that platform and machine will configure everything
-	 * for this compress path, like configuring pcm port for codec
-	 */
-	if (platform->driver->compr_ops &&
-			platform->driver->compr_ops->set_params) {
-		ret = platform->driver->compr_ops->set_params(cstream, params);
+	if (!(fe->dai_link->async_ops & ASYNC_DPCM_SND_SOC_HW_PARAMS)) {
+		/* first we call set_params for the platform driver
+		 * this should configure the soc side
+		 * if the machine has compressed ops then we call that as well
+		 * expectation is that platform and machine will configure
+		 * everything for this compress path, like configuring pcm
+		 * port for codec
+		 */
+		if (platform->driver->compr_ops &&
+				platform->driver->compr_ops->set_params) {
+			ret = platform->driver->compr_ops->set_params(cstream,
+								params);
+			if (ret < 0)
+				goto out;
+		}
+
+		if (fe->dai_link->compr_ops &&
+					fe->dai_link->compr_ops->set_params) {
+			ret = fe->dai_link->compr_ops->set_params(cstream);
+			if (ret < 0)
+				goto out;
+		}
+
+		memcpy(&fe->dpcm[fe_substream->stream].hw_params, params,
+				sizeof(struct snd_pcm_hw_params));
+
+		fe->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_FE;
+
+		ret = dpcm_be_dai_hw_params(fe, stream);
 		if (ret < 0)
 			goto out;
-	}
 
-	if (fe->dai_link->compr_ops && fe->dai_link->compr_ops->set_params) {
-		ret = fe->dai_link->compr_ops->set_params(cstream);
+		ret = dpcm_be_dai_prepare(fe, stream);
 		if (ret < 0)
 			goto out;
+	} else {
+		memcpy(&fe->dpcm[fe_substream->stream].hw_params, params,
+				sizeof(struct snd_pcm_hw_params));
+
+		fe->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_FE;
+
+		list_for_each_entry(dpcm,
+				&fe->dpcm[stream].be_clients, list_be) {
+			struct snd_soc_pcm_runtime *be = dpcm->be;
+			if (be->dai_link->async_ops &
+				ASYNC_DPCM_SND_SOC_HW_PARAMS) {
+				cstream->be = be;
+				async_schedule_domain(
+				dpcm_be_hw_params_prepare_async,
+				cstream, &async_domain);
+			} else {
+				be_list[j++] = be;
+			}
+		}
+		for (i = 0; i < j; i++) {
+			cstream->be = be_list[i];
+			dpcm_be_hw_params_prepare(cstream);
+		}
+		/* first we call set_params for the platform driver
+		 * this should configure the soc side
+		 * if the machine has compressed ops then we call that as well
+		 * expectation is that platform and machine will configure
+		 * everything this compress path, like configuring pcm port
+		 * for codec
+		 */
+		if (platform->driver->compr_ops &&
+				platform->driver->compr_ops->set_params) {
+			ret = platform->driver->compr_ops->set_params(cstream,
+								    params);
+			if (ret < 0)
+				goto exit;
+		}
+
+		if (fe->dai_link->compr_ops &&
+				fe->dai_link->compr_ops->set_params) {
+			ret = fe->dai_link->compr_ops->set_params(cstream);
+			if (ret < 0)
+				goto exit;
+		}
+exit:
+		async_synchronize_full_domain(&async_domain);
+		if (fe->err_ops < 0 || ret < 0)
+			goto out;
 	}
-
-	memcpy(&fe->dpcm[fe_substream->stream].hw_params, params,
-			sizeof(struct snd_pcm_hw_params));
-
-	fe->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_FE;
-
-	ret = dpcm_be_dai_hw_params(fe, stream);
-	if (ret < 0)
-		goto out;
-
-	ret = dpcm_be_dai_prepare(fe, stream);
-	if (ret < 0)
-		goto out;
 
 	dpcm_dapm_stream_event(fe, stream, SND_SOC_DAPM_STREAM_START);
 
