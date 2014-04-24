@@ -369,3 +369,13 @@
       pinctrl-6 = <&qdsd_clk_spmi &qdsd_cmd_spmi
                   &qdsd_data0_spmi &qdsd_data3_spmi>;
 };
+
+&spmi_bus {
+	qcom,pm8916@1 {
+		qcom,vibrator@c000 {
+			status = "okay";
+			qcom,vib-timeout-ms = <15000>;
+			qcom,vib-vtg-level-mV = <3100>;
+		};
+	};
+};
