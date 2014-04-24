@@ -289,7 +289,7 @@ static inline int mdss_fb_validate_split(int left, int right,
 			rc = 0;
 		}
 	} else {
-		if (is_panel_split(mfd)) {
+		if (is_split_lm(mfd)) {
 			mfd->split_fb_left = mfd->split_fb_right = panel_xres;
 			rc = 0;
 		} else {

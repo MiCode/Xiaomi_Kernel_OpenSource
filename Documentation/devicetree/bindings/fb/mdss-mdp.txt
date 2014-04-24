@@ -382,6 +382,8 @@ Fudge Factors:			Fudge factors are used to boost demand for
 				Number of signal offsets should match the
 				number of offsets defined in property:
 				qcom,mdss-pipe-dma-off
+- qcom,mdss-has-dst-split:	Boolean property to indicate if destination
+				split feature is available or not in the target.
 
 Optional subnodes:
 Child nodes representing the frame buffer virtual devices.
@@ -499,6 +501,7 @@ Example:
 		qcom,mdss-no-lut-read;
 		qcom,mdss-traffic-shaper-enabled;
 
+		qcom,mdss-has-dst-split;
 		qcom,mdss-pipe-vig-xin-id = <0 4 8>;
 		qcom,mdss-pipe-rgb-xin-id = <1 5 9>;
 		qcom,mdss-pipe-dma-xin-id = <2 10>;
