@@ -197,7 +197,7 @@ static void wm_adsp_buf_free(struct list_head *list)
 /* Must remain a power of two */
 #define WM_ADSP_CAPTURE_BUFFER_SIZE      1048576
 
-#define WM_ADSP_NUM_FW 9
+#define WM_ADSP_NUM_FW 12
 
 #define WM_ADSP_FW_MBC_VSS        0
 #define WM_ADSP_FW_TX             1
@@ -208,6 +208,9 @@ static void wm_adsp_buf_free(struct list_head *list)
 #define WM_ADSP_FW_EDAC           6
 #define WM_ADSP_FW_EZ2LISTEN_SP   7
 #define WM_ADSP_FW_EZ2LISTEN_HP   8
+#define WM_ADSP_FW_EZ2HEAR_SP_TX  9
+#define WM_ADSP_FW_EZ2HEAR_HS_TX  10
+#define WM_ADSP_FW_EZ2HEAR_RX     11
 
 static const char *wm_adsp_fw_text[WM_ADSP_NUM_FW] = {
 	[WM_ADSP_FW_MBC_VSS] =    "MBC/VSS",
@@ -219,6 +222,9 @@ static const char *wm_adsp_fw_text[WM_ADSP_NUM_FW] = {
 	[WM_ADSP_FW_EDAC] =       "EDAC",
 	[WM_ADSP_FW_EZ2LISTEN_SP] = "Ez2Listen SP",
 	[WM_ADSP_FW_EZ2LISTEN_HP] = "Ez2Listen HP",
+	[WM_ADSP_FW_EZ2HEAR_SP_TX] = "Ez2HearSP Tx",
+	[WM_ADSP_FW_EZ2HEAR_HS_TX] = "Ez2HearHS Tx",
+	[WM_ADSP_FW_EZ2HEAR_RX] = "Ez2Hear Rx",
 };
 
 struct wm_adsp_system_config_xm_hdr {
@@ -370,6 +376,9 @@ static struct wm_adsp_fw_defs wm_adsp_fw[WM_ADSP_NUM_FW] = {
 	[WM_ADSP_FW_EDAC] =     { .file = "edac" },
 	[WM_ADSP_FW_EZ2LISTEN_SP] = { .file = "ez2listen-sp" },
 	[WM_ADSP_FW_EZ2LISTEN_HP] = { .file = "ez2listen-hp" },
+	[WM_ADSP_FW_EZ2HEAR_SP_TX] = { .file = "ez2hear-sp-tx" },
+	[WM_ADSP_FW_EZ2HEAR_HS_TX] = { .file = "ez2hear-hs-tx" },
+	[WM_ADSP_FW_EZ2HEAR_RX] = { .file = "ez2hear-rx" },
 };
 
 struct wm_coeff_ctl_ops {
