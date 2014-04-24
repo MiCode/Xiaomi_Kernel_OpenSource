@@ -134,6 +134,9 @@ struct arizona_pdata {
 	/** Internal pull on GPIO5 is disabled when used for jack detection */
 	bool jd_gpio5_nopull;
 
+	/** set to true if jackdet contact opens on insert */
+	bool jd_invert;
+
 	/** If non-zero don't run headphone detection, report this value */
 	int fixed_hpdet_imp;
 
