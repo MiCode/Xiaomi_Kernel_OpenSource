@@ -355,6 +355,11 @@ static struct flash_partition_table ptable;
 
 static struct mtd_partition mtd_part[FLASH_PTABLE_MAX_PARTS_V4];
 
+static inline bool is_buffer_in_page(const void *buf, size_t len)
+{
+	return !(((unsigned long) buf & ~PAGE_MASK) + len > PAGE_SIZE);
+}
+
 /*
  * Get the DMA memory for requested amount of size. It returns the pointer
  * to free memory available from the allocated pool. Returns NULL if there
@@ -1856,6 +1861,10 @@ static int msm_nand_read_partial_page(struct mtd_info *mtd,
 		if (offset == 0 && len == mtd->writesize)
 			no_copy = true;
 
+		if (!virt_addr_valid(actual_buf) &&
+				!is_buffer_in_page(actual_buf, ops->len))
+			no_copy = false;
+
 		ops->datbuf = no_copy ? actual_buf : bounce_buf;
 		err = msm_nand_read_oob(mtd, aligned_from, ops);
 		if (err < 0) {
@@ -1892,6 +1901,7 @@ static int msm_nand_read(struct mtd_info *mtd, loff_t from, size_t len,
 {
 	int ret;
 	struct mtd_oob_ops ops;
+	unsigned char *bounce_buf = NULL;
 
 	ops.mode = MTD_OPS_AUTO_OOB;
 	ops.retlen = 0;
@@ -1904,15 +1914,33 @@ static int msm_nand_read(struct mtd_info *mtd, loff_t from, size_t len,
 		 * Handle reading of large size read buffer in vmalloc
 		 * address space that does not fit in an MMU page.
 		 */
-		if (!virt_addr_valid(buf) &&
-		   ((unsigned long) buf & ~PAGE_MASK) + len > PAGE_SIZE) {
+		if (!virt_addr_valid(buf) && !is_buffer_in_page(buf, len)) {
 			ops.len = mtd->writesize;
 
+			bounce_buf = kmalloc(ops.len, GFP_KERNEL);
+			if (!bounce_buf) {
+				pr_err("%s: unable to allocate memory\n",
+						__func__);
+				ret = -ENOMEM;
+				goto out;
+			}
+
 			for (;;) {
-				ops.datbuf = (uint8_t *)buf;
+				bool no_copy = false;
+
+				if (!is_buffer_in_page(buf, ops.len)) {
+					memcpy(bounce_buf, buf, ops.len);
+					ops.datbuf = (uint8_t *) bounce_buf;
+				} else {
+					ops.datbuf = (uint8_t *) buf;
+					no_copy = true;
+				}
 				ret = msm_nand_read_oob(mtd, from, &ops);
 				if (ret < 0)
 					break;
+
+				if (!no_copy)
+					memcpy(buf, bounce_buf, ops.retlen);
 
 				len -= ops.retlen;
 				*retlen += ops.retlen;
@@ -1930,6 +1958,7 @@ static int msm_nand_read(struct mtd_info *mtd, loff_t from, size_t len,
 					break;
 				}
 			}
+			kfree(bounce_buf);
 		} else {
 			ops.len = len;
 			ops.datbuf = (uint8_t *)buf;
@@ -1942,7 +1971,7 @@ static int msm_nand_read(struct mtd_info *mtd, loff_t from, size_t len,
 		ret = msm_nand_read_partial_page(mtd, from, &ops);
 		*retlen = ops.retlen;
 	}
-
+out:
 	return ret;
 }
 
@@ -2147,6 +2176,7 @@ static int msm_nand_write(struct mtd_info *mtd, loff_t to, size_t len,
 {
 	int ret;
 	struct mtd_oob_ops ops;
+	unsigned char *bounce_buf = NULL;
 
 	ops.mode = MTD_OPS_AUTO_OOB;
 	ops.retlen = 0;
@@ -2165,12 +2195,24 @@ static int msm_nand_write(struct mtd_info *mtd, loff_t to, size_t len,
 	 * Handle writing of large size write buffer in vmalloc
 	 * address space that does not fit in an MMU page.
 	 */
-	if (!virt_addr_valid(buf) &&
-		((unsigned long) buf & ~PAGE_MASK) + len > PAGE_SIZE) {
+	if (!virt_addr_valid(buf) && !is_buffer_in_page(buf, len)) {
 		ops.len = mtd->writesize;
 
+		bounce_buf = kmalloc(ops.len, GFP_KERNEL);
+		if (!bounce_buf) {
+			pr_err("%s: unable to allocate memory\n",
+					__func__);
+			ret = -ENOMEM;
+			goto out;
+		}
+
 		for (;;) {
-			ops.datbuf = (uint8_t *) buf;
+			if (!is_buffer_in_page(buf, ops.len)) {
+				memcpy(bounce_buf, buf, ops.len);
+				ops.datbuf = (uint8_t *) bounce_buf;
+			} else {
+				ops.datbuf = (uint8_t *) buf;
+			}
 			ret = msm_nand_write_oob(mtd, to, &ops);
 			if (ret < 0)
 				break;
@@ -2183,6 +2225,7 @@ static int msm_nand_write(struct mtd_info *mtd, loff_t to, size_t len,
 			buf += mtd->writesize;
 			to += mtd->writesize;
 		}
+		kfree(bounce_buf);
 	} else {
 		ops.len = len;
 		ops.datbuf = (uint8_t *)buf;
