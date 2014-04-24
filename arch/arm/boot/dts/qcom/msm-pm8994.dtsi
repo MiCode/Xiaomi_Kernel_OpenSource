@@ -291,6 +291,71 @@
 		reg = <0x1>;
 		#address-cells = <1>;
 		#size-cells = <1>;
-	};
 
+		pwm@b100 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb100 0x100>,
+			      <0xb042 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <0>;
+			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,ramp-index = <0>;
+			status = "disabled";
+		};
+
+		pwm@b200 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb200 0x100>,
+			      <0xb042 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <1>;
+			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,ramp-index = <1>;
+			status = "disabled";
+		};
+
+		pwm@b300 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb300 0x100>,
+			      <0xb042 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <2>;
+			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,ramp-index = <2>;
+			status = "disabled";
+		};
+
+		pwm@b400 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb400 0x100>,
+			      <0xb042 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <3>;
+			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,ramp-index = <3>;
+			status = "disabled";
+		};
+
+		pwm@b500 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb500 0x100>,
+			      <0xb042 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <4>;
+			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,ramp-index = <4>;
+			status = "disabled";
+		};
+
+		pwm@b600 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb600 0x100>,
+			      <0xb042 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <5>;
+			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,ramp-index = <5>;
+			status = "disabled";
+		};
+	};
 };
