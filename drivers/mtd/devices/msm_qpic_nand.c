@@ -1365,14 +1365,16 @@ static void msm_nand_prep_rw_cmd_desc(struct mtd_oob_ops *ops,
 	uint32_t rdata;
 	/* read_location register parameters */
 	uint32_t offset, size, last_read;
+	static uint32_t prev_rdata;
 
 	cmd = *curr_cmd;
-	msm_nand_prep_ce(cmd, MSM_NAND_FLASH_CMD(info), WRITE, data->cmd,
-			((curr_cw == args->start_sector) ?
-			 SPS_IOVEC_FLAG_LOCK : 0));
-	cmd++;
-
 	if (curr_cw == args->start_sector) {
+		msm_nand_prep_ce(cmd, MSM_NAND_FLASH_CMD(info), WRITE,
+				data->cmd,
+				((curr_cw == args->start_sector) ?
+				 SPS_IOVEC_FLAG_LOCK : 0));
+		cmd++;
+
 		msm_nand_prep_ce(cmd, MSM_NAND_ADDR0(info), WRITE,
 				data->addr0, 0);
 		cmd++;
@@ -1396,10 +1398,15 @@ static void msm_nand_prep_rw_cmd_desc(struct mtd_oob_ops *ops,
 		msm_nand_prep_ce(cmd, MSM_NAND_EBI2_ECC_BUF_CFG(info),
 				WRITE, data->ecc_cfg, 0);
 		cmd++;
-	}
 
-	if (!args->read)
-		goto sub_exec_cmd;
+		if (!args->read) {
+			msm_nand_prep_ce(cmd, MSM_NAND_FLASH_STATUS(info),
+					WRITE, data->clrfstatus, 0);
+			cmd++;
+			goto sub_exec_cmd;
+		}
+
+	}
 
 	if (ops->mode == MTD_OPS_RAW) {
 		rdata = (0 << 0) | (chip->cw_size << 16) | (1 << 31);
@@ -1407,35 +1414,48 @@ static void msm_nand_prep_rw_cmd_desc(struct mtd_oob_ops *ops,
 				rdata, 0);
 		cmd++;
 	}
-	if (ops->mode == MTD_OPS_AUTO_OOB && ops->datbuf) {
-		offset = 0;
-		size = (curr_cw < (args->cwperpage - 1)) ? 516 :
-			(512 - ((args->cwperpage - 1) << 2));
-		last_read = (curr_cw < (args->cwperpage - 1)) ? 1 :
-			(ops->oobbuf ? 0 : 1);
-		rdata = (offset << 0) | (size << 16) | (last_read << 31);
-		msm_nand_prep_ce(cmd, MSM_NAND_READ_LOCATION_0(info), WRITE,
-				rdata, 0);
-		cmd++;
-	}
-	if (ops->mode == MTD_OPS_AUTO_OOB && ops->oobbuf
-			&& (curr_cw == (args->cwperpage - 1))) {
-		offset = 512 - ((args->cwperpage - 1) << 2);
-		size = (args->cwperpage) << 2;
-		if (size > args->oob_len_cmd)
-			size = args->oob_len_cmd;
-		args->oob_len_cmd -= size;
-		last_read = 1;
-		rdata = (offset << 0) | (size << 16) | (last_read << 31);
+	if (ops->mode == MTD_OPS_AUTO_OOB) {
 		if (ops->datbuf) {
-			msm_nand_prep_ce(cmd, MSM_NAND_READ_LOCATION_1(info),
-					WRITE, rdata, 0);
-		} else {
-			msm_nand_prep_ce(cmd, MSM_NAND_READ_LOCATION_0(info),
-					WRITE, rdata, 0);
+			offset = 0;
+			size = (curr_cw < (args->cwperpage - 1)) ? 516 :
+				(512 - ((args->cwperpage - 1) << 2));
+			last_read = (curr_cw < (args->cwperpage - 1)) ? 1 :
+				(ops->oobbuf ? 0 : 1);
+			rdata = (offset << 0) | (size << 16) |
+				(last_read << 31);
+
+			if (prev_rdata != rdata) {
+				msm_nand_prep_ce(cmd,
+						MSM_NAND_READ_LOCATION_0(info),
+						WRITE,
+						rdata, 0);
+				cmd++;
+				prev_rdata = rdata;
+			}
 		}
-		cmd++;
+		if (curr_cw == (args->cwperpage - 1) && ops->oobbuf) {
+			offset = 512 - ((args->cwperpage - 1) << 2);
+			size = (args->cwperpage) << 2;
+			if (size > args->oob_len_cmd)
+				size = args->oob_len_cmd;
+			args->oob_len_cmd -= size;
+			last_read = 1;
+			rdata = (offset << 0) | (size << 16) |
+				(last_read << 31);
+
+			if (ops->datbuf)
+				msm_nand_prep_ce(cmd,
+						MSM_NAND_READ_LOCATION_1(info),
+						WRITE, rdata, 0);
+			else
+				msm_nand_prep_ce(cmd,
+						MSM_NAND_READ_LOCATION_0(info),
+						WRITE, rdata, 0);
+			cmd++;
+		}
 	}
+	if (curr_cw == (args->cwperpage - 1))
+		prev_rdata = 0;
 sub_exec_cmd:
 	msm_nand_prep_ce(cmd, MSM_NAND_EXEC_CMD(info), WRITE, data->exec,
 			SPS_IOVEC_FLAG_NWD);
@@ -1991,15 +2011,16 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 				&dma_buffer->data.flash_status[n]), 0);
 			cmd++;
 
-			msm_nand_prep_ce(cmd, MSM_NAND_FLASH_STATUS(info),
-				WRITE, data.clrfstatus, 0);
-			cmd++;
-
 			if (n == (cwperpage - 1)) {
 				msm_nand_prep_ce(cmd,
-					MSM_NAND_READ_STATUS(info), WRITE,
-					data.clrrstatus, SPS_IOVEC_FLAG_UNLOCK
-					| SPS_IOVEC_FLAG_INT);
+						MSM_NAND_FLASH_STATUS(info),
+						WRITE, data.clrfstatus, 0);
+				cmd++;
+				msm_nand_prep_ce(cmd,
+						MSM_NAND_READ_STATUS(info),
+						WRITE, data.clrrstatus,
+						SPS_IOVEC_FLAG_UNLOCK
+						| SPS_IOVEC_FLAG_INT);
 				cmd++;
 			}
 		}
