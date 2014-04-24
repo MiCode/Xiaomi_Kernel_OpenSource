@@ -35,7 +35,7 @@ static void *arm64_swiotlb_alloc_coherent(struct device *dev, size_t size,
 					  struct dma_attrs *attrs)
 {
 	if (dev == NULL) {
-		WARN(1, "Use an actual device structure for DMA allocation\n");
+		WARN_ONCE(1, "Use an actual device structure for DMA allocation\n");
 		return NULL;
 	}
 
@@ -63,7 +63,7 @@ static void arm64_swiotlb_free_coherent(struct device *dev, size_t size,
 					struct dma_attrs *attrs)
 {
 	if (dev == NULL) {
-		WARN(1, "Use an actual device structure for DMA allocation\n");
+		WARN_ONCE(1, "Use an actual device structure for DMA allocation\n");
 		return;
 	}
 
