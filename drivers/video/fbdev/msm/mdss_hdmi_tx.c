@@ -91,6 +91,7 @@ enum {
 	DATA_BYTE_13,
 };
 
+#define IFRAME_PACKET_OFFSET 0x80
 /*
  * InfoFrame Type Code:
  * 0x0 - Reserved
@@ -1517,7 +1518,9 @@ static void hdmi_tx_set_avi_infoframe(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	avi_iframe_data[DATA_BYTE_1] |= scaninfo & (BIT(1) | BIT(0));
 
-	sum = AVI_IFRAME_TYPE + AVI_IFRAME_VERSION + AVI_MAX_DATA_BYTES;
+	sum = IFRAME_PACKET_OFFSET + AVI_IFRAME_TYPE +
+		AVI_IFRAME_VERSION + AVI_MAX_DATA_BYTES;
+
 	for (i = 0; i < AVI_MAX_DATA_BYTES; i++)
 		sum += avi_iframe_data[i];
 	sum &= 0xFF;
