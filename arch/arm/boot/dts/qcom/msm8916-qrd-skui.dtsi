@@ -139,6 +139,10 @@
 	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
 };
 
+&dsi_otm8019a_fwvga_video {
+       qcom,cont-splash-enabled;
+};
+
 &tlmm_pinmux {
 	ocp8110_pins {
 		qcom,pins = <&gp 31>, <&gp 32>;
