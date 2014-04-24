@@ -747,12 +747,14 @@ static inline unsigned long capacity_scale_cpu_freq(int cpu)
 
 #ifdef CONFIG_SCHED_HMP
 
+int mostly_idle_cpu(int cpu);
 extern void check_for_migration(struct rq *rq, struct task_struct *p);
 extern void pre_big_small_task_count_change(void);
 extern void post_big_small_task_count_change(void);
 extern void inc_nr_big_small_task(struct rq *rq, struct task_struct *p);
 extern void dec_nr_big_small_task(struct rq *rq, struct task_struct *p);
 extern void set_hmp_defaults(void);
+extern unsigned int power_cost_at_freq(int cpu, unsigned int freq);
 
 #else /* CONFIG_SCHED_HMP */
 

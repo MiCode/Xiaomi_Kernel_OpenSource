@@ -6,6 +6,7 @@
 #include "sched.h"
 
 #include <linux/slab.h>
+#include <trace/events/sched.h>
 
 int sched_rr_timeslice = RR_TIMESLICE;
 
@@ -1257,6 +1258,32 @@ static void yield_task_rt(struct rq *rq)
 #ifdef CONFIG_SMP
 static int find_lowest_rq(struct task_struct *task);
 
+/* TODO: Move this to a power aware config feature. There's
+ * no strict dependency between SCHED_HMP and this. Its just
+ * a different algorithm optimizing for power
+ */
+#ifdef CONFIG_SCHED_HMP
+static int
+select_task_rq_rt(struct task_struct *p, int sd_flag, int flags)
+{
+	int cpu, target;
+
+	cpu = task_cpu(p);
+
+	if (p->nr_cpus_allowed == 1)
+		goto out;
+
+	rcu_read_lock();
+	target = find_lowest_rq(p);
+	if (target != -1)
+		cpu = target;
+	rcu_read_unlock();
+
+out:
+	return cpu;
+}
+
+#else /* CONFIG_SCHED_HMP */
 static int
 select_task_rq_rt(struct task_struct *p, int sd_flag, int flags)
 {
@@ -1314,6 +1341,7 @@ select_task_rq_rt(struct task_struct *p, int sd_flag, int flags)
 out:
 	return cpu;
 }
+#endif /* CONFIG_SCHED_HMP */
 
 static void check_preempt_equal_prio(struct rq *rq, struct task_struct *p)
 {
@@ -1493,6 +1521,52 @@ next_idx:
 
 static DEFINE_PER_CPU(cpumask_var_t, local_cpu_mask);
 
+/* TODO: Move this to a power aware config feature. There's
+ * no strict dependency between SCHED_HMP and this. Its just
+ * a different algorithm optimizing for power
+ */
+#ifdef CONFIG_SCHED_HMP
+static int find_lowest_rq(struct task_struct *task)
+{
+	struct cpumask *lowest_mask = __get_cpu_var(local_cpu_mask);
+	int cpu_cost, min_cost = INT_MAX;
+	int best_cpu = -1;
+	int i;
+
+	/* Make sure the mask is initialized first */
+	if (unlikely(!lowest_mask))
+		return best_cpu;
+
+	if (task->nr_cpus_allowed == 1)
+		return best_cpu; /* No other targets possible */
+
+	if (!cpupri_find(&task_rq(task)->rd->cpupri, task, lowest_mask))
+		return best_cpu; /* No targets found */
+
+	/*
+	 * At this point we have built a mask of cpus representing the
+	 * lowest priority tasks in the system.  Now we want to elect
+	 * the best one based on our affinity and topology.
+	 */
+
+	/* Skip performance considerations and optimize for power.
+	 * Worst case we'll be iterating over all CPUs here. CPU
+	 * online mask should be taken care of when constructing
+	 * the lowest_mask.
+	 */
+	for_each_cpu(i, lowest_mask) {
+		struct rq *rq = cpu_rq(i);
+		cpu_cost = power_cost_at_freq(i, ACCESS_ONCE(rq->min_freq));
+		trace_sched_cpu_load(rq, idle_cpu(i),
+				     mostly_idle_cpu(i), cpu_cost);
+		if (cpu_cost < min_cost) {
+			min_cost = cpu_cost;
+			best_cpu = i;
+		}
+	}
+	return best_cpu;
+}
+#else /* CONFIG_SCHED_HMP */
 static int find_lowest_rq(struct task_struct *task)
 {
 	struct sched_domain *sd;
@@ -1566,6 +1640,7 @@ static int find_lowest_rq(struct task_struct *task)
 		return cpu;
 	return -1;
 }
+#endif /* CONFIG_SCHED_HMP */
 
 /* Will lock the rq it finds */
 static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)

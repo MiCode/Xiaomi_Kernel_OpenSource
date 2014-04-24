@@ -1412,7 +1412,7 @@ struct cpu_pwr_stats __weak *get_cpu_pwr_stats(void)
 	return NULL;
 }
 
-static unsigned int power_cost_at_freq(int cpu, unsigned int freq)
+unsigned int power_cost_at_freq(int cpu, unsigned int freq)
 {
 	int i = 0;
 	struct cpu_pwr_stats *per_cpu_info = get_cpu_pwr_stats();
@@ -1465,7 +1465,7 @@ static unsigned int power_cost(struct task_struct *p, int cpu)
 }
 
 
-static inline int mostly_idle_cpu(int cpu)
+int mostly_idle_cpu(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 	u64 total_load;
