@@ -1733,7 +1733,7 @@ static void dwc3_gadget_enable_irq(struct dwc3 *dwc)
 	 */
 	if (dwc->revision < DWC3_REVISION_230A)
 		reg |= DWC3_DEVTEN_ULSTCNGEN;
-	else
+	else if (dwc->enable_suspend_event)
 		reg |= DWC3_DEVTEN_SUSPEND;
 
 	dwc3_writel(dwc->regs, DWC3_DEVTEN, reg);
