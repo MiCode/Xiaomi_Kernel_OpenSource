@@ -30,6 +30,106 @@
 struct dma_map_ops *dma_ops;
 EXPORT_SYMBOL(dma_ops);
 
+#define DEFAULT_DMA_COHERENT_POOL_SIZE  SZ_256K
+
+struct dma_pool {
+	size_t size;
+	spinlock_t lock;
+	void *vaddr;
+	unsigned long *bitmap;
+	unsigned long nr_pages;
+	struct page **pages;
+};
+
+static struct dma_pool atomic_pool = {
+	.size = DEFAULT_DMA_COHERENT_POOL_SIZE,
+};
+
+static int __init early_coherent_pool(char *p)
+{
+	atomic_pool.size = memparse(p, &p);
+	return 0;
+}
+early_param("coherent_pool", early_coherent_pool);
+
+static void *__alloc_from_pool(size_t size, struct page **ret_page)
+{
+	struct dma_pool *pool = &atomic_pool;
+	unsigned int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
+	unsigned int pageno;
+	unsigned long flags;
+	void *ptr = NULL;
+	unsigned long align_mask;
+
+	if (!pool->vaddr) {
+		WARN(1, "coherent pool not initialised!\n");
+		return NULL;
+	}
+
+	/*
+	 * Align the region allocation - allocations from pool are rather
+	 * small, so align them to their order in pages, minimum is a page
+	 * size. This helps reduce fragmentation of the DMA space.
+	 */
+	align_mask = (1 << get_order(size)) - 1;
+
+	spin_lock_irqsave(&pool->lock, flags);
+	pageno = bitmap_find_next_zero_area(pool->bitmap, pool->nr_pages,
+					    0, count, align_mask);
+	if (pageno < pool->nr_pages) {
+		bitmap_set(pool->bitmap, pageno, count);
+		ptr = pool->vaddr + PAGE_SIZE * pageno;
+		*ret_page = pool->pages[pageno];
+	} else {
+		pr_err_once("ERROR: %u KiB atomic DMA coherent pool is too small!\n"
+			    "Please increase it with coherent_pool= kernel parameter!\n",
+				(unsigned)pool->size / 1024);
+	}
+	spin_unlock_irqrestore(&pool->lock, flags);
+
+	return ptr;
+}
+
+static bool __in_atomic_pool(void *start, size_t size)
+{
+	struct dma_pool *pool = &atomic_pool;
+	void *end = start + size;
+	void *pool_start = pool->vaddr;
+	void *pool_end = pool->vaddr + pool->size;
+
+	if (start < pool_start || start >= pool_end)
+		return false;
+
+	if (end <= pool_end)
+		return true;
+
+	WARN(1, "Wrong coherent size(%p-%p) from atomic pool(%p-%p)\n",
+		start, end - 1, pool_start, pool_end - 1);
+
+	return false;
+}
+
+static int __free_from_pool(void *start, size_t size)
+{
+	struct dma_pool *pool = &atomic_pool;
+	unsigned long pageno, count;
+	unsigned long flags;
+
+	if (!__in_atomic_pool(start, size))
+		return 0;
+
+	pageno = (start - pool->vaddr) >> PAGE_SHIFT;
+	count = size >> PAGE_SHIFT;
+
+	spin_lock_irqsave(&pool->lock, flags);
+	bitmap_clear(pool->bitmap, pageno, count);
+	spin_unlock_irqrestore(&pool->lock, flags);
+
+	return 1;
+}
+
+
+
 static void *arm64_swiotlb_alloc_coherent(struct device *dev, size_t size,
 					  dma_addr_t *dma_handle, gfp_t flags,
 					  struct dma_attrs *attrs)
@@ -42,7 +142,16 @@ static void *arm64_swiotlb_alloc_coherent(struct device *dev, size_t size,
 	if (IS_ENABLED(CONFIG_ZONE_DMA32) &&
 	    dev->coherent_dma_mask <= DMA_BIT_MASK(32))
 		flags |= GFP_DMA32;
-	if (IS_ENABLED(CONFIG_CMA)) {
+
+	if (!(flags & __GFP_WAIT)) {
+		struct page *page = NULL;
+		void *addr = __alloc_from_pool(size, &page);
+
+		if (addr)
+			*dma_handle = phys_to_dma(dev, page_to_phys(page));
+
+		return addr;
+	} else if (IS_ENABLED(CONFIG_CMA)) {
 		unsigned long pfn;
 
 		size = PAGE_ALIGN(size);
@@ -67,7 +176,9 @@ static void arm64_swiotlb_free_coherent(struct device *dev, size_t size,
 		return;
 	}
 
-	if (IS_ENABLED(CONFIG_CMA)) {
+	if (__free_from_pool(vaddr, size)) {
+		return;
+	} else if (IS_ENABLED(CONFIG_CMA)) {
 		phys_addr_t paddr = dma_to_phys(dev, dma_handle);
 
 		dma_release_from_contiguous(dev,
@@ -104,6 +215,10 @@ static void *arm64_swiotlb_alloc_noncoherent(struct device *dev, size_t size,
 	ptr = arm64_swiotlb_alloc_coherent(dev, size, dma_handle, flags, attrs);
 	if (!ptr)
 		goto no_mem;
+
+	if (!(flags & __GFP_WAIT))
+		return ptr;
+
 	map = kmalloc(sizeof(struct page *) << order, flags & ~GFP_DMA);
 	if (!map)
 		goto no_map;
@@ -135,6 +250,8 @@ static void arm64_swiotlb_free_noncoherent(struct device *dev, size_t size,
 {
 	void *swiotlb_addr = phys_to_virt(dma_to_phys(dev, dma_handle));
 
+	if (__free_from_pool(vaddr, size))
+		return;
 	vunmap(vaddr);
 	arm64_swiotlb_free_coherent(dev, size, swiotlb_addr, dma_handle, attrs);
 }
@@ -297,6 +414,60 @@ struct dma_map_ops coherent_swiotlb_dma_ops = {
 	.mapping_error = swiotlb_dma_mapping_error,
 };
 EXPORT_SYMBOL(coherent_swiotlb_dma_ops);
+
+static int __init atomic_pool_init(void)
+{
+	struct dma_pool *pool = &atomic_pool;
+	pgprot_t prot = pgprot_dmacoherent(PAGE_KERNEL);
+	unsigned long nr_pages = pool->size >> PAGE_SHIFT;
+	unsigned long *bitmap;
+	unsigned long pfn = 0;
+	struct page *page;
+	struct page **pages;
+	int bitmap_size = BITS_TO_LONGS(nr_pages) * sizeof(long);
+
+
+	if (!IS_ENABLED(CONFIG_CMA))
+		return 0;
+
+	bitmap = kzalloc(bitmap_size, GFP_KERNEL);
+	if (!bitmap)
+		goto no_bitmap;
+
+	pages = kzalloc(nr_pages * sizeof(struct page *), GFP_KERNEL);
+	if (!pages)
+		goto no_pages;
+
+	if (IS_ENABLED(CONFIG_CMA))
+		pfn = dma_alloc_from_contiguous(NULL, nr_pages,
+					get_order(pool->size));
+
+	if (pfn) {
+		int i;
+		page = pfn_to_page(pfn);
+
+		for (i = 0; i < nr_pages; i++)
+			pages[i] = page + i;
+
+		spin_lock_init(&pool->lock);
+		pool->pages = pages;
+		pool->vaddr = vmap(pages, nr_pages, VM_MAP, prot);
+		pool->bitmap = bitmap;
+		pool->nr_pages = nr_pages;
+		pr_info("DMA: preallocated %u KiB pool for atomic allocations\n",
+			(unsigned)pool->size / 1024);
+		return 0;
+	}
+
+	kfree(pages);
+no_pages:
+	kfree(bitmap);
+no_bitmap:
+	pr_err("DMA: failed to allocate %u KiB pool for atomic coherent allocation\n",
+		(unsigned)pool->size / 1024);
+	return -ENOMEM;
+}
+postcore_initcall(atomic_pool_init);
 
 void __init arm64_swiotlb_init(void)
 {
