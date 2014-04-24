@@ -1991,9 +1991,12 @@ static int qpnp_adc_tm_probe(struct spmi_device *spmi)
 			if (timer_select == ADC_MEAS_TIMER_SELECT1)
 				chip->sensor[sen_idx].meas_interval =
 						ADC_MEAS1_INTERVAL_3P9MS;
-			if (timer_select == ADC_MEAS_TIMER_SELECT3)
+			else if (timer_select == ADC_MEAS_TIMER_SELECT3)
 				chip->sensor[sen_idx].meas_interval =
 						ADC_MEAS3_INTERVAL_4S;
+			else if (timer_select == ADC_MEAS_TIMER_SELECT2)
+				chip->sensor[sen_idx].meas_interval =
+						ADC_MEAS2_INTERVAL_1S;
 		}
 
 		chip->sensor[sen_idx].btm_channel_num = btm_channel_num;
