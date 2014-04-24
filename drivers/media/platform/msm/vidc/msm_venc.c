@@ -1129,7 +1129,7 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 	return rc;
 }
 
-static int msm_venc_enable_hier_p(struct msm_vidc_inst *inst)
+static int msm_venc_toggle_hier_p(struct msm_vidc_inst *inst, bool enable)
 {
 	int num_enh_layers = 0;
 	u32 property_id = 0;
@@ -1144,9 +1144,10 @@ static int msm_venc_enable_hier_p(struct msm_vidc_inst *inst)
 	if (inst->fmts[CAPTURE_PORT]->fourcc != V4L2_PIX_FMT_VP8)
 		return 0;
 
-	num_enh_layers = inst->capability.hier_p.max - 1;
-	if (!num_enh_layers)
-		return 0;
+	num_enh_layers = enable ? inst->capability.hier_p.max - 1 : 0;
+
+	dprintk(VIDC_DBG, "%s Hier-P in firmware\n",
+			num_enh_layers ? "Enable" : "Disable");
 
 	hdev = inst->core->device;
 	property_id = HAL_PARAM_VENC_HIER_P_MAX_ENH_LAYERS;
@@ -1171,10 +1172,6 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
-
-	rc = msm_venc_enable_hier_p(inst);
-	if (rc)
-		return rc;
 
 	if (inst->capability.pixelprocess_capabilities &
 		HAL_VIDEO_ENCODER_SCALING_CAPABILITY)
@@ -2298,6 +2295,9 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_HIER_P_NUM_LAYERS:
 		property_id = HAL_CONFIG_VENC_HIER_P_NUM_FRAMES;
 		hier_p_layers = ctrl->val;
+		rc = msm_venc_toggle_hier_p(inst, hier_p_layers ? true : false);
+		if (rc)
+			break;
 		if (hier_p_layers > (inst->capability.hier_p.max - 1)) {
 			dprintk(VIDC_ERR,
 				"Error setting hier p num layers = %d max supported by f/w = %d\n",
@@ -2357,6 +2357,12 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 	for (i = 0; i < ctrl->count; i++) {
 		switch (control[i].id) {
 		case V4L2_CID_MPEG_VIDC_VIDEO_LTRMODE:
+			if (control[i].value !=
+				V4L2_MPEG_VIDC_VIDEO_LTR_MODE_DISABLE) {
+				rc = msm_venc_toggle_hier_p(inst, false);
+				if (rc)
+					break;
+			}
 			ltrmode.ltrmode = control[i].value;
 			ltrmode.trustmode = 1;
 			property_id = HAL_PARAM_VENC_LTRMODE;
