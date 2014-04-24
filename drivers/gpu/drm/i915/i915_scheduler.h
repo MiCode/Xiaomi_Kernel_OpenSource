@@ -41,6 +41,9 @@ enum i915_scheduler_queue_status {
 	/* Limit value for use with arrays/loops */
 	i915_sqs_MAX
 };
+char i915_scheduler_queue_status_chr(enum i915_scheduler_queue_status status);
+const char *i915_scheduler_queue_status_str(
+				enum i915_scheduler_queue_status status);
 
 #define I915_SQS_IS_QUEUED(node)	(((node)->status == i915_sqs_queued))
 #define I915_SQS_IS_FLYING(node)	(((node)->status == i915_sqs_flying))
@@ -69,6 +72,7 @@ struct i915_scheduler_queue_entry {
 	struct list_head                    link;
 	uint32_t                            scheduler_index;
 };
+const char *i915_qe_state_str(struct i915_scheduler_queue_entry *node);
 
 #define I915_SCHEDULER_FLUSH_ALL(ring, locked)                              \
 	i915_scheduler_flush(ring, locked)
@@ -91,9 +95,16 @@ struct i915_scheduler {
 
 /* Flag bits for i915_scheduler::flags */
 enum {
+	/* Internal state */
 	i915_sf_interrupts_enabled  = (1 << 0),
 	i915_sf_submitting          = (1 << 1),
+
+	/* Dump/debug flags */
+	i915_sf_dump_force          = (1 << 8),
+	i915_sf_dump_details        = (1 << 9),
+	i915_sf_dump_dependencies   = (1 << 10),
 };
+const char *i915_scheduler_flag_str(uint32_t flags);
 
 /* Options for 'scheduler_override' module parameter: */
 enum {
@@ -113,6 +124,9 @@ void        i915_gem_scheduler_work_handler(struct work_struct *work);
 int         i915_scheduler_flush(struct intel_engine_cs *ring, bool is_locked);
 int         i915_scheduler_flush_request(struct drm_i915_gem_request *req,
 					 bool is_locked);
+int         i915_scheduler_dump(struct intel_engine_cs *ring,
+				const char *msg);
+int         i915_scheduler_dump_all(struct drm_device *dev, const char *msg);
 bool        i915_scheduler_is_request_tracked(struct drm_i915_gem_request *req,
 					      bool *completed, bool *busy);
 bool        i915_scheduler_file_queue_is_full(struct drm_file *file);

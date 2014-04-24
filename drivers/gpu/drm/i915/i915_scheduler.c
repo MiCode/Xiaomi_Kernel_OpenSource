@@ -36,6 +36,9 @@ int         i915_scheduler_submit_max_priority(struct intel_engine_cs *ring,
 					       bool is_locked);
 uint32_t    i915_scheduler_count_flying(struct i915_scheduler *scheduler,
 					struct intel_engine_cs *ring);
+int         i915_scheduler_dump_locked(struct intel_engine_cs *ring,
+				       const char *msg);
+int         i915_scheduler_dump_all_locked(struct drm_device *dev, const char *msg);
 void        i915_scheduler_priority_bump_clear(struct i915_scheduler *scheduler);
 int         i915_scheduler_priority_bump(struct i915_scheduler *scheduler,
 				struct i915_scheduler_queue_entry *target,
@@ -49,6 +52,115 @@ bool i915_scheduler_is_enabled(struct drm_device *dev)
 
 	return dev_priv->scheduler != NULL;
 }
+
+const char *i915_qe_state_str(struct i915_scheduler_queue_entry *node)
+{
+	static char	str[50];
+	char		*ptr = str;
+
+	*(ptr++) = node->bumped ? 'B' : '-',
+
+	*ptr = 0;
+
+	return str;
+}
+
+char i915_scheduler_queue_status_chr(enum i915_scheduler_queue_status status)
+{
+	switch (status) {
+	case i915_sqs_none:
+	return 'N';
+
+	case i915_sqs_queued:
+	return 'Q';
+
+	case i915_sqs_popped:
+	return 'X';
+
+	case i915_sqs_flying:
+	return 'F';
+
+	case i915_sqs_complete:
+	return 'C';
+
+	case i915_sqs_dead:
+	return 'D';
+
+	default:
+	break;
+	}
+
+	return '?';
+}
+
+const char *i915_scheduler_queue_status_str(
+				enum i915_scheduler_queue_status status)
+{
+	static char	str[50];
+
+	switch (status) {
+	case i915_sqs_none:
+	return "None";
+
+	case i915_sqs_queued:
+	return "Queued";
+
+	case i915_sqs_popped:
+	return "Popped";
+
+	case i915_sqs_flying:
+	return "Flying";
+
+	case i915_sqs_complete:
+	return "Complete";
+
+	case i915_sqs_dead:
+	return "Dead";
+
+	default:
+	break;
+	}
+
+	sprintf(str, "[Unknown_%d!]", status);
+	return str;
+}
+
+const char *i915_scheduler_flag_str(uint32_t flags)
+{
+	static char     str[100];
+	char           *ptr = str;
+
+	*ptr = 0;
+
+#define TEST_FLAG(flag, msg)						\
+	do {								\
+		if (flags & (flag)) {					\
+			strcpy(ptr, msg);				\
+			ptr += strlen(ptr);				\
+			flags &= ~(flag);				\
+		}							\
+	} while (0)
+
+	TEST_FLAG(i915_sf_interrupts_enabled, "IntOn|");
+	TEST_FLAG(i915_sf_submitting,         "Submitting|");
+	TEST_FLAG(i915_sf_dump_force,         "DumpForce|");
+	TEST_FLAG(i915_sf_dump_details,       "DumpDetails|");
+	TEST_FLAG(i915_sf_dump_dependencies,  "DumpDeps|");
+
+#undef TEST_FLAG
+
+	if (flags) {
+		sprintf(ptr, "Unknown_0x%X!", flags);
+		ptr += strlen(ptr);
+	}
+
+	if (ptr == str)
+		strcpy(str, "-");
+	else
+		ptr[-1] = 0;
+
+	return str;
+};
 
 int i915_scheduler_init(struct drm_device *dev)
 {
@@ -666,6 +778,170 @@ void i915_gem_scheduler_work_handler(struct work_struct *work)
 	}
 
 	mutex_unlock(&dev->struct_mutex);
+}
+
+int i915_scheduler_dump_all(struct drm_device *dev, const char *msg)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct i915_scheduler   *scheduler = dev_priv->scheduler;
+	unsigned long   flags;
+	int             ret;
+
+	spin_lock_irqsave(&scheduler->lock, flags);
+	ret = i915_scheduler_dump_all_locked(dev, msg);
+	spin_unlock_irqrestore(&scheduler->lock, flags);
+
+	return ret;
+}
+
+int i915_scheduler_dump_all_locked(struct drm_device *dev, const char *msg)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct i915_scheduler   *scheduler = dev_priv->scheduler;
+	struct intel_engine_cs  *ring;
+	int                     i, r, ret = 0;
+
+	for_each_ring(ring, dev_priv, i) {
+		scheduler->flags[ring->id] |= i915_sf_dump_force   |
+					      i915_sf_dump_details |
+					      i915_sf_dump_dependencies;
+		r = i915_scheduler_dump_locked(ring, msg);
+		if (ret == 0)
+			ret = r;
+	}
+
+	return ret;
+}
+
+int i915_scheduler_dump(struct intel_engine_cs *ring, const char *msg)
+{
+	struct drm_i915_private *dev_priv = ring->dev->dev_private;
+	struct i915_scheduler   *scheduler = dev_priv->scheduler;
+	unsigned long   flags;
+	int             ret;
+
+	spin_lock_irqsave(&scheduler->lock, flags);
+	ret = i915_scheduler_dump_locked(ring, msg);
+	spin_unlock_irqrestore(&scheduler->lock, flags);
+
+	return ret;
+}
+
+int i915_scheduler_dump_locked(struct intel_engine_cs *ring, const char *msg)
+{
+	struct drm_i915_private *dev_priv = ring->dev->dev_private;
+	struct i915_scheduler   *scheduler = dev_priv->scheduler;
+	struct i915_scheduler_queue_entry  *node;
+	int                 flying = 0, queued = 0, complete = 0, other = 0;
+	static int          old_flying = -1, old_queued = -1, old_complete = -1;
+	bool                b_dump;
+	char                brkt[2] = { '<', '>' };
+
+	if (!ring)
+		return -EINVAL;
+
+	list_for_each_entry(node, &scheduler->node_queue[ring->id], link) {
+		if (I915_SQS_IS_QUEUED(node))
+			queued++;
+		else if (I915_SQS_IS_FLYING(node))
+			flying++;
+		else if (I915_SQS_IS_COMPLETE(node))
+			complete++;
+		else
+			other++;
+	}
+
+	b_dump = (flying != old_flying) ||
+		 (queued != old_queued) ||
+		 (complete != old_complete);
+	if (scheduler->flags[ring->id] & i915_sf_dump_force) {
+		if (!b_dump) {
+			b_dump = true;
+			brkt[0] = '{';
+			brkt[1] = '}';
+		}
+
+		scheduler->flags[ring->id] &= ~i915_sf_dump_force;
+	}
+
+	if (b_dump) {
+		old_flying   = flying;
+		old_queued   = queued;
+		old_complete = complete;
+		DRM_DEBUG_DRIVER("<%s> Q:%02d, F:%02d, C:%02d, O:%02d, "
+				 "Flags = %s, OLR = %d:%d %c%s%c\n",
+				 ring->name, queued, flying, complete, other,
+				 i915_scheduler_flag_str(scheduler->flags[ring->id]),
+				 ring->outstanding_lazy_request ? ring->outstanding_lazy_request->uniq : 0,
+				 i915_gem_request_get_seqno(ring->outstanding_lazy_request),
+				 brkt[0], msg, brkt[1]);
+	} else {
+		/*DRM_DEBUG_DRIVER("<%s> Q:%02d, F:%02d, C:%02d, O:%02d"
+				 ", Flags = %s, OLR = %d:%d [%s]\n",
+				 ring->name,
+				 queued, flying, complete, other,
+				 i915_scheduler_flag_str(scheduler->flags[ring->id]),
+				 ring->outstanding_lazy_request ? ring->outstanding_lazy_request->uniq : 0,
+				 i915_gem_request_get_seqno(ring->outstanding_lazy_request), msg); */
+
+		return 0;
+	}
+
+	if (scheduler->flags[ring->id] & i915_sf_dump_details) {
+		int         i, deps;
+		uint32_t    count, counts[i915_sqs_MAX];
+
+		memset(counts, 0x00, sizeof(counts));
+
+		list_for_each_entry(node, &scheduler->node_queue[ring->id], link) {
+			if (node->status < i915_sqs_MAX) {
+				count = counts[node->status]++;
+			} else {
+				DRM_DEBUG_DRIVER("<%s>   Unknown status: %d!\n",
+						 ring->name, node->status);
+				count = -1;
+			}
+
+			deps = 0;
+			for (i = 0; i < node->num_deps; i++)
+				if (i915_scheduler_is_dependency_valid(node, i))
+					deps++;
+
+			DRM_DEBUG_DRIVER("<%s>   %c:%02d> index = %d, uniq = %d, seqno"
+					 " = %d/%s, deps = %d / %d, %s [pri = "
+					 "%4d]\n", ring->name,
+					 i915_scheduler_queue_status_chr(node->status),
+					 count,
+					 node->scheduler_index,
+					 node->params.request->uniq,
+					 node->params.request->seqno,
+					 node->params.ring->name,
+					 deps, node->num_deps,
+					 i915_qe_state_str(node),
+					 node->priority);
+
+			if ((scheduler->flags[ring->id] & i915_sf_dump_dependencies)
+				== 0)
+				continue;
+
+			for (i = 0; i < node->num_deps; i++)
+				if (node->dep_list[i])
+					DRM_DEBUG_DRIVER("<%s>       |-%c:"
+						"%02d%c uniq = %d, seqno = %d/%s, %s [pri = %4d]\n",
+						ring->name,
+						i915_scheduler_queue_status_chr(node->dep_list[i]->status),
+						i,
+						i915_scheduler_is_dependency_valid(node, i)
+							? '>' : '#',
+						node->dep_list[i]->params.request->uniq,
+						node->dep_list[i]->params.request->seqno,
+						node->dep_list[i]->params.ring->name,
+						i915_qe_state_str(node->dep_list[i]),
+						node->dep_list[i]->priority);
+		}
+	}
+
+	return 0;
 }
 
 int i915_scheduler_flush_request(struct drm_i915_gem_request *req,
