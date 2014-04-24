@@ -112,6 +112,16 @@ config QTI_PP
 	 tuning parameters of various modules such as equalizer,
 	 customized mixing.
 
+config SND_SOC_CPE
+	tristate "CPE drivers"
+	depends on SND_SOC_WCD_CPE
+	help
+	 To add support for Codec Processing Engine. This support
+	 is to enable CPE block on the codec and this config needs
+	 to be added to codecs that contain the CPE hardware block.
+	 The configuration includes the cpe lsm driver to enable
+	 listen on codec.
+
 config SND_SOC_MSM8974
 	tristate "SoC Machine driver for MSM8974 boards"
 	depends on ARCH_MSM8974
@@ -222,6 +232,7 @@ config SND_SOC_APQ8084
 	select DOLBY_DAP
 	select DTS_SRS_TM
 	select QTI_PP
+	select SND_SOC_CPE
 	help
 	 To add support for SoC audio on APQ8084.
 	 This will enable sound soc drivers which
