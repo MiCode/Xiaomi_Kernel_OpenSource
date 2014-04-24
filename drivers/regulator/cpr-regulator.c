@@ -1705,6 +1705,11 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 	u32 ro_sel, val;
 	u64 fuse_bits, fuse_bits_2;
 	u32 quot_adjust[CPR_FUSE_CORNER_MAX];
+	u32 target_quot_size[CPR_FUSE_CORNER_MAX] = {
+		[CPR_FUSE_CORNER_SVS]		= CPR_FUSE_TARGET_QUOT_BITS,
+		[CPR_FUSE_CORNER_NORMAL]	= CPR_FUSE_TARGET_QUOT_BITS,
+		[CPR_FUSE_CORNER_TURBO]		= CPR_FUSE_TARGET_QUOT_BITS,
+	};
 
 	if (of_find_property(of_node, "qcom,cpr-fuse-redun-sel", NULL)) {
 		rc = of_property_read_u32_array(of_node,
@@ -1741,6 +1746,18 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 	if (rc < 0) {
 		pr_err("missing %s: rc=%d\n", targ_quot_str, rc);
 		return rc;
+	}
+
+	if (of_property_read_bool(of_node, "qcom,cpr-fuse-target-quot-size")) {
+		rc = of_property_read_u32_array(of_node,
+			"qcom,cpr-fuse-target-quot-size",
+			&target_quot_size[CPR_FUSE_CORNER_SVS],
+			CPR_FUSE_CORNER_MAX - CPR_FUSE_CORNER_SVS);
+		if (rc < 0) {
+			pr_err("error while reading qcom,cpr-fuse-target-quot-size: rc=%d\n",
+				rc);
+			return rc;
+		}
 	}
 
 	rc = of_property_read_u32_array(of_node,
@@ -1842,7 +1859,7 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 		ro_sel = (fuse_bits >> bp_ro_sel[i])
 				& CPR_FUSE_RO_SEL_BITS_MASK;
 		val = (fuse_bits >> bp_target_quot[i])
-				& CPR_FUSE_TARGET_QUOT_BITS_MASK;
+				& ((1 << target_quot_size[i]) - 1);
 		cpr_vreg->cpr_fuse_target_quot[i] = val;
 		cpr_vreg->cpr_fuse_ro_sel[i] = ro_sel;
 		pr_info("Corner[%d]: ro_sel = %d, target quot = %d\n",
