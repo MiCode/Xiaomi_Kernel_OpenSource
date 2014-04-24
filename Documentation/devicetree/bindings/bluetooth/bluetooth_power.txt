@@ -30,6 +30,6 @@ Example:
     qca,bt-vdd-io-supply = <&pm8941_s3>;
     qca,bt-vdd-pa-supply = <&pm8941_l19>;
     qca,bt-chip-pwd-supply = <&ath_chip_pwd_l>;
-    qca,bt-vdd-io-supply = <1800000 1800000>;
-    qca,bt-vdd-pa-supply = <2900000 2900000>;
+    qca,bt-vdd-io-voltage-level = <1800000 1800000>;
+    qca,bt-vdd-pa-voltage-level = <2900000 2900000>;
   };
