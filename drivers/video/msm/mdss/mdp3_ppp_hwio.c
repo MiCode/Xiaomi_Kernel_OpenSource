@@ -486,7 +486,7 @@ int load_csc_matrix(int matrix_type, struct ppp_csc_table *csc)
 	return load_secondary_matrix(csc);
 }
 
-int config_ppp_src(struct ppp_img_desc *src)
+int config_ppp_src(struct ppp_img_desc *src, uint32_t yuv2rgb)
 {
 	uint32_t val;
 
@@ -510,12 +510,12 @@ int config_ppp_src(struct ppp_img_desc *src)
 	val |= (src->roi.x % 2) ? PPP_SRC_BPP_ROI_ODD_X : 0;
 	val |= (src->roi.y % 2) ? PPP_SRC_BPP_ROI_ODD_Y : 0;
 	PPP_WRITEL(val, MDP3_PPP_SRC_FORMAT);
-	PPP_WRITEL(ppp_pack_pattern(src->color_fmt),
+	PPP_WRITEL(ppp_pack_pattern(src->color_fmt, yuv2rgb),
 		MDP3_PPP_SRC_UNPACK_PATTERN1);
 	return 0;
 }
 
-int config_ppp_out(struct ppp_img_desc *dst)
+int config_ppp_out(struct ppp_img_desc *dst, uint32_t yuv2rgb)
 {
 	uint32_t val;
 	bool pseudoplanr_output = false;
@@ -534,7 +534,7 @@ int config_ppp_out(struct ppp_img_desc *dst)
 	if (pseudoplanr_output)
 		val |= PPP_DST_PLANE_PSEUDOPLN;
 	PPP_WRITEL(val, MDP3_PPP_OUT_FORMAT);
-	PPP_WRITEL(ppp_pack_pattern(dst->color_fmt),
+	PPP_WRITEL(ppp_pack_pattern(dst->color_fmt, yuv2rgb),
 		MDP3_PPP_OUT_PACK_PATTERN1);
 
 	val = ((dst->roi.height & MDP3_PPP_XY_MASK) << MDP3_PPP_XY_OFFSET) |
@@ -573,7 +573,7 @@ int config_ppp_background(struct ppp_img_desc *bg)
 
 	PPP_WRITEL(ppp_src_config(bg->color_fmt),
 		MDP3_PPP_BG_FORMAT);
-	PPP_WRITEL(ppp_pack_pattern(bg->color_fmt),
+	PPP_WRITEL(ppp_pack_pattern(bg->color_fmt, 0),
 		MDP3_PPP_BG_UNPACK_PATTERN1);
 	return 0;
 }
@@ -1108,6 +1108,7 @@ int config_ppp_rotation(uint32_t mdp_op, uint32_t *pppop_reg_ptr)
 
 int config_ppp_op_mode(struct ppp_blit_op *blit_op)
 {
+	uint32_t yuv2rgb;
 	uint32_t ppp_operation_reg = 0;
 	int sv_slice, sh_slice;
 	int dv_slice, dh_slice;
@@ -1153,6 +1154,7 @@ int config_ppp_op_mode(struct ppp_blit_op *blit_op)
 
 	config_ppp_csc(blit_op->src.color_fmt,
 		blit_op->dst.color_fmt, &ppp_operation_reg);
+	yuv2rgb = ppp_operation_reg & PPP_OP_CONVERT_YCBCR2RGB;
 
 	if (blit_op->mdp_op & MDPOP_DITHER)
 		ppp_operation_reg |= PPP_OP_DITHER_EN;
@@ -1197,8 +1199,8 @@ int config_ppp_op_mode(struct ppp_blit_op *blit_op)
 
 	config_ppp_blend(blit_op, &ppp_operation_reg);
 
-	config_ppp_src(&blit_op->src);
-	config_ppp_out(&blit_op->dst);
+	config_ppp_src(&blit_op->src, yuv2rgb);
+	config_ppp_out(&blit_op->dst, yuv2rgb);
 	PPP_WRITEL(ppp_operation_reg, MDP3_PPP_OP_MODE);
 	mb();
 	return 0;
