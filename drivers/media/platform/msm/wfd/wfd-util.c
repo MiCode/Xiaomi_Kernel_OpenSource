@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -135,31 +135,10 @@ int wfd_stats_update(struct wfd_stats *stats, enum wfd_stats_event event)
 	case WFD_STAT_EVENT_CLIENT_QUEUE:
 		stats->v4l2_buf_count++;
 		break;
-	case WFD_STAT_EVENT_CLIENT_DEQUEUE: {
-		struct wfd_stats_encode_sample *sample = NULL;
-
+	case WFD_STAT_EVENT_CLIENT_DEQUEUE:
 		stats->v4l2_buf_count--;
 
-		if (!list_empty(&stats->enc_queue))
-			sample = list_first_entry(&stats->enc_queue,
-					struct wfd_stats_encode_sample,
-					list);
-		if (sample) {
-			ktime_t kdiff = ktime_sub(ktime_get(),
-						sample->encode_start_ts);
-			uint32_t diff = ktime_to_ms(kdiff);
-
-			stats->enc_cumulative_latency += diff;
-			stats->enc_latency_samples++;
-			stats->enc_avg_latency = stats->enc_cumulative_latency /
-				stats->enc_latency_samples;
-
-			list_del(&sample->list);
-			kfree(sample);
-			sample = NULL;
-		}
 		break;
-	}
 	case WFD_STAT_EVENT_MDP_QUEUE:
 		stats->mdp_buf_count++;
 		break;
@@ -184,8 +163,32 @@ int wfd_stats_update(struct wfd_stats *stats, enum wfd_stats_event event)
 		break;
 	}
 	case WFD_STAT_EVENT_ENC_DEQUEUE:
+	{
+		struct wfd_stats_encode_sample *sample = NULL;
+
 		stats->enc_buf_count--;
+
+		if (!list_empty(&stats->enc_queue))
+			sample = list_first_entry(&stats->enc_queue,
+					struct wfd_stats_encode_sample,
+					list);
+
+		if (sample) {
+			ktime_t kdiff = ktime_sub(ktime_get(),
+						sample->encode_start_ts);
+			uint32_t diff = ktime_to_ms(kdiff);
+
+			stats->enc_cumulative_latency += diff;
+			stats->enc_latency_samples++;
+			stats->enc_avg_latency = stats->enc_cumulative_latency /
+				stats->enc_latency_samples;
+
+			list_del(&sample->list);
+			kfree(sample);
+			sample = NULL;
+		}
 		break;
+	}
 	case WFD_STAT_EVENT_VSG_QUEUE:
 		stats->vsg_buf_count++;
 		break;
