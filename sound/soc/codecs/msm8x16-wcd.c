@@ -40,6 +40,7 @@
 #include <sound/tlv.h>
 #include <soc/qcom/subsystem_notif.h>
 #include "msm8x16-wcd.h"
+#include "wcd-mbhc-v2.h"
 #include "msm8916-wcd-irq.h"
 #include "msm8x16_wcd_registers.h"
 #include "../msm/qdsp6v2/q6core.h"
@@ -2092,6 +2093,7 @@ static int msm8x16_wcd_hph_pa_event(struct snd_soc_dapm_widget *w,
 			      struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
 
 	dev_dbg(codec->dev, "%s: %s event = %d\n", __func__, w->name, event);
 
@@ -2134,6 +2136,13 @@ static int msm8x16_wcd_hph_pa_event(struct snd_soc_dapm_widget *w,
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		if (w->shift == 5) {
+			clear_bit(WCD_MBHC_HPHL_PA_OFF_ACK,
+				&msm8x16_wcd->mbhc.hph_pa_dac_state);
+		} else if (w->shift == 4) {
+			clear_bit(WCD_MBHC_HPHR_PA_OFF_ACK,
+				&msm8x16_wcd->mbhc.hph_pa_dac_state);
+		}
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_NCP_FBCTRL, 0x20, 0x00);
 		usleep_range(4000, 4100);

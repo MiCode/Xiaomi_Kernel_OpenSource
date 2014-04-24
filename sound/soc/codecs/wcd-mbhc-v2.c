@@ -107,6 +107,67 @@ static void hphlocp_off_report(struct wcd_mbhc *mbhc, u32 jack_status)
 			    mbhc->intr_ids->hph_left_ocp);
 }
 
+static void wcd_mbhc_clr_and_turnon_hph_padac(struct wcd_mbhc *mbhc)
+{
+	bool pa_turned_on = false;
+	u8 wg_time;
+	struct snd_soc_codec *codec = mbhc->codec;
+
+	wg_time = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_RX_HPH_CNP_WG_TIME);
+	wg_time += 1;
+
+	if (test_and_clear_bit(WCD_MBHC_HPHR_PA_OFF_ACK,
+			       &mbhc->hph_pa_dac_state)) {
+		pr_debug("%s: HPHR clear flag and enable PA\n", __func__);
+		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_RX_HPH_CNP_EN,
+				    0x10, 0x10);
+		pa_turned_on = true;
+	}
+	if (test_and_clear_bit(WCD_MBHC_HPHL_PA_OFF_ACK,
+			       &mbhc->hph_pa_dac_state)) {
+		pr_debug("%s: HPHL clear flag and enable PA\n", __func__);
+		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_RX_HPH_CNP_EN,
+				    0x20, 0x20);
+		pa_turned_on = true;
+	}
+
+	if (pa_turned_on) {
+		pr_debug("%s: PA was turned off by MBHC and not by DAPM\n",
+			 __func__);
+		usleep_range(wg_time * 1000, wg_time * 1000 + 50);
+	}
+}
+
+static bool wcd_mbhc_is_hph_pa_on(struct snd_soc_codec *codec)
+{
+	u8 hph_reg_val = 0;
+	hph_reg_val = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_RX_HPH_CNP_EN);
+
+	return (hph_reg_val & 0x30) ? true : false;
+}
+
+static void wcd_mbhc_set_and_turnoff_hph_padac(struct wcd_mbhc *mbhc)
+{
+	u8 wg_time;
+	struct snd_soc_codec *codec = mbhc->codec;
+
+	wg_time = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_RX_HPH_CNP_WG_TIME);
+	wg_time += 1;
+
+	/* If headphone PA is on, check if userspace receives
+	* removal event to sync-up PA's state */
+	if (wcd_mbhc_is_hph_pa_on(codec)) {
+		pr_debug("%s PA is on, setting PA_OFF_ACK\n", __func__);
+		set_bit(WCD_MBHC_HPHL_PA_OFF_ACK, &mbhc->hph_pa_dac_state);
+		set_bit(WCD_MBHC_HPHR_PA_OFF_ACK, &mbhc->hph_pa_dac_state);
+	} else {
+		pr_debug("%s PA is off\n", __func__);
+	}
+	snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_RX_HPH_CNP_EN,
+			    0x30, 0x00);
+	usleep_range(wg_time * 1000, wg_time * 1000 + 50);
+}
+
 static void wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 	uint32_t *zr)
 {
@@ -300,6 +361,7 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			 jack_type, mbhc->hph_status);
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
 				mbhc->hph_status, WCD_MBHC_JACK_MASK);
+		wcd_mbhc_set_and_turnoff_hph_padac(mbhc);
 		hphrocp_off_report(mbhc, SND_JACK_OC_HPHR);
 		hphlocp_off_report(mbhc, SND_JACK_OC_HPHL);
 		mbhc->current_plug = PLUG_TYPE_NONE;
@@ -340,6 +402,7 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			 jack_type, mbhc->hph_status);
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
 				    mbhc->hph_status, WCD_MBHC_JACK_MASK);
+		wcd_mbhc_clr_and_turnon_hph_padac(mbhc);
 	}
 	pr_debug("%s: leave hph_status %x\n", __func__, mbhc->hph_status);
 }
