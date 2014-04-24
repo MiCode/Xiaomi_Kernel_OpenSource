@@ -341,6 +341,7 @@ exit:
 static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 				enum snd_jack_types jack_type)
 {
+	struct snd_soc_codec *codec = mbhc->codec;
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
 
 	pr_debug("%s: enter insertion %d hph_status %x\n",
@@ -358,10 +359,18 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		}
 
 		mbhc->zl = mbhc->zr = 0;
+		mbhc->is_hs_inserted = false;
 		pr_debug("%s: Reporting removal %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
 				mbhc->hph_status, WCD_MBHC_JACK_MASK);
+		/* make sure to turn off micbias */
+		snd_soc_update_bits(codec,
+				    MSM8X16_WCD_A_ANALOG_MICB_1_INT_RBIAS,
+				    0x18, 0x08);
+		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_2_EN,
+				    0x20, 0x20);
+
 		wcd_mbhc_set_and_turnoff_hph_padac(mbhc);
 		hphrocp_off_report(mbhc, SND_JACK_OC_HPHR);
 		hphlocp_off_report(mbhc, SND_JACK_OC_HPHL);
@@ -376,6 +385,7 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		    (mbhc->hph_status && mbhc->hph_status != jack_type)) {
 
 			mbhc->zl = mbhc->zr = 0;
+			mbhc->is_hs_inserted = false;
 			pr_debug("%s: Reporting removal (%x)\n",
 				 __func__, mbhc->hph_status);
 			wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
@@ -398,7 +408,7 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		if (mbhc->impedance_detect)
 			wcd_mbhc_calc_impedance(mbhc,
 					&mbhc->zl, &mbhc->zr);
-
+		mbhc->is_hs_inserted = true;
 		pr_debug("%s: Reporting insertion %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
